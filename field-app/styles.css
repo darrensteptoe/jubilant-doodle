@@ -1,38 +1,23 @@
 :root{
-  --bg:#f6f8fa;
-  --fg:#1f2328;
-  --muted:#57606a;
-  --muted2:#6e7781;
-  --rule:#d0d7de;
-  --panel:#ffffff;
-  --panel2:rgba(255,255,255,0.78);
-
-  --surface: color-mix(in srgb, var(--panel) 92%, var(--bg));
-  --surface-subtle: color-mix(in srgb, var(--panel) 86%, var(--bg));
-  --viz-track: color-mix(in srgb, var(--fg) 10%, transparent);
-  --viz-axis: color-mix(in srgb, var(--fg) 25%, transparent);
-  --viz-marker: color-mix(in srgb, var(--fg) 85%, transparent);
-  --viz-label: color-mix(in srgb, var(--fg) 65%, transparent);
-  --viz-bar: color-mix(in srgb, var(--fg) 18%, transparent);
-  --viz-low: rgba(239,68,68,0.22);
-  --viz-mid: rgba(245,158,11,0.20);
-  --viz-winshade: rgba(34,197,94,0.10);
+  --bg:#f5f5f5;
+  --fg:#111;
+  --muted:#444;
+  --muted2:#666;
+  --rule:rgba(17,17,17,0.12);
+  --panel:#fff;
+  --panel2:rgba(255,255,255,0.7);
   --shadow:0 2px 10px rgba(0,0,0,0.04), 0 10px 30px rgba(0,0,0,0.06);
   --shadow2:0 1px 6px rgba(0,0,0,0.04);
   --radius:14px;
   --radius-sm:12px;
   --focus:rgba(17,17,17,0.85);
-  --accent:#0969da;
-  --control-bg: color-mix(in srgb, var(--panel) 92%, var(--bg));
-  --knob-bg: #ffffff;
-  --bg-h1: var(--bg-h1);
-  --bg-h2: var(--bg-h2);
+  --accent:#1f2a44;
 
-  --ok-bg:rgba(34,197,94,0.12);
+  --ok-bg:rgba(34,197,94,0.40);
   --ok-fg:#0a3;
-  --warn-bg:rgba(245,158,11,0.14);
+  --warn-bg:rgba(245,158,11,0.42);
   --warn-fg:#7a4a00;
-  --bad-bg:rgba(239,68,68,0.12);
+  --bad-bg:rgba(239,68,68,0.40);
   --bad-fg:#8a1f1f;
 
   --grid:rgba(17,17,17,0.06);
@@ -107,56 +92,27 @@ html,body{
 body{
   margin:0;
   font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji","Segoe UI Emoji";
-  background: var(--bg);
-  background-image:
-    radial-gradient(circle at 20% 0%, var(--bg-h1) 0%, transparent 55%),
-    radial-gradient(circle at 80% 20%, var(--bg-h2) 0%, transparent 50%),
-    radial-gradient(circle at 30px 30px, var(--grid) 1px, transparent 1px);
-  background-size: auto, auto, 80px 80px;
-    color:var(--fg);
+  background:
+    linear-gradient(to bottom, rgba(0,0,0,0.02), rgba(0,0,0,0.00)),
+    radial-gradient(circle at 20px 20px, var(--grid) 1px, transparent 1px),
+    radial-gradient(circle at 70px 50px, var(--grid) 1px, transparent 1px);
+  background-size: auto, 80px 80px, 110px 110px;
+  color:var(--fg);
 }
 
 body.dark{
   --bg:#0d1117;
-  --fg:#c9d1d9;
-  --muted:#8b949e;
-  --muted2:#6e7681;
-  --rule:#30363d;
-  --panel:#161b22;
-  --panel2:rgba(22,27,34,0.78);
+  --fg:#e8e8e8;
+  --muted:#b6b6b6;
+  --muted2:#9a9a9a;
+  --rule:rgba(255,255,255,0.12);
+  --panel:rgba(20,24,32,0.92);
+  --panel2:rgba(20,24,32,0.7);
   --shadow:0 2px 14px rgba(0,0,0,0.45), 0 18px 40px rgba(0,0,0,0.35);
   --shadow2:0 1px 10px rgba(0,0,0,0.35);
   --focus:rgba(255,255,255,0.85);
-  --accent:#58a6ff;
-  --grid:rgba(48,54,61,0.55);
-
-  --control-bg: color-mix(in srgb, var(--panel) 88%, var(--bg));
-  --knob-bg: #c9d1d9;
-  --bg-h1: rgba(88,166,255,0.10);
-  --bg-h2: rgba(139,148,158,0.08);
-
-  /* Pastels tuned for dark */
-  --soft-apricot: #ffb980;
-  --champagne-mist: #ffcfa6;
-  --champagne-mist-2: #ffd7b8;
-  --papaya-whip: #ffe1a6;
-  --frosted-mint: #7ee7c1;
-  --aquamarine: #77d8ff;
-  --pearl-aqua: #8bbcff;
-  --pearl-aqua-2: #7ea7ff;
-  --turquoise: #6ee7f2;
-
-  --computed-bg: rgba(240,246,252,0.06);
-  --computed-border: rgba(48,54,61,0.95);
-
-  --surface: color-mix(in srgb, var(--panel) 92%, var(--bg));
-  --surface-subtle: color-mix(in srgb, var(--panel) 84%, var(--bg));
-  --viz-track: color-mix(in srgb, var(--fg) 14%, transparent);
-  --viz-axis: color-mix(in srgb, var(--fg) 28%, transparent);
-  --viz-marker: color-mix(in srgb, var(--fg) 88%, transparent);
-  --viz-label: color-mix(in srgb, var(--fg) 70%, transparent);
-  --viz-bar: color-mix(in srgb, var(--fg) 22%, transparent);
-
+  --accent:#a7c5ff;
+  --grid:rgba(255,255,255,0.06);
 }
 
 .topbar{
@@ -227,14 +183,14 @@ body.dark{
 
 .card{
   background:var(--panel);
-  border:2px solid var(--rule);
+  border:1px solid var(--rule);
+  border-left:6px solid transparent;
   border-radius:var(--radius);
-  box-shadow:none;
-  padding:var(--card-pad);
-  overflow:hidden;
+  box-shadow:var(--shadow2);
+  padding:12px;
 }
 
-/* Nested surfaces: subtle separation without gray fills */
+/* Any card/boxed tile inside a card should read as computed (gray) */
 .card .card,
 .card .kpi,
 .card .mini,
@@ -242,11 +198,11 @@ body.dark{
 .card .tile,
 .card .pillbox,
 .card .table-wrap{
-  background:var(--surface-subtle);
-  border-color:var(--rule);
+  background:var(--computed-bg);
+  border-color:var(--computed-border);
 }
-.card .card{ box-shadow:none; border-width:1px; }
-.card .kpi, .card .mini, .card .metric, .card .tile, .card .pillbox, .card .table-wrap{ border-width:1px; }
+/* Keep nested surfaces visually subordinate */
+.card .card{ box-shadow:none; }
 
 .card-head{
   display:flex;
@@ -437,7 +393,7 @@ body.training .help{ display:block; }
   width:18px;
   height:18px;
   border-radius:50%;
-  background:var(--knob-bg);
+  background:#fff;
   box-shadow: 0 1px 3px rgba(0,0,0,0.15);
   transition: transform 160ms ease;
 }
@@ -552,10 +508,10 @@ body.training .help{ display:block; }
   display:flex;
   gap:8px;
   padding:6px;
-  border:2px solid var(--rule);
+  border:1px solid var(--rule);
   border-radius: var(--radius-2);
-  background: transparent;
-  box-shadow: none;
+  background: var(--panel);
+  box-shadow: var(--shadow2);
 }
 .tab{
   flex:0 0 auto;
@@ -622,16 +578,16 @@ body.training .help{ display:block; }
 .viz-title{ font-size:12px; color:var(--muted2); margin-bottom:8px; }
 .viz-svg{ width:100%; height:auto; display:block; }
 .viz-note{ font-size:12px; color:var(--muted); margin-top:8px; line-height:1.25; }
-.viz-track{ fill: var(--viz-track); }
-.viz-low{ fill: var(--viz-low); }
-.viz-mid{ fill: var(--viz-mid); }
-.viz-marker{ fill: var(--viz-marker); }
+.viz-track{ fill: rgba(17,17,17,0.10); }
+.viz-low{ fill: rgba(239,68,68,0.25); }
+.viz-mid{ fill: rgba(245,158,11,0.22); }
+.viz-marker{ fill: rgba(17,17,17,0.80); }
 .viz-bg{ fill: transparent; }
-.viz-axis{ stroke: var(--viz-axis); stroke-width:1; }
-.viz-zero{ stroke: var(--viz-axis); stroke-width:1.5; stroke-dasharray:3 3; }
-.viz-bar{ fill: var(--viz-bar); }
-.viz-winshade{ fill: var(--viz-winshade); }
-.viz-label{ font-size:10px; fill: var(--viz-label); }
+.viz-axis{ stroke: rgba(17,17,17,0.25); stroke-width:1; }
+.viz-zero{ stroke: rgba(17,17,17,0.55); stroke-width:1.5; stroke-dasharray:3 3; }
+.viz-bar{ fill: rgba(17,17,17,0.20); }
+.viz-winshade{ fill: rgba(34,197,94,0.10); }
+.viz-label{ font-size:10px; fill: rgba(17,17,17,0.65); }
 
 .subgrid{
   display:grid;
@@ -995,133 +951,31 @@ body.training .help{ display:block; }
 .card{ background: var(--panel); }
 
 /* Relational phase coloring (uniform system) */
-.card.phase-setup{ --stripe: var(--phase-setup); }
-.card.phase-universe{ --stripe: var(--phase-universe); }
-.card.phase-persuasion{ --stripe: var(--phase-persuasion); }
-.card.phase-candidates{ --stripe: var(--phase-candidates); }
-.card.phase-phase2{ --stripe: var(--phase-phase2); }
-.card.phase-p3{ --stripe: var(--phase-p3); }
-.card.phase-roi{ --stripe: var(--phase-roi); }
-.card.phase-di{ --stripe: var(--phase-di); }
-.card.phase-scenarios{ --stripe: var(--phase-scenarios); }
+.card.phase-setup{ border-left-color: var(--phase-setup); }
+.card.phase-universe{ border-left-color: var(--phase-universe); }
+.card.phase-persuasion{ border-left-color: var(--phase-persuasion); }
+.card.phase-candidates{ border-left-color: var(--phase-candidates); }
+.card.phase-phase2{ border-left-color: var(--phase-phase2); }
+.card.phase-p3{ border-left-color: var(--phase-p3); }
+.card.phase-roi{ border-left-color: var(--phase-roi); }
+.card.phase-di{ border-left-color: var(--phase-di); }
+.card.phase-scenarios{ border-left-color: var(--phase-scenarios); }
 
 
-.card.phase-winpath{ --stripe: var(--phase-winpath); }
-.card.phase-p5{ --stripe: var(--phase-p5); }
-.card.phase-p6{ --stripe: var(--phase-p6); }
-.card.phase-p7{ --stripe: var(--phase-p7); }
+.card.phase-winpath{ border-left-color: var(--phase-winpath); }
+.card.phase-p5{ border-left-color: var(--phase-p5); }
+.card.phase-p6{ border-left-color: var(--phase-p6); }
+.card.phase-p7{ border-left-color: var(--phase-p7); }
 
 /* Phase 16 Accent Stripe */
 .card.phase16{
   position: relative;
-  --stripe:#c9e7ff;
+  border-left: 6px solid #c9e7ff;
 }
 /* Phase accent bars removed (uniform cards) */
 .card[data-accent]::before,
 #phase3Card::before,
 #scenarioCompareCard::before{ display:none !important; }
-
-
-/* === Phase R2.5: Card hierarchy + spacing system (UI only) === */
-:root{
-  /* 8px base spacing scale */
-  --sp-8:8px;
-  --sp-12:12px;
-  --sp-16:16px;
-  --sp-24:24px;
-  --sp-32:32px;
-
-  /* Hierarchy surfaces */
-  --section-bg: var(--panel);
-  --panel-bg: var(--panel2);
-  --readonly-bg: var(--computed-bg);
-  --readonly-border: var(--computed-border);
-
-  /* Stripe token (default) */
-  --stripe: transparent;
-
-  /* Dev tint */
-  --dev-tint: rgba(31,42,68,0.05);
-}
-
-/* Top-level modules */
-.card-section{
-  padding: var(--sp-16);
-  border-radius: var(--radius-3);
-}
-.card-section.card{
-  padding: var(--sp-16);
-}
-
-/* Inner interactive blocks */
-.card-panel{
-  background: var(--panel-bg);
-  border-color: color-mix(in srgb, var(--rule) 70%, transparent);
-  box-shadow: none;
-}
-
-/* Read-only inner blocks */
-.card-readonly{
-  background: var(--readonly-bg);
-  border-color: var(--readonly-border);
-  box-shadow: none;
-}
-.card-readonly .input,
-.card-readonly input,
-.card-readonly select,
-.card-readonly textarea{
-  background: color-mix(in srgb, var(--readonly-bg) 70%, white);
-}
-
-/* Any card nested inside a card gets distinct surface by default */
-.card .card{
-  background: var(--panel-bg);
-  box-shadow: none;
-  border-color: color-mix(in srgb, var(--rule) 70%, transparent);
-}
-
-/* Explicit section stripe tokens */
-.card-section--win{ --stripe: var(--phase-winpath); }
-.card-section--risk{ --stripe: var(--phase-di); }
-.card-section--timeline{ --stripe: var(--phase-p7); }
-
-/* Dev-only containment */
-.dev-panel{
-  background: color-mix(in srgb, var(--panel-bg) 80%, var(--dev-tint));
-  border-color: color-mix(in srgb, var(--rule) 60%, transparent);
-}
-.dev-panel .card-head h2{ letter-spacing:0.2px; }
-
-/* Spacing normalization inside cards */
-.card .grid2, .card .grid3{ gap: var(--sp-16); }
-.card .field + .field{ margin-top:0; }
-.card .note{ margin-top: var(--sp-12); }
-
-/* Button rows: wrap cleanly on small screens */
-.rowline, .btn-row, .toolbar, .topbar-actions{
-  gap: var(--sp-12);
-}
-.rowline{ flex-wrap:wrap; }
-.btn-row{ flex-wrap:wrap; align-items:center; }
-
-/* Tables and long mono text should not cause overflow */
-table{ width:100%; max-width:100%; }
-.mono{ max-width:100%; overflow:auto; }
-
-/* Mobile hardening */
-@media (max-width: 768px){
-  .card{ padding: var(--sp-16); }
-  .grid2{ grid-template-columns:1fr; }
-  .grid3{ grid-template-columns:1fr; }
-  .topbar .toolbar{ flex-wrap:wrap; }
-  .topbar #restoreBackup{ flex:1 1 220px !important; }
-}
-
-@media (max-width: 420px){
-  .topbar .toolbar{ gap: var(--sp-8); }
-  .topbar .btn.btn-sm{ padding:6px 10px; }
-  .switch-label{ white-space:normal; }
-}
 
 /* Card header row w/ chip */
 .card-head-row{
@@ -1151,7 +1005,7 @@ table{ width:100%; max-width:100%; }
   min-height: var(--control-h);
   height: var(--control-h);
   padding: 10px 12px;
-  background:var(--control-bg);
+  background: #fff;
 }
 .select{
   appearance:none;
@@ -1294,90 +1148,6 @@ table{ width:100%; max-width:100%; }
   margin-bottom:14px;
 }
 
-
-/* =========================================================
-   Phase R2.7 — Baseline UI Reset + True Dark Mode (UI only)
-   ========================================================= */
-
-:root{
-  --text: var(--fg);
-  --border: var(--rule);
-  --surface: color-mix(in srgb, var(--bg) 70%, #ffffff);
-  --surface2: color-mix(in srgb, var(--bg) 84%, #ffffff);
-}
-
-body.dark{
-  --surface: color-mix(in srgb, var(--bg) 76%, #161b22);
-  --surface2: color-mix(in srgb, var(--bg) 86%, #161b22);
-}
-
-/* Background: keep it calm + flat (no colored wash overlays) */
-body{
-  background: var(--bg);
-  background-image: radial-gradient(circle at 30px 30px, var(--grid) 1px, transparent 1px);
-  background-size: 80px 80px;
-}
-
-/* Remove ALL stripes and ALL raised / neumorphic edges */
-.card{
-  background: var(--surface);
-  border: 1px solid var(--border) !important;
-  border-left: 1px solid var(--border) !important;
-  box-shadow: none !important;
-}
-
-/* Remove “readonly is gray” concept entirely */
-.card-readonly{
-  background: var(--surface2) !important;
-  border-color: var(--border) !important;
-  box-shadow: none !important;
-}
-.card-readonly .input,
-.card-readonly input,
-.card-readonly select,
-.card-readonly textarea{
-  background: var(--control-bg) !important;
-}
-
-/* Nested hierarchy via spacing + borders only (optional subtle surface) */
-.card .card,
-.card .kpi,
-.card .mini,
-.card .metric,
-.card .tile,
-.card .pillbox,
-.card .table-wrap,
-.user-split,
-.week-list,
-.assump-block,
-.stress-item,
-.help,
-.validation li,
-.tabs,
-.banner,
-.mono,
-.diag-errors,
-.modal-card,
-.rail .card{
-  background: var(--surface2) !important;
-  border-color: var(--border) !important;
-  box-shadow: none !important;
-}
-
-/* No shadows anywhere */
-.btn,
-.tab,
-.switch.switch-compact,
-.badge,
-.devtools-btn,
-.devtools-panel{
-  box-shadow: none !important;
-}
-
-/* Ensure stripe tokens never render */
-.card{ --stripe: transparent !important; }
-
-
 .phase-scenarios .sc-actions{
   display:flex;
   gap:12px;
@@ -1467,172 +1237,13 @@ header.topbar{ overflow-x:hidden; }
 
 
 /* Section headers (workflow) */
-.section-header{margin:8px 0 10px 0; padding:10px 12px; border-radius:14px; background:transparent; border:2px solid var(--rule); box-shadow:none;}
+.section-header{
+  margin:8px 0 10px 0;
+  padding:12px 12px;
+  border-radius:var(--radius);
+  background:var(--panel);
+  border:1px solid var(--rule);
+  box-shadow:var(--shadow2);
+}
 .section-header-title{font-weight:800; font-size:14px; letter-spacing:0.2px;}
 .section-header-sub{font-size:12px; opacity:0.75; margin-top:2px;}
-
-
-/* ===== Phase 16 UI Polish ===== */
-:root{
-  --space-0: 0px;
-  --space-1: 6px;
-  --space-2: 10px;
-  --space-3: 14px;
-  --space-4: 18px;
-  --space-5: 24px;
-
-  --radius-1: 10px;
-  --radius-2: 14px;
-
-  --lh-tight: 1.15;
-  --lh-base: 1.35;
-  --lh-loose: 1.5;
-
-  --text-muted: rgba(0,0,0,0.62);
-  --text-muted-2: rgba(0,0,0,0.52);
-
-  --control-h: 38px;
-  --control-pad-x: 12px;
-}
-
-html, body { max-width: 100%; }
-body { overflow-x: clip; }
-
-.card, .panel, .module-card {
-  border-radius: var(--radius-2);
-  padding: var(--space-4);
-}
-
-.card .card-header,
-.panel .card-header,
-.module-card .card-header {
-  margin-bottom: var(--space-3);
-}
-
-.card .card-body,
-.panel .card-body,
-.module-card .card-body {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-}
-
-.column, .col, .left-col, .center-col, .right-col {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-4);
-}
-
-body { line-height: var(--lh-base); }
-
-.small, .helper, .help-text, .note, .muted {
-  color: var(--text-muted);
-  line-height: var(--lh-loose);
-}
-
-table { border-collapse: collapse; }
-th, td { padding: 8px 10px; vertical-align: top; }
-th { font-weight: 700; }
-
-.table-scroll{
-  max-width: 100%;
-  overflow-x: auto;
-  overflow-y: hidden;
-  -webkit-overflow-scrolling: touch;
-  border-radius: var(--radius-1);
-}
-
-.table-scroll table{
-  width: 100%;
-  min-width: 520px;
-}
-
-input[type="text"],
-input[type="number"],
-select,
-textarea{
-  min-height: var(--control-h);
-  padding: 8px var(--control-pad-x);
-  line-height: 1.2;
-  border-radius: 10px;
-}
-
-button,
-.btn{
-  min-height: var(--control-h);
-  padding: 0 var(--control-pad-x);
-  border-radius: 10px;
-  line-height: 1;
-}
-
-.toggle, .switch{
-  min-height: var(--control-h);
-  display: inline-flex;
-  align-items: center;
-}
-
-@media (max-width: 900px){
-  .grid-3, .three-col, .layout-grid{
-    grid-template-columns: 1fr !important;
-  }
-
-  .topbar, .header-row, .controls-row,
-  .button-row, .actions, .toolbar{
-    flex-wrap: wrap;
-    gap: var(--space-2);
-  }
-
-  .tactic-grid, .tactics-grid{
-    grid-template-columns: 1fr !important;
-    gap: var(--space-3);
-  }
-}
-
-
-
-/* ===== Component System Baseline (Option B) ===== */
-
-:root{
-  --action-red:#c00000;
-  --action-red-hover:#a00000;
-}
-
-/* New normalized card structure (compatible with existing .card) */
-.card-header{
-  display:flex;
-  align-items:center;
-  justify-content:space-between;
-  padding:14px 16px;
-  border-bottom:1px solid var(--rule);
-}
-.card-body{ padding:16px; }
-
-/* Buttons: keep existing .btn base, add primary + link styles */
-.btn-primary{
-  background:var(--action-red);
-  color:#fff;
-  border-color:var(--action-red);
-}
-.btn-primary:hover{
-  background:var(--action-red-hover);
-  border-color:var(--action-red-hover);
-}
-
-/* Remove "bounce" */
-.btn:active{ transform:none; }
-
-/* Links stay red for seamless brand alignment */
-a{ color:var(--action-red); }
-a:hover{ opacity:0.85; }
-
-/* Status boxes (full background color) */
-.status{
-  padding:12px 14px;
-  border-radius:8px;
-  margin-top:10px;
-  font-size:14px;
-  border:1px solid transparent;
-}
-.status--success{ background:#e8f5e9; border-color:#a5d6a7; color:#1b5e20; }
-.status--warn{ background:#fff8e1; border-color:#ffe082; color:#8d6e00; }
-.status--error{ background:#ffebee; border-color:#ef9a9a; color:#b71c1c; }
