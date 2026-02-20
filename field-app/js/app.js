@@ -1,23 +1,11 @@
-import { computeAll } from "./winMath.js";
-import { computeSnapshotHash } from "./hash.js";
+import { engine } from "./engine.js";
+import { computeCapacityContacts as coreComputeCapacityContacts, computeCapacityBreakdown as coreComputeCapacityBreakdown } from "./core/model.js";
+import { normalizeUniversePercents, UNIVERSE_DEFAULTS } from "./core/universeLayer.js";
+import { computeAvgLiftPP } from "./core/turnout.js";
 import { fmtInt, clamp, safeNum, daysBetween, downloadJson, readJsonFile } from "./utils.js";
 import { loadState, saveState, clearState, readBackups, writeBackupEntry } from "./storage.js";
-import { computeRoiRows, buildOptimizationTactics } from "./budget.js";
-import { optimizeMixBudget, optimizeMixCapacity } from "./optimize.js";
-import { computeAvgLiftPP } from "./turnout.js";
-import { computeTimelineFeasibility } from "./timeline.js";
-import { computeMaxAttemptsByTactic, optimizeTimelineConstrained } from "./timelineOptimizer.js";
-import { computeMarginalValueDiagnostics } from "./marginalValue.js";
-import { computeDecisionIntelligence } from "./decisionIntelligence.js";
 import { createScenarioManager } from "./scenarioManager.js";
-import { MODEL_VERSION, makeScenarioExport, deterministicStringify, validateScenarioExport, makeTimestampedFilename, planRowsToCsv, formatSummaryText, copyTextToClipboard, hasNonFiniteNumbers } from "./export.js";
-import { migrateSnapshot, CURRENT_SCHEMA_VERSION } from "./migrate.js";
 import { APP_VERSION, BUILD_ID } from "./build.js";
-import { SELFTEST_GATE, gateFromSelfTestResult } from "./selfTestGate.js";
-import { checkStrictImportPolicy } from "./importPolicy.js";
-import { computeConfidenceEnvelope } from "./confidenceEnvelope.js";
-import { computeSensitivitySurface } from "./sensitivitySurface.js";
-import { UNIVERSE_DEFAULTS, computeUniverseAdjustedRates, normalizeUniversePercents } from "./universeLayer.js";
 
 function downloadText(text, filename, mime){
   try{
@@ -73,8 +61,8 @@ function updateSelfTestGateBadge(){
     if (!els.selfTestGate) return;
     els.selfTestGate.textContent = selfTestGateStatus;
     els.selfTestGate.classList.remove("badge-unverified","badge-verified","badge-failed");
-    if (selfTestGateStatus === SELFTEST_GATE.VERIFIED) els.selfTestGate.classList.add("badge-verified");
-    else if (selfTestGateStatus === SELFTEST_GATE.FAILED) els.selfTestGate.classList.add("badge-failed");
+    if (selfTestGateStatus === engine.selfTest.SELFTEST_GATE.VERIFIED) els.selfTestGate.classList.add("badge-verified");
+    else if (selfTestGateStatus === engine.selfTest.SELFTEST_GATE.FAILED) els.selfTestGate.classList.add("badge-failed");
     else els.selfTestGate.classList.add("badge-unverified");
   } catch { /* ignore */ }
 }
@@ -109,7 +97,7 @@ async function copyDebugBundle(){
   const bundle = {
     appVersion: APP_VERSION,
     buildId: BUILD_ID,
-    schemaVersion: CURRENT_SCHEMA_VERSION,
+    schemaVersion: engine.snapshot.CURRENT_SCHEMA_VERSION,
     timestamp: new Date().toISOString(),
     scenarioName: state?.scenarioName || "",
     lastExportHash: lastExportHash || null,
@@ -117,7 +105,7 @@ async function copyDebugBundle(){
   };
   const text = JSON.stringify(bundle, null, 2);
   try{
-    await copyTextToClipboard(text);
+    await engine.snapshot.copyTextToClipboard(text);
     alert("Debug bundle copied.");
   } catch {
     // fallback
@@ -132,10 +120,10 @@ function scheduleBackupWrite(){
     backupTimer = setTimeout(() => {
       safeCall(() => {
         const scenarioClone = structuredClone(state);
-        const snapshot = { modelVersion: MODEL_VERSION, schemaVersion: CURRENT_SCHEMA_VERSION, scenarioState: scenarioClone, appVersion: APP_VERSION, buildId: BUILD_ID };
-        snapshot.snapshotHash = computeSnapshotHash(snapshot);
+        const snapshot = { modelVersion: engine.snapshot.MODEL_VERSION, schemaVersion: engine.snapshot.CURRENT_SCHEMA_VERSION, scenarioState: scenarioClone, appVersion: APP_VERSION, buildId: BUILD_ID };
+        snapshot.snapshotHash = engine.snapshot.computeSnapshotHash(snapshot);
     lastExportHash = snapshot.snapshotHash;
-        const payload = makeScenarioExport(snapshot);
+        const payload = engine.snapshot.makeScenarioExport(snapshot);
         writeBackupEntry({ ts: new Date().toISOString(), scenarioName: scenarioClone?.scenarioName || "", payload });
         refreshBackupDropdown();
       });
@@ -168,7 +156,7 @@ function restoreBackupByIndex(idx){
   const ok = confirm("Restore this backup? This will overwrite current scenario inputs.");
   if (!ok) return;
 
-  const migrated = migrateSnapshot(entry.payload);
+  const migrated = engine.snapshot.migrateSnapshot(entry.payload);
   if (!migrated || !migrated.ok){
     alert("Backup restore failed: could not migrate snapshot.");
     return;
@@ -578,7 +566,7 @@ function initThemeSystemListener(){
 let lastResultsSnapshot = null;
 
 // Phase 11 — session-only safety rails
-let selfTestGateStatus = SELFTEST_GATE.UNVERIFIED;
+let selfTestGateStatus = engine.selfTest.SELFTEST_GATE.UNVERIFIED;
 let lastExportHash = null;
 const scenarioMgr = createScenarioManager({ max: 5 });
 const recentErrors = [];
@@ -1223,16 +1211,16 @@ if (els.roiRefresh) els.roiRefresh.addEventListener("click", () => { render(); }
 
   if (els.btnSaveJson) els.btnSaveJson.addEventListener("click", () => {
     const scenarioClone = structuredClone(state);
-    const snapshot = { modelVersion: MODEL_VERSION, schemaVersion: CURRENT_SCHEMA_VERSION, scenarioState: scenarioClone, appVersion: APP_VERSION, buildId: BUILD_ID };
-    snapshot.snapshotHash = computeSnapshotHash(snapshot);
+    const snapshot = { modelVersion: engine.snapshot.MODEL_VERSION, schemaVersion: engine.snapshot.CURRENT_SCHEMA_VERSION, scenarioState: scenarioClone, appVersion: APP_VERSION, buildId: BUILD_ID };
+    snapshot.snapshotHash = engine.snapshot.computeSnapshotHash(snapshot);
     lastExportHash = snapshot.snapshotHash;
-    const payload = makeScenarioExport(snapshot);
-    if (hasNonFiniteNumbers(payload)){
+    const payload = engine.snapshot.makeScenarioExport(snapshot);
+    if (engine.snapshot.hasNonFiniteNumbers(payload)){
       alert("Export blocked: scenario contains NaN/Infinity.");
       return;
     }
-    const filename = makeTimestampedFilename("field-path-scenario", "json");
-    const text = deterministicStringify(payload, 2);
+    const filename = engine.snapshot.makeTimestampedFilename("field-path-scenario", "json");
+    const text = engine.snapshot.deterministicStringify(payload, 2);
     downloadText(text, filename, "application/json");
   });
 
@@ -1241,12 +1229,12 @@ if (els.roiRefresh) els.roiRefresh.addEventListener("click", () => { render(); }
       alert("Nothing to export yet. Run a scenario first.");
       return;
     }
-    const csv = planRowsToCsv(lastResultsSnapshot);
+    const csv = engine.snapshot.planRowsToCsv(lastResultsSnapshot);
     if (/NaN|Infinity/.test(csv)){
       alert("CSV export blocked: contains NaN/Infinity.");
       return;
     }
-    const filename = makeTimestampedFilename("field-path-plan", "csv");
+    const filename = engine.snapshot.makeTimestampedFilename("field-path-plan", "csv");
     downloadText(csv, filename, "text/csv");
   });
 
@@ -1255,8 +1243,8 @@ if (els.roiRefresh) els.roiRefresh.addEventListener("click", () => { render(); }
       alert("Nothing to copy yet. Run a scenario first.");
       return;
     }
-    const text = formatSummaryText(lastResultsSnapshot);
-    const r = await copyTextToClipboard(text);
+    const text = engine.snapshot.formatSummaryText(lastResultsSnapshot);
+    const r = await engine.snapshot.copyTextToClipboard(text);
     if (!r.ok) alert(r.reason || "Copy failed.");
   });
 
@@ -1285,10 +1273,10 @@ if (els.roiRefresh) els.roiRefresh.addEventListener("click", () => { render(); }
       return;
 
     // Phase 11 — strict import: block newer schema before migration (optional)
-    const prePolicy = checkStrictImportPolicy({
+    const prePolicy = engine.snapshot.checkStrictImportPolicy({
       strictMode: !!state?.ui?.strictImport,
       importedSchemaVersion: loaded.schemaVersion || null,
-      currentSchemaVersion: CURRENT_SCHEMA_VERSION,
+      currentSchemaVersion: engine.snapshot.CURRENT_SCHEMA_VERSION,
       hashMismatch: false
     });
     if (!prePolicy.ok){
@@ -1299,7 +1287,7 @@ if (els.roiRefresh) els.roiRefresh.addEventListener("click", () => { render(); }
 
     }
 
-    const mig = migrateSnapshot(loaded);
+    const mig = engine.snapshot.migrateSnapshot(loaded);
     if (els.importWarnBanner){
       if (mig.warnings && mig.warnings.length){
         els.importWarnBanner.hidden = false;
@@ -1310,7 +1298,7 @@ if (els.roiRefresh) els.roiRefresh.addEventListener("click", () => { render(); }
       }
     }
 
-    const v = validateScenarioExport(mig.snapshot, MODEL_VERSION);
+    const v = engine.snapshot.validateScenarioExport(mig.snapshot, engine.snapshot.MODEL_VERSION);
     if (!v.ok){
       alert(`Import failed: ${v.reason}`);
       els.loadJson.value = "";
@@ -1329,7 +1317,7 @@ if (els.roiRefresh) els.roiRefresh.addEventListener("click", () => { render(); }
     try{
       const exportedHash = (loaded && typeof loaded === "object") ? (loaded.snapshotHash || null) : null;
       // Hash must be tied to the normalized snapshot used by the engine (after migration).
-      const recomputed = computeSnapshotHash({ modelVersion: v.modelVersion, scenarioState: v.scenario });
+      const recomputed = engine.snapshot.computeSnapshotHash({ modelVersion: v.modelVersion, scenarioState: v.scenario });
       hashMismatch = !!(exportedHash && exportedHash !== recomputed);
 
       if (hashMismatch){
@@ -1342,10 +1330,10 @@ if (els.roiRefresh) els.roiRefresh.addEventListener("click", () => { render(); }
         if (els.importHashBanner) els.importHashBanner.hidden = true;
       }
 
-      const policy = checkStrictImportPolicy({
+      const policy = engine.snapshot.checkStrictImportPolicy({
         strictMode: !!state?.ui?.strictImport,
         importedSchemaVersion: (mig?.snapshot?.schemaVersion || loaded.schemaVersion || null),
-        currentSchemaVersion: CURRENT_SCHEMA_VERSION,
+        currentSchemaVersion: engine.snapshot.CURRENT_SCHEMA_VERSION,
         hashMismatch
       });
       if (!policy.ok){
@@ -1473,7 +1461,7 @@ function getEffectiveBaseRates(){
   const tr = (safeNum(state.turnoutReliabilityPct) != null) ? clamp(safeNum(state.turnoutReliabilityPct), 0, 100) / 100 : null;
 
   const cfg = getUniverseLayerConfig();
-  const adj = computeUniverseAdjustedRates({
+  const adj = engine.computeUniverseAdjustedRates({
     enabled: cfg.enabled,
     universePercents: cfg.percents,
     retentionFactor: cfg.retentionFactor,
@@ -1568,7 +1556,7 @@ function render(){
     earlyVoteExp: safeNum(state.earlyVoteExp),
   };
 
-  const res = computeAll(modelInput);
+  const res = engine.computeAll(modelInput);
 
   els.turnoutExpected.textContent = res.turnout.expectedPct == null ? "—" : `${res.turnout.expectedPct.toFixed(1)}%`;
   els.turnoutBand.textContent = res.turnout.bestPct == null ? "—" : `${res.turnout.bestPct.toFixed(1)}% / ${res.turnout.worstPct.toFixed(1)}%`;
@@ -1612,15 +1600,15 @@ function render(){
   // Phase 9A — build immutable results snapshot for export.js (pure serialization layer)
   try {
     lastResultsSnapshot = {
-      schemaVersion: CURRENT_SCHEMA_VERSION,
-      appVersion: MODEL_VERSION,
-      modelVersion: MODEL_VERSION,
+      schemaVersion: engine.snapshot.CURRENT_SCHEMA_VERSION,
+      appVersion: engine.snapshot.MODEL_VERSION,
+      modelVersion: engine.snapshot.MODEL_VERSION,
       scenarioState: structuredClone(state),
       planRows: structuredClone(state.ui?.lastPlanRows || []),
       planMeta: structuredClone(state.ui?.lastPlanMeta || {}),
       summary: structuredClone(state.ui?.lastSummary || {})
     };
-    lastResultsSnapshot.snapshotHash = computeSnapshotHash({ modelVersion: MODEL_VERSION, scenarioState: lastResultsSnapshot.scenarioState });
+    lastResultsSnapshot.snapshotHash = engine.snapshot.computeSnapshotHash({ modelVersion: engine.snapshot.MODEL_VERSION, scenarioState: lastResultsSnapshot.scenarioState });
   } catch {
     lastResultsSnapshot = null;
   }
@@ -1733,19 +1721,19 @@ function renderDecisionIntelligencePanel({ res, weeks }){
     // Build a stable snapshot for analysis (no mutation)
     const snap = getStateSnapshot();
 
-    const engine = {
+    const accessors = {
       getStateSnapshot,
       withPatchedState,
-      computeAll,
+      compute: engine.compute,
       derivedWeeksRemaining,
       deriveNeedVotes,
       runMonteCarloSim,
-      computeRoiRows,
-      buildOptimizationTactics,
-      computeMaxAttemptsByTactic,
+      computeRoiRows: engine.computeRoiRows,
+      buildOptimizationTactics: engine.buildOptimizationTactics,
+      computeMaxAttemptsByTactic: engine.computeMaxAttemptsByTactic,
     };
 
-    const di = computeDecisionIntelligence({ engine, snap, baseline: { res, weeks } });
+    const di = engine.computeDecisionIntelligence({ engine: accessors, snap, baseline: { res, weeks } });
 
     setWarn(di?.warning || null);
 
@@ -2050,25 +2038,27 @@ function getYourName(){
 function onSaveScenarioClick(){
   try{
     const snap = getStateSnapshot();
-    const engine = {
+    const engineFacade = engine;
+    const accessors = {
       getStateSnapshot,
       withPatchedState,
-      computeAll,
+      compute: engineFacade.compute,
       derivedWeeksRemaining,
       deriveNeedVotes,
       runMonteCarloSim,
-      computeMaxAttemptsByTactic,
-      computeTimelineFeasibility,
+      computeMaxAttemptsByTactic: engineFacade.timeline.computeMaxAttemptsByTactic,
+      computeTimelineFeasibility: engineFacade.timeline.computeTimelineFeasibility,
+      snapshot: engineFacade.snapshot,
     };
     scenarioMgr.add({
       label: (snap.scenarioName || "").trim() || `Scenario ${scenarioMgr.list().length + 1}`,
       snapshot: snap,
-      engine,
-      modelVersion: MODEL_VERSION,
+      engine: accessors,
+      modelVersion: engineFacade.snapshot.MODEL_VERSION,
     });
     // Re-render using current res/weeks if available
     try{
-      const res = computeAll(snap);
+      const res = engine.computeAll(snap);
       const weeks = derivedWeeksRemaining();
       renderScenarioComparePanel({ res, weeks });
     } catch { /* ignore */ }
@@ -2103,7 +2093,7 @@ function wireScenarioComparePanel(){
     scenarioMgr.remove(id);
     try{
       const snap = getStateSnapshot();
-      const res = computeAll(snap);
+      const res = engine.computeAll(snap);
       const weeks = derivedWeeksRemaining();
       renderScenarioComparePanel({ res, weeks });
     } catch { /* ignore */ }
@@ -2278,7 +2268,7 @@ function wireSensitivitySurface(){
       const targetWinProb = Number.isFinite(tPct) ? surfaceClamp(tPct, 50, 99) / 100 : 0.70;
 
       const snap = getStateSnapshot();
-      const res = computeAll(snap);
+      const res = engine.computeAll(snap);
       const weeks = derivedWeeksRemaining();
       const needVotes = deriveNeedVotes(res);
 
@@ -2287,7 +2277,7 @@ function wireSensitivitySurface(){
 
       const engine = { withPatchedState, runMonteCarloSim };
 
-      const result = computeSensitivitySurface({
+      const result = engine.computeSensitivitySurface({
         engine,
         baseline: { res, weeks, needVotes },
         sweep: { leverKey, minValue: minV, maxValue: maxV, steps },
@@ -2344,6 +2334,16 @@ function initDevTools(){
   btn.type = "button";
   btn.className = "devtools-btn";
   btn.textContent = "Run Self-Test";
+
+  const btnRisk = document.createElement("button");
+  btnRisk.type = "button";
+  btnRisk.className = "devtools-btn";
+  btnRisk.textContent = "Risk Summary";
+
+  const btnRobust = document.createElement("button");
+  btnRobust.type = "button";
+  btnRobust.className = "devtools-btn";
+  btnRobust.textContent = "Robust (Smoke)";
 
   const panel = document.createElement("div");
   panel.className = "devtools-panel";
@@ -2404,7 +2404,7 @@ function initDevTools(){
     const status = (r.failed && r.failed > 0) ? "FAIL" : "PASS";
 
     // Phase 11 — self-test gate badge (session-only)
-    selfTestGateStatus = gateFromSelfTestResult(r);
+    selfTestGateStatus = engine.selfTest.gateFromSelfTestResult(r);
     updateSelfTestGateBadge();
     head.textContent = `Self-Test: ${status} — ${r.passed}/${r.total} passed${r.durationMs != null ? ` (${r.durationMs}ms)` : ""}`;
     panel.appendChild(head);
@@ -2491,6 +2491,42 @@ function initDevTools(){
     }
   };
 
+  const renderRisk = (title, lines) => {
+    panel.hidden = false;
+    panel.innerHTML = "";
+
+    const head = document.createElement("div");
+    head.className = "devtools-head";
+    head.textContent = title || "Risk";
+    panel.appendChild(head);
+
+    const pre = document.createElement("div");
+    pre.className = "mono";
+    pre.textContent = Array.isArray(lines) ? lines.join("\n") : String(lines || "");
+    panel.appendChild(pre);
+  };
+
+  const buildCurrentMcContext = () => {
+    const weeks = derivedWeeksRemaining();
+    const modelInput = {
+      universeSize: safeNum(state.universeSize),
+      turnoutA: safeNum(state.turnoutA),
+      turnoutB: safeNum(state.turnoutB),
+      bandWidth: safeNum(state.bandWidth),
+      candidates: state.candidates.map(c => ({ id: c.id, name: c.name, supportPct: safeNum(c.supportPct) })),
+      undecidedPct: safeNum(state.undecidedPct),
+      yourCandidateId: state.yourCandidateId,
+      undecidedMode: state.undecidedMode,
+      userSplit: state.userSplit,
+      persuasionPct: safeNum(state.persuasionPct),
+      earlyVoteExp: safeNum(state.earlyVoteExp),
+    };
+    const res = engine.computeAll(modelInput);
+    const w = (weeks != null && weeks >= 0) ? weeks : null;
+    const needVotes = deriveNeedVotes(res);
+    return { res, weeks: w, needVotes };
+  };
+
   btn.addEventListener("click", async () => {
     btn.disabled = true;
     btn.textContent = "Running…";
@@ -2511,7 +2547,77 @@ function initDevTools(){
     }
   });
 
+  btnRisk.addEventListener("click", async () => {
+    btnRisk.disabled = true;
+    btnRisk.textContent = "Computing…";
+    try{
+      const { res, weeks, needVotes } = buildCurrentMcContext();
+      const seed = state.mcSeed || "";
+      const sim = engine.runMonteCarlo({ scenario: state, res, weeks, needVotes, runs: 10000, seed, includeMargins: true });
+      const margins = sim?.margins || [];
+      const s = engine.risk.summaryFromMargins(margins);
+      const cvar10 = engine.risk.conditionalValueAtRisk(margins, 0.10);
+      const var10 = engine.risk.valueAtRisk(margins, 0.10);
+
+      const fmt = (x) => (typeof x === "number" && Number.isFinite(x)) ? x.toFixed(2) : "—";
+      const pct = (x) => (typeof x === "number" && Number.isFinite(x)) ? (100*x).toFixed(1) + "%" : "—";
+
+      renderRisk("Risk: margins (MC)", [
+        `runs: ${s.runs}`,
+        `probWin (margin>=0): ${pct(s.probWin)}`,
+        `mean: ${fmt(s.mean)} · median: ${fmt(s.median)}`,
+        `p10: ${fmt(s.p10)} · p25: ${fmt(s.p25)} · p75: ${fmt(s.p75)} · p90: ${fmt(s.p90)}`,
+        `min: ${fmt(s.min)} · max: ${fmt(s.max)} · stdev: ${fmt(s.stdev)}`,
+        `VaR10: ${fmt(var10)} · CVaR10: ${fmt(cvar10)}`,
+      ]);
+    } catch (err){
+      renderRisk("Risk: error", err?.message ? err.message : String(err || "Error"));
+    } finally {
+      btnRisk.disabled = false;
+      btnRisk.textContent = "Risk Summary";
+    }
+  });
+
+  btnRobust.addEventListener("click", async () => {
+    btnRobust.disabled = true;
+    btnRobust.textContent = "Running…";
+    try{
+      // Smoke test: deterministic selector behavior on synthetic margins arrays.
+      const seed = state.mcSeed || "";
+      const candidates = [
+        { id: "A", label: "Plan A" },
+        { id: "B", label: "Plan B" },
+        { id: "C", label: "Plan C" },
+      ];
+      const mkMargins = (bias) => {
+        // Deterministic small synthetic distribution.
+        const out = [];
+        for (let i=0;i<200;i++) out.push((i - 100) * 0.1 + bias);
+        return out;
+      };
+      const evaluateFn = (plan) => {
+        const bias = (plan.id === "A") ? -2 : (plan.id === "B") ? 0 : 1;
+        const margins = mkMargins(bias);
+        return { margins, riskSummary: engine.risk.summaryFromMargins(margins) };
+      };
+      const picked = engine.robust.selectPlan({ candidates, evaluateFn, objective: "max_p25_margin", seed });
+      const best = picked?.best;
+      renderRisk("Robust: smoke", [
+        `objective: max_p25_margin`,
+        `best: ${best?.plan?.label || "(none)"}`,
+        `score: ${best?.score != null ? String(best.score) : "—"}`,
+      ]);
+    } catch (err){
+      renderRisk("Robust: error", err?.message ? err.message : String(err || "Error"));
+    } finally {
+      btnRobust.disabled = false;
+      btnRobust.textContent = "Robust (Smoke)";
+    }
+  });
+
   host.appendChild(btn);
+  host.appendChild(btnRisk);
+  host.appendChild(btnRobust);
   host.appendChild(panel);
   document.body.appendChild(host);
 }
@@ -2557,23 +2663,23 @@ export function getSelfTestAccessors(){
     getStateSnapshot,
     withPatchedState,
 
-    // deterministic
-    computeAll,
+    // deterministic (self-test expects computeAll accessor)
+    computeAll: (mi, options) => engine.computeAll(mi, options),
     deriveNeedVotes,
     derivedWeeksRemaining,
 
-    // ROI + optimization
-    computeRoiRows,
-    buildOptimizationTactics,
-    optimizeMixBudget,
-    optimizeMixCapacity,
+    // ROI + optimization (via facade)
+    computeRoiRows: (...args) => engine.computeRoiRows(...args),
+    buildOptimizationTactics: (...args) => engine.buildOptimizationTactics(...args),
 
-    // Phase 7
-    computeTimelineFeasibility,
+    // optimization shims (self-test expects these exact names)
+    optimizeMixBudget: (args) => engine.optimizeMixBudget(args),
+    optimizeMixCapacity: (args) => engine.optimizeMixCapacity(args),
 
-    // Phase 8A
-    computeMaxAttemptsByTactic,
-    optimizeTimelineConstrained,
+    // timeline helpers (self-test expects these names)
+    computeTimelineFeasibility: (args) => engine.computeTimelineFeasibility(args),
+    computeMaxAttemptsByTactic: (args) => engine.computeMaxAttemptsByTactic(args),
+
 
     // capacity helpers
     computeCapacityBreakdown,
@@ -2583,8 +2689,6 @@ export function getSelfTestAccessors(){
     runMonteCarloSim,
   };
 }
-
-
 /* =========================
    Phase 3 — Execution + Risk
    ========================= */
@@ -2759,7 +2863,7 @@ function renderRoi(res, weeks){
     useDiminishing: (state.gotvMode === "advanced") ? !!state.gotvDiminishing2 : !!state.gotvDiminishing,
   };
 
-  const { rows, banner } = computeRoiRows({
+  const { rows, banner } = engine.computeRoiRows({
     goalNetVotes: needVotes,
     baseRates: { cr, sr, tr },
     tactics,
@@ -2894,7 +2998,7 @@ function renderOptimization(res, weeks){
   const overheadAmount = safeNum(budget.overheadAmount) ?? 0;
   const includeOverhead = !!budget.includeOverhead;
 
-  const tactics = buildOptimizationTactics({
+  const tactics = engine.buildOptimizationTactics({
     baseRates: { cr, sr, tr },
     tactics: tacticsRaw
   });
@@ -2949,7 +3053,7 @@ function renderOptimization(res, weeks){
     const capUser = safeNum(opt.capacityAttempts);
     const cap = (capUser != null && capUser >= 0) ? capUser : (capAttempts != null ? capAttempts : 0);
 
-    result = optimizeMixCapacity({
+    result = engine.optimizeMixBudget({
       capacity: cap,
       tactics,
       step,
@@ -2965,7 +3069,7 @@ function renderOptimization(res, weeks){
     const budgetIn = safeNum(opt.budgetAmount) ?? 0;
     const budgetAvail = Math.max(0, budgetIn - (includeOverhead ? overheadAmount : 0));
 
-    result = optimizeMixBudget({
+    result = engine.optimizeMixBudget({
       budget: budgetAvail,
       tactics,
       step,
@@ -3019,7 +3123,7 @@ function renderOptimization(res, weeks){
       tacticKinds
     };
 
-    const caps = computeMaxAttemptsByTactic(capsInput);
+    const caps = engine.computeMaxAttemptsByTactic(capsInput);
 
     const budgetIn = safeNum(opt.budgetAmount) ?? 0;
     const budgetAvail = Math.max(0, budgetIn - (includeOverhead ? overheadAmount : 0));
@@ -3042,7 +3146,7 @@ function renderOptimization(res, weeks){
       goalNetVotes: needVotes
     };
 
-    const tlOut = optimizeTimelineConstrained(tlInputs);
+    const tlOut = engine.optimizeTimelineConstrained(tlInputs);
 
     if (tlOut && tlOut.plan){
       result = tlOut.plan;
@@ -3058,7 +3162,7 @@ function renderOptimization(res, weeks){
     state.ui.lastTlMeta = structuredClone(meta);
 
     // Phase 8B — Bottlenecks & Marginal Value (diagnostic)
-    const mv = computeMarginalValueDiagnostics({
+    const mv = engine.computeMarginalValueDiagnostics({
       baselineInputs: tlInputs,
       baselineResult: tlOut,
       timelineInputs: capsInput
@@ -3290,7 +3394,7 @@ function renderTimeline(res, weeks){
     texts: state.budget?.tactics?.texts?.kind || "persuasion",
   };
 
-  const tl = computeTimelineFeasibility({
+  const tl = engine.computeTimelineFeasibility({
     enabled: true,
     weeksRemaining: weeks ?? 0,
     activeWeeksOverride: (activeOverride == null ? null : activeOverride),
@@ -3421,34 +3525,12 @@ function renderPhase3(res, weeks){
 }
 
 
-function computeCapacityBreakdown({ weeks, orgCount, orgHoursPerWeek, volunteerMult, doorShare, doorsPerHour, callsPerHour }){
-  const total = computeCapacityContacts({ weeks, orgCount, orgHoursPerWeek, volunteerMult, doorShare, doorsPerHour, callsPerHour });
-  if (total == null) return null;
-
-  // Channel ceilings in attempt units (doors knocked vs calls dialed), derived from the same staff-hours budget.
-  const doorsCap = weeks * orgCount * orgHoursPerWeek * doorsPerHour * volunteerMult * doorShare;
-  const phonesCap = weeks * orgCount * orgHoursPerWeek * callsPerHour * volunteerMult * (1 - doorShare);
-
-  return {
-    total,
-    doors: (isFinite(doorsCap) && doorsCap >= 0) ? doorsCap : null,
-    phones: (isFinite(phonesCap) && phonesCap >= 0) ? phonesCap : null,
-  };
+function computeCapacityBreakdown(args){
+  return coreComputeCapacityBreakdown(args);
 }
 
-function computeCapacityContacts({ weeks, orgCount, orgHoursPerWeek, volunteerMult, doorShare, doorsPerHour, callsPerHour }){
-  if (weeks == null || weeks <= 0) return null;
-  if (orgCount == null || orgCount <= 0) return null;
-  if (orgHoursPerWeek == null || orgHoursPerWeek <= 0) return null;
-  if (volunteerMult == null || volunteerMult <= 0) return null;
-  if (doorShare == null) return null;
-  if (doorsPerHour == null || doorsPerHour < 0) return null;
-  if (callsPerHour == null || callsPerHour < 0) return null;
-
-  const blended = doorShare * doorsPerHour + (1 - doorShare) * callsPerHour;
-  if (!isFinite(blended) || blended <= 0) return null;
-
-  return weeks * orgCount * orgHoursPerWeek * blended * volunteerMult;
+function computeCapacityContacts(args){
+  return coreComputeCapacityContacts(args);
 }
 
 /* ---- Monte Carlo ---- */
@@ -3469,7 +3551,7 @@ function runMonteCarloNow(){
     persuasionPct: safeNum(state.persuasionPct),
     earlyVoteExp: safeNum(state.earlyVoteExp),
   };
-  const res = computeAll(modelInput);
+  const res = engine.computeAll(modelInput);
 
   const w = (weeks != null && weeks >= 0) ? weeks : null;
   const needVotes = deriveNeedVotes(res);
@@ -3486,208 +3568,9 @@ function runMonteCarloNow(){
   renderMcResults(sim);
 }
 
-function runMonteCarloSim({ res, weeks, needVotes, runs, seed }){
-  const mode = state.mcMode || "basic";
-
-  // Base rates
-  const baseCr = pctToUnit(safeNum(state.contactRatePct), 0.22);
-  const rawPr = pctToUnit(safeNum(state.supportRatePct), 0.55);
-  const rawRr = pctToUnit(safeNum(state.turnoutReliabilityPct), 0.80);
-
-  // Phase 16 — optional universe weighting + retention (no drift when disabled)
-  const cfg = getUniverseLayerConfig();
-  const adj = computeUniverseAdjustedRates({
-    enabled: cfg.enabled,
-    universePercents: cfg.percents,
-    retentionFactor: cfg.retentionFactor,
-    supportRate: rawPr,
-    turnoutReliability: rawRr,
-  });
-
-  const basePr = (adj && adj.srAdj != null) ? adj.srAdj : rawPr;
-  const baseRr = (adj && adj.trAdj != null) ? adj.trAdj : rawRr;
-  const volBoost = (cfg.enabled && adj && adj.volatilityBoost != null) ? adj.volatilityBoost : 0;
-
-  // Capacity bases
-  const orgCount = safeNum(state.orgCount) ?? 2;
-  const orgHrs = safeNum(state.orgHoursPerWeek) ?? 40;
-  const doorShare = pctToUnit(safeNum(state.channelDoorPct), 0.70);
-  const baseDph = safeNum(state.doorsPerHour3) ?? safeNum(state.doorsPerHour) ?? 30;
-  const baseCph = safeNum(state.callsPerHour3) ?? 20;
-  const baseVol = safeNum(state.volunteerMultBase) ?? 1.0;
-
-  const rng = makeRng(seed);
-
-  const specs = (mode === "advanced")
-    ? buildAdvancedSpecs({ baseCr, basePr, baseRr, baseDph, baseCph, baseVol, volBoost })
-    : buildBasicSpecs({ baseCr, basePr, baseRr, baseDph, baseCph, baseVol, volBoost });
-
-  const margins = new Array(runs);
-  const wins = new Array(runs);
-
-  // Track sampled variables for sensitivity.
-  const samples = {
-    contactRate: new Array(runs),
-    persuasionRate: new Array(runs),
-    turnoutReliability: new Array(runs),
-    doorsPerHour: new Array(runs),
-    callsPerHour: new Array(runs),
-    volunteerMult: new Array(runs),
-  };
-
-  const turnoutEnabled = !!state.turnoutEnabled;
-  const baseTurnoutPct = (safeNum(state.turnoutTargetOverridePct) != null) ? safeNum(state.turnoutTargetOverridePct) : safeNum(state.turnoutBaselinePct);
-  const gotvMaxLiftPP = (state.gotvMode === "advanced") ? safeNum(state.gotvMaxLiftPP2) : safeNum(state.gotvMaxLiftPP);
-  const useDim = (state.gotvMode === "advanced") ? !!state.gotvDiminishing2 : !!state.gotvDiminishing;
-
-  const U = safeNum(state.universeSize);
-  const tuPct = safeNum(state.persuasionPct);
-  const targetUniverseSize = (U != null && tuPct != null) ? Math.round(U * (clamp(tuPct, 0, 100) / 100)) : null;
-
-  const turnoutAdjustedVotesArr = new Array(runs);
-  const winsTA = new Array(runs);
-
-  // Add sampled GOTV lift to sensitivity when enabled + advanced
-  if (turnoutEnabled && mode === "advanced"){
-    samples.gotvLift = new Array(runs);
-  }
-
-
-  for (let i=0;i<runs;i++){
-    const cr = triSample(specs.contactRate.min, specs.contactRate.mode, specs.contactRate.max, rng);
-    const pr = triSample(specs.persuasionRate.min, specs.persuasionRate.mode, specs.persuasionRate.max, rng);
-    const rr = triSample(specs.turnoutReliability.min, specs.turnoutReliability.mode, specs.turnoutReliability.max, rng);
-    const dph = triSample(specs.doorsPerHour.min, specs.doorsPerHour.mode, specs.doorsPerHour.max, rng);
-    const cph = triSample(specs.callsPerHour.min, specs.callsPerHour.mode, specs.callsPerHour.max, rng);
-    const vm = triSample(specs.volunteerMult.min, specs.volunteerMult.mode, specs.volunteerMult.max, rng);
-
-    let gotvLiftPP = 0;
-    if (turnoutEnabled){
-      if (mode === "advanced" && state.gotvMode === "advanced"){
-        const mn = Math.max(0, safeNum(state.gotvLiftMin) ?? 0);
-        const md = Math.max(0, safeNum(state.gotvLiftMode) ?? 0);
-        const mx = Math.max(0, safeNum(state.gotvLiftMax) ?? 0);
-        gotvLiftPP = triSample(mn, md, mx, rng);
-      } else {
-        gotvLiftPP = Math.max(0, safeNum(state.gotvLiftPP) ?? 0);
-      }
-    }
-
-    const capContacts = computeCapacityContacts({
-      weeks,
-      orgCount,
-      orgHoursPerWeek: orgHrs,
-      volunteerMult: vm,
-      doorShare,
-      doorsPerHour: dph,
-      callsPerHour: cph,
-    });
-
-    let votes = 0;
-    let turnoutAdjustedVotes = 0;
-
-    let convos = 0;
-    if (capContacts != null && capContacts > 0){
-      convos = capContacts * cr;
-      const supports = convos * pr;
-      votes = supports * rr;
-    }
-
-    turnoutAdjustedVotes = votes;
-
-    if (turnoutEnabled && targetUniverseSize != null && targetUniverseSize > 0 && gotvLiftPP > 0){
-      const avgLiftPP = computeAvgLiftPP({
-        baselineTurnoutPct: baseTurnoutPct,
-        liftPerContactPP: gotvLiftPP,
-        maxLiftPP: gotvMaxLiftPP,
-        contacts: convos,
-        universeSize: targetUniverseSize,
-        useDiminishing: useDim,
-      });
-      const gotvAddedVotes = targetUniverseSize * (avgLiftPP / 100);
-      turnoutAdjustedVotes = votes + gotvAddedVotes;
-    }
-
-    const margin = votes - needVotes;
-    const marginTA = turnoutAdjustedVotes - needVotes;
-
-    margins[i] = margin;
-    wins[i] = (margin >= 0) ? 1 : 0;
-
-    turnoutAdjustedVotesArr[i] = turnoutAdjustedVotes;
-    winsTA[i] = (marginTA >= 0) ? 1 : 0;
-
-    samples.contactRate[i] = cr;
-    samples.persuasionRate[i] = pr;
-    samples.turnoutReliability[i] = rr;
-    samples.doorsPerHour[i] = dph;
-    samples.callsPerHour[i] = cph;
-    samples.volunteerMult[i] = vm;
-    if (turnoutEnabled && mode === "advanced" && state.gotvMode === "advanced" && samples.gotvLift){ samples.gotvLift[i] = gotvLiftPP; }
-  }
-
-  const winProb = sum(wins) / runs;
-  const winProbTurnoutAdjusted = turnoutEnabled ? (sum(winsTA) / runs) : winProb;
-
-  const sorted = margins.slice().sort((a,b)=>a-b);
-  const median = quantileSorted(sorted, 0.50);
-  const p5 = quantileSorted(sorted, 0.05);
-  const p95 = quantileSorted(sorted, 0.95);
-
-  // Lightweight distribution for visualization (does not affect any calculations)
-  const buildHistogram = (sortedArr, bins = 44) => {
-    if (!sortedArr || !sortedArr.length) return null;
-    const lo = quantileSorted(sortedArr, 0.01);
-    const hi = quantileSorted(sortedArr, 0.99);
-    const min = isFinite(lo) ? lo : sortedArr[0];
-    const max = isFinite(hi) ? hi : sortedArr[sortedArr.length - 1];
-    const span = (max - min);
-    const safeSpan = (span === 0) ? 1 : span;
-    const b = Math.max(12, Math.min(80, Math.floor(bins)));
-    const counts = new Array(b).fill(0);
-    for (let i=0;i<sortedArr.length;i++){
-      const v = sortedArr[i];
-      if (!isFinite(v)) continue;
-      if (v < min || v > max) continue;
-      const t = (v - min) / safeSpan;
-      let idx = Math.floor(t * b);
-      if (idx < 0) idx = 0;
-      if (idx >= b) idx = b - 1;
-      counts[idx] += 1;
-    }
-    return { min, max, counts };
-  };
-  const histogram = buildHistogram(sorted, 44);
-
-  let turnoutAdjustedSummary = null;
-  if (turnoutEnabled){
-    const vSorted = turnoutAdjustedVotesArr.slice().sort((a,b)=>a-b);
-    turnoutAdjustedSummary = {
-      mean: mean(turnoutAdjustedVotesArr),
-      p10: quantileSorted(vSorted, 0.10),
-      p50: quantileSorted(vSorted, 0.50),
-      p90: quantileSorted(vSorted, 0.90),
-    };
-  }
-
-  const sens = computeSensitivity(samples, margins);
-
-  const summary = {
-    runs,
-    winProb,
-    winProbTurnoutAdjusted,
-    median,
-    p5,
-    p95,
-    confidenceEnvelope: computeConfidenceEnvelope({ margins, sortedMargins: sorted, winProb, winRule: "gte0" }),
-    histogram,
-    sensitivity: sens,
-    riskLabel: riskLabelFromWinProb(winProb),
-    needVotes,
-    turnoutAdjusted: turnoutAdjustedSummary,
-  };
-
-  return summary;
+function runMonteCarloSim({ scenario, scenarioState, res, weeks, needVotes, runs, seed }){
+  // Delegated to core Monte Carlo via facade (no loops in UI).
+  return engine.runMonteCarlo({ scenario: scenario || scenarioState || state, res, weeks, needVotes, runs, seed });
 }
 
 function buildBasicSpecs({ baseCr, basePr, baseRr, baseDph, baseCph, baseVol, volBoost = 0 }){
