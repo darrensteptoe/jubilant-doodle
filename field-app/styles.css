@@ -6,6 +6,8 @@
   --rule:#d0d7de;
   --panel:#ffffff;
   --panel2:rgba(255,255,255,0.78);
+  --panel-border: rgba(31,35,40,0.14);
+  --panel-shadow: 0 1px 2px rgba(0,0,0,0.04), 0 8px 24px rgba(0,0,0,0.06);
 
   --surface: color-mix(in srgb, var(--panel) 92%, var(--bg));
   --surface-subtle: color-mix(in srgb, var(--panel) 86%, var(--bg));
@@ -124,6 +126,8 @@ body.dark{
   --rule:#30363d;
   --panel:#161b22;
   --panel2:rgba(22,27,34,0.78);
+  --panel-border: rgba(240,246,252,0.14);
+  --panel-shadow: 0 1px 2px rgba(0,0,0,0.45), 0 14px 34px rgba(0,0,0,0.35);
   --shadow:0 2px 14px rgba(0,0,0,0.45), 0 18px 40px rgba(0,0,0,0.35);
   --shadow2:0 1px 10px rgba(0,0,0,0.35);
   --focus:rgba(255,255,255,0.85);
@@ -291,6 +295,29 @@ body.dark{
 }
 .card-body{ margin-top: 6px; }
 .card-footer{ margin-top: 12px; }
+
+/* Subtle in-card watermark (ecosystem branding) */
+.card--contact .card-header{ position:relative; overflow:hidden; }
+.card--contact .card-header > *{ position:relative; z-index:1; }
+.card--contact .card-header::after{
+  content:"";
+  position:absolute;
+  right:14px;
+  top:50%;
+  transform:translateY(-50%);
+  width:96px;
+  height:96px;
+  background: url("./assets/marks/phone-handset.svg") no-repeat center;
+  background-size:contain;
+  opacity:0.10;
+  filter:
+    drop-shadow(-1px -1px 0 rgba(255,255,255,0.75))
+    drop-shadow(1px 1px 0 rgba(0,0,0,0.14));
+  pointer-events:none;
+}
+@media (max-width: 720px){
+  .card--contact .card-header::after{ width:72px; height:72px; right:10px; opacity:0.08; }
+}
 
 /* Back-compat: treat legacy classes as aliases */
 .card-head{ display:flex; align-items:flex-start; justify-content:space-between; gap:12px; margin-bottom:10px; }
@@ -1641,3 +1668,76 @@ button,
 }
 
 :where(button, .btn, .tab, input[type="button"], input[type="submit"]):active{ transform:none !important; }
+
+/* =========================================================
+   Ecosystem Bubble Normalization (UI-only)
+   - Pure white bubbles with subtle border + shadow (Option A)
+   - No engine / import / ID changes
+   ========================================================= */
+
+/* Canonical bubble */
+.card{
+  background: var(--panel) !important;
+  border: 1px solid var(--panel-border) !important;
+  border-left: 1px solid var(--panel-border) !important;
+  border-radius: var(--radius) !important;
+  box-shadow: var(--panel-shadow) !important;
+  padding: 20px !important;
+}
+
+/* Section cards: keep same bubble language, slightly more breathing room */
+.card-section{
+  padding: 20px !important;
+  border-radius: calc(var(--radius) + 2px) !important;
+}
+
+/* Header normalization: stack by default; split only when requested */
+.card-header{
+  display: block !important;
+  margin-bottom: 14px !important;
+}
+.card-header--split{
+  display:flex !important;
+  align-items:flex-start !important;
+  justify-content:space-between !important;
+  gap: 14px !important;
+}
+
+.card-title{
+  font-size: 16px !important;
+  font-weight: 750 !important;
+  letter-spacing: -0.01em !important;
+  margin: 0 !important;
+}
+
+/* Treat help text in headers as subtitle by default */
+.card-header .help-text,
+.card-header .card-subtitle{
+  margin-top: 6px !important;
+  font-size: 13px !important;
+  color: var(--muted) !important;
+  line-height: 1.4 !important;
+}
+
+/* Consistent actions area */
+.card-actions{
+  display:flex;
+  gap:10px;
+  align-items:center;
+}
+
+/* Gentle internal rhythm */
+.card-body > * + *{ margin-top: 16px; }
+
+/* Nested surfaces: keep them light and consistent (no gray cards) */
+.card .card,
+.card .kpi,
+.card .mini,
+.card .metric,
+.card .tile,
+.card .pillbox,
+.card .table-wrap{
+  background: var(--surface) !important;
+  border: 1px solid color-mix(in srgb, var(--panel-border) 75%, transparent) !important;
+  box-shadow: none !important;
+}
