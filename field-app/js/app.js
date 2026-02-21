@@ -3187,7 +3187,6 @@ function renderWeeklyOpsInsights(res, weeks){
   }
 
   for (const a of actions.slice(0, 4)) addBullet(els.wkActionsList, a);
-}to absorb volatility (bad weeks, weather, volunteer drop-off) or to front-load early vote chasing.");
     }
   }
 
