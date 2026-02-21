@@ -3185,11 +3185,6 @@ function renderWeeklyOpsInsights(res, weeks){
       actions.push("Use the buffer to absorb volatility (bad weeks, weather, volunteer drop-off) or to front-load early vote chasing.");
     }
   }
-
-  for (const a of actions.slice(0, 4)) addBullet(els.wkActionsList, a);
-    }
-  }
-
   for (const a of actions.slice(0, 4)) addBullet(els.wkActionsList, a);
 }
 
