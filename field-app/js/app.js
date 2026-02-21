@@ -60,11 +60,11 @@ function mergeDailyLogIntoState(imported){
 
   let added = 0;
   let replaced = 0;
-  let rejected = 0;
+  let ignored = 0;
 
   for (const e of arr){
     const n = normalizeDailyLogEntry(e);
-    if (!n){ rejected++; continue; }
+    if (!n){ ignored++; continue; }
     const prev = byDate.get(n.date);
     if (!prev){
       byDate.set(n.date, n);
@@ -78,6 +78,8 @@ function mergeDailyLogIntoState(imported){
     if (takeImported){
       byDate.set(n.date, n);
       replaced++;
+    } else {
+      ignored++;
     }
   }
 
@@ -88,7 +90,7 @@ function mergeDailyLogIntoState(imported){
   render();
   persist();
 
-  return { ok: true, msg: `Merged daily log: +${added} new, ${replaced} updated, ${rejected} rejected` };
+  return { ok: true, msg: `Merged daily log: ${added} new, ${replaced} updated, ${ignored} ignored` };
 }
 
 function exportDailyLog(){
@@ -345,8 +347,13 @@ const els = {
   wkBanner: document.getElementById("wkBanner"),
 
   wkLeversIntro: document.getElementById("wkLeversIntro"),
-  wkLeversList: document.getElementById("wkLeversList"),
+  wkBestMovesIntro: document.getElementById("wkBestMovesIntro"),
+  wkBestMovesList: document.getElementById("wkBestMovesList"),
+  wkLeversTbody: document.getElementById("wkLeversTbody"),
+  wkLeversFoot: document.getElementById("wkLeversFoot"),
   wkActionsList: document.getElementById("wkActionsList"),
+  wkUndoActionBtn: document.getElementById("wkUndoActionBtn"),
+  wkUndoActionMsg: document.getElementById("wkUndoActionMsg"),
   wkLastUpdate: document.getElementById("wkLastUpdate"),
   wkFreshNote: document.getElementById("wkFreshNote"),
   wkRollingAttempts: document.getElementById("wkRollingAttempts"),
@@ -358,7 +365,29 @@ const els = {
   wkRollingAPH: document.getElementById("wkRollingAPH"),
   wkRollingAPHNote: document.getElementById("wkRollingAPHNote"),
   wkFreshStatus: document.getElementById("wkFreshStatus"),
-
+  wkReqConvosWeek: document.getElementById("wkReqConvosWeek"),
+    wkActConvos7: document.getElementById("wkActConvos7"),
+    wkActConvosNote: document.getElementById("wkActConvosNote"),
+    wkGapConvos: document.getElementById("wkGapConvos"),
+    wkConvosPaceTag: document.getElementById("wkConvosPaceTag"),
+  
+    wkReqAttemptsWeek: document.getElementById("wkReqAttemptsWeek"),
+    wkActAttempts7: document.getElementById("wkActAttempts7"),
+    wkActAttemptsNote: document.getElementById("wkActAttemptsNote"),
+    wkGapAttempts: document.getElementById("wkGapAttempts"),
+    wkAttemptsPaceTag: document.getElementById("wkAttemptsPaceTag"),
+  
+    wkReqDoorAttemptsWeek: document.getElementById("wkReqDoorAttemptsWeek"),
+    wkReqCallAttemptsWeek: document.getElementById("wkReqCallAttemptsWeek"),
+    wkImpliedConvosWeek: document.getElementById("wkImpliedConvosWeek"),
+    wkImpliedConvosNote: document.getElementById("wkImpliedConvosNote"),
+  
+    wkFinishConvos: document.getElementById("wkFinishConvos"),
+    wkFinishAttempts: document.getElementById("wkFinishAttempts"),
+    wkPaceStatus: document.getElementById("wkPaceStatus"),
+    wkPaceNote: document.getElementById("wkPaceNote"),
+    wkExecBanner: document.getElementById("wkExecBanner"),
+  
   // Daily log import/export (analyst page)
   dailyLogExportBtn: document.getElementById("dailyLogExportBtn"),
   dailyLogImportText: document.getElementById("dailyLogImportText"),
@@ -684,6 +713,29 @@ let lastResultsSnapshot = null;
 let selfTestGateStatus = engine.selfTest.SELFTEST_GATE.UNVERIFIED;
 let lastExportHash = null;
 const scenarioMgr = createScenarioManager({ max: 5 });
+
+let lastAppliedWeeklyAction = null;
+
+function syncWeeklyUndoUI(){
+  if (!els.wkUndoActionBtn) return;
+  const has = !!lastAppliedWeeklyAction;
+  els.wkUndoActionBtn.disabled = !has;
+  if (els.wkUndoActionMsg) els.wkUndoActionMsg.textContent = has ? (lastAppliedWeeklyAction.label || "") : "";
+}
+
+function undoLastWeeklyAction(){
+  if (!lastAppliedWeeklyAction) return;
+  const prev = lastAppliedWeeklyAction.prevState;
+  const createdId = lastAppliedWeeklyAction.createdScenarioId;
+  lastAppliedWeeklyAction = null;
+  if (createdId) scenarioMgr.remove(createdId);
+  state = prev;
+  applyStateToUI();
+  render();
+  persist();
+  syncWeeklyUndoUI();
+}
+
 const recentErrors = [];
 const MAX_ERRORS = 20;
 let backupTimer = null;
@@ -1127,6 +1179,7 @@ function wireEvents(){
     // Analyst tools: align assumptions to rolling actuals
     if (els.applyRollingCRBtn) els.applyRollingCRBtn.addEventListener("click", () => { safeCall(() => { applyRollingRateToAssumption("contact"); }); });
     if (els.applyRollingSRBtn) els.applyRollingSRBtn.addEventListener("click", () => { safeCall(() => { applyRollingRateToAssumption("support"); }); });
+    if (els.wkUndoActionBtn) els.wkUndoActionBtn.addEventListener("click", () => { safeCall(() => { undoLastWeeklyAction(); }); });
   });
 
 
@@ -1881,6 +1934,219 @@ function renderWeeklyOps(res, weeks){
       els.wkBanner.textContent = bannerMsg;
     }
   }
+
+
+  const ctx = computeWeeklyOpsContext(res, weeks);
+  renderWeeklyExecutionStatus(ctx);
+}
+
+function computeLastNLogSums(n){
+  const log = Array.isArray(state.ui?.dailyLog) ? state.ui.dailyLog : null;
+  if (!log || !log.length) return { hasLog:false, n:0, days:null, sumAttempts:0, sumConvos:0, lastDate:null };
+
+  const sorted = [...log].filter(x => x && x.date).sort((a,b) => String(a.date).localeCompare(String(b.date)));
+  const lastN = sorted.slice(-Math.max(1, n|0));
+
+  let sumAttempts = 0;
+  let sumConvos = 0;
+
+  for (const x of lastN){
+    const doors = safeNum(x?.doors) || 0;
+    const calls = safeNum(x?.calls) || 0;
+    const attempts = (x?.attempts != null && x.attempts !== "") ? (safeNum(x.attempts) || 0) : (doors + calls);
+    const convos = safeNum(x?.convos) || 0;
+    sumAttempts += attempts;
+    sumConvos += convos;
+  }
+
+  const firstDate = lastN[0]?.date ? new Date(String(lastN[0].date)) : null;
+  const lastDate = lastN[lastN.length - 1]?.date ? new Date(String(lastN[lastN.length - 1].date)) : null;
+  const days = (firstDate && lastDate && isFinite(firstDate) && isFinite(lastDate))
+    ? Math.max(1, Math.round((lastDate - firstDate) / (24*3600*1000)) + 1)
+    : lastN.length;
+
+  return {
+    hasLog:true,
+    n:lastN.length,
+    days,
+    sumAttempts,
+    sumConvos,
+    lastDate: lastN[lastN.length - 1]?.date || null
+  };
+}
+
+function setTag(el, kind, text){
+  if (!el) return;
+  el.classList.remove("ok","warn","bad");
+  if (kind) el.classList.add(kind);
+  el.textContent = text;
+}
+
+function fmtISODate(d){
+  try{
+    const dt = (d instanceof Date) ? d : new Date(d);
+    if (!isFinite(dt)) return "—";
+    const y = dt.getFullYear();
+    const m = String(dt.getMonth() + 1).padStart(2,"0");
+    const da = String(dt.getDate()).padStart(2,"0");
+    return `${y}-${m}-${da}`;
+  } catch {
+    return "—";
+  }
+}
+
+function renderWeeklyExecutionStatus(ctx){
+  const reqConvos = ctx?.convosPerWeek;
+  const reqAttempts = ctx?.attemptsPerWeek;
+
+  if (els.wkReqConvosWeek) els.wkReqConvosWeek.textContent = (reqConvos == null || !isFinite(reqConvos)) ? "—" : fmtInt(Math.ceil(reqConvos));
+  if (els.wkReqAttemptsWeek) els.wkReqAttemptsWeek.textContent = (reqAttempts == null || !isFinite(reqAttempts)) ? "—" : fmtInt(Math.ceil(reqAttempts));
+
+  const last7 = computeLastNLogSums(7);
+
+  const clearAll = () => {
+    if (els.wkActConvos7) els.wkActConvos7.textContent = "—";
+    if (els.wkActAttempts7) els.wkActAttempts7.textContent = "—";
+    if (els.wkGapConvos) els.wkGapConvos.textContent = "—";
+    if (els.wkGapAttempts) els.wkGapAttempts.textContent = "—";
+    if (els.wkActConvosNote) els.wkActConvosNote.textContent = "Insufficient field data.";
+    if (els.wkActAttemptsNote) els.wkActAttemptsNote.textContent = "Insufficient field data.";
+    setTag(els.wkConvosPaceTag, null, "—");
+    setTag(els.wkAttemptsPaceTag, null, "—");
+    if (els.wkReqDoorAttemptsWeek) els.wkReqDoorAttemptsWeek.textContent = "—";
+    if (els.wkReqCallAttemptsWeek) els.wkReqCallAttemptsWeek.textContent = "—";
+    if (els.wkImpliedConvosWeek) els.wkImpliedConvosWeek.textContent = "—";
+    if (els.wkImpliedConvosNote) els.wkImpliedConvosNote.textContent = "Insufficient field data.";
+    if (els.wkFinishConvos) els.wkFinishConvos.textContent = "—";
+    if (els.wkFinishAttempts) els.wkFinishAttempts.textContent = "—";
+    if (els.wkPaceStatus) els.wkPaceStatus.textContent = "—";
+    if (els.wkPaceNote) els.wkPaceNote.textContent = "Insufficient field data.";
+    if (els.wkExecBanner){
+      els.wkExecBanner.hidden = true;
+      els.wkExecBanner.classList.remove("ok","warn","bad");
+      els.wkExecBanner.classList.add("warn");
+      els.wkExecBanner.textContent = "";
+    }
+  };
+
+  if (!last7.hasLog || last7.n === 0){
+    clearAll();
+    return;
+  }
+
+  const actualConvos = last7.sumConvos;
+  const actualAttempts = last7.sumAttempts;
+
+  if (els.wkActConvos7) els.wkActConvos7.textContent = fmtInt(Math.round(actualConvos));
+  if (els.wkActAttempts7) els.wkActAttempts7.textContent = fmtInt(Math.round(actualAttempts));
+  if (els.wkActConvosNote) els.wkActConvosNote.textContent = `${last7.n} entries over ~${last7.days} day(s) · last: ${last7.lastDate || "—"}`;
+  if (els.wkActAttemptsNote) els.wkActAttemptsNote.textContent = `${last7.n} entries over ~${last7.days} day(s) · last: ${last7.lastDate || "—"}`;
+
+  const paceKind = (req, actual) => {
+    if (req == null || !isFinite(req) || req <= 0) return { kind:null, label:"—", gap:null };
+    const gap = actual - req;
+    if (actual >= req) return { kind:"ok", label:"On pace", gap };
+    if (actual >= req * 0.9) return { kind:"warn", label:"Within 10%", gap };
+    return { kind:"bad", label:"Behind", gap };
+  };
+
+  const convosPace = paceKind(reqConvos, actualConvos);
+  const attemptsPace = paceKind(reqAttempts, actualAttempts);
+
+  if (els.wkGapConvos){
+    els.wkGapConvos.textContent = (convosPace.gap == null) ? "—" : ((convosPace.gap >= 0) ? `+${fmtInt(Math.round(convosPace.gap))}` : `${fmtInt(Math.round(convosPace.gap))}`);
+  }
+  if (els.wkGapAttempts){
+    els.wkGapAttempts.textContent = (attemptsPace.gap == null) ? "—" : ((attemptsPace.gap >= 0) ? `+${fmtInt(Math.round(attemptsPace.gap))}` : `${fmtInt(Math.round(attemptsPace.gap))}`);
+  }
+
+  setTag(els.wkConvosPaceTag, convosPace.kind, convosPace.label);
+  setTag(els.wkAttemptsPaceTag, attemptsPace.kind, attemptsPace.label);
+
+  const doorShare = (ctx?.doorShare != null && isFinite(ctx.doorShare)) ? clamp(ctx.doorShare, 0, 1) : null;
+  const reqDoorAttempts = (reqAttempts != null && isFinite(reqAttempts) && doorShare != null) ? (reqAttempts * doorShare) : null;
+  const reqCallAttempts = (reqAttempts != null && isFinite(reqAttempts) && doorShare != null) ? (reqAttempts * (1 - doorShare)) : null;
+
+  if (els.wkReqDoorAttemptsWeek) els.wkReqDoorAttemptsWeek.textContent = (reqDoorAttempts == null) ? "—" : fmtInt(Math.ceil(reqDoorAttempts));
+  if (els.wkReqCallAttemptsWeek) els.wkReqCallAttemptsWeek.textContent = (reqCallAttempts == null) ? "—" : fmtInt(Math.ceil(reqCallAttempts));
+
+  const rollingCR = (actualAttempts > 0) ? (actualConvos / actualAttempts) : null;
+  if (els.wkImpliedConvosWeek){
+    if (rollingCR == null || reqAttempts == null || !isFinite(reqAttempts)){
+      els.wkImpliedConvosWeek.textContent = "—";
+    } else {
+      els.wkImpliedConvosWeek.textContent = fmtInt(Math.round(reqAttempts * rollingCR));
+    }
+  }
+  if (els.wkImpliedConvosNote){
+    if (rollingCR == null){
+      els.wkImpliedConvosNote.textContent = "Insufficient field data.";
+    } else {
+      const pct = Math.round(rollingCR * 1000) / 10;
+      els.wkImpliedConvosNote.textContent = `Uses rolling 7-entry contact rate (${pct}%)`;
+    }
+  }
+
+  const paceAttemptsPerDay = (last7.days && last7.days > 0) ? (actualAttempts / last7.days) : null;
+  const paceConvosPerDay = (last7.days && last7.days > 0) ? (actualConvos / last7.days) : null;
+
+  const finishFrom = (total, pacePerDay) => {
+    if (total == null || !isFinite(total) || total <= 0) return { date:null, note:"No target" };
+    if (pacePerDay == null || !isFinite(pacePerDay) || pacePerDay <= 0) return { date:null, note:"No measurable pace" };
+    const daysNeeded = Math.ceil(total / pacePerDay);
+    const d = new Date();
+    d.setHours(12,0,0,0);
+    d.setDate(d.getDate() + daysNeeded);
+    return { date:d, note:`~${fmtInt(daysNeeded)} day(s) at current pace` };
+  };
+
+  const convFinish = finishFrom(ctx?.convosNeeded ?? (ctx?.convosPerWeek != null && ctx?.weeks != null ? ctx.convosPerWeek * ctx.weeks : null), paceConvosPerDay);
+  const attFinish = finishFrom(ctx?.attemptsNeeded ?? (ctx?.attemptsPerWeek != null && ctx?.weeks != null ? ctx.attemptsPerWeek * ctx.weeks : null), paceAttemptsPerDay);
+
+  if (els.wkFinishConvos) els.wkFinishConvos.textContent = convFinish.date ? fmtISODate(convFinish.date) : (convFinish.note || "—");
+  if (els.wkFinishAttempts) els.wkFinishAttempts.textContent = attFinish.date ? fmtISODate(attFinish.date) : (attFinish.note || "—");
+
+  let paceStatus = "—";
+  let paceNote = "";
+  let bannerKind = null;
+
+  const worst = (a,b) => {
+    const rank = { ok:3, warn:2, bad:1, null:0, undefined:0 };
+    return (rank[a] <= rank[b]) ? a : b;
+  };
+
+  bannerKind = worst(convosPace.kind, attemptsPace.kind);
+
+  if (bannerKind === "ok"){
+    paceStatus = "On pace";
+    paceNote = "Last 7-entry pace meets or exceeds weekly requirement.";
+  } else if (bannerKind === "warn"){
+    paceStatus = "Tight";
+    paceNote = "Within 10% of weekly requirement. Any slip risks missing timeline.";
+  } else if (bannerKind === "bad"){
+    paceStatus = "Behind";
+    paceNote = "Behind weekly requirement by more than 10%.";
+  } else {
+    paceStatus = "—";
+    paceNote = "Set goal + weeks remaining to compute requirement.";
+  }
+
+  if (els.wkPaceStatus) els.wkPaceStatus.textContent = paceStatus;
+  if (els.wkPaceNote) els.wkPaceNote.textContent = paceNote;
+
+  if (els.wkExecBanner){
+    const show = (bannerKind === "ok" || bannerKind === "warn" || bannerKind === "bad");
+    els.wkExecBanner.hidden = !show;
+    if (show){
+      els.wkExecBanner.classList.remove("ok","warn","bad");
+      els.wkExecBanner.classList.add(bannerKind);
+      const a = (reqAttempts != null && isFinite(reqAttempts)) ? Math.ceil(reqAttempts) : null;
+      const c = (reqConvos != null && isFinite(reqConvos)) ? Math.ceil(reqConvos) : null;
+      const ar = Math.round(actualAttempts);
+      const crn = Math.round(actualConvos);
+      els.wkExecBanner.textContent = `Last 7: ${fmtInt(crn)} convos / ${fmtInt(ar)} attempts vs required ${c != null ? fmtInt(c) : "—"} convos / ${a != null ? fmtInt(a) : "—"} attempts per week.`;
+    }
+  }
 }
 
 function computeWeeklyOpsContext(res, weeks){
@@ -1931,6 +2197,8 @@ function computeWeeklyOpsContext(res, weeks){
     weeks,
     sr,
     cr,
+    convosNeeded,
+    attemptsNeeded,
     convosPerWeek,
     attemptsPerWeek,
     cap,
@@ -2040,225 +2308,391 @@ function applyRollingRateToAssumption(kind){
     }
     state.supportRatePct = v;
     if (els.supportRatePct) els.supportRatePct.value = String(v);
-    if (els.applyRollingMsg) els.applyRollingMsg.textContent = `Set assumed support rate to ${v}%`;
-  } else {
-    if (els.applyRollingMsg) els.applyRollingMsg.textContent = "Unknown";
-    return;
+    if (els.applyRollingMsg) els.applyRollingMsg.textContent = `Set assumed support rate to %`;
+  }
+}
+
+
+function applyWeeklyLeverScenario(lever, ctx){
+  if (!lever) return;
+  const prevState = structuredClone(state);
+  const next = structuredClone(state);
+
+  const asNum = (v) => {
+    const n = Number(v);
+    return Number.isFinite(n) ? n : null;
+  };
+
+  if (lever.key === "org"){
+    const v = asNum(next.orgCount) ?? 0;
+    next.orgCount = v + 1;
+  } else if (lever.key === "orgHr"){
+    const v = asNum(next.orgHoursPerWeek) ?? 0;
+    next.orgHoursPerWeek = v + 1;
+  } else if (lever.key === "volMult"){
+    const v = asNum(next.volunteerMultBase) ?? 0;
+    next.volunteerMultBase = Math.round((v + 0.10) * 100) / 100;
+  } else if (lever.key === "dph"){
+    const v = asNum(next.doorsPerHour3) ?? 0;
+    next.doorsPerHour3 = v + 1;
+  } else if (lever.key === "cph"){
+    const v = asNum(next.callsPerHour3) ?? 0;
+    next.callsPerHour3 = v + 1;
+  } else if (lever.key === "mix"){
+    const d = asNum(next.channelDoorPct);
+    const cur = d == null ? (ctx?.doorShare != null ? ctx.doorShare * 100 : 50) : d;
+    const doorIsFaster = (ctx?.doorsPerHour != null && ctx?.callsPerHour != null) ? (ctx.doorsPerHour >= ctx.callsPerHour) : true;
+    const nextPct = clamp(cur + (doorIsFaster ? 10 : -10), 0, 100);
+    next.channelDoorPct = Math.round(nextPct);
+  } else if (lever.key === "sr"){
+    const v = asNum(next.supportRatePct) ?? 0;
+    next.supportRatePct = Math.round((v + 1) * 10) / 10;
+  } else if (lever.key === "cr"){
+    const v = asNum(next.contactRatePct) ?? 0;
+    next.contactRatePct = Math.round((v + 1) * 10) / 10;
+  } else if (lever.key === "weeks"){
+    const v = asNum(next.weeksRemaining);
+    if (v != null){
+      next.weeksRemaining = Math.round((v + 1) * 10) / 10;
+    } else if (ctx?.weeks != null){
+      next.weeksRemaining = Math.round((ctx.weeks + 1) * 10) / 10;
+    } else {
+      next.weeksRemaining = 1;
+    }
   }
 
-  markMcStale();
+  const baseName = String(state.scenarioName || "Scenario");
+  const label = String(lever.label || "Action");
+  next.scenarioName = baseName + " • " + label;
+
+  const created = scenarioMgr.add({
+    label: next.scenarioName,
+    snapshot: next,
+    engine,
+    modelVersion: engine.snapshot.MODEL_VERSION
+  });
+
+  lastAppliedWeeklyAction = {
+    label: "Applied: " + label,
+    prevState,
+    createdScenarioId: created?.id || null
+  };
+
+  state = next;
+  applyStateToUI();
   render();
   persist();
+  syncWeeklyUndoUI();
 }
 
 function renderWeeklyOpsInsights(res, weeks){
-  if (!els.wkLeversList || !els.wkActionsList || !els.wkLeversIntro) return;
+  if (!els.wkLeversIntro || !els.wkActionsList || !els.wkBestMovesList || !els.wkLeversTbody) return;
 
   const ctx = computeWeeklyOpsContext(res, weeks);
-  const fmt = (v) => (v == null || !isFinite(v)) ? "—" : fmtInt(Math.round(v));
   const fmtCeil = (v) => (v == null || !isFinite(v)) ? "—" : fmtInt(Math.ceil(v));
+  const fmtNum1 = (v) => (v == null || !isFinite(v)) ? "—" : (Number(v).toFixed(1));
 
-  // Clear lists
-  els.wkLeversList.innerHTML = "";
+  els.wkBestMovesList.innerHTML = "";
   els.wkActionsList.innerHTML = "";
+  els.wkLeversTbody.innerHTML = "";
 
-  // Intro / gating
+  syncWeeklyUndoUI();
+
+  if (els.wkLeversFoot) els.wkLeversFoot.hidden = false;
+  if (els.wkBestMovesIntro) els.wkBestMovesIntro.hidden = false;
+
   if (ctx.goal <= 0){
     els.wkLeversIntro.textContent = "No operational gap to analyze (goal is 0 under current inputs).";
     addBullet(els.wkActionsList, "Set a goal (Support IDs needed) or adjust win path assumptions to generate a real plan.");
+    if (els.wkBestMovesIntro) els.wkBestMovesIntro.hidden = true;
+    if (els.wkLeversFoot) els.wkLeversFoot.hidden = true;
     return;
   }
   if (ctx.weeks == null || ctx.weeks <= 0){
     els.wkLeversIntro.textContent = "Timeline is missing. Set election date or weeks remaining to compute weekly pressure.";
     addBullet(els.wkActionsList, "Enter an election date (or weeks remaining) so the plan can compute per-week targets.");
+    if (els.wkBestMovesIntro) els.wkBestMovesIntro.hidden = true;
+    if (els.wkLeversFoot) els.wkLeversFoot.hidden = true;
     return;
   }
   if (ctx.sr == null || ctx.sr <= 0 || ctx.cr == null || ctx.cr <= 0){
     els.wkLeversIntro.textContent = "Rates are missing. Enter Support rate and Contact rate to estimate workload.";
     addBullet(els.wkActionsList, "Fill Support rate (%) and Contact rate (%) in Phase 2.");
+    if (els.wkBestMovesIntro) els.wkBestMovesIntro.hidden = true;
+    if (els.wkLeversFoot) els.wkLeversFoot.hidden = true;
     return;
   }
   if (ctx.capTotal == null || !isFinite(ctx.capTotal)){
     els.wkLeversIntro.textContent = "Capacity inputs are incomplete. Fill Phase 3 execution inputs to compute what is executable.";
     addBullet(els.wkActionsList, "Enter organizers, hours/week, doors/hr, calls/hr, and channel split in Phase 3.");
+    if (els.wkBestMovesIntro) els.wkBestMovesIntro.hidden = true;
+    if (els.wkLeversFoot) els.wkLeversFoot.hidden = true;
     return;
   }
 
-  const gap = ctx.gap;
-  const isGap = (gap != null && gap > 0);
-  els.wkLeversIntro.textContent = isGap
-    ? `You are short by ~${fmtCeil(gap)} attempts/week. These levers estimate what closes that gap fastest.`
-    : "You are currently feasible (capacity covers attempts/week). These levers show what would create extra buffer.";
-
   const baseReq = ctx.attemptsPerWeek;
   const baseCap = ctx.capTotal;
+  const gap = (baseReq != null && baseCap != null) ? Math.max(0, baseReq - baseCap) : null;
+  const isGap = (gap != null && gap > 0);
+
+  els.wkLeversIntro.textContent = isGap
+    ? `You are short by ~${fmtCeil(gap)} attempts/week. These levers estimate attempts/week relief in consistent units.`
+    : "You are currently feasible (capacity covers attempts/week). These levers estimate buffer gained per unit.";
+
+  const capTotal = (p) => {
+    const out = coreComputeCapacityBreakdown(p);
+    return out?.total;
+  };
 
   const levers = [];
 
-  // Capacity levers
+  const push = (x) => {
+    if (!x) return;
+    if (x.impact == null || !isFinite(x.impact) || x.impact <= 0) return;
+    const impactUse = isGap ? Math.min(x.impact, gap) : x.impact;
+    const eff = (x.costScalar != null && isFinite(x.costScalar) && x.costScalar > 0) ? (impactUse / x.costScalar) : null;
+    levers.push({ ...x, impactUse, eff });
+  };
+
+  const baseCapParams = {
+    weeks: 1,
+    orgCount: ctx.orgCount,
+    orgHoursPerWeek: ctx.orgHoursPerWeek,
+    volunteerMult: ctx.volunteerMult,
+    doorShare: ctx.doorShare,
+    doorsPerHour: ctx.doorsPerHour,
+    callsPerHour: ctx.callsPerHour
+  };
+
   if (ctx.orgCount != null && ctx.orgHoursPerWeek != null && ctx.volunteerMult != null){
-    const capPlusOrg = coreComputeCapacityBreakdown({
-      weeks: 1,
-      orgCount: ctx.orgCount + 1,
-      orgHoursPerWeek: ctx.orgHoursPerWeek,
-      volunteerMult: ctx.volunteerMult,
-      doorShare: ctx.doorShare,
-      doorsPerHour: ctx.doorsPerHour,
-      callsPerHour: ctx.callsPerHour
-    })?.total;
-    if (capPlusOrg != null && baseCap != null) levers.push({
+    const plusOrg = capTotal({ ...baseCapParams, orgCount: ctx.orgCount + 1 });
+    if (plusOrg != null && baseCap != null) push({
       kind: "capacity",
+      key: "org",
       label: "+1 organizer",
-      delta: capPlusOrg - baseCap
+      impact: plusOrg - baseCap,
+      costLabel: "1 organizer",
+      costScalar: 1,
+      effUnit: "per organizer"
     });
 
-    const capPlusHour = coreComputeCapacityBreakdown({
-      weeks: 1,
-      orgCount: ctx.orgCount,
-      orgHoursPerWeek: ctx.orgHoursPerWeek + 1,
-      volunteerMult: ctx.volunteerMult,
-      doorShare: ctx.doorShare,
-      doorsPerHour: ctx.doorsPerHour,
-      callsPerHour: ctx.callsPerHour
-    })?.total;
-    if (capPlusHour != null && baseCap != null) levers.push({
+    const plusHr = capTotal({ ...baseCapParams, orgHoursPerWeek: ctx.orgHoursPerWeek + 1 });
+    if (plusHr != null && baseCap != null){
+      const addedHours = Math.max(1, ctx.orgCount || 1);
+      push({
+        kind: "capacity",
+        key: "orgHr",
+        label: "+1 hour/week per organizer",
+        impact: plusHr - baseCap,
+        costLabel: `+1 hr/org (= ${fmtCeil(addedHours)} org-hrs/wk)`,
+        costScalar: addedHours,
+        effUnit: "per org-hour"
+      });
+    }
+
+    const plusVol = capTotal({ ...baseCapParams, volunteerMult: ctx.volunteerMult + 0.10 });
+    if (plusVol != null && baseCap != null) push({
       kind: "capacity",
-      label: "+1 hour/week per organizer",
-      delta: capPlusHour - baseCap
+      key: "volMult",
+      label: "+10% volunteer multiplier",
+      impact: plusVol - baseCap,
+      costLabel: "+10% volunteer mult",
+      costScalar: 0.10,
+      effUnit: "per +10% mult"
     });
   }
 
   if (ctx.doorsPerHour != null){
-    const capFasterDoors = coreComputeCapacityBreakdown({
-      weeks: 1,
-      orgCount: ctx.orgCount,
-      orgHoursPerWeek: ctx.orgHoursPerWeek,
-      volunteerMult: ctx.volunteerMult,
-      doorShare: ctx.doorShare,
-      doorsPerHour: ctx.doorsPerHour + 5,
-      callsPerHour: ctx.callsPerHour
-    })?.total;
-    if (capFasterDoors != null && baseCap != null) levers.push({
+    const plusDoorHr = capTotal({ ...baseCapParams, doorsPerHour: ctx.doorsPerHour + 1 });
+    if (plusDoorHr != null && baseCap != null) push({
       kind: "capacity",
-      label: "+5 doors/hr",
-      delta: capFasterDoors - baseCap
+      key: "dph",
+      label: "+1 door/hr",
+      impact: plusDoorHr - baseCap,
+      costLabel: "+1 door/hr",
+      costScalar: 1,
+      effUnit: "per +1 door/hr"
     });
   }
 
   if (ctx.callsPerHour != null){
-    const capFasterCalls = coreComputeCapacityBreakdown({
-      weeks: 1,
-      orgCount: ctx.orgCount,
-      orgHoursPerWeek: ctx.orgHoursPerWeek,
-      volunteerMult: ctx.volunteerMult,
-      doorShare: ctx.doorShare,
-      doorsPerHour: ctx.doorsPerHour,
-      callsPerHour: ctx.callsPerHour + 10
-    })?.total;
-    if (capFasterCalls != null && baseCap != null) levers.push({
+    const plusCallHr = capTotal({ ...baseCapParams, callsPerHour: ctx.callsPerHour + 1 });
+    if (plusCallHr != null && baseCap != null) push({
       kind: "capacity",
-      label: "+10 calls/hr",
-      delta: capFasterCalls - baseCap
+      key: "cph",
+      label: "+1 call/hr",
+      impact: plusCallHr - baseCap,
+      costLabel: "+1 call/hr",
+      costScalar: 1,
+      effUnit: "per +1 call/hr"
     });
   }
 
-  // Channel mix lever (move 10 pts away from slower channel toward faster channel)
   if (ctx.doorShare != null && ctx.doorsPerHour != null && ctx.callsPerHour != null){
     const doorIsFaster = ctx.doorsPerHour >= ctx.callsPerHour;
     const shift = 0.10;
     const newShare = clamp(ctx.doorShare + (doorIsFaster ? shift : -shift), 0, 1);
-    const capShift = coreComputeCapacityBreakdown({
-      weeks: 1,
-      orgCount: ctx.orgCount,
-      orgHoursPerWeek: ctx.orgHoursPerWeek,
-      volunteerMult: ctx.volunteerMult,
-      doorShare: newShare,
-      doorsPerHour: ctx.doorsPerHour,
-      callsPerHour: ctx.callsPerHour
-    })?.total;
-    if (capShift != null && baseCap != null) levers.push({
+    const capShift = capTotal({ ...baseCapParams, doorShare: newShare });
+    if (capShift != null && baseCap != null) push({
       kind: "capacity",
+      key: "mix",
       label: `Shift mix +10 pts toward ${doorIsFaster ? "doors" : "calls"}`,
-      delta: capShift - baseCap
+      impact: capShift - baseCap,
+      costLabel: "10 pts mix shift",
+      costScalar: 10,
+      effUnit: "per 1 pt"
     });
   }
 
-  // Rate levers: +5 pts to CR or SR (percentage points)
-  const srPlus = Math.min(0.99, ctx.sr + 0.05);
-  const crPlus = Math.min(0.99, ctx.cr + 0.05);
-  if (baseReq != null){
-    const reqSrPlus = (ctx.goal > 0 && srPlus > 0 && ctx.weeks > 0) ? (ctx.goal / srPlus / ctx.cr / ctx.weeks) : null;
-    if (reqSrPlus != null) levers.push({ kind: "rates", label: "+5 pts support rate", delta: baseReq - reqSrPlus });
+  const pp = 0.01;
+  if (baseReq != null && isFinite(baseReq)){
+    const srPlus = Math.min(0.99, ctx.sr + pp);
+    const crPlus = Math.min(0.99, ctx.cr + pp);
 
-    const reqCrPlus = (ctx.goal > 0 && crPlus > 0 && ctx.weeks > 0) ? (ctx.goal / ctx.sr / crPlus / ctx.weeks) : null;
-    if (reqCrPlus != null) levers.push({ kind: "rates", label: "+5 pts contact rate", delta: baseReq - reqCrPlus });
+    const reqSrPlus = (ctx.goal > 0 && srPlus > 0 && ctx.cr > 0 && ctx.weeks > 0) ? (ctx.goal / srPlus / ctx.cr / ctx.weeks) : null;
+    if (reqSrPlus != null) push({
+      kind: "rates",
+      key: "sr",
+      label: "+1 pp support rate",
+      impact: baseReq - reqSrPlus,
+      costLabel: "+1 pp SR",
+      costScalar: 1,
+      effUnit: "per +1pp"
+    });
+
+    const reqCrPlus = (ctx.goal > 0 && crPlus > 0 && ctx.sr > 0 && ctx.weeks > 0) ? (ctx.goal / ctx.sr / crPlus / ctx.weeks) : null;
+    if (reqCrPlus != null) push({
+      kind: "rates",
+      key: "cr",
+      label: "+1 pp contact rate",
+      impact: baseReq - reqCrPlus,
+      costLabel: "+1 pp CR",
+      costScalar: 1,
+      effUnit: "per +1pp"
+    });
+
+    const wPlus = ctx.weeks + 1;
+    const reqWPlus = (ctx.goal > 0 && ctx.sr > 0 && ctx.cr > 0 && wPlus > 0) ? (ctx.goal / ctx.sr / ctx.cr / wPlus) : null;
+    if (reqWPlus != null) push({
+      kind: "timeline",
+      key: "weeks",
+      label: "+1 week timeline",
+      impact: baseReq - reqWPlus,
+      costLabel: "+1 week",
+      costScalar: 1,
+      effUnit: "per week"
+    });
   }
 
-  // Rank levers by impact (delta attempts/week closed). Capacity levers close gap by increasing capacity.
-  const scored = levers
-    .map(l => ({
-      ...l,
-      impact: (l.kind === "capacity") ? l.delta : l.delta
-    }))
-    .filter(l => l.impact != null && isFinite(l.impact))
-    .sort((a,b) => (b.impact - a.impact));
+  const usable = levers
+    .filter(x => x.impactUse != null && isFinite(x.impactUse) && x.impactUse > 0)
+    .sort((a,b) => (b.impactUse - a.impactUse));
 
-  const top = scored.slice(0, 5);
-  if (top.length === 0){
-    addBullet(els.wkLeversList, "No lever estimates available under current inputs.");
-    addBullet(els.wkActionsList, "Fill Phase 2 rates and Phase 3 capacity inputs to generate lever guidance.");
+  if (usable.length === 0){
+    addBullet(els.wkActionsList, "No lever estimates available under current inputs.");
+    if (els.wkBestMovesIntro) els.wkBestMovesIntro.hidden = true;
     return;
   }
 
-  for (const l of top){
-    const direction = (l.kind === "rates") ? "reduces required attempts" : "adds weekly capacity";
-    addBullet(els.wkLeversList, `${l.label}: ~${fmtCeil(l.impact)} attempts/week (${direction})`);
+  const bestByEff = [...usable]
+    .filter(x => x.eff != null && isFinite(x.eff))
+    .sort((a,b) => (b.eff - a.eff) || (b.impactUse - a.impactUse))
+    .slice(0, 3);
+
+  for (const l of bestByEff){
+    const li = document.createElement("li");
+    li.className = "actionItem";
+    const span = document.createElement("span");
+    span.textContent = `${l.label}: ~${fmtCeil(l.impactUse)} attempts/week (${fmtNum1(l.eff)} ${l.effUnit})`;
+    const btn = document.createElement("button");
+    btn.className = "btn btn-sm";
+    btn.type = "button";
+    btn.textContent = "Apply";
+    btn.addEventListener("click", () => { safeCall(() => { applyWeeklyLeverScenario(l, ctx); }); });
+    li.appendChild(span);
+    li.appendChild(btn);
+    els.wkBestMovesList.appendChild(li);
   }
 
-  // Actions: turn top levers into practical next steps (react to reality, if available)
-  const actions = [];
-  const bestCap = top.find(x => x.kind === "capacity");
-  const bestRate = top.find(x => x.kind === "rates");
-  const bestCr = top.find(x => x.kind === "rates" && /contact rate/i.test(x.label));
-  const bestSr = top.find(x => x.kind === "rates" && /support rate/i.test(x.label));
+  const rows = usable.slice(0, 10);
+  for (const l of rows){
+    const tr = document.createElement("tr");
+    const td1 = document.createElement("td");
+    const td2 = document.createElement("td");
+    const td3 = document.createElement("td");
+    const td4 = document.createElement("td");
+    const td5 = document.createElement("td");
+    td2.className = "num";
+    td4.className = "num";
+    td1.textContent = l.label;
+    td2.textContent = `~${fmtCeil(l.impactUse)}`;
+    td3.textContent = l.costLabel || "—";
+    td4.textContent = (l.eff == null || !isFinite(l.eff)) ? "—" : `${fmtNum1(l.eff)}`;
+
+    const btn = document.createElement("button");
+    btn.className = "btn btn-sm";
+    btn.type = "button";
+    btn.textContent = "Apply";
+    btn.addEventListener("click", () => { safeCall(() => { applyWeeklyLeverScenario(l, ctx); }); });
+    td5.appendChild(btn);
+
+    tr.appendChild(td1);
+    tr.appendChild(td2);
+    tr.appendChild(td3);
+    tr.appendChild(td4);
+    tr.appendChild(td5);
+    els.wkLeversTbody.appendChild(tr);
+  }
+
+  const bestCap = usable.filter(x => x.kind === "capacity").sort((a,b) => (b.impactUse - a.impactUse))[0] || null;
+  const bestRate = usable.filter(x => x.kind === "rates").sort((a,b) => (b.impactUse - a.impactUse))[0] || null;
+  const bestCr = usable.find(x => x.kind === "rates" && x.key === "cr") || null;
+  const bestSr = usable.find(x => x.kind === "rates" && x.key === "sr") || null;
 
   const drift = computeRealityDrift();
   const hasDrift = drift?.hasLog && drift?.flags?.length;
   const primary = drift?.primary || null;
 
+  const actions = [];
+
   if (isGap){
     if (hasDrift){
       if (primary === "productivity"){
-        if (bestCap) actions.push(`Reality check shows productivity below assumed. Close the gap by raising execution capacity first: ${bestCap.label} (≈ ${fmtCeil(bestCap.impact)} attempts/week).`);
-        if (bestCr) actions.push(`Then reduce workload by improving contact rate: ${bestCr.label} (≈ ${fmtCeil(bestCr.impact)} attempts/week fewer).`);
-        else if (bestRate) actions.push(`Then reduce workload by improving rates: ${bestRate.label} (≈ ${fmtCeil(bestRate.impact)} attempts/week fewer).`);
+        if (bestCap) actions.push(`Reality check shows productivity below assumed. Close the gap by raising execution capacity first: ${bestCap.label} (≈ ${fmtCeil(bestCap.impactUse)} attempts/week relief).`);
+        if (bestCr) actions.push(`Then reduce workload by improving contact rate: ${bestCr.label} (≈ ${fmtCeil(bestCr.impactUse)} attempts/week relief).`);
+        else if (bestRate) actions.push(`Then reduce workload by improving rates: ${bestRate.label} (≈ ${fmtCeil(bestRate.impactUse)} attempts/week relief).`);
       } else if (primary === "contact"){
-        if (bestCr) actions.push(`Reality check shows contact rate below assumed. Prioritize: ${bestCr.label} (≈ ${fmtCeil(bestCr.impact)} attempts/week fewer).`);
-        if (bestCap) actions.push(`If rate lift is slow, backstop with more capacity: ${bestCap.label} (≈ ${fmtCeil(bestCap.impact)} attempts/week).`);
+        if (bestCr) actions.push(`Reality check shows contact rate below assumed. Prioritize: ${bestCr.label} (≈ ${fmtCeil(bestCr.impactUse)} attempts/week relief).`);
+        if (bestCap) actions.push(`If rate lift is slow, backstop with more capacity: ${bestCap.label} (≈ ${fmtCeil(bestCap.impactUse)} attempts/week relief).`);
       } else if (primary === "support"){
-        if (bestSr) actions.push(`Reality check shows support rate below assumed. Prioritize: ${bestSr.label} (≈ ${fmtCeil(bestSr.impact)} attempts/week fewer).`);
-        if (bestCap) actions.push(`If persuasion lift is slow, backstop with more capacity: ${bestCap.label} (≈ ${fmtCeil(bestCap.impact)} attempts/week).`);
+        if (bestSr) actions.push(`Reality check shows support rate below assumed. Prioritize: ${bestSr.label} (≈ ${fmtCeil(bestSr.impactUse)} attempts/week relief).`);
+        if (bestCap) actions.push(`If persuasion lift is slow, backstop with more capacity: ${bestCap.label} (≈ ${fmtCeil(bestCap.impactUse)} attempts/week relief).`);
       } else {
-        if (bestCap) actions.push(`Close the gap by increasing execution capacity: start with ${bestCap.label} (≈ ${fmtCeil(bestCap.impact)} attempts/week).`);
-        if (bestRate) actions.push(`Reduce workload by improving rates: ${bestRate.label} (≈ ${fmtCeil(bestRate.impact)} attempts/week fewer).`);
+        if (bestCap) actions.push(`Close the gap by increasing execution capacity: start with ${bestCap.label} (≈ ${fmtCeil(bestCap.impactUse)} attempts/week relief).`);
+        if (bestRate) actions.push(`Reduce workload by improving rates: ${bestRate.label} (≈ ${fmtCeil(bestRate.impactUse)} attempts/week relief).`);
       }
-      actions.push("If actual performance stays below assumptions, either adjust assumptions to reality (and re-plan) or change inputs to close the gap (capacity, speeds, mix, training).");
+      actions.push("If actual performance stays below assumptions, either align assumptions to reality (and re-plan) or change inputs to close the gap (capacity, speeds, mix, training).");
     } else {
-      if (bestCap) actions.push(`Close the gap by increasing execution capacity: start with ${bestCap.label} (≈ ${fmtCeil(bestCap.impact)} attempts/week).`);
-      if (bestRate) actions.push(`Reduce workload by improving rates: ${bestRate.label} (≈ ${fmtCeil(bestRate.impact)} attempts/week fewer).`);
-      actions.push(`If neither is realistic, reduce weekly pressure by extending timeline assumptions (more weeks) or revising the goal (Support IDs needed).`);
+      if (bestCap) actions.push(`Close the gap by increasing execution capacity: start with ${bestCap.label} (≈ ${fmtCeil(bestCap.impactUse)} attempts/week relief).`);
+      if (bestRate) actions.push(`Reduce workload by improving rates: ${bestRate.label} (≈ ${fmtCeil(bestRate.impactUse)} attempts/week relief).`);
+      actions.push("If neither is realistic, reduce weekly pressure by extending timeline assumptions (more weeks) or revising the goal (Support IDs needed).");
     }
   } else {
     if (hasDrift){
-      if (primary === "productivity" && bestCap) actions.push(`You are feasible, but productivity is below assumed. Add buffer with ${bestCap.label} (≈ ${fmtCeil(bestCap.impact)} attempts/week).`);
-      if (primary === "contact" && bestCr) actions.push(`You are feasible, but contact rate is below assumed. Improve efficiency with ${bestCr.label} (≈ ${fmtCeil(bestCr.impact)} attempts/week fewer).`);
-      if (primary === "support" && bestSr) actions.push(`You are feasible, but support rate is below assumed. Improve efficiency with ${bestSr.label} (≈ ${fmtCeil(bestSr.impact)} attempts/week fewer).`);
-      if (actions.length === 0 && bestRate) actions.push(`You are feasible, but assumptions are drifting. Consider ${bestRate.label} (≈ ${fmtCeil(bestRate.impact)} per week).`);
+      if (primary === "productivity" && bestCap) actions.push(`You are feasible, but productivity is below assumed. Add buffer with ${bestCap.label} (≈ ${fmtCeil(bestCap.impactUse)} attempts/week).`);
+      if (primary === "contact" && bestCr) actions.push(`You are feasible, but contact rate is below assumed. Improve efficiency with ${bestCr.label} (≈ ${fmtCeil(bestCr.impactUse)} attempts/week).`);
+      if (primary === "support" && bestSr) actions.push(`You are feasible, but support rate is below assumed. Improve efficiency with ${bestSr.label} (≈ ${fmtCeil(bestSr.impactUse)} attempts/week).`);
+      if (actions.length === 0 && bestRate) actions.push(`You are feasible, but assumptions are drifting. Consider ${bestRate.label} (≈ ${fmtCeil(bestRate.impactUse)} attempts/week).`);
       actions.push("Use buffer to absorb volatility, and align assumptions to observed daily log so planning stays honest.");
     } else {
-      if (bestCap) actions.push(`Build buffer: ${bestCap.label} adds ≈ ${fmtCeil(bestCap.impact)} attempts/week of slack.`);
-      if (bestRate) actions.push(`Improve efficiency: ${bestRate.label} reduces required attempts by ≈ ${fmtCeil(bestRate.impact)} per week.`);
+      if (bestCap) actions.push(`Build buffer: ${bestCap.label} adds ≈ ${fmtCeil(bestCap.impactUse)} attempts/week of slack.`);
+      if (bestRate) actions.push(`Improve efficiency: ${bestRate.label} reduces required attempts by ≈ ${fmtCeil(bestRate.impactUse)} attempts/week.`);
       actions.push("Use the buffer to absorb volatility (bad weeks, weather, volunteer drop-off) or to front-load early vote chasing.");
+    }
+  }
+
+  for (const a of actions.slice(0, 4)) addBullet(els.wkActionsList, a);
+}to absorb volatility (bad weeks, weather, volunteer drop-off) or to front-load early vote chasing.");
     }
   }
 
