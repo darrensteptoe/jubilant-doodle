@@ -1669,6 +1669,68 @@
 <h2 class="card-title">Scenario Compare</h2>
 </div>
 <div class="banner warn" hidden="" id="scWarn"></div>
+<div class="scm">
+  <div class="rowline scm-active">
+    <div class="note" id="activeScenarioLabel">Active Scenario: —</div>
+  </div>
+  <div class="scm-row">
+    <div class="scm-field">
+      <label class="label" for="scenarioSelect">Scenarios</label>
+      <select class="select select-sm" id="scenarioSelect"></select>
+    </div>
+    <div class="scm-field">
+      <label class="label" for="scenarioNewName">New scenario</label>
+      <input class="input input-sm" id="scenarioNewName" placeholder="e.g., Path A — full GOTV" type="text"/>
+    </div>
+  </div>
+  <div class="rowline scm-actions">
+    <button class="btn btn-sm" id="btnScenarioSaveNew" type="button">Save as new scenario</button>
+    <button class="btn btn-sm btn-ghost" id="btnScenarioCloneBaseline" type="button">Clone baseline</button>
+    <button class="btn btn-sm" id="btnScenarioLoadSelected" type="button">Load selected</button>
+    <button class="btn btn-sm btn-ghost" id="btnScenarioReturnBaseline" type="button">Return to baseline</button>
+    <button class="btn btn-sm btn-ghost" id="btnScenarioDelete" type="button">Delete scenario</button>
+  </div>
+  <div aria-hidden="true" class="sc-divider" role="separator"></div>
+</div>
+
+<div class="scm-compare" id="scmCompareWrap">
+  <div class="rowline" style="justify-content:space-between; align-items:flex-end; gap:12px;">
+    <div>
+      <div class="note" style="font-weight:600;">Scenario Comparison</div>
+      <div class="muted" style="font-size:12px;">Baseline vs active scenario (inputs + key outputs).</div>
+    </div>
+    <div class="tag" id="scmCompareTag">—</div>
+  </div>
+
+  <div class="scm-compare-empty muted" id="scmCompareEmpty" style="font-size:12px; margin-top:8px;">Select a non-baseline active scenario to view differences.</div>
+
+  <div class="scm-compare-grid" id="scmCompareGrid" hidden>
+    <div class="scm-compare-col">
+      <div class="note" style="margin-bottom:6px;">Input Differences</div>
+      <ul class="diff-list" id="scmDiffInputs"></ul>
+      <div class="muted" id="scmDiffInputsFoot" style="font-size:12px; margin-top:6px;"></div>
+    </div>
+    <div class="scm-compare-col">
+      <div class="note" style="margin-bottom:6px;">Output Differences</div>
+      <div class="table-wrap">
+        <table class="table">
+          <thead>
+            <tr>
+              <th style="min-width:150px;">Metric</th>
+              <th style="min-width:110px;">Baseline</th>
+              <th style="min-width:110px;">Scenario</th>
+              <th style="min-width:110px;">Delta</th>
+            </tr>
+          </thead>
+          <tbody id="scmDiffOutputs"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div aria-hidden="true" class="sc-divider" role="separator" style="margin-top:10px;"></div>
+</div>
+
 <div class="sc-controls">
 <div class="scenario">
 <label class="label" for="scenarioName">Scenario</label>
@@ -1705,6 +1767,391 @@
 </div>
 <div class="note sc-overall" id="scOverall">Most efficient scenario overall: —</div>
 </div>
+
+<div class="card card-section phase-decision" id="decisionSessionCard">
+  <div class="card-head card-header">
+    <h2 class="card-title">Decision Session</h2>
+  </div>
+
+  <div class="scm">
+    <div class="rowline scm-active">
+      <div class="note" id="decisionActiveLabel">Active session: —</div>
+    </div>
+
+    <div class="scm-row">
+      <div class="scm-field">
+        <label class="label" for="decisionSessionSelect">Sessions</label>
+        <select class="select select-sm" id="decisionSessionSelect"></select>
+      </div>
+      <div class="scm-field" style="align-self:flex-end;">
+        <button class="btn btn-sm" id="btnDecisionNew" type="button">New session</button>
+      </div>
+    </div>
+
+    <div class="scm-row" style="margin-top:10px;">
+      <div class="scm-field">
+        <label class="label" for="decisionRename">Rename session</label>
+        <input class="input input-sm" id="decisionRename" placeholder="e.g., Week 2 client call" type="text"/>
+      </div>
+      <div class="scm-field" style="align-self:flex-end; display:flex; gap:8px; justify-content:flex-end;">
+        <button class="btn btn-sm btn-ghost" id="btnDecisionRenameSave" type="button">Save</button>
+        <button class="btn btn-sm btn-ghost" id="btnDecisionDelete" type="button">Delete</button>
+      </div>
+    </div>
+
+    <div aria-hidden="true" class="sc-divider" role="separator" style="margin-top:10px;"></div>
+
+    <div class="scm-row" style="margin-top:10px;">
+      <div class="scm-field">
+        <label class="label" for="decisionObjective">Objective</label>
+        <select class="select select-sm" id="decisionObjective"></select>
+      </div>
+      <div class="scm-field" style="align-self:flex-end; display:flex; flex-direction:column; gap:6px; align-items:flex-end;">
+        <button class="btn btn-sm btn-ghost" id="btnDecisionLinkScenario" type="button">Link to active scenario</button>
+        <div class="muted" id="decisionScenarioLabel" style="font-size:12px; text-align:right;">—</div>
+      </div>
+    </div>
+
+    <div class="scm-row" style="margin-top:10px;">
+      <div class="scm-field" style="width:100%;">
+        <label class="label" for="decisionNotes">Notes</label>
+        <textarea class="input" id="decisionNotes" placeholder="Short notes..." rows="5"></textarea>
+      </div>
+    </div>
+
+
+    <div aria-hidden="true" class="sc-divider" role="separator" style="margin-top:10px;"></div>
+
+    <div class="scm-row" style="margin-top:10px;">
+      <div class="scm-field" style="width:100%;">
+        <div class="note" style="margin:0;">Assumptions &amp; constraints</div>
+      </div>
+    </div>
+
+    <div class="scm-row" style="margin-top:10px;">
+      <div class="scm-field">
+        <label class="label" for="decisionBudget">Budget cap ($)</label>
+        <input class="input input-sm" id="decisionBudget" placeholder="e.g., 15000" inputmode="decimal" type="text"/>
+      </div>
+      <div class="scm-field">
+        <label class="label" for="decisionVolunteerHrs">Volunteer hrs/week</label>
+        <input class="input input-sm" id="decisionVolunteerHrs" placeholder="e.g., 120" inputmode="decimal" type="text"/>
+      </div>
+    </div>
+
+    <div class="scm-row" style="margin-top:10px;">
+      <div class="scm-field">
+        <label class="label" for="decisionTurfAccess">Turf access</label>
+        <select class="select select-sm" id="decisionTurfAccess">
+          <option value="">Unknown</option>
+          <option value="full">Full</option>
+          <option value="limited">Limited</option>
+          <option value="none">None</option>
+        </select>
+      </div>
+      <div class="scm-field">
+        <label class="label" for="decisionBlackoutDates">Blackout dates</label>
+        <input class="input input-sm" id="decisionBlackoutDates" placeholder="e.g., 3/5–3/8, 4/1" type="text"/>
+      </div>
+    </div>
+
+    <div class="scm-row" style="margin-top:10px;">
+      <div class="scm-field">
+        <label class="label" for="decisionRiskPosture">Risk posture</label>
+        <select class="select select-sm" id="decisionRiskPosture"></select>
+      </div>
+    </div>
+
+    <div class="scm-row" style="margin-top:10px;">
+      <div class="scm-field" style="width:100%;">
+        <label class="label" for="decisionNonNegotiables">Non-negotiables (one per line)</label>
+        <textarea class="input" id="decisionNonNegotiables" placeholder="e.g., Must finish by 5/1
+Must hit 12,000 doors" rows="4"></textarea>
+      </div>
+    </div>
+
+    <div aria-hidden="true" class="sc-divider" role="separator" style="margin-top:10px;"></div>
+
+    <div class="scm-row" style="margin-top:10px;">
+      <div class="scm-field" style="width:100%;">
+        <div class="note" style="margin:0;">Options</div>
+      </div>
+    </div>
+
+    <div class="scm-row" style="margin-top:10px;">
+      <div class="scm-field">
+        <label class="label" for="decisionOptionSelect">Option</label>
+        <select class="select select-sm" id="decisionOptionSelect"></select>
+      </div>
+      <div class="scm-field" style="align-self:flex-end;">
+        <button class="btn btn-sm" id="btnDecisionOptionNew" type="button">New option</button>
+      </div>
+    </div>
+
+    <div class="scm-row" style="margin-top:10px;">
+      <div class="scm-field">
+        <label class="label" for="decisionOptionRename">Rename option</label>
+        <input class="input input-sm" id="decisionOptionRename" placeholder="e.g., Path 1: Volunteer-heavy" type="text"/>
+      </div>
+      <div class="scm-field" style="align-self:flex-end; display:flex; gap:8px; justify-content:flex-end;">
+        <button class="btn btn-sm btn-ghost" id="btnDecisionOptionRenameSave" type="button">Save</button>
+        <button class="btn btn-sm btn-ghost" id="btnDecisionOptionDelete" type="button">Delete</button>
+      </div>
+    </div>
+
+    <div class="scm-row" style="margin-top:10px;">
+      <div class="scm-field" style="width:100%; display:flex; gap:10px; justify-content:space-between; align-items:flex-end;">
+        <div class="muted" id="decisionOptionScenarioLabel" style="font-size:12px;">—</div>
+        <button class="btn btn-sm btn-ghost" id="btnDecisionOptionLinkScenario" type="button">Link option to active scenario</button>
+      </div>
+    </div>
+
+    <div class="scm-row" style="margin-top:10px;">
+      <div class="scm-field" style="width:100%;">
+        <div class="muted" style="font-size:12px; margin-bottom:6px;">Tactics tags (UI only)</div>
+        <div class="tacticRow">
+          <label class="tacticToggle"><input type="checkbox" id="decisionOptionTacticDoors">Doors</label>
+          <label class="tacticToggle"><input type="checkbox" id="decisionOptionTacticPhones">Phones</label>
+          <label class="tacticToggle"><input type="checkbox" id="decisionOptionTacticDigital">Digital</label>
+        </div>
+      </div>
+    </div>
+    <div aria-hidden="true" class="sc-divider" role="separator" style="margin-top:10px;"></div>
+
+    <div class="scm-row" style="margin-top:10px;">
+      <div class="scm-field" style="width:100%;">
+        <div class="note" style="margin:0;">Decision Summary</div>
+      </div>
+    </div>
+
+    <div class="scm-row" style="margin-top:10px;">
+      <div class="scm-field" style="width:100%;">
+        <div class="note" style="margin:0; display:flex; align-items:center; justify-content:space-between; gap:10px;">
+          <span>Assumption Drift</span>
+          <span class="tag" id="driftStatusTag">—</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="scm-row" style="margin-top:10px;">
+      <div class="scm-field" style="width:100%;">
+        <div class="kpis" style="grid-template-columns:1fr 1fr 1fr;">
+          <div class="mini">
+            <div class="mini-k">Required attempts/week</div>
+            <div class="mini-v" id="driftReq">—</div>
+            <div class="mini-s" id="driftReqNote">From current assumptions</div>
+          </div>
+          <div class="mini">
+            <div class="mini-k">Actual attempts (last 7)</div>
+            <div class="mini-v" id="driftActual">—</div>
+            <div class="mini-s" id="driftActualNote">From daily log</div>
+          </div>
+          <div class="mini">
+            <div class="mini-k">Delta</div>
+            <div class="mini-v" id="driftDelta">—</div>
+            <div class="mini-s" id="driftDeltaNote">Actual vs required</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="scm-row" style="margin-top:10px;">
+      <div class="scm-field" style="width:100%;">
+        <div class="banner" id="driftSlipBanner">—</div>
+      </div>
+    </div>
+
+    <div class="scm-row" style="margin-top:10px;">
+      <div class="scm-field" style="width:100%;">
+        <div class="note" style="margin:0; display:flex; align-items:center; justify-content:space-between; gap:10px;">
+          <span>Risk Framing</span>
+          <span class="tag" id="riskBandTag">—</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="scm-row" style="margin-top:10px;">
+      <div class="scm-field" style="width:100%;">
+        <div class="kpis" style="grid-template-columns:1fr 1fr 1fr;">
+          <div class="mini">
+            <div class="mini-k">Win probability</div>
+            <div class="mini-v" id="riskWinProb">—</div>
+            <div class="mini-s">From Monte Carlo</div>
+          </div>
+          <div class="mini">
+            <div class="mini-k">Expected margin band</div>
+            <div class="mini-v" id="riskMarginBand">—</div>
+            <div class="mini-s">Central interval</div>
+          </div>
+          <div class="mini">
+            <div class="mini-k">Volatility</div>
+            <div class="mini-v" id="riskVolatility">—</div>
+            <div class="mini-s">Range width</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="scm-row" style="margin-top:10px;">
+      <div class="scm-field" style="width:100%;">
+        <div class="banner" id="riskPlainBanner">—</div>
+      </div>
+    </div>
+
+    <div class="scm-row" style="margin-top:10px;">
+      <div class="scm-field" style="width:100%;">
+        <div class="note" style="margin:0; display:flex; align-items:center; justify-content:space-between; gap:10px;">
+          <span>Bottleneck Attribution</span>
+          <span class="tag" id="bneckTag">—</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="scm-row" style="margin-top:10px;">
+      <div class="scm-field" style="width:100%;">
+        <div class="kpis" style="grid-template-columns:1fr 1fr;">
+          <div class="mini">
+            <div class="mini-k">Primary</div>
+            <div class="mini-v" id="bneckPrimary">—</div>
+            <div class="mini-s">What is binding now</div>
+          </div>
+          <div class="mini">
+            <div class="mini-k">Secondary</div>
+            <div class="mini-v" id="bneckSecondary">—</div>
+            <div class="mini-s">Next-most binding</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="scm-row" style="margin-top:10px;">
+      <div class="scm-field" style="width:100%;">
+        <div class="tableWrap" style="overflow:auto;">
+          <table class="table" style="min-width:640px;">
+            <thead>
+              <tr>
+                <th>Constraint</th>
+                <th class="num">If +10%</th>
+                <th class="muted">Notes</th>
+              </tr>
+            </thead>
+            <tbody id="bneckTbody"></tbody>
+          </table>
+        </div>
+        <div class="muted" id="bneckWarn" style="font-size:12px; margin-top:8px;">—</div>
+      </div>
+    </div>
+
+    <div class="scm-row" style="margin-top:10px;">
+      <div class="scm-field" style="width:100%;">
+        <div class="note" style="margin:0; display:flex; align-items:center; justify-content:space-between; gap:10px;">
+          <span>Sensitivity Snapshot</span>
+          <div style="display:flex; align-items:center; gap:8px;">
+            <span class="tag" id="sensTag">—</span>
+            <button class="btn btn-sm btn-ghost" id="btnSensRun" type="button">Run snapshot</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="scm-row" style="margin-top:10px;">
+      <div class="scm-field" style="width:100%;">
+        <div class="tableWrap" style="overflow:auto;">
+          <table class="table" style="min-width:640px;">
+            <thead>
+              <tr>
+                <th>Perturbation</th>
+                <th class="num">Δ win prob</th>
+                <th class="num">Δ p50 margin</th>
+                <th class="muted">Notes</th>
+              </tr>
+            </thead>
+            <tbody id="sensTbody"></tbody>
+          </table>
+        </div>
+        <div class="banner" id="sensBanner" style="margin-top:10px;">—</div>
+      </div>
+    </div>
+
+    <div class="scm-row" style="margin-top:10px;">
+      <div class="scm-field" style="width:100%;">
+        <div class="note" style="margin:0; display:flex; align-items:center; justify-content:space-between; gap:10px;">
+          <span>Decision Confidence</span>
+          <span class="tag" id="confTag">—</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="scm-row" style="margin-top:10px;">
+      <div class="scm-field" style="width:100%;">
+        <div class="kpis" style="grid-template-columns:1fr 1fr 1fr 1fr;">
+          <div class="mini">
+            <div class="mini-k">Execution pace</div>
+            <div class="mini-v" id="confExec">—</div>
+            <div class="mini-s">From daily log</div>
+          </div>
+          <div class="mini">
+            <div class="mini-k">Risk band</div>
+            <div class="mini-v" id="confRisk">—</div>
+            <div class="mini-s">From Monte Carlo</div>
+          </div>
+          <div class="mini">
+            <div class="mini-k">Constraint tightness</div>
+            <div class="mini-v" id="confTight">—</div>
+            <div class="mini-s">Timeline/budget/capacity</div>
+          </div>
+          <div class="mini">
+            <div class="mini-k">Scenario divergence</div>
+            <div class="mini-v" id="confDiv">—</div>
+            <div class="mini-s">Baseline vs active</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="scm-row" style="margin-top:10px;">
+      <div class="scm-field" style="width:100%;">
+        <div class="banner" id="confBanner">—</div>
+      </div>
+    </div>
+
+    <div class="scm-row" style="margin-top:10px;">
+      <div class="scm-field">
+        <label class="label" for="decisionRecommendSelect">Recommended option</label>
+        <select class="select select-sm" id="decisionRecommendSelect"></select>
+      </div>
+      <div class="scm-field"></div>
+    </div>
+
+    <div class="scm-row" style="margin-top:10px;">
+      <div class="scm-field" style="width:100%;">
+        <label class="label" for="decisionWhatTrue">What needs to be true (one per line)</label>
+        <textarea class="input" id="decisionWhatTrue" placeholder="e.g., Contact rate holds at 22%
+Volunteer multiplier stays above 1.5" rows="4"></textarea>
+      </div>
+    </div>
+
+    <div class="scm-row" style="margin-top:10px;">
+      <div class="scm-field" style="width:100%;">
+        <label class="label" for="decisionSummaryPreview">Client-ready summary (preview)</label>
+        <textarea class="input mono" id="decisionSummaryPreview" readonly rows="14"></textarea>
+      </div>
+    </div>
+    <div class="scm-row" style="margin-top:10px;">
+      <div class="scm-field" style="width:100%; display:flex; gap:8px; flex-wrap:wrap; justify-content:flex-end; align-items:center;">
+        <div class="muted" id="decisionCopyStatus" style="margin-right:auto; font-size:12px;"></div>
+        <button class="btn btn-sm btn-ghost" id="btnDecisionCopyMd" type="button">Copy markdown</button>
+        <button class="btn btn-sm btn-ghost" id="btnDecisionCopyText" type="button">Copy text</button>
+        <button class="btn btn-sm btn-ghost" id="btnDecisionDownloadJson" type="button">Download JSON</button>
+      </div>
+    </div>
+
+
+
+    </div>
+  </div>
+</div>
+
 </aside>
 </main>
 <script src="./js/app.js" type="module"></script>
