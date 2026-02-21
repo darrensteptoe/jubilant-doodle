@@ -23,6 +23,85 @@ function downloadText(text, filename, mime){
   }
 }
 
+function normalizeDailyLogEntry(raw){
+  if (!raw || typeof raw !== "object") return null;
+  const date = String(raw.date || "").slice(0, 10);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return null;
+
+  const doors = safeNum(raw.doors) || 0;
+  const calls = safeNum(raw.calls) || 0;
+  const convos = safeNum(raw.convos) || 0;
+  const supportIds = safeNum(raw.supportIds) || 0;
+  const orgHours = safeNum(raw.orgHours) || 0;
+  const volsActive = safeNum(raw.volsActive) || 0;
+  const attempts = (raw.attempts != null && raw.attempts !== "") ? (safeNum(raw.attempts) || 0) : (doors + calls);
+  const notes = (raw.notes == null) ? "" : String(raw.notes);
+  const updatedAt = Number(raw.updatedAt || 0) || 0;
+
+  return { date, doors, calls, attempts, convos, supportIds, orgHours, volsActive, notes, updatedAt };
+}
+
+function mergeDailyLogIntoState(imported){
+  const arr = Array.isArray(imported)
+    ? imported
+    : (Array.isArray(imported?.dailyLog) ? imported.dailyLog
+      : (Array.isArray(imported?.ui?.dailyLog) ? imported.ui.dailyLog : null));
+  if (!arr) return { ok: false, msg: "No dailyLog array found in JSON" };
+
+  if (!state.ui) state.ui = {};
+  const existing = Array.isArray(state.ui.dailyLog) ? state.ui.dailyLog : [];
+
+  const byDate = new Map();
+  for (const e of existing){
+    const n = normalizeDailyLogEntry(e);
+    if (!n) continue;
+    byDate.set(n.date, n);
+  }
+
+  let added = 0;
+  let replaced = 0;
+  let rejected = 0;
+
+  for (const e of arr){
+    const n = normalizeDailyLogEntry(e);
+    if (!n){ rejected++; continue; }
+    const prev = byDate.get(n.date);
+    if (!prev){
+      byDate.set(n.date, n);
+      added++;
+      continue;
+    }
+    // Prefer the most recently updated. If neither has updatedAt, prefer imported.
+    const prevTs = Number(prev.updatedAt || 0) || 0;
+    const nextTs = Number(n.updatedAt || 0) || 0;
+    const takeImported = (nextTs >= prevTs);
+    if (takeImported){
+      byDate.set(n.date, n);
+      replaced++;
+    }
+  }
+
+  const merged = Array.from(byDate.values()).sort((a,b) => String(a.date).localeCompare(String(b.date)));
+  state.ui.dailyLog = merged;
+  // daily log changes should mark plan/MC as stale
+  markMcStale();
+  render();
+  persist();
+
+  return { ok: true, msg: `Merged daily log: +${added} new, ${replaced} updated, ${rejected} rejected` };
+}
+
+function exportDailyLog(){
+  const log = Array.isArray(state.ui?.dailyLog) ? state.ui.dailyLog : [];
+  const payload = {
+    dailyLog: log,
+    exportedAt: new Date().toISOString(),
+    appVersion: APP_VERSION,
+    buildId: BUILD_ID,
+  };
+  downloadText(JSON.stringify(payload, null, 2), "daily-log.json", "application/json");
+}
+
 // Phase 11 — error capture (fail-soft)
 function recordError(kind, message, extra){
   try{
@@ -253,6 +332,42 @@ const els = {
   outShiftsPerWeek: document.getElementById("outShiftsPerWeek"),
   outVolunteersNeeded: document.getElementById("outVolunteersNeeded"),
   convFeasBanner: document.getElementById("convFeasBanner"),
+
+  // Weekly ops dashboard
+  wkGoal: document.getElementById("wkGoal"),
+  wkConvosPerWeek: document.getElementById("wkConvosPerWeek"),
+  wkAttemptsPerWeek: document.getElementById("wkAttemptsPerWeek"),
+  wkCapacityPerWeek: document.getElementById("wkCapacityPerWeek"),
+  wkCapacityBreakdown: document.getElementById("wkCapacityBreakdown"),
+  wkGapPerWeek: document.getElementById("wkGapPerWeek"),
+  wkConstraint: document.getElementById("wkConstraint"),
+  wkConstraintNote: document.getElementById("wkConstraintNote"),
+  wkBanner: document.getElementById("wkBanner"),
+
+  wkLeversIntro: document.getElementById("wkLeversIntro"),
+  wkLeversList: document.getElementById("wkLeversList"),
+  wkActionsList: document.getElementById("wkActionsList"),
+  wkLastUpdate: document.getElementById("wkLastUpdate"),
+  wkFreshNote: document.getElementById("wkFreshNote"),
+  wkRollingAttempts: document.getElementById("wkRollingAttempts"),
+  wkRollingNote: document.getElementById("wkRollingNote"),
+  wkRollingCR: document.getElementById("wkRollingCR"),
+  wkRollingCRNote: document.getElementById("wkRollingCRNote"),
+  wkRollingSR: document.getElementById("wkRollingSR"),
+  wkRollingSRNote: document.getElementById("wkRollingSRNote"),
+  wkRollingAPH: document.getElementById("wkRollingAPH"),
+  wkRollingAPHNote: document.getElementById("wkRollingAPHNote"),
+  wkFreshStatus: document.getElementById("wkFreshStatus"),
+
+  // Daily log import/export (analyst page)
+  dailyLogExportBtn: document.getElementById("dailyLogExportBtn"),
+  dailyLogImportText: document.getElementById("dailyLogImportText"),
+  dailyLogImportBtn: document.getElementById("dailyLogImportBtn"),
+  dailyLogImportMsg: document.getElementById("dailyLogImportMsg"),
+
+  applyRollingCRBtn: document.getElementById("applyRollingCRBtn"),
+  applyRollingSRBtn: document.getElementById("applyRollingSRBtn"),
+  applyRollingMsg: document.getElementById("applyRollingMsg"),
 
   // Phase 3 — execution + risk
   orgCount: document.getElementById("orgCount"),
@@ -989,6 +1104,29 @@ function wireEvents(){
       });
     }
     if (els.btnCopyDebug) els.btnCopyDebug.addEventListener("click", () => { safeCall(() => { copyDebugBundle(); }); });
+
+    // Daily log import/export
+    if (els.dailyLogExportBtn) els.dailyLogExportBtn.addEventListener("click", () => { safeCall(() => { exportDailyLog(); }); });
+    if (els.dailyLogImportBtn) els.dailyLogImportBtn.addEventListener("click", () => {
+      safeCall(() => {
+        const raw = String(els.dailyLogImportText?.value || "").trim();
+        if (!raw){
+          if (els.dailyLogImportMsg) els.dailyLogImportMsg.textContent = "Paste JSON first";
+          return;
+        }
+        let parsed = null;
+        try{ parsed = JSON.parse(raw); } catch {
+          if (els.dailyLogImportMsg) els.dailyLogImportMsg.textContent = "Invalid JSON";
+          return;
+        }
+        const r = mergeDailyLogIntoState(parsed);
+        if (els.dailyLogImportMsg) els.dailyLogImportMsg.textContent = r.msg;
+      });
+    });
+
+    // Analyst tools: align assumptions to rolling actuals
+    if (els.applyRollingCRBtn) els.applyRollingCRBtn.addEventListener("click", () => { safeCall(() => { applyRollingRateToAssumption("contact"); }); });
+    if (els.applyRollingSRBtn) els.applyRollingSRBtn.addEventListener("click", () => { safeCall(() => { applyRollingRateToAssumption("support"); }); });
   });
 
 
@@ -1589,6 +1727,9 @@ function render(){
   safeCall(() => renderAssumptions(res, weeks));
   safeCall(() => renderGuardrails(res));
   safeCall(() => renderConversion(res, weeks));
+  safeCall(() => renderWeeklyOps(res, weeks));
+  safeCall(() => renderWeeklyOpsInsights(res, weeks));
+  safeCall(() => renderWeeklyOpsFreshness(res, weeks));
 
   safeCall(() => renderUniverse16Card());
 
@@ -1616,6 +1757,639 @@ function render(){
   if (els.snapshotHash) els.snapshotHash.textContent = lastResultsSnapshot?.snapshotHash || "—";
   if (els.importHashBanner && els.importHashBanner.hidden === false){ /* keep until next import clears */ }
     els.explainCard.hidden = !state.ui.training;
+}
+
+function renderWeeklyOps(res, weeks){
+  if (!els.wkGoal) return;
+
+  const rawGoal = safeNum(state.goalSupportIds);
+  const autoGoal = safeNum(res?.expected?.persuasionNeed);
+  const goal = (rawGoal != null && rawGoal >= 0) ? rawGoal : (autoGoal != null && autoGoal > 0 ? autoGoal : 0);
+
+  const eff = getEffectiveBaseRates();
+  const sr = eff.sr;
+  const cr = eff.cr;
+
+  const fmtMaybeInt = (v) => (v == null || !isFinite(v)) ? "—" : fmtInt(Math.ceil(v));
+  const fmtMaybe = (v) => (v == null || !isFinite(v)) ? "—" : fmtInt(Math.round(v));
+
+  els.wkGoal.textContent = (goal == null) ? "—" : fmtInt(Math.round(goal));
+
+  // Requirements per week
+  let convosNeeded = null;
+  let attemptsNeeded = null;
+  let convosPerWeek = null;
+  let attemptsPerWeek = null;
+
+  if (goal > 0 && sr && sr > 0) convosNeeded = goal / sr;
+  if (convosNeeded != null && cr && cr > 0) attemptsNeeded = convosNeeded / cr;
+  if (weeks != null && weeks > 0){
+    if (convosNeeded != null) convosPerWeek = convosNeeded / weeks;
+    if (attemptsNeeded != null) attemptsPerWeek = attemptsNeeded / weeks;
+  }
+
+  els.wkConvosPerWeek.textContent = fmtMaybeInt(convosPerWeek);
+  els.wkAttemptsPerWeek.textContent = fmtMaybeInt(attemptsPerWeek);
+
+  // Capacity per week (Phase 3 inputs)
+  const orgCount = safeNum(state.orgCount);
+  const orgHoursPerWeek = safeNum(state.orgHoursPerWeek);
+  const volunteerMult = safeNum(state.volunteerMultBase);
+  const doorShare = safeNum(state.channelDoorPct);
+  const doorsPerHour = safeNum(state.doorsPerHour3);
+  const callsPerHour = safeNum(state.callsPerHour3);
+
+  const cap = coreComputeCapacityBreakdown({
+    weeks: 1,
+    orgCount,
+    orgHoursPerWeek,
+    volunteerMult,
+    doorShare: (doorShare == null) ? null : clamp(doorShare / 100, 0, 1),
+    doorsPerHour,
+    callsPerHour
+  });
+
+  const capTotal = cap?.total ?? null;
+  els.wkCapacityPerWeek.textContent = fmtMaybeInt(capTotal);
+  if (els.wkCapacityBreakdown){
+    if (cap && cap.doors != null && cap.phones != null){
+      els.wkCapacityBreakdown.textContent = `${fmtMaybe(cap.doors)} doors + ${fmtMaybe(cap.phones)} calls`;
+    } else {
+      els.wkCapacityBreakdown.textContent = "—";
+    }
+  }
+
+  // Gap + constraint
+  let gap = null;
+  if (attemptsPerWeek != null && capTotal != null) gap = attemptsPerWeek - capTotal;
+
+  if (els.wkGapPerWeek){
+    if (gap == null) els.wkGapPerWeek.textContent = "—";
+    else {
+      const g = Math.ceil(gap);
+      els.wkGapPerWeek.textContent = (g <= 0) ? "0" : fmtInt(g);
+    }
+  }
+
+  let constraint = "—";
+  let note = "—";
+  let bannerMsg = "";
+  let bannerKind = "warn";
+  let bannerShow = false;
+
+  if (goal <= 0){
+    constraint = "None";
+    note = "Goal is 0 under current inputs.";
+  } else if (weeks == null || weeks <= 0){
+    constraint = "Timeline";
+    note = "Set election date or weeks remaining.";
+    bannerMsg = "This week plan needs weeks remaining. Set an election date or enter weeks remaining to compute per-week targets.";
+    bannerShow = true;
+  } else if (sr == null || sr <= 0 || cr == null || cr <= 0){
+    constraint = "Rates";
+    note = "Enter support rate + contact rate.";
+    bannerMsg = "This week plan needs Support rate and Contact rate (Phase 2).";
+    bannerShow = true;
+  } else if (capTotal == null){
+    constraint = "Capacity";
+    note = "Enter organizers/hours + speeds (Phase 3).";
+    bannerMsg = "Capacity/week is missing. Fill Phase 3 execution inputs (organizers, hours/week, doors/hr, calls/hr, channel split).";
+    bannerShow = true;
+  } else if (gap != null && gap <= 0){
+    constraint = "Feasible";
+    note = "Capacity covers required attempts/week.";
+    bannerMsg = `Feasible: capacity covers the per-week requirement under current rates.`;
+    bannerKind = "ok";
+    bannerShow = true;
+  } else if (gap != null){
+    constraint = "Capacity";
+    const g = Math.ceil(gap);
+    note = `Short by ~${fmtInt(g)} attempts/week.`;
+    bannerMsg = `Gap: you are short by ~${fmtInt(g)} attempts per week. Options: increase organizers/hours, improve speeds, shift channel mix, or raise rates.`;
+    bannerKind = (g <= 500) ? "warn" : "bad";
+    bannerShow = true;
+  }
+
+  if (els.wkConstraint) els.wkConstraint.textContent = constraint;
+  if (els.wkConstraintNote) els.wkConstraintNote.textContent = note;
+
+  if (els.wkBanner){
+    els.wkBanner.hidden = !bannerShow;
+    if (bannerShow){
+      els.wkBanner.classList.remove("ok","warn","bad");
+      els.wkBanner.classList.add(bannerKind);
+      els.wkBanner.textContent = bannerMsg;
+    }
+  }
+}
+
+function computeWeeklyOpsContext(res, weeks){
+  const rawGoal = safeNum(state.goalSupportIds);
+  const autoGoal = safeNum(res?.expected?.persuasionNeed);
+  const goal = (rawGoal != null && rawGoal >= 0) ? rawGoal : (autoGoal != null && autoGoal > 0 ? autoGoal : 0);
+
+  const eff = getEffectiveBaseRates();
+  const sr = eff.sr;
+  const cr = eff.cr;
+
+  let convosNeeded = null;
+  let attemptsNeeded = null;
+  let convosPerWeek = null;
+  let attemptsPerWeek = null;
+
+  if (goal > 0 && sr && sr > 0) convosNeeded = goal / sr;
+  if (convosNeeded != null && cr && cr > 0) attemptsNeeded = convosNeeded / cr;
+  if (weeks != null && weeks > 0){
+    if (convosNeeded != null) convosPerWeek = convosNeeded / weeks;
+    if (attemptsNeeded != null) attemptsPerWeek = attemptsNeeded / weeks;
+  }
+
+  const orgCount = safeNum(state.orgCount);
+  const orgHoursPerWeek = safeNum(state.orgHoursPerWeek);
+  const volunteerMult = safeNum(state.volunteerMultBase);
+  const doorSharePct = safeNum(state.channelDoorPct);
+  const doorsPerHour = safeNum(state.doorsPerHour3);
+  const callsPerHour = safeNum(state.callsPerHour3);
+
+  const doorShare = (doorSharePct == null) ? null : clamp(doorSharePct / 100, 0, 1);
+
+  const cap = coreComputeCapacityBreakdown({
+    weeks: 1,
+    orgCount,
+    orgHoursPerWeek,
+    volunteerMult,
+    doorShare,
+    doorsPerHour,
+    callsPerHour
+  });
+
+  const capTotal = cap?.total ?? null;
+  const gap = (attemptsPerWeek != null && capTotal != null) ? (attemptsPerWeek - capTotal) : null;
+
+  return {
+    goal,
+    weeks,
+    sr,
+    cr,
+    convosPerWeek,
+    attemptsPerWeek,
+    cap,
+    capTotal,
+    gap,
+    orgCount,
+    orgHoursPerWeek,
+    volunteerMult,
+    doorShare,
+    doorsPerHour,
+    callsPerHour
+  };
+}
+
+function computeRealityDrift(){
+  const log = Array.isArray(state.ui?.dailyLog) ? state.ui.dailyLog : null;
+  if (!log || log.length === 0) return { hasLog:false, flags:[], primary:null };
+
+  const sorted = [...log].filter(x => x && x.date).sort((a,b) => String(a.date).localeCompare(String(b.date)));
+  const windowN = 7;
+  const lastN = sorted.slice(-windowN);
+
+  let sumAttempts = 0, sumConvos = 0, sumSupportIds = 0, sumOrgHours = 0;
+  for (const x of lastN){
+    const doors = safeNum(x?.doors) || 0;
+    const calls = safeNum(x?.calls) || 0;
+    const attempts = (x?.attempts != null && x.attempts !== "") ? (safeNum(x.attempts) || 0) : (doors + calls);
+    const convos = safeNum(x?.convos) || 0;
+    const sup = safeNum(x?.supportIds) || 0;
+    const hrs = safeNum(x?.orgHours) || 0;
+
+    sumAttempts += attempts;
+    sumConvos += convos;
+    sumSupportIds += sup;
+    sumOrgHours += hrs;
+  }
+
+  const actualCR = (sumAttempts > 0) ? (sumConvos / sumAttempts) : null;
+  const actualSR = (sumConvos > 0) ? (sumSupportIds / sumConvos) : null;
+  const actualAPH = (sumOrgHours > 0) ? (sumAttempts / sumOrgHours) : null;
+
+  const assumedCR = (state.contactRatePct != null && state.contactRatePct !== "") ? ((safeNum(state.contactRatePct) || 0) / 100) : null;
+  const assumedSR = (state.supportRatePct != null && state.supportRatePct !== "") ? ((safeNum(state.supportRatePct) || 0) / 100) : null;
+
+  const mixDoor = (state.channelDoorPct != null && state.channelDoorPct !== "") ? ((safeNum(state.channelDoorPct) || 0) / 100) : null;
+  const doorsHr = (state.doorsPerHour3 != null && state.doorsPerHour3 !== "") ? (safeNum(state.doorsPerHour3) || 0) : null;
+  const callsHr = (state.callsPerHour3 != null && state.callsPerHour3 !== "") ? (safeNum(state.callsPerHour3) || 0) : null;
+  const expectedAPH = (mixDoor != null && doorsHr != null && callsHr != null)
+    ? (mixDoor * doorsHr + (1 - mixDoor) * callsHr)
+    : null;
+
+  const flags = [];
+  const tol = 0.90; // 10% below assumed => flag
+  const gaps = [];
+
+  if (assumedCR != null && actualCR != null && isFinite(actualCR) && assumedCR > 0 && actualCR < assumedCR * tol){
+    flags.push("contact rate below assumed");
+    gaps.push({k:"contact", r:(assumedCR - actualCR) / assumedCR});
+  }
+  if (assumedSR != null && actualSR != null && isFinite(actualSR) && assumedSR > 0 && actualSR < assumedSR * tol){
+    flags.push("support rate below assumed");
+    gaps.push({k:"support", r:(assumedSR - actualSR) / assumedSR});
+  }
+  if (expectedAPH != null && actualAPH != null && isFinite(actualAPH) && expectedAPH > 0 && actualAPH < expectedAPH * tol){
+    flags.push("productivity below assumed");
+    gaps.push({k:"productivity", r:(expectedAPH - actualAPH) / expectedAPH});
+  }
+
+  let primary = null;
+  if (gaps.length){
+    gaps.sort((a,b)=> (b.r - a.r));
+    primary = gaps[0].k;
+  }
+
+  return {
+    hasLog:true,
+    flags,
+    primary,
+    actualCR, actualSR, actualAPH,
+    assumedCR, assumedSR, expectedAPH
+  };
+}
+
+function applyRollingRateToAssumption(kind){
+  const drift = computeRealityDrift();
+  if (!drift?.hasLog){
+    if (els.applyRollingMsg) els.applyRollingMsg.textContent = "No daily log yet";
+    return;
+  }
+
+  const pct1 = (x) => (x == null || !isFinite(x)) ? null : Math.round(x * 1000) / 10; // 1 decimal
+
+  if (kind === "contact"){
+    const v = pct1(drift.actualCR);
+    if (v == null){
+      if (els.applyRollingMsg) els.applyRollingMsg.textContent = "Rolling contact rate is unavailable";
+      return;
+    }
+    state.contactRatePct = v;
+    if (els.contactRatePct) els.contactRatePct.value = String(v);
+    if (els.applyRollingMsg) els.applyRollingMsg.textContent = `Set assumed contact rate to ${v}%`;
+  } else if (kind === "support"){
+    const v = pct1(drift.actualSR);
+    if (v == null){
+      if (els.applyRollingMsg) els.applyRollingMsg.textContent = "Rolling support rate is unavailable";
+      return;
+    }
+    state.supportRatePct = v;
+    if (els.supportRatePct) els.supportRatePct.value = String(v);
+    if (els.applyRollingMsg) els.applyRollingMsg.textContent = `Set assumed support rate to ${v}%`;
+  } else {
+    if (els.applyRollingMsg) els.applyRollingMsg.textContent = "Unknown";
+    return;
+  }
+
+  markMcStale();
+  render();
+  persist();
+}
+
+function renderWeeklyOpsInsights(res, weeks){
+  if (!els.wkLeversList || !els.wkActionsList || !els.wkLeversIntro) return;
+
+  const ctx = computeWeeklyOpsContext(res, weeks);
+  const fmt = (v) => (v == null || !isFinite(v)) ? "—" : fmtInt(Math.round(v));
+  const fmtCeil = (v) => (v == null || !isFinite(v)) ? "—" : fmtInt(Math.ceil(v));
+
+  // Clear lists
+  els.wkLeversList.innerHTML = "";
+  els.wkActionsList.innerHTML = "";
+
+  // Intro / gating
+  if (ctx.goal <= 0){
+    els.wkLeversIntro.textContent = "No operational gap to analyze (goal is 0 under current inputs).";
+    addBullet(els.wkActionsList, "Set a goal (Support IDs needed) or adjust win path assumptions to generate a real plan.");
+    return;
+  }
+  if (ctx.weeks == null || ctx.weeks <= 0){
+    els.wkLeversIntro.textContent = "Timeline is missing. Set election date or weeks remaining to compute weekly pressure.";
+    addBullet(els.wkActionsList, "Enter an election date (or weeks remaining) so the plan can compute per-week targets.");
+    return;
+  }
+  if (ctx.sr == null || ctx.sr <= 0 || ctx.cr == null || ctx.cr <= 0){
+    els.wkLeversIntro.textContent = "Rates are missing. Enter Support rate and Contact rate to estimate workload.";
+    addBullet(els.wkActionsList, "Fill Support rate (%) and Contact rate (%) in Phase 2.");
+    return;
+  }
+  if (ctx.capTotal == null || !isFinite(ctx.capTotal)){
+    els.wkLeversIntro.textContent = "Capacity inputs are incomplete. Fill Phase 3 execution inputs to compute what is executable.";
+    addBullet(els.wkActionsList, "Enter organizers, hours/week, doors/hr, calls/hr, and channel split in Phase 3.");
+    return;
+  }
+
+  const gap = ctx.gap;
+  const isGap = (gap != null && gap > 0);
+  els.wkLeversIntro.textContent = isGap
+    ? `You are short by ~${fmtCeil(gap)} attempts/week. These levers estimate what closes that gap fastest.`
+    : "You are currently feasible (capacity covers attempts/week). These levers show what would create extra buffer.";
+
+  const baseReq = ctx.attemptsPerWeek;
+  const baseCap = ctx.capTotal;
+
+  const levers = [];
+
+  // Capacity levers
+  if (ctx.orgCount != null && ctx.orgHoursPerWeek != null && ctx.volunteerMult != null){
+    const capPlusOrg = coreComputeCapacityBreakdown({
+      weeks: 1,
+      orgCount: ctx.orgCount + 1,
+      orgHoursPerWeek: ctx.orgHoursPerWeek,
+      volunteerMult: ctx.volunteerMult,
+      doorShare: ctx.doorShare,
+      doorsPerHour: ctx.doorsPerHour,
+      callsPerHour: ctx.callsPerHour
+    })?.total;
+    if (capPlusOrg != null && baseCap != null) levers.push({
+      kind: "capacity",
+      label: "+1 organizer",
+      delta: capPlusOrg - baseCap
+    });
+
+    const capPlusHour = coreComputeCapacityBreakdown({
+      weeks: 1,
+      orgCount: ctx.orgCount,
+      orgHoursPerWeek: ctx.orgHoursPerWeek + 1,
+      volunteerMult: ctx.volunteerMult,
+      doorShare: ctx.doorShare,
+      doorsPerHour: ctx.doorsPerHour,
+      callsPerHour: ctx.callsPerHour
+    })?.total;
+    if (capPlusHour != null && baseCap != null) levers.push({
+      kind: "capacity",
+      label: "+1 hour/week per organizer",
+      delta: capPlusHour - baseCap
+    });
+  }
+
+  if (ctx.doorsPerHour != null){
+    const capFasterDoors = coreComputeCapacityBreakdown({
+      weeks: 1,
+      orgCount: ctx.orgCount,
+      orgHoursPerWeek: ctx.orgHoursPerWeek,
+      volunteerMult: ctx.volunteerMult,
+      doorShare: ctx.doorShare,
+      doorsPerHour: ctx.doorsPerHour + 5,
+      callsPerHour: ctx.callsPerHour
+    })?.total;
+    if (capFasterDoors != null && baseCap != null) levers.push({
+      kind: "capacity",
+      label: "+5 doors/hr",
+      delta: capFasterDoors - baseCap
+    });
+  }
+
+  if (ctx.callsPerHour != null){
+    const capFasterCalls = coreComputeCapacityBreakdown({
+      weeks: 1,
+      orgCount: ctx.orgCount,
+      orgHoursPerWeek: ctx.orgHoursPerWeek,
+      volunteerMult: ctx.volunteerMult,
+      doorShare: ctx.doorShare,
+      doorsPerHour: ctx.doorsPerHour,
+      callsPerHour: ctx.callsPerHour + 10
+    })?.total;
+    if (capFasterCalls != null && baseCap != null) levers.push({
+      kind: "capacity",
+      label: "+10 calls/hr",
+      delta: capFasterCalls - baseCap
+    });
+  }
+
+  // Channel mix lever (move 10 pts away from slower channel toward faster channel)
+  if (ctx.doorShare != null && ctx.doorsPerHour != null && ctx.callsPerHour != null){
+    const doorIsFaster = ctx.doorsPerHour >= ctx.callsPerHour;
+    const shift = 0.10;
+    const newShare = clamp(ctx.doorShare + (doorIsFaster ? shift : -shift), 0, 1);
+    const capShift = coreComputeCapacityBreakdown({
+      weeks: 1,
+      orgCount: ctx.orgCount,
+      orgHoursPerWeek: ctx.orgHoursPerWeek,
+      volunteerMult: ctx.volunteerMult,
+      doorShare: newShare,
+      doorsPerHour: ctx.doorsPerHour,
+      callsPerHour: ctx.callsPerHour
+    })?.total;
+    if (capShift != null && baseCap != null) levers.push({
+      kind: "capacity",
+      label: `Shift mix +10 pts toward ${doorIsFaster ? "doors" : "calls"}`,
+      delta: capShift - baseCap
+    });
+  }
+
+  // Rate levers: +5 pts to CR or SR (percentage points)
+  const srPlus = Math.min(0.99, ctx.sr + 0.05);
+  const crPlus = Math.min(0.99, ctx.cr + 0.05);
+  if (baseReq != null){
+    const reqSrPlus = (ctx.goal > 0 && srPlus > 0 && ctx.weeks > 0) ? (ctx.goal / srPlus / ctx.cr / ctx.weeks) : null;
+    if (reqSrPlus != null) levers.push({ kind: "rates", label: "+5 pts support rate", delta: baseReq - reqSrPlus });
+
+    const reqCrPlus = (ctx.goal > 0 && crPlus > 0 && ctx.weeks > 0) ? (ctx.goal / ctx.sr / crPlus / ctx.weeks) : null;
+    if (reqCrPlus != null) levers.push({ kind: "rates", label: "+5 pts contact rate", delta: baseReq - reqCrPlus });
+  }
+
+  // Rank levers by impact (delta attempts/week closed). Capacity levers close gap by increasing capacity.
+  const scored = levers
+    .map(l => ({
+      ...l,
+      impact: (l.kind === "capacity") ? l.delta : l.delta
+    }))
+    .filter(l => l.impact != null && isFinite(l.impact))
+    .sort((a,b) => (b.impact - a.impact));
+
+  const top = scored.slice(0, 5);
+  if (top.length === 0){
+    addBullet(els.wkLeversList, "No lever estimates available under current inputs.");
+    addBullet(els.wkActionsList, "Fill Phase 2 rates and Phase 3 capacity inputs to generate lever guidance.");
+    return;
+  }
+
+  for (const l of top){
+    const direction = (l.kind === "rates") ? "reduces required attempts" : "adds weekly capacity";
+    addBullet(els.wkLeversList, `${l.label}: ~${fmtCeil(l.impact)} attempts/week (${direction})`);
+  }
+
+  // Actions: turn top levers into practical next steps (react to reality, if available)
+  const actions = [];
+  const bestCap = top.find(x => x.kind === "capacity");
+  const bestRate = top.find(x => x.kind === "rates");
+  const bestCr = top.find(x => x.kind === "rates" && /contact rate/i.test(x.label));
+  const bestSr = top.find(x => x.kind === "rates" && /support rate/i.test(x.label));
+
+  const drift = computeRealityDrift();
+  const hasDrift = drift?.hasLog && drift?.flags?.length;
+  const primary = drift?.primary || null;
+
+  if (isGap){
+    if (hasDrift){
+      if (primary === "productivity"){
+        if (bestCap) actions.push(`Reality check shows productivity below assumed. Close the gap by raising execution capacity first: ${bestCap.label} (≈ ${fmtCeil(bestCap.impact)} attempts/week).`);
+        if (bestCr) actions.push(`Then reduce workload by improving contact rate: ${bestCr.label} (≈ ${fmtCeil(bestCr.impact)} attempts/week fewer).`);
+        else if (bestRate) actions.push(`Then reduce workload by improving rates: ${bestRate.label} (≈ ${fmtCeil(bestRate.impact)} attempts/week fewer).`);
+      } else if (primary === "contact"){
+        if (bestCr) actions.push(`Reality check shows contact rate below assumed. Prioritize: ${bestCr.label} (≈ ${fmtCeil(bestCr.impact)} attempts/week fewer).`);
+        if (bestCap) actions.push(`If rate lift is slow, backstop with more capacity: ${bestCap.label} (≈ ${fmtCeil(bestCap.impact)} attempts/week).`);
+      } else if (primary === "support"){
+        if (bestSr) actions.push(`Reality check shows support rate below assumed. Prioritize: ${bestSr.label} (≈ ${fmtCeil(bestSr.impact)} attempts/week fewer).`);
+        if (bestCap) actions.push(`If persuasion lift is slow, backstop with more capacity: ${bestCap.label} (≈ ${fmtCeil(bestCap.impact)} attempts/week).`);
+      } else {
+        if (bestCap) actions.push(`Close the gap by increasing execution capacity: start with ${bestCap.label} (≈ ${fmtCeil(bestCap.impact)} attempts/week).`);
+        if (bestRate) actions.push(`Reduce workload by improving rates: ${bestRate.label} (≈ ${fmtCeil(bestRate.impact)} attempts/week fewer).`);
+      }
+      actions.push("If actual performance stays below assumptions, either adjust assumptions to reality (and re-plan) or change inputs to close the gap (capacity, speeds, mix, training).");
+    } else {
+      if (bestCap) actions.push(`Close the gap by increasing execution capacity: start with ${bestCap.label} (≈ ${fmtCeil(bestCap.impact)} attempts/week).`);
+      if (bestRate) actions.push(`Reduce workload by improving rates: ${bestRate.label} (≈ ${fmtCeil(bestRate.impact)} attempts/week fewer).`);
+      actions.push(`If neither is realistic, reduce weekly pressure by extending timeline assumptions (more weeks) or revising the goal (Support IDs needed).`);
+    }
+  } else {
+    if (hasDrift){
+      if (primary === "productivity" && bestCap) actions.push(`You are feasible, but productivity is below assumed. Add buffer with ${bestCap.label} (≈ ${fmtCeil(bestCap.impact)} attempts/week).`);
+      if (primary === "contact" && bestCr) actions.push(`You are feasible, but contact rate is below assumed. Improve efficiency with ${bestCr.label} (≈ ${fmtCeil(bestCr.impact)} attempts/week fewer).`);
+      if (primary === "support" && bestSr) actions.push(`You are feasible, but support rate is below assumed. Improve efficiency with ${bestSr.label} (≈ ${fmtCeil(bestSr.impact)} attempts/week fewer).`);
+      if (actions.length === 0 && bestRate) actions.push(`You are feasible, but assumptions are drifting. Consider ${bestRate.label} (≈ ${fmtCeil(bestRate.impact)} per week).`);
+      actions.push("Use buffer to absorb volatility, and align assumptions to observed daily log so planning stays honest.");
+    } else {
+      if (bestCap) actions.push(`Build buffer: ${bestCap.label} adds ≈ ${fmtCeil(bestCap.impact)} attempts/week of slack.`);
+      if (bestRate) actions.push(`Improve efficiency: ${bestRate.label} reduces required attempts by ≈ ${fmtCeil(bestRate.impact)} per week.`);
+      actions.push("Use the buffer to absorb volatility (bad weeks, weather, volunteer drop-off) or to front-load early vote chasing.");
+    }
+  }
+
+  for (const a of actions.slice(0, 4)) addBullet(els.wkActionsList, a);
+}
+
+function renderWeeklyOpsFreshness(res, weeks){
+  if (!els.wkLastUpdate || !els.wkFreshStatus) return;
+
+  const fInt = (v) => (v == null || !isFinite(v)) ? "—" : (String(Math.round(v)).replace(/\B(?=(\d{3})+(?!\d))/g, ","));
+  const fPct = (v) => (v == null || !isFinite(v)) ? "—" : ((v * 100).toFixed(1) + "%");
+  const fNum1 = (v) => (v == null || !isFinite(v)) ? "—" : (Number(v).toFixed(1));
+
+  const log = Array.isArray(state.ui?.dailyLog) ? state.ui.dailyLog : null;
+  if (!log || log.length === 0){
+    els.wkLastUpdate.textContent = "—";
+    if (els.wkFreshNote) els.wkFreshNote.textContent = "No daily log configured yet";
+    if (els.wkRollingAttempts) els.wkRollingAttempts.textContent = "—";
+    if (els.wkRollingNote) els.wkRollingNote.textContent = "Add entries in organizer.html to activate reality checks";
+    if (els.wkRollingCR) els.wkRollingCR.textContent = "—";
+    if (els.wkRollingCRNote) els.wkRollingCRNote.textContent = "—";
+    if (els.wkRollingSR) els.wkRollingSR.textContent = "—";
+    if (els.wkRollingSRNote) els.wkRollingSRNote.textContent = "—";
+    if (els.wkRollingAPH) els.wkRollingAPH.textContent = "—";
+    if (els.wkRollingAPHNote) els.wkRollingAPHNote.textContent = "—";
+    els.wkFreshStatus.textContent = "Not tracking";
+    return;
+  }
+
+  const sorted = [...log].filter(x => x && x.date).sort((a,b) => String(a.date).localeCompare(String(b.date)));
+  const last = sorted[sorted.length - 1];
+  els.wkLastUpdate.textContent = last?.date || "—";
+  if (els.wkFreshNote) els.wkFreshNote.textContent = "Using state.ui.dailyLog";
+
+  // Rolling window: last 7 entries (not strictly calendar days)
+  const windowN = 7;
+  const lastN = sorted.slice(-windowN);
+
+  let sumAttempts = 0, sumDoors = 0, sumCalls = 0, sumConvos = 0, sumSupportIds = 0, sumOrgHours = 0;
+  for (const x of lastN){
+    const doors = safeNum(x?.doors) || 0;
+    const calls = safeNum(x?.calls) || 0;
+    const attempts = (x?.attempts != null && x.attempts !== "") ? (safeNum(x.attempts) || 0) : (doors + calls);
+    const convos = safeNum(x?.convos) || 0;
+    const sup = safeNum(x?.supportIds) || 0;
+    const hrs = safeNum(x?.orgHours) || 0;
+
+    sumDoors += doors;
+    sumCalls += calls;
+    sumAttempts += attempts;
+    sumConvos += convos;
+    sumSupportIds += sup;
+    sumOrgHours += hrs;
+  }
+
+  if (els.wkRollingAttempts) els.wkRollingAttempts.textContent = fInt(sumAttempts);
+
+  const actualCR = (sumAttempts > 0) ? (sumConvos / sumAttempts) : null;
+  const actualSR = (sumConvos > 0) ? (sumSupportIds / sumConvos) : null;
+  const actualAPH = (sumOrgHours > 0) ? (sumAttempts / sumOrgHours) : null;
+
+  if (els.wkRollingCR) els.wkRollingCR.textContent = fPct(actualCR);
+  if (els.wkRollingSR) els.wkRollingSR.textContent = fPct(actualSR);
+  if (els.wkRollingAPH) els.wkRollingAPH.textContent = fNum1(actualAPH);
+
+  // Compare to assumptions
+  const assumedCR = (state.contactRatePct != null && state.contactRatePct !== "") ? ((safeNum(state.contactRatePct) || 0) / 100) : null;
+  const assumedSR = (state.supportRatePct != null && state.supportRatePct !== "") ? ((safeNum(state.supportRatePct) || 0) / 100) : null;
+
+  const mixDoor = (state.channelDoorPct != null && state.channelDoorPct !== "") ? ((safeNum(state.channelDoorPct) || 0) / 100) : null;
+  const doorsHr = (state.doorsPerHour3 != null && state.doorsPerHour3 !== "") ? (safeNum(state.doorsPerHour3) || 0) : null;
+  const callsHr = (state.callsPerHour3 != null && state.callsPerHour3 !== "") ? (safeNum(state.callsPerHour3) || 0) : null;
+  const expectedAPH = (mixDoor != null && doorsHr != null && callsHr != null)
+    ? (mixDoor * doorsHr + (1 - mixDoor) * callsHr)
+    : null;
+
+  if (els.wkRollingCRNote){
+    if (assumedCR == null) els.wkRollingCRNote.textContent = "Assumed: —";
+    else els.wkRollingCRNote.textContent = `Assumed: ${fPct(assumedCR)}`;
+  }
+  if (els.wkRollingSRNote){
+    if (assumedSR == null) els.wkRollingSRNote.textContent = "Assumed: —";
+    else els.wkRollingSRNote.textContent = `Assumed: ${fPct(assumedSR)}`;
+  }
+  if (els.wkRollingAPHNote){
+    if (expectedAPH == null) els.wkRollingAPHNote.textContent = "Expected: —";
+    else els.wkRollingAPHNote.textContent = `Expected: ${fNum1(expectedAPH)} / hr`;
+  }
+
+  const ctx = computeWeeklyOpsContext(res, weeks);
+  const req = ctx.attemptsPerWeek;
+  if (els.wkRollingNote){
+    if (req == null || !isFinite(req)) els.wkRollingNote.textContent = "Required attempts/week unavailable under current inputs";
+    else els.wkRollingNote.textContent = `Required ≈ ${fInt(Math.ceil(req))} attempts/week`;
+  }
+
+  // Pace (last N entries represent roughly a week if you enter daily; treat as a comparable window)
+  let ratio = null;
+  if (req != null && isFinite(req) && req > 0) ratio = sumAttempts / req;
+
+  const flags = [];
+  const tol = 0.90; // 10% below assumed => flag
+  if (assumedCR != null && actualCR != null && isFinite(actualCR) && actualCR < assumedCR * tol) flags.push("contact rate below assumed");
+  if (assumedSR != null && actualSR != null && isFinite(actualSR) && actualSR < assumedSR * tol) flags.push("support rate below assumed");
+  if (expectedAPH != null && actualAPH != null && isFinite(actualAPH) && actualAPH < expectedAPH * tol) flags.push("productivity below assumed");
+
+  // Status label
+  if (ratio == null || !isFinite(ratio)){
+    els.wkFreshStatus.textContent = flags.length ? "Assumptions drifting" : "Needs inputs";
+    return;
+  }
+
+  if (ratio >= 1.0 && flags.length === 0) els.wkFreshStatus.textContent = "On pace";
+  else if (ratio >= 1.0 && flags.length) els.wkFreshStatus.textContent = "On pace (assumptions off)";
+  else if (ratio >= 0.85 && flags.length === 0) els.wkFreshStatus.textContent = "Slightly behind";
+  else if (ratio >= 0.85 && flags.length) els.wkFreshStatus.textContent = "Behind (rates/capacity off)";
+  else if (flags.length) els.wkFreshStatus.textContent = "Behind";
+  else els.wkFreshStatus.textContent = "Behind";
+
+  // If there are flags, append a short hint into the freshness note
+  if (flags.length && els.wkFreshNote){
+    els.wkFreshNote.textContent = `Reality check: ${flags.join(", ")}`;
+  }
+}
+
+
+function addBullet(listEl, text){
+  if (!listEl) return;
+  const li = document.createElement("li");
+  li.textContent = text;
+  listEl.appendChild(li);
 }
 
 
