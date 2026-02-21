@@ -248,7 +248,144 @@
 </div>
 </div>
 </div>
-</div><div class="card card-section phase-phase2" id="conversionCard">
+</div>
+
+<div class="card card-section" id="weeklyOpsCard">
+  <div class="card-head card-header">
+    <h2 class="card-title">This week plan</h2>
+    <div class="help-text">A single operational view: what you need this week vs what your current team capacity can actually execute.</div>
+  </div>
+
+  <div class="subgrid">
+    <div class="mini">
+      <div class="mini-k">Goal support IDs (net)</div>
+      <div class="mini-v" id="wkGoal">—</div>
+      <div class="mini-s">Uses manual goal if set, otherwise persuasion need</div>
+    </div>
+    <div class="mini">
+      <div class="mini-k">Conversations / week</div>
+      <div class="mini-v" id="wkConvosPerWeek">—</div>
+      <div class="mini-s">Goal ÷ support rate ÷ weeks remaining</div>
+    </div>
+    <div class="mini">
+      <div class="mini-k">Attempts / week</div>
+      <div class="mini-v" id="wkAttemptsPerWeek">—</div>
+      <div class="mini-s">Conversations ÷ contact rate</div>
+    </div>
+  </div>
+
+  <div class="subgrid" style="margin-top:10px;">
+    <div class="mini">
+      <div class="mini-k">Capacity / week</div>
+      <div class="mini-v" id="wkCapacityPerWeek">—</div>
+      <div class="mini-s" id="wkCapacityBreakdown">—</div>
+    </div>
+    <div class="mini">
+      <div class="mini-k">Gap / week</div>
+      <div class="mini-v" id="wkGapPerWeek">—</div>
+      <div class="mini-s">Required attempts − capacity</div>
+    </div>
+    <div class="mini">
+      <div class="mini-k">Primary constraint</div>
+      <div class="mini-v" id="wkConstraint">—</div>
+      <div class="mini-s" id="wkConstraintNote">—</div>
+    </div>
+  </div>
+
+  <div class="banner warn" hidden id="wkBanner" style="margin-top:10px;"></div>
+  <div class="note">This uses your Phase 2 rates (support/contact) and Phase 3 capacity inputs (organizers, hours, doors/hr, calls/hr, channel split). It is a planning summary, not a CRM.</div>
+</div>
+
+<div class="card card-section" id="weeklyOpsLeversCard">
+  <div class="card-head card-header">
+    <h2 class="card-title">Constraints &amp; levers</h2>
+    <div class="help-text">What is actually binding right now, and which knobs move the gap fastest (rough, local estimates).</div>
+  </div>
+
+  <div class="note" id="wkLeversIntro">—</div>
+  <ul class="bullets" id="wkLeversList"></ul>
+  <div class="note">These are small, one-step comparisons around your current settings. They do not replace a full sensitivity surface.</div>
+</div>
+
+<div class="card card-section" id="weeklyOpsActionsCard">
+  <div class="card-head card-header">
+    <h2 class="card-title">Recommended actions</h2>
+    <div class="help-text">A short list of practical next moves derived from the levers above.</div>
+  </div>
+
+  <ul class="bullets" id="wkActionsList"></ul>
+  <div class="note">This is guidance under your current assumptions. If you change goal, rates, or capacity, re-check the plan.</div>
+</div>
+
+<div class="card card-section" id="weeklyOpsFreshnessCard">
+  <div class="card-head card-header">
+    <h2 class="card-title">Data freshness</h2>
+    <div class="help-text">(Optional) A place to reflect daily updates. This is the hook for a cam.io-style pipeline.</div>
+  </div>
+
+  <div class="note" style="display:flex; flex-wrap:wrap; gap:10px; align-items:center; justify-content:space-between;">
+    <div>
+      Organizer input lives on a separate page for clean data entry.
+      <a class="link" href="organizer.html">Open organizer page</a>
+    </div>
+    <div style="display:flex; gap:8px; align-items:center;">
+      <button class="btn btn-sm" id="dailyLogExportBtn" type="button">Export daily log</button>
+    </div>
+  </div>
+
+  <div class="field" style="margin-top:10px;">
+    <label class="label" for="dailyLogImportText">Import daily log (paste JSON)</label>
+    <textarea class="input" id="dailyLogImportText" rows="5" placeholder='Paste JSON array of entries (or {"dailyLog": [...]})'></textarea>
+    <div style="display:flex; gap:8px; align-items:center; margin-top:8px;">
+      <button class="btn btn-sm" id="dailyLogImportBtn" type="button">Import &amp; merge</button>
+      <div class="mini-s" id="dailyLogImportMsg" aria-live="polite"></div>
+    </div>
+  </div>
+
+  <div class="subgrid">
+    <div class="mini">
+      <div class="mini-k">Last update</div>
+      <div class="mini-v" id="wkLastUpdate">—</div>
+      <div class="mini-s" id="wkFreshNote">No daily log configured yet</div>
+    </div>
+    <div class="mini">
+      <div class="mini-k">Rolling 7-day attempts</div>
+      <div class="mini-v" id="wkRollingAttempts">—</div>
+      <div class="mini-s" id="wkRollingNote">—</div>
+    </div>
+    <div class="mini">
+      <div class="mini-k">Plan status</div>
+      <div class="mini-v" id="wkFreshStatus">—</div>
+      <div class="mini-s">Based on whether your log supports the assumed rates/capacity</div>
+    </div>
+    <div class="mini">
+      <div class="mini-k">Rolling 7-day contact rate</div>
+      <div class="mini-v" id="wkRollingCR">—</div>
+      <div class="mini-s" id="wkRollingCRNote">—</div>
+    </div>
+    <div class="mini">
+      <div class="mini-k">Rolling 7-day support rate</div>
+      <div class="mini-v" id="wkRollingSR">—</div>
+      <div class="mini-s" id="wkRollingSRNote">—</div>
+    </div>
+    <div class="mini">
+      <div class="mini-k">Rolling attempts per org hour</div>
+      <div class="mini-v" id="wkRollingAPH">—</div>
+      <div class="mini-s" id="wkRollingAPHNote">—</div>
+    </div>
+  </div>
+
+  <div class="note" style="display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin-top:10px;">
+    <span class="mini-s">Analyst tools:</span>
+    <button class="btn btn-sm" id="applyRollingCRBtn" type="button">Use rolling contact rate</button>
+    <button class="btn btn-sm" id="applyRollingSRBtn" type="button">Use rolling support rate</button>
+    <span class="mini-s" id="applyRollingMsg" aria-live="polite"></span>
+  </div>
+
+  <div class="note">Reality check uses your daily log to estimate actual rates/capacity over the last 7 entries.</div>
+</div>
+
+<div class="card card-section phase-phase2" id="conversionCard">
 <div class="card-head card-header">
 <h2 class="card-title">Persuasion &amp; contact math</h2>
 <div class="help-text">Field math: Attempts → Contacts (contact rate) → Support IDs (support rate). Used across cost, optimization, and simulation.</div></div>

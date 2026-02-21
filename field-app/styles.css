@@ -646,6 +646,12 @@ input[type="date"].input{
   border-radius: var(--radius);
   background: color-mix(in srgb, var(--panel) 92%, var(--bg));
 }
+
+.bullets{
+  margin: 10px 0 0;
+  padding-left: 18px;
+}
+.bullets li{ margin: 6px 0; }
 .help{
   display:none;
   border: 1px dashed color-mix(in srgb, var(--rule) 80%, transparent);
