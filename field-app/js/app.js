@@ -5544,9 +5544,10 @@ function wireDecisionSessionD1(){
       if (!s) return;
       ensureDecisionSessionShape(s);
       const raw = String(els.decisionNonNegotiables.value || "");
-      const arr = raw.split(/
-?
-/).map(x => String(x || "").trim()).filter(Boolean);
+      const arr = raw
+        .split(/\r?\n|,/)
+        .map(x => String(x || "").trim())
+        .filter(Boolean);
       s.nonNegotiables = arr;
       persist();
     });
