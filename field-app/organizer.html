@@ -61,6 +61,7 @@
 
       <div class="card-footer" style="display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
         <button class="btn" id="btnSaveEntry" type="button">Save entry</button>
+        <button class="btn btn-ghost" id="btnDupYesterday" type="button">Duplicate yesterday</button>
         <button class="btn btn-ghost" id="btnClear" type="button">Clear</button>
         <div class="mini-s" id="entryMsg" aria-live="polite"></div>
       </div>
@@ -77,8 +78,13 @@
           <span class="mini-k">Last update:</span>
           <span class="mini-v" id="lastUpdate">—</span>
         </div>
+        <div>
+          <span class="mini-k">Missing days:</span>
+          <span class="mini-v" id="missingDays">—</span>
+        </div>
         <div style="display:flex; gap:8px; align-items:center;">
-          <button class="btn btn-sm" id="btnExport" type="button">Export JSON</button>
+          <button class="btn btn-sm" id="btnCopyJson" type="button">Copy JSON</button>
+          <button class="btn btn-sm" id="btnDownloadJson" type="button">Download JSON</button>
         </div>
       </div>
 

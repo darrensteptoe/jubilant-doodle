@@ -294,6 +294,82 @@
 
   <div class="banner warn" hidden id="wkBanner" style="margin-top:10px;"></div>
   <div class="note">This uses your Phase 2 rates (support/contact) and Phase 3 capacity inputs (organizers, hours, doors/hr, calls/hr, channel split). It is a planning summary, not a CRM.</div>
+  <hr class="sectionRule" aria-hidden="true" style="margin:12px 0;">
+
+  <div class="card-subtitle">Weekly execution status</div>
+
+  <div class="subgrid" style="margin-top:10px;">
+    <div class="mini">
+      <div class="mini-k">Required convos / week</div>
+      <div class="mini-v" id="wkReqConvosWeek">—</div>
+      <div class="mini-s">From the plan</div>
+    </div>
+    <div class="mini">
+      <div class="mini-k">Actual convos (last 7)</div>
+      <div class="mini-v" id="wkActConvos7">—</div>
+      <div class="mini-s" id="wkActConvosNote">—</div>
+    </div>
+    <div class="mini">
+      <div class="mini-k">Convos gap</div>
+      <div class="mini-v" id="wkGapConvos">—</div>
+      <div class="mini-s"><span class="tag" id="wkConvosPaceTag">—</span></div>
+    </div>
+
+    <div class="mini">
+      <div class="mini-k">Required attempts / week</div>
+      <div class="mini-v" id="wkReqAttemptsWeek">—</div>
+      <div class="mini-s">From the plan</div>
+    </div>
+    <div class="mini">
+      <div class="mini-k">Actual attempts (last 7)</div>
+      <div class="mini-v" id="wkActAttempts7">—</div>
+      <div class="mini-s" id="wkActAttemptsNote">—</div>
+    </div>
+    <div class="mini">
+      <div class="mini-k">Attempts gap</div>
+      <div class="mini-v" id="wkGapAttempts">—</div>
+      <div class="mini-s"><span class="tag" id="wkAttemptsPaceTag">—</span></div>
+    </div>
+  </div>
+
+  <div class="subgrid" style="margin-top:10px;">
+    <div class="mini">
+      <div class="mini-k">Required door attempts / week</div>
+      <div class="mini-v" id="wkReqDoorAttemptsWeek">—</div>
+      <div class="mini-s">Based on channel split</div>
+    </div>
+    <div class="mini">
+      <div class="mini-k">Required call attempts / week</div>
+      <div class="mini-v" id="wkReqCallAttemptsWeek">—</div>
+      <div class="mini-s">Based on channel split</div>
+    </div>
+    <div class="mini">
+      <div class="mini-k">Implied convos / week</div>
+      <div class="mini-v" id="wkImpliedConvosWeek">—</div>
+      <div class="mini-s" id="wkImpliedConvosNote">—</div>
+    </div>
+  </div>
+
+  <div class="subgrid" style="margin-top:10px;">
+    <div class="mini">
+      <div class="mini-k">Pace finish (convos)</div>
+      <div class="mini-v" id="wkFinishConvos">—</div>
+      <div class="mini-s">Pace-Based Projection (Not Monte Carlo)</div>
+    </div>
+    <div class="mini">
+      <div class="mini-k">Pace finish (attempts)</div>
+      <div class="mini-v" id="wkFinishAttempts">—</div>
+      <div class="mini-s">Pace-Based Projection (Not Monte Carlo)</div>
+    </div>
+    <div class="mini">
+      <div class="mini-k">Pace status</div>
+      <div class="mini-v" id="wkPaceStatus">—</div>
+      <div class="mini-s" id="wkPaceNote">—</div>
+    </div>
+  </div>
+
+  <div class="banner warn" hidden id="wkExecBanner" style="margin-top:10px;"></div>
+
 </div>
 
 <div class="card card-section" id="weeklyOpsLeversCard">
@@ -303,14 +379,37 @@
   </div>
 
   <div class="note" id="wkLeversIntro">—</div>
-  <ul class="bullets" id="wkLeversList"></ul>
-  <div class="note">These are small, one-step comparisons around your current settings. They do not replace a full sensitivity surface.</div>
+
+  <div class="note" id="wkBestMovesIntro">Best 3 moves — impact per unit:</div>
+  <ul class="bullets" id="wkBestMovesList"></ul>
+
+  <div class="table-wrap" style="margin-top:10px;">
+    <table class="table" aria-label="Constraints and levers">
+      <thead>
+        <tr>
+          <th>Lever</th>
+          <th class="num">Impact</th>
+          <th>Cost unit</th>
+          <th class="num">Efficiency</th>
+          <th>Apply</th>
+        </tr>
+      </thead>
+      <tbody id="wkLeversTbody"></tbody>
+    </table>
+  </div>
+
+  <div class="note" id="wkLeversFoot">These are one-step estimates around current inputs. They are meant for weekly operating decisions, not full sensitivity mapping.</div>
 </div>
 
 <div class="card card-section" id="weeklyOpsActionsCard">
   <div class="card-head card-header">
     <h2 class="card-title">Recommended actions</h2>
     <div class="help-text">A short list of practical next moves derived from the levers above.</div>
+  </div>
+
+  <div class="wkActionBar">
+    <button class="btn btn-sm" id="wkUndoActionBtn" type="button" disabled>Undo last applied action</button>
+    <div class="mini-s" id="wkUndoActionMsg" aria-live="polite"></div>
   </div>
 
   <ul class="bullets" id="wkActionsList"></ul>
