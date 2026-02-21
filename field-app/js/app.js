@@ -4836,6 +4836,13 @@ const OBJECTIVE_TEMPLATES = [
   { key: "balanced", label: "Balanced (risk-aware)" },
 ];
 
+const RISK_POSTURES = [
+  { key: "cautious", label: "Cautious" },
+  { key: "balanced", label: "Balanced" },
+  { key: "aggressive", label: "Aggressive" },
+];
+
+
 function makeDecisionSessionId(){
   return "ds_" + uid() + Date.now().toString(16);
 }
