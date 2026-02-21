@@ -243,8 +243,10 @@ function restoreBackupByIndex(idx){
     return;
   }
   state = migrated.scenario;
+  ensureDecisionScaffold();
   persist();
   render();
+  safeCall(() => { renderDecisionSessionD1(); });
 }
 
 
@@ -260,6 +262,90 @@ const els = {
   scCompareTbody: document.getElementById("scCompareTbody"),
   scOverall: document.getElementById("scOverall"),
   scWarn: document.getElementById("scWarn"),
+  scenarioSelect: document.getElementById("scenarioSelect"),
+  scenarioNewName: document.getElementById("scenarioNewName"),
+  btnScenarioSaveNew: document.getElementById("btnScenarioSaveNew"),
+  btnScenarioCloneBaseline: document.getElementById("btnScenarioCloneBaseline"),
+  btnScenarioDelete: document.getElementById("btnScenarioDelete"),
+  btnScenarioLoadSelected: document.getElementById("btnScenarioLoadSelected"),
+  btnScenarioReturnBaseline: document.getElementById("btnScenarioReturnBaseline"),
+  activeScenarioLabel: document.getElementById("activeScenarioLabel"),
+  scmCompareWrap: document.getElementById("scmCompareWrap"),
+  scmCompareTag: document.getElementById("scmCompareTag"),
+  scmCompareEmpty: document.getElementById("scmCompareEmpty"),
+  scmCompareGrid: document.getElementById("scmCompareGrid"),
+  scmDiffInputs: document.getElementById("scmDiffInputs"),
+  scmDiffInputsFoot: document.getElementById("scmDiffInputsFoot"),
+  scmDiffOutputs: document.getElementById("scmDiffOutputs"),
+
+  // Phase D1 — Decision Sessions
+  decisionSessionSelect: document.getElementById("decisionSessionSelect"),
+  btnDecisionNew: document.getElementById("btnDecisionNew"),
+  decisionRename: document.getElementById("decisionRename"),
+  btnDecisionRenameSave: document.getElementById("btnDecisionRenameSave"),
+  btnDecisionDelete: document.getElementById("btnDecisionDelete"),
+  decisionActiveLabel: document.getElementById("decisionActiveLabel"),
+  decisionNotes: document.getElementById("decisionNotes"),
+  decisionObjective: document.getElementById("decisionObjective"),
+  btnDecisionLinkScenario: document.getElementById("btnDecisionLinkScenario"),
+  decisionScenarioLabel: document.getElementById("decisionScenarioLabel"),
+  decisionBudget: document.getElementById("decisionBudget"),
+  decisionVolunteerHrs: document.getElementById("decisionVolunteerHrs"),
+  decisionTurfAccess: document.getElementById("decisionTurfAccess"),
+  decisionBlackoutDates: document.getElementById("decisionBlackoutDates"),
+  decisionRiskPosture: document.getElementById("decisionRiskPosture"),
+  decisionNonNegotiables: document.getElementById("decisionNonNegotiables"),
+
+  // Phase E1 — Assumption Drift (read-only)
+  driftStatusTag: document.getElementById("driftStatusTag"),
+  driftReq: document.getElementById("driftReq"),
+  driftActual: document.getElementById("driftActual"),
+  driftDelta: document.getElementById("driftDelta"),
+  driftSlipBanner: document.getElementById("driftSlipBanner"),
+
+  // Phase E2 — Risk Framing (derived only)
+  riskBandTag: document.getElementById("riskBandTag"),
+  riskWinProb: document.getElementById("riskWinProb"),
+  riskMarginBand: document.getElementById("riskMarginBand"),
+  riskVolatility: document.getElementById("riskVolatility"),
+  riskPlainBanner: document.getElementById("riskPlainBanner"),
+
+  bneckTag: document.getElementById("bneckTag"),
+  bneckPrimary: document.getElementById("bneckPrimary"),
+  bneckSecondary: document.getElementById("bneckSecondary"),
+  bneckTbody: document.getElementById("bneckTbody"),
+  bneckWarn: document.getElementById("bneckWarn"),
+
+  sensTag: document.getElementById("sensTag"),
+  btnSensRun: document.getElementById("btnSensRun"),
+  sensTbody: document.getElementById("sensTbody"),
+  sensBanner: document.getElementById("sensBanner"),
+
+  confTag: document.getElementById("confTag"),
+  confExec: document.getElementById("confExec"),
+  confRisk: document.getElementById("confRisk"),
+  confTight: document.getElementById("confTight"),
+  confDiv: document.getElementById("confDiv"),
+  confBanner: document.getElementById("confBanner"),
+
+  decisionOptionSelect: document.getElementById("decisionOptionSelect"),
+  btnDecisionOptionNew: document.getElementById("btnDecisionOptionNew"),
+  decisionOptionRename: document.getElementById("decisionOptionRename"),
+  btnDecisionOptionRenameSave: document.getElementById("btnDecisionOptionRenameSave"),
+  btnDecisionOptionDelete: document.getElementById("btnDecisionOptionDelete"),
+  btnDecisionOptionLinkScenario: document.getElementById("btnDecisionOptionLinkScenario"),
+  decisionOptionScenarioLabel: document.getElementById("decisionOptionScenarioLabel"),
+  decisionOptionTacticDoors: document.getElementById("decisionOptionTacticDoors"),
+  decisionOptionTacticPhones: document.getElementById("decisionOptionTacticPhones"),
+  decisionOptionTacticDigital: document.getElementById("decisionOptionTacticDigital"),
+  decisionRecommendSelect: document.getElementById("decisionRecommendSelect"),
+  decisionWhatTrue: document.getElementById("decisionWhatTrue"),
+  decisionSummaryPreview: document.getElementById("decisionSummaryPreview"),
+  btnDecisionCopyMd: document.getElementById("btnDecisionCopyMd"),
+  btnDecisionCopyText: document.getElementById("btnDecisionCopyText"),
+  btnDecisionDownloadJson: document.getElementById("btnDecisionDownloadJson"),
+  decisionCopyStatus: document.getElementById("decisionCopyStatus"),
+
   diagModal: document.getElementById("diagModal"),
   diagErrors: document.getElementById("diagErrors"),
   btnDiagClose: document.getElementById("btnDiagClose"),
@@ -645,6 +731,8 @@ const DEFAULTS_BY_TEMPLATE = {
 
 let state = loadState() || makeDefaultState();
 
+let lastRenderCtx = null;
+
 
 // =========================
 // Theme (System-first, with optional "force dark" override via hidden toggleDark)
@@ -730,10 +818,12 @@ function undoLastWeeklyAction(){
   lastAppliedWeeklyAction = null;
   if (createdId) scenarioMgr.remove(createdId);
   state = prev;
+  ensureDecisionScaffold();
   applyStateToUI();
   render();
   persist();
   syncWeeklyUndoUI();
+  safeCall(() => { renderDecisionSessionD1(); });
 }
 
 const recentErrors = [];
@@ -862,6 +952,7 @@ function makeDefaultState(){
       dark: false,
       advDiag: false,
       activeTab: "win",
+      decision: { sessions: {}, activeSessionId: null },
     }
   };
 }
@@ -1443,6 +1534,15 @@ if (els.roiRefresh) els.roiRefresh.addEventListener("click", () => { render(); }
     const ok = confirm("Reset all fields to defaults? This will clear the saved scenario in this browser.");
     if (!ok) return;
     state = makeDefaultState();
+    ensureScenarioRegistry();
+    ensureDecisionScaffold();
+    try{
+      const b = state.ui.scenarios?.[SCENARIO_BASELINE_ID];
+      if (b){
+        b.inputs = scenarioInputsFromState(state);
+        b.outputs = scenarioOutputsFromState(state);
+      }
+    } catch {}
     clearState();
     applyStateToUI();
     rebuildCandidateTable();
@@ -1450,6 +1550,8 @@ if (els.roiRefresh) els.roiRefresh.addEventListener("click", () => { render(); }
     document.body.classList.toggle("dark", !!state.ui.dark);
     if (els.explainCard) els.explainCard.hidden = !state.ui.training;
     render();
+    safeCall(() => { renderScenarioManagerC1(); });
+    safeCall(() => { renderDecisionSessionD1(); });
     persist();
   });
 
@@ -1544,12 +1646,22 @@ if (els.roiRefresh) els.roiRefresh.addEventListener("click", () => { render(); }
 
     // Replace entire state safely (no partial merge with current state)
     state = normalizeLoadedState(v.scenario);
+    ensureScenarioRegistry();
+    ensureDecisionScaffold();
+    try{
+      const b = state.ui.scenarios?.[SCENARIO_BASELINE_ID];
+      if (b){
+        b.inputs = scenarioInputsFromState(state);
+        b.outputs = scenarioOutputsFromState(state);
+      }
+    } catch {}
     applyStateToUI();
     rebuildCandidateTable();
     document.body.classList.toggle("training", !!state.ui.training);
     document.body.classList.toggle("dark", !!state.ui.dark);
     if (els.explainCard) els.explainCard.hidden = !state.ui.training;
     render();
+    safeCall(() => { renderDecisionSessionD1(); });
     persist();
     els.loadJson.value = "";
   });
@@ -1749,6 +1861,9 @@ function render(){
 
   const res = engine.computeAll(modelInput);
 
+  const needVotes = deriveNeedVotes(res);
+  lastRenderCtx = { res, weeks, needVotes, modelInput };
+
   els.turnoutExpected.textContent = res.turnout.expectedPct == null ? "—" : `${res.turnout.expectedPct.toFixed(1)}%`;
   els.turnoutBand.textContent = res.turnout.bestPct == null ? "—" : `${res.turnout.bestPct.toFixed(1)}% / ${res.turnout.worstPct.toFixed(1)}%`;
   els.votesPer1pct.textContent = (res.turnout.votesPer1pct == null) ? "—" : fmtInt(res.turnout.votesPer1pct);
@@ -1783,6 +1898,11 @@ function render(){
   safeCall(() => renderWeeklyOps(res, weeks));
   safeCall(() => renderWeeklyOpsInsights(res, weeks));
   safeCall(() => renderWeeklyOpsFreshness(res, weeks));
+  safeCall(() => renderAssumptionDriftE1(res, weeks));
+  safeCall(() => renderRiskFramingE2());
+  safeCall(() => renderBottleneckAttributionE3(res, weeks));
+  safeCall(() => renderSensitivitySnapshotE4());
+  safeCall(() => renderDecisionConfidenceE5(res, weeks));
 
   safeCall(() => renderUniverse16Card());
 
@@ -2213,6 +2333,85 @@ function computeWeeklyOpsContext(res, weeks){
   };
 }
 
+function renderAssumptionDriftE1(res, weeks){
+  if (!els.driftStatusTag) return;
+
+  const fInt = (v) => (v == null || !isFinite(v)) ? "—" : (String(Math.round(v)).replace(/\B(?=(\d{3})+(?!\d))/g, ","));
+  const fPct1 = (v) => (v == null || !isFinite(v)) ? "—" : ((v * 100).toFixed(1) + "%");
+
+  const ctx = computeWeeklyOpsContext(res, weeks);
+  const req = ctx?.attemptsPerWeek;
+  if (els.driftReq) els.driftReq.textContent = (req == null || !isFinite(req)) ? "—" : fInt(Math.ceil(req));
+
+  const log = Array.isArray(state.ui?.dailyLog) ? state.ui.dailyLog : null;
+  if (!log || log.length === 0){
+    els.driftStatusTag.className = "tag";
+    els.driftStatusTag.textContent = "Not tracking";
+    if (els.driftActual) els.driftActual.textContent = "—";
+    if (els.driftDelta) els.driftDelta.textContent = "—";
+    if (els.driftSlipBanner){
+      els.driftSlipBanner.className = "banner";
+      els.driftSlipBanner.textContent = "Add daily log entries in organizer.html to activate drift detection.";
+    }
+    return;
+  }
+
+  const sorted = [...log].filter(x => x && x.date).sort((a,b) => String(a.date).localeCompare(String(b.date)));
+  const lastN = sorted.slice(-7);
+
+  let sumAttempts7 = 0;
+  let sumAttemptsAll = 0;
+  for (const x of sorted){
+    const doors = safeNum(x?.doors) || 0;
+    const calls = safeNum(x?.calls) || 0;
+    const attempts = (x?.attempts != null && x.attempts !== "") ? (safeNum(x.attempts) || 0) : (doors + calls);
+    sumAttemptsAll += attempts;
+  }
+  for (const x of lastN){
+    const doors = safeNum(x?.doors) || 0;
+    const calls = safeNum(x?.calls) || 0;
+    const attempts = (x?.attempts != null && x.attempts !== "") ? (safeNum(x.attempts) || 0) : (doors + calls);
+    sumAttempts7 += attempts;
+  }
+
+  if (els.driftActual) els.driftActual.textContent = fInt(sumAttempts7);
+
+  let deltaPct = null;
+  if (req != null && isFinite(req) && req > 0) deltaPct = (sumAttempts7 - req) / req;
+
+  const abs = (deltaPct == null || !isFinite(deltaPct)) ? null : Math.abs(deltaPct);
+  const cls = (abs == null) ? "" : (abs <= 0.05 ? "ok" : (abs <= 0.15 ? "warn" : "bad"));
+
+  els.driftStatusTag.className = cls ? `tag ${cls}` : "tag";
+  els.driftStatusTag.textContent = cls === "ok" ? "Green" : (cls === "warn" ? "Yellow" : (cls === "bad" ? "Red" : "—"));
+
+  if (els.driftDelta){
+    if (deltaPct == null || !isFinite(deltaPct)) els.driftDelta.textContent = "—";
+    else els.driftDelta.textContent = `${deltaPct >= 0 ? "+" : ""}${fPct1(deltaPct)}`;
+  }
+
+  let slipDays = null;
+  const totalNeed = ctx?.attemptsNeeded;
+  const remaining = (totalNeed != null && isFinite(totalNeed)) ? Math.max(0, totalNeed - sumAttemptsAll) : null;
+  if (remaining != null && isFinite(remaining) && weeks != null && isFinite(weeks) && weeks > 0 && sumAttempts7 > 0){
+    const projWeeks = remaining / sumAttempts7;
+    const d = (projWeeks - weeks) * 7;
+    slipDays = Math.max(0, Math.round(d));
+  }
+
+  if (els.driftSlipBanner){
+    const bCls = cls ? cls : "";
+    els.driftSlipBanner.className = bCls ? `banner ${bCls}` : "banner";
+    if (slipDays == null){
+      els.driftSlipBanner.textContent = "At current pace, projected slip unavailable under current inputs.";
+    } else {
+      els.driftSlipBanner.textContent = slipDays === 0
+        ? "At current pace, target completion stays on schedule."
+        : `At current pace, target completion shifts by +${slipDays} days.`;
+    }
+  }
+}
+
 function computeRealityDrift(){
   const log = Array.isArray(state.ui?.dailyLog) ? state.ui.dailyLog : null;
   if (!log || log.length === 0) return { hasLog:false, flags:[], primary:null };
@@ -2384,6 +2583,302 @@ function applyWeeklyLeverScenario(lever, ctx){
   persist();
   syncWeeklyUndoUI();
 }
+
+
+
+function renderRiskFramingE2(){
+  if (!els.riskBandTag || !els.riskWinProb || !els.riskMarginBand || !els.riskVolatility || !els.riskPlainBanner) return;
+
+  const setTag = (label, cls) => {
+    els.riskBandTag.textContent = label || "—";
+    els.riskBandTag.classList.remove("ok","warn","bad");
+    if (cls) els.riskBandTag.classList.add(cls);
+  };
+
+  const setBanner = (text, cls) => {
+    els.riskPlainBanner.className = `banner ${cls || ""}`.trim();
+    els.riskPlainBanner.textContent = text || "—";
+  };
+
+  const s = state.mcLast;
+  if (!s){
+    setTag("—", null);
+    els.riskWinProb.textContent = "—";
+    els.riskMarginBand.textContent = "—";
+    els.riskVolatility.textContent = "—";
+    setBanner("Run Monte Carlo to populate risk framing.", "warn");
+    return;
+  }
+
+  const p = clamp(Number(s.winProb ?? 0), 0, 1);
+  els.riskWinProb.textContent = `${(p * 100).toFixed(1)}%`;
+
+  const ce = s.confidenceEnvelope;
+  const lo = (ce?.percentiles?.p10 != null) ? Number(ce.percentiles.p10) : (s.p5 != null ? Number(s.p5) : null);
+  const hi = (ce?.percentiles?.p90 != null) ? Number(ce.percentiles.p90) : (s.p95 != null ? Number(s.p95) : null);
+  const mid = (ce?.percentiles?.p50 != null) ? Number(ce.percentiles.p50) : (s.median != null ? Number(s.median) : null);
+
+  const fmtBand = (a, b, m) => {
+    if (a == null || b == null || !isFinite(a) || !isFinite(b)) return "—";
+    const mtxt = (m == null || !isFinite(m)) ? "" : ` (p50: ${fmtSigned(m)})`;
+    return `${fmtSigned(a)} to ${fmtSigned(b)}${mtxt}`;
+  };
+
+  els.riskMarginBand.textContent = fmtBand(lo, hi, mid);
+
+  const span = (lo == null || hi == null || !isFinite(lo) || !isFinite(hi)) ? null : Math.abs(hi - lo);
+  let volClass = "—";
+  if (span != null && isFinite(span)){
+    if (span <= 2) volClass = "Low";
+    else if (span <= 5) volClass = "Medium";
+    else volClass = "High";
+  }
+  els.riskVolatility.textContent = (span == null || !isFinite(span)) ? "—" : `${volClass} (±${(span/2).toFixed(1)} pts)`;
+
+  const dir = (p >= 0.5) ? "win" : "loss";
+  const volHigh = (volClass === "High");
+
+  let band = "Volatile";
+  let cls = "bad";
+  if (!volHigh && p >= 0.75){
+    band = "High confidence";
+    cls = "ok";
+  } else if (!volHigh && p >= 0.60){
+    band = "Lean";
+    cls = "warn";
+  }
+
+  setTag(band, cls);
+
+  const marginLine = (mid == null || !isFinite(mid))
+    ? ""
+    : `Expected margin (p50): ${fmtSigned(mid)}.`;
+
+  let plain = "";
+  if (band === "High confidence"){
+    plain = `Model indicates ${(p*100).toFixed(0)}% chance to ${dir}. ${marginLine} Volatility: ${volClass}.`;
+  } else if (band === "Lean"){
+    plain = `Leaning ${dir}: ${(p*100).toFixed(0)}% model win chance. ${marginLine} Volatility: ${volClass}.`;
+  } else {
+    plain = `Volatile outlook: ${(p*100).toFixed(0)}% model win chance. Small changes in execution or assumptions can swing outcomes. ${marginLine} Volatility: ${volClass}.`;
+  }
+
+  setBanner(plain, cls);
+}
+
+function renderBottleneckAttributionE3(res, weeks){
+  if (!els.bneckTag || !els.bneckPrimary || !els.bneckSecondary || !els.bneckTbody || !els.bneckWarn) return;
+
+  const clear = () => { els.bneckTbody.innerHTML = ""; };
+  const stub = () => {
+    clear();
+    els.bneckTbody.innerHTML = '<tr><td class="muted">—</td><td class="num muted">—</td><td class="muted">—</td></tr>';
+  };
+
+  const setWarn = (t) => {
+    els.bneckWarn.textContent = t || "";
+    els.bneckWarn.style.display = t ? "block" : "none";
+  };
+
+  const fmtDelta = (v) => {
+    if (v == null || !isFinite(v)) return "—";
+    const s = v > 0 ? "+" : "";
+    return `${s}${fmtInt(Math.round(v))}`;
+  };
+
+  const computePrimarySecondary = ({ maxAttemptsByTactic }) => {
+    const bindingObj = state.ui?.lastTlMeta?.bindingObj || {};
+    const alloc = state.ui?.lastOpt?.allocation || {};
+    const bindingTimeline = Array.isArray(bindingObj?.timeline) ? bindingObj.timeline : [];
+    const bindingBudget = !!bindingObj?.budget;
+    const bindingCapacity = !!bindingObj?.capacity;
+
+    const sat = [];
+    for (const t of bindingTimeline){
+      const cap = safeNum(maxAttemptsByTactic?.[t]);
+      const a = safeNum(alloc?.[t]);
+      const s = (cap != null && cap > 0 && a != null) ? (a / cap) : null;
+      if (s != null) sat.push({ t, s });
+    }
+    sat.sort((a,b)=> b.s - a.s || String(a.t).localeCompare(String(b.t)));
+
+    let primary = null;
+    let secondary = null;
+
+    if (sat.length){
+      primary = `timeline: ${sat[0].t}`;
+      if (sat.length > 1) secondary = `timeline: ${sat[1].t}`;
+    } else if (bindingTimeline.length){
+      primary = `timeline: ${bindingTimeline[0]}`;
+      if (bindingTimeline.length > 1) secondary = `timeline: ${bindingTimeline[1]}`;
+    }
+
+    const others = [];
+    if (bindingBudget) others.push("budget");
+    if (bindingCapacity) others.push("capacity");
+
+    if (!primary && others.length){
+      primary = others[0];
+      secondary = others[1] || null;
+    } else if (primary && !secondary && others.length){
+      secondary = others[0];
+    }
+
+    return { primary: primary || "none/unknown", secondary: secondary || "—" };
+  };
+
+  const tlOn = !!state.optimizer?.tlConstrainedEnabled;
+  const timelineEnabled = !!state.timelineEnabled;
+  if (!tlOn || !timelineEnabled){
+    els.bneckTag.textContent = "—";
+    els.bneckTag.classList.remove("ok","warn","bad");
+    els.bneckPrimary.textContent = state.ui?.lastDiagnostics?.primaryBottleneck || "—";
+    els.bneckSecondary.textContent = state.ui?.lastDiagnostics?.secondaryNotes || "—";
+    stub();
+    setWarn("Enable Timeline-constrained optimization to compute constraint impacts.");
+    return;
+  }
+
+  setWarn(null);
+
+  const eff = getEffectiveBaseRates();
+  const cr = eff.cr;
+  const sr = eff.sr;
+  const tr = eff.tr;
+
+  const needVotes = deriveNeedVotes(res);
+
+  const opt = state.optimizer || {};
+  const budget = state.budget || {};
+  const tactics = engine.buildOptimizationTactics({ baseRates: { cr, sr, tr }, tactics: budget.tactics || {} });
+
+  const overheadAmount = safeNum(budget.overheadAmount) ?? 0;
+  const includeOverhead = !!budget.includeOverhead;
+
+  const capsInputBase = {
+    enabled: true,
+    weeksRemaining: (weeks != null && isFinite(weeks)) ? weeks : 0,
+    activeWeeksOverride: safeNum(state.timelineActiveWeeks),
+    gotvWindowWeeks: safeNum(state.timelineGotvWeeks),
+    staffing: {
+      staff: safeNum(state.timelineStaffCount) ?? 0,
+      volunteers: safeNum(state.timelineVolCount) ?? 0,
+      staffHours: safeNum(state.timelineStaffHours) ?? 0,
+      volunteerHours: safeNum(state.timelineVolHours) ?? 0,
+    },
+    throughput: {
+      doors: safeNum(state.timelineDoorsPerHour) ?? 0,
+      phones: safeNum(state.timelineCallsPerHour) ?? 0,
+      texts: safeNum(state.timelineTextsPerHour) ?? 0,
+    },
+    tacticKinds: {
+      doors: state.budget?.tactics?.doors?.kind || "persuasion",
+      phones: state.budget?.tactics?.phones?.kind || "persuasion",
+      texts: state.budget?.tactics?.texts?.kind || "persuasion",
+    }
+  };
+
+  const computeTl = ({ tacticsIn, capsIn, budgetLimitIn }) => {
+    const caps = engine.computeMaxAttemptsByTactic(capsIn);
+    const maxAttemptsByTactic = (caps && caps.enabled) ? caps.maxAttemptsByTactic : null;
+
+    const budgetIn = safeNum(budgetLimitIn) ?? 0;
+    const budgetAvail = Math.max(0, budgetIn - (includeOverhead ? overheadAmount : 0));
+
+    const capUser = safeNum(opt.capacityAttempts);
+    const capCeiling = null;
+    const capLimit = (capUser != null && capUser >= 0) ? capUser : null;
+
+    const tlObj = opt.tlConstrainedObjective || "max_net";
+    const step = safeNum(opt.step) ?? 100;
+    const objective = opt.objective || "net";
+
+    const inputs = {
+      mode: (opt.mode || "budget"),
+      budgetLimit: ((opt.mode || "budget") === "capacity") ? null : budgetAvail,
+      capacityLimit: ((opt.mode || "budget") === "capacity") ? (capLimit ?? 0) : null,
+      capacityCeiling: ((opt.mode || "budget") === "capacity") ? null : capCeiling,
+      tactics: tacticsIn,
+      step,
+      useDecay: !!opt.useDecay,
+      objective,
+      maxAttemptsByTactic,
+      tlObjectiveMode: tlObj,
+      goalNetVotes: needVotes
+    };
+    return { out: engine.optimizeTimelineConstrained(inputs), maxAttemptsByTactic };
+  };
+
+  const baseBudget = safeNum(opt.budgetAmount) ?? 0;
+  const base = computeTl({ tacticsIn: tactics, capsIn: capsInputBase, budgetLimitIn: baseBudget });
+  const baseMeta = base.out?.meta || {};
+  const baseMax = safeNum(baseMeta.maxAchievableNetVotes) ?? null;
+
+  const ps = computePrimarySecondary({ maxAttemptsByTactic: base.maxAttemptsByTactic || null });
+  els.bneckPrimary.textContent = ps.primary;
+  els.bneckSecondary.textContent = ps.secondary;
+
+  const bindingObj = baseMeta.bindingObj || state.ui?.lastTlMeta?.bindingObj || {};
+  const badgeCls = (bindingObj?.budget || bindingObj?.capacity || (Array.isArray(bindingObj?.timeline) && bindingObj.timeline.length)) ? "warn" : "ok";
+  els.bneckTag.textContent = badgeCls === "ok" ? "Clear" : "Binding";
+  els.bneckTag.classList.remove("ok","warn","bad");
+  els.bneckTag.classList.add(badgeCls);
+
+  const buildRow = (name, delta, notes) => {
+    const trEl = document.createElement("tr");
+    const td0 = document.createElement("td");
+    td0.textContent = name;
+    const td1 = document.createElement("td");
+    td1.className = "num";
+    td1.textContent = fmtDelta(delta);
+    const td2 = document.createElement("td");
+    td2.className = "muted";
+    td2.textContent = notes || "—";
+    trEl.appendChild(td0); trEl.appendChild(td1); trEl.appendChild(td2);
+    return trEl;
+  };
+
+  const staffHours10 = (() => {
+    const c = structuredClone(capsInputBase);
+    const cur = safeNum(c.staffing?.staffHours) ?? 0;
+    c.staffing.staffHours = cur * 1.10;
+    const out = computeTl({ tacticsIn: tactics, capsIn: c, budgetLimitIn: baseBudget });
+    const m = safeNum(out.out?.meta?.maxAchievableNetVotes) ?? null;
+    return { delta: (m != null && baseMax != null) ? (m - baseMax) : null, notes: "timeline capacity (staff hours/week)" };
+  })();
+
+  const volHours10 = (() => {
+    const c = structuredClone(capsInputBase);
+    const cur = safeNum(c.staffing?.volunteerHours) ?? 0;
+    c.staffing.volunteerHours = cur * 1.10;
+    const out = computeTl({ tacticsIn: tactics, capsIn: c, budgetLimitIn: baseBudget });
+    const m = safeNum(out.out?.meta?.maxAchievableNetVotes) ?? null;
+    return { delta: (m != null && baseMax != null) ? (m - baseMax) : null, notes: "volunteer hours/week" };
+  })();
+
+  const budget10 = (() => {
+    if ((opt.mode || "budget") === "capacity") return { delta: null, notes: "budget not active (capacity mode)" };
+    const out = computeTl({ tacticsIn: tactics, capsIn: capsInputBase, budgetLimitIn: baseBudget * 1.10 });
+    const m = safeNum(out.out?.meta?.maxAchievableNetVotes) ?? null;
+    return { delta: (m != null && baseMax != null) ? (m - baseMax) : null, notes: "budget ceiling" };
+  })();
+
+  const contactRate10 = (() => {
+    const curPct = safeNum(state.contactRatePct);
+    if (curPct == null) return { delta: null, notes: "contact rate missing" };
+    const nextPct = clamp(curPct * 1.10, 0, 100);
+    const t2 = engine.buildOptimizationTactics({ baseRates: { cr: clamp(nextPct,0,100)/100, sr, tr }, tactics: budget.tactics || {} });
+    const out = computeTl({ tacticsIn: t2, capsIn: capsInputBase, budgetLimitIn: baseBudget });
+    const m = safeNum(out.out?.meta?.maxAchievableNetVotes) ?? null;
+    return { delta: (m != null && baseMax != null) ? (m - baseMax) : null, notes: `contact rate ${curPct.toFixed(1)}% → ${nextPct.toFixed(1)}%` };
+  })();
+
+  clear();
+  els.bneckTbody.appendChild(buildRow("Timeline capacity", staffHours10.delta, staffHours10.notes));
+  els.bneckTbody.appendChild(buildRow("Budget ceiling", budget10.delta, budget10.notes));
+  els.bneckTbody.appendChild(buildRow("Contact rate", contactRate10.delta, contactRate10.notes));
+  els.bneckTbody.appendChild(buildRow("Volunteer hours", volHours10.delta, volHours10.notes));
+ }
 
 function renderWeeklyOpsInsights(res, weeks){
   if (!els.wkLeversIntro || !els.wkActionsList || !els.wkBestMovesList || !els.wkLeversTbody) return;
@@ -2901,6 +3396,379 @@ function renderConversion(res, weeks){
 }
 
 
+function renderSensitivitySnapshotE4(){
+  if (!els.sensTag || !els.sensTbody || !els.sensBanner || !els.btnSensRun) return;
+
+  const stub = (msg, cls) => {
+    els.sensTbody.innerHTML = '<tr><td class="muted">—</td><td class="num muted">—</td><td class="num muted">—</td><td class="muted">—</td></tr>';
+    els.sensTag.textContent = "—";
+    els.sensTag.classList.remove("ok","warn","bad");
+    els.sensBanner.className = `banner ${cls || ""}`.trim();
+    els.sensBanner.textContent = msg || "—";
+  };
+
+  const base = state.mcLast;
+  if (!base){
+    stub("Run Monte Carlo to enable the sensitivity snapshot.", "warn");
+    els.btnSensRun.disabled = true;
+    return;
+  }
+
+  els.btnSensRun.disabled = false;
+
+  const cache = state.ui?.e4Sensitivity;
+  if (!cache || cache.baseHash !== state.mcLastHash || !Array.isArray(cache.rows) || cache.rows.length === 0){
+    stub("Click \"Run snapshot\" to compute small perturbation deltas (read-only).", "");
+    return;
+  }
+
+  els.sensTbody.innerHTML = "";
+  for (const r of cache.rows){
+    const tr = document.createElement("tr");
+    const td0 = document.createElement("td"); td0.textContent = r.label || "—";
+    const td1 = document.createElement("td"); td1.className = "num"; td1.textContent = r.dWin || "—";
+    const td2 = document.createElement("td"); td2.className = "num"; td2.textContent = r.dP50 || "—";
+    const td3 = document.createElement("td"); td3.className = "muted"; td3.textContent = r.note || "";
+    tr.appendChild(td0); tr.appendChild(td1); tr.appendChild(td2); tr.appendChild(td3);
+    els.sensTbody.appendChild(tr);
+  }
+
+  const tag = cache.tag || "Snapshot";
+  els.sensTag.textContent = tag;
+  els.sensTag.classList.remove("ok","warn","bad");
+  if (cache.cls) els.sensTag.classList.add(cache.cls);
+
+  els.sensBanner.className = `banner ${cache.cls || ""}`.trim();
+  els.sensBanner.textContent = cache.banner || "—";
+}
+
+async function runSensitivitySnapshotE4(){
+  if (!els.sensTag || !els.sensTbody || !els.sensBanner || !els.btnSensRun) return;
+
+  const base = state.mcLast;
+  if (!base) return;
+
+  const ctx = lastRenderCtx;
+  if (!ctx || !ctx.res) return;
+
+  const weeks = (ctx.weeks != null && ctx.weeks >= 0) ? ctx.weeks : null;
+  const needVotes = (ctx.needVotes != null && ctx.needVotes >= 0) ? ctx.needVotes : null;
+  const seed = state.mcSeed || "";
+
+  const baseP = clamp(Number(base.winProb ?? 0), 0, 1);
+  const baseP50 = (base.confidenceEnvelope?.percentiles?.p50 != null) ? Number(base.confidenceEnvelope.percentiles.p50)
+    : (base.median != null ? Number(base.median) : null);
+
+  const runs = 2000;
+
+  const fmtWinDelta = (p) => {
+    if (p == null || !isFinite(p)) return "—";
+    const d = (p - baseP) * 100;
+    const s = d > 0 ? "+" : "";
+    return `${s}${d.toFixed(1)} pts`;
+  };
+
+  const fmtMarginDelta = (m) => {
+    if (m == null || !isFinite(m) || baseP50 == null || !isFinite(baseP50)) return "—";
+    const d = m - baseP50;
+    const s = d > 0 ? "+" : "";
+    return `${s}${d.toFixed(1)}`;
+  };
+
+  const simWin = (sim) => (sim && sim.winProb != null) ? clamp(Number(sim.winProb), 0, 1) : null;
+  const simP50 = (sim) => {
+    if (!sim) return null;
+    const p50 = sim.confidenceEnvelope?.percentiles?.p50;
+    if (p50 != null && isFinite(p50)) return Number(p50);
+    const m = sim.median;
+    if (m != null && isFinite(m)) return Number(m);
+    return null;
+  };
+
+  const setBusy = (on) => {
+    els.btnSensRun.disabled = !!on;
+    els.btnSensRun.textContent = on ? "Running…" : "Run snapshot";
+  };
+
+  const mk = (label, nextState, note) => ({ label, nextState, note });
+
+  const bump = (v, f, lo, hi) => {
+    const n = Number(v);
+    if (!isFinite(n)) return v;
+    const x = n * f;
+    if (lo != null || hi != null){
+      const a = (lo == null) ? x : Math.max(lo, x);
+      return (hi == null) ? a : Math.min(hi, a);
+    }
+    return x;
+  };
+
+  const s1 = structuredClone(state);
+  s1.doorsPerHour3 = bump(s1.doorsPerHour3, 1.10, 0.01, null);
+
+  const s2 = structuredClone(state);
+  s2.callsPerHour3 = bump(s2.callsPerHour3, 1.10, 0.01, null);
+
+  const s3 = structuredClone(state);
+  s3.volunteerMultBase = bump(s3.volunteerMultBase, 1.10, 0.01, 10);
+
+  const s4 = structuredClone(state);
+  if (s4.gotvMode === "advanced"){
+    const v = Number(s4.gotvLiftMode);
+    s4.gotvLiftMode = (isFinite(v) ? v : 0) + 5;
+  } else {
+    const v = Number(s4.gotvLiftPP);
+    s4.gotvLiftPP = (isFinite(v) ? v : 0) + 5;
+  }
+
+  const jobs = [
+    mk("+10% doors", s1, "Doors/hr × 1.10"),
+    mk("+10% phones", s2, "Calls/hr × 1.10"),
+    mk("+10% volunteers", s3, "Volunteer multiplier × 1.10"),
+    mk("+5pp turnout lift", s4, "GOTV lift + 5pp"),
+  ];
+
+  setBusy(true);
+  try{
+    const rows = [];
+    for (const j of jobs){
+      const sim = runMonteCarloSim({ scenario: j.nextState, res: ctx.res, weeks, needVotes, runs, seed });
+      const p = simWin(sim);
+      const m = simP50(sim);
+      rows.push({
+        label: j.label,
+        dWin: fmtWinDelta(p),
+        dP50: fmtMarginDelta(m),
+        note: j.note,
+      });
+    }
+
+    const best = rows.reduce((a,r) => {
+      const m = parseFloat(String(r.dWin||"").replace(/[^0-9\-\.]+/g, ""));
+      if (!isFinite(m)) return a;
+      const abs = Math.abs(m);
+      if (!a || abs > a.abs) return { abs, r };
+      return a;
+    }, null);
+
+    const banner = best ? `Biggest movement in win probability: ${best.r.label} (${best.r.dWin}).` : "Snapshot complete.";
+    const cls = best && best.abs >= 5 ? "warn" : "ok";
+
+    if (!state.ui) state.ui = {};
+    state.ui.e4Sensitivity = {
+      baseHash: state.mcLastHash,
+      computedAt: Date.now(),
+      rows,
+      banner,
+      tag: "Mini surface",
+      cls,
+    };
+    persist();
+    renderSensitivitySnapshotE4();
+  } finally {
+    setBusy(false);
+  }
+}
+
+function renderDecisionConfidenceE5(res, weeks){
+  if (!els.confTag || !els.confExec || !els.confRisk || !els.confTight || !els.confDiv || !els.confBanner) return;
+
+  const setTag = (cls, text) => {
+    els.confTag.classList.remove("ok","warn","bad");
+    if (cls) els.confTag.classList.add(cls);
+    els.confTag.textContent = text || "—";
+  };
+
+  const setBanner = (cls, text) => {
+    els.confBanner.className = `banner ${cls || ""}`.trim();
+    els.confBanner.textContent = text || "—";
+  };
+
+  const computeExec = () => {
+    const log = Array.isArray(state.ui?.dailyLog) ? state.ui.dailyLog : [];
+    const sorted = [...log].map(normalizeDailyLogEntry).filter(Boolean).sort((a,b)=>String(a.date).localeCompare(String(b.date)));
+    const last7 = sorted.slice(-7);
+    const actual7 = last7.reduce((s,e)=> s + (safeNum(e.attempts) ?? 0), 0);
+
+    const rawGoal = safeNum(state.goalSupportIds);
+    const autoGoal = safeNum(res?.expected?.persuasionNeed);
+    const goal = (rawGoal != null && rawGoal >= 0) ? rawGoal : (autoGoal != null && autoGoal > 0 ? autoGoal : 0);
+
+    const eff = getEffectiveBaseRates();
+    const sr = eff.sr;
+    const cr = eff.cr;
+
+    let attemptsPerWeekReq = null;
+    if (goal > 0 && sr && sr > 0 && cr && cr > 0 && weeks != null && weeks > 0){
+      const convosNeeded = goal / sr;
+      const attemptsNeeded = convosNeeded / cr;
+      attemptsPerWeekReq = attemptsNeeded / weeks;
+    }
+
+    const req7 = (attemptsPerWeekReq != null) ? (attemptsPerWeekReq) : null;
+    const pct = (req7 != null && req7 > 0) ? ((actual7 - req7) / req7) : null;
+    const absPct = (pct != null) ? Math.abs(pct) : null;
+
+    let status = "unknown";
+    if (absPct != null){
+      if (absPct <= 0.05) status = "green";
+      else if (absPct <= 0.15) status = "yellow";
+      else status = "red";
+    }
+    return { status, pct, req: req7, actual7 };
+  };
+
+  const computeRisk = () => {
+    const mc = state.mcLast;
+    if (!mc) return { band: "unknown", vol: null, winProb: null };
+    const p = (mc.winProb != null) ? clamp(Number(mc.winProb), 0, 1) : null;
+
+    const env = mc.confidenceEnvelope?.percentiles || null;
+    const lo = (env?.p10 != null) ? Number(env.p10)
+      : (env?.p5 != null) ? Number(env.p5)
+      : null;
+    const hi = (env?.p90 != null) ? Number(env.p90)
+      : (env?.p95 != null) ? Number(env.p95)
+      : null;
+    const width = (lo != null && hi != null && isFinite(lo) && isFinite(hi)) ? (hi - lo) : null;
+
+    const band = (() => {
+      if (p == null) return "unknown";
+      if (p >= 0.70 && (width == null || width <= 8)) return "high";
+      if (p >= 0.55 && (width == null || width <= 14)) return "lean";
+      return "volatile";
+    })();
+
+    return { band, vol: width, winProb: p };
+  };
+
+  const computeTightness = () => {
+    const bindingObj = state.ui?.lastTlMeta?.bindingObj || null;
+    if (!bindingObj || typeof bindingObj !== "object") return { cls: "", label: "—" };
+    const b = [];
+    if (bindingObj.budget) b.push("budget");
+    if (bindingObj.capacity) b.push("capacity");
+    if (Array.isArray(bindingObj.timeline) && bindingObj.timeline.length) b.push("timeline");
+    if (!b.length) return { cls: "ok", label: "Clear" };
+    if (b.length === 1) return { cls: "warn", label: "Binding" };
+    return { cls: "bad", label: "Severe" };
+  };
+
+  const computeDivergence = () => {
+    ensureScenarioRegistry();
+    const reg = state.ui.scenarios;
+    const activeId = state.ui.activeScenarioId;
+    if (!activeId || activeId === SCENARIO_BASELINE_ID) return { cls: "ok", label: "Low" };
+
+    const baseRec = reg?.[SCENARIO_BASELINE_ID] || null;
+    if (!baseRec) return { cls: "", label: "—" };
+
+    const baseInputs = scenarioClone(baseRec.inputs || {});
+    const actInputs = scenarioInputsFromState(state);
+
+    const keyOrder = [
+      "raceType","mode","electionDate","weeksRemaining",
+      "universeBasis","universeSize",
+      "goalSupportIds","supportRatePct","contactRatePct","turnoutReliabilityPct",
+      "universeLayerEnabled","universeDemPct","universeRepPct","universeNpaPct","universeOtherPct","retentionFactor",
+      "orgCount","orgHoursPerWeek","volunteerMultBase","channelDoorPct","doorsPerHour3","callsPerHour3",
+      "timelineEnabled","timelineStaffCount","timelineVolCount","timelineStaffHours","timelineVolHours","timelineDoorsPerHour","timelineCallsPerHour","timelineTextsPerHour","timelineDoorSharePct","timelineActiveWeeks","timelineGotvWeeks"
+    ];
+
+    let diff = 0;
+    for (const k of keyOrder){
+      const a = baseInputs?.[k];
+      const b = actInputs?.[k];
+      const same = (a === b) || (String(a ?? "") === String(b ?? ""));
+      if (!same) diff++;
+    }
+
+    if (diff <= 3) return { cls: "ok", label: "Low" };
+    if (diff <= 8) return { cls: "warn", label: "Moderate" };
+    return { cls: "bad", label: "High" };
+  };
+
+  const exec = computeExec();
+  const risk = computeRisk();
+  const tight = computeTightness();
+  const div = computeDivergence();
+
+  const execLabel = exec.status === "green" ? "On pace" : exec.status === "yellow" ? "Drifting" : exec.status === "red" ? "Off pace" : "—";
+  els.confExec.textContent = execLabel;
+
+  const riskLabel = risk.band === "high" ? "High confidence" : risk.band === "lean" ? "Lean" : risk.band === "volatile" ? "Volatile" : "—";
+  els.confRisk.textContent = riskLabel;
+
+  els.confTight.textContent = tight.label || "—";
+  els.confDiv.textContent = div.label || "—";
+
+  const scorePiece = (kind) => {
+    if (kind === "exec"){
+      if (exec.status === "green") return 25;
+      if (exec.status === "yellow") return 15;
+      if (exec.status === "red") return 5;
+      return 10;
+    }
+    if (kind === "risk"){
+      if (risk.band === "high") return 25;
+      if (risk.band === "lean") return 15;
+      if (risk.band === "volatile") return 5;
+      return 10;
+    }
+    if (kind === "tight"){
+      if (tight.label === "Clear") return 25;
+      if (tight.label === "Binding") return 15;
+      if (tight.label === "Severe") return 5;
+      return 10;
+    }
+    if (kind === "div"){
+      if (div.label === "Low") return 25;
+      if (div.label === "Moderate") return 15;
+      if (div.label === "High") return 5;
+      return 10;
+    }
+    return 0;
+  };
+
+  const score = scorePiece("exec") + scorePiece("risk") + scorePiece("tight") + scorePiece("div");
+  const rating = (score >= 80) ? "Strong" : (score >= 50) ? "Moderate" : "Low";
+  const cls = (rating === "Strong") ? "ok" : (rating === "Moderate") ? "warn" : "bad";
+
+  setTag(cls, `${rating}`);
+
+  const slips = (() => {
+    if (exec.pct == null || exec.req == null || exec.req <= 0) return null;
+    const perWeekActual = exec.actual7;
+    const perWeekReq = exec.req;
+    if (!isFinite(perWeekActual) || !isFinite(perWeekReq) || perWeekActual <= 0) return null;
+    const factor = perWeekReq / perWeekActual;
+    const extraWeeks = (factor - 1) * (weeks ?? 0);
+    if (!isFinite(extraWeeks)) return null;
+    const days = Math.max(0, Math.round(extraWeeks * 7));
+    return days;
+  })();
+
+  const driverLines = [];
+  if (exec.status === "red") driverLines.push("Execution pace is off required weekly pace.");
+  else if (exec.status === "yellow") driverLines.push("Execution pace is drifting from required weekly pace.");
+
+  if (risk.band === "volatile") driverLines.push("Monte Carlo outputs are volatile.");
+  else if (risk.band === "lean") driverLines.push("Win probability is lean rather than secure.");
+
+  if (tight.label === "Severe") driverLines.push("Multiple constraints are binding simultaneously.");
+  else if (tight.label === "Binding") driverLines.push("At least one constraint is binding.");
+
+  if (div.label === "High") driverLines.push("Active scenario diverges meaningfully from baseline.");
+  else if (div.label === "Moderate") driverLines.push("Active scenario differs from baseline in several assumptions.");
+
+  const slipText = (slips != null && slips > 0) ? `If pace holds, target slips by ~${fmtInt(slips)} days.` : null;
+  if (slipText) driverLines.unshift(slipText);
+
+  const banner = driverLines.length ? driverLines.slice(0, 3).join(" ") : "Confidence combines pace, risk, constraints, and scenario divergence.";
+  setBanner(cls, banner);
+}
+
+
 function renderDecisionIntelligencePanel({ res, weeks }){
   if (!els.diPrimary || !els.diVolTbody || !els.diCostTbody || !els.diProbTbody) return;
 
@@ -3312,6 +4180,1490 @@ function wireScenarioComparePanel(){
 }
 
 
+
+// =========================
+// Phase C1 — Scenario Stack (registry)
+// =========================
+
+const SCENARIO_BASELINE_ID = "baseline";
+const SCENARIO_MAX = 20;
+
+function scenarioClone(obj){
+  try{
+    if (typeof structuredClone === "function") return structuredClone(obj);
+  } catch {}
+  try{
+    return JSON.parse(JSON.stringify(obj));
+  } catch {
+    if (obj && typeof obj === "object") return Array.isArray(obj) ? obj.slice() : { ...obj };
+    return obj;
+  }
+}
+
+function scenarioInputsFromState(src){
+  const s = scenarioClone(src);
+  if (s && typeof s === "object"){
+    delete s.ui;
+    delete s.mcLast;
+    delete s.mcLastHash;
+  }
+  return s;
+}
+
+function scenarioOutputsFromState(src){
+  const ui = src?.ui || {};
+  return {
+    planMeta: scenarioClone(ui.lastPlanMeta || {}),
+    summary: scenarioClone(ui.lastSummary || {}),
+    timeline: scenarioClone(ui.lastTimeline || {}),
+    tlMeta: scenarioClone(ui.lastTlMeta || {}),
+    diagnostics: scenarioClone(ui.lastDiagnostics || {}),
+  };
+}
+
+function ensureScenarioRegistry(){
+  if (!state.ui) state.ui = {};
+  const cur = state.ui.scenarios;
+  if (!cur || typeof cur !== "object" || Array.isArray(cur)) state.ui.scenarios = {};
+  if (!state.ui.activeScenarioId || typeof state.ui.activeScenarioId !== "string") state.ui.activeScenarioId = SCENARIO_BASELINE_ID;
+  if (!state.ui.scenarioUiSelectedId || typeof state.ui.scenarioUiSelectedId !== "string") state.ui.scenarioUiSelectedId = state.ui.activeScenarioId;
+
+  const reg = state.ui.scenarios;
+  if (!reg[SCENARIO_BASELINE_ID]){
+    reg[SCENARIO_BASELINE_ID] = {
+      id: SCENARIO_BASELINE_ID,
+      name: "Baseline",
+      inputs: scenarioInputsFromState(state),
+      outputs: scenarioOutputsFromState(state),
+      createdAt: new Date().toISOString()
+    };
+  }
+
+  if (!reg[state.ui.activeScenarioId]) state.ui.activeScenarioId = SCENARIO_BASELINE_ID;
+  if (!reg[state.ui.scenarioUiSelectedId]) state.ui.scenarioUiSelectedId = state.ui.activeScenarioId;
+}
+
+function setScenarioWarn(msg){
+  if (!els.scWarn) return;
+  if (msg){
+    els.scWarn.hidden = false;
+    els.scWarn.textContent = msg;
+  } else {
+    els.scWarn.hidden = true;
+    els.scWarn.textContent = "";
+  }
+}
+
+function listScenarioRecords(){
+  ensureScenarioRegistry();
+  const reg = state.ui.scenarios;
+  const all = Object.values(reg);
+  const baseline = all.find(s => s && s.id === SCENARIO_BASELINE_ID) || null;
+  const rest = all.filter(s => s && s.id !== SCENARIO_BASELINE_ID);
+  rest.sort((a,b) => String(a.createdAt||"").localeCompare(String(b.createdAt||"")));
+  return baseline ? [baseline, ...rest] : rest;
+}
+
+function getUniverseLayerConfigFromSnap(snap){
+  const enabled = !!snap?.universeLayerEnabled;
+  const demPct = safeNum(snap?.universeDemPct);
+  const repPct = safeNum(snap?.universeRepPct);
+  const npaPct = safeNum(snap?.universeNpaPct);
+  const otherPct = safeNum(snap?.universeOtherPct);
+  const retentionFactor = safeNum(snap?.retentionFactor);
+
+  const norm = normalizeUniversePercents({ demPct, repPct, npaPct, otherPct });
+  return {
+    enabled,
+    percents: norm.percents,
+    shares: norm.shares,
+    retentionFactor: (retentionFactor != null) ? clamp(retentionFactor, 0.60, 0.95) : UNIVERSE_DEFAULTS.retentionFactor,
+    warning: norm.warning || "",
+    wasNormalized: !!norm.normalized,
+  };
+}
+
+function getEffectiveBaseRatesFromSnap(snap){
+  const cr = (safeNum(snap?.contactRatePct) != null) ? clamp(safeNum(snap?.contactRatePct), 0, 100) / 100 : null;
+  const sr = (safeNum(snap?.supportRatePct) != null) ? clamp(safeNum(snap?.supportRatePct), 0, 100) / 100 : null;
+  const tr = (safeNum(snap?.turnoutReliabilityPct) != null) ? clamp(safeNum(snap?.turnoutReliabilityPct), 0, 100) / 100 : null;
+
+  const cfg = getUniverseLayerConfigFromSnap(snap);
+  const adj = engine.computeUniverseAdjustedRates({
+    enabled: cfg.enabled,
+    universePercents: cfg.percents,
+    retentionFactor: cfg.retentionFactor,
+    supportRate: sr,
+    turnoutReliability: tr,
+  });
+
+  return {
+    cr,
+    sr: adj.srAdj,
+    tr: adj.trAdj,
+    cfg,
+    meta: adj.meta,
+    volatilityBoost: adj.volatilityBoost || 0,
+  };
+}
+
+function computeWeeklyOpsContextFromSnap(snap, res, weeks){
+  const rawGoal = safeNum(snap?.goalSupportIds);
+  const autoGoal = safeNum(res?.expected?.persuasionNeed);
+  const goal = (rawGoal != null && rawGoal >= 0) ? rawGoal : (autoGoal != null && autoGoal > 0 ? autoGoal : 0);
+
+  const eff = getEffectiveBaseRatesFromSnap(snap);
+  const sr = eff.sr;
+  const cr = eff.cr;
+
+  let convosNeeded = null;
+  let attemptsNeeded = null;
+  let convosPerWeek = null;
+  let attemptsPerWeek = null;
+
+  if (goal > 0 && sr && sr > 0) convosNeeded = goal / sr;
+  if (convosNeeded != null && cr && cr > 0) attemptsNeeded = convosNeeded / cr;
+  if (weeks != null && weeks > 0){
+    if (convosNeeded != null) convosPerWeek = convosNeeded / weeks;
+    if (attemptsNeeded != null) attemptsPerWeek = attemptsNeeded / weeks;
+  }
+
+  const orgCount = safeNum(snap?.orgCount);
+  const orgHoursPerWeek = safeNum(snap?.orgHoursPerWeek);
+  const volunteerMult = safeNum(snap?.volunteerMultBase);
+  const doorSharePct = safeNum(snap?.channelDoorPct);
+  const doorsPerHour = safeNum(snap?.doorsPerHour3);
+  const callsPerHour = safeNum(snap?.callsPerHour3);
+
+  const doorShare = (doorSharePct == null) ? null : clamp(doorSharePct / 100, 0, 1);
+
+  const cap = coreComputeCapacityBreakdown({
+    weeks: 1,
+    orgCount,
+    orgHoursPerWeek,
+    volunteerMult,
+    doorShare,
+    doorsPerHour,
+    callsPerHour
+  });
+
+  const capTotal = cap?.total ?? null;
+  const gap = (attemptsPerWeek != null && capTotal != null) ? (attemptsPerWeek - capTotal) : null;
+
+  return {
+    goal,
+    weeks,
+    sr,
+    cr,
+    convosNeeded,
+    attemptsNeeded,
+    convosPerWeek,
+    attemptsPerWeek,
+    cap,
+    capTotal,
+    gap,
+  };
+}
+
+function targetFinishDateFromSnap(snap, weeks){
+  const d = String(snap?.electionDate || "").trim();
+  if (d){
+    const dt = new Date(d + "T00:00:00");
+    if (isFinite(dt)) return dt;
+  }
+  if (weeks != null && isFinite(weeks) && weeks > 0){
+    const days = Math.ceil(weeks * 7);
+    const dt = new Date();
+    dt.setHours(12,0,0,0);
+    dt.setDate(dt.getDate() + days);
+    return dt;
+  }
+  return null;
+}
+
+function paceFinishDate(total, pacePerDay){
+  if (total == null || !isFinite(total) || total <= 0) return null;
+  if (pacePerDay == null || !isFinite(pacePerDay) || pacePerDay <= 0) return null;
+  const daysNeeded = Math.ceil(total / pacePerDay);
+  const dt = new Date();
+  dt.setHours(12,0,0,0);
+  dt.setDate(dt.getDate() + daysNeeded);
+  return dt;
+}
+
+function renderScenarioComparisonC3(){
+  if (!els.scmCompareWrap) return;
+  ensureScenarioRegistry();
+
+  const reg = state.ui.scenarios;
+  const activeId = state.ui.activeScenarioId;
+  const baseRec = reg?.[SCENARIO_BASELINE_ID] || null;
+  const activeRec = reg?.[activeId] || null;
+
+  const isDiff = !!(baseRec && activeRec && activeId !== SCENARIO_BASELINE_ID);
+
+  if (els.scmCompareEmpty) els.scmCompareEmpty.hidden = isDiff;
+  if (els.scmCompareGrid) els.scmCompareGrid.hidden = !isDiff;
+
+  if (!els.scmCompareTag) return;
+
+  const setCompareTag = (kind, text) => {
+    els.scmCompareTag.classList.remove("ok","warn","bad");
+    if (kind) els.scmCompareTag.classList.add(kind);
+    els.scmCompareTag.textContent = text || "—";
+  };
+
+  if (!isDiff){
+    setCompareTag(null, "—");
+    if (els.scmDiffInputs) els.scmDiffInputs.innerHTML = "";
+    if (els.scmDiffOutputs) els.scmDiffOutputs.innerHTML = "";
+    if (els.scmDiffInputsFoot) els.scmDiffInputsFoot.textContent = "";
+    return;
+  }
+
+  const baseInputs = scenarioClone(baseRec.inputs || {});
+  const actInputs = scenarioInputsFromState(state);
+
+  const keyOrder = [
+    "raceType","mode","electionDate","weeksRemaining",
+    "universeBasis","universeSize",
+    "goalSupportIds","supportRatePct","contactRatePct","turnoutReliabilityPct",
+    "universeLayerEnabled","universeDemPct","universeRepPct","universeNpaPct","universeOtherPct","retentionFactor",
+    "orgCount","orgHoursPerWeek","volunteerMultBase","channelDoorPct","doorsPerHour3","callsPerHour3",
+    "timelineEnabled","timelineStaffCount","timelineVolCount","timelineStaffHours","timelineVolHours","timelineDoorsPerHour","timelineCallsPerHour","timelineTextsPerHour","timelineDoorSharePct","timelineActiveWeeks","timelineGotvWeeks"
+  ];
+
+  const labels = {
+    raceType:"Race type",
+    mode:"Mode",
+    electionDate:"Election date",
+    weeksRemaining:"Weeks remaining override",
+    universeBasis:"Universe basis",
+    universeSize:"Universe size",
+    goalSupportIds:"Goal support IDs",
+    supportRatePct:"Support rate (%)",
+    contactRatePct:"Contact rate (%)",
+    turnoutReliabilityPct:"Turnout reliability (%)",
+    universeLayerEnabled:"Universe layer enabled",
+    universeDemPct:"Universe Dem (%)",
+    universeRepPct:"Universe Rep (%)",
+    universeNpaPct:"Universe NPA (%)",
+    universeOtherPct:"Universe Other (%)",
+    retentionFactor:"Retention factor",
+    orgCount:"Organizers",
+    orgHoursPerWeek:"Org hours/week",
+    volunteerMultBase:"Volunteer multiplier",
+    channelDoorPct:"Door share (%)",
+    doorsPerHour3:"Doors/hour",
+    callsPerHour3:"Calls/hour",
+    timelineEnabled:"Timeline enabled",
+    timelineStaffCount:"Timeline staff",
+    timelineVolCount:"Timeline volunteers",
+    timelineStaffHours:"Staff hours/week",
+    timelineVolHours:"Volunteer hours/week",
+    timelineDoorsPerHour:"Timeline doors/hour",
+    timelineCallsPerHour:"Timeline calls/hour",
+    timelineTextsPerHour:"Timeline texts/hour",
+    timelineDoorSharePct:"Timeline door share (%)",
+    timelineActiveWeeks:"Timeline active weeks",
+    timelineGotvWeeks:"GOTV window (weeks)",
+  };
+
+  const fmtV = (k, v) => {
+    if (v == null) return "—";
+    if (typeof v === "boolean") return v ? "On" : "Off";
+    if (typeof v === "number" && isFinite(v)){
+      if (k === "retentionFactor") return v.toFixed(2);
+      if (k.endsWith("Pct")) return String(v);
+      if (Math.abs(v) >= 1000) return fmtInt(Math.round(v));
+      return String(v);
+    }
+    if (typeof v === "string") return v === "" ? "—" : v;
+    return String(v);
+  };
+
+  const diffKeys = [];
+  const seen = new Set();
+  for (const k of keyOrder){
+    seen.add(k);
+    const a = baseInputs?.[k];
+    const b = actInputs?.[k];
+    const same = (a === b) || (String(a ?? "") === String(b ?? ""));
+    if (!same) diffKeys.push(k);
+  }
+  const otherKeys = Array.from(new Set([...Object.keys(baseInputs||{}), ...Object.keys(actInputs||{})])).filter(k => !seen.has(k) && k !== "ui" && k !== "mcLast" && k !== "mcLastHash");
+  const otherChanged = otherKeys.filter(k => {
+    const a = baseInputs?.[k];
+    const b = actInputs?.[k];
+    return !((a === b) || (String(a ?? "") === String(b ?? "")));
+  });
+
+  if (els.scmDiffInputs){
+    els.scmDiffInputs.innerHTML = "";
+    const maxShow = 12;
+    const showKeys = diffKeys.slice(0, maxShow);
+    for (const k of showKeys){
+      const li = document.createElement("li");
+      li.className = "diff-item";
+      const head = document.createElement("div");
+      head.className = "diff-k";
+      head.textContent = labels[k] || k;
+      const line = document.createElement("div");
+      line.className = "diff-v";
+      line.textContent = `${fmtV(k, baseInputs?.[k])} → ${fmtV(k, actInputs?.[k])}`;
+      li.appendChild(head);
+      li.appendChild(line);
+      els.scmDiffInputs.appendChild(li);
+    }
+    const remaining = (diffKeys.length - showKeys.length) + otherChanged.length;
+    if (els.scmDiffInputsFoot){
+      els.scmDiffInputsFoot.textContent = remaining > 0
+        ? `${remaining} more changed input(s) not shown.`
+        : "";
+    }
+  }
+
+  const computeKeyOut = (inputs) => {
+    try{
+      const snap = scenarioClone(inputs || {});
+      const res = engine.computeAll(snap);
+      const weeks = engine.withPatchedState(snap, () => engine.derivedWeeksRemaining());
+      const ctx = computeWeeklyOpsContextFromSnap(snap, res, weeks);
+      const finish = targetFinishDateFromSnap(snap, weeks);
+
+      const last7 = computeLastNLogSums(7);
+      const paceAttemptsPerDay = (last7?.hasLog && last7?.days && last7.days > 0) ? (last7.sumAttempts / last7.days) : null;
+      const paceFinish = paceFinishDate(ctx?.attemptsNeeded, paceAttemptsPerDay);
+
+      return {
+        attemptsPerWeek: ctx?.attemptsPerWeek ?? null,
+        convosPerWeek: ctx?.convosPerWeek ?? null,
+        finishDate: finish,
+        paceFinishDate: paceFinish,
+      };
+    } catch {
+      return { attemptsPerWeek:null, convosPerWeek:null, finishDate:null, paceFinishDate:null };
+    }
+  };
+
+  const baseOut = computeKeyOut(baseInputs);
+  const actOut = computeKeyOut(actInputs);
+
+  const fmtOutNum = (v) => (v == null || !isFinite(v)) ? "—" : fmtInt(Math.ceil(v));
+  const fmtOutDate = (d) => d ? fmtISODate(d) : "—";
+  const fmtDeltaNum = (d) => (d == null || !isFinite(d) || d === 0) ? "—" : ((d > 0) ? `+${fmtInt(Math.round(d))}` : `${fmtInt(Math.round(d))}`);
+
+  const deltaKindNumLowerIsBetter = (d) => {
+    if (d == null || !isFinite(d) || d === 0) return null;
+    return d < 0 ? "ok" : "bad";
+  };
+
+  const deltaKindDateEarlierIsBetter = (a, b) => {
+    if (!a || !b) return null;
+    const da = a.getTime();
+    const db = b.getTime();
+    if (!isFinite(da) || !isFinite(db) || da === db) return null;
+    return db < da ? "ok" : "bad";
+  };
+
+  const rows = [
+    {
+      label: "Attempts/week",
+      base: baseOut.attemptsPerWeek,
+      act: actOut.attemptsPerWeek,
+      delta: (actOut.attemptsPerWeek != null && baseOut.attemptsPerWeek != null) ? (actOut.attemptsPerWeek - baseOut.attemptsPerWeek) : null,
+      kind: deltaKindNumLowerIsBetter((actOut.attemptsPerWeek != null && baseOut.attemptsPerWeek != null) ? (actOut.attemptsPerWeek - baseOut.attemptsPerWeek) : null),
+      fmtBase: () => fmtOutNum(baseOut.attemptsPerWeek),
+      fmtAct: () => fmtOutNum(actOut.attemptsPerWeek),
+      fmtDelta: (d) => fmtDeltaNum(d),
+    },
+    {
+      label: "Convos/week",
+      base: baseOut.convosPerWeek,
+      act: actOut.convosPerWeek,
+      delta: (actOut.convosPerWeek != null && baseOut.convosPerWeek != null) ? (actOut.convosPerWeek - baseOut.convosPerWeek) : null,
+      kind: deltaKindNumLowerIsBetter((actOut.convosPerWeek != null && baseOut.convosPerWeek != null) ? (actOut.convosPerWeek - baseOut.convosPerWeek) : null),
+      fmtBase: () => fmtOutNum(baseOut.convosPerWeek),
+      fmtAct: () => fmtOutNum(actOut.convosPerWeek),
+      fmtDelta: (d) => fmtDeltaNum(d),
+    },
+    {
+      label: "Finish date",
+      baseDate: baseOut.finishDate,
+      actDate: actOut.finishDate,
+      kind: deltaKindDateEarlierIsBetter(baseOut.finishDate, actOut.finishDate),
+      fmtBase: () => fmtOutDate(baseOut.finishDate),
+      fmtAct: () => fmtOutDate(actOut.finishDate),
+      fmtDelta: () => {
+        if (!baseOut.finishDate || !actOut.finishDate) return "—";
+        const dd = Math.round((actOut.finishDate.getTime() - baseOut.finishDate.getTime()) / (24*3600*1000));
+        if (!isFinite(dd) || dd === 0) return "—";
+        return dd > 0 ? `+${fmtInt(dd)}d` : `${fmtInt(dd)}d`;
+      }
+    },
+    {
+      label: "Pace finish (attempts)",
+      baseDate: baseOut.paceFinishDate,
+      actDate: actOut.paceFinishDate,
+      kind: deltaKindDateEarlierIsBetter(baseOut.paceFinishDate, actOut.paceFinishDate),
+      fmtBase: () => fmtOutDate(baseOut.paceFinishDate),
+      fmtAct: () => fmtOutDate(actOut.paceFinishDate),
+      fmtDelta: () => {
+        if (!baseOut.paceFinishDate || !actOut.paceFinishDate) return "—";
+        const dd = Math.round((actOut.paceFinishDate.getTime() - baseOut.paceFinishDate.getTime()) / (24*3600*1000));
+        if (!isFinite(dd) || dd === 0) return "—";
+        return dd > 0 ? `+${fmtInt(dd)}d` : `${fmtInt(dd)}d`;
+      }
+    },
+  ];
+
+  if (els.scmDiffOutputs){
+    els.scmDiffOutputs.innerHTML = "";
+    for (const r of rows){
+      const tr = document.createElement("tr");
+      const kind = r.kind;
+      const deltaText = (typeof r.fmtDelta === "function") ? r.fmtDelta(r.delta) : "—";
+      tr.innerHTML = `
+        <td>${r.label}</td>
+        <td class="num">${r.fmtBase()}</td>
+        <td class="num">${r.fmtAct()}</td>
+        <td class="num"><span class="delta ${kind || ""}">${deltaText}</span></td>
+      `;
+      els.scmDiffOutputs.appendChild(tr);
+    }
+  }
+
+  const totalChanged = diffKeys.length + otherChanged.length;
+  const outDelta = rows[0]?.delta;
+  const overallKind = (outDelta == null || !isFinite(outDelta) || outDelta === 0) ? null : (outDelta < 0 ? "ok" : "bad");
+  const tagText = `${totalChanged} input change(s)`;
+  setCompareTag(overallKind, tagText);
+}
+
+function renderScenarioManagerC1(){
+  ensureScenarioRegistry();
+
+  const reg = state.ui.scenarios;
+  const activeId = state.ui.activeScenarioId;
+  const selectedId = state.ui.scenarioUiSelectedId;
+
+  if (els.activeScenarioLabel){
+    const active = reg[activeId];
+    els.activeScenarioLabel.textContent = `Active Scenario: ${active ? (active.name || active.id) : "—"}`;
+  }
+
+  if (els.scenarioSelect){
+    const list = listScenarioRecords();
+    els.scenarioSelect.innerHTML = "";
+    for (const s of list){
+      const opt = document.createElement("option");
+      opt.value = s.id;
+      opt.textContent = s.name || s.id;
+      els.scenarioSelect.appendChild(opt);
+    }
+    els.scenarioSelect.value = reg[selectedId] ? selectedId : activeId;
+  }
+
+  if (els.btnScenarioDelete){
+    const canDel = selectedId && selectedId !== SCENARIO_BASELINE_ID && !!reg[selectedId];
+    els.btnScenarioDelete.disabled = !canDel;
+  }
+
+  if (els.btnScenarioLoadSelected){
+    const canLoad = selectedId && !!reg[selectedId] && selectedId !== activeId;
+    els.btnScenarioLoadSelected.disabled = !canLoad;
+  }
+
+  if (els.btnScenarioReturnBaseline){
+    els.btnScenarioReturnBaseline.disabled = (activeId === SCENARIO_BASELINE_ID);
+  }
+
+  const count = Object.keys(reg).length;
+  if (count > SCENARIO_MAX){
+    setScenarioWarn(`Scenario limit exceeded (${count}/${SCENARIO_MAX}). Delete scenarios to stay under the cap.`);
+  } else {
+    setScenarioWarn(null);
+  }
+
+  renderScenarioComparisonC3();
+}
+
+function createScenarioRecord({ name, fromInputs, fromOutputs }){
+  const id = "scn_" + uid() + Date.now().toString(16);
+  const nm = (name || "").trim() || `Scenario ${Object.keys(state.ui.scenarios || {}).length}`;
+  return {
+    id,
+    name: nm,
+    inputs: scenarioClone(fromInputs || {}),
+    outputs: scenarioClone(fromOutputs || {}),
+    createdAt: new Date().toISOString()
+  };
+}
+
+function onScenarioSaveNew(){
+  ensureScenarioRegistry();
+  const reg = state.ui.scenarios;
+  const count = Object.keys(reg).length;
+  if (count >= SCENARIO_MAX){
+    setScenarioWarn(`Max scenarios reached (${SCENARIO_MAX}). Delete one to save a new scenario.`);
+    return;
+  }
+
+  const nm = els.scenarioNewName ? els.scenarioNewName.value : "";
+  const rec = createScenarioRecord({
+    name: nm,
+    fromInputs: scenarioInputsFromState(state),
+    fromOutputs: scenarioOutputsFromState(state)
+  });
+  reg[rec.id] = rec;
+  state.ui.scenarioUiSelectedId = rec.id;
+  if (els.scenarioNewName) els.scenarioNewName.value = "";
+  persist();
+  renderScenarioManagerC1();
+}
+
+function onScenarioCloneBaseline(){
+  ensureScenarioRegistry();
+  const reg = state.ui.scenarios;
+  const count = Object.keys(reg).length;
+  if (count >= SCENARIO_MAX){
+    setScenarioWarn(`Max scenarios reached (${SCENARIO_MAX}). Delete one to clone baseline.`);
+    return;
+  }
+
+  const base = reg[SCENARIO_BASELINE_ID];
+  const nm = els.scenarioNewName ? els.scenarioNewName.value : "";
+  const rec = createScenarioRecord({
+    name: nm || "Baseline clone",
+    fromInputs: base?.inputs || {},
+    fromOutputs: base?.outputs || {}
+  });
+  reg[rec.id] = rec;
+  state.ui.scenarioUiSelectedId = rec.id;
+  if (els.scenarioNewName) els.scenarioNewName.value = "";
+  persist();
+  renderScenarioManagerC1();
+}
+
+function onScenarioDeleteSelected(){
+  ensureScenarioRegistry();
+  const id = state.ui.scenarioUiSelectedId;
+  if (!id || id === SCENARIO_BASELINE_ID) return;
+  const ok = confirm("Delete this scenario?");
+  if (!ok) return;
+
+  delete state.ui.scenarios[id];
+  state.ui.scenarioUiSelectedId = SCENARIO_BASELINE_ID;
+  persist();
+  renderScenarioManagerC1();
+}
+
+function loadScenarioById(id){
+  ensureScenarioRegistry();
+  const reg = state.ui.scenarios;
+  const rec = reg?.[id];
+  if (!rec) return;
+
+  const uiKeep = state.ui || {};
+  const next = scenarioClone(rec.inputs || {});
+  state = next;
+  state.ui = uiKeep;
+
+  ensureScenarioRegistry();
+  state.ui.activeScenarioId = id;
+  state.ui.scenarioUiSelectedId = id;
+
+  markMcStale();
+  applyStateToUI();
+  persist();
+  render();
+  renderScenarioManagerC1();
+  safeCall(() => { renderDecisionSessionD1(); });
+}
+
+function onScenarioLoadSelected(){
+  ensureScenarioRegistry();
+  const id = state.ui.scenarioUiSelectedId;
+  const reg = state.ui.scenarios;
+  const rec = reg?.[id];
+  if (!rec) return;
+  if (id === state.ui.activeScenarioId) return;
+
+  const nm = String(rec?.name || rec?.id || "scenario");
+  const ok = confirm(`Load scenario "${nm}"? This will replace current inputs.`);
+  if (!ok) return;
+  loadScenarioById(id);
+}
+
+function onScenarioReturnBaseline(){
+  ensureScenarioRegistry();
+  const reg = state.ui.scenarios;
+  const rec = reg?.[SCENARIO_BASELINE_ID];
+  if (!rec) return;
+  if (state.ui.activeScenarioId === SCENARIO_BASELINE_ID) return;
+
+  const ok = confirm("Return to baseline? This will replace current inputs.");
+  if (!ok) return;
+  loadScenarioById(SCENARIO_BASELINE_ID);
+}
+
+function wireScenarioManagerC1(){
+  if (els.scenarioSelect){
+    els.scenarioSelect.addEventListener("change", () => {
+      ensureScenarioRegistry();
+      const id = els.scenarioSelect.value;
+      if (id && state.ui.scenarios[id]){
+        state.ui.scenarioUiSelectedId = id;
+        persist();
+        renderScenarioManagerC1();
+      }
+    });
+  }
+
+  if (els.btnScenarioSaveNew) els.btnScenarioSaveNew.addEventListener("click", () => onScenarioSaveNew());
+  if (els.btnScenarioCloneBaseline) els.btnScenarioCloneBaseline.addEventListener("click", () => onScenarioCloneBaseline());
+  if (els.btnScenarioLoadSelected) els.btnScenarioLoadSelected.addEventListener("click", () => onScenarioLoadSelected());
+  if (els.btnScenarioReturnBaseline) els.btnScenarioReturnBaseline.addEventListener("click", () => onScenarioReturnBaseline());
+  if (els.btnScenarioDelete) els.btnScenarioDelete.addEventListener("click", () => onScenarioDeleteSelected());
+
+  renderScenarioManagerC1();
+}
+
+
+// =========================
+// Phase D1 — Decision Session Scaffold (UI + state only)
+// =========================
+
+const OBJECTIVE_TEMPLATES = [
+  { key: "win_prob", label: "Maximize win probability" },
+  { key: "finish_date", label: "Finish earlier" },
+  { key: "exec_feasible", label: "Maximize feasibility" },
+  { key: "budget_eff", label: "Improve budget efficiency" },
+  { key: "balanced", label: "Balanced (risk-aware)" },
+];
+
+function makeDecisionSessionId(){
+  return "ds_" + uid() + Date.now().toString(16);
+}
+function makeDecisionOptionId(){
+  return "do_" + uid() + Date.now().toString(16);
+}
+
+const DECISION_TACTICS = [
+  { key: "doors", label: "Doors" },
+  { key: "phones", label: "Phones" },
+  { key: "digital", label: "Digital" },
+];
+
+function ensureDecisionOptionShape(o){
+  if (!o || typeof o !== "object") return;
+  if (!o.tactics || typeof o.tactics !== "object") o.tactics = {};
+  const t = o.tactics;
+  if (t.doors === undefined) t.doors = false;
+  if (t.phones === undefined) t.phones = false;
+  if (t.digital === undefined) t.digital = false;
+}
+
+function ensureDecisionSessionShape(s){
+  if (!s || typeof s !== "object") return;
+
+  if (!s.constraints || typeof s.constraints !== "object") s.constraints = {};
+  const c = s.constraints;
+  if (c.budget === undefined) c.budget = null;
+  if (c.volunteerHrs === undefined) c.volunteerHrs = null;
+  if (c.turfAccess === undefined) c.turfAccess = "";
+  if (c.blackoutDates === undefined) c.blackoutDates = "";
+
+  if (s.riskPosture === undefined) s.riskPosture = "balanced";
+  if (!Array.isArray(s.nonNegotiables)) s.nonNegotiables = [];
+  if (!Array.isArray(s.whatNeedsTrue)) s.whatNeedsTrue = [];
+  if (s.recommendedOptionId === undefined) s.recommendedOptionId = null;
+
+  if (!s.options || typeof s.options !== "object") s.options = {};
+  for (const k of Object.keys(s.options)){
+    ensureDecisionOptionShape(s.options[k]);
+  }
+  if (s.activeOptionId && !s.options[s.activeOptionId]) s.activeOptionId = null;
+}
+
+
+function ensureDecisionScaffold(){
+  if (!state) return;
+  if (!state.ui) state.ui = {};
+  const d = (state.ui.decision && typeof state.ui.decision === "object") ? state.ui.decision : null;
+  if (!d){
+    state.ui.decision = { sessions: {}, activeSessionId: null };
+  }
+  if (!state.ui.decision.sessions || typeof state.ui.decision.sessions !== "object"){
+    state.ui.decision.sessions = {};
+  }
+
+  const ids = Object.keys(state.ui.decision.sessions);
+  for (const k of ids){
+    ensureDecisionSessionShape(state.ui.decision.sessions[k]);
+  }
+  if (!ids.length){
+    const id = makeDecisionSessionId();
+    state.ui.decision.sessions[id] = {
+      id,
+      name: "Decision Session",
+      createdAt: new Date().toISOString(),
+      scenarioId: state.ui.activeScenarioId || SCENARIO_BASELINE_ID,
+      objectiveKey: OBJECTIVE_TEMPLATES[0].key,
+      notes: "",
+      constraints: { budget: null, volunteerHrs: null, turfAccess: "", blackoutDates: "" },
+      riskPosture: "balanced",
+      nonNegotiables: [],
+      whatNeedsTrue: [],
+      recommendedOptionId: null,
+      options: {},
+      activeOptionId: null,
+    };
+    state.ui.decision.activeSessionId = id;
+    return;
+  }
+
+  const active = state.ui.decision.activeSessionId;
+  if (!active || !state.ui.decision.sessions[active]){
+    state.ui.decision.activeSessionId = ids[0];
+  }
+}
+
+function getActiveDecisionSession(){
+  ensureDecisionScaffold();
+  const id = state.ui?.decision?.activeSessionId;
+  const s = (id && state.ui?.decision?.sessions) ? state.ui.decision.sessions[id] : null;
+  return s || null;
+}
+
+function listDecisionSessions(){
+  ensureDecisionScaffold();
+  const sessions = state.ui.decision.sessions || {};
+  const arr = Object.values(sessions);
+  arr.sort((a,b) => String(a?.createdAt || "").localeCompare(String(b?.createdAt || "")));
+  return arr;
+}
+
+function decisionScenarioLabel(scenarioId){
+  ensureScenarioRegistry();
+  const reg = state.ui.scenarios || {};
+  const rec = scenarioId ? reg[scenarioId] : null;
+  if (!scenarioId) return "—";
+  if (rec) return `${rec.name || rec.id} (${rec.id})`;
+  return String(scenarioId);
+}
+
+function renderDecisionSessionD1(){
+  if (!els.decisionSessionSelect && !els.decisionActiveLabel) return;
+  ensureDecisionScaffold();
+  const sessions = listDecisionSessions();
+  const activeId = state.ui.decision.activeSessionId;
+  const active = getActiveDecisionSession();
+  ensureDecisionSessionShape(active);
+
+  if (els.decisionSessionSelect){
+    els.decisionSessionSelect.innerHTML = "";
+    for (const s of sessions){
+      const opt = document.createElement("option");
+      opt.value = s.id;
+      opt.textContent = s.name || s.id;
+      els.decisionSessionSelect.appendChild(opt);
+    }
+    els.decisionSessionSelect.value = activeId;
+  }
+
+  if (els.decisionActiveLabel){
+    els.decisionActiveLabel.textContent = active ? `Active session: ${active.name || active.id}` : "Active session: —";
+  }
+
+  if (els.decisionRename){
+    els.decisionRename.value = active?.name || "";
+  }
+
+  if (els.decisionObjective){
+    els.decisionObjective.innerHTML = "";
+    for (const o of OBJECTIVE_TEMPLATES){
+      const opt = document.createElement("option");
+      opt.value = o.key;
+      opt.textContent = o.label;
+      els.decisionObjective.appendChild(opt);
+    }
+    els.decisionObjective.value = active?.objectiveKey || OBJECTIVE_TEMPLATES[0].key;
+  }
+
+  if (els.decisionNotes){
+    els.decisionNotes.value = active?.notes || "";
+  }
+
+
+  if (els.decisionBudget){
+    const v = active?.constraints?.budget;
+    els.decisionBudget.value = (v == null || !Number.isFinite(Number(v))) ? "" : String(v);
+  }
+
+  if (els.decisionVolunteerHrs){
+    const v = active?.constraints?.volunteerHrs;
+    els.decisionVolunteerHrs.value = (v == null || !Number.isFinite(Number(v))) ? "" : String(v);
+  }
+
+  if (els.decisionTurfAccess){
+    els.decisionTurfAccess.value = String(active?.constraints?.turfAccess || "");
+  }
+
+  if (els.decisionBlackoutDates){
+    els.decisionBlackoutDates.value = String(active?.constraints?.blackoutDates || "");
+  }
+
+  if (els.decisionRiskPosture){
+    if (!els.decisionRiskPosture.options.length){
+      for (const rp of RISK_POSTURES){
+        const opt = document.createElement("option");
+        opt.value = rp.key;
+        opt.textContent = rp.label;
+        els.decisionRiskPosture.appendChild(opt);
+      }
+    }
+    els.decisionRiskPosture.value = String(active?.riskPosture || "balanced");
+  }
+
+  if (els.decisionNonNegotiables){
+    const lines = Array.isArray(active?.nonNegotiables) ? active.nonNegotiables : [];
+    els.decisionNonNegotiables.value = lines.join("\n");
+  }
+
+  if (els.decisionScenarioLabel){
+    els.decisionScenarioLabel.textContent = decisionScenarioLabel(active?.scenarioId || null);
+  }
+
+  if (els.btnDecisionDelete){
+    els.btnDecisionDelete.disabled = sessions.length <= 1;
+  }
+
+
+  renderDecisionOptionsD3(active);
+  renderDecisionSummaryD4(active);
+}
+
+function createNewDecisionSession(){
+  ensureDecisionScaffold();
+  const sessions = state.ui.decision.sessions;
+  const id = makeDecisionSessionId();
+  const n = Object.keys(sessions).length + 1;
+  sessions[id] = {
+    id,
+    name: `Session ${n}`,
+    createdAt: new Date().toISOString(),
+    scenarioId: state.ui.activeScenarioId || SCENARIO_BASELINE_ID,
+    objectiveKey: OBJECTIVE_TEMPLATES[0].key,
+    notes: "",
+    constraints: { budget: null, volunteerHrs: null, turfAccess: "", blackoutDates: "" },
+    riskPosture: "balanced",
+    nonNegotiables: [],
+    options: {},
+    activeOptionId: null,
+  };
+  state.ui.decision.activeSessionId = id;
+  persist();
+  renderDecisionSessionD1();
+}
+
+function renameActiveDecisionSession(){
+  const s = getActiveDecisionSession();
+  if (!s || !els.decisionRename) return;
+  const nm = String(els.decisionRename.value || "").trim();
+  if (!nm) return;
+  s.name = nm;
+  persist();
+  renderDecisionSessionD1();
+}
+
+function deleteActiveDecisionSession(){
+  ensureDecisionScaffold();
+  const sessions = state.ui.decision.sessions;
+  const ids = Object.keys(sessions);
+  if (ids.length <= 1) return;
+  const cur = state.ui.decision.activeSessionId;
+  const s = sessions[cur];
+  const nm = s ? (s.name || s.id) : "this session";
+  const ok = confirm(`Delete "${nm}"?`);
+  if (!ok) return;
+  delete sessions[cur];
+  const nextIds = Object.keys(sessions);
+  state.ui.decision.activeSessionId = nextIds[0] || null;
+  persist();
+  renderDecisionSessionD1();
+}
+
+function linkDecisionSessionToActiveScenario(){
+  const s = getActiveDecisionSession();
+  if (!s) return;
+  ensureScenarioRegistry();
+  s.scenarioId = state.ui.activeScenarioId || SCENARIO_BASELINE_ID;
+  persist();
+  renderDecisionSessionD1();
+}
+
+
+function listDecisionOptions(session){
+  if (!session) return [];
+  const opts = session.options || {};
+  const arr = Object.values(opts);
+  arr.sort((a,b) => String(a?.createdAt || "").localeCompare(String(b?.createdAt || "")));
+  return arr;
+}
+
+function getActiveDecisionOption(session){
+  if (!session) return null;
+  const id = session.activeOptionId;
+  const o = (id && session.options) ? session.options[id] : null;
+  return o || null;
+}
+
+function renderDecisionOptionsD3(session){
+  if (!els.decisionOptionSelect) return;
+  if (!session) return;
+
+  ensureDecisionSessionShape(session);
+
+  const options = listDecisionOptions(session);
+  const active = getActiveDecisionOption(session);
+
+  els.decisionOptionSelect.innerHTML = "";
+  if (!options.length){
+    const opt = document.createElement("option");
+    opt.value = "";
+    opt.textContent = "No options yet";
+    els.decisionOptionSelect.appendChild(opt);
+    els.decisionOptionSelect.value = "";
+  } else {
+    for (const o of options){
+      const opt = document.createElement("option");
+      opt.value = o.id;
+      opt.textContent = o.label || o.id;
+      els.decisionOptionSelect.appendChild(opt);
+    }
+    els.decisionOptionSelect.value = session.activeOptionId || options[0].id;
+    if (!session.activeOptionId) session.activeOptionId = els.decisionOptionSelect.value;
+  }
+
+  const has = !!active;
+
+  if (els.decisionOptionRename){
+    els.decisionOptionRename.value = has ? String(active.label || "") : "";
+    els.decisionOptionRename.disabled = !has;
+  }
+
+  if (els.btnDecisionOptionRenameSave) els.btnDecisionOptionRenameSave.disabled = !has;
+  if (els.btnDecisionOptionDelete) els.btnDecisionOptionDelete.disabled = options.length <= 1;
+  if (els.btnDecisionOptionLinkScenario) els.btnDecisionOptionLinkScenario.disabled = !has;
+
+  if (els.decisionOptionScenarioLabel){
+    els.decisionOptionScenarioLabel.textContent = has ? decisionScenarioLabel(active.scenarioId || null) : "—";
+  }
+
+  const t = has ? (active.tactics || {}) : {};
+  if (els.decisionOptionTacticDoors){
+    els.decisionOptionTacticDoors.checked = !!t.doors;
+    els.decisionOptionTacticDoors.disabled = !has;
+  }
+  if (els.decisionOptionTacticPhones){
+    els.decisionOptionTacticPhones.checked = !!t.phones;
+    els.decisionOptionTacticPhones.disabled = !has;
+  }
+  if (els.decisionOptionTacticDigital){
+    els.decisionOptionTacticDigital.checked = !!t.digital;
+    els.decisionOptionTacticDigital.disabled = !has;
+  }
+}
+
+function createNewDecisionOption(){
+  const s = getActiveDecisionSession();
+  if (!s) return;
+  ensureDecisionSessionShape(s);
+
+  const id = makeDecisionOptionId();
+  const n = Object.keys(s.options || {}).length + 1;
+  s.options[id] = {
+    id,
+    label: `Option ${n}`,
+    createdAt: new Date().toISOString(),
+    scenarioId: state.ui.activeScenarioId || SCENARIO_BASELINE_ID,
+    tactics: { doors: false, phones: false, digital: false },
+  };
+  s.activeOptionId = id;
+  persist();
+  renderDecisionSessionD1();
+}
+
+function renameActiveDecisionOption(){
+  const s = getActiveDecisionSession();
+  if (!s) return;
+  ensureDecisionSessionShape(s);
+  const o = getActiveDecisionOption(s);
+  if (!o || !els.decisionOptionRename) return;
+  const nm = String(els.decisionOptionRename.value || "").trim();
+  if (!nm) return;
+  o.label = nm;
+  persist();
+  renderDecisionSessionD1();
+}
+
+function deleteActiveDecisionOption(){
+  const s = getActiveDecisionSession();
+  if (!s) return;
+  ensureDecisionSessionShape(s);
+  const options = s.options || {};
+  const ids = Object.keys(options);
+  if (ids.length <= 1) return;
+
+  const o = getActiveDecisionOption(s);
+  if (!o) return;
+  const nm = o.label || o.id;
+  const ok = confirm(`Delete "${nm}"?`);
+  if (!ok) return;
+
+  delete options[o.id];
+  const nextIds = Object.keys(options);
+  s.activeOptionId = nextIds[0] || null;
+  persist();
+  renderDecisionSessionD1();
+}
+
+function linkDecisionOptionToActiveScenario(){
+  const s = getActiveDecisionSession();
+  if (!s) return;
+  ensureDecisionSessionShape(s);
+  const o = getActiveDecisionOption(s);
+  if (!o) return;
+  ensureScenarioRegistry();
+  o.scenarioId = state.ui.activeScenarioId || SCENARIO_BASELINE_ID;
+  persist();
+  renderDecisionSessionD1();
+}
+
+function computeDecisionKeyOut(inputs){
+  try{
+    const snap = scenarioClone(inputs || {});
+    const res = engine.computeAll(snap);
+    const weeks = engine.withPatchedState(snap, () => engine.derivedWeeksRemaining());
+    const ctx = computeWeeklyOpsContextFromSnap(snap, res, weeks);
+    const finish = targetFinishDateFromSnap(snap, weeks);
+    return { weeks, ctx, finish };
+  } catch {
+    return { weeks:null, ctx:null, finish:null };
+  }
+}
+
+function decisionOptionDisplay(o){
+  if (!o) return "—";
+  const label = o.label || o.id;
+  const sid = o.scenarioId ? ` · ${o.scenarioId}` : "";
+  return label + sid;
+}
+
+function buildDecisionSummaryText(session){
+  ensureScenarioRegistry();
+  const reg = state.ui.scenarios || {};
+  const baseline = reg[SCENARIO_BASELINE_ID] || null;
+
+  const s = session || null;
+  if (!s || !baseline) return "—";
+
+  const options = (s.options && typeof s.options === "object") ? s.options : {};
+  const pickId = s.recommendedOptionId || s.activeOptionId || null;
+  const opt = (pickId && options[pickId]) ? options[pickId] : null;
+
+  const baseInputs = scenarioClone(baseline.inputs || {});
+  const optScenarioId = opt?.scenarioId || s.scenarioId || state.ui.activeScenarioId || SCENARIO_BASELINE_ID;
+  const optRec = reg[optScenarioId] || null;
+  const optInputs = scenarioClone((optRec?.inputs) || {});
+
+  const baseOut = computeDecisionKeyOut(baseInputs);
+  const optOut = computeDecisionKeyOut(optInputs);
+
+  const fmtNum = (v) => (v == null || !isFinite(v)) ? "—" : fmtInt(Math.ceil(v));
+  const fmtDate = (d) => d ? fmtISODate(d) : "—";
+  const deltaNum = (a,b) => (a==null||b==null||!isFinite(a)||!isFinite(b)) ? null : (b-a);
+
+  const bCtx = baseOut.ctx || {};
+  const oCtx = optOut.ctx || {};
+
+  const attemptsWBase = bCtx.attemptsPerWeek ?? null;
+  const attemptsWOpt = oCtx.attemptsPerWeek ?? null;
+  const convosWBase = bCtx.convosPerWeek ?? null;
+  const convosWOpt = oCtx.convosPerWeek ?? null;
+
+  const gap = oCtx.gap;
+  const gapLine = (gap == null || !isFinite(gap)) ? "—" : (gap <= 0 ? "Executable at current capacity" : `Shortfall: ${fmtInt(Math.ceil(gap))} attempts/week`);
+
+  const doorSharePct = safeNum(optInputs?.channelDoorPct);
+  const doorShare = (doorSharePct == null) ? null : clamp(doorSharePct / 100, 0, 1);
+  const doorsHr = safeNum(optInputs?.doorsPerHour3);
+  const callsHr = safeNum(optInputs?.callsPerHour3);
+  const aph = (doorShare != null && doorsHr != null && callsHr != null) ? (doorShare * doorsHr + (1 - doorShare) * callsHr) : null;
+
+  const attemptsPerDay = (attemptsWOpt != null && isFinite(attemptsWOpt)) ? (attemptsWOpt / 7) : null;
+  const doorsPerDay = (attemptsPerDay != null && doorShare != null) ? (attemptsPerDay * doorShare) : null;
+  const callsPerDay = (attemptsPerDay != null && doorShare != null) ? (attemptsPerDay * (1 - doorShare)) : null;
+  const hrsPerWeek = (attemptsWOpt != null && aph != null && aph > 0) ? (attemptsWOpt / aph) : null;
+
+  const tactics = opt?.tactics ? Object.keys(opt.tactics).filter(k => !!opt.tactics[k]) : [];
+  const tacticsLine = tactics.length ? tactics.map(k => k.toUpperCase()).join(", ") : "—";
+
+  const whatTrue = Array.isArray(s.whatNeedsTrue) ? s.whatNeedsTrue : [];
+  const whatTrueLines = whatTrue.length ? whatTrue.map(x => `- [ ] ${x}`).join("\n") : "- [ ] —";
+
+  const lines = [];
+  lines.push(`# Decision Summary: ${s.name || s.id}`);
+  lines.push(`Date: ${fmtISODate(new Date(s.createdAt || Date.now()))}`);
+  lines.push(`Objective: ${(OBJECTIVE_TEMPLATES.find(x=>x.key===s.objectiveKey)?.label) || s.objectiveKey || "—"}`);
+  lines.push("");
+  lines.push(`## Recommendation`);
+  lines.push(`Recommended option: ${opt ? (opt.label || opt.id) : "—"}`);
+  lines.push(`Option scenario: ${optScenarioId}${optRec?.name ? ` (${optRec.name})` : ""}`);
+  lines.push(`Tactics tags: ${tacticsLine}`);
+  lines.push("");
+  lines.push(`## Baseline vs Option (key deltas)`);
+  lines.push(`Attempts/week: ${fmtNum(attemptsWBase)} → ${fmtNum(attemptsWOpt)}${(deltaNum(attemptsWBase, attemptsWOpt)==null||deltaNum(attemptsWBase, attemptsWOpt)===0) ? "" : ` (${(deltaNum(attemptsWBase, attemptsWOpt)>0?"+":"")}${fmtInt(Math.round(deltaNum(attemptsWBase, attemptsWOpt)))})`}`);
+  lines.push(`Convos/week: ${fmtNum(convosWBase)} → ${fmtNum(convosWOpt)}${(deltaNum(convosWBase, convosWOpt)==null||deltaNum(convosWBase, convosWOpt)===0) ? "" : ` (${(deltaNum(convosWBase, convosWOpt)>0?"+":"")}${fmtInt(Math.round(deltaNum(convosWBase, convosWOpt)))})`}`);
+  lines.push(`Finish date (target): ${fmtDate(baseOut.finish)} → ${fmtDate(optOut.finish)}`);
+  lines.push(`Execution status (this week): ${gapLine}`);
+  lines.push("");
+  lines.push(`## What needs to be true`);
+  lines.push(whatTrueLines);
+  lines.push("");
+  lines.push(`## Next 7 days (execution plan)`);
+  if (attemptsWOpt == null || !isFinite(attemptsWOpt)){
+    lines.push(`- Attempts/week: —`);
+  } else {
+    lines.push(`- Attempts/week: ${fmtInt(Math.ceil(attemptsWOpt))} (~${fmtInt(Math.ceil(attemptsWOpt/7))}/day)`);
+  }
+  if (doorsPerDay != null && callsPerDay != null){
+    lines.push(`- Daily targets: ${fmtInt(Math.ceil(doorsPerDay))} doors/day · ${fmtInt(Math.ceil(callsPerDay))} calls/day`);
+  } else {
+    lines.push(`- Daily targets: —`);
+  }
+  if (hrsPerWeek != null && isFinite(hrsPerWeek)){
+    lines.push(`- Estimated hours/week required: ${fmtInt(Math.ceil(hrsPerWeek))} hrs`);
+  } else {
+    lines.push(`- Estimated hours/week required: —`);
+  }
+  if (Array.isArray(s.nonNegotiables) && s.nonNegotiables.length){
+    lines.push("");
+    lines.push(`## Non-negotiables`);
+    for (const x of s.nonNegotiables) lines.push(`- ${x}`);
+  }
+
+  return lines.join("\n");
+}
+
+function copyTextToClipboard(text){
+  const s = String(text || "");
+  if (!s) return Promise.resolve(false);
+  if (navigator.clipboard && navigator.clipboard.writeText){
+    return navigator.clipboard.writeText(s).then(()=>true).catch(()=>false);
+  }
+  try{
+    const ta = document.createElement("textarea");
+    ta.value = s;
+    ta.setAttribute("readonly", "");
+    ta.style.position = "fixed";
+    ta.style.left = "-9999px";
+    ta.style.top = "0";
+    document.body.appendChild(ta);
+    ta.select();
+    const ok = document.execCommand("copy");
+    document.body.removeChild(ta);
+    return Promise.resolve(!!ok);
+  }catch(e){
+    return Promise.resolve(false);
+  }
+}
+
+function decisionSummaryPlainText(md){
+  const s = String(md || "");
+  return s
+    .replace(/^###\s+/gm, "")
+    .replace(/^##\s+/gm, "")
+    .replace(/^#\s+/gm, "")
+    .replace(/^\-\s+/gm, "• ")
+    .replace(/\*\*/g, "");
+}
+
+function decisionSessionExportObject(session){
+  const s = session ? structuredClone(session) : null;
+  if (!s) return null;
+  return {
+    type: "decision_session",
+    exportedAt: new Date().toISOString(),
+    activeScenarioId: state?.ui?.activeScenarioId || null,
+    session: s,
+    summaryMarkdown: buildDecisionSummaryText(s),
+  };
+}
+
+function downloadJsonObject(obj, filename){
+  try{
+    const name = String(filename || "decision-session.json");
+    const blob = new Blob([JSON.stringify(obj, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = name;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(()=>URL.revokeObjectURL(url), 500);
+  }catch(e){}
+}
+
+function renderDecisionSummaryD4(session){
+  const s = session || getActiveDecisionSession();
+  if (!s) return;
+
+  if (els.decisionRecommendSelect){
+    els.decisionRecommendSelect.innerHTML = "";
+    const options = (s.options && typeof s.options === "object") ? Object.values(s.options) : [];
+    options.sort((a,b) => String(a?.createdAt||"").localeCompare(String(b?.createdAt||"")));
+    const ph = document.createElement("option");
+    ph.value = "";
+    ph.textContent = "—";
+    els.decisionRecommendSelect.appendChild(ph);
+    for (const o of options){
+      const opt = document.createElement("option");
+      opt.value = o.id;
+      opt.textContent = decisionOptionDisplay(o);
+      els.decisionRecommendSelect.appendChild(opt);
+    }
+    els.decisionRecommendSelect.value = s.recommendedOptionId || "";
+  }
+
+  if (els.decisionWhatTrue){
+    const lines = Array.isArray(s.whatNeedsTrue) ? s.whatNeedsTrue : [];
+    els.decisionWhatTrue.value = lines.join("\n");
+  }
+
+  if (els.decisionSummaryPreview){
+    els.decisionSummaryPreview.value = buildDecisionSummaryText(s);
+  }
+}
+
+
+function wireDecisionSessionD1(){
+  ensureDecisionScaffold();
+
+  if (els.decisionSessionSelect){
+    els.decisionSessionSelect.addEventListener("change", () => {
+      ensureDecisionScaffold();
+      const id = els.decisionSessionSelect.value;
+      if (id && state.ui.decision.sessions[id]){
+        state.ui.decision.activeSessionId = id;
+        persist();
+        renderDecisionSessionD1();
+      }
+    });
+  }
+
+  if (els.btnDecisionNew) els.btnDecisionNew.addEventListener("click", () => createNewDecisionSession());
+  if (els.btnDecisionRenameSave) els.btnDecisionRenameSave.addEventListener("click", () => renameActiveDecisionSession());
+  if (els.btnDecisionDelete) els.btnDecisionDelete.addEventListener("click", () => deleteActiveDecisionSession());
+  if (els.btnDecisionLinkScenario) els.btnDecisionLinkScenario.addEventListener("click", () => linkDecisionSessionToActiveScenario());
+
+  if (els.decisionNotes){
+    els.decisionNotes.addEventListener("input", () => {
+      const s = getActiveDecisionSession();
+      if (!s) return;
+      s.notes = String(els.decisionNotes.value || "");
+      persist();
+    });
+  }
+
+  if (els.decisionObjective){
+    els.decisionObjective.addEventListener("change", () => {
+      const s = getActiveDecisionSession();
+      if (!s) return;
+      const key = String(els.decisionObjective.value || "");
+      s.objectiveKey = key;
+      persist();
+      renderDecisionSessionD1();
+    });
+  }
+
+  if (els.decisionBudget){
+    els.decisionBudget.addEventListener("input", () => {
+      const s = getActiveDecisionSession();
+      if (!s) return;
+      ensureDecisionSessionShape(s);
+      const raw = String(els.decisionBudget.value || "").trim();
+      const n = Number(raw);
+      s.constraints.budget = raw === "" || !Number.isFinite(n) ? null : n;
+      persist();
+    });
+  }
+
+  if (els.decisionVolunteerHrs){
+    els.decisionVolunteerHrs.addEventListener("input", () => {
+      const s = getActiveDecisionSession();
+      if (!s) return;
+      ensureDecisionSessionShape(s);
+      const raw = String(els.decisionVolunteerHrs.value || "").trim();
+      const n = Number(raw);
+      s.constraints.volunteerHrs = raw === "" || !Number.isFinite(n) ? null : n;
+      persist();
+    });
+  }
+
+  if (els.decisionTurfAccess){
+    els.decisionTurfAccess.addEventListener("change", () => {
+      const s = getActiveDecisionSession();
+      if (!s) return;
+      ensureDecisionSessionShape(s);
+      s.constraints.turfAccess = String(els.decisionTurfAccess.value || "");
+      persist();
+    });
+  }
+
+  if (els.decisionBlackoutDates){
+    els.decisionBlackoutDates.addEventListener("input", () => {
+      const s = getActiveDecisionSession();
+      if (!s) return;
+      ensureDecisionSessionShape(s);
+      s.constraints.blackoutDates = String(els.decisionBlackoutDates.value || "");
+      persist();
+    });
+  }
+
+  if (els.decisionRiskPosture){
+    els.decisionRiskPosture.addEventListener("change", () => {
+      const s = getActiveDecisionSession();
+      if (!s) return;
+      ensureDecisionSessionShape(s);
+      s.riskPosture = String(els.decisionRiskPosture.value || "balanced");
+      persist();
+      renderDecisionSessionD1();
+    });
+  }
+
+  if (els.decisionNonNegotiables){
+    els.decisionNonNegotiables.addEventListener("input", () => {
+      const s = getActiveDecisionSession();
+      if (!s) return;
+      ensureDecisionSessionShape(s);
+      const raw = String(els.decisionNonNegotiables.value || "");
+      const arr = raw.split(/
+?
+/).map(x => String(x || "").trim()).filter(Boolean);
+      s.nonNegotiables = arr;
+      persist();
+    });
+  }
+
+  if (els.decisionOptionSelect){
+    els.decisionOptionSelect.addEventListener("change", () => {
+      const s = getActiveDecisionSession();
+      if (!s) return;
+      ensureDecisionSessionShape(s);
+      const id = String(els.decisionOptionSelect.value || "");
+      if (id && s.options && s.options[id]){
+        s.activeOptionId = id;
+        persist();
+        renderDecisionSessionD1();
+      }
+    });
+  }
+
+  if (els.btnDecisionOptionNew) els.btnDecisionOptionNew.addEventListener("click", () => createNewDecisionOption());
+  if (els.btnDecisionOptionRenameSave) els.btnDecisionOptionRenameSave.addEventListener("click", () => renameActiveDecisionOption());
+  if (els.btnDecisionOptionDelete) els.btnDecisionOptionDelete.addEventListener("click", () => deleteActiveDecisionOption());
+  if (els.btnDecisionOptionLinkScenario) els.btnDecisionOptionLinkScenario.addEventListener("click", () => linkDecisionOptionToActiveScenario());
+
+  const tacticUpdate = () => {
+    const s = getActiveDecisionSession();
+    if (!s) return;
+    ensureDecisionSessionShape(s);
+    const o = getActiveDecisionOption(s);
+    if (!o) return;
+    ensureDecisionOptionShape(o);
+    o.tactics.doors = !!els.decisionOptionTacticDoors?.checked;
+    o.tactics.phones = !!els.decisionOptionTacticPhones?.checked;
+    o.tactics.digital = !!els.decisionOptionTacticDigital?.checked;
+    persist();
+  };
+
+  if (els.decisionOptionTacticDoors) els.decisionOptionTacticDoors.addEventListener("change", tacticUpdate);
+  if (els.decisionOptionTacticPhones) els.decisionOptionTacticPhones.addEventListener("change", tacticUpdate);
+  if (els.decisionOptionTacticDigital) els.decisionOptionTacticDigital.addEventListener("change", tacticUpdate);
+
+  if (els.decisionRecommendSelect){
+    els.decisionRecommendSelect.addEventListener("change", () => {
+      const s = getActiveDecisionSession();
+      if (!s) return;
+      ensureDecisionSessionShape(s);
+      const id = String(els.decisionRecommendSelect.value || "").trim();
+      s.recommendedOptionId = id || null;
+      persist();
+      renderDecisionSummaryD4(s);
+    });
+  }
+
+  if (els.decisionWhatTrue){
+    els.decisionWhatTrue.addEventListener("input", () => {
+      const s = getActiveDecisionSession();
+      if (!s) return;
+      ensureDecisionSessionShape(s);
+      const raw = String(els.decisionWhatTrue.value || "");
+      const arr = raw.split(/\r?\n/).map(x => String(x || "").trim()).filter(Boolean);
+      s.whatNeedsTrue = arr;
+      persist();
+      renderDecisionSummaryD4(s);
+    });
+  }
+  const setCopyStatus = (msg) => {
+    if (els.decisionCopyStatus) els.decisionCopyStatus.textContent = String(msg || "");
+  };
+
+  if (els.btnDecisionCopyMd){
+    els.btnDecisionCopyMd.addEventListener("click", async () => {
+      const s = getActiveDecisionSession();
+      if (!s) return;
+      const md = buildDecisionSummaryText(s);
+      const ok = await copyTextToClipboard(md);
+      setCopyStatus(ok ? "Copied summary (markdown)." : "Copy failed.");
+    });
+  }
+
+  if (els.btnDecisionCopyText){
+    els.btnDecisionCopyText.addEventListener("click", async () => {
+      const s = getActiveDecisionSession();
+      if (!s) return;
+      const md = buildDecisionSummaryText(s);
+      const plain = decisionSummaryPlainText(md);
+      const ok = await copyTextToClipboard(plain);
+      setCopyStatus(ok ? "Copied summary (text)." : "Copy failed.");
+    });
+  }
+
+  if (els.btnDecisionDownloadJson){
+    els.btnDecisionDownloadJson.addEventListener("click", () => {
+      const s = getActiveDecisionSession();
+      if (!s) return;
+      const obj = decisionSessionExportObject(s);
+      if (!obj) return;
+      const safe = String((s.name || s.id || "decision-session")).toLowerCase().replace(/[^a-z0-9\-\_]+/g, "-").replace(/\-+/g, "-").replace(/^\-+|\-+$/g, "");
+      const fn = (safe ? safe : "decision-session") + ".json";
+      downloadJsonObject(obj, fn);
+      setCopyStatus("Downloaded session JSON.");
+    });
+  }
+
+  if (els.btnSensRun){
+    els.btnSensRun.addEventListener("click", async () => {
+      await runSensitivitySnapshotE4();
+    });
+  }
+
+  renderDecisionSessionD1();
+}
 
 // =========================
 // Phase 15 — Sensitivity Surface (on-demand)
@@ -3833,7 +6185,10 @@ function initDevTools(){
 function init(){
   installGlobalErrorCapture();
   preflightEls();
-  wireScenarioComparePanel();
+  ensureScenarioRegistry();
+  ensureDecisionScaffold();
+  wireScenarioManagerC1();
+  wireDecisionSessionD1();
   updateBuildStamp();
   updateSelfTestGateBadge();
   refreshBackupDropdown();
@@ -3845,6 +6200,15 @@ function init(){
   wireEvents();
   initDevTools();
   render();
+  try{
+    ensureScenarioRegistry();
+    const b = state.ui.scenarios?.[SCENARIO_BASELINE_ID];
+    if (b){
+      b.inputs = scenarioInputsFromState(state);
+      b.outputs = scenarioOutputsFromState(state);
+    }
+    renderScenarioManagerC1();
+  } catch {}
   persist();
 }
 
