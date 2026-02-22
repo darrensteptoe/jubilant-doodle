@@ -553,6 +553,13 @@ const els = {
   mcP10: document.getElementById("mcP10"),
   mcP50: document.getElementById("mcP50"),
   mcP90: document.getElementById("mcP90"),
+  // Phase D2 — ops envelope
+  opsAttP10: document.getElementById("opsAttP10"),
+  opsAttP50: document.getElementById("opsAttP50"),
+  opsAttP90: document.getElementById("opsAttP90"),
+  opsConP10: document.getElementById("opsConP10"),
+  opsConP50: document.getElementById("opsConP50"),
+  opsConP90: document.getElementById("opsConP90"),
   mcMoS: document.getElementById("mcMoS"),
   mcDownside: document.getElementById("mcDownside"),
   mcES10: document.getElementById("mcES10"),
@@ -6410,6 +6417,129 @@ function renderMcFreshness(res, weeks){
   if (els.mcStale){
     els.mcStale.hidden = !(staleInputs || staleLog);
   }
+
+  renderOpsEnvelopeD2(res, weeks);
+}
+
+function hashOpsEnvelopeInputs(res, weeks){
+  const eff = getEffectiveBaseRates();
+  return computeSnapshotHash({
+    h: hashMcInputs(res, weeks),
+    weeks,
+    mcMode: state.mcMode || "basic",
+    mcVolatility: state.mcVolatility || "med",
+    mcSeed: state.mcSeed || "",
+    // Advanced triangles
+    mcContactMin: safeNum(state.mcContactMin),
+    mcContactMode: safeNum(state.mcContactMode),
+    mcContactMax: safeNum(state.mcContactMax),
+    mcPersMin: safeNum(state.mcPersMin),
+    mcPersMode: safeNum(state.mcPersMode),
+    mcPersMax: safeNum(state.mcPersMax),
+    // Universe-volatility widening
+    volBoost: safeNum(eff.volatilityBoost) || 0,
+  });
+}
+
+function computeOpsEnvelopeD2(res, weeks){
+  const w = (weeks != null && isFinite(weeks) && weeks > 0) ? weeks : null;
+  if (!w) return null;
+
+  const ctx = computeWeeklyOpsContext(res, w);
+  if (!ctx || !(ctx.goal > 0)) return null;
+
+  const eff = getEffectiveBaseRates();
+  const baseCr = eff.cr;
+  const baseSr = eff.sr;
+  if (!(baseCr > 0) || !(baseSr > 0)) return null;
+
+  const baseRr = (eff.tr != null && isFinite(eff.tr) && eff.tr > 0) ? eff.tr : 0.75;
+  const baseDph = (safeNum(state.doorsPerHour3) != null && safeNum(state.doorsPerHour3) > 0) ? safeNum(state.doorsPerHour3) : 30;
+  const baseCph = (safeNum(state.callsPerHour3) != null && safeNum(state.callsPerHour3) > 0) ? safeNum(state.callsPerHour3) : 25;
+  const baseVol = (safeNum(state.volunteerMultBase) != null && safeNum(state.volunteerMultBase) > 0) ? safeNum(state.volunteerMultBase) : 1;
+
+  const volBoost = safeNum(eff.volatilityBoost) || 0;
+  const specs = (String(state.mcMode || "basic") === "advanced")
+    ? buildAdvancedSpecs({ baseCr, basePr: baseSr, baseRr, baseDph, baseCph, baseVol, volBoost })
+    : buildBasicSpecs({ baseCr, basePr: baseSr, baseRr, baseDph, baseCph, baseVol, volBoost });
+
+  const runs = 200;
+  const seedStr = `${state.mcSeed || ""}|opsEnvelope|${hashMcInputs(res, w)}`;
+  const rng = makeRng(seedStr);
+
+  const convos = [];
+  const attempts = [];
+
+  for (let i = 0; i < runs; i++){
+    const cr = clamp(triSample(specs.contactRate.min, specs.contactRate.mode, specs.contactRate.max, rng), 0.0001, 1);
+    const sr = clamp(triSample(specs.persuasionRate.min, specs.persuasionRate.mode, specs.persuasionRate.max, rng), 0.0001, 1);
+
+    const convosPerWeek = (ctx.goal / sr) / w;
+    const attemptsPerWeek = convosPerWeek / cr;
+
+    if (isFinite(convosPerWeek) && convosPerWeek > 0) convos.push(convosPerWeek);
+    if (isFinite(attemptsPerWeek) && attemptsPerWeek > 0) attempts.push(attemptsPerWeek);
+  }
+
+  if (convos.length < 10 || attempts.length < 10) return null;
+  convos.sort((a,b) => a - b);
+  attempts.sort((a,b) => a - b);
+
+  return {
+    runs,
+    attempts: {
+      p10: quantileSorted(attempts, 0.10),
+      p50: quantileSorted(attempts, 0.50),
+      p90: quantileSorted(attempts, 0.90),
+    },
+    convos: {
+      p10: quantileSorted(convos, 0.10),
+      p50: quantileSorted(convos, 0.50),
+      p90: quantileSorted(convos, 0.90),
+    }
+  };
+}
+
+function renderOpsEnvelopeD2(res, weeks){
+  if (!els.opsAttP10 && !els.opsConP10) return;
+
+  const clear = () => {
+    if (els.opsAttP10) els.opsAttP10.textContent = "—";
+    if (els.opsAttP50) els.opsAttP50.textContent = "—";
+    if (els.opsAttP90) els.opsAttP90.textContent = "—";
+    if (els.opsConP10) els.opsConP10.textContent = "—";
+    if (els.opsConP50) els.opsConP50.textContent = "—";
+    if (els.opsConP90) els.opsConP90.textContent = "—";
+  };
+
+  if (!state.mcLast){
+    clear();
+    return;
+  }
+
+  const h = hashOpsEnvelopeInputs(res, weeks);
+  const cached = (state.ui && state.ui.opsEnvelope && typeof state.ui.opsEnvelope === "object") ? state.ui.opsEnvelope : null;
+  let env = (cached && cached.hash === h) ? cached.env : null;
+
+  if (!env){
+    env = computeOpsEnvelopeD2(res, weeks);
+    if (!env){
+      clear();
+      return;
+    }
+    if (!state.ui) state.ui = {};
+    state.ui.opsEnvelope = { hash: h, env, computedAt: new Date().toISOString() };
+    persist();
+  }
+
+  const fmt = (v) => (v == null || !isFinite(v)) ? "—" : fmtInt(Math.round(v));
+
+  if (els.opsAttP10) els.opsAttP10.textContent = fmt(env.attempts.p10);
+  if (els.opsAttP50) els.opsAttP50.textContent = fmt(env.attempts.p50);
+  if (els.opsAttP90) els.opsAttP90.textContent = fmt(env.attempts.p90);
+  if (els.opsConP10) els.opsConP10.textContent = fmt(env.convos.p10);
+  if (els.opsConP50) els.opsConP50.textContent = fmt(env.convos.p50);
+  if (els.opsConP90) els.opsConP90.textContent = fmt(env.convos.p90);
 }
 
 function hashMcInputs(res, weeks){
