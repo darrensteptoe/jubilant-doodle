@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Field Engine</title>
+<link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+
+<aside class="left-rail">
+  <div class="menu-section">
+    <button class="menu-toggle">Setup</button>
+    <div class="menu-items">
+      <button data-view="race-setup">Race Setup</button>
+      <button data-view="universe">Universe</button>
+      <button data-view="electorate-structure">Electorate Structure</button>
+      <button data-view="ballot-test">Ballot Test / Vote Landscape</button>
+      <button data-view="turnout-history">Past Two Election Turnout</button>
+      <button data-view="persuadable-universe">Persuadable Universe</button>
+    </div>
+  </div>
+
+  <div class="menu-section">
+    <button class="menu-toggle">Strategy</button>
+    <div class="menu-items">
+      <button data-view="gotv">GOTV / Turnout</button>
+    </div>
+  </div>
+
+  <div class="menu-section">
+    <button data-view="execution">Execution</button>
+  </div>
+
+  <div class="menu-section">
+    <button data-view="analysis">Analysis</button>
+  </div>
+</aside>
+
+<main class="main-content">
+  <h1>Field Path Engine</h1>
+</main>
+
+<script>
+document.querySelectorAll('.menu-toggle').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const items = btn.nextElementSibling;
+    if (items) items.classList.toggle('open');
+  });
+});
+</script>
+
+</body>
+</html>
