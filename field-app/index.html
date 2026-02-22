@@ -848,71 +848,6 @@
 <button class="tab" data-tab="roi">Plan</button>
 </nav>
 <section class="panel active" id="tab-win">
-<div class="card card-section card-section--win phase-winpath">
-<div class="card-head card-header">
-<h2 class="card-title">Win path (expected)</h2>
-</div>
-<div class="kpis">
-<div class="kpi">
-<div class="kpi-k">Projected turnout votes</div>
-<div class="kpi-v" id="kpiTurnoutVotes">—</div>
-<div class="kpi-s" id="kpiTurnoutBand">—</div>
-</div>
-<div class="kpi">
-<div class="kpi-k">Dynamic win threshold</div>
-<div class="kpi-v" id="kpiWinThreshold">—</div>
-<div class="kpi-s">Top competitor + 1 (after undecided allocation)</div>
-</div>
-<div class="kpi">
-<div class="kpi-k">Your projected votes</div>
-<div class="kpi-v" id="kpiYourVotes">—</div>
-<div class="kpi-s" id="kpiYourVotesShare">—</div>
-</div>
-<div class="kpi">
-<div class="kpi-k">Persuasion votes needed (net)</div>
-<div class="kpi-v" id="kpiPersuasionNeed">—</div>
-<div class="kpi-s" id="kpiPersuasionStatus">—</div>
-</div>
-</div>
-<div class="subgrid">
-<div class="mini">
-<div class="mini-k">Early votes (Expected)</div>
-<div class="mini-v" id="miniEarlyVotes">—</div>
-<div class="mini-s" id="miniEarlyNote">—</div>
-</div>
-<div class="mini">
-<div class="mini-k">Election Day votes (Expected)</div>
-<div class="mini-v" id="miniEDVotes">—</div>
-<div class="mini-s">Turnout − Early</div>
-</div>
-<div class="mini">
-<div class="mini-k">Persuasion universe</div>
-<div class="mini-v" id="miniPersUniverse">—</div>
-<div class="mini-s" id="miniPersCheck">—</div>
-</div>
-</div>
-<div class="subgrid">
-<div class="mini">
-<div class="mini-k">Total shifts needed</div>
-<div class="mini-v" id="outTotalShifts">—</div>
-<div class="mini-s">Doors needed ÷ Doors/shift</div>
-</div>
-<div class="mini">
-<div class="mini-k">Shifts per week needed</div>
-<div class="mini-v" id="outShiftsPerWeek">—</div>
-<div class="mini-s">Total shifts ÷ Weeks remaining</div>
-</div>
-<div class="mini">
-<div class="mini-k">Active volunteers needed</div>
-<div class="mini-v" id="outVolunteersNeeded">—</div>
-<div class="mini-s">Shifts/week ÷ Shifts/volunteer/week</div>
-</div>
-</div>
-<div class="banner" hidden="" id="convFeasBanner"></div>
-<div class="note">
-            This is a conversion/capacity estimator. It assumes 1 support ID ≈ 1 vote and does not model multi-touch, paid volume, phones/texts, or persuasion win rate .
-          </div>
-</div>
 <div class="card card-section phase-p3" id="phase3Card">
 <div class="mc-details">
 <div class="mc-summary">
@@ -1911,9 +1846,6 @@
 </div>
 </div></section>
 
-<aside aria-label="Status rail" class="rail">
-
-
 <!-- ── STAGE: checks ── -->
 <section class="stage-new" id="stage-checks">
 <div class="stage-header-new">
@@ -1943,21 +1875,6 @@
 </div>
 </div>
 <div class="stage-body-new">
-<div class="card card-section phase-setup">
-<div class="card-head card-header">
-<h2 class="card-title">Assumptions snapshot</h2>
-</div>
-<div class="assumptions" id="assumptionsSnapshot"></div>
-<div class="note">
-            This is the exact assumption block we’ll mirror in branded exports in later phases.
-          </div>
-</div>
-<div class="card card-section phase-setup">
-<div class="card-head card-header">
-<h2 class="card-title">Data checks &amp; guardrails</h2>
-</div>
-<div class="guardrails" id="guardrails"></div>
-</div>
 </div></section>
 <section class="panel" id="tab-roi">
 
@@ -1975,23 +1892,6 @@
 <div class="section-header">
 <div class="section-header-title">Understand</div>
 <div class="section-header-sub">Validate inputs, interpret risk, &amp; compare scenarios.</div>
-</div>
-<div class="card card-section card-section--risk phase-di">
-<div class="card-head card-header">
-<h2 class="card-title">Stress test summary (client style)</h2>
-</div>
-<div class="stress" id="stressBox">
-<div class="stress-item">—</div>
-</div>
-<div class="note">
-                  Export mode B (future) can include full tables; Version 1 output keeps this summary concise.
-                </div>
-</div>
-<div class="card card-section phase-universe">
-<div class="card-head card-header">
-<h2 class="card-title">Validation</h2>
-</div>
-<ul class="validation" id="validationList"></ul>
 </div>
 <div class="card card-section phase-scenarios" id="scenarioCompareCard">
 <div class="card-head card-header">
@@ -2455,13 +2355,6 @@ Volunteer multiplier stays above 1.5" rows="4"></textarea>
 <p class="stage-sub-new">Snapshot hash, import/export, and data integrity. Ensures an exported scenario re-imports to the same result.</p>
 </div>
 <div class="stage-body-new">
-<div class="card card-section">
-<div class="card-head card-header"><h2 class="card-title">Snapshot integrity</h2></div>
-<div class="card-body-inner">
-<div class="field"><label class="label" for="snapshotHashInput">Snapshot hash</label><input class="input" id="snapshotHashInput" readonly="" type="text"/></div>
-<div class="banner warn" hidden="" id="importHashBanner2">Snapshot hash differs.</div>
-</div>
-</div>
 </div>
 </section>
 <!-- /stage-main-new -->
@@ -2520,6 +2413,26 @@ Volunteer multiplier stays above 1.5" rows="4"></textarea>
 <div class="sidebar-section-new">
 <div class="sidebar-label-new">Input validation</div>
 <ul class="validation" id="validationList-sidebar"></ul>
+</div>
+
+<!-- ASSUMPTIONS SNAPSHOT -->
+<div class="sidebar-section-new">
+<div class="sidebar-label-new">Key assumptions</div>
+<div class="assumptions" id="assumptionsSnapshot"></div>
+</div>
+
+<!-- DATA CHECKS & GUARDRAILS -->
+<div class="sidebar-section-new">
+<div class="sidebar-label-new">Data checks &amp; guardrails</div>
+<div class="guardrails" id="guardrails"></div>
+</div>
+
+<!-- STRESS TEST (CLIENT STYLE) -->
+<div class="sidebar-section-new">
+<div class="sidebar-label-new">Stress test summary</div>
+<div class="stress" id="stressBox">
+<div class="stress-item">—</div>
+</div>
 </div>
 <!-- EARLY VOTE MINI -->
 <div class="sidebar-section-new">
@@ -2604,5 +2517,5 @@ document.addEventListener('DOMContentLoaded', function(){
 </div>
 </div>
 </div>
-</aside></body>
+</body>
 </html>
