@@ -1,64 +1,36 @@
+# Left Menu Update (Setup / Strategy / Execution / Analysis)
 
-# Field Path Engine (Internal)
+This bundle contains drop-in snippets to update the **left navigation** to the requested information architecture.
 
-Version: 1.0  
-Last updated: 2026-02-18
+## Target IA
 
-This is the **Field Path Engine**: an internal, browser-based planning dashboard for estimating win paths, persuasion/GOTV needs, ROI, and feasible field plans under budget, capacity, and timeline constraints.
+Top-level sections (in order):
 
-It is designed to be:
-- **Deterministic by default** (same inputs → same outputs)
-- **Explainable** (it shows what assumptions drive the outcome)
-- **Hardened against drift** (self-tests + snapshot hashing + schema migrations)
+1. **Setup**
+2. **Strategy**
+3. **Execution**
+4. **Analysis**
 
-## Quick start (5 minutes)
+### Setup (expanded order)
 
-1. Open `index.html` in a modern browser (or deploy as static files).
-2. Fill out **Scenario setup** (race type, election date, mode).
-3. In **Universe**:
-   - Choose your *universe basis* (registered voters / likely voters / etc.).
-   - Enter the universe size.
-4. In **Candidates & vote landscape**:
-   - Enter candidate baseline shares (and undecided handling).
-5. Review **Win path (Expected)** and **Sensitivity**.
-6. If building a plan, enter:
-   - **Budget inputs**
-   - **Turnout / GOTV**
-   - **Optimization**
-   - **Timeline / Production** if you need feasibility constraints
+- **Race Setup** (single entry point)
+  - Scenario
+  - Universe
+  - Electorate Structure
+- **Ballot Test — Vote Landscape**
+- **Turnout — Past Two Elections**
+- **Persuadable Universe**
 
-## What this app does (and does not) do
+### Strategy
 
-### It *does*
-- Translate vote shares + universe size into **vote counts**
-- Compute **votes needed** to win and how far you are from that threshold
-- Model **persuasion conversion** and **turnout lift** as levers
-- Compare tactics via **ROI** (cost per net vote) and optimize mixes
-- Stress-test outcomes via **Monte Carlo** (seeded)
-- Enforce **schema versioning** + deterministic export/import
-- Verify exports via **snapshot hash** (integrity verification)
+- **GOTV / Turnout**
 
-### It does *not*
-- Automatically know district-level voter file characteristics
-- Replace real field metrics (it requires reasonable inputs)
-- Provide legal/finance compliance guidance
+## How to apply
 
-## Repository layout
+1. Replace your existing left menu markup with `leftMenu.html`.
+2. Wire clicks to your existing view/router IDs by editing `navConfig.json`:
+   - Set each item's `target` to whatever your app already uses (hash, route name, panel id, etc.).
+3. Include `leftMenu.js` after your existing app/router code so it can call your navigation function.
+   - By default it calls `window.navigateTo(target)` if present; otherwise it updates `location.hash`.
 
-- `index.html` — UI structure
-- `styles.css` — theme + layout (supports light/dark via system preference)
-- `js/app.js` — UI orchestration + state + rendering + wiring
-- `js/*` — compute modules, integrity, import/export, self-test infrastructure
-
-## Safety rails (why they exist)
-
-- **Self-test gate**: ensures core math invariants still pass after edits.
-- **Deterministic export**: makes identical state serialize identically.
-- **Snapshot hash**: detects accidental mutation or corrupted imports.
-- **Schema migration guard**: allows future versions to read older exports safely.
-
-For details, see:
-- `BOX_BY_BOX_GUIDE.md`
-- `MODEL_THEORY.md`
-- `ARCHITECTURE.md`
-- `TROUBLESHOOTING.md`
+If your app already has its own navigation system, keep `navConfig.json` and map `target` values to your existing IDs.
