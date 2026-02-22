@@ -1,4 +1,4 @@
-import { wireInput, wireSelect, wireCheckbox } from "./wireInput.js";
+import { wireInput, wireSelect, wireCheckbox } from "/js/ui/wireInput.js";
 
 export function getEls(){
   return {

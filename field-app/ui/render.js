@@ -1,4 +1,4 @@
-import { fmtInt, clamp, safeNum } from "../utils.js";
+import { fmtInt, clamp, safeNum } from "/js/utils.js";
 
 let state = null;
 let els = null;
