@@ -253,9 +253,10 @@ function restoreBackupByIndex(idx){
 
 import { els } from "./ui/els.js";
 
-// Module-level constants
-const SCENARIO_BASELINE_ID = "baseline";
-const SCENARIO_MAX = 20;
+// NOTE: The bogus default-value block that was inside els (goalSupportIds: "",
+// supportRatePct: 55, etc.) has been removed. Those belong in makeDefaultState().
+// The real getElementById versions of those keys remain in js/ui/els.js.
+
 
 // Phase 13 — DOM preflight (prevents silent boot failures)
 function preflightEls(){
@@ -3739,6 +3740,9 @@ function wireScenarioComparePanel(){
 // =========================
 // Phase C1 — Scenario Stack (registry)
 // =========================
+
+const SCENARIO_BASELINE_ID = "baseline";
+const SCENARIO_MAX = 20;
 
 function scenarioClone(obj){
   try{
