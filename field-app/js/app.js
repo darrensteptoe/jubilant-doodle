@@ -86,11 +86,9 @@ function mergeDailyLogIntoState(imported){
   }
 
   const merged = Array.from(byDate.values()).sort((a,b) => String(a.date).localeCompare(String(b.date)));
-  state.ui.dailyLog = merged;
   // daily log changes should mark plan/MC as stale
   markMcStale();
-  render();
-  persist();
+  setState(s => { s.ui.dailyLog = merged; });
 
   return { ok: true, msg: `Merged daily log: ${added} new, ${replaced} updated, ${ignored} ignored` };
 }
@@ -253,477 +251,12 @@ function restoreBackupByIndex(idx){
 
 
 
-const els = {
-  scenarioName: document.getElementById("scenarioName"),
-  buildStamp: document.getElementById("buildStamp"),
-  selfTestGate: document.getElementById("selfTestGate"),
-  restoreBackup: document.getElementById("restoreBackup"),
-  toggleStrictImport: document.getElementById("toggleStrictImport"),
-  btnDiagnostics: document.getElementById("btnDiagnostics"),
-  btnSaveScenario: document.getElementById("btnSaveScenario"),
-  scCompareTbody: document.getElementById("scCompareTbody"),
-  scOverall: document.getElementById("scOverall"),
-  scWarn: document.getElementById("scWarn"),
-  scenarioSelect: document.getElementById("scenarioSelect"),
-  scenarioNewName: document.getElementById("scenarioNewName"),
-  btnScenarioSaveNew: document.getElementById("btnScenarioSaveNew"),
-  btnScenarioCloneBaseline: document.getElementById("btnScenarioCloneBaseline"),
-  btnScenarioDelete: document.getElementById("btnScenarioDelete"),
-  btnScenarioLoadSelected: document.getElementById("btnScenarioLoadSelected"),
-  btnScenarioReturnBaseline: document.getElementById("btnScenarioReturnBaseline"),
-  activeScenarioLabel: document.getElementById("activeScenarioLabel"),
-  scmCompareWrap: document.getElementById("scmCompareWrap"),
-  scmCompareTag: document.getElementById("scmCompareTag"),
-  scmCompareEmpty: document.getElementById("scmCompareEmpty"),
-  scmCompareGrid: document.getElementById("scmCompareGrid"),
-  scmDiffInputs: document.getElementById("scmDiffInputs"),
-  scmDiffInputsFoot: document.getElementById("scmDiffInputsFoot"),
-  scmDiffOutputs: document.getElementById("scmDiffOutputs"),
+import { els } from "./ui/els.js";
 
-  // Phase D1 — Decision Sessions
-  decisionSessionSelect: document.getElementById("decisionSessionSelect"),
-  btnDecisionNew: document.getElementById("btnDecisionNew"),
-  decisionRename: document.getElementById("decisionRename"),
-  btnDecisionRenameSave: document.getElementById("btnDecisionRenameSave"),
-  btnDecisionDelete: document.getElementById("btnDecisionDelete"),
-  decisionActiveLabel: document.getElementById("decisionActiveLabel"),
-  decisionNotes: document.getElementById("decisionNotes"),
-  decisionObjective: document.getElementById("decisionObjective"),
-  btnDecisionLinkScenario: document.getElementById("btnDecisionLinkScenario"),
-  decisionScenarioLabel: document.getElementById("decisionScenarioLabel"),
-  decisionBudget: document.getElementById("decisionBudget"),
-  decisionVolunteerHrs: document.getElementById("decisionVolunteerHrs"),
-  decisionTurfAccess: document.getElementById("decisionTurfAccess"),
-  decisionBlackoutDates: document.getElementById("decisionBlackoutDates"),
-  decisionRiskPosture: document.getElementById("decisionRiskPosture"),
-  decisionNonNegotiables: document.getElementById("decisionNonNegotiables"),
+// NOTE: The bogus default-value block that was inside els (goalSupportIds: "",
+// supportRatePct: 55, etc.) has been removed. Those belong in makeDefaultState().
+// The real getElementById versions of those keys remain in js/ui/els.js.
 
-  // Phase E1 — Assumption Drift (read-only)
-  driftStatusTag: document.getElementById("driftStatusTag"),
-  driftReq: document.getElementById("driftReq"),
-  driftActual: document.getElementById("driftActual"),
-  driftDelta: document.getElementById("driftDelta"),
-  driftSlipBanner: document.getElementById("driftSlipBanner"),
-
-  // Phase E2 — Risk Framing (derived only)
-  riskBandTag: document.getElementById("riskBandTag"),
-  riskWinProb: document.getElementById("riskWinProb"),
-  riskMarginBand: document.getElementById("riskMarginBand"),
-  riskVolatility: document.getElementById("riskVolatility"),
-  riskPlainBanner: document.getElementById("riskPlainBanner"),
-
-  bneckTag: document.getElementById("bneckTag"),
-  bneckPrimary: document.getElementById("bneckPrimary"),
-  bneckSecondary: document.getElementById("bneckSecondary"),
-  bneckTbody: document.getElementById("bneckTbody"),
-  bneckWarn: document.getElementById("bneckWarn"),
-
-  sensTag: document.getElementById("sensTag"),
-  btnSensRun: document.getElementById("btnSensRun"),
-  sensTbody: document.getElementById("sensTbody"),
-  sensBanner: document.getElementById("sensBanner"),
-
-  confTag: document.getElementById("confTag"),
-  confExec: document.getElementById("confExec"),
-  confRisk: document.getElementById("confRisk"),
-  confTight: document.getElementById("confTight"),
-  confDiv: document.getElementById("confDiv"),
-  confBanner: document.getElementById("confBanner"),
-
-  decisionOptionSelect: document.getElementById("decisionOptionSelect"),
-  btnDecisionOptionNew: document.getElementById("btnDecisionOptionNew"),
-  decisionOptionRename: document.getElementById("decisionOptionRename"),
-  btnDecisionOptionRenameSave: document.getElementById("btnDecisionOptionRenameSave"),
-  btnDecisionOptionDelete: document.getElementById("btnDecisionOptionDelete"),
-  btnDecisionOptionLinkScenario: document.getElementById("btnDecisionOptionLinkScenario"),
-  decisionOptionScenarioLabel: document.getElementById("decisionOptionScenarioLabel"),
-  decisionOptionTacticDoors: document.getElementById("decisionOptionTacticDoors"),
-  decisionOptionTacticPhones: document.getElementById("decisionOptionTacticPhones"),
-  decisionOptionTacticDigital: document.getElementById("decisionOptionTacticDigital"),
-  decisionRecommendSelect: document.getElementById("decisionRecommendSelect"),
-  decisionWhatTrue: document.getElementById("decisionWhatTrue"),
-  decisionSummaryPreview: document.getElementById("decisionSummaryPreview"),
-  btnDecisionCopyMd: document.getElementById("btnDecisionCopyMd"),
-  btnDecisionCopyText: document.getElementById("btnDecisionCopyText"),
-  btnDecisionDownloadJson: document.getElementById("btnDecisionDownloadJson"),
-  decisionCopyStatus: document.getElementById("decisionCopyStatus"),
-
-  diagModal: document.getElementById("diagModal"),
-  diagErrors: document.getElementById("diagErrors"),
-  btnDiagClose: document.getElementById("btnDiagClose"),
-  btnCopyDebug: document.getElementById("btnCopyDebug"),
-  raceType: document.getElementById("raceType"),
-  electionDate: document.getElementById("electionDate"),
-  weeksRemaining: document.getElementById("weeksRemaining"),
-  mode: document.getElementById("mode"),
-
-  universeBasis: document.getElementById("universeBasis"),
-  universeSize: document.getElementById("universeSize"),
-  sourceNote: document.getElementById("sourceNote"),
-
-  turnoutA: document.getElementById("turnoutA"),
-  turnoutB: document.getElementById("turnoutB"),
-  bandWidth: document.getElementById("bandWidth"),
-  turnoutExpected: document.getElementById("turnoutExpected"),
-  turnoutBand: document.getElementById("turnoutBand"),
-  votesPer1pct: document.getElementById("votesPer1pct"),
-
-  btnAddCandidate: document.getElementById("btnAddCandidate"),
-  yourCandidate: document.getElementById("yourCandidate"),
-  candTbody: document.getElementById("candTbody"),
-  undecidedPct: document.getElementById("undecidedPct"),
-  supportTotal: document.getElementById("supportTotal"),
-  undecidedMode: document.getElementById("undecidedMode"),
-  userSplitWrap: document.getElementById("userSplitWrap"),
-  userSplitList: document.getElementById("userSplitList"),
-  candWarn: document.getElementById("candWarn"),
-
-  persuasionPct: document.getElementById("persuasionPct"),
-  earlyVoteExp: document.getElementById("earlyVoteExp"),
-    // Phase 2 — conversion + capacity
-    goalSupportIds: "",
-    supportRatePct: 55,
-    contactRatePct: 22,
-    doorsPerHour: 30,
-    hoursPerShift: 3,
-    shiftsPerVolunteerPerWeek: 2,
-
-    // Phase 16 — universe composition + retention (OFF by default)
-    universeLayerEnabled: UNIVERSE_DEFAULTS.enabled,
-    universeDemPct: UNIVERSE_DEFAULTS.demPct,
-    universeRepPct: UNIVERSE_DEFAULTS.repPct,
-    universeNpaPct: UNIVERSE_DEFAULTS.npaPct,
-    universeOtherPct: UNIVERSE_DEFAULTS.otherPct,
-    retentionFactor: UNIVERSE_DEFAULTS.retentionFactor,
-
-
-  // Phase 2 — conversion + capacity
-  goalSupportIds: document.getElementById("goalSupportIds"),
-  supportRatePct: document.getElementById("supportRatePct"),
-  contactRatePct: document.getElementById("contactRatePct"),
-  doorsPerHour: document.getElementById("doorsPerHour"),
-  hoursPerShift: document.getElementById("hoursPerShift"),
-  shiftsPerVolunteerPerWeek: document.getElementById("shiftsPerVolunteerPerWeek"),
-
-  // Phase 16 — universe composition + retention
-  universe16Enabled: document.getElementById("universe16Enabled"),
-  universe16DemPct: document.getElementById("universe16DemPct"),
-  universe16RepPct: document.getElementById("universe16RepPct"),
-  universe16NpaPct: document.getElementById("universe16NpaPct"),
-  universe16OtherPct: document.getElementById("universe16OtherPct"),
-  retentionFactor: document.getElementById("retentionFactor"),
-  universe16Derived: document.getElementById("universe16Derived"),
-  universe16Warn: document.getElementById("universe16Warn"),
-
-  outConversationsNeeded: document.getElementById("outConversationsNeeded"),
-  outDoorsNeeded: document.getElementById("outDoorsNeeded"),
-  outDoorsPerShift: document.getElementById("outDoorsPerShift"),
-  outTotalShifts: document.getElementById("outTotalShifts"),
-  outShiftsPerWeek: document.getElementById("outShiftsPerWeek"),
-  outVolunteersNeeded: document.getElementById("outVolunteersNeeded"),
-  convFeasBanner: document.getElementById("convFeasBanner"),
-
-  // Weekly ops dashboard
-  wkGoal: document.getElementById("wkGoal"),
-  wkConvosPerWeek: document.getElementById("wkConvosPerWeek"),
-  wkAttemptsPerWeek: document.getElementById("wkAttemptsPerWeek"),
-  wkCapacityPerWeek: document.getElementById("wkCapacityPerWeek"),
-  wkCapacityBreakdown: document.getElementById("wkCapacityBreakdown"),
-  wkGapPerWeek: document.getElementById("wkGapPerWeek"),
-  wkConstraint: document.getElementById("wkConstraint"),
-  wkConstraintNote: document.getElementById("wkConstraintNote"),
-  wkBanner: document.getElementById("wkBanner"),
-
-  wkLeversIntro: document.getElementById("wkLeversIntro"),
-  wkBestMovesIntro: document.getElementById("wkBestMovesIntro"),
-  wkBestMovesList: document.getElementById("wkBestMovesList"),
-  wkLeversTbody: document.getElementById("wkLeversTbody"),
-  wkLeversFoot: document.getElementById("wkLeversFoot"),
-  wkActionsList: document.getElementById("wkActionsList"),
-  wkUndoActionBtn: document.getElementById("wkUndoActionBtn"),
-  wkUndoActionMsg: document.getElementById("wkUndoActionMsg"),
-  wkLastUpdate: document.getElementById("wkLastUpdate"),
-  wkFreshNote: document.getElementById("wkFreshNote"),
-  wkRollingAttempts: document.getElementById("wkRollingAttempts"),
-  wkRollingNote: document.getElementById("wkRollingNote"),
-  wkRollingCR: document.getElementById("wkRollingCR"),
-  wkRollingCRNote: document.getElementById("wkRollingCRNote"),
-  wkRollingSR: document.getElementById("wkRollingSR"),
-  wkRollingSRNote: document.getElementById("wkRollingSRNote"),
-  wkRollingAPH: document.getElementById("wkRollingAPH"),
-  wkRollingAPHNote: document.getElementById("wkRollingAPHNote"),
-  wkFreshStatus: document.getElementById("wkFreshStatus"),
-  wkReqConvosWeek: document.getElementById("wkReqConvosWeek"),
-    wkActConvos7: document.getElementById("wkActConvos7"),
-    wkActConvosNote: document.getElementById("wkActConvosNote"),
-    wkGapConvos: document.getElementById("wkGapConvos"),
-    wkConvosPaceTag: document.getElementById("wkConvosPaceTag"),
-  
-    wkReqAttemptsWeek: document.getElementById("wkReqAttemptsWeek"),
-    wkActAttempts7: document.getElementById("wkActAttempts7"),
-    wkActAttemptsNote: document.getElementById("wkActAttemptsNote"),
-    wkGapAttempts: document.getElementById("wkGapAttempts"),
-    wkAttemptsPaceTag: document.getElementById("wkAttemptsPaceTag"),
-  
-    wkReqDoorAttemptsWeek: document.getElementById("wkReqDoorAttemptsWeek"),
-    wkReqCallAttemptsWeek: document.getElementById("wkReqCallAttemptsWeek"),
-    wkImpliedConvosWeek: document.getElementById("wkImpliedConvosWeek"),
-    wkImpliedConvosNote: document.getElementById("wkImpliedConvosNote"),
-  
-    wkFinishConvos: document.getElementById("wkFinishConvos"),
-    wkFinishAttempts: document.getElementById("wkFinishAttempts"),
-    wkPaceStatus: document.getElementById("wkPaceStatus"),
-    wkPaceNote: document.getElementById("wkPaceNote"),
-    wkExecBanner: document.getElementById("wkExecBanner"),
-  
-  // Daily log import/export (analyst page)
-  dailyLogExportBtn: document.getElementById("dailyLogExportBtn"),
-  dailyLogImportText: document.getElementById("dailyLogImportText"),
-  dailyLogImportBtn: document.getElementById("dailyLogImportBtn"),
-  dailyLogImportMsg: document.getElementById("dailyLogImportMsg"),
-
-  applyRollingCRBtn: document.getElementById("applyRollingCRBtn"),
-  applyRollingSRBtn: document.getElementById("applyRollingSRBtn"),
-  applyRollingMsg: document.getElementById("applyRollingMsg"),
-
-  // Phase 3 — execution + risk
-  orgCount: document.getElementById("orgCount"),
-  orgHoursPerWeek: document.getElementById("orgHoursPerWeek"),
-  volunteerMultBase: document.getElementById("volunteerMultBase"),
-  channelDoorPct: document.getElementById("channelDoorPct"),
-  doorsPerHour3: document.getElementById("doorsPerHour3"),
-  callsPerHour3: document.getElementById("callsPerHour3"),
-
-  p3Weeks: document.getElementById("p3Weeks"),
-  p3CapContacts: document.getElementById("p3CapContacts"),
-  p3GapContacts: document.getElementById("p3GapContacts"),
-  p3GapNote: document.getElementById("p3GapNote"),
-
-  mcMode: document.getElementById("mcMode"),
-  mcSeed: document.getElementById("mcSeed"),
-  mcRun: document.getElementById("mcRun"),
-  mcRerun: document.getElementById("mcRerun"),
-  mcFreshTag: document.getElementById("mcFreshTag"),
-  mcLastRun: document.getElementById("mcLastRun"),
-  mcStale: document.getElementById("mcStale"),
-  mcBasic: document.getElementById("mcBasic"),
-  mcAdvanced: document.getElementById("mcAdvanced"),
-  mcVolatility: document.getElementById("mcVolatility"),
-  turnoutReliabilityPct: document.getElementById("turnoutReliabilityPct"),
-
-  turnoutEnabled: document.getElementById("turnoutEnabled"),
-  turnoutBaselinePct: document.getElementById("turnoutBaselinePct"),
-  turnoutTargetOverridePct: document.getElementById("turnoutTargetOverridePct"),
-  gotvMode: document.getElementById("gotvMode"),
-  gotvBasic: document.getElementById("gotvBasic"),
-  gotvAdvanced: document.getElementById("gotvAdvanced"),
-  gotvLiftPP: document.getElementById("gotvLiftPP"),
-  gotvMaxLiftPP: document.getElementById("gotvMaxLiftPP"),
-  gotvDiminishing: document.getElementById("gotvDiminishing"),
-  gotvLiftMin: document.getElementById("gotvLiftMin"),
-  gotvLiftMode: document.getElementById("gotvLiftMode"),
-  gotvLiftMax: document.getElementById("gotvLiftMax"),
-  gotvMaxLiftPP2: document.getElementById("gotvMaxLiftPP2"),
-  gotvDiminishing2: document.getElementById("gotvDiminishing2"),
-  turnoutSummary: document.getElementById("turnoutSummary"),
-
-  mcContactMin: document.getElementById("mcContactMin"),
-  mcContactMode: document.getElementById("mcContactMode"),
-  mcContactMax: document.getElementById("mcContactMax"),
-  mcPersMin: document.getElementById("mcPersMin"),
-  mcPersMode: document.getElementById("mcPersMode"),
-  mcPersMax: document.getElementById("mcPersMax"),
-  mcReliMin: document.getElementById("mcReliMin"),
-  mcReliMode: document.getElementById("mcReliMode"),
-  mcReliMax: document.getElementById("mcReliMax"),
-  mcDphMin: document.getElementById("mcDphMin"),
-  mcDphMode: document.getElementById("mcDphMode"),
-  mcDphMax: document.getElementById("mcDphMax"),
-  mcCphMin: document.getElementById("mcCphMin"),
-  mcCphMode: document.getElementById("mcCphMode"),
-  mcCphMax: document.getElementById("mcCphMax"),
-  mcVolMin: document.getElementById("mcVolMin"),
-  mcVolMode: document.getElementById("mcVolMode"),
-  mcVolMax: document.getElementById("mcVolMax"),
-
-  mcWinProb: document.getElementById("mcWinProb"),
-  mcMedian: document.getElementById("mcMedian"),
-  mcP5: document.getElementById("mcP5"),
-  mcP95: document.getElementById("mcP95"),
-  // Phase 14 — confidence envelope
-  mcP10: document.getElementById("mcP10"),
-  mcP50: document.getElementById("mcP50"),
-  mcP90: document.getElementById("mcP90"),
-  // Phase D2 — ops envelope
-  opsAttP10: document.getElementById("opsAttP10"),
-  opsAttP50: document.getElementById("opsAttP50"),
-  opsAttP90: document.getElementById("opsAttP90"),
-  opsConP10: document.getElementById("opsConP10"),
-  opsConP50: document.getElementById("opsConP50"),
-  opsConP90: document.getElementById("opsConP90"),
-  opsFinishP10: document.getElementById("opsFinishP10"),
-  opsFinishP50: document.getElementById("opsFinishP50"),
-  opsFinishP90: document.getElementById("opsFinishP90"),
-  opsMissProb: document.getElementById("opsMissProb"),
-  opsMissTag: document.getElementById("opsMissTag"),
-  mcMoS: document.getElementById("mcMoS"),
-  mcDownside: document.getElementById("mcDownside"),
-  mcES10: document.getElementById("mcES10"),
-  mcShiftP50: document.getElementById("mcShiftP50"),
-  mcShiftP10: document.getElementById("mcShiftP10"),
-  mcFragility: document.getElementById("mcFragility"),
-  mcCliff: document.getElementById("mcCliff"),
-  // Phase 14.1 — advisor completion
-  mcRiskGrade: document.getElementById("mcRiskGrade"),
-  mcShift60: document.getElementById("mcShift60"),
-  mcShift70: document.getElementById("mcShift70"),
-  mcShift80: document.getElementById("mcShift80"),
-  mcShock10: document.getElementById("mcShock10"),
-  mcShock25: document.getElementById("mcShock25"),
-  mcShock50: document.getElementById("mcShock50"),
-  mcRiskLabel: document.getElementById("mcRiskLabel"),
-  mcSensitivity: document.getElementById("mcSensitivity"),
-
-  // Lightweight visuals (SVG)
-  svgWinProb: document.getElementById("svgWinProb"),
-  svgWinProbMarker: document.getElementById("svgWinProbMarker"),
-  vizWinProbNote: document.getElementById("vizWinProbNote"),
-  svgMargin: document.getElementById("svgMargin"),
-  svgMarginBars: document.getElementById("svgMarginBars"),
-  svgMarginWinShade: document.getElementById("svgMarginWinShade"),
-  svgMarginZero: document.getElementById("svgMarginZero"),
-  svgMarginMin: document.getElementById("svgMarginMin"),
-  svgMarginMax: document.getElementById("svgMarginMax"),
-    // Phase 4 — budget + ROI
-    roiDoorsEnabled: document.getElementById("roiDoorsEnabled"),
-    roiDoorsCpa: document.getElementById("roiDoorsCpa"),
-    roiDoorsKind: document.getElementById("roiDoorsKind"),
-    roiDoorsCr: document.getElementById("roiDoorsCr"),
-    roiDoorsSr: document.getElementById("roiDoorsSr"),
-    roiPhonesEnabled: document.getElementById("roiPhonesEnabled"),
-    roiPhonesCpa: document.getElementById("roiPhonesCpa"),
-    roiPhonesKind: document.getElementById("roiPhonesKind"),
-    roiPhonesCr: document.getElementById("roiPhonesCr"),
-    roiPhonesSr: document.getElementById("roiPhonesSr"),
-    roiTextsEnabled: document.getElementById("roiTextsEnabled"),
-    roiTextsCpa: document.getElementById("roiTextsCpa"),
-    roiTextsKind: document.getElementById("roiTextsKind"),
-    roiTextsCr: document.getElementById("roiTextsCr"),
-    roiTextsSr: document.getElementById("roiTextsSr"),
-    roiOverheadAmount: document.getElementById("roiOverheadAmount"),
-    roiIncludeOverhead: document.getElementById("roiIncludeOverhead"),
-    roiRefresh: document.getElementById("roiRefresh"),
-    roiTbody: document.getElementById("roiTbody"),
-    roiBanner: document.getElementById("roiBanner"),
-
-  // Phase 5 — optimization
-  optMode: document.getElementById("optMode"),
-    optObjective: document.getElementById("optObjective"),
-  tlOptEnabled: document.getElementById("tlOptEnabled"),
-  tlOptObjective: document.getElementById("tlOptObjective"),
-  tlOptResults: document.getElementById("tlOptResults"),
-  tlOptGoalFeasible: document.getElementById("tlOptGoalFeasible"),
-  tlOptMaxNetVotes: document.getElementById("tlOptMaxNetVotes"),
-  tlOptRemainingGap: document.getElementById("tlOptRemainingGap"),
-  tlOptBinding: document.getElementById("tlOptBinding"),
-  tlMvPrimary: document.getElementById("tlMvPrimary"),
-  tlMvSecondary: document.getElementById("tlMvSecondary"),
-  tlMvTbody: document.getElementById("tlMvTbody"),
-  optBudget: document.getElementById("optBudget"),
-  optCapacity: document.getElementById("optCapacity"),
-  optStep: document.getElementById("optStep"),
-  optUseDecay: document.getElementById("optUseDecay"),
-  optRun: document.getElementById("optRun"),
-  optTbody: document.getElementById("optTbody"),
-  optBanner: document.getElementById("optBanner"),
-  optTotalAttempts: document.getElementById("optTotalAttempts"),
-  optTotalCost: document.getElementById("optTotalCost"),
-  optTotalVotes: document.getElementById("optTotalVotes"),
-  optBinding: document.getElementById("optBinding"),
-  optGapContext: document.getElementById("optGapContext"),
-
-  // Phase 7 — timeline / production
-  timelineEnabled: document.getElementById("timelineEnabled"),
-  timelineWeeksAuto: document.getElementById("timelineWeeksAuto"),
-  timelineActiveWeeks: document.getElementById("timelineActiveWeeks"),
-  timelineGotvWeeks: document.getElementById("timelineGotvWeeks"),
-  timelineStaffCount: document.getElementById("timelineStaffCount"),
-  timelineStaffHours: document.getElementById("timelineStaffHours"),
-  timelineVolCount: document.getElementById("timelineVolCount"),
-  timelineVolHours: document.getElementById("timelineVolHours"),
-  timelineRampEnabled: document.getElementById("timelineRampEnabled"),
-  timelineRampMode: document.getElementById("timelineRampMode"),
-  timelineDoorsPerHour: document.getElementById("timelineDoorsPerHour"),
-  timelineCallsPerHour: document.getElementById("timelineCallsPerHour"),
-  timelineTextsPerHour: document.getElementById("timelineTextsPerHour"),
-  tlPercent: document.getElementById("tlPercent"),
-  tlCompletionWeek: document.getElementById("tlCompletionWeek"),
-  tlShortfallAttempts: document.getElementById("tlShortfallAttempts"),
-  tlConstraint: document.getElementById("tlConstraint"),
-  tlShortfallVotes: document.getElementById("tlShortfallVotes"),
-  tlWeekList: document.getElementById("tlWeekList"),
-  tlBanner: document.getElementById("tlBanner"),
-
-  validationList: document.getElementById("validationList"),
-
-  kpiTurnoutVotes: document.getElementById("kpiTurnoutVotes"),
-  kpiTurnoutBand: document.getElementById("kpiTurnoutBand"),
-  kpiWinThreshold: document.getElementById("kpiWinThreshold"),
-  kpiYourVotes: document.getElementById("kpiYourVotes"),
-  kpiYourVotesShare: document.getElementById("kpiYourVotesShare"),
-  kpiPersuasionNeed: document.getElementById("kpiPersuasionNeed"),
-  kpiPersuasionStatus: document.getElementById("kpiPersuasionStatus"),
-
-  miniEarlyVotes: document.getElementById("miniEarlyVotes"),
-  miniEarlyNote: document.getElementById("miniEarlyNote"),
-  miniEDVotes: document.getElementById("miniEDVotes"),
-  miniPersUniverse: document.getElementById("miniPersUniverse"),
-  miniPersCheck: document.getElementById("miniPersCheck"),
-
-  stressBox: document.getElementById("stressBox"),
-  explainCard: document.getElementById("explainCard"),
-
-  assumptionsSnapshot: document.getElementById("assumptionsSnapshot"),
-  guardrails: document.getElementById("guardrails"),
-
-  btnSaveJson: document.getElementById("btnSaveJson"),
-  loadJson: document.getElementById("loadJson"),
-  btnExportCsv: document.getElementById("btnExportCsv"),
-  btnCopySummary: document.getElementById("btnCopySummary"),
-  btnResetAll: document.getElementById("btnResetAll"),
-
-  toggleTraining: document.getElementById("toggleTraining"),
-  toggleDark: document.getElementById("toggleDark"),
-  toggleAdvDiag: document.getElementById("toggleAdvDiag"),
-  advDiagBox: document.getElementById("advDiagBox"),
-  snapshotHash: document.getElementById("snapshotHash"),
-  importHashBanner: document.getElementById("importHashBanner"),
-  importWarnBanner: document.getElementById("importWarnBanner"),
-
-  // Phase 12 — Decision Intelligence
-  diWarn: document.getElementById("diWarn"),
-  diPrimary: document.getElementById("diPrimary"),
-  diSecondary: document.getElementById("diSecondary"),
-  diNotBinding: document.getElementById("diNotBinding"),
-  diRecVol: document.getElementById("diRecVol"),
-  diRecCost: document.getElementById("diRecCost"),
-  diRecProb: document.getElementById("diRecProb"),
-  diVolTbody: document.getElementById("diVolTbody"),
-  diCostTbody: document.getElementById("diCostTbody"),
-  diProbTbody: document.getElementById("diProbTbody"),
-
-  // Phase 15 — Sensitivity Surface
-  surfaceLever: document.getElementById("surfaceLever"),
-  surfaceMode: document.getElementById("surfaceMode"),
-  surfaceMin: document.getElementById("surfaceMin"),
-  surfaceMax: document.getElementById("surfaceMax"),
-  surfaceSteps: document.getElementById("surfaceSteps"),
-  surfaceTarget: document.getElementById("surfaceTarget"),
-  btnComputeSurface: document.getElementById("btnComputeSurface"),
-  surfaceStatus: document.getElementById("surfaceStatus"),
-  surfaceTbody: document.getElementById("surfaceTbody"),
-  surfaceSummary: document.getElementById("surfaceSummary"),
-};
 
 // Phase 13 — DOM preflight (prevents silent boot failures)
 function preflightEls(){
@@ -747,6 +280,17 @@ const DEFAULTS_BY_TEMPLATE = {
 };
 
 let state = loadState() || makeDefaultState();
+
+// setState(patchFn) — controlled state mutation for UI-only writes.
+// Shallow-clones state, deep-clones only state.ui (where all setState writes live).
+// Engine/scenario fields are never mutated here so reference copies are safe.
+function setState(patchFn){
+  const next = { ...state, ui: structuredClone(state.ui) };
+  patchFn(next);
+  state = next;
+  render();
+  persist();
+}
 
 let lastRenderCtx = null;
 
@@ -1243,8 +787,7 @@ function wireEvents(){
     if (els.toggleStrictImport){
       els.toggleStrictImport.checked = !!state?.ui?.strictImport;
       els.toggleStrictImport.addEventListener("change", () => {
-        state.ui.strictImport = !!els.toggleStrictImport.checked;
-        persist();
+        setState(s => { s.ui.strictImport = !!els.toggleStrictImport.checked; });
       });
     }
     if (els.restoreBackup){
@@ -5469,6 +5012,25 @@ function renderDecisionSummaryD4(session){
 }
 
 
+// wireInput(el, patchFn, options)
+// Binds a single input/select/textarea to state via setState.
+// el        — DOM element; no-op if null/undefined
+// patchFn   — function(next, parsedValue) that mutates the cloned state
+// options:
+//   parse    — transform raw string value before passing to patchFn (default: identity)
+//   event    — event name to listen on (default: "change" for select/checkbox, "input" otherwise)
+//   onCommit — optional extra function called after setState (e.g. to re-render a sub-panel)
+function wireInput(el, patchFn, { parse = v => v, event, onCommit } = {}){
+  if (!el) return;
+  const ev = event || (el.tagName === "SELECT" || el.type === "checkbox" ? "change" : "input");
+  el.addEventListener(ev, () => {
+    const raw = el.type === "checkbox" ? el.checked : el.value;
+    const val = parse(raw);
+    setState(next => patchFn(next, val));
+    if (onCommit) onCommit();
+  });
+}
+
 function wireDecisionSessionD1(){
   ensureDecisionScaffold();
 
@@ -5489,95 +5051,50 @@ function wireDecisionSessionD1(){
   if (els.btnDecisionDelete) els.btnDecisionDelete.addEventListener("click", () => deleteActiveDecisionSession());
   if (els.btnDecisionLinkScenario) els.btnDecisionLinkScenario.addEventListener("click", () => linkDecisionSessionToActiveScenario());
 
-  if (els.decisionNotes){
-    els.decisionNotes.addEventListener("input", () => {
-      const s = getActiveDecisionSession();
-      if (!s) return;
-      s.notes = String(els.decisionNotes.value || "");
-      persist();
-    });
-  }
+  // D-layer input bindings — all go through wireInput → setState
+  // Each patchFn looks up the session by id on the cloned state so we never mutate live references.
+  wireInput(els.decisionNotes, (st, val) => {
+    const s = st.ui.decision.sessions[getActiveDecisionSession()?.id];
+    if (s) s.notes = val;
+  });
 
-  if (els.decisionObjective){
-    els.decisionObjective.addEventListener("change", () => {
-      const s = getActiveDecisionSession();
-      if (!s) return;
-      const key = String(els.decisionObjective.value || "");
-      s.objectiveKey = key;
-      persist();
-      renderDecisionSessionD1();
-    });
-  }
+  wireInput(els.decisionObjective, (st, val) => {
+    const s = st.ui.decision.sessions[getActiveDecisionSession()?.id];
+    if (s) s.objectiveKey = val;
+  }, { onCommit: renderDecisionSessionD1 });
 
-  if (els.decisionBudget){
-    els.decisionBudget.addEventListener("input", () => {
-      const s = getActiveDecisionSession();
-      if (!s) return;
+  wireInput(els.decisionBudget, (st, val) => {
+    const s = st.ui.decision.sessions[getActiveDecisionSession()?.id];
+    if (s){ ensureDecisionSessionShape(s); s.constraints.budget = val; }
+  }, { parse: raw => { const n = Number(String(raw).trim()); return (String(raw).trim() === "" || !Number.isFinite(n)) ? null : n; } });
+
+  wireInput(els.decisionVolunteerHrs, (st, val) => {
+    const s = st.ui.decision.sessions[getActiveDecisionSession()?.id];
+    if (s){ ensureDecisionSessionShape(s); s.constraints.volunteerHrs = val; }
+  }, { parse: raw => { const n = Number(String(raw).trim()); return (String(raw).trim() === "" || !Number.isFinite(n)) ? null : n; } });
+
+  wireInput(els.decisionTurfAccess, (st, val) => {
+    const s = st.ui.decision.sessions[getActiveDecisionSession()?.id];
+    if (s){ ensureDecisionSessionShape(s); s.constraints.turfAccess = val; }
+  });
+
+  wireInput(els.decisionBlackoutDates, (st, val) => {
+    const s = st.ui.decision.sessions[getActiveDecisionSession()?.id];
+    if (s){ ensureDecisionSessionShape(s); s.constraints.blackoutDates = val; }
+  });
+
+  wireInput(els.decisionRiskPosture, (st, val) => {
+    const s = st.ui.decision.sessions[getActiveDecisionSession()?.id];
+    if (s){ ensureDecisionSessionShape(s); s.riskPosture = val || "balanced"; }
+  }, { onCommit: renderDecisionSessionD1 });
+
+  wireInput(els.decisionNonNegotiables, (st, val) => {
+    const s = st.ui.decision.sessions[getActiveDecisionSession()?.id];
+    if (s){
       ensureDecisionSessionShape(s);
-      const raw = String(els.decisionBudget.value || "").trim();
-      const n = Number(raw);
-      s.constraints.budget = raw === "" || !Number.isFinite(n) ? null : n;
-      persist();
-    });
-  }
-
-  if (els.decisionVolunteerHrs){
-    els.decisionVolunteerHrs.addEventListener("input", () => {
-      const s = getActiveDecisionSession();
-      if (!s) return;
-      ensureDecisionSessionShape(s);
-      const raw = String(els.decisionVolunteerHrs.value || "").trim();
-      const n = Number(raw);
-      s.constraints.volunteerHrs = raw === "" || !Number.isFinite(n) ? null : n;
-      persist();
-    });
-  }
-
-  if (els.decisionTurfAccess){
-    els.decisionTurfAccess.addEventListener("change", () => {
-      const s = getActiveDecisionSession();
-      if (!s) return;
-      ensureDecisionSessionShape(s);
-      s.constraints.turfAccess = String(els.decisionTurfAccess.value || "");
-      persist();
-    });
-  }
-
-  if (els.decisionBlackoutDates){
-    els.decisionBlackoutDates.addEventListener("input", () => {
-      const s = getActiveDecisionSession();
-      if (!s) return;
-      ensureDecisionSessionShape(s);
-      s.constraints.blackoutDates = String(els.decisionBlackoutDates.value || "");
-      persist();
-    });
-  }
-
-  if (els.decisionRiskPosture){
-    els.decisionRiskPosture.addEventListener("change", () => {
-      const s = getActiveDecisionSession();
-      if (!s) return;
-      ensureDecisionSessionShape(s);
-      s.riskPosture = String(els.decisionRiskPosture.value || "balanced");
-      persist();
-      renderDecisionSessionD1();
-    });
-  }
-
-  if (els.decisionNonNegotiables){
-    els.decisionNonNegotiables.addEventListener("input", () => {
-      const s = getActiveDecisionSession();
-      if (!s) return;
-      ensureDecisionSessionShape(s);
-      const raw = String(els.decisionNonNegotiables.value || "");
-      const arr = raw
-        .split(/\r?\n|,/)
-        .map(x => String(x || "").trim())
-        .filter(Boolean);
-      s.nonNegotiables = arr;
-      persist();
-    });
-  }
+      s.nonNegotiables = val.split(/\r?\n|,/).map(x => String(x || "").trim()).filter(Boolean);
+    }
+  });
 
   if (els.decisionOptionSelect){
     els.decisionOptionSelect.addEventListener("change", () => {
