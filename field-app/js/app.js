@@ -7,7 +7,7 @@ import { loadState, saveState, clearState, readBackups, writeBackupEntry } from 
 import { createScenarioManager } from "./scenarioManager.js";
 import { APP_VERSION, BUILD_ID } from "./build.js";
 import { computeSnapshotHash } from "./hash.js";
-import { makeRng } from "./core/rng.js";
+import { makeRng, triSample } from "./core/rng.js";
 
 function downloadText(text, filename, mime){
   try{
@@ -7844,16 +7844,6 @@ function normalizeTri({ min, mode, max }){
   // keep mode inside
   b = clamp(b, lo, hi);
   return { min: lo, mode: b, max: hi };
-}
-
-function triSample(min, mode, max, rng){
-  // Triangular distribution sampling
-  const u = rng();
-  const c = (mode - min) / (max - min || 1);
-  if (u < c){
-    return min + Math.sqrt(u * (max - min) * (mode - min));
-  }
-  return max - Math.sqrt((1 - u) * (max - min) * (max - mode));
 }
 
 function quantileSorted(sorted, q){
