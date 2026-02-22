@@ -8,158 +8,127 @@
 <meta content="Internal field planning dashboard." name="description"/>
 <meta content="strict-origin-when-cross-origin" name="referrer"/>
 <meta content="light dark" name="color-scheme"/>
-<link rel="preconnect" href="https://fonts.googleapis.com"/>
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
-<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&amp;family=IBM+Plex+Sans:wght@300;400;500;600&amp;display=swap" rel="stylesheet"/>
 <link href="./styles-shell.css" rel="stylesheet"/>
 <link href="./styles.css" rel="stylesheet"/>
 </head>
 <body>
-
 <!-- ── TOPBAR ───────────────────────────────────────────── -->
 <header class="topbar-new">
-  <div class="brand-new">
-    <span class="brand-name-new">Field Path Engine</span>
-    <span class="chip-new" id="buildStamp">build</span>
-    <span class="chip-new chip-status" id="selfTestGate">UNVERIFIED</span>
-  </div>
+<div class="brand-new">
+<span class="brand-name-new">Field Path Engine</span>
+<span class="chip-new" id="buildStamp">build</span>
+<span class="chip-new chip-status" id="selfTestGate">UNVERIFIED</span>
+</div>
 
-  <div class="topbar-center">
-    <span class="scenario-label-new">Scenario:</span>
-    <input class="scenario-input-new" id="scenarioName" type="text" placeholder="Scenario name…"/>
-  </div>
-
-  <div class="topbar-right">
-    <label class="toggle-pill" title="Show training explanations for each section">
-      <input type="checkbox" id="toggleTraining" hidden/>
-      <span class="toggle-dot-new"></span>
+<div class="topbar-right">
+<label class="toggle-pill" title="Show training explanations for each section">
+<input hidden="" id="toggleTraining" type="checkbox"/>
+<span class="toggle-dot-new"></span>
       Training
     </label>
-    <div class="divider-new"></div>
-    <select class="btn-top-new" id="restoreBackup" title="Restore one of the last 5 auto-backups">
-      <option value="">Restore backup…</option>
-    </select>
-    <label class="toggle-pill" title="Strict import mode">
-      <input type="checkbox" id="toggleStrictImport" hidden/>
-      <span class="toggle-dot-new"></span>
+<div class="divider-new"></div>
+<select class="btn-top-new" id="restoreBackup" title="Restore one of the last 5 auto-backups">
+<option value="">Restore backup…</option>
+</select>
+<label class="toggle-pill" title="Strict import mode">
+<input hidden="" id="toggleStrictImport" type="checkbox"/>
+<span class="toggle-dot-new"></span>
       Strict import
     </label>
-    <div class="divider-new"></div>
-    <button class="btn-top-new" id="btnCopySummary" type="button">Copy Summary</button>
-    <button class="btn-top-new" id="btnExportCsv" type="button">Export CSV</button>
-    <button class="btn-top-new" id="btnDiagnostics" type="button">Diagnostics</button>
-    <button class="btn-top-new btn-top-danger" id="btnResetAll" type="button">Reset</button>
-    <!-- legacy hidden dark toggle kept for JS compatibility -->
-    <input hidden id="toggleDark" type="checkbox"/>
-    <input hidden id="toggleAdvDiagLegacy" type="checkbox"/>
-  </div>
+<div class="divider-new"></div>
+<button class="btn-top-new" id="btnCopySummary" type="button">Copy Summary</button>
+<button class="btn-top-new" id="btnExportCsv" type="button">Export CSV</button>
+<button class="btn-top-new" id="btnDiagnostics" type="button">Diagnostics</button>
+<button class="btn-top-new btn-top-danger" id="btnResetAll" type="button">Reset</button>
+<!-- legacy hidden dark toggle kept for JS compatibility -->
+<input hidden="" id="toggleDark" type="checkbox"/>
+<input hidden="" id="toggleAdvDiagLegacy" type="checkbox"/>
+</div>
 </header>
-
-<div class="banner warn" hidden id="importHashBanner">Snapshot hash differs from exported hash.</div>
-<div class="banner warn" hidden id="importWarnBanner"></div>
-
+<div class="banner warn" hidden="" id="importHashBanner">Snapshot hash differs from exported hash.</div>
+<div class="banner warn" hidden="" id="importWarnBanner"></div>
 <!-- ── APP SHELL ─────────────────────────────────────────── -->
 <div class="app-shell">
-
-  <!-- LEFT: Stage navigation rail -->
-  <nav class="stage-nav-new" aria-label="Planning stages">
-    <div class="nav-group-label-new">Inputs</div>
-
-    <button class="nav-item-new active" data-stage="setup" onclick="switchStage(this, 'setup')">
-      <span class="nav-num-new" data-num="1">1</span>
-      <span class="nav-label-new">Race setup</span>
-    </button>
-    <button class="nav-item-new" data-stage="universe" onclick="switchStage(this, 'universe')">
-      <span class="nav-num-new" data-num="2">2</span>
-      <span class="nav-label-new">Universe</span>
-    </button>
-    <button class="nav-item-new" data-stage="ballot" onclick="switchStage(this, 'ballot')">
-      <span class="nav-num-new" data-num="3">3</span>
-      <span class="nav-label-new">Ballot test</span>
-    </button>
-    <button class="nav-item-new" data-stage="capacity" onclick="switchStage(this, 'capacity')">
-      <span class="nav-num-new" data-num="4">4</span>
-      <span class="nav-label-new">Capacity</span>
-    </button>
-    <button class="nav-item-new" data-stage="gotv" onclick="switchStage(this, 'gotv')">
-      <span class="nav-num-new" data-num="5">5</span>
-      <span class="nav-label-new">GOTV / turnout</span>
-    </button>
-    <button class="nav-item-new" data-stage="structure" onclick="switchStage(this, 'structure')">
-      <span class="nav-num-new" data-num="6">6</span>
-      <span class="nav-label-new">Electorate structure</span>
-    </button>
-
-    <div class="nav-sep-new"></div>
-    <div class="nav-group-label-new">Analysis</div>
-
-    <button class="nav-item-new" data-stage="results" onclick="switchStage(this, 'results')">
-      <span class="nav-num-new" data-num="7">7</span>
-      <span class="nav-label-new">Results &amp; risk</span>
-    </button>
-    <button class="nav-item-new" data-stage="roi" onclick="switchStage(this, 'roi')">
-      <span class="nav-num-new" data-num="8">8</span>
-      <span class="nav-label-new">Budget &amp; ROI</span>
-    </button>
-    <button class="nav-item-new" data-stage="checks" onclick="switchStage(this, 'checks')">
-      <span class="nav-num-new" data-num="9">9</span>
-      <span class="nav-label-new">Checks &amp; guardrails</span>
-    </button>
-
-    <div class="nav-sep-new"></div>
-    <div class="nav-group-label-new">Decisions</div>
-
-    <button class="nav-item-new" data-stage="scenarios" onclick="switchStage(this, 'scenarios')">
-      <span class="nav-num-new">—</span>
-      <span class="nav-label-new">Scenarios</span>
-    </button>
-    <button class="nav-item-new" data-stage="decisions" onclick="switchStage(this, 'decisions')">
-      <span class="nav-num-new">—</span>
-      <span class="nav-label-new">Decision sessions</span>
-    </button>
-    <button class="nav-item-new" data-stage="integrity" onclick="switchStage(this, 'integrity')">
-      <span class="nav-num-new">—</span>
-      <span class="nav-label-new">Integrity &amp; export</span>
-    </button>
-  </nav>
-
-  <!-- CENTER: Active stage content -->
-  <main class="stage-main-new">
-
-    <!-- ── STAGE: setup ── -->
-    <section class="stage-new active-stage" id="stage-setup">
-      <div class="stage-header-new">
-        <div class="stage-meta-new">
-          <span class="stage-tag-new">Stage 1</span>
-          <span class="stage-title-new">Race setup</span>
-        </div>
-        <p class="stage-sub-new">Establish the planning context — race type, election date, and mode. Every downstream number depends on this frame.</p>
-        <div class="training-panel-new" id="train-setup">
-          <div class="training-hd-new" onclick="toggleTrainPanel('train-setup')">
-            <span>🎓</span><span class="training-title-new">Training — Race Setup</span><span class="training-chev-new">▾</span>
-          </div>
-          <div class="training-bd-new">
-            <div class="training-col-new">
-              <div class="training-sec-title-new">What this stage models</div>
-              <p>Sets the planning context. Race type loads sensible defaults — a state house race and a mayoral race have different universe sizes, realistic capacity, and tactic mix. Election date drives timeline feasibility in later stages.</p>
-              <div class="training-rule-new">Scenario name → saved with export<br>Race type → default band widths<br>Election date → weeks remaining auto-calc<br>Mode → persuasion vs turnout emphasis</div>
-            </div>
-            <div class="training-col-new">
-              <div class="training-sec-title-new">Common mistakes</div>
-              <ul>
-                <li>Using "Federal" template for a state leg race — band widths will be too tight</li>
-                <li>Leaving election date blank then forgetting to set weeks remaining manually</li>
-                <li>Setting mode to Late-start before you know your capacity constraints</li>
-              </ul>
-              <div class="training-caution-new">A plan is only meaningful relative to time constraints. Set election date first — everything else scales from it.</div>
-            </div>
-          </div>
-        </div>
-      </div>
-      <div class="stage-body-new">
-        <!-- EXISTING CONTENT: Scenario card -->
-        <div class="card card-section phase-setup">
-          <div class="card-head card-header"><h2 class="card-title">Scenario</h2></div>
+<!-- LEFT: Stage navigation rail -->
+<nav aria-label="Planning stages" class="stage-nav-new"><div class="nav-group-label-new">Setup</div><button class="nav-item-new active" data-stage="setup" onclick="switchStage(this, 'setup')">
+<span class="nav-num-new" data-num="1">1</span>
+<span class="nav-label-new">Race setup</span>
+</button><button class="nav-item-new" data-stage="universe" onclick="switchStage(this, 'universe')">
+<span class="nav-num-new" data-num="2">2</span>
+<span class="nav-label-new">Universe</span>
+</button><button class="nav-item-new" data-stage="structure" onclick="switchStage(this, 'structure')">
+<span class="nav-num-new" data-num="6">6</span>
+<span class="nav-label-new">Electorate structure</span>
+</button><div class="nav-group-label-new">Strategy</div><button class="nav-item-new" data-stage="ballot" onclick="switchStage(this, 'ballot')">
+<span class="nav-num-new" data-num="3">3</span>
+<span class="nav-label-new">Ballot test</span>
+</button><button class="nav-item-new" data-stage="gotv" onclick="switchStage(this, 'gotv')">
+<span class="nav-num-new" data-num="5">5</span>
+<span class="nav-label-new">GOTV / turnout</span>
+</button><div class="nav-group-label-new">Execution</div><button class="nav-item-new" data-stage="capacity" onclick="switchStage(this, 'capacity')">
+<span class="nav-num-new" data-num="4">4</span>
+<span class="nav-label-new">Capacity</span>
+</button><div class="nav-group-label-new">Analysis</div><button class="nav-item-new" data-stage="results" onclick="switchStage(this, 'results')">
+<span class="nav-num-new" data-num="7">7</span>
+<span class="nav-label-new">Results &amp; risk</span>
+</button><button class="nav-item-new" data-stage="roi" onclick="switchStage(this, 'roi')">
+<span class="nav-num-new" data-num="8">8</span>
+<span class="nav-label-new">Budget &amp; ROI</span>
+</button><button class="nav-item-new" data-stage="checks" onclick="switchStage(this, 'checks')">
+<span class="nav-num-new" data-num="9">9</span>
+<span class="nav-label-new">Checks &amp; guardrails</span>
+</button><div class="nav-group-label-new">Decisions</div><button class="nav-item-new" data-stage="scenarios" onclick="switchStage(this, 'scenarios')">
+<span class="nav-num-new">—</span>
+<span class="nav-label-new">Scenarios</span>
+</button><button class="nav-item-new" data-stage="decisions" onclick="switchStage(this, 'decisions')">
+<span class="nav-num-new">—</span>
+<span class="nav-label-new">Decision sessions</span>
+</button><button class="nav-item-new" data-stage="integrity" onclick="switchStage(this, 'integrity')">
+<span class="nav-num-new">—</span>
+<span class="nav-label-new">Integrity &amp; export</span>
+</button></nav>
+<!-- CENTER: Active stage content -->
+<main class="stage-main-new"><div class="context-bar-new"><div class="topbar-center">
+<span class="scenario-label-new">Active scenario</span>
+<input class="scenario-input-new" id="scenarioName" placeholder="Scenario name…" type="text"/>
+</div><span class="context-hint-new">(name is saved in snapshot exports)</span></div>
+<!-- ── STAGE: setup ── -->
+<section class="stage-new active-stage" id="stage-setup">
+<div class="stage-header-new">
+<div class="stage-meta-new">
+<span class="stage-tag-new">Stage 1</span>
+<span class="stage-title-new">Race setup</span>
+</div>
+<p class="stage-sub-new">Establish the planning context — race type, election date, and mode. Every downstream number depends on this frame.</p>
+<div class="training-panel-new" id="train-setup">
+<div class="training-hd-new" onclick="toggleTrainPanel('train-setup')">
+<span>🎓</span><span class="training-title-new">Training — Race Setup</span><span class="training-chev-new">▾</span>
+</div>
+<div class="training-bd-new">
+<div class="training-col-new">
+<div class="training-sec-title-new">What this stage models</div>
+<p>Sets the planning context. Race type loads sensible defaults — a state house race and a mayoral race have different universe sizes, realistic capacity, and tactic mix. Election date drives timeline feasibility in later stages.</p>
+<div class="training-rule-new">Scenario name → saved with export<br/>Race type → default band widths<br/>Election date → weeks remaining auto-calc<br/>Mode → persuasion vs turnout emphasis</div>
+</div>
+<div class="training-col-new">
+<div class="training-sec-title-new">Common mistakes</div>
+<ul>
+<li>Using "Federal" template for a state leg race — band widths will be too tight</li>
+<li>Leaving election date blank then forgetting to set weeks remaining manually</li>
+<li>Setting mode to Late-start before you know your capacity constraints</li>
+</ul>
+<div class="training-caution-new">A plan is only meaningful relative to time constraints. Set election date first — everything else scales from it.</div>
+</div>
+</div>
+</div>
+</div>
+<div class="stage-body-new">
+<!-- EXISTING CONTENT: Scenario card -->
+<div class="card card-section phase-setup">
+<div class="card-head card-header"><h2 class="card-title">Scenario</h2></div>
 </div>
 <div class="grid2">
 <div class="field">
@@ -204,41 +173,40 @@
 </div>
 </div>
 </div><div class="card card-section phase-universe">
-      </div>
-      </div>
-    </section>
+</div>
+</section></main></div>
 
-    <!-- ── STAGE: universe ── -->
-    <section class="stage-new" id="stage-universe">
-      <div class="stage-header-new">
-        <div class="stage-meta-new">
-          <span class="stage-tag-new">Stage 2</span>
-          <span class="stage-title-new">Universe</span>
-        </div>
-        <p class="stage-sub-new">Define the population and scale. Every vote count, cost per vote, and plan size depends on this number.</p>
-        <div class="training-panel-new" id="train-universe">
-          <div class="training-hd-new" onclick="toggleTrainPanel('train-universe')">
-            <span>🎓</span><span class="training-title-new">Training — Universe</span><span class="training-chev-new">▾</span>
-          </div>
-          <div class="training-bd-new">
-            <div class="training-col-new">
-              <div class="training-sec-title-new">What this stage models</div>
-              <p>Universe is the denominator for everything. Turnout votes = Universe × turnout %. Persuasion universe = Universe × persuasion %. Being off by 20% changes plan size by 20%.</p>
-              <div class="training-rule-new">Registered: most defensible, largest number<br>Active (voted 1+ recent): smaller, higher quality<br>Likely voters: smallest, most predictive</div>
-            </div>
-            <div class="training-col-new">
-              <div class="training-sec-title-new">Realistic ranges (state leg)</div>
-              <ul>
-                <li><strong>Rural district:</strong> 12,000–25,000 registered</li>
-                <li><strong>Suburban district:</strong> 30,000–60,000 registered</li>
-                <li><strong>Urban district:</strong> 40,000–80,000 registered</li>
-              </ul>
-              <div class="training-caution-new">Always note your source. If you revisit in 6 weeks you need to know whether this came from the voter file, SOS, or a guess.</div>
-            </div>
-          </div>
-        </div>
-      </div>
-      <div class="stage-body-new">
+<!-- ── STAGE: universe ── -->
+<section class="stage-new" id="stage-universe">
+<div class="stage-header-new">
+<div class="stage-meta-new">
+<span class="stage-tag-new">Stage 2</span>
+<span class="stage-title-new">Universe</span>
+</div>
+<p class="stage-sub-new">Define the population and scale. Every vote count, cost per vote, and plan size depends on this number.</p>
+<div class="training-panel-new" id="train-universe">
+<div class="training-hd-new" onclick="toggleTrainPanel('train-universe')">
+<span>🎓</span><span class="training-title-new">Training — Universe</span><span class="training-chev-new">▾</span>
+</div>
+<div class="training-bd-new">
+<div class="training-col-new">
+<div class="training-sec-title-new">What this stage models</div>
+<p>Universe is the denominator for everything. Turnout votes = Universe × turnout %. Persuasion universe = Universe × persuasion %. Being off by 20% changes plan size by 20%.</p>
+<div class="training-rule-new">Registered: most defensible, largest number<br/>Active (voted 1+ recent): smaller, higher quality<br/>Likely voters: smallest, most predictive</div>
+</div>
+<div class="training-col-new">
+<div class="training-sec-title-new">Realistic ranges (state leg)</div>
+<ul>
+<li><strong>Rural district:</strong> 12,000–25,000 registered</li>
+<li><strong>Suburban district:</strong> 30,000–60,000 registered</li>
+<li><strong>Urban district:</strong> 40,000–80,000 registered</li>
+</ul>
+<div class="training-caution-new">Always note your source. If you revisit in 6 weeks you need to know whether this came from the voter file, SOS, or a guess.</div>
+</div>
+</div>
+</div>
+</div>
+<div class="stage-body-new">
 <div class="card-head card-header">
 <h2 class="card-title">Universe (registration or expected voters)</h2>
 <div class="help-text">Define the size of the electorate you’re modeling (registration or expected voters). Be consistent with turnout assumptions.</div></div>
@@ -268,40 +236,39 @@
 </div>
 </div>
 </div><div class="card card-section phase-candidates">
-      </div>
-    </section>
-
-    <!-- ── STAGE: ballot ── -->
-    <section class="stage-new" id="stage-ballot">
-      <div class="stage-header-new">
-        <div class="stage-meta-new">
-          <span class="stage-tag-new">Stage 3</span>
-          <span class="stage-title-new">Ballot test</span>
-        </div>
-        <p class="stage-sub-new">Establish baseline support and undecided distribution. Persuasion math has no anchor without this.</p>
-        <div class="training-panel-new" id="train-ballot">
-          <div class="training-hd-new" onclick="toggleTrainPanel('train-ballot')">
-            <span>🎓</span><span class="training-title-new">Training — Ballot Test</span><span class="training-chev-new">▾</span>
-          </div>
-          <div class="training-bd-new">
-            <div class="training-col-new">
-              <div class="training-sec-title-new">What this stage models</div>
-              <p>The ballot test sets your starting position. Candidate shares + undecided must sum to 100%. Undecided handling is one of the biggest hidden assumptions in field planning — it determines how "movable" voters are allocated.</p>
-              <div class="training-rule-new">Proportional: undecided breaks like committed voters<br>Conservative against you: undecided breaks toward opponents<br>User-defined: you set the split explicitly</div>
-            </div>
-            <div class="training-col-new">
-              <div class="training-sec-title-new">Common mistakes</div>
-              <ul>
-                <li>Using internal polling without weighting — internal polls skew toward your supporters</li>
-                <li>Setting undecided too low (real undecideds are usually 15–30% in competitive races)</li>
-                <li>Choosing "proportional" when the race has a strong incumbent — undecideds usually break against incumbents</li>
-              </ul>
-              <div class="training-caution-new">Undecided allocation is a primary source of volatility in multi-candidate races. Run both conservative and proportional to see the range.</div>
-            </div>
-          </div>
-        </div>
-      </div>
-      <div class="stage-body-new">
+</div>
+</section>
+<!-- ── STAGE: ballot ── -->
+<section class="stage-new" id="stage-ballot">
+<div class="stage-header-new">
+<div class="stage-meta-new">
+<span class="stage-tag-new">Stage 3</span>
+<span class="stage-title-new">Ballot test</span>
+</div>
+<p class="stage-sub-new">Establish baseline support and undecided distribution. Persuasion math has no anchor without this.</p>
+<div class="training-panel-new" id="train-ballot">
+<div class="training-hd-new" onclick="toggleTrainPanel('train-ballot')">
+<span>🎓</span><span class="training-title-new">Training — Ballot Test</span><span class="training-chev-new">▾</span>
+</div>
+<div class="training-bd-new">
+<div class="training-col-new">
+<div class="training-sec-title-new">What this stage models</div>
+<p>The ballot test sets your starting position. Candidate shares + undecided must sum to 100%. Undecided handling is one of the biggest hidden assumptions in field planning — it determines how "movable" voters are allocated.</p>
+<div class="training-rule-new">Proportional: undecided breaks like committed voters<br/>Conservative against you: undecided breaks toward opponents<br/>User-defined: you set the split explicitly</div>
+</div>
+<div class="training-col-new">
+<div class="training-sec-title-new">Common mistakes</div>
+<ul>
+<li>Using internal polling without weighting — internal polls skew toward your supporters</li>
+<li>Setting undecided too low (real undecideds are usually 15–30% in competitive races)</li>
+<li>Choosing "proportional" when the race has a strong incumbent — undecideds usually break against incumbents</li>
+</ul>
+<div class="training-caution-new">Undecided allocation is a primary source of volatility in multi-candidate races. Run both conservative and proportional to see the range.</div>
+</div>
+</div>
+</div>
+</div>
+<div class="stage-body-new">
 <div class="card-head card-header">
 <h2 class="card-title">Ballot test (vote landscape)</h2>
 <div class="card-actions">
@@ -398,40 +365,39 @@
 </div>
 </div>
 </div><div class="card card-section phase-persuasion">
-      </div>
-    </section>
-
-    <!-- ── STAGE: capacity ── -->
-    <section class="stage-new" id="stage-capacity">
-      <div class="stage-header-new">
-        <div class="stage-meta-new">
-          <span class="stage-tag-new">Stage 4</span>
-          <span class="stage-title-new">Capacity</span>
-        </div>
-        <p class="stage-sub-new">Define staff, volunteer capacity, and contact rates. This is the ceiling on your entire plan.</p>
-        <div class="training-panel-new" id="train-capacity">
-          <div class="training-hd-new" onclick="toggleTrainPanel('train-capacity')">
-            <span>🎓</span><span class="training-title-new">Training — Capacity Planning</span><span class="training-chev-new">▾</span>
-          </div>
-          <div class="training-bd-new">
-            <div class="training-col-new">
-              <div class="training-sec-title-new">What this stage models</div>
-              <p>Capacity is the ceiling on your plan. This stage converts your staff and volunteer resources into weekly contact attempts, then checks whether that production can close your persuasion gap before Election Day.</p>
-              <div class="training-rule-new">Organizers:      1–4 per state leg race<br>Doors/hour:      12–22 (experienced canvasser)<br>Calls/hour:      14–28<br>Contact rate:    20–35% doors / 8–18% phones<br>Vol multiplier:  1.0–2.0× (weak to strong program)</div>
-            </div>
-            <div class="training-col-new">
-              <div class="training-sec-title-new">Common mistakes</div>
-              <ul>
-                <li>Using 15+ doors/hour without accounting for turf density or door quality</li>
-                <li>Setting volunteer multiplier to 2.0× before the volunteer program exists</li>
-                <li>Ignoring that production falls in the final 2 weeks due to GOTV shift</li>
-              </ul>
-              <div class="training-caution-new">Most campaigns overestimate contact rate by 30–40% in early planning. Start conservative — you can always revise up when you have real data from the organizer log.</div>
-            </div>
-          </div>
-        </div>
-      </div>
-      <div class="stage-body-new">
+</div>
+</section>
+<!-- ── STAGE: capacity ── -->
+<section class="stage-new" id="stage-capacity">
+<div class="stage-header-new">
+<div class="stage-meta-new">
+<span class="stage-tag-new">Stage 4</span>
+<span class="stage-title-new">Capacity</span>
+</div>
+<p class="stage-sub-new">Define staff, volunteer capacity, and contact rates. This is the ceiling on your entire plan.</p>
+<div class="training-panel-new" id="train-capacity">
+<div class="training-hd-new" onclick="toggleTrainPanel('train-capacity')">
+<span>🎓</span><span class="training-title-new">Training — Capacity Planning</span><span class="training-chev-new">▾</span>
+</div>
+<div class="training-bd-new">
+<div class="training-col-new">
+<div class="training-sec-title-new">What this stage models</div>
+<p>Capacity is the ceiling on your plan. This stage converts your staff and volunteer resources into weekly contact attempts, then checks whether that production can close your persuasion gap before Election Day.</p>
+<div class="training-rule-new">Organizers:      1–4 per state leg race<br/>Doors/hour:      12–22 (experienced canvasser)<br/>Calls/hour:      14–28<br/>Contact rate:    20–35% doors / 8–18% phones<br/>Vol multiplier:  1.0–2.0× (weak to strong program)</div>
+</div>
+<div class="training-col-new">
+<div class="training-sec-title-new">Common mistakes</div>
+<ul>
+<li>Using 15+ doors/hour without accounting for turf density or door quality</li>
+<li>Setting volunteer multiplier to 2.0× before the volunteer program exists</li>
+<li>Ignoring that production falls in the final 2 weeks due to GOTV shift</li>
+</ul>
+<div class="training-caution-new">Most campaigns overestimate contact rate by 30–40% in early planning. Start conservative — you can always revise up when you have real data from the organizer log.</div>
+</div>
+</div>
+</div>
+</div>
+<div class="stage-body-new">
 <div class="card-head card-header">
 <h2 class="card-title">Persuadable universe (movable)</h2>
 </div>
@@ -454,279 +420,252 @@
 </div>
 </div>
 </div>
-
 <div class="card card-section" id="weeklyOpsCard">
-  <div class="card-head card-header">
-    <h2 class="card-title">This week plan</h2>
-    <div class="help-text">A single operational view: what you need this week vs what your current team capacity can actually execute.</div>
-  </div>
-
-  <div class="subgrid">
-    <div class="mini">
-      <div class="mini-k">Goal support IDs (net)</div>
-      <div class="mini-v" id="wkGoal">—</div>
-      <div class="mini-s">Uses manual goal if set, otherwise persuasion need</div>
-    </div>
-    <div class="mini">
-      <div class="mini-k">Conversations / week</div>
-      <div class="mini-v" id="wkConvosPerWeek">—</div>
-      <div class="mini-s">Goal ÷ support rate ÷ weeks remaining</div>
-    </div>
-    <div class="mini">
-      <div class="mini-k">Attempts / week</div>
-      <div class="mini-v" id="wkAttemptsPerWeek">—</div>
-      <div class="mini-s">Conversations ÷ contact rate</div>
-    </div>
-  </div>
-
-  <div class="subgrid" style="margin-top:10px;">
-    <div class="mini">
-      <div class="mini-k">Capacity / week</div>
-      <div class="mini-v" id="wkCapacityPerWeek">—</div>
-      <div class="mini-s" id="wkCapacityBreakdown">—</div>
-    </div>
-    <div class="mini">
-      <div class="mini-k">Gap / week</div>
-      <div class="mini-v" id="wkGapPerWeek">—</div>
-      <div class="mini-s">Required attempts − capacity</div>
-    </div>
-    <div class="mini">
-      <div class="mini-k">Primary constraint</div>
-      <div class="mini-v" id="wkConstraint">—</div>
-      <div class="mini-s" id="wkConstraintNote">—</div>
-    </div>
-  </div>
-
-  <div class="banner warn" hidden id="wkBanner" style="margin-top:10px;"></div>
-  <div class="note">This uses your Phase 2 rates (support/contact) and Phase 3 capacity inputs (organizers, hours, doors/hr, calls/hr, channel split). It is a planning summary, not a CRM.</div>
-  <hr class="sectionRule" aria-hidden="true" style="margin:12px 0;">
-
-  <div class="card-subtitle">Weekly execution status</div>
-
-  <div class="subgrid" style="margin-top:10px;">
-    <div class="mini">
-      <div class="mini-k">Required convos / week</div>
-      <div class="mini-v" id="wkReqConvosWeek">—</div>
-      <div class="mini-s">From the plan</div>
-    </div>
-    <div class="mini">
-      <div class="mini-k">Actual convos (last 7)</div>
-      <div class="mini-v" id="wkActConvos7">—</div>
-      <div class="mini-s" id="wkActConvosNote">—</div>
-    </div>
-    <div class="mini">
-      <div class="mini-k">Convos gap</div>
-      <div class="mini-v" id="wkGapConvos">—</div>
-      <div class="mini-s"><span class="tag" id="wkConvosPaceTag">—</span></div>
-    </div>
-
-    <div class="mini">
-      <div class="mini-k">Required attempts / week</div>
-      <div class="mini-v" id="wkReqAttemptsWeek">—</div>
-      <div class="mini-s">From the plan</div>
-    </div>
-    <div class="mini">
-      <div class="mini-k">Actual attempts (last 7)</div>
-      <div class="mini-v" id="wkActAttempts7">—</div>
-      <div class="mini-s" id="wkActAttemptsNote">—</div>
-    </div>
-    <div class="mini">
-      <div class="mini-k">Attempts gap</div>
-      <div class="mini-v" id="wkGapAttempts">—</div>
-      <div class="mini-s"><span class="tag" id="wkAttemptsPaceTag">—</span></div>
-    </div>
-  </div>
-
-  <div class="subgrid" style="margin-top:10px;">
-    <div class="mini">
-      <div class="mini-k">Required door attempts / week</div>
-      <div class="mini-v" id="wkReqDoorAttemptsWeek">—</div>
-      <div class="mini-s">Based on channel split</div>
-    </div>
-    <div class="mini">
-      <div class="mini-k">Required call attempts / week</div>
-      <div class="mini-v" id="wkReqCallAttemptsWeek">—</div>
-      <div class="mini-s">Based on channel split</div>
-    </div>
-    <div class="mini">
-      <div class="mini-k">Implied convos / week</div>
-      <div class="mini-v" id="wkImpliedConvosWeek">—</div>
-      <div class="mini-s" id="wkImpliedConvosNote">—</div>
-    </div>
-  </div>
-
-  <div class="subgrid" style="margin-top:10px;">
-    <div class="mini">
-      <div class="mini-k">Pace finish (convos)</div>
-      <div class="mini-v" id="wkFinishConvos">—</div>
-      <div class="mini-s">Pace-Based Projection (Not Monte Carlo)</div>
-    </div>
-    <div class="mini">
-      <div class="mini-k">Pace finish (attempts)</div>
-      <div class="mini-v" id="wkFinishAttempts">—</div>
-      <div class="mini-s">Pace-Based Projection (Not Monte Carlo)</div>
-    </div>
-    <div class="mini">
-      <div class="mini-k">Pace status</div>
-      <div class="mini-v" id="wkPaceStatus">—</div>
-      <div class="mini-s" id="wkPaceNote">—</div>
-    </div>
-  </div>
-
-  <div class="banner warn" hidden id="wkExecBanner" style="margin-top:10px;"></div>
-
+<div class="card-head card-header">
+<h2 class="card-title">This week plan</h2>
+<div class="help-text">A single operational view: what you need this week vs what your current team capacity can actually execute.</div>
 </div>
-
+<div class="subgrid">
+<div class="mini">
+<div class="mini-k">Goal support IDs (net)</div>
+<div class="mini-v" id="wkGoal">—</div>
+<div class="mini-s">Uses manual goal if set, otherwise persuasion need</div>
+</div>
+<div class="mini">
+<div class="mini-k">Conversations / week</div>
+<div class="mini-v" id="wkConvosPerWeek">—</div>
+<div class="mini-s">Goal ÷ support rate ÷ weeks remaining</div>
+</div>
+<div class="mini">
+<div class="mini-k">Attempts / week</div>
+<div class="mini-v" id="wkAttemptsPerWeek">—</div>
+<div class="mini-s">Conversations ÷ contact rate</div>
+</div>
+</div>
+<div class="subgrid" style="margin-top:10px;">
+<div class="mini">
+<div class="mini-k">Capacity / week</div>
+<div class="mini-v" id="wkCapacityPerWeek">—</div>
+<div class="mini-s" id="wkCapacityBreakdown">—</div>
+</div>
+<div class="mini">
+<div class="mini-k">Gap / week</div>
+<div class="mini-v" id="wkGapPerWeek">—</div>
+<div class="mini-s">Required attempts − capacity</div>
+</div>
+<div class="mini">
+<div class="mini-k">Primary constraint</div>
+<div class="mini-v" id="wkConstraint">—</div>
+<div class="mini-s" id="wkConstraintNote">—</div>
+</div>
+</div>
+<div class="banner warn" hidden="" id="wkBanner" style="margin-top:10px;"></div>
+<div class="note">This uses your Phase 2 rates (support/contact) and Phase 3 capacity inputs (organizers, hours, doors/hr, calls/hr, channel split). It is a planning summary, not a CRM.</div>
+<hr aria-hidden="true" class="sectionRule" style="margin:12px 0;"/>
+<div class="card-subtitle">Weekly execution status</div>
+<div class="subgrid" style="margin-top:10px;">
+<div class="mini">
+<div class="mini-k">Required convos / week</div>
+<div class="mini-v" id="wkReqConvosWeek">—</div>
+<div class="mini-s">From the plan</div>
+</div>
+<div class="mini">
+<div class="mini-k">Actual convos (last 7)</div>
+<div class="mini-v" id="wkActConvos7">—</div>
+<div class="mini-s" id="wkActConvosNote">—</div>
+</div>
+<div class="mini">
+<div class="mini-k">Convos gap</div>
+<div class="mini-v" id="wkGapConvos">—</div>
+<div class="mini-s"><span class="tag" id="wkConvosPaceTag">—</span></div>
+</div>
+<div class="mini">
+<div class="mini-k">Required attempts / week</div>
+<div class="mini-v" id="wkReqAttemptsWeek">—</div>
+<div class="mini-s">From the plan</div>
+</div>
+<div class="mini">
+<div class="mini-k">Actual attempts (last 7)</div>
+<div class="mini-v" id="wkActAttempts7">—</div>
+<div class="mini-s" id="wkActAttemptsNote">—</div>
+</div>
+<div class="mini">
+<div class="mini-k">Attempts gap</div>
+<div class="mini-v" id="wkGapAttempts">—</div>
+<div class="mini-s"><span class="tag" id="wkAttemptsPaceTag">—</span></div>
+</div>
+</div>
+<div class="subgrid" style="margin-top:10px;">
+<div class="mini">
+<div class="mini-k">Required door attempts / week</div>
+<div class="mini-v" id="wkReqDoorAttemptsWeek">—</div>
+<div class="mini-s">Based on channel split</div>
+</div>
+<div class="mini">
+<div class="mini-k">Required call attempts / week</div>
+<div class="mini-v" id="wkReqCallAttemptsWeek">—</div>
+<div class="mini-s">Based on channel split</div>
+</div>
+<div class="mini">
+<div class="mini-k">Implied convos / week</div>
+<div class="mini-v" id="wkImpliedConvosWeek">—</div>
+<div class="mini-s" id="wkImpliedConvosNote">—</div>
+</div>
+</div>
+<div class="subgrid" style="margin-top:10px;">
+<div class="mini">
+<div class="mini-k">Pace finish (convos)</div>
+<div class="mini-v" id="wkFinishConvos">—</div>
+<div class="mini-s">Pace-Based Projection (Not Monte Carlo)</div>
+</div>
+<div class="mini">
+<div class="mini-k">Pace finish (attempts)</div>
+<div class="mini-v" id="wkFinishAttempts">—</div>
+<div class="mini-s">Pace-Based Projection (Not Monte Carlo)</div>
+</div>
+<div class="mini">
+<div class="mini-k">Pace status</div>
+<div class="mini-v" id="wkPaceStatus">—</div>
+<div class="mini-s" id="wkPaceNote">—</div>
+</div>
+</div>
+<div class="banner warn" hidden="" id="wkExecBanner" style="margin-top:10px;"></div>
+</div>
 <div class="card card-section" id="weeklyOpsLeversCard">
-  <div class="card-head card-header">
-    <h2 class="card-title">Constraints &amp; levers</h2>
-    <div class="help-text">What is actually binding right now, and which knobs move the gap fastest (rough, local estimates).</div>
-  </div>
-
-  <div class="note" id="wkLeversIntro">—</div>
-
-  <div class="note" id="wkBestMovesIntro">Best 3 moves — impact per unit:</div>
-  <ul class="bullets" id="wkBestMovesList"></ul>
-
-  <div class="table-wrap" style="margin-top:10px;">
-    <table class="table" aria-label="Constraints and levers">
-      <thead>
-        <tr>
-          <th>Lever</th>
-          <th class="num">Impact</th>
-          <th>Cost unit</th>
-          <th class="num">Efficiency</th>
-          <th>Apply</th>
-        </tr>
-      </thead>
-      <tbody id="wkLeversTbody"></tbody>
-    </table>
-  </div>
-
-  <div class="note" id="wkLeversFoot">These are one-step estimates around current inputs. They are meant for weekly operating decisions, not full sensitivity mapping.</div>
+<div class="card-head card-header">
+<h2 class="card-title">Constraints &amp; levers</h2>
+<div class="help-text">What is actually binding right now, and which knobs move the gap fastest (rough, local estimates).</div>
 </div>
-
+<div class="note" id="wkLeversIntro">—</div>
+<div class="note" id="wkBestMovesIntro">Best 3 moves — impact per unit:</div>
+<ul class="bullets" id="wkBestMovesList"></ul>
+<div class="table-wrap" style="margin-top:10px;">
+<table aria-label="Constraints and levers" class="table">
+<thead>
+<tr>
+<th>Lever</th>
+<th class="num">Impact</th>
+<th>Cost unit</th>
+<th class="num">Efficiency</th>
+<th>Apply</th>
+</tr>
+</thead>
+<tbody id="wkLeversTbody"></tbody>
+</table>
+</div>
+<div class="note" id="wkLeversFoot">These are one-step estimates around current inputs. They are meant for weekly operating decisions, not full sensitivity mapping.</div>
+</div>
 <div class="card card-section" id="weeklyOpsActionsCard">
-  <div class="card-head card-header">
-    <h2 class="card-title">Recommended actions</h2>
-    <div class="help-text">A short list of practical next moves derived from the levers above.</div>
-  </div>
-
-  <div class="wkActionBar">
-    <button class="btn btn-sm" id="wkUndoActionBtn" type="button" disabled>Undo last applied action</button>
-    <div class="mini-s" id="wkUndoActionMsg" aria-live="polite"></div>
-  </div>
-
-  <ul class="bullets" id="wkActionsList"></ul>
-  <div class="note">This is guidance under your current assumptions. If you change goal, rates, or capacity, re-check the plan.</div>
+<div class="card-head card-header">
+<h2 class="card-title">Recommended actions</h2>
+<div class="help-text">A short list of practical next moves derived from the levers above.</div>
 </div>
-
+<div class="wkActionBar">
+<button class="btn btn-sm" disabled="" id="wkUndoActionBtn" type="button">Undo last applied action</button>
+<div aria-live="polite" class="mini-s" id="wkUndoActionMsg"></div>
+</div>
+<ul class="bullets" id="wkActionsList"></ul>
+<div class="note">This is guidance under your current assumptions. If you change goal, rates, or capacity, re-check the plan.</div>
+</div>
 <div class="card card-section" id="weeklyOpsFreshnessCard">
-  <div class="card-head card-header">
-    <h2 class="card-title">Data freshness</h2>
-    <div class="help-text">(Optional) A place to reflect daily updates. This is the hook for a cam.io-style pipeline.</div>
-  </div>
-
-  <div class="note" style="display:flex; flex-wrap:wrap; gap:10px; align-items:center; justify-content:space-between;">
-    <div>
+<div class="card-head card-header">
+<h2 class="card-title">Data freshness</h2>
+<div class="help-text">(Optional) A place to reflect daily updates. This is the hook for a cam.io-style pipeline.</div>
+</div>
+<div class="note" style="display:flex; flex-wrap:wrap; gap:10px; align-items:center; justify-content:space-between;">
+<div>
       Organizer input lives on a separate page for clean data entry.
       <a class="link" href="organizer.html">Open organizer page</a>
-    </div>
-    <div style="display:flex; gap:8px; align-items:center;">
-      <button class="btn btn-sm" id="dailyLogExportBtn" type="button">Export daily log</button>
-    </div>
-  </div>
-
-  <div class="field" style="margin-top:10px;">
-    <label class="label" for="dailyLogImportText">Import daily log (paste JSON)</label>
-    <textarea class="input" id="dailyLogImportText" rows="5" placeholder='Paste JSON array of entries (or {"dailyLog": [...]})'></textarea>
-    <div style="display:flex; gap:8px; align-items:center; margin-top:8px;">
-      <button class="btn btn-sm" id="dailyLogImportBtn" type="button">Import &amp; merge</button>
-      <div class="mini-s" id="dailyLogImportMsg" aria-live="polite"></div>
-    </div>
-  </div>
-
-  <div class="subgrid">
-    <div class="mini">
-      <div class="mini-k">Last update</div>
-      <div class="mini-v" id="wkLastUpdate">—</div>
-      <div class="mini-s" id="wkFreshNote">No daily log configured yet</div>
-    </div>
-    <div class="mini">
-      <div class="mini-k">Rolling 7-day attempts</div>
-      <div class="mini-v" id="wkRollingAttempts">—</div>
-      <div class="mini-s" id="wkRollingNote">—</div>
-    </div>
-    <div class="mini">
-      <div class="mini-k">Plan status</div>
-      <div class="mini-v" id="wkFreshStatus">—</div>
-      <div class="mini-s">Based on whether your log supports the assumed rates/capacity</div>
-    </div>
-    <div class="mini">
-      <div class="mini-k">Rolling 7-day contact rate</div>
-      <div class="mini-v" id="wkRollingCR">—</div>
-      <div class="mini-s" id="wkRollingCRNote">—</div>
-    </div>
-    <div class="mini">
-      <div class="mini-k">Rolling 7-day support rate</div>
-      <div class="mini-v" id="wkRollingSR">—</div>
-      <div class="mini-s" id="wkRollingSRNote">—</div>
-    </div>
-    <div class="mini">
-      <div class="mini-k">Rolling attempts per org hour</div>
-      <div class="mini-v" id="wkRollingAPH">—</div>
-      <div class="mini-s" id="wkRollingAPHNote">—</div>
-    </div>
-  </div>
-
-  <div class="note" style="display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin-top:10px;">
-    <span class="mini-s">Analyst tools:</span>
-    <button class="btn btn-sm" id="applyRollingCRBtn" type="button">Use rolling contact rate</button>
-    <button class="btn btn-sm" id="applyRollingSRBtn" type="button">Use rolling support rate</button>
-    <span class="mini-s" id="applyRollingMsg" aria-live="polite"></span>
-  </div>
-
-  <div class="note">Reality check uses your daily log to estimate actual rates/capacity over the last 7 entries.</div>
 </div>
-
+<div style="display:flex; gap:8px; align-items:center;">
+<button class="btn btn-sm" id="dailyLogExportBtn" type="button">Export daily log</button>
+</div>
+</div>
+<div class="field" style="margin-top:10px;">
+<label class="label" for="dailyLogImportText">Import daily log (paste JSON)</label>
+<textarea class="input" id="dailyLogImportText" placeholder='Paste JSON array of entries (or {"dailyLog": [...]})' rows="5"></textarea>
+<div style="display:flex; gap:8px; align-items:center; margin-top:8px;">
+<button class="btn btn-sm" id="dailyLogImportBtn" type="button">Import &amp; merge</button>
+<div aria-live="polite" class="mini-s" id="dailyLogImportMsg"></div>
+</div>
+</div>
+<div class="subgrid">
+<div class="mini">
+<div class="mini-k">Last update</div>
+<div class="mini-v" id="wkLastUpdate">—</div>
+<div class="mini-s" id="wkFreshNote">No daily log configured yet</div>
+</div>
+<div class="mini">
+<div class="mini-k">Rolling 7-day attempts</div>
+<div class="mini-v" id="wkRollingAttempts">—</div>
+<div class="mini-s" id="wkRollingNote">—</div>
+</div>
+<div class="mini">
+<div class="mini-k">Plan status</div>
+<div class="mini-v" id="wkFreshStatus">—</div>
+<div class="mini-s">Based on whether your log supports the assumed rates/capacity</div>
+</div>
+<div class="mini">
+<div class="mini-k">Rolling 7-day contact rate</div>
+<div class="mini-v" id="wkRollingCR">—</div>
+<div class="mini-s" id="wkRollingCRNote">—</div>
+</div>
+<div class="mini">
+<div class="mini-k">Rolling 7-day support rate</div>
+<div class="mini-v" id="wkRollingSR">—</div>
+<div class="mini-s" id="wkRollingSRNote">—</div>
+</div>
+<div class="mini">
+<div class="mini-k">Rolling attempts per org hour</div>
+<div class="mini-v" id="wkRollingAPH">—</div>
+<div class="mini-s" id="wkRollingAPHNote">—</div>
+</div>
+</div>
+<div class="note" style="display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin-top:10px;">
+<span class="mini-s">Analyst tools:</span>
+<button class="btn btn-sm" id="applyRollingCRBtn" type="button">Use rolling contact rate</button>
+<button class="btn btn-sm" id="applyRollingSRBtn" type="button">Use rolling support rate</button>
+<span aria-live="polite" class="mini-s" id="applyRollingMsg"></span>
+</div>
+<div class="note">Reality check uses your daily log to estimate actual rates/capacity over the last 7 entries.</div>
+</div>
 <div class="card card-section phase-phase2" id="conversionCard">
 <div class="card-head card-header">
 <h2 class="card-title">Persuasion &amp; contact math</h2>
 <div class="help-text">Field math: Attempts → Contacts (contact rate) → Support IDs (support rate). Used across cost, optimization, and simulation.</div></div>
-      </div>
-    </section>
-
-    <!-- ── STAGE: gotv ── -->
-    <section class="stage-new" id="stage-gotv">
-      <div class="stage-header-new">
-        <div class="stage-meta-new">
-          <span class="stage-tag-new">Stage 5</span>
-          <span class="stage-title-new">GOTV / Turnout</span>
-        </div>
-        <p class="stage-sub-new">Model turnout lift as a lever. GOTV is often the cheapest late-stage tactic when persuasion saturates.</p>
-        <div class="training-panel-new" id="train-gotv">
-          <div class="training-hd-new" onclick="toggleTrainPanel('train-gotv')">
-            <span>🎓</span><span class="training-title-new">Training — GOTV &amp; Turnout Lift</span><span class="training-chev-new">▾</span>
-          </div>
-          <div class="training-bd-new">
-            <div class="training-col-new">
-              <div class="training-sec-title-new">What this stage models</div>
-              <p>GOTV produces <em>additional votes</em>, not vote share changes. It increases the probability that a supporter actually casts a ballot. The lift is percentage points added to turnout probability per successful contact.</p>
-              <div class="training-rule-new">Baseline turnout:    % of target universe that votes without contact<br>Lift per contact:    +1–4pp is realistic for strong GOTV<br>Ceiling:             total lift can't push turnout above 100%<br>Diminishing returns: each contact past the first yields less</div>
-            </div>
-            <div class="training-col-new">
-              <div class="training-sec-title-new">Key distinction</div>
-              <ul>
-                <li><strong>Persuasion:</strong> changes who they vote for (share shift)</li>
-                <li><strong>GOTV:</strong> changes whether they vote (turnout lift)</li>
-                <li><strong>Hybrid:</strong> persuasion realization weighted by turnout lift</li>
-              </ul>
-              <div class="training-caution-new">In many races, persuasion saturates quickly at the available universe size. GOTV can close a gap more cheaply in the final 3–4 weeks.</div>
-            </div>
-          </div>
-        </div>
-      </div>
-      <div class="stage-body-new">
+</div>
+</section>
+<!-- ── STAGE: gotv ── -->
+<section class="stage-new" id="stage-gotv">
+<div class="stage-header-new">
+<div class="stage-meta-new">
+<span class="stage-tag-new">Stage 5</span>
+<span class="stage-title-new">GOTV / Turnout</span>
+</div>
+<p class="stage-sub-new">Model turnout lift as a lever. GOTV is often the cheapest late-stage tactic when persuasion saturates.</p>
+<div class="training-panel-new" id="train-gotv">
+<div class="training-hd-new" onclick="toggleTrainPanel('train-gotv')">
+<span>🎓</span><span class="training-title-new">Training — GOTV &amp; Turnout Lift</span><span class="training-chev-new">▾</span>
+</div>
+<div class="training-bd-new">
+<div class="training-col-new">
+<div class="training-sec-title-new">What this stage models</div>
+<p>GOTV produces <em>additional votes</em>, not vote share changes. It increases the probability that a supporter actually casts a ballot. The lift is percentage points added to turnout probability per successful contact.</p>
+<div class="training-rule-new">Baseline turnout:    % of target universe that votes without contact<br/>Lift per contact:    +1–4pp is realistic for strong GOTV<br/>Ceiling:             total lift can't push turnout above 100%<br/>Diminishing returns: each contact past the first yields less</div>
+</div>
+<div class="training-col-new">
+<div class="training-sec-title-new">Key distinction</div>
+<ul>
+<li><strong>Persuasion:</strong> changes who they vote for (share shift)</li>
+<li><strong>GOTV:</strong> changes whether they vote (turnout lift)</li>
+<li><strong>Hybrid:</strong> persuasion realization weighted by turnout lift</li>
+</ul>
+<div class="training-caution-new">In many races, persuasion saturates quickly at the available universe size. GOTV can close a gap more cheaply in the final 3–4 weeks.</div>
+</div>
+</div>
+</div>
+</div>
+<div class="stage-body-new">
 <div class="grid3">
 <div class="field">
 <label class="label" for="goalSupportIds">Support IDs needed (goal)</label>
@@ -784,40 +723,39 @@
 </div>
 </div><div class="card card-section phase16" id="universe16Card" style="padding:12px;">
 <div class="card-head card-header" style="margin-bottom:8px;">
-      </div>
-    </section>
-
-    <!-- ── STAGE: structure ── -->
-    <section class="stage-new" id="stage-structure">
-      <div class="stage-header-new">
-        <div class="stage-meta-new">
-          <span class="stage-tag-new">Stage 6</span>
-          <span class="stage-title-new">Electorate structure</span>
-        </div>
-        <p class="stage-sub-new">Optional realism layer: weight persuasion and turnout by coalition mix and apply a support durability factor.</p>
-        <div class="training-panel-new" id="train-structure">
-          <div class="training-hd-new" onclick="toggleTrainPanel('train-structure')">
-            <span>🎓</span><span class="training-title-new">Training — Electorate Structure</span><span class="training-chev-new">▾</span>
-          </div>
-          <div class="training-bd-new">
-            <div class="training-col-new">
-              <div class="training-sec-title-new">What this stage models</div>
-              <p>This layer weights persuasion and turnout reliability by party composition (Dem/Rep/NPA/Other) and applies a single retention factor. It is aggregate-only — not a CRM or individual-level model.</p>
-              <div class="training-rule-new">Retention factor: % of IDs that hold through Election Day<br>0.85 = 15% of your support IDs fade or were wrong<br>0.70 = aggressive assumption for early contacts<br>OFF = uses your raw persuasion rates directly</div>
-            </div>
-            <div class="training-col-new">
-              <div class="training-sec-title-new">When to use it</div>
-              <ul>
-                <li>When you have reliable partisan registration data from your voter file</li>
-                <li>When there's a meaningful NPA block that behaves differently</li>
-                <li>When you want to stress-test support durability over a long field program</li>
-              </ul>
-              <div class="training-caution-new">Leave this OFF until you have voter file data. Guessing at party composition adds noise, not insight.</div>
-            </div>
-          </div>
-        </div>
-      </div>
-      <div class="stage-body-new">
+</div>
+</div></section>
+<!-- ── STAGE: structure ── -->
+<section class="stage-new" id="stage-structure">
+<div class="stage-header-new">
+<div class="stage-meta-new">
+<span class="stage-tag-new">Stage 6</span>
+<span class="stage-title-new">Electorate structure</span>
+</div>
+<p class="stage-sub-new">Optional realism layer: weight persuasion and turnout by coalition mix and apply a support durability factor.</p>
+<div class="training-panel-new" id="train-structure">
+<div class="training-hd-new" onclick="toggleTrainPanel('train-structure')">
+<span>🎓</span><span class="training-title-new">Training — Electorate Structure</span><span class="training-chev-new">▾</span>
+</div>
+<div class="training-bd-new">
+<div class="training-col-new">
+<div class="training-sec-title-new">What this stage models</div>
+<p>This layer weights persuasion and turnout reliability by party composition (Dem/Rep/NPA/Other) and applies a single retention factor. It is aggregate-only — not a CRM or individual-level model.</p>
+<div class="training-rule-new">Retention factor: % of IDs that hold through Election Day<br/>0.85 = 15% of your support IDs fade or were wrong<br/>0.70 = aggressive assumption for early contacts<br/>OFF = uses your raw persuasion rates directly</div>
+</div>
+<div class="training-col-new">
+<div class="training-sec-title-new">When to use it</div>
+<ul>
+<li>When you have reliable partisan registration data from your voter file</li>
+<li>When there's a meaningful NPA block that behaves differently</li>
+<li>When you want to stress-test support durability over a long field program</li>
+</ul>
+<div class="training-caution-new">Leave this OFF until you have voter file data. Guessing at party composition adds noise, not insight.</div>
+</div>
+</div>
+</div>
+</div>
+<div class="stage-body-new">
 <div class="card-head card-header" style="margin-bottom:8px;">
 <h2 class="card-title">Electorate structure &amp; support durability</h2>
 <div class="help-text">Optional realism layer: weight persuasion and turnout by coalition mix, and apply a support durability factor. OFF = baseline.</div></div>
@@ -870,41 +808,40 @@
 <div class="note">This layer weights persuasion and turnout reliability by party composition and applies a single retention factor. It is aggregate-only (not a CRM).</div>
 </div></section>
 <section class="right"><div class="section-header"><div class="section-header-title">Plan</div><div class="section-header-sub">Build a feasible plan, then interpret risk &amp; sensitivity.</div></div>
-      </div>
-    </section>
 
-    <!-- ── STAGE: results ── -->
-    <section class="stage-new" id="stage-results">
-      <div class="stage-header-new">
-        <div class="stage-meta-new">
-          <span class="stage-tag-new">Stage 7</span>
-          <span class="stage-title-new">Results &amp; risk</span>
-        </div>
-        <p class="stage-sub-new">Win path, Monte Carlo stress test, sensitivity analysis, and risk framing. This is the payoff.</p>
-        <div class="training-panel-new" id="train-results">
-          <div class="training-hd-new" onclick="toggleTrainPanel('train-results')">
-            <span>🎓</span><span class="training-title-new">Training — Reading Results</span><span class="training-chev-new">▾</span>
-          </div>
-          <div class="training-bd-new">
-            <div class="training-col-new">
-              <div class="training-sec-title-new">What this stage shows</div>
-              <p>The win path answers one question: given your assumptions, how many votes do you need and which lever is cheapest to close the gap? Monte Carlo stress-tests that answer across thousands of simulations with uncertainty bands.</p>
-              <div class="training-rule-new">Win probability:  how often you win across simulations<br>P10/P90:         your worst-case / best-case range<br>Margin of safety: votes above threshold in median run<br>Fragility:        how sensitive win prob is to small shifts</div>
-            </div>
-            <div class="training-col-new">
-              <div class="training-sec-title-new">How to use it</div>
-              <ul>
-                <li>Win probability below 55% → re-examine capacity or assumptions</li>
-                <li>Wide P10–P90 band → high volatility, reduce uncertainty before committing resources</li>
-                <li>Sensitivity table tells you what to <em>measure first</em> in real life</li>
-                <li>Expected value can hide risk — use the stress test, not just the headline</li>
-              </ul>
-              <div class="training-caution-new">This tool defines operational requirements under stated assumptions. It does not predict outcomes.</div>
-            </div>
-          </div>
-        </div>
-      </div>
-      <div class="stage-body-new">
+</section>
+<!-- ── STAGE: results ── -->
+<section class="stage-new" id="stage-results">
+<div class="stage-header-new">
+<div class="stage-meta-new">
+<span class="stage-tag-new">Stage 7</span>
+<span class="stage-title-new">Results &amp; risk</span>
+</div>
+<p class="stage-sub-new">Win path, Monte Carlo stress test, sensitivity analysis, and risk framing. This is the payoff.</p>
+<div class="training-panel-new" id="train-results">
+<div class="training-hd-new" onclick="toggleTrainPanel('train-results')">
+<span>🎓</span><span class="training-title-new">Training — Reading Results</span><span class="training-chev-new">▾</span>
+</div>
+<div class="training-bd-new">
+<div class="training-col-new">
+<div class="training-sec-title-new">What this stage shows</div>
+<p>The win path answers one question: given your assumptions, how many votes do you need and which lever is cheapest to close the gap? Monte Carlo stress-tests that answer across thousands of simulations with uncertainty bands.</p>
+<div class="training-rule-new">Win probability:  how often you win across simulations<br/>P10/P90:         your worst-case / best-case range<br/>Margin of safety: votes above threshold in median run<br/>Fragility:        how sensitive win prob is to small shifts</div>
+</div>
+<div class="training-col-new">
+<div class="training-sec-title-new">How to use it</div>
+<ul>
+<li>Win probability below 55% → re-examine capacity or assumptions</li>
+<li>Wide P10–P90 band → high volatility, reduce uncertainty before committing resources</li>
+<li>Sensitivity table tells you what to <em>measure first</em> in real life</li>
+<li>Expected value can hide risk — use the stress test, not just the headline</li>
+</ul>
+<div class="training-caution-new">This tool defines operational requirements under stated assumptions. It does not predict outcomes.</div>
+</div>
+</div>
+</div>
+</div>
+<div class="stage-body-new">
 <nav aria-label="Output tabs" class="tabs">
 <button class="tab active" data-tab="win">Results</button>
 <button class="tab" data-tab="assumptions">Checks</button>
@@ -1289,40 +1226,39 @@
 </div>
 </section>
 <section class="panel" id="tab-assumptions">
-      </div>
-    </section>
-
-    <!-- ── STAGE: roi ── -->
-    <section class="stage-new" id="stage-roi">
-      <div class="stage-header-new">
-        <div class="stage-meta-new">
-          <span class="stage-tag-new">Stage 8</span>
-          <span class="stage-title-new">Budget &amp; ROI</span>
-        </div>
-        <p class="stage-sub-new">Turn tactics into dollars and net votes. Find the cheapest path to closing the gap.</p>
-        <div class="training-panel-new" id="train-roi">
-          <div class="training-hd-new" onclick="toggleTrainPanel('train-roi')">
-            <span>🎓</span><span class="training-title-new">Training — Budget &amp; ROI</span><span class="training-chev-new">▾</span>
-          </div>
-          <div class="training-bd-new">
-            <div class="training-col-new">
-              <div class="training-sec-title-new">What this stage models</div>
-              <p>A plan without cost is a wish. This stage converts tactics to cost per net vote and net votes per dollar, then the optimizer finds the best mix under budget and capacity constraints.</p>
-              <div class="training-rule-new">Cost per net vote = CPA ÷ (CR × persuasion rate)<br>Doors: $8–25/net vote (high CR, slow scale)<br>Phones: $4–14/net vote (lower CR, fast scale)<br>Texts: $1–5/net vote (very low CR, very high scale)</div>
-            </div>
-            <div class="training-col-new">
-              <div class="training-sec-title-new">Common mistakes</div>
-              <ul>
-                <li>"Pet tactic bias" — assuming doors are always best without checking cost</li>
-                <li>Ignoring capacity ceilings — you can't knock 50,000 doors with 1 organizer</li>
-                <li>Forgetting overhead — staff cost is real cost per vote</li>
-              </ul>
-              <div class="training-caution-new">The optimizer makes tradeoffs explicit that humans make poorly under multiple constraints.</div>
-            </div>
-          </div>
-        </div>
-      </div>
-      <div class="stage-body-new">
+</section></div>
+</section>
+<!-- ── STAGE: roi ── -->
+<section class="stage-new" id="stage-roi">
+<div class="stage-header-new">
+<div class="stage-meta-new">
+<span class="stage-tag-new">Stage 8</span>
+<span class="stage-title-new">Budget &amp; ROI</span>
+</div>
+<p class="stage-sub-new">Turn tactics into dollars and net votes. Find the cheapest path to closing the gap.</p>
+<div class="training-panel-new" id="train-roi">
+<div class="training-hd-new" onclick="toggleTrainPanel('train-roi')">
+<span>🎓</span><span class="training-title-new">Training — Budget &amp; ROI</span><span class="training-chev-new">▾</span>
+</div>
+<div class="training-bd-new">
+<div class="training-col-new">
+<div class="training-sec-title-new">What this stage models</div>
+<p>A plan without cost is a wish. This stage converts tactics to cost per net vote and net votes per dollar, then the optimizer finds the best mix under budget and capacity constraints.</p>
+<div class="training-rule-new">Cost per net vote = CPA ÷ (CR × persuasion rate)<br/>Doors: $8–25/net vote (high CR, slow scale)<br/>Phones: $4–14/net vote (lower CR, fast scale)<br/>Texts: $1–5/net vote (very low CR, very high scale)</div>
+</div>
+<div class="training-col-new">
+<div class="training-sec-title-new">Common mistakes</div>
+<ul>
+<li>"Pet tactic bias" — assuming doors are always best without checking cost</li>
+<li>Ignoring capacity ceilings — you can't knock 50,000 doors with 1 organizer</li>
+<li>Forgetting overhead — staff cost is real cost per vote</li>
+</ul>
+<div class="training-caution-new">The optimizer makes tradeoffs explicit that humans make poorly under multiple constraints.</div>
+</div>
+</div>
+</div>
+</div>
+<div class="stage-body-new">
 <div class="card card-section phase-roi">
 <div class="card-head card-header">
 <h2 class="card-title">Cost inputs</h2>
@@ -1973,41 +1909,40 @@
 </div>
 <div class="banner warn" hidden="" id="tlBanner"></div>
 </div>
-</section>
-</section>
-<aside aria-label="Status rail" class="rail">
-      </div>
-    </section>
+</div></section>
 
-    <!-- ── STAGE: checks ── -->
-    <section class="stage-new" id="stage-checks">
-      <div class="stage-header-new">
-        <div class="stage-meta-new">
-          <span class="stage-tag-new">Stage 9</span>
-          <span class="stage-title-new">Checks &amp; guardrails</span>
-        </div>
-        <p class="stage-sub-new">Validate inputs, inspect assumptions snapshot, and review guardrails. The most dangerous failures are silent ones.</p>
-        <div class="training-panel-new" id="train-checks">
-          <div class="training-hd-new" onclick="toggleTrainPanel('train-checks')">
-            <span>🎓</span><span class="training-title-new">Training — Validation &amp; Guardrails</span><span class="training-chev-new">▾</span>
-          </div>
-          <div class="training-bd-new">
-            <div class="training-col-new">
-              <div class="training-sec-title-new">What this stage does</div>
-              <p>Guardrails catch invalid states and "looks plausible but impossible" plans before you share them with a client or campaign. The assumptions snapshot freezes key parameters so you can detect drift between runs.</p>
-            </div>
-            <div class="training-col-new">
-              <div class="training-sec-title-new">When to use it</div>
-              <ul>
-                <li>Before every client presentation — run checks first</li>
-                <li>When results look surprisingly good — check guardrails</li>
-                <li>After importing a scenario from another session</li>
-              </ul>
-            </div>
-          </div>
-        </div>
-      </div>
-      <div class="stage-body-new">
+<aside aria-label="Status rail" class="rail">
+
+
+<!-- ── STAGE: checks ── -->
+<section class="stage-new" id="stage-checks">
+<div class="stage-header-new">
+<div class="stage-meta-new">
+<span class="stage-tag-new">Stage 9</span>
+<span class="stage-title-new">Checks &amp; guardrails</span>
+</div>
+<p class="stage-sub-new">Validate inputs, inspect assumptions snapshot, and review guardrails. The most dangerous failures are silent ones.</p>
+<div class="training-panel-new" id="train-checks">
+<div class="training-hd-new" onclick="toggleTrainPanel('train-checks')">
+<span>🎓</span><span class="training-title-new">Training — Validation &amp; Guardrails</span><span class="training-chev-new">▾</span>
+</div>
+<div class="training-bd-new">
+<div class="training-col-new">
+<div class="training-sec-title-new">What this stage does</div>
+<p>Guardrails catch invalid states and "looks plausible but impossible" plans before you share them with a client or campaign. The assumptions snapshot freezes key parameters so you can detect drift between runs.</p>
+</div>
+<div class="training-col-new">
+<div class="training-sec-title-new">When to use it</div>
+<ul>
+<li>Before every client presentation — run checks first</li>
+<li>When results look surprisingly good — check guardrails</li>
+<li>After importing a scenario from another session</li>
+</ul>
+</div>
+</div>
+</div>
+</div>
+<div class="stage-body-new">
 <div class="card card-section phase-setup">
 <div class="card-head card-header">
 <h2 class="card-title">Assumptions snapshot</h2>
@@ -2023,21 +1958,20 @@
 </div>
 <div class="guardrails" id="guardrails"></div>
 </div>
-</section>
+</div></section>
 <section class="panel" id="tab-roi">
-      </div>
-    </section>
 
-    <!-- ── STAGE: scenarios ── -->
-    <section class="stage-new" id="stage-scenarios">
-      <div class="stage-header-new">
-        <div class="stage-meta-new">
-          <span class="stage-tag-new">Decisions</span>
-          <span class="stage-title-new">Scenarios</span>
-        </div>
-        <p class="stage-sub-new">Save, compare, and switch between planning scenarios. Use this to model Path A vs Path B before committing resources.</p>
-      </div>
-      <div class="stage-body-new">
+</section>
+<!-- ── STAGE: scenarios ── -->
+<section class="stage-new" id="stage-scenarios">
+<div class="stage-header-new">
+<div class="stage-meta-new">
+<span class="stage-tag-new">Decisions</span>
+<span class="stage-title-new">Scenarios</span>
+</div>
+<p class="stage-sub-new">Save, compare, and switch between planning scenarios. Use this to model Path A vs Path B before committing resources.</p>
+</div>
+<div class="stage-body-new">
 <div class="section-header">
 <div class="section-header-title">Understand</div>
 <div class="section-header-sub">Validate inputs, interpret risk, &amp; compare scenarios.</div>
@@ -2065,67 +1999,62 @@
 </div>
 <div class="banner warn" hidden="" id="scWarn"></div>
 <div class="scm">
-  <div class="rowline scm-active">
-    <div class="note" id="activeScenarioLabel">Active Scenario: —</div>
-  </div>
-  <div class="scm-row">
-    <div class="scm-field">
-      <label class="label" for="scenarioSelect">Scenarios</label>
-      <select class="select select-sm" id="scenarioSelect"></select>
-    </div>
-    <div class="scm-field">
-      <label class="label" for="scenarioNewName">New scenario</label>
-      <input class="input input-sm" id="scenarioNewName" placeholder="e.g., Path A — full GOTV" type="text"/>
-    </div>
-  </div>
-  <div class="rowline scm-actions">
-    <button class="btn btn-sm" id="btnScenarioSaveNew" type="button">Save as new scenario</button>
-    <button class="btn btn-sm btn-ghost" id="btnScenarioCloneBaseline" type="button">Clone baseline</button>
-    <button class="btn btn-sm" id="btnScenarioLoadSelected" type="button">Load selected</button>
-    <button class="btn btn-sm btn-ghost" id="btnScenarioReturnBaseline" type="button">Return to baseline</button>
-    <button class="btn btn-sm btn-ghost" id="btnScenarioDelete" type="button">Delete scenario</button>
-  </div>
-  <div aria-hidden="true" class="sc-divider" role="separator"></div>
+<div class="rowline scm-active">
+<div class="note" id="activeScenarioLabel">Active Scenario: —</div>
 </div>
-
+<div class="scm-row">
+<div class="scm-field">
+<label class="label" for="scenarioSelect">Scenarios</label>
+<select class="select select-sm" id="scenarioSelect"></select>
+</div>
+<div class="scm-field">
+<label class="label" for="scenarioNewName">New scenario</label>
+<input class="input input-sm" id="scenarioNewName" placeholder="e.g., Path A — full GOTV" type="text"/>
+</div>
+</div>
+<div class="rowline scm-actions">
+<button class="btn btn-sm" id="btnScenarioSaveNew" type="button">Save as new scenario</button>
+<button class="btn btn-sm btn-ghost" id="btnScenarioCloneBaseline" type="button">Clone baseline</button>
+<button class="btn btn-sm" id="btnScenarioLoadSelected" type="button">Load selected</button>
+<button class="btn btn-sm btn-ghost" id="btnScenarioReturnBaseline" type="button">Return to baseline</button>
+<button class="btn btn-sm btn-ghost" id="btnScenarioDelete" type="button">Delete scenario</button>
+</div>
+<div aria-hidden="true" class="sc-divider" role="separator"></div>
+</div>
 <div class="scm-compare" id="scmCompareWrap">
-  <div class="rowline" style="justify-content:space-between; align-items:flex-end; gap:12px;">
-    <div>
-      <div class="note" style="font-weight:600;">Scenario Comparison</div>
-      <div class="muted" style="font-size:12px;">Baseline vs active scenario (inputs + key outputs).</div>
-    </div>
-    <div class="tag" id="scmCompareTag">—</div>
-  </div>
-
-  <div class="scm-compare-empty muted" id="scmCompareEmpty" style="font-size:12px; margin-top:8px;">Select a non-baseline active scenario to view differences.</div>
-
-  <div class="scm-compare-grid" id="scmCompareGrid" hidden>
-    <div class="scm-compare-col">
-      <div class="note" style="margin-bottom:6px;">Input Differences</div>
-      <ul class="diff-list" id="scmDiffInputs"></ul>
-      <div class="muted" id="scmDiffInputsFoot" style="font-size:12px; margin-top:6px;"></div>
-    </div>
-    <div class="scm-compare-col">
-      <div class="note" style="margin-bottom:6px;">Output Differences</div>
-      <div class="table-wrap">
-        <table class="table">
-          <thead>
-            <tr>
-              <th style="min-width:150px;">Metric</th>
-              <th style="min-width:110px;">Baseline</th>
-              <th style="min-width:110px;">Scenario</th>
-              <th style="min-width:110px;">Delta</th>
-            </tr>
-          </thead>
-          <tbody id="scmDiffOutputs"></tbody>
-        </table>
-      </div>
-    </div>
-  </div>
-
-  <div aria-hidden="true" class="sc-divider" role="separator" style="margin-top:10px;"></div>
+<div class="rowline" style="justify-content:space-between; align-items:flex-end; gap:12px;">
+<div>
+<div class="note" style="font-weight:600;">Scenario Comparison</div>
+<div class="muted" style="font-size:12px;">Baseline vs active scenario (inputs + key outputs).</div>
 </div>
-
+<div class="tag" id="scmCompareTag">—</div>
+</div>
+<div class="scm-compare-empty muted" id="scmCompareEmpty" style="font-size:12px; margin-top:8px;">Select a non-baseline active scenario to view differences.</div>
+<div class="scm-compare-grid" hidden="" id="scmCompareGrid">
+<div class="scm-compare-col">
+<div class="note" style="margin-bottom:6px;">Input Differences</div>
+<ul class="diff-list" id="scmDiffInputs"></ul>
+<div class="muted" id="scmDiffInputsFoot" style="font-size:12px; margin-top:6px;"></div>
+</div>
+<div class="scm-compare-col">
+<div class="note" style="margin-bottom:6px;">Output Differences</div>
+<div class="table-wrap">
+<table class="table">
+<thead>
+<tr>
+<th style="min-width:150px;">Metric</th>
+<th style="min-width:110px;">Baseline</th>
+<th style="min-width:110px;">Scenario</th>
+<th style="min-width:110px;">Delta</th>
+</tr>
+</thead>
+<tbody id="scmDiffOutputs"></tbody>
+</table>
+</div>
+</div>
+</div>
+<div aria-hidden="true" class="sc-divider" role="separator" style="margin-top:10px;"></div>
+</div>
 <div class="sc-controls">
 <div class="scenario">
 <label class="label" for="scenarioName">Scenario</label>
@@ -2162,524 +2091,472 @@
 </div>
 <div class="note sc-overall" id="scOverall">Most efficient scenario overall: —</div>
 </div>
-
 <div class="card card-section phase-decision" id="decisionSessionCard">
-  <div class="card-head card-header">
-    <h2 class="card-title">Decision Session</h2>
-      </div>
-    </section>
-
-    <!-- ── STAGE: decisions ── -->
-    <section class="stage-new" id="stage-decisions">
-      <div class="stage-header-new">
-        <div class="stage-meta-new">
-          <span class="stage-tag-new">Decisions</span>
-          <span class="stage-title-new">Decision sessions</span>
-        </div>
-        <p class="stage-sub-new">Structured decision framework: objectives, constraints, options, and recommendation. Makes tradeoffs explicit.</p>
-      </div>
-      <div class="stage-body-new">
-  </div>
-
-  <div class="scm">
-    <div class="rowline scm-active">
-      <div class="note" id="decisionActiveLabel">Active session: —</div>
-    </div>
-
-    <div class="scm-row">
-      <div class="scm-field">
-        <label class="label" for="decisionSessionSelect">Sessions</label>
-        <select class="select select-sm" id="decisionSessionSelect"></select>
-      </div>
-      <div class="scm-field" style="align-self:flex-end;">
-        <button class="btn btn-sm" id="btnDecisionNew" type="button">New session</button>
-      </div>
-    </div>
-
-    <div class="scm-row" style="margin-top:10px;">
-      <div class="scm-field">
-        <label class="label" for="decisionRename">Rename session</label>
-        <input class="input input-sm" id="decisionRename" placeholder="e.g., Week 2 client call" type="text"/>
-      </div>
-      <div class="scm-field" style="align-self:flex-end; display:flex; gap:8px; justify-content:flex-end;">
-        <button class="btn btn-sm btn-ghost" id="btnDecisionRenameSave" type="button">Save</button>
-        <button class="btn btn-sm btn-ghost" id="btnDecisionDelete" type="button">Delete</button>
-      </div>
-    </div>
-
-    <div aria-hidden="true" class="sc-divider" role="separator" style="margin-top:10px;"></div>
-
-    <div class="scm-row" style="margin-top:10px;">
-      <div class="scm-field">
-        <label class="label" for="decisionObjective">Objective</label>
-        <select class="select select-sm" id="decisionObjective"></select>
-      </div>
-      <div class="scm-field" style="align-self:flex-end; display:flex; flex-direction:column; gap:6px; align-items:flex-end;">
-        <button class="btn btn-sm btn-ghost" id="btnDecisionLinkScenario" type="button">Link to active scenario</button>
-        <div class="muted" id="decisionScenarioLabel" style="font-size:12px; text-align:right;">—</div>
-      </div>
-    </div>
-
-    <div class="scm-row" style="margin-top:10px;">
-      <div class="scm-field" style="width:100%;">
-        <label class="label" for="decisionNotes">Notes</label>
-        <textarea class="input" id="decisionNotes" placeholder="Short notes..." rows="5"></textarea>
-      </div>
-    </div>
-
-
-    <div aria-hidden="true" class="sc-divider" role="separator" style="margin-top:10px;"></div>
-
-    <div class="scm-row" style="margin-top:10px;">
-      <div class="scm-field" style="width:100%;">
-        <div class="note" style="margin:0;">Assumptions &amp; constraints</div>
-      </div>
-    </div>
-
-    <div class="scm-row" style="margin-top:10px;">
-      <div class="scm-field">
-        <label class="label" for="decisionBudget">Budget cap ($)</label>
-        <input class="input input-sm" id="decisionBudget" placeholder="e.g., 15000" inputmode="decimal" type="text"/>
-      </div>
-      <div class="scm-field">
-        <label class="label" for="decisionVolunteerHrs">Volunteer hrs/week</label>
-        <input class="input input-sm" id="decisionVolunteerHrs" placeholder="e.g., 120" inputmode="decimal" type="text"/>
-      </div>
-    </div>
-
-    <div class="scm-row" style="margin-top:10px;">
-      <div class="scm-field">
-        <label class="label" for="decisionTurfAccess">Turf access</label>
-        <select class="select select-sm" id="decisionTurfAccess">
-          <option value="">Unknown</option>
-          <option value="full">Full</option>
-          <option value="limited">Limited</option>
-          <option value="none">None</option>
-        </select>
-      </div>
-      <div class="scm-field">
-        <label class="label" for="decisionBlackoutDates">Blackout dates</label>
-        <input class="input input-sm" id="decisionBlackoutDates" placeholder="e.g., 3/5–3/8, 4/1" type="text"/>
-      </div>
-    </div>
-
-    <div class="scm-row" style="margin-top:10px;">
-      <div class="scm-field">
-        <label class="label" for="decisionRiskPosture">Risk posture</label>
-        <select class="select select-sm" id="decisionRiskPosture"></select>
-      </div>
-    </div>
-
-    <div class="scm-row" style="margin-top:10px;">
-      <div class="scm-field" style="width:100%;">
-        <label class="label" for="decisionNonNegotiables">Non-negotiables (one per line)</label>
-        <textarea class="input" id="decisionNonNegotiables" placeholder="e.g., Must finish by 5/1
+<div class="card-head card-header">
+<h2 class="card-title">Decision Session</h2>
+</div>
+</div></div></section>
+<!-- ── STAGE: decisions ── -->
+<section class="stage-new" id="stage-decisions">
+<div class="stage-header-new">
+<div class="stage-meta-new">
+<span class="stage-tag-new">Decisions</span>
+<span class="stage-title-new">Decision sessions</span>
+</div>
+<p class="stage-sub-new">Structured decision framework: objectives, constraints, options, and recommendation. Makes tradeoffs explicit.</p>
+</div>
+<div class="stage-body-new">
+</div>
+<div class="scm">
+<div class="rowline scm-active">
+<div class="note" id="decisionActiveLabel">Active session: —</div>
+</div>
+<div class="scm-row">
+<div class="scm-field">
+<label class="label" for="decisionSessionSelect">Sessions</label>
+<select class="select select-sm" id="decisionSessionSelect"></select>
+</div>
+<div class="scm-field" style="align-self:flex-end;">
+<button class="btn btn-sm" id="btnDecisionNew" type="button">New session</button>
+</div>
+</div>
+<div class="scm-row" style="margin-top:10px;">
+<div class="scm-field">
+<label class="label" for="decisionRename">Rename session</label>
+<input class="input input-sm" id="decisionRename" placeholder="e.g., Week 2 client call" type="text"/>
+</div>
+<div class="scm-field" style="align-self:flex-end; display:flex; gap:8px; justify-content:flex-end;">
+<button class="btn btn-sm btn-ghost" id="btnDecisionRenameSave" type="button">Save</button>
+<button class="btn btn-sm btn-ghost" id="btnDecisionDelete" type="button">Delete</button>
+</div>
+</div>
+<div aria-hidden="true" class="sc-divider" role="separator" style="margin-top:10px;"></div>
+<div class="scm-row" style="margin-top:10px;">
+<div class="scm-field">
+<label class="label" for="decisionObjective">Objective</label>
+<select class="select select-sm" id="decisionObjective"></select>
+</div>
+<div class="scm-field" style="align-self:flex-end; display:flex; flex-direction:column; gap:6px; align-items:flex-end;">
+<button class="btn btn-sm btn-ghost" id="btnDecisionLinkScenario" type="button">Link to active scenario</button>
+<div class="muted" id="decisionScenarioLabel" style="font-size:12px; text-align:right;">—</div>
+</div>
+</div>
+<div class="scm-row" style="margin-top:10px;">
+<div class="scm-field" style="width:100%;">
+<label class="label" for="decisionNotes">Notes</label>
+<textarea class="input" id="decisionNotes" placeholder="Short notes..." rows="5"></textarea>
+</div>
+</div>
+<div aria-hidden="true" class="sc-divider" role="separator" style="margin-top:10px;"></div>
+<div class="scm-row" style="margin-top:10px;">
+<div class="scm-field" style="width:100%;">
+<div class="note" style="margin:0;">Assumptions &amp; constraints</div>
+</div>
+</div>
+<div class="scm-row" style="margin-top:10px;">
+<div class="scm-field">
+<label class="label" for="decisionBudget">Budget cap ($)</label>
+<input class="input input-sm" id="decisionBudget" inputmode="decimal" placeholder="e.g., 15000" type="text"/>
+</div>
+<div class="scm-field">
+<label class="label" for="decisionVolunteerHrs">Volunteer hrs/week</label>
+<input class="input input-sm" id="decisionVolunteerHrs" inputmode="decimal" placeholder="e.g., 120" type="text"/>
+</div>
+</div>
+<div class="scm-row" style="margin-top:10px;">
+<div class="scm-field">
+<label class="label" for="decisionTurfAccess">Turf access</label>
+<select class="select select-sm" id="decisionTurfAccess">
+<option value="">Unknown</option>
+<option value="full">Full</option>
+<option value="limited">Limited</option>
+<option value="none">None</option>
+</select>
+</div>
+<div class="scm-field">
+<label class="label" for="decisionBlackoutDates">Blackout dates</label>
+<input class="input input-sm" id="decisionBlackoutDates" placeholder="e.g., 3/5–3/8, 4/1" type="text"/>
+</div>
+</div>
+<div class="scm-row" style="margin-top:10px;">
+<div class="scm-field">
+<label class="label" for="decisionRiskPosture">Risk posture</label>
+<select class="select select-sm" id="decisionRiskPosture"></select>
+</div>
+</div>
+<div class="scm-row" style="margin-top:10px;">
+<div class="scm-field" style="width:100%;">
+<label class="label" for="decisionNonNegotiables">Non-negotiables (one per line)</label>
+<textarea class="input" id="decisionNonNegotiables" placeholder="e.g., Must finish by 5/1
 Must hit 12,000 doors" rows="4"></textarea>
-      </div>
-    </div>
-
-    <div aria-hidden="true" class="sc-divider" role="separator" style="margin-top:10px;"></div>
-
-    <div class="scm-row" style="margin-top:10px;">
-      <div class="scm-field" style="width:100%;">
-        <div class="note" style="margin:0;">Options</div>
-      </div>
-    </div>
-
-    <div class="scm-row" style="margin-top:10px;">
-      <div class="scm-field">
-        <label class="label" for="decisionOptionSelect">Option</label>
-        <select class="select select-sm" id="decisionOptionSelect"></select>
-      </div>
-      <div class="scm-field" style="align-self:flex-end;">
-        <button class="btn btn-sm" id="btnDecisionOptionNew" type="button">New option</button>
-      </div>
-    </div>
-
-    <div class="scm-row" style="margin-top:10px;">
-      <div class="scm-field">
-        <label class="label" for="decisionOptionRename">Rename option</label>
-        <input class="input input-sm" id="decisionOptionRename" placeholder="e.g., Path 1: Volunteer-heavy" type="text"/>
-      </div>
-      <div class="scm-field" style="align-self:flex-end; display:flex; gap:8px; justify-content:flex-end;">
-        <button class="btn btn-sm btn-ghost" id="btnDecisionOptionRenameSave" type="button">Save</button>
-        <button class="btn btn-sm btn-ghost" id="btnDecisionOptionDelete" type="button">Delete</button>
-      </div>
-    </div>
-
-    <div class="scm-row" style="margin-top:10px;">
-      <div class="scm-field" style="width:100%; display:flex; gap:10px; justify-content:space-between; align-items:flex-end;">
-        <div class="muted" id="decisionOptionScenarioLabel" style="font-size:12px;">—</div>
-        <button class="btn btn-sm btn-ghost" id="btnDecisionOptionLinkScenario" type="button">Link option to active scenario</button>
-      </div>
-    </div>
-
-    <div class="scm-row" style="margin-top:10px;">
-      <div class="scm-field" style="width:100%;">
-        <div class="muted" style="font-size:12px; margin-bottom:6px;">Tactics tags (UI only)</div>
-        <div class="tacticRow">
-          <label class="tacticToggle"><input type="checkbox" id="decisionOptionTacticDoors">Doors</label>
-          <label class="tacticToggle"><input type="checkbox" id="decisionOptionTacticPhones">Phones</label>
-          <label class="tacticToggle"><input type="checkbox" id="decisionOptionTacticDigital">Digital</label>
-        </div>
-      </div>
-    </div>
-    <div aria-hidden="true" class="sc-divider" role="separator" style="margin-top:10px;"></div>
-
-    <div class="scm-row" style="margin-top:10px;">
-      <div class="scm-field" style="width:100%;">
-        <div class="note" style="margin:0;">Decision Summary</div>
-      </div>
-    </div>
-
-    <div class="scm-row" style="margin-top:10px;">
-      <div class="scm-field" style="width:100%;">
-        <div class="note" style="margin:0; display:flex; align-items:center; justify-content:space-between; gap:10px;">
-          <span>Assumption Drift</span>
-          <span class="tag" id="driftStatusTag">—</span>
-        </div>
-      </div>
-    </div>
-
-    <div class="scm-row" style="margin-top:10px;">
-      <div class="scm-field" style="width:100%;">
-        <div class="kpis" style="grid-template-columns:1fr 1fr 1fr;">
-          <div class="mini">
-            <div class="mini-k">Required attempts/week</div>
-            <div class="mini-v" id="driftReq">—</div>
-            <div class="mini-s" id="driftReqNote">From current assumptions</div>
-          </div>
-          <div class="mini">
-            <div class="mini-k">Actual attempts (last 7)</div>
-            <div class="mini-v" id="driftActual">—</div>
-            <div class="mini-s" id="driftActualNote">From daily log</div>
-          </div>
-          <div class="mini">
-            <div class="mini-k">Delta</div>
-            <div class="mini-v" id="driftDelta">—</div>
-            <div class="mini-s" id="driftDeltaNote">Actual vs required</div>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <div class="scm-row" style="margin-top:10px;">
-      <div class="scm-field" style="width:100%;">
-        <div class="banner" id="driftSlipBanner">—</div>
-      </div>
-    </div>
-
-    <div class="scm-row" style="margin-top:10px;">
-      <div class="scm-field" style="width:100%;">
-        <div class="note" style="margin:0; display:flex; align-items:center; justify-content:space-between; gap:10px;">
-          <span>Risk Framing</span>
-          <span class="tag" id="riskBandTag">—</span>
-        </div>
-      </div>
-    </div>
-
-    <div class="scm-row" style="margin-top:10px;">
-      <div class="scm-field" style="width:100%;">
-        <div class="kpis" style="grid-template-columns:1fr 1fr 1fr;">
-          <div class="mini">
-            <div class="mini-k">Win probability</div>
-            <div class="mini-v" id="riskWinProb">—</div>
-            <div class="mini-s">From Monte Carlo</div>
-          </div>
-          <div class="mini">
-            <div class="mini-k">Expected margin band</div>
-            <div class="mini-v" id="riskMarginBand">—</div>
-            <div class="mini-s">Central interval</div>
-          </div>
-          <div class="mini">
-            <div class="mini-k">Volatility</div>
-            <div class="mini-v" id="riskVolatility">—</div>
-            <div class="mini-s">Range width</div>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <div class="scm-row" style="margin-top:10px;">
-      <div class="scm-field" style="width:100%;">
-        <div class="banner" id="riskPlainBanner">—</div>
-      </div>
-    </div>
-
-    <div class="scm-row" style="margin-top:10px;">
-      <div class="scm-field" style="width:100%;">
-        <div class="note" style="margin:0; display:flex; align-items:center; justify-content:space-between; gap:10px;">
-          <span>Bottleneck Attribution</span>
-          <span class="tag" id="bneckTag">—</span>
-        </div>
-      </div>
-    </div>
-
-    <div class="scm-row" style="margin-top:10px;">
-      <div class="scm-field" style="width:100%;">
-        <div class="kpis" style="grid-template-columns:1fr 1fr;">
-          <div class="mini">
-            <div class="mini-k">Primary</div>
-            <div class="mini-v" id="bneckPrimary">—</div>
-            <div class="mini-s">What is binding now</div>
-          </div>
-          <div class="mini">
-            <div class="mini-k">Secondary</div>
-            <div class="mini-v" id="bneckSecondary">—</div>
-            <div class="mini-s">Next-most binding</div>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <div class="scm-row" style="margin-top:10px;">
-      <div class="scm-field" style="width:100%;">
-        <div class="tableWrap" style="overflow:auto;">
-          <table class="table" style="min-width:640px;">
-            <thead>
-              <tr>
-                <th>Constraint</th>
-                <th class="num">If +10%</th>
-                <th class="muted">Notes</th>
-              </tr>
-            </thead>
-            <tbody id="bneckTbody"></tbody>
-          </table>
-        </div>
-        <div class="muted" id="bneckWarn" style="font-size:12px; margin-top:8px;">—</div>
-      </div>
-    </div>
-
-    <div class="scm-row" style="margin-top:10px;">
-      <div class="scm-field" style="width:100%;">
-        <div class="note" style="margin:0; display:flex; align-items:center; justify-content:space-between; gap:10px;">
-          <span>Sensitivity Snapshot</span>
-          <div style="display:flex; align-items:center; gap:8px;">
-            <span class="tag" id="sensTag">—</span>
-            <button class="btn btn-sm btn-ghost" id="btnSensRun" type="button">Run snapshot</button>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <div class="scm-row" style="margin-top:10px;">
-      <div class="scm-field" style="width:100%;">
-        <div class="tableWrap" style="overflow:auto;">
-          <table class="table" style="min-width:640px;">
-            <thead>
-              <tr>
-                <th>Perturbation</th>
-                <th class="num">Δ win prob</th>
-                <th class="num">Δ p50 margin</th>
-                <th class="muted">Notes</th>
-              </tr>
-            </thead>
-            <tbody id="sensTbody"></tbody>
-          </table>
-        </div>
-        <div class="banner" id="sensBanner" style="margin-top:10px;">—</div>
-      </div>
-    </div>
-
-    <div class="scm-row" style="margin-top:10px;">
-      <div class="scm-field" style="width:100%;">
-        <div class="note" style="margin:0; display:flex; align-items:center; justify-content:space-between; gap:10px;">
-          <span>Decision Confidence</span>
-          <span class="tag" id="confTag">—</span>
-        </div>
-      </div>
-    </div>
-
-    <div class="scm-row" style="margin-top:10px;">
-      <div class="scm-field" style="width:100%;">
-        <div class="kpis" style="grid-template-columns:1fr 1fr 1fr 1fr;">
-          <div class="mini">
-            <div class="mini-k">Execution pace</div>
-            <div class="mini-v" id="confExec">—</div>
-            <div class="mini-s">From daily log</div>
-          </div>
-          <div class="mini">
-            <div class="mini-k">Risk band</div>
-            <div class="mini-v" id="confRisk">—</div>
-            <div class="mini-s">From Monte Carlo</div>
-          </div>
-          <div class="mini">
-            <div class="mini-k">Constraint tightness</div>
-            <div class="mini-v" id="confTight">—</div>
-            <div class="mini-s">Timeline/budget/capacity</div>
-          </div>
-          <div class="mini">
-            <div class="mini-k">Scenario divergence</div>
-            <div class="mini-v" id="confDiv">—</div>
-            <div class="mini-s">Baseline vs active</div>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <div class="scm-row" style="margin-top:10px;">
-      <div class="scm-field" style="width:100%;">
-        <div class="banner" id="confBanner">—</div>
-      </div>
-    </div>
-
-    <div class="scm-row" style="margin-top:10px;">
-      <div class="scm-field">
-        <label class="label" for="decisionRecommendSelect">Recommended option</label>
-        <select class="select select-sm" id="decisionRecommendSelect"></select>
-      </div>
-      <div class="scm-field"></div>
-    </div>
-
-    <div class="scm-row" style="margin-top:10px;">
-      <div class="scm-field" style="width:100%;">
-        <label class="label" for="decisionWhatTrue">What needs to be true (one per line)</label>
-        <textarea class="input" id="decisionWhatTrue" placeholder="e.g., Contact rate holds at 22%
+</div>
+</div>
+<div aria-hidden="true" class="sc-divider" role="separator" style="margin-top:10px;"></div>
+<div class="scm-row" style="margin-top:10px;">
+<div class="scm-field" style="width:100%;">
+<div class="note" style="margin:0;">Options</div>
+</div>
+</div>
+<div class="scm-row" style="margin-top:10px;">
+<div class="scm-field">
+<label class="label" for="decisionOptionSelect">Option</label>
+<select class="select select-sm" id="decisionOptionSelect"></select>
+</div>
+<div class="scm-field" style="align-self:flex-end;">
+<button class="btn btn-sm" id="btnDecisionOptionNew" type="button">New option</button>
+</div>
+</div>
+<div class="scm-row" style="margin-top:10px;">
+<div class="scm-field">
+<label class="label" for="decisionOptionRename">Rename option</label>
+<input class="input input-sm" id="decisionOptionRename" placeholder="e.g., Path 1: Volunteer-heavy" type="text"/>
+</div>
+<div class="scm-field" style="align-self:flex-end; display:flex; gap:8px; justify-content:flex-end;">
+<button class="btn btn-sm btn-ghost" id="btnDecisionOptionRenameSave" type="button">Save</button>
+<button class="btn btn-sm btn-ghost" id="btnDecisionOptionDelete" type="button">Delete</button>
+</div>
+</div>
+<div class="scm-row" style="margin-top:10px;">
+<div class="scm-field" style="width:100%; display:flex; gap:10px; justify-content:space-between; align-items:flex-end;">
+<div class="muted" id="decisionOptionScenarioLabel" style="font-size:12px;">—</div>
+<button class="btn btn-sm btn-ghost" id="btnDecisionOptionLinkScenario" type="button">Link option to active scenario</button>
+</div>
+</div>
+<div class="scm-row" style="margin-top:10px;">
+<div class="scm-field" style="width:100%;">
+<div class="muted" style="font-size:12px; margin-bottom:6px;">Tactics tags (UI only)</div>
+<div class="tacticRow">
+<label class="tacticToggle"><input id="decisionOptionTacticDoors" type="checkbox"/>Doors</label>
+<label class="tacticToggle"><input id="decisionOptionTacticPhones" type="checkbox"/>Phones</label>
+<label class="tacticToggle"><input id="decisionOptionTacticDigital" type="checkbox"/>Digital</label>
+</div>
+</div>
+</div>
+<div aria-hidden="true" class="sc-divider" role="separator" style="margin-top:10px;"></div>
+<div class="scm-row" style="margin-top:10px;">
+<div class="scm-field" style="width:100%;">
+<div class="note" style="margin:0;">Decision Summary</div>
+</div>
+</div>
+<div class="scm-row" style="margin-top:10px;">
+<div class="scm-field" style="width:100%;">
+<div class="note" style="margin:0; display:flex; align-items:center; justify-content:space-between; gap:10px;">
+<span>Assumption Drift</span>
+<span class="tag" id="driftStatusTag">—</span>
+</div>
+</div>
+</div>
+<div class="scm-row" style="margin-top:10px;">
+<div class="scm-field" style="width:100%;">
+<div class="kpis" style="grid-template-columns:1fr 1fr 1fr;">
+<div class="mini">
+<div class="mini-k">Required attempts/week</div>
+<div class="mini-v" id="driftReq">—</div>
+<div class="mini-s" id="driftReqNote">From current assumptions</div>
+</div>
+<div class="mini">
+<div class="mini-k">Actual attempts (last 7)</div>
+<div class="mini-v" id="driftActual">—</div>
+<div class="mini-s" id="driftActualNote">From daily log</div>
+</div>
+<div class="mini">
+<div class="mini-k">Delta</div>
+<div class="mini-v" id="driftDelta">—</div>
+<div class="mini-s" id="driftDeltaNote">Actual vs required</div>
+</div>
+</div>
+</div>
+</div>
+<div class="scm-row" style="margin-top:10px;">
+<div class="scm-field" style="width:100%;">
+<div class="banner" id="driftSlipBanner">—</div>
+</div>
+</div>
+<div class="scm-row" style="margin-top:10px;">
+<div class="scm-field" style="width:100%;">
+<div class="note" style="margin:0; display:flex; align-items:center; justify-content:space-between; gap:10px;">
+<span>Risk Framing</span>
+<span class="tag" id="riskBandTag">—</span>
+</div>
+</div>
+</div>
+<div class="scm-row" style="margin-top:10px;">
+<div class="scm-field" style="width:100%;">
+<div class="kpis" style="grid-template-columns:1fr 1fr 1fr;">
+<div class="mini">
+<div class="mini-k">Win probability</div>
+<div class="mini-v" id="riskWinProb">—</div>
+<div class="mini-s">From Monte Carlo</div>
+</div>
+<div class="mini">
+<div class="mini-k">Expected margin band</div>
+<div class="mini-v" id="riskMarginBand">—</div>
+<div class="mini-s">Central interval</div>
+</div>
+<div class="mini">
+<div class="mini-k">Volatility</div>
+<div class="mini-v" id="riskVolatility">—</div>
+<div class="mini-s">Range width</div>
+</div>
+</div>
+</div>
+</div>
+<div class="scm-row" style="margin-top:10px;">
+<div class="scm-field" style="width:100%;">
+<div class="banner" id="riskPlainBanner">—</div>
+</div>
+</div>
+<div class="scm-row" style="margin-top:10px;">
+<div class="scm-field" style="width:100%;">
+<div class="note" style="margin:0; display:flex; align-items:center; justify-content:space-between; gap:10px;">
+<span>Bottleneck Attribution</span>
+<span class="tag" id="bneckTag">—</span>
+</div>
+</div>
+</div>
+<div class="scm-row" style="margin-top:10px;">
+<div class="scm-field" style="width:100%;">
+<div class="kpis" style="grid-template-columns:1fr 1fr;">
+<div class="mini">
+<div class="mini-k">Primary</div>
+<div class="mini-v" id="bneckPrimary">—</div>
+<div class="mini-s">What is binding now</div>
+</div>
+<div class="mini">
+<div class="mini-k">Secondary</div>
+<div class="mini-v" id="bneckSecondary">—</div>
+<div class="mini-s">Next-most binding</div>
+</div>
+</div>
+</div>
+</div>
+<div class="scm-row" style="margin-top:10px;">
+<div class="scm-field" style="width:100%;">
+<div class="tableWrap" style="overflow:auto;">
+<table class="table" style="min-width:640px;">
+<thead>
+<tr>
+<th>Constraint</th>
+<th class="num">If +10%</th>
+<th class="muted">Notes</th>
+</tr>
+</thead>
+<tbody id="bneckTbody"></tbody>
+</table>
+</div>
+<div class="muted" id="bneckWarn" style="font-size:12px; margin-top:8px;">—</div>
+</div>
+</div>
+<div class="scm-row" style="margin-top:10px;">
+<div class="scm-field" style="width:100%;">
+<div class="note" style="margin:0; display:flex; align-items:center; justify-content:space-between; gap:10px;">
+<span>Sensitivity Snapshot</span>
+<div style="display:flex; align-items:center; gap:8px;">
+<span class="tag" id="sensTag">—</span>
+<button class="btn btn-sm btn-ghost" id="btnSensRun" type="button">Run snapshot</button>
+</div>
+</div>
+</div>
+</div>
+<div class="scm-row" style="margin-top:10px;">
+<div class="scm-field" style="width:100%;">
+<div class="tableWrap" style="overflow:auto;">
+<table class="table" style="min-width:640px;">
+<thead>
+<tr>
+<th>Perturbation</th>
+<th class="num">Δ win prob</th>
+<th class="num">Δ p50 margin</th>
+<th class="muted">Notes</th>
+</tr>
+</thead>
+<tbody id="sensTbody"></tbody>
+</table>
+</div>
+<div class="banner" id="sensBanner" style="margin-top:10px;">—</div>
+</div>
+</div>
+<div class="scm-row" style="margin-top:10px;">
+<div class="scm-field" style="width:100%;">
+<div class="note" style="margin:0; display:flex; align-items:center; justify-content:space-between; gap:10px;">
+<span>Decision Confidence</span>
+<span class="tag" id="confTag">—</span>
+</div>
+</div>
+</div>
+<div class="scm-row" style="margin-top:10px;">
+<div class="scm-field" style="width:100%;">
+<div class="kpis" style="grid-template-columns:1fr 1fr 1fr 1fr;">
+<div class="mini">
+<div class="mini-k">Execution pace</div>
+<div class="mini-v" id="confExec">—</div>
+<div class="mini-s">From daily log</div>
+</div>
+<div class="mini">
+<div class="mini-k">Risk band</div>
+<div class="mini-v" id="confRisk">—</div>
+<div class="mini-s">From Monte Carlo</div>
+</div>
+<div class="mini">
+<div class="mini-k">Constraint tightness</div>
+<div class="mini-v" id="confTight">—</div>
+<div class="mini-s">Timeline/budget/capacity</div>
+</div>
+<div class="mini">
+<div class="mini-k">Scenario divergence</div>
+<div class="mini-v" id="confDiv">—</div>
+<div class="mini-s">Baseline vs active</div>
+</div>
+</div>
+</div>
+</div>
+<div class="scm-row" style="margin-top:10px;">
+<div class="scm-field" style="width:100%;">
+<div class="banner" id="confBanner">—</div>
+</div>
+</div>
+<div class="scm-row" style="margin-top:10px;">
+<div class="scm-field">
+<label class="label" for="decisionRecommendSelect">Recommended option</label>
+<select class="select select-sm" id="decisionRecommendSelect"></select>
+</div>
+<div class="scm-field"></div>
+</div>
+<div class="scm-row" style="margin-top:10px;">
+<div class="scm-field" style="width:100%;">
+<label class="label" for="decisionWhatTrue">What needs to be true (one per line)</label>
+<textarea class="input" id="decisionWhatTrue" placeholder="e.g., Contact rate holds at 22%
 Volunteer multiplier stays above 1.5" rows="4"></textarea>
-      </div>
-    </div>
-
-    <div class="scm-row" style="margin-top:10px;">
-      <div class="scm-field" style="width:100%;">
-        <label class="label" for="decisionSummaryPreview">Client-ready summary (preview)</label>
-        <textarea class="input mono" id="decisionSummaryPreview" readonly rows="14"></textarea>
-      </div>
-    </div>
-    <div class="scm-row" style="margin-top:10px;">
-      <div class="scm-field" style="width:100%; display:flex; gap:8px; flex-wrap:wrap; justify-content:flex-end; align-items:center;">
-        <div class="muted" id="decisionCopyStatus" style="margin-right:auto; font-size:12px;"></div>
-        <button class="btn btn-sm btn-ghost" id="btnDecisionCopyMd" type="button">Copy markdown</button>
-        <button class="btn btn-sm btn-ghost" id="btnDecisionCopyText" type="button">Copy text</button>
-        <button class="btn btn-sm btn-ghost" id="btnDecisionDownloadJson" type="button">Download JSON</button>
-      </div>
-    </div>
-
-      </div>
-    </section>
-
-    <!-- ── STAGE: integrity ── -->
-    <section class="stage-new" id="stage-integrity">
-      <div class="stage-header-new">
-        <div class="stage-meta-new">
-          <span class="stage-tag-new">Integrity</span>
-          <span class="stage-title-new">Integrity &amp; export</span>
-        </div>
-        <p class="stage-sub-new">Snapshot hash, import/export, and data integrity. Ensures an exported scenario re-imports to the same result.</p>
-      </div>
-      <div class="stage-body-new">
-        <div class="card card-section">
-          <div class="card-head card-header"><h2 class="card-title">Snapshot integrity</h2></div>
-          <div class="card-body-inner">
-            <div class="field"><label class="label" for="snapshotHashInput">Snapshot hash</label><input class="input" id="snapshotHashInput" readonly type="text"/></div>
-            <div class="banner warn" hidden id="importHashBanner2">Snapshot hash differs.</div>
-          </div>
-        </div>
-      </div>
-    </section>
-
-  </main><!-- /stage-main-new -->
-
-  <!-- RIGHT: Persistent results sidebar -->
-  <aside class="results-sidebar-new" aria-label="Win path results">
-
-    <!-- WIN PATH KPIs (existing IDs, just repositioned) -->
-    <div class="sidebar-section-new">
-      <div class="sidebar-label-new">Win path — expected</div>
-      <div class="win-stat-new">
-        <span class="win-stat-label-new">Turnout votes</span>
-        <span class="win-stat-val-new" id="kpiTurnoutVotes-sidebar">—</span>
-        <span class="win-stat-sub-new" id="kpiTurnoutBand-sidebar">—</span>
-      </div>
-      <div class="win-stat-new">
-        <span class="win-stat-label-new">Win threshold</span>
-        <span class="win-stat-val-new" id="kpiWinThreshold-sidebar">—</span>
-      </div>
-      <div class="win-stat-new">
-        <span class="win-stat-label-new">Your projected votes</span>
-        <span class="win-stat-val-new" id="kpiYourVotes-sidebar">—</span>
-        <span class="win-stat-sub-new" id="kpiYourVotesShare-sidebar">—</span>
-      </div>
-      <div class="win-stat-new">
-        <span class="win-stat-label-new">Persuasion votes needed</span>
-        <span class="win-stat-val-new" id="kpiPersuasionNeed-sidebar">—</span>
-        <span class="win-stat-sub-new" id="kpiPersuasionStatus-sidebar">—</span>
-      </div>
-    </div>
-
-    <!-- MC WIN PROBABILITY -->
-    <div class="sidebar-section-new">
-      <div class="sidebar-label-new">Monte Carlo — win probability</div>
-      <div class="mc-prob-row-new">
-        <span class="mc-prob-val-new" id="mcWinProb-sidebar">—</span>
-        <span class="mc-prob-sub-new">simulated</span>
-      </div>
-      <svg class="prob-bar-new" id="svgWinProb" width="300" height="14" viewBox="0 0 300 14" role="img" aria-label="Win probability">
-        <rect x="0" y="6" width="300" height="2" rx="1" class="viz-track" />
-        <circle id="svgWinProbMarker" cx="0" cy="7" r="5" class="viz-marker" />
-      </svg>
-      <div class="muted" style="font-size:11px; margin-top:6px;" id="vizWinProbNote">—</div>
-      <div class="prob-range-new">
-        <span id="mcP10-sidebar">P10: —</span>
-        <span id="mcP50-sidebar">Median: —</span>
-        <span id="mcP90-sidebar">P90: —</span>
-      </div>
-      <div class="mc-meta-new">
-        <span id="mcFreshTag-sidebar">—</span> &nbsp;|&nbsp; <span id="mcLastRun-sidebar">—</span>
-      </div>
-      <div class="banner warn" hidden id="mcStale-sidebar">Results may be stale — re-run Monte Carlo</div>
-      <div style="margin-top:8px; display:flex; gap:6px;">
-        <button class="btn btn-sm" id="mcRun-sidebar" type="button">Run Monte Carlo</button>
-        <button class="btn btn-sm btn-ghost" id="mcRerun-sidebar" type="button">Re-run</button>
-      </div>
-    </div>
-
-    <!-- VALIDATION CHECKS -->
-    <div class="sidebar-section-new">
-      <div class="sidebar-label-new">Input validation</div>
-      <ul class="validation" id="validationList-sidebar"></ul>
-    </div>
-
-    <!-- EARLY VOTE MINI -->
-    <div class="sidebar-section-new">
-      <div class="sidebar-label-new">Early &amp; election day split</div>
-      <div class="kv-mini-new"><span>Early votes (expected)</span><span id="miniEarlyVotes-sidebar">—</span></div>
-      <div class="kv-mini-new"><span>Election day votes</span><span id="miniEDVotes-sidebar">—</span></div>
-      <div class="kv-mini-new"><span>Note</span><span id="miniEarlyNote-sidebar">—</span></div>
-      <div class="kv-mini-new"><span>Persuasion universe</span><span id="miniPersUniverse-sidebar">—</span></div>
-      <div class="kv-mini-new"><span>Universe check</span><span id="miniPersCheck-sidebar">—</span></div>
-    </div>
-
-    <!-- RISK TAG -->
-    <div class="sidebar-section-new">
-      <div class="sidebar-label-new">Risk framing</div>
-      <div style="display:flex; align-items:center; gap:8px; margin-bottom:6px;">
-        <span class="badge" id="riskBandTag-sidebar">—</span>
-        <span class="muted" style="font-size:11px;" id="riskWinProb-sidebar">—</span>
-      </div>
-      <svg id="svgMargin" width="300" height="88" viewBox="0 0 300 88" role="img" aria-label="Margin distribution" style="margin:8px 0 6px;">
-        <g id="svgMarginWinShade"></g>
-        <g id="svgMarginBars"></g>
-        <line id="svgMarginZero" x1="150" y1="12" x2="150" y2="76" class="viz-zero" />
-      </svg>
-      <div class="prob-range-new" style="margin-bottom:8px;">
-        <span id="svgMarginMin">—</span>
-        <span id="svgMarginMax">—</span>
-      </div>
-      <div class="kv-mini-new"><span>Margin band</span><span id="riskMarginBand-sidebar">—</span></div>
-      <div class="kv-mini-new"><span>Volatility</span><span id="riskVolatility-sidebar">—</span></div>
-      <div class="banner" id="riskPlainBanner-sidebar" hidden></div>
-    </div>
-
-    <!-- SNAPSHOT HASH -->
-    <div class="sidebar-section-new" style="margin-top:auto; border-top: 1px solid var(--rule);">
-      <div class="sidebar-label-new">Snapshot hash</div>
-      <div class="kv-mini-new dim-text"><span id="snapshotHash-sidebar">—</span></div>
-    </div>
-
-  </aside>
-
-</div><!-- /app-shell -->
-
+</div>
+</div>
+<div class="scm-row" style="margin-top:10px;">
+<div class="scm-field" style="width:100%;">
+<label class="label" for="decisionSummaryPreview">Client-ready summary (preview)</label>
+<textarea class="input mono" id="decisionSummaryPreview" readonly="" rows="14"></textarea>
+</div>
+</div>
+<div class="scm-row" style="margin-top:10px;">
+<div class="scm-field" style="width:100%; display:flex; gap:8px; flex-wrap:wrap; justify-content:flex-end; align-items:center;">
+<div class="muted" id="decisionCopyStatus" style="margin-right:auto; font-size:12px;"></div>
+<button class="btn btn-sm btn-ghost" id="btnDecisionCopyMd" type="button">Copy markdown</button>
+<button class="btn btn-sm btn-ghost" id="btnDecisionCopyText" type="button">Copy text</button>
+<button class="btn btn-sm btn-ghost" id="btnDecisionDownloadJson" type="button">Download JSON</button>
+</div>
+</div>
+</div>
+</section>
+<!-- ── STAGE: integrity ── -->
+<section class="stage-new" id="stage-integrity">
+<div class="stage-header-new">
+<div class="stage-meta-new">
+<span class="stage-tag-new">Integrity</span>
+<span class="stage-title-new">Integrity &amp; export</span>
+</div>
+<p class="stage-sub-new">Snapshot hash, import/export, and data integrity. Ensures an exported scenario re-imports to the same result.</p>
+</div>
+<div class="stage-body-new">
+<div class="card card-section">
+<div class="card-head card-header"><h2 class="card-title">Snapshot integrity</h2></div>
+<div class="card-body-inner">
+<div class="field"><label class="label" for="snapshotHashInput">Snapshot hash</label><input class="input" id="snapshotHashInput" readonly="" type="text"/></div>
+<div class="banner warn" hidden="" id="importHashBanner2">Snapshot hash differs.</div>
+</div>
+</div>
+</div>
+</section>
+<!-- /stage-main-new -->
+<!-- RIGHT: Persistent results sidebar -->
+<aside aria-label="Win path results" class="results-sidebar-new">
+<!-- WIN PATH KPIs (existing IDs, just repositioned) -->
+<div class="sidebar-section-new">
+<div class="sidebar-label-new">Win path — expected</div>
+<div class="win-stat-new">
+<span class="win-stat-label-new">Turnout votes</span>
+<span class="win-stat-val-new" id="kpiTurnoutVotes-sidebar">—</span>
+<span class="win-stat-sub-new" id="kpiTurnoutBand-sidebar">—</span>
+</div>
+<div class="win-stat-new">
+<span class="win-stat-label-new">Win threshold</span>
+<span class="win-stat-val-new" id="kpiWinThreshold-sidebar">—</span>
+</div>
+<div class="win-stat-new">
+<span class="win-stat-label-new">Your projected votes</span>
+<span class="win-stat-val-new" id="kpiYourVotes-sidebar">—</span>
+<span class="win-stat-sub-new" id="kpiYourVotesShare-sidebar">—</span>
+</div>
+<div class="win-stat-new">
+<span class="win-stat-label-new">Persuasion votes needed</span>
+<span class="win-stat-val-new" id="kpiPersuasionNeed-sidebar">—</span>
+<span class="win-stat-sub-new" id="kpiPersuasionStatus-sidebar">—</span>
+</div>
+</div>
+<!-- MC WIN PROBABILITY -->
+<div class="sidebar-section-new">
+<div class="sidebar-label-new">Monte Carlo — win probability</div>
+<div class="mc-prob-row-new">
+<span class="mc-prob-val-new" id="mcWinProb-sidebar">—</span>
+<span class="mc-prob-sub-new">simulated</span>
+</div>
+<svg aria-label="Win probability" class="prob-bar-new" height="14" id="svgWinProb" role="img" viewbox="0 0 300 14" width="300">
+<rect class="viz-track" height="2" rx="1" width="300" x="0" y="6"></rect>
+<circle class="viz-marker" cx="0" cy="7" id="svgWinProbMarker" r="5"></circle>
+</svg>
+<div class="muted" id="vizWinProbNote" style="font-size:11px; margin-top:6px;">—</div>
+<div class="prob-range-new">
+<span id="mcP10-sidebar">P10: —</span>
+<span id="mcP50-sidebar">Median: —</span>
+<span id="mcP90-sidebar">P90: —</span>
+</div>
+<div class="mc-meta-new">
+<span id="mcFreshTag-sidebar">—</span>  |  <span id="mcLastRun-sidebar">—</span>
+</div>
+<div class="banner warn" hidden="" id="mcStale-sidebar">Results may be stale — re-run Monte Carlo</div>
+<div style="margin-top:8px; display:flex; gap:6px;">
+<button class="btn btn-sm" id="mcRun-sidebar" type="button">Run Monte Carlo</button>
+<button class="btn btn-sm btn-ghost" id="mcRerun-sidebar" type="button">Re-run</button>
+</div>
+</div>
+<!-- VALIDATION CHECKS -->
+<div class="sidebar-section-new">
+<div class="sidebar-label-new">Input validation</div>
+<ul class="validation" id="validationList-sidebar"></ul>
+</div>
+<!-- EARLY VOTE MINI -->
+<div class="sidebar-section-new">
+<div class="sidebar-label-new">Early &amp; election day split</div>
+<div class="kv-mini-new"><span>Early votes (expected)</span><span id="miniEarlyVotes-sidebar">—</span></div>
+<div class="kv-mini-new"><span>Election day votes</span><span id="miniEDVotes-sidebar">—</span></div>
+<div class="kv-mini-new"><span>Note</span><span id="miniEarlyNote-sidebar">—</span></div>
+<div class="kv-mini-new"><span>Persuasion universe</span><span id="miniPersUniverse-sidebar">—</span></div>
+<div class="kv-mini-new"><span>Universe check</span><span id="miniPersCheck-sidebar">—</span></div>
+</div>
+<!-- RISK TAG -->
+<div class="sidebar-section-new">
+<div class="sidebar-label-new">Risk framing</div>
+<div style="display:flex; align-items:center; gap:8px; margin-bottom:6px;">
+<span class="badge" id="riskBandTag-sidebar">—</span>
+<span class="muted" id="riskWinProb-sidebar" style="font-size:11px;">—</span>
+</div>
+<svg aria-label="Margin distribution" height="88" id="svgMargin" role="img" style="margin:8px 0 6px;" viewbox="0 0 300 88" width="300">
+<g id="svgMarginWinShade"></g>
+<g id="svgMarginBars"></g>
+<line class="viz-zero" id="svgMarginZero" x1="150" x2="150" y1="12" y2="76"></line>
+</svg>
+<div class="prob-range-new" style="margin-bottom:8px;">
+<span id="svgMarginMin">—</span>
+<span id="svgMarginMax">—</span>
+</div>
+<div class="kv-mini-new"><span>Margin band</span><span id="riskMarginBand-sidebar">—</span></div>
+<div class="kv-mini-new"><span>Volatility</span><span id="riskVolatility-sidebar">—</span></div>
+<div class="banner" hidden="" id="riskPlainBanner-sidebar"></div>
+</div>
+<!-- SNAPSHOT HASH -->
+<div class="sidebar-section-new" style="margin-top:auto; border-top: 1px solid var(--rule);">
+<div class="sidebar-label-new">Snapshot hash</div>
+<div class="kv-mini-new dim-text"><span id="snapshotHash-sidebar">—</span></div>
+</div>
+</aside>
+<!-- /app-shell -->
 <script src="./js/app.js?v=20260222-d4" type="module"></script>
 <script>
 // ── Stage navigation ───────────────────────────────────────────
@@ -2727,5 +2604,5 @@ document.addEventListener('DOMContentLoaded', function(){
 </div>
 </div>
 </div>
-</body>
+</aside></body>
 </html>
