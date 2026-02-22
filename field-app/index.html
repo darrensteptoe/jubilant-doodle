@@ -9,44 +9,79 @@
 <meta content="strict-origin-when-cross-origin" name="referrer"/>
 <meta content="light dark" name="color-scheme"/>
 <link href="./styles.css" rel="stylesheet"/>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<link href="./styles-shell.css" rel="stylesheet"/>
+
 </head>
 <body>
-<header class="topbar">
-<div class="brand">
-<div class="brand-title">Field Path Engine <span class="chip">v1.0</span> <span class="chip chip-subtle" id="buildStamp">build</span> <span class="badge badge-unverified" id="selfTestGate">UNVERIFIED</span></div>
-<div class="brand-sub">Darren Steptoe Consulting — Internal Use Only</div>
-</div>
-<div class="topbar-actions">
-<input hidden="" id="toggleDark" type="checkbox"/>
-<div class="toolbar">
-<label class="switch">
-<input id="toggleTraining" type="checkbox"/>
-<span class="slider"></span>
-<span class="switch-label">Training</span>
-</label>
-<span class="divider"> </span>
-<select class="input input-sm" id="restoreBackup" title="Restore one of the last 5 auto-backups">
-<option value="">Restore backup…</option>
-</select>
-<label class="switch">
-<input id="toggleStrictImport" type="checkbox"/>
-<span class="slider"></span>
-<span class="switch-label">Strict import</span>
-</label>
-<span class="divider"> </span>
-<button class="btn btn-sm btn-ghost" id="btnCopySummary" type="button">Copy Summary</button>
-<span class="divider"> </span>
-<button class="btn btn-sm btn-ghost" id="btnExportCsv" type="button">Export Plan CSV</button>
-<span class="divider"> </span>
-<button class="btn btn-sm btn-ghost" id="btnDiagnostics" type="button">Diagnostics</button>
-<span class="divider"> </span>
-<button class="btn btn-sm btn-ghost" id="btnResetAll" title="Reset all fields" type="button">Reset</button>
-</div>
-</div>
+<header class="topbar-new">
+  <div class="brand-new">
+    <span class="brand-name-new">Field Path Engine</span>
+    <span class="chip-new chip-subtle" id="buildStamp">build</span>
+    <span class="chip-new chip-status" id="selfTestGate">UNVERIFIED</span>
+  </div>
+
+  <div class="topbar-right">
+    <label class="toggle-pill" title="Show training explanations for each section">
+      <input id="toggleTraining" type="checkbox" hidden/>
+      <span class="toggle-dot-new"></span>
+      Training
+    </label>
+
+    <div class="divider-new"></div>
+
+    <select class="btn-top-new" id="restoreBackup" title="Restore one of the last 5 auto-backups">
+      <option value="">Restore backup…</option>
+    </select>
+
+    <label class="toggle-pill" title="Strict import mode">
+      <input id="toggleStrictImport" type="checkbox" hidden/>
+      <span class="toggle-dot-new"></span>
+      Strict import
+    </label>
+
+    <div class="divider-new"></div>
+
+    <button class="btn-top-new" id="btnCopySummary" type="button">Copy Summary</button>
+    <button class="btn-top-new" id="btnExportCsv" type="button">Export Plan CSV</button>
+    <button class="btn-top-new" id="btnDiagnostics" type="button">Diagnostics</button>
+    <button class="btn-top-new btn-top-danger" id="btnResetAll" type="button">Reset</button>
+
+    <input hidden id="toggleDark" type="checkbox"/>
+  </div>
 </header>
 <div class="banner warn" hidden="" id="importHashBanner">Snapshot hash differs from exported hash.</div>
 <div class="banner warn" hidden="" id="importWarnBanner"></div>
 <main class="shell">
+  <div class="app-shell">
+    <nav class="stage-nav-new" aria-label="Stages">
+      <div class="nav-group-label-new">Stages</div>
+      <button class="nav-item-new active" type="button" data-stage="inputs">
+        <span class="nav-num-new">1</span>
+        <span class="nav-label-new">Inputs</span>
+      </button>
+      <button class="nav-item-new" type="button" data-stage="results">
+        <span class="nav-num-new">2</span>
+        <span class="nav-label-new">Results</span>
+      </button>
+      <div class="nav-sep-new"></div>
+      <a class="nav-item-new" href="organizer.html">
+        <span class="nav-num-new">↗</span>
+        <span class="nav-label-new">Organizer log</span>
+      </a>
+    </nav>
+
+    <div class="stage-main-new">
+      <section class="stage-new active-stage" data-stage="inputs">
+        <header class="stage-header-new">
+          <div class="stage-meta-new">
+            <span class="stage-tag-new">Stage 1</span>
+            <div class="stage-title-new">Inputs</div>
+          </div>
+          <div class="stage-sub-new">Define the race and assumptions.</div>
+        </header>
+        <div class="stage-body-new">
 <section class="left"><div class="section-header"><div class="section-header-title">Setup</div><div class="section-header-sub">Define the race &amp; your assumptions.</div></div>
 
 
@@ -595,6 +630,18 @@
 </details>
 <div class="note">This layer weights persuasion and turnout reliability by party composition and applies a single retention factor. It is aggregate-only (not a CRM).</div>
 </div></section>
+        </div>
+      </section>
+
+      <section class="stage-new" data-stage="results">
+        <header class="stage-header-new">
+          <div class="stage-meta-new">
+            <span class="stage-tag-new">Stage 2</span>
+            <div class="stage-title-new">Results</div>
+          </div>
+          <div class="stage-sub-new">Build a feasible plan and interpret risk.</div>
+        </header>
+        <div class="stage-body-new">
 <section class="right"><div class="section-header"><div class="section-header-title">Plan</div><div class="section-header-sub">Build a feasible plan, then interpret risk &amp; sensitivity.</div></div>
 <nav aria-label="Output tabs" class="tabs">
 <button class="tab active" data-tab="win">Results</button>
@@ -2160,7 +2207,12 @@ Volunteer multiplier stays above 1.5" rows="4"></textarea>
 </div>
 
 </aside>
+        </div>
+      </section>
+    </div>
+  </div>
 </main>
+<script type="module" src="./js/shell.js"></script>
 <script src="./js/app.js?v=20260222-d4" type="module"></script>
 <div class="modal" hidden="" id="diagModal">
 <div class="modal-backdrop" data-close="1"></div>
