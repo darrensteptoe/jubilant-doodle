@@ -5406,10 +5406,14 @@ function wireSensitivitySurface(){
 }
 
 function initTabs(){
-  const tab = state.ui?.activeTab || "win";
+  let tab = state.ui?.activeTab || "win";
+  if (!document.getElementById(`tab-${tab}`)) tab = "win";
+  if (!state.ui) state.ui = {};
+  state.ui.activeTab = tab;
   document.querySelectorAll(".tab").forEach(b => b.classList.toggle("active", b.getAttribute("data-tab") === tab));
   document.querySelectorAll(".panel").forEach(p => p.classList.remove("active"));
-  document.getElementById(`tab-${tab}`).classList.add("active");
+  const panel = document.getElementById(`tab-${tab}`);
+  if (panel) panel.classList.add("active");
 }
 
 function initExplainCard(){
