@@ -1,16 +1,16 @@
-import { engine } from "./engine.js";
-import { computeCapacityContacts as coreComputeCapacityContacts, computeCapacityBreakdown as coreComputeCapacityBreakdown } from "./core/model.js";
-import { normalizeUniversePercents, UNIVERSE_DEFAULTS } from "./core/universeLayer.js";
-import { computeAvgLiftPP } from "./core/turnout.js";
-import { fmtInt, clamp, safeNum, daysBetween, downloadJson, readJsonFile } from "./utils.js";
-import { makeRng } from "./core/rng.js";
-import { wireInput, wireSelect, wireCheckbox } from "./ui/wireInput.js";
-import { getEls, wireUI } from "./ui/ui.js";
-import { bindRender, setRenderState, renderAssumptionDriftE1, renderRiskFramingE2, renderBottleneckAttributionE3, renderSensitivitySnapshotE4, renderDecisionConfidenceE5, renderMcFreshness, renderOpsEnvelopeD2, renderFinishEnvelopeD3, renderMissRiskD4, renderDecisionSessionD1, renderDecisionOptionsD3, renderDecisionSummaryD4, renderMcResults, renderMcVisuals } from "./ui/render.js";
-import { loadState, saveState, clearState, readBackups, writeBackupEntry } from "./storage.js";
-import { createScenarioManager } from "./scenarioManager.js";
-import { APP_VERSION, BUILD_ID } from "./build.js";
-import { computeSnapshotHash } from "./hash.js";
+import { engine } from "/js/engine.js";
+import { computeCapacityContacts as coreComputeCapacityContacts, computeCapacityBreakdown as coreComputeCapacityBreakdown } from "/js/core/model.js";
+import { normalizeUniversePercents, UNIVERSE_DEFAULTS } from "/js/core/universeLayer.js";
+import { computeAvgLiftPP } from "/js/core/turnout.js";
+import { fmtInt, clamp, safeNum, daysBetween, downloadJson, readJsonFile } from "/js/utils.js";
+import { makeRng } from "/js/core/rng.js";
+import { wireInput, wireSelect, wireCheckbox } from "/js/ui/wireInput.js";
+import { getEls, wireUI } from "/js/ui/ui.js";
+import { bindRender, setRenderState, renderAssumptionDriftE1, renderRiskFramingE2, renderBottleneckAttributionE3, renderSensitivitySnapshotE4, renderDecisionConfidenceE5, renderMcFreshness, renderOpsEnvelopeD2, renderFinishEnvelopeD3, renderMissRiskD4, renderDecisionSessionD1, renderDecisionOptionsD3, renderDecisionSummaryD4, renderMcResults, renderMcVisuals } from "/js/ui/render.js";
+import { loadState, saveState, clearState, readBackups, writeBackupEntry } from "/js/storage.js";
+import { createScenarioManager } from "/js/scenarioManager.js";
+import { APP_VERSION, BUILD_ID } from "/js/build.js";
+import { computeSnapshotHash } from "/js/hash.js";
 
 function downloadText(text, filename, mime){
   try{

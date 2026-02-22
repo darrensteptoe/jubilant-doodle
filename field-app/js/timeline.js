@@ -1,2 +1,2 @@
 // js/timeline.js
-export * from "./core/timeline.js";
+export * from "/js/core/timeline.js";

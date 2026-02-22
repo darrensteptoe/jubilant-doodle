@@ -1,1 +1,1 @@
-export * from "./core/hash.js";
+export * from "/js/core/hash.js";

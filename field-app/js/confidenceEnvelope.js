@@ -1,1 +1,1 @@
-export * from "./core/confidenceEnvelope.js";
+export * from "/js/core/confidenceEnvelope.js";

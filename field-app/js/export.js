@@ -5,10 +5,10 @@
 // - Does not import optimizer / compute modules
 // - Does not mutate app state
 
-import { computeSnapshotHash } from "./hash.js";
-import { CURRENT_SCHEMA_VERSION } from "./migrate.js";
-import { APP_VERSION, BUILD_ID } from "./build.js";
-import { UNIVERSE_DEFAULTS } from "./universeLayer.js";
+import { computeSnapshotHash } from "/js/hash.js";
+import { CURRENT_SCHEMA_VERSION } from "/js/migrate.js";
+import { APP_VERSION, BUILD_ID } from "/js/build.js";
+import { UNIVERSE_DEFAULTS } from "/js/universeLayer.js";
 
 export const MODEL_VERSION = "1.0.0";
 

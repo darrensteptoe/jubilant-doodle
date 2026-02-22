@@ -1,1 +1,1 @@
-export * from "./core/migrate.js";
+export * from "/js/core/migrate.js";

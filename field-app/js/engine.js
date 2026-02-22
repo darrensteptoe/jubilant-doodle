@@ -2,20 +2,20 @@
 // Field Path Engine 2.0 — Facade API over the sacred core engine.
 // UI must call ONLY this module for computations/optimization/diagnostics/snapshot handling.
 
-import { computeDeterministic as computeAll } from "./core/model.js";
-import { runMonteCarloSim } from "./core/monteCarlo.js";
-import { optimizeMixBudget, optimizeMixCapacity } from "./core/optimize.js";
-import { computeRoiRows, buildOptimizationTactics } from "./core/budget.js";
-import { computeTimelineFeasibility } from "./core/timeline.js";
-import { computeMaxAttemptsByTactic, optimizeTimelineConstrained } from "./core/timelineOptimizer.js";
-import { computeMarginalValueDiagnostics } from "./core/marginalValue.js";
-import { computeDecisionIntelligence } from "./core/decisionIntelligence.js";
-import { computeSensitivitySurface as _computeSensitivitySurface } from "./core/sensitivitySurface.js";
-import { deriveNeedVotes, derivedWeeksRemaining, computeCapacityBreakdown } from "./core/model.js";
+import { computeDeterministic as computeAll } from "/js/core/model.js";
+import { runMonteCarloSim } from "/js/core/monteCarlo.js";
+import { optimizeMixBudget, optimizeMixCapacity } from "/js/core/optimize.js";
+import { computeRoiRows, buildOptimizationTactics } from "/js/core/budget.js";
+import { computeTimelineFeasibility } from "/js/core/timeline.js";
+import { computeMaxAttemptsByTactic, optimizeTimelineConstrained } from "/js/core/timelineOptimizer.js";
+import { computeMarginalValueDiagnostics } from "/js/core/marginalValue.js";
+import { computeDecisionIntelligence } from "/js/core/decisionIntelligence.js";
+import { computeSensitivitySurface as _computeSensitivitySurface } from "/js/core/sensitivitySurface.js";
+import { deriveNeedVotes, derivedWeeksRemaining, computeCapacityBreakdown } from "/js/core/model.js";
 
-import { computeSnapshotHash } from "./core/hash.js";
-import { migrateSnapshot, CURRENT_SCHEMA_VERSION } from "./core/migrate.js";
-import { checkStrictImportPolicy } from "./core/importPolicy.js";
+import { computeSnapshotHash } from "/js/core/hash.js";
+import { migrateSnapshot, CURRENT_SCHEMA_VERSION } from "/js/core/migrate.js";
+import { checkStrictImportPolicy } from "/js/core/importPolicy.js";
 import {
   MODEL_VERSION,
   makeScenarioExport,
@@ -26,14 +26,14 @@ import {
   formatSummaryText,
   copyTextToClipboard,
   hasNonFiniteNumbers,
-} from "./export.js";
+} from "/js/export.js";
 
-import { runSelfTests as _runSelfTests } from "./core/selfTest.js";
-import { gateFromSelfTestResult, SELFTEST_GATE } from "./core/selfTestGate.js";
+import { runSelfTests as _runSelfTests } from "/js/core/selfTest.js";
+import { gateFromSelfTestResult, SELFTEST_GATE } from "/js/core/selfTestGate.js";
 
 // Phase R2 — Risk framing + robust selection (pure, additive)
-import * as risk from "./core/risk.js";
-import * as robust from "./core/robust.js";
+import * as risk from "/js/core/risk.js";
+import * as robust from "/js/core/robust.js";
 
 // Internal: build the engine accessor bundle expected by selfTest + sensitivitySurface.
 function buildAccessors(){

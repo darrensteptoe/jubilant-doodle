@@ -1,1 +1,1 @@
-export * from "./core/sensitivitySurface.js";
+export * from "/js/core/sensitivitySurface.js";

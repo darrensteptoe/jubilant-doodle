@@ -1,1 +1,1 @@
-export * from "./core/marginalValue.js";
+export * from "/js/core/marginalValue.js";

@@ -1,1 +1,1 @@
-export * from "./core/importPolicy.js";
+export * from "/js/core/importPolicy.js";

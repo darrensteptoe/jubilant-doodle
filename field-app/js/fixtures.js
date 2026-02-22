@@ -1,1 +1,1 @@
-export * from "./core/fixtures.js";
+export * from "/js/core/fixtures.js";
