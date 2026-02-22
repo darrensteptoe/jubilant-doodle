@@ -640,5 +640,3 @@ body.training .training-panel-new { display: block; }
   .stage-nav-new { width: 48px; }
   .nav-label-new, .nav-group-label-new, .nav-sep-new + .nav-group-label-new { display: none; }
 }
-
-#stage-gotv .stage-header-new{border-bottom:none}

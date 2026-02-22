@@ -59,32 +59,26 @@
 </button><button class="nav-item-new" data-stage="universe" onclick="switchStage(this, 'universe')">
 <span class="nav-num-new" data-num="2">2</span>
 <span class="nav-label-new">Universe</span>
-</button><button class="nav-item-new" data-stage="target" onclick="switchStage(this, 'target')">
-<span class="nav-num-new" data-num="3">3</span>
-<span class="nav-label-new">Target baseline</span>
 </button><button class="nav-item-new" data-stage="structure" onclick="switchStage(this, 'structure')">
-<span class="nav-num-new" data-num="4">4</span>
-<span class="nav-label-new">Electorate structure</span>
-</button><button class="nav-item-new" data-stage="persuadable" onclick="switchStage(this, 'persuadable')">
-<span class="nav-num-new" data-num="5">5</span>
-<span class="nav-label-new">Persuadable universe</span>
-</button><div class="nav-group-label-new">Strategy</div><button class="nav-item-new" data-stage="ballot" onclick="switchStage(this, 'ballot')">
 <span class="nav-num-new" data-num="6">6</span>
+<span class="nav-label-new">Electorate structure</span>
+</button><div class="nav-group-label-new">Strategy</div><button class="nav-item-new" data-stage="ballot" onclick="switchStage(this, 'ballot')">
+<span class="nav-num-new" data-num="3">3</span>
 <span class="nav-label-new">Ballot test</span>
 </button><button class="nav-item-new" data-stage="gotv" onclick="switchStage(this, 'gotv')">
-<span class="nav-num-new" data-num="7">7</span>
+<span class="nav-num-new" data-num="5">5</span>
 <span class="nav-label-new">GOTV / turnout</span>
 </button><div class="nav-group-label-new">Execution</div><button class="nav-item-new" data-stage="capacity" onclick="switchStage(this, 'capacity')">
-<span class="nav-num-new" data-num="8">8</span>
-<span class="nav-label-new">Percentage to Goal</span>
+<span class="nav-num-new" data-num="4">4</span>
+<span class="nav-label-new">Capacity</span>
 </button><div class="nav-group-label-new">Analysis</div><button class="nav-item-new" data-stage="results" onclick="switchStage(this, 'results')">
-<span class="nav-num-new" data-num="9">9</span>
+<span class="nav-num-new" data-num="7">7</span>
 <span class="nav-label-new">Results &amp; risk</span>
 </button><button class="nav-item-new" data-stage="roi" onclick="switchStage(this, 'roi')">
-<span class="nav-num-new" data-num="10">10</span>
+<span class="nav-num-new" data-num="8">8</span>
 <span class="nav-label-new">Budget &amp; ROI</span>
 </button><button class="nav-item-new" data-stage="checks" onclick="switchStage(this, 'checks')">
-<span class="nav-num-new" data-num="11">11</span>
+<span class="nav-num-new" data-num="9">9</span>
 <span class="nav-label-new">Checks &amp; guardrails</span>
 </button><div class="nav-group-label-new">Decisions</div><button class="nav-item-new" data-stage="scenarios" onclick="switchStage(this, 'scenarios')">
 <span class="nav-num-new">—</span>
@@ -132,6 +126,10 @@
 </div>
 </div>
 <div class="stage-body-new">
+<!-- EXISTING CONTENT: Scenario card -->
+<div class="card card-section phase-setup">
+<div class="card-head card-header"><h2 class="card-title">Scenario</h2></div>
+</div>
 <div class="grid2">
 <div class="field">
 <label class="label" for="raceType">Race template</label>
@@ -207,6 +205,9 @@
 </div>
 </div>
 <div class="stage-body-new">
+<div class="card-head card-header">
+<h2 class="card-title">Universe (registration or expected voters)</h2>
+<div class="help-text">Define the size of the electorate you’re modeling (registration or expected voters). Be consistent with turnout assumptions.</div></div>
 <div class="grid2">
 <div class="field">
 <label class="label" for="universeBasis">Universe basis</label>
@@ -232,66 +233,14 @@
 <input class="input" id="sourceNote" placeholder="e.g., VAN export dated 2026-02-01 or Elections dept file" type="text"/>
 </div>
 </div>
-</section>
-<!-- ── STAGE: target baseline ── -->
-<section class="stage-new" id="stage-target">
-<div class="stage-header-new">
-<div class="stage-meta-new">
-<span class="stage-tag-new">Stage 3</span>
-<span class="stage-title-new">Target baseline</span>
+</div><div class="card card-section phase-candidates">
 </div>
-<p class="stage-sub-new">Set turnout baseline and uncertainty band. This drives volatility in simulation.</p>
-</div>
-<div class="stage-body-new">
-<div class="card card-section phase-p3">
-<div class="card-head card-header">
-<h2 class="card-title">Turnout baseline (recent comparable cycles)</h2>
-<div class="help-text">Use two recent comparable cycles to set a baseline and uncertainty band. This drives volatility in simulation.</div></div>
-<div class="grid3">
-<div class="field">
-<label class="label" for="turnoutA">Cycle A turnout %</label>
-<input class="input" id="turnoutA" max="100" min="0" placeholder="e.g., 39" step="0.1" type="number"/>
-<div class="help" data-help="Comparable cycle means similar election type (midterm vs presidential; primary vs general).">
-<span class="help-title">If unsure</span>
-<span class="help-text">Pick the closest two cycles by election type and district boundaries.</span>
-</div>
-</div>
-<div class="field">
-<label class="label" for="turnoutB">Cycle B turnout %</label>
-<input class="input" id="turnoutB" max="100" min="0" placeholder="e.g., 43" step="0.1" type="number"/>
-</div>
-<div class="field">
-<label class="label" for="bandWidth">Band width (±)</label>
-<input class="input" id="bandWidth" max="25" min="0" placeholder="e.g., 4" step="0.5" type="number"/>
-<div class="help" data-help="Creates Best/Expected/Worst turnout scenarios around your 2-cycle average.">
-<span class="help-title">Typical</span>
-<span class="help-text">±3 to ±5 is common. Keep it modest unless a unique cycle is expected.</span>
-</div>
-</div>
-<div class="field span3 inline-metrics">
-<div class="metric">
-<div class="metric-k">Expected turnout %</div>
-<div class="metric-v" id="turnoutExpected">—</div>
-</div>
-<div class="metric">
-<div class="metric-k">Best / Worst turnout %</div>
-<div class="metric-v" id="turnoutBand">—</div>
-</div>
-<div class="metric">
-<div class="metric-k">Votes per 1% turnout</div>
-<div class="metric-v" id="votesPer1pct">—</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</section>
 </section>
 <!-- ── STAGE: ballot ── -->
 <section class="stage-new" id="stage-ballot">
 <div class="stage-header-new">
 <div class="stage-meta-new">
-<span class="stage-tag-new">Stage 6</span>
+<span class="stage-tag-new">Stage 3</span>
 <span class="stage-title-new">Ballot test</span>
 </div>
 <p class="stage-sub-new">Establish baseline support and undecided distribution. Persuasion math has no anchor without this.</p>
@@ -319,7 +268,7 @@
 </div>
 <div class="stage-body-new">
 <div class="card-head card-header">
-<h2 class="card-title">Past Election Results</h2>
+<h2 class="card-title">Ballot test (vote landscape)</h2>
 <div class="card-actions">
 <button class="btn btn-link" id="btnAddCandidate" type="button">Add candidate</button>
 </div>
@@ -373,6 +322,46 @@
 </div>
 </div>
 <div class="banner warn" hidden="" id="candWarn"></div>
+</div><div class="card card-section phase-p3">
+<div class="card-head card-header">
+<h2 class="card-title">Turnout baseline (recent comparable cycles)</h2>
+<div class="help-text">Use two recent comparable cycles to set a baseline and uncertainty band. This drives volatility in simulation.</div></div>
+<div class="grid3">
+<div class="field">
+<label class="label" for="turnoutA">Cycle A turnout %</label>
+<input class="input" id="turnoutA" max="100" min="0" placeholder="e.g., 39" step="0.1" type="number"/>
+<div class="help" data-help="Comparable cycle means similar election type (midterm vs presidential; primary vs general).">
+<span class="help-title">If unsure</span>
+<span class="help-text">Pick the closest two cycles by election type and district boundaries.</span>
+</div>
+</div>
+<div class="field">
+<label class="label" for="turnoutB">Cycle B turnout %</label>
+<input class="input" id="turnoutB" max="100" min="0" placeholder="e.g., 43" step="0.1" type="number"/>
+</div>
+<div class="field">
+<label class="label" for="bandWidth">Band width (±)</label>
+<input class="input" id="bandWidth" max="25" min="0" placeholder="e.g., 4" step="0.5" type="number"/>
+<div class="help" data-help="Creates Best/Expected/Worst turnout scenarios around your 2-cycle average.">
+<span class="help-title">Typical</span>
+<span class="help-text">±3 to ±5 is common. Keep it modest unless a unique cycle is expected.</span>
+</div>
+</div>
+<div class="field span3 inline-metrics">
+<div class="metric">
+<div class="metric-k">Expected turnout %</div>
+<div class="metric-v" id="turnoutExpected">—</div>
+</div>
+<div class="metric">
+<div class="metric-k">Best / Worst turnout %</div>
+<div class="metric-v" id="turnoutBand">—</div>
+</div>
+<div class="metric">
+<div class="metric-k">Votes per 1% turnout</div>
+<div class="metric-v" id="votesPer1pct">—</div>
+</div>
+</div>
+</div>
 </div><div class="card card-section phase-persuasion">
 </div>
 </section>
@@ -380,8 +369,8 @@
 <section class="stage-new" id="stage-capacity">
 <div class="stage-header-new">
 <div class="stage-meta-new">
-<span class="stage-tag-new">Stage 8</span>
-<span class="stage-title-new">Percentage to Goal</span>
+<span class="stage-tag-new">Stage 4</span>
+<span class="stage-title-new">Capacity</span>
 </div>
 <p class="stage-sub-new">Define staff, volunteer capacity, and contact rates. This is the ceiling on your entire plan.</p>
 <div class="training-panel-new" id="train-capacity">
@@ -407,6 +396,28 @@
 </div>
 </div>
 <div class="stage-body-new">
+<div class="card-head card-header">
+<h2 class="card-title">Persuadable universe (movable)</h2>
+</div>
+<div class="grid2">
+<div class="field">
+<label class="label" for="persuasionPct">Persuasion % of universe</label>
+<input class="input" id="persuasionPct" max="100" min="0" placeholder="e.g., 30" step="0.1" type="number"/>
+<div class="help" data-help="A modeling assumption: portion of registered voters who are not locked and could move.">
+<span class="help-title">If unsure</span>
+<span class="help-text">Use 30% for competitive/open; 25% for incumbent race; higher for chaotic municipal fields.</span>
+</div>
+</div>
+<div class="field">
+<label class="label" for="earlyVoteExp">Early vote % of turnout (Expected)</label>
+<input class="input" id="earlyVoteExp" max="100" min="0" placeholder="e.g., 38" step="0.1" type="number"/>
+<div class="help" data-help="Used as a risk lever; later phases will model chase and timeline compression more deeply.">
+<span class="help-title">Risk lever</span>
+<span class="help-text">Higher early vote compresses persuasion window and increases early workload.</span>
+</div>
+</div>
+</div>
+</div>
 <div class="card card-section" id="weeklyOpsCard">
 <div class="card-head card-header">
 <h2 class="card-title">This week plan</h2>
@@ -622,46 +633,11 @@
 <div class="help-text">Field math: Attempts → Contacts (contact rate) → Support IDs (support rate). Used across cost, optimization, and simulation.</div></div>
 </div>
 </section>
-<!-- ── STAGE: persuadable universe ── -->
-<section class="stage-new" id="stage-persuadable">
-<div class="stage-header-new">
-<div class="stage-meta-new">
-<span class="stage-tag-new">Stage 5</span>
-<span class="stage-title-new">Persuadable universe</span>
-</div>
-<p class="stage-sub-new">Define movable universe and early vote share. These set persuasion workload and timeline pressure.</p>
-</div>
-<div class="stage-body-new">
-<div class="card card-section">
-<div class="card-head card-header">
-<h2 class="card-title">Persuadable universe (movable)</h2>
-</div>
-<div class="grid2">
-<div class="field">
-<label class="label" for="persuasionPct">Persuasion % of universe</label>
-<input class="input" id="persuasionPct" max="100" min="0" placeholder="e.g., 30" step="0.1" type="number"/>
-<div class="help" data-help="A modeling assumption: portion of registered voters who are not locked and could move.">
-<span class="help-title">If unsure</span>
-<span class="help-text">Use 30% for competitive/open; 25% for incumbent race; higher for chaotic municipal fields.</span>
-</div>
-</div>
-<div class="field">
-<label class="label" for="earlyVoteExp">Early vote % of turnout (Expected)</label>
-<input class="input" id="earlyVoteExp" max="100" min="0" placeholder="e.g., 38" step="0.1" type="number"/>
-<div class="help" data-help="Used as a risk lever; later phases will model chase and timeline compression more deeply.">
-<span class="help-title">Risk lever</span>
-<span class="help-text">Higher early vote compresses persuasion window and increases early workload.</span>
-</div>
-</div>
-</div>
-</div>
-</div>
-</section>
 <!-- ── STAGE: gotv ── -->
 <section class="stage-new" id="stage-gotv">
 <div class="stage-header-new">
 <div class="stage-meta-new">
-<span class="stage-tag-new">Stage 7</span>
+<span class="stage-tag-new">Stage 5</span>
 <span class="stage-title-new">GOTV / Turnout</span>
 </div>
 <p class="stage-sub-new">Model turnout lift as a lever. GOTV is often the cheapest late-stage tactic when persuasion saturates.</p>
@@ -751,9 +727,10 @@
 <section class="stage-new" id="stage-structure">
 <div class="stage-header-new">
 <div class="stage-meta-new">
-<span class="stage-tag-new">Stage 4</span>
+<span class="stage-tag-new">Stage 6</span>
 <span class="stage-title-new">Electorate structure</span>
 </div>
+<p class="stage-sub-new">Optional realism layer: weight persuasion and turnout by coalition mix and apply a support durability factor.</p>
 <div class="training-panel-new" id="train-structure">
 <div class="training-hd-new" onclick="toggleTrainPanel('train-structure')">
 <span>🎓</span><span class="training-title-new">Training — Electorate Structure</span><span class="training-chev-new">▾</span>
@@ -777,6 +754,9 @@
 </div>
 </div>
 <div class="stage-body-new">
+<div class="card-head card-header" style="margin-bottom:8px;">
+<h2 class="card-title">Electorate structure &amp; support durability</h2>
+<div class="help-text">Optional realism layer: weight persuasion and turnout by coalition mix, and apply a support durability factor. OFF = baseline.</div></div>
 <details>
 <div class="note">Shares are auto-normalized to total 100% if slightly off.</div><summary class="muted" style="cursor:pointer;">Advanced (optional)</summary>
 <div style="margin-top:10px;">
@@ -824,12 +804,15 @@
 </div>
 </details>
 <div class="note">This layer weights persuasion and turnout reliability by party composition and applies a single retention factor. It is aggregate-only (not a CRM).</div>
-</div>
+</div></section>
+<section class="right"><div class="section-header"><div class="section-header-title">Plan</div><div class="section-header-sub">Build a feasible plan, then interpret risk &amp; sensitivity.</div></div>
+
+</section>
 <!-- ── STAGE: results ── -->
 <section class="stage-new" id="stage-results">
 <div class="stage-header-new">
 <div class="stage-meta-new">
-<span class="stage-tag-new">Stage 9</span>
+<span class="stage-tag-new">Stage 7</span>
 <span class="stage-title-new">Results &amp; risk</span>
 </div>
 <p class="stage-sub-new">Win path, Monte Carlo stress test, sensitivity analysis, and risk framing. This is the payoff.</p>
@@ -857,6 +840,11 @@
 </div>
 </div>
 <div class="stage-body-new">
+<nav aria-label="Output tabs" class="tabs">
+<button class="tab active" data-tab="win">Results</button>
+<button class="tab" data-tab="assumptions">Checks</button>
+<button class="tab" data-tab="roi">Plan</button>
+</nav>
 <section class="panel active" id="tab-win">
 <div class="card card-section phase-p3" id="phase3Card">
 <div class="mc-details">
@@ -1170,13 +1158,14 @@
 </div>
 </div>
 </section>
-</div>
+<section class="panel" id="tab-assumptions">
+</section></div>
 </section>
 <!-- ── STAGE: roi ── -->
 <section class="stage-new" id="stage-roi">
 <div class="stage-header-new">
 <div class="stage-meta-new">
-<span class="stage-tag-new">Stage 10</span>
+<span class="stage-tag-new">Stage 8</span>
 <span class="stage-title-new">Budget &amp; ROI</span>
 </div>
 <p class="stage-sub-new">Turn tactics into dollars and net votes. Find the cheapest path to closing the gap.</p>
@@ -1859,7 +1848,7 @@
 <section class="stage-new" id="stage-checks">
 <div class="stage-header-new">
 <div class="stage-meta-new">
-<span class="stage-tag-new">Stage 11</span>
+<span class="stage-tag-new">Stage 9</span>
 <span class="stage-title-new">Checks &amp; guardrails</span>
 </div>
 <p class="stage-sub-new">Validate inputs, inspect assumptions snapshot, and review guardrails. The most dangerous failures are silent ones.</p>
@@ -1886,6 +1875,9 @@
 <div class="stage-body-new">
   <div class="note">Key assumptions, checks, and guardrails are shown in the right rail for persistent visibility.</div>
 </div></section>
+<section class="panel" id="tab-roi">
+
+</section>
 <!-- ── STAGE: scenarios ── -->
 <section class="stage-new" id="stage-scenarios">
 <div class="stage-header-new">
@@ -1896,6 +1888,10 @@
 <p class="stage-sub-new">Save, compare, and switch between planning scenarios. Use this to model Path A vs Path B before committing resources.</p>
 </div>
 <div class="stage-body-new">
+<div class="section-header">
+<div class="section-header-title">Understand</div>
+<div class="section-header-sub">Validate inputs, interpret risk, &amp; compare scenarios.</div>
+</div>
 <div class="card card-section phase-scenarios" id="scenarioCompareCard">
 <div class="card-head card-header">
 <h2 class="card-title">Scenario Compare</h2>
