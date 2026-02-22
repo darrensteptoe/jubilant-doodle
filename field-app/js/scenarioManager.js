@@ -6,10 +6,10 @@
 // - Deterministic summaries (same seed + run count)
 // - Fail-soft (never throw to caller)
 
-import { computeSnapshotHash } from "/js/hash.js";
-import { computeDecisionIntelligence } from "/js/decisionIntelligence.js";
-import { computeRoiRows, buildOptimizationTactics } from "/js/budget.js";
-import { computeAvgLiftPP } from "/js/turnout.js";
+import { computeSnapshotHash } from "./hash.js";
+import { computeDecisionIntelligence } from "./decisionIntelligence.js";
+import { computeRoiRows, buildOptimizationTactics } from "./budget.js";
+import { computeAvgLiftPP } from "./turnout.js";
 
 const DEFAULT_MAX = 5;
 const MC_RUNS = 10000;

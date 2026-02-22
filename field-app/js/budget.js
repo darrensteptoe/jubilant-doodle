@@ -1,1 +1,1 @@
-export * from "/js/core/budget.js";
+export * from "./core/budget.js";

@@ -1,1 +1,1 @@
-export * from "/js/core/turnout.js";
+export * from "./core/turnout.js";

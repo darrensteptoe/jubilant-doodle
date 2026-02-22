@@ -1,16 +1,12 @@
-import { engine } from "/js/engine.js";
-import { computeCapacityContacts as coreComputeCapacityContacts, computeCapacityBreakdown as coreComputeCapacityBreakdown } from "/js/core/model.js";
-import { normalizeUniversePercents, UNIVERSE_DEFAULTS } from "/js/core/universeLayer.js";
-import { computeAvgLiftPP } from "/js/core/turnout.js";
-import { fmtInt, clamp, safeNum, daysBetween, downloadJson, readJsonFile } from "/js/utils.js";
-import { makeRng } from "/js/core/rng.js";
-import { wireInput, wireSelect, wireCheckbox } from "/js/ui/wireInput.js";
-import { getEls, wireUI } from "/js/ui/ui.js";
-import { bindRender, setRenderState, renderAssumptionDriftE1, renderRiskFramingE2, renderBottleneckAttributionE3, renderSensitivitySnapshotE4, renderDecisionConfidenceE5, renderMcFreshness, renderOpsEnvelopeD2, renderFinishEnvelopeD3, renderMissRiskD4, renderDecisionSessionD1, renderDecisionOptionsD3, renderDecisionSummaryD4, renderMcResults, renderMcVisuals } from "/js/ui/render.js";
-import { loadState, saveState, clearState, readBackups, writeBackupEntry } from "/js/storage.js";
-import { createScenarioManager } from "/js/scenarioManager.js";
-import { APP_VERSION, BUILD_ID } from "/js/build.js";
-import { computeSnapshotHash } from "/js/hash.js";
+import { engine } from "./engine.js";
+import { computeCapacityContacts as coreComputeCapacityContacts, computeCapacityBreakdown as coreComputeCapacityBreakdown } from "./core/model.js";
+import { normalizeUniversePercents, UNIVERSE_DEFAULTS } from "./core/universeLayer.js";
+import { computeAvgLiftPP } from "./core/turnout.js";
+import { fmtInt, clamp, safeNum, daysBetween, downloadJson, readJsonFile } from "./utils.js";
+import { loadState, saveState, clearState, readBackups, writeBackupEntry } from "./storage.js";
+import { createScenarioManager } from "./scenarioManager.js";
+import { APP_VERSION, BUILD_ID } from "./build.js";
+import { computeSnapshotHash } from "./hash.js";
 
 function downloadText(text, filename, mime){
   try{
@@ -249,42 +245,6 @@ function restoreBackupByIndex(idx){
   }
   state = migrated.scenario;
   ensureDecisionScaffold();
-  try{
-    bindRender({
-      state,
-      els,
-      helpers: {
-        setUI,
-        computeWeeklyOpsContext,
-        computeDailyLogHash,
-        hashMcInputs,
-        formatMcTimestamp,
-        hashOpsEnvelopeInputs,
-        computeOpsEnvelopeD2,
-        hashFinishEnvelopeInputs,
-        computeFinishEnvelopeD3,
-        hashMissRiskInputs,
-        computeMissRiskD4,
-        fmtISODate,
-        deriveNeedVotes,
-        getEffectiveBaseRates,
-        optimizeTimelineConstrained,
-        ensureScenarioRegistry,
-        scenarioClone,
-        scenarioInputsFromState,
-        ensureDecisionScaffold,
-        ensureDecisionSessionShape,
-        listDecisionSessions,
-        getActiveDecisionSession,
-        listDecisionOptions,
-        getActiveDecisionOption,
-        decisionScenarioLabel: (sid) => decisionScenarioLabel(sid),
-        decisionOptionDisplay,
-        buildDecisionSummaryText,
-        getLastRenderCtx: () => lastRenderCtx
-      }
-    });
-  } catch {}
   persist();
   render();
   safeCall(() => { renderDecisionSessionD1(); });
@@ -292,7 +252,477 @@ function restoreBackupByIndex(idx){
 
 
 
-const els = getEls();
+const els = {
+  scenarioName: document.getElementById("scenarioName"),
+  buildStamp: document.getElementById("buildStamp"),
+  selfTestGate: document.getElementById("selfTestGate"),
+  restoreBackup: document.getElementById("restoreBackup"),
+  toggleStrictImport: document.getElementById("toggleStrictImport"),
+  btnDiagnostics: document.getElementById("btnDiagnostics"),
+  btnSaveScenario: document.getElementById("btnSaveScenario"),
+  scCompareTbody: document.getElementById("scCompareTbody"),
+  scOverall: document.getElementById("scOverall"),
+  scWarn: document.getElementById("scWarn"),
+  scenarioSelect: document.getElementById("scenarioSelect"),
+  scenarioNewName: document.getElementById("scenarioNewName"),
+  btnScenarioSaveNew: document.getElementById("btnScenarioSaveNew"),
+  btnScenarioCloneBaseline: document.getElementById("btnScenarioCloneBaseline"),
+  btnScenarioDelete: document.getElementById("btnScenarioDelete"),
+  btnScenarioLoadSelected: document.getElementById("btnScenarioLoadSelected"),
+  btnScenarioReturnBaseline: document.getElementById("btnScenarioReturnBaseline"),
+  activeScenarioLabel: document.getElementById("activeScenarioLabel"),
+  scmCompareWrap: document.getElementById("scmCompareWrap"),
+  scmCompareTag: document.getElementById("scmCompareTag"),
+  scmCompareEmpty: document.getElementById("scmCompareEmpty"),
+  scmCompareGrid: document.getElementById("scmCompareGrid"),
+  scmDiffInputs: document.getElementById("scmDiffInputs"),
+  scmDiffInputsFoot: document.getElementById("scmDiffInputsFoot"),
+  scmDiffOutputs: document.getElementById("scmDiffOutputs"),
+
+  // Phase D1 — Decision Sessions
+  decisionSessionSelect: document.getElementById("decisionSessionSelect"),
+  btnDecisionNew: document.getElementById("btnDecisionNew"),
+  decisionRename: document.getElementById("decisionRename"),
+  btnDecisionRenameSave: document.getElementById("btnDecisionRenameSave"),
+  btnDecisionDelete: document.getElementById("btnDecisionDelete"),
+  decisionActiveLabel: document.getElementById("decisionActiveLabel"),
+  decisionNotes: document.getElementById("decisionNotes"),
+  decisionObjective: document.getElementById("decisionObjective"),
+  btnDecisionLinkScenario: document.getElementById("btnDecisionLinkScenario"),
+  decisionScenarioLabel: document.getElementById("decisionScenarioLabel"),
+  decisionBudget: document.getElementById("decisionBudget"),
+  decisionVolunteerHrs: document.getElementById("decisionVolunteerHrs"),
+  decisionTurfAccess: document.getElementById("decisionTurfAccess"),
+  decisionBlackoutDates: document.getElementById("decisionBlackoutDates"),
+  decisionRiskPosture: document.getElementById("decisionRiskPosture"),
+  decisionNonNegotiables: document.getElementById("decisionNonNegotiables"),
+
+  // Phase E1 — Assumption Drift (read-only)
+  driftStatusTag: document.getElementById("driftStatusTag"),
+  driftReq: document.getElementById("driftReq"),
+  driftActual: document.getElementById("driftActual"),
+  driftDelta: document.getElementById("driftDelta"),
+  driftSlipBanner: document.getElementById("driftSlipBanner"),
+
+  // Phase E2 — Risk Framing (derived only)
+  riskBandTag: document.getElementById("riskBandTag"),
+  riskWinProb: document.getElementById("riskWinProb"),
+  riskMarginBand: document.getElementById("riskMarginBand"),
+  riskVolatility: document.getElementById("riskVolatility"),
+  riskPlainBanner: document.getElementById("riskPlainBanner"),
+
+  bneckTag: document.getElementById("bneckTag"),
+  bneckPrimary: document.getElementById("bneckPrimary"),
+  bneckSecondary: document.getElementById("bneckSecondary"),
+  bneckTbody: document.getElementById("bneckTbody"),
+  bneckWarn: document.getElementById("bneckWarn"),
+
+  sensTag: document.getElementById("sensTag"),
+  btnSensRun: document.getElementById("btnSensRun"),
+  sensTbody: document.getElementById("sensTbody"),
+  sensBanner: document.getElementById("sensBanner"),
+
+  confTag: document.getElementById("confTag"),
+  confExec: document.getElementById("confExec"),
+  confRisk: document.getElementById("confRisk"),
+  confTight: document.getElementById("confTight"),
+  confDiv: document.getElementById("confDiv"),
+  confBanner: document.getElementById("confBanner"),
+
+  decisionOptionSelect: document.getElementById("decisionOptionSelect"),
+  btnDecisionOptionNew: document.getElementById("btnDecisionOptionNew"),
+  decisionOptionRename: document.getElementById("decisionOptionRename"),
+  btnDecisionOptionRenameSave: document.getElementById("btnDecisionOptionRenameSave"),
+  btnDecisionOptionDelete: document.getElementById("btnDecisionOptionDelete"),
+  btnDecisionOptionLinkScenario: document.getElementById("btnDecisionOptionLinkScenario"),
+  decisionOptionScenarioLabel: document.getElementById("decisionOptionScenarioLabel"),
+  decisionOptionTacticDoors: document.getElementById("decisionOptionTacticDoors"),
+  decisionOptionTacticPhones: document.getElementById("decisionOptionTacticPhones"),
+  decisionOptionTacticDigital: document.getElementById("decisionOptionTacticDigital"),
+  decisionRecommendSelect: document.getElementById("decisionRecommendSelect"),
+  decisionWhatTrue: document.getElementById("decisionWhatTrue"),
+  decisionSummaryPreview: document.getElementById("decisionSummaryPreview"),
+  btnDecisionCopyMd: document.getElementById("btnDecisionCopyMd"),
+  btnDecisionCopyText: document.getElementById("btnDecisionCopyText"),
+  btnDecisionDownloadJson: document.getElementById("btnDecisionDownloadJson"),
+  decisionCopyStatus: document.getElementById("decisionCopyStatus"),
+
+  diagModal: document.getElementById("diagModal"),
+  diagErrors: document.getElementById("diagErrors"),
+  btnDiagClose: document.getElementById("btnDiagClose"),
+  btnCopyDebug: document.getElementById("btnCopyDebug"),
+  raceType: document.getElementById("raceType"),
+  electionDate: document.getElementById("electionDate"),
+  weeksRemaining: document.getElementById("weeksRemaining"),
+  mode: document.getElementById("mode"),
+
+  universeBasis: document.getElementById("universeBasis"),
+  universeSize: document.getElementById("universeSize"),
+  sourceNote: document.getElementById("sourceNote"),
+
+  turnoutA: document.getElementById("turnoutA"),
+  turnoutB: document.getElementById("turnoutB"),
+  bandWidth: document.getElementById("bandWidth"),
+  turnoutExpected: document.getElementById("turnoutExpected"),
+  turnoutBand: document.getElementById("turnoutBand"),
+  votesPer1pct: document.getElementById("votesPer1pct"),
+
+  btnAddCandidate: document.getElementById("btnAddCandidate"),
+  yourCandidate: document.getElementById("yourCandidate"),
+  candTbody: document.getElementById("candTbody"),
+  undecidedPct: document.getElementById("undecidedPct"),
+  supportTotal: document.getElementById("supportTotal"),
+  undecidedMode: document.getElementById("undecidedMode"),
+  userSplitWrap: document.getElementById("userSplitWrap"),
+  userSplitList: document.getElementById("userSplitList"),
+  candWarn: document.getElementById("candWarn"),
+
+  persuasionPct: document.getElementById("persuasionPct"),
+  earlyVoteExp: document.getElementById("earlyVoteExp"),
+    // Phase 2 — conversion + capacity
+    goalSupportIds: "",
+    supportRatePct: 55,
+    contactRatePct: 22,
+    doorsPerHour: 30,
+    hoursPerShift: 3,
+    shiftsPerVolunteerPerWeek: 2,
+
+    // Phase 16 — universe composition + retention (OFF by default)
+    universeLayerEnabled: UNIVERSE_DEFAULTS.enabled,
+    universeDemPct: UNIVERSE_DEFAULTS.demPct,
+    universeRepPct: UNIVERSE_DEFAULTS.repPct,
+    universeNpaPct: UNIVERSE_DEFAULTS.npaPct,
+    universeOtherPct: UNIVERSE_DEFAULTS.otherPct,
+    retentionFactor: UNIVERSE_DEFAULTS.retentionFactor,
+
+
+  // Phase 2 — conversion + capacity
+  goalSupportIds: document.getElementById("goalSupportIds"),
+  supportRatePct: document.getElementById("supportRatePct"),
+  contactRatePct: document.getElementById("contactRatePct"),
+  doorsPerHour: document.getElementById("doorsPerHour"),
+  hoursPerShift: document.getElementById("hoursPerShift"),
+  shiftsPerVolunteerPerWeek: document.getElementById("shiftsPerVolunteerPerWeek"),
+
+  // Phase 16 — universe composition + retention
+  universe16Enabled: document.getElementById("universe16Enabled"),
+  universe16DemPct: document.getElementById("universe16DemPct"),
+  universe16RepPct: document.getElementById("universe16RepPct"),
+  universe16NpaPct: document.getElementById("universe16NpaPct"),
+  universe16OtherPct: document.getElementById("universe16OtherPct"),
+  retentionFactor: document.getElementById("retentionFactor"),
+  universe16Derived: document.getElementById("universe16Derived"),
+  universe16Warn: document.getElementById("universe16Warn"),
+
+  outConversationsNeeded: document.getElementById("outConversationsNeeded"),
+  outDoorsNeeded: document.getElementById("outDoorsNeeded"),
+  outDoorsPerShift: document.getElementById("outDoorsPerShift"),
+  outTotalShifts: document.getElementById("outTotalShifts"),
+  outShiftsPerWeek: document.getElementById("outShiftsPerWeek"),
+  outVolunteersNeeded: document.getElementById("outVolunteersNeeded"),
+  convFeasBanner: document.getElementById("convFeasBanner"),
+
+  // Weekly ops dashboard
+  wkGoal: document.getElementById("wkGoal"),
+  wkConvosPerWeek: document.getElementById("wkConvosPerWeek"),
+  wkAttemptsPerWeek: document.getElementById("wkAttemptsPerWeek"),
+  wkCapacityPerWeek: document.getElementById("wkCapacityPerWeek"),
+  wkCapacityBreakdown: document.getElementById("wkCapacityBreakdown"),
+  wkGapPerWeek: document.getElementById("wkGapPerWeek"),
+  wkConstraint: document.getElementById("wkConstraint"),
+  wkConstraintNote: document.getElementById("wkConstraintNote"),
+  wkBanner: document.getElementById("wkBanner"),
+
+  wkLeversIntro: document.getElementById("wkLeversIntro"),
+  wkBestMovesIntro: document.getElementById("wkBestMovesIntro"),
+  wkBestMovesList: document.getElementById("wkBestMovesList"),
+  wkLeversTbody: document.getElementById("wkLeversTbody"),
+  wkLeversFoot: document.getElementById("wkLeversFoot"),
+  wkActionsList: document.getElementById("wkActionsList"),
+  wkUndoActionBtn: document.getElementById("wkUndoActionBtn"),
+  wkUndoActionMsg: document.getElementById("wkUndoActionMsg"),
+  wkLastUpdate: document.getElementById("wkLastUpdate"),
+  wkFreshNote: document.getElementById("wkFreshNote"),
+  wkRollingAttempts: document.getElementById("wkRollingAttempts"),
+  wkRollingNote: document.getElementById("wkRollingNote"),
+  wkRollingCR: document.getElementById("wkRollingCR"),
+  wkRollingCRNote: document.getElementById("wkRollingCRNote"),
+  wkRollingSR: document.getElementById("wkRollingSR"),
+  wkRollingSRNote: document.getElementById("wkRollingSRNote"),
+  wkRollingAPH: document.getElementById("wkRollingAPH"),
+  wkRollingAPHNote: document.getElementById("wkRollingAPHNote"),
+  wkFreshStatus: document.getElementById("wkFreshStatus"),
+  wkReqConvosWeek: document.getElementById("wkReqConvosWeek"),
+    wkActConvos7: document.getElementById("wkActConvos7"),
+    wkActConvosNote: document.getElementById("wkActConvosNote"),
+    wkGapConvos: document.getElementById("wkGapConvos"),
+    wkConvosPaceTag: document.getElementById("wkConvosPaceTag"),
+  
+    wkReqAttemptsWeek: document.getElementById("wkReqAttemptsWeek"),
+    wkActAttempts7: document.getElementById("wkActAttempts7"),
+    wkActAttemptsNote: document.getElementById("wkActAttemptsNote"),
+    wkGapAttempts: document.getElementById("wkGapAttempts"),
+    wkAttemptsPaceTag: document.getElementById("wkAttemptsPaceTag"),
+  
+    wkReqDoorAttemptsWeek: document.getElementById("wkReqDoorAttemptsWeek"),
+    wkReqCallAttemptsWeek: document.getElementById("wkReqCallAttemptsWeek"),
+    wkImpliedConvosWeek: document.getElementById("wkImpliedConvosWeek"),
+    wkImpliedConvosNote: document.getElementById("wkImpliedConvosNote"),
+  
+    wkFinishConvos: document.getElementById("wkFinishConvos"),
+    wkFinishAttempts: document.getElementById("wkFinishAttempts"),
+    wkPaceStatus: document.getElementById("wkPaceStatus"),
+    wkPaceNote: document.getElementById("wkPaceNote"),
+    wkExecBanner: document.getElementById("wkExecBanner"),
+  
+  // Daily log import/export (analyst page)
+  dailyLogExportBtn: document.getElementById("dailyLogExportBtn"),
+  dailyLogImportText: document.getElementById("dailyLogImportText"),
+  dailyLogImportBtn: document.getElementById("dailyLogImportBtn"),
+  dailyLogImportMsg: document.getElementById("dailyLogImportMsg"),
+
+  applyRollingCRBtn: document.getElementById("applyRollingCRBtn"),
+  applyRollingSRBtn: document.getElementById("applyRollingSRBtn"),
+  applyRollingMsg: document.getElementById("applyRollingMsg"),
+
+  // Phase 3 — execution + risk
+  orgCount: document.getElementById("orgCount"),
+  orgHoursPerWeek: document.getElementById("orgHoursPerWeek"),
+  volunteerMultBase: document.getElementById("volunteerMultBase"),
+  channelDoorPct: document.getElementById("channelDoorPct"),
+  doorsPerHour3: document.getElementById("doorsPerHour3"),
+  callsPerHour3: document.getElementById("callsPerHour3"),
+
+  p3Weeks: document.getElementById("p3Weeks"),
+  p3CapContacts: document.getElementById("p3CapContacts"),
+  p3GapContacts: document.getElementById("p3GapContacts"),
+  p3GapNote: document.getElementById("p3GapNote"),
+
+  mcMode: document.getElementById("mcMode"),
+  mcSeed: document.getElementById("mcSeed"),
+  mcRun: document.getElementById("mcRun"),
+  mcRerun: document.getElementById("mcRerun"),
+  mcFreshTag: document.getElementById("mcFreshTag"),
+  mcLastRun: document.getElementById("mcLastRun"),
+  mcStale: document.getElementById("mcStale"),
+  mcBasic: document.getElementById("mcBasic"),
+  mcAdvanced: document.getElementById("mcAdvanced"),
+  mcVolatility: document.getElementById("mcVolatility"),
+  turnoutReliabilityPct: document.getElementById("turnoutReliabilityPct"),
+
+  turnoutEnabled: document.getElementById("turnoutEnabled"),
+  turnoutBaselinePct: document.getElementById("turnoutBaselinePct"),
+  turnoutTargetOverridePct: document.getElementById("turnoutTargetOverridePct"),
+  gotvMode: document.getElementById("gotvMode"),
+  gotvBasic: document.getElementById("gotvBasic"),
+  gotvAdvanced: document.getElementById("gotvAdvanced"),
+  gotvLiftPP: document.getElementById("gotvLiftPP"),
+  gotvMaxLiftPP: document.getElementById("gotvMaxLiftPP"),
+  gotvDiminishing: document.getElementById("gotvDiminishing"),
+  gotvLiftMin: document.getElementById("gotvLiftMin"),
+  gotvLiftMode: document.getElementById("gotvLiftMode"),
+  gotvLiftMax: document.getElementById("gotvLiftMax"),
+  gotvMaxLiftPP2: document.getElementById("gotvMaxLiftPP2"),
+  gotvDiminishing2: document.getElementById("gotvDiminishing2"),
+  turnoutSummary: document.getElementById("turnoutSummary"),
+
+  mcContactMin: document.getElementById("mcContactMin"),
+  mcContactMode: document.getElementById("mcContactMode"),
+  mcContactMax: document.getElementById("mcContactMax"),
+  mcPersMin: document.getElementById("mcPersMin"),
+  mcPersMode: document.getElementById("mcPersMode"),
+  mcPersMax: document.getElementById("mcPersMax"),
+  mcReliMin: document.getElementById("mcReliMin"),
+  mcReliMode: document.getElementById("mcReliMode"),
+  mcReliMax: document.getElementById("mcReliMax"),
+  mcDphMin: document.getElementById("mcDphMin"),
+  mcDphMode: document.getElementById("mcDphMode"),
+  mcDphMax: document.getElementById("mcDphMax"),
+  mcCphMin: document.getElementById("mcCphMin"),
+  mcCphMode: document.getElementById("mcCphMode"),
+  mcCphMax: document.getElementById("mcCphMax"),
+  mcVolMin: document.getElementById("mcVolMin"),
+  mcVolMode: document.getElementById("mcVolMode"),
+  mcVolMax: document.getElementById("mcVolMax"),
+
+  mcWinProb: document.getElementById("mcWinProb"),
+  mcMedian: document.getElementById("mcMedian"),
+  mcP5: document.getElementById("mcP5"),
+  mcP95: document.getElementById("mcP95"),
+  // Phase 14 — confidence envelope
+  mcP10: document.getElementById("mcP10"),
+  mcP50: document.getElementById("mcP50"),
+  mcP90: document.getElementById("mcP90"),
+  // Phase D2 — ops envelope
+  opsAttP10: document.getElementById("opsAttP10"),
+  opsAttP50: document.getElementById("opsAttP50"),
+  opsAttP90: document.getElementById("opsAttP90"),
+  opsConP10: document.getElementById("opsConP10"),
+  opsConP50: document.getElementById("opsConP50"),
+  opsConP90: document.getElementById("opsConP90"),
+  opsFinishP10: document.getElementById("opsFinishP10"),
+  opsFinishP50: document.getElementById("opsFinishP50"),
+  opsFinishP90: document.getElementById("opsFinishP90"),
+  opsMissProb: document.getElementById("opsMissProb"),
+  opsMissTag: document.getElementById("opsMissTag"),
+  mcMoS: document.getElementById("mcMoS"),
+  mcDownside: document.getElementById("mcDownside"),
+  mcES10: document.getElementById("mcES10"),
+  mcShiftP50: document.getElementById("mcShiftP50"),
+  mcShiftP10: document.getElementById("mcShiftP10"),
+  mcFragility: document.getElementById("mcFragility"),
+  mcCliff: document.getElementById("mcCliff"),
+  // Phase 14.1 — advisor completion
+  mcRiskGrade: document.getElementById("mcRiskGrade"),
+  mcShift60: document.getElementById("mcShift60"),
+  mcShift70: document.getElementById("mcShift70"),
+  mcShift80: document.getElementById("mcShift80"),
+  mcShock10: document.getElementById("mcShock10"),
+  mcShock25: document.getElementById("mcShock25"),
+  mcShock50: document.getElementById("mcShock50"),
+  mcRiskLabel: document.getElementById("mcRiskLabel"),
+  mcSensitivity: document.getElementById("mcSensitivity"),
+
+  // Lightweight visuals (SVG)
+  svgWinProb: document.getElementById("svgWinProb"),
+  svgWinProbMarker: document.getElementById("svgWinProbMarker"),
+  vizWinProbNote: document.getElementById("vizWinProbNote"),
+  svgMargin: document.getElementById("svgMargin"),
+  svgMarginBars: document.getElementById("svgMarginBars"),
+  svgMarginWinShade: document.getElementById("svgMarginWinShade"),
+  svgMarginZero: document.getElementById("svgMarginZero"),
+  svgMarginMin: document.getElementById("svgMarginMin"),
+  svgMarginMax: document.getElementById("svgMarginMax"),
+    // Phase 4 — budget + ROI
+    roiDoorsEnabled: document.getElementById("roiDoorsEnabled"),
+    roiDoorsCpa: document.getElementById("roiDoorsCpa"),
+    roiDoorsKind: document.getElementById("roiDoorsKind"),
+    roiDoorsCr: document.getElementById("roiDoorsCr"),
+    roiDoorsSr: document.getElementById("roiDoorsSr"),
+    roiPhonesEnabled: document.getElementById("roiPhonesEnabled"),
+    roiPhonesCpa: document.getElementById("roiPhonesCpa"),
+    roiPhonesKind: document.getElementById("roiPhonesKind"),
+    roiPhonesCr: document.getElementById("roiPhonesCr"),
+    roiPhonesSr: document.getElementById("roiPhonesSr"),
+    roiTextsEnabled: document.getElementById("roiTextsEnabled"),
+    roiTextsCpa: document.getElementById("roiTextsCpa"),
+    roiTextsKind: document.getElementById("roiTextsKind"),
+    roiTextsCr: document.getElementById("roiTextsCr"),
+    roiTextsSr: document.getElementById("roiTextsSr"),
+    roiOverheadAmount: document.getElementById("roiOverheadAmount"),
+    roiIncludeOverhead: document.getElementById("roiIncludeOverhead"),
+    roiRefresh: document.getElementById("roiRefresh"),
+    roiTbody: document.getElementById("roiTbody"),
+    roiBanner: document.getElementById("roiBanner"),
+
+  // Phase 5 — optimization
+  optMode: document.getElementById("optMode"),
+    optObjective: document.getElementById("optObjective"),
+  tlOptEnabled: document.getElementById("tlOptEnabled"),
+  tlOptObjective: document.getElementById("tlOptObjective"),
+  tlOptResults: document.getElementById("tlOptResults"),
+  tlOptGoalFeasible: document.getElementById("tlOptGoalFeasible"),
+  tlOptMaxNetVotes: document.getElementById("tlOptMaxNetVotes"),
+  tlOptRemainingGap: document.getElementById("tlOptRemainingGap"),
+  tlOptBinding: document.getElementById("tlOptBinding"),
+  tlMvPrimary: document.getElementById("tlMvPrimary"),
+  tlMvSecondary: document.getElementById("tlMvSecondary"),
+  tlMvTbody: document.getElementById("tlMvTbody"),
+  optBudget: document.getElementById("optBudget"),
+  optCapacity: document.getElementById("optCapacity"),
+  optStep: document.getElementById("optStep"),
+  optUseDecay: document.getElementById("optUseDecay"),
+  optRun: document.getElementById("optRun"),
+  optTbody: document.getElementById("optTbody"),
+  optBanner: document.getElementById("optBanner"),
+  optTotalAttempts: document.getElementById("optTotalAttempts"),
+  optTotalCost: document.getElementById("optTotalCost"),
+  optTotalVotes: document.getElementById("optTotalVotes"),
+  optBinding: document.getElementById("optBinding"),
+  optGapContext: document.getElementById("optGapContext"),
+
+  // Phase 7 — timeline / production
+  timelineEnabled: document.getElementById("timelineEnabled"),
+  timelineWeeksAuto: document.getElementById("timelineWeeksAuto"),
+  timelineActiveWeeks: document.getElementById("timelineActiveWeeks"),
+  timelineGotvWeeks: document.getElementById("timelineGotvWeeks"),
+  timelineStaffCount: document.getElementById("timelineStaffCount"),
+  timelineStaffHours: document.getElementById("timelineStaffHours"),
+  timelineVolCount: document.getElementById("timelineVolCount"),
+  timelineVolHours: document.getElementById("timelineVolHours"),
+  timelineRampEnabled: document.getElementById("timelineRampEnabled"),
+  timelineRampMode: document.getElementById("timelineRampMode"),
+  timelineDoorsPerHour: document.getElementById("timelineDoorsPerHour"),
+  timelineCallsPerHour: document.getElementById("timelineCallsPerHour"),
+  timelineTextsPerHour: document.getElementById("timelineTextsPerHour"),
+  tlPercent: document.getElementById("tlPercent"),
+  tlCompletionWeek: document.getElementById("tlCompletionWeek"),
+  tlShortfallAttempts: document.getElementById("tlShortfallAttempts"),
+  tlConstraint: document.getElementById("tlConstraint"),
+  tlShortfallVotes: document.getElementById("tlShortfallVotes"),
+  tlWeekList: document.getElementById("tlWeekList"),
+  tlBanner: document.getElementById("tlBanner"),
+
+  validationList: document.getElementById("validationList"),
+
+  kpiTurnoutVotes: document.getElementById("kpiTurnoutVotes"),
+  kpiTurnoutBand: document.getElementById("kpiTurnoutBand"),
+  kpiWinThreshold: document.getElementById("kpiWinThreshold"),
+  kpiYourVotes: document.getElementById("kpiYourVotes"),
+  kpiYourVotesShare: document.getElementById("kpiYourVotesShare"),
+  kpiPersuasionNeed: document.getElementById("kpiPersuasionNeed"),
+  kpiPersuasionStatus: document.getElementById("kpiPersuasionStatus"),
+
+  miniEarlyVotes: document.getElementById("miniEarlyVotes"),
+  miniEarlyNote: document.getElementById("miniEarlyNote"),
+  miniEDVotes: document.getElementById("miniEDVotes"),
+  miniPersUniverse: document.getElementById("miniPersUniverse"),
+  miniPersCheck: document.getElementById("miniPersCheck"),
+
+  stressBox: document.getElementById("stressBox"),
+  explainCard: document.getElementById("explainCard"),
+
+  assumptionsSnapshot: document.getElementById("assumptionsSnapshot"),
+  guardrails: document.getElementById("guardrails"),
+
+  btnSaveJson: document.getElementById("btnSaveJson"),
+  loadJson: document.getElementById("loadJson"),
+  btnExportCsv: document.getElementById("btnExportCsv"),
+  btnCopySummary: document.getElementById("btnCopySummary"),
+  btnResetAll: document.getElementById("btnResetAll"),
+
+  toggleTraining: document.getElementById("toggleTraining"),
+  toggleDark: document.getElementById("toggleDark"),
+  toggleAdvDiag: document.getElementById("toggleAdvDiag"),
+  advDiagBox: document.getElementById("advDiagBox"),
+  snapshotHash: document.getElementById("snapshotHash"),
+  importHashBanner: document.getElementById("importHashBanner"),
+  importWarnBanner: document.getElementById("importWarnBanner"),
+
+  // Phase 12 — Decision Intelligence
+  diWarn: document.getElementById("diWarn"),
+  diPrimary: document.getElementById("diPrimary"),
+  diSecondary: document.getElementById("diSecondary"),
+  diNotBinding: document.getElementById("diNotBinding"),
+  diRecVol: document.getElementById("diRecVol"),
+  diRecCost: document.getElementById("diRecCost"),
+  diRecProb: document.getElementById("diRecProb"),
+  diVolTbody: document.getElementById("diVolTbody"),
+  diCostTbody: document.getElementById("diCostTbody"),
+  diProbTbody: document.getElementById("diProbTbody"),
+
+  // Phase 15 — Sensitivity Surface
+  surfaceLever: document.getElementById("surfaceLever"),
+  surfaceMode: document.getElementById("surfaceMode"),
+  surfaceMin: document.getElementById("surfaceMin"),
+  surfaceMax: document.getElementById("surfaceMax"),
+  surfaceSteps: document.getElementById("surfaceSteps"),
+  surfaceTarget: document.getElementById("surfaceTarget"),
+  btnComputeSurface: document.getElementById("btnComputeSurface"),
+  surfaceStatus: document.getElementById("surfaceStatus"),
+  surfaceTbody: document.getElementById("surfaceTbody"),
+  surfaceSummary: document.getElementById("surfaceSummary"),
+};
 
 // Phase 13 — DOM preflight (prevents silent boot failures)
 function preflightEls(){
@@ -318,32 +748,6 @@ const DEFAULTS_BY_TEMPLATE = {
 let state = loadState() || makeDefaultState();
 
 let lastRenderCtx = null;
-
-
-function cloneStateForUi(prev){
-  const next = { ...prev };
-  next.ui = { ...(prev && prev.ui ? prev.ui : {}) };
-  return next;
-}
-
-function setState(patchFn, opts){
-  const o = opts || {};
-  const doPersist = (o.persist !== false);
-  const doRender = (o.render !== false);
-  const next = cloneStateForUi(state);
-  patchFn(next);
-  state = next;
-  try{ setRenderState(state); } catch {}
-  if (doPersist) persist();
-  if (doRender) render();
-}
-
-function setUI(patchFn, opts){
-  setState((s) => {
-    if (!s.ui) s.ui = {};
-    patchFn(s.ui, s);
-  }, opts);
-}
 
 
 // =========================
@@ -832,6 +1236,478 @@ function rebuildUserSplitInputs(){
   }
 }
 
+function wireEvents(){
+  // Phase 11 — safety rails controls (fail-soft)
+  safeCall(() => {
+    if (els.toggleStrictImport){
+      els.toggleStrictImport.checked = !!state?.ui?.strictImport;
+      els.toggleStrictImport.addEventListener("change", () => {
+        state.ui.strictImport = !!els.toggleStrictImport.checked;
+        persist();
+      });
+    }
+    if (els.restoreBackup){
+      refreshBackupDropdown();
+      els.restoreBackup.addEventListener("change", () => {
+        const v = els.restoreBackup.value;
+        if (!v) return;
+        restoreBackupByIndex(v);
+        els.restoreBackup.value = "";
+      });
+    }
+    if (els.btnDiagnostics) els.btnDiagnostics.addEventListener("click", openDiagnostics);
+    if (els.btnDiagClose) els.btnDiagClose.addEventListener("click", closeDiagnostics);
+    if (els.diagModal){
+      els.diagModal.addEventListener("click", (e) => {
+        const t = e?.target;
+        if (t && t.getAttribute && t.getAttribute("data-close") === "1") closeDiagnostics();
+      });
+    }
+    if (els.btnCopyDebug) els.btnCopyDebug.addEventListener("click", () => { safeCall(() => { copyDebugBundle(); }); });
+
+    // Daily log import/export
+    if (els.dailyLogExportBtn) els.dailyLogExportBtn.addEventListener("click", () => { safeCall(() => { exportDailyLog(); }); });
+    if (els.dailyLogImportBtn) els.dailyLogImportBtn.addEventListener("click", () => {
+      safeCall(() => {
+        const raw = String(els.dailyLogImportText?.value || "").trim();
+        if (!raw){
+          if (els.dailyLogImportMsg) els.dailyLogImportMsg.textContent = "Paste JSON first";
+          return;
+        }
+        let parsed = null;
+        try{ parsed = JSON.parse(raw); } catch {
+          if (els.dailyLogImportMsg) els.dailyLogImportMsg.textContent = "Invalid JSON";
+          return;
+        }
+        const r = mergeDailyLogIntoState(parsed);
+        if (els.dailyLogImportMsg) els.dailyLogImportMsg.textContent = r.msg;
+      });
+    });
+
+    // Analyst tools: align assumptions to rolling actuals
+    if (els.applyRollingCRBtn) els.applyRollingCRBtn.addEventListener("click", () => { safeCall(() => { applyRollingRateToAssumption("contact"); }); });
+    if (els.applyRollingSRBtn) els.applyRollingSRBtn.addEventListener("click", () => { safeCall(() => { applyRollingRateToAssumption("support"); }); });
+    if (els.wkUndoActionBtn) els.wkUndoActionBtn.addEventListener("click", () => { safeCall(() => { undoLastWeeklyAction(); }); });
+  });
+
+
+  els.scenarioName.addEventListener("input", () => { state.scenarioName = els.scenarioName.value; persist(); });
+
+  els.raceType.addEventListener("change", () => {
+    state.raceType = els.raceType.value;
+    const defs = DEFAULTS_BY_TEMPLATE[state.raceType] || DEFAULTS_BY_TEMPLATE.state_leg;
+    if (!state.bandWidth && state.bandWidth !== 0) state.bandWidth = defs.bandWidth;
+    state.bandWidth = state.bandWidth || defs.bandWidth;
+    state.persuasionPct = state.persuasionPct || defs.persuasionPct;
+    state.earlyVoteExp = state.earlyVoteExp || defs.earlyVoteExp;
+    applyStateToUI();
+  applyThemeFromState();
+  initThemeSystemListener();
+    render();
+    persist();
+  });
+
+  els.electionDate.addEventListener("change", () => { state.electionDate = els.electionDate.value; render(); persist(); });
+  els.weeksRemaining.addEventListener("input", () => { state.weeksRemaining = els.weeksRemaining.value; render(); persist(); });
+  els.mode.addEventListener("change", () => { state.mode = els.mode.value; persist(); });
+
+  els.universeBasis.addEventListener("change", () => { state.universeBasis = els.universeBasis.value; render(); persist(); });
+  els.universeSize.addEventListener("input", () => { state.universeSize = safeNum(els.universeSize.value); render(); persist(); });
+  els.sourceNote.addEventListener("input", () => { state.sourceNote = els.sourceNote.value; persist(); });
+
+  els.turnoutA.addEventListener("input", () => { state.turnoutA = safeNum(els.turnoutA.value); render(); persist(); });
+  els.turnoutB.addEventListener("input", () => { state.turnoutB = safeNum(els.turnoutB.value); render(); persist(); });
+  els.bandWidth.addEventListener("input", () => { state.bandWidth = safeNum(els.bandWidth.value); render(); persist(); });
+
+  els.btnAddCandidate.addEventListener("click", () => {
+    state.candidates.push({ id: uid(), name: `Candidate ${String.fromCharCode(65 + state.candidates.length)}`, supportPct: 0 });
+    rebuildCandidateTable();
+    render();
+    persist();
+  });
+
+  els.yourCandidate.addEventListener("change", () => { state.yourCandidateId = els.yourCandidate.value; render(); persist(); });
+  els.undecidedPct.addEventListener("input", () => { state.undecidedPct = safeNum(els.undecidedPct.value); render(); persist(); });
+
+  els.undecidedMode.addEventListener("change", () => {
+    state.undecidedMode = els.undecidedMode.value;
+    rebuildUserSplitInputs();
+    render();
+    persist();
+  });
+
+  els.persuasionPct.addEventListener("input", () => { state.persuasionPct = safeNum(els.persuasionPct.value); render(); persist(); });
+  els.earlyVoteExp.addEventListener("input", () => { state.earlyVoteExp = safeNum(els.earlyVoteExp.value); render(); persist(); });
+
+  // Phase 2 — conversion + capacity
+  if (els.goalSupportIds) els.goalSupportIds.addEventListener("input", () => { state.goalSupportIds = els.goalSupportIds.value; markMcStale(); render(); persist(); });
+  if (els.supportRatePct) els.supportRatePct.addEventListener("input", () => { state.supportRatePct = safeNum(els.supportRatePct.value); markMcStale(); render(); persist(); });
+  if (els.contactRatePct) els.contactRatePct.addEventListener("input", () => { state.contactRatePct = safeNum(els.contactRatePct.value); markMcStale(); render(); persist(); });
+  if (els.doorsPerHour) els.doorsPerHour.addEventListener("input", () => { state.doorsPerHour = safeNum(els.doorsPerHour.value); render(); persist(); });
+  if (els.hoursPerShift) els.hoursPerShift.addEventListener("input", () => { state.hoursPerShift = safeNum(els.hoursPerShift.value); render(); persist(); });
+  if (els.shiftsPerVolunteerPerWeek) els.shiftsPerVolunteerPerWeek.addEventListener("input", () => { state.shiftsPerVolunteerPerWeek = safeNum(els.shiftsPerVolunteerPerWeek.value); render(); persist(); });
+
+  // Phase 16 — universe composition + retention
+  if (els.universe16Enabled) els.universe16Enabled.addEventListener("change", () => { state.universeLayerEnabled = !!els.universe16Enabled.checked; markMcStale(); render(); persist(); });
+  if (els.universe16DemPct) els.universe16DemPct.addEventListener("input", () => { state.universeDemPct = safeNum(els.universe16DemPct.value); markMcStale(); render(); persist(); });
+  if (els.universe16RepPct) els.universe16RepPct.addEventListener("input", () => { state.universeRepPct = safeNum(els.universe16RepPct.value); markMcStale(); render(); persist(); });
+  if (els.universe16NpaPct) els.universe16NpaPct.addEventListener("input", () => { state.universeNpaPct = safeNum(els.universe16NpaPct.value); markMcStale(); render(); persist(); });
+  if (els.universe16OtherPct) els.universe16OtherPct.addEventListener("input", () => { state.universeOtherPct = safeNum(els.universe16OtherPct.value); markMcStale(); render(); persist(); });
+  if (els.retentionFactor) els.retentionFactor.addEventListener("input", () => { state.retentionFactor = safeNum(els.retentionFactor.value); markMcStale(); render(); persist(); });
+
+  // Phase 3 — execution + risk
+  if (els.orgCount) els.orgCount.addEventListener("input", () => { state.orgCount = safeNum(els.orgCount.value); markMcStale(); render(); persist(); });
+  if (els.orgHoursPerWeek) els.orgHoursPerWeek.addEventListener("input", () => { state.orgHoursPerWeek = safeNum(els.orgHoursPerWeek.value); markMcStale(); render(); persist(); });
+  if (els.volunteerMultBase) els.volunteerMultBase.addEventListener("input", () => { state.volunteerMultBase = safeNum(els.volunteerMultBase.value); markMcStale(); render(); persist(); });
+  if (els.channelDoorPct) els.channelDoorPct.addEventListener("input", () => { state.channelDoorPct = safeNum(els.channelDoorPct.value); markMcStale(); render(); persist(); });
+  if (els.doorsPerHour3) els.doorsPerHour3.addEventListener("input", () => { state.doorsPerHour3 = safeNum(els.doorsPerHour3.value); markMcStale(); render(); persist(); });
+  if (els.callsPerHour3) els.callsPerHour3.addEventListener("input", () => { state.callsPerHour3 = safeNum(els.callsPerHour3.value); markMcStale(); render(); persist(); });
+  if (els.turnoutReliabilityPct) els.turnoutReliabilityPct.addEventListener("input", () => { state.turnoutReliabilityPct = safeNum(els.turnoutReliabilityPct.value); markMcStale(); render(); persist(); });
+
+  // Phase 6 — turnout / GOTV inputs
+  if (els.turnoutEnabled) els.turnoutEnabled.addEventListener("change", () => { state.turnoutEnabled = !!els.turnoutEnabled.checked; markMcStale(); render(); persist(); });
+  if (els.turnoutBaselinePct) els.turnoutBaselinePct.addEventListener("input", () => { state.turnoutBaselinePct = safeNum(els.turnoutBaselinePct.value); markMcStale(); render(); persist(); });
+  if (els.turnoutTargetOverridePct) els.turnoutTargetOverridePct.addEventListener("input", () => { state.turnoutTargetOverridePct = els.turnoutTargetOverridePct.value; markMcStale(); render(); persist(); });
+
+  if (els.gotvMode) els.gotvMode.addEventListener("change", () => { state.gotvMode = els.gotvMode.value; syncGotvModeUI(); markMcStale(); render(); persist(); });
+
+  if (els.gotvLiftPP) els.gotvLiftPP.addEventListener("input", () => { state.gotvLiftPP = safeNum(els.gotvLiftPP.value); markMcStale(); render(); persist(); });
+  if (els.gotvMaxLiftPP) els.gotvMaxLiftPP.addEventListener("input", () => { state.gotvMaxLiftPP = safeNum(els.gotvMaxLiftPP.value); markMcStale(); render(); persist(); });
+  if (els.gotvDiminishing) els.gotvDiminishing.addEventListener("change", () => { state.gotvDiminishing = !!els.gotvDiminishing.checked; markMcStale(); render(); persist(); });
+
+  if (els.gotvLiftMin) els.gotvLiftMin.addEventListener("input", () => { state.gotvLiftMin = safeNum(els.gotvLiftMin.value); markMcStale(); render(); persist(); });
+  if (els.gotvLiftMode) els.gotvLiftMode.addEventListener("input", () => { state.gotvLiftMode = safeNum(els.gotvLiftMode.value); markMcStale(); render(); persist(); });
+  if (els.gotvLiftMax) els.gotvLiftMax.addEventListener("input", () => { state.gotvLiftMax = safeNum(els.gotvLiftMax.value); markMcStale(); render(); persist(); });
+  if (els.gotvMaxLiftPP2) els.gotvMaxLiftPP2.addEventListener("input", () => { state.gotvMaxLiftPP2 = safeNum(els.gotvMaxLiftPP2.value); markMcStale(); render(); persist(); });
+  if (els.gotvDiminishing2) els.gotvDiminishing2.addEventListener("change", () => { state.gotvDiminishing2 = !!els.gotvDiminishing2.checked; markMcStale(); render(); persist(); });
+
+
+  if (els.mcMode) els.mcMode.addEventListener("change", () => { state.mcMode = els.mcMode.value; syncMcModeUI(); markMcStale(); persist(); });
+  if (els.mcVolatility) els.mcVolatility.addEventListener("change", () => { state.mcVolatility = els.mcVolatility.value; markMcStale(); persist(); });
+  if (els.mcSeed) els.mcSeed.addEventListener("input", () => { state.mcSeed = els.mcSeed.value; markMcStale(); persist(); });
+
+  const advWatch = (el, key) => {
+    if (!el) return;
+    el.addEventListener("input", () => {
+      state[key] = safeNum(el.value);
+      markMcStale();
+      persist();
+    });
+  };
+  advWatch(els.mcContactMin, "mcContactMin");
+  advWatch(els.mcContactMode, "mcContactMode");
+  advWatch(els.mcContactMax, "mcContactMax");
+  advWatch(els.mcPersMin, "mcPersMin");
+  advWatch(els.mcPersMode, "mcPersMode");
+  advWatch(els.mcPersMax, "mcPersMax");
+  advWatch(els.mcReliMin, "mcReliMin");
+  advWatch(els.mcReliMode, "mcReliMode");
+  advWatch(els.mcReliMax, "mcReliMax");
+  advWatch(els.mcDphMin, "mcDphMin");
+  advWatch(els.mcDphMode, "mcDphMode");
+  advWatch(els.mcDphMax, "mcDphMax");
+  advWatch(els.mcCphMin, "mcCphMin");
+  advWatch(els.mcCphMode, "mcCphMode");
+  advWatch(els.mcCphMax, "mcCphMax");
+  advWatch(els.mcVolMin, "mcVolMin");
+  advWatch(els.mcVolMode, "mcVolMode");
+  advWatch(els.mcVolMax, "mcVolMax");
+
+  if (els.mcRun) els.mcRun.addEventListener("click", () => runMonteCarloNow());
+  if (els.mcRerun) els.mcRerun.addEventListener("click", () => runMonteCarloNow());
+
+
+    // Phase 4 — ROI inputs
+    const ensureBudget = () => {
+      if (!state.budget) state.budget = { overheadAmount: 0, includeOverhead: false, tactics: { doors:{enabled:true,cpa:0,crPct:null,srPct:null,kind:"persuasion"}, phones:{enabled:true,cpa:0,crPct:null,srPct:null,kind:"persuasion"}, texts:{enabled:false,cpa:0,crPct:null,srPct:null,kind:"persuasion"} }, optimize: { mode:"budget", budgetAmount:10000, capacityAttempts:"", step:25, useDecay:false, objective:"net", tlConstrainedEnabled:false, tlConstrainedObjective:"max_net" } };
+      if (!state.budget.tactics) state.budget.tactics = { doors:{enabled:true,cpa:0,crPct:null,srPct:null}, phones:{enabled:true,cpa:0,crPct:null,srPct:null}, texts:{enabled:false,cpa:0,crPct:null,srPct:null} };
+      if (!state.budget.optimize) state.budget.optimize = { mode:"budget", budgetAmount:10000, capacityAttempts:"", step:25, useDecay:false, objective:"net", tlConstrainedEnabled:false, tlConstrainedObjective:"max_net" };
+      if (!state.budget.tactics.doors) state.budget.tactics.doors = { enabled:true, cpa:0, crPct:null, srPct:null };
+      if (!state.budget.tactics.phones) state.budget.tactics.phones = { enabled:true, cpa:0, crPct:null, srPct:null };
+      if (!state.budget.tactics.texts) state.budget.tactics.texts = { enabled:false, cpa:0, crPct:null, srPct:null };
+    };
+
+    const watchBool = (el, fn) => {
+      if (!el) return;
+      el.addEventListener("change", () => { ensureBudget(); fn(); render(); persist(); });
+    };
+    const watchNum = (el, fn) => {
+      if (!el) return;
+      el.addEventListener("input", () => { ensureBudget(); fn(); render(); persist(); });
+    };
+
+    watchBool(els.roiDoorsEnabled, () => state.budget.tactics.doors.enabled = !!els.roiDoorsEnabled.checked);
+    watchNum(els.roiDoorsCpa, () => state.budget.tactics.doors.cpa = safeNum(els.roiDoorsCpa.value) ?? 0);
+    watchNum(els.roiDoorsCr, () => state.budget.tactics.doors.crPct = safeNum(els.roiDoorsCr.value));
+    watchNum(els.roiDoorsSr, () => state.budget.tactics.doors.srPct = safeNum(els.roiDoorsSr.value));
+
+
+    watchBool(els.roiPhonesEnabled, () => state.budget.tactics.phones.enabled = !!els.roiPhonesEnabled.checked);
+    watchNum(els.roiPhonesCpa, () => state.budget.tactics.phones.cpa = safeNum(els.roiPhonesCpa.value) ?? 0);
+    watchNum(els.roiPhonesCr, () => state.budget.tactics.phones.crPct = safeNum(els.roiPhonesCr.value));
+    watchNum(els.roiPhonesSr, () => state.budget.tactics.phones.srPct = safeNum(els.roiPhonesSr.value));
+
+
+    watchBool(els.roiTextsEnabled, () => state.budget.tactics.texts.enabled = !!els.roiTextsEnabled.checked);
+    watchNum(els.roiTextsCpa, () => state.budget.tactics.texts.cpa = safeNum(els.roiTextsCpa.value) ?? 0);
+    watchNum(els.roiTextsCr, () => state.budget.tactics.texts.crPct = safeNum(els.roiTextsCr.value));
+    watchNum(els.roiTextsSr, () => state.budget.tactics.texts.srPct = safeNum(els.roiTextsSr.value));
+
+
+    watchNum(els.roiOverheadAmount, () => state.budget.overheadAmount = safeNum(els.roiOverheadAmount.value) ?? 0);
+    watchBool(els.roiIncludeOverhead, () => state.budget.includeOverhead = !!els.roiIncludeOverhead.checked);
+
+    
+// Phase 5 — optimization controls (top-layer only; does not change Phase 1–4 math)
+const watchOpt = (el, fn, evt="input") => {
+  if (!el) return;
+  el.addEventListener(evt, () => { ensureBudget(); fn(); render(); persist(); });
+};
+
+watchOpt(els.optMode, () => state.budget.optimize.mode = els.optMode.value, "change");
+watchOpt(els.optObjective, () => state.budget.optimize.objective = els.optObjective.value, "change");
+watchOpt(els.tlOptEnabled, () => state.budget.optimize.tlConstrainedEnabled = !!els.tlOptEnabled.checked, "change");
+watchOpt(els.tlOptObjective, () => state.budget.optimize.tlConstrainedObjective = els.tlOptObjective.value || "max_net", "change");
+watchOpt(els.optBudget, () => state.budget.optimize.budgetAmount = safeNum(els.optBudget.value) ?? 0);
+watchOpt(els.optCapacity, () => state.budget.optimize.capacityAttempts = els.optCapacity.value ?? "");
+watchOpt(els.optStep, () => state.budget.optimize.step = safeNum(els.optStep.value) ?? 25);
+watchOpt(els.optUseDecay, () => state.budget.optimize.useDecay = !!els.optUseDecay.checked, "change");
+
+// Phase 7 — timeline / production (feasibility only; never re-optimizes)
+const watchTL = (el, fn, evt="input") => {
+  if (!el) return;
+  el.addEventListener(evt, () => { fn(); render(); persist(); });
+};
+
+watchTL(els.timelineEnabled, () => state.timelineEnabled = !!els.timelineEnabled.checked, "change");
+watchTL(els.timelineActiveWeeks, () => state.timelineActiveWeeks = els.timelineActiveWeeks.value ?? "");
+watchTL(els.timelineGotvWeeks, () => state.timelineGotvWeeks = safeNum(els.timelineGotvWeeks.value));
+watchTL(els.timelineStaffCount, () => state.timelineStaffCount = safeNum(els.timelineStaffCount.value) ?? 0);
+watchTL(els.timelineStaffHours, () => state.timelineStaffHours = safeNum(els.timelineStaffHours.value) ?? 0);
+watchTL(els.timelineVolCount, () => state.timelineVolCount = safeNum(els.timelineVolCount.value) ?? 0);
+watchTL(els.timelineVolHours, () => state.timelineVolHours = safeNum(els.timelineVolHours.value) ?? 0);
+watchTL(els.timelineRampEnabled, () => state.timelineRampEnabled = !!els.timelineRampEnabled.checked, "change");
+watchTL(els.timelineRampMode, () => state.timelineRampMode = els.timelineRampMode.value || "linear", "change");
+watchTL(els.timelineDoorsPerHour, () => state.timelineDoorsPerHour = safeNum(els.timelineDoorsPerHour.value) ?? 0);
+watchTL(els.timelineCallsPerHour, () => state.timelineCallsPerHour = safeNum(els.timelineCallsPerHour.value) ?? 0);
+watchTL(els.timelineTextsPerHour, () => state.timelineTextsPerHour = safeNum(els.timelineTextsPerHour.value) ?? 0);
+
+if (els.optRun) els.optRun.addEventListener("click", () => { render(); });
+if (els.roiRefresh) els.roiRefresh.addEventListener("click", () => { render(); });
+
+  document.querySelectorAll(".tab").forEach(btn => {
+    btn.addEventListener("click", () => {
+      document.querySelectorAll(".tab").forEach(b => b.classList.remove("active"));
+      btn.classList.add("active");
+      const tab = btn.getAttribute("data-tab");
+      state.ui.activeTab = tab;
+
+      document.querySelectorAll(".panel").forEach(p => p.classList.remove("active"));
+      document.getElementById(`tab-${tab}`).classList.add("active");
+
+      persist();
+    });
+  });
+
+  if (els.btnSaveJson) els.btnSaveJson.addEventListener("click", () => {
+    const scenarioClone = structuredClone(state);
+    const snapshot = { modelVersion: engine.snapshot.MODEL_VERSION, schemaVersion: engine.snapshot.CURRENT_SCHEMA_VERSION, scenarioState: scenarioClone, appVersion: APP_VERSION, buildId: BUILD_ID };
+    snapshot.snapshotHash = engine.snapshot.computeSnapshotHash(snapshot);
+    lastExportHash = snapshot.snapshotHash;
+    const payload = engine.snapshot.makeScenarioExport(snapshot);
+    if (engine.snapshot.hasNonFiniteNumbers(payload)){
+      alert("Export blocked: scenario contains NaN/Infinity.");
+      return;
+    }
+    const filename = engine.snapshot.makeTimestampedFilename("field-path-scenario", "json");
+    const text = engine.snapshot.deterministicStringify(payload, 2);
+    downloadText(text, filename, "application/json");
+  });
+
+  if (els.btnExportCsv) els.btnExportCsv.addEventListener("click", () => {
+    if (!lastResultsSnapshot){
+      alert("Nothing to export yet. Run a scenario first.");
+      return;
+    }
+    const csv = engine.snapshot.planRowsToCsv(lastResultsSnapshot);
+    if (/NaN|Infinity/.test(csv)){
+      alert("CSV export blocked: contains NaN/Infinity.");
+      return;
+    }
+    const filename = engine.snapshot.makeTimestampedFilename("field-path-plan", "csv");
+    downloadText(csv, filename, "text/csv");
+  });
+
+  if (els.btnCopySummary) els.btnCopySummary.addEventListener("click", async () => {
+    if (!lastResultsSnapshot){
+      alert("Nothing to copy yet. Run a scenario first.");
+      return;
+    }
+    const text = engine.snapshot.formatSummaryText(lastResultsSnapshot);
+    const r = await engine.snapshot.copyTextToClipboard(text);
+    if (!r.ok) alert(r.reason || "Copy failed.");
+  });
+
+  if (els.btnResetAll) els.btnResetAll.addEventListener("click", () => {
+    const ok = confirm("Reset all fields to defaults? This will clear the saved scenario in this browser.");
+    if (!ok) return;
+    state = makeDefaultState();
+    ensureScenarioRegistry();
+    ensureDecisionScaffold();
+    try{
+      const b = state.ui.scenarios?.[SCENARIO_BASELINE_ID];
+      if (b){
+        b.inputs = scenarioInputsFromState(state);
+        b.outputs = scenarioOutputsFromState(state);
+      }
+    } catch {}
+    clearState();
+    applyStateToUI();
+    rebuildCandidateTable();
+    document.body.classList.toggle("training", !!state.ui.training);
+    document.body.classList.toggle("dark", !!state.ui.dark);
+    if (els.explainCard) els.explainCard.hidden = !state.ui.training;
+    render();
+    safeCall(() => { renderScenarioManagerC1(); });
+    safeCall(() => { renderDecisionSessionD1(); });
+    persist();
+  });
+
+  els.loadJson.addEventListener("change", async () => {
+    const file = els.loadJson.files?.[0];
+    if (!file) return;
+
+    const loaded = await readJsonFile(file);
+    if (!loaded || typeof loaded !== "object"){
+      alert("Import failed: invalid JSON.");
+      els.loadJson.value = "";
+      return;
+
+    // Phase 11 — strict import: block newer schema before migration (optional)
+    const prePolicy = engine.snapshot.checkStrictImportPolicy({
+      strictMode: !!state?.ui?.strictImport,
+      importedSchemaVersion: loaded.schemaVersion || null,
+      currentSchemaVersion: engine.snapshot.CURRENT_SCHEMA_VERSION,
+      hashMismatch: false
+    });
+    if (!prePolicy.ok){
+      alert(prePolicy.issues.join(" "));
+      els.loadJson.value = "";
+      return;
+    }
+
+    }
+
+    const mig = engine.snapshot.migrateSnapshot(loaded);
+    if (els.importWarnBanner){
+      if (mig.warnings && mig.warnings.length){
+        els.importWarnBanner.hidden = false;
+        els.importWarnBanner.textContent = mig.warnings.join(" ");
+      } else {
+        els.importWarnBanner.hidden = true;
+        els.importWarnBanner.textContent = "";
+      }
+    }
+
+    const v = engine.snapshot.validateScenarioExport(mig.snapshot, engine.snapshot.MODEL_VERSION);
+    if (!v.ok){
+      alert(`Import failed: ${v.reason}`);
+      els.loadJson.value = "";
+      return;
+    }
+
+    const missing = requiredScenarioKeysMissing(v.scenario);
+    if (missing.length){
+      alert("Import failed: scenario is missing required fields: " + missing.join(", "));
+      els.loadJson.value = "";
+      return;
+    }
+
+    // Phase 9B — snapshot integrity verification (+ Phase 11 strict option)
+    let hashMismatch = false;
+    try{
+      const exportedHash = (loaded && typeof loaded === "object") ? (loaded.snapshotHash || null) : null;
+      // Hash must be tied to the normalized snapshot used by the engine (after migration).
+      const recomputed = engine.snapshot.computeSnapshotHash({ modelVersion: v.modelVersion, scenarioState: v.scenario });
+      hashMismatch = !!(exportedHash && exportedHash !== recomputed);
+
+      if (hashMismatch){
+        if (els.importHashBanner){
+          els.importHashBanner.hidden = false;
+          els.importHashBanner.textContent = "Snapshot hash differs from exported hash.";
+        }
+        console.warn("Snapshot hash mismatch", { exportedHash, recomputed });
+      } else {
+        if (els.importHashBanner) els.importHashBanner.hidden = true;
+      }
+
+      const policy = engine.snapshot.checkStrictImportPolicy({
+        strictMode: !!state?.ui?.strictImport,
+        importedSchemaVersion: (mig?.snapshot?.schemaVersion || loaded.schemaVersion || null),
+        currentSchemaVersion: engine.snapshot.CURRENT_SCHEMA_VERSION,
+        hashMismatch
+      });
+      if (!policy.ok){
+        alert(policy.issues.join(" "));
+        els.loadJson.value = "";
+        return;
+      }
+    } catch {
+      // If hashing fails for any reason, do not block import unless strict explicitly requires it.
+      if (state?.ui?.strictImport){
+        alert("Import blocked: could not verify integrity hash in strict mode.");
+        els.loadJson.value = "";
+        return;
+      }
+    }
+
+
+    // Replace entire state safely (no partial merge with current state)
+    state = normalizeLoadedState(v.scenario);
+    ensureScenarioRegistry();
+    ensureDecisionScaffold();
+    try{
+      const b = state.ui.scenarios?.[SCENARIO_BASELINE_ID];
+      if (b){
+        b.inputs = scenarioInputsFromState(state);
+        b.outputs = scenarioOutputsFromState(state);
+      }
+    } catch {}
+    applyStateToUI();
+    rebuildCandidateTable();
+    document.body.classList.toggle("training", !!state.ui.training);
+    document.body.classList.toggle("dark", !!state.ui.dark);
+    if (els.explainCard) els.explainCard.hidden = !state.ui.training;
+    render();
+    safeCall(() => { renderDecisionSessionD1(); });
+    persist();
+    els.loadJson.value = "";
+  });
+
+  if (els.toggleTraining) els.toggleTraining.addEventListener("change", () => {
+    state.ui.training = els.toggleTraining.checked;
+    document.body.classList.toggle("training", !!state.ui.training);
+    if (els.snapshotHash) els.snapshotHash.textContent = lastResultsSnapshot?.snapshotHash || "—";
+  if (els.importHashBanner && els.importHashBanner.hidden === false){ /* keep until next import clears */ }
+    els.explainCard.hidden = !state.ui.training;
+    persist();
+  });
+
+  if (els.toggleDark) els.toggleDark.addEventListener("change", () => {
+  // checked => force dark, unchecked => follow system
+  if (!state.ui) state.ui = {};
+  state.ui.themeMode = els.toggleDark.checked ? "dark" : "system";
+  applyThemeFromState();
+  persist();
+});
+
+  if (els.toggleAdvDiag) els.toggleAdvDiag.addEventListener("change", () => {
+    state.ui.advDiag = els.toggleAdvDiag.checked;
+    if (els.advDiagBox) els.advDiagBox.hidden = !state.ui.advDiag;
+    persist();
+  });
+
+}
 
 function normalizeLoadedState(s){
   const base = makeDefaultState();
@@ -1475,7 +2351,84 @@ function computeWeeklyOpsContext(res, weeks){
   };
 }
 
+function renderAssumptionDriftE1(res, weeks){
+  if (!els.driftStatusTag) return;
 
+  const fInt = (v) => (v == null || !isFinite(v)) ? "—" : (String(Math.round(v)).replace(/\B(?=(\d{3})+(?!\d))/g, ","));
+  const fPct1 = (v) => (v == null || !isFinite(v)) ? "—" : ((v * 100).toFixed(1) + "%");
+
+  const ctx = computeWeeklyOpsContext(res, weeks);
+  const req = ctx?.attemptsPerWeek;
+  if (els.driftReq) els.driftReq.textContent = (req == null || !isFinite(req)) ? "—" : fInt(Math.ceil(req));
+
+  const log = Array.isArray(state.ui?.dailyLog) ? state.ui.dailyLog : null;
+  if (!log || log.length === 0){
+    els.driftStatusTag.className = "tag";
+    els.driftStatusTag.textContent = "Not tracking";
+    if (els.driftActual) els.driftActual.textContent = "—";
+    if (els.driftDelta) els.driftDelta.textContent = "—";
+    if (els.driftSlipBanner){
+      els.driftSlipBanner.className = "banner";
+      els.driftSlipBanner.textContent = "Add daily log entries in organizer.html to activate drift detection.";
+    }
+    return;
+  }
+
+  const sorted = [...log].filter(x => x && x.date).sort((a,b) => String(a.date).localeCompare(String(b.date)));
+  const lastN = sorted.slice(-7);
+
+  let sumAttempts7 = 0;
+  let sumAttemptsAll = 0;
+  for (const x of sorted){
+    const doors = safeNum(x?.doors) || 0;
+    const calls = safeNum(x?.calls) || 0;
+    const attempts = (x?.attempts != null && x.attempts !== "") ? (safeNum(x.attempts) || 0) : (doors + calls);
+    sumAttemptsAll += attempts;
+  }
+  for (const x of lastN){
+    const doors = safeNum(x?.doors) || 0;
+    const calls = safeNum(x?.calls) || 0;
+    const attempts = (x?.attempts != null && x.attempts !== "") ? (safeNum(x.attempts) || 0) : (doors + calls);
+    sumAttempts7 += attempts;
+  }
+
+  if (els.driftActual) els.driftActual.textContent = fInt(sumAttempts7);
+
+  let deltaPct = null;
+  if (req != null && isFinite(req) && req > 0) deltaPct = (sumAttempts7 - req) / req;
+
+  const abs = (deltaPct == null || !isFinite(deltaPct)) ? null : Math.abs(deltaPct);
+  const cls = (abs == null) ? "" : (abs <= 0.05 ? "ok" : (abs <= 0.15 ? "warn" : "bad"));
+
+  els.driftStatusTag.className = cls ? `tag ${cls}` : "tag";
+  els.driftStatusTag.textContent = cls === "ok" ? "Green" : (cls === "warn" ? "Yellow" : (cls === "bad" ? "Red" : "—"));
+
+  if (els.driftDelta){
+    if (deltaPct == null || !isFinite(deltaPct)) els.driftDelta.textContent = "—";
+    else els.driftDelta.textContent = `${deltaPct >= 0 ? "+" : ""}${fPct1(deltaPct)}`;
+  }
+
+  let slipDays = null;
+  const totalNeed = ctx?.attemptsNeeded;
+  const remaining = (totalNeed != null && isFinite(totalNeed)) ? Math.max(0, totalNeed - sumAttemptsAll) : null;
+  if (remaining != null && isFinite(remaining) && weeks != null && isFinite(weeks) && weeks > 0 && sumAttempts7 > 0){
+    const projWeeks = remaining / sumAttempts7;
+    const d = (projWeeks - weeks) * 7;
+    slipDays = Math.max(0, Math.round(d));
+  }
+
+  if (els.driftSlipBanner){
+    const bCls = cls ? cls : "";
+    els.driftSlipBanner.className = bCls ? `banner ${bCls}` : "banner";
+    if (slipDays == null){
+      els.driftSlipBanner.textContent = "At current pace, projected slip unavailable under current inputs.";
+    } else {
+      els.driftSlipBanner.textContent = slipDays === 0
+        ? "At current pace, target completion stays on schedule."
+        : `At current pace, target completion shifts by +${slipDays} days.`;
+    }
+  }
+}
 
 function computeRealityDrift(){
   const log = Array.isArray(state.ui?.dailyLog) ? state.ui.dailyLog : null;
@@ -1651,9 +2604,299 @@ function applyWeeklyLeverScenario(lever, ctx){
 
 
 
+function renderRiskFramingE2(){
+  if (!els.riskBandTag || !els.riskWinProb || !els.riskMarginBand || !els.riskVolatility || !els.riskPlainBanner) return;
 
+  const setTag = (label, cls) => {
+    els.riskBandTag.textContent = label || "—";
+    els.riskBandTag.classList.remove("ok","warn","bad");
+    if (cls) els.riskBandTag.classList.add(cls);
+  };
 
+  const setBanner = (text, cls) => {
+    els.riskPlainBanner.className = `banner ${cls || ""}`.trim();
+    els.riskPlainBanner.textContent = text || "—";
+  };
 
+  const s = state.mcLast;
+  if (!s){
+    setTag("—", null);
+    els.riskWinProb.textContent = "—";
+    els.riskMarginBand.textContent = "—";
+    els.riskVolatility.textContent = "—";
+    setBanner("Run Monte Carlo to populate risk framing.", "warn");
+    return;
+  }
+
+  const p = clamp(Number(s.winProb ?? 0), 0, 1);
+  els.riskWinProb.textContent = `${(p * 100).toFixed(1)}%`;
+
+  const ce = s.confidenceEnvelope;
+  const lo = (ce?.percentiles?.p10 != null) ? Number(ce.percentiles.p10) : (s.p5 != null ? Number(s.p5) : null);
+  const hi = (ce?.percentiles?.p90 != null) ? Number(ce.percentiles.p90) : (s.p95 != null ? Number(s.p95) : null);
+  const mid = (ce?.percentiles?.p50 != null) ? Number(ce.percentiles.p50) : (s.median != null ? Number(s.median) : null);
+
+  const fmtBand = (a, b, m) => {
+    if (a == null || b == null || !isFinite(a) || !isFinite(b)) return "—";
+    const mtxt = (m == null || !isFinite(m)) ? "" : ` (p50: ${fmtSigned(m)})`;
+    return `${fmtSigned(a)} to ${fmtSigned(b)}${mtxt}`;
+  };
+
+  els.riskMarginBand.textContent = fmtBand(lo, hi, mid);
+
+  const span = (lo == null || hi == null || !isFinite(lo) || !isFinite(hi)) ? null : Math.abs(hi - lo);
+  let volClass = "—";
+  if (span != null && isFinite(span)){
+    if (span <= 2) volClass = "Low";
+    else if (span <= 5) volClass = "Medium";
+    else volClass = "High";
+  }
+  els.riskVolatility.textContent = (span == null || !isFinite(span)) ? "—" : `${volClass} (±${(span/2).toFixed(1)} pts)`;
+
+  const dir = (p >= 0.5) ? "win" : "loss";
+  const volHigh = (volClass === "High");
+
+  let band = "Volatile";
+  let cls = "bad";
+  if (!volHigh && p >= 0.75){
+    band = "High confidence";
+    cls = "ok";
+  } else if (!volHigh && p >= 0.60){
+    band = "Lean";
+    cls = "warn";
+  }
+
+  setTag(band, cls);
+
+  const marginLine = (mid == null || !isFinite(mid))
+    ? ""
+    : `Expected margin (p50): ${fmtSigned(mid)}.`;
+
+  let plain = "";
+  if (band === "High confidence"){
+    plain = `Model indicates ${(p*100).toFixed(0)}% chance to ${dir}. ${marginLine} Volatility: ${volClass}.`;
+  } else if (band === "Lean"){
+    plain = `Leaning ${dir}: ${(p*100).toFixed(0)}% model win chance. ${marginLine} Volatility: ${volClass}.`;
+  } else {
+    plain = `Volatile outlook: ${(p*100).toFixed(0)}% model win chance. Small changes in execution or assumptions can swing outcomes. ${marginLine} Volatility: ${volClass}.`;
+  }
+
+  setBanner(plain, cls);
+}
+
+function renderBottleneckAttributionE3(res, weeks){
+  if (!els.bneckTag || !els.bneckPrimary || !els.bneckSecondary || !els.bneckTbody || !els.bneckWarn) return;
+
+  const clear = () => { els.bneckTbody.innerHTML = ""; };
+  const stub = () => {
+    clear();
+    els.bneckTbody.innerHTML = '<tr><td class="muted">—</td><td class="num muted">—</td><td class="muted">—</td></tr>';
+  };
+
+  const setWarn = (t) => {
+    els.bneckWarn.textContent = t || "";
+    els.bneckWarn.style.display = t ? "block" : "none";
+  };
+
+  const fmtDelta = (v) => {
+    if (v == null || !isFinite(v)) return "—";
+    const s = v > 0 ? "+" : "";
+    return `${s}${fmtInt(Math.round(v))}`;
+  };
+
+  const computePrimarySecondary = ({ maxAttemptsByTactic }) => {
+    const bindingObj = state.ui?.lastTlMeta?.bindingObj || {};
+    const alloc = state.ui?.lastOpt?.allocation || {};
+    const bindingTimeline = Array.isArray(bindingObj?.timeline) ? bindingObj.timeline : [];
+    const bindingBudget = !!bindingObj?.budget;
+    const bindingCapacity = !!bindingObj?.capacity;
+
+    const sat = [];
+    for (const t of bindingTimeline){
+      const cap = safeNum(maxAttemptsByTactic?.[t]);
+      const a = safeNum(alloc?.[t]);
+      const s = (cap != null && cap > 0 && a != null) ? (a / cap) : null;
+      if (s != null) sat.push({ t, s });
+    }
+    sat.sort((a,b)=> b.s - a.s || String(a.t).localeCompare(String(b.t)));
+
+    let primary = null;
+    let secondary = null;
+
+    if (sat.length){
+      primary = `timeline: ${sat[0].t}`;
+      if (sat.length > 1) secondary = `timeline: ${sat[1].t}`;
+    } else if (bindingTimeline.length){
+      primary = `timeline: ${bindingTimeline[0]}`;
+      if (bindingTimeline.length > 1) secondary = `timeline: ${bindingTimeline[1]}`;
+    }
+
+    const others = [];
+    if (bindingBudget) others.push("budget");
+    if (bindingCapacity) others.push("capacity");
+
+    if (!primary && others.length){
+      primary = others[0];
+      secondary = others[1] || null;
+    } else if (primary && !secondary && others.length){
+      secondary = others[0];
+    }
+
+    return { primary: primary || "none/unknown", secondary: secondary || "—" };
+  };
+
+  const tlOn = !!state.optimizer?.tlConstrainedEnabled;
+  const timelineEnabled = !!state.timelineEnabled;
+  if (!tlOn || !timelineEnabled){
+    els.bneckTag.textContent = "—";
+    els.bneckTag.classList.remove("ok","warn","bad");
+    els.bneckPrimary.textContent = state.ui?.lastDiagnostics?.primaryBottleneck || "—";
+    els.bneckSecondary.textContent = state.ui?.lastDiagnostics?.secondaryNotes || "—";
+    stub();
+    setWarn("Enable Timeline-constrained optimization to compute constraint impacts.");
+    return;
+  }
+
+  setWarn(null);
+
+  const eff = getEffectiveBaseRates();
+  const cr = eff.cr;
+  const sr = eff.sr;
+  const tr = eff.tr;
+
+  const needVotes = deriveNeedVotes(res);
+
+  const opt = state.optimizer || {};
+  const budget = state.budget || {};
+  const tactics = engine.buildOptimizationTactics({ baseRates: { cr, sr, tr }, tactics: budget.tactics || {} });
+
+  const overheadAmount = safeNum(budget.overheadAmount) ?? 0;
+  const includeOverhead = !!budget.includeOverhead;
+
+  const capsInputBase = {
+    enabled: true,
+    weeksRemaining: (weeks != null && isFinite(weeks)) ? weeks : 0,
+    activeWeeksOverride: safeNum(state.timelineActiveWeeks),
+    gotvWindowWeeks: safeNum(state.timelineGotvWeeks),
+    staffing: {
+      staff: safeNum(state.timelineStaffCount) ?? 0,
+      volunteers: safeNum(state.timelineVolCount) ?? 0,
+      staffHours: safeNum(state.timelineStaffHours) ?? 0,
+      volunteerHours: safeNum(state.timelineVolHours) ?? 0,
+    },
+    throughput: {
+      doors: safeNum(state.timelineDoorsPerHour) ?? 0,
+      phones: safeNum(state.timelineCallsPerHour) ?? 0,
+      texts: safeNum(state.timelineTextsPerHour) ?? 0,
+    },
+    tacticKinds: {
+      doors: state.budget?.tactics?.doors?.kind || "persuasion",
+      phones: state.budget?.tactics?.phones?.kind || "persuasion",
+      texts: state.budget?.tactics?.texts?.kind || "persuasion",
+    }
+  };
+
+  const computeTl = ({ tacticsIn, capsIn, budgetLimitIn }) => {
+    const caps = engine.computeMaxAttemptsByTactic(capsIn);
+    const maxAttemptsByTactic = (caps && caps.enabled) ? caps.maxAttemptsByTactic : null;
+
+    const budgetIn = safeNum(budgetLimitIn) ?? 0;
+    const budgetAvail = Math.max(0, budgetIn - (includeOverhead ? overheadAmount : 0));
+
+    const capUser = safeNum(opt.capacityAttempts);
+    const capCeiling = null;
+    const capLimit = (capUser != null && capUser >= 0) ? capUser : null;
+
+    const tlObj = opt.tlConstrainedObjective || "max_net";
+    const step = safeNum(opt.step) ?? 100;
+    const objective = opt.objective || "net";
+
+    const inputs = {
+      mode: (opt.mode || "budget"),
+      budgetLimit: ((opt.mode || "budget") === "capacity") ? null : budgetAvail,
+      capacityLimit: ((opt.mode || "budget") === "capacity") ? (capLimit ?? 0) : null,
+      capacityCeiling: ((opt.mode || "budget") === "capacity") ? null : capCeiling,
+      tactics: tacticsIn,
+      step,
+      useDecay: !!opt.useDecay,
+      objective,
+      maxAttemptsByTactic,
+      tlObjectiveMode: tlObj,
+      goalNetVotes: needVotes
+    };
+    return { out: engine.optimizeTimelineConstrained(inputs), maxAttemptsByTactic };
+  };
+
+  const baseBudget = safeNum(opt.budgetAmount) ?? 0;
+  const base = computeTl({ tacticsIn: tactics, capsIn: capsInputBase, budgetLimitIn: baseBudget });
+  const baseMeta = base.out?.meta || {};
+  const baseMax = safeNum(baseMeta.maxAchievableNetVotes) ?? null;
+
+  const ps = computePrimarySecondary({ maxAttemptsByTactic: base.maxAttemptsByTactic || null });
+  els.bneckPrimary.textContent = ps.primary;
+  els.bneckSecondary.textContent = ps.secondary;
+
+  const bindingObj = baseMeta.bindingObj || state.ui?.lastTlMeta?.bindingObj || {};
+  const badgeCls = (bindingObj?.budget || bindingObj?.capacity || (Array.isArray(bindingObj?.timeline) && bindingObj.timeline.length)) ? "warn" : "ok";
+  els.bneckTag.textContent = badgeCls === "ok" ? "Clear" : "Binding";
+  els.bneckTag.classList.remove("ok","warn","bad");
+  els.bneckTag.classList.add(badgeCls);
+
+  const buildRow = (name, delta, notes) => {
+    const trEl = document.createElement("tr");
+    const td0 = document.createElement("td");
+    td0.textContent = name;
+    const td1 = document.createElement("td");
+    td1.className = "num";
+    td1.textContent = fmtDelta(delta);
+    const td2 = document.createElement("td");
+    td2.className = "muted";
+    td2.textContent = notes || "—";
+    trEl.appendChild(td0); trEl.appendChild(td1); trEl.appendChild(td2);
+    return trEl;
+  };
+
+  const staffHours10 = (() => {
+    const c = structuredClone(capsInputBase);
+    const cur = safeNum(c.staffing?.staffHours) ?? 0;
+    c.staffing.staffHours = cur * 1.10;
+    const out = computeTl({ tacticsIn: tactics, capsIn: c, budgetLimitIn: baseBudget });
+    const m = safeNum(out.out?.meta?.maxAchievableNetVotes) ?? null;
+    return { delta: (m != null && baseMax != null) ? (m - baseMax) : null, notes: "timeline capacity (staff hours/week)" };
+  })();
+
+  const volHours10 = (() => {
+    const c = structuredClone(capsInputBase);
+    const cur = safeNum(c.staffing?.volunteerHours) ?? 0;
+    c.staffing.volunteerHours = cur * 1.10;
+    const out = computeTl({ tacticsIn: tactics, capsIn: c, budgetLimitIn: baseBudget });
+    const m = safeNum(out.out?.meta?.maxAchievableNetVotes) ?? null;
+    return { delta: (m != null && baseMax != null) ? (m - baseMax) : null, notes: "volunteer hours/week" };
+  })();
+
+  const budget10 = (() => {
+    if ((opt.mode || "budget") === "capacity") return { delta: null, notes: "budget not active (capacity mode)" };
+    const out = computeTl({ tacticsIn: tactics, capsIn: capsInputBase, budgetLimitIn: baseBudget * 1.10 });
+    const m = safeNum(out.out?.meta?.maxAchievableNetVotes) ?? null;
+    return { delta: (m != null && baseMax != null) ? (m - baseMax) : null, notes: "budget ceiling" };
+  })();
+
+  const contactRate10 = (() => {
+    const curPct = safeNum(state.contactRatePct);
+    if (curPct == null) return { delta: null, notes: "contact rate missing" };
+    const nextPct = clamp(curPct * 1.10, 0, 100);
+    const t2 = engine.buildOptimizationTactics({ baseRates: { cr: clamp(nextPct,0,100)/100, sr, tr }, tactics: budget.tactics || {} });
+    const out = computeTl({ tacticsIn: t2, capsIn: capsInputBase, budgetLimitIn: baseBudget });
+    const m = safeNum(out.out?.meta?.maxAchievableNetVotes) ?? null;
+    return { delta: (m != null && baseMax != null) ? (m - baseMax) : null, notes: `contact rate ${curPct.toFixed(1)}% → ${nextPct.toFixed(1)}%` };
+  })();
+
+  clear();
+  els.bneckTbody.appendChild(buildRow("Timeline capacity", staffHours10.delta, staffHours10.notes));
+  els.bneckTbody.appendChild(buildRow("Budget ceiling", budget10.delta, budget10.notes));
+  els.bneckTbody.appendChild(buildRow("Contact rate", contactRate10.delta, contactRate10.notes));
+  els.bneckTbody.appendChild(buildRow("Volunteer hours", volHours10.delta, volHours10.notes));
+ }
 
 function renderWeeklyOpsInsights(res, weeks){
   if (!els.wkLeversIntro || !els.wkActionsList || !els.wkBestMovesList || !els.wkLeversTbody) return;
@@ -2165,7 +3408,51 @@ function renderConversion(res, weeks){
 }
 
 
+function renderSensitivitySnapshotE4(){
+  if (!els.sensTag || !els.sensTbody || !els.sensBanner || !els.btnSensRun) return;
 
+  const stub = (msg, cls) => {
+    els.sensTbody.innerHTML = '<tr><td class="muted">—</td><td class="num muted">—</td><td class="num muted">—</td><td class="muted">—</td></tr>';
+    els.sensTag.textContent = "—";
+    els.sensTag.classList.remove("ok","warn","bad");
+    els.sensBanner.className = `banner ${cls || ""}`.trim();
+    els.sensBanner.textContent = msg || "—";
+  };
+
+  const base = state.mcLast;
+  if (!base){
+    stub("Run Monte Carlo to enable the sensitivity snapshot.", "warn");
+    els.btnSensRun.disabled = true;
+    return;
+  }
+
+  els.btnSensRun.disabled = false;
+
+  const cache = state.ui?.e4Sensitivity;
+  if (!cache || cache.baseHash !== state.mcLastHash || !Array.isArray(cache.rows) || cache.rows.length === 0){
+    stub("Click \"Run snapshot\" to compute small perturbation deltas (read-only).", "");
+    return;
+  }
+
+  els.sensTbody.innerHTML = "";
+  for (const r of cache.rows){
+    const tr = document.createElement("tr");
+    const td0 = document.createElement("td"); td0.textContent = r.label || "—";
+    const td1 = document.createElement("td"); td1.className = "num"; td1.textContent = r.dWin || "—";
+    const td2 = document.createElement("td"); td2.className = "num"; td2.textContent = r.dP50 || "—";
+    const td3 = document.createElement("td"); td3.className = "muted"; td3.textContent = r.note || "";
+    tr.appendChild(td0); tr.appendChild(td1); tr.appendChild(td2); tr.appendChild(td3);
+    els.sensTbody.appendChild(tr);
+  }
+
+  const tag = cache.tag || "Snapshot";
+  els.sensTag.textContent = tag;
+  els.sensTag.classList.remove("ok","warn","bad");
+  if (cache.cls) els.sensTag.classList.add(cache.cls);
+
+  els.sensBanner.className = `banner ${cache.cls || ""}`.trim();
+  els.sensBanner.textContent = cache.banner || "—";
+}
 
 async function runSensitivitySnapshotE4(){
   if (!els.sensTag || !els.sensTbody || !els.sensBanner || !els.btnSensRun) return;
@@ -2295,7 +3582,203 @@ async function runSensitivitySnapshotE4(){
   }
 }
 
+function renderDecisionConfidenceE5(res, weeks){
+  if (!els.confTag || !els.confExec || !els.confRisk || !els.confTight || !els.confDiv || !els.confBanner) return;
 
+  const setTag = (cls, text) => {
+    els.confTag.classList.remove("ok","warn","bad");
+    if (cls) els.confTag.classList.add(cls);
+    els.confTag.textContent = text || "—";
+  };
+
+  const setBanner = (cls, text) => {
+    els.confBanner.className = `banner ${cls || ""}`.trim();
+    els.confBanner.textContent = text || "—";
+  };
+
+  const computeExec = () => {
+    const log = Array.isArray(state.ui?.dailyLog) ? state.ui.dailyLog : [];
+    const sorted = [...log].map(normalizeDailyLogEntry).filter(Boolean).sort((a,b)=>String(a.date).localeCompare(String(b.date)));
+    const last7 = sorted.slice(-7);
+    const actual7 = last7.reduce((s,e)=> s + (safeNum(e.attempts) ?? 0), 0);
+
+    const rawGoal = safeNum(state.goalSupportIds);
+    const autoGoal = safeNum(res?.expected?.persuasionNeed);
+    const goal = (rawGoal != null && rawGoal >= 0) ? rawGoal : (autoGoal != null && autoGoal > 0 ? autoGoal : 0);
+
+    const eff = getEffectiveBaseRates();
+    const sr = eff.sr;
+    const cr = eff.cr;
+
+    let attemptsPerWeekReq = null;
+    if (goal > 0 && sr && sr > 0 && cr && cr > 0 && weeks != null && weeks > 0){
+      const convosNeeded = goal / sr;
+      const attemptsNeeded = convosNeeded / cr;
+      attemptsPerWeekReq = attemptsNeeded / weeks;
+    }
+
+    const req7 = (attemptsPerWeekReq != null) ? (attemptsPerWeekReq) : null;
+    const pct = (req7 != null && req7 > 0) ? ((actual7 - req7) / req7) : null;
+    const absPct = (pct != null) ? Math.abs(pct) : null;
+
+    let status = "unknown";
+    if (absPct != null){
+      if (absPct <= 0.05) status = "green";
+      else if (absPct <= 0.15) status = "yellow";
+      else status = "red";
+    }
+    return { status, pct, req: req7, actual7 };
+  };
+
+  const computeRisk = () => {
+    const mc = state.mcLast;
+    if (!mc) return { band: "unknown", vol: null, winProb: null };
+    const p = (mc.winProb != null) ? clamp(Number(mc.winProb), 0, 1) : null;
+
+    const env = mc.confidenceEnvelope?.percentiles || null;
+    const lo = (env?.p10 != null) ? Number(env.p10)
+      : (env?.p5 != null) ? Number(env.p5)
+      : null;
+    const hi = (env?.p90 != null) ? Number(env.p90)
+      : (env?.p95 != null) ? Number(env.p95)
+      : null;
+    const width = (lo != null && hi != null && isFinite(lo) && isFinite(hi)) ? (hi - lo) : null;
+
+    const band = (() => {
+      if (p == null) return "unknown";
+      if (p >= 0.70 && (width == null || width <= 8)) return "high";
+      if (p >= 0.55 && (width == null || width <= 14)) return "lean";
+      return "volatile";
+    })();
+
+    return { band, vol: width, winProb: p };
+  };
+
+  const computeTightness = () => {
+    const bindingObj = state.ui?.lastTlMeta?.bindingObj || null;
+    if (!bindingObj || typeof bindingObj !== "object") return { cls: "", label: "—" };
+    const b = [];
+    if (bindingObj.budget) b.push("budget");
+    if (bindingObj.capacity) b.push("capacity");
+    if (Array.isArray(bindingObj.timeline) && bindingObj.timeline.length) b.push("timeline");
+    if (!b.length) return { cls: "ok", label: "Clear" };
+    if (b.length === 1) return { cls: "warn", label: "Binding" };
+    return { cls: "bad", label: "Severe" };
+  };
+
+  const computeDivergence = () => {
+    ensureScenarioRegistry();
+    const reg = state.ui.scenarios;
+    const activeId = state.ui.activeScenarioId;
+    if (!activeId || activeId === SCENARIO_BASELINE_ID) return { cls: "ok", label: "Low" };
+
+    const baseRec = reg?.[SCENARIO_BASELINE_ID] || null;
+    if (!baseRec) return { cls: "", label: "—" };
+
+    const baseInputs = scenarioClone(baseRec.inputs || {});
+    const actInputs = scenarioInputsFromState(state);
+
+    const keyOrder = [
+      "raceType","mode","electionDate","weeksRemaining",
+      "universeBasis","universeSize",
+      "goalSupportIds","supportRatePct","contactRatePct","turnoutReliabilityPct",
+      "universeLayerEnabled","universeDemPct","universeRepPct","universeNpaPct","universeOtherPct","retentionFactor",
+      "orgCount","orgHoursPerWeek","volunteerMultBase","channelDoorPct","doorsPerHour3","callsPerHour3",
+      "timelineEnabled","timelineStaffCount","timelineVolCount","timelineStaffHours","timelineVolHours","timelineDoorsPerHour","timelineCallsPerHour","timelineTextsPerHour","timelineDoorSharePct","timelineActiveWeeks","timelineGotvWeeks"
+    ];
+
+    let diff = 0;
+    for (const k of keyOrder){
+      const a = baseInputs?.[k];
+      const b = actInputs?.[k];
+      const same = (a === b) || (String(a ?? "") === String(b ?? ""));
+      if (!same) diff++;
+    }
+
+    if (diff <= 3) return { cls: "ok", label: "Low" };
+    if (diff <= 8) return { cls: "warn", label: "Moderate" };
+    return { cls: "bad", label: "High" };
+  };
+
+  const exec = computeExec();
+  const risk = computeRisk();
+  const tight = computeTightness();
+  const div = computeDivergence();
+
+  const execLabel = exec.status === "green" ? "On pace" : exec.status === "yellow" ? "Drifting" : exec.status === "red" ? "Off pace" : "—";
+  els.confExec.textContent = execLabel;
+
+  const riskLabel = risk.band === "high" ? "High confidence" : risk.band === "lean" ? "Lean" : risk.band === "volatile" ? "Volatile" : "—";
+  els.confRisk.textContent = riskLabel;
+
+  els.confTight.textContent = tight.label || "—";
+  els.confDiv.textContent = div.label || "—";
+
+  const scorePiece = (kind) => {
+    if (kind === "exec"){
+      if (exec.status === "green") return 25;
+      if (exec.status === "yellow") return 15;
+      if (exec.status === "red") return 5;
+      return 10;
+    }
+    if (kind === "risk"){
+      if (risk.band === "high") return 25;
+      if (risk.band === "lean") return 15;
+      if (risk.band === "volatile") return 5;
+      return 10;
+    }
+    if (kind === "tight"){
+      if (tight.label === "Clear") return 25;
+      if (tight.label === "Binding") return 15;
+      if (tight.label === "Severe") return 5;
+      return 10;
+    }
+    if (kind === "div"){
+      if (div.label === "Low") return 25;
+      if (div.label === "Moderate") return 15;
+      if (div.label === "High") return 5;
+      return 10;
+    }
+    return 0;
+  };
+
+  const score = scorePiece("exec") + scorePiece("risk") + scorePiece("tight") + scorePiece("div");
+  const rating = (score >= 80) ? "Strong" : (score >= 50) ? "Moderate" : "Low";
+  const cls = (rating === "Strong") ? "ok" : (rating === "Moderate") ? "warn" : "bad";
+
+  setTag(cls, `${rating}`);
+
+  const slips = (() => {
+    if (exec.pct == null || exec.req == null || exec.req <= 0) return null;
+    const perWeekActual = exec.actual7;
+    const perWeekReq = exec.req;
+    if (!isFinite(perWeekActual) || !isFinite(perWeekReq) || perWeekActual <= 0) return null;
+    const factor = perWeekReq / perWeekActual;
+    const extraWeeks = (factor - 1) * (weeks ?? 0);
+    if (!isFinite(extraWeeks)) return null;
+    const days = Math.max(0, Math.round(extraWeeks * 7));
+    return days;
+  })();
+
+  const driverLines = [];
+  if (exec.status === "red") driverLines.push("Execution pace is off required weekly pace.");
+  else if (exec.status === "yellow") driverLines.push("Execution pace is drifting from required weekly pace.");
+
+  if (risk.band === "volatile") driverLines.push("Monte Carlo outputs are volatile.");
+  else if (risk.band === "lean") driverLines.push("Win probability is lean rather than secure.");
+
+  if (tight.label === "Severe") driverLines.push("Multiple constraints are binding simultaneously.");
+  else if (tight.label === "Binding") driverLines.push("At least one constraint is binding.");
+
+  if (div.label === "High") driverLines.push("Active scenario diverges meaningfully from baseline.");
+  else if (div.label === "Moderate") driverLines.push("Active scenario differs from baseline in several assumptions.");
+
+  const slipText = (slips != null && slips > 0) ? `If pace holds, target slips by ~${fmtInt(slips)} days.` : null;
+  if (slipText) driverLines.unshift(slipText);
+
+  const banner = driverLines.length ? driverLines.slice(0, 3).join(" ") : "Confidence combines pace, risk, constraints, and scenario divergence.";
+  setBanner(cls, banner);
+}
 
 
 function renderDecisionIntelligencePanel({ res, weeks }){
@@ -3489,7 +4972,96 @@ function decisionScenarioLabel(scenarioId){
   return String(scenarioId);
 }
 
+function renderDecisionSessionD1(){
+  if (!els.decisionSessionSelect && !els.decisionActiveLabel) return;
+  ensureDecisionScaffold();
+  const sessions = listDecisionSessions();
+  const activeId = state.ui.decision.activeSessionId;
+  const active = getActiveDecisionSession();
+  ensureDecisionSessionShape(active);
 
+  if (els.decisionSessionSelect){
+    els.decisionSessionSelect.innerHTML = "";
+    for (const s of sessions){
+      const opt = document.createElement("option");
+      opt.value = s.id;
+      opt.textContent = s.name || s.id;
+      els.decisionSessionSelect.appendChild(opt);
+    }
+    els.decisionSessionSelect.value = activeId;
+  }
+
+  if (els.decisionActiveLabel){
+    els.decisionActiveLabel.textContent = active ? `Active session: ${active.name || active.id}` : "Active session: —";
+  }
+
+  if (els.decisionRename){
+    els.decisionRename.value = active?.name || "";
+  }
+
+  if (els.decisionObjective){
+    els.decisionObjective.innerHTML = "";
+    for (const o of OBJECTIVE_TEMPLATES){
+      const opt = document.createElement("option");
+      opt.value = o.key;
+      opt.textContent = o.label;
+      els.decisionObjective.appendChild(opt);
+    }
+    els.decisionObjective.value = active?.objectiveKey || OBJECTIVE_TEMPLATES[0].key;
+  }
+
+  if (els.decisionNotes){
+    els.decisionNotes.value = active?.notes || "";
+  }
+
+
+  if (els.decisionBudget){
+    const v = active?.constraints?.budget;
+    els.decisionBudget.value = (v == null || !Number.isFinite(Number(v))) ? "" : String(v);
+  }
+
+  if (els.decisionVolunteerHrs){
+    const v = active?.constraints?.volunteerHrs;
+    els.decisionVolunteerHrs.value = (v == null || !Number.isFinite(Number(v))) ? "" : String(v);
+  }
+
+  if (els.decisionTurfAccess){
+    els.decisionTurfAccess.value = String(active?.constraints?.turfAccess || "");
+  }
+
+  if (els.decisionBlackoutDates){
+    els.decisionBlackoutDates.value = String(active?.constraints?.blackoutDates || "");
+  }
+
+  if (els.decisionRiskPosture){
+    if (!els.decisionRiskPosture.options.length){
+      for (const rp of RISK_POSTURES){
+        const opt = document.createElement("option");
+        opt.value = rp.key;
+        opt.textContent = rp.label;
+        els.decisionRiskPosture.appendChild(opt);
+      }
+    }
+    els.decisionRiskPosture.value = String(active?.riskPosture || "balanced");
+  }
+
+  if (els.decisionNonNegotiables){
+    const lines = Array.isArray(active?.nonNegotiables) ? active.nonNegotiables : [];
+    els.decisionNonNegotiables.value = lines.join("\n");
+  }
+
+  if (els.decisionScenarioLabel){
+    els.decisionScenarioLabel.textContent = decisionScenarioLabel(active?.scenarioId || null);
+  }
+
+  if (els.btnDecisionDelete){
+    els.btnDecisionDelete.disabled = sessions.length <= 1;
+  }
+
+
+  renderDecisionOptionsD3(active);
+  renderDecisionSummaryD4(active);
+}
 
 function createNewDecisionSession(){
   ensureDecisionScaffold();
@@ -3566,7 +5138,62 @@ function getActiveDecisionOption(session){
   return o || null;
 }
 
+function renderDecisionOptionsD3(session){
+  if (!els.decisionOptionSelect) return;
+  if (!session) return;
 
+  ensureDecisionSessionShape(session);
+
+  const options = listDecisionOptions(session);
+  const active = getActiveDecisionOption(session);
+
+  els.decisionOptionSelect.innerHTML = "";
+  if (!options.length){
+    const opt = document.createElement("option");
+    opt.value = "";
+    opt.textContent = "No options yet";
+    els.decisionOptionSelect.appendChild(opt);
+    els.decisionOptionSelect.value = "";
+  } else {
+    for (const o of options){
+      const opt = document.createElement("option");
+      opt.value = o.id;
+      opt.textContent = o.label || o.id;
+      els.decisionOptionSelect.appendChild(opt);
+    }
+    els.decisionOptionSelect.value = session.activeOptionId || options[0].id;
+    if (!session.activeOptionId) session.activeOptionId = els.decisionOptionSelect.value;
+  }
+
+  const has = !!active;
+
+  if (els.decisionOptionRename){
+    els.decisionOptionRename.value = has ? String(active.label || "") : "";
+    els.decisionOptionRename.disabled = !has;
+  }
+
+  if (els.btnDecisionOptionRenameSave) els.btnDecisionOptionRenameSave.disabled = !has;
+  if (els.btnDecisionOptionDelete) els.btnDecisionOptionDelete.disabled = options.length <= 1;
+  if (els.btnDecisionOptionLinkScenario) els.btnDecisionOptionLinkScenario.disabled = !has;
+
+  if (els.decisionOptionScenarioLabel){
+    els.decisionOptionScenarioLabel.textContent = has ? decisionScenarioLabel(active.scenarioId || null) : "—";
+  }
+
+  const t = has ? (active.tactics || {}) : {};
+  if (els.decisionOptionTacticDoors){
+    els.decisionOptionTacticDoors.checked = !!t.doors;
+    els.decisionOptionTacticDoors.disabled = !has;
+  }
+  if (els.decisionOptionTacticPhones){
+    els.decisionOptionTacticPhones.checked = !!t.phones;
+    els.decisionOptionTacticPhones.disabled = !has;
+  }
+  if (els.decisionOptionTacticDigital){
+    els.decisionOptionTacticDigital.checked = !!t.digital;
+    els.decisionOptionTacticDigital.disabled = !has;
+  }
+}
 
 function createNewDecisionOption(){
   const s = getActiveDecisionSession();
@@ -3809,7 +5436,36 @@ function downloadJsonObject(obj, filename){
   }catch(e){}
 }
 
+function renderDecisionSummaryD4(session){
+  const s = session || getActiveDecisionSession();
+  if (!s) return;
 
+  if (els.decisionRecommendSelect){
+    els.decisionRecommendSelect.innerHTML = "";
+    const options = (s.options && typeof s.options === "object") ? Object.values(s.options) : [];
+    options.sort((a,b) => String(a?.createdAt||"").localeCompare(String(b?.createdAt||"")));
+    const ph = document.createElement("option");
+    ph.value = "";
+    ph.textContent = "—";
+    els.decisionRecommendSelect.appendChild(ph);
+    for (const o of options){
+      const opt = document.createElement("option");
+      opt.value = o.id;
+      opt.textContent = decisionOptionDisplay(o);
+      els.decisionRecommendSelect.appendChild(opt);
+    }
+    els.decisionRecommendSelect.value = s.recommendedOptionId || "";
+  }
+
+  if (els.decisionWhatTrue){
+    const lines = Array.isArray(s.whatNeedsTrue) ? s.whatNeedsTrue : [];
+    els.decisionWhatTrue.value = lines.join("\n");
+  }
+
+  if (els.decisionSummaryPreview){
+    els.decisionSummaryPreview.value = buildDecisionSummaryText(s);
+  }
+}
 
 
 function wireDecisionSessionD1(){
@@ -3833,120 +5489,92 @@ function wireDecisionSessionD1(){
   if (els.btnDecisionLinkScenario) els.btnDecisionLinkScenario.addEventListener("click", () => linkDecisionSessionToActiveScenario());
 
   if (els.decisionNotes){
-    wireInput(els.decisionNotes, {
-      event: "input",
-      get: (x) => String(x.value || ""),
-      set: (v) => {
-        const s = getActiveDecisionSession();
-        if (!s) return;
-        s.notes = String(v || "");
-        persist();
-      }
+    els.decisionNotes.addEventListener("input", () => {
+      const s = getActiveDecisionSession();
+      if (!s) return;
+      s.notes = String(els.decisionNotes.value || "");
+      persist();
     });
   }
 
   if (els.decisionObjective){
-    wireSelect(els.decisionObjective, {
-      set: (v) => {
-        const s = getActiveDecisionSession();
-        if (!s) return;
-        s.objectiveKey = String(v || "");
-        persist();
-        renderDecisionSessionD1();
-      }
+    els.decisionObjective.addEventListener("change", () => {
+      const s = getActiveDecisionSession();
+      if (!s) return;
+      const key = String(els.decisionObjective.value || "");
+      s.objectiveKey = key;
+      persist();
+      renderDecisionSessionD1();
     });
   }
 
   if (els.decisionBudget){
-    wireInput(els.decisionBudget, {
-      event: "input",
-      get: (x) => String(x.value || "").trim(),
-      parse: (raw) => {
-        const n = Number(raw);
-        return raw === "" || !Number.isFinite(n) ? null : n;
-      },
-      set: (v) => {
-        const s = getActiveDecisionSession();
-        if (!s) return;
-        ensureDecisionSessionShape(s);
-        s.constraints.budget = v;
-        persist();
-      }
+    els.decisionBudget.addEventListener("input", () => {
+      const s = getActiveDecisionSession();
+      if (!s) return;
+      ensureDecisionSessionShape(s);
+      const raw = String(els.decisionBudget.value || "").trim();
+      const n = Number(raw);
+      s.constraints.budget = raw === "" || !Number.isFinite(n) ? null : n;
+      persist();
     });
   }
 
   if (els.decisionVolunteerHrs){
-    wireInput(els.decisionVolunteerHrs, {
-      event: "input",
-      get: (x) => String(x.value || "").trim(),
-      parse: (raw) => {
-        const n = Number(raw);
-        return raw === "" || !Number.isFinite(n) ? null : n;
-      },
-      set: (v) => {
-        const s = getActiveDecisionSession();
-        if (!s) return;
-        ensureDecisionSessionShape(s);
-        s.constraints.volunteerHrs = v;
-        persist();
-      }
+    els.decisionVolunteerHrs.addEventListener("input", () => {
+      const s = getActiveDecisionSession();
+      if (!s) return;
+      ensureDecisionSessionShape(s);
+      const raw = String(els.decisionVolunteerHrs.value || "").trim();
+      const n = Number(raw);
+      s.constraints.volunteerHrs = raw === "" || !Number.isFinite(n) ? null : n;
+      persist();
     });
   }
 
   if (els.decisionTurfAccess){
-    wireSelect(els.decisionTurfAccess, {
-      set: (v) => {
-        const s = getActiveDecisionSession();
-        if (!s) return;
-        ensureDecisionSessionShape(s);
-        s.constraints.turfAccess = String(v || "");
-        persist();
-      }
+    els.decisionTurfAccess.addEventListener("change", () => {
+      const s = getActiveDecisionSession();
+      if (!s) return;
+      ensureDecisionSessionShape(s);
+      s.constraints.turfAccess = String(els.decisionTurfAccess.value || "");
+      persist();
     });
   }
 
   if (els.decisionBlackoutDates){
-    wireInput(els.decisionBlackoutDates, {
-      event: "input",
-      get: (x) => String(x.value || ""),
-      set: (v) => {
-        const s = getActiveDecisionSession();
-        if (!s) return;
-        ensureDecisionSessionShape(s);
-        s.constraints.blackoutDates = String(v || "");
-        persist();
-      }
+    els.decisionBlackoutDates.addEventListener("input", () => {
+      const s = getActiveDecisionSession();
+      if (!s) return;
+      ensureDecisionSessionShape(s);
+      s.constraints.blackoutDates = String(els.decisionBlackoutDates.value || "");
+      persist();
     });
   }
 
   if (els.decisionRiskPosture){
-    wireSelect(els.decisionRiskPosture, {
-      set: (v) => {
-        const s = getActiveDecisionSession();
-        if (!s) return;
-        ensureDecisionSessionShape(s);
-        s.riskPosture = String(v || "balanced");
-        persist();
-        renderDecisionSessionD1();
-      }
+    els.decisionRiskPosture.addEventListener("change", () => {
+      const s = getActiveDecisionSession();
+      if (!s) return;
+      ensureDecisionSessionShape(s);
+      s.riskPosture = String(els.decisionRiskPosture.value || "balanced");
+      persist();
+      renderDecisionSessionD1();
     });
   }
 
   if (els.decisionNonNegotiables){
-    wireInput(els.decisionNonNegotiables, {
-      event: "input",
-      get: (x) => String(x.value || ""),
-      parse: (raw) => String(raw || "")
+    els.decisionNonNegotiables.addEventListener("input", () => {
+      const s = getActiveDecisionSession();
+      if (!s) return;
+      ensureDecisionSessionShape(s);
+      const raw = String(els.decisionNonNegotiables.value || "");
+      const arr = raw
         .split(/\r?\n|,/)
         .map(x => String(x || "").trim())
-        .filter(Boolean),
-      set: (arr) => {
-        const s = getActiveDecisionSession();
-        if (!s) return;
-        ensureDecisionSessionShape(s);
-        s.nonNegotiables = Array.isArray(arr) ? arr : [];
-        persist();
-      }
+        .filter(Boolean);
+      s.nonNegotiables = arr;
+      persist();
     });
   }
 
@@ -3999,21 +5627,15 @@ function wireDecisionSessionD1(){
   }
 
   if (els.decisionWhatTrue){
-    wireInput(els.decisionWhatTrue, {
-      event: "input",
-      get: (x) => String(x.value || ""),
-      parse: (raw) => String(raw || "")
-        .split(/\r?\n/)
-        .map(x => String(x || "").trim())
-        .filter(Boolean),
-      set: (arr) => {
-        const s = getActiveDecisionSession();
-        if (!s) return;
-        ensureDecisionSessionShape(s);
-        s.whatNeedsTrue = Array.isArray(arr) ? arr : [];
-        persist();
-        renderDecisionSummaryD4(s);
-      }
+    els.decisionWhatTrue.addEventListener("input", () => {
+      const s = getActiveDecisionSession();
+      if (!s) return;
+      ensureDecisionSessionShape(s);
+      const raw = String(els.decisionWhatTrue.value || "");
+      const arr = raw.split(/\r?\n/).map(x => String(x || "").trim()).filter(Boolean);
+      s.whatNeedsTrue = arr;
+      persist();
+      renderDecisionSummaryD4(s);
     });
   }
   const setCopyStatus = (msg) => {
@@ -4595,39 +6217,7 @@ function init(){
   rebuildCandidateTable();
   initTabs();
   initExplainCard();
-  wireUI(els, {
-    state,
-    setState,
-    setUI,
-    persist,
-    render,
-    markMcStale,
-    safeCall,
-    refreshBackupDropdown,
-    restoreBackupByIndex,
-    openDiagnostics,
-    closeDiagnostics,
-    copyDebugBundle,
-    exportDailyLog,
-    mergeDailyLogIntoState,
-    applyRollingRateToAssumption,
-    undoLastWeeklyAction,
-    applyStateToUI,
-    applyThemeFromState,
-    initThemeSystemListener,
-    DEFAULTS_BY_TEMPLATE,
-    uid,
-    rebuildCandidateTable,
-    rebuildUserSplitInputs,
-    rebuildYourCandidateSelect,
-    syncGotvModeUI,
-    syncMcModeUI,
-    runMonteCarloNow,
-    safeNum,
-    fmtInt,
-    clamp,
-    downloadText,
-  });
+  wireEvents();
   initDevTools();
   render();
   try{
@@ -4781,7 +6371,62 @@ function computeDailyLogHash(){
   return computeSnapshotHash({ modelVersion: "", scenarioState: { ui: { dailyLog: norm } } });
 }
 
+function renderMcFreshness(res, weeks){
+  if (!els.mcFreshTag && !els.mcLastRun && !els.mcStale) return;
 
+  const has = !!state.mcLast;
+  const meta = (state.ui && state.ui.mcMeta && typeof state.ui.mcMeta === "object") ? state.ui.mcMeta : null;
+
+  if (els.mcRerun) els.mcRerun.disabled = !has;
+
+  if (!has){
+    if (els.mcFreshTag){
+      els.mcFreshTag.textContent = "Not run";
+      els.mcFreshTag.classList.remove("ok","warn","bad");
+      els.mcFreshTag.classList.add("warn");
+    }
+    if (els.mcLastRun) els.mcLastRun.textContent = "Last run: —";
+    if (els.mcStale) els.mcStale.hidden = true;
+    return;
+  }
+
+  const hNow = hashMcInputs(res, weeks);
+  const inputsAtRun = meta && meta.inputsHash ? String(meta.inputsHash) : String(state.mcLastHash || "");
+  const logAtRun = meta && meta.dailyLogHash ? String(meta.dailyLogHash) : "";
+  const logNow = computeDailyLogHash();
+
+  const staleInputs = !!inputsAtRun && inputsAtRun !== hNow;
+  const staleLog = !!logAtRun && logAtRun !== logNow;
+
+  let status = "Fresh";
+  let cls = "ok";
+  if (staleInputs){
+    status = "Stale: inputs changed";
+    cls = "warn";
+  } else if (staleLog){
+    status = "Stale: execution updated";
+    cls = "warn";
+  }
+
+  if (els.mcFreshTag){
+    els.mcFreshTag.textContent = status;
+    els.mcFreshTag.classList.remove("ok","warn","bad");
+    els.mcFreshTag.classList.add(cls);
+  }
+
+  if (els.mcLastRun){
+    const ts = meta && meta.lastRunAt ? meta.lastRunAt : "";
+    els.mcLastRun.textContent = `Last run: ${formatMcTimestamp(ts)}`;
+  }
+
+  if (els.mcStale){
+    els.mcStale.hidden = !(staleInputs || staleLog);
+  }
+
+  renderOpsEnvelopeD2(res, weeks);
+  renderFinishEnvelopeD3(res, weeks);
+  renderMissRiskD4(res, weeks);
+}
 
 
 function hashOpsEnvelopeInputs(res, weeks){
@@ -4863,7 +6508,47 @@ function computeOpsEnvelopeD2(res, weeks){
   };
 }
 
+function renderOpsEnvelopeD2(res, weeks){
+  if (!els.opsAttP10 && !els.opsConP10) return;
 
+  const clear = () => {
+    if (els.opsAttP10) els.opsAttP10.textContent = "—";
+    if (els.opsAttP50) els.opsAttP50.textContent = "—";
+    if (els.opsAttP90) els.opsAttP90.textContent = "—";
+    if (els.opsConP10) els.opsConP10.textContent = "—";
+    if (els.opsConP50) els.opsConP50.textContent = "—";
+    if (els.opsConP90) els.opsConP90.textContent = "—";
+  };
+
+  if (!state.mcLast){
+    clear();
+    return;
+  }
+
+  const h = hashOpsEnvelopeInputs(res, weeks);
+  const cached = (state.ui && state.ui.opsEnvelope && typeof state.ui.opsEnvelope === "object") ? state.ui.opsEnvelope : null;
+  let env = (cached && cached.hash === h) ? cached.env : null;
+
+  if (!env){
+    env = computeOpsEnvelopeD2(res, weeks);
+    if (!env){
+      clear();
+      return;
+    }
+    if (!state.ui) state.ui = {};
+    state.ui.opsEnvelope = { hash: h, env, computedAt: new Date().toISOString() };
+    persist();
+  }
+
+  const fmt = (v) => (v == null || !isFinite(v)) ? "—" : fmtInt(Math.round(v));
+
+  if (els.opsAttP10) els.opsAttP10.textContent = fmt(env.attempts.p10);
+  if (els.opsAttP50) els.opsAttP50.textContent = fmt(env.attempts.p50);
+  if (els.opsAttP90) els.opsAttP90.textContent = fmt(env.attempts.p90);
+  if (els.opsConP10) els.opsConP10.textContent = fmt(env.convos.p10);
+  if (els.opsConP50) els.opsConP50.textContent = fmt(env.convos.p50);
+  if (els.opsConP90) els.opsConP90.textContent = fmt(env.convos.p90);
+}
 
 function hashFinishEnvelopeInputs(res, weeks){
   const today = fmtISODate(new Date());
@@ -4942,7 +6627,46 @@ function computeFinishEnvelopeD3(res, weeks){
   };
 }
 
+function renderFinishEnvelopeD3(res, weeks){
+  if (!els.opsFinishP10 && !els.opsFinishP50 && !els.opsFinishP90) return;
 
+  const clear = () => {
+    if (els.opsFinishP10) els.opsFinishP10.textContent = "—";
+    if (els.opsFinishP50) els.opsFinishP50.textContent = "—";
+    if (els.opsFinishP90) els.opsFinishP90.textContent = "—";
+  };
+
+  if (!state.mcLast){
+    clear();
+    return;
+  }
+
+  const h = hashFinishEnvelopeInputs(res, weeks);
+  const cached = (state.ui && state.ui.finishEnvelope && typeof state.ui.finishEnvelope === "object") ? state.ui.finishEnvelope : null;
+  let env = (cached && cached.hash === h) ? cached.env : null;
+
+  if (!env){
+    env = computeFinishEnvelopeD3(res, weeks);
+    if (!env){
+      clear();
+      return;
+    }
+    if (!state.ui) state.ui = {};
+    state.ui.finishEnvelope = { hash: h, env, computedAt: new Date().toISOString() };
+    persist();
+  }
+
+  const base = new Date();
+  const fmt = (days) => {
+    if (days == null || !isFinite(days)) return "—";
+    const dt = new Date(base.getTime() + Math.round(days) * 24*3600*1000);
+    return fmtISODate(dt);
+  };
+
+  if (els.opsFinishP10) els.opsFinishP10.textContent = fmt(env.p10Days);
+  if (els.opsFinishP50) els.opsFinishP50.textContent = fmt(env.p50Days);
+  if (els.opsFinishP90) els.opsFinishP90.textContent = fmt(env.p90Days);
+}
 
 function hashMissRiskInputs(res, weeks){
   return computeSnapshotHash({
@@ -5005,7 +6729,57 @@ function computeMissRiskD4(res, weeks){
   };
 }
 
+function renderMissRiskD4(res, weeks){
+  if (!els.opsMissProb && !els.opsMissTag) return;
 
+  const clear = () => {
+    if (els.opsMissProb) els.opsMissProb.textContent = "—";
+    if (els.opsMissTag){
+      els.opsMissTag.textContent = "—";
+      els.opsMissTag.classList.remove("ok","warn","bad");
+    }
+  };
+
+  if (!state.mcLast){
+    clear();
+    return;
+  }
+
+  const h = hashMissRiskInputs(res, weeks);
+  const cached = (state.ui && state.ui.missRiskD4 && typeof state.ui.missRiskD4 === "object") ? state.ui.missRiskD4 : null;
+  let env = (cached && cached.hash === h) ? cached.env : null;
+
+  if (!env){
+    env = computeMissRiskD4(res, weeks);
+    if (!env){
+      clear();
+      return;
+    }
+    if (!state.ui) state.ui = {};
+    state.ui.missRiskD4 = { hash: h, env, computedAt: new Date().toISOString() };
+    persist();
+  }
+
+  const prob = env.prob;
+  const pct = (prob == null || !isFinite(prob)) ? "—" : `${(prob * 100).toFixed(1)}%`;
+
+  if (els.opsMissProb) els.opsMissProb.textContent = pct;
+
+  if (els.opsMissTag){
+    let label = "Low";
+    let cls = "ok";
+    if (prob >= 0.60){
+      label = "High";
+      cls = "bad";
+    } else if (prob >= 0.30){
+      label = "Moderate";
+      cls = "warn";
+    }
+    els.opsMissTag.textContent = label;
+    els.opsMissTag.classList.remove("ok","warn","bad");
+    els.opsMissTag.classList.add(cls);
+  }
+}
 
 function hashMcInputs(res, weeks){
   const needVotes = deriveNeedVotes(res);
@@ -5815,13 +7589,14 @@ function runMonteCarloNow(){
   state.mcLast = sim;
   state.mcLastHash = h;
 
-  setUI((ui) => {
-    ui.mcMeta = {
-      lastRunAt: new Date().toISOString(),
-      inputsHash: h,
-      dailyLogHash: computeDailyLogHash(),
-    };
-  }, { render: false });
+  if (!state.ui) state.ui = {};
+  state.ui.mcMeta = {
+    lastRunAt: new Date().toISOString(),
+    inputsHash: h,
+    dailyLogHash: computeDailyLogHash(),
+  };
+
+  persist();
   clearMcStale();
   renderMcResults(sim);
   renderMcFreshness(res, w);
@@ -5884,9 +7659,133 @@ function buildAdvancedSpecs({ baseCr, basePr, baseRr, baseDph, baseCph, baseVol,
   };
 }
 
+function renderMcResults(summary){
+  if (!els.mcWinProb) return;
+
+  if (summary.winProbTurnoutAdjusted != null && summary.winProbTurnoutAdjusted !== summary.winProb){
+    els.mcWinProb.textContent = `${(summary.winProb * 100).toFixed(1)}% (TA: ${(summary.winProbTurnoutAdjusted * 100).toFixed(1)}%)`;
+  } else {
+    els.mcWinProb.textContent = `${(summary.winProb * 100).toFixed(1)}%`;
+  }
+  els.mcMedian.textContent = fmtSigned(summary.median);
+  els.mcP5.textContent = fmtSigned(summary.p5);
+  els.mcP95.textContent = fmtSigned(summary.p95);
+
+  // Phase 14 — Confidence Envelope
+  if (summary.confidenceEnvelope){
+    const ce = summary.confidenceEnvelope;
+    if (els.mcP10) els.mcP10.textContent = fmtSigned(ce.percentiles?.p10);
+    if (els.mcP50) els.mcP50.textContent = fmtSigned(ce.percentiles?.p50);
+    if (els.mcP90) els.mcP90.textContent = fmtSigned(ce.percentiles?.p90);
+    if (els.mcMoS) els.mcMoS.textContent = fmtSigned(ce.risk?.marginOfSafety);
+    if (els.mcDownside) els.mcDownside.textContent = `${((ce.risk?.downsideRiskMass ?? 0) * 100).toFixed(1)}%`;
+    if (els.mcES10) els.mcES10.textContent = fmtSigned(ce.risk?.expectedShortfall10);
+    if (els.mcShiftP50) els.mcShiftP50.textContent = fmtInt(Math.round(ce.risk?.breakEven?.requiredShiftP50 ?? 0));
+    if (els.mcShiftP10) els.mcShiftP10.textContent = fmtInt(Math.round(ce.risk?.breakEven?.requiredShiftP10 ?? 0));
+    if (els.mcFragility) els.mcFragility.textContent = (ce.risk?.fragility?.fragilityIndex ?? 0).toFixed(3);
+    if (els.mcCliff) els.mcCliff.textContent = `${((ce.risk?.fragility?.cliffRisk ?? 0) * 100).toFixed(1)}%`;
+    // Phase 14.1 extras
+    if (els.mcRiskGrade) els.mcRiskGrade.textContent = ce.risk?.advisor?.grade || "—";
+    if (els.mcShift60) els.mcShift60.textContent = fmtInt(Math.round(ce.risk?.targets?.shiftWin60 ?? 0));
+    if (els.mcShift70) els.mcShift70.textContent = fmtInt(Math.round(ce.risk?.targets?.shiftWin70 ?? 0));
+    if (els.mcShift80) els.mcShift80.textContent = fmtInt(Math.round(ce.risk?.targets?.shiftWin80 ?? 0));
+    if (els.mcShock10) els.mcShock10.textContent = `${((ce.risk?.shocks?.lossProb10 ?? 0) * 100).toFixed(1)}%`;
+    if (els.mcShock25) els.mcShock25.textContent = `${((ce.risk?.shocks?.lossProb25 ?? 0) * 100).toFixed(1)}%`;
+    if (els.mcShock50) els.mcShock50.textContent = `${((ce.risk?.shocks?.lossProb50 ?? 0) * 100).toFixed(1)}%`;
+  }
 
 
+  if (els.mcRiskLabel){
+    let extra = "";
+    if (summary.turnoutAdjusted){
+      extra = ` | TA votes (p50): ${fmtInt(Math.round(summary.turnoutAdjusted.p50))}`;
+    }
+        const ceNote = summary.confidenceEnvelope?.risk?.advisor?.narrative;
+    const label = ceNote ? ceNote : summary.riskLabel;
+    els.mcRiskLabel.textContent = `${label} — Need: ${fmtInt(Math.round(summary.needVotes))} net persuasion votes.${extra}`;
+  }
 
+  if (els.mcSensitivity){
+    els.mcSensitivity.innerHTML = "";
+    summary.sensitivity.forEach(row => {
+      const tr = document.createElement("tr");
+      const tdA = document.createElement("td");
+      tdA.textContent = row.label;
+      const tdB = document.createElement("td");
+      tdB.className = "num";
+      tdB.textContent = row.impact == null ? "—" : row.impact.toFixed(2);
+      tr.appendChild(tdA);
+      tr.appendChild(tdB);
+      els.mcSensitivity.appendChild(tr);
+    });
+  }
+
+  // Lightweight visuals
+  renderMcVisuals(summary);
+}
+
+function renderMcVisuals(summary){
+  // Win probability bar
+  if (els.svgWinProbMarker && els.vizWinProbNote){
+    const p = clamp(summary?.winProb ?? 0, 0, 1);
+    const x = 300 * p;
+    els.svgWinProbMarker.setAttribute("cx", x.toFixed(2));
+    els.vizWinProbNote.textContent = `${(p * 100).toFixed(1)}% chance to win (model-based).`;
+  }
+
+  // Margin distribution histogram
+  if (!els.svgMarginBars || !els.svgMarginZero || !els.svgMarginMin || !els.svgMarginMax || !els.svgMarginWinShade) return;
+  const h = summary?.histogram;
+  els.svgMarginBars.innerHTML = "";
+  els.svgMarginWinShade.innerHTML = "";
+  if (!h || !h.counts || !h.counts.length || !isFinite(h.min) || !isFinite(h.max)){
+    els.svgMarginMin.textContent = "—";
+    els.svgMarginMax.textContent = "—";
+    els.svgMarginZero.setAttribute("x1", 150);
+    els.svgMarginZero.setAttribute("x2", 150);
+    return;
+  }
+
+  const W = 300;
+  const baseY = 76;
+  const topY = 12;
+  const H = (baseY - topY);
+  const counts = h.counts;
+  const maxC = Math.max(1, ...counts);
+  const n = counts.length;
+  const bw = W / n;
+
+  const span = (h.max - h.min) || 1;
+  const x0 = clamp(((0 - h.min) / span) * W, 0, W);
+  els.svgMarginZero.setAttribute("x1", x0.toFixed(2));
+  els.svgMarginZero.setAttribute("x2", x0.toFixed(2));
+
+  // Shade the win side (right of zero) when it falls inside the plotted range
+  if (x0 > 0 && x0 < W){
+    const shade = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+    shade.setAttribute("x", x0.toFixed(2));
+    shade.setAttribute("y", topY);
+    shade.setAttribute("width", (W - x0).toFixed(2));
+    shade.setAttribute("height", H);
+    shade.setAttribute("class", "viz-winshade");
+    els.svgMarginWinShade.appendChild(shade);
+  }
+
+  for (let i=0;i<n;i++){
+    const c = counts[i];
+    const bh = (c / maxC) * H;
+    const r = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+    r.setAttribute("x", (i * bw + 0.6).toFixed(2));
+    r.setAttribute("y", (baseY - bh).toFixed(2));
+    r.setAttribute("width", Math.max(0.5, bw - 1.2).toFixed(2));
+    r.setAttribute("height", bh.toFixed(2));
+    r.setAttribute("class", "viz-bar");
+    els.svgMarginBars.appendChild(r);
+  }
+
+  els.svgMarginMin.textContent = fmtSigned(h.min);
+  els.svgMarginMax.textContent = fmtSigned(h.max);
+}
 
 function riskLabelFromWinProb(p){
   if (p >= 0.85) return "Strong structural position";
@@ -5954,6 +7853,36 @@ function triSample(min, mode, max, rng){
     return min + Math.sqrt(u * (max - min) * (mode - min));
   }
   return max - Math.sqrt((1 - u) * (max - min) * (max - mode));
+}
+
+function makeRng(seedStr){
+  if (!seedStr) return Math.random;
+  const seed = xmur3(seedStr)();
+  return mulberry32(seed);
+}
+
+// Hash function for seed strings
+function xmur3(str){
+  let h = 1779033703 ^ str.length;
+  for (let i = 0; i < str.length; i++){
+    h = Math.imul(h ^ str.charCodeAt(i), 3432918353);
+    h = (h << 13) | (h >>> 19);
+  }
+  return function(){
+    h = Math.imul(h ^ (h >>> 16), 2246822507);
+    h = Math.imul(h ^ (h >>> 13), 3266489909);
+    return (h ^= (h >>> 16)) >>> 0;
+  };
+}
+
+function mulberry32(a){
+  return function(){
+    a |= 0;
+    a = (a + 0x6D2B79F5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
 }
 
 function quantileSorted(sorted, q){

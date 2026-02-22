@@ -1,6 +1,6 @@
-import { safeNum } from "/js/utils.js";
-import { loadState, saveState } from "/js/storage.js";
-import { APP_VERSION, BUILD_ID } from "/js/build.js";
+import { safeNum } from "./utils.js";
+import { loadState, saveState } from "./storage.js";
+import { APP_VERSION, BUILD_ID } from "./build.js";
 
 const els = {
   logDate: document.getElementById("logDate"),

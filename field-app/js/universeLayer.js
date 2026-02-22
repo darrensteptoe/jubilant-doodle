@@ -1,1 +1,1 @@
-export * from "/js/core/universeLayer.js";
+export * from "./core/universeLayer.js";

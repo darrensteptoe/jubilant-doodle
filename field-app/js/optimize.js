@@ -1,1 +1,1 @@
-export * from "/js/core/optimize.js";
+export * from "./core/optimize.js";

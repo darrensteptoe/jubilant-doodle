@@ -1,1 +1,1 @@
-export * from "/js/core/selfTestGate.js";
+export * from "./core/selfTestGate.js";

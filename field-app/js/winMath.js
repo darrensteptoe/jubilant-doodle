@@ -1,1 +1,1 @@
-export * from "/js/core/winMath.js";
+export * from "./core/winMath.js";

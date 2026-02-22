@@ -1,4 +1,4 @@
-export * from "/js/core/utils.js";
+export * from "./core/utils.js";
 
 export function downloadJson(obj, filename){
   const blob = new Blob([JSON.stringify(obj, null, 2)], { type: "application/json" });

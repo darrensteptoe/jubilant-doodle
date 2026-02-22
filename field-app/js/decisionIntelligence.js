@@ -1,1 +1,1 @@
-export * from "/js/core/decisionIntelligence.js";
+export * from "./core/decisionIntelligence.js";
