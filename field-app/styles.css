@@ -158,7 +158,7 @@ a:hover{ text-decoration: underline; }
 
 .shell{
   display:grid;
-  grid-template-columns: 380px 1fr 500px;
+  grid-template-columns: 380px 1fr 320px;
   gap: var(--space-5);
   align-items:start;
 }
