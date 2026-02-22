@@ -330,6 +330,22 @@ body.training .toggle-pill:has(#toggleTraining) .toggle-dot-new {
 .left, .right { display: contents; }
 .rail { display: contents; }
 
+
+/* ── CENTER: strip legacy card wrappers (prevents clipped/hidden content) ── */
+.stage-main-new .card,
+.stage-main-new .card-header,
+.stage-main-new .card-body,
+.stage-main-new .card-footer,
+.stage-main-new .card-head{
+  display: contents !important;
+}
+.stage-main-new .card{
+  background: transparent !important;
+  border: 0 !important;
+  box-shadow: none !important;
+  overflow: visible !important;
+}
+
 /* ── TRAINING PANEL ──────────────────────────────────────── */
 .training-panel-new {
   background: var(--s-train-dim);
