@@ -925,3 +925,53 @@ body.training .help{ display:block; }
 .delta.ok{ color: var(--ok-fg); }
 .delta.warn{ color: var(--warn-fg); }
 .delta.bad{ color: var(--bad-fg); }
+
+
+/* =========================
+   Context bar (active scenario) — center workbench
+   ========================= */
+.context-bar-new{
+  background: var(--panel);
+  border-bottom: 1px solid var(--rule);
+  padding: var(--space-3) var(--space-4);
+  display:flex;
+  align-items:center;
+  gap: var(--space-3);
+}
+
+.context-bar-new .topbar-center{
+  display:flex;
+  align-items:center;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.context-bar-new .scenario-input-new{
+  width: min(520px, 100%);
+}
+
+.context-hint-new{
+  color: var(--muted);
+  font-size: 12px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* =========================
+   Topbar layout after moving scenario field
+   ========================= */
+.topbar-new{
+  gap: var(--space-3);
+}
+
+.topbar-new .brand-new{
+  min-width: 0;
+}
+
+.topbar-new .topbar-right{
+  margin-left: auto;
+}
+
+
+.sr-only-block{display:none !important;}
