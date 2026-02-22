@@ -547,6 +547,65 @@ body.training .training-panel-new { display: block; }
 }
 .dim-text { color: color-mix(in srgb, var(--s-muted) 60%, transparent) !important; font-size: 10px !important; }
 
+/* Assumptions / Guardrails blocks (sidebar + center) */
+.assump-block {
+  border: 1px solid color-mix(in srgb, var(--s-rule) 70%, transparent);
+  border-radius: 10px;
+  padding: 10px 10px;
+  margin-bottom: 10px;
+  background: color-mix(in srgb, var(--s-panel) 70%, transparent);
+}
+.assump-block:last-child { margin-bottom: 0; }
+.assump-title {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--s-text);
+  margin-bottom: 7px;
+}
+.assump-body {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.kv {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+}
+.kv .k {
+  font-size: 10.5px;
+  color: var(--s-muted);
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.kv .v {
+  font-family: var(--shell-mono);
+  font-size: 11px;
+  color: var(--s-text);
+  text-align: right;
+  flex: 0 0 auto;
+  max-width: 60%;
+  overflow-wrap: anywhere;
+}
+
+.results-sidebar-new .assump-block {
+  background: transparent;
+}
+.results-sidebar-new .kv .v { max-width: 58%; }
+
+/* Stress list */
+.stress { display: flex; flex-direction: column; gap: 6px; }
+.stress-item {
+  padding: 8px 10px;
+  border: 1px solid color-mix(in srgb, var(--s-rule) 60%, transparent);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--s-panel) 70%, transparent);
+  font-size: 11px;
+  color: var(--s-text);
+  line-height: 1.35;
+}
+
 /* ── CARD-HEAD VISIBILITY FIX ────────────────────────────── */
 /* Original styles.css sets .card-head { display:none } as a legacy alias.
    We want card headers visible in new layout. */
