@@ -12,156 +12,52 @@
 </head>
 <body>
 <header class="topbar">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
-<link href="./styles-shell.css" rel="stylesheet"/>
-</head>
-<body>
-
-<!-- ── TOPBAR ───────────────────────────────────────────── -->
-<header class="topbar-new">
-  <div class="brand-new">
-    <span class="brand-name-new">Field Path Engine</span>
-    <span class="chip-new" id="buildStamp">build</span>
-    <span class="chip-new chip-status" id="selfTestGate">UNVERIFIED</span>
-  </div>
-
-  <div class="topbar-center">
-    <span class="scenario-label-new">Scenario:</span>
-    <input class="scenario-input-new" id="scenarioName" type="text" placeholder="Scenario name…"/>
-  </div>
-
-  <div class="topbar-right">
-    <label class="toggle-pill" title="Show training explanations for each section">
-      <input type="checkbox" id="toggleTraining" hidden/>
-      <span class="toggle-dot-new"></span>
-      Training
-    </label>
-    <div class="divider-new"></div>
-    <select class="btn-top-new" id="restoreBackup" title="Restore one of the last 5 auto-backups">
-      <option value="">Restore backup…</option>
-    </select>
-    <label class="toggle-pill" title="Strict import mode">
-      <input type="checkbox" id="toggleStrictImport" hidden/>
-      <span class="toggle-dot-new"></span>
-      Strict import
-    </label>
-    <div class="divider-new"></div>
-    <button class="btn-top-new" id="btnCopySummary" type="button">Copy Summary</button>
-    <button class="btn-top-new" id="btnExportCsv" type="button">Export CSV</button>
-    <button class="btn-top-new" id="btnDiagnostics" type="button">Diagnostics</button>
-    <button class="btn-top-new btn-top-danger" id="btnResetAll" type="button">Reset</button>
-    <!-- legacy hidden dark toggle kept for JS compatibility -->
-    <input hidden id="toggleDark" type="checkbox"/>
-    <input hidden id="toggleAdvDiag" type="checkbox"/>
-  </div>
+<div class="brand">
+<div class="brand-title">Field Path Engine <span class="chip">v1.0</span> <span class="chip chip-subtle" id="buildStamp">build</span> <span class="badge badge-unverified" id="selfTestGate">UNVERIFIED</span></div>
+<div class="brand-sub">Darren Steptoe Consulting — Internal Use Only</div>
+</div>
+<div class="topbar-actions">
+<input hidden="" id="toggleDark" type="checkbox"/>
+<div class="toolbar">
+<label class="switch">
+<input id="toggleTraining" type="checkbox"/>
+<span class="slider"></span>
+<span class="switch-label">Training</span>
+</label>
+<span class="divider"> </span>
+<select class="input input-sm" id="restoreBackup" title="Restore one of the last 5 auto-backups">
+<option value="">Restore backup…</option>
+</select>
+<label class="switch">
+<input id="toggleStrictImport" type="checkbox"/>
+<span class="slider"></span>
+<span class="switch-label">Strict import</span>
+</label>
+<span class="divider"> </span>
+<button class="btn btn-sm btn-ghost" id="btnCopySummary" type="button">Copy Summary</button>
+<span class="divider"> </span>
+<button class="btn btn-sm btn-ghost" id="btnExportCsv" type="button">Export Plan CSV</button>
+<span class="divider"> </span>
+<button class="btn btn-sm btn-ghost" id="btnDiagnostics" type="button">Diagnostics</button>
+<span class="divider"> </span>
+<button class="btn btn-sm btn-ghost" id="btnResetAll" title="Reset all fields" type="button">Reset</button>
+</div>
+</div>
 </header>
+<div class="banner warn" hidden="" id="importHashBanner">Snapshot hash differs from exported hash.</div>
+<div class="banner warn" hidden="" id="importWarnBanner"></div>
+<main class="shell">
+<section class="left"><div class="section-header"><div class="section-header-title">Setup</div><div class="section-header-sub">Define the race &amp; your assumptions.</div></div>
 
-<div class="banner warn" hidden id="importHashBanner">Snapshot hash differs from exported hash.</div>
-<div class="banner warn" hidden id="importWarnBanner"></div>
 
-<!-- ── APP SHELL ─────────────────────────────────────────── -->
-<div class="app-shell">
 
-  <!-- LEFT: Stage navigation rail -->
-  <nav class="stage-nav-new" aria-label="Planning stages">
-    <div class="nav-group-label-new">Inputs</div>
 
-    <button class="nav-item-new active" data-stage="setup" onclick="switchStage(this, 'setup')">
-      <span class="nav-num-new" data-num="1">1</span>
-      <span class="nav-label-new">Race setup</span>
-    </button>
-    <button class="nav-item-new" data-stage="universe" onclick="switchStage(this, 'universe')">
-      <span class="nav-num-new" data-num="2">2</span>
-      <span class="nav-label-new">Universe</span>
-    </button>
-    <button class="nav-item-new" data-stage="ballot" onclick="switchStage(this, 'ballot')">
-      <span class="nav-num-new" data-num="3">3</span>
-      <span class="nav-label-new">Ballot test</span>
-    </button>
-    <button class="nav-item-new" data-stage="capacity" onclick="switchStage(this, 'capacity')">
-      <span class="nav-num-new" data-num="4">4</span>
-      <span class="nav-label-new">Capacity</span>
-    </button>
-    <button class="nav-item-new" data-stage="gotv" onclick="switchStage(this, 'gotv')">
-      <span class="nav-num-new" data-num="5">5</span>
-      <span class="nav-label-new">GOTV / turnout</span>
-    </button>
-    <button class="nav-item-new" data-stage="structure" onclick="switchStage(this, 'structure')">
-      <span class="nav-num-new" data-num="6">6</span>
-      <span class="nav-label-new">Electorate structure</span>
-    </button>
 
-    <div class="nav-sep-new"></div>
-    <div class="nav-group-label-new">Analysis</div>
 
-    <button class="nav-item-new" data-stage="results" onclick="switchStage(this, 'results')">
-      <span class="nav-num-new" data-num="7">7</span>
-      <span class="nav-label-new">Results &amp; risk</span>
-    </button>
-    <button class="nav-item-new" data-stage="roi" onclick="switchStage(this, 'roi')">
-      <span class="nav-num-new" data-num="8">8</span>
-      <span class="nav-label-new">Budget &amp; ROI</span>
-    </button>
-    <button class="nav-item-new" data-stage="checks" onclick="switchStage(this, 'checks')">
-      <span class="nav-num-new" data-num="9">9</span>
-      <span class="nav-label-new">Checks &amp; guardrails</span>
-    </button>
 
-    <div class="nav-sep-new"></div>
-    <div class="nav-group-label-new">Decisions</div>
-
-    <button class="nav-item-new" data-stage="scenarios" onclick="switchStage(this, 'scenarios')">
-      <span class="nav-num-new">—</span>
-      <span class="nav-label-new">Scenarios</span>
-    </button>
-    <button class="nav-item-new" data-stage="decisions" onclick="switchStage(this, 'decisions')">
-      <span class="nav-num-new">—</span>
-      <span class="nav-label-new">Decision sessions</span>
-    </button>
-    <button class="nav-item-new" data-stage="integrity" onclick="switchStage(this, 'integrity')">
-      <span class="nav-num-new">—</span>
-      <span class="nav-label-new">Integrity &amp; export</span>
-    </button>
-  </nav>
-
-  <!-- CENTER: Active stage content -->
-  <main class="stage-main-new">
-
-    <!-- ── STAGE: setup ── -->
-    <section class="stage-new active-stage" id="stage-setup">
-      <div class="stage-header-new">
-        <div class="stage-meta-new">
-          <span class="stage-tag-new">Stage 1</span>
-          <span class="stage-title-new">Race setup</span>
-        </div>
-        <p class="stage-sub-new">Establish the planning context — race type, election date, and mode. Every downstream number depends on this frame.</p>
-        <div class="training-panel-new" id="train-setup">
-          <div class="training-hd-new" onclick="toggleTrainPanel('train-setup')">
-            <span>🎓</span><span class="training-title-new">Training — Race Setup</span><span class="training-chev-new">▾</span>
-          </div>
-          <div class="training-bd-new">
-            <div class="training-col-new">
-              <div class="training-sec-title-new">What this stage models</div>
-              <p>Sets the planning context. Race type loads sensible defaults — a state house race and a mayoral race have different universe sizes, realistic capacity, and tactic mix. Election date drives timeline feasibility in later stages.</p>
-              <div class="training-rule-new">Scenario name → saved with export<br>Race type → default band widths<br>Election date → weeks remaining auto-calc<br>Mode → persuasion vs turnout emphasis</div>
-            </div>
-            <div class="training-col-new">
-              <div class="training-sec-title-new">Common mistakes</div>
-              <ul>
-                <li>Using "Federal" template for a state leg race — band widths will be too tight</li>
-                <li>Leaving election date blank then forgetting to set weeks remaining manually</li>
-                <li>Setting mode to Late-start before you know your capacity constraints</li>
-              </ul>
-              <div class="training-caution-new">A plan is only meaningful relative to time constraints. Set election date first — everything else scales from it.</div>
-            </div>
-          </div>
-        </div>
-      </div>
-      <div class="stage-body-new">
-        <!-- EXISTING CONTENT: Scenario card -->
-        <div class="card card-section phase-setup">
-          <div class="card-head card-header"><h2 class="card-title">Scenario</h2></div>
+<div class="card card-section phase-setup">
+<div class="card-head card-header">
+<h2 class="card-title">Scenario</h2>
 </div>
 <div class="grid2">
 <div class="field">
@@ -206,41 +102,6 @@
 </div>
 </div>
 </div><div class="card card-section phase-universe">
-      </div>
-      </div>
-    </section>
-
-    <!-- ── STAGE: universe ── -->
-    <section class="stage-new" id="stage-universe">
-      <div class="stage-header-new">
-        <div class="stage-meta-new">
-          <span class="stage-tag-new">Stage 2</span>
-          <span class="stage-title-new">Universe</span>
-        </div>
-        <p class="stage-sub-new">Define the population and scale. Every vote count, cost per vote, and plan size depends on this number.</p>
-        <div class="training-panel-new" id="train-universe">
-          <div class="training-hd-new" onclick="toggleTrainPanel('train-universe')">
-            <span>🎓</span><span class="training-title-new">Training — Universe</span><span class="training-chev-new">▾</span>
-          </div>
-          <div class="training-bd-new">
-            <div class="training-col-new">
-              <div class="training-sec-title-new">What this stage models</div>
-              <p>Universe is the denominator for everything. Turnout votes = Universe × turnout %. Persuasion universe = Universe × persuasion %. Being off by 20% changes plan size by 20%.</p>
-              <div class="training-rule-new">Registered: most defensible, largest number<br>Active (voted 1+ recent): smaller, higher quality<br>Likely voters: smallest, most predictive</div>
-            </div>
-            <div class="training-col-new">
-              <div class="training-sec-title-new">Realistic ranges (state leg)</div>
-              <ul>
-                <li><strong>Rural district:</strong> 12,000–25,000 registered</li>
-                <li><strong>Suburban district:</strong> 30,000–60,000 registered</li>
-                <li><strong>Urban district:</strong> 40,000–80,000 registered</li>
-              </ul>
-              <div class="training-caution-new">Always note your source. If you revisit in 6 weeks you need to know whether this came from the voter file, SOS, or a guess.</div>
-            </div>
-          </div>
-        </div>
-      </div>
-      <div class="stage-body-new">
 <div class="card-head card-header">
 <h2 class="card-title">Universe (registration or expected voters)</h2>
 <div class="help-text">Define the size of the electorate you’re modeling (registration or expected voters). Be consistent with turnout assumptions.</div></div>
@@ -270,40 +131,6 @@
 </div>
 </div>
 </div><div class="card card-section phase-candidates">
-      </div>
-    </section>
-
-    <!-- ── STAGE: ballot ── -->
-    <section class="stage-new" id="stage-ballot">
-      <div class="stage-header-new">
-        <div class="stage-meta-new">
-          <span class="stage-tag-new">Stage 3</span>
-          <span class="stage-title-new">Ballot test</span>
-        </div>
-        <p class="stage-sub-new">Establish baseline support and undecided distribution. Persuasion math has no anchor without this.</p>
-        <div class="training-panel-new" id="train-ballot">
-          <div class="training-hd-new" onclick="toggleTrainPanel('train-ballot')">
-            <span>🎓</span><span class="training-title-new">Training — Ballot Test</span><span class="training-chev-new">▾</span>
-          </div>
-          <div class="training-bd-new">
-            <div class="training-col-new">
-              <div class="training-sec-title-new">What this stage models</div>
-              <p>The ballot test sets your starting position. Candidate shares + undecided must sum to 100%. Undecided handling is one of the biggest hidden assumptions in field planning — it determines how "movable" voters are allocated.</p>
-              <div class="training-rule-new">Proportional: undecided breaks like committed voters<br>Conservative against you: undecided breaks toward opponents<br>User-defined: you set the split explicitly</div>
-            </div>
-            <div class="training-col-new">
-              <div class="training-sec-title-new">Common mistakes</div>
-              <ul>
-                <li>Using internal polling without weighting — internal polls skew toward your supporters</li>
-                <li>Setting undecided too low (real undecideds are usually 15–30% in competitive races)</li>
-                <li>Choosing "proportional" when the race has a strong incumbent — undecideds usually break against incumbents</li>
-              </ul>
-              <div class="training-caution-new">Undecided allocation is a primary source of volatility in multi-candidate races. Run both conservative and proportional to see the range.</div>
-            </div>
-          </div>
-        </div>
-      </div>
-      <div class="stage-body-new">
 <div class="card-head card-header">
 <h2 class="card-title">Ballot test (vote landscape)</h2>
 <div class="card-actions">
@@ -400,40 +227,6 @@
 </div>
 </div>
 </div><div class="card card-section phase-persuasion">
-      </div>
-    </section>
-
-    <!-- ── STAGE: capacity ── -->
-    <section class="stage-new" id="stage-capacity">
-      <div class="stage-header-new">
-        <div class="stage-meta-new">
-          <span class="stage-tag-new">Stage 4</span>
-          <span class="stage-title-new">Capacity</span>
-        </div>
-        <p class="stage-sub-new">Define staff, volunteer capacity, and contact rates. This is the ceiling on your entire plan.</p>
-        <div class="training-panel-new" id="train-capacity">
-          <div class="training-hd-new" onclick="toggleTrainPanel('train-capacity')">
-            <span>🎓</span><span class="training-title-new">Training — Capacity Planning</span><span class="training-chev-new">▾</span>
-          </div>
-          <div class="training-bd-new">
-            <div class="training-col-new">
-              <div class="training-sec-title-new">What this stage models</div>
-              <p>Capacity is the ceiling on your plan. This stage converts your staff and volunteer resources into weekly contact attempts, then checks whether that production can close your persuasion gap before Election Day.</p>
-              <div class="training-rule-new">Organizers:      1–4 per state leg race<br>Doors/hour:      12–22 (experienced canvasser)<br>Calls/hour:      14–28<br>Contact rate:    20–35% doors / 8–18% phones<br>Vol multiplier:  1.0–2.0× (weak to strong program)</div>
-            </div>
-            <div class="training-col-new">
-              <div class="training-sec-title-new">Common mistakes</div>
-              <ul>
-                <li>Using 15+ doors/hour without accounting for turf density or door quality</li>
-                <li>Setting volunteer multiplier to 2.0× before the volunteer program exists</li>
-                <li>Ignoring that production falls in the final 2 weeks due to GOTV shift</li>
-              </ul>
-              <div class="training-caution-new">Most campaigns overestimate contact rate by 30–40% in early planning. Start conservative — you can always revise up when you have real data from the organizer log.</div>
-            </div>
-          </div>
-        </div>
-      </div>
-      <div class="stage-body-new">
 <div class="card-head card-header">
 <h2 class="card-title">Persuadable universe (movable)</h2>
 </div>
@@ -695,40 +488,6 @@
 <div class="card-head card-header">
 <h2 class="card-title">Persuasion &amp; contact math</h2>
 <div class="help-text">Field math: Attempts → Contacts (contact rate) → Support IDs (support rate). Used across cost, optimization, and simulation.</div></div>
-      </div>
-    </section>
-
-    <!-- ── STAGE: gotv ── -->
-    <section class="stage-new" id="stage-gotv">
-      <div class="stage-header-new">
-        <div class="stage-meta-new">
-          <span class="stage-tag-new">Stage 5</span>
-          <span class="stage-title-new">GOTV / Turnout</span>
-        </div>
-        <p class="stage-sub-new">Model turnout lift as a lever. GOTV is often the cheapest late-stage tactic when persuasion saturates.</p>
-        <div class="training-panel-new" id="train-gotv">
-          <div class="training-hd-new" onclick="toggleTrainPanel('train-gotv')">
-            <span>🎓</span><span class="training-title-new">Training — GOTV &amp; Turnout Lift</span><span class="training-chev-new">▾</span>
-          </div>
-          <div class="training-bd-new">
-            <div class="training-col-new">
-              <div class="training-sec-title-new">What this stage models</div>
-              <p>GOTV produces <em>additional votes</em>, not vote share changes. It increases the probability that a supporter actually casts a ballot. The lift is percentage points added to turnout probability per successful contact.</p>
-              <div class="training-rule-new">Baseline turnout:    % of target universe that votes without contact<br>Lift per contact:    +1–4pp is realistic for strong GOTV<br>Ceiling:             total lift can't push turnout above 100%<br>Diminishing returns: each contact past the first yields less</div>
-            </div>
-            <div class="training-col-new">
-              <div class="training-sec-title-new">Key distinction</div>
-              <ul>
-                <li><strong>Persuasion:</strong> changes who they vote for (share shift)</li>
-                <li><strong>GOTV:</strong> changes whether they vote (turnout lift)</li>
-                <li><strong>Hybrid:</strong> persuasion realization weighted by turnout lift</li>
-              </ul>
-              <div class="training-caution-new">In many races, persuasion saturates quickly at the available universe size. GOTV can close a gap more cheaply in the final 3–4 weeks.</div>
-            </div>
-          </div>
-        </div>
-      </div>
-      <div class="stage-body-new">
 <div class="grid3">
 <div class="field">
 <label class="label" for="goalSupportIds">Support IDs needed (goal)</label>
@@ -786,41 +545,6 @@
 </div>
 </div><div class="card card-section phase16" id="universe16Card" style="padding:12px;">
 <div class="card-head card-header" style="margin-bottom:8px;">
-      </div>
-    </section>
-
-    <!-- ── STAGE: structure ── -->
-    <section class="stage-new" id="stage-structure">
-      <div class="stage-header-new">
-        <div class="stage-meta-new">
-          <span class="stage-tag-new">Stage 6</span>
-          <span class="stage-title-new">Electorate structure</span>
-        </div>
-        <p class="stage-sub-new">Optional realism layer: weight persuasion and turnout by coalition mix and apply a support durability factor.</p>
-        <div class="training-panel-new" id="train-structure">
-          <div class="training-hd-new" onclick="toggleTrainPanel('train-structure')">
-            <span>🎓</span><span class="training-title-new">Training — Electorate Structure</span><span class="training-chev-new">▾</span>
-          </div>
-          <div class="training-bd-new">
-            <div class="training-col-new">
-              <div class="training-sec-title-new">What this stage models</div>
-              <p>This layer weights persuasion and turnout reliability by party composition (Dem/Rep/NPA/Other) and applies a single retention factor. It is aggregate-only — not a CRM or individual-level model.</p>
-              <div class="training-rule-new">Retention factor: % of IDs that hold through Election Day<br>0.85 = 15% of your support IDs fade or were wrong<br>0.70 = aggressive assumption for early contacts<br>OFF = uses your raw persuasion rates directly</div>
-            </div>
-            <div class="training-col-new">
-              <div class="training-sec-title-new">When to use it</div>
-              <ul>
-                <li>When you have reliable partisan registration data from your voter file</li>
-                <li>When there's a meaningful NPA block that behaves differently</li>
-                <li>When you want to stress-test support durability over a long field program</li>
-              </ul>
-              <div class="training-caution-new">Leave this OFF until you have voter file data. Guessing at party composition adds noise, not insight.</div>
-            </div>
-          </div>
-        </div>
-      </div>
-      <div class="stage-body-new">
-<div class="card-head card-header" style="margin-bottom:8px;">
 <h2 class="card-title">Electorate structure &amp; support durability</h2>
 <div class="help-text">Optional realism layer: weight persuasion and turnout by coalition mix, and apply a support durability factor. OFF = baseline.</div></div>
 <details>
@@ -872,41 +596,6 @@
 <div class="note">This layer weights persuasion and turnout reliability by party composition and applies a single retention factor. It is aggregate-only (not a CRM).</div>
 </div></section>
 <section class="right"><div class="section-header"><div class="section-header-title">Plan</div><div class="section-header-sub">Build a feasible plan, then interpret risk &amp; sensitivity.</div></div>
-      </div>
-    </section>
-
-    <!-- ── STAGE: results ── -->
-    <section class="stage-new" id="stage-results">
-      <div class="stage-header-new">
-        <div class="stage-meta-new">
-          <span class="stage-tag-new">Stage 7</span>
-          <span class="stage-title-new">Results &amp; risk</span>
-        </div>
-        <p class="stage-sub-new">Win path, Monte Carlo stress test, sensitivity analysis, and risk framing. This is the payoff.</p>
-        <div class="training-panel-new" id="train-results">
-          <div class="training-hd-new" onclick="toggleTrainPanel('train-results')">
-            <span>🎓</span><span class="training-title-new">Training — Reading Results</span><span class="training-chev-new">▾</span>
-          </div>
-          <div class="training-bd-new">
-            <div class="training-col-new">
-              <div class="training-sec-title-new">What this stage shows</div>
-              <p>The win path answers one question: given your assumptions, how many votes do you need and which lever is cheapest to close the gap? Monte Carlo stress-tests that answer across thousands of simulations with uncertainty bands.</p>
-              <div class="training-rule-new">Win probability:  how often you win across simulations<br>P10/P90:         your worst-case / best-case range<br>Margin of safety: votes above threshold in median run<br>Fragility:        how sensitive win prob is to small shifts</div>
-            </div>
-            <div class="training-col-new">
-              <div class="training-sec-title-new">How to use it</div>
-              <ul>
-                <li>Win probability below 55% → re-examine capacity or assumptions</li>
-                <li>Wide P10–P90 band → high volatility, reduce uncertainty before committing resources</li>
-                <li>Sensitivity table tells you what to <em>measure first</em> in real life</li>
-                <li>Expected value can hide risk — use the stress test, not just the headline</li>
-              </ul>
-              <div class="training-caution-new">This tool defines operational requirements under stated assumptions. It does not predict outcomes.</div>
-            </div>
-          </div>
-        </div>
-      </div>
-      <div class="stage-body-new">
 <nav aria-label="Output tabs" class="tabs">
 <button class="tab active" data-tab="win">Results</button>
 <button class="tab" data-tab="assumptions">Checks</button>
@@ -1291,40 +980,23 @@
 </div>
 </section>
 <section class="panel" id="tab-assumptions">
-      </div>
-    </section>
-
-    <!-- ── STAGE: roi ── -->
-    <section class="stage-new" id="stage-roi">
-      <div class="stage-header-new">
-        <div class="stage-meta-new">
-          <span class="stage-tag-new">Stage 8</span>
-          <span class="stage-title-new">Budget &amp; ROI</span>
-        </div>
-        <p class="stage-sub-new">Turn tactics into dollars and net votes. Find the cheapest path to closing the gap.</p>
-        <div class="training-panel-new" id="train-roi">
-          <div class="training-hd-new" onclick="toggleTrainPanel('train-roi')">
-            <span>🎓</span><span class="training-title-new">Training — Budget &amp; ROI</span><span class="training-chev-new">▾</span>
+<div class="card card-section phase-setup">
+<div class="card-head card-header">
+<h2 class="card-title">Assumptions snapshot</h2>
+</div>
+<div class="assumptions" id="assumptionsSnapshot"></div>
+<div class="note">
+            This is the exact assumption block we’ll mirror in branded exports in later phases.
           </div>
-          <div class="training-bd-new">
-            <div class="training-col-new">
-              <div class="training-sec-title-new">What this stage models</div>
-              <p>A plan without cost is a wish. This stage converts tactics to cost per net vote and net votes per dollar, then the optimizer finds the best mix under budget and capacity constraints.</p>
-              <div class="training-rule-new">Cost per net vote = CPA ÷ (CR × persuasion rate)<br>Doors: $8–25/net vote (high CR, slow scale)<br>Phones: $4–14/net vote (lower CR, fast scale)<br>Texts: $1–5/net vote (very low CR, very high scale)</div>
-            </div>
-            <div class="training-col-new">
-              <div class="training-sec-title-new">Common mistakes</div>
-              <ul>
-                <li>"Pet tactic bias" — assuming doors are always best without checking cost</li>
-                <li>Ignoring capacity ceilings — you can't knock 50,000 doors with 1 organizer</li>
-                <li>Forgetting overhead — staff cost is real cost per vote</li>
-              </ul>
-              <div class="training-caution-new">The optimizer makes tradeoffs explicit that humans make poorly under multiple constraints.</div>
-            </div>
-          </div>
-        </div>
-      </div>
-      <div class="stage-body-new">
+</div>
+<div class="card card-section phase-setup">
+<div class="card-head card-header">
+<h2 class="card-title">Data checks &amp; guardrails</h2>
+</div>
+<div class="guardrails" id="guardrails"></div>
+</div>
+</section>
+<section class="panel" id="tab-roi">
 <div class="card card-section phase-roi">
 <div class="card-head card-header">
 <h2 class="card-title">Cost inputs</h2>
@@ -1978,68 +1650,6 @@
 </section>
 </section>
 <aside aria-label="Status rail" class="rail">
-      </div>
-    </section>
-
-    <!-- ── STAGE: checks ── -->
-    <section class="stage-new" id="stage-checks">
-      <div class="stage-header-new">
-        <div class="stage-meta-new">
-          <span class="stage-tag-new">Stage 9</span>
-          <span class="stage-title-new">Checks &amp; guardrails</span>
-        </div>
-        <p class="stage-sub-new">Validate inputs, inspect assumptions snapshot, and review guardrails. The most dangerous failures are silent ones.</p>
-        <div class="training-panel-new" id="train-checks">
-          <div class="training-hd-new" onclick="toggleTrainPanel('train-checks')">
-            <span>🎓</span><span class="training-title-new">Training — Validation &amp; Guardrails</span><span class="training-chev-new">▾</span>
-          </div>
-          <div class="training-bd-new">
-            <div class="training-col-new">
-              <div class="training-sec-title-new">What this stage does</div>
-              <p>Guardrails catch invalid states and "looks plausible but impossible" plans before you share them with a client or campaign. The assumptions snapshot freezes key parameters so you can detect drift between runs.</p>
-            </div>
-            <div class="training-col-new">
-              <div class="training-sec-title-new">When to use it</div>
-              <ul>
-                <li>Before every client presentation — run checks first</li>
-                <li>When results look surprisingly good — check guardrails</li>
-                <li>After importing a scenario from another session</li>
-              </ul>
-            </div>
-          </div>
-        </div>
-      </div>
-      <div class="stage-body-new">
-<div class="card card-section phase-setup">
-<div class="card-head card-header">
-<h2 class="card-title">Assumptions snapshot</h2>
-</div>
-<div class="assumptions" id="assumptionsSnapshot"></div>
-<div class="note">
-            This is the exact assumption block we’ll mirror in branded exports in later phases.
-          </div>
-</div>
-<div class="card card-section phase-setup">
-<div class="card-head card-header">
-<h2 class="card-title">Data checks &amp; guardrails</h2>
-</div>
-<div class="guardrails" id="guardrails"></div>
-</div>
-</section>
-<section class="panel" id="tab-roi">
-      </div>
-    </section>
-
-    <!-- ── STAGE: scenarios ── -->
-    <section class="stage-new" id="stage-scenarios">
-      <div class="stage-header-new">
-        <div class="stage-meta-new">
-          <span class="stage-tag-new">Decisions</span>
-          <span class="stage-title-new">Scenarios</span>
-        </div>
-        <p class="stage-sub-new">Save, compare, and switch between planning scenarios. Use this to model Path A vs Path B before committing resources.</p>
-      </div>
-      <div class="stage-body-new">
 <div class="section-header">
 <div class="section-header-title">Understand</div>
 <div class="section-header-sub">Validate inputs, interpret risk, &amp; compare scenarios.</div>
@@ -2168,19 +1778,6 @@
 <div class="card card-section phase-decision" id="decisionSessionCard">
   <div class="card-head card-header">
     <h2 class="card-title">Decision Session</h2>
-      </div>
-    </section>
-
-    <!-- ── STAGE: decisions ── -->
-    <section class="stage-new" id="stage-decisions">
-      <div class="stage-header-new">
-        <div class="stage-meta-new">
-          <span class="stage-tag-new">Decisions</span>
-          <span class="stage-title-new">Decision sessions</span>
-        </div>
-        <p class="stage-sub-new">Structured decision framework: objectives, constraints, options, and recommendation. Makes tradeoffs explicit.</p>
-      </div>
-      <div class="stage-body-new">
   </div>
 
   <div class="scm">
@@ -2556,139 +2153,15 @@ Volunteer multiplier stays above 1.5" rows="4"></textarea>
       </div>
     </div>
 
-      </div>
-    </section>
 
-    <!-- ── STAGE: integrity ── -->
-    <section class="stage-new" id="stage-integrity">
-      <div class="stage-header-new">
-        <div class="stage-meta-new">
-          <span class="stage-tag-new">Integrity</span>
-          <span class="stage-title-new">Integrity &amp; export</span>
-        </div>
-        <p class="stage-sub-new">Snapshot hash, import/export, and data integrity. Ensures an exported scenario re-imports to the same result.</p>
-      </div>
-      <div class="stage-body-new">
-        <div class="card card-section">
-          <div class="card-head card-header"><h2 class="card-title">Snapshot integrity</h2></div>
-          <div class="card-body-inner">
-            <div class="field"><label class="label" for="snapshotHash">Snapshot hash</label><input class="input" id="snapshotHash" readonly type="text"/></div>
-            <div class="banner warn" hidden id="importHashBanner2">Snapshot hash differs.</div>
-          </div>
-        </div>
-      </div>
-    </section>
 
-  </main><!-- /stage-main-new -->
-
-  <!-- RIGHT: Persistent results sidebar -->
-  <aside class="results-sidebar-new" aria-label="Win path results">
-
-    <!-- WIN PATH KPIs (existing IDs, just repositioned) -->
-    <div class="sidebar-section-new">
-      <div class="sidebar-label-new">Win path — expected</div>
-      <div class="win-stat-new">
-        <span class="win-stat-label-new">Turnout votes</span>
-        <span class="win-stat-val-new" id="kpiTurnoutVotes">—</span>
-        <span class="win-stat-sub-new" id="kpiTurnoutBand">—</span>
-      </div>
-      <div class="win-stat-new">
-        <span class="win-stat-label-new">Win threshold</span>
-        <span class="win-stat-val-new" id="kpiWinThreshold">—</span>
-      </div>
-      <div class="win-stat-new">
-        <span class="win-stat-label-new">Your projected votes</span>
-        <span class="win-stat-val-new" id="kpiYourVotes">—</span>
-        <span class="win-stat-sub-new" id="kpiYourVotesShare">—</span>
-      </div>
-      <div class="win-stat-new">
-        <span class="win-stat-label-new">Persuasion votes needed</span>
-        <span class="win-stat-val-new" id="kpiPersuasionNeed">—</span>
-        <span class="win-stat-sub-new" id="kpiPersuasionStatus">—</span>
-      </div>
     </div>
+  </div>
+</div>
 
-    <!-- MC WIN PROBABILITY -->
-    <div class="sidebar-section-new">
-      <div class="sidebar-label-new">Monte Carlo — win probability</div>
-      <div class="mc-prob-row-new">
-        <span class="mc-prob-val-new" id="mcWinProb">—</span>
-        <span class="mc-prob-sub-new">simulated</span>
-      </div>
-      <div class="prob-bar-new"><div class="prob-fill-new" id="svgWinProbMarker" style="width:0%"></div></div>
-      <div class="prob-range-new">
-        <span id="mcP10">P10: —</span>
-        <span id="mcP50">Median: —</span>
-        <span id="mcP90">P90: —</span>
-      </div>
-      <div class="mc-meta-new">
-        <span id="mcFreshTag">—</span> &nbsp;|&nbsp; <span id="mcLastRun">—</span>
-      </div>
-      <div class="banner warn" hidden id="mcStale">Results may be stale — re-run Monte Carlo</div>
-      <div style="margin-top:8px; display:flex; gap:6px;">
-        <button class="btn btn-sm" id="mcRun" type="button">Run Monte Carlo</button>
-        <button class="btn btn-sm btn-ghost" id="mcRerun" type="button">Re-run</button>
-      </div>
-    </div>
-
-    <!-- VALIDATION CHECKS -->
-    <div class="sidebar-section-new">
-      <div class="sidebar-label-new">Input validation</div>
-      <ul class="validation" id="validationList"></ul>
-    </div>
-
-    <!-- EARLY VOTE MINI -->
-    <div class="sidebar-section-new">
-      <div class="sidebar-label-new">Early &amp; election day split</div>
-      <div class="kv-mini-new"><span>Early votes (expected)</span><span id="miniEarlyVotes">—</span></div>
-      <div class="kv-mini-new"><span>Election day votes</span><span id="miniEDVotes">—</span></div>
-      <div class="kv-mini-new"><span>Note</span><span id="miniEarlyNote">—</span></div>
-      <div class="kv-mini-new"><span>Persuasion universe</span><span id="miniPersUniverse">—</span></div>
-      <div class="kv-mini-new"><span>Universe check</span><span id="miniPersCheck">—</span></div>
-    </div>
-
-    <!-- RISK TAG -->
-    <div class="sidebar-section-new">
-      <div class="sidebar-label-new">Risk framing</div>
-      <div style="display:flex; align-items:center; gap:8px; margin-bottom:6px;">
-        <span class="badge" id="riskBandTag">—</span>
-        <span class="muted" style="font-size:11px;" id="riskWinProb">—</span>
-      </div>
-      <div class="kv-mini-new"><span>Margin band</span><span id="riskMarginBand">—</span></div>
-      <div class="kv-mini-new"><span>Volatility</span><span id="riskVolatility">—</span></div>
-      <div class="banner" id="riskPlainBanner" hidden></div>
-    </div>
-
-    <!-- SNAPSHOT HASH -->
-    <div class="sidebar-section-new" style="margin-top:auto; border-top: 1px solid var(--rule);">
-      <div class="sidebar-label-new">Snapshot hash</div>
-      <div class="kv-mini-new dim-text"><span id="snapshotHash">—</span></div>
-    </div>
-
-  </aside>
-
-</div><!-- /app-shell -->
-
+</aside>
+</main>
 <script src="./js/app.js?v=20260222-d4" type="module"></script>
-<script>
-// ── Stage navigation ───────────────────────────────────────────
-function switchStage(btn, stageId) {
-  // Nav items
-  document.querySelectorAll('.nav-item-new').forEach(el => el.classList.remove('active'));
-  btn.classList.add('active');
-
-  // Stage panels
-  document.querySelectorAll('.stage-new').forEach(el => el.classList.remove('active-stage'));
-  var target = document.getElementById('stage-' + stageId);
-  if (target) target.classList.add('active-stage');
-}
-
-// ── Training panel collapse/expand ─────────────────────────────
-function toggleTrainPanel(id) {
-  var el = document.getElementById(id);
-  if (el) el.classList.toggle('collapsed');
-}
-</script>
 <div class="modal" hidden="" id="diagModal">
 <div class="modal-backdrop" data-close="1"></div>
 <div aria-labelledby="diagTitle" aria-modal="true" class="modal-card" role="dialog">
