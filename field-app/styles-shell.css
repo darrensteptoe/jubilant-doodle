@@ -13,8 +13,8 @@
 
   /* Layout dimensions */
   --topbar-h:    52px;
-  --nav-w:       260px;
-  --sidebar-w:   380px;
+  --nav-w:       210px;
+  --sidebar-w:   268px;
 
   /* New shell tokens (map to existing theme tokens) */
   --s-bg:        var(--bg);
@@ -36,7 +36,7 @@
 }
 
 /* ── RESET BODY FOR NEW LAYOUT ───────────────────────────── */
-html, body { height: 100%; overflow-y: auto; overflow-x: hidden; }
+html, body { height: 100%; overflow: hidden; }
 body { font-family: var(--shell-font); }
 
 /* ── TOPBAR ──────────────────────────────────────────────── */
@@ -172,8 +172,10 @@ body.training .toggle-pill:has(#toggleTraining) .toggle-dot-new {
 
 /* ── APP SHELL ───────────────────────────────────────────── */
 .app-shell {
-  position: relative;
-  min-height: 100vh;
+  display: flex;
+  height: 100vh;
+  padding-top: var(--topbar-h);
+  overflow: hidden;
 }
 
 /* Kill the old shell layout */
@@ -181,18 +183,14 @@ body.training .toggle-pill:has(#toggleTraining) .toggle-dot-new {
 
 /* ── STAGE NAV (LEFT RAIL) ───────────────────────────────── */
 .stage-nav-new {
-  position: fixed;
-  top: var(--topbar-h);
-  left: 0;
   width: var(--nav-w);
-  height: calc(100vh - var(--topbar-h));
+  flex-shrink: 0;
   background: var(--s-panel);
   border-right: 1px solid var(--s-rule);
   display: flex;
   flex-direction: column;
   overflow-y: auto;
   padding: 10px 0 16px;
-  z-index: 150;
 }
 
 .nav-group-label-new {
@@ -259,12 +257,12 @@ body.training .toggle-pill:has(#toggleTraining) .toggle-dot-new {
 
 /* ── MAIN CONTENT AREA ───────────────────────────────────── */
 .stage-main-new {
-  display: block;
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
   background: var(--s-bg);
-  padding-top: var(--topbar-h);
-  padding-left: var(--nav-w);
-  padding-right: var(--sidebar-w);
-  min-height: 100vh;
 }
 
 /* Each stage is a full-height scrollable panel */
@@ -316,6 +314,8 @@ body.training .toggle-pill:has(#toggleTraining) .toggle-dot-new {
 
 /* Stage body — scrollable */
 .stage-body-new {
+  flex: 1;
+  overflow-y: auto;
   padding: 16px 20px 24px;
   display: flex;
   flex-direction: column;
@@ -425,17 +425,13 @@ body.training .training-panel-new { display: block; }
 
 /* ── RESULTS SIDEBAR (RIGHT) ─────────────────────────────── */
 .results-sidebar-new {
-  position: fixed;
-  top: var(--topbar-h);
-  right: 0;
   width: var(--sidebar-w);
-  height: calc(100vh - var(--topbar-h));
+  flex-shrink: 0;
   background: var(--s-panel);
   border-left: 1px solid var(--s-rule);
   display: flex;
   flex-direction: column;
   overflow-y: auto;
-  z-index: 150;
 }
 
 .sidebar-section-new {
@@ -563,6 +559,9 @@ body.training .training-panel-new { display: block; }
   border-radius: 3px;
 }
 
-/* ── RESPONSIVE: hide sidebar on small screens ───────────── */
-
-
+/* ── RESPONSIVE ─────────────────────────────────────────── */
+/* Never hide the right sidebar. On narrow viewports it remains visible. */
+@media (max-width: 780px) {
+  .stage-nav-new { width: 48px; }
+  .nav-label-new, .nav-group-label-new, .nav-sep-new + .nav-group-label-new { display: none; }
+}
