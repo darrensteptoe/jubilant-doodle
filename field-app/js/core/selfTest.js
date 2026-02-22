@@ -69,6 +69,64 @@ function pctToUnitFromPct(pct){
   return clamp01(Number(pct) / 100);
 }
 
+function normalizeDailyLogEntryE11(e){
+  const o = (e && typeof e === "object") ? e : {};
+  const date = String(o.date || "").trim();
+  if (!date) return null;
+  const asInt = (v) => {
+    const n = Number(v);
+    if (!Number.isFinite(n)) return 0;
+    return Math.max(0, Math.trunc(n));
+  };
+  const attempts = asInt(o.attempts);
+  const convos = asInt(o.convos);
+  const supportIds = asInt(o.supportIds);
+  const convosClamped = Math.min(convos, attempts);
+  const supportClamped = Math.min(supportIds, convosClamped);
+  return { date, attempts, convos: convosClamped, supportIds: supportClamped };
+}
+
+function normalizeDailyLogArrayE11(arr){
+  const out = [];
+  const seen = new Set();
+  const items = Array.isArray(arr) ? arr : [];
+  for (const it of items){
+    const n = normalizeDailyLogEntryE11(it);
+    if (!n) continue;
+    if (seen.has(n.date)) continue;
+    seen.add(n.date);
+    out.push(n);
+  }
+  out.sort((a,b) => String(a.date).localeCompare(String(b.date)));
+  return out;
+}
+
+function dailyLogMergeSummaryE11(existingArr, incomingArr){
+  const existing = normalizeDailyLogArrayE11(existingArr);
+  const incoming = normalizeDailyLogArrayE11(incomingArr);
+  const byDate = new Map();
+  for (const e of existing) byDate.set(e.date, e);
+  let added = 0;
+  let replaced = 0;
+  let ignored = 0;
+  for (const inc of incoming){
+    const cur = byDate.get(inc.date);
+    if (!cur){
+      byDate.set(inc.date, inc);
+      added += 1;
+      continue;
+    }
+    if (stableStringify(cur) === stableStringify(inc)){
+      ignored += 1;
+      continue;
+    }
+    byDate.set(inc.date, inc);
+    replaced += 1;
+  }
+  const merged = Array.from(byDate.values()).sort((a,b) => String(a.date).localeCompare(String(b.date)));
+  return { merged, added, replaced, ignored };
+}
+
 export function runSelfTests(engine){
   const started = nowMs();
 
@@ -1068,6 +1126,39 @@ export function runSelfTests(engine){
     const p2 = makeScenarioExport({ modelVersion: v.modelVersion, schemaVersion: mig.snapshot.schemaVersion, appVersion: mig.snapshot.appVersion || MODEL_VERSION, scenarioState: v.scenario });
     assert(p2.schemaVersion === CURRENT_SCHEMA_VERSION, "schemaVersion not stable across roundtrip");
     assert(p2.snapshotHash === h1, "hash not stable across export/import/export for same effective snapshot");
+    return true;
+  });
+
+  test("Phase 11: DailyLog JSON roundtrip preserves normalized entries", () => {
+    const original = [
+      { date: "2026-02-18", attempts: 100, convos: 40, supportIds: 10 },
+      { date: "2026-02-19", attempts: 90, convos: 120, supportIds: 999 },
+      { date: "2026-02-20", attempts: -5, convos: -1, supportIds: -2 },
+    ];
+    const normA = normalizeDailyLogArrayE11(original);
+    const json = deterministicStringify({ dailyLog: original }, 2);
+    const parsed = JSON.parse(json);
+    const normB = normalizeDailyLogArrayE11(parsed.dailyLog);
+    assert(stableStringify(normA) === stableStringify(normB), "dailyLog drift in JSON roundtrip");
+    return true;
+  });
+
+  test("Phase 11: DailyLog merge summary counts (added/updated/ignored) are stable", () => {
+    const existing = [
+      { date: "2026-02-18", attempts: 100, convos: 40, supportIds: 10 },
+      { date: "2026-02-19", attempts: 90, convos: 30, supportIds: 5 },
+    ];
+    const incoming = [
+      { date: "2026-02-19", attempts: 90, convos: 30, supportIds: 5 },
+      { date: "2026-02-20", attempts: 80, convos: 20, supportIds: 4 },
+      { date: "2026-02-18", attempts: 120, convos: 50, supportIds: 12 },
+    ];
+    const r = dailyLogMergeSummaryE11(existing, incoming);
+    assert(r.added === 1, `Expected 1 added, got ${r.added}`);
+    assert(r.ignored === 1, `Expected 1 ignored, got ${r.ignored}`);
+    assert(r.replaced === 1, `Expected 1 updated, got ${r.replaced}`);
+    const norm = normalizeDailyLogArrayE11(r.merged);
+    assert(norm.length === 3, "Merged log should have 3 unique dates");
     return true;
   });
 
