@@ -559,10 +559,8 @@ body.training .training-panel-new { display: block; }
   border-radius: 3px;
 }
 
-/* ── RESPONSIVE: hide sidebar on small screens ───────────── */
-@media (max-width: 980px) {
-  .results-sidebar-new { display: none; }
-}
+/* ── RESPONSIVE ─────────────────────────────────────────── */
+/* Never hide the right sidebar. On narrow viewports it remains visible. */
 @media (max-width: 780px) {
   .stage-nav-new { width: 48px; }
   .nav-label-new, .nav-group-label-new, .nav-sep-new + .nav-group-label-new { display: none; }
