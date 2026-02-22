@@ -6,6 +6,7 @@ import { fmtInt, clamp, safeNum, daysBetween, downloadJson, readJsonFile } from 
 import { loadState, saveState, clearState, readBackups, writeBackupEntry } from "./storage.js";
 import { createScenarioManager } from "./scenarioManager.js";
 import { APP_VERSION, BUILD_ID } from "./build.js";
+import { computeSnapshotHash } from "./hash.js";
 
 function downloadText(text, filename, mime){
   try{
@@ -500,6 +501,9 @@ const els = {
   mcMode: document.getElementById("mcMode"),
   mcSeed: document.getElementById("mcSeed"),
   mcRun: document.getElementById("mcRun"),
+  mcRerun: document.getElementById("mcRerun"),
+  mcFreshTag: document.getElementById("mcFreshTag"),
+  mcLastRun: document.getElementById("mcLastRun"),
   mcStale: document.getElementById("mcStale"),
   mcBasic: document.getElementById("mcBasic"),
   mcAdvanced: document.getElementById("mcAdvanced"),
@@ -953,6 +957,7 @@ function makeDefaultState(){
       advDiag: false,
       activeTab: "win",
       decision: { sessions: {}, activeSessionId: null },
+    mcMeta: null,
     }
   };
 }
@@ -1397,6 +1402,7 @@ function wireEvents(){
   advWatch(els.mcVolMax, "mcVolMax");
 
   if (els.mcRun) els.mcRun.addEventListener("click", () => runMonteCarloNow());
+  if (els.mcRerun) els.mcRerun.addEventListener("click", () => runMonteCarloNow());
 
 
     // Phase 4 — ROI inputs
@@ -6324,6 +6330,88 @@ function clearMcStale(){
   els.mcStale.classList.add("warn");
 }
 
+function formatMcTimestamp(ts){
+  if (!ts) return "—";
+  const d = new Date(ts);
+  if (!isFinite(d.getTime())) return String(ts);
+  try{
+    return d.toLocaleString();
+  } catch {
+    return d.toISOString();
+  }
+}
+
+function computeDailyLogHash(){
+  const raw = (state && state.ui && Array.isArray(state.ui.dailyLog)) ? state.ui.dailyLog : [];
+  const norm = raw.map(normalizeDailyLogEntry).filter(Boolean).map(e => ({
+    date: e.date,
+    doors: e.doors,
+    calls: e.calls,
+    attempts: e.attempts,
+    convos: e.convos,
+    supportIds: e.supportIds,
+    orgHours: e.orgHours,
+    volsActive: e.volsActive,
+    notes: e.notes,
+    updatedAt: e.updatedAt,
+  }));
+  norm.sort((a,b) => String(a.date).localeCompare(String(b.date)));
+  return computeSnapshotHash({ modelVersion: "", scenarioState: { ui: { dailyLog: norm } } });
+}
+
+function renderMcFreshness(res, weeks){
+  if (!els.mcFreshTag && !els.mcLastRun && !els.mcStale) return;
+
+  const has = !!state.mcLast;
+  const meta = (state.ui && state.ui.mcMeta && typeof state.ui.mcMeta === "object") ? state.ui.mcMeta : null;
+
+  if (els.mcRerun) els.mcRerun.disabled = !has;
+
+  if (!has){
+    if (els.mcFreshTag){
+      els.mcFreshTag.textContent = "Not run";
+      els.mcFreshTag.classList.remove("ok","warn","bad");
+      els.mcFreshTag.classList.add("warn");
+    }
+    if (els.mcLastRun) els.mcLastRun.textContent = "Last run: —";
+    if (els.mcStale) els.mcStale.hidden = true;
+    return;
+  }
+
+  const hNow = hashMcInputs(res, weeks);
+  const inputsAtRun = meta && meta.inputsHash ? String(meta.inputsHash) : String(state.mcLastHash || "");
+  const logAtRun = meta && meta.dailyLogHash ? String(meta.dailyLogHash) : "";
+  const logNow = computeDailyLogHash();
+
+  const staleInputs = !!inputsAtRun && inputsAtRun !== hNow;
+  const staleLog = !!logAtRun && logAtRun !== logNow;
+
+  let status = "Fresh";
+  let cls = "ok";
+  if (staleInputs){
+    status = "Stale: inputs changed";
+    cls = "warn";
+  } else if (staleLog){
+    status = "Stale: execution updated";
+    cls = "warn";
+  }
+
+  if (els.mcFreshTag){
+    els.mcFreshTag.textContent = status;
+    els.mcFreshTag.classList.remove("ok","warn","bad");
+    els.mcFreshTag.classList.add(cls);
+  }
+
+  if (els.mcLastRun){
+    const ts = meta && meta.lastRunAt ? meta.lastRunAt : "";
+    els.mcLastRun.textContent = `Last run: ${formatMcTimestamp(ts)}`;
+  }
+
+  if (els.mcStale){
+    els.mcStale.hidden = !(staleInputs || staleLog);
+  }
+}
+
 function hashMcInputs(res, weeks){
   const needVotes = deriveNeedVotes(res);
   const payload = {
@@ -7085,12 +7173,7 @@ function renderPhase3(res, weeks){
     }
   }
 
-  // Stale indicator
-  if (state.mcLast && els.mcStale){
-    const h = hashMcInputs(res, w);
-    const stale = (state.mcLastHash && state.mcLastHash !== h);
-    els.mcStale.hidden = !stale;
-  }
+  renderMcFreshness(res, w);
 
   // Render last MC results if present
   if (state.mcLast){
@@ -7137,9 +7220,17 @@ function runMonteCarloNow(){
   state.mcLast = sim;
   state.mcLastHash = h;
 
+  if (!state.ui) state.ui = {};
+  state.ui.mcMeta = {
+    lastRunAt: new Date().toISOString(),
+    inputsHash: h,
+    dailyLogHash: computeDailyLogHash(),
+  };
+
   persist();
   clearMcStale();
   renderMcResults(sim);
+  renderMcFreshness(res, w);
 }
 
 function runMonteCarloSim({ scenario, scenarioState, res, weeks, needVotes, runs, seed }){
