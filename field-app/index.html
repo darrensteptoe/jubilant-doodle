@@ -2683,6 +2683,13 @@ Volunteer multiplier stays above 1.5" rows="4"></textarea>
 <script src="./js/app.js?v=20260222-d4" type="module"></script>
 <script>
 // ── Stage navigation ───────────────────────────────────────────
+function normalizeStages() {
+  var host = document.querySelector('.stage-main-new');
+  if (!host) return;
+  var stages = Array.from(document.querySelectorAll('.stage-new'));
+  stages.forEach(function(sec){ host.appendChild(sec); });
+}
+
 function switchStage(btn, stageId) {
   // Nav items
   document.querySelectorAll('.nav-item-new').forEach(el => el.classList.remove('active'));
@@ -2699,6 +2706,10 @@ function toggleTrainPanel(id) {
   var el = document.getElementById(id);
   if (el) el.classList.toggle('collapsed');
 }
+
+document.addEventListener('DOMContentLoaded', function(){
+  normalizeStages();
+});
 </script>
 <div class="modal" hidden="" id="diagModal">
 <div class="modal-backdrop" data-close="1"></div>
