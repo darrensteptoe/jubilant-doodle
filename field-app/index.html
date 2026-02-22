@@ -2613,7 +2613,11 @@ Volunteer multiplier stays above 1.5" rows="4"></textarea>
         <span class="mc-prob-val-new" id="mcWinProb-sidebar">—</span>
         <span class="mc-prob-sub-new">simulated</span>
       </div>
-      <div class="prob-bar-new"><div class="prob-fill-new" id="svgWinProbMarker" style="width:0%"></div></div>
+      <svg class="prob-bar-new" id="svgWinProb" width="300" height="14" viewBox="0 0 300 14" role="img" aria-label="Win probability">
+        <rect x="0" y="6" width="300" height="2" rx="1" class="viz-track" />
+        <circle id="svgWinProbMarker" cx="0" cy="7" r="5" class="viz-marker" />
+      </svg>
+      <div class="muted" style="font-size:11px; margin-top:6px;" id="vizWinProbNote">—</div>
       <div class="prob-range-new">
         <span id="mcP10-sidebar">P10: —</span>
         <span id="mcP50-sidebar">Median: —</span>
@@ -2651,6 +2655,15 @@ Volunteer multiplier stays above 1.5" rows="4"></textarea>
       <div style="display:flex; align-items:center; gap:8px; margin-bottom:6px;">
         <span class="badge" id="riskBandTag-sidebar">—</span>
         <span class="muted" style="font-size:11px;" id="riskWinProb-sidebar">—</span>
+      </div>
+      <svg id="svgMargin" width="300" height="88" viewBox="0 0 300 88" role="img" aria-label="Margin distribution" style="margin:8px 0 6px;">
+        <g id="svgMarginWinShade"></g>
+        <g id="svgMarginBars"></g>
+        <line id="svgMarginZero" x1="150" y1="12" x2="150" y2="76" class="viz-zero" />
+      </svg>
+      <div class="prob-range-new" style="margin-bottom:8px;">
+        <span id="svgMarginMin">—</span>
+        <span id="svgMarginMax">—</span>
       </div>
       <div class="kv-mini-new"><span>Margin band</span><span id="riskMarginBand-sidebar">—</span></div>
       <div class="kv-mini-new"><span>Volatility</span><span id="riskVolatility-sidebar">—</span></div>

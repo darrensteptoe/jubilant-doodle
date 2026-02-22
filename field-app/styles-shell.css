@@ -496,6 +496,12 @@ body.training .training-panel-new { display: block; }
   background: var(--s-accent);
   transition: width 0.5s ease;
 }
+
+.viz-track{fill: color-mix(in srgb, var(--s-rule) 80%, transparent)}
+.viz-marker{fill: var(--s-accent)}
+.viz-zero{stroke: color-mix(in srgb, var(--s-muted) 55%, transparent); stroke-width: 1; stroke-dasharray: 3 3}
+.viz-bar{fill: color-mix(in srgb, var(--s-text) 16%, transparent)}
+.viz-winshade{fill: color-mix(in srgb, var(--s-accent) 10%, transparent)}
 .prob-range-new {
   display: flex;
   justify-content: space-between;
