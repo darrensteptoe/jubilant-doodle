@@ -972,6 +972,3 @@ body.training .help{ display:block; }
 .topbar-new .topbar-right{
   margin-left: auto;
 }
-
-
-.sr-only-block{display:none !important;}

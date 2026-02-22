@@ -80,9 +80,6 @@
 </button><button class="nav-item-new" data-stage="checks" onclick="switchStage(this, 'checks')">
 <span class="nav-num-new" data-num="9">9</span>
 <span class="nav-label-new">Checks &amp; guardrails</span>
-</button><button class=\"nav-item-new\" data-stage=\"checks\" onclick=\"switchStage(this, 'checks'); setTimeout(function(){var el=document.getElementById('assumptionsSnapshot'); if(el) el.scrollIntoView({block:'start'});}, 0);\">
-<span class=\"nav-num-new\">—</span>
-<span class=\"nav-label-new\">Assumptions snapshot</span>
 </button><div class="nav-group-label-new">Decisions</div><button class="nav-item-new" data-stage="scenarios" onclick="switchStage(this, 'scenarios')">
 <span class="nav-num-new">—</span>
 <span class="nav-label-new">Scenarios</span>
@@ -851,7 +848,7 @@
 <button class="tab" data-tab="roi">Plan</button>
 </nav>
 <section class="panel active" id="tab-win">
-<div class="card card-section card-section--win phase-winpath sr-only-block">
+<div class="card card-section card-section--win phase-winpath">
 <div class="card-head card-header">
 <h2 class="card-title">Win path (expected)</h2>
 </div>
@@ -1670,7 +1667,7 @@
 <span class="switch-label">Advanced diagnostics</span>
 </label>
 </div>
-<div class="card card-panel card-readonly dev-panel sr-only-block" hidden="" id="advDiagBox" style="margin-top:10px;">
+<div class="card card-panel card-readonly dev-panel" hidden="" id="advDiagBox" style="margin-top:10px;">
 <div class="card-head card-header">
 <h2 class="card-title">Snapshot integrity</h2>
 </div>
@@ -1990,7 +1987,7 @@
                   Export mode B (future) can include full tables; Version 1 output keeps this summary concise.
                 </div>
 </div>
-<div class="card card-section phase-universe sr-only-block">
+<div class="card card-section phase-universe">
 <div class="card-head card-header">
 <h2 class="card-title">Validation</h2>
 </div>
