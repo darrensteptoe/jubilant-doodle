@@ -259,16 +259,58 @@ function restoreBackupByIndex(idx){
   const ok = confirm("Restore this backup? This will overwrite current scenario inputs.");
   if (!ok) return;
 
-  const migrated = engine.snapshot.migrateSnapshot(entry.payload);
-  if (!migrated || !migrated.ok){
+  const payload = entry.payload;
+  let normalizedExport = null;
+
+  const migrated = engine.snapshot.migrateSnapshot(payload);
+  if (migrated && migrated.ok && migrated.snapshot){
+    normalizedExport = migrated.snapshot;
+  } else if (payload?.scenarioState && typeof payload.scenarioState === "object"){
+    // Backward-compatible fallback for legacy backup payloads.
+    normalizedExport = {
+      modelVersion: payload.modelVersion || engine.snapshot.MODEL_VERSION,
+      schemaVersion: payload.schemaVersion || engine.snapshot.CURRENT_SCHEMA_VERSION,
+      scenarioState: payload.scenarioState,
+      appVersion: payload.appVersion || APP_VERSION,
+      buildId: payload.buildId || BUILD_ID,
+      snapshotHash: payload.snapshotHash || null,
+      exportedAt: payload.exportedAt || new Date().toISOString(),
+    };
+  } else {
     alert("Backup restore failed: could not migrate snapshot.");
     return;
   }
-  state = migrated.scenario;
+
+  const v = engine.snapshot.validateScenarioExport(normalizedExport, engine.snapshot.MODEL_VERSION);
+  if (!v.ok){
+    alert(`Backup restore failed: ${v.reason}`);
+    return;
+  }
+  const missing = requiredScenarioKeysMissing(v.scenario);
+  if (missing.length){
+    alert("Backup restore failed: scenario is missing required fields: " + missing.join(", "));
+    return;
+  }
+
+  state = normalizeLoadedState(v.scenario);
+  ensureScenarioRegistry();
   ensureDecisionScaffold();
-  persist();
+  try{
+    const b = state.ui.scenarios?.[SCENARIO_BASELINE_ID];
+    if (b){
+      b.inputs = scenarioInputsFromState(state);
+      b.outputs = scenarioOutputsFromState(state);
+    }
+  } catch {}
+  applyStateToUI();
+  rebuildCandidateTable();
+  document.body.classList.toggle("training", !!state.ui.training);
+  applyThemeFromState();
+  if (els.explainCard) els.explainCard.hidden = !state.ui.training;
   render();
+  safeCall(() => { renderScenarioManagerC1(); });
   safeCall(() => { renderDecisionSessionD1(); });
+  persist({ immediate: true });
 }
 
 function setText(el, text){ if(el) el.textContent = String(text ?? ""); }
