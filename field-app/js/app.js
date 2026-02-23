@@ -25,6 +25,7 @@ import { wireEventsApp } from "./app/wireEvents.js";
 import { initDevToolsPanel } from "./app/devtools.js";
 import { applyStateToUiBindings } from "./app/uiBindings.js";
 import { wireDecisionSessionBindings } from "./app/decisionSessionBindings.js";
+import { els } from "./ui/els.js";
 
 function downloadText(text, filename, mime){
   try{
@@ -222,8 +223,12 @@ function scheduleBackupWrite(){
         snapshot.snapshotHash = engine.snapshot.computeSnapshotHash(snapshot);
     lastExportHash = snapshot.snapshotHash;
         const payload = engine.snapshot.makeScenarioExport(snapshot);
-        writeBackupEntry({ ts: new Date().toISOString(), scenarioName: scenarioClone?.scenarioName || "", payload });
-        refreshBackupDropdown();
+        const backupResult = writeBackupEntry({ ts: new Date().toISOString(), scenarioName: scenarioClone?.scenarioName || "", payload });
+        if (backupResult?.ok){
+          refreshBackupDropdown();
+        } else {
+          recordError("storage-backup", "Backup write failed", { code: backupResult?.code || "unknown" });
+        }
       });
     }, 800);
   } catch { /* ignore */ }
@@ -265,10 +270,6 @@ function restoreBackupByIndex(idx){
   render();
   safeCall(() => { renderDecisionSessionD1(); });
 }
-
-
-
-import { els } from "./ui/els.js";
 
 function setText(el, text){ if(el) el.textContent = String(text ?? ""); }
 function setValue(el, val){ if(el) el.value = String(val ?? ""); }
@@ -315,6 +316,7 @@ function preflightEls(){
 
 let state = loadState() || makeDefaultState();
 let lastStorageWarnAt = 0;
+let persistTimer = null;
 
 // setState(patchFn) — controlled state mutation for UI-only writes.
 // Shallow-clones state, deep-clones only state.ui (where all setState writes live).
@@ -326,6 +328,132 @@ function setState(patchFn){
 }
 
 let lastRenderCtx = null;
+
+function derivedWeeksRemaining(){
+  return derivedWeeksRemainingFromState(state);
+}
+
+function getUniverseLayerConfig(){
+  return getUniverseLayerConfigForState(state, { normalizeUniversePercents, UNIVERSE_DEFAULTS });
+}
+
+function getEffectiveBaseRates(){
+  return getEffectiveBaseRatesForState(state, { computeUniverseAdjustedRates });
+}
+
+function flushPersistNow(){
+  try{
+    const r = saveState(state);
+    if (!r?.ok){
+      const msg = `Storage warning: could not save scenario (${r?.code || "save_failed"}).`;
+      recordError("storage", msg, { code: r?.code, bytes: r?.bytes, chunked: r?.chunked });
+      if (els.importWarnBanner){
+        els.importWarnBanner.hidden = false;
+        els.importWarnBanner.textContent = msg;
+      }
+      const now = Date.now();
+      if (now - lastStorageWarnAt > 30000){
+        lastStorageWarnAt = now;
+        alert("Save warning: browser storage is full or unavailable. Recent edits may not persist.");
+      }
+      return false;
+    }
+
+    if (els.importWarnBanner){
+      const txt = String(els.importWarnBanner.textContent || "");
+      if (!els.importWarnBanner.hidden && txt.startsWith("Storage warning:")){
+        els.importWarnBanner.hidden = true;
+        els.importWarnBanner.textContent = "";
+      }
+    }
+
+    scheduleBackupWrite();
+    return true;
+  } catch (err){
+    const msg = String(err?.message || err || "save failed");
+    recordError("storage", msg);
+    return false;
+  }
+}
+
+function persist(options = {}){
+  const immediate = !!options.immediate;
+  if (immediate){
+    if (persistTimer){
+      clearTimeout(persistTimer);
+      persistTimer = null;
+    }
+    return flushPersistNow();
+  }
+  if (persistTimer) clearTimeout(persistTimer);
+  persistTimer = setTimeout(() => {
+    persistTimer = null;
+    flushPersistNow();
+  }, 120);
+  return true;
+}
+
+function buildModelInputFromState(s){
+  return {
+    universeSize: safeNum(s.universeSize),
+    turnoutA: safeNum(s.turnoutA),
+    turnoutB: safeNum(s.turnoutB),
+    bandWidth: safeNum(s.bandWidth),
+    candidates: (Array.isArray(s.candidates) ? s.candidates : []).map(c => ({
+      id: c.id,
+      name: c.name,
+      supportPct: safeNum(c.supportPct)
+    })),
+    undecidedPct: safeNum(s.undecidedPct),
+    yourCandidateId: s.yourCandidateId,
+    undecidedMode: s.undecidedMode,
+    userSplit: s.userSplit,
+    persuasionPct: safeNum(s.persuasionPct),
+    earlyVoteExp: safeNum(s.earlyVoteExp),
+  };
+}
+
+function render(){
+  const modelInput = buildModelInputFromState(state);
+  const res = engine.computeAll(modelInput);
+  const weeks = derivedWeeksRemaining();
+  lastRenderCtx = { modelInput, res, weeks };
+
+  renderValidation(res, weeks);
+  renderAssumptions(res, weeks);
+  renderGuardrails(res);
+  renderStress(res);
+
+  renderWeeklyOpsPanel({
+    els,
+    state,
+    res,
+    weeks,
+    safeNum,
+    fmtInt,
+    clamp,
+    getEffectiveBaseRates,
+    computeCapacityBreakdown,
+    computeWeeklyOpsContext,
+    renderWeeklyExecutionStatus
+  });
+
+  renderAssumptionDriftE1(res, weeks);
+  renderRiskFramingE2();
+  renderBottleneckAttributionE3(res, weeks);
+  renderConversion(res, weeks);
+  renderSensitivitySnapshotE4();
+  renderDecisionConfidenceE5(res, weeks);
+  renderDecisionIntelligencePanel({ res, weeks });
+  renderScenarioComparePanel();
+  renderScenarioComparisonC3();
+  renderRoi(res, weeks);
+  renderOptimization(res, weeks);
+  renderTimeline(res, weeks);
+  renderPhase3(res, weeks);
+  renderWeeklyOpsInsights(res, weeks);
+  renderWeeklyOpsFreshness(res, weeks);
+}
 
 
 // =========================

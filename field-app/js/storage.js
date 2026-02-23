@@ -126,9 +126,12 @@ export function writeBackupEntry(entry, storageOverride){
   try{
     const prev = readBackups(store);
     const next = [entry, ...prev].slice(0, MAX_BACKUPS);
-    safeSet(store, BACKUP_KEY, JSON.stringify(next));
-    return next;
+    const ok = safeSet(store, BACKUP_KEY, JSON.stringify(next));
+    if (!ok){
+      return { ok: false, code: "backup_write_failed", items: prev };
+    }
+    return { ok: true, items: next };
   } catch {
-    return [];
+    return { ok: false, code: "backup_exception", items: [] };
   }
 }
