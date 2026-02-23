@@ -13,8 +13,8 @@
 
   /* Layout dimensions */
   --topbar-h:    52px;
-  --nav-w:       210px;
-  --sidebar-w:   clamp(320px, 28vw, 420px);
+  --nav-w:       240px;
+  --sidebar-w:   clamp(260px, 22vw, 340px);
 
   /* New shell tokens (map to existing theme tokens) */
   --s-bg:        var(--bg);
@@ -111,6 +111,10 @@ body { font-family: var(--shell-font); }
   align-items: center;
   gap: 7px;
   flex-shrink: 0;
+  max-width: 62vw;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: thin;
 }
 
 /* Training toggle pill */
@@ -161,6 +165,11 @@ body.training .toggle-pill:has(#toggleTraining) .toggle-dot-new {
   white-space: nowrap;
 }
 .btn-top-new:hover { border-color: color-mix(in srgb, var(--s-rule) 60%, var(--s-text)); color: var(--s-text); }
+.btn-top-new.active-view {
+  border-color: var(--s-accent);
+  color: var(--s-accent);
+  background: var(--s-accent-dim);
+}
 .btn-top-new.btn-top-danger { color: var(--s-bad); border-color: color-mix(in srgb, var(--s-bad) 30%, var(--s-rule)); }
 .btn-top-new.btn-top-danger:hover { background: var(--s-bad-dim); }
 
@@ -321,6 +330,7 @@ body.training .toggle-pill:has(#toggleTraining) .toggle-dot-new {
   display: flex;
   flex-direction: column;
   gap: 14px;
+  scroll-padding-top: 12px;
 }
 
 /* Cards inside stage body need spacing reset */
@@ -332,19 +342,9 @@ body.training .toggle-pill:has(#toggleTraining) .toggle-dot-new {
 .rail { display: contents; }
 
 
-/* ── CENTER: strip legacy card wrappers (prevents clipped/hidden content) ── */
-.stage-main-new .card,
-.stage-main-new .card-header,
-.stage-main-new .card-body,
-.stage-main-new .card-footer,
-.stage-main-new .card-head{
-  display: contents !important;
-}
-.stage-main-new .card{
-  background: transparent !important;
-  border: 0 !important;
-  box-shadow: none !important;
-  overflow: visible !important;
+/* Keep card containers intact for consistent visual grouping. */
+.stage-main-new .card {
+  overflow: visible;
 }
 
 /* ── TRAINING PANEL ──────────────────────────────────────── */
@@ -450,6 +450,16 @@ body.training .training-panel-new { display: block; }
   flex-direction: column;
   overflow-y: auto;
   overflow-x: hidden;
+}
+
+body.focus-view .results-sidebar-new {
+  display: none;
+}
+body.focus-view .stage-main-new {
+  max-width: none;
+}
+body.focus-view .stage-body-new {
+  padding-right: 26px;
 }
 
 
@@ -640,6 +650,8 @@ body.training .training-panel-new { display: block; }
 /* ── RESPONSIVE ─────────────────────────────────────────── */
 /* Never hide the right sidebar. On narrow viewports it remains visible. */
 @media (max-width: 780px) {
+  .topbar-right { max-width: 46vw; }
   .stage-nav-new { width: 48px; }
   .nav-label-new, .nav-group-label-new, .nav-sep-new + .nav-group-label-new { display: none; }
+  .results-sidebar-new { width: min(48vw, 280px); }
 }

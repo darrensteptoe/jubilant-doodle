@@ -41,6 +41,7 @@
 <div class="divider-new"></div>
 <button class="btn-top-new" id="btnCopySummary" type="button">Copy Summary</button>
 <button class="btn-top-new" id="btnExportCsv" type="button">Export CSV</button>
+<button class="btn-top-new" id="btnFocusView" type="button">Focus View</button>
 <button class="btn-top-new" id="btnDiagnostics" type="button">Diagnostics</button>
 <button class="btn-top-new btn-top-danger" id="btnResetAll" type="button">Reset</button>
 <!-- legacy hidden dark toggle kept for JS compatibility -->
@@ -53,43 +54,88 @@
 <!-- ── APP SHELL ─────────────────────────────────────────── -->
 <div class="app-shell">
 <!-- LEFT: Stage navigation rail -->
-<nav aria-label="Planning stages" class="stage-nav-new"><div class="nav-group-label-new">Setup</div><button class="nav-item-new active" data-stage="setup" onclick="switchStage(this, 'setup')">
+<nav aria-label="Planning stages" class="stage-nav-new">
+<button class="nav-item-new active" data-stage="setup" onclick="openModule(this)">
 <span class="nav-num-new" data-num="1">1</span>
 <span class="nav-label-new">Race setup</span>
-</button><button class="nav-item-new" data-stage="universe" onclick="switchStage(this, 'universe')">
+</button>
+<button class="nav-item-new" data-stage="universe" onclick="openModule(this)">
 <span class="nav-num-new" data-num="2">2</span>
 <span class="nav-label-new">Universe</span>
-</button><button class="nav-item-new" data-stage="structure" onclick="switchStage(this, 'structure')">
-<span class="nav-num-new" data-num="6">6</span>
-<span class="nav-label-new">Electorate Weighting</span>
-</button><div class="nav-group-label-new">Strategy</div><button class="nav-item-new" data-stage="ballot" onclick="switchStage(this, 'ballot')">
+</button>
+<button class="nav-item-new" data-stage="ballot" onclick="openModule(this)">
 <span class="nav-num-new" data-num="3">3</span>
 <span class="nav-label-new">Ballot test</span>
-</button><button class="nav-item-new" data-stage="gotv" onclick="switchStage(this, 'gotv')">
-<span class="nav-num-new" data-num="5">5</span>
-<span class="nav-label-new">GOTV / turnout</span>
-</button><div class="nav-group-label-new">Execution</div><button class="nav-item-new" data-stage="capacity" onclick="switchStage(this, 'capacity')">
+</button>
+<button class="nav-item-new" data-stage="capacity" onclick="openModule(this)">
 <span class="nav-num-new" data-num="4">4</span>
 <span class="nav-label-new">Capacity</span>
-</button><div class="nav-group-label-new">Analysis</div><button class="nav-item-new" data-stage="results" onclick="switchStage(this, 'results')">
+</button>
+<button class="nav-item-new" data-stage="gotv" onclick="openModule(this)">
+<span class="nav-num-new" data-num="5">5</span>
+<span class="nav-label-new">GOTV / turnout</span>
+</button>
+<button class="nav-item-new" data-stage="structure" onclick="openModule(this)">
+<span class="nav-num-new" data-num="6">6</span>
+<span class="nav-label-new">Electorate weighting</span>
+</button>
+<button class="nav-item-new" data-stage="results" onclick="openModule(this)">
 <span class="nav-num-new" data-num="7">7</span>
 <span class="nav-label-new">Results &amp; risk</span>
-</button><button class="nav-item-new" data-stage="roi" onclick="switchStage(this, 'roi')">
+</button>
+<button class="nav-item-new" data-stage="results" data-anchor="phase3Card" onclick="openModule(this)">
+<span class="nav-num-new">•</span>
+<span class="nav-label-new">Execution + MC</span>
+</button>
+<button class="nav-item-new" data-stage="results" data-anchor="surfaceCard" onclick="openModule(this)">
+<span class="nav-num-new">•</span>
+<span class="nav-label-new">Sensitivity surface</span>
+</button>
+<button class="nav-item-new" data-stage="roi" onclick="openModule(this)">
 <span class="nav-num-new" data-num="8">8</span>
 <span class="nav-label-new">Budget &amp; ROI</span>
-</button><button class="nav-item-new" data-stage="checks" onclick="switchStage(this, 'checks')">
+</button>
+<button class="nav-item-new" data-stage="checks" onclick="openModule(this)">
 <span class="nav-num-new" data-num="9">9</span>
 <span class="nav-label-new">Checks &amp; guardrails</span>
-</button><div class="nav-group-label-new">Decisions</div><button class="nav-item-new" data-stage="scenarios" onclick="switchStage(this, 'scenarios')">
+</button>
+<button class="nav-item-new" data-stage="scenarios" onclick="openModule(this)">
 <span class="nav-num-new">—</span>
 <span class="nav-label-new">Scenarios</span>
-</button><button class="nav-item-new" data-stage="decisions" onclick="switchStage(this, 'decisions')">
+</button>
+<button class="nav-item-new" data-stage="decisions" onclick="openModule(this)">
 <span class="nav-num-new">—</span>
 <span class="nav-label-new">Decision sessions</span>
-</button><button class="nav-item-new" data-stage="integrity" onclick="switchStage(this, 'integrity')">
+</button>
+<button class="nav-item-new" data-stage="decisions" data-anchor="driftStatusTag" onclick="openModule(this)">
+<span class="nav-num-new">•</span>
+<span class="nav-label-new">Assumption drift</span>
+</button>
+<button class="nav-item-new" data-stage="decisions" data-anchor="riskBandTag" onclick="openModule(this)">
+<span class="nav-num-new">•</span>
+<span class="nav-label-new">Risk framing</span>
+</button>
+<button class="nav-item-new" data-stage="decisions" data-anchor="bneckTag" onclick="openModule(this)">
+<span class="nav-num-new">•</span>
+<span class="nav-label-new">Bottleneck attribution</span>
+</button>
+<button class="nav-item-new" data-stage="decisions" data-anchor="sensTag" onclick="openModule(this)">
+<span class="nav-num-new">•</span>
+<span class="nav-label-new">Sensitivity snapshot</span>
+</button>
+<button class="nav-item-new" data-stage="decisions" data-anchor="confTag" onclick="openModule(this)">
+<span class="nav-num-new">•</span>
+<span class="nav-label-new">Decision confidence</span>
+</button>
+<button class="nav-item-new" data-stage="decisions" data-anchor="diPrimary" onclick="openModule(this)">
+<span class="nav-num-new">•</span>
+<span class="nav-label-new">Decision intelligence</span>
+</button>
+<button class="nav-item-new" data-stage="integrity" onclick="openModule(this)">
 <span class="nav-num-new">—</span>
 <span class="nav-label-new">Integrity &amp; export</span>
-</button></nav>
+</button>
+</nav>
 <!-- CENTER: Active stage content -->
 <main class="stage-main-new"><div class="context-bar-new"><div class="topbar-center">
 <span class="scenario-label-new">Active scenario</span>
@@ -1989,7 +2035,6 @@
 <p class="stage-sub-new">Structured decision framework: objectives, constraints, options, and recommendation. Makes tradeoffs explicit.</p>
 </div>
 <div class="stage-body-new">
-</div>
 <div class="scm">
 <div class="rowline scm-active">
 <div class="note" id="decisionActiveLabel">Active session: —</div>
@@ -2327,6 +2372,7 @@ Volunteer multiplier stays above 1.5" rows="4"></textarea>
 </div>
 </div>
 </div>
+</div>
 </section>
 <!-- ── STAGE: integrity ── -->
 <section class="stage-new" id="stage-integrity">
@@ -2489,12 +2535,40 @@ function normalizeStages() {
 function switchStage(btn, stageId) {
   // Nav items
   document.querySelectorAll('.nav-item-new').forEach(el => el.classList.remove('active'));
-  btn.classList.add('active');
+  if (btn) btn.classList.add('active');
+  else {
+    var fallback = document.querySelector('.nav-item-new[data-stage="' + stageId + '"]');
+    if (fallback) fallback.classList.add('active');
+  }
 
   // Stage panels
   document.querySelectorAll('.stage-new').forEach(el => el.classList.remove('active-stage'));
   var target = document.getElementById('stage-' + stageId);
   if (target) target.classList.add('active-stage');
+}
+
+function openModule(btn){
+  if (!btn) return;
+  var stageId = btn.getAttribute('data-stage');
+  var anchorId = btn.getAttribute('data-anchor');
+  if (!stageId) return;
+  switchStage(btn, stageId);
+  if (anchorId){
+    window.setTimeout(function(){
+      var target = document.getElementById(anchorId);
+      if (target && typeof target.scrollIntoView === 'function'){
+        target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    }, 60);
+  }
+}
+
+function toggleFocusView(){
+  var on = document.body.classList.toggle('focus-view');
+  var btn = document.getElementById('btnFocusView');
+  if (!btn) return;
+  btn.classList.toggle('active-view', on);
+  btn.textContent = on ? 'Exit Focus View' : 'Focus View';
 }
 
 // ── Training panel collapse/expand ─────────────────────────────
@@ -2505,6 +2579,10 @@ function toggleTrainPanel(id) {
 
 document.addEventListener('DOMContentLoaded', function(){
   normalizeStages();
+  var btn = document.getElementById('btnFocusView');
+  if (btn){
+    btn.addEventListener('click', toggleFocusView);
+  }
 });
 </script>
 <div class="modal" hidden="" id="diagModal">
