@@ -173,8 +173,9 @@ body.training .toggle-pill:has(#toggleTraining) .toggle-dot-new {
 /* ── APP SHELL ───────────────────────────────────────────── */
 .app-shell {
   display: flex;
-  height: 100vh;
-  padding-top: var(--topbar-h);
+  height: calc(100dvh - var(--topbar-h));
+  height: calc(100vh - var(--topbar-h));
+  margin-top: var(--topbar-h);
   overflow: hidden;
 }
 
