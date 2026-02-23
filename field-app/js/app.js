@@ -5170,6 +5170,7 @@ function init(){
   ensureScenarioRegistry();
   ensureDecisionScaffold();
   wireScenarioManagerC1();
+  wireScenarioComparePanel();
   wireDecisionSessionD1();
   updateBuildStamp();
   updateSelfTestGateBadge();
