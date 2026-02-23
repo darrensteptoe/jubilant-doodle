@@ -4790,10 +4790,10 @@ function wireSensitivitySurface(){
       // Keep seed behavior aligned with MC: user-provided seed (or empty)
       const seed = state.mcSeed || "";
 
-      const engine = { withPatchedState, runMonteCarloSim };
+      const accessors = { withPatchedState, runMonteCarloSim };
 
       const result = engine.computeSensitivitySurface({
-        engine,
+        engine: accessors,
         baseline: { res, weeks, needVotes },
         sweep: { leverKey, minValue: minV, maxValue: maxV, steps },
         options: { runs, seed, targetWinProb }
