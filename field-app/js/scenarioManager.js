@@ -13,6 +13,7 @@ import { computeAvgLiftPP } from "./turnout.js";
 
 const DEFAULT_MAX = 5;
 const MC_RUNS = 10000;
+const SCENARIO_FALLBACK_SEED = "__scenario_compare_seed__";
 
 function safeNum(v){
   const n = Number(v);
@@ -204,7 +205,7 @@ export function createScenarioManager({ max = DEFAULT_MAX } = {}){
         weeks,
         needVotes,
         runs: MC_RUNS,
-        seed: (snap.mcSeed || "")
+        seed: ((snap.mcSeed != null && String(snap.mcSeed).trim() !== "") ? String(snap.mcSeed) : SCENARIO_FALLBACK_SEED)
       }));
 
       const winProb = safeNum(sim?.winProb);

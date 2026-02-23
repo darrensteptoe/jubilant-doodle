@@ -210,6 +210,8 @@ function buildLevers({ snap }){
   return levers;
 }
 
+const DI_FALLBACK_SEED = "__di_deterministic_seed__";
+
 export function computeDecisionIntelligence({ engine, snap, baseline }){
   // engine: { withPatchedState, computeAll, derivedWeeksRemaining, deriveNeedVotes, runMonteCarloSim, computeRoiRows, buildOptimizationTactics, computeMaxAttemptsByTactic, computeTimelineFeasibility }
   // snap: deep-cloned snapshot (must not be mutated)
@@ -243,7 +245,8 @@ export function computeDecisionIntelligence({ engine, snap, baseline }){
       const res = baseline?.res ?? engine.computeAll(modelInput);
       const needVotes = baseline?.needVotes ?? engine.deriveNeedVotes(res);
       const volsNeeded = baseline?.volsNeeded ?? computeVolunteerNeed({ snap, res, weeks });
-      const sim = engine.runMonteCarloSim({ res, weeks, needVotes, runs: 10000, seed: snap.mcSeed || "" });
+      const seed = (snap.mcSeed != null && String(snap.mcSeed).trim() !== "") ? String(snap.mcSeed) : DI_FALLBACK_SEED;
+      const sim = engine.runMonteCarloSim({ res, weeks, needVotes, runs: 10000, seed });
       const s = sim?.summary || sim || {};
       const winProb = (!!snap.turnoutEnabled && Number.isFinite(s.winProbTurnoutAdjusted)) ? s.winProbTurnoutAdjusted : s.winProb;
 
@@ -326,7 +329,8 @@ export function computeDecisionIntelligence({ engine, snap, baseline }){
 
         const volsNeeded = computeVolunteerNeed({ snap: nextSnap, res, weeks });
 
-        const sim = engine.runMonteCarloSim({ res, weeks, needVotes, runs: 10000, seed: nextSnap.mcSeed || "" });
+        const seed = (nextSnap.mcSeed != null && String(nextSnap.mcSeed).trim() !== "") ? String(nextSnap.mcSeed) : DI_FALLBACK_SEED;
+        const sim = engine.runMonteCarloSim({ res, weeks, needVotes, runs: 10000, seed });
         const s = sim?.summary || sim || {};
         const winProb = (!!nextSnap.turnoutEnabled && Number.isFinite(s.winProbTurnoutAdjusted)) ? s.winProbTurnoutAdjusted : s.winProb;
 
