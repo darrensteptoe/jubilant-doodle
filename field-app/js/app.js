@@ -265,13 +265,33 @@ const SCENARIO_MAX = 20;
 // Phase 13 — DOM preflight (prevents silent boot failures)
 function preflightEls(){
   try{
-    const missing = [];
-    for (const [k,v] of Object.entries(els)){
-      if (v == null) missing.push(k);
-    }
-    if (missing.length){
-      recordError("dom-preflight", `Missing bound element(s): ${missing.join(", ")}`);
-    }
+    const required = [
+      "scenarioName",
+      "buildStamp",
+      "selfTestGate",
+      "btnDiagnostics",
+      "diagModal",
+      "diagErrors",
+      "btnDiagClose",
+      "btnCopyDebug",
+      "raceType",
+      "electionDate",
+      "weeksRemaining",
+      "mode",
+      "universeSize",
+      "turnoutA",
+      "turnoutB",
+      "bandWidth",
+      "btnAddCandidate",
+      "yourCandidate",
+      "candTbody",
+      "undecidedPct",
+      "undecidedMode",
+      "persuasionPct",
+      "earlyVoteExp",
+    ];
+    const missing = required.filter((k) => els[k] == null);
+    if (missing.length) recordError("dom-preflight", `Missing required element(s): ${missing.join(", ")}`);
   } catch { /* ignore */ }
 }
 
@@ -1237,7 +1257,7 @@ if (els.roiRefresh) els.roiRefresh.addEventListener("click", () => { render(); }
     state.ui.training = els.toggleTraining.checked;
     document.body.classList.toggle("training", !!state.ui.training);
         setText(els.snapshotHash, lastResultsSnapshot?.snapshotHash || "—");
-    setValue(els.snapshotHashInput, lastResultsSnapshot?.snapshotHash || "—");
+    setText(els.snapshotHashSidebar, lastResultsSnapshot?.snapshotHash || "—");
     setText(els.snapshotHashSidebar, lastResultsSnapshot?.snapshotHash || "—");
   if (els.importHashBanner && els.importHashBanner.hidden === false){ /* keep until next import clears */ }
     els.explainCard.hidden = !state.ui.training;
@@ -1444,22 +1464,22 @@ function render(){
   els.candWarn.hidden = res.validation.candidateTableOk;
   els.candWarn.textContent = res.validation.candidateTableOk ? "" : res.validation.candidateTableMsg;
 
-  setTextPair(els.kpiTurnoutVotes, els.kpiTurnoutVotesSidebar, res.expected.turnoutVotes == null ? "—" : fmtInt(res.expected.turnoutVotes));
-  setTextPair(els.kpiTurnoutBand, els.kpiTurnoutBandSidebar, res.turnout.bandVotesText || "—");
+  setText(els.kpiTurnoutVotesSidebar, res.expected.turnoutVotes == null ? "—" : fmtInt(res.expected.turnoutVotes));
+  setText(els.kpiTurnoutBandSidebar, res.turnout.bandVotesText || "—");
 
-  setTextPair(els.kpiWinThreshold, els.kpiWinThresholdSidebar, res.expected.winThreshold == null ? "—" : fmtInt(res.expected.winThreshold));
-  setTextPair(els.kpiYourVotes, els.kpiYourVotesSidebar, res.expected.yourVotes == null ? "—" : fmtInt(res.expected.yourVotes));
-  setTextPair(els.kpiYourVotesShare, els.kpiYourVotesShareSidebar, res.expected.yourShareText || "—");
+  setText(els.kpiWinThresholdSidebar, res.expected.winThreshold == null ? "—" : fmtInt(res.expected.winThreshold));
+  setText(els.kpiYourVotesSidebar, res.expected.yourVotes == null ? "—" : fmtInt(res.expected.yourVotes));
+  setText(els.kpiYourVotesShareSidebar, res.expected.yourShareText || "—");
 
-  setTextPair(els.kpiPersuasionNeed, els.kpiPersuasionNeedSidebar, res.expected.persuasionNeed == null ? "—" : fmtInt(res.expected.persuasionNeed));
-  setTextPair(els.kpiPersuasionStatus, els.kpiPersuasionStatusSidebar, res.expected.persuasionStatus || "—");
+  setText(els.kpiPersuasionNeedSidebar, res.expected.persuasionNeed == null ? "—" : fmtInt(res.expected.persuasionNeed));
+  setText(els.kpiPersuasionStatusSidebar, res.expected.persuasionStatus || "—");
 
-  setTextPair(els.miniEarlyVotes, els.miniEarlyVotesSidebar, res.expected.earlyVotes == null ? "—" : fmtInt(res.expected.earlyVotes));
-  setTextPair(els.miniEDVotes, els.miniEDVotesSidebar, res.expected.edVotes == null ? "—" : fmtInt(res.expected.edVotes));
-  setTextPair(els.miniEarlyNote, els.miniEarlyNoteSidebar, res.expected.earlyNote || "—");
+  setText(els.miniEarlyVotesSidebar, res.expected.earlyVotes == null ? "—" : fmtInt(res.expected.earlyVotes));
+  setText(els.miniEDVotesSidebar, res.expected.edVotes == null ? "—" : fmtInt(res.expected.edVotes));
+  setText(els.miniEarlyNoteSidebar, res.expected.earlyNote || "—");
 
-  setTextPair(els.miniPersUniverse, els.miniPersUniverseSidebar, res.expected.persuasionUniverse == null ? "—" : fmtInt(res.expected.persuasionUniverse));
-  setTextPair(els.miniPersCheck, els.miniPersCheckSidebar, res.expected.persuasionUniverseCheck || "—");
+  setText(els.miniPersUniverseSidebar, res.expected.persuasionUniverse == null ? "—" : fmtInt(res.expected.persuasionUniverse));
+  setText(els.miniPersCheckSidebar, res.expected.persuasionUniverseCheck || "—");
 
   safeCall(() => renderStress(res));
   safeCall(() => renderValidation(res, weeks));
@@ -1499,7 +1519,7 @@ function render(){
   }
 
       setText(els.snapshotHash, lastResultsSnapshot?.snapshotHash || "—");
-    setValue(els.snapshotHashInput, lastResultsSnapshot?.snapshotHash || "—");
+    setText(els.snapshotHashSidebar, lastResultsSnapshot?.snapshotHash || "—");
     setText(els.snapshotHashSidebar, lastResultsSnapshot?.snapshotHash || "—");
   if (els.importHashBanner && els.importHashBanner.hidden === false){ /* keep until next import clears */ }
     els.explainCard.hidden = !state.ui.training;
@@ -2916,12 +2936,12 @@ function renderConversion(res, weeks){
 
   // Conservative rounding (ceil) for planning.
   const fmtMaybe = (v) => (v == null || !isFinite(v)) ? "—" : fmtInt(Math.ceil(v));
-  els.outConversationsNeeded.textContent = fmtMaybe(convosNeeded);
-  els.outDoorsNeeded.textContent = fmtMaybe(doorsNeeded);
-  els.outDoorsPerShift.textContent = (doorsPerShift == null || !isFinite(doorsPerShift)) ? "—" : fmtInt(Math.round(doorsPerShift));
-  els.outTotalShifts.textContent = fmtMaybe(totalShifts);
-  els.outShiftsPerWeek.textContent = fmtMaybe(shiftsPerWeek);
-  els.outVolunteersNeeded.textContent = fmtMaybe(volsNeeded);
+  setText(els.outConversationsNeeded, fmtMaybe(convosNeeded));
+  setText(els.outDoorsNeeded, fmtMaybe(doorsNeeded));
+  setText(els.outDoorsPerShift, (doorsPerShift == null || !isFinite(doorsPerShift)) ? "—" : fmtInt(Math.round(doorsPerShift)));
+  setText(els.outTotalShifts, fmtMaybe(totalShifts));
+  setText(els.outShiftsPerWeek, fmtMaybe(shiftsPerWeek));
+  setText(els.outVolunteersNeeded, fmtMaybe(volsNeeded));
 
   // Feasibility banner
   if (!els.convFeasBanner) return;
@@ -3530,7 +3550,7 @@ function renderStress(res){
 }
 
 function renderValidation(res, weeks){
-  const lists = [els.validationList, els.validationListSidebar].filter(Boolean);
+  const lists = [els.validationListSidebar].filter(Boolean);
   if (!lists.length) return;
   const items = [];
 
