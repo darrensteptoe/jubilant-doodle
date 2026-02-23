@@ -8,9 +8,6 @@ import { createScenarioManager } from "./scenarioManager.js";
 import { APP_VERSION, BUILD_ID } from "./build.js";
 import { computeSnapshotHash } from "./hash.js";
 import { makeRng, triSample } from "./core/rng.js";
-import { renderRiskFramingPanel } from "./app/render/riskFraming.js";
-import { renderAssumptionDriftPanel } from "./app/render/assumptionDrift.js";
-import { renderBottleneckAttributionPanel, renderConversionPanel, renderSensitivitySnapshotPanel, runSensitivitySnapshotPanel } from "./app/render/executionAnalysis.js";
 
 function downloadText(text, filename, mime){
   try{
@@ -1930,7 +1927,82 @@ function computeWeeklyOpsContext(res, weeks){
 }
 
 function renderAssumptionDriftE1(res, weeks){
-  return renderAssumptionDriftPanel({ els, state, res, weeks, safeNum, computeWeeklyOpsContext });
+  if (!els.driftStatusTag) return;
+
+  const fInt = (v) => (v == null || !isFinite(v)) ? "—" : (String(Math.round(v)).replace(/\B(?=(\d{3})+(?!\d))/g, ","));
+  const fPct1 = (v) => (v == null || !isFinite(v)) ? "—" : ((v * 100).toFixed(1) + "%");
+
+  const ctx = computeWeeklyOpsContext(res, weeks);
+  const req = ctx?.attemptsPerWeek;
+  if (els.driftReq) els.driftReq.textContent = (req == null || !isFinite(req)) ? "—" : fInt(Math.ceil(req));
+
+  const log = Array.isArray(state.ui?.dailyLog) ? state.ui.dailyLog : null;
+  if (!log || log.length === 0){
+    els.driftStatusTag.className = "tag";
+    els.driftStatusTag.textContent = "Not tracking";
+    if (els.driftActual) els.driftActual.textContent = "—";
+    if (els.driftDelta) els.driftDelta.textContent = "—";
+    if (els.driftSlipBanner){
+      els.driftSlipBanner.className = "banner";
+      els.driftSlipBanner.textContent = "Add daily log entries in organizer.html to activate drift detection.";
+    }
+    return;
+  }
+
+  const sorted = [...log].filter(x => x && x.date).sort((a,b) => String(a.date).localeCompare(String(b.date)));
+  const lastN = sorted.slice(-7);
+
+  let sumAttempts7 = 0;
+  let sumAttemptsAll = 0;
+  for (const x of sorted){
+    const doors = safeNum(x?.doors) || 0;
+    const calls = safeNum(x?.calls) || 0;
+    const attempts = (x?.attempts != null && x.attempts !== "") ? (safeNum(x.attempts) || 0) : (doors + calls);
+    sumAttemptsAll += attempts;
+  }
+  for (const x of lastN){
+    const doors = safeNum(x?.doors) || 0;
+    const calls = safeNum(x?.calls) || 0;
+    const attempts = (x?.attempts != null && x.attempts !== "") ? (safeNum(x.attempts) || 0) : (doors + calls);
+    sumAttempts7 += attempts;
+  }
+
+  if (els.driftActual) els.driftActual.textContent = fInt(sumAttempts7);
+
+  let deltaPct = null;
+  if (req != null && isFinite(req) && req > 0) deltaPct = (sumAttempts7 - req) / req;
+
+  const abs = (deltaPct == null || !isFinite(deltaPct)) ? null : Math.abs(deltaPct);
+  const cls = (abs == null) ? "" : (abs <= 0.05 ? "ok" : (abs <= 0.15 ? "warn" : "bad"));
+
+  els.driftStatusTag.className = cls ? `tag ${cls}` : "tag";
+  els.driftStatusTag.textContent = cls === "ok" ? "Green" : (cls === "warn" ? "Yellow" : (cls === "bad" ? "Red" : "—"));
+
+  if (els.driftDelta){
+    if (deltaPct == null || !isFinite(deltaPct)) els.driftDelta.textContent = "—";
+    else els.driftDelta.textContent = `${deltaPct >= 0 ? "+" : ""}${fPct1(deltaPct)}`;
+  }
+
+  let slipDays = null;
+  const totalNeed = ctx?.attemptsNeeded;
+  const remaining = (totalNeed != null && isFinite(totalNeed)) ? Math.max(0, totalNeed - sumAttemptsAll) : null;
+  if (remaining != null && isFinite(remaining) && weeks != null && isFinite(weeks) && weeks > 0 && sumAttempts7 > 0){
+    const projWeeks = remaining / sumAttempts7;
+    const d = (projWeeks - weeks) * 7;
+    slipDays = Math.max(0, Math.round(d));
+  }
+
+  if (els.driftSlipBanner){
+    const bCls = cls ? cls : "";
+    els.driftSlipBanner.className = bCls ? `banner ${bCls}` : "banner";
+    if (slipDays == null){
+      els.driftSlipBanner.textContent = "At current pace, projected slip unavailable under current inputs.";
+    } else {
+      els.driftSlipBanner.textContent = slipDays === 0
+        ? "At current pace, target completion stays on schedule."
+        : `At current pace, target completion shifts by +${slipDays} days.`;
+    }
+  }
 }
 
 function computeRealityDrift(){
@@ -2108,23 +2180,298 @@ function applyWeeklyLeverScenario(lever, ctx){
 
 
 function renderRiskFramingE2(){
-  return renderRiskFramingPanel({ els, state, setTextPair, fmtSigned, clamp });
+  if (!els.riskBandTag || !els.riskWinProb || !els.riskMarginBand || !els.riskVolatility || !els.riskPlainBanner) return;
+
+  const setTag = (label, cls) => {
+    setTextPair(els.riskBandTag, els.riskBandTagSidebar, label || "—");
+    els.riskBandTag.classList.remove("ok","warn","bad");
+    if (cls) els.riskBandTag.classList.add(cls);
+  };
+
+  const setBanner = (text, cls) => {
+    els.riskPlainBanner.className = `banner ${cls || ""}`.trim();
+    els.riskPlainBanner.textContent = text || "—";
+  };
+
+  const s = state.mcLast;
+  if (!s){
+    setTag("—", null);
+    setTextPair(els.riskWinProb, els.riskWinProbSidebar, "—");
+    setTextPair(els.riskMarginBand, els.riskMarginBandSidebar, "—");
+    setTextPair(els.riskVolatility, els.riskVolatilitySidebar, "—");
+    setBanner("Run Monte Carlo to populate risk framing.", "warn");
+    return;
+  }
+
+  const p = clamp(Number(s.winProb ?? 0), 0, 1);
+  setTextPair(els.riskWinProb, els.riskWinProbSidebar, `${(p * 100).toFixed(1)}%`);
+
+  const ce = s.confidenceEnvelope;
+  const lo = (ce?.percentiles?.p10 != null) ? Number(ce.percentiles.p10) : (s.p5 != null ? Number(s.p5) : null);
+  const hi = (ce?.percentiles?.p90 != null) ? Number(ce.percentiles.p90) : (s.p95 != null ? Number(s.p95) : null);
+  const mid = (ce?.percentiles?.p50 != null) ? Number(ce.percentiles.p50) : (s.median != null ? Number(s.median) : null);
+
+  const fmtBand = (a, b, m) => {
+    if (a == null || b == null || !isFinite(a) || !isFinite(b)) return "—";
+    const mtxt = (m == null || !isFinite(m)) ? "" : ` (p50: ${fmtSigned(m)})`;
+    return `${fmtSigned(a)} to ${fmtSigned(b)}${mtxt}`;
+  };
+
+  setTextPair(els.riskMarginBand, els.riskMarginBandSidebar, fmtBand(lo, hi, mid));
+
+  const span = (lo == null || hi == null || !isFinite(lo) || !isFinite(hi)) ? null : Math.abs(hi - lo);
+  let volClass = "—";
+  if (span != null && isFinite(span)){
+    if (span <= 2) volClass = "Low";
+    else if (span <= 5) volClass = "Medium";
+    else volClass = "High";
+  }
+  setTextPair(els.riskVolatility, els.riskVolatilitySidebar, (span == null || !isFinite(span)) ? "—" : `${volClass} (±${(span/2).toFixed(1)} pts)`);
+
+  const dir = (p >= 0.5) ? "win" : "loss";
+  const volHigh = (volClass === "High");
+
+  let band = "Volatile";
+  let cls = "bad";
+  if (!volHigh && p >= 0.75){
+    band = "High confidence";
+    cls = "ok";
+  } else if (!volHigh && p >= 0.60){
+    band = "Lean";
+    cls = "warn";
+  }
+
+  setTag(band, cls);
+
+  const marginLine = (mid == null || !isFinite(mid))
+    ? ""
+    : `Expected margin (p50): ${fmtSigned(mid)}.`;
+
+  let plain = "";
+  if (band === "High confidence"){
+    plain = `Model indicates ${(p*100).toFixed(0)}% chance to ${dir}. ${marginLine} Volatility: ${volClass}.`;
+  } else if (band === "Lean"){
+    plain = `Leaning ${dir}: ${(p*100).toFixed(0)}% model win chance. ${marginLine} Volatility: ${volClass}.`;
+  } else {
+    plain = `Volatile outlook: ${(p*100).toFixed(0)}% model win chance. Small changes in execution or assumptions can swing outcomes. ${marginLine} Volatility: ${volClass}.`;
+  }
+
+  setBanner(plain, cls);
 }
 
 function renderBottleneckAttributionE3(res, weeks){
-  return renderBottleneckAttributionPanel({
-    els,
-    state,
-    res,
-    weeks,
-    safeNum,
-    fmtInt,
-    clamp,
-    engine,
-    getEffectiveBaseRates,
-    deriveNeedVotes
-  });
-}
+  if (!els.bneckTag || !els.bneckPrimary || !els.bneckSecondary || !els.bneckTbody || !els.bneckWarn) return;
+
+  const clear = () => { els.bneckTbody.innerHTML = ""; };
+  const stub = () => {
+    clear();
+    els.bneckTbody.innerHTML = '<tr><td class="muted">—</td><td class="num muted">—</td><td class="muted">—</td></tr>';
+  };
+
+  const setWarn = (t) => {
+    els.bneckWarn.textContent = t || "";
+    els.bneckWarn.style.display = t ? "block" : "none";
+  };
+
+  const fmtDelta = (v) => {
+    if (v == null || !isFinite(v)) return "—";
+    const s = v > 0 ? "+" : "";
+    return `${s}${fmtInt(Math.round(v))}`;
+  };
+
+  const computePrimarySecondary = ({ maxAttemptsByTactic }) => {
+    const bindingObj = state.ui?.lastTlMeta?.bindingObj || {};
+    const alloc = state.ui?.lastOpt?.allocation || {};
+    const bindingTimeline = Array.isArray(bindingObj?.timeline) ? bindingObj.timeline : [];
+    const bindingBudget = !!bindingObj?.budget;
+    const bindingCapacity = !!bindingObj?.capacity;
+
+    const sat = [];
+    for (const t of bindingTimeline){
+      const cap = safeNum(maxAttemptsByTactic?.[t]);
+      const a = safeNum(alloc?.[t]);
+      const s = (cap != null && cap > 0 && a != null) ? (a / cap) : null;
+      if (s != null) sat.push({ t, s });
+    }
+    sat.sort((a,b)=> b.s - a.s || String(a.t).localeCompare(String(b.t)));
+
+    let primary = null;
+    let secondary = null;
+
+    if (sat.length){
+      primary = `timeline: ${sat[0].t}`;
+      if (sat.length > 1) secondary = `timeline: ${sat[1].t}`;
+    } else if (bindingTimeline.length){
+      primary = `timeline: ${bindingTimeline[0]}`;
+      if (bindingTimeline.length > 1) secondary = `timeline: ${bindingTimeline[1]}`;
+    }
+
+    const others = [];
+    if (bindingBudget) others.push("budget");
+    if (bindingCapacity) others.push("capacity");
+
+    if (!primary && others.length){
+      primary = others[0];
+      secondary = others[1] || null;
+    } else if (primary && !secondary && others.length){
+      secondary = others[0];
+    }
+
+    return { primary: primary || "none/unknown", secondary: secondary || "—" };
+  };
+
+  const tlOn = !!state.optimizer?.tlConstrainedEnabled;
+  const timelineEnabled = !!state.timelineEnabled;
+  if (!tlOn || !timelineEnabled){
+    els.bneckTag.textContent = "—";
+    els.bneckTag.classList.remove("ok","warn","bad");
+    els.bneckPrimary.textContent = state.ui?.lastDiagnostics?.primaryBottleneck || "—";
+    els.bneckSecondary.textContent = state.ui?.lastDiagnostics?.secondaryNotes || "—";
+    stub();
+    setWarn("Enable Timeline-constrained optimization to compute constraint impacts.");
+    return;
+  }
+
+  setWarn(null);
+
+  const eff = getEffectiveBaseRates();
+  const cr = eff.cr;
+  const sr = eff.sr;
+  const tr = eff.tr;
+
+  const needVotes = deriveNeedVotes(res);
+
+  const opt = state.optimizer || {};
+  const budget = state.budget || {};
+  const tactics = engine.buildOptimizationTactics({ baseRates: { cr, sr, tr }, tactics: budget.tactics || {} });
+
+  const overheadAmount = safeNum(budget.overheadAmount) ?? 0;
+  const includeOverhead = !!budget.includeOverhead;
+
+  const capsInputBase = {
+    enabled: true,
+    weeksRemaining: (weeks != null && isFinite(weeks)) ? weeks : 0,
+    activeWeeksOverride: safeNum(state.timelineActiveWeeks),
+    gotvWindowWeeks: safeNum(state.timelineGotvWeeks),
+    staffing: {
+      staff: safeNum(state.timelineStaffCount) ?? 0,
+      volunteers: safeNum(state.timelineVolCount) ?? 0,
+      staffHours: safeNum(state.timelineStaffHours) ?? 0,
+      volunteerHours: safeNum(state.timelineVolHours) ?? 0,
+    },
+    throughput: {
+      doors: safeNum(state.timelineDoorsPerHour) ?? 0,
+      phones: safeNum(state.timelineCallsPerHour) ?? 0,
+      texts: safeNum(state.timelineTextsPerHour) ?? 0,
+    },
+    tacticKinds: {
+      doors: state.budget?.tactics?.doors?.kind || "persuasion",
+      phones: state.budget?.tactics?.phones?.kind || "persuasion",
+      texts: state.budget?.tactics?.texts?.kind || "persuasion",
+    }
+  };
+
+  const computeTl = ({ tacticsIn, capsIn, budgetLimitIn }) => {
+    const caps = engine.computeMaxAttemptsByTactic(capsIn);
+    const maxAttemptsByTactic = (caps && caps.enabled) ? caps.maxAttemptsByTactic : null;
+
+    const budgetIn = safeNum(budgetLimitIn) ?? 0;
+    const budgetAvail = Math.max(0, budgetIn - (includeOverhead ? overheadAmount : 0));
+
+    const capUser = safeNum(opt.capacityAttempts);
+    const capCeiling = null;
+    const capLimit = (capUser != null && capUser >= 0) ? capUser : null;
+
+    const tlObj = opt.tlConstrainedObjective || "max_net";
+    const step = safeNum(opt.step) ?? 100;
+    const objective = opt.objective || "net";
+
+    const inputs = {
+      mode: (opt.mode || "budget"),
+      budgetLimit: ((opt.mode || "budget") === "capacity") ? null : budgetAvail,
+      capacityLimit: ((opt.mode || "budget") === "capacity") ? (capLimit ?? 0) : null,
+      capacityCeiling: ((opt.mode || "budget") === "capacity") ? null : capCeiling,
+      tactics: tacticsIn,
+      step,
+      useDecay: !!opt.useDecay,
+      objective,
+      maxAttemptsByTactic,
+      tlObjectiveMode: tlObj,
+      goalNetVotes: needVotes
+    };
+    return { out: engine.optimizeTimelineConstrained(inputs), maxAttemptsByTactic };
+  };
+
+  const baseBudget = safeNum(opt.budgetAmount) ?? 0;
+  const base = computeTl({ tacticsIn: tactics, capsIn: capsInputBase, budgetLimitIn: baseBudget });
+  const baseMeta = base.out?.meta || {};
+  const baseMax = safeNum(baseMeta.maxAchievableNetVotes) ?? null;
+
+  const ps = computePrimarySecondary({ maxAttemptsByTactic: base.maxAttemptsByTactic || null });
+  els.bneckPrimary.textContent = ps.primary;
+  els.bneckSecondary.textContent = ps.secondary;
+
+  const bindingObj = baseMeta.bindingObj || state.ui?.lastTlMeta?.bindingObj || {};
+  const badgeCls = (bindingObj?.budget || bindingObj?.capacity || (Array.isArray(bindingObj?.timeline) && bindingObj.timeline.length)) ? "warn" : "ok";
+  els.bneckTag.textContent = badgeCls === "ok" ? "Clear" : "Binding";
+  els.bneckTag.classList.remove("ok","warn","bad");
+  els.bneckTag.classList.add(badgeCls);
+
+  const buildRow = (name, delta, notes) => {
+    const trEl = document.createElement("tr");
+    const td0 = document.createElement("td");
+    td0.textContent = name;
+    const td1 = document.createElement("td");
+    td1.className = "num";
+    td1.textContent = fmtDelta(delta);
+    const td2 = document.createElement("td");
+    td2.className = "muted";
+    td2.textContent = notes || "—";
+    trEl.appendChild(td0); trEl.appendChild(td1); trEl.appendChild(td2);
+    return trEl;
+  };
+
+  const staffHours10 = (() => {
+    const c = structuredClone(capsInputBase);
+    const cur = safeNum(c.staffing?.staffHours) ?? 0;
+    c.staffing.staffHours = cur * 1.10;
+    const out = computeTl({ tacticsIn: tactics, capsIn: c, budgetLimitIn: baseBudget });
+    const m = safeNum(out.out?.meta?.maxAchievableNetVotes) ?? null;
+    return { delta: (m != null && baseMax != null) ? (m - baseMax) : null, notes: "timeline capacity (staff hours/week)" };
+  })();
+
+  const volHours10 = (() => {
+    const c = structuredClone(capsInputBase);
+    const cur = safeNum(c.staffing?.volunteerHours) ?? 0;
+    c.staffing.volunteerHours = cur * 1.10;
+    const out = computeTl({ tacticsIn: tactics, capsIn: c, budgetLimitIn: baseBudget });
+    const m = safeNum(out.out?.meta?.maxAchievableNetVotes) ?? null;
+    return { delta: (m != null && baseMax != null) ? (m - baseMax) : null, notes: "volunteer hours/week" };
+  })();
+
+  const budget10 = (() => {
+    if ((opt.mode || "budget") === "capacity") return { delta: null, notes: "budget not active (capacity mode)" };
+    const out = computeTl({ tacticsIn: tactics, capsIn: capsInputBase, budgetLimitIn: baseBudget * 1.10 });
+    const m = safeNum(out.out?.meta?.maxAchievableNetVotes) ?? null;
+    return { delta: (m != null && baseMax != null) ? (m - baseMax) : null, notes: "budget ceiling" };
+  })();
+
+  const contactRate10 = (() => {
+    const curPct = safeNum(state.contactRatePct);
+    if (curPct == null) return { delta: null, notes: "contact rate missing" };
+    const nextPct = clamp(curPct * 1.10, 0, 100);
+    const t2 = engine.buildOptimizationTactics({ baseRates: { cr: clamp(nextPct,0,100)/100, sr, tr }, tactics: budget.tactics || {} });
+    const out = computeTl({ tacticsIn: t2, capsIn: capsInputBase, budgetLimitIn: baseBudget });
+    const m = safeNum(out.out?.meta?.maxAchievableNetVotes) ?? null;
+    return { delta: (m != null && baseMax != null) ? (m - baseMax) : null, notes: `contact rate ${curPct.toFixed(1)}% → ${nextPct.toFixed(1)}%` };
+  })();
+
+  clear();
+  els.bneckTbody.appendChild(buildRow("Timeline capacity", staffHours10.delta, staffHours10.notes));
+  els.bneckTbody.appendChild(buildRow("Budget ceiling", budget10.delta, budget10.notes));
+  els.bneckTbody.appendChild(buildRow("Contact rate", contactRate10.delta, contactRate10.notes));
+  els.bneckTbody.appendChild(buildRow("Volunteer hours", volHours10.delta, volHours10.notes));
+ }
 
 function renderWeeklyOpsInsights(res, weeks){
   if (!els.wkLeversIntro || !els.wkActionsList || !els.wkBestMovesList || !els.wkLeversTbody) return;
@@ -2563,34 +2910,251 @@ function addBullet(listEl, text){
 
 
 function renderConversion(res, weeks){
-  return renderConversionPanel({
-    els,
-    state,
-    res,
-    weeks,
-    safeNum,
-    fmtInt,
-    getEffectiveBaseRates,
-    setText,
-    renderPhase3
-  });
+  // If Phase 2 panel isn't present, fail silently.
+  if (!els.outConversationsNeeded) return;
+
+  const rawGoal = safeNum(state.goalSupportIds);
+  const autoGoal = safeNum(res?.expected?.persuasionNeed);
+  const goal = (rawGoal != null && rawGoal >= 0) ? rawGoal : (autoGoal != null && autoGoal > 0 ? autoGoal : 0);
+
+  const eff = getEffectiveBaseRates();
+  const sr = eff.sr;
+  const cr = eff.cr;
+
+  const dph = safeNum(state.doorsPerHour);
+  const hps = safeNum(state.hoursPerShift);
+  const spv = safeNum(state.shiftsPerVolunteerPerWeek);
+
+  const doorsPerShift = (dph != null && hps != null) ? dph * hps : null;
+
+  const convosNeeded = (sr && sr > 0) ? goal / sr : null;
+  const doorsNeeded = (convosNeeded != null && cr && cr > 0) ? convosNeeded / cr : null;
+
+  const totalShifts = (doorsNeeded != null && doorsPerShift && doorsPerShift > 0) ? doorsNeeded / doorsPerShift : null;
+  const shiftsPerWeek = (totalShifts != null && weeks && weeks > 0) ? totalShifts / weeks : null;
+  const volsNeeded = (shiftsPerWeek != null && spv && spv > 0) ? shiftsPerWeek / spv : null;
+
+  // Conservative rounding (ceil) for planning.
+  const fmtMaybe = (v) => (v == null || !isFinite(v)) ? "—" : fmtInt(Math.ceil(v));
+  setText(els.outConversationsNeeded, fmtMaybe(convosNeeded));
+  setText(els.outDoorsNeeded, fmtMaybe(doorsNeeded));
+  setText(els.outDoorsPerShift, (doorsPerShift == null || !isFinite(doorsPerShift)) ? "—" : fmtInt(Math.round(doorsPerShift)));
+  setText(els.outTotalShifts, fmtMaybe(totalShifts));
+  setText(els.outShiftsPerWeek, fmtMaybe(shiftsPerWeek));
+  setText(els.outVolunteersNeeded, fmtMaybe(volsNeeded));
+
+  // Feasibility banner
+  if (!els.convFeasBanner) return;
+
+  let msg = "";
+  let cls = "";
+  let show = true;
+
+  if (goal <= 0){
+    msg = "Capacity check: Under current assumptions, no additional support IDs are required (goal = 0).";
+    cls = "ok";
+  } else if (weeks == null || weeks <= 0){
+    msg = "Capacity check: Set an election date (or weeks remaining) to compute per-week requirements.";
+    cls = "warn";
+  } else if (sr == null || sr <= 0 || cr == null || cr <= 0 || doorsPerShift == null || doorsPerShift <= 0){
+    msg = "Capacity check: Enter Support rate, Contact rate, Doors/hour, and Hours/shift to compute workload.";
+    cls = "warn";
+  } else if (volsNeeded == null || !isFinite(volsNeeded)){
+    msg = "Capacity check: Enter Shifts per volunteer/week to estimate active volunteer requirement.";
+    cls = "warn";
+  } else {
+    const v = Math.ceil(volsNeeded);
+    if (v <= 25){
+      msg = `Capacity check: Looks feasible (≈ ${fmtInt(v)} active volunteers at your stated cadence).`;
+      cls = "ok";
+    } else if (v <= 60){
+      msg = `Capacity check: Ambitious (≈ ${fmtInt(v)} active volunteers). Consider higher efficiency, longer shifts, or supplementing with paid/phones/texts.`;
+      cls = "warn";
+    } else {
+      msg = `Capacity check: High risk (≈ ${fmtInt(v)} active volunteers). You likely need multi-channel + paid volume, or revise assumptions.`;
+      cls = "bad";
+    }
+  }
+
+  els.convFeasBanner.hidden = !show;
+  els.convFeasBanner.className = `banner ${cls}`.trim();
+  els.convFeasBanner.textContent = msg;
+  renderPhase3(res, weeks);
 }
 
 
 function renderSensitivitySnapshotE4(){
-  return renderSensitivitySnapshotPanel({ els, state });
+  if (!els.sensTag || !els.sensTbody || !els.sensBanner || !els.btnSensRun) return;
+
+  const stub = (msg, cls) => {
+    els.sensTbody.innerHTML = '<tr><td class="muted">—</td><td class="num muted">—</td><td class="num muted">—</td><td class="muted">—</td></tr>';
+    els.sensTag.textContent = "—";
+    els.sensTag.classList.remove("ok","warn","bad");
+    els.sensBanner.className = `banner ${cls || ""}`.trim();
+    els.sensBanner.textContent = msg || "—";
+  };
+
+  const base = state.mcLast;
+  if (!base){
+    stub("Run Monte Carlo to enable the sensitivity snapshot.", "warn");
+    els.btnSensRun.disabled = true;
+    return;
+  }
+
+  els.btnSensRun.disabled = false;
+
+  const cache = state.ui?.e4Sensitivity;
+  if (!cache || cache.baseHash !== state.mcLastHash || !Array.isArray(cache.rows) || cache.rows.length === 0){
+    stub("Click \"Run snapshot\" to compute small perturbation deltas (read-only).", "");
+    return;
+  }
+
+  els.sensTbody.innerHTML = "";
+  for (const r of cache.rows){
+    const tr = document.createElement("tr");
+    const td0 = document.createElement("td"); td0.textContent = r.label || "—";
+    const td1 = document.createElement("td"); td1.className = "num"; td1.textContent = r.dWin || "—";
+    const td2 = document.createElement("td"); td2.className = "num"; td2.textContent = r.dP50 || "—";
+    const td3 = document.createElement("td"); td3.className = "muted"; td3.textContent = r.note || "";
+    tr.appendChild(td0); tr.appendChild(td1); tr.appendChild(td2); tr.appendChild(td3);
+    els.sensTbody.appendChild(tr);
+  }
+
+  const tag = cache.tag || "Snapshot";
+  els.sensTag.textContent = tag;
+  els.sensTag.classList.remove("ok","warn","bad");
+  if (cache.cls) els.sensTag.classList.add(cache.cls);
+
+  els.sensBanner.className = `banner ${cache.cls || ""}`.trim();
+  els.sensBanner.textContent = cache.banner || "—";
 }
 
 async function runSensitivitySnapshotE4(){
-  return runSensitivitySnapshotPanel({
-    els,
-    state,
-    lastRenderCtx,
-    clamp,
-    runMonteCarloSim,
-    persist,
-    renderSensitivitySnapshotE4
-  });
+  if (!els.sensTag || !els.sensTbody || !els.sensBanner || !els.btnSensRun) return;
+
+  const base = state.mcLast;
+  if (!base) return;
+
+  const ctx = lastRenderCtx;
+  if (!ctx || !ctx.res) return;
+
+  const weeks = (ctx.weeks != null && ctx.weeks >= 0) ? ctx.weeks : null;
+  const needVotes = (ctx.needVotes != null && ctx.needVotes >= 0) ? ctx.needVotes : null;
+  const seed = state.mcSeed || "";
+
+  const baseP = clamp(Number(base.winProb ?? 0), 0, 1);
+  const baseP50 = (base.confidenceEnvelope?.percentiles?.p50 != null) ? Number(base.confidenceEnvelope.percentiles.p50)
+    : (base.median != null ? Number(base.median) : null);
+
+  const runs = 2000;
+
+  const fmtWinDelta = (p) => {
+    if (p == null || !isFinite(p)) return "—";
+    const d = (p - baseP) * 100;
+    const s = d > 0 ? "+" : "";
+    return `${s}${d.toFixed(1)} pts`;
+  };
+
+  const fmtMarginDelta = (m) => {
+    if (m == null || !isFinite(m) || baseP50 == null || !isFinite(baseP50)) return "—";
+    const d = m - baseP50;
+    const s = d > 0 ? "+" : "";
+    return `${s}${d.toFixed(1)}`;
+  };
+
+  const simWin = (sim) => (sim && sim.winProb != null) ? clamp(Number(sim.winProb), 0, 1) : null;
+  const simP50 = (sim) => {
+    if (!sim) return null;
+    const p50 = sim.confidenceEnvelope?.percentiles?.p50;
+    if (p50 != null && isFinite(p50)) return Number(p50);
+    const m = sim.median;
+    if (m != null && isFinite(m)) return Number(m);
+    return null;
+  };
+
+  const setBusy = (on) => {
+    els.btnSensRun.disabled = !!on;
+    els.btnSensRun.textContent = on ? "Running…" : "Run snapshot";
+  };
+
+  const mk = (label, nextState, note) => ({ label, nextState, note });
+
+  const bump = (v, f, lo, hi) => {
+    const n = Number(v);
+    if (!isFinite(n)) return v;
+    const x = n * f;
+    if (lo != null || hi != null){
+      const a = (lo == null) ? x : Math.max(lo, x);
+      return (hi == null) ? a : Math.min(hi, a);
+    }
+    return x;
+  };
+
+  const s1 = structuredClone(state);
+  s1.doorsPerHour3 = bump(s1.doorsPerHour3, 1.10, 0.01, null);
+
+  const s2 = structuredClone(state);
+  s2.callsPerHour3 = bump(s2.callsPerHour3, 1.10, 0.01, null);
+
+  const s3 = structuredClone(state);
+  s3.volunteerMultBase = bump(s3.volunteerMultBase, 1.10, 0.01, 10);
+
+  const s4 = structuredClone(state);
+  if (s4.gotvMode === "advanced"){
+    const v = Number(s4.gotvLiftMode);
+    s4.gotvLiftMode = (isFinite(v) ? v : 0) + 5;
+  } else {
+    const v = Number(s4.gotvLiftPP);
+    s4.gotvLiftPP = (isFinite(v) ? v : 0) + 5;
+  }
+
+  const jobs = [
+    mk("+10% doors", s1, "Doors/hr × 1.10"),
+    mk("+10% phones", s2, "Calls/hr × 1.10"),
+    mk("+10% volunteers", s3, "Volunteer multiplier × 1.10"),
+    mk("+5pp turnout lift", s4, "GOTV lift + 5pp"),
+  ];
+
+  setBusy(true);
+  try{
+    const rows = [];
+    for (const j of jobs){
+      const sim = runMonteCarloSim({ scenario: j.nextState, res: ctx.res, weeks, needVotes, runs, seed });
+      const p = simWin(sim);
+      const m = simP50(sim);
+      rows.push({
+        label: j.label,
+        dWin: fmtWinDelta(p),
+        dP50: fmtMarginDelta(m),
+        note: j.note,
+      });
+    }
+
+    const best = rows.reduce((a,r) => {
+      const m = parseFloat(String(r.dWin||"").replace(/[^0-9\-\.]+/g, ""));
+      if (!isFinite(m)) return a;
+      const abs = Math.abs(m);
+      if (!a || abs > a.abs) return { abs, r };
+      return a;
+    }, null);
+
+    const banner = best ? `Biggest movement in win probability: ${best.r.label} (${best.r.dWin}).` : "Snapshot complete.";
+    const cls = best && best.abs >= 5 ? "warn" : "ok";
+
+    if (!state.ui) state.ui = {};
+    state.ui.e4Sensitivity = {
+      baseHash: state.mcLastHash,
+      computedAt: Date.now(),
+      rows,
+      banner,
+      tag: "Mini surface",
+      cls,
+    };
+    persist();
+    renderSensitivitySnapshotE4();
+  } finally {
+    setBusy(false);
+  }
 }
 
 function renderDecisionConfidenceE5(res, weeks){
