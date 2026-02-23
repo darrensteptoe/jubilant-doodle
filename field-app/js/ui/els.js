@@ -413,7 +413,7 @@ export const els = {
   tlWeekList: document.getElementById("tlWeekList"),
   tlBanner: document.getElementById("tlBanner"),
 
-  validationListSidebar: document.getElementById("validationList-sidebar"),
+  validationList: document.getElementById("validationList"),
   kpiTurnoutVotesSidebar: document.getElementById("kpiTurnoutVotes-sidebar"),
   kpiTurnoutBandSidebar: document.getElementById("kpiTurnoutBand-sidebar"),
   kpiWinThresholdSidebar: document.getElementById("kpiWinThreshold-sidebar"),

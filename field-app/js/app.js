@@ -3550,7 +3550,7 @@ function renderStress(res){
 }
 
 function renderValidation(res, weeks){
-  const lists = [els.validationListSidebar].filter(Boolean);
+  const lists = [els.validationList].filter(Boolean);
   if (!lists.length) return;
   const items = [];
 
