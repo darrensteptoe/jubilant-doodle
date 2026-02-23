@@ -1494,6 +1494,7 @@ function render(){
   safeCall(() => renderAssumptions(res, weeks));
   safeCall(() => renderGuardrails(res));
   safeCall(() => renderConversion(res, weeks));
+  safeCall(() => renderPhase3(res, weeks));
   safeCall(() => renderWeeklyOps(res, weeks));
   safeCall(() => renderWeeklyOpsInsights(res, weeks));
   safeCall(() => renderWeeklyOpsFreshness(res, weeks));
