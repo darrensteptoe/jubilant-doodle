@@ -209,28 +209,12 @@
 <h2 class="card-title">Universe</h2>
 <div class="help-text">Define the size of the electorate you’re modeling (registration or expected voters). Be consistent with turnout assumptions.</div></div>
 <div class="grid2">
-<div class="field">
-<label class="label" for="universeBasis">Universe basis</label>
-<select class="select" id="universeBasis">
-<option selected="" value="registered">Registered (default)</option>
-<option value="active">Active (advanced)</option>
-</select>
-<div class="help" data-help="Registered is most publicly defensible. Active can be used when file hygiene is strong.">
-<span class="help-title">Best practice</span>
-<span class="help-text">Use Registered in client-facing work unless Active is clearly sourced and agreed.</span>
-</div>
-</div>
-<div class="field">
+<div class="field span2">
 <label class="label" for="universeSize">Universe size (U)</label>
 <input class="input" id="universeSize" min="0" placeholder="e.g., 52000" step="1" type="number"/>
 <div class="help" data-help="U is the base for turnout votes and persuasion universe.">
 <span class="help-title">How it’s used</span>
 <span class="help-text">Turnout votes = U × turnout %. Persuasion universe = U × persuasion %.</span>
-</div>
-</div>
-<div class="field span2">
-<label class="label" for="sourceNote">Source note (optional)</label>
-<input class="input" id="sourceNote" placeholder="e.g., VAN export dated 2026-02-01 or Elections dept file" type="text"/>
 </div>
 </div>
 </div><div class="card card-section phase-candidates">
@@ -2357,114 +2341,135 @@ Volunteer multiplier stays above 1.5" rows="4"></textarea>
 <!-- /stage-main-new -->
 <!-- RIGHT: Persistent results sidebar -->
 <aside aria-label="Win path results" class="results-sidebar-new">
-<!-- WIN PATH KPIs (existing IDs, just repositioned) -->
-<div class="sidebar-section-new">
-<div class="sidebar-label-new">Win path — expected</div>
-<div class="win-stat-new">
-<span class="win-stat-label-new">Turnout votes</span>
-<span class="win-stat-val-new" id="kpiTurnoutVotes-sidebar">—</span>
-<span class="win-stat-sub-new" id="kpiTurnoutBand-sidebar">—</span>
-</div>
-<div class="win-stat-new">
-<span class="win-stat-label-new">Win threshold</span>
-<span class="win-stat-val-new" id="kpiWinThreshold-sidebar">—</span>
-</div>
-<div class="win-stat-new">
-<span class="win-stat-label-new">Your projected votes</span>
-<span class="win-stat-val-new" id="kpiYourVotes-sidebar">—</span>
-<span class="win-stat-sub-new" id="kpiYourVotesShare-sidebar">—</span>
-</div>
-<div class="win-stat-new">
-<span class="win-stat-label-new">Persuasion votes needed</span>
-<span class="win-stat-val-new" id="kpiPersuasionNeed-sidebar">—</span>
-<span class="win-stat-sub-new" id="kpiPersuasionStatus-sidebar">—</span>
-</div>
-</div>
-<!-- MC WIN PROBABILITY -->
-<div class="sidebar-section-new">
-<div class="sidebar-label-new">Monte Carlo — win probability</div>
-<div class="mc-prob-row-new">
-<span class="mc-prob-val-new" id="mcWinProb-sidebar">—</span>
-<span class="mc-prob-sub-new">simulated</span>
-</div>
-<svg aria-label="Win probability" class="prob-bar-new" height="14" id="svgWinProb" role="img" viewbox="0 0 300 14" width="300">
-<rect class="viz-track" height="2" rx="1" width="300" x="0" y="6"></rect>
-<circle class="viz-marker" cx="0" cy="7" id="svgWinProbMarker" r="5"></circle>
-</svg>
-<div class="muted" id="vizWinProbNote" style="font-size:11px; margin-top:6px;">—</div>
-<div class="prob-range-new">
-<span id="mcP10-sidebar">P10: —</span>
-<span id="mcP50-sidebar">Median: —</span>
-<span id="mcP90-sidebar">P90: —</span>
-</div>
-<div class="mc-meta-new">
-<span id="mcFreshTag-sidebar">—</span>  |  <span id="mcLastRun-sidebar">—</span>
-</div>
-<div class="banner warn" hidden="" id="mcStale-sidebar">Results may be stale — re-run Monte Carlo</div>
-<div style="margin-top:8px; display:flex; gap:6px;">
-<button class="btn btn-sm" id="mcRun-sidebar" type="button">Run Monte Carlo</button>
-<button class="btn btn-sm btn-ghost" id="mcRerun-sidebar" type="button">Re-run</button>
-</div>
-</div>
-<!-- VALIDATION CHECKS -->
-<div class="sidebar-section-new">
-<div class="sidebar-label-new">Input validation</div>
-<ul class="validation" id="validationList-sidebar"></ul>
-</div>
 
-<!-- ASSUMPTIONS SNAPSHOT -->
-<div class="sidebar-section-new">
-<div class="sidebar-label-new">Key assumptions</div>
-<div class="assumptions" id="assumptionsSnapshot"></div>
-</div>
+  <!-- KEY ASSUMPTIONS -->
+  <div class="sidebar-section-new">
+    <div class="sidebar-label-new">Key assumptions</div>
+    <div class="assumptions" id="assumptionsSnapshot"></div>
+  </div>
 
-<!-- DATA CHECKS & GUARDRAILS -->
-<div class="sidebar-section-new">
-<div class="sidebar-label-new">Data checks &amp; guardrails</div>
-<div class="guardrails" id="guardrails"></div>
-</div>
+  <!-- DATA CHECKS & GUARDRAILS -->
+  <div class="sidebar-section-new">
+    <div class="sidebar-label-new">Data checks &amp; guardrails</div>
+    <div class="guardrails" id="guardrails"></div>
+  </div>
 
-<!-- STRESS TEST (CLIENT STYLE) -->
-<div class="sidebar-section-new">
-<div class="sidebar-label-new">Stress test summary</div>
-<div class="stress" id="stressBox">
-<div class="stress-item">—</div>
-</div>
-</div>
-<!-- EARLY VOTE MINI -->
-<div class="sidebar-section-new">
-<div class="sidebar-label-new">Early &amp; election day split</div>
-<div class="kv-mini-new"><span>Early votes (expected)</span><span id="miniEarlyVotes-sidebar">—</span></div>
-<div class="kv-mini-new"><span>Election day votes</span><span id="miniEDVotes-sidebar">—</span></div>
-<div class="kv-mini-new"><span>Note</span><span id="miniEarlyNote-sidebar">—</span></div>
-<div class="kv-mini-new"><span>Persuasion universe</span><span id="miniPersUniverse-sidebar">—</span></div>
-<div class="kv-mini-new"><span>Universe check</span><span id="miniPersCheck-sidebar">—</span></div>
-</div>
-<!-- RISK TAG -->
-<div class="sidebar-section-new">
-<div class="sidebar-label-new">Risk framing</div>
-<div style="display:flex; align-items:center; gap:8px; margin-bottom:6px;">
-<span class="badge" id="riskBandTag-sidebar">—</span>
-<span class="muted" id="riskWinProb-sidebar" style="font-size:11px;">—</span>
-</div>
-<svg aria-label="Margin distribution" height="88" id="svgMargin" role="img" style="margin:8px 0 6px;" viewbox="0 0 300 88" width="300">
-<g id="svgMarginWinShade"></g>
-<g id="svgMarginBars"></g>
-<line class="viz-zero" id="svgMarginZero" x1="150" x2="150" y1="12" y2="76"></line>
-</svg>
-<div class="prob-range-new" style="margin-bottom:8px;">
-<span id="svgMarginMin">—</span>
-<span id="svgMarginMax">—</span>
-</div>
-<div class="kv-mini-new"><span>Margin band</span><span id="riskMarginBand-sidebar">—</span></div>
-<div class="kv-mini-new"><span>Volatility</span><span id="riskVolatility-sidebar">—</span></div>
-<div class="banner" hidden="" id="riskPlainBanner-sidebar"></div>
-</div>
-<!-- SNAPSHOT HASH -->
-<div class="sidebar-section-new" style="margin-top:auto; border-top: 1px solid var(--rule);">
-<div class="sidebar-label-new">Snapshot hash</div>
-<div class="kv-mini-new dim-text"><span id="snapshotHash-sidebar">—</span></div>
-</div>
+  <!-- WIN PATH KPIs -->
+  <div class="sidebar-section-new">
+    <div class="sidebar-label-new">Win path — expected</div>
+    <div class="win-stat-new">
+      <span class="win-stat-label-new">Turnout votes</span>
+      <span class="win-stat-val-new" id="kpiTurnoutVotes-sidebar">—</span>
+      <span class="win-stat-sub-new" id="kpiTurnoutBand-sidebar">—</span>
+    </div>
+    <div class="win-stat-new">
+      <span class="win-stat-label-new">Win threshold</span>
+      <span class="win-stat-val-new" id="kpiWinThreshold-sidebar">—</span>
+    </div>
+    <div class="win-stat-new">
+      <span class="win-stat-label-new">Your projected votes</span>
+      <span class="win-stat-val-new" id="kpiYourVotes-sidebar">—</span>
+      <span class="win-stat-sub-new" id="kpiYourVotesShare-sidebar">—</span>
+    </div>
+    <div class="win-stat-new">
+      <span class="win-stat-label-new">Persuasion votes needed</span>
+      <span class="win-stat-val-new" id="kpiPersuasionNeed-sidebar">—</span>
+      <span class="win-stat-sub-new" id="kpiPersuasionStatus-sidebar">—</span>
+    </div>
+  </div>
+
+  <!-- EARLY / ED SPLIT -->
+  <div class="sidebar-section-new">
+    <div class="sidebar-label-new">Early &amp; election day split</div>
+    <div class="kv-mini-new"><span>Early votes (expected)</span><span id="miniEarlyVotes-sidebar">—</span></div>
+    <div class="kv-mini-new"><span>Election day votes</span><span id="miniEDVotes-sidebar">—</span></div>
+    <div class="kv-mini-new"><span>Note</span><span id="miniEarlyNote-sidebar">—</span></div>
+    <div class="kv-mini-new"><span>Persuasion universe</span><span id="miniPersUniverse-sidebar">—</span></div>
+    <div class="kv-mini-new"><span>Universe check</span><span id="miniPersCheck-sidebar">—</span></div>
+  </div>
+
+  <!-- INPUT VALIDATION -->
+  <div class="sidebar-section-new">
+    <div class="sidebar-label-new">Input validation</div>
+    <ul class="validation" id="validationList-sidebar"></ul>
+  </div>
+
+  <!-- STRESS TEST SUMMARY -->
+  <div class="sidebar-section-new">
+    <div class="sidebar-label-new">Stress test summary</div>
+    <div class="stress" id="stressBox">
+      <div class="stress-item">—</div>
+    </div>
+  </div>
+
+  <!-- MONTE CARLO WIN PROBABILITY -->
+  <div class="sidebar-section-new">
+    <div class="sidebar-label-new">Monte Carlo win probability</div>
+    <div class="mc-prob-row-new">
+      <span class="mc-prob-val-new" id="mcWinProb-sidebar">—</span>
+      <span class="mc-prob-sub-new">simulated</span>
+    </div>
+    <svg aria-label="Win probability" class="prob-bar-new" height="14" id="svgWinProb" role="img" viewBox="0 0 300 14" width="300">
+      <rect class="viz-track" height="2" rx="1" width="300" x="0" y="6"></rect>
+      <circle class="viz-marker" cx="0" cy="7" id="svgWinProbMarker" r="5"></circle>
+    </svg>
+    <div class="muted" id="vizWinProbNote" style="font-size:11px; margin-top:6px;">—</div>
+    <div class="prob-range-new">
+      <span id="mcP10-sidebar">P10: —</span>
+      <span id="mcP50-sidebar">Median: —</span>
+      <span id="mcP90-sidebar">P90: —</span>
+    </div>
+    <div class="mc-meta-new">
+      <span id="mcFreshTag-sidebar">—</span> &nbsp;|&nbsp; <span id="mcLastRun-sidebar">—</span>
+    </div>
+    <div class="banner warn" hidden id="mcStale-sidebar">Results may be stale — re-run Monte Carlo</div>
+    <div style="margin-top:8px; display:flex; gap:6px;">
+      <button class="btn btn-sm" id="mcRun-sidebar" type="button">Run Monte Carlo</button>
+      <button class="btn btn-sm btn-ghost" id="mcRerun-sidebar" type="button">Re-run</button>
+    </div>
+  </div>
+
+  <!-- RISK FRAMING -->
+  <div class="sidebar-section-new">
+    <div class="sidebar-label-new">Risk framing</div>
+    <div style="display:flex; align-items:center; gap:8px; margin-bottom:6px;">
+      <span class="badge" id="riskBandTag-sidebar">—</span>
+      <span class="muted" id="riskWinProb-sidebar" style="font-size:11px;">—</span>
+    </div>
+    <svg aria-label="Margin distribution" height="88" id="svgMargin" role="img" style="margin:8px 0 6px;" viewBox="0 0 300 88" width="300">
+      <g id="svgMarginWinShade"></g>
+      <g id="svgMarginBars"></g>
+      <line class="viz-zero" id="svgMarginZero" x1="150" x2="150" y1="12" y2="76"></line>
+    </svg>
+    <div class="prob-range-new" style="margin-bottom:8px;">
+      <span id="svgMarginMin">—</span>
+      <span id="svgMarginMax">—</span>
+    </div>
+    <div class="kv-mini-new"><span>Margin band</span><span id="riskMarginBand-sidebar">—</span></div>
+    <div class="kv-mini-new"><span>Volatility</span><span id="riskVolatility-sidebar">—</span></div>
+    <div class="banner" hidden id="riskPlainBanner-sidebar"></div>
+  </div>
+
+  <!-- METADATA (RIGHT RAIL ONLY) -->
+  <div class="sidebar-section-new" style="margin-top:auto; border-top: 1px solid var(--rule);">
+    <div class="sidebar-label-new">Metadata</div>
+
+    <div class="field" style="margin-bottom:10px;">
+      <label class="label" for="universeBasis">Universe basis</label>
+      <select class="select" id="universeBasis">
+        <option value="registered" selected>Registered (default)</option>
+        <option value="active">Active (advanced)</option>
+      </select>
+    </div>
+
+    <div class="field" style="margin-bottom:10px;">
+      <label class="label" for="sourceNote">Source note (optional)</label>
+      <input class="input" id="sourceNote" placeholder="e.g., VAN export dated 2026-02-01 or Elections dept file" type="text" />
+    </div>
+
+    <div class="kv-mini-new dim-text"><span id="snapshotHash-sidebar">—</span></div>
+  </div>
+
 </aside>
 </div>
 <!-- /app-shell -->

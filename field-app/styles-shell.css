@@ -14,7 +14,7 @@
   /* Layout dimensions */
   --topbar-h:    52px;
   --nav-w:       210px;
-  --sidebar-w:   268px;
+  --sidebar-w:   clamp(320px, 28vw, 420px);
 
   /* New shell tokens (map to existing theme tokens) */
   --s-bg:        var(--bg);
@@ -448,7 +448,9 @@ body.training .training-panel-new { display: block; }
   display: flex;
   flex-direction: column;
   overflow-y: auto;
+  overflow-x: hidden;
 }
+
 
 .sidebar-section-new {
   padding: 13px 14px;
