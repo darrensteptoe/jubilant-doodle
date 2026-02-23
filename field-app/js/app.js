@@ -726,6 +726,21 @@ function wireEvents(){
     if (els.applyRollingCRBtn) els.applyRollingCRBtn.addEventListener("click", () => { safeCall(() => { applyRollingRateToAssumption("contact"); }); });
     if (els.applyRollingSRBtn) els.applyRollingSRBtn.addEventListener("click", () => { safeCall(() => { applyRollingRateToAssumption("support"); }); });
     if (els.wkUndoActionBtn) els.wkUndoActionBtn.addEventListener("click", () => { safeCall(() => { undoLastWeeklyAction(); }); });
+    if (els.btnJumpDrift){
+      els.btnJumpDrift.addEventListener("click", () => {
+        const go = () => {
+          const target = document.getElementById("driftStatusTag");
+          if (target && typeof target.scrollIntoView === "function"){
+            target.scrollIntoView({ behavior: "smooth", block: "center" });
+          }
+        };
+        try{
+          const btn = document.querySelector('.nav-item-new[data-stage="decisions"]');
+          if (btn && typeof btn.click === "function") btn.click();
+        } catch {}
+        setTimeout(go, 60);
+      });
+    }
   });
 
 
@@ -1634,7 +1649,7 @@ function renderBottleneckAttributionE3(res, weeks){
     return { primary: primary || "none/unknown", secondary: secondary || "—" };
   };
 
-  const tlOn = !!state.optimizer?.tlConstrainedEnabled;
+  const tlOn = !!state.budget?.optimize?.tlConstrainedEnabled;
   const timelineEnabled = !!state.timelineEnabled;
   if (!tlOn || !timelineEnabled){
     els.bneckTag.textContent = "—";
@@ -1655,7 +1670,7 @@ function renderBottleneckAttributionE3(res, weeks){
 
   const needVotes = deriveNeedVotes(res);
 
-  const opt = state.optimizer || {};
+  const opt = state.budget?.optimize || {};
   const budget = state.budget || {};
   const tactics = engine.buildOptimizationTactics({ baseRates: { cr, sr, tr }, tactics: budget.tactics || {} });
 
@@ -2701,7 +2716,7 @@ function renderDecisionIntelligencePanel({ res, weeks }){
     const accessors = {
       getStateSnapshot,
       withPatchedState,
-      compute: engine.compute,
+      computeAll: (mi, options) => engine.computeAll(mi, options),
       derivedWeeksRemaining,
       deriveNeedVotes,
       runMonteCarloSim,
@@ -3020,12 +3035,12 @@ function onSaveScenarioClick(){
     const accessors = {
       getStateSnapshot,
       withPatchedState,
-      compute: engineFacade.compute,
+      computeAll: (mi, options) => engineFacade.computeAll(mi, options),
       derivedWeeksRemaining,
       deriveNeedVotes,
       runMonteCarloSim,
-      computeMaxAttemptsByTactic: engineFacade.timeline.computeMaxAttemptsByTactic,
-      computeTimelineFeasibility: engineFacade.timeline.computeTimelineFeasibility,
+      computeMaxAttemptsByTactic: engineFacade.computeMaxAttemptsByTactic,
+      computeTimelineFeasibility: engineFacade.computeTimelineFeasibility,
       snapshot: engineFacade.snapshot,
     };
     scenarioMgr.add({

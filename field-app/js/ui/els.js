@@ -10,6 +10,7 @@ export const els = {
   restoreBackup: document.getElementById("restoreBackup"),
   toggleStrictImport: document.getElementById("toggleStrictImport"),
   btnDiagnostics: document.getElementById("btnDiagnostics"),
+  btnJumpDrift: document.getElementById("btnJumpDrift"),
   btnSaveScenario: document.getElementById("btnSaveScenario"),
   scCompareTbody: document.getElementById("scCompareTbody"),
   scOverall: document.getElementById("scOverall"),

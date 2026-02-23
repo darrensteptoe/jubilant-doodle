@@ -244,7 +244,7 @@ export function computeDecisionIntelligence({ engine, snap, baseline }){
       const needVotes = baseline?.needVotes ?? engine.deriveNeedVotes(res);
       const volsNeeded = baseline?.volsNeeded ?? computeVolunteerNeed({ snap, res, weeks });
       const sim = engine.runMonteCarloSim({ res, weeks, needVotes, runs: 10000, seed: snap.mcSeed || "" });
-      const s = sim?.summary || {};
+      const s = sim?.summary || sim || {};
       const winProb = (!!snap.turnoutEnabled && Number.isFinite(s.winProbTurnoutAdjusted)) ? s.winProbTurnoutAdjusted : s.winProb;
 
       // ROI cost lens
@@ -263,10 +263,10 @@ export function computeDecisionIntelligence({ engine, snap, baseline }){
         activeWeeksOverride: safeNum(snap.timelineActiveWeeks),
         gotvWindowWeeks: safeNum(snap.timelineGotvWeeks) ?? 2,
         staffing: {
-          staffCount: safeNum(snap.timelineStaffCount) ?? 0,
-          staffHoursPerWeek: safeNum(snap.timelineStaffHours) ?? 40,
-          volCount: safeNum(snap.timelineVolCount) ?? 0,
-          volHoursPerWeek: safeNum(snap.timelineVolHours) ?? 4,
+          staff: safeNum(snap.timelineStaffCount) ?? 0,
+          staffHours: safeNum(snap.timelineStaffHours) ?? 40,
+          volunteers: safeNum(snap.timelineVolCount) ?? 0,
+          volunteerHours: safeNum(snap.timelineVolHours) ?? 4,
         },
         throughput: {
           doors: safeNum(snap.timelineDoorsPerHour) ?? 0,
@@ -293,7 +293,8 @@ export function computeDecisionIntelligence({ engine, snap, baseline }){
       return { res, weeks, needVotes, winProb, volsNeeded, minCostToCloseGap, maxAttemptsByTactic };
     };
 
-    const base = baseline || computeBaseline();
+    const baseComputed = computeBaseline();
+    const base = { ...baseComputed, ...(baseline || {}) };
 
     // Bottlenecks (deterministic)
     const bottlenecks = detectBottlenecks({ snap, maxAttemptsByTactic: base.maxAttemptsByTactic });
@@ -326,7 +327,7 @@ export function computeDecisionIntelligence({ engine, snap, baseline }){
         const volsNeeded = computeVolunteerNeed({ snap: nextSnap, res, weeks });
 
         const sim = engine.runMonteCarloSim({ res, weeks, needVotes, runs: 10000, seed: nextSnap.mcSeed || "" });
-        const s = sim?.summary || {};
+        const s = sim?.summary || sim || {};
         const winProb = (!!nextSnap.turnoutEnabled && Number.isFinite(s.winProbTurnoutAdjusted)) ? s.winProbTurnoutAdjusted : s.winProb;
 
         const baseRates = {
@@ -343,10 +344,10 @@ export function computeDecisionIntelligence({ engine, snap, baseline }){
           activeWeeksOverride: safeNum(nextSnap.timelineActiveWeeks),
           gotvWindowWeeks: safeNum(nextSnap.timelineGotvWeeks) ?? 2,
           staffing: {
-            staffCount: safeNum(nextSnap.timelineStaffCount) ?? 0,
-            staffHoursPerWeek: safeNum(nextSnap.timelineStaffHours) ?? 40,
-            volCount: safeNum(nextSnap.timelineVolCount) ?? 0,
-            volHoursPerWeek: safeNum(nextSnap.timelineVolHours) ?? 4,
+            staff: safeNum(nextSnap.timelineStaffCount) ?? 0,
+            staffHours: safeNum(nextSnap.timelineStaffHours) ?? 40,
+            volunteers: safeNum(nextSnap.timelineVolCount) ?? 0,
+            volunteerHours: safeNum(nextSnap.timelineVolHours) ?? 4,
           },
           throughput: {
             doors: safeNum(nextSnap.timelineDoorsPerHour) ?? 0,
@@ -415,7 +416,7 @@ export function computeDecisionIntelligence({ engine, snap, baseline }){
     return {
       ...safeStub,
       ok: false,
-      warning: "Decision Intelligence failed (analysis error)."
+      warning: `Decision Intelligence failed (analysis error): ${e?.message ? String(e.message) : "unknown error"}.`
     };
   }
 }
