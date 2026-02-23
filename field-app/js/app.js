@@ -1306,6 +1306,320 @@ function getYourName(){
   return c?.name || null;
 }
 
+function ensureDecisionScaffold(){
+  if (!state.ui) state.ui = {};
+  if (!state.ui.decision || typeof state.ui.decision !== "object"){
+    state.ui.decision = { sessions: {}, activeSessionId: null };
+  }
+  if (!state.ui.decision.sessions || typeof state.ui.decision.sessions !== "object"){
+    state.ui.decision.sessions = {};
+  }
+  if (!state.ui.decision.activeSessionId || !state.ui.decision.sessions[state.ui.decision.activeSessionId]){
+    const first = Object.keys(state.ui.decision.sessions)[0] || null;
+    state.ui.decision.activeSessionId = first;
+  }
+}
+
+function ensureDecisionSessionShape(s){
+  if (!s || typeof s !== "object") return;
+  if (!s.constraints || typeof s.constraints !== "object"){
+    s.constraints = { budget: null, volunteerHrs: null, turfAccess: "", blackoutDates: "" };
+  }
+  if (!Array.isArray(s.nonNegotiables)) s.nonNegotiables = [];
+  if (!Array.isArray(s.whatNeedsTrue)) s.whatNeedsTrue = [];
+  if (!s.options || typeof s.options !== "object") s.options = {};
+  if (!s.riskPosture) s.riskPosture = "balanced";
+  if (!("recommendedOptionId" in s)) s.recommendedOptionId = null;
+  if (!("linkedScenarioId" in s)) s.linkedScenarioId = null;
+  if (!s.activeOptionId || !s.options[s.activeOptionId]){
+    const first = Object.keys(s.options)[0] || null;
+    s.activeOptionId = first;
+  }
+}
+
+function ensureDecisionOptionShape(o){
+  if (!o || typeof o !== "object") return;
+  if (!o.tactics || typeof o.tactics !== "object"){
+    o.tactics = { doors: true, phones: true, digital: false };
+  }
+  if (!("linkedScenarioId" in o)) o.linkedScenarioId = null;
+}
+
+function getActiveDecisionSession(){
+  ensureDecisionScaffold();
+  const id = state.ui.decision.activeSessionId;
+  const s = id ? state.ui.decision.sessions[id] : null;
+  if (!s) return null;
+  ensureDecisionSessionShape(s);
+  return s;
+}
+
+function getActiveDecisionOption(session){
+  const s = session || getActiveDecisionSession();
+  if (!s) return null;
+  ensureDecisionSessionShape(s);
+  const id = s.activeOptionId;
+  const o = id ? s.options[id] : null;
+  if (!o) return null;
+  ensureDecisionOptionShape(o);
+  return o;
+}
+
+function wireInput(el, patchFn, { parse, onCommit } = {}){
+  if (!el || typeof patchFn !== "function") return;
+  const handler = () => {
+    const raw = el.value;
+    const val = (typeof parse === "function") ? parse(raw) : raw;
+    setState(st => patchFn(st, val));
+    if (typeof onCommit === "function"){
+      try{ onCommit(); } catch {}
+    }
+  };
+  el.addEventListener("input", handler);
+  el.addEventListener("change", handler);
+}
+
+function copyTextToClipboard(text){
+  return engine.snapshot.copyTextToClipboard(String(text || "")).then(() => true).catch(() => false);
+}
+
+function decisionSummaryPlainText(md){
+  return String(md || "")
+    .replace(/^#+\s*/gm, "")
+    .replace(/\*\*(.*?)\*\*/g, "$1")
+    .replace(/\*(.*?)\*/g, "$1")
+    .replace(/`([^`]+)`/g, "$1");
+}
+
+function decisionSessionExportObject(s){
+  if (!s || typeof s !== "object") return null;
+  return {
+    exportedAt: new Date().toISOString(),
+    appVersion: APP_VERSION,
+    buildId: BUILD_ID,
+    session: scenarioClone(s),
+  };
+}
+
+function downloadJsonObject(obj, filename){
+  try{
+    downloadJson(obj, filename || "decision-session.json");
+  } catch {
+    downloadText(JSON.stringify(obj, null, 2), filename || "decision-session.json", "application/json");
+  }
+}
+
+function buildDecisionSummaryText(s){
+  if (!s) return "";
+  ensureDecisionSessionShape(s);
+  const opt = getActiveDecisionOption(s);
+  const lines = [];
+  lines.push(`# Decision Session: ${s.name || s.id}`);
+  lines.push("");
+  lines.push(`Objective: ${s.objectiveKey || "—"}`);
+  lines.push(`Risk posture: ${s.riskPosture || "balanced"}`);
+  lines.push(`Linked scenario: ${s.linkedScenarioId || "—"}`);
+  lines.push("");
+  if (s.constraints){
+    lines.push("## Constraints");
+    lines.push(`- Budget: ${s.constraints.budget == null ? "—" : fmtInt(Math.round(s.constraints.budget))}`);
+    lines.push(`- Volunteer hours: ${s.constraints.volunteerHrs == null ? "—" : fmtInt(Math.round(s.constraints.volunteerHrs))}`);
+    lines.push(`- Turf access: ${s.constraints.turfAccess || "—"}`);
+    lines.push(`- Blackout dates: ${s.constraints.blackoutDates || "—"}`);
+    lines.push("");
+  }
+  lines.push("## Active option");
+  lines.push(`- Name: ${opt?.name || "—"}`);
+  lines.push(`- Linked scenario: ${opt?.linkedScenarioId || "—"}`);
+  lines.push(`- Tactics: doors=${opt?.tactics?.doors ? "on" : "off"}, phones=${opt?.tactics?.phones ? "on" : "off"}, digital=${opt?.tactics?.digital ? "on" : "off"}`);
+  lines.push("");
+  lines.push("## Recommendation");
+  lines.push(`- Recommended option: ${s.recommendedOptionId || "—"}`);
+  lines.push(`- What needs to be true: ${(s.whatNeedsTrue || []).length ? "" : "—"}`);
+  for (const x of (s.whatNeedsTrue || [])) lines.push(`  - ${x}`);
+  lines.push("");
+  lines.push("## Notes");
+  lines.push(s.notes || "—");
+  return lines.join("\n");
+}
+
+function renderDecisionSummaryD4(s){
+  if (!els.decisionSummaryPreview) return;
+  const md = buildDecisionSummaryText(s);
+  els.decisionSummaryPreview.textContent = md || "—";
+}
+
+function createNewDecisionSession(){
+  ensureDecisionScaffold();
+  const id = uid();
+  const name = `Decision ${Object.keys(state.ui.decision.sessions).length + 1}`;
+  state.ui.decision.sessions[id] = {
+    id,
+    name,
+    notes: "",
+    objectiveKey: "protect_margin",
+    linkedScenarioId: state.ui.activeScenarioId || null,
+    constraints: { budget: null, volunteerHrs: null, turfAccess: "", blackoutDates: "" },
+    nonNegotiables: [],
+    riskPosture: "balanced",
+    options: {},
+    activeOptionId: null,
+    recommendedOptionId: null,
+    whatNeedsTrue: [],
+  };
+  state.ui.decision.activeSessionId = id;
+  createNewDecisionOption();
+  persist();
+  renderDecisionSessionD1();
+}
+
+function renameActiveDecisionSession(){
+  const s = getActiveDecisionSession();
+  if (!s) return;
+  const name = String(els.decisionRename?.value || "").trim();
+  if (!name) return;
+  s.name = name;
+  persist();
+  renderDecisionSessionD1();
+}
+
+function deleteActiveDecisionSession(){
+  ensureDecisionScaffold();
+  const s = getActiveDecisionSession();
+  if (!s) return;
+  delete state.ui.decision.sessions[s.id];
+  const next = Object.keys(state.ui.decision.sessions)[0] || null;
+  state.ui.decision.activeSessionId = next;
+  persist();
+  renderDecisionSessionD1();
+}
+
+function linkDecisionSessionToActiveScenario(){
+  const s = getActiveDecisionSession();
+  if (!s) return;
+  s.linkedScenarioId = state.ui.activeScenarioId || null;
+  persist();
+  renderDecisionSessionD1();
+}
+
+function createNewDecisionOption(){
+  const s = getActiveDecisionSession();
+  if (!s) return;
+  ensureDecisionSessionShape(s);
+  const id = uid();
+  s.options[id] = {
+    id,
+    name: `Option ${Object.keys(s.options).length + 1}`,
+    linkedScenarioId: state.ui.activeScenarioId || null,
+    tactics: { doors: true, phones: true, digital: false },
+  };
+  s.activeOptionId = id;
+  persist();
+  renderDecisionSessionD1();
+}
+
+function renameActiveDecisionOption(){
+  const s = getActiveDecisionSession();
+  const o = getActiveDecisionOption(s);
+  if (!s || !o) return;
+  const name = String(els.decisionOptionRename?.value || "").trim();
+  if (!name) return;
+  o.name = name;
+  persist();
+  renderDecisionSessionD1();
+}
+
+function deleteActiveDecisionOption(){
+  const s = getActiveDecisionSession();
+  const o = getActiveDecisionOption(s);
+  if (!s || !o) return;
+  delete s.options[o.id];
+  s.activeOptionId = Object.keys(s.options)[0] || null;
+  persist();
+  renderDecisionSessionD1();
+}
+
+function linkDecisionOptionToActiveScenario(){
+  const s = getActiveDecisionSession();
+  const o = getActiveDecisionOption(s);
+  if (!s || !o) return;
+  o.linkedScenarioId = state.ui.activeScenarioId || null;
+  persist();
+  renderDecisionSessionD1();
+}
+
+function renderDecisionSessionD1(){
+  ensureDecisionScaffold();
+
+  if (els.decisionSessionSelect){
+    els.decisionSessionSelect.innerHTML = "";
+    const ids = Object.keys(state.ui.decision.sessions);
+    for (const id of ids){
+      const s = state.ui.decision.sessions[id];
+      const opt = document.createElement("option");
+      opt.value = id;
+      opt.textContent = s?.name || id;
+      els.decisionSessionSelect.appendChild(opt);
+    }
+    els.decisionSessionSelect.value = state.ui.decision.activeSessionId || "";
+  }
+
+  const s = getActiveDecisionSession();
+  if (!s){
+    if (els.decisionActiveLabel) els.decisionActiveLabel.textContent = "—";
+    if (els.decisionSummaryPreview) els.decisionSummaryPreview.textContent = "No decision session selected.";
+    return;
+  }
+
+  ensureDecisionSessionShape(s);
+  if (els.decisionActiveLabel) els.decisionActiveLabel.textContent = s.name || s.id;
+  if (els.decisionRename) els.decisionRename.value = s.name || "";
+  if (els.decisionNotes) els.decisionNotes.value = s.notes || "";
+  if (els.decisionObjective) els.decisionObjective.value = s.objectiveKey || "protect_margin";
+  if (els.decisionScenarioLabel) els.decisionScenarioLabel.textContent = s.linkedScenarioId || "—";
+  if (els.decisionBudget) els.decisionBudget.value = s.constraints?.budget == null ? "" : String(s.constraints.budget);
+  if (els.decisionVolunteerHrs) els.decisionVolunteerHrs.value = s.constraints?.volunteerHrs == null ? "" : String(s.constraints.volunteerHrs);
+  if (els.decisionTurfAccess) els.decisionTurfAccess.value = s.constraints?.turfAccess || "";
+  if (els.decisionBlackoutDates) els.decisionBlackoutDates.value = s.constraints?.blackoutDates || "";
+  if (els.decisionRiskPosture) els.decisionRiskPosture.value = s.riskPosture || "balanced";
+  if (els.decisionNonNegotiables) els.decisionNonNegotiables.value = Array.isArray(s.nonNegotiables) ? s.nonNegotiables.join("\n") : "";
+  if (els.decisionWhatTrue) els.decisionWhatTrue.value = Array.isArray(s.whatNeedsTrue) ? s.whatNeedsTrue.join("\n") : "";
+
+  if (els.decisionOptionSelect){
+    els.decisionOptionSelect.innerHTML = "";
+    const optionIds = Object.keys(s.options || {});
+    for (const id of optionIds){
+      const o = s.options[id];
+      const opt = document.createElement("option");
+      opt.value = id;
+      opt.textContent = o?.name || id;
+      els.decisionOptionSelect.appendChild(opt);
+    }
+    els.decisionOptionSelect.value = s.activeOptionId || "";
+  }
+
+  const o = getActiveDecisionOption(s);
+  if (els.decisionOptionRename) els.decisionOptionRename.value = o?.name || "";
+  if (els.decisionOptionScenarioLabel) els.decisionOptionScenarioLabel.textContent = o?.linkedScenarioId || "—";
+  if (els.decisionOptionTacticDoors) els.decisionOptionTacticDoors.checked = !!o?.tactics?.doors;
+  if (els.decisionOptionTacticPhones) els.decisionOptionTacticPhones.checked = !!o?.tactics?.phones;
+  if (els.decisionOptionTacticDigital) els.decisionOptionTacticDigital.checked = !!o?.tactics?.digital;
+
+  if (els.decisionRecommendSelect){
+    els.decisionRecommendSelect.innerHTML = '<option value="">(none)</option>';
+    const optionIds = Object.keys(s.options || {});
+    for (const id of optionIds){
+      const x = document.createElement("option");
+      x.value = id;
+      x.textContent = s.options[id]?.name || id;
+      els.decisionRecommendSelect.appendChild(x);
+    }
+    els.decisionRecommendSelect.value = s.recommendedOptionId || "";
+  }
+
+  renderDecisionSummaryD4(s);
+}
+
 
 function onSaveScenarioClick(){
   try{
