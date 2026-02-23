@@ -244,7 +244,7 @@ export function computeDecisionIntelligence({ engine, snap, baseline }){
       const needVotes = baseline?.needVotes ?? engine.deriveNeedVotes(res);
       const volsNeeded = baseline?.volsNeeded ?? computeVolunteerNeed({ snap, res, weeks });
       const sim = engine.runMonteCarloSim({ res, weeks, needVotes, runs: 10000, seed: snap.mcSeed || "" });
-      const s = sim?.summary || {};
+      const s = sim?.summary || sim || {};
       const winProb = (!!snap.turnoutEnabled && Number.isFinite(s.winProbTurnoutAdjusted)) ? s.winProbTurnoutAdjusted : s.winProb;
 
       // ROI cost lens
@@ -326,7 +326,7 @@ export function computeDecisionIntelligence({ engine, snap, baseline }){
         const volsNeeded = computeVolunteerNeed({ snap: nextSnap, res, weeks });
 
         const sim = engine.runMonteCarloSim({ res, weeks, needVotes, runs: 10000, seed: nextSnap.mcSeed || "" });
-        const s = sim?.summary || {};
+        const s = sim?.summary || sim || {};
         const winProb = (!!nextSnap.turnoutEnabled && Number.isFinite(s.winProbTurnoutAdjusted)) ? s.winProbTurnoutAdjusted : s.winProb;
 
         const baseRates = {

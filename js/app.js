@@ -2716,7 +2716,7 @@ function renderDecisionIntelligencePanel({ res, weeks }){
     const accessors = {
       getStateSnapshot,
       withPatchedState,
-      compute: engine.compute,
+      computeAll: (mi, options) => engine.computeAll(mi, options),
       derivedWeeksRemaining,
       deriveNeedVotes,
       runMonteCarloSim,
@@ -3035,12 +3035,12 @@ function onSaveScenarioClick(){
     const accessors = {
       getStateSnapshot,
       withPatchedState,
-      compute: engineFacade.compute,
+      computeAll: (mi, options) => engineFacade.computeAll(mi, options),
       derivedWeeksRemaining,
       deriveNeedVotes,
       runMonteCarloSim,
-      computeMaxAttemptsByTactic: engineFacade.timeline.computeMaxAttemptsByTactic,
-      computeTimelineFeasibility: engineFacade.timeline.computeTimelineFeasibility,
+      computeMaxAttemptsByTactic: engineFacade.computeMaxAttemptsByTactic,
+      computeTimelineFeasibility: engineFacade.computeTimelineFeasibility,
       snapshot: engineFacade.snapshot,
     };
     scenarioMgr.add({
