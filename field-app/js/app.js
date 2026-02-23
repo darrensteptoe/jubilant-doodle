@@ -1,6 +1,6 @@
 import { engine } from "./engine.js";
 import { computeCapacityContacts as coreComputeCapacityContacts, computeCapacityBreakdown as coreComputeCapacityBreakdown } from "./core/model.js";
-import { normalizeUniversePercents, UNIVERSE_DEFAULTS } from "./core/universeLayer.js";
+import { normalizeUniversePercents, UNIVERSE_DEFAULTS, computeUniverseAdjustedRates } from "./core/universeLayer.js";
 import { computeAvgLiftPP } from "./core/turnout.js";
 import { fmtInt, clamp, safeNum, daysBetween, downloadJson, readJsonFile } from "./utils.js";
 import { loadState, saveState, clearState, readBackups, writeBackupEntry } from "./storage.js";
@@ -1360,7 +1360,7 @@ function getEffectiveBaseRates(){
   const tr = (safeNum(state.turnoutReliabilityPct) != null) ? clamp(safeNum(state.turnoutReliabilityPct), 0, 100) / 100 : null;
 
   const cfg = getUniverseLayerConfig();
-  const adj = engine.computeUniverseAdjustedRates({
+  const adj = computeUniverseAdjustedRates({
     enabled: cfg.enabled,
     universePercents: cfg.percents,
     retentionFactor: cfg.retentionFactor,
@@ -2244,7 +2244,7 @@ function renderDecisionIntelligencePanel({ res, weeks }){
     const accessors = {
       getStateSnapshot,
       withPatchedState,
-      compute: engine.compute,
+      computeAll: (mi, options) => engine.computeAll(mi, options),
       derivedWeeksRemaining,
       deriveNeedVotes,
       runMonteCarloSim,
@@ -2731,7 +2731,7 @@ function getEffectiveBaseRatesFromSnap(snap){
   const tr = (safeNum(snap?.turnoutReliabilityPct) != null) ? clamp(safeNum(snap?.turnoutReliabilityPct), 0, 100) / 100 : null;
 
   const cfg = getUniverseLayerConfigFromSnap(snap);
-  const adj = engine.computeUniverseAdjustedRates({
+  const adj = computeUniverseAdjustedRates({
     enabled: cfg.enabled,
     universePercents: cfg.percents,
     retentionFactor: cfg.retentionFactor,

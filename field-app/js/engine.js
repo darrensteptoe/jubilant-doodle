@@ -12,6 +12,7 @@ import { computeMarginalValueDiagnostics } from "./core/marginalValue.js";
 import { computeDecisionIntelligence } from "./core/decisionIntelligence.js";
 import { computeSensitivitySurface as _computeSensitivitySurface } from "./core/sensitivitySurface.js";
 import { deriveNeedVotes, derivedWeeksRemaining, computeCapacityBreakdown } from "./core/model.js";
+import { computeUniverseAdjustedRates } from "./core/universeLayer.js";
 
 import { computeSnapshotHash } from "./core/hash.js";
 import { migrateSnapshot, CURRENT_SCHEMA_VERSION } from "./core/migrate.js";
@@ -53,6 +54,8 @@ function buildAccessors(){
 // Facade — MUST expose ONLY the documented surface area.
 export const engine = {
   computeAll: (inputs, options) => computeAll(inputs, options),
+  // Backward-compat shim for older app modules that still call engine.computeUniverseAdjustedRates(...)
+  computeUniverseAdjustedRates: (args) => computeUniverseAdjustedRates(args),
 
   runMonteCarlo: (args) => runMonteCarloSim(args),
 
