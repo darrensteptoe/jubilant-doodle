@@ -153,6 +153,9 @@ function computeSensitivity(samples, margins){
     ["Contact rate", samples.contactRate],
     ["Volunteer multiplier", samples.volunteerMult],
   ];
+  if (Array.isArray(samples?.gotvLift) && samples.gotvLift.length){
+    vars.push(["GOTV lift (pp)", samples.gotvLift]);
+  }
 
   for (const [label, xs] of vars){
     const r = pearson(xs, margins);

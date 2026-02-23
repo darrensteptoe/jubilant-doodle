@@ -56,3 +56,66 @@ export function getEffectiveBaseRates(state, { computeUniverseAdjustedRates } = 
   };
 }
 
+export function computeWeeklyOpsContextFromState(state, { res, weeks, getEffectiveBaseRatesForState, computeCapacityBreakdown } = {}){
+  const rawGoal = safeNum(state?.goalSupportIds);
+  const autoGoal = safeNum(res?.expected?.persuasionNeed);
+  const goal = (rawGoal != null && rawGoal >= 0) ? rawGoal : (autoGoal != null && autoGoal > 0 ? autoGoal : 0);
+
+  const eff = getEffectiveBaseRatesForState(state);
+  const sr = eff.sr;
+  const cr = eff.cr;
+
+  let convosNeeded = null;
+  let attemptsNeeded = null;
+  let convosPerWeek = null;
+  let attemptsPerWeek = null;
+
+  if (goal > 0 && sr && sr > 0) convosNeeded = goal / sr;
+  if (convosNeeded != null && cr && cr > 0) attemptsNeeded = convosNeeded / cr;
+  if (weeks != null && weeks > 0){
+    if (convosNeeded != null) convosPerWeek = convosNeeded / weeks;
+    if (attemptsNeeded != null) attemptsPerWeek = attemptsNeeded / weeks;
+  }
+
+  const orgCount = safeNum(state?.orgCount);
+  const orgHoursPerWeek = safeNum(state?.orgHoursPerWeek);
+  const volunteerMult = safeNum(state?.volunteerMultBase);
+  const doorSharePct = safeNum(state?.channelDoorPct);
+  const doorsPerHour = safeNum(state?.doorsPerHour3);
+  const callsPerHour = safeNum(state?.callsPerHour3);
+
+  const doorShare = (doorSharePct == null) ? null : clamp(doorSharePct / 100, 0, 1);
+
+  const cap = computeCapacityBreakdown({
+    weeks: 1,
+    orgCount,
+    orgHoursPerWeek,
+    volunteerMult,
+    doorShare,
+    doorsPerHour,
+    callsPerHour
+  });
+
+  const capTotal = cap?.total ?? null;
+  const gap = (attemptsPerWeek != null && capTotal != null) ? (attemptsPerWeek - capTotal) : null;
+
+  return {
+    goal,
+    weeks,
+    sr,
+    cr,
+    convosNeeded,
+    attemptsNeeded,
+    convosPerWeek,
+    attemptsPerWeek,
+    cap,
+    capTotal,
+    gap,
+    orgCount,
+    orgHoursPerWeek,
+    volunteerMult,
+    doorShare,
+    doorsPerHour,
+    callsPerHour
+  };
+}
