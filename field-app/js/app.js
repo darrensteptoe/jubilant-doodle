@@ -982,6 +982,9 @@ function wireEvents(){
   advWatch(els.mcCphMin, "mcCphMin");
   advWatch(els.mcCphMode, "mcCphMode");
   advWatch(els.mcCphMax, "mcCphMax");
+
+  // Phase 15 — always wire sensitivity surface independent of scenario-compare panel presence.
+  safeCall(() => { wireSensitivitySurface(); });
   advWatch(els.mcVolMin, "mcVolMin");
   advWatch(els.mcVolMode, "mcVolMode");
   advWatch(els.mcVolMax, "mcVolMax");
@@ -4219,6 +4222,8 @@ function renderSurfaceResult({ spec, result }){
 
 function wireSensitivitySurface(){
   if (!els.surfaceLever || !els.btnComputeSurface) return;
+  if (els.btnComputeSurface.dataset.wiredSurface === "1") return;
+  els.btnComputeSurface.dataset.wiredSurface = "1";
 
   // defaults (does not compute)
   applySurfaceDefaults();
@@ -4648,6 +4653,7 @@ function init(){
   rebuildCandidateTable();
   initTabs();
   initExplainCard();
+  safeCall(() => { wireSensitivitySurface(); });
   wireEvents();
   initDevTools();
   render();
