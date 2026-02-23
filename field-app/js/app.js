@@ -2,12 +2,14 @@ import { engine } from "./engine.js";
 import { computeCapacityContacts as coreComputeCapacityContacts, computeCapacityBreakdown as coreComputeCapacityBreakdown } from "./core/model.js";
 import { normalizeUniversePercents, UNIVERSE_DEFAULTS } from "./core/universeLayer.js";
 import { computeAvgLiftPP } from "./core/turnout.js";
-import { fmtInt, clamp, safeNum, daysBetween, downloadJson, readJsonFile } from "./utils.js";
+import { fmtInt, clamp, safeNum, downloadJson, readJsonFile } from "./utils.js";
 import { loadState, saveState, clearState, readBackups, writeBackupEntry } from "./storage.js";
 import { createScenarioManager } from "./scenarioManager.js";
 import { APP_VERSION, BUILD_ID } from "./build.js";
 import { computeSnapshotHash } from "./hash.js";
 import { makeRng, triSample } from "./core/rng.js";
+import { DEFAULTS_BY_TEMPLATE, makeDefaultState, normalizeLoadedState, requiredScenarioKeysMissing, applyUiStatePatch, cloneStateSnapshot } from "./app/state.js";
+import { derivedWeeksRemainingFromState, getUniverseLayerConfig as getUniverseLayerConfigForState, getEffectiveBaseRates as getEffectiveBaseRatesForState } from "./app/selectors.js";
 
 function downloadText(text, filename, mime){
   try{
@@ -296,22 +298,13 @@ function preflightEls(){
 }
 
 
-const DEFAULTS_BY_TEMPLATE = {
-  federal: { bandWidth: 4, persuasionPct: 28, earlyVoteExp: 45 },
-  state_leg: { bandWidth: 4, persuasionPct: 30, earlyVoteExp: 38 },
-  municipal: { bandWidth: 5, persuasionPct: 35, earlyVoteExp: 35 },
-  county: { bandWidth: 4, persuasionPct: 30, earlyVoteExp: 40 },
-};
-
 let state = loadState() || makeDefaultState();
 
 // setState(patchFn) — controlled state mutation for UI-only writes.
 // Shallow-clones state, deep-clones only state.ui (where all setState writes live).
 // Engine/scenario fields are never mutated here so reference copies are safe.
 function setState(patchFn){
-  const next = { ...state, ui: structuredClone(state.ui) };
-  patchFn(next);
-  state = next;
+  state = applyUiStatePatch(state, patchFn);
   render();
   persist();
 }
@@ -414,134 +407,6 @@ function undoLastWeeklyAction(){
 const recentErrors = [];
 const MAX_ERRORS = 20;
 let backupTimer = null;
-
-
-function makeDefaultState(){
-  return {
-    scenarioName: "",
-    raceType: "state_leg",
-    electionDate: "",
-    weeksRemaining: "",
-    mode: "persuasion",
-    universeBasis: "registered",
-    universeSize: "",
-    sourceNote: "",
-    turnoutA: "",
-    turnoutB: "",
-    bandWidth: DEFAULTS_BY_TEMPLATE["state_leg"].bandWidth,
-    candidates: [
-      { id: uid(), name: "Candidate A", supportPct: 35 },
-      { id: uid(), name: "Candidate B", supportPct: 35 },
-    ],
-    undecidedPct: 30,
-    yourCandidateId: null,
-    undecidedMode: "proportional",
-    userSplit: {},
-    persuasionPct: DEFAULTS_BY_TEMPLATE["state_leg"].persuasionPct,
-    earlyVoteExp: DEFAULTS_BY_TEMPLATE["state_leg"].earlyVoteExp,
-
-    // Phase 2 — conversion + contact math
-    goalSupportIds: "",
-    supportRatePct: 55,
-    contactRatePct: 22,
-    doorsPerHour: 30,
-    hoursPerShift: 3,
-    shiftsPerVolunteerPerWeek: 2,
-
-    // Phase 3 — execution + risk (capacity + Monte Carlo)
-    orgCount: 2,
-    orgHoursPerWeek: 40,
-    volunteerMultBase: 1.0,
-    channelDoorPct: 70,
-    doorsPerHour3: 30,
-    callsPerHour3: 20,
-    turnoutReliabilityPct: 80,
-
-    // Phase 6 — turnout / GOTV
-    turnoutEnabled: false,
-    turnoutBaselinePct: 55,
-    turnoutTargetOverridePct: "",
-    gotvMode: "basic",
-    gotvLiftPP: 1.0,
-    gotvMaxLiftPP: 10,
-    gotvDiminishing: false,
-    gotvLiftMin: 0.5,
-    gotvLiftMode: 1.0,
-    gotvLiftMax: 2.0,
-    gotvMaxLiftPP2: 10,
-    gotvDiminishing2: false,
-
-    // Phase 7 — timeline / production (feasibility layer)
-    timelineEnabled: false,
-    timelineActiveWeeks: "",
-    timelineGotvWeeks: 2,
-    timelineStaffCount: 0,
-    timelineStaffHours: 40,
-    timelineVolCount: 0,
-    timelineVolHours: 4,
-    timelineRampEnabled: false,
-    timelineRampMode: "linear",
-    timelineDoorsPerHour: 30,
-    timelineCallsPerHour: 20,
-    timelineTextsPerHour: 120,
-
-
-    mcMode: "basic",
-    mcVolatility: "med",
-    mcSeed: "",
-
-        // Phase 4 — budget + ROI (attempt-based; Phase 4A: shared CR/SR across tactics)
-        budget: {
-          overheadAmount: 0,
-          includeOverhead: false,
-          tactics: {
-            doors: { enabled: true, cpa: 0.18, kind: "persuasion" },
-            phones: { enabled: true, cpa: 0.03, kind: "persuasion" },
-            texts: { enabled: false, cpa: 0.02, kind: "persuasion" },
-          },
-          optimize: {
-            mode: "budget",
-            budgetAmount: 10000,
-            capacityAttempts: "",
-            step: 25,
-            useDecay: false,
-            objective: "net",
-            tlConstrainedEnabled: false,
-            tlConstrainedObjective: "max_net",
-          }
-        },
-
-    mcContactMin: "",
-    mcContactMode: "",
-    mcContactMax: "",
-    mcPersMin: "",
-    mcPersMode: "",
-    mcPersMax: "",
-    mcReliMin: "",
-    mcReliMode: "",
-    mcReliMax: "",
-    mcDphMin: "",
-    mcDphMode: "",
-    mcDphMax: "",
-    mcCphMin: "",
-    mcCphMode: "",
-    mcCphMax: "",
-    mcVolMin: "",
-    mcVolMode: "",
-    mcVolMax: "",
-
-    mcLast: null,
-    mcLastHash: "",
-    ui: {
-      training: false,
-      dark: false,
-      advDiag: false,
-      activeTab: "win",
-      decision: { sessions: {}, activeSessionId: null },
-    mcMeta: null,
-    }
-  };
-}
 
 function uid(){
   return Math.random().toString(16).slice(2,10);
@@ -1280,97 +1145,16 @@ if (els.roiRefresh) els.roiRefresh.addEventListener("click", () => { render(); }
 
 }
 
-function normalizeLoadedState(s){
-  const base = makeDefaultState();
-  const out = { ...base, ...s };
-  out.candidates = Array.isArray(s.candidates) ? s.candidates : base.candidates;
-  out.userSplit = (s.userSplit && typeof s.userSplit === "object") ? s.userSplit : {};
-  out.ui = { ...base.ui, ...(s.ui || {}) };
-
-  out.budget = (s.budget && typeof s.budget === "object")
-    ? { ...base.budget, ...s.budget,
-        tactics: { ...base.budget.tactics, ...(s.budget.tactics||{}) },
-        optimize: { ...base.budget.optimize, ...(s.budget.optimize||{}) }
-      }
-    : structuredClone(base.budget);
-
-  if (!out.yourCandidateId && out.candidates[0]) out.yourCandidateId = out.candidates[0].id;
-  out.ui.themeMode = "system";
-  out.ui.dark = false;
-  return out;
-}
-
-function requiredScenarioKeysMissing(scen){
-  const required = [
-    "scenarioName","raceType","electionDate","weeksRemaining","mode",
-    "universeBasis","universeSize","turnoutA","turnoutB","bandWidth",
-    "candidates","undecidedPct","yourCandidateId","undecidedMode","persuasionPct",
-    "earlyVoteExp","supportRatePct","contactRatePct","turnoutReliabilityPct",
-    "universeLayerEnabled","universeDemPct","universeRepPct","universeNpaPct","universeOtherPct","retentionFactor",
-    "mcMode","mcVolatility","mcSeed","budget","timelineEnabled","ui"
-  ];
-  const missing = [];
-  if (!scen || typeof scen !== "object") return required.slice();
-  for (const k of required){
-    if (!(k in scen)) missing.push(k);
-  }
-  return missing;
-}
-
 function derivedWeeksRemaining(){
-  const override = safeNum(state.weeksRemaining);
-  if (override != null && override >= 0) return override;
-
-  const d = state.electionDate;
-  if (!d) return null;
-  const now = new Date();
-  const election = new Date(d + "T00:00:00");
-  const days = daysBetween(now, election);
-  if (days == null) return null;
-  return Math.max(0, Math.ceil(days / 7));
+  return derivedWeeksRemainingFromState(state);
 }
 
 function getUniverseLayerConfig(){
-  const enabled = !!state.universeLayerEnabled;
-  const demPct = safeNum(state.universeDemPct);
-  const repPct = safeNum(state.universeRepPct);
-  const npaPct = safeNum(state.universeNpaPct);
-  const otherPct = safeNum(state.universeOtherPct);
-  const retentionFactor = safeNum(state.retentionFactor);
-
-  const norm = normalizeUniversePercents({ demPct, repPct, npaPct, otherPct });
-  return {
-    enabled,
-    percents: norm.percents,
-    shares: norm.shares,
-    retentionFactor: (retentionFactor != null) ? clamp(retentionFactor, 0.60, 0.95) : UNIVERSE_DEFAULTS.retentionFactor,
-    warning: norm.warning || "",
-    wasNormalized: !!norm.normalized,
-  };
+  return getUniverseLayerConfigForState(state);
 }
 
 function getEffectiveBaseRates(){
-  const cr = (safeNum(state.contactRatePct) != null) ? clamp(safeNum(state.contactRatePct), 0, 100) / 100 : null;
-  const sr = (safeNum(state.supportRatePct) != null) ? clamp(safeNum(state.supportRatePct), 0, 100) / 100 : null;
-  const tr = (safeNum(state.turnoutReliabilityPct) != null) ? clamp(safeNum(state.turnoutReliabilityPct), 0, 100) / 100 : null;
-
-  const cfg = getUniverseLayerConfig();
-  const adj = engine.computeUniverseAdjustedRates({
-    enabled: cfg.enabled,
-    universePercents: cfg.percents,
-    retentionFactor: cfg.retentionFactor,
-    supportRate: sr,
-    turnoutReliability: tr,
-  });
-
-  return {
-    cr,
-    sr: adj.srAdj,
-    tr: adj.trAdj,
-    cfg,
-    meta: adj.meta,
-    volatilityBoost: adj.volatilityBoost || 0,
-  };
+  return getEffectiveBaseRatesForState(state, { computeUniverseAdjustedRates: engine.computeUniverseAdjustedRates });
 }
 
 function renderUniverse16Card(){
@@ -5814,13 +5598,7 @@ init();
 // Phase 5.5 — Self-test accessors (dev-only)
 // =========================
 export function getStateSnapshot(){
-  // Deep clone to prevent accidental mutation from dev tools.
-  try{
-    return JSON.parse(JSON.stringify(state));
-  } catch {
-    // Fallback shallow snapshot
-    return { ...state };
-  }
+  return cloneStateSnapshot(state);
 }
 
 export function getSelfTestAccessors(){
