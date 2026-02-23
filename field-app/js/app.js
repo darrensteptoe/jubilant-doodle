@@ -1,6 +1,6 @@
 import { engine } from "./engine.js";
 import { computeCapacityContacts as coreComputeCapacityContacts, computeCapacityBreakdown as coreComputeCapacityBreakdown } from "./core/model.js";
-import { normalizeUniversePercents, UNIVERSE_DEFAULTS } from "./core/universeLayer.js";
+import { normalizeUniversePercents, UNIVERSE_DEFAULTS, computeUniverseAdjustedRates } from "./core/universeLayer.js";
 import { computeAvgLiftPP } from "./core/turnout.js";
 import { fmtInt, clamp, safeNum, downloadJson, readJsonFile } from "./utils.js";
 import { loadState, saveState, clearState, readBackups, writeBackupEntry } from "./storage.js";
@@ -1155,7 +1155,7 @@ function getUniverseLayerConfig(){
 }
 
 function getEffectiveBaseRates(){
-  return getEffectiveBaseRatesForState(state, { computeUniverseAdjustedRates: engine.computeUniverseAdjustedRates });
+  return getEffectiveBaseRatesForState(state, { computeUniverseAdjustedRates });
 }
 
 function renderUniverse16Card(){
@@ -1651,7 +1651,7 @@ function computeWeeklyOpsContext(res, weeks){
   return computeWeeklyOpsContextFromState(state, {
     res,
     weeks,
-    getEffectiveBaseRatesForState: (s) => getEffectiveBaseRatesForState(s, { computeUniverseAdjustedRates: engine.computeUniverseAdjustedRates }),
+    getEffectiveBaseRatesForState: (s) => getEffectiveBaseRatesForState(s, { computeUniverseAdjustedRates }),
     computeCapacityBreakdown: coreComputeCapacityBreakdown,
   });
 }
@@ -3604,7 +3604,7 @@ function getEffectiveBaseRatesFromSnap(snap){
   const tr = (safeNum(snap?.turnoutReliabilityPct) != null) ? clamp(safeNum(snap?.turnoutReliabilityPct), 0, 100) / 100 : null;
 
   const cfg = getUniverseLayerConfigFromSnap(snap);
-  const adj = engine.computeUniverseAdjustedRates({
+  const adj = computeUniverseAdjustedRates({
     enabled: cfg.enabled,
     universePercents: cfg.percents,
     retentionFactor: cfg.retentionFactor,
