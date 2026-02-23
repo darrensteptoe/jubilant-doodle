@@ -4794,7 +4794,7 @@ function wireSensitivitySurface(){
 
       const result = engine.computeSensitivitySurface({
         engine: accessors,
-        baseline: { res, weeks, needVotes },
+        baseline: { scenario: snap, res, weeks, needVotes },
         sweep: { leverKey, minValue: minV, maxValue: maxV, steps },
         options: { runs, seed, targetWinProb }
       });

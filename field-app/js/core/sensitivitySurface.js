@@ -194,6 +194,7 @@ export function computeSensitivitySurface({ engine, baseline, sweep, options }){
 
   const out = [];
   const base = baseline || {};
+  const baseScenario = (base && typeof base.scenario === "object") ? base.scenario : null;
   const res = base.res;
   const weeks = base.weeks;
   const needVotes = base.needVotes;
@@ -201,7 +202,7 @@ export function computeSensitivitySurface({ engine, baseline, sweep, options }){
   const withPatchedState = engine?.withPatchedState;
   const runMonteCarloSim = engine?.runMonteCarloSim;
 
-  if (typeof withPatchedState !== "function" || typeof runMonteCarloSim !== "function"){
+  if (typeof runMonteCarloSim !== "function"){
     return { points: [], analysis: null, warning: "Missing engine accessors" };
   }
 
@@ -211,9 +212,18 @@ export function computeSensitivitySurface({ engine, baseline, sweep, options }){
     const patch = {};
     patch[spec.stateKey] = value;
 
-    const summary = withPatchedState(patch, () => {
-      return runMonteCarloSim({ res, weeks, needVotes, runs, seed });
-    });
+    let summary = null;
+    if (typeof withPatchedState === "function"){
+      summary = withPatchedState(patch, () => {
+        return runMonteCarloSim({ res, weeks, needVotes, runs, seed });
+      });
+    } else if (baseScenario){
+      const scenario = structuredClone(baseScenario);
+      scenario[spec.stateKey] = value;
+      summary = runMonteCarloSim({ scenario, res, weeks, needVotes, runs, seed });
+    } else {
+      return { points: [], analysis: null, warning: "Missing engine accessors" };
+    }
 
     const wp = safeNum(summary?.winProb);
     const ce = summary?.confidenceEnvelope;
