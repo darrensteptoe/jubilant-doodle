@@ -119,7 +119,7 @@ function computeMinCostToCloseGap({ snap, needVotes }){
       };
     }
 
-    const rows = computeRoiRows({
+    const out = computeRoiRows({
       goalNetVotes: needVotes,
       baseRates: { cr, sr, tr },
       tactics,
@@ -129,8 +129,9 @@ function computeMinCostToCloseGap({ snap, needVotes }){
       mcLast: null,
       turnoutModel
     });
+    const rows = Array.isArray(out?.rows) ? out.rows : [];
 
-    const costs = (rows || [])
+    const costs = rows
       .map(r => safeNum(r?.totalCost))
       .filter(v => v != null && v >= 0);
 

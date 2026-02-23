@@ -50,7 +50,7 @@ function computeMinCostToCloseGap({ computeRoiRows, snap, baseRates, tactics, go
   try{
     const overheadAmount = safeNum(snap.budget?.overheadAmount) ?? 0;
     const includeOverhead = !!snap.budget?.includeOverhead;
-    const rows = computeRoiRows({
+    const out = computeRoiRows({
       goalNetVotes,
       baseRates,
       tactics,
@@ -59,10 +59,11 @@ function computeMinCostToCloseGap({ computeRoiRows, snap, baseRates, tactics, go
       caps,
       mcLast,
       turnoutModel
-    }) || [];
+    }) || {};
+    const rows = Array.isArray(out?.rows) ? out.rows : [];
     let best = null;
     for (const r of rows){
-      const v = safeNum(r?.totalCostToCloseGap);
+      const v = safeNum(r?.totalCost);
       if (v == null) continue;
       if (best == null || v < best) best = v;
     }
