@@ -1438,7 +1438,7 @@ export function runSelfTests(engine){
       "operationsCapacityOutlookCard",
       "phase3Card",
       "scenarioCompareCard",
-      "btnSaveScenario"
+      "btnScenarioSaveNew"
     ];
     for (const id of required){
       const el = document.getElementById(id);

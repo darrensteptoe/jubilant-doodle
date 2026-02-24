@@ -1973,10 +1973,8 @@ if (els.roiRefresh) els.roiRefresh.addEventListener("click", () => { render(); }
   if (els.toggleTraining) els.toggleTraining.addEventListener("change", () => {
     state.ui.training = els.toggleTraining.checked;
     document.body.classList.toggle("training", !!state.ui.training);
-        setText(els.snapshotHash, lastResultsSnapshot?.snapshotHash || "—");
+    setText(els.snapshotHash, lastResultsSnapshot?.snapshotHash || "—");
     setText(els.snapshotHashSidebar, lastResultsSnapshot?.snapshotHash || "—");
-    setText(els.snapshotHashSidebar, lastResultsSnapshot?.snapshotHash || "—");
-  if (els.importHashBanner && els.importHashBanner.hidden === false){ /* keep until next import clears */ }
     els.explainCard.hidden = !state.ui.training;
     persist();
   });
@@ -2357,11 +2355,9 @@ function render(){
     lastResultsSnapshot = null;
   }
 
-      setText(els.snapshotHash, lastResultsSnapshot?.snapshotHash || "—");
-    setText(els.snapshotHashSidebar, lastResultsSnapshot?.snapshotHash || "—");
-    setText(els.snapshotHashSidebar, lastResultsSnapshot?.snapshotHash || "—");
-  if (els.importHashBanner && els.importHashBanner.hidden === false){ /* keep until next import clears */ }
-    els.explainCard.hidden = !state.ui.training;
+  setText(els.snapshotHash, lastResultsSnapshot?.snapshotHash || "—");
+  setText(els.snapshotHashSidebar, lastResultsSnapshot?.snapshotHash || "—");
+  els.explainCard.hidden = !state.ui.training;
 }
 
 function renderWeeklyOps(res, weeks){
