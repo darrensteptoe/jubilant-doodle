@@ -16,12 +16,16 @@ import {
 const CSV_COLUMNS = {
   persons: ["id", "name", "office", "region", "role", "active", "createdAt", "updatedAt"],
   pipelineRecords: ["id", "personId", "recruiter", "sourceChannel", "office", "region", "stage", "dropoffReason", "createdAt", "updatedAt"],
+  interviews: ["id", "personId", "scheduledAt", "interviewer", "score", "outcome", "notes", "createdAt", "updatedAt"],
+  onboardingRecords: ["id", "personId", "docsSubmittedAt", "backgroundStatus", "onboardingStatus", "completedAt", "notes", "createdAt", "updatedAt"],
+  trainingRecords: ["id", "personId", "trainingTrack", "sessions", "completionStatus", "completedAt", "notes", "createdAt", "updatedAt"],
   shiftRecords: ["id", "personId", "date", "mode", "startAt", "endAt", "checkInAt", "checkOutAt", "turfId", "attempts", "convos", "supportIds", "office", "createdAt", "updatedAt"],
   turfEvents: ["id", "turfId", "precinct", "county", "date", "assignedTo", "mode", "shiftId", "attempts", "canvassed", "vbms", "createdAt", "updatedAt"],
   forecastConfigs: ["id", "stageConversionDefaults", "stageDurationDefaultsDays", "productivityDefaults", "createdAt", "updatedAt"],
   meta: ["key", "value"],
 };
 
+// Keep legacy snapshots importable; new stores are optional and default empty.
 const JSON_REQUIRED_STORES = ["persons", "pipelineRecords", "shiftRecords", "turfEvents", "forecastConfigs"];
 
 function escCsv(v){

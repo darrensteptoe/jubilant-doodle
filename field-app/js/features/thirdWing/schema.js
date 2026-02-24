@@ -1,14 +1,17 @@
 // js/features/thirdWing/schema.js
 // Third Wing schema constants (static-host safe, local-first).
 
-export const THIRD_WING_SCHEMA_VERSION = "1.0.0";
+export const THIRD_WING_SCHEMA_VERSION = "1.1.0";
 
 export const THIRD_WING_DB_NAME = "fieldPathThirdWing";
-export const THIRD_WING_DB_VERSION = 1;
+export const THIRD_WING_DB_VERSION = 2;
 
 export const THIRD_WING_STORES = [
   "persons",
   "pipelineRecords",
+  "interviews",
+  "onboardingRecords",
+  "trainingRecords",
   "shiftRecords",
   "turfEvents",
   "forecastConfigs",
@@ -45,6 +48,34 @@ export const THIRD_WING_STORE_DEFS = {
       { name: "stage", keyPath: "stage", options: { unique: false } },
       { name: "recruiter", keyPath: "recruiter", options: { unique: false } },
       { name: "office", keyPath: "office", options: { unique: false } },
+      { name: "updatedAt", keyPath: "updatedAt", options: { unique: false } },
+    ],
+  },
+  interviews: {
+    keyPath: "id",
+    indexes: [
+      { name: "personId", keyPath: "personId", options: { unique: false } },
+      { name: "scheduledAt", keyPath: "scheduledAt", options: { unique: false } },
+      { name: "outcome", keyPath: "outcome", options: { unique: false } },
+      { name: "interviewer", keyPath: "interviewer", options: { unique: false } },
+      { name: "updatedAt", keyPath: "updatedAt", options: { unique: false } },
+    ],
+  },
+  onboardingRecords: {
+    keyPath: "id",
+    indexes: [
+      { name: "personId", keyPath: "personId", options: { unique: false } },
+      { name: "backgroundStatus", keyPath: "backgroundStatus", options: { unique: false } },
+      { name: "onboardingStatus", keyPath: "onboardingStatus", options: { unique: false } },
+      { name: "updatedAt", keyPath: "updatedAt", options: { unique: false } },
+    ],
+  },
+  trainingRecords: {
+    keyPath: "id",
+    indexes: [
+      { name: "personId", keyPath: "personId", options: { unique: false } },
+      { name: "trainingTrack", keyPath: "trainingTrack", options: { unique: false } },
+      { name: "completionStatus", keyPath: "completionStatus", options: { unique: false } },
       { name: "updatedAt", keyPath: "updatedAt", options: { unique: false } },
     ],
   },
@@ -110,4 +141,3 @@ export const DEFAULT_FORECAST_CONFIG = {
     textsPerHour: 120,
   },
 };
-

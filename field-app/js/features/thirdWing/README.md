@@ -8,6 +8,17 @@ Files:
 - `io.js`: JSON snapshot import/export + CSV store import/export
 - `rollups.js`: overlap-safe production/coverage rollups + dedupe counters
 
+Current canonical stores:
+- `persons`
+- `pipelineRecords`
+- `interviews`
+- `onboardingRecords`
+- `trainingRecords`
+- `shiftRecords`
+- `turfEvents`
+- `forecastConfigs`
+- `meta`
+
 Design goals:
 - Local-first storage on static hosting
 - No dependency on engine compute paths

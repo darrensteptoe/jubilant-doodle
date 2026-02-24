@@ -97,6 +97,9 @@ function sanitizeRecord(storeName, input){
   const idPrefix = {
     persons: "per",
     pipelineRecords: "pipe",
+    interviews: "iv",
+    onboardingRecords: "onb",
+    trainingRecords: "trn",
     shiftRecords: "shift",
     turfEvents: "turf",
     forecastConfigs: "fc",
@@ -113,6 +116,18 @@ function sanitizeRecord(storeName, input){
     if (!PIPELINE_STAGES.includes(rec.stage)){
       rec.stage = PIPELINE_STAGES[0];
     }
+  }
+  if (storeName === "interviews"){
+    if (!rec.outcome) rec.outcome = "pending";
+  }
+  if (storeName === "onboardingRecords"){
+    if (!rec.backgroundStatus) rec.backgroundStatus = "pending";
+    if (!rec.onboardingStatus) rec.onboardingStatus = "in_progress";
+  }
+  if (storeName === "trainingRecords"){
+    if (!rec.completionStatus) rec.completionStatus = "not_started";
+    const sessions = Number(rec.sessions);
+    rec.sessions = Number.isFinite(sessions) && sessions > 0 ? Math.round(sessions) : 0;
   }
 
   return rec;
@@ -274,4 +289,3 @@ export async function getSummaryCounts(){
   }
   return result;
 }
-
