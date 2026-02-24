@@ -52,9 +52,9 @@ Exit criteria:
 - Operations Hub and main app show consistent summary values.
 
 ### Phase 3 — Explainability/Impact Layer (Targeted Rebuild)
-- [ ] Add dependency registry for key outputs (what inputs drive each KPI).
-- [ ] Add compact “impact trace” UI for critical cards/messages.
-- [ ] Show: formula sources + upstream fields + downstream impacted cells.
+- [x] Add dependency registry for key outputs (what inputs drive each KPI).
+- [x] Add compact “impact trace” UI for critical cards/messages.
+- [x] Show: formula sources + upstream fields + downstream impacted cells.
 
 Exit criteria:
 - User can see “if this changes, these exact outputs move.”
@@ -94,6 +94,7 @@ Exit criteria:
 - Phase 0 captured in `/Users/anakinskywalker/Downloads/field-app-40/RELEASE_CHECKPOINT_2026-02-24.md`.
 - Phase 1 code changes are complete and isolated to storage + save status UI.
 - Phase 2 code changes are complete: Operations snapshot cache + store revision invalidation.
+- Phase 3 code changes are complete: impact trace panel for key outputs with explicit upstream/downstream links.
 - Phase gate validation still required in-browser:
   - Self-Test
   - Robust Smoke
