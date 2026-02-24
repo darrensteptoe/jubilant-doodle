@@ -11,6 +11,44 @@ import {
 } from "./schema.js";
 
 let dbPromise = null;
+const OPERATIONS_DATA_REV_KEY = "fpe_operations_data_rev_v1";
+let inMemoryRevision = 0;
+
+function parseRevision(raw){
+  const n = Number(raw);
+  if (!Number.isFinite(n) || n < 0) return 0;
+  return Math.floor(n);
+}
+
+function readRevision(){
+  try{
+    if (typeof localStorage !== "undefined"){
+      const fromStorage = parseRevision(localStorage.getItem(OPERATIONS_DATA_REV_KEY));
+      if (fromStorage > inMemoryRevision) inMemoryRevision = fromStorage;
+    }
+  } catch {
+    // ignore localStorage access issues
+  }
+  return inMemoryRevision;
+}
+
+function writeRevision(next){
+  const val = parseRevision(next);
+  inMemoryRevision = val;
+  try{
+    if (typeof localStorage !== "undefined"){
+      localStorage.setItem(OPERATIONS_DATA_REV_KEY, String(val));
+    }
+  } catch {
+    // ignore localStorage access issues
+  }
+  return val;
+}
+
+function bumpOperationsDataRevision(){
+  const cur = readRevision();
+  return writeRevision(cur + 1);
+}
 
 function requireIndexedDb(){
   if (typeof indexedDB === "undefined"){
@@ -176,12 +214,16 @@ export async function closeOperationsDb(){
 }
 
 export async function ensureOperationsDefaults(){
-  await runInTransaction(["forecastConfigs"], "readwrite", async (stores) => {
+  const result = await runInTransaction(["forecastConfigs"], "readwrite", async (stores) => {
     const existing = await requestToPromise(stores.forecastConfigs.get("default"));
+    let inserted = false;
     if (!existing){
       stores.forecastConfigs.put(sanitizeRecord("forecastConfigs", DEFAULT_FORECAST_CONFIG));
+      inserted = true;
     }
+    return { inserted };
   });
+  if (result?.inserted) bumpOperationsDataRevision();
 }
 
 export async function getAll(storeName){
@@ -210,54 +252,64 @@ export async function getByIndex(storeName, indexName, key){
 export async function put(storeName, record){
   assertStoreName(storeName);
   const next = sanitizeRecord(storeName, record);
-  return runInTransaction([storeName], "readwrite", async (stores) => {
+  const out = await runInTransaction([storeName], "readwrite", async (stores) => {
     stores[storeName].put(next);
     return next;
   });
+  bumpOperationsDataRevision();
+  return out;
 }
 
 export async function putMany(storeName, records){
   assertStoreName(storeName);
   const list = Array.isArray(records) ? records : [];
   const next = list.map((r) => sanitizeRecord(storeName, r));
-  return runInTransaction([storeName], "readwrite", async (stores) => {
+  const out = await runInTransaction([storeName], "readwrite", async (stores) => {
     for (const rec of next){
       stores[storeName].put(rec);
     }
     return { count: next.length };
   });
+  if (next.length > 0) bumpOperationsDataRevision();
+  return out;
 }
 
 export async function remove(storeName, id){
   assertStoreName(storeName);
   const key = id == null ? "" : id;
-  return runInTransaction([storeName], "readwrite", async (stores) => {
+  const out = await runInTransaction([storeName], "readwrite", async (stores) => {
     stores[storeName].delete(key);
     return { ok: true };
   });
+  bumpOperationsDataRevision();
+  return out;
 }
 
 export async function clear(storeName){
   assertStoreName(storeName);
-  return runInTransaction([storeName], "readwrite", async (stores) => {
+  const out = await runInTransaction([storeName], "readwrite", async (stores) => {
     stores[storeName].clear();
     return { ok: true };
   });
+  bumpOperationsDataRevision();
+  return out;
 }
 
 export async function clearAllStores(){
   const clearable = OPERATIONS_STORES.slice();
-  return runInTransaction(clearable, "readwrite", async (stores) => {
+  const out = await runInTransaction(clearable, "readwrite", async (stores) => {
     for (const name of clearable){
       stores[name].clear();
     }
     return { ok: true };
   });
+  bumpOperationsDataRevision();
+  return out;
 }
 
 export async function replaceAllStores(dataByStore){
   const payload = (dataByStore && typeof dataByStore === "object") ? dataByStore : {};
-  return runInTransaction(OPERATIONS_STORES, "readwrite", async (stores) => {
+  const out = await runInTransaction(OPERATIONS_STORES, "readwrite", async (stores) => {
     for (const name of OPERATIONS_STORES){
       stores[name].clear();
       const rows = Array.isArray(payload[name]) ? payload[name] : [];
@@ -267,11 +319,13 @@ export async function replaceAllStores(dataByStore){
     }
     return { ok: true };
   });
+  bumpOperationsDataRevision();
+  return out;
 }
 
 export async function mergeAllStores(dataByStore){
   const payload = (dataByStore && typeof dataByStore === "object") ? dataByStore : {};
-  return runInTransaction(OPERATIONS_STORES, "readwrite", async (stores) => {
+  const out = await runInTransaction(OPERATIONS_STORES, "readwrite", async (stores) => {
     for (const name of OPERATIONS_STORES){
       const rows = Array.isArray(payload[name]) ? payload[name] : [];
       for (const rec of rows){
@@ -280,6 +334,8 @@ export async function mergeAllStores(dataByStore){
     }
     return { ok: true };
   });
+  bumpOperationsDataRevision();
+  return out;
 }
 
 export async function getSummaryCounts(){
@@ -290,8 +346,13 @@ export async function getSummaryCounts(){
   return result;
 }
 
+export function getOperationsDataRevision(){
+  return readRevision();
+}
+
 // Legacy aliases (backward compatibility with historical naming).
 export const openThirdWingDb = openOperationsDb;
 export const closeThirdWingDb = closeOperationsDb;
 export const ensureThirdWingDefaults = ensureOperationsDefaults;
 export const makeThirdWingId = makeOperationsId;
+export const getThirdWingDataRevision = getOperationsDataRevision;

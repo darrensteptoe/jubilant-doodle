@@ -19,8 +19,7 @@ import { renderAssumptionDriftPanel } from "./app/render/assumptionDrift.js";
 import { renderBottleneckAttributionPanel, renderConversionPanel, renderSensitivitySnapshotPanel, runSensitivitySnapshotPanel } from "./app/render/executionAnalysis.js";
 import { renderWeeklyOpsInsightsPanel, renderWeeklyOpsFreshnessPanel } from "./app/render/weeklyOpsInsights.js";
 import { renderDecisionConfidencePanel, renderDecisionIntelligencePanelView, renderScenarioComparePanelView } from "./app/render/decisionPanels.js";
-import { getAll, getSummaryCounts } from "./features/operations/store.js";
-import { computeOperationalRollups } from "./features/operations/rollups.js";
+import { getOperationsMetricsSnapshot } from "./features/operations/metricsCache.js";
 import { PIPELINE_STAGES, DEFAULT_FORECAST_CONFIG } from "./features/operations/schema.js";
 
 function downloadText(text, filename, mime){
@@ -177,10 +176,9 @@ let diagRenderSeq = 0;
 
 async function getOperationsDiagnosticsSnapshot(){
   try{
-    const counts = await getSummaryCounts();
-    const shiftRecords = await getAll("shiftRecords");
-    const turfEvents = await getAll("turfEvents");
-    const rollups = computeOperationalRollups({ shiftRecords, turfEvents, options: { allowTurfFallbackAttempts: false } });
+    const snapshot = await getOperationsMetricsSnapshot();
+    const counts = snapshot?.counts || {};
+    const rollups = snapshot?.rollups || {};
 
     return {
       available: true,
@@ -496,14 +494,14 @@ async function renderOperationsCapacityOutlook(seq, horizonWeeks){
 
   twCapText(els.twCapOutlookStatus, "Updating Operations outlook…");
 
-  const [pipelineRecords, shiftRecords, forecastConfigs, interviews, onboardingRecords, trainingRecords] = await Promise.all([
-    getAll("pipelineRecords"),
-    getAll("shiftRecords"),
-    getAll("forecastConfigs"),
-    getAll("interviews"),
-    getAll("onboardingRecords"),
-    getAll("trainingRecords"),
-  ]);
+  const opsSnapshot = await getOperationsMetricsSnapshot();
+  const stores = opsSnapshot?.stores || {};
+  const pipelineRecords = Array.isArray(stores.pipelineRecords) ? stores.pipelineRecords : [];
+  const shiftRecords = Array.isArray(stores.shiftRecords) ? stores.shiftRecords : [];
+  const forecastConfigs = Array.isArray(stores.forecastConfigs) ? stores.forecastConfigs : [];
+  const interviews = Array.isArray(stores.interviews) ? stores.interviews : [];
+  const onboardingRecords = Array.isArray(stores.onboardingRecords) ? stores.onboardingRecords : [];
+  const trainingRecords = Array.isArray(stores.trainingRecords) ? stores.trainingRecords : [];
   if (seq !== twCapOutlookSeq) return;
 
   const effective = compileEffectiveInputs(state);
@@ -1184,6 +1182,8 @@ function applyStateToUI(){
   els.universeBasis.value = state.universeBasis || "registered";
   els.universeSize.value = state.universeSize ?? "";
   els.sourceNote.value = state.sourceNote || "";
+  if (els.toggleStrictImport) els.toggleStrictImport.checked = !!state?.ui?.strictImport;
+  document.body.classList.toggle("strict-import", !!state?.ui?.strictImport);
 
   els.turnoutA.value = state.turnoutA ?? "";
   els.turnoutB.value = state.turnoutB ?? "";
@@ -1440,7 +1440,9 @@ function wireEvents(){
   safeCall(() => {
     if (els.toggleStrictImport){
       els.toggleStrictImport.checked = !!state?.ui?.strictImport;
+      document.body.classList.toggle("strict-import", !!state?.ui?.strictImport);
       els.toggleStrictImport.addEventListener("change", () => {
+        document.body.classList.toggle("strict-import", !!els.toggleStrictImport.checked);
         setState(s => { s.ui.strictImport = !!els.toggleStrictImport.checked; });
       });
     }
