@@ -17,7 +17,7 @@ const CSV_COLUMNS = {
   persons: ["id", "name", "office", "region", "role", "active", "createdAt", "updatedAt"],
   pipelineRecords: ["id", "personId", "recruiter", "sourceChannel", "office", "region", "stage", "dropoffReason", "createdAt", "updatedAt"],
   shiftRecords: ["id", "personId", "date", "mode", "startAt", "endAt", "checkInAt", "checkOutAt", "turfId", "attempts", "convos", "supportIds", "office", "createdAt", "updatedAt"],
-  turfEvents: ["id", "turfId", "precinct", "county", "date", "assignedTo", "attempts", "canvassed", "vbms", "createdAt", "updatedAt"],
+  turfEvents: ["id", "turfId", "precinct", "county", "date", "assignedTo", "mode", "shiftId", "attempts", "canvassed", "vbms", "createdAt", "updatedAt"],
   forecastConfigs: ["id", "stageConversionDefaults", "stageDurationDefaultsDays", "productivityDefaults", "createdAt", "updatedAt"],
   meta: ["key", "value"],
 };
@@ -235,4 +235,3 @@ export async function importStoreCsv(storeName, csvText, { mode = "merge" } = {}
   await putMany(storeName, rows);
   return { ok: true, mode, count: rows.length };
 }
-
