@@ -335,6 +335,10 @@
               <div class="mini"><div class="mini-k">Hours</div><div class="mini-v" id="agHours">0.0</div></div>
               <div class="mini"><div class="mini-k">Excluded turf attempts</div><div class="mini-v" id="agExcludedAttempts">0</div></div>
               <div class="mini"><div class="mini-k">Excluded turf records</div><div class="mini-v" id="agExcludedRecords">0</div></div>
+              <div class="mini"><div class="mini-k">Ready now (people)</div><div class="mini-v" id="agReadyNow">0</div></div>
+              <div class="mini"><div class="mini-k">Recent ready / week</div><div class="mini-v" id="agRecentReadyPerWeek">0.0</div></div>
+              <div class="mini"><div class="mini-k">Projected ready in 14d</div><div class="mini-v" id="agReadyIn14d">0.0</div></div>
+              <div class="mini"><div class="mini-k">Median days to readiness</div><div class="mini-v" id="agMedianReadyDays">—</div></div>
             </div>
             <div class="note">Rule: production totals come from shifts; turf remains coverage context unless shift count is zero and fallback is explicitly allowed.</div>
           </div>
@@ -350,7 +354,13 @@
               <div class="mini"><div class="mini-k">Baseline active now</div><div class="mini-v" id="fcBaselineActive">0</div></div>
               <div class="mini"><div class="mini-k">Open pipeline</div><div class="mini-v" id="fcOpenPipeline">0</div></div>
               <div class="mini"><div class="mini-k">Forecast config records</div><div class="mini-v" id="fcConfigCount">0</div></div>
+              <div class="mini"><div class="mini-k">Interview pass rate</div><div class="mini-v" id="fcInterviewPassRate">—</div></div>
+              <div class="mini"><div class="mini-k">Offer accept rate</div><div class="mini-v" id="fcOfferAcceptRate">—</div></div>
+              <div class="mini"><div class="mini-k">Onboarding completion</div><div class="mini-v" id="fcOnboardingCompletionRate">—</div></div>
+              <div class="mini"><div class="mini-k">Training completion</div><div class="mini-v" id="fcTrainingCompletionRate">—</div></div>
+              <div class="mini"><div class="mini-k">Composite ramp signal</div><div class="mini-v" id="fcCompositeRampSignal">—</div></div>
             </div>
+            <div class="note" id="fcHintNote">Display-only diagnostics. No direct engine mutation.</div>
             <div class="toolbar" style="margin-top:10px;">
               <a class="btn btn-sm" href="third-wing-ramp.html">Open Ramp Forecast</a>
               <a class="btn btn-sm btn-ghost" href="index.html">Open FPE Capacity Stage</a>
@@ -373,7 +383,16 @@
               </select>
               <button class="btn btn-sm btn-ghost" id="btnTwRefresh" type="button">Refresh diagnostics</button>
             </div>
+            <div class="toolbar" style="margin-top:8px;">
+              <button class="btn btn-sm btn-ghost" id="btnCsvExportInterviews" type="button">Export Interviews CSV</button>
+              <button class="btn btn-sm btn-ghost" id="btnCsvImportInterviews" type="button">Import Interviews CSV</button>
+              <button class="btn btn-sm btn-ghost" id="btnCsvExportOnboarding" type="button">Export Onboarding CSV</button>
+              <button class="btn btn-sm btn-ghost" id="btnCsvImportOnboarding" type="button">Import Onboarding CSV</button>
+              <button class="btn btn-sm btn-ghost" id="btnCsvExportTraining" type="button">Export Training CSV</button>
+              <button class="btn btn-sm btn-ghost" id="btnCsvImportTraining" type="button">Import Training CSV</button>
+            </div>
             <input id="twImportFile" type="file" accept=".json,application/json" hidden />
+            <input id="twCsvImportFile" type="file" accept=".csv,text/csv" hidden />
             <div class="mini-s" id="ioStatus" aria-live="polite" style="margin-top:8px;">Ready.</div>
             <pre class="mono" id="ioDiagnostics" style="margin-top:10px;">{}</pre>
           </div>
