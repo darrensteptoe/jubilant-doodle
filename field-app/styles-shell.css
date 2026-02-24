@@ -356,6 +356,47 @@ body.strict-import .toggle-pill:has(#toggleStrictImport) .toggle-dot-new {
   gap: 14px;
 }
 
+.checks-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 16px;
+}
+
+.integrity-stage-body > .card {
+  max-width: 980px;
+}
+
+.integrity-policy-grid .help-text {
+  margin-top: 8px;
+}
+
+.integrity-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.integrity-actions .btn {
+  flex: 0 0 auto;
+}
+
+.stage-body-new .card > .validation,
+.stage-body-new .card > .guardrails,
+.stage-body-new .card > .assumptions {
+  padding: 12px 14px 14px;
+}
+
+#assumptionsSnapshotStage .assump-block,
+#guardrailsStage .assump-block {
+  margin-bottom: 10px;
+}
+
+#assumptionsSnapshotStage .assump-block:last-child,
+#guardrailsStage .assump-block:last-child {
+  margin-bottom: 0;
+}
+
 /* Cards inside stage body need spacing reset */
 .stage-body-new .card + .card { margin-top: 0; }
 .stage-body-new .card { margin-top: 0; }
@@ -677,4 +718,10 @@ body.focus-view .stage-body-new {
   .stage-nav-new { width: 48px; }
   .nav-label-new, .nav-group-label-new, .nav-sep-new + .nav-group-label-new { display: none; }
   .results-sidebar-new { width: min(48vw, 280px); }
+}
+
+@media (max-width: 1080px) {
+  .checks-grid {
+    grid-template-columns: 1fr;
+  }
 }

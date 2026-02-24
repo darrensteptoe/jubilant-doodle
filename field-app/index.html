@@ -947,8 +947,6 @@
 <div class="stage-body-new">
 <nav aria-label="Output tabs" class="tabs">
 <button class="tab active" data-tab="win">Results</button>
-<button class="tab" data-tab="assumptions">Checks</button>
-<button class="tab" data-tab="roi">Plan</button>
 </nav>
 <section class="panel active" id="tab-win">
 <div class="card card-section phase-p3" id="phase3Card">
@@ -1270,8 +1268,7 @@
 </div>
 </div>
 </section>
-<section class="panel" id="tab-assumptions">
-</section></div>
+</div>
 </section>
 <!-- ── STAGE: roi ── -->
 <section class="stage-new" id="stage-roi">
@@ -1985,11 +1982,27 @@
 </div>
 </div>
 <div class="stage-body-new">
-  <div class="note">Key assumptions, checks, and guardrails are shown in the right rail for persistent visibility.</div>
+<div class="checks-grid">
+<div class="card card-section">
+<div class="card-head card-header">
+<h2 class="card-title">Input validation</h2>
+</div>
+<ul class="validation" id="validationList-stage"></ul>
+</div>
+<div class="card card-section">
+<div class="card-head card-header">
+<h2 class="card-title">Guardrails</h2>
+</div>
+<div class="guardrails" id="guardrailsStage"></div>
+</div>
+</div>
+<div class="card card-section">
+<div class="card-head card-header">
+<h2 class="card-title">Assumptions snapshot</h2>
+</div>
+<div class="assumptions" id="assumptionsSnapshotStage"></div>
+</div>
 </div></section>
-<section class="panel" id="tab-roi">
-
-</section>
 <!-- ── STAGE: scenarios ── -->
 <section class="stage-new" id="stage-scenarios">
 <div class="stage-header-new">
@@ -2000,10 +2013,6 @@
 <p class="stage-sub-new">Save, compare, and switch between planning scenarios. Use this to model Path A vs Path B before committing resources.</p>
 </div>
 <div class="stage-body-new">
-<div class="section-header">
-<div class="section-header-title">Understand</div>
-<div class="section-header-sub">Validate inputs, interpret risk, &amp; compare scenarios.</div>
-</div>
 <div class="card card-section phase-scenarios" id="scenarioCompareCard">
 <div class="card-head card-header">
 <h2 class="card-title">Scenario Compare</h2>
@@ -2089,11 +2098,6 @@
 </table>
 </div>
 <div class="note sc-overall" id="scOverall">Most efficient scenario overall: —</div>
-</div>
-<div class="card card-section phase-decision" id="decisionSessionCard">
-<div class="card-head card-header">
-<h2 class="card-title">Decision Session</h2>
-</div>
 </div></div></section>
 <!-- ── STAGE: decisions ── -->
 <section class="stage-new" id="stage-decisions">
@@ -2453,12 +2457,12 @@ Volunteer multiplier stays above 1.5" rows="4"></textarea>
 </div>
 <p class="stage-sub-new">Snapshot hash, import/export, and data integrity. Ensures an exported scenario re-imports to the same result.</p>
 </div>
-<div class="stage-body-new">
+<div class="stage-body-new integrity-stage-body">
 <div class="card card-section">
 <div class="card-head card-header">
 <h2 class="card-title">Import policy &amp; recovery</h2>
 </div>
-<div class="grid2">
+<div class="grid2 integrity-policy-grid">
 <div class="field">
 <label class="label">Strict import policy</label>
 <label class="toggle-pill" title="Block newer schema and hash-mismatch imports">
@@ -2466,14 +2470,14 @@ Volunteer multiplier stays above 1.5" rows="4"></textarea>
 <span class="toggle-dot-new"></span>
         Strict import
       </label>
-<div class="help-text" style="margin-top:8px;">When ON, imports are blocked for newer schema versions and integrity hash mismatches.</div>
+<div class="help-text">When ON, imports are blocked for newer schema versions and integrity hash mismatches.</div>
 </div>
 <div class="field">
 <label class="label" for="restoreBackup">Restore auto-backup</label>
 <select class="input" id="restoreBackup" title="Restore one of the last 5 auto-backups">
 <option value="">Restore backup…</option>
 </select>
-<div class="help-text" style="margin-top:8px;">Restores saved planner inputs from local browser backups.</div>
+<div class="help-text">Restores saved planner inputs from local browser backups.</div>
 </div>
 </div>
 </div>
@@ -2481,14 +2485,14 @@ Volunteer multiplier stays above 1.5" rows="4"></textarea>
 <div class="card-head card-header">
 <h2 class="card-title">Scenario import/export</h2>
 </div>
-<div class="rowline" style="gap:8px; flex-wrap:wrap;">
+<div class="integrity-actions">
 <button class="btn btn-sm" id="btnSaveJson" type="button">Export Scenario JSON</button>
 <label class="btn btn-sm btn-ghost" for="loadJson">Import Scenario JSON</label>
 <input accept="application/json" hidden="" id="loadJson" type="file"/>
 <button class="btn btn-sm btn-ghost" id="btnCopySummary" type="button">Copy Summary</button>
 <button class="btn btn-sm btn-ghost" id="btnExportCsv" type="button">Export CSV</button>
 </div>
-<div class="help-text" style="margin-top:8px;">Use these controls for file exchange, reporting, and audit-safe handoffs.</div>
+<div class="help-text">Use these controls for file exchange, reporting, and audit-safe handoffs.</div>
 </div>
 </div>
 </section>
@@ -2616,7 +2620,7 @@ Volunteer multiplier stays above 1.5" rows="4"></textarea>
 </aside>
 </div>
 <!-- /app-shell -->
-<script src="./js/app.js?v=20260224-stable-c16" type="module"></script>
+<script src="./js/app.js?v=20260224-stable-c17" type="module"></script>
 <script>
 // ── Stage navigation ───────────────────────────────────────────
 function normalizeStages() {
