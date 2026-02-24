@@ -14,8 +14,8 @@
 <link href="https://fonts.googleapis.com" rel="preconnect"/>
 <link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&amp;family=IBM+Plex+Sans:wght@300;400;500;600&amp;display=swap" rel="stylesheet"/>
-<link href="./styles-shell.css" rel="stylesheet"/>
-<link href="./styles.css" rel="stylesheet"/>
+<link href="./styles-shell.css?v=20260224-c21" rel="stylesheet"/>
+<link href="./styles.css?v=20260224-c21" rel="stylesheet"/>
 </head>
 <body>
 <!-- ── TOPBAR ───────────────────────────────────────────── -->
@@ -2492,6 +2492,12 @@ Volunteer multiplier stays above 1.5" rows="4"></textarea>
 <!-- RIGHT: Persistent results sidebar -->
 <aside aria-label="Win path results" class="results-sidebar-new">
 
+  <!-- INPUT VALIDATION -->
+  <div class="sidebar-section-new">
+    <div class="sidebar-label-new">Input validation</div>
+    <ul class="validation" id="validationList"></ul>
+  </div>
+
   <!-- KEY ASSUMPTIONS -->
   <div class="sidebar-section-new">
     <div class="sidebar-label-new">Key assumptions</div>
@@ -2536,12 +2542,6 @@ Volunteer multiplier stays above 1.5" rows="4"></textarea>
     <div class="kv-mini-new"><span>Note</span><span id="miniEarlyNote-sidebar">—</span></div>
     <div class="kv-mini-new"><span>Persuasion universe</span><span id="miniPersUniverse-sidebar">—</span></div>
     <div class="kv-mini-new"><span>Universe check</span><span id="miniPersCheck-sidebar">—</span></div>
-  </div>
-
-  <!-- INPUT VALIDATION -->
-  <div class="sidebar-section-new">
-    <div class="sidebar-label-new">Input validation</div>
-    <ul class="validation" id="validationList"></ul>
   </div>
 
   <!-- STRESS TEST SUMMARY -->

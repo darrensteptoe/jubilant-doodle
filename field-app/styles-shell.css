@@ -170,23 +170,32 @@ body.strict-import .toggle-pill:has(#toggleStrictImport) .toggle-dot-new {
 .btn-top-new {
   padding: 5px 10px;
   border-radius: 5px;
-  border: 1px solid var(--s-rule);
-  background: transparent;
-  color: var(--s-muted);
+  border: 1px solid var(--btn-border, #8f1d14);
+  background: var(--btn-bg, #b42318);
+  color: #fff;
   font-family: var(--shell-font);
   font-size: 12px;
   cursor: pointer;
   transition: all 0.15s;
   white-space: nowrap;
 }
-.btn-top-new:hover { border-color: color-mix(in srgb, var(--s-rule) 60%, var(--s-text)); color: var(--s-text); }
-.btn-top-new.active-view {
-  border-color: var(--s-accent);
-  color: var(--s-accent);
-  background: var(--s-accent-dim);
+.btn-top-new:hover {
+  border-color: var(--btn-hover, #8f1d14);
+  background: var(--btn-hover, #8f1d14);
+  color: #fff;
 }
-.btn-top-new.btn-top-danger { color: var(--s-bad); border-color: color-mix(in srgb, var(--s-bad) 30%, var(--s-rule)); }
-.btn-top-new.btn-top-danger:hover { background: var(--s-bad-dim); }
+.btn-top-new.active-view {
+  border-color: var(--btn-active, #7a1710);
+  background: var(--btn-active, #7a1710);
+  color: #fff;
+}
+.btn-top-new.btn-top-danger {
+  color: #fff;
+  border-color: var(--btn-border, #8f1d14);
+}
+.btn-top-new.btn-top-danger:hover {
+  background: var(--btn-hover, #8f1d14);
+}
 
 .divider-new {
   width: 1px; height: 20px;
