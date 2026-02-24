@@ -662,7 +662,7 @@ async function renderOperationsCapacityOutlook(seq, horizonWeeks){
     if (sig !== twCapOverrideSig){
       twCapOverrideSig = sig;
       markMcStale();
-      render();
+      scheduleRender();
     }
   } else {
     twCapOverrideSig = "";
@@ -923,12 +923,12 @@ let state = normalizeLoadedState(loadState() || makeDefaultState());
 // setState(patchFn) — controlled state mutation for UI-only writes.
 // Shallow-clones state, deep-clones only state.ui (where all setState writes live).
 // Engine/scenario fields are never mutated here so reference copies are safe.
+// Rendering/persistence are queued through commitUIUpdate to avoid input-event thrash.
 function setState(patchFn){
   const next = { ...state, ui: structuredClone(state.ui) };
   patchFn(next);
   state = next;
-  render();
-  persist();
+  commitUIUpdate();
 }
 
 let lastRenderCtx = null;
@@ -1017,8 +1017,7 @@ function undoLastWeeklyAction(){
   state = prev;
   ensureDecisionScaffold();
   applyStateToUI();
-  render();
-  persist();
+  commitUIUpdate();
   syncWeeklyUndoUI();
   safeCall(() => { renderDecisionSessionD1(); });
 }
@@ -1083,6 +1082,45 @@ function clearPersistenceFailure(scope){
     persistenceErrorSig = "";
   }
   updatePersistenceStatusChip();
+}
+
+const PERSIST_DEBOUNCE_MS = 220;
+let renderQueued = false;
+let persistQueuedTimer = null;
+
+function scheduleRender(){
+  if (renderQueued) return;
+  renderQueued = true;
+  const flush = () => {
+    renderQueued = false;
+    render();
+  };
+  if (typeof window !== "undefined" && typeof window.requestAnimationFrame === "function"){
+    window.requestAnimationFrame(flush);
+    return;
+  }
+  setTimeout(flush, 0);
+}
+
+function schedulePersist({ immediate = false } = {}){
+  if (immediate){
+    if (persistQueuedTimer){
+      clearTimeout(persistQueuedTimer);
+      persistQueuedTimer = null;
+    }
+    persist();
+    return;
+  }
+  if (persistQueuedTimer) clearTimeout(persistQueuedTimer);
+  persistQueuedTimer = setTimeout(() => {
+    persistQueuedTimer = null;
+    persist();
+  }, PERSIST_DEBOUNCE_MS);
+}
+
+function commitUIUpdate({ render: doRender = true, persist: doPersist = true, immediatePersist = false } = {}){
+  if (doRender) scheduleRender();
+  if (doPersist) schedulePersist({ immediate: immediatePersist });
 }
 
 
@@ -1390,8 +1428,7 @@ function rebuildCandidateTable(){
       if (!state.userSplit[cand.id]) state.userSplit[cand.id] = 0;
       rebuildYourCandidateSelect();
       rebuildUserSplitInputs();
-      render();
-      persist();
+      commitUIUpdate();
     });
     tdName.appendChild(nameInput);
 
@@ -1406,8 +1443,7 @@ function rebuildCandidateTable(){
     pctInput.value = cand.supportPct ?? "";
     pctInput.addEventListener("input", () => {
       cand.supportPct = safeNum(pctInput.value);
-      render();
-      persist();
+      commitUIUpdate();
     });
     tdPct.appendChild(pctInput);
 
@@ -1428,8 +1464,7 @@ function rebuildCandidateTable(){
       rebuildCandidateTable();
       rebuildYourCandidateSelect();
       rebuildUserSplitInputs();
-      render();
-      persist();
+      commitUIUpdate();
     });
     tdDel.appendChild(delBtn);
 
@@ -1483,8 +1518,7 @@ function rebuildUserSplitInputs(){
     inp.value = state.userSplit[cand.id] ?? 0;
     inp.addEventListener("input", () => {
       state.userSplit[cand.id] = safeNum(inp.value);
-      render();
-      persist();
+      commitUIUpdate();
     });
 
     row.appendChild(name);
@@ -1549,7 +1583,7 @@ function wireEvents(){
   });
 
 
-  els.scenarioName.addEventListener("input", () => { state.scenarioName = els.scenarioName.value; persist(); });
+  els.scenarioName.addEventListener("input", () => { state.scenarioName = els.scenarioName.value; schedulePersist(); });
 
   els.raceType.addEventListener("change", () => {
     state.raceType = els.raceType.value;
@@ -1557,116 +1591,110 @@ function wireEvents(){
     if (!state.ui) state.ui = {};
     state.ui.assumptionsProfile = "template";
     applyStateToUI();
-    render();
-    persist();
+    commitUIUpdate();
   });
 
-  els.electionDate.addEventListener("change", () => { state.electionDate = els.electionDate.value; render(); persist(); });
-  els.weeksRemaining.addEventListener("input", () => { state.weeksRemaining = els.weeksRemaining.value; render(); persist(); });
-  els.mode.addEventListener("change", () => { state.mode = els.mode.value; persist(); });
+  els.electionDate.addEventListener("change", () => { state.electionDate = els.electionDate.value; commitUIUpdate(); });
+  els.weeksRemaining.addEventListener("input", () => { state.weeksRemaining = els.weeksRemaining.value; commitUIUpdate(); });
+  els.mode.addEventListener("change", () => { state.mode = els.mode.value; schedulePersist(); });
 
-  els.universeBasis.addEventListener("change", () => { state.universeBasis = els.universeBasis.value; render(); persist(); });
-  els.universeSize.addEventListener("input", () => { state.universeSize = safeNum(els.universeSize.value); render(); persist(); });
-  els.sourceNote.addEventListener("input", () => { state.sourceNote = els.sourceNote.value; persist(); });
+  els.universeBasis.addEventListener("change", () => { state.universeBasis = els.universeBasis.value; commitUIUpdate(); });
+  els.universeSize.addEventListener("input", () => { state.universeSize = safeNum(els.universeSize.value); commitUIUpdate(); });
+  els.sourceNote.addEventListener("input", () => { state.sourceNote = els.sourceNote.value; schedulePersist(); });
 
-  els.turnoutA.addEventListener("input", () => { state.turnoutA = safeNum(els.turnoutA.value); render(); persist(); });
-  els.turnoutB.addEventListener("input", () => { state.turnoutB = safeNum(els.turnoutB.value); render(); persist(); });
-  els.bandWidth.addEventListener("input", () => { state.bandWidth = safeNum(els.bandWidth.value); refreshAssumptionsProfile(); render(); persist(); });
+  els.turnoutA.addEventListener("input", () => { state.turnoutA = safeNum(els.turnoutA.value); commitUIUpdate(); });
+  els.turnoutB.addEventListener("input", () => { state.turnoutB = safeNum(els.turnoutB.value); commitUIUpdate(); });
+  els.bandWidth.addEventListener("input", () => { state.bandWidth = safeNum(els.bandWidth.value); refreshAssumptionsProfile(); commitUIUpdate(); });
 
   els.btnAddCandidate.addEventListener("click", () => {
     state.candidates.push({ id: uid(), name: `Candidate ${String.fromCharCode(65 + state.candidates.length)}`, supportPct: 0 });
     rebuildCandidateTable();
-    render();
-    persist();
+    commitUIUpdate();
   });
 
-  els.yourCandidate.addEventListener("change", () => { state.yourCandidateId = els.yourCandidate.value; render(); persist(); });
-  els.undecidedPct.addEventListener("input", () => { state.undecidedPct = safeNum(els.undecidedPct.value); render(); persist(); });
+  els.yourCandidate.addEventListener("change", () => { state.yourCandidateId = els.yourCandidate.value; commitUIUpdate(); });
+  els.undecidedPct.addEventListener("input", () => { state.undecidedPct = safeNum(els.undecidedPct.value); commitUIUpdate(); });
 
   els.undecidedMode.addEventListener("change", () => {
     state.undecidedMode = els.undecidedMode.value;
     rebuildUserSplitInputs();
-    render();
-    persist();
+    commitUIUpdate();
   });
 
-  els.persuasionPct.addEventListener("input", () => { state.persuasionPct = safeNum(els.persuasionPct.value); refreshAssumptionsProfile(); render(); persist(); });
-  els.earlyVoteExp.addEventListener("input", () => { state.earlyVoteExp = safeNum(els.earlyVoteExp.value); refreshAssumptionsProfile(); render(); persist(); });
+  els.persuasionPct.addEventListener("input", () => { state.persuasionPct = safeNum(els.persuasionPct.value); refreshAssumptionsProfile(); commitUIUpdate(); });
+  els.earlyVoteExp.addEventListener("input", () => { state.earlyVoteExp = safeNum(els.earlyVoteExp.value); refreshAssumptionsProfile(); commitUIUpdate(); });
 
   // Phase 2 — conversion + capacity
-  if (els.goalSupportIds) els.goalSupportIds.addEventListener("input", () => { state.goalSupportIds = els.goalSupportIds.value; markMcStale(); render(); persist(); });
-  if (els.supportRatePct) els.supportRatePct.addEventListener("input", () => { state.supportRatePct = safeNum(els.supportRatePct.value); markMcStale(); render(); persist(); });
-  if (els.contactRatePct) els.contactRatePct.addEventListener("input", () => { state.contactRatePct = safeNum(els.contactRatePct.value); markMcStale(); render(); persist(); });
+  if (els.goalSupportIds) els.goalSupportIds.addEventListener("input", () => { state.goalSupportIds = els.goalSupportIds.value; markMcStale(); commitUIUpdate(); });
+  if (els.supportRatePct) els.supportRatePct.addEventListener("input", () => { state.supportRatePct = safeNum(els.supportRatePct.value); markMcStale(); commitUIUpdate(); });
+  if (els.contactRatePct) els.contactRatePct.addEventListener("input", () => { state.contactRatePct = safeNum(els.contactRatePct.value); markMcStale(); commitUIUpdate(); });
   // doorsPerHour (Stage 5) is read-only mirror; canonical writer is doorsPerHour3 in Field capacity.
-  if (els.hoursPerShift) els.hoursPerShift.addEventListener("input", () => { state.hoursPerShift = safeNum(els.hoursPerShift.value); render(); persist(); });
-  if (els.shiftsPerVolunteerPerWeek) els.shiftsPerVolunteerPerWeek.addEventListener("input", () => { state.shiftsPerVolunteerPerWeek = safeNum(els.shiftsPerVolunteerPerWeek.value); render(); persist(); });
+  if (els.hoursPerShift) els.hoursPerShift.addEventListener("input", () => { state.hoursPerShift = safeNum(els.hoursPerShift.value); commitUIUpdate(); });
+  if (els.shiftsPerVolunteerPerWeek) els.shiftsPerVolunteerPerWeek.addEventListener("input", () => { state.shiftsPerVolunteerPerWeek = safeNum(els.shiftsPerVolunteerPerWeek.value); commitUIUpdate(); });
   if (els.btnGotoTurnoutSettings) els.btnGotoTurnoutSettings.addEventListener("click", () => { switchToStage("roi"); });
 
   // Phase 16 — universe composition + retention
-  if (els.universe16Enabled) els.universe16Enabled.addEventListener("change", () => { state.universeLayerEnabled = !!els.universe16Enabled.checked; markMcStale(); render(); persist(); });
-  if (els.universe16DemPct) els.universe16DemPct.addEventListener("input", () => { state.universeDemPct = safeNum(els.universe16DemPct.value); markMcStale(); render(); persist(); });
-  if (els.universe16RepPct) els.universe16RepPct.addEventListener("input", () => { state.universeRepPct = safeNum(els.universe16RepPct.value); markMcStale(); render(); persist(); });
-  if (els.universe16NpaPct) els.universe16NpaPct.addEventListener("input", () => { state.universeNpaPct = safeNum(els.universe16NpaPct.value); markMcStale(); render(); persist(); });
-  if (els.universe16OtherPct) els.universe16OtherPct.addEventListener("input", () => { state.universeOtherPct = safeNum(els.universe16OtherPct.value); markMcStale(); render(); persist(); });
-  if (els.retentionFactor) els.retentionFactor.addEventListener("input", () => { state.retentionFactor = safeNum(els.retentionFactor.value); markMcStale(); render(); persist(); });
+  if (els.universe16Enabled) els.universe16Enabled.addEventListener("change", () => { state.universeLayerEnabled = !!els.universe16Enabled.checked; markMcStale(); commitUIUpdate(); });
+  if (els.universe16DemPct) els.universe16DemPct.addEventListener("input", () => { state.universeDemPct = safeNum(els.universe16DemPct.value); markMcStale(); commitUIUpdate(); });
+  if (els.universe16RepPct) els.universe16RepPct.addEventListener("input", () => { state.universeRepPct = safeNum(els.universe16RepPct.value); markMcStale(); commitUIUpdate(); });
+  if (els.universe16NpaPct) els.universe16NpaPct.addEventListener("input", () => { state.universeNpaPct = safeNum(els.universe16NpaPct.value); markMcStale(); commitUIUpdate(); });
+  if (els.universe16OtherPct) els.universe16OtherPct.addEventListener("input", () => { state.universeOtherPct = safeNum(els.universe16OtherPct.value); markMcStale(); commitUIUpdate(); });
+  if (els.retentionFactor) els.retentionFactor.addEventListener("input", () => { state.retentionFactor = safeNum(els.retentionFactor.value); markMcStale(); commitUIUpdate(); });
 
   // Phase 3 — execution + risk
-  if (els.orgCount) els.orgCount.addEventListener("input", () => { state.orgCount = safeNum(els.orgCount.value); markMcStale(); render(); persist(); });
-  if (els.orgHoursPerWeek) els.orgHoursPerWeek.addEventListener("input", () => { state.orgHoursPerWeek = safeNum(els.orgHoursPerWeek.value); markMcStale(); render(); persist(); });
-  if (els.volunteerMultBase) els.volunteerMultBase.addEventListener("input", () => { state.volunteerMultBase = safeNum(els.volunteerMultBase.value); markMcStale(); render(); persist(); });
-  if (els.channelDoorPct) els.channelDoorPct.addEventListener("input", () => { state.channelDoorPct = safeNum(els.channelDoorPct.value); markMcStale(); render(); persist(); });
+  if (els.orgCount) els.orgCount.addEventListener("input", () => { state.orgCount = safeNum(els.orgCount.value); markMcStale(); commitUIUpdate(); });
+  if (els.orgHoursPerWeek) els.orgHoursPerWeek.addEventListener("input", () => { state.orgHoursPerWeek = safeNum(els.orgHoursPerWeek.value); markMcStale(); commitUIUpdate(); });
+  if (els.volunteerMultBase) els.volunteerMultBase.addEventListener("input", () => { state.volunteerMultBase = safeNum(els.volunteerMultBase.value); markMcStale(); commitUIUpdate(); });
+  if (els.channelDoorPct) els.channelDoorPct.addEventListener("input", () => { state.channelDoorPct = safeNum(els.channelDoorPct.value); markMcStale(); commitUIUpdate(); });
   if (els.doorsPerHour3) els.doorsPerHour3.addEventListener("input", () => {
     setCanonicalDoorsPerHour(state, els.doorsPerHour3.value);
     if (els.doorsPerHour) els.doorsPerHour.value = canonicalDoorsPerHourFromSnap(state) ?? "";
     markMcStale();
-    render();
-    persist();
+    commitUIUpdate();
   });
-  if (els.callsPerHour3) els.callsPerHour3.addEventListener("input", () => { state.callsPerHour3 = safeNum(els.callsPerHour3.value); markMcStale(); render(); persist(); });
-  if (els.turnoutReliabilityPct) els.turnoutReliabilityPct.addEventListener("input", () => { state.turnoutReliabilityPct = safeNum(els.turnoutReliabilityPct.value); markMcStale(); render(); persist(); });
-  if (els.twCapOverrideEnabled) els.twCapOverrideEnabled.addEventListener("change", () => { state.twCapOverrideEnabled = !!els.twCapOverrideEnabled.checked; markMcStale(); render(); persist(); });
+  if (els.callsPerHour3) els.callsPerHour3.addEventListener("input", () => { state.callsPerHour3 = safeNum(els.callsPerHour3.value); markMcStale(); commitUIUpdate(); });
+  if (els.turnoutReliabilityPct) els.turnoutReliabilityPct.addEventListener("input", () => { state.turnoutReliabilityPct = safeNum(els.turnoutReliabilityPct.value); markMcStale(); commitUIUpdate(); });
+  if (els.twCapOverrideEnabled) els.twCapOverrideEnabled.addEventListener("change", () => { state.twCapOverrideEnabled = !!els.twCapOverrideEnabled.checked; markMcStale(); commitUIUpdate(); });
   if (els.twCapOverrideMode) els.twCapOverrideMode.addEventListener("change", () => {
     const mode = String(els.twCapOverrideMode.value || "baseline");
     state.twCapOverrideMode = ["baseline", "ramp", "scheduled", "max"].includes(mode) ? mode : "baseline";
     markMcStale();
-    render();
-    persist();
+    commitUIUpdate();
   });
   if (els.twCapOverrideHorizonWeeks) els.twCapOverrideHorizonWeeks.addEventListener("input", () => {
     const n = safeNum(els.twCapOverrideHorizonWeeks.value);
     state.twCapOverrideHorizonWeeks = (n != null && isFinite(n)) ? clamp(n, 4, 52) : 12;
-    render();
-    persist();
+    commitUIUpdate();
   });
 
   // Phase 6 — turnout / GOTV inputs
-  if (els.turnoutEnabled) els.turnoutEnabled.addEventListener("change", () => { state.turnoutEnabled = !!els.turnoutEnabled.checked; markMcStale(); render(); persist(); });
-  if (els.turnoutBaselinePct) els.turnoutBaselinePct.addEventListener("input", () => { state.turnoutBaselinePct = safeNum(els.turnoutBaselinePct.value); markMcStale(); render(); persist(); });
-  if (els.turnoutTargetOverridePct) els.turnoutTargetOverridePct.addEventListener("input", () => { state.turnoutTargetOverridePct = els.turnoutTargetOverridePct.value; markMcStale(); render(); persist(); });
+  if (els.turnoutEnabled) els.turnoutEnabled.addEventListener("change", () => { state.turnoutEnabled = !!els.turnoutEnabled.checked; markMcStale(); commitUIUpdate(); });
+  if (els.turnoutBaselinePct) els.turnoutBaselinePct.addEventListener("input", () => { state.turnoutBaselinePct = safeNum(els.turnoutBaselinePct.value); markMcStale(); commitUIUpdate(); });
+  if (els.turnoutTargetOverridePct) els.turnoutTargetOverridePct.addEventListener("input", () => { state.turnoutTargetOverridePct = els.turnoutTargetOverridePct.value; markMcStale(); commitUIUpdate(); });
 
-  if (els.gotvMode) els.gotvMode.addEventListener("change", () => { state.gotvMode = els.gotvMode.value; syncGotvModeUI(); markMcStale(); render(); persist(); });
+  if (els.gotvMode) els.gotvMode.addEventListener("change", () => { state.gotvMode = els.gotvMode.value; syncGotvModeUI(); markMcStale(); commitUIUpdate(); });
 
-  if (els.gotvLiftPP) els.gotvLiftPP.addEventListener("input", () => { state.gotvLiftPP = safeNum(els.gotvLiftPP.value); markMcStale(); render(); persist(); });
-  if (els.gotvMaxLiftPP) els.gotvMaxLiftPP.addEventListener("input", () => { state.gotvMaxLiftPP = safeNum(els.gotvMaxLiftPP.value); markMcStale(); render(); persist(); });
-  if (els.gotvDiminishing) els.gotvDiminishing.addEventListener("change", () => { state.gotvDiminishing = !!els.gotvDiminishing.checked; markMcStale(); render(); persist(); });
+  if (els.gotvLiftPP) els.gotvLiftPP.addEventListener("input", () => { state.gotvLiftPP = safeNum(els.gotvLiftPP.value); markMcStale(); commitUIUpdate(); });
+  if (els.gotvMaxLiftPP) els.gotvMaxLiftPP.addEventListener("input", () => { state.gotvMaxLiftPP = safeNum(els.gotvMaxLiftPP.value); markMcStale(); commitUIUpdate(); });
+  if (els.gotvDiminishing) els.gotvDiminishing.addEventListener("change", () => { state.gotvDiminishing = !!els.gotvDiminishing.checked; markMcStale(); commitUIUpdate(); });
 
-  if (els.gotvLiftMin) els.gotvLiftMin.addEventListener("input", () => { state.gotvLiftMin = safeNum(els.gotvLiftMin.value); markMcStale(); render(); persist(); });
-  if (els.gotvLiftMode) els.gotvLiftMode.addEventListener("input", () => { state.gotvLiftMode = safeNum(els.gotvLiftMode.value); markMcStale(); render(); persist(); });
-  if (els.gotvLiftMax) els.gotvLiftMax.addEventListener("input", () => { state.gotvLiftMax = safeNum(els.gotvLiftMax.value); markMcStale(); render(); persist(); });
-  if (els.gotvMaxLiftPP2) els.gotvMaxLiftPP2.addEventListener("input", () => { state.gotvMaxLiftPP2 = safeNum(els.gotvMaxLiftPP2.value); markMcStale(); render(); persist(); });
-  if (els.gotvDiminishing2) els.gotvDiminishing2.addEventListener("change", () => { state.gotvDiminishing2 = !!els.gotvDiminishing2.checked; markMcStale(); render(); persist(); });
+  if (els.gotvLiftMin) els.gotvLiftMin.addEventListener("input", () => { state.gotvLiftMin = safeNum(els.gotvLiftMin.value); markMcStale(); commitUIUpdate(); });
+  if (els.gotvLiftMode) els.gotvLiftMode.addEventListener("input", () => { state.gotvLiftMode = safeNum(els.gotvLiftMode.value); markMcStale(); commitUIUpdate(); });
+  if (els.gotvLiftMax) els.gotvLiftMax.addEventListener("input", () => { state.gotvLiftMax = safeNum(els.gotvLiftMax.value); markMcStale(); commitUIUpdate(); });
+  if (els.gotvMaxLiftPP2) els.gotvMaxLiftPP2.addEventListener("input", () => { state.gotvMaxLiftPP2 = safeNum(els.gotvMaxLiftPP2.value); markMcStale(); commitUIUpdate(); });
+  if (els.gotvDiminishing2) els.gotvDiminishing2.addEventListener("change", () => { state.gotvDiminishing2 = !!els.gotvDiminishing2.checked; markMcStale(); commitUIUpdate(); });
 
 
-  if (els.mcMode) els.mcMode.addEventListener("change", () => { state.mcMode = els.mcMode.value; syncMcModeUI(); markMcStale(); persist(); });
-  if (els.mcVolatility) els.mcVolatility.addEventListener("change", () => { state.mcVolatility = els.mcVolatility.value; markMcStale(); persist(); });
-  if (els.mcSeed) els.mcSeed.addEventListener("input", () => { state.mcSeed = els.mcSeed.value; markMcStale(); persist(); });
+  if (els.mcMode) els.mcMode.addEventListener("change", () => { state.mcMode = els.mcMode.value; syncMcModeUI(); markMcStale(); schedulePersist(); });
+  if (els.mcVolatility) els.mcVolatility.addEventListener("change", () => { state.mcVolatility = els.mcVolatility.value; markMcStale(); schedulePersist(); });
+  if (els.mcSeed) els.mcSeed.addEventListener("input", () => { state.mcSeed = els.mcSeed.value; markMcStale(); schedulePersist(); });
 
   const advWatch = (el, key) => {
     if (!el) return;
     el.addEventListener("input", () => {
       state[key] = safeNum(el.value);
       markMcStale();
-      persist();
+      schedulePersist();
     });
   };
   advWatch(els.mcContactMin, "mcContactMin");
@@ -1708,11 +1736,11 @@ function wireEvents(){
 
     const watchBool = (el, fn) => {
       if (!el) return;
-      el.addEventListener("change", () => { ensureBudget(); fn(); render(); persist(); });
+      el.addEventListener("change", () => { ensureBudget(); fn(); commitUIUpdate(); });
     };
     const watchNum = (el, fn) => {
       if (!el) return;
-      el.addEventListener("input", () => { ensureBudget(); fn(); render(); persist(); });
+      el.addEventListener("input", () => { ensureBudget(); fn(); commitUIUpdate(); });
     };
 
     watchBool(els.roiDoorsEnabled, () => state.budget.tactics.doors.enabled = !!els.roiDoorsEnabled.checked);
@@ -1740,7 +1768,7 @@ function wireEvents(){
 // Phase 5 — optimization controls (top-layer only; does not change Phase 1–4 math)
 const watchOpt = (el, fn, evt="input") => {
   if (!el) return;
-  el.addEventListener(evt, () => { ensureBudget(); fn(); render(); persist(); });
+  el.addEventListener(evt, () => { ensureBudget(); fn(); commitUIUpdate(); });
 };
 
 watchOpt(els.optMode, () => state.budget.optimize.mode = els.optMode.value, "change");
@@ -1755,7 +1783,7 @@ watchOpt(els.optUseDecay, () => state.budget.optimize.useDecay = !!els.optUseDec
 // Phase 7 — timeline / production (feasibility only; never re-optimizes)
 const watchTL = (el, fn, evt="input") => {
   if (!el) return;
-  el.addEventListener(evt, () => { fn(); render(); persist(); });
+  el.addEventListener(evt, () => { fn(); commitUIUpdate(); });
 };
 
 watchTL(els.timelineEnabled, () => state.timelineEnabled = !!els.timelineEnabled.checked, "change");
@@ -2923,8 +2951,7 @@ function applyWeeklyLeverScenario(lever, ctx){
 
   state = next;
   applyStateToUI();
-  render();
-  persist();
+  commitUIUpdate();
   syncWeeklyUndoUI();
 }
 
