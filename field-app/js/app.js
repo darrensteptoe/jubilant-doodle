@@ -1381,6 +1381,41 @@ function getEffectiveBaseRates(){
   };
 }
 
+// Step-3 seam: single compiler for effective inputs.
+// Baseline behavior only for now (no CRM/scheduling overrides yet).
+function compileEffectiveInputs(srcState = state){
+  const s = srcState || {};
+  const eff = (s === state) ? getEffectiveBaseRates() : getEffectiveBaseRatesFromSnap(s);
+
+  const orgCount = safeNum(s.orgCount);
+  const orgHoursPerWeek = safeNum(s.orgHoursPerWeek);
+  const volunteerMult = safeNum(s.volunteerMultBase);
+  const doorSharePct = safeNum(s.channelDoorPct);
+  const doorShare = (doorSharePct == null) ? null : clamp(doorSharePct, 0, 100) / 100;
+  const doorsPerHour = safeNum(s.doorsPerHour3) ?? safeNum(s.doorsPerHour);
+  const callsPerHour = safeNum(s.callsPerHour3);
+
+  return {
+    rates: {
+      cr: eff.cr,
+      sr: eff.sr,
+      tr: eff.tr,
+    },
+    capacity: {
+      orgCount,
+      orgHoursPerWeek,
+      volunteerMult,
+      doorSharePct,
+      doorShare,
+      doorsPerHour,
+      callsPerHour,
+    },
+    meta: {
+      source: "baseline-manual"
+    }
+  };
+}
+
 function renderUniverse16Card(){
   if (!els.retentionFactor && !els.universe16Enabled) return;
   const cfg = getUniverseLayerConfig();
@@ -1876,9 +1911,9 @@ function computeWeeklyOpsContext(res, weeks){
   const autoGoal = safeNum(res?.expected?.persuasionNeed);
   const goal = (rawGoal != null && rawGoal >= 0) ? rawGoal : (autoGoal != null && autoGoal > 0 ? autoGoal : 0);
 
-  const eff = getEffectiveBaseRates();
-  const sr = eff.sr;
-  const cr = eff.cr;
+  const effective = compileEffectiveInputs(state);
+  const sr = effective.rates.sr;
+  const cr = effective.rates.cr;
 
   let convosNeeded = null;
   let attemptsNeeded = null;
@@ -1892,14 +1927,14 @@ function computeWeeklyOpsContext(res, weeks){
     if (attemptsNeeded != null) attemptsPerWeek = attemptsNeeded / weeks;
   }
 
-  const orgCount = safeNum(state.orgCount);
-  const orgHoursPerWeek = safeNum(state.orgHoursPerWeek);
-  const volunteerMult = safeNum(state.volunteerMultBase);
-  const doorSharePct = safeNum(state.channelDoorPct);
-  const doorsPerHour = safeNum(state.doorsPerHour3);
-  const callsPerHour = safeNum(state.callsPerHour3);
+  const orgCount = effective.capacity.orgCount;
+  const orgHoursPerWeek = effective.capacity.orgHoursPerWeek;
+  const volunteerMult = effective.capacity.volunteerMult;
+  const doorSharePct = effective.capacity.doorSharePct;
+  const doorsPerHour = effective.capacity.doorsPerHour;
+  const callsPerHour = effective.capacity.callsPerHour;
 
-  const doorShare = (doorSharePct == null) ? null : clamp(doorSharePct / 100, 0, 1);
+  const doorShare = effective.capacity.doorShare;
 
   const cap = coreComputeCapacityBreakdown({
     weeks: 1,
@@ -5452,24 +5487,21 @@ function renderOptimization(res, weeks){
   const needVotes = deriveNeedVotes(res);
   if (els.optGapContext) els.optGapContext.textContent = (needVotes == null) ? "—" : fmtInt(Math.round(needVotes));
 
-  const eff = getEffectiveBaseRates();
-  const cr = eff.cr;
-  const sr = eff.sr;
-  const tr = eff.tr;
+  const effective = compileEffectiveInputs(state);
+  const cr = effective.rates.cr;
+  const sr = effective.rates.sr;
+  const tr = effective.rates.tr;
 
   // Phase 3 capacity ceiling (attempts)
   const w = (weeks != null && weeks >= 0) ? weeks : null;
   const capBreakdown = computeCapacityBreakdown({
     weeks: w,
-    orgCount: safeNum(state.orgCount),
-    orgHoursPerWeek: safeNum(state.orgHoursPerWeek),
-    volunteerMult: safeNum(state.volunteerMultBase),
-    doorShare: (() => {
-      const v = safeNum(state.channelDoorPct);
-      return (v != null) ? clamp(v, 0, 100) / 100 : null;
-    })(),
-    doorsPerHour: (safeNum(state.doorsPerHour3) ?? safeNum(state.doorsPerHour)),
-    callsPerHour: safeNum(state.callsPerHour3),
+    orgCount: effective.capacity.orgCount,
+    orgHoursPerWeek: effective.capacity.orgHoursPerWeek,
+    volunteerMult: effective.capacity.volunteerMult,
+    doorShare: effective.capacity.doorShare,
+    doorsPerHour: effective.capacity.doorsPerHour,
+    callsPerHour: effective.capacity.callsPerHour,
   });
   const capAttempts = capBreakdown?.total ?? null;
 
@@ -5948,20 +5980,19 @@ function renderPhase3(res, weeks){
   els.p3Weeks.textContent = w == null ? "—" : fmtInt(w);
 
   // Base rates (Phase 2 + Phase 16 adjustments when enabled)
-  const eff = getEffectiveBaseRates();
-  const cr = eff.cr;
-  const pr = eff.sr;
-  const rr = eff.tr;
+  const effective = compileEffectiveInputs(state);
+  const cr = effective.rates.cr;
+  const pr = effective.rates.sr;
+  const rr = effective.rates.tr;
 
   // Capacity inputs
-  const orgCount = safeNum(state.orgCount);
-  const orgHrs = safeNum(state.orgHoursPerWeek);
-  const volMult = safeNum(state.volunteerMultBase);
-  const doorSharePct = safeNum(state.channelDoorPct);
-  const doorShare = (doorSharePct != null) ? clamp(doorSharePct, 0, 100) / 100 : null;
+  const orgCount = effective.capacity.orgCount;
+  const orgHrs = effective.capacity.orgHoursPerWeek;
+  const volMult = effective.capacity.volunteerMult;
+  const doorShare = effective.capacity.doorShare;
 
-  const dph = safeNum(state.doorsPerHour3) ?? safeNum(state.doorsPerHour);
-  const cph = safeNum(state.callsPerHour3);
+  const dph = effective.capacity.doorsPerHour;
+  const cph = effective.capacity.callsPerHour;
 
   const capContacts = computeCapacityContacts({
     weeks: w,
