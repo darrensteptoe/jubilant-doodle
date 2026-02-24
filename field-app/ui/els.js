@@ -445,8 +445,8 @@ export const els = {
   tlWeekList: document.getElementById("tlWeekList"),
   tlBanner: document.getElementById("tlBanner"),
 
-  validationList: document.getElementById("validationList-stage") || document.getElementById("validationList"),
-  validationListSidebar: document.getElementById("validationList-sidebar") || document.getElementById("validationList"),
+  validationList: document.getElementById("validationList"),
+  validationListSidebar: document.getElementById("validationList"),
   kpiTurnoutVotesSidebar: document.getElementById("kpiTurnoutVotes-sidebar"),
   kpiTurnoutBandSidebar: document.getElementById("kpiTurnoutBand-sidebar"),
   kpiWinThresholdSidebar: document.getElementById("kpiWinThreshold-sidebar"),
@@ -465,9 +465,9 @@ export const els = {
   impactTraceList: document.getElementById("impactTraceList"),
 
   assumptionsSnapshot: document.getElementById("assumptionsSnapshot"),
-  assumptionsSnapshotStage: document.getElementById("assumptionsSnapshotStage"),
+  assumptionsSnapshotStage: null,
   guardrails: document.getElementById("guardrails"),
-  guardrailsStage: document.getElementById("guardrailsStage"),
+  guardrailsStage: null,
 
   btnSaveJson: document.getElementById("btnSaveJson"),
   loadJson: document.getElementById("loadJson"),

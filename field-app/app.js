@@ -3214,8 +3214,8 @@ function renderStress(res){
 }
 
 function renderValidation(res, weeks){
-  const lists = [els.validationList, els.validationListSidebar].filter(Boolean);
-  if (!lists.length) return;
+  const list = els.validationListSidebar || els.validationList;
+  if (!list) return;
   const items = [];
 
   const uOk = res.validation.universeOk;
@@ -3257,12 +3257,12 @@ function renderValidation(res, weeks){
     });
   }
 
-  for (const ul of lists) ul.innerHTML = "";
+  list.innerHTML = "";
   for (const it of items){
     const li = document.createElement("li");
     li.className = it.kind;
     li.textContent = it.text;
-    for (const ul of lists) ul.appendChild(li.cloneNode(true));
+    list.appendChild(li);
   }
 }
 
@@ -3298,11 +3298,9 @@ function renderAssumptions(res, weeks){
     kv("Early vote % (Expected)", res.raw.earlyVoteExp == null ? "—" : `${res.raw.earlyVoteExp.toFixed(1)}%`),
   ]));
 
-  const targets = [els.assumptionsSnapshot, els.assumptionsSnapshotStage].filter(Boolean);
-  for (const node of targets){
-    node.innerHTML = "";
-    for (const b of blocks) node.appendChild(b.cloneNode(true));
-  }
+  if (!els.assumptionsSnapshot) return;
+  els.assumptionsSnapshot.innerHTML = "";
+  for (const b of blocks) els.assumptionsSnapshot.appendChild(b);
 }
 
 function renderGuardrails(res){
@@ -3310,15 +3308,13 @@ function renderGuardrails(res){
   for (const g of res.guardrails){
     gs.push(block(g.title, g.lines.map(l => kv(l.k, l.v))));
   }
-  const targets = [els.guardrails, els.guardrailsStage].filter(Boolean);
-  for (const node of targets){
-    node.innerHTML = "";
-    if (!gs.length){
-      node.textContent = "—";
-      continue;
-    }
-    for (const b of gs) node.appendChild(b.cloneNode(true));
+  if (!els.guardrails) return;
+  els.guardrails.innerHTML = "";
+  if (!gs.length){
+    els.guardrails.textContent = "—";
+    return;
   }
+  for (const b of gs) els.guardrails.appendChild(b);
 }
 
 function block(title, kvs){
