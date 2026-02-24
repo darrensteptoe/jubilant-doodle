@@ -33,9 +33,9 @@ if (!Array.isArray(state.ui.dailyLog)) state.ui.dailyLog = [];
 
 let editingDate = null;
 let shiftSyncPlan = null;
-let thirdWingApiPromise = null;
+let operationsApiPromise = null;
 
-const SHIFT_SYNC_TAG = "[sync:third-wing-shifts]";
+const SHIFT_SYNC_TAG = "[sync:operations-shifts]";
 
 function isISODate(s){
   return /^\d{4}-\d{2}-\d{2}$/.test(String(s || "").slice(0,10));
@@ -121,6 +121,23 @@ function stripSyncNote(notes){
   return parts.join(" | ");
 }
 
+function migrateLegacyShiftSyncTags(){
+  const log = Array.isArray(state.ui?.dailyLog) ? state.ui.dailyLog : [];
+  let changed = false;
+  const migrated = log.map((raw) => {
+    const n = normalizeEntry(raw);
+    if (!n) return raw;
+    const notes = String(n.notes || "");
+    const normalizedNotes = notes.replace(/\[sync:[^\]]*shifts\]/g, SHIFT_SYNC_TAG);
+    if (normalizedNotes === notes) return n;
+    changed = true;
+    return { ...n, notes: normalizedNotes, updatedAt: Date.now() };
+  });
+  if (!changed) return;
+  state.ui.dailyLog = migrated;
+  persist();
+}
+
 function combineManualAndSyncNotes(existingNotes, syncNote){
   const manual = stripSyncNote(existingNotes);
   if (manual && syncNote) return `${manual} | ${syncNote}`;
@@ -159,12 +176,12 @@ function setShiftSyncPreview(text){
   if (els.shiftSyncPreview) els.shiftSyncPreview.textContent = text || "";
 }
 
-async function loadThirdWingApi(){
-  if (thirdWingApiPromise) return thirdWingApiPromise;
-  thirdWingApiPromise = import("./features/thirdWing/store.js")
+async function loadOperationsApi(){
+  if (operationsApiPromise) return operationsApiPromise;
+  operationsApiPromise = import("./features/operations/store.js")
     .then((mod) => mod || null)
     .catch(() => null);
-  return thirdWingApiPromise;
+  return operationsApiPromise;
 }
 
 function aggregateShiftRecordsByDate(shiftRecords){
@@ -342,7 +359,7 @@ async function previewShiftSync(){
   setShiftSyncStatus("Building shift sync preview...");
   setShiftSyncPreview("");
 
-  const api = await loadThirdWingApi();
+  const api = await loadOperationsApi();
   if (!api || typeof api.getAll !== "function"){
     shiftSyncPlan = null;
     renderShiftSyncPlan(null);
@@ -760,5 +777,6 @@ function wire(){
 }
 
 wire();
+migrateLegacyShiftSyncTags();
 renderTable();
 renderShiftSyncPlan(null);

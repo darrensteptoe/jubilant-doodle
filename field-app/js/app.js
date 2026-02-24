@@ -13,9 +13,9 @@ import { renderAssumptionDriftPanel } from "./app/render/assumptionDrift.js";
 import { renderBottleneckAttributionPanel, renderConversionPanel, renderSensitivitySnapshotPanel, runSensitivitySnapshotPanel } from "./app/render/executionAnalysis.js";
 import { renderWeeklyOpsInsightsPanel, renderWeeklyOpsFreshnessPanel } from "./app/render/weeklyOpsInsights.js";
 import { renderDecisionConfidencePanel, renderDecisionIntelligencePanelView, renderScenarioComparePanelView } from "./app/render/decisionPanels.js";
-import { getAll, getSummaryCounts } from "./features/thirdWing/store.js";
-import { computeOperationalRollups } from "./features/thirdWing/rollups.js";
-import { PIPELINE_STAGES, DEFAULT_FORECAST_CONFIG } from "./features/thirdWing/schema.js";
+import { getAll, getSummaryCounts } from "./features/operations/store.js";
+import { computeOperationalRollups } from "./features/operations/rollups.js";
+import { PIPELINE_STAGES, DEFAULT_FORECAST_CONFIG } from "./features/operations/schema.js";
 
 function downloadText(text, filename, mime){
   try{
@@ -169,7 +169,7 @@ function closeDiagnostics(){
 
 let diagRenderSeq = 0;
 
-async function getThirdWingDiagnosticsSnapshot(){
+async function getOperationsDiagnosticsSnapshot(){
   try{
     const counts = await getSummaryCounts();
     const shiftRecords = await getAll("shiftRecords");
@@ -200,7 +200,7 @@ async function getThirdWingDiagnosticsSnapshot(){
   }
 }
 
-function appendThirdWingDiagnostics(lines, tw){
+function appendOperationsDiagnostics(lines, tw){
   const out = Array.isArray(lines) ? lines.slice() : [];
   out.push("");
   out.push("[operations diagnostics]");
@@ -462,7 +462,7 @@ function twCapEmptyOutlook(message){
   }
 }
 
-function scheduleThirdWingCapacityOutlookRender(weeks){
+function scheduleOperationsCapacityOutlookRender(weeks){
   if (!els.twCapOutlookTbody) return;
   const seq = ++twCapOutlookSeq;
   if (twCapOutlookTimer) clearTimeout(twCapOutlookTimer);
@@ -476,14 +476,14 @@ function scheduleThirdWingCapacityOutlookRender(weeks){
   const delayMs = Math.max(180, throttleMs);
 
   twCapOutlookTimer = setTimeout(() => {
-    renderThirdWingCapacityOutlook(seq, horizonWeeks).catch((e) => {
+    renderOperationsCapacityOutlook(seq, horizonWeeks).catch((e) => {
       if (seq !== twCapOutlookSeq) return;
       twCapEmptyOutlook(e?.message ? String(e.message) : "Could not compute Operations outlook.");
     });
   }, delayMs);
 }
 
-async function renderThirdWingCapacityOutlook(seq, horizonWeeks){
+async function renderOperationsCapacityOutlook(seq, horizonWeeks){
   if (seq !== twCapOutlookSeq) return;
   if (!els.twCapOutlookTbody) return;
   twCapOutlookLastRunMs = Date.now();
@@ -693,10 +693,10 @@ function updateDiagnosticsUI(){
     if (!els.diagModal || els.diagModal.hidden) return;
     const seq = ++diagRenderSeq;
     Promise.resolve()
-      .then(() => getThirdWingDiagnosticsSnapshot())
+      .then(() => getOperationsDiagnosticsSnapshot())
       .then((tw) => {
         if (seq !== diagRenderSeq) return;
-        const merged = appendThirdWingDiagnostics(lines, tw);
+        const merged = appendOperationsDiagnostics(lines, tw);
         if (els.diagErrors) els.diagErrors.textContent = merged.join("\n");
       })
       .catch(() => { /* ignore */ });
@@ -704,7 +704,7 @@ function updateDiagnosticsUI(){
 }
 
 async function copyDebugBundle(){
-  const tw = await getThirdWingDiagnosticsSnapshot();
+  const tw = await getOperationsDiagnosticsSnapshot();
   const bundle = {
     appVersion: APP_VERSION,
     buildId: BUILD_ID,
@@ -713,7 +713,7 @@ async function copyDebugBundle(){
     scenarioName: state?.scenarioName || "",
     lastExportHash: lastExportHash || null,
     recentErrors: recentErrors.slice(0, MAX_ERRORS),
-    thirdWingDiagnostics: tw,
+    operationsDiagnostics: tw,
   };
   const text = JSON.stringify(bundle, null, 2);
   try{
@@ -1016,7 +1016,7 @@ function makeDefaultState(){
     timelineCallsPerHour: 20,
     timelineTextsPerHour: 120,
 
-    // Phase 17 — third-wing feature flags (default OFF; no behavior change yet)
+    // Phase 17 — operations feature flags (default OFF; no behavior change yet)
     crmEnabled: false,
     scheduleEnabled: false,
     twCapOverrideEnabled: false,
@@ -2124,7 +2124,7 @@ function render(){
   safeCall(() => renderWeeklyOps(res, weeks));
   safeCall(() => renderWeeklyOpsInsights(res, weeks));
   safeCall(() => renderWeeklyOpsFreshness(res, weeks));
-  safeCall(() => scheduleThirdWingCapacityOutlookRender(weeks));
+  safeCall(() => scheduleOperationsCapacityOutlookRender(weeks));
   safeCall(() => renderAssumptionDriftE1(res, weeks));
   safeCall(() => renderRiskFramingE2());
   safeCall(() => renderBottleneckAttributionE3(res, weeks));

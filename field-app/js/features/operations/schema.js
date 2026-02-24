@@ -1,0 +1,29 @@
+// js/features/operations/schema.js
+// Canonical operations schema exports with legacy aliases.
+
+import {
+  THIRD_WING_SCHEMA_VERSION,
+  THIRD_WING_DB_NAME,
+  THIRD_WING_DB_VERSION,
+  THIRD_WING_STORES,
+  THIRD_WING_STORE_DEFS,
+  PIPELINE_STAGES,
+  DEFAULT_FORECAST_CONFIG,
+} from "../thirdWing/schema.js";
+
+export const OPERATIONS_SCHEMA_VERSION = THIRD_WING_SCHEMA_VERSION;
+export const OPERATIONS_DB_NAME = THIRD_WING_DB_NAME;
+export const OPERATIONS_DB_VERSION = THIRD_WING_DB_VERSION;
+export const OPERATIONS_STORES = THIRD_WING_STORES;
+export const OPERATIONS_STORE_DEFS = THIRD_WING_STORE_DEFS;
+
+export { PIPELINE_STAGES, DEFAULT_FORECAST_CONFIG };
+
+// Legacy aliases (backward compatibility).
+export {
+  THIRD_WING_SCHEMA_VERSION,
+  THIRD_WING_DB_NAME,
+  THIRD_WING_DB_VERSION,
+  THIRD_WING_STORES,
+  THIRD_WING_STORE_DEFS,
+};
