@@ -13,6 +13,8 @@ import { renderAssumptionDriftPanel } from "./app/render/assumptionDrift.js";
 import { renderBottleneckAttributionPanel, renderConversionPanel, renderSensitivitySnapshotPanel, runSensitivitySnapshotPanel } from "./app/render/executionAnalysis.js";
 import { renderWeeklyOpsInsightsPanel, renderWeeklyOpsFreshnessPanel } from "./app/render/weeklyOpsInsights.js";
 import { renderDecisionConfidencePanel, renderDecisionIntelligencePanelView, renderScenarioComparePanelView } from "./app/render/decisionPanels.js";
+import { getAll, getSummaryCounts } from "./features/thirdWing/store.js";
+import { computeOperationalRollups } from "./features/thirdWing/rollups.js";
 
 function downloadText(text, filename, mime){
   try{
@@ -164,22 +166,86 @@ function closeDiagnostics(){
   try{ if (els.diagModal) els.diagModal.hidden = true; } catch { /* ignore */ }
 }
 
+let diagRenderSeq = 0;
+
+async function getThirdWingDiagnosticsSnapshot(){
+  try{
+    const counts = await getSummaryCounts();
+    const shiftRecords = await getAll("shiftRecords");
+    const turfEvents = await getAll("turfEvents");
+    const rollups = computeOperationalRollups({ shiftRecords, turfEvents, options: { allowTurfFallbackAttempts: false } });
+
+    return {
+      available: true,
+      counts,
+      rollups: {
+        production: {
+          source: rollups?.production?.source || "—",
+          attempts: Number(rollups?.production?.attempts || 0),
+          convos: Number(rollups?.production?.convos || 0),
+          supportIds: Number(rollups?.production?.supportIds || 0),
+          hours: Number(rollups?.production?.hours || 0),
+        },
+        dedupe: {
+          rule: rollups?.dedupe?.rule || "—",
+          excludedTurfAttemptRecords: Number(rollups?.dedupe?.excludedTurfAttemptRecords || 0),
+          excludedTurfAttempts: Number(rollups?.dedupe?.excludedTurfAttempts || 0),
+          includedFallbackAttempts: Number(rollups?.dedupe?.includedFallbackAttempts || 0),
+        }
+      }
+    };
+  } catch (e){
+    return { available: false, error: e?.message ? String(e.message) : String(e || "unknown") };
+  }
+}
+
+function appendThirdWingDiagnostics(lines, tw){
+  const out = Array.isArray(lines) ? lines.slice() : [];
+  out.push("");
+  out.push("[third-wing diagnostics]");
+  if (!tw?.available){
+    out.push(`status: unavailable (${tw?.error || "not initialized"})`);
+    return out;
+  }
+
+  const c = tw.counts || {};
+  const p = tw.rollups?.production || {};
+  const d = tw.rollups?.dedupe || {};
+
+  out.push(`records: persons=${Number(c.persons || 0)} pipeline=${Number(c.pipelineRecords || 0)} shifts=${Number(c.shiftRecords || 0)} turf=${Number(c.turfEvents || 0)}`);
+  out.push(`productionSource: ${p.source || "—"}`);
+  out.push(`productionTotals: attempts=${Math.round(Number(p.attempts || 0))} convos=${Math.round(Number(p.convos || 0))} supportIds=${Math.round(Number(p.supportIds || 0))} hours=${Number(p.hours || 0).toFixed(2)}`);
+  out.push(`dedupeRule: ${d.rule || "—"}`);
+  out.push(`dedupe: excludedTurfRecords=${Math.round(Number(d.excludedTurfAttemptRecords || 0))} excludedTurfAttempts=${Math.round(Number(d.excludedTurfAttempts || 0))} fallbackIncluded=${Math.round(Number(d.includedFallbackAttempts || 0))}`);
+  return out;
+}
+
 function updateDiagnosticsUI(){
   try{
     if (!els.diagErrors) return;
-    if (!recentErrors.length){
-      els.diagErrors.textContent = "(none)";
-      return;
-    }
     const lines = recentErrors.map((e) => {
       const head = `[${e.t}] ${e.kind}: ${e.msg}`;
       return head;
     });
+    if (!lines.length) lines.push("(none)");
     els.diagErrors.textContent = lines.join("\n");
+
+    // Only resolve Third Wing diagnostics when modal is open to avoid background load.
+    if (!els.diagModal || els.diagModal.hidden) return;
+    const seq = ++diagRenderSeq;
+    Promise.resolve()
+      .then(() => getThirdWingDiagnosticsSnapshot())
+      .then((tw) => {
+        if (seq !== diagRenderSeq) return;
+        const merged = appendThirdWingDiagnostics(lines, tw);
+        if (els.diagErrors) els.diagErrors.textContent = merged.join("\n");
+      })
+      .catch(() => { /* ignore */ });
   } catch { /* ignore */ }
 }
 
 async function copyDebugBundle(){
+  const tw = await getThirdWingDiagnosticsSnapshot();
   const bundle = {
     appVersion: APP_VERSION,
     buildId: BUILD_ID,
@@ -188,6 +254,7 @@ async function copyDebugBundle(){
     scenarioName: state?.scenarioName || "",
     lastExportHash: lastExportHash || null,
     recentErrors: recentErrors.slice(0, MAX_ERRORS),
+    thirdWingDiagnostics: tw,
   };
   const text = JSON.stringify(bundle, null, 2);
   try{
@@ -247,7 +314,7 @@ function restoreBackupByIndex(idx){
     alert("Backup restore failed: could not migrate snapshot.");
     return;
   }
-  state = migrated.scenario;
+  state = normalizeLoadedState(migrated.scenario);
   ensureDecisionScaffold();
   persist();
   render();
@@ -308,7 +375,7 @@ const DEFAULTS_BY_TEMPLATE = {
   county: { bandWidth: 4, persuasionPct: 30, earlyVoteExp: 40 },
 };
 
-let state = loadState() || makeDefaultState();
+let state = normalizeLoadedState(loadState() || makeDefaultState());
 
 // setState(patchFn) — controlled state mutation for UI-only writes.
 // Shallow-clones state, deep-clones only state.ui (where all setState writes live).
@@ -489,6 +556,10 @@ function makeDefaultState(){
     timelineDoorsPerHour: 30,
     timelineCallsPerHour: 20,
     timelineTextsPerHour: 120,
+
+    // Phase 17 — third-wing feature flags (default OFF; no behavior change yet)
+    crmEnabled: false,
+    scheduleEnabled: false,
 
 
     mcMode: "basic",
@@ -1303,6 +1374,8 @@ function normalizeLoadedState(s){
     : structuredClone(base.budget);
 
   if (!out.yourCandidateId && out.candidates[0]) out.yourCandidateId = out.candidates[0].id;
+  out.crmEnabled = !!out.crmEnabled;
+  out.scheduleEnabled = !!out.scheduleEnabled;
   out.ui.themeMode = "system";
   out.ui.dark = false;
   return out;
