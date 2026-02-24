@@ -10,7 +10,6 @@ import {
   persistStateSnapshot,
   appendBackupEntry,
 } from "./storage.js";
-import { createScenarioManager } from "./scenarioManager.js";
 import { APP_VERSION, BUILD_ID } from "./build.js";
 import { computeSnapshotHash } from "./hash.js";
 import { makeRng, triSample } from "./core/rng.js";
@@ -18,7 +17,7 @@ import { renderRiskFramingPanel } from "./app/render/riskFraming.js";
 import { renderAssumptionDriftPanel } from "./app/render/assumptionDrift.js";
 import { renderBottleneckAttributionPanel, renderConversionPanel, renderSensitivitySnapshotPanel, runSensitivitySnapshotPanel } from "./app/render/executionAnalysis.js";
 import { renderWeeklyOpsInsightsPanel, renderWeeklyOpsFreshnessPanel } from "./app/render/weeklyOpsInsights.js";
-import { renderDecisionConfidencePanel, renderDecisionIntelligencePanelView, renderScenarioComparePanelView } from "./app/render/decisionPanels.js";
+import { renderDecisionConfidencePanel, renderDecisionIntelligencePanelView } from "./app/render/decisionPanels.js";
 import { renderImpactTracePanel } from "./app/render/impactTrace.js";
 import { getOperationsMetricsSnapshot } from "./features/operations/metricsCache.js";
 import { PIPELINE_STAGES, DEFAULT_FORECAST_CONFIG } from "./features/operations/schema.js";
@@ -1002,7 +1001,6 @@ let lastResultsSnapshot = null;
 // Phase 11 — session-only safety rails
 let selfTestGateStatus = engine.selfTest.SELFTEST_GATE.UNVERIFIED;
 let lastExportHash = null;
-const scenarioMgr = createScenarioManager({ max: 5 });
 
 let lastAppliedWeeklyAction = null;
 
@@ -3170,14 +3168,6 @@ function renderDecisionIntelligencePanel({ res, weeks }){
 
 
 
-function renderScenarioComparePanel({ res, weeks }){
-  // Legacy scenario-manager compare panel retired.
-  // Canonical scenario UX is renderScenarioManagerC1() + renderScenarioComparisonC3().
-  return renderScenarioComparePanelView({ els, scenarioMgr });
-}
-
-
-
 function renderStress(res){
   if (!els.stressBox) return;
   const lines = res.stressSummary || [];
@@ -3357,17 +3347,6 @@ function getYourName(){
   const c = state.candidates.find(x => x.id === state.yourCandidateId);
   return c?.name || null;
 }
-
-
-function onSaveScenarioClick(){
-  // Compatibility alias for older entry points.
-  onScenarioSaveNew();
-}
-
-function wireScenarioComparePanel(){
-  // Legacy panel retired; no-op by design.
-}
-
 
 
 // =========================
