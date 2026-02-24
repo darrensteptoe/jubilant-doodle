@@ -307,7 +307,7 @@ body.strict-import .toggle-pill:has(#toggleStrictImport) .toggle-dot-new {
 .stage-header-new {
   flex-shrink: 0;
   padding: 18px 24px 14px;
-  background: var(--header-bg, color-mix(in srgb, var(--s-rule) 24%, var(--s-panel)));
+  background: var(--s-panel);
   border-bottom: 1px solid var(--s-rule);
 }
 .stage-meta-new {
@@ -707,17 +707,8 @@ body.focus-view .stage-body-new {
 }
 
 .results-sidebar-new .assump-block {
-  background: var(--header-bg, color-mix(in srgb, var(--s-rule) 24%, var(--s-panel)));
+  background: color-mix(in srgb, var(--s-rule) 24%, var(--s-panel));
   border-color: color-mix(in srgb, var(--s-rule) 78%, transparent);
-}
-
-.results-sidebar-new .validation li,
-.results-sidebar-new .validation li.ok,
-.results-sidebar-new .validation li.warn,
-.results-sidebar-new .validation li.bad {
-  background: var(--header-bg, color-mix(in srgb, var(--s-rule) 24%, var(--s-panel)));
-  border-color: color-mix(in srgb, var(--s-rule) 78%, transparent);
-  color: var(--s-text);
 }
 .results-sidebar-new .kv .v { max-width: 58%; }
 
