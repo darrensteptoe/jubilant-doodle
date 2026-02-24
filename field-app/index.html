@@ -33,20 +33,9 @@
       Training
     </label>
 <div class="divider-new"></div>
-<select class="btn-top-new" id="restoreBackup" title="Restore one of the last 5 auto-backups">
-<option value="">Restore backup…</option>
-</select>
-<label class="toggle-pill" title="Strict import mode">
-<input hidden="" id="toggleStrictImport" type="checkbox"/>
-<span class="toggle-dot-new"></span>
-      Strict import
-    </label>
-<div class="divider-new"></div>
-<button class="btn-top-new" id="btnCopySummary" type="button">Copy Summary</button>
-<button class="btn-top-new" id="btnExportCsv" type="button">Export CSV</button>
 <span class="chip-new chip-persist" hidden="" id="persistenceStatus">Save issue</span>
 <button class="btn-top-new" id="btnDiagnostics" type="button">Diagnostics</button>
-<button class="btn-top-new btn-top-danger" id="btnResetAll" type="button">Reset</button>
+<button class="btn-top-new btn-top-danger" id="btnResetAll" type="button">Reset scenario</button>
 <!-- legacy hidden dark toggle kept for JS compatibility -->
 <input hidden="" id="toggleDark" type="checkbox"/>
 <input hidden="" id="toggleAdvDiagLegacy" type="checkbox"/>
@@ -57,27 +46,33 @@
 <!-- ── APP SHELL ─────────────────────────────────────────── -->
 <div class="app-shell">
 <!-- LEFT: Stage navigation rail -->
-<nav aria-label="Planning stages" class="stage-nav-new"><div class="nav-group-label-new">Setup</div><button class="nav-item-new active" data-stage="setup" onclick="switchStage(this, 'setup')">
+<nav aria-label="Planning stages" class="stage-nav-new"><div class="nav-group-label-new">Planning</div><button class="nav-item-new active" data-stage="setup" onclick="switchStage(this, 'setup')">
 <span class="nav-num-new" data-num="1">1</span>
-<span class="nav-label-new">Race setup</span>
+<span class="nav-label-new">Race &amp; timeline</span>
 </button><button class="nav-item-new" data-stage="universe" onclick="switchStage(this, 'universe')">
 <span class="nav-num-new" data-num="2">2</span>
 <span class="nav-label-new">Universe</span>
-</button><button class="nav-item-new" data-stage="structure" onclick="switchStage(this, 'structure')">
-<span class="nav-num-new" data-num="6">6</span>
-<span class="nav-label-new">Electorate Weighting</span>
-</button><div class="nav-group-label-new">Strategy</div><button class="nav-item-new" data-stage="ballot" onclick="switchStage(this, 'ballot')">
+</button><button class="nav-item-new" data-stage="ballot" onclick="switchStage(this, 'ballot')">
 <span class="nav-num-new" data-num="3">3</span>
-<span class="nav-label-new">Ballot test</span>
+<span class="nav-label-new">Ballot &amp; persuasion baseline</span>
 </button><button class="nav-item-new" data-stage="gotv" onclick="switchStage(this, 'gotv')">
 <span class="nav-num-new" data-num="5">5</span>
-<span class="nav-label-new">GOTV / turnout</span>
-</button><div class="nav-group-label-new">Execution</div><button class="nav-item-new" data-stage="capacity" onclick="switchStage(this, 'capacity')">
+<span class="nav-label-new">Turnout model (GOTV)</span>
+</button><button class="nav-item-new" data-stage="structure" onclick="switchStage(this, 'structure')">
+<span class="nav-num-new" data-num="6">6</span>
+<span class="nav-label-new">Electorate weighting</span>
+</button><div class="nav-group-label-new">Field Execution</div><button class="nav-item-new" data-stage="capacity" onclick="switchStage(this, 'capacity')">
 <span class="nav-num-new" data-num="4">4</span>
-<span class="nav-label-new">Capacity</span>
-</button><div class="nav-group-label-new">Analysis</div><button class="nav-item-new" data-stage="results" onclick="switchStage(this, 'results')">
+<span class="nav-label-new">Field capacity</span>
+</button><a class="nav-item-new" href="organizer.html">
+<span class="nav-num-new">•</span>
+<span class="nav-label-new">Organizer log</span>
+</a><a class="nav-item-new" href="operations.html">
+<span class="nav-num-new">•</span>
+<span class="nav-label-new">Operations hub</span>
+</a><div class="nav-group-label-new">Analysis &amp; Risk</div><button class="nav-item-new" data-stage="results" onclick="switchStage(this, 'results')">
 <span class="nav-num-new" data-num="7">7</span>
-<span class="nav-label-new">Results &amp; risk</span>
+<span class="nav-label-new">Win path &amp; risk</span>
 </button><button class="nav-item-new" data-stage="roi" onclick="switchStage(this, 'roi')">
 <span class="nav-num-new" data-num="8">8</span>
 <span class="nav-label-new">Budget &amp; ROI</span>
@@ -86,13 +81,13 @@
 <span class="nav-label-new">Checks &amp; guardrails</span>
 </button><div class="nav-group-label-new">Decisions</div><button class="nav-item-new" data-stage="scenarios" onclick="switchStage(this, 'scenarios')">
 <span class="nav-num-new">—</span>
-<span class="nav-label-new">Scenarios</span>
+<span class="nav-label-new">Scenario planning</span>
 </button><button class="nav-item-new" data-stage="decisions" onclick="switchStage(this, 'decisions')">
 <span class="nav-num-new">—</span>
 <span class="nav-label-new">Decision sessions</span>
-</button><button class="nav-item-new" data-stage="integrity" onclick="switchStage(this, 'integrity')">
+</button><div class="nav-group-label-new">Data &amp; Integrity</div><button class="nav-item-new" data-stage="integrity" onclick="switchStage(this, 'integrity')">
 <span class="nav-num-new">—</span>
-<span class="nav-label-new">Integrity &amp; export</span>
+<span class="nav-label-new">Import/export &amp; backups</span>
 </button></nav>
 <!-- CENTER: Active stage content -->
 <main class="stage-main-new"><div class="context-bar-new"><div class="topbar-center">
@@ -104,12 +99,12 @@
 <div class="stage-header-new">
 <div class="stage-meta-new">
 <span class="stage-tag-new">Stage 1</span>
-<span class="stage-title-new">Race setup</span>
+<span class="stage-title-new">Race &amp; timeline</span>
 </div>
-<p class="stage-sub-new">Establish the planning context — race type, election date, and mode. Every downstream number depends on this frame.</p>
+<p class="stage-sub-new">Set race context, timing, and operating mode. This frame drives all downstream vote, production, and risk calculations.</p>
 <div class="training-panel-new" id="train-setup">
 <div class="training-hd-new" onclick="toggleTrainPanel('train-setup')">
-<span>🎓</span><span class="training-title-new">Training — Race Setup</span><span class="training-chev-new">▾</span>
+<span>🎓</span><span class="training-title-new">Training — Race &amp; Timeline</span><span class="training-chev-new">▾</span>
 </div>
 <div class="training-bd-new">
 <div class="training-col-new">
@@ -132,7 +127,7 @@
 <div class="stage-body-new">
 <!-- EXISTING CONTENT: Scenario card -->
 <div class="card card-section phase-setup">
-<div class="card-head card-header"><h2 class="card-title">Scenario</h2></div>
+<div class="card-head card-header"><h2 class="card-title">Campaign setup</h2></div>
 </div>
 <div class="grid2">
 <div class="field">
@@ -221,6 +216,25 @@
 <span class="help-text">Turnout votes = U × turnout %. Persuasion universe = U × persuasion %.</span>
 </div>
 </div>
+<div class="field">
+<label class="label" for="universeBasis">Universe basis</label>
+<select class="select" id="universeBasis">
+<option selected="" value="registered">Registered (default)</option>
+<option value="active">Active (advanced)</option>
+</select>
+<div class="help" data-help="Choose the source basis that best matches your field universe assumptions.">
+<span class="help-title">How to choose</span>
+<span class="help-text">Use Registered for broad planning, Active for tighter turnout universes.</span>
+</div>
+</div>
+<div class="field">
+<label class="label" for="sourceNote">Source note (optional)</label>
+<input class="input" id="sourceNote" placeholder="e.g., VAN export dated 2026-02-01 or elections file" type="text"/>
+<div class="help" data-help="Keep provenance here so scenario comparisons stay auditable.">
+<span class="help-title">Good practice</span>
+<span class="help-text">Record file/date/source so imports and exports can be traced later.</span>
+</div>
+</div>
 </div><div class="card card-section phase-candidates">
 </div>
 </section>
@@ -229,12 +243,12 @@
 <div class="stage-header-new">
 <div class="stage-meta-new">
 <span class="stage-tag-new">Stage 3</span>
-<span class="stage-title-new">Ballot test</span>
+<span class="stage-title-new">Ballot &amp; persuasion baseline</span>
 </div>
 <p class="stage-sub-new">Establish baseline support and undecided distribution. Persuasion math has no anchor without this.</p>
 <div class="training-panel-new" id="train-ballot">
 <div class="training-hd-new" onclick="toggleTrainPanel('train-ballot')">
-<span>🎓</span><span class="training-title-new">Training — Ballot Test</span><span class="training-chev-new">▾</span>
+<span>🎓</span><span class="training-title-new">Training — Ballot &amp; Persuasion Baseline</span><span class="training-chev-new">▾</span>
 </div>
 <div class="training-bd-new">
 <div class="training-col-new">
@@ -256,7 +270,7 @@
 </div>
 <div class="stage-body-new">
 <div class="card-head card-header">
-<h2 class="card-title">Ballot test (vote landscape)</h2>
+<h2 class="card-title">Ballot &amp; persuasion baseline</h2>
 <div class="card-actions">
 <button class="btn btn-link" id="btnAddCandidate" type="button">Add candidate</button>
 </div>
@@ -358,12 +372,12 @@
 <div class="stage-header-new">
 <div class="stage-meta-new">
 <span class="stage-tag-new">Stage 4</span>
-<span class="stage-title-new">Capacity</span>
+<span class="stage-title-new">Field capacity</span>
 </div>
 <p class="stage-sub-new">Define staff, volunteer capacity, and contact rates. This is the ceiling on your entire plan.</p>
 <div class="training-panel-new" id="train-capacity">
 <div class="training-hd-new" onclick="toggleTrainPanel('train-capacity')">
-<span>🎓</span><span class="training-title-new">Training — Capacity Planning</span><span class="training-chev-new">▾</span>
+<span>🎓</span><span class="training-title-new">Training — Field Capacity</span><span class="training-chev-new">▾</span>
 </div>
 <div class="training-bd-new">
 <div class="training-col-new">
@@ -732,12 +746,12 @@
 <div class="stage-header-new">
 <div class="stage-meta-new">
 <span class="stage-tag-new">Stage 5</span>
-<span class="stage-title-new">GOTV / Turnout</span>
+<span class="stage-title-new">Turnout model (GOTV)</span>
 </div>
 <p class="stage-sub-new">Model turnout lift as a lever. GOTV is often the cheapest late-stage tactic when persuasion saturates.</p>
 <div class="training-panel-new" id="train-gotv">
 <div class="training-hd-new" onclick="toggleTrainPanel('train-gotv')">
-<span>🎓</span><span class="training-title-new">Training — GOTV &amp; Turnout Lift</span><span class="training-chev-new">▾</span>
+<span>🎓</span><span class="training-title-new">Training — Turnout Model (GOTV)</span><span class="training-chev-new">▾</span>
 </div>
 <div class="training-bd-new">
 <div class="training-col-new">
@@ -904,12 +918,12 @@
 <div class="stage-header-new">
 <div class="stage-meta-new">
 <span class="stage-tag-new">Stage 7</span>
-<span class="stage-title-new">Results &amp; risk</span>
+<span class="stage-title-new">Win path &amp; risk</span>
 </div>
 <p class="stage-sub-new">Win path, Monte Carlo stress test, sensitivity analysis, and risk framing. This is the payoff.</p>
 <div class="training-panel-new" id="train-results">
 <div class="training-hd-new" onclick="toggleTrainPanel('train-results')">
-<span>🎓</span><span class="training-title-new">Training — Reading Results</span><span class="training-chev-new">▾</span>
+<span>🎓</span><span class="training-title-new">Training — Win Path &amp; Risk</span><span class="training-chev-new">▾</span>
 </div>
 <div class="training-bd-new">
 <div class="training-col-new">
@@ -1952,7 +1966,7 @@
 <p class="stage-sub-new">Validate inputs, inspect assumptions snapshot, and review guardrails. The most dangerous failures are silent ones.</p>
 <div class="training-panel-new" id="train-checks">
 <div class="training-hd-new" onclick="toggleTrainPanel('train-checks')">
-<span>🎓</span><span class="training-title-new">Training — Validation &amp; Guardrails</span><span class="training-chev-new">▾</span>
+<span>🎓</span><span class="training-title-new">Training — Data Checks &amp; Guardrails</span><span class="training-chev-new">▾</span>
 </div>
 <div class="training-bd-new">
 <div class="training-col-new">
@@ -1981,7 +1995,7 @@
 <div class="stage-header-new">
 <div class="stage-meta-new">
 <span class="stage-tag-new">Decisions</span>
-<span class="stage-title-new">Scenarios</span>
+<span class="stage-title-new">Scenario planning</span>
 </div>
 <p class="stage-sub-new">Save, compare, and switch between planning scenarios. Use this to model Path A vs Path B before committing resources.</p>
 </div>
@@ -2052,18 +2066,6 @@
 </div>
 <div aria-hidden="true" class="sc-divider" role="separator" style="margin-top:10px;"></div>
 </div>
-<div class="sc-controls">
-<div class="scenario">
-<label class="label" for="scenarioName">Scenario</label>
-<input class="input input-sm" id="scenarioNameStage" placeholder="e.g., IL HD-XX — Primary Path" type="text"/>
-</div>
-<div class="sc-actions">
-<button class="btn btn-sm" id="btnSaveJson" type="button">Export Scenario</button>
-<label class="btn btn-sm btn-ghost" for="loadJson">Import Scenario</label>
-<input accept="application/json" hidden="" id="loadJson" type="file"/>
-</div>
-</div>
-<div aria-hidden="true" class="sc-divider" role="separator"></div>
 <div class="rowline sc-meta">
 <button class="btn btn-sm" id="btnSaveScenario" type="button">Save Current Scenario</button>
 <div class="muted" style="font-size:12px;">Saved scenarios are session-only (memory). Max 5.</div>
@@ -2447,11 +2449,47 @@ Volunteer multiplier stays above 1.5" rows="4"></textarea>
 <div class="stage-header-new">
 <div class="stage-meta-new">
 <span class="stage-tag-new">Integrity</span>
-<span class="stage-title-new">Integrity &amp; export</span>
+<span class="stage-title-new">Import/export &amp; backups</span>
 </div>
 <p class="stage-sub-new">Snapshot hash, import/export, and data integrity. Ensures an exported scenario re-imports to the same result.</p>
 </div>
 <div class="stage-body-new">
+<div class="card card-section">
+<div class="card-head card-header">
+<h2 class="card-title">Import policy &amp; recovery</h2>
+</div>
+<div class="grid2">
+<div class="field">
+<label class="label">Strict import policy</label>
+<label class="toggle-pill" title="Block newer schema and hash-mismatch imports">
+<input hidden="" id="toggleStrictImport" type="checkbox"/>
+<span class="toggle-dot-new"></span>
+        Strict import
+      </label>
+<div class="help-text" style="margin-top:8px;">When ON, imports are blocked for newer schema versions and integrity hash mismatches.</div>
+</div>
+<div class="field">
+<label class="label" for="restoreBackup">Restore auto-backup</label>
+<select class="input" id="restoreBackup" title="Restore one of the last 5 auto-backups">
+<option value="">Restore backup…</option>
+</select>
+<div class="help-text" style="margin-top:8px;">Restores saved planner inputs from local browser backups.</div>
+</div>
+</div>
+</div>
+<div class="card card-section">
+<div class="card-head card-header">
+<h2 class="card-title">Scenario import/export</h2>
+</div>
+<div class="rowline" style="gap:8px; flex-wrap:wrap;">
+<button class="btn btn-sm" id="btnSaveJson" type="button">Export Scenario JSON</button>
+<label class="btn btn-sm btn-ghost" for="loadJson">Import Scenario JSON</label>
+<input accept="application/json" hidden="" id="loadJson" type="file"/>
+<button class="btn btn-sm btn-ghost" id="btnCopySummary" type="button">Copy Summary</button>
+<button class="btn btn-sm btn-ghost" id="btnExportCsv" type="button">Export CSV</button>
+</div>
+<div class="help-text" style="margin-top:8px;">Use these controls for file exchange, reporting, and audit-safe handoffs.</div>
+</div>
 </div>
 </section>
 </main>
@@ -2570,20 +2608,8 @@ Volunteer multiplier stays above 1.5" rows="4"></textarea>
   <!-- METADATA (RIGHT RAIL ONLY) -->
   <div class="sidebar-section-new" style="margin-top:auto; border-top: 1px solid var(--rule);">
     <div class="sidebar-label-new">Metadata</div>
-
-    <div class="field" style="margin-bottom:10px;">
-      <label class="label" for="universeBasis">Universe basis</label>
-      <select class="select" id="universeBasis">
-        <option value="registered" selected>Registered (default)</option>
-        <option value="active">Active (advanced)</option>
-      </select>
-    </div>
-
-    <div class="field" style="margin-bottom:10px;">
-      <label class="label" for="sourceNote">Source note (optional)</label>
-      <input class="input" id="sourceNote" placeholder="e.g., VAN export dated 2026-02-01 or Elections dept file" type="text" />
-    </div>
-
+    <div class="kv-mini-new"><span>Universe basis</span><span id="metaUniverseBasis">—</span></div>
+    <div class="kv-mini-new"><span>Source note</span><span id="metaSourceNote">—</span></div>
     <div class="kv-mini-new dim-text"><span id="snapshotHash-sidebar">—</span></div>
   </div>
 

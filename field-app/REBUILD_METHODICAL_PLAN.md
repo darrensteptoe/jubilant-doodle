@@ -60,8 +60,8 @@ Exit criteria:
 - User can see “if this changes, these exact outputs move.”
 
 ### Phase 4 — Information Architecture + Layout Reorder (UI Rebuild)
-- [ ] Reorder modules by campaign workflow, not legacy phase splits.
-- [ ] Keep right sidebar for aggregate readouts, sorted by operational sequence.
+- [ ] Reorder modules by campaign workflow, not legacy phase splits. *(Pass A in progress: nav/stage terminology + grouping updated)*
+- [ ] Keep right sidebar for aggregate readouts, sorted by operational sequence. *(Pass A in progress: universe/source moved out of metadata inputs; sidebar now aggregate-only for these fields)*
 - [ ] Merge related sections (e.g., universe + persuasion universe context) onto same working surface where it reduces navigation cost.
 - [ ] Preserve current visual style where strong (Operations Hub shell pattern).
 
@@ -95,6 +95,7 @@ Exit criteria:
 - Phase 1 code changes are complete and isolated to storage + save status UI.
 - Phase 2 code changes are complete: Operations snapshot cache + store revision invalidation.
 - Phase 3 code changes are complete: impact trace panel for key outputs with explicit upstream/downstream links.
+- Phase 4 has started (Pass A): workflow-oriented naming and control relocation (`Strict import`, backups, import/export controls moved to Data & Integrity stage).
 - Phase gate validation still required in-browser:
   - Self-Test
   - Robust Smoke
