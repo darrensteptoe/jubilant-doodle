@@ -15,6 +15,7 @@ import { renderWeeklyOpsInsightsPanel, renderWeeklyOpsFreshnessPanel } from "./a
 import { renderDecisionConfidencePanel, renderDecisionIntelligencePanelView, renderScenarioComparePanelView } from "./app/render/decisionPanels.js";
 import { getAll, getSummaryCounts } from "./features/thirdWing/store.js";
 import { computeOperationalRollups } from "./features/thirdWing/rollups.js";
+import { PIPELINE_STAGES, DEFAULT_FORECAST_CONFIG } from "./features/thirdWing/schema.js";
 
 function downloadText(text, filename, mime){
   try{
@@ -218,6 +219,249 @@ function appendThirdWingDiagnostics(lines, tw){
   out.push(`dedupeRule: ${d.rule || "—"}`);
   out.push(`dedupe: excludedTurfRecords=${Math.round(Number(d.excludedTurfAttemptRecords || 0))} excludedTurfAttempts=${Math.round(Number(d.excludedTurfAttempts || 0))} fallbackIncluded=${Math.round(Number(d.includedFallbackAttempts || 0))}`);
   return out;
+}
+
+let twCapOutlookTimer = null;
+let twCapOutlookSeq = 0;
+let twCapOutlookLastRunMs = 0;
+const TW_CAP_DAY_MS = 86400000;
+const TW_CAP_WEEK_MS = 7 * TW_CAP_DAY_MS;
+
+function twCapText(el, text){
+  if (el) el.textContent = String(text ?? "");
+}
+
+function twCapNum(v, fallback = 0){
+  const n = Number(v);
+  return Number.isFinite(n) ? n : fallback;
+}
+
+function twCapFmtInt(v){
+  return (v == null || !Number.isFinite(v)) ? "—" : fmtInt(Math.round(v));
+}
+
+function twCapFmtSigned(v){
+  if (v == null || !Number.isFinite(v)) return "—";
+  const n = Math.round(v);
+  if (n > 0) return `+${fmtInt(n)}`;
+  if (n < 0) return `−${fmtInt(Math.abs(n))}`;
+  return "0";
+}
+
+function twCapClean(v){
+  return String(v == null ? "" : v).trim();
+}
+
+function twCapTransitionKey(from, to){
+  const slug = (s) => twCapClean(s).toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "");
+  return `${slug(from)}_to_${slug(to)}`;
+}
+
+function twCapParseDate(value){
+  const s = twCapClean(value);
+  if (!s) return null;
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s)){
+    const dt = new Date(`${s}T00:00:00Z`);
+    return Number.isFinite(dt.getTime()) ? dt : null;
+  }
+  const dt = new Date(s);
+  return Number.isFinite(dt.getTime()) ? dt : null;
+}
+
+function twCapWeekStart(dt){
+  const base = new Date(Date.UTC(dt.getUTCFullYear(), dt.getUTCMonth(), dt.getUTCDate()));
+  const day = (base.getUTCDay() + 6) % 7;
+  base.setUTCDate(base.getUTCDate() - day);
+  return base;
+}
+
+function twCapIsoUTC(dt){
+  const y = dt.getUTCFullYear();
+  const m = String(dt.getUTCMonth() + 1).padStart(2, "0");
+  const d = String(dt.getUTCDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
+}
+
+function twCapNormalizeForecastConfig(raw){
+  const src = (raw && typeof raw === "object") ? raw : {};
+  const conv = { ...(DEFAULT_FORECAST_CONFIG.stageConversionDefaults || {}), ...(src.stageConversionDefaults || {}) };
+  const dur = { ...(DEFAULT_FORECAST_CONFIG.stageDurationDefaultsDays || {}), ...(src.stageDurationDefaultsDays || {}) };
+  for (let i = 0; i < PIPELINE_STAGES.length - 1; i++){
+    const key = twCapTransitionKey(PIPELINE_STAGES[i], PIPELINE_STAGES[i + 1]);
+    conv[key] = clamp(twCapNum(conv[key], 1), 0, 1);
+    dur[key] = Math.max(0, twCapNum(dur[key], 0));
+  }
+  return { stageConversionDefaults: conv, stageDurationDefaultsDays: dur };
+}
+
+function twCapPerOrganizerAttemptsPerWeek(effective){
+  const c = effective?.capacity || {};
+  const one = coreComputeCapacityBreakdown({
+    weeks: 1,
+    orgCount: 1,
+    orgHoursPerWeek: twCapNum(c.orgHoursPerWeek, 0),
+    volunteerMult: twCapNum(c.volunteerMult, 0),
+    doorShare: (c.doorShare == null) ? null : clamp(twCapNum(c.doorShare, 0), 0, 1),
+    doorsPerHour: twCapNum(c.doorsPerHour, 0),
+    callsPerHour: twCapNum(c.callsPerHour, 0),
+  });
+  return Math.max(0, twCapNum(one?.total, 0));
+}
+
+function twCapBaselineAttemptsPerWeek(effective){
+  const c = effective?.capacity || {};
+  const baseline = coreComputeCapacityBreakdown({
+    weeks: 1,
+    orgCount: twCapNum(c.orgCount, 0),
+    orgHoursPerWeek: twCapNum(c.orgHoursPerWeek, 0),
+    volunteerMult: twCapNum(c.volunteerMult, 0),
+    doorShare: (c.doorShare == null) ? null : clamp(twCapNum(c.doorShare, 0), 0, 1),
+    doorsPerHour: twCapNum(c.doorsPerHour, 0),
+    callsPerHour: twCapNum(c.callsPerHour, 0),
+  });
+  return Math.max(0, twCapNum(baseline?.total, 0));
+}
+
+function twCapEmptyOutlook(message){
+  twCapText(els.twCapOutlookStatus, message || "No Third Wing data.");
+  twCapText(els.twCapOutlookBaseline, "—");
+  twCapText(els.twCapOutlookRampTotal, "—");
+  twCapText(els.twCapOutlookScheduledTotal, "—");
+  twCapText(els.twCapOutlookHorizon, "—");
+  if (els.twCapOutlookTbody){
+    els.twCapOutlookTbody.innerHTML = '<tr><td class="muted" colspan="5">No outlook data.</td></tr>';
+  }
+}
+
+function scheduleThirdWingCapacityOutlookRender(weeks){
+  if (!els.twCapOutlookTbody) return;
+  const seq = ++twCapOutlookSeq;
+  if (twCapOutlookTimer) clearTimeout(twCapOutlookTimer);
+
+  const w = (weeks != null && Number.isFinite(Number(weeks))) ? Number(weeks) : 12;
+  const horizonWeeks = Math.max(4, Math.min(26, Math.floor(w || 12)));
+  const nowMs = Date.now();
+  const throttleMs = Math.max(0, 700 - (nowMs - twCapOutlookLastRunMs));
+  const delayMs = Math.max(180, throttleMs);
+
+  twCapOutlookTimer = setTimeout(() => {
+    renderThirdWingCapacityOutlook(seq, horizonWeeks).catch((e) => {
+      if (seq !== twCapOutlookSeq) return;
+      twCapEmptyOutlook(e?.message ? String(e.message) : "Could not compute Third Wing outlook.");
+    });
+  }, delayMs);
+}
+
+async function renderThirdWingCapacityOutlook(seq, horizonWeeks){
+  if (seq !== twCapOutlookSeq) return;
+  if (!els.twCapOutlookTbody) return;
+  twCapOutlookLastRunMs = Date.now();
+
+  twCapText(els.twCapOutlookStatus, "Updating Third Wing outlook…");
+
+  const [pipelineRecords, shiftRecords, forecastConfigs] = await Promise.all([
+    getAll("pipelineRecords"),
+    getAll("shiftRecords"),
+    getAll("forecastConfigs"),
+  ]);
+  if (seq !== twCapOutlookSeq) return;
+
+  const effective = compileEffectiveInputs(state);
+  const baselineAttempts = twCapBaselineAttemptsPerWeek(effective);
+  const perOrganizerAttempts = twCapPerOrganizerAttemptsPerWeek(effective);
+  const cfgRaw = (Array.isArray(forecastConfigs) ? forecastConfigs : []).find((x) => String(x?.id) === "default")
+    || (Array.isArray(forecastConfigs) ? forecastConfigs[0] : null);
+  const cfg = twCapNormalizeForecastConfig(cfgRaw);
+
+  const week0 = twCapWeekStart(new Date());
+  const rows = Array.from({ length: horizonWeeks }, (_, i) => ({
+    weekStarting: twCapIsoUTC(new Date(week0.getTime() + (i * TW_CAP_WEEK_MS))),
+    rampAdds: 0,
+    scheduled: 0,
+  }));
+
+  let beyondHorizonAdds = 0;
+  let openPipeline = 0;
+  for (const rec of (Array.isArray(pipelineRecords) ? pipelineRecords : [])){
+    const stage = twCapClean(rec?.stage);
+    const stageIdx = PIPELINE_STAGES.indexOf(stage);
+    if (stageIdx < 0) continue;
+    if (stage === "Active") continue;
+    if (twCapClean(rec?.dropoffReason)) continue;
+    openPipeline += 1;
+
+    let p = 1;
+    let daysToActive = 0;
+    for (let i = stageIdx; i < PIPELINE_STAGES.length - 1; i++){
+      const key = twCapTransitionKey(PIPELINE_STAGES[i], PIPELINE_STAGES[i + 1]);
+      p *= clamp(twCapNum(cfg.stageConversionDefaults[key], 1), 0, 1);
+      daysToActive += Math.max(0, twCapNum(cfg.stageDurationDefaultsDays[key], 0));
+    }
+
+    const baseDate = twCapParseDate(rec?.stageDates?.[stage]) || twCapParseDate(rec?.updatedAt) || twCapParseDate(rec?.createdAt) || new Date();
+    const projected = new Date(baseDate.getTime() + (daysToActive * TW_CAP_DAY_MS));
+    const weekStart = twCapWeekStart(projected);
+    let idx = Math.floor((weekStart.getTime() - week0.getTime()) / TW_CAP_WEEK_MS);
+    if (!Number.isFinite(idx)) continue;
+    if (idx < 0) idx = 0;
+
+    if (idx >= rows.length){
+      beyondHorizonAdds += p;
+      continue;
+    }
+    rows[idx].rampAdds += p;
+  }
+
+  for (const rec of (Array.isArray(shiftRecords) ? shiftRecords : [])){
+    const dt = twCapParseDate(rec?.date) || twCapParseDate(rec?.checkInAt) || twCapParseDate(rec?.startAt);
+    if (!dt) continue;
+    const weekStart = twCapWeekStart(dt);
+    const idx = Math.floor((weekStart.getTime() - week0.getTime()) / TW_CAP_WEEK_MS);
+    if (!Number.isFinite(idx) || idx < 0 || idx >= rows.length) continue;
+    rows[idx].scheduled += Math.max(0, twCapNum(rec?.attempts, 0));
+  }
+
+  let cumulativeAdds = 0;
+  let scheduledTotal = 0;
+  for (const row of rows){
+    cumulativeAdds += row.rampAdds;
+    row.baseline = baselineAttempts;
+    row.ramp = baselineAttempts + (cumulativeAdds * perOrganizerAttempts);
+    row.delta = row.scheduled - row.ramp;
+    scheduledTotal += row.scheduled;
+  }
+
+  const expectedByEnd = rows.length ? rows[rows.length - 1].ramp : baselineAttempts;
+  const expectedAddedFte = rows.reduce((acc, r) => acc + (r.rampAdds || 0), 0);
+  const pipelineCount = Array.isArray(pipelineRecords) ? pipelineRecords.length : 0;
+  const shiftCount = Array.isArray(shiftRecords) ? shiftRecords.length : 0;
+
+  twCapText(els.twCapOutlookBaseline, twCapFmtInt(baselineAttempts));
+  twCapText(els.twCapOutlookRampTotal, twCapFmtInt(expectedByEnd));
+  twCapText(els.twCapOutlookScheduledTotal, twCapFmtInt(scheduledTotal));
+  twCapText(els.twCapOutlookHorizon, `${rows.length} weeks · +${expectedAddedFte.toFixed(2)} expected active`);
+  twCapText(
+    els.twCapOutlookStatus,
+    `Source: baseline + pipeline + shifts · pipeline open ${openPipeline}/${pipelineCount} · shifts ${shiftCount} · beyond horizon +${beyondHorizonAdds.toFixed(2)} expected active`
+  );
+  twCapText(
+    els.twCapOutlookBasis,
+    "Read-only comparison only. Engine uses baseline manual capacity until override mode is explicitly enabled in a future step."
+  );
+
+  if (!els.twCapOutlookTbody) return;
+  els.twCapOutlookTbody.innerHTML = "";
+  for (const row of rows){
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td>${row.weekStarting}</td>
+      <td class="num">${twCapFmtInt(row.baseline)}</td>
+      <td class="num">${twCapFmtInt(row.ramp)}</td>
+      <td class="num">${twCapFmtInt(row.scheduled)}</td>
+      <td class="num">${twCapFmtSigned(row.delta)}</td>
+    `;
+    els.twCapOutlookTbody.appendChild(tr);
+  }
 }
 
 function updateDiagnosticsUI(){
@@ -1606,6 +1850,7 @@ function render(){
   safeCall(() => renderWeeklyOps(res, weeks));
   safeCall(() => renderWeeklyOpsInsights(res, weeks));
   safeCall(() => renderWeeklyOpsFreshness(res, weeks));
+  safeCall(() => scheduleThirdWingCapacityOutlookRender(weeks));
   safeCall(() => renderAssumptionDriftE1(res, weeks));
   safeCall(() => renderRiskFramingE2());
   safeCall(() => renderBottleneckAttributionE3(res, weeks));

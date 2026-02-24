@@ -212,6 +212,13 @@ export const els = {
   wkPaceStatus: document.getElementById("wkPaceStatus"),
   wkPaceNote: document.getElementById("wkPaceNote"),
   wkExecBanner: document.getElementById("wkExecBanner"),
+  twCapOutlookStatus: document.getElementById("twCapOutlookStatus"),
+  twCapOutlookBaseline: document.getElementById("twCapOutlookBaseline"),
+  twCapOutlookRampTotal: document.getElementById("twCapOutlookRampTotal"),
+  twCapOutlookScheduledTotal: document.getElementById("twCapOutlookScheduledTotal"),
+  twCapOutlookHorizon: document.getElementById("twCapOutlookHorizon"),
+  twCapOutlookBasis: document.getElementById("twCapOutlookBasis"),
+  twCapOutlookTbody: document.getElementById("twCapOutlookTbody"),
 
   // Daily log import/export (analyst page)
   dailyLogExportBtn: document.getElementById("dailyLogExportBtn"),
