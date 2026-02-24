@@ -157,6 +157,16 @@ body.training .toggle-pill:has(#toggleTraining) .toggle-dot-new {
   background: var(--s-train);
 }
 
+/* Strict-import toggle visual state */
+body.strict-import .toggle-pill:has(#toggleStrictImport) {
+  border-color: color-mix(in srgb, var(--s-warn) 45%, var(--s-rule));
+  color: var(--s-warn);
+  background: color-mix(in srgb, var(--s-warn) 10%, transparent);
+}
+body.strict-import .toggle-pill:has(#toggleStrictImport) .toggle-dot-new {
+  background: var(--s-warn);
+}
+
 .btn-top-new {
   padding: 5px 10px;
   border-radius: 5px;

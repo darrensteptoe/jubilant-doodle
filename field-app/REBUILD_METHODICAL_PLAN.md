@@ -43,9 +43,9 @@ Exit criteria:
 - Existing save/load behavior works with same UX.
 
 ### Phase 2 — Operations Metrics Cache (Targeted Rebuild)
-- [ ] Create `operationsMetrics` module that computes rollups once per data version.
-- [ ] Invalidate cache only on relevant Operations writes/imports.
-- [ ] Main app reads precomputed summary (no full-store scan in hot render loop).
+- [x] Create `operationsMetrics` module that computes rollups once per data version.
+- [x] Invalidate cache only on relevant Operations writes/imports.
+- [x] Main app reads precomputed summary (no full-store scan in hot render loop).
 
 Exit criteria:
 - Main render path no longer pulls all Operations stores each repaint.
@@ -93,6 +93,7 @@ Exit criteria:
 ## Current Status
 - Phase 0 captured in `/Users/anakinskywalker/Downloads/field-app-40/RELEASE_CHECKPOINT_2026-02-24.md`.
 - Phase 1 code changes are complete and isolated to storage + save status UI.
+- Phase 2 code changes are complete: Operations snapshot cache + store revision invalidation.
 - Phase gate validation still required in-browser:
   - Self-Test
   - Robust Smoke
