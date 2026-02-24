@@ -1435,6 +1435,7 @@ export function runSelfTests(engine){
       "universeSize",
       "persuasionPct",
       "validationList",
+      "operationsCapacityOutlookCard",
       "phase3Card",
       "scenarioCompareCard",
       "btnSaveScenario"

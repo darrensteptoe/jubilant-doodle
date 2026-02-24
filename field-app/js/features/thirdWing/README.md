@@ -1,6 +1,6 @@
-# Third Wing Store Skeleton
+# Operations Store Skeleton
 
-This folder contains the isolated data layer for Third Wing (pipeline + shifts + turf + forecasting config).
+This folder contains the isolated data layer for Operations (pipeline + shifts + turf + forecasting config).
 
 Files:
 - `schema.js`: schema and store constants
@@ -27,14 +27,14 @@ Design goals:
 
 Current status:
 - Hub page:
-  - `/Users/anakinskywalker/Downloads/field-app-40/camio.html`
+  - `/Users/anakinskywalker/Downloads/field-app-40/operations.html`
   - Includes CRUD for `interviews`, `onboardingRecords`, and `trainingRecords`
   - Includes CSV import/export controls for those stores
 - Wired to standalone input pages:
-  - `/Users/anakinskywalker/Downloads/field-app-40/third-wing-pipeline.html`
-  - `/Users/anakinskywalker/Downloads/field-app-40/third-wing-shifts.html`
-  - `/Users/anakinskywalker/Downloads/field-app-40/third-wing-turf.html`
-  - `/Users/anakinskywalker/Downloads/field-app-40/third-wing-ramp.html`
+  - `/Users/anakinskywalker/Downloads/field-app-40/operations-pipeline.html`
+  - `/Users/anakinskywalker/Downloads/field-app-40/operations-shifts.html`
+  - `/Users/anakinskywalker/Downloads/field-app-40/operations-turf.html`
+  - `/Users/anakinskywalker/Downloads/field-app-40/operations-ramp.html`
 - Engine integration limited to capacity compiler seam only (`compileEffectiveInputs` in app runtime)
 - Safe to build page modules on top of this store
 
