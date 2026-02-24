@@ -12,10 +12,10 @@ Purpose: Stable baseline before 3rd wing integration.
   - `d04ecb55467fd0a0b48efc3ece9145f4b92acb60d325826c6be3a8935d347fed`
 
 ## Required Validation To Attach
-- Self-Test result: __________________________
-- Robust Smoke result: _______________________
-- Fixture/hash line from Self-Test: __________________________
-- Browser timestamp (local): __________________________
+- Self-Test result: PASS — 69/69 passed (615ms)
+- Robust Smoke result: objective: max_p25_margin best: Plan C score: -4.025
+- Fixture/hash line from Self-Test: Last good: 2/23/2026, 4:19:09 PM · fixture d095aa5dd4855c84 · current d095aa5dd4855c84 · no drift
+- Browser timestamp (local): reported by user after checkpoint on 2026-02-24
 
 ## Notes
 - This checkpoint is intended as the rollback anchor before adding CRM/scheduling (3rd wing).

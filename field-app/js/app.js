@@ -12,7 +12,7 @@ import { renderRiskFramingPanel } from "./app/render/riskFraming.js";
 import { renderAssumptionDriftPanel } from "./app/render/assumptionDrift.js";
 import { renderBottleneckAttributionPanel, renderConversionPanel, renderSensitivitySnapshotPanel, runSensitivitySnapshotPanel } from "./app/render/executionAnalysis.js";
 import { renderWeeklyOpsInsightsPanel, renderWeeklyOpsFreshnessPanel } from "./app/render/weeklyOpsInsights.js";
-import { renderDecisionConfidencePanel } from "./app/render/decisionPanels.js";
+import { renderDecisionConfidencePanel, renderDecisionIntelligencePanelView, renderScenarioComparePanelView } from "./app/render/decisionPanels.js";
 
 function downloadText(text, filename, mime){
   try{
@@ -2218,6 +2218,18 @@ function renderDecisionConfidenceE5(res, weeks){
 }
 
 function renderDecisionIntelligencePanel({ res, weeks }){
+  return renderDecisionIntelligencePanelView({
+    els,
+    engine,
+    res,
+    weeks,
+    getStateSnapshot,
+    withPatchedState,
+    derivedWeeksRemaining,
+    deriveNeedVotes,
+    runMonteCarloSim,
+    fmtInt
+  });
   if (!els.diPrimary || !els.diVolTbody || !els.diCostTbody || !els.diProbTbody) return;
 
   const clearTable = (tbody) => { if (tbody) tbody.innerHTML = ""; };
@@ -2325,6 +2337,7 @@ function renderDecisionIntelligencePanel({ res, weeks }){
 
 
 function renderScenarioComparePanel({ res, weeks }){
+  return renderScenarioComparePanelView({ els, scenarioMgr });
   if (!els.scCompareTbody) return;
 
   const showWarn = (msg) => {
