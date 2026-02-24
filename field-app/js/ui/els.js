@@ -223,6 +223,16 @@ export const els = {
   twCapOutlookHorizon: document.getElementById("twCapOutlookHorizon"),
   twCapOutlookBasis: document.getElementById("twCapOutlookBasis"),
   twCapOutlookTbody: document.getElementById("twCapOutlookTbody"),
+  twDiagInterviewPass: document.getElementById("twDiagInterviewPass"),
+  twDiagOfferAccept: document.getElementById("twDiagOfferAccept"),
+  twDiagOnboardingCompletion: document.getElementById("twDiagOnboardingCompletion"),
+  twDiagTrainingCompletion: document.getElementById("twDiagTrainingCompletion"),
+  twDiagCompositeSignal: document.getElementById("twDiagCompositeSignal"),
+  twDiagReadyNow: document.getElementById("twDiagReadyNow"),
+  twDiagReadyPerWeek: document.getElementById("twDiagReadyPerWeek"),
+  twDiagReadyIn14d: document.getElementById("twDiagReadyIn14d"),
+  twDiagMedianReadyDays: document.getElementById("twDiagMedianReadyDays"),
+  twDiagHintNote: document.getElementById("twDiagHintNote"),
 
   // Daily log import/export (analyst page)
   dailyLogExportBtn: document.getElementById("dailyLogExportBtn"),

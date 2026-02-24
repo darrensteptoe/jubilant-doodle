@@ -247,12 +247,41 @@ function twCapFmtInt(v){
   return (v == null || !Number.isFinite(v)) ? "—" : fmtInt(Math.round(v));
 }
 
+function twCapFmt1(v){
+  const n = Number(v);
+  return Number.isFinite(n) ? n.toFixed(1) : "—";
+}
+
 function twCapFmtSigned(v){
   if (v == null || !Number.isFinite(v)) return "—";
   const n = Math.round(v);
   if (n > 0) return `+${fmtInt(n)}`;
   if (n < 0) return `−${fmtInt(Math.abs(n))}`;
   return "0";
+}
+
+function twCapRatioText(numerator, denominator){
+  const num = Number(numerator);
+  const den = Number(denominator);
+  if (!Number.isFinite(num) || !Number.isFinite(den) || den <= 0) return "—";
+  return `${(100 * num / den).toFixed(1)}%`;
+}
+
+function twCapFmtPct01(v){
+  const n = Number(v);
+  if (!Number.isFinite(n)) return "—";
+  return `${(100 * n).toFixed(1)}%`;
+}
+
+function twCapMedian(values){
+  const list = (Array.isArray(values) ? values : [])
+    .map((v) => Number(v))
+    .filter((v) => Number.isFinite(v))
+    .sort((a, b) => a - b);
+  if (!list.length) return null;
+  const mid = Math.floor(list.length / 2);
+  if (list.length % 2 === 1) return list[mid];
+  return (list[mid - 1] + list[mid]) / 2;
 }
 
 function twCapClean(v){
@@ -303,6 +332,65 @@ function twCapIsoUTC(dt){
   const m = String(dt.getUTCMonth() + 1).padStart(2, "0");
   const d = String(dt.getUTCDate()).padStart(2, "0");
   return `${y}-${m}-${d}`;
+}
+
+function twCapLatestRecordByPerson(rows){
+  const out = new Map();
+  for (const rec of (Array.isArray(rows) ? rows : [])){
+    const personId = twCapClean(rec?.personId);
+    if (!personId) continue;
+    const ts = twCapParseDate(rec?.updatedAt)?.getTime() || twCapParseDate(rec?.createdAt)?.getTime() || 0;
+    const prev = out.get(personId);
+    const prevTs = prev ? (twCapParseDate(prev?.updatedAt)?.getTime() || twCapParseDate(prev?.createdAt)?.getTime() || 0) : -1;
+    if (!prev || ts >= prevTs) out.set(personId, rec);
+  }
+  return out;
+}
+
+function twCapBuildReadinessStats(onboardingRecords, trainingRecords){
+  const onbByPerson = twCapLatestRecordByPerson(onboardingRecords);
+  const trnByPerson = twCapLatestRecordByPerson(trainingRecords);
+  const personIds = new Set([...onbByPerson.keys(), ...trnByPerson.keys()]);
+
+  const nowMs = Date.now();
+  const twoWeeksMs = 14 * TW_CAP_DAY_MS;
+  let readyNow = 0;
+  let recentReadyCount = 0;
+  const cycleDays = [];
+
+  for (const personId of personIds){
+    const onb = onbByPerson.get(personId);
+    const trn = trnByPerson.get(personId);
+    const onbDone = twCapClean(onb?.onboardingStatus) === "completed";
+    const trnDone = twCapClean(trn?.completionStatus) === "completed";
+    if (!(onbDone && trnDone)) continue;
+
+    readyNow += 1;
+
+    const readyCandidates = [
+      twCapParseDate(onb?.completedAt)?.getTime(),
+      twCapParseDate(trn?.completedAt)?.getTime(),
+    ].filter((v) => Number.isFinite(v));
+    const readyMs = readyCandidates.length ? Math.max(...readyCandidates) : NaN;
+
+    if (Number.isFinite(readyMs) && readyMs >= (nowMs - twoWeeksMs)){
+      recentReadyCount += 1;
+    }
+
+    const docsMs = twCapParseDate(onb?.docsSubmittedAt)?.getTime();
+    if (Number.isFinite(docsMs) && Number.isFinite(readyMs) && readyMs >= docsMs){
+      cycleDays.push((readyMs - docsMs) / TW_CAP_DAY_MS);
+    }
+  }
+
+  const recentReadyPerWeek = recentReadyCount / 2;
+  const projectedReady14d = readyNow + (recentReadyPerWeek * 2);
+  return {
+    readyNow,
+    recentReadyPerWeek,
+    projectedReady14d,
+    medianReadyDays: twCapMedian(cycleDays),
+  };
 }
 
 function twCapNormalizeForecastConfig(raw){
@@ -359,6 +447,16 @@ function twCapEmptyOutlook(message){
   twCapText(els.twCapOutlookRampTotal, "—");
   twCapText(els.twCapOutlookScheduledTotal, "—");
   twCapText(els.twCapOutlookHorizon, "—");
+  twCapText(els.twDiagInterviewPass, "—");
+  twCapText(els.twDiagOfferAccept, "—");
+  twCapText(els.twDiagOnboardingCompletion, "—");
+  twCapText(els.twDiagTrainingCompletion, "—");
+  twCapText(els.twDiagCompositeSignal, "—");
+  twCapText(els.twDiagReadyNow, "—");
+  twCapText(els.twDiagReadyPerWeek, "—");
+  twCapText(els.twDiagReadyIn14d, "—");
+  twCapText(els.twDiagMedianReadyDays, "—");
+  twCapText(els.twDiagHintNote, "Display-only diagnostics. Add interview/onboarding/training records to unlock hints.");
   if (els.twCapOutlookTbody){
     els.twCapOutlookTbody.innerHTML = '<tr><td class="muted" colspan="5">No outlook data.</td></tr>';
   }
@@ -392,10 +490,13 @@ async function renderThirdWingCapacityOutlook(seq, horizonWeeks){
 
   twCapText(els.twCapOutlookStatus, "Updating Third Wing outlook…");
 
-  const [pipelineRecords, shiftRecords, forecastConfigs] = await Promise.all([
+  const [pipelineRecords, shiftRecords, forecastConfigs, interviews, onboardingRecords, trainingRecords] = await Promise.all([
     getAll("pipelineRecords"),
     getAll("shiftRecords"),
     getAll("forecastConfigs"),
+    getAll("interviews"),
+    getAll("onboardingRecords"),
+    getAll("trainingRecords"),
   ]);
   if (seq !== twCapOutlookSeq) return;
 
@@ -470,6 +571,34 @@ async function renderThirdWingCapacityOutlook(seq, horizonWeeks){
   const shiftCount = Array.isArray(shiftRecords) ? shiftRecords.length : 0;
   const week0Row = rows[0] || { baseline: baselineAttempts, ramp: baselineAttempts, scheduled: 0 };
 
+  const stageCounts = new Map(PIPELINE_STAGES.map((s) => [s, 0]));
+  for (const rec of (Array.isArray(pipelineRecords) ? pipelineRecords : [])){
+    const stage = twCapClean(rec?.stage);
+    if (!stageCounts.has(stage)) continue;
+    stageCounts.set(stage, Number(stageCounts.get(stage) || 0) + 1);
+  }
+  const offerExtendedCount = Number(stageCounts.get("Offer Extended") || 0);
+  const offerAcceptedCount = Number(stageCounts.get("Offer Accepted") || 0);
+
+  const interviewPassCount = (Array.isArray(interviews) ? interviews : []).filter((r) => twCapClean(r?.outcome) === "pass").length;
+  const interviewCompleteCount = (Array.isArray(interviews) ? interviews : []).filter((r) => {
+    const outcome = twCapClean(r?.outcome);
+    return outcome && outcome !== "pending";
+  }).length;
+
+  const onboardingRows = Array.isArray(onboardingRecords) ? onboardingRecords : [];
+  const trainingRows = Array.isArray(trainingRecords) ? trainingRecords : [];
+  const onboardingCompleted = onboardingRows.filter((r) => twCapClean(r?.onboardingStatus) === "completed").length;
+  const trainingCompleted = trainingRows.filter((r) => twCapClean(r?.completionStatus) === "completed").length;
+
+  const interviewPassRate = interviewCompleteCount > 0 ? (interviewPassCount / interviewCompleteCount) : null;
+  const offerAcceptRate = offerExtendedCount > 0 ? (offerAcceptedCount / offerExtendedCount) : null;
+  const onboardingCompletionRate = onboardingRows.length > 0 ? (onboardingCompleted / onboardingRows.length) : null;
+  const trainingCompletionRate = trainingRows.length > 0 ? (trainingCompleted / trainingRows.length) : null;
+  const compositeSignals = [interviewPassRate, offerAcceptRate, onboardingCompletionRate, trainingCompletionRate].filter((v) => Number.isFinite(v));
+  const compositeRampSignal = compositeSignals.length ? (compositeSignals.reduce((a, b) => a + b, 0) / compositeSignals.length) : null;
+  const readiness = twCapBuildReadinessStats(onboardingRows, trainingRows);
+
   twCapOverrideCache = {
     ready: true,
     week0: {
@@ -492,6 +621,21 @@ async function renderThirdWingCapacityOutlook(seq, horizonWeeks){
   twCapText(els.twCapOutlookRampTotal, twCapFmtInt(expectedByEnd));
   twCapText(els.twCapOutlookScheduledTotal, twCapFmtInt(scheduledTotal));
   twCapText(els.twCapOutlookHorizon, `${rows.length} weeks · +${expectedAddedFte.toFixed(2)} expected active`);
+  twCapText(els.twDiagInterviewPass, twCapRatioText(interviewPassCount, interviewCompleteCount));
+  twCapText(els.twDiagOfferAccept, twCapRatioText(offerAcceptedCount, offerExtendedCount));
+  twCapText(els.twDiagOnboardingCompletion, twCapRatioText(onboardingCompleted, onboardingRows.length));
+  twCapText(els.twDiagTrainingCompletion, twCapRatioText(trainingCompleted, trainingRows.length));
+  twCapText(els.twDiagCompositeSignal, twCapFmtPct01(compositeRampSignal));
+  twCapText(els.twDiagReadyNow, twCapFmtInt(readiness.readyNow));
+  twCapText(els.twDiagReadyPerWeek, twCapFmt1(readiness.recentReadyPerWeek));
+  twCapText(els.twDiagReadyIn14d, twCapFmt1(readiness.projectedReady14d));
+  twCapText(els.twDiagMedianReadyDays, Number.isFinite(readiness.medianReadyDays) ? twCapFmt1(readiness.medianReadyDays) : "—");
+  twCapText(
+    els.twDiagHintNote,
+    Number.isFinite(compositeRampSignal)
+      ? `Display-only diagnostics. Composite ramp signal ${(100 * compositeRampSignal).toFixed(1)}% (no engine mutation).`
+      : "Display-only diagnostics. Add interview/onboarding/training records to unlock hints."
+  );
   twCapText(
     els.twCapOutlookStatus,
     `Source: baseline + pipeline + shifts · pipeline open ${openPipeline}/${pipelineCount} · shifts ${shiftCount} · beyond horizon +${beyondHorizonAdds.toFixed(2)} expected active`

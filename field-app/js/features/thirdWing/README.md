@@ -23,10 +23,13 @@ Design goals:
 - Local-first storage on static hosting
 - No dependency on engine compute paths
 - Explicit import/export portability
+- Display-only diagnostics for ramp/readiness (no engine mutation)
 
 Current status:
 - Hub page:
   - `/Users/anakinskywalker/Downloads/field-app-40/camio.html`
+  - Includes CRUD for `interviews`, `onboardingRecords`, and `trainingRecords`
+  - Includes CSV import/export controls for those stores
 - Wired to standalone input pages:
   - `/Users/anakinskywalker/Downloads/field-app-40/third-wing-pipeline.html`
   - `/Users/anakinskywalker/Downloads/field-app-40/third-wing-shifts.html`

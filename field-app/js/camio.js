@@ -8,7 +8,12 @@ import {
   remove,
 } from "./features/thirdWing/store.js";
 import { computeOperationalRollups } from "./features/thirdWing/rollups.js";
-import { downloadThirdWingSnapshot, importThirdWingSnapshot } from "./features/thirdWing/io.js";
+import {
+  downloadThirdWingSnapshot,
+  importThirdWingSnapshot,
+  downloadStoreCsv,
+  importStoreCsv,
+} from "./features/thirdWing/io.js";
 
 const MODULE_IDS = [
   "overview",
@@ -30,7 +35,14 @@ const els = {
   btnTwImportJson: document.getElementById("btnTwImportJson"),
   twImportMode: document.getElementById("twImportMode"),
   twImportFile: document.getElementById("twImportFile"),
+  twCsvImportFile: document.getElementById("twCsvImportFile"),
   btnTwRefresh: document.getElementById("btnTwRefresh"),
+  btnCsvExportInterviews: document.getElementById("btnCsvExportInterviews"),
+  btnCsvImportInterviews: document.getElementById("btnCsvImportInterviews"),
+  btnCsvExportOnboarding: document.getElementById("btnCsvExportOnboarding"),
+  btnCsvImportOnboarding: document.getElementById("btnCsvImportOnboarding"),
+  btnCsvExportTraining: document.getElementById("btnCsvExportTraining"),
+  btnCsvImportTraining: document.getElementById("btnCsvImportTraining"),
   ioStatus: document.getElementById("ioStatus"),
   ioDiagnostics: document.getElementById("ioDiagnostics"),
 
@@ -102,6 +114,91 @@ function fmtDate(value){
   const ts = Date.parse(clean(value));
   if (!Number.isFinite(ts)) return "—";
   return new Date(ts).toLocaleString();
+}
+
+function ratioText(numerator, denominator){
+  const den = Number(denominator);
+  const num = Number(numerator);
+  if (!Number.isFinite(den) || den <= 0 || !Number.isFinite(num)) return "—";
+  return `${(100 * num / den).toFixed(1)}%`;
+}
+
+function parseDayTs(value){
+  const v = clean(value);
+  if (!v) return NaN;
+  const ts = Date.parse(v.length <= 10 ? `${v}T00:00:00` : v);
+  return Number.isFinite(ts) ? ts : NaN;
+}
+
+function median(values){
+  const list = (Array.isArray(values) ? values : [])
+    .map((v) => Number(v))
+    .filter((v) => Number.isFinite(v))
+    .sort((a, b) => a - b);
+  if (!list.length) return null;
+  const mid = Math.floor(list.length / 2);
+  if (list.length % 2 === 1) return list[mid];
+  return (list[mid - 1] + list[mid]) / 2;
+}
+
+function buildReadinessStats(onboardingRecords, trainingRecords){
+  const onboardingByPerson = new Map();
+  for (const rec of (Array.isArray(onboardingRecords) ? onboardingRecords : [])){
+    const personId = clean(rec?.personId);
+    if (!personId) continue;
+    const ts = parseDayTs(rec?.updatedAt);
+    const prev = onboardingByPerson.get(personId);
+    if (!prev || ts > parseDayTs(prev?.updatedAt)) onboardingByPerson.set(personId, rec);
+  }
+
+  const trainingByPerson = new Map();
+  for (const rec of (Array.isArray(trainingRecords) ? trainingRecords : [])){
+    const personId = clean(rec?.personId);
+    if (!personId) continue;
+    const ts = parseDayTs(rec?.updatedAt);
+    const prev = trainingByPerson.get(personId);
+    if (!prev || ts > parseDayTs(prev?.updatedAt)) trainingByPerson.set(personId, rec);
+  }
+
+  const personIds = new Set([...onboardingByPerson.keys(), ...trainingByPerson.keys()]);
+  const now = Date.now();
+  const twoWeeksMs = 14 * 86400000;
+  let readyNow = 0;
+  let recentReadyCount = 0;
+  const cycleDays = [];
+
+  for (const personId of personIds){
+    const onb = onboardingByPerson.get(personId);
+    const trn = trainingByPerson.get(personId);
+    const onbDone = clean(onb?.onboardingStatus) === "completed";
+    const trnDone = clean(trn?.completionStatus) === "completed";
+    if (!(onbDone && trnDone)) continue;
+
+    readyNow += 1;
+    const onbDoneTs = parseDayTs(onb?.completedAt);
+    const trnDoneTs = parseDayTs(trn?.completedAt);
+    const readyCandidates = [onbDoneTs, trnDoneTs].filter((v) => Number.isFinite(v));
+    const readyTs = readyCandidates.length ? Math.max(...readyCandidates) : NaN;
+
+    if (Number.isFinite(readyTs) && readyTs >= (now - twoWeeksMs)){
+      recentReadyCount += 1;
+    }
+
+    const docsTs = parseDayTs(onb?.docsSubmittedAt);
+    if (Number.isFinite(docsTs) && Number.isFinite(readyTs) && readyTs >= docsTs){
+      cycleDays.push((readyTs - docsTs) / 86400000);
+    }
+  }
+
+  const recentReadyPerWeek = recentReadyCount / 2;
+  const projectedReady14d = readyNow + recentReadyPerWeek * 2;
+
+  return {
+    readyNow,
+    recentReadyPerWeek,
+    projectedReady14d,
+    medianCycleDays: median(cycleDays),
+  };
 }
 
 function stageEnteredAt(rec){
@@ -404,6 +501,35 @@ async function refreshDashboard(){
   setText("trActive", fmtInt(trainingInProgress));
   setText("trReadyRatio", `${readyRatio.toFixed(1)}%`);
 
+  const interviewPassCount = interviews.filter((r) => clean(r?.outcome) === "pass").length;
+  const interviewCompleteCount = interviews.filter((r) => {
+    const outcome = clean(r?.outcome);
+    return outcome && outcome !== "pending";
+  }).length;
+  const offerExtendedCount = Number(stageCounts.get("Offer Extended") || 0);
+  const offerAcceptedCount = Number(stageCounts.get("Offer Accepted") || 0);
+  const onboardingCompletionRate = onboardingRecords.length > 0 ? (onboardingCompleted / onboardingRecords.length) : null;
+  const trainingCompletionRate = trainingTotal > 0 ? (trainingCompleted / trainingTotal) : null;
+  const interviewPassRate = interviewCompleteCount > 0 ? (interviewPassCount / interviewCompleteCount) : null;
+  const offerAcceptRate = offerExtendedCount > 0 ? (offerAcceptedCount / offerExtendedCount) : null;
+  const rampSignals = [interviewPassRate, offerAcceptRate, onboardingCompletionRate, trainingCompletionRate]
+    .filter((v) => Number.isFinite(v));
+  const compositeRampSignal = rampSignals.length > 0
+    ? rampSignals.reduce((sum, v) => sum + v, 0) / rampSignals.length
+    : null;
+
+  setText("fcInterviewPassRate", ratioText(interviewPassCount, interviewCompleteCount));
+  setText("fcOfferAcceptRate", ratioText(offerAcceptedCount, offerExtendedCount));
+  setText("fcOnboardingCompletionRate", ratioText(onboardingCompleted, onboardingRecords.length));
+  setText("fcTrainingCompletionRate", ratioText(trainingCompleted, trainingTotal));
+  setText("fcCompositeRampSignal", Number.isFinite(compositeRampSignal) ? `${(compositeRampSignal * 100).toFixed(1)}%` : "—");
+  setText(
+    "fcHintNote",
+    Number.isFinite(compositeRampSignal)
+      ? `Display-only diagnostics. Composite ramp signal: ${(compositeRampSignal * 100).toFixed(1)}% (avg of interview/offer/onboarding/training conversion hints).`
+      : "Display-only diagnostics. Add interview/onboarding/training records to unlock conversion hints."
+  );
+
   setText("shShiftCount", fmtInt(shiftRecords.length));
   setText("shAttempts", fmtInt(prod.attempts || 0));
   setText("shConvos", fmtInt(prod.convos || 0));
@@ -424,6 +550,12 @@ async function refreshDashboard(){
   setText("agHours", fmt1(prod.hours || 0));
   setText("agExcludedAttempts", fmtInt(dedupe.excludedTurfAttempts || 0));
   setText("agExcludedRecords", fmtInt(dedupe.excludedTurfAttemptRecords || 0));
+
+  const readiness = buildReadinessStats(onboardingRecords, trainingRecords);
+  setText("agReadyNow", fmtInt(readiness.readyNow));
+  setText("agRecentReadyPerWeek", fmt1(readiness.recentReadyPerWeek));
+  setText("agReadyIn14d", fmt1(readiness.projectedReady14d));
+  setText("agMedianReadyDays", Number.isFinite(readiness.medianCycleDays) ? fmt1(readiness.medianCycleDays) : "—");
 
   setText("fcBaselineActive", fmtInt(activeStage));
   setText("fcOpenPipeline", fmtInt(Math.max(0, pipelineRecords.length - activeStage)));
@@ -446,6 +578,19 @@ async function refreshDashboard(){
           excludedTurfAttemptRecords: Number(dedupe.excludedTurfAttemptRecords || 0),
           excludedTurfAttempts: Number(dedupe.excludedTurfAttempts || 0),
           includedFallbackAttempts: Number(dedupe.includedFallbackAttempts || 0),
+        },
+        readiness: {
+          readyNow: Number(readiness.readyNow || 0),
+          recentReadyPerWeek: Number(readiness.recentReadyPerWeek || 0),
+          projectedReady14d: Number(readiness.projectedReady14d || 0),
+          medianReadyDays: Number.isFinite(readiness.medianCycleDays) ? Number(readiness.medianCycleDays) : null,
+        },
+        rampHints: {
+          interviewPassRate: Number.isFinite(interviewPassRate) ? Number(interviewPassRate) : null,
+          offerAcceptRate: Number.isFinite(offerAcceptRate) ? Number(offerAcceptRate) : null,
+          onboardingCompletionRate: Number.isFinite(onboardingCompletionRate) ? Number(onboardingCompletionRate) : null,
+          trainingCompletionRate: Number.isFinite(trainingCompletionRate) ? Number(trainingCompletionRate) : null,
+          compositeRampSignal: Number.isFinite(compositeRampSignal) ? Number(compositeRampSignal) : null,
         },
       },
     };
@@ -623,6 +768,76 @@ function wireIoActions(){
         setStatus(err?.message ? String(err.message) : "Import failed.");
       } finally {
         els.twImportFile.value = "";
+      }
+    });
+  }
+
+  if (els.btnCsvExportInterviews){
+    els.btnCsvExportInterviews.addEventListener("click", async () => {
+      try {
+        await downloadStoreCsv("interviews", "third-wing-interviews.csv");
+        setStatus("Exported Interviews CSV.");
+      } catch (err) {
+        setStatus(err?.message ? String(err.message) : "Interviews CSV export failed.");
+      }
+    });
+  }
+  if (els.btnCsvExportOnboarding){
+    els.btnCsvExportOnboarding.addEventListener("click", async () => {
+      try {
+        await downloadStoreCsv("onboardingRecords", "third-wing-onboarding.csv");
+        setStatus("Exported Onboarding CSV.");
+      } catch (err) {
+        setStatus(err?.message ? String(err.message) : "Onboarding CSV export failed.");
+      }
+    });
+  }
+  if (els.btnCsvExportTraining){
+    els.btnCsvExportTraining.addEventListener("click", async () => {
+      try {
+        await downloadStoreCsv("trainingRecords", "third-wing-training.csv");
+        setStatus("Exported Training CSV.");
+      } catch (err) {
+        setStatus(err?.message ? String(err.message) : "Training CSV export failed.");
+      }
+    });
+  }
+
+  if (els.btnCsvImportInterviews && els.twCsvImportFile){
+    els.btnCsvImportInterviews.addEventListener("click", () => {
+      els.twCsvImportFile.dataset.store = "interviews";
+      els.twCsvImportFile.click();
+    });
+  }
+  if (els.btnCsvImportOnboarding && els.twCsvImportFile){
+    els.btnCsvImportOnboarding.addEventListener("click", () => {
+      els.twCsvImportFile.dataset.store = "onboardingRecords";
+      els.twCsvImportFile.click();
+    });
+  }
+  if (els.btnCsvImportTraining && els.twCsvImportFile){
+    els.btnCsvImportTraining.addEventListener("click", () => {
+      els.twCsvImportFile.dataset.store = "trainingRecords";
+      els.twCsvImportFile.click();
+    });
+  }
+
+  if (els.twCsvImportFile){
+    els.twCsvImportFile.addEventListener("change", async () => {
+      try {
+        const file = els.twCsvImportFile.files?.[0];
+        const storeName = clean(els.twCsvImportFile.dataset.store);
+        if (!file || !storeName) return;
+        const mode = clean(els.twImportMode?.value) === "replace" ? "replace" : "merge";
+        const text = await file.text();
+        const result = await importStoreCsv(storeName, text, { mode });
+        setStatus(`Imported ${storeName} CSV (${mode}, ${fmtInt(result?.count || 0)} rows).`);
+        await refreshDashboard();
+      } catch (err) {
+        setStatus(err?.message ? String(err.message) : "CSV import failed.");
+      } finally {
+        els.twCsvImportFile.value = "";
+        delete els.twCsvImportFile.dataset.store;
       }
     });
   }
