@@ -614,6 +614,45 @@
 </div>
 <div class="note">Reality check uses your daily log to estimate actual rates/capacity over the last 7 entries.</div>
 </div>
+<div class="card card-section" id="thirdWingCapacityOutlookCard">
+<div class="card-head card-header">
+<h2 class="card-title">Capacity outlook (read-only)</h2>
+<div class="help-text">Baseline vs expected ramp vs scheduled attempts by week from Third Wing records. This does not change FPE math inputs.</div>
+</div>
+<div class="note" id="twCapOutlookStatus">Loading Third Wing outlook…</div>
+<div class="subgrid" style="margin-top:10px;">
+<div class="mini">
+<div class="mini-k">Baseline / week</div>
+<div class="mini-v" id="twCapOutlookBaseline">—</div>
+<div class="mini-s">Current manual capacity inputs</div>
+</div>
+<div class="mini">
+<div class="mini-k">Expected ramp (horizon)</div>
+<div class="mini-v" id="twCapOutlookRampTotal">—</div>
+<div class="mini-s" id="twCapOutlookHorizon">—</div>
+</div>
+<div class="mini">
+<div class="mini-k">Scheduled attempts (horizon)</div>
+<div class="mini-v" id="twCapOutlookScheduledTotal">—</div>
+<div class="mini-s">From shift records by week</div>
+</div>
+</div>
+<div class="table-wrap" style="margin-top:10px;">
+<div class="table-scroll"><table class="table" aria-label="Third Wing capacity outlook">
+<thead>
+<tr>
+<th>Week starting</th>
+<th class="num">Baseline</th>
+<th class="num">Expected ramp</th>
+<th class="num">Scheduled</th>
+<th class="num">Scheduled − ramp</th>
+</tr>
+</thead>
+<tbody id="twCapOutlookTbody"></tbody>
+</table></div>
+</div>
+<div class="note" id="twCapOutlookBasis">Read-only comparison only. Engine uses baseline manual capacity until override mode is explicitly enabled in a future step.</div>
+</div>
 <div class="card card-section phase-phase2" id="conversionCard">
 <div class="card-head card-header">
 <h2 class="card-title">Persuasion &amp; contact math</h2>
@@ -2476,7 +2515,7 @@ Volunteer multiplier stays above 1.5" rows="4"></textarea>
 </aside>
 </div>
 <!-- /app-shell -->
-<script src="./js/app.js?v=20260223-stable-c14" type="module"></script>
+<script src="./js/app.js?v=20260224-stable-c15" type="module"></script>
 <script>
 // ── Stage navigation ───────────────────────────────────────────
 function normalizeStages() {
