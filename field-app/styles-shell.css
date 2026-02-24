@@ -362,6 +362,46 @@ body.strict-import .toggle-pill:has(#toggleStrictImport) .toggle-dot-new {
   gap: 16px;
 }
 
+.setup-divider {
+  width: 100%;
+  margin: 2px 0 4px;
+  border: 0;
+  border-top: 1px solid color-mix(in srgb, var(--s-rule) 78%, transparent);
+}
+
+.no-dropdown-details > summary {
+  display: none;
+}
+
+.no-dropdown-details {
+  border: 0;
+  padding: 0;
+  margin: 0;
+}
+
+#setupBallotModule .table-wrap {
+  overflow-x: auto;
+}
+
+#setupBallotModule .table {
+  width: 100%;
+}
+
+#setupBallotModule .table th:nth-child(1),
+#setupBallotModule .table td:nth-child(1) {
+  min-width: 200px;
+}
+
+#setupBallotModule .table th:nth-child(2),
+#setupBallotModule .table td:nth-child(2) {
+  min-width: 160px;
+}
+
+.phase-candidates:empty,
+.phase-persuasion:empty {
+  display: none;
+}
+
 .integrity-stage-body > .card {
   max-width: 980px;
 }
