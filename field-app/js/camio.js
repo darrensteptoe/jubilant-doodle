@@ -739,8 +739,8 @@ function wireIoActions(){
   if (els.btnTwExportJson){
     els.btnTwExportJson.addEventListener("click", async () => {
       try {
-        await downloadThirdWingSnapshot("third-wing-snapshot.json");
-        setStatus("Exported Third Wing JSON snapshot.");
+        await downloadThirdWingSnapshot("operations-snapshot.json");
+        setStatus("Exported Operations JSON snapshot.");
       } catch (err) {
         setStatus(err?.message ? String(err.message) : "Export failed.");
       }
@@ -762,7 +762,7 @@ function wireIoActions(){
 
         const mode = clean(els.twImportMode?.value) === "replace" ? "replace" : "merge";
         await importThirdWingSnapshot(payload, { mode });
-        setStatus(`Imported Third Wing JSON (${mode}).`);
+        setStatus(`Imported Operations JSON (${mode}).`);
         await refreshDashboard();
       } catch (err) {
         setStatus(err?.message ? String(err.message) : "Import failed.");
@@ -775,7 +775,7 @@ function wireIoActions(){
   if (els.btnCsvExportInterviews){
     els.btnCsvExportInterviews.addEventListener("click", async () => {
       try {
-        await downloadStoreCsv("interviews", "third-wing-interviews.csv");
+        await downloadStoreCsv("interviews", "operations-interviews.csv");
         setStatus("Exported Interviews CSV.");
       } catch (err) {
         setStatus(err?.message ? String(err.message) : "Interviews CSV export failed.");
@@ -785,7 +785,7 @@ function wireIoActions(){
   if (els.btnCsvExportOnboarding){
     els.btnCsvExportOnboarding.addEventListener("click", async () => {
       try {
-        await downloadStoreCsv("onboardingRecords", "third-wing-onboarding.csv");
+        await downloadStoreCsv("onboardingRecords", "operations-onboarding.csv");
         setStatus("Exported Onboarding CSV.");
       } catch (err) {
         setStatus(err?.message ? String(err.message) : "Onboarding CSV export failed.");
@@ -795,7 +795,7 @@ function wireIoActions(){
   if (els.btnCsvExportTraining){
     els.btnCsvExportTraining.addEventListener("click", async () => {
       try {
-        await downloadStoreCsv("trainingRecords", "third-wing-training.csv");
+        await downloadStoreCsv("trainingRecords", "operations-training.csv");
         setStatus("Exported Training CSV.");
       } catch (err) {
         setStatus(err?.message ? String(err.message) : "Training CSV export failed.");

@@ -203,7 +203,7 @@ async function getThirdWingDiagnosticsSnapshot(){
 function appendThirdWingDiagnostics(lines, tw){
   const out = Array.isArray(lines) ? lines.slice() : [];
   out.push("");
-  out.push("[third-wing diagnostics]");
+  out.push("[operations diagnostics]");
   if (!tw?.available){
     out.push(`status: unavailable (${tw?.error || "not initialized"})`);
     return out;
@@ -441,7 +441,7 @@ function twCapEmptyOutlook(message){
     horizonWeeks: 0,
     updatedAt: new Date().toISOString(),
   };
-  twCapText(els.twCapOutlookStatus, message || "No Third Wing data.");
+  twCapText(els.twCapOutlookStatus, message || "No Operations data.");
   twCapText(els.twCapOutlookActiveSource, state?.twCapOverrideEnabled ? "Override ON (data unavailable; fallback baseline)" : "Override OFF");
   twCapText(els.twCapOutlookBaseline, "—");
   twCapText(els.twCapOutlookRampTotal, "—");
@@ -478,7 +478,7 @@ function scheduleThirdWingCapacityOutlookRender(weeks){
   twCapOutlookTimer = setTimeout(() => {
     renderThirdWingCapacityOutlook(seq, horizonWeeks).catch((e) => {
       if (seq !== twCapOutlookSeq) return;
-      twCapEmptyOutlook(e?.message ? String(e.message) : "Could not compute Third Wing outlook.");
+      twCapEmptyOutlook(e?.message ? String(e.message) : "Could not compute Operations outlook.");
     });
   }, delayMs);
 }
@@ -488,7 +488,7 @@ async function renderThirdWingCapacityOutlook(seq, horizonWeeks){
   if (!els.twCapOutlookTbody) return;
   twCapOutlookLastRunMs = Date.now();
 
-  twCapText(els.twCapOutlookStatus, "Updating Third Wing outlook…");
+  twCapText(els.twCapOutlookStatus, "Updating Operations outlook…");
 
   const [pipelineRecords, shiftRecords, forecastConfigs, interviews, onboardingRecords, trainingRecords] = await Promise.all([
     getAll("pipelineRecords"),
@@ -642,7 +642,7 @@ async function renderThirdWingCapacityOutlook(seq, horizonWeeks){
   );
   twCapText(
     els.twCapOutlookBasis,
-    "Override is OFF by default. When enabled, FPE capacity uses selected Third Wing source with automatic fallback to baseline if data is unavailable."
+    "Override is OFF by default. When enabled, FPE capacity uses selected Operations source with automatic fallback to baseline if data is unavailable."
   );
 
   // If override is active, re-render once when cache materially changes so effective inputs pick up new values.
@@ -689,7 +689,7 @@ function updateDiagnosticsUI(){
     if (!lines.length) lines.push("(none)");
     els.diagErrors.textContent = lines.join("\n");
 
-    // Only resolve Third Wing diagnostics when modal is open to avoid background load.
+    // Only resolve Operations diagnostics when modal is open to avoid background load.
     if (!els.diagModal || els.diagModal.hidden) return;
     const seq = ++diagRenderSeq;
     Promise.resolve()
@@ -1940,7 +1940,7 @@ function getEffectiveBaseRates(){
 }
 
 // Step-3 seam: single compiler for effective inputs.
-// Third Wing override is explicit opt-in and falls back to baseline when unavailable.
+// Operations override is explicit opt-in and falls back to baseline when unavailable.
 function compileEffectiveInputs(srcState = state){
   const s = srcState || {};
   const eff = (s === state) ? getEffectiveBaseRates() : getEffectiveBaseRatesFromSnap(s);
@@ -1976,7 +1976,7 @@ function compileEffectiveInputs(srcState = state){
       if (targetAttempts != null && perOrganizerAttempts > 0){
         orgCount = targetAttempts / perOrganizerAttempts;
         overrideTargetAttemptsPerWeek = targetAttempts;
-        source = `third-wing-${overrideMode}`;
+        source = `operations-${overrideMode}`;
       } else {
         source = `baseline-manual (override-${overrideMode}-fallback)`;
       }

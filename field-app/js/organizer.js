@@ -346,7 +346,7 @@ async function previewShiftSync(){
   if (!api || typeof api.getAll !== "function"){
     shiftSyncPlan = null;
     renderShiftSyncPlan(null);
-    setShiftSyncStatus("Third Wing store not available in this build.");
+    setShiftSyncStatus("Operations store not available in this build.");
     return null;
   }
 
@@ -721,7 +721,7 @@ function wire(){
         return;
       }
       if (plan.overwriteEnabled && plan.overwriteCount > 0){
-        const ok = window.confirm(`Overwrite ${plan.overwriteCount} existing day entries from Third Wing shifts?`);
+        const ok = window.confirm(`Overwrite ${plan.overwriteCount} existing day entries from Operations shifts?`);
         if (!ok){
           setMsg("Shift sync cancelled");
           return;

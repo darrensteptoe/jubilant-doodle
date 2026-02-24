@@ -284,8 +284,8 @@ function wireIoActions(){
   if (els.btnExportJson){
     els.btnExportJson.addEventListener("click", async () => {
       try{
-        await downloadThirdWingSnapshot("third-wing-snapshot.json");
-        setMsg(els.ioMsg, "Third Wing JSON exported.");
+        await downloadThirdWingSnapshot("operations-snapshot.json");
+        setMsg(els.ioMsg, "Operations JSON exported.");
       } catch (e){
         setMsg(els.ioMsg, e?.message ? String(e.message) : "Export failed.");
       }
@@ -300,7 +300,7 @@ function wireIoActions(){
         if (!file) return;
         const payload = await readJsonFile(file);
         await importThirdWingSnapshot(payload, { mode: "merge" });
-        setMsg(els.ioMsg, "Third Wing JSON imported (merge).");
+        setMsg(els.ioMsg, "Operations JSON imported (merge).");
         await renderEvents();
       } catch (e){
         setMsg(els.ioMsg, e?.message ? String(e.message) : "Import failed.");

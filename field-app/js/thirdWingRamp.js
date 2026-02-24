@@ -416,7 +416,7 @@ function exportWeeklyCsv(){
     "recruits_landing",
     "cumulative_expected_active",
   ], rows);
-  downloadText("third-wing-ramp-weekly.csv", csv, "text/csv");
+  downloadText("operations-ramp-weekly.csv", csv, "text/csv");
 }
 
 function exportPersonCsv(){
@@ -434,7 +434,7 @@ function exportPersonCsv(){
     "days_to_active",
     "projected_active_date",
   ], rows);
-  downloadText("third-wing-ramp-detail.csv", csv, "text/csv");
+  downloadText("operations-ramp-detail.csv", csv, "text/csv");
 }
 
 function wire(){
