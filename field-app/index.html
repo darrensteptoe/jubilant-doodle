@@ -2031,25 +2031,46 @@
 </div>
 </div>
 <div class="stage-body-new">
-<div class="checks-grid">
 <div class="card card-section">
 <div class="card-head card-header">
-<h2 class="card-title">Input validation</h2>
+<h2 class="card-title">Status stack location</h2>
 </div>
-<ul class="validation" id="validationList-stage"></ul>
+<div class="note">Canonical status now lives in the right rail to prevent drift and duplicate headlines. Use this stage as a review workflow, not a second output surface.</div>
+<div class="subgrid" style="margin-top:10px;">
+<div class="mini">
+<div class="mini-k">Outcome</div>
+<div class="mini-v">Win path — expected</div>
+<div class="mini-s">Turnout votes, win threshold, projected votes, persuasion need</div>
+</div>
+<div class="mini">
+<div class="mini-k">Fragility</div>
+<div class="mini-v">Stress + Monte Carlo</div>
+<div class="mini-s">Stress test summary, probability, margin band, volatility</div>
+</div>
+<div class="mini">
+<div class="mini-k">Integrity</div>
+<div class="mini-v">Validation + guardrails</div>
+<div class="mini-s">Input validation, assumptions snapshot, and guardrails</div>
+</div>
+</div>
 </div>
 <div class="card card-section">
 <div class="card-head card-header">
-<h2 class="card-title">Guardrails</h2>
+<h2 class="card-title">Review workflow</h2>
 </div>
-<div class="guardrails" id="guardrailsStage"></div>
-</div>
+<div class="note">Recommended sequence before decisions or exports:</div>
+<ol class="muted" style="margin:8px 0 0 18px; padding:0; display:grid; gap:6px;">
+<li>Check right-rail Input validation first.</li>
+<li>Confirm assumptions snapshot matches scenario intent.</li>
+<li>Review guardrails and stress summary for feasibility risks.</li>
+<li>Run Self-Test before final export or scenario handoff.</li>
+</ol>
 </div>
 <div class="card card-section">
 <div class="card-head card-header">
-<h2 class="card-title">Assumptions snapshot</h2>
+<h2 class="card-title">Why this changed</h2>
 </div>
-<div class="assumptions" id="assumptionsSnapshotStage"></div>
+<div class="note">This removes duplicate dynamic outputs in center panels so one number has one canonical place. It improves auditability and prevents contradictory status reads.</div>
 </div>
 </div></section>
 <!-- ── STAGE: scenarios ── -->
@@ -2669,7 +2690,7 @@ Volunteer multiplier stays above 1.5" rows="4"></textarea>
 </aside>
 </div>
 <!-- /app-shell -->
-<script src="./js/app.js?v=20260224-stable-c23" type="module"></script>
+<script src="./js/app.js?v=20260224-stable-c24" type="module"></script>
 <script>
 // ── Stage navigation ───────────────────────────────────────────
 function normalizeStages() {

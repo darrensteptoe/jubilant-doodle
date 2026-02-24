@@ -437,16 +437,6 @@ body.strict-import .toggle-pill:has(#toggleStrictImport) .toggle-dot-new {
   padding: 12px 14px 14px;
 }
 
-#assumptionsSnapshotStage .assump-block,
-#guardrailsStage .assump-block {
-  margin-bottom: 10px;
-}
-
-#assumptionsSnapshotStage .assump-block:last-child,
-#guardrailsStage .assump-block:last-child {
-  margin-bottom: 0;
-}
-
 /* Cards inside stage body need spacing reset */
 .stage-body-new .card + .card { margin-top: 0; }
 .stage-body-new .card { margin-top: 0; }
