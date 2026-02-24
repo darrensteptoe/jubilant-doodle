@@ -1,0 +1,406 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Steptoe Strategic Media LLC Campaign Engine — Operations Hub</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body class="page-generic">
+  <a class="skip-link" href="#main">Skip to content</a>
+
+  <main class="wrap" id="main">
+    <header class="header">
+      <h1 class="title"><a href="index.html">Steptoe Strategic Media LLC Campaign Engine</a></h1>
+      <p class="sub">Campaign Operations Hub</p>
+    </header>
+
+    <div class="note" style="display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin-bottom:10px;">
+      <a class="btn btn-sm" href="operations.html">Operations Hub</a>
+      <a class="btn btn-sm btn-ghost" href="organizer.html">Organizer Log</a>
+      <a class="btn btn-sm btn-ghost" href="operations-pipeline.html">Pipeline</a>
+      <a class="btn btn-sm btn-ghost" href="operations-shifts.html">Shifts</a>
+      <a class="btn btn-sm btn-ghost" href="operations-turf.html">Turf</a>
+      <a class="btn btn-sm btn-ghost" href="operations-ramp.html">Ramp</a>
+      <span class="mini-s">Separate app surface for Operations modules. Core planner stays isolated.</span>
+    </div>
+
+    <div class="camio-shell">
+      <aside class="camio-nav card card-section" aria-label="Operations modules">
+        <button class="camio-nav-btn" data-module="overview" type="button">Overview</button>
+        <button class="camio-nav-btn" data-module="recruitment" type="button">Recruitment</button>
+        <button class="camio-nav-btn" data-module="interviews" type="button">Interviews</button>
+        <button class="camio-nav-btn" data-module="onboarding" type="button">Onboarding</button>
+        <button class="camio-nav-btn" data-module="training" type="button">Training</button>
+        <button class="camio-nav-btn" data-module="shifts" type="button">Shift Scheduler</button>
+        <button class="camio-nav-btn" data-module="turf" type="button">Turf Tracker</button>
+        <button class="camio-nav-btn" data-module="aggregate" type="button">Aggregate</button>
+        <button class="camio-nav-btn" data-module="forecast" type="button">Capacity Forecast</button>
+        <button class="camio-nav-btn" data-module="io" type="button">Data I/O + Diagnostics</button>
+      </aside>
+
+      <section class="camio-main" aria-live="polite">
+        <section class="camio-module" data-module-panel="overview">
+          <div class="card card-section">
+            <div class="card-head card-header">
+              <h2 class="card-title">Overview</h2>
+              <div class="help-text">Current Operations footprint across pipeline, shifts, turf, and forecast configuration.</div>
+            </div>
+            <div class="subgrid">
+              <div class="mini"><div class="mini-k">People</div><div class="mini-v" id="ovPersons">0</div></div>
+              <div class="mini"><div class="mini-k">Pipeline records</div><div class="mini-v" id="ovPipeline">0</div></div>
+              <div class="mini"><div class="mini-k">Shift records</div><div class="mini-v" id="ovShifts">0</div></div>
+              <div class="mini"><div class="mini-k">Turf events</div><div class="mini-v" id="ovTurf">0</div></div>
+              <div class="mini"><div class="mini-k">Forecast configs</div><div class="mini-v" id="ovForecastConfigs">0</div></div>
+              <div class="mini"><div class="mini-k">Active stage now</div><div class="mini-v" id="ovActiveStage">0</div></div>
+            </div>
+            <div class="note" id="ovNote">No data loaded yet.</div>
+          </div>
+        </section>
+
+        <section class="camio-module" data-module-panel="recruitment">
+          <div class="card card-section">
+            <div class="card-head card-header">
+              <h2 class="card-title">Recruitment Tracker</h2>
+              <div class="help-text">Pipeline-stage distribution and current queue health.</div>
+            </div>
+            <div class="subgrid">
+              <div class="mini"><div class="mini-k">Sourced</div><div class="mini-v" id="recSourced">0</div></div>
+              <div class="mini"><div class="mini-k">Contacted</div><div class="mini-v" id="recContacted">0</div></div>
+              <div class="mini"><div class="mini-k">Phone Screen</div><div class="mini-v" id="recPhoneScreen">0</div></div>
+              <div class="mini"><div class="mini-k">Interviewed</div><div class="mini-v" id="recInterviewed">0</div></div>
+              <div class="mini"><div class="mini-k">Offer Accepted</div><div class="mini-v" id="recOfferAccepted">0</div></div>
+              <div class="mini"><div class="mini-k">Active</div><div class="mini-v" id="recActive">0</div></div>
+              <div class="mini"><div class="mini-k">Avg days in stage</div><div class="mini-v" id="recAvgDaysInStage">0.0</div></div>
+            </div>
+            <div class="toolbar" style="margin-top:10px;">
+              <a class="btn btn-sm" href="operations-pipeline.html">Open Pipeline Input</a>
+            </div>
+          </div>
+        </section>
+
+        <section class="camio-module" data-module-panel="interviews">
+          <div class="card card-section">
+            <div class="card-head card-header">
+              <h2 class="card-title">Interview Tracker</h2>
+              <div class="help-text">Dedicated interview records for scheduling, outcomes, and throughput.</div>
+            </div>
+            <div class="subgrid">
+              <div class="mini"><div class="mini-k">Interview records</div><div class="mini-v" id="intRecordCount">0</div></div>
+              <div class="mini"><div class="mini-k">Interview queue</div><div class="mini-v" id="intQueue">0</div></div>
+              <div class="mini"><div class="mini-k">Offer Extended</div><div class="mini-v" id="intOfferExtended">0</div></div>
+              <div class="mini"><div class="mini-k">Offer Accepted</div><div class="mini-v" id="intOfferAccepted">0</div></div>
+            </div>
+            <div class="grid3" style="margin-top:10px;">
+              <div class="field">
+                <label class="label" for="intPersonId">Person</label>
+                <select class="select" id="intPersonId"></select>
+              </div>
+              <div class="field">
+                <label class="label" for="intScheduledAt">Scheduled</label>
+                <input class="input" id="intScheduledAt" type="datetime-local" />
+              </div>
+              <div class="field">
+                <label class="label" for="intInterviewer">Interviewer</label>
+                <input class="input" id="intInterviewer" type="text" placeholder="Interviewer name" />
+              </div>
+              <div class="field">
+                <label class="label" for="intScore">Score (0-10)</label>
+                <input class="input num" id="intScore" type="number" min="0" max="10" step="0.1" placeholder="0.0" />
+              </div>
+              <div class="field">
+                <label class="label" for="intOutcome">Outcome</label>
+                <select class="select" id="intOutcome">
+                  <option value="pending">Pending</option>
+                  <option value="pass">Pass</option>
+                  <option value="fail">Fail</option>
+                  <option value="no_show">No-show</option>
+                </select>
+              </div>
+              <div class="field">
+                <label class="label" for="intNotes">Notes</label>
+                <input class="input" id="intNotes" type="text" placeholder="Optional notes" />
+              </div>
+            </div>
+            <div class="toolbar" style="margin-top:10px;">
+              <button class="btn btn-sm" id="btnSaveInterview" type="button">Save interview</button>
+              <button class="btn btn-sm btn-ghost" id="btnClearInterview" type="button">Clear</button>
+              <span class="mini-s" id="intMsg" aria-live="polite"></span>
+            </div>
+            <div class="tableWrap" style="margin-top:10px;">
+              <table class="table">
+                <thead>
+                  <tr>
+                    <th>Scheduled</th>
+                    <th>Person</th>
+                    <th>Interviewer</th>
+                    <th class="num">Score</th>
+                    <th>Outcome</th>
+                    <th>Notes</th>
+                    <th style="width:110px;">Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="intTbody"></tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <section class="camio-module" data-module-panel="onboarding">
+          <div class="card card-section">
+            <div class="card-head card-header">
+              <h2 class="card-title">Onboarding Tracker</h2>
+              <div class="help-text">Dedicated onboarding records for document and clearance gates.</div>
+            </div>
+            <div class="subgrid">
+              <div class="mini"><div class="mini-k">Onboarding records</div><div class="mini-v" id="onRecordCount">0</div></div>
+              <div class="mini"><div class="mini-k">Docs Submitted</div><div class="mini-v" id="onDocsSubmitted">0</div></div>
+              <div class="mini"><div class="mini-k">Background Passed</div><div class="mini-v" id="onBackgroundPassed">0</div></div>
+              <div class="mini"><div class="mini-k">Completed onboarding</div><div class="mini-v" id="onTrainingComplete">0</div></div>
+            </div>
+            <div class="grid3" style="margin-top:10px;">
+              <div class="field">
+                <label class="label" for="onPersonId">Person</label>
+                <select class="select" id="onPersonId"></select>
+              </div>
+              <div class="field">
+                <label class="label" for="onDocsSubmittedAt">Docs submitted</label>
+                <input class="input" id="onDocsSubmittedAt" type="date" />
+              </div>
+              <div class="field">
+                <label class="label" for="onBackgroundStatus">Background status</label>
+                <select class="select" id="onBackgroundStatus">
+                  <option value="pending">Pending</option>
+                  <option value="passed">Passed</option>
+                  <option value="failed">Failed</option>
+                </select>
+              </div>
+              <div class="field">
+                <label class="label" for="onOnboardingStatus">Onboarding status</label>
+                <select class="select" id="onOnboardingStatus">
+                  <option value="in_progress">In progress</option>
+                  <option value="blocked">Blocked</option>
+                  <option value="completed">Completed</option>
+                </select>
+              </div>
+              <div class="field">
+                <label class="label" for="onCompletedAt">Completed date</label>
+                <input class="input" id="onCompletedAt" type="date" />
+              </div>
+              <div class="field">
+                <label class="label" for="onNotes">Notes</label>
+                <input class="input" id="onNotes" type="text" placeholder="Optional notes" />
+              </div>
+            </div>
+            <div class="toolbar" style="margin-top:10px;">
+              <button class="btn btn-sm" id="btnSaveOnboarding" type="button">Save onboarding</button>
+              <button class="btn btn-sm btn-ghost" id="btnClearOnboarding" type="button">Clear</button>
+              <span class="mini-s" id="onMsg" aria-live="polite"></span>
+            </div>
+            <div class="tableWrap" style="margin-top:10px;">
+              <table class="table">
+                <thead>
+                  <tr>
+                    <th>Person</th>
+                    <th>Docs</th>
+                    <th>Background</th>
+                    <th>Status</th>
+                    <th>Completed</th>
+                    <th>Notes</th>
+                    <th style="width:110px;">Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="onbTbody"></tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <section class="camio-module" data-module-panel="training">
+          <div class="card card-section">
+            <div class="card-head card-header">
+              <h2 class="card-title">Training Tracker</h2>
+              <div class="help-text">Dedicated training records for readiness and completion velocity.</div>
+            </div>
+            <div class="subgrid">
+              <div class="mini"><div class="mini-k">Training records</div><div class="mini-v" id="trRecordCount">0</div></div>
+              <div class="mini"><div class="mini-k">Completed</div><div class="mini-v" id="trTrainingComplete">0</div></div>
+              <div class="mini"><div class="mini-k">In progress</div><div class="mini-v" id="trActive">0</div></div>
+              <div class="mini"><div class="mini-k">Ready ratio</div><div class="mini-v" id="trReadyRatio">0.0%</div></div>
+            </div>
+            <div class="grid3" style="margin-top:10px;">
+              <div class="field">
+                <label class="label" for="trPersonId">Person</label>
+                <select class="select" id="trPersonId"></select>
+              </div>
+              <div class="field">
+                <label class="label" for="trTrack">Training track</label>
+                <input class="input" id="trTrack" type="text" placeholder="Canvass, phone, data..." />
+              </div>
+              <div class="field">
+                <label class="label" for="trSessions">Sessions</label>
+                <input class="input num" id="trSessions" type="number" min="0" step="1" value="0" />
+              </div>
+              <div class="field">
+                <label class="label" for="trCompletionStatus">Completion status</label>
+                <select class="select" id="trCompletionStatus">
+                  <option value="not_started">Not started</option>
+                  <option value="in_progress">In progress</option>
+                  <option value="completed">Completed</option>
+                </select>
+              </div>
+              <div class="field">
+                <label class="label" for="trCompletedAt">Completed date</label>
+                <input class="input" id="trCompletedAt" type="date" />
+              </div>
+              <div class="field">
+                <label class="label" for="trNotes">Notes</label>
+                <input class="input" id="trNotes" type="text" placeholder="Optional notes" />
+              </div>
+            </div>
+            <div class="toolbar" style="margin-top:10px;">
+              <button class="btn btn-sm" id="btnSaveTraining" type="button">Save training</button>
+              <button class="btn btn-sm btn-ghost" id="btnClearTraining" type="button">Clear</button>
+              <span class="mini-s" id="trMsg" aria-live="polite"></span>
+            </div>
+            <div class="tableWrap" style="margin-top:10px;">
+              <table class="table">
+                <thead>
+                  <tr>
+                    <th>Person</th>
+                    <th>Track</th>
+                    <th class="num">Sessions</th>
+                    <th>Status</th>
+                    <th>Completed</th>
+                    <th>Notes</th>
+                    <th style="width:110px;">Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="trnTbody"></tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <section class="camio-module" data-module-panel="shifts">
+          <div class="card card-section">
+            <div class="card-head card-header">
+              <h2 class="card-title">Shift Scheduler / Payroll</h2>
+              <div class="help-text">Production source-of-truth for attempts, convos, support IDs, and checked-in hours.</div>
+            </div>
+            <div class="subgrid">
+              <div class="mini"><div class="mini-k">Shifts</div><div class="mini-v" id="shShiftCount">0</div></div>
+              <div class="mini"><div class="mini-k">Attempts</div><div class="mini-v" id="shAttempts">0</div></div>
+              <div class="mini"><div class="mini-k">Conversations</div><div class="mini-v" id="shConvos">0</div></div>
+              <div class="mini"><div class="mini-k">Support IDs</div><div class="mini-v" id="shSupportIds">0</div></div>
+              <div class="mini"><div class="mini-k">Hours</div><div class="mini-v" id="shHours">0.0</div></div>
+            </div>
+            <div class="toolbar" style="margin-top:10px;">
+              <a class="btn btn-sm" href="operations-shifts.html">Open Shift Input</a>
+            </div>
+          </div>
+        </section>
+
+        <section class="camio-module" data-module-panel="turf">
+          <div class="card card-section">
+            <div class="card-head card-header">
+              <h2 class="card-title">Turf Tracker</h2>
+              <div class="help-text">Coverage ledger for precinct/turf recency and touch count.</div>
+            </div>
+            <div class="subgrid">
+              <div class="mini"><div class="mini-k">Events</div><div class="mini-v" id="tfEvents">0</div></div>
+              <div class="mini"><div class="mini-k">Coverage attempts</div><div class="mini-v" id="tfAttempts">0</div></div>
+              <div class="mini"><div class="mini-k">Canvassed</div><div class="mini-v" id="tfCanvassed">0</div></div>
+              <div class="mini"><div class="mini-k">VBMs</div><div class="mini-v" id="tfVbms">0</div></div>
+              <div class="mini"><div class="mini-k">Unique precincts</div><div class="mini-v" id="tfPrecincts">0</div></div>
+              <div class="mini"><div class="mini-k">Unique turfs</div><div class="mini-v" id="tfTurfs">0</div></div>
+            </div>
+            <div class="toolbar" style="margin-top:10px;">
+              <a class="btn btn-sm" href="operations-turf.html">Open Turf Input</a>
+            </div>
+          </div>
+        </section>
+
+        <section class="camio-module" data-module-panel="aggregate">
+          <div class="card card-section">
+            <div class="card-head card-header">
+              <h2 class="card-title">Aggregate Readout</h2>
+              <div class="help-text">Overlap-safe production and coverage totals using source-of-truth rules.</div>
+            </div>
+            <div class="subgrid">
+              <div class="mini"><div class="mini-k">Production source</div><div class="mini-v" id="agSource">shift</div></div>
+              <div class="mini"><div class="mini-k">Attempts</div><div class="mini-v" id="agAttempts">0</div></div>
+              <div class="mini"><div class="mini-k">Conversations</div><div class="mini-v" id="agConvos">0</div></div>
+              <div class="mini"><div class="mini-k">Support IDs</div><div class="mini-v" id="agSupportIds">0</div></div>
+              <div class="mini"><div class="mini-k">Hours</div><div class="mini-v" id="agHours">0.0</div></div>
+              <div class="mini"><div class="mini-k">Excluded turf attempts</div><div class="mini-v" id="agExcludedAttempts">0</div></div>
+              <div class="mini"><div class="mini-k">Excluded turf records</div><div class="mini-v" id="agExcludedRecords">0</div></div>
+              <div class="mini"><div class="mini-k">Ready now (people)</div><div class="mini-v" id="agReadyNow">0</div></div>
+              <div class="mini"><div class="mini-k">Recent ready / week</div><div class="mini-v" id="agRecentReadyPerWeek">0.0</div></div>
+              <div class="mini"><div class="mini-k">Projected ready in 14d</div><div class="mini-v" id="agReadyIn14d">0.0</div></div>
+              <div class="mini"><div class="mini-k">Median days to readiness</div><div class="mini-v" id="agMedianReadyDays">—</div></div>
+            </div>
+            <div class="note">Rule: production totals come from shifts; turf remains coverage context unless shift count is zero and fallback is explicitly allowed.</div>
+          </div>
+        </section>
+
+        <section class="camio-module" data-module-panel="forecast">
+          <div class="card card-section">
+            <div class="card-head card-header">
+              <h2 class="card-title">Capacity Forecast View</h2>
+              <div class="help-text">Ramp forecast stays upstream; optional capacity override stays explicit and opt-in.</div>
+            </div>
+            <div class="subgrid">
+              <div class="mini"><div class="mini-k">Baseline active now</div><div class="mini-v" id="fcBaselineActive">0</div></div>
+              <div class="mini"><div class="mini-k">Open pipeline</div><div class="mini-v" id="fcOpenPipeline">0</div></div>
+              <div class="mini"><div class="mini-k">Forecast config records</div><div class="mini-v" id="fcConfigCount">0</div></div>
+              <div class="mini"><div class="mini-k">Interview pass rate</div><div class="mini-v" id="fcInterviewPassRate">—</div></div>
+              <div class="mini"><div class="mini-k">Offer accept rate</div><div class="mini-v" id="fcOfferAcceptRate">—</div></div>
+              <div class="mini"><div class="mini-k">Onboarding completion</div><div class="mini-v" id="fcOnboardingCompletionRate">—</div></div>
+              <div class="mini"><div class="mini-k">Training completion</div><div class="mini-v" id="fcTrainingCompletionRate">—</div></div>
+              <div class="mini"><div class="mini-k">Composite ramp signal</div><div class="mini-v" id="fcCompositeRampSignal">—</div></div>
+            </div>
+            <div class="note" id="fcHintNote">Display-only diagnostics. No direct engine mutation.</div>
+            <div class="toolbar" style="margin-top:10px;">
+              <a class="btn btn-sm" href="operations-ramp.html">Open Ramp Forecast</a>
+              <a class="btn btn-sm btn-ghost" href="index.html">Open FPE Capacity Stage</a>
+            </div>
+          </div>
+        </section>
+
+        <section class="camio-module" data-module-panel="io">
+          <div class="card card-section">
+            <div class="card-head card-header">
+              <h2 class="card-title">Data I/O + Diagnostics</h2>
+              <div class="help-text">Static-safe import/export and quick diagnostics for Operations stores.</div>
+            </div>
+            <div class="toolbar">
+              <button class="btn btn-sm" id="btnTwExportJson" type="button">Export Operations JSON</button>
+              <button class="btn btn-sm" id="btnTwImportJson" type="button">Import Operations JSON</button>
+              <select class="select" id="twImportMode" style="min-width:110px;">
+                <option value="merge">Merge</option>
+                <option value="replace">Replace</option>
+              </select>
+              <button class="btn btn-sm btn-ghost" id="btnTwRefresh" type="button">Refresh diagnostics</button>
+            </div>
+            <div class="toolbar" style="margin-top:8px;">
+              <button class="btn btn-sm btn-ghost" id="btnCsvExportInterviews" type="button">Export Interviews CSV</button>
+              <button class="btn btn-sm btn-ghost" id="btnCsvImportInterviews" type="button">Import Interviews CSV</button>
+              <button class="btn btn-sm btn-ghost" id="btnCsvExportOnboarding" type="button">Export Onboarding CSV</button>
+              <button class="btn btn-sm btn-ghost" id="btnCsvImportOnboarding" type="button">Import Onboarding CSV</button>
+              <button class="btn btn-sm btn-ghost" id="btnCsvExportTraining" type="button">Export Training CSV</button>
+              <button class="btn btn-sm btn-ghost" id="btnCsvImportTraining" type="button">Import Training CSV</button>
+            </div>
+            <input id="twImportFile" type="file" accept=".json,application/json" hidden />
+            <input id="twCsvImportFile" type="file" accept=".csv,text/csv" hidden />
+            <div class="mini-s" id="ioStatus" aria-live="polite" style="margin-top:8px;">Ready.</div>
+            <pre class="mono" id="ioDiagnostics" style="margin-top:10px;">{}</pre>
+          </div>
+        </section>
+      </section>
+    </div>
+  </main>
+
+  <script type="module" src="js/camio.js"></script>
+</body>
+</html>
