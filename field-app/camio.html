@@ -83,14 +83,66 @@
           <div class="card card-section">
             <div class="card-head card-header">
               <h2 class="card-title">Interview Tracker</h2>
-              <div class="help-text">Derived from stage progression until dedicated interview records are added.</div>
+              <div class="help-text">Dedicated interview records for scheduling, outcomes, and throughput.</div>
             </div>
             <div class="subgrid">
+              <div class="mini"><div class="mini-k">Interview records</div><div class="mini-v" id="intRecordCount">0</div></div>
               <div class="mini"><div class="mini-k">Interview queue</div><div class="mini-v" id="intQueue">0</div></div>
               <div class="mini"><div class="mini-k">Offer Extended</div><div class="mini-v" id="intOfferExtended">0</div></div>
               <div class="mini"><div class="mini-k">Offer Accepted</div><div class="mini-v" id="intOfferAccepted">0</div></div>
             </div>
-            <div class="note">v1 uses pipeline stage counts. A dedicated interview log can be added later without touching engine math.</div>
+            <div class="grid3" style="margin-top:10px;">
+              <div class="field">
+                <label class="label" for="intPersonId">Person</label>
+                <select class="select" id="intPersonId"></select>
+              </div>
+              <div class="field">
+                <label class="label" for="intScheduledAt">Scheduled</label>
+                <input class="input" id="intScheduledAt" type="datetime-local" />
+              </div>
+              <div class="field">
+                <label class="label" for="intInterviewer">Interviewer</label>
+                <input class="input" id="intInterviewer" type="text" placeholder="Interviewer name" />
+              </div>
+              <div class="field">
+                <label class="label" for="intScore">Score (0-10)</label>
+                <input class="input num" id="intScore" type="number" min="0" max="10" step="0.1" placeholder="0.0" />
+              </div>
+              <div class="field">
+                <label class="label" for="intOutcome">Outcome</label>
+                <select class="select" id="intOutcome">
+                  <option value="pending">Pending</option>
+                  <option value="pass">Pass</option>
+                  <option value="fail">Fail</option>
+                  <option value="no_show">No-show</option>
+                </select>
+              </div>
+              <div class="field">
+                <label class="label" for="intNotes">Notes</label>
+                <input class="input" id="intNotes" type="text" placeholder="Optional notes" />
+              </div>
+            </div>
+            <div class="toolbar" style="margin-top:10px;">
+              <button class="btn btn-sm" id="btnSaveInterview" type="button">Save interview</button>
+              <button class="btn btn-sm btn-ghost" id="btnClearInterview" type="button">Clear</button>
+              <span class="mini-s" id="intMsg" aria-live="polite"></span>
+            </div>
+            <div class="tableWrap" style="margin-top:10px;">
+              <table class="table">
+                <thead>
+                  <tr>
+                    <th>Scheduled</th>
+                    <th>Person</th>
+                    <th>Interviewer</th>
+                    <th class="num">Score</th>
+                    <th>Outcome</th>
+                    <th>Notes</th>
+                    <th style="width:110px;">Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="intTbody"></tbody>
+              </table>
+            </div>
           </div>
         </section>
 
@@ -98,14 +150,69 @@
           <div class="card card-section">
             <div class="card-head card-header">
               <h2 class="card-title">Onboarding Tracker</h2>
-              <div class="help-text">Pipeline-derived progression through docs/background/training gates.</div>
+              <div class="help-text">Dedicated onboarding records for document and clearance gates.</div>
             </div>
             <div class="subgrid">
+              <div class="mini"><div class="mini-k">Onboarding records</div><div class="mini-v" id="onRecordCount">0</div></div>
               <div class="mini"><div class="mini-k">Docs Submitted</div><div class="mini-v" id="onDocsSubmitted">0</div></div>
               <div class="mini"><div class="mini-k">Background Passed</div><div class="mini-v" id="onBackgroundPassed">0</div></div>
-              <div class="mini"><div class="mini-k">Training Complete</div><div class="mini-v" id="onTrainingComplete">0</div></div>
+              <div class="mini"><div class="mini-k">Completed onboarding</div><div class="mini-v" id="onTrainingComplete">0</div></div>
             </div>
-            <div class="note">This can be replaced by dedicated onboarding records in a later increment.</div>
+            <div class="grid3" style="margin-top:10px;">
+              <div class="field">
+                <label class="label" for="onPersonId">Person</label>
+                <select class="select" id="onPersonId"></select>
+              </div>
+              <div class="field">
+                <label class="label" for="onDocsSubmittedAt">Docs submitted</label>
+                <input class="input" id="onDocsSubmittedAt" type="date" />
+              </div>
+              <div class="field">
+                <label class="label" for="onBackgroundStatus">Background status</label>
+                <select class="select" id="onBackgroundStatus">
+                  <option value="pending">Pending</option>
+                  <option value="passed">Passed</option>
+                  <option value="failed">Failed</option>
+                </select>
+              </div>
+              <div class="field">
+                <label class="label" for="onOnboardingStatus">Onboarding status</label>
+                <select class="select" id="onOnboardingStatus">
+                  <option value="in_progress">In progress</option>
+                  <option value="blocked">Blocked</option>
+                  <option value="completed">Completed</option>
+                </select>
+              </div>
+              <div class="field">
+                <label class="label" for="onCompletedAt">Completed date</label>
+                <input class="input" id="onCompletedAt" type="date" />
+              </div>
+              <div class="field">
+                <label class="label" for="onNotes">Notes</label>
+                <input class="input" id="onNotes" type="text" placeholder="Optional notes" />
+              </div>
+            </div>
+            <div class="toolbar" style="margin-top:10px;">
+              <button class="btn btn-sm" id="btnSaveOnboarding" type="button">Save onboarding</button>
+              <button class="btn btn-sm btn-ghost" id="btnClearOnboarding" type="button">Clear</button>
+              <span class="mini-s" id="onMsg" aria-live="polite"></span>
+            </div>
+            <div class="tableWrap" style="margin-top:10px;">
+              <table class="table">
+                <thead>
+                  <tr>
+                    <th>Person</th>
+                    <th>Docs</th>
+                    <th>Background</th>
+                    <th>Status</th>
+                    <th>Completed</th>
+                    <th>Notes</th>
+                    <th style="width:110px;">Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="onbTbody"></tbody>
+              </table>
+            </div>
           </div>
         </section>
 
@@ -113,14 +220,65 @@
           <div class="card card-section">
             <div class="card-head card-header">
               <h2 class="card-title">Training Tracker</h2>
-              <div class="help-text">Readiness status from stage progression.</div>
+              <div class="help-text">Dedicated training records for readiness and completion velocity.</div>
             </div>
             <div class="subgrid">
-              <div class="mini"><div class="mini-k">Training Complete</div><div class="mini-v" id="trTrainingComplete">0</div></div>
-              <div class="mini"><div class="mini-k">Active</div><div class="mini-v" id="trActive">0</div></div>
+              <div class="mini"><div class="mini-k">Training records</div><div class="mini-v" id="trRecordCount">0</div></div>
+              <div class="mini"><div class="mini-k">Completed</div><div class="mini-v" id="trTrainingComplete">0</div></div>
+              <div class="mini"><div class="mini-k">In progress</div><div class="mini-v" id="trActive">0</div></div>
               <div class="mini"><div class="mini-k">Ready ratio</div><div class="mini-v" id="trReadyRatio">0.0%</div></div>
             </div>
-            <div class="note">Ready ratio = Active / (Training Complete + Active).</div>
+            <div class="grid3" style="margin-top:10px;">
+              <div class="field">
+                <label class="label" for="trPersonId">Person</label>
+                <select class="select" id="trPersonId"></select>
+              </div>
+              <div class="field">
+                <label class="label" for="trTrack">Training track</label>
+                <input class="input" id="trTrack" type="text" placeholder="Canvass, phone, data..." />
+              </div>
+              <div class="field">
+                <label class="label" for="trSessions">Sessions</label>
+                <input class="input num" id="trSessions" type="number" min="0" step="1" value="0" />
+              </div>
+              <div class="field">
+                <label class="label" for="trCompletionStatus">Completion status</label>
+                <select class="select" id="trCompletionStatus">
+                  <option value="not_started">Not started</option>
+                  <option value="in_progress">In progress</option>
+                  <option value="completed">Completed</option>
+                </select>
+              </div>
+              <div class="field">
+                <label class="label" for="trCompletedAt">Completed date</label>
+                <input class="input" id="trCompletedAt" type="date" />
+              </div>
+              <div class="field">
+                <label class="label" for="trNotes">Notes</label>
+                <input class="input" id="trNotes" type="text" placeholder="Optional notes" />
+              </div>
+            </div>
+            <div class="toolbar" style="margin-top:10px;">
+              <button class="btn btn-sm" id="btnSaveTraining" type="button">Save training</button>
+              <button class="btn btn-sm btn-ghost" id="btnClearTraining" type="button">Clear</button>
+              <span class="mini-s" id="trMsg" aria-live="polite"></span>
+            </div>
+            <div class="tableWrap" style="margin-top:10px;">
+              <table class="table">
+                <thead>
+                  <tr>
+                    <th>Person</th>
+                    <th>Track</th>
+                    <th class="num">Sessions</th>
+                    <th>Status</th>
+                    <th>Completed</th>
+                    <th>Notes</th>
+                    <th style="width:110px;">Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="trnTbody"></tbody>
+              </table>
+            </div>
           </div>
         </section>
 
