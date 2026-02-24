@@ -14,8 +14,8 @@
 <link href="https://fonts.googleapis.com" rel="preconnect"/>
 <link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&amp;family=IBM+Plex+Sans:wght@300;400;500;600&amp;display=swap" rel="stylesheet"/>
-<link href="./styles-shell.css?v=20260224-c24" rel="stylesheet"/>
-<link href="./styles.css?v=20260224-c24" rel="stylesheet"/>
+<link href="./styles-shell.css?v=20260224-c25" rel="stylesheet"/>
+<link href="./styles.css?v=20260224-c25" rel="stylesheet"/>
 </head>
 <body>
 <!-- ── TOPBAR ───────────────────────────────────────────── -->
@@ -2087,6 +2087,8 @@
 <div class="card-head card-header">
 <h2 class="card-title">Scenario Compare</h2>
 </div>
+<div class="help-text">Use this page to create, load, and compare planning scenarios. Import/export and backup recovery live in <strong>Import/export &amp; backups</strong>.</div>
+<button hidden="" id="btnSaveScenario" tabindex="-1" type="button"></button>
 <div class="banner warn" hidden="" id="scWarn"></div>
 <div class="scm">
 <div class="rowline scm-active">
@@ -2145,29 +2147,7 @@
 </div>
 <div aria-hidden="true" class="sc-divider" role="separator" style="margin-top:10px;"></div>
 </div>
-<div class="rowline sc-meta">
-<button class="btn btn-sm" id="btnSaveScenario" type="button">Save Current Scenario</button>
-<div class="muted" style="font-size:12px;">Saved scenarios are session-only (memory). Max 5.</div>
-</div>
-<div class="table-wrap" style="margin-top:10px;">
-<table class="table">
-<thead>
-<tr>
-<th style="min-width:180px;">Scenario</th>
-<th style="min-width:120px;">Label</th>
-<th style="min-width:110px;">Volunteers</th>
-<th style="min-width:110px;">Cost</th>
-<th style="min-width:90px;">Win %</th>
-<th style="min-width:160px;">Primary bottleneck</th>
-<th style="min-width:90px;"></th>
-</tr>
-</thead>
-<tbody id="scCompareTbody">
-<tr><td class="muted" colspan="7">No scenarios saved yet.</td></tr>
-</tbody>
-</table>
-</div>
-<div class="note sc-overall" id="scOverall">Most efficient scenario overall: —</div>
+<div class="note" style="margin-top:12px;">Scenario records are session-only (in-memory) and capped to keep comparisons fast and deterministic.</div>
 </div></div></section>
 <!-- ── STAGE: decisions ── -->
 <section class="stage-new" id="stage-decisions">
@@ -2532,6 +2512,7 @@ Volunteer multiplier stays above 1.5" rows="4"></textarea>
 <div class="card-head card-header">
 <h2 class="card-title">Import policy &amp; recovery</h2>
 </div>
+<div class="help-text">This page handles file serialization and recovery only. Scenario creation/comparison is managed in <strong>Scenario planning</strong>.</div>
 <div class="grid2 integrity-policy-grid">
 <div class="field">
 <label class="label">Strict import policy</label>
@@ -2690,7 +2671,7 @@ Volunteer multiplier stays above 1.5" rows="4"></textarea>
 </aside>
 </div>
 <!-- /app-shell -->
-<script src="./js/app.js?v=20260224-stable-c24" type="module"></script>
+<script src="./js/app.js?v=20260224-stable-c25" type="module"></script>
 <script>
 // ── Stage navigation ───────────────────────────────────────────
 function normalizeStages() {
