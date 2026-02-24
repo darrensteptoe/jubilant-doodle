@@ -33,6 +33,7 @@
   --s-train:     #8b5cf6;
   --s-train-dim: rgba(139,92,246,0.1);
   --s-train-border: rgba(139,92,246,0.28);
+  --s-surface-gray: color-mix(in srgb, var(--s-rule) 24%, var(--s-panel));
 }
 
 /* ── RESET BODY FOR NEW LAYOUT ───────────────────────────── */
@@ -450,6 +451,14 @@ body.strict-import .toggle-pill:has(#toggleStrictImport) .toggle-dot-new {
 .stage-body-new .card + .card { margin-top: 0; }
 .stage-body-new .card { margin-top: 0; }
 
+/* Top-level cards touching page background use gray surface; nested cards stay panel/white. */
+.stage-body-new > .card {
+  background: var(--s-surface-gray);
+}
+.stage-body-new > .card .card {
+  background: var(--s-panel);
+}
+
 /* Keep the old left/right/rail sections from affecting layout */
 .left, .right { display: contents; }
 .rail { display: contents; }
@@ -716,13 +725,13 @@ body.focus-view .stage-body-new {
 }
 
 .results-sidebar-new .assump-block {
-  background: transparent;
+  background: var(--s-surface-gray);
   border-color: color-mix(in srgb, var(--s-rule) 78%, transparent);
 }
 .results-sidebar-new .kv .v { max-width: 58%; }
 
 .results-sidebar-new .sidebar-section-new.sidebar-win-expected {
-  background: #ff8000;
+  background: #ffa500;
 }
 
 .results-sidebar-new .sidebar-section-new.sidebar-win-expected .sidebar-label-new,
@@ -740,7 +749,7 @@ body.focus-view .stage-body-new {
 }
 
 .results-sidebar-new .sidebar-section-new.sidebar-early-split {
-  background: #ffa500;
+  background: #ffbf00;
 }
 
 .results-sidebar-new .sidebar-section-new.sidebar-early-split .sidebar-label-new,
