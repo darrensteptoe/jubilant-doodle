@@ -5625,7 +5625,14 @@ function renderOptimization(res, weeks){
     if (els.tlOptGoalFeasible) els.tlOptGoalFeasible.textContent = (meta.goalFeasible === true) ? "true" : (meta.goalFeasible === false ? "false" : "—");
     if (els.tlOptMaxNetVotes) els.tlOptMaxNetVotes.textContent = fmtInt(Math.round(meta.maxAchievableNetVotes ?? 0));
     if (els.tlOptRemainingGap) els.tlOptRemainingGap.textContent = fmtInt(Math.round(meta.remainingGapNetVotes ?? 0));
-    if (els.tlOptBinding) els.tlOptBinding.textContent = meta.bindingConstraints || "—";
+    if (els.tlOptBinding){
+      const b = meta.bindingObj || {};
+      const parts = [];
+      if (Array.isArray(b.timeline) && b.timeline.length) parts.push("timeline");
+      if (b.budget) parts.push("budget");
+      if (b.capacity) parts.push("capacity");
+      els.tlOptBinding.textContent = parts.length ? parts.join(" / ") : "none";
+    }
 
     // Cache TL optimization meta for exports (Phase 9A)
     state.ui.lastTlMeta = structuredClone(meta);
