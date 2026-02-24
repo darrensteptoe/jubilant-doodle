@@ -775,16 +775,36 @@ function refreshBackupDropdown(){
 function restoreBackupByIndex(idx){
   const backups = readBackups();
   const entry = backups[Number(idx)];
-  if (!entry || !entry.payload) return;
+  if (!entry) return;
   const ok = confirm("Restore this backup? This will overwrite current scenario inputs.");
   if (!ok) return;
 
-  const migrated = engine.snapshot.migrateSnapshot(entry.payload);
-  if (!migrated || !migrated.ok){
-    alert("Backup restore failed: could not migrate snapshot.");
+  const rawPayload = (entry && Object.prototype.hasOwnProperty.call(entry, "payload"))
+    ? entry.payload
+    : entry;
+
+  let loaded = rawPayload;
+  if (typeof loaded === "string"){
+    try{
+      loaded = JSON.parse(loaded);
+    } catch {
+      alert("Backup restore failed: invalid backup payload.");
+      return;
+    }
+  }
+  if (!loaded || typeof loaded !== "object"){
+    alert("Backup restore failed: invalid backup payload.");
     return;
   }
-  state = normalizeLoadedState(migrated.scenario);
+
+  const migrated = engine.snapshot.migrateSnapshot(loaded);
+  const validated = engine.snapshot.validateScenarioExport(migrated?.snapshot, engine.snapshot.MODEL_VERSION);
+  if (!validated?.ok){
+    alert(`Backup restore failed: ${validated?.reason || "could not migrate snapshot."}`);
+    return;
+  }
+
+  state = normalizeLoadedState(validated.scenario);
   ensureDecisionScaffold();
   persist();
   render();
