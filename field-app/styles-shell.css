@@ -716,13 +716,13 @@ body.focus-view .stage-body-new {
 }
 
 .results-sidebar-new .assump-block {
-  background: color-mix(in srgb, var(--s-rule) 24%, var(--s-panel));
+  background: transparent;
   border-color: color-mix(in srgb, var(--s-rule) 78%, transparent);
 }
 .results-sidebar-new .kv .v { max-width: 58%; }
 
 .results-sidebar-new .sidebar-section-new.sidebar-win-expected {
-  background: #FEC89A;
+  background: #ff8000;
 }
 
 .results-sidebar-new .sidebar-section-new.sidebar-win-expected .sidebar-label-new,
@@ -740,7 +740,7 @@ body.focus-view .stage-body-new {
 }
 
 .results-sidebar-new .sidebar-section-new.sidebar-early-split {
-  background: #FFDAB9;
+  background: #ffa500;
 }
 
 .results-sidebar-new .sidebar-section-new.sidebar-early-split .sidebar-label-new,
