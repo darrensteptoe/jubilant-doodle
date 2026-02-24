@@ -23,7 +23,7 @@
    - Main planner render
    - Scenario save/load
    - MC run/re-run
-   - Third Wing hub CRUD/import/export
+   - Operations hub CRUD/import/export
 4. Diagnostics: no new uncaught runtime errors.
 
 ## Phase Order
@@ -42,14 +42,14 @@ Exit criteria:
 - No silent save failure path remains.
 - Existing save/load behavior works with same UX.
 
-### Phase 2 — Third Wing Metrics Cache (Targeted Rebuild)
-- [ ] Create `thirdWingMetrics` module that computes rollups once per data version.
-- [ ] Invalidate cache only on relevant Third Wing writes/imports.
+### Phase 2 — Operations Metrics Cache (Targeted Rebuild)
+- [ ] Create `operationsMetrics` module that computes rollups once per data version.
+- [ ] Invalidate cache only on relevant Operations writes/imports.
 - [ ] Main app reads precomputed summary (no full-store scan in hot render loop).
 
 Exit criteria:
-- Main render path no longer pulls all Third Wing stores each repaint.
-- Cam.io and main app show consistent summary values.
+- Main render path no longer pulls all Operations stores each repaint.
+- Operations Hub and main app show consistent summary values.
 
 ### Phase 3 — Explainability/Impact Layer (Targeted Rebuild)
 - [ ] Add dependency registry for key outputs (what inputs drive each KPI).
@@ -63,7 +63,7 @@ Exit criteria:
 - [ ] Reorder modules by campaign workflow, not legacy phase splits.
 - [ ] Keep right sidebar for aggregate readouts, sorted by operational sequence.
 - [ ] Merge related sections (e.g., universe + persuasion universe context) onto same working surface where it reduces navigation cost.
-- [ ] Preserve current visual style where strong (Cam.io shell pattern).
+- [ ] Preserve current visual style where strong (Operations Hub shell pattern).
 
 Exit criteria:
 - No clipped/squished/hidden panels.

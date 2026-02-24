@@ -1,34 +1,34 @@
-# Third Wing Blueprint (Cam.io-Based)
+# Operations Blueprint (Operations Hub-Based)
 
-Purpose: model the full CRM/ops wing after the existing Cam.io spreadsheet workflow, not just scheduling.
+Purpose: model the full CRM/ops wing after the existing Operations Hub spreadsheet workflow, not just scheduling.
 
 ## Source Workbook Map
 
-- `Cam.io _ Launchpad.xlsx`
+- `Operations Hub _ Launchpad.xlsx`
   - Role: entry/navigation + QR lookups
   - App module: `crm/launchpad`
 
-- `Cam.io _ Recruitment Tracker.xlsx`
+- `Operations Hub _ Recruitment Tracker.xlsx`
   - Role: lead intake, recruiter pipeline, interview scheduling
   - App module: `crm/recruitment`
 
-- `Cam.io _ Interview Tracker.xlsx`
+- `Operations Hub _ Interview Tracker.xlsx`
   - Role: interview outcomes + team-level interview throughput
   - App module: `crm/interviews`
 
-- `Cam.io _ Onboarding Tracker.xlsx`
+- `Operations Hub _ Onboarding Tracker.xlsx`
   - Role: onboarding completion gates by team
   - App module: `crm/onboarding`
 
-- `Cam.io _ Training Tracker.xlsx`
+- `Operations Hub _ Training Tracker.xlsx`
   - Role: training completion/readiness by team
   - App module: `crm/training`
 
-- `Cam.io _ Shift Tracker.xlsx`
+- `Operations Hub _ Shift Tracker.xlsx`
   - Role: scheduling + hours/payroll rollups
   - App module: `ops/shifts`
 
-- `Cam.io _ Turf Tracker.xlsx`
+- `Operations Hub _ Turf Tracker.xlsx`
   - Role: turf penetration, attempts/canvassed/VBM progression
   - App module: `ops/turf`
 
@@ -36,15 +36,15 @@ Purpose: model the full CRM/ops wing after the existing Cam.io spreadsheet workf
   - Role: cross-tracker consolidated readout
   - App module: `ops/aggregate`
 
-- `Cam.io _ Landingpad.xlsx`
+- `Operations Hub _ Landingpad.xlsx`
   - Role: summary dashboard
   - App module: `ops/landingpad`
 
 ## Recommended App Surface (separate from core planning page)
 
-Create a separate top-level page/app for Third Wing:
+Create a separate top-level page/app for Operations:
 
-- `camio.html` (or `organizer.html` successor)
+- `operations.html` (or `organizer.html` successor)
 - Left nav modules:
   - Launchpad
   - Recruitment
@@ -86,7 +86,7 @@ Reason: prevents crowding core FPE screens and keeps compute boundaries clean.
 
 ## Engine Boundary (non-negotiable)
 
-Third Wing must only publish compiled outputs to FPE via one seam:
+Operations must only publish compiled outputs to FPE via one seam:
 
 - `compileEffectiveInputs(state)`
   - capacity overrides by week
@@ -97,10 +97,10 @@ No direct mutation of FPE core math.
 
 ## Integration Order (safe)
 
-1. Build data model + store for Third Wing (no FPE integration).
+1. Build data model + store for Operations (no FPE integration).
 2. Build module pages with CRUD + summary cards.
 3. Build aggregate readout page.
-4. Add export/import JSON for Third Wing only.
+4. Add export/import JSON for Operations only.
 5. Add adapter that emits effective-capacity payload.
 6. Wire adapter into existing `compileEffectiveInputs`.
 7. Keep feature flags OFF by default until parity tests pass.

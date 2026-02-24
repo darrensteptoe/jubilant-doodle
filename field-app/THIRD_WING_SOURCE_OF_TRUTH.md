@@ -1,4 +1,4 @@
-# Third Wing Source-Of-Truth Rules
+# Operations Source-Of-Truth Rules
 
 Purpose: prevent overlap/double counting across Pipeline, Shifts, Turf, and FPE compiler inputs.
 
@@ -31,7 +31,7 @@ Overlap signals:
 
 Only compiled aggregates enter FPE through `compileEffectiveInputs(state)`.
 
-Never pass raw third-wing records into core engine math.
+Never pass raw operations records into core engine math.
 
 ## Debug Counters (must be visible in diagnostics)
 

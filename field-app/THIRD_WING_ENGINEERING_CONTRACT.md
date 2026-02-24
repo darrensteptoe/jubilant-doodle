@@ -1,4 +1,4 @@
-# Third Wing Engineering Contract (Static GitHub)
+# Operations Engineering Contract (Static GitHub)
 
 ## Objective
 Add a third operational wing (Pipeline + Shifts + Turf + Capacity Forecast) without changing core engine math, degrading performance, or introducing logic drift.
@@ -64,7 +64,7 @@ Precedence rule:
 ## Performance Contract
 - Form pages write append/update records only; no heavy recompute on every keystroke.
 - Derived rollups computed on explicit actions or debounced intervals.
-- Monte Carlo never auto-runs from third-wing edits; only mark stale.
+- Monte Carlo never auto-runs from operations edits; only mark stale.
 
 ## Safety & Privacy Contract
 - Keep PII minimal (only what operations require).
