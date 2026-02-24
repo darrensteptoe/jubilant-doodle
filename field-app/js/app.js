@@ -19,6 +19,7 @@ import { renderAssumptionDriftPanel } from "./app/render/assumptionDrift.js";
 import { renderBottleneckAttributionPanel, renderConversionPanel, renderSensitivitySnapshotPanel, runSensitivitySnapshotPanel } from "./app/render/executionAnalysis.js";
 import { renderWeeklyOpsInsightsPanel, renderWeeklyOpsFreshnessPanel } from "./app/render/weeklyOpsInsights.js";
 import { renderDecisionConfidencePanel, renderDecisionIntelligencePanelView, renderScenarioComparePanelView } from "./app/render/decisionPanels.js";
+import { renderImpactTracePanel } from "./app/render/impactTrace.js";
 import { getOperationsMetricsSnapshot } from "./features/operations/metricsCache.js";
 import { PIPELINE_STAGES, DEFAULT_FORECAST_CONFIG } from "./features/operations/schema.js";
 
@@ -2226,6 +2227,7 @@ function render(){
   safeCall(() => renderBottleneckAttributionE3(res, weeks));
   safeCall(() => renderSensitivitySnapshotE4());
   safeCall(() => renderDecisionConfidenceE5(res, weeks));
+  safeCall(() => renderImpactTraceE6(res, weeks));
 
   safeCall(() => renderUniverse16Card());
 
@@ -2936,6 +2938,16 @@ function renderDecisionConfidenceE5(res, weeks){
     SCENARIO_BASELINE_ID,
     scenarioClone,
     scenarioInputsFromState,
+    fmtInt
+  });
+}
+
+function renderImpactTraceE6(res, weeks){
+  return renderImpactTracePanel({
+    els,
+    state,
+    res,
+    weeks,
     fmtInt
   });
 }

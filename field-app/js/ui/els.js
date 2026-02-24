@@ -453,6 +453,7 @@ export const els = {
 
   stressBox: document.getElementById("stressBox"),
   explainCard: document.getElementById("explainCard"),
+  impactTraceList: document.getElementById("impactTraceList"),
 
   assumptionsSnapshot: document.getElementById("assumptionsSnapshot"),
   guardrails: document.getElementById("guardrails"),
