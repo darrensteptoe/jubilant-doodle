@@ -1,0 +1,229 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Field Engine — Cam.io Ops Hub</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body class="page-generic">
+  <a class="skip-link" href="#main">Skip to content</a>
+
+  <main class="wrap" id="main">
+    <header class="header">
+      <h1 class="title"><a href="index.html">Field Path Engine</a></h1>
+      <p class="sub">Cam.io Operations Hub (Third Wing)</p>
+    </header>
+
+    <div class="note" style="display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin-bottom:10px;">
+      <a class="btn btn-sm" href="camio.html">Cam.io Hub</a>
+      <a class="btn btn-sm btn-ghost" href="organizer.html">Organizer Log</a>
+      <a class="btn btn-sm btn-ghost" href="third-wing-pipeline.html">Pipeline</a>
+      <a class="btn btn-sm btn-ghost" href="third-wing-shifts.html">Shifts</a>
+      <a class="btn btn-sm btn-ghost" href="third-wing-turf.html">Turf</a>
+      <a class="btn btn-sm btn-ghost" href="third-wing-ramp.html">Ramp</a>
+      <span class="mini-s">Separate app surface for Third Wing modules. Core planner stays isolated.</span>
+    </div>
+
+    <div class="camio-shell">
+      <aside class="camio-nav card card-section" aria-label="Cam.io modules">
+        <button class="camio-nav-btn" data-module="overview" type="button">Overview</button>
+        <button class="camio-nav-btn" data-module="recruitment" type="button">Recruitment</button>
+        <button class="camio-nav-btn" data-module="interviews" type="button">Interviews</button>
+        <button class="camio-nav-btn" data-module="onboarding" type="button">Onboarding</button>
+        <button class="camio-nav-btn" data-module="training" type="button">Training</button>
+        <button class="camio-nav-btn" data-module="shifts" type="button">Shift Scheduler</button>
+        <button class="camio-nav-btn" data-module="turf" type="button">Turf Tracker</button>
+        <button class="camio-nav-btn" data-module="aggregate" type="button">Aggregate</button>
+        <button class="camio-nav-btn" data-module="forecast" type="button">Capacity Forecast</button>
+        <button class="camio-nav-btn" data-module="io" type="button">Data I/O + Diagnostics</button>
+      </aside>
+
+      <section class="camio-main" aria-live="polite">
+        <section class="camio-module" data-module-panel="overview">
+          <div class="card card-section">
+            <div class="card-head card-header">
+              <h2 class="card-title">Overview</h2>
+              <div class="help-text">Current Third Wing footprint across pipeline, shifts, turf, and forecast configuration.</div>
+            </div>
+            <div class="subgrid">
+              <div class="mini"><div class="mini-k">People</div><div class="mini-v" id="ovPersons">0</div></div>
+              <div class="mini"><div class="mini-k">Pipeline records</div><div class="mini-v" id="ovPipeline">0</div></div>
+              <div class="mini"><div class="mini-k">Shift records</div><div class="mini-v" id="ovShifts">0</div></div>
+              <div class="mini"><div class="mini-k">Turf events</div><div class="mini-v" id="ovTurf">0</div></div>
+              <div class="mini"><div class="mini-k">Forecast configs</div><div class="mini-v" id="ovForecastConfigs">0</div></div>
+              <div class="mini"><div class="mini-k">Active stage now</div><div class="mini-v" id="ovActiveStage">0</div></div>
+            </div>
+            <div class="note" id="ovNote">No data loaded yet.</div>
+          </div>
+        </section>
+
+        <section class="camio-module" data-module-panel="recruitment">
+          <div class="card card-section">
+            <div class="card-head card-header">
+              <h2 class="card-title">Recruitment Tracker</h2>
+              <div class="help-text">Pipeline-stage distribution and current queue health.</div>
+            </div>
+            <div class="subgrid">
+              <div class="mini"><div class="mini-k">Sourced</div><div class="mini-v" id="recSourced">0</div></div>
+              <div class="mini"><div class="mini-k">Contacted</div><div class="mini-v" id="recContacted">0</div></div>
+              <div class="mini"><div class="mini-k">Phone Screen</div><div class="mini-v" id="recPhoneScreen">0</div></div>
+              <div class="mini"><div class="mini-k">Interviewed</div><div class="mini-v" id="recInterviewed">0</div></div>
+              <div class="mini"><div class="mini-k">Offer Accepted</div><div class="mini-v" id="recOfferAccepted">0</div></div>
+              <div class="mini"><div class="mini-k">Active</div><div class="mini-v" id="recActive">0</div></div>
+              <div class="mini"><div class="mini-k">Avg days in stage</div><div class="mini-v" id="recAvgDaysInStage">0.0</div></div>
+            </div>
+            <div class="toolbar" style="margin-top:10px;">
+              <a class="btn btn-sm" href="third-wing-pipeline.html">Open Pipeline Input</a>
+            </div>
+          </div>
+        </section>
+
+        <section class="camio-module" data-module-panel="interviews">
+          <div class="card card-section">
+            <div class="card-head card-header">
+              <h2 class="card-title">Interview Tracker</h2>
+              <div class="help-text">Derived from stage progression until dedicated interview records are added.</div>
+            </div>
+            <div class="subgrid">
+              <div class="mini"><div class="mini-k">Interview queue</div><div class="mini-v" id="intQueue">0</div></div>
+              <div class="mini"><div class="mini-k">Offer Extended</div><div class="mini-v" id="intOfferExtended">0</div></div>
+              <div class="mini"><div class="mini-k">Offer Accepted</div><div class="mini-v" id="intOfferAccepted">0</div></div>
+            </div>
+            <div class="note">v1 uses pipeline stage counts. A dedicated interview log can be added later without touching engine math.</div>
+          </div>
+        </section>
+
+        <section class="camio-module" data-module-panel="onboarding">
+          <div class="card card-section">
+            <div class="card-head card-header">
+              <h2 class="card-title">Onboarding Tracker</h2>
+              <div class="help-text">Pipeline-derived progression through docs/background/training gates.</div>
+            </div>
+            <div class="subgrid">
+              <div class="mini"><div class="mini-k">Docs Submitted</div><div class="mini-v" id="onDocsSubmitted">0</div></div>
+              <div class="mini"><div class="mini-k">Background Passed</div><div class="mini-v" id="onBackgroundPassed">0</div></div>
+              <div class="mini"><div class="mini-k">Training Complete</div><div class="mini-v" id="onTrainingComplete">0</div></div>
+            </div>
+            <div class="note">This can be replaced by dedicated onboarding records in a later increment.</div>
+          </div>
+        </section>
+
+        <section class="camio-module" data-module-panel="training">
+          <div class="card card-section">
+            <div class="card-head card-header">
+              <h2 class="card-title">Training Tracker</h2>
+              <div class="help-text">Readiness status from stage progression.</div>
+            </div>
+            <div class="subgrid">
+              <div class="mini"><div class="mini-k">Training Complete</div><div class="mini-v" id="trTrainingComplete">0</div></div>
+              <div class="mini"><div class="mini-k">Active</div><div class="mini-v" id="trActive">0</div></div>
+              <div class="mini"><div class="mini-k">Ready ratio</div><div class="mini-v" id="trReadyRatio">0.0%</div></div>
+            </div>
+            <div class="note">Ready ratio = Active / (Training Complete + Active).</div>
+          </div>
+        </section>
+
+        <section class="camio-module" data-module-panel="shifts">
+          <div class="card card-section">
+            <div class="card-head card-header">
+              <h2 class="card-title">Shift Scheduler / Payroll</h2>
+              <div class="help-text">Production source-of-truth for attempts, convos, support IDs, and checked-in hours.</div>
+            </div>
+            <div class="subgrid">
+              <div class="mini"><div class="mini-k">Shifts</div><div class="mini-v" id="shShiftCount">0</div></div>
+              <div class="mini"><div class="mini-k">Attempts</div><div class="mini-v" id="shAttempts">0</div></div>
+              <div class="mini"><div class="mini-k">Conversations</div><div class="mini-v" id="shConvos">0</div></div>
+              <div class="mini"><div class="mini-k">Support IDs</div><div class="mini-v" id="shSupportIds">0</div></div>
+              <div class="mini"><div class="mini-k">Hours</div><div class="mini-v" id="shHours">0.0</div></div>
+            </div>
+            <div class="toolbar" style="margin-top:10px;">
+              <a class="btn btn-sm" href="third-wing-shifts.html">Open Shift Input</a>
+            </div>
+          </div>
+        </section>
+
+        <section class="camio-module" data-module-panel="turf">
+          <div class="card card-section">
+            <div class="card-head card-header">
+              <h2 class="card-title">Turf Tracker</h2>
+              <div class="help-text">Coverage ledger for precinct/turf recency and touch count.</div>
+            </div>
+            <div class="subgrid">
+              <div class="mini"><div class="mini-k">Events</div><div class="mini-v" id="tfEvents">0</div></div>
+              <div class="mini"><div class="mini-k">Coverage attempts</div><div class="mini-v" id="tfAttempts">0</div></div>
+              <div class="mini"><div class="mini-k">Canvassed</div><div class="mini-v" id="tfCanvassed">0</div></div>
+              <div class="mini"><div class="mini-k">VBMs</div><div class="mini-v" id="tfVbms">0</div></div>
+              <div class="mini"><div class="mini-k">Unique precincts</div><div class="mini-v" id="tfPrecincts">0</div></div>
+              <div class="mini"><div class="mini-k">Unique turfs</div><div class="mini-v" id="tfTurfs">0</div></div>
+            </div>
+            <div class="toolbar" style="margin-top:10px;">
+              <a class="btn btn-sm" href="third-wing-turf.html">Open Turf Input</a>
+            </div>
+          </div>
+        </section>
+
+        <section class="camio-module" data-module-panel="aggregate">
+          <div class="card card-section">
+            <div class="card-head card-header">
+              <h2 class="card-title">Aggregate Readout</h2>
+              <div class="help-text">Overlap-safe production and coverage totals using source-of-truth rules.</div>
+            </div>
+            <div class="subgrid">
+              <div class="mini"><div class="mini-k">Production source</div><div class="mini-v" id="agSource">shift</div></div>
+              <div class="mini"><div class="mini-k">Attempts</div><div class="mini-v" id="agAttempts">0</div></div>
+              <div class="mini"><div class="mini-k">Conversations</div><div class="mini-v" id="agConvos">0</div></div>
+              <div class="mini"><div class="mini-k">Support IDs</div><div class="mini-v" id="agSupportIds">0</div></div>
+              <div class="mini"><div class="mini-k">Hours</div><div class="mini-v" id="agHours">0.0</div></div>
+              <div class="mini"><div class="mini-k">Excluded turf attempts</div><div class="mini-v" id="agExcludedAttempts">0</div></div>
+              <div class="mini"><div class="mini-k">Excluded turf records</div><div class="mini-v" id="agExcludedRecords">0</div></div>
+            </div>
+            <div class="note">Rule: production totals come from shifts; turf remains coverage context unless shift count is zero and fallback is explicitly allowed.</div>
+          </div>
+        </section>
+
+        <section class="camio-module" data-module-panel="forecast">
+          <div class="card card-section">
+            <div class="card-head card-header">
+              <h2 class="card-title">Capacity Forecast View</h2>
+              <div class="help-text">Ramp forecast stays upstream; optional capacity override stays explicit and opt-in.</div>
+            </div>
+            <div class="subgrid">
+              <div class="mini"><div class="mini-k">Baseline active now</div><div class="mini-v" id="fcBaselineActive">0</div></div>
+              <div class="mini"><div class="mini-k">Open pipeline</div><div class="mini-v" id="fcOpenPipeline">0</div></div>
+              <div class="mini"><div class="mini-k">Forecast config records</div><div class="mini-v" id="fcConfigCount">0</div></div>
+            </div>
+            <div class="toolbar" style="margin-top:10px;">
+              <a class="btn btn-sm" href="third-wing-ramp.html">Open Ramp Forecast</a>
+              <a class="btn btn-sm btn-ghost" href="index.html">Open FPE Capacity Stage</a>
+            </div>
+          </div>
+        </section>
+
+        <section class="camio-module" data-module-panel="io">
+          <div class="card card-section">
+            <div class="card-head card-header">
+              <h2 class="card-title">Data I/O + Diagnostics</h2>
+              <div class="help-text">Static-safe import/export and quick diagnostics for Third Wing stores.</div>
+            </div>
+            <div class="toolbar">
+              <button class="btn btn-sm" id="btnTwExportJson" type="button">Export Third Wing JSON</button>
+              <button class="btn btn-sm" id="btnTwImportJson" type="button">Import Third Wing JSON</button>
+              <select class="select" id="twImportMode" style="min-width:110px;">
+                <option value="merge">Merge</option>
+                <option value="replace">Replace</option>
+              </select>
+              <button class="btn btn-sm btn-ghost" id="btnTwRefresh" type="button">Refresh diagnostics</button>
+            </div>
+            <input id="twImportFile" type="file" accept=".json,application/json" hidden />
+            <div class="mini-s" id="ioStatus" aria-live="polite" style="margin-top:8px;">Ready.</div>
+            <pre class="mono" id="ioDiagnostics" style="margin-top:10px;">{}</pre>
+          </div>
+        </section>
+      </section>
+    </div>
+  </main>
+
+  <script type="module" src="js/camio.js"></script>
+</body>
+</html>

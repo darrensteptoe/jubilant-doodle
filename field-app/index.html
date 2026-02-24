@@ -561,6 +561,8 @@
 <div>
       Organizer input lives on a separate page for clean data entry.
       <a class="link" href="organizer.html">Open organizer page</a>
+      <span class="mini-s">|</span>
+      <a class="link" href="camio.html">Open Cam.io ops hub</a>
 </div>
 <div style="display:flex; gap:8px; align-items:center;">
 <button class="btn btn-sm" id="dailyLogExportBtn" type="button">Export daily log</button>
@@ -616,10 +618,28 @@
 </div>
 <div class="card card-section" id="thirdWingCapacityOutlookCard">
 <div class="card-head card-header">
-<h2 class="card-title">Capacity outlook (read-only)</h2>
-<div class="help-text">Baseline vs expected ramp vs scheduled attempts by week from Third Wing records. This does not change FPE math inputs.</div>
+<h2 class="card-title">Capacity outlook + optional override</h2>
+<div class="help-text">Baseline vs expected ramp vs scheduled attempts by week from Third Wing records. Override is explicit opt-in and OFF by default.</div>
 </div>
 <div class="note" id="twCapOutlookStatus">Loading Third Wing outlook…</div>
+<div class="note" style="display:flex; gap:10px; flex-wrap:wrap; align-items:center; justify-content:space-between; margin-top:10px;">
+<div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
+<label class="mini-s" for="twCapOverrideEnabled" style="display:flex; gap:6px; align-items:center;">
+<input id="twCapOverrideEnabled" type="checkbox"/>
+          Enable Third Wing capacity override
+        </label>
+<label class="mini-s" for="twCapOverrideMode">Source</label>
+<select class="select" id="twCapOverrideMode" style="min-width:170px;">
+<option value="baseline">Baseline (manual)</option>
+<option value="ramp">Expected ramp</option>
+<option value="scheduled">Scheduled attempts</option>
+<option value="max">Max(ramp, scheduled)</option>
+</select>
+<label class="mini-s" for="twCapOverrideHorizonWeeks">Horizon (weeks)</label>
+<input class="input num" id="twCapOverrideHorizonWeeks" max="52" min="4" step="1" style="width:90px;" type="number"/>
+</div>
+<div class="mini-s" id="twCapOutlookActiveSource">Override OFF</div>
+</div>
 <div class="subgrid" style="margin-top:10px;">
 <div class="mini">
 <div class="mini-k">Baseline / week</div>
@@ -651,7 +671,7 @@
 <tbody id="twCapOutlookTbody"></tbody>
 </table></div>
 </div>
-<div class="note" id="twCapOutlookBasis">Read-only comparison only. Engine uses baseline manual capacity until override mode is explicitly enabled in a future step.</div>
+<div class="note" id="twCapOutlookBasis">Override is OFF by default. When enabled, FPE capacity uses selected Third Wing source with automatic fallback to baseline if data is unavailable.</div>
 </div>
 <div class="card card-section phase-phase2" id="conversionCard">
 <div class="card-head card-header">
@@ -2515,7 +2535,7 @@ Volunteer multiplier stays above 1.5" rows="4"></textarea>
 </aside>
 </div>
 <!-- /app-shell -->
-<script src="./js/app.js?v=20260224-stable-c15" type="module"></script>
+<script src="./js/app.js?v=20260224-stable-c16" type="module"></script>
 <script>
 // ── Stage navigation ───────────────────────────────────────────
 function normalizeStages() {
