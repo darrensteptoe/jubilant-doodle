@@ -2,7 +2,7 @@ import { engine } from "./engine.js";
 import { computeCapacityContacts as coreComputeCapacityContacts, computeCapacityBreakdown as coreComputeCapacityBreakdown } from "./core/model.js";
 import { normalizeUniversePercents, UNIVERSE_DEFAULTS, computeUniverseAdjustedRates } from "./core/universeLayer.js";
 import { computeAvgLiftPP } from "./core/turnout.js";
-import { fmtInt, clamp, safeNum, daysBetween, downloadJson, readJsonFile } from "./utils.js";
+import { fmtInt, clamp, safeNum, daysBetween, readJsonFile } from "./utils.js";
 import {
   loadState,
   clearState,
@@ -814,7 +814,6 @@ function restoreBackupByIndex(idx){
 import { els } from "./ui/els.js";
 
 function setText(el, text){ if(el) el.textContent = String(text ?? ""); }
-function setValue(el, val){ if(el) el.value = String(val ?? ""); }
 function setHidden(el, hidden){ if(el) el.hidden = !!hidden; }
 function setTextPair(a, b, text){ setText(a, text); setText(b, text); }
 
@@ -4017,12 +4016,6 @@ function makeDecisionOptionId(){
   return "do_" + uid() + Date.now().toString(16);
 }
 
-const DECISION_TACTICS = [
-  { key: "doors", label: "Doors" },
-  { key: "phones", label: "Phones" },
-  { key: "digital", label: "Digital" },
-];
-
 function ensureDecisionOptionShape(o){
   if (!o || typeof o !== "object") return;
   if (!o.tactics || typeof o.tactics !== "object") o.tactics = {};
@@ -5558,7 +5551,6 @@ function init(){
   initDevTools();
   render();
   try{
-    ensureScenarioRegistry();
     const b = state.ui.scenarios?.[SCENARIO_BASELINE_ID];
     if (b){
       b.inputs = scenarioInputsFromState(state);
