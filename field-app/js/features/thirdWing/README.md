@@ -14,12 +14,14 @@ Design goals:
 - Explicit import/export portability
 
 Current status:
+- Hub page:
+  - `/Users/anakinskywalker/Downloads/field-app-40/camio.html`
 - Wired to standalone input pages:
   - `/Users/anakinskywalker/Downloads/field-app-40/third-wing-pipeline.html`
   - `/Users/anakinskywalker/Downloads/field-app-40/third-wing-shifts.html`
   - `/Users/anakinskywalker/Downloads/field-app-40/third-wing-turf.html`
   - `/Users/anakinskywalker/Downloads/field-app-40/third-wing-ramp.html`
-- No engine integration yet
+- Engine integration limited to capacity compiler seam only (`compileEffectiveInputs` in app runtime)
 - Safe to build page modules on top of this store
 
 Source-of-truth policy:

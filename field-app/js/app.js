@@ -224,6 +224,13 @@ function appendThirdWingDiagnostics(lines, tw){
 let twCapOutlookTimer = null;
 let twCapOutlookSeq = 0;
 let twCapOutlookLastRunMs = 0;
+let twCapOverrideSig = "";
+let twCapOverrideCache = {
+  ready: false,
+  week0: { baseline: null, ramp: null, scheduled: null, max: null },
+  horizonWeeks: 0,
+  updatedAt: null,
+};
 const TW_CAP_DAY_MS = 86400000;
 const TW_CAP_WEEK_MS = 7 * TW_CAP_DAY_MS;
 
@@ -250,6 +257,22 @@ function twCapFmtSigned(v){
 
 function twCapClean(v){
   return String(v == null ? "" : v).trim();
+}
+
+function twCapOverrideModeFromState(srcState = state){
+  const raw = twCapClean(srcState?.twCapOverrideMode || "baseline");
+  return ["baseline", "ramp", "scheduled", "max"].includes(raw) ? raw : "baseline";
+}
+
+function twCapResolveOverrideAttempts(srcState = state){
+  if (!srcState?.twCapOverrideEnabled) return null;
+  const mode = twCapOverrideModeFromState(srcState);
+  if (mode === "baseline"){
+    return twCapNum(twCapOverrideCache?.week0?.baseline, null);
+  }
+  if (!twCapOverrideCache?.ready) return null;
+  const target = twCapNum(twCapOverrideCache.week0?.[mode], null);
+  return (target == null || !Number.isFinite(target)) ? null : Math.max(0, target);
 }
 
 function twCapTransitionKey(from, to){
@@ -323,7 +346,15 @@ function twCapBaselineAttemptsPerWeek(effective){
 }
 
 function twCapEmptyOutlook(message){
+  twCapOverrideSig = "";
+  twCapOverrideCache = {
+    ready: false,
+    week0: { baseline: null, ramp: null, scheduled: null, max: null },
+    horizonWeeks: 0,
+    updatedAt: new Date().toISOString(),
+  };
   twCapText(els.twCapOutlookStatus, message || "No Third Wing data.");
+  twCapText(els.twCapOutlookActiveSource, state?.twCapOverrideEnabled ? "Override ON (data unavailable; fallback baseline)" : "Override OFF");
   twCapText(els.twCapOutlookBaseline, "—");
   twCapText(els.twCapOutlookRampTotal, "—");
   twCapText(els.twCapOutlookScheduledTotal, "—");
@@ -339,7 +370,9 @@ function scheduleThirdWingCapacityOutlookRender(weeks){
   if (twCapOutlookTimer) clearTimeout(twCapOutlookTimer);
 
   const w = (weeks != null && Number.isFinite(Number(weeks))) ? Number(weeks) : 12;
-  const horizonWeeks = Math.max(4, Math.min(26, Math.floor(w || 12)));
+  const explicitHorizon = safeNum(state?.twCapOverrideHorizonWeeks);
+  const rawHorizon = (explicitHorizon != null && isFinite(explicitHorizon)) ? explicitHorizon : (w || 12);
+  const horizonWeeks = Math.max(4, Math.min(52, Math.floor(rawHorizon)));
   const nowMs = Date.now();
   const throttleMs = Math.max(0, 700 - (nowMs - twCapOutlookLastRunMs));
   const delayMs = Math.max(180, throttleMs);
@@ -435,7 +468,26 @@ async function renderThirdWingCapacityOutlook(seq, horizonWeeks){
   const expectedAddedFte = rows.reduce((acc, r) => acc + (r.rampAdds || 0), 0);
   const pipelineCount = Array.isArray(pipelineRecords) ? pipelineRecords.length : 0;
   const shiftCount = Array.isArray(shiftRecords) ? shiftRecords.length : 0;
+  const week0Row = rows[0] || { baseline: baselineAttempts, ramp: baselineAttempts, scheduled: 0 };
 
+  twCapOverrideCache = {
+    ready: true,
+    week0: {
+      baseline: twCapNum(week0Row.baseline, baselineAttempts),
+      ramp: twCapNum(week0Row.ramp, baselineAttempts),
+      scheduled: twCapNum(week0Row.scheduled, 0),
+      max: Math.max(twCapNum(week0Row.ramp, baselineAttempts), twCapNum(week0Row.scheduled, 0)),
+    },
+    horizonWeeks: rows.length,
+    updatedAt: new Date().toISOString(),
+  };
+
+  const activeMode = twCapOverrideModeFromState(state);
+  const activeSourceLabel = state?.twCapOverrideEnabled
+    ? `Override ON · source: ${activeMode}`
+    : "Override OFF";
+
+  twCapText(els.twCapOutlookActiveSource, activeSourceLabel);
   twCapText(els.twCapOutlookBaseline, twCapFmtInt(baselineAttempts));
   twCapText(els.twCapOutlookRampTotal, twCapFmtInt(expectedByEnd));
   twCapText(els.twCapOutlookScheduledTotal, twCapFmtInt(scheduledTotal));
@@ -446,8 +498,27 @@ async function renderThirdWingCapacityOutlook(seq, horizonWeeks){
   );
   twCapText(
     els.twCapOutlookBasis,
-    "Read-only comparison only. Engine uses baseline manual capacity until override mode is explicitly enabled in a future step."
+    "Override is OFF by default. When enabled, FPE capacity uses selected Third Wing source with automatic fallback to baseline if data is unavailable."
   );
+
+  // If override is active, re-render once when cache materially changes so effective inputs pick up new values.
+  if (state?.twCapOverrideEnabled && activeMode !== "baseline"){
+    const sig = JSON.stringify({
+      mode: activeMode,
+      h: twCapOverrideCache.horizonWeeks,
+      b: twCapOverrideCache.week0?.baseline,
+      r: twCapOverrideCache.week0?.ramp,
+      s: twCapOverrideCache.week0?.scheduled,
+      m: twCapOverrideCache.week0?.max,
+    });
+    if (sig !== twCapOverrideSig){
+      twCapOverrideSig = sig;
+      markMcStale();
+      render();
+    }
+  } else {
+    twCapOverrideSig = "";
+  }
 
   if (!els.twCapOutlookTbody) return;
   els.twCapOutlookTbody.innerHTML = "";
@@ -804,6 +875,9 @@ function makeDefaultState(){
     // Phase 17 — third-wing feature flags (default OFF; no behavior change yet)
     crmEnabled: false,
     scheduleEnabled: false,
+    twCapOverrideEnabled: false,
+    twCapOverrideMode: "baseline",
+    twCapOverrideHorizonWeeks: 12,
 
 
     mcMode: "basic",
@@ -912,6 +986,9 @@ function applyStateToUI(){
   if (els.doorsPerHour3) els.doorsPerHour3.value = state.doorsPerHour3 ?? "";
   if (els.callsPerHour3) els.callsPerHour3.value = state.callsPerHour3 ?? "";
   if (els.turnoutReliabilityPct) els.turnoutReliabilityPct.value = state.turnoutReliabilityPct ?? "";
+  if (els.twCapOverrideEnabled) els.twCapOverrideEnabled.checked = !!state.twCapOverrideEnabled;
+  if (els.twCapOverrideMode) els.twCapOverrideMode.value = state.twCapOverrideMode || "baseline";
+  if (els.twCapOverrideHorizonWeeks) els.twCapOverrideHorizonWeeks.value = state.twCapOverrideHorizonWeeks ?? 12;
 
   // Phase 6 — turnout / GOTV
   if (els.turnoutEnabled) els.turnoutEnabled.checked = !!state.turnoutEnabled;
@@ -1251,6 +1328,20 @@ function wireEvents(){
   if (els.doorsPerHour3) els.doorsPerHour3.addEventListener("input", () => { state.doorsPerHour3 = safeNum(els.doorsPerHour3.value); markMcStale(); render(); persist(); });
   if (els.callsPerHour3) els.callsPerHour3.addEventListener("input", () => { state.callsPerHour3 = safeNum(els.callsPerHour3.value); markMcStale(); render(); persist(); });
   if (els.turnoutReliabilityPct) els.turnoutReliabilityPct.addEventListener("input", () => { state.turnoutReliabilityPct = safeNum(els.turnoutReliabilityPct.value); markMcStale(); render(); persist(); });
+  if (els.twCapOverrideEnabled) els.twCapOverrideEnabled.addEventListener("change", () => { state.twCapOverrideEnabled = !!els.twCapOverrideEnabled.checked; markMcStale(); render(); persist(); });
+  if (els.twCapOverrideMode) els.twCapOverrideMode.addEventListener("change", () => {
+    const mode = String(els.twCapOverrideMode.value || "baseline");
+    state.twCapOverrideMode = ["baseline", "ramp", "scheduled", "max"].includes(mode) ? mode : "baseline";
+    markMcStale();
+    render();
+    persist();
+  });
+  if (els.twCapOverrideHorizonWeeks) els.twCapOverrideHorizonWeeks.addEventListener("input", () => {
+    const n = safeNum(els.twCapOverrideHorizonWeeks.value);
+    state.twCapOverrideHorizonWeeks = (n != null && isFinite(n)) ? clamp(n, 4, 52) : 12;
+    render();
+    persist();
+  });
 
   // Phase 6 — turnout / GOTV inputs
   if (els.turnoutEnabled) els.turnoutEnabled.addEventListener("change", () => { state.turnoutEnabled = !!els.turnoutEnabled.checked; markMcStale(); render(); persist(); });
@@ -1620,6 +1711,12 @@ function normalizeLoadedState(s){
   if (!out.yourCandidateId && out.candidates[0]) out.yourCandidateId = out.candidates[0].id;
   out.crmEnabled = !!out.crmEnabled;
   out.scheduleEnabled = !!out.scheduleEnabled;
+  out.twCapOverrideEnabled = !!out.twCapOverrideEnabled;
+  out.twCapOverrideMode = ["baseline", "ramp", "scheduled", "max"].includes(String(out.twCapOverrideMode || ""))
+    ? String(out.twCapOverrideMode)
+    : "baseline";
+  const horizon = safeNum(out.twCapOverrideHorizonWeeks);
+  out.twCapOverrideHorizonWeeks = (horizon != null && isFinite(horizon)) ? clamp(horizon, 4, 52) : 12;
   out.ui.themeMode = "system";
   out.ui.dark = false;
   return out;
@@ -1699,18 +1796,48 @@ function getEffectiveBaseRates(){
 }
 
 // Step-3 seam: single compiler for effective inputs.
-// Baseline behavior only for now (no CRM/scheduling overrides yet).
+// Third Wing override is explicit opt-in and falls back to baseline when unavailable.
 function compileEffectiveInputs(srcState = state){
   const s = srcState || {};
   const eff = (s === state) ? getEffectiveBaseRates() : getEffectiveBaseRatesFromSnap(s);
 
-  const orgCount = safeNum(s.orgCount);
+  let orgCount = safeNum(s.orgCount);
   const orgHoursPerWeek = safeNum(s.orgHoursPerWeek);
   const volunteerMult = safeNum(s.volunteerMultBase);
   const doorSharePct = safeNum(s.channelDoorPct);
   const doorShare = (doorSharePct == null) ? null : clamp(doorSharePct, 0, 100) / 100;
   const doorsPerHour = safeNum(s.doorsPerHour3) ?? safeNum(s.doorsPerHour);
   const callsPerHour = safeNum(s.callsPerHour3);
+
+  let source = "baseline-manual";
+  let overrideTargetAttemptsPerWeek = null;
+  const overrideEnabled = !!s.twCapOverrideEnabled;
+  const overrideMode = twCapOverrideModeFromState(s);
+
+  if (overrideEnabled){
+    if (overrideMode === "baseline"){
+      source = "baseline-manual (override-baseline)";
+    } else {
+      const targetAttempts = twCapResolveOverrideAttempts(s);
+      const perOrganizerAttempts = twCapPerOrganizerAttemptsPerWeek({
+        capacity: {
+          orgCount: 1,
+          orgHoursPerWeek,
+          volunteerMult,
+          doorShare,
+          doorsPerHour,
+          callsPerHour,
+        }
+      });
+      if (targetAttempts != null && perOrganizerAttempts > 0){
+        orgCount = targetAttempts / perOrganizerAttempts;
+        overrideTargetAttemptsPerWeek = targetAttempts;
+        source = `third-wing-${overrideMode}`;
+      } else {
+        source = `baseline-manual (override-${overrideMode}-fallback)`;
+      }
+    }
+  }
 
   return {
     rates: {
@@ -1728,7 +1855,10 @@ function compileEffectiveInputs(srcState = state){
       callsPerHour,
     },
     meta: {
-      source: "baseline-manual"
+      source,
+      twCapOverrideEnabled: overrideEnabled,
+      twCapOverrideMode: overrideMode,
+      twCapOverrideTargetAttemptsPerWeek: overrideTargetAttemptsPerWeek,
     }
   };
 }
