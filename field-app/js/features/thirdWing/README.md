@@ -14,7 +14,9 @@ Design goals:
 - Explicit import/export portability
 
 Current status:
-- Not wired into UI yet
+- Wired to standalone input pages:
+  - `/Users/anakinskywalker/Downloads/field-app-40/third-wing-pipeline.html`
+  - `/Users/anakinskywalker/Downloads/field-app-40/third-wing-shifts.html`
 - No engine integration yet
 - Safe to build page modules on top of this store
 

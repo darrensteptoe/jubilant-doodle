@@ -1,0 +1,150 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Field Engine — Third Wing Shifts</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body class="page-generic">
+  <a class="skip-link" href="#main">Skip to content</a>
+
+  <main class="wrap" id="main">
+    <header class="header">
+      <h1 class="title"><a href="index.html">Field Path Engine</a></h1>
+      <p class="sub">Third Wing: Shift Tracker Input</p>
+    </header>
+
+    <div class="note" style="display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin-bottom:10px;">
+      <a class="btn btn-sm btn-ghost" href="third-wing-pipeline.html">Pipeline</a>
+      <a class="btn btn-sm" href="third-wing-shifts.html">Shifts</a>
+      <span class="mini-s">Production source of truth: shifts. Turf remains coverage context.</span>
+    </div>
+
+    <div class="card card-section">
+      <div class="card-head card-header">
+        <h2 class="card-title">Shift Entry</h2>
+        <div class="help-text">One row per completed shift. Use this for payroll-grade check in/out and production.</div>
+      </div>
+
+      <div class="grid3">
+        <div class="field">
+          <label class="label" for="shiftDate">Date</label>
+          <input class="input" id="shiftDate" type="date" />
+        </div>
+        <div class="field">
+          <label class="label" for="shiftPersonId">Person</label>
+          <select class="select" id="shiftPersonId"></select>
+        </div>
+        <div class="field">
+          <label class="label" for="shiftOffice">Office</label>
+          <input class="input" id="shiftOffice" type="text" placeholder="Office / team" />
+        </div>
+
+        <div class="field">
+          <label class="label" for="shiftMode">Mode</label>
+          <select class="select" id="shiftMode">
+            <option value="doors">Doors</option>
+            <option value="calls">Calls</option>
+            <option value="text">Text</option>
+            <option value="other">Other</option>
+          </select>
+        </div>
+        <div class="field">
+          <label class="label" for="shiftTurfId">Turf ID (optional)</label>
+          <input class="input" id="shiftTurfId" type="text" placeholder="T-102" />
+        </div>
+        <div class="field">
+          <label class="label" for="shiftAttempts">Attempts</label>
+          <input class="input num" id="shiftAttempts" type="number" min="0" step="1" placeholder="0" />
+        </div>
+
+        <div class="field">
+          <label class="label" for="shiftConvos">Conversations</label>
+          <input class="input num" id="shiftConvos" type="number" min="0" step="1" placeholder="0" />
+        </div>
+        <div class="field">
+          <label class="label" for="shiftSupportIds">Support IDs</label>
+          <input class="input num" id="shiftSupportIds" type="number" min="0" step="1" placeholder="0" />
+        </div>
+        <div class="field"></div>
+
+        <div class="field">
+          <label class="label" for="shiftStartTime">Scheduled start</label>
+          <input class="input" id="shiftStartTime" type="time" />
+        </div>
+        <div class="field">
+          <label class="label" for="shiftEndTime">Scheduled end</label>
+          <input class="input" id="shiftEndTime" type="time" />
+        </div>
+        <div class="field">
+          <label class="label" for="shiftCheckInTime">Check in</label>
+          <input class="input" id="shiftCheckInTime" type="time" />
+        </div>
+
+        <div class="field">
+          <label class="label" for="shiftCheckOutTime">Check out</label>
+          <input class="input" id="shiftCheckOutTime" type="time" />
+        </div>
+      </div>
+
+      <div class="card-footer" style="display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
+        <button class="btn" id="btnSaveShift" type="button">Save shift</button>
+        <button class="btn btn-ghost" id="btnClearShift" type="button">Clear</button>
+        <div class="mini-s" id="shiftMsg" aria-live="polite"></div>
+      </div>
+    </div>
+
+    <div class="card card-section">
+      <div class="card-head card-header">
+        <h2 class="card-title">Shift Readout</h2>
+        <div class="help-text">Recent completed shifts. Edit or delete rows as needed.</div>
+      </div>
+
+      <div class="note" style="display:flex; gap:10px; flex-wrap:wrap; align-items:center; justify-content:space-between;">
+        <div><span class="mini-k">Shifts:</span> <span class="mini-v" id="countShifts">0</span></div>
+        <div><span class="mini-k">Attempts:</span> <span class="mini-v" id="sumAttempts">0</span></div>
+        <div><span class="mini-k">Hours:</span> <span class="mini-v" id="sumHours">0.0</span></div>
+      </div>
+
+      <div class="tableWrap" style="margin-top:10px;">
+        <table class="table">
+          <thead>
+            <tr>
+              <th>Date</th>
+              <th>Person</th>
+              <th>Mode</th>
+              <th>Turf</th>
+              <th class="num">Attempts</th>
+              <th class="num">Convos</th>
+              <th class="num">IDs</th>
+              <th class="num">Hours</th>
+              <th style="width:140px;">Actions</th>
+            </tr>
+          </thead>
+          <tbody id="shiftTbody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="card card-section">
+      <div class="card-head card-header">
+        <h2 class="card-title">Data I/O</h2>
+        <div class="help-text">Portable JSON/CSV import-export for Third Wing shift records.</div>
+      </div>
+
+      <div style="display:flex; gap:8px; flex-wrap:wrap;">
+        <button class="btn btn-sm" id="btnExportJson" type="button">Export Third Wing JSON</button>
+        <button class="btn btn-sm" id="btnImportJson" type="button">Import Third Wing JSON</button>
+        <button class="btn btn-sm" id="btnExportCsv" type="button">Export Shifts CSV</button>
+        <button class="btn btn-sm" id="btnImportCsv" type="button">Import Shifts CSV</button>
+      </div>
+      <input id="importJsonFile" type="file" accept=".json,application/json" hidden />
+      <input id="importCsvFile" type="file" accept=".csv,text/csv" hidden />
+      <div class="mini-s" id="ioMsg" aria-live="polite" style="margin-top:8px;"></div>
+    </div>
+  </main>
+
+  <script type="module" src="js/thirdWingShifts.js"></script>
+</body>
+</html>

@@ -69,6 +69,31 @@
 
     <div class="card card-section">
       <div class="card-head card-header">
+        <h2 class="card-title">Third Wing Shift Sync</h2>
+        <div class="help-text">One-way sync from Third Wing shift records into daily actuals. Preview first; apply is manual.</div>
+      </div>
+
+      <div class="note" style="display:flex; gap:10px; flex-wrap:wrap; align-items:center; justify-content:space-between;">
+        <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
+          <button class="btn btn-sm" id="btnPreviewShiftSync" type="button">Preview shift sync</button>
+          <button class="btn btn-sm btn-ghost" id="btnApplyShiftSync" type="button">Apply preview</button>
+          <label class="mini-s" for="shiftSyncOverwrite" style="display:flex; gap:6px; align-items:center;">
+            <input id="shiftSyncOverwrite" type="checkbox" />
+            Overwrite existing dates
+          </label>
+        </div>
+        <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
+          <a class="btn btn-sm btn-ghost" href="third-wing-pipeline.html">Pipeline page</a>
+          <a class="btn btn-sm btn-ghost" href="third-wing-shifts.html">Shifts page</a>
+        </div>
+      </div>
+
+      <div class="note" id="shiftSyncStatus" style="margin-top:10px;">No preview yet.</div>
+      <div class="mini-s" id="shiftSyncPreview" style="margin-top:8px;">Guardrails: no silent writes, no auto-sync, no overwrite unless checked.</div>
+    </div>
+
+    <div class="card card-section">
+      <div class="card-head card-header">
         <h2 class="card-title">Log</h2>
         <div class="help-text">Click a row to edit. Delete removes the entry for that date.</div>
       </div>

@@ -20,6 +20,11 @@ const els = {
   missingDays: document.getElementById("missingDays"),
   btnCopyJson: document.getElementById("btnCopyJson"),
   btnDownloadJson: document.getElementById("btnDownloadJson"),
+  btnPreviewShiftSync: document.getElementById("btnPreviewShiftSync"),
+  btnApplyShiftSync: document.getElementById("btnApplyShiftSync"),
+  shiftSyncOverwrite: document.getElementById("shiftSyncOverwrite"),
+  shiftSyncStatus: document.getElementById("shiftSyncStatus"),
+  shiftSyncPreview: document.getElementById("shiftSyncPreview"),
 };
 
 let state = loadState() || {};
@@ -27,6 +32,10 @@ if (!state.ui) state.ui = {};
 if (!Array.isArray(state.ui.dailyLog)) state.ui.dailyLog = [];
 
 let editingDate = null;
+let shiftSyncPlan = null;
+let thirdWingApiPromise = null;
+
+const SHIFT_SYNC_TAG = "[sync:third-wing-shifts]";
 
 function isISODate(s){
   return /^\d{4}-\d{2}-\d{2}$/.test(String(s || "").slice(0,10));
@@ -76,6 +85,48 @@ function addDaysISO(iso, delta){
   return dateToISO(dt);
 }
 
+function clean(v){
+  return String(v == null ? "" : v).trim();
+}
+
+function isoFromAnyDate(raw){
+  const s = clean(raw);
+  if (!s) return "";
+  if (isISODate(s)) return s.slice(0, 10);
+  const ts = Date.parse(s);
+  if (!Number.isFinite(ts)) return "";
+  return dateToISO(new Date(ts));
+}
+
+function shiftModeBucket(mode){
+  const m = clean(mode).toLowerCase();
+  if (!m || m === "door" || m === "doors") return "doors";
+  if (m === "call" || m === "calls" || m === "phone" || m === "phonebank") return "calls";
+  return "";
+}
+
+function shiftHours(raw){
+  const start = Date.parse(clean(raw?.checkInAt) || clean(raw?.startAt));
+  const end = Date.parse(clean(raw?.checkOutAt) || clean(raw?.endAt));
+  if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start) return 0;
+  return (end - start) / 3600000;
+}
+
+function stripSyncNote(notes){
+  const parts = clean(notes)
+    .split("|")
+    .map((p) => clean(p))
+    .filter(Boolean)
+    .filter((p) => !p.includes(SHIFT_SYNC_TAG));
+  return parts.join(" | ");
+}
+
+function combineManualAndSyncNotes(existingNotes, syncNote){
+  const manual = stripSyncNote(existingNotes);
+  if (manual && syncNote) return `${manual} | ${syncNote}`;
+  return syncNote || manual || "";
+}
+
 function normalizeEntry(raw){
   if (!raw || typeof raw !== "object") return null;
   const date = String(raw.date || "").slice(0, 10);
@@ -98,6 +149,252 @@ function persist(){
 
 function setMsg(text){
   if (els.entryMsg) els.entryMsg.textContent = text || "";
+}
+
+function setShiftSyncStatus(text){
+  if (els.shiftSyncStatus) els.shiftSyncStatus.textContent = text || "";
+}
+
+function setShiftSyncPreview(text){
+  if (els.shiftSyncPreview) els.shiftSyncPreview.textContent = text || "";
+}
+
+async function loadThirdWingApi(){
+  if (thirdWingApiPromise) return thirdWingApiPromise;
+  thirdWingApiPromise = import("./features/thirdWing/store.js")
+    .then((mod) => mod || null)
+    .catch(() => null);
+  return thirdWingApiPromise;
+}
+
+function aggregateShiftRecordsByDate(shiftRecords){
+  const rows = Array.isArray(shiftRecords) ? shiftRecords : [];
+  const byDate = new Map();
+  let skippedNoDate = 0;
+  let skippedUnsupportedModeShifts = 0;
+  let skippedUnsupportedModeAttempts = 0;
+  let clampedConvos = 0;
+  let clampedSupportIds = 0;
+
+  for (const rec of rows){
+    const date = isoFromAnyDate(rec?.date || rec?.checkInAt || rec?.startAt || rec?.endAt);
+    if (!date){
+      skippedNoDate += 1;
+      continue;
+    }
+
+    const mode = shiftModeBucket(rec?.mode);
+    const attempts = asNonNegInt(rec?.attempts);
+    if (!mode){
+      skippedUnsupportedModeShifts += 1;
+      skippedUnsupportedModeAttempts += attempts;
+      continue;
+    }
+
+    const convos = asNonNegInt(rec?.convos);
+    const supportIds = asNonNegInt(rec?.supportIds);
+    const hours = asNonNegNum(shiftHours(rec));
+
+    const day = byDate.get(date) || {
+      date,
+      doors: 0,
+      calls: 0,
+      convos: 0,
+      supportIds: 0,
+      orgHours: 0,
+      shiftCount: 0,
+    };
+
+    day[mode] += attempts;
+    day.convos += convos;
+    day.supportIds += supportIds;
+    day.orgHours += hours;
+    day.shiftCount += 1;
+    byDate.set(date, day);
+  }
+
+  const dayRows = Array.from(byDate.values())
+    .sort((a, b) => String(a.date).localeCompare(String(b.date)))
+    .map((day) => {
+      const attempts = asNonNegInt(day.doors + day.calls);
+      let convos = asNonNegInt(day.convos);
+      let supportIds = asNonNegInt(day.supportIds);
+      if (convos > attempts){
+        clampedConvos += (convos - attempts);
+        convos = attempts;
+      }
+      if (supportIds > convos){
+        clampedSupportIds += (supportIds - convos);
+        supportIds = convos;
+      }
+      return {
+        date: day.date,
+        doors: asNonNegInt(day.doors),
+        calls: asNonNegInt(day.calls),
+        attempts,
+        convos,
+        supportIds,
+        orgHours: Number(asNonNegNum(day.orgHours).toFixed(2)),
+        shiftCount: asNonNegInt(day.shiftCount),
+      };
+    });
+
+  return {
+    sourceShiftCount: rows.length,
+    dayRows,
+    skippedNoDate,
+    skippedUnsupportedModeShifts,
+    skippedUnsupportedModeAttempts,
+    clampedConvos,
+    clampedSupportIds,
+  };
+}
+
+function buildShiftSyncPlan(agg, opts = {}){
+  const overwrite = Boolean(opts.overwrite);
+  const currentLog = Array.isArray(state.ui?.dailyLog) ? state.ui.dailyLog : [];
+  const existingByDate = new Map();
+  for (const raw of currentLog){
+    const n = normalizeEntry(raw);
+    if (n) existingByDate.set(n.date, n);
+  }
+
+  const entries = [];
+  let createCount = 0;
+  let overwriteCount = 0;
+  let skippedExistingCount = 0;
+  let candidateOverwriteCount = 0;
+
+  for (const day of agg.dayRows){
+    const prev = existingByDate.get(day.date) || null;
+    const syncNote = `${SHIFT_SYNC_TAG} shifts:${day.shiftCount} attempts:${day.attempts}`;
+    const next = normalizeEntry({
+      date: day.date,
+      doors: day.doors,
+      calls: day.calls,
+      attempts: day.attempts,
+      convos: day.convos,
+      supportIds: day.supportIds,
+      orgHours: day.orgHours,
+      volsActive: prev ? asNonNegInt(prev.volsActive) : 0,
+      notes: combineManualAndSyncNotes(prev?.notes, syncNote),
+      updatedAt: Date.now(),
+    });
+    if (!next) continue;
+
+    if (prev){
+      candidateOverwriteCount += 1;
+      if (!overwrite){
+        skippedExistingCount += 1;
+        continue;
+      }
+      overwriteCount += 1;
+      entries.push({ mode: "overwrite", entry: next });
+      continue;
+    }
+
+    createCount += 1;
+    entries.push({ mode: "create", entry: next });
+  }
+
+  return {
+    overwriteEnabled: overwrite,
+    sourceShiftCount: agg.sourceShiftCount,
+    aggregatedDayCount: agg.dayRows.length,
+    createCount,
+    overwriteCount,
+    candidateOverwriteCount,
+    skippedExistingCount,
+    skippedNoDate: agg.skippedNoDate,
+    skippedUnsupportedModeShifts: agg.skippedUnsupportedModeShifts,
+    skippedUnsupportedModeAttempts: agg.skippedUnsupportedModeAttempts,
+    clampedConvos: agg.clampedConvos,
+    clampedSupportIds: agg.clampedSupportIds,
+    applyCount: entries.length,
+    entries,
+  };
+}
+
+function renderShiftSyncPlan(plan){
+  if (!plan){
+    if (els.btnApplyShiftSync) els.btnApplyShiftSync.disabled = true;
+    setShiftSyncStatus("No preview yet.");
+    setShiftSyncPreview("Guardrails: no silent writes, no auto-sync, no overwrite unless checked.");
+    return;
+  }
+
+  if (els.btnApplyShiftSync) els.btnApplyShiftSync.disabled = plan.applyCount === 0;
+  const modeText = plan.overwriteEnabled ? "Overwrite ON" : "Overwrite OFF";
+  const status = `${modeText} · Source shifts ${plan.sourceShiftCount} · Shift-days ${plan.aggregatedDayCount} · Creates ${plan.createCount} · Applies ${plan.applyCount}`;
+  const preview = [
+    `Overwrite candidates: ${plan.candidateOverwriteCount}`,
+    `Skipped existing: ${plan.skippedExistingCount}`,
+    `Skipped unsupported modes: ${plan.skippedUnsupportedModeShifts} shifts (${plan.skippedUnsupportedModeAttempts} attempts)`,
+    `Skipped missing dates: ${plan.skippedNoDate}`,
+    `Clamped convos/support: ${plan.clampedConvos}/${plan.clampedSupportIds}`,
+  ].join(" · ");
+
+  setShiftSyncStatus(status);
+  setShiftSyncPreview(preview);
+}
+
+async function previewShiftSync(){
+  setShiftSyncStatus("Building shift sync preview...");
+  setShiftSyncPreview("");
+
+  const api = await loadThirdWingApi();
+  if (!api || typeof api.getAll !== "function"){
+    shiftSyncPlan = null;
+    renderShiftSyncPlan(null);
+    setShiftSyncStatus("Third Wing store not available in this build.");
+    return null;
+  }
+
+  const shifts = await api.getAll("shiftRecords");
+  const agg = aggregateShiftRecordsByDate(shifts);
+  shiftSyncPlan = buildShiftSyncPlan(agg, {
+    overwrite: Boolean(els.shiftSyncOverwrite?.checked),
+  });
+  renderShiftSyncPlan(shiftSyncPlan);
+  return shiftSyncPlan;
+}
+
+function applyShiftSyncPlan(plan){
+  if (!plan || !Array.isArray(plan.entries) || plan.entries.length === 0){
+    return { ok: false, msg: "Nothing to apply from preview." };
+  }
+
+  const normalized = (Array.isArray(state.ui?.dailyLog) ? state.ui.dailyLog : [])
+    .map(normalizeEntry)
+    .filter(Boolean);
+  const idxByDate = new Map(normalized.map((e, idx) => [e.date, idx]));
+  let created = 0;
+  let overwritten = 0;
+
+  for (const row of plan.entries){
+    const entry = normalizeEntry(row?.entry);
+    if (!entry) continue;
+    const idx = idxByDate.get(entry.date);
+    if (idx == null){
+      idxByDate.set(entry.date, normalized.length);
+      normalized.push(entry);
+      created += 1;
+      continue;
+    }
+    normalized[idx] = {
+      ...normalized[idx],
+      ...entry,
+      volsActive: asNonNegInt(normalized[idx]?.volsActive),
+      notes: entry.notes,
+      updatedAt: Date.now(),
+    };
+    overwritten += 1;
+  }
+
+  state.ui.dailyLog = normalized.sort((a, b) => String(a.date).localeCompare(String(b.date)));
+  persist();
+  renderTable();
+  return { ok: true, created, overwritten };
 }
 
 function clearForm(){
@@ -395,6 +692,52 @@ function wire(){
     const r = await copyJson(buildExportPayload());
     setMsg(r.ok ? "Copied JSON" : "Copy failed");
   });
+  if (els.shiftSyncOverwrite) els.shiftSyncOverwrite.addEventListener("change", () => {
+    shiftSyncPlan = null;
+    renderShiftSyncPlan(null);
+    setShiftSyncStatus("Overwrite option changed. Run preview again.");
+  });
+  if (els.btnPreviewShiftSync) els.btnPreviewShiftSync.addEventListener("click", async () => {
+    try{
+      const plan = await previewShiftSync();
+      if (!plan){
+        setMsg("Shift sync preview unavailable");
+        return;
+      }
+      setMsg(`Shift sync preview ready (${plan.applyCount} day rows to apply).`);
+    } catch (err){
+      shiftSyncPlan = null;
+      renderShiftSyncPlan(null);
+      setShiftSyncStatus(err?.message ? String(err.message) : "Shift sync preview failed.");
+      setMsg("Shift sync preview failed");
+    }
+  });
+  if (els.btnApplyShiftSync) els.btnApplyShiftSync.addEventListener("click", async () => {
+    try{
+      let plan = shiftSyncPlan;
+      if (!plan) plan = await previewShiftSync();
+      if (!plan || plan.applyCount === 0){
+        setMsg("Nothing to apply from shift sync");
+        return;
+      }
+      if (plan.overwriteEnabled && plan.overwriteCount > 0){
+        const ok = window.confirm(`Overwrite ${plan.overwriteCount} existing day entries from Third Wing shifts?`);
+        if (!ok){
+          setMsg("Shift sync cancelled");
+          return;
+        }
+      }
+      const result = applyShiftSyncPlan(plan);
+      if (!result.ok){
+        setMsg(result.msg || "Shift sync failed");
+        return;
+      }
+      setMsg(`Shift sync applied: ${result.created} created, ${result.overwritten} overwritten.`);
+      await previewShiftSync();
+    } catch (err){
+      setMsg(err?.message ? String(err.message) : "Shift sync apply failed.");
+    }
+  });
 
   if (els.logTbody) els.logTbody.addEventListener("click", (e) => {
     const t = e?.target;
@@ -418,3 +761,4 @@ function wire(){
 
 wire();
 renderTable();
+renderShiftSyncPlan(null);

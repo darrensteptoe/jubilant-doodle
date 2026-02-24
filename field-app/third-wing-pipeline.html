@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Field Engine — Third Wing Pipeline</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body class="page-generic">
+  <a class="skip-link" href="#main">Skip to content</a>
+
+  <main class="wrap" id="main">
+    <header class="header">
+      <h1 class="title"><a href="index.html">Field Path Engine</a></h1>
+      <p class="sub">Third Wing: Talent Pipeline Input</p>
+    </header>
+
+    <div class="note" style="display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin-bottom:10px;">
+      <a class="btn btn-sm" href="third-wing-pipeline.html">Pipeline</a>
+      <a class="btn btn-sm btn-ghost" href="third-wing-shifts.html">Shifts</a>
+      <span class="mini-s">Use pipeline for hiring stages, shifts for production/payroll rows.</span>
+    </div>
+
+    <div class="card card-section">
+      <div class="card-head card-header">
+        <h2 class="card-title">Lead / Stage Entry</h2>
+        <div class="help-text">Organizer-style form entry. One record per person with stage history timestamps.</div>
+      </div>
+
+      <div class="grid3">
+        <div class="field">
+          <label class="label" for="leadName">Name</label>
+          <input class="input" id="leadName" type="text" placeholder="Canvasser name" />
+        </div>
+        <div class="field">
+          <label class="label" for="leadOffice">Office</label>
+          <input class="input" id="leadOffice" type="text" placeholder="Office / team" />
+        </div>
+        <div class="field">
+          <label class="label" for="leadRegion">Region</label>
+          <input class="input" id="leadRegion" type="text" placeholder="Region / county" />
+        </div>
+
+        <div class="field">
+          <label class="label" for="leadRecruiter">Recruiter</label>
+          <input class="input" id="leadRecruiter" type="text" placeholder="Owner recruiter" />
+        </div>
+        <div class="field">
+          <label class="label" for="leadSourceChannel">Source channel</label>
+          <input class="input" id="leadSourceChannel" type="text" placeholder="Form, referral, event..." />
+        </div>
+        <div class="field">
+          <label class="label" for="leadStage">Current stage</label>
+          <select class="select" id="leadStage"></select>
+        </div>
+      </div>
+
+      <div class="card-footer" style="display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
+        <button class="btn" id="btnSaveLead" type="button">Save / Update</button>
+        <button class="btn btn-ghost" id="btnClearLead" type="button">Clear</button>
+        <div class="mini-s" id="leadMsg" aria-live="polite"></div>
+      </div>
+    </div>
+
+    <div class="card card-section">
+      <div class="card-head card-header">
+        <h2 class="card-title">Pipeline Readout</h2>
+        <div class="help-text">Where recruits are now, plus days in current stage and total days in pipeline.</div>
+      </div>
+
+      <div class="note" style="display:flex; gap:10px; flex-wrap:wrap; align-items:center; justify-content:space-between;">
+        <div><span class="mini-k">People:</span> <span class="mini-v" id="countPersons">0</span></div>
+        <div><span class="mini-k">Pipeline records:</span> <span class="mini-v" id="countPipeline">0</span></div>
+        <div><span class="mini-k">Active stage:</span> <span class="mini-v" id="countActiveStage">0</span></div>
+      </div>
+
+      <div class="tableWrap" style="margin-top:10px;">
+        <table class="table">
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th>Office</th>
+              <th>Region</th>
+              <th>Recruiter</th>
+              <th>Stage</th>
+              <th class="num">Days in stage</th>
+              <th class="num">Total days</th>
+              <th style="width:220px;">Actions</th>
+            </tr>
+          </thead>
+          <tbody id="pipelineTbody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="card card-section">
+      <div class="card-head card-header">
+        <h2 class="card-title">Data I/O</h2>
+        <div class="help-text">Static-safe portability for Third Wing records.</div>
+      </div>
+
+      <div style="display:flex; gap:8px; flex-wrap:wrap;">
+        <button class="btn btn-sm" id="btnExportJson" type="button">Export Third Wing JSON</button>
+        <button class="btn btn-sm" id="btnImportJson" type="button">Import Third Wing JSON</button>
+        <button class="btn btn-sm" id="btnExportCsv" type="button">Export Pipeline CSV</button>
+        <button class="btn btn-sm" id="btnImportCsv" type="button">Import Pipeline CSV</button>
+      </div>
+      <input id="importJsonFile" type="file" accept=".json,application/json" hidden />
+      <input id="importCsvFile" type="file" accept=".csv,text/csv" hidden />
+      <div class="mini-s" id="ioMsg" aria-live="polite" style="margin-top:8px;"></div>
+    </div>
+  </main>
+
+  <script type="module" src="js/thirdWingPipeline.js"></script>
+</body>
+</html>
