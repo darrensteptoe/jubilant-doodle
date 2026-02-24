@@ -152,6 +152,8 @@ export const els = {
   gotvPlannerLift: document.getElementById("gotvPlannerLift"),
   gotvPlannerCeiling: document.getElementById("gotvPlannerCeiling"),
   gotvPlannerDiminishing: document.getElementById("gotvPlannerDiminishing"),
+  gotvPlannerSupportRate: document.getElementById("gotvPlannerSupportRate"),
+  gotvPlannerContactRate: document.getElementById("gotvPlannerContactRate"),
 
   // Phase 16 — universe composition + retention
   universe16Enabled: document.getElementById("universe16Enabled"),

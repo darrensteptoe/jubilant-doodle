@@ -252,6 +252,8 @@ export function renderConversionPanel({
   setText(els.gotvPlannerLift, fmtPct(liftPerContact));
   setText(els.gotvPlannerCeiling, fmtPct(liftCeiling));
   setText(els.gotvPlannerDiminishing, useDiminishing ? "On" : "Off");
+  setText(els.gotvPlannerSupportRate, fmtPct(safeNum(state.supportRatePct)));
+  setText(els.gotvPlannerContactRate, fmtPct(safeNum(state.contactRatePct)));
 
   const rawGoal = safeNum(state.goalSupportIds);
   const autoGoal = safeNum(res?.expected?.persuasionNeed);
