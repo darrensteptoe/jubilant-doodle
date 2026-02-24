@@ -145,6 +145,13 @@ export const els = {
   doorsPerHour: document.getElementById("doorsPerHour"),
   hoursPerShift: document.getElementById("hoursPerShift"),
   shiftsPerVolunteerPerWeek: document.getElementById("shiftsPerVolunteerPerWeek"),
+  btnGotoTurnoutSettings: document.getElementById("btnGotoTurnoutSettings"),
+  gotvPlannerStatus: document.getElementById("gotvPlannerStatus"),
+  gotvPlannerModel: document.getElementById("gotvPlannerModel"),
+  gotvPlannerBaseline: document.getElementById("gotvPlannerBaseline"),
+  gotvPlannerLift: document.getElementById("gotvPlannerLift"),
+  gotvPlannerCeiling: document.getElementById("gotvPlannerCeiling"),
+  gotvPlannerDiminishing: document.getElementById("gotvPlannerDiminishing"),
 
   // Phase 16 — universe composition + retention
   universe16Enabled: document.getElementById("universe16Enabled"),

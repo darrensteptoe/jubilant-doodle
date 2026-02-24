@@ -236,6 +236,23 @@ export function renderConversionPanel({
 }){
   if (!els.outConversationsNeeded) return;
 
+  const fmtPct = (v, digits = 1) => (v == null || !isFinite(v)) ? "—" : `${Number(v).toFixed(digits)}%`;
+  const gotvMode = String(state.gotvMode || "basic");
+  const advanced = gotvMode === "advanced";
+  const baselineTarget = (safeNum(state.turnoutTargetOverridePct) != null)
+    ? safeNum(state.turnoutTargetOverridePct)
+    : safeNum(state.turnoutBaselinePct);
+  const liftPerContact = advanced ? safeNum(state.gotvLiftMode) : safeNum(state.gotvLiftPP);
+  const liftCeiling = advanced ? safeNum(state.gotvMaxLiftPP2) : safeNum(state.gotvMaxLiftPP);
+  const useDiminishing = advanced ? !!state.gotvDiminishing2 : !!state.gotvDiminishing;
+
+  setText(els.gotvPlannerStatus, state.turnoutEnabled ? "Enabled" : "Disabled");
+  setText(els.gotvPlannerModel, advanced ? "Advanced (min/mode/max)" : "Basic (single lift)");
+  setText(els.gotvPlannerBaseline, fmtPct(baselineTarget));
+  setText(els.gotvPlannerLift, fmtPct(liftPerContact));
+  setText(els.gotvPlannerCeiling, fmtPct(liftCeiling));
+  setText(els.gotvPlannerDiminishing, useDiminishing ? "On" : "Off");
+
   const rawGoal = safeNum(state.goalSupportIds);
   const autoGoal = safeNum(res?.expected?.persuasionNeed);
   const goal = (rawGoal != null && rawGoal >= 0) ? rawGoal : (autoGoal != null && autoGoal > 0 ? autoGoal : 0);

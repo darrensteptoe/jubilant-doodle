@@ -1547,6 +1547,7 @@ function wireEvents(){
   if (els.doorsPerHour) els.doorsPerHour.addEventListener("input", () => { state.doorsPerHour = safeNum(els.doorsPerHour.value); render(); persist(); });
   if (els.hoursPerShift) els.hoursPerShift.addEventListener("input", () => { state.hoursPerShift = safeNum(els.hoursPerShift.value); render(); persist(); });
   if (els.shiftsPerVolunteerPerWeek) els.shiftsPerVolunteerPerWeek.addEventListener("input", () => { state.shiftsPerVolunteerPerWeek = safeNum(els.shiftsPerVolunteerPerWeek.value); render(); persist(); });
+  if (els.btnGotoTurnoutSettings) els.btnGotoTurnoutSettings.addEventListener("click", () => { switchToStage("roi"); });
 
   // Phase 16 — universe composition + retention
   if (els.universe16Enabled) els.universe16Enabled.addEventListener("change", () => { state.universeLayerEnabled = !!els.universe16Enabled.checked; markMcStale(); render(); persist(); });
@@ -2157,6 +2158,21 @@ function renderUniverse16Card(){
 
 function safeCall(fn){
   try{ fn(); } catch(e){ /* keep UI alive */ }
+}
+
+function switchToStage(stageId){
+  const id = String(stageId || "").trim();
+  if (!id) return;
+  const btn = document.querySelector(`.nav-item-new[data-stage="${id}"]`);
+  if (btn && typeof window.switchStage === "function"){
+    window.switchStage(btn, id);
+    return;
+  }
+  document.querySelectorAll(".nav-item-new").forEach((el) => el.classList.remove("active"));
+  if (btn) btn.classList.add("active");
+  document.querySelectorAll(".stage-new").forEach((el) => el.classList.remove("active-stage"));
+  const target = document.getElementById(`stage-${id}`);
+  if (target) target.classList.add("active-stage");
 }
 
 function persist(){
