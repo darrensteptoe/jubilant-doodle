@@ -5376,6 +5376,123 @@ function initDevTools(){
   document.body.appendChild(host);
 }
 
+function composeSetupStage(){
+  const setupStage = document.getElementById("stage-setup");
+  const setupBody = setupStage?.querySelector(":scope > .stage-body-new");
+  if (!setupBody) return;
+
+  const setupNavLabel = document.querySelector('.nav-item-new[data-stage="setup"] .nav-label-new');
+  if (setupNavLabel) setupNavLabel.textContent = "Set up";
+  const setupTitle = setupStage.querySelector(":scope > .stage-header-new .stage-title-new");
+  if (setupTitle) setupTitle.textContent = "Set up";
+
+  const ensureCard = (id, title) => {
+    let card = document.getElementById(id);
+    if (!card){
+      card = document.createElement("div");
+      card.className = "card card-section";
+      card.id = id;
+      const head = document.createElement("div");
+      head.className = "card-head card-header";
+      const h2 = document.createElement("h2");
+      h2.className = "card-title";
+      h2.textContent = title;
+      head.appendChild(h2);
+      card.appendChild(head);
+    }
+    return card;
+  };
+
+  const ensureDivider = (id) => {
+    let hr = document.getElementById(id);
+    if (!hr){
+      hr = document.createElement("hr");
+      hr.id = id;
+      hr.className = "setup-divider";
+      hr.setAttribute("aria-hidden", "true");
+    }
+    return hr;
+  };
+
+  const raceCard = setupBody.querySelector(".phase-setup");
+  const raceGrid = document.getElementById("raceType")?.closest(".grid2");
+  if (raceCard && raceGrid && raceGrid.parentElement !== raceCard){
+    raceCard.appendChild(raceGrid);
+  }
+  const raceTitle = raceCard?.querySelector(".card-title");
+  if (raceTitle) raceTitle.textContent = "Race setup";
+
+  const universeCard = ensureCard("setupUniverseModule", "Universe");
+  const universeHeader = document.querySelector("#stage-universe > .stage-body-new > .card-head.card-header");
+  const universeGrid = document.getElementById("universeSize")?.closest(".grid2");
+  if (universeHeader) universeCard.appendChild(universeHeader);
+  if (universeGrid) universeCard.appendChild(universeGrid);
+
+  const persuadableCard = ensureCard("setupPersuadableModule", "Persuadable universe (movable)");
+  const capacityBody = document.querySelector("#stage-capacity > .stage-body-new");
+  const persuadableHeader = capacityBody?.querySelector(":scope > .card-head.card-header");
+  const persuadableGrid = document.getElementById("persuasionPct")?.closest(".grid2");
+  if (persuadableHeader) persuadableCard.appendChild(persuadableHeader);
+  if (persuadableGrid) persuadableCard.appendChild(persuadableGrid);
+
+  const electorateCard = ensureCard("setupElectorateModule", "Electorate Weighting");
+  const structureBody = document.querySelector("#stage-structure > .stage-body-new");
+  const electorateHeader = structureBody?.querySelector(":scope > .card-head.card-header");
+  const electorateDetails = structureBody?.querySelector(":scope > details");
+  const electorateNote = structureBody?.querySelector(":scope > .note");
+  if (electorateHeader) electorateCard.appendChild(electorateHeader);
+  if (electorateDetails){
+    electorateDetails.open = true;
+    const summary = electorateDetails.querySelector("summary");
+    if (summary) summary.remove();
+    electorateDetails.classList.add("no-dropdown-details");
+    electorateCard.appendChild(electorateDetails);
+  }
+  if (electorateNote) electorateCard.appendChild(electorateNote);
+
+  const ballotCard = ensureCard("setupBallotModule", "Ballot & persuasion baseline");
+  const ballotBody = document.querySelector("#stage-ballot > .stage-body-new");
+  const ballotHeader = ballotBody?.querySelector(":scope > .card-head.card-header");
+  const ballotWhoField = document.getElementById("yourCandidate")?.closest(".field");
+  const ballotTable = document.getElementById("candTbody")?.closest(".table-wrap");
+  const ballotModeGrid = document.getElementById("undecidedMode")?.closest(".grid2");
+  const ballotWarn = document.getElementById("candWarn");
+  if (ballotHeader) ballotCard.appendChild(ballotHeader);
+  if (ballotWhoField) ballotCard.appendChild(ballotWhoField);
+  if (ballotTable) ballotCard.appendChild(ballotTable);
+  if (ballotModeGrid) ballotCard.appendChild(ballotModeGrid);
+  if (ballotWarn) ballotCard.appendChild(ballotWarn);
+
+  const turnoutCard = document.querySelector("#stage-ballot > .stage-body-new > .phase-p3")
+    || document.getElementById("setupTurnoutBaselineModule");
+  if (turnoutCard && !turnoutCard.id) turnoutCard.id = "setupTurnoutBaselineModule";
+
+  const hasBodyContent = (node) => {
+    if (!node) return false;
+    return node.childElementCount > 0;
+  };
+
+  const order = [
+    raceCard,
+    ensureDivider("setup-divider-1"),
+    universeCard,
+    persuadableCard,
+    ensureDivider("setup-divider-2"),
+    electorateCard,
+    ensureDivider("setup-divider-3"),
+    ballotCard,
+    ensureDivider("setup-divider-4"),
+    turnoutCard
+  ];
+
+  for (const node of order){
+    if (!node) continue;
+    const isDivider = node.classList?.contains("setup-divider");
+    if (!isDivider && !hasBodyContent(node)) continue;
+    setupBody.appendChild(node);
+  }
+}
+
 function init(){
   try{
     const main = document.querySelector(".stage-main-new");
@@ -5404,6 +5521,7 @@ function init(){
       }
     }
   } catch {}
+  try { composeSetupStage(); } catch {}
   installGlobalErrorCapture();
   preflightEls();
   ensureScenarioRegistry();
