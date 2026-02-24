@@ -730,6 +730,25 @@
 <div class="card-head card-header">
 <h2 class="card-title">Persuasion &amp; contact math</h2>
 <div class="help-text">Field math: Attempts → Contacts (contact rate) → Support IDs (support rate). Used across cost, optimization, and simulation.</div></div>
+<div class="grid2">
+<div class="field">
+<label class="label" for="supportRatePct">Support rate (of conversations)</label>
+<input class="input num" id="supportRatePct" max="100" min="0" placeholder="e.g., 55" step="0.1" type="number"/>
+<div class="help" data-help="Of completed conversations, % you will ID as your support (not persuasion win rate).">
+<span class="help-title">Example</span>
+<span class="help-text">If 55% of conversations yield a support ID, set 55.</span>
+</div>
+</div>
+<div class="field">
+<label class="label" for="contactRatePct">Contact rate (doors → conversation)</label>
+<input class="input num" id="contactRatePct" max="100" min="0" placeholder="e.g., 22" step="0.1" type="number"/>
+<div class="help" data-help="Conversation rate: the percent of doors that become an actual live conversation.">
+<span class="help-title">Typical</span>
+<span class="help-text">15–30% depending on building type, time, and list quality.</span>
+</div>
+</div>
+</div>
+<div class="note">Source of truth: edit support/contact rates here. The GOTV execution planner uses read-only mirrors of these assumptions.</div>
 </div>
 </section>
 <!-- ── STAGE: gotv ── -->
@@ -802,6 +821,16 @@
 <div class="mini-v" id="gotvPlannerDiminishing">—</div>
 <div class="mini-s">Turnout curve shape</div>
 </div>
+<div class="mini">
+<div class="mini-k">Support rate</div>
+<div class="mini-v" id="gotvPlannerSupportRate">—</div>
+<div class="mini-s">Read-only from Field capacity</div>
+</div>
+<div class="mini">
+<div class="mini-k">Contact rate</div>
+<div class="mini-v" id="gotvPlannerContactRate">—</div>
+<div class="mini-s">Read-only from Field capacity</div>
+</div>
 </div>
 </div>
 <div class="grid3">
@@ -811,22 +840,6 @@
 <div class="help" data-help="If blank, goal = Persuasion votes needed (net) from Win path.">
 <span class="help-title">Default</span>
 <span class="help-text">This uses the model’s net persuasion votes needed as your support-ID goal.</span>
-</div>
-</div>
-<div class="field">
-<label class="label" for="supportRatePct">Support rate (of conversations)</label>
-<input class="input num" id="supportRatePct" max="100" min="0" placeholder="e.g., 55" step="0.1" type="number"/>
-<div class="help" data-help="Of completed conversations, % you will ID as your support (not persuasion win rate).">
-<span class="help-title">Example</span>
-<span class="help-text">If 55% of conversations yield a support ID, set 55.</span>
-</div>
-</div>
-<div class="field">
-<label class="label" for="contactRatePct">Contact rate (doors → conversation)</label>
-<input class="input num" id="contactRatePct" max="100" min="0" placeholder="e.g., 22" step="0.1" type="number"/>
-<div class="help" data-help="Conversation rate: the percent of doors that become an actual live conversation.">
-<span class="help-title">Typical</span>
-<span class="help-text">15–30% depending on building type, time, and list quality.</span>
 </div>
 </div>
 <div class="field">
@@ -2652,7 +2665,7 @@ Volunteer multiplier stays above 1.5" rows="4"></textarea>
 </aside>
 </div>
 <!-- /app-shell -->
-<script src="./js/app.js?v=20260224-stable-c21" type="module"></script>
+<script src="./js/app.js?v=20260224-stable-c22" type="module"></script>
 <script>
 // ── Stage navigation ───────────────────────────────────────────
 function normalizeStages() {
