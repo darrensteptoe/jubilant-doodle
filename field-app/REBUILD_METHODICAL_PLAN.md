@@ -29,14 +29,14 @@
 ## Phase Order
 
 ### Phase 0 — Baseline Capture (Read-Only)
-- [ ] Record current self-test + smoke outputs in a checkpoint note.
-- [ ] Record known acceptable warnings/errors (if any).
+- [x] Record current self-test + smoke outputs in a checkpoint note.
+- [x] Record known acceptable warnings/errors (if any).
 
 ### Phase 1 — Persistence Service (Targeted Rebuild)
-- [ ] Create a persistence adapter with explicit write success/failure return.
-- [ ] Route state save and backup save through adapter.
-- [ ] Add non-intrusive status indicator for failed persistence.
-- [ ] Keep external behavior unchanged unless failure occurs.
+- [x] Create a persistence adapter with explicit write success/failure return.
+- [x] Route state save and backup save through adapter.
+- [x] Add non-intrusive status indicator for failed persistence.
+- [x] Keep external behavior unchanged unless failure occurs.
 
 Exit criteria:
 - No silent save failure path remains.
@@ -89,3 +89,12 @@ Exit criteria:
 
 ## Progress Tracking
 - We will complete one phase at a time and mark this file as we go.
+
+## Current Status
+- Phase 0 captured in `/Users/anakinskywalker/Downloads/field-app-40/RELEASE_CHECKPOINT_2026-02-24.md`.
+- Phase 1 code changes are complete and isolated to storage + save status UI.
+- Phase gate validation still required in-browser:
+  - Self-Test
+  - Robust Smoke
+  - Planner/Scenario/MC smoke
+  - Operations hub CRUD/import/export smoke

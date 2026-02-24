@@ -77,6 +77,11 @@ body { font-family: var(--shell-font); }
   color: var(--s-muted);
 }
 .chip-new.chip-status { cursor: default; }
+.chip-new.chip-persist {
+  color: var(--s-bad);
+  border-color: color-mix(in srgb, var(--s-bad) 38%, var(--s-rule));
+  background: color-mix(in srgb, var(--s-bad) 14%, var(--s-panel));
+}
 
 .topbar-center {
   flex: 1;
