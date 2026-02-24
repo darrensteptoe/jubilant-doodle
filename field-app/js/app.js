@@ -864,6 +864,62 @@ const DEFAULTS_BY_TEMPLATE = {
   county: { bandWidth: 4, persuasionPct: 30, earlyVoteExp: 40 },
 };
 
+function approxEq(a, b, eps = 1e-6){
+  return Math.abs(a - b) <= eps;
+}
+
+function applyTemplateDefaultsForRace(targetState, raceType, { force = false } = {}){
+  if (!targetState || typeof targetState !== "object") return;
+  const key = String(raceType || targetState.raceType || "state_leg");
+  const defs = DEFAULTS_BY_TEMPLATE[key] || DEFAULTS_BY_TEMPLATE.state_leg;
+
+  if (force || (targetState.bandWidth == null || targetState.bandWidth === "")){
+    targetState.bandWidth = defs.bandWidth;
+  }
+  if (force || (targetState.persuasionPct == null || targetState.persuasionPct === "")){
+    targetState.persuasionPct = defs.persuasionPct;
+  }
+  if (force || (targetState.earlyVoteExp == null || targetState.earlyVoteExp === "")){
+    targetState.earlyVoteExp = defs.earlyVoteExp;
+  }
+}
+
+function deriveAssumptionsProfileFromState(snap){
+  const s = snap || {};
+  const raceKey = String(s.raceType || "state_leg");
+  const defs = DEFAULTS_BY_TEMPLATE[raceKey] || DEFAULTS_BY_TEMPLATE.state_leg;
+  const bw = safeNum(s.bandWidth);
+  const pp = safeNum(s.persuasionPct);
+  const ev = safeNum(s.earlyVoteExp);
+
+  const isTemplateLike =
+    bw != null && pp != null && ev != null &&
+    approxEq(bw, defs.bandWidth) &&
+    approxEq(pp, defs.persuasionPct) &&
+    approxEq(ev, defs.earlyVoteExp);
+
+  const explicit = s?.ui?.assumptionsProfile;
+  if (explicit === "template" || explicit === "custom"){
+    if (explicit === "template" && !isTemplateLike) return "custom";
+    return explicit;
+  }
+  return isTemplateLike ? "template" : "custom";
+}
+
+function refreshAssumptionsProfile(){
+  if (!state.ui) state.ui = {};
+  state.ui.assumptionsProfile = deriveAssumptionsProfileFromState(state);
+}
+
+function assumptionsProfileLabel(src = state){
+  const s = src || {};
+  const profile = (s?.ui?.assumptionsProfile === "template") ? "template" : "custom";
+  if (profile === "template"){
+    return `Template (${labelTemplate(s.raceType)})`;
+  }
+  return "Custom overrides";
+}
+
 let state = normalizeLoadedState(loadState() || makeDefaultState());
 
 // setState(patchFn) — controlled state mutation for UI-only writes.
@@ -1161,6 +1217,7 @@ function makeDefaultState(){
       dark: false,
       advDiag: false,
       activeTab: "win",
+      assumptionsProfile: "template",
       decision: { sessions: {}, activeSessionId: null },
     mcMeta: null,
     }
@@ -1499,14 +1556,10 @@ function wireEvents(){
 
   els.raceType.addEventListener("change", () => {
     state.raceType = els.raceType.value;
-    const defs = DEFAULTS_BY_TEMPLATE[state.raceType] || DEFAULTS_BY_TEMPLATE.state_leg;
-    if (!state.bandWidth && state.bandWidth !== 0) state.bandWidth = defs.bandWidth;
-    state.bandWidth = state.bandWidth || defs.bandWidth;
-    state.persuasionPct = state.persuasionPct || defs.persuasionPct;
-    state.earlyVoteExp = state.earlyVoteExp || defs.earlyVoteExp;
+    applyTemplateDefaultsForRace(state, state.raceType, { force: true });
+    if (!state.ui) state.ui = {};
+    state.ui.assumptionsProfile = "template";
     applyStateToUI();
-  applyThemeFromState();
-  initThemeSystemListener();
     render();
     persist();
   });
@@ -1521,7 +1574,7 @@ function wireEvents(){
 
   els.turnoutA.addEventListener("input", () => { state.turnoutA = safeNum(els.turnoutA.value); render(); persist(); });
   els.turnoutB.addEventListener("input", () => { state.turnoutB = safeNum(els.turnoutB.value); render(); persist(); });
-  els.bandWidth.addEventListener("input", () => { state.bandWidth = safeNum(els.bandWidth.value); render(); persist(); });
+  els.bandWidth.addEventListener("input", () => { state.bandWidth = safeNum(els.bandWidth.value); refreshAssumptionsProfile(); render(); persist(); });
 
   els.btnAddCandidate.addEventListener("click", () => {
     state.candidates.push({ id: uid(), name: `Candidate ${String.fromCharCode(65 + state.candidates.length)}`, supportPct: 0 });
@@ -1540,8 +1593,8 @@ function wireEvents(){
     persist();
   });
 
-  els.persuasionPct.addEventListener("input", () => { state.persuasionPct = safeNum(els.persuasionPct.value); render(); persist(); });
-  els.earlyVoteExp.addEventListener("input", () => { state.earlyVoteExp = safeNum(els.earlyVoteExp.value); render(); persist(); });
+  els.persuasionPct.addEventListener("input", () => { state.persuasionPct = safeNum(els.persuasionPct.value); refreshAssumptionsProfile(); render(); persist(); });
+  els.earlyVoteExp.addEventListener("input", () => { state.earlyVoteExp = safeNum(els.earlyVoteExp.value); refreshAssumptionsProfile(); render(); persist(); });
 
   // Phase 2 — conversion + capacity
   if (els.goalSupportIds) els.goalSupportIds.addEventListener("input", () => { state.goalSupportIds = els.goalSupportIds.value; markMcStale(); render(); persist(); });
@@ -1972,6 +2025,7 @@ function normalizeLoadedState(s){
   // Canonicalize doors/hour onto doorsPerHour3 while keeping legacy mirror synced.
   const canonDph = canonicalDoorsPerHourFromSnap(out);
   setCanonicalDoorsPerHour(out, (canonDph != null && isFinite(canonDph)) ? canonDph : safeNum(base.doorsPerHour3));
+  out.ui.assumptionsProfile = deriveAssumptionsProfileFromState(out);
   out.ui.themeMode = "system";
   out.ui.dark = false;
   return out;
@@ -3211,6 +3265,7 @@ function renderAssumptions(res, weeks){
   blocks.push(block("Race & scenario", [
     kv("Scenario", state.scenarioName || "—"),
     kv("Template", labelTemplate(state.raceType)),
+    kv("Assumptions profile", assumptionsProfileLabel(state)),
     kv("Mode", state.mode === "late_start" ? "Late-start / turnout-heavy" : "Persuasion-first"),
     kv("Election date", state.electionDate || "—"),
     kv("Weeks remaining", weeks == null ? "—" : String(weeks)),
