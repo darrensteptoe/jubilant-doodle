@@ -66,7 +66,7 @@
 <span class="nav-label-new">Budget &amp; ROI</span>
 </button><button class="nav-item-new" data-stage="gotv" onclick="switchStage(this, 'gotv')">
 <span class="nav-num-new" data-num="5">5</span>
-<span class="nav-label-new">Turnout model (GOTV)</span>
+<span class="nav-label-new">GOTV execution planner</span>
 </button><button class="nav-item-new" data-stage="checks" onclick="switchStage(this, 'checks')">
 <span class="nav-num-new" data-num="6">6</span>
 <span class="nav-label-new">Checks &amp; guardrails</span>
@@ -737,32 +737,73 @@
 <div class="stage-header-new">
 <div class="stage-meta-new">
 <span class="stage-tag-new">Stage 5</span>
-<span class="stage-title-new">Turnout model (GOTV)</span>
+<span class="stage-title-new">GOTV execution planner</span>
 </div>
-<p class="stage-sub-new">Model turnout lift as a lever. GOTV is often the cheapest late-stage tactic when persuasion saturates.</p>
+<p class="stage-sub-new">Translate modeled turnout assumptions into execution requirements: conversations, doors, shifts, and volunteer load.</p>
 <div class="training-panel-new" id="train-gotv">
 <div class="training-hd-new" onclick="toggleTrainPanel('train-gotv')">
-<span>🎓</span><span class="training-title-new">Training — Turnout Model (GOTV)</span><span class="training-chev-new">▾</span>
+<span>🎓</span><span class="training-title-new">Training — GOTV Execution Planner</span><span class="training-chev-new">▾</span>
 </div>
 <div class="training-bd-new">
 <div class="training-col-new">
-<div class="training-sec-title-new">What this stage models</div>
-<p>GOTV produces <em>additional votes</em>, not vote share changes. It increases the probability that a supporter actually casts a ballot. The lift is percentage points added to turnout probability per successful contact.</p>
-<div class="training-rule-new">Baseline turnout:    % of target universe that votes without contact<br/>Lift per contact:    +1–4pp is realistic for strong GOTV<br/>Ceiling:             total lift can't push turnout above 100%<br/>Diminishing returns: each contact past the first yields less</div>
+<div class="training-sec-title-new">What this planner does</div>
+<p>This planner converts your current vote goal into field workload. It does <em>not</em> set turnout physics. Baseline turnout, lift, ceiling, and diminishing returns are controlled in Budget &amp; ROI → Turnout &amp; GOTV.</p>
+<div class="training-rule-new">Support IDs goal → conversations needed (÷ support rate)<br/>Conversations → doors needed (÷ contact rate)<br/>Doors → shifts needed (÷ doors per shift)<br/>Shifts/week → volunteer load (÷ shifts per volunteer/week)</div>
 </div>
 <div class="training-col-new">
 <div class="training-sec-title-new">Key distinction</div>
 <ul>
-<li><strong>Persuasion:</strong> changes who they vote for (share shift)</li>
-<li><strong>GOTV:</strong> changes whether they vote (turnout lift)</li>
-<li><strong>Hybrid:</strong> persuasion realization weighted by turnout lift</li>
+<li><strong>Turnout settings:</strong> Budget &amp; ROI controls vote-impact assumptions</li>
+<li><strong>This page:</strong> converts those assumptions into staffing burden</li>
+<li><strong>Use order:</strong> set assumptions first, then staff the required workload</li>
 </ul>
-<div class="training-caution-new">In many races, persuasion saturates quickly at the available universe size. GOTV can close a gap more cheaply in the final 3–4 weeks.</div>
+<div class="training-caution-new">If this workload is unrealistic, adjust staffing/productivity first. Change turnout assumptions only in Budget &amp; ROI.</div>
 </div>
 </div>
 </div>
 </div>
 <div class="stage-body-new">
+<div class="card card-section">
+<div class="rowline" style="justify-content:space-between; align-items:flex-start; gap:10px; margin-bottom:10px;">
+<div>
+<div class="label" style="margin-bottom:4px;">Turnout assumptions source</div>
+<div class="muted">Locked to Budget &amp; ROI → Turnout &amp; GOTV. This planner reads assumptions and translates them into staffing requirements.</div>
+</div>
+<button class="btn btn-sm" id="btnGotoTurnoutSettings" type="button">Go to turnout settings</button>
+</div>
+<div class="subgrid">
+<div class="mini">
+<div class="mini-k">Turnout modeling</div>
+<div class="mini-v" id="gotvPlannerStatus">—</div>
+<div class="mini-s">Source: Budget &amp; ROI</div>
+</div>
+<div class="mini">
+<div class="mini-k">Lift model</div>
+<div class="mini-v" id="gotvPlannerModel">—</div>
+<div class="mini-s">Basic or advanced</div>
+</div>
+<div class="mini">
+<div class="mini-k">Baseline turnout (target)</div>
+<div class="mini-v" id="gotvPlannerBaseline">—</div>
+<div class="mini-s">Override used when provided</div>
+</div>
+<div class="mini">
+<div class="mini-k">Lift per contact</div>
+<div class="mini-v" id="gotvPlannerLift">—</div>
+<div class="mini-s">Advanced mode uses Mode</div>
+</div>
+<div class="mini">
+<div class="mini-k">Max lift ceiling</div>
+<div class="mini-v" id="gotvPlannerCeiling">—</div>
+<div class="mini-s">Percentage points</div>
+</div>
+<div class="mini">
+<div class="mini-k">Diminishing returns</div>
+<div class="mini-v" id="gotvPlannerDiminishing">—</div>
+<div class="mini-s">Turnout curve shape</div>
+</div>
+</div>
+</div>
 <div class="grid3">
 <div class="field">
 <label class="label" for="goalSupportIds">Support IDs needed (goal)</label>
@@ -2611,7 +2652,7 @@ Volunteer multiplier stays above 1.5" rows="4"></textarea>
 </aside>
 </div>
 <!-- /app-shell -->
-<script src="./js/app.js?v=20260224-stable-c20" type="module"></script>
+<script src="./js/app.js?v=20260224-stable-c21" type="module"></script>
 <script>
 // ── Stage navigation ───────────────────────────────────────────
 function normalizeStages() {
