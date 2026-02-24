@@ -974,16 +974,16 @@ body.training .help{ display:block; }
 }
 
 /* =========================
-   Cam.io shell
+   Operations shell
    ========================= */
-.camio-shell{
+.operations-shell{
   display:grid;
   grid-template-columns: 260px 1fr;
   gap: var(--space-4);
   align-items:start;
 }
 
-.camio-nav{
+.operations-nav{
   padding: var(--space-2);
   display:flex;
   flex-direction:column;
@@ -992,7 +992,7 @@ body.training .help{ display:block; }
   top: var(--space-4);
 }
 
-.camio-nav-btn{
+.operations-nav-btn{
   width:100%;
   text-align:left;
   border:1px solid var(--rule);
@@ -1004,38 +1004,38 @@ body.training .help{ display:block; }
   cursor: pointer;
 }
 
-.camio-nav-btn:hover{
+.operations-nav-btn:hover{
   border-color: color-mix(in srgb, var(--accent) 30%, var(--rule));
 }
 
-.camio-nav-btn.is-active{
+.operations-nav-btn.is-active{
   border-color: color-mix(in srgb, var(--accent) 55%, var(--rule));
   background: color-mix(in srgb, var(--accent) 12%, var(--panel));
   color: var(--text);
 }
 
-.camio-main{
+.operations-main{
   min-width:0;
 }
 
-.camio-module{
+.operations-module{
   display:none;
 }
 
-.camio-module.is-active{
+.operations-module.is-active{
   display:block;
 }
 
-.camio-module .card + .card{
+.operations-module .card + .card{
   margin-top: var(--space-4);
 }
 
 @media (max-width: 980px){
-  .camio-shell{
+  .operations-shell{
     grid-template-columns: 1fr;
   }
 
-  .camio-nav{
+  .operations-nav{
     position: static;
     display:grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));

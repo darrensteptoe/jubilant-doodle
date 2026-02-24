@@ -25,22 +25,22 @@
       <span class="mini-s">Separate app surface for Operations modules. Core planner stays isolated.</span>
     </div>
 
-    <div class="camio-shell">
-      <aside class="camio-nav card card-section" aria-label="Operations modules">
-        <button class="camio-nav-btn" data-module="overview" type="button">Overview</button>
-        <button class="camio-nav-btn" data-module="recruitment" type="button">Recruitment</button>
-        <button class="camio-nav-btn" data-module="interviews" type="button">Interviews</button>
-        <button class="camio-nav-btn" data-module="onboarding" type="button">Onboarding</button>
-        <button class="camio-nav-btn" data-module="training" type="button">Training</button>
-        <button class="camio-nav-btn" data-module="shifts" type="button">Shift Scheduler</button>
-        <button class="camio-nav-btn" data-module="turf" type="button">Turf Tracker</button>
-        <button class="camio-nav-btn" data-module="aggregate" type="button">Aggregate</button>
-        <button class="camio-nav-btn" data-module="forecast" type="button">Capacity Forecast</button>
-        <button class="camio-nav-btn" data-module="io" type="button">Data I/O + Diagnostics</button>
+    <div class="operations-shell">
+      <aside class="operations-nav card card-section" aria-label="Operations modules">
+        <button class="operations-nav-btn" data-module="overview" type="button">Overview</button>
+        <button class="operations-nav-btn" data-module="recruitment" type="button">Recruitment</button>
+        <button class="operations-nav-btn" data-module="interviews" type="button">Interviews</button>
+        <button class="operations-nav-btn" data-module="onboarding" type="button">Onboarding</button>
+        <button class="operations-nav-btn" data-module="training" type="button">Training</button>
+        <button class="operations-nav-btn" data-module="shifts" type="button">Shift Scheduler</button>
+        <button class="operations-nav-btn" data-module="turf" type="button">Turf Tracker</button>
+        <button class="operations-nav-btn" data-module="aggregate" type="button">Aggregate</button>
+        <button class="operations-nav-btn" data-module="forecast" type="button">Capacity Forecast</button>
+        <button class="operations-nav-btn" data-module="io" type="button">Data I/O + Diagnostics</button>
       </aside>
 
-      <section class="camio-main" aria-live="polite">
-        <section class="camio-module" data-module-panel="overview">
+      <section class="operations-main" aria-live="polite">
+        <section class="operations-module" data-module-panel="overview">
           <div class="card card-section">
             <div class="card-head card-header">
               <h2 class="card-title">Overview</h2>
@@ -58,7 +58,7 @@
           </div>
         </section>
 
-        <section class="camio-module" data-module-panel="recruitment">
+        <section class="operations-module" data-module-panel="recruitment">
           <div class="card card-section">
             <div class="card-head card-header">
               <h2 class="card-title">Recruitment Tracker</h2>
@@ -79,7 +79,7 @@
           </div>
         </section>
 
-        <section class="camio-module" data-module-panel="interviews">
+        <section class="operations-module" data-module-panel="interviews">
           <div class="card card-section">
             <div class="card-head card-header">
               <h2 class="card-title">Interview Tracker</h2>
@@ -146,7 +146,7 @@
           </div>
         </section>
 
-        <section class="camio-module" data-module-panel="onboarding">
+        <section class="operations-module" data-module-panel="onboarding">
           <div class="card card-section">
             <div class="card-head card-header">
               <h2 class="card-title">Onboarding Tracker</h2>
@@ -216,7 +216,7 @@
           </div>
         </section>
 
-        <section class="camio-module" data-module-panel="training">
+        <section class="operations-module" data-module-panel="training">
           <div class="card card-section">
             <div class="card-head card-header">
               <h2 class="card-title">Training Tracker</h2>
@@ -282,7 +282,7 @@
           </div>
         </section>
 
-        <section class="camio-module" data-module-panel="shifts">
+        <section class="operations-module" data-module-panel="shifts">
           <div class="card card-section">
             <div class="card-head card-header">
               <h2 class="card-title">Shift Scheduler / Payroll</h2>
@@ -301,7 +301,7 @@
           </div>
         </section>
 
-        <section class="camio-module" data-module-panel="turf">
+        <section class="operations-module" data-module-panel="turf">
           <div class="card card-section">
             <div class="card-head card-header">
               <h2 class="card-title">Turf Tracker</h2>
@@ -321,7 +321,7 @@
           </div>
         </section>
 
-        <section class="camio-module" data-module-panel="aggregate">
+        <section class="operations-module" data-module-panel="aggregate">
           <div class="card card-section">
             <div class="card-head card-header">
               <h2 class="card-title">Aggregate Readout</h2>
@@ -344,7 +344,7 @@
           </div>
         </section>
 
-        <section class="camio-module" data-module-panel="forecast">
+        <section class="operations-module" data-module-panel="forecast">
           <div class="card card-section">
             <div class="card-head card-header">
               <h2 class="card-title">Capacity Forecast View</h2>
@@ -368,7 +368,7 @@
           </div>
         </section>
 
-        <section class="camio-module" data-module-panel="io">
+        <section class="operations-module" data-module-panel="io">
           <div class="card card-section">
             <div class="card-head card-header">
               <h2 class="card-title">Data I/O + Diagnostics</h2>
@@ -401,6 +401,6 @@
     </div>
   </main>
 
-  <script type="module" src="js/camio.js"></script>
+  <script type="module" src="js/operations.js"></script>
 </body>
 </html>
