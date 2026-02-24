@@ -3144,7 +3144,7 @@ function renderStress(res){
 }
 
 function renderValidation(res, weeks){
-  const list = els.validationListSidebar || els.validationList;
+  const list = els.validationList || els.validationListSidebar;
   if (!list) return;
   const items = [];
 
@@ -3187,8 +3187,17 @@ function renderValidation(res, weeks){
     });
   }
 
-  list.innerHTML = "";
+  const seen = new Set();
+  const deduped = [];
   for (const it of items){
+    const key = `${it.kind}::${it.text}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    deduped.push(it);
+  }
+
+  list.innerHTML = "";
+  for (const it of deduped){
     const li = document.createElement("li");
     li.className = it.kind;
     li.textContent = it.text;
