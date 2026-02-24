@@ -263,7 +263,7 @@ export function renderConversionPanel({
   const sr = eff.sr;
   const cr = eff.cr;
 
-  const dph = safeNum(state.doorsPerHour);
+  const dph = safeNum(state.doorsPerHour3) ?? safeNum(state.doorsPerHour);
   const hps = safeNum(state.hoursPerShift);
   const spv = safeNum(state.shiftsPerVolunteerPerWeek);
 

@@ -960,9 +960,7 @@ function syncWeeklyUndoUI(){
 function undoLastWeeklyAction(){
   if (!lastAppliedWeeklyAction) return;
   const prev = lastAppliedWeeklyAction.prevState;
-  const createdId = lastAppliedWeeklyAction.createdScenarioId;
   lastAppliedWeeklyAction = null;
-  if (createdId) scenarioMgr.remove(createdId);
   state = prev;
   ensureDecisionScaffold();
   applyStateToUI();
@@ -1063,7 +1061,7 @@ function makeDefaultState(){
     goalSupportIds: "",
     supportRatePct: 55,
     contactRatePct: 22,
-    doorsPerHour: 30,
+    doorsPerHour: 30, // legacy mirror; canonical source is doorsPerHour3
     hoursPerShift: 3,
     shiftsPerVolunteerPerWeek: 2,
 
@@ -1200,7 +1198,12 @@ function applyStateToUI(){
   if (els.goalSupportIds) els.goalSupportIds.value = state.goalSupportIds ?? "";
   if (els.supportRatePct) els.supportRatePct.value = state.supportRatePct ?? "";
   if (els.contactRatePct) els.contactRatePct.value = state.contactRatePct ?? "";
-  if (els.doorsPerHour) els.doorsPerHour.value = state.doorsPerHour ?? "";
+  const canonicalDph = canonicalDoorsPerHourFromSnap(state);
+  if (els.doorsPerHour){
+    els.doorsPerHour.value = canonicalDph ?? "";
+    els.doorsPerHour.disabled = true;
+    els.doorsPerHour.title = "Read-only mirror. Edit Doors per hour in Field capacity (Execution & uncertainty).";
+  }
   if (els.hoursPerShift) els.hoursPerShift.value = state.hoursPerShift ?? "";
   if (els.shiftsPerVolunteerPerWeek) els.shiftsPerVolunteerPerWeek.value = state.shiftsPerVolunteerPerWeek ?? "";
 
@@ -1217,7 +1220,7 @@ function applyStateToUI(){
   if (els.orgHoursPerWeek) els.orgHoursPerWeek.value = state.orgHoursPerWeek ?? "";
   if (els.volunteerMultBase) els.volunteerMultBase.value = state.volunteerMultBase ?? "";
   if (els.channelDoorPct) els.channelDoorPct.value = state.channelDoorPct ?? "";
-  if (els.doorsPerHour3) els.doorsPerHour3.value = state.doorsPerHour3 ?? "";
+  if (els.doorsPerHour3) els.doorsPerHour3.value = canonicalDph ?? "";
   if (els.callsPerHour3) els.callsPerHour3.value = state.callsPerHour3 ?? "";
   if (els.turnoutReliabilityPct) els.turnoutReliabilityPct.value = state.turnoutReliabilityPct ?? "";
   if (els.twCapOverrideEnabled) els.twCapOverrideEnabled.checked = !!state.twCapOverrideEnabled;
@@ -1544,7 +1547,7 @@ function wireEvents(){
   if (els.goalSupportIds) els.goalSupportIds.addEventListener("input", () => { state.goalSupportIds = els.goalSupportIds.value; markMcStale(); render(); persist(); });
   if (els.supportRatePct) els.supportRatePct.addEventListener("input", () => { state.supportRatePct = safeNum(els.supportRatePct.value); markMcStale(); render(); persist(); });
   if (els.contactRatePct) els.contactRatePct.addEventListener("input", () => { state.contactRatePct = safeNum(els.contactRatePct.value); markMcStale(); render(); persist(); });
-  if (els.doorsPerHour) els.doorsPerHour.addEventListener("input", () => { state.doorsPerHour = safeNum(els.doorsPerHour.value); render(); persist(); });
+  // doorsPerHour (Stage 5) is read-only mirror; canonical writer is doorsPerHour3 in Field capacity.
   if (els.hoursPerShift) els.hoursPerShift.addEventListener("input", () => { state.hoursPerShift = safeNum(els.hoursPerShift.value); render(); persist(); });
   if (els.shiftsPerVolunteerPerWeek) els.shiftsPerVolunteerPerWeek.addEventListener("input", () => { state.shiftsPerVolunteerPerWeek = safeNum(els.shiftsPerVolunteerPerWeek.value); render(); persist(); });
   if (els.btnGotoTurnoutSettings) els.btnGotoTurnoutSettings.addEventListener("click", () => { switchToStage("roi"); });
@@ -1562,7 +1565,13 @@ function wireEvents(){
   if (els.orgHoursPerWeek) els.orgHoursPerWeek.addEventListener("input", () => { state.orgHoursPerWeek = safeNum(els.orgHoursPerWeek.value); markMcStale(); render(); persist(); });
   if (els.volunteerMultBase) els.volunteerMultBase.addEventListener("input", () => { state.volunteerMultBase = safeNum(els.volunteerMultBase.value); markMcStale(); render(); persist(); });
   if (els.channelDoorPct) els.channelDoorPct.addEventListener("input", () => { state.channelDoorPct = safeNum(els.channelDoorPct.value); markMcStale(); render(); persist(); });
-  if (els.doorsPerHour3) els.doorsPerHour3.addEventListener("input", () => { state.doorsPerHour3 = safeNum(els.doorsPerHour3.value); markMcStale(); render(); persist(); });
+  if (els.doorsPerHour3) els.doorsPerHour3.addEventListener("input", () => {
+    setCanonicalDoorsPerHour(state, els.doorsPerHour3.value);
+    if (els.doorsPerHour) els.doorsPerHour.value = canonicalDoorsPerHourFromSnap(state) ?? "";
+    markMcStale();
+    render();
+    persist();
+  });
   if (els.callsPerHour3) els.callsPerHour3.addEventListener("input", () => { state.callsPerHour3 = safeNum(els.callsPerHour3.value); markMcStale(); render(); persist(); });
   if (els.turnoutReliabilityPct) els.turnoutReliabilityPct.addEventListener("input", () => { state.turnoutReliabilityPct = safeNum(els.turnoutReliabilityPct.value); markMcStale(); render(); persist(); });
   if (els.twCapOverrideEnabled) els.twCapOverrideEnabled.addEventListener("change", () => { state.twCapOverrideEnabled = !!els.twCapOverrideEnabled.checked; markMcStale(); render(); persist(); });
@@ -1960,9 +1969,29 @@ function normalizeLoadedState(s){
     : "baseline";
   const horizon = safeNum(out.twCapOverrideHorizonWeeks);
   out.twCapOverrideHorizonWeeks = (horizon != null && isFinite(horizon)) ? clamp(horizon, 4, 52) : 12;
+  // Canonicalize doors/hour onto doorsPerHour3 while keeping legacy mirror synced.
+  const canonDph = canonicalDoorsPerHourFromSnap(out);
+  setCanonicalDoorsPerHour(out, (canonDph != null && isFinite(canonDph)) ? canonDph : safeNum(base.doorsPerHour3));
   out.ui.themeMode = "system";
   out.ui.dark = false;
   return out;
+}
+
+function canonicalDoorsPerHourFromSnap(snap){
+  const s = snap || {};
+  const canonical = safeNum(s.doorsPerHour3);
+  if (canonical != null && isFinite(canonical)) return canonical;
+  const legacy = safeNum(s.doorsPerHour);
+  if (legacy != null && isFinite(legacy)) return legacy;
+  return null;
+}
+
+function setCanonicalDoorsPerHour(target, value){
+  if (!target || typeof target !== "object") return;
+  const n = safeNum(value);
+  const next = (n != null && isFinite(n)) ? n : "";
+  target.doorsPerHour3 = next;
+  target.doorsPerHour = next; // legacy compatibility mirror
 }
 
 function requiredScenarioKeysMissing(scen){
@@ -2049,7 +2078,7 @@ function compileEffectiveInputs(srcState = state){
   const volunteerMult = safeNum(s.volunteerMultBase);
   const doorSharePct = safeNum(s.channelDoorPct);
   const doorShare = (doorSharePct == null) ? null : clamp(doorSharePct, 0, 100) / 100;
-  const doorsPerHour = safeNum(s.doorsPerHour3) ?? safeNum(s.doorsPerHour);
+  const doorsPerHour = canonicalDoorsPerHourFromSnap(s);
   const callsPerHour = safeNum(s.callsPerHour3);
 
   let source = "baseline-manual";
@@ -2840,17 +2869,9 @@ function applyWeeklyLeverScenario(lever, ctx){
   const label = String(lever.label || "Action");
   next.scenarioName = baseName + " • " + label;
 
-  const created = scenarioMgr.add({
-    label: next.scenarioName,
-    snapshot: next,
-    engine,
-    modelVersion: engine.snapshot.MODEL_VERSION
-  });
-
   lastAppliedWeeklyAction = {
     label: "Applied: " + label,
-    prevState,
-    createdScenarioId: created?.id || null
+    prevState
   };
 
   state = next;
@@ -3096,69 +3117,9 @@ function renderDecisionIntelligencePanel({ res, weeks }){
 
 
 function renderScenarioComparePanel({ res, weeks }){
+  // Legacy scenario-manager compare panel retired.
+  // Canonical scenario UX is renderScenarioManagerC1() + renderScenarioComparisonC3().
   return renderScenarioComparePanelView({ els, scenarioMgr });
-  if (!els.scCompareTbody) return;
-
-  const showWarn = (msg) => {
-    if (!els.scWarn) return;
-    if (msg){
-      els.scWarn.hidden = false;
-      els.scWarn.textContent = msg;
-    } else {
-      els.scWarn.hidden = true;
-      els.scWarn.textContent = "";
-    }
-  };
-
-  try{
-    const cmp = scenarioMgr.compare();
-    const rows = cmp.rows || [];
-    const hi = cmp.highlights || {};
-
-    if (!rows.length){
-      els.scCompareTbody.innerHTML = '<tr><td colspan="7" class="muted">No scenarios saved yet.</td></tr>';
-      if (els.scOverall) els.scOverall.textContent = 'Most efficient scenario overall: —';
-      showWarn(null);
-      return;
-    }
-
-    const fmtMaybeInt = (v) => (v == null || !isFinite(v)) ? "—" : String(Math.ceil(v)).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
-    const fmtMoney = (v) => (v == null || !isFinite(v)) ? "—" : ('$' + String(Math.round(v)).replace(/\B(?=(\d{3})+(?!\d))/g, ","));
-    const fmtPct = (v) => (v == null || !isFinite(v)) ? "—" : ((v * 100).toFixed(1) + "%");
-
-    const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-    const makeBtn = (id) => `<button class="btn btn-sm btn-ghost" type="button" data-sc-del="${esc(id)}">Delete</button>`;
-    const makeInput = (id, label) => `<input class="input input-sm input-inline" type="text" value="${esc(label)}" data-sc-label="${esc(id)}" />`;
-
-    const tr = rows.map(r => {
-      const bestVol = (hi.bestVol && r.id === hi.bestVol);
-      const bestCost = (hi.bestCost && r.id === hi.bestCost);
-      const bestWin = (hi.bestWin && r.id === hi.bestWin);
-
-      return `<tr data-sc-row="${esc(r.id)}">
-        <td>${esc(r.label)}</td>
-        <td>${makeInput(r.id, r.label)}</td>
-        <td class="${bestVol ? 'cell-best' : ''}">${fmtMaybeInt(r.volunteers)}</td>
-        <td class="${bestCost ? 'cell-best' : ''}">${fmtMoney(r.cost)}</td>
-        <td class="${bestWin ? 'cell-best' : ''}">${fmtPct(r.winProb)}</td>
-        <td>${esc(r.primaryBottleneck || '—')}</td>
-        <td class="sc-row-actions">${makeBtn(r.id)}</td>
-      </tr>`;
-    }).join("");
-
-    els.scCompareTbody.innerHTML = tr;
-
-    // Overall winner summary
-    const overallId = cmp.overall;
-    const overallRow = rows.find(r => r.id === overallId);
-    if (els.scOverall){
-      els.scOverall.textContent = `Most efficient scenario overall: ${overallRow ? overallRow.label : "—"}`;
-    }
-
-    showWarn(null);
-  } catch {
-    showWarn("Scenario compare unavailable (analysis error).");
-  }
 }
 
 
@@ -3183,8 +3144,8 @@ function renderStress(res){
 }
 
 function renderValidation(res, weeks){
-  const lists = [els.validationList, els.validationListSidebar].filter(Boolean);
-  if (!lists.length) return;
+  const list = els.validationListSidebar || els.validationList;
+  if (!list) return;
   const items = [];
 
   const uOk = res.validation.universeOk;
@@ -3226,12 +3187,12 @@ function renderValidation(res, weeks){
     });
   }
 
-  for (const ul of lists) ul.innerHTML = "";
+  list.innerHTML = "";
   for (const it of items){
     const li = document.createElement("li");
     li.className = it.kind;
     li.textContent = it.text;
-    for (const ul of lists) ul.appendChild(li.cloneNode(true));
+    list.appendChild(li);
   }
 }
 
@@ -3267,11 +3228,9 @@ function renderAssumptions(res, weeks){
     kv("Early vote % (Expected)", res.raw.earlyVoteExp == null ? "—" : `${res.raw.earlyVoteExp.toFixed(1)}%`),
   ]));
 
-  const targets = [els.assumptionsSnapshot, els.assumptionsSnapshotStage].filter(Boolean);
-  for (const node of targets){
-    node.innerHTML = "";
-    for (const b of blocks) node.appendChild(b.cloneNode(true));
-  }
+  if (!els.assumptionsSnapshot) return;
+  els.assumptionsSnapshot.innerHTML = "";
+  for (const b of blocks) els.assumptionsSnapshot.appendChild(b);
 }
 
 function renderGuardrails(res){
@@ -3279,15 +3238,13 @@ function renderGuardrails(res){
   for (const g of res.guardrails){
     gs.push(block(g.title, g.lines.map(l => kv(l.k, l.v))));
   }
-  const targets = [els.guardrails, els.guardrailsStage].filter(Boolean);
-  for (const node of targets){
-    node.innerHTML = "";
-    if (!gs.length){
-      node.textContent = "—";
-      continue;
-    }
-    for (const b of gs) node.appendChild(b.cloneNode(true));
+  if (!els.guardrails) return;
+  els.guardrails.innerHTML = "";
+  if (!gs.length){
+    els.guardrails.textContent = "—";
+    return;
   }
+  for (const b of gs) els.guardrails.appendChild(b);
 }
 
 function block(title, kvs){
@@ -3339,71 +3296,12 @@ function getYourName(){
 
 
 function onSaveScenarioClick(){
-  try{
-    const snap = getStateSnapshot();
-    const engineFacade = engine;
-    const accessors = {
-      getStateSnapshot,
-      withPatchedState,
-      compute: engineFacade.compute,
-      derivedWeeksRemaining,
-      deriveNeedVotes,
-      runMonteCarloSim,
-      computeMaxAttemptsByTactic: engineFacade.timeline.computeMaxAttemptsByTactic,
-      computeTimelineFeasibility: engineFacade.timeline.computeTimelineFeasibility,
-      snapshot: engineFacade.snapshot,
-    };
-    scenarioMgr.add({
-      label: (snap.scenarioName || "").trim() || `Scenario ${scenarioMgr.list().length + 1}`,
-      snapshot: snap,
-      engine: accessors,
-      modelVersion: engineFacade.snapshot.MODEL_VERSION,
-    });
-    // Re-render using current res/weeks if available
-    try{
-      const res = engine.computeAll(snap);
-      const weeks = derivedWeeksRemaining();
-      renderScenarioComparePanel({ res, weeks });
-    } catch { /* ignore */ }
-  } catch {
-    // fail-soft
-  }
+  // Compatibility alias for older entry points.
+  onScenarioSaveNew();
 }
 
 function wireScenarioComparePanel(){
-  if (!els.btnSaveScenario || !els.scCompareTbody) return;
-
-  els.btnSaveScenario.addEventListener("click", () => onSaveScenarioClick());
-
-  // delegate label edits + deletes
-  els.scCompareTbody.addEventListener("input", (e) => {
-    const t = e.target;
-    const id = t?.getAttribute?.("data-sc-label");
-    if (!id) return;
-    scenarioMgr.setLabel(id, t.value);
-    // Keep scenario name column in sync
-    try{
-      const row = els.scCompareTbody.querySelector(`tr[data-sc-row="${CSS.escape(id)}"] td:first-child`);
-      if (row) row.textContent = t.value;
-      if (els.scOverall && els.scOverall.textContent.includes(id)) { /* ignore */ }
-    } catch { /* ignore */ }
-  });
-
-  els.scCompareTbody.addEventListener("click", (e) => {
-    const btn = e.target?.closest?.("[data-sc-del]");
-    const id = btn?.getAttribute?.("data-sc-del");
-    if (!id) return;
-    scenarioMgr.remove(id);
-    try{
-      const snap = getStateSnapshot();
-      const res = engine.computeAll(snap);
-      const weeks = derivedWeeksRemaining();
-      renderScenarioComparePanel({ res, weeks });
-    } catch { /* ignore */ }
-  });
-
-  // Phase 15 — Sensitivity Surface
-  safeCall(() => { wireSensitivitySurface(); });
+  // Legacy panel retired; no-op by design.
 }
 
 
@@ -6191,7 +6089,7 @@ function hashMcInputs(res, weeks){
     orgHoursPerWeek: safeNum(state.orgHoursPerWeek),
     volunteerMultBase: safeNum(state.volunteerMultBase),
     channelDoorPct: safeNum(state.channelDoorPct),
-    doorsPerHour3: safeNum(state.doorsPerHour3),
+    doorsPerHour3: canonicalDoorsPerHourFromSnap(state),
     callsPerHour3: safeNum(state.callsPerHour3),
     // Base rates (Phase 2 + p3)
     contactRatePct: safeNum(state.contactRatePct),
@@ -6274,7 +6172,7 @@ function renderRoi(res, weeks){
       const v = safeNum(state.channelDoorPct);
       return (v != null) ? clamp(v, 0, 100) / 100 : null;
     })(),
-    doorsPerHour: (safeNum(state.doorsPerHour3) ?? safeNum(state.doorsPerHour)),
+    doorsPerHour: canonicalDoorsPerHourFromSnap(state),
     callsPerHour: safeNum(state.callsPerHour3),
   });
   const capAttempts = capBreakdown?.total ?? null;

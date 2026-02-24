@@ -30,7 +30,7 @@ function computeVolunteerNeed({ snap, res, weeks }){
   const sr = pctToUnit(snap.supportRatePct, null);
   const cr = pctToUnit(snap.contactRatePct, null);
 
-  const dph = safeNum(snap.doorsPerHour);
+  const dph = safeNum(snap.doorsPerHour3) ?? safeNum(snap.doorsPerHour);
   const hps = safeNum(snap.hoursPerShift);
   const spv = safeNum(snap.shiftsPerVolunteerPerWeek);
 
@@ -156,7 +156,7 @@ function buildLevers({ snap }){
   levers.push({
     lever: "Doors per hour (+1)",
     patch: {
-      doorsPerHour: (safeNum(snap.doorsPerHour) ?? 0) + 1,
+      doorsPerHour: (safeNum(snap.doorsPerHour3) ?? safeNum(snap.doorsPerHour) ?? 0) + 1,
       doorsPerHour3: (safeNum(snap.doorsPerHour3) ?? safeNum(snap.doorsPerHour) ?? 0) + 1,
     }
   });
