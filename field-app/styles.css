@@ -37,6 +37,7 @@
   --text-subtle: color-mix(in srgb, var(--muted) 78%, var(--fg));
 
   --panel-border: color-mix(in srgb, var(--rule) 100%, transparent);
+  --header-bg: color-mix(in srgb, var(--rule) 24%, var(--panel));
   --control-bg: color-mix(in srgb, var(--panel) 92%, var(--bg));
   --control-border: var(--rule);
   --focus-ring: color-mix(in srgb, var(--accent) 26%, transparent);
@@ -285,6 +286,7 @@ a:hover{ text-decoration: underline; }
   align-items:flex-start;
   justify-content:space-between;
   gap: var(--space-3);
+  background: var(--header-bg);
   border-bottom: 1px solid color-mix(in srgb, var(--rule) 65%, transparent);
 }
 
@@ -968,7 +970,7 @@ body.training .help{ display:block; }
    Context bar (active scenario) — center workbench
    ========================= */
 .context-bar-new{
-  background: var(--panel);
+  background: var(--header-bg);
   border-bottom: 1px solid var(--rule);
   padding: var(--space-3) var(--space-4);
   display:flex;
