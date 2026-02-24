@@ -161,7 +161,11 @@ function normalizeEntry(raw){
 }
 
 function persist(){
-  saveState(state);
+  const ok = saveState(state);
+  if (!ok){
+    setMsg("Save failed (storage quota or browser policy). Export your log and clear space.");
+  }
+  return ok;
 }
 
 function setMsg(text){

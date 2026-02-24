@@ -9,6 +9,7 @@ export const els = {
   selfTestGate: document.getElementById("selfTestGate"),
   restoreBackup: document.getElementById("restoreBackup"),
   toggleStrictImport: document.getElementById("toggleStrictImport"),
+  persistenceStatus: document.getElementById("persistenceStatus"),
   btnDiagnostics: document.getElementById("btnDiagnostics"),
   btnJumpDrift: document.getElementById("btnJumpDrift"),
   btnSaveScenario: document.getElementById("btnSaveScenario"),

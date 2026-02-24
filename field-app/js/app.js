@@ -3,7 +3,13 @@ import { computeCapacityContacts as coreComputeCapacityContacts, computeCapacity
 import { normalizeUniversePercents, UNIVERSE_DEFAULTS, computeUniverseAdjustedRates } from "./core/universeLayer.js";
 import { computeAvgLiftPP } from "./core/turnout.js";
 import { fmtInt, clamp, safeNum, daysBetween, downloadJson, readJsonFile } from "./utils.js";
-import { loadState, saveState, clearState, readBackups, writeBackupEntry } from "./storage.js";
+import {
+  loadState,
+  clearState,
+  readBackups,
+  persistStateSnapshot,
+  appendBackupEntry,
+} from "./storage.js";
 import { createScenarioManager } from "./scenarioManager.js";
 import { APP_VERSION, BUILD_ID } from "./build.js";
 import { computeSnapshotHash } from "./hash.js";
@@ -734,9 +740,14 @@ function scheduleBackupWrite(){
         const scenarioClone = structuredClone(state);
         const snapshot = { modelVersion: engine.snapshot.MODEL_VERSION, schemaVersion: engine.snapshot.CURRENT_SCHEMA_VERSION, scenarioState: scenarioClone, appVersion: APP_VERSION, buildId: BUILD_ID };
         snapshot.snapshotHash = engine.snapshot.computeSnapshotHash(snapshot);
-    lastExportHash = snapshot.snapshotHash;
+        lastExportHash = snapshot.snapshotHash;
         const payload = engine.snapshot.makeScenarioExport(snapshot);
-        writeBackupEntry({ ts: new Date().toISOString(), scenarioName: scenarioClone?.scenarioName || "", payload });
+        const result = appendBackupEntry({ ts: new Date().toISOString(), scenarioName: scenarioClone?.scenarioName || "", payload });
+        if (result?.ok){
+          clearPersistenceFailure("backup");
+        } else {
+          reportPersistenceFailure("backup", result);
+        }
         refreshBackupDropdown();
       });
     }, 800);
@@ -945,6 +956,64 @@ function undoLastWeeklyAction(){
 const recentErrors = [];
 const MAX_ERRORS = 20;
 let backupTimer = null;
+let persistenceErrorSig = "";
+const persistenceState = {
+  stateSaveOk: true,
+  backupSaveOk: true,
+  stateError: "",
+  backupError: "",
+};
+
+function updatePersistenceStatusChip(){
+  if (!els.persistenceStatus) return;
+  const stateIssue = !persistenceState.stateSaveOk;
+  const backupIssue = !persistenceState.backupSaveOk;
+  if (!stateIssue && !backupIssue){
+    els.persistenceStatus.hidden = true;
+    els.persistenceStatus.textContent = "Save issue";
+    els.persistenceStatus.title = "";
+    return;
+  }
+  els.persistenceStatus.hidden = false;
+  if (stateIssue){
+    els.persistenceStatus.textContent = "State save issue";
+    els.persistenceStatus.title = persistenceState.stateError || "Could not save planner state.";
+    return;
+  }
+  els.persistenceStatus.textContent = "Backup save issue";
+  els.persistenceStatus.title = persistenceState.backupError || "Could not save backup snapshot.";
+}
+
+function reportPersistenceFailure(scope, result){
+  const msg = String(result?.error || "Unknown persistence error");
+  if (scope === "state"){
+    persistenceState.stateSaveOk = false;
+    persistenceState.stateError = msg;
+  } else {
+    persistenceState.backupSaveOk = false;
+    persistenceState.backupError = msg;
+  }
+  const sig = `${scope}:${result?.code || "unknown"}:${msg}`;
+  if (sig !== persistenceErrorSig){
+    persistenceErrorSig = sig;
+    recordError("persistence", `${scope} save failed: ${msg}`, { code: result?.code || "unknown" });
+  }
+  updatePersistenceStatusChip();
+}
+
+function clearPersistenceFailure(scope){
+  if (scope === "state"){
+    persistenceState.stateSaveOk = true;
+    persistenceState.stateError = "";
+  } else {
+    persistenceState.backupSaveOk = true;
+    persistenceState.backupError = "";
+  }
+  if (persistenceState.stateSaveOk && persistenceState.backupSaveOk){
+    persistenceErrorSig = "";
+  }
+  updatePersistenceStatusChip();
+}
 
 
 function makeDefaultState(){
@@ -2062,7 +2131,12 @@ function safeCall(fn){
 }
 
 function persist(){
-  saveState(state);
+  const result = persistStateSnapshot(state);
+  if (result?.ok){
+    clearPersistenceFailure("state");
+  } else {
+    reportPersistenceFailure("state", result);
+  }
   // Phase 11 — auto-backup (fail-soft)
   scheduleBackupWrite();
 }
@@ -5288,6 +5362,7 @@ function init(){
   wireDecisionSessionD1();
   updateBuildStamp();
   updateSelfTestGateBadge();
+  updatePersistenceStatusChip();
   refreshBackupDropdown();
 
   applyStateToUI();
