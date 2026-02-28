@@ -20,6 +20,7 @@ import { renderWeeklyOpsInsightsPanel, renderWeeklyOpsFreshnessPanel } from "./a
 import { renderDecisionConfidencePanel, renderDecisionIntelligencePanelView } from "./app/render/decisionPanels.js";
 import { renderImpactTracePanel } from "./app/render/impactTrace.js";
 import { wireScenarioManagerBindings } from "./app/scenarioManagerBindings.js";
+import { wireDecisionSessionBindings } from "./app/decisionSessionBindings.js";
 import { wireBudgetTimelineEvents, wireTabAndExportEvents, wireResetImportAndUiToggles } from "./app/wireEvents.js";
 import { getOperationsMetricsSnapshot } from "./features/operations/metricsCache.js";
 import { PIPELINE_STAGES, DEFAULT_FORECAST_CONFIG } from "./features/operations/schema.js";
@@ -4247,197 +4248,6 @@ function renderDecisionSummaryD4(session){
 }
 
 
-// wireInput(el, patchFn, options)
-// Binds a single input/select/textarea to state via setState.
-// el        — DOM element; no-op if null/undefined
-// patchFn   — function(next, parsedValue) that mutates the cloned state
-// options:
-//   parse    — transform raw string value before passing to patchFn (default: identity)
-//   event    — event name to listen on (default: "change" for select/checkbox, "input" otherwise)
-//   onCommit — optional extra function called after setState (e.g. to re-render a sub-panel)
-function wireInput(el, patchFn, { parse = v => v, event, onCommit } = {}){
-  if (!el) return;
-  const ev = event || (el.tagName === "SELECT" || el.type === "checkbox" ? "change" : "input");
-  el.addEventListener(ev, () => {
-    const raw = el.type === "checkbox" ? el.checked : el.value;
-    const val = parse(raw);
-    setState(next => patchFn(next, val));
-    if (onCommit) onCommit();
-  });
-}
-
-function wireDecisionSessionD1(){
-  ensureDecisionScaffold();
-
-  if (els.decisionSessionSelect){
-    els.decisionSessionSelect.addEventListener("change", () => {
-      ensureDecisionScaffold();
-      const id = els.decisionSessionSelect.value;
-      if (id && state.ui.decision.sessions[id]){
-        state.ui.decision.activeSessionId = id;
-        persist();
-        renderDecisionSessionD1();
-      }
-    });
-  }
-
-  if (els.btnDecisionNew) els.btnDecisionNew.addEventListener("click", () => createNewDecisionSession());
-  if (els.btnDecisionRenameSave) els.btnDecisionRenameSave.addEventListener("click", () => renameActiveDecisionSession());
-  if (els.btnDecisionDelete) els.btnDecisionDelete.addEventListener("click", () => deleteActiveDecisionSession());
-  if (els.btnDecisionLinkScenario) els.btnDecisionLinkScenario.addEventListener("click", () => linkDecisionSessionToActiveScenario());
-
-  // D-layer input bindings — all go through wireInput → setState
-  // Each patchFn looks up the session by id on the cloned state so we never mutate live references.
-  wireInput(els.decisionNotes, (st, val) => {
-    const s = st.ui.decision.sessions[getActiveDecisionSession()?.id];
-    if (s) s.notes = val;
-  });
-
-  wireInput(els.decisionObjective, (st, val) => {
-    const s = st.ui.decision.sessions[getActiveDecisionSession()?.id];
-    if (s) s.objectiveKey = val;
-  }, { onCommit: renderDecisionSessionD1 });
-
-  wireInput(els.decisionBudget, (st, val) => {
-    const s = st.ui.decision.sessions[getActiveDecisionSession()?.id];
-    if (s){ ensureDecisionSessionShape(s); s.constraints.budget = val; }
-  }, { parse: raw => { const n = Number(String(raw).trim()); return (String(raw).trim() === "" || !Number.isFinite(n)) ? null : n; } });
-
-  wireInput(els.decisionVolunteerHrs, (st, val) => {
-    const s = st.ui.decision.sessions[getActiveDecisionSession()?.id];
-    if (s){ ensureDecisionSessionShape(s); s.constraints.volunteerHrs = val; }
-  }, { parse: raw => { const n = Number(String(raw).trim()); return (String(raw).trim() === "" || !Number.isFinite(n)) ? null : n; } });
-
-  wireInput(els.decisionTurfAccess, (st, val) => {
-    const s = st.ui.decision.sessions[getActiveDecisionSession()?.id];
-    if (s){ ensureDecisionSessionShape(s); s.constraints.turfAccess = val; }
-  });
-
-  wireInput(els.decisionBlackoutDates, (st, val) => {
-    const s = st.ui.decision.sessions[getActiveDecisionSession()?.id];
-    if (s){ ensureDecisionSessionShape(s); s.constraints.blackoutDates = val; }
-  });
-
-  wireInput(els.decisionRiskPosture, (st, val) => {
-    const s = st.ui.decision.sessions[getActiveDecisionSession()?.id];
-    if (s){ ensureDecisionSessionShape(s); s.riskPosture = val || "balanced"; }
-  }, { onCommit: renderDecisionSessionD1 });
-
-  wireInput(els.decisionNonNegotiables, (st, val) => {
-    const s = st.ui.decision.sessions[getActiveDecisionSession()?.id];
-    if (s){
-      ensureDecisionSessionShape(s);
-      s.nonNegotiables = val.split(/\r?\n|,/).map(x => String(x || "").trim()).filter(Boolean);
-    }
-  });
-
-  if (els.decisionOptionSelect){
-    els.decisionOptionSelect.addEventListener("change", () => {
-      const s = getActiveDecisionSession();
-      if (!s) return;
-      ensureDecisionSessionShape(s);
-      const id = String(els.decisionOptionSelect.value || "");
-      if (id && s.options && s.options[id]){
-        s.activeOptionId = id;
-        persist();
-        renderDecisionSessionD1();
-      }
-    });
-  }
-
-  if (els.btnDecisionOptionNew) els.btnDecisionOptionNew.addEventListener("click", () => createNewDecisionOption());
-  if (els.btnDecisionOptionRenameSave) els.btnDecisionOptionRenameSave.addEventListener("click", () => renameActiveDecisionOption());
-  if (els.btnDecisionOptionDelete) els.btnDecisionOptionDelete.addEventListener("click", () => deleteActiveDecisionOption());
-  if (els.btnDecisionOptionLinkScenario) els.btnDecisionOptionLinkScenario.addEventListener("click", () => linkDecisionOptionToActiveScenario());
-
-  const tacticUpdate = () => {
-    const s = getActiveDecisionSession();
-    if (!s) return;
-    ensureDecisionSessionShape(s);
-    const o = getActiveDecisionOption(s);
-    if (!o) return;
-    ensureDecisionOptionShape(o);
-    o.tactics.doors = !!els.decisionOptionTacticDoors?.checked;
-    o.tactics.phones = !!els.decisionOptionTacticPhones?.checked;
-    o.tactics.digital = !!els.decisionOptionTacticDigital?.checked;
-    persist();
-  };
-
-  if (els.decisionOptionTacticDoors) els.decisionOptionTacticDoors.addEventListener("change", tacticUpdate);
-  if (els.decisionOptionTacticPhones) els.decisionOptionTacticPhones.addEventListener("change", tacticUpdate);
-  if (els.decisionOptionTacticDigital) els.decisionOptionTacticDigital.addEventListener("change", tacticUpdate);
-
-  if (els.decisionRecommendSelect){
-    els.decisionRecommendSelect.addEventListener("change", () => {
-      const s = getActiveDecisionSession();
-      if (!s) return;
-      ensureDecisionSessionShape(s);
-      const id = String(els.decisionRecommendSelect.value || "").trim();
-      s.recommendedOptionId = id || null;
-      persist();
-      renderDecisionSummaryD4(s);
-    });
-  }
-
-  if (els.decisionWhatTrue){
-    els.decisionWhatTrue.addEventListener("input", () => {
-      const s = getActiveDecisionSession();
-      if (!s) return;
-      ensureDecisionSessionShape(s);
-      const raw = String(els.decisionWhatTrue.value || "");
-      const arr = raw.split(/\r?\n/).map(x => String(x || "").trim()).filter(Boolean);
-      s.whatNeedsTrue = arr;
-      persist();
-      renderDecisionSummaryD4(s);
-    });
-  }
-  const setCopyStatus = (msg) => {
-    if (els.decisionCopyStatus) els.decisionCopyStatus.textContent = String(msg || "");
-  };
-
-  if (els.btnDecisionCopyMd){
-    els.btnDecisionCopyMd.addEventListener("click", async () => {
-      const s = getActiveDecisionSession();
-      if (!s) return;
-      const md = buildDecisionSummaryText(s);
-      const ok = await copyTextToClipboard(md);
-      setCopyStatus(ok ? "Copied summary (markdown)." : "Copy failed.");
-    });
-  }
-
-  if (els.btnDecisionCopyText){
-    els.btnDecisionCopyText.addEventListener("click", async () => {
-      const s = getActiveDecisionSession();
-      if (!s) return;
-      const md = buildDecisionSummaryText(s);
-      const plain = decisionSummaryPlainText(md);
-      const ok = await copyTextToClipboard(plain);
-      setCopyStatus(ok ? "Copied summary (text)." : "Copy failed.");
-    });
-  }
-
-  if (els.btnDecisionDownloadJson){
-    els.btnDecisionDownloadJson.addEventListener("click", () => {
-      const s = getActiveDecisionSession();
-      if (!s) return;
-      const obj = decisionSessionExportObject(s);
-      if (!obj) return;
-      const safe = String((s.name || s.id || "decision-session")).toLowerCase().replace(/[^a-z0-9\-\_]+/g, "-").replace(/\-+/g, "-").replace(/^\-+|\-+$/g, "");
-      const fn = (safe ? safe : "decision-session") + ".json";
-      downloadJsonObject(obj, fn);
-      setCopyStatus("Downloaded session JSON.");
-    });
-  }
-
-  if (els.btnSensRun){
-    els.btnSensRun.addEventListener("click", async () => {
-      await runSensitivitySnapshotE4();
-    });
-  }
-
-  renderDecisionSessionD1();
-}
-
 // =========================
 // Phase 15 — Sensitivity Surface (on-demand)
 // =========================
@@ -5192,7 +5002,33 @@ function init(){
     safeCall,
     renderDecisionSessionD1,
   });
-  wireDecisionSessionD1();
+  wireDecisionSessionBindings({
+    els,
+    ensureDecisionScaffold,
+    getState: () => state,
+    setState,
+    persist,
+    renderDecisionSessionD1,
+    getActiveDecisionSession,
+    ensureDecisionSessionShape,
+    createNewDecisionSession,
+    renameActiveDecisionSession,
+    deleteActiveDecisionSession,
+    linkDecisionSessionToActiveScenario,
+    createNewDecisionOption,
+    renameActiveDecisionOption,
+    deleteActiveDecisionOption,
+    linkDecisionOptionToActiveScenario,
+    getActiveDecisionOption,
+    ensureDecisionOptionShape,
+    renderDecisionSummaryD4,
+    buildDecisionSummaryText,
+    copyTextToClipboard,
+    decisionSummaryPlainText,
+    decisionSessionExportObject,
+    downloadJsonObject,
+    runSensitivitySnapshotE4,
+  });
   updateBuildStamp();
   updateSelfTestGateBadge();
   updatePersistenceStatusChip();

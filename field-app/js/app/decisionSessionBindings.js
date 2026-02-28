@@ -1,37 +1,58 @@
-export function wireDecisionSessionBindings({
-  els,
-  state,
-  ensureDecisionScaffold,
-  persist,
-  renderDecisionSessionD1,
-  createNewDecisionSession,
-  renameActiveDecisionSession,
-  deleteActiveDecisionSession,
-  linkDecisionSessionToActiveScenario,
-  wireInput,
-  getActiveDecisionSession,
-  ensureDecisionSessionShape,
-  getActiveDecisionOption,
-  ensureDecisionOptionShape,
-  createNewDecisionOption,
-  renameActiveDecisionOption,
-  deleteActiveDecisionOption,
-  linkDecisionOptionToActiveScenario,
-  renderDecisionSummaryD4,
-  buildDecisionSummaryText,
-  copyTextToClipboard,
-  decisionSummaryPlainText,
-  decisionSessionExportObject,
-  downloadJsonObject,
-  runSensitivitySnapshotE4,
-}){
+export function wireDecisionSessionBindings(ctx){
+  const {
+    els,
+    ensureDecisionScaffold,
+    getState,
+    setState,
+    persist,
+    renderDecisionSessionD1,
+    getActiveDecisionSession,
+    ensureDecisionSessionShape,
+    createNewDecisionSession,
+    renameActiveDecisionSession,
+    deleteActiveDecisionSession,
+    linkDecisionSessionToActiveScenario,
+    createNewDecisionOption,
+    renameActiveDecisionOption,
+    deleteActiveDecisionOption,
+    linkDecisionOptionToActiveScenario,
+    getActiveDecisionOption,
+    ensureDecisionOptionShape,
+    renderDecisionSummaryD4,
+    buildDecisionSummaryText,
+    copyTextToClipboard,
+    decisionSummaryPlainText,
+    decisionSessionExportObject,
+    downloadJsonObject,
+    runSensitivitySnapshotE4,
+  } = ctx || {};
+
+  if (!els) return;
+
+  const wireInput = (el, patchFn, { parse = v => v, event, onCommit } = {}) => {
+    if (!el) return;
+    const ev = event || (el.tagName === "SELECT" || el.type === "checkbox" ? "change" : "input");
+    el.addEventListener(ev, () => {
+      const raw = el.type === "checkbox" ? el.checked : el.value;
+      const val = parse(raw);
+      setState(next => patchFn(next, val));
+      if (onCommit) onCommit();
+    });
+  };
+
+  const activeSessionId = () => {
+    const s = getActiveDecisionSession?.();
+    return s?.id || null;
+  };
+
   ensureDecisionScaffold();
 
   if (els.decisionSessionSelect){
     els.decisionSessionSelect.addEventListener("change", () => {
       ensureDecisionScaffold();
       const id = els.decisionSessionSelect.value;
-      if (id && state.ui.decision.sessions[id]){
+      const state = getState();
+      if (id && state.ui?.decision?.sessions?.[id]){
         state.ui.decision.activeSessionId = id;
         persist();
         renderDecisionSessionD1();
@@ -45,42 +66,65 @@ export function wireDecisionSessionBindings({
   if (els.btnDecisionLinkScenario) els.btnDecisionLinkScenario.addEventListener("click", () => linkDecisionSessionToActiveScenario());
 
   wireInput(els.decisionNotes, (st, val) => {
-    const s = st.ui.decision.sessions[getActiveDecisionSession()?.id];
+    const sid = activeSessionId();
+    const s = sid ? st.ui?.decision?.sessions?.[sid] : null;
     if (s) s.notes = val;
   });
 
   wireInput(els.decisionObjective, (st, val) => {
-    const s = st.ui.decision.sessions[getActiveDecisionSession()?.id];
+    const sid = activeSessionId();
+    const s = sid ? st.ui?.decision?.sessions?.[sid] : null;
     if (s) s.objectiveKey = val;
   }, { onCommit: renderDecisionSessionD1 });
 
   wireInput(els.decisionBudget, (st, val) => {
-    const s = st.ui.decision.sessions[getActiveDecisionSession()?.id];
-    if (s){ ensureDecisionSessionShape(s); s.constraints.budget = val; }
+    const sid = activeSessionId();
+    const s = sid ? st.ui?.decision?.sessions?.[sid] : null;
+    if (s){
+      ensureDecisionSessionShape(s);
+      s.constraints.budget = val;
+    }
   }, { parse: raw => { const n = Number(String(raw).trim()); return (String(raw).trim() === "" || !Number.isFinite(n)) ? null : n; } });
 
   wireInput(els.decisionVolunteerHrs, (st, val) => {
-    const s = st.ui.decision.sessions[getActiveDecisionSession()?.id];
-    if (s){ ensureDecisionSessionShape(s); s.constraints.volunteerHrs = val; }
+    const sid = activeSessionId();
+    const s = sid ? st.ui?.decision?.sessions?.[sid] : null;
+    if (s){
+      ensureDecisionSessionShape(s);
+      s.constraints.volunteerHrs = val;
+    }
   }, { parse: raw => { const n = Number(String(raw).trim()); return (String(raw).trim() === "" || !Number.isFinite(n)) ? null : n; } });
 
   wireInput(els.decisionTurfAccess, (st, val) => {
-    const s = st.ui.decision.sessions[getActiveDecisionSession()?.id];
-    if (s){ ensureDecisionSessionShape(s); s.constraints.turfAccess = val; }
+    const sid = activeSessionId();
+    const s = sid ? st.ui?.decision?.sessions?.[sid] : null;
+    if (s){
+      ensureDecisionSessionShape(s);
+      s.constraints.turfAccess = val;
+    }
   });
 
   wireInput(els.decisionBlackoutDates, (st, val) => {
-    const s = st.ui.decision.sessions[getActiveDecisionSession()?.id];
-    if (s){ ensureDecisionSessionShape(s); s.constraints.blackoutDates = val; }
+    const sid = activeSessionId();
+    const s = sid ? st.ui?.decision?.sessions?.[sid] : null;
+    if (s){
+      ensureDecisionSessionShape(s);
+      s.constraints.blackoutDates = val;
+    }
   });
 
   wireInput(els.decisionRiskPosture, (st, val) => {
-    const s = st.ui.decision.sessions[getActiveDecisionSession()?.id];
-    if (s){ ensureDecisionSessionShape(s); s.riskPosture = val || "balanced"; }
+    const sid = activeSessionId();
+    const s = sid ? st.ui?.decision?.sessions?.[sid] : null;
+    if (s){
+      ensureDecisionSessionShape(s);
+      s.riskPosture = val || "balanced";
+    }
   }, { onCommit: renderDecisionSessionD1 });
 
   wireInput(els.decisionNonNegotiables, (st, val) => {
-    const s = st.ui.decision.sessions[getActiveDecisionSession()?.id];
+    const sid = activeSessionId();
+    const s = sid ? st.ui?.decision?.sessions?.[sid] : null;
     if (s){
       ensureDecisionSessionShape(s);
       s.nonNegotiables = val.split(/\r?\n|,/).map(x => String(x || "").trim()).filter(Boolean);
