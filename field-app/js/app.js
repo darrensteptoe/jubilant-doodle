@@ -1726,7 +1726,7 @@ function wireEvents(){
 
   wireBudgetTimelineEvents({
     els,
-    state,
+    getState: () => state,
     safeNum,
     commitUIUpdate,
     render
