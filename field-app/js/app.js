@@ -19,6 +19,7 @@ import { renderBottleneckAttributionPanel, renderConversionPanel, renderSensitiv
 import { renderWeeklyOpsInsightsPanel, renderWeeklyOpsFreshnessPanel } from "./app/render/weeklyOpsInsights.js";
 import { renderDecisionConfidencePanel, renderDecisionIntelligencePanelView } from "./app/render/decisionPanels.js";
 import { renderImpactTracePanel } from "./app/render/impactTrace.js";
+import { wireScenarioManagerBindings } from "./app/scenarioManagerBindings.js";
 import { wireBudgetTimelineEvents, wireTabAndExportEvents, wireResetImportAndUiToggles } from "./app/wireEvents.js";
 import { getOperationsMetricsSnapshot } from "./features/operations/metricsCache.js";
 import { PIPELINE_STAGES, DEFAULT_FORECAST_CONFIG } from "./features/operations/schema.js";
@@ -3626,148 +3627,6 @@ function renderScenarioManagerC1(){
   renderScenarioComparisonC3();
 }
 
-function createScenarioRecord({ name, fromInputs, fromOutputs }){
-  const id = "scn_" + uid() + Date.now().toString(16);
-  const nm = (name || "").trim() || `Scenario ${Object.keys(state.ui.scenarios || {}).length}`;
-  return {
-    id,
-    name: nm,
-    inputs: scenarioClone(fromInputs || {}),
-    outputs: scenarioClone(fromOutputs || {}),
-    createdAt: new Date().toISOString()
-  };
-}
-
-function onScenarioSaveNew(){
-  ensureScenarioRegistry();
-  const reg = state.ui.scenarios;
-  const count = Object.keys(reg).length;
-  if (count >= SCENARIO_MAX){
-    setScenarioWarn(`Max scenarios reached (${SCENARIO_MAX}). Delete one to save a new scenario.`);
-    return;
-  }
-
-  const nm = els.scenarioNewName ? els.scenarioNewName.value : "";
-  const rec = createScenarioRecord({
-    name: nm,
-    fromInputs: scenarioInputsFromState(state),
-    fromOutputs: scenarioOutputsFromState(state)
-  });
-  reg[rec.id] = rec;
-  state.ui.scenarioUiSelectedId = rec.id;
-  if (els.scenarioNewName) els.scenarioNewName.value = "";
-  persist();
-  renderScenarioManagerC1();
-}
-
-function onScenarioCloneBaseline(){
-  ensureScenarioRegistry();
-  const reg = state.ui.scenarios;
-  const count = Object.keys(reg).length;
-  if (count >= SCENARIO_MAX){
-    setScenarioWarn(`Max scenarios reached (${SCENARIO_MAX}). Delete one to clone baseline.`);
-    return;
-  }
-
-  const base = reg[SCENARIO_BASELINE_ID];
-  const nm = els.scenarioNewName ? els.scenarioNewName.value : "";
-  const rec = createScenarioRecord({
-    name: nm || "Baseline clone",
-    fromInputs: base?.inputs || {},
-    fromOutputs: base?.outputs || {}
-  });
-  reg[rec.id] = rec;
-  state.ui.scenarioUiSelectedId = rec.id;
-  if (els.scenarioNewName) els.scenarioNewName.value = "";
-  persist();
-  renderScenarioManagerC1();
-}
-
-function onScenarioDeleteSelected(){
-  ensureScenarioRegistry();
-  const id = state.ui.scenarioUiSelectedId;
-  if (!id || id === SCENARIO_BASELINE_ID) return;
-  const ok = confirm("Delete this scenario?");
-  if (!ok) return;
-
-  delete state.ui.scenarios[id];
-  state.ui.scenarioUiSelectedId = SCENARIO_BASELINE_ID;
-  persist();
-  renderScenarioManagerC1();
-}
-
-function loadScenarioById(id){
-  ensureScenarioRegistry();
-  const reg = state.ui.scenarios;
-  const rec = reg?.[id];
-  if (!rec) return;
-
-  const uiKeep = state.ui || {};
-  const next = scenarioClone(rec.inputs || {});
-  state = next;
-  state.ui = uiKeep;
-
-  ensureScenarioRegistry();
-  state.ui.activeScenarioId = id;
-  state.ui.scenarioUiSelectedId = id;
-
-  markMcStale();
-  applyStateToUI();
-  persist();
-  render();
-  renderScenarioManagerC1();
-  safeCall(() => { renderDecisionSessionD1(); });
-}
-
-function onScenarioLoadSelected(){
-  ensureScenarioRegistry();
-  const id = state.ui.scenarioUiSelectedId;
-  const reg = state.ui.scenarios;
-  const rec = reg?.[id];
-  if (!rec) return;
-  if (id === state.ui.activeScenarioId) return;
-
-  const nm = String(rec?.name || rec?.id || "scenario");
-  const ok = confirm(`Load scenario "${nm}"? This will replace current inputs.`);
-  if (!ok) return;
-  loadScenarioById(id);
-}
-
-function onScenarioReturnBaseline(){
-  ensureScenarioRegistry();
-  const reg = state.ui.scenarios;
-  const rec = reg?.[SCENARIO_BASELINE_ID];
-  if (!rec) return;
-  if (state.ui.activeScenarioId === SCENARIO_BASELINE_ID) return;
-
-  const ok = confirm("Return to baseline? This will replace current inputs.");
-  if (!ok) return;
-  loadScenarioById(SCENARIO_BASELINE_ID);
-}
-
-function wireScenarioManagerC1(){
-  if (els.scenarioSelect){
-    els.scenarioSelect.addEventListener("change", () => {
-      ensureScenarioRegistry();
-      const id = els.scenarioSelect.value;
-      if (id && state.ui.scenarios[id]){
-        state.ui.scenarioUiSelectedId = id;
-        persist();
-        renderScenarioManagerC1();
-      }
-    });
-  }
-
-  if (els.btnScenarioSaveNew) els.btnScenarioSaveNew.addEventListener("click", () => onScenarioSaveNew());
-  if (els.btnScenarioCloneBaseline) els.btnScenarioCloneBaseline.addEventListener("click", () => onScenarioCloneBaseline());
-  if (els.btnScenarioLoadSelected) els.btnScenarioLoadSelected.addEventListener("click", () => onScenarioLoadSelected());
-  if (els.btnScenarioReturnBaseline) els.btnScenarioReturnBaseline.addEventListener("click", () => onScenarioReturnBaseline());
-  if (els.btnScenarioDelete) els.btnScenarioDelete.addEventListener("click", () => onScenarioDeleteSelected());
-
-  renderScenarioManagerC1();
-}
-
-
 // =========================
 // Phase D1 — Decision Session Scaffold (UI + state only)
 // =========================
@@ -5313,7 +5172,26 @@ function init(){
   preflightEls();
   ensureScenarioRegistry();
   ensureDecisionScaffold();
-  wireScenarioManagerC1();
+  wireScenarioManagerBindings({
+    els,
+    getState: () => state,
+    replaceState: (next) => { state = next; },
+    ensureScenarioRegistry,
+    SCENARIO_BASELINE_ID,
+    SCENARIO_MAX,
+    setScenarioWarn,
+    uid,
+    scenarioClone,
+    scenarioInputsFromState,
+    scenarioOutputsFromState,
+    persist,
+    renderScenarioManagerC1,
+    markMcStale,
+    applyStateToUI,
+    render,
+    safeCall,
+    renderDecisionSessionD1,
+  });
   wireDecisionSessionD1();
   updateBuildStamp();
   updateSelfTestGateBadge();
