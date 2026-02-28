@@ -19,7 +19,7 @@ import { renderBottleneckAttributionPanel, renderConversionPanel, renderSensitiv
 import { renderWeeklyOpsInsightsPanel, renderWeeklyOpsFreshnessPanel } from "./app/render/weeklyOpsInsights.js";
 import { renderDecisionConfidencePanel, renderDecisionIntelligencePanelView } from "./app/render/decisionPanels.js";
 import { renderImpactTracePanel } from "./app/render/impactTrace.js";
-import { wireBudgetTimelineEvents, wireTabAndExportEvents } from "./app/wireEvents.js";
+import { wireBudgetTimelineEvents, wireTabAndExportEvents, wireResetImportAndUiToggles } from "./app/wireEvents.js";
 import { getOperationsMetricsSnapshot } from "./features/operations/metricsCache.js";
 import { PIPELINE_STAGES, DEFAULT_FORECAST_CONFIG } from "./features/operations/schema.js";
 
@@ -1744,163 +1744,31 @@ function wireEvents(){
     downloadText,
   });
 
-  if (els.btnResetAll) els.btnResetAll.addEventListener("click", () => {
-    const ok = confirm("Reset all fields to defaults? This will clear the saved scenario in this browser.");
-    if (!ok) return;
-    state = makeDefaultState();
-    ensureScenarioRegistry();
-    ensureDecisionScaffold();
-    try{
-      const b = state.ui.scenarios?.[SCENARIO_BASELINE_ID];
-      if (b){
-        b.inputs = scenarioInputsFromState(state);
-        b.outputs = scenarioOutputsFromState(state);
-      }
-    } catch {}
-    clearState();
-    applyStateToUI();
-    rebuildCandidateTable();
-    document.body.classList.toggle("training", !!state.ui.training);
-    applyThemeFromState();
-    if (els.explainCard) els.explainCard.hidden = !state.ui.training;
-    render();
-    safeCall(() => { renderScenarioManagerC1(); });
-    safeCall(() => { renderDecisionSessionD1(); });
-    persist();
-  });
-
-  els.loadJson.addEventListener("change", async () => {
-    const file = els.loadJson.files?.[0];
-    if (!file) return;
-
-    const loaded = await readJsonFile(file);
-    if (!loaded || typeof loaded !== "object"){
-      alert("Import failed: invalid JSON.");
-      els.loadJson.value = "";
-      return;
-
-    // Phase 11 — strict import: block newer schema before migration (optional)
-    const prePolicy = engine.snapshot.checkStrictImportPolicy({
-      strictMode: !!state?.ui?.strictImport,
-      importedSchemaVersion: loaded.schemaVersion || null,
-      currentSchemaVersion: engine.snapshot.CURRENT_SCHEMA_VERSION,
-      hashMismatch: false
-    });
-    if (!prePolicy.ok){
-      alert(prePolicy.issues.join(" "));
-      els.loadJson.value = "";
-      return;
-    }
-
-    }
-
-    const mig = engine.snapshot.migrateSnapshot(loaded);
-    if (els.importWarnBanner){
-      if (mig.warnings && mig.warnings.length){
-        els.importWarnBanner.hidden = false;
-        els.importWarnBanner.textContent = mig.warnings.join(" ");
-      } else {
-        els.importWarnBanner.hidden = true;
-        els.importWarnBanner.textContent = "";
-      }
-    }
-
-    const v = engine.snapshot.validateScenarioExport(mig.snapshot, engine.snapshot.MODEL_VERSION);
-    if (!v.ok){
-      alert(`Import failed: ${v.reason}`);
-      els.loadJson.value = "";
-      return;
-    }
-
-    const missing = requiredScenarioKeysMissing(v.scenario);
-    if (missing.length){
-      alert("Import failed: scenario is missing required fields: " + missing.join(", "));
-      els.loadJson.value = "";
-      return;
-    }
-
-    // Phase 9B — snapshot integrity verification (+ Phase 11 strict option)
-    let hashMismatch = false;
-    try{
-      const exportedHash = (loaded && typeof loaded === "object") ? (loaded.snapshotHash || null) : null;
-      // Hash must be tied to the normalized snapshot used by the engine (after migration).
-      const recomputed = engine.snapshot.computeSnapshotHash({ modelVersion: v.modelVersion, scenarioState: v.scenario });
-      hashMismatch = !!(exportedHash && exportedHash !== recomputed);
-
-      if (hashMismatch){
-        if (els.importHashBanner){
-          els.importHashBanner.hidden = false;
-          els.importHashBanner.textContent = "Snapshot hash differs from exported hash.";
-        }
-        console.warn("Snapshot hash mismatch", { exportedHash, recomputed });
-      } else {
-        if (els.importHashBanner) els.importHashBanner.hidden = true;
-      }
-
-      const policy = engine.snapshot.checkStrictImportPolicy({
-        strictMode: !!state?.ui?.strictImport,
-        importedSchemaVersion: (mig?.snapshot?.schemaVersion || loaded.schemaVersion || null),
-        currentSchemaVersion: engine.snapshot.CURRENT_SCHEMA_VERSION,
-        hashMismatch
-      });
-      if (!policy.ok){
-        alert(policy.issues.join(" "));
-        els.loadJson.value = "";
-        return;
-      }
-    } catch {
-      // If hashing fails for any reason, do not block import unless strict explicitly requires it.
-      if (state?.ui?.strictImport){
-        alert("Import blocked: could not verify integrity hash in strict mode.");
-        els.loadJson.value = "";
-        return;
-      }
-    }
-
-
-    // Replace entire state safely (no partial merge with current state)
-    state = normalizeLoadedState(v.scenario);
-    ensureScenarioRegistry();
-    ensureDecisionScaffold();
-    try{
-      const b = state.ui.scenarios?.[SCENARIO_BASELINE_ID];
-      if (b){
-        b.inputs = scenarioInputsFromState(state);
-        b.outputs = scenarioOutputsFromState(state);
-      }
-    } catch {}
-    applyStateToUI();
-    rebuildCandidateTable();
-    document.body.classList.toggle("training", !!state.ui.training);
-    applyThemeFromState();
-    if (els.explainCard) els.explainCard.hidden = !state.ui.training;
-    render();
-    safeCall(() => { renderDecisionSessionD1(); });
-    persist();
-    els.loadJson.value = "";
-  });
-
-  if (els.toggleTraining) els.toggleTraining.addEventListener("change", () => {
-    state.ui.training = els.toggleTraining.checked;
-    document.body.classList.toggle("training", !!state.ui.training);
-    setText(els.snapshotHash, lastResultsSnapshot?.snapshotHash || "—");
-    setText(els.snapshotHashSidebar, lastResultsSnapshot?.snapshotHash || "—");
-    els.explainCard.hidden = !state.ui.training;
-    persist();
-  });
-
-  if (els.toggleDark) els.toggleDark.addEventListener("change", () => {
-  // checked => force dark, unchecked => follow system
-  if (!state.ui) state.ui = {};
-  state.ui.themeMode = els.toggleDark.checked ? "dark" : "system";
-  applyThemeFromState();
-  persist();
-});
-
-  if (els.toggleAdvDiag) els.toggleAdvDiag.addEventListener("change", () => {
-    state.ui.advDiag = els.toggleAdvDiag.checked;
-    if (els.advDiagBox) els.advDiagBox.hidden = !state.ui.advDiag;
-    persist();
+  wireResetImportAndUiToggles({
+    els,
+    getState: () => state,
+    replaceState: (next) => { state = next; },
+    makeDefaultState,
+    ensureScenarioRegistry,
+    ensureDecisionScaffold,
+    SCENARIO_BASELINE_ID,
+    scenarioInputsFromState,
+    scenarioOutputsFromState,
+    clearState,
+    applyStateToUI,
+    rebuildCandidateTable,
+    applyThemeFromState,
+    render,
+    safeCall,
+    renderScenarioManagerC1,
+    renderDecisionSessionD1,
+    persist,
+    readJsonFile,
+    engine,
+    requiredScenarioKeysMissing,
+    normalizeLoadedState,
+    setText,
+    getLastResultsSnapshot: () => lastResultsSnapshot,
   });
 
 }

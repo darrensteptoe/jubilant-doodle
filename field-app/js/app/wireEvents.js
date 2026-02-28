@@ -219,3 +219,212 @@ export function wireTabAndExportEvents(ctx){
     });
   }
 }
+
+export function wireResetImportAndUiToggles(ctx){
+  const {
+    els,
+    getState,
+    replaceState,
+    makeDefaultState,
+    ensureScenarioRegistry,
+    ensureDecisionScaffold,
+    SCENARIO_BASELINE_ID,
+    scenarioInputsFromState,
+    scenarioOutputsFromState,
+    clearState,
+    applyStateToUI,
+    rebuildCandidateTable,
+    applyThemeFromState,
+    render,
+    safeCall,
+    renderScenarioManagerC1,
+    renderDecisionSessionD1,
+    persist,
+    readJsonFile,
+    engine,
+    requiredScenarioKeysMissing,
+    normalizeLoadedState,
+    setText,
+    getLastResultsSnapshot,
+  } = ctx || {};
+
+  if (!els || typeof getState !== "function" || typeof replaceState !== "function") return;
+
+  if (els.btnResetAll){
+    els.btnResetAll.addEventListener("click", () => {
+      const ok = confirm("Reset all fields to defaults? This will clear the saved scenario in this browser.");
+      if (!ok) return;
+      replaceState(makeDefaultState());
+      ensureScenarioRegistry();
+      ensureDecisionScaffold();
+      try{
+        const state = getState();
+        const b = state?.ui?.scenarios?.[SCENARIO_BASELINE_ID];
+        if (b){
+          b.inputs = scenarioInputsFromState(state);
+          b.outputs = scenarioOutputsFromState(state);
+        }
+      } catch {}
+      clearState();
+      const state = getState();
+      applyStateToUI();
+      rebuildCandidateTable();
+      document.body.classList.toggle("training", !!state?.ui?.training);
+      applyThemeFromState();
+      if (els.explainCard) els.explainCard.hidden = !state?.ui?.training;
+      render();
+      safeCall(() => { renderScenarioManagerC1(); });
+      safeCall(() => { renderDecisionSessionD1(); });
+      persist();
+    });
+  }
+
+  if (els.loadJson){
+    els.loadJson.addEventListener("change", async () => {
+      const file = els.loadJson.files?.[0];
+      if (!file) return;
+
+      const loaded = await readJsonFile(file);
+      if (!loaded || typeof loaded !== "object"){
+        alert("Import failed: invalid JSON.");
+        els.loadJson.value = "";
+        return;
+
+      // Phase 11 — strict import: block newer schema before migration (optional)
+      const curState = getState();
+      const prePolicy = engine.snapshot.checkStrictImportPolicy({
+        strictMode: !!curState?.ui?.strictImport,
+        importedSchemaVersion: loaded.schemaVersion || null,
+        currentSchemaVersion: engine.snapshot.CURRENT_SCHEMA_VERSION,
+        hashMismatch: false
+      });
+      if (!prePolicy.ok){
+        alert(prePolicy.issues.join(" "));
+        els.loadJson.value = "";
+        return;
+      }
+
+      }
+
+      const mig = engine.snapshot.migrateSnapshot(loaded);
+      if (els.importWarnBanner){
+        if (mig.warnings && mig.warnings.length){
+          els.importWarnBanner.hidden = false;
+          els.importWarnBanner.textContent = mig.warnings.join(" ");
+        } else {
+          els.importWarnBanner.hidden = true;
+          els.importWarnBanner.textContent = "";
+        }
+      }
+
+      const v = engine.snapshot.validateScenarioExport(mig.snapshot, engine.snapshot.MODEL_VERSION);
+      if (!v.ok){
+        alert(`Import failed: ${v.reason}`);
+        els.loadJson.value = "";
+        return;
+      }
+
+      const missing = requiredScenarioKeysMissing(v.scenario);
+      if (missing.length){
+        alert("Import failed: scenario is missing required fields: " + missing.join(", "));
+        els.loadJson.value = "";
+        return;
+      }
+
+      // Phase 9B — snapshot integrity verification (+ Phase 11 strict option)
+      try{
+        const exportedHash = (loaded && typeof loaded === "object") ? (loaded.snapshotHash || null) : null;
+        const recomputed = engine.snapshot.computeSnapshotHash({ modelVersion: v.modelVersion, scenarioState: v.scenario });
+        const hashMismatch = !!(exportedHash && exportedHash !== recomputed);
+
+        if (hashMismatch){
+          if (els.importHashBanner){
+            els.importHashBanner.hidden = false;
+            els.importHashBanner.textContent = "Snapshot hash differs from exported hash.";
+          }
+          console.warn("Snapshot hash mismatch", { exportedHash, recomputed });
+        } else {
+          if (els.importHashBanner) els.importHashBanner.hidden = true;
+        }
+
+        const curState = getState();
+        const policy = engine.snapshot.checkStrictImportPolicy({
+          strictMode: !!curState?.ui?.strictImport,
+          importedSchemaVersion: (mig?.snapshot?.schemaVersion || loaded.schemaVersion || null),
+          currentSchemaVersion: engine.snapshot.CURRENT_SCHEMA_VERSION,
+          hashMismatch
+        });
+        if (!policy.ok){
+          alert(policy.issues.join(" "));
+          els.loadJson.value = "";
+          return;
+        }
+      } catch {
+        const curState = getState();
+        if (curState?.ui?.strictImport){
+          alert("Import blocked: could not verify integrity hash in strict mode.");
+          els.loadJson.value = "";
+          return;
+        }
+      }
+
+      // Replace entire state safely (no partial merge with current state)
+      replaceState(normalizeLoadedState(v.scenario));
+      ensureScenarioRegistry();
+      ensureDecisionScaffold();
+      try{
+        const state = getState();
+        const b = state?.ui?.scenarios?.[SCENARIO_BASELINE_ID];
+        if (b){
+          b.inputs = scenarioInputsFromState(state);
+          b.outputs = scenarioOutputsFromState(state);
+        }
+      } catch {}
+      const state = getState();
+      applyStateToUI();
+      rebuildCandidateTable();
+      document.body.classList.toggle("training", !!state?.ui?.training);
+      applyThemeFromState();
+      if (els.explainCard) els.explainCard.hidden = !state?.ui?.training;
+      render();
+      safeCall(() => { renderDecisionSessionD1(); });
+      persist();
+      els.loadJson.value = "";
+    });
+  }
+
+  if (els.toggleTraining){
+    els.toggleTraining.addEventListener("change", () => {
+      const state = getState();
+      if (!state?.ui) return;
+      state.ui.training = els.toggleTraining.checked;
+      document.body.classList.toggle("training", !!state.ui.training);
+      const snap = (typeof getLastResultsSnapshot === "function") ? getLastResultsSnapshot() : null;
+      setText(els.snapshotHash, snap?.snapshotHash || "—");
+      setText(els.snapshotHashSidebar, snap?.snapshotHash || "—");
+      if (els.explainCard) els.explainCard.hidden = !state.ui.training;
+      persist();
+    });
+  }
+
+  if (els.toggleDark){
+    els.toggleDark.addEventListener("change", () => {
+      const state = getState();
+      if (!state) return;
+      if (!state.ui) state.ui = {};
+      state.ui.themeMode = els.toggleDark.checked ? "dark" : "system";
+      applyThemeFromState();
+      persist();
+    });
+  }
+
+  if (els.toggleAdvDiag){
+    els.toggleAdvDiag.addEventListener("change", () => {
+      const state = getState();
+      if (!state?.ui) return;
+      state.ui.advDiag = els.toggleAdvDiag.checked;
+      if (els.advDiagBox) els.advDiagBox.hidden = !state.ui.advDiag;
+      persist();
+    });
+  }
+}
