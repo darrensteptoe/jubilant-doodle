@@ -19,7 +19,7 @@ import { renderBottleneckAttributionPanel, renderConversionPanel, renderSensitiv
 import { renderWeeklyOpsInsightsPanel, renderWeeklyOpsFreshnessPanel } from "./app/render/weeklyOpsInsights.js";
 import { renderDecisionConfidencePanel, renderDecisionIntelligencePanelView } from "./app/render/decisionPanels.js";
 import { renderImpactTracePanel } from "./app/render/impactTrace.js";
-import { wireBudgetTimelineEvents } from "./app/wireEvents.js";
+import { wireBudgetTimelineEvents, wireTabAndExportEvents } from "./app/wireEvents.js";
 import { getOperationsMetricsSnapshot } from "./features/operations/metricsCache.js";
 import { PIPELINE_STAGES, DEFAULT_FORECAST_CONFIG } from "./features/operations/schema.js";
 
@@ -1732,63 +1732,16 @@ function wireEvents(){
     render
   });
 
-  document.querySelectorAll(".tab").forEach(btn => {
-    btn.addEventListener("click", () => {
-      document.querySelectorAll(".tab").forEach(b => b.classList.remove("active"));
-      btn.classList.add("active");
-      const tab = btn.getAttribute("data-tab");
-      const panel = document.getElementById(`tab-${tab}`);
-
-      document.querySelectorAll(".panel").forEach(p => p.classList.remove("active"));
-      if (panel){
-        state.ui.activeTab = tab;
-        panel.classList.add("active");
-      } else {
-        state.ui.activeTab = "win";
-        document.getElementById("tab-win")?.classList.add("active");
-      }
-
-      persist();
-    });
-  });
-
-  if (els.btnSaveJson) els.btnSaveJson.addEventListener("click", () => {
-    const scenarioClone = structuredClone(state);
-    const snapshot = { modelVersion: engine.snapshot.MODEL_VERSION, schemaVersion: engine.snapshot.CURRENT_SCHEMA_VERSION, scenarioState: scenarioClone, appVersion: APP_VERSION, buildId: BUILD_ID };
-    snapshot.snapshotHash = engine.snapshot.computeSnapshotHash(snapshot);
-    lastExportHash = snapshot.snapshotHash;
-    const payload = engine.snapshot.makeScenarioExport(snapshot);
-    if (engine.snapshot.hasNonFiniteNumbers(payload)){
-      alert("Export blocked: scenario contains NaN/Infinity.");
-      return;
-    }
-    const filename = engine.snapshot.makeTimestampedFilename("field-path-scenario", "json");
-    const text = engine.snapshot.deterministicStringify(payload, 2);
-    downloadText(text, filename, "application/json");
-  });
-
-  if (els.btnExportCsv) els.btnExportCsv.addEventListener("click", () => {
-    if (!lastResultsSnapshot){
-      alert("Nothing to export yet. Run a scenario first.");
-      return;
-    }
-    const csv = engine.snapshot.planRowsToCsv(lastResultsSnapshot);
-    if (/NaN|Infinity/.test(csv)){
-      alert("CSV export blocked: contains NaN/Infinity.");
-      return;
-    }
-    const filename = engine.snapshot.makeTimestampedFilename("field-path-plan", "csv");
-    downloadText(csv, filename, "text/csv");
-  });
-
-  if (els.btnCopySummary) els.btnCopySummary.addEventListener("click", async () => {
-    if (!lastResultsSnapshot){
-      alert("Nothing to copy yet. Run a scenario first.");
-      return;
-    }
-    const text = engine.snapshot.formatSummaryText(lastResultsSnapshot);
-    const r = await engine.snapshot.copyTextToClipboard(text);
-    if (!r.ok) alert(r.reason || "Copy failed.");
+  wireTabAndExportEvents({
+    els,
+    getState: () => state,
+    persist,
+    engine,
+    APP_VERSION,
+    BUILD_ID,
+    getLastResultsSnapshot: () => lastResultsSnapshot,
+    setLastExportHash: (next) => { lastExportHash = next; },
+    downloadText,
   });
 
   if (els.btnResetAll) els.btnResetAll.addEventListener("click", () => {
