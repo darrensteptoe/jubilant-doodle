@@ -27,6 +27,13 @@ import { runInitPostBootModule } from "./app/initPostBoot.js";
 import { runInitScenarioDecisionWiringModule } from "./app/initScenarioDecisionWiring.js";
 import { preflightElsModule } from "./app/preflightEls.js";
 import { initTabsModule, initExplainCardModule, isDevModeModule } from "./app/initUiStateHelpers.js";
+import {
+  systemPrefersDarkModule,
+  normalizeThemeModeModule,
+  computeThemeIsDarkModule,
+  applyThemeFromStateModule,
+  initThemeSystemListenerModule
+} from "./app/themeMode.js";
 import { applyStateToUIView } from "./app/applyStateToUI.js";
 import { wireScenarioManagerBindings } from "./app/scenarioManagerBindings.js";
 import { wireDecisionSessionBindings } from "./app/decisionSessionBindings.js";
@@ -940,56 +947,23 @@ let lastRenderCtx = null;
 // - Keeps legacy state.ui.dark for backward compatibility but does NOT treat it as the source of truth
 // =========================
 function systemPrefersDark(){
-  try{
-    return !!(window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches);
-  } catch {
-    return false;
-  }
+  return systemPrefersDarkModule();
 }
 
 function normalizeThemeMode(){
-  if (!state.ui) state.ui = {};
-  if (state.ui.themeMode !== "system" && state.ui.themeMode !== "dark" && state.ui.themeMode !== "light"){
-    // migrate legacy boolean to new mode
-    state.ui.themeMode = (state.ui.dark === true) ? "dark" : "system";
-  }
+  normalizeThemeModeModule(state);
 }
 
 function computeThemeIsDark(){
-  const mode = state.ui?.themeMode || "system";
-  if (mode === "dark") return true;
-  if (mode === "light") return false; // legacy/compat if ever present
-  return systemPrefersDark();
+  return computeThemeIsDarkModule(state, systemPrefersDark);
 }
 
 function applyThemeFromState(){
-  normalizeThemeMode();
-  const isDark = computeThemeIsDark();
-
-  document.body.classList.toggle("dark", !!isDark);
-
-  // The hidden checkbox is treated as an override control (checked => force dark).
-  // We keep it in sync so code that expects it doesn't break.
-  if (els.toggleDark){
-    els.toggleDark.checked = (state.ui.themeMode === "dark");
-  }
-
-  // Legacy flag remains updated for older code paths (represents the *effective* theme).
-  state.ui.dark = !!isDark;
+  applyThemeFromStateModule(state, els, normalizeThemeMode, computeThemeIsDark);
 }
 
 function initThemeSystemListener(){
-  try{
-    const mq = window.matchMedia("(prefers-color-scheme: dark)");
-    const handler = () => {
-      if ((state.ui?.themeMode || "system") === "system"){
-        applyThemeFromState();
-        // do NOT persist on OS changes; keeps exports/diffs stable
-      }
-    };
-    if (mq && mq.addEventListener) mq.addEventListener("change", handler);
-    else if (mq && mq.addListener) mq.addListener(handler);
-  } catch {}
+  initThemeSystemListenerModule(state, applyThemeFromState);
 }
 
 
