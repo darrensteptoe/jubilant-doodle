@@ -26,6 +26,7 @@ import { normalizeStageLayoutModule } from "./app/normalizeStageLayout.js";
 import { runInitPostBootModule } from "./app/initPostBoot.js";
 import { runInitScenarioDecisionWiringModule } from "./app/initScenarioDecisionWiring.js";
 import { preflightElsModule } from "./app/preflightEls.js";
+import { initTabsModule, initExplainCardModule, isDevModeModule } from "./app/initUiStateHelpers.js";
 import { applyStateToUIView } from "./app/applyStateToUI.js";
 import { wireScenarioManagerBindings } from "./app/scenarioManagerBindings.js";
 import { wireDecisionSessionBindings } from "./app/decisionSessionBindings.js";
@@ -3826,29 +3827,16 @@ function wireSensitivitySurface(){
 }
 
 function initTabs(){
-  const requested = state.ui?.activeTab || "win";
-  const tab = document.getElementById(`tab-${requested}`) ? requested : "win";
-  if (state.ui) state.ui.activeTab = tab;
-  document.querySelectorAll(".tab").forEach(b => b.classList.toggle("active", b.getAttribute("data-tab") === tab));
-  document.querySelectorAll(".panel").forEach(p => p.classList.remove("active"));
-  document.getElementById(`tab-${tab}`)?.classList.add("active");
+  initTabsModule({ state });
 }
 
 function initExplainCard(){
-  els.explainCard.hidden = !state.ui?.training;
+  initExplainCardModule({ els, state });
 }
 
 
 function isDevMode(){
-  try{
-    const qs = new URLSearchParams(window.location.search);
-    if (qs.get("dev") === "1") return true;
-  } catch {}
-  try{
-    return localStorage.getItem("devMode") === "1";
-  } catch {
-    return false;
-  }
+  return isDevModeModule();
 }
 
 function initDevTools(){
