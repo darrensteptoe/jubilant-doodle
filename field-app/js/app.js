@@ -24,6 +24,7 @@ import { initDevToolsModule } from "./app/initDevTools.js";
 import { composeSetupStageModule } from "./app/composeSetupStage.js";
 import { normalizeStageLayoutModule } from "./app/normalizeStageLayout.js";
 import { runInitPostBootModule } from "./app/initPostBoot.js";
+import { runInitScenarioDecisionWiringModule } from "./app/initScenarioDecisionWiring.js";
 import { applyStateToUIView } from "./app/applyStateToUI.js";
 import { wireScenarioManagerBindings } from "./app/scenarioManagerBindings.js";
 import { wireDecisionSessionBindings } from "./app/decisionSessionBindings.js";
@@ -3901,11 +3902,13 @@ function init(){
   preflightEls();
   ensureScenarioRegistry();
   ensureDecisionScaffold();
-  wireScenarioManagerBindings({
+  runInitScenarioDecisionWiringModule({
     els,
     getState: () => state,
     replaceState: (next) => { state = next; },
+    setState,
     ensureScenarioRegistry,
+    ensureDecisionScaffold,
     SCENARIO_BASELINE_ID,
     SCENARIO_MAX,
     setScenarioWarn,
@@ -3920,30 +3923,12 @@ function init(){
     render,
     safeCall,
     renderDecisionSessionD1,
-  });
-  const decisionActions = createDecisionSessionActions({
-    els,
-    stateRef: () => state,
-    ensureDecisionScaffold,
+    createDecisionSessionActions,
+    wireScenarioManagerBindings,
+    wireDecisionSessionBindings,
     makeDecisionSessionId,
     makeDecisionOptionId,
     OBJECTIVE_TEMPLATES,
-    SCENARIO_BASELINE_ID,
-    getActiveDecisionSession,
-    ensureDecisionSessionShape,
-    getActiveDecisionOption,
-    ensureDecisionOptionShape,
-    ensureScenarioRegistry,
-    persist,
-    renderDecisionSessionD1,
-  });
-  wireDecisionSessionBindings({
-    els,
-    ensureDecisionScaffold,
-    getState: () => state,
-    setState,
-    persist,
-    renderDecisionSessionD1,
     getActiveDecisionSession,
     ensureDecisionSessionShape,
     getActiveDecisionOption,
@@ -3955,7 +3940,6 @@ function init(){
     decisionSessionExportObject,
     downloadJsonObject,
     runSensitivitySnapshotE4,
-    ...decisionActions,
   });
   runInitPostBootModule({
     updateBuildStamp,
