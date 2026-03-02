@@ -73,6 +73,7 @@ import {
   wireTabAndExportEvents,
   wireResetImportAndUiToggles
 } from "./app/wireEvents.js";
+import { derivedWeeksRemainingFromState } from "./app/selectors.js";
 import { getOperationsMetricsSnapshot } from "./features/operations/metricsCache.js";
 import { PIPELINE_STAGES, DEFAULT_FORECAST_CONFIG } from "./features/operations/schema.js";
 
@@ -1284,16 +1285,7 @@ function requiredScenarioKeysMissing(scen){
 }
 
 function derivedWeeksRemaining(){
-  const override = safeNum(state.weeksRemaining);
-  if (override != null && override >= 0) return override;
-
-  const d = state.electionDate;
-  if (!d) return null;
-  const now = new Date();
-  const election = new Date(d + "T00:00:00");
-  const days = daysBetween(now, election);
-  if (days == null) return null;
-  return Math.max(0, Math.ceil(days / 7));
+  return derivedWeeksRemainingFromState(state);
 }
 
 function getUniverseLayerConfig(){
