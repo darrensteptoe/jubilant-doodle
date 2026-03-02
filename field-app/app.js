@@ -31,6 +31,7 @@ import { createUiUpdateQueue } from "./app/uiUpdateQueue.js";
 import { makeDefaultStateModule } from "./app/defaultState.js";
 import { normalizeLoadedStateModule } from "./app/normalizeLoadedState.js";
 import { renderUniverse16CardModule } from "./app/renderUniverse16Card.js";
+import { safeCallModule, switchToStageModule } from "./app/uiStageHelpers.js";
 import {
   canonicalDoorsPerHourFromSnapModule,
   setCanonicalDoorsPerHourModule,
@@ -1380,22 +1381,11 @@ function renderUniverse16Card(){
 }
 
 function safeCall(fn){
-  try{ fn(); } catch(e){ /* keep UI alive */ }
+  safeCallModule(fn);
 }
 
 function switchToStage(stageId){
-  const id = String(stageId || "").trim();
-  if (!id) return;
-  const btn = document.querySelector(`.nav-item-new[data-stage="${id}"]`);
-  if (btn && typeof window.switchStage === "function"){
-    window.switchStage(btn, id);
-    return;
-  }
-  document.querySelectorAll(".nav-item-new").forEach((el) => el.classList.remove("active"));
-  if (btn) btn.classList.add("active");
-  document.querySelectorAll(".stage-new").forEach((el) => el.classList.remove("active-stage"));
-  const target = document.getElementById(`stage-${id}`);
-  if (target) target.classList.add("active-stage");
+  switchToStageModule(stageId);
 }
 
 function persist(){
