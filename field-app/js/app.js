@@ -38,6 +38,7 @@ import { renderOptimizationModule } from "./app/renderOptimization.js";
 import { renderTimelineModule } from "./app/renderTimeline.js";
 import { renderPhase3Module } from "./app/renderPhase3.js";
 import { renderValidationModule } from "./app/renderValidation.js";
+import { renderStressModule } from "./app/renderStress.js";
 import {
   canonicalDoorsPerHourFromSnapModule,
   setCanonicalDoorsPerHourModule,
@@ -1992,22 +1993,10 @@ function renderDecisionIntelligencePanel({ res, weeks }){
 
 
 function renderStress(res){
-  if (!els.stressBox) return;
-  const lines = res.stressSummary || [];
-  els.stressBox.innerHTML = "";
-  if (!lines.length){
-    const div = document.createElement("div");
-    div.className = "stress-item";
-    div.textContent = "—";
-    els.stressBox.appendChild(div);
-    return;
-  }
-  for (const s of lines){
-    const div = document.createElement("div");
-    div.className = "stress-item";
-    div.textContent = s;
-    els.stressBox.appendChild(div);
-  }
+  renderStressModule({
+    els,
+    res,
+  });
 }
 
 function renderValidation(res, weeks){
