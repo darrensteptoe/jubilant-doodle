@@ -545,11 +545,11 @@ export function wirePrimaryPlannerEvents(ctx){
   if (els.btnGotoTurnoutSettings) els.btnGotoTurnoutSettings.addEventListener("click", () => { switchToStage("roi"); });
 
   if (els.universe16Enabled) els.universe16Enabled.addEventListener("change", () => { withState((state) => { state.universeLayerEnabled = !!els.universe16Enabled.checked; }); markMcStale(); commitUIUpdate(); });
-  if (els.universe16DemPct) els.universe16DemPct.addEventListener("input", () => { withState((state) => { state.universeDemPct = safeNum(els.universe16DemPct.value); }); markMcStale(); commitUIUpdate(); });
-  if (els.universe16RepPct) els.universe16RepPct.addEventListener("input", () => { withState((state) => { state.universeRepPct = safeNum(els.universe16RepPct.value); }); markMcStale(); commitUIUpdate(); });
-  if (els.universe16NpaPct) els.universe16NpaPct.addEventListener("input", () => { withState((state) => { state.universeNpaPct = safeNum(els.universe16NpaPct.value); }); markMcStale(); commitUIUpdate(); });
-  if (els.universe16OtherPct) els.universe16OtherPct.addEventListener("input", () => { withState((state) => { state.universeOtherPct = safeNum(els.universe16OtherPct.value); }); markMcStale(); commitUIUpdate(); });
-  if (els.retentionFactor) els.retentionFactor.addEventListener("input", () => { withState((state) => { state.retentionFactor = safeNum(els.retentionFactor.value); }); markMcStale(); commitUIUpdate(); });
+  if (els.universe16DemPct) els.universe16DemPct.addEventListener("change", () => { withState((state) => { state.universeDemPct = safeNum(els.universe16DemPct.value); }); markMcStale(); commitUIUpdate(); });
+  if (els.universe16RepPct) els.universe16RepPct.addEventListener("change", () => { withState((state) => { state.universeRepPct = safeNum(els.universe16RepPct.value); }); markMcStale(); commitUIUpdate(); });
+  if (els.universe16NpaPct) els.universe16NpaPct.addEventListener("change", () => { withState((state) => { state.universeNpaPct = safeNum(els.universe16NpaPct.value); }); markMcStale(); commitUIUpdate(); });
+  if (els.universe16OtherPct) els.universe16OtherPct.addEventListener("change", () => { withState((state) => { state.universeOtherPct = safeNum(els.universe16OtherPct.value); }); markMcStale(); commitUIUpdate(); });
+  if (els.retentionFactor) els.retentionFactor.addEventListener("change", () => { withState((state) => { state.retentionFactor = safeNum(els.retentionFactor.value); }); markMcStale(); commitUIUpdate(); });
 
   if (els.orgCount) els.orgCount.addEventListener("input", () => { withState((state) => { state.orgCount = safeNum(els.orgCount.value); }); markMcStale(); commitUIUpdate(); });
   if (els.orgHoursPerWeek) els.orgHoursPerWeek.addEventListener("input", () => { withState((state) => { state.orgHoursPerWeek = safeNum(els.orgHoursPerWeek.value); }); markMcStale(); commitUIUpdate(); });
