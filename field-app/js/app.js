@@ -73,7 +73,11 @@ import {
   wireTabAndExportEvents,
   wireResetImportAndUiToggles
 } from "./app/wireEvents.js";
-import { derivedWeeksRemainingFromState } from "./app/selectors.js";
+import {
+  derivedWeeksRemainingFromState,
+  getUniverseLayerConfig as getUniverseLayerConfigFromStateSelector,
+  getEffectiveBaseRates as getEffectiveBaseRatesFromStateSelector
+} from "./app/selectors.js";
 import { getOperationsMetricsSnapshot } from "./features/operations/metricsCache.js";
 import { PIPELINE_STAGES, DEFAULT_FORECAST_CONFIG } from "./features/operations/schema.js";
 
@@ -1289,46 +1293,11 @@ function derivedWeeksRemaining(){
 }
 
 function getUniverseLayerConfig(){
-  const enabled = !!state.universeLayerEnabled;
-  const demPct = safeNum(state.universeDemPct);
-  const repPct = safeNum(state.universeRepPct);
-  const npaPct = safeNum(state.universeNpaPct);
-  const otherPct = safeNum(state.universeOtherPct);
-  const retentionFactor = safeNum(state.retentionFactor);
-
-  const norm = normalizeUniversePercents({ demPct, repPct, npaPct, otherPct });
-  return {
-    enabled,
-    percents: norm.percents,
-    shares: norm.shares,
-    retentionFactor: (retentionFactor != null) ? clamp(retentionFactor, 0.60, 0.95) : UNIVERSE_DEFAULTS.retentionFactor,
-    warning: norm.warning || "",
-    wasNormalized: !!norm.normalized,
-  };
+  return getUniverseLayerConfigFromStateSelector(state);
 }
 
 function getEffectiveBaseRates(){
-  const cr = (safeNum(state.contactRatePct) != null) ? clamp(safeNum(state.contactRatePct), 0, 100) / 100 : null;
-  const sr = (safeNum(state.supportRatePct) != null) ? clamp(safeNum(state.supportRatePct), 0, 100) / 100 : null;
-  const tr = (safeNum(state.turnoutReliabilityPct) != null) ? clamp(safeNum(state.turnoutReliabilityPct), 0, 100) / 100 : null;
-
-  const cfg = getUniverseLayerConfig();
-  const adj = computeUniverseAdjustedRates({
-    enabled: cfg.enabled,
-    universePercents: cfg.percents,
-    retentionFactor: cfg.retentionFactor,
-    supportRate: sr,
-    turnoutReliability: tr,
-  });
-
-  return {
-    cr,
-    sr: adj.srAdj,
-    tr: adj.trAdj,
-    cfg,
-    meta: adj.meta,
-    volatilityBoost: adj.volatilityBoost || 0,
-  };
+  return getEffectiveBaseRatesFromStateSelector(state, { computeUniverseAdjustedRates });
 }
 
 // Step-3 seam: single compiler for effective inputs.
