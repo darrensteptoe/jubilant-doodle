@@ -29,6 +29,12 @@ import { preflightElsModule } from "./app/preflightEls.js";
 import { initTabsModule, initExplainCardModule, isDevModeModule } from "./app/initUiStateHelpers.js";
 import { createUiUpdateQueue } from "./app/uiUpdateQueue.js";
 import { makeDefaultStateModule } from "./app/defaultState.js";
+import { normalizeLoadedStateModule } from "./app/normalizeLoadedState.js";
+import {
+  canonicalDoorsPerHourFromSnapModule,
+  setCanonicalDoorsPerHourModule,
+  requiredScenarioKeysMissingModule
+} from "./app/stateNormalizationHelpers.js";
 import {
   updatePersistenceStatusChipModule,
   reportPersistenceFailureModule,
@@ -1255,69 +1261,26 @@ function wireEvents(){
 }
 
 function normalizeLoadedState(s){
-  const base = makeDefaultState();
-  const out = { ...base, ...s };
-  out.candidates = Array.isArray(s.candidates) ? s.candidates : base.candidates;
-  out.userSplit = (s.userSplit && typeof s.userSplit === "object") ? s.userSplit : {};
-  out.ui = { ...base.ui, ...(s.ui || {}) };
-
-  out.budget = (s.budget && typeof s.budget === "object")
-    ? { ...base.budget, ...s.budget,
-        tactics: { ...base.budget.tactics, ...(s.budget.tactics||{}) },
-        optimize: { ...base.budget.optimize, ...(s.budget.optimize||{}) }
-      }
-    : structuredClone(base.budget);
-
-  if (!out.yourCandidateId && out.candidates[0]) out.yourCandidateId = out.candidates[0].id;
-  out.crmEnabled = !!out.crmEnabled;
-  out.scheduleEnabled = !!out.scheduleEnabled;
-  out.twCapOverrideEnabled = !!out.twCapOverrideEnabled;
-  out.twCapOverrideMode = ["baseline", "ramp", "scheduled", "max"].includes(String(out.twCapOverrideMode || ""))
-    ? String(out.twCapOverrideMode)
-    : "baseline";
-  const horizon = safeNum(out.twCapOverrideHorizonWeeks);
-  out.twCapOverrideHorizonWeeks = (horizon != null && isFinite(horizon)) ? clamp(horizon, 4, 52) : 12;
-  // Canonicalize doors/hour onto doorsPerHour3 while keeping legacy mirror synced.
-  const canonDph = canonicalDoorsPerHourFromSnap(out);
-  setCanonicalDoorsPerHour(out, (canonDph != null && isFinite(canonDph)) ? canonDph : safeNum(base.doorsPerHour3));
-  out.ui.assumptionsProfile = deriveAssumptionsProfileFromState(out);
-  out.ui.themeMode = "system";
-  out.ui.dark = false;
-  return out;
+  return normalizeLoadedStateModule(s, {
+    makeDefaultState,
+    safeNum,
+    clamp,
+    canonicalDoorsPerHourFromSnap,
+    setCanonicalDoorsPerHour,
+    deriveAssumptionsProfileFromState,
+  });
 }
 
 function canonicalDoorsPerHourFromSnap(snap){
-  const s = snap || {};
-  const canonical = safeNum(s.doorsPerHour3);
-  if (canonical != null && isFinite(canonical)) return canonical;
-  const legacy = safeNum(s.doorsPerHour);
-  if (legacy != null && isFinite(legacy)) return legacy;
-  return null;
+  return canonicalDoorsPerHourFromSnapModule(snap, safeNum);
 }
 
 function setCanonicalDoorsPerHour(target, value){
-  if (!target || typeof target !== "object") return;
-  const n = safeNum(value);
-  const next = (n != null && isFinite(n)) ? n : "";
-  target.doorsPerHour3 = next;
-  target.doorsPerHour = next; // legacy compatibility mirror
+  setCanonicalDoorsPerHourModule(target, value, safeNum);
 }
 
 function requiredScenarioKeysMissing(scen){
-  const required = [
-    "scenarioName","raceType","electionDate","weeksRemaining","mode",
-    "universeBasis","universeSize","turnoutA","turnoutB","bandWidth",
-    "candidates","undecidedPct","yourCandidateId","undecidedMode","persuasionPct",
-    "earlyVoteExp","supportRatePct","contactRatePct","turnoutReliabilityPct",
-    "universeLayerEnabled","universeDemPct","universeRepPct","universeNpaPct","universeOtherPct","retentionFactor",
-    "mcMode","mcVolatility","mcSeed","budget","timelineEnabled","ui"
-  ];
-  const missing = [];
-  if (!scen || typeof scen !== "object") return required.slice();
-  for (const k of required){
-    if (!(k in scen)) missing.push(k);
-  }
-  return missing;
+  return requiredScenarioKeysMissingModule(scen);
 }
 
 function derivedWeeksRemaining(){
