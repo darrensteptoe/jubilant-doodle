@@ -25,6 +25,7 @@ import { composeSetupStageModule } from "./app/composeSetupStage.js";
 import { normalizeStageLayoutModule } from "./app/normalizeStageLayout.js";
 import { runInitPostBootModule } from "./app/initPostBoot.js";
 import { runInitScenarioDecisionWiringModule } from "./app/initScenarioDecisionWiring.js";
+import { preflightElsModule } from "./app/preflightEls.js";
 import { applyStateToUIView } from "./app/applyStateToUI.js";
 import { wireScenarioManagerBindings } from "./app/scenarioManagerBindings.js";
 import { wireDecisionSessionBindings } from "./app/decisionSessionBindings.js";
@@ -848,35 +849,7 @@ const SCENARIO_MAX = 20;
 
 // Phase 13 — DOM preflight (prevents silent boot failures)
 function preflightEls(){
-  try{
-    const required = [
-      "scenarioName",
-      "buildStamp",
-      "selfTestGate",
-      "btnDiagnostics",
-      "diagModal",
-      "diagErrors",
-      "btnDiagClose",
-      "btnCopyDebug",
-      "raceType",
-      "electionDate",
-      "weeksRemaining",
-      "mode",
-      "universeSize",
-      "turnoutA",
-      "turnoutB",
-      "bandWidth",
-      "btnAddCandidate",
-      "yourCandidate",
-      "candTbody",
-      "undecidedPct",
-      "undecidedMode",
-      "persuasionPct",
-      "earlyVoteExp",
-    ];
-    const missing = required.filter((k) => els[k] == null);
-    if (missing.length) recordError("dom-preflight", `Missing required element(s): ${missing.join(", ")}`);
-  } catch { /* ignore */ }
+  preflightElsModule({ els, recordError });
 }
 
 
