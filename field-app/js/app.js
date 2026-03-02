@@ -21,7 +21,21 @@ import { renderDecisionConfidencePanel, renderDecisionIntelligencePanelView } fr
 import { renderImpactTracePanel } from "./app/render/impactTrace.js";
 import { wireScenarioManagerBindings } from "./app/scenarioManagerBindings.js";
 import { wireDecisionSessionBindings } from "./app/decisionSessionBindings.js";
-import { wireBudgetTimelineEvents, wireTabAndExportEvents, wireResetImportAndUiToggles } from "./app/wireEvents.js";
+import { createDecisionSessionActions } from "./app/decisionSessionActions.js";
+import {
+  decisionOptionDisplayCore,
+  buildDecisionSummaryTextCore,
+  copyTextToClipboardCore,
+  decisionSummaryPlainTextCore,
+  decisionSessionExportObjectCore,
+  downloadJsonObjectCore,
+} from "./app/decisionSessionSummary.js";
+import {
+  wirePrimaryPlannerEvents,
+  wireBudgetTimelineEvents,
+  wireTabAndExportEvents,
+  wireResetImportAndUiToggles
+} from "./app/wireEvents.js";
 import { getOperationsMetricsSnapshot } from "./features/operations/metricsCache.js";
 import { PIPELINE_STAGES, DEFAULT_FORECAST_CONFIG } from "./features/operations/schema.js";
 
@@ -1585,146 +1599,29 @@ function wireEvents(){
     if (els.wkUndoActionBtn) els.wkUndoActionBtn.addEventListener("click", () => { safeCall(() => { undoLastWeeklyAction(); }); });
   });
 
-
-  els.scenarioName.addEventListener("input", () => { state.scenarioName = els.scenarioName.value; schedulePersist(); });
-
-  els.raceType.addEventListener("change", () => {
-    state.raceType = els.raceType.value;
-    applyTemplateDefaultsForRace(state, state.raceType, { force: true });
-    if (!state.ui) state.ui = {};
-    state.ui.assumptionsProfile = "template";
-    applyStateToUI();
-    commitUIUpdate();
+  wirePrimaryPlannerEvents({
+    els,
+    getState: () => state,
+    safeNum,
+    commitUIUpdate,
+    schedulePersist,
+    applyTemplateDefaultsForRace,
+    applyStateToUI,
+    refreshAssumptionsProfile,
+    uid,
+    rebuildCandidateTable,
+    rebuildUserSplitInputs,
+    markMcStale,
+    switchToStage,
+    setCanonicalDoorsPerHour,
+    canonicalDoorsPerHourFromSnap,
+    clamp,
+    syncGotvModeUI,
+    syncMcModeUI,
+    wireSensitivitySurface,
+    safeCall,
+    runMonteCarloNow,
   });
-
-  els.electionDate.addEventListener("change", () => { state.electionDate = els.electionDate.value; commitUIUpdate(); });
-  els.weeksRemaining.addEventListener("input", () => { state.weeksRemaining = els.weeksRemaining.value; commitUIUpdate(); });
-  els.mode.addEventListener("change", () => { state.mode = els.mode.value; schedulePersist(); });
-
-  els.universeBasis.addEventListener("change", () => { state.universeBasis = els.universeBasis.value; commitUIUpdate(); });
-  els.universeSize.addEventListener("input", () => { state.universeSize = safeNum(els.universeSize.value); commitUIUpdate(); });
-  els.sourceNote.addEventListener("input", () => { state.sourceNote = els.sourceNote.value; schedulePersist(); });
-
-  els.turnoutA.addEventListener("input", () => { state.turnoutA = safeNum(els.turnoutA.value); commitUIUpdate(); });
-  els.turnoutB.addEventListener("input", () => { state.turnoutB = safeNum(els.turnoutB.value); commitUIUpdate(); });
-  els.bandWidth.addEventListener("input", () => { state.bandWidth = safeNum(els.bandWidth.value); refreshAssumptionsProfile(); commitUIUpdate(); });
-
-  els.btnAddCandidate.addEventListener("click", () => {
-    state.candidates.push({ id: uid(), name: `Candidate ${String.fromCharCode(65 + state.candidates.length)}`, supportPct: 0 });
-    rebuildCandidateTable();
-    commitUIUpdate();
-  });
-
-  els.yourCandidate.addEventListener("change", () => { state.yourCandidateId = els.yourCandidate.value; commitUIUpdate(); });
-  els.undecidedPct.addEventListener("input", () => { state.undecidedPct = safeNum(els.undecidedPct.value); commitUIUpdate(); });
-
-  els.undecidedMode.addEventListener("change", () => {
-    state.undecidedMode = els.undecidedMode.value;
-    rebuildUserSplitInputs();
-    commitUIUpdate();
-  });
-
-  els.persuasionPct.addEventListener("input", () => { state.persuasionPct = safeNum(els.persuasionPct.value); refreshAssumptionsProfile(); commitUIUpdate(); });
-  els.earlyVoteExp.addEventListener("input", () => { state.earlyVoteExp = safeNum(els.earlyVoteExp.value); refreshAssumptionsProfile(); commitUIUpdate(); });
-
-  // Phase 2 — conversion + capacity
-  if (els.goalSupportIds) els.goalSupportIds.addEventListener("input", () => { state.goalSupportIds = els.goalSupportIds.value; markMcStale(); commitUIUpdate(); });
-  if (els.supportRatePct) els.supportRatePct.addEventListener("input", () => { state.supportRatePct = safeNum(els.supportRatePct.value); markMcStale(); commitUIUpdate(); });
-  if (els.contactRatePct) els.contactRatePct.addEventListener("input", () => { state.contactRatePct = safeNum(els.contactRatePct.value); markMcStale(); commitUIUpdate(); });
-  // doorsPerHour (Stage 5) is read-only mirror; canonical writer is doorsPerHour3 in Field capacity.
-  if (els.hoursPerShift) els.hoursPerShift.addEventListener("input", () => { state.hoursPerShift = safeNum(els.hoursPerShift.value); commitUIUpdate(); });
-  if (els.shiftsPerVolunteerPerWeek) els.shiftsPerVolunteerPerWeek.addEventListener("input", () => { state.shiftsPerVolunteerPerWeek = safeNum(els.shiftsPerVolunteerPerWeek.value); commitUIUpdate(); });
-  if (els.btnGotoTurnoutSettings) els.btnGotoTurnoutSettings.addEventListener("click", () => { switchToStage("roi"); });
-
-  // Phase 16 — universe composition + retention
-  if (els.universe16Enabled) els.universe16Enabled.addEventListener("change", () => { state.universeLayerEnabled = !!els.universe16Enabled.checked; markMcStale(); commitUIUpdate(); });
-  if (els.universe16DemPct) els.universe16DemPct.addEventListener("input", () => { state.universeDemPct = safeNum(els.universe16DemPct.value); markMcStale(); commitUIUpdate(); });
-  if (els.universe16RepPct) els.universe16RepPct.addEventListener("input", () => { state.universeRepPct = safeNum(els.universe16RepPct.value); markMcStale(); commitUIUpdate(); });
-  if (els.universe16NpaPct) els.universe16NpaPct.addEventListener("input", () => { state.universeNpaPct = safeNum(els.universe16NpaPct.value); markMcStale(); commitUIUpdate(); });
-  if (els.universe16OtherPct) els.universe16OtherPct.addEventListener("input", () => { state.universeOtherPct = safeNum(els.universe16OtherPct.value); markMcStale(); commitUIUpdate(); });
-  if (els.retentionFactor) els.retentionFactor.addEventListener("input", () => { state.retentionFactor = safeNum(els.retentionFactor.value); markMcStale(); commitUIUpdate(); });
-
-  // Phase 3 — execution + risk
-  if (els.orgCount) els.orgCount.addEventListener("input", () => { state.orgCount = safeNum(els.orgCount.value); markMcStale(); commitUIUpdate(); });
-  if (els.orgHoursPerWeek) els.orgHoursPerWeek.addEventListener("input", () => { state.orgHoursPerWeek = safeNum(els.orgHoursPerWeek.value); markMcStale(); commitUIUpdate(); });
-  if (els.volunteerMultBase) els.volunteerMultBase.addEventListener("input", () => { state.volunteerMultBase = safeNum(els.volunteerMultBase.value); markMcStale(); commitUIUpdate(); });
-  if (els.channelDoorPct) els.channelDoorPct.addEventListener("input", () => { state.channelDoorPct = safeNum(els.channelDoorPct.value); markMcStale(); commitUIUpdate(); });
-  if (els.doorsPerHour3) els.doorsPerHour3.addEventListener("input", () => {
-    setCanonicalDoorsPerHour(state, els.doorsPerHour3.value);
-    if (els.doorsPerHour) els.doorsPerHour.value = canonicalDoorsPerHourFromSnap(state) ?? "";
-    markMcStale();
-    commitUIUpdate();
-  });
-  if (els.callsPerHour3) els.callsPerHour3.addEventListener("input", () => { state.callsPerHour3 = safeNum(els.callsPerHour3.value); markMcStale(); commitUIUpdate(); });
-  if (els.turnoutReliabilityPct) els.turnoutReliabilityPct.addEventListener("input", () => { state.turnoutReliabilityPct = safeNum(els.turnoutReliabilityPct.value); markMcStale(); commitUIUpdate(); });
-  if (els.twCapOverrideEnabled) els.twCapOverrideEnabled.addEventListener("change", () => { state.twCapOverrideEnabled = !!els.twCapOverrideEnabled.checked; markMcStale(); commitUIUpdate(); });
-  if (els.twCapOverrideMode) els.twCapOverrideMode.addEventListener("change", () => {
-    const mode = String(els.twCapOverrideMode.value || "baseline");
-    state.twCapOverrideMode = ["baseline", "ramp", "scheduled", "max"].includes(mode) ? mode : "baseline";
-    markMcStale();
-    commitUIUpdate();
-  });
-  if (els.twCapOverrideHorizonWeeks) els.twCapOverrideHorizonWeeks.addEventListener("input", () => {
-    const n = safeNum(els.twCapOverrideHorizonWeeks.value);
-    state.twCapOverrideHorizonWeeks = (n != null && isFinite(n)) ? clamp(n, 4, 52) : 12;
-    commitUIUpdate();
-  });
-
-  // Phase 6 — turnout / GOTV inputs
-  if (els.turnoutEnabled) els.turnoutEnabled.addEventListener("change", () => { state.turnoutEnabled = !!els.turnoutEnabled.checked; markMcStale(); commitUIUpdate(); });
-  if (els.turnoutBaselinePct) els.turnoutBaselinePct.addEventListener("input", () => { state.turnoutBaselinePct = safeNum(els.turnoutBaselinePct.value); markMcStale(); commitUIUpdate(); });
-  if (els.turnoutTargetOverridePct) els.turnoutTargetOverridePct.addEventListener("input", () => { state.turnoutTargetOverridePct = els.turnoutTargetOverridePct.value; markMcStale(); commitUIUpdate(); });
-
-  if (els.gotvMode) els.gotvMode.addEventListener("change", () => { state.gotvMode = els.gotvMode.value; syncGotvModeUI(); markMcStale(); commitUIUpdate(); });
-
-  if (els.gotvLiftPP) els.gotvLiftPP.addEventListener("input", () => { state.gotvLiftPP = safeNum(els.gotvLiftPP.value); markMcStale(); commitUIUpdate(); });
-  if (els.gotvMaxLiftPP) els.gotvMaxLiftPP.addEventListener("input", () => { state.gotvMaxLiftPP = safeNum(els.gotvMaxLiftPP.value); markMcStale(); commitUIUpdate(); });
-  if (els.gotvDiminishing) els.gotvDiminishing.addEventListener("change", () => { state.gotvDiminishing = !!els.gotvDiminishing.checked; markMcStale(); commitUIUpdate(); });
-
-  if (els.gotvLiftMin) els.gotvLiftMin.addEventListener("input", () => { state.gotvLiftMin = safeNum(els.gotvLiftMin.value); markMcStale(); commitUIUpdate(); });
-  if (els.gotvLiftMode) els.gotvLiftMode.addEventListener("input", () => { state.gotvLiftMode = safeNum(els.gotvLiftMode.value); markMcStale(); commitUIUpdate(); });
-  if (els.gotvLiftMax) els.gotvLiftMax.addEventListener("input", () => { state.gotvLiftMax = safeNum(els.gotvLiftMax.value); markMcStale(); commitUIUpdate(); });
-  if (els.gotvMaxLiftPP2) els.gotvMaxLiftPP2.addEventListener("input", () => { state.gotvMaxLiftPP2 = safeNum(els.gotvMaxLiftPP2.value); markMcStale(); commitUIUpdate(); });
-  if (els.gotvDiminishing2) els.gotvDiminishing2.addEventListener("change", () => { state.gotvDiminishing2 = !!els.gotvDiminishing2.checked; markMcStale(); commitUIUpdate(); });
-
-
-  if (els.mcMode) els.mcMode.addEventListener("change", () => { state.mcMode = els.mcMode.value; syncMcModeUI(); markMcStale(); schedulePersist(); });
-  if (els.mcVolatility) els.mcVolatility.addEventListener("change", () => { state.mcVolatility = els.mcVolatility.value; markMcStale(); schedulePersist(); });
-  if (els.mcSeed) els.mcSeed.addEventListener("input", () => { state.mcSeed = els.mcSeed.value; markMcStale(); schedulePersist(); });
-
-  const advWatch = (el, key) => {
-    if (!el) return;
-    el.addEventListener("input", () => {
-      state[key] = safeNum(el.value);
-      markMcStale();
-      schedulePersist();
-    });
-  };
-  advWatch(els.mcContactMin, "mcContactMin");
-  advWatch(els.mcContactMode, "mcContactMode");
-  advWatch(els.mcContactMax, "mcContactMax");
-  advWatch(els.mcPersMin, "mcPersMin");
-  advWatch(els.mcPersMode, "mcPersMode");
-  advWatch(els.mcPersMax, "mcPersMax");
-  advWatch(els.mcReliMin, "mcReliMin");
-  advWatch(els.mcReliMode, "mcReliMode");
-  advWatch(els.mcReliMax, "mcReliMax");
-  advWatch(els.mcDphMin, "mcDphMin");
-  advWatch(els.mcDphMode, "mcDphMode");
-  advWatch(els.mcDphMax, "mcDphMax");
-  advWatch(els.mcCphMin, "mcCphMin");
-  advWatch(els.mcCphMode, "mcCphMode");
-  advWatch(els.mcCphMax, "mcCphMax");
-
-  // Phase 15 — always wire sensitivity surface independent of scenario-compare panel presence.
-  safeCall(() => { wireSensitivitySurface(); });
-  advWatch(els.mcVolMin, "mcVolMin");
-  advWatch(els.mcVolMode, "mcVolMode");
-  advWatch(els.mcVolMax, "mcVolMax");
-
-  if (els.mcRun) els.mcRun.addEventListener("click", () => runMonteCarloNow());
-  if (els.mcRunSidebar) els.mcRunSidebar.addEventListener("click", () => runMonteCarloNow());
-  if (els.mcRerun) els.mcRerun.addEventListener("click", () => runMonteCarloNow());
 
   wireBudgetTimelineEvents({
     els,
@@ -3843,66 +3740,6 @@ function renderDecisionSessionD1(){
   renderDecisionSummaryD4(active);
 }
 
-function createNewDecisionSession(){
-  ensureDecisionScaffold();
-  const sessions = state.ui.decision.sessions;
-  const id = makeDecisionSessionId();
-  const n = Object.keys(sessions).length + 1;
-  sessions[id] = {
-    id,
-    name: `Session ${n}`,
-    createdAt: new Date().toISOString(),
-    scenarioId: state.ui.activeScenarioId || SCENARIO_BASELINE_ID,
-    objectiveKey: OBJECTIVE_TEMPLATES[0].key,
-    notes: "",
-    constraints: { budget: null, volunteerHrs: null, turfAccess: "", blackoutDates: "" },
-    riskPosture: "balanced",
-    nonNegotiables: [],
-    options: {},
-    activeOptionId: null,
-  };
-  state.ui.decision.activeSessionId = id;
-  persist();
-  renderDecisionSessionD1();
-}
-
-function renameActiveDecisionSession(){
-  const s = getActiveDecisionSession();
-  if (!s || !els.decisionRename) return;
-  const nm = String(els.decisionRename.value || "").trim();
-  if (!nm) return;
-  s.name = nm;
-  persist();
-  renderDecisionSessionD1();
-}
-
-function deleteActiveDecisionSession(){
-  ensureDecisionScaffold();
-  const sessions = state.ui.decision.sessions;
-  const ids = Object.keys(sessions);
-  if (ids.length <= 1) return;
-  const cur = state.ui.decision.activeSessionId;
-  const s = sessions[cur];
-  const nm = s ? (s.name || s.id) : "this session";
-  const ok = confirm(`Delete "${nm}"?`);
-  if (!ok) return;
-  delete sessions[cur];
-  const nextIds = Object.keys(sessions);
-  state.ui.decision.activeSessionId = nextIds[0] || null;
-  persist();
-  renderDecisionSessionD1();
-}
-
-function linkDecisionSessionToActiveScenario(){
-  const s = getActiveDecisionSession();
-  if (!s) return;
-  ensureScenarioRegistry();
-  s.scenarioId = state.ui.activeScenarioId || SCENARIO_BASELINE_ID;
-  persist();
-  renderDecisionSessionD1();
-}
-
-
 function listDecisionOptions(session){
   if (!session) return [];
   const opts = session.options || {};
@@ -3975,245 +3812,44 @@ function renderDecisionOptionsD3(session){
   }
 }
 
-function createNewDecisionOption(){
-  const s = getActiveDecisionSession();
-  if (!s) return;
-  ensureDecisionSessionShape(s);
-
-  const id = makeDecisionOptionId();
-  const n = Object.keys(s.options || {}).length + 1;
-  s.options[id] = {
-    id,
-    label: `Option ${n}`,
-    createdAt: new Date().toISOString(),
-    scenarioId: state.ui.activeScenarioId || SCENARIO_BASELINE_ID,
-    tactics: { doors: false, phones: false, digital: false },
-  };
-  s.activeOptionId = id;
-  persist();
-  renderDecisionSessionD1();
-}
-
-function renameActiveDecisionOption(){
-  const s = getActiveDecisionSession();
-  if (!s) return;
-  ensureDecisionSessionShape(s);
-  const o = getActiveDecisionOption(s);
-  if (!o || !els.decisionOptionRename) return;
-  const nm = String(els.decisionOptionRename.value || "").trim();
-  if (!nm) return;
-  o.label = nm;
-  persist();
-  renderDecisionSessionD1();
-}
-
-function deleteActiveDecisionOption(){
-  const s = getActiveDecisionSession();
-  if (!s) return;
-  ensureDecisionSessionShape(s);
-  const options = s.options || {};
-  const ids = Object.keys(options);
-  if (ids.length <= 1) return;
-
-  const o = getActiveDecisionOption(s);
-  if (!o) return;
-  const nm = o.label || o.id;
-  const ok = confirm(`Delete "${nm}"?`);
-  if (!ok) return;
-
-  delete options[o.id];
-  const nextIds = Object.keys(options);
-  s.activeOptionId = nextIds[0] || null;
-  persist();
-  renderDecisionSessionD1();
-}
-
-function linkDecisionOptionToActiveScenario(){
-  const s = getActiveDecisionSession();
-  if (!s) return;
-  ensureDecisionSessionShape(s);
-  const o = getActiveDecisionOption(s);
-  if (!o) return;
-  ensureScenarioRegistry();
-  o.scenarioId = state.ui.activeScenarioId || SCENARIO_BASELINE_ID;
-  persist();
-  renderDecisionSessionD1();
-}
-
-function computeDecisionKeyOut(inputs){
-  try{
-    const snap = scenarioClone(inputs || {});
-    const res = engine.computeAll(snap);
-    const weeks = engine.withPatchedState(snap, () => engine.derivedWeeksRemaining());
-    const ctx = computeWeeklyOpsContextFromSnap(snap, res, weeks);
-    const finish = targetFinishDateFromSnap(snap, weeks);
-    return { weeks, ctx, finish };
-  } catch {
-    return { weeks:null, ctx:null, finish:null };
-  }
-}
-
 function decisionOptionDisplay(o){
-  if (!o) return "—";
-  const label = o.label || o.id;
-  const sid = o.scenarioId ? ` · ${o.scenarioId}` : "";
-  return label + sid;
+  return decisionOptionDisplayCore(o);
 }
 
 function buildDecisionSummaryText(session){
-  ensureScenarioRegistry();
-  const reg = state.ui.scenarios || {};
-  const baseline = reg[SCENARIO_BASELINE_ID] || null;
-
-  const s = session || null;
-  if (!s || !baseline) return "—";
-
-  const options = (s.options && typeof s.options === "object") ? s.options : {};
-  const pickId = s.recommendedOptionId || s.activeOptionId || null;
-  const opt = (pickId && options[pickId]) ? options[pickId] : null;
-
-  const baseInputs = scenarioClone(baseline.inputs || {});
-  const optScenarioId = opt?.scenarioId || s.scenarioId || state.ui.activeScenarioId || SCENARIO_BASELINE_ID;
-  const optRec = reg[optScenarioId] || null;
-  const optInputs = scenarioClone((optRec?.inputs) || {});
-
-  const baseOut = computeDecisionKeyOut(baseInputs);
-  const optOut = computeDecisionKeyOut(optInputs);
-
-  const fmtNum = (v) => (v == null || !isFinite(v)) ? "—" : fmtInt(Math.ceil(v));
-  const fmtDate = (d) => d ? fmtISODate(d) : "—";
-  const deltaNum = (a,b) => (a==null||b==null||!isFinite(a)||!isFinite(b)) ? null : (b-a);
-
-  const bCtx = baseOut.ctx || {};
-  const oCtx = optOut.ctx || {};
-
-  const attemptsWBase = bCtx.attemptsPerWeek ?? null;
-  const attemptsWOpt = oCtx.attemptsPerWeek ?? null;
-  const convosWBase = bCtx.convosPerWeek ?? null;
-  const convosWOpt = oCtx.convosPerWeek ?? null;
-
-  const gap = oCtx.gap;
-  const gapLine = (gap == null || !isFinite(gap)) ? "—" : (gap <= 0 ? "Executable at current capacity" : `Shortfall: ${fmtInt(Math.ceil(gap))} attempts/week`);
-
-  const doorSharePct = safeNum(optInputs?.channelDoorPct);
-  const doorShare = (doorSharePct == null) ? null : clamp(doorSharePct / 100, 0, 1);
-  const doorsHr = safeNum(optInputs?.doorsPerHour3);
-  const callsHr = safeNum(optInputs?.callsPerHour3);
-  const aph = (doorShare != null && doorsHr != null && callsHr != null) ? (doorShare * doorsHr + (1 - doorShare) * callsHr) : null;
-
-  const attemptsPerDay = (attemptsWOpt != null && isFinite(attemptsWOpt)) ? (attemptsWOpt / 7) : null;
-  const doorsPerDay = (attemptsPerDay != null && doorShare != null) ? (attemptsPerDay * doorShare) : null;
-  const callsPerDay = (attemptsPerDay != null && doorShare != null) ? (attemptsPerDay * (1 - doorShare)) : null;
-  const hrsPerWeek = (attemptsWOpt != null && aph != null && aph > 0) ? (attemptsWOpt / aph) : null;
-
-  const tactics = opt?.tactics ? Object.keys(opt.tactics).filter(k => !!opt.tactics[k]) : [];
-  const tacticsLine = tactics.length ? tactics.map(k => k.toUpperCase()).join(", ") : "—";
-
-  const whatTrue = Array.isArray(s.whatNeedsTrue) ? s.whatNeedsTrue : [];
-  const whatTrueLines = whatTrue.length ? whatTrue.map(x => `- [ ] ${x}`).join("\n") : "- [ ] —";
-
-  const lines = [];
-  lines.push(`# Decision Summary: ${s.name || s.id}`);
-  lines.push(`Date: ${fmtISODate(new Date(s.createdAt || Date.now()))}`);
-  lines.push(`Objective: ${(OBJECTIVE_TEMPLATES.find(x=>x.key===s.objectiveKey)?.label) || s.objectiveKey || "—"}`);
-  lines.push("");
-  lines.push(`## Recommendation`);
-  lines.push(`Recommended option: ${opt ? (opt.label || opt.id) : "—"}`);
-  lines.push(`Option scenario: ${optScenarioId}${optRec?.name ? ` (${optRec.name})` : ""}`);
-  lines.push(`Tactics tags: ${tacticsLine}`);
-  lines.push("");
-  lines.push(`## Baseline vs Option (key deltas)`);
-  lines.push(`Attempts/week: ${fmtNum(attemptsWBase)} → ${fmtNum(attemptsWOpt)}${(deltaNum(attemptsWBase, attemptsWOpt)==null||deltaNum(attemptsWBase, attemptsWOpt)===0) ? "" : ` (${(deltaNum(attemptsWBase, attemptsWOpt)>0?"+":"")}${fmtInt(Math.round(deltaNum(attemptsWBase, attemptsWOpt)))})`}`);
-  lines.push(`Convos/week: ${fmtNum(convosWBase)} → ${fmtNum(convosWOpt)}${(deltaNum(convosWBase, convosWOpt)==null||deltaNum(convosWBase, convosWOpt)===0) ? "" : ` (${(deltaNum(convosWBase, convosWOpt)>0?"+":"")}${fmtInt(Math.round(deltaNum(convosWBase, convosWOpt)))})`}`);
-  lines.push(`Finish date (target): ${fmtDate(baseOut.finish)} → ${fmtDate(optOut.finish)}`);
-  lines.push(`Execution status (this week): ${gapLine}`);
-  lines.push("");
-  lines.push(`## What needs to be true`);
-  lines.push(whatTrueLines);
-  lines.push("");
-  lines.push(`## Next 7 days (execution plan)`);
-  if (attemptsWOpt == null || !isFinite(attemptsWOpt)){
-    lines.push(`- Attempts/week: —`);
-  } else {
-    lines.push(`- Attempts/week: ${fmtInt(Math.ceil(attemptsWOpt))} (~${fmtInt(Math.ceil(attemptsWOpt/7))}/day)`);
-  }
-  if (doorsPerDay != null && callsPerDay != null){
-    lines.push(`- Daily targets: ${fmtInt(Math.ceil(doorsPerDay))} doors/day · ${fmtInt(Math.ceil(callsPerDay))} calls/day`);
-  } else {
-    lines.push(`- Daily targets: —`);
-  }
-  if (hrsPerWeek != null && isFinite(hrsPerWeek)){
-    lines.push(`- Estimated hours/week required: ${fmtInt(Math.ceil(hrsPerWeek))} hrs`);
-  } else {
-    lines.push(`- Estimated hours/week required: —`);
-  }
-  if (Array.isArray(s.nonNegotiables) && s.nonNegotiables.length){
-    lines.push("");
-    lines.push(`## Non-negotiables`);
-    for (const x of s.nonNegotiables) lines.push(`- ${x}`);
-  }
-
-  return lines.join("\n");
+  return buildDecisionSummaryTextCore(session, {
+    ensureScenarioRegistry,
+    state,
+    SCENARIO_BASELINE_ID,
+    scenarioClone,
+    engine,
+    computeWeeklyOpsContextFromSnap,
+    targetFinishDateFromSnap,
+    fmtISODate,
+    OBJECTIVE_TEMPLATES,
+    fmtInt,
+    safeNum,
+    clamp,
+  });
 }
 
 function copyTextToClipboard(text){
-  const s = String(text || "");
-  if (!s) return Promise.resolve(false);
-  if (navigator.clipboard && navigator.clipboard.writeText){
-    return navigator.clipboard.writeText(s).then(()=>true).catch(()=>false);
-  }
-  try{
-    const ta = document.createElement("textarea");
-    ta.value = s;
-    ta.setAttribute("readonly", "");
-    ta.style.position = "fixed";
-    ta.style.left = "-9999px";
-    ta.style.top = "0";
-    document.body.appendChild(ta);
-    ta.select();
-    const ok = document.execCommand("copy");
-    document.body.removeChild(ta);
-    return Promise.resolve(!!ok);
-  }catch(e){
-    return Promise.resolve(false);
-  }
+  return copyTextToClipboardCore(text);
 }
 
 function decisionSummaryPlainText(md){
-  const s = String(md || "");
-  return s
-    .replace(/^###\s+/gm, "")
-    .replace(/^##\s+/gm, "")
-    .replace(/^#\s+/gm, "")
-    .replace(/^\-\s+/gm, "• ")
-    .replace(/\*\*/g, "");
+  return decisionSummaryPlainTextCore(md);
 }
 
 function decisionSessionExportObject(session){
-  const s = session ? structuredClone(session) : null;
-  if (!s) return null;
-  return {
-    type: "decision_session",
-    exportedAt: new Date().toISOString(),
+  return decisionSessionExportObjectCore(session, {
     activeScenarioId: state?.ui?.activeScenarioId || null,
-    session: s,
-    summaryMarkdown: buildDecisionSummaryText(s),
-  };
+    buildDecisionSummaryText,
+  });
 }
 
 function downloadJsonObject(obj, filename){
-  try{
-    const name = String(filename || "decision-session.json");
-    const blob = new Blob([JSON.stringify(obj, null, 2)], { type: "application/json" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = name;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    setTimeout(()=>URL.revokeObjectURL(url), 500);
-  }catch(e){}
+  return downloadJsonObjectCore(obj, filename);
 }
 
 function renderDecisionSummaryD4(session){
@@ -5002,6 +4638,22 @@ function init(){
     safeCall,
     renderDecisionSessionD1,
   });
+  const decisionActions = createDecisionSessionActions({
+    els,
+    stateRef: () => state,
+    ensureDecisionScaffold,
+    makeDecisionSessionId,
+    makeDecisionOptionId,
+    OBJECTIVE_TEMPLATES,
+    SCENARIO_BASELINE_ID,
+    getActiveDecisionSession,
+    ensureDecisionSessionShape,
+    getActiveDecisionOption,
+    ensureDecisionOptionShape,
+    ensureScenarioRegistry,
+    persist,
+    renderDecisionSessionD1,
+  });
   wireDecisionSessionBindings({
     els,
     ensureDecisionScaffold,
@@ -5011,14 +4663,6 @@ function init(){
     renderDecisionSessionD1,
     getActiveDecisionSession,
     ensureDecisionSessionShape,
-    createNewDecisionSession,
-    renameActiveDecisionSession,
-    deleteActiveDecisionSession,
-    linkDecisionSessionToActiveScenario,
-    createNewDecisionOption,
-    renameActiveDecisionOption,
-    deleteActiveDecisionOption,
-    linkDecisionOptionToActiveScenario,
     getActiveDecisionOption,
     ensureDecisionOptionShape,
     renderDecisionSummaryD4,
@@ -5028,6 +4672,7 @@ function init(){
     decisionSessionExportObject,
     downloadJsonObject,
     runSensitivitySnapshotE4,
+    ...decisionActions,
   });
   updateBuildStamp();
   updateSelfTestGateBadge();

@@ -428,3 +428,215 @@ export function wireResetImportAndUiToggles(ctx){
     });
   }
 }
+
+export function wirePrimaryPlannerEvents(ctx){
+  const {
+    els,
+    state: initialState,
+    getState,
+    safeNum,
+    commitUIUpdate,
+    schedulePersist,
+    applyTemplateDefaultsForRace,
+    applyStateToUI,
+    refreshAssumptionsProfile,
+    uid,
+    rebuildCandidateTable,
+    rebuildUserSplitInputs,
+    markMcStale,
+    switchToStage,
+    setCanonicalDoorsPerHour,
+    canonicalDoorsPerHourFromSnap,
+    clamp,
+    syncGotvModeUI,
+    syncMcModeUI,
+    wireSensitivitySurface,
+    safeCall,
+    runMonteCarloNow,
+  } = ctx || {};
+  const currentState = () => {
+    if (typeof getState === "function"){
+      const s = getState();
+      return (s && typeof s === "object") ? s : null;
+    }
+    return (initialState && typeof initialState === "object") ? initialState : null;
+  };
+  const withState = (fn) => {
+    const s = currentState();
+    if (!s) return;
+    fn(s);
+  };
+
+  if (!els || !currentState()) return;
+
+  if (els.scenarioName){
+    els.scenarioName.addEventListener("input", () => {
+      withState((state) => { state.scenarioName = els.scenarioName.value; });
+      schedulePersist();
+    });
+  }
+
+  if (els.raceType){
+    els.raceType.addEventListener("change", () => {
+      withState((state) => {
+        state.raceType = els.raceType.value;
+        applyTemplateDefaultsForRace(state, state.raceType, { force: true });
+        if (!state.ui) state.ui = {};
+        state.ui.assumptionsProfile = "template";
+      });
+      applyStateToUI();
+      commitUIUpdate();
+    });
+  }
+
+  if (els.electionDate) els.electionDate.addEventListener("change", () => { withState((state) => { state.electionDate = els.electionDate.value; }); commitUIUpdate(); });
+  if (els.weeksRemaining) els.weeksRemaining.addEventListener("input", () => { withState((state) => { state.weeksRemaining = els.weeksRemaining.value; }); commitUIUpdate(); });
+  if (els.mode) els.mode.addEventListener("change", () => { withState((state) => { state.mode = els.mode.value; }); schedulePersist(); });
+
+  if (els.universeBasis) els.universeBasis.addEventListener("change", () => { withState((state) => { state.universeBasis = els.universeBasis.value; }); commitUIUpdate(); });
+  if (els.universeSize) els.universeSize.addEventListener("input", () => { withState((state) => { state.universeSize = safeNum(els.universeSize.value); }); commitUIUpdate(); });
+  if (els.sourceNote) els.sourceNote.addEventListener("input", () => { withState((state) => { state.sourceNote = els.sourceNote.value; }); schedulePersist(); });
+
+  if (els.turnoutA) els.turnoutA.addEventListener("input", () => { withState((state) => { state.turnoutA = safeNum(els.turnoutA.value); }); commitUIUpdate(); });
+  if (els.turnoutB) els.turnoutB.addEventListener("input", () => { withState((state) => { state.turnoutB = safeNum(els.turnoutB.value); }); commitUIUpdate(); });
+  if (els.bandWidth) els.bandWidth.addEventListener("input", () => {
+    withState((state) => { state.bandWidth = safeNum(els.bandWidth.value); });
+    refreshAssumptionsProfile();
+    commitUIUpdate();
+  });
+
+  if (els.btnAddCandidate){
+    els.btnAddCandidate.addEventListener("click", () => {
+      withState((state) => {
+        state.candidates.push({ id: uid(), name: `Candidate ${String.fromCharCode(65 + state.candidates.length)}`, supportPct: 0 });
+      });
+      rebuildCandidateTable();
+      commitUIUpdate();
+    });
+  }
+
+  if (els.yourCandidate) els.yourCandidate.addEventListener("change", () => { withState((state) => { state.yourCandidateId = els.yourCandidate.value; }); commitUIUpdate(); });
+  if (els.undecidedPct) els.undecidedPct.addEventListener("input", () => { withState((state) => { state.undecidedPct = safeNum(els.undecidedPct.value); }); commitUIUpdate(); });
+
+  if (els.undecidedMode){
+    els.undecidedMode.addEventListener("change", () => {
+      withState((state) => { state.undecidedMode = els.undecidedMode.value; });
+      rebuildUserSplitInputs();
+      commitUIUpdate();
+    });
+  }
+
+  if (els.persuasionPct) els.persuasionPct.addEventListener("input", () => {
+    withState((state) => { state.persuasionPct = safeNum(els.persuasionPct.value); });
+    refreshAssumptionsProfile();
+    commitUIUpdate();
+  });
+  if (els.earlyVoteExp) els.earlyVoteExp.addEventListener("input", () => {
+    withState((state) => { state.earlyVoteExp = safeNum(els.earlyVoteExp.value); });
+    refreshAssumptionsProfile();
+    commitUIUpdate();
+  });
+
+  if (els.goalSupportIds) els.goalSupportIds.addEventListener("input", () => { withState((state) => { state.goalSupportIds = els.goalSupportIds.value; }); markMcStale(); commitUIUpdate(); });
+  if (els.supportRatePct) els.supportRatePct.addEventListener("input", () => { withState((state) => { state.supportRatePct = safeNum(els.supportRatePct.value); }); markMcStale(); commitUIUpdate(); });
+  if (els.contactRatePct) els.contactRatePct.addEventListener("input", () => { withState((state) => { state.contactRatePct = safeNum(els.contactRatePct.value); }); markMcStale(); commitUIUpdate(); });
+  if (els.hoursPerShift) els.hoursPerShift.addEventListener("input", () => { withState((state) => { state.hoursPerShift = safeNum(els.hoursPerShift.value); }); commitUIUpdate(); });
+  if (els.shiftsPerVolunteerPerWeek) els.shiftsPerVolunteerPerWeek.addEventListener("input", () => { withState((state) => { state.shiftsPerVolunteerPerWeek = safeNum(els.shiftsPerVolunteerPerWeek.value); }); commitUIUpdate(); });
+  if (els.btnGotoTurnoutSettings) els.btnGotoTurnoutSettings.addEventListener("click", () => { switchToStage("roi"); });
+
+  if (els.universe16Enabled) els.universe16Enabled.addEventListener("change", () => { withState((state) => { state.universeLayerEnabled = !!els.universe16Enabled.checked; }); markMcStale(); commitUIUpdate(); });
+  if (els.universe16DemPct) els.universe16DemPct.addEventListener("input", () => { withState((state) => { state.universeDemPct = safeNum(els.universe16DemPct.value); }); markMcStale(); commitUIUpdate(); });
+  if (els.universe16RepPct) els.universe16RepPct.addEventListener("input", () => { withState((state) => { state.universeRepPct = safeNum(els.universe16RepPct.value); }); markMcStale(); commitUIUpdate(); });
+  if (els.universe16NpaPct) els.universe16NpaPct.addEventListener("input", () => { withState((state) => { state.universeNpaPct = safeNum(els.universe16NpaPct.value); }); markMcStale(); commitUIUpdate(); });
+  if (els.universe16OtherPct) els.universe16OtherPct.addEventListener("input", () => { withState((state) => { state.universeOtherPct = safeNum(els.universe16OtherPct.value); }); markMcStale(); commitUIUpdate(); });
+  if (els.retentionFactor) els.retentionFactor.addEventListener("input", () => { withState((state) => { state.retentionFactor = safeNum(els.retentionFactor.value); }); markMcStale(); commitUIUpdate(); });
+
+  if (els.orgCount) els.orgCount.addEventListener("input", () => { withState((state) => { state.orgCount = safeNum(els.orgCount.value); }); markMcStale(); commitUIUpdate(); });
+  if (els.orgHoursPerWeek) els.orgHoursPerWeek.addEventListener("input", () => { withState((state) => { state.orgHoursPerWeek = safeNum(els.orgHoursPerWeek.value); }); markMcStale(); commitUIUpdate(); });
+  if (els.volunteerMultBase) els.volunteerMultBase.addEventListener("input", () => { withState((state) => { state.volunteerMultBase = safeNum(els.volunteerMultBase.value); }); markMcStale(); commitUIUpdate(); });
+  if (els.channelDoorPct) els.channelDoorPct.addEventListener("input", () => { withState((state) => { state.channelDoorPct = safeNum(els.channelDoorPct.value); }); markMcStale(); commitUIUpdate(); });
+  if (els.doorsPerHour3) els.doorsPerHour3.addEventListener("input", () => {
+    withState((state) => {
+      setCanonicalDoorsPerHour(state, els.doorsPerHour3.value);
+      if (els.doorsPerHour) els.doorsPerHour.value = canonicalDoorsPerHourFromSnap(state) ?? "";
+    });
+    markMcStale();
+    commitUIUpdate();
+  });
+  if (els.callsPerHour3) els.callsPerHour3.addEventListener("input", () => { withState((state) => { state.callsPerHour3 = safeNum(els.callsPerHour3.value); }); markMcStale(); commitUIUpdate(); });
+  if (els.turnoutReliabilityPct) els.turnoutReliabilityPct.addEventListener("input", () => { withState((state) => { state.turnoutReliabilityPct = safeNum(els.turnoutReliabilityPct.value); }); markMcStale(); commitUIUpdate(); });
+  if (els.twCapOverrideEnabled) els.twCapOverrideEnabled.addEventListener("change", () => { withState((state) => { state.twCapOverrideEnabled = !!els.twCapOverrideEnabled.checked; }); markMcStale(); commitUIUpdate(); });
+  if (els.twCapOverrideMode) els.twCapOverrideMode.addEventListener("change", () => {
+    withState((state) => {
+      const mode = String(els.twCapOverrideMode.value || "baseline");
+      state.twCapOverrideMode = ["baseline", "ramp", "scheduled", "max"].includes(mode) ? mode : "baseline";
+    });
+    markMcStale();
+    commitUIUpdate();
+  });
+  if (els.twCapOverrideHorizonWeeks) els.twCapOverrideHorizonWeeks.addEventListener("input", () => {
+    withState((state) => {
+      const n = safeNum(els.twCapOverrideHorizonWeeks.value);
+      state.twCapOverrideHorizonWeeks = (n != null && isFinite(n)) ? clamp(n, 4, 52) : 12;
+    });
+    commitUIUpdate();
+  });
+
+  if (els.turnoutEnabled) els.turnoutEnabled.addEventListener("change", () => { withState((state) => { state.turnoutEnabled = !!els.turnoutEnabled.checked; }); markMcStale(); commitUIUpdate(); });
+  if (els.turnoutBaselinePct) els.turnoutBaselinePct.addEventListener("input", () => { withState((state) => { state.turnoutBaselinePct = safeNum(els.turnoutBaselinePct.value); }); markMcStale(); commitUIUpdate(); });
+  if (els.turnoutTargetOverridePct) els.turnoutTargetOverridePct.addEventListener("input", () => { withState((state) => { state.turnoutTargetOverridePct = els.turnoutTargetOverridePct.value; }); markMcStale(); commitUIUpdate(); });
+
+  if (els.gotvMode) els.gotvMode.addEventListener("change", () => {
+    withState((state) => { state.gotvMode = els.gotvMode.value; });
+    syncGotvModeUI();
+    markMcStale();
+    commitUIUpdate();
+  });
+
+  if (els.gotvLiftPP) els.gotvLiftPP.addEventListener("input", () => { withState((state) => { state.gotvLiftPP = safeNum(els.gotvLiftPP.value); }); markMcStale(); commitUIUpdate(); });
+  if (els.gotvMaxLiftPP) els.gotvMaxLiftPP.addEventListener("input", () => { withState((state) => { state.gotvMaxLiftPP = safeNum(els.gotvMaxLiftPP.value); }); markMcStale(); commitUIUpdate(); });
+  if (els.gotvDiminishing) els.gotvDiminishing.addEventListener("change", () => { withState((state) => { state.gotvDiminishing = !!els.gotvDiminishing.checked; }); markMcStale(); commitUIUpdate(); });
+
+  if (els.gotvLiftMin) els.gotvLiftMin.addEventListener("input", () => { withState((state) => { state.gotvLiftMin = safeNum(els.gotvLiftMin.value); }); markMcStale(); commitUIUpdate(); });
+  if (els.gotvLiftMode) els.gotvLiftMode.addEventListener("input", () => { withState((state) => { state.gotvLiftMode = safeNum(els.gotvLiftMode.value); }); markMcStale(); commitUIUpdate(); });
+  if (els.gotvLiftMax) els.gotvLiftMax.addEventListener("input", () => { withState((state) => { state.gotvLiftMax = safeNum(els.gotvLiftMax.value); }); markMcStale(); commitUIUpdate(); });
+  if (els.gotvMaxLiftPP2) els.gotvMaxLiftPP2.addEventListener("input", () => { withState((state) => { state.gotvMaxLiftPP2 = safeNum(els.gotvMaxLiftPP2.value); }); markMcStale(); commitUIUpdate(); });
+  if (els.gotvDiminishing2) els.gotvDiminishing2.addEventListener("change", () => { withState((state) => { state.gotvDiminishing2 = !!els.gotvDiminishing2.checked; }); markMcStale(); commitUIUpdate(); });
+
+  if (els.mcMode) els.mcMode.addEventListener("change", () => { withState((state) => { state.mcMode = els.mcMode.value; }); syncMcModeUI(); markMcStale(); schedulePersist(); });
+  if (els.mcVolatility) els.mcVolatility.addEventListener("change", () => { withState((state) => { state.mcVolatility = els.mcVolatility.value; }); markMcStale(); schedulePersist(); });
+  if (els.mcSeed) els.mcSeed.addEventListener("input", () => { withState((state) => { state.mcSeed = els.mcSeed.value; }); markMcStale(); schedulePersist(); });
+
+  const advWatch = (el, key) => {
+    if (!el) return;
+    el.addEventListener("input", () => {
+      withState((state) => { state[key] = safeNum(el.value); });
+      markMcStale();
+      schedulePersist();
+    });
+  };
+  advWatch(els.mcContactMin, "mcContactMin");
+  advWatch(els.mcContactMode, "mcContactMode");
+  advWatch(els.mcContactMax, "mcContactMax");
+  advWatch(els.mcPersMin, "mcPersMin");
+  advWatch(els.mcPersMode, "mcPersMode");
+  advWatch(els.mcPersMax, "mcPersMax");
+  advWatch(els.mcReliMin, "mcReliMin");
+  advWatch(els.mcReliMode, "mcReliMode");
+  advWatch(els.mcReliMax, "mcReliMax");
+  advWatch(els.mcDphMin, "mcDphMin");
+  advWatch(els.mcDphMode, "mcDphMode");
+  advWatch(els.mcDphMax, "mcDphMax");
+  advWatch(els.mcCphMin, "mcCphMin");
+  advWatch(els.mcCphMode, "mcCphMode");
+  advWatch(els.mcCphMax, "mcCphMax");
+
+  safeCall(() => { wireSensitivitySurface(); });
+  advWatch(els.mcVolMin, "mcVolMin");
+  advWatch(els.mcVolMode, "mcVolMode");
+  advWatch(els.mcVolMax, "mcVolMax");
+
+  if (els.mcRun) els.mcRun.addEventListener("click", () => runMonteCarloNow());
+  if (els.mcRunSidebar) els.mcRunSidebar.addEventListener("click", () => runMonteCarloNow());
+  if (els.mcRerun) els.mcRerun.addEventListener("click", () => runMonteCarloNow());
+}
