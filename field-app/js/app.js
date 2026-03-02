@@ -1374,12 +1374,20 @@ function renderUniverse16Card(){
 
   // UI fields
   if (els.universe16Enabled) els.universe16Enabled.checked = !!state.universeLayerEnabled;
-  const setIf = (el, v) => { if (el) el.value = (v == null || !isFinite(v)) ? "" : String(Number(v).toFixed(1)); };
+  const setIf = (el, v) => {
+    if (!el) return;
+    if (document.activeElement === el) return;
+    const next = (v == null || !isFinite(v)) ? "" : String(Number(v).toFixed(1));
+    if (el.value !== next) el.value = next;
+  };
   setIf(els.universe16DemPct, cfg.percents.demPct);
   setIf(els.universe16RepPct, cfg.percents.repPct);
   setIf(els.universe16NpaPct, cfg.percents.npaPct);
   setIf(els.universe16OtherPct, cfg.percents.otherPct);
-  if (els.retentionFactor) els.retentionFactor.value = String((cfg.retentionFactor ?? UNIVERSE_DEFAULTS.retentionFactor).toFixed(2));
+  if (els.retentionFactor && document.activeElement !== els.retentionFactor){
+    const next = String((cfg.retentionFactor ?? UNIVERSE_DEFAULTS.retentionFactor).toFixed(2));
+    if (els.retentionFactor.value !== next) els.retentionFactor.value = next;
+  }
 
   // Disable inputs when OFF
   const disabled = !cfg.enabled;
