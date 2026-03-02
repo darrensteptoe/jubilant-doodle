@@ -28,6 +28,7 @@ import { runInitScenarioDecisionWiringModule } from "./app/initScenarioDecisionW
 import { preflightElsModule } from "./app/preflightEls.js";
 import { initTabsModule, initExplainCardModule, isDevModeModule } from "./app/initUiStateHelpers.js";
 import { createUiUpdateQueue } from "./app/uiUpdateQueue.js";
+import { makeDefaultStateModule } from "./app/defaultState.js";
 import {
   updatePersistenceStatusChipModule,
   reportPersistenceFailureModule,
@@ -1028,138 +1029,10 @@ function commitUIUpdate({ render: doRender = true, persist: doPersist = true, im
 
 
 function makeDefaultState(){
-  return {
-    scenarioName: "",
-    raceType: "state_leg",
-    electionDate: "",
-    weeksRemaining: "",
-    mode: "persuasion",
-    universeBasis: "registered",
-    universeSize: "",
-    sourceNote: "",
-    turnoutA: "",
-    turnoutB: "",
-    bandWidth: DEFAULTS_BY_TEMPLATE["state_leg"].bandWidth,
-    candidates: [
-      { id: uid(), name: "Candidate A", supportPct: 35 },
-      { id: uid(), name: "Candidate B", supportPct: 35 },
-    ],
-    undecidedPct: 30,
-    yourCandidateId: null,
-    undecidedMode: "proportional",
-    userSplit: {},
-    persuasionPct: DEFAULTS_BY_TEMPLATE["state_leg"].persuasionPct,
-    earlyVoteExp: DEFAULTS_BY_TEMPLATE["state_leg"].earlyVoteExp,
-
-    // Phase 2 — conversion + contact math
-    goalSupportIds: "",
-    supportRatePct: 55,
-    contactRatePct: 22,
-    doorsPerHour: 30, // legacy mirror; canonical source is doorsPerHour3
-    hoursPerShift: 3,
-    shiftsPerVolunteerPerWeek: 2,
-
-    // Phase 3 — execution + risk (capacity + Monte Carlo)
-    orgCount: 2,
-    orgHoursPerWeek: 40,
-    volunteerMultBase: 1.0,
-    channelDoorPct: 70,
-    doorsPerHour3: 30,
-    callsPerHour3: 20,
-    turnoutReliabilityPct: 80,
-
-    // Phase 6 — turnout / GOTV
-    turnoutEnabled: false,
-    turnoutBaselinePct: 55,
-    turnoutTargetOverridePct: "",
-    gotvMode: "basic",
-    gotvLiftPP: 1.0,
-    gotvMaxLiftPP: 10,
-    gotvDiminishing: false,
-    gotvLiftMin: 0.5,
-    gotvLiftMode: 1.0,
-    gotvLiftMax: 2.0,
-    gotvMaxLiftPP2: 10,
-    gotvDiminishing2: false,
-
-    // Phase 7 — timeline / production (feasibility layer)
-    timelineEnabled: false,
-    timelineActiveWeeks: "",
-    timelineGotvWeeks: 2,
-    timelineStaffCount: 0,
-    timelineStaffHours: 40,
-    timelineVolCount: 0,
-    timelineVolHours: 4,
-    timelineRampEnabled: false,
-    timelineRampMode: "linear",
-    timelineDoorsPerHour: 30,
-    timelineCallsPerHour: 20,
-    timelineTextsPerHour: 120,
-
-    // Phase 17 — operations feature flags (default OFF; no behavior change yet)
-    crmEnabled: false,
-    scheduleEnabled: false,
-    twCapOverrideEnabled: false,
-    twCapOverrideMode: "baseline",
-    twCapOverrideHorizonWeeks: 12,
-
-
-    mcMode: "basic",
-    mcVolatility: "med",
-    mcSeed: "",
-
-        // Phase 4 — budget + ROI (attempt-based; Phase 4A: shared CR/SR across tactics)
-        budget: {
-          overheadAmount: 0,
-          includeOverhead: false,
-          tactics: {
-            doors: { enabled: true, cpa: 0.18, kind: "persuasion" },
-            phones: { enabled: true, cpa: 0.03, kind: "persuasion" },
-            texts: { enabled: false, cpa: 0.02, kind: "persuasion" },
-          },
-          optimize: {
-            mode: "budget",
-            budgetAmount: 10000,
-            capacityAttempts: "",
-            step: 25,
-            useDecay: false,
-            objective: "net",
-            tlConstrainedEnabled: false,
-            tlConstrainedObjective: "max_net",
-          }
-        },
-
-    mcContactMin: "",
-    mcContactMode: "",
-    mcContactMax: "",
-    mcPersMin: "",
-    mcPersMode: "",
-    mcPersMax: "",
-    mcReliMin: "",
-    mcReliMode: "",
-    mcReliMax: "",
-    mcDphMin: "",
-    mcDphMode: "",
-    mcDphMax: "",
-    mcCphMin: "",
-    mcCphMode: "",
-    mcCphMax: "",
-    mcVolMin: "",
-    mcVolMode: "",
-    mcVolMax: "",
-
-    mcLast: null,
-    mcLastHash: "",
-    ui: {
-      training: false,
-      dark: false,
-      advDiag: false,
-      activeTab: "win",
-      assumptionsProfile: "template",
-      decision: { sessions: {}, activeSessionId: null },
-    mcMeta: null,
-    }
-  };
+  return makeDefaultStateModule({
+    defaultsByTemplate: DEFAULTS_BY_TEMPLATE,
+    uid,
+  });
 }
 
 function uid(){
