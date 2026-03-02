@@ -19,6 +19,8 @@ import { renderBottleneckAttributionPanel, renderConversionPanel, renderSensitiv
 import { renderWeeklyOpsInsightsPanel, renderWeeklyOpsFreshnessPanel } from "./app/render/weeklyOpsInsights.js";
 import { renderDecisionConfidencePanel, renderDecisionIntelligencePanelView } from "./app/render/decisionPanels.js";
 import { renderImpactTracePanel } from "./app/render/impactTrace.js";
+import { renderMain } from "./app/renderMain.js";
+import { applyStateToUIView } from "./app/applyStateToUI.js";
 import { wireScenarioManagerBindings } from "./app/scenarioManagerBindings.js";
 import { wireDecisionSessionBindings } from "./app/decisionSessionBindings.js";
 import { createDecisionSessionActions } from "./app/decisionSessionActions.js";
@@ -1282,153 +1284,14 @@ function uid(){
 }
 
 function applyStateToUI(){
-  els.scenarioName.value = state.scenarioName || "";
-  els.raceType.value = state.raceType || "state_leg";
-  els.electionDate.value = state.electionDate || "";
-  els.weeksRemaining.value = state.weeksRemaining || "";
-  els.mode.value = state.mode || "persuasion";
-
-  els.universeBasis.value = state.universeBasis || "registered";
-  els.universeSize.value = state.universeSize ?? "";
-  els.sourceNote.value = state.sourceNote || "";
-  if (els.toggleStrictImport) els.toggleStrictImport.checked = !!state?.ui?.strictImport;
-  document.body.classList.toggle("strict-import", !!state?.ui?.strictImport);
-
-  els.turnoutA.value = state.turnoutA ?? "";
-  els.turnoutB.value = state.turnoutB ?? "";
-  els.bandWidth.value = state.bandWidth ?? "";
-
-  els.undecidedPct.value = state.undecidedPct ?? "";
-  els.undecidedMode.value = state.undecidedMode || "proportional";
-
-  els.persuasionPct.value = state.persuasionPct ?? "";
-  els.earlyVoteExp.value = state.earlyVoteExp ?? "";
-
-  // Phase 2 — conversion + capacity
-  if (els.goalSupportIds) els.goalSupportIds.value = state.goalSupportIds ?? "";
-  if (els.supportRatePct) els.supportRatePct.value = state.supportRatePct ?? "";
-  if (els.contactRatePct) els.contactRatePct.value = state.contactRatePct ?? "";
-  const canonicalDph = canonicalDoorsPerHourFromSnap(state);
-  if (els.doorsPerHour){
-    els.doorsPerHour.value = canonicalDph ?? "";
-    els.doorsPerHour.disabled = true;
-    els.doorsPerHour.title = "Read-only mirror. Edit Doors per hour in Field capacity (Execution & uncertainty).";
-  }
-  if (els.hoursPerShift) els.hoursPerShift.value = state.hoursPerShift ?? "";
-  if (els.shiftsPerVolunteerPerWeek) els.shiftsPerVolunteerPerWeek.value = state.shiftsPerVolunteerPerWeek ?? "";
-
-  // Phase 16 — universe composition + retention
-  if (els.universe16Enabled) els.universe16Enabled.checked = !!state.universeLayerEnabled;
-  if (els.universe16DemPct) els.universe16DemPct.value = state.universeDemPct ?? "";
-  if (els.universe16RepPct) els.universe16RepPct.value = state.universeRepPct ?? "";
-  if (els.universe16NpaPct) els.universe16NpaPct.value = state.universeNpaPct ?? "";
-  if (els.universe16OtherPct) els.universe16OtherPct.value = state.universeOtherPct ?? "";
-  if (els.retentionFactor) els.retentionFactor.value = state.retentionFactor ?? "";
-
-  // Phase 3 — execution + risk
-  if (els.orgCount) els.orgCount.value = state.orgCount ?? "";
-  if (els.orgHoursPerWeek) els.orgHoursPerWeek.value = state.orgHoursPerWeek ?? "";
-  if (els.volunteerMultBase) els.volunteerMultBase.value = state.volunteerMultBase ?? "";
-  if (els.channelDoorPct) els.channelDoorPct.value = state.channelDoorPct ?? "";
-  if (els.doorsPerHour3) els.doorsPerHour3.value = canonicalDph ?? "";
-  if (els.callsPerHour3) els.callsPerHour3.value = state.callsPerHour3 ?? "";
-  if (els.turnoutReliabilityPct) els.turnoutReliabilityPct.value = state.turnoutReliabilityPct ?? "";
-  if (els.twCapOverrideEnabled) els.twCapOverrideEnabled.checked = !!state.twCapOverrideEnabled;
-  if (els.twCapOverrideMode) els.twCapOverrideMode.value = state.twCapOverrideMode || "baseline";
-  if (els.twCapOverrideHorizonWeeks) els.twCapOverrideHorizonWeeks.value = state.twCapOverrideHorizonWeeks ?? 12;
-
-  // Phase 6 — turnout / GOTV
-  if (els.turnoutEnabled) els.turnoutEnabled.checked = !!state.turnoutEnabled;
-  if (els.turnoutBaselinePct) els.turnoutBaselinePct.value = state.turnoutBaselinePct ?? "";
-  if (els.turnoutTargetOverridePct) els.turnoutTargetOverridePct.value = state.turnoutTargetOverridePct ?? "";
-  if (els.gotvMode) els.gotvMode.value = state.gotvMode || "basic";
-  if (els.gotvLiftPP) els.gotvLiftPP.value = state.gotvLiftPP ?? "";
-  if (els.gotvMaxLiftPP) els.gotvMaxLiftPP.value = state.gotvMaxLiftPP ?? "";
-  if (els.gotvDiminishing) els.gotvDiminishing.checked = !!state.gotvDiminishing;
-  if (els.gotvLiftMin) els.gotvLiftMin.value = state.gotvLiftMin ?? "";
-  if (els.gotvLiftMode) els.gotvLiftMode.value = state.gotvLiftMode ?? "";
-  if (els.gotvLiftMax) els.gotvLiftMax.value = state.gotvLiftMax ?? "";
-  if (els.gotvMaxLiftPP2) els.gotvMaxLiftPP2.value = state.gotvMaxLiftPP2 ?? "";
-  if (els.gotvDiminishing2) els.gotvDiminishing2.checked = !!state.gotvDiminishing2;
-
-  if (els.mcMode) els.mcMode.value = state.mcMode || "basic";
-  if (els.mcVolatility) els.mcVolatility.value = state.mcVolatility || "med";
-  if (els.mcSeed) els.mcSeed.value = state.mcSeed || "";
-
-  // Advanced ranges
-  const setIf = (el, v) => { if (el) el.value = v ?? ""; };
-  setIf(els.mcContactMin, state.mcContactMin);
-  setIf(els.mcContactMode, state.mcContactMode);
-  setIf(els.mcContactMax, state.mcContactMax);
-  setIf(els.mcPersMin, state.mcPersMin);
-  setIf(els.mcPersMode, state.mcPersMode);
-  setIf(els.mcPersMax, state.mcPersMax);
-  setIf(els.mcReliMin, state.mcReliMin);
-  setIf(els.mcReliMode, state.mcReliMode);
-  setIf(els.mcReliMax, state.mcReliMax);
-  setIf(els.mcDphMin, state.mcDphMin);
-  setIf(els.mcDphMode, state.mcDphMode);
-  setIf(els.mcDphMax, state.mcDphMax);
-  setIf(els.mcCphMin, state.mcCphMin);
-  setIf(els.mcCphMode, state.mcCphMode);
-  setIf(els.mcCphMax, state.mcCphMax);
-  setIf(els.mcVolMin, state.mcVolMin);
-  setIf(els.mcVolMode, state.mcVolMode);
-  setIf(els.mcVolMax, state.mcVolMax);
-
-  syncMcModeUI();
-  syncGotvModeUI();
-
-
-    // Phase 4 — budget + ROI
-    if (els.roiDoorsEnabled) els.roiDoorsEnabled.checked = !!state.budget?.tactics?.doors?.enabled;
-    if (els.roiDoorsCpa) els.roiDoorsCpa.value = state.budget?.tactics?.doors?.cpa ?? "";
-    if (els.roiDoorsKind) els.roiDoorsKind.value = state.budget?.tactics?.doors?.kind || "persuasion";
-    if (els.roiDoorsCr) els.roiDoorsCr.value = state.budget?.tactics?.doors?.crPct ?? "";
-    if (els.roiDoorsSr) els.roiDoorsSr.value = state.budget?.tactics?.doors?.srPct ?? "";
-    if (els.roiPhonesEnabled) els.roiPhonesEnabled.checked = !!state.budget?.tactics?.phones?.enabled;
-    if (els.roiPhonesCpa) els.roiPhonesCpa.value = state.budget?.tactics?.phones?.cpa ?? "";
-    if (els.roiPhonesKind) els.roiPhonesKind.value = state.budget?.tactics?.phones?.kind || "persuasion";
-    if (els.roiPhonesCr) els.roiPhonesCr.value = state.budget?.tactics?.phones?.crPct ?? "";
-    if (els.roiPhonesSr) els.roiPhonesSr.value = state.budget?.tactics?.phones?.srPct ?? "";
-    if (els.roiTextsEnabled) els.roiTextsEnabled.checked = !!state.budget?.tactics?.texts?.enabled;
-    if (els.roiTextsCpa) els.roiTextsCpa.value = state.budget?.tactics?.texts?.cpa ?? "";
-    if (els.roiTextsKind) els.roiTextsKind.value = state.budget?.tactics?.texts?.kind || "persuasion";
-    if (els.roiTextsCr) els.roiTextsCr.value = state.budget?.tactics?.texts?.crPct ?? "";
-    if (els.roiTextsSr) els.roiTextsSr.value = state.budget?.tactics?.texts?.srPct ?? "";
-    if (els.roiOverheadAmount) els.roiOverheadAmount.value = state.budget?.overheadAmount ?? "";
-    if (els.roiIncludeOverhead) els.roiIncludeOverhead.checked = !!state.budget?.includeOverhead;
-
-  // Phase 5 — optimization
-  if (els.optMode) els.optMode.value = state.budget?.optimize?.mode || "budget";
-  if (els.optObjective) els.optObjective.value = state.budget?.optimize?.objective || "net";
-  if (els.tlOptEnabled) els.tlOptEnabled.checked = !!state.budget?.optimize?.tlConstrainedEnabled;
-  if (els.tlOptObjective) els.tlOptObjective.value = state.budget?.optimize?.tlConstrainedObjective || "max_net";
-  if (els.optBudget) els.optBudget.value = state.budget?.optimize?.budgetAmount ?? "";
-  if (els.optCapacity) els.optCapacity.value = state.budget?.optimize?.capacityAttempts ?? "";
-  if (els.optStep) els.optStep.value = state.budget?.optimize?.step ?? 25;
-  if (els.optUseDecay) els.optUseDecay.checked = !!state.budget?.optimize?.useDecay;
-
-  // Phase 7 — timeline / production
-  if (els.timelineEnabled) els.timelineEnabled.checked = !!state.timelineEnabled;
-  if (els.timelineActiveWeeks) els.timelineActiveWeeks.value = state.timelineActiveWeeks ?? "";
-  if (els.timelineGotvWeeks) els.timelineGotvWeeks.value = state.timelineGotvWeeks ?? "";
-  if (els.timelineStaffCount) els.timelineStaffCount.value = state.timelineStaffCount ?? "";
-  if (els.timelineStaffHours) els.timelineStaffHours.value = state.timelineStaffHours ?? "";
-  if (els.timelineVolCount) els.timelineVolCount.value = state.timelineVolCount ?? "";
-  if (els.timelineVolHours) els.timelineVolHours.value = state.timelineVolHours ?? "";
-  if (els.timelineRampEnabled) els.timelineRampEnabled.checked = !!state.timelineRampEnabled;
-  if (els.timelineRampMode) els.timelineRampMode.value = state.timelineRampMode || "linear";
-  if (els.timelineDoorsPerHour) els.timelineDoorsPerHour.value = state.timelineDoorsPerHour ?? "";
-  if (els.timelineCallsPerHour) els.timelineCallsPerHour.value = state.timelineCallsPerHour ?? "";
-  if (els.timelineTextsPerHour) els.timelineTextsPerHour.value = state.timelineTextsPerHour ?? "";
-
-  if (els.toggleAdvDiag) els.toggleAdvDiag.checked = !!state.ui?.advDiag;
-  if (els.advDiagBox) els.advDiagBox.hidden = !state.ui?.advDiag;
-  if (els.toggleTraining) els.toggleTraining.checked = !!state.ui?.training;
-
-  document.body.classList.toggle("training", !!state.ui?.training);
-  applyThemeFromState();
+  applyStateToUIView({
+    els,
+    state,
+    canonicalDoorsPerHourFromSnap,
+    syncMcModeUI,
+    syncGotvModeUI,
+    applyThemeFromState,
+  });
 }
 
 function rebuildCandidateTable(){
@@ -1906,98 +1769,40 @@ function persist(){
 }
 
 function render(){
-  const weeks = derivedWeeksRemaining();
-
-  const modelInput = {
-    universeSize: safeNum(state.universeSize),
-    turnoutA: safeNum(state.turnoutA),
-    turnoutB: safeNum(state.turnoutB),
-    bandWidth: safeNum(state.bandWidth),
-    candidates: state.candidates.map(c => ({ id: c.id, name: c.name, supportPct: safeNum(c.supportPct) })),
-    undecidedPct: safeNum(state.undecidedPct),
-    yourCandidateId: state.yourCandidateId,
-    undecidedMode: state.undecidedMode,
-    userSplit: state.userSplit,
-    persuasionPct: safeNum(state.persuasionPct),
-    earlyVoteExp: safeNum(state.earlyVoteExp),
-  };
-
-  const res = engine.computeAll(modelInput);
-
-  const needVotes = deriveNeedVotes(res);
-  lastRenderCtx = { res, weeks, needVotes, modelInput };
-
-  els.turnoutExpected.textContent = res.turnout.expectedPct == null ? "—" : `${res.turnout.expectedPct.toFixed(1)}%`;
-  els.turnoutBand.textContent = res.turnout.bestPct == null ? "—" : `${res.turnout.bestPct.toFixed(1)}% / ${res.turnout.worstPct.toFixed(1)}%`;
-  els.votesPer1pct.textContent = (res.turnout.votesPer1pct == null) ? "—" : fmtInt(res.turnout.votesPer1pct);
-
-  els.supportTotal.textContent = res.validation.supportTotalPct == null ? "—" : `${res.validation.supportTotalPct.toFixed(1)}%`;
-
-  els.candWarn.hidden = res.validation.candidateTableOk;
-  els.candWarn.textContent = res.validation.candidateTableOk ? "" : res.validation.candidateTableMsg;
-
-  setText(els.kpiTurnoutVotesSidebar, res.expected.turnoutVotes == null ? "—" : fmtInt(res.expected.turnoutVotes));
-  setText(els.kpiTurnoutBandSidebar, res.turnout.bandVotesText || "—");
-
-  setText(els.kpiWinThresholdSidebar, res.expected.winThreshold == null ? "—" : fmtInt(res.expected.winThreshold));
-  setText(els.kpiYourVotesSidebar, res.expected.yourVotes == null ? "—" : fmtInt(res.expected.yourVotes));
-  setText(els.kpiYourVotesShareSidebar, res.expected.yourShareText || "—");
-
-  setText(els.kpiPersuasionNeedSidebar, res.expected.persuasionNeed == null ? "—" : fmtInt(res.expected.persuasionNeed));
-  setText(els.kpiPersuasionStatusSidebar, res.expected.persuasionStatus || "—");
-
-  setText(els.miniEarlyVotesSidebar, res.expected.earlyVotes == null ? "—" : fmtInt(res.expected.earlyVotes));
-  setText(els.miniEDVotesSidebar, res.expected.edVotes == null ? "—" : fmtInt(res.expected.edVotes));
-  setText(els.miniEarlyNoteSidebar, res.expected.earlyNote || "—");
-
-  setText(els.miniPersUniverseSidebar, res.expected.persuasionUniverse == null ? "—" : fmtInt(res.expected.persuasionUniverse));
-  setText(els.miniPersCheckSidebar, res.expected.persuasionUniverseCheck || "—");
-  setText(els.metaUniverseBasis, state.universeBasis || "—");
-  setText(els.metaSourceNote, state.sourceNote || "—");
-
-  safeCall(() => renderStress(res));
-  safeCall(() => renderValidation(res, weeks));
-  safeCall(() => renderAssumptions(res, weeks));
-  safeCall(() => renderGuardrails(res));
-  safeCall(() => renderConversion(res, weeks));
-  safeCall(() => renderPhase3(res, weeks));
-  safeCall(() => renderWeeklyOps(res, weeks));
-  safeCall(() => renderWeeklyOpsInsights(res, weeks));
-  safeCall(() => renderWeeklyOpsFreshness(res, weeks));
-  safeCall(() => scheduleOperationsCapacityOutlookRender(weeks));
-  safeCall(() => renderAssumptionDriftE1(res, weeks));
-  safeCall(() => renderRiskFramingE2());
-  safeCall(() => renderBottleneckAttributionE3(res, weeks));
-  safeCall(() => renderSensitivitySnapshotE4());
-  safeCall(() => renderDecisionConfidenceE5(res, weeks));
-  safeCall(() => renderImpactTraceE6(res, weeks));
-
-  safeCall(() => renderUniverse16Card());
-
-  safeCall(() => renderRoi(res, weeks));
-  safeCall(() => renderOptimization(res, weeks));
-  safeCall(() => renderTimeline(res, weeks));
-  safeCall(() => renderDecisionIntelligencePanel({ res, weeks }));
-
-  // Phase 9A — build immutable results snapshot for export.js (pure serialization layer)
-  try {
-    lastResultsSnapshot = {
-      schemaVersion: engine.snapshot.CURRENT_SCHEMA_VERSION,
-      appVersion: engine.snapshot.MODEL_VERSION,
-      modelVersion: engine.snapshot.MODEL_VERSION,
-      scenarioState: structuredClone(state),
-      planRows: structuredClone(state.ui?.lastPlanRows || []),
-      planMeta: structuredClone(state.ui?.lastPlanMeta || {}),
-      summary: structuredClone(state.ui?.lastSummary || {})
-    };
-    lastResultsSnapshot.snapshotHash = engine.snapshot.computeSnapshotHash({ modelVersion: engine.snapshot.MODEL_VERSION, scenarioState: lastResultsSnapshot.scenarioState });
-  } catch {
-    lastResultsSnapshot = null;
-  }
-
-  setText(els.snapshotHash, lastResultsSnapshot?.snapshotHash || "—");
-  setText(els.snapshotHashSidebar, lastResultsSnapshot?.snapshotHash || "—");
-  els.explainCard.hidden = !state.ui.training;
+  renderMain({
+    state,
+    els,
+    safeNum,
+    engine,
+    derivedWeeksRemaining,
+    deriveNeedVotes,
+    setLastRenderCtx: (next) => { lastRenderCtx = next; },
+    setLastResultsSnapshot: (next) => { lastResultsSnapshot = next; },
+    fmtInt,
+    setText,
+    safeCall,
+    renderStress,
+    renderValidation,
+    renderAssumptions,
+    renderGuardrails,
+    renderConversion,
+    renderPhase3,
+    renderWeeklyOps,
+    renderWeeklyOpsInsights,
+    renderWeeklyOpsFreshness,
+    scheduleOperationsCapacityOutlookRender,
+    renderAssumptionDriftE1,
+    renderRiskFramingE2,
+    renderBottleneckAttributionE3,
+    renderSensitivitySnapshotE4,
+    renderDecisionConfidenceE5,
+    renderImpactTraceE6,
+    renderUniverse16Card,
+    renderRoi,
+    renderOptimization,
+    renderTimeline,
+    renderDecisionIntelligencePanel,
+  });
 }
 
 function renderWeeklyOps(res, weeks){
