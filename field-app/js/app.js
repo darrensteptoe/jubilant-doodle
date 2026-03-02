@@ -31,6 +31,7 @@ import {
   downloadJsonObjectCore,
 } from "./app/decisionSessionSummary.js";
 import {
+  wireSafetyAndDiagnosticsEvents,
   wirePrimaryPlannerEvents,
   wireBudgetTimelineEvents,
   wireTabAndExportEvents,
@@ -1545,58 +1546,20 @@ function rebuildUserSplitInputs(){
 }
 
 function wireEvents(){
-  // Phase 11 — safety rails controls (fail-soft)
-  safeCall(() => {
-    if (els.toggleStrictImport){
-      els.toggleStrictImport.checked = !!state?.ui?.strictImport;
-      document.body.classList.toggle("strict-import", !!state?.ui?.strictImport);
-      els.toggleStrictImport.addEventListener("change", () => {
-        document.body.classList.toggle("strict-import", !!els.toggleStrictImport.checked);
-        setState(s => { s.ui.strictImport = !!els.toggleStrictImport.checked; });
-      });
-    }
-    if (els.restoreBackup){
-      refreshBackupDropdown();
-      els.restoreBackup.addEventListener("change", () => {
-        const v = els.restoreBackup.value;
-        if (!v) return;
-        restoreBackupByIndex(v);
-        els.restoreBackup.value = "";
-      });
-    }
-    if (els.btnDiagnostics) els.btnDiagnostics.addEventListener("click", openDiagnostics);
-    if (els.btnDiagClose) els.btnDiagClose.addEventListener("click", closeDiagnostics);
-    if (els.diagModal){
-      els.diagModal.addEventListener("click", (e) => {
-        const t = e?.target;
-        if (t && t.getAttribute && t.getAttribute("data-close") === "1") closeDiagnostics();
-      });
-    }
-    if (els.btnCopyDebug) els.btnCopyDebug.addEventListener("click", () => { safeCall(() => { copyDebugBundle(); }); });
-
-    // Daily log import/export
-    if (els.dailyLogExportBtn) els.dailyLogExportBtn.addEventListener("click", () => { safeCall(() => { exportDailyLog(); }); });
-    if (els.dailyLogImportBtn) els.dailyLogImportBtn.addEventListener("click", () => {
-      safeCall(() => {
-        const raw = String(els.dailyLogImportText?.value || "").trim();
-        if (!raw){
-          if (els.dailyLogImportMsg) els.dailyLogImportMsg.textContent = "Paste JSON first";
-          return;
-        }
-        let parsed = null;
-        try{ parsed = JSON.parse(raw); } catch {
-          if (els.dailyLogImportMsg) els.dailyLogImportMsg.textContent = "Invalid JSON";
-          return;
-        }
-        const r = mergeDailyLogIntoState(parsed);
-        if (els.dailyLogImportMsg) els.dailyLogImportMsg.textContent = r.msg;
-      });
-    });
-
-    // Analyst tools: align assumptions to rolling actuals
-    if (els.applyRollingCRBtn) els.applyRollingCRBtn.addEventListener("click", () => { safeCall(() => { applyRollingRateToAssumption("contact"); }); });
-    if (els.applyRollingSRBtn) els.applyRollingSRBtn.addEventListener("click", () => { safeCall(() => { applyRollingRateToAssumption("support"); }); });
-    if (els.wkUndoActionBtn) els.wkUndoActionBtn.addEventListener("click", () => { safeCall(() => { undoLastWeeklyAction(); }); });
+  wireSafetyAndDiagnosticsEvents({
+    els,
+    getState: () => state,
+    setState,
+    refreshBackupDropdown,
+    restoreBackupByIndex,
+    openDiagnostics,
+    closeDiagnostics,
+    copyDebugBundle,
+    exportDailyLog,
+    mergeDailyLogIntoState,
+    applyRollingRateToAssumption,
+    undoLastWeeklyAction,
+    safeCall,
   });
 
   wirePrimaryPlannerEvents({
