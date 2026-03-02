@@ -4844,6 +4844,7 @@ function renderMcFreshness(res, weeks){
   const meta = (state.ui && state.ui.mcMeta && typeof state.ui.mcMeta === "object") ? state.ui.mcMeta : null;
 
   if (els.mcRerun) els.mcRerun.disabled = !has;
+  if (els.mcRerunSidebar) els.mcRerunSidebar.disabled = !has;
 
   if (!has){
     if (els.mcFreshTag){

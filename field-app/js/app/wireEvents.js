@@ -639,4 +639,5 @@ export function wirePrimaryPlannerEvents(ctx){
   if (els.mcRun) els.mcRun.addEventListener("click", () => runMonteCarloNow());
   if (els.mcRunSidebar) els.mcRunSidebar.addEventListener("click", () => runMonteCarloNow());
   if (els.mcRerun) els.mcRerun.addEventListener("click", () => runMonteCarloNow());
+  if (els.mcRerunSidebar) els.mcRerunSidebar.addEventListener("click", () => runMonteCarloNow());
 }
