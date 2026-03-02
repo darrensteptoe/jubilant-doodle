@@ -40,6 +40,7 @@ import { renderPhase3Module } from "./app/renderPhase3.js";
 import { renderValidationModule } from "./app/renderValidation.js";
 import { renderStressModule } from "./app/renderStress.js";
 import { renderAssumptionsModule } from "./app/renderAssumptions.js";
+import { renderGuardrailsModule } from "./app/renderGuardrails.js";
 import {
   canonicalDoorsPerHourFromSnapModule,
   setCanonicalDoorsPerHourModule,
@@ -2026,17 +2027,12 @@ function renderAssumptions(res, weeks){
 }
 
 function renderGuardrails(res){
-  const gs = [];
-  for (const g of res.guardrails){
-    gs.push(block(g.title, g.lines.map(l => kv(l.k, l.v))));
-  }
-  if (!els.guardrails) return;
-  els.guardrails.innerHTML = "";
-  if (!gs.length){
-    els.guardrails.textContent = "—";
-    return;
-  }
-  for (const b of gs) els.guardrails.appendChild(b);
+  renderGuardrailsModule({
+    els,
+    res,
+    block,
+    kv,
+  });
 }
 
 function block(title, kvs){
