@@ -23,6 +23,7 @@ import { renderMain } from "./app/renderMain.js";
 import { initDevToolsModule } from "./app/initDevTools.js";
 import { composeSetupStageModule } from "./app/composeSetupStage.js";
 import { normalizeStageLayoutModule } from "./app/normalizeStageLayout.js";
+import { runInitPostBootModule } from "./app/initPostBoot.js";
 import { applyStateToUIView } from "./app/applyStateToUI.js";
 import { wireScenarioManagerBindings } from "./app/scenarioManagerBindings.js";
 import { wireDecisionSessionBindings } from "./app/decisionSessionBindings.js";
@@ -3956,28 +3957,27 @@ function init(){
     runSensitivitySnapshotE4,
     ...decisionActions,
   });
-  updateBuildStamp();
-  updateSelfTestGateBadge();
-  updatePersistenceStatusChip();
-  refreshBackupDropdown();
-
-  applyStateToUI();
-  rebuildCandidateTable();
-  initTabs();
-  initExplainCard();
-  safeCall(() => { wireSensitivitySurface(); });
-  wireEvents();
-  initDevTools();
-  render();
-  try{
-    const b = state.ui.scenarios?.[SCENARIO_BASELINE_ID];
-    if (b){
-      b.inputs = scenarioInputsFromState(state);
-      b.outputs = scenarioOutputsFromState(state);
-    }
-    renderScenarioManagerC1();
-  } catch {}
-  persist();
+  runInitPostBootModule({
+    updateBuildStamp,
+    updateSelfTestGateBadge,
+    updatePersistenceStatusChip,
+    refreshBackupDropdown,
+    applyStateToUI,
+    rebuildCandidateTable,
+    initTabs,
+    initExplainCard,
+    safeCall,
+    wireSensitivitySurface,
+    wireEvents,
+    initDevTools,
+    render,
+    getState: () => state,
+    SCENARIO_BASELINE_ID,
+    scenarioInputsFromState,
+    scenarioOutputsFromState,
+    renderScenarioManagerC1,
+    persist,
+  });
 }
 
 
