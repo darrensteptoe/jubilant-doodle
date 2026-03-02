@@ -27,6 +27,7 @@ import { runInitPostBootModule } from "./app/initPostBoot.js";
 import { runInitScenarioDecisionWiringModule } from "./app/initScenarioDecisionWiring.js";
 import { preflightElsModule } from "./app/preflightEls.js";
 import { initTabsModule, initExplainCardModule, isDevModeModule } from "./app/initUiStateHelpers.js";
+import { createUiUpdateQueue } from "./app/uiUpdateQueue.js";
 import {
   updatePersistenceStatusChipModule,
   reportPersistenceFailureModule,
@@ -1007,43 +1008,22 @@ function clearPersistenceFailure(scope){
   });
 }
 
-const PERSIST_DEBOUNCE_MS = 220;
-let renderQueued = false;
-let persistQueuedTimer = null;
+const uiUpdateQueue = createUiUpdateQueue({
+  render: () => render(),
+  persist: () => persist(),
+  debounceMs: 220,
+});
 
 function scheduleRender(){
-  if (renderQueued) return;
-  renderQueued = true;
-  const flush = () => {
-    renderQueued = false;
-    render();
-  };
-  if (typeof window !== "undefined" && typeof window.requestAnimationFrame === "function"){
-    window.requestAnimationFrame(flush);
-    return;
-  }
-  setTimeout(flush, 0);
+  uiUpdateQueue.scheduleRender();
 }
 
 function schedulePersist({ immediate = false } = {}){
-  if (immediate){
-    if (persistQueuedTimer){
-      clearTimeout(persistQueuedTimer);
-      persistQueuedTimer = null;
-    }
-    persist();
-    return;
-  }
-  if (persistQueuedTimer) clearTimeout(persistQueuedTimer);
-  persistQueuedTimer = setTimeout(() => {
-    persistQueuedTimer = null;
-    persist();
-  }, PERSIST_DEBOUNCE_MS);
+  uiUpdateQueue.schedulePersist({ immediate });
 }
 
 function commitUIUpdate({ render: doRender = true, persist: doPersist = true, immediatePersist = false } = {}){
-  if (doRender) scheduleRender();
-  if (doPersist) schedulePersist({ immediate: immediatePersist });
+  uiUpdateQueue.commitUIUpdate({ render: doRender, persist: doPersist, immediatePersist });
 }
 
 
