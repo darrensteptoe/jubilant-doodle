@@ -22,6 +22,7 @@ import { renderImpactTracePanel } from "./app/render/impactTrace.js";
 import { renderMain } from "./app/renderMain.js";
 import { initDevToolsModule } from "./app/initDevTools.js";
 import { composeSetupStageModule } from "./app/composeSetupStage.js";
+import { normalizeStageLayoutModule } from "./app/normalizeStageLayout.js";
 import { applyStateToUIView } from "./app/applyStateToUI.js";
 import { wireScenarioManagerBindings } from "./app/scenarioManagerBindings.js";
 import { wireDecisionSessionBindings } from "./app/decisionSessionBindings.js";
@@ -3893,33 +3894,7 @@ function composeSetupStage(){
   composeSetupStageModule();
 }
 function init(){
-  try{
-    const main = document.querySelector(".stage-main-new");
-    if (main){
-      const stages = Array.from(main.querySelectorAll(".stage-new"));
-      for (const stage of stages){
-        const header = stage.querySelector(":scope > .stage-header-new") || stage.querySelector(".stage-header-new");
-        const body = stage.querySelector(":scope > .stage-body-new") || stage.querySelector(".stage-body-new");
-
-        if (header && stage.firstElementChild !== header){
-          stage.insertBefore(header, stage.firstChild);
-        }
-        if (header && body){
-          if (header.nextElementSibling !== body){
-            stage.insertBefore(body, header.nextSibling);
-          }
-        }
-
-        if (body){
-          const kids = Array.from(stage.children);
-          for (const kid of kids){
-            if (kid === header || kid === body) continue;
-            body.appendChild(kid);
-          }
-        }
-      }
-    }
-  } catch {}
+  try { normalizeStageLayoutModule(); } catch {}
   try { composeSetupStage(); } catch {}
   installGlobalErrorCapture();
   preflightEls();
