@@ -28,6 +28,13 @@ import { runInitScenarioDecisionWiringModule } from "./app/initScenarioDecisionW
 import { preflightElsModule } from "./app/preflightEls.js";
 import { initTabsModule, initExplainCardModule, isDevModeModule } from "./app/initUiStateHelpers.js";
 import {
+  approxEqModule,
+  applyTemplateDefaultsForRaceModule,
+  deriveAssumptionsProfileFromStateModule,
+  refreshAssumptionsProfileModule,
+  assumptionsProfileLabelModule
+} from "./app/assumptionsProfile.js";
+import {
   systemPrefersDarkModule,
   normalizeThemeModeModule,
   computeThemeIsDarkModule,
@@ -869,59 +876,23 @@ const DEFAULTS_BY_TEMPLATE = {
 };
 
 function approxEq(a, b, eps = 1e-6){
-  return Math.abs(a - b) <= eps;
+  return approxEqModule(a, b, eps);
 }
 
 function applyTemplateDefaultsForRace(targetState, raceType, { force = false } = {}){
-  if (!targetState || typeof targetState !== "object") return;
-  const key = String(raceType || targetState.raceType || "state_leg");
-  const defs = DEFAULTS_BY_TEMPLATE[key] || DEFAULTS_BY_TEMPLATE.state_leg;
-
-  if (force || (targetState.bandWidth == null || targetState.bandWidth === "")){
-    targetState.bandWidth = defs.bandWidth;
-  }
-  if (force || (targetState.persuasionPct == null || targetState.persuasionPct === "")){
-    targetState.persuasionPct = defs.persuasionPct;
-  }
-  if (force || (targetState.earlyVoteExp == null || targetState.earlyVoteExp === "")){
-    targetState.earlyVoteExp = defs.earlyVoteExp;
-  }
+  applyTemplateDefaultsForRaceModule(targetState, raceType, { force }, DEFAULTS_BY_TEMPLATE);
 }
 
 function deriveAssumptionsProfileFromState(snap){
-  const s = snap || {};
-  const raceKey = String(s.raceType || "state_leg");
-  const defs = DEFAULTS_BY_TEMPLATE[raceKey] || DEFAULTS_BY_TEMPLATE.state_leg;
-  const bw = safeNum(s.bandWidth);
-  const pp = safeNum(s.persuasionPct);
-  const ev = safeNum(s.earlyVoteExp);
-
-  const isTemplateLike =
-    bw != null && pp != null && ev != null &&
-    approxEq(bw, defs.bandWidth) &&
-    approxEq(pp, defs.persuasionPct) &&
-    approxEq(ev, defs.earlyVoteExp);
-
-  const explicit = s?.ui?.assumptionsProfile;
-  if (explicit === "template" || explicit === "custom"){
-    if (explicit === "template" && !isTemplateLike) return "custom";
-    return explicit;
-  }
-  return isTemplateLike ? "template" : "custom";
+  return deriveAssumptionsProfileFromStateModule(snap, DEFAULTS_BY_TEMPLATE, safeNum, approxEq);
 }
 
 function refreshAssumptionsProfile(){
-  if (!state.ui) state.ui = {};
-  state.ui.assumptionsProfile = deriveAssumptionsProfileFromState(state);
+  refreshAssumptionsProfileModule(state, deriveAssumptionsProfileFromState);
 }
 
 function assumptionsProfileLabel(src = state){
-  const s = src || {};
-  const profile = (s?.ui?.assumptionsProfile === "template") ? "template" : "custom";
-  if (profile === "template"){
-    return `Template (${labelTemplate(s.raceType)})`;
-  }
-  return "Custom overrides";
+  return assumptionsProfileLabelModule(src, labelTemplate);
 }
 
 let state = normalizeLoadedState(loadState() || makeDefaultState());
