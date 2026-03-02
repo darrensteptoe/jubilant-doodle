@@ -42,6 +42,13 @@ import { renderStressModule } from "./app/renderStress.js";
 import { renderAssumptionsModule } from "./app/renderAssumptions.js";
 import { renderGuardrailsModule } from "./app/renderGuardrails.js";
 import {
+  blockModule,
+  kvModule,
+  labelTemplateModule,
+  labelUndecidedModeModule,
+  getYourNameFromStateModule
+} from "./app/assumptionsViewHelpers.js";
+import {
   canonicalDoorsPerHourFromSnapModule,
   setCanonicalDoorsPerHourModule,
   requiredScenarioKeysMissingModule
@@ -2036,50 +2043,23 @@ function renderGuardrails(res){
 }
 
 function block(title, kvs){
-  const div = document.createElement("div");
-  div.className = "assump-block";
-  const t = document.createElement("div");
-  t.className = "assump-title";
-  t.textContent = title;
-  const body = document.createElement("div");
-  body.className = "assump-body";
-  for (const row of kvs) body.appendChild(row);
-  div.appendChild(t);
-  div.appendChild(body);
-  return div;
+  return blockModule(title, kvs);
 }
 
 function kv(k, v){
-  const row = document.createElement("div");
-  row.className = "kv";
-  const dk = document.createElement("div");
-  dk.className = "k";
-  dk.textContent = k;
-  const dv = document.createElement("div");
-  dv.className = "v";
-  dv.textContent = v;
-  row.appendChild(dk);
-  row.appendChild(dv);
-  return row;
+  return kvModule(k, v);
 }
 
 function labelTemplate(v){
-  if (v === "federal") return "Federal (US House)";
-  if (v === "municipal") return "Municipal / ward";
-  if (v === "county") return "County / regional";
-  return "State legislative";
+  return labelTemplateModule(v);
 }
 
 function labelUndecidedMode(v){
-  if (v === "user_defined") return "User-defined split";
-  if (v === "against") return "Conservative against you";
-  if (v === "toward") return "Conservative toward you";
-  return "Proportional";
+  return labelUndecidedModeModule(v);
 }
 
 function getYourName(){
-  const c = state.candidates.find(x => x.id === state.yourCandidateId);
-  return c?.name || null;
+  return getYourNameFromStateModule(state);
 }
 
 
