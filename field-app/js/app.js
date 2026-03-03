@@ -25,6 +25,7 @@ import { renderDecisionConfidencePanel, renderDecisionIntelligencePanelView } fr
 import { renderImpactTracePanel } from "./app/render/impactTrace.js";
 import { renderMain } from "./app/renderMain.js";
 import { initDevToolsModule } from "./app/initDevTools.js";
+import { buildModelInputFromState } from "./app/modelInput.js";
 import { composeSetupStageModule } from "./app/composeSetupStage.js";
 import { normalizeStageLayoutModule } from "./app/normalizeStageLayout.js";
 import { runInitPostBootModule } from "./app/initPostBoot.js";
@@ -3836,19 +3837,7 @@ function computeCapacityContacts(args){
 function runMonteCarloNow(){
   // Need render context for persuasion need.
   const weeks = derivedWeeksRemaining();
-  const modelInput = {
-    universeSize: safeNum(state.universeSize),
-    turnoutA: safeNum(state.turnoutA),
-    turnoutB: safeNum(state.turnoutB),
-    bandWidth: safeNum(state.bandWidth),
-    candidates: state.candidates.map(c => ({ id: c.id, name: c.name, supportPct: safeNum(c.supportPct) })),
-    undecidedPct: safeNum(state.undecidedPct),
-    yourCandidateId: state.yourCandidateId,
-    undecidedMode: state.undecidedMode,
-    userSplit: state.userSplit,
-    persuasionPct: safeNum(state.persuasionPct),
-    earlyVoteExp: safeNum(state.earlyVoteExp),
-  };
+  const modelInput = buildModelInputFromState(state, safeNum);
   const res = engine.computeAll(modelInput);
 
   const w = (weeks != null && weeks >= 0) ? weeks : null;
