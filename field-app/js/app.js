@@ -3475,11 +3475,13 @@ function renderOpsEnvelopeD2(res, weeks){
 }
 
 function hashFinishEnvelopeInputs(res, weeks){
-  const today = fmtISODate(new Date());
-  return computeSnapshotHash({
-    h: hashOpsEnvelopeInputs(res, weeks),
-    dailyLogHash: computeDailyLogHash(),
-    today,
+  return hashFinishEnvelopeInputsModule({
+    res,
+    weeks,
+    hashOpsEnvelopeInputs,
+    computeSnapshotHash,
+    computeDailyLogHash,
+    fmtISODate,
   });
 }
 
