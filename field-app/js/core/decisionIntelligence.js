@@ -24,6 +24,55 @@ function pctToUnit(pct, fallback){
   return clamp(n, 0, 100) / 100;
 }
 
+function buildModelInputFromSnap(snap){
+  const s = snap || {};
+  const candidates = Array.isArray(s.candidates) ? s.candidates : [];
+  return {
+    universeSize: safeNum(s.universeSize),
+    turnoutA: safeNum(s.turnoutA),
+    turnoutB: safeNum(s.turnoutB),
+    bandWidth: safeNum(s.bandWidth),
+    candidates: candidates.map((c) => ({ id: c?.id, name: c?.name, supportPct: safeNum(c?.supportPct) })),
+    undecidedPct: safeNum(s.undecidedPct),
+    yourCandidateId: s.yourCandidateId,
+    undecidedMode: s.undecidedMode,
+    userSplit: s.userSplit || {},
+    persuasionPct: safeNum(s.persuasionPct),
+    earlyVoteExp: safeNum(s.earlyVoteExp),
+  };
+}
+
+function buildBaseRatesFromSnap(snap){
+  const s = snap || {};
+  return {
+    cr: pctToUnit(s.contactRatePct, 0),
+    sr: pctToUnit(s.supportRatePct, 0),
+    tr: pctToUnit(s.turnoutReliabilityPct, 0),
+  };
+}
+
+function buildTimelineCapsInputFromSnap({ snap, weeks, tactics }){
+  const s = snap || {};
+  return {
+    enabled: !!s.timelineEnabled,
+    weeksRemaining: weeks,
+    activeWeeksOverride: safeNum(s.timelineActiveWeeks),
+    gotvWindowWeeks: safeNum(s.timelineGotvWeeks) ?? 2,
+    staffing: {
+      staff: safeNum(s.timelineStaffCount) ?? 0,
+      staffHours: safeNum(s.timelineStaffHours) ?? 40,
+      volunteers: safeNum(s.timelineVolCount) ?? 0,
+      volunteerHours: safeNum(s.timelineVolHours) ?? 4,
+    },
+    throughput: {
+      doors: safeNum(s.timelineDoorsPerHour) ?? 0,
+      phones: safeNum(s.timelineCallsPerHour) ?? 0,
+      texts: safeNum(s.timelineTextsPerHour) ?? 0,
+    },
+    tacticKinds: tactics?.map(t => ({ id: t.id, kind: t.kind })) || []
+  };
+}
+
 function computeMinCostToCloseGap({ computeRoiRows, snap, baseRates, tactics, goalNetVotes, caps, mcLast, turnoutModel }){
   try{
     const overheadAmount = safeNum(snap.budget?.overheadAmount) ?? 0;
@@ -211,19 +260,7 @@ export function computeDecisionIntelligence({ engine, snap, baseline }){
         weeksRemainingOverride: snap?.weeksRemaining,
         electionDateISO: snap?.electionDate ? `${snap.electionDate}T00:00:00` : ""
       });
-      const modelInput = {
-        universeSize: safeNum(snap.universeSize),
-        turnoutA: safeNum(snap.turnoutA),
-        turnoutB: safeNum(snap.turnoutB),
-        bandWidth: safeNum(snap.bandWidth),
-        candidates: (snap.candidates || []).map(c => ({ id: c.id, name: c.name, supportPct: safeNum(c.supportPct) })),
-        undecidedPct: safeNum(snap.undecidedPct),
-        yourCandidateId: snap.yourCandidateId,
-        undecidedMode: snap.undecidedMode,
-        userSplit: snap.userSplit || {},
-        persuasionPct: safeNum(snap.persuasionPct),
-        earlyVoteExp: safeNum(snap.earlyVoteExp),
-      };
+      const modelInput = buildModelInputFromSnap(snap);
       const res = baseline?.res ?? engine.computeAll(modelInput);
       const needVotes = baseline?.needVotes ?? engine.deriveNeedVotes(res, snap?.goalSupportIds);
       const volsNeeded = baseline?.volsNeeded ?? computeVolunteerNeedFromGoal({
@@ -241,33 +278,11 @@ export function computeDecisionIntelligence({ engine, snap, baseline }){
       const winProb = (!!snap.turnoutEnabled && Number.isFinite(s.winProbTurnoutAdjusted)) ? s.winProbTurnoutAdjusted : s.winProb;
 
       // ROI cost lens
-      const baseRates = {
-        cr: pctToUnit(snap.contactRatePct, 0),
-        sr: pctToUnit(snap.supportRatePct, 0),
-        tr: pctToUnit(snap.turnoutReliabilityPct, 0),
-      };
+      const baseRates = buildBaseRatesFromSnap(snap);
       const tactics = engine.buildOptimizationTactics({ baseRates, tactics: snap.budget?.tactics || {} });
 
       // Timeline caps for feasibility (optional)
-      const tlEnabled = !!snap.timelineEnabled;
-      const capsInput = {
-        enabled: tlEnabled,
-        weeksRemaining: weeks,
-        activeWeeksOverride: safeNum(snap.timelineActiveWeeks),
-        gotvWindowWeeks: safeNum(snap.timelineGotvWeeks) ?? 2,
-        staffing: {
-          staff: safeNum(snap.timelineStaffCount) ?? 0,
-          staffHours: safeNum(snap.timelineStaffHours) ?? 40,
-          volunteers: safeNum(snap.timelineVolCount) ?? 0,
-          volunteerHours: safeNum(snap.timelineVolHours) ?? 4,
-        },
-        throughput: {
-          doors: safeNum(snap.timelineDoorsPerHour) ?? 0,
-          phones: safeNum(snap.timelineCallsPerHour) ?? 0,
-          texts: safeNum(snap.timelineTextsPerHour) ?? 0,
-        },
-        tacticKinds: tactics?.map(t => ({ id: t.id, kind: t.kind })) || []
-      };
+      const capsInput = buildTimelineCapsInputFromSnap({ snap, weeks, tactics });
 
       const caps = engine.computeMaxAttemptsByTactic(capsInput);
       const maxAttemptsByTactic = (caps && caps.enabled) ? caps.maxAttemptsByTactic : null;
@@ -304,19 +319,7 @@ export function computeDecisionIntelligence({ engine, snap, baseline }){
           weeksRemainingOverride: nextSnap?.weeksRemaining,
           electionDateISO: nextSnap?.electionDate ? `${nextSnap.electionDate}T00:00:00` : ""
         });
-        const modelInput = {
-          universeSize: safeNum(nextSnap.universeSize),
-          turnoutA: safeNum(nextSnap.turnoutA),
-          turnoutB: safeNum(nextSnap.turnoutB),
-          bandWidth: safeNum(nextSnap.bandWidth),
-          candidates: (nextSnap.candidates || []).map(c => ({ id: c.id, name: c.name, supportPct: safeNum(c.supportPct) })),
-          undecidedPct: safeNum(nextSnap.undecidedPct),
-          yourCandidateId: nextSnap.yourCandidateId,
-          undecidedMode: nextSnap.undecidedMode,
-          userSplit: nextSnap.userSplit || {},
-          persuasionPct: safeNum(nextSnap.persuasionPct),
-          earlyVoteExp: safeNum(nextSnap.earlyVoteExp),
-        };
+        const modelInput = buildModelInputFromSnap(nextSnap);
         const res = engine.computeAll(modelInput);
         const needVotes = engine.deriveNeedVotes(res, nextSnap?.goalSupportIds);
 
@@ -335,32 +338,10 @@ export function computeDecisionIntelligence({ engine, snap, baseline }){
         const s = sim?.summary || sim || {};
         const winProb = (!!nextSnap.turnoutEnabled && Number.isFinite(s.winProbTurnoutAdjusted)) ? s.winProbTurnoutAdjusted : s.winProb;
 
-        const baseRates = {
-          cr: pctToUnit(nextSnap.contactRatePct, 0),
-          sr: pctToUnit(nextSnap.supportRatePct, 0),
-          tr: pctToUnit(nextSnap.turnoutReliabilityPct, 0),
-        };
+        const baseRates = buildBaseRatesFromSnap(nextSnap);
         const tactics = engine.buildOptimizationTactics({ baseRates, tactics: nextSnap.budget?.tactics || {} });
 
-        const tlEnabled = !!nextSnap.timelineEnabled;
-        const capsInput = {
-          enabled: tlEnabled,
-          weeksRemaining: weeks,
-          activeWeeksOverride: safeNum(nextSnap.timelineActiveWeeks),
-          gotvWindowWeeks: safeNum(nextSnap.timelineGotvWeeks) ?? 2,
-          staffing: {
-            staff: safeNum(nextSnap.timelineStaffCount) ?? 0,
-            staffHours: safeNum(nextSnap.timelineStaffHours) ?? 40,
-            volunteers: safeNum(nextSnap.timelineVolCount) ?? 0,
-            volunteerHours: safeNum(nextSnap.timelineVolHours) ?? 4,
-          },
-          throughput: {
-            doors: safeNum(nextSnap.timelineDoorsPerHour) ?? 0,
-            phones: safeNum(nextSnap.timelineCallsPerHour) ?? 0,
-            texts: safeNum(nextSnap.timelineTextsPerHour) ?? 0,
-          },
-          tacticKinds: tactics?.map(t => ({ id: t.id, kind: t.kind })) || []
-        };
+        const capsInput = buildTimelineCapsInputFromSnap({ snap: nextSnap, weeks, tactics });
 
         const caps = engine.computeMaxAttemptsByTactic(capsInput);
 

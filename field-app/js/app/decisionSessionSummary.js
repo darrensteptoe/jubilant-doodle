@@ -8,7 +8,10 @@ export function computeDecisionKeyOutCore(inputs, deps = {}){
   try{
     const snap = scenarioClone(inputs || {});
     const res = engine.computeAll(snap);
-    const weeks = engine.withPatchedState(snap, () => engine.derivedWeeksRemaining());
+    const weeks = engine.derivedWeeksRemaining({
+      weeksRemainingOverride: snap?.weeksRemaining,
+      electionDateISO: snap?.electionDate ? `${snap.electionDate}T00:00:00` : "",
+    });
     const ctx = computeWeeklyOpsContextFromSnap(snap, res, weeks);
     const finish = targetFinishDateFromSnap(snap, weeks);
     return { weeks, ctx, finish };
