@@ -324,7 +324,7 @@ export function renderConversionPanel({
   renderPhase3(res, weeks);
 }
 
-export function renderSensitivitySnapshotPanel({ els, state }){
+export function renderSensitivitySnapshotPanel({ els, state, mcStaleness = null }){
   if (!els.sensTag || !els.sensTbody || !els.sensBanner || !els.btnSensRun) return;
 
   const stub = (msg, cls) => {
@@ -338,6 +338,13 @@ export function renderSensitivitySnapshotPanel({ els, state }){
   const base = state.mcLast;
   if (!base){
     stub("Run Monte Carlo to enable the sensitivity snapshot.", "warn");
+    els.btnSensRun.disabled = true;
+    return;
+  }
+
+  if (mcStaleness?.isStale){
+    const reason = mcStaleness.reasonText || "inputs changed";
+    stub(`Monte Carlo is stale (${reason}). Re-run MC, then run snapshot.`, "warn");
     els.btnSensRun.disabled = true;
     return;
   }
@@ -377,12 +384,22 @@ export async function runSensitivitySnapshotPanel({
   clamp,
   runMonteCarloSim,
   persist,
-  renderSensitivitySnapshotE4
+  renderSensitivitySnapshotE4,
+  getMcStaleness
 }){
   if (!els.sensTag || !els.sensTbody || !els.sensBanner || !els.btnSensRun) return;
 
   const base = state.mcLast;
   if (!base) return;
+
+  const stale = (typeof getMcStaleness === "function") ? getMcStaleness() : null;
+  if (stale?.isStale){
+    const reason = stale.reasonText || "inputs changed";
+    els.sensBanner.className = "banner warn";
+    els.sensBanner.textContent = `Monte Carlo is stale (${reason}). Re-run MC, then run snapshot.`;
+    els.btnSensRun.disabled = true;
+    return;
+  }
 
   const ctx = lastRenderCtx;
   if (!ctx || !ctx.res) return;

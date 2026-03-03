@@ -1,4 +1,4 @@
-export function renderRiskFramingPanel({ els, state, setTextPair, fmtSigned, clamp }){
+export function renderRiskFramingPanel({ els, state, setTextPair, fmtSigned, clamp, mcStaleness = null }){
   if (!els.riskBandTag || !els.riskWinProb || !els.riskMarginBand || !els.riskVolatility || !els.riskPlainBanner) return;
 
   const setTag = (label, cls) => {
@@ -73,6 +73,14 @@ export function renderRiskFramingPanel({ els, state, setTextPair, fmtSigned, cla
     plain = `Leaning ${dir}: ${(p * 100).toFixed(0)}% model win chance. ${marginLine} Volatility: ${volClass}.`;
   } else {
     plain = `Volatile outlook: ${(p * 100).toFixed(0)}% model win chance. Small changes in execution or assumptions can swing outcomes. ${marginLine} Volatility: ${volClass}.`;
+  }
+
+  if (mcStaleness?.isStale){
+    setTag("Stale MC", "warn");
+    const reason = mcStaleness.reasonText || "assumptions changed";
+    plain = `Monte Carlo is stale (${reason}). Re-run MC to refresh risk framing. ${marginLine} Volatility: ${volClass}.`;
+    setBanner(plain, "warn");
+    return;
   }
 
   setBanner(plain, cls);
