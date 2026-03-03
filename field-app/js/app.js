@@ -1331,6 +1331,7 @@ function wireEvents(){
     exportDailyLog,
     mergeDailyLogIntoState,
     applyRollingRateToAssumption,
+    applyAllRollingCalibrations,
     undoLastWeeklyAction,
     safeCall,
   });
@@ -1868,6 +1869,71 @@ function applyRollingRateToAssumption(kind){
   if (changed){
     markMcStale();
     commitUIUpdate();
+  }
+}
+
+function applyAllRollingCalibrations(){
+  const drift = computeRealityDrift();
+  if (!drift?.hasLog){
+    if (els.applyRollingMsg) els.applyRollingMsg.textContent = "No daily log yet";
+    return;
+  }
+
+  const prevState = structuredClone(state);
+  const pct1 = (x) => (x == null || !isFinite(x)) ? null : Math.round(x * 1000) / 10; // 1 decimal
+  const num1 = (x) => (x == null || !isFinite(x)) ? null : Math.round(x * 10) / 10;
+  const applied = [];
+
+  const cr = pct1(drift.actualCR);
+  if (cr != null){
+    state.contactRatePct = cr;
+    if (els.contactRatePct) els.contactRatePct.value = String(cr);
+    applied.push(`CR ${cr}%`);
+  }
+
+  const sr = pct1(drift.actualSR);
+  if (sr != null){
+    state.supportRatePct = sr;
+    if (els.supportRatePct) els.supportRatePct.value = String(sr);
+    applied.push(`SR ${sr}%`);
+  }
+
+  const actualAPH = num1(drift.actualAPH);
+  const expectedAPH = num1(drift.expectedAPH);
+  if (actualAPH != null && actualAPH > 0 && expectedAPH != null && expectedAPH > 0){
+    const curDoors = safeNum(state.doorsPerHour3);
+    const curCalls = safeNum(state.callsPerHour3);
+    if (curDoors != null && curDoors > 0 && curCalls != null && curCalls > 0){
+      const ratioRaw = actualAPH / expectedAPH;
+      const ratio = clamp(ratioRaw, 0.5, 1.5);
+      const nextDoors = num1(Math.max(1, curDoors * ratio));
+      const nextCalls = num1(Math.max(1, curCalls * ratio));
+      setCanonicalDoorsPerHour(state, nextDoors);
+      state.callsPerHour3 = nextCalls;
+      if (els.doorsPerHour3) els.doorsPerHour3.value = String(nextDoors);
+      if (els.callsPerHour3) els.callsPerHour3.value = String(nextCalls);
+      const pct = Math.round((ratio - 1) * 1000) / 10;
+      const sign = pct >= 0 ? "+" : "";
+      const adj = (ratio !== ratioRaw) ? " (clamped)" : "";
+      applied.push(`APH ${sign}${pct}%${adj}`);
+    }
+  }
+
+  if (!applied.length){
+    if (els.applyRollingMsg) els.applyRollingMsg.textContent = "No rolling calibration values are available";
+    return;
+  }
+
+  lastAppliedWeeklyAction = {
+    label: `Applied: rolling calibrations (${applied.join(", ")})`,
+    prevState
+  };
+  syncWeeklyUndoUI();
+  markMcStale();
+  commitUIUpdate();
+
+  if (els.applyRollingMsg){
+    els.applyRollingMsg.textContent = `Applied rolling calibrations: ${applied.join(" · ")}`;
   }
 }
 
