@@ -947,6 +947,63 @@ function restoreBackupByIndex(idx){
     return;
   }
 
+  const quality = engine.snapshot.validateImportedScenarioData(validated.scenario);
+  if (!quality.ok){
+    const details = quality.errors.map((x) => `- ${x}`).join("\n");
+    alert(`Backup restore failed: quality checks failed.\n${details}`);
+    return;
+  }
+
+  // Keep backup restore policy aligned with JSON import behavior.
+  try{
+    const exportedHash = (loaded && typeof loaded === "object") ? (loaded.snapshotHash || null) : null;
+    const recomputed = engine.snapshot.computeSnapshotHash({
+      modelVersion: validated.modelVersion,
+      scenarioState: validated.scenario
+    });
+    const hashMismatch = !!(exportedHash && exportedHash !== recomputed);
+    if (hashMismatch){
+      if (els.importHashBanner){
+        els.importHashBanner.hidden = false;
+        els.importHashBanner.textContent = "Snapshot hash differs from exported hash.";
+      }
+      console.warn("Backup snapshot hash mismatch", { exportedHash, recomputed });
+    } else if (els.importHashBanner){
+      els.importHashBanner.hidden = true;
+    }
+
+    const policy = engine.snapshot.checkStrictImportPolicy({
+      strictMode: !!state?.ui?.strictImport,
+      importedSchemaVersion: (migrated?.snapshot?.schemaVersion || loaded.schemaVersion || null),
+      currentSchemaVersion: engine.snapshot.CURRENT_SCHEMA_VERSION,
+      hashMismatch
+    });
+    if (!policy.ok){
+      alert(policy.issues.join(" "));
+      return;
+    }
+  } catch {
+    if (state?.ui?.strictImport){
+      alert("Backup restore blocked: could not verify integrity hash in strict mode.");
+      return;
+    }
+  }
+
+  const restoreWarnings = [];
+  if (Array.isArray(migrated?.warnings)) restoreWarnings.push(...migrated.warnings);
+  if (Array.isArray(quality?.warnings)) restoreWarnings.push(...quality.warnings);
+  if (els.importWarnBanner){
+    if (restoreWarnings.length){
+      const shown = restoreWarnings.slice(0, 6).join(" ");
+      const extra = restoreWarnings.length > 6 ? ` (+${restoreWarnings.length - 6} more)` : "";
+      els.importWarnBanner.hidden = false;
+      els.importWarnBanner.textContent = `${shown}${extra}`.trim();
+    } else {
+      els.importWarnBanner.hidden = true;
+      els.importWarnBanner.textContent = "";
+    }
+  }
+
   state = normalizeLoadedState(validated.scenario);
   ensureDecisionScaffold();
   persist();
