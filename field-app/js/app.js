@@ -2,7 +2,8 @@ import { engine } from "./engine.js";
 import {
   computeCapacityContacts as coreComputeCapacityContacts,
   computeCapacityBreakdown as coreComputeCapacityBreakdown,
-  deriveNeedVotesOrZero as coreDeriveNeedVotesOrZero
+  deriveNeedVotesOrZero as coreDeriveNeedVotesOrZero,
+  deriveWeeksRemainingCeil as coreDeriveWeeksRemainingCeil
 } from "./core/model.js";
 import { UNIVERSE_DEFAULTS, computeUniverseAdjustedRates } from "./core/universeLayer.js";
 import { computeAvgLiftPP } from "./core/turnout.js";
@@ -1433,7 +1434,14 @@ function requiredScenarioKeysMissing(scen){
   return requiredScenarioKeysMissingModule(scen);
 }
 
-function derivedWeeksRemaining(){
+function derivedWeeksRemaining(args){
+  if (args && typeof args === "object"){
+    return coreDeriveWeeksRemainingCeil({
+      weeksRemainingOverride: args.weeksRemainingOverride,
+      electionDateISO: args.electionDateISO,
+      nowDate: args.nowDate
+    });
+  }
   return derivedWeeksRemainingFromState(state);
 }
 
