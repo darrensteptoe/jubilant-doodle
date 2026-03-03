@@ -1747,6 +1747,8 @@ function applyRollingRateToAssumption(kind){
   }
 
   const pct1 = (x) => (x == null || !isFinite(x)) ? null : Math.round(x * 1000) / 10; // 1 decimal
+  const num1 = (x) => (x == null || !isFinite(x)) ? null : Math.round(x * 10) / 10;
+  let changed = false;
 
   if (kind === "contact"){
     const v = pct1(drift.actualCR);
@@ -1757,6 +1759,7 @@ function applyRollingRateToAssumption(kind){
     state.contactRatePct = v;
     if (els.contactRatePct) els.contactRatePct.value = String(v);
     if (els.applyRollingMsg) els.applyRollingMsg.textContent = `Set assumed contact rate to ${v}%`;
+    changed = true;
   } else if (kind === "support"){
     const v = pct1(drift.actualSR);
     if (v == null){
@@ -1766,6 +1769,48 @@ function applyRollingRateToAssumption(kind){
     state.supportRatePct = v;
     if (els.supportRatePct) els.supportRatePct.value = String(v);
     if (els.applyRollingMsg) els.applyRollingMsg.textContent = `Set assumed support rate to ${v}%`;
+    changed = true;
+  } else if (kind === "productivity"){
+    const actualAPH = num1(drift.actualAPH);
+    const expectedAPH = num1(drift.expectedAPH);
+    if (actualAPH == null || actualAPH <= 0){
+      if (els.applyRollingMsg) els.applyRollingMsg.textContent = "Rolling productivity is unavailable";
+      return;
+    }
+    if (expectedAPH == null || expectedAPH <= 0){
+      if (els.applyRollingMsg) els.applyRollingMsg.textContent = "Expected productivity baseline is unavailable";
+      return;
+    }
+
+    const curDoors = safeNum(state.doorsPerHour3);
+    const curCalls = safeNum(state.callsPerHour3);
+    if (curDoors == null || curDoors <= 0 || curCalls == null || curCalls <= 0){
+      if (els.applyRollingMsg) els.applyRollingMsg.textContent = "Current productivity assumptions are invalid";
+      return;
+    }
+
+    const ratioRaw = actualAPH / expectedAPH;
+    const ratio = clamp(ratioRaw, 0.5, 1.5);
+    const nextDoors = num1(Math.max(1, curDoors * ratio));
+    const nextCalls = num1(Math.max(1, curCalls * ratio));
+
+    setCanonicalDoorsPerHour(state, nextDoors);
+    state.callsPerHour3 = nextCalls;
+
+    if (els.doorsPerHour3) els.doorsPerHour3.value = String(nextDoors);
+    if (els.callsPerHour3) els.callsPerHour3.value = String(nextCalls);
+    if (els.applyRollingMsg){
+      const pct = Math.round((ratio - 1) * 1000) / 10;
+      const adj = (ratio !== ratioRaw) ? " (clamped)" : "";
+      const sign = pct >= 0 ? "+" : "";
+      els.applyRollingMsg.textContent = `Scaled productivity ${sign}${pct}%${adj}: doors/hr ${nextDoors}, calls/hr ${nextCalls}`;
+    }
+    changed = true;
+  }
+
+  if (changed){
+    markMcStale();
+    commitUIUpdate();
   }
 }
 
