@@ -2981,6 +2981,7 @@ function buildDecisionSummaryText(session){
     SCENARIO_BASELINE_ID,
     scenarioClone,
     engine,
+    derivedWeeksRemaining,
     computeWeeklyOpsContextFromSnap,
     targetFinishDateFromSnap,
     fmtISODate,
