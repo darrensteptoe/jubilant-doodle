@@ -320,6 +320,36 @@ function appendOperationsDiagnostics(lines, tw){
   return out;
 }
 
+function appendModelDiagnostics(lines){
+  const out = Array.isArray(lines) ? lines.slice() : [];
+  const fPct = (v) => (v == null || !isFinite(v)) ? "—" : `${(v * 100).toFixed(1)}%`;
+
+  out.push("");
+  out.push("[model diagnostics]");
+
+  const benchmarkWarnings = engine?.snapshot?.computeAssumptionBenchmarkWarnings
+    ? engine.snapshot.computeAssumptionBenchmarkWarnings(state, "Benchmark")
+    : [];
+  out.push(`benchmarkWarnings: ${benchmarkWarnings.length}`);
+  for (const msg of benchmarkWarnings.slice(0, 4)){
+    out.push(`- ${msg}`);
+  }
+
+  const drift = computeRealityDrift();
+  if (!drift?.hasLog){
+    out.push("realityDrift: no daily log data");
+    return out;
+  }
+
+  out.push(`rollingCR: actual=${fPct(drift.actualCR)} assumed=${fPct(drift.assumedCR)}`);
+  out.push(`rollingSR: actual=${fPct(drift.actualSR)} assumed=${fPct(drift.assumedSR)}`);
+  out.push(`rollingAPH: actual=${(drift.actualAPH == null || !isFinite(drift.actualAPH)) ? "—" : drift.actualAPH.toFixed(2)} assumed=${(drift.expectedAPH == null || !isFinite(drift.expectedAPH)) ? "—" : drift.expectedAPH.toFixed(2)}`);
+  out.push(`driftFlags: ${drift.flags.length ? drift.flags.join(", ") : "none"}`);
+  out.push(`primaryDrift: ${drift.primary || "none"}`);
+
+  return out;
+}
+
 let twCapOutlookTimer = null;
 let twCapOutlookSeq = 0;
 let twCapOutlookLastRunMs = 0;
@@ -795,7 +825,8 @@ function updateDiagnosticsUI(){
       .then(() => getOperationsDiagnosticsSnapshot())
       .then((tw) => {
         if (seq !== diagRenderSeq) return;
-        const merged = appendOperationsDiagnostics(lines, tw);
+        const withOps = appendOperationsDiagnostics(lines, tw);
+        const merged = appendModelDiagnostics(withOps);
         if (els.diagErrors) els.diagErrors.textContent = merged.join("\n");
       })
       .catch(() => { /* ignore */ });
@@ -804,6 +835,10 @@ function updateDiagnosticsUI(){
 
 async function copyDebugBundle(){
   const tw = await getOperationsDiagnosticsSnapshot();
+  const benchmarkWarnings = engine?.snapshot?.computeAssumptionBenchmarkWarnings
+    ? engine.snapshot.computeAssumptionBenchmarkWarnings(state, "Benchmark")
+    : [];
+  const drift = computeRealityDrift();
   const bundle = {
     appVersion: APP_VERSION,
     buildId: BUILD_ID,
@@ -813,6 +848,21 @@ async function copyDebugBundle(){
     lastExportHash: lastExportHash || null,
     recentErrors: recentErrors.slice(0, MAX_ERRORS),
     operationsDiagnostics: tw,
+    modelDiagnostics: {
+      benchmarkWarnings,
+      realityDrift: drift?.hasLog ? {
+        flags: Array.isArray(drift.flags) ? drift.flags.slice() : [],
+        primary: drift.primary || null,
+        actualCR: drift.actualCR ?? null,
+        assumedCR: drift.assumedCR ?? null,
+        actualSR: drift.actualSR ?? null,
+        assumedSR: drift.assumedSR ?? null,
+        actualAPH: drift.actualAPH ?? null,
+        expectedAPH: drift.expectedAPH ?? null,
+      } : {
+        hasLog: false,
+      },
+    },
   };
   const text = JSON.stringify(bundle, null, 2);
   try{
@@ -1715,7 +1765,7 @@ function applyRollingRateToAssumption(kind){
     }
     state.supportRatePct = v;
     if (els.supportRatePct) els.supportRatePct.value = String(v);
-    if (els.applyRollingMsg) els.applyRollingMsg.textContent = `Set assumed support rate to %`;
+    if (els.applyRollingMsg) els.applyRollingMsg.textContent = `Set assumed support rate to ${v}%`;
   }
 }
 
@@ -2028,11 +2078,17 @@ function renderStress(res){
 }
 
 function renderValidation(res, weeks){
+  const benchmarkWarnings = engine?.snapshot?.computeAssumptionBenchmarkWarnings
+    ? engine.snapshot.computeAssumptionBenchmarkWarnings(state, "Benchmark")
+    : [];
+  const driftSummary = computeRealityDrift();
   renderValidationModule({
     els,
     state,
     res,
     weeks,
+    benchmarkWarnings,
+    driftSummary,
   });
 }
 
