@@ -19,6 +19,44 @@ function pushRangeIssue(list, kind, key, value, min, max){
   }
 }
 
+const BENCHMARK_RANGES_BY_RACE = {
+  federal: {
+    contactRatePct: [8, 45],
+    supportRatePct: [25, 80],
+    turnoutA: [30, 80],
+    turnoutB: [30, 80],
+    persuasionPct: [8, 55],
+  },
+  state_leg: {
+    contactRatePct: [5, 50],
+    supportRatePct: [20, 85],
+    turnoutA: [20, 85],
+    turnoutB: [20, 85],
+    persuasionPct: [5, 65],
+  },
+  municipal: {
+    contactRatePct: [6, 55],
+    supportRatePct: [20, 85],
+    turnoutA: [10, 70],
+    turnoutB: [10, 70],
+    persuasionPct: [8, 70],
+  },
+  county: {
+    contactRatePct: [6, 50],
+    supportRatePct: [20, 85],
+    turnoutA: [20, 80],
+    turnoutB: [20, 80],
+    persuasionPct: [6, 65],
+  },
+  default: {
+    contactRatePct: [5, 60],
+    supportRatePct: [20, 85],
+    turnoutA: [20, 90],
+    turnoutB: [20, 90],
+    persuasionPct: [5, 70],
+  },
+};
+
 function normalizeString(v){
   return String(v == null ? "" : v).trim();
 }
@@ -215,11 +253,12 @@ export function computeAssumptionBenchmarkWarnings(scenario, prefix = "Benchmark
   const out = [];
   if (!isObject(scenario)) return out;
 
-  pushRangeIssue(out, prefix, "contactRatePct", scenario.contactRatePct, 5, 60);
-  pushRangeIssue(out, prefix, "supportRatePct", scenario.supportRatePct, 20, 85);
-  pushRangeIssue(out, prefix, "turnoutA", scenario.turnoutA, 20, 90);
-  pushRangeIssue(out, prefix, "turnoutB", scenario.turnoutB, 20, 90);
-  pushRangeIssue(out, prefix, "persuasionPct", scenario.persuasionPct, 5, 70);
+  const raceType = normalizeString(scenario.raceType || "default");
+  const profile = BENCHMARK_RANGES_BY_RACE[raceType] || BENCHMARK_RANGES_BY_RACE.default;
+  for (const key of Object.keys(profile)){
+    const [min, max] = profile[key];
+    pushRangeIssue(out, prefix, key, scenario[key], min, max);
+  }
 
   return out;
 }
