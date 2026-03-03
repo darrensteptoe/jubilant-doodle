@@ -2,16 +2,20 @@ export function computeDecisionKeyOutCore(inputs, deps = {}){
   const {
     scenarioClone,
     engine,
+    derivedWeeksRemaining,
     computeWeeklyOpsContextFromSnap,
     targetFinishDateFromSnap,
   } = deps || {};
   try{
     const snap = scenarioClone(inputs || {});
     const res = engine.computeAll(snap);
-    const weeks = engine.derivedWeeksRemaining({
+    const weeksFn = (typeof derivedWeeksRemaining === "function")
+      ? derivedWeeksRemaining
+      : engine?.derivedWeeksRemaining;
+    const weeks = (typeof weeksFn === "function") ? weeksFn({
       weeksRemainingOverride: snap?.weeksRemaining,
       electionDateISO: snap?.electionDate ? `${snap.electionDate}T00:00:00` : "",
-    });
+    }) : null;
     const ctx = computeWeeklyOpsContextFromSnap(snap, res, weeks);
     const finish = targetFinishDateFromSnap(snap, weeks);
     return { weeks, ctx, finish };
@@ -34,6 +38,7 @@ export function buildDecisionSummaryTextCore(session, deps = {}){
     SCENARIO_BASELINE_ID,
     scenarioClone,
     engine,
+    derivedWeeksRemaining,
     computeWeeklyOpsContextFromSnap,
     targetFinishDateFromSnap,
     fmtISODate,
@@ -60,7 +65,13 @@ export function buildDecisionSummaryTextCore(session, deps = {}){
     const optRec = reg[optScenarioId] || null;
     const optInputs = scenarioClone((optRec?.inputs) || {});
 
-    const coreDeps = { scenarioClone, engine, computeWeeklyOpsContextFromSnap, targetFinishDateFromSnap };
+    const coreDeps = {
+      scenarioClone,
+      engine,
+      derivedWeeksRemaining,
+      computeWeeklyOpsContextFromSnap,
+      targetFinishDateFromSnap
+    };
     const baseOut = computeDecisionKeyOutCore(baseInputs, coreDeps);
     const optOut = computeDecisionKeyOutCore(optInputs, coreDeps);
 
