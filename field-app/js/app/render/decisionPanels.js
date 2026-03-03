@@ -3,6 +3,7 @@ export function renderDecisionConfidencePanel({
   state,
   res,
   weeks,
+  deriveNeedVotes,
   normalizeDailyLogEntry,
   safeNum,
   getEffectiveBaseRates,
@@ -32,9 +33,10 @@ export function renderDecisionConfidencePanel({
     const last7 = sorted.slice(-7);
     const actual7 = last7.reduce((s,e)=> s + (safeNum(e.attempts) ?? 0), 0);
 
-    const rawGoal = safeNum(state.goalSupportIds);
-    const autoGoal = safeNum(res?.expected?.persuasionNeed);
-    const goal = (rawGoal != null && rawGoal >= 0) ? rawGoal : (autoGoal != null && autoGoal > 0 ? autoGoal : 0);
+    const needVotes = (typeof deriveNeedVotes === "function")
+      ? deriveNeedVotes(res, state?.goalSupportIds)
+      : null;
+    const goal = (needVotes != null && needVotes > 0) ? needVotes : 0;
 
     const eff = getEffectiveBaseRates();
     const sr = eff.sr;

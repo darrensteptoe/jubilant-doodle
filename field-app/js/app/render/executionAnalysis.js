@@ -228,6 +228,7 @@ export function renderConversionPanel({
   state,
   res,
   weeks,
+  deriveNeedVotes,
   safeNum,
   fmtInt,
   getEffectiveBaseRates,
@@ -255,9 +256,10 @@ export function renderConversionPanel({
   setText(els.gotvPlannerSupportRate, fmtPct(safeNum(state.supportRatePct)));
   setText(els.gotvPlannerContactRate, fmtPct(safeNum(state.contactRatePct)));
 
-  const rawGoal = safeNum(state.goalSupportIds);
-  const autoGoal = safeNum(res?.expected?.persuasionNeed);
-  const goal = (rawGoal != null && rawGoal >= 0) ? rawGoal : (autoGoal != null && autoGoal > 0 ? autoGoal : 0);
+  const needVotes = (typeof deriveNeedVotes === "function")
+    ? deriveNeedVotes(res, state?.goalSupportIds)
+    : null;
+  const goal = (needVotes != null && needVotes > 0) ? needVotes : 0;
 
   const eff = getEffectiveBaseRates();
   const sr = eff.sr;

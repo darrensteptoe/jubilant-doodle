@@ -6,6 +6,8 @@
 // - Monte Carlo deltas use existing runMonteCarloSim via accessors (same seed + run count)
 // - Fail-soft: never throw to caller
 
+import { computeVolunteerNeedFromGoal } from "./executionPlanner.js";
+
 function safeNum(v){
   const n = Number(v);
   return Number.isFinite(n) ? n : null;
@@ -20,30 +22,6 @@ function pctToUnit(pct, fallback){
   const n = safeNum(pct);
   if (n == null) return fallback;
   return clamp(n, 0, 100) / 100;
-}
-
-function computeVolunteerNeed({ snap, res, weeks }){
-  const rawGoal = safeNum(snap.goalSupportIds);
-  const autoGoal = safeNum(res?.expected?.persuasionNeed);
-  const goal = (rawGoal != null && rawGoal >= 0) ? rawGoal : (autoGoal != null && autoGoal > 0 ? autoGoal : 0);
-
-  const sr = pctToUnit(snap.supportRatePct, null);
-  const cr = pctToUnit(snap.contactRatePct, null);
-
-  const dph = safeNum(snap.doorsPerHour3) ?? safeNum(snap.doorsPerHour);
-  const hps = safeNum(snap.hoursPerShift);
-  const spv = safeNum(snap.shiftsPerVolunteerPerWeek);
-
-  const doorsPerShift = (dph != null && hps != null) ? (dph * hps) : null;
-
-  const convosNeeded = (sr != null && sr > 0) ? (goal / sr) : null;
-  const doorsNeeded = (convosNeeded != null && cr != null && cr > 0) ? (convosNeeded / cr) : null;
-
-  const totalShifts = (doorsNeeded != null && doorsPerShift != null && doorsPerShift > 0) ? (doorsNeeded / doorsPerShift) : null;
-  const shiftsPerWeek = (totalShifts != null && weeks != null && weeks > 0) ? (totalShifts / weeks) : null;
-  const volsNeeded = (shiftsPerWeek != null && spv != null && spv > 0) ? (shiftsPerWeek / spv) : null;
-
-  return volsNeeded;
 }
 
 function computeMinCostToCloseGap({ computeRoiRows, snap, baseRates, tactics, goalNetVotes, caps, mcLast, turnoutModel }){
@@ -229,7 +207,10 @@ export function computeDecisionIntelligence({ engine, snap, baseline }){
     if (!engine || !snap || typeof snap !== "object") return safeStub;
 
     const computeBaseline = () => {
-      const weeks = baseline?.weeks ?? engine.derivedWeeksRemaining();
+      const weeks = baseline?.weeks ?? engine.derivedWeeksRemaining({
+        weeksRemainingOverride: snap?.weeksRemaining,
+        electionDateISO: snap?.electionDate ? `${snap.electionDate}T00:00:00` : ""
+      });
       const modelInput = {
         universeSize: safeNum(snap.universeSize),
         turnoutA: safeNum(snap.turnoutA),
@@ -244,8 +225,16 @@ export function computeDecisionIntelligence({ engine, snap, baseline }){
         earlyVoteExp: safeNum(snap.earlyVoteExp),
       };
       const res = baseline?.res ?? engine.computeAll(modelInput);
-      const needVotes = baseline?.needVotes ?? engine.deriveNeedVotes(res);
-      const volsNeeded = baseline?.volsNeeded ?? computeVolunteerNeed({ snap, res, weeks });
+      const needVotes = baseline?.needVotes ?? engine.deriveNeedVotes(res, snap?.goalSupportIds);
+      const volsNeeded = baseline?.volsNeeded ?? computeVolunteerNeedFromGoal({
+        goalVotes: needVotes,
+        supportRatePct: snap.supportRatePct,
+        contactRatePct: snap.contactRatePct,
+        doorsPerHour: (safeNum(snap.doorsPerHour3) ?? safeNum(snap.doorsPerHour)),
+        hoursPerShift: snap.hoursPerShift,
+        shiftsPerVolunteerPerWeek: snap.shiftsPerVolunteerPerWeek,
+        weeks
+      });
       const seed = (snap.mcSeed != null && String(snap.mcSeed).trim() !== "") ? String(snap.mcSeed) : DI_FALLBACK_SEED;
       const sim = engine.runMonteCarloSim({ res, weeks, needVotes, runs: 10000, seed });
       const s = sim?.summary || sim || {};
@@ -311,7 +300,10 @@ export function computeDecisionIntelligence({ engine, snap, baseline }){
       const out = engine.withPatchedState(lv.patch, () => {
         const nextSnap = engine.getStateSnapshot ? engine.getStateSnapshot() : null;
 
-        const weeks = engine.derivedWeeksRemaining();
+        const weeks = engine.derivedWeeksRemaining({
+          weeksRemainingOverride: nextSnap?.weeksRemaining,
+          electionDateISO: nextSnap?.electionDate ? `${nextSnap.electionDate}T00:00:00` : ""
+        });
         const modelInput = {
           universeSize: safeNum(nextSnap.universeSize),
           turnoutA: safeNum(nextSnap.turnoutA),
@@ -326,9 +318,17 @@ export function computeDecisionIntelligence({ engine, snap, baseline }){
           earlyVoteExp: safeNum(nextSnap.earlyVoteExp),
         };
         const res = engine.computeAll(modelInput);
-        const needVotes = engine.deriveNeedVotes(res);
+        const needVotes = engine.deriveNeedVotes(res, nextSnap?.goalSupportIds);
 
-        const volsNeeded = computeVolunteerNeed({ snap: nextSnap, res, weeks });
+        const volsNeeded = computeVolunteerNeedFromGoal({
+          goalVotes: needVotes,
+          supportRatePct: nextSnap.supportRatePct,
+          contactRatePct: nextSnap.contactRatePct,
+          doorsPerHour: (safeNum(nextSnap.doorsPerHour3) ?? safeNum(nextSnap.doorsPerHour)),
+          hoursPerShift: nextSnap.hoursPerShift,
+          shiftsPerVolunteerPerWeek: nextSnap.shiftsPerVolunteerPerWeek,
+          weeks
+        });
 
         const seed = (nextSnap.mcSeed != null && String(nextSnap.mcSeed).trim() !== "") ? String(nextSnap.mcSeed) : DI_FALLBACK_SEED;
         const sim = engine.runMonteCarloSim({ res, weeks, needVotes, runs: 10000, seed });

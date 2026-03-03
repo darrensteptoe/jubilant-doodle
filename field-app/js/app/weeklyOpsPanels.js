@@ -165,66 +165,33 @@ export function renderWeeklyExecutionStatusModule(args){
 export function renderWeeklyOpsModule(args){
   const {
     els,
-    state,
     res,
     weeks,
-    safeNum,
-    getEffectiveBaseRates,
     fmtInt,
-    computeCapacityBreakdown,
-    clamp,
     computeWeeklyOpsContext,
     renderWeeklyExecutionStatus,
   } = args || {};
 
   if (!els.wkGoal) return;
 
-  const rawGoal = safeNum(state.goalSupportIds);
-  const autoGoal = safeNum(res?.expected?.persuasionNeed);
-  const goal = (rawGoal != null && rawGoal >= 0) ? rawGoal : (autoGoal != null && autoGoal > 0 ? autoGoal : 0);
-
-  const eff = getEffectiveBaseRates();
-  const sr = eff.sr;
-  const cr = eff.cr;
+  const context = computeWeeklyOpsContext(res, weeks) || {};
+  const goal = context.goal ?? 0;
+  const sr = context.sr;
+  const cr = context.cr;
+  const convosPerWeek = context.convosPerWeek;
+  const attemptsPerWeek = context.attemptsPerWeek;
+  const cap = context.cap;
+  const capTotal = context.capTotal;
+  const gap = context.gap;
 
   const fmtMaybeInt = (v) => (v == null || !isFinite(v)) ? "—" : fmtInt(Math.ceil(v));
   const fmtMaybe = (v) => (v == null || !isFinite(v)) ? "—" : fmtInt(Math.round(v));
 
   els.wkGoal.textContent = (goal == null) ? "—" : fmtInt(Math.round(goal));
 
-  let convosNeeded = null;
-  let attemptsNeeded = null;
-  let convosPerWeek = null;
-  let attemptsPerWeek = null;
-
-  if (goal > 0 && sr && sr > 0) convosNeeded = goal / sr;
-  if (convosNeeded != null && cr && cr > 0) attemptsNeeded = convosNeeded / cr;
-  if (weeks != null && weeks > 0){
-    if (convosNeeded != null) convosPerWeek = convosNeeded / weeks;
-    if (attemptsNeeded != null) attemptsPerWeek = attemptsNeeded / weeks;
-  }
-
   els.wkConvosPerWeek.textContent = fmtMaybeInt(convosPerWeek);
   els.wkAttemptsPerWeek.textContent = fmtMaybeInt(attemptsPerWeek);
 
-  const orgCount = safeNum(state.orgCount);
-  const orgHoursPerWeek = safeNum(state.orgHoursPerWeek);
-  const volunteerMult = safeNum(state.volunteerMultBase);
-  const doorShare = safeNum(state.channelDoorPct);
-  const doorsPerHour = safeNum(state.doorsPerHour3);
-  const callsPerHour = safeNum(state.callsPerHour3);
-
-  const cap = computeCapacityBreakdown({
-    weeks: 1,
-    orgCount,
-    orgHoursPerWeek,
-    volunteerMult,
-    doorShare: (doorShare == null) ? null : clamp(doorShare / 100, 0, 1),
-    doorsPerHour,
-    callsPerHour
-  });
-
-  const capTotal = cap?.total ?? null;
   els.wkCapacityPerWeek.textContent = fmtMaybeInt(capTotal);
   if (els.wkCapacityBreakdown){
     if (cap && cap.doors != null && cap.phones != null){
@@ -233,9 +200,6 @@ export function renderWeeklyOpsModule(args){
       els.wkCapacityBreakdown.textContent = "—";
     }
   }
-
-  let gap = null;
-  if (attemptsPerWeek != null && capTotal != null) gap = attemptsPerWeek - capTotal;
 
   if (els.wkGapPerWeek){
     if (gap == null) els.wkGapPerWeek.textContent = "—";
@@ -296,6 +260,5 @@ export function renderWeeklyOpsModule(args){
     }
   }
 
-  const context = computeWeeklyOpsContext(res, weeks);
   renderWeeklyExecutionStatus(context);
 }

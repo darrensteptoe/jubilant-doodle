@@ -1,16 +1,18 @@
-import { safeNum, daysBetween, clamp } from "../utils.js";
+import { safeNum, clamp } from "../utils.js";
 import { normalizeUniversePercents, UNIVERSE_DEFAULTS } from "../core/universeLayer.js";
+import { deriveNeedVotes as coreDeriveNeedVotes, derivedWeeksRemaining as coreDerivedWeeksRemaining } from "../core/model.js";
 
 export function derivedWeeksRemainingFromState(state, { nowDate = new Date() } = {}){
   const override = safeNum(state?.weeksRemaining);
   if (override != null && override >= 0) return override;
 
-  const d = state?.electionDate;
-  if (!d) return null;
-  const election = new Date(d + "T00:00:00");
-  const days = daysBetween(nowDate, election);
-  if (days == null) return null;
-  return Math.max(0, Math.ceil(days / 7));
+  const weeks = coreDerivedWeeksRemaining({
+    weeksRemainingOverride: null,
+    electionDateISO: state?.electionDate ? `${state.electionDate}T00:00:00` : "",
+    nowDate
+  });
+  if (weeks == null || !Number.isFinite(weeks)) return null;
+  return Math.max(0, Math.ceil(weeks));
 }
 
 export function getUniverseLayerConfig(state){
@@ -57,9 +59,8 @@ export function getEffectiveBaseRates(state, { computeUniverseAdjustedRates } = 
 }
 
 export function computeWeeklyOpsContextFromState(state, { res, weeks, getEffectiveBaseRatesForState, computeCapacityBreakdown } = {}){
-  const rawGoal = safeNum(state?.goalSupportIds);
-  const autoGoal = safeNum(res?.expected?.persuasionNeed);
-  const goal = (rawGoal != null && rawGoal >= 0) ? rawGoal : (autoGoal != null && autoGoal > 0 ? autoGoal : 0);
+  const needVotes = coreDeriveNeedVotes(res, state?.goalSupportIds);
+  const goal = (needVotes != null && needVotes > 0) ? needVotes : 0;
 
   const eff = getEffectiveBaseRatesForState(state);
   const sr = eff.sr;
