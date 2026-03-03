@@ -220,6 +220,145 @@ export function wireTabAndExportEvents(ctx){
   }
 }
 
+function coerceImportedNumber(raw){
+  if (raw == null) return raw;
+  if (typeof raw === "number") return Number.isFinite(raw) ? raw : raw;
+  if (typeof raw !== "string") return raw;
+  const trimmed = raw.trim();
+  if (!trimmed) return raw;
+  const noCommas = trimmed.replace(/,/g, "");
+  const noPercent = noCommas.endsWith("%") ? noCommas.slice(0, -1).trim() : noCommas;
+  if (!noPercent) return raw;
+  const n = Number(noPercent);
+  return Number.isFinite(n) ? n : raw;
+}
+
+function sanitizeImportedScenarioData(scenario){
+  const out = (scenario && typeof scenario === "object") ? structuredClone(scenario) : {};
+  const warnings = [];
+  const decimalPctFields = new Set([
+    "turnoutA","turnoutB","bandWidth","undecidedPct","persuasionPct","earlyVoteExp",
+    "supportRatePct","contactRatePct","turnoutReliabilityPct","channelDoorPct","turnoutBaselinePct",
+    "universeDemPct","universeRepPct","universeNpaPct","universeOtherPct",
+  ]);
+  const maybeScalePct = (key, before, after) => {
+    if (!decimalPctFields.has(key)) return after;
+    if (!Number.isFinite(after)) return after;
+    if (!(after > 0 && after <= 1)) return after;
+    const fromPercentString = (typeof before === "string") && before.trim().endsWith("%");
+    if (fromPercentString) return after;
+    const scaled = after * 100;
+    warnings.push(`Scaled '${key}' from decimal ${after} to percent ${scaled}.`);
+    return scaled;
+  };
+
+  const boundedFields = [
+    "turnoutA","turnoutB","bandWidth","undecidedPct","persuasionPct","earlyVoteExp",
+    "supportRatePct","contactRatePct","turnoutReliabilityPct","channelDoorPct","turnoutBaselinePct",
+    "gotvLiftPP","gotvMaxLiftPP","gotvLiftMin","gotvLiftMode","gotvLiftMax","gotvMaxLiftPP2",
+    "universeDemPct","universeRepPct","universeNpaPct","universeOtherPct",
+  ];
+  const nonNegativeFields = [
+    "universeSize","goalSupportIds","orgCount","orgHoursPerWeek","volunteerMultBase",
+    "doorsPerHour3","callsPerHour3","doorsPerHour","hoursPerShift","shiftsPerVolunteerPerWeek",
+    "timelineActiveWeeks","timelineGotvWeeks","timelineStaffCount","timelineStaffHours",
+    "timelineVolCount","timelineVolHours","timelineDoorsPerHour","timelineCallsPerHour",
+    "timelineTextsPerHour","twCapOverrideHorizonWeeks",
+  ];
+  const topLevelNumericFields = new Set([...boundedFields, ...nonNegativeFields]);
+
+  for (const key of topLevelNumericFields){
+    if (!Object.prototype.hasOwnProperty.call(out, key)) continue;
+    const before = out[key];
+    let after = coerceImportedNumber(before);
+    if (typeof after === "number") after = maybeScalePct(key, before, after);
+    if (after !== before){
+      out[key] = after;
+      warnings.push(`Coerced '${key}' from '${before}' to ${after}.`);
+    }
+  }
+
+  if (Array.isArray(out.candidates)){
+    for (const cand of out.candidates){
+      if (!cand || typeof cand !== "object") continue;
+      if (!Object.prototype.hasOwnProperty.call(cand, "supportPct")) continue;
+      const before = cand.supportPct;
+      let after = coerceImportedNumber(before);
+      if (typeof after === "number" && after > 0 && after <= 1 && !(typeof before === "string" && before.trim().endsWith("%"))){
+        const scaled = after * 100;
+        warnings.push(`Scaled candidate supportPct from decimal ${after} to percent ${scaled}.`);
+        after = scaled;
+      }
+      if (after !== before){
+        cand.supportPct = after;
+        warnings.push(`Coerced candidate supportPct '${before}' to ${after}.`);
+      }
+    }
+  }
+
+  if (out.userSplit && typeof out.userSplit === "object"){
+    for (const key of Object.keys(out.userSplit)){
+      const before = out.userSplit[key];
+      let after = coerceImportedNumber(before);
+      if (typeof after === "number" && after > 0 && after <= 1 && !(typeof before === "string" && before.trim().endsWith("%"))){
+        const scaled = after * 100;
+        warnings.push(`Scaled userSplit['${key}'] from decimal ${after} to percent ${scaled}.`);
+        after = scaled;
+      }
+      if (after !== before){
+        out.userSplit[key] = after;
+        warnings.push(`Coerced userSplit['${key}'] from '${before}' to ${after}.`);
+      }
+    }
+  }
+
+  const tactics = out?.budget?.tactics;
+  if (tactics && typeof tactics === "object"){
+    for (const tk of ["doors", "phones", "texts"]){
+      const t = tactics[tk];
+      if (!t || typeof t !== "object") continue;
+      for (const key of ["cpa", "crPct", "srPct"]){
+        if (!Object.prototype.hasOwnProperty.call(t, key)) continue;
+        const before = t[key];
+        const after = coerceImportedNumber(before);
+        if (after !== before){
+          t[key] = after;
+          warnings.push(`Coerced budget.tactics.${tk}.${key} from '${before}' to ${after}.`);
+        }
+      }
+    }
+  }
+
+  const optimize = out?.budget?.optimize;
+  if (optimize && typeof optimize === "object"){
+    for (const key of ["budgetAmount", "capacityAttempts", "step"]){
+      if (!Object.prototype.hasOwnProperty.call(optimize, key)) continue;
+      const before = optimize[key];
+      const after = (key === "capacityAttempts") ? coerceImportedNumber(before) : coerceImportedNumber(before);
+      if (after !== before){
+        optimize[key] = after;
+        warnings.push(`Coerced budget.optimize.${key} from '${before}' to ${after}.`);
+      }
+    }
+  }
+
+  return { scenario: out, warnings };
+}
+
+function normalizeImportWarnings(list){
+  const arr = Array.isArray(list) ? list : [];
+  const seen = new Set();
+  const out = [];
+  for (const item of arr){
+    const text = String(item == null ? "" : item).trim();
+    if (!text) continue;
+    if (seen.has(text)) continue;
+    seen.add(text);
+    out.push(text);
+  }
+  return out;
+}
+
 export function wireResetImportAndUiToggles(ctx){
   const {
     els,
@@ -283,6 +422,13 @@ export function wireResetImportAndUiToggles(ctx){
     els.loadJson.addEventListener("change", async () => {
       const file = els.loadJson.files?.[0];
       if (!file) return;
+      if (els.importWarnBanner){
+        els.importWarnBanner.hidden = true;
+        els.importWarnBanner.textContent = "";
+      }
+      if (els.importHashBanner){
+        els.importHashBanner.hidden = true;
+      }
 
       const loaded = await readJsonFile(file);
       if (!loaded || typeof loaded !== "object"){
@@ -306,7 +452,7 @@ export function wireResetImportAndUiToggles(ctx){
       }
 
       const mig = engine.snapshot.migrateSnapshot(loaded);
-      const importWarnings = Array.isArray(mig?.warnings) ? [...mig.warnings] : [];
+      const importWarnings = normalizeImportWarnings(mig?.warnings);
 
       const v = engine.snapshot.validateScenarioExport(mig.snapshot, engine.snapshot.MODEL_VERSION);
       if (!v.ok){
@@ -315,14 +461,20 @@ export function wireResetImportAndUiToggles(ctx){
         return;
       }
 
-      const missing = requiredScenarioKeysMissing(v.scenario);
+      const sanitized = sanitizeImportedScenarioData(v.scenario);
+      if (sanitized.warnings?.length){
+        importWarnings.push(...sanitized.warnings);
+      }
+      const scenarioForImport = sanitized.scenario;
+
+      const missing = requiredScenarioKeysMissing(scenarioForImport);
       if (missing.length){
         alert("Import failed: scenario is missing required fields: " + missing.join(", "));
         els.loadJson.value = "";
         return;
       }
 
-      const quality = engine.snapshot.validateImportedScenarioData(v.scenario);
+      const quality = engine.snapshot.validateImportedScenarioData(scenarioForImport);
       if (!quality.ok){
         const details = quality.errors.map((x) => `- ${x}`).join("\n");
         alert(`Import failed: quality checks failed.\n${details}`);
@@ -332,13 +484,20 @@ export function wireResetImportAndUiToggles(ctx){
       if (quality.warnings?.length){
         importWarnings.push(...quality.warnings);
       }
+      const normalizedWarnings = normalizeImportWarnings(importWarnings);
 
       if (els.importWarnBanner){
-        if (importWarnings.length){
-          const shown = importWarnings.slice(0, 6).join(" ");
-          const extra = importWarnings.length > 6 ? ` (+${importWarnings.length - 6} more)` : "";
-          els.importWarnBanner.hidden = false;
-          els.importWarnBanner.textContent = `${shown}${extra}`.trim();
+        if (normalizedWarnings.length){
+          const shown = normalizedWarnings.slice(0, 6).join(" ");
+          const extra = normalizedWarnings.length > 6 ? ` (+${normalizedWarnings.length - 6} more)` : "";
+          const msg = `${shown}${extra}`.trim();
+          if (msg){
+            els.importWarnBanner.hidden = false;
+            els.importWarnBanner.textContent = msg;
+          } else {
+            els.importWarnBanner.hidden = true;
+            els.importWarnBanner.textContent = "";
+          }
         } else {
           els.importWarnBanner.hidden = true;
           els.importWarnBanner.textContent = "";
@@ -348,7 +507,7 @@ export function wireResetImportAndUiToggles(ctx){
       // Phase 9B — snapshot integrity verification (+ Phase 11 strict option)
       try{
         const exportedHash = (loaded && typeof loaded === "object") ? (loaded.snapshotHash || null) : null;
-        const recomputed = engine.snapshot.computeSnapshotHash({ modelVersion: v.modelVersion, scenarioState: v.scenario });
+        const recomputed = engine.snapshot.computeSnapshotHash({ modelVersion: v.modelVersion, scenarioState: scenarioForImport });
         const hashMismatch = !!(exportedHash && exportedHash !== recomputed);
 
         if (hashMismatch){
@@ -358,7 +517,10 @@ export function wireResetImportAndUiToggles(ctx){
           }
           console.warn("Snapshot hash mismatch", { exportedHash, recomputed });
         } else {
-          if (els.importHashBanner) els.importHashBanner.hidden = true;
+          if (els.importHashBanner){
+            els.importHashBanner.hidden = true;
+            els.importHashBanner.textContent = "Snapshot hash differs from exported hash.";
+          }
         }
 
         const curState = getState();
@@ -383,7 +545,7 @@ export function wireResetImportAndUiToggles(ctx){
       }
 
       // Replace entire state safely (no partial merge with current state)
-      replaceState(normalizeLoadedState(v.scenario));
+      replaceState(normalizeLoadedState(scenarioForImport));
       ensureScenarioRegistry();
       ensureDecisionScaffold();
       try{
