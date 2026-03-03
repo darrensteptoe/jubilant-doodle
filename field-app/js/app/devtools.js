@@ -1,3 +1,5 @@
+import { buildModelInputFromState } from "./modelInput.js";
+
 export function initDevToolsPanel({
   state,
   engine,
@@ -182,19 +184,7 @@ export function initDevToolsPanel({
 
   const buildCurrentMcContext = () => {
     const weeks = derivedWeeksRemaining();
-    const modelInput = {
-      universeSize: safeNum(state.universeSize),
-      turnoutA: safeNum(state.turnoutA),
-      turnoutB: safeNum(state.turnoutB),
-      bandWidth: safeNum(state.bandWidth),
-      candidates: state.candidates.map(c => ({ id: c.id, name: c.name, supportPct: safeNum(c.supportPct) })),
-      undecidedPct: safeNum(state.undecidedPct),
-      yourCandidateId: state.yourCandidateId,
-      undecidedMode: state.undecidedMode,
-      userSplit: state.userSplit,
-      persuasionPct: safeNum(state.persuasionPct),
-      earlyVoteExp: safeNum(state.earlyVoteExp),
-    };
+    const modelInput = buildModelInputFromState(state, safeNum);
     const res = engine.computeAll(modelInput);
     const w = (weeks != null && weeks >= 0) ? weeks : null;
     const needVotes = deriveNeedVotes(res);
