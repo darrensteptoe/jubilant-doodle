@@ -22,6 +22,7 @@ import { checkStrictImportPolicy } from "./importPolicy.js";
 import { computeConfidenceEnvelope } from "./confidenceEnvelope.js";
 import { computeSensitivitySurface } from "./sensitivitySurface.js";
 import { computeUniverseAdjustedRates, UNIVERSE_DEFAULTS } from "./universeLayer.js";
+import { buildModelInputFromSnapshot } from "./modelInput.js";
 
 function withUniverseDefaults(s){
   // Phase 16 fields are now required for stable hashing/export roundtrips.
@@ -278,28 +279,6 @@ export function runSelfTests(engine){
   const snap = (engine.getStateSnapshot && typeof engine.getStateSnapshot === "function")
     ? engine.getStateSnapshot()
     : null;
-
-  const buildModelInputFromSnapshot = (s) => {
-    // Mirrors app.js modelInput structure.
-    const candidates = Array.isArray(s?.candidates) ? s.candidates : [];
-    return {
-      universeSize: (s?.universeSize != null) ? Number(s.universeSize) : null,
-      turnoutA: (s?.turnoutA != null) ? Number(s.turnoutA) : null,
-      turnoutB: (s?.turnoutB != null) ? Number(s.turnoutB) : null,
-      bandWidth: (s?.bandWidth != null) ? Number(s.bandWidth) : null,
-      candidates: candidates.map(c => ({
-        id: c.id,
-        name: c.name,
-        supportPct: (c?.supportPct != null) ? Number(c.supportPct) : null
-      })),
-      undecidedPct: (s?.undecidedPct != null) ? Number(s.undecidedPct) : null,
-      yourCandidateId: s?.yourCandidateId,
-      undecidedMode: s?.undecidedMode,
-      userSplit: s?.userSplit,
-      persuasionPct: (s?.persuasionPct != null) ? Number(s.persuasionPct) : null,
-      earlyVoteExp: (s?.earlyVoteExp != null) ? Number(s.earlyVoteExp) : null,
-    };
-  };
 
   const baseline = (() => {
     try{

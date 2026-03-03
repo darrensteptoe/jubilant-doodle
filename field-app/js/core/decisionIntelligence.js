@@ -7,6 +7,7 @@
 // - Fail-soft: never throw to caller
 
 import { computeVolunteerNeedFromGoal } from "./executionPlanner.js";
+import { buildModelInputFromSnapshot } from "./modelInput.js";
 
 function safeNum(v){
   const n = Number(v);
@@ -22,24 +23,6 @@ function pctToUnit(pct, fallback){
   const n = safeNum(pct);
   if (n == null) return fallback;
   return clamp(n, 0, 100) / 100;
-}
-
-function buildModelInputFromSnap(snap){
-  const s = snap || {};
-  const candidates = Array.isArray(s.candidates) ? s.candidates : [];
-  return {
-    universeSize: safeNum(s.universeSize),
-    turnoutA: safeNum(s.turnoutA),
-    turnoutB: safeNum(s.turnoutB),
-    bandWidth: safeNum(s.bandWidth),
-    candidates: candidates.map((c) => ({ id: c?.id, name: c?.name, supportPct: safeNum(c?.supportPct) })),
-    undecidedPct: safeNum(s.undecidedPct),
-    yourCandidateId: s.yourCandidateId,
-    undecidedMode: s.undecidedMode,
-    userSplit: s.userSplit || {},
-    persuasionPct: safeNum(s.persuasionPct),
-    earlyVoteExp: safeNum(s.earlyVoteExp),
-  };
 }
 
 function buildBaseRatesFromSnap(snap){
@@ -260,7 +243,7 @@ export function computeDecisionIntelligence({ engine, snap, baseline }){
         weeksRemainingOverride: snap?.weeksRemaining,
         electionDateISO: snap?.electionDate ? `${snap.electionDate}T00:00:00` : ""
       });
-      const modelInput = buildModelInputFromSnap(snap);
+      const modelInput = buildModelInputFromSnapshot(snap, safeNum);
       const res = baseline?.res ?? engine.computeAll(modelInput);
       const needVotes = baseline?.needVotes ?? engine.deriveNeedVotes(res, snap?.goalSupportIds);
       const volsNeeded = baseline?.volsNeeded ?? computeVolunteerNeedFromGoal({
@@ -319,7 +302,7 @@ export function computeDecisionIntelligence({ engine, snap, baseline }){
           weeksRemainingOverride: nextSnap?.weeksRemaining,
           electionDateISO: nextSnap?.electionDate ? `${nextSnap.electionDate}T00:00:00` : ""
         });
-        const modelInput = buildModelInputFromSnap(nextSnap);
+        const modelInput = buildModelInputFromSnapshot(nextSnap, safeNum);
         const res = engine.computeAll(modelInput);
         const needVotes = engine.deriveNeedVotes(res, nextSnap?.goalSupportIds);
 
