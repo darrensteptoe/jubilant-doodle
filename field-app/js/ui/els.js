@@ -250,6 +250,7 @@ export const els = {
   applyRollingCRBtn: document.getElementById("applyRollingCRBtn"),
   applyRollingSRBtn: document.getElementById("applyRollingSRBtn"),
   applyRollingAPHBtn: document.getElementById("applyRollingAPHBtn"),
+  applyRollingAllBtn: document.getElementById("applyRollingAllBtn"),
   applyRollingMsg: document.getElementById("applyRollingMsg"),
 
   // Phase 3 — execution + risk

@@ -670,6 +670,7 @@ export function wireSafetyAndDiagnosticsEvents(ctx){
     exportDailyLog,
     mergeDailyLogIntoState,
     applyRollingRateToAssumption,
+    applyAllRollingCalibrations,
     undoLastWeeklyAction,
     safeCall,
   } = ctx || {};
@@ -737,6 +738,7 @@ export function wireSafetyAndDiagnosticsEvents(ctx){
     if (els.applyRollingCRBtn) els.applyRollingCRBtn.addEventListener("click", () => { safeCall(() => { applyRollingRateToAssumption("contact"); }); });
     if (els.applyRollingSRBtn) els.applyRollingSRBtn.addEventListener("click", () => { safeCall(() => { applyRollingRateToAssumption("support"); }); });
     if (els.applyRollingAPHBtn) els.applyRollingAPHBtn.addEventListener("click", () => { safeCall(() => { applyRollingRateToAssumption("productivity"); }); });
+    if (els.applyRollingAllBtn) els.applyRollingAllBtn.addEventListener("click", () => { safeCall(() => { applyAllRollingCalibrations?.(); }); });
     if (els.wkUndoActionBtn) els.wkUndoActionBtn.addEventListener("click", () => { safeCall(() => { undoLastWeeklyAction(); }); });
   });
 }
