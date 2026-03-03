@@ -142,11 +142,6 @@ import {
   requiredScenarioKeysMissingModule
 } from "./app/stateNormalizationHelpers.js";
 import {
-  rebuildCandidateTableModule,
-  rebuildYourCandidateSelectModule,
-  rebuildUserSplitInputsModule,
-} from "./app/candidateUi.js";
-import {
   updatePersistenceStatusChipModule,
   reportPersistenceFailureModule,
   clearPersistenceFailureModule
@@ -1187,31 +1182,117 @@ function applyStateToUI(){
 }
 
 function rebuildCandidateTable(){
-  return rebuildCandidateTableModule({
-    els,
-    getState: () => state,
-    safeNum,
-    commitUIUpdate,
-    rebuildCandidateTable,
-    rebuildYourCandidateSelect,
-    rebuildUserSplitInputs,
-  });
+  els.candTbody.innerHTML = "";
+
+  for (const cand of state.candidates){
+    const tr = document.createElement("tr");
+
+    const tdName = document.createElement("td");
+    const nameInput = document.createElement("input");
+    nameInput.className = "input input-sm";
+    nameInput.value = cand.name || "";
+    nameInput.addEventListener("input", () => {
+      cand.name = nameInput.value;
+      if (!state.userSplit[cand.id]) state.userSplit[cand.id] = 0;
+      rebuildYourCandidateSelect();
+      rebuildUserSplitInputs();
+      commitUIUpdate();
+    });
+    tdName.appendChild(nameInput);
+
+    const tdPct = document.createElement("td");
+    tdPct.className = "num";
+    const pctInput = document.createElement("input");
+    pctInput.className = "input input-sm num";
+    pctInput.type = "number";
+    pctInput.min = "0";
+    pctInput.max = "100";
+    pctInput.step = "0.1";
+    pctInput.value = cand.supportPct ?? "";
+    pctInput.addEventListener("input", () => {
+      cand.supportPct = safeNum(pctInput.value);
+      commitUIUpdate();
+    });
+    tdPct.appendChild(pctInput);
+
+    const tdDel = document.createElement("td");
+    tdDel.className = "num";
+    const delBtn = document.createElement("button");
+    delBtn.className = "btn btn-sm btn-ghost";
+    delBtn.type = "button";
+    delBtn.textContent = "Remove";
+    delBtn.disabled = state.candidates.length <= 2;
+    delBtn.addEventListener("click", () => {
+      if (state.candidates.length <= 2) return;
+      state.candidates = state.candidates.filter(c => c.id !== cand.id);
+      delete state.userSplit[cand.id];
+      if (state.yourCandidateId === cand.id){
+        state.yourCandidateId = state.candidates[0]?.id || null;
+      }
+      rebuildCandidateTable();
+      rebuildYourCandidateSelect();
+      rebuildUserSplitInputs();
+      commitUIUpdate();
+    });
+    tdDel.appendChild(delBtn);
+
+    tr.appendChild(tdName);
+    tr.appendChild(tdPct);
+    tr.appendChild(tdDel);
+    els.candTbody.appendChild(tr);
+  }
+
+  rebuildYourCandidateSelect();
+  rebuildUserSplitInputs();
 }
 
 function rebuildYourCandidateSelect(){
-  return rebuildYourCandidateSelectModule({
-    els,
-    getState: () => state,
-  });
+  els.yourCandidate.innerHTML = "";
+  for (const cand of state.candidates){
+    const opt = document.createElement("option");
+    opt.value = cand.id;
+    opt.textContent = cand.name || "Candidate";
+    els.yourCandidate.appendChild(opt);
+  }
+  if (!state.yourCandidateId){
+    state.yourCandidateId = state.candidates[0]?.id || null;
+  }
+  els.yourCandidate.value = state.yourCandidateId || "";
 }
 
 function rebuildUserSplitInputs(){
-  return rebuildUserSplitInputsModule({
-    els,
-    getState: () => state,
-    safeNum,
-    commitUIUpdate,
-  });
+  const isUser = state.undecidedMode === "user_defined";
+  els.userSplitWrap.hidden = !isUser;
+  if (!isUser) return;
+
+  els.userSplitList.innerHTML = "";
+  for (const cand of state.candidates){
+    if (state.userSplit[cand.id] == null) state.userSplit[cand.id] = 0;
+    const row = document.createElement("div");
+    row.className = "grid2";
+    row.style.gridTemplateColumns = "1fr 120px";
+
+    const name = document.createElement("div");
+    name.className = "label";
+    name.style.alignSelf = "center";
+    name.textContent = cand.name || "Candidate";
+
+    const inp = document.createElement("input");
+    inp.className = "input input-sm num";
+    inp.type = "number";
+    inp.min = "0";
+    inp.max = "100";
+    inp.step = "0.1";
+    inp.value = state.userSplit[cand.id] ?? 0;
+    inp.addEventListener("input", () => {
+      state.userSplit[cand.id] = safeNum(inp.value);
+      commitUIUpdate();
+    });
+
+    row.appendChild(name);
+    row.appendChild(inp);
+    els.userSplitList.appendChild(row);
+  }
 }
 
 function wireEvents(){
