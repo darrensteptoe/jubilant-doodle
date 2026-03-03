@@ -142,6 +142,21 @@ import {
   requiredScenarioKeysMissingModule
 } from "./app/stateNormalizationHelpers.js";
 import {
+  twCapTextModule,
+  twCapNumModule,
+  twCapFmtIntModule,
+  twCapFmt1Module,
+  twCapFmtSignedModule,
+  twCapRatioTextModule,
+  twCapFmtPct01Module,
+  twCapMedianModule,
+  twCapCleanModule,
+  twCapTransitionKeyModule,
+  twCapParseDateModule,
+  twCapWeekStartModule,
+  twCapIsoUTCModule,
+} from "./app/twCapHelpers.js";
+import {
   updatePersistenceStatusChipModule,
   reportPersistenceFailureModule,
   clearPersistenceFailureModule
@@ -341,57 +356,39 @@ const TW_CAP_DAY_MS = 86400000;
 const TW_CAP_WEEK_MS = 7 * TW_CAP_DAY_MS;
 
 function twCapText(el, text){
-  if (el) el.textContent = String(text ?? "");
+  return twCapTextModule(el, text);
 }
 
 function twCapNum(v, fallback = 0){
-  const n = Number(v);
-  return Number.isFinite(n) ? n : fallback;
+  return twCapNumModule(v, fallback);
 }
 
 function twCapFmtInt(v){
-  return (v == null || !Number.isFinite(v)) ? "—" : fmtInt(Math.round(v));
+  return twCapFmtIntModule(v, { fmtInt });
 }
 
 function twCapFmt1(v){
-  const n = Number(v);
-  return Number.isFinite(n) ? n.toFixed(1) : "—";
+  return twCapFmt1Module(v);
 }
 
 function twCapFmtSigned(v){
-  if (v == null || !Number.isFinite(v)) return "—";
-  const n = Math.round(v);
-  if (n > 0) return `+${fmtInt(n)}`;
-  if (n < 0) return `−${fmtInt(Math.abs(n))}`;
-  return "0";
+  return twCapFmtSignedModule(v, { fmtInt });
 }
 
 function twCapRatioText(numerator, denominator){
-  const num = Number(numerator);
-  const den = Number(denominator);
-  if (!Number.isFinite(num) || !Number.isFinite(den) || den <= 0) return "—";
-  return `${(100 * num / den).toFixed(1)}%`;
+  return twCapRatioTextModule(numerator, denominator);
 }
 
 function twCapFmtPct01(v){
-  const n = Number(v);
-  if (!Number.isFinite(n)) return "—";
-  return `${(100 * n).toFixed(1)}%`;
+  return twCapFmtPct01Module(v);
 }
 
 function twCapMedian(values){
-  const list = (Array.isArray(values) ? values : [])
-    .map((v) => Number(v))
-    .filter((v) => Number.isFinite(v))
-    .sort((a, b) => a - b);
-  if (!list.length) return null;
-  const mid = Math.floor(list.length / 2);
-  if (list.length % 2 === 1) return list[mid];
-  return (list[mid - 1] + list[mid]) / 2;
+  return twCapMedianModule(values);
 }
 
 function twCapClean(v){
-  return String(v == null ? "" : v).trim();
+  return twCapCleanModule(v);
 }
 
 function twCapOverrideModeFromState(srcState = state){
@@ -411,33 +408,19 @@ function twCapResolveOverrideAttempts(srcState = state){
 }
 
 function twCapTransitionKey(from, to){
-  const slug = (s) => twCapClean(s).toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "");
-  return `${slug(from)}_to_${slug(to)}`;
+  return twCapTransitionKeyModule(from, to);
 }
 
 function twCapParseDate(value){
-  const s = twCapClean(value);
-  if (!s) return null;
-  if (/^\d{4}-\d{2}-\d{2}$/.test(s)){
-    const dt = new Date(`${s}T00:00:00Z`);
-    return Number.isFinite(dt.getTime()) ? dt : null;
-  }
-  const dt = new Date(s);
-  return Number.isFinite(dt.getTime()) ? dt : null;
+  return twCapParseDateModule(value);
 }
 
 function twCapWeekStart(dt){
-  const base = new Date(Date.UTC(dt.getUTCFullYear(), dt.getUTCMonth(), dt.getUTCDate()));
-  const day = (base.getUTCDay() + 6) % 7;
-  base.setUTCDate(base.getUTCDate() - day);
-  return base;
+  return twCapWeekStartModule(dt);
 }
 
 function twCapIsoUTC(dt){
-  const y = dt.getUTCFullYear();
-  const m = String(dt.getUTCMonth() + 1).padStart(2, "0");
-  const d = String(dt.getUTCDate()).padStart(2, "0");
-  return `${y}-${m}-${d}`;
+  return twCapIsoUTCModule(dt);
 }
 
 function twCapLatestRecordByPerson(rows){
