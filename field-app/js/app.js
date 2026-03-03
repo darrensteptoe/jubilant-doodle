@@ -3149,6 +3149,8 @@ function runMonteCarloNow(){
 
   const w = (weeks != null && weeks >= 0) ? weeks : null;
   const needVotes = deriveNeedVotes(res);
+  // Keep stale checks aligned to the same input context used for this MC run.
+  lastRenderCtx = { res, weeks: w, needVotes, modelInput };
 
   const h = hashMcInputs(res, w);
 
@@ -3168,6 +3170,9 @@ function runMonteCarloNow(){
   clearMcStale();
   renderMcResults(sim);
   renderMcFreshness(res, w);
+  // Panels that show MC stale/fresh status need an explicit refresh after rerun.
+  renderRiskFramingE2();
+  renderSensitivitySnapshotE4();
 }
 
 function runMonteCarloSim({ scenario, scenarioState, res, weeks, needVotes, runs, seed }){
