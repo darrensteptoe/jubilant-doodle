@@ -63,13 +63,17 @@ export function validateImportedScenarioData(scenario){
   for (const [key, min, max] of boundedFields){
     const hasKey = Object.prototype.hasOwnProperty.call(scenario, key);
     if (!hasKey) continue;
-    const n = num(scenario[key]);
+    const raw = scenario[key];
+    // Many planner fields are intentionally optional and may round-trip as "".
+    // Treat blank as unset (non-fatal) and let in-app validation handle completeness.
+    if (raw === "") continue;
+    const n = num(raw);
     if (n == null){
       errors.push(`Invalid number for '${key}'.`);
       continue;
     }
     if (n < min || n > max){
-      errors.push(`Out-of-range '${key}': expected ${min}..${max}, got ${scenario[key]}.`);
+      errors.push(`Out-of-range '${key}': expected ${min}..${max}, got ${raw}.`);
     }
   }
 
