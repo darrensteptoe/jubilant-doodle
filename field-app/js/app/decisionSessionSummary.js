@@ -106,8 +106,37 @@ export function buildDecisionSummaryTextCore(session, deps = {}){
     const tactics = opt?.tactics ? Object.keys(opt.tactics).filter(k => !!opt.tactics[k]) : [];
     const tacticsLine = tactics.length ? tactics.map(k => k.toUpperCase()).join(", ") : "—";
 
-    const whatTrue = Array.isArray(s.whatNeedsTrue) ? s.whatNeedsTrue : [];
-    const whatTrueLines = whatTrue.length ? whatTrue.map(x => `- [ ] ${x}`).join("\n") : "- [ ] —";
+    const explicitWhatTrue = Array.isArray(s.whatNeedsTrue)
+      ? s.whatNeedsTrue.map((x) => String(x || "").trim()).filter(Boolean)
+      : [];
+    const autoWhatTrue = [];
+    if (!explicitWhatTrue.length){
+      if (attemptsWOpt != null && isFinite(attemptsWOpt)){
+        autoWhatTrue.push(`Hold execution at ~${fmtInt(Math.ceil(attemptsWOpt))} attempts/week (~${fmtInt(Math.ceil(attemptsWOpt / 7))}/day).`);
+      }
+      if (gap != null && isFinite(gap)){
+        if (gap <= 0){
+          autoWhatTrue.push("Keep weekly capacity at or above required attempts.");
+        } else {
+          autoWhatTrue.push(`Close shortfall of ~${fmtInt(Math.ceil(gap))} attempts/week before committing this option.`);
+        }
+      }
+      if (tactics.length){
+        autoWhatTrue.push(`Execute selected tactic mix consistently: ${tactics.map(k => k.toUpperCase()).join(", ")}.`);
+      }
+      const budgetCap = safeNum(s?.constraints?.budget);
+      if (budgetCap != null && budgetCap > 0){
+        autoWhatTrue.push(`Stay within budget cap: $${fmtInt(Math.ceil(budgetCap))}.`);
+      }
+      const volunteerCap = safeNum(s?.constraints?.volunteerHrs);
+      if (volunteerCap != null && volunteerCap > 0 && hrsPerWeek != null && isFinite(hrsPerWeek) && hrsPerWeek > volunteerCap){
+        autoWhatTrue.push(`Resolve volunteer-hours constraint (needed ~${fmtInt(Math.ceil(hrsPerWeek))} hrs/week vs cap ${fmtInt(Math.ceil(volunteerCap))}).`);
+      }
+    }
+    const whatTrue = explicitWhatTrue.length ? explicitWhatTrue : autoWhatTrue;
+    const whatTrueLines = (whatTrue.length ? whatTrue : ["Review assumptions and constraints before sign-off."])
+      .map((x) => `- [ ] ${x}`)
+      .join("\n");
 
     const lines = [];
     lines.push(`# Decision Summary: ${s.name || s.id}`);
