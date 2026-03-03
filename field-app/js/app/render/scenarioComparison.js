@@ -5,7 +5,9 @@ export function renderScenarioComparisonPanel({
   SCENARIO_BASELINE_ID,
   scenarioClone,
   scenarioInputsFromState,
+  computeDecisionKeyOutCore,
   engine,
+  derivedWeeksRemaining,
   computeWeeklyOpsContextFromSnap,
   targetFinishDateFromSnap,
   computeLastNLogSums,
@@ -145,29 +147,24 @@ export function renderScenarioComparisonPanel({
   }
 
   const computeKeyOut = (inputs) => {
-    try{
-      const snap = scenarioClone(inputs || {});
-      const res = engine.computeAll(snap);
-      const weeks = engine.derivedWeeksRemaining({
-        weeksRemainingOverride: snap?.weeksRemaining,
-        electionDateISO: snap?.electionDate ? `${snap.electionDate}T00:00:00` : "",
-      });
-      const ctx = computeWeeklyOpsContextFromSnap(snap, res, weeks);
-      const finish = targetFinishDateFromSnap(snap, weeks);
+    const core = computeDecisionKeyOutCore(inputs, {
+      scenarioClone,
+      engine,
+      derivedWeeksRemaining,
+      computeWeeklyOpsContextFromSnap,
+      targetFinishDateFromSnap,
+    });
 
-      const last7 = computeLastNLogSums(7);
-      const paceAttemptsPerDay = (last7?.hasLog && last7?.days && last7.days > 0) ? (last7.sumAttempts / last7.days) : null;
-      const paceFinish = paceFinishDate(ctx?.attemptsNeeded, paceAttemptsPerDay);
+    const last7 = computeLastNLogSums(7);
+    const paceAttemptsPerDay = (last7?.hasLog && last7?.days && last7.days > 0) ? (last7.sumAttempts / last7.days) : null;
+    const paceFinish = paceFinishDate(core?.ctx?.attemptsNeeded, paceAttemptsPerDay);
 
-      return {
-        attemptsPerWeek: ctx?.attemptsPerWeek ?? null,
-        convosPerWeek: ctx?.convosPerWeek ?? null,
-        finishDate: finish,
-        paceFinishDate: paceFinish,
-      };
-    } catch {
-      return { attemptsPerWeek:null, convosPerWeek:null, finishDate:null, paceFinishDate:null };
-    }
+    return {
+      attemptsPerWeek: core?.ctx?.attemptsPerWeek ?? null,
+      convosPerWeek: core?.ctx?.convosPerWeek ?? null,
+      finishDate: core?.finish ?? null,
+      paceFinishDate: paceFinish,
+    };
   };
 
   const baseOut = computeKeyOut(baseInputs);
