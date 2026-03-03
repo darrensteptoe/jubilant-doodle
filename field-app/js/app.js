@@ -3518,9 +3518,12 @@ function renderFinishEnvelopeD3(res, weeks){
 }
 
 function hashMissRiskInputs(res, weeks){
-  return computeSnapshotHash({
-    h: hashOpsEnvelopeInputs(res, weeks),
-    dailyLogHash: computeDailyLogHash(),
+  return hashMissRiskInputsModule({
+    res,
+    weeks,
+    hashOpsEnvelopeInputs,
+    computeSnapshotHash,
+    computeDailyLogHash,
   });
 }
 
