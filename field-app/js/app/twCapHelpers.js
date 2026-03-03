@@ -81,3 +81,113 @@ export function twCapIsoUTCModule(dt){
   const d = String(dt.getUTCDate()).padStart(2, "0");
   return `${y}-${m}-${d}`;
 }
+
+export function twCapLatestRecordByPersonModule(rows, deps = {}){
+  const { twCapClean, twCapParseDate } = deps;
+  const out = new Map();
+  for (const rec of (Array.isArray(rows) ? rows : [])){
+    const personId = twCapClean(rec?.personId);
+    if (!personId) continue;
+    const ts = twCapParseDate(rec?.updatedAt)?.getTime() || twCapParseDate(rec?.createdAt)?.getTime() || 0;
+    const prev = out.get(personId);
+    const prevTs = prev ? (twCapParseDate(prev?.updatedAt)?.getTime() || twCapParseDate(prev?.createdAt)?.getTime() || 0) : -1;
+    if (!prev || ts >= prevTs) out.set(personId, rec);
+  }
+  return out;
+}
+
+export function twCapBuildReadinessStatsModule(onboardingRecords, trainingRecords, deps = {}){
+  const {
+    twCapLatestRecordByPerson,
+    twCapClean,
+    twCapParseDate,
+    twCapMedian,
+    twCapDayMs = 86400000,
+    nowMs = Date.now(),
+  } = deps;
+  const onbByPerson = twCapLatestRecordByPerson(onboardingRecords);
+  const trnByPerson = twCapLatestRecordByPerson(trainingRecords);
+  const personIds = new Set([...onbByPerson.keys(), ...trnByPerson.keys()]);
+
+  const twoWeeksMs = 14 * twCapDayMs;
+  let readyNow = 0;
+  let recentReadyCount = 0;
+  const cycleDays = [];
+
+  for (const personId of personIds){
+    const onb = onbByPerson.get(personId);
+    const trn = trnByPerson.get(personId);
+    const onbDone = twCapClean(onb?.onboardingStatus) === "completed";
+    const trnDone = twCapClean(trn?.completionStatus) === "completed";
+    if (!(onbDone && trnDone)) continue;
+
+    readyNow += 1;
+
+    const readyCandidates = [
+      twCapParseDate(onb?.completedAt)?.getTime(),
+      twCapParseDate(trn?.completedAt)?.getTime(),
+    ].filter((v) => Number.isFinite(v));
+    const readyMs = readyCandidates.length ? Math.max(...readyCandidates) : NaN;
+
+    if (Number.isFinite(readyMs) && readyMs >= (nowMs - twoWeeksMs)){
+      recentReadyCount += 1;
+    }
+
+    const docsMs = twCapParseDate(onb?.docsSubmittedAt)?.getTime();
+    if (Number.isFinite(docsMs) && Number.isFinite(readyMs) && readyMs >= docsMs){
+      cycleDays.push((readyMs - docsMs) / twCapDayMs);
+    }
+  }
+
+  const recentReadyPerWeek = recentReadyCount / 2;
+  const projectedReady14d = readyNow + (recentReadyPerWeek * 2);
+  return {
+    readyNow,
+    recentReadyPerWeek,
+    projectedReady14d,
+    medianReadyDays: twCapMedian(cycleDays),
+  };
+}
+
+export function twCapNormalizeForecastConfigModule(raw, deps = {}){
+  const { defaultForecastConfig, pipelineStages, twCapTransitionKey, clamp, twCapNum } = deps;
+  const src = (raw && typeof raw === "object") ? raw : {};
+  const conv = { ...(defaultForecastConfig.stageConversionDefaults || {}), ...(src.stageConversionDefaults || {}) };
+  const dur = { ...(defaultForecastConfig.stageDurationDefaultsDays || {}), ...(src.stageDurationDefaultsDays || {}) };
+  for (let i = 0; i < pipelineStages.length - 1; i++){
+    const key = twCapTransitionKey(pipelineStages[i], pipelineStages[i + 1]);
+    conv[key] = clamp(twCapNum(conv[key], 1), 0, 1);
+    dur[key] = Math.max(0, twCapNum(dur[key], 0));
+  }
+  return { stageConversionDefaults: conv, stageDurationDefaultsDays: dur };
+}
+
+export function twCapPerOrganizerAttemptsPerWeekModule(effective, deps = {}){
+  const { computeCapacityBreakdown, twCapNum, clamp } = deps;
+  const c = effective?.capacity || {};
+  const one = computeCapacityBreakdown({
+    weeks: 1,
+    orgCount: 1,
+    orgHoursPerWeek: twCapNum(c.orgHoursPerWeek, 0),
+    volunteerMult: twCapNum(c.volunteerMult, 0),
+    doorShare: (c.doorShare == null) ? null : clamp(twCapNum(c.doorShare, 0), 0, 1),
+    doorsPerHour: twCapNum(c.doorsPerHour, 0),
+    callsPerHour: twCapNum(c.callsPerHour, 0),
+  });
+  return Math.max(0, twCapNum(one?.total, 0));
+}
+
+export function twCapBaselineAttemptsPerWeekModule(effective, deps = {}){
+  const { computeCapacityBreakdown, twCapNum, clamp } = deps;
+  const c = effective?.capacity || {};
+  const baseline = computeCapacityBreakdown({
+    weeks: 1,
+    orgCount: twCapNum(c.orgCount, 0),
+    orgHoursPerWeek: twCapNum(c.orgHoursPerWeek, 0),
+    volunteerMult: twCapNum(c.volunteerMult, 0),
+    doorShare: (c.doorShare == null) ? null : clamp(twCapNum(c.doorShare, 0), 0, 1),
+    doorsPerHour: twCapNum(c.doorsPerHour, 0),
+    callsPerHour: twCapNum(c.callsPerHour, 0),
+  });
+  return Math.max(0, twCapNum(baseline?.total, 0));
+}
