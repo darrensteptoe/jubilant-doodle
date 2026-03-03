@@ -11,6 +11,12 @@ function num(v){
   return Number.isFinite(n) ? n : null;
 }
 
+function isBlankNumeric(v){
+  if (v == null) return true;
+  if (typeof v === "string" && v.trim() === "") return true;
+  return false;
+}
+
 function pushRangeIssue(list, kind, key, value, min, max){
   const n = num(value);
   if (n == null) return;
@@ -104,7 +110,7 @@ export function validateImportedScenarioData(scenario){
     const raw = scenario[key];
     // Many planner fields are intentionally optional and may round-trip as "".
     // Treat blank as unset (non-fatal) and let in-app validation handle completeness.
-    if (raw === "") continue;
+    if (isBlankNumeric(raw)) continue;
     const n = num(raw);
     if (n == null){
       errors.push(`Invalid number for '${key}'.`);
@@ -141,7 +147,7 @@ export function validateImportedScenarioData(scenario){
   for (const key of nonNegativeFields){
     if (!Object.prototype.hasOwnProperty.call(scenario, key)) continue;
     const raw = scenario[key];
-    if (raw === "") continue;
+    if (isBlankNumeric(raw)) continue;
     const n = num(raw);
     if (n == null){
       errors.push(`Invalid number for '${key}'.`);

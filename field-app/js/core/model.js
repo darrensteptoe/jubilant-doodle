@@ -14,6 +14,12 @@ export function deriveNeedVotes(res, goalSupportIdsOverride){
   return (goal != null && goal >= 0) ? goal : null;
 }
 
+// Canonical helper for UI/planner layers that require a usable non-negative value.
+export function deriveNeedVotesOrZero(res, goalSupportIdsOverride){
+  const goal = deriveNeedVotes(res, goalSupportIdsOverride);
+  return (goal != null && goal > 0) ? goal : 0;
+}
+
 // Derived helper: weeks remaining (used by MC + optimizer timeline caps)
 export function derivedWeeksRemaining({ weeksRemainingOverride, electionDateISO, nowDate = new Date() } = {}){
   const override = safeNum(weeksRemainingOverride);
@@ -30,6 +36,13 @@ export function derivedWeeksRemaining({ weeksRemainingOverride, electionDateISO,
 
   const w = Math.max(0, deltaDays / 7);
   return w;
+}
+
+// Canonical helper for displays/weekly planning that use whole-week buckets.
+export function deriveWeeksRemainingCeil({ weeksRemainingOverride, electionDateISO, nowDate = new Date() } = {}){
+  const weeks = derivedWeeksRemaining({ weeksRemainingOverride, electionDateISO, nowDate });
+  if (weeks == null || !Number.isFinite(weeks)) return null;
+  return Math.max(0, Math.ceil(weeks));
 }
 
 // Capacity ceiling in attempt units (doors knocked + calls dialed)

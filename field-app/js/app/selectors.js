@@ -1,18 +1,16 @@
 import { safeNum, clamp } from "../utils.js";
 import { normalizeUniversePercents, UNIVERSE_DEFAULTS } from "../core/universeLayer.js";
-import { deriveNeedVotes as coreDeriveNeedVotes, derivedWeeksRemaining as coreDerivedWeeksRemaining } from "../core/model.js";
+import {
+  deriveNeedVotesOrZero as coreDeriveNeedVotesOrZero,
+  deriveWeeksRemainingCeil as coreDeriveWeeksRemainingCeil
+} from "../core/model.js";
 
 export function derivedWeeksRemainingFromState(state, { nowDate = new Date() } = {}){
-  const override = safeNum(state?.weeksRemaining);
-  if (override != null && override >= 0) return override;
-
-  const weeks = coreDerivedWeeksRemaining({
-    weeksRemainingOverride: null,
+  return coreDeriveWeeksRemainingCeil({
+    weeksRemainingOverride: state?.weeksRemaining,
     electionDateISO: state?.electionDate ? `${state.electionDate}T00:00:00` : "",
     nowDate
   });
-  if (weeks == null || !Number.isFinite(weeks)) return null;
-  return Math.max(0, Math.ceil(weeks));
 }
 
 export function getUniverseLayerConfig(state){
@@ -58,18 +56,48 @@ export function getEffectiveBaseRates(state, { computeUniverseAdjustedRates } = 
   };
 }
 
-export function computeWeeklyOpsContextFromState(state, { res, weeks, getEffectiveBaseRatesForState, computeCapacityBreakdown } = {}){
-  const needVotes = coreDeriveNeedVotes(res, state?.goalSupportIds);
-  const goal = (needVotes != null && needVotes > 0) ? needVotes : 0;
+export function computeWeeklyOpsContextFromState(state, {
+  res,
+  weeks,
+  getEffectiveBaseRatesForState,
+  computeCapacityBreakdown,
+  compileEffectiveInputsForState
+} = {}){
+  const goal = coreDeriveNeedVotesOrZero(res, state?.goalSupportIds);
 
   const eff = getEffectiveBaseRatesForState(state);
-  const sr = eff.sr;
-  const cr = eff.cr;
+  let sr = eff.sr;
+  let cr = eff.cr;
 
   let convosNeeded = null;
   let attemptsNeeded = null;
   let convosPerWeek = null;
   let attemptsPerWeek = null;
+
+  let orgCount = safeNum(state?.orgCount);
+  let orgHoursPerWeek = safeNum(state?.orgHoursPerWeek);
+  let volunteerMult = safeNum(state?.volunteerMultBase);
+  let doorSharePct = safeNum(state?.channelDoorPct);
+  let doorsPerHour = safeNum(state?.doorsPerHour3);
+  let callsPerHour = safeNum(state?.callsPerHour3);
+
+  let compiled = null;
+  if (typeof compileEffectiveInputsForState === "function"){
+    compiled = compileEffectiveInputsForState(state) || null;
+  }
+  if (compiled){
+    const rates = compiled.rates || {};
+    if (rates.sr != null) sr = rates.sr;
+    if (rates.cr != null) cr = rates.cr;
+
+    const capIn = compiled.capacity || {};
+    if (capIn.orgCount != null) orgCount = capIn.orgCount;
+    if (capIn.orgHoursPerWeek != null) orgHoursPerWeek = capIn.orgHoursPerWeek;
+    if (capIn.volunteerMult != null) volunteerMult = capIn.volunteerMult;
+    if (capIn.doorSharePct != null) doorSharePct = capIn.doorSharePct;
+    if (capIn.doorsPerHour != null) doorsPerHour = capIn.doorsPerHour;
+    if (capIn.callsPerHour != null) callsPerHour = capIn.callsPerHour;
+  }
 
   if (goal > 0 && sr && sr > 0) convosNeeded = goal / sr;
   if (convosNeeded != null && cr && cr > 0) attemptsNeeded = convosNeeded / cr;
@@ -77,13 +105,6 @@ export function computeWeeklyOpsContextFromState(state, { res, weeks, getEffecti
     if (convosNeeded != null) convosPerWeek = convosNeeded / weeks;
     if (attemptsNeeded != null) attemptsPerWeek = attemptsNeeded / weeks;
   }
-
-  const orgCount = safeNum(state?.orgCount);
-  const orgHoursPerWeek = safeNum(state?.orgHoursPerWeek);
-  const volunteerMult = safeNum(state?.volunteerMultBase);
-  const doorSharePct = safeNum(state?.channelDoorPct);
-  const doorsPerHour = safeNum(state?.doorsPerHour3);
-  const callsPerHour = safeNum(state?.callsPerHour3);
 
   const doorShare = (doorSharePct == null) ? null : clamp(doorSharePct / 100, 0, 1);
 
