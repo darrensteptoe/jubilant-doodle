@@ -44,6 +44,17 @@ import { renderGuardrailsModule } from "./app/renderGuardrails.js";
 import { renderMcVisualsModule } from "./app/renderMcVisuals.js";
 import { renderMcResultsModule } from "./app/renderMcResults.js";
 import {
+  hashOpsEnvelopeInputsModule,
+  computeOpsEnvelopeD2Module,
+  renderOpsEnvelopeD2Module,
+  hashFinishEnvelopeInputsModule,
+  computeFinishEnvelopeD3Module,
+  renderFinishEnvelopeD3Module,
+  hashMissRiskInputsModule,
+  computeMissRiskD4Module,
+  renderMissRiskD4Module
+} from "./app/mcEnvelopePanels.js";
+import {
   blockModule,
   kvModule,
   labelTemplateModule,
@@ -3421,82 +3432,33 @@ function renderMcFreshness(res, weeks){
 
 
 function hashOpsEnvelopeInputs(res, weeks){
-  const eff = getEffectiveBaseRates();
-  return computeSnapshotHash({
-    h: hashMcInputs(res, weeks),
+  return hashOpsEnvelopeInputsModule({
+    state,
+    res,
     weeks,
-    mcMode: state.mcMode || "basic",
-    mcVolatility: state.mcVolatility || "med",
-    mcSeed: state.mcSeed || "",
-    // Advanced triangles
-    mcContactMin: safeNum(state.mcContactMin),
-    mcContactMode: safeNum(state.mcContactMode),
-    mcContactMax: safeNum(state.mcContactMax),
-    mcPersMin: safeNum(state.mcPersMin),
-    mcPersMode: safeNum(state.mcPersMode),
-    mcPersMax: safeNum(state.mcPersMax),
-    // Universe-volatility widening
-    volBoost: safeNum(eff.volatilityBoost) || 0,
+    getEffectiveBaseRates,
+    computeSnapshotHash,
+    hashMcInputs,
+    safeNum,
   });
 }
 
 function computeOpsEnvelopeD2(res, weeks){
-  const w = (weeks != null && isFinite(weeks) && weeks > 0) ? weeks : null;
-  if (!w) return null;
-
-  const ctx = computeWeeklyOpsContext(res, w);
-  if (!ctx || !(ctx.goal > 0)) return null;
-
-  const eff = getEffectiveBaseRates();
-  const baseCr = eff.cr;
-  const baseSr = eff.sr;
-  if (!(baseCr > 0) || !(baseSr > 0)) return null;
-
-  const baseRr = (eff.tr != null && isFinite(eff.tr) && eff.tr > 0) ? eff.tr : 0.75;
-  const baseDph = (safeNum(state.doorsPerHour3) != null && safeNum(state.doorsPerHour3) > 0) ? safeNum(state.doorsPerHour3) : 30;
-  const baseCph = (safeNum(state.callsPerHour3) != null && safeNum(state.callsPerHour3) > 0) ? safeNum(state.callsPerHour3) : 25;
-  const baseVol = (safeNum(state.volunteerMultBase) != null && safeNum(state.volunteerMultBase) > 0) ? safeNum(state.volunteerMultBase) : 1;
-
-  const volBoost = safeNum(eff.volatilityBoost) || 0;
-  const specs = (String(state.mcMode || "basic") === "advanced")
-    ? buildAdvancedSpecs({ baseCr, basePr: baseSr, baseRr, baseDph, baseCph, baseVol, volBoost })
-    : buildBasicSpecs({ baseCr, basePr: baseSr, baseRr, baseDph, baseCph, baseVol, volBoost });
-
-  const runs = 200;
-  const seedStr = `${state.mcSeed || ""}|opsEnvelope|${hashMcInputs(res, w)}`;
-  const rng = makeRng(seedStr);
-
-  const convos = [];
-  const attempts = [];
-
-  for (let i = 0; i < runs; i++){
-    const cr = clamp(triSample(specs.contactRate.min, specs.contactRate.mode, specs.contactRate.max, rng), 0.0001, 1);
-    const sr = clamp(triSample(specs.persuasionRate.min, specs.persuasionRate.mode, specs.persuasionRate.max, rng), 0.0001, 1);
-
-    const convosPerWeek = (ctx.goal / sr) / w;
-    const attemptsPerWeek = convosPerWeek / cr;
-
-    if (isFinite(convosPerWeek) && convosPerWeek > 0) convos.push(convosPerWeek);
-    if (isFinite(attemptsPerWeek) && attemptsPerWeek > 0) attempts.push(attemptsPerWeek);
-  }
-
-  if (convos.length < 10 || attempts.length < 10) return null;
-  convos.sort((a,b) => a - b);
-  attempts.sort((a,b) => a - b);
-
-  return {
-    runs,
-    attempts: {
-      p10: quantileSorted(attempts, 0.10),
-      p50: quantileSorted(attempts, 0.50),
-      p90: quantileSorted(attempts, 0.90),
-    },
-    convos: {
-      p10: quantileSorted(convos, 0.10),
-      p50: quantileSorted(convos, 0.50),
-      p90: quantileSorted(convos, 0.90),
-    }
-  };
+  return computeOpsEnvelopeD2Module({
+    state,
+    res,
+    weeks,
+    computeWeeklyOpsContext,
+    getEffectiveBaseRates,
+    safeNum,
+    buildAdvancedSpecs,
+    buildBasicSpecs,
+    hashMcInputs,
+    makeRng,
+    triSample,
+    clamp,
+    quantileSorted,
+  });
 }
 
 function renderOpsEnvelopeD2(res, weeks){
