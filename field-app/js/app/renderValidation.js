@@ -4,11 +4,14 @@ export function renderValidationModule(args){
     state,
     res,
     weeks,
+    benchmarkWarnings = [],
+    driftSummary = null,
   } = args || {};
 
   const list = els?.validationList || els?.validationListSidebar;
   if (!list) return;
   const items = [];
+  const fPct = (v) => (v == null || !isFinite(v)) ? "—" : `${(v * 100).toFixed(1)}%`;
 
   const uOk = res.validation.universeOk;
   items.push({
@@ -47,6 +50,37 @@ export function renderValidationModule(args){
       kind: "ok",
       text: `Weeks remaining: ${weeks} (reference for later phases).`
     });
+  }
+
+  if (Array.isArray(benchmarkWarnings) && benchmarkWarnings.length){
+    for (const msg of benchmarkWarnings.slice(0, 4)){
+      items.push({
+        kind: "warn",
+        text: String(msg),
+      });
+    }
+  }
+
+  if (driftSummary?.hasLog){
+    const crActual = driftSummary.actualCR;
+    const crAssumed = driftSummary.assumedCR;
+    if (crActual != null && isFinite(crActual)){
+      const crLow = (crAssumed != null && isFinite(crAssumed) && crAssumed > 0 && crActual < crAssumed * 0.9);
+      items.push({
+        kind: crLow ? "warn" : "ok",
+        text: `Rolling CR ${fPct(crActual)} vs assumed ${fPct(crAssumed)}.`,
+      });
+    }
+
+    const srActual = driftSummary.actualSR;
+    const srAssumed = driftSummary.assumedSR;
+    if (srActual != null && isFinite(srActual)){
+      const srLow = (srAssumed != null && isFinite(srAssumed) && srAssumed > 0 && srActual < srAssumed * 0.9);
+      items.push({
+        kind: srLow ? "warn" : "ok",
+        text: `Rolling SR ${fPct(srActual)} vs assumed ${fPct(srAssumed)}.`,
+      });
+    }
   }
 
   const seen = new Set();

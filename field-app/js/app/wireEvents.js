@@ -289,6 +289,7 @@ export function wireResetImportAndUiToggles(ctx){
         alert("Import failed: invalid JSON.");
         els.loadJson.value = "";
         return;
+      }
 
       // Phase 11 — strict import: block newer schema before migration (optional)
       const curState = getState();
@@ -304,18 +305,8 @@ export function wireResetImportAndUiToggles(ctx){
         return;
       }
 
-      }
-
       const mig = engine.snapshot.migrateSnapshot(loaded);
-      if (els.importWarnBanner){
-        if (mig.warnings && mig.warnings.length){
-          els.importWarnBanner.hidden = false;
-          els.importWarnBanner.textContent = mig.warnings.join(" ");
-        } else {
-          els.importWarnBanner.hidden = true;
-          els.importWarnBanner.textContent = "";
-        }
-      }
+      const importWarnings = Array.isArray(mig?.warnings) ? [...mig.warnings] : [];
 
       const v = engine.snapshot.validateScenarioExport(mig.snapshot, engine.snapshot.MODEL_VERSION);
       if (!v.ok){
@@ -329,6 +320,29 @@ export function wireResetImportAndUiToggles(ctx){
         alert("Import failed: scenario is missing required fields: " + missing.join(", "));
         els.loadJson.value = "";
         return;
+      }
+
+      const quality = engine.snapshot.validateImportedScenarioData(v.scenario);
+      if (!quality.ok){
+        const details = quality.errors.map((x) => `- ${x}`).join("\n");
+        alert(`Import failed: quality checks failed.\n${details}`);
+        els.loadJson.value = "";
+        return;
+      }
+      if (quality.warnings?.length){
+        importWarnings.push(...quality.warnings);
+      }
+
+      if (els.importWarnBanner){
+        if (importWarnings.length){
+          const shown = importWarnings.slice(0, 6).join(" ");
+          const extra = importWarnings.length > 6 ? ` (+${importWarnings.length - 6} more)` : "";
+          els.importWarnBanner.hidden = false;
+          els.importWarnBanner.textContent = `${shown}${extra}`.trim();
+        } else {
+          els.importWarnBanner.hidden = true;
+          els.importWarnBanner.textContent = "";
+        }
       }
 
       // Phase 9B — snapshot integrity verification (+ Phase 11 strict option)
