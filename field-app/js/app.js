@@ -34,6 +34,7 @@ import {
   buildBasicSpecsModule,
   quantileSortedModule,
 } from "./app/mcSpecBuilders.js";
+import { hashMcInputsModule } from "./app/mcHash.js";
 import { renderMain } from "./app/renderMain.js";
 import { initDevToolsModule } from "./app/initDevTools.js";
 import { buildModelInputFromState } from "./app/modelInput.js";
@@ -3005,68 +3006,14 @@ function renderMissRiskD4(res, weeks){
 }
 
 function hashMcInputs(res, weeks){
-  const needVotes = deriveNeedVotes(res);
-  const payload = {
+  return hashMcInputsModule({
+    state,
+    res,
     weeks,
-    needVotes,
-    // Capacity
-    orgCount: safeNum(state.orgCount),
-    orgHoursPerWeek: safeNum(state.orgHoursPerWeek),
-    volunteerMultBase: safeNum(state.volunteerMultBase),
-    channelDoorPct: safeNum(state.channelDoorPct),
-    doorsPerHour3: canonicalDoorsPerHourFromSnap(state),
-    callsPerHour3: safeNum(state.callsPerHour3),
-    // Base rates (Phase 2 + p3)
-    contactRatePct: safeNum(state.contactRatePct),
-    supportRatePct: safeNum(state.supportRatePct),
-    turnoutReliabilityPct: safeNum(state.turnoutReliabilityPct),
-
-    // Phase 16 — universe composition + retention
-    universeLayerEnabled: !!state.universeLayerEnabled,
-    universeDemPct: safeNum(state.universeDemPct),
-    universeRepPct: safeNum(state.universeRepPct),
-    universeNpaPct: safeNum(state.universeNpaPct),
-    universeOtherPct: safeNum(state.universeOtherPct),
-    retentionFactor: safeNum(state.retentionFactor),
-
-    // Phase 6 — turnout / GOTV
-    turnoutEnabled: !!state.turnoutEnabled,
-    turnoutBaselinePct: safeNum(state.turnoutBaselinePct),
-    turnoutTargetOverridePct: state.turnoutTargetOverridePct ?? "",
-    gotvMode: state.gotvMode || "basic",
-    gotvLiftPP: safeNum(state.gotvLiftPP),
-    gotvMaxLiftPP: safeNum(state.gotvMaxLiftPP),
-    gotvDiminishing: !!state.gotvDiminishing,
-    gotvLiftMin: safeNum(state.gotvLiftMin),
-    gotvLiftMode: safeNum(state.gotvLiftMode),
-    gotvLiftMax: safeNum(state.gotvLiftMax),
-    gotvMaxLiftPP2: safeNum(state.gotvMaxLiftPP2),
-    gotvDiminishing2: !!state.gotvDiminishing2,
-    // MC config
-    mcMode: state.mcMode || "basic",
-    mcVolatility: state.mcVolatility || "med",
-    mcSeed: state.mcSeed || "",
-    // Advanced ranges
-    mcContactMin: safeNum(state.mcContactMin),
-    mcContactMode: safeNum(state.mcContactMode),
-    mcContactMax: safeNum(state.mcContactMax),
-    mcPersMin: safeNum(state.mcPersMin),
-    mcPersMode: safeNum(state.mcPersMode),
-    mcPersMax: safeNum(state.mcPersMax),
-    mcReliMin: safeNum(state.mcReliMin),
-    mcReliMode: safeNum(state.mcReliMode),
-    mcReliMax: safeNum(state.mcReliMax),
-    mcDphMin: safeNum(state.mcDphMin),
-    mcDphMode: safeNum(state.mcDphMode),
-    mcDphMax: safeNum(state.mcDphMax),
-    mcCphMin: safeNum(state.mcCphMin),
-    mcCphMode: safeNum(state.mcCphMode),
-    mcCphMax: safeNum(state.mcCphMax),
-    mcVolMin: safeNum(state.mcVolMin),
-    mcVolMode: safeNum(state.mcVolMode),
-    mcVolMax: safeNum(state.mcVolMax),
-  };
-  return JSON.stringify(payload);
+    deriveNeedVotes,
+    safeNum,
+    canonicalDoorsPerHourFromSnap,
+  });
 }
 
 function deriveNeedVotes(res, goalSupportIdsOverride = state.goalSupportIds){
