@@ -27,6 +27,7 @@ import { renderImpactTracePanel } from "./app/render/impactTrace.js";
 import { renderMain } from "./app/renderMain.js";
 import { initDevToolsModule } from "./app/initDevTools.js";
 import { buildModelInputFromState } from "./app/modelInput.js";
+import { targetFinishDateFromSnapCore, paceFinishDateCore } from "./app/forecastDates.js";
 import { composeSetupStageModule } from "./app/composeSetupStage.js";
 import { normalizeStageLayoutModule } from "./app/normalizeStageLayout.js";
 import { runInitPostBootModule } from "./app/initPostBoot.js";
@@ -2363,29 +2364,11 @@ function computeWeeklyOpsContextFromSnap(snap, res, weeks){
 }
 
 function targetFinishDateFromSnap(snap, weeks){
-  const d = String(snap?.electionDate || "").trim();
-  if (d){
-    const dt = new Date(d + "T00:00:00");
-    if (isFinite(dt)) return dt;
-  }
-  if (weeks != null && isFinite(weeks) && weeks > 0){
-    const days = Math.ceil(weeks * 7);
-    const dt = new Date();
-    dt.setHours(12,0,0,0);
-    dt.setDate(dt.getDate() + days);
-    return dt;
-  }
-  return null;
+  return targetFinishDateFromSnapCore(snap, weeks);
 }
 
 function paceFinishDate(total, pacePerDay){
-  if (total == null || !isFinite(total) || total <= 0) return null;
-  if (pacePerDay == null || !isFinite(pacePerDay) || pacePerDay <= 0) return null;
-  const daysNeeded = Math.ceil(total / pacePerDay);
-  const dt = new Date();
-  dt.setHours(12,0,0,0);
-  dt.setDate(dt.getDate() + daysNeeded);
-  return dt;
+  return paceFinishDateCore(total, pacePerDay);
 }
 
 function renderScenarioComparisonC3(){
