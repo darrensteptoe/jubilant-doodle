@@ -233,6 +233,19 @@ function coerceImportedNumber(raw){
   return Number.isFinite(n) ? n : raw;
 }
 
+function shouldWarnNumericCoercion(before, after){
+  if (before === after) return false;
+  const bNum = Number(before);
+  if (Number.isFinite(bNum) && Number.isFinite(after) && bNum === after){
+    return false; // type-only normalization like "0" -> 0
+  }
+  if (typeof before === "string"){
+    const b = before.trim();
+    if (b === String(after)) return false;
+  }
+  return true;
+}
+
 function sanitizeImportedScenarioData(scenario){
   const out = (scenario && typeof scenario === "object") ? structuredClone(scenario) : {};
   const warnings = [];
@@ -274,7 +287,9 @@ function sanitizeImportedScenarioData(scenario){
     if (typeof after === "number") after = maybeScalePct(key, before, after);
     if (after !== before){
       out[key] = after;
-      warnings.push(`Coerced '${key}' from '${before}' to ${after}.`);
+      if (shouldWarnNumericCoercion(before, after)){
+        warnings.push(`Coerced '${key}' from '${before}' to ${after}.`);
+      }
     }
   }
 
@@ -291,7 +306,9 @@ function sanitizeImportedScenarioData(scenario){
       }
       if (after !== before){
         cand.supportPct = after;
-        warnings.push(`Coerced candidate supportPct '${before}' to ${after}.`);
+        if (shouldWarnNumericCoercion(before, after)){
+          warnings.push(`Coerced candidate supportPct '${before}' to ${after}.`);
+        }
       }
     }
   }
@@ -307,7 +324,9 @@ function sanitizeImportedScenarioData(scenario){
       }
       if (after !== before){
         out.userSplit[key] = after;
-        warnings.push(`Coerced userSplit['${key}'] from '${before}' to ${after}.`);
+        if (shouldWarnNumericCoercion(before, after)){
+          warnings.push(`Coerced userSplit['${key}'] from '${before}' to ${after}.`);
+        }
       }
     }
   }
@@ -323,7 +342,9 @@ function sanitizeImportedScenarioData(scenario){
         const after = coerceImportedNumber(before);
         if (after !== before){
           t[key] = after;
-          warnings.push(`Coerced budget.tactics.${tk}.${key} from '${before}' to ${after}.`);
+          if (shouldWarnNumericCoercion(before, after)){
+            warnings.push(`Coerced budget.tactics.${tk}.${key} from '${before}' to ${after}.`);
+          }
         }
       }
     }
@@ -337,7 +358,9 @@ function sanitizeImportedScenarioData(scenario){
       const after = (key === "capacityAttempts") ? coerceImportedNumber(before) : coerceImportedNumber(before);
       if (after !== before){
         optimize[key] = after;
-        warnings.push(`Coerced budget.optimize.${key} from '${before}' to ${after}.`);
+        if (shouldWarnNumericCoercion(before, after)){
+          warnings.push(`Coerced budget.optimize.${key} from '${before}' to ${after}.`);
+        }
       }
     }
   }
@@ -347,11 +370,14 @@ function sanitizeImportedScenarioData(scenario){
 
 function normalizeImportWarnings(list){
   const arr = Array.isArray(list) ? list : [];
+  const benignUnknownFields = new Set(["buildId", "appVersion", "timestamp"]);
   const seen = new Set();
   const out = [];
   for (const item of arr){
     const text = String(item == null ? "" : item).trim();
     if (!text) continue;
+    const m = text.match(/^Unknown field '([^']+)' ignored\.?$/i);
+    if (m && benignUnknownFields.has(String(m[1] || "").trim())) continue;
     if (seen.has(text)) continue;
     seen.add(text);
     out.push(text);
