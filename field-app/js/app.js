@@ -3486,71 +3486,22 @@ function hashFinishEnvelopeInputs(res, weeks){
 }
 
 function computeFinishEnvelopeD3(res, weeks){
-  const w = (weeks != null && isFinite(weeks) && weeks > 0) ? weeks : null;
-  if (!w) return null;
-
-  const ctx = computeWeeklyOpsContext(res, w);
-  if (!ctx || !(ctx.goal > 0)) return null;
-
-  const log = Array.isArray(state.ui?.dailyLog) ? state.ui.dailyLog : null;
-  if (!log || !log.length) return null;
-
-  const last7 = computeLastNLogSums(7);
-  if (!last7?.hasLog || !(last7.days > 0)) return null;
-  const paceAttemptsWeek = (last7.sumAttempts / last7.days) * 7;
-  if (!(paceAttemptsWeek > 0)) return null;
-
-  let doneAttempts = 0;
-  for (const x of log){
-    if (!x || !x.date) continue;
-    const doors = safeNum(x?.doors) || 0;
-    const calls = safeNum(x?.calls) || 0;
-    const attempts = (x?.attempts != null && x.attempts !== "") ? (safeNum(x.attempts) || 0) : (doors + calls);
-    doneAttempts += attempts;
-  }
-
-  const eff = getEffectiveBaseRates();
-  const baseCr = eff.cr;
-  const baseSr = eff.sr;
-  if (!(baseCr > 0) || !(baseSr > 0)) return null;
-
-  const baseRr = (eff.tr != null && isFinite(eff.tr) && eff.tr > 0) ? eff.tr : 0.75;
-  const baseDph = (safeNum(state.doorsPerHour3) != null && safeNum(state.doorsPerHour3) > 0) ? safeNum(state.doorsPerHour3) : 30;
-  const baseCph = (safeNum(state.callsPerHour3) != null && safeNum(state.callsPerHour3) > 0) ? safeNum(state.callsPerHour3) : 25;
-  const baseVol = (safeNum(state.volunteerMultBase) != null && safeNum(state.volunteerMultBase) > 0) ? safeNum(state.volunteerMultBase) : 1;
-  const volBoost = safeNum(eff.volatilityBoost) || 0;
-
-  const specs = (String(state.mcMode || "basic") === "advanced")
-    ? buildAdvancedSpecs({ baseCr, basePr: baseSr, baseRr, baseDph, baseCph, baseVol, volBoost })
-    : buildBasicSpecs({ baseCr, basePr: baseSr, baseRr, baseDph, baseCph, baseVol, volBoost });
-
-  const runs = 200;
-  const seedStr = `${state.mcSeed || ""}|finishEnvelope|${hashMcInputs(res, w)}`;
-  const rng = makeRng(seedStr);
-
-  const dayOffsets = [];
-  for (let i = 0; i < runs; i++){
-    const cr = clamp(triSample(specs.contactRate.min, specs.contactRate.mode, specs.contactRate.max, rng), 0.0001, 1);
-    const sr = clamp(triSample(specs.persuasionRate.min, specs.persuasionRate.mode, specs.persuasionRate.max, rng), 0.0001, 1);
-
-    const convosNeeded = ctx.goal / sr;
-    const attemptsNeeded = convosNeeded / cr;
-    const remaining = Math.max(0, attemptsNeeded - doneAttempts);
-    const weeksToFinish = remaining / paceAttemptsWeek;
-    const daysToFinish = weeksToFinish * 7;
-    if (isFinite(daysToFinish) && daysToFinish >= 0) dayOffsets.push(daysToFinish);
-  }
-
-  if (dayOffsets.length < 10) return null;
-  dayOffsets.sort((a,b) => a - b);
-
-  return {
-    runs,
-    paceAttemptsWeek,
-    p10Days: quantileSorted(dayOffsets, 0.10),
-    p50Days: quantileSorted(dayOffsets, 0.50),
-    p90Days: quantileSorted(dayOffsets, 0.90),
-  };
+  return computeFinishEnvelopeD3Module({
+    state,
+    res,
+    weeks,
+    computeWeeklyOpsContext,
+    computeLastNLogSums,
+    getEffectiveBaseRates,
+    safeNum,
+    buildAdvancedSpecs,
+    buildBasicSpecs,
+    hashMcInputs,
+    makeRng,
+    triSample,
+    clamp,
+    quantileSorted,
+  });
 }
 
 function renderFinishEnvelopeD3(res, weeks){
