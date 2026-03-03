@@ -29,6 +29,11 @@ import {
   computeDailyLogHashModule,
   renderMcFreshnessModule,
 } from "./app/mcFreshness.js";
+import {
+  buildAdvancedSpecsModule,
+  buildBasicSpecsModule,
+  quantileSortedModule,
+} from "./app/mcSpecBuilders.js";
 import { renderMain } from "./app/renderMain.js";
 import { initDevToolsModule } from "./app/initDevTools.js";
 import { buildModelInputFromState } from "./app/modelInput.js";
@@ -2853,13 +2858,13 @@ function computeOpsEnvelopeD2(res, weeks){
     computeWeeklyOpsContext,
     getEffectiveBaseRates,
     safeNum,
-    buildAdvancedSpecs,
-    buildBasicSpecs,
+    buildAdvancedSpecs: (params) => buildAdvancedSpecsModule({ state, safeNum, clamp, ...params }),
+    buildBasicSpecs: (params) => buildBasicSpecsModule({ state, clamp, ...params }),
     hashMcInputs,
     makeRng,
     triSample,
     clamp,
-    quantileSorted,
+    quantileSorted: quantileSortedModule,
   });
 }
 
@@ -2896,13 +2901,13 @@ function computeFinishEnvelopeD3(res, weeks){
     computeLastNLogSums,
     getEffectiveBaseRates,
     safeNum,
-    buildAdvancedSpecs,
-    buildBasicSpecs,
+    buildAdvancedSpecs: (params) => buildAdvancedSpecsModule({ state, safeNum, clamp, ...params }),
+    buildBasicSpecs: (params) => buildBasicSpecsModule({ state, clamp, ...params }),
     hashMcInputs,
     makeRng,
     triSample,
     clamp,
-    quantileSorted,
+    quantileSorted: quantileSortedModule,
   });
 }
 
@@ -2938,8 +2943,8 @@ function computeMissRiskD4(res, weeks){
     computeLastNLogSums,
     getEffectiveBaseRates,
     safeNum,
-    buildAdvancedSpecs,
-    buildBasicSpecs,
+    buildAdvancedSpecs: (params) => buildAdvancedSpecsModule({ state, safeNum, clamp, ...params }),
+    buildBasicSpecs: (params) => buildBasicSpecsModule({ state, clamp, ...params }),
     hashMcInputs,
     makeRng,
     triSample,
@@ -3180,58 +3185,6 @@ function runMonteCarloSim({ scenario, scenarioState, res, weeks, needVotes, runs
   return engine.runMonteCarlo({ scenario: scenario || scenarioState || state, res, weeks, needVotes, runs, seed });
 }
 
-function buildBasicSpecs({ baseCr, basePr, baseRr, baseDph, baseCph, baseVol, volBoost = 0 }){
-  const v = (state.mcVolatility || "med");
-  const w = (v === "low") ? 0.10 : (v === "high") ? 0.30 : 0.20;
-
-  return {
-    contactRate: spread(baseCr, w, 0, 1),
-    persuasionRate: spread(basePr, w + (volBoost || 0), 0, 1),
-    turnoutReliability: spread(baseRr, w + (volBoost || 0), 0, 1),
-    doorsPerHour: spread(baseDph, w, 0.01, Infinity),
-    callsPerHour: spread(baseCph, w, 0.01, Infinity),
-    volunteerMult: spread(baseVol, w, 0.01, Infinity),
-  };
-}
-
-function buildAdvancedSpecs({ baseCr, basePr, baseRr, baseDph, baseCph, baseVol, volBoost = 0 }){
-  // Inputs are in % for rates and raw for productivity/multiplier.
-  const cr = triFromPctInputs(state.mcContactMin, state.mcContactMode, state.mcContactMax, baseCr);
-  const pr0 = triFromPctInputs(state.mcPersMin, state.mcPersMode, state.mcPersMax, basePr);
-  const rr0 = triFromPctInputs(state.mcReliMin, state.mcReliMode, state.mcReliMax, baseRr);
-
-  // Phase 16 — widen triangle slightly when retention is low (tiny, capped)
-  const widen = (tri, boost) => {
-    if (!tri || tri.min == null || tri.mode == null || tri.max == null) return tri;
-    const b = Math.max(0, Number(boost) || 0);
-    if (b <= 0) return tri;
-    const mid = tri.mode;
-    const span = (tri.max - tri.min);
-    const extra = span * b;
-    return {
-      min: Math.max(0, tri.min - extra),
-      mode: Math.min(1, Math.max(0, mid)),
-      max: Math.min(1, tri.max + extra)
-    };
-  };
-
-  const pr = widen(pr0, volBoost);
-  const rr = widen(rr0, volBoost);
-
-  const dph = triFromNumInputs(state.mcDphMin, state.mcDphMode, state.mcDphMax, baseDph, 0.01);
-  const cph = triFromNumInputs(state.mcCphMin, state.mcCphMode, state.mcCphMax, baseCph, 0.01);
-  const vm = triFromNumInputs(state.mcVolMin, state.mcVolMode, state.mcVolMax, baseVol, 0.01);
-
-  return {
-    contactRate: cr,
-    persuasionRate: pr,
-    turnoutReliability: rr,
-    doorsPerHour: dph,
-    callsPerHour: cph,
-    volunteerMult: vm,
-  };
-}
-
 function renderMcResults(summary){
   renderMcResultsModule({
     els,
@@ -3252,131 +3205,9 @@ function renderMcVisuals(summary){
   });
 }
 
-function riskLabelFromWinProb(p){
-  if (p >= 0.85) return "Strong structural position";
-  if (p >= 0.65) return "Favored but fragile";
-  if (p >= 0.50) return "Toss-up";
-  return "Structural underdog";
-}
-
-function pctToUnit(v, fallback){
-  if (v == null || !isFinite(v)) return fallback;
-  return clamp(v, 0, 100) / 100;
-}
-
-function spread(base, w, minClamp, maxClamp){
-  const mode = base;
-  const min = clamp(base * (1 - w), minClamp, maxClamp);
-  const max = clamp(base * (1 + w), minClamp, maxClamp);
-  return normalizeTri({ min, mode, max });
-}
-
-function triFromPctInputs(minIn, modeIn, maxIn, baseUnit){
-  const fallbackMode = baseUnit;
-  const minV = safeNum(minIn);
-  const modeV = safeNum(modeIn);
-  const maxV = safeNum(maxIn);
-
-  const mode = (modeV != null) ? clamp(modeV, 0, 100) / 100 : fallbackMode;
-  const min = (minV != null) ? clamp(minV, 0, 100) / 100 : clamp(mode * 0.8, 0, 1);
-  const max = (maxV != null) ? clamp(maxV, 0, 100) / 100 : clamp(mode * 1.2, 0, 1);
-
-  return normalizeTri({ min, mode, max });
-}
-
-function triFromNumInputs(minIn, modeIn, maxIn, base, floor){
-  const minV = safeNum(minIn);
-  const modeV = safeNum(modeIn);
-  const maxV = safeNum(maxIn);
-
-  const mode = (modeV != null && modeV > 0) ? modeV : base;
-  const min = (minV != null && minV > 0) ? minV : Math.max(floor, mode * 0.8);
-  const max = (maxV != null && maxV > 0) ? maxV : Math.max(min + floor, mode * 1.2);
-
-  return normalizeTri({ min, mode, max });
-}
-
-function normalizeTri({ min, mode, max }){
-  let a = min, b = mode, c = max;
-  if (!isFinite(a)) a = 0;
-  if (!isFinite(b)) b = 0;
-  if (!isFinite(c)) c = 0;
-
-  // Enforce ordering
-  const lo = Math.min(a, b, c);
-  const hi = Math.max(a, b, c);
-  // keep mode inside
-  b = clamp(b, lo, hi);
-  return { min: lo, mode: b, max: hi };
-}
-
-function quantileSorted(sorted, q){
-  if (!sorted.length) return 0;
-  const pos = (sorted.length - 1) * q;
-  const base = Math.floor(pos);
-  const rest = pos - base;
-  if (sorted[base + 1] == null) return sorted[base];
-  return sorted[base] + rest * (sorted[base + 1] - sorted[base]);
-}
-
-function sum(arr){
-  let s = 0;
-  for (let i=0;i<arr.length;i++) s += arr[i];
-  return s;
-}
-
-function mean(arr){
-  if (!arr || arr.length === 0) return 0;
-  return sum(arr) / arr.length;
-}
-
 function fmtSigned(v){
   if (v == null || !isFinite(v)) return "—";
   const n = Math.round(v);
   const sign = n >= 0 ? "+" : "−";
   return `${sign}${fmtInt(Math.abs(n))}`;
-}
-
-function computeSensitivity(samples, margins){
-  // Pearson correlation between each variable and margin; return absolute impact.
-  const out = [];
-
-  const vars = [
-    ["Turnout reliability", samples.turnoutReliability],
-    ["Persuasion rate", samples.persuasionRate],
-    ["Organizer productivity (doors/hr)", samples.doorsPerHour],
-    ["Organizer productivity (calls/hr)", samples.callsPerHour],
-    ["Contact rate", samples.contactRate],
-    ["Volunteer multiplier", samples.volunteerMult],
-  ];
-
-  for (const [label, xs] of vars){
-    const r = pearson(xs, margins);
-    out.push({ label, impact: (r == null) ? null : Math.abs(r) });
-  }
-
-  out.sort((a,b) => (b.impact ?? -1) - (a.impact ?? -1));
-  return out;
-}
-
-function pearson(xs, ys){
-  const n = xs.length;
-  if (!n || ys.length !== n) return null;
-
-  let sumX=0, sumY=0;
-  for (let i=0;i<n;i++){ sumX += xs[i]; sumY += ys[i]; }
-  const meanX = sumX / n;
-  const meanY = sumY / n;
-
-  let num=0, denX=0, denY=0;
-  for (let i=0;i<n;i++){
-    const dx = xs[i] - meanX;
-    const dy = ys[i] - meanY;
-    num += dx * dy;
-    denX += dx * dx;
-    denY += dy * dy;
-  }
-  const den = Math.sqrt(denX * denY);
-  if (!isFinite(den) || den === 0) return null;
-  return num / den;
 }
