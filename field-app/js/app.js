@@ -36,6 +36,11 @@ import {
 } from "./app/mcSpecBuilders.js";
 import { hashMcInputsModule } from "./app/mcHash.js";
 import { runMonteCarloNowModule } from "./app/monteCarloRun.js";
+import {
+  fmtSignedModule,
+  renderMcResultsAdapterModule,
+  renderMcVisualsAdapterModule,
+} from "./app/mcRenderAdapters.js";
 import { renderMain } from "./app/renderMain.js";
 import { initDevToolsModule } from "./app/initDevTools.js";
 import { buildModelInputFromState } from "./app/modelInput.js";
@@ -137,6 +142,11 @@ import {
   requiredScenarioKeysMissingModule
 } from "./app/stateNormalizationHelpers.js";
 import {
+  rebuildCandidateTableModule,
+  rebuildYourCandidateSelectModule,
+  rebuildUserSplitInputsModule,
+} from "./app/candidateUi.js";
+import {
   updatePersistenceStatusChipModule,
   reportPersistenceFailureModule,
   clearPersistenceFailureModule
@@ -176,6 +186,7 @@ import {
   wireTabAndExportEvents,
   wireResetImportAndUiToggles
 } from "./app/wireEvents.js";
+import { wireEventsOrchestratorModule } from "./app/wireEventsOrchestrator.js";
 import {
   getUniverseLayerConfig as getUniverseLayerConfigFromStateSelector,
   getEffectiveBaseRates as getEffectiveBaseRatesFromStateSelector,
@@ -1176,140 +1187,38 @@ function applyStateToUI(){
 }
 
 function rebuildCandidateTable(){
-  els.candTbody.innerHTML = "";
-
-  for (const cand of state.candidates){
-    const tr = document.createElement("tr");
-
-    const tdName = document.createElement("td");
-    const nameInput = document.createElement("input");
-    nameInput.className = "input input-sm";
-    nameInput.value = cand.name || "";
-    nameInput.addEventListener("input", () => {
-      cand.name = nameInput.value;
-      if (!state.userSplit[cand.id]) state.userSplit[cand.id] = 0;
-      rebuildYourCandidateSelect();
-      rebuildUserSplitInputs();
-      commitUIUpdate();
-    });
-    tdName.appendChild(nameInput);
-
-    const tdPct = document.createElement("td");
-    tdPct.className = "num";
-    const pctInput = document.createElement("input");
-    pctInput.className = "input input-sm num";
-    pctInput.type = "number";
-    pctInput.min = "0";
-    pctInput.max = "100";
-    pctInput.step = "0.1";
-    pctInput.value = cand.supportPct ?? "";
-    pctInput.addEventListener("input", () => {
-      cand.supportPct = safeNum(pctInput.value);
-      commitUIUpdate();
-    });
-    tdPct.appendChild(pctInput);
-
-    const tdDel = document.createElement("td");
-    tdDel.className = "num";
-    const delBtn = document.createElement("button");
-    delBtn.className = "btn btn-sm btn-ghost";
-    delBtn.type = "button";
-    delBtn.textContent = "Remove";
-    delBtn.disabled = state.candidates.length <= 2;
-    delBtn.addEventListener("click", () => {
-      if (state.candidates.length <= 2) return;
-      state.candidates = state.candidates.filter(c => c.id !== cand.id);
-      delete state.userSplit[cand.id];
-      if (state.yourCandidateId === cand.id){
-        state.yourCandidateId = state.candidates[0]?.id || null;
-      }
-      rebuildCandidateTable();
-      rebuildYourCandidateSelect();
-      rebuildUserSplitInputs();
-      commitUIUpdate();
-    });
-    tdDel.appendChild(delBtn);
-
-    tr.appendChild(tdName);
-    tr.appendChild(tdPct);
-    tr.appendChild(tdDel);
-    els.candTbody.appendChild(tr);
-  }
-
-  rebuildYourCandidateSelect();
-  rebuildUserSplitInputs();
+  return rebuildCandidateTableModule({
+    els,
+    getState: () => state,
+    safeNum,
+    commitUIUpdate,
+    rebuildCandidateTable,
+    rebuildYourCandidateSelect,
+    rebuildUserSplitInputs,
+  });
 }
 
 function rebuildYourCandidateSelect(){
-  els.yourCandidate.innerHTML = "";
-  for (const cand of state.candidates){
-    const opt = document.createElement("option");
-    opt.value = cand.id;
-    opt.textContent = cand.name || "Candidate";
-    els.yourCandidate.appendChild(opt);
-  }
-  if (!state.yourCandidateId){
-    state.yourCandidateId = state.candidates[0]?.id || null;
-  }
-  els.yourCandidate.value = state.yourCandidateId || "";
+  return rebuildYourCandidateSelectModule({
+    els,
+    getState: () => state,
+  });
 }
 
 function rebuildUserSplitInputs(){
-  const isUser = state.undecidedMode === "user_defined";
-  els.userSplitWrap.hidden = !isUser;
-  if (!isUser) return;
-
-  els.userSplitList.innerHTML = "";
-  for (const cand of state.candidates){
-    if (state.userSplit[cand.id] == null) state.userSplit[cand.id] = 0;
-    const row = document.createElement("div");
-    row.className = "grid2";
-    row.style.gridTemplateColumns = "1fr 120px";
-
-    const name = document.createElement("div");
-    name.className = "label";
-    name.style.alignSelf = "center";
-    name.textContent = cand.name || "Candidate";
-
-    const inp = document.createElement("input");
-    inp.className = "input input-sm num";
-    inp.type = "number";
-    inp.min = "0";
-    inp.max = "100";
-    inp.step = "0.1";
-    inp.value = state.userSplit[cand.id] ?? 0;
-    inp.addEventListener("input", () => {
-      state.userSplit[cand.id] = safeNum(inp.value);
-      commitUIUpdate();
-    });
-
-    row.appendChild(name);
-    row.appendChild(inp);
-    els.userSplitList.appendChild(row);
-  }
+  return rebuildUserSplitInputsModule({
+    els,
+    getState: () => state,
+    safeNum,
+    commitUIUpdate,
+  });
 }
 
 function wireEvents(){
-  wireSafetyAndDiagnosticsEvents({
+  return wireEventsOrchestratorModule({
     els,
-    getState: () => state,
+    state: () => state,
     setState,
-    refreshBackupDropdown,
-    restoreBackupByIndex,
-    openDiagnostics,
-    closeDiagnostics,
-    copyDebugBundle,
-    exportDailyLog,
-    mergeDailyLogIntoState,
-    applyRollingRateToAssumption,
-    applyAllRollingCalibrations,
-    undoLastWeeklyAction,
-    safeCall,
-  });
-
-  wirePrimaryPlannerEvents({
-    els,
-    getState: () => state,
     safeNum,
     commitUIUpdate,
     schedulePersist,
@@ -1329,19 +1238,8 @@ function wireEvents(){
     wireSensitivitySurface,
     safeCall,
     runMonteCarloNow,
-  });
-
-  wireBudgetTimelineEvents({
-    els,
-    getState: () => state,
-    safeNum,
-    commitUIUpdate,
-    render
-  });
-
-  wireTabAndExportEvents({
-    els,
-    getState: () => state,
+    render,
+    applyThemeFromState,
     persist,
     engine,
     APP_VERSION,
@@ -1349,11 +1247,6 @@ function wireEvents(){
     getLastResultsSnapshot: () => lastResultsSnapshot,
     setLastExportHash: (next) => { lastExportHash = next; },
     downloadText,
-  });
-
-  wireResetImportAndUiToggles({
-    els,
-    getState: () => state,
     replaceState: (next) => { state = next; },
     makeDefaultState,
     ensureScenarioRegistry,
@@ -1362,22 +1255,28 @@ function wireEvents(){
     scenarioInputsFromState,
     scenarioOutputsFromState,
     clearState,
-    applyStateToUI,
-    rebuildCandidateTable,
-    applyThemeFromState,
-    render,
-    safeCall,
-    renderScenarioManagerC1,
-    renderDecisionSessionD1,
-    persist,
     readJsonFile,
-    engine,
     requiredScenarioKeysMissing,
     normalizeLoadedState,
     setText,
-    getLastResultsSnapshot: () => lastResultsSnapshot,
+    refreshBackupDropdown,
+    restoreBackupByIndex,
+    openDiagnostics,
+    closeDiagnostics,
+    copyDebugBundle,
+    exportDailyLog,
+    mergeDailyLogIntoState,
+    applyRollingRateToAssumption,
+    applyAllRollingCalibrations,
+    undoLastWeeklyAction,
+    renderScenarioManagerC1,
+    renderDecisionSessionD1,
+    wireSafetyAndDiagnosticsEvents,
+    wirePrimaryPlannerEvents,
+    wireBudgetTimelineEvents,
+    wireTabAndExportEvents,
+    wireResetImportAndUiToggles,
   });
-
 }
 
 function normalizeLoadedState(s){
@@ -3121,7 +3020,8 @@ function runMonteCarloSim({ scenario, scenarioState, res, weeks, needVotes, runs
 }
 
 function renderMcResults(summary){
-  renderMcResultsModule({
+  return renderMcResultsAdapterModule({
+    renderMcResultsModule,
     els,
     summary,
     setTextPair,
@@ -3132,7 +3032,8 @@ function renderMcResults(summary){
 }
 
 function renderMcVisuals(summary){
-  renderMcVisualsModule({
+  return renderMcVisualsAdapterModule({
+    renderMcVisualsModule,
     els,
     summary,
     clamp,
@@ -3141,8 +3042,5 @@ function renderMcVisuals(summary){
 }
 
 function fmtSigned(v){
-  if (v == null || !isFinite(v)) return "—";
-  const n = Math.round(v);
-  const sign = n >= 0 ? "+" : "−";
-  return `${sign}${fmtInt(Math.abs(n))}`;
+  return fmtSignedModule(v, fmtInt);
 }
