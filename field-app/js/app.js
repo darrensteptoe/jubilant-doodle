@@ -1,8 +1,12 @@
 import { engine } from "./engine.js";
-import { computeCapacityContacts as coreComputeCapacityContacts, computeCapacityBreakdown as coreComputeCapacityBreakdown } from "./core/model.js";
-import { normalizeUniversePercents, UNIVERSE_DEFAULTS, computeUniverseAdjustedRates } from "./core/universeLayer.js";
+import {
+  computeCapacityContacts as coreComputeCapacityContacts,
+  computeCapacityBreakdown as coreComputeCapacityBreakdown,
+  deriveNeedVotes as coreDeriveNeedVotes
+} from "./core/model.js";
+import { UNIVERSE_DEFAULTS, computeUniverseAdjustedRates } from "./core/universeLayer.js";
 import { computeAvgLiftPP } from "./core/turnout.js";
-import { fmtInt, clamp, safeNum, daysBetween, readJsonFile } from "./utils.js";
+import { fmtInt, clamp, safeNum, readJsonFile } from "./utils.js";
 import {
   loadState,
   clearState,
@@ -107,7 +111,8 @@ import {
 import {
   derivedWeeksRemainingFromState,
   getUniverseLayerConfig as getUniverseLayerConfigFromStateSelector,
-  getEffectiveBaseRates as getEffectiveBaseRatesFromStateSelector
+  getEffectiveBaseRates as getEffectiveBaseRatesFromStateSelector,
+  computeWeeklyOpsContextFromState as computeWeeklyOpsContextFromStateSelector
 } from "./app/selectors.js";
 import { getOperationsMetricsSnapshot } from "./features/operations/metricsCache.js";
 import { PIPELINE_STAGES, DEFAULT_FORECAST_CONFIG } from "./features/operations/schema.js";
@@ -1549,9 +1554,8 @@ function renderWeeklyExecutionStatus(ctx){
 }
 
 function computeWeeklyOpsContext(res, weeks){
-  const rawGoal = safeNum(state.goalSupportIds);
-  const autoGoal = safeNum(res?.expected?.persuasionNeed);
-  const goal = (rawGoal != null && rawGoal >= 0) ? rawGoal : (autoGoal != null && autoGoal > 0 ? autoGoal : 0);
+  const needVotes = coreDeriveNeedVotes(res, state.goalSupportIds);
+  const goal = (needVotes != null && needVotes > 0) ? needVotes : 0;
 
   const effective = compileEffectiveInputs(state);
   const sr = effective.rates.sr;
@@ -1842,6 +1846,7 @@ function renderConversion(res, weeks){
     state,
     res,
     weeks,
+    deriveNeedVotes,
     safeNum,
     fmtInt,
     getEffectiveBaseRates,
@@ -1873,6 +1878,7 @@ function renderDecisionConfidenceE5(res, weeks){
     state,
     res,
     weeks,
+    deriveNeedVotes,
     normalizeDailyLogEntry,
     safeNum,
     getEffectiveBaseRates,
@@ -2157,104 +2163,20 @@ function listScenarioRecords(){
 }
 
 function getUniverseLayerConfigFromSnap(snap){
-  const enabled = !!snap?.universeLayerEnabled;
-  const demPct = safeNum(snap?.universeDemPct);
-  const repPct = safeNum(snap?.universeRepPct);
-  const npaPct = safeNum(snap?.universeNpaPct);
-  const otherPct = safeNum(snap?.universeOtherPct);
-  const retentionFactor = safeNum(snap?.retentionFactor);
-
-  const norm = normalizeUniversePercents({ demPct, repPct, npaPct, otherPct });
-  return {
-    enabled,
-    percents: norm.percents,
-    shares: norm.shares,
-    retentionFactor: (retentionFactor != null) ? clamp(retentionFactor, 0.60, 0.95) : UNIVERSE_DEFAULTS.retentionFactor,
-    warning: norm.warning || "",
-    wasNormalized: !!norm.normalized,
-  };
+  return getUniverseLayerConfigFromStateSelector(snap);
 }
 
 function getEffectiveBaseRatesFromSnap(snap){
-  const cr = (safeNum(snap?.contactRatePct) != null) ? clamp(safeNum(snap?.contactRatePct), 0, 100) / 100 : null;
-  const sr = (safeNum(snap?.supportRatePct) != null) ? clamp(safeNum(snap?.supportRatePct), 0, 100) / 100 : null;
-  const tr = (safeNum(snap?.turnoutReliabilityPct) != null) ? clamp(safeNum(snap?.turnoutReliabilityPct), 0, 100) / 100 : null;
-
-  const cfg = getUniverseLayerConfigFromSnap(snap);
-  const adj = computeUniverseAdjustedRates({
-    enabled: cfg.enabled,
-    universePercents: cfg.percents,
-    retentionFactor: cfg.retentionFactor,
-    supportRate: sr,
-    turnoutReliability: tr,
-  });
-
-  return {
-    cr,
-    sr: adj.srAdj,
-    tr: adj.trAdj,
-    cfg,
-    meta: adj.meta,
-    volatilityBoost: adj.volatilityBoost || 0,
-  };
+  return getEffectiveBaseRatesFromStateSelector(snap, { computeUniverseAdjustedRates });
 }
 
 function computeWeeklyOpsContextFromSnap(snap, res, weeks){
-  const rawGoal = safeNum(snap?.goalSupportIds);
-  const autoGoal = safeNum(res?.expected?.persuasionNeed);
-  const goal = (rawGoal != null && rawGoal >= 0) ? rawGoal : (autoGoal != null && autoGoal > 0 ? autoGoal : 0);
-
-  const eff = getEffectiveBaseRatesFromSnap(snap);
-  const sr = eff.sr;
-  const cr = eff.cr;
-
-  let convosNeeded = null;
-  let attemptsNeeded = null;
-  let convosPerWeek = null;
-  let attemptsPerWeek = null;
-
-  if (goal > 0 && sr && sr > 0) convosNeeded = goal / sr;
-  if (convosNeeded != null && cr && cr > 0) attemptsNeeded = convosNeeded / cr;
-  if (weeks != null && weeks > 0){
-    if (convosNeeded != null) convosPerWeek = convosNeeded / weeks;
-    if (attemptsNeeded != null) attemptsPerWeek = attemptsNeeded / weeks;
-  }
-
-  const orgCount = safeNum(snap?.orgCount);
-  const orgHoursPerWeek = safeNum(snap?.orgHoursPerWeek);
-  const volunteerMult = safeNum(snap?.volunteerMultBase);
-  const doorSharePct = safeNum(snap?.channelDoorPct);
-  const doorsPerHour = safeNum(snap?.doorsPerHour3);
-  const callsPerHour = safeNum(snap?.callsPerHour3);
-
-  const doorShare = (doorSharePct == null) ? null : clamp(doorSharePct / 100, 0, 1);
-
-  const cap = coreComputeCapacityBreakdown({
-    weeks: 1,
-    orgCount,
-    orgHoursPerWeek,
-    volunteerMult,
-    doorShare,
-    doorsPerHour,
-    callsPerHour
-  });
-
-  const capTotal = cap?.total ?? null;
-  const gap = (attemptsPerWeek != null && capTotal != null) ? (attemptsPerWeek - capTotal) : null;
-
-  return {
-    goal,
+  return computeWeeklyOpsContextFromStateSelector(snap, {
+    res,
     weeks,
-    sr,
-    cr,
-    convosNeeded,
-    attemptsNeeded,
-    convosPerWeek,
-    attemptsPerWeek,
-    cap,
-    capTotal,
-    gap,
-  };
+    getEffectiveBaseRatesForState: (s) => getEffectiveBaseRatesFromSnap(s),
+    computeCapacityBreakdown: coreComputeCapacityBreakdown
+  });
 }
 
 function targetFinishDateFromSnap(snap, weeks){
@@ -2419,7 +2341,7 @@ function renderScenarioComparisonC3(){
     try{
       const snap = scenarioClone(inputs || {});
       const res = engine.computeAll(snap);
-      const weeks = engine.withPatchedState(snap, () => engine.derivedWeeksRemaining());
+      const weeks = derivedWeeksRemainingFromState(snap);
       const ctx = computeWeeklyOpsContextFromSnap(snap, res, weeks);
       const finish = targetFinishDateFromSnap(snap, weeks);
 
@@ -3528,57 +3450,21 @@ function hashMissRiskInputs(res, weeks){
 }
 
 function computeMissRiskD4(res, weeks){
-  const w = (weeks != null && isFinite(weeks) && weeks > 0) ? weeks : null;
-  if (!w) return null;
-
-  const ctx = computeWeeklyOpsContext(res, w);
-  if (!ctx || !(ctx.goal > 0)) return null;
-
-  const last7 = computeLastNLogSums(7);
-  if (!last7?.hasLog || !(last7.days > 0)) return null;
-  const paceAttemptsWeek = (last7.sumAttempts / last7.days) * 7;
-  if (!(paceAttemptsWeek > 0)) return null;
-
-  const eff = getEffectiveBaseRates();
-  const baseCr = eff.cr;
-  const baseSr = eff.sr;
-  if (!(baseCr > 0) || !(baseSr > 0)) return null;
-
-  const baseRr = (eff.tr != null && isFinite(eff.tr) && eff.tr > 0) ? eff.tr : 0.75;
-  const baseDph = (safeNum(state.doorsPerHour3) != null && safeNum(state.doorsPerHour3) > 0) ? safeNum(state.doorsPerHour3) : 30;
-  const baseCph = (safeNum(state.callsPerHour3) != null && safeNum(state.callsPerHour3) > 0) ? safeNum(state.callsPerHour3) : 25;
-  const baseVol = (safeNum(state.volunteerMultBase) != null && safeNum(state.volunteerMultBase) > 0) ? safeNum(state.volunteerMultBase) : 1;
-  const volBoost = safeNum(eff.volatilityBoost) || 0;
-
-  const specs = (String(state.mcMode || "basic") === "advanced")
-    ? buildAdvancedSpecs({ baseCr, basePr: baseSr, baseRr, baseDph, baseCph, baseVol, volBoost })
-    : buildBasicSpecs({ baseCr, basePr: baseSr, baseRr, baseDph, baseCph, baseVol, volBoost });
-
-  const runs = 200;
-  const seedStr = `${state.mcSeed || ""}|missRisk|${hashMcInputs(res, w)}`;
-  const rng = makeRng(seedStr);
-
-  let miss = 0;
-  let n = 0;
-
-  for (let i = 0; i < runs; i++){
-    const cr = clamp(triSample(specs.contactRate.min, specs.contactRate.mode, specs.contactRate.max, rng), 0.0001, 1);
-    const sr = clamp(triSample(specs.persuasionRate.min, specs.persuasionRate.mode, specs.persuasionRate.max, rng), 0.0001, 1);
-
-    const convosPerWeek = (ctx.goal / sr) / w;
-    const attemptsPerWeek = convosPerWeek / cr;
-
-    if (!isFinite(attemptsPerWeek) || !(attemptsPerWeek > 0)) continue;
-    n++;
-    if (attemptsPerWeek > paceAttemptsWeek) miss++;
-  }
-
-  if (n < 25) return null;
-  return {
-    runs: n,
-    prob: miss / n,
-    paceAttemptsWeek
-  };
+  return computeMissRiskD4Module({
+    state,
+    res,
+    weeks,
+    computeWeeklyOpsContext,
+    computeLastNLogSums,
+    getEffectiveBaseRates,
+    safeNum,
+    buildAdvancedSpecs,
+    buildBasicSpecs,
+    hashMcInputs,
+    makeRng,
+    triSample,
+    clamp,
+  });
 }
 
 function renderMissRiskD4(res, weeks){
@@ -3698,11 +3584,9 @@ function hashMcInputs(res, weeks){
   return JSON.stringify(payload);
 }
 
-function deriveNeedVotes(res){
-  const rawGoal = safeNum(state.goalSupportIds);
-  const autoGoal = safeNum(res?.expected?.persuasionNeed);
-  const goal = (rawGoal != null && rawGoal >= 0) ? rawGoal : (autoGoal != null && autoGoal > 0 ? autoGoal : 0);
-  return goal;
+function deriveNeedVotes(res, goalSupportIdsOverride = state.goalSupportIds){
+  const goal = coreDeriveNeedVotes(res, goalSupportIdsOverride);
+  return (goal != null && goal > 0) ? goal : 0;
 }
 
 

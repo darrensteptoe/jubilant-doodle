@@ -9,7 +9,8 @@
 import { computeSnapshotHash } from "./hash.js";
 import { computeDecisionIntelligence } from "./decisionIntelligence.js";
 import { computeRoiRows, buildOptimizationTactics } from "./budget.js";
-import { computeAvgLiftPP } from "./turnout.js";
+import { deriveNeedVotes as coreDeriveNeedVotes } from "./core/model.js";
+import { computeVolunteerNeedFromGoal } from "./core/executionPlanner.js";
 
 const DEFAULT_MAX = 5;
 const MC_RUNS = 10000;
@@ -37,51 +38,6 @@ function deepClone(obj){
   } catch {
     return (obj && typeof obj === "object") ? { ...obj } : obj;
   }
-}
-
-function derivedWeeksRemainingFromSnap(snap){
-  try{
-    const wOverride = safeNum(snap?.weeksRemaining);
-    if (wOverride != null && wOverride >= 0) return wOverride;
-
-    const d = (snap?.electionDate || "").trim();
-    if (!d) return null;
-
-    // Use local date parsing as app does; fail-soft.
-    const dt = new Date(d + "T00:00:00");
-    if (!Number.isFinite(dt.getTime())) return null;
-    const now = new Date();
-    const ms = dt.getTime() - now.getTime();
-    const days = ms / (1000 * 60 * 60 * 24);
-    const weeks = Math.max(0, days / 7);
-    return weeks;
-  } catch {
-    return null;
-  }
-}
-
-function computeVolunteerNeed({ snap, res, weeks }){
-  const rawGoal = safeNum(snap.goalSupportIds);
-  const autoGoal = safeNum(res?.expected?.persuasionNeed);
-  const goal = (rawGoal != null && rawGoal >= 0) ? rawGoal : (autoGoal != null && autoGoal > 0 ? autoGoal : 0);
-
-  const sr = pctToUnit(snap.supportRatePct, null);
-  const cr = pctToUnit(snap.contactRatePct, null);
-
-  const dph = safeNum(snap.doorsPerHour);
-  const hps = safeNum(snap.hoursPerShift);
-  const spv = safeNum(snap.shiftsPerVolunteerPerWeek);
-
-  const doorsPerShift = (dph != null && hps != null) ? (dph * hps) : null;
-
-  const convosNeeded = (sr != null && sr > 0) ? (goal / sr) : null;
-  const doorsNeeded = (convosNeeded != null && cr != null && cr > 0) ? (convosNeeded / cr) : null;
-
-  const totalShifts = (doorsNeeded != null && doorsPerShift != null && doorsPerShift > 0) ? (doorsNeeded / doorsPerShift) : null;
-  const shiftsPerWeek = (totalShifts != null && weeks != null && weeks > 0) ? (totalShifts / weeks) : null;
-  const volsNeeded = (shiftsPerWeek != null && spv != null && spv > 0) ? (shiftsPerWeek / spv) : null;
-
-  return volsNeeded;
 }
 
 function computeMinCostToCloseGap({ snap, needVotes }){
@@ -147,6 +103,19 @@ function stableId(){
   return "sc_" + Math.random().toString(36).slice(2, 10) + "_" + Date.now().toString(36);
 }
 
+function deriveWeeksFromSnapWithEngine(engine, snap){
+  if (!engine || typeof engine.derivedWeeksRemaining !== "function") return null;
+  try{
+    const weeks = engine.derivedWeeksRemaining({
+      weeksRemainingOverride: snap?.weeksRemaining,
+      electionDateISO: snap?.electionDate ? `${snap.electionDate}T00:00:00` : ""
+    });
+    return (weeks != null && Number.isFinite(weeks)) ? weeks : null;
+  } catch {
+    return null;
+  }
+}
+
 function computeOverallWinner(rows){
   if (!rows || !rows.length) return null;
 
@@ -198,19 +167,28 @@ export function createScenarioManager({ max = DEFAULT_MAX } = {}){
     try{
       if (!engine) throw new Error("missing engine");
       const res = engine.computeAll(snap);
-      const weeks = engine.withPatchedState(snap, () => engine.derivedWeeksRemaining());
-      const needVotes = engine.withPatchedState(snap, () => engine.deriveNeedVotes(res));
+      const weeks = deriveWeeksFromSnapWithEngine(engine, snap);
+      const needVotes = engine.deriveNeedVotes(res, snap?.goalSupportIds);
 
-      const sim = engine.withPatchedState(snap, () => engine.runMonteCarloSim({
+      const sim = engine.runMonteCarloSim({
+        scenario: snap,
         res,
         weeks,
         needVotes,
         runs: MC_RUNS,
         seed: ((snap.mcSeed != null && String(snap.mcSeed).trim() !== "") ? String(snap.mcSeed) : SCENARIO_FALLBACK_SEED)
-      }));
+      });
 
       const winProb = safeNum(sim?.winProb);
-      const volunteers = computeVolunteerNeed({ snap, res, weeks });
+      const volunteers = computeVolunteerNeedFromGoal({
+        goalVotes: needVotes,
+        supportRatePct: snap.supportRatePct,
+        contactRatePct: snap.contactRatePct,
+        doorsPerHour: snap.doorsPerHour,
+        hoursPerShift: snap.hoursPerShift,
+        shiftsPerVolunteerPerWeek: snap.shiftsPerVolunteerPerWeek,
+        weeks
+      });
       const cost = computeMinCostToCloseGap({ snap, needVotes });
 
       const diEngine = {
@@ -226,7 +204,7 @@ export function createScenarioManager({ max = DEFAULT_MAX } = {}){
         computeTimelineFeasibility: engine.computeTimelineFeasibility,
       };
 
-      const di = computeDecisionIntelligence({ engine: diEngine, snap, baseline: { res, weeks } });
+      const di = computeDecisionIntelligence({ engine: diEngine, snap, baseline: { res, weeks, needVotes } });
       const primaryBottleneck = di?.bottlenecks?.primary || "—";
 
       metrics = {
