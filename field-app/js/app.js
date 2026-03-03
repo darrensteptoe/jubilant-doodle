@@ -3505,44 +3505,16 @@ function computeFinishEnvelopeD3(res, weeks){
 }
 
 function renderFinishEnvelopeD3(res, weeks){
-  if (!els.opsFinishP10 && !els.opsFinishP50 && !els.opsFinishP90) return;
-
-  const clear = () => {
-    if (els.opsFinishP10) els.opsFinishP10.textContent = "—";
-    if (els.opsFinishP50) els.opsFinishP50.textContent = "—";
-    if (els.opsFinishP90) els.opsFinishP90.textContent = "—";
-  };
-
-  if (!state.mcLast){
-    clear();
-    return;
-  }
-
-  const h = hashFinishEnvelopeInputs(res, weeks);
-  const cached = (state.ui && state.ui.finishEnvelope && typeof state.ui.finishEnvelope === "object") ? state.ui.finishEnvelope : null;
-  let env = (cached && cached.hash === h) ? cached.env : null;
-
-  if (!env){
-    env = computeFinishEnvelopeD3(res, weeks);
-    if (!env){
-      clear();
-      return;
-    }
-    if (!state.ui) state.ui = {};
-    state.ui.finishEnvelope = { hash: h, env, computedAt: new Date().toISOString() };
-    persist();
-  }
-
-  const base = new Date();
-  const fmt = (days) => {
-    if (days == null || !isFinite(days)) return "—";
-    const dt = new Date(base.getTime() + Math.round(days) * 24*3600*1000);
-    return fmtISODate(dt);
-  };
-
-  if (els.opsFinishP10) els.opsFinishP10.textContent = fmt(env.p10Days);
-  if (els.opsFinishP50) els.opsFinishP50.textContent = fmt(env.p50Days);
-  if (els.opsFinishP90) els.opsFinishP90.textContent = fmt(env.p90Days);
+  renderFinishEnvelopeD3Module({
+    els,
+    state,
+    res,
+    weeks,
+    hashFinishEnvelopeInputs,
+    computeFinishEnvelopeD3,
+    persist,
+    fmtISODate,
+  });
 }
 
 function hashMissRiskInputs(res, weeks){
