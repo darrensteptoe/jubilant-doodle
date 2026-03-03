@@ -12,6 +12,7 @@ export function renderValidationModule(args){
   if (!list) return;
   const items = [];
   const fPct = (v) => (v == null || !isFinite(v)) ? "—" : `${(v * 100).toFixed(1)}%`;
+  const fNum = (v) => (v == null || !isFinite(v)) ? "—" : Number(v).toFixed(1);
 
   const uOk = res.validation.universeOk;
   items.push({
@@ -79,6 +80,16 @@ export function renderValidationModule(args){
       items.push({
         kind: srLow ? "warn" : "ok",
         text: `Rolling SR ${fPct(srActual)} vs assumed ${fPct(srAssumed)}.`,
+      });
+    }
+
+    const aphActual = driftSummary.actualAPH;
+    const aphAssumed = driftSummary.expectedAPH;
+    if (aphActual != null && isFinite(aphActual)){
+      const aphLow = (aphAssumed != null && isFinite(aphAssumed) && aphAssumed > 0 && aphActual < aphAssumed * 0.9);
+      items.push({
+        kind: aphLow ? "warn" : "ok",
+        text: `Rolling APH ${fNum(aphActual)} vs assumed ${fNum(aphAssumed)}.`,
       });
     }
   }
