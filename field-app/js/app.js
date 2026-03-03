@@ -61,6 +61,11 @@ import {
   ensureScenarioRegistryCore,
   listScenarioRecordsCore,
 } from "./app/scenarioRegistry.js";
+import {
+  getUniverseLayerConfigFromSnapCore,
+  getEffectiveBaseRatesFromSnapCore,
+  computeWeeklyOpsContextFromSnapCore,
+} from "./app/scenarioCompareHelpers.js";
 import { composeSetupStageModule } from "./app/composeSetupStage.js";
 import { normalizeStageLayoutModule } from "./app/normalizeStageLayout.js";
 import { runInitPostBootModule } from "./app/initPostBoot.js";
@@ -2242,20 +2247,24 @@ function listScenarioRecords(){
 }
 
 function getUniverseLayerConfigFromSnap(snap){
-  return getUniverseLayerConfigFromStateSelector(snap);
+  return getUniverseLayerConfigFromSnapCore(snap, {
+    getUniverseLayerConfigFromStateSelector,
+  });
 }
 
 function getEffectiveBaseRatesFromSnap(snap){
-  return getEffectiveBaseRatesFromStateSelector(snap, { computeUniverseAdjustedRates });
+  return getEffectiveBaseRatesFromSnapCore(snap, {
+    getEffectiveBaseRatesFromStateSelector,
+    computeUniverseAdjustedRates,
+  });
 }
 
 function computeWeeklyOpsContextFromSnap(snap, res, weeks){
-  return computeWeeklyOpsContextFromStateSelector(snap, {
-    res,
-    weeks,
-    getEffectiveBaseRatesForState: (s) => getEffectiveBaseRatesFromSnap(s),
+  return computeWeeklyOpsContextFromSnapCore(snap, res, weeks, {
+    computeWeeklyOpsContextFromStateSelector,
+    getEffectiveBaseRatesFromSnap,
     computeCapacityBreakdown: coreComputeCapacityBreakdown,
-    compileEffectiveInputsForState: (s) => compileEffectiveInputs(s)
+    compileEffectiveInputs,
   });
 }
 
