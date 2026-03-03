@@ -50,6 +50,17 @@ import {
   ensureDecisionOptionShapeCore,
   ensureDecisionSessionShapeCore,
 } from "./app/decisionScaffold.js";
+import {
+  ensureDecisionScaffoldCore,
+  getActiveDecisionSessionCore,
+  listDecisionSessionsCore,
+  decisionScenarioLabelCore,
+} from "./app/decisionScaffoldState.js";
+import { renderScenarioManagerPanel } from "./app/renderScenarioManager.js";
+import {
+  ensureScenarioRegistryCore,
+  listScenarioRecordsCore,
+} from "./app/scenarioRegistry.js";
 import { composeSetupStageModule } from "./app/composeSetupStage.js";
 import { normalizeStageLayoutModule } from "./app/normalizeStageLayout.js";
 import { runInitPostBootModule } from "./app/initPostBoot.js";
@@ -2205,25 +2216,11 @@ function scenarioOutputsFromState(src){
 }
 
 function ensureScenarioRegistry(){
-  if (!state.ui) state.ui = {};
-  const cur = state.ui.scenarios;
-  if (!cur || typeof cur !== "object" || Array.isArray(cur)) state.ui.scenarios = {};
-  if (!state.ui.activeScenarioId || typeof state.ui.activeScenarioId !== "string") state.ui.activeScenarioId = SCENARIO_BASELINE_ID;
-  if (!state.ui.scenarioUiSelectedId || typeof state.ui.scenarioUiSelectedId !== "string") state.ui.scenarioUiSelectedId = state.ui.activeScenarioId;
-
-  const reg = state.ui.scenarios;
-  if (!reg[SCENARIO_BASELINE_ID]){
-    reg[SCENARIO_BASELINE_ID] = {
-      id: SCENARIO_BASELINE_ID,
-      name: "Baseline",
-      inputs: scenarioInputsFromState(state),
-      outputs: scenarioOutputsFromState(state),
-      createdAt: new Date().toISOString()
-    };
-  }
-
-  if (!reg[state.ui.activeScenarioId]) state.ui.activeScenarioId = SCENARIO_BASELINE_ID;
-  if (!reg[state.ui.scenarioUiSelectedId]) state.ui.scenarioUiSelectedId = state.ui.activeScenarioId;
+  return ensureScenarioRegistryCore(state, {
+    scenarioBaselineId: SCENARIO_BASELINE_ID,
+    scenarioInputsFromState,
+    scenarioOutputsFromState,
+  });
 }
 
 function setScenarioWarn(msg){
@@ -2239,12 +2236,9 @@ function setScenarioWarn(msg){
 
 function listScenarioRecords(){
   ensureScenarioRegistry();
-  const reg = state.ui.scenarios;
-  const all = Object.values(reg);
-  const baseline = all.find(s => s && s.id === SCENARIO_BASELINE_ID) || null;
-  const rest = all.filter(s => s && s.id !== SCENARIO_BASELINE_ID);
-  rest.sort((a,b) => String(a.createdAt||"").localeCompare(String(b.createdAt||"")));
-  return baseline ? [baseline, ...rest] : rest;
+  return listScenarioRecordsCore(state, {
+    scenarioBaselineId: SCENARIO_BASELINE_ID,
+  });
 }
 
 function getUniverseLayerConfigFromSnap(snap){
@@ -2294,51 +2288,16 @@ function renderScenarioComparisonC3(){
 }
 
 function renderScenarioManagerC1(){
-  ensureScenarioRegistry();
-
-  const reg = state.ui.scenarios;
-  const activeId = state.ui.activeScenarioId;
-  const selectedId = state.ui.scenarioUiSelectedId;
-
-  if (els.activeScenarioLabel){
-    const active = reg[activeId];
-    els.activeScenarioLabel.textContent = `Active Scenario: ${active ? (active.name || active.id) : "—"}`;
-  }
-
-  if (els.scenarioSelect){
-    const list = listScenarioRecords();
-    els.scenarioSelect.innerHTML = "";
-    for (const s of list){
-      const opt = document.createElement("option");
-      opt.value = s.id;
-      opt.textContent = s.name || s.id;
-      els.scenarioSelect.appendChild(opt);
-    }
-    els.scenarioSelect.value = reg[selectedId] ? selectedId : activeId;
-  }
-
-  if (els.btnScenarioDelete){
-    const canDel = selectedId && selectedId !== SCENARIO_BASELINE_ID && !!reg[selectedId];
-    els.btnScenarioDelete.disabled = !canDel;
-  }
-
-  if (els.btnScenarioLoadSelected){
-    const canLoad = selectedId && !!reg[selectedId] && selectedId !== activeId;
-    els.btnScenarioLoadSelected.disabled = !canLoad;
-  }
-
-  if (els.btnScenarioReturnBaseline){
-    els.btnScenarioReturnBaseline.disabled = (activeId === SCENARIO_BASELINE_ID);
-  }
-
-  const count = Object.keys(reg).length;
-  if (count > SCENARIO_MAX){
-    setScenarioWarn(`Scenario limit exceeded (${count}/${SCENARIO_MAX}). Delete scenarios to stay under the cap.`);
-  } else {
-    setScenarioWarn(null);
-  }
-
-  renderScenarioComparisonC3();
+  return renderScenarioManagerPanel({
+    els,
+    state,
+    ensureScenarioRegistry,
+    listScenarioRecords,
+    SCENARIO_BASELINE_ID,
+    SCENARIO_MAX,
+    setScenarioWarn,
+    renderScenarioComparison: renderScenarioComparisonC3,
+  });
 }
 
 // =========================
@@ -2362,69 +2321,27 @@ function ensureDecisionSessionShape(s){
 
 
 function ensureDecisionScaffold(){
-  if (!state) return;
-  if (!state.ui) state.ui = {};
-  const d = (state.ui.decision && typeof state.ui.decision === "object") ? state.ui.decision : null;
-  if (!d){
-    state.ui.decision = { sessions: {}, activeSessionId: null };
-  }
-  if (!state.ui.decision.sessions || typeof state.ui.decision.sessions !== "object"){
-    state.ui.decision.sessions = {};
-  }
-
-  const ids = Object.keys(state.ui.decision.sessions);
-  for (const k of ids){
-    ensureDecisionSessionShape(state.ui.decision.sessions[k]);
-  }
-  if (!ids.length){
-    const id = makeDecisionSessionId();
-    state.ui.decision.sessions[id] = {
-      id,
-      name: "Decision Session",
-      createdAt: new Date().toISOString(),
-      scenarioId: state.ui.activeScenarioId || SCENARIO_BASELINE_ID,
-      objectiveKey: OBJECTIVE_TEMPLATES[0].key,
-      notes: "",
-      constraints: { budget: null, volunteerHrs: null, turfAccess: "", blackoutDates: "" },
-      riskPosture: "balanced",
-      nonNegotiables: [],
-      whatNeedsTrue: [],
-      recommendedOptionId: null,
-      options: {},
-      activeOptionId: null,
-    };
-    state.ui.decision.activeSessionId = id;
-    return;
-  }
-
-  const active = state.ui.decision.activeSessionId;
-  if (!active || !state.ui.decision.sessions[active]){
-    state.ui.decision.activeSessionId = ids[0];
-  }
+  return ensureDecisionScaffoldCore(state, {
+    ensureDecisionSessionShape,
+    makeDecisionSessionId,
+    objectiveTemplates: OBJECTIVE_TEMPLATES,
+    scenarioBaselineId: SCENARIO_BASELINE_ID,
+  });
 }
 
 function getActiveDecisionSession(){
   ensureDecisionScaffold();
-  const id = state.ui?.decision?.activeSessionId;
-  const s = (id && state.ui?.decision?.sessions) ? state.ui.decision.sessions[id] : null;
-  return s || null;
+  return getActiveDecisionSessionCore(state);
 }
 
 function listDecisionSessions(){
   ensureDecisionScaffold();
-  const sessions = state.ui.decision.sessions || {};
-  const arr = Object.values(sessions);
-  arr.sort((a,b) => String(a?.createdAt || "").localeCompare(String(b?.createdAt || "")));
-  return arr;
+  return listDecisionSessionsCore(state);
 }
 
 function decisionScenarioLabel(scenarioId){
   ensureScenarioRegistry();
-  const reg = state.ui.scenarios || {};
-  const rec = scenarioId ? reg[scenarioId] : null;
-  if (!scenarioId) return "—";
-  if (rec) return `${rec.name || rec.id} (${rec.id})`;
-  return String(scenarioId);
+  return decisionScenarioLabelCore(scenarioId, state.ui.scenarios || {});
 }
 
 function renderDecisionSessionD1(){
