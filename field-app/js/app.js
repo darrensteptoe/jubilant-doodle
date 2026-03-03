@@ -28,6 +28,28 @@ import { renderMain } from "./app/renderMain.js";
 import { initDevToolsModule } from "./app/initDevTools.js";
 import { buildModelInputFromState } from "./app/modelInput.js";
 import { targetFinishDateFromSnapCore, paceFinishDateCore } from "./app/forecastDates.js";
+import {
+  scenarioCloneCore,
+  scenarioInputsFromStateCore,
+  scenarioOutputsFromStateCore
+} from "./app/scenarioState.js";
+import {
+  normalizeDailyLogEntryCore,
+  mergeDailyLogIntoStateCore,
+  exportDailyLogCore
+} from "./app/dailyLog.js";
+import {
+  appendOperationsDiagnosticsCore,
+  appendModelDiagnosticsCore,
+} from "./app/diagnosticsBuilders.js";
+import {
+  OBJECTIVE_TEMPLATES,
+  RISK_POSTURES,
+  makeDecisionSessionIdCore,
+  makeDecisionOptionIdCore,
+  ensureDecisionOptionShapeCore,
+  ensureDecisionSessionShapeCore,
+} from "./app/decisionScaffold.js";
 import { composeSetupStageModule } from "./app/composeSetupStage.js";
 import { normalizeStageLayoutModule } from "./app/normalizeStageLayout.js";
 import { runInitPostBootModule } from "./app/initPostBoot.js";
@@ -114,7 +136,6 @@ import {
   wireResetImportAndUiToggles
 } from "./app/wireEvents.js";
 import {
-  derivedWeeksRemainingFromState,
   getUniverseLayerConfig as getUniverseLayerConfigFromStateSelector,
   getEffectiveBaseRates as getEffectiveBaseRatesFromStateSelector,
   computeWeeklyOpsContextFromState as computeWeeklyOpsContextFromStateSelector
@@ -139,82 +160,25 @@ function downloadText(text, filename, mime){
 }
 
 function normalizeDailyLogEntry(raw){
-  if (!raw || typeof raw !== "object") return null;
-  const date = String(raw.date || "").slice(0, 10);
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return null;
-
-  const doors = safeNum(raw.doors) || 0;
-  const calls = safeNum(raw.calls) || 0;
-  const convos = safeNum(raw.convos) || 0;
-  const supportIds = safeNum(raw.supportIds) || 0;
-  const orgHours = safeNum(raw.orgHours) || 0;
-  const volsActive = safeNum(raw.volsActive) || 0;
-  const attempts = (raw.attempts != null && raw.attempts !== "") ? (safeNum(raw.attempts) || 0) : (doors + calls);
-  const notes = (raw.notes == null) ? "" : String(raw.notes);
-  const updatedAt = Number(raw.updatedAt || 0) || 0;
-
-  return { date, doors, calls, attempts, convos, supportIds, orgHours, volsActive, notes, updatedAt };
+  return normalizeDailyLogEntryCore(raw, { safeNum });
 }
 
 function mergeDailyLogIntoState(imported){
-  const arr = Array.isArray(imported)
-    ? imported
-    : (Array.isArray(imported?.dailyLog) ? imported.dailyLog
-      : (Array.isArray(imported?.ui?.dailyLog) ? imported.ui.dailyLog : null));
-  if (!arr) return { ok: false, msg: "No dailyLog array found in JSON" };
-
-  if (!state.ui) state.ui = {};
-  const existing = Array.isArray(state.ui.dailyLog) ? state.ui.dailyLog : [];
-
-  const byDate = new Map();
-  for (const e of existing){
-    const n = normalizeDailyLogEntry(e);
-    if (!n) continue;
-    byDate.set(n.date, n);
-  }
-
-  let added = 0;
-  let replaced = 0;
-  let ignored = 0;
-
-  for (const e of arr){
-    const n = normalizeDailyLogEntry(e);
-    if (!n){ ignored++; continue; }
-    const prev = byDate.get(n.date);
-    if (!prev){
-      byDate.set(n.date, n);
-      added++;
-      continue;
-    }
-    // Prefer the most recently updated. If neither has updatedAt, prefer imported.
-    const prevTs = Number(prev.updatedAt || 0) || 0;
-    const nextTs = Number(n.updatedAt || 0) || 0;
-    const takeImported = (nextTs >= prevTs);
-    if (takeImported){
-      byDate.set(n.date, n);
-      replaced++;
-    } else {
-      ignored++;
-    }
-  }
-
-  const merged = Array.from(byDate.values()).sort((a,b) => String(a.date).localeCompare(String(b.date)));
-  // daily log changes should mark plan/MC as stale
-  markMcStale();
-  setState(s => { s.ui.dailyLog = merged; });
-
-  return { ok: true, msg: `Merged daily log: ${added} new, ${replaced} updated, ${ignored} ignored` };
+  return mergeDailyLogIntoStateCore(imported, {
+    state,
+    setState,
+    markMcStale,
+    normalizeDailyLogEntry,
+  });
 }
 
 function exportDailyLog(){
-  const log = Array.isArray(state.ui?.dailyLog) ? state.ui.dailyLog : [];
-  const payload = {
-    dailyLog: log,
-    exportedAt: new Date().toISOString(),
-    appVersion: APP_VERSION,
-    buildId: BUILD_ID,
-  };
-  downloadText(JSON.stringify(payload, null, 2), "daily-log.json", "application/json");
+  exportDailyLogCore({
+    state,
+    APP_VERSION,
+    BUILD_ID,
+    downloadText,
+  });
 }
 
 // Phase 11 — error capture (fail-soft)
@@ -305,54 +269,15 @@ async function getOperationsDiagnosticsSnapshot(){
 }
 
 function appendOperationsDiagnostics(lines, tw){
-  const out = Array.isArray(lines) ? lines.slice() : [];
-  out.push("");
-  out.push("[operations diagnostics]");
-  if (!tw?.available){
-    out.push(`status: unavailable (${tw?.error || "not initialized"})`);
-    return out;
-  }
-
-  const c = tw.counts || {};
-  const p = tw.rollups?.production || {};
-  const d = tw.rollups?.dedupe || {};
-
-  out.push(`records: persons=${Number(c.persons || 0)} pipeline=${Number(c.pipelineRecords || 0)} shifts=${Number(c.shiftRecords || 0)} turf=${Number(c.turfEvents || 0)}`);
-  out.push(`productionSource: ${p.source || "—"}`);
-  out.push(`productionTotals: attempts=${Math.round(Number(p.attempts || 0))} convos=${Math.round(Number(p.convos || 0))} supportIds=${Math.round(Number(p.supportIds || 0))} hours=${Number(p.hours || 0).toFixed(2)}`);
-  out.push(`dedupeRule: ${d.rule || "—"}`);
-  out.push(`dedupe: excludedTurfRecords=${Math.round(Number(d.excludedTurfAttemptRecords || 0))} excludedTurfAttempts=${Math.round(Number(d.excludedTurfAttempts || 0))} fallbackIncluded=${Math.round(Number(d.includedFallbackAttempts || 0))}`);
-  return out;
+  return appendOperationsDiagnosticsCore(lines, tw);
 }
 
 function appendModelDiagnostics(lines){
-  const out = Array.isArray(lines) ? lines.slice() : [];
-  const fPct = (v) => (v == null || !isFinite(v)) ? "—" : `${(v * 100).toFixed(1)}%`;
-
-  out.push("");
-  out.push("[model diagnostics]");
-
-  const benchmarkWarnings = engine?.snapshot?.computeAssumptionBenchmarkWarnings
-    ? engine.snapshot.computeAssumptionBenchmarkWarnings(state, "Benchmark")
-    : [];
-  out.push(`benchmarkWarnings: ${benchmarkWarnings.length}`);
-  for (const msg of benchmarkWarnings.slice(0, 4)){
-    out.push(`- ${msg}`);
-  }
-
-  const drift = computeRealityDrift();
-  if (!drift?.hasLog){
-    out.push("realityDrift: no daily log data");
-    return out;
-  }
-
-  out.push(`rollingCR: actual=${fPct(drift.actualCR)} assumed=${fPct(drift.assumedCR)}`);
-  out.push(`rollingSR: actual=${fPct(drift.actualSR)} assumed=${fPct(drift.assumedSR)}`);
-  out.push(`rollingAPH: actual=${(drift.actualAPH == null || !isFinite(drift.actualAPH)) ? "—" : drift.actualAPH.toFixed(2)} assumed=${(drift.expectedAPH == null || !isFinite(drift.expectedAPH)) ? "—" : drift.expectedAPH.toFixed(2)}`);
-  out.push(`driftFlags: ${drift.flags.length ? drift.flags.join(", ") : "none"}`);
-  out.push(`primaryDrift: ${drift.primary || "none"}`);
-
-  return out;
+  return appendModelDiagnosticsCore(lines, {
+    engine,
+    state,
+    computeRealityDrift,
+  });
 }
 
 let twCapOutlookTimer = null;
@@ -1438,14 +1363,12 @@ function requiredScenarioKeysMissing(scen){
 }
 
 function derivedWeeksRemaining(args){
-  if (args && typeof args === "object"){
-    return coreDeriveWeeksRemainingCeil({
-      weeksRemainingOverride: args.weeksRemainingOverride,
-      electionDateISO: args.electionDateISO,
-      nowDate: args.nowDate
-    });
-  }
-  return derivedWeeksRemainingFromState(state);
+  const hasArgs = !!(args && typeof args === "object");
+  return coreDeriveWeeksRemainingCeil({
+    weeksRemainingOverride: hasArgs ? args.weeksRemainingOverride : state?.weeksRemaining,
+    electionDateISO: hasArgs ? args.electionDateISO : state?.electionDate,
+    nowDate: hasArgs ? args.nowDate : undefined,
+  });
 }
 
 function getUniverseLayerConfig(){
@@ -2270,36 +2193,15 @@ function getYourName(){
 // =========================
 
 function scenarioClone(obj){
-  try{
-    if (typeof structuredClone === "function") return structuredClone(obj);
-  } catch {}
-  try{
-    return JSON.parse(JSON.stringify(obj));
-  } catch {
-    if (obj && typeof obj === "object") return Array.isArray(obj) ? obj.slice() : { ...obj };
-    return obj;
-  }
+  return scenarioCloneCore(obj);
 }
 
 function scenarioInputsFromState(src){
-  const s = scenarioClone(src);
-  if (s && typeof s === "object"){
-    delete s.ui;
-    delete s.mcLast;
-    delete s.mcLastHash;
-  }
-  return s;
+  return scenarioInputsFromStateCore(src);
 }
 
 function scenarioOutputsFromState(src){
-  const ui = src?.ui || {};
-  return {
-    planMeta: scenarioClone(ui.lastPlanMeta || {}),
-    summary: scenarioClone(ui.lastSummary || {}),
-    timeline: scenarioClone(ui.lastTimeline || {}),
-    tlMeta: scenarioClone(ui.lastTlMeta || {}),
-    diagnostics: scenarioClone(ui.lastDiagnostics || {}),
-  };
+  return scenarioOutputsFromStateCore(src);
 }
 
 function ensureScenarioRegistry(){
@@ -2443,57 +2345,19 @@ function renderScenarioManagerC1(){
 // Phase D1 — Decision Session Scaffold (UI + state only)
 // =========================
 
-const OBJECTIVE_TEMPLATES = [
-  { key: "win_prob", label: "Maximize win probability" },
-  { key: "finish_date", label: "Finish earlier" },
-  { key: "exec_feasible", label: "Maximize feasibility" },
-  { key: "budget_eff", label: "Improve budget efficiency" },
-  { key: "balanced", label: "Balanced (risk-aware)" },
-];
-
-const RISK_POSTURES = [
-  { key: "cautious", label: "Cautious" },
-  { key: "balanced", label: "Balanced" },
-  { key: "aggressive", label: "Aggressive" },
-];
-
-
 function makeDecisionSessionId(){
-  return "ds_" + uid() + Date.now().toString(16);
+  return makeDecisionSessionIdCore(uid);
 }
 function makeDecisionOptionId(){
-  return "do_" + uid() + Date.now().toString(16);
+  return makeDecisionOptionIdCore(uid);
 }
 
 function ensureDecisionOptionShape(o){
-  if (!o || typeof o !== "object") return;
-  if (!o.tactics || typeof o.tactics !== "object") o.tactics = {};
-  const t = o.tactics;
-  if (t.doors === undefined) t.doors = false;
-  if (t.phones === undefined) t.phones = false;
-  if (t.digital === undefined) t.digital = false;
+  ensureDecisionOptionShapeCore(o);
 }
 
 function ensureDecisionSessionShape(s){
-  if (!s || typeof s !== "object") return;
-
-  if (!s.constraints || typeof s.constraints !== "object") s.constraints = {};
-  const c = s.constraints;
-  if (c.budget === undefined) c.budget = null;
-  if (c.volunteerHrs === undefined) c.volunteerHrs = null;
-  if (c.turfAccess === undefined) c.turfAccess = "";
-  if (c.blackoutDates === undefined) c.blackoutDates = "";
-
-  if (s.riskPosture === undefined) s.riskPosture = "balanced";
-  if (!Array.isArray(s.nonNegotiables)) s.nonNegotiables = [];
-  if (!Array.isArray(s.whatNeedsTrue)) s.whatNeedsTrue = [];
-  if (s.recommendedOptionId === undefined) s.recommendedOptionId = null;
-
-  if (!s.options || typeof s.options !== "object") s.options = {};
-  for (const k of Object.keys(s.options)){
-    ensureDecisionOptionShape(s.options[k]);
-  }
-  if (s.activeOptionId && !s.options[s.activeOptionId]) s.activeOptionId = null;
+  ensureDecisionSessionShapeCore(s);
 }
 
 
