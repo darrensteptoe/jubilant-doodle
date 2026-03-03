@@ -2,7 +2,7 @@ import { engine } from "./engine.js";
 import {
   computeCapacityContacts as coreComputeCapacityContacts,
   computeCapacityBreakdown as coreComputeCapacityBreakdown,
-  deriveNeedVotes as coreDeriveNeedVotes
+  deriveNeedVotesOrZero as coreDeriveNeedVotesOrZero
 } from "./core/model.js";
 import { UNIVERSE_DEFAULTS, computeUniverseAdjustedRates } from "./core/universeLayer.js";
 import { computeAvgLiftPP } from "./core/turnout.js";
@@ -1662,66 +1662,13 @@ function renderWeeklyExecutionStatus(ctx){
 }
 
 function computeWeeklyOpsContext(res, weeks){
-  const needVotes = coreDeriveNeedVotes(res, state.goalSupportIds);
-  const goal = (needVotes != null && needVotes > 0) ? needVotes : 0;
-
-  const effective = compileEffectiveInputs(state);
-  const sr = effective.rates.sr;
-  const cr = effective.rates.cr;
-
-  let convosNeeded = null;
-  let attemptsNeeded = null;
-  let convosPerWeek = null;
-  let attemptsPerWeek = null;
-
-  if (goal > 0 && sr && sr > 0) convosNeeded = goal / sr;
-  if (convosNeeded != null && cr && cr > 0) attemptsNeeded = convosNeeded / cr;
-  if (weeks != null && weeks > 0){
-    if (convosNeeded != null) convosPerWeek = convosNeeded / weeks;
-    if (attemptsNeeded != null) attemptsPerWeek = attemptsNeeded / weeks;
-  }
-
-  const orgCount = effective.capacity.orgCount;
-  const orgHoursPerWeek = effective.capacity.orgHoursPerWeek;
-  const volunteerMult = effective.capacity.volunteerMult;
-  const doorSharePct = effective.capacity.doorSharePct;
-  const doorsPerHour = effective.capacity.doorsPerHour;
-  const callsPerHour = effective.capacity.callsPerHour;
-
-  const doorShare = effective.capacity.doorShare;
-
-  const cap = coreComputeCapacityBreakdown({
-    weeks: 1,
-    orgCount,
-    orgHoursPerWeek,
-    volunteerMult,
-    doorShare,
-    doorsPerHour,
-    callsPerHour
-  });
-
-  const capTotal = cap?.total ?? null;
-  const gap = (attemptsPerWeek != null && capTotal != null) ? (attemptsPerWeek - capTotal) : null;
-
-  return {
-    goal,
+  return computeWeeklyOpsContextFromStateSelector(state, {
+    res,
     weeks,
-    sr,
-    cr,
-    convosNeeded,
-    attemptsNeeded,
-    convosPerWeek,
-    attemptsPerWeek,
-    cap,
-    capTotal,
-    gap,
-    orgCount,
-    orgHoursPerWeek,
-    volunteerMult,
-    doorShare,
-    doorsPerHour,
-    callsPerHour
-  };
+    getEffectiveBaseRatesForState: (s) => getEffectiveBaseRatesFromStateSelector(s, { computeUniverseAdjustedRates }),
+    computeCapacityBreakdown: coreComputeCapacityBreakdown,
+    compileEffectiveInputsForState: (s) => compileEffectiveInputs(s)
+  });
 }
 
 function renderAssumptionDriftE1(res, weeks){
@@ -2399,7 +2346,8 @@ function computeWeeklyOpsContextFromSnap(snap, res, weeks){
     res,
     weeks,
     getEffectiveBaseRatesForState: (s) => getEffectiveBaseRatesFromSnap(s),
-    computeCapacityBreakdown: coreComputeCapacityBreakdown
+    computeCapacityBreakdown: coreComputeCapacityBreakdown,
+    compileEffectiveInputsForState: (s) => compileEffectiveInputs(s)
   });
 }
 
@@ -3809,8 +3757,7 @@ function hashMcInputs(res, weeks){
 }
 
 function deriveNeedVotes(res, goalSupportIdsOverride = state.goalSupportIds){
-  const goal = coreDeriveNeedVotes(res, goalSupportIdsOverride);
-  return (goal != null && goal > 0) ? goal : 0;
+  return coreDeriveNeedVotesOrZero(res, goalSupportIdsOverride);
 }
 
 
