@@ -35,6 +35,7 @@ import {
   quantileSortedModule,
 } from "./app/mcSpecBuilders.js";
 import { hashMcInputsModule } from "./app/mcHash.js";
+import { runMonteCarloNowModule } from "./app/monteCarloRun.js";
 import { renderMain } from "./app/renderMain.js";
 import { initDevToolsModule } from "./app/initDevTools.js";
 import { buildModelInputFromState } from "./app/modelInput.js";
@@ -3094,37 +3095,24 @@ function computeCapacityContacts(args){
 /* ---- Monte Carlo ---- */
 
 function runMonteCarloNow(){
-  // Need render context for persuasion need.
-  const weeks = derivedWeeksRemaining();
-  const modelInput = buildModelInputFromState(state, safeNum);
-  const res = engine.computeAll(modelInput);
-
-  const w = (weeks != null && weeks >= 0) ? weeks : null;
-  const needVotes = deriveNeedVotes(res);
-  // Keep stale checks aligned to the same input context used for this MC run.
-  lastRenderCtx = { res, weeks: w, needVotes, modelInput };
-
-  const h = hashMcInputs(res, w);
-
-  const sim = runMonteCarloSim({ res, weeks: w, needVotes, runs: 10000, seed: state.mcSeed || "" });
-
-  state.mcLast = sim;
-  state.mcLastHash = h;
-
-  if (!state.ui) state.ui = {};
-  state.ui.mcMeta = {
-    lastRunAt: new Date().toISOString(),
-    inputsHash: h,
-    dailyLogHash: computeDailyLogHash(),
-  };
-
-  persist();
-  clearMcStale();
-  renderMcResults(sim);
-  renderMcFreshness(res, w);
-  // Panels that show MC stale/fresh status need an explicit refresh after rerun.
-  renderRiskFramingE2();
-  renderSensitivitySnapshotE4();
+  return runMonteCarloNowModule({
+    state,
+    derivedWeeksRemaining,
+    buildModelInputFromState,
+    safeNum,
+    engine,
+    deriveNeedVotes,
+    setLastRenderCtx: (next) => { lastRenderCtx = next; },
+    hashMcInputs,
+    runMonteCarloSim,
+    computeDailyLogHash,
+    persist,
+    clearMcStale,
+    renderMcResults,
+    renderMcFreshness,
+    renderRiskFramingE2,
+    renderSensitivitySnapshotE4,
+  });
 }
 
 function runMonteCarloSim({ scenario, scenarioState, res, weeks, needVotes, runs, seed }){
