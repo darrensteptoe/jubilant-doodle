@@ -66,6 +66,19 @@ import {
   getEffectiveBaseRatesFromSnapCore,
   computeWeeklyOpsContextFromSnapCore,
 } from "./app/scenarioCompareHelpers.js";
+import {
+  renderDecisionSessionPanelCore,
+  renderDecisionOptionsPanelCore,
+} from "./app/decisionSessionRender.js";
+import { renderDecisionSummaryPanelCore } from "./app/decisionSummaryRender.js";
+import {
+  surfaceLeverSpecCore,
+  surfaceClampCore,
+  surfaceBaselineValueCore,
+  applySurfaceDefaultsCore,
+  renderSurfaceStubCore,
+  renderSurfaceResultCore,
+} from "./app/sensitivitySurfaceUi.js";
 import { composeSetupStageModule } from "./app/composeSetupStage.js";
 import { normalizeStageLayoutModule } from "./app/normalizeStageLayout.js";
 import { runInitPostBootModule } from "./app/initPostBoot.js";
@@ -2354,94 +2367,19 @@ function decisionScenarioLabel(scenarioId){
 }
 
 function renderDecisionSessionD1(){
-  if (!els.decisionSessionSelect && !els.decisionActiveLabel) return;
-  ensureDecisionScaffold();
-  const sessions = listDecisionSessions();
-  const activeId = state.ui.decision.activeSessionId;
-  const active = getActiveDecisionSession();
-  ensureDecisionSessionShape(active);
-
-  if (els.decisionSessionSelect){
-    els.decisionSessionSelect.innerHTML = "";
-    for (const s of sessions){
-      const opt = document.createElement("option");
-      opt.value = s.id;
-      opt.textContent = s.name || s.id;
-      els.decisionSessionSelect.appendChild(opt);
-    }
-    els.decisionSessionSelect.value = activeId;
-  }
-
-  if (els.decisionActiveLabel){
-    els.decisionActiveLabel.textContent = active ? `Active session: ${active.name || active.id}` : "Active session: —";
-  }
-
-  if (els.decisionRename){
-    els.decisionRename.value = active?.name || "";
-  }
-
-  if (els.decisionObjective){
-    els.decisionObjective.innerHTML = "";
-    for (const o of OBJECTIVE_TEMPLATES){
-      const opt = document.createElement("option");
-      opt.value = o.key;
-      opt.textContent = o.label;
-      els.decisionObjective.appendChild(opt);
-    }
-    els.decisionObjective.value = active?.objectiveKey || OBJECTIVE_TEMPLATES[0].key;
-  }
-
-  if (els.decisionNotes){
-    els.decisionNotes.value = active?.notes || "";
-  }
-
-
-  if (els.decisionBudget){
-    const v = active?.constraints?.budget;
-    els.decisionBudget.value = (v == null || !Number.isFinite(Number(v))) ? "" : String(v);
-  }
-
-  if (els.decisionVolunteerHrs){
-    const v = active?.constraints?.volunteerHrs;
-    els.decisionVolunteerHrs.value = (v == null || !Number.isFinite(Number(v))) ? "" : String(v);
-  }
-
-  if (els.decisionTurfAccess){
-    els.decisionTurfAccess.value = String(active?.constraints?.turfAccess || "");
-  }
-
-  if (els.decisionBlackoutDates){
-    els.decisionBlackoutDates.value = String(active?.constraints?.blackoutDates || "");
-  }
-
-  if (els.decisionRiskPosture){
-    if (!els.decisionRiskPosture.options.length){
-      for (const rp of RISK_POSTURES){
-        const opt = document.createElement("option");
-        opt.value = rp.key;
-        opt.textContent = rp.label;
-        els.decisionRiskPosture.appendChild(opt);
-      }
-    }
-    els.decisionRiskPosture.value = String(active?.riskPosture || "balanced");
-  }
-
-  if (els.decisionNonNegotiables){
-    const lines = Array.isArray(active?.nonNegotiables) ? active.nonNegotiables : [];
-    els.decisionNonNegotiables.value = lines.join("\n");
-  }
-
-  if (els.decisionScenarioLabel){
-    els.decisionScenarioLabel.textContent = decisionScenarioLabel(active?.scenarioId || null);
-  }
-
-  if (els.btnDecisionDelete){
-    els.btnDecisionDelete.disabled = sessions.length <= 1;
-  }
-
-
-  renderDecisionOptionsD3(active);
-  renderDecisionSummaryD4(active);
+  return renderDecisionSessionPanelCore({
+    els,
+    state,
+    ensureDecisionScaffold,
+    listDecisionSessions,
+    getActiveDecisionSession,
+    ensureDecisionSessionShape,
+    objectiveTemplates: OBJECTIVE_TEMPLATES,
+    riskPostures: RISK_POSTURES,
+    decisionScenarioLabel,
+    renderDecisionOptions: renderDecisionOptionsD3,
+    renderDecisionSummary: renderDecisionSummaryD4,
+  });
 }
 
 function listDecisionOptions(session){
@@ -2460,60 +2398,14 @@ function getActiveDecisionOption(session){
 }
 
 function renderDecisionOptionsD3(session){
-  if (!els.decisionOptionSelect) return;
-  if (!session) return;
-
-  ensureDecisionSessionShape(session);
-
-  const options = listDecisionOptions(session);
-  const active = getActiveDecisionOption(session);
-
-  els.decisionOptionSelect.innerHTML = "";
-  if (!options.length){
-    const opt = document.createElement("option");
-    opt.value = "";
-    opt.textContent = "No options yet";
-    els.decisionOptionSelect.appendChild(opt);
-    els.decisionOptionSelect.value = "";
-  } else {
-    for (const o of options){
-      const opt = document.createElement("option");
-      opt.value = o.id;
-      opt.textContent = o.label || o.id;
-      els.decisionOptionSelect.appendChild(opt);
-    }
-    els.decisionOptionSelect.value = session.activeOptionId || options[0].id;
-    if (!session.activeOptionId) session.activeOptionId = els.decisionOptionSelect.value;
-  }
-
-  const has = !!active;
-
-  if (els.decisionOptionRename){
-    els.decisionOptionRename.value = has ? String(active.label || "") : "";
-    els.decisionOptionRename.disabled = !has;
-  }
-
-  if (els.btnDecisionOptionRenameSave) els.btnDecisionOptionRenameSave.disabled = !has;
-  if (els.btnDecisionOptionDelete) els.btnDecisionOptionDelete.disabled = options.length <= 1;
-  if (els.btnDecisionOptionLinkScenario) els.btnDecisionOptionLinkScenario.disabled = !has;
-
-  if (els.decisionOptionScenarioLabel){
-    els.decisionOptionScenarioLabel.textContent = has ? decisionScenarioLabel(active.scenarioId || null) : "—";
-  }
-
-  const t = has ? (active.tactics || {}) : {};
-  if (els.decisionOptionTacticDoors){
-    els.decisionOptionTacticDoors.checked = !!t.doors;
-    els.decisionOptionTacticDoors.disabled = !has;
-  }
-  if (els.decisionOptionTacticPhones){
-    els.decisionOptionTacticPhones.checked = !!t.phones;
-    els.decisionOptionTacticPhones.disabled = !has;
-  }
-  if (els.decisionOptionTacticDigital){
-    els.decisionOptionTacticDigital.checked = !!t.digital;
-    els.decisionOptionTacticDigital.disabled = !has;
-  }
+  return renderDecisionOptionsPanelCore({
+    els,
+    session,
+    ensureDecisionSessionShape,
+    listDecisionOptions,
+    getActiveDecisionOption,
+    decisionScenarioLabel,
+  });
 }
 
 function decisionOptionDisplay(o){
@@ -2559,33 +2451,12 @@ function downloadJsonObject(obj, filename){
 
 function renderDecisionSummaryD4(session){
   const s = session || getActiveDecisionSession();
-  if (!s) return;
-
-  if (els.decisionRecommendSelect){
-    els.decisionRecommendSelect.innerHTML = "";
-    const options = (s.options && typeof s.options === "object") ? Object.values(s.options) : [];
-    options.sort((a,b) => String(a?.createdAt||"").localeCompare(String(b?.createdAt||"")));
-    const ph = document.createElement("option");
-    ph.value = "";
-    ph.textContent = "—";
-    els.decisionRecommendSelect.appendChild(ph);
-    for (const o of options){
-      const opt = document.createElement("option");
-      opt.value = o.id;
-      opt.textContent = decisionOptionDisplay(o);
-      els.decisionRecommendSelect.appendChild(opt);
-    }
-    els.decisionRecommendSelect.value = s.recommendedOptionId || "";
-  }
-
-  if (els.decisionWhatTrue){
-    const lines = Array.isArray(s.whatNeedsTrue) ? s.whatNeedsTrue : [];
-    els.decisionWhatTrue.value = lines.join("\n");
-  }
-
-  if (els.decisionSummaryPreview){
-    els.decisionSummaryPreview.value = buildDecisionSummaryText(s);
-  }
+  return renderDecisionSummaryPanelCore({
+    els,
+    session: s,
+    decisionOptionDisplay,
+    buildDecisionSummaryText,
+  });
 }
 
 
@@ -2594,127 +2465,37 @@ function renderDecisionSummaryD4(session){
 // =========================
 
 function surfaceLeverSpec(key){
-  const k = String(key || "");
-  const specs = {
-    volunteerMultiplier: { label: "Volunteer multiplier", stateKey: "volunteerMultBase", clampLo: 0.1, clampHi: 6.0, step: 0.01, fmt: (v)=> (v==null||!isFinite(v))?"—":Number(v).toFixed(2) },
-    supportRate: { label: "Support rate (%)", stateKey: "supportRatePct", clampLo: 0, clampHi: 100, step: 0.1, fmt: (v)=> (v==null||!isFinite(v))?"—":Number(v).toFixed(1) },
-    contactRate: { label: "Contact rate (%)", stateKey: "contactRatePct", clampLo: 0, clampHi: 100, step: 0.1, fmt: (v)=> (v==null||!isFinite(v))?"—":Number(v).toFixed(1) },
-    turnoutReliability: { label: "Turnout reliability (%)", stateKey: "turnoutReliabilityPct", clampLo: 0, clampHi: 100, step: 0.1, fmt: (v)=> (v==null||!isFinite(v))?"—":Number(v).toFixed(1) },
-  };
-  return specs[k] || null;
+  return surfaceLeverSpecCore(key);
 }
 
 function surfaceClamp(v, lo, hi){
-  const n = Number(v);
-  if (!Number.isFinite(n)) return lo;
-  return Math.min(hi, Math.max(lo, n));
+  return surfaceClampCore(v, lo, hi);
 }
 
 function surfaceBaselineValue(spec){
-  if (!spec) return null;
-  const v = Number(state?.[spec.stateKey]);
-  if (Number.isFinite(v)) return v;
-  // fallbacks aligned with MC defaults
-  if (spec.stateKey === "supportRatePct") return 55;
-  if (spec.stateKey === "contactRatePct") return 22;
-  if (spec.stateKey === "turnoutReliabilityPct") return 80;
-  if (spec.stateKey === "volunteerMultBase") return 1.0;
-  return null;
+  return surfaceBaselineValueCore(spec, state);
 }
 
 function applySurfaceDefaults(){
-  if (!els.surfaceLever || !els.surfaceMin || !els.surfaceMax) return;
-  const spec = surfaceLeverSpec(els.surfaceLever.value);
-  if (!spec) return;
-
-  const base = surfaceBaselineValue(spec);
-  const lo = (base != null) ? (base * 0.8) : spec.clampLo;
-  const hi = (base != null) ? (base * 1.2) : spec.clampHi;
-
-  const minV = surfaceClamp(lo, spec.clampLo, spec.clampHi);
-  const maxV = surfaceClamp(hi, spec.clampLo, spec.clampHi);
-
-  els.surfaceMin.step = String(spec.step);
-  els.surfaceMax.step = String(spec.step);
-
-  els.surfaceMin.value = String(minV);
-  els.surfaceMax.value = String(maxV);
+  return applySurfaceDefaultsCore({
+    els,
+    surfaceLeverSpec,
+    surfaceBaselineValue,
+    surfaceClamp,
+  });
 }
 
 function renderSurfaceStub(){
-  if (!els.surfaceTbody) return;
-  els.surfaceTbody.innerHTML = '<tr><td class="muted">—</td><td class="num muted">—</td><td class="num muted">—</td><td class="num muted">—</td><td class="num muted">—</td></tr>';
-  if (els.surfaceSummary) els.surfaceSummary.textContent = "Compute to see safe zones, cliffs, and diminishing returns.";
-  if (els.surfaceStatus) els.surfaceStatus.textContent = "";
+  return renderSurfaceStubCore({ els });
 }
 
 function renderSurfaceResult({ spec, result }){
-  if (!els.surfaceTbody) return;
-
-  const pts = Array.isArray(result?.points) ? result.points : [];
-  const analysis = result?.analysis || null;
-
-  els.surfaceTbody.innerHTML = "";
-  if (!pts.length){
-    renderSurfaceStub();
-    if (els.surfaceSummary) els.surfaceSummary.textContent = result?.warning ? String(result.warning) : "No points returned.";
-    return;
-  }
-
-  for (const p of pts){
-    const tr = document.createElement("tr");
-
-    const td0 = document.createElement("td");
-    td0.textContent = spec?.fmt ? spec.fmt(p.leverValue) : String(p.leverValue);
-
-    const td1 = document.createElement("td");
-    td1.className = "num";
-    td1.textContent = (p.winProb == null || !isFinite(p.winProb)) ? "—" : `${(p.winProb * 100).toFixed(1)}%`;
-
-    const td2 = document.createElement("td"); td2.className = "num"; td2.textContent = fmtSigned(p.p10);
-    const td3 = document.createElement("td"); td3.className = "num"; td3.textContent = fmtSigned(p.p50);
-    const td4 = document.createElement("td"); td4.className = "num"; td4.textContent = fmtSigned(p.p90);
-
-    tr.appendChild(td0); tr.appendChild(td1); tr.appendChild(td2); tr.appendChild(td3); tr.appendChild(td4);
-    els.surfaceTbody.appendChild(tr);
-  }
-
-  const parts = [];
-  const T = Number(els.surfaceTarget?.value);
-  const target = (Number.isFinite(T) ? (T/100) : 0.70);
-
-  if (analysis?.safeZone){
-    const z = analysis.safeZone;
-    parts.push(`Safe zone (≥ ${Math.round(target*100)}%): ${spec.fmt(z.min)} to ${spec.fmt(z.max)}`);
-  } else {
-    parts.push(`Safe zone (≥ ${Math.round(target*100)}%): none`);
-  }
-
-  const cliffs = Array.isArray(analysis?.cliffPoints) ? analysis.cliffPoints : [];
-  if (cliffs.length){
-    const xs = cliffs.slice(0, 3).map(c => spec.fmt(c.at)).join(", ");
-    parts.push(`Cliff edges: ${xs}${cliffs.length > 3 ? "…" : ""}`);
-  } else {
-    parts.push("Cliff edges: none");
-  }
-
-  const dims = Array.isArray(analysis?.diminishingZones) ? analysis.diminishingZones : [];
-  if (dims.length){
-    const r = dims[0];
-    parts.push(`Diminishing returns: ${spec.fmt(r.min)} to ${spec.fmt(r.max)}${dims.length > 1 ? "…" : ""}`);
-  } else {
-    parts.push("Diminishing returns: none");
-  }
-
-  const fr = Array.isArray(analysis?.fragilityPoints) ? analysis.fragilityPoints : [];
-  if (fr.length){
-    const xs = fr.slice(0, 3).map(c => spec.fmt(c.at)).join(", ");
-    parts.push(`Fragility points: ${xs}${fr.length > 3 ? "…" : ""}`);
-  } else {
-    parts.push("Fragility points: none");
-  }
-
-  if (els.surfaceSummary) els.surfaceSummary.textContent = parts.join(" • ");
+  return renderSurfaceResultCore({
+    els,
+    spec,
+    result,
+    fmtSigned,
+  });
 }
 
 function wireSensitivitySurface(){
