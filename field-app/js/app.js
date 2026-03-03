@@ -155,6 +155,11 @@ import {
   twCapParseDateModule,
   twCapWeekStartModule,
   twCapIsoUTCModule,
+  twCapLatestRecordByPersonModule,
+  twCapBuildReadinessStatsModule,
+  twCapNormalizeForecastConfigModule,
+  twCapPerOrganizerAttemptsPerWeekModule,
+  twCapBaselineAttemptsPerWeekModule,
 } from "./app/twCapHelpers.js";
 import {
   updatePersistenceStatusChipModule,
@@ -424,102 +429,43 @@ function twCapIsoUTC(dt){
 }
 
 function twCapLatestRecordByPerson(rows){
-  const out = new Map();
-  for (const rec of (Array.isArray(rows) ? rows : [])){
-    const personId = twCapClean(rec?.personId);
-    if (!personId) continue;
-    const ts = twCapParseDate(rec?.updatedAt)?.getTime() || twCapParseDate(rec?.createdAt)?.getTime() || 0;
-    const prev = out.get(personId);
-    const prevTs = prev ? (twCapParseDate(prev?.updatedAt)?.getTime() || twCapParseDate(prev?.createdAt)?.getTime() || 0) : -1;
-    if (!prev || ts >= prevTs) out.set(personId, rec);
-  }
-  return out;
+  return twCapLatestRecordByPersonModule(rows, { twCapClean, twCapParseDate });
 }
 
 function twCapBuildReadinessStats(onboardingRecords, trainingRecords){
-  const onbByPerson = twCapLatestRecordByPerson(onboardingRecords);
-  const trnByPerson = twCapLatestRecordByPerson(trainingRecords);
-  const personIds = new Set([...onbByPerson.keys(), ...trnByPerson.keys()]);
-
-  const nowMs = Date.now();
-  const twoWeeksMs = 14 * TW_CAP_DAY_MS;
-  let readyNow = 0;
-  let recentReadyCount = 0;
-  const cycleDays = [];
-
-  for (const personId of personIds){
-    const onb = onbByPerson.get(personId);
-    const trn = trnByPerson.get(personId);
-    const onbDone = twCapClean(onb?.onboardingStatus) === "completed";
-    const trnDone = twCapClean(trn?.completionStatus) === "completed";
-    if (!(onbDone && trnDone)) continue;
-
-    readyNow += 1;
-
-    const readyCandidates = [
-      twCapParseDate(onb?.completedAt)?.getTime(),
-      twCapParseDate(trn?.completedAt)?.getTime(),
-    ].filter((v) => Number.isFinite(v));
-    const readyMs = readyCandidates.length ? Math.max(...readyCandidates) : NaN;
-
-    if (Number.isFinite(readyMs) && readyMs >= (nowMs - twoWeeksMs)){
-      recentReadyCount += 1;
-    }
-
-    const docsMs = twCapParseDate(onb?.docsSubmittedAt)?.getTime();
-    if (Number.isFinite(docsMs) && Number.isFinite(readyMs) && readyMs >= docsMs){
-      cycleDays.push((readyMs - docsMs) / TW_CAP_DAY_MS);
-    }
-  }
-
-  const recentReadyPerWeek = recentReadyCount / 2;
-  const projectedReady14d = readyNow + (recentReadyPerWeek * 2);
-  return {
-    readyNow,
-    recentReadyPerWeek,
-    projectedReady14d,
-    medianReadyDays: twCapMedian(cycleDays),
-  };
+  return twCapBuildReadinessStatsModule(onboardingRecords, trainingRecords, {
+    twCapLatestRecordByPerson,
+    twCapClean,
+    twCapParseDate,
+    twCapMedian,
+    twCapDayMs: TW_CAP_DAY_MS,
+  });
 }
 
 function twCapNormalizeForecastConfig(raw){
-  const src = (raw && typeof raw === "object") ? raw : {};
-  const conv = { ...(DEFAULT_FORECAST_CONFIG.stageConversionDefaults || {}), ...(src.stageConversionDefaults || {}) };
-  const dur = { ...(DEFAULT_FORECAST_CONFIG.stageDurationDefaultsDays || {}), ...(src.stageDurationDefaultsDays || {}) };
-  for (let i = 0; i < PIPELINE_STAGES.length - 1; i++){
-    const key = twCapTransitionKey(PIPELINE_STAGES[i], PIPELINE_STAGES[i + 1]);
-    conv[key] = clamp(twCapNum(conv[key], 1), 0, 1);
-    dur[key] = Math.max(0, twCapNum(dur[key], 0));
-  }
-  return { stageConversionDefaults: conv, stageDurationDefaultsDays: dur };
+  return twCapNormalizeForecastConfigModule(raw, {
+    defaultForecastConfig: DEFAULT_FORECAST_CONFIG,
+    pipelineStages: PIPELINE_STAGES,
+    twCapTransitionKey,
+    clamp,
+    twCapNum,
+  });
 }
 
 function twCapPerOrganizerAttemptsPerWeek(effective){
-  const c = effective?.capacity || {};
-  const one = coreComputeCapacityBreakdown({
-    weeks: 1,
-    orgCount: 1,
-    orgHoursPerWeek: twCapNum(c.orgHoursPerWeek, 0),
-    volunteerMult: twCapNum(c.volunteerMult, 0),
-    doorShare: (c.doorShare == null) ? null : clamp(twCapNum(c.doorShare, 0), 0, 1),
-    doorsPerHour: twCapNum(c.doorsPerHour, 0),
-    callsPerHour: twCapNum(c.callsPerHour, 0),
+  return twCapPerOrganizerAttemptsPerWeekModule(effective, {
+    computeCapacityBreakdown: coreComputeCapacityBreakdown,
+    twCapNum,
+    clamp,
   });
-  return Math.max(0, twCapNum(one?.total, 0));
 }
 
 function twCapBaselineAttemptsPerWeek(effective){
-  const c = effective?.capacity || {};
-  const baseline = coreComputeCapacityBreakdown({
-    weeks: 1,
-    orgCount: twCapNum(c.orgCount, 0),
-    orgHoursPerWeek: twCapNum(c.orgHoursPerWeek, 0),
-    volunteerMult: twCapNum(c.volunteerMult, 0),
-    doorShare: (c.doorShare == null) ? null : clamp(twCapNum(c.doorShare, 0), 0, 1),
-    doorsPerHour: twCapNum(c.doorsPerHour, 0),
-    callsPerHour: twCapNum(c.callsPerHour, 0),
+  return twCapBaselineAttemptsPerWeekModule(effective, {
+    computeCapacityBreakdown: coreComputeCapacityBreakdown,
+    twCapNum,
+    clamp,
   });
-  return Math.max(0, twCapNum(baseline?.total, 0));
 }
 
 function twCapEmptyOutlook(message){
@@ -2918,55 +2864,15 @@ function computeMissRiskD4(res, weeks){
 }
 
 function renderMissRiskD4(res, weeks){
-  if (!els.opsMissProb && !els.opsMissTag) return;
-
-  const clear = () => {
-    if (els.opsMissProb) els.opsMissProb.textContent = "—";
-    if (els.opsMissTag){
-      els.opsMissTag.textContent = "—";
-      els.opsMissTag.classList.remove("ok","warn","bad");
-    }
-  };
-
-  if (!state.mcLast){
-    clear();
-    return;
-  }
-
-  const h = hashMissRiskInputs(res, weeks);
-  const cached = (state.ui && state.ui.missRiskD4 && typeof state.ui.missRiskD4 === "object") ? state.ui.missRiskD4 : null;
-  let env = (cached && cached.hash === h) ? cached.env : null;
-
-  if (!env){
-    env = computeMissRiskD4(res, weeks);
-    if (!env){
-      clear();
-      return;
-    }
-    if (!state.ui) state.ui = {};
-    state.ui.missRiskD4 = { hash: h, env, computedAt: new Date().toISOString() };
-    persist();
-  }
-
-  const prob = env.prob;
-  const pct = (prob == null || !isFinite(prob)) ? "—" : `${(prob * 100).toFixed(1)}%`;
-
-  if (els.opsMissProb) els.opsMissProb.textContent = pct;
-
-  if (els.opsMissTag){
-    let label = "Low";
-    let cls = "ok";
-    if (prob >= 0.60){
-      label = "High";
-      cls = "bad";
-    } else if (prob >= 0.30){
-      label = "Moderate";
-      cls = "warn";
-    }
-    els.opsMissTag.textContent = label;
-    els.opsMissTag.classList.remove("ok","warn","bad");
-    els.opsMissTag.classList.add(cls);
-  }
+  return renderMissRiskD4Module({
+    els,
+    state,
+    res,
+    weeks,
+    hashMissRiskInputs,
+    computeMissRiskD4,
+    persist,
+  });
 }
 
 function hashMcInputs(res, weeks){
