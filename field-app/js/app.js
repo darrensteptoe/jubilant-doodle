@@ -3462,45 +3462,16 @@ function computeOpsEnvelopeD2(res, weeks){
 }
 
 function renderOpsEnvelopeD2(res, weeks){
-  if (!els.opsAttP10 && !els.opsConP10) return;
-
-  const clear = () => {
-    if (els.opsAttP10) els.opsAttP10.textContent = "—";
-    if (els.opsAttP50) els.opsAttP50.textContent = "—";
-    if (els.opsAttP90) els.opsAttP90.textContent = "—";
-    if (els.opsConP10) els.opsConP10.textContent = "—";
-    if (els.opsConP50) els.opsConP50.textContent = "—";
-    if (els.opsConP90) els.opsConP90.textContent = "—";
-  };
-
-  if (!state.mcLast){
-    clear();
-    return;
-  }
-
-  const h = hashOpsEnvelopeInputs(res, weeks);
-  const cached = (state.ui && state.ui.opsEnvelope && typeof state.ui.opsEnvelope === "object") ? state.ui.opsEnvelope : null;
-  let env = (cached && cached.hash === h) ? cached.env : null;
-
-  if (!env){
-    env = computeOpsEnvelopeD2(res, weeks);
-    if (!env){
-      clear();
-      return;
-    }
-    if (!state.ui) state.ui = {};
-    state.ui.opsEnvelope = { hash: h, env, computedAt: new Date().toISOString() };
-    persist();
-  }
-
-  const fmt = (v) => (v == null || !isFinite(v)) ? "—" : fmtInt(Math.round(v));
-
-  if (els.opsAttP10) els.opsAttP10.textContent = fmt(env.attempts.p10);
-  if (els.opsAttP50) els.opsAttP50.textContent = fmt(env.attempts.p50);
-  if (els.opsAttP90) els.opsAttP90.textContent = fmt(env.attempts.p90);
-  if (els.opsConP10) els.opsConP10.textContent = fmt(env.convos.p10);
-  if (els.opsConP50) els.opsConP50.textContent = fmt(env.convos.p50);
-  if (els.opsConP90) els.opsConP90.textContent = fmt(env.convos.p90);
+  renderOpsEnvelopeD2Module({
+    els,
+    state,
+    res,
+    weeks,
+    hashOpsEnvelopeInputs,
+    computeOpsEnvelopeD2,
+    persist,
+    fmtInt,
+  });
 }
 
 function hashFinishEnvelopeInputs(res, weeks){
