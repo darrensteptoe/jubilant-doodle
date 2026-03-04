@@ -18,6 +18,11 @@ export function composeSetupStageModule(){
     return card;
   };
 
+  const moduleSourceByInput = (inputId) => {
+    const input = document.getElementById(inputId);
+    return input?.closest(".card") || null;
+  };
+
   const makeHeader = (title, subtitle) => {
     const head = document.createElement("div");
     head.className = "card-head card-header";
@@ -80,7 +85,8 @@ export function composeSetupStageModule(){
   }
 
   const universeCard = ensureCard("setupUniverseModule");
-  const universeHeader = document.querySelector("#stage-universe > .stage-body-new > .card-head.card-header");
+  const universeSource = moduleSourceByInput("universeSize");
+  const universeHeader = universeSource?.querySelector(":scope > .card-head.card-header") || universeSource?.querySelector(".card-head.card-header");
   const universeGrid = document.getElementById("universeSize")?.closest(".grid2");
   ensureSingleHeader(
     universeCard,
@@ -91,8 +97,8 @@ export function composeSetupStageModule(){
   if (universeGrid) universeCard.appendChild(universeGrid);
 
   const persuadableCard = ensureCard("setupPersuadableModule");
-  const capacityBody = document.querySelector("#stage-capacity > .stage-body-new");
-  const persuadableHeader = capacityBody?.querySelector(":scope > .card-head.card-header");
+  const persuadableSource = moduleSourceByInput("persuasionPct");
+  const persuadableHeader = persuadableSource?.querySelector(":scope > .card-head.card-header") || persuadableSource?.querySelector(".card-head.card-header");
   const persuadableGrid = document.getElementById("persuasionPct")?.closest(".grid2");
   ensureSingleHeader(
     persuadableCard,
@@ -103,10 +109,10 @@ export function composeSetupStageModule(){
   if (persuadableGrid) persuadableCard.appendChild(persuadableGrid);
 
   const electorateCard = ensureCard("setupElectorateModule");
-  const structureBody = document.querySelector("#stage-structure > .stage-body-new");
-  const electorateHeader = structureBody?.querySelector(":scope > .card-head.card-header");
-  const electorateDetails = structureBody?.querySelector(":scope > details");
-  const electorateNote = structureBody?.querySelector(":scope > .note");
+  const electorateSource = moduleSourceByInput("universe16Enabled");
+  const electorateHeader = electorateSource?.querySelector(":scope > .card-head.card-header") || electorateSource?.querySelector(".card-head.card-header");
+  const electorateDetails = electorateSource?.querySelector(":scope > details") || electorateSource?.querySelector("details");
+  const electorateNote = electorateSource?.querySelector(":scope > .note:last-of-type") || electorateSource?.querySelector(".note");
   ensureSingleHeader(
     electorateCard,
     electorateHeader,
@@ -123,8 +129,8 @@ export function composeSetupStageModule(){
   if (electorateNote) electorateCard.appendChild(electorateNote);
 
   const ballotCard = ensureCard("setupBallotModule");
-  const ballotBody = document.querySelector("#stage-ballot > .stage-body-new");
-  const ballotHeader = ballotBody?.querySelector(":scope > .card-head.card-header");
+  const ballotSource = moduleSourceByInput("yourCandidate");
+  const ballotHeader = ballotSource?.querySelector(":scope > .card-head.card-header") || ballotSource?.querySelector(".card-head.card-header");
   const ballotWhoField = document.getElementById("yourCandidate")?.closest(".field");
   const ballotTable = document.getElementById("candTbody")?.closest(".table-wrap");
   const ballotModeGrid = document.getElementById("undecidedMode")?.closest(".grid2");
@@ -140,7 +146,7 @@ export function composeSetupStageModule(){
   if (ballotModeGrid) ballotCard.appendChild(ballotModeGrid);
   if (ballotWarn) ballotCard.appendChild(ballotWarn);
 
-  const turnoutCard = document.querySelector("#stage-ballot > .stage-body-new > .phase-p3")
+  const turnoutCard = document.querySelector("#stage-ballot .phase-p3")
     || document.getElementById("setupTurnoutBaselineModule");
   if (turnoutCard){
     if (!turnoutCard.id) turnoutCard.id = "setupTurnoutBaselineModule";

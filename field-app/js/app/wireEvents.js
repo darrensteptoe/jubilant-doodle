@@ -528,8 +528,8 @@ export function wireResetImportAndUiToggles(ctx){
 
       if (els.importWarnBanner){
         if (normalizedWarnings.length){
-          const shown = normalizedWarnings.slice(0, 6).join(" ");
-          const extra = normalizedWarnings.length > 6 ? ` (+${normalizedWarnings.length - 6} more)` : "";
+          const shown = normalizedWarnings.slice(0, 3).join(" • ");
+          const extra = normalizedWarnings.length > 3 ? ` (+${normalizedWarnings.length - 3} more)` : "";
           const msg = `${shown}${extra}`.trim();
           showBanner(els.importWarnBanner, msg);
         } else {
