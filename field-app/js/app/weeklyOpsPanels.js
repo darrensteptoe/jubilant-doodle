@@ -167,6 +167,7 @@ export function renderWeeklyOpsModule(args){
     els,
     res,
     weeks,
+    ctx,
     fmtInt,
     computeWeeklyOpsContext,
     renderWeeklyExecutionStatus,
@@ -174,7 +175,7 @@ export function renderWeeklyOpsModule(args){
 
   if (!els.wkGoal) return;
 
-  const context = computeWeeklyOpsContext(res, weeks) || {};
+  const context = ctx || computeWeeklyOpsContext(res, weeks) || {};
   const goal = context.goal ?? 0;
   const sr = context.sr;
   const cr = context.cr;

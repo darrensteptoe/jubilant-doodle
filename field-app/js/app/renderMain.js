@@ -1,13 +1,12 @@
-import { buildModelInputFromState } from "./modelInput.js";
-
 export function renderMain(ctx){
   const {
     state,
     els,
     safeNum,
     engine,
-    derivedWeeksRemaining,
-    deriveNeedVotes,
+    computeElectionSnapshot,
+    computeExecutionSnapshot,
+    computeWeeklyOpsContext,
     setLastRenderCtx,
     setLastResultsSnapshot,
     fmtInt,
@@ -36,13 +35,52 @@ export function renderMain(ctx){
     renderDecisionIntelligencePanel,
   } = ctx || {};
 
-  const weeks = derivedWeeksRemaining();
+  const planningSnapshot = (typeof computeElectionSnapshot === "function")
+    ? computeElectionSnapshot({ state, nowDate: new Date(), toNum: safeNum })
+    : null;
 
-  const modelInput = buildModelInputFromState(state, safeNum);
+  const modelInput = planningSnapshot?.modelInput || null;
+  const res = planningSnapshot?.res || (modelInput ? engine.computeAll(modelInput) : null);
+  const weeks = planningSnapshot?.weeks ?? null;
+  const needVotes = planningSnapshot?.needVotes ?? null;
 
-  const res = engine.computeAll(modelInput);
-  const needVotes = deriveNeedVotes(res);
-  setLastRenderCtx({ res, weeks, needVotes, modelInput });
+  if (!res){
+    return;
+  }
+
+  const weeklyContext = (typeof computeWeeklyOpsContext === "function")
+    ? (computeWeeklyOpsContext(res, weeks) || null)
+    : null;
+  const expectedAPH = (
+    weeklyContext?.doorShare != null &&
+    weeklyContext?.doorsPerHour != null &&
+    weeklyContext?.callsPerHour != null
+  )
+    ? (weeklyContext.doorShare * weeklyContext.doorsPerHour + (1 - weeklyContext.doorShare) * weeklyContext.callsPerHour)
+    : null;
+
+  const executionSnapshot = (typeof computeExecutionSnapshot === "function")
+    ? computeExecutionSnapshot({
+        planningSnapshot,
+        weeklyContext,
+        dailyLog: state?.ui?.dailyLog || [],
+        assumedCR: weeklyContext?.cr ?? null,
+        assumedSR: weeklyContext?.sr ?? null,
+        expectedAPH,
+        windowN: 7,
+        safeNumFn: safeNum,
+      })
+    : null;
+
+  setLastRenderCtx({
+    res,
+    weeks,
+    needVotes,
+    modelInput,
+    planningSnapshot,
+    weeklyContext,
+    executionSnapshot,
+  });
 
   els.turnoutExpected.textContent = res.turnout.expectedPct == null ? "—" : `${res.turnout.expectedPct.toFixed(1)}%`;
   els.turnoutBand.textContent = res.turnout.bestPct == null ? "—" : `${res.turnout.bestPct.toFixed(1)}% / ${res.turnout.worstPct.toFixed(1)}%`;
@@ -78,11 +116,11 @@ export function renderMain(ctx){
   safeCall(() => renderGuardrails(res));
   safeCall(() => renderConversion(res, weeks));
   safeCall(() => renderPhase3(res, weeks));
-  safeCall(() => renderWeeklyOps(res, weeks));
-  safeCall(() => renderWeeklyOpsInsights(res, weeks));
-  safeCall(() => renderWeeklyOpsFreshness(res, weeks));
+  safeCall(() => renderWeeklyOps(res, weeks, { weeklyContext, executionSnapshot }));
+  safeCall(() => renderWeeklyOpsInsights(res, weeks, { weeklyContext, executionSnapshot }));
+  safeCall(() => renderWeeklyOpsFreshness(res, weeks, { weeklyContext, executionSnapshot }));
   safeCall(() => scheduleOperationsCapacityOutlookRender(weeks));
-  safeCall(() => renderAssumptionDriftE1(res, weeks));
+  safeCall(() => renderAssumptionDriftE1(res, weeks, { weeklyContext, executionSnapshot }));
   safeCall(() => renderRiskFramingE2());
   safeCall(() => renderBottleneckAttributionE3(res, weeks));
   safeCall(() => renderSensitivitySnapshotE4());

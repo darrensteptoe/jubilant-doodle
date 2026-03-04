@@ -3,6 +3,8 @@ export function renderWeeklyOpsInsightsPanel({
   state,
   res,
   weeks,
+  ctx,
+  executionSnapshot,
   computeWeeklyOpsContext,
   fmtInt,
   clamp,
@@ -14,7 +16,7 @@ export function renderWeeklyOpsInsightsPanel({
 }){
   if (!els.wkLeversIntro || !els.wkActionsList || !els.wkBestMovesList || !els.wkLeversTbody) return;
 
-  const ctx = computeWeeklyOpsContext(res, weeks);
+  const opsCtx = ctx || computeWeeklyOpsContext(res, weeks);
   const fmtCeil = (v) => (v == null || !isFinite(v)) ? "—" : fmtInt(Math.ceil(v));
   const fmtNum1 = (v) => (v == null || !isFinite(v)) ? "—" : (Number(v).toFixed(1));
 
@@ -27,28 +29,28 @@ export function renderWeeklyOpsInsightsPanel({
   if (els.wkLeversFoot) els.wkLeversFoot.hidden = false;
   if (els.wkBestMovesIntro) els.wkBestMovesIntro.hidden = false;
 
-  if (ctx.goal <= 0){
+  if (opsCtx.goal <= 0){
     els.wkLeversIntro.textContent = "No operational gap to analyze (goal is 0 under current inputs).";
     addBullet(els.wkActionsList, "Set a goal (Support IDs needed) or adjust win path assumptions to generate a real plan.");
     if (els.wkBestMovesIntro) els.wkBestMovesIntro.hidden = true;
     if (els.wkLeversFoot) els.wkLeversFoot.hidden = true;
     return;
   }
-  if (ctx.weeks == null || ctx.weeks <= 0){
+  if (opsCtx.weeks == null || opsCtx.weeks <= 0){
     els.wkLeversIntro.textContent = "Timeline is missing. Set election date or weeks remaining to compute weekly pressure.";
     addBullet(els.wkActionsList, "Enter an election date (or weeks remaining) so the plan can compute per-week targets.");
     if (els.wkBestMovesIntro) els.wkBestMovesIntro.hidden = true;
     if (els.wkLeversFoot) els.wkLeversFoot.hidden = true;
     return;
   }
-  if (ctx.sr == null || ctx.sr <= 0 || ctx.cr == null || ctx.cr <= 0){
+  if (opsCtx.sr == null || opsCtx.sr <= 0 || opsCtx.cr == null || opsCtx.cr <= 0){
     els.wkLeversIntro.textContent = "Rates are missing. Enter Support rate and Contact rate to estimate workload.";
     addBullet(els.wkActionsList, "Fill Support rate (%) and Contact rate (%) in Phase 2.");
     if (els.wkBestMovesIntro) els.wkBestMovesIntro.hidden = true;
     if (els.wkLeversFoot) els.wkLeversFoot.hidden = true;
     return;
   }
-  if (ctx.capTotal == null || !isFinite(ctx.capTotal)){
+  if (opsCtx.capTotal == null || !isFinite(opsCtx.capTotal)){
     els.wkLeversIntro.textContent = "Capacity inputs are incomplete. Fill Phase 3 execution inputs to compute what is executable.";
     addBullet(els.wkActionsList, "Enter organizers, hours/week, doors/hr, calls/hr, and channel split in Phase 3.");
     if (els.wkBestMovesIntro) els.wkBestMovesIntro.hidden = true;
@@ -56,8 +58,8 @@ export function renderWeeklyOpsInsightsPanel({
     return;
   }
 
-  const baseReq = ctx.attemptsPerWeek;
-  const baseCap = ctx.capTotal;
+  const baseReq = opsCtx.attemptsPerWeek;
+  const baseCap = opsCtx.capTotal;
   const gap = (baseReq != null && baseCap != null) ? Math.max(0, baseReq - baseCap) : null;
   const isGap = (gap != null && gap > 0);
 
@@ -82,16 +84,16 @@ export function renderWeeklyOpsInsightsPanel({
 
   const baseCapParams = {
     weeks: 1,
-    orgCount: ctx.orgCount,
-    orgHoursPerWeek: ctx.orgHoursPerWeek,
-    volunteerMult: ctx.volunteerMult,
-    doorShare: ctx.doorShare,
-    doorsPerHour: ctx.doorsPerHour,
-    callsPerHour: ctx.callsPerHour
+    orgCount: opsCtx.orgCount,
+    orgHoursPerWeek: opsCtx.orgHoursPerWeek,
+    volunteerMult: opsCtx.volunteerMult,
+    doorShare: opsCtx.doorShare,
+    doorsPerHour: opsCtx.doorsPerHour,
+    callsPerHour: opsCtx.callsPerHour
   };
 
-  if (ctx.orgCount != null && ctx.orgHoursPerWeek != null && ctx.volunteerMult != null){
-    const plusOrg = capTotal({ ...baseCapParams, orgCount: ctx.orgCount + 1 });
+  if (opsCtx.orgCount != null && opsCtx.orgHoursPerWeek != null && opsCtx.volunteerMult != null){
+    const plusOrg = capTotal({ ...baseCapParams, orgCount: opsCtx.orgCount + 1 });
     if (plusOrg != null && baseCap != null) push({
       kind: "capacity",
       key: "org",
@@ -102,9 +104,9 @@ export function renderWeeklyOpsInsightsPanel({
       effUnit: "per organizer"
     });
 
-    const plusHr = capTotal({ ...baseCapParams, orgHoursPerWeek: ctx.orgHoursPerWeek + 1 });
+    const plusHr = capTotal({ ...baseCapParams, orgHoursPerWeek: opsCtx.orgHoursPerWeek + 1 });
     if (plusHr != null && baseCap != null){
-      const addedHours = Math.max(1, ctx.orgCount || 1);
+      const addedHours = Math.max(1, opsCtx.orgCount || 1);
       push({
         kind: "capacity",
         key: "orgHr",
@@ -116,7 +118,7 @@ export function renderWeeklyOpsInsightsPanel({
       });
     }
 
-    const plusVol = capTotal({ ...baseCapParams, volunteerMult: ctx.volunteerMult + 0.10 });
+    const plusVol = capTotal({ ...baseCapParams, volunteerMult: opsCtx.volunteerMult + 0.10 });
     if (plusVol != null && baseCap != null) push({
       kind: "capacity",
       key: "volMult",
@@ -128,8 +130,8 @@ export function renderWeeklyOpsInsightsPanel({
     });
   }
 
-  if (ctx.doorsPerHour != null){
-    const plusDoorHr = capTotal({ ...baseCapParams, doorsPerHour: ctx.doorsPerHour + 1 });
+  if (opsCtx.doorsPerHour != null){
+    const plusDoorHr = capTotal({ ...baseCapParams, doorsPerHour: opsCtx.doorsPerHour + 1 });
     if (plusDoorHr != null && baseCap != null) push({
       kind: "capacity",
       key: "dph",
@@ -141,8 +143,8 @@ export function renderWeeklyOpsInsightsPanel({
     });
   }
 
-  if (ctx.callsPerHour != null){
-    const plusCallHr = capTotal({ ...baseCapParams, callsPerHour: ctx.callsPerHour + 1 });
+  if (opsCtx.callsPerHour != null){
+    const plusCallHr = capTotal({ ...baseCapParams, callsPerHour: opsCtx.callsPerHour + 1 });
     if (plusCallHr != null && baseCap != null) push({
       kind: "capacity",
       key: "cph",
@@ -154,10 +156,10 @@ export function renderWeeklyOpsInsightsPanel({
     });
   }
 
-  if (ctx.doorShare != null && ctx.doorsPerHour != null && ctx.callsPerHour != null){
-    const doorIsFaster = ctx.doorsPerHour >= ctx.callsPerHour;
+  if (opsCtx.doorShare != null && opsCtx.doorsPerHour != null && opsCtx.callsPerHour != null){
+    const doorIsFaster = opsCtx.doorsPerHour >= opsCtx.callsPerHour;
     const shift = 0.10;
-    const newShare = clamp(ctx.doorShare + (doorIsFaster ? shift : -shift), 0, 1);
+    const newShare = clamp(opsCtx.doorShare + (doorIsFaster ? shift : -shift), 0, 1);
     const capShift = capTotal({ ...baseCapParams, doorShare: newShare });
     if (capShift != null && baseCap != null) push({
       kind: "capacity",
@@ -172,10 +174,10 @@ export function renderWeeklyOpsInsightsPanel({
 
   const pp = 0.01;
   if (baseReq != null && isFinite(baseReq)){
-    const srPlus = Math.min(0.99, ctx.sr + pp);
-    const crPlus = Math.min(0.99, ctx.cr + pp);
+    const srPlus = Math.min(0.99, opsCtx.sr + pp);
+    const crPlus = Math.min(0.99, opsCtx.cr + pp);
 
-    const reqSrPlus = (ctx.goal > 0 && srPlus > 0 && ctx.cr > 0 && ctx.weeks > 0) ? (ctx.goal / srPlus / ctx.cr / ctx.weeks) : null;
+    const reqSrPlus = (opsCtx.goal > 0 && srPlus > 0 && opsCtx.cr > 0 && opsCtx.weeks > 0) ? (opsCtx.goal / srPlus / opsCtx.cr / opsCtx.weeks) : null;
     if (reqSrPlus != null) push({
       kind: "rates",
       key: "sr",
@@ -186,7 +188,7 @@ export function renderWeeklyOpsInsightsPanel({
       effUnit: "per +1pp"
     });
 
-    const reqCrPlus = (ctx.goal > 0 && crPlus > 0 && ctx.sr > 0 && ctx.weeks > 0) ? (ctx.goal / ctx.sr / crPlus / ctx.weeks) : null;
+    const reqCrPlus = (opsCtx.goal > 0 && crPlus > 0 && opsCtx.sr > 0 && opsCtx.weeks > 0) ? (opsCtx.goal / opsCtx.sr / crPlus / opsCtx.weeks) : null;
     if (reqCrPlus != null) push({
       kind: "rates",
       key: "cr",
@@ -197,8 +199,8 @@ export function renderWeeklyOpsInsightsPanel({
       effUnit: "per +1pp"
     });
 
-    const wPlus = ctx.weeks + 1;
-    const reqWPlus = (ctx.goal > 0 && ctx.sr > 0 && ctx.cr > 0 && wPlus > 0) ? (ctx.goal / ctx.sr / ctx.cr / wPlus) : null;
+    const wPlus = opsCtx.weeks + 1;
+    const reqWPlus = (opsCtx.goal > 0 && opsCtx.sr > 0 && opsCtx.cr > 0 && wPlus > 0) ? (opsCtx.goal / opsCtx.sr / opsCtx.cr / wPlus) : null;
     if (reqWPlus != null) push({
       kind: "timeline",
       key: "weeks",
@@ -234,7 +236,7 @@ export function renderWeeklyOpsInsightsPanel({
     btn.className = "btn btn-sm";
     btn.type = "button";
     btn.textContent = "Apply";
-    btn.addEventListener("click", () => { safeCall(() => { applyWeeklyLeverScenario(l, ctx); }); });
+    btn.addEventListener("click", () => { safeCall(() => { applyWeeklyLeverScenario(l, opsCtx); }); });
     li.appendChild(span);
     li.appendChild(btn);
     els.wkBestMovesList.appendChild(li);
@@ -259,7 +261,7 @@ export function renderWeeklyOpsInsightsPanel({
     btn.className = "btn btn-sm";
     btn.type = "button";
     btn.textContent = "Apply";
-    btn.addEventListener("click", () => { safeCall(() => { applyWeeklyLeverScenario(l, ctx); }); });
+    btn.addEventListener("click", () => { safeCall(() => { applyWeeklyLeverScenario(l, opsCtx); }); });
     td5.appendChild(btn);
 
     tr.appendChild(td1);
@@ -275,7 +277,13 @@ export function renderWeeklyOpsInsightsPanel({
   const bestCr = usable.find(x => x.kind === "rates" && x.key === "cr") || null;
   const bestSr = usable.find(x => x.kind === "rates" && x.key === "sr") || null;
 
-  const drift = computeRealityDrift();
+  const drift = executionSnapshot
+    ? {
+        hasLog: !!executionSnapshot?.log?.hasLog,
+        flags: Array.isArray(executionSnapshot?.drift?.flags) ? executionSnapshot.drift.flags : [],
+        primary: executionSnapshot?.drift?.primary || null,
+      }
+    : computeRealityDrift();
   const hasDrift = drift?.hasLog && drift?.flags?.length;
   const primary = drift?.primary || null;
 
@@ -324,6 +332,8 @@ export function renderWeeklyOpsFreshnessPanel({
   state,
   res,
   weeks,
+  ctx,
+  executionSnapshot,
   safeNum,
   computeWeeklyOpsContext
 }){
@@ -333,8 +343,10 @@ export function renderWeeklyOpsFreshnessPanel({
   const fPct = (v) => (v == null || !isFinite(v)) ? "—" : ((v * 100).toFixed(1) + "%");
   const fNum1 = (v) => (v == null || !isFinite(v)) ? "—" : (Number(v).toFixed(1));
 
+  const snap = executionSnapshot || null;
   const log = Array.isArray(state.ui?.dailyLog) ? state.ui.dailyLog : null;
-  if (!log || log.length === 0){
+  const hasLog = snap ? !!snap?.log?.hasLog : !!(log && log.length);
+  if (!hasLog){
     els.wkLastUpdate.textContent = "—";
     if (els.wkFreshNote) els.wkFreshNote.textContent = "No daily log configured yet";
     if (els.wkRollingAttempts) els.wkRollingAttempts.textContent = "—";
@@ -349,48 +361,36 @@ export function renderWeeklyOpsFreshnessPanel({
     return;
   }
 
-  const sorted = [...log].filter(x => x && x.date).sort((a,b) => String(a.date).localeCompare(String(b.date)));
+  const sorted = snap?.log?.sorted || [...log].filter(x => x && x.date).sort((a,b) => String(a.date).localeCompare(String(b.date)));
   const last = sorted[sorted.length - 1];
   els.wkLastUpdate.textContent = last?.date || "—";
   if (els.wkFreshNote) els.wkFreshNote.textContent = "Using state.ui.dailyLog";
 
-  const windowN = 7;
-  const lastN = sorted.slice(-windowN);
-
-  let sumAttempts = 0, sumConvos = 0, sumSupportIds = 0, sumOrgHours = 0;
-  for (const x of lastN){
-    const doors = safeNum(x?.doors) || 0;
-    const calls = safeNum(x?.calls) || 0;
-    const attempts = (x?.attempts != null && x.attempts !== "") ? (safeNum(x.attempts) || 0) : (doors + calls);
-    const convos = safeNum(x?.convos) || 0;
-    const sup = safeNum(x?.supportIds) || 0;
-    const hrs = safeNum(x?.orgHours) || 0;
-
-    sumAttempts += attempts;
-    sumConvos += convos;
-    sumSupportIds += sup;
-    sumOrgHours += hrs;
-  }
+  const sumAttempts = snap?.log?.sumAttemptsWindow ?? 0;
+  const sumConvos = snap?.log?.sumConvosWindow ?? 0;
+  const sumSupportIds = snap?.log?.sumSupportIdsWindow ?? 0;
+  const sumOrgHours = snap?.log?.sumOrgHoursWindow ?? 0;
 
   if (els.wkRollingAttempts) els.wkRollingAttempts.textContent = fInt(sumAttempts);
 
-  const actualCR = (sumAttempts > 0) ? (sumConvos / sumAttempts) : null;
-  const actualSR = (sumConvos > 0) ? (sumSupportIds / sumConvos) : null;
-  const actualAPH = (sumOrgHours > 0) ? (sumAttempts / sumOrgHours) : null;
+  const actualCR = snap?.rolling?.cr ?? ((sumAttempts > 0) ? (sumConvos / sumAttempts) : null);
+  const actualSR = snap?.rolling?.sr ?? ((sumConvos > 0) ? (sumSupportIds / sumConvos) : null);
+  const actualAPH = snap?.rolling?.aph ?? ((sumOrgHours > 0) ? (sumAttempts / sumOrgHours) : null);
 
   if (els.wkRollingCR) els.wkRollingCR.textContent = fPct(actualCR);
   if (els.wkRollingSR) els.wkRollingSR.textContent = fPct(actualSR);
   if (els.wkRollingAPH) els.wkRollingAPH.textContent = fNum1(actualAPH);
 
-  const assumedCR = (state.contactRatePct != null && state.contactRatePct !== "") ? ((safeNum(state.contactRatePct) || 0) / 100) : null;
-  const assumedSR = (state.supportRatePct != null && state.supportRatePct !== "") ? ((safeNum(state.supportRatePct) || 0) / 100) : null;
-
-  const mixDoor = (state.channelDoorPct != null && state.channelDoorPct !== "") ? ((safeNum(state.channelDoorPct) || 0) / 100) : null;
-  const doorsHr = (state.doorsPerHour3 != null && state.doorsPerHour3 !== "") ? (safeNum(state.doorsPerHour3) || 0) : null;
-  const callsHr = (state.callsPerHour3 != null && state.callsPerHour3 !== "") ? (safeNum(state.callsPerHour3) || 0) : null;
-  const expectedAPH = (mixDoor != null && doorsHr != null && callsHr != null)
-    ? (mixDoor * doorsHr + (1 - mixDoor) * callsHr)
-    : null;
+  const assumedCR = snap?.assumptions?.cr ?? ((state.contactRatePct != null && state.contactRatePct !== "") ? ((safeNum(state.contactRatePct) || 0) / 100) : null);
+  const assumedSR = snap?.assumptions?.sr ?? ((state.supportRatePct != null && state.supportRatePct !== "") ? ((safeNum(state.supportRatePct) || 0) / 100) : null);
+  const expectedAPH = snap?.assumptions?.aph ?? (() => {
+    const mixDoor = (state.channelDoorPct != null && state.channelDoorPct !== "") ? ((safeNum(state.channelDoorPct) || 0) / 100) : null;
+    const doorsHr = (state.doorsPerHour3 != null && state.doorsPerHour3 !== "") ? (safeNum(state.doorsPerHour3) || 0) : null;
+    const callsHr = (state.callsPerHour3 != null && state.callsPerHour3 !== "") ? (safeNum(state.callsPerHour3) || 0) : null;
+    return (mixDoor != null && doorsHr != null && callsHr != null)
+      ? (mixDoor * doorsHr + (1 - mixDoor) * callsHr)
+      : null;
+  })();
 
   if (els.wkRollingCRNote){
     if (assumedCR == null) els.wkRollingCRNote.textContent = "Assumed: —";
@@ -405,15 +405,15 @@ export function renderWeeklyOpsFreshnessPanel({
     else els.wkRollingAPHNote.textContent = `Expected: ${fNum1(expectedAPH)} / hr`;
   }
 
-  const ctx = computeWeeklyOpsContext(res, weeks);
-  const req = ctx.attemptsPerWeek;
+  const opsCtx = ctx || computeWeeklyOpsContext(res, weeks);
+  const req = snap?.pace?.requiredAttemptsPerWeek ?? opsCtx.attemptsPerWeek;
   if (els.wkRollingNote){
     if (req == null || !isFinite(req)) els.wkRollingNote.textContent = "Required attempts/week unavailable under current inputs";
     else els.wkRollingNote.textContent = `Required ≈ ${fInt(Math.ceil(req))} attempts/week`;
   }
 
-  let ratio = null;
-  if (req != null && isFinite(req) && req > 0) ratio = sumAttempts / req;
+  let ratio = snap?.pace?.ratio ?? null;
+  if ((ratio == null || !isFinite(ratio)) && req != null && isFinite(req) && req > 0) ratio = sumAttempts / req;
 
   const flags = [];
   const tol = 0.90;
