@@ -386,7 +386,7 @@ body.strict-import .toggle-pill:has(#toggleStrictImport) .toggle-dot-new {
   padding: 22px 24px 38px;
   display: flex;
   flex-direction: column;
-  gap: 18px;
+  gap: 22px;
   scroll-padding-top: 12px;
 }
 
@@ -404,7 +404,7 @@ body.strict-import .toggle-pill:has(#toggleStrictImport) .toggle-dot-new {
 
 .setup-divider {
   width: 100%;
-  margin: 2px 0 4px;
+  margin: 4px 0 8px;
   border: 0;
   border-top: 1px solid color-mix(in srgb, var(--s-rule) 78%, transparent);
 }
@@ -495,11 +495,12 @@ body.strict-import .toggle-pill:has(#toggleStrictImport) .toggle-dot-new {
 }
 
 .stage-body-new .card-head.card-header {
-  min-height: 52px;
+  min-height: 56px;
   display: flex !important;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
+  gap: 14px;
+  padding: 12px 16px 11px;
   background: var(--s-module-strip-bg);
   border: 1px solid var(--s-module-strip-border);
   border-bottom: 1px solid color-mix(in srgb, var(--s-module-strip-border) 70%, var(--s-rule));
@@ -518,13 +519,19 @@ body.strict-import .toggle-pill:has(#toggleStrictImport) .toggle-dot-new {
   margin: 0;
   max-width: 62%;
   text-align: right;
+  min-height: 32px;
+  display: flex;
+  align-items: center;
 }
 
 .stage-body-new .card > .help-text {
   margin: 0;
-  padding: 10px 14px 11px;
+  padding: 10px 16px 11px;
   border-bottom: 1px solid color-mix(in srgb, var(--s-rule) 70%, transparent);
   background: color-mix(in srgb, var(--s-module-strip-bg) 45%, var(--s-panel));
+  min-height: 38px;
+  display: flex;
+  align-items: center;
 }
 
 .stage-body-new .card .card-actions,
@@ -537,6 +544,15 @@ body.strict-import .toggle-pill:has(#toggleStrictImport) .toggle-dot-new {
 .stage-body-new .card .muted,
 .stage-body-new .card .help-text {
   line-height: 1.45;
+}
+
+.stage-body-new > .card {
+  padding-bottom: 2px;
+}
+
+.stage-body-new > .card > :not(.card-head):not(.help-text):not(.banner.module-feedback):not(.setup-divider) {
+  margin-left: 16px;
+  margin-right: 16px;
 }
 
 /* Keep the old left/right/rail sections from affecting layout */
@@ -869,11 +885,11 @@ body.focus-view .stage-body-new {
 
 /* Rewrite card-header padding to fit tighter stage layout */
 .stage-body-new .card-header {
-  padding: 10px 14px 9px;
+  padding: 12px 16px 11px;
 }
 .stage-body-new .card-body,
 .stage-body-new .card-body-inner {
-  padding: 13px 14px;
+  padding: 14px 16px;
 }
 
 /* ── SCROLLBARS ──────────────────────────────────────────── */
