@@ -312,7 +312,7 @@
 <div class="note">Must sum to 100% across candidates.</div>
 </div>
 </div>
-<div class="banner warn" hidden="" id="candWarn"></div>
+<div class="banner warn module-feedback" hidden="" id="candWarn"></div>
 </div><div class="card card-section phase-p3">
 <div class="card-head card-header">
 <h2 class="card-title">Turnout baseline (recent comparable cycles)</h2>
@@ -448,7 +448,7 @@
 <div class="mini-s" id="wkConstraintNote">—</div>
 </div>
 </div>
-<div class="banner warn" hidden="" id="wkBanner" style="margin-top:10px;"></div>
+<div class="banner warn module-feedback" hidden="" id="wkBanner"></div>
 <div class="note">This uses your Phase 2 rates (support/contact) and Phase 3 capacity inputs (organizers, hours, doors/hr, calls/hr, channel split). It is a planning summary, not a CRM.</div>
 <hr aria-hidden="true" class="sectionRule" style="margin:12px 0;"/>
 <div class="card-subtitle">Weekly execution status</div>
@@ -518,7 +518,7 @@
 <div class="mini-s" id="wkPaceNote">—</div>
 </div>
 </div>
-<div class="banner warn" hidden="" id="wkExecBanner" style="margin-top:10px;"></div>
+<div class="banner warn module-feedback" hidden="" id="wkExecBanner"></div>
 </div>
 <div class="card card-section" id="weeklyOpsLeversCard">
 <div class="card-head card-header">
@@ -783,6 +783,10 @@
 </div>
 <div class="stage-body-new">
 <div class="card card-section">
+<div class="card-head card-header">
+<h2 class="card-title">Turnout assumptions source</h2>
+<div class="help-text">Read-only mirror of turnout settings from Budget &amp; ROI → Turnout &amp; GOTV.</div>
+</div>
 <div class="rowline" style="justify-content:space-between; align-items:flex-start; gap:10px; margin-bottom:10px;">
 <div>
 <div class="label" style="margin-bottom:4px;">Turnout assumptions source</div>
@@ -957,7 +961,7 @@
 <div class="muted" id="universe16Derived" style="padding:10px; border:1px solid var(--line); border-radius:10px;">—</div>
 </div>
 </div>
-<div class="banner warn" hidden="" id="universe16Warn" style="margin-top:10px;"></div>
+<div class="banner warn module-feedback" hidden="" id="universe16Warn"></div>
 </div>
 </details>
 <div class="note">This layer weights persuasion and turnout reliability by party composition and applies a single retention factor. It is aggregate-only (not a CRM).</div>
@@ -996,6 +1000,10 @@
 <div class="stage-body-new">
 <section class="panel active" id="tab-win">
 <div class="card card-section phase-p3" id="phase3Card">
+<div class="card-head card-header">
+<h2 class="card-title">Execution &amp; uncertainty</h2>
+<div class="help-text">Capacity assumptions and Monte Carlo controls for risk simulation.</div>
+</div>
 <div class="mc-details">
 <div class="mc-summary">
 <span class="mc-summary-title">Execution &amp; uncertainty</span>
@@ -1500,7 +1508,7 @@
 </tbody>
 </table>
 </div>
-<div class="banner warn" hidden="" id="roiBanner"></div>
+<div class="banner warn module-feedback" hidden="" id="roiBanner"></div>
 <div class="note">
             ROI backbone: Attempts → Contacts (CR) → Support IDs (SR) → Net votes (turnout-adjusted). Costs are deterministic.
           </div>
@@ -1616,7 +1624,7 @@
 <div class="note" style="margin-top:10px;">
     Turnout modeling affects <b>realized votes</b>. Persuasion changes preference among those who vote. GOTV increases the probability of voting in the target universe.
   </div>
-<div class="banner ok" hidden="" id="turnoutSummary"></div>
+<div class="banner ok module-feedback" hidden="" id="turnoutSummary"></div>
 </div>
 <div class="card card-section phase-p5">
 <div class="card-head card-header">
@@ -1717,7 +1725,7 @@
 <div class="kpi-s">Persuasion need (Expected) for reference</div>
 </div>
 </div>
-<div class="banner warn" hidden="" id="optBanner"></div>
+<div class="banner warn module-feedback" hidden="" id="optBanner"></div>
 <div class="card card-panel mini" hidden="" id="tlOptResults" style="margin-top:10px;">
 <div class="card-head card-header">
 <h3 style="margin:0;">Timeline-Constrained Results</h3>
@@ -1936,7 +1944,7 @@
 <div class="card-head card-header">
 <h2 class="card-title">Decision intelligence</h2>
 </div>
-<div class="banner warn" hidden="" id="diWarn"></div>
+<div class="banner warn module-feedback" hidden="" id="diWarn"></div>
 <div class="grid2" style="margin-top:10px;">
 <div>
 <div class="muted" style="font-size:12px; margin-bottom:6px;">Bottleneck summary</div>
@@ -1995,7 +2003,7 @@
 </div>
 </div>
 </div>
-<div class="banner warn" hidden="" id="tlBanner"></div>
+<div class="banner warn module-feedback" hidden="" id="tlBanner"></div>
 </div>
 </div></section>
 
@@ -2085,7 +2093,7 @@
 <h2 class="card-title">Scenario Compare</h2>
 </div>
 <div class="help-text">Use this page to create, load, and compare planning scenarios. Import/export and backup recovery live in <strong>Import/export &amp; backups</strong>.</div>
-<div class="banner warn" hidden="" id="scWarn"></div>
+<div class="banner warn module-feedback" hidden="" id="scWarn"></div>
 <div class="scm">
 <div class="rowline scm-active">
 <div class="note" id="activeScenarioLabel">Active Scenario: —</div>
@@ -2318,7 +2326,7 @@ Must hit 12,000 doors" rows="4"></textarea>
 </div>
 <div class="scm-row" style="margin-top:10px;">
 <div class="scm-field" style="width:100%;">
-<div class="banner" id="driftSlipBanner">—</div>
+<div class="banner module-feedback" id="driftSlipBanner">—</div>
 </div>
 </div>
 <div class="scm-row" style="margin-top:10px;">
@@ -2352,7 +2360,7 @@ Must hit 12,000 doors" rows="4"></textarea>
 </div>
 <div class="scm-row" style="margin-top:10px;">
 <div class="scm-field" style="width:100%;">
-<div class="banner" id="riskPlainBanner">—</div>
+<div class="banner module-feedback" id="riskPlainBanner">—</div>
 </div>
 </div>
 <div class="scm-row" style="margin-top:10px;">
@@ -2422,7 +2430,7 @@ Must hit 12,000 doors" rows="4"></textarea>
 <tbody id="sensTbody"></tbody>
 </table>
 </div>
-<div class="banner" id="sensBanner" style="margin-top:10px;">—</div>
+<div class="banner module-feedback" id="sensBanner">—</div>
 </div>
 </div>
 <div class="scm-row" style="margin-top:10px;">
@@ -2461,7 +2469,7 @@ Must hit 12,000 doors" rows="4"></textarea>
 </div>
 <div class="scm-row" style="margin-top:10px;">
 <div class="scm-field" style="width:100%;">
-<div class="banner" id="confBanner">—</div>
+<div class="banner module-feedback" id="confBanner">—</div>
 </div>
 </div>
 <div class="scm-row" style="margin-top:10px;">
