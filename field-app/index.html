@@ -117,7 +117,7 @@
 <!-- EXISTING CONTENT: Scenario card -->
 <div class="card card-section phase-setup">
 <div class="card-head card-header"><h2 class="card-title">Race setup</h2></div>
-</div>
+<div class="module-desc">Set race template, election date, weeks remaining, and mode. This establishes the planning context for all downstream math.</div>
 <div class="grid2">
 <div class="field">
 <label class="label" for="raceType">Race template</label>
@@ -157,6 +157,7 @@
 <div class="help" data-help="Mode influences defaults later. Core math remains the same.">
 <span class="help-title">What this changes</span>
 <span class="help-text">In later phases, persuasion-first emphasizes persuasion volume before GOTV surge.</span>
+</div>
 </div>
 </div>
 </div>
@@ -226,8 +227,6 @@
 </div>
 </div>
 </div>
-</div>
-<div class="card card-section phase-candidates">
 </div>
 </div>
 </section>
@@ -359,8 +358,6 @@
 </div>
 </div>
 </div>
-</div>
-<div class="card card-section phase-persuasion">
 </div>
 </div>
 </section>
@@ -897,10 +894,6 @@
 </div>
 </div>
 </div>
-<div class="card card-section phase16" id="universe16Card" style="padding:12px;">
-<div class="card-head card-header" style="margin-bottom:8px;">
-</div>
-</div>
 </div>
 </section>
 <!-- ── STAGE: structure ── -->
@@ -1201,10 +1194,11 @@
 <div class="kpi-s">Bad-but-plausible environment</div>
 </div>
 </div>
-<div class="card card-readonly" style="padding:12px; margin-top:12px;">
-<div class="card-head card-header" style="margin-bottom:8px;">
+<div class="card card-section card-readonly">
+<div class="card-head card-header">
 <h2 class="card-title">Confidence envelope</h2>
-<div class="help-text">Uncertainty ranges from Monte Carlo runs (P10/P50/P90). Helps distinguish tight wins from fragile wins.</div></div>
+</div>
+<div class="module-desc">Uncertainty ranges from Monte Carlo runs (P10/P50/P90). Helps distinguish tight wins from fragile wins.</div>
 <div class="table-wrap">
 <table aria-label="Confidence envelope" class="table">
 <tbody>
@@ -1232,10 +1226,11 @@
 </div>
 <div class="note">Margin is net persuasion votes delivered minus net persuasion votes needed. Fragility rises when small negative shocks materially reduce win probability.</div>
 </div>
-<div class="card card-readonly" style="padding:12px;">
-<div class="card-head card-header" style="margin-bottom:8px;">
+<div class="card card-section card-readonly">
+<div class="card-head card-header">
 <h2 class="card-title">Sensitivity analysis (what matters most)</h2>
 </div>
+<div class="module-desc">Impact uses correlation strength with margin across simulations (higher = more important).</div>
 <div class="table-wrap">
 <table aria-label="Sensitivity ranking" class="table">
 <thead>
@@ -1249,7 +1244,6 @@
 </tbody>
 </table>
 </div>
-<div class="note">Impact uses correlation strength with margin across simulations (higher = more important).</div>
 </div>
 <div class="card card-panel" id="surfaceCard">
 <div class="card-head card-header" style="margin-bottom:8px;">
@@ -1988,7 +1982,7 @@
 <div class="note" id="diRecProb" style="margin-top:6px;">—</div>
 </div>
 </div>
-<div class="grid3" style="margin-top:12px;">
+<div class="grid3" style="margin-top:12px; margin-bottom:14px;">
 <div class="table-wrap">
 <table class="table">
 <thead>
