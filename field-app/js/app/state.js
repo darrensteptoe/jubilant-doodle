@@ -1,3 +1,5 @@
+import { makeDefaultIntelState, normalizeIntelState } from "../core/intelState.js";
+
 export const DEFAULTS_BY_TEMPLATE = {
   federal: { bandWidth: 4, persuasionPct: 28, earlyVoteExp: 45 },
   state_leg: { bandWidth: 4, persuasionPct: 30, earlyVoteExp: 38 },
@@ -119,6 +121,7 @@ export function makeDefaultState({ createId = defaultCreateId } = {}){
 
     mcLast: null,
     mcLastHash: "",
+    intelState: makeDefaultIntelState(),
     ui: {
       training: false,
       dark: false,
@@ -135,6 +138,7 @@ export function normalizeLoadedState(s, { createId = defaultCreateId } = {}){
   const out = { ...base, ...s };
   out.candidates = Array.isArray(s?.candidates) ? s.candidates : base.candidates;
   out.userSplit = (s?.userSplit && typeof s.userSplit === "object") ? s.userSplit : {};
+  out.intelState = normalizeIntelState(s?.intelState);
   out.ui = { ...base.ui, ...(s?.ui || {}) };
 
   out.budget = (s?.budget && typeof s.budget === "object")

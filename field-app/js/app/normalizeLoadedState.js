@@ -1,3 +1,5 @@
+import { normalizeIntelState } from "../core/intelState.js";
+
 export function normalizeLoadedStateModule(s, deps){
   const {
     makeDefaultState,
@@ -13,6 +15,7 @@ export function normalizeLoadedStateModule(s, deps){
   const out = { ...base, ...src };
   out.candidates = Array.isArray(src.candidates) ? src.candidates : base.candidates;
   out.userSplit = (src.userSplit && typeof src.userSplit === "object") ? src.userSplit : {};
+  out.intelState = normalizeIntelState(src.intelState);
   out.ui = { ...base.ui, ...(src.ui || {}) };
 
   out.budget = (src.budget && typeof src.budget === "object")
