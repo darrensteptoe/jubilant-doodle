@@ -2,7 +2,9 @@
 // Phase 10 — Schema Versioning + Migration Guard
 // Pure module: no DOM, no imports from app/optimizer, no state mutation.
 
-export const CURRENT_SCHEMA_VERSION = "1.1.0";
+import { makeDefaultIntelState, normalizeIntelState } from "./intelState.js";
+
+export const CURRENT_SCHEMA_VERSION = "1.2.0";
 
 const SCENARIO_DEFAULTS = {
   // Phase 16 — Universe composition + retention (aggregate)
@@ -12,13 +14,19 @@ const SCENARIO_DEFAULTS = {
   universeNpaPct: 0,
   universeOtherPct: 0,
   retentionFactor: 0.80,
+  // Phase 17 — Intel metadata and governance state (non-math annotations only)
+  intelState: makeDefaultIntelState(),
 };
 
 function applyScenarioDefaults(scen){
   if (!isPlainObject(scen)) return scen;
   for (const k of Object.keys(SCENARIO_DEFAULTS)){
-    if (scen[k] == null) scen[k] = SCENARIO_DEFAULTS[k];
+    if (scen[k] == null){
+      const dv = SCENARIO_DEFAULTS[k];
+      scen[k] = isPlainObject(dv) || Array.isArray(dv) ? deepClone(dv) : dv;
+    }
   }
+  scen.intelState = normalizeIntelState(scen.intelState);
   return scen;
 }
 

@@ -1,0 +1,303 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://field-path.local/schemas/intelState.v1.schema.json",
+  "title": "IntelState v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "version",
+    "refCatalog",
+    "evidence",
+    "benchmarks",
+    "flags",
+    "audit",
+    "briefs",
+    "recommendations",
+    "observedMetrics",
+    "correlationModels",
+    "shockScenarios",
+    "simToggles",
+    "expertToggles"
+  ],
+  "properties": {
+    "version": {
+      "type": "string",
+      "const": "1.0.0"
+    },
+    "refCatalog": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "evidence": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/evidenceItem" }
+    },
+    "benchmarks": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/benchmarkItem" }
+    },
+    "flags": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/flagItem" }
+    },
+    "audit": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/auditItem" }
+    },
+    "briefs": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/briefItem" }
+    },
+    "recommendations": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/recommendationItem" }
+    },
+    "observedMetrics": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/observedMetricItem" }
+    },
+    "correlationModels": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/correlationModelItem" }
+    },
+    "shockScenarios": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/shockScenarioItem" }
+    },
+    "simToggles": {
+      "$ref": "#/$defs/simToggles"
+    },
+    "expertToggles": {
+      "$ref": "#/$defs/expertToggles"
+    }
+  },
+  "$defs": {
+    "idString": {
+      "type": "string",
+      "minLength": 1
+    },
+    "isoDateTime": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "period": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["start", "end"],
+      "properties": {
+        "start": { "type": "string", "format": "date" },
+        "end": { "type": "string", "format": "date" }
+      }
+    },
+    "evidenceItem": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["id", "ref", "title", "capturedAt"],
+      "properties": {
+        "id": { "$ref": "#/$defs/idString" },
+        "ref": { "type": "string" },
+        "title": { "type": "string" },
+        "sourceType": { "type": "string" },
+        "notes": { "type": "string" },
+        "capturedAt": { "$ref": "#/$defs/isoDateTime" }
+      }
+    },
+    "benchmarkItem": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["id", "ref", "raceType", "range"],
+      "properties": {
+        "id": { "$ref": "#/$defs/idString" },
+        "ref": { "type": "string" },
+        "raceType": { "type": "string" },
+        "range": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["min", "max"],
+          "properties": {
+            "min": { "type": "number" },
+            "max": { "type": "number" }
+          }
+        },
+        "default": { "type": "number" },
+        "severityBands": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "warnAbove": { "type": "number" },
+            "hardAbove": { "type": "number" }
+          }
+        }
+      }
+    },
+    "flagItem": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["id", "kind", "message", "createdAt"],
+      "properties": {
+        "id": { "$ref": "#/$defs/idString" },
+        "kind": { "type": "string" },
+        "severity": { "type": "string" },
+        "message": { "type": "string" },
+        "ref": { "type": "string" },
+        "createdAt": { "$ref": "#/$defs/isoDateTime" }
+      }
+    },
+    "auditItem": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["id", "action", "createdAt"],
+      "properties": {
+        "id": { "$ref": "#/$defs/idString" },
+        "action": { "type": "string" },
+        "ref": { "type": "string" },
+        "reason": { "type": "string" },
+        "evidenceIds": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/idString" }
+        },
+        "createdAt": { "$ref": "#/$defs/isoDateTime" }
+      }
+    },
+    "briefItem": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["id", "kind", "content", "createdAt"],
+      "properties": {
+        "id": { "$ref": "#/$defs/idString" },
+        "kind": { "type": "string" },
+        "content": { "type": "string" },
+        "promptId": { "type": "string" },
+        "model": { "type": "string" },
+        "createdAt": { "$ref": "#/$defs/isoDateTime" }
+      }
+    },
+    "recommendationItem": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["id", "title", "createdAt"],
+      "properties": {
+        "id": { "$ref": "#/$defs/idString" },
+        "title": { "type": "string" },
+        "detail": { "type": "string" },
+        "priority": { "type": "integer", "minimum": 0, "maximum": 5 },
+        "ref": { "type": "string" },
+        "createdAt": { "$ref": "#/$defs/isoDateTime" },
+        "draftPatch": { "type": "object", "additionalProperties": true }
+      }
+    },
+    "observedMetricItem": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["id", "metric", "ref", "period", "observed", "source"],
+      "properties": {
+        "id": { "$ref": "#/$defs/idString" },
+        "metric": { "type": "string" },
+        "ref": { "type": "string" },
+        "period": { "$ref": "#/$defs/period" },
+        "observed": { "type": "number" },
+        "source": { "type": "string" },
+        "notes": { "type": "string" },
+        "confidence": { "type": "number", "minimum": 0, "maximum": 1 }
+      }
+    },
+    "correlationModelItem": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "label", "refs", "matrix"],
+      "properties": {
+        "id": { "$ref": "#/$defs/idString" },
+        "label": { "type": "string" },
+        "refs": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "type": "string" }
+        },
+        "matrix": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "array",
+            "minItems": 1,
+            "items": { "type": "number", "minimum": -1, "maximum": 1 }
+          }
+        },
+        "notes": { "type": "string" }
+      }
+    },
+    "shockScenarioImpactItem": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["ref", "delta"],
+      "properties": {
+        "ref": { "type": "string" },
+        "delta": { "type": "number" }
+      }
+    },
+    "shockScenarioItem": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["id", "label", "impacts", "probability"],
+      "properties": {
+        "id": { "$ref": "#/$defs/idString" },
+        "label": { "type": "string" },
+        "impacts": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/shockScenarioImpactItem" }
+        },
+        "probability": { "type": "number", "minimum": 0, "maximum": 1 },
+        "notes": { "type": "string" }
+      }
+    },
+    "simToggles": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "mcDistribution",
+        "correlatedShocks",
+        "correlationMatrixId",
+        "shockScenariosEnabled"
+      ],
+      "properties": {
+        "mcDistribution": {
+          "type": "string",
+          "enum": ["triangular", "uniform", "normal"]
+        },
+        "correlatedShocks": { "type": "boolean" },
+        "correlationMatrixId": {
+          "type": ["string", "null"]
+        },
+        "shockScenariosEnabled": { "type": "boolean" }
+      }
+    },
+    "expertToggles": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["capacityDecayEnabled", "decayModel"],
+      "properties": {
+        "capacityDecayEnabled": { "type": "boolean" },
+        "decayModel": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["type", "weeklyDecayPct", "floorPctOfBaseline"],
+          "properties": {
+            "type": {
+              "type": "string",
+              "enum": ["linear"]
+            },
+            "weeklyDecayPct": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1
+            },
+            "floorPctOfBaseline": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1
+            }
+          }
+        }
+      }
+    }
+  }
+}
