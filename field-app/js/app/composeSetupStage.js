@@ -98,8 +98,8 @@ export function composeSetupStageModule(){
     }
   }
 
-  const universeCard = ensureCard("setupUniverseModule");
   const universeSource = moduleSourceByInput("universeSize");
+  const universeCard = universeSource || ensureCard("setupUniverseModule");
   const universeHeader = universeSource?.querySelector(":scope > .card-head.card-header") || universeSource?.querySelector(".card-head.card-header");
   const universeGrid = document.getElementById("universeSize")?.closest(".grid2");
   ensureSingleHeader(
@@ -110,8 +110,8 @@ export function composeSetupStageModule(){
   );
   if (universeGrid) universeCard.appendChild(universeGrid);
 
-  const persuadableCard = ensureCard("setupPersuadableModule");
   const persuadableSource = moduleSourceByInput("persuasionPct");
+  const persuadableCard = persuadableSource || ensureCard("setupPersuadableModule");
   const persuadableHeader = persuadableSource?.querySelector(":scope > .card-head.card-header") || persuadableSource?.querySelector(".card-head.card-header");
   const persuadableGrid = document.getElementById("persuasionPct")?.closest(".grid2");
   ensureSingleHeader(
@@ -122,8 +122,8 @@ export function composeSetupStageModule(){
   );
   if (persuadableGrid) persuadableCard.appendChild(persuadableGrid);
 
-  const electorateCard = ensureCard("setupElectorateModule");
   const electorateSource = moduleSourceByInput("universe16Enabled");
+  const electorateCard = electorateSource || ensureCard("setupElectorateModule");
   const electorateHeader = electorateSource?.querySelector(":scope > .card-head.card-header") || electorateSource?.querySelector(".card-head.card-header");
   const electorateDetails = electorateSource?.querySelector(":scope > details") || electorateSource?.querySelector("details");
   const electorateNote = electorateSource?.querySelector(":scope > .note:last-of-type") || electorateSource?.querySelector(".note");
@@ -142,8 +142,10 @@ export function composeSetupStageModule(){
   }
   if (electorateNote) electorateCard.appendChild(electorateNote);
 
-  const ballotCard = ensureCard("setupBallotModule");
   const ballotSource = moduleSourceByInput("yourCandidate");
+  // Reuse the source card when available so we don't strand an empty
+  // top-level wrapper in the original stage.
+  const ballotCard = ballotSource || ensureCard("setupBallotModule");
   const ballotHeader = ballotSource?.querySelector(":scope > .card-head.card-header") || ballotSource?.querySelector(".card-head.card-header");
   const ballotWhoField = document.getElementById("yourCandidate")?.closest(".field");
   const ballotTable = document.getElementById("candTbody")?.closest(".table-wrap");
