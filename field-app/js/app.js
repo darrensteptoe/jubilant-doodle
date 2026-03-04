@@ -206,11 +206,13 @@ import {
   captureCriticalAssumptionAudit,
   computeEvidenceWarnings
 } from "./app/intelAudit.js";
+import { renderIntelChecksModule } from "./app/renderIntelChecks.js";
 import { applyWeeklyLeverScenarioModule } from "./app/weeklyLeverScenarioAction.js";
 import {
   wireSafetyAndDiagnosticsEvents,
   wirePrimaryPlannerEvents,
   wireBudgetTimelineEvents,
+  wireIntelChecksEvents,
   wireTabAndExportEvents,
   wireResetImportAndUiToggles
 } from "./app/wireEvents.js";
@@ -1339,6 +1341,7 @@ function wireEvents(){
     wireSafetyAndDiagnosticsEvents,
     wirePrimaryPlannerEvents,
     wireBudgetTimelineEvents,
+    wireIntelChecksEvents,
     wireTabAndExportEvents,
     wireResetImportAndUiToggles,
   });
@@ -1971,6 +1974,7 @@ function renderValidation(res, weeks){
     evidenceWarnings,
     driftSummary,
   });
+  renderIntelChecksModule({ els, state });
 }
 
 function renderAssumptions(res, weeks){
