@@ -193,6 +193,7 @@
 </div>
 </div>
 <div class="stage-body-new">
+<div class="card card-section" id="universeCard">
 <div class="card-head card-header">
 <h2 class="card-title">Universe</h2>
 <div class="help-text">Define the size of the electorate you’re modeling (registration or expected voters). Be consistent with turnout assumptions.</div></div>
@@ -224,7 +225,10 @@
 <span class="help-text">Record file/date/source so imports and exports can be traced later.</span>
 </div>
 </div>
-</div><div class="card card-section phase-candidates">
+</div>
+</div>
+<div class="card card-section phase-candidates">
+</div>
 </div>
 </section>
 <!-- ── STAGE: ballot ── -->
@@ -258,6 +262,7 @@
 </div>
 </div>
 <div class="stage-body-new">
+<div class="card card-section" id="ballotBaselineCard">
 <div class="card-head card-header">
 <h2 class="card-title">Ballot &amp; persuasion baseline</h2>
 <div class="card-actions">
@@ -313,7 +318,8 @@
 </div>
 </div>
 <div class="banner warn module-feedback" hidden="" id="candWarn"></div>
-</div><div class="card card-section phase-p3">
+</div>
+<div class="card card-section phase-p3">
 <div class="card-head card-header">
 <h2 class="card-title">Turnout baseline (recent comparable cycles)</h2>
 <div class="help-text">Use two recent comparable cycles to set a baseline and uncertainty band. This drives volatility in simulation.</div></div>
@@ -353,7 +359,9 @@
 </div>
 </div>
 </div>
-</div><div class="card card-section phase-persuasion">
+</div>
+<div class="card card-section phase-persuasion">
+</div>
 </div>
 </section>
 <!-- ── STAGE: capacity ── -->
@@ -387,6 +395,7 @@
 </div>
 </div>
 <div class="stage-body-new">
+<div class="card card-section" id="capacityUniverseCard">
 <div class="card-head card-header">
 <h2 class="card-title">Persuadable universe (movable)</h2>
 </div>
@@ -750,6 +759,7 @@
 </div>
 <div class="note">Source of truth: edit support/contact rates here. The GOTV execution planner uses read-only mirrors of these assumptions.</div>
 </div>
+</div>
 </section>
 <!-- ── STAGE: gotv ── -->
 <section class="stage-new" id="stage-gotv">
@@ -838,6 +848,11 @@
 </div>
 </div>
 </div>
+<div class="card card-section">
+<div class="card-head card-header">
+<h2 class="card-title">Workload translator</h2>
+<div class="help-text">Set planning inputs, then see required conversations, doors, and shifts.</div>
+</div>
 <div class="grid3">
 <div class="field">
 <label class="label" for="goalSupportIds">Support IDs needed (goal)</label>
@@ -881,10 +896,13 @@
 <div class="mini-s">Doors/hour × Hours/shift</div>
 </div>
 </div>
-</div><div class="card card-section phase16" id="universe16Card" style="padding:12px;">
+</div>
+<div class="card card-section phase16" id="universe16Card" style="padding:12px;">
 <div class="card-head card-header" style="margin-bottom:8px;">
 </div>
-</div></section>
+</div>
+</div>
+</section>
 <!-- ── STAGE: structure ── -->
 <section class="stage-new" id="stage-structure">
 <div class="stage-header-new">
@@ -916,12 +934,12 @@
 </div>
 </div>
 <div class="stage-body-new">
-<div class="card-head card-header" style="margin-bottom:8px;">
-<h2 class="card-title">Electorate Weighting</h2>
-<div class="help-text">Optional realism layer: weight persuasion and turnout by coalition mix, and apply a support durability factor. OFF = baseline.</div></div>
-<details>
-<div class="note">Shares are auto-normalized to total 100% if slightly off.</div><summary class="muted" style="cursor:pointer;">Advanced (optional)</summary>
-<div style="margin-top:10px;">
+<div class="card card-section" id="electorateWeightingCard">
+<div class="card-head card-header">
+<h2 class="card-title">Electorate weighting</h2>
+<div class="help-text">Optional realism layer: weight persuasion and turnout by coalition mix, and apply a support durability factor. OFF = baseline.</div>
+</div>
+<div class="module-desc">Advanced (optional). Shares are auto-normalized to 100% if slightly off.</div>
 <div class="row" style="align-items:center; gap:10px; margin-bottom:10px;">
 <label class="switch">
 <input id="universe16Enabled" type="checkbox"/>
@@ -963,9 +981,8 @@
 </div>
 </div>
 <div class="banner warn module-feedback" hidden="" id="universe16Warn"></div>
-</div>
-</details>
 <div class="note">This layer weights persuasion and turnout reliability by party composition and applies a single retention factor. It is aggregate-only (not a CRM).</div>
+</div>
 </div>
 <!-- ── STAGE: results ── -->
 <section class="stage-new" id="stage-results">
@@ -1003,11 +1020,11 @@
 <div class="card card-section phase-p3" id="phase3Card">
 <div class="card-head card-header">
 <h2 class="card-title">Execution &amp; uncertainty</h2>
-<div class="help-text">Capacity assumptions and Monte Carlo controls for risk simulation.</div>
 </div>
+<div class="module-desc">Set capacity assumptions and Monte Carlo controls for risk simulation.</div>
 <div class="mc-details">
 <div class="mc-summary">
-<span class="mc-summary-title">Execution &amp; uncertainty</span>
+<span class="mc-summary-title">Monte Carlo controls</span>
 <span class="chip">Monte Carlo 10k</span>
 </div>
 <div class="mc-body">

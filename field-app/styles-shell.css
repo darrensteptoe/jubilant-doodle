@@ -592,6 +592,38 @@ body.strict-import .toggle-pill:has(#toggleStrictImport) .toggle-dot-new {
   gap: 12px;
 }
 
+/* Execution & uncertainty uses a nested wrapper; enforce same spacing rhythm inside it. */
+#phase3Card .mc-details {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 0 4px;
+}
+
+#phase3Card .mc-summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid color-mix(in srgb, var(--s-rule) 70%, transparent);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--s-panel) 92%, var(--s-bg));
+}
+
+#phase3Card .mc-body {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+#phase3Card .mc-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 10px;
+}
+
 @media (max-width: 1180px) {
   .subgrid {
     grid-template-columns: repeat(2, minmax(0, 1fr));

@@ -681,6 +681,7 @@ input[type="date"].input{
   background: var(--bad-bg);
   color: var(--bad-fg);
   border-color: var(--bad-border);
+}
 
 .tacticRow{
   display:flex;
@@ -705,7 +706,6 @@ input[type="date"].input{
 .tacticToggle:has(input:checked){
   background: color-mix(in srgb, var(--accent) 16%, var(--panel));
   border-color: color-mix(in srgb, var(--accent) 40%, var(--rule));
-}
 }
 
 /* =========================
