@@ -1,6 +1,7 @@
 export function runMonteCarloNowModule(args){
   const {
     state,
+    computeElectionSnapshot,
     derivedWeeksRemaining,
     buildModelInputFromState,
     safeNum,
@@ -18,14 +19,20 @@ export function runMonteCarloNowModule(args){
     renderSensitivitySnapshotE4,
   } = args || {};
 
-  const weeks = derivedWeeksRemaining();
-  const modelInput = buildModelInputFromState(state, safeNum);
-  const res = engine.computeAll(modelInput);
+  const planningSnapshot = (typeof computeElectionSnapshot === "function")
+    ? computeElectionSnapshot({ state, nowDate: new Date(), toNum: safeNum })
+    : null;
+
+  const weeks = planningSnapshot?.weeks ?? derivedWeeksRemaining();
+  const modelInput = planningSnapshot?.modelInput || buildModelInputFromState(state, safeNum);
+  const res = planningSnapshot?.res || engine.computeAll(modelInput);
   const w = (weeks != null && weeks >= 0) ? weeks : null;
-  const needVotes = deriveNeedVotes(res);
+  const needVotes = (planningSnapshot?.needVotes != null)
+    ? planningSnapshot.needVotes
+    : deriveNeedVotes(res);
 
   if (typeof setLastRenderCtx === "function"){
-    setLastRenderCtx({ res, weeks: w, needVotes, modelInput });
+    setLastRenderCtx({ res, weeks: w, needVotes, modelInput, planningSnapshot });
   }
 
   const h = hashMcInputs(res, w);
