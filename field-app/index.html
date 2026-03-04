@@ -41,8 +41,6 @@
 <input hidden="" id="toggleAdvDiagLegacy" type="checkbox"/>
 </div>
 </header>
-<div class="banner warn" hidden="" id="importHashBanner">Snapshot hash differs from exported hash.</div>
-<div class="banner warn" hidden="" id="importWarnBanner"></div>
 <!-- ── APP SHELL ─────────────────────────────────────────── -->
 <div class="app-shell">
 <!-- LEFT: Stage navigation rail -->
@@ -2511,6 +2509,10 @@ Volunteer multiplier stays above 1.5" rows="4"></textarea>
 <h2 class="card-title">Import policy &amp; recovery</h2>
 </div>
 <div class="help-text">This page handles file serialization and recovery only. Scenario creation/comparison is managed in <strong>Scenario planning</strong>.</div>
+<div class="import-feedback-strip">
+<div class="banner warn" hidden="" id="importHashBanner">Snapshot hash differs from exported hash.</div>
+<div class="banner warn" hidden="" id="importWarnBanner"></div>
+</div>
 <div class="grid2 integrity-policy-grid">
 <div class="field">
 <label class="label">Strict import policy</label>

@@ -168,6 +168,22 @@ body.strict-import .toggle-pill:has(#toggleStrictImport) .toggle-dot-new {
   background: var(--s-warn);
 }
 
+.import-feedback-strip {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 8px 0 10px;
+}
+
+.import-feedback-strip .banner {
+  margin: 0;
+  border-radius: 8px;
+  padding: 8px 12px;
+  line-height: 1.35;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
 .btn-top-new {
   padding: 5px 10px;
   border-radius: 5px;
