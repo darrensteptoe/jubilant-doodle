@@ -385,6 +385,25 @@ function normalizeImportWarnings(list){
   return out;
 }
 
+function hideBanner(el){
+  if (!el) return;
+  el.hidden = true;
+  el.textContent = "";
+  el.style.display = "none";
+}
+
+function showBanner(el, message){
+  if (!el) return;
+  const text = String(message == null ? "" : message).trim();
+  if (!text){
+    hideBanner(el);
+    return;
+  }
+  el.hidden = false;
+  el.style.removeProperty("display");
+  el.textContent = text;
+}
+
 export function wireResetImportAndUiToggles(ctx){
   const {
     els,
@@ -448,13 +467,8 @@ export function wireResetImportAndUiToggles(ctx){
     els.loadJson.addEventListener("change", async () => {
       const file = els.loadJson.files?.[0];
       if (!file) return;
-      if (els.importWarnBanner){
-        els.importWarnBanner.hidden = true;
-        els.importWarnBanner.textContent = "";
-      }
-      if (els.importHashBanner){
-        els.importHashBanner.hidden = true;
-      }
+      hideBanner(els.importWarnBanner);
+      hideBanner(els.importHashBanner);
 
       const loaded = await readJsonFile(file);
       if (!loaded || typeof loaded !== "object"){
@@ -517,16 +531,9 @@ export function wireResetImportAndUiToggles(ctx){
           const shown = normalizedWarnings.slice(0, 6).join(" ");
           const extra = normalizedWarnings.length > 6 ? ` (+${normalizedWarnings.length - 6} more)` : "";
           const msg = `${shown}${extra}`.trim();
-          if (msg){
-            els.importWarnBanner.hidden = false;
-            els.importWarnBanner.textContent = msg;
-          } else {
-            els.importWarnBanner.hidden = true;
-            els.importWarnBanner.textContent = "";
-          }
+          showBanner(els.importWarnBanner, msg);
         } else {
-          els.importWarnBanner.hidden = true;
-          els.importWarnBanner.textContent = "";
+          hideBanner(els.importWarnBanner);
         }
       }
 
@@ -537,16 +544,10 @@ export function wireResetImportAndUiToggles(ctx){
         const hashMismatch = !!(exportedHash && exportedHash !== recomputed);
 
         if (hashMismatch){
-          if (els.importHashBanner){
-            els.importHashBanner.hidden = false;
-            els.importHashBanner.textContent = "Snapshot hash differs from exported hash.";
-          }
+          showBanner(els.importHashBanner, "Snapshot hash differs from exported hash.");
           console.warn("Snapshot hash mismatch", { exportedHash, recomputed });
         } else {
-          if (els.importHashBanner){
-            els.importHashBanner.hidden = true;
-            els.importHashBanner.textContent = "Snapshot hash differs from exported hash.";
-          }
+          hideBanner(els.importHashBanner);
         }
 
         const curState = getState();
