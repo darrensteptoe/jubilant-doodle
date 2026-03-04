@@ -34,6 +34,11 @@
   --s-train-dim: rgba(139,92,246,0.1);
   --s-train-border: rgba(139,92,246,0.28);
   --s-surface-gray: color-mix(in srgb, var(--s-rule) 24%, var(--s-panel));
+  --s-module-strip-bg: color-mix(in srgb, var(--s-accent) 14%, var(--s-panel));
+  --s-module-strip-border: color-mix(in srgb, var(--s-accent) 38%, var(--s-rule));
+  --s-module-strip-text: color-mix(in srgb, var(--s-accent) 78%, var(--s-text));
+  --s-module-strip-muted: color-mix(in srgb, var(--s-module-strip-text) 62%, var(--s-muted));
+  --s-module-divider: color-mix(in srgb, var(--s-rule) 78%, transparent);
 }
 
 /* ── RESET BODY FOR NEW LAYOUT ───────────────────────────── */
@@ -177,6 +182,15 @@ body.strict-import .toggle-pill:has(#toggleStrictImport) .toggle-dot-new {
 
 .import-feedback-strip .banner {
   margin: 0;
+  border-radius: 8px;
+  padding: 8px 12px;
+  line-height: 1.35;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.banner.module-feedback {
+  margin: 10px 0 0;
   border-radius: 8px;
   padding: 8px 12px;
   line-height: 1.35;
@@ -429,7 +443,7 @@ body.strict-import .toggle-pill:has(#toggleStrictImport) .toggle-dot-new {
 }
 
 .integrity-stage-body > .card {
-  max-width: 980px;
+  max-width: none;
 }
 
 .integrity-policy-grid .help-text {
@@ -460,9 +474,69 @@ body.strict-import .toggle-pill:has(#toggleStrictImport) .toggle-dot-new {
 /* Top-level cards touching page background use gray surface; nested cards stay panel/white. */
 .stage-body-new > .card {
   background: var(--s-surface-gray);
+  width: 100%;
+  max-width: none;
+  align-self: stretch;
+  position: relative;
 }
 .stage-body-new > .card .card {
   background: var(--s-panel);
+}
+
+/* Standard module template: full-width cards, blue title strip, and clear module boundaries. */
+.stage-body-new > .card + .card::before {
+  content: "";
+  position: absolute;
+  left: 14px;
+  right: 14px;
+  top: -10px;
+  border-top: 1px solid var(--s-module-divider);
+  pointer-events: none;
+}
+
+.stage-body-new .card-head.card-header {
+  min-height: 52px;
+  display: flex !important;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  background: var(--s-module-strip-bg);
+  border: 1px solid var(--s-module-strip-border);
+  border-bottom: 1px solid color-mix(in srgb, var(--s-module-strip-border) 70%, var(--s-rule));
+  border-top-left-radius: 10px;
+  border-top-right-radius: 10px;
+}
+
+.stage-body-new .card-head.card-header .card-title {
+  color: var(--s-module-strip-text);
+  font-size: 14px;
+  font-weight: 650;
+}
+
+.stage-body-new .card-head.card-header .help-text {
+  color: var(--s-module-strip-muted);
+  margin: 0;
+  max-width: 62%;
+  text-align: right;
+}
+
+.stage-body-new .card > .help-text {
+  margin: 0;
+  padding: 10px 14px 11px;
+  border-bottom: 1px solid color-mix(in srgb, var(--s-rule) 70%, transparent);
+  background: color-mix(in srgb, var(--s-module-strip-bg) 45%, var(--s-panel));
+}
+
+.stage-body-new .card .card-actions,
+.stage-body-new .card .integrity-actions,
+.stage-body-new .card .scm-actions {
+  row-gap: 10px;
+}
+
+.stage-body-new .card .note,
+.stage-body-new .card .muted,
+.stage-body-new .card .help-text {
+  line-height: 1.45;
 }
 
 /* Keep the old left/right/rail sections from affecting layout */
