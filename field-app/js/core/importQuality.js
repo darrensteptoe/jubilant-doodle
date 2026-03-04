@@ -87,9 +87,12 @@ function appendIntelBenchmarkWarnings(out, scenario, prefix){
     ? scenario.intelState.benchmarks
     : [];
   if (!rows.length) return;
+  const scenarioRace = normalizeString(scenario?.raceType || "default").toLowerCase();
 
   for (const row of rows){
     if (!isObject(row)) continue;
+    const rowRace = normalizeString(row.raceType || "all").toLowerCase();
+    if (rowRace && rowRace !== "all" && rowRace !== scenarioRace) continue;
     const ref = normalizeString(row.ref || row.key || "");
     if (!ref) continue;
 

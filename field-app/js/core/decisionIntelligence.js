@@ -238,14 +238,41 @@ export function computeDecisionIntelligence({ engine, snap, baseline }){
   try{
     if (!engine || !snap || typeof snap !== "object") return safeStub;
 
-    const computeBaseline = () => {
-      const weeks = baseline?.weeks ?? engine.derivedWeeksRemaining({
-        weeksRemainingOverride: snap?.weeksRemaining,
-        electionDateISO: snap?.electionDate ? `${snap.electionDate}T00:00:00` : ""
+    const computePlanFromSnap = (targetSnap) => {
+      if (typeof engine.computeElectionSnapshot === "function"){
+        try{
+          const planningSnapshot = engine.computeElectionSnapshot({
+            state: targetSnap,
+            nowDate: new Date(),
+            toNum: safeNum,
+          });
+          const resSnap = planningSnapshot?.res || null;
+          if (resSnap){
+            const weeksSnap = planningSnapshot?.weeks ?? null;
+            const needVotesSnap = (planningSnapshot?.needVotes != null)
+              ? planningSnapshot.needVotes
+              : engine.deriveNeedVotes(resSnap, targetSnap?.goalSupportIds);
+            return { weeks: weeksSnap, res: resSnap, needVotes: needVotesSnap };
+          }
+        } catch {
+          // Fall through to legacy path.
+        }
+      }
+      const weeks = engine.derivedWeeksRemaining({
+        weeksRemainingOverride: targetSnap?.weeksRemaining,
+        electionDateISO: targetSnap?.electionDate ? `${targetSnap.electionDate}T00:00:00` : ""
       });
-      const modelInput = buildModelInputFromSnapshot(snap, safeNum);
-      const res = baseline?.res ?? engine.computeAll(modelInput);
-      const needVotes = baseline?.needVotes ?? engine.deriveNeedVotes(res, snap?.goalSupportIds);
+      const modelInput = buildModelInputFromSnapshot(targetSnap, safeNum);
+      const res = engine.computeAll(modelInput);
+      const needVotes = engine.deriveNeedVotes(res, targetSnap?.goalSupportIds);
+      return { weeks, res, needVotes };
+    };
+
+    const computeBaseline = () => {
+      const plan = computePlanFromSnap(snap);
+      const weeks = baseline?.weeks ?? plan?.weeks ?? null;
+      const res = baseline?.res ?? plan?.res ?? null;
+      const needVotes = baseline?.needVotes ?? plan?.needVotes ?? (res ? engine.deriveNeedVotes(res, snap?.goalSupportIds) : null);
       const volsNeeded = baseline?.volsNeeded ?? computeVolunteerNeedFromGoal({
         goalVotes: needVotes,
         supportRatePct: snap.supportRatePct,
@@ -297,40 +324,38 @@ export function computeDecisionIntelligence({ engine, snap, baseline }){
     for (const lv of levers){
       const out = engine.withPatchedState(lv.patch, () => {
         const nextSnap = engine.getStateSnapshot ? engine.getStateSnapshot() : null;
+        const workSnap = nextSnap || {};
 
-        const weeks = engine.derivedWeeksRemaining({
-          weeksRemainingOverride: nextSnap?.weeksRemaining,
-          electionDateISO: nextSnap?.electionDate ? `${nextSnap.electionDate}T00:00:00` : ""
-        });
-        const modelInput = buildModelInputFromSnapshot(nextSnap, safeNum);
-        const res = engine.computeAll(modelInput);
-        const needVotes = engine.deriveNeedVotes(res, nextSnap?.goalSupportIds);
+        const plan = computePlanFromSnap(workSnap);
+        const weeks = plan?.weeks ?? null;
+        const res = plan?.res ?? null;
+        const needVotes = plan?.needVotes ?? null;
 
         const volsNeeded = computeVolunteerNeedFromGoal({
           goalVotes: needVotes,
-          supportRatePct: nextSnap.supportRatePct,
-          contactRatePct: nextSnap.contactRatePct,
-          doorsPerHour: (safeNum(nextSnap.doorsPerHour3) ?? safeNum(nextSnap.doorsPerHour)),
-          hoursPerShift: nextSnap.hoursPerShift,
-          shiftsPerVolunteerPerWeek: nextSnap.shiftsPerVolunteerPerWeek,
+          supportRatePct: workSnap.supportRatePct,
+          contactRatePct: workSnap.contactRatePct,
+          doorsPerHour: (safeNum(workSnap.doorsPerHour3) ?? safeNum(workSnap.doorsPerHour)),
+          hoursPerShift: workSnap.hoursPerShift,
+          shiftsPerVolunteerPerWeek: workSnap.shiftsPerVolunteerPerWeek,
           weeks
         });
 
-        const seed = (nextSnap.mcSeed != null && String(nextSnap.mcSeed).trim() !== "") ? String(nextSnap.mcSeed) : DI_FALLBACK_SEED;
+        const seed = (workSnap.mcSeed != null && String(workSnap.mcSeed).trim() !== "") ? String(workSnap.mcSeed) : DI_FALLBACK_SEED;
         const sim = engine.runMonteCarloSim({ res, weeks, needVotes, runs: 10000, seed });
         const s = sim?.summary || sim || {};
-        const winProb = (!!nextSnap.turnoutEnabled && Number.isFinite(s.winProbTurnoutAdjusted)) ? s.winProbTurnoutAdjusted : s.winProb;
+        const winProb = (!!workSnap.turnoutEnabled && Number.isFinite(s.winProbTurnoutAdjusted)) ? s.winProbTurnoutAdjusted : s.winProb;
 
-        const baseRates = buildBaseRatesFromSnap(nextSnap);
-        const tactics = engine.buildOptimizationTactics({ baseRates, tactics: nextSnap.budget?.tactics || {} });
+        const baseRates = buildBaseRatesFromSnap(workSnap);
+        const tactics = engine.buildOptimizationTactics({ baseRates, tactics: workSnap.budget?.tactics || {} });
 
-        const capsInput = buildTimelineCapsInputFromSnap({ snap: nextSnap, weeks, tactics });
+        const capsInput = buildTimelineCapsInputFromSnap({ snap: workSnap, weeks, tactics });
 
         const caps = engine.computeMaxAttemptsByTactic(capsInput);
 
         const minCostToCloseGap = computeMinCostToCloseGap({
           computeRoiRows: engine.computeRoiRows,
-          snap: nextSnap,
+          snap: workSnap,
           baseRates,
           tactics,
           goalNetVotes: needVotes,
