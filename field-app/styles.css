@@ -871,6 +871,7 @@ body.training .help{ display:block; }
    16) Modal (kept coherent)
    ========================= */
 .modal[hidden]{ display:none !important; }
+[hidden]{ display:none !important; }
 .modal{
   position: fixed;
   inset: 0;
