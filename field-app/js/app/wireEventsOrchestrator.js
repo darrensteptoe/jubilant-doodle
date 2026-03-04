@@ -58,6 +58,7 @@ export function wireEventsOrchestratorModule(args){
     wireSafetyAndDiagnosticsEvents,
     wirePrimaryPlannerEvents,
     wireBudgetTimelineEvents,
+    wireIntelChecksEvents,
     wireTabAndExportEvents,
     wireResetImportAndUiToggles,
   } = args || {};
@@ -109,6 +110,13 @@ export function wireEventsOrchestratorModule(args){
     safeNum,
     commitUIUpdate,
     render,
+  });
+
+  wireIntelChecksEvents({
+    els,
+    getState: () => state(),
+    commitUIUpdate,
+    safeNum,
   });
 
   wireTabAndExportEvents({

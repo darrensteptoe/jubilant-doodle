@@ -1,3 +1,9 @@
+import {
+  attachEvidenceRecord,
+  removeBenchmarkEntry,
+  upsertBenchmarkEntry,
+} from "./intelControls.js";
+
 export function wireBudgetTimelineEvents(ctx){
   const { els, state: initialState, getState, safeNum, commitUIUpdate, render } = ctx || {};
   const currentState = () => {
@@ -127,6 +133,94 @@ export function wireBudgetTimelineEvents(ctx){
 
   if (els.optRun) els.optRun.addEventListener("click", () => { render(); });
   if (els.roiRefresh) els.roiRefresh.addEventListener("click", () => { render(); });
+}
+
+export function wireIntelChecksEvents(ctx){
+  const { els, state: initialState, getState, commitUIUpdate, safeNum } = ctx || {};
+  const currentState = () => {
+    if (typeof getState === "function"){
+      const s = getState();
+      return (s && typeof s === "object") ? s : null;
+    }
+    return (initialState && typeof initialState === "object") ? initialState : null;
+  };
+  if (!els || !currentState()) return;
+
+  const setStatus = (el, msg, kind = "muted") => {
+    if (!el) return;
+    el.classList.remove("ok", "warn", "bad", "muted");
+    el.classList.add(kind);
+    el.textContent = String(msg || "Ready.");
+  };
+  const setBenchmarkStatus = (msg, kind = "muted") => setStatus(els.intelBenchmarkStatus, msg, kind);
+  const setEvidenceStatus = (msg, kind = "muted") => setStatus(els.intelEvidenceStatus, msg, kind);
+
+  if (els.btnIntelBenchmarkSave){
+    els.btnIntelBenchmarkSave.addEventListener("click", () => {
+      const s = currentState();
+      if (!s) return;
+      const result = upsertBenchmarkEntry(s, {
+        ref: els.intelBenchmarkRef?.value,
+        raceType: els.intelBenchmarkRaceType?.value,
+        defaultValue: safeNum(els.intelBenchmarkDefault?.value),
+        min: safeNum(els.intelBenchmarkMin?.value),
+        max: safeNum(els.intelBenchmarkMax?.value),
+        warnAbove: safeNum(els.intelBenchmarkWarnAbove?.value),
+        hardAbove: safeNum(els.intelBenchmarkHardAbove?.value),
+        sourceTitle: els.intelBenchmarkSourceTitle?.value,
+        sourceNotes: els.intelBenchmarkSourceNotes?.value,
+      });
+      if (!result.ok){
+        setBenchmarkStatus(result.error || "Benchmark save failed.", "warn");
+        return;
+      }
+      setBenchmarkStatus(result.mode === "created" ? "Benchmark created." : "Benchmark updated.", "ok");
+      commitUIUpdate();
+    });
+  }
+
+  if (els.intelBenchmarkTbody){
+    els.intelBenchmarkTbody.addEventListener("click", (event) => {
+      const target = event?.target;
+      if (!(target instanceof HTMLElement)) return;
+      const id = target.getAttribute("data-bm-remove");
+      if (!id) return;
+      const s = currentState();
+      if (!s) return;
+      const result = removeBenchmarkEntry(s, id);
+      if (!result.ok){
+        setBenchmarkStatus(result.error || "Benchmark remove failed.", "warn");
+        return;
+      }
+      setBenchmarkStatus("Benchmark removed.", "ok");
+      commitUIUpdate();
+    });
+  }
+
+  if (els.btnIntelEvidenceAttach){
+    els.btnIntelEvidenceAttach.addEventListener("click", () => {
+      const s = currentState();
+      if (!s) return;
+      const result = attachEvidenceRecord(s, {
+        auditId: els.intelAuditSelect?.value,
+        title: els.intelEvidenceTitle?.value,
+        source: els.intelEvidenceSource?.value,
+        capturedAt: els.intelEvidenceCapturedAt?.value,
+        url: els.intelEvidenceUrl?.value,
+        notes: els.intelEvidenceNotes?.value,
+      });
+      if (!result.ok){
+        setEvidenceStatus(result.error || "Evidence attach failed.", "warn");
+        return;
+      }
+      if (els.intelEvidenceTitle) els.intelEvidenceTitle.value = "";
+      if (els.intelEvidenceSource) els.intelEvidenceSource.value = "";
+      if (els.intelEvidenceUrl) els.intelEvidenceUrl.value = "";
+      if (els.intelEvidenceNotes) els.intelEvidenceNotes.value = "";
+      setEvidenceStatus(result.resolvedAuditId ? "Evidence attached and audit resolved." : "Evidence attached.", "ok");
+      commitUIUpdate();
+    });
+  }
 }
 
 export function wireTabAndExportEvents(ctx){
