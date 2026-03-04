@@ -499,6 +499,12 @@ body.strict-import .toggle-pill:has(#toggleStrictImport) .toggle-dot-new {
   margin-top: 18px;
 }
 
+/* Safety: hide accidental placeholder cards that have no content. */
+.stage-body-new > .card:empty,
+.stage-body-new > .panel > .card:empty {
+  display: none !important;
+}
+
 .stage-body-new .card-head.card-header {
   min-height: 52px;
   display: grid !important;
@@ -627,6 +633,10 @@ body.strict-import .toggle-pill:has(#toggleStrictImport) .toggle-dot-new {
   flex-wrap: wrap;
   align-items: flex-end;
   gap: 10px;
+}
+
+#decisionIntelCard .grid3 {
+  margin-bottom: 14px;
 }
 
 @media (max-width: 1180px) {

@@ -36,7 +36,12 @@ This app is intentionally structured so the **math core** can remain stable, tes
    - `js/importPolicy.js` — strict import policy (fail closed)
    - `js/storage.js` — localStorage save/load + backup ring
 
-5. **Self-test / golden fixtures**
+5. **Intel / governance metadata (non-math)**
+   - `js/core/intelState.js` — scenario-scoped evidence, benchmarks, flags, audit, recs
+   - `js/schemas/intelState.v1.schema.json` — formal schema draft for intel artifacts
+   - This layer must not mutate deterministic or Monte Carlo outputs directly.
+
+6. **Self-test / golden fixtures**
    - `js/selfTest.js` — invariant tests + regression protection
    - Goal: detect drift early, before a user trusts bad numbers.
 
