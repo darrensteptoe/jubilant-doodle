@@ -7,6 +7,8 @@ import {
 } from "./core/model.js";
 import { UNIVERSE_DEFAULTS, computeUniverseAdjustedRates } from "./core/universeLayer.js";
 import { computeAvgLiftPP } from "./core/turnout.js";
+import { computeElectionSnapshot } from "./core/electionSnapshot.js";
+import { computeExecutionSnapshot } from "./core/executionSnapshot.js";
 import { fmtInt, clamp, safeNum, readJsonFile } from "./utils.js";
 import {
   loadState,
@@ -1457,6 +1459,9 @@ function render(){
     engine,
     derivedWeeksRemaining,
     deriveNeedVotes,
+    computeElectionSnapshot,
+    computeExecutionSnapshot,
+    computeWeeklyOpsContext,
     setLastRenderCtx: (next) => { lastRenderCtx = next; },
     setLastResultsSnapshot: (next) => { lastResultsSnapshot = next; },
     fmtInt,
@@ -1486,7 +1491,7 @@ function render(){
   });
 }
 
-function renderWeeklyOps(res, weeks){
+function renderWeeklyOps(res, weeks, { weeklyContext = null, executionSnapshot = null } = {}){
   renderWeeklyOpsModule({
     els,
     state,
@@ -1498,6 +1503,8 @@ function renderWeeklyOps(res, weeks){
     computeCapacityBreakdown: coreComputeCapacityBreakdown,
     clamp,
     computeWeeklyOpsContext,
+    ctx: weeklyContext,
+    executionSnapshot,
     renderWeeklyExecutionStatus,
   });
 }
@@ -1579,8 +1586,17 @@ function computeWeeklyOpsContext(res, weeks){
   });
 }
 
-function renderAssumptionDriftE1(res, weeks){
-  return renderAssumptionDriftPanel({ els, state, res, weeks, safeNum, computeWeeklyOpsContext });
+function renderAssumptionDriftE1(res, weeks, { weeklyContext = null, executionSnapshot = null } = {}){
+  return renderAssumptionDriftPanel({
+    els,
+    state,
+    res,
+    weeks,
+    safeNum,
+    computeWeeklyOpsContext,
+    ctx: weeklyContext,
+    executionSnapshot,
+  });
 }
 
 function computeRealityDrift(){
@@ -1661,12 +1677,14 @@ function renderBottleneckAttributionE3(res, weeks){
   });
 }
 
-function renderWeeklyOpsInsights(res, weeks){
+function renderWeeklyOpsInsights(res, weeks, { weeklyContext = null, executionSnapshot = null } = {}){
   return renderWeeklyOpsInsightsPanel({
     els,
     state,
     res,
     weeks,
+    ctx: weeklyContext,
+    executionSnapshot,
     computeWeeklyOpsContext,
     fmtInt,
     clamp,
@@ -1678,12 +1696,14 @@ function renderWeeklyOpsInsights(res, weeks){
   });
 }
 
-function renderWeeklyOpsFreshness(res, weeks){
+function renderWeeklyOpsFreshness(res, weeks, { weeklyContext = null, executionSnapshot = null } = {}){
   return renderWeeklyOpsFreshnessPanel({
     els,
     state,
     res,
     weeks,
+    ctx: weeklyContext,
+    executionSnapshot,
     safeNum,
     computeWeeklyOpsContext
   });
@@ -2282,9 +2302,16 @@ function wireSensitivitySurface(){
       const targetWinProb = Number.isFinite(tPct) ? surfaceClamp(tPct, 50, 99) / 100 : 0.70;
 
       const snap = getStateSnapshot();
-      const res = engine.computeAll(snap);
-      const weeks = derivedWeeksRemaining();
-      const needVotes = deriveNeedVotes(res);
+      let planningSnapshot = null;
+      try{
+        planningSnapshot = computeElectionSnapshot({ state: snap, nowDate: new Date(), toNum: safeNum });
+      } catch {
+        planningSnapshot = null;
+      }
+      const modelInput = buildModelInputFromState(snap, safeNum);
+      const res = planningSnapshot?.res || engine.computeAll(modelInput);
+      const weeks = planningSnapshot?.weeks ?? derivedWeeksRemaining();
+      const needVotes = (planningSnapshot?.needVotes != null) ? planningSnapshot.needVotes : deriveNeedVotes(res);
 
       // Keep seed behavior aligned with MC: user-provided seed (or empty)
       const seed = state.mcSeed || "";
@@ -2764,6 +2791,7 @@ function computeCapacityContacts(args){
 function runMonteCarloNow(){
   return runMonteCarloNowModule({
     state,
+    computeElectionSnapshot,
     derivedWeeksRemaining,
     buildModelInputFromState,
     safeNum,

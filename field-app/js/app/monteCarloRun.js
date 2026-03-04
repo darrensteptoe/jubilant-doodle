@@ -19,9 +19,14 @@ export function runMonteCarloNowModule(args){
     renderSensitivitySnapshotE4,
   } = args || {};
 
-  const planningSnapshot = (typeof computeElectionSnapshot === "function")
-    ? computeElectionSnapshot({ state, nowDate: new Date(), toNum: safeNum })
-    : null;
+  let planningSnapshot = null;
+  try{
+    planningSnapshot = (typeof computeElectionSnapshot === "function")
+      ? computeElectionSnapshot({ state, nowDate: new Date(), toNum: safeNum })
+      : null;
+  } catch {
+    planningSnapshot = null;
+  }
 
   const weeks = planningSnapshot?.weeks ?? derivedWeeksRemaining();
   const modelInput = planningSnapshot?.modelInput || buildModelInputFromState(state, safeNum);

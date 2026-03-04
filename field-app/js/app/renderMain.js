@@ -1,9 +1,13 @@
+import { buildModelInputFromState } from "./modelInput.js";
+
 export function renderMain(ctx){
   const {
     state,
     els,
     safeNum,
     engine,
+    derivedWeeksRemaining,
+    deriveNeedVotes,
     computeElectionSnapshot,
     computeExecutionSnapshot,
     computeWeeklyOpsContext,
@@ -35,14 +39,24 @@ export function renderMain(ctx){
     renderDecisionIntelligencePanel,
   } = ctx || {};
 
-  const planningSnapshot = (typeof computeElectionSnapshot === "function")
-    ? computeElectionSnapshot({ state, nowDate: new Date(), toNum: safeNum })
-    : null;
+  let planningSnapshot = null;
+  try{
+    planningSnapshot = (typeof computeElectionSnapshot === "function")
+      ? computeElectionSnapshot({ state, nowDate: new Date(), toNum: safeNum })
+      : null;
+  } catch {
+    planningSnapshot = null;
+  }
 
-  const modelInput = planningSnapshot?.modelInput || null;
-  const res = planningSnapshot?.res || (modelInput ? engine.computeAll(modelInput) : null);
-  const weeks = planningSnapshot?.weeks ?? null;
-  const needVotes = planningSnapshot?.needVotes ?? null;
+  const modelInputFallback = buildModelInputFromState(state, safeNum);
+  const resFallback = engine.computeAll(modelInputFallback);
+  const weeksFallback = (typeof derivedWeeksRemaining === "function") ? derivedWeeksRemaining() : null;
+  const needVotesFallback = (typeof deriveNeedVotes === "function") ? deriveNeedVotes(resFallback) : null;
+
+  const modelInput = planningSnapshot?.modelInput || modelInputFallback;
+  const res = planningSnapshot?.res || resFallback;
+  const weeks = planningSnapshot?.weeks ?? weeksFallback;
+  const needVotes = (planningSnapshot?.needVotes != null) ? planningSnapshot.needVotes : needVotesFallback;
 
   if (!res){
     return;
@@ -59,18 +73,23 @@ export function renderMain(ctx){
     ? (weeklyContext.doorShare * weeklyContext.doorsPerHour + (1 - weeklyContext.doorShare) * weeklyContext.callsPerHour)
     : null;
 
-  const executionSnapshot = (typeof computeExecutionSnapshot === "function")
-    ? computeExecutionSnapshot({
-        planningSnapshot,
-        weeklyContext,
-        dailyLog: state?.ui?.dailyLog || [],
-        assumedCR: weeklyContext?.cr ?? null,
-        assumedSR: weeklyContext?.sr ?? null,
-        expectedAPH,
-        windowN: 7,
-        safeNumFn: safeNum,
-      })
-    : null;
+  let executionSnapshot = null;
+  try{
+    executionSnapshot = (typeof computeExecutionSnapshot === "function")
+      ? computeExecutionSnapshot({
+          planningSnapshot: planningSnapshot || { weeks },
+          weeklyContext,
+          dailyLog: state?.ui?.dailyLog || [],
+          assumedCR: weeklyContext?.cr ?? null,
+          assumedSR: weeklyContext?.sr ?? null,
+          expectedAPH,
+          windowN: 7,
+          safeNumFn: safeNum,
+        })
+      : null;
+  } catch {
+    executionSnapshot = null;
+  }
 
   setLastRenderCtx({
     res,
