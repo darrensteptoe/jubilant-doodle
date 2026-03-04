@@ -1441,6 +1441,23 @@ export function runSelfTests(engine){
     return true;
   });
 
+  test("UI Smoke: no empty top-level module cards", () => {
+    if (typeof document === "undefined") return true;
+    const cards = Array.from(
+      document.querySelectorAll(".stage-body-new > .card, .stage-body-new > .panel > .card")
+    );
+    for (const card of cards){
+      const text = (card.textContent || "").trim();
+      const hasInteractive = !!card.querySelector("input, select, textarea, button, table, [data-help], .metric");
+      const hasStructure = !!card.querySelector(".card-head, .module-desc, .grid2, .grid3, .field, .mini-note");
+      if (!text && !hasInteractive && !hasStructure){
+        const cls = card.className || "(no-class)";
+        throw new Error(`Empty top-level module card detected: ${cls}`);
+      }
+    }
+    return true;
+  });
+
 
   // Phase 14 — Confidence Envelope invariants
   test("Phase14: percentiles monotonic + probability bounds", () => {
