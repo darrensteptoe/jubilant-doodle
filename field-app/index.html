@@ -2071,6 +2071,161 @@
 </div>
 </div>
 </div>
+<div class="card card-section" id="intelBenchmarkCard">
+<div class="card-head card-header">
+<h2 class="card-title">Benchmark catalog</h2>
+</div>
+<div class="help-text">Define empirical ranges for critical inputs by race type. These ranges only generate warnings; they never alter deterministic or Monte Carlo outputs.</div>
+<div class="grid3" style="margin-top:10px;">
+<div class="field">
+<label class="label" for="intelBenchmarkRef">Reference</label>
+<select class="select" id="intelBenchmarkRef">
+<option value="core.universeSize">Universe size</option>
+<option value="core.persuasionUniversePct">Persuasion % of universe</option>
+<option value="core.supportRatePct">Support rate %</option>
+<option value="core.contactRatePct">Contact rate %</option>
+<option value="core.turnoutCycleA">Turnout cycle A %</option>
+<option value="core.turnoutCycleB">Turnout cycle B %</option>
+<option value="core.turnoutBandWidth">Turnout band width</option>
+<option value="core.turnoutBaselinePct">Turnout baseline %</option>
+<option value="core.gotvLiftPP">GOTV lift (pp)</option>
+<option value="core.gotvLiftCeilingPP">GOTV lift ceiling (pp)</option>
+<option value="core.orgCount">Organizer count</option>
+<option value="core.orgHoursPerWeek">Organizer hours/week</option>
+<option value="core.volunteerMultiplier">Volunteer multiplier</option>
+<option value="core.channelDoorPct">Door share %</option>
+<option value="core.doorsPerHour">Doors/hour</option>
+<option value="core.callsPerHour">Calls/hour</option>
+</select>
+</div>
+<div class="field">
+<label class="label" for="intelBenchmarkRaceType">Race type scope</label>
+<select class="select" id="intelBenchmarkRaceType">
+<option value="all">All race types</option>
+<option value="federal">Federal</option>
+<option value="state_leg">State legislative</option>
+<option value="county">County / regional</option>
+<option value="municipal">Municipal / local</option>
+</select>
+</div>
+<div class="field">
+<label class="label" for="intelBenchmarkDefault">Default value (optional)</label>
+<input class="input num" id="intelBenchmarkDefault" placeholder="optional" step="0.01" type="number"/>
+</div>
+</div>
+<div class="grid3" style="margin-top:10px;">
+<div class="field">
+<label class="label" for="intelBenchmarkMin">Range min</label>
+<input class="input num" id="intelBenchmarkMin" placeholder="optional" step="0.01" type="number"/>
+</div>
+<div class="field">
+<label class="label" for="intelBenchmarkMax">Range max</label>
+<input class="input num" id="intelBenchmarkMax" placeholder="optional" step="0.01" type="number"/>
+</div>
+<div class="field">
+<label class="label" for="intelBenchmarkWarnAbove">Warn above (optional)</label>
+<input class="input num" id="intelBenchmarkWarnAbove" placeholder="optional" step="0.01" type="number"/>
+</div>
+</div>
+<div class="grid2" style="margin-top:10px;">
+<div class="field">
+<label class="label" for="intelBenchmarkHardAbove">Hard above (optional)</label>
+<input class="input num" id="intelBenchmarkHardAbove" placeholder="optional" step="0.01" type="number"/>
+</div>
+<div class="field">
+<label class="label" for="intelBenchmarkSourceTitle">Source title (optional)</label>
+<input class="input" id="intelBenchmarkSourceTitle" placeholder="e.g., 2024 district benchmark memo" type="text"/>
+</div>
+</div>
+<div class="field" style="margin-top:10px;">
+<label class="label" for="intelBenchmarkSourceNotes">Source notes (optional)</label>
+<textarea class="input" id="intelBenchmarkSourceNotes" placeholder="Method, sample size, cycle window, caveats." rows="2"></textarea>
+</div>
+<div class="rowline" style="margin-top:10px; justify-content:space-between; gap:10px;">
+<div>
+<div class="muted" id="intelBenchmarkCount">0 benchmark entries configured.</div>
+<div class="muted" id="intelBenchmarkStatus">Ready.</div>
+</div>
+<button class="btn btn-sm" id="btnIntelBenchmarkSave" type="button">Save benchmark</button>
+</div>
+<div class="table-wrap" style="margin-top:10px;">
+<table class="table">
+<thead>
+<tr>
+<th>Reference</th>
+<th>Race type</th>
+<th class="num">Range</th>
+<th class="num">Warn/Hard</th>
+<th>Source</th>
+<th class="num">Action</th>
+</tr>
+</thead>
+<tbody id="intelBenchmarkTbody">
+<tr><td class="muted" colspan="6">No benchmark entries configured.</td></tr>
+</tbody>
+</table>
+</div>
+</div>
+<div class="card card-section" id="intelEvidenceCard">
+<div class="card-head card-header">
+<h2 class="card-title">Evidence linkage</h2>
+</div>
+<div class="help-text">Attach evidence to critical assumption edits. Linked evidence resolves missing-evidence audit warnings and improves model credibility traceability.</div>
+<div class="rowline" style="margin-top:10px; justify-content:space-between; gap:10px;">
+<div class="muted" id="intelMissingEvidenceCount">0 critical assumption edit(s) missing evidence.</div>
+<div class="muted">Audit entries require explicit evidence links.</div>
+</div>
+<div class="grid2" style="margin-top:10px;">
+<div class="field">
+<label class="label" for="intelAuditSelect">Missing evidence audit item</label>
+<select class="select" id="intelAuditSelect">
+<option value="">No missing evidence items</option>
+</select>
+</div>
+<div class="field">
+<label class="label" for="intelEvidenceTitle">Evidence title</label>
+<input class="input" id="intelEvidenceTitle" placeholder="e.g., Field memo dated 2026-03-01" type="text"/>
+</div>
+</div>
+<div class="grid3" style="margin-top:10px;">
+<div class="field">
+<label class="label" for="intelEvidenceSource">Evidence source</label>
+<input class="input" id="intelEvidenceSource" placeholder="e.g., VAN extract / polling deck" type="text"/>
+</div>
+<div class="field">
+<label class="label" for="intelEvidenceCapturedAt">Captured date</label>
+<input class="input" id="intelEvidenceCapturedAt" type="date"/>
+</div>
+<div class="field">
+<label class="label" for="intelEvidenceUrl">URL or file hint (optional)</label>
+<input class="input" id="intelEvidenceUrl" placeholder="optional link or file identifier" type="text"/>
+</div>
+</div>
+<div class="field" style="margin-top:10px;">
+<label class="label" for="intelEvidenceNotes">Evidence notes</label>
+<textarea class="input" id="intelEvidenceNotes" placeholder="Short note describing why this evidence supports the selected assumption." rows="2"></textarea>
+</div>
+<div class="rowline" style="margin-top:10px; justify-content:space-between; gap:10px;">
+<button class="btn btn-sm" id="btnIntelEvidenceAttach" type="button">Attach evidence</button>
+<div class="muted" id="intelEvidenceStatus">Ready.</div>
+</div>
+<div class="table-wrap" style="margin-top:10px;">
+<table class="table">
+<thead>
+<tr>
+<th>Evidence title</th>
+<th>Source</th>
+<th>Captured</th>
+<th>Ref</th>
+<th>ID</th>
+</tr>
+</thead>
+<tbody id="intelEvidenceTbody">
+<tr><td class="muted" colspan="5">No evidence records yet.</td></tr>
+</tbody>
+</table>
+</div>
+</div>
 <div class="card card-section">
 <div class="card-head card-header">
 <h2 class="card-title">Review workflow</h2>
