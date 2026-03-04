@@ -238,6 +238,7 @@ export function renderDecisionIntelligencePanelView({
   weeks,
   getStateSnapshot,
   withPatchedState,
+  computeElectionSnapshot,
   derivedWeeksRemaining,
   deriveNeedVotes,
   runMonteCarloSim,
@@ -272,6 +273,7 @@ export function renderDecisionIntelligencePanelView({
     const accessors = {
       getStateSnapshot,
       withPatchedState,
+      computeElectionSnapshot,
       computeAll: (mi, options) => engine.computeAll(mi, options),
       derivedWeeksRemaining,
       deriveNeedVotes,

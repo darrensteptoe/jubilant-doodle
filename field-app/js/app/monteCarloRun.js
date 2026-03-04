@@ -2,6 +2,8 @@ export function runMonteCarloNowModule(args){
   const {
     state,
     computeElectionSnapshot,
+    computeExecutionSnapshot,
+    computeWeeklyOpsContext,
     derivedWeeksRemaining,
     buildModelInputFromState,
     safeNum,
@@ -36,8 +38,36 @@ export function runMonteCarloNowModule(args){
     ? planningSnapshot.needVotes
     : deriveNeedVotes(res);
 
+  const weeklyContext = (typeof computeWeeklyOpsContext === "function")
+    ? (computeWeeklyOpsContext(res, w) || null)
+    : null;
+  const expectedAPH = (
+    weeklyContext?.doorShare != null &&
+    weeklyContext?.doorsPerHour != null &&
+    weeklyContext?.callsPerHour != null
+  )
+    ? (weeklyContext.doorShare * weeklyContext.doorsPerHour + (1 - weeklyContext.doorShare) * weeklyContext.callsPerHour)
+    : null;
+  let executionSnapshot = null;
+  try{
+    executionSnapshot = (typeof computeExecutionSnapshot === "function")
+      ? computeExecutionSnapshot({
+          planningSnapshot: planningSnapshot || { weeks: w },
+          weeklyContext,
+          dailyLog: state?.ui?.dailyLog || [],
+          assumedCR: weeklyContext?.cr ?? null,
+          assumedSR: weeklyContext?.sr ?? null,
+          expectedAPH,
+          windowN: 7,
+          safeNumFn: safeNum,
+        })
+      : null;
+  } catch {
+    executionSnapshot = null;
+  }
+
   if (typeof setLastRenderCtx === "function"){
-    setLastRenderCtx({ res, weeks: w, needVotes, modelInput, planningSnapshot });
+    setLastRenderCtx({ res, weeks: w, needVotes, modelInput, planningSnapshot, weeklyContext, executionSnapshot });
   }
 
   const h = hashMcInputs(res, w);
@@ -56,7 +86,7 @@ export function runMonteCarloNowModule(args){
   persist();
   clearMcStale();
   renderMcResults(sim);
-  renderMcFreshness(res, w);
+  renderMcFreshness(res, w, { weeklyContext, executionSnapshot });
   renderRiskFramingE2();
   renderSensitivitySnapshotE4();
 }

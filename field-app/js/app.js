@@ -1807,6 +1807,7 @@ function renderDecisionIntelligencePanel({ res, weeks }){
     weeks,
     getStateSnapshot,
     withPatchedState,
+    computeElectionSnapshot,
     derivedWeeksRemaining,
     deriveNeedVotes,
     runMonteCarloSim,
@@ -2561,7 +2562,10 @@ function computeDailyLogHash(){
   });
 }
 
-function renderMcFreshness(res, weeks){
+function renderMcFreshness(res, weeks, opts = {}){
+  const renderOpsEnvelopeWithCtx = (nextRes, nextWeeks) => renderOpsEnvelopeD2(nextRes, nextWeeks, opts);
+  const renderFinishEnvelopeWithCtx = (nextRes, nextWeeks) => renderFinishEnvelopeD3(nextRes, nextWeeks, opts);
+  const renderMissRiskWithCtx = (nextRes, nextWeeks) => renderMissRiskD4(nextRes, nextWeeks, opts);
   return renderMcFreshnessModule({
     els,
     state,
@@ -2572,9 +2576,9 @@ function renderMcFreshness(res, weeks){
     hashMcInputs,
     getMcStaleness,
     computeDailyLogHash,
-    renderOpsEnvelopeD2,
-    renderFinishEnvelopeD3,
-    renderMissRiskD4,
+    renderOpsEnvelopeD2: renderOpsEnvelopeWithCtx,
+    renderFinishEnvelopeD3: renderFinishEnvelopeWithCtx,
+    renderMissRiskD4: renderMissRiskWithCtx,
   });
 }
 
@@ -2591,11 +2595,29 @@ function hashOpsEnvelopeInputs(res, weeks){
   });
 }
 
-function computeOpsEnvelopeD2(res, weeks){
+function resolveMcEnvelopeContext(res, weeks, opts = {}){
+  const fromOpts = {
+    weeklyContext: opts.weeklyContext || null,
+    executionSnapshot: opts.executionSnapshot || null,
+  };
+  if (fromOpts.weeklyContext || fromOpts.executionSnapshot) return fromOpts;
+  if (lastRenderCtx && lastRenderCtx.res === res && lastRenderCtx.weeks === weeks){
+    return {
+      weeklyContext: lastRenderCtx.weeklyContext || null,
+      executionSnapshot: lastRenderCtx.executionSnapshot || null,
+    };
+  }
+  return { weeklyContext: null, executionSnapshot: null };
+}
+
+function computeOpsEnvelopeD2(res, weeks, opts = {}){
+  const { weeklyContext, executionSnapshot } = resolveMcEnvelopeContext(res, weeks, opts);
   return computeOpsEnvelopeD2Module({
     state,
     res,
     weeks,
+    weeklyContext,
+    executionSnapshot,
     computeWeeklyOpsContext,
     getEffectiveBaseRates,
     safeNum,
@@ -2609,14 +2631,15 @@ function computeOpsEnvelopeD2(res, weeks){
   });
 }
 
-function renderOpsEnvelopeD2(res, weeks){
+function renderOpsEnvelopeD2(res, weeks, opts = {}){
+  const computeWithCtx = (nextRes, nextWeeks) => computeOpsEnvelopeD2(nextRes, nextWeeks, opts);
   renderOpsEnvelopeD2Module({
     els,
     state,
     res,
     weeks,
     hashOpsEnvelopeInputs,
-    computeOpsEnvelopeD2,
+    computeOpsEnvelopeD2: computeWithCtx,
     persist,
     fmtInt,
   });
@@ -2633,11 +2656,14 @@ function hashFinishEnvelopeInputs(res, weeks){
   });
 }
 
-function computeFinishEnvelopeD3(res, weeks){
+function computeFinishEnvelopeD3(res, weeks, opts = {}){
+  const { weeklyContext, executionSnapshot } = resolveMcEnvelopeContext(res, weeks, opts);
   return computeFinishEnvelopeD3Module({
     state,
     res,
     weeks,
+    weeklyContext,
+    executionSnapshot,
     computeWeeklyOpsContext,
     computeLastNLogSums,
     getEffectiveBaseRates,
@@ -2652,14 +2678,15 @@ function computeFinishEnvelopeD3(res, weeks){
   });
 }
 
-function renderFinishEnvelopeD3(res, weeks){
+function renderFinishEnvelopeD3(res, weeks, opts = {}){
+  const computeWithCtx = (nextRes, nextWeeks) => computeFinishEnvelopeD3(nextRes, nextWeeks, opts);
   renderFinishEnvelopeD3Module({
     els,
     state,
     res,
     weeks,
     hashFinishEnvelopeInputs,
-    computeFinishEnvelopeD3,
+    computeFinishEnvelopeD3: computeWithCtx,
     persist,
     fmtISODate,
   });
@@ -2675,11 +2702,14 @@ function hashMissRiskInputs(res, weeks){
   });
 }
 
-function computeMissRiskD4(res, weeks){
+function computeMissRiskD4(res, weeks, opts = {}){
+  const { weeklyContext, executionSnapshot } = resolveMcEnvelopeContext(res, weeks, opts);
   return computeMissRiskD4Module({
     state,
     res,
     weeks,
+    weeklyContext,
+    executionSnapshot,
     computeWeeklyOpsContext,
     computeLastNLogSums,
     getEffectiveBaseRates,
@@ -2693,14 +2723,15 @@ function computeMissRiskD4(res, weeks){
   });
 }
 
-function renderMissRiskD4(res, weeks){
+function renderMissRiskD4(res, weeks, opts = {}){
+  const computeWithCtx = (nextRes, nextWeeks) => computeMissRiskD4(nextRes, nextWeeks, opts);
   return renderMissRiskD4Module({
     els,
     state,
     res,
     weeks,
     hashMissRiskInputs,
-    computeMissRiskD4,
+    computeMissRiskD4: computeWithCtx,
     persist,
   });
 }
@@ -2797,6 +2828,8 @@ function runMonteCarloNow(){
   return runMonteCarloNowModule({
     state,
     computeElectionSnapshot,
+    computeExecutionSnapshot,
+    computeWeeklyOpsContext,
     derivedWeeksRemaining,
     buildModelInputFromState,
     safeNum,

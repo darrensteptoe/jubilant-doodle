@@ -31,6 +31,7 @@ export function computeOpsEnvelopeD2Module(args){
     state,
     res,
     weeks,
+    weeklyContext,
     computeWeeklyOpsContext,
     getEffectiveBaseRates,
     safeNum,
@@ -46,7 +47,7 @@ export function computeOpsEnvelopeD2Module(args){
   const w = (weeks != null && isFinite(weeks) && weeks > 0) ? weeks : null;
   if (!w) return null;
 
-  const ctx = computeWeeklyOpsContext(res, w);
+  const ctx = weeklyContext || ((typeof computeWeeklyOpsContext === "function") ? computeWeeklyOpsContext(res, w) : null);
   if (!ctx || !(ctx.goal > 0)) return null;
 
   const eff = getEffectiveBaseRates();
@@ -177,6 +178,8 @@ export function computeFinishEnvelopeD3Module(args){
     state,
     res,
     weeks,
+    weeklyContext,
+    executionSnapshot,
     computeWeeklyOpsContext,
     computeLastNLogSums,
     getEffectiveBaseRates,
@@ -193,24 +196,38 @@ export function computeFinishEnvelopeD3Module(args){
   const w = (weeks != null && isFinite(weeks) && weeks > 0) ? weeks : null;
   if (!w) return null;
 
-  const ctx = computeWeeklyOpsContext(res, w);
+  const ctx = weeklyContext || ((typeof computeWeeklyOpsContext === "function") ? computeWeeklyOpsContext(res, w) : null);
   if (!ctx || !(ctx.goal > 0)) return null;
 
+  const execLog = executionSnapshot?.log || null;
   const log = Array.isArray(state.ui?.dailyLog) ? state.ui.dailyLog : null;
-  if (!log || !log.length) return null;
 
-  const last7 = computeLastNLogSums(7);
-  if (!last7?.hasLog || !(last7.days > 0)) return null;
-  const paceAttemptsWeek = (last7.sumAttempts / last7.days) * 7;
+  if ((!execLog || !execLog.hasLog) && (!log || !log.length)) return null;
+
+  let paceAttemptsWeek = null;
+  let doneAttempts = null;
+
+  if (execLog?.hasLog && isFinite(execLog.sumAttemptsWindow) && execLog.days > 0){
+    paceAttemptsWeek = (execLog.sumAttemptsWindow / execLog.days) * 7;
+    doneAttempts = isFinite(execLog.sumAttemptsAll) ? execLog.sumAttemptsAll : 0;
+  }
+
+  if (!(paceAttemptsWeek > 0)){
+    const last7 = (typeof computeLastNLogSums === "function") ? computeLastNLogSums(7) : null;
+    if (!last7?.hasLog || !(last7.days > 0)) return null;
+    paceAttemptsWeek = (last7.sumAttempts / last7.days) * 7;
+  }
   if (!(paceAttemptsWeek > 0)) return null;
 
-  let doneAttempts = 0;
-  for (const x of log){
-    if (!x || !x.date) continue;
-    const doors = safeNum(x?.doors) || 0;
-    const calls = safeNum(x?.calls) || 0;
-    const attempts = (x?.attempts != null && x.attempts !== "") ? (safeNum(x.attempts) || 0) : (doors + calls);
-    doneAttempts += attempts;
+  if (!(doneAttempts >= 0)){
+    doneAttempts = 0;
+    for (const x of (log || [])){
+      if (!x || !x.date) continue;
+      const doors = safeNum(x?.doors) || 0;
+      const calls = safeNum(x?.calls) || 0;
+      const attempts = (x?.attempts != null && x.attempts !== "") ? (safeNum(x.attempts) || 0) : (doors + calls);
+      doneAttempts += attempts;
+    }
   }
 
   const eff = getEffectiveBaseRates();
@@ -329,6 +346,8 @@ export function computeMissRiskD4Module(args){
     state,
     res,
     weeks,
+    weeklyContext,
+    executionSnapshot,
     computeWeeklyOpsContext,
     computeLastNLogSums,
     getEffectiveBaseRates,
@@ -344,12 +363,19 @@ export function computeMissRiskD4Module(args){
   const w = (weeks != null && isFinite(weeks) && weeks > 0) ? weeks : null;
   if (!w) return null;
 
-  const ctx = computeWeeklyOpsContext(res, w);
+  const ctx = weeklyContext || ((typeof computeWeeklyOpsContext === "function") ? computeWeeklyOpsContext(res, w) : null);
   if (!ctx || !(ctx.goal > 0)) return null;
 
-  const last7 = computeLastNLogSums(7);
-  if (!last7?.hasLog || !(last7.days > 0)) return null;
-  const paceAttemptsWeek = (last7.sumAttempts / last7.days) * 7;
+  const execLog = executionSnapshot?.log || null;
+  let paceAttemptsWeek = null;
+  if (execLog?.hasLog && isFinite(execLog.sumAttemptsWindow) && execLog.days > 0){
+    paceAttemptsWeek = (execLog.sumAttemptsWindow / execLog.days) * 7;
+  }
+  if (!(paceAttemptsWeek > 0)){
+    const last7 = (typeof computeLastNLogSums === "function") ? computeLastNLogSums(7) : null;
+    if (!last7?.hasLog || !(last7.days > 0)) return null;
+    paceAttemptsWeek = (last7.sumAttempts / last7.days) * 7;
+  }
   if (!(paceAttemptsWeek > 0)) return null;
 
   const eff = getEffectiveBaseRates();
