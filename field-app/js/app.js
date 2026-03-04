@@ -1768,12 +1768,14 @@ async function runSensitivitySnapshotE4(){
   });
 }
 
-function renderDecisionConfidenceE5(res, weeks){
+function renderDecisionConfidenceE5(res, weeks, { weeklyContext = null, executionSnapshot = null } = {}){
   return renderDecisionConfidencePanel({
     els,
     state,
     res,
     weeks,
+    weeklyContext,
+    executionSnapshot,
     deriveNeedVotes,
     normalizeDailyLogEntry,
     safeNum,

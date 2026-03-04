@@ -143,7 +143,7 @@ export function renderMain(ctx){
   safeCall(() => renderRiskFramingE2());
   safeCall(() => renderBottleneckAttributionE3(res, weeks));
   safeCall(() => renderSensitivitySnapshotE4());
-  safeCall(() => renderDecisionConfidenceE5(res, weeks));
+  safeCall(() => renderDecisionConfidenceE5(res, weeks, { weeklyContext, executionSnapshot }));
   safeCall(() => renderImpactTraceE6(res, weeks));
 
   safeCall(() => renderUniverse16Card());

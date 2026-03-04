@@ -3,6 +3,8 @@ export function renderDecisionConfidencePanel({
   state,
   res,
   weeks,
+  weeklyContext,
+  executionSnapshot,
   deriveNeedVotes,
   normalizeDailyLogEntry,
   safeNum,
@@ -28,25 +30,42 @@ export function renderDecisionConfidencePanel({
   };
 
   const computeExec = () => {
+    if (executionSnapshot?.pace){
+      const req7 = executionSnapshot?.pace?.requiredAttemptsPerWeek;
+      const actual7 = executionSnapshot?.log?.sumAttemptsWindow;
+      const pct = (req7 != null && isFinite(req7) && req7 > 0 && actual7 != null && isFinite(actual7))
+        ? ((actual7 - req7) / req7)
+        : null;
+      const absPct = (pct != null) ? Math.abs(pct) : null;
+      let status = "unknown";
+      if (absPct != null){
+        if (absPct <= 0.05) status = "green";
+        else if (absPct <= 0.15) status = "yellow";
+        else status = "red";
+      }
+      return { status, pct, req: req7, actual7 };
+    }
+
     const log = Array.isArray(state.ui?.dailyLog) ? state.ui.dailyLog : [];
     const sorted = [...log].map(normalizeDailyLogEntry).filter(Boolean).sort((a,b)=>String(a.date).localeCompare(String(b.date)));
     const last7 = sorted.slice(-7);
     const actual7 = last7.reduce((s,e)=> s + (safeNum(e.attempts) ?? 0), 0);
 
-    const needVotes = (typeof deriveNeedVotes === "function")
-      ? deriveNeedVotes(res, state?.goalSupportIds)
-      : null;
-    const goal = (needVotes != null && needVotes > 0) ? needVotes : 0;
-
-    const eff = getEffectiveBaseRates();
-    const sr = eff.sr;
-    const cr = eff.cr;
-
-    let attemptsPerWeekReq = null;
-    if (goal > 0 && sr && sr > 0 && cr && cr > 0 && weeks != null && weeks > 0){
-      const convosNeeded = goal / sr;
-      const attemptsNeeded = convosNeeded / cr;
-      attemptsPerWeekReq = attemptsNeeded / weeks;
+    const fallbackCtx = weeklyContext || null;
+    let attemptsPerWeekReq = fallbackCtx?.attemptsPerWeek ?? null;
+    if (!(attemptsPerWeekReq != null && isFinite(attemptsPerWeekReq))){
+      const needVotes = (typeof deriveNeedVotes === "function")
+        ? deriveNeedVotes(res, state?.goalSupportIds)
+        : null;
+      const goal = (needVotes != null && needVotes > 0) ? needVotes : 0;
+      const eff = getEffectiveBaseRates();
+      const sr = eff.sr;
+      const cr = eff.cr;
+      if (goal > 0 && sr && sr > 0 && cr && cr > 0 && weeks != null && weeks > 0){
+        const convosNeeded = goal / sr;
+        const attemptsNeeded = convosNeeded / cr;
+        attemptsPerWeekReq = attemptsNeeded / weeks;
+      }
     }
 
     const req7 = (attemptsPerWeekReq != null) ? (attemptsPerWeekReq) : null;
