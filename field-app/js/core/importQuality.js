@@ -67,6 +67,60 @@ function normalizeString(v){
   return String(v == null ? "" : v).trim();
 }
 
+function getScenarioValueByRef(scenario, ref){
+  if (!isObject(scenario)) return undefined;
+  const raw = normalizeString(ref);
+  if (!raw) return undefined;
+
+  const direct = scenario[raw];
+  if (direct !== undefined) return direct;
+
+  const key = raw.split(".").pop();
+  if (!key) return undefined;
+  if (scenario[key] !== undefined) return scenario[key];
+
+  return undefined;
+}
+
+function appendIntelBenchmarkWarnings(out, scenario, prefix){
+  const rows = Array.isArray(scenario?.intelState?.benchmarks)
+    ? scenario.intelState.benchmarks
+    : [];
+  if (!rows.length) return;
+
+  for (const row of rows){
+    if (!isObject(row)) continue;
+    const ref = normalizeString(row.ref || row.key || "");
+    if (!ref) continue;
+
+    const valueRaw = getScenarioValueByRef(scenario, ref);
+    const value = num(valueRaw);
+    if (value == null) continue;
+
+    const range = isObject(row.range) ? row.range : null;
+    const min = num(range?.min);
+    const max = num(range?.max);
+
+    if (min != null && value < min){
+      out.push(`${prefix}: '${ref}' below benchmark range ${min}..${max != null ? max : "∞"} (got ${valueRaw}).`);
+    }
+    if (max != null && value > max){
+      out.push(`${prefix}: '${ref}' above benchmark range ${min != null ? min : "-∞"}..${max} (got ${valueRaw}).`);
+    }
+
+    const sev = isObject(row.severityBands) ? row.severityBands : null;
+    const warnAbove = num(sev?.warnAbove);
+    const hardAbove = num(sev?.hardAbove);
+
+    if (hardAbove != null && value > hardAbove){
+      out.push(`${prefix}: '${ref}' exceeds hard-above threshold ${hardAbove} (got ${valueRaw}).`);
+    } else if (warnAbove != null && value > warnAbove){
+      out.push(`${prefix}: '${ref}' exceeds warn-above threshold ${warnAbove} (got ${valueRaw}).`);
+    }
+
+  }
+}
+
 export function validateImportedScenarioData(scenario){
   const errors = [];
   const warnings = [];
@@ -265,6 +319,9 @@ export function computeAssumptionBenchmarkWarnings(scenario, prefix = "Benchmark
     const [min, max] = profile[key];
     pushRangeIssue(out, prefix, key, scenario[key], min, max);
   }
+
+  // Optional scenario-scoped benchmark catalog (Phase 2 intel layer).
+  appendIntelBenchmarkWarnings(out, scenario, prefix);
 
   return out;
 }
