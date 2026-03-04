@@ -53,6 +53,27 @@ export function normalizeStageLayoutModule(){
 
         cursor = wrapper.nextElementSibling;
       }
+
+      // Normalize module descriptions:
+      // move header-embedded help text to a dedicated row under the title strip.
+      const moduleHeaders = Array.from(body.querySelectorAll(".card > .card-head.card-header"));
+      for (const header of moduleHeaders){
+        const card = header.closest(".card");
+        if (!card) continue;
+        const inlineHelp = header.querySelector(":scope > .help-text");
+        if (!inlineHelp) continue;
+
+        let desc = card.querySelector(":scope > .module-desc, :scope > .help-text");
+        if (!desc || desc === inlineHelp){
+          desc = document.createElement("div");
+          desc.className = "module-desc";
+          header.insertAdjacentElement("afterend", desc);
+        }
+        if (!desc.innerHTML || !desc.textContent?.trim()){
+          desc.innerHTML = inlineHelp.innerHTML;
+        }
+        inlineHelp.remove();
+      }
     }
   }
 }

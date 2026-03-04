@@ -43,11 +43,6 @@ export function composeSetupStageModule(){
     let header = sourceHeader || card.querySelector(":scope > .card-head.card-header");
     if (!header){
       header = makeHeader(fallbackTitle, fallbackSubtitle);
-    } else if (fallbackSubtitle && !header.querySelector(".help-text")){
-      const text = document.createElement("div");
-      text.className = "help-text";
-      text.textContent = fallbackSubtitle;
-      header.appendChild(text);
     }
 
     const existing = Array.from(card.querySelectorAll(":scope > .card-head.card-header"));
@@ -56,6 +51,25 @@ export function composeSetupStageModule(){
     }
     if (card.firstElementChild !== header){
       card.insertBefore(header, card.firstChild);
+    }
+
+    const inlineHelp = header.querySelector(":scope > .help-text");
+    const descHtml = (inlineHelp?.innerHTML || fallbackSubtitle || "").trim();
+    if (inlineHelp) inlineHelp.remove();
+
+    if (descHtml){
+      let desc = card.querySelector(":scope > .module-desc, :scope > .help-text");
+      if (!desc){
+        desc = document.createElement("div");
+        desc.className = "module-desc";
+        header.insertAdjacentElement("afterend", desc);
+      } else if (desc.classList.contains("help-text")){
+        desc.classList.remove("help-text");
+        desc.classList.add("module-desc");
+      }
+      if (!desc.innerHTML || !desc.textContent?.trim()){
+        desc.innerHTML = descHtml;
+      }
     }
   };
 
