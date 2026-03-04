@@ -23,6 +23,7 @@ import { computeConfidenceEnvelope } from "./confidenceEnvelope.js";
 import { computeSensitivitySurface } from "./sensitivitySurface.js";
 import { computeUniverseAdjustedRates, UNIVERSE_DEFAULTS } from "./universeLayer.js";
 import { buildModelInputFromSnapshot } from "./modelInput.js";
+import { makeDefaultIntelState } from "./intelState.js";
 
 function withUniverseDefaults(s){
   // Phase 16 fields are now required for stable hashing/export roundtrips.
@@ -34,6 +35,7 @@ function withUniverseDefaults(s){
   if (out.universeNpaPct == null) out.universeNpaPct = UNIVERSE_DEFAULTS.npaPct;
   if (out.universeOtherPct == null) out.universeOtherPct = UNIVERSE_DEFAULTS.otherPct;
   if (out.retentionFactor == null) out.retentionFactor = UNIVERSE_DEFAULTS.retentionFactor;
+  if (out.intelState == null) out.intelState = makeDefaultIntelState();
   return out;
 }
 
