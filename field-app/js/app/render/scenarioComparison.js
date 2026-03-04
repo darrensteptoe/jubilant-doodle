@@ -6,12 +6,14 @@ export function renderScenarioComparisonPanel({
   scenarioClone,
   scenarioInputsFromState,
   computeDecisionKeyOutCore,
+  computeElectionSnapshot,
   engine,
   derivedWeeksRemaining,
   computeWeeklyOpsContextFromSnap,
   targetFinishDateFromSnap,
   computeLastNLogSums,
   paceFinishDate,
+  safeNum,
   fmtInt,
   fmtISODate
 }){
@@ -151,8 +153,10 @@ export function renderScenarioComparisonPanel({
       scenarioClone,
       engine,
       derivedWeeksRemaining,
+      computeElectionSnapshot,
       computeWeeklyOpsContextFromSnap,
       targetFinishDateFromSnap,
+      safeNum,
     });
 
     const last7 = computeLastNLogSums(7);

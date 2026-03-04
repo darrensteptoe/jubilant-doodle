@@ -2065,12 +2065,14 @@ function renderScenarioComparisonC3(){
     scenarioClone,
     scenarioInputsFromState,
     computeDecisionKeyOutCore,
+    computeElectionSnapshot,
     engine,
     derivedWeeksRemaining,
     computeWeeklyOpsContextFromSnap,
     targetFinishDateFromSnap,
     computeLastNLogSums,
     paceFinishDate,
+    safeNum,
     fmtInt,
     fmtISODate
   });
@@ -2187,6 +2189,7 @@ function buildDecisionSummaryText(session){
     scenarioClone,
     engine,
     derivedWeeksRemaining,
+    computeElectionSnapshot,
     computeWeeklyOpsContextFromSnap,
     targetFinishDateFromSnap,
     fmtISODate,
