@@ -550,13 +550,39 @@ body.strict-import .toggle-pill:has(#toggleStrictImport) .toggle-dot-new {
   line-height: 1.45;
 }
 
-.stage-body-new > .card {
-  padding-bottom: 2px;
+.stage-body-new .card {
+  display: flex;
+  flex-direction: column;
 }
 
-.stage-body-new > .card > :not(.card-head):not(.help-text):not(.module-desc):not(.banner.module-feedback):not(.setup-divider) {
-  margin-left: 16px;
-  margin-right: 16px;
+/* Consistent internal rhythm: keep breathing room between every direct module element. */
+.stage-body-new .card > * + * {
+  margin-top: 12px;
+}
+
+/* Keep title strip + description visually paired. */
+.stage-body-new .card > .card-head + .module-desc,
+.stage-body-new .card > .card-head + .help-text {
+  margin-top: 0;
+}
+
+.stage-body-new .card > :not(.card-head):not(.help-text):not(.module-desc):not(.setup-divider) {
+  margin-left: 12px;
+  margin-right: 12px;
+}
+
+.stage-body-new > .card {
+  padding-bottom: 14px;
+}
+
+.stage-body-new > .card > :not(.card-head):not(.help-text):not(.module-desc):not(.setup-divider) {
+  margin-left: 18px;
+  margin-right: 18px;
+}
+
+.stage-body-new > .card > .setup-divider {
+  margin-left: 18px;
+  margin-right: 18px;
 }
 
 /* Shared 3-up output grid used across Field capacity and planning metric modules. */
