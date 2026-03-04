@@ -201,6 +201,11 @@ import {
   applyRollingRateToAssumptionModule,
   applyAllRollingCalibrationsModule
 } from "./app/realityDriftCalibrations.js";
+import {
+  buildCriticalAuditSnapshot,
+  captureCriticalAssumptionAudit,
+  computeEvidenceWarnings
+} from "./app/intelAudit.js";
 import { applyWeeklyLeverScenarioModule } from "./app/weeklyLeverScenarioAction.js";
 import {
   wireSafetyAndDiagnosticsEvents,
@@ -754,6 +759,14 @@ async function copyDebugBundle(){
     : [];
   const drift = computeRealityDrift();
   const intel = state?.intelState || {};
+  const intelAudit = Array.isArray(intel?.audit) ? intel.audit : [];
+  const intelEvidence = Array.isArray(intel?.evidence) ? intel.evidence : [];
+  const intelMissingEvidence = intelAudit.filter((x) =>
+    x &&
+    x.requiresEvidence === true &&
+    !x.evidenceId &&
+    String(x.status || "").toLowerCase() !== "resolved"
+  ).length;
   const bundle = {
     appVersion: APP_VERSION,
     buildId: BUILD_ID,
@@ -767,11 +780,12 @@ async function copyDebugBundle(){
       benchmarkWarnings,
       intelState: {
         version: intel?.version || null,
+        missingEvidence: intelMissingEvidence,
         counts: {
-          evidence: Array.isArray(intel?.evidence) ? intel.evidence.length : 0,
+          evidence: intelEvidence.length,
           benchmarks: Array.isArray(intel?.benchmarks) ? intel.benchmarks.length : 0,
           flags: Array.isArray(intel?.flags) ? intel.flags.length : 0,
-          audit: Array.isArray(intel?.audit) ? intel.audit.length : 0,
+          audit: intelAudit.length,
           briefs: Array.isArray(intel?.briefs) ? intel.briefs.length : 0,
           recommendations: Array.isArray(intel?.recommendations) ? intel.recommendations.length : 0,
           observedMetrics: Array.isArray(intel?.observedMetrics) ? intel.observedMetrics.length : 0,
@@ -936,6 +950,7 @@ function restoreBackupByIndex(idx){
   }
 
   state = normalizeLoadedState(validated.scenario);
+  lastCriticalAuditSnapshot = buildCriticalAuditSnapshot(state);
   ensureDecisionScaffold();
   persist();
   render();
@@ -988,6 +1003,7 @@ function assumptionsProfileLabel(src = state){
 }
 
 let state = normalizeLoadedState(loadState() || makeDefaultState());
+let lastCriticalAuditSnapshot = buildCriticalAuditSnapshot(state);
 
 // setState(patchFn) — controlled state mutation for UI-only writes.
 // Shallow-clones state, deep-clones only state.ui (where all setState writes live).
@@ -1109,6 +1125,20 @@ function schedulePersist({ immediate = false } = {}){
 }
 
 function commitUIUpdate({ render: doRender = true, persist: doPersist = true, immediatePersist = false } = {}){
+  if (doPersist){
+    try{
+      const auditResult = captureCriticalAssumptionAudit({
+        state,
+        previousSnapshot: lastCriticalAuditSnapshot,
+        source: "ui",
+      });
+      lastCriticalAuditSnapshot = auditResult?.nextSnapshot || buildCriticalAuditSnapshot(state);
+    } catch {
+      lastCriticalAuditSnapshot = buildCriticalAuditSnapshot(state);
+    }
+  } else {
+    lastCriticalAuditSnapshot = buildCriticalAuditSnapshot(state);
+  }
   uiUpdateQueue.commitUIUpdate({ render: doRender, persist: doPersist, immediatePersist });
 }
 
@@ -1931,12 +1961,14 @@ function renderValidation(res, weeks){
     ? engine.snapshot.computeAssumptionBenchmarkWarnings(state, "Benchmark")
     : [];
   const driftSummary = computeRealityDrift();
+  const evidenceWarnings = computeEvidenceWarnings(state, { limit: 2, staleDays: 30 });
   renderValidationModule({
     els,
     state,
     res,
     weeks,
     benchmarkWarnings,
+    evidenceWarnings,
     driftSummary,
   });
 }

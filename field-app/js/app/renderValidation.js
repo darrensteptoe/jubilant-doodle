@@ -5,6 +5,7 @@ export function renderValidationModule(args){
     res,
     weeks,
     benchmarkWarnings = [],
+    evidenceWarnings = [],
     driftSummary = null,
   } = args || {};
 
@@ -55,6 +56,15 @@ export function renderValidationModule(args){
 
   if (Array.isArray(benchmarkWarnings) && benchmarkWarnings.length){
     for (const msg of benchmarkWarnings.slice(0, 4)){
+      items.push({
+        kind: "warn",
+        text: String(msg),
+      });
+    }
+  }
+
+  if (Array.isArray(evidenceWarnings) && evidenceWarnings.length){
+    for (const msg of evidenceWarnings.slice(0, 3)){
       items.push({
         kind: "warn",
         text: String(msg),

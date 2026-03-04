@@ -38,6 +38,19 @@ export function appendModelDiagnosticsCore(lines, {
     out.push(`- ${msg}`);
   }
 
+  const intel = state?.intelState || {};
+  const audit = Array.isArray(intel.audit) ? intel.audit : [];
+  const evidence = Array.isArray(intel.evidence) ? intel.evidence : [];
+  const missingEvidence = audit.filter((x) =>
+    x &&
+    x.requiresEvidence === true &&
+    !x.evidenceId &&
+    String(x.status || "").toLowerCase() !== "resolved"
+  ).length;
+  out.push(`intelAuditEntries: ${audit.length}`);
+  out.push(`intelEvidenceRecords: ${evidence.length}`);
+  out.push(`intelMissingEvidence: ${missingEvidence}`);
+
   const drift = computeRealityDrift();
   if (!drift?.hasLog){
     out.push("realityDrift: no daily log data");
