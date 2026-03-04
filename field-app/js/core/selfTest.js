@@ -1452,7 +1452,8 @@ export function runSelfTests(engine){
       const hasStructure = !!card.querySelector(".card-head, .module-desc, .grid2, .grid3, .field, .mini-note");
       if (!text && !hasInteractive && !hasStructure){
         const cls = card.className || "(no-class)";
-        throw new Error(`Empty top-level module card detected: ${cls}`);
+        const id = card.id ? `#${card.id}` : "(no-id)";
+        throw new Error(`Empty top-level module card detected: ${cls} ${id}`);
       }
     }
     return true;

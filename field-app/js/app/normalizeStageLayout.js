@@ -74,6 +74,21 @@ export function normalizeStageLayoutModule(){
         }
         inlineHelp.remove();
       }
+
+      // Prune truly empty top-level cards that can appear after module
+      // composition/re-parenting. Keeping these around causes visual artifacts
+      // and self-test noise.
+      const topCards = Array.from(
+        body.querySelectorAll(":scope > .card, :scope > .panel > .card")
+      );
+      for (const card of topCards){
+        const text = (card.textContent || "").trim();
+        const hasInteractive = !!card.querySelector("input, select, textarea, button, table, [data-help], .metric");
+        const hasStructure = !!card.querySelector(".card-head, .module-desc, .grid2, .grid3, .field, .mini-note");
+        if (!text && !hasInteractive && !hasStructure){
+          card.remove();
+        }
+      }
     }
   }
 }
