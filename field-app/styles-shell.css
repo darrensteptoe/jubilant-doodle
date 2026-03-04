@@ -495,11 +495,11 @@ body.strict-import .toggle-pill:has(#toggleStrictImport) .toggle-dot-new {
 }
 
 .stage-body-new .card-head.card-header {
-  min-height: 56px;
-  display: flex !important;
+  min-height: 52px;
+  display: grid !important;
+  grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
-  justify-content: space-between;
-  gap: 14px;
+  gap: 10px 12px;
   padding: 12px 16px 11px;
   background: var(--s-module-strip-bg);
   border: 1px solid var(--s-module-strip-border);
@@ -509,22 +509,23 @@ body.strict-import .toggle-pill:has(#toggleStrictImport) .toggle-dot-new {
 }
 
 .stage-body-new .card-head.card-header .card-title {
+  grid-column: 1;
   color: var(--s-module-strip-text);
   font-size: 14px;
   font-weight: 650;
 }
 
-.stage-body-new .card-head.card-header .help-text {
-  color: var(--s-module-strip-muted);
-  margin: 0;
-  max-width: 62%;
-  text-align: right;
-  min-height: 32px;
-  display: flex;
-  align-items: center;
+.stage-body-new .card-head.card-header .card-actions {
+  grid-column: 2;
+  justify-self: end;
 }
 
-.stage-body-new .card > .help-text {
+.stage-body-new .card-head.card-header .help-text {
+  display: none;
+}
+
+.stage-body-new .card > .help-text,
+.stage-body-new .card > .module-desc {
   margin: 0;
   padding: 10px 16px 11px;
   border-bottom: 1px solid color-mix(in srgb, var(--s-rule) 70%, transparent);
@@ -532,6 +533,9 @@ body.strict-import .toggle-pill:has(#toggleStrictImport) .toggle-dot-new {
   min-height: 38px;
   display: flex;
   align-items: center;
+  color: var(--s-muted);
+  font-size: 12px;
+  line-height: 1.45;
 }
 
 .stage-body-new .card .card-actions,
@@ -550,9 +554,28 @@ body.strict-import .toggle-pill:has(#toggleStrictImport) .toggle-dot-new {
   padding-bottom: 2px;
 }
 
-.stage-body-new > .card > :not(.card-head):not(.help-text):not(.banner.module-feedback):not(.setup-divider) {
+.stage-body-new > .card > :not(.card-head):not(.help-text):not(.module-desc):not(.banner.module-feedback):not(.setup-divider) {
   margin-left: 16px;
   margin-right: 16px;
+}
+
+/* Shared 3-up output grid used across Field capacity and planning metric modules. */
+.subgrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+@media (max-width: 1180px) {
+  .subgrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 860px) {
+  .subgrid {
+    grid-template-columns: 1fr;
+  }
 }
 
 /* Keep the old left/right/rail sections from affecting layout */
