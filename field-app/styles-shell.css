@@ -409,6 +409,12 @@ body.strict-import .toggle-pill:has(#toggleStrictImport) .toggle-dot-new {
   border-top: 1px solid color-mix(in srgb, var(--s-rule) 78%, transparent);
 }
 
+/* Module separation now uses spacing only (no horizontal rules). */
+.setup-divider,
+.sectionRule {
+  display: none !important;
+}
+
 .no-dropdown-details > summary {
   display: none;
 }
@@ -467,9 +473,10 @@ body.strict-import .toggle-pill:has(#toggleStrictImport) .toggle-dot-new {
   padding: 12px 14px 14px;
 }
 
-/* Cards inside stage body need spacing reset */
-.stage-body-new .card + .card { margin-top: 0; }
-.stage-body-new .card { margin-top: 0; }
+/* Cards inside stage body use spacing-only module separation. */
+.stage-body-new .card {
+  margin-top: 0;
+}
 
 /* Top-level cards touching page background use gray surface; nested cards stay panel/white. */
 .stage-body-new > .card {
@@ -484,14 +491,12 @@ body.strict-import .toggle-pill:has(#toggleStrictImport) .toggle-dot-new {
 }
 
 /* Standard module template: full-width cards, blue title strip, and clear module boundaries. */
-.stage-body-new > .card + .card::before {
-  content: "";
-  position: absolute;
-  left: 14px;
-  right: 14px;
-  top: -10px;
-  border-top: 1px solid var(--s-module-divider);
-  pointer-events: none;
+.stage-body-new > .card + .card {
+  margin-top: 18px;
+}
+
+.stage-body-new > .panel > .card + .card {
+  margin-top: 18px;
 }
 
 .stage-body-new .card-head.card-header {
