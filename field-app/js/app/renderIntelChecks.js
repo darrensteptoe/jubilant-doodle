@@ -1,5 +1,6 @@
 import {
   benchmarkRefLabel,
+  computeIntelIntegrityScore,
   ensureIntelCollections,
   getIntelWorkflow,
   getLatestBriefByKind,
@@ -137,7 +138,12 @@ function fillEvidenceTable(tbody, rows){
   }
 }
 
-export function renderIntelChecksModule({ els, state } = {}){
+export function renderIntelChecksModule({
+  els,
+  state,
+  benchmarkWarnings = [],
+  driftSummary = null,
+} = {}){
   if (!els || !state) return;
   ensureIntelCollections(state);
 
@@ -151,6 +157,11 @@ export function renderIntelChecksModule({ els, state } = {}){
   const missingNoteAudit = listMissingNoteAudit(state, { limit: 200 });
   const evidenceRows = listIntelEvidence(state, { limit: 8 });
   const workflow = getIntelWorkflow(state) || {};
+  const integrity = computeIntelIntegrityScore(state, {
+    benchmarkWarnings,
+    driftFlags: Array.isArray(driftSummary?.flags) ? driftSummary.flags : [],
+    staleDays: 30,
+  });
 
   if (els.intelBenchmarkCount){
     els.intelBenchmarkCount.textContent = `${benchmarks.length} benchmark entr${benchmarks.length === 1 ? "y" : "ies"} configured.`;
@@ -207,15 +218,24 @@ export function renderIntelChecksModule({ els, state } = {}){
   }
   if (els.intelWorkflowStatus){
     els.intelWorkflowStatus.classList.remove("ok", "warn", "bad", "muted");
+    const integrityText = `Integrity score: ${integrity.score} (${integrity.grade}).`;
     if (missingAudit.length || missingNoteAudit.length){
-      els.intelWorkflowStatus.classList.add("warn");
+      els.intelWorkflowStatus.classList.add(integrity.score < 70 ? "bad" : "warn");
       const parts = [];
       if (missingAudit.length) parts.push(`${missingAudit.length} missing evidence`);
       if (missingNoteAudit.length) parts.push(`${missingNoteAudit.length} missing note`);
-      els.intelWorkflowStatus.textContent = `Open governance items: ${parts.join(", ")}.`;
+      els.intelWorkflowStatus.textContent = `Open governance items: ${parts.join(", ")}. ${integrityText}`;
     } else {
-      els.intelWorkflowStatus.classList.add("ok");
-      els.intelWorkflowStatus.textContent = "Governance controls healthy.";
+      if (integrity.score >= 85){
+        els.intelWorkflowStatus.classList.add("ok");
+        els.intelWorkflowStatus.textContent = `Governance controls healthy. ${integrityText}`;
+      } else if (integrity.score >= 70){
+        els.intelWorkflowStatus.classList.add("warn");
+        els.intelWorkflowStatus.textContent = `Governance controls mostly healthy. ${integrityText}`;
+      } else {
+        els.intelWorkflowStatus.classList.add("bad");
+        els.intelWorkflowStatus.textContent = `Governance attention needed. ${integrityText}`;
+      }
     }
   }
 

@@ -1,3 +1,9 @@
+import {
+  computeIntelIntegrityScore,
+  listMissingEvidenceAudit,
+  listMissingNoteAudit,
+} from "./intelControls.js";
+
 export function appendOperationsDiagnosticsCore(lines, tw){
   const out = Array.isArray(lines) ? lines.slice() : [];
   out.push("");
@@ -41,17 +47,20 @@ export function appendModelDiagnosticsCore(lines, {
   const intel = state?.intelState || {};
   const audit = Array.isArray(intel.audit) ? intel.audit : [];
   const evidence = Array.isArray(intel.evidence) ? intel.evidence : [];
-  const missingEvidence = audit.filter((x) =>
-    x &&
-    x.requiresEvidence === true &&
-    !x.evidenceId &&
-    String(x.status || "").toLowerCase() !== "resolved"
-  ).length;
+  const missingEvidence = listMissingEvidenceAudit(state, { limit: 2000 }).length;
+  const missingNote = listMissingNoteAudit(state, { limit: 2000 }).length;
+  const drift = computeRealityDrift();
+  const integrity = computeIntelIntegrityScore(state, {
+    benchmarkWarnings,
+    driftFlags: Array.isArray(drift?.flags) ? drift.flags : [],
+    staleDays: 30,
+  });
   out.push(`intelAuditEntries: ${audit.length}`);
   out.push(`intelEvidenceRecords: ${evidence.length}`);
   out.push(`intelMissingEvidence: ${missingEvidence}`);
-
-  const drift = computeRealityDrift();
+  out.push(`intelMissingNote: ${missingNote}`);
+  out.push(`intelIntegrityScore: ${integrity.score} (${integrity.grade})`);
+  out.push(`intelIntegrityPenalties: evidence=${integrity.penalties.missingEvidence} note=${integrity.penalties.missingNote} benchmark=${integrity.penalties.benchmarkWarnings} stale=${integrity.penalties.staleEvidence} drift=${integrity.penalties.driftFlags}`);
   if (!drift?.hasLog){
     out.push("realityDrift: no daily log data");
     return out;

@@ -166,6 +166,84 @@ export function listMissingNoteAudit(state, { limit = 200 } = {}){
   return rows.slice(0, Math.max(0, Number(limit) || 0));
 }
 
+function scoreGrade(score){
+  const n = Number(score);
+  if (!Number.isFinite(n)) return "F";
+  if (n >= 90) return "A";
+  if (n >= 80) return "B";
+  if (n >= 70) return "C";
+  if (n >= 60) return "D";
+  return "F";
+}
+
+export function computeIntelIntegrityScore(state, {
+  benchmarkWarnings = [],
+  driftFlags = [],
+  staleDays = 30,
+} = {}){
+  const intel = ensureIntelCollections(state);
+  if (!intel){
+    return {
+      score: 0,
+      grade: "F",
+      components: {
+        missingEvidence: 0,
+        missingNote: 0,
+        benchmarkWarnings: 0,
+        staleEvidence: 0,
+        driftFlags: 0,
+      },
+      penalties: {
+        missingEvidence: 0,
+        missingNote: 0,
+        benchmarkWarnings: 0,
+        staleEvidence: 0,
+        driftFlags: 0,
+      },
+      totalPenalty: 100,
+    };
+  }
+
+  const missingEvidence = listMissingEvidenceAudit(state, { limit: 5000 }).length;
+  const missingNote = listMissingNoteAudit(state, { limit: 5000 }).length;
+  const benchmarkWarningCount = Array.isArray(benchmarkWarnings) ? benchmarkWarnings.length : 0;
+  const driftFlagCount = Array.isArray(driftFlags) ? driftFlags.length : 0;
+
+  let staleEvidence = 0;
+  const staleWindowDays = Number(staleDays);
+  if (staleWindowDays > 0){
+    const cutoffMs = Date.now() - (staleWindowDays * 86400000);
+    for (const row of intel.evidence){
+      const rowMs = parseIsoMs(row?.updatedAt || row?.capturedAt || row?.ts || row?.timestamp);
+      if (rowMs != null && rowMs < cutoffMs) staleEvidence += 1;
+    }
+  }
+
+  const penalties = {
+    missingEvidence: Math.min(40, missingEvidence * 8),
+    missingNote: Math.min(24, missingNote * 6),
+    benchmarkWarnings: Math.min(20, benchmarkWarningCount * 5),
+    staleEvidence: Math.min(10, staleEvidence * 2),
+    driftFlags: Math.min(12, driftFlagCount * 3),
+  };
+  const totalPenalty = Object.values(penalties).reduce((sum, v) => sum + Number(v || 0), 0);
+  const score = Math.max(0, Math.min(100, Math.round(100 - totalPenalty)));
+
+  return {
+    score,
+    grade: scoreGrade(score),
+    components: {
+      missingEvidence,
+      missingNote,
+      benchmarkWarnings: benchmarkWarningCount,
+      staleEvidence,
+      driftFlags: driftFlagCount,
+    },
+    penalties,
+    totalPenalty,
+  };
+}
+
 export function getIntelWorkflow(state){
   const intel = ensureIntelCollections(state);
   if (!intel) return null;
