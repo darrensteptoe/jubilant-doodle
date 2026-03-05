@@ -1,4 +1,5 @@
 import { makeDefaultIntelState, normalizeIntelState } from "../core/intelState.js";
+import { makeDefaultFeatureFlags, syncFeatureFlagsFromState } from "./featureFlags.js";
 
 export const DEFAULTS_BY_TEMPLATE = {
   federal: { bandWidth: 4, persuasionPct: 28, earlyVoteExp: 45 },
@@ -122,6 +123,7 @@ export function makeDefaultState({ createId = defaultCreateId } = {}){
     mcLast: null,
     mcLastHash: "",
     intelState: makeDefaultIntelState(),
+    features: makeDefaultFeatureFlags(),
     ui: {
       training: false,
       dark: false,
@@ -136,6 +138,7 @@ export function makeDefaultState({ createId = defaultCreateId } = {}){
 export function normalizeLoadedState(s, { createId = defaultCreateId } = {}){
   const base = makeDefaultState({ createId });
   const out = { ...base, ...s };
+  const src = (s && typeof s === "object") ? s : {};
   out.candidates = Array.isArray(s?.candidates) ? s.candidates : base.candidates;
   out.userSplit = (s?.userSplit && typeof s.userSplit === "object") ? s.userSplit : {};
   out.intelState = normalizeIntelState(s?.intelState);
@@ -151,6 +154,7 @@ export function normalizeLoadedState(s, { createId = defaultCreateId } = {}){
     : structuredClone(base.budget);
 
   if (!out.yourCandidateId && out.candidates[0]) out.yourCandidateId = out.candidates[0].id;
+  syncFeatureFlagsFromState(out, { preferFeatures: !!(src && typeof src.features === "object" && !Array.isArray(src.features)) });
   out.ui.themeMode = "system";
   out.ui.dark = false;
   return out;

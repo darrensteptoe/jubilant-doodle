@@ -1,4 +1,5 @@
 import { normalizeIntelState } from "../core/intelState.js";
+import { syncFeatureFlagsFromState } from "./featureFlags.js";
 
 export function normalizeLoadedStateModule(s, deps){
   const {
@@ -41,6 +42,7 @@ export function normalizeLoadedStateModule(s, deps){
   const canonDph = canonicalDoorsPerHourFromSnap(out);
   setCanonicalDoorsPerHour(out, (canonDph != null && isFinite(canonDph)) ? canonDph : safeNum(base.doorsPerHour3));
 
+  syncFeatureFlagsFromState(out, { preferFeatures: !!(src.features && typeof src.features === "object" && !Array.isArray(src.features)) });
   out.ui.assumptionsProfile = deriveAssumptionsProfileFromState(out);
   out.ui.themeMode = "system";
   out.ui.dark = false;

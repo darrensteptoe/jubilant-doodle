@@ -1,4 +1,5 @@
 import { makeDefaultIntelState } from "../core/intelState.js";
+import { makeDefaultFeatureFlags } from "./featureFlags.js";
 
 export function makeDefaultStateModule(ctx){
   const { defaultsByTemplate, uid } = ctx || {};
@@ -118,6 +119,7 @@ export function makeDefaultStateModule(ctx){
     mcLast: null,
     mcLastHash: "",
     intelState: makeDefaultIntelState(),
+    features: makeDefaultFeatureFlags(),
     ui: {
       training: false,
       dark: false,
