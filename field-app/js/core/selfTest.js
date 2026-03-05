@@ -2282,6 +2282,23 @@ export function runSelfTests(engine){
     return true;
   });
 
+  test("Phase 9 UI: turnout assumptions mirror is anchored to Budget stage only", () => {
+    const budgetStage = document.getElementById("stage-budget");
+    const gotvStage = document.getElementById("stage-gotv");
+    assert(budgetStage, "Missing stage-budget container");
+    assert(gotvStage, "Missing stage-gotv container");
+
+    const mirrorStatusEl = document.getElementById("gotvPlannerStatus");
+    assert(mirrorStatusEl, "Missing turnout assumptions mirror node (#gotvPlannerStatus)");
+    assert(budgetStage.contains(mirrorStatusEl), "Turnout assumptions mirror must live inside Budget stage");
+    assert(!gotvStage.contains(mirrorStatusEl), "Turnout assumptions mirror must not be inside GOTV stage");
+
+    const titles = Array.from(document.querySelectorAll(".card-title"));
+    const mirrorTitles = titles.filter((el) => /turnout assumptions source/i.test(String(el?.textContent || "")));
+    assert(mirrorTitles.length === 1, `Expected exactly one 'Turnout assumptions source' card title; got ${mirrorTitles.length}`);
+    return true;
+  });
+
   results.durationMs = Math.round(nowMs() - started);
   // Ensure totals are consistent even if something weird happened.
   results.passed = Math.max(0, results.total - results.failed);
