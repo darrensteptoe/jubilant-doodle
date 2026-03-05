@@ -119,6 +119,52 @@ function buildGovernanceSummary(scenario){
   };
 }
 
+function buildIntelBundle(scenario){
+  const intel = isPlainObject(scenario?.intelState) ? scenario.intelState : null;
+  if (!intel){
+    return {
+      available: false,
+      reason: "No intelState present in scenario export.",
+      counts: {
+        audit: 0,
+        evidence: 0,
+        briefs: 0,
+        recommendations: 0,
+      },
+      latestCalibrationBrief: null,
+      payload: {
+        audit: [],
+        evidence: [],
+        recommendations: [],
+      },
+    };
+  }
+
+  const audit = Array.isArray(intel.audit) ? structuredClone(intel.audit) : [];
+  const evidence = Array.isArray(intel.evidence) ? structuredClone(intel.evidence) : [];
+  const briefs = Array.isArray(intel.briefs) ? structuredClone(intel.briefs) : [];
+  const recommendations = Array.isArray(intel.recommendations) ? structuredClone(intel.recommendations) : [];
+  const latestCalibrationBrief = briefs
+    .filter((row) => row && cleanString(row.kind) === "calibrationSources")
+    .sort((a, b) => cleanString(b?.createdAt).localeCompare(cleanString(a?.createdAt)))[0] || null;
+
+  return {
+    available: true,
+    counts: {
+      audit: audit.length,
+      evidence: evidence.length,
+      briefs: briefs.length,
+      recommendations: recommendations.length,
+    },
+    latestCalibrationBrief: latestCalibrationBrief ? structuredClone(latestCalibrationBrief) : null,
+    payload: {
+      audit,
+      evidence,
+      recommendations,
+    },
+  };
+}
+
 export function hasNonFiniteNumbers(v){
   const seen = new Set();
   const walk = (x) => {
@@ -197,6 +243,7 @@ export function makeScenarioExport(snapshot){
     exportedAt: new Date().toISOString(),
     scenario: scen,
     governance: buildGovernanceSummary(scen),
+    intelBundle: buildIntelBundle(scen),
   };
 }
 

@@ -72,6 +72,7 @@ const KNOWN_TOP_LEVEL_KEYS = new Set([
   "exportedAt",
   "scenario",
   "governance",
+  "intelBundle",
 ]);
 
 // migrateSnapshot(rawExportObject) -> { snapshot, warnings }

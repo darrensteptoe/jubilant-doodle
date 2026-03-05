@@ -1085,6 +1085,21 @@ export function runSelfTests(engine){
     return true;
   });
 
+  test("Phase 10: migration allows intelBundle top-level key without unknown-field warning", () => {
+    const raw = {
+      modelVersion: MODEL_VERSION,
+      schemaVersion: CURRENT_SCHEMA_VERSION,
+      exportedAt: new Date().toISOString(),
+      snapshotHash: "abc12345",
+      intelBundle: { available: true, counts: { audit: 1 } },
+      scenario: withUniverseDefaults({ scenarioName: "IntelBundleKey", universeSize: 1000 }),
+    };
+    const mig = migrateSnapshot(raw);
+    const warningText = (Array.isArray(mig.warnings) ? mig.warnings : []).join(" | ").toLowerCase();
+    assert(!warningText.includes("unknown field 'intelbundle'"), "intelBundle key was treated as unknown");
+    return true;
+  });
+
   test("Phase 10: import missing schemaVersion migrates with warnings", () => {
     const scenario = { a: 1, ui: { training:false, dark:false } };
     const legacy = { modelVersion: MODEL_VERSION, snapshotHash: computeSnapshotHash({ modelVersion: MODEL_VERSION, scenarioState: scenario }), exportedAt: new Date().toISOString(), scenario };
@@ -1261,6 +1276,33 @@ export function runSelfTests(engine){
     assert(payload.governance.missing?.evidence === 1, "Governance missing evidence count mismatch");
     assert(payload.governance.missing?.note === 1, "Governance missing note count mismatch");
     assert(!!payload.governance.calibrationBrief, "Expected calibration brief summary");
+    return true;
+  });
+
+  test("Phase 11: export includes intel bundle payload + calibration brief content", () => {
+    const scenario = withUniverseDefaults({ scenarioName: "IntelBundleExport", universeSize: 1000, ui: { training: false, dark: false } });
+    scenario.intelState = makeDefaultIntelState();
+    scenario.intelState.audit = [
+      { id: "aud_1", ts: "2026-03-05T00:00:00.000Z", ref: "core.supportRatePct", requiresEvidence: true, evidenceId: null, status: "missingEvidence", governanceTracked: true }
+    ];
+    scenario.intelState.evidence = [
+      { id: "ev_1", ref: "core.supportRatePct", title: "Field memo", source: "operator", capturedAt: "2026-03-05T00:00:00.000Z" }
+    ];
+    scenario.intelState.recommendations = [
+      { id: "rec_1", title: "Adjust support rate", detail: "Observed < assumed", priority: 1, ref: "core.supportRatePct" }
+    ];
+    scenario.intelState.briefs = [
+      { id: "brief_1", kind: "calibrationSources", createdAt: "2026-03-05T01:00:00.000Z", content: "# Calibration sources" }
+    ];
+
+    const payload = makeScenarioExport({ modelVersion: MODEL_VERSION, scenarioState: scenario });
+    assert(payload.intelBundle && payload.intelBundle.available === true, "Missing intelBundle on export");
+    assert(payload.intelBundle.counts?.audit === 1, "intelBundle audit count mismatch");
+    assert(payload.intelBundle.counts?.evidence === 1, "intelBundle evidence count mismatch");
+    assert(payload.intelBundle.counts?.recommendations === 1, "intelBundle recommendation count mismatch");
+    assert(payload.intelBundle.latestCalibrationBrief && payload.intelBundle.latestCalibrationBrief.id === "brief_1", "intelBundle latest calibration brief missing");
+    assert(Array.isArray(payload.intelBundle.payload?.audit) && payload.intelBundle.payload.audit.length === 1, "intelBundle audit payload missing");
+    assert(Array.isArray(payload.intelBundle.payload?.evidence) && payload.intelBundle.payload.evidence.length === 1, "intelBundle evidence payload missing");
     return true;
   });
 
