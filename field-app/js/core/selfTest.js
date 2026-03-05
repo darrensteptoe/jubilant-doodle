@@ -45,6 +45,8 @@ import {
   captureObservedMetricsFromDrift,
   refreshDriftRecommendationsFromDrift,
   computeIntelIntegrityScore,
+  listMissingEvidenceAudit,
+  listMissingNoteAudit,
 } from "../app/intelControls.js";
 import {
   buildCriticalAuditSnapshot,
@@ -1880,6 +1882,145 @@ export function runSelfTests(engine){
     return true;
   });
 
+  test("Phase17 governance: unresolved critical edits coalesce by ref/key/source", () => {
+    const state = withUniverseDefaults({
+      scenarioName: "GovCoalesce",
+      supportRatePct: 55,
+      intelState: makeDefaultIntelState(),
+    });
+
+    let prev = buildCriticalAuditSnapshot(state);
+    state.supportRatePct = 60;
+    const first = captureCriticalAssumptionAudit({
+      state,
+      previousSnapshot: prev,
+      source: "selftest",
+      requireNote: true,
+      requireEvidence: true,
+      note: "",
+    });
+    assert(first.wroteAudit === true, "Expected first critical audit write");
+
+    prev = first.nextSnapshot;
+    state.supportRatePct = 62;
+    const second = captureCriticalAssumptionAudit({
+      state,
+      previousSnapshot: prev,
+      source: "selftest",
+      requireNote: true,
+      requireEvidence: true,
+      note: "",
+    });
+    assert(second.wroteAudit === true, "Expected second critical audit write");
+
+    const rows = (state.intelState.audit || []).filter((x) =>
+      x &&
+      x.kind === "critical_ref_change" &&
+      String(x.key || "") === "supportRatePct" &&
+      String(x.ref || "") === "core.supportRatePct" &&
+      String(x.source || "") === "selftest"
+    );
+    assert(rows.length === 1, `Expected coalesced unresolved audit row count 1, got ${rows.length}`);
+    const row = rows[0];
+    assert(approx(Number(row.before), 55, 1e-9), `Expected preserved original 'before' value 55, got ${row.before}`);
+    assert(approx(Number(row.after), 62, 1e-9), `Expected updated 'after' value 62, got ${row.after}`);
+    assert(String(row.status || "").toLowerCase() === "missingnote", "Expected unresolved status to remain missingNote");
+    return true;
+  });
+
+  test("Phase17 governance: missing evidence/note lists dedupe legacy duplicate rows", () => {
+    const state = withUniverseDefaults({
+      scenarioName: "GovDedupeLists",
+      intelState: makeDefaultIntelState(),
+    });
+
+    const intel = state.intelState;
+    const baseTs = "2026-03-05T00:00:00.000Z";
+    const newerTs = "2026-03-05T00:10:00.000Z";
+    intel.audit.push(
+      {
+        id: "aud_old",
+        ts: baseTs,
+        source: "ui",
+        kind: "critical_ref_change",
+        key: "supportRatePct",
+        ref: "core.supportRatePct",
+        requiresEvidence: true,
+        requiresNote: true,
+        note: "",
+        evidenceId: null,
+        status: "missingNote",
+        governanceTracked: true,
+      },
+      {
+        id: "aud_new",
+        ts: newerTs,
+        source: "ui",
+        kind: "critical_ref_change",
+        key: "supportRatePct",
+        ref: "core.supportRatePct",
+        requiresEvidence: true,
+        requiresNote: true,
+        note: "",
+        evidenceId: null,
+        status: "missingNote",
+        governanceTracked: true,
+      }
+    );
+
+    const missingEvidence = listMissingEvidenceAudit(state, { limit: 10 });
+    const missingNote = listMissingNoteAudit(state, { limit: 10 });
+    assert(missingEvidence.length === 1, `Expected deduped missing-evidence count 1, got ${missingEvidence.length}`);
+    assert(missingNote.length === 1, `Expected deduped missing-note count 1, got ${missingNote.length}`);
+    assert(String(missingEvidence[0]?.id) === "aud_new", "Expected newest duplicate row to survive dedupe");
+    return true;
+  });
+
+  test("Phase17 governance: evidence warnings dedupe legacy duplicate rows", () => {
+    const state = withUniverseDefaults({
+      scenarioName: "GovDedupeWarnings",
+      intelState: makeDefaultIntelState(),
+    });
+
+    const intel = state.intelState;
+    intel.audit.push(
+      {
+        id: "aud_w_old",
+        ts: "2026-03-05T00:00:00.000Z",
+        source: "ui",
+        kind: "critical_ref_change",
+        key: "supportRatePct",
+        ref: "core.supportRatePct",
+        requiresEvidence: true,
+        requiresNote: true,
+        note: "",
+        evidenceId: null,
+        status: "missingNote",
+        governanceTracked: true,
+      },
+      {
+        id: "aud_w_new",
+        ts: "2026-03-05T00:10:00.000Z",
+        source: "ui",
+        kind: "critical_ref_change",
+        key: "supportRatePct",
+        ref: "core.supportRatePct",
+        requiresEvidence: true,
+        requiresNote: true,
+        note: "",
+        evidenceId: null,
+        status: "missingNote",
+        governanceTracked: true,
+      }
+    );
+
+    const warnings = computeEvidenceWarnings(state, { limit: 10, staleDays: 0 });
+    const joined = warnings.join(" | ");
+    assert(joined.includes("Evidence gap: 1 critical assumption edit(s)"), "Expected deduped evidence-gap warning count");
+    assert(joined.includes("Documentation gap: 1 critical assumption edit(s)"), "Expected deduped note-gap warning count");
+    return true;
+  });
+
   test("Phase17 governance: integrity score penalizes missing governance artifacts", () => {
     const state = {
       intelState: makeDefaultIntelState(),
@@ -1968,6 +2109,56 @@ export function runSelfTests(engine){
       approx(execution.pace.gapAttemptsPerWeek, weekly?.gap, 1e-9),
       "Execution gapAttemptsPerWeek diverged from weekly context"
     );
+    return true;
+  });
+
+  test("Phase 9: weekly ops context uses timeline cap source when constrained timeline is ON", () => {
+    const mockState = {
+      goalSupportIds: 1000,
+      budget: {
+        optimize: { tlConstrainedEnabled: true },
+        tactics: {
+          doors: { kind: "persuasion" },
+          phones: { kind: "persuasion" },
+          texts: { kind: "gotv" },
+        },
+      },
+      timelineEnabled: true,
+      timelineActiveWeeks: 8,
+      timelineGotvWeeks: 2,
+      timelineStaffCount: 3,
+      timelineVolCount: 12,
+      timelineStaffHours: 40,
+      timelineVolHours: 6,
+      timelineDoorsPerHour: 18,
+      timelineCallsPerHour: 20,
+      timelineTextsPerHour: 80,
+      orgCount: 5,
+      orgHoursPerWeek: 40,
+      volunteerMultBase: 1.5,
+      channelDoorPct: 70,
+      doorsPerHour3: 18,
+      callsPerHour3: 20,
+    };
+
+    const ctx = computeWeeklyOpsContextFromState(mockState, {
+      res: { expected: { persuasionNeed: 1000 } },
+      weeks: 10,
+      getEffectiveBaseRatesForState: () => ({ cr: 0.2, sr: 0.5, tr: 0.8 }),
+      computeCapacityBreakdown: () => ({ total: 99999, doors: 70000, phones: 29999 }),
+      compileEffectiveInputsForState: () => null,
+      computeMaxAttemptsByTactic: () => ({
+        enabled: true,
+        maxAttemptsByTactic: { doors: 120, phones: 80, texts: 50 },
+      }),
+    });
+
+    assert(ctx && typeof ctx === "object", "Weekly context missing");
+    assert(ctx.capSource === "timeline", "Expected timeline cap source");
+    assert(ctx.capTotal === 250, `Expected timeline cap total 250, got ${ctx.capTotal}`);
+    assert(ctx.capByTactic?.doors === 120, "Expected timeline doors cap");
+    assert(ctx.capByTactic?.phones === 80, "Expected timeline phones cap");
+    assert(ctx.capByTactic?.texts === 50, "Expected timeline texts cap");
     return true;
   });
 
