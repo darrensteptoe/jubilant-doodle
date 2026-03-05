@@ -28,7 +28,25 @@ function fmtPct01(v){
   return `${(v * 100).toFixed(1)}%`;
 }
 
+function explainListOrDash(arr){
+  return Array.isArray(arr) && arr.length ? arr.join(", ") : "\u2014";
+}
+
+function buildExplainLines(explainNode){
+  if (!explainNode || typeof explainNode !== "object") return null;
+  return {
+    formula: explainNode.module || "\u2014",
+    upstream: explainListOrDash(explainNode.inputs),
+    dependsOn: explainListOrDash(explainNode.dependsOn),
+    note: String(explainNode.note || "").trim() || "\u2014",
+  };
+}
+
 function buildTraceItems({ state, res, weeks, fmtInt }){
+  const explain = (res && typeof res === "object" && res.explain && typeof res.explain === "object")
+    ? res.explain
+    : null;
+
   const persuasionNeed = asNum(res?.expected?.persuasionNeed);
   const manualGoal = asNum(state?.goalSupportIds);
   const goalSource = (manualGoal != null && manualGoal >= 0) ? "goalSupportIds (manual)" : "persuasionNeed (auto)";
@@ -73,6 +91,7 @@ function buildTraceItems({ state, res, weeks, fmtInt }){
       formula: "max(projected opponent votes after undecided allocation) + 1",
       upstream: "turnoutA/turnoutB/bandWidth, candidates[].supportPct, undecidedMode/userSplit",
       downstream: "kpiPersuasionNeed-sidebar",
+      explain: buildExplainLines(explain?.["expected.winThreshold"]),
     },
     {
       title: "Persuasion votes needed",
@@ -81,6 +100,7 @@ function buildTraceItems({ state, res, weeks, fmtInt }){
       formula: "max(0, winThreshold - yourProjectedVotes)",
       upstream: "win threshold inputs + yourCandidateId + candidate support distribution",
       downstream: "wkConvosPerWeek, wkAttemptsPerWeek, p3GapContacts, wkGapPerWeek",
+      explain: buildExplainLines(explain?.["expected.persuasionNeed"]),
     },
     {
       title: "Required attempts per week",
@@ -113,6 +133,7 @@ function buildTraceItems({ state, res, weeks, fmtInt }){
       formula: "count(simulatedMargins >= 0) / runs",
       upstream: "all deterministic inputs + mcMode + mcVolatility + mcSeed + runs",
       downstream: "risk framing, decision confidence, scenario comparison context",
+      explain: buildExplainLines(explain?.stressSummary),
     },
     {
       title: "Operations capacity override source",
@@ -163,9 +184,17 @@ export function renderImpactTracePanel({ els, state, res, weeks, fmtInt }){
 
     box.appendChild(head);
     appendLine(box, "Cells", item.outputs);
-    appendLine(box, "Formula", item.formula);
-    appendLine(box, "Upstream inputs", item.upstream);
-    appendLine(box, "Downstream effects", item.downstream);
+    if (item.explain){
+      appendLine(box, "Formula", item.explain.formula);
+      appendLine(box, "Upstream inputs", item.explain.upstream);
+      appendLine(box, "Depends on", item.explain.dependsOn);
+      appendLine(box, "Explain note", item.explain.note);
+      appendLine(box, "Downstream effects", item.downstream);
+    } else {
+      appendLine(box, "Formula", item.formula);
+      appendLine(box, "Upstream inputs", item.upstream);
+      appendLine(box, "Downstream effects", item.downstream);
+    }
 
     list.appendChild(box);
   }
