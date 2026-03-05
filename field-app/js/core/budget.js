@@ -62,7 +62,7 @@ export function computeRoiRows({
         liftPerContactPP: turnoutCtx.gotvLiftPP,
         requirePositiveCr: false,
       });
-    } else {
+    } else if (kind === "hybrid") {
       hybridEffectiveTr = computeHybridEffectiveTurnoutReliability({
         tr: tTr,
         liftAppliedPP: turnoutCtx.liftAppliedPP,
@@ -74,6 +74,9 @@ export function computeRoiRows({
         tr: hybridEffectiveTr,
         requirePositive: false,
       });
+    } else {
+      // persuasion-only: unchanged (TR already captures baseline voting reliability)
+      turnoutAdjustedNetVotesPerAttempt = baseNetVotesPerAttempt;
     }
 
     let requiredAttempts = null;
