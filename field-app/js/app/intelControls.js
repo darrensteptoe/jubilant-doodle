@@ -49,6 +49,40 @@ function makeId(prefix){
   return `${prefix}_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
 }
 
+function parseIsoMs(v){
+  const s = cleanString(v);
+  if (!s) return null;
+  const d = new Date(s);
+  const ms = d.getTime();
+  return Number.isFinite(ms) ? ms : null;
+}
+
+function deriveLegacyGovernanceBaselineIso(auditRows){
+  if (!Array.isArray(auditRows) || !auditRows.length) return null;
+  let maxMs = null;
+  for (const row of auditRows){
+    const ms = parseIsoMs(row?.ts || row?.createdAt || row?.updatedAt);
+    if (ms == null) continue;
+    if (maxMs == null || ms > maxMs) maxMs = ms;
+  }
+  return maxMs == null ? null : new Date(maxMs).toISOString();
+}
+
+function governanceBaselineMs(intel){
+  const ms = parseIsoMs(intel?.workflow?.governanceBaselineAt);
+  return ms == null ? null : ms;
+}
+
+function auditEntryInGovernanceScope(intel, row){
+  if (!row || typeof row !== "object") return false;
+  if (row.governanceTracked === true) return true;
+  const cutoffMs = governanceBaselineMs(intel);
+  if (cutoffMs == null) return true;
+  const rowMs = parseIsoMs(row?.ts || row?.createdAt || row?.updatedAt);
+  if (rowMs == null) return false;
+  return rowMs > cutoffMs;
+}
+
 function ensureArray(obj, key){
   if (!Array.isArray(obj[key])) obj[key] = [];
   return obj[key];
@@ -78,6 +112,7 @@ export function ensureIntelCollections(state){
       lockReason: "",
       lockedAt: null,
       lockedBy: "",
+      governanceBaselineAt: null,
       requireCriticalNote: true,
       requireCriticalEvidence: true,
     };
@@ -88,6 +123,11 @@ export function ensureIntelCollections(state){
     if (!("lockReason" in intel.workflow)) intel.workflow.lockReason = "";
     if (!("lockedAt" in intel.workflow)) intel.workflow.lockedAt = null;
     if (!("lockedBy" in intel.workflow)) intel.workflow.lockedBy = "";
+    if (!("governanceBaselineAt" in intel.workflow)) intel.workflow.governanceBaselineAt = null;
+  }
+  const hasGovernanceTrackedRows = intel.audit.some((x) => x && x.governanceTracked === true);
+  if (!cleanString(intel.workflow.governanceBaselineAt) && !hasGovernanceTrackedRows && intel.audit.length){
+    intel.workflow.governanceBaselineAt = deriveLegacyGovernanceBaselineIso(intel.audit);
   }
   if (!isObject(intel.simToggles)) intel.simToggles = {};
   if (!isObject(intel.expertToggles)) intel.expertToggles = {};
@@ -104,6 +144,7 @@ export function listMissingEvidenceAudit(state, { limit = 200 } = {}){
   const intel = ensureIntelCollections(state);
   if (!intel) return [];
   const rows = intel.audit.filter((x) =>
+    auditEntryInGovernanceScope(intel, x) &&
     x &&
     x.requiresEvidence === true &&
     !x.evidenceId &&
@@ -116,6 +157,7 @@ export function listMissingNoteAudit(state, { limit = 200 } = {}){
   const intel = ensureIntelCollections(state);
   if (!intel) return [];
   const rows = intel.audit.filter((x) =>
+    auditEntryInGovernanceScope(intel, x) &&
     x &&
     x.requiresNote === true &&
     !cleanString(x.note) &&

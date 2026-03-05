@@ -79,6 +79,28 @@ function parseDateMaybe(v){
   return Number.isFinite(d.getTime()) ? d : null;
 }
 
+function parseIsoMs(v){
+  if (!v) return null;
+  const d = new Date(v);
+  const ms = d.getTime();
+  return Number.isFinite(ms) ? ms : null;
+}
+
+function governanceBaselineMs(intel){
+  const ms = parseIsoMs(intel?.workflow?.governanceBaselineAt);
+  return ms == null ? null : ms;
+}
+
+function auditEntryInGovernanceScope(intel, entry){
+  if (!entry || typeof entry !== "object") return false;
+  if (entry.governanceTracked === true) return true;
+  const cutoffMs = governanceBaselineMs(intel);
+  if (cutoffMs == null) return true;
+  const rowMs = parseIsoMs(entry.ts || entry.createdAt || entry.updatedAt);
+  if (rowMs == null) return false;
+  return rowMs > cutoffMs;
+}
+
 export function buildCriticalAuditSnapshot(state){
   const out = {};
   for (const spec of CRITICAL_REF_SPECS){
@@ -130,6 +152,7 @@ export function captureCriticalAssumptionAudit({
       requiresNote: !!requireNote,
       note: String(note || "").trim(),
       evidenceId: null,
+      governanceTracked: true,
     };
     entry.status = resolveAuditRequirementStatus(entry);
     audit.push({
@@ -151,6 +174,7 @@ export function captureCriticalAssumptionAudit({
         requiresNote: !!requireNote,
         note: String(note || "").trim(),
         evidenceId: null,
+        governanceTracked: true,
       };
       entry.status = resolveAuditRequirementStatus(entry);
       audit.push(entry);
@@ -168,9 +192,10 @@ export function computeEvidenceWarnings(state, { limit = 2, staleDays = 30 } = {
   const intel = state?.intelState || {};
   const audit = Array.isArray(intel.audit) ? intel.audit : [];
   const evidence = Array.isArray(intel.evidence) ? intel.evidence : [];
+  const scopedAudit = audit.filter((x) => auditEntryInGovernanceScope(intel, x));
   const out = [];
 
-  const missing = audit.filter((x) =>
+  const missing = scopedAudit.filter((x) =>
     x &&
     x.requiresEvidence === true &&
     !x.evidenceId &&
@@ -180,7 +205,7 @@ export function computeEvidenceWarnings(state, { limit = 2, staleDays = 30 } = {
     out.push(`Evidence gap: ${missing.length} critical assumption edit(s) missing evidence.`);
   }
 
-  const missingNote = audit.filter((x) =>
+  const missingNote = scopedAudit.filter((x) =>
     x &&
     x.requiresNote === true &&
     !String(x.note || "").trim() &&

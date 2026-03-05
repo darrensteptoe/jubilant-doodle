@@ -206,6 +206,10 @@ import {
   captureCriticalAssumptionAudit,
   computeEvidenceWarnings
 } from "./app/intelAudit.js";
+import {
+  listMissingEvidenceAudit,
+  listMissingNoteAudit
+} from "./app/intelControls.js";
 import { renderIntelChecksModule } from "./app/renderIntelChecks.js";
 import { applyWeeklyLeverScenarioModule } from "./app/weeklyLeverScenarioAction.js";
 import {
@@ -763,19 +767,11 @@ async function copyDebugBundle(){
   const intel = state?.intelState || {};
   const intelAudit = Array.isArray(intel?.audit) ? intel.audit : [];
   const intelEvidence = Array.isArray(intel?.evidence) ? intel.evidence : [];
+  const missingEvidenceAudit = listMissingEvidenceAudit(state, { limit: 2000 });
+  const missingNoteAudit = listMissingNoteAudit(state, { limit: 2000 });
   const workflow = intel?.workflow && typeof intel.workflow === "object" ? intel.workflow : {};
-  const intelMissingEvidence = intelAudit.filter((x) =>
-    x &&
-    x.requiresEvidence === true &&
-    !x.evidenceId &&
-    String(x.status || "").toLowerCase() !== "resolved"
-  ).length;
-  const intelMissingNote = intelAudit.filter((x) =>
-    x &&
-    x.requiresNote === true &&
-    !String(x.note || "").trim() &&
-    String(x.status || "").toLowerCase() !== "resolved"
-  ).length;
+  const intelMissingEvidence = missingEvidenceAudit.length;
+  const intelMissingNote = missingNoteAudit.length;
   const bundle = {
     appVersion: APP_VERSION,
     buildId: BUILD_ID,
