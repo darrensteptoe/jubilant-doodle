@@ -65,6 +65,32 @@ function normalizeCorrelationModel(row){
   };
 }
 
+function normalizeShockScenario(row){
+  if (!isObject(row)) return null;
+  const id = row.id ? String(row.id) : "";
+  const label = row.label ? String(row.label) : "";
+  const rawProbability = Number(row.probability);
+  if (!Number.isFinite(rawProbability)) return null;
+  const probability = clamp(rawProbability, 0, 1);
+  const impactsIn = toArray(row.impacts);
+  const impacts = [];
+  for (const item of impactsIn){
+    if (!isObject(item)) continue;
+    const ref = item.ref ? String(item.ref) : "";
+    const delta = toFiniteNumber(item.delta, null);
+    if (!ref || delta == null) continue;
+    impacts.push({ ref, delta });
+  }
+  if (!impacts.length) return null;
+  return {
+    id,
+    label,
+    impacts,
+    probability,
+    notes: row.notes ? String(row.notes) : "",
+  };
+}
+
 export function makeDefaultIntelState(){
   return {
     version: INTEL_STATE_VERSION,
@@ -113,7 +139,13 @@ export function normalizeIntelState(raw){
   out.briefs = toArray(raw.briefs);
   out.recommendations = toArray(raw.recommendations);
   out.observedMetrics = toArray(raw.observedMetrics);
-  out.shockScenarios = toArray(raw.shockScenarios);
+  const shockRows = toArray(raw.shockScenarios);
+  const normalizedShock = [];
+  for (const row of shockRows){
+    const next = normalizeShockScenario(row);
+    if (next) normalizedShock.push(next);
+  }
+  out.shockScenarios = normalizedShock;
 
   const corrRows = toArray(raw.correlationModels);
   const normalizedCorr = [];

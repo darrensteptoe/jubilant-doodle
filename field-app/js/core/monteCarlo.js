@@ -329,11 +329,93 @@ function resolveCorrelationConfig(sc, distribution){
   };
 }
 
+function toProb01(v){
+  const n = Number(v);
+  if (!Number.isFinite(n)) return null;
+  return clamp(n, 0, 1);
+}
+
+function resolveShockScenarioConfig(sc){
+  const intel = sc?.intelState;
+  const toggles = intel?.simToggles || {};
+  if (!toggles?.shockScenariosEnabled){
+    return { enabled: false, reason: "off", scenarios: [], configured: 0 };
+  }
+
+  const rows = Array.isArray(intel?.shockScenarios) ? intel.shockScenarios : [];
+  const scenarios = [];
+
+  for (const row of rows){
+    const probability = toProb01(row?.probability);
+    if (probability == null || probability <= 0) continue;
+
+    const impactsRaw = Array.isArray(row?.impacts) ? row.impacts : [];
+    const impacts = [];
+    for (const impact of impactsRaw){
+      const varKey = REF_TO_VAR_KEY[normalizeRefKey(impact?.ref)] || null;
+      const delta = Number(impact?.delta);
+      if (!varKey || !Number.isFinite(delta)) continue;
+      impacts.push({ varKey, delta });
+    }
+    if (!impacts.length) continue;
+
+    scenarios.push({
+      id: String(row?.id || "").trim() || null,
+      label: String(row?.label || "").trim() || null,
+      probability,
+      impacts,
+    });
+  }
+
+  if (!scenarios.length){
+    return { enabled: true, reason: "no_scenarios", scenarios: [], configured: rows.length };
+  }
+  return {
+    enabled: true,
+    reason: "ok",
+    scenarios,
+    configured: rows.length,
+  };
+}
+
+function applyShockImpacts(values, impacts){
+  if (!values || !Array.isArray(impacts) || !impacts.length) return values;
+
+  for (const impact of impacts){
+    const key = impact?.varKey;
+    const rawDelta = Number(impact?.delta);
+    if (!key || !Number.isFinite(rawDelta)) continue;
+
+    if (key === "contactRate" || key === "persuasionRate" || key === "turnoutReliability"){
+      const deltaUnit = Math.abs(rawDelta) > 1 ? (rawDelta / 100) : rawDelta;
+      values[key] = clamp((Number(values[key]) || 0) + deltaUnit, 0, 1);
+      continue;
+    }
+
+    if (key === "doorsPerHour" || key === "callsPerHour"){
+      values[key] = Math.max(0.01, (Number(values[key]) || 0) + rawDelta);
+      continue;
+    }
+
+    if (key === "volunteerMult"){
+      values[key] = Math.max(0.01, (Number(values[key]) || 0) + rawDelta);
+      continue;
+    }
+
+    if (key === "gotvLift"){
+      values[key] = Math.max(0, (Number(values[key]) || 0) + rawDelta);
+    }
+  }
+
+  return values;
+}
+
 export function runMonteCarloSim({ scenario, scenarioState, res, weeks, needVotes, runs, seed, includeMargins }){
   const sc = scenario || scenarioState || {}; 
   const mode = sc.mcMode || "basic";
   const distribution = normalizeDistribution(sc?.intelState?.simToggles?.mcDistribution);
   const correlationCfg = resolveCorrelationConfig(sc, distribution);
+  const shockCfg = resolveShockScenarioConfig(sc);
 
   // Base rates
   const baseCr = pctToUnit(safeNum(sc.contactRatePct), 0.22);
@@ -398,6 +480,8 @@ export function runMonteCarloSim({ scenario, scenarioState, res, weeks, needVote
     samples.gotvLift = new Array(runs);
   }
 
+  let shockAppliedRuns = 0;
+  let shockTriggeredEvents = 0;
 
   for (let i=0;i<runs;i++){
     let correlatedU = null;
@@ -418,12 +502,12 @@ export function runMonteCarloSim({ scenario, scenarioState, res, weeks, needVote
       return sampleFromSpec(spec, rng, distribution);
     };
 
-    const cr = pick("contactRate", specs.contactRate);
-    const pr = pick("persuasionRate", specs.persuasionRate);
-    const rr = pick("turnoutReliability", specs.turnoutReliability);
-    const dph = pick("doorsPerHour", specs.doorsPerHour);
-    const cph = pick("callsPerHour", specs.callsPerHour);
-    const vm = pick("volunteerMult", specs.volunteerMult);
+    let cr = pick("contactRate", specs.contactRate);
+    let pr = pick("persuasionRate", specs.persuasionRate);
+    let rr = pick("turnoutReliability", specs.turnoutReliability);
+    let dph = pick("doorsPerHour", specs.doorsPerHour);
+    let cph = pick("callsPerHour", specs.callsPerHour);
+    let vm = pick("volunteerMult", specs.volunteerMult);
 
     let gotvLiftPP = 0;
     if (turnoutEnabled){
@@ -438,6 +522,37 @@ export function runMonteCarloSim({ scenario, scenarioState, res, weeks, needVote
         }
       } else {
         gotvLiftPP = Math.max(0, safeNum(sc.gotvLiftPP) ?? 0);
+      }
+    }
+
+    if (shockCfg.enabled && shockCfg.scenarios.length){
+      const activeImpacts = [];
+      for (const scenarioRow of shockCfg.scenarios){
+        if (rng() < scenarioRow.probability){
+          shockTriggeredEvents += 1;
+          for (const impact of scenarioRow.impacts){
+            activeImpacts.push(impact);
+          }
+        }
+      }
+      if (activeImpacts.length){
+        shockAppliedRuns += 1;
+        const shocked = applyShockImpacts({
+          contactRate: cr,
+          persuasionRate: pr,
+          turnoutReliability: rr,
+          doorsPerHour: dph,
+          callsPerHour: cph,
+          volunteerMult: vm,
+          gotvLift: gotvLiftPP,
+        }, activeImpacts);
+        cr = shocked.contactRate;
+        pr = shocked.persuasionRate;
+        rr = shocked.turnoutReliability;
+        dph = shocked.doorsPerHour;
+        cph = shocked.callsPerHour;
+        vm = shocked.volunteerMult;
+        gotvLiftPP = shocked.gotvLift;
       }
     }
 
@@ -559,6 +674,15 @@ export function runMonteCarloSim({ scenario, scenarioState, res, weeks, needVote
       modelId: correlationCfg?.modelId || null,
       modelLabel: correlationCfg?.modelLabel || null,
       reason: correlationCfg?.reason || "off",
+    },
+    shocks: {
+      enabled: !!sc?.intelState?.simToggles?.shockScenariosEnabled,
+      configured: shockCfg?.configured || 0,
+      activeScenarios: Array.isArray(shockCfg?.scenarios) ? shockCfg.scenarios.length : 0,
+      appliedRuns: shockAppliedRuns,
+      appliedRunRate: runs > 0 ? (shockAppliedRuns / runs) : 0,
+      triggeredEvents: shockTriggeredEvents,
+      reason: shockCfg?.reason || "off",
     },
     turnoutAdjusted: turnoutAdjustedSummary,
   };
