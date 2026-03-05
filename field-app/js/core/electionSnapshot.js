@@ -10,6 +10,7 @@ import {
   computeCapacityBreakdown,
 } from "./model.js";
 import { clamp } from "./utils.js";
+import { buildDeterministicExplainMap } from "./explainMap.js";
 
 function toNumDefault(v){
   const n = Number(v);
@@ -47,7 +48,14 @@ export function computeElectionSnapshot({
 } = {}){
   const snap = state || {};
   const modelInput = buildModelInputFromSnapshot(snap, toNum);
-  const res = computeDeterministic(modelInput);
+  const baseRes = computeDeterministic(modelInput);
+  const includeExplain = !!snap?.ui?.training;
+  const res = (includeExplain && baseRes && typeof baseRes === "object")
+    ? {
+        ...baseRes,
+        explain: buildDeterministicExplainMap(modelInput, baseRes),
+      }
+    : baseRes;
 
   const weeks = deriveWeeksRemainingCeil({
     weeksRemainingOverride: snap.weeksRemaining,
