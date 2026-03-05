@@ -4,7 +4,13 @@ import {
   attachEvidenceRecord,
   captureObservedMetricsFromDrift,
   generateCalibrationSourceBrief,
+  generateDriftExplanationBrief,
+  generateScenarioDiffBrief,
+  generateScenarioSummaryBrief,
+  generateSensitivityInterpretationBrief,
   getLatestBriefByKind,
+  intelBriefKindLabel,
+  listIntelBriefKinds,
   importCorrelationModelsJson,
   importShockScenariosJson,
   loadDefaultBenchmarksForRaceType,
@@ -355,6 +361,21 @@ export function wireIntelChecksEvents(ctx){
   const setDecayStatus = (msg, kind = "muted") => {
     setStatus(els.intelDecayStatus || els.intelCalibrationStatus, msg, kind);
   };
+  const knownBriefKinds = new Set(listIntelBriefKinds());
+  const selectedBriefKind = () => {
+    const raw = String(els.intelBriefKind?.value || "calibrationSources").trim();
+    return knownBriefKinds.has(raw) ? raw : "calibrationSources";
+  };
+  const generateBriefForKind = (s, kind) => {
+    if (kind === "scenarioSummary") return generateScenarioSummaryBrief(s);
+    if (kind === "scenarioDiff") return generateScenarioDiffBrief(s, { baselineId: "baseline" });
+    if (kind === "driftExplanation"){
+      const drift = (typeof computeRealityDrift === "function") ? computeRealityDrift() : null;
+      return generateDriftExplanationBrief(s, { drift });
+    }
+    if (kind === "sensitivityInterpretation") return generateSensitivityInterpretationBrief(s);
+    return generateCalibrationSourceBrief(s);
+  };
   const clampPct100 = (v) => {
     const n = Number(v);
     if (!Number.isFinite(n)) return null;
@@ -375,15 +396,16 @@ export function wireIntelChecksEvents(ctx){
     els.btnIntelCalibrationGenerate.addEventListener("click", () => {
       const s = currentState();
       if (!s) return;
-      const result = generateCalibrationSourceBrief(s);
+      const kind = selectedBriefKind();
+      const result = generateBriefForKind(s, kind);
       if (!result.ok){
-        setCalibrationStatus(result.error || "Failed to generate calibration brief.", "warn");
+        setCalibrationStatus(result.error || `Failed to generate ${intelBriefKindLabel(kind).toLowerCase()} brief.`, "warn");
         return;
       }
       if (els.intelCalibrationBriefContent){
         els.intelCalibrationBriefContent.value = result?.brief?.content || "";
       }
-      setCalibrationStatus("Calibration brief generated.", "ok");
+      setCalibrationStatus(`${intelBriefKindLabel(kind)} brief generated.`, "ok");
       commitUIUpdate();
     });
   }
@@ -392,22 +414,31 @@ export function wireIntelChecksEvents(ctx){
     els.btnIntelCalibrationCopy.addEventListener("click", async () => {
       const s = currentState();
       if (!s) return;
-      const brief = getLatestBriefByKind(s, "calibrationSources");
+      const kind = selectedBriefKind();
+      const brief = getLatestBriefByKind(s, kind);
       const content = String(brief?.content || els.intelCalibrationBriefContent?.value || "").trim();
       if (!content){
-        setCalibrationStatus("No calibration brief to copy yet.", "warn");
+        setCalibrationStatus(`No ${intelBriefKindLabel(kind).toLowerCase()} brief to copy yet.`, "warn");
         return;
       }
       try{
         if (navigator?.clipboard?.writeText){
           await navigator.clipboard.writeText(content);
-          setCalibrationStatus("Calibration brief copied to clipboard.", "ok");
+          setCalibrationStatus(`${intelBriefKindLabel(kind)} brief copied to clipboard.`, "ok");
         } else {
           throw new Error("Clipboard API unavailable");
         }
       } catch {
         setCalibrationStatus("Clipboard blocked. Copy text manually from the brief box.", "warn");
       }
+    });
+  }
+
+  if (els.intelBriefKind){
+    els.intelBriefKind.addEventListener("change", () => {
+      const kind = selectedBriefKind();
+      setCalibrationStatus(`Viewing ${intelBriefKindLabel(kind).toLowerCase()} brief.`, "muted");
+      commitUIUpdate({ allowScenarioLockBypass: true });
     });
   }
 

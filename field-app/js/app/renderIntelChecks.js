@@ -4,7 +4,9 @@ import {
   ensureIntelCollections,
   getIntelWorkflow,
   getLatestBriefByKind,
+  intelBriefKindLabel,
   listIntelBenchmarks,
+  listIntelBriefKinds,
   listIntelEvidence,
   listMissingEvidenceAudit,
   listMissingNoteAudit,
@@ -243,7 +245,19 @@ export function renderIntelChecksModule({
     els.intelEvidenceCapturedAt.value = new Date().toISOString().slice(0, 10);
   }
 
-  const calibrationBrief = getLatestBriefByKind(state, "calibrationSources");
+  const knownBriefKinds = new Set(listIntelBriefKinds());
+  const selectedBriefKind = (() => {
+    const raw = String(state?.ui?.intelBriefKind || els.intelBriefKind?.value || "calibrationSources").trim();
+    return knownBriefKinds.has(raw) ? raw : "calibrationSources";
+  })();
+  if (state?.ui){
+    state.ui.intelBriefKind = selectedBriefKind;
+  }
+  if (els.intelBriefKind && document.activeElement !== els.intelBriefKind){
+    els.intelBriefKind.value = selectedBriefKind;
+  }
+
+  const calibrationBrief = getLatestBriefByKind(state, selectedBriefKind);
   const mcDist = String(state?.intelState?.simToggles?.mcDistribution || "triangular");
   const correlatedShocks = !!state?.intelState?.simToggles?.correlatedShocks;
   const corrMatrixId = String(state?.intelState?.simToggles?.correlationMatrixId || "");
@@ -329,10 +343,10 @@ export function renderIntelChecksModule({
     if (calibrationBrief){
       els.intelCalibrationStatus.classList.add("muted");
       const ts = fmtDate(calibrationBrief?.createdAt);
-      els.intelCalibrationStatus.textContent = `Last generated: ${ts}.`;
+      els.intelCalibrationStatus.textContent = `${intelBriefKindLabel(selectedBriefKind)} brief · last generated ${ts}.`;
     } else {
       els.intelCalibrationStatus.classList.add("muted");
-      els.intelCalibrationStatus.textContent = "No calibration brief generated yet.";
+      els.intelCalibrationStatus.textContent = `No ${intelBriefKindLabel(selectedBriefKind).toLowerCase()} brief generated yet.`;
     }
   }
   if (els.intelObservedCount){

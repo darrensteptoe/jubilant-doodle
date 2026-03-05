@@ -21,6 +21,16 @@ const REF_LABELS = {
   "core.callsPerHour": "Calls/hour",
 };
 
+const BRIEF_KIND_LABELS = {
+  calibrationSources: "Calibration source",
+  scenarioSummary: "Scenario summary",
+  scenarioDiff: "Scenario diff",
+  driftExplanation: "Drift explanation",
+  sensitivityInterpretation: "Sensitivity interpretation",
+};
+
+const BRIEF_KIND_LIST = Object.keys(BRIEF_KIND_LABELS);
+
 function isObject(v){
   return !!v && typeof v === "object" && !Array.isArray(v);
 }
@@ -90,6 +100,15 @@ function ensureArray(obj, key){
 
 export function benchmarkRefLabel(ref){
   return REF_LABELS[cleanString(ref)] || cleanString(ref) || "Unknown ref";
+}
+
+export function listIntelBriefKinds(){
+  return BRIEF_KIND_LIST.slice();
+}
+
+export function intelBriefKindLabel(kind){
+  const key = cleanString(kind);
+  return BRIEF_KIND_LABELS[key] || key || "Brief";
 }
 
 export function ensureIntelCollections(state){
@@ -571,6 +590,70 @@ export function getLatestBriefByKind(state, kind){
   return rows[0] || null;
 }
 
+function pushBriefRow(intel, { kind, content, promptId = "", model = "manual" } = {}){
+  const brief = {
+    id: makeId("brief"),
+    kind: cleanString(kind) || "calibrationSources",
+    content: String(content || "").trim(),
+    promptId: cleanString(promptId),
+    model: cleanString(model) || "manual",
+    createdAt: nowIso(),
+  };
+  ensureArray(intel, "briefs").push(brief);
+  return brief;
+}
+
+function fmtSignedNum(value, digits = 0){
+  const n = Number(value);
+  if (!Number.isFinite(n)) return "—";
+  const abs = Math.abs(n).toFixed(Math.max(0, digits | 0));
+  const compact = abs.replace(/\.0+$/, "").replace(/(\.\d*?)0+$/, "$1");
+  return `${n >= 0 ? "+" : "-"}${compact}`;
+}
+
+function fmtAny(value){
+  if (value == null || value === "") return "—";
+  if (typeof value === "boolean") return value ? "On" : "Off";
+  if (typeof value === "number") return fmtNum(value);
+  return String(value);
+}
+
+function fmtIsoDate(value){
+  const s = cleanString(value);
+  if (!s) return "—";
+  const d = new Date(s);
+  if (!Number.isFinite(d.getTime())) return s;
+  return d.toISOString().slice(0, 10);
+}
+
+function pickScenarioRecord(state, scenarioId){
+  const reg = state?.ui?.scenarios;
+  if (!isObject(reg)) return null;
+  const sid = cleanString(scenarioId);
+  if (!sid) return null;
+  return isObject(reg[sid]) ? reg[sid] : null;
+}
+
+function currentScenarioRecord(state){
+  const activeId = cleanString(state?.ui?.activeScenarioId);
+  return pickScenarioRecord(state, activeId) || null;
+}
+
+function baselineScenarioRecord(state){
+  return pickScenarioRecord(state, "baseline") || null;
+}
+
+function summarizeScenarioOutputs(record, fallbackSummary = null){
+  const recSummary = record?.outputs?.summary;
+  if (isObject(recSummary) && Object.keys(recSummary).length){
+    return recSummary;
+  }
+  if (isObject(fallbackSummary) && Object.keys(fallbackSummary).length){
+    return fallbackSummary;
+  }
+  return {};
+}
+
 export function captureObservedMetricsFromDrift(state, drift = null, { source = "dailyLog.rolling7", maxEntries = 180 } = {}){
   const intel = ensureIntelCollections(state);
   if (!intel) return { ok: false, error: "Intel state unavailable." };
@@ -882,17 +965,254 @@ export function generateCalibrationSourceBrief(state){
     `- This brief documents calibration inputs and evidence status.`,
     `- It does not alter deterministic or Monte Carlo outputs.`,
   ].join("\n");
-
-  const brief = {
-    id: makeId("brief"),
+  const brief = pushBriefRow(intel, {
     kind: "calibrationSources",
     content,
     promptId: "manual.calibrationSources.v1",
     model: "manual",
-    createdAt: now,
+  });
+  return { ok: true, brief };
+}
+
+export function generateScenarioSummaryBrief(state){
+  const intel = ensureIntelCollections(state);
+  if (!intel) return { ok: false, error: "Intel state unavailable." };
+
+  const rec = currentScenarioRecord(state);
+  const scenarioId = cleanString(state?.ui?.activeScenarioId) || cleanString(rec?.id) || "baseline";
+  const scenarioName = cleanString(rec?.name) || cleanString(state?.scenarioName) || scenarioId;
+  const summary = summarizeScenarioOutputs(rec, state?.ui?.lastSummary);
+  const mc = state?.mcLast;
+  const missingEvidence = listMissingEvidenceAudit(state, { limit: 500 }).length;
+  const missingNote = listMissingNoteAudit(state, { limit: 500 }).length;
+  const benchmarkCount = ensureArray(intel, "benchmarks").length;
+  const evidenceCount = ensureArray(intel, "evidence").length;
+
+  const lines = [
+    `# Scenario summary`,
+    ``,
+    `Generated: ${nowIso()}`,
+    `Scenario: ${scenarioName} (${scenarioId})`,
+    `Race type: ${cleanString(state?.raceType) || "—"}`,
+    `Mode: ${cleanString(state?.mode) || "—"}`,
+    `Election date: ${cleanString(state?.electionDate) || "—"}`,
+    ``,
+    `## Core assumptions`,
+    `- Universe size: ${fmtNum(state?.universeSize)}`,
+    `- Persuasion % of universe: ${fmtNum(state?.persuasionPct)}`,
+    `- Contact rate: ${fmtPct(state?.contactRatePct)}`,
+    `- Support rate: ${fmtPct(state?.supportRatePct)}`,
+    `- Organizers: ${fmtNum(state?.orgCount)}`,
+    `- Organizer hours/week: ${fmtNum(state?.orgHoursPerWeek)}`,
+    `- Volunteer multiplier: ${fmtNum(state?.volunteerMultBase)}`,
+    ``,
+    `## Latest plan summary`,
+    `- Objective: ${cleanString(summary?.objective) || "—"}`,
+    `- Expected net votes: ${fmtNum(summary?.expectedNetVotes)}`,
+    `- Total cost: ${fmtNum(summary?.totalCost)}`,
+    `- Feasibility: ${summary?.feasibility === true ? "true" : summary?.feasibility === false ? "false" : "—"}`,
+    `- Primary bottleneck: ${cleanString(summary?.primaryBottleneck) || "—"}`,
+    `- Snapshot hash: ${cleanString(summary?.snapshotHash) || "—"}`,
+    ``,
+    `## Monte Carlo snapshot`,
+    `- Runs: ${fmtNum(mc?.runs)}`,
+    `- Win probability: ${mc?.winProb == null ? "—" : `${(Number(mc.winProb) * 100).toFixed(1)}%`}`,
+    `- Median margin: ${fmtSignedNum(mc?.median, 0)}`,
+    `- P10 / P90: ${fmtSignedNum(mc?.p10, 0)} / ${fmtSignedNum(mc?.p90, 0)}`,
+    ``,
+    `## Governance status`,
+    `- Benchmarks configured: ${benchmarkCount}`,
+    `- Evidence records: ${evidenceCount}`,
+    `- Missing evidence items: ${missingEvidence}`,
+    `- Missing note items: ${missingNote}`,
+  ];
+
+  const brief = pushBriefRow(intel, {
+    kind: "scenarioSummary",
+    content: lines.join("\n"),
+    promptId: "manual.scenarioSummary.v1",
+    model: "manual",
+  });
+  return { ok: true, brief };
+}
+
+export function generateScenarioDiffBrief(state, { baselineId = "baseline" } = {}){
+  const intel = ensureIntelCollections(state);
+  if (!intel) return { ok: false, error: "Intel state unavailable." };
+
+  const activeRec = currentScenarioRecord(state);
+  const baseRec = pickScenarioRecord(state, baselineId) || baselineScenarioRecord(state);
+  if (!baseRec || !activeRec){
+    return { ok: false, error: "Baseline or active scenario record is unavailable." };
+  }
+  if (cleanString(activeRec.id) === cleanString(baseRec.id)){
+    return { ok: false, error: "Active scenario is baseline. Create or load another scenario to diff." };
+  }
+
+  const baseInputs = isObject(baseRec?.inputs) ? baseRec.inputs : {};
+  const activeInputs = isObject(activeRec?.inputs) ? activeRec.inputs : {};
+  const labels = {
+    raceType: "Race type",
+    mode: "Mode",
+    electionDate: "Election date",
+    weeksRemaining: "Weeks remaining override",
+    universeBasis: "Universe basis",
+    universeSize: "Universe size",
+    persuasionPct: "Persuasion % of universe",
+    supportRatePct: "Support rate %",
+    contactRatePct: "Contact rate %",
+    turnoutCycleA: "Turnout cycle A %",
+    turnoutCycleB: "Turnout cycle B %",
+    bandWidth: "Turnout band width",
+    orgCount: "Organizers",
+    orgHoursPerWeek: "Organizer hours/week",
+    volunteerMultBase: "Volunteer multiplier",
+    channelDoorPct: "Door share %",
+    doorsPerHour3: "Doors/hour",
+    callsPerHour3: "Calls/hour",
   };
 
-  ensureArray(intel, "briefs").push(brief);
+  const keys = new Set([...Object.keys(baseInputs), ...Object.keys(activeInputs)]);
+  const changed = [];
+  for (const key of keys){
+    if (key === "ui" || key === "mcLast" || key === "mcLastHash") continue;
+    const a = baseInputs[key];
+    const b = activeInputs[key];
+    const same = (a === b) || (String(a ?? "") === String(b ?? ""));
+    if (same) continue;
+    changed.push({
+      key,
+      label: labels[key] || key,
+      base: a,
+      active: b,
+    });
+  }
+  changed.sort((x, y) => String(x.label).localeCompare(String(y.label)));
+
+  const baseSummary = summarizeScenarioOutputs(baseRec);
+  const activeSummary = summarizeScenarioOutputs(activeRec, state?.ui?.lastSummary);
+  const compareLine = (label, key) => {
+    const b = baseSummary?.[key];
+    const a = activeSummary?.[key];
+    if (key === "feasibility"){
+      const bv = b === true ? "true" : b === false ? "false" : "—";
+      const av = a === true ? "true" : a === false ? "false" : "—";
+      return `- ${label}: ${bv} -> ${av}`;
+    }
+    return `- ${label}: ${fmtNum(b)} -> ${fmtNum(a)}`;
+  };
+
+  const lines = [
+    `# Scenario diff`,
+    ``,
+    `Generated: ${nowIso()}`,
+    `Baseline: ${cleanString(baseRec?.name) || baseRec?.id || baselineId}`,
+    `Active: ${cleanString(activeRec?.name) || activeRec?.id || "active"}`,
+    `Changed inputs: ${changed.length}`,
+    ``,
+    `## Key changed inputs`,
+    ...(changed.length
+      ? changed.slice(0, 20).map((row) => `- ${row.label}: ${fmtAny(row.base)} -> ${fmtAny(row.active)}`)
+      : ["- No input differences detected."]),
+    ...(changed.length > 20 ? [`- ...${changed.length - 20} additional input changes not shown.`] : []),
+    ``,
+    `## Output comparison (latest stored summaries)`,
+    compareLine("Expected net votes", "expectedNetVotes"),
+    compareLine("Total cost", "totalCost"),
+    compareLine("Feasibility", "feasibility"),
+    `- Primary bottleneck: ${cleanString(baseSummary?.primaryBottleneck) || "—"} -> ${cleanString(activeSummary?.primaryBottleneck) || "—"}`,
+  ];
+
+  const brief = pushBriefRow(intel, {
+    kind: "scenarioDiff",
+    content: lines.join("\n"),
+    promptId: "manual.scenarioDiff.v1",
+    model: "manual",
+  });
+  return { ok: true, brief };
+}
+
+export function generateDriftExplanationBrief(state, { drift = null } = {}){
+  const intel = ensureIntelCollections(state);
+  if (!intel) return { ok: false, error: "Intel state unavailable." };
+  const d = isObject(drift) ? drift : null;
+  if (!d?.hasLog){
+    return { ok: false, error: "No daily log data available for drift explanation." };
+  }
+
+  const autoRecs = ensureArray(intel, "recommendations")
+    .filter((x) => cleanString(x?.source) === "auto.realityDrift.v1")
+    .sort((a, b) => Number(a?.priority || 99) - Number(b?.priority || 99));
+
+  const lines = [
+    `# Drift explanation`,
+    ``,
+    `Generated: ${nowIso()}`,
+    `Window: ${fmtIsoDate(d?.windowStart)} to ${fmtIsoDate(d?.windowEnd)} (${fmtNum(d?.windowEntries)} entries)`,
+    `Primary drift axis: ${cleanString(d?.primary) || "none"}`,
+    ``,
+    `## Observed vs assumed`,
+    `- Contact rate: ${fmtRatioPct(d?.actualCR)} vs ${fmtRatioPct(d?.assumedCR)}`,
+    `- Support rate: ${fmtRatioPct(d?.actualSR)} vs ${fmtRatioPct(d?.assumedSR)}`,
+    `- Attempts/org hour: ${fmtNum(d?.actualAPH)} vs ${fmtNum(d?.expectedAPH)}`,
+    ``,
+    `## Active drift flags`,
+    ...(Array.isArray(d?.flags) && d.flags.length
+      ? d.flags.map((x) => `- ${x}`)
+      : ["- No drift flags triggered (within tolerance)."]),
+    ``,
+    `## Recommendation summary`,
+    ...(autoRecs.length
+      ? autoRecs.slice(0, 5).map((row, idx) => `- [P${fmtNum(row?.priority)}] ${cleanString(row?.title) || `Recommendation ${idx + 1}`}: ${cleanString(row?.detail) || "—"}`)
+      : ["- No auto-generated drift recommendations."]),
+  ];
+
+  const brief = pushBriefRow(intel, {
+    kind: "driftExplanation",
+    content: lines.join("\n"),
+    promptId: "manual.driftExplanation.v1",
+    model: "manual",
+  });
+  return { ok: true, brief };
+}
+
+export function generateSensitivityInterpretationBrief(state){
+  const intel = ensureIntelCollections(state);
+  if (!intel) return { ok: false, error: "Intel state unavailable." };
+  const mc = state?.mcLast;
+  const rows = Array.isArray(mc?.sensitivity) ? mc.sensitivity.slice() : [];
+  if (!rows.length){
+    return { ok: false, error: "Run Monte Carlo first to generate sensitivity interpretation." };
+  }
+
+  rows.sort((a, b) => Math.abs(Number(b?.impact || 0)) - Math.abs(Number(a?.impact || 0)));
+  const top = rows.slice(0, 8);
+  const ce = mc?.confidenceEnvelope;
+
+  const lines = [
+    `# Sensitivity interpretation`,
+    ``,
+    `Generated: ${nowIso()}`,
+    `Monte Carlo runs: ${fmtNum(mc?.runs)}`,
+    `Win probability: ${mc?.winProb == null ? "—" : `${(Number(mc.winProb) * 100).toFixed(1)}%`}`,
+    `Median margin: ${fmtSignedNum(mc?.median, 0)}`,
+    `P10 / P50 / P90 margin: ${fmtSignedNum(ce?.percentiles?.p10, 0)} / ${fmtSignedNum(ce?.percentiles?.p50, 0)} / ${fmtSignedNum(ce?.percentiles?.p90, 0)}`,
+    ``,
+    `## Top sensitivity drivers (absolute impact)`,
+    ...top.map((row, idx) => `- ${idx + 1}. ${cleanString(row?.label) || "Unnamed driver"}: impact ${fmtNum(row?.impact)}`),
+    ``,
+    `## Interpretation notes`,
+    `- Higher absolute impact means win probability is more sensitive to that variable in the current scenario.`,
+    `- Use this ranking to prioritize evidence collection and assumption hardening on the top drivers.`,
+    `- Re-run Monte Carlo after major input changes to refresh this ranking.`,
+  ];
+
+  const brief = pushBriefRow(intel, {
+    kind: "sensitivityInterpretation",
+    content: lines.join("\n"),
+    promptId: "manual.sensitivityInterpretation.v1",
+    model: "manual",
+  });
   return { ok: true, brief };
 }
 

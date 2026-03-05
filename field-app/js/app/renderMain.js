@@ -48,15 +48,22 @@ export function renderMain(ctx){
     planningSnapshot = null;
   }
 
-  const modelInputFallback = buildModelInputFromState(state, safeNum);
-  const resFallback = engine.computeAll(modelInputFallback);
-  const weeksFallback = (typeof derivedWeeksRemaining === "function") ? derivedWeeksRemaining() : null;
-  const needVotesFallback = (typeof deriveNeedVotes === "function") ? deriveNeedVotes(resFallback) : null;
+  let modelInput = planningSnapshot?.modelInput || null;
+  let res = planningSnapshot?.res || null;
+  let weeks = planningSnapshot?.weeks ?? null;
+  let needVotes = (planningSnapshot?.needVotes != null) ? planningSnapshot.needVotes : null;
 
-  const modelInput = planningSnapshot?.modelInput || modelInputFallback;
-  const res = planningSnapshot?.res || resFallback;
-  const weeks = planningSnapshot?.weeks ?? weeksFallback;
-  const needVotes = (planningSnapshot?.needVotes != null) ? planningSnapshot.needVotes : needVotesFallback;
+  if (!res){
+    const modelInputFallback = buildModelInputFromState(state, safeNum);
+    const resFallback = engine.computeAll(modelInputFallback);
+    const weeksFallback = (typeof derivedWeeksRemaining === "function") ? derivedWeeksRemaining() : null;
+    const needVotesFallback = (typeof deriveNeedVotes === "function") ? deriveNeedVotes(resFallback) : null;
+
+    modelInput = modelInputFallback;
+    res = resFallback;
+    weeks = weeksFallback;
+    needVotes = needVotesFallback;
+  }
 
   if (!res){
     return;
