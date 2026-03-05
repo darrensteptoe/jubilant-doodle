@@ -288,6 +288,7 @@ export function planRowsToCsv(snapshot){
 
 export function formatSummaryText(snapshot){
   const s = snapshot?.summary || {};
+  const governance = snapshot?.governance || buildGovernanceSummary(snapshot?.scenarioState || snapshot?.scenario);
   const lines = [];
   if (snapshot?.schemaVersion){
     lines.push(`Schema version: ${snapshot.schemaVersion}`);
@@ -300,6 +301,12 @@ export function formatSummaryText(snapshot){
     lines.push(`Snapshot hash: ${snapshot.snapshotHash}`);
   }
   lines.push(`Primary bottleneck: ${s.primaryBottleneck ?? "—"}`);
+  if (governance?.available){
+    lines.push(`Governance lock: ${governance?.workflow?.scenarioLocked ? "ON" : "OFF"}`);
+    lines.push(`Governance missing evidence: ${governance?.missing?.evidence ?? 0}`);
+    lines.push(`Governance missing note: ${governance?.missing?.note ?? 0}`);
+    lines.push(`Calibration brief: ${governance?.calibrationBrief ? "present" : "none"}`);
+  }
   lines.push("Top tactic allocations:");
 
   const top = Array.isArray(s.topAllocations) ? s.topAllocations : [];
