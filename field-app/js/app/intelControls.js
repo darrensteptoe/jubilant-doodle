@@ -283,6 +283,7 @@ export function generateCalibrationSourceBrief(state){
   const benchmarks = listIntelBenchmarks(state);
   const missingEvidence = listMissingEvidenceAudit(state, { limit: 500 }).length;
   const evidenceCount = ensureArray(intel, "evidence").length;
+  const shockScenarioCount = ensureArray(intel, "shockScenarios").length;
 
   const benchmarkLines = benchmarks.length
     ? benchmarks.slice(0, 12).map((b) => {
@@ -316,6 +317,7 @@ export function generateCalibrationSourceBrief(state){
     `- Correlated shocks: ${intel?.simToggles?.correlatedShocks ? "ON" : "OFF"}`,
     `- Correlation model id: ${cleanString(intel?.simToggles?.correlationMatrixId) || "none"}`,
     `- Shock scenarios enabled: ${intel?.simToggles?.shockScenariosEnabled ? "ON" : "OFF"}`,
+    `- Shock scenarios configured: ${shockScenarioCount}`,
     ``,
     `## Capacity realism`,
     `- Capacity decay enabled: ${intel?.expertToggles?.capacityDecayEnabled ? "ON" : "OFF"}`,
@@ -472,5 +474,119 @@ export function addDefaultCorrelationModel(state){
       [0.20, 0.25, 0.45, 1.0],
     ],
     notes: "Default coupled performance model for field contact/support/productivity.",
+  });
+}
+
+function normalizeShockScenarioRow(raw, fallbackLabel = ""){
+  if (!isObject(raw)) return { ok: false, error: "Shock scenario must be an object." };
+  const impactsRaw = Array.isArray(raw.impacts) ? raw.impacts : [];
+  const impacts = [];
+  for (const item of impactsRaw){
+    if (!isObject(item)) continue;
+    const ref = cleanString(item.ref);
+    const delta = toNumOrNull(item.delta);
+    if (!ref || delta == null) continue;
+    impacts.push({ ref, delta });
+  }
+  if (!impacts.length) return { ok: false, error: "Shock scenario requires at least one valid impact." };
+
+  const p = toNumOrNull(raw.probability);
+  if (p == null) return { ok: false, error: "Shock scenario probability is required." };
+  if (p < 0 || p > 1) return { ok: false, error: "Shock scenario probability must be between 0 and 1." };
+
+  const id = cleanString(raw.id) || makeId("shock");
+  const label = cleanString(raw.label) || cleanString(fallbackLabel) || id;
+  return {
+    ok: true,
+    row: {
+      id,
+      label,
+      impacts,
+      probability: p,
+      notes: cleanString(raw.notes),
+      createdAt: cleanString(raw.createdAt) || nowIso(),
+      updatedAt: nowIso(),
+    }
+  };
+}
+
+export function listShockScenarios(state){
+  const intel = ensureIntelCollections(state);
+  if (!intel) return [];
+  if (!Array.isArray(intel.shockScenarios)) intel.shockScenarios = [];
+  return intel.shockScenarios.slice();
+}
+
+export function upsertShockScenario(state, payload = {}){
+  const intel = ensureIntelCollections(state);
+  if (!intel) return { ok: false, error: "Intel state unavailable." };
+  if (!Array.isArray(intel.shockScenarios)) intel.shockScenarios = [];
+
+  const normalized = normalizeShockScenarioRow(payload, payload?.label);
+  if (!normalized.ok) return normalized;
+  const row = normalized.row;
+
+  const idx = intel.shockScenarios.findIndex((x) => cleanString(x?.id) === cleanString(row.id));
+  if (idx >= 0){
+    row.createdAt = cleanString(intel.shockScenarios[idx]?.createdAt) || row.createdAt;
+    intel.shockScenarios[idx] = row;
+    return { ok: true, mode: "updated", row };
+  }
+
+  const byLabel = intel.shockScenarios.findIndex((x) => cleanString(x?.label).toLowerCase() === cleanString(row.label).toLowerCase());
+  if (byLabel >= 0){
+    row.createdAt = cleanString(intel.shockScenarios[byLabel]?.createdAt) || row.createdAt;
+    row.id = cleanString(intel.shockScenarios[byLabel]?.id) || row.id;
+    intel.shockScenarios[byLabel] = row;
+    return { ok: true, mode: "updated", row };
+  }
+
+  intel.shockScenarios.push(row);
+  return { ok: true, mode: "created", row };
+}
+
+export function importShockScenariosJson(state, jsonText = ""){
+  const text = cleanString(jsonText);
+  if (!text) return { ok: false, error: "Paste shock scenario JSON first." };
+
+  let parsed;
+  try{
+    parsed = JSON.parse(text);
+  } catch {
+    return { ok: false, error: "Shock scenario JSON is invalid." };
+  }
+
+  const items = Array.isArray(parsed)
+    ? parsed
+    : (isObject(parsed) && Array.isArray(parsed?.shockScenarios))
+      ? parsed.shockScenarios
+      : [parsed];
+
+  if (!items.length) return { ok: false, error: "No shock scenario entries found." };
+
+  let created = 0;
+  let updated = 0;
+  for (const item of items){
+    const r = upsertShockScenario(state, item);
+    if (!r.ok){
+      return { ok: false, error: r.error || "Failed to import shock scenario." };
+    }
+    if (r.mode === "created") created += 1;
+    else updated += 1;
+  }
+
+  return { ok: true, created, updated };
+}
+
+export function addDefaultShockScenario(state){
+  return upsertShockScenario(state, {
+    label: "Opponent surge week (default)",
+    impacts: [
+      { ref: "core.contactRatePct", delta: -2 },
+      { ref: "core.supportRatePct", delta: -1 },
+      { ref: "core.turnoutReliabilityPct", delta: -2 },
+    ],
+    probability: 0.15,
+    notes: "Default downside shock: modest temporary conversion/turnout drag.",
   });
 }

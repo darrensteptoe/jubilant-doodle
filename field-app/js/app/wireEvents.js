@@ -1,9 +1,12 @@
 import {
+  addDefaultShockScenario,
   addDefaultCorrelationModel,
   attachEvidenceRecord,
   generateCalibrationSourceBrief,
   getLatestBriefByKind,
   importCorrelationModelsJson,
+  importShockScenariosJson,
+  listShockScenarios,
   listMissingEvidenceAudit,
   removeBenchmarkEntry,
   upsertBenchmarkEntry,
@@ -239,6 +242,9 @@ export function wireIntelChecksEvents(ctx){
   const setCorrelationStatus = (msg, kind = "muted") => {
     setStatus(els.intelCorrelationStatus, msg, kind);
   };
+  const setShockStatus = (msg, kind = "muted") => {
+    setStatus(els.intelShockStatus, msg, kind);
+  };
 
   if (els.btnIntelCalibrationGenerate){
     els.btnIntelCalibrationGenerate.addEventListener("click", () => {
@@ -367,6 +373,72 @@ export function wireIntelChecksEvents(ctx){
       const id = String(els.intelCorrelationMatrixId.value || "").trim();
       s.intelState.simToggles.correlationMatrixId = id || null;
       setCorrelationStatus("Correlation model updated. Re-run Monte Carlo to apply.", "ok");
+      commitUIUpdate();
+    });
+  }
+
+  if (els.btnIntelAddDefaultShock){
+    els.btnIntelAddDefaultShock.addEventListener("click", () => {
+      const s = currentState();
+      if (!s) return;
+      const result = addDefaultShockScenario(s);
+      if (!result.ok){
+        setShockStatus(result.error || "Failed to add default shock scenario.", "warn");
+        return;
+      }
+      setShockStatus(
+        result.mode === "created" ? "Default shock scenario added." : "Default shock scenario updated.",
+        "ok"
+      );
+      commitUIUpdate();
+    });
+  }
+
+  if (els.btnIntelImportShockJson){
+    els.btnIntelImportShockJson.addEventListener("click", () => {
+      const s = currentState();
+      if (!s) return;
+      const result = importShockScenariosJson(s, els.intelShockJson?.value || "");
+      if (!result.ok){
+        setShockStatus(result.error || "Shock scenario import failed.", "warn");
+        return;
+      }
+      setShockStatus(
+        `Imported shock scenarios: ${result.created} created, ${result.updated} updated.`,
+        "ok"
+      );
+      commitUIUpdate();
+    });
+  }
+
+  if (els.intelShockScenariosEnabled){
+    els.intelShockScenariosEnabled.addEventListener("change", () => {
+      const s = currentState();
+      if (!s) return;
+      if (!s.intelState || typeof s.intelState !== "object") s.intelState = { version: "1.0.0" };
+      if (!s.intelState.simToggles || typeof s.intelState.simToggles !== "object") s.intelState.simToggles = {};
+
+      const turningOn = !!els.intelShockScenariosEnabled.checked;
+      if (turningOn){
+        const rows = listShockScenarios(s);
+        if (!rows.length){
+          const seed = addDefaultShockScenario(s);
+          if (!seed.ok){
+            els.intelShockScenariosEnabled.checked = false;
+            s.intelState.simToggles.shockScenariosEnabled = false;
+            setShockStatus(seed.error || "Failed to seed default shock scenario.", "warn");
+            commitUIUpdate();
+            return;
+          }
+          setShockStatus("Shock sampling enabled. Default shock scenario added.", "ok");
+        } else {
+          setShockStatus("Shock sampling enabled. Re-run Monte Carlo to apply.", "ok");
+        }
+      } else {
+        setShockStatus("Shock sampling disabled.", "ok");
+      }
+
+      s.intelState.simToggles.shockScenariosEnabled = !!els.intelShockScenariosEnabled.checked;
       commitUIUpdate();
     });
   }

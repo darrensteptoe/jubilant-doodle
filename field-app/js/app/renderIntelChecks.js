@@ -5,6 +5,7 @@ import {
   listIntelBenchmarks,
   listIntelEvidence,
   listMissingEvidenceAudit,
+  listShockScenarios,
 } from "./intelControls.js";
 
 function fmtNum(v){
@@ -171,6 +172,8 @@ export function renderIntelChecksModule({ els, state } = {}){
   const corrModels = Array.isArray(state?.intelState?.correlationModels)
     ? state.intelState.correlationModels
     : [];
+  const shockEnabled = !!state?.intelState?.simToggles?.shockScenariosEnabled;
+  const shockRows = listShockScenarios(state);
   if (els.intelMcDistribution){
     els.intelMcDistribution.value = mcDist;
   }
@@ -187,6 +190,25 @@ export function renderIntelChecksModule({ els, state } = {}){
     els.intelCorrelationStatus.textContent = corrModels.length
       ? `${corrModels.length} correlation model${corrModels.length === 1 ? "" : "s"} configured.`
       : "No correlation models configured. Add or import one to enable correlated shocks.";
+  }
+  if (els.intelShockScenariosEnabled){
+    els.intelShockScenariosEnabled.checked = shockEnabled;
+  }
+  if (els.intelShockScenarioCount){
+    els.intelShockScenarioCount.textContent = `${shockRows.length} scenario${shockRows.length === 1 ? "" : "s"} configured.`;
+  }
+  if (els.intelShockStatus){
+    els.intelShockStatus.classList.remove("ok", "warn", "bad");
+    if (!shockRows.length){
+      els.intelShockStatus.classList.add("warn");
+      els.intelShockStatus.textContent = "No shock scenarios configured. Add or import one before enabling.";
+    } else if (shockEnabled){
+      els.intelShockStatus.classList.add("ok");
+      els.intelShockStatus.textContent = `Shock sampling ON (${shockRows.length} scenario${shockRows.length === 1 ? "" : "s"}). Re-run Monte Carlo to apply.`;
+    } else {
+      els.intelShockStatus.classList.add("muted");
+      els.intelShockStatus.textContent = `Shock sampling OFF (${shockRows.length} scenario${shockRows.length === 1 ? "" : "s"} configured).`;
+    }
   }
   if (els.intelCalibrationBriefContent){
     els.intelCalibrationBriefContent.value = calibrationBrief?.content || "";
