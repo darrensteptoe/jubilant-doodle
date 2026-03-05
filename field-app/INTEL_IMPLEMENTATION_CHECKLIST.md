@@ -7,11 +7,11 @@ This is the execution order for the calibration/governance expansion.
   - `/Users/anakinskywalker/Downloads/field-app-40/MODEL_GOVERNANCE.md`
 
 ## Phase 1: Snapshot centralization
-- [ ] Add canonical planning snapshot function:
+- [x] Add canonical planning snapshot function:
   - target: `/Users/anakinskywalker/Downloads/field-app-40/js/core/electionSnapshot.js`
-- [ ] Add canonical execution snapshot function:
+- [x] Add canonical execution snapshot function:
   - target: `/Users/anakinskywalker/Downloads/field-app-40/js/core/executionSnapshot.js`
-- [ ] Refactor render entrypoint to compute `snap` once and fan out to renderers:
+- [x] Refactor render entrypoint to compute `snap` once and fan out to renderers:
   - target: `/Users/anakinskywalker/Downloads/field-app-40/js/app/renderMain.js`
 
 ## Phase 2: Intel state schema (done - foundation)
@@ -45,10 +45,10 @@ This is the execution order for the calibration/governance expansion.
 - [x] Produce non-destructive recommendations/draft patches.
 
 ## Phase 7: AI assistance (strictly non-math writes)
-- [ ] Scenario summary brief.
-- [ ] Scenario diff brief.
-- [ ] Drift explanation brief.
-- [ ] Sensitivity interpretation brief.
+- [x] Scenario summary brief.
+- [x] Scenario diff brief.
+- [x] Drift explanation brief.
+- [x] Sensitivity interpretation brief.
 
 ## Phase 8: Governance workflow
 - [x] Scenario lock/unlock flow.
@@ -56,7 +56,7 @@ This is the execution order for the calibration/governance expansion.
 - [x] Export bundle includes audit + calibration notes.
 
 ## Phase 9: Tests
-- [ ] Snapshot equivalence across panels.
-- [ ] No-UI-math guard (lint/grep gate).
-- [ ] AI write-constraint schema validation.
-- [ ] Seeded MC reproducibility guard.
+- [x] Snapshot equivalence across panels.
+- [x] No-UI-math guard (lint/grep gate).
+- [x] AI write-constraint schema validation.
+- [x] Seeded MC reproducibility guard.
