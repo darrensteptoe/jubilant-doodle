@@ -24,6 +24,16 @@ import { computeSensitivitySurface } from "./sensitivitySurface.js";
 import { computeUniverseAdjustedRates, UNIVERSE_DEFAULTS } from "./universeLayer.js";
 import { buildModelInputFromSnapshot } from "./modelInput.js";
 import { makeDefaultIntelState } from "./intelState.js";
+import {
+  captureObservedMetricsFromDrift,
+  refreshDriftRecommendationsFromDrift,
+  computeIntelIntegrityScore,
+} from "../app/intelControls.js";
+import {
+  buildCriticalAuditSnapshot,
+  captureCriticalAssumptionAudit,
+  computeEvidenceWarnings,
+} from "../app/intelAudit.js";
 
 function withUniverseDefaults(s){
   // Phase 16 fields are now required for stable hashing/export roundtrips.
@@ -1725,6 +1735,115 @@ export function runSelfTests(engine){
     assert(out && out.srAdj === 0.55, "sr should match baseline at rf=1.0");
     assert(out && out.trAdj === 0.80, "tr should match baseline at rf=1.0");
     assert(out && out.volatilityBoost === 0, "volatilityBoost should be 0 at rf=1.0");
+    return true;
+  });
+
+  // --- Phase 17) Intel feedback + governance metadata hardening ---
+  test("Phase17 feedback: observed metrics capture is stable/idempotent", () => {
+    const state = { intelState: makeDefaultIntelState() };
+    const drift = {
+      hasLog: true,
+      windowStart: "2026-03-01",
+      windowEnd: "2026-03-07",
+      windowEntries: 7,
+      actualCR: 0.31,
+      assumedCR: 0.40,
+      actualSR: 0.28,
+      assumedSR: 0.35,
+      actualAPH: 14.0,
+      expectedAPH: 18.0,
+    };
+
+    const a = captureObservedMetricsFromDrift(state, drift);
+    assert(a.ok, "First observed-metrics capture failed");
+    assert(a.created === 3, `Expected 3 created observed metrics, got ${a.created}`);
+    assert(Array.isArray(state.intelState.observedMetrics) && state.intelState.observedMetrics.length === 3, "Observed metrics total should be 3");
+
+    const b = captureObservedMetricsFromDrift(state, drift);
+    assert(b.ok, "Second observed-metrics capture failed");
+    assert(state.intelState.observedMetrics.length === 3, "Observed metrics should remain deduped at 3");
+    return true;
+  });
+
+  test("Phase17 feedback: drift recommendations create and clear deterministically", () => {
+    const state = {
+      intelState: makeDefaultIntelState(),
+      doorsPerHour3: 30,
+      callsPerHour3: 20,
+    };
+    const drift = {
+      hasLog: true,
+      actualCR: 0.20,
+      assumedCR: 0.35,
+      actualSR: 0.22,
+      assumedSR: 0.40,
+      actualAPH: 12.0,
+      expectedAPH: 18.0,
+      primary: "support",
+    };
+
+    const a = refreshDriftRecommendationsFromDrift(state, drift);
+    assert(a.ok, "Drift recommendation refresh failed");
+    assert((state.intelState.recommendations || []).length >= 1, "Expected at least one recommendation");
+    assert((state.intelState.flags || []).length >= 1, "Expected at least one drift flag");
+
+    const b = refreshDriftRecommendationsFromDrift(state, { hasLog: false });
+    assert(b.ok, "Drift recommendation clear pass failed");
+    assert((state.intelState.recommendations || []).length === 0, "Auto recommendations should clear when no log");
+    const autoFlags = (state.intelState.flags || []).filter((x) => String(x?.source || "") === "auto.realityDrift.v1");
+    assert(autoFlags.length === 0, "Auto drift flags should clear when no log");
+    return true;
+  });
+
+  test("Phase17 governance: critical audit requirements produce warnings", () => {
+    const state = withUniverseDefaults({
+      scenarioName: "GovWarns",
+      universeSize: 1000,
+      supportRatePct: 55,
+      intelState: makeDefaultIntelState(),
+    });
+    const prev = buildCriticalAuditSnapshot(state);
+    state.supportRatePct = 65;
+
+    const audit = captureCriticalAssumptionAudit({
+      state,
+      previousSnapshot: prev,
+      source: "selftest",
+      requireNote: true,
+      requireEvidence: true,
+      note: "",
+    });
+    assert(audit.wroteAudit === true, "Expected critical audit row to be written");
+    const warnings = computeEvidenceWarnings(state, { limit: 10, staleDays: 0 });
+    const joined = warnings.join(" | ").toLowerCase();
+    assert(joined.includes("missing evidence"), "Missing evidence warning not produced");
+    assert(joined.includes("missing note"), "Missing note warning not produced");
+    return true;
+  });
+
+  test("Phase17 governance: integrity score penalizes missing governance artifacts", () => {
+    const state = {
+      intelState: makeDefaultIntelState(),
+    };
+    state.intelState.audit.push({
+      id: "aud_test",
+      ts: "2026-03-05T00:00:00.000Z",
+      governanceTracked: true,
+      requiresEvidence: true,
+      requiresNote: true,
+      evidenceId: null,
+      note: "",
+      status: "open",
+    });
+    const out = computeIntelIntegrityScore(state, {
+      benchmarkWarnings: ["warn"],
+      driftFlags: ["flag"],
+      staleDays: 0,
+    });
+    assert(out && Number.isFinite(out.score), "Integrity score missing");
+    assert(out.score < 100, "Integrity score should be penalized below 100");
+    assert(out.components.missingEvidence >= 1, "Expected missingEvidence component >= 1");
+    assert(out.components.missingNote >= 1, "Expected missingNote component >= 1");
     return true;
   });
 
