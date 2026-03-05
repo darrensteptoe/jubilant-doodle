@@ -1328,8 +1328,6 @@ export function wirePrimaryPlannerEvents(ctx){
   if (els.contactRatePct) els.contactRatePct.addEventListener("input", () => { withState((state) => { state.contactRatePct = safeNum(els.contactRatePct.value); }); markMcStale(); commitUIUpdate(); });
   if (els.hoursPerShift) els.hoursPerShift.addEventListener("input", () => { withState((state) => { state.hoursPerShift = safeNum(els.hoursPerShift.value); }); commitUIUpdate(); });
   if (els.shiftsPerVolunteerPerWeek) els.shiftsPerVolunteerPerWeek.addEventListener("input", () => { withState((state) => { state.shiftsPerVolunteerPerWeek = safeNum(els.shiftsPerVolunteerPerWeek.value); }); commitUIUpdate(); });
-  if (els.btnGotoTurnoutSettings) els.btnGotoTurnoutSettings.addEventListener("click", () => { switchToStage("roi"); });
-
   if (els.universe16Enabled) els.universe16Enabled.addEventListener("change", () => { withState((state) => { state.universeLayerEnabled = !!els.universe16Enabled.checked; }); markMcStale(); commitUIUpdate(); });
   if (els.universe16DemPct) els.universe16DemPct.addEventListener("change", () => { withState((state) => { state.universeDemPct = safeNum(els.universe16DemPct.value); }); markMcStale(); commitUIUpdate(); });
   if (els.universe16RepPct) els.universe16RepPct.addEventListener("change", () => { withState((state) => { state.universeRepPct = safeNum(els.universe16RepPct.value); }); markMcStale(); commitUIUpdate(); });
