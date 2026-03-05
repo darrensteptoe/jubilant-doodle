@@ -2,7 +2,7 @@
 // Monte Carlo engine (pure). Extracted from app.js so UI contains no simulation loops.
 // Must not touch DOM/window/document.
 
-import { makeRng, triSample } from "./rng.js";
+import { makeRng, triSample, uniformSample, normalSampleBounded } from "./rng.js";
 
 function normalizeTri({ min, mode, max }){
   let a = min, b = mode, c = max;
@@ -204,9 +204,23 @@ function getUniverseLayerConfig(sc){
   };
 }
 
+function normalizeDistribution(raw){
+  const d = String(raw || "").toLowerCase();
+  if (d === "uniform" || d === "normal" || d === "triangular") return d;
+  return "triangular";
+}
+
+function sampleFromSpec(spec, rng, distribution){
+  if (!spec) return 0;
+  if (distribution === "uniform") return uniformSample(spec.min, spec.max, rng);
+  if (distribution === "normal") return normalSampleBounded(spec.min, spec.mode, spec.max, rng);
+  return triSample(spec.min, spec.mode, spec.max, rng);
+}
+
 export function runMonteCarloSim({ scenario, scenarioState, res, weeks, needVotes, runs, seed, includeMargins }){
   const sc = scenario || scenarioState || {}; 
   const mode = sc.mcMode || "basic";
+  const distribution = normalizeDistribution(sc?.intelState?.simToggles?.mcDistribution);
 
   // Base rates
   const baseCr = pctToUnit(safeNum(sc.contactRatePct), 0.22);
@@ -273,12 +287,12 @@ export function runMonteCarloSim({ scenario, scenarioState, res, weeks, needVote
 
 
   for (let i=0;i<runs;i++){
-    const cr = triSample(specs.contactRate.min, specs.contactRate.mode, specs.contactRate.max, rng);
-    const pr = triSample(specs.persuasionRate.min, specs.persuasionRate.mode, specs.persuasionRate.max, rng);
-    const rr = triSample(specs.turnoutReliability.min, specs.turnoutReliability.mode, specs.turnoutReliability.max, rng);
-    const dph = triSample(specs.doorsPerHour.min, specs.doorsPerHour.mode, specs.doorsPerHour.max, rng);
-    const cph = triSample(specs.callsPerHour.min, specs.callsPerHour.mode, specs.callsPerHour.max, rng);
-    const vm = triSample(specs.volunteerMult.min, specs.volunteerMult.mode, specs.volunteerMult.max, rng);
+    const cr = sampleFromSpec(specs.contactRate, rng, distribution);
+    const pr = sampleFromSpec(specs.persuasionRate, rng, distribution);
+    const rr = sampleFromSpec(specs.turnoutReliability, rng, distribution);
+    const dph = sampleFromSpec(specs.doorsPerHour, rng, distribution);
+    const cph = sampleFromSpec(specs.callsPerHour, rng, distribution);
+    const vm = sampleFromSpec(specs.volunteerMult, rng, distribution);
 
     let gotvLiftPP = 0;
     if (turnoutEnabled){
@@ -286,7 +300,7 @@ export function runMonteCarloSim({ scenario, scenarioState, res, weeks, needVote
         const mn = Math.max(0, safeNum(sc.gotvLiftMin) ?? 0);
         const md = Math.max(0, safeNum(sc.gotvLiftMode) ?? 0);
         const mx = Math.max(0, safeNum(sc.gotvLiftMax) ?? 0);
-        gotvLiftPP = triSample(mn, md, mx, rng);
+        gotvLiftPP = sampleFromSpec({ min: mn, mode: md, max: mx }, rng, distribution);
       } else {
         gotvLiftPP = Math.max(0, safeNum(sc.gotvLiftPP) ?? 0);
       }
@@ -403,6 +417,7 @@ export function runMonteCarloSim({ scenario, scenarioState, res, weeks, needVote
     sensitivity: sens,
     riskLabel: riskLabelFromWinProb(winProb),
     needVotes,
+    distribution,
     turnoutAdjusted: turnoutAdjustedSummary,
   };
 

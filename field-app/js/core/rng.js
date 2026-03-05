@@ -44,3 +44,33 @@ export function triSample(min, mode, max, rng){
   }
   return max - Math.sqrt((1 - u) * (max - min) * (max - mode));
 }
+
+export function uniformSample(min, max, rng){
+  const lo = Math.min(min, max);
+  const hi = Math.max(min, max);
+  if (!isFinite(lo) || !isFinite(hi)) return 0;
+  if (hi === lo) return lo;
+  return lo + (rng() * (hi - lo));
+}
+
+function gaussianZ(rng){
+  const u1 = Math.max(rng(), 1e-12);
+  const u2 = rng();
+  return Math.sqrt(-2 * Math.log(u1)) * Math.cos(2 * Math.PI * u2);
+}
+
+export function normalSampleBounded(min, mode, max, rng){
+  const lo = Math.min(min, max);
+  const hi = Math.max(min, max);
+  if (!isFinite(lo) || !isFinite(hi)) return 0;
+  if (hi === lo) return lo;
+
+  const mu = Math.min(hi, Math.max(lo, isFinite(mode) ? mode : (lo + hi) / 2));
+  const sigma = Math.max((hi - lo) / 6, 1e-9);
+
+  for (let i = 0; i < 8; i++){
+    const x = mu + gaussianZ(rng) * sigma;
+    if (x >= lo && x <= hi) return x;
+  }
+  return Math.min(hi, Math.max(lo, mu));
+}
