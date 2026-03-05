@@ -2259,6 +2259,31 @@
 </select>
 </div>
 </div>
+<div class="grid4" style="margin-top:10px;">
+<div class="field">
+<label class="label" for="intelCapacityDecayEnabled">Capacity decay</label>
+<label class="switch">
+<input id="intelCapacityDecayEnabled" type="checkbox"/>
+<span class="slider"></span>
+<span class="switch-label">Enable weekly capacity decay in planning + MC</span>
+</label>
+</div>
+<div class="field">
+<label class="label" for="intelDecayModelType">Decay model</label>
+<select class="select" id="intelDecayModelType">
+<option value="linear">Linear</option>
+</select>
+</div>
+<div class="field">
+<label class="label" for="intelDecayWeeklyPct">Weekly decay %</label>
+<input class="input" id="intelDecayWeeklyPct" max="100" min="0" step="0.1" type="number"/>
+</div>
+<div class="field">
+<label class="label" for="intelDecayFloorPct">Floor % of baseline</label>
+<input class="input" id="intelDecayFloorPct" max="100" min="0" step="1" type="number"/>
+</div>
+</div>
+<div class="muted" id="intelDecayStatus" style="margin-top:8px;">Capacity decay OFF.</div>
 <div class="rowline" style="margin-top:10px; justify-content:space-between; gap:10px;">
 <div class="card-actions">
 <button class="btn btn-sm" id="btnIntelAddDefaultCorrelation" type="button">Add default model</button>
@@ -2297,6 +2322,26 @@
 </div>
 <div class="muted" id="intelShockStatus" style="margin-top:10px;">No shock scenarios configured.</div>
 <div class="muted" id="intelCalibrationStatus" style="margin-top:10px;">No calibration brief generated yet.</div>
+<div class="card card-section" style="margin-top:12px;">
+<div class="card-head card-header">
+<h2 class="card-title">Feedback loop</h2>
+<div class="card-actions">
+<button class="btn btn-sm" id="btnIntelCaptureObserved" type="button">Capture observed metrics</button>
+<button class="btn btn-sm" id="btnIntelGenerateRecommendations" type="button">Generate drift recommendations</button>
+</div>
+</div>
+<div class="help-text">Capture rolling daily-log metrics and generate metadata-only recommendations. No core math is modified automatically.</div>
+<div class="grid2" style="margin-top:10px;">
+<div class="muted" id="intelObservedCount">0 observed metric entries captured.</div>
+<div class="muted" id="intelRecommendationCount">0 active drift recommendations.</div>
+</div>
+<div class="muted" id="intelObservedStatus" style="margin-top:8px;">No observed metrics captured yet.</div>
+<div class="muted" id="intelRecommendationStatus" style="margin-top:6px;">No drift recommendations generated yet.</div>
+<div class="field" style="margin-top:10px;">
+<label class="label" for="intelRecommendationPreview">Recommendation preview</label>
+<textarea class="input" id="intelRecommendationPreview" readonly rows="6"></textarea>
+</div>
+</div>
 <div class="field" style="margin-top:10px;">
 <label class="label" for="intelCalibrationBriefContent">Brief content</label>
 <textarea class="input" id="intelCalibrationBriefContent" readonly rows="14"></textarea>
