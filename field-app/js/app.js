@@ -1911,13 +1911,15 @@ function renderDecisionConfidenceE5(res, weeks, { weeklyContext = null, executio
   });
 }
 
-function renderImpactTraceE6(res, weeks){
+function renderImpactTraceE6(res, weeks, { weeklyContext = null, executionSnapshot = null } = {}){
   return renderImpactTracePanel({
     els,
     state,
     res,
     weeks,
-    fmtInt
+    fmtInt,
+    weeklyContext,
+    executionSnapshot,
   });
 }
 

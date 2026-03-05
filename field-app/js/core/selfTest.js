@@ -36,6 +36,7 @@ import { computeElectionSnapshot } from "./electionSnapshot.js";
 import { computeExecutionSnapshot } from "./executionSnapshot.js";
 import { safeNum } from "./utils.js";
 import { renderMain } from "../app/renderMain.js";
+import { renderImpactTracePanel } from "../app/render/impactTrace.js";
 import { computeWeeklyOpsContextFromState, getEffectiveBaseRates } from "../app/selectors.js";
 import {
   captureObservedMetricsFromDrift,
@@ -1956,6 +1957,14 @@ export function runSelfTests(engine){
       approx(execution.pace.requiredAttemptsPerWeek, weekly?.attemptsPerWeek, 1e-9),
       "Execution requiredAttemptsPerWeek diverged from weekly context"
     );
+    assert(
+      approx(execution.pace.capacityAttemptsPerWeek, weekly?.capTotal, 1e-9),
+      "Execution capacityAttemptsPerWeek diverged from weekly context"
+    );
+    assert(
+      approx(execution.pace.gapAttemptsPerWeek, weekly?.gap, 1e-9),
+      "Execution gapAttemptsPerWeek diverged from weekly context"
+    );
     return true;
   });
 
@@ -2031,6 +2040,74 @@ export function runSelfTests(engine){
     });
 
     assert(computeAllCalls === 0, "renderMain should not call engine.computeAll when planning snapshot is available");
+    return true;
+  });
+
+  test("Phase 9 UI: impact trace prefers execution/weekly context over state-derived math", () => {
+    const mount = document.createElement("div");
+    const list = document.createElement("div");
+    list.id = "impactTraceList";
+    mount.appendChild(list);
+    document.body.appendChild(mount);
+    try {
+      const state = {
+        goalSupportIds: 999999,
+        supportRatePct: 1,
+        contactRatePct: 1,
+        orgCount: 1,
+        orgHoursPerWeek: 1,
+        volunteerMultBase: 1,
+        channelDoorPct: 50,
+        doorsPerHour3: 1,
+        callsPerHour3: 1,
+      };
+      const res = {
+        expected: {
+          persuasionNeed: 123,
+          winThreshold: 456,
+        },
+      };
+      const weeklyContext = {
+        attemptsPerWeek: 1234,
+        capTotal: 987,
+        gap: 247,
+      };
+      const executionSnapshot = {
+        pace: {
+          requiredAttemptsPerWeek: 1234,
+          capacityAttemptsPerWeek: 987,
+          gapAttemptsPerWeek: 247,
+        },
+      };
+
+      const fmtIntLocal = (n) => String(Math.round(n));
+
+      renderImpactTracePanel({
+        els: { impactTraceList: list },
+        state,
+        res,
+        weeks: 12,
+        fmtInt: fmtIntLocal,
+        weeklyContext,
+        executionSnapshot,
+      });
+
+      const rows = Array.from(list.querySelectorAll(".impact-trace-item"));
+      assert(rows.length > 0, "Impact trace should render rows");
+
+      const valueFor = (titleText) => {
+        const row = rows.find((node) => String(node.querySelector(".impact-trace-head span")?.textContent || "").trim() === titleText);
+        if (!row) return null;
+        const valueEl = row.querySelector(".impact-trace-value");
+        return String(valueEl?.textContent || "").trim();
+      };
+
+      assert(valueFor("Required attempts per week") === "1234", "Impact trace required attempts should come from context");
+      assert(valueFor("Capacity contacts possible per week") === "987", "Impact trace capacity should come from context");
+      assert(valueFor("Gap vs required contacts (per week)") === "+247", "Impact trace gap should come from context");
+    } finally {
+      mount.remove();
+    }
     return true;
   });
 

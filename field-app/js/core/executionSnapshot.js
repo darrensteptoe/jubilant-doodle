@@ -124,7 +124,18 @@ export function computeExecutionSnapshot({
   const rollingAPH = log.sumOrgHoursWindow > 0 ? (log.sumAttemptsWindow / log.sumOrgHoursWindow) : null;
 
   const requiredAttemptsPerWeek = weeklyContext?.attemptsPerWeek ?? null;
+  const capacityAttemptsPerWeek = weeklyContext?.capTotal ?? null;
   const attemptsNeeded = weeklyContext?.attemptsNeeded ?? null;
+  const gapAttemptsPerWeek = (weeklyContext?.gap != null)
+    ? weeklyContext.gap
+    : (
+        requiredAttemptsPerWeek != null &&
+        Number.isFinite(requiredAttemptsPerWeek) &&
+        capacityAttemptsPerWeek != null &&
+        Number.isFinite(capacityAttemptsPerWeek)
+      )
+      ? (requiredAttemptsPerWeek - capacityAttemptsPerWeek)
+      : null;
   const ratio = (requiredAttemptsPerWeek != null && Number.isFinite(requiredAttemptsPerWeek) && requiredAttemptsPerWeek > 0)
     ? (log.sumAttemptsWindow / requiredAttemptsPerWeek)
     : null;
@@ -183,6 +194,8 @@ export function computeExecutionSnapshot({
     },
     pace: {
       requiredAttemptsPerWeek,
+      capacityAttemptsPerWeek,
+      gapAttemptsPerWeek,
       ratio,
       status,
       projectedSlipDays,
@@ -194,4 +207,3 @@ export function computeExecutionSnapshot({
     },
   };
 }
-
