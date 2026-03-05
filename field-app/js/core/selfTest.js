@@ -29,6 +29,7 @@ import {
   computeGotvNetVotesPerAttempt,
   computeHybridEffectiveTurnoutReliability,
   computeGotvSaturationCapAttempts,
+  computeTacticVoteProduction,
 } from "./voteProduction.js";
 import { buildModelInputFromSnapshot } from "./modelInput.js";
 import { makeDefaultIntelState, validateAiIntelWritePayload } from "./intelState.js";
@@ -2223,6 +2224,64 @@ export function runSelfTests(engine){
     return true;
   });
 
+  test("Phase 9: computeTacticVoteProduction is single-source parity-safe", () => {
+    const turnoutCtx = resolveTurnoutContext({
+      enabled: true,
+      liftPerContactPP: 2,
+      maxLiftPP: 4,
+      baselineTurnoutPct: 55,
+    });
+
+    const gotv = computeTacticVoteProduction({
+      cr: 0.35,
+      sr: 0.28,
+      tr: 0.82,
+      kind: "gotv",
+      turnoutContext: turnoutCtx,
+      targetUniverseSize: 80000,
+      gotvSaturationCap: true,
+      requirePositiveBase: true,
+      requirePositiveGotvCr: true,
+    });
+    assert(approx(gotv.baseNetVotesPerAttempt, computeBaseNetVotesPerAttempt({ cr: 0.35, sr: 0.28, tr: 0.82 }), 1e-12), "GOTV base path mismatch");
+    assert(approx(gotv.turnoutAdjustedNetVotesPerAttempt, computeGotvNetVotesPerAttempt({ cr: 0.35, liftPerContactPP: turnoutCtx.gotvLiftPP }), 1e-12), "GOTV turnout-adjusted mismatch");
+    assert(
+      gotv.maxAttempts === computeGotvSaturationCapAttempts({
+        cr: 0.35,
+        targetUniverseSize: 80000,
+        maxAdditionalPP: turnoutCtx.maxAdditionalPP,
+        gotvLiftPP: turnoutCtx.gotvLiftPP,
+      }),
+      "GOTV saturation cap mismatch"
+    );
+
+    const hybrid = computeTacticVoteProduction({
+      cr: 0.35,
+      sr: 0.28,
+      tr: 0.82,
+      kind: "hybrid",
+      turnoutContext: turnoutCtx,
+      gotvSaturationCap: true,
+      requirePositiveBase: true,
+      requirePositiveGotvCr: true,
+    });
+    const expectedHybridTr = computeHybridEffectiveTurnoutReliability({
+      tr: 0.82,
+      liftAppliedPP: turnoutCtx.liftAppliedPP,
+      clampUnit: true,
+    });
+    assert(approx(hybrid.hybridEffectiveTr, expectedHybridTr, 1e-12), "Hybrid effective TR mismatch");
+    assert(
+      approx(
+        hybrid.turnoutAdjustedNetVotesPerAttempt,
+        computeBaseNetVotesPerAttempt({ cr: 0.35, sr: 0.28, tr: expectedHybridTr }),
+        1e-12
+      ),
+      "Hybrid turnout-adjusted mismatch"
+    );
+    return true;
+  });
+
   test("Phase 9: ROI and optimization share vote-production parity", () => {
     const snap = engine.getStateSnapshot();
     assert(snap && typeof snap === "object", "State snapshot unavailable");
@@ -2266,8 +2325,9 @@ export function runSelfTests(engine){
     for (const row of roiOut.rows){
       const t = optById.get(String(row.key));
       assert(t, `Missing optimization tactic for ROI row key '${row.key}'`);
+      const baseVpa = row.production?.base?.netVotesPerAttempt;
       assert(
-        approx(row.production?.base?.netVotesPerAttempt, t.production?.base?.netVotesPerAttempt, 1e-12),
+        approx(baseVpa, t.production?.base?.netVotesPerAttempt, 1e-12),
         `Base netVotesPerAttempt mismatch for ${row.key}`
       );
       assert(
@@ -2282,6 +2342,12 @@ export function runSelfTests(engine){
         ),
         `production.adjusted turnoutAdjusted mismatch for ${row.key}`
       );
+      if (row.costPerNetVote != null && row.cpa != null && baseVpa != null && baseVpa > 0){
+        assert(
+          approx(row.costPerNetVote, row.cpa / baseVpa, 1e-12),
+          `ROI costPerNetVote must align with shared baseNetVotesPerAttempt for ${row.key}`
+        );
+      }
     }
     return true;
   });

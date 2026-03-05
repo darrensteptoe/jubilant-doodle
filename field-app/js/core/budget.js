@@ -1,10 +1,7 @@
 // Phase 4 — Budget + ROI (deterministic cost layer)
 // Design rule: this module NEVER mutates Phase 1–3 outcomes. It only computes cost lenses.
 import {
-  computeBaseNetVotesPerAttempt,
-  computeGotvNetVotesPerAttempt,
-  computeGotvSaturationCapAttempts,
-  computeHybridEffectiveTurnoutReliability,
+  computeTacticVoteProduction,
   pctOverrideToDecimal,
   resolveTurnoutContext,
 } from "./voteProduction.js";
@@ -43,46 +40,26 @@ export function computeRoiRows({
 
     const ratesOk = (need != null) && (need > 0) && (tCr != null && tCr > 0) && (tSr != null && tSr > 0) && (tTr != null && tTr > 0);
 
-    const kind = (t?.kind || "persuasion"); // persuasion | gotv | hybrid
-
-    // Turnout-adjusted value-per-attempt (Phase 6). Conservative per-attempt lens (no saturation in ROI table).
-    const baseNetVotesPerAttempt = computeBaseNetVotesPerAttempt({
+    const production = computeTacticVoteProduction({
       cr: tCr,
       sr: tSr,
       tr: tTr,
-      requirePositive: false,
+      kind: t?.kind || "persuasion",
+      turnoutContext: turnoutCtx,
+      requirePositiveBase: false,
+      requirePositiveGotvCr: false,
+      gotvSaturationCap: false,
+      clampHybridTr: true,
     });
-    let turnoutAdjustedNetVotesPerAttempt = null;
-    let hybridEffectiveTr = null;
-    if (!turnoutEnabled){
-      turnoutAdjustedNetVotesPerAttempt = baseNetVotesPerAttempt;
-    } else if (kind === "gotv"){
-      turnoutAdjustedNetVotesPerAttempt = computeGotvNetVotesPerAttempt({
-        cr: tCr,
-        liftPerContactPP: turnoutCtx.gotvLiftPP,
-        requirePositiveCr: false,
-      });
-    } else if (kind === "hybrid") {
-      hybridEffectiveTr = computeHybridEffectiveTurnoutReliability({
-        tr: tTr,
-        liftAppliedPP: turnoutCtx.liftAppliedPP,
-        clampUnit: true,
-      });
-      turnoutAdjustedNetVotesPerAttempt = computeBaseNetVotesPerAttempt({
-        cr: tCr,
-        sr: tSr,
-        tr: hybridEffectiveTr,
-        requirePositive: false,
-      });
-    } else {
-      // persuasion-only: unchanged (TR already captures baseline voting reliability)
-      turnoutAdjustedNetVotesPerAttempt = baseNetVotesPerAttempt;
-    }
+    const kind = production.kind;
+    const baseNetVotesPerAttempt = production.baseNetVotesPerAttempt;
+    const turnoutAdjustedNetVotesPerAttempt = production.turnoutAdjustedNetVotesPerAttempt;
+    const hybridEffectiveTr = production.hybridEffectiveTr;
 
     let requiredAttempts = null;
     let requiredAttemptsTA = null;
-    if (ratesOk){
-      requiredAttempts = need / (tCr * tSr * tTr);
+    if (ratesOk && isFinite(baseNetVotesPerAttempt) && baseNetVotesPerAttempt > 0){
+      requiredAttempts = need / baseNetVotesPerAttempt;
       if (!isFinite(requiredAttempts) || requiredAttempts <= 0) requiredAttempts = null;
     }
 
@@ -102,8 +79,8 @@ export function computeRoiRows({
     let totalCost = null;
     let costPerTurnoutAdjustedNetVote = null;
 
-    if (ratesOk && cpa > 0 && requiredAttempts != null){
-      costPerNetVote = cpa / (tCr * tSr * tTr);
+    if (ratesOk && cpa > 0 && requiredAttempts != null && isFinite(baseNetVotesPerAttempt) && baseNetVotesPerAttempt > 0){
+      costPerNetVote = cpa / baseNetVotesPerAttempt;
       totalCost = requiredAttempts * cpa;
     }
 
@@ -231,51 +208,25 @@ export function buildOptimizationTactics({ baseRates, tactics, turnoutModel, uni
     const sr = pctOverrideToDecimal(t?.srPct, baseSr);
     const tr = baseTr;
 
-    const netVotesPerAttempt = computeBaseNetVotesPerAttempt({
+    const production = computeTacticVoteProduction({
       cr,
       sr,
       tr,
-      requirePositive: true,
+      kind: t?.kind || "persuasion",
+      turnoutContext: turnoutCtx,
+      targetUniverseSize,
+      gotvSaturationCap: true,
+      requirePositiveBase: true,
+      requirePositiveGotvCr: true,
+      clampHybridTr: true,
     });
+    const kind = production.kind;
+    const netVotesPerAttempt = production.baseNetVotesPerAttempt;
+    const turnoutAdjustedNetVotesPerAttempt = production.turnoutAdjustedNetVotesPerAttempt;
+    const maxAttempts = production.maxAttempts;
+    const hybridEffectiveTr = production.hybridEffectiveTr;
 
     const costPerAttempt = (t?.cpa != null && isFinite(t.cpa)) ? Math.max(0, Number(t.cpa)) : 0;
-
-    const kind = (t?.kind || "persuasion"); // persuasion | gotv | hybrid
-
-    let turnoutAdjustedNetVotesPerAttempt = netVotesPerAttempt;
-    let maxAttempts = null;
-    let hybridEffectiveTr = null;
-
-    if (turnoutEnabled){
-      if (kind === "gotv"){
-        turnoutAdjustedNetVotesPerAttempt = computeGotvNetVotesPerAttempt({
-          cr,
-          liftPerContactPP: turnoutCtx.gotvLiftPP,
-          requirePositiveCr: true,
-        });
-        maxAttempts = computeGotvSaturationCapAttempts({
-          cr,
-          targetUniverseSize,
-          maxAdditionalPP: turnoutCtx.maxAdditionalPP,
-          gotvLiftPP: turnoutCtx.gotvLiftPP,
-        });
-      } else if (kind === "hybrid"){
-        hybridEffectiveTr = computeHybridEffectiveTurnoutReliability({
-          tr,
-          liftAppliedPP: turnoutCtx.liftAppliedPP,
-          clampUnit: true,
-        });
-        turnoutAdjustedNetVotesPerAttempt = computeBaseNetVotesPerAttempt({
-          cr,
-          sr,
-          tr: hybridEffectiveTr,
-          requirePositive: true,
-        });
-      } else {
-        // persuasion-only: unchanged (TR already captures baseline voting reliability)
-        turnoutAdjustedNetVotesPerAttempt = netVotesPerAttempt;
-      }
-    }
 
     out.push({
       id: key,

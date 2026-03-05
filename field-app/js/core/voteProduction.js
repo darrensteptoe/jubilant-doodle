@@ -102,3 +102,71 @@ export function computeGotvSaturationCapAttempts({
   if (!Number.isFinite(capAttempts) || capAttempts <= 0) return null;
   return Math.ceil(capAttempts);
 }
+
+export function computeTacticVoteProduction({
+  cr,
+  sr,
+  tr,
+  kind = "persuasion",
+  turnoutContext = null,
+  targetUniverseSize = null,
+  gotvSaturationCap = false,
+  requirePositiveBase = true,
+  requirePositiveGotvCr = true,
+  clampHybridTr = true,
+} = {}){
+  const turnoutCtx = (turnoutContext && typeof turnoutContext === "object")
+    ? turnoutContext
+    : resolveTurnoutContext(null);
+  const normalizedKind = String(kind || "persuasion").toLowerCase();
+
+  const baseNetVotesPerAttempt = computeBaseNetVotesPerAttempt({
+    cr,
+    sr,
+    tr,
+    requirePositive: !!requirePositiveBase,
+  });
+
+  let turnoutAdjustedNetVotesPerAttempt = baseNetVotesPerAttempt;
+  let hybridEffectiveTr = null;
+  let maxAttempts = null;
+
+  if (turnoutCtx?.enabled){
+    if (normalizedKind === "gotv"){
+      turnoutAdjustedNetVotesPerAttempt = computeGotvNetVotesPerAttempt({
+        cr,
+        liftPerContactPP: turnoutCtx.gotvLiftPP,
+        requirePositiveCr: !!requirePositiveGotvCr,
+      });
+      if (gotvSaturationCap){
+        maxAttempts = computeGotvSaturationCapAttempts({
+          cr,
+          targetUniverseSize,
+          maxAdditionalPP: turnoutCtx.maxAdditionalPP,
+          gotvLiftPP: turnoutCtx.gotvLiftPP,
+        });
+      }
+    } else if (normalizedKind === "hybrid"){
+      hybridEffectiveTr = computeHybridEffectiveTurnoutReliability({
+        tr,
+        liftAppliedPP: turnoutCtx.liftAppliedPP,
+        clampUnit: !!clampHybridTr,
+      });
+      turnoutAdjustedNetVotesPerAttempt = computeBaseNetVotesPerAttempt({
+        cr,
+        sr,
+        tr: hybridEffectiveTr,
+        requirePositive: !!requirePositiveBase,
+      });
+    }
+  }
+
+  return {
+    kind: normalizedKind,
+    baseNetVotesPerAttempt,
+    turnoutAdjustedNetVotesPerAttempt,
+    hybridEffectiveTr,
+    maxAttempts,
+    turnoutCtx,
+  };
+}
