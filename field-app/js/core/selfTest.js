@@ -2283,13 +2283,16 @@ export function runSelfTests(engine){
   });
 
   test("Phase 9 UI: turnout assumptions mirror is anchored to Budget stage only", () => {
-    const budgetStage = document.getElementById("stage-budget");
+    const budgetStage = document.getElementById("stage-roi");
     const gotvStage = document.getElementById("stage-gotv");
-    assert(budgetStage, "Missing stage-budget container");
+    assert(budgetStage, "Missing stage-roi container");
     assert(gotvStage, "Missing stage-gotv container");
 
     const mirrorStatusEl = document.getElementById("gotvPlannerStatus");
     assert(mirrorStatusEl, "Missing turnout assumptions mirror node (#gotvPlannerStatus)");
+    const parentStage = mirrorStatusEl.closest("section.stage-new");
+    assert(parentStage, "Unable to locate parent stage for turnout assumptions mirror");
+    assert(parentStage.id === "stage-roi", `Turnout assumptions mirror should be under stage-roi; got '${parentStage.id || "unknown"}'`);
     assert(budgetStage.contains(mirrorStatusEl), "Turnout assumptions mirror must live inside Budget stage");
     assert(!gotvStage.contains(mirrorStatusEl), "Turnout assumptions mirror must not be inside GOTV stage");
 
