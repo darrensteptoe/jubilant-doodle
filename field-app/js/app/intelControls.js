@@ -241,3 +241,102 @@ export function attachEvidenceRecord(state, payload = {}){
 
   return { ok: true, evidence, resolvedAuditId: auditEntry?.id || null };
 }
+
+function fmtPct(value){
+  const n = Number(value);
+  if (!Number.isFinite(n)) return "—";
+  return `${n.toFixed(1)}%`;
+}
+
+function fmtNum(value){
+  const n = Number(value);
+  if (!Number.isFinite(n)) return "—";
+  return Number.isInteger(n) ? String(n) : n.toFixed(2);
+}
+
+export function getLatestBriefByKind(state, kind){
+  const intel = ensureIntelCollections(state);
+  if (!intel) return null;
+  const targetKind = cleanString(kind);
+  if (!targetKind) return null;
+  const rows = intel.briefs
+    .filter((x) => cleanString(x?.kind) === targetKind)
+    .slice()
+    .sort((a, b) => cleanString(b?.createdAt).localeCompare(cleanString(a?.createdAt)));
+  return rows[0] || null;
+}
+
+export function generateCalibrationSourceBrief(state){
+  const intel = ensureIntelCollections(state);
+  if (!intel) return { ok: false, error: "Intel state unavailable." };
+
+  const now = nowIso();
+  const raceType = cleanString(state?.raceType) || "unknown";
+  const scenarioName = cleanString(state?.scenarioName) || "Unnamed scenario";
+  const benchmarks = listIntelBenchmarks(state);
+  const missingEvidence = listMissingEvidenceAudit(state, { limit: 500 }).length;
+  const evidenceCount = ensureArray(intel, "evidence").length;
+
+  const benchmarkLines = benchmarks.length
+    ? benchmarks.slice(0, 12).map((b) => {
+      const ref = benchmarkRefLabel(b?.ref);
+      const scope = cleanString(b?.raceType) || "all";
+      const min = fmtNum(b?.range?.min);
+      const max = fmtNum(b?.range?.max);
+      const warn = fmtNum(b?.severityBands?.warnAbove);
+      const hard = fmtNum(b?.severityBands?.hardAbove);
+      const source = cleanString(b?.source?.title) || cleanString(b?.source?.type) || "manual";
+      return `- ${ref} [${scope}] range ${min}..${max}; warn/hard ${warn}/${hard}; source: ${source}`;
+    }).join("\n")
+    : "- No benchmark entries configured.";
+
+  const content = [
+    `# Model calibration sources`,
+    ``,
+    `Generated: ${now}`,
+    `Scenario: ${scenarioName}`,
+    `Race type: ${raceType}`,
+    ``,
+    `## Benchmark catalog`,
+    benchmarkLines,
+    ``,
+    `## Evidence coverage`,
+    `- Evidence records: ${evidenceCount}`,
+    `- Critical edits missing evidence: ${missingEvidence}`,
+    ``,
+    `## Monte Carlo calibration toggles`,
+    `- Distribution: ${cleanString(intel?.simToggles?.mcDistribution) || "triangular"}`,
+    `- Correlated shocks: ${intel?.simToggles?.correlatedShocks ? "ON" : "OFF"}`,
+    `- Correlation model id: ${cleanString(intel?.simToggles?.correlationMatrixId) || "none"}`,
+    `- Shock scenarios enabled: ${intel?.simToggles?.shockScenariosEnabled ? "ON" : "OFF"}`,
+    ``,
+    `## Capacity realism`,
+    `- Capacity decay enabled: ${intel?.expertToggles?.capacityDecayEnabled ? "ON" : "OFF"}`,
+    `- Decay model: ${cleanString(intel?.expertToggles?.decayModel?.type) || "linear"}`,
+    `- Weekly decay %: ${fmtPct(Number(intel?.expertToggles?.decayModel?.weeklyDecayPct) * 100)}`,
+    `- Floor % of baseline: ${fmtPct(Number(intel?.expertToggles?.decayModel?.floorPctOfBaseline) * 100)}`,
+    ``,
+    `## Current planner assumptions (selected)`,
+    `- Support rate: ${fmtPct(state?.supportRatePct)}`,
+    `- Contact rate: ${fmtPct(state?.contactRatePct)}`,
+    `- Turnout baseline: ${fmtPct(state?.turnoutBaselinePct)}`,
+    `- GOTV lift per contact: ${fmtNum(state?.gotvLiftPP)} pp`,
+    `- GOTV max lift ceiling: ${fmtNum(state?.gotvMaxLiftPP)} pp`,
+    ``,
+    `## Notes`,
+    `- This brief documents calibration inputs and evidence status.`,
+    `- It does not alter deterministic or Monte Carlo outputs.`,
+  ].join("\n");
+
+  const brief = {
+    id: makeId("brief"),
+    kind: "calibrationSources",
+    content,
+    promptId: "manual.calibrationSources.v1",
+    model: "manual",
+    createdAt: now,
+  };
+
+  ensureArray(intel, "briefs").push(brief);
+  return { ok: true, brief };
+}

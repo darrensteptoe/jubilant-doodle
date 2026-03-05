@@ -1,5 +1,7 @@
 import {
   attachEvidenceRecord,
+  generateCalibrationSourceBrief,
+  getLatestBriefByKind,
   listMissingEvidenceAudit,
   removeBenchmarkEntry,
   upsertBenchmarkEntry,
@@ -225,6 +227,62 @@ export function wireIntelChecksEvents(ctx){
       if (els.intelEvidenceUrl) els.intelEvidenceUrl.value = "";
       if (els.intelEvidenceNotes) els.intelEvidenceNotes.value = "";
       setEvidenceStatus(result.resolvedAuditId ? "Evidence attached and audit resolved." : "Evidence attached.", "ok");
+      commitUIUpdate();
+    });
+  }
+
+  const setCalibrationStatus = (msg, kind = "muted") => {
+    setStatus(els.intelCalibrationStatus, msg, kind);
+  };
+
+  if (els.btnIntelCalibrationGenerate){
+    els.btnIntelCalibrationGenerate.addEventListener("click", () => {
+      const s = currentState();
+      if (!s) return;
+      const result = generateCalibrationSourceBrief(s);
+      if (!result.ok){
+        setCalibrationStatus(result.error || "Failed to generate calibration brief.", "warn");
+        return;
+      }
+      if (els.intelCalibrationBriefContent){
+        els.intelCalibrationBriefContent.value = result?.brief?.content || "";
+      }
+      setCalibrationStatus("Calibration brief generated.", "ok");
+      commitUIUpdate();
+    });
+  }
+
+  if (els.btnIntelCalibrationCopy){
+    els.btnIntelCalibrationCopy.addEventListener("click", async () => {
+      const s = currentState();
+      if (!s) return;
+      const brief = getLatestBriefByKind(s, "calibrationSources");
+      const content = String(brief?.content || els.intelCalibrationBriefContent?.value || "").trim();
+      if (!content){
+        setCalibrationStatus("No calibration brief to copy yet.", "warn");
+        return;
+      }
+      try{
+        if (navigator?.clipboard?.writeText){
+          await navigator.clipboard.writeText(content);
+          setCalibrationStatus("Calibration brief copied to clipboard.", "ok");
+        } else {
+          throw new Error("Clipboard API unavailable");
+        }
+      } catch {
+        setCalibrationStatus("Clipboard blocked. Copy text manually from the brief box.", "warn");
+      }
+    });
+  }
+
+  if (els.intelMcDistribution){
+    els.intelMcDistribution.addEventListener("change", () => {
+      const s = currentState();
+      if (!s) return;
+      if (!s.intelState || typeof s.intelState !== "object") s.intelState = { version: "1.0.0" };
+      if (!s.intelState.simToggles || typeof s.intelState.simToggles !== "object") s.intelState.simToggles = {};
+      s.intelState.simToggles.mcDistribution = String(els.intelMcDistribution.value || "triangular");
+      setCalibrationStatus("Distribution updated. Re-run Monte Carlo to apply.", "ok");
       commitUIUpdate();
     });
   }

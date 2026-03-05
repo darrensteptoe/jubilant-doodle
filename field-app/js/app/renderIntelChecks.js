@@ -1,6 +1,7 @@
 import {
   benchmarkRefLabel,
   ensureIntelCollections,
+  getLatestBriefByKind,
   listIntelBenchmarks,
   listIntelEvidence,
   listMissingEvidenceAudit,
@@ -146,5 +147,25 @@ export function renderIntelChecksModule({ els, state } = {}){
 
   if (els.intelEvidenceCapturedAt && !els.intelEvidenceCapturedAt.value){
     els.intelEvidenceCapturedAt.value = new Date().toISOString().slice(0, 10);
+  }
+
+  const calibrationBrief = getLatestBriefByKind(state, "calibrationSources");
+  const mcDist = String(state?.intelState?.simToggles?.mcDistribution || "triangular");
+  if (els.intelMcDistribution){
+    els.intelMcDistribution.value = mcDist;
+  }
+  if (els.intelCalibrationBriefContent){
+    els.intelCalibrationBriefContent.value = calibrationBrief?.content || "";
+  }
+  if (els.intelCalibrationStatus){
+    els.intelCalibrationStatus.classList.remove("ok", "warn", "bad");
+    if (calibrationBrief){
+      els.intelCalibrationStatus.classList.add("muted");
+      const ts = fmtDate(calibrationBrief?.createdAt);
+      els.intelCalibrationStatus.textContent = `Last generated: ${ts}.`;
+    } else {
+      els.intelCalibrationStatus.classList.add("muted");
+      els.intelCalibrationStatus.textContent = "No calibration brief generated yet.";
+    }
   }
 }
