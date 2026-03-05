@@ -318,8 +318,14 @@ export function wireIntelChecksEvents(ctx){
       if (!s) return;
       const selectedAuditId = String(els.intelAuditSelect?.value || "").trim();
       const missingRows = listMissingEvidenceAudit(s, { limit: 200 });
+      const selectedAudit = missingRows.find((row) => String(row?.id || "").trim() === selectedAuditId) || null;
+      const draftNote = String(els.intelEvidenceNotes?.value || "").trim();
       if (missingRows.length > 0 && !selectedAuditId){
         setEvidenceStatus("Select a missing evidence audit item before attaching evidence.", "warn");
+        return;
+      }
+      if (selectedAudit && selectedAudit.requiresNote === true && !String(selectedAudit.note || "").trim() && !draftNote){
+        setEvidenceStatus("This audit item also requires a note. Add a short note in Evidence notes before attaching evidence.", "warn");
         return;
       }
       const result = attachEvidenceRecord(s, {
@@ -338,7 +344,18 @@ export function wireIntelChecksEvents(ctx){
       if (els.intelEvidenceSource) els.intelEvidenceSource.value = "";
       if (els.intelEvidenceUrl) els.intelEvidenceUrl.value = "";
       if (els.intelEvidenceNotes) els.intelEvidenceNotes.value = "";
-      setEvidenceStatus(result.resolvedAuditId ? "Evidence attached and audit resolved." : "Evidence attached.", "ok");
+      if (result.resolvedAuditId){
+        const updatedAudit = Array.isArray(s?.intelState?.audit)
+          ? s.intelState.audit.find((row) => String(row?.id || "").trim() === String(result.resolvedAuditId || "").trim())
+          : null;
+        if (updatedAudit && String(updatedAudit.status || "").trim() === "missingNote"){
+          setEvidenceStatus("Evidence attached. This edit still needs a note to fully resolve governance.", "warn");
+        } else {
+          setEvidenceStatus("Evidence attached and audit resolved.", "ok");
+        }
+      } else {
+        setEvidenceStatus("Evidence attached.", "ok");
+      }
       commitUIUpdate();
     });
   }
@@ -567,15 +584,20 @@ export function wireIntelChecksEvents(ctx){
           commitUIUpdate();
           return;
         }
-        if (!s.intelState.simToggles.correlationMatrixId){
-          s.intelState.simToggles.correlationMatrixId = String(seed?.row?.id || "").trim() || null;
-        }
-        setCorrelationStatus("Correlated shocks enabled. Default correlation model added.", "ok");
+      if (!s.intelState.simToggles.correlationMatrixId){
+        s.intelState.simToggles.correlationMatrixId = String(seed?.row?.id || "").trim() || null;
       }
+      setCorrelationStatus("Correlated shocks enabled. Default correlation model added.", "ok");
+    }
 
       s.intelState.simToggles.correlatedShocks = !!els.intelCorrelatedShocks.checked;
       if (!(turningOn && s.intelState.correlationModels.length > 0)){
-        setCorrelationStatus("Correlated shocks updated. Re-run Monte Carlo to apply.", "ok");
+        setCorrelationStatus(
+          s.intelState.simToggles.correlatedShocks
+            ? "Correlated shocks enabled. Re-run Monte Carlo to apply."
+            : "Correlated shocks disabled. Selected model is preserved for later use.",
+          "ok"
+        );
       }
       if (typeof markMcStale === "function") markMcStale();
       commitUIUpdate();
@@ -591,7 +613,12 @@ export function wireIntelChecksEvents(ctx){
       const id = String(els.intelCorrelationMatrixId.value || "").trim();
       s.intelState.simToggles.correlationMatrixId = id || null;
       if (typeof markMcStale === "function") markMcStale();
-      setCorrelationStatus("Correlation model updated. Re-run Monte Carlo to apply.", "ok");
+      setCorrelationStatus(
+        s.intelState.simToggles.correlatedShocks
+          ? "Correlation model updated. Re-run Monte Carlo to apply."
+          : "Correlation model selected. Enable Correlated shocks to apply it in Monte Carlo.",
+        "ok"
+      );
       commitUIUpdate();
     });
   }

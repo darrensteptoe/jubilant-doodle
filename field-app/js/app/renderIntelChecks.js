@@ -174,15 +174,19 @@ export function renderIntelChecksModule({
     els.intelBenchmarkStatus.textContent = "Ready.";
   }
   if (els.intelMissingEvidenceCount){
-    els.intelMissingEvidenceCount.textContent = `${missingAudit.length} critical assumption edit(s) missing evidence.`;
+    els.intelMissingEvidenceCount.textContent = missingAudit.length
+      ? `${missingAudit.length} critical assumption edit(s) missing evidence. Select one below and attach supporting evidence.`
+      : "No critical assumption edits are missing evidence.";
   }
   if (els.intelMissingNoteCount){
-    els.intelMissingNoteCount.textContent = `${missingNoteAudit.length} critical assumption edit(s) missing note.`;
+    els.intelMissingNoteCount.textContent = missingNoteAudit.length
+      ? `${missingNoteAudit.length} critical assumption edit(s) missing note. Add a short note in Evidence notes to resolve.`
+      : "No critical assumption edits are missing notes.";
   }
   if (els.intelEvidenceStatus && !String(els.intelEvidenceStatus.textContent || "").trim()){
     els.intelEvidenceStatus.classList.remove("ok", "warn", "bad");
     els.intelEvidenceStatus.classList.add("muted");
-    els.intelEvidenceStatus.textContent = "Ready.";
+    els.intelEvidenceStatus.textContent = "Select an audit item, then attach evidence. Add a note when required.";
   }
 
   fillBenchmarkTable(els.intelBenchmarkTbody, benchmarks);
@@ -285,12 +289,40 @@ export function renderIntelChecksModule({
   if (els.intelCorrelationMatrixId){
     els.intelCorrelationMatrixId.disabled = !corrModels.length;
   }
+  const selectedCorr = corrModels.find((row) => String(row?.id || "").trim() === corrMatrixId) || null;
+  const selectedCorrLabel = String(selectedCorr?.label || selectedCorr?.id || "").trim();
   if (els.intelCorrelationStatus){
-    els.intelCorrelationStatus.classList.remove("ok", "warn", "bad");
-    els.intelCorrelationStatus.classList.add(corrModels.length ? "muted" : "warn");
-    els.intelCorrelationStatus.textContent = corrModels.length
-      ? `${corrModels.length} correlation model${corrModels.length === 1 ? "" : "s"} configured.`
-      : "No correlation models configured. Add or import one to enable correlated shocks.";
+    els.intelCorrelationStatus.classList.remove("ok", "warn", "bad", "muted");
+    if (!corrModels.length){
+      els.intelCorrelationStatus.classList.add("warn");
+      els.intelCorrelationStatus.textContent = "No correlation models configured. Add default model or import JSON first.";
+    } else if (!corrMatrixId){
+      els.intelCorrelationStatus.classList.add(correlatedShocks ? "warn" : "muted");
+      els.intelCorrelationStatus.textContent = correlatedShocks
+        ? `Correlated shocks is ON, but no model is selected. Choose one of ${corrModels.length} configured models.`
+        : `${corrModels.length} correlation model${corrModels.length === 1 ? "" : "s"} configured. Select one to prepare correlated shocks.`;
+    } else {
+      els.intelCorrelationStatus.classList.add(correlatedShocks ? "ok" : "muted");
+      els.intelCorrelationStatus.textContent = correlatedShocks
+        ? `Using "${selectedCorrLabel || corrMatrixId}" for correlated shocks. Re-run Monte Carlo to apply.`
+        : `Selected "${selectedCorrLabel || corrMatrixId}". Enable Correlated shocks to apply in Monte Carlo.`;
+    }
+  }
+  if (els.intelCorrelationDisabledHint){
+    els.intelCorrelationDisabledHint.classList.remove("ok", "warn", "bad", "muted");
+    if (!corrModels.length){
+      els.intelCorrelationDisabledHint.classList.add("warn");
+      els.intelCorrelationDisabledHint.textContent = "Selector disabled: no models configured. Click Add default model or paste JSON and click Import model JSON.";
+    } else if (!correlatedShocks){
+      els.intelCorrelationDisabledHint.classList.add("muted");
+      els.intelCorrelationDisabledHint.textContent = "Correlation model is selectable now. Enable Correlated shocks to use it in Monte Carlo.";
+    } else if (!corrMatrixId){
+      els.intelCorrelationDisabledHint.classList.add("warn");
+      els.intelCorrelationDisabledHint.textContent = "Correlated shocks is ON, but no model is selected yet.";
+    } else {
+      els.intelCorrelationDisabledHint.classList.add("ok");
+      els.intelCorrelationDisabledHint.textContent = "Correlation model is active for the next Monte Carlo run.";
+    }
   }
   if (els.intelShockScenariosEnabled){
     els.intelShockScenariosEnabled.checked = shockEnabled;
