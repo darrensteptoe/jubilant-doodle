@@ -21,6 +21,12 @@ export function renderRoiPanel({
   const tr = eff.tr;
 
   const w = (weeks != null && weeks >= 0) ? weeks : null;
+  const capacityDecay = {
+    enabled: !!state?.intelState?.expertToggles?.capacityDecayEnabled,
+    type: String(state?.intelState?.expertToggles?.decayModel?.type || "linear"),
+    weeklyDecayPct: safeNum(state?.intelState?.expertToggles?.decayModel?.weeklyDecayPct),
+    floorPctOfBaseline: safeNum(state?.intelState?.expertToggles?.decayModel?.floorPctOfBaseline),
+  };
   const capBreakdown = computeCapacityBreakdown({
     weeks: w,
     orgCount: safeNum(state.orgCount),
@@ -32,6 +38,7 @@ export function renderRoiPanel({
     })(),
     doorsPerHour: (safeNum(state.doorsPerHour3) ?? safeNum(state.doorsPerHour)),
     callsPerHour: safeNum(state.callsPerHour3),
+    capacityDecay,
   });
   const capAttempts = capBreakdown?.total ?? null;
 
@@ -167,6 +174,12 @@ export function renderOptimizationPanel({
   const tr = eff.tr;
 
   const w = (weeks != null && weeks >= 0) ? weeks : null;
+  const capacityDecay = {
+    enabled: !!state?.intelState?.expertToggles?.capacityDecayEnabled,
+    type: String(state?.intelState?.expertToggles?.decayModel?.type || "linear"),
+    weeklyDecayPct: safeNum(state?.intelState?.expertToggles?.decayModel?.weeklyDecayPct),
+    floorPctOfBaseline: safeNum(state?.intelState?.expertToggles?.decayModel?.floorPctOfBaseline),
+  };
   const capBreakdown = computeCapacityBreakdown({
     weeks: w,
     orgCount: safeNum(state.orgCount),
@@ -178,6 +191,7 @@ export function renderOptimizationPanel({
     })(),
     doorsPerHour: (safeNum(state.doorsPerHour3) ?? safeNum(state.doorsPerHour)),
     callsPerHour: safeNum(state.callsPerHour3),
+    capacityDecay,
   });
   const capAttempts = capBreakdown?.total ?? null;
 

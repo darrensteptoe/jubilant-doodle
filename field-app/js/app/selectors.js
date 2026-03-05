@@ -80,6 +80,12 @@ export function computeWeeklyOpsContextFromState(state, {
   let doorSharePct = safeNum(state?.channelDoorPct);
   let doorsPerHour = safeNum(state?.doorsPerHour3);
   let callsPerHour = safeNum(state?.callsPerHour3);
+  let capacityDecay = {
+    enabled: !!state?.intelState?.expertToggles?.capacityDecayEnabled,
+    type: String(state?.intelState?.expertToggles?.decayModel?.type || "linear"),
+    weeklyDecayPct: safeNum(state?.intelState?.expertToggles?.decayModel?.weeklyDecayPct),
+    floorPctOfBaseline: safeNum(state?.intelState?.expertToggles?.decayModel?.floorPctOfBaseline),
+  };
 
   let compiled = null;
   if (typeof compileEffectiveInputsForState === "function"){
@@ -97,6 +103,7 @@ export function computeWeeklyOpsContextFromState(state, {
     if (capIn.doorSharePct != null) doorSharePct = capIn.doorSharePct;
     if (capIn.doorsPerHour != null) doorsPerHour = capIn.doorsPerHour;
     if (capIn.callsPerHour != null) callsPerHour = capIn.callsPerHour;
+    if (capIn.capacityDecay) capacityDecay = capIn.capacityDecay;
   }
 
   if (goal > 0 && sr && sr > 0) convosNeeded = goal / sr;
@@ -115,7 +122,8 @@ export function computeWeeklyOpsContextFromState(state, {
     volunteerMult,
     doorShare,
     doorsPerHour,
-    callsPerHour
+    callsPerHour,
+    capacityDecay
   });
 
   const capTotal = cap?.total ?? null;
@@ -138,6 +146,7 @@ export function computeWeeklyOpsContextFromState(state, {
     volunteerMult,
     doorShare,
     doorsPerHour,
-    callsPerHour
+    callsPerHour,
+    capacityDecay
   };
 }

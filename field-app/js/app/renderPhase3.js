@@ -28,6 +28,7 @@ export function renderPhase3Module(args){
   const doorShare = effective.capacity.doorShare;
   const dph = effective.capacity.doorsPerHour;
   const cph = effective.capacity.callsPerHour;
+  const capacityDecay = effective.capacity.capacityDecay;
 
   const capContacts = computeCapacityContacts({
     weeks: w,
@@ -37,6 +38,7 @@ export function renderPhase3Module(args){
     doorShare,
     doorsPerHour: dph,
     callsPerHour: cph,
+    capacityDecay,
   });
 
   els.p3CapContacts.textContent = (capContacts == null) ? "—" : fmtInt(Math.floor(capContacts));

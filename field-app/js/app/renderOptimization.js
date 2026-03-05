@@ -31,6 +31,7 @@ export function renderOptimizationModule(args){
     doorShare: effective.capacity.doorShare,
     doorsPerHour: effective.capacity.doorsPerHour,
     callsPerHour: effective.capacity.callsPerHour,
+    capacityDecay: effective.capacity.capacityDecay,
   });
   const capAttempts = capBreakdown?.total ?? null;
 

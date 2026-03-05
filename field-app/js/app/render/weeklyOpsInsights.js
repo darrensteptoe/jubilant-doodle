@@ -89,7 +89,8 @@ export function renderWeeklyOpsInsightsPanel({
     volunteerMult: opsCtx.volunteerMult,
     doorShare: opsCtx.doorShare,
     doorsPerHour: opsCtx.doorsPerHour,
-    callsPerHour: opsCtx.callsPerHour
+    callsPerHour: opsCtx.callsPerHour,
+    capacityDecay: opsCtx.capacityDecay,
   };
 
   if (opsCtx.orgCount != null && opsCtx.orgHoursPerWeek != null && opsCtx.volunteerMult != null){

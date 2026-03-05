@@ -30,6 +30,12 @@ export function renderPhase3Panel({
 
   const dph = safeNum(state.doorsPerHour3) ?? safeNum(state.doorsPerHour);
   const cph = safeNum(state.callsPerHour3);
+  const capacityDecay = {
+    enabled: !!state?.intelState?.expertToggles?.capacityDecayEnabled,
+    type: String(state?.intelState?.expertToggles?.decayModel?.type || "linear"),
+    weeklyDecayPct: safeNum(state?.intelState?.expertToggles?.decayModel?.weeklyDecayPct),
+    floorPctOfBaseline: safeNum(state?.intelState?.expertToggles?.decayModel?.floorPctOfBaseline),
+  };
 
   const capContacts = computeCapacityContacts({
     weeks: w,
@@ -39,6 +45,7 @@ export function renderPhase3Panel({
     doorShare,
     doorsPerHour: dph,
     callsPerHour: cph,
+    capacityDecay,
   });
 
   els.p3CapContacts.textContent = (capContacts == null) ? "—" : fmtInt(Math.floor(capContacts));
