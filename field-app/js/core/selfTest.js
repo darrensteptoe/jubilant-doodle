@@ -11,7 +11,7 @@ import { FIXTURES } from "./fixtures.js";
 import { computeMarginalValueDiagnostics } from "./marginalValue.js";
 import { computeDecisionIntelligence } from "./decisionIntelligence.js";
 import { computeMaxAttemptsByTactic, optimizeTimelineConstrained } from "./timelineOptimizer.js";
-import { MODEL_VERSION, makeScenarioExport, deterministicStringify, validateScenarioExport, PLAN_CSV_HEADERS, planRowsToCsv, hasNonFiniteNumbers } from "../export.js";
+import { MODEL_VERSION, makeScenarioExport, deterministicStringify, validateScenarioExport, PLAN_CSV_HEADERS, planRowsToCsv, hasNonFiniteNumbers, formatSummaryText } from "../export.js";
 import { computeSnapshotHash } from "./hash.js";
 import { createScenarioManager } from "../scenarioManager.js";
 import { migrateSnapshot, CURRENT_SCHEMA_VERSION } from "./migrate.js";
@@ -1060,6 +1060,21 @@ export function runSelfTests(engine){
     return true;
   });
 
+  test("Phase 10: migration allows governance top-level key without unknown-field warning", () => {
+    const raw = {
+      modelVersion: MODEL_VERSION,
+      schemaVersion: CURRENT_SCHEMA_VERSION,
+      exportedAt: new Date().toISOString(),
+      snapshotHash: "abc12345",
+      governance: { available: true, missing: { evidence: 0, note: 0 } },
+      scenario: withUniverseDefaults({ scenarioName: "GovernanceKey", universeSize: 1000 }),
+    };
+    const mig = migrateSnapshot(raw);
+    const warningText = (Array.isArray(mig.warnings) ? mig.warnings : []).join(" | ").toLowerCase();
+    assert(!warningText.includes("unknown field 'governance'"), "Governance key was treated as unknown");
+    return true;
+  });
+
   test("Phase 10: import missing schemaVersion migrates with warnings", () => {
     const scenario = { a: 1, ui: { training:false, dark:false } };
     const legacy = { modelVersion: MODEL_VERSION, snapshotHash: computeSnapshotHash({ modelVersion: MODEL_VERSION, scenarioState: scenario }), exportedAt: new Date().toISOString(), scenario };
@@ -1209,6 +1224,59 @@ export function runSelfTests(engine){
     const payload = makeScenarioExport({ modelVersion: MODEL_VERSION, scenarioState: { a: 1 } });
     assert(payload.appVersion === APP_VERSION, "appVersion missing or wrong");
     assert(payload.buildId === BUILD_ID, "buildId missing or wrong");
+    return true;
+  });
+
+  test("Phase 11: export includes governance summary object", () => {
+    const scenario = withUniverseDefaults({ scenarioName: "GovExport", universeSize: 1000, ui: { training: false, dark: false } });
+    scenario.intelState = makeDefaultIntelState();
+    scenario.intelState.workflow.scenarioLocked = false;
+    scenario.intelState.audit = [
+      {
+        id: "a1",
+        ts: "2026-03-04T00:00:00.000Z",
+        governanceTracked: true,
+        requiresEvidence: true,
+        requiresNote: true,
+        status: "open",
+        evidenceId: null,
+        note: "",
+      }
+    ];
+    scenario.intelState.briefs = [
+      { id: "b1", kind: "calibrationSources", createdAt: "2026-03-04T12:00:00.000Z" }
+    ];
+    const payload = makeScenarioExport({ modelVersion: MODEL_VERSION, scenarioState: scenario });
+    assert(payload.governance && payload.governance.available === true, "Missing governance summary on export");
+    assert(payload.governance.missing?.evidence === 1, "Governance missing evidence count mismatch");
+    assert(payload.governance.missing?.note === 1, "Governance missing note count mismatch");
+    assert(!!payload.governance.calibrationBrief, "Expected calibration brief summary");
+    return true;
+  });
+
+  test("Phase 11: copy summary includes governance lines", () => {
+    const text = formatSummaryText({
+      schemaVersion: CURRENT_SCHEMA_VERSION,
+      snapshotHash: "hash123",
+      summary: {
+        objective: "net",
+        netVotes: 100,
+        cost: 200,
+        feasible: true,
+        primaryBottleneck: "none/unknown",
+        topAllocations: ["Doors: 100 attempts"],
+      },
+      governance: {
+        available: true,
+        workflow: { scenarioLocked: true },
+        missing: { evidence: 2, note: 3 },
+        calibrationBrief: { id: "brief1" },
+      },
+    });
+    assert(text.includes("Governance lock: ON"), "Missing governance lock line in summary text");
+    assert(text.includes("Governance missing evidence: 2"), "Missing governance evidence line in summary text");
+    assert(text.includes("Governance missing note: 3"), "Missing governance note line in summary text");
+    assert(text.includes("Calibration brief: present"), "Missing calibration brief line in summary text");
     return true;
   });
 
