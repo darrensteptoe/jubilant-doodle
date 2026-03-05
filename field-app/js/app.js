@@ -1344,6 +1344,7 @@ function wireEvents(){
     wireIntelChecksEvents,
     wireTabAndExportEvents,
     wireResetImportAndUiToggles,
+    computeRealityDrift,
   });
 }
 
