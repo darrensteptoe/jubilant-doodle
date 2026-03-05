@@ -483,6 +483,7 @@ export const els = {
   intelMcDistribution: document.getElementById("intelMcDistribution"),
   intelCorrelatedShocks: document.getElementById("intelCorrelatedShocks"),
   intelCorrelationMatrixId: document.getElementById("intelCorrelationMatrixId"),
+  intelCorrelationDisabledHint: document.getElementById("intelCorrelationDisabledHint"),
   intelCapacityDecayEnabled: document.getElementById("intelCapacityDecayEnabled"),
   intelDecayModelType: document.getElementById("intelDecayModelType"),
   intelDecayWeeklyPct: document.getElementById("intelDecayWeeklyPct"),

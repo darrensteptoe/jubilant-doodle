@@ -1,5 +1,13 @@
 // Phase 4 — Budget + ROI (deterministic cost layer)
 // Design rule: this module NEVER mutates Phase 1–3 outcomes. It only computes cost lenses.
+import {
+  computeBaseNetVotesPerAttempt,
+  computeGotvNetVotesPerAttempt,
+  computeGotvSaturationCapAttempts,
+  computeHybridEffectiveTurnoutReliability,
+  pctOverrideToDecimal,
+  resolveTurnoutContext,
+} from "./voteProduction.js";
 
 export function computeRoiRows({
   goalNetVotes,
@@ -19,11 +27,8 @@ export function computeRoiRows({
   const baseSr = baseRates?.sr ?? null;
   const baseTr = baseRates?.tr ?? null;
 
-  const turnoutEnabled = !!turnoutModel?.enabled;
-  const gotvLiftPP = (turnoutEnabled && turnoutModel?.liftPerContactPP != null) ? Math.max(0, Number(turnoutModel.liftPerContactPP)) : 0;
-  const gotvMaxLiftPP = (turnoutEnabled && turnoutModel?.maxLiftPP != null) ? Math.max(0, Number(turnoutModel.maxLiftPP)) : 0;
-  const baseTurnoutPct = (turnoutEnabled && turnoutModel?.baselineTurnoutPct != null) ? Math.max(0, Math.min(100, Number(turnoutModel.baselineTurnoutPct))) : 0;
-  const maxAdditionalPP = turnoutEnabled ? Math.max(0, Math.min(gotvMaxLiftPP, 100 - baseTurnoutPct)) : 0;
+  const turnoutCtx = resolveTurnoutContext(turnoutModel);
+  const turnoutEnabled = turnoutCtx.enabled;
 
 
   const ratesOkBase = (need != null) && (need > 0) && (baseCr != null && baseCr > 0) && (baseSr != null && baseSr > 0) && (baseTr != null && baseTr > 0);
@@ -43,12 +48,30 @@ export function computeRoiRows({
     // Turnout-adjusted value-per-attempt (Phase 6). Conservative per-attempt lens (no saturation in ROI table).
     let turnoutAdjustedNetVotesPerAttempt = null;
     if (!turnoutEnabled){
-      turnoutAdjustedNetVotesPerAttempt = (tCr != null && tSr != null && tTr != null) ? (tCr * tSr * tTr) : 0;
+      turnoutAdjustedNetVotesPerAttempt = computeBaseNetVotesPerAttempt({
+        cr: tCr,
+        sr: tSr,
+        tr: tTr,
+        requirePositive: false,
+      });
     } else if (kind === "gotv"){
-      turnoutAdjustedNetVotesPerAttempt = (tCr != null) ? (tCr * (gotvLiftPP / 100)) : 0;
+      turnoutAdjustedNetVotesPerAttempt = computeGotvNetVotesPerAttempt({
+        cr: tCr,
+        liftPerContactPP: turnoutCtx.gotvLiftPP,
+        requirePositiveCr: false,
+      });
     } else {
-      const effTr = (tTr != null) ? Math.min(1, tTr + (Math.min(maxAdditionalPP, gotvLiftPP) / 100)) : null;
-      turnoutAdjustedNetVotesPerAttempt = (tCr != null && tSr != null && effTr != null) ? (tCr * tSr * effTr) : 0;
+      const effTr = computeHybridEffectiveTurnoutReliability({
+        tr: tTr,
+        liftAppliedPP: turnoutCtx.liftAppliedPP,
+        clampUnit: true,
+      });
+      turnoutAdjustedNetVotesPerAttempt = computeBaseNetVotesPerAttempt({
+        cr: tCr,
+        sr: tSr,
+        tr: effTr,
+        requirePositive: false,
+      });
     }
 
     let requiredAttempts = null;
@@ -127,13 +150,6 @@ export function computeRoiRows({
   return { rows, banner };
 }
 
-function pctOverrideToDecimal(pctMaybe, fallbackDecimal){
-  if (pctMaybe == null || pctMaybe === "" || !isFinite(pctMaybe)) return fallbackDecimal;
-  const v = Math.max(0, Math.min(100, Number(pctMaybe)));
-  return v / 100;
-}
-
-
 function buildBanner({ need, ratesOkBase, overheadAmount, includeOverhead, mcLast }){
   if (need == null){
     return { kind: "warn", text: "ROI: Enter a valid universe + support inputs so the model can compute persuasion need." };
@@ -172,11 +188,8 @@ export function buildOptimizationTactics({ baseRates, tactics, turnoutModel, uni
   const baseSr = baseRates?.sr ?? null;
   const baseTr = baseRates?.tr ?? null;
 
-  const turnoutEnabled = !!turnoutModel?.enabled;
-  const gotvLiftPP = (turnoutEnabled && turnoutModel?.liftPerContactPP != null) ? Math.max(0, Number(turnoutModel.liftPerContactPP)) : 0;
-  const gotvMaxLiftPP = (turnoutEnabled && turnoutModel?.maxLiftPP != null) ? Math.max(0, Number(turnoutModel.maxLiftPP)) : 0;
-  const baselineTurnoutPct = (turnoutEnabled && turnoutModel?.baselineTurnoutPct != null) ? Math.max(0, Math.min(100, Number(turnoutModel.baselineTurnoutPct))) : 0;
-  const maxAdditionalPP = turnoutEnabled ? Math.max(0, Math.min(gotvMaxLiftPP, 100 - baselineTurnoutPct)) : 0;
+  const turnoutCtx = resolveTurnoutContext(turnoutModel);
+  const turnoutEnabled = turnoutCtx.enabled;
 
   const U = (universeSize != null && isFinite(universeSize) && universeSize > 0) ? Number(universeSize) : null;
   const tuPct = (targetUniversePct != null && isFinite(targetUniversePct)) ? Math.max(0, Math.min(100, Number(targetUniversePct))) : null;
@@ -193,9 +206,12 @@ export function buildOptimizationTactics({ baseRates, tactics, turnoutModel, uni
     const sr = pctOverrideToDecimal(t?.srPct, baseSr);
     const tr = baseTr;
 
-    const netVotesPerAttempt = (cr != null && cr > 0 && sr != null && sr > 0 && tr != null && tr > 0)
-      ? (cr * sr * tr)
-      : 0;
+    const netVotesPerAttempt = computeBaseNetVotesPerAttempt({
+      cr,
+      sr,
+      tr,
+      requirePositive: true,
+    });
 
     const costPerAttempt = (t?.cpa != null && isFinite(t.cpa)) ? Math.max(0, Number(t.cpa)) : 0;
 
@@ -206,20 +222,29 @@ export function buildOptimizationTactics({ baseRates, tactics, turnoutModel, uni
 
     if (turnoutEnabled){
       if (kind === "gotv"){
-        turnoutAdjustedNetVotesPerAttempt = (cr != null && cr > 0) ? (cr * (gotvLiftPP / 100)) : 0;
-
-        // Linear saturation cap: ceiling reached when (contacts / targetUniverse) * liftPP = maxAdditionalPP
-        // contacts = attempts * cr
-        if (targetUniverseSize != null && targetUniverseSize > 0 && cr != null && cr > 0 && gotvLiftPP > 0 && maxAdditionalPP > 0){
-          const capContacts = targetUniverseSize * (maxAdditionalPP / gotvLiftPP);
-          const capAttempts = capContacts / cr;
-          if (isFinite(capAttempts) && capAttempts > 0) maxAttempts = Math.ceil(capAttempts);
-        }
+        turnoutAdjustedNetVotesPerAttempt = computeGotvNetVotesPerAttempt({
+          cr,
+          liftPerContactPP: turnoutCtx.gotvLiftPP,
+          requirePositiveCr: true,
+        });
+        maxAttempts = computeGotvSaturationCapAttempts({
+          cr,
+          targetUniverseSize,
+          maxAdditionalPP: turnoutCtx.maxAdditionalPP,
+          gotvLiftPP: turnoutCtx.gotvLiftPP,
+        });
       } else if (kind === "hybrid"){
-        const effTr = (tr != null) ? Math.min(1, tr + (Math.min(maxAdditionalPP, gotvLiftPP) / 100)) : tr;
-        turnoutAdjustedNetVotesPerAttempt = (cr != null && cr > 0 && sr != null && sr > 0 && effTr != null && effTr > 0)
-          ? (cr * sr * effTr)
-          : 0;
+        const effTr = computeHybridEffectiveTurnoutReliability({
+          tr,
+          liftAppliedPP: turnoutCtx.liftAppliedPP,
+          clampUnit: true,
+        });
+        turnoutAdjustedNetVotesPerAttempt = computeBaseNetVotesPerAttempt({
+          cr,
+          sr,
+          tr: effTr,
+          requirePositive: true,
+        });
       } else {
         // persuasion-only: unchanged (TR already captures baseline voting reliability)
         turnoutAdjustedNetVotesPerAttempt = netVotesPerAttempt;
