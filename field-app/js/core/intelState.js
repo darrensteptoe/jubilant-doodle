@@ -39,6 +39,24 @@ function toArray(v){
   return Array.isArray(v) ? v.slice() : [];
 }
 
+function parseIsoMs(v){
+  if (v == null || v === "") return null;
+  const d = new Date(v);
+  const ms = d.getTime();
+  return Number.isFinite(ms) ? ms : null;
+}
+
+function deriveLegacyGovernanceBaselineIso(auditRows){
+  if (!Array.isArray(auditRows) || !auditRows.length) return null;
+  let maxMs = null;
+  for (const row of auditRows){
+    const ms = parseIsoMs(row?.ts || row?.createdAt || row?.updatedAt);
+    if (ms == null) continue;
+    if (maxMs == null || ms > maxMs) maxMs = ms;
+  }
+  return maxMs == null ? null : new Date(maxMs).toISOString();
+}
+
 function normalizeCorrelationModel(row){
   if (!isObject(row)) return null;
   const refs = toArray(row.refs).map((v) => String(v)).filter(Boolean);
@@ -109,6 +127,7 @@ export function makeDefaultIntelState(){
       lockReason: "",
       lockedAt: null,
       lockedBy: "",
+      governanceBaselineAt: null,
       requireCriticalNote: true,
       requireCriticalEvidence: true,
     },
@@ -148,6 +167,11 @@ export function normalizeIntelState(raw){
   out.recommendations = toArray(raw.recommendations);
   out.observedMetrics = toArray(raw.observedMetrics);
   const wfIn = isObject(raw.workflow) ? raw.workflow : {};
+  const baselineRaw = toStringOrNull(wfIn.governanceBaselineAt);
+  const hasGovernanceTrackedRows = out.audit.some((x) => x && x.governanceTracked === true);
+  const legacyBaseline = (!baselineRaw && !hasGovernanceTrackedRows)
+    ? deriveLegacyGovernanceBaselineIso(out.audit)
+    : null;
   out.workflow = {
     ...base.workflow,
     ...wfIn,
@@ -155,6 +179,7 @@ export function normalizeIntelState(raw){
     lockReason: String(wfIn.lockReason || ""),
     lockedAt: toStringOrNull(wfIn.lockedAt),
     lockedBy: String(wfIn.lockedBy || ""),
+    governanceBaselineAt: baselineRaw || legacyBaseline,
     requireCriticalNote: (wfIn.requireCriticalNote == null) ? base.workflow.requireCriticalNote : !!wfIn.requireCriticalNote,
     requireCriticalEvidence: (wfIn.requireCriticalEvidence == null) ? base.workflow.requireCriticalEvidence : !!wfIn.requireCriticalEvidence,
   };
