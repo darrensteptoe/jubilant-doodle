@@ -2250,6 +2250,38 @@ export function runSelfTests(engine){
     return true;
   });
 
+  test("Phase 9: planning snapshot explain wiring is training-gated and parity-safe", () => {
+    const snap = engine.getStateSnapshot();
+    assert(snap && typeof snap === "object", "State snapshot unavailable");
+
+    const offState = structuredClone(snap);
+    offState.ui = { ...(offState.ui || {}), training: false };
+    const off = computeElectionSnapshot({ state: offState, nowDate: new Date(), toNum: safeNum });
+    assert(off && off.res, "Snapshot (training OFF) missing deterministic result");
+    assert(!off.res.explain, "Training OFF snapshot should not include explain payload");
+
+    const onState = structuredClone(snap);
+    onState.ui = { ...(onState.ui || {}), training: true };
+    const on = computeElectionSnapshot({ state: onState, nowDate: new Date(), toNum: safeNum });
+    assert(on && on.res, "Snapshot (training ON) missing deterministic result");
+    assert(on.res.explain && typeof on.res.explain === "object", "Training ON snapshot should include explain payload");
+    assert(on.res.explain._meta?.moduleVersion === "engine.explain.v1", "Unexpected explain module version in snapshot");
+
+    assert(
+      approx(off.res?.expected?.turnoutVotes, on.res?.expected?.turnoutVotes, 1e-12),
+      "Training-gated explain should not alter turnoutVotes"
+    );
+    assert(
+      approx(off.res?.expected?.winThreshold, on.res?.expected?.winThreshold, 1e-12),
+      "Training-gated explain should not alter winThreshold"
+    );
+    assert(
+      approx(off.res?.expected?.persuasionNeed, on.res?.expected?.persuasionNeed, 1e-12),
+      "Training-gated explain should not alter persuasionNeed"
+    );
+    return true;
+  });
+
   results.durationMs = Math.round(nowMs() - started);
   // Ensure totals are consistent even if something weird happened.
   results.passed = Math.max(0, results.total - results.failed);
