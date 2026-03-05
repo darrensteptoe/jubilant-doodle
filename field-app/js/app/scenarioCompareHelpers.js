@@ -16,12 +16,14 @@ export function computeWeeklyOpsContextFromSnapCore(snap, res, weeks, {
   getEffectiveBaseRatesFromSnap,
   computeCapacityBreakdown,
   compileEffectiveInputs,
+  computeMaxAttemptsByTactic,
 }){
   return computeWeeklyOpsContextFromStateSelector(snap, {
     res,
     weeks,
     getEffectiveBaseRatesForState: (s) => getEffectiveBaseRatesFromSnap(s),
     computeCapacityBreakdown,
-    compileEffectiveInputsForState: (s) => compileEffectiveInputs(s)
+    compileEffectiveInputsForState: (s) => compileEffectiveInputs(s),
+    computeMaxAttemptsByTactic
   });
 }

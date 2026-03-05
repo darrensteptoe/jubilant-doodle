@@ -61,7 +61,8 @@ export function computeWeeklyOpsContextFromState(state, {
   weeks,
   getEffectiveBaseRatesForState,
   computeCapacityBreakdown,
-  compileEffectiveInputsForState
+  compileEffectiveInputsForState,
+  computeMaxAttemptsByTactic,
 } = {}){
   const goal = coreDeriveNeedVotesOrZero(res, state?.goalSupportIds);
 
@@ -125,8 +126,64 @@ export function computeWeeklyOpsContextFromState(state, {
     callsPerHour,
     capacityDecay
   });
+  let capTotal = cap?.total ?? null;
+  let capSource = "classic";
+  let capByTactic = {
+    doors: cap?.doors ?? null,
+    phones: cap?.phones ?? null,
+    texts: null,
+  };
 
-  const capTotal = cap?.total ?? null;
+  const tlConstrainedOn = !!state?.budget?.optimize?.tlConstrainedEnabled;
+  const timelineEnabled = !!state?.timelineEnabled;
+  if (tlConstrainedOn && timelineEnabled && typeof computeMaxAttemptsByTactic === "function"){
+    const capsInput = {
+      enabled: true,
+      weeksRemaining: weeks ?? 0,
+      activeWeeksOverride: safeNum(state?.timelineActiveWeeks),
+      gotvWindowWeeks: safeNum(state?.timelineGotvWeeks),
+      staffing: {
+        staff: safeNum(state?.timelineStaffCount) ?? 0,
+        volunteers: safeNum(state?.timelineVolCount) ?? 0,
+        staffHours: safeNum(state?.timelineStaffHours) ?? 0,
+        volunteerHours: safeNum(state?.timelineVolHours) ?? 0,
+      },
+      throughput: {
+        doors: safeNum(state?.timelineDoorsPerHour) ?? 0,
+        phones: safeNum(state?.timelineCallsPerHour) ?? 0,
+        texts: safeNum(state?.timelineTextsPerHour) ?? 0,
+      },
+      tacticKinds: {
+        doors: state?.budget?.tactics?.doors?.kind || "persuasion",
+        phones: state?.budget?.tactics?.phones?.kind || "persuasion",
+        texts: state?.budget?.tactics?.texts?.kind || "persuasion",
+      }
+    };
+    const capsWrap = computeMaxAttemptsByTactic(capsInput);
+    const tCaps = (capsWrap && capsWrap.enabled && capsWrap.maxAttemptsByTactic && typeof capsWrap.maxAttemptsByTactic === "object")
+      ? capsWrap.maxAttemptsByTactic
+      : null;
+    if (tCaps){
+      const asCap = (v) => {
+        const n = Number(v);
+        return (Number.isFinite(n) && n >= 0) ? n : null;
+      };
+      const doorsCap = asCap(tCaps.doors);
+      const phonesCap = asCap(tCaps.phones);
+      const textsCap = asCap(tCaps.texts);
+      const total = [doorsCap, phonesCap, textsCap].reduce((sum, v) => sum + ((v == null) ? 0 : v), 0);
+      if (Number.isFinite(total) && total >= 0){
+        capTotal = total;
+        capSource = "timeline";
+        capByTactic = {
+          doors: doorsCap,
+          phones: phonesCap,
+          texts: textsCap,
+        };
+      }
+    }
+  }
+
   const gap = (attemptsPerWeek != null && capTotal != null) ? (attemptsPerWeek - capTotal) : null;
 
   return {
@@ -139,7 +196,9 @@ export function computeWeeklyOpsContextFromState(state, {
     convosPerWeek,
     attemptsPerWeek,
     cap,
+    capByTactic,
     capTotal,
+    capSource,
     gap,
     orgCount,
     orgHoursPerWeek,

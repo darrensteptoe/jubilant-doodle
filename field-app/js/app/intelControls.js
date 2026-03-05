@@ -93,6 +93,39 @@ function auditEntryInGovernanceScope(intel, row){
   return rowMs > cutoffMs;
 }
 
+function auditCoalesceKey(row){
+  if (!row || typeof row !== "object") return "";
+  return [
+    String(row.kind || ""),
+    String(row.source || ""),
+    String(row.ref || ""),
+    String(row.key || ""),
+    row.requiresEvidence === true ? "e1" : "e0",
+    row.requiresNote === true ? "n1" : "n0",
+  ].join("|");
+}
+
+function auditRowMs(row){
+  return parseIsoMs(row?.updatedAt || row?.ts || row?.createdAt) ?? -1;
+}
+
+function dedupeAuditRows(rows){
+  const map = new Map();
+  for (const row of (Array.isArray(rows) ? rows : [])){
+    const key = auditCoalesceKey(row);
+    if (!key) continue;
+    const prev = map.get(key);
+    if (!prev){
+      map.set(key, row);
+      continue;
+    }
+    if (auditRowMs(row) >= auditRowMs(prev)){
+      map.set(key, row);
+    }
+  }
+  return Array.from(map.values()).sort((a, b) => auditRowMs(b) - auditRowMs(a));
+}
+
 function ensureArray(obj, key){
   if (!Array.isArray(obj[key])) obj[key] = [];
   return obj[key];
@@ -169,7 +202,7 @@ export function listMissingEvidenceAudit(state, { limit = 200 } = {}){
     !x.evidenceId &&
     String(x.status || "").toLowerCase() !== "resolved"
   );
-  return rows.slice(0, Math.max(0, Number(limit) || 0));
+  return dedupeAuditRows(rows).slice(0, Math.max(0, Number(limit) || 0));
 }
 
 export function listMissingNoteAudit(state, { limit = 200 } = {}){
@@ -182,7 +215,7 @@ export function listMissingNoteAudit(state, { limit = 200 } = {}){
     !cleanString(x.note) &&
     String(x.status || "").toLowerCase() !== "resolved"
   );
-  return rows.slice(0, Math.max(0, Number(limit) || 0));
+  return dedupeAuditRows(rows).slice(0, Math.max(0, Number(limit) || 0));
 }
 
 function scoreGrade(score){

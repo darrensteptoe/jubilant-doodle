@@ -59,6 +59,41 @@ function newAuditId(){
   return `aud_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
 }
 
+function canCoalesceCriticalAuditEntry(entry){
+  if (!entry || typeof entry !== "object") return false;
+  if (entry.kind !== "critical_ref_change") return false;
+  if (entry.governanceTracked !== true) return false;
+  if (String(entry.evidenceId || "").trim()) return false;
+  const status = String(resolveAuditRequirementStatus(entry) || "").trim().toLowerCase();
+  if (status === "resolved") return false;
+  return true;
+}
+
+function coalesceOpenCriticalAuditEntry(audit, entry){
+  if (!Array.isArray(audit) || !entry || typeof entry !== "object") return false;
+  for (let i = audit.length - 1; i >= 0; i--){
+    const row = audit[i];
+    if (!canCoalesceCriticalAuditEntry(row)) continue;
+    if (String(row.source || "") !== String(entry.source || "")) continue;
+    if (String(row.key || "") !== String(entry.key || "")) continue;
+    if (String(row.ref || "") !== String(entry.ref || "")) continue;
+
+    row.after = entry.after;
+    row.ts = entry.ts;
+    row.updatedAt = entry.ts;
+    row.requiresEvidence = !!entry.requiresEvidence;
+    row.requiresNote = !!entry.requiresNote;
+
+    const nextNote = String(entry.note || "").trim();
+    if (nextNote){
+      row.note = nextNote;
+    }
+    row.status = resolveAuditRequirementStatus(row);
+    return true;
+  }
+  return false;
+}
+
 export function resolveAuditRequirementStatus(entry){
   if (!entry || typeof entry !== "object") return "logged";
   const requiresNote = entry.requiresNote === true;
@@ -84,6 +119,39 @@ function parseIsoMs(v){
   const d = new Date(v);
   const ms = d.getTime();
   return Number.isFinite(ms) ? ms : null;
+}
+
+function auditCoalesceKey(row){
+  if (!row || typeof row !== "object") return "";
+  return [
+    String(row.kind || ""),
+    String(row.source || ""),
+    String(row.ref || ""),
+    String(row.key || ""),
+    row.requiresEvidence === true ? "e1" : "e0",
+    row.requiresNote === true ? "n1" : "n0",
+  ].join("|");
+}
+
+function auditRowMs(row){
+  return parseIsoMs(row?.updatedAt || row?.ts || row?.createdAt) ?? -1;
+}
+
+function dedupeAuditRows(rows){
+  const map = new Map();
+  for (const row of (Array.isArray(rows) ? rows : [])){
+    const key = auditCoalesceKey(row);
+    if (!key) continue;
+    const prev = map.get(key);
+    if (!prev){
+      map.set(key, row);
+      continue;
+    }
+    if (auditRowMs(row) >= auditRowMs(prev)){
+      map.set(key, row);
+    }
+  }
+  return Array.from(map.values());
 }
 
 function governanceBaselineMs(intel){
@@ -177,7 +245,10 @@ export function captureCriticalAssumptionAudit({
         governanceTracked: true,
       };
       entry.status = resolveAuditRequirementStatus(entry);
-      audit.push(entry);
+      const merged = coalesceOpenCriticalAuditEntry(audit, entry);
+      if (!merged){
+        audit.push(entry);
+      }
     }
   }
 
@@ -192,7 +263,7 @@ export function computeEvidenceWarnings(state, { limit = 2, staleDays = 30 } = {
   const intel = state?.intelState || {};
   const audit = Array.isArray(intel.audit) ? intel.audit : [];
   const evidence = Array.isArray(intel.evidence) ? intel.evidence : [];
-  const scopedAudit = audit.filter((x) => auditEntryInGovernanceScope(intel, x));
+  const scopedAudit = dedupeAuditRows(audit.filter((x) => auditEntryInGovernanceScope(intel, x)));
   const out = [];
 
   const missing = scopedAudit.filter((x) =>
