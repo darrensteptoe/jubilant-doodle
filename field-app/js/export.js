@@ -27,6 +27,98 @@ function isPlainObject(v){
   return v != null && typeof v === "object" && !Array.isArray(v);
 }
 
+function cleanString(v){
+  if (v == null) return "";
+  return String(v).trim();
+}
+
+function parseIsoMs(v){
+  const s = cleanString(v);
+  if (!s) return null;
+  const d = new Date(s);
+  const ms = d.getTime();
+  return Number.isFinite(ms) ? ms : null;
+}
+
+function governanceBaselineMs(intel){
+  const ms = parseIsoMs(intel?.workflow?.governanceBaselineAt);
+  return ms == null ? null : ms;
+}
+
+function auditEntryInGovernanceScope(intel, row){
+  if (!row || typeof row !== "object") return false;
+  if (row.governanceTracked === true) return true;
+  const cutoffMs = governanceBaselineMs(intel);
+  if (cutoffMs == null) return true;
+  const rowMs = parseIsoMs(row?.ts || row?.createdAt || row?.updatedAt);
+  if (rowMs == null) return false;
+  return rowMs > cutoffMs;
+}
+
+function buildGovernanceSummary(scenario){
+  const intel = isPlainObject(scenario?.intelState) ? scenario.intelState : null;
+  if (!intel){
+    return {
+      available: false,
+      reason: "No intelState present in scenario export.",
+    };
+  }
+
+  const audit = Array.isArray(intel.audit) ? intel.audit : [];
+  const scopedAudit = audit.filter((row) => auditEntryInGovernanceScope(intel, row));
+  const missingEvidence = scopedAudit.filter((row) =>
+    row &&
+    row.requiresEvidence === true &&
+    !row.evidenceId &&
+    cleanString(row.status).toLowerCase() !== "resolved"
+  ).length;
+  const missingNote = scopedAudit.filter((row) =>
+    row &&
+    row.requiresNote === true &&
+    !cleanString(row.note) &&
+    cleanString(row.status).toLowerCase() !== "resolved"
+  ).length;
+
+  const briefs = Array.isArray(intel.briefs) ? intel.briefs : [];
+  const calibrationBrief = briefs
+    .filter((row) => row && cleanString(row.kind) === "calibrationSources")
+    .sort((a, b) => cleanString(b?.createdAt).localeCompare(cleanString(a?.createdAt)))[0] || null;
+
+  const workflow = isPlainObject(intel.workflow) ? intel.workflow : {};
+  return {
+    available: true,
+    workflow: {
+      scenarioLocked: !!workflow.scenarioLocked,
+      lockReason: workflow.lockReason || "",
+      requireCriticalNote: workflow.requireCriticalNote !== false,
+      requireCriticalEvidence: workflow.requireCriticalEvidence !== false,
+      governanceBaselineAt: workflow.governanceBaselineAt || null,
+    },
+    counts: {
+      evidence: Array.isArray(intel.evidence) ? intel.evidence.length : 0,
+      benchmarks: Array.isArray(intel.benchmarks) ? intel.benchmarks.length : 0,
+      flags: Array.isArray(intel.flags) ? intel.flags.length : 0,
+      audit: audit.length,
+      scopedAudit: scopedAudit.length,
+      briefs: briefs.length,
+      recommendations: Array.isArray(intel.recommendations) ? intel.recommendations.length : 0,
+      observedMetrics: Array.isArray(intel.observedMetrics) ? intel.observedMetrics.length : 0,
+      correlationModels: Array.isArray(intel.correlationModels) ? intel.correlationModels.length : 0,
+      shockScenarios: Array.isArray(intel.shockScenarios) ? intel.shockScenarios.length : 0,
+    },
+    missing: {
+      evidence: missingEvidence,
+      note: missingNote,
+    },
+    calibrationBrief: calibrationBrief ? {
+      id: calibrationBrief.id || null,
+      createdAt: calibrationBrief.createdAt || null,
+      promptId: calibrationBrief.promptId || null,
+      model: calibrationBrief.model || null,
+    } : null,
+  };
+}
+
 export function hasNonFiniteNumbers(v){
   const seen = new Set();
   const walk = (x) => {
@@ -104,6 +196,7 @@ export function makeScenarioExport(snapshot){
     snapshotHash,
     exportedAt: new Date().toISOString(),
     scenario: scen,
+    governance: buildGovernanceSummary(scen),
   };
 }
 

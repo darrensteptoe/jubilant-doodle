@@ -207,6 +207,7 @@ import {
   computeEvidenceWarnings
 } from "./app/intelAudit.js";
 import {
+  computeIntelIntegrityScore,
   listMissingEvidenceAudit,
   listMissingNoteAudit
 } from "./app/intelControls.js";
@@ -772,6 +773,11 @@ async function copyDebugBundle(){
   const workflow = intel?.workflow && typeof intel.workflow === "object" ? intel.workflow : {};
   const intelMissingEvidence = missingEvidenceAudit.length;
   const intelMissingNote = missingNoteAudit.length;
+  const integrityScore = computeIntelIntegrityScore(state, {
+    benchmarkWarnings,
+    driftFlags: Array.isArray(drift?.flags) ? drift.flags : [],
+    staleDays: 30,
+  });
   const bundle = {
     appVersion: APP_VERSION,
     buildId: BUILD_ID,
@@ -783,6 +789,7 @@ async function copyDebugBundle(){
     operationsDiagnostics: tw,
     modelDiagnostics: {
       benchmarkWarnings,
+      integrityScore,
       intelState: {
         version: intel?.version || null,
         missingEvidence: intelMissingEvidence,
@@ -2056,7 +2063,7 @@ function renderValidation(res, weeks){
     evidenceWarnings,
     driftSummary,
   });
-  renderIntelChecksModule({ els, state });
+  renderIntelChecksModule({ els, state, benchmarkWarnings, driftSummary });
 }
 
 function renderAssumptions(res, weeks){

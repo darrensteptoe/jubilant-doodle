@@ -71,6 +71,7 @@ const KNOWN_TOP_LEVEL_KEYS = new Set([
   "snapshotHash",
   "exportedAt",
   "scenario",
+  "governance",
 ]);
 
 // migrateSnapshot(rawExportObject) -> { snapshot, warnings }
