@@ -2209,14 +2209,15 @@
 <div class="card-head card-header">
 <h2 class="card-title">Evidence linkage</h2>
 </div>
-<div class="help-text">Attach evidence to critical assumption edits. Linked evidence resolves missing-evidence audit warnings and improves model credibility traceability.</div>
+<div class="help-text">Resolve governance gaps here: select a missing audit item, attach supporting evidence, and include a short note when the item requires documentation.</div>
+<div class="note" style="margin-top:8px;">Workflow: 1) Select critical edit 2) Add title/source/date (+ note when required) 3) Attach evidence.</div>
 <div class="rowline" style="margin-top:10px; justify-content:space-between; gap:10px;">
 <div class="muted" id="intelMissingEvidenceCount">0 critical assumption edit(s) missing evidence.</div>
 <div class="muted" id="intelMissingNoteCount">0 critical assumption edit(s) missing note.</div>
 </div>
 <div class="grid2" style="margin-top:10px;">
 <div class="field">
-<label class="label" for="intelAuditSelect">Missing evidence audit item</label>
+<label class="label" for="intelAuditSelect">Critical assumption edit to resolve</label>
 <select class="select" id="intelAuditSelect">
 <option value="">No missing evidence items</option>
 </select>
@@ -2242,11 +2243,11 @@
 </div>
 <div class="field" style="margin-top:10px;">
 <label class="label" for="intelEvidenceNotes">Evidence notes</label>
-<textarea class="input" id="intelEvidenceNotes" placeholder="Short note describing why this evidence supports the selected assumption." rows="2"></textarea>
+<textarea class="input" id="intelEvidenceNotes" placeholder="Short note describing why this supports the selected assumption (required when note is missing)." rows="2"></textarea>
 </div>
 <div class="rowline" style="margin-top:10px; justify-content:space-between; gap:10px;">
 <button class="btn btn-sm" id="btnIntelEvidenceAttach" type="button">Attach evidence</button>
-<div class="muted" id="intelEvidenceStatus">Ready.</div>
+<div class="muted" id="intelEvidenceStatus">Select an audit item, then attach evidence. Add a note when required.</div>
 </div>
 <div class="table-wrap" style="margin-top:10px;">
 <table class="table">
@@ -2303,6 +2304,7 @@
 <select class="select" id="intelCorrelationMatrixId">
 <option value="">None selected</option>
 </select>
+<div class="muted" id="intelCorrelationDisabledHint" style="margin-top:6px;">No models yet. Add a default model or import JSON to enable this selector.</div>
 </div>
 </div>
 <div class="grid4" style="margin-top:10px;">
