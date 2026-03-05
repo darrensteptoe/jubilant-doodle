@@ -2071,6 +2071,52 @@
 </div>
 </div>
 </div>
+<div class="card card-section" id="intelWorkflowCard">
+<div class="card-head card-header">
+<h2 class="card-title">Workflow governance</h2>
+</div>
+<div class="help-text">Lock scenario edits for client-safe reviews and require note/evidence on critical assumption changes.</div>
+<div class="grid3" style="margin-top:10px;">
+<div class="field">
+<label class="label" for="intelScenarioLocked">Scenario lock</label>
+<label class="switch">
+<input data-lock-exempt="1" id="intelScenarioLocked" type="checkbox"/>
+<span class="slider"></span>
+<span class="switch-label">Freeze editable controls until unlocked</span>
+</label>
+</div>
+<div class="field">
+<label class="label" for="intelRequireCriticalNote">Critical change note</label>
+<label class="switch">
+<input data-lock-exempt="1" id="intelRequireCriticalNote" type="checkbox"/>
+<span class="slider"></span>
+<span class="switch-label">Require note on critical assumption edits</span>
+</label>
+</div>
+<div class="field">
+<label class="label" for="intelRequireCriticalEvidence">Critical change evidence</label>
+<label class="switch">
+<input data-lock-exempt="1" id="intelRequireCriticalEvidence" type="checkbox"/>
+<span class="slider"></span>
+<span class="switch-label">Require evidence links for critical edits</span>
+</label>
+</div>
+</div>
+<div class="grid2" style="margin-top:10px;">
+<div class="field">
+<label class="label" for="intelScenarioLockReason">Lock reason (optional)</label>
+<input class="input" data-lock-exempt="1" id="intelScenarioLockReason" placeholder="e.g., Client review freeze until Friday" type="text"/>
+</div>
+<div class="field">
+<label class="label" for="intelCriticalChangeNote">Pending critical change note</label>
+<textarea class="input" data-lock-exempt="1" id="intelCriticalChangeNote" placeholder="Short rationale applied to next critical assumption edit." rows="2"></textarea>
+</div>
+</div>
+<div class="rowline" style="margin-top:10px; justify-content:space-between; gap:10px;">
+<div class="muted" id="intelScenarioLockStatus">Scenario lock OFF.</div>
+<div class="muted" id="intelWorkflowStatus">Governance controls healthy.</div>
+</div>
+</div>
 <div class="card card-section" id="intelBenchmarkCard">
 <div class="card-head card-header">
 <h2 class="card-title">Benchmark catalog</h2>
@@ -2176,7 +2222,7 @@
 <div class="help-text">Attach evidence to critical assumption edits. Linked evidence resolves missing-evidence audit warnings and improves model credibility traceability.</div>
 <div class="rowline" style="margin-top:10px; justify-content:space-between; gap:10px;">
 <div class="muted" id="intelMissingEvidenceCount">0 critical assumption edit(s) missing evidence.</div>
-<div class="muted">Audit entries require explicit evidence links.</div>
+<div class="muted" id="intelMissingNoteCount">0 critical assumption edit(s) missing note.</div>
 </div>
 <div class="grid2" style="margin-top:10px;">
 <div class="field">
