@@ -27,12 +27,12 @@ This is the execution order for the calibration/governance expansion.
   - `/Users/anakinskywalker/Downloads/field-app-40/js/schemas/intelState.v1.schema.json`
 
 ## Phase 3: Benchmarks + evidence credibility
-- [ ] Benchmarks UI and warnings sourced from `intelState.benchmarks`.
-- [ ] Evidence requirement flow for critical input changes.
-- [ ] Calibration source brief generator.
+- [x] Benchmarks UI and warnings sourced from `intelState.benchmarks`.
+- [x] Evidence requirement flow for critical input changes.
+- [x] Calibration source brief generator.
 
 ## Phase 4: MC calibration toggles
-- [ ] Distribution toggle (`triangular` default, optional `uniform`/`normal`).
+- [x] Distribution toggle (`triangular` default, optional `uniform`/`normal`).
 - [ ] Correlated shocks toggle using `correlationModels`.
 - [ ] Shock scenario sampling toggle using `shockScenarios`.
 

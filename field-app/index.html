@@ -2226,6 +2226,31 @@
 </table>
 </div>
 </div>
+<div class="card card-section" id="intelCalibrationBriefCard">
+<div class="card-head card-header">
+<h2 class="card-title">Calibration source brief</h2>
+<div class="card-actions">
+<button class="btn btn-sm" id="btnIntelCalibrationGenerate" type="button">Generate brief</button>
+<button class="btn btn-sm" id="btnIntelCalibrationCopy" type="button">Copy brief</button>
+</div>
+</div>
+<div class="help-text">Generate a client-ready calibration note from current benchmark catalog, evidence coverage, and expert toggles.</div>
+<div class="grid3" style="margin-top:10px;">
+<div class="field">
+<label class="label" for="intelMcDistribution">Monte Carlo distribution</label>
+<select class="select" id="intelMcDistribution">
+<option value="triangular">Triangular (default)</option>
+<option value="uniform">Uniform</option>
+<option value="normal">Normal (bounded)</option>
+</select>
+</div>
+</div>
+<div class="muted" id="intelCalibrationStatus" style="margin-top:10px;">No calibration brief generated yet.</div>
+<div class="field" style="margin-top:10px;">
+<label class="label" for="intelCalibrationBriefContent">Brief content</label>
+<textarea class="input" id="intelCalibrationBriefContent" readonly rows="14"></textarea>
+</div>
+</div>
 <div class="card card-section">
 <div class="card-head card-header">
 <h2 class="card-title">Review workflow</h2>
