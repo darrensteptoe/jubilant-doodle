@@ -142,7 +142,6 @@ export const els = {
   doorsPerHour: document.getElementById("doorsPerHour"),
   hoursPerShift: document.getElementById("hoursPerShift"),
   shiftsPerVolunteerPerWeek: document.getElementById("shiftsPerVolunteerPerWeek"),
-  btnGotoTurnoutSettings: document.getElementById("btnGotoTurnoutSettings"),
   gotvPlannerStatus: document.getElementById("gotvPlannerStatus"),
   gotvPlannerModel: document.getElementById("gotvPlannerModel"),
   gotvPlannerBaseline: document.getElementById("gotvPlannerBaseline"),
