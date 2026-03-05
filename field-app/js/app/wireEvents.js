@@ -1,7 +1,9 @@
 import {
+  addDefaultCorrelationModel,
   attachEvidenceRecord,
   generateCalibrationSourceBrief,
   getLatestBriefByKind,
+  importCorrelationModelsJson,
   listMissingEvidenceAudit,
   removeBenchmarkEntry,
   upsertBenchmarkEntry,
@@ -234,6 +236,9 @@ export function wireIntelChecksEvents(ctx){
   const setCalibrationStatus = (msg, kind = "muted") => {
     setStatus(els.intelCalibrationStatus, msg, kind);
   };
+  const setCorrelationStatus = (msg, kind = "muted") => {
+    setStatus(els.intelCorrelationStatus, msg, kind);
+  };
 
   if (els.btnIntelCalibrationGenerate){
     els.btnIntelCalibrationGenerate.addEventListener("click", () => {
@@ -287,14 +292,68 @@ export function wireIntelChecksEvents(ctx){
     });
   }
 
+  if (els.btnIntelAddDefaultCorrelation){
+    els.btnIntelAddDefaultCorrelation.addEventListener("click", () => {
+      const s = currentState();
+      if (!s) return;
+      const result = addDefaultCorrelationModel(s);
+      if (!result.ok){
+        setCorrelationStatus(result.error || "Failed to add default correlation model.", "warn");
+        return;
+      }
+      setCorrelationStatus(
+        result.mode === "created" ? "Default correlation model added." : "Default correlation model updated.",
+        "ok"
+      );
+      commitUIUpdate();
+    });
+  }
+
+  if (els.btnIntelImportCorrelationJson){
+    els.btnIntelImportCorrelationJson.addEventListener("click", () => {
+      const s = currentState();
+      if (!s) return;
+      const result = importCorrelationModelsJson(s, els.intelCorrelationJson?.value || "");
+      if (!result.ok){
+        setCorrelationStatus(result.error || "Correlation model import failed.", "warn");
+        return;
+      }
+      setCorrelationStatus(
+        `Imported correlation models: ${result.created} created, ${result.updated} updated.`,
+        "ok"
+      );
+      commitUIUpdate();
+    });
+  }
+
   if (els.intelCorrelatedShocks){
     els.intelCorrelatedShocks.addEventListener("change", () => {
       const s = currentState();
       if (!s) return;
       if (!s.intelState || typeof s.intelState !== "object") s.intelState = { version: "1.0.0" };
       if (!s.intelState.simToggles || typeof s.intelState.simToggles !== "object") s.intelState.simToggles = {};
+      if (!Array.isArray(s.intelState.correlationModels)) s.intelState.correlationModels = [];
+
+      const turningOn = !!els.intelCorrelatedShocks.checked;
+      if (turningOn && s.intelState.correlationModels.length === 0){
+        const seed = addDefaultCorrelationModel(s);
+        if (!seed.ok){
+          setCorrelationStatus(seed.error || "Failed to seed default correlation model.", "warn");
+          els.intelCorrelatedShocks.checked = false;
+          s.intelState.simToggles.correlatedShocks = false;
+          commitUIUpdate();
+          return;
+        }
+        if (!s.intelState.simToggles.correlationMatrixId){
+          s.intelState.simToggles.correlationMatrixId = String(seed?.row?.id || "").trim() || null;
+        }
+        setCorrelationStatus("Correlated shocks enabled. Default correlation model added.", "ok");
+      }
+
       s.intelState.simToggles.correlatedShocks = !!els.intelCorrelatedShocks.checked;
-      setCalibrationStatus("Correlated shocks updated. Re-run Monte Carlo to apply.", "ok");
+      if (!(turningOn && s.intelState.correlationModels.length > 0)){
+        setCorrelationStatus("Correlated shocks updated. Re-run Monte Carlo to apply.", "ok");
+      }
       commitUIUpdate();
     });
   }
@@ -307,7 +366,7 @@ export function wireIntelChecksEvents(ctx){
       if (!s.intelState.simToggles || typeof s.intelState.simToggles !== "object") s.intelState.simToggles = {};
       const id = String(els.intelCorrelationMatrixId.value || "").trim();
       s.intelState.simToggles.correlationMatrixId = id || null;
-      setCalibrationStatus("Correlation model updated. Re-run Monte Carlo to apply.", "ok");
+      setCorrelationStatus("Correlation model updated. Re-run Monte Carlo to apply.", "ok");
       commitUIUpdate();
     });
   }

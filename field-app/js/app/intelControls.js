@@ -66,6 +66,13 @@ export function ensureIntelCollections(state){
   ensureArray(intel, "benchmarks");
   ensureArray(intel, "evidence");
   ensureArray(intel, "audit");
+  ensureArray(intel, "briefs");
+  ensureArray(intel, "recommendations");
+  ensureArray(intel, "observedMetrics");
+  ensureArray(intel, "correlationModels");
+  ensureArray(intel, "shockScenarios");
+  if (!isObject(intel.simToggles)) intel.simToggles = {};
+  if (!isObject(intel.expertToggles)) intel.expertToggles = {};
   return intel;
 }
 
@@ -339,4 +346,131 @@ export function generateCalibrationSourceBrief(state){
 
   ensureArray(intel, "briefs").push(brief);
   return { ok: true, brief };
+}
+
+function normalizeCorrelationRow(raw, fallbackLabel = ""){
+  if (!isObject(raw)) return { ok: false, error: "Correlation model must be an object." };
+  const refs = Array.isArray(raw.refs) ? raw.refs.map((x) => cleanString(x)).filter(Boolean) : [];
+  if (refs.length < 2) return { ok: false, error: "Correlation model requires at least 2 refs." };
+
+  const matrix = Array.isArray(raw.matrix) ? raw.matrix : null;
+  if (!matrix || matrix.length !== refs.length){
+    return { ok: false, error: "Matrix dimensions must match refs length." };
+  }
+  const normalized = [];
+  for (let i = 0; i < matrix.length; i++){
+    const row = matrix[i];
+    if (!Array.isArray(row) || row.length !== refs.length){
+      return { ok: false, error: "Matrix must be square and match refs length." };
+    }
+    const outRow = [];
+    for (let j = 0; j < row.length; j++){
+      const n = toNumOrNull(row[j]);
+      if (n == null) return { ok: false, error: `Matrix value at [${i + 1},${j + 1}] is not numeric.` };
+      if (n < -1 || n > 1) return { ok: false, error: `Matrix value at [${i + 1},${j + 1}] must be between -1 and 1.` };
+      outRow.push(n);
+    }
+    normalized.push(outRow);
+  }
+  const id = cleanString(raw.id) || makeId("corr");
+  const label = cleanString(raw.label) || cleanString(fallbackLabel) || id;
+  return {
+    ok: true,
+    row: {
+      id,
+      label,
+      refs,
+      matrix: normalized,
+      notes: cleanString(raw.notes),
+      createdAt: cleanString(raw.createdAt) || nowIso(),
+      updatedAt: nowIso(),
+    }
+  };
+}
+
+export function listCorrelationModels(state){
+  const intel = ensureIntelCollections(state);
+  if (!intel) return [];
+  if (!Array.isArray(intel.correlationModels)) intel.correlationModels = [];
+  return intel.correlationModels.slice();
+}
+
+export function upsertCorrelationModel(state, payload = {}){
+  const intel = ensureIntelCollections(state);
+  if (!intel) return { ok: false, error: "Intel state unavailable." };
+  if (!Array.isArray(intel.correlationModels)) intel.correlationModels = [];
+
+  const normalized = normalizeCorrelationRow(payload, payload?.label);
+  if (!normalized.ok) return normalized;
+  const row = normalized.row;
+
+  const idx = intel.correlationModels.findIndex((x) => cleanString(x?.id) === cleanString(row.id));
+  if (idx >= 0){
+    row.createdAt = cleanString(intel.correlationModels[idx]?.createdAt) || row.createdAt;
+    intel.correlationModels[idx] = row;
+    return { ok: true, mode: "updated", row };
+  }
+
+  const byLabel = intel.correlationModels.findIndex((x) => cleanString(x?.label).toLowerCase() === cleanString(row.label).toLowerCase());
+  if (byLabel >= 0){
+    row.createdAt = cleanString(intel.correlationModels[byLabel]?.createdAt) || row.createdAt;
+    row.id = cleanString(intel.correlationModels[byLabel]?.id) || row.id;
+    intel.correlationModels[byLabel] = row;
+    return { ok: true, mode: "updated", row };
+  }
+
+  intel.correlationModels.push(row);
+  return { ok: true, mode: "created", row };
+}
+
+export function importCorrelationModelsJson(state, jsonText = ""){
+  const text = cleanString(jsonText);
+  if (!text) return { ok: false, error: "Paste correlation model JSON first." };
+
+  let parsed;
+  try{
+    parsed = JSON.parse(text);
+  } catch {
+    return { ok: false, error: "Correlation model JSON is invalid." };
+  }
+
+  const items = Array.isArray(parsed)
+    ? parsed
+    : (isObject(parsed) && Array.isArray(parsed?.correlationModels))
+      ? parsed.correlationModels
+      : [parsed];
+
+  if (!items.length) return { ok: false, error: "No correlation model entries found." };
+
+  let created = 0;
+  let updated = 0;
+  for (const item of items){
+    const r = upsertCorrelationModel(state, item);
+    if (!r.ok){
+      return { ok: false, error: r.error || "Failed to import correlation model." };
+    }
+    if (r.mode === "created") created += 1;
+    else updated += 1;
+  }
+
+  return { ok: true, created, updated };
+}
+
+export function addDefaultCorrelationModel(state){
+  return upsertCorrelationModel(state, {
+    label: "Field throughput coupling (default)",
+    refs: [
+      "core.contactRatePct",
+      "core.supportRatePct",
+      "core.doorsPerHour",
+      "core.callsPerHour",
+    ],
+    matrix: [
+      [1.0, 0.35, 0.25, 0.20],
+      [0.35, 1.0, 0.30, 0.25],
+      [0.25, 0.30, 1.0, 0.45],
+      [0.20, 0.25, 0.45, 1.0],
+    ],
+    notes: "Default coupled performance model for field contact/support/productivity.",
+  });
 }

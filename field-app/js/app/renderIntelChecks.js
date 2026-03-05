@@ -181,6 +181,13 @@ export function renderIntelChecksModule({ els, state } = {}){
   if (els.intelCorrelationMatrixId){
     els.intelCorrelationMatrixId.disabled = !corrModels.length;
   }
+  if (els.intelCorrelationStatus){
+    els.intelCorrelationStatus.classList.remove("ok", "warn", "bad");
+    els.intelCorrelationStatus.classList.add(corrModels.length ? "muted" : "warn");
+    els.intelCorrelationStatus.textContent = corrModels.length
+      ? `${corrModels.length} correlation model${corrModels.length === 1 ? "" : "s"} configured.`
+      : "No correlation models configured. Add or import one to enable correlated shocks.";
+  }
   if (els.intelCalibrationBriefContent){
     els.intelCalibrationBriefContent.value = calibrationBrief?.content || "";
   }
