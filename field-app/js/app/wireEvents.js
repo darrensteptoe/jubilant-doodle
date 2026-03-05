@@ -7,6 +7,7 @@ import {
   getLatestBriefByKind,
   importCorrelationModelsJson,
   importShockScenariosJson,
+  loadDefaultBenchmarksForRaceType,
   listShockScenarios,
   listMissingEvidenceAudit,
   refreshDriftRecommendationsFromDrift,
@@ -185,6 +186,24 @@ export function wireIntelChecksEvents(ctx){
         return;
       }
       setBenchmarkStatus(result.mode === "created" ? "Benchmark created." : "Benchmark updated.", "ok");
+      commitUIUpdate();
+    });
+  }
+
+  if (els.btnIntelBenchmarkLoadDefaults){
+    els.btnIntelBenchmarkLoadDefaults.addEventListener("click", () => {
+      const s = currentState();
+      if (!s) return;
+      const raceType = String(els.intelBenchmarkRaceType?.value || s?.raceType || "all").trim();
+      const result = loadDefaultBenchmarksForRaceType(s, raceType);
+      if (!result.ok){
+        setBenchmarkStatus(result.error || "Failed to load benchmark defaults.", "warn");
+        return;
+      }
+      setBenchmarkStatus(
+        `Loaded defaults for '${result.raceType}' (${result.created} new, ${result.updated} updated).`,
+        "ok"
+      );
       commitUIUpdate();
     });
   }

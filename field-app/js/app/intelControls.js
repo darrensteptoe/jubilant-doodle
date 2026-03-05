@@ -196,6 +196,50 @@ export function upsertBenchmarkEntry(state, payload = {}){
   return { ok: true, mode: "created", row };
 }
 
+const BENCHMARK_PRESET_BY_RACE = {
+  federal: { contactMin: 8, contactMax: 45, supportMin: 25, supportMax: 80, turnoutMin: 30, turnoutMax: 80, persuasionMin: 8, persuasionMax: 55 },
+  state_leg: { contactMin: 5, contactMax: 50, supportMin: 20, supportMax: 85, turnoutMin: 20, turnoutMax: 85, persuasionMin: 5, persuasionMax: 65 },
+  municipal: { contactMin: 6, contactMax: 55, supportMin: 20, supportMax: 85, turnoutMin: 10, turnoutMax: 70, persuasionMin: 8, persuasionMax: 70 },
+  county: { contactMin: 6, contactMax: 50, supportMin: 20, supportMax: 85, turnoutMin: 20, turnoutMax: 80, persuasionMin: 6, persuasionMax: 65 },
+  all: { contactMin: 5, contactMax: 60, supportMin: 20, supportMax: 85, turnoutMin: 20, turnoutMax: 90, persuasionMin: 5, persuasionMax: 70 },
+};
+
+function mid(min, max){
+  if (!Number.isFinite(min) || !Number.isFinite(max)) return null;
+  return Math.round(((min + max) / 2) * 10) / 10;
+}
+
+export function loadDefaultBenchmarksForRaceType(state, raceTypeInput = "all"){
+  const raceType = normalizeRaceType(raceTypeInput);
+  const preset = BENCHMARK_PRESET_BY_RACE[raceType] || BENCHMARK_PRESET_BY_RACE.all;
+  if (!preset) return { ok: false, error: "No benchmark preset available." };
+
+  const rows = [
+    { ref: "core.contactRatePct", min: preset.contactMin, max: preset.contactMax, defaultValue: mid(preset.contactMin, preset.contactMax), warnAbove: preset.contactMax - 2, hardAbove: preset.contactMax },
+    { ref: "core.supportRatePct", min: preset.supportMin, max: preset.supportMax, defaultValue: mid(preset.supportMin, preset.supportMax), warnAbove: preset.supportMax - 3, hardAbove: preset.supportMax },
+    { ref: "core.turnoutCycleA", min: preset.turnoutMin, max: preset.turnoutMax, defaultValue: mid(preset.turnoutMin, preset.turnoutMax) },
+    { ref: "core.turnoutCycleB", min: preset.turnoutMin, max: preset.turnoutMax, defaultValue: mid(preset.turnoutMin, preset.turnoutMax) },
+    { ref: "core.persuasionUniversePct", min: preset.persuasionMin, max: preset.persuasionMax, defaultValue: mid(preset.persuasionMin, preset.persuasionMax) },
+  ];
+
+  let created = 0;
+  let updated = 0;
+  for (const row of rows){
+    const res = upsertBenchmarkEntry(state, {
+      ...row,
+      raceType,
+      sourceTitle: "Built-in benchmark preset",
+      sourceNotes: `Preset loaded for race type '${raceType}'.`,
+    });
+    if (!res.ok){
+      return { ok: false, error: res.error || `Failed to load benchmark for ${row.ref}.`, created, updated };
+    }
+    if (res.mode === "created") created += 1;
+    else updated += 1;
+  }
+  return { ok: true, raceType, created, updated, totalApplied: rows.length };
+}
+
 export function attachEvidenceRecord(state, payload = {}){
   const intel = ensureIntelCollections(state);
   if (!intel) return { ok: false, error: "Intel state unavailable." };
