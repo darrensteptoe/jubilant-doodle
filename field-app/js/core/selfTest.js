@@ -38,6 +38,8 @@ import { computeExecutionSnapshot } from "./executionSnapshot.js";
 import { safeNum } from "./utils.js";
 import { renderMain } from "../app/renderMain.js";
 import { renderImpactTracePanel } from "../app/render/impactTrace.js";
+import { renderRoiModule } from "../app/renderRoi.js";
+import { renderOptimizationModule } from "../app/renderOptimization.js";
 import { computeWeeklyOpsContextFromState, getEffectiveBaseRates } from "../app/selectors.js";
 import {
   captureObservedMetricsFromDrift,
@@ -2109,6 +2111,192 @@ export function runSelfTests(engine){
     } finally {
       mount.remove();
     }
+    return true;
+  });
+
+  test("Phase 9 UI: ROI feasibility uses timeline caps when timeline-constrained mode is ON", () => {
+    const roiTbody = document.createElement("tbody");
+    const captured = { caps: null };
+
+    renderRoiModule({
+      els: {
+        roiTbody,
+        roiBanner: document.createElement("div"),
+        turnoutSummary: document.createElement("div"),
+      },
+      state: {
+        orgCount: 2,
+        orgHoursPerWeek: 40,
+        volunteerMultBase: 1,
+        channelDoorPct: 70,
+        doorsPerHour3: 18,
+        callsPerHour3: 20,
+        universeSize: 100000,
+        persuasionPct: 30,
+        turnoutEnabled: false,
+        gotvMode: "basic",
+        budget: {
+          optimize: { tlConstrainedEnabled: true },
+          tactics: {
+            doors: { enabled: true, kind: "persuasion" },
+            phones: { enabled: true, kind: "persuasion" },
+            texts: { enabled: true, kind: "gotv" },
+          },
+        },
+        timelineEnabled: true,
+        timelineActiveWeeks: 8,
+        timelineGotvWeeks: 2,
+        timelineStaffCount: 3,
+        timelineVolCount: 20,
+        timelineStaffHours: 40,
+        timelineVolHours: 6,
+        timelineDoorsPerHour: 18,
+        timelineCallsPerHour: 20,
+        timelineTextsPerHour: 80,
+      },
+      res: { expected: { persuasionNeed: 1000 } },
+      weeks: 10,
+      deriveNeedVotes: () => 1000,
+      getEffectiveBaseRates: () => ({ cr: 0.2, sr: 0.3, tr: 0.8 }),
+      computeCapacityBreakdown: () => ({ total: 100000, doors: 70000, phones: 30000 }),
+      safeNum: (v) => {
+        const n = Number(v);
+        return Number.isFinite(n) ? n : null;
+      },
+      clamp: (v, lo, hi) => Math.max(lo, Math.min(hi, Number(v))),
+      canonicalDoorsPerHourFromSnap: () => 18,
+      computeAvgLiftPP: () => 0,
+      fmtInt: (n) => String(Math.round(Number(n) || 0)),
+      engine: {
+        computeMaxAttemptsByTactic: () => ({
+          enabled: true,
+          maxAttemptsByTactic: { doors: 120, phones: 80, texts: 50 }
+        }),
+        computeRoiRows: (args) => {
+          captured.caps = args?.caps || null;
+          return { rows: [], banner: null };
+        }
+      }
+    });
+
+    assert(captured.caps != null, "ROI computeRoiRows caps were not captured");
+    assert(captured.caps.doors === 120, "ROI should use timeline doors cap");
+    assert(captured.caps.phones === 80, "ROI should use timeline phones cap");
+    assert(captured.caps.texts === 50, "ROI should use timeline texts cap");
+    assert(captured.caps.total === 250, "ROI should use summed timeline cap total");
+    return true;
+  });
+
+  test("Phase 9 UI: optimization uses timeline cap total as ceiling when constrained", () => {
+    const calls = [];
+    const plan = {
+      allocation: { doors: 25 },
+      totals: { attempts: 25, cost: 50, netVotes: 5 },
+      binding: "caps",
+    };
+
+    const makeEl = (tag = "div") => document.createElement(tag);
+    const optTbody = document.createElement("tbody");
+    const tlMvTbody = document.createElement("tbody");
+    const tlOptResults = makeEl("div");
+    tlOptResults.hidden = true;
+
+    renderOptimizationModule({
+      els: {
+        optTbody,
+        optGapContext: makeEl("span"),
+        optBanner: makeEl("div"),
+        optTotalAttempts: makeEl("span"),
+        optTotalCost: makeEl("span"),
+        optTotalVotes: makeEl("span"),
+        optBinding: makeEl("span"),
+        tlOptResults,
+        tlOptGoalFeasible: makeEl("span"),
+        tlOptMaxNetVotes: makeEl("span"),
+        tlOptRemainingGap: makeEl("span"),
+        tlOptBinding: makeEl("span"),
+        tlMvPrimary: makeEl("span"),
+        tlMvSecondary: makeEl("span"),
+        tlMvTbody,
+      },
+      state: {
+        ui: {},
+        budget: {
+          overheadAmount: 0,
+          includeOverhead: false,
+          tactics: {
+            doors: { enabled: true, cpa: 2, kind: "persuasion" },
+            phones: { enabled: false, cpa: 1, kind: "persuasion" },
+            texts: { enabled: false, cpa: 1, kind: "persuasion" },
+          },
+          optimize: {
+            mode: "budget",
+            budgetAmount: 1000,
+            capacityAttempts: "",
+            step: 25,
+            useDecay: false,
+            objective: "net",
+            tlConstrainedEnabled: true,
+            tlConstrainedObjective: "max_net",
+          }
+        },
+        timelineEnabled: true,
+        timelineActiveWeeks: 8,
+        timelineGotvWeeks: 2,
+        timelineStaffCount: 3,
+        timelineVolCount: 20,
+        timelineStaffHours: 40,
+        timelineVolHours: 6,
+        timelineDoorsPerHour: 18,
+        timelineCallsPerHour: 20,
+        timelineTextsPerHour: 80,
+      },
+      res: { expected: { persuasionNeed: 1000 } },
+      weeks: 10,
+      deriveNeedVotes: () => 1000,
+      fmtInt: (n) => String(Math.round(Number(n) || 0)),
+      compileEffectiveInputs: () => ({
+        rates: { cr: 0.25, sr: 0.3, tr: 0.8 },
+        capacity: {
+          orgCount: 2,
+          orgHoursPerWeek: 40,
+          volunteerMult: 1,
+          doorShare: 0.7,
+          doorsPerHour: 18,
+          callsPerHour: 20,
+          capacityDecay: { enabled: false, type: "linear", weeklyDecayPct: 0.03, floorPctOfBaseline: 0.7 },
+        }
+      }),
+      computeCapacityBreakdown: () => ({ total: 99999, doors: 70000, phones: 29999 }),
+      safeNum: (v) => {
+        const n = Number(v);
+        return Number.isFinite(n) ? n : null;
+      },
+      engine: {
+        buildOptimizationTactics: () => ([
+          { id: "doors", label: "Doors", costPerAttempt: 2, netVotesPerAttempt: 0.2, turnoutAdjustedNetVotesPerAttempt: 0.2, used: { cr: 0.25 } },
+        ]),
+        computeMaxAttemptsByTactic: () => ({ enabled: true, maxAttemptsByTactic: { doors: 120, phones: 80, texts: 50 } }),
+        optimizeMixBudget: (args) => {
+          calls.push({ fn: "optimizeMixBudget", args });
+          return plan;
+        },
+        optimizeTimelineConstrained: (args) => {
+          calls.push({ fn: "optimizeTimelineConstrained", args });
+          return { plan, meta: { goalFeasible: true, maxAchievableNetVotes: 5, remainingGapNetVotes: 0, bindingObj: {} } };
+        },
+        computeMarginalValueDiagnostics: () => ({ interventions: [], primaryBottleneck: null, secondaryNotes: null }),
+      }
+    });
+
+    const firstBudgetCall = calls.find((c) => c.fn === "optimizeMixBudget");
+    assert(firstBudgetCall, "Missing optimizeMixBudget call");
+    assert(firstBudgetCall.args?.capacityCeiling === 250, "Optimization should use timeline cap total as budget capacity ceiling");
+
+    const tlCall = calls.find((c) => c.fn === "optimizeTimelineConstrained");
+    assert(tlCall, "Missing optimizeTimelineConstrained call");
+    assert(tlCall.args?.capacityCeiling === 250, "Timeline constrained optimization should use timeline cap total as ceiling");
+    assert(tlCall.args?.maxAttemptsByTactic?.doors === 120, "Timeline constrained optimization should pass timeline tactic caps");
     return true;
   });
 
