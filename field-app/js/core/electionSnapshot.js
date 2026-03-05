@@ -29,6 +29,17 @@ function toElectionDateIso(dateRaw){
   return `${s}T00:00:00`;
 }
 
+function resolveCapacityDecayFromState(snap){
+  const toggles = snap?.intelState?.expertToggles || {};
+  const model = toggles?.decayModel || {};
+  return {
+    enabled: !!toggles.capacityDecayEnabled,
+    type: String(model.type || "linear"),
+    weeklyDecayPct: Number(model.weeklyDecayPct),
+    floorPctOfBaseline: Number(model.floorPctOfBaseline),
+  };
+}
+
 export function computeElectionSnapshot({
   state,
   nowDate = new Date(),
@@ -45,6 +56,7 @@ export function computeElectionSnapshot({
   });
 
   const needVotes = deriveNeedVotes(res, snap.goalSupportIds);
+  const capacityDecay = resolveCapacityDecayFromState(snap);
   const capacityWeekly = computeCapacityBreakdown({
     weeks: 1,
     orgCount: toNum(snap.orgCount),
@@ -53,6 +65,7 @@ export function computeElectionSnapshot({
     doorShare: toDoorShareUnit(snap.channelDoorPct),
     doorsPerHour: toNum(snap.doorsPerHour3 ?? snap.doorsPerHour),
     callsPerHour: toNum(snap.callsPerHour3),
+    capacityDecay,
   });
 
   return {
@@ -61,5 +74,6 @@ export function computeElectionSnapshot({
     weeks,
     needVotes,
     capacityWeekly,
+    capacityDecay,
   };
 }

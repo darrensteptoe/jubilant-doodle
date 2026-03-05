@@ -1387,6 +1387,18 @@ function getEffectiveBaseRates(){
   return getEffectiveBaseRatesFromStateSelector(state, { computeUniverseAdjustedRates });
 }
 
+function getCapacityDecayConfigFromState(srcState = state){
+  const s = srcState || {};
+  const toggles = s?.intelState?.expertToggles || {};
+  const model = toggles?.decayModel || {};
+  return {
+    enabled: !!toggles.capacityDecayEnabled,
+    type: String(model.type || "linear"),
+    weeklyDecayPct: safeNum(model.weeklyDecayPct),
+    floorPctOfBaseline: safeNum(model.floorPctOfBaseline),
+  };
+}
+
 // Step-3 seam: single compiler for effective inputs.
 // Operations override is explicit opt-in and falls back to baseline when unavailable.
 function compileEffectiveInputs(srcState = state){
@@ -1445,6 +1457,7 @@ function compileEffectiveInputs(srcState = state){
       doorShare,
       doorsPerHour,
       callsPerHour,
+      capacityDecay: getCapacityDecayConfigFromState(s),
     },
     meta: {
       source,
@@ -2851,11 +2864,19 @@ function renderPhase3(res, weeks){
 
 
 function computeCapacityBreakdown(args){
-  return coreComputeCapacityBreakdown(args);
+  const next = (args && typeof args === "object") ? { ...args } : {};
+  if (!next.capacityDecay){
+    next.capacityDecay = getCapacityDecayConfigFromState(state);
+  }
+  return coreComputeCapacityBreakdown(next);
 }
 
 function computeCapacityContacts(args){
-  return coreComputeCapacityContacts(args);
+  const next = (args && typeof args === "object") ? { ...args } : {};
+  if (!next.capacityDecay){
+    next.capacityDecay = getCapacityDecayConfigFromState(state);
+  }
+  return coreComputeCapacityContacts(next);
 }
 
 /* ---- Monte Carlo ---- */

@@ -335,6 +335,17 @@ function toProb01(v){
   return clamp(n, 0, 1);
 }
 
+function resolveCapacityDecayConfig(sc){
+  const toggles = sc?.intelState?.expertToggles || {};
+  const model = toggles?.decayModel || {};
+  return {
+    enabled: !!toggles.capacityDecayEnabled,
+    type: String(model?.type || "linear"),
+    weeklyDecayPct: Number(model?.weeklyDecayPct),
+    floorPctOfBaseline: Number(model?.floorPctOfBaseline),
+  };
+}
+
 function resolveShockScenarioConfig(sc){
   const intel = sc?.intelState;
   const toggles = intel?.simToggles || {};
@@ -416,6 +427,7 @@ export function runMonteCarloSim({ scenario, scenarioState, res, weeks, needVote
   const distribution = normalizeDistribution(sc?.intelState?.simToggles?.mcDistribution);
   const correlationCfg = resolveCorrelationConfig(sc, distribution);
   const shockCfg = resolveShockScenarioConfig(sc);
+  const capacityDecayCfg = resolveCapacityDecayConfig(sc);
 
   // Base rates
   const baseCr = pctToUnit(safeNum(sc.contactRatePct), 0.22);
@@ -564,6 +576,7 @@ export function runMonteCarloSim({ scenario, scenarioState, res, weeks, needVote
       doorShare,
       doorsPerHour: dph,
       callsPerHour: cph,
+      capacityDecay: capacityDecayCfg,
     });
 
     let votes = 0;
