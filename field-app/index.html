@@ -791,62 +791,6 @@
 <div class="stage-body-new">
 <div class="card card-section">
 <div class="card-head card-header">
-<h2 class="card-title">Turnout assumptions source</h2>
-<div class="card-actions">
-<button class="btn btn-sm" id="btnGotoTurnoutSettings" type="button">Go to turnout settings</button>
-</div>
-<div class="help-text">Read-only mirror of turnout settings from Budget &amp; ROI → Turnout &amp; GOTV.</div>
-</div>
-<div class="rowline" style="justify-content:space-between; align-items:flex-start; gap:10px; margin-bottom:10px;">
-<div>
-<div class="muted">Locked to Budget &amp; ROI → Turnout &amp; GOTV. This planner reads assumptions and translates them into staffing requirements.</div>
-</div>
-</div>
-<div class="subgrid">
-<div class="mini">
-<div class="mini-k">Turnout modeling</div>
-<div class="mini-v" id="gotvPlannerStatus">—</div>
-<div class="mini-s">Source: Budget &amp; ROI</div>
-</div>
-<div class="mini">
-<div class="mini-k">Lift model</div>
-<div class="mini-v" id="gotvPlannerModel">—</div>
-<div class="mini-s">Basic or advanced</div>
-</div>
-<div class="mini">
-<div class="mini-k">Baseline turnout (target)</div>
-<div class="mini-v" id="gotvPlannerBaseline">—</div>
-<div class="mini-s">Override used when provided</div>
-</div>
-<div class="mini">
-<div class="mini-k">Lift per contact</div>
-<div class="mini-v" id="gotvPlannerLift">—</div>
-<div class="mini-s">Advanced mode uses Mode</div>
-</div>
-<div class="mini">
-<div class="mini-k">Max lift ceiling</div>
-<div class="mini-v" id="gotvPlannerCeiling">—</div>
-<div class="mini-s">Percentage points</div>
-</div>
-<div class="mini">
-<div class="mini-k">Diminishing returns</div>
-<div class="mini-v" id="gotvPlannerDiminishing">—</div>
-<div class="mini-s">Turnout curve shape</div>
-</div>
-<div class="mini">
-<div class="mini-k">Support rate</div>
-<div class="mini-v" id="gotvPlannerSupportRate">—</div>
-<div class="mini-s">Read-only from Field capacity</div>
-</div>
-<div class="mini">
-<div class="mini-k">Contact rate</div>
-<div class="mini-v" id="gotvPlannerContactRate">—</div>
-<div class="mini-s">Read-only from Field capacity</div>
-</div>
-</div>
-</div>
-<div class="card card-section">
-<div class="card-head card-header">
 <h2 class="card-title">Workload translator</h2>
 <div class="help-text">Set planning inputs, then see required conversations, doors, and shifts.</div>
 </div>
@@ -1636,6 +1580,52 @@
 <div class="note" style="margin-top:10px;">
     Turnout modeling affects <b>realized votes</b>. Persuasion changes preference among those who vote. GOTV increases the probability of voting in the target universe.
   </div>
+<div class="card-head card-header" style="margin-top:12px;">
+<h3 class="card-title">Turnout assumptions source (used by GOTV planner)</h3>
+</div>
+<div class="help-text">Read-only mirror for the planner. Edit turnout controls in this Turnout &amp; GOTV module.</div>
+<div class="subgrid" style="margin-top:10px;">
+<div class="mini">
+<div class="mini-k">Turnout modeling</div>
+<div class="mini-v" id="gotvPlannerStatus">—</div>
+<div class="mini-s">Source: Budget &amp; ROI</div>
+</div>
+<div class="mini">
+<div class="mini-k">Lift model</div>
+<div class="mini-v" id="gotvPlannerModel">—</div>
+<div class="mini-s">Basic or advanced</div>
+</div>
+<div class="mini">
+<div class="mini-k">Baseline turnout (target)</div>
+<div class="mini-v" id="gotvPlannerBaseline">—</div>
+<div class="mini-s">Override used when provided</div>
+</div>
+<div class="mini">
+<div class="mini-k">Lift per contact</div>
+<div class="mini-v" id="gotvPlannerLift">—</div>
+<div class="mini-s">Advanced mode uses Mode</div>
+</div>
+<div class="mini">
+<div class="mini-k">Max lift ceiling</div>
+<div class="mini-v" id="gotvPlannerCeiling">—</div>
+<div class="mini-s">Percentage points</div>
+</div>
+<div class="mini">
+<div class="mini-k">Diminishing returns</div>
+<div class="mini-v" id="gotvPlannerDiminishing">—</div>
+<div class="mini-s">Turnout curve shape</div>
+</div>
+<div class="mini">
+<div class="mini-k">Support rate</div>
+<div class="mini-v" id="gotvPlannerSupportRate">—</div>
+<div class="mini-s">Read-only from Field capacity</div>
+</div>
+<div class="mini">
+<div class="mini-k">Contact rate</div>
+<div class="mini-v" id="gotvPlannerContactRate">—</div>
+<div class="mini-s">Read-only from Field capacity</div>
+</div>
+</div>
 <div class="banner ok module-feedback" hidden="" id="turnoutSummary"></div>
 </div>
 <div class="card card-section phase-p5">
