@@ -40,9 +40,9 @@ This is the execution order for the calibration/governance expansion.
 - [x] Apply `capacityDecayEnabled` and `decayModel` in capacity snapshot pipeline.
 
 ## Phase 6: Feedback loop
-- [ ] Ingest observed metrics.
-- [ ] Compute drift and rank primary divergence.
-- [ ] Produce non-destructive recommendations/draft patches.
+- [x] Ingest observed metrics.
+- [x] Compute drift and rank primary divergence.
+- [x] Produce non-destructive recommendations/draft patches.
 
 ## Phase 7: AI assistance (strictly non-math writes)
 - [ ] Scenario summary brief.
@@ -51,9 +51,9 @@ This is the execution order for the calibration/governance expansion.
 - [ ] Sensitivity interpretation brief.
 
 ## Phase 8: Governance workflow
-- [ ] Scenario lock/unlock flow.
-- [ ] Critical change note requirement.
-- [ ] Export bundle includes audit + calibration notes.
+- [x] Scenario lock/unlock flow.
+- [x] Critical change note requirement.
+- [x] Export bundle includes audit + calibration notes.
 
 ## Phase 9: Tests
 - [ ] Snapshot equivalence across panels.
