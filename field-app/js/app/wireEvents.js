@@ -286,6 +286,31 @@ export function wireIntelChecksEvents(ctx){
       commitUIUpdate();
     });
   }
+
+  if (els.intelCorrelatedShocks){
+    els.intelCorrelatedShocks.addEventListener("change", () => {
+      const s = currentState();
+      if (!s) return;
+      if (!s.intelState || typeof s.intelState !== "object") s.intelState = { version: "1.0.0" };
+      if (!s.intelState.simToggles || typeof s.intelState.simToggles !== "object") s.intelState.simToggles = {};
+      s.intelState.simToggles.correlatedShocks = !!els.intelCorrelatedShocks.checked;
+      setCalibrationStatus("Correlated shocks updated. Re-run Monte Carlo to apply.", "ok");
+      commitUIUpdate();
+    });
+  }
+
+  if (els.intelCorrelationMatrixId){
+    els.intelCorrelationMatrixId.addEventListener("change", () => {
+      const s = currentState();
+      if (!s) return;
+      if (!s.intelState || typeof s.intelState !== "object") s.intelState = { version: "1.0.0" };
+      if (!s.intelState.simToggles || typeof s.intelState.simToggles !== "object") s.intelState.simToggles = {};
+      const id = String(els.intelCorrelationMatrixId.value || "").trim();
+      s.intelState.simToggles.correlationMatrixId = id || null;
+      setCalibrationStatus("Correlation model updated. Re-run Monte Carlo to apply.", "ok");
+      commitUIUpdate();
+    });
+  }
 }
 
 export function wireTabAndExportEvents(ctx){

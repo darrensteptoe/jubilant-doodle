@@ -25,6 +25,21 @@ function makeOption(value, label){
   return opt;
 }
 
+function fillCorrelationSelect(selectEl, rows, selectedId){
+  if (!selectEl) return;
+  const keep = String(selectedId || "");
+  selectEl.innerHTML = "";
+  selectEl.appendChild(makeOption("", "None selected"));
+  for (const row of rows){
+    const id = String(row?.id || "").trim();
+    if (!id) continue;
+    const label = String(row?.label || id);
+    selectEl.appendChild(makeOption(id, label));
+  }
+  selectEl.value = keep;
+  if (selectEl.value !== keep) selectEl.value = "";
+}
+
 function fillBenchmarkTable(tbody, rows){
   if (!tbody) return;
   tbody.innerHTML = "";
@@ -151,8 +166,20 @@ export function renderIntelChecksModule({ els, state } = {}){
 
   const calibrationBrief = getLatestBriefByKind(state, "calibrationSources");
   const mcDist = String(state?.intelState?.simToggles?.mcDistribution || "triangular");
+  const correlatedShocks = !!state?.intelState?.simToggles?.correlatedShocks;
+  const corrMatrixId = String(state?.intelState?.simToggles?.correlationMatrixId || "");
+  const corrModels = Array.isArray(state?.intelState?.correlationModels)
+    ? state.intelState.correlationModels
+    : [];
   if (els.intelMcDistribution){
     els.intelMcDistribution.value = mcDist;
+  }
+  if (els.intelCorrelatedShocks){
+    els.intelCorrelatedShocks.checked = correlatedShocks;
+  }
+  fillCorrelationSelect(els.intelCorrelationMatrixId, corrModels, corrMatrixId);
+  if (els.intelCorrelationMatrixId){
+    els.intelCorrelationMatrixId.disabled = !corrModels.length;
   }
   if (els.intelCalibrationBriefContent){
     els.intelCalibrationBriefContent.value = calibrationBrief?.content || "";
