@@ -34,7 +34,7 @@ This is the execution order for the calibration/governance expansion.
 ## Phase 4: MC calibration toggles
 - [x] Distribution toggle (`triangular` default, optional `uniform`/`normal`).
 - [x] Correlated shocks toggle using `correlationModels`.
-- [ ] Shock scenario sampling toggle using `shockScenarios`.
+- [x] Shock scenario sampling toggle using `shockScenarios`.
 
 ## Phase 5: Capacity realism toggle
 - [ ] Apply `capacityDecayEnabled` and `decayModel` in capacity snapshot pipeline.

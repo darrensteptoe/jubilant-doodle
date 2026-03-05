@@ -2270,6 +2270,32 @@
 <label class="label" for="intelCorrelationJson">Correlation model JSON (optional import)</label>
 <textarea class="input" id="intelCorrelationJson" rows="5" placeholder='{"label":"Enthusiasm shock","refs":["core.contactRatePct","core.supportRatePct"],"matrix":[[1,0.5],[0.5,1]],"notes":"optional"}'></textarea>
 </div>
+<div class="grid3" style="margin-top:10px;">
+<div class="field">
+<label class="label" for="intelShockScenariosEnabled">Shock scenarios</label>
+<label class="switch">
+<input id="intelShockScenariosEnabled" type="checkbox"/>
+<span class="slider"></span>
+<span class="switch-label">Enable stochastic shock sampling in MC</span>
+</label>
+</div>
+<div class="field">
+<label class="label">Configured shocks</label>
+<div class="note" id="intelShockScenarioCount">0 scenarios configured.</div>
+</div>
+<div class="field">
+<label class="label">Actions</label>
+<div class="card-actions">
+<button class="btn btn-sm" id="btnIntelAddDefaultShock" type="button">Add default shock</button>
+<button class="btn btn-sm" id="btnIntelImportShockJson" type="button">Import shock JSON</button>
+</div>
+</div>
+</div>
+<div class="field" style="margin-top:10px;">
+<label class="label" for="intelShockJson">Shock scenario JSON (optional import)</label>
+<textarea class="input" id="intelShockJson" rows="5" placeholder='{"label":"Opponent surge week","impacts":[{"ref":"core.contactRatePct","delta":-2},{"ref":"core.supportRatePct","delta":-1}],"probability":0.15,"notes":"optional"}'></textarea>
+</div>
+<div class="muted" id="intelShockStatus" style="margin-top:10px;">No shock scenarios configured.</div>
 <div class="muted" id="intelCalibrationStatus" style="margin-top:10px;">No calibration brief generated yet.</div>
 <div class="field" style="margin-top:10px;">
 <label class="label" for="intelCalibrationBriefContent">Brief content</label>
