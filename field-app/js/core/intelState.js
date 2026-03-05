@@ -104,6 +104,14 @@ export function makeDefaultIntelState(){
     observedMetrics: [],
     correlationModels: [],
     shockScenarios: [],
+    workflow: {
+      scenarioLocked: false,
+      lockReason: "",
+      lockedAt: null,
+      lockedBy: "",
+      requireCriticalNote: true,
+      requireCriticalEvidence: true,
+    },
     simToggles: {
       mcDistribution: "triangular",
       correlatedShocks: false,
@@ -139,6 +147,17 @@ export function normalizeIntelState(raw){
   out.briefs = toArray(raw.briefs);
   out.recommendations = toArray(raw.recommendations);
   out.observedMetrics = toArray(raw.observedMetrics);
+  const wfIn = isObject(raw.workflow) ? raw.workflow : {};
+  out.workflow = {
+    ...base.workflow,
+    ...wfIn,
+    scenarioLocked: !!wfIn.scenarioLocked,
+    lockReason: String(wfIn.lockReason || ""),
+    lockedAt: toStringOrNull(wfIn.lockedAt),
+    lockedBy: String(wfIn.lockedBy || ""),
+    requireCriticalNote: (wfIn.requireCriticalNote == null) ? base.workflow.requireCriticalNote : !!wfIn.requireCriticalNote,
+    requireCriticalEvidence: (wfIn.requireCriticalEvidence == null) ? base.workflow.requireCriticalEvidence : !!wfIn.requireCriticalEvidence,
+  };
   const shockRows = toArray(raw.shockScenarios);
   const normalizedShock = [];
   for (const row of shockRows){

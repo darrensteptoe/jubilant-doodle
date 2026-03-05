@@ -763,10 +763,17 @@ async function copyDebugBundle(){
   const intel = state?.intelState || {};
   const intelAudit = Array.isArray(intel?.audit) ? intel.audit : [];
   const intelEvidence = Array.isArray(intel?.evidence) ? intel.evidence : [];
+  const workflow = intel?.workflow && typeof intel.workflow === "object" ? intel.workflow : {};
   const intelMissingEvidence = intelAudit.filter((x) =>
     x &&
     x.requiresEvidence === true &&
     !x.evidenceId &&
+    String(x.status || "").toLowerCase() !== "resolved"
+  ).length;
+  const intelMissingNote = intelAudit.filter((x) =>
+    x &&
+    x.requiresNote === true &&
+    !String(x.note || "").trim() &&
     String(x.status || "").toLowerCase() !== "resolved"
   ).length;
   const bundle = {
@@ -783,6 +790,7 @@ async function copyDebugBundle(){
       intelState: {
         version: intel?.version || null,
         missingEvidence: intelMissingEvidence,
+        missingNote: intelMissingNote,
         counts: {
           evidence: intelEvidence.length,
           benchmarks: Array.isArray(intel?.benchmarks) ? intel.benchmarks.length : 0,
@@ -793,6 +801,12 @@ async function copyDebugBundle(){
           observedMetrics: Array.isArray(intel?.observedMetrics) ? intel.observedMetrics.length : 0,
           correlationModels: Array.isArray(intel?.correlationModels) ? intel.correlationModels.length : 0,
           shockScenarios: Array.isArray(intel?.shockScenarios) ? intel.shockScenarios.length : 0,
+        },
+        workflow: {
+          scenarioLocked: !!workflow.scenarioLocked,
+          lockReason: workflow.lockReason || "",
+          requireCriticalNote: workflow.requireCriticalNote !== false,
+          requireCriticalEvidence: workflow.requireCriticalEvidence !== false,
         },
         simToggles: intel?.simToggles || null,
         expertToggles: intel?.expertToggles || null,
@@ -1126,15 +1140,71 @@ function schedulePersist({ immediate = false } = {}){
   uiUpdateQueue.schedulePersist({ immediate });
 }
 
-function commitUIUpdate({ render: doRender = true, persist: doPersist = true, immediatePersist = false } = {}){
+function isScenarioLockedForEdits(srcState = state){
+  try{
+    return !!srcState?.intelState?.workflow?.scenarioLocked;
+  } catch {
+    return false;
+  }
+}
+
+function applyScenarioLockUi(){
+  const root = document.querySelector(".stage-main-new");
+  if (!root) return;
+
+  const locked = isScenarioLockedForEdits(state);
+  root.classList.toggle("scenario-locked", locked);
+
+  const controls = root.querySelectorAll('input:not([type="hidden"]), select, textarea');
+  for (const el of controls){
+    if (!(el instanceof HTMLElement)) continue;
+    if (el.dataset.lockExempt === "1" || el.closest("#intelWorkflowCard")) continue;
+
+    if (locked){
+      if (el.hasAttribute("disabled")) continue;
+      el.setAttribute("disabled", "disabled");
+      el.dataset.lockManaged = "1";
+      continue;
+    }
+
+    if (el.dataset.lockManaged === "1"){
+      el.removeAttribute("disabled");
+      delete el.dataset.lockManaged;
+    }
+  }
+}
+
+function commitUIUpdate({
+  render: doRender = true,
+  persist: doPersist = true,
+  immediatePersist = false,
+  allowScenarioLockBypass = false
+} = {}){
+  if (doPersist && isScenarioLockedForEdits(state) && !allowScenarioLockBypass){
+    if (doRender) scheduleRender();
+    return;
+  }
+
   if (doPersist){
     try{
+      const workflow = state?.intelState?.workflow || {};
+      const pendingCriticalNote = String(state?.ui?.pendingCriticalNote || "").trim();
       const auditResult = captureCriticalAssumptionAudit({
         state,
         previousSnapshot: lastCriticalAuditSnapshot,
         source: "ui",
+        requireNote: workflow.requireCriticalNote !== false,
+        requireEvidence: workflow.requireCriticalEvidence !== false,
+        note: pendingCriticalNote,
       });
       lastCriticalAuditSnapshot = auditResult?.nextSnapshot || buildCriticalAuditSnapshot(state);
+      if (auditResult?.wroteAudit && pendingCriticalNote){
+        if (!state.ui || typeof state.ui !== "object") state.ui = {};
+        state.ui.pendingCriticalNote = "";
+        if (els.intelCriticalChangeNote && document.activeElement !== els.intelCriticalChangeNote){
+          els.intelCriticalChangeNote.value = "";
+        }
+      }
     } catch {
       lastCriticalAuditSnapshot = buildCriticalAuditSnapshot(state);
     }
@@ -1165,6 +1235,7 @@ function applyStateToUI(){
     syncGotvModeUI,
     applyThemeFromState,
   });
+  applyScenarioLockUi();
 }
 
 function rebuildCandidateTable(){
@@ -1536,6 +1607,7 @@ function render(){
     renderTimeline,
     renderDecisionIntelligencePanel,
   });
+  applyScenarioLockUi();
 }
 
 function renderWeeklyOps(res, weeks, { weeklyContext = null, executionSnapshot = null } = {}){
