@@ -143,6 +143,7 @@ import {
   setCanonicalDoorsPerHourModule,
   requiredScenarioKeysMissingModule
 } from "./app/stateNormalizationHelpers.js";
+import { syncFeatureFlagsFromState } from "./app/featureFlags.js";
 import {
   twCapTextModule,
   twCapNumModule,
@@ -1183,6 +1184,12 @@ function commitUIUpdate({
   immediatePersist = false,
   allowScenarioLockBypass = false
 } = {}){
+  try{
+    syncFeatureFlagsFromState(state, { preferFeatures: false });
+  } catch {
+    // fail-soft: feature sync is compatibility wiring only
+  }
+
   if (doPersist && isScenarioLockedForEdits(state) && !allowScenarioLockBypass){
     if (doRender) scheduleRender();
     return;
