@@ -261,6 +261,100 @@ function fmtNum(value){
   return Number.isInteger(n) ? String(n) : n.toFixed(2);
 }
 
+function fmtRatioPct(value){
+  const n = Number(value);
+  if (!Number.isFinite(n)) return "—";
+  return `${(n * 100).toFixed(1)}%`;
+}
+
+function clamp01(value){
+  const n = Number(value);
+  if (!Number.isFinite(n)) return 0;
+  return Math.min(1, Math.max(0, n));
+}
+
+function pct1(value){
+  const n = Number(value);
+  if (!Number.isFinite(n)) return null;
+  return Math.round(n * 1000) / 10;
+}
+
+function num1(value){
+  const n = Number(value);
+  if (!Number.isFinite(n)) return null;
+  return Math.round(n * 10) / 10;
+}
+
+function approxEq(a, b, eps = 1e-9){
+  const na = Number(a);
+  const nb = Number(b);
+  if (!Number.isFinite(na) || !Number.isFinite(nb)) return false;
+  return Math.abs(na - nb) <= eps;
+}
+
+function sanitizeIdPart(v){
+  return String(v == null ? "" : v).replace(/[^a-zA-Z0-9_-]/g, "_");
+}
+
+function isoDateOnly(v){
+  if (!v) return "";
+  if (v instanceof Date){
+    if (!Number.isFinite(v.getTime())) return "";
+    return v.toISOString().slice(0, 10);
+  }
+  const s = String(v).trim();
+  if (!s) return "";
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+  const d = new Date(s);
+  if (!Number.isFinite(d.getTime())) return "";
+  return d.toISOString().slice(0, 10);
+}
+
+function compareObservedMetricRows(a, b){
+  if (!a || !b) return false;
+  if (cleanString(a.metric) !== cleanString(b.metric)) return false;
+  if (cleanString(a.ref) !== cleanString(b.ref)) return false;
+  if (cleanString(a.source) !== cleanString(b.source)) return false;
+  if (cleanString(a.period?.start) !== cleanString(b.period?.start)) return false;
+  if (cleanString(a.period?.end) !== cleanString(b.period?.end)) return false;
+  if (!approxEq(a.observed, b.observed)) return false;
+  const aa = toNumOrNull(a.assumed);
+  const bb = toNumOrNull(b.assumed);
+  if (aa == null && bb != null) return false;
+  if (aa != null && bb == null) return false;
+  if (aa != null && bb != null && !approxEq(aa, bb)) return false;
+  const ad = toNumOrNull(a.delta);
+  const bd = toNumOrNull(b.delta);
+  if (ad == null && bd != null) return false;
+  if (ad != null && bd == null) return false;
+  if (ad != null && bd != null && !approxEq(ad, bd)) return false;
+  const ac = toNumOrNull(a.confidence);
+  const bc = toNumOrNull(b.confidence);
+  if (ac == null && bc != null) return false;
+  if (ac != null && bc == null) return false;
+  if (ac != null && bc != null && !approxEq(ac, bc)) return false;
+  return cleanString(a.notes) === cleanString(b.notes);
+}
+
+function compareRecommendationRows(a, b){
+  if (!a || !b) return false;
+  if (cleanString(a.id) !== cleanString(b.id)) return false;
+  if (cleanString(a.title) !== cleanString(b.title)) return false;
+  if (cleanString(a.detail) !== cleanString(b.detail)) return false;
+  if (cleanString(a.ref) !== cleanString(b.ref)) return false;
+  if (Number(a.priority) !== Number(b.priority)) return false;
+  return JSON.stringify(a.draftPatch || null) === JSON.stringify(b.draftPatch || null);
+}
+
+function compareFlagRows(a, b){
+  if (!a || !b) return false;
+  return cleanString(a.id) === cleanString(b.id)
+    && cleanString(a.kind) === cleanString(b.kind)
+    && cleanString(a.severity) === cleanString(b.severity)
+    && cleanString(a.message) === cleanString(b.message)
+    && cleanString(a.ref) === cleanString(b.ref);
+}
+
 export function getLatestBriefByKind(state, kind){
   const intel = ensureIntelCollections(state);
   if (!intel) return null;
@@ -271,6 +365,254 @@ export function getLatestBriefByKind(state, kind){
     .slice()
     .sort((a, b) => cleanString(b?.createdAt).localeCompare(cleanString(a?.createdAt)));
   return rows[0] || null;
+}
+
+export function captureObservedMetricsFromDrift(state, drift = null, { source = "dailyLog.rolling7", maxEntries = 180 } = {}){
+  const intel = ensureIntelCollections(state);
+  if (!intel) return { ok: false, error: "Intel state unavailable." };
+  if (!drift?.hasLog){
+    return { ok: false, error: "No daily log data available yet." };
+  }
+
+  const start = isoDateOnly(drift?.windowStart || drift?.firstDate) || isoDateOnly(new Date());
+  const end = isoDateOnly(drift?.windowEnd || drift?.lastDate) || start;
+  const stamp = `${end}T00:00:00.000Z`;
+  const entries = Math.max(0, Number(drift?.windowEntries) || 0);
+  const confidence = clamp01(entries / 10);
+
+  const rows = [
+    {
+      metric: "contactRate",
+      ref: "core.contactRatePct",
+      observed: toNumOrNull(drift?.actualCR),
+      assumed: toNumOrNull(drift?.assumedCR),
+      notes: "Rolling contact rate from organizer daily log window.",
+    },
+    {
+      metric: "supportRate",
+      ref: "core.supportRatePct",
+      observed: toNumOrNull(drift?.actualSR),
+      assumed: toNumOrNull(drift?.assumedSR),
+      notes: "Rolling support conversion from organizer daily log window.",
+    },
+    {
+      metric: "attemptsPerOrgHour",
+      ref: "core.productivityAttemptsPerHour",
+      observed: toNumOrNull(drift?.actualAPH),
+      assumed: toNumOrNull(drift?.expectedAPH),
+      notes: "Rolling organizer productivity (attempts per organizer hour).",
+    },
+  ].filter((x) => x.observed != null);
+
+  if (!rows.length){
+    return { ok: false, error: "No observed drift metrics are available yet." };
+  }
+
+  if (!Array.isArray(intel.observedMetrics)) intel.observedMetrics = [];
+  let created = 0;
+  let updated = 0;
+
+  for (const row of rows){
+    const id = `obs_${sanitizeIdPart(row.metric)}_${sanitizeIdPart(start)}_${sanitizeIdPart(end)}`;
+    const delta = (row.assumed != null) ? (row.observed - row.assumed) : null;
+    const next = {
+      id,
+      metric: row.metric,
+      ref: row.ref,
+      period: { start, end },
+      observed: row.observed,
+      source,
+      notes: row.notes,
+      confidence,
+      assumed: row.assumed,
+      delta,
+      createdAt: stamp,
+      updatedAt: stamp,
+    };
+
+    const idx = intel.observedMetrics.findIndex((x) => cleanString(x?.id) === id);
+    if (idx < 0){
+      intel.observedMetrics.push(next);
+      created += 1;
+      continue;
+    }
+
+    const prev = intel.observedMetrics[idx];
+    const merged = {
+      ...prev,
+      ...next,
+      createdAt: cleanString(prev?.createdAt) || next.createdAt,
+      updatedAt: compareObservedMetricRows(prev, next)
+        ? (cleanString(prev?.updatedAt) || next.updatedAt)
+        : stamp,
+    };
+    if (!compareObservedMetricRows(prev, merged)){
+      intel.observedMetrics[idx] = merged;
+      updated += 1;
+    }
+  }
+
+  if (intel.observedMetrics.length > maxEntries){
+    intel.observedMetrics.sort((a, b) => {
+      const ae = cleanString(a?.period?.end);
+      const be = cleanString(b?.period?.end);
+      if (ae !== be) return be.localeCompare(ae);
+      return cleanString(b?.id).localeCompare(cleanString(a?.id));
+    });
+    intel.observedMetrics = intel.observedMetrics.slice(0, Math.max(1, Number(maxEntries) || 180));
+  }
+
+  return { ok: true, created, updated, total: intel.observedMetrics.length, period: { start, end } };
+}
+
+export function refreshDriftRecommendationsFromDrift(state, drift = null, { maxEntries = 60 } = {}){
+  const intel = ensureIntelCollections(state);
+  if (!intel) return { ok: false, error: "Intel state unavailable." };
+
+  const now = nowIso();
+  const source = "auto.realityDrift.v1";
+  const manualRecs = ensureArray(intel, "recommendations").filter((x) => cleanString(x?.source) !== source);
+  const existingAutoRec = ensureArray(intel, "recommendations").filter((x) => cleanString(x?.source) === source);
+  const manualFlags = ensureArray(intel, "flags").filter((x) => cleanString(x?.source) !== source);
+  const existingAutoFlags = ensureArray(intel, "flags").filter((x) => cleanString(x?.source) === source);
+
+  if (!drift?.hasLog){
+    intel.recommendations = manualRecs.slice(0, Math.max(1, Number(maxEntries) || 60));
+    intel.flags = manualFlags;
+    return { ok: true, created: 0, updated: 0, total: intel.recommendations.length, cleared: existingAutoRec.length };
+  }
+
+  const defs = [
+    {
+      key: "contact",
+      metric: "contactRate",
+      ref: "core.contactRatePct",
+      actual: toNumOrNull(drift.actualCR),
+      assumed: toNumOrNull(drift.assumedCR),
+      title: "Contact rate is below plan",
+      detail: "Improve list quality/script/time slot, or align assumption to rolling CR.",
+      makePatch: () => ({
+        type: "setInput",
+        target: "contactRatePct",
+        suggestedValue: pct1(drift.actualCR),
+        unit: "pct",
+      }),
+    },
+    {
+      key: "support",
+      metric: "supportRate",
+      ref: "core.supportRatePct",
+      actual: toNumOrNull(drift.actualSR),
+      assumed: toNumOrNull(drift.assumedSR),
+      title: "Support conversion is below plan",
+      detail: "Improve persuasion quality/script targeting, or align assumption to rolling SR.",
+      makePatch: () => ({
+        type: "setInput",
+        target: "supportRatePct",
+        suggestedValue: pct1(drift.actualSR),
+        unit: "pct",
+      }),
+    },
+    {
+      key: "productivity",
+      metric: "attemptsPerOrgHour",
+      ref: "core.productivityAttemptsPerHour",
+      actual: toNumOrNull(drift.actualAPH),
+      assumed: toNumOrNull(drift.expectedAPH),
+      title: "Organizer productivity is below plan",
+      detail: "Adjust doors/calls per hour assumptions or increase execution capacity.",
+      makePatch: () => {
+        const curDoors = toNumOrNull(state?.doorsPerHour3);
+        const curCalls = toNumOrNull(state?.callsPerHour3);
+        const ratioRaw = (drift?.actualAPH != null && drift?.expectedAPH != null && drift.expectedAPH > 0)
+          ? (drift.actualAPH / drift.expectedAPH)
+          : null;
+        const ratio = ratioRaw == null ? null : Math.min(1.5, Math.max(0.5, ratioRaw));
+        const nextDoors = (ratio != null && curDoors != null) ? num1(Math.max(1, curDoors * ratio)) : null;
+        const nextCalls = (ratio != null && curCalls != null) ? num1(Math.max(1, curCalls * ratio)) : null;
+        return {
+          type: "setInputs",
+          targets: [
+            { key: "doorsPerHour3", suggestedValue: nextDoors, unit: "attempts_per_hour" },
+            { key: "callsPerHour3", suggestedValue: nextCalls, unit: "attempts_per_hour" },
+          ].filter((x) => x.suggestedValue != null),
+          ratioApplied: ratio,
+        };
+      },
+    },
+  ];
+
+  const nextAutoRecs = [];
+  const nextAutoFlags = [];
+
+  for (const def of defs){
+    if (def.actual == null || def.assumed == null || def.assumed <= 0) continue;
+    const ratio = def.actual / def.assumed;
+    if (!(ratio < 0.90)) continue;
+    const severityRatio = clamp01((def.assumed - def.actual) / def.assumed);
+    const severity = severityRatio >= 0.25 ? "bad" : "warn";
+    const priority = severityRatio >= 0.30 ? 1 : (severityRatio >= 0.15 ? 2 : 3);
+    const id = `rec_drift_${def.key}`;
+    const actualText = (def.metric === "attemptsPerOrgHour") ? fmtNum(def.actual) : fmtRatioPct(def.actual);
+    const assumedText = (def.metric === "attemptsPerOrgHour") ? fmtNum(def.assumed) : fmtRatioPct(def.assumed);
+    const detail = `${def.detail} Rolling observed ${actualText} vs assumed ${assumedText}.`;
+
+    const previous = existingAutoRec.find((x) => cleanString(x?.id) === id);
+    const nextRec = {
+      id,
+      title: def.title,
+      detail,
+      priority,
+      ref: def.ref,
+      metric: def.metric,
+      source,
+      createdAt: cleanString(previous?.createdAt) || now,
+      updatedAt: now,
+      draftPatch: def.makePatch(),
+    };
+    if (previous && compareRecommendationRows(previous, nextRec)){
+      nextRec.updatedAt = cleanString(previous?.updatedAt) || nextRec.updatedAt;
+    }
+    nextAutoRecs.push(nextRec);
+
+    const flagId = `flag_drift_${def.key}`;
+    const previousFlag = existingAutoFlags.find((x) => cleanString(x?.id) === flagId);
+    const nextFlag = {
+      id: flagId,
+      kind: "realityDrift",
+      severity,
+      message: `${def.title}: rolling ${actualText} vs assumed ${assumedText}.`,
+      ref: def.ref,
+      source,
+      createdAt: cleanString(previousFlag?.createdAt) || now,
+      updatedAt: now,
+      metric: def.metric,
+      primary: cleanString(drift?.primary) === def.key,
+    };
+    if (previousFlag && compareFlagRows(previousFlag, nextFlag)){
+      nextFlag.updatedAt = cleanString(previousFlag?.updatedAt) || nextFlag.updatedAt;
+    }
+    nextAutoFlags.push(nextFlag);
+  }
+
+  nextAutoRecs.sort((a, b) => Number(a.priority) - Number(b.priority));
+  const nextRecommendations = [...manualRecs, ...nextAutoRecs].slice(0, Math.max(1, Number(maxEntries) || 60));
+  const nextFlags = [...manualFlags, ...nextAutoFlags];
+
+  const created = nextAutoRecs.filter((x) => !existingAutoRec.some((e) => cleanString(e?.id) === cleanString(x?.id))).length;
+  const updated = nextAutoRecs.length - created;
+  const cleared = Math.max(0, existingAutoRec.length - nextAutoRecs.length);
+
+  intel.recommendations = nextRecommendations;
+  intel.flags = nextFlags;
+  return {
+    ok: true,
+    created,
+    updated,
+    cleared,
+    total: intel.recommendations.length,
+    autoTotal: nextAutoRecs.length,
+  };
 }
 
 export function generateCalibrationSourceBrief(state){

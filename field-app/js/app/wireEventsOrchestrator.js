@@ -61,6 +61,7 @@ export function wireEventsOrchestratorModule(args){
     wireIntelChecksEvents,
     wireTabAndExportEvents,
     wireResetImportAndUiToggles,
+    computeRealityDrift,
   } = args || {};
 
   wireSafetyAndDiagnosticsEvents({
@@ -117,6 +118,8 @@ export function wireEventsOrchestratorModule(args){
     getState: () => state(),
     commitUIUpdate,
     safeNum,
+    computeRealityDrift,
+    markMcStale,
   });
 
   wireTabAndExportEvents({

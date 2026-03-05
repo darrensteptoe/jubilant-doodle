@@ -2,12 +2,14 @@ import {
   addDefaultShockScenario,
   addDefaultCorrelationModel,
   attachEvidenceRecord,
+  captureObservedMetricsFromDrift,
   generateCalibrationSourceBrief,
   getLatestBriefByKind,
   importCorrelationModelsJson,
   importShockScenariosJson,
   listShockScenarios,
   listMissingEvidenceAudit,
+  refreshDriftRecommendationsFromDrift,
   removeBenchmarkEntry,
   upsertBenchmarkEntry,
 } from "./intelControls.js";
@@ -144,7 +146,7 @@ export function wireBudgetTimelineEvents(ctx){
 }
 
 export function wireIntelChecksEvents(ctx){
-  const { els, state: initialState, getState, commitUIUpdate, safeNum } = ctx || {};
+  const { els, state: initialState, getState, commitUIUpdate, safeNum, computeRealityDrift, markMcStale } = ctx || {};
   const currentState = () => {
     if (typeof getState === "function"){
       const s = getState();
@@ -245,6 +247,30 @@ export function wireIntelChecksEvents(ctx){
   const setShockStatus = (msg, kind = "muted") => {
     setStatus(els.intelShockStatus, msg, kind);
   };
+  const setObservedStatus = (msg, kind = "muted") => {
+    setStatus(els.intelObservedStatus || els.intelCalibrationStatus, msg, kind);
+  };
+  const setRecommendationStatus = (msg, kind = "muted") => {
+    setStatus(els.intelRecommendationStatus || els.intelCalibrationStatus, msg, kind);
+  };
+  const setDecayStatus = (msg, kind = "muted") => {
+    setStatus(els.intelDecayStatus || els.intelCalibrationStatus, msg, kind);
+  };
+  const clampPct100 = (v) => {
+    const n = Number(v);
+    if (!Number.isFinite(n)) return null;
+    return Math.max(0, Math.min(100, n));
+  };
+  const ensureIntelDecayModel = (s) => {
+    if (!s.intelState || typeof s.intelState !== "object") s.intelState = { version: "1.0.0" };
+    if (!s.intelState.expertToggles || typeof s.intelState.expertToggles !== "object"){
+      s.intelState.expertToggles = { capacityDecayEnabled: false, decayModel: { type: "linear", weeklyDecayPct: 0.03, floorPctOfBaseline: 0.70 } };
+    }
+    if (!s.intelState.expertToggles.decayModel || typeof s.intelState.expertToggles.decayModel !== "object"){
+      s.intelState.expertToggles.decayModel = { type: "linear", weeklyDecayPct: 0.03, floorPctOfBaseline: 0.70 };
+    }
+    return s.intelState.expertToggles.decayModel;
+  };
 
   if (els.btnIntelCalibrationGenerate){
     els.btnIntelCalibrationGenerate.addEventListener("click", () => {
@@ -293,7 +319,66 @@ export function wireIntelChecksEvents(ctx){
       if (!s.intelState || typeof s.intelState !== "object") s.intelState = { version: "1.0.0" };
       if (!s.intelState.simToggles || typeof s.intelState.simToggles !== "object") s.intelState.simToggles = {};
       s.intelState.simToggles.mcDistribution = String(els.intelMcDistribution.value || "triangular");
+      if (typeof markMcStale === "function") markMcStale();
       setCalibrationStatus("Distribution updated. Re-run Monte Carlo to apply.", "ok");
+      commitUIUpdate();
+    });
+  }
+
+  if (els.intelCapacityDecayEnabled){
+    els.intelCapacityDecayEnabled.addEventListener("change", () => {
+      const s = currentState();
+      if (!s) return;
+      ensureIntelDecayModel(s);
+      s.intelState.expertToggles.capacityDecayEnabled = !!els.intelCapacityDecayEnabled.checked;
+      if (typeof markMcStale === "function") markMcStale();
+      setDecayStatus("Capacity decay toggle updated. Re-run Monte Carlo to apply.", "ok");
+      commitUIUpdate();
+    });
+  }
+
+  if (els.intelDecayModelType){
+    els.intelDecayModelType.addEventListener("change", () => {
+      const s = currentState();
+      if (!s) return;
+      const model = ensureIntelDecayModel(s);
+      model.type = String(els.intelDecayModelType.value || "linear");
+      if (typeof markMcStale === "function") markMcStale();
+      setDecayStatus("Decay model updated. Re-run Monte Carlo to apply.", "ok");
+      commitUIUpdate();
+    });
+  }
+
+  if (els.intelDecayWeeklyPct){
+    els.intelDecayWeeklyPct.addEventListener("change", () => {
+      const s = currentState();
+      if (!s) return;
+      const model = ensureIntelDecayModel(s);
+      const pct = clampPct100(safeNum(els.intelDecayWeeklyPct.value));
+      if (pct == null){
+        setDecayStatus("Weekly decay % must be numeric.", "warn");
+        return;
+      }
+      model.weeklyDecayPct = pct / 100;
+      if (typeof markMcStale === "function") markMcStale();
+      setDecayStatus("Weekly decay updated. Re-run Monte Carlo to apply.", "ok");
+      commitUIUpdate();
+    });
+  }
+
+  if (els.intelDecayFloorPct){
+    els.intelDecayFloorPct.addEventListener("change", () => {
+      const s = currentState();
+      if (!s) return;
+      const model = ensureIntelDecayModel(s);
+      const pct = clampPct100(safeNum(els.intelDecayFloorPct.value));
+      if (pct == null){
+        setDecayStatus("Floor % must be numeric.", "warn");
+        return;
+      }
+      model.floorPctOfBaseline = pct / 100;
+      if (typeof markMcStale === "function") markMcStale();
+      setDecayStatus("Decay floor updated. Re-run Monte Carlo to apply.", "ok");
       commitUIUpdate();
     });
   }
@@ -311,6 +396,7 @@ export function wireIntelChecksEvents(ctx){
         result.mode === "created" ? "Default correlation model added." : "Default correlation model updated.",
         "ok"
       );
+      if (typeof markMcStale === "function") markMcStale();
       commitUIUpdate();
     });
   }
@@ -328,6 +414,7 @@ export function wireIntelChecksEvents(ctx){
         `Imported correlation models: ${result.created} created, ${result.updated} updated.`,
         "ok"
       );
+      if (typeof markMcStale === "function") markMcStale();
       commitUIUpdate();
     });
   }
@@ -360,6 +447,7 @@ export function wireIntelChecksEvents(ctx){
       if (!(turningOn && s.intelState.correlationModels.length > 0)){
         setCorrelationStatus("Correlated shocks updated. Re-run Monte Carlo to apply.", "ok");
       }
+      if (typeof markMcStale === "function") markMcStale();
       commitUIUpdate();
     });
   }
@@ -372,6 +460,7 @@ export function wireIntelChecksEvents(ctx){
       if (!s.intelState.simToggles || typeof s.intelState.simToggles !== "object") s.intelState.simToggles = {};
       const id = String(els.intelCorrelationMatrixId.value || "").trim();
       s.intelState.simToggles.correlationMatrixId = id || null;
+      if (typeof markMcStale === "function") markMcStale();
       setCorrelationStatus("Correlation model updated. Re-run Monte Carlo to apply.", "ok");
       commitUIUpdate();
     });
@@ -390,6 +479,7 @@ export function wireIntelChecksEvents(ctx){
         result.mode === "created" ? "Default shock scenario added." : "Default shock scenario updated.",
         "ok"
       );
+      if (typeof markMcStale === "function") markMcStale();
       commitUIUpdate();
     });
   }
@@ -407,6 +497,7 @@ export function wireIntelChecksEvents(ctx){
         `Imported shock scenarios: ${result.created} created, ${result.updated} updated.`,
         "ok"
       );
+      if (typeof markMcStale === "function") markMcStale();
       commitUIUpdate();
     });
   }
@@ -439,6 +530,53 @@ export function wireIntelChecksEvents(ctx){
       }
 
       s.intelState.simToggles.shockScenariosEnabled = !!els.intelShockScenariosEnabled.checked;
+      if (typeof markMcStale === "function") markMcStale();
+      commitUIUpdate();
+    });
+  }
+
+  if (els.btnIntelCaptureObserved){
+    els.btnIntelCaptureObserved.addEventListener("click", () => {
+      const s = currentState();
+      if (!s) return;
+      const drift = (typeof computeRealityDrift === "function") ? computeRealityDrift() : null;
+      const result = captureObservedMetricsFromDrift(s, drift, { source: "dailyLog.rolling7", maxEntries: 180 });
+      if (!result.ok){
+        setObservedStatus(result.error || "Observed metrics capture failed.", "warn");
+        return;
+      }
+      setObservedStatus(
+        `Observed metrics captured (${result.created} new, ${result.updated} updated).`,
+        "ok"
+      );
+      commitUIUpdate();
+    });
+  }
+
+  if (els.btnIntelGenerateRecommendations){
+    els.btnIntelGenerateRecommendations.addEventListener("click", () => {
+      const s = currentState();
+      if (!s) return;
+      const drift = (typeof computeRealityDrift === "function") ? computeRealityDrift() : null;
+      const metricsResult = captureObservedMetricsFromDrift(s, drift, { source: "dailyLog.rolling7", maxEntries: 180 });
+      if (!metricsResult.ok && drift?.hasLog){
+        setObservedStatus(metricsResult.error || "Observed metrics capture failed.", "warn");
+      }
+      const result = refreshDriftRecommendationsFromDrift(s, drift, { maxEntries: 60 });
+      if (!result.ok){
+        setRecommendationStatus(result.error || "Recommendation generation failed.", "warn");
+        return;
+      }
+      const summary = (result.autoTotal > 0)
+        ? `Drift recommendations updated (${result.autoTotal} active).`
+        : "No active drift recommendations (rolling metrics are within tolerance).";
+      setRecommendationStatus(summary, result.autoTotal > 0 ? "ok" : "muted");
+      if (metricsResult.ok){
+        setObservedStatus(
+          `Observed metrics captured (${metricsResult.created} new, ${metricsResult.updated} updated).`,
+          "ok"
+        );
+      }
       commitUIUpdate();
     });
   }

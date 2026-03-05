@@ -14,6 +14,14 @@ function fmtNum(v){
   return Number.isInteger(n) ? String(n) : n.toFixed(2);
 }
 
+function pctInputValue(ratio, digits = 1){
+  const n = Number(ratio);
+  if (!Number.isFinite(n)) return "";
+  const pct = n * 100;
+  const fixed = pct.toFixed(Math.max(0, digits | 0));
+  return fixed.replace(/\.0+$/, "").replace(/(\.\d*?)0+$/, "$1");
+}
+
 function fmtDate(iso){
   const s = String(iso || "").trim();
   return s ? s.slice(0, 10) : "—";
@@ -174,6 +182,15 @@ export function renderIntelChecksModule({ els, state } = {}){
     : [];
   const shockEnabled = !!state?.intelState?.simToggles?.shockScenariosEnabled;
   const shockRows = listShockScenarios(state);
+  const decayEnabled = !!state?.intelState?.expertToggles?.capacityDecayEnabled;
+  const decayModelType = String(state?.intelState?.expertToggles?.decayModel?.type || "linear");
+  const decayWeeklyPct = Number(state?.intelState?.expertToggles?.decayModel?.weeklyDecayPct);
+  const decayFloorPct = Number(state?.intelState?.expertToggles?.decayModel?.floorPctOfBaseline);
+  const observedRows = Array.isArray(state?.intelState?.observedMetrics) ? state.intelState.observedMetrics : [];
+  const recommendationRows = Array.isArray(state?.intelState?.recommendations) ? state.intelState.recommendations : [];
+  const autoDriftRecs = recommendationRows
+    .filter((x) => String(x?.source || "").trim() === "auto.realityDrift.v1")
+    .sort((a, b) => Number(a?.priority || 99) - Number(b?.priority || 99));
   if (els.intelMcDistribution){
     els.intelMcDistribution.value = mcDist;
   }
@@ -193,6 +210,30 @@ export function renderIntelChecksModule({ els, state } = {}){
   }
   if (els.intelShockScenariosEnabled){
     els.intelShockScenariosEnabled.checked = shockEnabled;
+  }
+  if (els.intelCapacityDecayEnabled){
+    els.intelCapacityDecayEnabled.checked = decayEnabled;
+  }
+  if (els.intelDecayModelType){
+    els.intelDecayModelType.value = decayModelType;
+  }
+  if (els.intelDecayWeeklyPct){
+    els.intelDecayWeeklyPct.value = pctInputValue(decayWeeklyPct, 1);
+  }
+  if (els.intelDecayFloorPct){
+    els.intelDecayFloorPct.value = pctInputValue(decayFloorPct, 1);
+  }
+  if (els.intelDecayStatus){
+    els.intelDecayStatus.classList.remove("ok", "warn", "bad");
+    if (!decayEnabled){
+      els.intelDecayStatus.classList.add("muted");
+      els.intelDecayStatus.textContent = "Capacity decay OFF (steady capacity assumption).";
+    } else {
+      const weeklyText = pctInputValue(decayWeeklyPct, 1) || "0";
+      const floorText = pctInputValue(decayFloorPct, 1) || "0";
+      els.intelDecayStatus.classList.add("ok");
+      els.intelDecayStatus.textContent = `Capacity decay ON (${decayModelType}, ${weeklyText}% weekly, floor ${floorText}% baseline). Re-run Monte Carlo to apply.`;
+    }
   }
   if (els.intelShockScenarioCount){
     els.intelShockScenarioCount.textContent = `${shockRows.length} scenario${shockRows.length === 1 ? "" : "s"} configured.`;
@@ -222,6 +263,46 @@ export function renderIntelChecksModule({ els, state } = {}){
     } else {
       els.intelCalibrationStatus.classList.add("muted");
       els.intelCalibrationStatus.textContent = "No calibration brief generated yet.";
+    }
+  }
+  if (els.intelObservedCount){
+    els.intelObservedCount.textContent = `${observedRows.length} observed metric entr${observedRows.length === 1 ? "y" : "ies"} captured.`;
+  }
+  if (els.intelObservedStatus){
+    els.intelObservedStatus.classList.remove("ok", "warn", "bad");
+    els.intelObservedStatus.classList.add(observedRows.length ? "muted" : "warn");
+    els.intelObservedStatus.textContent = observedRows.length
+      ? "Observed metrics are available for drift tracking."
+      : "No observed metrics captured yet. Use Capture observed metrics.";
+  }
+  if (els.intelRecommendationCount){
+    els.intelRecommendationCount.textContent = `${autoDriftRecs.length} active drift recommendation${autoDriftRecs.length === 1 ? "" : "s"}.`;
+  }
+  if (els.intelRecommendationStatus){
+    els.intelRecommendationStatus.classList.remove("ok", "warn", "bad");
+    if (!observedRows.length){
+      els.intelRecommendationStatus.classList.add("warn");
+      els.intelRecommendationStatus.textContent = "Capture observed metrics first, then generate drift recommendations.";
+    } else if (autoDriftRecs.length){
+      els.intelRecommendationStatus.classList.add("ok");
+      els.intelRecommendationStatus.textContent = "Drift recommendations are active. Review before applying any assumptions.";
+    } else {
+      els.intelRecommendationStatus.classList.add("muted");
+      els.intelRecommendationStatus.textContent = "No active drift recommendations (within tolerance).";
+    }
+  }
+  if (els.intelRecommendationPreview){
+    if (!autoDriftRecs.length){
+      els.intelRecommendationPreview.value = "";
+    } else {
+      const lines = autoDriftRecs.slice(0, 5).map((row, idx) => {
+        const p = Number(row?.priority);
+        const pText = Number.isFinite(p) ? `P${p}` : "P—";
+        const title = String(row?.title || "Recommendation");
+        const detail = String(row?.detail || "").trim();
+        return `${idx + 1}. [${pText}] ${title}${detail ? `\n   ${detail}` : ""}`;
+      });
+      els.intelRecommendationPreview.value = lines.join("\n");
     }
   }
 }

@@ -1,6 +1,17 @@
 export function computeRealityDriftModule({ state, safeNum, windowN = 7 } = {}){
   const log = Array.isArray(state?.ui?.dailyLog) ? state.ui.dailyLog : null;
-  if (!log || log.length === 0) return { hasLog: false, flags: [], primary: null };
+  if (!log || log.length === 0){
+    return {
+      hasLog: false,
+      flags: [],
+      primary: null,
+      windowEntries: 0,
+      windowStart: null,
+      windowEnd: null,
+      firstDate: null,
+      lastDate: null,
+    };
+  }
 
   const sorted = [...log]
     .filter((x) => x && x.date)
@@ -66,6 +77,11 @@ export function computeRealityDriftModule({ state, safeNum, windowN = 7 } = {}){
     hasLog: true,
     flags,
     primary,
+    windowEntries: lastN.length,
+    windowStart: lastN[0]?.date || null,
+    windowEnd: lastN[lastN.length - 1]?.date || null,
+    firstDate: sorted[0]?.date || null,
+    lastDate: sorted[sorted.length - 1]?.date || null,
     actualCR, actualSR, actualAPH,
     assumedCR, assumedSR, expectedAPH
   };
