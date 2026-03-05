@@ -38,6 +38,8 @@ export function renderOptimizationModule(args){
   const budget = state.budget || {};
   const tacticsRaw = budget.tactics || {};
   const opt = budget.optimize || { mode: "budget", budgetAmount: 0, capacityAttempts: "", step: 25, useDecay: false };
+  const tlConstrainedOn = !!opt.tlConstrainedEnabled;
+  const timelineEnabled = !!state.timelineEnabled;
 
   const overheadAmount = safeNum(budget.overheadAmount) ?? 0;
   const includeOverhead = !!budget.includeOverhead;
@@ -90,10 +92,49 @@ export function renderOptimizationModule(args){
   const step = safeNum(opt.step) ?? 25;
   const objective = opt.objective || "net";
   let result = null;
+  let timelineCapsWrap = null;
+  let timelineCapTotal = null;
+
+  if (tlConstrainedOn && timelineEnabled){
+    const capsInput = {
+      enabled: true,
+      weeksRemaining: weeks ?? 0,
+      activeWeeksOverride: safeNum(state.timelineActiveWeeks),
+      gotvWindowWeeks: safeNum(state.timelineGotvWeeks),
+      staffing: {
+        staff: safeNum(state.timelineStaffCount) ?? 0,
+        volunteers: safeNum(state.timelineVolCount) ?? 0,
+        staffHours: safeNum(state.timelineStaffHours) ?? 0,
+        volunteerHours: safeNum(state.timelineVolHours) ?? 0,
+      },
+      throughput: {
+        doors: safeNum(state.timelineDoorsPerHour) ?? 0,
+        phones: safeNum(state.timelineCallsPerHour) ?? 0,
+        texts: safeNum(state.timelineTextsPerHour) ?? 0,
+      },
+      tacticKinds: {
+        doors: state.budget?.tactics?.doors?.kind || "persuasion",
+        phones: state.budget?.tactics?.phones?.kind || "persuasion",
+        texts: state.budget?.tactics?.texts?.kind || "persuasion",
+      }
+    };
+    timelineCapsWrap = engine.computeMaxAttemptsByTactic(capsInput);
+    const caps = (timelineCapsWrap && timelineCapsWrap.enabled && timelineCapsWrap.maxAttemptsByTactic && typeof timelineCapsWrap.maxAttemptsByTactic === "object")
+      ? timelineCapsWrap.maxAttemptsByTactic
+      : null;
+    if (caps){
+      const total = ["doors","phones","texts"].reduce((acc, k) => {
+        const v = Number(caps[k]);
+        return acc + (Number.isFinite(v) && v >= 0 ? v : 0);
+      }, 0);
+      if (Number.isFinite(total) && total >= 0) timelineCapTotal = total;
+    }
+  }
+  const effectiveCapAttempts = (timelineCapTotal != null) ? timelineCapTotal : capAttempts;
 
   if ((opt.mode || "budget") === "capacity"){
     const capUser = safeNum(opt.capacityAttempts);
-    const cap = (capUser != null && capUser >= 0) ? capUser : (capAttempts != null ? capAttempts : 0);
+    const cap = (capUser != null && capUser >= 0) ? capUser : (effectiveCapAttempts != null ? effectiveCapAttempts : 0);
 
     result = engine.optimizeMixBudget({
       capacity: cap,
@@ -113,7 +154,7 @@ export function renderOptimizationModule(args){
       budget: budgetAvail,
       tactics,
       step,
-      capacityCeiling: capAttempts,
+      capacityCeiling: effectiveCapAttempts,
       useDecay: !!opt.useDecay,
       objective
     });
@@ -132,7 +173,6 @@ export function renderOptimizationModule(args){
     return;
   }
 
-  const tlConstrainedOn = !!opt.tlConstrainedEnabled;
   if (els.tlOptResults) els.tlOptResults.hidden = !tlConstrainedOn;
 
   if (tlConstrainedOn){
@@ -161,20 +201,20 @@ export function renderOptimizationModule(args){
       tacticKinds
     };
 
-    const caps = engine.computeMaxAttemptsByTactic(capsInput);
+    const caps = timelineCapsWrap || engine.computeMaxAttemptsByTactic(capsInput);
 
     const budgetIn = safeNum(opt.budgetAmount) ?? 0;
     const budgetAvail = Math.max(0, budgetIn - (includeOverhead ? overheadAmount : 0));
 
     const capUser = safeNum(opt.capacityAttempts);
-    const capLimit = (capUser != null && capUser >= 0) ? capUser : (capAttempts != null ? capAttempts : 0);
+    const capLimit = (capUser != null && capUser >= 0) ? capUser : (effectiveCapAttempts != null ? effectiveCapAttempts : 0);
 
     const tlObj = opt.tlConstrainedObjective || "max_net";
     const tlInputs = {
       mode: (opt.mode || "budget"),
       budgetLimit: (opt.mode === "capacity") ? null : budgetAvail,
       capacityLimit: (opt.mode === "capacity") ? capLimit : null,
-      capacityCeiling: (opt.mode === "capacity") ? null : capAttempts,
+      capacityCeiling: (opt.mode === "capacity") ? null : effectiveCapAttempts,
       tactics,
       step,
       useDecay: !!opt.useDecay,
@@ -341,7 +381,7 @@ export function renderOptimizationModule(args){
 
     const tlPct = state.ui?.lastTimeline?.percentPlanExecutable;
     const tlGoalFeasible = state.ui?.lastTlMeta?.goalFeasible;
-    const feasible = (state.timelineEnabled)
+    const feasible = (tlConstrainedOn && timelineEnabled)
       ? (tlGoalFeasible === true ? true : (tlGoalFeasible === false ? false : (tlPct != null ? tlPct >= 0.999 : null)))
       : true;
 

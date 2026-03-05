@@ -43,9 +43,10 @@ export function renderRoiModule(args){
     callsPerHour: safeNum(state.callsPerHour3),
     capacityDecay,
   });
-  const capAttempts = capBreakdown?.total ?? null;
+  const baseCapAttempts = capBreakdown?.total ?? null;
 
   const budget = state.budget || {};
+  const opt = budget.optimize || {};
   const tactics = budget.tactics || {};
   const overheadAmount = safeNum(budget.overheadAmount) ?? 0;
   const includeOverhead = !!budget.includeOverhead;
@@ -60,13 +61,60 @@ export function renderRoiModule(args){
     useDiminishing: (state.gotvMode === "advanced") ? !!state.gotvDiminishing2 : !!state.gotvDiminishing,
   };
 
+  const tlConstrainedOn = !!opt.tlConstrainedEnabled;
+  const timelineEnabled = !!state.timelineEnabled;
+  const timelineCapsOn = tlConstrainedOn && timelineEnabled;
+  let capAttempts = baseCapAttempts;
+  let capByTactic = {
+    doors: capBreakdown?.doors ?? null,
+    phones: capBreakdown?.phones ?? null,
+    texts: null,
+  };
+
+  if (timelineCapsOn){
+    const capsInput = {
+      enabled: true,
+      weeksRemaining: weeks ?? 0,
+      activeWeeksOverride: safeNum(state.timelineActiveWeeks),
+      gotvWindowWeeks: safeNum(state.timelineGotvWeeks),
+      staffing: {
+        staff: safeNum(state.timelineStaffCount) ?? 0,
+        volunteers: safeNum(state.timelineVolCount) ?? 0,
+        staffHours: safeNum(state.timelineStaffHours) ?? 0,
+        volunteerHours: safeNum(state.timelineVolHours) ?? 0,
+      },
+      throughput: {
+        doors: safeNum(state.timelineDoorsPerHour) ?? 0,
+        phones: safeNum(state.timelineCallsPerHour) ?? 0,
+        texts: safeNum(state.timelineTextsPerHour) ?? 0,
+      },
+      tacticKinds: {
+        doors: tactics?.doors?.kind || "persuasion",
+        phones: tactics?.phones?.kind || "persuasion",
+        texts: tactics?.texts?.kind || "persuasion",
+      }
+    };
+    const capsWrap = engine.computeMaxAttemptsByTactic(capsInput);
+    const tCaps = (capsWrap && capsWrap.enabled && capsWrap.maxAttemptsByTactic && typeof capsWrap.maxAttemptsByTactic === "object")
+      ? capsWrap.maxAttemptsByTactic
+      : null;
+    if (tCaps){
+      const doorsCap = (Number.isFinite(Number(tCaps.doors)) && Number(tCaps.doors) >= 0) ? Number(tCaps.doors) : null;
+      const phonesCap = (Number.isFinite(Number(tCaps.phones)) && Number(tCaps.phones) >= 0) ? Number(tCaps.phones) : null;
+      const textsCap = (Number.isFinite(Number(tCaps.texts)) && Number(tCaps.texts) >= 0) ? Number(tCaps.texts) : null;
+      capByTactic = { doors: doorsCap, phones: phonesCap, texts: textsCap };
+      const total = [doorsCap, phonesCap, textsCap].reduce((sum, v) => sum + ((v == null) ? 0 : v), 0);
+      capAttempts = (Number.isFinite(total) && total >= 0) ? total : baseCapAttempts;
+    }
+  }
+
   const { rows, banner } = engine.computeRoiRows({
     goalNetVotes: needVotes,
     baseRates: { cr, sr, tr },
     tactics,
     overheadAmount,
     includeOverhead,
-    caps: { total: capAttempts, doors: capBreakdown?.doors ?? null, phones: capBreakdown?.phones ?? null },
+    caps: { total: capAttempts, doors: capByTactic.doors, phones: capByTactic.phones, texts: capByTactic.texts },
     mcLast,
     turnoutModel,
   });
