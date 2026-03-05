@@ -1704,7 +1704,8 @@ function computeWeeklyOpsContext(res, weeks){
     weeks,
     getEffectiveBaseRatesForState: (s) => getEffectiveBaseRatesFromStateSelector(s, { computeUniverseAdjustedRates }),
     computeCapacityBreakdown: coreComputeCapacityBreakdown,
-    compileEffectiveInputsForState: (s) => compileEffectiveInputs(s)
+    compileEffectiveInputsForState: (s) => compileEffectiveInputs(s),
+    computeMaxAttemptsByTactic: engine.computeMaxAttemptsByTactic
   });
 }
 
@@ -2175,6 +2176,7 @@ function computeWeeklyOpsContextFromSnap(snap, res, weeks){
     getEffectiveBaseRatesFromSnap,
     computeCapacityBreakdown: coreComputeCapacityBreakdown,
     compileEffectiveInputs,
+    computeMaxAttemptsByTactic: engine.computeMaxAttemptsByTactic,
   });
 }
 
