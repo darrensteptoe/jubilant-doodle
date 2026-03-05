@@ -42,7 +42,14 @@ function buildExplainLines(explainNode){
   };
 }
 
-function buildTraceItems({ state, res, weeks, fmtInt }){
+function buildTraceItems({
+  state,
+  res,
+  weeks,
+  fmtInt,
+  weeklyContext = null,
+  executionSnapshot = null,
+}){
   const explain = (res && typeof res === "object" && res.explain && typeof res.explain === "object")
     ? res.explain
     : null;
@@ -56,8 +63,8 @@ function buildTraceItems({ state, res, weeks, fmtInt }){
   const contactRatePct = asNum(state?.contactRatePct);
   const supportRate = (supportRatePct != null && supportRatePct > 0) ? (supportRatePct / 100) : null;
   const contactRate = (contactRatePct != null && contactRatePct > 0) ? (contactRatePct / 100) : null;
-  const reqConvosWeek = (goal > 0 && supportRate != null && weeks > 0) ? (goal / supportRate / weeks) : null;
-  const reqAttemptsWeek = (reqConvosWeek != null && contactRate != null) ? (reqConvosWeek / contactRate) : null;
+  const reqConvosWeekDerived = (goal > 0 && supportRate != null && weeks > 0) ? (goal / supportRate / weeks) : null;
+  const reqAttemptsWeekDerived = (reqConvosWeekDerived != null && contactRate != null) ? (reqConvosWeekDerived / contactRate) : null;
 
   const orgCount = asNum(state?.orgCount);
   const orgHoursPerWeek = asNum(state?.orgHoursPerWeek);
@@ -70,10 +77,23 @@ function buildTraceItems({ state, res, weeks, fmtInt }){
     ? (doorShare * doorsPerHour + (1 - doorShare) * callsPerHour)
     : null;
 
-  const capacityPerWeek = (
+  const capacityPerWeekDerived = (
     orgCount != null && orgHoursPerWeek != null && volunteerMult != null && blendedAttemptsPerHour != null
   ) ? (orgCount * orgHoursPerWeek * blendedAttemptsPerHour * volunteerMult) : null;
-  const gapPerWeek = (reqAttemptsWeek != null && capacityPerWeek != null) ? (reqAttemptsWeek - capacityPerWeek) : null;
+
+  const reqAttemptsWeekFromCtx = asNum(executionSnapshot?.pace?.requiredAttemptsPerWeek) ?? asNum(weeklyContext?.attemptsPerWeek);
+  const capacityPerWeekFromCtx = asNum(executionSnapshot?.pace?.capacityAttemptsPerWeek) ?? asNum(weeklyContext?.capTotal);
+  const gapPerWeekFromCtx = asNum(executionSnapshot?.pace?.gapAttemptsPerWeek) ?? asNum(weeklyContext?.gap);
+
+  const reqAttemptsWeek = (reqAttemptsWeekFromCtx != null) ? reqAttemptsWeekFromCtx : reqAttemptsWeekDerived;
+  const capacityPerWeek = (capacityPerWeekFromCtx != null) ? capacityPerWeekFromCtx : capacityPerWeekDerived;
+  const gapPerWeek = (gapPerWeekFromCtx != null)
+    ? gapPerWeekFromCtx
+    : ((reqAttemptsWeek != null && capacityPerWeek != null) ? (reqAttemptsWeek - capacityPerWeek) : null);
+
+  const reqAttemptsSource = (reqAttemptsWeekFromCtx != null) ? "executionSnapshot/weeklyContext" : "state-derived fallback";
+  const capacitySource = (capacityPerWeekFromCtx != null) ? "executionSnapshot/weeklyContext" : "state-derived fallback";
+  const gapSource = (gapPerWeekFromCtx != null) ? "executionSnapshot/weeklyContext" : "derived from required-capacity";
 
   const mcWinProb = asNum(state?.mcLast?.winProb);
   const mcRuns = asNum(state?.mcLast?.runs);
@@ -107,7 +127,7 @@ function buildTraceItems({ state, res, weeks, fmtInt }){
       value: fmtMaybeInt(reqAttemptsWeek, fmtInt),
       outputs: "wkAttemptsPerWeek",
       formula: "goal / supportRate / contactRate / weeksRemaining",
-      upstream: `${goalSource}, supportRatePct, contactRatePct, weeksRemaining/electionDate`,
+      upstream: `${goalSource}, supportRatePct, contactRatePct, weeksRemaining/electionDate (${reqAttemptsSource})`,
       downstream: "p3GapContacts, wkGapPerWeek, weekly action recommendations",
     },
     {
@@ -115,7 +135,7 @@ function buildTraceItems({ state, res, weeks, fmtInt }){
       value: fmtMaybeInt(capacityPerWeek, fmtInt),
       outputs: "p3CapContacts, wkCapacityPerWeek",
       formula: "orgCount * orgHoursPerWeek * blendedProductivity * volunteerMultiplier",
-      upstream: "orgCount, orgHoursPerWeek, channelDoorPct, doorsPerHour3, callsPerHour3, volunteerMultBase",
+      upstream: `orgCount, orgHoursPerWeek, channelDoorPct, doorsPerHour3, callsPerHour3, volunteerMultBase (${capacitySource})`,
       downstream: "p3GapContacts, wkGapPerWeek, bottleneck attribution",
     },
     {
@@ -123,7 +143,7 @@ function buildTraceItems({ state, res, weeks, fmtInt }){
       value: fmtSignedInt(gapPerWeek, fmtInt),
       outputs: "p3GapContacts, wkGapPerWeek",
       formula: "requiredAttemptsPerWeek - capacityContactsPerWeek",
-      upstream: "required attempts trace + capacity trace",
+      upstream: `required attempts trace + capacity trace (${gapSource})`,
       downstream: "pace status, actions list, bottleneck/constraints messaging",
     },
     {
@@ -153,7 +173,15 @@ function appendLine(parent, label, value){
   parent.appendChild(div);
 }
 
-export function renderImpactTracePanel({ els, state, res, weeks, fmtInt }){
+export function renderImpactTracePanel({
+  els,
+  state,
+  res,
+  weeks,
+  fmtInt,
+  weeklyContext = null,
+  executionSnapshot = null,
+}){
   if (!els?.impactTraceList) return;
 
   const list = els.impactTraceList;
@@ -164,6 +192,8 @@ export function renderImpactTracePanel({ els, state, res, weeks, fmtInt }){
     res: res || {},
     weeks: Number.isFinite(Number(weeks)) ? Number(weeks) : 0,
     fmtInt,
+    weeklyContext,
+    executionSnapshot,
   });
 
   for (const item of items){
