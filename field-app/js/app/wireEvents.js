@@ -1,5 +1,6 @@
 import {
   attachEvidenceRecord,
+  listMissingEvidenceAudit,
   removeBenchmarkEntry,
   upsertBenchmarkEntry,
 } from "./intelControls.js";
@@ -201,8 +202,14 @@ export function wireIntelChecksEvents(ctx){
     els.btnIntelEvidenceAttach.addEventListener("click", () => {
       const s = currentState();
       if (!s) return;
+      const selectedAuditId = String(els.intelAuditSelect?.value || "").trim();
+      const missingRows = listMissingEvidenceAudit(s, { limit: 200 });
+      if (missingRows.length > 0 && !selectedAuditId){
+        setEvidenceStatus("Select a missing evidence audit item before attaching evidence.", "warn");
+        return;
+      }
       const result = attachEvidenceRecord(s, {
-        auditId: els.intelAuditSelect?.value,
+        auditId: selectedAuditId,
         title: els.intelEvidenceTitle?.value,
         source: els.intelEvidenceSource?.value,
         capturedAt: els.intelEvidenceCapturedAt?.value,

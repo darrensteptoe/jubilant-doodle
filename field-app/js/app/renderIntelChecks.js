@@ -76,7 +76,15 @@ function fillAuditSelect(selectEl, rows){
   }
 
   const exists = rows.some((x) => String(x?.id || "") === previous);
-  if (exists) selectEl.value = previous;
+  if (exists){
+    selectEl.value = previous;
+    return;
+  }
+
+  const firstId = String(rows[0]?.id || "");
+  if (firstId){
+    selectEl.value = firstId;
+  }
 }
 
 function fillEvidenceTable(tbody, rows){
