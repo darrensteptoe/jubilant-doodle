@@ -478,6 +478,7 @@ export const els = {
   intelRequireCriticalEvidence: document.getElementById("intelRequireCriticalEvidence"),
   intelCriticalChangeNote: document.getElementById("intelCriticalChangeNote"),
   intelWorkflowStatus: document.getElementById("intelWorkflowStatus"),
+  intelBriefKind: document.getElementById("intelBriefKind"),
   btnIntelCalibrationGenerate: document.getElementById("btnIntelCalibrationGenerate"),
   btnIntelCalibrationCopy: document.getElementById("btnIntelCalibrationCopy"),
   intelMcDistribution: document.getElementById("intelMcDistribution"),

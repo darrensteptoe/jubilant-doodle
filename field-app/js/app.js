@@ -2981,9 +2981,9 @@ function runMonteCarloNow(){
   });
 }
 
-function runMonteCarloSim({ scenario, scenarioState, res, weeks, needVotes, runs, seed }){
+function runMonteCarloSim({ scenario, scenarioState, res, weeks, needVotes, runs, seed, includeMargins }){
   // Delegated to core Monte Carlo via facade (no loops in UI).
-  return engine.runMonteCarlo({ scenario: scenario || scenarioState || state, res, weeks, needVotes, runs, seed });
+  return engine.runMonteCarlo({ scenario: scenario || scenarioState || state, res, weeks, needVotes, runs, seed, includeMargins });
 }
 
 function renderMcResults(summary){

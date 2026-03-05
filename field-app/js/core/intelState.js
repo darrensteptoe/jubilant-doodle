@@ -6,6 +6,28 @@ export const INTEL_STATE_VERSION = "1.0.0";
 
 const ALLOWED_MC_DISTRIBUTIONS = new Set(["triangular", "uniform", "normal"]);
 const ALLOWED_DECAY_MODELS = new Set(["linear"]);
+const AI_WRITE_ALLOWED_ROOT_KEYS = new Set([
+  "briefs",
+  "recommendations",
+  "flags",
+  "inputCards",
+  "intelRequests",
+  "observations",
+  "classifications",
+]);
+const AI_FLAG_FORBIDDEN_NUMERIC_KEYS = new Set([
+  "actualCR",
+  "assumedCR",
+  "actualSR",
+  "assumedSR",
+  "actualAPH",
+  "expectedAPH",
+  "winProb",
+  "median",
+  "p10",
+  "p50",
+  "p90",
+]);
 
 function isObject(v){
   return !!v && typeof v === "object" && !Array.isArray(v);
@@ -242,4 +264,105 @@ export function normalizeIntelState(raw){
 
 export function cloneIntelState(intelState){
   return normalizeIntelState(deepClone(intelState));
+}
+
+export function validateAiIntelWritePayload(payload){
+  const errors = [];
+  if (!isObject(payload)){
+    return { ok: false, errors: ["AI payload must be an object."] };
+  }
+
+  for (const key of Object.keys(payload)){
+    if (!AI_WRITE_ALLOWED_ROOT_KEYS.has(String(key))){
+      errors.push(`AI payload contains forbidden root key '${key}'.`);
+    }
+  }
+
+  const checkArray = (key) => {
+    if (!(key in payload)) return [];
+    const rows = payload[key];
+    if (!Array.isArray(rows)){
+      errors.push(`AI payload key '${key}' must be an array.`);
+      return [];
+    }
+    return rows;
+  };
+
+  const briefs = checkArray("briefs");
+  for (let i = 0; i < briefs.length; i += 1){
+    const row = briefs[i];
+    if (!isObject(row)){
+      errors.push(`briefs[${i}] must be an object.`);
+      continue;
+    }
+    if (typeof row.content !== "string" || !row.content.trim()){
+      errors.push(`briefs[${i}].content must be a non-empty string.`);
+    }
+  }
+
+  const recommendations = checkArray("recommendations");
+  for (let i = 0; i < recommendations.length; i += 1){
+    const row = recommendations[i];
+    if (!isObject(row)){
+      errors.push(`recommendations[${i}] must be an object.`);
+      continue;
+    }
+    if (typeof row.title !== "string" || !row.title.trim()){
+      errors.push(`recommendations[${i}].title must be a non-empty string.`);
+    }
+    if (row.draftPatch != null && !isObject(row.draftPatch)){
+      errors.push(`recommendations[${i}].draftPatch must be an object when present.`);
+    }
+  }
+
+  const flags = checkArray("flags");
+  for (let i = 0; i < flags.length; i += 1){
+    const row = flags[i];
+    if (!isObject(row)){
+      errors.push(`flags[${i}] must be an object.`);
+      continue;
+    }
+    if (typeof row.explanation !== "string" || !row.explanation.trim()){
+      errors.push(`flags[${i}].explanation must be a non-empty string.`);
+    }
+    for (const key of Object.keys(row)){
+      if (AI_FLAG_FORBIDDEN_NUMERIC_KEYS.has(String(key))){
+        errors.push(`flags[${i}] cannot set numeric drift field '${key}'.`);
+      }
+    }
+  }
+
+  if ("inputCards" in payload){
+    const inputCards = payload.inputCards;
+    if (!isObject(inputCards)){
+      errors.push("inputCards must be an object.");
+    } else {
+      const ai = inputCards.ai;
+      if (!isObject(ai)){
+        errors.push("inputCards.ai must be an object.");
+      } else if (ai.draftNotes != null && typeof ai.draftNotes !== "string"){
+        errors.push("inputCards.ai.draftNotes must be a string when present.");
+      }
+    }
+  }
+
+  const intelRequests = checkArray("intelRequests");
+  for (let i = 0; i < intelRequests.length; i += 1){
+    const row = intelRequests[i];
+    if (!isObject(row)){
+      errors.push(`intelRequests[${i}] must be an object.`);
+      continue;
+    }
+    if (!("parsed" in row)){
+      errors.push(`intelRequests[${i}] must include parsed.`);
+    }
+  }
+
+  checkArray("observations");
+  checkArray("classifications");
+
+  return {
+    ok: errors.length === 0,
+    errors,
+  };
 }

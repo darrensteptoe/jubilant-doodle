@@ -23,7 +23,12 @@ import { computeConfidenceEnvelope } from "./confidenceEnvelope.js";
 import { computeSensitivitySurface } from "./sensitivitySurface.js";
 import { computeUniverseAdjustedRates, UNIVERSE_DEFAULTS } from "./universeLayer.js";
 import { buildModelInputFromSnapshot } from "./modelInput.js";
-import { makeDefaultIntelState } from "./intelState.js";
+import { makeDefaultIntelState, validateAiIntelWritePayload } from "./intelState.js";
+import { computeElectionSnapshot } from "./electionSnapshot.js";
+import { computeExecutionSnapshot } from "./executionSnapshot.js";
+import { safeNum } from "./utils.js";
+import { renderMain } from "../app/renderMain.js";
+import { computeWeeklyOpsContextFromState, getEffectiveBaseRates } from "../app/selectors.js";
 import {
   captureObservedMetricsFromDrift,
   refreshDriftRecommendationsFromDrift,
@@ -1886,6 +1891,207 @@ export function runSelfTests(engine){
     assert(out.score < 100, "Integrity score should be penalized below 100");
     assert(out.components.missingEvidence >= 1, "Expected missingEvidence component >= 1");
     assert(out.components.missingNote >= 1, "Expected missingNote component >= 1");
+    return true;
+  });
+
+  test("Phase 9: snapshot equivalence across planning/weekly/execution contexts", () => {
+    const snap = engine.getStateSnapshot();
+    assert(snap && typeof snap === "object", "State snapshot unavailable");
+
+    const planning = computeElectionSnapshot({ state: snap, nowDate: new Date(), toNum: safeNum });
+    assert(planning && planning.res, "Planning snapshot missing deterministic result");
+
+    const fallbackModelInput = buildModelInputFromSnapshot(snap);
+    const fallbackRes = engine.computeAll(fallbackModelInput);
+    const fallbackNeedVotes = engine.deriveNeedVotes(fallbackRes, snap.goalSupportIds);
+
+    assert(
+      approx(planning.res?.expected?.persuasionNeed, fallbackRes?.expected?.persuasionNeed, 1e-9),
+      "Planning snapshot persuasionNeed drifted from deterministic baseline"
+    );
+    assert(
+      approx(planning.needVotes, fallbackNeedVotes, 1e-9),
+      "Planning snapshot needVotes drifted from deterministic baseline"
+    );
+
+    const weekly = computeWeeklyOpsContextFromState(snap, {
+      res: planning.res,
+      weeks: planning.weeks,
+      getEffectiveBaseRatesForState: (s) => getEffectiveBaseRates(s, { computeUniverseAdjustedRates }),
+      computeCapacityBreakdown: engine.computeCapacityBreakdown,
+      compileEffectiveInputsForState: () => null,
+    });
+    assert(weekly && typeof weekly === "object", "Weekly ops context missing");
+    assert(approx(weekly.goal, planning.needVotes, 1e-9), "Weekly ops goal does not match planning needVotes");
+
+    const expectedAPH = (
+      weekly?.doorShare != null &&
+      weekly?.doorsPerHour != null &&
+      weekly?.callsPerHour != null
+    )
+      ? (weekly.doorShare * weekly.doorsPerHour + (1 - weekly.doorShare) * weekly.callsPerHour)
+      : null;
+
+    const execution = computeExecutionSnapshot({
+      planningSnapshot: planning,
+      weeklyContext: weekly,
+      dailyLog: snap?.ui?.dailyLog || [],
+      assumedCR: weekly?.cr ?? null,
+      assumedSR: weekly?.sr ?? null,
+      expectedAPH,
+      windowN: 7,
+      safeNumFn: safeNum,
+    });
+
+    assert(execution && execution.pace, "Execution snapshot missing pace section");
+    assert(
+      approx(execution.pace.requiredAttemptsPerWeek, weekly?.attemptsPerWeek, 1e-9),
+      "Execution requiredAttemptsPerWeek diverged from weekly context"
+    );
+    return true;
+  });
+
+  test("Phase 9: no-UI-math guard keeps render path snapshot-driven", () => {
+    const snap = engine.getStateSnapshot();
+    assert(snap && typeof snap === "object", "State snapshot unavailable");
+
+    const planning = computeElectionSnapshot({ state: snap, nowDate: new Date(), toNum: safeNum });
+    assert(planning && planning.res, "Planning snapshot unavailable");
+
+    const makeEl = () => ({
+      textContent: "",
+      hidden: false,
+      classList: { add(){}, remove(){} },
+    });
+    const els = new Proxy({}, {
+      get(target, key){
+        if (!(key in target)) target[key] = makeEl();
+        return target[key];
+      }
+    });
+
+    let computeAllCalls = 0;
+    const fakeEngine = {
+      computeAll: () => {
+        computeAllCalls += 1;
+        return planning.res;
+      },
+      snapshot: {
+        CURRENT_SCHEMA_VERSION,
+        MODEL_VERSION,
+        computeSnapshotHash,
+      },
+    };
+
+    const noop = () => {};
+    renderMain({
+      state: snap,
+      els,
+      safeNum,
+      engine: fakeEngine,
+      derivedWeeksRemaining: () => planning.weeks,
+      deriveNeedVotes: () => planning.needVotes,
+      computeElectionSnapshot: () => planning,
+      computeExecutionSnapshot: () => null,
+      computeWeeklyOpsContext: () => null,
+      setLastRenderCtx: noop,
+      setLastResultsSnapshot: noop,
+      fmtInt: (n) => String(n ?? "—"),
+      setText: (el, v) => { if (el) el.textContent = String(v ?? ""); },
+      safeCall: (fn) => { if (typeof fn === "function") fn(); },
+      renderStress: noop,
+      renderValidation: noop,
+      renderAssumptions: noop,
+      renderGuardrails: noop,
+      renderConversion: noop,
+      renderPhase3: noop,
+      renderWeeklyOps: noop,
+      renderWeeklyOpsInsights: noop,
+      renderWeeklyOpsFreshness: noop,
+      scheduleOperationsCapacityOutlookRender: noop,
+      renderAssumptionDriftE1: noop,
+      renderRiskFramingE2: noop,
+      renderBottleneckAttributionE3: noop,
+      renderSensitivitySnapshotE4: noop,
+      renderDecisionConfidenceE5: noop,
+      renderImpactTraceE6: noop,
+      renderUniverse16Card: noop,
+      renderRoi: noop,
+      renderOptimization: noop,
+      renderTimeline: noop,
+      renderDecisionIntelligencePanel: noop,
+    });
+
+    assert(computeAllCalls === 0, "renderMain should not call engine.computeAll when planning snapshot is available");
+    return true;
+  });
+
+  test("Phase 9: AI write-constraint schema validation blocks forbidden writes", () => {
+    const valid = validateAiIntelWritePayload({
+      briefs: [{ content: "Calibration summary." }],
+      recommendations: [{ title: "Reduce support-rate assumption.", draftPatch: { ref: "core.supportRatePct", value: 52 } }],
+      flags: [{ explanation: "Observed support rate trails assumption." }],
+      inputCards: { ai: { draftNotes: "Review with field director." } },
+      intelRequests: [{ parsed: { action: "what_if", target: "supportRatePct" } }],
+      observations: [],
+      classifications: [],
+    });
+    assert(valid.ok === true, `Expected valid AI payload; got errors: ${(valid.errors || []).join(" | ")}`);
+
+    const badRoot = validateAiIntelWritePayload({
+      scenarioState: { supportRatePct: 99 },
+    });
+    assert(badRoot.ok === false, "Forbidden root key should fail validation");
+    assert((badRoot.errors || []).some((e) => String(e).includes("forbidden root key")), "Missing forbidden-root validation error");
+
+    const badFlag = validateAiIntelWritePayload({
+      flags: [{ explanation: "bad", actualCR: 0.33 }],
+    });
+    assert(badFlag.ok === false, "Numeric drift fields in flags should fail validation");
+    assert((badFlag.errors || []).some((e) => String(e).includes("numeric drift field")), "Missing numeric-drift-field validation error");
+    return true;
+  });
+
+  test("Phase 9: seeded MC reproducibility guard includes raw margins", () => {
+    assert(baseline.res, "Baseline computeAll result missing");
+    assert(baseline.weeks != null, "Baseline weeks missing");
+    assert(baseline.needVotes != null, "Baseline needVotes missing");
+
+    const runs = 600;
+    const a = engine.runMonteCarloSim({
+      res: baseline.res,
+      weeks: baseline.weeks,
+      needVotes: baseline.needVotes,
+      runs,
+      seed: "phase9-seed-margins-A",
+      includeMargins: true,
+    });
+    const b = engine.runMonteCarloSim({
+      res: baseline.res,
+      weeks: baseline.weeks,
+      needVotes: baseline.needVotes,
+      runs,
+      seed: "phase9-seed-margins-A",
+      includeMargins: true,
+    });
+
+    assert(Array.isArray(a?.margins) && a.margins.length === runs, "Expected margins array with requested run length");
+    assert(Array.isArray(a?.sortedMargins) && a.sortedMargins.length === runs, "Expected sortedMargins array with requested run length");
+    assert(stableStringify(a.margins) === stableStringify(b.margins), "Same seed produced different raw margins");
+    assert(stableStringify(a.sortedMargins) === stableStringify(b.sortedMargins), "Same seed produced different sortedMargins");
+
+    const c = engine.runMonteCarloSim({
+      res: baseline.res,
+      weeks: baseline.weeks,
+      needVotes: baseline.needVotes,
+      runs,
+      seed: "phase9-seed-margins-B",
+      includeMargins: true,
+    });
+    const degenerate = (a?.p5 === a?.p95) && (c?.p5 === c?.p95);
+    if (!degenerate){
+      assert(stableStringify(a.margins) !== stableStringify(c.margins), "Different seeds produced identical raw margins (unexpected)");
+    }
     return true;
   });
 
