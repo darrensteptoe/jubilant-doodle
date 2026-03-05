@@ -455,6 +455,7 @@ export const els = {
   intelBenchmarkHardAbove: document.getElementById("intelBenchmarkHardAbove"),
   intelBenchmarkSourceTitle: document.getElementById("intelBenchmarkSourceTitle"),
   intelBenchmarkSourceNotes: document.getElementById("intelBenchmarkSourceNotes"),
+  btnIntelBenchmarkLoadDefaults: document.getElementById("btnIntelBenchmarkLoadDefaults"),
   btnIntelBenchmarkSave: document.getElementById("btnIntelBenchmarkSave"),
   intelBenchmarkCount: document.getElementById("intelBenchmarkCount"),
   intelBenchmarkStatus: document.getElementById("intelBenchmarkStatus"),

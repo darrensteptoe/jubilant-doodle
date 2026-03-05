@@ -67,6 +67,25 @@ function normalizeString(v){
   return String(v == null ? "" : v).trim();
 }
 
+const BENCHMARK_REF_ALIASES = {
+  "core.universeSize": ["universeSize", "universe"],
+  "core.persuasionUniversePct": ["persuasionUniversePct", "persuasionPct"],
+  "core.supportRatePct": ["supportRatePct"],
+  "core.contactRatePct": ["contactRatePct"],
+  "core.turnoutCycleA": ["turnoutCycleA", "turnoutA"],
+  "core.turnoutCycleB": ["turnoutCycleB", "turnoutB"],
+  "core.turnoutBandWidth": ["turnoutBandWidth", "turnoutBand"],
+  "core.turnoutBaselinePct": ["turnoutBaselinePct"],
+  "core.gotvLiftPP": ["gotvLiftPP"],
+  "core.gotvLiftCeilingPP": ["gotvLiftCeilingPP", "gotvMaxLiftPP", "gotvMaxLiftPP2"],
+  "core.orgCount": ["orgCount"],
+  "core.orgHoursPerWeek": ["orgHoursPerWeek"],
+  "core.volunteerMultiplier": ["volunteerMultiplier", "volunteerMultBase"],
+  "core.channelDoorPct": ["channelDoorPct"],
+  "core.doorsPerHour": ["doorsPerHour", "doorsPerHour3"],
+  "core.callsPerHour": ["callsPerHour", "callsPerHour3"],
+};
+
 function getScenarioValueByRef(scenario, ref){
   if (!isObject(scenario)) return undefined;
   const raw = normalizeString(ref);
@@ -78,6 +97,15 @@ function getScenarioValueByRef(scenario, ref){
   const key = raw.split(".").pop();
   if (!key) return undefined;
   if (scenario[key] !== undefined) return scenario[key];
+
+  const aliases = BENCHMARK_REF_ALIASES[raw];
+  if (Array.isArray(aliases)){
+    for (const alias of aliases){
+      const k = normalizeString(alias);
+      if (!k) continue;
+      if (scenario[k] !== undefined) return scenario[k];
+    }
+  }
 
   return undefined;
 }
