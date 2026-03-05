@@ -37,7 +37,7 @@ This is the execution order for the calibration/governance expansion.
 - [x] Shock scenario sampling toggle using `shockScenarios`.
 
 ## Phase 5: Capacity realism toggle
-- [ ] Apply `capacityDecayEnabled` and `decayModel` in capacity snapshot pipeline.
+- [x] Apply `capacityDecayEnabled` and `decayModel` in capacity snapshot pipeline.
 
 ## Phase 6: Feedback loop
 - [ ] Ingest observed metrics.
