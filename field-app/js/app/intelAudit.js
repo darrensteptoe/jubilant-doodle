@@ -59,6 +59,20 @@ function newAuditId(){
   return `aud_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
 }
 
+export function resolveAuditRequirementStatus(entry){
+  if (!entry || typeof entry !== "object") return "logged";
+  const requiresNote = entry.requiresNote === true;
+  const hasNote = !!String(entry.note || "").trim();
+  if (requiresNote && !hasNote) return "missingNote";
+
+  const requiresEvidence = entry.requiresEvidence === true;
+  const hasEvidence = !!String(entry.evidenceId || "").trim();
+  if (requiresEvidence && !hasEvidence) return "missingEvidence";
+
+  if (!requiresNote && !requiresEvidence) return "logged";
+  return "resolved";
+}
+
 function parseDateMaybe(v){
   if (!v) return null;
   const d = new Date(v);
@@ -78,6 +92,9 @@ export function captureCriticalAssumptionAudit({
   previousSnapshot,
   source = "ui",
   maxEntries = 300,
+  requireNote = false,
+  requireEvidence = true,
+  note = "",
 } = {}){
   const nextSnapshot = buildCriticalAuditSnapshot(state);
   const prev = (previousSnapshot && typeof previousSnapshot === "object") ? previousSnapshot : null;
@@ -102,20 +119,25 @@ export function captureCriticalAssumptionAudit({
   const ts = new Date().toISOString();
 
   if (changes.length >= 5){
-    audit.push({
+    const entry = {
       id: newAuditId(),
       ts,
       source,
       kind: "critical_ref_change_batch",
       refs: changes.map((c) => c.ref),
       keys: changes.map((c) => c.key),
-      requiresEvidence: true,
+      requiresEvidence: !!requireEvidence,
+      requiresNote: !!requireNote,
+      note: String(note || "").trim(),
       evidenceId: null,
-      status: "missingEvidence",
+    };
+    entry.status = resolveAuditRequirementStatus(entry);
+    audit.push({
+      ...entry,
     });
   } else {
     for (const c of changes){
-      audit.push({
+      const entry = {
         id: newAuditId(),
         ts,
         source,
@@ -125,10 +147,13 @@ export function captureCriticalAssumptionAudit({
         label: c.label,
         before: c.before,
         after: c.after,
-        requiresEvidence: true,
+        requiresEvidence: !!requireEvidence,
+        requiresNote: !!requireNote,
+        note: String(note || "").trim(),
         evidenceId: null,
-        status: "missingEvidence",
-      });
+      };
+      entry.status = resolveAuditRequirementStatus(entry);
+      audit.push(entry);
     }
   }
 
@@ -155,6 +180,16 @@ export function computeEvidenceWarnings(state, { limit = 2, staleDays = 30 } = {
     out.push(`Evidence gap: ${missing.length} critical assumption edit(s) missing evidence.`);
   }
 
+  const missingNote = audit.filter((x) =>
+    x &&
+    x.requiresNote === true &&
+    !String(x.note || "").trim() &&
+    String(x.status || "").toLowerCase() !== "resolved"
+  );
+  if (missingNote.length){
+    out.push(`Documentation gap: ${missingNote.length} critical assumption edit(s) missing note.`);
+  }
+
   if (staleDays > 0 && evidence.length){
     const cutoffMs = Date.now() - (staleDays * 86400000);
     const staleCount = evidence.filter((e) => {
@@ -168,4 +203,3 @@ export function computeEvidenceWarnings(state, { limit = 2, staleDays = 30 } = {
 
   return out.slice(0, Math.max(0, Number(limit) || 0));
 }
-

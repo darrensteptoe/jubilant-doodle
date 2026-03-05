@@ -1,5 +1,6 @@
 // js/app/intelControls.js
 // Intel metadata helpers (benchmarks + evidence). Must not alter deterministic math.
+import { resolveAuditRequirementStatus } from "./intelAudit.js";
 
 const REF_LABELS = {
   "core.universeSize": "Universe size",
@@ -71,6 +72,23 @@ export function ensureIntelCollections(state){
   ensureArray(intel, "observedMetrics");
   ensureArray(intel, "correlationModels");
   ensureArray(intel, "shockScenarios");
+  if (!isObject(intel.workflow)){
+    intel.workflow = {
+      scenarioLocked: false,
+      lockReason: "",
+      lockedAt: null,
+      lockedBy: "",
+      requireCriticalNote: true,
+      requireCriticalEvidence: true,
+    };
+  } else {
+    if (intel.workflow.requireCriticalNote == null) intel.workflow.requireCriticalNote = true;
+    if (intel.workflow.requireCriticalEvidence == null) intel.workflow.requireCriticalEvidence = true;
+    if (typeof intel.workflow.scenarioLocked !== "boolean") intel.workflow.scenarioLocked = !!intel.workflow.scenarioLocked;
+    if (!("lockReason" in intel.workflow)) intel.workflow.lockReason = "";
+    if (!("lockedAt" in intel.workflow)) intel.workflow.lockedAt = null;
+    if (!("lockedBy" in intel.workflow)) intel.workflow.lockedBy = "";
+  }
   if (!isObject(intel.simToggles)) intel.simToggles = {};
   if (!isObject(intel.expertToggles)) intel.expertToggles = {};
   return intel;
@@ -92,6 +110,24 @@ export function listMissingEvidenceAudit(state, { limit = 200 } = {}){
     String(x.status || "").toLowerCase() !== "resolved"
   );
   return rows.slice(0, Math.max(0, Number(limit) || 0));
+}
+
+export function listMissingNoteAudit(state, { limit = 200 } = {}){
+  const intel = ensureIntelCollections(state);
+  if (!intel) return [];
+  const rows = intel.audit.filter((x) =>
+    x &&
+    x.requiresNote === true &&
+    !cleanString(x.note) &&
+    String(x.status || "").toLowerCase() !== "resolved"
+  );
+  return rows.slice(0, Math.max(0, Number(limit) || 0));
+}
+
+export function getIntelWorkflow(state){
+  const intel = ensureIntelCollections(state);
+  if (!intel) return null;
+  return intel.workflow;
 }
 
 export function listIntelEvidence(state, { limit = 12 } = {}){
@@ -286,7 +322,11 @@ export function attachEvidenceRecord(state, payload = {}){
 
   if (auditEntry){
     auditEntry.evidenceId = evidence.id;
-    auditEntry.status = "resolved";
+    const noteFromPayload = cleanString(payload.notes);
+    if (auditEntry.requiresNote === true && noteFromPayload){
+      auditEntry.note = noteFromPayload;
+    }
+    auditEntry.status = resolveAuditRequirementStatus(auditEntry);
     auditEntry.resolvedAt = nowIso();
   }
 

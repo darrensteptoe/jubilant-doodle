@@ -1,10 +1,12 @@
 import {
   benchmarkRefLabel,
   ensureIntelCollections,
+  getIntelWorkflow,
   getLatestBriefByKind,
   listIntelBenchmarks,
   listIntelEvidence,
   listMissingEvidenceAudit,
+  listMissingNoteAudit,
   listShockScenarios,
 } from "./intelControls.js";
 
@@ -146,7 +148,9 @@ export function renderIntelChecksModule({ els, state } = {}){
   });
 
   const missingAudit = listMissingEvidenceAudit(state, { limit: 200 });
+  const missingNoteAudit = listMissingNoteAudit(state, { limit: 200 });
   const evidenceRows = listIntelEvidence(state, { limit: 8 });
+  const workflow = getIntelWorkflow(state) || {};
 
   if (els.intelBenchmarkCount){
     els.intelBenchmarkCount.textContent = `${benchmarks.length} benchmark entr${benchmarks.length === 1 ? "y" : "ies"} configured.`;
@@ -159,6 +163,9 @@ export function renderIntelChecksModule({ els, state } = {}){
   if (els.intelMissingEvidenceCount){
     els.intelMissingEvidenceCount.textContent = `${missingAudit.length} critical assumption edit(s) missing evidence.`;
   }
+  if (els.intelMissingNoteCount){
+    els.intelMissingNoteCount.textContent = `${missingNoteAudit.length} critical assumption edit(s) missing note.`;
+  }
   if (els.intelEvidenceStatus && !String(els.intelEvidenceStatus.textContent || "").trim()){
     els.intelEvidenceStatus.classList.remove("ok", "warn", "bad");
     els.intelEvidenceStatus.classList.add("muted");
@@ -168,6 +175,49 @@ export function renderIntelChecksModule({ els, state } = {}){
   fillBenchmarkTable(els.intelBenchmarkTbody, benchmarks);
   fillAuditSelect(els.intelAuditSelect, missingAudit);
   fillEvidenceTable(els.intelEvidenceTbody, evidenceRows);
+
+  if (els.intelScenarioLocked){
+    els.intelScenarioLocked.checked = !!workflow.scenarioLocked;
+  }
+  if (els.intelRequireCriticalNote){
+    els.intelRequireCriticalNote.checked = workflow.requireCriticalNote !== false;
+  }
+  if (els.intelRequireCriticalEvidence){
+    els.intelRequireCriticalEvidence.checked = workflow.requireCriticalEvidence !== false;
+  }
+  if (els.intelScenarioLockReason && document.activeElement !== els.intelScenarioLockReason){
+    els.intelScenarioLockReason.value = String(workflow.lockReason || "");
+  }
+  if (els.intelCriticalChangeNote && document.activeElement !== els.intelCriticalChangeNote){
+    const pendingNote = String(state?.ui?.pendingCriticalNote || "");
+    if (els.intelCriticalChangeNote.value !== pendingNote) els.intelCriticalChangeNote.value = pendingNote;
+  }
+  if (els.intelScenarioLockStatus){
+    els.intelScenarioLockStatus.classList.remove("ok", "warn", "bad", "muted");
+    if (workflow.scenarioLocked){
+      els.intelScenarioLockStatus.classList.add("warn");
+      const reason = String(workflow.lockReason || "").trim();
+      els.intelScenarioLockStatus.textContent = reason
+        ? `Scenario lock ON. Reason: ${reason}`
+        : "Scenario lock ON. Inputs are read-only until unlocked.";
+    } else {
+      els.intelScenarioLockStatus.classList.add("muted");
+      els.intelScenarioLockStatus.textContent = "Scenario lock OFF.";
+    }
+  }
+  if (els.intelWorkflowStatus){
+    els.intelWorkflowStatus.classList.remove("ok", "warn", "bad", "muted");
+    if (missingAudit.length || missingNoteAudit.length){
+      els.intelWorkflowStatus.classList.add("warn");
+      const parts = [];
+      if (missingAudit.length) parts.push(`${missingAudit.length} missing evidence`);
+      if (missingNoteAudit.length) parts.push(`${missingNoteAudit.length} missing note`);
+      els.intelWorkflowStatus.textContent = `Open governance items: ${parts.join(", ")}.`;
+    } else {
+      els.intelWorkflowStatus.classList.add("ok");
+      els.intelWorkflowStatus.textContent = "Governance controls healthy.";
+    }
+  }
 
   if (els.intelEvidenceCapturedAt && !els.intelEvidenceCapturedAt.value){
     els.intelEvidenceCapturedAt.value = new Date().toISOString().slice(0, 10);

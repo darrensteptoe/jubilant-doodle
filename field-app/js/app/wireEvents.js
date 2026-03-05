@@ -9,6 +9,7 @@ import {
   importShockScenariosJson,
   loadDefaultBenchmarksForRaceType,
   listShockScenarios,
+  getIntelWorkflow,
   listMissingEvidenceAudit,
   refreshDriftRecommendationsFromDrift,
   removeBenchmarkEntry,
@@ -165,6 +166,85 @@ export function wireIntelChecksEvents(ctx){
   };
   const setBenchmarkStatus = (msg, kind = "muted") => setStatus(els.intelBenchmarkStatus, msg, kind);
   const setEvidenceStatus = (msg, kind = "muted") => setStatus(els.intelEvidenceStatus, msg, kind);
+  const setWorkflowStatus = (msg, kind = "muted") => setStatus(els.intelWorkflowStatus, msg, kind);
+
+  const ensureWorkflow = (s) => {
+    const wf = getIntelWorkflow(s) || {};
+    if (wf.requireCriticalNote == null) wf.requireCriticalNote = true;
+    if (wf.requireCriticalEvidence == null) wf.requireCriticalEvidence = true;
+    if (!("scenarioLocked" in wf)) wf.scenarioLocked = false;
+    if (!("lockReason" in wf)) wf.lockReason = "";
+    if (!("lockedAt" in wf)) wf.lockedAt = null;
+    if (!("lockedBy" in wf)) wf.lockedBy = "";
+    return wf;
+  };
+
+  if (els.intelScenarioLocked){
+    els.intelScenarioLocked.addEventListener("change", () => {
+      const s = currentState();
+      if (!s) return;
+      const wf = ensureWorkflow(s);
+      wf.scenarioLocked = !!els.intelScenarioLocked.checked;
+      if (wf.scenarioLocked){
+        wf.lockedAt = new Date().toISOString();
+      } else {
+        wf.lockedAt = null;
+      }
+      setWorkflowStatus(
+        wf.scenarioLocked
+          ? "Scenario lock enabled. Planner controls are now read-only."
+          : "Scenario lock disabled. Planner controls are editable.",
+        wf.scenarioLocked ? "warn" : "ok"
+      );
+      commitUIUpdate({ allowScenarioLockBypass: true });
+    });
+  }
+
+  if (els.intelScenarioLockReason){
+    els.intelScenarioLockReason.addEventListener("change", () => {
+      const s = currentState();
+      if (!s) return;
+      const wf = ensureWorkflow(s);
+      wf.lockReason = String(els.intelScenarioLockReason.value || "").trim();
+      setWorkflowStatus("Lock reason updated.", "ok");
+      commitUIUpdate({ allowScenarioLockBypass: true });
+    });
+  }
+
+  if (els.intelRequireCriticalNote){
+    els.intelRequireCriticalNote.addEventListener("change", () => {
+      const s = currentState();
+      if (!s) return;
+      const wf = ensureWorkflow(s);
+      wf.requireCriticalNote = !!els.intelRequireCriticalNote.checked;
+      setWorkflowStatus("Critical note requirement updated.", "ok");
+      commitUIUpdate({ allowScenarioLockBypass: true });
+    });
+  }
+
+  if (els.intelRequireCriticalEvidence){
+    els.intelRequireCriticalEvidence.addEventListener("change", () => {
+      const s = currentState();
+      if (!s) return;
+      const wf = ensureWorkflow(s);
+      wf.requireCriticalEvidence = !!els.intelRequireCriticalEvidence.checked;
+      setWorkflowStatus("Critical evidence requirement updated.", "ok");
+      commitUIUpdate({ allowScenarioLockBypass: true });
+    });
+  }
+
+  if (els.intelCriticalChangeNote){
+    const onChange = () => {
+      const s = currentState();
+      if (!s) return;
+      if (!s.ui || typeof s.ui !== "object") s.ui = {};
+      s.ui.pendingCriticalNote = String(els.intelCriticalChangeNote.value || "");
+      setWorkflowStatus("Pending critical change note saved.", "ok");
+      commitUIUpdate({ allowScenarioLockBypass: true });
+    };
+    els.intelCriticalChangeNote.addEventListener("change", onChange);
+    els.intelCriticalChangeNote.addEventListener("blur", onChange);
+  }
 
   if (els.btnIntelBenchmarkSave){
     els.btnIntelBenchmarkSave.addEventListener("click", () => {
