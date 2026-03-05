@@ -472,6 +472,8 @@ export const els = {
   btnIntelCalibrationGenerate: document.getElementById("btnIntelCalibrationGenerate"),
   btnIntelCalibrationCopy: document.getElementById("btnIntelCalibrationCopy"),
   intelMcDistribution: document.getElementById("intelMcDistribution"),
+  intelCorrelatedShocks: document.getElementById("intelCorrelatedShocks"),
+  intelCorrelationMatrixId: document.getElementById("intelCorrelationMatrixId"),
   intelCalibrationStatus: document.getElementById("intelCalibrationStatus"),
   intelCalibrationBriefContent: document.getElementById("intelCalibrationBriefContent"),
   kpiTurnoutVotesSidebar: document.getElementById("kpiTurnoutVotes-sidebar"),

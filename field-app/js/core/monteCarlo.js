@@ -217,10 +217,123 @@ function sampleFromSpec(spec, rng, distribution){
   return triSample(spec.min, spec.mode, spec.max, rng);
 }
 
+function triangularSampleFromU(min, mode, max, u){
+  const lo = Math.min(min, max);
+  const hi = Math.max(min, max);
+  const md = clamp(mode, lo, hi);
+  const p = clamp(u, 1e-9, 1 - 1e-9);
+  const c = (md - lo) / ((hi - lo) || 1);
+  if (p < c){
+    return lo + Math.sqrt(p * (hi - lo) * (md - lo));
+  }
+  return hi - Math.sqrt((1 - p) * (hi - lo) * (hi - md));
+}
+
+function gaussianZ(rng){
+  const u1 = Math.max(rng(), 1e-12);
+  const u2 = rng();
+  return Math.sqrt(-2 * Math.log(u1)) * Math.cos(2 * Math.PI * u2);
+}
+
+function normalCdfApprox(x){
+  const t = 1 / (1 + 0.2316419 * Math.abs(x));
+  const d = 0.3989423 * Math.exp(-0.5 * x * x);
+  const prob = 1 - d * t * (0.3193815 + t * (-0.3565638 + t * (1.781478 + t * (-1.821256 + t * 1.330274))));
+  return (x >= 0) ? prob : (1 - prob);
+}
+
+function cholesky(matrix){
+  const n = matrix.length;
+  const L = Array.from({ length: n }, () => Array(n).fill(0));
+  for (let i = 0; i < n; i++){
+    for (let j = 0; j <= i; j++){
+      let sum = 0;
+      for (let k = 0; k < j; k++) sum += L[i][k] * L[j][k];
+      if (i === j){
+        const val = matrix[i][i] - sum;
+        if (!(val > 1e-12)) return null;
+        L[i][j] = Math.sqrt(val);
+      } else {
+        if (L[j][j] === 0) return null;
+        L[i][j] = (matrix[i][j] - sum) / L[j][j];
+      }
+    }
+  }
+  return L;
+}
+
+function correlatedNormals(L, rng){
+  const n = L.length;
+  const z = new Array(n);
+  for (let i = 0; i < n; i++) z[i] = gaussianZ(rng);
+  const out = new Array(n).fill(0);
+  for (let i = 0; i < n; i++){
+    let sum = 0;
+    for (let j = 0; j <= i; j++) sum += L[i][j] * z[j];
+    out[i] = sum;
+  }
+  return out;
+}
+
+const REF_TO_VAR_KEY = {
+  "core.contactratepct": "contactRate",
+  "contactrate": "contactRate",
+  "core.supportratepct": "persuasionRate",
+  "supportrate": "persuasionRate",
+  "core.persuasionrate": "persuasionRate",
+  "persuasionrate": "persuasionRate",
+  "core.turnoutreliabilitypct": "turnoutReliability",
+  "turnoutreliability": "turnoutReliability",
+  "core.doorsperhour": "doorsPerHour",
+  "doorsperhour": "doorsPerHour",
+  "core.callsperhour": "callsPerHour",
+  "callsperhour": "callsPerHour",
+  "core.volunteermultiplier": "volunteerMult",
+  "volunteermultiplier": "volunteerMult",
+  "core.volunteermult": "volunteerMult",
+  "volunteermult": "volunteerMult",
+  "core.gotvliftpp": "gotvLift",
+  "gotvlift": "gotvLift",
+};
+
+function normalizeRefKey(ref){
+  return String(ref || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+}
+
+function resolveCorrelationConfig(sc, distribution){
+  const intel = sc?.intelState;
+  const toggles = intel?.simToggles || {};
+  const modelId = String(toggles?.correlationMatrixId || "").trim();
+  if (!toggles?.correlatedShocks) return { applied: false, reason: "off" };
+  if (distribution !== "triangular") return { applied: false, reason: "distribution_not_supported" };
+  if (!modelId) return { applied: false, reason: "no_model_selected" };
+  const models = Array.isArray(intel?.correlationModels) ? intel.correlationModels : [];
+  const row = models.find((x) => String(x?.id || "").trim() === modelId);
+  if (!row) return { applied: false, reason: "model_not_found" };
+  if (!Array.isArray(row?.refs) || !Array.isArray(row?.matrix)) return { applied: false, reason: "model_invalid" };
+  if (row.refs.length !== row.matrix.length) return { applied: false, reason: "dimension_mismatch" };
+  for (const r of row.matrix){
+    if (!Array.isArray(r) || r.length !== row.refs.length) return { applied: false, reason: "dimension_mismatch" };
+  }
+  const L = cholesky(row.matrix);
+  if (!L) return { applied: false, reason: "matrix_not_posdef" };
+  const varKeys = row.refs.map((r) => REF_TO_VAR_KEY[normalizeRefKey(r)] || null);
+  if (!varKeys.some(Boolean)) return { applied: false, reason: "no_mappable_refs" };
+  return {
+    applied: true,
+    reason: "ok",
+    modelId,
+    modelLabel: String(row?.label || modelId),
+    L,
+    varKeys,
+  };
+}
+
 export function runMonteCarloSim({ scenario, scenarioState, res, weeks, needVotes, runs, seed, includeMargins }){
   const sc = scenario || scenarioState || {}; 
   const mode = sc.mcMode || "basic";
   const distribution = normalizeDistribution(sc?.intelState?.simToggles?.mcDistribution);
+  const correlationCfg = resolveCorrelationConfig(sc, distribution);
 
   // Base rates
   const baseCr = pctToUnit(safeNum(sc.contactRatePct), 0.22);
@@ -287,12 +400,30 @@ export function runMonteCarloSim({ scenario, scenarioState, res, weeks, needVote
 
 
   for (let i=0;i<runs;i++){
-    const cr = sampleFromSpec(specs.contactRate, rng, distribution);
-    const pr = sampleFromSpec(specs.persuasionRate, rng, distribution);
-    const rr = sampleFromSpec(specs.turnoutReliability, rng, distribution);
-    const dph = sampleFromSpec(specs.doorsPerHour, rng, distribution);
-    const cph = sampleFromSpec(specs.callsPerHour, rng, distribution);
-    const vm = sampleFromSpec(specs.volunteerMult, rng, distribution);
+    let correlatedU = null;
+    if (correlationCfg.applied){
+      const zs = correlatedNormals(correlationCfg.L, rng);
+      correlatedU = new Map();
+      for (let k = 0; k < correlationCfg.varKeys.length; k++){
+        const key = correlationCfg.varKeys[k];
+        if (!key) continue;
+        correlatedU.set(key, normalCdfApprox(zs[k]));
+      }
+    }
+
+    const pick = (varKey, spec) => {
+      if (correlatedU && correlatedU.has(varKey) && distribution === "triangular"){
+        return triangularSampleFromU(spec.min, spec.mode, spec.max, correlatedU.get(varKey));
+      }
+      return sampleFromSpec(spec, rng, distribution);
+    };
+
+    const cr = pick("contactRate", specs.contactRate);
+    const pr = pick("persuasionRate", specs.persuasionRate);
+    const rr = pick("turnoutReliability", specs.turnoutReliability);
+    const dph = pick("doorsPerHour", specs.doorsPerHour);
+    const cph = pick("callsPerHour", specs.callsPerHour);
+    const vm = pick("volunteerMult", specs.volunteerMult);
 
     let gotvLiftPP = 0;
     if (turnoutEnabled){
@@ -300,7 +431,11 @@ export function runMonteCarloSim({ scenario, scenarioState, res, weeks, needVote
         const mn = Math.max(0, safeNum(sc.gotvLiftMin) ?? 0);
         const md = Math.max(0, safeNum(sc.gotvLiftMode) ?? 0);
         const mx = Math.max(0, safeNum(sc.gotvLiftMax) ?? 0);
-        gotvLiftPP = sampleFromSpec({ min: mn, mode: md, max: mx }, rng, distribution);
+        if (correlatedU && correlatedU.has("gotvLift") && distribution === "triangular"){
+          gotvLiftPP = triangularSampleFromU(mn, md, mx, correlatedU.get("gotvLift"));
+        } else {
+          gotvLiftPP = sampleFromSpec({ min: mn, mode: md, max: mx }, rng, distribution);
+        }
       } else {
         gotvLiftPP = Math.max(0, safeNum(sc.gotvLiftPP) ?? 0);
       }
@@ -418,6 +553,13 @@ export function runMonteCarloSim({ scenario, scenarioState, res, weeks, needVote
     riskLabel: riskLabelFromWinProb(winProb),
     needVotes,
     distribution,
+    correlation: {
+      enabled: !!sc?.intelState?.simToggles?.correlatedShocks,
+      applied: !!correlationCfg.applied,
+      modelId: correlationCfg?.modelId || null,
+      modelLabel: correlationCfg?.modelLabel || null,
+      reason: correlationCfg?.reason || "off",
+    },
     turnoutAdjusted: turnoutAdjustedSummary,
   };
 
