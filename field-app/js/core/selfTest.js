@@ -53,6 +53,7 @@ import {
   captureCriticalAssumptionAudit,
   computeEvidenceWarnings,
 } from "../app/intelAudit.js";
+import { syncFeatureFlagsFromState } from "../app/featureFlags.js";
 
 function withUniverseDefaults(s){
   // Phase 16 fields are now required for stable hashing/export roundtrips.
@@ -2821,6 +2822,70 @@ export function runSelfTests(engine){
     const titles = Array.from(document.querySelectorAll(".card-title"));
     const mirrorTitles = titles.filter((el) => /turnout assumptions source/i.test(String(el?.textContent || "")));
     assert(mirrorTitles.length === 1, `Expected exactly one 'Turnout assumptions source' card title; got ${mirrorTitles.length}`);
+    return true;
+  });
+
+  test("Phase 9: feature flags sync mirrors legacy toggles when features are absent", () => {
+    const s = {
+      turnoutEnabled: true,
+      timelineEnabled: true,
+      universeLayerEnabled: true,
+      intelState: {
+        simToggles: {
+          mcDistribution: "normal",
+          correlatedShocks: true,
+          shockScenariosEnabled: false,
+        },
+        expertToggles: {
+          capacityDecayEnabled: true,
+        },
+      },
+    };
+    const features = syncFeatureFlagsFromState(s, { preferFeatures: false });
+    assert(features && typeof features === "object", "features object missing after sync");
+    assert(features.turnout?.modelingEnabled === true, "turnout.modelingEnabled mismatch");
+    assert(features.timeline?.enabled === true, "timeline.enabled mismatch");
+    assert(features.universe?.weightingEnabled === true, "universe.weightingEnabled mismatch");
+    assert(features.risk?.mcDistribution === "normal", "risk.mcDistribution mismatch");
+    assert(features.risk?.correlatedShocks === true, "risk.correlatedShocks mismatch");
+    assert(features.risk?.shockScenariosEnabled === false, "risk.shockScenariosEnabled mismatch");
+    assert(features.capacity?.decayEnabled === true, "capacity.decayEnabled mismatch");
+    assert(s.turnoutEnabled === true && s.timelineEnabled === true && s.universeLayerEnabled === true, "legacy booleans should remain aligned");
+    return true;
+  });
+
+  test("Phase 9: feature flags can be preferred as source-of-truth on load", () => {
+    const s = {
+      turnoutEnabled: false,
+      timelineEnabled: false,
+      universeLayerEnabled: false,
+      intelState: {
+        simToggles: {
+          mcDistribution: "triangular",
+          correlatedShocks: false,
+          shockScenariosEnabled: true,
+        },
+        expertToggles: {
+          capacityDecayEnabled: false,
+        },
+      },
+      features: {
+        turnout: { modelingEnabled: true },
+        timeline: { enabled: true },
+        universe: { weightingEnabled: true },
+        risk: { mcDistribution: "uniform", correlatedShocks: true, shockScenariosEnabled: false },
+        capacity: { decayEnabled: true },
+      }
+    };
+    const features = syncFeatureFlagsFromState(s, { preferFeatures: true });
+    assert(features.risk?.mcDistribution === "uniform", "features normalization should preserve provided distribution");
+    assert(s.turnoutEnabled === true, "legacy turnoutEnabled should be derived from features");
+    assert(s.timelineEnabled === true, "legacy timelineEnabled should be derived from features");
+    assert(s.universeLayerEnabled === true, "legacy universeLayerEnabled should be derived from features");
+    assert(s.intelState?.simToggles?.mcDistribution === "uniform", "intel mcDistribution should mirror features");
+    assert(s.intelState?.simToggles?.correlatedShocks === true, "intel correlatedShocks should mirror features");
+    assert(s.intelState?.simToggles?.shockScenariosEnabled === false, "intel shockScenariosEnabled should mirror features");
+    assert(s.intelState?.expertToggles?.capacityDecayEnabled === true, "intel capacityDecayEnabled should mirror features");
     return true;
   });
 
