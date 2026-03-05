@@ -46,14 +46,16 @@ export function computeRoiRows({
     const kind = (t?.kind || "persuasion"); // persuasion | gotv | hybrid
 
     // Turnout-adjusted value-per-attempt (Phase 6). Conservative per-attempt lens (no saturation in ROI table).
+    const baseNetVotesPerAttempt = computeBaseNetVotesPerAttempt({
+      cr: tCr,
+      sr: tSr,
+      tr: tTr,
+      requirePositive: false,
+    });
     let turnoutAdjustedNetVotesPerAttempt = null;
+    let hybridEffectiveTr = null;
     if (!turnoutEnabled){
-      turnoutAdjustedNetVotesPerAttempt = computeBaseNetVotesPerAttempt({
-        cr: tCr,
-        sr: tSr,
-        tr: tTr,
-        requirePositive: false,
-      });
+      turnoutAdjustedNetVotesPerAttempt = baseNetVotesPerAttempt;
     } else if (kind === "gotv"){
       turnoutAdjustedNetVotesPerAttempt = computeGotvNetVotesPerAttempt({
         cr: tCr,
@@ -61,7 +63,7 @@ export function computeRoiRows({
         requirePositiveCr: false,
       });
     } else {
-      const effTr = computeHybridEffectiveTurnoutReliability({
+      hybridEffectiveTr = computeHybridEffectiveTurnoutReliability({
         tr: tTr,
         liftAppliedPP: turnoutCtx.liftAppliedPP,
         clampUnit: true,
@@ -69,7 +71,7 @@ export function computeRoiRows({
       turnoutAdjustedNetVotesPerAttempt = computeBaseNetVotesPerAttempt({
         cr: tCr,
         sr: tSr,
-        tr: effTr,
+        tr: hybridEffectiveTr,
         requirePositive: false,
       });
     }
@@ -131,6 +133,26 @@ export function computeRoiRows({
       feasibilityText,
       // surface which rates were used (optional for future tooltips)
       used: { cr: tCr, sr: tSr, tr: tTr },
+      production: {
+        base: {
+          netVotesPerAttempt: baseNetVotesPerAttempt,
+        },
+        effects: {
+          turnout: {
+            enabled: turnoutEnabled,
+            kind,
+            gotvLiftPP: turnoutCtx.gotvLiftPP,
+            gotvMaxLiftPP: turnoutCtx.gotvMaxLiftPP,
+            liftAppliedPP: turnoutCtx.liftAppliedPP,
+            maxAdditionalPP: turnoutCtx.maxAdditionalPP,
+            baselineTurnoutPct: turnoutCtx.baselineTurnoutPct,
+            hybridEffectiveTr,
+          },
+        },
+        adjusted: {
+          turnoutAdjustedNetVotesPerAttempt,
+        },
+      },
     });
   };
 
@@ -219,6 +241,7 @@ export function buildOptimizationTactics({ baseRates, tactics, turnoutModel, uni
 
     let turnoutAdjustedNetVotesPerAttempt = netVotesPerAttempt;
     let maxAttempts = null;
+    let hybridEffectiveTr = null;
 
     if (turnoutEnabled){
       if (kind === "gotv"){
@@ -234,7 +257,7 @@ export function buildOptimizationTactics({ baseRates, tactics, turnoutModel, uni
           gotvLiftPP: turnoutCtx.gotvLiftPP,
         });
       } else if (kind === "hybrid"){
-        const effTr = computeHybridEffectiveTurnoutReliability({
+        hybridEffectiveTr = computeHybridEffectiveTurnoutReliability({
           tr,
           liftAppliedPP: turnoutCtx.liftAppliedPP,
           clampUnit: true,
@@ -242,7 +265,7 @@ export function buildOptimizationTactics({ baseRates, tactics, turnoutModel, uni
         turnoutAdjustedNetVotesPerAttempt = computeBaseNetVotesPerAttempt({
           cr,
           sr,
-          tr: effTr,
+          tr: hybridEffectiveTr,
           requirePositive: true,
         });
       } else {
@@ -260,7 +283,28 @@ export function buildOptimizationTactics({ baseRates, tactics, turnoutModel, uni
       turnoutAdjustedNetVotesPerAttempt,
       maxAttempts,
       // keep debug parity with ROI layer
-      used: { cr, sr, tr }
+      used: { cr, sr, tr },
+      production: {
+        base: {
+          netVotesPerAttempt,
+        },
+        effects: {
+          turnout: {
+            enabled: turnoutEnabled,
+            kind,
+            gotvLiftPP: turnoutCtx.gotvLiftPP,
+            gotvMaxLiftPP: turnoutCtx.gotvMaxLiftPP,
+            liftAppliedPP: turnoutCtx.liftAppliedPP,
+            maxAdditionalPP: turnoutCtx.maxAdditionalPP,
+            baselineTurnoutPct: turnoutCtx.baselineTurnoutPct,
+            hybridEffectiveTr,
+            saturationCapAttempts: maxAttempts,
+          },
+        },
+        adjusted: {
+          turnoutAdjustedNetVotesPerAttempt,
+        },
+      },
     });
   };
 

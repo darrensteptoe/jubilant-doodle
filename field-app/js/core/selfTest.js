@@ -22,6 +22,14 @@ import { checkStrictImportPolicy } from "./importPolicy.js";
 import { computeConfidenceEnvelope } from "./confidenceEnvelope.js";
 import { computeSensitivitySurface } from "./sensitivitySurface.js";
 import { computeUniverseAdjustedRates, UNIVERSE_DEFAULTS } from "./universeLayer.js";
+import {
+  pctOverrideToDecimal,
+  resolveTurnoutContext,
+  computeBaseNetVotesPerAttempt,
+  computeGotvNetVotesPerAttempt,
+  computeHybridEffectiveTurnoutReliability,
+  computeGotvSaturationCapAttempts,
+} from "./voteProduction.js";
 import { buildModelInputFromSnapshot } from "./modelInput.js";
 import { makeDefaultIntelState, validateAiIntelWritePayload } from "./intelState.js";
 import { computeElectionSnapshot } from "./electionSnapshot.js";
@@ -2097,7 +2105,152 @@ export function runSelfTests(engine){
 
 
 
-results.durationMs = Math.round(nowMs() - started);
+  test("Phase 9: voteProduction helpers remain deterministic and bounded", () => {
+    const fallback = 0.25;
+    assert(approx(pctOverrideToDecimal(null, fallback), fallback, 1e-12), "pctOverrideToDecimal should preserve fallback");
+    assert(approx(pctOverrideToDecimal("", fallback), fallback, 1e-12), "pctOverrideToDecimal should preserve fallback for empty input");
+    assert(approx(pctOverrideToDecimal("50", fallback), 0.5, 1e-12), "pctOverrideToDecimal failed 50% conversion");
+
+    const turnoutCtx = resolveTurnoutContext({
+      enabled: true,
+      liftPerContactPP: 3,
+      maxLiftPP: 6,
+      baselineTurnoutPct: 98,
+    });
+    assert(turnoutCtx.enabled === true, "resolveTurnoutContext should mark turnout enabled");
+    assert(approx(turnoutCtx.maxAdditionalPP, 2, 1e-12), "resolveTurnoutContext maxAdditionalPP should clamp to 2");
+    assert(approx(turnoutCtx.liftAppliedPP, 2, 1e-12), "resolveTurnoutContext liftAppliedPP should clamp to maxAdditionalPP");
+
+    const baseNetVotesPerAttempt = computeBaseNetVotesPerAttempt({ cr: 0.4, sr: 0.3, tr: 0.8 });
+    assert(approx(baseNetVotesPerAttempt, 0.096, 1e-12), "computeBaseNetVotesPerAttempt mismatch");
+
+    const gotvVotesPerAttempt = computeGotvNetVotesPerAttempt({ cr: 0.4, liftPerContactPP: 2 });
+    assert(approx(gotvVotesPerAttempt, 0.008, 1e-12), "computeGotvNetVotesPerAttempt mismatch");
+
+    const hybridTr = computeHybridEffectiveTurnoutReliability({ tr: 0.99, liftAppliedPP: 5, clampUnit: true });
+    assert(approx(hybridTr, 1, 1e-12), "computeHybridEffectiveTurnoutReliability should clamp at 1");
+
+    const capAttempts = computeGotvSaturationCapAttempts({
+      cr: 0.25,
+      targetUniverseSize: 100000,
+      maxAdditionalPP: 4,
+      gotvLiftPP: 2,
+    });
+    assert(capAttempts === 800000, `computeGotvSaturationCapAttempts mismatch: expected 800000, got ${capAttempts}`);
+    assert(computeGotvSaturationCapAttempts({
+      cr: 0,
+      targetUniverseSize: 1000,
+      maxAdditionalPP: 4,
+      gotvLiftPP: 2,
+    }) == null, "computeGotvSaturationCapAttempts should return null for invalid CR");
+    return true;
+  });
+
+  test("Phase 9: ROI and optimization share vote-production parity", () => {
+    const snap = engine.getStateSnapshot();
+    assert(snap && typeof snap === "object", "State snapshot unavailable");
+
+    const baseRates = {
+      cr: pctToUnitFromPct(snap.contactRatePct) ?? 0.33,
+      sr: pctToUnitFromPct(snap.supportRatePct) ?? 0.3,
+      tr: pctToUnitFromPct(snap.turnoutReliabilityPct) ?? 0.85,
+    };
+    const tactics = {
+      doors: { enabled: true, cpa: 0.18, kind: "persuasion" },
+      phones: { enabled: true, cpa: 0.03, kind: "hybrid", crPct: 22 },
+      texts: { enabled: true, cpa: 0.02, kind: "gotv", crPct: 8 },
+    };
+    const turnoutModel = {
+      enabled: true,
+      baselineTurnoutPct: 50,
+      liftPerContactPP: 1.5,
+      maxLiftPP: 6,
+    };
+
+    const goalNetVotes = Math.max(1, Number(baseline.needVotes) || 1000);
+    const roiOut = engine.computeRoiRows({
+      goalNetVotes,
+      baseRates,
+      tactics,
+      turnoutModel,
+    });
+    const optTactics = engine.buildOptimizationTactics({
+      baseRates,
+      tactics,
+      turnoutModel,
+      universeSize: (Number(snap.universeSize) > 0 ? Number(snap.universeSize) : 50000),
+      targetUniversePct: (Number(snap.persuasionPct) >= 0 ? Number(snap.persuasionPct) : 30),
+    });
+
+    assert(Array.isArray(roiOut?.rows) && roiOut.rows.length === 3, "Expected ROI rows for all enabled tactics");
+    assert(Array.isArray(optTactics) && optTactics.length === 3, "Expected optimization tactics for all enabled channels");
+
+    const optById = new Map(optTactics.map((t) => [String(t.id), t]));
+    for (const row of roiOut.rows){
+      const t = optById.get(String(row.key));
+      assert(t, `Missing optimization tactic for ROI row key '${row.key}'`);
+      assert(
+        approx(row.production?.base?.netVotesPerAttempt, t.production?.base?.netVotesPerAttempt, 1e-12),
+        `Base netVotesPerAttempt mismatch for ${row.key}`
+      );
+      assert(
+        approx(row.turnoutAdjustedNetVotesPerAttempt, t.turnoutAdjustedNetVotesPerAttempt, 1e-12),
+        `turnoutAdjustedNetVotesPerAttempt mismatch for ${row.key}`
+      );
+      assert(
+        approx(
+          row.production?.adjusted?.turnoutAdjustedNetVotesPerAttempt,
+          t.production?.adjusted?.turnoutAdjustedNetVotesPerAttempt,
+          1e-12
+        ),
+        `production.adjusted turnoutAdjusted mismatch for ${row.key}`
+      );
+    }
+    return true;
+  });
+
+  test("Phase 9: explain mode returns lineage without altering deterministic outputs", () => {
+    const snap = engine.getStateSnapshot();
+    assert(snap && typeof snap === "object", "State snapshot unavailable");
+
+    const modelInput = buildModelInputFromSnapshot(snap);
+    const plain = engine.computeAll(modelInput);
+    const explained = engine.computeAll(modelInput, { explain: true });
+
+    assert(plain && typeof plain === "object", "Plain computeAll result missing");
+    assert(!plain.explain, "Plain computeAll should not include explain payload");
+    assert(explained && typeof explained === "object", "Explain computeAll result missing");
+    assert(explained.explain && typeof explained.explain === "object", "Explain payload missing");
+    assert(explained.explain._meta?.moduleVersion === "engine.explain.v1", "Unexpected explain module version");
+
+    assert(
+      approx(plain?.expected?.turnoutVotes, explained?.expected?.turnoutVotes, 1e-12),
+      "Explain mode changed expected.turnoutVotes"
+    );
+    assert(
+      approx(plain?.expected?.winThreshold, explained?.expected?.winThreshold, 1e-12),
+      "Explain mode changed expected.winThreshold"
+    );
+    assert(
+      approx(plain?.expected?.persuasionNeed, explained?.expected?.persuasionNeed, 1e-12),
+      "Explain mode changed expected.persuasionNeed"
+    );
+
+    const lineage = explained.explain["expected.persuasionNeed"];
+    assert(lineage && typeof lineage === "object", "Missing lineage node for expected.persuasionNeed");
+    assert(typeof lineage.module === "string" && lineage.module.length > 0, "Lineage node missing module path");
+    assert(Array.isArray(lineage.inputs) && lineage.inputs.length > 0, "Lineage node missing inputs list");
+    assert(Array.isArray(lineage.dependsOn), "Lineage node missing dependsOn list");
+
+    const explainedAgain = engine.computeAll(modelInput, { explain: true });
+    assert(
+      stableStringify(explainedAgain.explain["expected.persuasionNeed"]) === stableStringify(lineage),
+      "Explain lineage node should be deterministic across repeated runs"
+    );
+    return true;
+  });
+
+  results.durationMs = Math.round(nowMs() - started);
   // Ensure totals are consistent even if something weird happened.
   results.passed = Math.max(0, results.total - results.failed);
 
