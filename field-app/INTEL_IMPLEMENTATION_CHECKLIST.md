@@ -105,6 +105,9 @@ This is the execution order for the calibration/governance expansion.
 - [x] Extract shared text/visibility DOM helpers out of `app.js`:
   - `/Users/anakinskywalker/Downloads/field-app-40/js/app/uiText.js`
   - `app.js` now imports these helpers instead of defining local duplicates.
+- [x] Extract effective-input compiler and decay parsing from `app.js` into dedicated module:
+  - `/Users/anakinskywalker/Downloads/field-app-40/js/app/effectiveInputs.js`
+  - wrappers retained in `/Users/anakinskywalker/Downloads/field-app-40/js/app.js` for existing wiring.
 
 ## Phase 11: A-grade structural backlog (deferred until Phase 0-10 complete)
 Execution order below is fixed and must be followed in sequence.
