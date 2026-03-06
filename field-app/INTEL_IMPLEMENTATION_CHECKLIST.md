@@ -90,6 +90,15 @@ This is the execution order for the calibration/governance expansion.
 - [x] Extract backup/recovery orchestration from `app.js` into dedicated controller:
   - `/Users/anakinskywalker/Downloads/field-app-40/js/app/backupRecovery.js`
   - wrappers retained in `/Users/anakinskywalker/Downloads/field-app-40/js/app.js` for existing wiring.
+- [x] Extract candidate table/select/split rebuild UI orchestration from `app.js`:
+  - `/Users/anakinskywalker/Downloads/field-app-40/js/app/candidateUi.js`
+  - wrappers retained in `/Users/anakinskywalker/Downloads/field-app-40/js/app.js` for existing wiring.
+- [x] Extract diagnostics/error-capture runtime orchestration from `app.js`:
+  - `/Users/anakinskywalker/Downloads/field-app-40/js/app/diagnosticsRuntime.js`
+  - wrappers retained in `/Users/anakinskywalker/Downloads/field-app-40/js/app.js` for existing wiring.
+- [x] Extract scenario lock UI/domain guard logic from `app.js`:
+  - `/Users/anakinskywalker/Downloads/field-app-40/js/app/scenarioLockUi.js`
+  - wrappers retained in `/Users/anakinskywalker/Downloads/field-app-40/js/app.js` for existing wiring.
 
 ## Phase 11: A-grade structural backlog (deferred until Phase 0-10 complete)
 Execution order below is fixed and must be followed in sequence.
