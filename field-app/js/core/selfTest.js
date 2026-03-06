@@ -810,10 +810,8 @@ export function runSelfTests(engine){
 
     test("Phase 6: Monte Carlo seeds affect turnout-adjusted outputs when variability exists", () => {
       assert(typeof engine.withPatchedState === "function", "Missing withPatchedState()");
-      const baseSnap = engine.getStateSnapshot();
-      const modelInput = buildModelInputFromSnapshot(baseSnap);
-
       const patch = {
+        mcMode: "advanced",
         turnoutEnabled: true,
         turnoutBaselinePct: 55,
         turnoutTargetOverridePct: "",
@@ -822,11 +820,29 @@ export function runSelfTests(engine){
         gotvLiftMode: 1.0,
         gotvLiftMax: 2.0,
         gotvMaxLiftPP2: 12,
-        gotvDiminishing2: true,
+        gotvDiminishing: true,
       };
 
-      const a = engine.withPatchedState(patch, () => engine.runMonteCarloSim(modelInput, { mode: "advanced", seed: "seed-A", runs: 2000 }));
-      const b = engine.withPatchedState(patch, () => engine.runMonteCarloSim(modelInput, { mode: "advanced", seed: "seed-B", runs: 2000 }));
+      const a = engine.withPatchedState(patch, () => {
+        const sc = engine.getStateSnapshot();
+        const resPatched = engine.computeAll(buildModelInputFromSnapshot(sc));
+        const weeksPatched = engine.derivedWeeksRemaining({
+          weeksRemainingOverride: sc?.weeksRemaining,
+          electionDateISO: sc?.electionDate ? `${sc.electionDate}T00:00:00` : "",
+        });
+        const needVotesPatched = engine.deriveNeedVotes(resPatched);
+        return engine.runMonteCarloSim({ scenario: sc, res: resPatched, weeks: weeksPatched, needVotes: needVotesPatched, runs: 2000, seed: "seed-A" });
+      });
+      const b = engine.withPatchedState(patch, () => {
+        const sc = engine.getStateSnapshot();
+        const resPatched = engine.computeAll(buildModelInputFromSnapshot(sc));
+        const weeksPatched = engine.derivedWeeksRemaining({
+          weeksRemainingOverride: sc?.weeksRemaining,
+          electionDateISO: sc?.electionDate ? `${sc.electionDate}T00:00:00` : "",
+        });
+        const needVotesPatched = engine.deriveNeedVotes(resPatched);
+        return engine.runMonteCarloSim({ scenario: sc, res: resPatched, weeks: weeksPatched, needVotes: needVotesPatched, runs: 2000, seed: "seed-B" });
+      });
 
       assert(a && b, "Missing MC summaries");
       assert(a.turnoutAdjusted && b.turnoutAdjusted, "Missing turnoutAdjusted summaries");
@@ -2806,23 +2822,18 @@ export function runSelfTests(engine){
     return true;
   });
 
-  test("Phase 9 UI: turnout assumptions mirror is anchored to Budget stage only", () => {
-    const budgetStage = document.getElementById("stage-roi");
-    const gotvStage = document.getElementById("stage-gotv");
-    assert(budgetStage, "Missing stage-roi container");
-    assert(gotvStage, "Missing stage-gotv container");
-
+  test("Phase 9 UI: turnout assumptions are edited only in Budget card (no duplicate mirror card)", () => {
     const mirrorStatusEl = document.getElementById("gotvPlannerStatus");
-    assert(mirrorStatusEl, "Missing turnout assumptions mirror node (#gotvPlannerStatus)");
-    const parentStage = mirrorStatusEl.closest("section.stage-new");
-    assert(parentStage, "Unable to locate parent stage for turnout assumptions mirror");
-    assert(parentStage.id === "stage-roi", `Turnout assumptions mirror should be under stage-roi; got '${parentStage.id || "unknown"}'`);
-    assert(budgetStage.contains(mirrorStatusEl), "Turnout assumptions mirror must live inside Budget stage");
-    assert(!gotvStage.contains(mirrorStatusEl), "Turnout assumptions mirror must not be inside GOTV stage");
+    assert(!mirrorStatusEl, "Turnout assumptions mirror node should not exist");
 
     const titles = Array.from(document.querySelectorAll(".card-title"));
     const mirrorTitles = titles.filter((el) => /turnout assumptions source/i.test(String(el?.textContent || "")));
-    assert(mirrorTitles.length === 1, `Expected exactly one 'Turnout assumptions source' card title; got ${mirrorTitles.length}`);
+    assert(mirrorTitles.length === 0, `Expected no 'Turnout assumptions source' card title; got ${mirrorTitles.length}`);
+
+    const gotvToggle = document.getElementById("gotvDiminishing");
+    assert(gotvToggle, "Missing canonical GOTV diminishing toggle");
+    const legacyGotvToggle = document.getElementById("gotvDiminishing2");
+    assert(!legacyGotvToggle, "Legacy GOTV diminishing toggle should not exist");
     return true;
   });
 

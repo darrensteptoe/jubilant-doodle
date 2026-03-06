@@ -479,7 +479,7 @@ export function runMonteCarloSim({ scenario, scenarioState, res, weeks, needVote
   const turnoutEnabled = !!resolvedFeatures?.turnoutModelingEnabled;
   const baseTurnoutPct = (safeNum(sc.turnoutTargetOverridePct) != null) ? safeNum(sc.turnoutTargetOverridePct) : safeNum(sc.turnoutBaselinePct);
   const gotvMaxLiftPP = (sc.gotvMode === "advanced") ? safeNum(sc.gotvMaxLiftPP2) : safeNum(sc.gotvMaxLiftPP);
-  const useDim = (sc.gotvMode === "advanced") ? !!sc.gotvDiminishing2 : !!sc.gotvDiminishing;
+  const useDim = !!sc.gotvDiminishing;
 
   const U = safeNum(sc.universeSize);
   const tuPct = safeNum(sc.persuasionPct);

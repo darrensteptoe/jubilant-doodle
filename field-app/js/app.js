@@ -2661,6 +2661,7 @@ function markMcStale(){
 function withPatchedState(patch, fn){
   // Dev-only helper used by selfTest harness.
   const prev = getStateSnapshot();
+  const patchHasFeatures = !!(patch && typeof patch === "object" && patch.features && typeof patch.features === "object" && !Array.isArray(patch.features));
   const merge = (target, src) => {
     if (!src || typeof src !== "object") return;
     for (const k of Object.keys(src)){
@@ -2675,6 +2676,7 @@ function withPatchedState(patch, fn){
   };
   try{
     merge(state, patch || {});
+    syncFeatureFlagsFromState(state, { preferFeatures: patchHasFeatures });
     return fn();
   } finally {
     // Restore

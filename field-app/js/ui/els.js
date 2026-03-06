@@ -142,14 +142,6 @@ export const els = {
   doorsPerHour: document.getElementById("doorsPerHour"),
   hoursPerShift: document.getElementById("hoursPerShift"),
   shiftsPerVolunteerPerWeek: document.getElementById("shiftsPerVolunteerPerWeek"),
-  gotvPlannerStatus: document.getElementById("gotvPlannerStatus"),
-  gotvPlannerModel: document.getElementById("gotvPlannerModel"),
-  gotvPlannerBaseline: document.getElementById("gotvPlannerBaseline"),
-  gotvPlannerLift: document.getElementById("gotvPlannerLift"),
-  gotvPlannerCeiling: document.getElementById("gotvPlannerCeiling"),
-  gotvPlannerDiminishing: document.getElementById("gotvPlannerDiminishing"),
-  gotvPlannerSupportRate: document.getElementById("gotvPlannerSupportRate"),
-  gotvPlannerContactRate: document.getElementById("gotvPlannerContactRate"),
 
   // Phase 16 — universe composition + retention
   universe16Enabled: document.getElementById("universe16Enabled"),
@@ -295,7 +287,6 @@ export const els = {
   gotvLiftMode: document.getElementById("gotvLiftMode"),
   gotvLiftMax: document.getElementById("gotvLiftMax"),
   gotvMaxLiftPP2: document.getElementById("gotvMaxLiftPP2"),
-  gotvDiminishing2: document.getElementById("gotvDiminishing2"),
   turnoutSummary: document.getElementById("turnoutSummary"),
 
   mcContactMin: document.getElementById("mcContactMin"),

@@ -63,7 +63,7 @@ function computeMinCostToCloseGap({ snap, needVotes }){
     if (snap.turnoutEnabled){
       const basePct = safeNum(snap.turnoutBaselinePct);
       const maxLift = safeNum(snap.gotvMaxLiftPP2 ?? snap.gotvMaxLiftPP);
-      const useDim = !!(snap.gotvDiminishing2 ?? snap.gotvDiminishing);
+      const useDim = !!snap.gotvDiminishing;
       // We'll compute lift per contact as the average of the configured lift distribution, reusing the pure helper.
       const liftPerContactPP = safeNum(snap.gotvLiftPP);
       turnoutModel = {
