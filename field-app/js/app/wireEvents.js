@@ -975,6 +975,23 @@ function sanitizeImportedScenarioData(scenario){
     }
   }
 
+  // Keep basic/advanced diminishing toggles in lockstep so mirror cards and
+  // downstream turnout modeling always read a single canonical value.
+  const hasDimBasic = Object.prototype.hasOwnProperty.call(out, "gotvDiminishing");
+  const hasDimAdvanced = Object.prototype.hasOwnProperty.call(out, "gotvDiminishing2");
+  if (hasDimBasic || hasDimAdvanced){
+    const mode = String(out.gotvMode || "basic");
+    const fallback = hasDimBasic ? !!out.gotvDiminishing : !!out.gotvDiminishing2;
+    const resolved = (mode === "advanced")
+      ? (hasDimAdvanced ? !!out.gotvDiminishing2 : fallback)
+      : (hasDimBasic ? !!out.gotvDiminishing : fallback);
+    if (hasDimBasic && hasDimAdvanced && (!!out.gotvDiminishing !== !!out.gotvDiminishing2)){
+      warnings.push(`Normalized GOTV diminishing setting to ${resolved ? "On" : "Off"} across basic/advanced modes.`);
+    }
+    out.gotvDiminishing = resolved;
+    out.gotvDiminishing2 = resolved;
+  }
+
   return { scenario: out, warnings };
 }
 
@@ -1398,7 +1415,16 @@ export function wirePrimaryPlannerEvents(ctx){
   if (els.turnoutTargetOverridePct) els.turnoutTargetOverridePct.addEventListener("input", () => { withState((state) => { state.turnoutTargetOverridePct = els.turnoutTargetOverridePct.value; }); markMcStale(); commitUIUpdate(); });
 
   if (els.gotvMode) els.gotvMode.addEventListener("change", () => {
-    withState((state) => { state.gotvMode = els.gotvMode.value; });
+    withState((state) => {
+      const currentMode = String(state.gotvMode || "basic");
+      const nextMode = String(els.gotvMode.value || "basic");
+      const effectiveDiminishing = currentMode === "advanced"
+        ? !!state.gotvDiminishing2
+        : !!state.gotvDiminishing;
+      state.gotvMode = nextMode;
+      state.gotvDiminishing = effectiveDiminishing;
+      state.gotvDiminishing2 = effectiveDiminishing;
+    });
     syncGotvModeUI();
     markMcStale();
     commitUIUpdate();
@@ -1406,13 +1432,29 @@ export function wirePrimaryPlannerEvents(ctx){
 
   if (els.gotvLiftPP) els.gotvLiftPP.addEventListener("input", () => { withState((state) => { state.gotvLiftPP = safeNum(els.gotvLiftPP.value); }); markMcStale(); commitUIUpdate(); });
   if (els.gotvMaxLiftPP) els.gotvMaxLiftPP.addEventListener("input", () => { withState((state) => { state.gotvMaxLiftPP = safeNum(els.gotvMaxLiftPP.value); }); markMcStale(); commitUIUpdate(); });
-  if (els.gotvDiminishing) els.gotvDiminishing.addEventListener("change", () => { withState((state) => { state.gotvDiminishing = !!els.gotvDiminishing.checked; }); markMcStale(); commitUIUpdate(); });
+  if (els.gotvDiminishing) els.gotvDiminishing.addEventListener("change", () => {
+    withState((state) => {
+      const checked = !!els.gotvDiminishing.checked;
+      state.gotvDiminishing = checked;
+      state.gotvDiminishing2 = checked;
+    });
+    markMcStale();
+    commitUIUpdate();
+  });
 
   if (els.gotvLiftMin) els.gotvLiftMin.addEventListener("input", () => { withState((state) => { state.gotvLiftMin = safeNum(els.gotvLiftMin.value); }); markMcStale(); commitUIUpdate(); });
   if (els.gotvLiftMode) els.gotvLiftMode.addEventListener("input", () => { withState((state) => { state.gotvLiftMode = safeNum(els.gotvLiftMode.value); }); markMcStale(); commitUIUpdate(); });
   if (els.gotvLiftMax) els.gotvLiftMax.addEventListener("input", () => { withState((state) => { state.gotvLiftMax = safeNum(els.gotvLiftMax.value); }); markMcStale(); commitUIUpdate(); });
   if (els.gotvMaxLiftPP2) els.gotvMaxLiftPP2.addEventListener("input", () => { withState((state) => { state.gotvMaxLiftPP2 = safeNum(els.gotvMaxLiftPP2.value); }); markMcStale(); commitUIUpdate(); });
-  if (els.gotvDiminishing2) els.gotvDiminishing2.addEventListener("change", () => { withState((state) => { state.gotvDiminishing2 = !!els.gotvDiminishing2.checked; }); markMcStale(); commitUIUpdate(); });
+  if (els.gotvDiminishing2) els.gotvDiminishing2.addEventListener("change", () => {
+    withState((state) => {
+      const checked = !!els.gotvDiminishing2.checked;
+      state.gotvDiminishing = checked;
+      state.gotvDiminishing2 = checked;
+    });
+    markMcStale();
+    commitUIUpdate();
+  });
 
   if (els.mcMode) els.mcMode.addEventListener("change", () => { withState((state) => { state.mcMode = els.mcMode.value; }); syncMcModeUI(); markMcStale(); schedulePersist(); });
   if (els.mcVolatility) els.mcVolatility.addEventListener("change", () => { withState((state) => { state.mcVolatility = els.mcVolatility.value; }); markMcStale(); schedulePersist(); });
