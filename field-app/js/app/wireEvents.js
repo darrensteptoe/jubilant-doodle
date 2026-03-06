@@ -975,20 +975,6 @@ function sanitizeImportedScenarioData(scenario){
     }
   }
 
-  // Migrate legacy advanced diminishing key to the canonical diminishing key.
-  const hasDimBasic = Object.prototype.hasOwnProperty.call(out, "gotvDiminishing");
-  const hasDimLegacy = Object.prototype.hasOwnProperty.call(out, "gotvDiminishing2");
-  if (hasDimBasic || hasDimLegacy){
-    const resolved = hasDimBasic ? !!out.gotvDiminishing : !!out.gotvDiminishing2;
-    if (hasDimBasic && hasDimLegacy && (!!out.gotvDiminishing !== !!out.gotvDiminishing2)){
-      warnings.push(`Normalized GOTV diminishing setting to ${resolved ? "On" : "Off"}.`);
-    } else if (!hasDimBasic && hasDimLegacy){
-      warnings.push("Migrated legacy GOTV diminishing setting to canonical key.");
-    }
-    out.gotvDiminishing = resolved;
-    delete out.gotvDiminishing2;
-  }
-
   return { scenario: out, warnings };
 }
 
