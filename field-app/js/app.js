@@ -83,6 +83,7 @@ import {
   getEffectiveBaseRatesFromSnapCore,
   computeWeeklyOpsContextFromSnapCore,
 } from "./app/scenarioCompareHelpers.js";
+import { createScenarioDecisionController } from "./app/scenarioDecisionController.js";
 import {
   renderDecisionSessionPanelCore,
   renderDecisionOptionsPanelCore,
@@ -1433,108 +1434,117 @@ function getYourName(){
 // Phase C1 — Scenario Stack (registry)
 // =========================
 
-function scenarioClone(obj){
-  return scenarioCloneCore(obj);
-}
+let scenarioDecisionController = null;
 
-function scenarioInputsFromState(src){
-  return scenarioInputsFromStateCore(src);
-}
-
-function scenarioOutputsFromState(src){
-  return scenarioOutputsFromStateCore(src);
-}
-
-function ensureScenarioRegistry(){
-  return ensureScenarioRegistryCore(state, {
+function getScenarioDecisionController(){
+  if (scenarioDecisionController) return scenarioDecisionController;
+  scenarioDecisionController = createScenarioDecisionController({
+    els,
+    getState: () => state,
     scenarioBaselineId: SCENARIO_BASELINE_ID,
-    scenarioInputsFromState,
-    scenarioOutputsFromState,
-  });
-}
-
-function setScenarioWarn(msg){
-  if (!els.scWarn) return;
-  if (msg){
-    els.scWarn.hidden = false;
-    els.scWarn.textContent = msg;
-  } else {
-    els.scWarn.hidden = true;
-    els.scWarn.textContent = "";
-  }
-}
-
-function listScenarioRecords(){
-  ensureScenarioRegistry();
-  return listScenarioRecordsCore(state, {
-    scenarioBaselineId: SCENARIO_BASELINE_ID,
-  });
-}
-
-function getUniverseLayerConfigFromSnap(snap){
-  return getUniverseLayerConfigFromSnapCore(snap, {
+    scenarioMax: SCENARIO_MAX,
+    scenarioCloneCore,
+    scenarioInputsFromStateCore,
+    scenarioOutputsFromStateCore,
+    ensureScenarioRegistryCore,
+    listScenarioRecordsCore,
+    getUniverseLayerConfigFromSnapCore,
+    getEffectiveBaseRatesFromSnapCore,
+    computeWeeklyOpsContextFromSnapCore,
     getUniverseLayerConfigFromStateSelector,
-  });
-}
-
-function getEffectiveBaseRatesFromSnap(snap){
-  return getEffectiveBaseRatesFromSnapCore(snap, {
     getEffectiveBaseRatesFromStateSelector,
     computeUniverseAdjustedRates,
-  });
-}
-
-function computeWeeklyOpsContextFromSnap(snap, res, weeks){
-  return computeWeeklyOpsContextFromSnapCore(snap, res, weeks, {
     computeWeeklyOpsContextFromStateSelector,
-    getEffectiveBaseRatesFromSnap,
     computeCapacityBreakdown: coreComputeCapacityBreakdown,
     compileEffectiveInputs,
     computeMaxAttemptsByTactic: engine.computeMaxAttemptsByTactic,
-  });
-}
-
-function targetFinishDateFromSnap(snap, weeks){
-  return targetFinishDateFromSnapCore(snap, weeks);
-}
-
-function paceFinishDate(total, pacePerDay){
-  return paceFinishDateCore(total, pacePerDay);
-}
-
-function renderScenarioComparisonC3(){
-  return renderScenarioComparisonPanel({
-    els,
-    state,
-    ensureScenarioRegistry,
-    SCENARIO_BASELINE_ID,
-    scenarioClone,
-    scenarioInputsFromState,
+    targetFinishDateFromSnapCore,
+    paceFinishDateCore,
+    renderScenarioComparisonPanel,
     computeDecisionKeyOutCore,
     computeElectionSnapshot,
     engine,
     derivedWeeksRemaining,
-    computeWeeklyOpsContextFromSnap,
-    targetFinishDateFromSnap,
     computeLastNLogSums,
-    paceFinishDate,
     safeNum,
     fmtInt,
-    fmtISODate
+    fmtISODate,
+    renderScenarioManagerPanel,
+    makeDecisionSessionIdCore,
+    makeDecisionOptionIdCore,
+    ensureDecisionOptionShapeCore,
+    ensureDecisionSessionShapeCore,
+    ensureDecisionScaffoldCore,
+    getActiveDecisionSessionCore,
+    listDecisionSessionsCore,
+    decisionScenarioLabelCore,
+    renderDecisionSessionPanelCore,
+    objectiveTemplates: OBJECTIVE_TEMPLATES,
+    riskPostures: RISK_POSTURES,
+    renderDecisionOptionsPanelCore,
+    decisionOptionDisplayCore,
+    buildDecisionSummaryTextCore,
+    copyTextToClipboardCore,
+    decisionSummaryPlainTextCore,
+    decisionSessionExportObjectCore,
+    downloadJsonObjectCore,
+    renderDecisionSummaryPanelCore,
+    uid,
+    clamp,
   });
+  return scenarioDecisionController;
+}
+
+function scenarioClone(obj){
+  return getScenarioDecisionController().scenarioClone(obj);
+}
+
+function scenarioInputsFromState(src){
+  return getScenarioDecisionController().scenarioInputsFromState(src);
+}
+
+function scenarioOutputsFromState(src){
+  return getScenarioDecisionController().scenarioOutputsFromState(src);
+}
+
+function ensureScenarioRegistry(){
+  return getScenarioDecisionController().ensureScenarioRegistry();
+}
+
+function setScenarioWarn(msg){
+  return getScenarioDecisionController().setScenarioWarn(msg);
+}
+
+function listScenarioRecords(){
+  return getScenarioDecisionController().listScenarioRecords();
+}
+
+function getUniverseLayerConfigFromSnap(snap){
+  return getScenarioDecisionController().getUniverseLayerConfigFromSnap(snap);
+}
+
+function getEffectiveBaseRatesFromSnap(snap){
+  return getScenarioDecisionController().getEffectiveBaseRatesFromSnap(snap);
+}
+
+function computeWeeklyOpsContextFromSnap(snap, res, weeks){
+  return getScenarioDecisionController().computeWeeklyOpsContextFromSnap(snap, res, weeks);
+}
+
+function targetFinishDateFromSnap(snap, weeks){
+  return getScenarioDecisionController().targetFinishDateFromSnap(snap, weeks);
+}
+
+function paceFinishDate(total, pacePerDay){
+  return getScenarioDecisionController().paceFinishDate(total, pacePerDay);
+}
+
+function renderScenarioComparisonC3(){
+  return getScenarioDecisionController().renderScenarioComparisonC3();
 }
 
 function renderScenarioManagerC1(){
-  return renderScenarioManagerPanel({
-    els,
-    state,
-    ensureScenarioRegistry,
-    listScenarioRecords,
-    SCENARIO_BASELINE_ID,
-    SCENARIO_MAX,
-    setScenarioWarn,
-    renderScenarioComparison: renderScenarioComparisonC3,
-  });
+  return getScenarioDecisionController().renderScenarioManagerC1();
 }
 
 // =========================
@@ -1542,137 +1552,79 @@ function renderScenarioManagerC1(){
 // =========================
 
 function makeDecisionSessionId(){
-  return makeDecisionSessionIdCore(uid);
+  return getScenarioDecisionController().makeDecisionSessionId();
 }
 function makeDecisionOptionId(){
-  return makeDecisionOptionIdCore(uid);
+  return getScenarioDecisionController().makeDecisionOptionId();
 }
 
 function ensureDecisionOptionShape(o){
-  ensureDecisionOptionShapeCore(o);
+  return getScenarioDecisionController().ensureDecisionOptionShape(o);
 }
 
 function ensureDecisionSessionShape(s){
-  ensureDecisionSessionShapeCore(s);
+  return getScenarioDecisionController().ensureDecisionSessionShape(s);
 }
 
 
 function ensureDecisionScaffold(){
-  return ensureDecisionScaffoldCore(state, {
-    ensureDecisionSessionShape,
-    makeDecisionSessionId,
-    objectiveTemplates: OBJECTIVE_TEMPLATES,
-    scenarioBaselineId: SCENARIO_BASELINE_ID,
-  });
+  return getScenarioDecisionController().ensureDecisionScaffold();
 }
 
 function getActiveDecisionSession(){
-  ensureDecisionScaffold();
-  return getActiveDecisionSessionCore(state);
+  return getScenarioDecisionController().getActiveDecisionSession();
 }
 
 function listDecisionSessions(){
-  ensureDecisionScaffold();
-  return listDecisionSessionsCore(state);
+  return getScenarioDecisionController().listDecisionSessions();
 }
 
 function decisionScenarioLabel(scenarioId){
-  ensureScenarioRegistry();
-  return decisionScenarioLabelCore(scenarioId, state.ui.scenarios || {});
+  return getScenarioDecisionController().decisionScenarioLabel(scenarioId);
 }
 
 function renderDecisionSessionD1(){
-  return renderDecisionSessionPanelCore({
-    els,
-    state,
-    ensureDecisionScaffold,
-    listDecisionSessions,
-    getActiveDecisionSession,
-    ensureDecisionSessionShape,
-    objectiveTemplates: OBJECTIVE_TEMPLATES,
-    riskPostures: RISK_POSTURES,
-    decisionScenarioLabel,
-    renderDecisionOptions: renderDecisionOptionsD3,
-    renderDecisionSummary: renderDecisionSummaryD4,
-  });
+  return getScenarioDecisionController().renderDecisionSessionD1();
 }
 
 function listDecisionOptions(session){
-  if (!session) return [];
-  const opts = session.options || {};
-  const arr = Object.values(opts);
-  arr.sort((a,b) => String(a?.createdAt || "").localeCompare(String(b?.createdAt || "")));
-  return arr;
+  return getScenarioDecisionController().listDecisionOptions(session);
 }
 
 function getActiveDecisionOption(session){
-  if (!session) return null;
-  const id = session.activeOptionId;
-  const o = (id && session.options) ? session.options[id] : null;
-  return o || null;
+  return getScenarioDecisionController().getActiveDecisionOption(session);
 }
 
 function renderDecisionOptionsD3(session){
-  return renderDecisionOptionsPanelCore({
-    els,
-    session,
-    ensureDecisionSessionShape,
-    listDecisionOptions,
-    getActiveDecisionOption,
-    decisionScenarioLabel,
-  });
+  return getScenarioDecisionController().renderDecisionOptionsD3(session);
 }
 
 function decisionOptionDisplay(o){
-  return decisionOptionDisplayCore(o);
+  return getScenarioDecisionController().decisionOptionDisplay(o);
 }
 
 function buildDecisionSummaryText(session){
-  return buildDecisionSummaryTextCore(session, {
-    ensureScenarioRegistry,
-    state,
-    SCENARIO_BASELINE_ID,
-    scenarioClone,
-    engine,
-    derivedWeeksRemaining,
-    computeElectionSnapshot,
-    computeWeeklyOpsContextFromSnap,
-    targetFinishDateFromSnap,
-    fmtISODate,
-    OBJECTIVE_TEMPLATES,
-    fmtInt,
-    safeNum,
-    clamp,
-  });
+  return getScenarioDecisionController().buildDecisionSummaryText(session);
 }
 
 function copyTextToClipboard(text){
-  return copyTextToClipboardCore(text);
+  return getScenarioDecisionController().copyTextToClipboard(text);
 }
 
 function decisionSummaryPlainText(md){
-  return decisionSummaryPlainTextCore(md);
+  return getScenarioDecisionController().decisionSummaryPlainText(md);
 }
 
 function decisionSessionExportObject(session){
-  return decisionSessionExportObjectCore(session, {
-    activeScenarioId: state?.ui?.activeScenarioId || null,
-    buildDecisionSummaryText,
-  });
+  return getScenarioDecisionController().decisionSessionExportObject(session);
 }
 
 function downloadJsonObject(obj, filename){
-  return downloadJsonObjectCore(obj, filename);
+  return getScenarioDecisionController().downloadJsonObject(obj, filename);
 }
 
 function renderDecisionSummaryD4(session){
-  const s = session || getActiveDecisionSession();
-  return renderDecisionSummaryPanelCore({
-    els,
-    session: s,
-    decisionOptionDisplay,
-    buildDecisionSummaryText,
-  });
+  return getScenarioDecisionController().renderDecisionSummaryD4(session);
 }
 
 
