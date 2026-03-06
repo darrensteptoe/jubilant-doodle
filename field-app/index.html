@@ -2325,6 +2325,7 @@
 <div class="card-actions">
 <button class="btn btn-sm" id="btnIntelCaptureObserved" type="button">Capture observed metrics</button>
 <button class="btn btn-sm" id="btnIntelGenerateRecommendations" type="button">Generate drift recommendations</button>
+<button class="btn btn-sm" id="btnIntelApplyTopRecommendation" type="button">Apply top recommendation</button>
 </div>
 </div>
 <div class="help-text">Capture rolling daily-log metrics and generate metadata-only recommendations. No core math is modified automatically.</div>
@@ -2334,6 +2335,21 @@
 </div>
 <div class="muted" id="intelObservedStatus" style="margin-top:8px;">No observed metrics captured yet.</div>
 <div class="muted" id="intelRecommendationStatus" style="margin-top:6px;">No drift recommendations generated yet.</div>
+<div class="field" style="margin-top:10px;">
+<label class="label" for="intelWhatIfInput">What-if request parser</label>
+<div class="card-actions" style="margin-bottom:6px;">
+<button class="btn btn-sm" id="btnIntelParseWhatIf" type="button">Parse what-if request</button>
+</div>
+<textarea class="input" id="intelWhatIfInput" rows="3" placeholder="e.g., Set support rate to 55 and contact rate +2"></textarea>
+</div>
+<div class="grid2" style="margin-top:6px;">
+<div class="muted" id="intelWhatIfCount">0 what-if requests parsed.</div>
+<div class="muted" id="intelWhatIfStatus">No what-if requests parsed yet.</div>
+</div>
+<div class="field" style="margin-top:10px;">
+<label class="label" for="intelWhatIfPreview">Latest parsed request</label>
+<textarea class="input" id="intelWhatIfPreview" readonly rows="5"></textarea>
+</div>
 <div class="field" style="margin-top:10px;">
 <label class="label" for="intelRecommendationPreview">Recommendation preview</label>
 <textarea class="input" id="intelRecommendationPreview" readonly rows="6"></textarea>

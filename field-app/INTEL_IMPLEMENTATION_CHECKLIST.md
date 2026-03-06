@@ -49,6 +49,7 @@ This is the execution order for the calibration/governance expansion.
 - [x] Scenario diff brief.
 - [x] Drift explanation brief.
 - [x] Sensitivity interpretation brief.
+- [x] What-if request parser writes `intelRequests` metadata only (no core math mutation).
 
 ## Phase 8: Governance workflow
 - [x] Scenario lock/unlock flow.
@@ -60,3 +61,8 @@ This is the execution order for the calibration/governance expansion.
 - [x] No-UI-math guard (lint/grep gate).
 - [x] AI write-constraint schema validation.
 - [x] Seeded MC reproducibility guard.
+
+## Phase 9.1: Post-phase architecture cleanup
+- [x] Collapse stale duplicate render modules into compatibility wrappers so only one implementation path remains:
+  - `/Users/anakinskywalker/Downloads/field-app-40/js/app/render/optimization.js`
+  - `/Users/anakinskywalker/Downloads/field-app-40/js/app/render/timeline.js`
