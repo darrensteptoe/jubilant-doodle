@@ -152,6 +152,7 @@ import { createEffectiveInputsController } from "./app/effectiveInputs.js";
 import { createMcStateController } from "./app/mcState.js";
 import { createMcEnvelopeController } from "./app/mcEnvelopeController.js";
 import { createMcRuntimeController } from "./app/mcRuntimeController.js";
+import { createPlanningRuntimeController } from "./app/planningRuntimeController.js";
 import {
   updatePersistenceStatusChipModule,
   reportPersistenceFailureModule,
@@ -1964,87 +1965,61 @@ function hashMcInputs(res, weeks){
   });
 }
 
-function deriveNeedVotes(res, goalSupportIdsOverride = state.goalSupportIds){
-  return coreDeriveNeedVotesOrZero(res, goalSupportIdsOverride);
-}
+let planningRuntimeController = null;
 
-
-function renderRoi(res, weeks){
-  renderRoiModule({
+function getPlanningRuntimeController(){
+  if (planningRuntimeController) return planningRuntimeController;
+  planningRuntimeController = createPlanningRuntimeController({
     els,
-    state,
-    res,
-    weeks,
-    deriveNeedVotes,
+    getState: () => state,
+    coreDeriveNeedVotesOrZero,
+    coreComputeCapacityBreakdown,
+    coreComputeCapacityContacts,
+    getCapacityDecayConfigFromState,
+    renderRoiModule,
+    renderOptimizationModule,
+    renderTimelineModule,
+    renderPhase3Module,
     getEffectiveBaseRates,
-    computeCapacityBreakdown,
     safeNum,
     clamp,
     canonicalDoorsPerHourFromSnap,
     engine,
     computeAvgLiftPP,
     fmtInt,
-  });
-}
-
-
-
-function renderOptimization(res, weeks){
-  renderOptimizationModule({
-    els,
-    state,
-    res,
-    weeks,
-    deriveNeedVotes,
-    fmtInt,
     compileEffectiveInputs,
-    computeCapacityBreakdown,
-    safeNum,
-    engine,
-  });
-}
-
-function renderTimeline(res, weeks){
-  renderTimelineModule({
-    els,
-    state,
-    weeks,
-    safeNum,
-    fmtInt,
-    engine,
-  });
-}
-
-function renderPhase3(res, weeks){
-  renderPhase3Module({
-    els,
-    state,
-    res,
-    weeks,
-    fmtInt,
-    compileEffectiveInputs,
-    computeCapacityContacts,
-    deriveNeedVotes,
     renderMcFreshness,
     renderMcResults,
   });
+  return planningRuntimeController;
 }
 
+function deriveNeedVotes(res, goalSupportIdsOverride = state.goalSupportIds){
+  return getPlanningRuntimeController().deriveNeedVotes(res, goalSupportIdsOverride);
+}
+
+function renderRoi(res, weeks){
+  return getPlanningRuntimeController().renderRoi(res, weeks);
+}
+
+function renderOptimization(res, weeks){
+  return getPlanningRuntimeController().renderOptimization(res, weeks);
+}
+
+function renderTimeline(res, weeks){
+  return getPlanningRuntimeController().renderTimeline(res, weeks);
+}
+
+function renderPhase3(res, weeks){
+  return getPlanningRuntimeController().renderPhase3(res, weeks);
+}
 
 function computeCapacityBreakdown(args){
-  const next = (args && typeof args === "object") ? { ...args } : {};
-  if (!next.capacityDecay){
-    next.capacityDecay = getCapacityDecayConfigFromState(state);
-  }
-  return coreComputeCapacityBreakdown(next);
+  return getPlanningRuntimeController().computeCapacityBreakdown(args);
 }
 
 function computeCapacityContacts(args){
-  const next = (args && typeof args === "object") ? { ...args } : {};
-  if (!next.capacityDecay){
-    next.capacityDecay = getCapacityDecayConfigFromState(state);
-  }
-  return coreComputeCapacityContacts(next);
+  return getPlanningRuntimeController().computeCapacityContacts(args);
 }
 
 /* ---- Monte Carlo ---- */
