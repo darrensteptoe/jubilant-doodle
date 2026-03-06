@@ -153,6 +153,7 @@ import { createMcStateController } from "./app/mcState.js";
 import { createMcEnvelopeController } from "./app/mcEnvelopeController.js";
 import { createMcRuntimeController } from "./app/mcRuntimeController.js";
 import { createPlanningRuntimeController } from "./app/planningRuntimeController.js";
+import { createExecutionWeeklyController } from "./app/executionWeeklyController.js";
 import {
   updatePersistenceStatusChipModule,
   reportPersistenceFailureModule,
@@ -931,82 +932,45 @@ function renderWeeklyOps(res, weeks, { weeklyContext = null, executionSnapshot =
   });
 }
 
+let executionWeeklyController = null;
+
+function getExecutionWeeklyController(){
+  if (executionWeeklyController) return executionWeeklyController;
+  executionWeeklyController = createExecutionWeeklyController({
+    els,
+    getState: () => state,
+    safeNum,
+    fmtInt,
+    clamp,
+    renderWeeklyExecutionStatusModule,
+    computeWeeklyOpsContextFromStateSelector,
+    getEffectiveBaseRatesFromStateSelector,
+    computeUniverseAdjustedRates,
+    coreComputeCapacityBreakdown,
+    compileEffectiveInputs,
+    computeMaxAttemptsByTactic: engine.computeMaxAttemptsByTactic,
+  });
+  return executionWeeklyController;
+}
+
 function computeLastNLogSums(n){
-  const log = Array.isArray(state.ui?.dailyLog) ? state.ui.dailyLog : null;
-  if (!log || !log.length) return { hasLog:false, n:0, days:null, sumAttempts:0, sumConvos:0, lastDate:null };
-
-  const sorted = [...log].filter(x => x && x.date).sort((a,b) => String(a.date).localeCompare(String(b.date)));
-  const lastN = sorted.slice(-Math.max(1, n|0));
-
-  let sumAttempts = 0;
-  let sumConvos = 0;
-
-  for (const x of lastN){
-    const doors = safeNum(x?.doors) || 0;
-    const calls = safeNum(x?.calls) || 0;
-    const attempts = (x?.attempts != null && x.attempts !== "") ? (safeNum(x.attempts) || 0) : (doors + calls);
-    const convos = safeNum(x?.convos) || 0;
-    sumAttempts += attempts;
-    sumConvos += convos;
-  }
-
-  const firstDate = lastN[0]?.date ? new Date(String(lastN[0].date)) : null;
-  const lastDate = lastN[lastN.length - 1]?.date ? new Date(String(lastN[lastN.length - 1].date)) : null;
-  const days = (firstDate && lastDate && isFinite(firstDate) && isFinite(lastDate))
-    ? Math.max(1, Math.round((lastDate - firstDate) / (24*3600*1000)) + 1)
-    : lastN.length;
-
-  return {
-    hasLog:true,
-    n:lastN.length,
-    days,
-    sumAttempts,
-    sumConvos,
-    lastDate: lastN[lastN.length - 1]?.date || null
-  };
+  return getExecutionWeeklyController().computeLastNLogSums(n);
 }
 
 function setTag(el, kind, text){
-  if (!el) return;
-  el.classList.remove("ok","warn","bad");
-  if (kind) el.classList.add(kind);
-  el.textContent = text;
+  return getExecutionWeeklyController().setTag(el, kind, text);
 }
 
 function fmtISODate(d){
-  try{
-    const dt = (d instanceof Date) ? d : new Date(d);
-    if (!isFinite(dt)) return "—";
-    const y = dt.getFullYear();
-    const m = String(dt.getMonth() + 1).padStart(2,"0");
-    const da = String(dt.getDate()).padStart(2,"0");
-    return `${y}-${m}-${da}`;
-  } catch {
-    return "—";
-  }
+  return getExecutionWeeklyController().fmtISODate(d);
 }
 
 function renderWeeklyExecutionStatus(ctx){
-  renderWeeklyExecutionStatusModule({
-    els,
-    ctx,
-    fmtInt,
-    computeLastNLogSums,
-    setTag,
-    fmtISODate,
-    clamp,
-  });
+  return getExecutionWeeklyController().renderWeeklyExecutionStatus(ctx);
 }
 
 function computeWeeklyOpsContext(res, weeks){
-  return computeWeeklyOpsContextFromStateSelector(state, {
-    res,
-    weeks,
-    getEffectiveBaseRatesForState: (s) => getEffectiveBaseRatesFromStateSelector(s, { computeUniverseAdjustedRates }),
-    computeCapacityBreakdown: coreComputeCapacityBreakdown,
-    compileEffectiveInputsForState: (s) => compileEffectiveInputs(s),
-    computeMaxAttemptsByTactic: engine.computeMaxAttemptsByTactic
-  });
+  return getExecutionWeeklyController().computeWeeklyOpsContext(res, weeks);
 }
 
 function renderAssumptionDriftE1(res, weeks, { weeklyContext = null, executionSnapshot = null } = {}){
