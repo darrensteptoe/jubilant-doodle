@@ -1,0 +1,97 @@
+export function createEffectiveInputsController({
+  getState,
+  safeNum,
+  clamp,
+  canonicalDoorsPerHourFromSnap,
+  getEffectiveBaseRates,
+  getEffectiveBaseRatesFromSnap,
+  twCapOverrideModeFromState,
+  twCapResolveOverrideAttempts,
+  twCapPerOrganizerAttemptsPerWeek,
+} = {}){
+  function getCapacityDecayConfigFromState(srcState = getState()){
+    const s = srcState || {};
+    const toggles = s?.intelState?.expertToggles || {};
+    const model = toggles?.decayModel || {};
+    return {
+      enabled: !!toggles.capacityDecayEnabled,
+      type: String(model.type || "linear"),
+      weeklyDecayPct: safeNum(model.weeklyDecayPct),
+      floorPctOfBaseline: safeNum(model.floorPctOfBaseline),
+    };
+  }
+
+  function compileEffectiveInputs(srcState = getState()){
+    const baseState = getState();
+    const s = srcState || {};
+    const eff = (s === baseState) ? getEffectiveBaseRates() : getEffectiveBaseRatesFromSnap(s);
+
+    let orgCount = safeNum(s.orgCount);
+    const orgHoursPerWeek = safeNum(s.orgHoursPerWeek);
+    const volunteerMult = safeNum(s.volunteerMultBase);
+    const doorSharePct = safeNum(s.channelDoorPct);
+    const doorShare = (doorSharePct == null) ? null : clamp(doorSharePct, 0, 100) / 100;
+    const doorsPerHour = canonicalDoorsPerHourFromSnap(s);
+    const callsPerHour = safeNum(s.callsPerHour3);
+
+    let source = "baseline-manual";
+    let overrideTargetAttemptsPerWeek = null;
+    const overrideEnabled = !!s.twCapOverrideEnabled;
+    const overrideMode = twCapOverrideModeFromState(s);
+
+    if (overrideEnabled){
+      if (overrideMode === "baseline"){
+        source = "baseline-manual (override-baseline)";
+      } else {
+        const targetAttempts = twCapResolveOverrideAttempts(s);
+        const perOrganizerAttempts = twCapPerOrganizerAttemptsPerWeek({
+          capacity: {
+            orgCount: 1,
+            orgHoursPerWeek,
+            volunteerMult,
+            doorShare,
+            doorsPerHour,
+            callsPerHour,
+          }
+        });
+        if (targetAttempts != null && perOrganizerAttempts > 0){
+          orgCount = targetAttempts / perOrganizerAttempts;
+          overrideTargetAttemptsPerWeek = targetAttempts;
+          source = `operations-${overrideMode}`;
+        } else {
+          source = `baseline-manual (override-${overrideMode}-fallback)`;
+        }
+      }
+    }
+
+    return {
+      rates: {
+        cr: eff.cr,
+        sr: eff.sr,
+        tr: eff.tr,
+      },
+      capacity: {
+        orgCount,
+        orgHoursPerWeek,
+        volunteerMult,
+        doorSharePct,
+        doorShare,
+        doorsPerHour,
+        callsPerHour,
+        capacityDecay: getCapacityDecayConfigFromState(s),
+      },
+      meta: {
+        source,
+        twCapOverrideEnabled: overrideEnabled,
+        twCapOverrideMode: overrideMode,
+        twCapOverrideTargetAttemptsPerWeek: overrideTargetAttemptsPerWeek,
+      }
+    };
+  }
+
+  return {
+    getCapacityDecayConfigFromState,
+    compileEffectiveInputs,
+  };
+}
+
