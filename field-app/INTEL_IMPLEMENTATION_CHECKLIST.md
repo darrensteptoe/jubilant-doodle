@@ -66,3 +66,24 @@ This is the execution order for the calibration/governance expansion.
 - [x] Collapse stale duplicate render modules into compatibility wrappers so only one implementation path remains:
   - `/Users/anakinskywalker/Downloads/field-app-40/js/app/render/optimization.js`
   - `/Users/anakinskywalker/Downloads/field-app-40/js/app/render/timeline.js`
+
+## Phase 10: Architecture hardening (in progress)
+- [x] Canonicalize budget-shape guard into one shared helper:
+  - `/Users/anakinskywalker/Downloads/field-app-40/js/app/state.js` (`ensureBudgetShape`)
+  - reused by:
+    - `/Users/anakinskywalker/Downloads/field-app-40/js/app/normalizeLoadedState.js`
+    - `/Users/anakinskywalker/Downloads/field-app-40/js/app/wireEvents.js`
+- [x] Clarify normalize naming at app entrypoint:
+  - `/Users/anakinskywalker/Downloads/field-app-40/js/app.js`
+  - local wrapper renamed to `normalizeLoadedScenarioRuntime(...)` to distinguish from module normalizer.
+- [x] Extract Operations Capacity Outlook orchestration from `app.js` into dedicated module and wire through controller:
+  - `/Users/anakinskywalker/Downloads/field-app-40/js/app/operationsCapacityOutlook.js`
+  - `/Users/anakinskywalker/Downloads/field-app-40/js/app.js`
+- [x] Extract debug bundle assembly/copy from `app.js` into dedicated module:
+  - `/Users/anakinskywalker/Downloads/field-app-40/js/app/debugBundle.js`
+  - wrapper retained in `/Users/anakinskywalker/Downloads/field-app-40/js/app.js` for existing wiring.
+- [x] Document root re-export layer as compatibility-only and set canonical import policy:
+  - `/Users/anakinskywalker/Downloads/field-app-40/js/IMPORT_PATH_POLICY.md`
+  - shim headers added across root compatibility exports in `/Users/anakinskywalker/Downloads/field-app-40/js/*.js`
+- [x] Remove stale HTML scar tissue file:
+  - deleted `/Users/anakinskywalker/Downloads/field-app-40/index-original.html`
