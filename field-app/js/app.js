@@ -2994,9 +2994,40 @@ function runMonteCarloNow(){
   });
 }
 
-function runMonteCarloSim({ scenario, scenarioState, res, weeks, needVotes, runs, seed, includeMargins }){
+function runMonteCarloSim(argsOrScenario, legacyRes, legacyWeeks, legacyNeedVotes, legacyRuns, legacySeed, legacyIncludeMargins){
+  const looksObject = !!argsOrScenario && typeof argsOrScenario === "object" && !Array.isArray(argsOrScenario);
+  const hasNamedShape = looksObject && (
+    Object.prototype.hasOwnProperty.call(argsOrScenario, "scenario") ||
+    Object.prototype.hasOwnProperty.call(argsOrScenario, "scenarioState") ||
+    Object.prototype.hasOwnProperty.call(argsOrScenario, "res") ||
+    Object.prototype.hasOwnProperty.call(argsOrScenario, "weeks") ||
+    Object.prototype.hasOwnProperty.call(argsOrScenario, "needVotes") ||
+    Object.prototype.hasOwnProperty.call(argsOrScenario, "seed") ||
+    Object.prototype.hasOwnProperty.call(argsOrScenario, "includeMargins")
+  );
+
+  const payload = hasNamedShape
+    ? {
+      scenario: argsOrScenario.scenario || argsOrScenario.scenarioState || state,
+      res: argsOrScenario.res,
+      weeks: argsOrScenario.weeks,
+      needVotes: argsOrScenario.needVotes,
+      runs: argsOrScenario.runs,
+      seed: argsOrScenario.seed,
+      includeMargins: argsOrScenario.includeMargins,
+    }
+    : {
+      scenario: looksObject ? argsOrScenario : state,
+      res: legacyRes,
+      weeks: legacyWeeks,
+      needVotes: legacyNeedVotes,
+      runs: legacyRuns,
+      seed: legacySeed,
+      includeMargins: legacyIncludeMargins,
+    };
+
   // Delegated to core Monte Carlo via facade (no loops in UI).
-  return engine.runMonteCarlo({ scenario: scenario || scenarioState || state, res, weeks, needVotes, runs, seed, includeMargins });
+  return engine.runMonteCarlo(payload);
 }
 
 function renderMcResults(summary){
