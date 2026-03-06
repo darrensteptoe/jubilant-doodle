@@ -134,6 +134,31 @@ export function makeDefaultState({ createId = defaultCreateId } = {}){
   };
 }
 
+export function ensureBudgetShape(target, { createId = defaultCreateId } = {}){
+  if (!target || typeof target !== "object") return null;
+  const baseBudget = makeDefaultState({ createId }).budget;
+  const srcBudget = (target.budget && typeof target.budget === "object") ? target.budget : {};
+  const srcTactics = (srcBudget.tactics && typeof srcBudget.tactics === "object") ? srcBudget.tactics : {};
+  const srcOptimize = (srcBudget.optimize && typeof srcBudget.optimize === "object") ? srcBudget.optimize : {};
+
+  target.budget = {
+    ...baseBudget,
+    ...srcBudget,
+    tactics: {
+      ...baseBudget.tactics,
+      ...srcTactics,
+      doors: { ...baseBudget.tactics.doors, ...(srcTactics.doors || {}) },
+      phones: { ...baseBudget.tactics.phones, ...(srcTactics.phones || {}) },
+      texts: { ...baseBudget.tactics.texts, ...(srcTactics.texts || {}) },
+    },
+    optimize: {
+      ...baseBudget.optimize,
+      ...srcOptimize,
+    },
+  };
+  return target.budget;
+}
+
 export function normalizeLoadedState(s, { createId = defaultCreateId } = {}){
   const base = makeDefaultState({ createId });
   const out = { ...base, ...s };
@@ -143,14 +168,7 @@ export function normalizeLoadedState(s, { createId = defaultCreateId } = {}){
   out.intelState = normalizeIntelState(s?.intelState);
   out.ui = { ...base.ui, ...(s?.ui || {}) };
 
-  out.budget = (s?.budget && typeof s.budget === "object")
-    ? {
-      ...base.budget,
-      ...s.budget,
-      tactics: { ...base.budget.tactics, ...(s.budget.tactics || {}) },
-      optimize: { ...base.budget.optimize, ...(s.budget.optimize || {}) },
-    }
-    : structuredClone(base.budget);
+  ensureBudgetShape(out, { createId });
 
   if (!out.yourCandidateId && out.candidates[0]) out.yourCandidateId = out.candidates[0].id;
   if ((out.gotvDiminishing == null) && Object.prototype.hasOwnProperty.call(src, "gotvDiminishing2")){

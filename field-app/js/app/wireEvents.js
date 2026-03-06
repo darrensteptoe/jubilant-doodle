@@ -23,6 +23,7 @@ import {
   removeBenchmarkEntry,
   upsertBenchmarkEntry,
 } from "./intelControls.js";
+import { ensureBudgetShape } from "./state.js";
 
 export function wireBudgetTimelineEvents(ctx){
   const { els, state: initialState, getState, safeNum, commitUIUpdate, render } = ctx || {};
@@ -42,32 +43,7 @@ export function wireBudgetTimelineEvents(ctx){
   if (!els || !currentState()) return;
 
   const ensureBudget = (state) => {
-    if (!state.budget){
-      state.budget = {
-        overheadAmount: 0,
-        includeOverhead: false,
-        tactics: {
-          doors: { enabled: true, cpa: 0, crPct: null, srPct: null, kind: "persuasion" },
-          phones: { enabled: true, cpa: 0, crPct: null, srPct: null, kind: "persuasion" },
-          texts: { enabled: false, cpa: 0, crPct: null, srPct: null, kind: "persuasion" }
-        },
-        optimize: {
-          mode: "budget",
-          budgetAmount: 10000,
-          capacityAttempts: "",
-          step: 25,
-          useDecay: false,
-          objective: "net",
-          tlConstrainedEnabled: false,
-          tlConstrainedObjective: "max_net"
-        }
-      };
-    }
-    if (!state.budget.tactics) state.budget.tactics = { doors: { enabled: true, cpa: 0, crPct: null, srPct: null }, phones: { enabled: true, cpa: 0, crPct: null, srPct: null }, texts: { enabled: false, cpa: 0, crPct: null, srPct: null } };
-    if (!state.budget.optimize) state.budget.optimize = { mode: "budget", budgetAmount: 10000, capacityAttempts: "", step: 25, useDecay: false, objective: "net", tlConstrainedEnabled: false, tlConstrainedObjective: "max_net" };
-    if (!state.budget.tactics.doors) state.budget.tactics.doors = { enabled: true, cpa: 0, crPct: null, srPct: null };
-    if (!state.budget.tactics.phones) state.budget.tactics.phones = { enabled: true, cpa: 0, crPct: null, srPct: null };
-    if (!state.budget.tactics.texts) state.budget.tactics.texts = { enabled: false, cpa: 0, crPct: null, srPct: null };
+    ensureBudgetShape(state);
   };
 
   const watchBool = (el, fn) => {

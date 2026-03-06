@@ -1,5 +1,6 @@
 import { normalizeIntelState } from "../core/intelState.js";
 import { syncFeatureFlagsFromState } from "./featureFlags.js";
+import { ensureBudgetShape } from "./state.js";
 
 export function normalizeLoadedStateModule(s, deps){
   const {
@@ -19,14 +20,7 @@ export function normalizeLoadedStateModule(s, deps){
   out.intelState = normalizeIntelState(src.intelState);
   out.ui = { ...base.ui, ...(src.ui || {}) };
 
-  out.budget = (src.budget && typeof src.budget === "object")
-    ? {
-        ...base.budget,
-        ...src.budget,
-        tactics: { ...base.budget.tactics, ...(src.budget.tactics || {}) },
-        optimize: { ...base.budget.optimize, ...(src.budget.optimize || {}) }
-      }
-    : structuredClone(base.budget);
+  ensureBudgetShape(out);
 
   if (!out.yourCandidateId && out.candidates[0]) out.yourCandidateId = out.candidates[0].id;
   out.crmEnabled = !!out.crmEnabled;
