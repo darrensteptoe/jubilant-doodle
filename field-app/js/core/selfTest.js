@@ -54,6 +54,7 @@ import {
   computeEvidenceWarnings,
 } from "../app/intelAudit.js";
 import { syncFeatureFlagsFromState } from "../app/featureFlags.js";
+import { normalizeLoadedState as normalizeLoadedStateApp } from "../app/state.js";
 import { resolveFeatureFlags } from "./featureFlags.js";
 
 function withUniverseDefaults(s){
@@ -2863,6 +2864,17 @@ export function runSelfTests(engine){
     assert(features.risk?.shockScenariosEnabled === false, "risk.shockScenariosEnabled mismatch");
     assert(features.capacity?.decayEnabled === true, "capacity.decayEnabled mismatch");
     assert(s.turnoutEnabled === true && s.timelineEnabled === true && s.universeLayerEnabled === true, "legacy booleans should remain aligned");
+    return true;
+  });
+
+  test("Phase 9: legacy GOTV diminishing key migrates to canonical load state", () => {
+    const migrated = normalizeLoadedStateApp({
+      gotvMode: "advanced",
+      gotvDiminishing2: true,
+      gotvDiminishing: null,
+    });
+    assert(!!migrated.gotvDiminishing === true, "legacy gotvDiminishing2 should migrate to gotvDiminishing=true");
+    assert(!Object.prototype.hasOwnProperty.call(migrated, "gotvDiminishing2"), "legacy gotvDiminishing2 should be removed after normalization");
     return true;
   });
 
