@@ -87,3 +87,26 @@ This is the execution order for the calibration/governance expansion.
   - shim headers added across root compatibility exports in `/Users/anakinskywalker/Downloads/field-app-40/js/*.js`
 - [x] Remove stale HTML scar tissue file:
   - deleted `/Users/anakinskywalker/Downloads/field-app-40/index-original.html`
+- [x] Extract backup/recovery orchestration from `app.js` into dedicated controller:
+  - `/Users/anakinskywalker/Downloads/field-app-40/js/app/backupRecovery.js`
+  - wrappers retained in `/Users/anakinskywalker/Downloads/field-app-40/js/app.js` for existing wiring.
+
+## Phase 11: A-grade structural backlog (deferred until Phase 0-10 complete)
+Execution order below is fixed and must be followed in sequence.
+
+1. [ ] Delete orphaned runtime landmines
+   - remove `/Users/anakinskywalker/Downloads/field-app-40/js/wireEvents.js` after import-path verification.
+2. [ ] Doc artifact cleanup
+   - normalize absolute local paths in `/Users/anakinskywalker/Downloads/field-app-40/js/features/operations/README.md`.
+3. [ ] Consolidate micro-file clusters
+   - Monte Carlo app cluster into one canonical module.
+   - Decision-session cluster into one canonical module.
+4. [ ] JSDoc type the `ctx` pattern
+   - introduce shared typedefs and `@ts-check` on app-layer modules.
+5. [ ] Expand self-test coverage for currently under-tested core modules
+   - `winMath`, `rng`, `robust`, `explainMap`, `importQuality`, `executionPlanner`.
+6. [ ] Formalize Operations/Engine seam
+   - define and validate `OperationsCapacityInput` contract at handoff.
+7. [ ] TypeScript + Vite migration (last)
+   - Phase A: add Vite build/dev pipeline.
+   - Phase B: staged TS migration bottom-up from `core/*`.
