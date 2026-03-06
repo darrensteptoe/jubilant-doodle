@@ -108,6 +108,9 @@ This is the execution order for the calibration/governance expansion.
 - [x] Extract effective-input compiler and decay parsing from `app.js` into dedicated module:
   - `/Users/anakinskywalker/Downloads/field-app-40/js/app/effectiveInputs.js`
   - wrappers retained in `/Users/anakinskywalker/Downloads/field-app-40/js/app.js` for existing wiring.
+- [x] Extract Monte Carlo stale/hash state handlers from `app.js` into dedicated controller:
+  - `/Users/anakinskywalker/Downloads/field-app-40/js/app/mcState.js`
+  - wrappers retained in `/Users/anakinskywalker/Downloads/field-app-40/js/app.js` for existing wiring.
 
 ## Phase 11: A-grade structural backlog (deferred until Phase 0-10 complete)
 Execution order below is fixed and must be followed in sequence.
