@@ -142,6 +142,7 @@ export function makeDefaultIntelState(){
     briefs: [],
     recommendations: [],
     observedMetrics: [],
+    intelRequests: [],
     correlationModels: [],
     shockScenarios: [],
     workflow: {
@@ -188,6 +189,7 @@ export function normalizeIntelState(raw){
   out.briefs = toArray(raw.briefs);
   out.recommendations = toArray(raw.recommendations);
   out.observedMetrics = toArray(raw.observedMetrics);
+  out.intelRequests = toArray(raw.intelRequests);
   const wfIn = isObject(raw.workflow) ? raw.workflow : {};
   const baselineRaw = toStringOrNull(wfIn.governanceBaselineAt);
   const hasGovernanceTrackedRows = out.audit.some((x) => x && x.governanceTracked === true);

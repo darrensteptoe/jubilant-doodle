@@ -42,7 +42,9 @@ import { renderRoiModule } from "../app/renderRoi.js";
 import { renderOptimizationModule } from "../app/renderOptimization.js";
 import { computeWeeklyOpsContextFromState, getEffectiveBaseRates } from "../app/selectors.js";
 import {
+  applyRecommendationDraftPatch,
   captureObservedMetricsFromDrift,
+  createWhatIfIntelRequest,
   refreshDriftRecommendationsFromDrift,
   computeIntelIntegrityScore,
   listMissingEvidenceAudit,
@@ -1923,6 +1925,69 @@ export function runSelfTests(engine){
     assert((state.intelState.recommendations || []).length === 0, "Auto recommendations should clear when no log");
     const autoFlags = (state.intelState.flags || []).filter((x) => String(x?.source || "") === "auto.realityDrift.v1");
     assert(autoFlags.length === 0, "Auto drift flags should clear when no log");
+    return true;
+  });
+
+  test("Phase17 feedback: recommendation draft patch applies deterministically", () => {
+    const state = {
+      ui: {},
+      contactRatePct: 22,
+      supportRatePct: 55,
+      intelState: makeDefaultIntelState(),
+    };
+    state.intelState.recommendations = [
+      {
+        id: "rec_apply_contact",
+        title: "Contact rate is below plan",
+        source: "auto.realityDrift.v1",
+        priority: 1,
+        draftPatch: {
+          type: "setInput",
+          target: "contactRatePct",
+          suggestedValue: 33.3,
+          unit: "pct",
+        },
+      },
+    ];
+
+    const a = applyRecommendationDraftPatch(state, { recommendationId: "rec_apply_contact" });
+    assert(a.ok, "Expected recommendation patch apply to succeed");
+    assert(a.noop !== true, "Expected recommendation patch apply to write changes");
+    assert(approx(state.contactRatePct, 33.3, 1e-9), `Expected contactRatePct=33.3, got ${state.contactRatePct}`);
+
+    const rec = (state.intelState.recommendations || [])[0];
+    assert(String(rec?.status || "") === "applied", "Recommendation status should be applied");
+    assert(Number(rec?.applyCount || 0) === 1, "Recommendation applyCount should increment");
+    assert(Array.isArray(rec?.lastAppliedChanges) && rec.lastAppliedChanges.length === 1, "Expected one recorded applied change");
+    return true;
+  });
+
+  test("Phase17 feedback: what-if parser stores intel requests deterministically", () => {
+    const state = {
+      supportRatePct: 55,
+      contactRatePct: 33,
+      intelState: makeDefaultIntelState(),
+    };
+    const out = createWhatIfIntelRequest(state, "Set support rate to 60 and contact rate +2");
+    assert(out.ok, `Expected what-if parser success, got ${out.error || "unknown error"}`);
+    assert(Number(out.parsedTargets) === 2, `Expected 2 parsed targets, got ${out.parsedTargets}`);
+    assert(Array.isArray(state.intelState.intelRequests) && state.intelState.intelRequests.length === 1, "Expected one intel request row");
+
+    const row = state.intelState.intelRequests[0] || {};
+    assert(row && typeof row === "object", "Expected intel request row object");
+    assert(String(row.status || "") === "parsed", `Expected parsed status, got ${row.status}`);
+    assert(String(row.parsed?.action || "") === "what_if", "Expected parsed action=what_if");
+    const targets = Array.isArray(row.parsed?.targets) ? row.parsed.targets : [];
+    assert(targets.length === 2, `Expected 2 stored parsed targets, got ${targets.length}`);
+
+    const support = targets.find((t) => String(t?.key || "") === "supportRatePct");
+    assert(support && String(support.op || "") === "set", "Expected support-rate set target");
+    assert(approx(Number(support?.suggestedValue), 60, 1e-9), `Expected support-rate value 60, got ${support?.suggestedValue}`);
+
+    const contact = targets.find((t) => String(t?.key || "") === "contactRatePct");
+    assert(contact && String(contact.op || "") === "delta", "Expected contact-rate delta target");
+    assert(approx(Number(contact?.delta), 2, 1e-9), `Expected contact-rate delta +2, got ${contact?.delta}`);
+    assert(approx(Number(contact?.suggestedValue), 35, 1e-9), `Expected contact-rate suggested value 35, got ${contact?.suggestedValue}`);
     return true;
   });
 

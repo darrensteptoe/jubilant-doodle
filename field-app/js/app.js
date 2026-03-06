@@ -803,6 +803,7 @@ async function copyDebugBundle(){
           briefs: Array.isArray(intel?.briefs) ? intel.briefs.length : 0,
           recommendations: Array.isArray(intel?.recommendations) ? intel.recommendations.length : 0,
           observedMetrics: Array.isArray(intel?.observedMetrics) ? intel.observedMetrics.length : 0,
+          intelRequests: Array.isArray(intel?.intelRequests) ? intel.intelRequests.length : 0,
           correlationModels: Array.isArray(intel?.correlationModels) ? intel.correlationModels.length : 0,
           shockScenarios: Array.isArray(intel?.shockScenarios) ? intel.shockScenarios.length : 0,
         },
