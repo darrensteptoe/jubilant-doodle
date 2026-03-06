@@ -429,7 +429,6 @@ function normalizeMonteCarloArgs(argsOrScenario, legacyRes, legacyWeeks, legacyN
     Object.prototype.hasOwnProperty.call(argsOrScenario, "res") ||
     Object.prototype.hasOwnProperty.call(argsOrScenario, "weeks") ||
     Object.prototype.hasOwnProperty.call(argsOrScenario, "needVotes") ||
-    Object.prototype.hasOwnProperty.call(argsOrScenario, "runs") ||
     Object.prototype.hasOwnProperty.call(argsOrScenario, "seed") ||
     Object.prototype.hasOwnProperty.call(argsOrScenario, "includeMargins")
   );
