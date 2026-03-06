@@ -8,6 +8,7 @@
 
 import { computeVolunteerNeedFromGoal } from "./executionPlanner.js";
 import { buildModelInputFromSnapshot } from "./modelInput.js";
+import { resolveFeatureFlags } from "./featureFlags.js";
 
 function safeNum(v){
   const n = Number(v);
@@ -36,8 +37,9 @@ function buildBaseRatesFromSnap(snap){
 
 function buildTimelineCapsInputFromSnap({ snap, weeks, tactics }){
   const s = snap || {};
+  const features = resolveFeatureFlags(s);
   return {
-    enabled: !!s.timelineEnabled,
+    enabled: !!features.timelineEnabled,
     weeksRemaining: weeks,
     activeWeeksOverride: safeNum(s.timelineActiveWeeks),
     gotvWindowWeeks: safeNum(s.timelineGotvWeeks) ?? 2,
@@ -150,6 +152,7 @@ function detectBottlenecks({ snap, maxAttemptsByTactic }){
 
 function buildLevers({ snap }){
   const levers = [];
+  const features = resolveFeatureFlags(snap || {});
 
   // +1pp rates
   levers.push({
@@ -184,7 +187,7 @@ function buildLevers({ snap }){
   });
 
   // Turnout +1pp (only meaningful when turnout module active)
-  if (!!snap.turnoutEnabled){
+  if (!!features.turnoutModelingEnabled){
     const useOverride = (safeNum(snap.turnoutTargetOverridePct) != null);
     if (useOverride){
       levers.push({
@@ -237,6 +240,7 @@ export function computeDecisionIntelligence({ engine, snap, baseline }){
 
   try{
     if (!engine || !snap || typeof snap !== "object") return safeStub;
+    const baseFeatures = resolveFeatureFlags(snap || {});
 
     const computePlanFromSnap = (targetSnap) => {
       if (typeof engine.computeElectionSnapshot === "function"){
@@ -285,7 +289,7 @@ export function computeDecisionIntelligence({ engine, snap, baseline }){
       const seed = (snap.mcSeed != null && String(snap.mcSeed).trim() !== "") ? String(snap.mcSeed) : DI_FALLBACK_SEED;
       const sim = engine.runMonteCarloSim({ res, weeks, needVotes, runs: 10000, seed });
       const s = sim?.summary || sim || {};
-      const winProb = (!!snap.turnoutEnabled && Number.isFinite(s.winProbTurnoutAdjusted)) ? s.winProbTurnoutAdjusted : s.winProb;
+      const winProb = (!!baseFeatures.turnoutModelingEnabled && Number.isFinite(s.winProbTurnoutAdjusted)) ? s.winProbTurnoutAdjusted : s.winProb;
 
       // ROI cost lens
       const baseRates = buildBaseRatesFromSnap(snap);
@@ -325,6 +329,7 @@ export function computeDecisionIntelligence({ engine, snap, baseline }){
       const out = engine.withPatchedState(lv.patch, () => {
         const nextSnap = engine.getStateSnapshot ? engine.getStateSnapshot() : null;
         const workSnap = nextSnap || {};
+        const workFeatures = resolveFeatureFlags(workSnap || {});
 
         const plan = computePlanFromSnap(workSnap);
         const weeks = plan?.weeks ?? null;
@@ -344,7 +349,7 @@ export function computeDecisionIntelligence({ engine, snap, baseline }){
         const seed = (workSnap.mcSeed != null && String(workSnap.mcSeed).trim() !== "") ? String(workSnap.mcSeed) : DI_FALLBACK_SEED;
         const sim = engine.runMonteCarloSim({ res, weeks, needVotes, runs: 10000, seed });
         const s = sim?.summary || sim || {};
-        const winProb = (!!workSnap.turnoutEnabled && Number.isFinite(s.winProbTurnoutAdjusted)) ? s.winProbTurnoutAdjusted : s.winProb;
+        const winProb = (!!workFeatures.turnoutModelingEnabled && Number.isFinite(s.winProbTurnoutAdjusted)) ? s.winProbTurnoutAdjusted : s.winProb;
 
         const baseRates = buildBaseRatesFromSnap(workSnap);
         const tactics = engine.buildOptimizationTactics({ baseRates, tactics: workSnap.budget?.tactics || {} });

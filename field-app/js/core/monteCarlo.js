@@ -23,6 +23,7 @@ import { computeAvgLiftPP } from "./turnout.js";
 import { computeUniverseAdjustedRates, normalizeUniversePercents } from "./universeLayer.js";
 import { computeCapacityContacts } from "./model.js";
 import { computeConfidenceEnvelope } from "./confidenceEnvelope.js";
+import { resolveFeatureFlags } from "./featureFlags.js";
 
 // --- helpers (verbatim logic from prior app.js) ---
 function pctToUnit(v, fallback){
@@ -188,8 +189,8 @@ function pearson(xs, ys){
   return num / den;
 }
 
-function getUniverseLayerConfig(sc){
-  const enabled = !!sc.universeLayerEnabled;
+function getUniverseLayerConfig(sc, resolvedFeatures){
+  const enabled = !!resolvedFeatures?.universeWeightingEnabled;
   const demPct = safeNum(sc.universeDemPct);
   const repPct = safeNum(sc.universeRepPct);
   const npaPct = safeNum(sc.universeNpaPct);
@@ -300,11 +301,11 @@ function normalizeRefKey(ref){
   return String(ref || "").toLowerCase().replace(/[^a-z0-9]/g, "");
 }
 
-function resolveCorrelationConfig(sc, distribution){
+function resolveCorrelationConfig(sc, distribution, resolvedFeatures){
   const intel = sc?.intelState;
   const toggles = intel?.simToggles || {};
   const modelId = String(toggles?.correlationMatrixId || "").trim();
-  if (!toggles?.correlatedShocks) return { applied: false, reason: "off" };
+  if (!resolvedFeatures?.correlatedShocks) return { applied: false, reason: "off" };
   if (distribution !== "triangular") return { applied: false, reason: "distribution_not_supported" };
   if (!modelId) return { applied: false, reason: "no_model_selected" };
   const models = Array.isArray(intel?.correlationModels) ? intel.correlationModels : [];
@@ -335,21 +336,20 @@ function toProb01(v){
   return clamp(n, 0, 1);
 }
 
-function resolveCapacityDecayConfig(sc){
+function resolveCapacityDecayConfig(sc, resolvedFeatures){
   const toggles = sc?.intelState?.expertToggles || {};
   const model = toggles?.decayModel || {};
   return {
-    enabled: !!toggles.capacityDecayEnabled,
+    enabled: !!resolvedFeatures?.capacityDecayEnabled,
     type: String(model?.type || "linear"),
     weeklyDecayPct: Number(model?.weeklyDecayPct),
     floorPctOfBaseline: Number(model?.floorPctOfBaseline),
   };
 }
 
-function resolveShockScenarioConfig(sc){
+function resolveShockScenarioConfig(sc, resolvedFeatures){
   const intel = sc?.intelState;
-  const toggles = intel?.simToggles || {};
-  if (!toggles?.shockScenariosEnabled){
+  if (!resolvedFeatures?.shockScenariosEnabled){
     return { enabled: false, reason: "off", scenarios: [], configured: 0 };
   }
 
@@ -424,10 +424,11 @@ function applyShockImpacts(values, impacts){
 export function runMonteCarloSim({ scenario, scenarioState, res, weeks, needVotes, runs, seed, includeMargins }){
   const sc = scenario || scenarioState || {}; 
   const mode = sc.mcMode || "basic";
-  const distribution = normalizeDistribution(sc?.intelState?.simToggles?.mcDistribution);
-  const correlationCfg = resolveCorrelationConfig(sc, distribution);
-  const shockCfg = resolveShockScenarioConfig(sc);
-  const capacityDecayCfg = resolveCapacityDecayConfig(sc);
+  const resolvedFeatures = resolveFeatureFlags(sc);
+  const distribution = normalizeDistribution(resolvedFeatures?.mcDistribution);
+  const correlationCfg = resolveCorrelationConfig(sc, distribution, resolvedFeatures);
+  const shockCfg = resolveShockScenarioConfig(sc, resolvedFeatures);
+  const capacityDecayCfg = resolveCapacityDecayConfig(sc, resolvedFeatures);
 
   // Base rates
   const baseCr = pctToUnit(safeNum(sc.contactRatePct), 0.22);
@@ -435,7 +436,7 @@ export function runMonteCarloSim({ scenario, scenarioState, res, weeks, needVote
   const rawRr = pctToUnit(safeNum(sc.turnoutReliabilityPct), 0.80);
 
   // Phase 16 — optional universe weighting + retention (no drift when disabled)
-  const cfg = getUniverseLayerConfig(sc);
+  const cfg = getUniverseLayerConfig(sc, resolvedFeatures);
   const adj = computeUniverseAdjustedRates({
     enabled: cfg.enabled,
     universePercents: cfg.percents,
@@ -475,7 +476,7 @@ export function runMonteCarloSim({ scenario, scenarioState, res, weeks, needVote
     volunteerMult: new Array(runs),
   };
 
-  const turnoutEnabled = !!sc.turnoutEnabled;
+  const turnoutEnabled = !!resolvedFeatures?.turnoutModelingEnabled;
   const baseTurnoutPct = (safeNum(sc.turnoutTargetOverridePct) != null) ? safeNum(sc.turnoutTargetOverridePct) : safeNum(sc.turnoutBaselinePct);
   const gotvMaxLiftPP = (sc.gotvMode === "advanced") ? safeNum(sc.gotvMaxLiftPP2) : safeNum(sc.gotvMaxLiftPP);
   const useDim = (sc.gotvMode === "advanced") ? !!sc.gotvDiminishing2 : !!sc.gotvDiminishing;
@@ -682,14 +683,14 @@ export function runMonteCarloSim({ scenario, scenarioState, res, weeks, needVote
     needVotes,
     distribution,
     correlation: {
-      enabled: !!sc?.intelState?.simToggles?.correlatedShocks,
+      enabled: !!resolvedFeatures?.correlatedShocks,
       applied: !!correlationCfg.applied,
       modelId: correlationCfg?.modelId || null,
       modelLabel: correlationCfg?.modelLabel || null,
       reason: correlationCfg?.reason || "off",
     },
     shocks: {
-      enabled: !!sc?.intelState?.simToggles?.shockScenariosEnabled,
+      enabled: !!resolvedFeatures?.shockScenariosEnabled,
       configured: shockCfg?.configured || 0,
       activeScenarios: Array.isArray(shockCfg?.scenarios) ? shockCfg.scenarios.length : 0,
       appliedRuns: shockAppliedRuns,

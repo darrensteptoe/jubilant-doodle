@@ -11,6 +11,7 @@ import {
 } from "./model.js";
 import { clamp } from "./utils.js";
 import { buildDeterministicExplainMap } from "./explainMap.js";
+import { resolveFeatureFlags } from "./featureFlags.js";
 
 function toNumDefault(v){
   const n = Number(v);
@@ -31,10 +32,11 @@ function toElectionDateIso(dateRaw){
 }
 
 function resolveCapacityDecayFromState(snap){
+  const features = resolveFeatureFlags(snap || {});
   const toggles = snap?.intelState?.expertToggles || {};
   const model = toggles?.decayModel || {};
   return {
-    enabled: !!toggles.capacityDecayEnabled,
+    enabled: !!features.capacityDecayEnabled,
     type: String(model.type || "linear"),
     weeklyDecayPct: Number(model.weeklyDecayPct),
     floorPctOfBaseline: Number(model.floorPctOfBaseline),

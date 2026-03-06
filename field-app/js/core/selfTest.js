@@ -54,6 +54,7 @@ import {
   computeEvidenceWarnings,
 } from "../app/intelAudit.js";
 import { syncFeatureFlagsFromState } from "../app/featureFlags.js";
+import { resolveFeatureFlags } from "./featureFlags.js";
 
 function withUniverseDefaults(s){
   // Phase 16 fields are now required for stable hashing/export roundtrips.
@@ -2886,6 +2887,46 @@ export function runSelfTests(engine){
     assert(s.intelState?.simToggles?.correlatedShocks === true, "intel correlatedShocks should mirror features");
     assert(s.intelState?.simToggles?.shockScenariosEnabled === false, "intel shockScenariosEnabled should mirror features");
     assert(s.intelState?.expertToggles?.capacityDecayEnabled === true, "intel capacityDecayEnabled should mirror features");
+    return true;
+  });
+
+  test("Phase 9: core feature resolver prefers features with legacy fallback", () => {
+    const legacyOnly = {
+      turnoutEnabled: true,
+      timelineEnabled: false,
+      universeLayerEnabled: true,
+      intelState: {
+        simToggles: { mcDistribution: "normal", correlatedShocks: true, shockScenariosEnabled: false },
+        expertToggles: { capacityDecayEnabled: true },
+      },
+    };
+    const a = resolveFeatureFlags(legacyOnly);
+    assert(a.turnoutModelingEnabled === true, "legacy turnout fallback mismatch");
+    assert(a.timelineEnabled === false, "legacy timeline fallback mismatch");
+    assert(a.universeWeightingEnabled === true, "legacy universe fallback mismatch");
+    assert(a.mcDistribution === "normal", "legacy mcDistribution fallback mismatch");
+    assert(a.correlatedShocks === true, "legacy correlatedShocks fallback mismatch");
+    assert(a.shockScenariosEnabled === false, "legacy shockScenarios fallback mismatch");
+    assert(a.capacityDecayEnabled === true, "legacy capacityDecay fallback mismatch");
+
+    const withFeatures = {
+      ...legacyOnly,
+      features: {
+        turnout: { modelingEnabled: false },
+        timeline: { enabled: true },
+        universe: { weightingEnabled: false },
+        risk: { mcDistribution: "uniform", correlatedShocks: false, shockScenariosEnabled: true },
+        capacity: { decayEnabled: false },
+      }
+    };
+    const b = resolveFeatureFlags(withFeatures);
+    assert(b.turnoutModelingEnabled === false, "feature turnout precedence mismatch");
+    assert(b.timelineEnabled === true, "feature timeline precedence mismatch");
+    assert(b.universeWeightingEnabled === false, "feature universe precedence mismatch");
+    assert(b.mcDistribution === "uniform", "feature distribution precedence mismatch");
+    assert(b.correlatedShocks === false, "feature correlatedShocks precedence mismatch");
+    assert(b.shockScenariosEnabled === true, "feature shockScenarios precedence mismatch");
+    assert(b.capacityDecayEnabled === false, "feature capacityDecay precedence mismatch");
     return true;
   });
 
