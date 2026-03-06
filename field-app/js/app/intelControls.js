@@ -1,5 +1,5 @@
 // js/app/intelControls.js
-// Intel metadata helpers (benchmarks + evidence). Must not alter deterministic math.
+// Intel helpers for metadata, governance, and controlled recommendation application.
 import { resolveAuditRequirementStatus } from "./intelAudit.js";
 
 const REF_LABELS = {
@@ -156,6 +156,7 @@ export function ensureIntelCollections(state){
   ensureArray(intel, "briefs");
   ensureArray(intel, "recommendations");
   ensureArray(intel, "observedMetrics");
+  ensureArray(intel, "intelRequests");
   ensureArray(intel, "correlationModels");
   ensureArray(intel, "shockScenarios");
   if (!isObject(intel.workflow)){
@@ -609,6 +610,309 @@ function compareFlagRows(a, b){
     && cleanString(a.severity) === cleanString(b.severity)
     && cleanString(a.message) === cleanString(b.message)
     && cleanString(a.ref) === cleanString(b.ref);
+}
+
+function normalizePatchValue(raw){
+  if (typeof raw === "boolean") return raw;
+  const n = toNumOrNull(raw);
+  if (n != null) return n;
+  if (raw == null) return null;
+  const s = String(raw).trim();
+  return s === "" ? null : s;
+}
+
+function patchValuesEqual(a, b){
+  if (typeof a === "number" && typeof b === "number"){
+    return approxEq(a, b, 1e-9);
+  }
+  return Object.is(a, b);
+}
+
+function collectDraftPatchTargets(draftPatch){
+  if (!isObject(draftPatch)) return [];
+  const out = [];
+  const add = (row) => {
+    if (!isObject(row)) return;
+    const key = cleanString(row.key || row.target);
+    if (!key) return;
+    const hasSuggested = Object.prototype.hasOwnProperty.call(row, "suggestedValue");
+    const hasValue = Object.prototype.hasOwnProperty.call(row, "value");
+    const valueRaw = hasSuggested ? row.suggestedValue : (hasValue ? row.value : null);
+    const value = normalizePatchValue(valueRaw);
+    if (value == null) return;
+    out.push({ key, value });
+  };
+
+  const type = cleanString(draftPatch.type).toLowerCase();
+  if (type === "setinput" || type === "set_input"){
+    add(draftPatch);
+  } else if (type === "setinputs" || type === "set_inputs"){
+    const rows = Array.isArray(draftPatch.targets) ? draftPatch.targets : [];
+    for (const row of rows) add(row);
+  }
+  return out;
+}
+
+function pickRecommendationRow(intel, recommendationId = ""){
+  const rows = ensureArray(intel, "recommendations");
+  const wanted = cleanString(recommendationId);
+  if (wanted){
+    return rows.find((row) => cleanString(row?.id) === wanted) || null;
+  }
+  return rows
+    .filter((row) => cleanString(row?.source) === "auto.realityDrift.v1")
+    .slice()
+    .sort((a, b) => Number(a?.priority || 99) - Number(b?.priority || 99))[0] || null;
+}
+
+export function applyRecommendationDraftPatch(state, {
+  recommendationId = "",
+  setPendingNoteMarker = true,
+} = {}){
+  const intel = ensureIntelCollections(state);
+  if (!intel) return { ok: false, error: "Intel state unavailable." };
+
+  const rec = pickRecommendationRow(intel, recommendationId);
+  if (!rec){
+    return { ok: false, error: "No recommendation is available to apply." };
+  }
+
+  const targets = collectDraftPatchTargets(rec.draftPatch);
+  if (!targets.length){
+    return { ok: false, error: "Recommendation draft patch has no supported targets.", recommendationId: cleanString(rec.id) };
+  }
+
+  const now = nowIso();
+  const changes = [];
+  const unknownKeys = [];
+
+  for (const target of targets){
+    const key = cleanString(target?.key);
+    if (!key) continue;
+    if (!Object.prototype.hasOwnProperty.call(state, key)){
+      unknownKeys.push(key);
+      continue;
+    }
+    const before = state[key];
+    const after = target.value;
+    if (patchValuesEqual(before, after)) continue;
+    state[key] = after;
+    changes.push({ key, before, after });
+  }
+
+  if (!changes.length){
+    rec.updatedAt = now;
+    rec.lastAppliedAt = now;
+    rec.status = "alreadyApplied";
+    if (!Array.isArray(rec.appliedAuditIds)) rec.appliedAuditIds = [];
+    return {
+      ok: true,
+      noop: true,
+      recommendationId: cleanString(rec.id),
+      recommendationTitle: cleanString(rec.title),
+      changes: [],
+      unknownKeys,
+      noteMarker: "",
+    };
+  }
+
+  let noteMarker = "";
+  const workflow = getIntelWorkflow(state) || {};
+  if (setPendingNoteMarker && workflow.requireCriticalNote !== false){
+    noteMarker = `[rec:${cleanString(rec.id) || "unknown"}] ${cleanString(rec.title) || "Applied recommendation"}`;
+    if (!isObject(state.ui)) state.ui = {};
+    const prevNote = cleanString(state.ui.pendingCriticalNote);
+    if (!prevNote.includes(noteMarker)){
+      state.ui.pendingCriticalNote = prevNote ? `${prevNote}\n${noteMarker}` : noteMarker;
+    }
+  }
+
+  rec.updatedAt = now;
+  rec.lastAppliedAt = now;
+  rec.applyCount = Math.max(0, Number(rec.applyCount) || 0) + 1;
+  rec.status = "applied";
+  rec.lastAppliedChanges = changes.map((row) => ({
+    key: row.key,
+    before: row.before,
+    after: row.after,
+  }));
+  if (!Array.isArray(rec.appliedAuditIds)) rec.appliedAuditIds = [];
+
+  return {
+    ok: true,
+    noop: false,
+    recommendationId: cleanString(rec.id),
+    recommendationTitle: cleanString(rec.title),
+    changes,
+    unknownKeys,
+    noteMarker,
+  };
+}
+
+const WHAT_IF_FIELD_SPECS = [
+  { key: "supportRatePct", ref: "core.supportRatePct", label: "Support rate %", unit: "pct", patterns: [/\bsupport\s*rate\b/i, /\bsr\b/i] },
+  { key: "contactRatePct", ref: "core.contactRatePct", label: "Contact rate %", unit: "pct", patterns: [/\bcontact\s*rate\b/i, /\bcr\b/i] },
+  { key: "turnoutBaselinePct", ref: "core.turnoutBaselinePct", label: "Turnout baseline %", unit: "pct", patterns: [/\bturnout\s*baseline\b/i, /\bbaseline\s*turnout\b/i] },
+  { key: "gotvLiftPP", ref: "core.gotvLiftPP", label: "GOTV lift (pp)", unit: "pp", patterns: [/\bgotv\s*lift\b/i, /\blift\s*per\s*contact\b/i] },
+  { key: "gotvMaxLiftPP", ref: "core.gotvLiftCeilingPP", label: "Max lift ceiling (pp)", unit: "pp", patterns: [/\bmax\s*lift\b/i, /\blift\s*ceiling\b/i] },
+  { key: "doorsPerHour3", ref: "core.doorsPerHour", label: "Doors/hour", unit: "attempts_per_hour", patterns: [/\bdoors?\s*per\s*hour\b/i, /\bdph\b/i] },
+  { key: "callsPerHour3", ref: "core.callsPerHour", label: "Calls/hour", unit: "attempts_per_hour", patterns: [/\bcalls?\s*per\s*hour\b/i, /\bcph\b/i] },
+  { key: "orgCount", ref: "core.orgCount", label: "Organizer count", unit: "count", patterns: [/\borganizers?\b/i, /\borganizer\s*count\b/i] },
+  { key: "orgHoursPerWeek", ref: "core.orgHoursPerWeek", label: "Organizer hours/week", unit: "hours_per_week", patterns: [/\borganizer\s*hours?\b/i, /\bhours?\s*per\s*week\b/i] },
+  { key: "volunteerMultBase", ref: "core.volunteerMultiplier", label: "Volunteer multiplier", unit: "multiplier", patterns: [/\bvolunteer\s*multiplier\b/i, /\bvol\s*mult\b/i] },
+  { key: "persuasionPct", ref: "core.persuasionUniversePct", label: "Persuasion % of universe", unit: "pct", patterns: [/\bpersuasion\s*(?:pct|percent|%)\b/i, /\bpersuasion\s*of\s*universe\b/i] },
+  { key: "universeSize", ref: "core.universeSize", label: "Universe size", unit: "count", patterns: [/\buniverse\s*size\b/i] },
+  { key: "weeksRemaining", ref: "core.weeksRemaining", label: "Weeks remaining", unit: "weeks", patterns: [/\bweeks?\s*remaining\b/i] },
+];
+
+function splitWhatIfSegments(text){
+  return String(text || "")
+    .split(/[\n,;]+|\s+\band\b\s+/i)
+    .map((s) => cleanString(s))
+    .filter(Boolean);
+}
+
+function pickWhatIfField(segment){
+  for (const spec of WHAT_IF_FIELD_SPECS){
+    for (const pattern of spec.patterns){
+      if (pattern.test(segment)) return spec;
+    }
+  }
+  return null;
+}
+
+function detectDeltaDirection(segment){
+  const s = String(segment || "").toLowerCase();
+  if (/\b(decrease|lower|reduce|drop|minus|down)\b/.test(s)) return -1;
+  if (/\b(increase|raise|add|plus|up)\b/.test(s)) return 1;
+  return 0;
+}
+
+function parseWhatIfSegment(segment, state){
+  const spec = pickWhatIfField(segment);
+  if (!spec) return { ok: false, reason: "unknown_field", segment };
+  const match = String(segment).match(/[+-]?\d+(?:\.\d+)?/);
+  if (!match) return { ok: false, reason: "missing_value", segment, field: spec.key };
+  let n = Number(match[0]);
+  if (!Number.isFinite(n)) return { ok: false, reason: "invalid_value", segment, field: spec.key };
+  const matchToken = String(match[0] || "");
+  const dir = detectDeltaDirection(segment);
+  let isDelta = /^[+-]/.test(matchToken) || dir !== 0;
+  if (dir < 0 && n > 0) n = -Math.abs(n);
+  if (dir > 0 && n < 0) n = Math.abs(n);
+
+  let value = n;
+  let scaledFromDecimal = false;
+  if (!isDelta && spec.unit === "pct"){
+    const hasPctMarker = /%|percent|pct/i.test(segment);
+    if (!hasPctMarker && value > 0 && value <= 1){
+      value = value * 100;
+      scaledFromDecimal = true;
+    }
+  }
+
+  const target = {
+    key: spec.key,
+    ref: spec.ref,
+    label: spec.label,
+    unit: spec.unit,
+    op: isDelta ? "delta" : "set",
+    raw: cleanString(segment),
+    value,
+  };
+  if (scaledFromDecimal) target.scaledFromDecimal = true;
+  if (isDelta){
+    target.delta = value;
+    const base = toNumOrNull(state?.[spec.key]);
+    if (base != null){
+      target.baseValue = base;
+      target.suggestedValue = base + value;
+    }
+  } else {
+    target.suggestedValue = value;
+  }
+  return { ok: true, target };
+}
+
+function summarizeParsedRequest(parsed){
+  const targets = Array.isArray(parsed?.targets) ? parsed.targets : [];
+  if (!targets.length) return "No recognized fields.";
+  const first = targets[0];
+  const action = first?.op === "delta"
+    ? `${first.label}: ${fmtSignedNum(first.delta, 2)}`
+    : `${first.label}: ${fmtAny(first.suggestedValue)}`;
+  const extra = targets.length > 1 ? ` (+${targets.length - 1} more)` : "";
+  return `${action}${extra}`;
+}
+
+export function createWhatIfIntelRequest(state, requestText = "", { source = "user.whatIf.v1", maxEntries = 120 } = {}){
+  const intel = ensureIntelCollections(state);
+  if (!intel) return { ok: false, error: "Intel state unavailable." };
+
+  const text = cleanString(requestText);
+  if (!text) return { ok: false, error: "Enter a what-if request first." };
+
+  const segments = splitWhatIfSegments(text);
+  if (!segments.length) return { ok: false, error: "Could not parse request text." };
+
+  const targets = [];
+  const unresolvedSegments = [];
+  for (const seg of segments){
+    const parsed = parseWhatIfSegment(seg, state);
+    if (parsed.ok){
+      targets.push(parsed.target);
+    } else {
+      unresolvedSegments.push({
+        segment: cleanString(seg),
+        reason: cleanString(parsed.reason) || "unresolved",
+        field: cleanString(parsed.field),
+      });
+    }
+  }
+
+  if (!targets.length){
+    return { ok: false, error: "No recognized assumptions in request. Try support rate, contact rate, turnout baseline, GOTV lift, doors/hour.", unresolvedSegments };
+  }
+
+  const now = nowIso();
+  const row = {
+    id: makeId("ireq"),
+    source: cleanString(source) || "user.whatIf.v1",
+    status: unresolvedSegments.length ? "partial" : "parsed",
+    prompt: text,
+    summary: "",
+    parsed: {
+      action: "what_if",
+      parserVersion: "manual.rules.v1",
+      targets,
+      unresolvedSegments,
+      targetCount: targets.length,
+      unresolvedCount: unresolvedSegments.length,
+    },
+    createdAt: now,
+    updatedAt: now,
+  };
+  row.summary = summarizeParsedRequest(row.parsed);
+
+  ensureArray(intel, "intelRequests").push(row);
+  if (intel.intelRequests.length > maxEntries){
+    intel.intelRequests = intel.intelRequests.slice(-Math.max(1, Number(maxEntries) || 120));
+  }
+
+  return {
+    ok: true,
+    row,
+    parsedTargets: targets.length,
+    unresolved: unresolvedSegments.length,
+  };
+}
+
+export function listIntelRequests(state, { limit = 20 } = {}){
+  const intel = ensureIntelCollections(state);
+  if (!intel) return [];
+  const rows = ensureArray(intel, "intelRequests").slice();
+  rows.sort((a, b) => cleanString(b?.createdAt).localeCompare(cleanString(a?.createdAt)));
+  return rows.slice(0, Math.max(0, Number(limit) || 0));
 }
 
 export function getLatestBriefByKind(state, kind){

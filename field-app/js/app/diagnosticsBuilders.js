@@ -49,6 +49,7 @@ export function appendModelDiagnosticsCore(lines, {
   const features = resolveFeatureFlags(state || {});
   const audit = Array.isArray(intel.audit) ? intel.audit : [];
   const evidence = Array.isArray(intel.evidence) ? intel.evidence : [];
+  const intelRequests = Array.isArray(intel.intelRequests) ? intel.intelRequests : [];
   const missingEvidence = listMissingEvidenceAudit(state, { limit: 2000 }).length;
   const missingNote = listMissingNoteAudit(state, { limit: 2000 }).length;
   const drift = computeRealityDrift();
@@ -59,6 +60,7 @@ export function appendModelDiagnosticsCore(lines, {
   });
   out.push(`intelAuditEntries: ${audit.length}`);
   out.push(`intelEvidenceRecords: ${evidence.length}`);
+  out.push(`intelRequests: ${intelRequests.length}`);
   out.push(`intelMissingEvidence: ${missingEvidence}`);
   out.push(`intelMissingNote: ${missingNote}`);
   out.push(`featuresResolved: turnout=${features.turnoutModelingEnabled ? "on" : "off"} timeline=${features.timelineEnabled ? "on" : "off"} universe=${features.universeWeightingEnabled ? "on" : "off"} mcDist=${features.mcDistribution} corr=${features.correlatedShocks ? "on" : "off"} shock=${features.shockScenariosEnabled ? "on" : "off"} decay=${features.capacityDecayEnabled ? "on" : "off"}`);

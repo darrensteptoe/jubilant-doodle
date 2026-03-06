@@ -8,6 +8,7 @@ import {
   listIntelBenchmarks,
   listIntelBriefKinds,
   listIntelEvidence,
+  listIntelRequests,
   listMissingEvidenceAudit,
   listMissingNoteAudit,
   listShockScenarios,
@@ -138,6 +139,23 @@ function fillEvidenceTable(tbody, rows){
     `;
     tbody.appendChild(tr);
   }
+}
+
+function fmtWhatIfTarget(row){
+  const op = String(row?.op || "").trim();
+  const label = String(row?.label || row?.key || "assumption");
+  if (op === "delta"){
+    const n = Number(row?.delta ?? row?.value);
+    const signed = Number.isFinite(n)
+      ? `${n >= 0 ? "+" : ""}${Number.isInteger(n) ? String(n) : n.toFixed(2)}`
+      : "—";
+    return `${label}: ${signed}`;
+  }
+  const n = Number(row?.suggestedValue ?? row?.value);
+  const value = Number.isFinite(n)
+    ? (Number.isInteger(n) ? String(n) : n.toFixed(2))
+    : "—";
+  return `${label}: ${value}`;
 }
 
 export function renderIntelChecksModule({
@@ -276,6 +294,7 @@ export function renderIntelChecksModule({
   const decayFloorPct = Number(state?.intelState?.expertToggles?.decayModel?.floorPctOfBaseline);
   const observedRows = Array.isArray(state?.intelState?.observedMetrics) ? state.intelState.observedMetrics : [];
   const recommendationRows = Array.isArray(state?.intelState?.recommendations) ? state.intelState.recommendations : [];
+  const whatIfRows = listIntelRequests(state, { limit: 25 });
   const autoDriftRecs = recommendationRows
     .filter((x) => String(x?.source || "").trim() === "auto.realityDrift.v1")
     .sort((a, b) => Number(a?.priority || 99) - Number(b?.priority || 99));
@@ -407,6 +426,13 @@ export function renderIntelChecksModule({
       els.intelRecommendationStatus.textContent = "No active drift recommendations (within tolerance).";
     }
   }
+  if (els.btnIntelApplyTopRecommendation){
+    const top = autoDriftRecs[0] || null;
+    els.btnIntelApplyTopRecommendation.disabled = !top;
+    const p = Number(top?.priority);
+    const pText = Number.isFinite(p) ? `P${p}` : "top";
+    els.btnIntelApplyTopRecommendation.textContent = top ? `Apply ${pText} recommendation` : "Apply top recommendation";
+  }
   if (els.intelRecommendationPreview){
     if (!autoDriftRecs.length){
       els.intelRecommendationPreview.value = "";
@@ -419,6 +445,52 @@ export function renderIntelChecksModule({
         return `${idx + 1}. [${pText}] ${title}${detail ? `\n   ${detail}` : ""}`;
       });
       els.intelRecommendationPreview.value = lines.join("\n");
+    }
+  }
+  if (els.intelWhatIfCount){
+    els.intelWhatIfCount.textContent = `${whatIfRows.length} what-if request${whatIfRows.length === 1 ? "" : "s"} parsed.`;
+  }
+  if (els.intelWhatIfStatus){
+    els.intelWhatIfStatus.classList.remove("ok", "warn", "bad", "muted");
+    const latest = whatIfRows[0] || null;
+    if (!latest){
+      els.intelWhatIfStatus.classList.add("muted");
+      els.intelWhatIfStatus.textContent = "No what-if requests parsed yet.";
+    } else if (String(latest?.status || "") === "partial"){
+      const unresolved = Number(latest?.parsed?.unresolvedCount || 0);
+      els.intelWhatIfStatus.classList.add("warn");
+      els.intelWhatIfStatus.textContent = unresolved
+        ? `Latest request parsed with ${unresolved} unresolved segment${unresolved === 1 ? "" : "s"}.`
+        : "Latest request parsed with unresolved segments.";
+    } else {
+      els.intelWhatIfStatus.classList.add("ok");
+      els.intelWhatIfStatus.textContent = "Latest request parsed successfully.";
+    }
+  }
+  if (els.intelWhatIfPreview){
+    const latest = whatIfRows[0] || null;
+    if (!latest){
+      els.intelWhatIfPreview.value = "";
+    } else {
+      const targets = Array.isArray(latest?.parsed?.targets) ? latest.parsed.targets : [];
+      const unresolved = Array.isArray(latest?.parsed?.unresolvedSegments) ? latest.parsed.unresolvedSegments : [];
+      const lines = [
+        `Prompt: ${String(latest?.prompt || "")}`,
+        `Status: ${String(latest?.status || "parsed")}`,
+        `Parsed targets: ${targets.length}`,
+      ];
+      if (targets.length){
+        for (const row of targets.slice(0, 8)){
+          lines.push(`- ${fmtWhatIfTarget(row)}`);
+        }
+      }
+      if (unresolved.length){
+        lines.push(`Unresolved: ${unresolved.length}`);
+        for (const row of unresolved.slice(0, 5)){
+          lines.push(`- ${String(row?.segment || "segment")} (${String(row?.reason || "unresolved")})`);
+        }
+      }
+      els.intelWhatIfPreview.value = lines.join("\n");
     }
   }
 }

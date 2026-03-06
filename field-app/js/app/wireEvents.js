@@ -3,6 +3,7 @@ import {
   addDefaultCorrelationModel,
   attachEvidenceRecord,
   captureObservedMetricsFromDrift,
+  createWhatIfIntelRequest,
   generateCalibrationSourceBrief,
   generateDriftExplanationBrief,
   generateScenarioDiffBrief,
@@ -17,6 +18,7 @@ import {
   listShockScenarios,
   getIntelWorkflow,
   listMissingEvidenceAudit,
+  applyRecommendationDraftPatch,
   refreshDriftRecommendationsFromDrift,
   removeBenchmarkEntry,
   upsertBenchmarkEntry,
@@ -374,6 +376,15 @@ export function wireIntelChecksEvents(ctx){
   };
   const setRecommendationStatus = (msg, kind = "muted") => {
     setStatus(els.intelRecommendationStatus || els.intelCalibrationStatus, msg, kind);
+  };
+  const setWhatIfStatus = (msg, kind = "muted") => {
+    setStatus(els.intelWhatIfStatus || els.intelCalibrationStatus, msg, kind);
+  };
+  const patchValueMatches = (a, b) => {
+    if (typeof a === "number" && typeof b === "number"){
+      return Math.abs(a - b) <= 1e-9;
+    }
+    return Object.is(a, b);
   };
   const setDecayStatus = (msg, kind = "muted") => {
     setStatus(els.intelDecayStatus || els.intelCalibrationStatus, msg, kind);
@@ -735,6 +746,111 @@ export function wireIntelChecksEvents(ctx){
         );
       }
       commitUIUpdate();
+    });
+  }
+
+  if (els.btnIntelParseWhatIf){
+    els.btnIntelParseWhatIf.addEventListener("click", () => {
+      const s = currentState();
+      if (!s) return;
+      const text = String(els.intelWhatIfInput?.value || "");
+      const result = createWhatIfIntelRequest(s, text, { source: "user.whatIf.v1", maxEntries: 120 });
+      if (!result.ok){
+        setWhatIfStatus(result.error || "Failed to parse what-if request.", "warn");
+        return;
+      }
+      const unresolved = Number(result.unresolved || 0);
+      if (unresolved > 0){
+        setWhatIfStatus(
+          `Saved what-if request (${result.parsedTargets} parsed, ${unresolved} unresolved segment${unresolved === 1 ? "" : "s"}).`,
+          "warn"
+        );
+      } else {
+        setWhatIfStatus(`Saved what-if request (${result.parsedTargets} parsed target${result.parsedTargets === 1 ? "" : "s"}).`, "ok");
+      }
+      commitUIUpdate({ allowScenarioLockBypass: true });
+    });
+  }
+
+  if (els.btnIntelApplyTopRecommendation){
+    els.btnIntelApplyTopRecommendation.addEventListener("click", () => {
+      const s = currentState();
+      if (!s) return;
+      const recs = Array.isArray(s?.intelState?.recommendations)
+        ? s.intelState.recommendations
+            .filter((row) => String(row?.source || "").trim() === "auto.realityDrift.v1")
+            .slice()
+            .sort((a, b) => Number(a?.priority || 99) - Number(b?.priority || 99))
+        : [];
+      const top = recs[0] || null;
+      if (!top){
+        setRecommendationStatus("No active drift recommendation to apply.", "warn");
+        return;
+      }
+
+      const result = applyRecommendationDraftPatch(s, { recommendationId: String(top.id || "") });
+      if (!result.ok){
+        setRecommendationStatus(result.error || "Failed to apply recommendation patch.", "warn");
+        return;
+      }
+      if (typeof markMcStale === "function") markMcStale();
+      commitUIUpdate();
+
+      const linkedAuditIds = [];
+      const auditRows = Array.isArray(s?.intelState?.audit) ? s.intelState.audit.slice().reverse() : [];
+      if (result.noteMarker){
+        for (const row of auditRows){
+          if (!row || typeof row !== "object") continue;
+          if (!String(row.note || "").includes(result.noteMarker)) continue;
+          const id = String(row.id || "").trim();
+          if (id && !linkedAuditIds.includes(id)) linkedAuditIds.push(id);
+        }
+      }
+      if (!linkedAuditIds.length && Array.isArray(result.changes) && result.changes.length){
+        for (const change of result.changes){
+          const match = auditRows.find((row) =>
+            row &&
+            row.kind === "critical_ref_change" &&
+            String(row.source || "") === "ui" &&
+            String(row.key || "") === String(change?.key || "") &&
+            patchValueMatches(row.after, change?.after)
+          );
+          const id = String(match?.id || "").trim();
+          if (id && !linkedAuditIds.includes(id)) linkedAuditIds.push(id);
+        }
+      }
+
+      const recRow = Array.isArray(s?.intelState?.recommendations)
+        ? s.intelState.recommendations.find((row) => String(row?.id || "").trim() === String(result.recommendationId || "").trim())
+        : null;
+      if (recRow){
+        recRow.appliedAuditIds = linkedAuditIds.slice();
+        recRow.updatedAt = new Date().toISOString();
+        const unresolved = (Array.isArray(s?.intelState?.audit) ? s.intelState.audit : [])
+          .filter((row) => recRow.appliedAuditIds.includes(String(row?.id || "")))
+          .filter((row) => String(row?.status || "").toLowerCase() !== "resolved");
+        recRow.status = unresolved.length ? "appliedNeedsGovernance" : (result.noop ? "alreadyApplied" : "applied");
+      }
+
+      commitUIUpdate({ allowScenarioLockBypass: true });
+      if (result.noop){
+        setRecommendationStatus(
+          `${result.recommendationTitle || "Recommendation"} already matches current assumptions.`,
+          "muted"
+        );
+        return;
+      }
+      if (recRow?.status === "appliedNeedsGovernance"){
+        setRecommendationStatus(
+          `Applied ${result.recommendationTitle || "recommendation"} (${result.changes.length} change${result.changes.length === 1 ? "" : "s"}). Governance follow-up required.`,
+          "warn"
+        );
+        return;
+      }
+      setRecommendationStatus(
+        `Applied ${result.recommendationTitle || "recommendation"} (${result.changes.length} change${result.changes.length === 1 ? "" : "s"}).`,
+        "ok"
+      );
     });
   }
 }
