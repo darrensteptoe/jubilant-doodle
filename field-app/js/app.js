@@ -62,6 +62,7 @@ import {
   appendModelDiagnosticsCore,
 } from "./app/diagnosticsBuilders.js";
 import { copyDebugBundleModule } from "./app/debugBundle.js";
+import { createBackupRecoveryController } from "./app/backupRecovery.js";
 import {
   OBJECTIVE_TEMPLATES,
   RISK_POSTURES,
@@ -539,6 +540,34 @@ function updateDiagnosticsUI(){
   } catch { /* ignore */ }
 }
 
+let backupRecoveryController = null;
+
+function getBackupRecoveryController(){
+  if (backupRecoveryController) return backupRecoveryController;
+  backupRecoveryController = createBackupRecoveryController({
+    els,
+    readBackups,
+    appendBackupEntry,
+    safeCall,
+    getState: () => state,
+    setState: (next) => { state = next; },
+    engine,
+    APP_VERSION,
+    BUILD_ID,
+    setLastExportHash: (next) => { lastExportHash = next || null; },
+    clearPersistenceFailure,
+    reportPersistenceFailure,
+    normalizeLoadedScenarioRuntime,
+    buildCriticalAuditSnapshot,
+    setLastCriticalAuditSnapshot: (next) => { lastCriticalAuditSnapshot = next; },
+    ensureDecisionScaffold,
+    persist,
+    render,
+    renderDecisionSessionD1,
+  });
+  return backupRecoveryController;
+}
+
 async function copyDebugBundle(){
   return copyDebugBundleModule({
     getOperationsDiagnosticsSnapshot,
@@ -557,142 +586,16 @@ async function copyDebugBundle(){
   });
 }
 
-// Phase 11 — auto-backups (rolling 5)
 function scheduleBackupWrite(){
-  try{
-    if (backupTimer) clearTimeout(backupTimer);
-    backupTimer = setTimeout(() => {
-      safeCall(() => {
-        const scenarioClone = structuredClone(state);
-        const snapshot = { modelVersion: engine.snapshot.MODEL_VERSION, schemaVersion: engine.snapshot.CURRENT_SCHEMA_VERSION, scenarioState: scenarioClone, appVersion: APP_VERSION, buildId: BUILD_ID };
-        snapshot.snapshotHash = engine.snapshot.computeSnapshotHash(snapshot);
-        lastExportHash = snapshot.snapshotHash;
-        const payload = engine.snapshot.makeScenarioExport(snapshot);
-        const result = appendBackupEntry({ ts: new Date().toISOString(), scenarioName: scenarioClone?.scenarioName || "", payload });
-        if (result?.ok){
-          clearPersistenceFailure("backup");
-        } else {
-          reportPersistenceFailure("backup", result);
-        }
-        refreshBackupDropdown();
-      });
-    }, 800);
-  } catch { /* ignore */ }
+  return getBackupRecoveryController().scheduleBackupWrite();
 }
 
 function refreshBackupDropdown(){
-  try{
-    if (!els.restoreBackup) return;
-    const backups = readBackups();
-    const cur = els.restoreBackup.value;
-    els.restoreBackup.innerHTML = '<option value="">Restore backup…</option>';
-    backups.forEach((b, i) => {
-      const opt = document.createElement("option");
-      const name = (b?.scenarioName || "").trim();
-      const when = b?.ts ? String(b.ts).replace("T"," ").replace("Z","") : "";
-      opt.value = String(i);
-      opt.textContent = `${when}${name ? " — " + name : ""}`;
-      els.restoreBackup.appendChild(opt);
-    });
-    els.restoreBackup.value = cur && cur !== "" ? cur : "";
-  } catch { /* ignore */ }
+  return getBackupRecoveryController().refreshBackupDropdown();
 }
 
 function restoreBackupByIndex(idx){
-  const backups = readBackups();
-  const entry = backups[Number(idx)];
-  if (!entry) return;
-  const ok = confirm("Restore this backup? This will overwrite current scenario inputs.");
-  if (!ok) return;
-
-  const rawPayload = (entry && Object.prototype.hasOwnProperty.call(entry, "payload"))
-    ? entry.payload
-    : entry;
-
-  let loaded = rawPayload;
-  if (typeof loaded === "string"){
-    try{
-      loaded = JSON.parse(loaded);
-    } catch {
-      alert("Backup restore failed: invalid backup payload.");
-      return;
-    }
-  }
-  if (!loaded || typeof loaded !== "object"){
-    alert("Backup restore failed: invalid backup payload.");
-    return;
-  }
-
-  const migrated = engine.snapshot.migrateSnapshot(loaded);
-  const validated = engine.snapshot.validateScenarioExport(migrated?.snapshot, engine.snapshot.MODEL_VERSION);
-  if (!validated?.ok){
-    alert(`Backup restore failed: ${validated?.reason || "could not migrate snapshot."}`);
-    return;
-  }
-
-  const quality = engine.snapshot.validateImportedScenarioData(validated.scenario);
-  if (!quality.ok){
-    const details = quality.errors.map((x) => `- ${x}`).join("\n");
-    alert(`Backup restore failed: quality checks failed.\n${details}`);
-    return;
-  }
-
-  // Keep backup restore policy aligned with JSON import behavior.
-  try{
-    const exportedHash = (loaded && typeof loaded === "object") ? (loaded.snapshotHash || null) : null;
-    const recomputed = engine.snapshot.computeSnapshotHash({
-      modelVersion: validated.modelVersion,
-      scenarioState: validated.scenario
-    });
-    const hashMismatch = !!(exportedHash && exportedHash !== recomputed);
-    if (hashMismatch){
-      if (els.importHashBanner){
-        els.importHashBanner.hidden = false;
-        els.importHashBanner.textContent = "Snapshot hash differs from exported hash.";
-      }
-      console.warn("Backup snapshot hash mismatch", { exportedHash, recomputed });
-    } else if (els.importHashBanner){
-      els.importHashBanner.hidden = true;
-    }
-
-    const policy = engine.snapshot.checkStrictImportPolicy({
-      strictMode: !!state?.ui?.strictImport,
-      importedSchemaVersion: (migrated?.snapshot?.schemaVersion || loaded.schemaVersion || null),
-      currentSchemaVersion: engine.snapshot.CURRENT_SCHEMA_VERSION,
-      hashMismatch
-    });
-    if (!policy.ok){
-      alert(policy.issues.join(" "));
-      return;
-    }
-  } catch {
-    if (state?.ui?.strictImport){
-      alert("Backup restore blocked: could not verify integrity hash in strict mode.");
-      return;
-    }
-  }
-
-  const restoreWarnings = [];
-  if (Array.isArray(migrated?.warnings)) restoreWarnings.push(...migrated.warnings);
-  if (Array.isArray(quality?.warnings)) restoreWarnings.push(...quality.warnings);
-  if (els.importWarnBanner){
-    if (restoreWarnings.length){
-      const shown = restoreWarnings.slice(0, 6).join(" ");
-      const extra = restoreWarnings.length > 6 ? ` (+${restoreWarnings.length - 6} more)` : "";
-      els.importWarnBanner.hidden = false;
-      els.importWarnBanner.textContent = `${shown}${extra}`.trim();
-    } else {
-      els.importWarnBanner.hidden = true;
-      els.importWarnBanner.textContent = "";
-    }
-  }
-
-  state = normalizeLoadedScenarioRuntime(validated.scenario);
-  lastCriticalAuditSnapshot = buildCriticalAuditSnapshot(state);
-  ensureDecisionScaffold();
-  persist();
-  render();
-  safeCall(() => { renderDecisionSessionD1(); });
+  return getBackupRecoveryController().restoreBackupByIndex(idx);
 }
 function setText(el, text){ if(el) el.textContent = String(text ?? ""); }
 function setHidden(el, hidden){ if(el) el.hidden = !!hidden; }
@@ -809,7 +712,6 @@ function undoLastWeeklyAction(){
 
 const recentErrors = [];
 const MAX_ERRORS = 20;
-let backupTimer = null;
 let persistenceErrorSig = "";
 const persistenceState = {
   stateSaveOk: true,
