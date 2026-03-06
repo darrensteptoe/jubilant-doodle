@@ -117,6 +117,15 @@ This is the execution order for the calibration/governance expansion.
 - [x] Extract Monte Carlo envelope/freshness orchestration block from `app.js` into dedicated controller:
   - `/Users/anakinskywalker/Downloads/field-app-40/js/app/mcEnvelopeController.js`
   - wrappers retained in `/Users/anakinskywalker/Downloads/field-app-40/js/app.js` for existing wiring.
+- [x] Extract Monte Carlo run/runtime orchestration (run-now + legacy/named-args adapter) from `app.js`:
+  - `/Users/anakinskywalker/Downloads/field-app-40/js/app/mcRuntimeController.js`
+  - wrappers retained in `/Users/anakinskywalker/Downloads/field-app-40/js/app.js` for existing wiring/signatures.
+- [x] Extract dev/self-test patched-state helper from `app.js`:
+  - `/Users/anakinskywalker/Downloads/field-app-40/js/app/statePatch.js`
+  - wrapper retained in `/Users/anakinskywalker/Downloads/field-app-40/js/app.js`.
+- [x] Extract planning runtime adapters from `app.js` (need-votes/capacity wrappers + stage render orchestrators):
+  - `/Users/anakinskywalker/Downloads/field-app-40/js/app/planningRuntimeController.js`
+  - wrappers retained in `/Users/anakinskywalker/Downloads/field-app-40/js/app.js`.
 
 ## Phase 11: A-grade structural backlog (deferred until Phase 0-10 complete)
 Execution order below is fixed and must be followed in sequence.
