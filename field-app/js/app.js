@@ -970,7 +970,7 @@ function restoreBackupByIndex(idx){
     }
   }
 
-  state = normalizeLoadedState(validated.scenario);
+  state = normalizeLoadedScenarioRuntime(validated.scenario);
   lastCriticalAuditSnapshot = buildCriticalAuditSnapshot(state);
   ensureDecisionScaffold();
   persist();
@@ -1023,7 +1023,7 @@ function assumptionsProfileLabel(src = state){
   return assumptionsProfileLabelModule(src, labelTemplate);
 }
 
-let state = normalizeLoadedState(loadState() || makeDefaultState());
+let state = normalizeLoadedScenarioRuntime(loadState() || makeDefaultState());
 let lastCriticalAuditSnapshot = buildCriticalAuditSnapshot(state);
 
 // setState(patchFn) — controlled state mutation for UI-only writes.
@@ -1406,7 +1406,7 @@ function wireEvents(){
     clearState,
     readJsonFile,
     requiredScenarioKeysMissing,
-    normalizeLoadedState,
+    normalizeLoadedState: normalizeLoadedScenarioRuntime,
     setText,
     refreshBackupDropdown,
     restoreBackupByIndex,
@@ -1430,7 +1430,7 @@ function wireEvents(){
   });
 }
 
-function normalizeLoadedState(s){
+function normalizeLoadedScenarioRuntime(s){
   return normalizeLoadedStateModule(s, {
     makeDefaultState,
     safeNum,
