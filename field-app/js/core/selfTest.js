@@ -2166,6 +2166,64 @@ export function runSelfTests(engine){
       safeNumFn: safeNum,
     });
 
+  test("Phase 9 explain map: deterministic outputs expose lineage metadata", () => {
+    const snap = engine.getStateSnapshot();
+    assert(snap && typeof snap === "object", "State snapshot unavailable");
+    const mi = buildModelInputFromSnapshot(snap);
+    assert(mi && typeof mi === "object", "Model input unavailable");
+
+    const out = engine.computeAll(mi, { explain: true });
+    assert(out && typeof out === "object", "Explain computeAll result missing");
+    assert(out.explain && typeof out.explain === "object", "Explain map missing");
+
+    const requiredKeys = [
+      "expected.turnoutVotes",
+      "expected.yourVotes",
+      "expected.winThreshold",
+      "expected.persuasionNeed",
+      "guardrails",
+      "stressSummary",
+    ];
+    for (const key of requiredKeys){
+      const row = out.explain[key];
+      assert(row && typeof row === "object", `Explain row missing: ${key}`);
+      assert(typeof row.module === "string" && row.module.length > 0, `Explain module missing for ${key}`);
+      assert(Array.isArray(row.inputs), `Explain inputs missing for ${key}`);
+      assert(Array.isArray(row.dependsOn), `Explain dependsOn missing for ${key}`);
+    }
+
+    const meta = out.explain._meta;
+    assert(meta && typeof meta === "object", "Explain _meta missing");
+    assert(meta.moduleVersion === "engine.explain.v1", `Unexpected explain moduleVersion: ${meta?.moduleVersion}`);
+    return true;
+  });
+
+  test("Phase 9 explain map: explain-mode does not alter deterministic outputs", () => {
+    const snap = engine.getStateSnapshot();
+    assert(snap && typeof snap === "object", "State snapshot unavailable");
+    const mi = buildModelInputFromSnapshot(snap);
+    assert(mi && typeof mi === "object", "Model input unavailable");
+
+    const plain = engine.computeAll(mi);
+    const explained = engine.computeAll(mi, { explain: true });
+    assert(plain && explained, "Deterministic outputs missing for explain parity");
+
+    const cmp = (path, a, b) => {
+      assert(
+        stableStringify(a) === stableStringify(b),
+        `Explain parity mismatch at ${path}`
+      );
+    };
+
+    cmp("raw", plain.raw, explained.raw);
+    cmp("turnout", plain.turnout, explained.turnout);
+    cmp("expected", plain.expected, explained.expected);
+    cmp("validation", plain.validation, explained.validation);
+    cmp("guardrails", plain.guardrails, explained.guardrails);
+    cmp("stressSummary", plain.stressSummary, explained.stressSummary);
+    return true;
+  });
+
     assert(execution && execution.pace, "Execution snapshot missing pace section");
     assert(
       approx(execution.pace.requiredAttemptsPerWeek, weekly?.attemptsPerWeek, 1e-9),
