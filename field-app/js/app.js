@@ -57,10 +57,7 @@ import {
   mergeDailyLogIntoStateCore,
   exportDailyLogCore
 } from "./app/dailyLog.js";
-import {
-  appendOperationsDiagnosticsCore,
-  appendModelDiagnosticsCore,
-} from "./app/diagnosticsBuilders.js";
+import { createDiagnosticsRuntimeController } from "./app/diagnosticsRuntime.js";
 import { copyDebugBundleModule } from "./app/debugBundle.js";
 import { createBackupRecoveryController } from "./app/backupRecovery.js";
 import {
@@ -107,6 +104,7 @@ import { runInitScenarioDecisionWiringModule } from "./app/initScenarioDecisionW
 import { preflightElsModule } from "./app/preflightEls.js";
 import { initTabsModule, initExplainCardModule, isDevModeModule } from "./app/initUiStateHelpers.js";
 import { createUiUpdateQueue } from "./app/uiUpdateQueue.js";
+import { isScenarioLockedForEditsModule, applyScenarioLockUiModule } from "./app/scenarioLockUi.js";
 import { makeDefaultStateModule } from "./app/defaultState.js";
 import { normalizeLoadedStateModule } from "./app/normalizeLoadedState.js";
 import { renderUniverse16CardModule } from "./app/renderUniverse16Card.js";
@@ -226,6 +224,7 @@ import {
   wireResetImportAndUiToggles
 } from "./app/wireEvents.js";
 import { wireEventsOrchestratorModule } from "./app/wireEventsOrchestrator.js";
+import { createCandidateUiController } from "./app/candidateUi.js";
 import {
   getUniverseLayerConfig as getUniverseLayerConfigFromStateSelector,
   getEffectiveBaseRates as getEffectiveBaseRatesFromStateSelector,
@@ -273,103 +272,52 @@ function exportDailyLog(){
   });
 }
 
-// Phase 11 — error capture (fail-soft)
+let diagnosticsRuntimeController = null;
+
+function getDiagnosticsRuntimeController(){
+  if (diagnosticsRuntimeController) return diagnosticsRuntimeController;
+  diagnosticsRuntimeController = createDiagnosticsRuntimeController({
+    els,
+    engine,
+    buildId: BUILD_ID,
+    getState: () => state,
+    computeRealityDrift,
+    recentErrors,
+    maxErrors: MAX_ERRORS,
+  });
+  return diagnosticsRuntimeController;
+}
+
 function recordError(kind, message, extra){
-  try{
-    const item = {
-      t: new Date().toISOString(),
-      kind: String(kind || "error"),
-      msg: String(message || ""),
-      extra: extra && typeof extra === "object" ? extra : undefined
-    };
-    recentErrors.unshift(item);
-    if (recentErrors.length > MAX_ERRORS) recentErrors.length = MAX_ERRORS;
-    updateDiagnosticsUI();
-  } catch { /* ignore */ }
+  return getDiagnosticsRuntimeController().recordError(kind, message, extra);
 }
 
 function installGlobalErrorCapture(){
-  try{
-    window.addEventListener("error", (e) => {
-      recordError("error", e?.message || "Unhandled error", { filename: e?.filename, lineno: e?.lineno, colno: e?.colno });
-    });
-    window.addEventListener("unhandledrejection", (e) => {
-      const r = e?.reason;
-      recordError("unhandledrejection", r?.message || String(r || "Unhandled rejection"));
-    });
-  } catch { /* ignore */ }
+  return getDiagnosticsRuntimeController().installGlobalErrorCapture();
 }
 
 function updateBuildStamp(){
-  try{
-    if (els.buildStamp) els.buildStamp.textContent = `build ${BUILD_ID}`;
-  } catch { /* ignore */ }
+  return getDiagnosticsRuntimeController().updateBuildStamp();
 }
 
 function updateSelfTestGateBadge(){
-  try{
-    if (!els.selfTestGate) return;
-    els.selfTestGate.textContent = selfTestGateStatus;
-    els.selfTestGate.classList.remove("badge-unverified","badge-verified","badge-failed");
-    if (selfTestGateStatus === engine.selfTest.SELFTEST_GATE.VERIFIED) els.selfTestGate.classList.add("badge-verified");
-    else if (selfTestGateStatus === engine.selfTest.SELFTEST_GATE.FAILED) els.selfTestGate.classList.add("badge-failed");
-    else els.selfTestGate.classList.add("badge-unverified");
-  } catch { /* ignore */ }
+  return getDiagnosticsRuntimeController().updateSelfTestGateBadge(selfTestGateStatus);
 }
 
 function openDiagnostics(){
-  try{
-    if (!els.diagModal) return;
-    els.diagModal.hidden = false;
-    updateDiagnosticsUI();
-  } catch { /* ignore */ }
-}
-function closeDiagnostics(){
-  try{ if (els.diagModal) els.diagModal.hidden = true; } catch { /* ignore */ }
+  return getDiagnosticsRuntimeController().openDiagnostics();
 }
 
-let diagRenderSeq = 0;
+function closeDiagnostics(){
+  return getDiagnosticsRuntimeController().closeDiagnostics();
+}
 
 async function getOperationsDiagnosticsSnapshot(){
-  try{
-    const snapshot = await getOperationsMetricsSnapshot();
-    const counts = snapshot?.counts || {};
-    const rollups = snapshot?.rollups || {};
-
-    return {
-      available: true,
-      counts,
-      rollups: {
-        production: {
-          source: rollups?.production?.source || "—",
-          attempts: Number(rollups?.production?.attempts || 0),
-          convos: Number(rollups?.production?.convos || 0),
-          supportIds: Number(rollups?.production?.supportIds || 0),
-          hours: Number(rollups?.production?.hours || 0),
-        },
-        dedupe: {
-          rule: rollups?.dedupe?.rule || "—",
-          excludedTurfAttemptRecords: Number(rollups?.dedupe?.excludedTurfAttemptRecords || 0),
-          excludedTurfAttempts: Number(rollups?.dedupe?.excludedTurfAttempts || 0),
-          includedFallbackAttempts: Number(rollups?.dedupe?.includedFallbackAttempts || 0),
-        }
-      }
-    };
-  } catch (e){
-    return { available: false, error: e?.message ? String(e.message) : String(e || "unknown") };
-  }
+  return getDiagnosticsRuntimeController().getOperationsDiagnosticsSnapshot();
 }
 
-function appendOperationsDiagnostics(lines, tw){
-  return appendOperationsDiagnosticsCore(lines, tw);
-}
-
-function appendModelDiagnostics(lines){
-  return appendModelDiagnosticsCore(lines, {
-    engine,
-    state,
-    computeRealityDrift,
-  });
+function updateDiagnosticsUI(){
+  return getDiagnosticsRuntimeController().updateDiagnosticsUI();
 }
 
 const TW_CAP_DAY_MS = 86400000;
@@ -513,31 +461,6 @@ function twCapResolveOverrideAttempts(srcState = state){
 
 function scheduleOperationsCapacityOutlookRender(weeks){
   getOperationsCapacityOutlookController().schedule(weeks);
-}
-
-function updateDiagnosticsUI(){
-  try{
-    if (!els.diagErrors) return;
-    const lines = recentErrors.map((e) => {
-      const head = `[${e.t}] ${e.kind}: ${e.msg}`;
-      return head;
-    });
-    if (!lines.length) lines.push("(none)");
-    els.diagErrors.textContent = lines.join("\n");
-
-    // Only resolve Operations diagnostics when modal is open to avoid background load.
-    if (!els.diagModal || els.diagModal.hidden) return;
-    const seq = ++diagRenderSeq;
-    Promise.resolve()
-      .then(() => getOperationsDiagnosticsSnapshot())
-      .then((tw) => {
-        if (seq !== diagRenderSeq) return;
-        const withOps = appendOperationsDiagnostics(lines, tw);
-        const merged = appendModelDiagnostics(withOps);
-        if (els.diagErrors) els.diagErrors.textContent = merged.join("\n");
-      })
-      .catch(() => { /* ignore */ });
-  } catch { /* ignore */ }
 }
 
 let backupRecoveryController = null;
@@ -760,37 +683,14 @@ function schedulePersist({ immediate = false } = {}){
 }
 
 function isScenarioLockedForEdits(srcState = state){
-  try{
-    return !!srcState?.intelState?.workflow?.scenarioLocked;
-  } catch {
-    return false;
-  }
+  return isScenarioLockedForEditsModule(srcState);
 }
 
 function applyScenarioLockUi(){
-  const root = document.querySelector(".stage-main-new");
-  if (!root) return;
-
-  const locked = isScenarioLockedForEdits(state);
-  root.classList.toggle("scenario-locked", locked);
-
-  const controls = root.querySelectorAll('input:not([type="hidden"]), select, textarea');
-  for (const el of controls){
-    if (!(el instanceof HTMLElement)) continue;
-    if (el.dataset.lockExempt === "1" || el.closest("#intelWorkflowCard")) continue;
-
-    if (locked){
-      if (el.hasAttribute("disabled")) continue;
-      el.setAttribute("disabled", "disabled");
-      el.dataset.lockManaged = "1";
-      continue;
-    }
-
-    if (el.dataset.lockManaged === "1"){
-      el.removeAttribute("disabled");
-      delete el.dataset.lockManaged;
-    }
-  }
+  applyScenarioLockUiModule({
+    state,
+    root: document.querySelector(".stage-main-new"),
+  });
 }
 
 function commitUIUpdate({
@@ -851,6 +751,19 @@ function uid(){
   return Math.random().toString(16).slice(2,10);
 }
 
+let candidateUiController = null;
+
+function getCandidateUiController(){
+  if (candidateUiController) return candidateUiController;
+  candidateUiController = createCandidateUiController({
+    els,
+    getState: () => state,
+    safeNum,
+    commitUIUpdate,
+  });
+  return candidateUiController;
+}
+
 function applyStateToUI(){
   applyStateToUIView({
     els,
@@ -864,117 +777,15 @@ function applyStateToUI(){
 }
 
 function rebuildCandidateTable(){
-  els.candTbody.innerHTML = "";
-
-  for (const cand of state.candidates){
-    const tr = document.createElement("tr");
-
-    const tdName = document.createElement("td");
-    const nameInput = document.createElement("input");
-    nameInput.className = "input input-sm";
-    nameInput.value = cand.name || "";
-    nameInput.addEventListener("input", () => {
-      cand.name = nameInput.value;
-      if (!state.userSplit[cand.id]) state.userSplit[cand.id] = 0;
-      rebuildYourCandidateSelect();
-      rebuildUserSplitInputs();
-      commitUIUpdate();
-    });
-    tdName.appendChild(nameInput);
-
-    const tdPct = document.createElement("td");
-    tdPct.className = "num";
-    const pctInput = document.createElement("input");
-    pctInput.className = "input input-sm num";
-    pctInput.type = "number";
-    pctInput.min = "0";
-    pctInput.max = "100";
-    pctInput.step = "0.1";
-    pctInput.value = cand.supportPct ?? "";
-    pctInput.addEventListener("input", () => {
-      cand.supportPct = safeNum(pctInput.value);
-      commitUIUpdate();
-    });
-    tdPct.appendChild(pctInput);
-
-    const tdDel = document.createElement("td");
-    tdDel.className = "num";
-    const delBtn = document.createElement("button");
-    delBtn.className = "btn btn-sm btn-ghost";
-    delBtn.type = "button";
-    delBtn.textContent = "Remove";
-    delBtn.disabled = state.candidates.length <= 2;
-    delBtn.addEventListener("click", () => {
-      if (state.candidates.length <= 2) return;
-      state.candidates = state.candidates.filter(c => c.id !== cand.id);
-      delete state.userSplit[cand.id];
-      if (state.yourCandidateId === cand.id){
-        state.yourCandidateId = state.candidates[0]?.id || null;
-      }
-      rebuildCandidateTable();
-      rebuildYourCandidateSelect();
-      rebuildUserSplitInputs();
-      commitUIUpdate();
-    });
-    tdDel.appendChild(delBtn);
-
-    tr.appendChild(tdName);
-    tr.appendChild(tdPct);
-    tr.appendChild(tdDel);
-    els.candTbody.appendChild(tr);
-  }
-
-  rebuildYourCandidateSelect();
-  rebuildUserSplitInputs();
+  return getCandidateUiController().rebuildCandidateTable();
 }
 
 function rebuildYourCandidateSelect(){
-  els.yourCandidate.innerHTML = "";
-  for (const cand of state.candidates){
-    const opt = document.createElement("option");
-    opt.value = cand.id;
-    opt.textContent = cand.name || "Candidate";
-    els.yourCandidate.appendChild(opt);
-  }
-  if (!state.yourCandidateId){
-    state.yourCandidateId = state.candidates[0]?.id || null;
-  }
-  els.yourCandidate.value = state.yourCandidateId || "";
+  return getCandidateUiController().rebuildYourCandidateSelect();
 }
 
 function rebuildUserSplitInputs(){
-  const isUser = state.undecidedMode === "user_defined";
-  els.userSplitWrap.hidden = !isUser;
-  if (!isUser) return;
-
-  els.userSplitList.innerHTML = "";
-  for (const cand of state.candidates){
-    if (state.userSplit[cand.id] == null) state.userSplit[cand.id] = 0;
-    const row = document.createElement("div");
-    row.className = "grid2";
-    row.style.gridTemplateColumns = "1fr 120px";
-
-    const name = document.createElement("div");
-    name.className = "label";
-    name.style.alignSelf = "center";
-    name.textContent = cand.name || "Candidate";
-
-    const inp = document.createElement("input");
-    inp.className = "input input-sm num";
-    inp.type = "number";
-    inp.min = "0";
-    inp.max = "100";
-    inp.step = "0.1";
-    inp.value = state.userSplit[cand.id] ?? 0;
-    inp.addEventListener("input", () => {
-      state.userSplit[cand.id] = safeNum(inp.value);
-      commitUIUpdate();
-    });
-
-    row.appendChild(name);
-    row.appendChild(inp);
-    els.userSplitList.appendChild(row);
-  }
+  return getCandidateUiController().rebuildUserSplitInputs();
 }
 
 function wireEvents(){
