@@ -421,7 +421,68 @@ function applyShockImpacts(values, impacts){
   return values;
 }
 
-export function runMonteCarloSim({ scenario, scenarioState, res, weeks, needVotes, runs, seed, includeMargins }){
+function normalizeMonteCarloArgs(argsOrScenario, legacyRes, legacyWeeks, legacyNeedVotes, legacyRuns, legacySeed, legacyIncludeMargins){
+  const looksObject = !!argsOrScenario && typeof argsOrScenario === "object" && !Array.isArray(argsOrScenario);
+  const hasNamedShape = looksObject && (
+    Object.prototype.hasOwnProperty.call(argsOrScenario, "scenario") ||
+    Object.prototype.hasOwnProperty.call(argsOrScenario, "scenarioState") ||
+    Object.prototype.hasOwnProperty.call(argsOrScenario, "res") ||
+    Object.prototype.hasOwnProperty.call(argsOrScenario, "weeks") ||
+    Object.prototype.hasOwnProperty.call(argsOrScenario, "needVotes") ||
+    Object.prototype.hasOwnProperty.call(argsOrScenario, "runs") ||
+    Object.prototype.hasOwnProperty.call(argsOrScenario, "seed") ||
+    Object.prototype.hasOwnProperty.call(argsOrScenario, "includeMargins")
+  );
+
+  if (hasNamedShape){
+    return {
+      scenario: argsOrScenario.scenario,
+      scenarioState: argsOrScenario.scenarioState,
+      res: argsOrScenario.res,
+      weeks: argsOrScenario.weeks,
+      needVotes: argsOrScenario.needVotes,
+      runs: argsOrScenario.runs,
+      seed: argsOrScenario.seed,
+      includeMargins: argsOrScenario.includeMargins,
+    };
+  }
+
+  return {
+    scenario: looksObject ? argsOrScenario : {},
+    scenarioState: null,
+    res: legacyRes,
+    weeks: legacyWeeks,
+    needVotes: legacyNeedVotes,
+    runs: legacyRuns,
+    seed: legacySeed,
+    includeMargins: legacyIncludeMargins,
+  };
+}
+
+function normalizeRunCount(rawRuns){
+  const n = Number(rawRuns);
+  if (!Number.isFinite(n) || n <= 0) return 10000;
+  return Math.min(200000, Math.max(1, Math.trunc(n)));
+}
+
+export function runMonteCarloSim(argsOrScenario, legacyRes, legacyWeeks, legacyNeedVotes, legacyRuns, legacySeed, legacyIncludeMargins){
+  const {
+    scenario,
+    scenarioState,
+    weeks,
+    needVotes,
+    runs,
+    seed,
+    includeMargins,
+  } = normalizeMonteCarloArgs(
+    argsOrScenario,
+    legacyRes,
+    legacyWeeks,
+    legacyNeedVotes,
+    legacyRuns,
+    legacySeed,
+    legacyIncludeMargins
+  );
   const sc = scenario || scenarioState || {}; 
   const mode = sc.mcMode || "basic";
   const resolvedFeatures = resolveFeatureFlags(sc);
@@ -429,6 +490,8 @@ export function runMonteCarloSim({ scenario, scenarioState, res, weeks, needVote
   const correlationCfg = resolveCorrelationConfig(sc, distribution, resolvedFeatures);
   const shockCfg = resolveShockScenarioConfig(sc, resolvedFeatures);
   const capacityDecayCfg = resolveCapacityDecayConfig(sc, resolvedFeatures);
+  const runCount = normalizeRunCount(runs);
+  const needVotesNum = Number.isFinite(Number(needVotes)) ? Number(needVotes) : 0;
 
   // Base rates
   const baseCr = pctToUnit(safeNum(sc.contactRatePct), 0.22);
@@ -463,17 +526,17 @@ export function runMonteCarloSim({ scenario, scenarioState, res, weeks, needVote
     ? buildAdvancedSpecs(sc, { baseCr, basePr, baseRr, baseDph, baseCph, baseVol, volBoost })
     : buildBasicSpecs(sc, { baseCr, basePr, baseRr, baseDph, baseCph, baseVol, volBoost });
 
-  const margins = new Array(runs);
-  const wins = new Array(runs);
+  const margins = new Array(runCount);
+  const wins = new Array(runCount);
 
   // Track sampled variables for sensitivity.
   const samples = {
-    contactRate: new Array(runs),
-    persuasionRate: new Array(runs),
-    turnoutReliability: new Array(runs),
-    doorsPerHour: new Array(runs),
-    callsPerHour: new Array(runs),
-    volunteerMult: new Array(runs),
+    contactRate: new Array(runCount),
+    persuasionRate: new Array(runCount),
+    turnoutReliability: new Array(runCount),
+    doorsPerHour: new Array(runCount),
+    callsPerHour: new Array(runCount),
+    volunteerMult: new Array(runCount),
   };
 
   const turnoutEnabled = !!resolvedFeatures?.turnoutModelingEnabled;
@@ -485,18 +548,18 @@ export function runMonteCarloSim({ scenario, scenarioState, res, weeks, needVote
   const tuPct = safeNum(sc.persuasionPct);
   const targetUniverseSize = (U != null && tuPct != null) ? Math.round(U * (clamp(tuPct, 0, 100) / 100)) : null;
 
-  const turnoutAdjustedVotesArr = new Array(runs);
-  const winsTA = new Array(runs);
+  const turnoutAdjustedVotesArr = new Array(runCount);
+  const winsTA = new Array(runCount);
 
   // Add sampled GOTV lift to sensitivity when enabled + advanced
   if (turnoutEnabled && mode === "advanced"){
-    samples.gotvLift = new Array(runs);
+    samples.gotvLift = new Array(runCount);
   }
 
   let shockAppliedRuns = 0;
   let shockTriggeredEvents = 0;
 
-  for (let i=0;i<runs;i++){
+  for (let i=0;i<runCount;i++){
     let correlatedU = null;
     if (correlationCfg.applied){
       const zs = correlatedNormals(correlationCfg.L, rng);
@@ -605,8 +668,8 @@ export function runMonteCarloSim({ scenario, scenarioState, res, weeks, needVote
       turnoutAdjustedVotes = votes + gotvAddedVotes;
     }
 
-    const margin = votes - needVotes;
-    const marginTA = turnoutAdjustedVotes - needVotes;
+    const margin = votes - needVotesNum;
+    const marginTA = turnoutAdjustedVotes - needVotesNum;
 
     margins[i] = margin;
     wins[i] = (margin >= 0) ? 1 : 0;
@@ -623,8 +686,8 @@ export function runMonteCarloSim({ scenario, scenarioState, res, weeks, needVote
     if (turnoutEnabled && mode === "advanced" && sc.gotvMode === "advanced" && samples.gotvLift){ samples.gotvLift[i] = gotvLiftPP; }
   }
 
-  const winProb = sum(wins) / runs;
-  const winProbTurnoutAdjusted = turnoutEnabled ? (sum(winsTA) / runs) : winProb;
+  const winProb = sum(wins) / runCount;
+  const winProbTurnoutAdjusted = turnoutEnabled ? (sum(winsTA) / runCount) : winProb;
 
   const sorted = margins.slice().sort((a,b)=>a-b);
   const median = quantileSorted(sorted, 0.50);
@@ -670,7 +733,7 @@ export function runMonteCarloSim({ scenario, scenarioState, res, weeks, needVote
   const sens = computeSensitivity(samples, margins);
 
   const summary = {
-    runs,
+    runs: runCount,
     winProb,
     winProbTurnoutAdjusted,
     median,
@@ -680,7 +743,7 @@ export function runMonteCarloSim({ scenario, scenarioState, res, weeks, needVote
     histogram,
     sensitivity: sens,
     riskLabel: riskLabelFromWinProb(winProb),
-    needVotes,
+    needVotes: needVotesNum,
     distribution,
     correlation: {
       enabled: !!resolvedFeatures?.correlatedShocks,
@@ -694,7 +757,7 @@ export function runMonteCarloSim({ scenario, scenarioState, res, weeks, needVote
       configured: shockCfg?.configured || 0,
       activeScenarios: Array.isArray(shockCfg?.scenarios) ? shockCfg.scenarios.length : 0,
       appliedRuns: shockAppliedRuns,
-      appliedRunRate: runs > 0 ? (shockAppliedRuns / runs) : 0,
+      appliedRunRate: runCount > 0 ? (shockAppliedRuns / runCount) : 0,
       triggeredEvents: shockTriggeredEvents,
       reason: shockCfg?.reason || "off",
     },

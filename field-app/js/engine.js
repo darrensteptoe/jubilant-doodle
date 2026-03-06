@@ -54,7 +54,7 @@ function buildAccessors(){
     computeAll: (mi, options) => computeAllWithExplain(mi, options),
     deriveNeedVotes: (res, goalOverride) => deriveNeedVotes(res, goalOverride),
     derivedWeeksRemaining: (args) => derivedWeeksRemaining(args),
-    runMonteCarloSim: (args) => runMonteCarloSim(args),
+    runMonteCarloSim: (...args) => runMonteCarloSim(...args),
     optimizeMixBudget: (inputs, options) => optimizeMixBudget(inputs, options),
     optimizeMixCapacity: (inputs, options) => optimizeMixCapacity(inputs, options),
     buildOptimizationTactics: (...args) => buildOptimizationTactics(...args),
@@ -69,7 +69,7 @@ export const engine = {
   // Backward-compat shim for older app modules that still call engine.computeUniverseAdjustedRates(...)
   computeUniverseAdjustedRates: (args) => computeUniverseAdjustedRates(args),
 
-  runMonteCarlo: (args) => runMonteCarloSim(args),
+  runMonteCarlo: (...args) => runMonteCarloSim(...args),
 
   optimizeMixBudget: (inputs, options) => optimizeMixBudget(inputs, options),
   optimizeMixCapacity: (inputs, options) => optimizeMixCapacity(inputs, options),

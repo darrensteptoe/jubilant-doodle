@@ -92,6 +92,12 @@ function stableStringify(obj){
   }
 }
 
+function getMcSummary(sim){
+  if (!sim || typeof sim !== "object") return null;
+  if (sim.summary && typeof sim.summary === "object") return sim.summary;
+  return sim;
+}
+
 function clamp01(v){
   if (v == null || !isFinite(v)) return null;
   if (v < 0) return 0;
@@ -601,7 +607,35 @@ export function runSelfTests(engine){
     assert(baseline.res, "Baseline computeAll result missing");
     const sim1 = engine.runMonteCarloSim({ res: baseline.res, weeks: baseline.weeks, needVotes: baseline.needVotes, runs: 2000, seed: "selftest-seed-1" });
     const sim2 = engine.runMonteCarloSim({ res: baseline.res, weeks: baseline.weeks, needVotes: baseline.needVotes, runs: 2000, seed: "selftest-seed-1" });
-    assert(stableStringify(sim1?.summary) === stableStringify(sim2?.summary), "Same seed produced different summaries");
+    const s1 = getMcSummary(sim1);
+    const s2 = getMcSummary(sim2);
+    assert(s1 && s2, "Monte Carlo summary missing");
+    assert(stableStringify(s1) === stableStringify(s2), "Same seed produced different summaries");
+  });
+
+  test("Monte Carlo: positional legacy signature matches named-args signature", () => {
+    assert(snap && typeof snap === "object", "State snapshot unavailable");
+    assert(baseline.res, "Baseline computeAll result missing");
+    const named = getMcSummary(engine.runMonteCarloSim({
+      scenario: snap,
+      res: baseline.res,
+      weeks: baseline.weeks,
+      needVotes: baseline.needVotes,
+      runs: 600,
+      seed: "selftest-seed-legacy-shape",
+      includeMargins: true,
+    }));
+    const legacy = getMcSummary(engine.runMonteCarloSim(
+      snap,
+      baseline.res,
+      baseline.weeks,
+      baseline.needVotes,
+      600,
+      "selftest-seed-legacy-shape",
+      true
+    ));
+    assert(named && legacy, "Monte Carlo summary missing for legacy-signature parity test");
+    assert(stableStringify(named) === stableStringify(legacy), "Legacy positional signature diverged from named-args signature");
   });
 
   test("Monte Carlo: different seed => different summary output", () => {
@@ -612,8 +646,8 @@ export function runSelfTests(engine){
     if (baseline.weeks == null) return true;
     const sim1 = engine.runMonteCarloSim({ res: baseline.res, weeks: baseline.weeks, needVotes: baseline.needVotes, runs: 2000, seed: "selftest-seed-A" });
     const sim2 = engine.runMonteCarloSim({ res: baseline.res, weeks: baseline.weeks, needVotes: baseline.needVotes, runs: 2000, seed: "selftest-seed-B" });
-    const s1 = sim1?.summary || {};
-    const s2 = sim2?.summary || {};
+    const s1 = getMcSummary(sim1) || {};
+    const s2 = getMcSummary(sim2) || {};
     // Degenerate case: if both outputs show zero spread, seed sensitivity can't be asserted.
     const deg1 = (s1.p5 === s1.p95) && (s1.median === s1.p5);
     const deg2 = (s2.p5 === s2.p95) && (s2.median === s2.p5);
@@ -649,7 +683,7 @@ export function runSelfTests(engine){
     const detMargin = detVotes - (baseline.needVotes ?? 0);
 
     const sim = engine.runMonteCarloSim({ res: baseline.res, weeks: baseline.weeks, needVotes: baseline.needVotes, runs: 5000, seed: "selftest-seed-align" });
-    const mcMedian = sim?.summary?.median;
+    const mcMedian = getMcSummary(sim)?.median;
 
     if (mcMedian == null || !isFinite(mcMedian)) return true;
 
