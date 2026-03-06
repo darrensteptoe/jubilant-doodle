@@ -28,7 +28,6 @@ import { renderDecisionConfidencePanel, renderDecisionIntelligencePanelView } fr
 import { renderImpactTracePanel } from "./app/render/impactTrace.js";
 import { getMcStaleness } from "./app/mcStaleness.js";
 import { hashMcInputsModule } from "./app/mcHash.js";
-import { runMonteCarloNowModule } from "./app/monteCarloRun.js";
 import {
   fmtSignedModule,
   renderMcResultsAdapterModule,
@@ -126,6 +125,7 @@ import {
   setCanonicalDoorsPerHourModule,
   requiredScenarioKeysMissingModule
 } from "./app/stateNormalizationHelpers.js";
+import { withPatchedStateModule } from "./app/statePatch.js";
 import { syncFeatureFlagsFromState } from "./app/featureFlags.js";
 import {
   twCapTextModule,
@@ -151,6 +151,7 @@ import { createOperationsCapacityOutlookController } from "./app/operationsCapac
 import { createEffectiveInputsController } from "./app/effectiveInputs.js";
 import { createMcStateController } from "./app/mcState.js";
 import { createMcEnvelopeController } from "./app/mcEnvelopeController.js";
+import { createMcRuntimeController } from "./app/mcRuntimeController.js";
 import {
   updatePersistenceStatusChipModule,
   reportPersistenceFailureModule,
@@ -1865,29 +1866,14 @@ function markMcStale(){
 
 
 function withPatchedState(patch, fn){
-  // Dev-only helper used by selfTest harness.
-  const prev = getStateSnapshot();
-  const patchHasFeatures = !!(patch && typeof patch === "object" && patch.features && typeof patch.features === "object" && !Array.isArray(patch.features));
-  const merge = (target, src) => {
-    if (!src || typeof src !== "object") return;
-    for (const k of Object.keys(src)){
-      const v = src[k];
-      if (v && typeof v === "object" && !Array.isArray(v)){
-        if (!target[k] || typeof target[k] !== "object" || Array.isArray(target[k])) target[k] = {};
-        merge(target[k], v);
-      } else {
-        target[k] = v;
-      }
-    }
-  };
-  try{
-    merge(state, patch || {});
-    syncFeatureFlagsFromState(state, { preferFeatures: patchHasFeatures });
-    return fn();
-  } finally {
-    // Restore
-    state = prev;
-  }
+  return withPatchedStateModule({
+    getStateSnapshot,
+    getState: () => state,
+    setState: (next) => { state = next; },
+    syncFeatureFlagsFromState,
+    patch,
+    fn,
+  });
 }
 
 
@@ -2063,9 +2049,13 @@ function computeCapacityContacts(args){
 
 /* ---- Monte Carlo ---- */
 
-function runMonteCarloNow(){
-  return runMonteCarloNowModule({
-    state,
+let mcRuntimeController = null;
+
+function getMcRuntimeController(){
+  if (mcRuntimeController) return mcRuntimeController;
+  mcRuntimeController = createMcRuntimeController({
+    getState: () => state,
+    setLastRenderCtx: (next) => { lastRenderCtx = next; },
     computeElectionSnapshot,
     computeExecutionSnapshot,
     computeWeeklyOpsContext,
@@ -2074,9 +2064,7 @@ function runMonteCarloNow(){
     safeNum,
     engine,
     deriveNeedVotes,
-    setLastRenderCtx: (next) => { lastRenderCtx = next; },
     hashMcInputs,
-    runMonteCarloSim,
     computeDailyLogHash,
     persist,
     clearMcStale,
@@ -2085,42 +2073,15 @@ function runMonteCarloNow(){
     renderRiskFramingE2,
     renderSensitivitySnapshotE4,
   });
+  return mcRuntimeController;
 }
 
-function runMonteCarloSim(argsOrScenario, legacyRes, legacyWeeks, legacyNeedVotes, legacyRuns, legacySeed, legacyIncludeMargins){
-  const looksObject = !!argsOrScenario && typeof argsOrScenario === "object" && !Array.isArray(argsOrScenario);
-  const hasNamedShape = looksObject && (
-    Object.prototype.hasOwnProperty.call(argsOrScenario, "scenario") ||
-    Object.prototype.hasOwnProperty.call(argsOrScenario, "scenarioState") ||
-    Object.prototype.hasOwnProperty.call(argsOrScenario, "res") ||
-    Object.prototype.hasOwnProperty.call(argsOrScenario, "weeks") ||
-    Object.prototype.hasOwnProperty.call(argsOrScenario, "needVotes") ||
-    Object.prototype.hasOwnProperty.call(argsOrScenario, "seed") ||
-    Object.prototype.hasOwnProperty.call(argsOrScenario, "includeMargins")
-  );
+function runMonteCarloNow(){
+  return getMcRuntimeController().runMonteCarloNow();
+}
 
-  const payload = hasNamedShape
-    ? {
-      scenario: argsOrScenario.scenario || argsOrScenario.scenarioState || state,
-      res: argsOrScenario.res,
-      weeks: argsOrScenario.weeks,
-      needVotes: argsOrScenario.needVotes,
-      runs: argsOrScenario.runs,
-      seed: argsOrScenario.seed,
-      includeMargins: argsOrScenario.includeMargins,
-    }
-    : {
-      scenario: looksObject ? argsOrScenario : state,
-      res: legacyRes,
-      weeks: legacyWeeks,
-      needVotes: legacyNeedVotes,
-      runs: legacyRuns,
-      seed: legacySeed,
-      includeMargins: legacyIncludeMargins,
-    };
-
-  // Delegated to core Monte Carlo via facade (no loops in UI).
-  return engine.runMonteCarlo(payload);
+function runMonteCarloSim(...args){
+  return getMcRuntimeController().runMonteCarloSim(...args);
 }
 
 function renderMcResults(summary){
