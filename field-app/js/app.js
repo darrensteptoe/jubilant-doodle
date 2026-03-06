@@ -28,7 +28,6 @@ import { renderDecisionConfidencePanel, renderDecisionIntelligencePanelView } fr
 import { renderImpactTracePanel } from "./app/render/impactTrace.js";
 import { getMcStaleness } from "./app/mcStaleness.js";
 import {
-  computeDailyLogHashModule,
   renderMcFreshnessModule,
 } from "./app/mcFreshness.js";
 import {
@@ -167,6 +166,7 @@ import {
 } from "./app/twCapHelpers.js";
 import { createOperationsCapacityOutlookController } from "./app/operationsCapacityOutlook.js";
 import { createEffectiveInputsController } from "./app/effectiveInputs.js";
+import { createMcStateController } from "./app/mcState.js";
 import {
   updatePersistenceStatusChipModule,
   reportPersistenceFailureModule,
@@ -1955,13 +1955,22 @@ function syncGotvModeUI(){
   els.gotvAdvanced.classList.toggle("active", mode === "advanced");
 }
 
+let mcStateController = null;
+
+function getMcStateController(){
+  if (mcStateController) return mcStateController;
+  mcStateController = createMcStateController({
+    els,
+    getState: () => state,
+    setHidden,
+    normalizeDailyLogEntry,
+    computeSnapshotHash,
+  });
+  return mcStateController;
+}
 
 function markMcStale(){
-  // Mark results stale if there is a prior run.
-  if (!els.mcStale) return;
-  if (state.mcLast){
-    setHidden(els.mcStale, false); setHidden(els.mcStaleSidebar, false);
-  }
+  return getMcStateController().markMcStale();
 }
 
 
@@ -1993,18 +2002,11 @@ function withPatchedState(patch, fn){
 
 
 function clearMcStale(){
-  if (!els.mcStale) return;
-  setHidden(els.mcStale, true); setHidden(els.mcStaleSidebar, true);
-  els.mcStale.classList.remove("warn","ok");
-  els.mcStale.classList.add("warn");
+  return getMcStateController().clearMcStale();
 }
 
 function computeDailyLogHash(){
-  return computeDailyLogHashModule({
-    state,
-    normalizeDailyLogEntry,
-    computeSnapshotHash,
-  });
+  return getMcStateController().computeDailyLogHash();
 }
 
 function renderMcFreshness(res, weeks, opts = {}){
