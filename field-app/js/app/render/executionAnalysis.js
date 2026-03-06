@@ -1,3 +1,5 @@
+import { resolveFeatureFlags } from "../../core/featureFlags.js";
+
 export function renderBottleneckAttributionPanel({
   els,
   state,
@@ -11,6 +13,7 @@ export function renderBottleneckAttributionPanel({
   deriveNeedVotes
 }){
   if (!els.bneckTag || !els.bneckPrimary || !els.bneckSecondary || !els.bneckTbody || !els.bneckWarn) return;
+  const features = resolveFeatureFlags(state || {});
 
   const clear = () => { els.bneckTbody.innerHTML = ""; };
   const stub = () => {
@@ -71,7 +74,7 @@ export function renderBottleneckAttributionPanel({
   };
 
   const tlOn = !!state.budget?.optimize?.tlConstrainedEnabled;
-  const timelineEnabled = !!state.timelineEnabled;
+  const timelineEnabled = !!features.timelineEnabled;
   if (!tlOn || !timelineEnabled){
     els.bneckTag.textContent = "—";
     els.bneckTag.classList.remove("ok","warn","bad");
@@ -236,6 +239,7 @@ export function renderConversionPanel({
   renderPhase3
 }){
   if (!els.outConversationsNeeded) return;
+  const features = resolveFeatureFlags(state || {});
 
   const fmtPct = (v, digits = 1) => (v == null || !isFinite(v)) ? "—" : `${Number(v).toFixed(digits)}%`;
   const gotvMode = String(state.gotvMode || "basic");
@@ -247,7 +251,7 @@ export function renderConversionPanel({
   const liftCeiling = advanced ? safeNum(state.gotvMaxLiftPP2) : safeNum(state.gotvMaxLiftPP);
   const useDiminishing = advanced ? !!state.gotvDiminishing2 : !!state.gotvDiminishing;
 
-  setText(els.gotvPlannerStatus, state.turnoutEnabled ? "Enabled" : "Disabled");
+  setText(els.gotvPlannerStatus, features.turnoutModelingEnabled ? "Enabled" : "Disabled");
   setText(els.gotvPlannerModel, advanced ? "Advanced (min/mode/max)" : "Basic (single lift)");
   setText(els.gotvPlannerBaseline, fmtPct(baselineTarget));
   setText(els.gotvPlannerLift, fmtPct(liftPerContact));

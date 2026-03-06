@@ -1,3 +1,5 @@
+import { resolveFeatureFlags } from "../../core/featureFlags.js";
+
 export function renderPhase3Panel({
   els,
   state,
@@ -13,6 +15,7 @@ export function renderPhase3Panel({
   renderMcResults
 }){
   if (!els.p3CapContacts) return;
+  const features = resolveFeatureFlags(state || {});
 
   const w = (weeks != null && weeks >= 0) ? weeks : null;
   els.p3Weeks.textContent = w == null ? "—" : fmtInt(w);
@@ -31,7 +34,7 @@ export function renderPhase3Panel({
   const dph = safeNum(state.doorsPerHour3) ?? safeNum(state.doorsPerHour);
   const cph = safeNum(state.callsPerHour3);
   const capacityDecay = {
-    enabled: !!state?.intelState?.expertToggles?.capacityDecayEnabled,
+    enabled: !!features.capacityDecayEnabled,
     type: String(state?.intelState?.expertToggles?.decayModel?.type || "linear"),
     weeklyDecayPct: safeNum(state?.intelState?.expertToggles?.decayModel?.weeklyDecayPct),
     floorPctOfBaseline: safeNum(state?.intelState?.expertToggles?.decayModel?.floorPctOfBaseline),

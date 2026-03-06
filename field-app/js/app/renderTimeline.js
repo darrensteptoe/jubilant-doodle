@@ -1,3 +1,5 @@
+import { resolveFeatureFlags } from "../core/featureFlags.js";
+
 export function renderTimelineModule(args){
   const {
     els,
@@ -9,10 +11,11 @@ export function renderTimelineModule(args){
   } = args || {};
 
   if (!els?.timelineEnabled || !els?.tlPercent) return;
+  const features = resolveFeatureFlags(state || {});
 
   if (els.timelineWeeksAuto) els.timelineWeeksAuto.value = (weeks == null) ? "" : String(Math.max(0, Math.floor(weeks)));
 
-  const enabled = !!state.timelineEnabled;
+  const enabled = !!features.timelineEnabled;
   const banner = els.tlBanner;
   const setBanner = (kind, text) => {
     if (!banner) return;

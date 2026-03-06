@@ -1,5 +1,6 @@
 import { safeNum, clamp } from "../utils.js";
 import { normalizeUniversePercents, UNIVERSE_DEFAULTS } from "../core/universeLayer.js";
+import { resolveFeatureFlags } from "../core/featureFlags.js";
 import {
   deriveNeedVotesOrZero as coreDeriveNeedVotesOrZero,
   deriveWeeksRemainingCeil as coreDeriveWeeksRemainingCeil
@@ -14,7 +15,8 @@ export function derivedWeeksRemainingFromState(state, { nowDate = new Date() } =
 }
 
 export function getUniverseLayerConfig(state){
-  const enabled = !!state?.universeLayerEnabled;
+  const features = resolveFeatureFlags(state || {});
+  const enabled = !!features.universeWeightingEnabled;
   const demPct = safeNum(state?.universeDemPct);
   const repPct = safeNum(state?.universeRepPct);
   const npaPct = safeNum(state?.universeNpaPct);
@@ -64,6 +66,7 @@ export function computeWeeklyOpsContextFromState(state, {
   compileEffectiveInputsForState,
   computeMaxAttemptsByTactic,
 } = {}){
+  const features = resolveFeatureFlags(state || {});
   const goal = coreDeriveNeedVotesOrZero(res, state?.goalSupportIds);
 
   const eff = getEffectiveBaseRatesForState(state);
@@ -82,7 +85,7 @@ export function computeWeeklyOpsContextFromState(state, {
   let doorsPerHour = safeNum(state?.doorsPerHour3);
   let callsPerHour = safeNum(state?.callsPerHour3);
   let capacityDecay = {
-    enabled: !!state?.intelState?.expertToggles?.capacityDecayEnabled,
+    enabled: !!features.capacityDecayEnabled,
     type: String(state?.intelState?.expertToggles?.decayModel?.type || "linear"),
     weeklyDecayPct: safeNum(state?.intelState?.expertToggles?.decayModel?.weeklyDecayPct),
     floorPctOfBaseline: safeNum(state?.intelState?.expertToggles?.decayModel?.floorPctOfBaseline),
@@ -135,7 +138,7 @@ export function computeWeeklyOpsContextFromState(state, {
   };
 
   const tlConstrainedOn = !!state?.budget?.optimize?.tlConstrainedEnabled;
-  const timelineEnabled = !!state?.timelineEnabled;
+  const timelineEnabled = !!features.timelineEnabled;
   if (tlConstrainedOn && timelineEnabled && typeof computeMaxAttemptsByTactic === "function"){
     const capsInput = {
       enabled: true,

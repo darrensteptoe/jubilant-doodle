@@ -1,3 +1,5 @@
+import { resolveFeatureFlags } from "../core/featureFlags.js";
+
 export function renderOptimizationModule(args){
   const {
     els,
@@ -13,6 +15,7 @@ export function renderOptimizationModule(args){
   } = args || {};
 
   if (!els?.optTbody) return;
+  const features = resolveFeatureFlags(state || {});
 
   const needVotes = deriveNeedVotes(res);
   if (els.optGapContext) els.optGapContext.textContent = (needVotes == null) ? "—" : fmtInt(Math.round(needVotes));
@@ -39,7 +42,7 @@ export function renderOptimizationModule(args){
   const tacticsRaw = budget.tactics || {};
   const opt = budget.optimize || { mode: "budget", budgetAmount: 0, capacityAttempts: "", step: 25, useDecay: false };
   const tlConstrainedOn = !!opt.tlConstrainedEnabled;
-  const timelineEnabled = !!state.timelineEnabled;
+  const timelineEnabled = !!features.timelineEnabled;
 
   const overheadAmount = safeNum(budget.overheadAmount) ?? 0;
   const includeOverhead = !!budget.includeOverhead;
@@ -183,7 +186,7 @@ export function renderOptimizationModule(args){
     };
 
     const capsInput = {
-      enabled: !!state.timelineEnabled,
+      enabled: !!features.timelineEnabled,
       weeksRemaining: weeks ?? 0,
       activeWeeksOverride: safeNum(state.timelineActiveWeeks),
       gotvWindowWeeks: safeNum(state.timelineGotvWeeks),

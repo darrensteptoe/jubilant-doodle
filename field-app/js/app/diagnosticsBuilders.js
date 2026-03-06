@@ -3,6 +3,7 @@ import {
   listMissingEvidenceAudit,
   listMissingNoteAudit,
 } from "./intelControls.js";
+import { resolveFeatureFlags } from "../core/featureFlags.js";
 
 export function appendOperationsDiagnosticsCore(lines, tw){
   const out = Array.isArray(lines) ? lines.slice() : [];
@@ -45,6 +46,7 @@ export function appendModelDiagnosticsCore(lines, {
   }
 
   const intel = state?.intelState || {};
+  const features = resolveFeatureFlags(state || {});
   const audit = Array.isArray(intel.audit) ? intel.audit : [];
   const evidence = Array.isArray(intel.evidence) ? intel.evidence : [];
   const missingEvidence = listMissingEvidenceAudit(state, { limit: 2000 }).length;
@@ -59,6 +61,7 @@ export function appendModelDiagnosticsCore(lines, {
   out.push(`intelEvidenceRecords: ${evidence.length}`);
   out.push(`intelMissingEvidence: ${missingEvidence}`);
   out.push(`intelMissingNote: ${missingNote}`);
+  out.push(`featuresResolved: turnout=${features.turnoutModelingEnabled ? "on" : "off"} timeline=${features.timelineEnabled ? "on" : "off"} universe=${features.universeWeightingEnabled ? "on" : "off"} mcDist=${features.mcDistribution} corr=${features.correlatedShocks ? "on" : "off"} shock=${features.shockScenariosEnabled ? "on" : "off"} decay=${features.capacityDecayEnabled ? "on" : "off"}`);
   out.push(`intelIntegrityScore: ${integrity.score} (${integrity.grade})`);
   out.push(`intelIntegrityPenalties: evidence=${integrity.penalties.missingEvidence} note=${integrity.penalties.missingNote} benchmark=${integrity.penalties.benchmarkWarnings} stale=${integrity.penalties.staleEvidence} drift=${integrity.penalties.driftFlags}`);
   if (!drift?.hasLog){

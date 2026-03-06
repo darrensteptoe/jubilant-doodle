@@ -1,3 +1,5 @@
+import { resolveFeatureFlags } from "../core/featureFlags.js";
+
 export function renderRoiModule(args){
   const {
     els,
@@ -16,6 +18,7 @@ export function renderRoiModule(args){
   } = args || {};
 
   if (!els?.roiTbody) return;
+  const features = resolveFeatureFlags(state || {});
 
   const needVotes = deriveNeedVotes(res);
   const eff = getEffectiveBaseRates();
@@ -25,7 +28,7 @@ export function renderRoiModule(args){
 
   const w = (weeks != null && weeks >= 0) ? weeks : null;
   const capacityDecay = {
-    enabled: !!state?.intelState?.expertToggles?.capacityDecayEnabled,
+    enabled: !!features.capacityDecayEnabled,
     type: String(state?.intelState?.expertToggles?.decayModel?.type || "linear"),
     weeklyDecayPct: safeNum(state?.intelState?.expertToggles?.decayModel?.weeklyDecayPct),
     floorPctOfBaseline: safeNum(state?.intelState?.expertToggles?.decayModel?.floorPctOfBaseline),
@@ -54,7 +57,7 @@ export function renderRoiModule(args){
   const mcLast = state.mcLast || null;
 
   const turnoutModel = {
-    enabled: !!state.turnoutEnabled,
+    enabled: !!features.turnoutModelingEnabled,
     baselineTurnoutPct: (safeNum(state.turnoutTargetOverridePct) != null) ? safeNum(state.turnoutTargetOverridePct) : safeNum(state.turnoutBaselinePct),
     liftPerContactPP: (state.gotvMode === "advanced") ? safeNum(state.gotvLiftMode) : safeNum(state.gotvLiftPP),
     maxLiftPP: (state.gotvMode === "advanced") ? safeNum(state.gotvMaxLiftPP2) : safeNum(state.gotvMaxLiftPP),
@@ -62,7 +65,7 @@ export function renderRoiModule(args){
   };
 
   const tlConstrainedOn = !!opt.tlConstrainedEnabled;
-  const timelineEnabled = !!state.timelineEnabled;
+  const timelineEnabled = !!features.timelineEnabled;
   const timelineCapsOn = tlConstrainedOn && timelineEnabled;
   let capAttempts = baseCapAttempts;
   let capByTactic = {
