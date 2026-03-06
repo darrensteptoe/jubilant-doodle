@@ -541,6 +541,8 @@ input[type="date"].input{
 }
 .panel{ display:none; }
 .panel.active{ display:block; }
+.mc-subpanel{ display:none; }
+.mc-subpanel.active{ display:block; }
 
 /* =========================
    10) Tables
