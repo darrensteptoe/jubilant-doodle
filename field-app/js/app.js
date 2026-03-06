@@ -27,14 +27,6 @@ import { renderWeeklyOpsInsightsPanel, renderWeeklyOpsFreshnessPanel } from "./a
 import { renderDecisionConfidencePanel, renderDecisionIntelligencePanelView } from "./app/render/decisionPanels.js";
 import { renderImpactTracePanel } from "./app/render/impactTrace.js";
 import { getMcStaleness } from "./app/mcStaleness.js";
-import {
-  renderMcFreshnessModule,
-} from "./app/mcFreshness.js";
-import {
-  buildAdvancedSpecsModule,
-  buildBasicSpecsModule,
-  quantileSortedModule,
-} from "./app/mcSpecBuilders.js";
 import { hashMcInputsModule } from "./app/mcHash.js";
 import { runMonteCarloNowModule } from "./app/monteCarloRun.js";
 import {
@@ -97,6 +89,7 @@ import {
   renderSurfaceStubCore,
   renderSurfaceResultCore,
 } from "./app/sensitivitySurfaceUi.js";
+import { createSensitivitySurfaceController } from "./app/sensitivitySurfaceController.js";
 import { composeSetupStageModule } from "./app/composeSetupStage.js";
 import { normalizeStageLayoutModule } from "./app/normalizeStageLayout.js";
 import { runInitPostBootModule } from "./app/initPostBoot.js";
@@ -121,17 +114,6 @@ import { renderAssumptionsModule } from "./app/renderAssumptions.js";
 import { renderGuardrailsModule } from "./app/renderGuardrails.js";
 import { renderMcVisualsModule } from "./app/renderMcVisuals.js";
 import { renderMcResultsModule } from "./app/renderMcResults.js";
-import {
-  hashOpsEnvelopeInputsModule,
-  computeOpsEnvelopeD2Module,
-  renderOpsEnvelopeD2Module,
-  hashFinishEnvelopeInputsModule,
-  computeFinishEnvelopeD3Module,
-  renderFinishEnvelopeD3Module,
-  hashMissRiskInputsModule,
-  computeMissRiskD4Module,
-  renderMissRiskD4Module
-} from "./app/mcEnvelopePanels.js";
 import {
   blockModule,
   kvModule,
@@ -168,6 +150,7 @@ import {
 import { createOperationsCapacityOutlookController } from "./app/operationsCapacityOutlook.js";
 import { createEffectiveInputsController } from "./app/effectiveInputs.js";
 import { createMcStateController } from "./app/mcState.js";
+import { createMcEnvelopeController } from "./app/mcEnvelopeController.js";
 import {
   updatePersistenceStatusChipModule,
   reportPersistenceFailureModule,
@@ -1666,78 +1649,33 @@ function renderSurfaceResult({ spec, result }){
   });
 }
 
+let sensitivitySurfaceController = null;
+
+function getSensitivitySurfaceController(){
+  if (sensitivitySurfaceController) return sensitivitySurfaceController;
+  sensitivitySurfaceController = createSensitivitySurfaceController({
+    els,
+    getState: () => state,
+    getStateSnapshot,
+    computeElectionSnapshot,
+    safeNum,
+    buildModelInputFromState,
+    engine,
+    derivedWeeksRemaining,
+    deriveNeedVotes,
+    withPatchedState,
+    runMonteCarloSim,
+    surfaceLeverSpec,
+    surfaceClamp,
+    applySurfaceDefaults,
+    renderSurfaceStub,
+    renderSurfaceResult,
+  });
+  return sensitivitySurfaceController;
+}
+
 function wireSensitivitySurface(){
-  if (!els.surfaceLever || !els.btnComputeSurface) return;
-  if (els.btnComputeSurface.dataset.wiredSurface === "1") return;
-  els.btnComputeSurface.dataset.wiredSurface = "1";
-
-  // defaults (does not compute)
-  applySurfaceDefaults();
-  renderSurfaceStub();
-
-  els.surfaceLever.addEventListener("change", () => {
-    applySurfaceDefaults();
-    renderSurfaceStub();
-  });
-
-  els.btnComputeSurface.addEventListener("click", async () => {
-    try{
-      if (els.btnComputeSurface) els.btnComputeSurface.disabled = true;
-      if (els.surfaceStatus) els.surfaceStatus.textContent = "Computing…";
-
-      const leverKey = els.surfaceLever.value;
-      const spec = surfaceLeverSpec(leverKey);
-      if (!spec){
-        if (els.surfaceStatus) els.surfaceStatus.textContent = "Unknown lever.";
-        return;
-      }
-
-      const minV = surfaceClamp(els.surfaceMin?.value, spec.clampLo, spec.clampHi);
-      const maxV = surfaceClamp(els.surfaceMax?.value, spec.clampLo, spec.clampHi);
-      const steps = Math.max(5, Math.floor(Number(els.surfaceSteps?.value) || 21));
-
-      const mode = els.surfaceMode?.value || "fast";
-      const runs = (mode === "full") ? 10000 : 2000;
-
-      const tPct = Number(els.surfaceTarget?.value);
-      const targetWinProb = Number.isFinite(tPct) ? surfaceClamp(tPct, 50, 99) / 100 : 0.70;
-
-      const snap = getStateSnapshot();
-      let planningSnapshot = null;
-      try{
-        planningSnapshot = computeElectionSnapshot({ state: snap, nowDate: new Date(), toNum: safeNum });
-      } catch {
-        planningSnapshot = null;
-      }
-      const modelInput = buildModelInputFromState(snap, safeNum);
-      const res = planningSnapshot?.res || engine.computeAll(modelInput);
-      const weeks = planningSnapshot?.weeks ?? derivedWeeksRemaining();
-      const needVotes = (planningSnapshot?.needVotes != null) ? planningSnapshot.needVotes : deriveNeedVotes(res);
-
-      // Keep seed behavior aligned with MC: user-provided seed (or empty)
-      const seed = state.mcSeed || "";
-
-      const surfaceAccessors = { withPatchedState, runMonteCarloSim };
-
-      const result = engine.computeSensitivitySurface({
-        engine: surfaceAccessors,
-        baseline: { res, weeks, needVotes, scenario: snap },
-        sweep: { leverKey, minValue: minV, maxValue: maxV, steps },
-        options: { runs, seed, targetWinProb }
-      });
-
-      renderSurfaceResult({ spec, result });
-
-      if (els.surfaceStatus){
-        els.surfaceStatus.textContent = `Done (${runs.toLocaleString()} runs × ${steps} points)`;
-      }
-    } catch (err){
-      renderSurfaceStub();
-      if (els.surfaceStatus) els.surfaceStatus.textContent = err?.message ? err.message : String(err || "Error");
-    } finally {
-      if (els.btnComputeSurface) els.btnComputeSurface.disabled = false;
-    }
-  });
+  return getSensitivitySurfaceController().wireSensitivitySurface();
 }
 
 function initTabs(){
@@ -1961,178 +1899,72 @@ function computeDailyLogHash(){
   return getMcStateController().computeDailyLogHash();
 }
 
-function renderMcFreshness(res, weeks, opts = {}){
-  const renderOpsEnvelopeWithCtx = (nextRes, nextWeeks) => renderOpsEnvelopeD2(nextRes, nextWeeks, opts);
-  const renderFinishEnvelopeWithCtx = (nextRes, nextWeeks) => renderFinishEnvelopeD3(nextRes, nextWeeks, opts);
-  const renderMissRiskWithCtx = (nextRes, nextWeeks) => renderMissRiskD4(nextRes, nextWeeks, opts);
-  return renderMcFreshnessModule({
+let mcEnvelopeController = null;
+
+function getMcEnvelopeController(){
+  if (mcEnvelopeController) return mcEnvelopeController;
+  mcEnvelopeController = createMcEnvelopeController({
     els,
-    state,
-    res,
-    weeks,
+    getState: () => state,
+    getLastRenderCtx: () => lastRenderCtx,
     setTextPair,
     setHidden,
     hashMcInputs,
-    getMcStaleness,
+    getMcStaleness: (args) => getMcStaleness(args),
     computeDailyLogHash,
-    renderOpsEnvelopeD2: renderOpsEnvelopeWithCtx,
-    renderFinishEnvelopeD3: renderFinishEnvelopeWithCtx,
-    renderMissRiskD4: renderMissRiskWithCtx,
-  });
-}
-
-
-function hashOpsEnvelopeInputs(res, weeks){
-  return hashOpsEnvelopeInputsModule({
-    state,
-    res,
-    weeks,
-    getEffectiveBaseRates,
-    computeSnapshotHash,
-    hashMcInputs,
-    safeNum,
-  });
-}
-
-function resolveMcEnvelopeContext(res, weeks, opts = {}){
-  const fromOpts = {
-    weeklyContext: opts.weeklyContext || null,
-    executionSnapshot: opts.executionSnapshot || null,
-  };
-  if (fromOpts.weeklyContext || fromOpts.executionSnapshot) return fromOpts;
-  if (lastRenderCtx && lastRenderCtx.res === res && lastRenderCtx.weeks === weeks){
-    return {
-      weeklyContext: lastRenderCtx.weeklyContext || null,
-      executionSnapshot: lastRenderCtx.executionSnapshot || null,
-    };
-  }
-  return { weeklyContext: null, executionSnapshot: null };
-}
-
-function computeOpsEnvelopeD2(res, weeks, opts = {}){
-  const { weeklyContext, executionSnapshot } = resolveMcEnvelopeContext(res, weeks, opts);
-  return computeOpsEnvelopeD2Module({
-    state,
-    res,
-    weeks,
-    weeklyContext,
-    executionSnapshot,
     computeWeeklyOpsContext,
+    computeLastNLogSums,
     getEffectiveBaseRates,
     safeNum,
-    buildAdvancedSpecs: (params) => buildAdvancedSpecsModule({ state, safeNum, clamp, ...params }),
-    buildBasicSpecs: (params) => buildBasicSpecsModule({ state, clamp, ...params }),
-    hashMcInputs,
     makeRng,
     triSample,
     clamp,
-    quantileSorted: quantileSortedModule,
-  });
-}
-
-function renderOpsEnvelopeD2(res, weeks, opts = {}){
-  const computeWithCtx = (nextRes, nextWeeks) => computeOpsEnvelopeD2(nextRes, nextWeeks, opts);
-  renderOpsEnvelopeD2Module({
-    els,
-    state,
-    res,
-    weeks,
-    hashOpsEnvelopeInputs,
-    computeOpsEnvelopeD2: computeWithCtx,
+    computeSnapshotHash,
+    fmtISODate,
     persist,
     fmtInt,
   });
+  return mcEnvelopeController;
+}
+
+function renderMcFreshness(res, weeks, opts = {}){
+  return getMcEnvelopeController().renderMcFreshness(res, weeks, opts);
+}
+
+function hashOpsEnvelopeInputs(res, weeks){
+  return getMcEnvelopeController().hashOpsEnvelopeInputs(res, weeks);
+}
+
+function computeOpsEnvelopeD2(res, weeks, opts = {}){
+  return getMcEnvelopeController().computeOpsEnvelopeD2(res, weeks, opts);
+}
+
+function renderOpsEnvelopeD2(res, weeks, opts = {}){
+  return getMcEnvelopeController().renderOpsEnvelopeD2(res, weeks, opts);
 }
 
 function hashFinishEnvelopeInputs(res, weeks){
-  return hashFinishEnvelopeInputsModule({
-    res,
-    weeks,
-    hashOpsEnvelopeInputs,
-    computeSnapshotHash,
-    computeDailyLogHash,
-    fmtISODate,
-  });
+  return getMcEnvelopeController().hashFinishEnvelopeInputs(res, weeks);
 }
 
 function computeFinishEnvelopeD3(res, weeks, opts = {}){
-  const { weeklyContext, executionSnapshot } = resolveMcEnvelopeContext(res, weeks, opts);
-  return computeFinishEnvelopeD3Module({
-    state,
-    res,
-    weeks,
-    weeklyContext,
-    executionSnapshot,
-    computeWeeklyOpsContext,
-    computeLastNLogSums,
-    getEffectiveBaseRates,
-    safeNum,
-    buildAdvancedSpecs: (params) => buildAdvancedSpecsModule({ state, safeNum, clamp, ...params }),
-    buildBasicSpecs: (params) => buildBasicSpecsModule({ state, clamp, ...params }),
-    hashMcInputs,
-    makeRng,
-    triSample,
-    clamp,
-    quantileSorted: quantileSortedModule,
-  });
+  return getMcEnvelopeController().computeFinishEnvelopeD3(res, weeks, opts);
 }
 
 function renderFinishEnvelopeD3(res, weeks, opts = {}){
-  const computeWithCtx = (nextRes, nextWeeks) => computeFinishEnvelopeD3(nextRes, nextWeeks, opts);
-  renderFinishEnvelopeD3Module({
-    els,
-    state,
-    res,
-    weeks,
-    hashFinishEnvelopeInputs,
-    computeFinishEnvelopeD3: computeWithCtx,
-    persist,
-    fmtISODate,
-  });
+  return getMcEnvelopeController().renderFinishEnvelopeD3(res, weeks, opts);
 }
 
 function hashMissRiskInputs(res, weeks){
-  return hashMissRiskInputsModule({
-    res,
-    weeks,
-    hashOpsEnvelopeInputs,
-    computeSnapshotHash,
-    computeDailyLogHash,
-  });
+  return getMcEnvelopeController().hashMissRiskInputs(res, weeks);
 }
 
 function computeMissRiskD4(res, weeks, opts = {}){
-  const { weeklyContext, executionSnapshot } = resolveMcEnvelopeContext(res, weeks, opts);
-  return computeMissRiskD4Module({
-    state,
-    res,
-    weeks,
-    weeklyContext,
-    executionSnapshot,
-    computeWeeklyOpsContext,
-    computeLastNLogSums,
-    getEffectiveBaseRates,
-    safeNum,
-    buildAdvancedSpecs: (params) => buildAdvancedSpecsModule({ state, safeNum, clamp, ...params }),
-    buildBasicSpecs: (params) => buildBasicSpecsModule({ state, clamp, ...params }),
-    hashMcInputs,
-    makeRng,
-    triSample,
-    clamp,
-  });
+  return getMcEnvelopeController().computeMissRiskD4(res, weeks, opts);
 }
 
 function renderMissRiskD4(res, weeks, opts = {}){
-  const computeWithCtx = (nextRes, nextWeeks) => computeMissRiskD4(nextRes, nextWeeks, opts);
-  return renderMissRiskD4Module({
-    els,
-    state,
-    res,
-    weeks,
-    hashMissRiskInputs,
-    computeMissRiskD4: computeWithCtx,
-    persist,
-  });
+  return getMcEnvelopeController().renderMissRiskD4(res, weeks, opts);
 }
 
 function hashMcInputs(res, weeks){
