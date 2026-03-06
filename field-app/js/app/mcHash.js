@@ -44,7 +44,6 @@ export function hashMcInputsModule(args){
     gotvLiftMode: safeNum(state.gotvLiftMode),
     gotvLiftMax: safeNum(state.gotvLiftMax),
     gotvMaxLiftPP2: safeNum(state.gotvMaxLiftPP2),
-    gotvDiminishing2: !!state.gotvDiminishing2,
 
     // MC config
     mcMode: state.mcMode || "basic",

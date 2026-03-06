@@ -62,7 +62,6 @@ export function makeDefaultState({ createId = defaultCreateId } = {}){
     gotvLiftMode: 1.0,
     gotvLiftMax: 2.0,
     gotvMaxLiftPP2: 10,
-    gotvDiminishing2: false,
 
     timelineEnabled: false,
     timelineActiveWeeks: "",
@@ -154,6 +153,10 @@ export function normalizeLoadedState(s, { createId = defaultCreateId } = {}){
     : structuredClone(base.budget);
 
   if (!out.yourCandidateId && out.candidates[0]) out.yourCandidateId = out.candidates[0].id;
+  if ((out.gotvDiminishing == null) && Object.prototype.hasOwnProperty.call(src, "gotvDiminishing2")){
+    out.gotvDiminishing = !!src.gotvDiminishing2;
+  }
+  delete out.gotvDiminishing2;
   syncFeatureFlagsFromState(out, { preferFeatures: !!(src && typeof src.features === "object" && !Array.isArray(src.features)) });
   out.ui.themeMode = "system";
   out.ui.dark = false;

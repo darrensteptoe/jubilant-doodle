@@ -239,26 +239,6 @@ export function renderConversionPanel({
   renderPhase3
 }){
   if (!els.outConversationsNeeded) return;
-  const features = resolveFeatureFlags(state || {});
-
-  const fmtPct = (v, digits = 1) => (v == null || !isFinite(v)) ? "—" : `${Number(v).toFixed(digits)}%`;
-  const gotvMode = String(state.gotvMode || "basic");
-  const advanced = gotvMode === "advanced";
-  const baselineTarget = (safeNum(state.turnoutTargetOverridePct) != null)
-    ? safeNum(state.turnoutTargetOverridePct)
-    : safeNum(state.turnoutBaselinePct);
-  const liftPerContact = advanced ? safeNum(state.gotvLiftMode) : safeNum(state.gotvLiftPP);
-  const liftCeiling = advanced ? safeNum(state.gotvMaxLiftPP2) : safeNum(state.gotvMaxLiftPP);
-  const useDiminishing = advanced ? !!state.gotvDiminishing2 : !!state.gotvDiminishing;
-
-  setText(els.gotvPlannerStatus, features.turnoutModelingEnabled ? "Enabled" : "Disabled");
-  setText(els.gotvPlannerModel, advanced ? "Advanced (min/mode/max)" : "Basic (single lift)");
-  setText(els.gotvPlannerBaseline, fmtPct(baselineTarget));
-  setText(els.gotvPlannerLift, fmtPct(liftPerContact));
-  setText(els.gotvPlannerCeiling, fmtPct(liftCeiling));
-  setText(els.gotvPlannerDiminishing, useDiminishing ? "On" : "Off");
-  setText(els.gotvPlannerSupportRate, fmtPct(safeNum(state.supportRatePct)));
-  setText(els.gotvPlannerContactRate, fmtPct(safeNum(state.contactRatePct)));
 
   const needVotes = (typeof deriveNeedVotes === "function")
     ? deriveNeedVotes(res, state?.goalSupportIds)

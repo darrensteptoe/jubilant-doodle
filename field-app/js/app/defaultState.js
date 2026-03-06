@@ -52,7 +52,6 @@ export function makeDefaultStateModule(ctx){
     gotvLiftMode: 1.0,
     gotvLiftMax: 2.0,
     gotvMaxLiftPP2: 10,
-    gotvDiminishing2: false,
 
     timelineEnabled: false,
     timelineActiveWeeks: "",

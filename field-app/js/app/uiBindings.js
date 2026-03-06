@@ -53,15 +53,11 @@ export function applyStateToUiBindings({
   if (els.gotvMode) els.gotvMode.value = state.gotvMode || "basic";
   if (els.gotvLiftPP) els.gotvLiftPP.value = state.gotvLiftPP ?? "";
   if (els.gotvMaxLiftPP) els.gotvMaxLiftPP.value = state.gotvMaxLiftPP ?? "";
-  const effectiveGotvDiminishing = ((state.gotvMode || "basic") === "advanced")
-    ? !!state.gotvDiminishing2
-    : !!state.gotvDiminishing;
-  if (els.gotvDiminishing) els.gotvDiminishing.checked = effectiveGotvDiminishing;
+  if (els.gotvDiminishing) els.gotvDiminishing.checked = !!state.gotvDiminishing;
   if (els.gotvLiftMin) els.gotvLiftMin.value = state.gotvLiftMin ?? "";
   if (els.gotvLiftMode) els.gotvLiftMode.value = state.gotvLiftMode ?? "";
   if (els.gotvLiftMax) els.gotvLiftMax.value = state.gotvLiftMax ?? "";
   if (els.gotvMaxLiftPP2) els.gotvMaxLiftPP2.value = state.gotvMaxLiftPP2 ?? "";
-  if (els.gotvDiminishing2) els.gotvDiminishing2.checked = effectiveGotvDiminishing;
 
   if (els.mcMode) els.mcMode.value = state.mcMode || "basic";
   if (els.mcVolatility) els.mcVolatility.value = state.mcVolatility || "med";
