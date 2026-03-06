@@ -105,6 +105,7 @@ import { preflightElsModule } from "./app/preflightEls.js";
 import { initTabsModule, initExplainCardModule, isDevModeModule } from "./app/initUiStateHelpers.js";
 import { createUiUpdateQueue } from "./app/uiUpdateQueue.js";
 import { isScenarioLockedForEditsModule, applyScenarioLockUiModule } from "./app/scenarioLockUi.js";
+import { setText, setHidden, setTextPair } from "./app/uiText.js";
 import { makeDefaultStateModule } from "./app/defaultState.js";
 import { normalizeLoadedStateModule } from "./app/normalizeLoadedState.js";
 import { renderUniverse16CardModule } from "./app/renderUniverse16Card.js";
@@ -323,97 +324,47 @@ function updateDiagnosticsUI(){
 const TW_CAP_DAY_MS = 86400000;
 const TW_CAP_WEEK_MS = 7 * TW_CAP_DAY_MS;
 
-function twCapText(el, text){
-  return twCapTextModule(el, text);
-}
-
-function twCapNum(v, fallback = 0){
-  return twCapNumModule(v, fallback);
-}
-
-function twCapFmtInt(v){
-  return twCapFmtIntModule(v, { fmtInt });
-}
-
-function twCapFmt1(v){
-  return twCapFmt1Module(v);
-}
-
-function twCapFmtSigned(v){
-  return twCapFmtSignedModule(v, { fmtInt });
-}
-
-function twCapRatioText(numerator, denominator){
-  return twCapRatioTextModule(numerator, denominator);
-}
-
-function twCapFmtPct01(v){
-  return twCapFmtPct01Module(v);
-}
-
-function twCapMedian(values){
-  return twCapMedianModule(values);
-}
-
-function twCapClean(v){
-  return twCapCleanModule(v);
-}
-
-function twCapTransitionKey(from, to){
-  return twCapTransitionKeyModule(from, to);
-}
-
-function twCapParseDate(value){
-  return twCapParseDateModule(value);
-}
-
-function twCapWeekStart(dt){
-  return twCapWeekStartModule(dt);
-}
-
-function twCapIsoUTC(dt){
-  return twCapIsoUTCModule(dt);
-}
-
-function twCapLatestRecordByPerson(rows){
-  return twCapLatestRecordByPersonModule(rows, { twCapClean, twCapParseDate });
-}
-
-function twCapBuildReadinessStats(onboardingRecords, trainingRecords){
-  return twCapBuildReadinessStatsModule(onboardingRecords, trainingRecords, {
-    twCapLatestRecordByPerson,
-    twCapClean,
-    twCapParseDate,
-    twCapMedian,
-    twCapDayMs: TW_CAP_DAY_MS,
-  });
-}
-
-function twCapNormalizeForecastConfig(raw){
-  return twCapNormalizeForecastConfigModule(raw, {
+const TW_CAP_ADAPTERS = {
+  twCapText: twCapTextModule,
+  twCapNum: twCapNumModule,
+  twCapFmtInt: (v) => twCapFmtIntModule(v, { fmtInt }),
+  twCapFmt1: twCapFmt1Module,
+  twCapFmtSigned: (v) => twCapFmtSignedModule(v, { fmtInt }),
+  twCapRatioText: twCapRatioTextModule,
+  twCapFmtPct01: twCapFmtPct01Module,
+  twCapClean: twCapCleanModule,
+  twCapTransitionKey: twCapTransitionKeyModule,
+  twCapParseDate: twCapParseDateModule,
+  twCapWeekStart: twCapWeekStartModule,
+  twCapIsoUTC: twCapIsoUTCModule,
+  twCapBaselineAttemptsPerWeek: (effective) => twCapBaselineAttemptsPerWeekModule(effective, {
+    computeCapacityBreakdown: coreComputeCapacityBreakdown,
+    twCapNum: twCapNumModule,
+    clamp,
+  }),
+  twCapPerOrganizerAttemptsPerWeek: (effective) => twCapPerOrganizerAttemptsPerWeekModule(effective, {
+    computeCapacityBreakdown: coreComputeCapacityBreakdown,
+    twCapNum: twCapNumModule,
+    clamp,
+  }),
+  twCapNormalizeForecastConfig: (raw) => twCapNormalizeForecastConfigModule(raw, {
     defaultForecastConfig: DEFAULT_FORECAST_CONFIG,
     pipelineStages: PIPELINE_STAGES,
-    twCapTransitionKey,
+    twCapTransitionKey: twCapTransitionKeyModule,
     clamp,
-    twCapNum,
-  });
-}
-
-function twCapPerOrganizerAttemptsPerWeek(effective){
-  return twCapPerOrganizerAttemptsPerWeekModule(effective, {
-    computeCapacityBreakdown: coreComputeCapacityBreakdown,
-    twCapNum,
-    clamp,
-  });
-}
-
-function twCapBaselineAttemptsPerWeek(effective){
-  return twCapBaselineAttemptsPerWeekModule(effective, {
-    computeCapacityBreakdown: coreComputeCapacityBreakdown,
-    twCapNum,
-    clamp,
-  });
-}
+    twCapNum: twCapNumModule,
+  }),
+  twCapBuildReadinessStats: (onboardingRecords, trainingRecords) => twCapBuildReadinessStatsModule(onboardingRecords, trainingRecords, {
+    twCapLatestRecordByPerson: (rows) => twCapLatestRecordByPersonModule(rows, {
+      twCapClean: twCapCleanModule,
+      twCapParseDate: twCapParseDateModule,
+    }),
+    twCapClean: twCapCleanModule,
+    twCapParseDate: twCapParseDateModule,
+    twCapMedian: twCapMedianModule,
+    twCapDayMs: TW_CAP_DAY_MS,
+  }),
+};
 
 let operationsCapacityOutlookController = null;
 
@@ -426,22 +377,7 @@ function getOperationsCapacityOutlookController(){
     clamp,
     getOperationsMetricsSnapshot,
     compileEffectiveInputs,
-    twCapBaselineAttemptsPerWeek,
-    twCapPerOrganizerAttemptsPerWeek,
-    twCapNormalizeForecastConfig,
-    twCapBuildReadinessStats,
-    twCapText,
-    twCapNum,
-    twCapFmtInt,
-    twCapFmt1,
-    twCapFmtSigned,
-    twCapRatioText,
-    twCapFmtPct01,
-    twCapClean,
-    twCapTransitionKey,
-    twCapParseDate,
-    twCapWeekStart,
-    twCapIsoUTC,
+    ...TW_CAP_ADAPTERS,
     pipelineStages: PIPELINE_STAGES,
     twCapDayMs: TW_CAP_DAY_MS,
     twCapWeekMs: TW_CAP_WEEK_MS,
@@ -520,9 +456,6 @@ function refreshBackupDropdown(){
 function restoreBackupByIndex(idx){
   return getBackupRecoveryController().restoreBackupByIndex(idx);
 }
-function setText(el, text){ if(el) el.textContent = String(text ?? ""); }
-function setHidden(el, hidden){ if(el) el.hidden = !!hidden; }
-function setTextPair(a, b, text){ setText(a, text); setText(b, text); }
 
 // Module-level constants
 const SCENARIO_BASELINE_ID = "baseline";
@@ -931,7 +864,7 @@ function compileEffectiveInputs(srcState = state){
       source = "baseline-manual (override-baseline)";
     } else {
       const targetAttempts = twCapResolveOverrideAttempts(s);
-      const perOrganizerAttempts = twCapPerOrganizerAttemptsPerWeek({
+      const perOrganizerAttempts = TW_CAP_ADAPTERS.twCapPerOrganizerAttemptsPerWeek({
         capacity: {
           orgCount: 1,
           orgHoursPerWeek,
