@@ -196,6 +196,38 @@ function fillDistrictEvidenceLinkTable(tbody, rows){
   }
 }
 
+function fillDistrictEvidenceDatasetRankTable(tbody, rows, selectedElectionId){
+  if (!tbody) return;
+  tbody.innerHTML = "";
+  const selectedId = String(selectedElectionId || "").trim();
+  if (!rows.length){
+    const tr = document.createElement("tr");
+    tr.innerHTML = '<td colspan="6" class="muted">No compatible election datasets available.</td>';
+    tbody.appendChild(tr);
+    return;
+  }
+  const top = rows.slice(0, 8);
+  for (let i = 0; i < top.length; i++){
+    const row = top[i] || {};
+    const dataset = row.dataset || {};
+    const id = String(dataset.id || "");
+    const rank = i + 1;
+    const selectedTag = selectedId && id === selectedId ? "Selected" : "";
+    const score = Number(row.score);
+    const reasons = Array.isArray(row.reasons) ? row.reasons.slice(0, 3).join(", ") : "";
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td class="num">${rank}</td>
+      <td>${id || "—"}</td>
+      <td>${String(dataset.officeType || "—")}</td>
+      <td>${String(dataset.vintage || dataset.cycleYear || "—")}</td>
+      <td class="num">${Number.isFinite(score) ? score.toFixed(2) : "—"}</td>
+      <td>${selectedTag || reasons || "—"}</td>
+    `;
+    tbody.appendChild(tr);
+  }
+}
+
 function fmtWhatIfTarget(row){
   const op = String(row?.op || "").trim();
   const label = String(row?.label || row?.key || "assumption");
@@ -552,6 +584,9 @@ export function renderIntelChecksModule({
 
   const compileDistrictEvidence = engine?.snapshot?.compileDistrictEvidence;
   const resolveDistrictEvidenceInputs = engine?.snapshot?.resolveDistrictEvidenceInputs;
+  const resolveDataRefsByPolicy = engine?.snapshot?.resolveDataRefsByPolicy;
+  const buildDataSourceRegistry = engine?.snapshot?.buildDataSourceRegistry;
+  const rankElectionDatasetsForScenario = engine?.snapshot?.rankElectionDatasetsForScenario;
   let resolvedInputs = null;
   if (typeof resolveDistrictEvidenceInputs === "function"){
     try{
@@ -588,6 +623,8 @@ export function renderIntelChecksModule({
     : [];
 
   const sourceParts = [];
+  const dataRefMode = String(state?.dataRefs?.mode || "").trim();
+  if (dataRefMode) sourceParts.push(`Mode: ${dataRefMode}`);
   const censusId = String(state?.dataRefs?.censusDatasetId || "").trim();
   const electionId = String(state?.dataRefs?.electionDatasetId || "").trim();
   const crosswalkId = String(state?.dataRefs?.crosswalkVersionId || "").trim();
@@ -601,6 +638,68 @@ export function renderIntelChecksModule({
       : "No pinned datasets selected yet.";
   }
 
+  let policyResolution = null;
+  if (typeof resolveDataRefsByPolicy === "function"){
+    try{
+      policyResolution = resolveDataRefsByPolicy({
+        dataRefs: state?.dataRefs,
+        dataCatalog: state?.dataCatalog,
+        scenario: state,
+      });
+    } catch {
+      policyResolution = null;
+    }
+  }
+  const selectedElectionId = String(
+    policyResolution?.selected?.electionDatasetId ||
+    state?.dataRefs?.electionDatasetId ||
+    ""
+  ).trim();
+  const selectedBoundaryId = String(
+    policyResolution?.selected?.boundarySetId ||
+    state?.dataRefs?.boundarySetId ||
+    ""
+  ).trim();
+  let rankedElectionDatasets = [];
+  if (typeof rankElectionDatasetsForScenario === "function"){
+    try{
+      const registry = typeof buildDataSourceRegistry === "function"
+        ? buildDataSourceRegistry(state?.dataCatalog)
+        : null;
+      rankedElectionDatasets = rankElectionDatasetsForScenario({
+        registry,
+        dataCatalog: state?.dataCatalog,
+        scenario: state,
+        boundarySetId: selectedBoundaryId,
+        requireVerified: true,
+      });
+    } catch {
+      rankedElectionDatasets = [];
+    }
+  }
+  fillDistrictEvidenceDatasetRankTable(
+    els.intelDistrictEvidenceDatasetRankTbody,
+    Array.isArray(rankedElectionDatasets) ? rankedElectionDatasets : [],
+    selectedElectionId
+  );
+  if (els.intelDistrictEvidenceSelectedElection){
+    const topId = String(rankedElectionDatasets?.[0]?.dataset?.id || "").trim();
+    const rankIndex = Array.isArray(rankedElectionDatasets)
+      ? rankedElectionDatasets.findIndex((x) => String(x?.dataset?.id || "") === selectedElectionId)
+      : -1;
+    if (!selectedElectionId){
+      els.intelDistrictEvidenceSelectedElection.textContent = "Election dataset: none selected";
+    } else if (rankIndex === 0){
+      els.intelDistrictEvidenceSelectedElection.textContent = `Election dataset: ${selectedElectionId} (top compatible)`;
+    } else if (rankIndex > 0){
+      els.intelDistrictEvidenceSelectedElection.textContent = `Election dataset: ${selectedElectionId} (rank #${rankIndex + 1}; top is ${topId || "—"})`;
+    } else if (topId){
+      els.intelDistrictEvidenceSelectedElection.textContent = `Election dataset: ${selectedElectionId} (not in compatible set; top is ${topId})`;
+    } else {
+      els.intelDistrictEvidenceSelectedElection.textContent = `Election dataset: ${selectedElectionId}`;
+    }
+  }
+
   if (typeof compileDistrictEvidence !== "function"){
     if (els.intelDistrictEvidenceStatus){
       els.intelDistrictEvidenceStatus.classList.remove("ok", "warn", "bad");
@@ -612,6 +711,7 @@ export function renderIntelChecksModule({
     if (els.intelDistrictEvidenceSignal) els.intelDistrictEvidenceSignal.textContent = "Persuasion signal: —";
     fillDistrictEvidenceCandidateTable(els.intelDistrictEvidenceCandidateTbody, []);
     fillDistrictEvidenceLinkTable(els.intelDistrictEvidenceLinkTbody, []);
+    fillDistrictEvidenceDatasetRankTable(els.intelDistrictEvidenceDatasetRankTbody, rankedElectionDatasets, selectedElectionId);
     return;
   }
 
@@ -635,6 +735,7 @@ export function renderIntelChecksModule({
     if (els.intelDistrictEvidenceSignal) els.intelDistrictEvidenceSignal.textContent = "Persuasion signal: —";
     fillDistrictEvidenceCandidateTable(els.intelDistrictEvidenceCandidateTbody, []);
     fillDistrictEvidenceLinkTable(els.intelDistrictEvidenceLinkTbody, []);
+    fillDistrictEvidenceDatasetRankTable(els.intelDistrictEvidenceDatasetRankTbody, rankedElectionDatasets, selectedElectionId);
     return;
   }
 
