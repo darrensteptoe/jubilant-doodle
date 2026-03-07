@@ -588,6 +588,29 @@ function dataRefItemLabel(row, kind){
   return `${id}${vintage ? ` · ${vintage}` : ""}${tags.length ? ` [${tags.join(", ")}]` : ""}`;
 }
 
+function areaIdentityLabel(area){
+  const a = area && typeof area === "object" ? area : {};
+  const type = String(a.type || "").toUpperCase();
+  const stateFips = String(a.stateFips || "").trim();
+  const district = String(a.district || "").trim();
+  const countyFips = String(a.countyFips || "").trim();
+  const placeFips = String(a.placeFips || "").trim();
+  if (type === "CD" || type === "SLDU" || type === "SLDL"){
+    return `${type} ${stateFips || "--"}:${district || "---"}`;
+  }
+  if (type === "COUNTY"){
+    return `${type} ${stateFips || "--"}:${countyFips || "---"}`;
+  }
+  if (type === "PLACE"){
+    return `${type} ${stateFips || "--"}:${placeFips || "-----"}`;
+  }
+  if (type === "CUSTOM"){
+    const bits = [stateFips, district, countyFips, placeFips].filter(Boolean);
+    return bits.length ? `${type} ${bits.join(":")}` : "CUSTOM";
+  }
+  return "Not set";
+}
+
 function renderDataRefStatus(el, text, kind = "muted"){
   if (!el) return;
   el.classList.remove("ok", "warn", "bad", "muted");
@@ -1040,6 +1063,9 @@ export function renderIntelChecksModule({
   const resolveDataRefsByPolicy = engine?.snapshot?.resolveDataRefsByPolicy;
   const diagnoseDataRefAlignment = engine?.snapshot?.diagnoseDataRefAlignment;
   const buildDataSourceRegistry = engine?.snapshot?.buildDataSourceRegistry;
+  const normalizeAreaSelection = engine?.snapshot?.normalizeAreaSelection;
+  const deriveAreaResolverContext = engine?.snapshot?.deriveAreaResolverContext;
+  const buildAreaResolverCacheKey = engine?.snapshot?.buildAreaResolverCacheKey;
   const rankElectionDatasetsForScenario = engine?.snapshot?.rankElectionDatasetsForScenario;
   let resolvedInputs = null;
   if (typeof resolveDistrictEvidenceInputs === "function"){
@@ -1083,6 +1109,93 @@ export function renderIntelChecksModule({
     } catch {
       registry = null;
     }
+  }
+
+  const geoPack = (state?.geoPack && typeof state.geoPack === "object") ? state.geoPack : {};
+  const areaRaw = (geoPack?.area && typeof geoPack.area === "object") ? geoPack.area : {};
+  const normalizedArea = typeof normalizeAreaSelection === "function"
+    ? normalizeAreaSelection({
+      ...areaRaw,
+      resolution: geoPack?.resolution,
+      boundarySetId: geoPack?.boundarySetId,
+      boundaryVintage: geoPack?.area?.boundaryVintage || geoPack?.area?.vintage || geoPack?.source?.vintage || null,
+    })
+    : {
+      type: String(areaRaw?.type || "").toUpperCase(),
+      stateFips: String(areaRaw?.stateFips || "").trim(),
+      district: String(areaRaw?.district || "").trim(),
+      countyFips: String(areaRaw?.countyFips || "").trim(),
+      placeFips: String(areaRaw?.placeFips || "").trim(),
+      label: String(areaRaw?.label || "").trim(),
+      boundarySetId: String(geoPack?.boundarySetId || "").trim() || null,
+      boundaryVintage: String(geoPack?.source?.vintage || "").trim() || null,
+      resolution: String(geoPack?.resolution || "tract").trim().toLowerCase() === "block_group" ? "block_group" : "tract",
+    };
+  if (els.intelAreaType){
+    const t = String(normalizedArea?.type || "").toUpperCase();
+    els.intelAreaType.value = t;
+    if (els.intelAreaType.value !== t) els.intelAreaType.value = "";
+  }
+  if (els.intelAreaResolution){
+    const r = String(normalizedArea?.resolution || "tract").toLowerCase() === "block_group" ? "block_group" : "tract";
+    els.intelAreaResolution.value = r;
+    if (els.intelAreaResolution.value !== r) els.intelAreaResolution.value = "tract";
+  }
+  if (els.intelAreaLabel) els.intelAreaLabel.value = String(normalizedArea?.label || "");
+  if (els.intelAreaStateFips) els.intelAreaStateFips.value = String(normalizedArea?.stateFips || "");
+  if (els.intelAreaDistrict) els.intelAreaDistrict.value = String(normalizedArea?.district || "");
+  if (els.intelAreaCountyFips) els.intelAreaCountyFips.value = String(normalizedArea?.countyFips || "");
+  if (els.intelAreaPlaceFips) els.intelAreaPlaceFips.value = String(normalizedArea?.placeFips || "");
+
+  let areaCtx = null;
+  if (typeof deriveAreaResolverContext === "function"){
+    try{
+      areaCtx = deriveAreaResolverContext({ scenario: state, registry });
+    } catch {
+      areaCtx = null;
+    }
+  }
+  const areaForDisplay = (areaCtx && areaCtx.area) ? areaCtx.area : normalizedArea;
+  let areaCacheKey = String(areaCtx?.cacheKey || "").trim();
+  if (!areaCacheKey && typeof buildAreaResolverCacheKey === "function"){
+    try{
+      areaCacheKey = String(buildAreaResolverCacheKey({ area: areaForDisplay }) || "").trim();
+    } catch {
+      areaCacheKey = "";
+    }
+  }
+  const areaNotes = Array.isArray(areaCtx?.notes)
+    ? areaCtx.notes.map((x) => String(x || "").trim()).filter(Boolean)
+    : [];
+  const areaConfigured = !!(
+    String(areaForDisplay?.type || "").trim() ||
+    String(areaForDisplay?.label || "").trim() ||
+    String(areaForDisplay?.stateFips || "").trim() ||
+    String(areaForDisplay?.district || "").trim() ||
+    String(areaForDisplay?.countyFips || "").trim() ||
+    String(areaForDisplay?.placeFips || "").trim()
+  );
+  if (els.intelAreaResolverSummary){
+    if (!areaConfigured){
+      els.intelAreaResolverSummary.textContent = "Area resolver: not configured.";
+    } else {
+      const bits = [
+        `Area ${areaIdentityLabel(areaForDisplay)}`,
+        `Resolution ${String(areaForDisplay?.resolution || "tract") === "block_group" ? "block_group" : "tract"}`,
+      ];
+      if (areaForDisplay?.boundarySetId) bits.push(`Boundary ${String(areaForDisplay.boundarySetId)}`);
+      if (areaForDisplay?.boundaryVintage) bits.push(`Vintage ${String(areaForDisplay.boundaryVintage)}`);
+      if (areaForDisplay?.label) bits.push(`Label ${String(areaForDisplay.label)}`);
+      els.intelAreaResolverSummary.textContent = `Area resolver: ${bits.join(" · ")}`;
+    }
+  }
+  if (els.intelAreaResolverDetail){
+    const bits = [];
+    if (areaCacheKey) bits.push(`Cache key: ${areaCacheKey}`);
+    if (areaNotes.length) bits.push(`Note: ${areaNotes[0]}`);
+    els.intelAreaResolverDetail.textContent = bits.length
+      ? bits.join(" · ")
+      : "Set area + resolution to generate a deterministic cache key.";
   }
 
   const refsIn = (state?.dataRefs && typeof state.dataRefs === "object") ? state.dataRefs : {};

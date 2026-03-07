@@ -164,9 +164,32 @@ export function wireIntelChecksEvents(ctx){
     return "pinned_verified";
   };
 
+  const ALLOWED_AREA_TYPES = new Set(["", "CD", "SLDU", "SLDL", "COUNTY", "PLACE", "CUSTOM"]);
+  const normalizeAreaTypeInput = (v) => {
+    const t = String(v || "").trim().toUpperCase();
+    return ALLOWED_AREA_TYPES.has(t) ? t : "";
+  };
+  const normalizeAreaResolutionInput = (v) => {
+    const r = String(v || "").trim().toLowerCase();
+    return r === "block_group" ? "block_group" : "tract";
+  };
+  const cleanDigits = (v, maxLen = 0) => {
+    const d = String(v || "").replace(/\D+/g, "");
+    if (maxLen > 0) return d.slice(0, maxLen);
+    return d;
+  };
+  const cleanText = (v, maxLen = 120) => String(v || "").trim().slice(0, Math.max(1, maxLen));
+
   const cleanDataRefId = (v) => {
     const s = String(v || "").trim();
     return s || null;
+  };
+
+  const cleanDataRefNum = (v, min, max) => {
+    if (v == null || v === "") return null;
+    const n = Number(v);
+    if (!Number.isFinite(n)) return null;
+    return Math.max(min, Math.min(max, n));
   };
 
   const ensureDataRefShape = (s) => {
@@ -178,12 +201,39 @@ export function wireIntelChecksEvents(ctx){
     s.dataRefs.crosswalkVersionId = cleanDataRefId(s.dataRefs.crosswalkVersionId);
     s.dataRefs.censusDatasetId = cleanDataRefId(s.dataRefs.censusDatasetId);
     s.dataRefs.electionDatasetId = cleanDataRefId(s.dataRefs.electionDatasetId);
+    s.dataRefs.electionStrictSimilarity = !!s.dataRefs.electionStrictSimilarity;
+    s.dataRefs.electionMaxYearDelta = cleanDataRefNum(s.dataRefs.electionMaxYearDelta, 0, 30);
+    s.dataRefs.electionMinCoveragePct = cleanDataRefNum(s.dataRefs.electionMinCoveragePct, 0, 100);
     return s.dataRefs;
+  };
+
+  const ensureGeoPackShape = (s) => {
+    if (!s || typeof s !== "object") return null;
+    if (!s.geoPack || typeof s.geoPack !== "object") s.geoPack = {};
+    const geo = s.geoPack;
+    if (!geo.area || typeof geo.area !== "object") geo.area = {};
+    geo.resolution = normalizeAreaResolutionInput(geo.resolution);
+    geo.area.type = normalizeAreaTypeInput(geo.area.type);
+    geo.area.stateFips = cleanDigits(geo.area.stateFips, 2);
+    geo.area.district = cleanText(geo.area.district, 16);
+    geo.area.countyFips = cleanDigits(geo.area.countyFips, 5);
+    geo.area.placeFips = cleanDigits(geo.area.placeFips, 5);
+    geo.area.label = cleanText(geo.area.label, 120);
+    return geo;
   };
 
   const stampDataRefCheck = (refs) => {
     if (!refs || typeof refs !== "object") return;
     refs.lastCheckedAt = new Date().toISOString();
+  };
+
+  const markDistrictIntelStale = (s, reason) => {
+    if (!s || typeof s !== "object") return;
+    if (!s.districtIntelPack || typeof s.districtIntelPack !== "object") return;
+    const msg = String(reason || "").trim() || "Area/resolution changed.";
+    s.districtIntelPack.ready = false;
+    if (!Array.isArray(s.districtIntelPack.warnings)) s.districtIntelPack.warnings = [];
+    if (!s.districtIntelPack.warnings.includes(msg)) s.districtIntelPack.warnings.push(msg);
   };
 
   const rankTopCompatibleElection = (s) => {
@@ -202,12 +252,20 @@ export function wireIntelChecksEvents(ctx){
       })
       : null;
     const boundarySetId = String(resolution?.selected?.boundarySetId || s?.dataRefs?.boundarySetId || "").trim() || null;
+    const strictSimilarity = !!s?.dataRefs?.electionStrictSimilarity;
+    const maxYearDelta = cleanDataRefNum(s?.dataRefs?.electionMaxYearDelta, 0, 30);
+    const minCoveragePct = cleanDataRefNum(s?.dataRefs?.electionMinCoveragePct, 0, 100);
     const ranked = rankElectionDatasetsForScenario({
       registry,
       dataCatalog: s?.dataCatalog,
       scenario: s,
       boundarySetId,
       requireVerified: true,
+      filters: {
+        strictSimilarity,
+        maxYearDelta,
+        minCoveragePct,
+      },
     });
     return Array.isArray(ranked) && ranked.length ? ranked[0] : null;
   };
@@ -244,6 +302,57 @@ export function wireIntelChecksEvents(ctx){
       }
       commitUIUpdate();
     });
+  }
+
+  const onAreaChange = (mutator, successMsg) => {
+    const s = currentState();
+    if (!s) return;
+    const geo = ensureGeoPackShape(s);
+    if (!geo) return;
+    mutator(geo);
+    geo.generatedAt = null;
+    markDistrictIntelStale(s, "District area/resolution changed; regenerate district-intel assumptions.");
+    if (s.useDistrictIntel){
+      setDistrictIntelStatus("Area/resolution changed. Re-generate district-intel assumptions before using them.", "warn");
+    }
+    setDataRefStatus(successMsg, "ok");
+    commitUIUpdate();
+  };
+
+  if (els.intelAreaType){
+    els.intelAreaType.addEventListener("change", () => onAreaChange((geo) => {
+      geo.area.type = normalizeAreaTypeInput(els.intelAreaType.value);
+    }, "Area type updated."));
+  }
+  if (els.intelAreaResolution){
+    els.intelAreaResolution.addEventListener("change", () => onAreaChange((geo) => {
+      geo.resolution = normalizeAreaResolutionInput(els.intelAreaResolution.value);
+    }, "Area resolution updated."));
+  }
+  if (els.intelAreaLabel){
+    els.intelAreaLabel.addEventListener("input", () => onAreaChange((geo) => {
+      geo.area.label = cleanText(els.intelAreaLabel.value, 120);
+    }, "Area label updated."));
+  }
+  if (els.intelAreaStateFips){
+    els.intelAreaStateFips.addEventListener("input", () => onAreaChange((geo) => {
+      geo.area.stateFips = cleanDigits(els.intelAreaStateFips.value, 2);
+    }, "Area state FIPS updated."));
+  }
+  if (els.intelAreaDistrict){
+    els.intelAreaDistrict.addEventListener("input", () => onAreaChange((geo) => {
+      geo.area.district = cleanText(els.intelAreaDistrict.value, 16);
+    }, "Area district code updated."));
+  }
+  if (els.intelAreaCountyFips){
+    els.intelAreaCountyFips.addEventListener("input", () => onAreaChange((geo) => {
+      geo.area.countyFips = cleanDigits(els.intelAreaCountyFips.value, 5);
+    }, "Area county FIPS updated."));
+  }
+  if (els.intelAreaPlaceFips){
+    els.intelAreaPlaceFips.addEventListener("input", () => onAreaChange((geo) => {
+      geo.area.placeFips = cleanDigits(els.intelAreaPlaceFips.value, 5);
+    }, "Area place FIPS updated."));
   }
 
   if (els.btnIntelGenerateDistrictIntel){
@@ -396,6 +505,50 @@ export function wireIntelChecksEvents(ctx){
       refs.electionDatasetId = cleanDataRefId(els.intelDataRefElectionDataset.value);
       stampDataRefCheck(refs);
       setDataRefStatus("Election dataset updated.", "ok");
+      commitUIUpdate();
+    });
+  }
+
+  if (els.intelDataRefStrictSimilarity){
+    els.intelDataRefStrictSimilarity.addEventListener("change", () => {
+      const s = currentState();
+      if (!s) return;
+      const refs = ensureDataRefShape(s);
+      if (!refs) return;
+      refs.electionStrictSimilarity = !!els.intelDataRefStrictSimilarity.checked;
+      stampDataRefCheck(refs);
+      setDataRefStatus(
+        refs.electionStrictSimilarity
+          ? "Strict similarity filter enabled."
+          : "Strict similarity filter disabled.",
+        "ok"
+      );
+      commitUIUpdate();
+    });
+  }
+
+  if (els.intelDataRefMaxYearDelta){
+    els.intelDataRefMaxYearDelta.addEventListener("input", () => {
+      const s = currentState();
+      if (!s) return;
+      const refs = ensureDataRefShape(s);
+      if (!refs) return;
+      refs.electionMaxYearDelta = cleanDataRefNum(els.intelDataRefMaxYearDelta.value, 0, 30);
+      stampDataRefCheck(refs);
+      setDataRefStatus("Election cycle-gap filter updated.", "ok");
+      commitUIUpdate();
+    });
+  }
+
+  if (els.intelDataRefMinCoveragePct){
+    els.intelDataRefMinCoveragePct.addEventListener("input", () => {
+      const s = currentState();
+      if (!s) return;
+      const refs = ensureDataRefShape(s);
+      if (!refs) return;
+      refs.electionMinCoveragePct = cleanDataRefNum(els.intelDataRefMinCoveragePct.value, 0, 100);
+      stampDataRefCheck(refs);
+      setDataRefStatus("Election coverage filter updated.", "ok");
       commitUIUpdate();
     });
   }
