@@ -126,6 +126,12 @@ This is the execution order for the calibration/governance expansion.
 - [x] Extract planning runtime adapters from `app.js` (need-votes/capacity wrappers + stage render orchestrators):
   - `/Users/anakinskywalker/Downloads/field-app-40/js/app/planningRuntimeController.js`
   - wrappers retained in `/Users/anakinskywalker/Downloads/field-app-40/js/app.js`.
+- [x] Extract weekly execution/runtime helper block from `app.js`:
+  - `/Users/anakinskywalker/Downloads/field-app-40/js/app/executionWeeklyController.js`
+  - wrappers retained in `/Users/anakinskywalker/Downloads/field-app-40/js/app.js`.
+- [x] Extract execution/risk panel orchestration block from `app.js` (E1–E6 + rolling calibration actions):
+  - `/Users/anakinskywalker/Downloads/field-app-40/js/app/executionRiskController.js`
+  - wrappers retained in `/Users/anakinskywalker/Downloads/field-app-40/js/app.js`.
 
 ## Phase 11: A-grade structural backlog (deferred until Phase 0-10 complete)
 Execution order below is fixed and must be followed in sequence.
