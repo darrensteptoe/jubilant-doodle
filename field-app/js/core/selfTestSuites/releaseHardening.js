@@ -732,6 +732,31 @@ export function registerReleaseHardeningTests(ctx){
     return true;
   });
 
+  test("Phase 18: area resolver context cache key preserves block-group resolution identity", () => {
+    const ctxOut = deriveAreaResolverContext({
+      scenario: {
+        dataRefs: { boundarySetId: "county_2024" },
+        geoPack: {
+          boundarySetId: "county_2024",
+          area: { type: "COUNTY", stateFips: "34", countyFips: "013" },
+          resolution: "block_group",
+        },
+      },
+      registry: {
+        byId: {
+          boundarySets: {
+            county_2024: { id: "county_2024", vintage: "2024" },
+          },
+        },
+      },
+    });
+    assert(ctxOut.area.type === "COUNTY", "Expected county area type in resolver context");
+    assert(ctxOut.area.resolution === "block_group", "Expected block_group resolution in resolver context");
+    assert(typeof ctxOut.cacheKey === "string" && ctxOut.cacheKey.includes("resolution=block_group"), "Expected cache key resolution component");
+    assert(ctxOut.cacheKey.includes("id=013"), "Expected county identity token in cache key");
+    return true;
+  });
+
   test("Phase 18: latest_verified resolution can be materialized to pinned refs", () => {
     const pinned = materializePinnedDataRefs({
       dataRefs: {
