@@ -218,5 +218,23 @@ Execution order below is fixed and must be followed in sequence.
        - `/Users/anakinskywalker/Downloads/field-app-40/js/app/normalizeStageLayout.js`
        - `/Users/anakinskywalker/Downloads/field-app-40/js/app/scenarioRegistry.js`
        - `/Users/anakinskywalker/Downloads/field-app-40/js/app/scenarioState.js`
+       - `/Users/anakinskywalker/Downloads/field-app-40/js/app/decisionScaffold.js` (shim typing)
+       - `/Users/anakinskywalker/Downloads/field-app-40/js/app/decisionScaffoldState.js` (shim typing)
+       - `/Users/anakinskywalker/Downloads/field-app-40/js/app/decisionSessionActions.js` (shim typing)
+       - `/Users/anakinskywalker/Downloads/field-app-40/js/app/decisionSessionBindings.js` (shim typing)
+       - `/Users/anakinskywalker/Downloads/field-app-40/js/app/decisionSessionRender.js` (shim typing)
+       - `/Users/anakinskywalker/Downloads/field-app-40/js/app/decisionSessionSummary.js` (shim typing)
+       - `/Users/anakinskywalker/Downloads/field-app-40/js/app/decisionSummaryRender.js` (shim typing)
+       - `/Users/anakinskywalker/Downloads/field-app-40/js/app/diagnosticsBuilders.js`
+       - `/Users/anakinskywalker/Downloads/field-app-40/js/app/scenarioCompareHelpers.js`
+       - `/Users/anakinskywalker/Downloads/field-app-40/js/app/stateNormalizationHelpers.js`
+       - `/Users/anakinskywalker/Downloads/field-app-40/js/app/themeMode.js`
+       - `/Users/anakinskywalker/Downloads/field-app-40/js/app/uiStageHelpers.js`
+       - `/Users/anakinskywalker/Downloads/field-app-40/js/app/uiText.js`
+       - `/Users/anakinskywalker/Downloads/field-app-40/js/app/twCapHelpers.js`
+     - completed app-layer `@ts-check` coverage sweep:
+       - all `/Users/anakinskywalker/Downloads/field-app-40/js/app/**/*.js` files now include `// @ts-check` (0 remaining without header).
+     - completed global JS `@ts-check` coverage sweep:
+       - all `/Users/anakinskywalker/Downloads/field-app-40/js/**/*.js` files now include `// @ts-check` (0 remaining without header).
       - added shared core type declarations:
         - `/Users/anakinskywalker/Downloads/field-app-40/js/core/types.d.ts`
