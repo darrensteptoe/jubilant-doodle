@@ -330,3 +330,12 @@ Execution order for the first functional district-evidence layer.
    - exposed via `/Users/anakinskywalker/Downloads/field-app-40/js/engine.js` snapshot facade.
    - used by `/Users/anakinskywalker/Downloads/field-app-40/js/app/renderIntelChecks.js` with inline-input fallback.
    - regression tests in `/Users/anakinskywalker/Downloads/field-app-40/js/core/selfTestSuites/releaseHardening.js`.
+6. [x] Add deterministic similar-race election dataset compatibility ranking (for MIT precinct selection):
+   - `/Users/anakinskywalker/Downloads/field-app-40/js/core/dataSourceRegistry.js`
+   - adds `scoreElectionDatasetCompatibility(...)` and `rankElectionDatasetsForScenario(...)`.
+   - `latest_verified` election fallback now prefers compatibility-ranked verified datasets before generic latest fallback.
+   - metadata pass-through added for election datasets (`officeType`, `raceType`, `electionDate`, `cycleYear`) via:
+     - `/Users/anakinskywalker/Downloads/field-app-40/js/core/districtIngest.js`
+     - `/Users/anakinskywalker/Downloads/field-app-40/js/core/districtData.js`
+   - exposed via `/Users/anakinskywalker/Downloads/field-app-40/js/engine.js` snapshot facade.
+   - regression tests in `/Users/anakinskywalker/Downloads/field-app-40/js/core/selfTestSuites/releaseHardening.js`.
