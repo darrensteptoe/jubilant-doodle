@@ -888,6 +888,8 @@ export function registerReleaseHardeningTests(ctx){
     });
     assert(Array.isArray(ranked) && ranked.length === 1, "Expected filters to narrow ranking to one compatible dataset");
     assert(ranked[0].dataset?.id === "mit_state_house_2022", "Expected filtered ranking to keep only similar, recent, high-coverage dataset");
+    assert(Number(ranked[0].yearGap) === 4, "Expected yearGap metadata on ranked row");
+    assert(Number(ranked[0].coveragePct) === 97, "Expected coveragePct metadata on ranked row");
 
     const resolved = resolveDataRefsByPolicy({
       dataRefs: {

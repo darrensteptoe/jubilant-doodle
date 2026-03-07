@@ -547,6 +547,10 @@ export function scoreElectionDatasetCompatibility(args){
  * @returns {Array<{
  *   dataset: Record<string, any>,
  *   score: number,
+ *   yearGap: number | null,
+ *   coveragePct: number | null,
+ *   targetYear: number | null,
+ *   datasetYear: number | null,
  *   scoreBreakdown: Record<string, number>,
  *   reasons: string[]
  * }>}
@@ -566,9 +570,18 @@ export function rankElectionDatasetsForScenario(args){
       filters: args?.filters,
     });
     if (!score.eligible) continue;
+    const datasetYear = toYearOrNull(dataset?.cycleYear) ?? toYearOrNull(dataset?.electionDate) ?? toYearOrNull(dataset?.vintage);
+    const targetYear = toYearOrNull(score?.target?.electionYear);
+    const yearGap = (targetYear != null && datasetYear != null)
+      ? Math.abs(targetYear - datasetYear)
+      : null;
     ranked.push({
       dataset,
       score: score.score,
+      yearGap,
+      coveragePct: numOrNull(dataset?.coveragePct),
+      targetYear,
+      datasetYear,
       scoreBreakdown: score.scoreBreakdown,
       reasons: score.reasons,
     });
