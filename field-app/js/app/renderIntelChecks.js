@@ -278,7 +278,7 @@ function fillDistrictEvidenceDatasetRankTable(tbody, rows, selectedElectionId){
   const selectedId = String(selectedElectionId || "").trim();
   if (!rows.length){
     const tr = document.createElement("tr");
-    tr.innerHTML = '<td colspan="6" class="muted">No compatible election datasets available.</td>';
+    tr.innerHTML = '<td colspan="8" class="muted">No compatible election datasets available.</td>';
     tbody.appendChild(tr);
     return;
   }
@@ -290,6 +290,8 @@ function fillDistrictEvidenceDatasetRankTable(tbody, rows, selectedElectionId){
     const rank = i + 1;
     const selectedTag = selectedId && id === selectedId ? "Selected" : "";
     const score = Number(row.score);
+    const yearGap = Number(row?.yearGap);
+    const coverage = Number(row?.coveragePct);
     const reasons = Array.isArray(row.reasons) ? row.reasons.slice(0, 3).join(", ") : "";
     const tr = document.createElement("tr");
     tr.innerHTML = `
@@ -297,6 +299,8 @@ function fillDistrictEvidenceDatasetRankTable(tbody, rows, selectedElectionId){
       <td>${id || "—"}</td>
       <td>${String(dataset.officeType || "—")}</td>
       <td>${String(dataset.vintage || dataset.cycleYear || "—")}</td>
+      <td class="num">${Number.isFinite(yearGap) ? String(Math.max(0, Math.round(yearGap))) : "—"}</td>
+      <td class="num">${Number.isFinite(coverage) ? `${coverage.toFixed(1)}%` : "—"}</td>
       <td class="num">${Number.isFinite(score) ? score.toFixed(2) : "—"}</td>
       <td>${selectedTag || reasons || "—"}</td>
     `;
