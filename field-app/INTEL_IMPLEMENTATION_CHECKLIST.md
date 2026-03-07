@@ -194,7 +194,11 @@ Execution order below is fixed and must be followed in sequence.
        - `/Users/anakinskywalker/Downloads/field-app-40/js/core/decisionIntelligence.js`
        - `/Users/anakinskywalker/Downloads/field-app-40/js/core/fixtures.js`
        - `/Users/anakinskywalker/Downloads/field-app-40/js/core/monteCarlo.js`
-       - `/Users/anakinskywalker/Downloads/field-app-40/js/core/selfTest.js`
-       - `/Users/anakinskywalker/Downloads/field-app-40/js/core/winMath.js`
+      - `/Users/anakinskywalker/Downloads/field-app-40/js/core/selfTest.js`
+      - `/Users/anakinskywalker/Downloads/field-app-40/js/core/winMath.js`
+     - extended `@ts-check` typing to app-state/engine boundary modules:
+       - `/Users/anakinskywalker/Downloads/field-app-40/js/app/state.js`
+       - `/Users/anakinskywalker/Downloads/field-app-40/js/app/normalizeLoadedState.js`
+       - `/Users/anakinskywalker/Downloads/field-app-40/js/engine.js`
       - added shared core type declarations:
         - `/Users/anakinskywalker/Downloads/field-app-40/js/core/types.d.ts`
