@@ -110,6 +110,9 @@ function deepClone(v){
  *   electionDatasetId: string | null,
  *   boundarySetId: string | null,
  *   crosswalkVersionId: string | null,
+ *   electionStrictSimilarity: boolean,
+ *   electionMaxYearDelta: number | null,
+ *   electionMinCoveragePct: number | null,
  *   pinnedAt: string | null,
  *   lastCheckedAt: string | null
  * }}
@@ -122,6 +125,9 @@ export function makeDefaultDataRefs(){
     electionDatasetId: null,
     boundarySetId: null,
     crosswalkVersionId: null,
+    electionStrictSimilarity: false,
+    electionMaxYearDelta: null,
+    electionMinCoveragePct: null,
     pinnedAt: null,
     lastCheckedAt: null,
   };
@@ -138,6 +144,8 @@ export function normalizeDataRefs(raw){
   const modeRaw = toCleanString(raw.mode).toLowerCase();
   const mode = ALLOWED_DATA_REF_MODES.has(modeRaw) ? modeRaw : base.mode;
 
+  const maxYearDeltaRaw = toFiniteOrNull(raw.electionMaxYearDelta);
+  const minCoverageRaw = toFiniteOrNull(raw.electionMinCoveragePct);
   return {
     ...base,
     ...raw,
@@ -147,6 +155,9 @@ export function normalizeDataRefs(raw){
     electionDatasetId: toIdOrNull(raw.electionDatasetId),
     boundarySetId: toIdOrNull(raw.boundarySetId),
     crosswalkVersionId: toIdOrNull(raw.crosswalkVersionId),
+    electionStrictSimilarity: !!raw.electionStrictSimilarity,
+    electionMaxYearDelta: maxYearDeltaRaw == null ? null : clamp(Math.round(maxYearDeltaRaw), 0, 30),
+    electionMinCoveragePct: minCoverageRaw == null ? null : clamp(minCoverageRaw, 0, 100),
     pinnedAt: toIsoOrNull(raw.pinnedAt),
     lastCheckedAt: toIsoOrNull(raw.lastCheckedAt),
   };

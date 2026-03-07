@@ -184,6 +184,52 @@ function deriveTargetElectionYear(scenario){
 }
 
 /**
+ * @param {{
+ *   filters?: unknown,
+ *   scenario?: unknown
+ * }} args
+ * @returns {{
+ *   strictOfficeMatch: boolean,
+ *   strictRaceMatch: boolean,
+ *   requireBoundaryMatch: boolean,
+ *   maxYearDelta: number | null,
+ *   minCoveragePct: number | null
+ * }}
+ */
+function normalizeElectionCompatibilityFilters(args){
+  const explicit = isObject(args?.filters) ? args.filters : {};
+  const scenario = isObject(args?.scenario) ? args.scenario : {};
+  const refs = isObject(scenario?.dataRefs) ? scenario.dataRefs : {};
+  const strictSimilarity = explicit.strictSimilarity != null
+    ? !!explicit.strictSimilarity
+    : !!refs.electionStrictSimilarity;
+
+  const maxYearRaw = numOrNull(explicit.maxYearDelta);
+  const maxYearFromRefs = numOrNull(refs.electionMaxYearDelta);
+  const maxYearDelta = maxYearRaw != null
+    ? clamp(Math.round(maxYearRaw), 0, 30)
+    : maxYearFromRefs != null
+      ? clamp(Math.round(maxYearFromRefs), 0, 30)
+      : null;
+
+  const minCovRaw = numOrNull(explicit.minCoveragePct);
+  const minCovFromRefs = numOrNull(refs.electionMinCoveragePct);
+  const minCoveragePct = minCovRaw != null
+    ? clamp(minCovRaw, 0, 100)
+    : minCovFromRefs != null
+      ? clamp(minCovFromRefs, 0, 100)
+      : null;
+
+  return {
+    strictOfficeMatch: explicit.strictOfficeMatch != null ? !!explicit.strictOfficeMatch : strictSimilarity,
+    strictRaceMatch: explicit.strictRaceMatch != null ? !!explicit.strictRaceMatch : strictSimilarity,
+    requireBoundaryMatch: explicit.requireBoundaryMatch != null ? !!explicit.requireBoundaryMatch : false,
+    maxYearDelta,
+    minCoveragePct,
+  };
+}
+
+/**
  * @param {Array<Record<string, any>>} rows
  * @param {(row: Record<string, any>) => string} groupKeyFn
  * @returns {Array<Record<string, any>>}
@@ -275,6 +321,7 @@ function pickLatestVerified(rows, predicate){
  *   scenario?: unknown,
  *   boundarySetId?: unknown,
  *   requireVerified?: boolean
+ *   filters?: unknown
  * }} args
  * @returns {{
  *   eligible: boolean,
@@ -304,6 +351,10 @@ export function scoreElectionDatasetCompatibility(args){
   const targetOffice = deriveTargetOfficeType(scenario);
   const targetRace = deriveTargetRaceType(scenario);
   const targetYear = deriveTargetElectionYear(scenario);
+  const filters = normalizeElectionCompatibilityFilters({
+    filters: args?.filters,
+    scenario,
+  });
   const reasons = [];
 
   if (requireVerified && !row.isVerified){
@@ -320,6 +371,89 @@ export function scoreElectionDatasetCompatibility(args){
         boundarySetId: targetBoundary,
       },
     };
+  }
+
+  if (filters.minCoveragePct != null && coveragePct < filters.minCoveragePct){
+    return {
+      eligible: false,
+      score: -1,
+      scoreBreakdown: {},
+      reasons: ["coverage_below_filter"],
+      datasetId,
+      target: {
+        raceType: targetRace,
+        officeType: targetOffice,
+        electionYear: targetYear,
+        boundarySetId: targetBoundary,
+      },
+    };
+  }
+
+  if (filters.requireBoundaryMatch && targetBoundary && datasetBoundary && targetBoundary !== datasetBoundary){
+    return {
+      eligible: false,
+      score: -1,
+      scoreBreakdown: {},
+      reasons: ["boundary_filter_mismatch"],
+      datasetId,
+      target: {
+        raceType: targetRace,
+        officeType: targetOffice,
+        electionYear: targetYear,
+        boundarySetId: targetBoundary,
+      },
+    };
+  }
+
+  if (filters.strictOfficeMatch && targetOffice && datasetOffice && targetOffice !== datasetOffice){
+    return {
+      eligible: false,
+      score: -1,
+      scoreBreakdown: {},
+      reasons: ["office_filter_mismatch"],
+      datasetId,
+      target: {
+        raceType: targetRace,
+        officeType: targetOffice,
+        electionYear: targetYear,
+        boundarySetId: targetBoundary,
+      },
+    };
+  }
+
+  if (filters.strictRaceMatch && targetRace && datasetRace && targetRace !== datasetRace){
+    return {
+      eligible: false,
+      score: -1,
+      scoreBreakdown: {},
+      reasons: ["race_filter_mismatch"],
+      datasetId,
+      target: {
+        raceType: targetRace,
+        officeType: targetOffice,
+        electionYear: targetYear,
+        boundarySetId: targetBoundary,
+      },
+    };
+  }
+
+  if (filters.maxYearDelta != null && targetYear != null && datasetYear != null){
+    const diff = Math.abs(targetYear - datasetYear);
+    if (diff > filters.maxYearDelta){
+      return {
+        eligible: false,
+        score: -1,
+        scoreBreakdown: {},
+        reasons: ["year_filter_out_of_range"],
+        datasetId,
+        target: {
+          raceType: targetRace,
+          officeType: targetOffice,
+          electionYear: targetYear,
+          boundarySetId: targetBoundary,
+        },
+      };
+    }
   }
 
   const scoreBreakdown = {
@@ -408,6 +542,7 @@ export function scoreElectionDatasetCompatibility(args){
  *   scenario?: unknown,
  *   boundarySetId?: unknown,
  *   requireVerified?: boolean
+ *   filters?: unknown
  * }} args
  * @returns {Array<{
  *   dataset: Record<string, any>,
@@ -428,6 +563,7 @@ export function rankElectionDatasetsForScenario(args){
       scenario: args?.scenario,
       boundarySetId: args?.boundarySetId,
       requireVerified: args?.requireVerified,
+      filters: args?.filters,
     });
     if (!score.eligible) continue;
     ranked.push({
@@ -722,6 +858,11 @@ export function resolveDataRefsByPolicy(args){
       scenario: args?.scenario,
       boundarySetId: boundaryId,
       requireVerified: true,
+      filters: {
+        strictSimilarity: !!refs.electionStrictSimilarity,
+        maxYearDelta: refs.electionMaxYearDelta,
+        minCoveragePct: refs.electionMinCoveragePct,
+      },
     });
     const picked = ranked[0]?.dataset || pickLatestVerified(registry.electionDatasets, boundaryFilter) || pickLatestVerified(registry.electionDatasets);
     if (picked){
@@ -773,6 +914,9 @@ export function resolveDataRefsByPolicy(args){
  *     electionDatasetId: string | null,
  *     boundarySetId: string | null,
  *     crosswalkVersionId: string | null,
+ *     electionStrictSimilarity: boolean,
+ *     electionMaxYearDelta: number | null,
+ *     electionMinCoveragePct: number | null,
  *     pinnedAt: string | null,
  *     lastCheckedAt: string | null
  *   },

@@ -23,6 +23,9 @@
         "electionDatasetId",
         "boundarySetId",
         "crosswalkVersionId",
+        "electionStrictSimilarity",
+        "electionMaxYearDelta",
+        "electionMinCoveragePct",
         "pinnedAt",
         "lastCheckedAt"
       ],
@@ -36,6 +39,9 @@
         "electionDatasetId": { "type": ["string", "null"] },
         "boundarySetId": { "type": ["string", "null"] },
         "crosswalkVersionId": { "type": ["string", "null"] },
+        "electionStrictSimilarity": { "type": "boolean" },
+        "electionMaxYearDelta": { "type": ["number", "null"], "minimum": 0, "maximum": 30 },
+        "electionMinCoveragePct": { "type": ["number", "null"], "minimum": 0, "maximum": 100 },
         "pinnedAt": { "type": ["string", "null"], "format": "date-time" },
         "lastCheckedAt": { "type": ["string", "null"], "format": "date-time" }
       },

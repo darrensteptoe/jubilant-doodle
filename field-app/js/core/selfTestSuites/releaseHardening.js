@@ -280,6 +280,9 @@ export function registerReleaseHardeningTests(ctx){
         mode: "somethingElse",
         censusDatasetId: "  census_2024  ",
         pinnedAt: "not-a-date",
+        electionStrictSimilarity: "yes",
+        electionMaxYearDelta: 99,
+        electionMinCoveragePct: -5,
       },
       dataCatalog: {
         boundarySets: [{ id: "statehouse_2024", label: "State House 2024", geographyType: "SLDL" }],
@@ -301,6 +304,9 @@ export function registerReleaseHardeningTests(ctx){
     assert(next.dataRefs.mode === "pinned_verified", "invalid dataRefs mode should normalize to pinned_verified");
     assert(next.dataRefs.censusDatasetId === "census_2024", "census dataset id should trim");
     assert(next.dataRefs.pinnedAt === null, "invalid pinnedAt should normalize to null");
+    assert(next.dataRefs.electionStrictSimilarity === true, "strict similarity should coerce to boolean");
+    assert(next.dataRefs.electionMaxYearDelta === 30, "max year delta should clamp to 30");
+    assert(next.dataRefs.electionMinCoveragePct === 0, "min coverage pct should clamp to 0");
     assert(next.geoPack.resolution === "tract", "invalid geo resolution should normalize to tract");
     assert(next.dataCatalog.crosswalks[0].unit === "tract", "crosswalk unit should default to tract");
     assert(next.dataCatalog.crosswalks[0].method === "area", "crosswalk method should default to area");
@@ -845,6 +851,59 @@ export function registerReleaseHardeningTests(ctx){
       },
     });
     assert(resolved.selected.electionDatasetId === "mit_state_house_2022", "Expected policy resolver to pick compatibility-ranked election dataset");
+    return true;
+  });
+
+  test("Phase 20: election compatibility filters narrow candidates by similarity, year gap, and coverage", () => {
+    const catalog = {
+      boundarySets: [
+        { id: "sldl_2024", label: "SLDL 2024", geographyType: "SLDL", vintage: "2024", isVerified: true, isLatest: true },
+      ],
+      crosswalks: [],
+      censusDatasets: [],
+      electionDatasets: [
+        { id: "mit_state_house_2022", kind: "election", label: "MIT State House 2022", source: "mit", vintage: "2022", electionDate: "2022-11-08", officeType: "state_house", raceType: "state_leg", boundarySetId: "sldl_2024", granularity: "precinct", isLatest: false, quality: { coveragePct: 97, isVerified: true } },
+        { id: "mit_state_house_2014", kind: "election", label: "MIT State House 2014", source: "mit", vintage: "2014", electionDate: "2014-11-04", officeType: "state_house", raceType: "state_leg", boundarySetId: "sldl_2024", granularity: "precinct", isLatest: false, quality: { coveragePct: 98, isVerified: true } },
+        { id: "mit_state_senate_2022", kind: "election", label: "MIT State Senate 2022", source: "mit", vintage: "2022", electionDate: "2022-11-08", officeType: "state_senate", raceType: "state_leg", boundarySetId: "sldl_2024", granularity: "precinct", isLatest: true, quality: { coveragePct: 97, isVerified: true } },
+        { id: "mit_state_house_2022_low_cov", kind: "election", label: "MIT State House 2022 low coverage", source: "mit", vintage: "2022", electionDate: "2022-11-08", officeType: "state_house", raceType: "state_leg", boundarySetId: "sldl_2024", granularity: "precinct", isLatest: false, quality: { coveragePct: 72, isVerified: true } },
+      ],
+    };
+
+    const ranked = rankElectionDatasetsForScenario({
+      dataCatalog: catalog,
+      scenario: {
+        raceType: "state_leg",
+        electionDate: "2026-11-03",
+        geoPack: { area: { type: "SLDL" } },
+      },
+      boundarySetId: "sldl_2024",
+      requireVerified: true,
+      filters: {
+        strictSimilarity: true,
+        maxYearDelta: 6,
+        minCoveragePct: 90,
+      },
+    });
+    assert(Array.isArray(ranked) && ranked.length === 1, "Expected filters to narrow ranking to one compatible dataset");
+    assert(ranked[0].dataset?.id === "mit_state_house_2022", "Expected filtered ranking to keep only similar, recent, high-coverage dataset");
+
+    const resolved = resolveDataRefsByPolicy({
+      dataRefs: {
+        mode: "latest_verified",
+        boundarySetId: "sldl_2024",
+        electionDatasetId: null,
+        electionStrictSimilarity: true,
+        electionMaxYearDelta: 6,
+        electionMinCoveragePct: 90,
+      },
+      dataCatalog: catalog,
+      scenario: {
+        raceType: "state_leg",
+        electionDate: "2026-11-03",
+        geoPack: { area: { type: "SLDL" } },
+      },
+    });
+    assert(resolved.selected.electionDatasetId === "mit_state_house_2022", "Expected policy resolver to honor election compatibility filters");
     return true;
   });
 
