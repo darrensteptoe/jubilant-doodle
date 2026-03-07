@@ -325,3 +325,8 @@ Execution order for the first functional district-evidence layer.
    - `/Users/anakinskywalker/Downloads/field-app-40/js/app/renderIntelChecks.js`
    - `/Users/anakinskywalker/Downloads/field-app-40/js/app/summaryRenderController.js`
    - `/Users/anakinskywalker/Downloads/field-app-40/js/ui/els.js`
+5. [x] Bind district evidence input selection to active `dataRefs` (deterministic resolver):
+   - `/Users/anakinskywalker/Downloads/field-app-40/js/core/districtEvidenceInputs.js`
+   - exposed via `/Users/anakinskywalker/Downloads/field-app-40/js/engine.js` snapshot facade.
+   - used by `/Users/anakinskywalker/Downloads/field-app-40/js/app/renderIntelChecks.js` with inline-input fallback.
+   - regression tests in `/Users/anakinskywalker/Downloads/field-app-40/js/core/selfTestSuites/releaseHardening.js`.
