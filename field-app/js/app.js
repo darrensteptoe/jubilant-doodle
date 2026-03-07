@@ -154,6 +154,7 @@ import { createMcEnvelopeController } from "./app/mcEnvelopeController.js";
 import { createMcRuntimeController } from "./app/mcRuntimeController.js";
 import { createPlanningRuntimeController } from "./app/planningRuntimeController.js";
 import { createExecutionWeeklyController } from "./app/executionWeeklyController.js";
+import { createExecutionRiskController } from "./app/executionRiskController.js";
 import {
   updatePersistenceStatusChipModule,
   reportPersistenceFailureModule,
@@ -986,114 +987,97 @@ function renderAssumptionDriftE1(res, weeks, { weeklyContext = null, executionSn
   });
 }
 
-function computeRealityDrift(){
-  return computeRealityDriftModule({ state, safeNum, windowN: 7 });
-}
+let executionRiskController = null;
 
-function applyRollingRateToAssumption(kind){
-  return applyRollingRateToAssumptionModule({
-    kind,
-    computeRealityDrift,
-    state,
+function getExecutionRiskController(){
+  if (executionRiskController) return executionRiskController;
+  executionRiskController = createExecutionRiskController({
     els,
+    getState: () => state,
+    setState: (next) => { state = next; },
+    getLastRenderCtx: () => lastRenderCtx,
+    setLastAppliedWeeklyAction: (next) => { lastAppliedWeeklyAction = next; },
     safeNum,
     clamp,
-    setCanonicalDoorsPerHour,
-    markMcStale,
-    commitUIUpdate,
-  });
-}
-
-function applyAllRollingCalibrations(){
-  return applyAllRollingCalibrationsModule({
-    computeRealityDrift,
-    state,
-    els,
-    safeNum,
-    clamp,
-    setCanonicalDoorsPerHour,
-    markMcStale,
-    commitUIUpdate,
-    setLastAppliedWeeklyAction: (next) => { lastAppliedWeeklyAction = next; },
-    syncWeeklyUndoUI,
-  });
-}
-
-
-function applyWeeklyLeverScenario(lever, ctx){
-  return applyWeeklyLeverScenarioModule({
-    lever,
-    ctx,
-    state,
-    clamp,
-    setLastAppliedWeeklyAction: (next) => { lastAppliedWeeklyAction = next; },
-    replaceState: (nextState) => { state = nextState; },
+    fmtInt,
+    setTextPair,
+    setText,
+    safeCall,
+    getEffectiveBaseRates,
+    computeWeeklyOpsContext,
+    computeCapacityBreakdown: coreComputeCapacityBreakdown,
+    deriveNeedVotes,
+    normalizeDailyLogEntry,
+    ensureScenarioRegistry,
+    SCENARIO_BASELINE_ID,
+    scenarioClone,
+    scenarioInputsFromState,
+    renderPhase3,
     applyStateToUI,
     commitUIUpdate,
     syncWeeklyUndoUI,
+    setCanonicalDoorsPerHour,
+    markMcStale,
+    hashMcInputs,
+    computeDailyLogHash,
+    runMonteCarloSim,
+    persist,
+    getStateSnapshot,
+    withPatchedState,
+    computeElectionSnapshot,
+    derivedWeeksRemaining,
+    engine,
+    computeRealityDriftModule,
+    applyRollingRateToAssumptionModule,
+    applyAllRollingCalibrationsModule,
+    applyWeeklyLeverScenarioModule,
+    renderAssumptionDriftPanel,
+    renderRiskFramingPanel,
+    renderBottleneckAttributionPanel,
+    renderWeeklyOpsInsightsPanel,
+    renderWeeklyOpsFreshnessPanel,
+    renderConversionPanel,
+    renderSensitivitySnapshotPanel,
+    runSensitivitySnapshotPanel,
+    renderDecisionConfidencePanel,
+    renderImpactTracePanel,
+    renderDecisionIntelligencePanelView,
+    getMcStaleness,
+    fmtSigned,
   });
+  return executionRiskController;
 }
 
+function computeRealityDrift(){
+  return getExecutionRiskController().computeRealityDrift();
+}
 
+function applyRollingRateToAssumption(kind){
+  return getExecutionRiskController().applyRollingRateToAssumption(kind);
+}
+
+function applyAllRollingCalibrations(){
+  return getExecutionRiskController().applyAllRollingCalibrations();
+}
+
+function applyWeeklyLeverScenario(lever, ctx){
+  return getExecutionRiskController().applyWeeklyLeverScenario(lever, ctx);
+}
 
 function renderRiskFramingE2(){
-  const stale = (lastRenderCtx && lastRenderCtx.res)
-    ? getMcStaleness({
-        state,
-        res: lastRenderCtx.res,
-        weeks: lastRenderCtx.weeks,
-        hashMcInputs,
-        computeDailyLogHash,
-      })
-    : null;
-  return renderRiskFramingPanel({ els, state, setTextPair, fmtSigned, clamp, mcStaleness: stale });
+  return getExecutionRiskController().renderRiskFramingE2();
 }
 
 function renderBottleneckAttributionE3(res, weeks){
-  return renderBottleneckAttributionPanel({
-    els,
-    state,
-    res,
-    weeks,
-    safeNum,
-    fmtInt,
-    clamp,
-    engine,
-    getEffectiveBaseRates,
-    deriveNeedVotes
-  });
+  return getExecutionRiskController().renderBottleneckAttributionE3(res, weeks);
 }
 
-function renderWeeklyOpsInsights(res, weeks, { weeklyContext = null, executionSnapshot = null } = {}){
-  return renderWeeklyOpsInsightsPanel({
-    els,
-    state,
-    res,
-    weeks,
-    ctx: weeklyContext,
-    executionSnapshot,
-    computeWeeklyOpsContext,
-    fmtInt,
-    clamp,
-    computeCapacityBreakdown: coreComputeCapacityBreakdown,
-    syncWeeklyUndoUI,
-    safeCall,
-    applyWeeklyLeverScenario,
-    computeRealityDrift
-  });
+function renderWeeklyOpsInsights(res, weeks, opts = {}){
+  return getExecutionRiskController().renderWeeklyOpsInsights(res, weeks, opts);
 }
 
-function renderWeeklyOpsFreshness(res, weeks, { weeklyContext = null, executionSnapshot = null } = {}){
-  return renderWeeklyOpsFreshnessPanel({
-    els,
-    state,
-    res,
-    weeks,
-    ctx: weeklyContext,
-    executionSnapshot,
-    safeNum,
-    computeWeeklyOpsContext
-  });
+function renderWeeklyOpsFreshness(res, weeks, opts = {}){
+  return getExecutionRiskController().renderWeeklyOpsFreshness(res, weeks, opts);
 }
 
 function addBullet(listEl, text){
@@ -1105,204 +1089,27 @@ function addBullet(listEl, text){
 
 
 function renderConversion(res, weeks){
-  return renderConversionPanel({
-    els,
-    state,
-    res,
-    weeks,
-    deriveNeedVotes,
-    safeNum,
-    fmtInt,
-    getEffectiveBaseRates,
-    setText,
-    renderPhase3
-  });
+  return getExecutionRiskController().renderConversion(res, weeks);
 }
 
-
 function renderSensitivitySnapshotE4(){
-  const stale = (lastRenderCtx && lastRenderCtx.res)
-    ? getMcStaleness({
-        state,
-        res: lastRenderCtx.res,
-        weeks: lastRenderCtx.weeks,
-        hashMcInputs,
-        computeDailyLogHash,
-      })
-    : null;
-  return renderSensitivitySnapshotPanel({ els, state, mcStaleness: stale });
+  return getExecutionRiskController().renderSensitivitySnapshotE4();
 }
 
 async function runSensitivitySnapshotE4(){
-  return runSensitivitySnapshotPanel({
-    els,
-    state,
-    lastRenderCtx,
-    clamp,
-    runMonteCarloSim,
-    persist,
-    renderSensitivitySnapshotE4,
-    getMcStaleness: () => {
-      if (!lastRenderCtx || !lastRenderCtx.res) return null;
-      return getMcStaleness({
-        state,
-        res: lastRenderCtx.res,
-        weeks: lastRenderCtx.weeks,
-        hashMcInputs,
-        computeDailyLogHash,
-      });
-    }
-  });
+  return getExecutionRiskController().runSensitivitySnapshotE4();
 }
 
-function renderDecisionConfidenceE5(res, weeks, { weeklyContext = null, executionSnapshot = null } = {}){
-  return renderDecisionConfidencePanel({
-    els,
-    state,
-    res,
-    weeks,
-    weeklyContext,
-    executionSnapshot,
-    deriveNeedVotes,
-    normalizeDailyLogEntry,
-    safeNum,
-    getEffectiveBaseRates,
-    clamp,
-    ensureScenarioRegistry,
-    SCENARIO_BASELINE_ID,
-    scenarioClone,
-    scenarioInputsFromState,
-    fmtInt
-  });
+function renderDecisionConfidenceE5(res, weeks, opts = {}){
+  return getExecutionRiskController().renderDecisionConfidenceE5(res, weeks, opts);
 }
 
-function renderImpactTraceE6(res, weeks, { weeklyContext = null, executionSnapshot = null } = {}){
-  return renderImpactTracePanel({
-    els,
-    state,
-    res,
-    weeks,
-    fmtInt,
-    weeklyContext,
-    executionSnapshot,
-  });
+function renderImpactTraceE6(res, weeks, opts = {}){
+  return getExecutionRiskController().renderImpactTraceE6(res, weeks, opts);
 }
 
 function renderDecisionIntelligencePanel({ res, weeks }){
-  return renderDecisionIntelligencePanelView({
-    els,
-    engine,
-    res,
-    weeks,
-    getStateSnapshot,
-    withPatchedState,
-    computeElectionSnapshot,
-    derivedWeeksRemaining,
-    deriveNeedVotes,
-    runMonteCarloSim,
-    fmtInt
-  });
-  if (!els.diPrimary || !els.diVolTbody || !els.diCostTbody || !els.diProbTbody) return;
-
-  const clearTable = (tbody) => { if (tbody) tbody.innerHTML = ""; };
-  const stubRow = (tbody) => {
-    if (!tbody) return;
-    const tr = document.createElement("tr");
-    const td0 = document.createElement("td"); td0.className = "muted"; td0.textContent = "—";
-    const td1 = document.createElement("td"); td1.className = "num muted"; td1.textContent = "—";
-    tr.appendChild(td0); tr.appendChild(td1);
-    tbody.appendChild(tr);
-  };
-
-  const setWarn = (msg) => {
-    if (!els.diWarn) return;
-    if (!msg){
-      els.diWarn.hidden = true;
-      els.diWarn.textContent = "";
-      return;
-    }
-    els.diWarn.hidden = false;
-    els.diWarn.textContent = msg;
-  };
-
-  try{
-    // Build a stable snapshot for analysis (no mutation)
-    const snap = getStateSnapshot();
-
-    const accessors = {
-      getStateSnapshot,
-      withPatchedState,
-      computeAll: (mi, options) => engine.computeAll(mi, options),
-      derivedWeeksRemaining,
-      deriveNeedVotes,
-      runMonteCarloSim,
-      computeRoiRows: engine.computeRoiRows,
-      buildOptimizationTactics: engine.buildOptimizationTactics,
-      computeMaxAttemptsByTactic: engine.computeMaxAttemptsByTactic,
-    };
-
-    const di = engine.computeDecisionIntelligence({ engine: accessors, snap, baseline: { res, weeks } });
-
-    setWarn(di?.warning || null);
-
-    if (els.diPrimary) els.diPrimary.textContent = di?.bottlenecks?.primary || "—";
-    if (els.diSecondary) els.diSecondary.textContent = di?.bottlenecks?.secondary || "—";
-    if (els.diNotBinding){
-      const nb = Array.isArray(di?.bottlenecks?.notBinding) ? di.bottlenecks.notBinding : [];
-      els.diNotBinding.textContent = nb.length ? nb.join(", ") : "—";
-    }
-
-    if (els.diRecVol) els.diRecVol.textContent = di?.recs?.volunteers || "—";
-    if (els.diRecCost) els.diRecCost.textContent = di?.recs?.cost || "—";
-    if (els.diRecProb) els.diRecProb.textContent = di?.recs?.probability || "—";
-
-    const fill = (tbody, rows, fmt) => {
-      clearTable(tbody);
-      const list = Array.isArray(rows) ? rows : [];
-      if (!list.length){ stubRow(tbody); return; }
-      for (const r of list){
-        const tr = document.createElement("tr");
-        const td0 = document.createElement("td");
-        td0.textContent = r?.lever || "—";
-        const td1 = document.createElement("td");
-        td1.className = "num";
-        td1.textContent = fmt(r?.value);
-        tr.appendChild(td0); tr.appendChild(td1);
-        tbody.appendChild(tr);
-      }
-    };
-
-    const fmtSigned = (v, kind) => {
-      if (v == null || !Number.isFinite(v)) return "—";
-      const sign = (v > 0) ? "+" : "";
-      if (kind === "vol"){
-        return sign + v.toFixed(2);
-      }
-      if (kind === "cost"){
-        return sign + "$" + fmtInt(Math.round(v));
-      }
-      if (kind === "prob"){
-        return sign + (v*100).toFixed(2) + " pp";
-      }
-      return sign + String(v);
-    };
-
-    fill(els.diVolTbody, di?.rankings?.volunteers, (v)=>fmtSigned(v, "vol"));
-    fill(els.diCostTbody, di?.rankings?.cost, (v)=>fmtSigned(v, "cost"));
-    fill(els.diProbTbody, di?.rankings?.probability, (v)=>fmtSigned(v, "prob"));
-
-  } catch (e){
-    setWarn("Decision Intelligence failed (panel render error).");
-    if (els.diPrimary) els.diPrimary.textContent = "—";
-    if (els.diSecondary) els.diSecondary.textContent = "—";
-    if (els.diNotBinding) els.diNotBinding.textContent = "—";
-    if (els.diRecVol) els.diRecVol.textContent = "—";
-    if (els.diRecCost) els.diRecCost.textContent = "—";
-    if (els.diRecProb) els.diRecProb.textContent = "—";
-    clearTable(els.diVolTbody); stubRow(els.diVolTbody);
-    clearTable(els.diCostTbody); stubRow(els.diCostTbody);
-    clearTable(els.diProbTbody); stubRow(els.diProbTbody);
-  }
+  return getExecutionRiskController().renderDecisionIntelligencePanel({ res, weeks });
 }
 
 
