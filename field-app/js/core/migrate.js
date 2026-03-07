@@ -4,8 +4,14 @@
 // Pure module: no DOM, no imports from app/optimizer, no state mutation.
 
 import { makeDefaultIntelState, normalizeIntelState } from "./intelState.js";
+import {
+  makeDefaultDataRefs,
+  makeDefaultGeoPack,
+  makeDefaultDistrictIntelPack,
+  normalizeDistrictDataState,
+} from "./districtData.js";
 
-export const CURRENT_SCHEMA_VERSION = "1.2.0";
+export const CURRENT_SCHEMA_VERSION = "1.3.0";
 
 const SCENARIO_DEFAULTS = {
   // Phase 16 — Universe composition + retention (aggregate)
@@ -17,6 +23,11 @@ const SCENARIO_DEFAULTS = {
   retentionFactor: 0.80,
   // Phase 17 — Intel metadata and governance state (non-math annotations only)
   intelState: makeDefaultIntelState(),
+  // Phase 18 — District intelligence and external data pinning contract
+  useDistrictIntel: false,
+  dataRefs: makeDefaultDataRefs(),
+  geoPack: makeDefaultGeoPack(),
+  districtIntelPack: makeDefaultDistrictIntelPack(),
 };
 
 /**
@@ -32,6 +43,7 @@ function applyScenarioDefaults(scen){
     }
   }
   scen.intelState = normalizeIntelState(scen.intelState);
+  normalizeDistrictDataState(scen);
   return scen;
 }
 

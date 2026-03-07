@@ -1,0 +1,166 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://field-path.local/schemas/districtData.v1.schema.json",
+  "title": "District Data Contract v1",
+  "type": "object",
+  "required": [
+    "useDistrictIntel",
+    "dataRefs",
+    "geoPack",
+    "districtIntelPack"
+  ],
+  "properties": {
+    "useDistrictIntel": {
+      "type": "boolean"
+    },
+    "dataRefs": {
+      "type": "object",
+      "required": [
+        "version",
+        "mode",
+        "censusDatasetId",
+        "electionDatasetId",
+        "boundarySetId",
+        "crosswalkVersionId",
+        "pinnedAt",
+        "lastCheckedAt"
+      ],
+      "properties": {
+        "version": { "type": "string" },
+        "mode": {
+          "type": "string",
+          "enum": ["pinned_verified", "latest_verified", "manual"]
+        },
+        "censusDatasetId": { "type": ["string", "null"] },
+        "electionDatasetId": { "type": ["string", "null"] },
+        "boundarySetId": { "type": ["string", "null"] },
+        "crosswalkVersionId": { "type": ["string", "null"] },
+        "pinnedAt": { "type": ["string", "null"], "format": "date-time" },
+        "lastCheckedAt": { "type": ["string", "null"], "format": "date-time" }
+      },
+      "additionalProperties": true
+    },
+    "geoPack": {
+      "type": "object",
+      "required": [
+        "geoPackVersion",
+        "source",
+        "area",
+        "resolution",
+        "boundarySetId",
+        "units",
+        "district",
+        "quality",
+        "generatedAt"
+      ],
+      "properties": {
+        "geoPackVersion": { "type": "string" },
+        "source": {
+          "type": "object",
+          "properties": {
+            "dataset": { "type": ["string", "null"] },
+            "vintage": { "type": ["string", "null"] },
+            "refreshedAt": { "type": ["string", "null"], "format": "date-time" }
+          },
+          "required": ["dataset", "vintage", "refreshedAt"],
+          "additionalProperties": true
+        },
+        "area": {
+          "type": "object",
+          "required": ["type", "stateFips", "district", "countyFips", "placeFips", "label"],
+          "properties": {
+            "type": { "type": "string" },
+            "stateFips": { "type": "string" },
+            "district": { "type": "string" },
+            "countyFips": { "type": "string" },
+            "placeFips": { "type": "string" },
+            "label": { "type": "string" }
+          },
+          "additionalProperties": true
+        },
+        "resolution": {
+          "type": "string",
+          "enum": ["tract", "block_group"]
+        },
+        "boundarySetId": { "type": ["string", "null"] },
+        "units": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["geoid", "w"],
+            "properties": {
+              "geoid": { "type": "string" },
+              "w": { "type": "number", "minimum": 0, "maximum": 1 }
+            },
+            "additionalProperties": true
+          }
+        },
+        "district": { "type": "object" },
+        "quality": {
+          "type": "object",
+          "required": ["coveragePct", "weightSum", "unmatchedUnits", "crosswalkMethod", "crosswalkQuality"],
+          "properties": {
+            "coveragePct": { "type": ["number", "null"] },
+            "weightSum": { "type": ["number", "null"] },
+            "unmatchedUnits": { "type": "integer", "minimum": 0 },
+            "crosswalkMethod": { "type": "string" },
+            "crosswalkQuality": { "type": ["number", "null"] }
+          },
+          "additionalProperties": true
+        },
+        "generatedAt": { "type": ["string", "null"], "format": "date-time" }
+      },
+      "additionalProperties": true
+    },
+    "districtIntelPack": {
+      "type": "object",
+      "required": [
+        "version",
+        "ready",
+        "indices",
+        "bounds",
+        "derivedAssumptions",
+        "provenance",
+        "generatedAt",
+        "warnings"
+      ],
+      "properties": {
+        "version": { "type": "string" },
+        "ready": { "type": "boolean" },
+        "indices": {
+          "type": "object",
+          "required": ["fieldSpeed", "persuasionEnv", "turnoutElasticity", "fieldDifficulty"],
+          "properties": {
+            "fieldSpeed": { "type": "number" },
+            "persuasionEnv": { "type": "number" },
+            "turnoutElasticity": { "type": "number" },
+            "fieldDifficulty": { "type": "number" }
+          },
+          "additionalProperties": true
+        },
+        "bounds": {
+          "type": "object",
+          "required": ["min", "max"],
+          "properties": {
+            "min": { "type": "number" },
+            "max": { "type": "number" }
+          },
+          "additionalProperties": true
+        },
+        "derivedAssumptions": {
+          "type": "object"
+        },
+        "provenance": {
+          "type": "object"
+        },
+        "generatedAt": { "type": ["string", "null"], "format": "date-time" },
+        "warnings": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      },
+      "additionalProperties": true
+    }
+  },
+  "additionalProperties": true
+}

@@ -20,6 +20,11 @@
  *   migrateSnapshot: (...args: any[]) => any,
  *   validateScenarioExport: (...args: any[]) => any,
  *   checkStrictImportPolicy: (...args: any[]) => any,
+ *   makeDefaultDataRefs: (...args: any[]) => any,
+ *   makeDefaultGeoPack: (...args: any[]) => any,
+ *   makeDefaultDistrictIntelPack: (...args: any[]) => any,
+ *   normalizeDistrictDataState: (...args: any[]) => any,
+ *   validateDistrictDataContract: (...args: any[]) => any,
  * }} ctx
  * @returns {void}
  */
@@ -43,6 +48,11 @@ export function registerReleaseHardeningTests(ctx){
     migrateSnapshot,
     validateScenarioExport,
     checkStrictImportPolicy,
+    makeDefaultDataRefs,
+    makeDefaultGeoPack,
+    makeDefaultDistrictIntelPack,
+    normalizeDistrictDataState,
+    validateDistrictDataContract,
   } = ctx;
 
   test("Phase 11: Export metadata includes appVersion + buildId", () => {
@@ -176,6 +186,71 @@ export function registerReleaseHardeningTests(ctx){
     assert(!hm.ok && hm.issues.length, "Should block hash mismatch");
     const off = checkStrictImportPolicy({ strictMode:false, importedSchemaVersion:"9.9.9", currentSchemaVersion:CURRENT_SCHEMA_VERSION, hashMismatch:true });
     assert(off.ok, "Should allow when strict mode OFF");
+    return true;
+  });
+
+  test("Phase 18: migrate applies district data contract defaults for legacy snapshots", () => {
+    const legacyScenario = withUniverseDefaults({
+      scenarioName: "Legacy District Data",
+      raceType: "state_leg",
+      electionDate: "2026-06-02",
+      universeSize: 10000,
+      ui: { training: false, dark: false },
+    });
+    delete legacyScenario.dataRefs;
+    delete legacyScenario.geoPack;
+    delete legacyScenario.districtIntelPack;
+    delete legacyScenario.useDistrictIntel;
+
+    const payload = {
+      schemaVersion: "1.2.0",
+      modelVersion: MODEL_VERSION,
+      scenario: legacyScenario,
+    };
+    const migrated = migrateSnapshot(payload);
+    const scen = migrated?.snapshot?.scenario || {};
+    const refs = makeDefaultDataRefs();
+    const geo = makeDefaultGeoPack();
+    const intel = makeDefaultDistrictIntelPack();
+
+    assert(scen.useDistrictIntel === false, "Expected useDistrictIntel default false");
+    assert(scen.dataRefs && scen.dataRefs.mode === refs.mode, "Expected default dataRefs mode");
+    assert(scen.geoPack && scen.geoPack.resolution === geo.resolution, "Expected default geoPack resolution");
+    assert(scen.districtIntelPack && scen.districtIntelPack.bounds?.min === intel.bounds.min, "Expected districtIntelPack defaults");
+
+    const contract = validateDistrictDataContract(scen);
+    assert(contract.ok, `District data contract should be valid after migration: ${(contract.errors || []).join(" | ")}`);
+    assert((contract.warnings || []).length === 0, "Legacy migration defaults should not emit district-data warnings when feature is unused");
+    return true;
+  });
+
+  test("Phase 18: district data normalizer repairs malformed values without throwing", () => {
+    const raw = {
+      useDistrictIntel: "yes",
+      dataRefs: {
+        mode: "somethingElse",
+        censusDatasetId: "  census_2024  ",
+        pinnedAt: "not-a-date",
+      },
+      geoPack: {
+        resolution: "unknown",
+        units: [{ geoid: " 34013010100 ", w: 1.2 }, { geoid: "", w: 0.2 }, { geoid: "34013010200", w: -1 }],
+      },
+      districtIntelPack: {
+        bounds: { min: 1.5, max: 1.2 },
+        indices: { fieldSpeed: 2.4, persuasionEnv: 0.1, turnoutElasticity: 1.3, fieldDifficulty: 9 },
+      },
+    };
+    const next = normalizeDistrictDataState(JSON.parse(JSON.stringify(raw)));
+    assert(next.useDistrictIntel === true, "useDistrictIntel should coerce to boolean");
+    assert(next.dataRefs.mode === "pinned_verified", "invalid dataRefs mode should normalize to pinned_verified");
+    assert(next.dataRefs.censusDatasetId === "census_2024", "census dataset id should trim");
+    assert(next.dataRefs.pinnedAt === null, "invalid pinnedAt should normalize to null");
+    assert(next.geoPack.resolution === "tract", "invalid geo resolution should normalize to tract");
+    assert(Array.isArray(next.geoPack.units) && next.geoPack.units.length === 2, "geo units should retain valid geoids");
+    assert(next.geoPack.units[0].w >= 0 && next.geoPack.units[0].w <= 1, "geo unit weight should clamp to 0..1");
+    assert(next.districtIntelPack.indices.fieldSpeed <= next.districtIntelPack.bounds.max, "fieldSpeed should clamp to bounds");
+    assert(next.districtIntelPack.indices.persuasionEnv >= next.districtIntelPack.bounds.min, "persuasionEnv should clamp to bounds");
     return true;
   });
 }

@@ -20,6 +20,7 @@ import { computeSnapshotHash } from "./core/hash.js";
 import { migrateSnapshot, CURRENT_SCHEMA_VERSION } from "./core/migrate.js";
 import { checkStrictImportPolicy } from "./core/importPolicy.js";
 import { validateImportedScenarioData, computeAssumptionBenchmarkWarnings } from "./core/importQuality.js";
+import { validateDistrictDataContract } from "./core/districtData.js";
 import {
   MODEL_VERSION,
   makeScenarioExport,
@@ -104,6 +105,7 @@ export const engine = {
     checkStrictImportPolicy,
     validateImportedScenarioData,
     computeAssumptionBenchmarkWarnings,
+    validateDistrictDataContract,
     makeScenarioExport,
     deterministicStringify,
     validateScenarioExport,

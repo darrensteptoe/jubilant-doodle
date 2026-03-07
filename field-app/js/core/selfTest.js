@@ -67,6 +67,13 @@ import { syncFeatureFlagsFromState } from "../app/featureFlags.js";
 import { normalizeLoadedState as normalizeLoadedStateApp } from "../app/state.js";
 import { resolveFeatureFlags } from "./featureFlags.js";
 import { validateOperationsCapacityInput } from "../features/operations/io.js";
+import {
+  makeDefaultDataRefs,
+  makeDefaultGeoPack,
+  makeDefaultDistrictIntelPack,
+  normalizeDistrictDataState,
+  validateDistrictDataContract,
+} from "./districtData.js";
 import { registerPhase115ATests } from "./selfTestSuites/phase115A.js";
 import { registerReleaseHardeningTests } from "./selfTestSuites/releaseHardening.js";
 
@@ -1400,6 +1407,11 @@ export function runSelfTests(engine){
     migrateSnapshot,
     validateScenarioExport,
     checkStrictImportPolicy,
+    makeDefaultDataRefs,
+    makeDefaultGeoPack,
+    makeDefaultDistrictIntelPack,
+    normalizeDistrictDataState,
+    validateDistrictDataContract,
   });
 
 
