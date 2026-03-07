@@ -132,17 +132,21 @@ This is the execution order for the calibration/governance expansion.
 - [x] Extract execution/risk panel orchestration block from `app.js` (E1–E6 + rolling calibration actions):
   - `/Users/anakinskywalker/Downloads/field-app-40/js/app/executionRiskController.js`
   - wrappers retained in `/Users/anakinskywalker/Downloads/field-app-40/js/app.js`.
+- [x] Extract summary render orchestration block from `app.js` (stress/validation/assumptions/guardrails + assumptions view helpers):
+  - `/Users/anakinskywalker/Downloads/field-app-40/js/app/summaryRenderController.js`
+  - wrappers retained in `/Users/anakinskywalker/Downloads/field-app-40/js/app.js`.
 
 ## Phase 11: A-grade structural backlog (deferred until Phase 0-10 complete)
 Execution order below is fixed and must be followed in sequence.
 
-1. [ ] Delete orphaned runtime landmines
-   - remove `/Users/anakinskywalker/Downloads/field-app-40/js/wireEvents.js` after import-path verification.
-2. [ ] Doc artifact cleanup
-   - normalize absolute local paths in `/Users/anakinskywalker/Downloads/field-app-40/js/features/operations/README.md`.
-3. [ ] Consolidate micro-file clusters
-   - Monte Carlo app cluster into one canonical module.
-   - Decision-session cluster into one canonical module.
+1. [x] Delete orphaned runtime landmines
+   - `/Users/anakinskywalker/Downloads/field-app-40/js/wireEvents.js` already absent; verified no active import-path references.
+2. [x] Doc artifact cleanup
+   - normalized absolute local paths in `/Users/anakinskywalker/Downloads/field-app-40/js/features/operations/README.md`.
+3. [x] Consolidate micro-file clusters
+   - Monte Carlo app cluster consolidated into `/Users/anakinskywalker/Downloads/field-app-40/js/app/monteCarloApp.js`.
+   - Decision-session cluster consolidated into `/Users/anakinskywalker/Downloads/field-app-40/js/app/decisionSessionApp.js`.
+   - Legacy micro-file paths kept as compatibility shims to preserve import stability.
 4. [ ] JSDoc type the `ctx` pattern
    - introduce shared typedefs and `@ts-check` on app-layer modules.
 5. [ ] Expand self-test coverage for currently under-tested core modules
