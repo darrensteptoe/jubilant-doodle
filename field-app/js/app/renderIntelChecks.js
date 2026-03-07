@@ -277,7 +277,7 @@ function fillDistrictEvidencePrecinctTable(tbody, rows){
   tbody.innerHTML = "";
   if (!rows.length){
     const tr = document.createElement("tr");
-    tr.innerHTML = '<td colspan="6" class="muted">No precinct layer rows available.</td>';
+    tr.innerHTML = '<td colspan="7" class="muted">No precinct layer rows available.</td>';
     tbody.appendChild(tr);
     return;
   }
@@ -298,12 +298,17 @@ function fillDistrictEvidencePrecinctTable(tbody, rows){
     const mappedGeoCount = Number(row?.mappedGeoCount);
     const districtWeightPct = Number(row?.districtWeightPct);
     const mappingText = `${Number.isFinite(mappedGeoCount) ? fmtInt(mappedGeoCount) : "—"} · ${Number.isFinite(districtWeightPct) ? fmtPct(districtWeightPct, 1) : "—"}`;
+    const topGeoLinks = Array.isArray(row?.topGeoLinks) ? row.topGeoLinks : [];
+    const topLinksText = topGeoLinks.length
+      ? topGeoLinks.map((x) => `${String(x?.geoid || "—")} (${fmtPct(Number(x?.effectiveWeightPct) / 100, 1)})`).join(", ")
+      : "—";
     tr.innerHTML = `
       <td>${String(row?.precinctId || "—")}</td>
       <td class="num">${fmtInt(row?.totalVotes)}</td>
       <td>${topCandidate}</td>
       <td class="num">${marginText}</td>
       <td class="num">${mappingText}</td>
+      <td>${topLinksText}</td>
       <td class="num">${fmtInt(row?.candidateCount)}</td>
     `;
     tbody.appendChild(tr);
