@@ -978,6 +978,17 @@ export function renderIntelChecksModule({
       Number.isFinite(Number(details?.censusCoveragePct)) ? `Census ${Number(details.censusCoveragePct).toFixed(1)}%` : null,
       Number.isFinite(Number(details?.electionCoveragePct)) ? `Election ${Number(details.electionCoveragePct).toFixed(1)}%` : null,
     ].filter(Boolean);
+    const selectedMeta = (details && typeof details.selectedMeta === "object") ? details.selectedMeta : {};
+    const freshnessBits = [
+      ["Boundary", selectedMeta?.boundary],
+      ["Crosswalk", selectedMeta?.crosswalk],
+      ["Census", selectedMeta?.census],
+      ["Election", selectedMeta?.election],
+    ].map(([label, meta]) => {
+      const ageDays = Number(meta?.ageDays);
+      if (!Number.isFinite(ageDays)) return null;
+      return `${label} ${Math.max(0, Math.round(ageDays))}d`;
+    }).filter(Boolean);
     const yearGap = Number(details?.electionYearGap);
     if (els.intelDataRefAlignmentSummary){
       els.intelDataRefAlignmentSummary.classList.remove("ok", "warn", "bad", "muted");
@@ -996,6 +1007,7 @@ export function renderIntelChecksModule({
       const bits = [];
       if (coverageBits.length) bits.push(coverageBits.join(" · "));
       if (Number.isFinite(yearGap)) bits.push(`Year gap ${Math.max(0, Math.round(yearGap))}`);
+      if (freshnessBits.length) bits.push(freshnessBits.join(" · "));
       if (warnings.length) bits.push(`Note: ${warnings[0]}`);
       els.intelDataRefAlignmentDetail.textContent = bits.length
         ? bits.join(" · ")
