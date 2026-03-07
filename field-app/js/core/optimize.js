@@ -1,3 +1,4 @@
+// @ts-check
 /* js/optimize.js
    Phase 5 — Tactic Mix Optimization (top-layer only)
 
@@ -18,11 +19,21 @@
    }
 */
 
+/**
+ * @param {unknown} x
+ * @param {number} [fallback]
+ * @returns {number}
+ */
 function clampNumber(x, fallback = 0) {
   const n = Number(x);
   return Number.isFinite(n) ? n : fallback;
 }
 
+/**
+ * @param {Record<string, any>} tactic
+ * @param {number} currentAttempts
+ * @returns {number}
+ */
 function getTierMultiplier(tactic, currentAttempts) {
   const tiers = Array.isArray(tactic.decayTiers) ? tactic.decayTiers : null;
   if (!tiers || tiers.length === 0) return 1;
@@ -34,6 +45,10 @@ function getTierMultiplier(tactic, currentAttempts) {
   return clampNumber(tiers[tiers.length - 1]?.mult, 1);
 }
 
+/**
+ * @param {Array<Record<string, any>> | null | undefined} tactics
+ * @returns {Array<Record<string, any>>}
+ */
 function validateTactics(tactics) {
   if (!Array.isArray(tactics) || tactics.length === 0) return [];
 
@@ -59,12 +74,22 @@ function validateTactics(tactics) {
   });
 }
 
+/**
+ * @param {Array<Record<string, any>>} tactics
+ * @returns {Record<string, number>}
+ */
 function initAllocation(tactics) {
   const allocation = {};
   for (const t of tactics) allocation[t.id] = 0;
   return allocation;
 }
 
+/**
+ * @param {Array<Record<string, any>>} tactics
+ * @param {Record<string, number>} allocation
+ * @param {(tactic: Record<string, any>) => number} valuePerAttempt
+ * @returns {{attempts:number,cost:number,netVotes:number}}
+ */
 function computeTotals(tactics, allocation, valuePerAttempt) {
   let attempts = 0;
   let cost = 0;
@@ -78,6 +103,17 @@ function computeTotals(tactics, allocation, valuePerAttempt) {
   return { attempts, cost, netVotes };
 }
 
+/**
+ * @param {{
+ *   tactics: Array<Record<string, any>>,
+ *   step: number,
+ *   budgetLimit: number | null,
+ *   capacityLimit: number | null,
+ *   useDecay: boolean,
+ *   scoringFn: (input: { tactic: Record<string, any>, currentAllocatedAttempts: number, step: number, marginalNetVotes: number, marginalCost: number }) => number,
+ *   valuePerAttempt: (tactic: Record<string, any>) => number
+ * }} input
+ */
 function greedyAllocate({ tactics, step, budgetLimit, capacityLimit, useDecay, scoringFn, valuePerAttempt }) {
   const allocation = initAllocation(tactics);
   const trace = [];
@@ -135,6 +171,16 @@ function greedyAllocate({ tactics, step, budgetLimit, capacityLimit, useDecay, s
   return { allocation, totals, trace, binding };
 }
 
+/**
+ * @param {{
+ *   budget: number,
+ *   tactics: Array<Record<string, any>>,
+ *   step?: number,
+ *   capacityCeiling?: number | null,
+ *   useDecay?: boolean,
+ *   objective?: "net" | "turnout" | string
+ * }} input
+ */
 export function optimizeMixBudget({ budget, tactics, step = 25, capacityCeiling = null, useDecay = false, objective = "net" }) {
   const B = Math.max(0, clampNumber(budget, 0));
   const S = Math.max(1, Math.floor(clampNumber(step, 25)));
@@ -166,6 +212,15 @@ export function optimizeMixBudget({ budget, tactics, step = 25, capacityCeiling 
   return { mode: "budget", step: S, constraint: B, binding, allocation, totals, trace };
 }
 
+/**
+ * @param {{
+ *   capacity: number,
+ *   tactics: Array<Record<string, any>>,
+ *   step?: number,
+ *   useDecay?: boolean,
+ *   objective?: "net" | "turnout" | string
+ * }} input
+ */
 export function optimizeMixCapacity({ capacity, tactics, step = 25, useDecay = false, objective = "net" }) {
   const A = Math.max(0, clampNumber(capacity, 0));
   const S = Math.max(1, Math.floor(clampNumber(step, 25)));
@@ -193,6 +248,10 @@ export function optimizeMixCapacity({ capacity, tactics, step = 25, useDecay = f
   return { mode: "capacity", step: S, constraint: A, binding, allocation, totals, trace };
 }
 
+/**
+ * @param {{ first: number, second: number, third: number, mults?: number[] }} input
+ * @returns {Array<{ upto: number, mult: number }>}
+ */
 export function makeDecayTiers({ first, second, third, mults }) {
   const m = Array.isArray(mults) ? mults : [1, 0.85, 0.7, 0.55];
   return [

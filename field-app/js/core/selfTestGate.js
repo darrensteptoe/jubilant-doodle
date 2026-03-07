@@ -1,3 +1,4 @@
+// @ts-check
 // js/selfTestGate.js
 // Phase 11 — Self-test gate badge state (session-only, pure helper)
 export const SELFTEST_GATE = Object.freeze({
@@ -6,6 +7,10 @@ export const SELFTEST_GATE = Object.freeze({
   FAILED: "FAILED",
 });
 
+/**
+ * @param {{ failed?: number, passed?: number, total?: number } | null | undefined} result
+ * @returns {"UNVERIFIED" | "VERIFIED" | "FAILED"}
+ */
 export function gateFromSelfTestResult(result){
   if (!result || typeof result !== "object") return SELFTEST_GATE.UNVERIFIED;
   const failed = Number(result.failed || 0);

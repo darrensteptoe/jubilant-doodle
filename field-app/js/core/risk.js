@@ -1,17 +1,30 @@
+// @ts-check
 // js/core/risk.js
 // Phase R2 — Risk framing helpers (pure, additive).
 // Operates on Monte Carlo margin arrays (net votes above/below needVotes).
 
+/**
+ * @param {unknown} x
+ * @returns {x is number}
+ */
 function isFiniteNumber(x){
   return typeof x === "number" && Number.isFinite(x);
 }
 
+/**
+ * @param {number[]} arr
+ * @returns {number}
+ */
 function mean(arr){
   let s = 0;
   for (let i=0;i<arr.length;i++) s += arr[i];
   return arr.length ? (s / arr.length) : 0;
 }
 
+/**
+ * @param {number[]} arr
+ * @returns {number}
+ */
 function stdevPop(arr){
   const n = arr.length;
   if (!n) return 0;
@@ -25,6 +38,11 @@ function stdevPop(arr){
   return Math.sqrt(v);
 }
 
+/**
+ * @param {number[]} sorted
+ * @param {number} q
+ * @returns {number}
+ */
 function quantileSorted(sorted, q){
   const n = sorted.length;
   if (!n) return 0;
@@ -38,6 +56,10 @@ function quantileSorted(sorted, q){
   return sorted[lo] + t * (sorted[hi] - sorted[lo]);
 }
 
+/**
+ * @param {unknown} margins
+ * @returns {number[]}
+ */
 function sanitizeMargins(margins){
   const arr = Array.isArray(margins) ? margins : [];
   // Do not filter values silently — fail closed if any non-finite present.
@@ -47,6 +69,9 @@ function sanitizeMargins(margins){
   return arr;
 }
 
+/**
+ * @param {unknown} margins
+ */
 export function summaryFromMargins(margins){
   const arr = sanitizeMargins(margins);
   const n = arr.length;
@@ -87,6 +112,11 @@ export function summaryFromMargins(margins){
   return out;
 }
 
+/**
+ * @param {unknown} margins
+ * @param {number} threshold
+ * @returns {number}
+ */
 export function shortfallProbability(margins, threshold){
   const arr = sanitizeMargins(margins);
   const n = arr.length;
@@ -98,6 +128,11 @@ export function shortfallProbability(margins, threshold){
   return hits / n;
 }
 
+/**
+ * @param {unknown} margins
+ * @param {number} q
+ * @returns {number}
+ */
 export function valueAtRisk(margins, q){
   const arr = sanitizeMargins(margins);
   const n = arr.length;
@@ -108,6 +143,11 @@ export function valueAtRisk(margins, q){
   return quantileSorted(sorted, qq);
 }
 
+/**
+ * @param {unknown} margins
+ * @param {number} q
+ * @returns {number}
+ */
 export function conditionalValueAtRisk(margins, q){
   const arr = sanitizeMargins(margins);
   const n = arr.length;

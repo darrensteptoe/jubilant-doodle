@@ -1,3 +1,4 @@
+// @ts-check
 /* js/marginalValue.js
    Phase 8B — Bottlenecks + Marginal Value (diagnostic)
 
@@ -9,21 +10,41 @@
 
 import { computeMaxAttemptsByTactic, optimizeTimelineConstrained } from "./timelineOptimizer.js";
 
+/**
+ * @param {unknown} v
+ * @param {number} [lo]
+ * @returns {number}
+ */
 function clampNumber(v, lo = 0){
   const n = Number(v);
   if (!Number.isFinite(n)) return lo;
   return n < lo ? lo : n;
 }
 
+/**
+ * @param {unknown} v
+ * @returns {number | null}
+ */
 function safeNullNum(v){
   const n = Number(v);
   return Number.isFinite(n) ? n : null;
 }
 
+/**
+ * @param {unknown} v
+ * @returns {string}
+ */
 function asText(v){
   return (v == null) ? "—" : String(v);
 }
 
+/**
+ * @param {{
+ *   bindingObj?: { timeline?: string[] },
+ *   plan?: { allocation?: Record<string, number> },
+ *   maxAttemptsByTactic?: Record<string, number>
+ * }} input
+ */
 function pickPrimaryTimelineBottleneck({ bindingObj, plan, maxAttemptsByTactic }){
   const timeline = Array.isArray(bindingObj?.timeline) ? bindingObj.timeline : [];
   if (!timeline.length) return { primary: null, secondaryNotes: null, saturation: {} };
@@ -56,6 +77,12 @@ function pickPrimaryTimelineBottleneck({ bindingObj, plan, maxAttemptsByTactic }
   return { primary: best, secondaryNotes, saturation: sat };
 }
 
+/**
+ * @param {{
+ *   baselineResult?: { meta?: { bindingObj?: Record<string, any> } },
+ *   maxAttemptsByTactic?: Record<string, number>
+ * }} input
+ */
 function detectPrimaryBottleneck({ baselineResult, maxAttemptsByTactic }){
   const bindingObj = baselineResult?.meta?.bindingObj || {};
 
@@ -76,6 +103,14 @@ function detectPrimaryBottleneck({ baselineResult, maxAttemptsByTactic }){
   return { primaryBottleneck: "none/unknown", secondaryNotes: null };
 }
 
+/**
+ * @param {{
+ *   baseline?: { meta?: { bindingObj?: Record<string, any> }, plan?: any },
+ *   perturbed?: { meta?: { bindingObj?: Record<string, any> }, plan?: any },
+ *   baselineMaxAttempts?: Record<string, number> | null,
+ *   perturbedMaxAttempts?: Record<string, number> | null
+ * }} input
+ */
 function computeInterventionNotes({ baseline, perturbed, baselineMaxAttempts, perturbedMaxAttempts }){
   // Keep notes short: highlight binding shift or the eased tactic.
   const baseB = baseline?.meta?.bindingObj || {};
@@ -103,6 +138,11 @@ function computeInterventionNotes({ baseline, perturbed, baselineMaxAttempts, pe
   return "—";
 }
 
+/**
+ * @param {Array<Record<string, any>>} items
+ * @param {"min_cost_feasible" | "max_net" | string} mode
+ * @returns {Array<Record<string, any>>}
+ */
 function stableSortInterventions(items, mode){
   const out = (items || []).slice();
   if (mode === "min_cost_feasible"){
@@ -132,10 +172,11 @@ function stableSortInterventions(items, mode){
 /**
  * computeMarginalValueDiagnostics
  *
- * @param {Object} args
- * @param {Object} args.baselineInputs - same inputs used for optimizeTimelineConstrained (Phase 8A)
- * @param {Object} args.baselineResult - the optimizeTimelineConstrained output
- * @param {Object} args.timelineInputs - inputs used to compute timeline caps (Phase 8A computeMaxAttemptsByTactic)
+ * @param {{
+ *   baselineInputs?: Record<string, any>,
+ *   baselineResult?: Record<string, any>,
+ *   timelineInputs?: Record<string, any>
+ * }} args
  */
 export function computeMarginalValueDiagnostics({ baselineInputs, baselineResult, timelineInputs }){
   // Defensive: if missing context, return safe stub.

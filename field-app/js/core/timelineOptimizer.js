@@ -1,26 +1,44 @@
+// @ts-check
 // js/core/timelineOptimizer.js
 // Phase 8A — Timeline-Constrained Optimization
 // Pure core module: no DOM, deterministic.
 
 import { optimizeMixBudget, optimizeMixCapacity } from "./optimize.js";
 
+/**
+ * @param {unknown} v
+ * @param {number | null} [fb]
+ * @returns {number | null}
+ */
 function num(v, fb = null){
   if (v === null || v === undefined || v === "") return fb;
   const n = Number(v);
   return Number.isFinite(n) ? n : fb;
 }
 
+/**
+ * @param {unknown} v
+ * @returns {number}
+ */
 function clamp0(v){
   const n = num(v, 0);
   return n < 0 ? 0 : n;
 }
 
+/**
+ * @param {number | null | undefined} a
+ * @param {number | null | undefined} b
+ * @returns {number | null | undefined}
+ */
 function min2(a, b){
   if (a == null) return b;
   if (b == null) return a;
   return Math.min(a, b);
 }
 
+/**
+ * @param {Record<string, any>=} args
+ */
 export function computeMaxAttemptsByTactic(args){
   // Returns a stable wrapper:
   // {
@@ -66,6 +84,10 @@ export function computeMaxAttemptsByTactic(args){
   };
 }
 
+/**
+ * @param {Array<Record<string, any>> | null | undefined} tactics
+ * @param {Record<string, number> | null | undefined} maxAttemptsByTactic
+ */
 function applyCapsToTactics(tactics, maxAttemptsByTactic){
   const caps = maxAttemptsByTactic || {};
   return (tactics || []).map(t => {
@@ -75,6 +97,9 @@ function applyCapsToTactics(tactics, maxAttemptsByTactic){
   });
 }
 
+/**
+ * @param {Record<string, any>=} opts
+ */
 export function optimizeTimelineConstrained(opts){
   // opts:
   // {

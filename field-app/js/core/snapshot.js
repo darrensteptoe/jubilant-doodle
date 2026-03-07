@@ -1,3 +1,4 @@
+// @ts-check
 export * from "../export.js";
 export * from "./migrate.js";
 export * from "./importPolicy.js";

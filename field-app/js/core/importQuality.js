@@ -1,22 +1,43 @@
+// @ts-check
 // js/core/importQuality.js
 // Import data-quality guardrails (pure). Runs after migration/shape validation.
 
+/**
+ * @param {unknown} v
+ * @returns {v is Record<string, any>}
+ */
 function isObject(v){
   return !!v && typeof v === "object" && !Array.isArray(v);
 }
 
+/**
+ * @param {unknown} v
+ * @returns {number | null}
+ */
 function num(v){
   if (v == null || v === "") return null;
   const n = Number(v);
   return Number.isFinite(n) ? n : null;
 }
 
+/**
+ * @param {unknown} v
+ * @returns {boolean}
+ */
 function isBlankNumeric(v){
   if (v == null) return true;
   if (typeof v === "string" && v.trim() === "") return true;
   return false;
 }
 
+/**
+ * @param {string[]} list
+ * @param {string} kind
+ * @param {string} key
+ * @param {unknown} value
+ * @param {number} min
+ * @param {number} max
+ */
 function pushRangeIssue(list, kind, key, value, min, max){
   const n = num(value);
   if (n == null) return;
@@ -63,6 +84,10 @@ const BENCHMARK_RANGES_BY_RACE = {
   },
 };
 
+/**
+ * @param {unknown} v
+ * @returns {string}
+ */
 function normalizeString(v){
   return String(v == null ? "" : v).trim();
 }
@@ -86,6 +111,11 @@ const BENCHMARK_REF_ALIASES = {
   "core.callsPerHour": ["callsPerHour", "callsPerHour3"],
 };
 
+/**
+ * @param {Record<string, any>} scenario
+ * @param {string} ref
+ * @returns {unknown}
+ */
 function getScenarioValueByRef(scenario, ref){
   if (!isObject(scenario)) return undefined;
   const raw = normalizeString(ref);
@@ -110,6 +140,11 @@ function getScenarioValueByRef(scenario, ref){
   return undefined;
 }
 
+/**
+ * @param {string[]} out
+ * @param {Record<string, any>} scenario
+ * @param {string} prefix
+ */
 function appendIntelBenchmarkWarnings(out, scenario, prefix){
   const rows = Array.isArray(scenario?.intelState?.benchmarks)
     ? scenario.intelState.benchmarks
@@ -152,6 +187,10 @@ function appendIntelBenchmarkWarnings(out, scenario, prefix){
   }
 }
 
+/**
+ * @param {Record<string, any>} scenario
+ * @returns {{ ok: boolean, errors: string[], warnings: string[] }}
+ */
 export function validateImportedScenarioData(scenario){
   const errors = [];
   const warnings = [];
@@ -340,6 +379,11 @@ export function validateImportedScenarioData(scenario){
   return { ok: errors.length === 0, errors, warnings };
 }
 
+/**
+ * @param {Record<string, any>} scenario
+ * @param {string} [prefix]
+ * @returns {string[]}
+ */
 export function computeAssumptionBenchmarkWarnings(scenario, prefix = "Benchmark"){
   const out = [];
   if (!isObject(scenario)) return out;

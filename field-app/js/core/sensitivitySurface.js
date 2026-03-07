@@ -1,3 +1,4 @@
+// @ts-check
 // js/sensitivitySurface.js
 // Phase 15 — Sensitivity Surface / Fragility Map
 //
@@ -9,17 +10,31 @@
 //
 // Export: computeSensitivitySurface({ engine, baseline, sweep, options })
 
+/**
+ * @param {unknown} v
+ * @returns {number | null}
+ */
 function safeNum(v){
   const n = Number(v);
   return Number.isFinite(n) ? n : null;
 }
 
+/**
+ * @param {unknown} v
+ * @param {number} lo
+ * @param {number} hi
+ * @returns {number}
+ */
 function clamp(v, lo, hi){
   const n = safeNum(v);
   if (n == null) return lo;
   return Math.min(hi, Math.max(lo, n));
 }
 
+/**
+ * @param {Array<number | null | undefined>} arr
+ * @returns {number | null}
+ */
 function median(arr){
   const xs = (arr || []).filter(x => Number.isFinite(x)).slice().sort((a,b)=>a-b);
   const n = xs.length;
@@ -28,6 +43,11 @@ function median(arr){
   return (n % 2) ? xs[mid] : (xs[mid-1] + xs[mid]) / 2;
 }
 
+/**
+ * @param {number[]} xs
+ * @param {boolean[]} mask
+ * @returns {Array<{min:number, max:number}>}
+ */
 function contiguousRangesFromMask(xs, mask){
   const out = [];
   let i = 0;
@@ -44,6 +64,10 @@ function contiguousRangesFromMask(xs, mask){
   return out;
 }
 
+/**
+ * @param {Array<{min:number, max:number}>} ranges
+ * @returns {{min:number, max:number} | null}
+ */
 function largestRange(ranges){
   if (!ranges || !ranges.length) return null;
   let best = null;
@@ -59,6 +83,12 @@ function largestRange(ranges){
   return best;
 }
 
+/**
+ * @param {number} minValue
+ * @param {number} maxValue
+ * @param {number} steps
+ * @returns {number[]}
+ */
 function generateSweepPoints(minValue, maxValue, steps){
   const lo = Number(minValue);
   const hi = Number(maxValue);
@@ -74,6 +104,9 @@ function generateSweepPoints(minValue, maxValue, steps){
   return pts;
 }
 
+/**
+ * @param {unknown} leverKey
+ */
 function leverSpecForKey(leverKey){
   const key = String(leverKey || "");
   const specs = {
@@ -85,6 +118,10 @@ function leverSpecForKey(leverKey){
   return specs[key] || null;
 }
 
+/**
+ * @param {Array<{leverValue:number, winProb:number|null}>} points
+ * @param {number} targetWinProb
+ */
 function analyzeSurface(points, targetWinProb){
   const xs = points.map(p => p.leverValue);
   const ys = points.map(p => p.winProb);
@@ -163,6 +200,14 @@ function analyzeSurface(points, targetWinProb){
   };
 }
 
+/**
+ * @param {{
+ *   engine?: { withPatchedState?: Function, runMonteCarloSim?: Function },
+ *   baseline?: { scenario?: Record<string, any> | null, res?: any, weeks?: number, needVotes?: number },
+ *   sweep?: { leverKey?: string, minValue?: number, maxValue?: number, steps?: number },
+ *   options?: { runs?: number, seed?: string | number, targetWinProb?: number }
+ * }} input
+ */
 export function computeSensitivitySurface({ engine, baseline, sweep, options }){
   // engine: { withPatchedState, runMonteCarloSim }
   // baseline: { res, weeks, needVotes }

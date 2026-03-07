@@ -1,3 +1,4 @@
+// @ts-check
 // js/core/intelState.js
 // Scenario-scoped Intel metadata.
 // This layer must not alter deterministic math or MC outputs.
@@ -29,10 +30,18 @@ const AI_FLAG_FORBIDDEN_NUMERIC_KEYS = new Set([
   "p90",
 ]);
 
+/**
+ * @param {unknown} v
+ * @returns {v is Record<string, any>}
+ */
 function isObject(v){
   return !!v && typeof v === "object" && !Array.isArray(v);
 }
 
+/**
+ * @param {unknown} v
+ * @returns {any}
+ */
 function deepClone(v){
   try{
     if (typeof structuredClone === "function") return structuredClone(v);
@@ -42,25 +51,48 @@ function deepClone(v){
   return JSON.parse(JSON.stringify(v));
 }
 
+/**
+ * @param {number} n
+ * @param {number} min
+ * @param {number} max
+ * @returns {number}
+ */
 function clamp(n, min, max){
   if (!Number.isFinite(n)) return min;
   return Math.min(max, Math.max(min, n));
 }
 
+/**
+ * @param {unknown} v
+ * @param {number | null} fallback
+ * @returns {number | null}
+ */
 function toFiniteNumber(v, fallback){
   const n = Number(v);
   return Number.isFinite(n) ? n : fallback;
 }
 
+/**
+ * @param {unknown} v
+ * @returns {string | null}
+ */
 function toStringOrNull(v){
   if (v == null || v === "") return null;
   return String(v);
 }
 
+/**
+ * @param {unknown} v
+ * @returns {any[]}
+ */
 function toArray(v){
   return Array.isArray(v) ? v.slice() : [];
 }
 
+/**
+ * @param {unknown} v
+ * @returns {number | null}
+ */
 function parseIsoMs(v){
   if (v == null || v === "") return null;
   const d = new Date(v);
@@ -68,6 +100,10 @@ function parseIsoMs(v){
   return Number.isFinite(ms) ? ms : null;
 }
 
+/**
+ * @param {any[]} auditRows
+ * @returns {string | null}
+ */
 function deriveLegacyGovernanceBaselineIso(auditRows){
   if (!Array.isArray(auditRows) || !auditRows.length) return null;
   let maxMs = null;
@@ -79,6 +115,10 @@ function deriveLegacyGovernanceBaselineIso(auditRows){
   return maxMs == null ? null : new Date(maxMs).toISOString();
 }
 
+/**
+ * @param {unknown} row
+ * @returns {{ id: string, label: string, refs: string[], matrix: number[][], notes: string } | null}
+ */
 function normalizeCorrelationModel(row){
   if (!isObject(row)) return null;
   const refs = toArray(row.refs).map((v) => String(v)).filter(Boolean);
@@ -105,6 +145,10 @@ function normalizeCorrelationModel(row){
   };
 }
 
+/**
+ * @param {unknown} row
+ * @returns {{ id: string, label: string, impacts: Array<{ref:string,delta:number}>, probability: number, notes: string } | null}
+ */
 function normalizeShockScenario(row){
   if (!isObject(row)) return null;
   const id = row.id ? String(row.id) : "";
@@ -131,6 +175,9 @@ function normalizeShockScenario(row){
   };
 }
 
+/**
+ * @returns {Record<string, any>}
+ */
 export function makeDefaultIntelState(){
   return {
     version: INTEL_STATE_VERSION,
@@ -171,6 +218,10 @@ export function makeDefaultIntelState(){
   };
 }
 
+/**
+ * @param {unknown} raw
+ * @returns {Record<string, any>}
+ */
 export function normalizeIntelState(raw){
   const base = makeDefaultIntelState();
   if (!isObject(raw)) return base;
@@ -264,10 +315,18 @@ export function normalizeIntelState(raw){
   return out;
 }
 
+/**
+ * @param {unknown} intelState
+ * @returns {Record<string, any>}
+ */
 export function cloneIntelState(intelState){
   return normalizeIntelState(deepClone(intelState));
 }
 
+/**
+ * @param {unknown} payload
+ * @returns {{ ok: boolean, errors: string[] }}
+ */
 export function validateAiIntelWritePayload(payload){
   const errors = [];
   if (!isObject(payload)){

@@ -1,3 +1,4 @@
+// @ts-check
 // js/migrate.js
 // Phase 10 — Schema Versioning + Migration Guard
 // Pure module: no DOM, no imports from app/optimizer, no state mutation.
@@ -18,6 +19,10 @@ const SCENARIO_DEFAULTS = {
   intelState: makeDefaultIntelState(),
 };
 
+/**
+ * @param {unknown} scen
+ * @returns {unknown}
+ */
 function applyScenarioDefaults(scen){
   if (!isPlainObject(scen)) return scen;
   for (const k of Object.keys(SCENARIO_DEFAULTS)){
@@ -30,10 +35,18 @@ function applyScenarioDefaults(scen){
   return scen;
 }
 
+/**
+ * @param {unknown} v
+ * @returns {v is Record<string, any>}
+ */
 function isPlainObject(v){
   return v != null && typeof v === "object" && !Array.isArray(v);
 }
 
+/**
+ * @param {unknown} v
+ * @returns {any}
+ */
 function deepClone(v){
   // structuredClone is available in modern browsers; fall back to JSON for safety.
   try{
@@ -44,6 +57,10 @@ function deepClone(v){
   return JSON.parse(JSON.stringify(v));
 }
 
+/**
+ * @param {unknown} ver
+ * @returns {{ a: number, b: number, c: number, raw: string } | null}
+ */
 function parseSemver(ver){
   const s = String(ver || "").trim();
   const parts = s.split(".");
@@ -54,6 +71,11 @@ function parseSemver(ver){
   return { a, b, c, raw: s };
 }
 
+/**
+ * @param {unknown} a
+ * @param {unknown} b
+ * @returns {-1 | 0 | 1}
+ */
 function cmpSemver(a, b){
   // returns -1, 0, 1; non-parseable treated as 0.0.0
   const pa = parseSemver(a) || { a:0, b:0, c:0 };
@@ -78,6 +100,10 @@ const KNOWN_TOP_LEVEL_KEYS = new Set([
 // migrateSnapshot(rawExportObject) -> { snapshot, warnings }
 // - snapshot is a normalized export payload suitable for validateScenarioExport()
 // - warnings is a human-readable array
+/**
+ * @param {unknown} rawExportObject
+ * @returns {{ snapshot: Record<string, any>, warnings: string[] }}
+ */
 export function migrateSnapshot(rawExportObject){
   const warnings = [];
 
