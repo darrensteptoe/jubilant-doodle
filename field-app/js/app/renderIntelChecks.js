@@ -142,6 +142,60 @@ function fillEvidenceTable(tbody, rows){
   }
 }
 
+function fmtPct(v, digits = 1){
+  const n = Number(v);
+  if (!Number.isFinite(n)) return "—";
+  return `${n.toFixed(Math.max(0, digits | 0))}%`;
+}
+
+function fmtInt(v){
+  const n = Number(v);
+  if (!Number.isFinite(n)) return "—";
+  return Math.round(n).toLocaleString();
+}
+
+function fillDistrictEvidenceCandidateTable(tbody, rows){
+  if (!tbody) return;
+  tbody.innerHTML = "";
+  if (!rows.length){
+    const tr = document.createElement("tr");
+    tr.innerHTML = '<td colspan="3" class="muted">No candidate totals available.</td>';
+    tbody.appendChild(tr);
+    return;
+  }
+  for (const row of rows){
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td>${String(row?.candidateId || "—")}</td>
+      <td class="num">${fmtInt(row?.votes)}</td>
+      <td class="num">${fmtPct(row?.sharePct, 2)}</td>
+    `;
+    tbody.appendChild(tr);
+  }
+}
+
+function fillDistrictEvidenceLinkTable(tbody, rows){
+  if (!tbody) return;
+  tbody.innerHTML = "";
+  if (!rows.length){
+    const tr = document.createElement("tr");
+    tr.innerHTML = '<td colspan="4" class="muted">No precinct-to-geo links available.</td>';
+    tbody.appendChild(tr);
+    return;
+  }
+  const top = rows.slice(0, 20);
+  for (const row of top){
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td>${String(row?.precinctId || "—")}</td>
+      <td>${String(row?.geoid || "—")}</td>
+      <td class="num">${fmtNum(row?.crosswalkWeight)}</td>
+      <td class="num">${fmtNum(row?.effectiveWeight)}</td>
+    `;
+    tbody.appendChild(tr);
+  }
+}
+
 function fmtWhatIfTarget(row){
   const op = String(row?.op || "").trim();
   const label = String(row?.label || row?.key || "assumption");
@@ -162,6 +216,7 @@ function fmtWhatIfTarget(row){
 export function renderIntelChecksModule({
   els,
   state,
+  engine,
   benchmarkWarnings = [],
   driftSummary = null,
 } = {}){
@@ -494,4 +549,114 @@ export function renderIntelChecksModule({
       els.intelWhatIfPreview.value = lines.join("\n");
     }
   }
+
+  const compileDistrictEvidence = engine?.snapshot?.compileDistrictEvidence;
+  const districtBlob = (state?.geoPack && typeof state.geoPack === "object" && state.geoPack.district && typeof state.geoPack.district === "object")
+    ? state.geoPack.district
+    : {};
+  const evidenceInputs = (districtBlob.evidenceInputs && typeof districtBlob.evidenceInputs === "object")
+    ? districtBlob.evidenceInputs
+    : {};
+  const precinctResults = Array.isArray(evidenceInputs.precinctResults)
+    ? evidenceInputs.precinctResults
+    : (Array.isArray(districtBlob.precinctResults) ? districtBlob.precinctResults : []);
+  const crosswalkRows = Array.isArray(evidenceInputs.crosswalkRows)
+    ? evidenceInputs.crosswalkRows
+    : (Array.isArray(districtBlob.crosswalkRows) ? districtBlob.crosswalkRows : (Array.isArray(districtBlob.precinctToGeo) ? districtBlob.precinctToGeo : []));
+  const censusGeoRows = Array.isArray(evidenceInputs.censusGeoRows)
+    ? evidenceInputs.censusGeoRows
+    : (Array.isArray(districtBlob.censusGeoRows) ? districtBlob.censusGeoRows : (Array.isArray(districtBlob.censusRows) ? districtBlob.censusRows : []));
+
+  const sourceParts = [];
+  const censusId = String(state?.dataRefs?.censusDatasetId || "").trim();
+  const electionId = String(state?.dataRefs?.electionDatasetId || "").trim();
+  const crosswalkId = String(state?.dataRefs?.crosswalkVersionId || "").trim();
+  if (censusId) sourceParts.push(`Census: ${censusId}`);
+  if (electionId) sourceParts.push(`Election: ${electionId}`);
+  if (crosswalkId) sourceParts.push(`Crosswalk: ${crosswalkId}`);
+  if (els.intelDistrictEvidenceSource){
+    els.intelDistrictEvidenceSource.textContent = sourceParts.length
+      ? sourceParts.join(" · ")
+      : "No pinned datasets selected yet.";
+  }
+
+  if (typeof compileDistrictEvidence !== "function"){
+    if (els.intelDistrictEvidenceStatus){
+      els.intelDistrictEvidenceStatus.classList.remove("ok", "warn", "bad");
+      els.intelDistrictEvidenceStatus.classList.add("warn");
+      els.intelDistrictEvidenceStatus.textContent = "District evidence compiler unavailable in engine snapshot.";
+    }
+    if (els.intelDistrictEvidenceCoverage) els.intelDistrictEvidenceCoverage.textContent = "Coverage: —";
+    if (els.intelDistrictEvidenceVotes) els.intelDistrictEvidenceVotes.textContent = "Votes: —";
+    if (els.intelDistrictEvidenceSignal) els.intelDistrictEvidenceSignal.textContent = "Persuasion signal: —";
+    fillDistrictEvidenceCandidateTable(els.intelDistrictEvidenceCandidateTbody, []);
+    fillDistrictEvidenceLinkTable(els.intelDistrictEvidenceLinkTbody, []);
+    return;
+  }
+
+  let evidence = null;
+  try{
+    evidence = compileDistrictEvidence({
+      geoUnits: state?.geoPack?.units || [],
+      precinctResults,
+      crosswalkRows,
+      censusGeoRows,
+    });
+  } catch (err){
+    if (els.intelDistrictEvidenceStatus){
+      const msg = String(err?.message || "compile failed");
+      els.intelDistrictEvidenceStatus.classList.remove("ok", "warn", "bad");
+      els.intelDistrictEvidenceStatus.classList.add("bad");
+      els.intelDistrictEvidenceStatus.textContent = `District evidence compile failed: ${msg}`;
+    }
+    if (els.intelDistrictEvidenceCoverage) els.intelDistrictEvidenceCoverage.textContent = "Coverage: —";
+    if (els.intelDistrictEvidenceVotes) els.intelDistrictEvidenceVotes.textContent = "Votes: —";
+    if (els.intelDistrictEvidenceSignal) els.intelDistrictEvidenceSignal.textContent = "Persuasion signal: —";
+    fillDistrictEvidenceCandidateTable(els.intelDistrictEvidenceCandidateTbody, []);
+    fillDistrictEvidenceLinkTable(els.intelDistrictEvidenceLinkTbody, []);
+    return;
+  }
+
+  const candidateTotals = Array.isArray(evidence?.candidateTotals) ? evidence.candidateTotals : [];
+  const links = Array.isArray(evidence?.precinctToGeo) ? evidence.precinctToGeo : [];
+  const coveragePct = Number(evidence?.reconciliation?.coveragePct);
+  const unmatchedVotes = Number(evidence?.reconciliation?.unmatchedVotes);
+  const totalVotes = Number(evidence?.summary?.totalVotes);
+  const signal = Number(evidence?.persuasionSignal?.index);
+  const signalNote = String(evidence?.persuasionSignal?.note || "").trim();
+  const warnings = Array.isArray(evidence?.warnings) ? evidence.warnings : [];
+
+  if (els.intelDistrictEvidenceStatus){
+    els.intelDistrictEvidenceStatus.classList.remove("ok", "warn", "bad", "muted");
+    if (!precinctResults.length || !crosswalkRows.length || !censusGeoRows.length){
+      els.intelDistrictEvidenceStatus.classList.add("warn");
+      els.intelDistrictEvidenceStatus.textContent =
+        "Load precinct results, crosswalk rows, and census geo rows into geoPack.district.evidenceInputs to activate full district evidence.";
+    } else if (warnings.length){
+      els.intelDistrictEvidenceStatus.classList.add("warn");
+      els.intelDistrictEvidenceStatus.textContent = `Evidence compiled with warnings: ${warnings[0]}`;
+    } else {
+      els.intelDistrictEvidenceStatus.classList.add("ok");
+      els.intelDistrictEvidenceStatus.textContent =
+        `Evidence ready: ${candidateTotals.length} candidates, ${links.length} precinct links, ${Number(evidence?.summary?.geoRowsCount || 0)} geo rows.`;
+    }
+  }
+  if (els.intelDistrictEvidenceCoverage){
+    els.intelDistrictEvidenceCoverage.textContent = Number.isFinite(coveragePct)
+      ? `Coverage: ${fmtPct(coveragePct, 2)} · Unmatched votes: ${fmtInt(unmatchedVotes)}`
+      : "Coverage: —";
+  }
+  if (els.intelDistrictEvidenceVotes){
+    els.intelDistrictEvidenceVotes.textContent = Number.isFinite(totalVotes)
+      ? `Weighted total votes: ${fmtInt(totalVotes)}`
+      : "Weighted total votes: —";
+  }
+  if (els.intelDistrictEvidenceSignal){
+    els.intelDistrictEvidenceSignal.textContent = Number.isFinite(signal)
+      ? `Persuasion signal index: ${signal.toFixed(3)}${signalNote ? ` · ${signalNote}` : ""}`
+      : "Persuasion signal index: —";
+  }
+
+  fillDistrictEvidenceCandidateTable(els.intelDistrictEvidenceCandidateTbody, candidateTotals);
+  fillDistrictEvidenceLinkTable(els.intelDistrictEvidenceLinkTbody, links);
 }

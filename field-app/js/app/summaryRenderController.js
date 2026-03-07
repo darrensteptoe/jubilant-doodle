@@ -61,7 +61,7 @@ export function createSummaryRenderController({
       evidenceWarnings,
       driftSummary,
     });
-    renderIntelChecksModule({ els, state, benchmarkWarnings, driftSummary });
+    renderIntelChecksModule({ els, state, engine, benchmarkWarnings, driftSummary });
   }
 
   function renderAssumptions(res, weeks){
