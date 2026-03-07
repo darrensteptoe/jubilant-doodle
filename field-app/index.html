@@ -2268,6 +2268,24 @@
 </select>
 </div>
 </div>
+<div class="grid3" style="margin-top:10px;">
+<div class="field">
+<label class="label" for="intelDataRefStrictSimilarity">Strict similarity filter</label>
+<label class="switch">
+<input id="intelDataRefStrictSimilarity" type="checkbox"/>
+<span class="slider"></span>
+<span class="switch-label">Require office + race match</span>
+</label>
+</div>
+<div class="field">
+<label class="label" for="intelDataRefMaxYearDelta">Max cycle gap (years)</label>
+<input class="input" id="intelDataRefMaxYearDelta" min="0" placeholder="blank = no limit" step="1" type="number"/>
+</div>
+<div class="field">
+<label class="label" for="intelDataRefMinCoveragePct">Min election coverage %</label>
+<input class="input" id="intelDataRefMinCoveragePct" max="100" min="0" placeholder="blank = no floor" step="0.1" type="number"/>
+</div>
+</div>
 <div class="rowline" style="margin-top:10px; justify-content:space-between; gap:10px;">
 <div class="muted" id="intelDataRefStatus">Data refs ready.</div>
 <div class="card-actions">

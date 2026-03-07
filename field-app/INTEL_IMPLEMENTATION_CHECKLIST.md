@@ -392,3 +392,19 @@ Execution order for the first functional district-evidence layer.
    - `/Users/anakinskywalker/Downloads/field-app-40/js/core/selfTestSuites/releaseHardening.js`
    - `/Users/anakinskywalker/Downloads/field-app-40/js/core/selfTest.js`
      - adds regression test for deterministic GEO summary ranking + margin fields.
+11. [x] Add deterministic election narrowing filters for similar-race selection:
+   - `/Users/anakinskywalker/Downloads/field-app-40/js/core/districtData.js`
+     - extends `dataRefs` contract with:
+       - `electionStrictSimilarity`
+       - `electionMaxYearDelta`
+       - `electionMinCoveragePct`
+   - `/Users/anakinskywalker/Downloads/field-app-40/js/core/dataSourceRegistry.js`
+     - compatibility scoring/ranking now supports deterministic filter constraints.
+     - `latest_verified` resolver applies these filters when selecting fallback election datasets.
+   - `/Users/anakinskywalker/Downloads/field-app-40/index.html`
+   - `/Users/anakinskywalker/Downloads/field-app-40/js/ui/els.js`
+   - `/Users/anakinskywalker/Downloads/field-app-40/js/app/renderIntelChecks.js`
+   - `/Users/anakinskywalker/Downloads/field-app-40/js/app/wireEventsRuntime.js`
+     - adds Stage 9 controls for strict similarity, max cycle gap, and min coverage.
+   - `/Users/anakinskywalker/Downloads/field-app-40/js/core/selfTestSuites/releaseHardening.js`
+     - adds regression test verifying filter-constrained ranking + resolver behavior.
