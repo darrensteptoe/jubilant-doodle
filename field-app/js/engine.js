@@ -22,6 +22,7 @@ import { checkStrictImportPolicy } from "./core/importPolicy.js";
 import { validateImportedScenarioData, computeAssumptionBenchmarkWarnings } from "./core/importQuality.js";
 import { validateDistrictDataContract } from "./core/districtData.js";
 import { buildDataSourceRegistry, resolveDataRefsByPolicy } from "./core/dataSourceRegistry.js";
+import { normalizeAreaSelection, buildAreaResolverCacheKey, deriveAreaResolverContext } from "./core/areaResolver.js";
 import {
   MODEL_VERSION,
   makeScenarioExport,
@@ -109,6 +110,9 @@ export const engine = {
     validateDistrictDataContract,
     buildDataSourceRegistry,
     resolveDataRefsByPolicy,
+    normalizeAreaSelection,
+    buildAreaResolverCacheKey,
+    deriveAreaResolverContext,
     makeScenarioExport,
     deterministicStringify,
     validateScenarioExport,

@@ -213,3 +213,15 @@ export interface DistrictIntelPack {
   generatedAt: string | null;
   warnings: string[];
 }
+
+export interface AreaSelection {
+  type: "CD" | "SLDU" | "SLDL" | "COUNTY" | "PLACE" | "CUSTOM" | "";
+  stateFips: string;
+  district: string;
+  countyFips: string;
+  placeFips: string;
+  label: string;
+  boundarySetId: string | null;
+  boundaryVintage: string | null;
+  resolution: "tract" | "block_group";
+}

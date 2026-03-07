@@ -35,6 +35,9 @@
  *   allocatePrecinctVotesToGeo: (...args: any[]) => any,
  *   buildDataSourceRegistry: (...args: any[]) => any,
  *   resolveDataRefsByPolicy: (...args: any[]) => any,
+ *   normalizeAreaSelection: (...args: any[]) => any,
+ *   buildAreaResolverCacheKey: (...args: any[]) => any,
+ *   deriveAreaResolverContext: (...args: any[]) => any,
  * }} ctx
  * @returns {void}
  */
@@ -73,6 +76,9 @@ export function registerReleaseHardeningTests(ctx){
     allocatePrecinctVotesToGeo,
     buildDataSourceRegistry,
     resolveDataRefsByPolicy,
+    normalizeAreaSelection,
+    buildAreaResolverCacheKey,
+    deriveAreaResolverContext,
   } = ctx;
 
   test("Phase 11: Export metadata includes appVersion + buildId", () => {
@@ -530,6 +536,98 @@ export function registerReleaseHardeningTests(ctx){
     assert(resolved.selected.electionDatasetId === "mit_2024", "Expected fallback to latest election dataset");
     assert(resolved.usedFallbacks === true, "Expected fallback marker in latest_verified mode");
     assert((resolved.notes || []).length >= 1, "Expected fallback notes");
+    return true;
+  });
+
+  test("Phase 18: area resolver normalization canonicalizes IDs and resolution", () => {
+    const area = normalizeAreaSelection({
+      type: "sldl",
+      stateFips: "3",
+      district: "7",
+      countyFips: "31",
+      placeFips: "29",
+      resolution: "BLOCK_GROUP",
+      boundarySetId: " sldl_2024 ",
+      boundaryVintage: " 2024 ",
+    });
+    assert(area.type === "SLDL", "Area type should normalize to uppercase enum");
+    assert(area.stateFips === "03", "State FIPS should pad to 2 digits");
+    assert(area.district === "007", "District should pad to 3 digits");
+    assert(area.countyFips === "031", "County FIPS should normalize/pad");
+    assert(area.placeFips === "00029", "Place FIPS should pad to 5 digits");
+    assert(area.resolution === "block_group", "Resolution should normalize to block_group");
+    assert(area.boundarySetId === "sldl_2024", "Boundary set id should trim");
+    assert(area.boundaryVintage === "2024", "Boundary vintage should trim");
+    return true;
+  });
+
+  test("Phase 18: area resolver cache key is deterministic and sensitive to boundary vintage/resolution", () => {
+    const keyA = buildAreaResolverCacheKey({
+      area: {
+        type: "SLDL",
+        stateFips: "34",
+        district: "012",
+        boundarySetId: "sldl_2024",
+        boundaryVintage: "2024",
+        resolution: "tract",
+      }
+    });
+    const keyB = buildAreaResolverCacheKey({
+      area: {
+        type: "SLDL",
+        stateFips: "34",
+        district: "012",
+        boundarySetId: "sldl_2024",
+        boundaryVintage: "2024",
+        resolution: "tract",
+      }
+    });
+    const keyDifferentVintage = buildAreaResolverCacheKey({
+      area: {
+        type: "SLDL",
+        stateFips: "34",
+        district: "012",
+        boundarySetId: "sldl_2024",
+        boundaryVintage: "2026",
+        resolution: "tract",
+      }
+    });
+    const keyDifferentResolution = buildAreaResolverCacheKey({
+      area: {
+        type: "SLDL",
+        stateFips: "34",
+        district: "012",
+        boundarySetId: "sldl_2024",
+        boundaryVintage: "2024",
+        resolution: "block_group",
+      }
+    });
+    assert(keyA === keyB, "Expected deterministic area resolver key for identical inputs");
+    assert(keyA !== keyDifferentVintage, "Expected area resolver key to change with boundary vintage");
+    assert(keyA !== keyDifferentResolution, "Expected area resolver key to change with resolution");
+    return true;
+  });
+
+  test("Phase 18: derived area resolver context uses boundary vintage from registry", () => {
+    const ctxOut = deriveAreaResolverContext({
+      scenario: {
+        dataRefs: { boundarySetId: "sldl_2024" },
+        geoPack: {
+          area: { type: "SLDL", stateFips: "34", district: "12", label: "NJ LD12" },
+          resolution: "tract",
+        },
+      },
+      registry: {
+        byId: {
+          boundarySets: {
+            sldl_2024: { id: "sldl_2024", vintage: "2024" },
+          },
+        },
+      },
+    });
+    assert(ctxOut.area.boundarySetId === "sldl_2024", "Expected derived area boundary set from refs");
+    assert(ctxOut.area.boundaryVintage === "2024", "Expected derived boundary vintage from registry");
+    assert(typeof ctxOut.cacheKey === "string" && ctxOut.cacheKey.includes("vintage=2024"), "Expected cache key with boundary vintage");
     return true;
   });
 }

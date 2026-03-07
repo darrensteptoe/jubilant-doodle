@@ -76,6 +76,7 @@ import {
   validateDistrictDataContract,
 } from "./districtData.js";
 import { buildDataSourceRegistry, resolveDataRefsByPolicy } from "./dataSourceRegistry.js";
+import { normalizeAreaSelection, buildAreaResolverCacheKey, deriveAreaResolverContext } from "./areaResolver.js";
 import {
   normalizeCensusManifest,
   validateCensusManifest,
@@ -1434,6 +1435,9 @@ export function runSelfTests(engine){
     allocatePrecinctVotesToGeo,
     buildDataSourceRegistry,
     resolveDataRefsByPolicy,
+    normalizeAreaSelection,
+    buildAreaResolverCacheKey,
+    deriveAreaResolverContext,
   });
 
 
