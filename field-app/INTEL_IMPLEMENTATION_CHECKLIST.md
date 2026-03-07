@@ -285,3 +285,13 @@ Execution order for MIT precinct + Census integration begins here.
    - `/Users/anakinskywalker/Downloads/field-app-40/js/core/districtIngest.js` (manifest normalize/validate adapters).
    - `/Users/anakinskywalker/Downloads/field-app-40/js/core/precinctCensusJoin.js` (deterministic weighted allocation + reconciliation).
    - self-tests in `/Users/anakinskywalker/Downloads/field-app-40/js/core/selfTestSuites/releaseHardening.js`.
+9. [x] Add Data Source Registry layer (latest/verified deterministic view):
+   - `/Users/anakinskywalker/Downloads/field-app-40/js/core/dataSourceRegistry.js`
+   - exposes normalized registry + policy resolver (`manual`, `pinned_verified`, `latest_verified`) for dataset/boundary/crosswalk IDs.
+   - exposed via `/Users/anakinskywalker/Downloads/field-app-40/js/engine.js` snapshot facade.
+10. [x] Add Area Resolver contract + deterministic cache keying scaffold:
+    - `/Users/anakinskywalker/Downloads/field-app-40/js/core/areaResolver.js`
+    - canonical area selection normalization (type/FIPS/district/resolution).
+    - deterministic cache key includes `type + id + boundarySetId + boundaryVintage + resolution`.
+    - derived context helper resolves boundary vintage via registry for stable cache identity.
+    - self-tests added in `/Users/anakinskywalker/Downloads/field-app-40/js/core/selfTestSuites/releaseHardening.js`.
