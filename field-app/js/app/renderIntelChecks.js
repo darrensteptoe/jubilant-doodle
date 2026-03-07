@@ -196,6 +196,82 @@ function fillDistrictEvidenceLinkTable(tbody, rows){
   }
 }
 
+function summarizeEvidenceGeoRows(rows, maxRows = 20){
+  const list = Array.isArray(rows) ? rows : [];
+  const out = [];
+  for (const row of list){
+    const geoid = String(row?.geoid || "").trim();
+    if (!geoid) continue;
+    const totalVotes = Number(row?.totalVotes);
+    const sourcePrecincts = Number(row?.sourcePrecincts);
+    const candidateVotes = row && typeof row.candidateVotes === "object" ? row.candidateVotes : {};
+    const ranked = Object.keys(candidateVotes)
+      .map((candidateId) => ({
+        candidateId: String(candidateId || "").trim(),
+        votes: Number(candidateVotes[candidateId]) || 0,
+      }))
+      .filter((x) => x.candidateId && x.votes > 0)
+      .sort((a, b) => (b.votes - a.votes) || a.candidateId.localeCompare(b.candidateId));
+    const leader = ranked[0] || null;
+    const runnerUp = ranked[1] || null;
+    const leaderVotes = leader ? leader.votes : 0;
+    const runnerVotes = runnerUp ? runnerUp.votes : 0;
+    const marginVotes = Math.max(0, leaderVotes - runnerVotes);
+    const leaderSharePct = totalVotes > 0 ? (leaderVotes / totalVotes) * 100 : null;
+    const marginPct = totalVotes > 0 ? (marginVotes / totalVotes) * 100 : null;
+    out.push({
+      geoid,
+      totalVotes,
+      sourcePrecincts,
+      hasElection: !!row?.hasElection,
+      hasCensus: !!row?.hasCensus,
+      leaderCandidateId: leader ? leader.candidateId : null,
+      leaderVotes,
+      leaderSharePct,
+      marginVotes,
+      marginPct,
+    });
+  }
+  out.sort((a, b) => (Number(b?.totalVotes) || 0) - (Number(a?.totalVotes) || 0));
+  return out.slice(0, Math.max(1, Math.min(500, Math.floor(Number(maxRows) || 20))));
+}
+
+function fillDistrictEvidenceGeoTable(tbody, rows){
+  if (!tbody) return;
+  tbody.innerHTML = "";
+  if (!rows.length){
+    const tr = document.createElement("tr");
+    tr.innerHTML = '<td colspan="6" class="muted">No GEO layer rows available.</td>';
+    tbody.appendChild(tr);
+    return;
+  }
+  const top = rows.slice(0, 20);
+  for (const row of top){
+    const tr = document.createElement("tr");
+    const leaderId = String(row?.leaderCandidateId || "").trim();
+    const leaderVotes = Number(row?.leaderVotes);
+    const leaderSharePct = Number(row?.leaderSharePct);
+    const marginVotes = Number(row?.marginVotes);
+    const marginPct = Number(row?.marginPct);
+    const topCandidate = leaderId
+      ? `${leaderId} (${fmtInt(leaderVotes)} · ${fmtPct(leaderSharePct, 1)})`
+      : "—";
+    const marginText = Number.isFinite(marginVotes)
+      ? `${fmtInt(marginVotes)}${Number.isFinite(marginPct) ? ` (${fmtPct(marginPct, 1)})` : ""}`
+      : "—";
+    const dataFlags = `${row?.hasElection ? "E" : "—"}/${row?.hasCensus ? "C" : "—"}`;
+    tr.innerHTML = `
+      <td>${String(row?.geoid || "—")}</td>
+      <td class="num">${fmtInt(row?.totalVotes)}</td>
+      <td>${topCandidate}</td>
+      <td class="num">${marginText}</td>
+      <td class="num">${fmtInt(row?.sourcePrecincts)}</td>
+      <td>${dataFlags}</td>
+    `;
+    tbody.appendChild(tr);
+  }
+}
+
 function fillDistrictEvidenceDatasetRankTable(tbody, rows, selectedElectionId){
   if (!tbody) return;
   tbody.innerHTML = "";
@@ -281,6 +357,25 @@ function renderDataRefStatus(el, text, kind = "muted"){
   el.classList.remove("ok", "warn", "bad", "muted");
   el.classList.add(kind);
   el.textContent = String(text || "Data refs ready.");
+}
+
+function toFinite(v){
+  const n = Number(v);
+  return Number.isFinite(n) ? n : null;
+}
+
+function toPct(v, digits = 1){
+  const n = Number(v);
+  if (!Number.isFinite(n)) return "—";
+  return `${(n * 100).toFixed(Math.max(0, digits | 0))}%`;
+}
+
+function toRate(v){
+  const n = Number(v);
+  if (!Number.isFinite(n)) return null;
+  if (n >= 0 && n <= 1) return n;
+  if (n > 1 && n <= 100) return n / 100;
+  return null;
 }
 
 function fmtWhatIfTarget(row){
@@ -637,7 +732,72 @@ export function renderIntelChecksModule({
     }
   }
 
+  const useDistrictIntel = !!state?.useDistrictIntel;
+  const districtIntelPack = (state?.districtIntelPack && typeof state.districtIntelPack === "object")
+    ? state.districtIntelPack
+    : {};
+  const packReady = !!districtIntelPack?.ready;
+  const idxFieldSpeed = toFinite(districtIntelPack?.indices?.fieldSpeed);
+  const idxPersuasion = toFinite(districtIntelPack?.indices?.persuasionEnv);
+  const idxTurnout = toFinite(districtIntelPack?.indices?.turnoutElasticity);
+  const idxDifficulty = toFinite(districtIntelPack?.indices?.fieldDifficulty);
+  const dphBase = toFinite(districtIntelPack?.derivedAssumptions?.doorsPerHour?.base);
+  const dphAdj = toFinite(districtIntelPack?.derivedAssumptions?.doorsPerHour?.adjusted);
+  const srBase = toRate(districtIntelPack?.derivedAssumptions?.persuasionRate?.base);
+  const srAdj = toRate(districtIntelPack?.derivedAssumptions?.persuasionRate?.adjusted);
+  const orgBase = toFinite(districtIntelPack?.derivedAssumptions?.organizerCapacity?.base);
+  const orgAdj = toFinite(districtIntelPack?.derivedAssumptions?.organizerCapacity?.adjusted);
+  const turnoutLiftBase = toFinite(districtIntelPack?.derivedAssumptions?.turnoutLift?.base);
+  const turnoutLiftAdj = toFinite(districtIntelPack?.derivedAssumptions?.turnoutLift?.adjusted);
+  const generatedAtText = String(districtIntelPack?.generatedAt || "").trim();
+  const generatedAt = generatedAtText ? generatedAtText.slice(0, 10) : "—";
+
+  if (els.intelUseDistrictToggle){
+    els.intelUseDistrictToggle.checked = useDistrictIntel;
+  }
+  if (els.btnIntelGenerateDistrictIntel){
+    els.btnIntelGenerateDistrictIntel.disabled =
+      typeof engine?.snapshot?.buildDistrictIntelPackFromEvidence !== "function" ||
+      typeof engine?.snapshot?.compileDistrictEvidence !== "function";
+  }
+  if (els.intelDistrictIntelStatus){
+    els.intelDistrictIntelStatus.classList.remove("ok", "warn", "bad", "muted");
+    if (useDistrictIntel && packReady){
+      els.intelDistrictIntelStatus.classList.add("ok");
+      els.intelDistrictIntelStatus.textContent = `District-intel assumptions are ON (generated ${generatedAt}).`;
+    } else if (useDistrictIntel && !packReady){
+      els.intelDistrictIntelStatus.classList.add("warn");
+      els.intelDistrictIntelStatus.textContent = "District-intel assumptions are ON but no ready pack is available.";
+    } else if (!useDistrictIntel && packReady){
+      els.intelDistrictIntelStatus.classList.add("muted");
+      els.intelDistrictIntelStatus.textContent = `District-intel pack ready (generated ${generatedAt}) but toggle is OFF.`;
+    } else {
+      els.intelDistrictIntelStatus.classList.add("muted");
+      els.intelDistrictIntelStatus.textContent = "District-intel assumptions are OFF.";
+    }
+  }
+  if (els.intelDistrictIntelSummary){
+    if (!packReady){
+      els.intelDistrictIntelSummary.textContent = "No district-intel pack generated yet.";
+    } else {
+      const bits = [
+        Number.isFinite(idxFieldSpeed) ? `Field speed ${idxFieldSpeed.toFixed(2)}` : null,
+        Number.isFinite(idxPersuasion) ? `Persuasion ${idxPersuasion.toFixed(2)}` : null,
+        Number.isFinite(idxTurnout) ? `Turnout elasticity ${idxTurnout.toFixed(2)}` : null,
+        Number.isFinite(idxDifficulty) ? `Difficulty ${idxDifficulty.toFixed(2)}` : null,
+        Number.isFinite(dphBase) && Number.isFinite(dphAdj) ? `Doors/hr ${dphBase.toFixed(1)}→${dphAdj.toFixed(1)}` : null,
+        Number.isFinite(srBase) && Number.isFinite(srAdj) ? `Support rate ${toPct(srBase)}→${toPct(srAdj)}` : null,
+        Number.isFinite(orgBase) && Number.isFinite(orgAdj) ? `Organizer cap ${orgBase.toFixed(2)}→${orgAdj.toFixed(2)}` : null,
+        Number.isFinite(turnoutLiftBase) && Number.isFinite(turnoutLiftAdj) ? `Turnout lift ${turnoutLiftBase.toFixed(2)}→${turnoutLiftAdj.toFixed(2)}` : null,
+      ].filter(Boolean);
+      els.intelDistrictIntelSummary.textContent = bits.length
+        ? bits.join(" · ")
+        : "District-intel pack ready (no derived assumption rows available).";
+    }
+  }
+
   const compileDistrictEvidence = engine?.snapshot?.compileDistrictEvidence;
+  const summarizeGeoEvidenceLayers = engine?.snapshot?.summarizeGeoEvidenceLayers;
   const resolveDistrictEvidenceInputs = engine?.snapshot?.resolveDistrictEvidenceInputs;
   const resolveDataRefsByPolicy = engine?.snapshot?.resolveDataRefsByPolicy;
   const buildDataSourceRegistry = engine?.snapshot?.buildDataSourceRegistry;
@@ -839,6 +999,7 @@ export function renderIntelChecksModule({
     if (els.intelDistrictEvidenceSignal) els.intelDistrictEvidenceSignal.textContent = "Persuasion signal: —";
     fillDistrictEvidenceCandidateTable(els.intelDistrictEvidenceCandidateTbody, []);
     fillDistrictEvidenceLinkTable(els.intelDistrictEvidenceLinkTbody, []);
+    fillDistrictEvidenceGeoTable(els.intelDistrictEvidenceGeoTbody, []);
     fillDistrictEvidenceDatasetRankTable(els.intelDistrictEvidenceDatasetRankTbody, rankedElectionDatasets, selectedElectionId);
     return;
   }
@@ -863,12 +1024,24 @@ export function renderIntelChecksModule({
     if (els.intelDistrictEvidenceSignal) els.intelDistrictEvidenceSignal.textContent = "Persuasion signal: —";
     fillDistrictEvidenceCandidateTable(els.intelDistrictEvidenceCandidateTbody, []);
     fillDistrictEvidenceLinkTable(els.intelDistrictEvidenceLinkTbody, []);
+    fillDistrictEvidenceGeoTable(els.intelDistrictEvidenceGeoTbody, []);
     fillDistrictEvidenceDatasetRankTable(els.intelDistrictEvidenceDatasetRankTbody, rankedElectionDatasets, selectedElectionId);
     return;
   }
 
   const candidateTotals = Array.isArray(evidence?.candidateTotals) ? evidence.candidateTotals : [];
   const links = Array.isArray(evidence?.precinctToGeo) ? evidence.precinctToGeo : [];
+  const geoRows = Array.isArray(evidence?.geoRows) ? evidence.geoRows : [];
+  let geoLayers = [];
+  if (typeof summarizeGeoEvidenceLayers === "function"){
+    try{
+      geoLayers = summarizeGeoEvidenceLayers({ geoRows, maxRows: 20 });
+    } catch {
+      geoLayers = summarizeEvidenceGeoRows(geoRows, 20);
+    }
+  } else {
+    geoLayers = summarizeEvidenceGeoRows(geoRows, 20);
+  }
   const coveragePct = Number(evidence?.reconciliation?.coveragePct);
   const unmatchedVotes = Number(evidence?.reconciliation?.unmatchedVotes);
   const totalVotes = Number(evidence?.summary?.totalVotes);
@@ -912,4 +1085,5 @@ export function renderIntelChecksModule({
 
   fillDistrictEvidenceCandidateTable(els.intelDistrictEvidenceCandidateTbody, candidateTotals);
   fillDistrictEvidenceLinkTable(els.intelDistrictEvidenceLinkTbody, links);
+  fillDistrictEvidenceGeoTable(els.intelDistrictEvidenceGeoTbody, geoLayers);
 }

@@ -156,6 +156,7 @@ export function wireIntelChecksEvents(ctx){
   const setEvidenceStatus = (msg, kind = "muted") => setStatus(els.intelEvidenceStatus, msg, kind);
   const setWorkflowStatus = (msg, kind = "muted") => setStatus(els.intelWorkflowStatus, msg, kind);
   const setDataRefStatus = (msg, kind = "muted") => setStatus(els.intelDataRefStatus, msg, kind);
+  const setDistrictIntelStatus = (msg, kind = "muted") => setStatus(els.intelDistrictIntelStatus, msg, kind);
 
   const normalizeDataRefMode = (mode) => {
     const m = String(mode || "").trim().toLowerCase();
@@ -222,6 +223,122 @@ export function wireIntelChecksEvents(ctx){
       stampDataRefCheck(refs);
       setDataRefStatus(`Data source mode set to ${refs.mode}.`, "ok");
       commitUIUpdate();
+    });
+  }
+
+  if (els.intelUseDistrictToggle){
+    els.intelUseDistrictToggle.addEventListener("change", () => {
+      const s = currentState();
+      if (!s) return;
+      s.useDistrictIntel = !!els.intelUseDistrictToggle.checked;
+      if (s.useDistrictIntel){
+        const ready = !!s?.districtIntelPack?.ready;
+        setDistrictIntelStatus(
+          ready
+            ? "District-intel assumptions enabled."
+            : "District-intel enabled, but no ready pack exists yet. Generate assumptions first.",
+          ready ? "ok" : "warn"
+        );
+      } else {
+        setDistrictIntelStatus("District-intel assumptions disabled.", "muted");
+      }
+      commitUIUpdate();
+    });
+  }
+
+  if (els.btnIntelGenerateDistrictIntel){
+    els.btnIntelGenerateDistrictIntel.addEventListener("click", () => {
+      const s = currentState();
+      if (!s) return;
+
+      const compileDistrictEvidence = engine?.snapshot?.compileDistrictEvidence;
+      const resolveDistrictEvidenceInputs = engine?.snapshot?.resolveDistrictEvidenceInputs;
+      const buildDistrictIntelPackFromEvidence = engine?.snapshot?.buildDistrictIntelPackFromEvidence;
+      const resolveDataRefsByPolicy = engine?.snapshot?.resolveDataRefsByPolicy;
+
+      if (typeof compileDistrictEvidence !== "function" || typeof buildDistrictIntelPackFromEvidence !== "function"){
+        setDistrictIntelStatus("District-intel builder unavailable in engine snapshot.", "warn");
+        return;
+      }
+
+      let resolvedInputs = null;
+      if (typeof resolveDistrictEvidenceInputs === "function"){
+        try{
+          resolvedInputs = resolveDistrictEvidenceInputs(s);
+        } catch {
+          resolvedInputs = null;
+        }
+      }
+      const districtBlob = (s?.geoPack && typeof s.geoPack === "object" && s.geoPack.district && typeof s.geoPack.district === "object")
+        ? s.geoPack.district
+        : {};
+      const evidenceInputs = (districtBlob.evidenceInputs && typeof districtBlob.evidenceInputs === "object")
+        ? districtBlob.evidenceInputs
+        : {};
+      const precinctResults = Array.isArray(resolvedInputs?.precinctResults)
+        ? resolvedInputs.precinctResults
+        : Array.isArray(evidenceInputs.precinctResults)
+        ? evidenceInputs.precinctResults
+        : (Array.isArray(districtBlob.precinctResults) ? districtBlob.precinctResults : []);
+      const crosswalkRows = Array.isArray(resolvedInputs?.crosswalkRows)
+        ? resolvedInputs.crosswalkRows
+        : Array.isArray(evidenceInputs.crosswalkRows)
+        ? evidenceInputs.crosswalkRows
+        : (Array.isArray(districtBlob.crosswalkRows) ? districtBlob.crosswalkRows : (Array.isArray(districtBlob.precinctToGeo) ? districtBlob.precinctToGeo : []));
+      const censusGeoRows = Array.isArray(resolvedInputs?.censusGeoRows)
+        ? resolvedInputs.censusGeoRows
+        : Array.isArray(evidenceInputs.censusGeoRows)
+        ? evidenceInputs.censusGeoRows
+        : (Array.isArray(districtBlob.censusGeoRows) ? districtBlob.censusGeoRows : (Array.isArray(districtBlob.censusRows) ? districtBlob.censusRows : []));
+
+      let evidence = null;
+      try{
+        evidence = compileDistrictEvidence({
+          geoUnits: s?.geoPack?.units || [],
+          precinctResults,
+          crosswalkRows,
+          censusGeoRows,
+        });
+      } catch (err){
+        setDistrictIntelStatus(`District evidence compile failed: ${String(err?.message || "unknown error")}`, "bad");
+        return;
+      }
+
+      let refs = null;
+      if (typeof resolveDataRefsByPolicy === "function"){
+        try{
+          const r = resolveDataRefsByPolicy({
+            dataRefs: s?.dataRefs,
+            dataCatalog: s?.dataCatalog,
+            scenario: s,
+          });
+          refs = (r && typeof r.selected === "object") ? r.selected : null;
+        } catch {
+          refs = null;
+        }
+      }
+      try{
+        const out = buildDistrictIntelPackFromEvidence({
+          scenario: s,
+          evidence,
+          refs,
+        });
+        if (!out || typeof out !== "object" || !out.pack){
+          setDistrictIntelStatus("District-intel generation returned empty pack.", "warn");
+          return;
+        }
+        s.districtIntelPack = out.pack;
+        if (!s.dataRefs || typeof s.dataRefs !== "object") s.dataRefs = {};
+        if (!s.dataRefs.lastCheckedAt) s.dataRefs.lastCheckedAt = new Date().toISOString();
+        if (out.pack.ready){
+          setDistrictIntelStatus("District-intel assumptions generated.", "ok");
+        } else {
+          setDistrictIntelStatus("District-intel generated with warnings; pack is not ready.", "warn");
+        }
+        commitUIUpdate();
+      } catch (err){
+        setDistrictIntelStatus(`District-intel generation failed: ${String(err?.message || "unknown error")}`, "bad");
+      }
     });
   }
 

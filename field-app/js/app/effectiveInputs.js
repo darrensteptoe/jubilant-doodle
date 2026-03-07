@@ -1,5 +1,6 @@
 // @ts-check
 import { validateOperationsCapacityInput } from "../features/operations/io.js";
+import { applyDistrictIntelCapacityOverrides } from "../core/districtIntelBuilder.js";
 
 /**
  * @typedef {Record<string, any>} AnyState
@@ -54,6 +55,22 @@ export function createEffectiveInputsController({
     const doorShare = (doorSharePct == null) ? null : clamp(doorSharePct, 0, 100) / 100;
     const doorsPerHour = canonicalDoorsPerHourFromSnap(s);
     const callsPerHour = safeNum(s.callsPerHour3);
+    const intelCapacity = applyDistrictIntelCapacityOverrides({
+      state: s,
+      capacity: {
+        orgCount,
+        orgHoursPerWeek,
+        volunteerMult,
+        doorSharePct,
+        doorShare,
+        doorsPerHour,
+        callsPerHour,
+      },
+    });
+    const capacityAdjusted = intelCapacity.capacity || {};
+    orgCount = capacityAdjusted.orgCount;
+    const doorsPerHourAdjusted = capacityAdjusted.doorsPerHour;
+    const callsPerHourAdjusted = capacityAdjusted.callsPerHour;
 
     let source = "baseline-manual";
     let overrideTargetAttemptsPerWeek = null;
@@ -71,8 +88,8 @@ export function createEffectiveInputsController({
             orgHoursPerWeek,
             volunteerMult,
             doorShare,
-            doorsPerHour,
-            callsPerHour,
+            doorsPerHour: doorsPerHourAdjusted,
+            callsPerHour: callsPerHourAdjusted,
           }
         });
         if (targetAttempts != null && perOrganizerAttempts > 0){
@@ -97,8 +114,8 @@ export function createEffectiveInputsController({
         volunteerMult,
         doorSharePct,
         doorShare,
-        doorsPerHour,
-        callsPerHour,
+        doorsPerHour: doorsPerHourAdjusted,
+        callsPerHour: callsPerHourAdjusted,
         capacityDecay: getCapacityDecayConfigFromState(s),
       },
       meta: {
@@ -106,6 +123,10 @@ export function createEffectiveInputsController({
         twCapOverrideEnabled: overrideEnabled,
         twCapOverrideMode: overrideMode,
         twCapOverrideTargetAttemptsPerWeek: overrideTargetAttemptsPerWeek,
+        districtIntel: {
+          rates: eff.meta?.districtIntel || null,
+          capacity: intelCapacity.meta || null,
+        },
       }
     };
 
@@ -124,8 +145,8 @@ export function createEffectiveInputsController({
           volunteerMult: safeNum(s.volunteerMultBase),
           doorSharePct,
           doorShare,
-          doorsPerHour,
-          callsPerHour,
+          doorsPerHour: doorsPerHourAdjusted,
+          callsPerHour: callsPerHourAdjusted,
           capacityDecay: getCapacityDecayConfigFromState(s),
         },
         meta: {
@@ -133,6 +154,10 @@ export function createEffectiveInputsController({
           twCapOverrideEnabled: false,
           twCapOverrideMode: "baseline",
           twCapOverrideTargetAttemptsPerWeek: null,
+          districtIntel: {
+            rates: eff.meta?.districtIntel || null,
+            capacity: intelCapacity.meta || null,
+          },
         }
       };
     }
