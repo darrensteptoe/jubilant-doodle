@@ -26,13 +26,37 @@ import { renderBottleneckAttributionPanel, renderConversionPanel, renderSensitiv
 import { renderWeeklyOpsInsightsPanel, renderWeeklyOpsFreshnessPanel } from "./app/render/weeklyOpsInsights.js";
 import { renderDecisionConfidencePanel, renderDecisionIntelligencePanelView } from "./app/render/decisionPanels.js";
 import { renderImpactTracePanel } from "./app/render/impactTrace.js";
-import { getMcStaleness } from "./app/mcStaleness.js";
-import { hashMcInputsModule } from "./app/mcHash.js";
 import {
+  getMcStaleness,
+  hashMcInputsModule,
   fmtSignedModule,
   renderMcResultsAdapterModule,
   renderMcVisualsAdapterModule,
-} from "./app/mcRenderAdapters.js";
+} from "./app/monteCarloApp.js";
+import {
+  OBJECTIVE_TEMPLATES,
+  RISK_POSTURES,
+  makeDecisionSessionIdCore,
+  makeDecisionOptionIdCore,
+  ensureDecisionOptionShapeCore,
+  ensureDecisionSessionShapeCore,
+  ensureDecisionScaffoldCore,
+  getActiveDecisionSessionCore,
+  listDecisionSessionsCore,
+  decisionScenarioLabelCore,
+  renderDecisionSessionPanelCore,
+  renderDecisionOptionsPanelCore,
+  renderDecisionSummaryPanelCore,
+  wireDecisionSessionBindings,
+  createDecisionSessionActions,
+  computeDecisionKeyOutCore,
+  decisionOptionDisplayCore,
+  buildDecisionSummaryTextCore,
+  copyTextToClipboardCore,
+  decisionSummaryPlainTextCore,
+  decisionSessionExportObjectCore,
+  downloadJsonObjectCore,
+} from "./app/decisionSessionApp.js";
 import { renderMain } from "./app/renderMain.js";
 import { initDevToolsModule } from "./app/initDevTools.js";
 import { buildModelInputFromState } from "./app/modelInput.js";
@@ -50,20 +74,6 @@ import {
 import { createDiagnosticsRuntimeController } from "./app/diagnosticsRuntime.js";
 import { copyDebugBundleModule } from "./app/debugBundle.js";
 import { createBackupRecoveryController } from "./app/backupRecovery.js";
-import {
-  OBJECTIVE_TEMPLATES,
-  RISK_POSTURES,
-  makeDecisionSessionIdCore,
-  makeDecisionOptionIdCore,
-  ensureDecisionOptionShapeCore,
-  ensureDecisionSessionShapeCore,
-} from "./app/decisionScaffold.js";
-import {
-  ensureDecisionScaffoldCore,
-  getActiveDecisionSessionCore,
-  listDecisionSessionsCore,
-  decisionScenarioLabelCore,
-} from "./app/decisionScaffoldState.js";
 import { renderScenarioManagerPanel } from "./app/renderScenarioManager.js";
 import {
   ensureScenarioRegistryCore,
@@ -75,11 +85,6 @@ import {
   computeWeeklyOpsContextFromSnapCore,
 } from "./app/scenarioCompareHelpers.js";
 import { createScenarioDecisionController } from "./app/scenarioDecisionController.js";
-import {
-  renderDecisionSessionPanelCore,
-  renderDecisionOptionsPanelCore,
-} from "./app/decisionSessionRender.js";
-import { renderDecisionSummaryPanelCore } from "./app/decisionSummaryRender.js";
 import {
   surfaceLeverSpecCore,
   surfaceClampCore,
@@ -155,6 +160,7 @@ import { createMcRuntimeController } from "./app/mcRuntimeController.js";
 import { createPlanningRuntimeController } from "./app/planningRuntimeController.js";
 import { createExecutionWeeklyController } from "./app/executionWeeklyController.js";
 import { createExecutionRiskController } from "./app/executionRiskController.js";
+import { createSummaryRenderController } from "./app/summaryRenderController.js";
 import {
   updatePersistenceStatusChipModule,
   reportPersistenceFailureModule,
@@ -176,17 +182,6 @@ import {
 } from "./app/themeMode.js";
 import { applyStateToUIView } from "./app/applyStateToUI.js";
 import { wireScenarioManagerBindings } from "./app/scenarioManagerBindings.js";
-import { wireDecisionSessionBindings } from "./app/decisionSessionBindings.js";
-import { createDecisionSessionActions } from "./app/decisionSessionActions.js";
-import {
-  computeDecisionKeyOutCore,
-  decisionOptionDisplayCore,
-  buildDecisionSummaryTextCore,
-  copyTextToClipboardCore,
-  decisionSummaryPlainTextCore,
-  decisionSessionExportObjectCore,
-  downloadJsonObjectCore,
-} from "./app/decisionSessionSummary.js";
 import { renderScenarioComparisonPanel } from "./app/render/scenarioComparison.js";
 import {
   computeRealityDriftModule,
@@ -1112,77 +1107,66 @@ function renderDecisionIntelligencePanel({ res, weeks }){
   return getExecutionRiskController().renderDecisionIntelligencePanel({ res, weeks });
 }
 
+let summaryRenderController = null;
 
-
+function getSummaryRenderController(){
+  if (summaryRenderController) return summaryRenderController;
+  summaryRenderController = createSummaryRenderController({
+    els,
+    getState: () => state,
+    engine,
+    computeRealityDrift,
+    computeEvidenceWarnings,
+    renderStressModule,
+    renderValidationModule,
+    renderIntelChecksModule,
+    renderAssumptionsModule,
+    renderGuardrailsModule,
+    assumptionsProfileLabel,
+    getYourNameFromState: getYourNameFromStateModule,
+    fmtInt,
+    blockModule,
+    kvModule,
+    labelTemplateModule,
+    labelUndecidedModeModule,
+  });
+  return summaryRenderController;
+}
 
 function renderStress(res){
-  renderStressModule({
-    els,
-    res,
-  });
+  return getSummaryRenderController().renderStress(res);
 }
 
 function renderValidation(res, weeks){
-  const benchmarkWarnings = engine?.snapshot?.computeAssumptionBenchmarkWarnings
-    ? engine.snapshot.computeAssumptionBenchmarkWarnings(state, "Benchmark")
-    : [];
-  const driftSummary = computeRealityDrift();
-  const evidenceWarnings = computeEvidenceWarnings(state, { limit: 2, staleDays: 30 });
-  renderValidationModule({
-    els,
-    state,
-    res,
-    weeks,
-    benchmarkWarnings,
-    evidenceWarnings,
-    driftSummary,
-  });
-  renderIntelChecksModule({ els, state, benchmarkWarnings, driftSummary });
+  return getSummaryRenderController().renderValidation(res, weeks);
 }
 
 function renderAssumptions(res, weeks){
-  renderAssumptionsModule({
-    els,
-    state,
-    res,
-    weeks,
-    block,
-    kv,
-    labelTemplate,
-    assumptionsProfileLabel,
-    labelUndecidedMode,
-    getYourName,
-    fmtInt,
-  });
+  return getSummaryRenderController().renderAssumptions(res, weeks);
 }
 
 function renderGuardrails(res){
-  renderGuardrailsModule({
-    els,
-    res,
-    block,
-    kv,
-  });
+  return getSummaryRenderController().renderGuardrails(res);
 }
 
 function block(title, kvs){
-  return blockModule(title, kvs);
+  return getSummaryRenderController().block(title, kvs);
 }
 
 function kv(k, v){
-  return kvModule(k, v);
+  return getSummaryRenderController().kv(k, v);
 }
 
 function labelTemplate(v){
-  return labelTemplateModule(v);
+  return getSummaryRenderController().labelTemplate(v);
 }
 
 function labelUndecidedMode(v){
-  return labelUndecidedModeModule(v);
+  return getSummaryRenderController().labelUndecidedMode(v);
 }
 
 function getYourName(){
-  return getYourNameFromStateModule(state);
+  return getSummaryRenderController().getYourName();
 }
 
 

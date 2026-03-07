@@ -27,18 +27,18 @@ Design goals:
 
 Current status:
 - Hub page:
-  - `/Users/anakinskywalker/Downloads/field-app-40/operations.html`
+  - `/operations.html`
   - Includes CRUD for `interviews`, `onboardingRecords`, and `trainingRecords`
   - Includes CSV import/export controls for those stores
 - Wired to standalone input pages:
-  - `/Users/anakinskywalker/Downloads/field-app-40/operations-pipeline.html`
-  - `/Users/anakinskywalker/Downloads/field-app-40/operations-shifts.html`
-  - `/Users/anakinskywalker/Downloads/field-app-40/operations-turf.html`
-  - `/Users/anakinskywalker/Downloads/field-app-40/operations-ramp.html`
+  - `/operations-pipeline.html`
+  - `/operations-shifts.html`
+  - `/operations-turf.html`
+  - `/operations-ramp.html`
 - Engine integration limited to capacity compiler seam only (`compileEffectiveInputs` in app runtime)
 - Safe to build page modules on top of this store
 
 Source-of-truth policy:
 - Production totals come from shifts.
 - Turf attempts are coverage metrics and excluded from production totals by default.
-- See `/Users/anakinskywalker/Downloads/field-app-40/THIRD_WING_SOURCE_OF_TRUTH.md`.
+- See `/THIRD_WING_SOURCE_OF_TRUTH.md`.
