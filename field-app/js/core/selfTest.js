@@ -344,8 +344,8 @@ export function runSelfTests(engine){
 
     const invalid = validateImportedScenarioData({
       electionDate: "2026-02-01",
-      candidates: [{ id: "a", name: "A", supportPct: 55 }, { id: "b", name: "B", supportPct: 55 }],
-      undecidedPct: 10,
+      candidates: [{ id: "a", name: "A", supportPct: "bad" }, { id: "b", name: "B", supportPct: 55 }],
+      undecidedPct: 45,
       yourCandidateId: "a",
     });
     assert(invalid.ok === false, "invalid import scenario unexpectedly passed");
