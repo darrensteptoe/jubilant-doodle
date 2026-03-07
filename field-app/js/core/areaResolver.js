@@ -204,11 +204,25 @@ export function deriveAreaResolverContext(args){
 
   const notes = [];
   const boundarySetId = str(geo.boundarySetId || refs.boundarySetId) || null;
+  const providedBoundaryVintage = str(
+    geo.boundaryVintage ||
+    geo.area?.boundaryVintage ||
+    geo.area?.vintage ||
+    geo.source?.vintage
+  ) || null;
   let boundaryVintage = null;
   if (boundarySetId && byBoundary[boundarySetId]){
     boundaryVintage = str(byBoundary[boundarySetId].vintage) || null;
+    if (providedBoundaryVintage && boundaryVintage && providedBoundaryVintage !== boundaryVintage){
+      notes.push(
+        `Boundary vintage mismatch for '${boundarySetId}': scenario '${providedBoundaryVintage}' vs registry '${boundaryVintage}'. Using registry vintage.`
+      );
+    } else if (providedBoundaryVintage && !boundaryVintage){
+      boundaryVintage = providedBoundaryVintage;
+    }
   } else if (boundarySetId){
     notes.push(`Boundary set '${boundarySetId}' missing from registry for vintage lookup.`);
+    boundaryVintage = providedBoundaryVintage;
   }
 
   const area = normalizeAreaSelection({
@@ -220,4 +234,3 @@ export function deriveAreaResolverContext(args){
   const cacheKey = buildAreaResolverCacheKey({ area });
   return { area, cacheKey, notes };
 }
-

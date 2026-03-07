@@ -75,7 +75,7 @@ import {
   normalizeDistrictDataState,
   validateDistrictDataContract,
 } from "./districtData.js";
-import { buildDataSourceRegistry, resolveDataRefsByPolicy } from "./dataSourceRegistry.js";
+import { buildDataSourceRegistry, resolveDataRefsByPolicy, materializePinnedDataRefs } from "./dataSourceRegistry.js";
 import { normalizeAreaSelection, buildAreaResolverCacheKey, deriveAreaResolverContext } from "./areaResolver.js";
 import {
   normalizeCensusManifest,
@@ -86,6 +86,7 @@ import {
   electionManifestToCatalogEntry,
 } from "./districtIngest.js";
 import { allocatePrecinctVotesToGeo } from "./precinctCensusJoin.js";
+import { compileDistrictEvidence, derivePersuasionSignalFromElection } from "./districtEvidence.js";
 import { registerPhase115ATests } from "./selfTestSuites/phase115A.js";
 import { registerReleaseHardeningTests } from "./selfTestSuites/releaseHardening.js";
 
@@ -1433,8 +1434,11 @@ export function runSelfTests(engine){
     censusManifestToCatalogEntry,
     electionManifestToCatalogEntry,
     allocatePrecinctVotesToGeo,
+    compileDistrictEvidence,
+    derivePersuasionSignalFromElection,
     buildDataSourceRegistry,
     resolveDataRefsByPolicy,
+    materializePinnedDataRefs,
     normalizeAreaSelection,
     buildAreaResolverCacheKey,
     deriveAreaResolverContext,

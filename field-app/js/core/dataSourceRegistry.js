@@ -441,3 +441,68 @@ export function resolveDataRefsByPolicy(args){
 
   return { mode: refs.mode, selected, usedFallbacks, notes };
 }
+
+/**
+ * Materialize a pinned dataRef set from policy resolution.
+ * - If mode is `latest_verified`, this returns a `pinned_verified` object using resolved IDs.
+ * - If mode is already `pinned_verified` or `manual`, IDs are preserved and mode is unchanged.
+ *
+ * @param {{
+ *   dataRefs: unknown,
+ *   dataCatalog: unknown,
+ *   nowIso?: string
+ * }} args
+ * @returns {{
+ *   dataRefs: {
+ *     version: string,
+ *     mode: "pinned_verified" | "latest_verified" | "manual",
+ *     censusDatasetId: string | null,
+ *     electionDatasetId: string | null,
+ *     boundarySetId: string | null,
+ *     crosswalkVersionId: string | null,
+ *     pinnedAt: string | null,
+ *     lastCheckedAt: string | null
+ *   },
+ *   changed: boolean,
+ *   notes: string[]
+ * }}
+ */
+export function materializePinnedDataRefs(args){
+  const refs = normalizeDataRefs(args?.dataRefs);
+  const resolution = resolveDataRefsByPolicy({
+    dataRefs: refs,
+    dataCatalog: args?.dataCatalog,
+  });
+  const nowIso = str(args?.nowIso) || new Date().toISOString();
+  const selected = resolution.selected || {};
+  const out = {
+    ...refs,
+    mode: refs.mode,
+    boundarySetId: selected.boundarySetId ?? refs.boundarySetId ?? null,
+    crosswalkVersionId: selected.crosswalkVersionId ?? refs.crosswalkVersionId ?? null,
+    censusDatasetId: selected.censusDatasetId ?? refs.censusDatasetId ?? null,
+    electionDatasetId: selected.electionDatasetId ?? refs.electionDatasetId ?? null,
+    pinnedAt: refs.pinnedAt,
+    lastCheckedAt: nowIso,
+  };
+
+  let changed = false;
+  const notes = Array.isArray(resolution.notes) ? resolution.notes.slice() : [];
+  if (refs.mode === "latest_verified"){
+    out.mode = "pinned_verified";
+    out.pinnedAt = nowIso;
+    changed = true;
+    notes.push("latest_verified selection materialized to pinned_verified.");
+  }
+
+  if (
+    out.boundarySetId !== refs.boundarySetId ||
+    out.crosswalkVersionId !== refs.crosswalkVersionId ||
+    out.censusDatasetId !== refs.censusDatasetId ||
+    out.electionDatasetId !== refs.electionDatasetId
+  ){
+    changed = true;
+  }
+
+  return { dataRefs: out, changed, notes };
+}

@@ -1,0 +1,357 @@
+// @ts-check
+// Deterministic district evidence compiler for MIT precinct + Census layer.
+// Pure utilities only: no DOM, no network, no planning-math mutation.
+
+import {
+  allocatePrecinctVotesToGeo,
+  normalizeCrosswalkRows,
+  normalizePrecinctResults,
+} from "./precinctCensusJoin.js";
+
+/**
+ * @param {unknown} v
+ * @returns {v is Record<string, any>}
+ */
+function isObject(v){
+  return !!v && typeof v === "object" && !Array.isArray(v);
+}
+
+/**
+ * @param {unknown} v
+ * @returns {string}
+ */
+function str(v){
+  return String(v == null ? "" : v).trim();
+}
+
+/**
+ * @param {unknown} v
+ * @returns {number | null}
+ */
+function numOrNull(v){
+  if (v == null || v === "") return null;
+  const n = Number(v);
+  return Number.isFinite(n) ? n : null;
+}
+
+/**
+ * @param {number} n
+ * @param {number} min
+ * @param {number} max
+ * @returns {number}
+ */
+function clamp(n, min, max){
+  if (!Number.isFinite(n)) return min;
+  return Math.max(min, Math.min(max, n));
+}
+
+/**
+ * @param {unknown[]} rows
+ * @returns {Array<{ geoid: string, w: number }>}
+ */
+export function normalizeGeoUnitsForEvidence(rows){
+  const list = Array.isArray(rows) ? rows : [];
+  const byGeoid = new Map();
+  for (const row of list){
+    if (!isObject(row)) continue;
+    const geoid = str(row.geoid || row.tract || row.blockGroup);
+    const wRaw = numOrNull(row.w ?? row.weight);
+    if (!geoid || wRaw == null || wRaw <= 0) continue;
+    byGeoid.set(geoid, (byGeoid.get(geoid) || 0) + wRaw);
+  }
+  const out = Array.from(byGeoid.entries())
+    .map(([geoid, w]) => ({ geoid, w }))
+    .sort((a, b) => a.geoid.localeCompare(b.geoid));
+  return out;
+}
+
+/**
+ * @param {unknown[]} rows
+ * @returns {Array<{ geoid: string, values: Record<string, number> }>}
+ */
+export function normalizeCensusGeoRows(rows){
+  const list = Array.isArray(rows) ? rows : [];
+  const out = [];
+  for (const row of list){
+    if (!isObject(row)) continue;
+    const geoid = str(row.geoid || row.tract || row.blockGroup);
+    if (!geoid) continue;
+    const valuesIn = isObject(row.values) ? row.values : (isObject(row.metrics) ? row.metrics : row);
+    const values = {};
+    for (const key of Object.keys(valuesIn)){
+      if (key === "geoid" || key === "tract" || key === "blockGroup" || key === "values" || key === "metrics") continue;
+      const n = numOrNull(valuesIn[key]);
+      if (n == null) continue;
+      values[key] = n;
+    }
+    out.push({ geoid, values });
+  }
+  out.sort((a, b) => a.geoid.localeCompare(b.geoid));
+  return out;
+}
+
+/**
+ * @param {{
+ *   candidateTotals: Array<{ candidateId: string, votes: number, sharePct: number }>
+ *   min?: number,
+ *   max?: number
+ * }} args
+ * @returns {{
+ *   index: number,
+ *   totalVotes: number,
+ *   leaderCandidateId: string | null,
+ *   runnerUpCandidateId: string | null,
+ *   marginVotes: number,
+ *   marginPct: number | null,
+ *   competitivenessPct: number | null,
+ *   note: string
+ * }}
+ */
+export function derivePersuasionSignalFromElection(args){
+  const min = clamp(numOrNull(args?.min) ?? 0.7, 0.1, 5);
+  const max = Math.max(min, clamp(numOrNull(args?.max) ?? 1.3, min, 5));
+  const totals = Array.isArray(args?.candidateTotals) ? args.candidateTotals : [];
+  const ranked = totals
+    .map((row) => ({
+      candidateId: str(row?.candidateId),
+      votes: Number(row?.votes) || 0,
+      sharePct: Number(row?.sharePct) || 0,
+    }))
+    .filter((row) => row.candidateId && row.votes > 0)
+    .sort((a, b) => (b.votes - a.votes) || a.candidateId.localeCompare(b.candidateId));
+
+  const totalVotes = ranked.reduce((sum, row) => sum + row.votes, 0);
+  if (totalVotes <= 0 || ranked.length < 2){
+    return {
+      index: 1,
+      totalVotes: 0,
+      leaderCandidateId: ranked[0]?.candidateId || null,
+      runnerUpCandidateId: ranked[1]?.candidateId || null,
+      marginVotes: 0,
+      marginPct: null,
+      competitivenessPct: null,
+      note: "Insufficient election vote history to score persuasion environment.",
+    };
+  }
+
+  const leader = ranked[0];
+  const runnerUp = ranked[1];
+  const marginVotes = Math.max(0, leader.votes - runnerUp.votes);
+  const marginPct = totalVotes > 0 ? (marginVotes / totalVotes) * 100 : null;
+  const competitivenessPct = marginPct == null ? null : clamp(100 - marginPct, 0, 100);
+  const indexRaw = marginPct == null ? 1 : 1 + ((12 - marginPct) / 100);
+  const index = clamp(indexRaw, min, max);
+  const note = marginPct == null
+    ? "No margin available."
+    : marginPct <= 3
+      ? "Very competitive prior result."
+      : marginPct <= 8
+        ? "Moderately competitive prior result."
+        : "Low competitiveness prior result.";
+
+  return {
+    index,
+    totalVotes,
+    leaderCandidateId: leader.candidateId,
+    runnerUpCandidateId: runnerUp.candidateId,
+    marginVotes,
+    marginPct,
+    competitivenessPct,
+    note,
+  };
+}
+
+/**
+ * @param {{
+ *   geoUnits?: unknown[],
+ *   precinctResults?: unknown[],
+ *   crosswalkRows?: unknown[],
+ *   censusGeoRows?: unknown[],
+ *   normalizeCrosswalkWeights?: boolean
+ * }} args
+ * @returns {{
+ *   summary: {
+ *     selectedGeoCount: number,
+ *     geoRowsCount: number,
+ *     totalVotes: number,
+ *     totalPrecincts: number,
+ *     totalPrecinctLinks: number,
+ *     districtWeightSum: number,
+ *   },
+ *   candidateTotals: Array<{ candidateId: string, votes: number, sharePct: number }>,
+ *   persuasionSignal: ReturnType<typeof derivePersuasionSignalFromElection>,
+ *   precinctToGeo: Array<{
+ *     precinctId: string,
+ *     geoid: string,
+ *     crosswalkWeight: number,
+ *     districtWeight: number,
+ *     effectiveWeight: number
+ *   }>,
+ *   geoRows: Array<{
+ *     geoid: string,
+ *     districtWeight: number,
+ *     totalVotes: number,
+ *     candidateVotes: Record<string, number>,
+ *     census: Record<string, number>,
+ *     sourcePrecincts: number,
+ *     hasElection: boolean,
+ *     hasCensus: boolean
+ *   }>,
+ *   censusTotals: Record<string, number>,
+ *   reconciliation: {
+ *     inputVotes: number,
+ *     allocatedVotes: number,
+ *     unmatchedVotes: number,
+ *     coveragePct: number,
+ *     deltaVotes: number,
+ *     deltaPct: number
+ *   },
+ *   warnings: string[]
+ * }}
+ */
+export function compileDistrictEvidence(args){
+  const geoUnits = normalizeGeoUnitsForEvidence(args?.geoUnits || []);
+  const hasGeoUnits = geoUnits.length > 0;
+  const unitMap = new Map(geoUnits.map((u) => [u.geoid, u.w]));
+  const districtWeightSum = geoUnits.reduce((sum, u) => sum + u.w, 0);
+
+  const join = allocatePrecinctVotesToGeo({
+    precinctResults: args?.precinctResults || [],
+    crosswalkRows: args?.crosswalkRows || [],
+    normalizeWeights: args?.normalizeCrosswalkWeights !== false,
+  });
+  const censusRows = normalizeCensusGeoRows(args?.censusGeoRows || []);
+  const censusByGeoid = new Map(censusRows.map((row) => [row.geoid, row.values]));
+  const electionByGeoid = new Map((join.perGeo || []).map((row) => [row.geoid, row]));
+
+  const geoidSet = new Set();
+  for (const row of join.perGeo || []) geoidSet.add(str(row?.geoid));
+  for (const row of censusRows) geoidSet.add(row.geoid);
+  for (const row of geoUnits) geoidSet.add(row.geoid);
+  const geoids = Array.from(geoidSet).filter(Boolean).sort((a, b) => a.localeCompare(b));
+
+  const geoRows = [];
+  const candidateTotalsMap = new Map();
+  const censusTotalsMap = new Map();
+  let totalVotes = 0;
+  let missingElectionForSelected = 0;
+  let missingCensusForSelected = 0;
+
+  for (const geoid of geoids){
+    const districtWeight = hasGeoUnits ? (unitMap.get(geoid) || 0) : 1;
+    if (hasGeoUnits && !(districtWeight > 0)) continue;
+
+    const election = electionByGeoid.get(geoid) || null;
+    const census = censusByGeoid.get(geoid) || {};
+    const candidateVotes = {};
+
+    for (const candId of Object.keys(election?.candidateVotes || {})){
+      const scaled = (Number(election?.candidateVotes?.[candId]) || 0) * districtWeight;
+      if (!(scaled > 0)) continue;
+      candidateVotes[candId] = scaled;
+      candidateTotalsMap.set(candId, (candidateTotalsMap.get(candId) || 0) + scaled);
+    }
+
+    const scaledVotes = (Number(election?.totalVotes) || 0) * districtWeight;
+    totalVotes += scaledVotes;
+
+    const censusOut = {};
+    for (const key of Object.keys(census)){
+      const scaled = (Number(census[key]) || 0) * districtWeight;
+      if (!Number.isFinite(scaled)) continue;
+      censusOut[key] = scaled;
+      censusTotalsMap.set(key, (censusTotalsMap.get(key) || 0) + scaled);
+    }
+
+    const hasElection = !!election;
+    const hasCensus = Object.keys(censusOut).length > 0;
+    if (hasGeoUnits){
+      if (!hasElection) missingElectionForSelected += 1;
+      if (!hasCensus) missingCensusForSelected += 1;
+    }
+
+    geoRows.push({
+      geoid,
+      districtWeight,
+      totalVotes: scaledVotes,
+      candidateVotes,
+      census: censusOut,
+      sourcePrecincts: Number(election?.sourcePrecincts) || 0,
+      hasElection,
+      hasCensus,
+    });
+  }
+
+  geoRows.sort((a, b) => a.geoid.localeCompare(b.geoid));
+
+  const candidateTotals = Array.from(candidateTotalsMap.entries())
+    .map(([candidateId, votes]) => ({
+      candidateId,
+      votes,
+      sharePct: totalVotes > 0 ? (votes / totalVotes) * 100 : 0,
+    }))
+    .sort((a, b) => (b.votes - a.votes) || a.candidateId.localeCompare(b.candidateId));
+
+  const persuasionSignal = derivePersuasionSignalFromElection({ candidateTotals });
+
+  const precinctLinks = normalizeCrosswalkRows(args?.crosswalkRows || [])
+    .map((row) => {
+      const districtWeight = hasGeoUnits ? (unitMap.get(row.geoid) || 0) : 1;
+      return {
+        precinctId: row.precinctId,
+        geoid: row.geoid,
+        crosswalkWeight: row.weight,
+        districtWeight,
+        effectiveWeight: row.weight * districtWeight,
+      };
+    })
+    .filter((row) => !hasGeoUnits || row.districtWeight > 0)
+    .sort((a, b) => {
+      const p = a.precinctId.localeCompare(b.precinctId);
+      return p !== 0 ? p : a.geoid.localeCompare(b.geoid);
+    });
+
+  const warnings = [];
+  const joinWarnings = Array.isArray(join.warnings) ? join.warnings : [];
+  for (const w of joinWarnings){
+    const msg = str(w);
+    if (msg) warnings.push(msg);
+  }
+  if (hasGeoUnits){
+    if (missingElectionForSelected > 0){
+      warnings.push(`Selected geo units without linked election history: ${missingElectionForSelected}.`);
+    }
+    if (missingCensusForSelected > 0){
+      warnings.push(`Selected geo units without census rows: ${missingCensusForSelected}.`);
+    }
+    if (districtWeightSum > 0 && Math.abs(districtWeightSum - 1) > 0.01){
+      warnings.push(`Geo unit weights sum to ${districtWeightSum.toFixed(4)} (expected near 1.0).`);
+    }
+  }
+
+  /** @type {Record<string, number>} */
+  const censusTotals = {};
+  for (const [k, v] of Array.from(censusTotalsMap.entries()).sort((a, b) => a[0].localeCompare(b[0]))){
+    censusTotals[k] = v;
+  }
+
+  const precinctsUsed = new Set(precinctLinks.map((row) => row.precinctId)).size;
+  return {
+    summary: {
+      selectedGeoCount: hasGeoUnits ? geoUnits.length : 0,
+      geoRowsCount: geoRows.length,
+      totalVotes,
+      totalPrecincts: precinctsUsed || normalizePrecinctResults(args?.precinctResults || []).length,
+      totalPrecinctLinks: precinctLinks.length,
+      districtWeightSum,
+    },
+    candidateTotals,
+    persuasionSignal,
+    precinctToGeo: precinctLinks,
+    geoRows,
+    censusTotals,
+    reconciliation: join.reconciliation,
+    warnings,
+  };
+}
+

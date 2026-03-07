@@ -33,8 +33,11 @@
  *   censusManifestToCatalogEntry: (...args: any[]) => any,
  *   electionManifestToCatalogEntry: (...args: any[]) => any,
  *   allocatePrecinctVotesToGeo: (...args: any[]) => any,
+ *   compileDistrictEvidence: (...args: any[]) => any,
+ *   derivePersuasionSignalFromElection: (...args: any[]) => any,
  *   buildDataSourceRegistry: (...args: any[]) => any,
  *   resolveDataRefsByPolicy: (...args: any[]) => any,
+ *   materializePinnedDataRefs: (...args: any[]) => any,
  *   normalizeAreaSelection: (...args: any[]) => any,
  *   buildAreaResolverCacheKey: (...args: any[]) => any,
  *   deriveAreaResolverContext: (...args: any[]) => any,
@@ -74,8 +77,11 @@ export function registerReleaseHardeningTests(ctx){
     censusManifestToCatalogEntry,
     electionManifestToCatalogEntry,
     allocatePrecinctVotesToGeo,
+    compileDistrictEvidence,
+    derivePersuasionSignalFromElection,
     buildDataSourceRegistry,
     resolveDataRefsByPolicy,
+    materializePinnedDataRefs,
     normalizeAreaSelection,
     buildAreaResolverCacheKey,
     deriveAreaResolverContext,
@@ -673,6 +679,114 @@ export function registerReleaseHardeningTests(ctx){
     assert(ctxOut.area.boundarySetId === "sldl_2024", "Expected derived area boundary set from refs");
     assert(ctxOut.area.boundaryVintage === "2024", "Expected derived boundary vintage from registry");
     assert(typeof ctxOut.cacheKey === "string" && ctxOut.cacheKey.includes("vintage=2024"), "Expected cache key with boundary vintage");
+    return true;
+  });
+
+  test("Phase 18: area resolver flags boundary vintage mismatch and uses registry vintage", () => {
+    const ctxOut = deriveAreaResolverContext({
+      scenario: {
+        dataRefs: { boundarySetId: "sldl_2024" },
+        geoPack: {
+          boundarySetId: "sldl_2024",
+          source: { vintage: "2022" },
+          area: { type: "SLDL", stateFips: "34", district: "12" },
+          resolution: "tract",
+        },
+      },
+      registry: {
+        byId: {
+          boundarySets: {
+            sldl_2024: { id: "sldl_2024", vintage: "2024" },
+          },
+        },
+      },
+    });
+    assert(ctxOut.area.boundaryVintage === "2024", "Expected registry vintage to win on mismatch");
+    assert(Array.isArray(ctxOut.notes) && ctxOut.notes.some((x) => String(x).toLowerCase().includes("mismatch")), "Expected mismatch note");
+    return true;
+  });
+
+  test("Phase 18: latest_verified resolution can be materialized to pinned refs", () => {
+    const pinned = materializePinnedDataRefs({
+      dataRefs: {
+        mode: "latest_verified",
+        boundarySetId: "missing_boundary",
+        crosswalkVersionId: "missing_crosswalk",
+        censusDatasetId: "missing_census",
+        electionDatasetId: "missing_election",
+      },
+      dataCatalog: {
+        boundarySets: [
+          { id: "sldl_2024", label: "SLDL 2024", geographyType: "SLDL", vintage: "2024", isVerified: true, isLatest: true },
+        ],
+        crosswalks: [
+          { id: "cw_2022_2024", fromBoundarySetId: "sldl_2022", toBoundarySetId: "sldl_2024", unit: "tract", method: "population", isLatest: true, quality: { coveragePct: 99, unmatchedPct: 1, weightDriftPct: 0.1, isVerified: true } },
+        ],
+        censusDatasets: [
+          { id: "acs5_2024", kind: "census", label: "ACS 2024", source: "acs5", vintage: "2024", boundarySetId: "sldl_2024", granularity: "tract", isLatest: true, quality: { coveragePct: 98, isVerified: true } },
+        ],
+        electionDatasets: [
+          { id: "mit_2024", kind: "election", label: "MIT 2024", source: "mit", vintage: "2024", boundarySetId: "sldl_2024", granularity: "precinct", isLatest: true, quality: { coveragePct: 98, isVerified: true } },
+        ],
+      },
+      nowIso: "2026-03-07T08:00:00.000Z",
+    });
+    assert(pinned.dataRefs.mode === "pinned_verified", "Expected latest_verified to materialize as pinned_verified");
+    assert(pinned.dataRefs.boundarySetId === "sldl_2024", "Expected pinned boundary selection");
+    assert(pinned.dataRefs.crosswalkVersionId === "cw_2022_2024", "Expected pinned crosswalk selection");
+    assert(pinned.dataRefs.censusDatasetId === "acs5_2024", "Expected pinned census selection");
+    assert(pinned.dataRefs.electionDatasetId === "mit_2024", "Expected pinned election selection");
+    assert(pinned.dataRefs.pinnedAt === "2026-03-07T08:00:00.000Z", "Expected pinnedAt timestamp from materialization call");
+    assert(pinned.changed === true, "Expected materialization to report changed=true");
+    return true;
+  });
+
+  test("Phase 19: district evidence compile produces deterministic candidate rollups + precinct linkage", () => {
+    const evidence = compileDistrictEvidence({
+      geoUnits: [
+        { geoid: "34013010002", w: 0.3 },
+        { geoid: "34013010001", w: 0.7 },
+      ],
+      precinctResults: [
+        { precinctId: "P2", candidateVotes: { A: 50, B: 30 } },
+        { precinctId: "P1", candidateVotes: { A: 40, B: 80 } },
+      ],
+      crosswalkRows: [
+        { precinctId: "P1", geoid: "34013010002", weight: 0.5 },
+        { precinctId: "P1", geoid: "34013010001", weight: 0.5 },
+        { precinctId: "P2", geoid: "34013010002", weight: 1.0 },
+      ],
+      censusGeoRows: [
+        { geoid: "34013010002", values: { pop: 900, housing_units: 350 } },
+        { geoid: "34013010001", values: { pop: 1000, housing_units: 400 } },
+      ],
+    });
+
+    assert(Array.isArray(evidence.candidateTotals) && evidence.candidateTotals.length === 2, "Expected candidate totals for both A and B");
+    assert(evidence.candidateTotals[0].candidateId === "B", "Expected B to lead in weighted district totals");
+    assert(Math.abs(evidence.candidateTotals[0].votes - 49) < 1e-9, "Unexpected weighted votes for B");
+    assert(Math.abs(evidence.candidateTotals[1].votes - 35) < 1e-9, "Unexpected weighted votes for A");
+    assert(Math.abs(evidence.summary.totalVotes - 84) < 1e-9, "Unexpected total weighted votes");
+    assert(Array.isArray(evidence.precinctToGeo) && evidence.precinctToGeo.length === 3, "Expected explicit precinct->geo linkage rows");
+    assert(evidence.precinctToGeo[0].precinctId === "P1" && evidence.precinctToGeo[0].geoid === "34013010001", "Expected deterministic precinct linkage ordering");
+    return true;
+  });
+
+  test("Phase 19: persuasion signal derives competitiveness index from candidate totals", () => {
+    const signal = derivePersuasionSignalFromElection({
+      candidateTotals: [
+        { candidateId: "A", votes: 5000, sharePct: 52.6315789474 },
+        { candidateId: "B", votes: 4500, sharePct: 47.3684210526 },
+      ],
+      min: 0.7,
+      max: 1.3,
+    });
+    assert(signal.totalVotes === 9500, "Expected total vote count from candidate totals");
+    assert(signal.leaderCandidateId === "A", "Expected A as leader");
+    assert(signal.runnerUpCandidateId === "B", "Expected B as runner-up");
+    assert(signal.marginVotes === 500, "Expected top-two margin votes");
+    assert(signal.marginPct != null && signal.marginPct > 5 && signal.marginPct < 6, "Expected ~5.26% top-two margin");
+    assert(signal.index > 1.06 && signal.index < 1.07, "Expected competitiveness-derived persuasion index");
     return true;
   });
 }

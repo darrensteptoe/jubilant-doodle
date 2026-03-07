@@ -225,3 +225,64 @@ export interface AreaSelection {
   boundaryVintage: string | null;
   resolution: "tract" | "block_group";
 }
+
+export interface DistrictEvidenceCandidateTotal {
+  candidateId: string;
+  votes: number;
+  sharePct: number;
+}
+
+export interface DistrictEvidencePersuasionSignal {
+  index: number;
+  totalVotes: number;
+  leaderCandidateId: string | null;
+  runnerUpCandidateId: string | null;
+  marginVotes: number;
+  marginPct: number | null;
+  competitivenessPct: number | null;
+  note: string;
+}
+
+export interface DistrictEvidenceGeoRow {
+  geoid: string;
+  districtWeight: number;
+  totalVotes: number;
+  candidateVotes: Record<string, number>;
+  census: Record<string, number>;
+  sourcePrecincts: number;
+  hasElection: boolean;
+  hasCensus: boolean;
+}
+
+export interface DistrictEvidencePrecinctLink {
+  precinctId: string;
+  geoid: string;
+  crosswalkWeight: number;
+  districtWeight: number;
+  effectiveWeight: number;
+}
+
+export interface DistrictEvidence {
+  summary: {
+    selectedGeoCount: number;
+    geoRowsCount: number;
+    totalVotes: number;
+    totalPrecincts: number;
+    totalPrecinctLinks: number;
+    districtWeightSum: number;
+  };
+  candidateTotals: DistrictEvidenceCandidateTotal[];
+  persuasionSignal: DistrictEvidencePersuasionSignal;
+  precinctToGeo: DistrictEvidencePrecinctLink[];
+  geoRows: DistrictEvidenceGeoRow[];
+  censusTotals: Record<string, number>;
+  reconciliation: {
+    inputVotes: number;
+    allocatedVotes: number;
+    unmatchedVotes: number;
+    coveragePct: number;
+    deltaVotes: number;
+    deltaPct: number;
+  };
+  warnings: string[];
+}

@@ -21,8 +21,9 @@ import { migrateSnapshot, CURRENT_SCHEMA_VERSION } from "./core/migrate.js";
 import { checkStrictImportPolicy } from "./core/importPolicy.js";
 import { validateImportedScenarioData, computeAssumptionBenchmarkWarnings } from "./core/importQuality.js";
 import { validateDistrictDataContract } from "./core/districtData.js";
-import { buildDataSourceRegistry, resolveDataRefsByPolicy } from "./core/dataSourceRegistry.js";
+import { buildDataSourceRegistry, resolveDataRefsByPolicy, materializePinnedDataRefs } from "./core/dataSourceRegistry.js";
 import { normalizeAreaSelection, buildAreaResolverCacheKey, deriveAreaResolverContext } from "./core/areaResolver.js";
+import { compileDistrictEvidence, derivePersuasionSignalFromElection } from "./core/districtEvidence.js";
 import {
   MODEL_VERSION,
   makeScenarioExport,
@@ -110,9 +111,12 @@ export const engine = {
     validateDistrictDataContract,
     buildDataSourceRegistry,
     resolveDataRefsByPolicy,
+    materializePinnedDataRefs,
     normalizeAreaSelection,
     buildAreaResolverCacheKey,
     deriveAreaResolverContext,
+    compileDistrictEvidence,
+    derivePersuasionSignalFromElection,
     makeScenarioExport,
     deterministicStringify,
     validateScenarioExport,
