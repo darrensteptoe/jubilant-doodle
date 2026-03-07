@@ -64,6 +64,7 @@ export function applyDataRefPolicyRuntime(args){
   const resolution = resolver({
     dataRefs: scenarioIn.dataRefs,
     dataCatalog: scenarioIn.dataCatalog,
+    scenario: scenarioIn,
   });
   if (!isObject(resolution)){
     return { scenario: scenarioIn, warnings, resolution: null };
@@ -96,4 +97,3 @@ export function applyDataRefPolicyRuntime(args){
 
   return { scenario: scenarioIn, warnings, resolution };
 }
-
