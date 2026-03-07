@@ -21,6 +21,7 @@ import { migrateSnapshot, CURRENT_SCHEMA_VERSION } from "./core/migrate.js";
 import { checkStrictImportPolicy } from "./core/importPolicy.js";
 import { validateImportedScenarioData, computeAssumptionBenchmarkWarnings } from "./core/importQuality.js";
 import { validateDistrictDataContract } from "./core/districtData.js";
+import { buildDataSourceRegistry, resolveDataRefsByPolicy } from "./core/dataSourceRegistry.js";
 import {
   MODEL_VERSION,
   makeScenarioExport,
@@ -106,6 +107,8 @@ export const engine = {
     validateImportedScenarioData,
     computeAssumptionBenchmarkWarnings,
     validateDistrictDataContract,
+    buildDataSourceRegistry,
+    resolveDataRefsByPolicy,
     makeScenarioExport,
     deterministicStringify,
     validateScenarioExport,

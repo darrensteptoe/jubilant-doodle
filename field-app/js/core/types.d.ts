@@ -81,6 +81,8 @@ export interface DataCatalogBoundarySet {
   source: string | null;
   refreshedAt: string | null;
   hash: string | null;
+  isVerified: boolean;
+  isLatest: boolean;
 }
 
 export interface DataCatalogCrosswalk {
@@ -98,6 +100,7 @@ export interface DataCatalogCrosswalk {
   source: string | null;
   refreshedAt: string | null;
   hash: string | null;
+  isLatest: boolean;
 }
 
 export interface DataCatalogDataset {
@@ -114,6 +117,7 @@ export interface DataCatalogDataset {
     coveragePct: number | null;
     isVerified: boolean;
   };
+  isLatest: boolean;
 }
 
 export interface DataCatalog {
@@ -124,6 +128,30 @@ export interface DataCatalog {
   electionDatasets: DataCatalogDataset[];
   activeBoundarySetId: string | null;
   activeCrosswalkVersionId: string | null;
+}
+
+export interface DataSourceRegistryBoundary extends DataCatalogBoundarySet {}
+export interface DataSourceRegistryCrosswalk extends DataCatalogCrosswalk {
+  coveragePct: number | null;
+  unmatchedPct: number | null;
+  weightDriftPct: number | null;
+}
+export interface DataSourceRegistryDataset extends DataCatalogDataset {
+  coveragePct: number | null;
+}
+export interface DataSourceRegistry {
+  version: string;
+  generatedAt: string;
+  boundarySets: DataSourceRegistryBoundary[];
+  crosswalks: DataSourceRegistryCrosswalk[];
+  censusDatasets: DataSourceRegistryDataset[];
+  electionDatasets: DataSourceRegistryDataset[];
+  byId: {
+    boundarySets: Record<string, DataSourceRegistryBoundary>;
+    crosswalks: Record<string, DataSourceRegistryCrosswalk>;
+    censusDatasets: Record<string, DataSourceRegistryDataset>;
+    electionDatasets: Record<string, DataSourceRegistryDataset>;
+  };
 }
 
 export interface GeoPackUnit {

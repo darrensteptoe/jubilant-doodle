@@ -75,6 +75,7 @@ import {
   normalizeDistrictDataState,
   validateDistrictDataContract,
 } from "./districtData.js";
+import { buildDataSourceRegistry, resolveDataRefsByPolicy } from "./dataSourceRegistry.js";
 import {
   normalizeCensusManifest,
   validateCensusManifest,
@@ -1431,6 +1432,8 @@ export function runSelfTests(engine){
     censusManifestToCatalogEntry,
     electionManifestToCatalogEntry,
     allocatePrecinctVotesToGeo,
+    buildDataSourceRegistry,
+    resolveDataRefsByPolicy,
   });
 
 

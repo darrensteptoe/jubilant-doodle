@@ -144,7 +144,9 @@ export function normalizeDataRefs(raw){
  *     vintage: string | null,
  *     source: string | null,
  *     refreshedAt: string | null,
- *     hash: string | null
+ *     hash: string | null,
+ *     isVerified: boolean,
+ *     isLatest: boolean
  *   }>,
  *   crosswalks: Array<{
  *     id: string,
@@ -160,7 +162,8 @@ export function normalizeDataRefs(raw){
  *     },
  *     source: string | null,
  *     refreshedAt: string | null,
- *     hash: string | null
+ *     hash: string | null,
+ *     isLatest: boolean
  *   }>,
  *   censusDatasets: Array<{
  *     id: string,
@@ -175,7 +178,8 @@ export function normalizeDataRefs(raw){
  *     quality: {
  *       coveragePct: number | null,
  *       isVerified: boolean
- *     }
+ *     },
+ *     isLatest: boolean
  *   }>,
  *   electionDatasets: Array<{
  *     id: string,
@@ -190,7 +194,8 @@ export function normalizeDataRefs(raw){
  *     quality: {
  *       coveragePct: number | null,
  *       isVerified: boolean
- *     }
+ *     },
+ *     isLatest: boolean
  *   }>,
  *   activeBoundarySetId: string | null,
  *   activeCrosswalkVersionId: string | null
@@ -224,6 +229,8 @@ function normalizeBoundarySet(row){
     source: toIdOrNull(row.source),
     refreshedAt: toIsoOrNull(row.refreshedAt),
     hash: toIdOrNull(row.hash),
+    isVerified: row.isVerified == null ? true : !!row.isVerified,
+    isLatest: !!row.isLatest,
   };
 }
 
@@ -257,6 +264,7 @@ function normalizeCrosswalk(row){
     source: toIdOrNull(row.source),
     refreshedAt: toIsoOrNull(row.refreshedAt),
     hash: toIdOrNull(row.hash),
+    isLatest: !!row.isLatest,
   };
 }
 
@@ -276,7 +284,8 @@ function normalizeCrosswalk(row){
  *   quality: {
  *     coveragePct: number | null,
  *     isVerified: boolean
- *   }
+ *   },
+ *   isLatest: boolean
  * } | null}
  */
 function normalizeCatalogDataset(row, kind){
@@ -298,6 +307,7 @@ function normalizeCatalogDataset(row, kind){
       coveragePct: toFiniteOrNull(qualityIn.coveragePct),
       isVerified: !!qualityIn.isVerified,
     },
+    isLatest: !!row.isLatest,
   };
 }
 
@@ -721,8 +731,12 @@ export function validateDistrictDataContract(scenario){
     }
 
     if (refs.mode === "pinned_verified"){
+      const boundary = refs.boundarySetId ? byBoundaryId.get(refs.boundarySetId) : null;
       const census = refs.censusDatasetId ? byCensusId.get(refs.censusDatasetId) : null;
       const election = refs.electionDatasetId ? byElectionId.get(refs.electionDatasetId) : null;
+      if (boundary && !boundary.isVerified){
+        errors.push(`boundary set '${boundary.id}' is not verified but mode is pinned_verified.`);
+      }
       if (census && !census.quality?.isVerified){
         errors.push(`census dataset '${census.id}' is not verified but mode is pinned_verified.`);
       }

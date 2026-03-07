@@ -33,6 +33,8 @@
  *   censusManifestToCatalogEntry: (...args: any[]) => any,
  *   electionManifestToCatalogEntry: (...args: any[]) => any,
  *   allocatePrecinctVotesToGeo: (...args: any[]) => any,
+ *   buildDataSourceRegistry: (...args: any[]) => any,
+ *   resolveDataRefsByPolicy: (...args: any[]) => any,
  * }} ctx
  * @returns {void}
  */
@@ -69,6 +71,8 @@ export function registerReleaseHardeningTests(ctx){
     censusManifestToCatalogEntry,
     electionManifestToCatalogEntry,
     allocatePrecinctVotesToGeo,
+    buildDataSourceRegistry,
+    resolveDataRefsByPolicy,
   } = ctx;
 
   test("Phase 11: Export metadata includes appVersion + buildId", () => {
@@ -459,6 +463,73 @@ export function registerReleaseHardeningTests(ctx){
     assert(joined.reconciliation.unmatchedVotes === 0, "Expected zero unmatched votes");
     assert(joined.reconciliation.coveragePct === 100, "Expected 100% coverage");
     assert((joined.warnings || []).length === 0, "Expected no allocation warnings");
+    return true;
+  });
+
+  test("Phase 18: data source registry materializes deterministic latest flags", () => {
+    const registry = buildDataSourceRegistry({
+      version: "0.1.0",
+      boundarySets: [
+        { id: "sldl_2022", label: "SLDL 2022", geographyType: "SLDL", vintage: "2022", refreshedAt: "2025-01-01T00:00:00.000Z", isVerified: true },
+        { id: "sldl_2024", label: "SLDL 2024", geographyType: "SLDL", vintage: "2024", refreshedAt: "2026-01-01T00:00:00.000Z", isVerified: true },
+      ],
+      crosswalks: [
+        { id: "cw_2022_2024_a", fromBoundarySetId: "sldl_2022", toBoundarySetId: "sldl_2024", unit: "tract", method: "population", quality: { coveragePct: 97, unmatchedPct: 1, weightDriftPct: 0.5, isVerified: true }, refreshedAt: "2026-01-02T00:00:00.000Z" },
+        { id: "cw_2022_2024_b", fromBoundarySetId: "sldl_2022", toBoundarySetId: "sldl_2024", unit: "tract", method: "population", quality: { coveragePct: 99, unmatchedPct: 1, weightDriftPct: 0.3, isVerified: true }, refreshedAt: "2026-02-01T00:00:00.000Z" },
+      ],
+      censusDatasets: [
+        { id: "acs5_2022", kind: "census", label: "ACS 2022", source: "acs5", vintage: "2022", boundarySetId: "sldl_2024", granularity: "tract", quality: { coveragePct: 96, isVerified: true }, refreshedAt: "2025-01-01T00:00:00.000Z" },
+        { id: "acs5_2024", kind: "census", label: "ACS 2024", source: "acs5", vintage: "2024", boundarySetId: "sldl_2024", granularity: "tract", quality: { coveragePct: 98, isVerified: true }, refreshedAt: "2026-01-01T00:00:00.000Z" },
+      ],
+      electionDatasets: [
+        { id: "mit_2022", kind: "election", label: "MIT 2022", source: "mit", vintage: "2022", boundarySetId: "sldl_2024", granularity: "precinct", quality: { coveragePct: 96, isVerified: true }, refreshedAt: "2025-01-03T00:00:00.000Z" },
+        { id: "mit_2024", kind: "election", label: "MIT 2024", source: "mit", vintage: "2024", boundarySetId: "sldl_2024", granularity: "precinct", quality: { coveragePct: 98, isVerified: true }, refreshedAt: "2026-01-03T00:00:00.000Z" },
+      ],
+    });
+
+    const latestBoundary = registry.boundarySets.find((r) => r.id === "sldl_2024");
+    const latestCrosswalk = registry.crosswalks.find((r) => r.id === "cw_2022_2024_b");
+    const latestCensus = registry.censusDatasets.find((r) => r.id === "acs5_2024");
+    const latestElection = registry.electionDatasets.find((r) => r.id === "mit_2024");
+    assert(!!latestBoundary?.isLatest, "Expected newest boundary to be latest");
+    assert(!!latestCrosswalk?.isLatest, "Expected newest crosswalk to be latest");
+    assert(!!latestCensus?.isLatest, "Expected newest census dataset to be latest");
+    assert(!!latestElection?.isLatest, "Expected newest election dataset to be latest");
+    return true;
+  });
+
+  test("Phase 18: latest_verified policy resolves missing pins to latest verified entries", () => {
+    const resolved = resolveDataRefsByPolicy({
+      dataRefs: {
+        mode: "latest_verified",
+        boundarySetId: "missing_boundary",
+        crosswalkVersionId: "missing_crosswalk",
+        censusDatasetId: "missing_census",
+        electionDatasetId: "missing_election",
+      },
+      dataCatalog: {
+        boundarySets: [
+          { id: "sldl_2024", label: "SLDL 2024", geographyType: "SLDL", vintage: "2024", isVerified: true, isLatest: true },
+        ],
+        crosswalks: [
+          { id: "cw_2022_2024", fromBoundarySetId: "sldl_2022", toBoundarySetId: "sldl_2024", unit: "tract", method: "population", isLatest: true, quality: { coveragePct: 99, unmatchedPct: 1, weightDriftPct: 0.1, isVerified: true } },
+        ],
+        censusDatasets: [
+          { id: "acs5_2024", kind: "census", label: "ACS 2024", source: "acs5", vintage: "2024", boundarySetId: "sldl_2024", granularity: "tract", isLatest: true, quality: { coveragePct: 98, isVerified: true } },
+        ],
+        electionDatasets: [
+          { id: "mit_2024", kind: "election", label: "MIT 2024", source: "mit", vintage: "2024", boundarySetId: "sldl_2024", granularity: "precinct", isLatest: true, quality: { coveragePct: 98, isVerified: true } },
+        ],
+      },
+    });
+
+    assert(resolved.mode === "latest_verified", "Expected latest_verified mode");
+    assert(resolved.selected.boundarySetId === "sldl_2024", "Expected fallback to latest boundary");
+    assert(resolved.selected.crosswalkVersionId === "cw_2022_2024", "Expected fallback to latest crosswalk");
+    assert(resolved.selected.censusDatasetId === "acs5_2024", "Expected fallback to latest census dataset");
+    assert(resolved.selected.electionDatasetId === "mit_2024", "Expected fallback to latest election dataset");
+    assert(resolved.usedFallbacks === true, "Expected fallback marker in latest_verified mode");
+    assert((resolved.notes || []).length >= 1, "Expected fallback notes");
     return true;
   });
 }
