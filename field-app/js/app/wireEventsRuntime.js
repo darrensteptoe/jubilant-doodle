@@ -1231,6 +1231,16 @@ export function wireResetImportAndUiToggles(ctx){
       if (quality.warnings?.length){
         importWarnings.push(...quality.warnings);
       }
+      const districtContract = engine.snapshot.validateDistrictDataContract(scenarioForImport);
+      if (!districtContract.ok){
+        const details = districtContract.errors.map((x) => `- ${x}`).join("\n");
+        alert(`Import failed: district data contract checks failed.\n${details}`);
+        els.loadJson.value = "";
+        return;
+      }
+      if (districtContract.warnings?.length){
+        importWarnings.push(...districtContract.warnings);
+      }
       const normalizedWarnings = normalizeImportWarnings(importWarnings);
 
       if (els.importWarnBanner){

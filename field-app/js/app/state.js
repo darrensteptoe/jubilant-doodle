@@ -1,5 +1,11 @@
 // @ts-check
 import { makeDefaultIntelState, normalizeIntelState } from "../core/intelState.js";
+import {
+  makeDefaultDataRefs,
+  makeDefaultGeoPack,
+  makeDefaultDistrictIntelPack,
+  normalizeDistrictDataState,
+} from "../core/districtData.js";
 import { makeDefaultFeatureFlags, syncFeatureFlagsFromState } from "./featureFlags.js";
 
 export const DEFAULTS_BY_TEMPLATE = {
@@ -32,6 +38,10 @@ export function makeDefaultState({ createId = defaultCreateId } = {}){
     universeBasis: "registered",
     universeSize: "",
     sourceNote: "",
+    useDistrictIntel: false,
+    dataRefs: makeDefaultDataRefs(),
+    geoPack: makeDefaultGeoPack(),
+    districtIntelPack: makeDefaultDistrictIntelPack(),
     turnoutA: "",
     turnoutB: "",
     bandWidth: DEFAULTS_BY_TEMPLATE.state_leg.bandWidth,
@@ -187,6 +197,7 @@ export function normalizeLoadedState(s, { createId = defaultCreateId } = {}){
   out.userSplit = (s?.userSplit && typeof s.userSplit === "object") ? s.userSplit : {};
   out.intelState = normalizeIntelState(s?.intelState);
   out.ui = { ...base.ui, ...(s?.ui || {}) };
+  normalizeDistrictDataState(out);
 
   ensureBudgetShape(out, { createId });
 
@@ -209,6 +220,7 @@ export function requiredScenarioKeysMissing(scen){
   const required = [
     "scenarioName", "raceType", "electionDate", "weeksRemaining", "mode",
     "universeBasis", "universeSize", "turnoutA", "turnoutB", "bandWidth",
+    "useDistrictIntel", "dataRefs", "geoPack", "districtIntelPack",
     "candidates", "undecidedPct", "yourCandidateId", "undecidedMode", "persuasionPct",
     "earlyVoteExp", "supportRatePct", "contactRatePct", "turnoutReliabilityPct",
     "universeLayerEnabled", "universeDemPct", "universeRepPct", "universeNpaPct", "universeOtherPct", "retentionFactor",

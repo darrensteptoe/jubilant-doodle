@@ -145,6 +145,12 @@ export function createBackupRecoveryController(deps = {}){
       alert(`Backup restore failed: quality checks failed.\n${details}`);
       return;
     }
+    const districtContract = engine.snapshot.validateDistrictDataContract(validated.scenario);
+    if (!districtContract.ok){
+      const details = districtContract.errors.map((x) => `- ${x}`).join("\n");
+      alert(`Backup restore failed: district data contract checks failed.\n${details}`);
+      return;
+    }
 
     try{
       const currentState = getState();
@@ -184,6 +190,7 @@ export function createBackupRecoveryController(deps = {}){
     const restoreWarnings = [];
     if (Array.isArray(migrated?.warnings)) restoreWarnings.push(...migrated.warnings);
     if (Array.isArray(quality?.warnings)) restoreWarnings.push(...quality.warnings);
+    if (Array.isArray(districtContract?.warnings)) restoreWarnings.push(...districtContract.warnings);
     if (els.importWarnBanner){
       if (restoreWarnings.length){
         const shown = restoreWarnings.slice(0, 6).join(" ");

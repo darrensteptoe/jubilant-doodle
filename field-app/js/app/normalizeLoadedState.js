@@ -1,5 +1,6 @@
 // @ts-check
 import { normalizeIntelState } from "../core/intelState.js";
+import { normalizeDistrictDataState } from "../core/districtData.js";
 import { syncFeatureFlagsFromState } from "./featureFlags.js";
 import { ensureBudgetShape } from "./state.js";
 
@@ -37,6 +38,7 @@ export function normalizeLoadedStateModule(s, deps){
   out.userSplit = (src.userSplit && typeof src.userSplit === "object") ? src.userSplit : {};
   out.intelState = normalizeIntelState(src.intelState);
   out.ui = { ...base.ui, ...(src.ui || {}) };
+  normalizeDistrictDataState(out);
 
   ensureBudgetShape(out);
 
