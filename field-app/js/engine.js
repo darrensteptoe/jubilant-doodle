@@ -1,3 +1,4 @@
+// @ts-check
 // js/engine.js
 // Steptoe Strategic Media LLC Campaign Engine 2.0 — Facade API over the sacred core engine.
 // UI must call ONLY this module for computations/optimization/diagnostics/snapshot handling.
@@ -38,6 +39,10 @@ import { gateFromSelfTestResult, SELFTEST_GATE } from "./core/selfTestGate.js";
 import * as risk from "./core/risk.js";
 import * as robust from "./core/robust.js";
 
+/**
+ * @param {Record<string, any>} inputs
+ * @param {{ explain?: boolean }=} options
+ */
 function computeAllWithExplain(inputs, options){
   const result = computeAll(inputs, options);
   if (!options || options.explain !== true) return result;
@@ -49,6 +54,9 @@ function computeAllWithExplain(inputs, options){
 }
 
 // Internal: build the engine accessor bundle expected by selfTest + sensitivitySurface.
+/**
+ * @returns {Record<string, (...args: any[]) => any>}
+ */
 function buildAccessors(){
   return {
     computeAll: (mi, options) => computeAllWithExplain(mi, options),
