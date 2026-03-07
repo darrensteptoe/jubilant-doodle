@@ -800,6 +800,7 @@ export function renderIntelChecksModule({
   const summarizeGeoEvidenceLayers = engine?.snapshot?.summarizeGeoEvidenceLayers;
   const resolveDistrictEvidenceInputs = engine?.snapshot?.resolveDistrictEvidenceInputs;
   const resolveDataRefsByPolicy = engine?.snapshot?.resolveDataRefsByPolicy;
+  const diagnoseDataRefAlignment = engine?.snapshot?.diagnoseDataRefAlignment;
   const buildDataSourceRegistry = engine?.snapshot?.buildDataSourceRegistry;
   const rankElectionDatasetsForScenario = engine?.snapshot?.rankElectionDatasetsForScenario;
   let resolvedInputs = null;
@@ -852,10 +853,26 @@ export function renderIntelChecksModule({
   const censusId = String(refsIn.censusDatasetId || "").trim();
   const electionId = String(refsIn.electionDatasetId || "").trim();
   const crosswalkId = String(refsIn.crosswalkVersionId || "").trim();
+  const strictSimilarity = !!refsIn.electionStrictSimilarity;
+  const maxYearDelta = toFinite(refsIn.electionMaxYearDelta);
+  const minCoveragePct = toFinite(refsIn.electionMinCoveragePct);
 
   if (els.intelDataRefMode){
     els.intelDataRefMode.value = dataRefMode;
     if (els.intelDataRefMode.value !== dataRefMode) els.intelDataRefMode.value = "pinned_verified";
+  }
+  if (els.intelDataRefStrictSimilarity){
+    els.intelDataRefStrictSimilarity.checked = strictSimilarity;
+  }
+  if (els.intelDataRefMaxYearDelta){
+    els.intelDataRefMaxYearDelta.value = Number.isFinite(maxYearDelta)
+      ? String(Math.max(0, Math.round(maxYearDelta)))
+      : "";
+  }
+  if (els.intelDataRefMinCoveragePct){
+    els.intelDataRefMinCoveragePct.value = Number.isFinite(minCoveragePct)
+      ? String(minCoveragePct)
+      : "";
   }
   fillDataRefSelect(
     els.intelDataRefBoundarySet,
@@ -900,6 +917,9 @@ export function renderIntelChecksModule({
   if (electionId) sourceParts.push(`Election: ${electionId}`);
   if (crosswalkId) sourceParts.push(`Crosswalk: ${crosswalkId}`);
   if (resolverMode) sourceParts.push(`Input mode: ${resolverMode}`);
+  if (strictSimilarity) sourceParts.push("Strict: office+race");
+  if (Number.isFinite(maxYearDelta)) sourceParts.push(`Year gap<=${Math.max(0, Math.round(maxYearDelta))}`);
+  if (Number.isFinite(minCoveragePct)) sourceParts.push(`Coverage>=${Math.max(0, Math.min(100, minCoveragePct)).toFixed(1)}%`);
   if (els.intelDistrictEvidenceSource){
     els.intelDistrictEvidenceSource.textContent = sourceParts.length
       ? sourceParts.join(" · ")
@@ -936,6 +956,52 @@ export function renderIntelChecksModule({
       renderDataRefStatus(els.intelDataRefStatus, "Data refs ready.", "ok");
     }
   }
+  if (els.intelDataRefAlignmentSummary || els.intelDataRefAlignmentDetail){
+    let diag = null;
+    if (typeof diagnoseDataRefAlignment === "function"){
+      try{
+        diag = diagnoseDataRefAlignment({
+          dataRefs: state?.dataRefs,
+          dataCatalog: state?.dataCatalog,
+          scenario: state,
+        });
+      } catch {
+        diag = null;
+      }
+    }
+    const statusKind = String(diag?.status || "").trim();
+    const summary = String(diag?.summary || "").trim();
+    const warnings = Array.isArray(diag?.warnings) ? diag.warnings.map((x) => String(x || "").trim()).filter(Boolean) : [];
+    const details = diag && typeof diag === "object" ? diag.details || {} : {};
+    const coverageBits = [
+      Number.isFinite(Number(details?.crosswalkCoveragePct)) ? `XW ${Number(details.crosswalkCoveragePct).toFixed(1)}%` : null,
+      Number.isFinite(Number(details?.censusCoveragePct)) ? `Census ${Number(details.censusCoveragePct).toFixed(1)}%` : null,
+      Number.isFinite(Number(details?.electionCoveragePct)) ? `Election ${Number(details.electionCoveragePct).toFixed(1)}%` : null,
+    ].filter(Boolean);
+    const yearGap = Number(details?.electionYearGap);
+    if (els.intelDataRefAlignmentSummary){
+      els.intelDataRefAlignmentSummary.classList.remove("ok", "warn", "bad", "muted");
+      if (statusKind === "bad"){
+        els.intelDataRefAlignmentSummary.classList.add("bad");
+      } else if (statusKind === "warn"){
+        els.intelDataRefAlignmentSummary.classList.add("warn");
+      } else if (statusKind === "ok"){
+        els.intelDataRefAlignmentSummary.classList.add("ok");
+      } else {
+        els.intelDataRefAlignmentSummary.classList.add("muted");
+      }
+      els.intelDataRefAlignmentSummary.textContent = summary || "Alignment: not evaluated yet.";
+    }
+    if (els.intelDataRefAlignmentDetail){
+      const bits = [];
+      if (coverageBits.length) bits.push(coverageBits.join(" · "));
+      if (Number.isFinite(yearGap)) bits.push(`Year gap ${Math.max(0, Math.round(yearGap))}`);
+      if (warnings.length) bits.push(`Note: ${warnings[0]}`);
+      els.intelDataRefAlignmentDetail.textContent = bits.length
+        ? bits.join(" · ")
+        : "Coverage/year-gap checks will appear after refs resolve.";
+    }
+  }
 
   const selectedElectionId = String(
     effectiveIds.electionDatasetId ||
@@ -954,6 +1020,11 @@ export function renderIntelChecksModule({
         scenario: state,
         boundarySetId: selectedBoundaryId,
         requireVerified: true,
+        filters: {
+          strictSimilarity,
+          maxYearDelta: Number.isFinite(maxYearDelta) ? Math.max(0, Math.round(maxYearDelta)) : null,
+          minCoveragePct: Number.isFinite(minCoveragePct) ? Math.max(0, Math.min(100, minCoveragePct)) : null,
+        },
       });
     } catch {
       rankedElectionDatasets = [];
