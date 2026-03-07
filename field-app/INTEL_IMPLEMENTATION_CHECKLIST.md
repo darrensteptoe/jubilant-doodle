@@ -408,3 +408,20 @@ Execution order for the first functional district-evidence layer.
      - adds Stage 9 controls for strict similarity, max cycle gap, and min coverage.
    - `/Users/anakinskywalker/Downloads/field-app-40/js/core/selfTestSuites/releaseHardening.js`
      - adds regression test verifying filter-constrained ranking + resolver behavior.
+12. [x] Add active data-ref alignment diagnostics (boundary/crosswalk/census/election coherence):
+   - `/Users/anakinskywalker/Downloads/field-app-40/js/core/dataSourceRegistry.js`
+     - adds `diagnoseDataRefAlignment(...)` with deterministic warnings for:
+       - missing refs,
+       - boundary-crosswalk mismatch,
+       - dataset boundary mismatch,
+       - election year-gap/filter violations,
+       - low coverage signals.
+   - `/Users/anakinskywalker/Downloads/field-app-40/js/engine.js`
+     - exposes alignment diagnostics through snapshot facade.
+   - `/Users/anakinskywalker/Downloads/field-app-40/index.html`
+   - `/Users/anakinskywalker/Downloads/field-app-40/js/ui/els.js`
+   - `/Users/anakinskywalker/Downloads/field-app-40/js/app/renderIntelChecks.js`
+     - renders alignment summary + detail lines in Stage 9.
+   - `/Users/anakinskywalker/Downloads/field-app-40/js/core/selfTestSuites/releaseHardening.js`
+   - `/Users/anakinskywalker/Downloads/field-app-40/js/core/selfTest.js`
+     - adds regression test for mismatch/year-gap warning behavior.
