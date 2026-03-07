@@ -459,6 +459,6 @@ Execution order for the first functional district-evidence layer.
    - `/Users/anakinskywalker/Downloads/field-app-40/index.html`
    - `/Users/anakinskywalker/Downloads/field-app-40/js/ui/els.js`
    - `/Users/anakinskywalker/Downloads/field-app-40/js/app/renderIntelChecks.js`
-     - renders read-only precinct table (votes, top candidate, margin, mapped GEO count, district weight).
+     - renders read-only precinct table (votes, top candidate, margin, mapped GEO count, district weight, top GEO links).
    - `/Users/anakinskywalker/Downloads/field-app-40/js/core/selfTestSuites/releaseHardening.js`
      - adds deterministic regression coverage for precinct-layer ordering and weight math.
