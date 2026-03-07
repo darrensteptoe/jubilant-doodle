@@ -200,5 +200,14 @@ Execution order below is fixed and must be followed in sequence.
        - `/Users/anakinskywalker/Downloads/field-app-40/js/app/state.js`
        - `/Users/anakinskywalker/Downloads/field-app-40/js/app/normalizeLoadedState.js`
        - `/Users/anakinskywalker/Downloads/field-app-40/js/engine.js`
+       - `/Users/anakinskywalker/Downloads/field-app-40/js/app/modelInput.js`
+       - `/Users/anakinskywalker/Downloads/field-app-40/js/app/selectors.js`
+       - `/Users/anakinskywalker/Downloads/field-app-40/js/app/effectiveInputs.js`
+       - `/Users/anakinskywalker/Downloads/field-app-40/js/app/featureFlags.js`
+       - `/Users/anakinskywalker/Downloads/field-app-40/js/app/assumptionsProfile.js`
+       - `/Users/anakinskywalker/Downloads/field-app-40/js/app/backupRecovery.js`
+       - `/Users/anakinskywalker/Downloads/field-app-40/js/app/candidateUi.js`
+       - `/Users/anakinskywalker/Downloads/field-app-40/js/app/diagnosticsRuntime.js`
+       - `/Users/anakinskywalker/Downloads/field-app-40/js/app/scenarioLockUi.js`
       - added shared core type declarations:
         - `/Users/anakinskywalker/Downloads/field-app-40/js/core/types.d.ts`
