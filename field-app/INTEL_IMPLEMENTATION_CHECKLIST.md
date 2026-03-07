@@ -425,3 +425,10 @@ Execution order for the first functional district-evidence layer.
    - `/Users/anakinskywalker/Downloads/field-app-40/js/core/selfTestSuites/releaseHardening.js`
    - `/Users/anakinskywalker/Downloads/field-app-40/js/core/selfTest.js`
      - adds regression test for mismatch/year-gap warning behavior.
+13. [x] Add dataset freshness diagnostics for selected refs (age-days + stale warnings):
+   - `/Users/anakinskywalker/Downloads/field-app-40/js/core/dataSourceRegistry.js`
+     - `diagnoseDataRefAlignment(...)` now reports selected metadata with `ageDays` and stale/no-refresh warnings.
+   - `/Users/anakinskywalker/Downloads/field-app-40/js/app/renderIntelChecks.js`
+     - Stage 9 alignment detail now surfaces per-source age (`Boundary/Crosswalk/Census/Election Nd`).
+   - `/Users/anakinskywalker/Downloads/field-app-40/js/core/selfTestSuites/releaseHardening.js`
+     - adds deterministic freshness-age regression coverage via fixed `nowIso`.
