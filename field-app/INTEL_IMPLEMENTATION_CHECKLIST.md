@@ -275,3 +275,7 @@ Execution order for MIT precinct + Census integration begins here.
    - `/Users/anakinskywalker/Downloads/field-app-40/js/core/selfTest.js`
 6. [x] Add formal schema artifact for tooling/reference:
    - `/Users/anakinskywalker/Downloads/field-app-40/js/schemas/districtData.v1.schema.json`
+7. [x] Add boundary/crosswalk catalog scaffold + quality gates (contract layer only):
+   - `/Users/anakinskywalker/Downloads/field-app-40/js/core/districtData.js`
+   - `dataCatalog.boundarySets[]`, `dataCatalog.crosswalks[]`
+   - enforced gates for `pinned_verified`: verified crosswalk + coverage/unmatched/drift thresholds.
