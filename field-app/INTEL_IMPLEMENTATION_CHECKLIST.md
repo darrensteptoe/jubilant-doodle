@@ -295,3 +295,8 @@ Execution order for MIT precinct + Census integration begins here.
     - deterministic cache key includes `type + id + boundarySetId + boundaryVintage + resolution`.
     - derived context helper resolves boundary vintage via registry for stable cache identity.
     - self-tests added in `/Users/anakinskywalker/Downloads/field-app-40/js/core/selfTestSuites/releaseHardening.js`.
+11. [x] Wire policy behavior into runtime import/restore with fallback messaging:
+    - `/Users/anakinskywalker/Downloads/field-app-40/js/app/dataRefPolicyRuntime.js`
+    - import and backup-restore paths now apply `latest_verified` resolver before district-contract validation.
+    - fallback notes are surfaced through import warning banner messaging.
+    - pinned/manual paths remain strict and do not rewrite explicit refs.
