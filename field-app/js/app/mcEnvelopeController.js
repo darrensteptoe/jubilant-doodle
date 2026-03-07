@@ -1,10 +1,8 @@
-import { renderMcFreshnessModule } from "./mcFreshness.js";
 import {
+  renderMcFreshnessModule,
   buildAdvancedSpecsModule,
   buildBasicSpecsModule,
   quantileSortedModule,
-} from "./mcSpecBuilders.js";
-import {
   hashOpsEnvelopeInputsModule,
   computeOpsEnvelopeD2Module,
   renderOpsEnvelopeD2Module,
@@ -14,7 +12,7 @@ import {
   hashMissRiskInputsModule,
   computeMissRiskD4Module,
   renderMissRiskD4Module,
-} from "./mcEnvelopePanels.js";
+} from "./monteCarloApp.js";
 
 export function createMcEnvelopeController({
   els,

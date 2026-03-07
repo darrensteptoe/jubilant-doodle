@@ -1,4 +1,4 @@
-import { runMonteCarloNowModule } from "./monteCarloRun.js";
+import { runMonteCarloNowModule } from "./monteCarloApp.js";
 
 export function createMcRuntimeController({
   getState,
