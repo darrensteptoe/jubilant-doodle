@@ -451,3 +451,14 @@ Execution order for the first functional district-evidence layer.
      - renders read-only SVG centroid map and explicit unavailable-state messaging.
    - `/Users/anakinskywalker/Downloads/field-app-40/js/core/selfTestSuites/releaseHardening.js`
      - adds deterministic coverage for map-layer points/bounds and missing-centroid behavior.
+16. [x] Add Stage 9 precinct-layer vote summary (precinct↔GEO relationship visibility):
+   - `/Users/anakinskywalker/Downloads/field-app-40/js/core/districtEvidence.js`
+     - adds deterministic `summarizePrecinctEvidenceLayers(...)`.
+   - `/Users/anakinskywalker/Downloads/field-app-40/js/engine.js`
+     - exposes precinct-layer summary through snapshot facade.
+   - `/Users/anakinskywalker/Downloads/field-app-40/index.html`
+   - `/Users/anakinskywalker/Downloads/field-app-40/js/ui/els.js`
+   - `/Users/anakinskywalker/Downloads/field-app-40/js/app/renderIntelChecks.js`
+     - renders read-only precinct table (votes, top candidate, margin, mapped GEO count, district weight).
+   - `/Users/anakinskywalker/Downloads/field-app-40/js/core/selfTestSuites/releaseHardening.js`
+     - adds deterministic regression coverage for precinct-layer ordering and weight math.
