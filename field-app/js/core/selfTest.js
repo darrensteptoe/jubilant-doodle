@@ -79,6 +79,7 @@ import {
   buildDataSourceRegistry,
   resolveDataRefsByPolicy,
   materializePinnedDataRefs,
+  diagnoseDataRefAlignment,
   scoreElectionDatasetCompatibility,
   rankElectionDatasetsForScenario,
 } from "./dataSourceRegistry.js";
@@ -1460,6 +1461,7 @@ export function runSelfTests(engine){
     buildDataSourceRegistry,
     resolveDataRefsByPolicy,
     materializePinnedDataRefs,
+    diagnoseDataRefAlignment,
     scoreElectionDatasetCompatibility,
     rankElectionDatasetsForScenario,
     normalizeAreaSelection,

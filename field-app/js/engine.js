@@ -25,6 +25,7 @@ import {
   buildDataSourceRegistry,
   resolveDataRefsByPolicy,
   materializePinnedDataRefs,
+  diagnoseDataRefAlignment,
   scoreElectionDatasetCompatibility,
   rankElectionDatasetsForScenario,
 } from "./core/dataSourceRegistry.js";
@@ -128,6 +129,7 @@ export const engine = {
     buildDataSourceRegistry,
     resolveDataRefsByPolicy,
     materializePinnedDataRefs,
+    diagnoseDataRefAlignment,
     scoreElectionDatasetCompatibility,
     rankElectionDatasetsForScenario,
     normalizeAreaSelection,

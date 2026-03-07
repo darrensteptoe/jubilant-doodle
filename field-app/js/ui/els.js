@@ -477,6 +477,8 @@ export const els = {
   btnIntelDataRefSelectTopElection: document.getElementById("btnIntelDataRefSelectTopElection"),
   btnIntelDataRefsPin: document.getElementById("btnIntelDataRefsPin"),
   intelDataRefStatus: document.getElementById("intelDataRefStatus"),
+  intelDataRefAlignmentSummary: document.getElementById("intelDataRefAlignmentSummary"),
+  intelDataRefAlignmentDetail: document.getElementById("intelDataRefAlignmentDetail"),
   intelDistrictEvidenceSource: document.getElementById("intelDistrictEvidenceSource"),
   intelDistrictEvidenceStatus: document.getElementById("intelDistrictEvidenceStatus"),
   intelDistrictEvidenceCoverage: document.getElementById("intelDistrictEvidenceCoverage"),

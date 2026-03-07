@@ -964,3 +964,142 @@ export function materializePinnedDataRefs(args){
 
   return { dataRefs: out, changed, notes };
 }
+
+/**
+ * Deterministic diagnostics for selected data refs and their compatibility.
+ * Pure metadata check; does not mutate refs or model math.
+ *
+ * @param {{
+ *   dataRefs: unknown,
+ *   dataCatalog: unknown,
+ *   scenario?: unknown
+ * }} args
+ * @returns {{
+ *   status: "ok" | "warn" | "bad",
+ *   summary: string,
+ *   warnings: string[],
+ *   details: {
+ *     mode: "pinned_verified" | "latest_verified" | "manual",
+ *     selected: {
+ *       boundarySetId: string | null,
+ *       crosswalkVersionId: string | null,
+ *       censusDatasetId: string | null,
+ *       electionDatasetId: string | null
+ *     },
+ *     targetElectionYear: number | null,
+ *     electionCycleYear: number | null,
+ *     electionYearGap: number | null,
+ *     censusCoveragePct: number | null,
+ *     electionCoveragePct: number | null,
+ *     crosswalkCoveragePct: number | null
+ *   }
+ * }}
+ */
+export function diagnoseDataRefAlignment(args){
+  const refs = normalizeDataRefs(args?.dataRefs);
+  const registry = buildDataSourceRegistry(args?.dataCatalog);
+  const resolution = resolveDataRefsByPolicy({
+    dataRefs: refs,
+    dataCatalog: args?.dataCatalog,
+    scenario: args?.scenario,
+  });
+  const selected = resolution.selected || {};
+  const byId = registry.byId || {};
+  const boundary = selected.boundarySetId ? byId?.boundarySets?.[selected.boundarySetId] || null : null;
+  const crosswalk = selected.crosswalkVersionId ? byId?.crosswalks?.[selected.crosswalkVersionId] || null : null;
+  const census = selected.censusDatasetId ? byId?.censusDatasets?.[selected.censusDatasetId] || null : null;
+  const election = selected.electionDatasetId ? byId?.electionDatasets?.[selected.electionDatasetId] || null : null;
+
+  const warnings = [];
+  const missing = [];
+  if (!boundary) missing.push("boundary");
+  if (!crosswalk) missing.push("crosswalk");
+  if (!census) missing.push("census");
+  if (!election) missing.push("election");
+  if (missing.length){
+    warnings.push(`Missing selected refs: ${missing.join(", ")}.`);
+  }
+
+  const boundaryId = str(boundary?.id || selected?.boundarySetId);
+  if (crosswalk && boundaryId){
+    const fromId = str(crosswalk.fromBoundarySetId);
+    const toId = str(crosswalk.toBoundarySetId);
+    if (boundaryId !== fromId && boundaryId !== toId){
+      warnings.push(`Crosswalk '${crosswalk.id}' does not reference boundary set '${boundaryId}'.`);
+    }
+  }
+  if (census && boundaryId){
+    const censusBoundaryId = str(census.boundarySetId);
+    if (censusBoundaryId && censusBoundaryId !== boundaryId){
+      warnings.push(`Census dataset '${census.id}' boundary '${censusBoundaryId}' differs from selected boundary '${boundaryId}'.`);
+    }
+  }
+  if (election && boundaryId){
+    const electionBoundaryId = str(election.boundarySetId);
+    if (electionBoundaryId && electionBoundaryId !== boundaryId){
+      warnings.push(`Election dataset '${election.id}' boundary '${electionBoundaryId}' differs from selected boundary '${boundaryId}'.`);
+    }
+  }
+
+  const targetYear = deriveTargetElectionYear(args?.scenario);
+  const electionYear = toYearOrNull(election?.cycleYear) ?? toYearOrNull(election?.electionDate) ?? toYearOrNull(election?.vintage);
+  const electionYearGap = (targetYear != null && electionYear != null) ? Math.abs(targetYear - electionYear) : null;
+  const maxYearGap = numOrNull(refs.electionMaxYearDelta);
+  if (maxYearGap != null && electionYearGap != null && electionYearGap > maxYearGap){
+    warnings.push(`Election cycle gap ${electionYearGap} exceeds filter ${Math.round(maxYearGap)}.`);
+  }
+
+  const crosswalkCoveragePct = numOrNull(crosswalk?.coveragePct);
+  const censusCoveragePct = numOrNull(census?.coveragePct);
+  const electionCoveragePct = numOrNull(election?.coveragePct);
+  const minCoverage = numOrNull(refs.electionMinCoveragePct);
+  if (minCoverage != null && electionCoveragePct != null && electionCoveragePct < minCoverage){
+    warnings.push(`Election coverage ${electionCoveragePct.toFixed(1)}% is below filter ${minCoverage.toFixed(1)}%.`);
+  }
+  if (crosswalkCoveragePct != null && crosswalkCoveragePct < 95){
+    warnings.push(`Crosswalk coverage is low (${crosswalkCoveragePct.toFixed(1)}%).`);
+  }
+  if (censusCoveragePct != null && censusCoveragePct < 95){
+    warnings.push(`Census coverage is low (${censusCoveragePct.toFixed(1)}%).`);
+  }
+  if (electionCoveragePct != null && electionCoveragePct < 95){
+    warnings.push(`Election coverage is low (${electionCoveragePct.toFixed(1)}%).`);
+  }
+
+  let status = "ok";
+  if (missing.length){
+    status = "bad";
+  } else if (warnings.length){
+    status = "warn";
+  }
+
+  const summaryParts = [];
+  if (resolution.mode) summaryParts.push(`Mode ${resolution.mode}`);
+  if (boundaryId) summaryParts.push(`Boundary ${boundaryId}`);
+  if (selected.crosswalkVersionId) summaryParts.push(`Crosswalk ${selected.crosswalkVersionId}`);
+  if (selected.censusDatasetId) summaryParts.push(`Census ${selected.censusDatasetId}`);
+  if (selected.electionDatasetId) summaryParts.push(`Election ${selected.electionDatasetId}`);
+  if (electionYearGap != null) summaryParts.push(`Year gap ${electionYearGap}`);
+  const summary = summaryParts.join(" · ") || "No active data refs selected.";
+
+  return {
+    status,
+    summary,
+    warnings,
+    details: {
+      mode: resolution.mode,
+      selected: {
+        boundarySetId: selected.boundarySetId || null,
+        crosswalkVersionId: selected.crosswalkVersionId || null,
+        censusDatasetId: selected.censusDatasetId || null,
+        electionDatasetId: selected.electionDatasetId || null,
+      },
+      targetElectionYear: targetYear,
+      electionCycleYear: electionYear,
+      electionYearGap,
+      censusCoveragePct,
+      electionCoveragePct,
+      crosswalkCoveragePct,
+    },
+  };
+}

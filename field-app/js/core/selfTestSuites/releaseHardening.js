@@ -43,6 +43,7 @@
  *   buildDataSourceRegistry: (...args: any[]) => any,
  *   resolveDataRefsByPolicy: (...args: any[]) => any,
  *   materializePinnedDataRefs: (...args: any[]) => any,
+ *   diagnoseDataRefAlignment: (...args: any[]) => any,
  *   scoreElectionDatasetCompatibility: (...args: any[]) => any,
  *   rankElectionDatasetsForScenario: (...args: any[]) => any,
  *   normalizeAreaSelection: (...args: any[]) => any,
@@ -94,6 +95,7 @@ export function registerReleaseHardeningTests(ctx){
     buildDataSourceRegistry,
     resolveDataRefsByPolicy,
     materializePinnedDataRefs,
+    diagnoseDataRefAlignment,
     scoreElectionDatasetCompatibility,
     rankElectionDatasetsForScenario,
     normalizeAreaSelection,
@@ -904,6 +906,47 @@ export function registerReleaseHardeningTests(ctx){
       },
     });
     assert(resolved.selected.electionDatasetId === "mit_state_house_2022", "Expected policy resolver to honor election compatibility filters");
+    return true;
+  });
+
+  test("Phase 20: data-ref alignment diagnostics flags boundary mismatch and large year gap", () => {
+    const catalog = {
+      boundarySets: [
+        { id: "sldl_2024", label: "SLDL 2024", geographyType: "SLDL", vintage: "2024", isVerified: true, isLatest: true },
+      ],
+      crosswalks: [
+        { id: "cw_other", fromBoundarySetId: "sldl_2018", toBoundarySetId: "sldl_2018", unit: "tract", method: "population", isLatest: true, quality: { coveragePct: 99, unmatchedPct: 1, weightDriftPct: 0.1, isVerified: true } },
+      ],
+      censusDatasets: [
+        { id: "acs5_2024", kind: "census", label: "ACS 2024", source: "acs5", vintage: "2024", boundarySetId: "sldl_2024", granularity: "tract", isLatest: true, quality: { coveragePct: 98, isVerified: true } },
+      ],
+      electionDatasets: [
+        { id: "mit_state_house_2016", kind: "election", label: "MIT State House 2016", source: "mit", vintage: "2016", electionDate: "2016-11-08", officeType: "state_house", raceType: "state_leg", boundarySetId: "sldl_2024", granularity: "precinct", isLatest: true, quality: { coveragePct: 96, isVerified: true } },
+      ],
+    };
+
+    const diag = diagnoseDataRefAlignment({
+      dataRefs: {
+        mode: "manual",
+        boundarySetId: "sldl_2024",
+        crosswalkVersionId: "cw_other",
+        censusDatasetId: "acs5_2024",
+        electionDatasetId: "mit_state_house_2016",
+        electionMaxYearDelta: 4,
+      },
+      dataCatalog: catalog,
+      scenario: {
+        raceType: "state_leg",
+        electionDate: "2026-11-03",
+        geoPack: { area: { type: "SLDL" } },
+      },
+    });
+
+    assert(diag.status === "warn", "Expected warn status for alignment issues");
+    assert(Array.isArray(diag.warnings) && diag.warnings.length >= 1, "Expected alignment warnings");
+    assert(diag.warnings.some((x) => String(x).includes("does not reference boundary set")), "Expected boundary-crosswalk mismatch warning");
+    assert(diag.warnings.some((x) => String(x).includes("exceeds filter")), "Expected year-gap warning");
+    assert(Number(diag.details?.electionYearGap) === 10, "Expected computed election year gap");
     return true;
   });
 

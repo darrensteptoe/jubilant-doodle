@@ -69,6 +69,9 @@ export interface DataRefs {
   electionDatasetId: string | null;
   boundarySetId: string | null;
   crosswalkVersionId: string | null;
+  electionStrictSimilarity: boolean;
+  electionMaxYearDelta: number | null;
+  electionMinCoveragePct: number | null;
   pinnedAt: string | null;
   lastCheckedAt: string | null;
 }
