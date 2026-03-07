@@ -253,3 +253,25 @@ Execution order below is fixed and must be followed in sequence.
        - `/Users/anakinskywalker/Downloads/field-app-40/js/core/selfTest.js` remains canonical runner.
      - tightened TypeScript check config (non-breaking):
        - `/Users/anakinskywalker/Downloads/field-app-40/tsconfig.json` (`forceConsistentCasingInFileNames`, `noFallthroughCasesInSwitch`, `skipLibCheck`).
+
+## Phase 12: District + Election data contract foundation (in progress)
+Execution order for MIT precinct + Census integration begins here.
+
+1. [x] Add scenario-level district data contract module:
+   - `/Users/anakinskywalker/Downloads/field-app-40/js/core/districtData.js`
+   - introduces `useDistrictIntel`, `dataRefs`, `geoPack`, `districtIntelPack` defaults + normalizers.
+2. [x] Wire contract defaults/normalization across all state entry points:
+   - `/Users/anakinskywalker/Downloads/field-app-40/js/app/defaultState.js`
+   - `/Users/anakinskywalker/Downloads/field-app-40/js/app/state.js`
+   - `/Users/anakinskywalker/Downloads/field-app-40/js/app/normalizeLoadedState.js`
+   - `/Users/anakinskywalker/Downloads/field-app-40/js/core/migrate.js`
+3. [x] Expose district data contract validator via engine snapshot facade:
+   - `/Users/anakinskywalker/Downloads/field-app-40/js/engine.js`
+4. [x] Enforce district data contract checks during import and backup restore:
+   - `/Users/anakinskywalker/Downloads/field-app-40/js/app/wireEventsRuntime.js`
+   - `/Users/anakinskywalker/Downloads/field-app-40/js/app/backupRecovery.js`
+5. [x] Add release-hardening self-tests for migration + normalization of district data contract:
+   - `/Users/anakinskywalker/Downloads/field-app-40/js/core/selfTestSuites/releaseHardening.js`
+   - `/Users/anakinskywalker/Downloads/field-app-40/js/core/selfTest.js`
+6. [x] Add formal schema artifact for tooling/reference:
+   - `/Users/anakinskywalker/Downloads/field-app-40/js/schemas/districtData.v1.schema.json`
