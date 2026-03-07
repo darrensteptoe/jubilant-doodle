@@ -179,5 +179,22 @@ Execution order below is fixed and must be followed in sequence.
        - `/Users/anakinskywalker/Downloads/field-app-40/js/core/executionPlanner.js`
        - `/Users/anakinskywalker/Downloads/field-app-40/js/core/robust.js`
        - `/Users/anakinskywalker/Downloads/field-app-40/js/core/timeline.js`
+       - `/Users/anakinskywalker/Downloads/field-app-40/js/core/timelineOptimizer.js`
+       - `/Users/anakinskywalker/Downloads/field-app-40/js/core/optimize.js`
+       - `/Users/anakinskywalker/Downloads/field-app-40/js/core/optimizer.js`
+       - `/Users/anakinskywalker/Downloads/field-app-40/js/core/risk.js`
+       - `/Users/anakinskywalker/Downloads/field-app-40/js/core/snapshot.js`
+       - `/Users/anakinskywalker/Downloads/field-app-40/js/core/selfTestGate.js`
+       - `/Users/anakinskywalker/Downloads/field-app-40/js/core/importPolicy.js`
+       - `/Users/anakinskywalker/Downloads/field-app-40/js/core/migrate.js`
+       - `/Users/anakinskywalker/Downloads/field-app-40/js/core/marginalValue.js`
+       - `/Users/anakinskywalker/Downloads/field-app-40/js/core/sensitivitySurface.js`
+       - `/Users/anakinskywalker/Downloads/field-app-40/js/core/importQuality.js`
+       - `/Users/anakinskywalker/Downloads/field-app-40/js/core/intelState.js`
+       - `/Users/anakinskywalker/Downloads/field-app-40/js/core/decisionIntelligence.js`
+       - `/Users/anakinskywalker/Downloads/field-app-40/js/core/fixtures.js`
+       - `/Users/anakinskywalker/Downloads/field-app-40/js/core/monteCarlo.js`
+       - `/Users/anakinskywalker/Downloads/field-app-40/js/core/selfTest.js`
+       - `/Users/anakinskywalker/Downloads/field-app-40/js/core/winMath.js`
       - added shared core type declarations:
         - `/Users/anakinskywalker/Downloads/field-app-40/js/core/types.d.ts`
