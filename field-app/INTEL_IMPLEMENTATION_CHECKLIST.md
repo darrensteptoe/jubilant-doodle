@@ -432,3 +432,11 @@ Execution order for the first functional district-evidence layer.
      - Stage 9 alignment detail now surfaces per-source age (`Boundary/Crosswalk/Census/Election Nd`).
    - `/Users/anakinskywalker/Downloads/field-app-40/js/core/selfTestSuites/releaseHardening.js`
      - adds deterministic freshness-age regression coverage via fixed `nowIso`.
+14. [x] Upgrade Stage 9 election compatibility table with explicit year-gap + coverage columns:
+   - `/Users/anakinskywalker/Downloads/field-app-40/js/core/dataSourceRegistry.js`
+     - ranking rows now include `yearGap`, `targetYear`, `datasetYear`, and `coveragePct`.
+   - `/Users/anakinskywalker/Downloads/field-app-40/index.html`
+   - `/Users/anakinskywalker/Downloads/field-app-40/js/app/renderIntelChecks.js`
+     - table now shows year-gap and coverage alongside compatibility score.
+   - `/Users/anakinskywalker/Downloads/field-app-40/js/core/selfTestSuites/releaseHardening.js`
+     - asserts rank metadata fields for deterministic compatibility output.
