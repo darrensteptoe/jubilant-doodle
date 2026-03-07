@@ -1,9 +1,25 @@
+// @ts-check
 import { getOperationsMetricsSnapshot } from "../features/operations/metricsCache.js";
 import {
   appendOperationsDiagnosticsCore,
   appendModelDiagnosticsCore,
 } from "./diagnosticsBuilders.js";
 
+/**
+ * @typedef {{
+ *   els: Record<string, any>,
+ *   engine: Record<string, any>,
+ *   buildId: string,
+ *   getState: () => Record<string, any>,
+ *   computeRealityDrift: (...args: any[]) => any,
+ *   recentErrors: Array<Record<string, any>>,
+ *   maxErrors?: number,
+ * }} DiagnosticsRuntimeControllerDeps
+ */
+
+/**
+ * @param {DiagnosticsRuntimeControllerDeps=} deps
+ */
 export function createDiagnosticsRuntimeController({
   els,
   engine,
@@ -150,4 +166,3 @@ export function createDiagnosticsRuntimeController({
     updateDiagnosticsUI,
   };
 }
-

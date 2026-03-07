@@ -1,3 +1,4 @@
+// @ts-check
 import { safeNum, clamp } from "../utils.js";
 import { normalizeUniversePercents, UNIVERSE_DEFAULTS } from "../core/universeLayer.js";
 import { resolveFeatureFlags } from "../core/featureFlags.js";
@@ -6,6 +7,14 @@ import {
   deriveWeeksRemainingCeil as coreDeriveWeeksRemainingCeil
 } from "../core/model.js";
 
+/**
+ * @typedef {Record<string, any>} AnyState
+ */
+
+/**
+ * @param {AnyState} state
+ * @param {{ nowDate?: Date }=} options
+ */
 export function derivedWeeksRemainingFromState(state, { nowDate = new Date() } = {}){
   return coreDeriveWeeksRemainingCeil({
     weeksRemainingOverride: state?.weeksRemaining,
@@ -14,6 +23,9 @@ export function derivedWeeksRemainingFromState(state, { nowDate = new Date() } =
   });
 }
 
+/**
+ * @param {AnyState} state
+ */
 export function getUniverseLayerConfig(state){
   const features = resolveFeatureFlags(state || {});
   const enabled = !!features.universeWeightingEnabled;
@@ -34,6 +46,10 @@ export function getUniverseLayerConfig(state){
   };
 }
 
+/**
+ * @param {AnyState} state
+ * @param {{ computeUniverseAdjustedRates: (args: Record<string, any>) => Record<string, any> }=} deps
+ */
 export function getEffectiveBaseRates(state, { computeUniverseAdjustedRates } = {}){
   const cr = (safeNum(state?.contactRatePct) != null) ? clamp(safeNum(state.contactRatePct), 0, 100) / 100 : null;
   const sr = (safeNum(state?.supportRatePct) != null) ? clamp(safeNum(state.supportRatePct), 0, 100) / 100 : null;
@@ -58,6 +74,17 @@ export function getEffectiveBaseRates(state, { computeUniverseAdjustedRates } = 
   };
 }
 
+/**
+ * @param {AnyState} state
+ * @param {{
+ *   res: Record<string, any>,
+ *   weeks: number | null,
+ *   getEffectiveBaseRatesForState: (state: AnyState) => Record<string, any>,
+ *   computeCapacityBreakdown: (args: Record<string, any>) => Record<string, any>,
+ *   compileEffectiveInputsForState: (state: AnyState) => Record<string, any> | null,
+ *   computeMaxAttemptsByTactic: (args: Record<string, any>) => Record<string, any>,
+ * }=} deps
+ */
 export function computeWeeklyOpsContextFromState(state, {
   res,
   weeks,

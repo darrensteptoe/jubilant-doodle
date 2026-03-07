@@ -1,3 +1,4 @@
+// @ts-check
 const ALLOWED_MC_DISTRIBUTIONS = new Set(["triangular", "uniform", "normal"]);
 
 function isObject(v){
@@ -23,6 +24,10 @@ export function makeDefaultFeatureFlags(){
   };
 }
 
+/**
+ * @param {Record<string, any>} raw
+ * @returns {Record<string, any>}
+ */
 export function normalizeFeatureFlags(raw){
   const base = makeDefaultFeatureFlags();
   const inObj = isObject(raw) ? raw : {};
@@ -103,4 +108,3 @@ export function syncFeatureFlagsFromState(state, { preferFeatures = false } = {}
   writeLegacyFromFeatures(state);
   return state.features;
 }
-

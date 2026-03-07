@@ -1,3 +1,7 @@
+// @ts-check
+/**
+ * @param {Record<string, any>} srcState
+ */
 export function isScenarioLockedForEditsModule(srcState){
   try{
     return !!srcState?.intelState?.workflow?.scenarioLocked;
@@ -6,6 +10,9 @@ export function isScenarioLockedForEditsModule(srcState){
   }
 }
 
+/**
+ * @param {{ state?: Record<string, any>, root?: HTMLElement | null }=} args
+ */
 export function applyScenarioLockUiModule({ state, root } = {}){
   if (!root) return;
 
@@ -30,4 +37,3 @@ export function applyScenarioLockUiModule({ state, root } = {}){
     }
   }
 }
-

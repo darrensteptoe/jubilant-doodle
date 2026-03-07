@@ -1,3 +1,17 @@
+// @ts-check
+/**
+ * @typedef {Record<string, any>} AnyState
+ * @typedef {{
+ *   els: Record<string, any>,
+ *   getState: () => AnyState,
+ *   safeNum: (v: any) => number | null,
+ *   commitUIUpdate: (opts?: Record<string, any>) => void,
+ * }} CandidateUiControllerDeps
+ */
+
+/**
+ * @param {CandidateUiControllerDeps=} deps
+ */
 export function createCandidateUiController(deps = {}){
   const {
     els,

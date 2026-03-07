@@ -1,7 +1,19 @@
+// @ts-check
+/**
+ * @param {number} a
+ * @param {number} b
+ * @param {number=} eps
+ */
 export function approxEqModule(a, b, eps = 1e-6){
   return Math.abs(a - b) <= eps;
 }
 
+/**
+ * @param {Record<string, any>} targetState
+ * @param {string} raceType
+ * @param {{ force?: boolean }=} options
+ * @param {Record<string, any>=} defaultsByTemplate
+ */
 export function applyTemplateDefaultsForRaceModule(
   targetState,
   raceType,
@@ -23,6 +35,12 @@ export function applyTemplateDefaultsForRaceModule(
   }
 }
 
+/**
+ * @param {Record<string, any>} snap
+ * @param {Record<string, any>=} defaultsByTemplate
+ * @param {(v: any) => number | null} safeNum
+ * @param {(a: number, b: number, eps?: number) => boolean=} approxEq
+ */
 export function deriveAssumptionsProfileFromStateModule(
   snap,
   defaultsByTemplate = {},
@@ -50,11 +68,19 @@ export function deriveAssumptionsProfileFromStateModule(
   return isTemplateLike ? "template" : "custom";
 }
 
+/**
+ * @param {Record<string, any>} state
+ * @param {(state: Record<string, any>) => string} deriveAssumptionsProfileFromState
+ */
 export function refreshAssumptionsProfileModule(state, deriveAssumptionsProfileFromState){
   if (!state.ui) state.ui = {};
   state.ui.assumptionsProfile = deriveAssumptionsProfileFromState(state);
 }
 
+/**
+ * @param {Record<string, any>} src
+ * @param {(raceType: string) => string} labelTemplate
+ */
 export function assumptionsProfileLabelModule(src, labelTemplate){
   const s = src || {};
   const profile = (s?.ui?.assumptionsProfile === "template") ? "template" : "custom";

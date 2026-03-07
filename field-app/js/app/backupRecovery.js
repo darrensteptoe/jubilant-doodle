@@ -1,3 +1,32 @@
+// @ts-check
+/**
+ * @typedef {Record<string, any>} AnyState
+ * @typedef {{
+ *   els: Record<string, any>,
+ *   readBackups: () => any[],
+ *   appendBackupEntry: (entry: Record<string, any>) => { ok?: boolean, error?: string, code?: string } | null,
+ *   safeCall: (fn: () => void) => void,
+ *   getState: () => AnyState,
+ *   setState: (next: AnyState) => void,
+ *   engine: Record<string, any>,
+ *   APP_VERSION: string,
+ *   BUILD_ID: string,
+ *   setLastExportHash: (hash: string) => void,
+ *   clearPersistenceFailure: (scope: "state" | "backup") => void,
+ *   reportPersistenceFailure: (scope: "state" | "backup", result: any) => void,
+ *   normalizeLoadedScenarioRuntime: (state: AnyState) => AnyState,
+ *   buildCriticalAuditSnapshot: (state: AnyState) => any,
+ *   setLastCriticalAuditSnapshot: (snapshot: any) => void,
+ *   ensureDecisionScaffold: () => void,
+ *   persist: () => void,
+ *   render: () => void,
+ *   renderDecisionSessionD1: () => void,
+ * }} BackupRecoveryControllerDeps
+ */
+
+/**
+ * @param {BackupRecoveryControllerDeps=} deps
+ */
 export function createBackupRecoveryController(deps = {}){
   const {
     els,

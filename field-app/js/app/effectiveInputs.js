@@ -1,5 +1,24 @@
+// @ts-check
 import { validateOperationsCapacityInput } from "../features/operations/io.js";
 
+/**
+ * @typedef {Record<string, any>} AnyState
+ * @typedef {{
+ *   getState: () => AnyState,
+ *   safeNum: (v: any) => number | null,
+ *   clamp: (v: number, lo: number, hi: number) => number,
+ *   canonicalDoorsPerHourFromSnap: (state: AnyState) => number | null,
+ *   getEffectiveBaseRates: () => Record<string, any>,
+ *   getEffectiveBaseRatesFromSnap: (state: AnyState) => Record<string, any>,
+ *   twCapOverrideModeFromState: (state: AnyState) => string,
+ *   twCapResolveOverrideAttempts: (state: AnyState) => number | null,
+ *   twCapPerOrganizerAttemptsPerWeek: (args: Record<string, any>) => number,
+ * }} EffectiveInputsControllerDeps
+ */
+
+/**
+ * @param {EffectiveInputsControllerDeps} deps
+ */
 export function createEffectiveInputsController({
   getState,
   safeNum,
