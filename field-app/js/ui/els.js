@@ -467,6 +467,8 @@ export const els = {
   intelDistrictEvidenceCoverage: document.getElementById("intelDistrictEvidenceCoverage"),
   intelDistrictEvidenceVotes: document.getElementById("intelDistrictEvidenceVotes"),
   intelDistrictEvidenceSignal: document.getElementById("intelDistrictEvidenceSignal"),
+  intelDistrictEvidenceSelectedElection: document.getElementById("intelDistrictEvidenceSelectedElection"),
+  intelDistrictEvidenceDatasetRankTbody: document.getElementById("intelDistrictEvidenceDatasetRankTbody"),
   intelDistrictEvidenceCandidateTbody: document.getElementById("intelDistrictEvidenceCandidateTbody"),
   intelDistrictEvidenceLinkTbody: document.getElementById("intelDistrictEvidenceLinkTbody"),
   intelScenarioLocked: document.getElementById("intelScenarioLocked"),
