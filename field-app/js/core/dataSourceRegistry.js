@@ -339,29 +339,44 @@ export function resolveDataRefsByPolicy(args){
   };
 
   const byId = registry.byId;
-
+  const missingNotes = [];
   /**
    * @param {"boundarySetId"|"crosswalkVersionId"|"censusDatasetId"|"electionDatasetId"} key
    * @param {Record<string, Record<string, any>>} map
+   * @returns {boolean}
    */
-  const clearIfMissing = (key, map) => {
+  const isMissing = (key, map) => {
     const id = selected[key];
-    if (!id) return;
-    if (!map[id]){
-      notes.push(`${key} '${id}' missing from registry; cleared.`);
-      selected[key] = null;
-      usedFallbacks = true;
-    }
+    if (!id) return false;
+    if (map[id]) return false;
+    missingNotes.push(`${key} '${id}' missing from registry.`);
+    return true;
   };
-
-  clearIfMissing("boundarySetId", byId.boundarySets);
-  clearIfMissing("crosswalkVersionId", byId.crosswalks);
-  clearIfMissing("censusDatasetId", byId.censusDatasets);
-  clearIfMissing("electionDatasetId", byId.electionDatasets);
+  const missingBoundary = isMissing("boundarySetId", byId.boundarySets);
+  const missingCrosswalk = isMissing("crosswalkVersionId", byId.crosswalks);
+  const missingCensus = isMissing("censusDatasetId", byId.censusDatasets);
+  const missingElection = isMissing("electionDatasetId", byId.electionDatasets);
 
   if (refs.mode === "manual" || refs.mode === "pinned_verified"){
+    if (missingNotes.length) notes.push(...missingNotes);
     return { mode: refs.mode, selected, usedFallbacks, notes };
   }
+
+  /**
+   * @param {"boundarySetId"|"crosswalkVersionId"|"censusDatasetId"|"electionDatasetId"} key
+   * @param {boolean} missing
+   */
+  const clearIfMissing = (key, missing) => {
+    if (!missing) return;
+    const id = selected[key];
+    selected[key] = null;
+    usedFallbacks = true;
+    notes.push(`${key} '${id}' missing; resolved via latest_verified fallback.`);
+  };
+  clearIfMissing("boundarySetId", missingBoundary);
+  clearIfMissing("crosswalkVersionId", missingCrosswalk);
+  clearIfMissing("censusDatasetId", missingCensus);
+  clearIfMissing("electionDatasetId", missingElection);
 
   // latest_verified: keep valid verified pins; otherwise fallback to latest verified.
   if (!selected.boundarySetId || !byId.boundarySets[selected.boundarySetId]?.isVerified){
@@ -426,4 +441,3 @@ export function resolveDataRefsByPolicy(args){
 
   return { mode: refs.mode, selected, usedFallbacks, notes };
 }
-

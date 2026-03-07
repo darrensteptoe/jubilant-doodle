@@ -539,6 +539,51 @@ export function registerReleaseHardeningTests(ctx){
     return true;
   });
 
+  test("Phase 18: pinned/manual policies do not rewrite explicit missing refs", () => {
+    const pinned = resolveDataRefsByPolicy({
+      dataRefs: {
+        mode: "pinned_verified",
+        boundarySetId: "missing_boundary",
+        crosswalkVersionId: "missing_crosswalk",
+        censusDatasetId: "missing_census",
+        electionDatasetId: "missing_election",
+      },
+      dataCatalog: {
+        boundarySets: [],
+        crosswalks: [],
+        censusDatasets: [],
+        electionDatasets: [],
+      },
+    });
+    const manual = resolveDataRefsByPolicy({
+      dataRefs: {
+        mode: "manual",
+        boundarySetId: "missing_boundary",
+        crosswalkVersionId: "missing_crosswalk",
+        censusDatasetId: "missing_census",
+        electionDatasetId: "missing_election",
+      },
+      dataCatalog: {
+        boundarySets: [],
+        crosswalks: [],
+        censusDatasets: [],
+        electionDatasets: [],
+      },
+    });
+    assert(pinned.selected.boundarySetId === "missing_boundary", "Pinned mode should preserve explicit boundary ref");
+    assert(pinned.selected.crosswalkVersionId === "missing_crosswalk", "Pinned mode should preserve explicit crosswalk ref");
+    assert(pinned.selected.censusDatasetId === "missing_census", "Pinned mode should preserve explicit census ref");
+    assert(pinned.selected.electionDatasetId === "missing_election", "Pinned mode should preserve explicit election ref");
+    assert(pinned.usedFallbacks === false, "Pinned mode should not auto-fallback");
+    assert((pinned.notes || []).length >= 1, "Pinned mode should emit missing-ref notes");
+    assert(manual.selected.boundarySetId === "missing_boundary", "Manual mode should preserve explicit boundary ref");
+    assert(manual.selected.crosswalkVersionId === "missing_crosswalk", "Manual mode should preserve explicit crosswalk ref");
+    assert(manual.selected.censusDatasetId === "missing_census", "Manual mode should preserve explicit census ref");
+    assert(manual.selected.electionDatasetId === "missing_election", "Manual mode should preserve explicit election ref");
+    assert(manual.usedFallbacks === false, "Manual mode should not auto-fallback");
+    return true;
+  });
+
   test("Phase 18: area resolver normalization canonicalizes IDs and resolution", () => {
     const area = normalizeAreaSelection({
       type: "sldl",
