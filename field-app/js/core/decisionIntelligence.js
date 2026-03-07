@@ -1,3 +1,4 @@
+// @ts-check
 // js/decisionIntelligence.js
 // Phase 12 — Decision Intelligence (bottleneck clarity + marginal leverage)
 // Design goals:
@@ -226,6 +227,16 @@ function buildLevers({ snap }){
 
 const DI_FALLBACK_SEED = "__di_deterministic_seed__";
 
+/**
+ * @typedef {object} DecisionIntelArgs
+ * @property {Record<string, any>} engine
+ * @property {Record<string, any>} snap
+ * @property {Record<string, any>=} baseline
+ */
+
+/**
+ * @param {DecisionIntelArgs} args
+ */
 export function computeDecisionIntelligence({ engine, snap, baseline }){
   // engine: { withPatchedState, computeAll, derivedWeeksRemaining, deriveNeedVotes, runMonteCarloSim, computeRoiRows, buildOptimizationTactics, computeMaxAttemptsByTactic, computeTimelineFeasibility }
   // snap: deep-cloned snapshot (must not be mutated)

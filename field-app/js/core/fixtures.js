@@ -1,7 +1,17 @@
+// @ts-check
 // js/fixtures.js
 // Phase 5.6 — Golden snapshot fixtures (stable regression baselines)
 // These are intentionally small, deterministic scenarios to detect drift.
 
+/**
+ * @typedef {object} SelfTestFixture
+ * @property {string} id
+ * @property {string} name
+ * @property {Record<string, any>} spec
+ * @property {Record<string, any>} expect
+ */
+
+/** @type {SelfTestFixture[]} */
 export const FIXTURES = [
   {
     "id": "baseline_small",

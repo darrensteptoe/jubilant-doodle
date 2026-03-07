@@ -1,3 +1,4 @@
+// @ts-check
 // js/core/monteCarlo.js
 // Monte Carlo engine (pure). Extracted from app.js so UI contains no simulation loops.
 // Must not touch DOM/window/document.
@@ -464,6 +465,28 @@ function normalizeRunCount(rawRuns){
   return Math.min(200000, Math.max(1, Math.trunc(n)));
 }
 
+/**
+ * @typedef {object} MonteCarloArgs
+ * @property {Record<string, any>=} scenario
+ * @property {Record<string, any>=} scenarioState
+ * @property {Record<string, any>=} res
+ * @property {number | null | undefined=} weeks
+ * @property {number | null | undefined=} needVotes
+ * @property {number | null | undefined=} runs
+ * @property {string | number | null | undefined=} seed
+ * @property {boolean=} includeMargins
+ */
+
+/**
+ * Supports both named args and legacy positional signature.
+ * @param {MonteCarloArgs | Record<string, any>} argsOrScenario
+ * @param {Record<string, any>=} legacyRes
+ * @param {number | null | undefined=} legacyWeeks
+ * @param {number | null | undefined=} legacyNeedVotes
+ * @param {number | null | undefined=} legacyRuns
+ * @param {string | number | null | undefined=} legacySeed
+ * @param {boolean=} legacyIncludeMargins
+ */
 export function runMonteCarloSim(argsOrScenario, legacyRes, legacyWeeks, legacyNeedVotes, legacyRuns, legacySeed, legacyIncludeMargins){
   const {
     scenario,

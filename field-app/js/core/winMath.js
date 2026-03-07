@@ -1,5 +1,31 @@
+// @ts-check
 import { clamp, safeNum, fmtInt } from "./utils.js";
 
+/**
+ * @typedef {object} WinMathInputCandidate
+ * @property {string} id
+ * @property {string=} name
+ * @property {number | null | undefined=} supportPct
+ */
+
+/**
+ * @typedef {object} WinMathInput
+ * @property {number | null | undefined} universeSize
+ * @property {number | null | undefined} turnoutA
+ * @property {number | null | undefined} turnoutB
+ * @property {number | null | undefined} bandWidth
+ * @property {WinMathInputCandidate[]} candidates
+ * @property {number | null | undefined} undecidedPct
+ * @property {string=} yourCandidateId
+ * @property {string=} undecidedMode
+ * @property {Record<string, number>=} userSplit
+ * @property {number | null | undefined=} persuasionPct
+ * @property {number | null | undefined=} earlyVoteExp
+ */
+
+/**
+ * @param {WinMathInput} input
+ */
 export function computeAll(input){
   const raw = {
     universeSize: safeNum(input.universeSize),

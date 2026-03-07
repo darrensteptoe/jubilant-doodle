@@ -1,3 +1,4 @@
+// @ts-check
 // js/selfTest.js
 // Phase 5.5 — Lightweight in-browser self-test infrastructure.
 // Exports: runSelfTests(engineAccessors)
@@ -178,6 +179,22 @@ function dailyLogMergeSummaryE11(existingArr, incomingArr){
   return { merged, added, replaced, ignored };
 }
 
+/**
+ * @typedef {object} SelfTestEngineAccessors
+ * @property {(...args: any[]) => any} computeAll
+ * @property {(...args: any[]) => any} deriveNeedVotes
+ * @property {(...args: any[]) => any} derivedWeeksRemaining
+ * @property {(...args: any[]) => any} runMonteCarloSim
+ * @property {(...args: any[]) => any} optimizeMixBudget
+ * @property {(...args: any[]) => any} optimizeMixCapacity
+ * @property {(...args: any[]) => any} buildOptimizationTactics
+ * @property {(...args: any[]) => any} computeRoiRows
+ * @property {(...args: any[]) => any} computeCapacityBreakdown
+ */
+
+/**
+ * @param {SelfTestEngineAccessors} engine
+ */
 export function runSelfTests(engine){
   const started = nowMs();
 
