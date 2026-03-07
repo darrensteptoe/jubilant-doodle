@@ -272,6 +272,195 @@ function fillDistrictEvidenceGeoTable(tbody, rows){
   }
 }
 
+const SVG_NS = "http://www.w3.org/2000/svg";
+const MAP_CANDIDATE_COLORS = [
+  "#0ea5e9",
+  "#22c55e",
+  "#f97316",
+  "#eab308",
+  "#ef4444",
+  "#a855f7",
+  "#14b8a6",
+  "#f43f5e",
+  "#84cc16",
+  "#6366f1",
+];
+
+function clampNum(n, min, max){
+  if (!Number.isFinite(n)) return min;
+  return Math.max(min, Math.min(max, n));
+}
+
+function hashStringToIndex(s, mod){
+  const text = String(s || "");
+  if (!text || !mod) return 0;
+  let h = 2166136261 >>> 0;
+  for (let i = 0; i < text.length; i++){
+    h ^= text.charCodeAt(i);
+    h = Math.imul(h, 16777619) >>> 0;
+  }
+  return h % mod;
+}
+
+function candidateColor(candidateId){
+  const id = String(candidateId || "").trim();
+  if (!id) return "#64748b";
+  return MAP_CANDIDATE_COLORS[hashStringToIndex(id, MAP_CANDIDATE_COLORS.length)];
+}
+
+function clearSvg(el){
+  if (!el) return;
+  while (el.firstChild){
+    el.removeChild(el.firstChild);
+  }
+}
+
+function appendSvgNode(svgEl, tag, attrs = {}){
+  const node = document.createElementNS(SVG_NS, tag);
+  for (const key of Object.keys(attrs)){
+    node.setAttribute(key, String(attrs[key]));
+  }
+  svgEl.appendChild(node);
+  return node;
+}
+
+function pointRadius(value, minValue, maxValue){
+  const v = Number(value);
+  const lo = Number(minValue);
+  const hi = Number(maxValue);
+  if (!Number.isFinite(v) || !Number.isFinite(lo) || !Number.isFinite(hi) || hi <= lo){
+    return 4;
+  }
+  const norm = (Math.sqrt(Math.max(0, v)) - Math.sqrt(Math.max(0, lo)))
+    / (Math.sqrt(Math.max(0, hi)) - Math.sqrt(Math.max(0, lo)));
+  return 3 + clampNum(norm, 0, 1) * 8;
+}
+
+function renderDistrictEvidenceMap(svgEl, statusEl, mapLayer, opts = {}){
+  if (!svgEl && !statusEl) return;
+  const layer = mapLayer && typeof mapLayer === "object" ? mapLayer : {};
+  const points = Array.isArray(layer.points) ? layer.points : [];
+  const bounds = layer && typeof layer.bounds === "object" ? layer.bounds : null;
+
+  if (statusEl){
+    statusEl.classList.remove("ok", "warn", "bad", "muted");
+  }
+  if (svgEl){
+    clearSvg(svgEl);
+    svgEl.setAttribute("viewBox", "0 0 640 360");
+    svgEl.setAttribute("role", "img");
+    svgEl.setAttribute("aria-label", "Read-only centroid map for district evidence");
+  }
+
+  if (!layer.available || !points.length || !bounds){
+    if (statusEl){
+      statusEl.classList.add("muted");
+      statusEl.textContent = String(layer.reason || "Map unavailable: no centroid coordinates found in census GEO rows.");
+    }
+    return;
+  }
+
+  const minLat = Number(bounds.minLat);
+  const maxLat = Number(bounds.maxLat);
+  const minLon = Number(bounds.minLon);
+  const maxLon = Number(bounds.maxLon);
+  if (!Number.isFinite(minLat) || !Number.isFinite(maxLat) || !Number.isFinite(minLon) || !Number.isFinite(maxLon)){
+    if (statusEl){
+      statusEl.classList.add("warn");
+      statusEl.textContent = "Map unavailable: invalid centroid bounds.";
+    }
+    return;
+  }
+
+  const latSpan = Math.max(1e-9, maxLat - minLat);
+  const lonSpan = Math.max(1e-9, maxLon - minLon);
+  const width = 640;
+  const height = 360;
+  const pad = 18;
+  const plotW = width - (pad * 2);
+  const plotH = height - (pad * 2);
+  const voteValues = points.map((p) => Number(p?.totalVotes) || 0);
+  const voteMin = voteValues.length ? Math.min(...voteValues) : 0;
+  const voteMax = voteValues.length ? Math.max(...voteValues) : 0;
+  const yourCandidateId = String(opts?.yourCandidateId || "").trim();
+
+  appendSvgNode(svgEl, "rect", {
+    x: 0, y: 0, width, height,
+    rx: 10, ry: 10,
+    fill: "rgba(148,163,184,0.08)",
+    stroke: "rgba(148,163,184,0.35)",
+    "stroke-width": 1,
+  });
+  for (let i = 1; i <= 4; i++){
+    const gx = pad + (plotW * i) / 5;
+    const gy = pad + (plotH * i) / 5;
+    appendSvgNode(svgEl, "line", {
+      x1: gx, y1: pad, x2: gx, y2: height - pad,
+      stroke: "rgba(148,163,184,0.16)",
+      "stroke-width": 1,
+    });
+    appendSvgNode(svgEl, "line", {
+      x1: pad, y1: gy, x2: width - pad, y2: gy,
+      stroke: "rgba(148,163,184,0.16)",
+      "stroke-width": 1,
+    });
+  }
+  appendSvgNode(svgEl, "rect", {
+    x: pad, y: pad, width: plotW, height: plotH,
+    fill: "transparent",
+    stroke: "rgba(148,163,184,0.26)",
+    "stroke-width": 1,
+  });
+
+  for (const row of points){
+    const lat = Number(row?.lat);
+    const lon = Number(row?.lon);
+    if (!Number.isFinite(lat) || !Number.isFinite(lon)) continue;
+    const x = pad + ((lon - minLon) / lonSpan) * plotW;
+    const y = pad + ((maxLat - lat) / latSpan) * plotH;
+    const r = pointRadius(row?.totalVotes, voteMin, voteMax);
+    const marginPct = Number(row?.marginPct);
+    const competitiveness = Number.isFinite(marginPct) ? 1 - clampNum(marginPct / 35, 0, 1) : 0.5;
+    const opacity = 0.35 + (competitiveness * 0.5);
+    const leaderId = String(row?.leaderCandidateId || "").trim();
+    const dot = appendSvgNode(svgEl, "circle", {
+      cx: x.toFixed(2),
+      cy: y.toFixed(2),
+      r: r.toFixed(2),
+      fill: candidateColor(leaderId),
+      "fill-opacity": opacity.toFixed(2),
+      stroke: yourCandidateId && leaderId && leaderId === yourCandidateId ? "rgba(248,250,252,0.95)" : "rgba(15,23,42,0.9)",
+      "stroke-width": yourCandidateId && leaderId && leaderId === yourCandidateId ? 1.8 : 1.1,
+    });
+    const title = document.createElementNS(SVG_NS, "title");
+    title.textContent =
+      `${String(row?.geoid || "—")} · top ${leaderId || "—"} · votes ${fmtInt(row?.totalVotes)}`
+      + (Number.isFinite(marginPct) ? ` · margin ${fmtPct(marginPct, 1)}` : "");
+    dot.appendChild(title);
+  }
+
+  appendSvgNode(svgEl, "text", {
+    x: pad,
+    y: 14,
+    fill: "rgba(148,163,184,0.95)",
+    "font-size": 11,
+    "font-weight": 600,
+  }).textContent = `N ${maxLat.toFixed(3)}  ·  S ${minLat.toFixed(3)}`;
+  appendSvgNode(svgEl, "text", {
+    x: width - pad,
+    y: height - 6,
+    "text-anchor": "end",
+    fill: "rgba(148,163,184,0.95)",
+    "font-size": 11,
+    "font-weight": 600,
+  }).textContent = `W ${minLon.toFixed(3)}  ·  E ${maxLon.toFixed(3)}`;
+
+  if (statusEl){
+    statusEl.classList.add("ok");
+    statusEl.textContent = `Read-only centroid map: ${fmtInt(points.length)} GEO points plotted.`;
+  }
+}
+
 function fillDistrictEvidenceDatasetRankTable(tbody, rows, selectedElectionId){
   if (!tbody) return;
   tbody.innerHTML = "";
@@ -802,6 +991,7 @@ export function renderIntelChecksModule({
 
   const compileDistrictEvidence = engine?.snapshot?.compileDistrictEvidence;
   const summarizeGeoEvidenceLayers = engine?.snapshot?.summarizeGeoEvidenceLayers;
+  const buildGeoEvidenceMapLayer = engine?.snapshot?.buildGeoEvidenceMapLayer;
   const resolveDistrictEvidenceInputs = engine?.snapshot?.resolveDistrictEvidenceInputs;
   const resolveDataRefsByPolicy = engine?.snapshot?.resolveDataRefsByPolicy;
   const diagnoseDataRefAlignment = engine?.snapshot?.diagnoseDataRefAlignment;
@@ -977,6 +1167,11 @@ export function renderIntelChecksModule({
     const summary = String(diag?.summary || "").trim();
     const warnings = Array.isArray(diag?.warnings) ? diag.warnings.map((x) => String(x || "").trim()).filter(Boolean) : [];
     const details = diag && typeof diag === "object" ? diag.details || {} : {};
+    const selectionFingerprint = String(details?.selectionFingerprint || "").trim();
+    const usedFallbacks = !!details?.usedFallbacks;
+    const resolutionNotes = Array.isArray(details?.resolutionNotes)
+      ? details.resolutionNotes.map((x) => String(x || "").trim()).filter(Boolean)
+      : [];
     const coverageBits = [
       Number.isFinite(Number(details?.crosswalkCoveragePct)) ? `XW ${Number(details.crosswalkCoveragePct).toFixed(1)}%` : null,
       Number.isFinite(Number(details?.censusCoveragePct)) ? `Census ${Number(details.censusCoveragePct).toFixed(1)}%` : null,
@@ -1013,9 +1208,16 @@ export function renderIntelChecksModule({
       if (Number.isFinite(yearGap)) bits.push(`Year gap ${Math.max(0, Math.round(yearGap))}`);
       if (freshnessBits.length) bits.push(freshnessBits.join(" · "));
       if (warnings.length) bits.push(`Note: ${warnings[0]}`);
+      if (!warnings.length && resolutionNotes.length) bits.push(`Resolver: ${resolutionNotes[0]}`);
+      if (usedFallbacks) bits.push("Fallbacks used");
       els.intelDataRefAlignmentDetail.textContent = bits.length
         ? bits.join(" · ")
         : "Coverage/year-gap checks will appear after refs resolve.";
+    }
+    if (els.intelDataRefFingerprint){
+      els.intelDataRefFingerprint.textContent = selectionFingerprint
+        ? `Selection fingerprint: ${selectionFingerprint}`
+        : "Selection fingerprint: —";
     }
   }
 
@@ -1087,6 +1289,12 @@ export function renderIntelChecksModule({
     fillDistrictEvidenceCandidateTable(els.intelDistrictEvidenceCandidateTbody, []);
     fillDistrictEvidenceLinkTable(els.intelDistrictEvidenceLinkTbody, []);
     fillDistrictEvidenceGeoTable(els.intelDistrictEvidenceGeoTbody, []);
+    renderDistrictEvidenceMap(
+      els.intelDistrictEvidenceMapSvg,
+      els.intelDistrictEvidenceMapStatus,
+      { available: false, reason: "Map unavailable: district evidence compiler unavailable.", bounds: null, points: [] },
+      { yourCandidateId: state?.yourCandidateId }
+    );
     fillDistrictEvidenceDatasetRankTable(els.intelDistrictEvidenceDatasetRankTbody, rankedElectionDatasets, selectedElectionId);
     return;
   }
@@ -1112,6 +1320,12 @@ export function renderIntelChecksModule({
     fillDistrictEvidenceCandidateTable(els.intelDistrictEvidenceCandidateTbody, []);
     fillDistrictEvidenceLinkTable(els.intelDistrictEvidenceLinkTbody, []);
     fillDistrictEvidenceGeoTable(els.intelDistrictEvidenceGeoTbody, []);
+    renderDistrictEvidenceMap(
+      els.intelDistrictEvidenceMapSvg,
+      els.intelDistrictEvidenceMapStatus,
+      { available: false, reason: "Map unavailable: district evidence compile failed.", bounds: null, points: [] },
+      { yourCandidateId: state?.yourCandidateId }
+    );
     fillDistrictEvidenceDatasetRankTable(els.intelDistrictEvidenceDatasetRankTbody, rankedElectionDatasets, selectedElectionId);
     return;
   }
@@ -1128,6 +1342,24 @@ export function renderIntelChecksModule({
     }
   } else {
     geoLayers = summarizeEvidenceGeoRows(geoRows, 20);
+  }
+  let geoMapLayer = {
+    available: false,
+    reason: "Map unavailable: no centroid coordinates found in census GEO rows.",
+    bounds: null,
+    points: [],
+  };
+  if (typeof buildGeoEvidenceMapLayer === "function"){
+    try{
+      geoMapLayer = buildGeoEvidenceMapLayer({ geoRows, maxPoints: 500 });
+    } catch {
+      geoMapLayer = {
+        available: false,
+        reason: "Map unavailable: failed to build centroid layer.",
+        bounds: null,
+        points: [],
+      };
+    }
   }
   const coveragePct = Number(evidence?.reconciliation?.coveragePct);
   const unmatchedVotes = Number(evidence?.reconciliation?.unmatchedVotes);
@@ -1173,4 +1405,10 @@ export function renderIntelChecksModule({
   fillDistrictEvidenceCandidateTable(els.intelDistrictEvidenceCandidateTbody, candidateTotals);
   fillDistrictEvidenceLinkTable(els.intelDistrictEvidenceLinkTbody, links);
   fillDistrictEvidenceGeoTable(els.intelDistrictEvidenceGeoTbody, geoLayers);
+  renderDistrictEvidenceMap(
+    els.intelDistrictEvidenceMapSvg,
+    els.intelDistrictEvidenceMapStatus,
+    geoMapLayer,
+    { yourCandidateId: state?.yourCandidateId }
+  );
 }
