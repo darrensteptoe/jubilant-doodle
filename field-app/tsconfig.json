@@ -6,6 +6,9 @@
     "strict": false,
     "allowJs": true,
     "checkJs": true,
+    "forceConsistentCasingInFileNames": true,
+    "noFallthroughCasesInSwitch": true,
+    "skipLibCheck": true,
     "noEmit": true
   },
   "include": [

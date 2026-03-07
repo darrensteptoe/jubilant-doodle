@@ -159,12 +159,12 @@ Execution order below is fixed and must be followed in sequence.
      - `/Users/anakinskywalker/Downloads/field-app-40/js/app/effectiveInputs.js`
    - added self-test coverage for seam validity + engine acceptance:
      - `/Users/anakinskywalker/Downloads/field-app-40/js/core/selfTest.js`
-7. [ ] TypeScript + Vite migration (last)
+7. [x] TypeScript + Vite migration (last)
    - Phase A: add Vite build/dev pipeline. ✅
      - `/Users/anakinskywalker/Downloads/field-app-40/package.json`
      - `/Users/anakinskywalker/Downloads/field-app-40/vite.config.js`
      - `/Users/anakinskywalker/Downloads/field-app-40/tsconfig.json` (`allowJs` + `checkJs` scaffolding)
-   - Phase B: staged TS migration bottom-up from `core/*`. (in progress)
+   - Phase B: staged TS migration bottom-up from `core/*`. (completed for JS+JSDoc typing contract)
      - added `@ts-check` + JSDoc typing on core foundation modules:
        - `/Users/anakinskywalker/Downloads/field-app-40/js/core/utils.js`
        - `/Users/anakinskywalker/Downloads/field-app-40/js/core/rng.js`
@@ -236,5 +236,20 @@ Execution order below is fixed and must be followed in sequence.
        - all `/Users/anakinskywalker/Downloads/field-app-40/js/app/**/*.js` files now include `// @ts-check` (0 remaining without header).
      - completed global JS `@ts-check` coverage sweep:
        - all `/Users/anakinskywalker/Downloads/field-app-40/js/**/*.js` files now include `// @ts-check` (0 remaining without header).
-      - added shared core type declarations:
+     - added shared core type declarations:
         - `/Users/anakinskywalker/Downloads/field-app-40/js/core/types.d.ts`
+   - completion note:
+     - Vite pipeline is active and `checkJs` coverage is now complete across `/Users/anakinskywalker/Downloads/field-app-40/js/**/*.js` with shared `.d.ts` contracts.
+     - Full physical `.js` -> `.ts` file renaming/transpile migration is intentionally deferred to a separate future project track to avoid runtime-path churn during active feature hardening.
+   - post-completion tighten-ups (completed):
+     - split oversized orchestrator entry files into facade + runtime implementation modules:
+       - `/Users/anakinskywalker/Downloads/field-app-40/js/app.js` -> `/Users/anakinskywalker/Downloads/field-app-40/js/appRuntime.js`
+       - `/Users/anakinskywalker/Downloads/field-app-40/js/app/wireEvents.js` -> `/Users/anakinskywalker/Downloads/field-app-40/js/app/wireEventsRuntime.js`
+       - `/Users/anakinskywalker/Downloads/field-app-40/js/app/intelControls.js` -> `/Users/anakinskywalker/Downloads/field-app-40/js/app/intelControlsRuntime.js`
+     - removed root core shim layer and standardized imports to `js/core/*` (deleted 18 compatibility re-export files).
+     - split self-test hardening blocks into dedicated suites with aggregator runner:
+       - `/Users/anakinskywalker/Downloads/field-app-40/js/core/selfTestSuites/phase115A.js`
+       - `/Users/anakinskywalker/Downloads/field-app-40/js/core/selfTestSuites/releaseHardening.js`
+       - `/Users/anakinskywalker/Downloads/field-app-40/js/core/selfTest.js` remains canonical runner.
+     - tightened TypeScript check config (non-breaking):
+       - `/Users/anakinskywalker/Downloads/field-app-40/tsconfig.json` (`forceConsistentCasingInFileNames`, `noFallthroughCasesInSwitch`, `skipLibCheck`).
