@@ -551,21 +551,41 @@ export function renderIntelChecksModule({
   }
 
   const compileDistrictEvidence = engine?.snapshot?.compileDistrictEvidence;
+  const resolveDistrictEvidenceInputs = engine?.snapshot?.resolveDistrictEvidenceInputs;
+  let resolvedInputs = null;
+  if (typeof resolveDistrictEvidenceInputs === "function"){
+    try{
+      resolvedInputs = resolveDistrictEvidenceInputs(state);
+    } catch {
+      resolvedInputs = null;
+    }
+  }
+
   const districtBlob = (state?.geoPack && typeof state.geoPack === "object" && state.geoPack.district && typeof state.geoPack.district === "object")
     ? state.geoPack.district
     : {};
   const evidenceInputs = (districtBlob.evidenceInputs && typeof districtBlob.evidenceInputs === "object")
     ? districtBlob.evidenceInputs
     : {};
-  const precinctResults = Array.isArray(evidenceInputs.precinctResults)
+  const precinctResults = Array.isArray(resolvedInputs?.precinctResults)
+    ? resolvedInputs.precinctResults
+    : Array.isArray(evidenceInputs.precinctResults)
     ? evidenceInputs.precinctResults
     : (Array.isArray(districtBlob.precinctResults) ? districtBlob.precinctResults : []);
-  const crosswalkRows = Array.isArray(evidenceInputs.crosswalkRows)
+  const crosswalkRows = Array.isArray(resolvedInputs?.crosswalkRows)
+    ? resolvedInputs.crosswalkRows
+    : Array.isArray(evidenceInputs.crosswalkRows)
     ? evidenceInputs.crosswalkRows
     : (Array.isArray(districtBlob.crosswalkRows) ? districtBlob.crosswalkRows : (Array.isArray(districtBlob.precinctToGeo) ? districtBlob.precinctToGeo : []));
-  const censusGeoRows = Array.isArray(evidenceInputs.censusGeoRows)
+  const censusGeoRows = Array.isArray(resolvedInputs?.censusGeoRows)
+    ? resolvedInputs.censusGeoRows
+    : Array.isArray(evidenceInputs.censusGeoRows)
     ? evidenceInputs.censusGeoRows
     : (Array.isArray(districtBlob.censusGeoRows) ? districtBlob.censusGeoRows : (Array.isArray(districtBlob.censusRows) ? districtBlob.censusRows : []));
+  const resolverMode = String(resolvedInputs?.sourceMode || "");
+  const resolverNotes = Array.isArray(resolvedInputs?.notes)
+    ? resolvedInputs.notes.map((x) => String(x || "").trim()).filter(Boolean)
+    : [];
 
   const sourceParts = [];
   const censusId = String(state?.dataRefs?.censusDatasetId || "").trim();
@@ -574,6 +594,7 @@ export function renderIntelChecksModule({
   if (censusId) sourceParts.push(`Census: ${censusId}`);
   if (electionId) sourceParts.push(`Election: ${electionId}`);
   if (crosswalkId) sourceParts.push(`Crosswalk: ${crosswalkId}`);
+  if (resolverMode) sourceParts.push(`Input mode: ${resolverMode}`);
   if (els.intelDistrictEvidenceSource){
     els.intelDistrictEvidenceSource.textContent = sourceParts.length
       ? sourceParts.join(" · ")
@@ -625,16 +646,19 @@ export function renderIntelChecksModule({
   const signal = Number(evidence?.persuasionSignal?.index);
   const signalNote = String(evidence?.persuasionSignal?.note || "").trim();
   const warnings = Array.isArray(evidence?.warnings) ? evidence.warnings : [];
+  const mergedNotes = resolverNotes.concat(
+    warnings.map((x) => String(x || "").trim()).filter(Boolean)
+  );
 
   if (els.intelDistrictEvidenceStatus){
     els.intelDistrictEvidenceStatus.classList.remove("ok", "warn", "bad", "muted");
     if (!precinctResults.length || !crosswalkRows.length || !censusGeoRows.length){
       els.intelDistrictEvidenceStatus.classList.add("warn");
-      els.intelDistrictEvidenceStatus.textContent =
-        "Load precinct results, crosswalk rows, and census geo rows into geoPack.district.evidenceInputs to activate full district evidence.";
-    } else if (warnings.length){
+      const note = mergedNotes[0] || "Load precinct results, crosswalk rows, and census geo rows into geoPack.district.evidenceInputs or geoPack.district.evidenceStore to activate full district evidence.";
+      els.intelDistrictEvidenceStatus.textContent = note;
+    } else if (mergedNotes.length){
       els.intelDistrictEvidenceStatus.classList.add("warn");
-      els.intelDistrictEvidenceStatus.textContent = `Evidence compiled with warnings: ${warnings[0]}`;
+      els.intelDistrictEvidenceStatus.textContent = `Evidence compiled with warnings: ${mergedNotes[0]}`;
     } else {
       els.intelDistrictEvidenceStatus.classList.add("ok");
       els.intelDistrictEvidenceStatus.textContent =
