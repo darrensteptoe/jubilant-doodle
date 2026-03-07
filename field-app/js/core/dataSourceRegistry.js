@@ -972,7 +972,8 @@ export function materializePinnedDataRefs(args){
  * @param {{
  *   dataRefs: unknown,
  *   dataCatalog: unknown,
- *   scenario?: unknown
+ *   scenario?: unknown,
+ *   nowIso?: unknown
  * }} args
  * @returns {{
  *   status: "ok" | "warn" | "bad",
@@ -991,7 +992,13 @@ export function materializePinnedDataRefs(args){
  *     electionYearGap: number | null,
  *     censusCoveragePct: number | null,
  *     electionCoveragePct: number | null,
- *     crosswalkCoveragePct: number | null
+ *     crosswalkCoveragePct: number | null,
+ *     selectedMeta: {
+ *       boundary: { id: string | null, vintage: string | null, refreshedAt: string | null, isLatest: boolean, isVerified: boolean, ageDays: number | null },
+ *       crosswalk: { id: string | null, vintage: string | null, refreshedAt: string | null, isLatest: boolean, isVerified: boolean, ageDays: number | null },
+ *       census: { id: string | null, vintage: string | null, refreshedAt: string | null, isLatest: boolean, isVerified: boolean, ageDays: number | null },
+ *       election: { id: string | null, vintage: string | null, refreshedAt: string | null, isLatest: boolean, isVerified: boolean, ageDays: number | null }
+ *     }
  *   }
  * }}
  */
@@ -1009,6 +1016,32 @@ export function diagnoseDataRefAlignment(args){
   const crosswalk = selected.crosswalkVersionId ? byId?.crosswalks?.[selected.crosswalkVersionId] || null : null;
   const census = selected.censusDatasetId ? byId?.censusDatasets?.[selected.censusDatasetId] || null : null;
   const election = selected.electionDatasetId ? byId?.electionDatasets?.[selected.electionDatasetId] || null : null;
+  const nowMs = dateRank(args?.nowIso || new Date().toISOString());
+  const staleWarnDays = 730;
+  /**
+   * @param {Record<string, any> | null} row
+   * @returns {{ id: string | null, vintage: string | null, refreshedAt: string | null, isLatest: boolean, isVerified: boolean, ageDays: number | null }}
+   */
+  const rowMeta = (row) => {
+    if (!row) return { id: null, vintage: null, refreshedAt: null, isLatest: false, isVerified: false, ageDays: null };
+    const refreshedAt = strOrNull(row.refreshedAt);
+    const refreshedMs = dateRank(refreshedAt);
+    const ageDays = (refreshedMs >= 0 && nowMs >= 0)
+      ? Math.max(0, Math.floor((nowMs - refreshedMs) / 86400000))
+      : null;
+    return {
+      id: strOrNull(row.id),
+      vintage: strOrNull(row.vintage),
+      refreshedAt,
+      isLatest: !!row.isLatest,
+      isVerified: !!row.isVerified,
+      ageDays,
+    };
+  };
+  const boundaryMeta = rowMeta(boundary);
+  const crosswalkMeta = rowMeta(crosswalk);
+  const censusMeta = rowMeta(census);
+  const electionMeta = rowMeta(election);
 
   const warnings = [];
   const missing = [];
@@ -1040,6 +1073,21 @@ export function diagnoseDataRefAlignment(args){
       warnings.push(`Election dataset '${election.id}' boundary '${electionBoundaryId}' differs from selected boundary '${boundaryId}'.`);
     }
   }
+
+  if (resolution.mode === "latest_verified"){
+    if (boundary && !boundaryMeta.isLatest) warnings.push(`Boundary '${boundary.id}' is verified but not latest.`);
+    if (crosswalk && !crosswalkMeta.isLatest) warnings.push(`Crosswalk '${crosswalk.id}' is verified but not latest.`);
+    if (census && !censusMeta.isLatest) warnings.push(`Census dataset '${census.id}' is verified but not latest.`);
+    if (election && !electionMeta.isLatest) warnings.push(`Election dataset '${election.id}' is verified but not latest.`);
+  }
+  if (boundary && boundaryMeta.refreshedAt == null) warnings.push(`Boundary '${boundary.id}' has no refreshed timestamp.`);
+  if (crosswalk && crosswalkMeta.refreshedAt == null) warnings.push(`Crosswalk '${crosswalk.id}' has no refreshed timestamp.`);
+  if (census && censusMeta.refreshedAt == null) warnings.push(`Census dataset '${census.id}' has no refreshed timestamp.`);
+  if (election && electionMeta.refreshedAt == null) warnings.push(`Election dataset '${election.id}' has no refreshed timestamp.`);
+  if (boundaryMeta.ageDays != null && boundaryMeta.ageDays > staleWarnDays) warnings.push(`Boundary '${boundaryMeta.id || "selected"}' is stale (${boundaryMeta.ageDays} days old).`);
+  if (crosswalkMeta.ageDays != null && crosswalkMeta.ageDays > staleWarnDays) warnings.push(`Crosswalk '${crosswalkMeta.id || "selected"}' is stale (${crosswalkMeta.ageDays} days old).`);
+  if (censusMeta.ageDays != null && censusMeta.ageDays > staleWarnDays) warnings.push(`Census dataset '${censusMeta.id || "selected"}' is stale (${censusMeta.ageDays} days old).`);
+  if (electionMeta.ageDays != null && electionMeta.ageDays > staleWarnDays) warnings.push(`Election dataset '${electionMeta.id || "selected"}' is stale (${electionMeta.ageDays} days old).`);
 
   const targetYear = deriveTargetElectionYear(args?.scenario);
   const electionYear = toYearOrNull(election?.cycleYear) ?? toYearOrNull(election?.electionDate) ?? toYearOrNull(election?.vintage);
@@ -1080,6 +1128,7 @@ export function diagnoseDataRefAlignment(args){
   if (selected.censusDatasetId) summaryParts.push(`Census ${selected.censusDatasetId}`);
   if (selected.electionDatasetId) summaryParts.push(`Election ${selected.electionDatasetId}`);
   if (electionYearGap != null) summaryParts.push(`Year gap ${electionYearGap}`);
+  if (Number.isFinite(electionMeta.ageDays)) summaryParts.push(`Election age ${Math.round(Number(electionMeta.ageDays))}d`);
   const summary = summaryParts.join(" · ") || "No active data refs selected.";
 
   return {
@@ -1100,6 +1149,12 @@ export function diagnoseDataRefAlignment(args){
       censusCoveragePct,
       electionCoveragePct,
       crosswalkCoveragePct,
+      selectedMeta: {
+        boundary: boundaryMeta,
+        crosswalk: crosswalkMeta,
+        census: censusMeta,
+        election: electionMeta,
+      },
     },
   };
 }

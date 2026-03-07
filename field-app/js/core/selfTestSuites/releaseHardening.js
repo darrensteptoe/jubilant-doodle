@@ -950,6 +950,43 @@ export function registerReleaseHardeningTests(ctx){
     return true;
   });
 
+  test("Phase 20: data-ref alignment diagnostics computes age-days and stale warnings", () => {
+    const catalog = {
+      boundarySets: [
+        { id: "sldl_2024", label: "SLDL 2024", geographyType: "SLDL", vintage: "2024", refreshedAt: "2025-01-01T00:00:00.000Z", isVerified: true, isLatest: true },
+      ],
+      crosswalks: [
+        { id: "cw_2024", fromBoundarySetId: "sldl_2022", toBoundarySetId: "sldl_2024", unit: "tract", method: "population", refreshedAt: "2025-01-15T00:00:00.000Z", isLatest: true, quality: { coveragePct: 99, unmatchedPct: 1, weightDriftPct: 0.1, isVerified: true } },
+      ],
+      censusDatasets: [
+        { id: "acs5_2024", kind: "census", label: "ACS 2024", source: "acs5", vintage: "2024", boundarySetId: "sldl_2024", granularity: "tract", refreshedAt: "2024-12-01T00:00:00.000Z", isLatest: true, quality: { coveragePct: 98, isVerified: true } },
+      ],
+      electionDatasets: [
+        { id: "mit_state_house_2024", kind: "election", label: "MIT State House 2024", source: "mit", vintage: "2024", electionDate: "2024-11-05", officeType: "state_house", raceType: "state_leg", boundarySetId: "sldl_2024", granularity: "precinct", refreshedAt: "2024-11-20T00:00:00.000Z", isLatest: true, quality: { coveragePct: 96, isVerified: true } },
+      ],
+    };
+    const diag = diagnoseDataRefAlignment({
+      dataRefs: {
+        mode: "latest_verified",
+        boundarySetId: "sldl_2024",
+        crosswalkVersionId: "cw_2024",
+        censusDatasetId: "acs5_2024",
+        electionDatasetId: "mit_state_house_2024",
+      },
+      dataCatalog: catalog,
+      scenario: {
+        raceType: "state_leg",
+        electionDate: "2026-11-03",
+        geoPack: { area: { type: "SLDL" } },
+      },
+      nowIso: "2027-12-31T00:00:00.000Z",
+    });
+    assert(Array.isArray(diag.warnings) && diag.warnings.some((x) => String(x).includes("stale")), "Expected stale-age warning");
+    assert(Number(diag.details?.selectedMeta?.election?.ageDays) > 700, "Expected election age-days metadata");
+    assert(Number(diag.details?.selectedMeta?.census?.ageDays) > 700, "Expected census age-days metadata");
+    return true;
+  });
+
   test("Phase 19: district evidence compile produces deterministic candidate rollups + precinct linkage", () => {
     const evidence = compileDistrictEvidence({
       geoUnits: [
