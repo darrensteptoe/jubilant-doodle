@@ -1,3 +1,4 @@
+// @ts-check
 // Phase 4 — Budget + ROI (deterministic cost layer)
 // Design rule: this module NEVER mutates Phase 1–3 outcomes. It only computes cost lenses.
 import {
@@ -6,6 +7,37 @@ import {
   resolveTurnoutContext,
 } from "./voteProduction.js";
 
+/**
+ * @typedef {object} ChannelTactic
+ * @property {boolean=} enabled
+ * @property {number=} cpa
+ * @property {number=} crPct
+ * @property {number=} srPct
+ * @property {string=} kind
+ */
+
+/**
+ * @typedef {object} BudgetTactics
+ * @property {ChannelTactic=} doors
+ * @property {ChannelTactic=} phones
+ * @property {ChannelTactic=} texts
+ */
+
+/**
+ * @typedef {object} RoiInput
+ * @property {number | null | undefined} goalNetVotes
+ * @property {{ cr?: number | null, sr?: number | null, tr?: number | null }=} baseRates
+ * @property {BudgetTactics=} tactics
+ * @property {number=} overheadAmount
+ * @property {boolean=} includeOverhead
+ * @property {Record<string, number> | null=} caps
+ * @property {{ median?: number | null, needVotes?: number | null } | null=} mcLast
+ * @property {Record<string, any> | null=} turnoutModel
+ */
+
+/**
+ * @param {RoiInput} input
+ */
 export function computeRoiRows({
   goalNetVotes,
   baseRates,
@@ -152,6 +184,15 @@ export function computeRoiRows({
   return { rows, banner };
 }
 
+/**
+ * @param {{
+ *   need: number | null,
+ *   ratesOkBase: boolean,
+ *   overheadAmount: number,
+ *   includeOverhead: boolean,
+ *   mcLast: { median?: number | null, needVotes?: number | null } | null
+ * }} input
+ */
 function buildBanner({ need, ratesOkBase, overheadAmount, includeOverhead, mcLast }){
   if (need == null){
     return { kind: "warn", text: "ROI: Enter a valid universe + support inputs so the model can compute persuasion need." };
@@ -174,6 +215,10 @@ function buildBanner({ need, ratesOkBase, overheadAmount, includeOverhead, mcLas
   return { kind: "ok", text: "ROI: Deterministic cost lens using Attempts → Conversations → Support IDs → Net Votes. You can override CR/SR per channel in Phase 4B." };
 }
 
+/**
+ * @param {number | null | undefined} v
+ * @returns {string}
+ */
 function fmtSignedLocal(v){
   if (v == null || !isFinite(v)) return "—";
   const n = Math.round(v);
@@ -185,6 +230,15 @@ function fmtSignedLocal(v){
 // Phase 5 — Optimization helper (pure; does not change ROI math)
 // Returns enabled tactics with per-attempt deterministic cost + net-vote yield,
 // using the SAME CR/SR override logic as Phase 4B ROI.
+/**
+ * @param {{
+ *   baseRates?: { cr?: number | null, sr?: number | null, tr?: number | null },
+ *   tactics?: BudgetTactics,
+ *   turnoutModel?: Record<string, any> | null,
+ *   universeSize?: number | null,
+ *   targetUniversePct?: number | null
+ * }} input
+ */
 export function buildOptimizationTactics({ baseRates, tactics, turnoutModel, universeSize, targetUniversePct }){
   const baseCr = baseRates?.cr ?? null;
   const baseSr = baseRates?.sr ?? null;

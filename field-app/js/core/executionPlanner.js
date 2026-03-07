@@ -1,19 +1,47 @@
+// @ts-check
+/**
+ * @param {unknown} v
+ * @returns {number | null}
+ */
 function safeNum(v){
   const n = Number(v);
   return Number.isFinite(n) ? n : null;
 }
 
+/**
+ * @param {number} v
+ * @param {number} lo
+ * @param {number} hi
+ * @returns {number}
+ */
 function clamp(v, lo, hi){
   if (!Number.isFinite(v)) return lo;
   return Math.min(hi, Math.max(lo, v));
 }
 
+/**
+ * @param {unknown} pct
+ * @param {number | null} fallback
+ * @returns {number | null}
+ */
 function pctToUnit(pct, fallback){
   const n = safeNum(pct);
   if (n == null) return fallback;
   return clamp(n, 0, 100) / 100;
 }
 
+/**
+ * @param {{
+ *   goalVotes?: number,
+ *   supportRatePct?: number,
+ *   contactRatePct?: number,
+ *   doorsPerHour?: number,
+ *   hoursPerShift?: number,
+ *   shiftsPerVolunteerPerWeek?: number,
+ *   weeks?: number
+ * }=} input
+ * @returns {number | null}
+ */
 export function computeVolunteerNeedFromGoal({
   goalVotes,
   supportRatePct,

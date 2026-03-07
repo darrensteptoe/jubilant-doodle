@@ -1,6 +1,7 @@
 // js/core/model.js
 // Deterministic model + shared derived helpers (pure).
 // This module must not touch DOM/window/document.
+// @ts-check
 
 import { safeNum, daysBetween, clamp } from "./utils.js";
 export * from "./winMath.js";
@@ -14,6 +15,11 @@ const DEFAULT_CAPACITY_DECAY = Object.freeze({
 });
 
 // Derived helper: votes still needed to hit goal (used by MC + sensitivity + UI)
+/**
+ * @param {Record<string, any>|null|undefined} res
+ * @param {unknown} goalSupportIdsOverride
+ * @returns {number|null}
+ */
 export function deriveNeedVotes(res, goalSupportIdsOverride){
   const rawGoal = safeNum(goalSupportIdsOverride);
   const autoGoal = safeNum(res?.expected?.persuasionNeed);
@@ -22,12 +28,21 @@ export function deriveNeedVotes(res, goalSupportIdsOverride){
 }
 
 // Canonical helper for UI/planner layers that require a usable non-negative value.
+/**
+ * @param {Record<string, any>|null|undefined} res
+ * @param {unknown} goalSupportIdsOverride
+ * @returns {number}
+ */
 export function deriveNeedVotesOrZero(res, goalSupportIdsOverride){
   const goal = deriveNeedVotes(res, goalSupportIdsOverride);
   return (goal != null && goal > 0) ? goal : 0;
 }
 
 // Derived helper: weeks remaining (used by MC + optimizer timeline caps)
+/**
+ * @param {{ weeksRemainingOverride?: unknown, electionDateISO?: unknown, nowDate?: Date }} args
+ * @returns {number|null}
+ */
 export function derivedWeeksRemaining({ weeksRemainingOverride, electionDateISO, nowDate = new Date() } = {}){
   const override = safeNum(weeksRemainingOverride);
   if (override != null && override >= 0) return override;
@@ -46,12 +61,20 @@ export function derivedWeeksRemaining({ weeksRemainingOverride, electionDateISO,
 }
 
 // Canonical helper for displays/weekly planning that use whole-week buckets.
+/**
+ * @param {{ weeksRemainingOverride?: unknown, electionDateISO?: unknown, nowDate?: Date }} args
+ * @returns {number|null}
+ */
 export function deriveWeeksRemainingCeil({ weeksRemainingOverride, electionDateISO, nowDate = new Date() } = {}){
   const weeks = derivedWeeksRemaining({ weeksRemainingOverride, electionDateISO, nowDate });
   if (weeks == null || !Number.isFinite(weeks)) return null;
   return Math.max(0, Math.ceil(weeks));
 }
 
+/**
+ * @param {unknown} input
+ * @returns {{ enabled:boolean, type:string, weeklyDecayPct:number, floorPctOfBaseline:number }}
+ */
 export function resolveCapacityDecayConfig(input){
   const raw = (input && typeof input === "object") ? input : {};
   const type = (String(raw.type || DEFAULT_CAPACITY_DECAY.type).toLowerCase() === "linear")
@@ -74,6 +97,11 @@ export function resolveCapacityDecayConfig(input){
   };
 }
 
+/**
+ * @param {number} weekIndex
+ * @param {{ enabled:boolean, type:string, weeklyDecayPct:number, floorPctOfBaseline:number }} decay
+ * @returns {number}
+ */
 function decayWeekFactor(weekIndex, decay){
   if (!decay.enabled) return 1;
   if (decay.type !== "linear") return 1;
@@ -81,6 +109,11 @@ function decayWeekFactor(weekIndex, decay){
   return clamp(raw, decay.floorPctOfBaseline, 1);
 }
 
+/**
+ * @param {unknown} weeks
+ * @param {{ enabled:boolean, type:string, weeklyDecayPct:number, floorPctOfBaseline:number }} decay
+ * @returns {number}
+ */
 function capacityDecayMultiplier(weeks, decay){
   const w = safeNum(weeks);
   if (w == null || w <= 0) return 0;
@@ -101,6 +134,19 @@ function capacityDecayMultiplier(weeks, decay){
 }
 
 // Capacity ceiling in attempt units (doors knocked + calls dialed)
+/**
+ * @param {{
+ *   weeks?: unknown,
+ *   orgCount?: unknown,
+ *   orgHoursPerWeek?: unknown,
+ *   volunteerMult?: unknown,
+ *   doorShare?: unknown,
+ *   doorsPerHour?: unknown,
+ *   callsPerHour?: unknown,
+ *   capacityDecay?: unknown
+ * }} args
+ * @returns {number|null}
+ */
 export function computeCapacityContacts({ weeks, orgCount, orgHoursPerWeek, volunteerMult, doorShare, doorsPerHour, callsPerHour, capacityDecay }){
   const w = safeNum(weeks);
   if (w == null || w <= 0) return null;
@@ -121,6 +167,19 @@ export function computeCapacityContacts({ weeks, orgCount, orgHoursPerWeek, volu
   return (isFinite(total) && total >= 0) ? total : null;
 }
 
+/**
+ * @param {{
+ *   weeks?: unknown,
+ *   orgCount?: unknown,
+ *   orgHoursPerWeek?: unknown,
+ *   volunteerMult?: unknown,
+ *   doorShare?: unknown,
+ *   doorsPerHour?: unknown,
+ *   callsPerHour?: unknown,
+ *   capacityDecay?: unknown
+ * }} args
+ * @returns {{ total:number, doors:number|null, phones:number|null }|null}
+ */
 export function computeCapacityBreakdown({ weeks, orgCount, orgHoursPerWeek, volunteerMult, doorShare, doorsPerHour, callsPerHour, capacityDecay }){
   const w = safeNum(weeks);
   const total = computeCapacityContacts({

@@ -1,3 +1,4 @@
+// @ts-check
 // js/hash.js
 // Phase 9B — Snapshot Integrity + Hash Verification
 //
@@ -9,13 +10,29 @@
 // Hash algorithm: FNV-1a 64-bit over a canonical JSON serialization (sorted keys).
 // Collision tolerance: non-cryptographic; intended for accidental drift detection, not adversarial security.
 
+/**
+ * @typedef {object} SnapshotHashInput
+ * @property {string=} modelVersion
+ * @property {unknown=} scenarioState
+ * @property {unknown=} scenario
+ */
+
+/**
+ * @param {unknown} v
+ * @returns {v is Record<string, unknown>}
+ */
 function isPlainObject(v){
   return v != null && typeof v === "object" && !Array.isArray(v);
 }
 
+/**
+ * @param {unknown} v
+ * @returns {unknown}
+ */
 function canonicalize(v){
   if (Array.isArray(v)) return v.map(canonicalize);
   if (!isPlainObject(v)) return v;
+  /** @type {Record<string, unknown>} */
   const out = {};
   const keys = Object.keys(v).sort();
   for (const k of keys){
@@ -24,11 +41,19 @@ function canonicalize(v){
   return out;
 }
 
+/**
+ * @param {unknown} obj
+ * @returns {string}
+ */
 function stableSerialize(obj){
   // No whitespace, canonical key ordering.
   return JSON.stringify(canonicalize(obj));
 }
 
+/**
+ * @param {unknown} str
+ * @returns {Uint8Array | number[]}
+ */
 function utf8Bytes(str){
   const s = String(str ?? "");
   if (typeof TextEncoder !== "undefined"){
@@ -42,6 +67,10 @@ function utf8Bytes(str){
   return out;
 }
 
+/**
+ * @param {string} str
+ * @returns {string}
+ */
 function fnv1a64Hex(str){
   // 64-bit FNV-1a
   let hash = 14695981039346656037n; // offset basis
@@ -58,6 +87,10 @@ function fnv1a64Hex(str){
   return hex.padStart(16, "0");
 }
 
+/**
+ * @param {SnapshotHashInput | null | undefined} snapshot
+ * @returns {string}
+ */
 export function computeSnapshotHash(snapshot){
   // Only hash stable, meaning-bearing content. Do NOT include exportedAt timestamps, UI-only caches, etc.
   const mv = snapshot?.modelVersion ?? "";

@@ -1,3 +1,4 @@
+// @ts-check
 // js/turnout.js
 // Phase 6 — Turnout / GOTV modeling helpers (pure functions, deterministic)
 // Design goals:
@@ -6,6 +7,26 @@
 // - Defensible math: turnout affects realized votes; persuasion affects preference among voters
 
 import { clamp, safeNum } from "./utils.js";
+
+/**
+ * @typedef {object} AvgLiftInput
+ * @property {number} baselineTurnoutPct
+ * @property {number} liftPerContactPP
+ * @property {number} maxLiftPP
+ * @property {number} contacts
+ * @property {number} universeSize
+ * @property {boolean=} useDiminishing
+ */
+
+/**
+ * @typedef {object} TurnoutAdjustedInput
+ * @property {boolean} turnoutEnabled
+ * @property {number} baseNetVotes
+ * @property {number | null=} rrUnit
+ * @property {number=} gotvAvgLiftPP
+ * @property {boolean=} hybridAppliesToPersuasion
+ * @property {number=} gotvAddedVotes
+ */
 
 /**
  * Compute average turnout lift (percentage points) applied to a target universe,
@@ -17,6 +38,8 @@ import { clamp, safeNum } from "./utils.js";
  * - contacts: successful contacts (count)
  * - universeSize: size of target universe (count)
  * - useDiminishing: if true, uses a smooth saturating curve; else linear to cap
+ * @param {AvgLiftInput} input
+ * @returns {number}
  */
 export function computeAvgLiftPP({
   baselineTurnoutPct,
@@ -56,6 +79,15 @@ export function computeAvgLiftPP({
   return clamp(avg, 0, ceiling);
 }
 
+/**
+ * @param {TurnoutAdjustedInput} input
+ * @returns {{
+ *   turnoutAdjustedNetVotes: number,
+ *   persuasionNetVotes: number,
+ *   gotvAddedVotes: number,
+ *   effectiveRrUnit: number | null
+ * }}
+ */
 export function computeTurnoutAdjustedNetVotes({
   turnoutEnabled,
   baseNetVotes,
@@ -106,6 +138,11 @@ export function computeTurnoutAdjustedNetVotes({
  * objective:
  * - "net" => netVotesPerAttempt (existing)
  * - "turnout" => turnoutAdjustedNetVotesPerAttempt (new)
+ */
+/**
+ * @param {{ netVotesPerAttempt?: number, turnoutAdjustedNetVotesPerAttempt?: number } | null | undefined} tactic
+ * @param {"net" | "turnout" | string} objective
+ * @returns {number}
  */
 export function pickTacticValuePerAttempt(tactic, objective){
   if (!tactic) return 0;

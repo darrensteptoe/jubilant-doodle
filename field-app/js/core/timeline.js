@@ -1,19 +1,36 @@
+// @ts-check
 // js/core/timeline.js
 // Phase 7 — Timeline / Production feasibility (pure, deterministic)
 
 import { computeMaxAttemptsByTactic } from "./timelineOptimizer.js";
 
+/**
+ * @param {unknown} v
+ * @param {number | null} [fb]
+ * @returns {number | null}
+ */
 function num(v, fb = null){
   if (v === null || v === undefined || v === "") return fb;
   const n = Number(v);
   return Number.isFinite(n) ? n : fb;
 }
 
+/**
+ * @param {unknown} v
+ * @returns {number}
+ */
 function clamp0(v){
   const n = num(v, 0);
   return n < 0 ? 0 : n;
 }
 
+/**
+ * @param {{
+ *   enabled?: boolean,
+ *   requiredAttemptsTotal?: number,
+ *   required?: Record<string, number>
+ * } & Record<string, any>} args
+ */
 export function computeTimelineFeasibility(args){
   const enabled = !!args?.enabled;
   if (!enabled){

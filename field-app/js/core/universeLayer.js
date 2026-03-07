@@ -1,18 +1,50 @@
+// @ts-check
 // js/universeLayer.js
 // Phase 16 — Universe Composition + Retention Layer
 // Pure module: no DOM, no mutation.
 
+/**
+ * @typedef {object} UniversePercents
+ * @property {number=} demPct
+ * @property {number=} repPct
+ * @property {number=} npaPct
+ * @property {number=} otherPct
+ */
+
+/**
+ * @typedef {object} UniverseAdjustedRatesInput
+ * @property {boolean=} enabled
+ * @property {UniversePercents=} universePercents
+ * @property {number=} retentionFactor
+ * @property {number=} supportRate
+ * @property {number=} turnoutReliability
+ */
+
+/**
+ * @param {unknown} v
+ * @returns {number | null}
+ */
 function safeNum(v){
   const n = Number(v);
   return Number.isFinite(n) ? n : null;
 }
 
+/**
+ * @param {unknown} v
+ * @param {number} lo
+ * @param {number} hi
+ * @returns {number}
+ */
 function clamp(v, lo, hi){
   const n = safeNum(v);
   if (n == null) return lo;
   return Math.min(hi, Math.max(lo, n));
 }
 
+/**
+ * @param {unknown} x
+ * @returns {number | null}
+ */
 function clamp01(x){
   const n = safeNum(x);
   if (n == null) return null;
@@ -35,6 +67,16 @@ export const UNIVERSE_MULTIPLIERS = {
 
 export const TURNOUT_BOOST_CAP = 0.05;
 
+/**
+ * @param {UniversePercents=} input
+ * @returns {{
+ *   percents: { demPct: number, repPct: number, npaPct: number, otherPct: number },
+ *   shares: { dem: number, rep: number, npa: number, other: number },
+ *   sum: number,
+ *   normalized: boolean,
+ *   warning: string
+ * }}
+ */
 export function normalizeUniversePercents({ demPct, repPct, npaPct, otherPct } = {}){
   const d = clamp(demPct, 0, 100);
   const r = clamp(repPct, 0, 100);
@@ -68,6 +110,11 @@ export function normalizeUniversePercents({ demPct, repPct, npaPct, otherPct } =
   };
 }
 
+/**
+ * @param {{ dem?: number, rep?: number, npa?: number, other?: number } | null | undefined} shares
+ * @param {{ dem?: number, rep?: number, npa?: number, other?: number }} multipliers
+ * @returns {number}
+ */
 function weightedMultiplier(shares, multipliers){
   const s = shares || { dem: 1, rep: 0, npa: 0, other: 0 };
   return (
@@ -78,6 +125,9 @@ function weightedMultiplier(shares, multipliers){
   );
 }
 
+/**
+ * @param {UniverseAdjustedRatesInput=} input
+ */
 export function computeUniverseAdjustedRates({
   enabled,
   universePercents,

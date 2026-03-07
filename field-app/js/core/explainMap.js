@@ -1,7 +1,32 @@
+// @ts-check
 // js/core/explainMap.js
 // Deterministic lineage map for impact tracing and explain-mode tooling.
 // Pure metadata only; does not modify numeric outputs.
 
+/**
+ * @typedef {object} ExplainNode
+ * @property {string} module
+ * @property {string[]} inputs
+ * @property {string[]} dependsOn
+ * @property {string} note
+ */
+
+/**
+ * @typedef {Record<string, ExplainNode | {_meta: unknown}> & {
+ *   _meta: {
+ *     generatedAt: string,
+ *     moduleVersion: string,
+ *     hasResult: boolean
+ *   }
+ * }} DeterministicExplainMap
+ */
+
+/**
+ * Build deterministic output lineage metadata for explain-mode tooling.
+ * @param {Record<string, any>} [inputs]
+ * @param {Record<string, any>} [res]
+ * @returns {DeterministicExplainMap}
+ */
 export function buildDeterministicExplainMap(inputs = {}, res = {}){
   const hasUserDefinedSplit = String(inputs?.undecidedMode || "").trim() === "user_defined";
   return {

@@ -1,18 +1,39 @@
+// @ts-check
 // js/confidenceEnvelope.js
 // Phase 14 — Confidence Envelope (Risk Framing Layer)
 // Pure post-processing of Monte Carlo margin outcomes.
 // NOTE: Must not mutate inputs.
 
+/**
+ * @typedef {object} ConfidenceEnvelopeInput
+ * @property {number[]=} margins
+ * @property {number[]=} sortedMargins
+ * @property {number=} winProb
+ * @property {"gt0"|"gte0"=} winRule
+ */
+
+/**
+ * @param {number} x
+ * @returns {boolean}
+ */
 function isFiniteNumber(x){
   return typeof x === "number" && isFinite(x);
 }
 
+/**
+ * @param {number[]} arr
+ * @returns {number}
+ */
 function mean(arr){
   let s = 0;
   for (let i=0;i<arr.length;i++) s += arr[i];
   return arr.length ? (s / arr.length) : 0;
 }
 
+/**
+ * @param {number[]} arr
+ * @returns {number}
+ */
 function stdev(arr){
   const n = arr.length;
   if (!n) return 0;
@@ -26,6 +47,11 @@ function stdev(arr){
   return Math.sqrt(v);
 }
 
+/**
+ * @param {number[]} sorted
+ * @param {number} q
+ * @returns {number}
+ */
 function quantileSorted(sorted, q){
   const n = sorted.length;
   if (!n) return 0;
@@ -39,6 +65,10 @@ function quantileSorted(sorted, q){
   return sorted[lo] + t * (sorted[hi] - sorted[lo]);
 }
 
+/**
+ * Compute confidence envelope and risk framing from Monte Carlo margins.
+ * @param {ConfidenceEnvelopeInput} input
+ */
 export function computeConfidenceEnvelope({ margins, sortedMargins, winProb, winRule }){
   const arr = Array.isArray(margins) ? margins : [];
   const n = arr.length;

@@ -1,3 +1,4 @@
+// @ts-check
 // js/core/robust.js
 // Phase R2 — Robust / risk-aware plan selection (wrapper only).
 // This module does NOT change the optimizer; it only ranks candidate plans
@@ -8,10 +9,24 @@ import * as risk from "./risk.js";
 const DEFAULT_LAMBDA_CVAR = 0.50;
 const DEFAULT_CVAR_Q = 0.10;
 
+/**
+ * @param {unknown} x
+ * @returns {x is number}
+ */
 function isFiniteNumber(x){
   return typeof x === "number" && Number.isFinite(x);
 }
 
+/**
+ * @param {{
+ *   probWin?: number,
+ *   p25?: number,
+ *   mean?: number,
+ *   cvar10?: number
+ * } | null | undefined} riskSummary
+ * @param {string | null | undefined} objective
+ * @returns {number}
+ */
 function scoreFromRiskSummary(riskSummary, objective){
   const rs = riskSummary || {};
   const obj = objective || "max_prob_win";
@@ -27,6 +42,14 @@ function scoreFromRiskSummary(riskSummary, objective){
   return isFiniteNumber(rs.probWin) ? rs.probWin : -Infinity;
 }
 
+/**
+ * @param {{
+ *   candidates?: any[],
+ *   evaluateFn?: ((plan: any, seed?: string | number | null) => any) | null,
+ *   objective?: string,
+ *   seed?: string | number | null
+ * }=} input
+ */
 export function selectPlan({ candidates, evaluateFn, objective, seed } = {}){
   const arr = Array.isArray(candidates) ? candidates : [];
   const evalFn = evaluateFn;
@@ -72,6 +95,18 @@ export function selectPlan({ candidates, evaluateFn, objective, seed } = {}){
 //
 // Expected plan fields:
 // - patchScenario: object merged into scenario
+/**
+ * @param {{ patchScenario?: Record<string, any> } | null | undefined} plan
+ * @param {{
+ *   scenario?: Record<string, any>,
+ *   res?: Record<string, any> | null,
+ *   weeks?: number | null,
+ *   needVotes?: number | null,
+ *   runs?: number | null,
+ *   runMonteCarloSim?: ((input: Record<string, any>) => any) | null
+ * }=} state
+ * @param {string | number | null | undefined} seed
+ */
 export function evaluatePlan(plan, state, seed){
   const st = state || {};
   const run = st.runMonteCarloSim;

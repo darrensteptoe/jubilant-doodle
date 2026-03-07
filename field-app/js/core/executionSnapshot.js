@@ -1,14 +1,25 @@
 // js/core/executionSnapshot.js
 // Canonical execution snapshot compiler (pure).
 // Consumes planning snapshot + observed logs to produce pace and drift context.
+// @ts-check
 
 import { safeNum } from "./utils.js";
 
+/**
+ * @param {unknown} v
+ * @param {(v: unknown) => number|null} safeNumFn
+ * @returns {number}
+ */
 function toNum(v, safeNumFn){
   const n = (typeof safeNumFn === "function") ? safeNumFn(v) : Number(v);
   return Number.isFinite(n) ? n : 0;
 }
 
+/**
+ * @param {Record<string, any>} entry
+ * @param {(v: unknown) => number|null} safeNumFn
+ * @returns {number}
+ */
 function attemptsFromLogEntry(entry, safeNumFn){
   const doors = toNum(entry?.doors, safeNumFn);
   const calls = toNum(entry?.calls, safeNumFn);
@@ -19,18 +30,37 @@ function attemptsFromLogEntry(entry, safeNumFn){
   return doors + calls;
 }
 
+/**
+ * @param {Record<string, any>} entry
+ * @param {(v: unknown) => number|null} safeNumFn
+ * @returns {number}
+ */
 function convosFromLogEntry(entry, safeNumFn){
   return toNum(entry?.convos, safeNumFn);
 }
 
+/**
+ * @param {Record<string, any>} entry
+ * @param {(v: unknown) => number|null} safeNumFn
+ * @returns {number}
+ */
 function supportIdsFromLogEntry(entry, safeNumFn){
   return toNum(entry?.supportIds, safeNumFn);
 }
 
+/**
+ * @param {Record<string, any>} entry
+ * @param {(v: unknown) => number|null} safeNumFn
+ * @returns {number}
+ */
 function orgHoursFromLogEntry(entry, safeNumFn){
   return toNum(entry?.orgHours, safeNumFn);
 }
 
+/**
+ * @param {unknown} dateRaw
+ * @returns {Date|null}
+ */
 function normalizeIsoDate(dateRaw){
   const s = String(dateRaw || "").trim();
   if (!s) return null;
@@ -39,6 +69,28 @@ function normalizeIsoDate(dateRaw){
   return d;
 }
 
+/**
+ * @param {{
+ *   dailyLog?: Array<Record<string, any>>,
+ *   windowN?: number,
+ *   safeNumFn?: (v: unknown) => number|null
+ * }} args
+ * @returns {{
+ *   hasLog:boolean,
+ *   sorted:Array<Record<string, any>>,
+ *   window:Array<Record<string, any>>,
+ *   windowN:number,
+ *   entries:number,
+ *   firstDate:Date|null,
+ *   lastDate:Date|null,
+ *   days:number|null,
+ *   sumAttemptsWindow:number,
+ *   sumConvosWindow:number,
+ *   sumSupportIdsWindow:number,
+ *   sumOrgHoursWindow:number,
+ *   sumAttemptsAll:number
+ * }}
+ */
 function summarizeDailyLog({ dailyLog, windowN = 7, safeNumFn = safeNum } = {}){
   const raw = Array.isArray(dailyLog) ? dailyLog : [];
   const sorted = raw
@@ -107,6 +159,19 @@ function summarizeDailyLog({ dailyLog, windowN = 7, safeNumFn = safeNum } = {}){
   };
 }
 
+/**
+ * @param {{
+ *   planningSnapshot?: Record<string, any>|null,
+ *   weeklyContext?: Record<string, any>|null,
+ *   dailyLog?: Array<Record<string, any>>,
+ *   assumedCR?: number|null,
+ *   assumedSR?: number|null,
+ *   expectedAPH?: number|null,
+ *   windowN?: number,
+ *   safeNumFn?: (v: unknown) => number|null
+ * }} args
+ * @returns {Record<string, any>}
+ */
 export function computeExecutionSnapshot({
   planningSnapshot = null,
   weeklyContext = null,

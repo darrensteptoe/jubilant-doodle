@@ -1,7 +1,12 @@
 // js/core/featureFlags.js
 // Read-only feature resolution for core compute modules.
 // Preference: state.features (if present) with legacy fallback fields.
+// @ts-check
 
+/**
+ * @param {unknown} v
+ * @returns {v is Record<string, any>}
+ */
 function isObject(v){
   return !!v && typeof v === "object" && !Array.isArray(v);
 }
@@ -22,6 +27,18 @@ function resolveDistribution(primary, fallback){
   return "triangular";
 }
 
+/**
+ * @param {Record<string, any>|null|undefined} state
+ * @returns {{
+ *   turnoutModelingEnabled:boolean,
+ *   timelineEnabled:boolean,
+ *   universeWeightingEnabled:boolean,
+ *   mcDistribution:"triangular"|"uniform"|"normal",
+ *   correlatedShocks:boolean,
+ *   shockScenariosEnabled:boolean,
+ *   capacityDecayEnabled:boolean
+ * }}
+ */
 export function resolveFeatureFlags(state){
   const s = isObject(state) ? state : {};
   const f = isObject(s.features) ? s.features : {};
@@ -43,4 +60,3 @@ export function resolveFeatureFlags(state){
     capacityDecayEnabled: resolveBool(capacity.decayEnabled, expert.capacityDecayEnabled),
   };
 }
-

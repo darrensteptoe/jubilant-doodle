@@ -1,6 +1,7 @@
 // js/core/electionSnapshot.js
 // Canonical planning snapshot compiler (pure).
 // Does not touch DOM/localStorage/window.
+// @ts-check
 
 import { buildModelInputFromSnapshot } from "./modelInput.js";
 import {
@@ -18,12 +19,20 @@ function toNumDefault(v){
   return Number.isFinite(n) ? n : null;
 }
 
+/**
+ * @param {unknown} doorSharePct
+ * @returns {number|null}
+ */
 function toDoorShareUnit(doorSharePct){
   const n = Number(doorSharePct);
   if (!Number.isFinite(n)) return null;
   return clamp(n, 0, 100) / 100;
 }
 
+/**
+ * @param {unknown} dateRaw
+ * @returns {string}
+ */
 function toElectionDateIso(dateRaw){
   const s = String(dateRaw || "").trim();
   if (!s) return "";
@@ -31,6 +40,15 @@ function toElectionDateIso(dateRaw){
   return `${s}T00:00:00`;
 }
 
+/**
+ * @param {Record<string, any>} snap
+ * @returns {{
+ *   enabled:boolean,
+ *   type:string,
+ *   weeklyDecayPct:number,
+ *   floorPctOfBaseline:number
+ * }}
+ */
 function resolveCapacityDecayFromState(snap){
   const features = resolveFeatureFlags(snap || {});
   const toggles = snap?.intelState?.expertToggles || {};
@@ -43,6 +61,26 @@ function resolveCapacityDecayFromState(snap){
   };
 }
 
+/**
+ * @param {{
+ *   state?:Record<string, any>,
+ *   nowDate?:Date,
+ *   toNum?:(v: unknown) => number|null
+ * }} args
+ * @returns {{
+ *   modelInput: import("./types").ModelInput,
+ *   res: Record<string, any>,
+ *   weeks: number|null,
+ *   needVotes: number|null,
+ *   capacityWeekly: Record<string, any>|null,
+ *   capacityDecay: {
+ *     enabled:boolean,
+ *     type:string,
+ *     weeklyDecayPct:number,
+ *     floorPctOfBaseline:number
+ *   }
+ * }}
+ */
 export function computeElectionSnapshot({
   state,
   nowDate = new Date(),
