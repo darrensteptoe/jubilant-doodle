@@ -29,8 +29,17 @@ import {
   rankElectionDatasetsForScenario,
 } from "./core/dataSourceRegistry.js";
 import { normalizeAreaSelection, buildAreaResolverCacheKey, deriveAreaResolverContext } from "./core/areaResolver.js";
-import { compileDistrictEvidence, derivePersuasionSignalFromElection } from "./core/districtEvidence.js";
+import {
+  compileDistrictEvidence,
+  derivePersuasionSignalFromElection,
+  summarizeGeoEvidenceLayers,
+} from "./core/districtEvidence.js";
 import { resolveDistrictEvidenceInputs } from "./core/districtEvidenceInputs.js";
+import {
+  buildDistrictIntelPackFromEvidence,
+  applyDistrictIntelRateOverrides,
+  applyDistrictIntelCapacityOverrides,
+} from "./core/districtIntelBuilder.js";
 import {
   MODEL_VERSION,
   makeScenarioExport,
@@ -126,7 +135,11 @@ export const engine = {
     deriveAreaResolverContext,
     compileDistrictEvidence,
     derivePersuasionSignalFromElection,
+    summarizeGeoEvidenceLayers,
     resolveDistrictEvidenceInputs,
+    buildDistrictIntelPackFromEvidence,
+    applyDistrictIntelRateOverrides,
+    applyDistrictIntelCapacityOverrides,
     makeScenarioExport,
     deterministicStringify,
     validateScenarioExport,

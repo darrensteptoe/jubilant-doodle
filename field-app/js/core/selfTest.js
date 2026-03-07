@@ -92,8 +92,17 @@ import {
   electionManifestToCatalogEntry,
 } from "./districtIngest.js";
 import { allocatePrecinctVotesToGeo } from "./precinctCensusJoin.js";
-import { compileDistrictEvidence, derivePersuasionSignalFromElection } from "./districtEvidence.js";
+import {
+  compileDistrictEvidence,
+  derivePersuasionSignalFromElection,
+  summarizeGeoEvidenceLayers,
+} from "./districtEvidence.js";
 import { resolveDistrictEvidenceInputs } from "./districtEvidenceInputs.js";
+import {
+  buildDistrictIntelPackFromEvidence,
+  applyDistrictIntelRateOverrides,
+  applyDistrictIntelCapacityOverrides,
+} from "./districtIntelBuilder.js";
 import { registerPhase115ATests } from "./selfTestSuites/phase115A.js";
 import { registerReleaseHardeningTests } from "./selfTestSuites/releaseHardening.js";
 
@@ -1443,7 +1452,11 @@ export function runSelfTests(engine){
     allocatePrecinctVotesToGeo,
     compileDistrictEvidence,
     derivePersuasionSignalFromElection,
+    summarizeGeoEvidenceLayers,
     resolveDistrictEvidenceInputs,
+    buildDistrictIntelPackFromEvidence,
+    applyDistrictIntelRateOverrides,
+    applyDistrictIntelCapacityOverrides,
     buildDataSourceRegistry,
     resolveDataRefsByPolicy,
     materializePinnedDataRefs,

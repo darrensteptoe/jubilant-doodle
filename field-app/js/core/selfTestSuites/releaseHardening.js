@@ -35,7 +35,11 @@
  *   allocatePrecinctVotesToGeo: (...args: any[]) => any,
  *   compileDistrictEvidence: (...args: any[]) => any,
  *   derivePersuasionSignalFromElection: (...args: any[]) => any,
+ *   summarizeGeoEvidenceLayers: (...args: any[]) => any,
  *   resolveDistrictEvidenceInputs: (...args: any[]) => any,
+ *   buildDistrictIntelPackFromEvidence: (...args: any[]) => any,
+ *   applyDistrictIntelRateOverrides: (...args: any[]) => any,
+ *   applyDistrictIntelCapacityOverrides: (...args: any[]) => any,
  *   buildDataSourceRegistry: (...args: any[]) => any,
  *   resolveDataRefsByPolicy: (...args: any[]) => any,
  *   materializePinnedDataRefs: (...args: any[]) => any,
@@ -82,7 +86,11 @@ export function registerReleaseHardeningTests(ctx){
     allocatePrecinctVotesToGeo,
     compileDistrictEvidence,
     derivePersuasionSignalFromElection,
+    summarizeGeoEvidenceLayers,
     resolveDistrictEvidenceInputs,
+    buildDistrictIntelPackFromEvidence,
+    applyDistrictIntelRateOverrides,
+    applyDistrictIntelCapacityOverrides,
     buildDataSourceRegistry,
     resolveDataRefsByPolicy,
     materializePinnedDataRefs,
@@ -889,6 +897,38 @@ export function registerReleaseHardeningTests(ctx){
     return true;
   });
 
+  test("Phase 19: geo evidence layer summary ranks geos and exposes candidate margin details", () => {
+    const evidence = compileDistrictEvidence({
+      geoUnits: [
+        { geoid: "34013010001", w: 0.7 },
+        { geoid: "34013010002", w: 0.3 },
+      ],
+      precinctResults: [
+        { precinctId: "P1", candidateVotes: { A: 40, B: 80 } },
+        { precinctId: "P2", candidateVotes: { A: 50, B: 30 } },
+      ],
+      crosswalkRows: [
+        { precinctId: "P1", geoid: "34013010001", weight: 0.5 },
+        { precinctId: "P1", geoid: "34013010002", weight: 0.5 },
+        { precinctId: "P2", geoid: "34013010002", weight: 1.0 },
+      ],
+      censusGeoRows: [
+        { geoid: "34013010001", values: { pop: 1000 } },
+        { geoid: "34013010002", values: { pop: 900 } },
+      ],
+    });
+    const layers = summarizeGeoEvidenceLayers({
+      geoRows: evidence.geoRows,
+      maxRows: 10,
+    });
+    assert(Array.isArray(layers) && layers.length === 2, "Expected two GEO layer summary rows");
+    assert(layers[0].geoid === "34013010001", "Expected top GEO by total votes to lead summary");
+    assert(layers[0].leaderCandidateId === "B", "Expected B to lead top GEO");
+    assert(layers[0].marginVotes > 0, "Expected positive top-two margin in top GEO");
+    assert(layers[0].candidateCount === 2, "Expected candidate count in top GEO summary");
+    return true;
+  });
+
   test("Phase 19: district evidence inputs resolve from inline evidenceInputs first", () => {
     const out = resolveDistrictEvidenceInputs({
       dataRefs: {
@@ -946,6 +986,112 @@ export function registerReleaseHardeningTests(ctx){
     assert(out.crosswalkRows.length === 1, "Expected crosswalk rows from crosswalkByVersionId");
     assert(out.censusGeoRows.length === 1, "Expected census rows from censusByDatasetId");
     assert(Array.isArray(out.notes) && out.notes.length === 0, "Expected no notes when refs resolve cleanly");
+    return true;
+  });
+
+  test("Phase 21: district-intel pack builder derives bounded indices and assumptions from evidence", () => {
+    const evidence = compileDistrictEvidence({
+      geoUnits: [
+        { geoid: "34013010001", w: 0.5 },
+        { geoid: "34013010002", w: 0.5 },
+      ],
+      precinctResults: [
+        { precinctId: "P1", candidateVotes: { A: 120, B: 110 } },
+        { precinctId: "P2", candidateVotes: { A: 90, B: 130 } },
+      ],
+      crosswalkRows: [
+        { precinctId: "P1", geoid: "34013010001", weight: 1 },
+        { precinctId: "P2", geoid: "34013010002", weight: 1 },
+      ],
+      censusGeoRows: [
+        { geoid: "34013010001", values: { pop: 1000, housing_units: 410, renter_share: 0.44, multiunit_share: 0.28, ba_plus_share: 0.36, age_18_34_share: 0.22, age_65_plus_share: 0.18, limited_english_share: 0.05, mean_commute_min: 27 } },
+        { geoid: "34013010002", values: { pop: 900, housing_units: 380, renter_share: 0.41, multiunit_share: 0.20, ba_plus_share: 0.33, age_18_34_share: 0.21, age_65_plus_share: 0.17, limited_english_share: 0.04, mean_commute_min: 24 } },
+      ],
+    });
+
+    const out = buildDistrictIntelPackFromEvidence({
+      scenario: withUniverseDefaults({
+        useDistrictIntel: false,
+        doorsPerHour3: 18,
+        supportRatePct: 48,
+        gotvLiftMode: 1.2,
+        orgCount: 3,
+      }),
+      evidence,
+      refs: {
+        censusDatasetId: "acs5_2024",
+        electionDatasetId: "mit_2024",
+        boundarySetId: "sldl_2024",
+        crosswalkVersionId: "cw_2024",
+      },
+      nowIso: "2026-03-07T10:00:00.000Z",
+    });
+
+    assert(!!out?.pack, "Expected generated district-intel pack");
+    assert(out.pack.ready === true, "Expected pack ready=true with election+census evidence");
+    assert(out.pack.generatedAt === "2026-03-07T10:00:00.000Z", "Expected generatedAt passthrough");
+    assert(out.pack.provenance?.electionDatasetId === "mit_2024", "Expected provenance election id");
+    assert(out.pack.indices?.fieldSpeed >= 0.6 && out.pack.indices?.fieldSpeed <= 1.4, "FieldSpeed index should be bounded");
+    assert(out.pack.indices?.persuasionEnv >= 0.7 && out.pack.indices?.persuasionEnv <= 1.3, "Persuasion index should be bounded");
+    assert(out.pack.derivedAssumptions?.doorsPerHour?.base === 18, "Expected derived doors/hr base from scenario");
+    assert(Number(out.pack.derivedAssumptions?.doorsPerHour?.adjusted) > 0, "Expected derived doors/hr adjusted");
+    return true;
+  });
+
+  test("Phase 21: district-intel rate/capacity overrides apply only when enabled + ready", () => {
+    const stateDisabled = withUniverseDefaults({
+      useDistrictIntel: false,
+      districtIntelPack: {
+        ready: true,
+        indices: { fieldSpeed: 1.1, persuasionEnv: 1.2, turnoutElasticity: 1.0, fieldDifficulty: 1.25 },
+        derivedAssumptions: {
+          doorsPerHour: { base: 18, adjusted: 19.8 },
+          persuasionRate: { base: 0.48, adjusted: 0.52 },
+          turnoutLift: { base: 1.2, adjusted: 1.25 },
+          organizerCapacity: { base: 3, adjusted: 2.4 },
+        },
+      },
+    });
+    const disabledRates = applyDistrictIntelRateOverrides({
+      state: stateDisabled,
+      rates: { cr: 0.3, sr: 0.48, tr: 0.62 },
+    });
+    const disabledCap = applyDistrictIntelCapacityOverrides({
+      state: stateDisabled,
+      capacity: {
+        orgCount: 3,
+        orgHoursPerWeek: 40,
+        volunteerMult: 1.2,
+        doorSharePct: 70,
+        doorShare: 0.7,
+        doorsPerHour: 18,
+        callsPerHour: 22,
+      }
+    });
+    assert(disabledRates.rates.sr === 0.48, "Disabled toggle should not alter sr");
+    assert(disabledCap.capacity.orgCount === 3, "Disabled toggle should not alter orgCount");
+    assert(disabledCap.capacity.doorsPerHour === 18, "Disabled toggle should not alter doorsPerHour");
+
+    const stateEnabled = { ...stateDisabled, useDistrictIntel: true };
+    const enabledRates = applyDistrictIntelRateOverrides({
+      state: stateEnabled,
+      rates: { cr: 0.3, sr: 0.48, tr: 0.62 },
+    });
+    const enabledCap = applyDistrictIntelCapacityOverrides({
+      state: stateEnabled,
+      capacity: {
+        orgCount: 3,
+        orgHoursPerWeek: 40,
+        volunteerMult: 1.2,
+        doorSharePct: 70,
+        doorShare: 0.7,
+        doorsPerHour: 18,
+        callsPerHour: 22,
+      }
+    });
+    assert(Math.abs(Number(enabledRates.rates.sr) - 0.52) < 1e-9, "Enabled toggle should apply persuasionRate adjusted");
+    assert(Math.abs(Number(enabledCap.capacity.orgCount) - 2.4) < 1e-9, "Enabled toggle should apply organizerCapacity adjusted");
+    assert(Math.abs(Number(enabledCap.capacity.doorsPerHour) - 19.8) < 1e-9, "Enabled toggle should apply doorsPerHour adjusted");
     return true;
   });
 }

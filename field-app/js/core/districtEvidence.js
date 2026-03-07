@@ -163,6 +163,84 @@ export function derivePersuasionSignalFromElection(args){
 
 /**
  * @param {{
+ *   geoRows?: Array<{
+ *     geoid?: unknown,
+ *     totalVotes?: unknown,
+ *     candidateVotes?: Record<string, unknown>,
+ *     sourcePrecincts?: unknown,
+ *     hasElection?: unknown,
+ *     hasCensus?: unknown
+ *   }>,
+ *   maxRows?: unknown,
+ * }} args
+ * @returns {Array<{
+ *   geoid: string,
+ *   totalVotes: number,
+ *   sourcePrecincts: number,
+ *   hasElection: boolean,
+ *   hasCensus: boolean,
+ *   leaderCandidateId: string | null,
+ *   leaderVotes: number,
+ *   leaderSharePct: number | null,
+ *   runnerUpCandidateId: string | null,
+ *   runnerUpVotes: number,
+ *   marginVotes: number,
+ *   marginPct: number | null,
+ *   candidateCount: number
+ * }>}
+ */
+export function summarizeGeoEvidenceLayers(args){
+  const rows = Array.isArray(args?.geoRows) ? args.geoRows : [];
+  const maxRowsRaw = Math.floor(numOrNull(args?.maxRows) ?? 20);
+  const maxRows = clamp(maxRowsRaw, 1, 500);
+  const out = [];
+  for (const row of rows){
+    if (!isObject(row)) continue;
+    const geoid = str(row.geoid);
+    if (!geoid) continue;
+    const totalVotes = Math.max(0, numOrNull(row.totalVotes) ?? 0);
+    const sourcePrecincts = Math.max(0, Math.floor(numOrNull(row.sourcePrecincts) ?? 0));
+    const hasElection = !!row.hasElection;
+    const hasCensus = !!row.hasCensus;
+    const candidateVotesIn = isObject(row.candidateVotes) ? row.candidateVotes : {};
+    const ranked = Object.keys(candidateVotesIn)
+      .map((candidateId) => ({
+        candidateId: str(candidateId),
+        votes: Math.max(0, numOrNull(candidateVotesIn[candidateId]) ?? 0),
+      }))
+      .filter((x) => x.candidateId && x.votes > 0)
+      .sort((a, b) => (b.votes - a.votes) || a.candidateId.localeCompare(b.candidateId));
+
+    const leader = ranked[0] || null;
+    const runnerUp = ranked[1] || null;
+    const leaderVotes = leader ? leader.votes : 0;
+    const runnerUpVotes = runnerUp ? runnerUp.votes : 0;
+    const marginVotes = Math.max(0, leaderVotes - runnerUpVotes);
+    const leaderSharePct = totalVotes > 0 ? (leaderVotes / totalVotes) * 100 : null;
+    const marginPct = totalVotes > 0 ? (marginVotes / totalVotes) * 100 : null;
+
+    out.push({
+      geoid,
+      totalVotes,
+      sourcePrecincts,
+      hasElection,
+      hasCensus,
+      leaderCandidateId: leader ? leader.candidateId : null,
+      leaderVotes,
+      leaderSharePct,
+      runnerUpCandidateId: runnerUp ? runnerUp.candidateId : null,
+      runnerUpVotes,
+      marginVotes,
+      marginPct,
+      candidateCount: ranked.length,
+    });
+  }
+  out.sort((a, b) => (b.totalVotes - a.totalVotes) || a.geoid.localeCompare(b.geoid));
+  return out.slice(0, maxRows);
+}
+
+/**
+ * @param {{
  *   geoUnits?: unknown[],
  *   precinctResults?: unknown[],
  *   crosswalkRows?: unknown[],
@@ -354,4 +432,3 @@ export function compileDistrictEvidence(args){
     warnings,
   };
 }
-
