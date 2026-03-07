@@ -239,6 +239,162 @@ export function summarizeGeoEvidenceLayers(args){
   return out.slice(0, maxRows);
 }
 
+const CENSUS_LAT_KEYS = [
+  "centroidLat",
+  "centroid_lat",
+  "lat",
+  "latitude",
+  "INTPTLAT",
+  "intptlat",
+  "INTPTLAT20",
+  "geoLat",
+  "y",
+  "Y",
+];
+
+const CENSUS_LON_KEYS = [
+  "centroidLon",
+  "centroid_lon",
+  "lon",
+  "lng",
+  "longitude",
+  "INTPTLON",
+  "intptlon",
+  "INTPTLON20",
+  "geoLon",
+  "x",
+  "X",
+];
+
+/**
+ * @param {Record<string, any>} values
+ * @param {string[]} keys
+ * @returns {number | null}
+ */
+function firstFiniteByKeys(values, keys){
+  for (const key of keys){
+    const n = numOrNull(values[key]);
+    if (n != null) return n;
+  }
+  return null;
+}
+
+/**
+ * @param {{
+ *   census?: Record<string, any>,
+ * }} row
+ * @returns {{ lat: number, lon: number } | null}
+ */
+export function extractGeoEvidenceCentroid(row){
+  const census = isObject(row?.census) ? row.census : {};
+  const lat = firstFiniteByKeys(census, CENSUS_LAT_KEYS);
+  const lon = firstFiniteByKeys(census, CENSUS_LON_KEYS);
+  if (lat == null || lon == null) return null;
+  if (lat < -90 || lat > 90 || lon < -180 || lon > 180) return null;
+  return { lat, lon };
+}
+
+/**
+ * @param {{
+ *   geoRows?: Array<{
+ *     geoid?: unknown,
+ *     totalVotes?: unknown,
+ *     candidateVotes?: Record<string, unknown>,
+ *     sourcePrecincts?: unknown,
+ *     hasElection?: unknown,
+ *     hasCensus?: unknown,
+ *     census?: Record<string, unknown>
+ *   }>,
+ *   maxPoints?: unknown,
+ * }} args
+ * @returns {{
+ *   available: boolean,
+ *   reason: string,
+ *   bounds: { minLat: number, maxLat: number, minLon: number, maxLon: number } | null,
+ *   points: Array<{
+ *     geoid: string,
+ *     lat: number,
+ *     lon: number,
+ *     totalVotes: number,
+ *     sourcePrecincts: number,
+ *     hasElection: boolean,
+ *     hasCensus: boolean,
+ *     leaderCandidateId: string | null,
+ *     marginPct: number | null,
+ *   }>
+ * }}
+ */
+export function buildGeoEvidenceMapLayer(args){
+  const rows = Array.isArray(args?.geoRows) ? args.geoRows : [];
+  const maxPointsRaw = Math.floor(numOrNull(args?.maxPoints) ?? 300);
+  const maxPoints = clamp(maxPointsRaw, 1, 2000);
+  const points = [];
+
+  for (const row of rows){
+    if (!isObject(row)) continue;
+    const geoid = str(row.geoid);
+    if (!geoid) continue;
+    const centroid = extractGeoEvidenceCentroid(row);
+    if (!centroid) continue;
+    const totalVotes = Math.max(0, numOrNull(row.totalVotes) ?? 0);
+    const sourcePrecincts = Math.max(0, Math.floor(numOrNull(row.sourcePrecincts) ?? 0));
+    const hasElection = !!row.hasElection;
+    const hasCensus = !!row.hasCensus;
+    const candidateVotesIn = isObject(row.candidateVotes) ? row.candidateVotes : {};
+    const ranked = Object.keys(candidateVotesIn)
+      .map((candidateId) => ({
+        candidateId: str(candidateId),
+        votes: Math.max(0, numOrNull(candidateVotesIn[candidateId]) ?? 0),
+      }))
+      .filter((x) => x.candidateId && x.votes > 0)
+      .sort((a, b) => (b.votes - a.votes) || a.candidateId.localeCompare(b.candidateId));
+    const leader = ranked[0] || null;
+    const runnerUp = ranked[1] || null;
+    const marginVotes = leader ? Math.max(0, leader.votes - (runnerUp ? runnerUp.votes : 0)) : 0;
+    const marginPct = totalVotes > 0 ? (marginVotes / totalVotes) * 100 : null;
+    points.push({
+      geoid,
+      lat: centroid.lat,
+      lon: centroid.lon,
+      totalVotes,
+      sourcePrecincts,
+      hasElection,
+      hasCensus,
+      leaderCandidateId: leader ? leader.candidateId : null,
+      marginPct,
+    });
+  }
+
+  points.sort((a, b) => (b.totalVotes - a.totalVotes) || a.geoid.localeCompare(b.geoid));
+  const limited = points.slice(0, maxPoints);
+  if (!limited.length){
+    return {
+      available: false,
+      reason: "Map unavailable: no centroid coordinates found in census GEO rows.",
+      bounds: null,
+      points: [],
+    };
+  }
+
+  let minLat = limited[0].lat;
+  let maxLat = limited[0].lat;
+  let minLon = limited[0].lon;
+  let maxLon = limited[0].lon;
+  for (const row of limited){
+    if (row.lat < minLat) minLat = row.lat;
+    if (row.lat > maxLat) maxLat = row.lat;
+    if (row.lon < minLon) minLon = row.lon;
+    if (row.lon > maxLon) maxLon = row.lon;
+  }
+
+  return {
+    available: true,
+    reason: "ok",
+    bounds: { minLat, maxLat, minLon, maxLon },
+    points: limited,
+  };
+}
+
 /**
  * @param {{
  *   geoUnits?: unknown[],

@@ -86,6 +86,30 @@ function clamp(n, min, max){
 
 /**
  * @param {unknown} v
+ * @returns {number}
+ */
+function intOrZero(v){
+  const n = Number(v);
+  return Number.isFinite(n) ? Math.trunc(n) : 0;
+}
+
+/**
+ * Deterministic lightweight 32-bit FNV-1a hash.
+ * @param {string} input
+ * @returns {string}
+ */
+function hashHex(input){
+  const s = String(input || "");
+  let h = 0x811c9dc5;
+  for (let i = 0; i < s.length; i++){
+    h ^= s.charCodeAt(i);
+    h = Math.imul(h, 0x01000193);
+  }
+  return (h >>> 0).toString(16).padStart(8, "0");
+}
+
+/**
+ * @param {unknown} v
  * @returns {number | null}
  */
 function toYearOrNull(v){
@@ -1011,7 +1035,10 @@ export function materializePinnedDataRefs(args){
  *       crosswalk: { id: string | null, vintage: string | null, refreshedAt: string | null, isLatest: boolean, isVerified: boolean, ageDays: number | null },
  *       census: { id: string | null, vintage: string | null, refreshedAt: string | null, isLatest: boolean, isVerified: boolean, ageDays: number | null },
  *       election: { id: string | null, vintage: string | null, refreshedAt: string | null, isLatest: boolean, isVerified: boolean, ageDays: number | null }
- *     }
+ *     },
+ *     selectionFingerprint: string,
+ *     usedFallbacks: boolean,
+ *     resolutionNotes: string[]
  *   }
  * }}
  */
@@ -1143,6 +1170,29 @@ export function diagnoseDataRefAlignment(args){
   if (electionYearGap != null) summaryParts.push(`Year gap ${electionYearGap}`);
   if (Number.isFinite(electionMeta.ageDays)) summaryParts.push(`Election age ${Math.round(Number(electionMeta.ageDays))}d`);
   const summary = summaryParts.join(" · ") || "No active data refs selected.";
+  const fingerprintPayload = [
+    `mode=${resolution.mode}`,
+    `boundary=${selected.boundarySetId || "-"}`,
+    `crosswalk=${selected.crosswalkVersionId || "-"}`,
+    `census=${selected.censusDatasetId || "-"}`,
+    `election=${selected.electionDatasetId || "-"}`,
+    `b.v=${boundaryMeta.vintage || "-"}`,
+    `b.r=${boundaryMeta.refreshedAt || "-"}`,
+    `x.v=${crosswalkMeta.vintage || "-"}`,
+    `x.r=${crosswalkMeta.refreshedAt || "-"}`,
+    `x.cov=${intOrZero(crosswalkCoveragePct * 10)}`,
+    `c.v=${censusMeta.vintage || "-"}`,
+    `c.r=${censusMeta.refreshedAt || "-"}`,
+    `c.cov=${intOrZero(censusCoveragePct * 10)}`,
+    `e.v=${electionMeta.vintage || "-"}`,
+    `e.r=${electionMeta.refreshedAt || "-"}`,
+    `e.cov=${intOrZero(electionCoveragePct * 10)}`,
+    `gap=${electionYearGap == null ? "-" : intOrZero(electionYearGap)}`,
+  ].join("|");
+  const selectionFingerprint = hashHex(fingerprintPayload);
+  const resolutionNotes = Array.isArray(resolution?.notes)
+    ? resolution.notes.map((x) => String(x || "").trim()).filter(Boolean)
+    : [];
 
   return {
     status,
@@ -1168,6 +1218,9 @@ export function diagnoseDataRefAlignment(args){
         census: censusMeta,
         election: electionMeta,
       },
+      selectionFingerprint,
+      usedFallbacks: !!resolution.usedFallbacks,
+      resolutionNotes,
     },
   };
 }

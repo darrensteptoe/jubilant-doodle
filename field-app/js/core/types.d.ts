@@ -269,6 +269,32 @@ export interface DistrictEvidencePrecinctLink {
   effectiveWeight: number;
 }
 
+export interface DistrictEvidenceGeoMapPoint {
+  geoid: string;
+  lat: number;
+  lon: number;
+  totalVotes: number;
+  sourcePrecincts: number;
+  hasElection: boolean;
+  hasCensus: boolean;
+  leaderCandidateId: string | null;
+  marginPct: number | null;
+}
+
+export interface DistrictEvidenceGeoMapBounds {
+  minLat: number;
+  maxLat: number;
+  minLon: number;
+  maxLon: number;
+}
+
+export interface DistrictEvidenceGeoMapLayer {
+  available: boolean;
+  reason: string;
+  bounds: DistrictEvidenceGeoMapBounds | null;
+  points: DistrictEvidenceGeoMapPoint[];
+}
+
 export interface DistrictEvidence {
   summary: {
     selectedGeoCount: number;

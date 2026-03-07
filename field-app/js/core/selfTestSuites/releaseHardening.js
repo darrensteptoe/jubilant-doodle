@@ -36,6 +36,7 @@
  *   compileDistrictEvidence: (...args: any[]) => any,
  *   derivePersuasionSignalFromElection: (...args: any[]) => any,
  *   summarizeGeoEvidenceLayers: (...args: any[]) => any,
+ *   buildGeoEvidenceMapLayer: (...args: any[]) => any,
  *   resolveDistrictEvidenceInputs: (...args: any[]) => any,
  *   buildDistrictIntelPackFromEvidence: (...args: any[]) => any,
  *   applyDistrictIntelRateOverrides: (...args: any[]) => any,
@@ -88,6 +89,7 @@ export function registerReleaseHardeningTests(ctx){
     compileDistrictEvidence,
     derivePersuasionSignalFromElection,
     summarizeGeoEvidenceLayers,
+    buildGeoEvidenceMapLayer,
     resolveDistrictEvidenceInputs,
     buildDistrictIntelPackFromEvidence,
     applyDistrictIntelRateOverrides,
@@ -1067,6 +1069,57 @@ export function registerReleaseHardeningTests(ctx){
     assert(layers[0].leaderCandidateId === "B", "Expected B to lead top GEO");
     assert(layers[0].marginVotes > 0, "Expected positive top-two margin in top GEO");
     assert(layers[0].candidateCount === 2, "Expected candidate count in top GEO summary");
+    return true;
+  });
+
+  test("Phase 19: geo evidence map layer derives centroid points + bounds deterministically", () => {
+    const evidence = compileDistrictEvidence({
+      geoUnits: [
+        { geoid: "34013010001", w: 0.7 },
+        { geoid: "34013010002", w: 0.3 },
+      ],
+      precinctResults: [
+        { precinctId: "P1", candidateVotes: { A: 40, B: 80 } },
+        { precinctId: "P2", candidateVotes: { A: 50, B: 30 } },
+      ],
+      crosswalkRows: [
+        { precinctId: "P1", geoid: "34013010001", weight: 0.5 },
+        { precinctId: "P1", geoid: "34013010002", weight: 0.5 },
+        { precinctId: "P2", geoid: "34013010002", weight: 1.0 },
+      ],
+      censusGeoRows: [
+        { geoid: "34013010001", values: { pop: 1000, INTPTLAT: 40.12, INTPTLON: -74.01 } },
+        { geoid: "34013010002", values: { pop: 900, INTPTLAT: 40.21, INTPTLON: -73.93 } },
+      ],
+    });
+    const mapLayer = buildGeoEvidenceMapLayer({
+      geoRows: evidence.geoRows,
+      maxPoints: 10,
+    });
+    assert(mapLayer && mapLayer.available === true, "Expected available map layer");
+    assert(Array.isArray(mapLayer.points) && mapLayer.points.length === 2, "Expected two centroid map points");
+    assert(mapLayer.points[0].geoid === "34013010001", "Expected deterministic vote-ranked map point ordering");
+    assert(Number(mapLayer.bounds?.minLat) < Number(mapLayer.bounds?.maxLat), "Expected latitude bounds");
+    assert(Number(mapLayer.bounds?.minLon) < Number(mapLayer.bounds?.maxLon), "Expected longitude bounds");
+    return true;
+  });
+
+  test("Phase 19: geo evidence map layer returns unavailable when census centroids are missing", () => {
+    const mapLayer = buildGeoEvidenceMapLayer({
+      geoRows: [
+        {
+          geoid: "34013010001",
+          totalVotes: 120,
+          candidateVotes: { A: 60, B: 60 },
+          hasElection: true,
+          hasCensus: true,
+          census: { pop: 1000 },
+        },
+      ],
+    });
+    assert(mapLayer && mapLayer.available === false, "Expected unavailable map layer without centroid coordinates");
+    assert(Array.isArray(mapLayer.points) && mapLayer.points.length === 0, "Expected empty map point array");
+    assert(String(mapLayer.reason || "").toLowerCase().includes("centroid"), "Expected centroid guidance in map-layer reason");
     return true;
   });
 
