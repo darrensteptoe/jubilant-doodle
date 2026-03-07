@@ -21,6 +21,7 @@
  *   validateScenarioExport: (...args: any[]) => any,
  *   checkStrictImportPolicy: (...args: any[]) => any,
  *   makeDefaultDataRefs: (...args: any[]) => any,
+ *   makeDefaultDataCatalog: (...args: any[]) => any,
  *   makeDefaultGeoPack: (...args: any[]) => any,
  *   makeDefaultDistrictIntelPack: (...args: any[]) => any,
  *   normalizeDistrictDataState: (...args: any[]) => any,
@@ -49,6 +50,7 @@ export function registerReleaseHardeningTests(ctx){
     validateScenarioExport,
     checkStrictImportPolicy,
     makeDefaultDataRefs,
+    makeDefaultDataCatalog,
     makeDefaultGeoPack,
     makeDefaultDistrictIntelPack,
     normalizeDistrictDataState,
@@ -198,6 +200,7 @@ export function registerReleaseHardeningTests(ctx){
       ui: { training: false, dark: false },
     });
     delete legacyScenario.dataRefs;
+    delete legacyScenario.dataCatalog;
     delete legacyScenario.geoPack;
     delete legacyScenario.districtIntelPack;
     delete legacyScenario.useDistrictIntel;
@@ -210,11 +213,13 @@ export function registerReleaseHardeningTests(ctx){
     const migrated = migrateSnapshot(payload);
     const scen = migrated?.snapshot?.scenario || {};
     const refs = makeDefaultDataRefs();
+    const catalog = makeDefaultDataCatalog();
     const geo = makeDefaultGeoPack();
     const intel = makeDefaultDistrictIntelPack();
 
     assert(scen.useDistrictIntel === false, "Expected useDistrictIntel default false");
     assert(scen.dataRefs && scen.dataRefs.mode === refs.mode, "Expected default dataRefs mode");
+    assert(Array.isArray(scen.dataCatalog?.boundarySets) && scen.dataCatalog.boundarySets.length === catalog.boundarySets.length, "Expected default dataCatalog boundary set list");
     assert(scen.geoPack && scen.geoPack.resolution === geo.resolution, "Expected default geoPack resolution");
     assert(scen.districtIntelPack && scen.districtIntelPack.bounds?.min === intel.bounds.min, "Expected districtIntelPack defaults");
 
@@ -232,6 +237,10 @@ export function registerReleaseHardeningTests(ctx){
         censusDatasetId: "  census_2024  ",
         pinnedAt: "not-a-date",
       },
+      dataCatalog: {
+        boundarySets: [{ id: "statehouse_2024", label: "State House 2024", geographyType: "SLDL" }],
+        crosswalks: [{ id: "cw_2024", fromBoundarySetId: "statehouse_2022", toBoundarySetId: "statehouse_2024", quality: { coveragePct: 99, unmatchedPct: 1, weightDriftPct: 0.5, isVerified: true } }],
+      },
       geoPack: {
         resolution: "unknown",
         units: [{ geoid: " 34013010100 ", w: 1.2 }, { geoid: "", w: 0.2 }, { geoid: "34013010200", w: -1 }],
@@ -247,10 +256,81 @@ export function registerReleaseHardeningTests(ctx){
     assert(next.dataRefs.censusDatasetId === "census_2024", "census dataset id should trim");
     assert(next.dataRefs.pinnedAt === null, "invalid pinnedAt should normalize to null");
     assert(next.geoPack.resolution === "tract", "invalid geo resolution should normalize to tract");
+    assert(next.dataCatalog.crosswalks[0].unit === "tract", "crosswalk unit should default to tract");
+    assert(next.dataCatalog.crosswalks[0].method === "area", "crosswalk method should default to area");
     assert(Array.isArray(next.geoPack.units) && next.geoPack.units.length === 2, "geo units should retain valid geoids");
     assert(next.geoPack.units[0].w >= 0 && next.geoPack.units[0].w <= 1, "geo unit weight should clamp to 0..1");
     assert(next.districtIntelPack.indices.fieldSpeed <= next.districtIntelPack.bounds.max, "fieldSpeed should clamp to bounds");
     assert(next.districtIntelPack.indices.persuasionEnv >= next.districtIntelPack.bounds.min, "persuasionEnv should clamp to bounds");
+    return true;
+  });
+
+  test("Phase 18: pinned mode enforces crosswalk quality gates when district data is in use", () => {
+    const scenario = withUniverseDefaults({
+      scenarioName: "Quality Gate",
+      raceType: "state_leg",
+      electionDate: "2026-11-03",
+      universeSize: 10000,
+      useDistrictIntel: true,
+      dataRefs: {
+        mode: "pinned_verified",
+        censusDatasetId: "acs5_2024",
+        electionDatasetId: "mit_precinct_2024",
+        boundarySetId: "sldl_2024",
+        crosswalkVersionId: "cw_bad",
+      },
+      dataCatalog: {
+        boundarySets: [{ id: "sldl_2024", label: "SLDL 2024", geographyType: "SLDL" }],
+        crosswalks: [{
+          id: "cw_bad",
+          fromBoundarySetId: "sldl_2022",
+          toBoundarySetId: "sldl_2024",
+          unit: "tract",
+          method: "population",
+          quality: {
+            coveragePct: 91,
+            unmatchedPct: 7,
+            weightDriftPct: 2.6,
+            isVerified: false
+          }
+        }]
+      },
+      ui: { training: false, dark: false },
+    });
+    const contract = validateDistrictDataContract(scenario);
+    assert(contract.ok === false, "Expected quality gates to fail in pinned_verified mode");
+    const message = (contract.errors || []).join(" | ");
+    assert(message.includes("not verified"), "Expected unverified crosswalk error");
+    assert(message.includes("coveragePct below gate"), "Expected coverage gate error");
+    assert(message.includes("unmatchedPct above gate"), "Expected unmatched gate error");
+    assert(message.includes("weightDriftPct above gate"), "Expected drift gate error");
+    return true;
+  });
+
+  test("Phase 18: boundary pinning requires referenced boundary set in catalog", () => {
+    const scenario = withUniverseDefaults({
+      scenarioName: "Boundary Pinning Gate",
+      raceType: "state_leg",
+      electionDate: "2026-11-03",
+      universeSize: 10000,
+      useDistrictIntel: true,
+      dataRefs: {
+        mode: "pinned_verified",
+        censusDatasetId: "acs5_2024",
+        electionDatasetId: "mit_precinct_2024",
+        boundarySetId: "sldl_2026_missing",
+        crosswalkVersionId: null,
+      },
+      dataCatalog: {
+        boundarySets: [{ id: "sldl_2024", label: "SLDL 2024", geographyType: "SLDL" }],
+        crosswalks: []
+      },
+      ui: { training: false, dark: false },
+    });
+    const contract = validateDistrictDataContract(scenario);
+    assert(contract.ok === false, "Expected missing boundary pin to fail contract");
+    const message = (contract.errors || []).join(" | ");
+    assert(message.includes("boundarySetId"), "Expected boundarySetId catalog error");
     return true;
   });
 }

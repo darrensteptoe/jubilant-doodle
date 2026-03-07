@@ -6,12 +6,13 @@
 import { makeDefaultIntelState, normalizeIntelState } from "./intelState.js";
 import {
   makeDefaultDataRefs,
+  makeDefaultDataCatalog,
   makeDefaultGeoPack,
   makeDefaultDistrictIntelPack,
   normalizeDistrictDataState,
 } from "./districtData.js";
 
-export const CURRENT_SCHEMA_VERSION = "1.3.0";
+export const CURRENT_SCHEMA_VERSION = "1.4.0";
 
 const SCENARIO_DEFAULTS = {
   // Phase 16 — Universe composition + retention (aggregate)
@@ -26,6 +27,7 @@ const SCENARIO_DEFAULTS = {
   // Phase 18 — District intelligence and external data pinning contract
   useDistrictIntel: false,
   dataRefs: makeDefaultDataRefs(),
+  dataCatalog: makeDefaultDataCatalog(),
   geoPack: makeDefaultGeoPack(),
   districtIntelPack: makeDefaultDistrictIntelPack(),
 };

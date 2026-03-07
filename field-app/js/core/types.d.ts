@@ -73,6 +73,41 @@ export interface DataRefs {
   lastCheckedAt: string | null;
 }
 
+export interface DataCatalogBoundarySet {
+  id: string;
+  label: string;
+  geographyType: string;
+  vintage: string | null;
+  source: string | null;
+  refreshedAt: string | null;
+  hash: string | null;
+}
+
+export interface DataCatalogCrosswalk {
+  id: string;
+  fromBoundarySetId: string;
+  toBoundarySetId: string;
+  unit: "tract" | "block_group" | "precinct" | "vtd";
+  method: "area" | "population" | "vap" | "hybrid";
+  quality: {
+    coveragePct: number | null;
+    unmatchedPct: number | null;
+    weightDriftPct: number | null;
+    isVerified: boolean;
+  };
+  source: string | null;
+  refreshedAt: string | null;
+  hash: string | null;
+}
+
+export interface DataCatalog {
+  version: string;
+  boundarySets: DataCatalogBoundarySet[];
+  crosswalks: DataCatalogCrosswalk[];
+  activeBoundarySetId: string | null;
+  activeCrosswalkVersionId: string | null;
+}
+
 export interface GeoPackUnit {
   geoid: string;
   w: number;

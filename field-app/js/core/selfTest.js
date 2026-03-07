@@ -69,6 +69,7 @@ import { resolveFeatureFlags } from "./featureFlags.js";
 import { validateOperationsCapacityInput } from "../features/operations/io.js";
 import {
   makeDefaultDataRefs,
+  makeDefaultDataCatalog,
   makeDefaultGeoPack,
   makeDefaultDistrictIntelPack,
   normalizeDistrictDataState,
@@ -1409,6 +1410,7 @@ export function runSelfTests(engine){
     validateScenarioExport,
     checkStrictImportPolicy,
     makeDefaultDataRefs,
+    makeDefaultDataCatalog,
     makeDefaultGeoPack,
     makeDefaultDistrictIntelPack,
     normalizeDistrictDataState,

@@ -6,6 +6,7 @@
   "required": [
     "useDistrictIntel",
     "dataRefs",
+    "dataCatalog",
     "geoPack",
     "districtIntelPack"
   ],
@@ -37,6 +38,68 @@
         "crosswalkVersionId": { "type": ["string", "null"] },
         "pinnedAt": { "type": ["string", "null"], "format": "date-time" },
         "lastCheckedAt": { "type": ["string", "null"], "format": "date-time" }
+      },
+      "additionalProperties": true
+    },
+    "dataCatalog": {
+      "type": "object",
+      "required": [
+        "version",
+        "boundarySets",
+        "crosswalks",
+        "activeBoundarySetId",
+        "activeCrosswalkVersionId"
+      ],
+      "properties": {
+        "version": { "type": "string" },
+        "boundarySets": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["id", "label", "geographyType", "vintage", "source", "refreshedAt", "hash"],
+            "properties": {
+              "id": { "type": "string" },
+              "label": { "type": "string" },
+              "geographyType": { "type": "string" },
+              "vintage": { "type": ["string", "null"] },
+              "source": { "type": ["string", "null"] },
+              "refreshedAt": { "type": ["string", "null"], "format": "date-time" },
+              "hash": { "type": ["string", "null"] }
+            },
+            "additionalProperties": true
+          }
+        },
+        "crosswalks": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["id", "fromBoundarySetId", "toBoundarySetId", "unit", "method", "quality", "source", "refreshedAt", "hash"],
+            "properties": {
+              "id": { "type": "string" },
+              "fromBoundarySetId": { "type": "string" },
+              "toBoundarySetId": { "type": "string" },
+              "unit": { "type": "string", "enum": ["tract", "block_group", "precinct", "vtd"] },
+              "method": { "type": "string", "enum": ["area", "population", "vap", "hybrid"] },
+              "quality": {
+                "type": "object",
+                "required": ["coveragePct", "unmatchedPct", "weightDriftPct", "isVerified"],
+                "properties": {
+                  "coveragePct": { "type": ["number", "null"] },
+                  "unmatchedPct": { "type": ["number", "null"] },
+                  "weightDriftPct": { "type": ["number", "null"] },
+                  "isVerified": { "type": "boolean" }
+                },
+                "additionalProperties": true
+              },
+              "source": { "type": ["string", "null"] },
+              "refreshedAt": { "type": ["string", "null"], "format": "date-time" },
+              "hash": { "type": ["string", "null"] }
+            },
+            "additionalProperties": true
+          }
+        },
+        "activeBoundarySetId": { "type": ["string", "null"] },
+        "activeCrosswalkVersionId": { "type": ["string", "null"] }
       },
       "additionalProperties": true
     },

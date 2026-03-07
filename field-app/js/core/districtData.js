@@ -6,6 +6,8 @@ export const DISTRICT_DATA_VERSION = "0.1.0";
 
 const ALLOWED_DATA_REF_MODES = new Set(["pinned_verified", "latest_verified", "manual"]);
 const ALLOWED_GEO_RESOLUTIONS = new Set(["tract", "block_group"]);
+const ALLOWED_CROSSWALK_UNITS = new Set(["tract", "block_group", "precinct", "vtd"]);
+const ALLOWED_CROSSWALK_METHODS = new Set(["area", "population", "vap", "hybrid"]);
 
 /**
  * @param {unknown} v
@@ -129,6 +131,144 @@ export function normalizeDataRefs(raw){
     crosswalkVersionId: toIdOrNull(raw.crosswalkVersionId),
     pinnedAt: toIsoOrNull(raw.pinnedAt),
     lastCheckedAt: toIsoOrNull(raw.lastCheckedAt),
+  };
+}
+
+/**
+ * @returns {{
+ *   version: string,
+ *   boundarySets: Array<{
+ *     id: string,
+ *     label: string,
+ *     geographyType: string,
+ *     vintage: string | null,
+ *     source: string | null,
+ *     refreshedAt: string | null,
+ *     hash: string | null
+ *   }>,
+ *   crosswalks: Array<{
+ *     id: string,
+ *     fromBoundarySetId: string,
+ *     toBoundarySetId: string,
+ *     unit: "tract" | "block_group" | "precinct" | "vtd",
+ *     method: "area" | "population" | "vap" | "hybrid",
+ *     quality: {
+ *       coveragePct: number | null,
+ *       unmatchedPct: number | null,
+ *       weightDriftPct: number | null,
+ *       isVerified: boolean
+ *     },
+ *     source: string | null,
+ *     refreshedAt: string | null,
+ *     hash: string | null
+ *   }>,
+ *   activeBoundarySetId: string | null,
+ *   activeCrosswalkVersionId: string | null
+ * }}
+ */
+export function makeDefaultDataCatalog(){
+  return {
+    version: DISTRICT_DATA_VERSION,
+    boundarySets: [],
+    crosswalks: [],
+    activeBoundarySetId: null,
+    activeCrosswalkVersionId: null,
+  };
+}
+
+/**
+ * @param {unknown} row
+ * @returns {ReturnType<typeof makeDefaultDataCatalog>["boundarySets"][number] | null}
+ */
+function normalizeBoundarySet(row){
+  if (!isObject(row)) return null;
+  const id = toCleanString(row.id);
+  if (!id) return null;
+  return {
+    id,
+    label: toCleanString(row.label),
+    geographyType: toCleanString(row.geographyType),
+    vintage: toIdOrNull(row.vintage),
+    source: toIdOrNull(row.source),
+    refreshedAt: toIsoOrNull(row.refreshedAt),
+    hash: toIdOrNull(row.hash),
+  };
+}
+
+/**
+ * @param {unknown} row
+ * @returns {ReturnType<typeof makeDefaultDataCatalog>["crosswalks"][number] | null}
+ */
+function normalizeCrosswalk(row){
+  if (!isObject(row)) return null;
+  const id = toCleanString(row.id);
+  const fromBoundarySetId = toCleanString(row.fromBoundarySetId);
+  const toBoundarySetId = toCleanString(row.toBoundarySetId);
+  if (!id || !fromBoundarySetId || !toBoundarySetId) return null;
+
+  const unitRaw = toCleanString(row.unit).toLowerCase();
+  const methodRaw = toCleanString(row.method).toLowerCase();
+  const qualityIn = isObject(row.quality) ? row.quality : {};
+
+  return {
+    id,
+    fromBoundarySetId,
+    toBoundarySetId,
+    unit: ALLOWED_CROSSWALK_UNITS.has(unitRaw) ? unitRaw : "tract",
+    method: ALLOWED_CROSSWALK_METHODS.has(methodRaw) ? methodRaw : "area",
+    quality: {
+      coveragePct: toFiniteOrNull(qualityIn.coveragePct),
+      unmatchedPct: toFiniteOrNull(qualityIn.unmatchedPct),
+      weightDriftPct: toFiniteOrNull(qualityIn.weightDriftPct),
+      isVerified: !!qualityIn.isVerified,
+    },
+    source: toIdOrNull(row.source),
+    refreshedAt: toIsoOrNull(row.refreshedAt),
+    hash: toIdOrNull(row.hash),
+  };
+}
+
+/**
+ * @param {unknown} raw
+ * @returns {ReturnType<typeof makeDefaultDataCatalog>}
+ */
+export function normalizeDataCatalog(raw){
+  const base = makeDefaultDataCatalog();
+  if (!isObject(raw)) return base;
+
+  const boundaryIn = Array.isArray(raw.boundarySets) ? raw.boundarySets : [];
+  const crosswalkIn = Array.isArray(raw.crosswalks) ? raw.crosswalks : [];
+  const boundarySets = [];
+  const crosswalks = [];
+  const seenBoundary = new Set();
+  const seenCrosswalk = new Set();
+
+  for (const row of boundaryIn){
+    const next = normalizeBoundarySet(row);
+    if (!next) continue;
+    if (seenBoundary.has(next.id)) continue;
+    seenBoundary.add(next.id);
+    boundarySets.push(next);
+  }
+  for (const row of crosswalkIn){
+    const next = normalizeCrosswalk(row);
+    if (!next) continue;
+    if (seenCrosswalk.has(next.id)) continue;
+    seenCrosswalk.add(next.id);
+    crosswalks.push(next);
+  }
+
+  boundarySets.sort((a, b) => a.id.localeCompare(b.id));
+  crosswalks.sort((a, b) => a.id.localeCompare(b.id));
+
+  return {
+    ...base,
+    ...raw,
+    version: toCleanString(raw.version) || base.version,
+    boundarySets,
+    crosswalks,
+    activeBoundarySetId: toIdOrNull(raw.activeBoundarySetId),
+    activeCrosswalkVersionId: toIdOrNull(raw.activeCrosswalkVersionId),
   };
 }
 
@@ -395,6 +535,7 @@ export function normalizeDistrictDataState(state){
   if (!isObject(state)) return state;
   state.useDistrictIntel = !!state.useDistrictIntel;
   state.dataRefs = normalizeDataRefs(state.dataRefs);
+  state.dataCatalog = normalizeDataCatalog(state.dataCatalog);
   state.geoPack = normalizeGeoPack(state.geoPack);
   state.districtIntelPack = normalizeDistrictIntelPack(state.districtIntelPack);
   return state;
@@ -412,6 +553,7 @@ export function validateDistrictDataContract(scenario){
   }
 
   const refs = normalizeDataRefs(scenario.dataRefs);
+  const catalog = normalizeDataCatalog(scenario.dataCatalog);
   const geo = normalizeGeoPack(scenario.geoPack);
   const intel = normalizeDistrictIntelPack(scenario.districtIntelPack);
   const useIntel = !!scenario.useDistrictIntel;
@@ -433,6 +575,45 @@ export function validateDistrictDataContract(scenario){
     if (!refs.electionDatasetId) warnings.push("Pinned mode active but electionDatasetId is not set.");
     if (!refs.boundarySetId) warnings.push("Pinned mode active but boundarySetId is not set.");
     if (!refs.crosswalkVersionId) warnings.push("Pinned mode active but crosswalkVersionId is not set.");
+  }
+
+  if (districtDataInUse){
+    const byBoundaryId = new Map(catalog.boundarySets.map((row) => [row.id, row]));
+    const byCrosswalkId = new Map(catalog.crosswalks.map((row) => [row.id, row]));
+    if (refs.boundarySetId && !byBoundaryId.has(refs.boundarySetId)){
+      errors.push(`boundarySetId '${refs.boundarySetId}' not found in dataCatalog.boundarySets.`);
+    }
+    if (refs.crosswalkVersionId && !byCrosswalkId.has(refs.crosswalkVersionId)){
+      errors.push(`crosswalkVersionId '${refs.crosswalkVersionId}' not found in dataCatalog.crosswalks.`);
+    }
+
+    if (refs.boundarySetId && refs.crosswalkVersionId && byCrosswalkId.has(refs.crosswalkVersionId)){
+      const xw = byCrosswalkId.get(refs.crosswalkVersionId);
+      if (xw && xw.fromBoundarySetId !== refs.boundarySetId && xw.toBoundarySetId !== refs.boundarySetId){
+        errors.push(
+          `crosswalk '${xw.id}' does not reference boundarySetId '${refs.boundarySetId}' (from='${xw.fromBoundarySetId}', to='${xw.toBoundarySetId}').`
+        );
+      }
+
+      const q = xw?.quality || {};
+      const coverage = toFiniteOrNull(q.coveragePct);
+      const unmatched = toFiniteOrNull(q.unmatchedPct);
+      const drift = toFiniteOrNull(q.weightDriftPct);
+      const verified = !!q.isVerified;
+
+      if (refs.mode === "pinned_verified" && !verified){
+        errors.push(`crosswalk '${xw?.id || refs.crosswalkVersionId}' is not verified but mode is pinned_verified.`);
+      }
+      if (coverage != null && coverage < 95){
+        errors.push(`crosswalk '${xw?.id || refs.crosswalkVersionId}' coveragePct below gate: ${coverage} < 95.`);
+      }
+      if (unmatched != null && unmatched > 5){
+        errors.push(`crosswalk '${xw?.id || refs.crosswalkVersionId}' unmatchedPct above gate: ${unmatched} > 5.`);
+      }
+      if (drift != null && drift > 2){
+        errors.push(`crosswalk '${xw?.id || refs.crosswalkVersionId}' weightDriftPct above gate: ${drift} > 2.`);
+      }
+    }
   }
 
   if (geo.units.length){
