@@ -440,3 +440,14 @@ Execution order for the first functional district-evidence layer.
      - table now shows year-gap and coverage alongside compatibility score.
    - `/Users/anakinskywalker/Downloads/field-app-40/js/core/selfTestSuites/releaseHardening.js`
      - asserts rank metadata fields for deterministic compatibility output.
+15. [x] Add Stage 9 read-only centroid map layer for GEO verification (no turf cutting):
+   - `/Users/anakinskywalker/Downloads/field-app-40/js/core/districtEvidence.js`
+     - adds deterministic centroid extraction + `buildGeoEvidenceMapLayer(...)`.
+   - `/Users/anakinskywalker/Downloads/field-app-40/js/engine.js`
+     - exposes map-layer builder through snapshot facade.
+   - `/Users/anakinskywalker/Downloads/field-app-40/index.html`
+   - `/Users/anakinskywalker/Downloads/field-app-40/js/ui/els.js`
+   - `/Users/anakinskywalker/Downloads/field-app-40/js/app/renderIntelChecks.js`
+     - renders read-only SVG centroid map and explicit unavailable-state messaging.
+   - `/Users/anakinskywalker/Downloads/field-app-40/js/core/selfTestSuites/releaseHardening.js`
+     - adds deterministic coverage for map-layer points/bounds and missing-centroid behavior.
