@@ -147,12 +147,21 @@ Execution order below is fixed and must be followed in sequence.
    - Monte Carlo app cluster consolidated into `/Users/anakinskywalker/Downloads/field-app-40/js/app/monteCarloApp.js`.
    - Decision-session cluster consolidated into `/Users/anakinskywalker/Downloads/field-app-40/js/app/decisionSessionApp.js`.
    - Legacy micro-file paths kept as compatibility shims to preserve import stability.
-4. [ ] JSDoc type the `ctx` pattern
-   - introduce shared typedefs and `@ts-check` on app-layer modules.
-5. [ ] Expand self-test coverage for currently under-tested core modules
-   - `winMath`, `rng`, `robust`, `explainMap`, `importQuality`, `executionPlanner`.
-6. [ ] Formalize Operations/Engine seam
-   - define and validate `OperationsCapacityInput` contract at handoff.
+4. [x] JSDoc type the `ctx` pattern
+   - introduced shared app-layer context contracts in `/Users/anakinskywalker/Downloads/field-app-40/js/app/types.d.ts`.
+   - added `@ts-check` and typed `@param` context annotations across `ctx` entry modules (`wireEvents*`, render/init/bindings/runtime adapters).
+5. [x] Expand self-test coverage for currently under-tested core modules
+   - added deterministic coverage for `winMath`, `rng`, `robust`, `explainMap`, `importQuality`, and `executionPlanner` in `/Users/anakinskywalker/Downloads/field-app-40/js/core/selfTest.js`.
+6. [x] Formalize Operations/Engine seam
+   - added `OperationsCapacityInput` contract + validator in:
+     - `/Users/anakinskywalker/Downloads/field-app-40/js/features/operations/io.js` (`validateOperationsCapacityInput`)
+   - enforced seam validation at compiler handoff:
+     - `/Users/anakinskywalker/Downloads/field-app-40/js/app/effectiveInputs.js`
+   - added self-test coverage for seam validity + engine acceptance:
+     - `/Users/anakinskywalker/Downloads/field-app-40/js/core/selfTest.js`
 7. [ ] TypeScript + Vite migration (last)
-   - Phase A: add Vite build/dev pipeline.
+   - Phase A: add Vite build/dev pipeline. ✅
+     - `/Users/anakinskywalker/Downloads/field-app-40/package.json`
+     - `/Users/anakinskywalker/Downloads/field-app-40/vite.config.js`
+     - `/Users/anakinskywalker/Downloads/field-app-40/tsconfig.json` (`allowJs` + `checkJs` scaffolding)
    - Phase B: staged TS migration bottom-up from `core/*`.

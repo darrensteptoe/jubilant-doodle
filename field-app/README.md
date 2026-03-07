@@ -27,6 +27,16 @@ It is designed to be:
    - **Optimization**
    - **Timeline / Production** if you need feasibility constraints
 
+### Optional dev server/build pipeline (Vite)
+
+If you want local hot-reload and static build output:
+
+1. Install dependencies: `npm install`
+2. Run dev server: `npm run dev`
+3. Build static assets: `npm run build`
+4. Preview built output: `npm run preview`
+5. Run JS type-checking (no emit): `npm run typecheck`
+
 ## What this app does (and does not) do
 
 ### It *does*
