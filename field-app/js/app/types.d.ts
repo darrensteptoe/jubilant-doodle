@@ -266,6 +266,7 @@ export interface WireEventsCtx {
   els: ElsMap;
   state?: AnyState;
   getState?: GetState;
+  engine?: AnyState;
   safeNum: AnyFn;
   commitUIUpdate: CommitUIUpdate;
   render: AnyFn;

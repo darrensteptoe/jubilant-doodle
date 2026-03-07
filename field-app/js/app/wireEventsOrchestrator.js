@@ -118,6 +118,7 @@ export function wireEventsOrchestratorModule(args){
   wireIntelChecksEvents({
     els,
     getState: () => state(),
+    engine,
     commitUIUpdate,
     safeNum,
     computeRealityDrift,

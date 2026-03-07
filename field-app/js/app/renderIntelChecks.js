@@ -228,6 +228,61 @@ function fillDistrictEvidenceDatasetRankTable(tbody, rows, selectedElectionId){
   }
 }
 
+function fillDataRefSelect(selectEl, rows, selectedId, labelFn, emptyLabel = "None selected"){
+  if (!selectEl) return;
+  const keep = String(selectedId || "").trim();
+  const list = Array.isArray(rows) ? rows : [];
+  selectEl.innerHTML = "";
+  selectEl.appendChild(makeOption("", emptyLabel));
+  let hasSelected = false;
+  for (const row of list){
+    const id = String(row?.id || "").trim();
+    if (!id) continue;
+    if (id === keep) hasSelected = true;
+    const label = String(typeof labelFn === "function" ? labelFn(row) : id).trim() || id;
+    selectEl.appendChild(makeOption(id, label));
+  }
+  if (keep && !hasSelected){
+    selectEl.appendChild(makeOption(keep, `${keep} (missing from catalog)`));
+  }
+  selectEl.value = keep;
+  if (selectEl.value !== keep) selectEl.value = "";
+}
+
+function dataRefItemLabel(row, kind){
+  const id = String(row?.id || "").trim();
+  if (!id) return "—";
+  const tags = [];
+  if (row?.isVerified) tags.push("verified");
+  if (row?.isLatest) tags.push("latest");
+  if (kind === "boundary"){
+    const label = String(row?.label || "").trim();
+    const vintage = String(row?.vintage || "").trim();
+    return `${id}${label ? ` · ${label}` : ""}${vintage ? ` · ${vintage}` : ""}${tags.length ? ` [${tags.join(", ")}]` : ""}`;
+  }
+  if (kind === "crosswalk"){
+    const fromId = String(row?.fromBoundarySetId || "").trim();
+    const toId = String(row?.toBoundarySetId || "").trim();
+    const method = String(row?.method || "").trim();
+    const unit = String(row?.unit || "").trim();
+    return `${id}${fromId && toId ? ` · ${fromId}→${toId}` : ""}${unit || method ? ` · ${unit}${method ? `/${method}` : ""}` : ""}${tags.length ? ` [${tags.join(", ")}]` : ""}`;
+  }
+  if (kind === "election"){
+    const office = String(row?.officeType || "").trim();
+    const cycle = String(row?.cycleYear || row?.vintage || "").trim();
+    return `${id}${office ? ` · ${office}` : ""}${cycle ? ` · ${cycle}` : ""}${tags.length ? ` [${tags.join(", ")}]` : ""}`;
+  }
+  const vintage = String(row?.vintage || "").trim();
+  return `${id}${vintage ? ` · ${vintage}` : ""}${tags.length ? ` [${tags.join(", ")}]` : ""}`;
+}
+
+function renderDataRefStatus(el, text, kind = "muted"){
+  if (!el) return;
+  el.classList.remove("ok", "warn", "bad", "muted");
+  el.classList.add(kind);
+  el.textContent = String(text || "Data refs ready.");
+}
+
 function fmtWhatIfTarget(row){
   const op = String(row?.op || "").trim();
   const label = String(row?.label || row?.key || "assumption");
@@ -622,21 +677,50 @@ export function renderIntelChecksModule({
     ? resolvedInputs.notes.map((x) => String(x || "").trim()).filter(Boolean)
     : [];
 
-  const sourceParts = [];
-  const dataRefMode = String(state?.dataRefs?.mode || "").trim();
-  if (dataRefMode) sourceParts.push(`Mode: ${dataRefMode}`);
-  const censusId = String(state?.dataRefs?.censusDatasetId || "").trim();
-  const electionId = String(state?.dataRefs?.electionDatasetId || "").trim();
-  const crosswalkId = String(state?.dataRefs?.crosswalkVersionId || "").trim();
-  if (censusId) sourceParts.push(`Census: ${censusId}`);
-  if (electionId) sourceParts.push(`Election: ${electionId}`);
-  if (crosswalkId) sourceParts.push(`Crosswalk: ${crosswalkId}`);
-  if (resolverMode) sourceParts.push(`Input mode: ${resolverMode}`);
-  if (els.intelDistrictEvidenceSource){
-    els.intelDistrictEvidenceSource.textContent = sourceParts.length
-      ? sourceParts.join(" · ")
-      : "No pinned datasets selected yet.";
+  let registry = null;
+  if (typeof buildDataSourceRegistry === "function"){
+    try{
+      registry = buildDataSourceRegistry(state?.dataCatalog);
+    } catch {
+      registry = null;
+    }
   }
+
+  const refsIn = (state?.dataRefs && typeof state.dataRefs === "object") ? state.dataRefs : {};
+  const dataRefMode = String(refsIn.mode || "pinned_verified").trim() || "pinned_verified";
+  const boundaryId = String(refsIn.boundarySetId || "").trim();
+  const censusId = String(refsIn.censusDatasetId || "").trim();
+  const electionId = String(refsIn.electionDatasetId || "").trim();
+  const crosswalkId = String(refsIn.crosswalkVersionId || "").trim();
+
+  if (els.intelDataRefMode){
+    els.intelDataRefMode.value = dataRefMode;
+    if (els.intelDataRefMode.value !== dataRefMode) els.intelDataRefMode.value = "pinned_verified";
+  }
+  fillDataRefSelect(
+    els.intelDataRefBoundarySet,
+    registry?.boundarySets || [],
+    boundaryId,
+    (row) => dataRefItemLabel(row, "boundary")
+  );
+  fillDataRefSelect(
+    els.intelDataRefCrosswalkVersion,
+    registry?.crosswalks || [],
+    crosswalkId,
+    (row) => dataRefItemLabel(row, "crosswalk")
+  );
+  fillDataRefSelect(
+    els.intelDataRefCensusDataset,
+    registry?.censusDatasets || [],
+    censusId,
+    (row) => dataRefItemLabel(row, "census")
+  );
+  fillDataRefSelect(
+    els.intelDataRefElectionDataset,
+    registry?.electionDatasets || [],
+    electionId,
+    (row) => dataRefItemLabel(row, "election")
+  );
 
   let policyResolution = null;
   if (typeof resolveDataRefsByPolicy === "function"){
@@ -650,22 +734,60 @@ export function renderIntelChecksModule({
       policyResolution = null;
     }
   }
+  const sourceParts = [];
+  if (dataRefMode) sourceParts.push(`Mode: ${dataRefMode}`);
+  if (censusId) sourceParts.push(`Census: ${censusId}`);
+  if (electionId) sourceParts.push(`Election: ${electionId}`);
+  if (crosswalkId) sourceParts.push(`Crosswalk: ${crosswalkId}`);
+  if (resolverMode) sourceParts.push(`Input mode: ${resolverMode}`);
+  if (els.intelDistrictEvidenceSource){
+    els.intelDistrictEvidenceSource.textContent = sourceParts.length
+      ? sourceParts.join(" · ")
+      : "No pinned datasets selected yet.";
+  }
+
+  const resolutionNotes = Array.isArray(policyResolution?.notes)
+    ? policyResolution.notes.map((x) => String(x || "").trim()).filter(Boolean)
+    : [];
+  const selectedByPolicy = policyResolution?.selected || {};
+  const effectiveIds = {
+    boundarySetId: String(selectedByPolicy.boundarySetId || boundaryId || "").trim(),
+    crosswalkVersionId: String(selectedByPolicy.crosswalkVersionId || crosswalkId || "").trim(),
+    censusDatasetId: String(selectedByPolicy.censusDatasetId || censusId || "").trim(),
+    electionDatasetId: String(selectedByPolicy.electionDatasetId || electionId || "").trim(),
+  };
+  if (els.intelDataRefStatus){
+    if (policyResolution?.usedFallbacks && resolutionNotes.length){
+      renderDataRefStatus(
+        els.intelDataRefStatus,
+        `Policy fallback active: ${resolutionNotes[0]}`,
+        "warn"
+      );
+    } else if (resolutionNotes.length){
+      renderDataRefStatus(els.intelDataRefStatus, resolutionNotes[0], "warn");
+    } else if (
+      !effectiveIds.boundarySetId &&
+      !effectiveIds.crosswalkVersionId &&
+      !effectiveIds.censusDatasetId &&
+      !effectiveIds.electionDatasetId
+    ){
+      renderDataRefStatus(els.intelDataRefStatus, "Data refs not configured yet.", "muted");
+    } else {
+      renderDataRefStatus(els.intelDataRefStatus, "Data refs ready.", "ok");
+    }
+  }
+
   const selectedElectionId = String(
-    policyResolution?.selected?.electionDatasetId ||
-    state?.dataRefs?.electionDatasetId ||
+    effectiveIds.electionDatasetId ||
     ""
   ).trim();
   const selectedBoundaryId = String(
-    policyResolution?.selected?.boundarySetId ||
-    state?.dataRefs?.boundarySetId ||
+    effectiveIds.boundarySetId ||
     ""
   ).trim();
   let rankedElectionDatasets = [];
   if (typeof rankElectionDatasetsForScenario === "function"){
     try{
-      const registry = typeof buildDataSourceRegistry === "function"
-        ? buildDataSourceRegistry(state?.dataCatalog)
-        : null;
       rankedElectionDatasets = rankElectionDatasetsForScenario({
         registry,
         dataCatalog: state?.dataCatalog,
@@ -682,6 +804,12 @@ export function renderIntelChecksModule({
     Array.isArray(rankedElectionDatasets) ? rankedElectionDatasets : [],
     selectedElectionId
   );
+  if (els.btnIntelDataRefSelectTopElection){
+    els.btnIntelDataRefSelectTopElection.disabled = !Array.isArray(rankedElectionDatasets) || rankedElectionDatasets.length === 0;
+  }
+  if (els.btnIntelDataRefsPin){
+    els.btnIntelDataRefsPin.disabled = typeof engine?.snapshot?.materializePinnedDataRefs !== "function";
+  }
   if (els.intelDistrictEvidenceSelectedElection){
     const topId = String(rankedElectionDatasets?.[0]?.dataset?.id || "").trim();
     const rankIndex = Array.isArray(rankedElectionDatasets)

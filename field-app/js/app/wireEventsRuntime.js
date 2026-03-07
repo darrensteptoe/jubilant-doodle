@@ -136,7 +136,7 @@ export function wireBudgetTimelineEvents(ctx){
 
 /** @param {import("./types").WireEventsCtx} ctx */
 export function wireIntelChecksEvents(ctx){
-  const { els, state: initialState, getState, commitUIUpdate, safeNum, computeRealityDrift, markMcStale } = ctx || {};
+  const { els, state: initialState, getState, commitUIUpdate, safeNum, computeRealityDrift, markMcStale, engine } = ctx || {};
   const currentState = () => {
     if (typeof getState === "function"){
       const s = getState();
@@ -155,6 +155,186 @@ export function wireIntelChecksEvents(ctx){
   const setBenchmarkStatus = (msg, kind = "muted") => setStatus(els.intelBenchmarkStatus, msg, kind);
   const setEvidenceStatus = (msg, kind = "muted") => setStatus(els.intelEvidenceStatus, msg, kind);
   const setWorkflowStatus = (msg, kind = "muted") => setStatus(els.intelWorkflowStatus, msg, kind);
+  const setDataRefStatus = (msg, kind = "muted") => setStatus(els.intelDataRefStatus, msg, kind);
+
+  const normalizeDataRefMode = (mode) => {
+    const m = String(mode || "").trim().toLowerCase();
+    if (m === "latest_verified" || m === "manual" || m === "pinned_verified") return m;
+    return "pinned_verified";
+  };
+
+  const cleanDataRefId = (v) => {
+    const s = String(v || "").trim();
+    return s || null;
+  };
+
+  const ensureDataRefShape = (s) => {
+    if (!s || typeof s !== "object") return null;
+    if (!s.dataRefs || typeof s.dataRefs !== "object") s.dataRefs = {};
+    if (!s.dataCatalog || typeof s.dataCatalog !== "object") s.dataCatalog = {};
+    s.dataRefs.mode = normalizeDataRefMode(s.dataRefs.mode);
+    s.dataRefs.boundarySetId = cleanDataRefId(s.dataRefs.boundarySetId);
+    s.dataRefs.crosswalkVersionId = cleanDataRefId(s.dataRefs.crosswalkVersionId);
+    s.dataRefs.censusDatasetId = cleanDataRefId(s.dataRefs.censusDatasetId);
+    s.dataRefs.electionDatasetId = cleanDataRefId(s.dataRefs.electionDatasetId);
+    return s.dataRefs;
+  };
+
+  const stampDataRefCheck = (refs) => {
+    if (!refs || typeof refs !== "object") return;
+    refs.lastCheckedAt = new Date().toISOString();
+  };
+
+  const rankTopCompatibleElection = (s) => {
+    const buildDataSourceRegistry = engine?.snapshot?.buildDataSourceRegistry;
+    const rankElectionDatasetsForScenario = engine?.snapshot?.rankElectionDatasetsForScenario;
+    const resolveDataRefsByPolicy = engine?.snapshot?.resolveDataRefsByPolicy;
+    if (typeof rankElectionDatasetsForScenario !== "function") return null;
+    const registry = typeof buildDataSourceRegistry === "function"
+      ? buildDataSourceRegistry(s?.dataCatalog)
+      : null;
+    const resolution = typeof resolveDataRefsByPolicy === "function"
+      ? resolveDataRefsByPolicy({
+        dataRefs: s?.dataRefs,
+        dataCatalog: s?.dataCatalog,
+        scenario: s,
+      })
+      : null;
+    const boundarySetId = String(resolution?.selected?.boundarySetId || s?.dataRefs?.boundarySetId || "").trim() || null;
+    const ranked = rankElectionDatasetsForScenario({
+      registry,
+      dataCatalog: s?.dataCatalog,
+      scenario: s,
+      boundarySetId,
+      requireVerified: true,
+    });
+    return Array.isArray(ranked) && ranked.length ? ranked[0] : null;
+  };
+
+  if (els.intelDataRefMode){
+    els.intelDataRefMode.addEventListener("change", () => {
+      const s = currentState();
+      if (!s) return;
+      const refs = ensureDataRefShape(s);
+      if (!refs) return;
+      refs.mode = normalizeDataRefMode(els.intelDataRefMode.value);
+      if (refs.mode !== "pinned_verified") refs.pinnedAt = null;
+      stampDataRefCheck(refs);
+      setDataRefStatus(`Data source mode set to ${refs.mode}.`, "ok");
+      commitUIUpdate();
+    });
+  }
+
+  if (els.intelDataRefBoundarySet){
+    els.intelDataRefBoundarySet.addEventListener("change", () => {
+      const s = currentState();
+      if (!s) return;
+      const refs = ensureDataRefShape(s);
+      if (!refs) return;
+      refs.boundarySetId = cleanDataRefId(els.intelDataRefBoundarySet.value);
+      if (s.dataCatalog && typeof s.dataCatalog === "object"){
+        s.dataCatalog.activeBoundarySetId = refs.boundarySetId;
+      }
+      stampDataRefCheck(refs);
+      setDataRefStatus("Boundary set updated.", "ok");
+      commitUIUpdate();
+    });
+  }
+
+  if (els.intelDataRefCrosswalkVersion){
+    els.intelDataRefCrosswalkVersion.addEventListener("change", () => {
+      const s = currentState();
+      if (!s) return;
+      const refs = ensureDataRefShape(s);
+      if (!refs) return;
+      refs.crosswalkVersionId = cleanDataRefId(els.intelDataRefCrosswalkVersion.value);
+      if (s.dataCatalog && typeof s.dataCatalog === "object"){
+        s.dataCatalog.activeCrosswalkVersionId = refs.crosswalkVersionId;
+      }
+      stampDataRefCheck(refs);
+      setDataRefStatus("Crosswalk updated.", "ok");
+      commitUIUpdate();
+    });
+  }
+
+  if (els.intelDataRefCensusDataset){
+    els.intelDataRefCensusDataset.addEventListener("change", () => {
+      const s = currentState();
+      if (!s) return;
+      const refs = ensureDataRefShape(s);
+      if (!refs) return;
+      refs.censusDatasetId = cleanDataRefId(els.intelDataRefCensusDataset.value);
+      stampDataRefCheck(refs);
+      setDataRefStatus("Census dataset updated.", "ok");
+      commitUIUpdate();
+    });
+  }
+
+  if (els.intelDataRefElectionDataset){
+    els.intelDataRefElectionDataset.addEventListener("change", () => {
+      const s = currentState();
+      if (!s) return;
+      const refs = ensureDataRefShape(s);
+      if (!refs) return;
+      refs.electionDatasetId = cleanDataRefId(els.intelDataRefElectionDataset.value);
+      stampDataRefCheck(refs);
+      setDataRefStatus("Election dataset updated.", "ok");
+      commitUIUpdate();
+    });
+  }
+
+  if (els.btnIntelDataRefSelectTopElection){
+    els.btnIntelDataRefSelectTopElection.addEventListener("click", () => {
+      const s = currentState();
+      if (!s) return;
+      const refs = ensureDataRefShape(s);
+      if (!refs) return;
+      const top = rankTopCompatibleElection(s);
+      const topId = String(top?.dataset?.id || "").trim();
+      if (!topId){
+        setDataRefStatus("No compatible verified election dataset found.", "warn");
+        return;
+      }
+      refs.electionDatasetId = topId;
+      stampDataRefCheck(refs);
+      const scoreText = Number.isFinite(Number(top?.score))
+        ? ` (score ${Number(top.score).toFixed(2)})`
+        : "";
+      setDataRefStatus(`Election dataset set to top compatible '${topId}'${scoreText}.`, "ok");
+      commitUIUpdate();
+    });
+  }
+
+  if (els.btnIntelDataRefsPin){
+    els.btnIntelDataRefsPin.addEventListener("click", () => {
+      const s = currentState();
+      if (!s) return;
+      ensureDataRefShape(s);
+      const materializePinnedDataRefs = engine?.snapshot?.materializePinnedDataRefs;
+      if (typeof materializePinnedDataRefs !== "function"){
+        setDataRefStatus("Pinning unavailable: engine snapshot does not expose materializePinnedDataRefs.", "warn");
+        return;
+      }
+      const result = materializePinnedDataRefs({
+        dataRefs: s.dataRefs,
+        dataCatalog: s.dataCatalog,
+        scenario: s,
+      });
+      if (result?.dataRefs && typeof result.dataRefs === "object"){
+        s.dataRefs = result.dataRefs;
+        if (!s.dataCatalog || typeof s.dataCatalog !== "object") s.dataCatalog = {};
+        s.dataCatalog.activeBoundarySetId = s.dataRefs.boundarySetId || null;
+        s.dataCatalog.activeCrosswalkVersionId = s.dataRefs.crosswalkVersionId || null;
+      }
+      const notes = Array.isArray(result?.notes) ? result.notes.map((x) => String(x || "").trim()).filter(Boolean) : [];
+      if (notes.length){
+        setDataRefStatus(`Pinned selection updated. ${notes[0]}`, "ok");
+      } else {
+        setDataRefStatus("Pinned selection updated.", "ok");
+      }
+      commitUIUpdate();
+    });
+  }
 
   const ensureWorkflow = (s) => {
     const wf = getIntelWorkflow(s) || {};
