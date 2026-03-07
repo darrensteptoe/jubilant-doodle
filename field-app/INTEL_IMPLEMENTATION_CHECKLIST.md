@@ -164,4 +164,11 @@ Execution order below is fixed and must be followed in sequence.
      - `/Users/anakinskywalker/Downloads/field-app-40/package.json`
      - `/Users/anakinskywalker/Downloads/field-app-40/vite.config.js`
      - `/Users/anakinskywalker/Downloads/field-app-40/tsconfig.json` (`allowJs` + `checkJs` scaffolding)
-   - Phase B: staged TS migration bottom-up from `core/*`.
+   - Phase B: staged TS migration bottom-up from `core/*`. (in progress)
+     - added `@ts-check` + JSDoc typing on core foundation modules:
+       - `/Users/anakinskywalker/Downloads/field-app-40/js/core/utils.js`
+       - `/Users/anakinskywalker/Downloads/field-app-40/js/core/rng.js`
+       - `/Users/anakinskywalker/Downloads/field-app-40/js/core/modelInput.js`
+       - `/Users/anakinskywalker/Downloads/field-app-40/js/core/voteProduction.js`
+     - added shared core type declarations:
+       - `/Users/anakinskywalker/Downloads/field-app-40/js/core/types.d.ts`
