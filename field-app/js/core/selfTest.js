@@ -88,6 +88,7 @@ function withUniverseDefaults(s){
   if (out.universeOtherPct == null) out.universeOtherPct = UNIVERSE_DEFAULTS.otherPct;
   if (out.retentionFactor == null) out.retentionFactor = UNIVERSE_DEFAULTS.retentionFactor;
   if (out.intelState == null) out.intelState = makeDefaultIntelState();
+  normalizeDistrictDataState(out);
   return out;
 }
 
