@@ -2220,6 +2220,18 @@
 <h2 class="card-title">District evidence + data refs</h2>
 </div>
 <div class="help-text">Select deterministic source refs (mode + boundary/crosswalk/census/election) and verify linkage for precinct election results + census geo rows. This panel only controls evidence inputs, not planning math.</div>
+<div class="rowline" style="margin-top:10px; justify-content:space-between; gap:10px;">
+<label class="switch">
+<input id="intelUseDistrictToggle" type="checkbox"/>
+<span class="slider"></span>
+<span class="switch-label">Use district-intel assumptions</span>
+</label>
+<div class="card-actions">
+<button class="btn btn-sm" id="btnIntelGenerateDistrictIntel" type="button">Generate assumptions</button>
+</div>
+</div>
+<div class="muted" id="intelDistrictIntelStatus" style="margin-top:8px;">District-intel assumptions are OFF.</div>
+<div class="note" id="intelDistrictIntelSummary" style="margin-top:6px;">No district-intel pack generated yet.</div>
 <div class="grid3" style="margin-top:10px;">
 <div class="field">
 <label class="label" for="intelDataRefMode">Data source mode</label>
@@ -2326,6 +2338,23 @@
 </thead>
 <tbody id="intelDistrictEvidenceLinkTbody">
 <tr><td class="muted" colspan="4">No precinct-to-geo links available.</td></tr>
+</tbody>
+</table>
+</div>
+<div class="table-wrap" style="margin-top:10px;">
+<table class="table">
+<thead>
+<tr>
+<th>GEOID</th>
+<th class="num">Votes</th>
+<th>Top candidate</th>
+<th class="num">Margin</th>
+<th class="num">Precinct links</th>
+<th>Data</th>
+</tr>
+</thead>
+<tbody id="intelDistrictEvidenceGeoTbody">
+<tr><td class="muted" colspan="6">No GEO layer rows available.</td></tr>
 </tbody>
 </table>
 </div>

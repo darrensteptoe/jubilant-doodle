@@ -356,3 +356,39 @@ Execution order for the first functional district-evidence layer.
      - explicit `dataRefs` updates from Stage 9 controls,
      - one-click "top compatible election" selection,
      - one-click `latest_verified` materialization to `pinned_verified` via engine snapshot contract.
+9. [x] Connect District Intel assumptions into runtime planning inputs (toggle + generator):
+   - `/Users/anakinskywalker/Downloads/field-app-40/js/core/districtIntelBuilder.js`
+     - adds deterministic pack builder from district evidence:
+       - `buildDistrictIntelPackFromEvidence(...)`
+     - adds runtime adapters:
+       - `applyDistrictIntelRateOverrides(...)`
+       - `applyDistrictIntelCapacityOverrides(...)`
+   - `/Users/anakinskywalker/Downloads/field-app-40/js/engine.js`
+     - exposes builder/adapters through snapshot facade.
+   - `/Users/anakinskywalker/Downloads/field-app-40/js/app/selectors.js`
+     - applies district-intel rate override to effective SR path.
+   - `/Users/anakinskywalker/Downloads/field-app-40/js/app/effectiveInputs.js`
+     - applies district-intel capacity override to effective org/doors path.
+   - `/Users/anakinskywalker/Downloads/field-app-40/index.html`
+   - `/Users/anakinskywalker/Downloads/field-app-40/js/ui/els.js`
+   - `/Users/anakinskywalker/Downloads/field-app-40/js/app/renderIntelChecks.js`
+   - `/Users/anakinskywalker/Downloads/field-app-40/js/app/wireEventsRuntime.js`
+     - adds Stage 9 controls:
+       - `Use district-intel assumptions` toggle
+       - `Generate assumptions` action
+       - status + summary readouts for generated pack.
+   - `/Users/anakinskywalker/Downloads/field-app-40/js/core/selfTestSuites/releaseHardening.js`
+   - `/Users/anakinskywalker/Downloads/field-app-40/js/core/selfTest.js`
+     - adds regression tests covering builder output bounds and toggle-driven application behavior.
+10. [x] Add Stage 9 per-GEO layer table (candidate margin visibility by census GEO):
+   - `/Users/anakinskywalker/Downloads/field-app-40/js/core/districtEvidence.js`
+     - adds `summarizeGeoEvidenceLayers(...)` deterministic helper for GEO-level vote/margin rows.
+   - `/Users/anakinskywalker/Downloads/field-app-40/js/engine.js`
+     - exposes `summarizeGeoEvidenceLayers` via snapshot facade.
+   - `/Users/anakinskywalker/Downloads/field-app-40/index.html`
+   - `/Users/anakinskywalker/Downloads/field-app-40/js/ui/els.js`
+   - `/Users/anakinskywalker/Downloads/field-app-40/js/app/renderIntelChecks.js`
+     - renders read-only GEO rows (votes, top candidate, margin, precinct-links, data flags).
+   - `/Users/anakinskywalker/Downloads/field-app-40/js/core/selfTestSuites/releaseHardening.js`
+   - `/Users/anakinskywalker/Downloads/field-app-40/js/core/selfTest.js`
+     - adds regression test for deterministic GEO summary ranking + margin fields.
