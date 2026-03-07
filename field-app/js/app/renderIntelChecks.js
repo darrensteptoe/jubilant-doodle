@@ -272,6 +272,44 @@ function fillDistrictEvidenceGeoTable(tbody, rows){
   }
 }
 
+function fillDistrictEvidencePrecinctTable(tbody, rows){
+  if (!tbody) return;
+  tbody.innerHTML = "";
+  if (!rows.length){
+    const tr = document.createElement("tr");
+    tr.innerHTML = '<td colspan="6" class="muted">No precinct layer rows available.</td>';
+    tbody.appendChild(tr);
+    return;
+  }
+  const top = rows.slice(0, 30);
+  for (const row of top){
+    const tr = document.createElement("tr");
+    const leaderId = String(row?.leaderCandidateId || "").trim();
+    const leaderVotes = Number(row?.leaderVotes);
+    const leaderSharePct = Number(row?.leaderSharePct);
+    const marginVotes = Number(row?.marginVotes);
+    const marginPct = Number(row?.marginPct);
+    const topCandidate = leaderId
+      ? `${leaderId} (${fmtInt(leaderVotes)} · ${fmtPct(leaderSharePct, 1)})`
+      : "—";
+    const marginText = Number.isFinite(marginVotes)
+      ? `${fmtInt(marginVotes)}${Number.isFinite(marginPct) ? ` (${fmtPct(marginPct, 1)})` : ""}`
+      : "—";
+    const mappedGeoCount = Number(row?.mappedGeoCount);
+    const districtWeightPct = Number(row?.districtWeightPct);
+    const mappingText = `${Number.isFinite(mappedGeoCount) ? fmtInt(mappedGeoCount) : "—"} · ${Number.isFinite(districtWeightPct) ? fmtPct(districtWeightPct, 1) : "—"}`;
+    tr.innerHTML = `
+      <td>${String(row?.precinctId || "—")}</td>
+      <td class="num">${fmtInt(row?.totalVotes)}</td>
+      <td>${topCandidate}</td>
+      <td class="num">${marginText}</td>
+      <td class="num">${mappingText}</td>
+      <td class="num">${fmtInt(row?.candidateCount)}</td>
+    `;
+    tbody.appendChild(tr);
+  }
+}
+
 const SVG_NS = "http://www.w3.org/2000/svg";
 const MAP_CANDIDATE_COLORS = [
   "#0ea5e9",
@@ -992,6 +1030,7 @@ export function renderIntelChecksModule({
   const compileDistrictEvidence = engine?.snapshot?.compileDistrictEvidence;
   const summarizeGeoEvidenceLayers = engine?.snapshot?.summarizeGeoEvidenceLayers;
   const buildGeoEvidenceMapLayer = engine?.snapshot?.buildGeoEvidenceMapLayer;
+  const summarizePrecinctEvidenceLayers = engine?.snapshot?.summarizePrecinctEvidenceLayers;
   const resolveDistrictEvidenceInputs = engine?.snapshot?.resolveDistrictEvidenceInputs;
   const resolveDataRefsByPolicy = engine?.snapshot?.resolveDataRefsByPolicy;
   const diagnoseDataRefAlignment = engine?.snapshot?.diagnoseDataRefAlignment;
@@ -1287,6 +1326,7 @@ export function renderIntelChecksModule({
     if (els.intelDistrictEvidenceVotes) els.intelDistrictEvidenceVotes.textContent = "Votes: —";
     if (els.intelDistrictEvidenceSignal) els.intelDistrictEvidenceSignal.textContent = "Persuasion signal: —";
     fillDistrictEvidenceCandidateTable(els.intelDistrictEvidenceCandidateTbody, []);
+    fillDistrictEvidencePrecinctTable(els.intelDistrictEvidencePrecinctTbody, []);
     fillDistrictEvidenceLinkTable(els.intelDistrictEvidenceLinkTbody, []);
     fillDistrictEvidenceGeoTable(els.intelDistrictEvidenceGeoTbody, []);
     renderDistrictEvidenceMap(
@@ -1318,6 +1358,7 @@ export function renderIntelChecksModule({
     if (els.intelDistrictEvidenceVotes) els.intelDistrictEvidenceVotes.textContent = "Votes: —";
     if (els.intelDistrictEvidenceSignal) els.intelDistrictEvidenceSignal.textContent = "Persuasion signal: —";
     fillDistrictEvidenceCandidateTable(els.intelDistrictEvidenceCandidateTbody, []);
+    fillDistrictEvidencePrecinctTable(els.intelDistrictEvidencePrecinctTbody, []);
     fillDistrictEvidenceLinkTable(els.intelDistrictEvidenceLinkTbody, []);
     fillDistrictEvidenceGeoTable(els.intelDistrictEvidenceGeoTbody, []);
     renderDistrictEvidenceMap(
@@ -1333,6 +1374,19 @@ export function renderIntelChecksModule({
   const candidateTotals = Array.isArray(evidence?.candidateTotals) ? evidence.candidateTotals : [];
   const links = Array.isArray(evidence?.precinctToGeo) ? evidence.precinctToGeo : [];
   const geoRows = Array.isArray(evidence?.geoRows) ? evidence.geoRows : [];
+  let precinctLayers = [];
+  if (typeof summarizePrecinctEvidenceLayers === "function"){
+    try{
+      precinctLayers = summarizePrecinctEvidenceLayers({
+        precinctResults,
+        crosswalkRows,
+        geoUnits: state?.geoPack?.units || [],
+        maxRows: 30,
+      });
+    } catch {
+      precinctLayers = [];
+    }
+  }
   let geoLayers = [];
   if (typeof summarizeGeoEvidenceLayers === "function"){
     try{
@@ -1403,6 +1457,7 @@ export function renderIntelChecksModule({
   }
 
   fillDistrictEvidenceCandidateTable(els.intelDistrictEvidenceCandidateTbody, candidateTotals);
+  fillDistrictEvidencePrecinctTable(els.intelDistrictEvidencePrecinctTbody, precinctLayers);
   fillDistrictEvidenceLinkTable(els.intelDistrictEvidenceLinkTbody, links);
   fillDistrictEvidenceGeoTable(els.intelDistrictEvidenceGeoTbody, geoLayers);
   renderDistrictEvidenceMap(
