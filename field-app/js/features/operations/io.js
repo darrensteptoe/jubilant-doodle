@@ -27,6 +27,7 @@ const CSV_COLUMNS = {
 
 // Keep legacy snapshots importable; new stores are optional and default empty.
 const JSON_REQUIRED_STORES = ["persons", "pipelineRecords", "shiftRecords", "turfEvents", "forecastConfigs"];
+const OPS_OVERRIDE_MODES = new Set(["baseline", "ramp", "scheduled", "max"]);
 
 function escCsv(v){
   const raw = (v == null) ? "" : String(v);
@@ -121,6 +122,134 @@ export function validateOperationsSnapshot(snapshot){
       }
     }
   }
+  return { ok: errors.length === 0, errors };
+}
+
+/**
+ * Operations/Engine seam contract (compileEffectiveInputs output).
+ * This is validated before engine consumers use Operations-derived capacity/rate inputs.
+ * @typedef {Object} OperationsCapacityInput
+ * @property {{ cr:number|null, sr:number|null, tr:number|null }} rates
+ * @property {{
+ *   orgCount:number|null,
+ *   orgHoursPerWeek:number|null,
+ *   volunteerMult:number|null,
+ *   doorSharePct:number|null,
+ *   doorShare:number|null,
+ *   doorsPerHour:number|null,
+ *   callsPerHour:number|null,
+ *   capacityDecay:{
+ *     enabled:boolean,
+ *     type:string,
+ *     weeklyDecayPct:number|null,
+ *     floorPctOfBaseline:number|null
+ *   }
+ * }} capacity
+ * @property {{
+ *   source:string,
+ *   twCapOverrideEnabled:boolean,
+ *   twCapOverrideMode:string,
+ *   twCapOverrideTargetAttemptsPerWeek:number|null
+ * }} meta
+ */
+
+function isFiniteNum(v){
+  return typeof v === "number" && Number.isFinite(v);
+}
+
+function isFiniteOrNull(v){
+  return v == null || isFiniteNum(v);
+}
+
+function inRange(v, min, max){
+  return isFiniteNum(v) && v >= min && v <= max;
+}
+
+/**
+ * Validate Operations/Engine capacity input seam.
+ * @param {unknown} input
+ * @returns {{ ok:boolean, errors:string[] }}
+ */
+export function validateOperationsCapacityInput(input){
+  const errors = [];
+  if (!input || typeof input !== "object"){
+    return { ok: false, errors: ["Operations capacity input must be an object."] };
+  }
+
+  const rates = input.rates;
+  if (!rates || typeof rates !== "object"){
+    errors.push("rates must be an object.");
+  } else {
+    for (const key of ["cr", "sr", "tr"]){
+      const v = rates[key];
+      if (!isFiniteOrNull(v) || (v != null && !inRange(v, 0, 1))){
+        errors.push(`rates.${key} must be null or a number in [0,1].`);
+      }
+    }
+  }
+
+  const cap = input.capacity;
+  if (!cap || typeof cap !== "object"){
+    errors.push("capacity must be an object.");
+  } else {
+    for (const key of ["orgCount", "orgHoursPerWeek", "volunteerMult", "doorsPerHour", "callsPerHour"]){
+      const v = cap[key];
+      if (!isFiniteOrNull(v) || (v != null && v < 0)){
+        errors.push(`capacity.${key} must be null or a number >= 0.`);
+      }
+    }
+    if (!isFiniteOrNull(cap.doorSharePct) || (cap.doorSharePct != null && !inRange(cap.doorSharePct, 0, 100))){
+      errors.push("capacity.doorSharePct must be null or a number in [0,100].");
+    }
+    if (!isFiniteOrNull(cap.doorShare) || (cap.doorShare != null && !inRange(cap.doorShare, 0, 1))){
+      errors.push("capacity.doorShare must be null or a number in [0,1].");
+    }
+    if (isFiniteNum(cap.doorSharePct) && isFiniteNum(cap.doorShare)){
+      const expectedPct = cap.doorShare * 100;
+      if (Math.abs(expectedPct - cap.doorSharePct) > 0.25){
+        errors.push("capacity.doorSharePct and capacity.doorShare are inconsistent.");
+      }
+    }
+
+    const decay = cap.capacityDecay;
+    if (!decay || typeof decay !== "object"){
+      errors.push("capacity.capacityDecay must be an object.");
+    } else {
+      if (typeof decay.enabled !== "boolean"){
+        errors.push("capacity.capacityDecay.enabled must be boolean.");
+      }
+      if (!String(decay.type || "").trim()){
+        errors.push("capacity.capacityDecay.type must be a non-empty string.");
+      }
+      if (!isFiniteOrNull(decay.weeklyDecayPct) || (decay.weeklyDecayPct != null && !inRange(decay.weeklyDecayPct, 0, 1))){
+        errors.push("capacity.capacityDecay.weeklyDecayPct must be null or a number in [0,1].");
+      }
+      if (!isFiniteOrNull(decay.floorPctOfBaseline) || (decay.floorPctOfBaseline != null && !inRange(decay.floorPctOfBaseline, 0, 1))){
+        errors.push("capacity.capacityDecay.floorPctOfBaseline must be null or a number in [0,1].");
+      }
+    }
+  }
+
+  const meta = input.meta;
+  if (!meta || typeof meta !== "object"){
+    errors.push("meta must be an object.");
+  } else {
+    if (!String(meta.source || "").trim()){
+      errors.push("meta.source must be a non-empty string.");
+    }
+    if (typeof meta.twCapOverrideEnabled !== "boolean"){
+      errors.push("meta.twCapOverrideEnabled must be boolean.");
+    }
+    const mode = String(meta.twCapOverrideMode || "");
+    if (!OPS_OVERRIDE_MODES.has(mode)){
+      errors.push("meta.twCapOverrideMode must be one of baseline|ramp|scheduled|max.");
+    }
+    const target = meta.twCapOverrideTargetAttemptsPerWeek;
+    if (!isFiniteOrNull(target) || (target != null && target < 0)){
+      errors.push("meta.twCapOverrideTargetAttemptsPerWeek must be null or a number >= 0.");
+    }
+  }
+
   return { ok: errors.length === 0, errors };
 }
 
