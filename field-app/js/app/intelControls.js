@@ -1,3 +1,4 @@
+// @ts-check
 // js/app/intelControls.js
 // Intel helpers for metadata, governance, and controlled recommendation application.
 import { resolveAuditRequirementStatus } from "./intelAudit.js";

@@ -1,3 +1,4 @@
+// @ts-check
 export function renderValidationModule(args){
   const {
     els,

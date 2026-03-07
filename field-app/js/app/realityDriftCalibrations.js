@@ -1,3 +1,4 @@
+// @ts-check
 export function computeRealityDriftModule({ state, safeNum, windowN = 7 } = {}){
   const log = Array.isArray(state?.ui?.dailyLog) ? state.ui.dailyLog : null;
   if (!log || log.length === 0){

@@ -1,3 +1,4 @@
+// @ts-check
 export function renderRiskFramingPanel({ els, state, setTextPair, fmtSigned, clamp, mcStaleness = null }){
   if (!els.riskBandTag || !els.riskWinProb || !els.riskMarginBand || !els.riskVolatility || !els.riskPlainBanner) return;
 

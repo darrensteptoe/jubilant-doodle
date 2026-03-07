@@ -1,3 +1,4 @@
+// @ts-check
 import {
   computeIntelIntegrityScore,
   listMissingEvidenceAudit,
@@ -5,6 +6,11 @@ import {
 } from "./intelControls.js";
 import { resolveFeatureFlags } from "../core/featureFlags.js";
 
+/**
+ * @param {string[]} lines
+ * @param {Record<string, any>} tw
+ * @returns {string[]}
+ */
 export function appendOperationsDiagnosticsCore(lines, tw){
   const out = Array.isArray(lines) ? lines.slice() : [];
   out.push("");
@@ -26,6 +32,15 @@ export function appendOperationsDiagnosticsCore(lines, tw){
   return out;
 }
 
+/**
+ * @param {string[]} lines
+ * @param {{
+ *   engine: Record<string, any>,
+ *   state: Record<string, any>,
+ *   computeRealityDrift: () => Record<string, any>,
+ * }} args
+ * @returns {string[]}
+ */
 export function appendModelDiagnosticsCore(lines, {
   engine,
   state,

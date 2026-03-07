@@ -1,3 +1,4 @@
+// @ts-check
 // js/app/intelAudit.js
 // Phase 3 scaffolding: audit trail for critical assumption edits.
 // This module is metadata-only and must not affect deterministic/MC math.

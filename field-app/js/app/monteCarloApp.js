@@ -1,3 +1,4 @@
+// @ts-check
 // Canonical Monte Carlo app module (Phase 11 consolidation).
 
 export function formatMcTimestampModule(ts){

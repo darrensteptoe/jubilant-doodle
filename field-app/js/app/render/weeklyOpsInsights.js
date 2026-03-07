@@ -1,3 +1,4 @@
+// @ts-check
 export function renderWeeklyOpsInsightsPanel({
   els,
   state,

@@ -1,3 +1,4 @@
+// @ts-check
 export function surfaceLeverSpecCore(key){
   const k = String(key || "");
   const specs = {

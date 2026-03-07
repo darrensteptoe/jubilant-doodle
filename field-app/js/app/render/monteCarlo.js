@@ -1,3 +1,4 @@
+// @ts-check
 import { resolveFeatureFlags } from "../../core/featureFlags.js";
 
 export function renderPhase3Panel({

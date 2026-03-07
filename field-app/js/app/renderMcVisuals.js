@@ -1,3 +1,4 @@
+// @ts-check
 export function renderMcVisualsModule(args){
   const {
     els,

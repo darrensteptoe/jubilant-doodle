@@ -1,3 +1,4 @@
+// @ts-check
 import { renderTimelineModule } from "../renderTimeline.js";
 
 // Compatibility wrapper: keep old import path stable while forcing a single

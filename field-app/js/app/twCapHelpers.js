@@ -1,3 +1,4 @@
+// @ts-check
 export function twCapTextModule(el, text){
   if (el) el.textContent = String(text ?? "");
 }

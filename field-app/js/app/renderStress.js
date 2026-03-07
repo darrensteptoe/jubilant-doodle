@@ -1,3 +1,4 @@
+// @ts-check
 export function renderStressModule(args){
   const {
     els,

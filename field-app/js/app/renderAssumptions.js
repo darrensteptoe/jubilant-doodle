@@ -1,3 +1,4 @@
+// @ts-check
 export function renderAssumptionsModule(args){
   const {
     els,

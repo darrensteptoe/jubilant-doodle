@@ -1,3 +1,7 @@
+// @ts-check
+/**
+ * @returns {boolean}
+ */
 export function systemPrefersDarkModule(){
   try{
     return !!(window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches);
@@ -6,6 +10,10 @@ export function systemPrefersDarkModule(){
   }
 }
 
+/**
+ * @param {Record<string, any>} state
+ * @returns {void}
+ */
 export function normalizeThemeModeModule(state){
   if (!state.ui) state.ui = {};
   if (state.ui.themeMode !== "system" && state.ui.themeMode !== "dark" && state.ui.themeMode !== "light"){
@@ -13,6 +21,11 @@ export function normalizeThemeModeModule(state){
   }
 }
 
+/**
+ * @param {Record<string, any>} state
+ * @param {() => boolean} systemPrefersDark
+ * @returns {boolean}
+ */
 export function computeThemeIsDarkModule(state, systemPrefersDark){
   const mode = state.ui?.themeMode || "system";
   if (mode === "dark") return true;
@@ -20,6 +33,13 @@ export function computeThemeIsDarkModule(state, systemPrefersDark){
   return systemPrefersDark();
 }
 
+/**
+ * @param {Record<string, any>} state
+ * @param {Record<string, any>} els
+ * @param {() => void} normalizeThemeMode
+ * @param {() => boolean} computeThemeIsDark
+ * @returns {void}
+ */
 export function applyThemeFromStateModule(state, els, normalizeThemeMode, computeThemeIsDark){
   normalizeThemeMode();
   const isDark = computeThemeIsDark();
@@ -33,6 +53,11 @@ export function applyThemeFromStateModule(state, els, normalizeThemeMode, comput
   state.ui.dark = !!isDark;
 }
 
+/**
+ * @param {Record<string, any>} state
+ * @param {() => void} applyThemeFromState
+ * @returns {void}
+ */
 export function initThemeSystemListenerModule(state, applyThemeFromState){
   try{
     const mq = window.matchMedia("(prefers-color-scheme: dark)");

@@ -1,3 +1,4 @@
+// @ts-check
 export function renderPhase3Module(args){
   const {
     els,

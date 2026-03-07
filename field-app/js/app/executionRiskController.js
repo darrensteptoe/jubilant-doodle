@@ -1,3 +1,4 @@
+// @ts-check
 export function createExecutionRiskController({
   els,
   getState,

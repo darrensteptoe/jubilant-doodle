@@ -1,3 +1,8 @@
+// @ts-check
+/**
+ * @param {() => void} fn
+ * @returns {void}
+ */
 export function safeCallModule(fn){
   try{
     fn();
@@ -6,6 +11,10 @@ export function safeCallModule(fn){
   }
 }
 
+/**
+ * @param {string} stageId
+ * @returns {void}
+ */
 export function switchToStageModule(stageId){
   const id = String(stageId || "").trim();
   if (!id) return;

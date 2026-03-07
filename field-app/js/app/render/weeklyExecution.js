@@ -1,3 +1,4 @@
+// @ts-check
 function setTag(el, kind, text){
   if (!el) return;
   el.classList.remove("ok", "warn", "bad");

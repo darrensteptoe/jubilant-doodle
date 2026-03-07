@@ -1,3 +1,4 @@
+// @ts-check
 export function applyWeeklyLeverScenarioModule({
   lever,
   ctx,

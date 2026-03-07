@@ -1,3 +1,9 @@
+// @ts-check
+/**
+ * @param {Record<string, any>} snap
+ * @param {(v: any) => number | null} safeNum
+ * @returns {number | null}
+ */
 export function canonicalDoorsPerHourFromSnapModule(snap, safeNum){
   const s = snap || {};
   const canonical = safeNum(s.doorsPerHour3);
@@ -7,6 +13,12 @@ export function canonicalDoorsPerHourFromSnapModule(snap, safeNum){
   return null;
 }
 
+/**
+ * @param {Record<string, any>} target
+ * @param {any} value
+ * @param {(v: any) => number | null} safeNum
+ * @returns {void}
+ */
 export function setCanonicalDoorsPerHourModule(target, value, safeNum){
   if (!target || typeof target !== "object") return;
   const n = safeNum(value);
@@ -15,6 +27,10 @@ export function setCanonicalDoorsPerHourModule(target, value, safeNum){
   target.doorsPerHour = next;
 }
 
+/**
+ * @param {Record<string, any>} scen
+ * @returns {string[]}
+ */
 export function requiredScenarioKeysMissingModule(scen){
   const required = [
     "scenarioName","raceType","electionDate","weeksRemaining","mode",

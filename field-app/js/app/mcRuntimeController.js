@@ -1,3 +1,4 @@
+// @ts-check
 import { runMonteCarloNowModule } from "./monteCarloApp.js";
 
 export function createMcRuntimeController({

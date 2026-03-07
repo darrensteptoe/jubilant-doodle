@@ -1,3 +1,4 @@
+// @ts-check
 export function renderWeeklyExecutionStatusModule(args){
   const {
     els,
