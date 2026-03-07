@@ -1,8 +1,20 @@
+// @ts-check
+
+/**
+ * @param {number|null|undefined} n
+ * @param {number} lo
+ * @param {number} hi
+ * @returns {number}
+ */
 export function clamp(n, lo, hi){
   if (n == null || Number.isNaN(n)) return lo;
   return Math.min(hi, Math.max(lo, n));
 }
 
+/**
+ * @param {unknown} v
+ * @returns {number|null}
+ */
 export function safeNum(v){
   if (v == null || v === "") return null;
   const n = Number(v);
@@ -10,11 +22,20 @@ export function safeNum(v){
   return n;
 }
 
+/**
+ * @param {number|null|undefined} n
+ * @returns {string}
+ */
 export function fmtInt(n){
   if (n == null || !Number.isFinite(n)) return "—";
   return Math.round(n).toLocaleString("en-US");
 }
 
+/**
+ * @param {unknown} a
+ * @param {unknown} b
+ * @returns {number|null}
+ */
 export function daysBetween(a, b){
   if (!(a instanceof Date) || !(b instanceof Date)) return null;
   const ms = b.getTime() - a.getTime();

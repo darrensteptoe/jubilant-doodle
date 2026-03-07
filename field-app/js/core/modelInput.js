@@ -1,8 +1,19 @@
+// @ts-check
+
+/**
+ * @param {unknown} v
+ * @returns {number|null}
+ */
 function defaultToNum(v){
   const n = Number(v);
   return Number.isFinite(n) ? n : null;
 }
 
+/**
+ * @param {Record<string, any>} snapshot
+ * @param {(v: unknown) => number|null=} toNumFn
+ * @returns {import("./types").ModelInput}
+ */
 export function buildModelInputFromSnapshot(snapshot, toNumFn){
   const s = snapshot || {};
   const toNum = (typeof toNumFn === "function") ? toNumFn : defaultToNum;
@@ -26,4 +37,3 @@ export function buildModelInputFromSnapshot(snapshot, toNumFn){
     earlyVoteExp: toNum(s.earlyVoteExp),
   };
 }
-

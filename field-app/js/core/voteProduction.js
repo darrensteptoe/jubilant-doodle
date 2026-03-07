@@ -1,12 +1,23 @@
 // Phase 10 — Vote production primitives (pure conversion helpers).
 // These helpers centralize per-attempt vote math so ROI + optimization
 // use one shared conversion surface.
+// @ts-check
 
+/**
+ * @param {unknown} v
+ * @returns {number|null}
+ */
 function toFiniteOrNull(v){
   const n = Number(v);
   return Number.isFinite(n) ? n : null;
 }
 
+/**
+ * @param {unknown} v
+ * @param {number} min
+ * @param {number} max
+ * @returns {number}
+ */
 function clamp(v, min, max){
   const n = Number(v);
   if (!Number.isFinite(n)) return min;
@@ -15,12 +26,21 @@ function clamp(v, min, max){
   return n;
 }
 
+/**
+ * @param {unknown} pctMaybe
+ * @param {number|null} fallbackDecimal
+ * @returns {number|null}
+ */
 export function pctOverrideToDecimal(pctMaybe, fallbackDecimal){
   if (pctMaybe == null || pctMaybe === "" || !Number.isFinite(Number(pctMaybe))) return fallbackDecimal;
   const v = clamp(Number(pctMaybe), 0, 100);
   return v / 100;
 }
 
+/**
+ * @param {Record<string, any>|null} turnoutModel
+ * @returns {import("./types").TurnoutContext}
+ */
 export function resolveTurnoutContext(turnoutModel = null){
   const turnoutEnabled = !!turnoutModel?.enabled;
   const gotvLiftPP = turnoutEnabled
@@ -46,6 +66,10 @@ export function resolveTurnoutContext(turnoutModel = null){
   };
 }
 
+/**
+ * @param {{ cr?:unknown, sr?:unknown, tr?:unknown, requirePositive?:boolean }} args
+ * @returns {number}
+ */
 export function computeBaseNetVotesPerAttempt({
   cr,
   sr,
@@ -60,6 +84,10 @@ export function computeBaseNetVotesPerAttempt({
   return c * s * t;
 }
 
+/**
+ * @param {{ cr?:unknown, liftPerContactPP?:unknown, requirePositiveCr?:boolean }} args
+ * @returns {number}
+ */
 export function computeGotvNetVotesPerAttempt({
   cr,
   liftPerContactPP = 0,
@@ -72,6 +100,10 @@ export function computeGotvNetVotesPerAttempt({
   return c * (lift / 100);
 }
 
+/**
+ * @param {{ tr?:unknown, liftAppliedPP?:unknown, clampUnit?:boolean }} args
+ * @returns {number|null}
+ */
 export function computeHybridEffectiveTurnoutReliability({
   tr,
   liftAppliedPP = 0,
@@ -83,6 +115,10 @@ export function computeHybridEffectiveTurnoutReliability({
   return clampUnit ? Math.min(1, eff) : eff;
 }
 
+/**
+ * @param {{ cr?:unknown, targetUniverseSize?:unknown, maxAdditionalPP?:unknown, gotvLiftPP?:unknown }} args
+ * @returns {number|null}
+ */
 export function computeGotvSaturationCapAttempts({
   cr,
   targetUniverseSize,
@@ -103,6 +139,28 @@ export function computeGotvSaturationCapAttempts({
   return Math.ceil(capAttempts);
 }
 
+/**
+ * @param {{
+ *   cr?:unknown,
+ *   sr?:unknown,
+ *   tr?:unknown,
+ *   kind?:string,
+ *   turnoutContext?:import("./types").TurnoutContext|null,
+ *   targetUniverseSize?:unknown,
+ *   gotvSaturationCap?:boolean,
+ *   requirePositiveBase?:boolean,
+ *   requirePositiveGotvCr?:boolean,
+ *   clampHybridTr?:boolean
+ * }} args
+ * @returns {{
+ *   kind:string,
+ *   baseNetVotesPerAttempt:number,
+ *   turnoutAdjustedNetVotesPerAttempt:number,
+ *   hybridEffectiveTr:number|null,
+ *   maxAttempts:number|null,
+ *   turnoutCtx:import("./types").TurnoutContext
+ * }}
+ */
 export function computeTacticVoteProduction({
   cr,
   sr,

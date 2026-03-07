@@ -2,7 +2,12 @@
 // Single source of truth for seeded RNG + triangular distribution sampling.
 // Pure module — no DOM, no side effects, no imports.
 // Used by monteCarlo.js and app.js (legacy MC loops pending migration to core).
+// @ts-check
 
+/**
+ * @param {string} str
+ * @returns {() => number}
+ */
 export function xmur3(str){
   let h = 1779033703 ^ str.length;
   for (let i = 0; i < str.length; i++){
@@ -16,6 +21,10 @@ export function xmur3(str){
   };
 }
 
+/**
+ * @param {number} a
+ * @returns {() => number}
+ */
 export function mulberry32(a){
   return function(){
     a |= 0;
@@ -28,6 +37,10 @@ export function mulberry32(a){
 
 // makeRng(seedStr) -> rng function
 // Pass a stable string seed for deterministic results; omit for Math.random fallback.
+/**
+ * @param {string|undefined|null} seedStr
+ * @returns {() => number}
+ */
 export function makeRng(seedStr){
   if (!seedStr) return Math.random;
   const seed = xmur3(seedStr)();
@@ -36,6 +49,13 @@ export function makeRng(seedStr){
 
 // triSample(min, mode, max, rng) -> number
 // Triangular distribution sampling. rng must be a function returning [0,1).
+/**
+ * @param {number} min
+ * @param {number} mode
+ * @param {number} max
+ * @param {() => number} rng
+ * @returns {number}
+ */
 export function triSample(min, mode, max, rng){
   const u = rng();
   const c = (mode - min) / (max - min || 1);
@@ -45,6 +65,12 @@ export function triSample(min, mode, max, rng){
   return max - Math.sqrt((1 - u) * (max - min) * (max - mode));
 }
 
+/**
+ * @param {number} min
+ * @param {number} max
+ * @param {() => number} rng
+ * @returns {number}
+ */
 export function uniformSample(min, max, rng){
   const lo = Math.min(min, max);
   const hi = Math.max(min, max);
@@ -53,12 +79,23 @@ export function uniformSample(min, max, rng){
   return lo + (rng() * (hi - lo));
 }
 
+/**
+ * @param {() => number} rng
+ * @returns {number}
+ */
 function gaussianZ(rng){
   const u1 = Math.max(rng(), 1e-12);
   const u2 = rng();
   return Math.sqrt(-2 * Math.log(u1)) * Math.cos(2 * Math.PI * u2);
 }
 
+/**
+ * @param {number} min
+ * @param {number} mode
+ * @param {number} max
+ * @param {() => number} rng
+ * @returns {number}
+ */
 export function normalSampleBounded(min, mode, max, rng){
   const lo = Math.min(min, max);
   const hi = Math.max(min, max);
