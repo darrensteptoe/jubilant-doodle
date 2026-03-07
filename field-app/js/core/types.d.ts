@@ -109,6 +109,10 @@ export interface DataCatalogDataset {
   label: string;
   source: string | null;
   vintage: string | null;
+  electionDate?: string | null;
+  officeType?: string | null;
+  raceType?: string | null;
+  cycleYear?: number | null;
   boundarySetId: string | null;
   granularity: string;
   refreshedAt: string | null;

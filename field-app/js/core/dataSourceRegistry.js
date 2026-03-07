@@ -74,6 +74,116 @@ function vintageRank(v){
 }
 
 /**
+ * @param {number} n
+ * @param {number} min
+ * @param {number} max
+ * @returns {number}
+ */
+function clamp(n, min, max){
+  if (!Number.isFinite(n)) return min;
+  return Math.max(min, Math.min(max, n));
+}
+
+/**
+ * @param {unknown} v
+ * @returns {number | null}
+ */
+function toYearOrNull(v){
+  const n = numOrNull(v);
+  if (n != null){
+    const y = Math.trunc(n);
+    if (y >= 1900 && y <= 2100) return y;
+  }
+  const s = str(v);
+  if (!s) return null;
+  const m = s.match(/\b(19|20)\d{2}\b/);
+  if (!m) return null;
+  const y = Number(m[0]);
+  return Number.isFinite(y) ? y : null;
+}
+
+/**
+ * @param {unknown} v
+ * @returns {string}
+ */
+function normalizeRaceType(v){
+  const raw = str(v).toLowerCase().replace(/[\s/-]+/g, "_");
+  if (!raw) return "";
+  if (raw === "state_leg" || raw === "state_legislative") return "state_leg";
+  if (raw.includes("federal") || raw.includes("us_house") || raw.includes("congress")) return "federal";
+  if (raw.includes("state_house") || raw.includes("state_senate") || raw.includes("sldl") || raw.includes("sldu")) return "state_leg";
+  if (raw.includes("county")) return "county";
+  if (raw.includes("municipal") || raw.includes("local") || raw.includes("place") || raw.includes("city") || raw.includes("ward")) return "municipal";
+  return raw;
+}
+
+/**
+ * @param {unknown} v
+ * @returns {string}
+ */
+function normalizeOfficeType(v){
+  const raw = str(v).toLowerCase().replace(/[\s/-]+/g, "_");
+  if (!raw) return "";
+  if (raw.includes("us_house") || raw.includes("congress") || raw === "cd") return "us_house";
+  if (raw.includes("state_senate") || raw.includes("sldu")) return "state_senate";
+  if (raw.includes("state_house") || raw.includes("state_assembly") || raw.includes("sldl")) return "state_house";
+  if (raw.includes("county")) return "county";
+  if (raw.includes("municipal") || raw.includes("city") || raw.includes("ward") || raw.includes("place")) return "municipal";
+  return raw;
+}
+
+/**
+ * @param {string} officeType
+ * @returns {string}
+ */
+function officeFamily(officeType){
+  const x = normalizeOfficeType(officeType);
+  if (!x) return "";
+  if (x === "state_senate" || x === "state_house") return "state_leg";
+  return x;
+}
+
+/**
+ * @param {unknown} scenario
+ * @returns {string}
+ */
+function deriveTargetRaceType(scenario){
+  if (!isObject(scenario)) return "";
+  return normalizeRaceType(scenario.raceType);
+}
+
+/**
+ * @param {unknown} scenario
+ * @returns {string}
+ */
+function deriveTargetOfficeType(scenario){
+  if (!isObject(scenario)) return "";
+  const areaType = str(scenario?.geoPack?.area?.type).toUpperCase();
+  if (areaType === "CD") return "us_house";
+  if (areaType === "SLDU") return "state_senate";
+  if (areaType === "SLDL") return "state_house";
+  if (areaType === "COUNTY") return "county";
+  if (areaType === "PLACE") return "municipal";
+  const fromExplicit = normalizeOfficeType(scenario.officeType);
+  if (fromExplicit) return fromExplicit;
+  const raceType = deriveTargetRaceType(scenario);
+  if (raceType === "federal") return "us_house";
+  if (raceType === "state_leg") return "state_house";
+  if (raceType === "county") return "county";
+  if (raceType === "municipal") return "municipal";
+  return "";
+}
+
+/**
+ * @param {unknown} scenario
+ * @returns {number | null}
+ */
+function deriveTargetElectionYear(scenario){
+  if (!isObject(scenario)) return null;
+  return toYearOrNull(scenario.electionDate);
+}
+
+/**
  * @param {Array<Record<string, any>>} rows
  * @param {(row: Record<string, any>) => string} groupKeyFn
  * @returns {Array<Record<string, any>>}
@@ -157,6 +267,190 @@ function pickLatestVerified(rows, predicate){
 }
 
 /**
+ * Score a single election dataset against scenario context.
+ * Higher score means better "similar-race" compatibility for planning evidence selection.
+ *
+ * @param {{
+ *   dataset: unknown,
+ *   scenario?: unknown,
+ *   boundarySetId?: unknown,
+ *   requireVerified?: boolean
+ * }} args
+ * @returns {{
+ *   eligible: boolean,
+ *   score: number,
+ *   scoreBreakdown: Record<string, number>,
+ *   reasons: string[],
+ *   datasetId: string,
+ *   target: {
+ *     raceType: string,
+ *     officeType: string,
+ *     electionYear: number | null,
+ *     boundarySetId: string
+ *   }
+ * }}
+ */
+export function scoreElectionDatasetCompatibility(args){
+  const row = isObject(args?.dataset) ? args.dataset : {};
+  const scenario = isObject(args?.scenario) ? args.scenario : {};
+  const datasetId = str(row.id);
+  const datasetBoundary = str(row.boundarySetId);
+  const datasetOffice = normalizeOfficeType(row.officeType);
+  const datasetRace = normalizeRaceType(row.raceType);
+  const datasetYear = toYearOrNull(row.cycleYear) ?? toYearOrNull(row.electionDate) ?? toYearOrNull(row.vintage);
+  const coveragePct = clamp(numOrNull(row.coveragePct) ?? 0, 0, 100);
+  const requireVerified = args?.requireVerified !== false;
+  const targetBoundary = str(args?.boundarySetId || scenario?.dataRefs?.boundarySetId || scenario?.geoPack?.boundarySetId);
+  const targetOffice = deriveTargetOfficeType(scenario);
+  const targetRace = deriveTargetRaceType(scenario);
+  const targetYear = deriveTargetElectionYear(scenario);
+  const reasons = [];
+
+  if (requireVerified && !row.isVerified){
+    return {
+      eligible: false,
+      score: -1,
+      scoreBreakdown: {},
+      reasons: ["dataset_not_verified"],
+      datasetId,
+      target: {
+        raceType: targetRace,
+        officeType: targetOffice,
+        electionYear: targetYear,
+        boundarySetId: targetBoundary,
+      },
+    };
+  }
+
+  const scoreBreakdown = {
+    boundary: 0,
+    office: 0,
+    race: 0,
+    year: 0,
+    coverage: 0,
+    latest: 0,
+  };
+
+  if (targetBoundary && datasetBoundary){
+    if (targetBoundary === datasetBoundary){
+      scoreBreakdown.boundary = 40;
+      reasons.push("boundary_match");
+    } else {
+      scoreBreakdown.boundary = -15;
+      reasons.push("boundary_mismatch");
+    }
+  } else if (!targetBoundary){
+    scoreBreakdown.boundary = 5;
+    reasons.push("boundary_unspecified");
+  }
+
+  if (targetOffice && datasetOffice){
+    if (targetOffice === datasetOffice){
+      scoreBreakdown.office = 30;
+      reasons.push("office_exact_match");
+    } else if (officeFamily(targetOffice) && officeFamily(targetOffice) === officeFamily(datasetOffice)){
+      scoreBreakdown.office = 16;
+      reasons.push("office_family_match");
+    } else {
+      scoreBreakdown.office = -8;
+      reasons.push("office_mismatch");
+    }
+  } else if (!datasetOffice){
+    reasons.push("office_missing");
+  }
+
+  if (targetRace && datasetRace){
+    if (targetRace === datasetRace){
+      scoreBreakdown.race = 14;
+      reasons.push("race_match");
+    } else {
+      scoreBreakdown.race = -5;
+      reasons.push("race_mismatch");
+    }
+  } else if (!datasetRace){
+    reasons.push("race_missing");
+  }
+
+  if (targetYear != null && datasetYear != null){
+    const diff = Math.abs(targetYear - datasetYear);
+    scoreBreakdown.year = Math.max(0, 18 - (diff * 3));
+    if (diff <= 2) reasons.push("year_close");
+  } else if (datasetYear != null){
+    scoreBreakdown.year = 4;
+    reasons.push("year_present");
+  }
+
+  scoreBreakdown.coverage = coveragePct / 25; // up to +4 points.
+  if (row.isLatest) scoreBreakdown.latest = 2;
+
+  const score = Object.values(scoreBreakdown).reduce((sum, v) => sum + (Number(v) || 0), 0);
+  return {
+    eligible: true,
+    score,
+    scoreBreakdown,
+    reasons,
+    datasetId,
+    target: {
+      raceType: targetRace,
+      officeType: targetOffice,
+      electionYear: targetYear,
+      boundarySetId: targetBoundary,
+    },
+  };
+}
+
+/**
+ * Deterministically rank election datasets by scenario compatibility.
+ *
+ * @param {{
+ *   dataCatalog?: unknown,
+ *   registry?: ReturnType<typeof buildDataSourceRegistry>,
+ *   scenario?: unknown,
+ *   boundarySetId?: unknown,
+ *   requireVerified?: boolean
+ * }} args
+ * @returns {Array<{
+ *   dataset: Record<string, any>,
+ *   score: number,
+ *   scoreBreakdown: Record<string, number>,
+ *   reasons: string[]
+ * }>}
+ */
+export function rankElectionDatasetsForScenario(args){
+  const registry = args?.registry && typeof args.registry === "object"
+    ? args.registry
+    : buildDataSourceRegistry(args?.dataCatalog);
+  const rows = Array.isArray(registry?.electionDatasets) ? registry.electionDatasets : [];
+  const ranked = [];
+  for (const dataset of rows){
+    const score = scoreElectionDatasetCompatibility({
+      dataset,
+      scenario: args?.scenario,
+      boundarySetId: args?.boundarySetId,
+      requireVerified: args?.requireVerified,
+    });
+    if (!score.eligible) continue;
+    ranked.push({
+      dataset,
+      score: score.score,
+      scoreBreakdown: score.scoreBreakdown,
+      reasons: score.reasons,
+    });
+  }
+  ranked.sort((a, b) => {
+    if (b.score !== a.score) return b.score - a.score;
+    const latestDelta = boolRank(b.dataset?.isLatest) - boolRank(a.dataset?.isLatest);
+    if (latestDelta !== 0) return latestDelta;
+    const dateDelta = dateRank(b.dataset?.refreshedAt) - dateRank(a.dataset?.refreshedAt);
+    if (dateDelta !== 0) return dateDelta;
+    const vintageDelta = vintageRank(b.dataset?.vintage) - vintageRank(a.dataset?.vintage);
+    if (vintageDelta !== 0) return vintageDelta;
+    return str(a.dataset?.id).localeCompare(str(b.dataset?.id));
+  });
+  return ranked;
+}
+
+/**
  * @param {unknown} dataCatalog
  * @returns {{
  *   version: string,
@@ -206,6 +500,10 @@ function pickLatestVerified(rows, predicate){
  *     label: string,
  *     source: string | null,
  *     vintage: string | null,
+ *     electionDate: string | null,
+ *     officeType: string | null,
+ *     raceType: string | null,
+ *     cycleYear: number | null,
  *     boundarySetId: string | null,
  *     granularity: string,
  *     refreshedAt: string | null,
@@ -282,6 +580,10 @@ export function buildDataSourceRegistry(dataCatalog){
       label: str(r.label),
       source: strOrNull(r.source),
       vintage: strOrNull(r.vintage),
+      electionDate: strOrNull(r.electionDate),
+      officeType: strOrNull(r.officeType),
+      raceType: strOrNull(r.raceType),
+      cycleYear: toYearOrNull(r.cycleYear) ?? toYearOrNull(r.electionDate) ?? toYearOrNull(r.vintage),
       boundarySetId: strOrNull(r.boundarySetId),
       granularity: str(r.granularity),
       refreshedAt: strOrNull(r.refreshedAt),
@@ -312,7 +614,8 @@ export function buildDataSourceRegistry(dataCatalog){
 /**
  * @param {{
  *   dataRefs: unknown,
- *   dataCatalog: unknown
+ *   dataCatalog: unknown,
+ *   scenario?: unknown
  * }} args
  * @returns {{
  *   mode: "pinned_verified" | "latest_verified" | "manual",
@@ -414,10 +717,19 @@ export function resolveDataRefsByPolicy(args){
   }
 
   if (!selected.electionDatasetId || !byId.electionDatasets[selected.electionDatasetId]?.isVerified){
-    const picked = pickLatestVerified(registry.electionDatasets, boundaryFilter) || pickLatestVerified(registry.electionDatasets);
+    const ranked = rankElectionDatasetsForScenario({
+      registry,
+      scenario: args?.scenario,
+      boundarySetId: boundaryId,
+      requireVerified: true,
+    });
+    const picked = ranked[0]?.dataset || pickLatestVerified(registry.electionDatasets, boundaryFilter) || pickLatestVerified(registry.electionDatasets);
     if (picked){
       if (selected.electionDatasetId !== picked.id){
-        notes.push(`electionDatasetId resolved to latest verified '${picked.id}'.`);
+        const scoreNote = Number.isFinite(ranked[0]?.score)
+          ? ` (compatibility score ${Number(ranked[0].score).toFixed(2)})`
+          : "";
+        notes.push(`electionDatasetId resolved to latest verified '${picked.id}'${scoreNote}.`);
         usedFallbacks = true;
       }
       selected.electionDatasetId = picked.id;
@@ -450,6 +762,7 @@ export function resolveDataRefsByPolicy(args){
  * @param {{
  *   dataRefs: unknown,
  *   dataCatalog: unknown,
+ *   scenario?: unknown,
  *   nowIso?: string
  * }} args
  * @returns {{
@@ -472,6 +785,7 @@ export function materializePinnedDataRefs(args){
   const resolution = resolveDataRefsByPolicy({
     dataRefs: refs,
     dataCatalog: args?.dataCatalog,
+    scenario: args?.scenario,
   });
   const nowIso = str(args?.nowIso) || new Date().toISOString();
   const selected = resolution.selected || {};

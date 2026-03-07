@@ -75,7 +75,13 @@ import {
   normalizeDistrictDataState,
   validateDistrictDataContract,
 } from "./districtData.js";
-import { buildDataSourceRegistry, resolveDataRefsByPolicy, materializePinnedDataRefs } from "./dataSourceRegistry.js";
+import {
+  buildDataSourceRegistry,
+  resolveDataRefsByPolicy,
+  materializePinnedDataRefs,
+  scoreElectionDatasetCompatibility,
+  rankElectionDatasetsForScenario,
+} from "./dataSourceRegistry.js";
 import { normalizeAreaSelection, buildAreaResolverCacheKey, deriveAreaResolverContext } from "./areaResolver.js";
 import {
   normalizeCensusManifest,
@@ -1441,6 +1447,8 @@ export function runSelfTests(engine){
     buildDataSourceRegistry,
     resolveDataRefsByPolicy,
     materializePinnedDataRefs,
+    scoreElectionDatasetCompatibility,
+    rankElectionDatasetsForScenario,
     normalizeAreaSelection,
     buildAreaResolverCacheKey,
     deriveAreaResolverContext,

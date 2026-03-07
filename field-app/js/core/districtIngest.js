@@ -39,6 +39,24 @@ function numOrNull(v){
 
 /**
  * @param {unknown} v
+ * @returns {number | null}
+ */
+function yearOrNull(v){
+  const n = numOrNull(v);
+  if (n != null){
+    const y = Math.trunc(n);
+    if (y >= 1900 && y <= 2100) return y;
+  }
+  const s = str(v);
+  if (!s) return null;
+  const m = s.match(/\b(19|20)\d{2}\b/);
+  if (!m) return null;
+  const y = Number(m[0]);
+  return Number.isFinite(y) ? y : null;
+}
+
+/**
+ * @param {unknown} v
  * @returns {string | null}
  */
 function isoOrNull(v){
@@ -155,6 +173,8 @@ export function validateCensusManifest(raw){
  *   vintage: string,
  *   electionDate: string | null,
  *   officeType: string,
+ *   raceType: string,
+ *   cycleYear: number | null,
  *   boundarySetId: string | null,
  *   granularity: "precinct" | "vtd",
  *   refreshedAt: string | null,
@@ -172,6 +192,8 @@ export function makeDefaultElectionManifest(){
     vintage: "",
     electionDate: null,
     officeType: "",
+    raceType: "",
+    cycleYear: null,
     boundarySetId: null,
     granularity: "precinct",
     refreshedAt: null,
@@ -206,6 +228,8 @@ export function normalizeElectionManifest(raw){
   const rowCountRaw = numOrNull(raw.rowCount);
   const rowCount = (rowCountRaw != null && rowCountRaw >= 0) ? Math.trunc(rowCountRaw) : 0;
   const coverageRaw = numOrNull(qualityIn.coveragePct);
+  const electionDate = isoOrNull(raw.electionDate);
+  const cycleYear = yearOrNull(raw.cycleYear) ?? yearOrNull(electionDate) ?? yearOrNull(raw.vintage);
 
   return {
     ...base,
@@ -214,8 +238,10 @@ export function normalizeElectionManifest(raw){
     label: str(raw.label),
     source: str(raw.source) || base.source,
     vintage: str(raw.vintage),
-    electionDate: isoOrNull(raw.electionDate),
+    electionDate,
     officeType: str(raw.officeType),
+    raceType: str(raw.raceType || raw.race_template || raw.raceCategory),
+    cycleYear,
     boundarySetId: strOrNull(raw.boundarySetId),
     granularity,
     refreshedAt: isoOrNull(raw.refreshedAt),
@@ -294,6 +320,10 @@ export function censusManifestToCatalogEntry(manifest){
  *   label: string,
  *   source: string | null,
  *   vintage: string | null,
+ *   electionDate: string | null,
+ *   officeType: string | null,
+ *   raceType: string | null,
+ *   cycleYear: number | null,
  *   boundarySetId: string | null,
  *   granularity: string,
  *   refreshedAt: string | null,
@@ -312,6 +342,10 @@ export function electionManifestToCatalogEntry(manifest){
     label: m.label,
     source: strOrNull(m.source),
     vintage: strOrNull(m.vintage),
+    electionDate: isoOrNull(m.electionDate),
+    officeType: strOrNull(m.officeType),
+    raceType: strOrNull(m.raceType),
+    cycleYear: yearOrNull(m.cycleYear) ?? yearOrNull(m.electionDate) ?? yearOrNull(m.vintage),
     boundarySetId: strOrNull(m.boundarySetId),
     granularity: str(m.granularity),
     refreshedAt: isoOrNull(m.refreshedAt),

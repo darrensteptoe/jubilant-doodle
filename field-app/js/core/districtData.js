@@ -46,6 +46,24 @@ function toFiniteOrNull(v){
 
 /**
  * @param {unknown} v
+ * @returns {number | null}
+ */
+function toYearOrNull(v){
+  const n = toFiniteOrNull(v);
+  if (n != null){
+    const y = Math.trunc(n);
+    if (y >= 1900 && y <= 2100) return y;
+  }
+  const s = toCleanString(v);
+  if (!s) return null;
+  const m = s.match(/\b(19|20)\d{2}\b/);
+  if (!m) return null;
+  const y = Number(m[0]);
+  return Number.isFinite(y) ? y : null;
+}
+
+/**
+ * @param {unknown} v
  * @returns {string | null}
  */
 function toIsoOrNull(v){
@@ -277,6 +295,10 @@ function normalizeCrosswalk(row){
  *   label: string,
  *   source: string | null,
  *   vintage: string | null,
+ *   electionDate?: string | null,
+ *   officeType?: string | null,
+ *   raceType?: string | null,
+ *   cycleYear?: number | null,
  *   boundarySetId: string | null,
  *   granularity: string,
  *   refreshedAt: string | null,
@@ -299,6 +321,12 @@ function normalizeCatalogDataset(row, kind){
     label: toCleanString(row.label),
     source: toIdOrNull(row.source),
     vintage: toIdOrNull(row.vintage),
+    electionDate: kind === "election" ? toIsoOrNull(row.electionDate) : null,
+    officeType: kind === "election" ? toIdOrNull(row.officeType) : null,
+    raceType: kind === "election" ? toIdOrNull(row.raceType) : null,
+    cycleYear: kind === "election"
+      ? (toYearOrNull(row.cycleYear) ?? toYearOrNull(row.electionDate) ?? toYearOrNull(row.vintage))
+      : null,
     boundarySetId: toIdOrNull(row.boundarySetId),
     granularity: toCleanString(row.granularity),
     refreshedAt: toIsoOrNull(row.refreshedAt),

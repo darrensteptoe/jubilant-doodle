@@ -21,7 +21,13 @@ import { migrateSnapshot, CURRENT_SCHEMA_VERSION } from "./core/migrate.js";
 import { checkStrictImportPolicy } from "./core/importPolicy.js";
 import { validateImportedScenarioData, computeAssumptionBenchmarkWarnings } from "./core/importQuality.js";
 import { validateDistrictDataContract } from "./core/districtData.js";
-import { buildDataSourceRegistry, resolveDataRefsByPolicy, materializePinnedDataRefs } from "./core/dataSourceRegistry.js";
+import {
+  buildDataSourceRegistry,
+  resolveDataRefsByPolicy,
+  materializePinnedDataRefs,
+  scoreElectionDatasetCompatibility,
+  rankElectionDatasetsForScenario,
+} from "./core/dataSourceRegistry.js";
 import { normalizeAreaSelection, buildAreaResolverCacheKey, deriveAreaResolverContext } from "./core/areaResolver.js";
 import { compileDistrictEvidence, derivePersuasionSignalFromElection } from "./core/districtEvidence.js";
 import { resolveDistrictEvidenceInputs } from "./core/districtEvidenceInputs.js";
@@ -113,6 +119,8 @@ export const engine = {
     buildDataSourceRegistry,
     resolveDataRefsByPolicy,
     materializePinnedDataRefs,
+    scoreElectionDatasetCompatibility,
+    rankElectionDatasetsForScenario,
     normalizeAreaSelection,
     buildAreaResolverCacheKey,
     deriveAreaResolverContext,

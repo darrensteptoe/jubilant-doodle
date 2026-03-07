@@ -39,6 +39,8 @@
  *   buildDataSourceRegistry: (...args: any[]) => any,
  *   resolveDataRefsByPolicy: (...args: any[]) => any,
  *   materializePinnedDataRefs: (...args: any[]) => any,
+ *   scoreElectionDatasetCompatibility: (...args: any[]) => any,
+ *   rankElectionDatasetsForScenario: (...args: any[]) => any,
  *   normalizeAreaSelection: (...args: any[]) => any,
  *   buildAreaResolverCacheKey: (...args: any[]) => any,
  *   deriveAreaResolverContext: (...args: any[]) => any,
@@ -84,6 +86,8 @@ export function registerReleaseHardeningTests(ctx){
     buildDataSourceRegistry,
     resolveDataRefsByPolicy,
     materializePinnedDataRefs,
+    scoreElectionDatasetCompatibility,
+    rankElectionDatasetsForScenario,
     normalizeAreaSelection,
     buildAreaResolverCacheKey,
     deriveAreaResolverContext,
@@ -740,6 +744,99 @@ export function registerReleaseHardeningTests(ctx){
     assert(pinned.dataRefs.electionDatasetId === "mit_2024", "Expected pinned election selection");
     assert(pinned.dataRefs.pinnedAt === "2026-03-07T08:00:00.000Z", "Expected pinnedAt timestamp from materialization call");
     assert(pinned.changed === true, "Expected materialization to report changed=true");
+    return true;
+  });
+
+  test("Phase 20: election dataset compatibility scoring prefers similar office/race and nearby cycle", () => {
+    const scoreA = scoreElectionDatasetCompatibility({
+      dataset: {
+        id: "mit_cd_2024",
+        boundarySetId: "cd_2024",
+        officeType: "us_house",
+        raceType: "federal",
+        electionDate: "2024-11-05",
+        coveragePct: 98,
+        isLatest: true,
+        isVerified: true,
+      },
+      scenario: {
+        raceType: "federal",
+        electionDate: "2026-11-03",
+        geoPack: { area: { type: "CD" } },
+      },
+      boundarySetId: "cd_2024",
+      requireVerified: true,
+    });
+    const scoreB = scoreElectionDatasetCompatibility({
+      dataset: {
+        id: "mit_sldl_2024",
+        boundarySetId: "cd_2024",
+        officeType: "state_house",
+        raceType: "state_leg",
+        electionDate: "2024-11-05",
+        coveragePct: 99,
+        isLatest: false,
+        isVerified: true,
+      },
+      scenario: {
+        raceType: "federal",
+        electionDate: "2026-11-03",
+        geoPack: { area: { type: "CD" } },
+      },
+      boundarySetId: "cd_2024",
+      requireVerified: true,
+    });
+    assert(scoreA.eligible === true && scoreB.eligible === true, "Expected both datasets eligible");
+    assert(scoreA.score > scoreB.score, "Expected federal/us_house dataset to outrank state_house dataset for CD federal scenario");
+    assert(Array.isArray(scoreA.reasons) && scoreA.reasons.includes("office_exact_match"), "Expected office_exact_match reason");
+    return true;
+  });
+
+  test("Phase 20: latest_verified election fallback uses compatibility ranking before latest flag", () => {
+    const catalog = {
+      boundarySets: [
+        { id: "sldl_2024", label: "SLDL 2024", geographyType: "SLDL", vintage: "2024", isVerified: true, isLatest: true },
+      ],
+      crosswalks: [
+        { id: "cw_2022_2024", fromBoundarySetId: "sldl_2022", toBoundarySetId: "sldl_2024", unit: "tract", method: "population", isLatest: true, quality: { coveragePct: 99, unmatchedPct: 1, weightDriftPct: 0.1, isVerified: true } },
+      ],
+      censusDatasets: [
+        { id: "acs5_2024", kind: "census", label: "ACS 2024", source: "acs5", vintage: "2024", boundarySetId: "sldl_2024", granularity: "tract", isLatest: true, quality: { coveragePct: 98, isVerified: true } },
+      ],
+      electionDatasets: [
+        { id: "mit_us_house_2024", kind: "election", label: "MIT US House 2024", source: "mit", vintage: "2024", electionDate: "2024-11-05", officeType: "us_house", raceType: "federal", boundarySetId: "sldl_2024", granularity: "precinct", isLatest: true, quality: { coveragePct: 99, isVerified: true } },
+        { id: "mit_state_house_2022", kind: "election", label: "MIT State House 2022", source: "mit", vintage: "2022", electionDate: "2022-11-08", officeType: "state_house", raceType: "state_leg", boundarySetId: "sldl_2024", granularity: "precinct", isLatest: false, quality: { coveragePct: 97, isVerified: true } },
+      ],
+    };
+    const ranked = rankElectionDatasetsForScenario({
+      dataCatalog: catalog,
+      scenario: {
+        raceType: "state_leg",
+        electionDate: "2026-11-03",
+        geoPack: { area: { type: "SLDL" } },
+      },
+      boundarySetId: "sldl_2024",
+      requireVerified: true,
+    });
+    assert(Array.isArray(ranked) && ranked.length === 2, "Expected both election datasets ranked");
+    assert(ranked[0].dataset?.id === "mit_state_house_2022", "Expected similar-race state_house dataset to rank above latest federal dataset");
+
+    const resolved = resolveDataRefsByPolicy({
+      dataRefs: {
+        mode: "latest_verified",
+        boundarySetId: "sldl_2024",
+        crosswalkVersionId: "cw_2022_2024",
+        censusDatasetId: "acs5_2024",
+        electionDatasetId: null,
+      },
+      dataCatalog: catalog,
+      scenario: {
+        raceType: "state_leg",
+        electionDate: "2026-11-03",
+        geoPack: { area: { type: "SLDL" } },
+      },
+    });
+    assert(resolved.selected.electionDatasetId === "mit_state_house_2022", "Expected policy resolver to pick compatibility-ranked election dataset");
     return true;
   });
 
