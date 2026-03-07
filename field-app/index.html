@@ -2217,9 +2217,52 @@
 </div>
 <div class="card card-section" id="intelDistrictEvidenceCard">
 <div class="card-head card-header">
-<h2 class="card-title">District evidence (read-only)</h2>
+<h2 class="card-title">District evidence + data refs</h2>
 </div>
-<div class="help-text">Deterministic join view for precinct election results + census geo rows. Use this to verify linkage and candidate vote rollups before applying district-intel assumptions.</div>
+<div class="help-text">Select deterministic source refs (mode + boundary/crosswalk/census/election) and verify linkage for precinct election results + census geo rows. This panel only controls evidence inputs, not planning math.</div>
+<div class="grid3" style="margin-top:10px;">
+<div class="field">
+<label class="label" for="intelDataRefMode">Data source mode</label>
+<select class="select" id="intelDataRefMode">
+<option value="pinned_verified">Pinned verified</option>
+<option value="latest_verified">Latest verified</option>
+<option value="manual">Manual</option>
+</select>
+</div>
+<div class="field">
+<label class="label" for="intelDataRefBoundarySet">Boundary set</label>
+<select class="select" id="intelDataRefBoundarySet">
+<option value="">None selected</option>
+</select>
+</div>
+<div class="field">
+<label class="label" for="intelDataRefCrosswalkVersion">Crosswalk</label>
+<select class="select" id="intelDataRefCrosswalkVersion">
+<option value="">None selected</option>
+</select>
+</div>
+</div>
+<div class="grid2" style="margin-top:10px;">
+<div class="field">
+<label class="label" for="intelDataRefCensusDataset">Census dataset</label>
+<select class="select" id="intelDataRefCensusDataset">
+<option value="">None selected</option>
+</select>
+</div>
+<div class="field">
+<label class="label" for="intelDataRefElectionDataset">Election dataset</label>
+<select class="select" id="intelDataRefElectionDataset">
+<option value="">None selected</option>
+</select>
+</div>
+</div>
+<div class="rowline" style="margin-top:10px; justify-content:space-between; gap:10px;">
+<div class="muted" id="intelDataRefStatus">Data refs ready.</div>
+<div class="card-actions">
+<button class="btn btn-sm" id="btnIntelDataRefSelectTopElection" type="button">Use top compatible election</button>
+<button class="btn btn-sm" id="btnIntelDataRefsPin" type="button">Pin current selection</button>
+</div>
+</div>
 <div class="note" id="intelDistrictEvidenceSource" style="margin-top:8px;">No pinned datasets selected yet.</div>
 <div class="grid3" style="margin-top:10px;">
 <div class="mini">

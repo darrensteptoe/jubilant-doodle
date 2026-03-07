@@ -344,3 +344,15 @@ Execution order for the first functional district-evidence layer.
    - `/Users/anakinskywalker/Downloads/field-app-40/js/ui/els.js`
    - `/Users/anakinskywalker/Downloads/field-app-40/js/app/renderIntelChecks.js`
    - shows selected election dataset, compatibility rank position, and top compatible alternatives without mutating math/state.
+8. [x] Add Stage 9 deterministic data-ref controls (mode + refs + pin workflow):
+   - `/Users/anakinskywalker/Downloads/field-app-40/index.html` (`intelDataRefMode`, `intelDataRefBoundarySet`, `intelDataRefCrosswalkVersion`, `intelDataRefCensusDataset`, `intelDataRefElectionDataset`, `btnIntelDataRefSelectTopElection`, `btnIntelDataRefsPin`)
+   - `/Users/anakinskywalker/Downloads/field-app-40/js/ui/els.js`
+   - `/Users/anakinskywalker/Downloads/field-app-40/js/app/renderIntelChecks.js`
+   - `/Users/anakinskywalker/Downloads/field-app-40/js/app/wireEventsRuntime.js`
+   - `/Users/anakinskywalker/Downloads/field-app-40/js/app/wireEventsOrchestrator.js`
+   - `/Users/anakinskywalker/Downloads/field-app-40/js/app/types.d.ts`
+   - behavior:
+     - deterministic selector population from `dataCatalog` registry,
+     - explicit `dataRefs` updates from Stage 9 controls,
+     - one-click "top compatible election" selection,
+     - one-click `latest_verified` materialization to `pinned_verified` via engine snapshot contract.
