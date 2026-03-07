@@ -300,3 +300,23 @@ Execution order for MIT precinct + Census integration begins here.
     - import and backup-restore paths now apply `latest_verified` resolver before district-contract validation.
     - fallback notes are surfaced through import warning banner messaging.
     - pinned/manual paths remain strict and do not rewrite explicit refs.
+12. [x] Add targeted tests for boundary vintage mismatch + latest→pinned materialization:
+    - boundary mismatch detection covered via `/Users/anakinskywalker/Downloads/field-app-40/js/core/areaResolver.js`.
+    - `latest_verified` to pinned materialization helper in `/Users/anakinskywalker/Downloads/field-app-40/js/core/dataSourceRegistry.js`.
+    - regression tests added in `/Users/anakinskywalker/Downloads/field-app-40/js/core/selfTestSuites/releaseHardening.js`.
+
+## Phase 13: MIT precinct + Census evidence compiler (in progress)
+Execution order for the first functional district-evidence layer.
+
+1. [x] Add deterministic district evidence compiler (contract + linkage + candidate totals):
+   - `/Users/anakinskywalker/Downloads/field-app-40/js/core/districtEvidence.js`
+   - emits:
+     - precinct↔GEO linkage rows (`precinctToGeo`)
+     - weighted candidate vote totals/shares (`candidateTotals`)
+     - per-GEO merged election+census rows (`geoRows`)
+     - competitiveness/persuasion signal (`persuasionSignal`).
+2. [x] Expose compiler through engine snapshot facade:
+   - `/Users/anakinskywalker/Downloads/field-app-40/js/engine.js`
+3. [x] Add release-hardening self-tests for deterministic rollups + persuasion signal derivation:
+   - `/Users/anakinskywalker/Downloads/field-app-40/js/core/selfTestSuites/releaseHardening.js`
+   - `/Users/anakinskywalker/Downloads/field-app-40/js/core/selfTest.js`
