@@ -209,5 +209,9 @@ Execution order below is fixed and must be followed in sequence.
        - `/Users/anakinskywalker/Downloads/field-app-40/js/app/candidateUi.js`
        - `/Users/anakinskywalker/Downloads/field-app-40/js/app/diagnosticsRuntime.js`
        - `/Users/anakinskywalker/Downloads/field-app-40/js/app/scenarioLockUi.js`
+       - `/Users/anakinskywalker/Downloads/field-app-40/js/app/debugBundle.js`
+       - `/Users/anakinskywalker/Downloads/field-app-40/js/app/dailyLog.js`
+       - `/Users/anakinskywalker/Downloads/field-app-40/js/app/forecastDates.js`
+       - `/Users/anakinskywalker/Downloads/field-app-40/js/app/statePatch.js`
       - added shared core type declarations:
         - `/Users/anakinskywalker/Downloads/field-app-40/js/core/types.d.ts`
