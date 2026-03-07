@@ -25,6 +25,7 @@ import {
   upsertBenchmarkEntry,
 } from "./intelControlsRuntime.js";
 import { ensureBudgetShape } from "./state.js";
+import { applyDataRefPolicyRuntime } from "./dataRefPolicyRuntime.js";
 
 /** @param {import("./types").WireEventsCtx} ctx */
 export function wireBudgetTimelineEvents(ctx){
@@ -1212,7 +1213,14 @@ export function wireResetImportAndUiToggles(ctx){
       if (sanitized.warnings?.length){
         importWarnings.push(...sanitized.warnings);
       }
-      const scenarioForImport = sanitized.scenario;
+      let scenarioForImport = sanitized.scenario;
+      const hashScenarioForIntegrity = (() => {
+        try{
+          return (typeof structuredClone === "function") ? structuredClone(scenarioForImport) : JSON.parse(JSON.stringify(scenarioForImport));
+        } catch {
+          return scenarioForImport;
+        }
+      })();
 
       const missing = requiredScenarioKeysMissing(scenarioForImport);
       if (missing.length){
@@ -1230,6 +1238,15 @@ export function wireResetImportAndUiToggles(ctx){
       }
       if (quality.warnings?.length){
         importWarnings.push(...quality.warnings);
+      }
+      const policyApplied = applyDataRefPolicyRuntime({
+        engine,
+        scenario: scenarioForImport,
+        stageLabel: "Import",
+      });
+      scenarioForImport = policyApplied.scenario;
+      if (Array.isArray(policyApplied.warnings) && policyApplied.warnings.length){
+        importWarnings.push(...policyApplied.warnings);
       }
       const districtContract = engine.snapshot.validateDistrictDataContract(scenarioForImport);
       if (!districtContract.ok){
@@ -1257,7 +1274,7 @@ export function wireResetImportAndUiToggles(ctx){
       // Phase 9B — snapshot integrity verification (+ Phase 11 strict option)
       try{
         const exportedHash = (loaded && typeof loaded === "object") ? (loaded.snapshotHash || null) : null;
-        const recomputed = engine.snapshot.computeSnapshotHash({ modelVersion: v.modelVersion, scenarioState: scenarioForImport });
+        const recomputed = engine.snapshot.computeSnapshotHash({ modelVersion: v.modelVersion, scenarioState: hashScenarioForIntegrity });
         const hashMismatch = !!(exportedHash && exportedHash !== recomputed);
 
         if (hashMismatch){

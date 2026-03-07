@@ -1,4 +1,5 @@
 // @ts-check
+import { applyDataRefPolicyRuntime } from "./dataRefPolicyRuntime.js";
 /**
  * @typedef {Record<string, any>} AnyState
  * @typedef {{
@@ -145,7 +146,13 @@ export function createBackupRecoveryController(deps = {}){
       alert(`Backup restore failed: quality checks failed.\n${details}`);
       return;
     }
-    const districtContract = engine.snapshot.validateDistrictDataContract(validated.scenario);
+    const policyApplied = applyDataRefPolicyRuntime({
+      engine,
+      scenario: validated.scenario,
+      stageLabel: "Backup restore",
+    });
+    const scenarioForRestore = policyApplied.scenario;
+    const districtContract = engine.snapshot.validateDistrictDataContract(scenarioForRestore);
     if (!districtContract.ok){
       const details = districtContract.errors.map((x) => `- ${x}`).join("\n");
       alert(`Backup restore failed: district data contract checks failed.\n${details}`);
@@ -190,6 +197,7 @@ export function createBackupRecoveryController(deps = {}){
     const restoreWarnings = [];
     if (Array.isArray(migrated?.warnings)) restoreWarnings.push(...migrated.warnings);
     if (Array.isArray(quality?.warnings)) restoreWarnings.push(...quality.warnings);
+    if (Array.isArray(policyApplied?.warnings)) restoreWarnings.push(...policyApplied.warnings);
     if (Array.isArray(districtContract?.warnings)) restoreWarnings.push(...districtContract.warnings);
     if (els.importWarnBanner){
       if (restoreWarnings.length){
@@ -203,7 +211,7 @@ export function createBackupRecoveryController(deps = {}){
       }
     }
 
-    const nextState = normalizeLoadedScenarioRuntime(validated.scenario);
+    const nextState = normalizeLoadedScenarioRuntime(scenarioForRestore);
     setState(nextState);
     setLastCriticalAuditSnapshot(buildCriticalAuditSnapshot(nextState));
     ensureDecisionScaffold();
