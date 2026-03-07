@@ -2215,6 +2215,60 @@
 </table>
 </div>
 </div>
+<div class="card card-section" id="intelDistrictEvidenceCard">
+<div class="card-head card-header">
+<h2 class="card-title">District evidence (read-only)</h2>
+</div>
+<div class="help-text">Deterministic join view for precinct election results + census geo rows. Use this to verify linkage and candidate vote rollups before applying district-intel assumptions.</div>
+<div class="note" id="intelDistrictEvidenceSource" style="margin-top:8px;">No pinned datasets selected yet.</div>
+<div class="grid3" style="margin-top:10px;">
+<div class="mini">
+<div class="mini-k">Coverage</div>
+<div class="mini-v" id="intelDistrictEvidenceCoverage">Coverage: —</div>
+<div class="mini-s">Reconciliation coverage and unmatched votes</div>
+</div>
+<div class="mini">
+<div class="mini-k">Votes</div>
+<div class="mini-v" id="intelDistrictEvidenceVotes">Weighted total votes: —</div>
+<div class="mini-s">Joined election vote mass in selected GEO units</div>
+</div>
+<div class="mini">
+<div class="mini-k">Persuasion signal</div>
+<div class="mini-v" id="intelDistrictEvidenceSignal">Persuasion signal index: —</div>
+<div class="mini-s">Competitiveness-derived index (read-only)</div>
+</div>
+</div>
+<div class="muted" id="intelDistrictEvidenceStatus" style="margin-top:10px;">District evidence not compiled yet.</div>
+<div class="table-wrap" style="margin-top:10px;">
+<table class="table">
+<thead>
+<tr>
+<th>Candidate</th>
+<th class="num">Votes</th>
+<th class="num">Share</th>
+</tr>
+</thead>
+<tbody id="intelDistrictEvidenceCandidateTbody">
+<tr><td class="muted" colspan="3">No candidate totals available.</td></tr>
+</tbody>
+</table>
+</div>
+<div class="table-wrap" style="margin-top:10px;">
+<table class="table">
+<thead>
+<tr>
+<th>Precinct</th>
+<th>GEOID</th>
+<th class="num">Crosswalk w</th>
+<th class="num">Effective w</th>
+</tr>
+</thead>
+<tbody id="intelDistrictEvidenceLinkTbody">
+<tr><td class="muted" colspan="4">No precinct-to-geo links available.</td></tr>
+</tbody>
+</table>
+</div>
+</div>
 <div class="card card-section" id="intelCalibrationBriefCard">
 <div class="card-head card-header">
 <h2 class="card-title">Calibration source brief</h2>

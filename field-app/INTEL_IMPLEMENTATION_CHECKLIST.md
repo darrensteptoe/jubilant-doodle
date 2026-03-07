@@ -320,3 +320,8 @@ Execution order for the first functional district-evidence layer.
 3. [x] Add release-hardening self-tests for deterministic rollups + persuasion signal derivation:
    - `/Users/anakinskywalker/Downloads/field-app-40/js/core/selfTestSuites/releaseHardening.js`
    - `/Users/anakinskywalker/Downloads/field-app-40/js/core/selfTest.js`
+4. [x] Add Stage 9 read-only District Evidence panel wired to compiler output:
+   - `/Users/anakinskywalker/Downloads/field-app-40/index.html` (`intelDistrictEvidenceCard`)
+   - `/Users/anakinskywalker/Downloads/field-app-40/js/app/renderIntelChecks.js`
+   - `/Users/anakinskywalker/Downloads/field-app-40/js/app/summaryRenderController.js`
+   - `/Users/anakinskywalker/Downloads/field-app-40/js/ui/els.js`
