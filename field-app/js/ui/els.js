@@ -490,6 +490,7 @@ export const els = {
   intelDistrictEvidenceMapSvg: document.getElementById("intelDistrictEvidenceMapSvg"),
   intelDistrictEvidenceDatasetRankTbody: document.getElementById("intelDistrictEvidenceDatasetRankTbody"),
   intelDistrictEvidenceCandidateTbody: document.getElementById("intelDistrictEvidenceCandidateTbody"),
+  intelDistrictEvidencePrecinctTbody: document.getElementById("intelDistrictEvidencePrecinctTbody"),
   intelDistrictEvidenceLinkTbody: document.getElementById("intelDistrictEvidenceLinkTbody"),
   intelDistrictEvidenceGeoTbody: document.getElementById("intelDistrictEvidenceGeoTbody"),
   intelScenarioLocked: document.getElementById("intelScenarioLocked"),

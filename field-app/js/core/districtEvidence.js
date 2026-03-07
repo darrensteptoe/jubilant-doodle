@@ -397,6 +397,103 @@ export function buildGeoEvidenceMapLayer(args){
 
 /**
  * @param {{
+ *   precinctResults?: unknown[],
+ *   crosswalkRows?: unknown[],
+ *   geoUnits?: unknown[],
+ *   maxRows?: unknown,
+ * }} args
+ * @returns {Array<{
+ *   precinctId: string,
+ *   totalVotes: number,
+ *   leaderCandidateId: string | null,
+ *   leaderVotes: number,
+ *   leaderSharePct: number | null,
+ *   runnerUpCandidateId: string | null,
+ *   runnerUpVotes: number,
+ *   marginVotes: number,
+ *   marginPct: number | null,
+ *   candidateCount: number,
+ *   mappedGeoCount: number,
+ *   crosswalkWeightSum: number,
+ *   effectiveWeightSum: number,
+ *   districtWeightPct: number
+ * }>}
+ */
+export function summarizePrecinctEvidenceLayers(args){
+  const precinctResults = normalizePrecinctResults(args?.precinctResults || []);
+  const crosswalkRows = normalizeCrosswalkRows(args?.crosswalkRows || []);
+  const geoUnits = normalizeGeoUnitsForEvidence(args?.geoUnits || []);
+  const hasGeoUnits = geoUnits.length > 0;
+  const maxRowsRaw = Math.floor(numOrNull(args?.maxRows) ?? 20);
+  const maxRows = clamp(maxRowsRaw, 1, 2000);
+
+  const unitMap = new Map(geoUnits.map((row) => [row.geoid, row.w]));
+  const linksByPrecinct = new Map();
+  for (const row of crosswalkRows){
+    const districtWeight = hasGeoUnits ? (unitMap.get(row.geoid) || 0) : 1;
+    const effectiveWeight = row.weight * districtWeight;
+    const list = linksByPrecinct.get(row.precinctId) || [];
+    list.push({
+      geoid: row.geoid,
+      crosswalkWeight: row.weight,
+      effectiveWeight,
+      included: effectiveWeight > 0,
+    });
+    linksByPrecinct.set(row.precinctId, list);
+  }
+
+  const out = [];
+  for (const row of precinctResults){
+    const links = linksByPrecinct.get(row.precinctId) || [];
+    const ranked = Object.keys(row.candidateVotes || {})
+      .map((candidateId) => ({
+        candidateId: str(candidateId),
+        votes: Math.max(0, numOrNull(row.candidateVotes[candidateId]) ?? 0),
+      }))
+      .filter((x) => x.candidateId && x.votes > 0)
+      .sort((a, b) => (b.votes - a.votes) || a.candidateId.localeCompare(b.candidateId));
+
+    const leader = ranked[0] || null;
+    const runnerUp = ranked[1] || null;
+    const leaderVotes = leader ? leader.votes : 0;
+    const runnerUpVotes = runnerUp ? runnerUp.votes : 0;
+    const marginVotes = Math.max(0, leaderVotes - runnerUpVotes);
+    const totalVotes = Math.max(0, numOrNull(row.totalVotes) ?? 0);
+    const leaderSharePct = totalVotes > 0 ? (leaderVotes / totalVotes) * 100 : null;
+    const marginPct = totalVotes > 0 ? (marginVotes / totalVotes) * 100 : null;
+    const geoSet = new Set();
+    let crosswalkWeightSum = 0;
+    let effectiveWeightSum = 0;
+    for (const link of links){
+      crosswalkWeightSum += Math.max(0, numOrNull(link.crosswalkWeight) ?? 0);
+      effectiveWeightSum += Math.max(0, numOrNull(link.effectiveWeight) ?? 0);
+      if (link.included) geoSet.add(link.geoid);
+    }
+    const districtWeightPct = clamp(effectiveWeightSum * 100, 0, 100);
+    out.push({
+      precinctId: row.precinctId,
+      totalVotes,
+      leaderCandidateId: leader ? leader.candidateId : null,
+      leaderVotes,
+      leaderSharePct,
+      runnerUpCandidateId: runnerUp ? runnerUp.candidateId : null,
+      runnerUpVotes,
+      marginVotes,
+      marginPct,
+      candidateCount: ranked.length,
+      mappedGeoCount: geoSet.size,
+      crosswalkWeightSum,
+      effectiveWeightSum,
+      districtWeightPct,
+    });
+  }
+
+  out.sort((a, b) => (b.totalVotes - a.totalVotes) || a.precinctId.localeCompare(b.precinctId));
+  return out.slice(0, maxRows);
+}
+
+/**
+ * @param {{
  *   geoUnits?: unknown[],
  *   precinctResults?: unknown[],
  *   crosswalkRows?: unknown[],

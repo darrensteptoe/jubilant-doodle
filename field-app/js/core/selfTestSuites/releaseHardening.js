@@ -37,6 +37,7 @@
  *   derivePersuasionSignalFromElection: (...args: any[]) => any,
  *   summarizeGeoEvidenceLayers: (...args: any[]) => any,
  *   buildGeoEvidenceMapLayer: (...args: any[]) => any,
+ *   summarizePrecinctEvidenceLayers: (...args: any[]) => any,
  *   resolveDistrictEvidenceInputs: (...args: any[]) => any,
  *   buildDistrictIntelPackFromEvidence: (...args: any[]) => any,
  *   applyDistrictIntelRateOverrides: (...args: any[]) => any,
@@ -90,6 +91,7 @@ export function registerReleaseHardeningTests(ctx){
     derivePersuasionSignalFromElection,
     summarizeGeoEvidenceLayers,
     buildGeoEvidenceMapLayer,
+    summarizePrecinctEvidenceLayers,
     resolveDistrictEvidenceInputs,
     buildDistrictIntelPackFromEvidence,
     applyDistrictIntelRateOverrides,
@@ -1120,6 +1122,34 @@ export function registerReleaseHardeningTests(ctx){
     assert(mapLayer && mapLayer.available === false, "Expected unavailable map layer without centroid coordinates");
     assert(Array.isArray(mapLayer.points) && mapLayer.points.length === 0, "Expected empty map point array");
     assert(String(mapLayer.reason || "").toLowerCase().includes("centroid"), "Expected centroid guidance in map-layer reason");
+    return true;
+  });
+
+  test("Phase 19: precinct evidence layer summary shows votes + mapping coverage deterministically", () => {
+    const rows = summarizePrecinctEvidenceLayers({
+      geoUnits: [
+        { geoid: "34013010001", w: 0.7 },
+        { geoid: "34013010002", w: 0.3 },
+      ],
+      precinctResults: [
+        { precinctId: "P2", candidateVotes: { A: 50, B: 30 } },
+        { precinctId: "P1", candidateVotes: { A: 40, B: 80 } },
+      ],
+      crosswalkRows: [
+        { precinctId: "P1", geoid: "34013010002", weight: 0.5 },
+        { precinctId: "P1", geoid: "34013010001", weight: 0.5 },
+        { precinctId: "P2", geoid: "34013010002", weight: 1.0 },
+      ],
+      maxRows: 10,
+    });
+    assert(Array.isArray(rows) && rows.length === 2, "Expected two precinct summary rows");
+    assert(rows[0].precinctId === "P1", "Expected highest-vote precinct first");
+    assert(rows[0].leaderCandidateId === "B", "Expected B to lead precinct P1");
+    assert(rows[0].mappedGeoCount === 2, "Expected two mapped GEO links for P1");
+    assert(Math.abs(Number(rows[0].districtWeightPct) - 50) < 1e-9, "Expected district weight pct for P1");
+    assert(rows[1].precinctId === "P2", "Expected second precinct row for P2");
+    assert(rows[1].mappedGeoCount === 1, "Expected single mapped GEO link for P2");
+    assert(Math.abs(Number(rows[1].districtWeightPct) - 30) < 1e-9, "Expected district weight pct for P2");
     return true;
   });
 

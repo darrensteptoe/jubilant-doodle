@@ -98,6 +98,7 @@ import {
   derivePersuasionSignalFromElection,
   summarizeGeoEvidenceLayers,
   buildGeoEvidenceMapLayer,
+  summarizePrecinctEvidenceLayers,
 } from "./districtEvidence.js";
 import { resolveDistrictEvidenceInputs } from "./districtEvidenceInputs.js";
 import {
@@ -1456,6 +1457,7 @@ export function runSelfTests(engine){
     derivePersuasionSignalFromElection,
     summarizeGeoEvidenceLayers,
     buildGeoEvidenceMapLayer,
+    summarizePrecinctEvidenceLayers,
     resolveDistrictEvidenceInputs,
     buildDistrictIntelPackFromEvidence,
     applyDistrictIntelRateOverrides,

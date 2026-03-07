@@ -295,6 +295,23 @@ export interface DistrictEvidenceGeoMapLayer {
   points: DistrictEvidenceGeoMapPoint[];
 }
 
+export interface DistrictEvidencePrecinctLayerRow {
+  precinctId: string;
+  totalVotes: number;
+  leaderCandidateId: string | null;
+  leaderVotes: number;
+  leaderSharePct: number | null;
+  runnerUpCandidateId: string | null;
+  runnerUpVotes: number;
+  marginVotes: number;
+  marginPct: number | null;
+  candidateCount: number;
+  mappedGeoCount: number;
+  crosswalkWeightSum: number;
+  effectiveWeightSum: number;
+  districtWeightPct: number;
+}
+
 export interface DistrictEvidence {
   summary: {
     selectedGeoCount: number;
