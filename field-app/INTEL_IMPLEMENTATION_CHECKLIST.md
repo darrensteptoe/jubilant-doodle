@@ -279,3 +279,9 @@ Execution order for MIT precinct + Census integration begins here.
    - `/Users/anakinskywalker/Downloads/field-app-40/js/core/districtData.js`
    - `dataCatalog.boundarySets[]`, `dataCatalog.crosswalks[]`
    - enforced gates for `pinned_verified`: verified crosswalk + coverage/unmatched/drift thresholds.
+8. [x] Add dataset-catalog + ingest/join scaffolding (contract layer only):
+   - `/Users/anakinskywalker/Downloads/field-app-40/js/core/districtData.js`
+   - `dataCatalog.censusDatasets[]`, `dataCatalog.electionDatasets[]` + pinned verification/coverage gates.
+   - `/Users/anakinskywalker/Downloads/field-app-40/js/core/districtIngest.js` (manifest normalize/validate adapters).
+   - `/Users/anakinskywalker/Downloads/field-app-40/js/core/precinctCensusJoin.js` (deterministic weighted allocation + reconciliation).
+   - self-tests in `/Users/anakinskywalker/Downloads/field-app-40/js/core/selfTestSuites/releaseHardening.js`.
