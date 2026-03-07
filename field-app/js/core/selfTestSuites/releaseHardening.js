@@ -26,6 +26,13 @@
  *   makeDefaultDistrictIntelPack: (...args: any[]) => any,
  *   normalizeDistrictDataState: (...args: any[]) => any,
  *   validateDistrictDataContract: (...args: any[]) => any,
+ *   normalizeCensusManifest: (...args: any[]) => any,
+ *   validateCensusManifest: (...args: any[]) => any,
+ *   normalizeElectionManifest: (...args: any[]) => any,
+ *   validateElectionManifest: (...args: any[]) => any,
+ *   censusManifestToCatalogEntry: (...args: any[]) => any,
+ *   electionManifestToCatalogEntry: (...args: any[]) => any,
+ *   allocatePrecinctVotesToGeo: (...args: any[]) => any,
  * }} ctx
  * @returns {void}
  */
@@ -55,6 +62,13 @@ export function registerReleaseHardeningTests(ctx){
     makeDefaultDistrictIntelPack,
     normalizeDistrictDataState,
     validateDistrictDataContract,
+    normalizeCensusManifest,
+    validateCensusManifest,
+    normalizeElectionManifest,
+    validateElectionManifest,
+    censusManifestToCatalogEntry,
+    electionManifestToCatalogEntry,
+    allocatePrecinctVotesToGeo,
   } = ctx;
 
   test("Phase 11: Export metadata includes appVersion + buildId", () => {
@@ -240,6 +254,8 @@ export function registerReleaseHardeningTests(ctx){
       dataCatalog: {
         boundarySets: [{ id: "statehouse_2024", label: "State House 2024", geographyType: "SLDL" }],
         crosswalks: [{ id: "cw_2024", fromBoundarySetId: "statehouse_2022", toBoundarySetId: "statehouse_2024", quality: { coveragePct: 99, unmatchedPct: 1, weightDriftPct: 0.5, isVerified: true } }],
+        censusDatasets: [{ id: "acs5_2024", label: "ACS 2024", quality: { coveragePct: 96, isVerified: true } }],
+        electionDatasets: [{ id: "mit_precinct_2024", label: "MIT 2024", quality: { coveragePct: 97, isVerified: true } }],
       },
       geoPack: {
         resolution: "unknown",
@@ -293,7 +309,9 @@ export function registerReleaseHardeningTests(ctx){
             weightDriftPct: 2.6,
             isVerified: false
           }
-        }]
+        }],
+        censusDatasets: [{ id: "acs5_2024", kind: "census", label: "ACS 2024", source: "acs5", vintage: "2024", boundarySetId: "sldl_2024", granularity: "tract", refreshedAt: null, hash: null, quality: { coveragePct: 99, isVerified: true } }],
+        electionDatasets: [{ id: "mit_precinct_2024", kind: "election", label: "MIT 2024", source: "mit", vintage: "2024", boundarySetId: "sldl_2024", granularity: "precinct", refreshedAt: null, hash: null, quality: { coveragePct: 99, isVerified: true } }]
       },
       ui: { training: false, dark: false },
     });
@@ -323,7 +341,9 @@ export function registerReleaseHardeningTests(ctx){
       },
       dataCatalog: {
         boundarySets: [{ id: "sldl_2024", label: "SLDL 2024", geographyType: "SLDL" }],
-        crosswalks: []
+        crosswalks: [],
+        censusDatasets: [{ id: "acs5_2024", kind: "census", label: "ACS 2024", source: "acs5", vintage: "2024", boundarySetId: "sldl_2024", granularity: "tract", refreshedAt: null, hash: null, quality: { coveragePct: 99, isVerified: true } }],
+        electionDatasets: [{ id: "mit_precinct_2024", kind: "election", label: "MIT 2024", source: "mit", vintage: "2024", boundarySetId: "sldl_2024", granularity: "precinct", refreshedAt: null, hash: null, quality: { coveragePct: 99, isVerified: true } }]
       },
       ui: { training: false, dark: false },
     });
@@ -331,6 +351,114 @@ export function registerReleaseHardeningTests(ctx){
     assert(contract.ok === false, "Expected missing boundary pin to fail contract");
     const message = (contract.errors || []).join(" | ");
     assert(message.includes("boundarySetId"), "Expected boundarySetId catalog error");
+    return true;
+  });
+
+  test("Phase 18: pinned mode enforces verified + coverage gates for census/election datasets", () => {
+    const scenario = withUniverseDefaults({
+      scenarioName: "Dataset Quality Gate",
+      raceType: "state_leg",
+      electionDate: "2026-11-03",
+      universeSize: 10000,
+      useDistrictIntel: true,
+      dataRefs: {
+        mode: "pinned_verified",
+        censusDatasetId: "acs5_2024",
+        electionDatasetId: "mit_precinct_2024",
+        boundarySetId: "sldl_2024",
+        crosswalkVersionId: "cw_ok",
+      },
+      dataCatalog: {
+        boundarySets: [{ id: "sldl_2024", label: "SLDL 2024", geographyType: "SLDL" }],
+        crosswalks: [{
+          id: "cw_ok",
+          fromBoundarySetId: "sldl_2022",
+          toBoundarySetId: "sldl_2024",
+          unit: "tract",
+          method: "population",
+          quality: {
+            coveragePct: 99,
+            unmatchedPct: 1,
+            weightDriftPct: 0.8,
+            isVerified: true
+          }
+        }],
+        censusDatasets: [{ id: "acs5_2024", kind: "census", label: "ACS 2024", source: "acs5", vintage: "2024", boundarySetId: "sldl_2024", granularity: "tract", refreshedAt: null, hash: null, quality: { coveragePct: 93, isVerified: false } }],
+        electionDatasets: [{ id: "mit_precinct_2024", kind: "election", label: "MIT 2024", source: "mit", vintage: "2024", boundarySetId: "sldl_2024", granularity: "precinct", refreshedAt: null, hash: null, quality: { coveragePct: 92, isVerified: false } }]
+      },
+      ui: { training: false, dark: false },
+    });
+    const contract = validateDistrictDataContract(scenario);
+    assert(contract.ok === false, "Expected dataset quality gates to fail in pinned_verified mode");
+    const message = (contract.errors || []).join(" | ");
+    assert(message.includes("census dataset"), "Expected census dataset gate error");
+    assert(message.includes("election dataset"), "Expected election dataset gate error");
+    assert(message.includes("coveragePct below gate"), "Expected dataset coverage gate error");
+    return true;
+  });
+
+  test("Phase 18: ingest manifests normalize + validate and convert to catalog entries", () => {
+    const census = normalizeCensusManifest({
+      id: " acs5_2024 ",
+      label: "ACS 5-Year 2024",
+      source: "census_acs5",
+      vintage: "2024",
+      boundarySetId: "sldl_2024",
+      granularity: "TRACT",
+      quality: { coveragePct: 97.2, isVerified: true },
+      variableRefs: ["B01003_001E", "B01003_001E", " B25001_001E "],
+      rowCount: 1420,
+    });
+    const cVal = validateCensusManifest(census);
+    assert(cVal.ok, `Expected valid census manifest: ${cVal.errors.join(" | ")}`);
+    assert(census.granularity === "tract", "Census granularity should normalize to tract");
+    assert(census.variableRefs.length === 2, "Census variable refs should de-duplicate");
+
+    const election = normalizeElectionManifest({
+      id: "mit_precinct_2024",
+      label: "MIT Precinct 2024",
+      source: "mit_electionlab",
+      vintage: "2024",
+      electionDate: "2024-11-05",
+      officeType: "us_house",
+      boundarySetId: "sldl_2024",
+      granularity: "PRECINCT",
+      quality: { coveragePct: 96.1, isVerified: true },
+      candidateIds: ["cand_a", "cand_a", "cand_b"],
+      rowCount: 5500,
+    });
+    const eVal = validateElectionManifest(election);
+    assert(eVal.ok, `Expected valid election manifest: ${eVal.errors.join(" | ")}`);
+    assert(election.granularity === "precinct", "Election granularity should normalize to precinct");
+    assert(election.candidateIds.length === 2, "Election candidate IDs should de-duplicate");
+
+    const cEntry = censusManifestToCatalogEntry(census);
+    const eEntry = electionManifestToCatalogEntry(election);
+    assert(cEntry.kind === "census" && cEntry.id === "acs5_2024", "Census manifest should convert to catalog entry");
+    assert(eEntry.kind === "election" && eEntry.id === "mit_precinct_2024", "Election manifest should convert to catalog entry");
+    return true;
+  });
+
+  test("Phase 18: precinct-to-census weighted allocation preserves totals when normalized", () => {
+    const joined = allocatePrecinctVotesToGeo({
+      precinctResults: [
+        { precinctId: "p1", totalVotes: 100, candidateVotes: { a: 60, b: 40 } },
+        { precinctId: "p2", totalVotes: 50, candidateVotes: { a: 20, b: 30 } },
+      ],
+      crosswalkRows: [
+        { precinctId: "p1", geoid: "g1", weight: 0.5 },
+        { precinctId: "p1", geoid: "g2", weight: 0.5 },
+        { precinctId: "p2", geoid: "g2", weight: 1.0 },
+      ],
+      normalizeWeights: true,
+    });
+
+    assert(joined.perGeo.length === 2, "Expected two GEO rows");
+    assert(joined.reconciliation.inputVotes === 150, "Input vote total should be 150");
+    assert(Math.abs(joined.reconciliation.allocatedVotes - 150) < 1e-9, "Allocated votes should reconcile to input");
+    assert(joined.reconciliation.unmatchedVotes === 0, "Expected zero unmatched votes");
+    assert(joined.reconciliation.coveragePct === 100, "Expected 100% coverage");
+    assert((joined.warnings || []).length === 0, "Expected no allocation warnings");
     return true;
   });
 }

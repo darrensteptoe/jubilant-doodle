@@ -47,6 +47,8 @@
         "version",
         "boundarySets",
         "crosswalks",
+        "censusDatasets",
+        "electionDatasets",
         "activeBoundarySetId",
         "activeCrosswalkVersionId"
       ],
@@ -94,6 +96,62 @@
               "source": { "type": ["string", "null"] },
               "refreshedAt": { "type": ["string", "null"], "format": "date-time" },
               "hash": { "type": ["string", "null"] }
+            },
+            "additionalProperties": true
+          }
+        },
+        "censusDatasets": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["id", "kind", "label", "source", "vintage", "boundarySetId", "granularity", "refreshedAt", "hash", "quality"],
+            "properties": {
+              "id": { "type": "string" },
+              "kind": { "type": "string", "enum": ["census"] },
+              "label": { "type": "string" },
+              "source": { "type": ["string", "null"] },
+              "vintage": { "type": ["string", "null"] },
+              "boundarySetId": { "type": ["string", "null"] },
+              "granularity": { "type": "string" },
+              "refreshedAt": { "type": ["string", "null"], "format": "date-time" },
+              "hash": { "type": ["string", "null"] },
+              "quality": {
+                "type": "object",
+                "required": ["coveragePct", "isVerified"],
+                "properties": {
+                  "coveragePct": { "type": ["number", "null"] },
+                  "isVerified": { "type": "boolean" }
+                },
+                "additionalProperties": true
+              }
+            },
+            "additionalProperties": true
+          }
+        },
+        "electionDatasets": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["id", "kind", "label", "source", "vintage", "boundarySetId", "granularity", "refreshedAt", "hash", "quality"],
+            "properties": {
+              "id": { "type": "string" },
+              "kind": { "type": "string", "enum": ["election"] },
+              "label": { "type": "string" },
+              "source": { "type": ["string", "null"] },
+              "vintage": { "type": ["string", "null"] },
+              "boundarySetId": { "type": ["string", "null"] },
+              "granularity": { "type": "string" },
+              "refreshedAt": { "type": ["string", "null"], "format": "date-time" },
+              "hash": { "type": ["string", "null"] },
+              "quality": {
+                "type": "object",
+                "required": ["coveragePct", "isVerified"],
+                "properties": {
+                  "coveragePct": { "type": ["number", "null"] },
+                  "isVerified": { "type": "boolean" }
+                },
+                "additionalProperties": true
+              }
             },
             "additionalProperties": true
           }

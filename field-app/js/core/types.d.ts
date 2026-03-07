@@ -100,10 +100,28 @@ export interface DataCatalogCrosswalk {
   hash: string | null;
 }
 
+export interface DataCatalogDataset {
+  id: string;
+  kind: "census" | "election";
+  label: string;
+  source: string | null;
+  vintage: string | null;
+  boundarySetId: string | null;
+  granularity: string;
+  refreshedAt: string | null;
+  hash: string | null;
+  quality: {
+    coveragePct: number | null;
+    isVerified: boolean;
+  };
+}
+
 export interface DataCatalog {
   version: string;
   boundarySets: DataCatalogBoundarySet[];
   crosswalks: DataCatalogCrosswalk[];
+  censusDatasets: DataCatalogDataset[];
+  electionDatasets: DataCatalogDataset[];
   activeBoundarySetId: string | null;
   activeCrosswalkVersionId: string | null;
 }

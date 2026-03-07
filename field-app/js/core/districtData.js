@@ -162,6 +162,36 @@ export function normalizeDataRefs(raw){
  *     refreshedAt: string | null,
  *     hash: string | null
  *   }>,
+ *   censusDatasets: Array<{
+ *     id: string,
+ *     kind: "census",
+ *     label: string,
+ *     source: string | null,
+ *     vintage: string | null,
+ *     boundarySetId: string | null,
+ *     granularity: string,
+ *     refreshedAt: string | null,
+ *     hash: string | null,
+ *     quality: {
+ *       coveragePct: number | null,
+ *       isVerified: boolean
+ *     }
+ *   }>,
+ *   electionDatasets: Array<{
+ *     id: string,
+ *     kind: "election",
+ *     label: string,
+ *     source: string | null,
+ *     vintage: string | null,
+ *     boundarySetId: string | null,
+ *     granularity: string,
+ *     refreshedAt: string | null,
+ *     hash: string | null,
+ *     quality: {
+ *       coveragePct: number | null,
+ *       isVerified: boolean
+ *     }
+ *   }>,
  *   activeBoundarySetId: string | null,
  *   activeCrosswalkVersionId: string | null
  * }}
@@ -171,6 +201,8 @@ export function makeDefaultDataCatalog(){
     version: DISTRICT_DATA_VERSION,
     boundarySets: [],
     crosswalks: [],
+    censusDatasets: [],
+    electionDatasets: [],
     activeBoundarySetId: null,
     activeCrosswalkVersionId: null,
   };
@@ -229,6 +261,47 @@ function normalizeCrosswalk(row){
 }
 
 /**
+ * @param {unknown} row
+ * @param {"census"|"election"} kind
+ * @returns {{
+ *   id: string,
+ *   kind: "census" | "election",
+ *   label: string,
+ *   source: string | null,
+ *   vintage: string | null,
+ *   boundarySetId: string | null,
+ *   granularity: string,
+ *   refreshedAt: string | null,
+ *   hash: string | null,
+ *   quality: {
+ *     coveragePct: number | null,
+ *     isVerified: boolean
+ *   }
+ * } | null}
+ */
+function normalizeCatalogDataset(row, kind){
+  if (!isObject(row)) return null;
+  const id = toCleanString(row.id);
+  if (!id) return null;
+  const qualityIn = isObject(row.quality) ? row.quality : {};
+  return {
+    id,
+    kind,
+    label: toCleanString(row.label),
+    source: toIdOrNull(row.source),
+    vintage: toIdOrNull(row.vintage),
+    boundarySetId: toIdOrNull(row.boundarySetId),
+    granularity: toCleanString(row.granularity),
+    refreshedAt: toIsoOrNull(row.refreshedAt),
+    hash: toIdOrNull(row.hash),
+    quality: {
+      coveragePct: toFiniteOrNull(qualityIn.coveragePct),
+      isVerified: !!qualityIn.isVerified,
+    },
+  };
+}
+
+/**
  * @param {unknown} raw
  * @returns {ReturnType<typeof makeDefaultDataCatalog>}
  */
@@ -238,10 +311,16 @@ export function normalizeDataCatalog(raw){
 
   const boundaryIn = Array.isArray(raw.boundarySets) ? raw.boundarySets : [];
   const crosswalkIn = Array.isArray(raw.crosswalks) ? raw.crosswalks : [];
+  const censusIn = Array.isArray(raw.censusDatasets) ? raw.censusDatasets : [];
+  const electionIn = Array.isArray(raw.electionDatasets) ? raw.electionDatasets : [];
   const boundarySets = [];
   const crosswalks = [];
+  const censusDatasets = [];
+  const electionDatasets = [];
   const seenBoundary = new Set();
   const seenCrosswalk = new Set();
+  const seenCensus = new Set();
+  const seenElection = new Set();
 
   for (const row of boundaryIn){
     const next = normalizeBoundarySet(row);
@@ -257,9 +336,25 @@ export function normalizeDataCatalog(raw){
     seenCrosswalk.add(next.id);
     crosswalks.push(next);
   }
+  for (const row of censusIn){
+    const next = normalizeCatalogDataset(row, "census");
+    if (!next) continue;
+    if (seenCensus.has(next.id)) continue;
+    seenCensus.add(next.id);
+    censusDatasets.push(next);
+  }
+  for (const row of electionIn){
+    const next = normalizeCatalogDataset(row, "election");
+    if (!next) continue;
+    if (seenElection.has(next.id)) continue;
+    seenElection.add(next.id);
+    electionDatasets.push(next);
+  }
 
   boundarySets.sort((a, b) => a.id.localeCompare(b.id));
   crosswalks.sort((a, b) => a.id.localeCompare(b.id));
+  censusDatasets.sort((a, b) => a.id.localeCompare(b.id));
+  electionDatasets.sort((a, b) => a.id.localeCompare(b.id));
 
   return {
     ...base,
@@ -267,6 +362,8 @@ export function normalizeDataCatalog(raw){
     version: toCleanString(raw.version) || base.version,
     boundarySets,
     crosswalks,
+    censusDatasets,
+    electionDatasets,
     activeBoundarySetId: toIdOrNull(raw.activeBoundarySetId),
     activeCrosswalkVersionId: toIdOrNull(raw.activeCrosswalkVersionId),
   };
@@ -580,6 +677,14 @@ export function validateDistrictDataContract(scenario){
   if (districtDataInUse){
     const byBoundaryId = new Map(catalog.boundarySets.map((row) => [row.id, row]));
     const byCrosswalkId = new Map(catalog.crosswalks.map((row) => [row.id, row]));
+    const byCensusId = new Map(catalog.censusDatasets.map((row) => [row.id, row]));
+    const byElectionId = new Map(catalog.electionDatasets.map((row) => [row.id, row]));
+    if (refs.censusDatasetId && !byCensusId.has(refs.censusDatasetId)){
+      errors.push(`censusDatasetId '${refs.censusDatasetId}' not found in dataCatalog.censusDatasets.`);
+    }
+    if (refs.electionDatasetId && !byElectionId.has(refs.electionDatasetId)){
+      errors.push(`electionDatasetId '${refs.electionDatasetId}' not found in dataCatalog.electionDatasets.`);
+    }
     if (refs.boundarySetId && !byBoundaryId.has(refs.boundarySetId)){
       errors.push(`boundarySetId '${refs.boundarySetId}' not found in dataCatalog.boundarySets.`);
     }
@@ -612,6 +717,25 @@ export function validateDistrictDataContract(scenario){
       }
       if (drift != null && drift > 2){
         errors.push(`crosswalk '${xw?.id || refs.crosswalkVersionId}' weightDriftPct above gate: ${drift} > 2.`);
+      }
+    }
+
+    if (refs.mode === "pinned_verified"){
+      const census = refs.censusDatasetId ? byCensusId.get(refs.censusDatasetId) : null;
+      const election = refs.electionDatasetId ? byElectionId.get(refs.electionDatasetId) : null;
+      if (census && !census.quality?.isVerified){
+        errors.push(`census dataset '${census.id}' is not verified but mode is pinned_verified.`);
+      }
+      if (election && !election.quality?.isVerified){
+        errors.push(`election dataset '${election.id}' is not verified but mode is pinned_verified.`);
+      }
+      const cCoverage = toFiniteOrNull(census?.quality?.coveragePct);
+      const eCoverage = toFiniteOrNull(election?.quality?.coveragePct);
+      if (cCoverage != null && cCoverage < 95){
+        errors.push(`census dataset '${census?.id || refs.censusDatasetId}' coveragePct below gate: ${cCoverage} < 95.`);
+      }
+      if (eCoverage != null && eCoverage < 95){
+        errors.push(`election dataset '${election?.id || refs.electionDatasetId}' coveragePct below gate: ${eCoverage} < 95.`);
       }
     }
   }

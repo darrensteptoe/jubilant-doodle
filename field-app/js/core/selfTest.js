@@ -75,6 +75,15 @@ import {
   normalizeDistrictDataState,
   validateDistrictDataContract,
 } from "./districtData.js";
+import {
+  normalizeCensusManifest,
+  validateCensusManifest,
+  normalizeElectionManifest,
+  validateElectionManifest,
+  censusManifestToCatalogEntry,
+  electionManifestToCatalogEntry,
+} from "./districtIngest.js";
+import { allocatePrecinctVotesToGeo } from "./precinctCensusJoin.js";
 import { registerPhase115ATests } from "./selfTestSuites/phase115A.js";
 import { registerReleaseHardeningTests } from "./selfTestSuites/releaseHardening.js";
 
@@ -1415,6 +1424,13 @@ export function runSelfTests(engine){
     makeDefaultDistrictIntelPack,
     normalizeDistrictDataState,
     validateDistrictDataContract,
+    normalizeCensusManifest,
+    validateCensusManifest,
+    normalizeElectionManifest,
+    validateElectionManifest,
+    censusManifestToCatalogEntry,
+    electionManifestToCatalogEntry,
+    allocatePrecinctVotesToGeo,
   });
 
 
