@@ -339,3 +339,8 @@ Execution order for the first functional district-evidence layer.
      - `/Users/anakinskywalker/Downloads/field-app-40/js/core/districtData.js`
    - exposed via `/Users/anakinskywalker/Downloads/field-app-40/js/engine.js` snapshot facade.
    - regression tests in `/Users/anakinskywalker/Downloads/field-app-40/js/core/selfTestSuites/releaseHardening.js`.
+7. [x] Surface deterministic election-data selection status in Stage 9 (read-only):
+   - `/Users/anakinskywalker/Downloads/field-app-40/index.html` (`intelDistrictEvidenceSelectedElection`, `intelDistrictEvidenceDatasetRankTbody`)
+   - `/Users/anakinskywalker/Downloads/field-app-40/js/ui/els.js`
+   - `/Users/anakinskywalker/Downloads/field-app-40/js/app/renderIntelChecks.js`
+   - shows selected election dataset, compatibility rank position, and top compatible alternatives without mutating math/state.
