@@ -35,6 +35,7 @@
  *   allocatePrecinctVotesToGeo: (...args: any[]) => any,
  *   compileDistrictEvidence: (...args: any[]) => any,
  *   derivePersuasionSignalFromElection: (...args: any[]) => any,
+ *   resolveDistrictEvidenceInputs: (...args: any[]) => any,
  *   buildDataSourceRegistry: (...args: any[]) => any,
  *   resolveDataRefsByPolicy: (...args: any[]) => any,
  *   materializePinnedDataRefs: (...args: any[]) => any,
@@ -79,6 +80,7 @@ export function registerReleaseHardeningTests(ctx){
     allocatePrecinctVotesToGeo,
     compileDistrictEvidence,
     derivePersuasionSignalFromElection,
+    resolveDistrictEvidenceInputs,
     buildDataSourceRegistry,
     resolveDataRefsByPolicy,
     materializePinnedDataRefs,
@@ -787,6 +789,66 @@ export function registerReleaseHardeningTests(ctx){
     assert(signal.marginVotes === 500, "Expected top-two margin votes");
     assert(signal.marginPct != null && signal.marginPct > 5 && signal.marginPct < 6, "Expected ~5.26% top-two margin");
     assert(signal.index > 1.06 && signal.index < 1.07, "Expected competitiveness-derived persuasion index");
+    return true;
+  });
+
+  test("Phase 19: district evidence inputs resolve from inline evidenceInputs first", () => {
+    const out = resolveDistrictEvidenceInputs({
+      dataRefs: {
+        censusDatasetId: "acs5_2024",
+        electionDatasetId: "mit_2024",
+        crosswalkVersionId: "cw_2024",
+      },
+      geoPack: {
+        district: {
+          evidenceInputs: {
+            precinctResults: [{ precinctId: "P1", candidateVotes: { A: 10, B: 12 } }],
+            crosswalkRows: [{ precinctId: "P1", geoid: "34013010001", weight: 1 }],
+            censusGeoRows: [{ geoid: "34013010001", values: { pop: 100 } }],
+          },
+          evidenceStore: {
+            electionByDatasetId: { mit_2024: [{ precinctId: "P_IGNORE" }] },
+            crosswalkByVersionId: { cw_2024: [{ precinctId: "P_IGNORE", geoid: "x", weight: 1 }] },
+            censusByDatasetId: { acs5_2024: [{ geoid: "x", values: { pop: 1 } }] },
+          },
+        },
+      },
+    });
+    assert(out.sourceMode === "inline", "Expected inline evidenceInputs precedence");
+    assert(out.precinctResults.length === 1 && String(out.precinctResults[0]?.precinctId) === "P1", "Expected inline precinct rows");
+    assert(out.crosswalkRows.length === 1 && String(out.crosswalkRows[0]?.geoid) === "34013010001", "Expected inline crosswalk rows");
+    assert(out.censusGeoRows.length === 1 && String(out.censusGeoRows[0]?.geoid) === "34013010001", "Expected inline census rows");
+    return true;
+  });
+
+  test("Phase 19: district evidence inputs resolve by dataRefs from evidenceStore", () => {
+    const out = resolveDistrictEvidenceInputs({
+      dataRefs: {
+        censusDatasetId: "acs5_2024",
+        electionDatasetId: "mit_2024",
+        crosswalkVersionId: "cw_2024",
+      },
+      geoPack: {
+        district: {
+          evidenceStore: {
+            electionByDatasetId: {
+              mit_2024: [{ precinctId: "P1", candidateVotes: { A: 30, B: 20 } }],
+            },
+            crosswalkByVersionId: {
+              cw_2024: [{ precinctId: "P1", geoid: "34013010001", weight: 1 }],
+            },
+            censusByDatasetId: {
+              acs5_2024: [{ geoid: "34013010001", values: { pop: 1000 } }],
+            },
+          },
+        },
+      },
+    });
+    assert(out.sourceMode === "refs", "Expected refs mode for evidenceStore selection");
+    assert(out.precinctResults.length === 1, "Expected precinct rows from electionByDatasetId");
+    assert(out.crosswalkRows.length === 1, "Expected crosswalk rows from crosswalkByVersionId");
+    assert(out.censusGeoRows.length === 1, "Expected census rows from censusByDatasetId");
+    assert(Array.isArray(out.notes) && out.notes.length === 0, "Expected no notes when refs resolve cleanly");
     return true;
   });
 }

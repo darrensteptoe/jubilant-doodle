@@ -24,6 +24,7 @@ import { validateDistrictDataContract } from "./core/districtData.js";
 import { buildDataSourceRegistry, resolveDataRefsByPolicy, materializePinnedDataRefs } from "./core/dataSourceRegistry.js";
 import { normalizeAreaSelection, buildAreaResolverCacheKey, deriveAreaResolverContext } from "./core/areaResolver.js";
 import { compileDistrictEvidence, derivePersuasionSignalFromElection } from "./core/districtEvidence.js";
+import { resolveDistrictEvidenceInputs } from "./core/districtEvidenceInputs.js";
 import {
   MODEL_VERSION,
   makeScenarioExport,
@@ -117,6 +118,7 @@ export const engine = {
     deriveAreaResolverContext,
     compileDistrictEvidence,
     derivePersuasionSignalFromElection,
+    resolveDistrictEvidenceInputs,
     makeScenarioExport,
     deterministicStringify,
     validateScenarioExport,

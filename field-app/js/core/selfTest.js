@@ -87,6 +87,7 @@ import {
 } from "./districtIngest.js";
 import { allocatePrecinctVotesToGeo } from "./precinctCensusJoin.js";
 import { compileDistrictEvidence, derivePersuasionSignalFromElection } from "./districtEvidence.js";
+import { resolveDistrictEvidenceInputs } from "./districtEvidenceInputs.js";
 import { registerPhase115ATests } from "./selfTestSuites/phase115A.js";
 import { registerReleaseHardeningTests } from "./selfTestSuites/releaseHardening.js";
 
@@ -1436,6 +1437,7 @@ export function runSelfTests(engine){
     allocatePrecinctVotesToGeo,
     compileDistrictEvidence,
     derivePersuasionSignalFromElection,
+    resolveDistrictEvidenceInputs,
     buildDataSourceRegistry,
     resolveDataRefsByPolicy,
     materializePinnedDataRefs,
