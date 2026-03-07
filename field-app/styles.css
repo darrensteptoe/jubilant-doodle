@@ -347,11 +347,16 @@ a:hover{ text-decoration: underline; }
   grid-template-columns: minmax(0,1fr) minmax(0,1fr) minmax(0,1fr);
   gap: var(--space-3);
 }
+.grid4{
+  display:grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--space-3);
+}
 .span2{ grid-column: span 2; }
 .span3{ grid-column: span 3; }
 
 @media (max-width: 900px){
-  .grid2, .grid3{ grid-template-columns: 1fr; }
+  .grid2, .grid3, .grid4{ grid-template-columns: 1fr; }
 }
 
 .input, .select, textarea{

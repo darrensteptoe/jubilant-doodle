@@ -2234,6 +2234,51 @@
 <div class="note" id="intelDistrictIntelSummary" style="margin-top:6px;">No district-intel pack generated yet.</div>
 <div class="grid3" style="margin-top:10px;">
 <div class="field">
+<label class="label" for="intelAreaType">Area type</label>
+<select class="select" id="intelAreaType">
+<option value="">Not set</option>
+<option value="CD">Congressional district (CD)</option>
+<option value="SLDU">State senate (SLDU)</option>
+<option value="SLDL">State house (SLDL)</option>
+<option value="COUNTY">County</option>
+<option value="PLACE">Place / city</option>
+<option value="CUSTOM">Custom</option>
+</select>
+</div>
+<div class="field">
+<label class="label" for="intelAreaResolution">Resolution</label>
+<select class="select" id="intelAreaResolution">
+<option value="tract">Tract</option>
+<option value="block_group">Block group</option>
+</select>
+</div>
+<div class="field">
+<label class="label" for="intelAreaLabel">Area label (optional)</label>
+<input class="input" id="intelAreaLabel" placeholder="e.g., NJ-12" type="text"/>
+</div>
+</div>
+<div class="grid4" style="margin-top:10px;">
+<div class="field">
+<label class="label" for="intelAreaStateFips">State FIPS</label>
+<input class="input" id="intelAreaStateFips" maxlength="2" placeholder="e.g., 34" type="text"/>
+</div>
+<div class="field">
+<label class="label" for="intelAreaDistrict">District code</label>
+<input class="input" id="intelAreaDistrict" placeholder="e.g., 012" type="text"/>
+</div>
+<div class="field">
+<label class="label" for="intelAreaCountyFips">County FIPS</label>
+<input class="input" id="intelAreaCountyFips" maxlength="5" placeholder="e.g., 013" type="text"/>
+</div>
+<div class="field">
+<label class="label" for="intelAreaPlaceFips">Place FIPS</label>
+<input class="input" id="intelAreaPlaceFips" maxlength="5" placeholder="e.g., 51000" type="text"/>
+</div>
+</div>
+<div class="note" id="intelAreaResolverSummary" style="margin-top:8px;">Area resolver: not configured.</div>
+<div class="muted" id="intelAreaResolverDetail" style="margin-top:6px;">Set area + resolution to generate a deterministic cache key.</div>
+<div class="grid3" style="margin-top:10px;">
+<div class="field">
 <label class="label" for="intelDataRefMode">Data source mode</label>
 <select class="select" id="intelDataRefMode">
 <option value="pinned_verified">Pinned verified</option>

@@ -462,3 +462,11 @@ Execution order for the first functional district-evidence layer.
      - renders read-only precinct table (votes, top candidate, margin, mapped GEO count, district weight, top GEO links).
    - `/Users/anakinskywalker/Downloads/field-app-40/js/core/selfTestSuites/releaseHardening.js`
      - adds deterministic regression coverage for precinct-layer ordering and weight math.
+17. [x] Add Stage 9 deterministic area + resolution controls with resolver-key visibility:
+   - `/Users/anakinskywalker/Downloads/field-app-40/index.html`
+     - adds Area Type, Resolution, State/District/County/Place IDs, and area label controls.
+   - `/Users/anakinskywalker/Downloads/field-app-40/js/ui/els.js`
+   - `/Users/anakinskywalker/Downloads/field-app-40/js/app/renderIntelChecks.js`
+     - renders active normalized area context + deterministic resolver cache key and notes.
+   - `/Users/anakinskywalker/Downloads/field-app-40/js/app/wireEventsRuntime.js`
+     - wires area/resolution events, normalizes IDs, and marks district-intel assumptions stale on area changes.
