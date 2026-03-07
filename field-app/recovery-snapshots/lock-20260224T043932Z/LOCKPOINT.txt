@@ -1,3 +1,0 @@
-snapshot_created_utc=20260224T043932Z
-source_dir=/Users/anakinskywalker/Downloads/field-app-40
-snapshot_dir=/Users/anakinskywalker/Downloads/field-app-40/recovery-snapshots/lock-20260224T043932Z
