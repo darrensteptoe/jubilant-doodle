@@ -1,3 +1,4 @@
+// @ts-check
 // Canonical decision-session app module (Phase 11 consolidation).
 
 export const OBJECTIVE_TEMPLATES = [
@@ -121,6 +122,7 @@ export function decisionScenarioLabelCore(scenarioId, registry){
   return String(scenarioId);
 }
 
+/** @param {import("./types").DecisionSessionActionsCtx} ctx */
 export function createDecisionSessionActions(ctx){
   const {
     els,
@@ -282,6 +284,7 @@ export function createDecisionSessionActions(ctx){
   };
 }
 
+/** @param {import("./types").DecisionSessionBindingsCtx} ctx */
 export function wireDecisionSessionBindings(ctx){
   const {
     els,

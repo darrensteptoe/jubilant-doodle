@@ -1,3 +1,5 @@
+// @ts-check
+/** @param {import("./types").WireEventsOrchestratorArgs} args */
 export function wireEventsOrchestratorModule(args){
   const {
     els,

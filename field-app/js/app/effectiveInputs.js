@@ -1,3 +1,5 @@
+import { validateOperationsCapacityInput } from "../features/operations/io.js";
+
 export function createEffectiveInputsController({
   getState,
   safeNum,
@@ -64,7 +66,7 @@ export function createEffectiveInputsController({
       }
     }
 
-    return {
+    const compiled = {
       rates: {
         cr: eff.cr,
         sr: eff.sr,
@@ -87,6 +89,36 @@ export function createEffectiveInputsController({
         twCapOverrideTargetAttemptsPerWeek: overrideTargetAttemptsPerWeek,
       }
     };
+
+    const seamCheck = validateOperationsCapacityInput(compiled);
+    if (!seamCheck.ok){
+      // Fail soft: preserve deterministic planner behavior via baseline capacity/rate path.
+      return {
+        rates: {
+          cr: eff.cr,
+          sr: eff.sr,
+          tr: eff.tr,
+        },
+        capacity: {
+          orgCount: safeNum(s.orgCount),
+          orgHoursPerWeek: safeNum(s.orgHoursPerWeek),
+          volunteerMult: safeNum(s.volunteerMultBase),
+          doorSharePct,
+          doorShare,
+          doorsPerHour,
+          callsPerHour,
+          capacityDecay: getCapacityDecayConfigFromState(s),
+        },
+        meta: {
+          source: "baseline-manual (seam-fallback)",
+          twCapOverrideEnabled: false,
+          twCapOverrideMode: "baseline",
+          twCapOverrideTargetAttemptsPerWeek: null,
+        }
+      };
+    }
+
+    return compiled;
   }
 
   return {
@@ -94,4 +126,3 @@ export function createEffectiveInputsController({
     compileEffectiveInputs,
   };
 }
-

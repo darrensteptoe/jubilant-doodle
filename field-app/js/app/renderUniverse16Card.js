@@ -1,3 +1,5 @@
+// @ts-check
+/** @param {import("./types").RenderUniverse16CardCtx} ctx */
 export function renderUniverse16CardModule(ctx){
   const {
     els,

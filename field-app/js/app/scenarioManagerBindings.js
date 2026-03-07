@@ -1,3 +1,5 @@
+// @ts-check
+/** @param {import("./types").ScenarioManagerBindingsCtx} ctx */
 export function wireScenarioManagerBindings(ctx){
   const {
     els,

@@ -1,5 +1,7 @@
+// @ts-check
 import { buildModelInputFromState } from "./modelInput.js";
 
+/** @param {import("./types").InitDevToolsCtx} ctx */
 export function initDevToolsModule(ctx){
   const {
     isDevMode,

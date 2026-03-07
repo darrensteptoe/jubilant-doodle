@@ -1,3 +1,4 @@
+// @ts-check
 export function updatePersistenceStatusChipModule(els, persistenceState){
   if (!els.persistenceStatus) return;
   const stateIssue = !persistenceState.stateSaveOk;
@@ -18,6 +19,7 @@ export function updatePersistenceStatusChipModule(els, persistenceState){
   els.persistenceStatus.title = persistenceState.backupError || "Could not save backup snapshot.";
 }
 
+/** @param {import("./types").PersistenceStatusCtx} ctx */
 export function reportPersistenceFailureModule(ctx){
   const {
     scope,
@@ -46,6 +48,7 @@ export function reportPersistenceFailureModule(ctx){
   updatePersistenceStatusChip();
 }
 
+/** @param {import("./types").ClearPersistenceStatusCtx} ctx */
 export function clearPersistenceFailureModule(ctx){
   const {
     scope,

@@ -1,3 +1,4 @@
+// @ts-check
 export function createExecutionWeeklyController({
   els,
   getState,
@@ -80,6 +81,7 @@ export function createExecutionWeeklyController({
     }
   }
 
+  /** @param {import("./types").ExecutionWeeklyStatusCtx} ctx */
   function renderWeeklyExecutionStatus(ctx){
     renderWeeklyExecutionStatusModule({
       els,

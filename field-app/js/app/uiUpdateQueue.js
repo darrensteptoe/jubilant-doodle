@@ -1,3 +1,5 @@
+// @ts-check
+/** @param {import("./types").UiUpdateQueueCtx} ctx */
 export function createUiUpdateQueue(ctx){
   const {
     render,

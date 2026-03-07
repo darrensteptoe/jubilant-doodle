@@ -1,3 +1,5 @@
+// @ts-check
+/** @param {import("./types").InitTabsCtx} ctx */
 export function initTabsModule(ctx){
   const { state } = ctx || {};
   const requested = state?.ui?.activeTab || "win";
@@ -8,6 +10,7 @@ export function initTabsModule(ctx){
   document.getElementById(`tab-${tab}`)?.classList.add("active");
 }
 
+/** @param {import("./types").InitExplainCardCtx} ctx */
 export function initExplainCardModule(ctx){
   const { els, state } = ctx || {};
   if (!els?.explainCard) return;

@@ -1,5 +1,7 @@
+// @ts-check
 import { buildModelInputFromState } from "./modelInput.js";
 
+/** @param {import("./types").RenderMainCtx} ctx */
 export function renderMain(ctx){
   const {
     state,

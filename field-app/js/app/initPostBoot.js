@@ -1,3 +1,5 @@
+// @ts-check
+/** @param {import("./types").InitPostBootCtx} ctx */
 export function runInitPostBootModule(ctx){
   const {
     updateBuildStamp,

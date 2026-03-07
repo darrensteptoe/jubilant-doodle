@@ -1,3 +1,5 @@
+// @ts-check
+/** @param {import("./types").PreflightElsCtx} ctx */
 export function preflightElsModule(ctx){
   const { els, recordError } = ctx || {};
   try{

@@ -1,3 +1,4 @@
+// @ts-check
 import {
   addDefaultShockScenario,
   addDefaultCorrelationModel,
@@ -25,6 +26,7 @@ import {
 } from "./intelControls.js";
 import { ensureBudgetShape } from "./state.js";
 
+/** @param {import("./types").WireEventsCtx} ctx */
 export function wireBudgetTimelineEvents(ctx){
   const { els, state: initialState, getState, safeNum, commitUIUpdate, render } = ctx || {};
   const currentState = () => {
@@ -131,6 +133,7 @@ export function wireBudgetTimelineEvents(ctx){
   if (els.roiRefresh) els.roiRefresh.addEventListener("click", () => { render(); });
 }
 
+/** @param {import("./types").WireEventsCtx} ctx */
 export function wireIntelChecksEvents(ctx){
   const { els, state: initialState, getState, commitUIUpdate, safeNum, computeRealityDrift, markMcStale } = ctx || {};
   const currentState = () => {
@@ -831,6 +834,7 @@ export function wireIntelChecksEvents(ctx){
   }
 }
 
+/** @param {import("./types").WireEventsCtx} ctx */
 export function wireTabAndExportEvents(ctx){
   const {
     els,
@@ -1106,6 +1110,7 @@ function showBanner(el, message){
   el.textContent = text;
 }
 
+/** @param {import("./types").WireEventsCtx} ctx */
 export function wireResetImportAndUiToggles(ctx){
   const {
     els,
@@ -1334,6 +1339,7 @@ export function wireResetImportAndUiToggles(ctx){
   }
 }
 
+/** @param {import("./types").WireEventsCtx} ctx */
 export function wirePrimaryPlannerEvents(ctx){
   const {
     els,
@@ -1553,6 +1559,7 @@ export function wirePrimaryPlannerEvents(ctx){
   if (els.mcRerunSidebar) els.mcRerunSidebar.addEventListener("click", () => runMonteCarloNow());
 }
 
+/** @param {import("./types").WireEventsCtx} ctx */
 export function wireSafetyAndDiagnosticsEvents(ctx){
   const {
     els,

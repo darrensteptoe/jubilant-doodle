@@ -1,6 +1,8 @@
+// @ts-check
 import { makeDefaultIntelState } from "../core/intelState.js";
 import { makeDefaultFeatureFlags } from "./featureFlags.js";
 
+/** @param {import("./types").DefaultStateCtx} ctx */
 export function makeDefaultStateModule(ctx){
   const { defaultsByTemplate, uid } = ctx || {};
   return {

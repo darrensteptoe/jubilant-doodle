@@ -1,3 +1,5 @@
+// @ts-check
+/** @param {import("./types").InitScenarioDecisionWiringCtx} ctx */
 export function runInitScenarioDecisionWiringModule(ctx){
   const {
     els,

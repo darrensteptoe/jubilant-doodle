@@ -1,3 +1,5 @@
+// @ts-check
+/** @param {import("./types").ApplyStateToUIViewCtx} ctx */
 export function applyStateToUIView(ctx){
   const {
     els,
