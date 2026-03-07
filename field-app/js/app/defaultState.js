@@ -2,6 +2,7 @@
 import { makeDefaultIntelState } from "../core/intelState.js";
 import {
   makeDefaultDataRefs,
+  makeDefaultDataCatalog,
   makeDefaultGeoPack,
   makeDefaultDistrictIntelPack,
 } from "../core/districtData.js";
@@ -21,6 +22,7 @@ export function makeDefaultStateModule(ctx){
     sourceNote: "",
     useDistrictIntel: false,
     dataRefs: makeDefaultDataRefs(),
+    dataCatalog: makeDefaultDataCatalog(),
     geoPack: makeDefaultGeoPack(),
     districtIntelPack: makeDefaultDistrictIntelPack(),
     turnoutA: "",

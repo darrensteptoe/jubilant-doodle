@@ -2,6 +2,7 @@
 import { makeDefaultIntelState, normalizeIntelState } from "../core/intelState.js";
 import {
   makeDefaultDataRefs,
+  makeDefaultDataCatalog,
   makeDefaultGeoPack,
   makeDefaultDistrictIntelPack,
   normalizeDistrictDataState,
@@ -40,6 +41,7 @@ export function makeDefaultState({ createId = defaultCreateId } = {}){
     sourceNote: "",
     useDistrictIntel: false,
     dataRefs: makeDefaultDataRefs(),
+    dataCatalog: makeDefaultDataCatalog(),
     geoPack: makeDefaultGeoPack(),
     districtIntelPack: makeDefaultDistrictIntelPack(),
     turnoutA: "",
@@ -220,7 +222,7 @@ export function requiredScenarioKeysMissing(scen){
   const required = [
     "scenarioName", "raceType", "electionDate", "weeksRemaining", "mode",
     "universeBasis", "universeSize", "turnoutA", "turnoutB", "bandWidth",
-    "useDistrictIntel", "dataRefs", "geoPack", "districtIntelPack",
+    "useDistrictIntel", "dataRefs", "dataCatalog", "geoPack", "districtIntelPack",
     "candidates", "undecidedPct", "yourCandidateId", "undecidedMode", "persuasionPct",
     "earlyVoteExp", "supportRatePct", "contactRatePct", "turnoutReliabilityPct",
     "universeLayerEnabled", "universeDemPct", "universeRepPct", "universeNpaPct", "universeOtherPct", "retentionFactor",

@@ -35,7 +35,7 @@ export function requiredScenarioKeysMissingModule(scen){
   const required = [
     "scenarioName","raceType","electionDate","weeksRemaining","mode",
     "universeBasis","universeSize","turnoutA","turnoutB","bandWidth",
-    "useDistrictIntel","dataRefs","geoPack","districtIntelPack",
+    "useDistrictIntel","dataRefs","dataCatalog","geoPack","districtIntelPack",
     "candidates","undecidedPct","yourCandidateId","undecidedMode","persuasionPct",
     "earlyVoteExp","supportRatePct","contactRatePct","turnoutReliabilityPct",
     "universeLayerEnabled","universeDemPct","universeRepPct","universeNpaPct","universeOtherPct","retentionFactor",
