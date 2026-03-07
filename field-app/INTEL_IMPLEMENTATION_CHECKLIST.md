@@ -170,5 +170,14 @@ Execution order below is fixed and must be followed in sequence.
        - `/Users/anakinskywalker/Downloads/field-app-40/js/core/rng.js`
        - `/Users/anakinskywalker/Downloads/field-app-40/js/core/modelInput.js`
        - `/Users/anakinskywalker/Downloads/field-app-40/js/core/voteProduction.js`
-     - added shared core type declarations:
-       - `/Users/anakinskywalker/Downloads/field-app-40/js/core/types.d.ts`
+       - `/Users/anakinskywalker/Downloads/field-app-40/js/core/explainMap.js`
+       - `/Users/anakinskywalker/Downloads/field-app-40/js/core/confidenceEnvelope.js`
+       - `/Users/anakinskywalker/Downloads/field-app-40/js/core/hash.js`
+       - `/Users/anakinskywalker/Downloads/field-app-40/js/core/turnout.js`
+       - `/Users/anakinskywalker/Downloads/field-app-40/js/core/universeLayer.js`
+       - `/Users/anakinskywalker/Downloads/field-app-40/js/core/budget.js`
+       - `/Users/anakinskywalker/Downloads/field-app-40/js/core/executionPlanner.js`
+       - `/Users/anakinskywalker/Downloads/field-app-40/js/core/robust.js`
+       - `/Users/anakinskywalker/Downloads/field-app-40/js/core/timeline.js`
+      - added shared core type declarations:
+        - `/Users/anakinskywalker/Downloads/field-app-40/js/core/types.d.ts`
