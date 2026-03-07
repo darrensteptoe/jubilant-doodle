@@ -1,3 +1,13 @@
+// @ts-check
+/**
+ * @typedef {Record<string, any>} AnyRecord
+ */
+
+/**
+ * @param {AnyRecord} raw
+ * @param {{ safeNum: (v: any) => number | null }} deps
+ * @returns {AnyRecord | null}
+ */
 export function normalizeDailyLogEntryCore(raw, { safeNum }){
   if (!raw || typeof raw !== "object") return null;
   const date = String(raw.date || "").slice(0, 10);
@@ -16,6 +26,15 @@ export function normalizeDailyLogEntryCore(raw, { safeNum }){
   return { date, doors, calls, attempts, convos, supportIds, orgHours, volsActive, notes, updatedAt };
 }
 
+/**
+ * @param {AnyRecord} imported
+ * @param {{
+ *   state: AnyRecord,
+ *   setState: (updater: (s: AnyRecord) => void) => void,
+ *   markMcStale: () => void,
+ *   normalizeDailyLogEntry: (v: AnyRecord) => AnyRecord | null
+ * }} deps
+ */
 export function mergeDailyLogIntoStateCore(imported, {
   state,
   setState,
@@ -74,6 +93,14 @@ export function mergeDailyLogIntoStateCore(imported, {
   return { ok: true, msg: `Merged daily log: ${added} new, ${replaced} updated, ${ignored} ignored` };
 }
 
+/**
+ * @param {{
+ *   state: AnyRecord,
+ *   APP_VERSION: string,
+ *   BUILD_ID: string,
+ *   downloadText: (text: string, fileName: string, mimeType: string) => void
+ * }} deps
+ */
 export function exportDailyLogCore({
   state,
   APP_VERSION,

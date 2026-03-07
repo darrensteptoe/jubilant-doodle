@@ -1,3 +1,25 @@
+// @ts-check
+/**
+ * @typedef {{
+ *   getOperationsDiagnosticsSnapshot: () => Promise<Record<string, any>>,
+ *   engine: Record<string, any>,
+ *   state: Record<string, any>,
+ *   APP_VERSION: string,
+ *   BUILD_ID: string,
+ *   getLastExportHash: () => string | null,
+ *   recentErrors: Array<Record<string, any>>,
+ *   maxErrors?: number,
+ *   computeRealityDrift: () => Record<string, any>,
+ *   listMissingEvidenceAudit: (...args: any[]) => any[],
+ *   listMissingNoteAudit: (...args: any[]) => any[],
+ *   computeIntelIntegrityScore: (...args: any[]) => any,
+ *   downloadText: (text: string, fileName: string, mimeType: string) => void,
+ * }} DebugBundleDeps
+ */
+
+/**
+ * @param {DebugBundleDeps=} deps
+ */
 export async function copyDebugBundleModule(deps = {}){
   const {
     getOperationsDiagnosticsSnapshot,

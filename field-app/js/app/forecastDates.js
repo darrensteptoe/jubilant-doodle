@@ -1,3 +1,9 @@
+// @ts-check
+/**
+ * @param {Record<string, any>} snap
+ * @param {number | null | undefined} weeks
+ * @returns {Date | null}
+ */
 export function targetFinishDateFromSnapCore(snap, weeks){
   const d = String(snap?.electionDate || "").trim();
   if (d){
@@ -14,6 +20,11 @@ export function targetFinishDateFromSnapCore(snap, weeks){
   return null;
 }
 
+/**
+ * @param {number | null | undefined} total
+ * @param {number | null | undefined} pacePerDay
+ * @returns {Date | null}
+ */
 export function paceFinishDateCore(total, pacePerDay){
   if (total == null || !isFinite(total) || total <= 0) return null;
   if (pacePerDay == null || !isFinite(pacePerDay) || pacePerDay <= 0) return null;
@@ -23,4 +34,3 @@ export function paceFinishDateCore(total, pacePerDay){
   dt.setDate(dt.getDate() + daysNeeded);
   return dt;
 }
-

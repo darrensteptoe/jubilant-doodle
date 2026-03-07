@@ -1,3 +1,14 @@
+// @ts-check
+/**
+ * @param {{
+ *   getStateSnapshot: () => Record<string, any>,
+ *   getState: () => Record<string, any>,
+ *   setState: (next: Record<string, any>) => void,
+ *   syncFeatureFlagsFromState: (state: Record<string, any>, options?: { preferFeatures?: boolean }) => void,
+ *   patch?: Record<string, any>,
+ *   fn: () => any,
+ * }=} deps
+ */
 export function withPatchedStateModule({
   getStateSnapshot,
   getState,
