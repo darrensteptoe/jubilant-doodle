@@ -1,7 +1,25 @@
+// @ts-check
 import { normalizeIntelState } from "../core/intelState.js";
 import { syncFeatureFlagsFromState } from "./featureFlags.js";
 import { ensureBudgetShape } from "./state.js";
 
+/**
+ * @typedef {Record<string, any>} AnyState
+ * @typedef {{
+ *   makeDefaultState: () => AnyState,
+ *   safeNum: (v: any) => number | null,
+ *   clamp: (v: number, lo: number, hi: number) => number,
+ *   canonicalDoorsPerHourFromSnap: (state: AnyState) => number | null,
+ *   setCanonicalDoorsPerHour: (state: AnyState, value: number | null) => void,
+ *   deriveAssumptionsProfileFromState: (state: AnyState) => string,
+ * }} NormalizeLoadedStateDeps
+ */
+
+/**
+ * @param {AnyState} s
+ * @param {NormalizeLoadedStateDeps} deps
+ * @returns {AnyState}
+ */
 export function normalizeLoadedStateModule(s, deps){
   const {
     makeDefaultState,

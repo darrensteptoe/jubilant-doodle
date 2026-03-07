@@ -1,3 +1,4 @@
+// @ts-check
 import { makeDefaultIntelState, normalizeIntelState } from "../core/intelState.js";
 import { makeDefaultFeatureFlags, syncFeatureFlagsFromState } from "./featureFlags.js";
 
@@ -12,6 +13,15 @@ function defaultCreateId(){
   return Math.random().toString(16).slice(2, 10);
 }
 
+/**
+ * @typedef {Record<string, any>} AnyState
+ * @typedef {{ createId?: (() => string) }} StateFactoryOptions
+ */
+
+/**
+ * @param {StateFactoryOptions=} options
+ * @returns {AnyState}
+ */
 export function makeDefaultState({ createId = defaultCreateId } = {}){
   return {
     scenarioName: "",
@@ -134,6 +144,11 @@ export function makeDefaultState({ createId = defaultCreateId } = {}){
   };
 }
 
+/**
+ * @param {AnyState} target
+ * @param {StateFactoryOptions=} options
+ * @returns {AnyState | null}
+ */
 export function ensureBudgetShape(target, { createId = defaultCreateId } = {}){
   if (!target || typeof target !== "object") return null;
   const baseBudget = makeDefaultState({ createId }).budget;
@@ -159,6 +174,11 @@ export function ensureBudgetShape(target, { createId = defaultCreateId } = {}){
   return target.budget;
 }
 
+/**
+ * @param {AnyState} s
+ * @param {StateFactoryOptions=} options
+ * @returns {AnyState}
+ */
 export function normalizeLoadedState(s, { createId = defaultCreateId } = {}){
   const base = makeDefaultState({ createId });
   const out = { ...base, ...s };
@@ -181,6 +201,10 @@ export function normalizeLoadedState(s, { createId = defaultCreateId } = {}){
   return out;
 }
 
+/**
+ * @param {AnyState} scen
+ * @returns {string[]}
+ */
 export function requiredScenarioKeysMissing(scen){
   const required = [
     "scenarioName", "raceType", "electionDate", "weeksRemaining", "mode",
@@ -198,12 +222,21 @@ export function requiredScenarioKeysMissing(scen){
   return missing;
 }
 
+/**
+ * @param {AnyState} prevState
+ * @param {(next: AnyState) => void} patchFn
+ * @returns {AnyState}
+ */
 export function applyUiStatePatch(prevState, patchFn){
   const next = { ...prevState, ui: structuredClone(prevState.ui) };
   patchFn(next);
   return next;
 }
 
+/**
+ * @param {AnyState} state
+ * @returns {AnyState}
+ */
 export function cloneStateSnapshot(state){
   try{
     return JSON.parse(JSON.stringify(state));
