@@ -1,3 +1,9 @@
+// @ts-check
+/**
+ * @param {string} title
+ * @param {HTMLElement[]} kvs
+ * @returns {HTMLDivElement}
+ */
 export function blockModule(title, kvs){
   const div = document.createElement("div");
   div.className = "assump-block";
@@ -12,6 +18,11 @@ export function blockModule(title, kvs){
   return div;
 }
 
+/**
+ * @param {string} k
+ * @param {string} v
+ * @returns {HTMLDivElement}
+ */
 export function kvModule(k, v){
   const row = document.createElement("div");
   row.className = "kv";
@@ -26,6 +37,10 @@ export function kvModule(k, v){
   return row;
 }
 
+/**
+ * @param {string} v
+ * @returns {string}
+ */
 export function labelTemplateModule(v){
   if (v === "federal") return "Federal (US House)";
   if (v === "municipal") return "Municipal / ward";
@@ -33,6 +48,10 @@ export function labelTemplateModule(v){
   return "State legislative";
 }
 
+/**
+ * @param {string} v
+ * @returns {string}
+ */
 export function labelUndecidedModeModule(v){
   if (v === "user_defined") return "User-defined split";
   if (v === "against") return "Conservative against you";
@@ -40,6 +59,10 @@ export function labelUndecidedModeModule(v){
   return "Proportional";
 }
 
+/**
+ * @param {Record<string, any>} state
+ * @returns {string | null}
+ */
 export function getYourNameFromStateModule(state){
   const c = state.candidates.find(x => x.id === state.yourCandidateId);
   return c?.name || null;

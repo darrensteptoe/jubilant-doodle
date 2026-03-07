@@ -1,3 +1,9 @@
+// @ts-check
+/**
+ * @template T
+ * @param {T} obj
+ * @returns {T}
+ */
 export function scenarioCloneCore(obj){
   try{
     if (typeof structuredClone === "function") return structuredClone(obj);
@@ -10,6 +16,10 @@ export function scenarioCloneCore(obj){
   }
 }
 
+/**
+ * @param {Record<string, any>} src
+ * @returns {Record<string, any>}
+ */
 export function scenarioInputsFromStateCore(src){
   const s = scenarioCloneCore(src);
   if (s && typeof s === "object"){
@@ -20,6 +30,10 @@ export function scenarioInputsFromStateCore(src){
   return s;
 }
 
+/**
+ * @param {Record<string, any>} src
+ * @returns {Record<string, any>}
+ */
 export function scenarioOutputsFromStateCore(src){
   const ui = src?.ui || {};
   return {
@@ -30,4 +44,3 @@ export function scenarioOutputsFromStateCore(src){
     diagnostics: scenarioCloneCore(ui.lastDiagnostics || {}),
   };
 }
-

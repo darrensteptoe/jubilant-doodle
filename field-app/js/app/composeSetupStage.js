@@ -1,3 +1,7 @@
+// @ts-check
+/**
+ * @returns {void}
+ */
 export function composeSetupStageModule(){
   const setupStage = document.getElementById("stage-setup");
   const setupBody = setupStage?.querySelector(":scope > .stage-body-new");

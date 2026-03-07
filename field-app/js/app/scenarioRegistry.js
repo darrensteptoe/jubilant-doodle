@@ -1,3 +1,17 @@
+// @ts-check
+/**
+ * @typedef {Record<string, any>} AnyState
+ */
+
+/**
+ * @param {AnyState} state
+ * @param {{
+ *   scenarioBaselineId: string,
+ *   scenarioInputsFromState: (state: AnyState) => AnyState,
+ *   scenarioOutputsFromState: (state: AnyState) => AnyState,
+ * }} deps
+ * @returns {void}
+ */
 export function ensureScenarioRegistryCore(state, {
   scenarioBaselineId,
   scenarioInputsFromState,
@@ -24,6 +38,11 @@ export function ensureScenarioRegistryCore(state, {
   if (!reg[state.ui.scenarioUiSelectedId]) state.ui.scenarioUiSelectedId = state.ui.activeScenarioId;
 }
 
+/**
+ * @param {AnyState} state
+ * @param {{ scenarioBaselineId: string }} deps
+ * @returns {AnyState[]}
+ */
 export function listScenarioRecordsCore(state, {
   scenarioBaselineId,
 }){

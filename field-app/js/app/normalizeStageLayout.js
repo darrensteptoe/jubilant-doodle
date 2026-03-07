@@ -1,3 +1,7 @@
+// @ts-check
+/**
+ * @returns {void}
+ */
 export function normalizeStageLayoutModule(){
   const main = document.querySelector(".stage-main-new");
   if (!main) return;
