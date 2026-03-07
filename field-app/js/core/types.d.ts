@@ -310,6 +310,10 @@ export interface DistrictEvidencePrecinctLayerRow {
   crosswalkWeightSum: number;
   effectiveWeightSum: number;
   districtWeightPct: number;
+  topGeoLinks: Array<{
+    geoid: string;
+    effectiveWeightPct: number;
+  }>;
 }
 
 export interface DistrictEvidence {

@@ -1147,9 +1147,14 @@ export function registerReleaseHardeningTests(ctx){
     assert(rows[0].leaderCandidateId === "B", "Expected B to lead precinct P1");
     assert(rows[0].mappedGeoCount === 2, "Expected two mapped GEO links for P1");
     assert(Math.abs(Number(rows[0].districtWeightPct) - 50) < 1e-9, "Expected district weight pct for P1");
+    assert(Array.isArray(rows[0].topGeoLinks) && rows[0].topGeoLinks.length === 2, "Expected top GEO link list for P1");
+    assert(rows[0].topGeoLinks[0].geoid === "34013010001", "Expected deterministic GEO-link sort by effective weight");
+    assert(Math.abs(Number(rows[0].topGeoLinks[0].effectiveWeightPct) - 35) < 1e-9, "Expected top GEO effective weight pct for P1");
     assert(rows[1].precinctId === "P2", "Expected second precinct row for P2");
     assert(rows[1].mappedGeoCount === 1, "Expected single mapped GEO link for P2");
     assert(Math.abs(Number(rows[1].districtWeightPct) - 30) < 1e-9, "Expected district weight pct for P2");
+    assert(Array.isArray(rows[1].topGeoLinks) && rows[1].topGeoLinks.length === 1, "Expected one GEO link for P2");
+    assert(rows[1].topGeoLinks[0].geoid === "34013010002", "Expected mapped GEO for P2");
     return true;
   });
 

@@ -416,7 +416,8 @@ export function buildGeoEvidenceMapLayer(args){
  *   mappedGeoCount: number,
  *   crosswalkWeightSum: number,
  *   effectiveWeightSum: number,
- *   districtWeightPct: number
+ *   districtWeightPct: number,
+ *   topGeoLinks: Array<{ geoid: string, effectiveWeightPct: number }>
  * }>}
  */
 export function summarizePrecinctEvidenceLayers(args){
@@ -464,12 +465,25 @@ export function summarizePrecinctEvidenceLayers(args){
     const geoSet = new Set();
     let crosswalkWeightSum = 0;
     let effectiveWeightSum = 0;
+    const topGeoLinksRaw = [];
     for (const link of links){
       crosswalkWeightSum += Math.max(0, numOrNull(link.crosswalkWeight) ?? 0);
       effectiveWeightSum += Math.max(0, numOrNull(link.effectiveWeight) ?? 0);
       if (link.included) geoSet.add(link.geoid);
+      topGeoLinksRaw.push({
+        geoid: link.geoid,
+        effectiveWeight: Math.max(0, numOrNull(link.effectiveWeight) ?? 0),
+      });
     }
     const districtWeightPct = clamp(effectiveWeightSum * 100, 0, 100);
+    topGeoLinksRaw.sort((a, b) => (b.effectiveWeight - a.effectiveWeight) || a.geoid.localeCompare(b.geoid));
+    const topGeoLinks = topGeoLinksRaw
+      .filter((x) => x.effectiveWeight > 0 && x.geoid)
+      .slice(0, 3)
+      .map((x) => ({
+        geoid: x.geoid,
+        effectiveWeightPct: clamp(x.effectiveWeight * 100, 0, 100),
+      }));
     out.push({
       precinctId: row.precinctId,
       totalVotes,
@@ -485,6 +499,7 @@ export function summarizePrecinctEvidenceLayers(args){
       crosswalkWeightSum,
       effectiveWeightSum,
       districtWeightPct,
+      topGeoLinks,
     });
   }
 
