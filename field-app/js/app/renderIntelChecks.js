@@ -1551,6 +1551,15 @@ export function renderIntelChecksModule({
   if (els.btnIntelAutoFillUrls){
     els.btnIntelAutoFillUrls.disabled = typeof engine?.snapshot?.buildAutoPullUrlPlan !== "function";
   }
+  if (els.intelCensusApiVars && !String(els.intelCensusApiVars.value || "").trim()){
+    els.intelCensusApiVars.value = "B01003_001E,B25001_001E";
+  }
+  if (els.btnIntelPullCensusApi){
+    const hasFetch = typeof globalThis.fetch === "function";
+    const canBuildPlan = typeof engine?.snapshot?.buildCensusApiPullPlan === "function";
+    const canParseRows = typeof engine?.snapshot?.censusGeoRowsFromApiPayload === "function";
+    els.btnIntelPullCensusApi.disabled = !(hasFetch && canBuildPlan && canParseRows);
+  }
   /** @type {any} */
   let autoPullPlanForRender = null;
   /** @type {any} */

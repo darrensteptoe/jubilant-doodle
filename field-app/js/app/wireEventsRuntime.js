@@ -146,6 +146,12 @@ export function wireIntelChecksEvents(ctx){
   };
   if (!els || !currentState()) return;
 
+  const HARDWIRED_CENSUS_API_KEY = "a59d216d186bced9d252633906350432d2805c74";
+  const getCensusApiKey = () => String(els.intelCensusApiKey?.value || "").trim() || HARDWIRED_CENSUS_API_KEY;
+  if (els.intelCensusApiKey && !String(els.intelCensusApiKey.value || "").trim()){
+    els.intelCensusApiKey.value = HARDWIRED_CENSUS_API_KEY;
+  }
+
   const setStatus = (el, msg, kind = "muted") => {
     if (!el) return;
     el.classList.remove("ok", "warn", "bad", "muted");
@@ -676,6 +682,7 @@ export function wireIntelChecksEvents(ctx){
   }
 
   const setAutoPullStatus = (msg, kind = "muted") => setStatus(els.intelAutoPullStatus, msg, kind);
+  const setCensusApiStatus = (msg, kind = "muted") => setStatus(els.intelCensusApiStatus, msg, kind);
 
   const importDataCatalogPayload = (s, payload) => {
     const normalizeDataCatalog = engine?.snapshot?.normalizeDataCatalog;
@@ -961,6 +968,7 @@ export function wireIntelChecksEvents(ctx){
     if (els.btnIntelFetchDataCatalog) els.btnIntelFetchDataCatalog.disabled = !!disabled;
     if (els.btnIntelCatalogAutoPull) els.btnIntelCatalogAutoPull.disabled = !!disabled;
     if (els.btnIntelAutoPullAll) els.btnIntelAutoPullAll.disabled = !!disabled;
+    if (els.btnIntelPullCensusApi) els.btnIntelPullCensusApi.disabled = !!disabled;
   };
 
   const runAutoPullAll = async (s) => {
@@ -1361,6 +1369,103 @@ export function wireIntelChecksEvents(ctx){
       const s = currentState();
       if (!s) return;
       await runAutoPullAll(s);
+    });
+  }
+
+  if (els.btnIntelPullCensusApi){
+    els.btnIntelPullCensusApi.addEventListener("click", async () => {
+      const s = currentState();
+      if (!s) return;
+      if (typeof fetch !== "function"){
+        const msg = "Census API pull unavailable: fetch API not supported in this browser.";
+        setCensusApiStatus(msg, "warn");
+        setIngestStatus(msg, "warn");
+        return;
+      }
+      const buildPlan = engine?.snapshot?.buildCensusApiPullPlan;
+      const parseRows = engine?.snapshot?.censusGeoRowsFromApiPayload;
+      if (typeof buildPlan !== "function" || typeof parseRows !== "function"){
+        const msg = "Census API pull unavailable: snapshot helpers missing.";
+        setCensusApiStatus(msg, "warn");
+        setIngestStatus(msg, "warn");
+        return;
+      }
+      const varsRaw = String(els.intelCensusApiVars?.value || "").trim();
+      const variableRefs = varsRaw
+        ? varsRaw.split(",").map((x) => String(x || "").trim()).filter(Boolean)
+        : [];
+      const yearRaw = String(els.intelCensusApiYear?.value || "").trim();
+      const plan = buildPlan({
+        scenario: s,
+        dataRefs: s?.dataRefs,
+        dataCatalog: s?.dataCatalog,
+        apiKey: getCensusApiKey(),
+        variableRefs,
+        vintageYear: yearRaw || null,
+      });
+      if (!plan?.ready){
+        const msg = String(plan?.summaryLine || "Census API plan unavailable.");
+        setCensusApiStatus(msg, "warn");
+        setIngestStatus(msg, "warn");
+        return;
+      }
+      const geoidFilter = Array.isArray(s?.geoPack?.units)
+        ? s.geoPack.units.map((x) => String(x?.geoid || "").trim()).filter(Boolean)
+        : [];
+      setAutoPullButtonsDisabled(true);
+      setCensusApiStatus(`Fetching Census API rows (${plan.requests.length} request(s))...`, "muted");
+      /** @type {string[]} */
+      const warnings = [];
+      const rowMap = new Map();
+      let pulled = 0;
+      try{
+        for (const req of (Array.isArray(plan.requests) ? plan.requests : [])){
+          const label = `Census API ${String(req?.stateFips || "--")}-${String(req?.countyFips || "---")}`;
+          try{
+            const payload = await fetchJsonFromUrl(String(req?.url || ""), label);
+            const parsed = parseRows({
+              payload,
+              resolution: plan.resolution,
+              variableRefs: plan.variables,
+              geoidFilter,
+            });
+            if (parsed?.ok && Array.isArray(parsed.rows) && parsed.rows.length){
+              for (const row of parsed.rows){
+                const geoid = String(row?.geoid || "").trim();
+                if (!geoid) continue;
+                rowMap.set(geoid, row);
+              }
+              pulled += 1;
+            } else {
+              warnings.push(`${label}: ${String(parsed?.warning || "no rows")}`);
+            }
+          } catch (err){
+            warnings.push(`${label}: ${String(err?.message || "request failed")}`);
+          }
+        }
+      } finally {
+        setAutoPullButtonsDisabled(false);
+      }
+      const rows = Array.from(rowMap.values()).sort((a, b) => String(a?.geoid || "").localeCompare(String(b?.geoid || "")));
+      if (!rows.length){
+        const msg = warnings.length
+          ? `Census API pull returned no importable rows. ${warnings[0]}`
+          : "Census API pull returned no importable rows.";
+        setCensusApiStatus(msg, "warn");
+        setIngestStatus(msg, "warn");
+        return;
+      }
+      const out = importCensusGeoRowsPayload(s, rows);
+      if (out.applied) commitUIUpdate();
+      if (warnings.length){
+        const msg = `${out.message} Pulled ${rows.length} rows from ${pulled}/${plan.requests.length} requests. ${warnings[0]}`;
+        setCensusApiStatus(msg, "warn");
+        setIngestStatus(msg, "warn");
+      } else {
+        const msg = `${out.message} Pulled ${rows.length} rows from ${pulled}/${plan.requests.length} requests.`;
+        setCensusApiStatus(msg, "ok");
+        setIngestStatus(msg, out.kind === "ok" ? "ok" : "warn");
+      }
     });
   }
 
