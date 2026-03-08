@@ -262,6 +262,7 @@ export function wireIntelChecksEvents(ctx){
     const district = geo.district;
     if (!district.evidenceStore || typeof district.evidenceStore !== "object") district.evidenceStore = {};
     if (!district.evidenceInputs || typeof district.evidenceInputs !== "object") district.evidenceInputs = {};
+    if (!district.evidenceInputMeta || typeof district.evidenceInputMeta !== "object") district.evidenceInputMeta = {};
     if (!district.evidenceStore.electionByDatasetId || typeof district.evidenceStore.electionByDatasetId !== "object"){
       district.evidenceStore.electionByDatasetId = {};
     }
@@ -384,10 +385,29 @@ export function wireIntelChecksEvents(ctx){
       if (!s) return;
       const ready = !!s?.districtIntelPack?.ready;
       const wantsOn = !!els.intelUseDistrictToggle.checked;
+      const validateDistrictDataContract = engine?.snapshot?.validateDistrictDataContract;
+      const alignmentWarnings = (typeof validateDistrictDataContract === "function")
+        ? (() => {
+          try{
+            const out = validateDistrictDataContract(s);
+            const warnings = Array.isArray(out?.warnings) ? out.warnings : [];
+            return warnings.map((x) => String(x || "").trim()).filter((x) => String(x).toLowerCase().includes("provenance"));
+          } catch {
+            return [];
+          }
+        })()
+        : [];
       if (wantsOn && !ready){
         s.useDistrictIntel = false;
         els.intelUseDistrictToggle.checked = false;
         setDistrictIntelStatus("District-intel pack is not ready yet. Generate assumptions first.", "muted");
+        commitUIUpdate();
+        return;
+      }
+      if (wantsOn && alignmentWarnings.length){
+        s.useDistrictIntel = false;
+        els.intelUseDistrictToggle.checked = false;
+        setDistrictIntelStatus(`District-intel alignment warning: ${alignmentWarnings[0]}`, "warn");
         commitUIUpdate();
         return;
       }
@@ -411,19 +431,57 @@ export function wireIntelChecksEvents(ctx){
     if (!s) return;
     const geo = ensureGeoPackShape(s);
     if (!geo) return;
+    let beforeAreaFingerprint = "";
+    try{
+      beforeAreaFingerprint = String(buildAreaMeta(s)?.areaFingerprint || "").trim();
+    } catch {
+      beforeAreaFingerprint = "";
+    }
     const district = ensureGeoDistrict(s);
     mutator(geo);
     geo.generatedAt = null;
     geo.areaBoundary = null;
-    if (district) district.selectedGeoId = null;
-    if (district) district.areaBoundary = null;
+    let afterAreaFingerprint = "";
+    try{
+      afterAreaFingerprint = String(buildAreaMeta(s)?.areaFingerprint || "").trim();
+    } catch {
+      afterAreaFingerprint = "";
+    }
+    const areaChanged = beforeAreaFingerprint !== afterAreaFingerprint;
+    if (areaChanged){
+      const refs = ensureDataRefShape(s);
+      if (refs){
+        refs.boundarySetId = null;
+        refs.crosswalkVersionId = null;
+        refs.censusDatasetId = null;
+        refs.electionDatasetId = null;
+        stampDataRefCheck(refs);
+      }
+      if (s.dataCatalog && typeof s.dataCatalog === "object"){
+        s.dataCatalog.activeBoundarySetId = null;
+        s.dataCatalog.activeCrosswalkVersionId = null;
+      }
+    }
+    if (district){
+      district.selectedGeoId = null;
+      district.areaBoundary = null;
+      if (!district.evidenceInputs || typeof district.evidenceInputs !== "object") district.evidenceInputs = {};
+      district.evidenceInputs.precinctResults = [];
+      district.evidenceInputs.crosswalkRows = [];
+      district.evidenceInputs.censusGeoRows = [];
+      district.evidenceInputMeta = {};
+    }
     markDistrictIntelStale(s, "District area/resolution changed; regenerate district-intel assumptions.");
     if (s.useDistrictIntel){
       s.useDistrictIntel = false;
       if (els.intelUseDistrictToggle) els.intelUseDistrictToggle.checked = false;
       setDistrictIntelStatus("Area/resolution changed. District-intel was turned OFF until assumptions are regenerated.", "muted");
     }
-    setDataRefStatus(successMsg, "ok");
+    if (areaChanged){
+      setDataRefStatus(`${successMsg} Data refs were cleared for the new area.`, "ok");
+    } else {
+      setDataRefStatus(successMsg, "ok");
+    }
     commitUIUpdate();
   };
 
@@ -653,6 +711,13 @@ export function wireIntelChecksEvents(ctx){
         } catch {
           resolvedInputs = null;
         }
+      }
+      const alignmentMismatches = Array.isArray(resolvedInputs?.alignment?.mismatches)
+        ? resolvedInputs.alignment.mismatches.map((x) => String(x || "").trim()).filter(Boolean)
+        : [];
+      if (alignmentMismatches.length){
+        setDistrictIntelStatus(`Cannot generate assumptions until area/data alignment is fixed: ${alignmentMismatches[0]}`, "warn");
+        return;
       }
       const districtBlob = (s?.geoPack && typeof s.geoPack === "object" && s.geoPack.district && typeof s.geoPack.district === "object")
         ? s.geoPack.district
@@ -1028,23 +1093,27 @@ export function wireIntelChecksEvents(ctx){
     if (!district){
       return { applied: false, kind: "warn", message: "Unable to initialize district evidence containers." };
     }
+    const meta = buildEvidenceImportMeta(s, rows);
+    const status = String(meta.validationStatus || "unknown");
     const key = String(refs?.crosswalkVersionId || "").trim();
     if (key){
-      district.evidenceStore.crosswalkByVersionId[key] = rows;
+      district.evidenceStore.crosswalkByVersionId[key] = { rows, meta };
       district.evidenceInputs.crosswalkRows = [];
+      district.evidenceInputMeta.crosswalkRows = {};
       markDistrictIntelStale(s, "Crosswalk rows changed; regenerate district-intel assumptions.");
       return {
         applied: true,
-        kind: "ok",
-        message: `Crosswalk rows imported to evidenceStore key '${key}' (${rows.length} rows).`,
+        kind: status === "aligned" || status === "unknown" ? "ok" : "warn",
+        message: `Crosswalk rows imported to evidenceStore key '${key}' (${rows.length} rows; area ${status}).`,
       };
     }
     district.evidenceInputs.crosswalkRows = rows;
+    district.evidenceInputMeta.crosswalkRows = meta;
     markDistrictIntelStale(s, "Crosswalk rows changed; regenerate district-intel assumptions.");
     return {
       applied: true,
       kind: "warn",
-      message: `Crosswalk rows imported inline (${rows.length} rows). Set crosswalk ref to key this data.`,
+      message: `Crosswalk rows imported inline (${rows.length} rows; area ${status}). Set crosswalk ref to key this data.`,
     };
   };
 
@@ -1060,24 +1129,28 @@ export function wireIntelChecksEvents(ctx){
     if (!district){
       return { applied: false, kind: "warn", message: "Unable to initialize district evidence containers." };
     }
+    const meta = buildEvidenceImportMeta(s, rows);
+    const status = String(meta.validationStatus || "unknown");
     const suffix = ` (${normalized.outputCount}/${normalized.inputCount} rows via ${normalized.effectiveFormat}; rejected ${normalized.rejectedCount}).`;
     const key = String(refs?.electionDatasetId || "").trim();
     if (key){
-      district.evidenceStore.electionByDatasetId[key] = rows;
+      district.evidenceStore.electionByDatasetId[key] = { rows, meta };
       district.evidenceInputs.precinctResults = [];
+      district.evidenceInputMeta.precinctResults = {};
       markDistrictIntelStale(s, "Election rows changed; regenerate district-intel assumptions.");
       return {
         applied: true,
-        kind: "ok",
-        message: `Precinct results imported to evidenceStore key '${key}'${suffix}`,
+        kind: status === "aligned" || status === "unknown" ? "ok" : "warn",
+        message: `Precinct results imported to evidenceStore key '${key}'${suffix} Area ${status}.`,
       };
     }
     district.evidenceInputs.precinctResults = rows;
+    district.evidenceInputMeta.precinctResults = meta;
     markDistrictIntelStale(s, "Election rows changed; regenerate district-intel assumptions.");
     return {
       applied: true,
       kind: "warn",
-      message: `Precinct results imported inline${suffix} Set election dataset ref to key this data.`,
+      message: `Precinct results imported inline${suffix} Area ${status}. Set election dataset ref to key this data.`,
     };
   };
 
@@ -1091,23 +1164,27 @@ export function wireIntelChecksEvents(ctx){
     if (!district){
       return { applied: false, kind: "warn", message: "Unable to initialize district evidence containers." };
     }
+    const meta = buildEvidenceImportMeta(s, rows);
+    const status = String(meta.validationStatus || "unknown");
     const key = String(refs?.censusDatasetId || "").trim();
     if (key){
-      district.evidenceStore.censusByDatasetId[key] = rows;
+      district.evidenceStore.censusByDatasetId[key] = { rows, meta };
       district.evidenceInputs.censusGeoRows = [];
+      district.evidenceInputMeta.censusGeoRows = {};
       markDistrictIntelStale(s, "Census GEO rows changed; regenerate district-intel assumptions.");
       return {
         applied: true,
-        kind: "ok",
-        message: `Census GEO rows imported to evidenceStore key '${key}' (${rows.length} rows).`,
+        kind: status === "aligned" || status === "unknown" ? "ok" : "warn",
+        message: `Census GEO rows imported to evidenceStore key '${key}' (${rows.length} rows; area ${status}).`,
       };
     }
     district.evidenceInputs.censusGeoRows = rows;
+    district.evidenceInputMeta.censusGeoRows = meta;
     markDistrictIntelStale(s, "Census GEO rows changed; regenerate district-intel assumptions.");
     return {
       applied: true,
       kind: "warn",
-      message: `Census GEO rows imported inline (${rows.length} rows). Set census dataset ref to key this data.`,
+      message: `Census GEO rows imported inline (${rows.length} rows; area ${status}). Set census dataset ref to key this data.`,
     };
   };
 
@@ -1161,6 +1238,93 @@ export function wireIntelChecksEvents(ctx){
     const county3 = normalizeCounty3(state, area?.countyFips);
     if (county3 && geoid.slice(2, 5) !== county3) return false;
     return true;
+  };
+
+  const buildAreaMeta = (s) => {
+    const geo = ensureGeoPackShape(s);
+    const area = (geo && geo.area && typeof geo.area === "object") ? geo.area : {};
+    const type = normalizeAreaTypeInput(area?.type);
+    const stateFips = cleanDigits(area?.stateFips, 2);
+    const district = cleanText(area?.district, 16);
+    const countyFips = cleanDigits(area?.countyFips, 5);
+    const placeFips = cleanDigits(area?.placeFips, 5);
+    const resolution = normalizeAreaResolutionInput(geo?.resolution);
+    let areaFingerprint = "";
+    const deriveCtx = engine?.snapshot?.deriveAreaResolverContext;
+    const buildKey = engine?.snapshot?.buildAreaResolverCacheKey;
+    if (typeof deriveCtx === "function"){
+      try{
+        const out = deriveCtx({ scenario: s });
+        areaFingerprint = String(out?.cacheKey || "").trim();
+      } catch {
+        areaFingerprint = "";
+      }
+    }
+    if (!areaFingerprint && typeof buildKey === "function"){
+      try{
+        areaFingerprint = String(buildKey({
+          area: {
+            type,
+            stateFips,
+            district,
+            countyFips,
+            placeFips,
+            resolution,
+            boundarySetId: geo?.boundarySetId || null,
+            boundaryVintage: geo?.boundaryVintage || geo?.area?.boundaryVintage || geo?.area?.vintage || null,
+          },
+        }) || "").trim();
+      } catch {
+        areaFingerprint = "";
+      }
+    }
+    return {
+      type,
+      stateFips,
+      district,
+      countyFips,
+      placeFips,
+      resolution,
+      areaFingerprint,
+    };
+  };
+
+  const buildEvidenceImportMeta = (s, rows) => {
+    const list = Array.isArray(rows) ? rows : [];
+    const areaMeta = buildAreaMeta(s);
+    let geoidRowCount = 0;
+    let matchedGeoidRows = 0;
+    for (const row of list){
+      const geoid = cleanDigits(row?.geoid, 16);
+      if (geoid.length < 5) continue;
+      geoidRowCount += 1;
+      if (rowMatchesArea({ geoid }, areaMeta)) matchedGeoidRows += 1;
+    }
+    let validationStatus = "unknown";
+    if (geoidRowCount > 0){
+      if (matchedGeoidRows <= 0){
+        validationStatus = "external";
+      } else if (matchedGeoidRows < geoidRowCount){
+        validationStatus = "partial";
+      } else {
+        validationStatus = "aligned";
+      }
+    }
+    return {
+      areaFingerprint: areaMeta.areaFingerprint || null,
+      validationStatus,
+      geoidRowCount,
+      matchedGeoidRows,
+      rowCount: list.length,
+      area: {
+        type: areaMeta.type,
+        stateFips: areaMeta.stateFips,
+        district: areaMeta.district,
+        countyFips: areaMeta.countyFips,
+        placeFips: areaMeta.placeFips,
+        resolution: areaMeta.resolution,
+      },
+    };
   };
 
   const buildCensusGeoApiUrl = (stateFips, county3, resolution) => {
@@ -1768,6 +1932,9 @@ export function wireIntelChecksEvents(ctx){
           id: refs.censusDatasetId,
           label: `Census API 2020 PL ${stateFips}${county3} ${resolution}`,
           vintage: "2020",
+          boundarySetId: String(refs?.boundarySetId || "").trim() || null,
+          stateFips,
+          countyFips: `${stateFips}${county3}`,
           granularity: resolution,
           rowCount: rows.length,
           variableRefs: ["P1_001N", "H1_001N", "INTPTLAT", "INTPTLON"],
