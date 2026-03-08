@@ -597,7 +597,23 @@ export function wireIntelChecksEvents(ctx){
   if (els.intelAreaType){
     els.intelAreaType.addEventListener("change", () => {
       onAreaChange((geo) => {
-        geo.area.type = normalizeAreaTypeInput(els.intelAreaType.value);
+        const nextType = normalizeAreaTypeInput(els.intelAreaType.value);
+        geo.area.type = nextType;
+        if (nextType === "COUNTY"){
+          geo.area.placeFips = "";
+          geo.area.district = "";
+          return;
+        }
+        if (nextType === "PLACE"){
+          geo.area.countyFips = "";
+          geo.area.district = "";
+          return;
+        }
+        if (nextType === "CD" || nextType === "SLDU" || nextType === "SLDL"){
+          geo.area.countyFips = "";
+          geo.area.placeFips = "";
+          return;
+        }
       }, "Area type updated.");
       queueAreaAssistLookupFetch();
       queueCensusGeoRowsFetch();
@@ -673,6 +689,8 @@ export function wireIntelChecksEvents(ctx){
     els.intelAreaPlaceFips.addEventListener("input", () => {
       onAreaChange((geo) => {
         geo.area.type = "PLACE";
+        geo.area.countyFips = "";
+        geo.area.district = "";
         geo.area.placeFips = cleanDigits(els.intelAreaPlaceFips.value, 5);
       }, "Area place FIPS updated.");
       queueAreaAssistLookupFetch();
@@ -726,10 +744,13 @@ export function wireIntelChecksEvents(ctx){
       onAreaChange((geo) => {
         geo.area.type = "PLACE";
         geo.area.stateFips = stateFips;
+        geo.area.countyFips = "";
+        geo.area.district = "";
         geo.area.placeFips = placeFips;
       }, "Area place selected from suggestions.");
       if (els.intelAreaType) els.intelAreaType.value = "PLACE";
       if (els.intelAreaStateFips) els.intelAreaStateFips.value = stateFips;
+      if (els.intelAreaCountyFips) els.intelAreaCountyFips.value = "";
       if (els.intelAreaPlaceFips) els.intelAreaPlaceFips.value = placeFips;
       queueAreaAssistLookupFetch();
       queueCensusGeoRowsFetch();
@@ -745,7 +766,7 @@ export function wireIntelChecksEvents(ctx){
         const currentType = normalizeAreaTypeInput(geo.area.type) || "COUNTY";
         geo.area.type = currentType;
         geo.area.stateFips = stateFips;
-        if (currentType === "COUNTY" || !cleanDigits(geo.area.countyFips, 5)){
+        if (currentType === "COUNTY"){
           geo.area.countyFips = countyFips;
         }
       }, "Area narrowed from GEO suggestion.");
@@ -755,7 +776,7 @@ export function wireIntelChecksEvents(ctx){
       if (els.intelAreaStateFips) els.intelAreaStateFips.value = stateFips;
       if (els.intelAreaCountyFips){
         const currentType = normalizeAreaTypeInput(els.intelAreaType?.value);
-        if (currentType === "COUNTY" || !cleanDigits(els.intelAreaCountyFips.value, 5)){
+        if (currentType === "COUNTY"){
           els.intelAreaCountyFips.value = countyFips;
         }
       }
@@ -1460,6 +1481,9 @@ export function wireIntelChecksEvents(ctx){
     const stateFips = cleanDigits(area?.stateFips, 2);
     const resolution = normalizeAreaResolutionInput(area?.resolution);
     const areaType = normalizeAreaTypeInput(area?.type);
+    const areaCounty3 = areaType === "COUNTY" ? normalizeCounty3(stateFips, area?.countyFips) : "";
+    const areaPlaceFips = areaType === "PLACE" ? cleanDigits(area?.placeFips, 5) : "";
+    const areaDistrictCode = normalizeDistrictCodeForAreaType(areaType, area?.district || "");
     if (!stateFips){
       return null;
     }
@@ -1473,9 +1497,6 @@ export function wireIntelChecksEvents(ctx){
       const lookupPlaceFips = cleanDigits(lookup.geoPlaceFips, 5);
       const lookupAreaType = normalizeAreaTypeInput(lookup.geoAreaType || "");
       const lookupDistrictCode = normalizeDistrictCodeForAreaType(areaType, lookup.geoDistrictCode || "");
-      const areaCounty3 = normalizeCounty3(stateFips, area?.countyFips);
-      const areaPlaceFips = cleanDigits(area?.placeFips, 5);
-      const areaDistrictCode = normalizeDistrictCodeForAreaType(areaType, area?.district || "");
       const countyScopeOk = !areaCounty3 || !lookupCounty3 || areaCounty3 === lookupCounty3;
       const placeScopeOk = !areaPlaceFips || (lookupPlaceFips && areaPlaceFips === lookupPlaceFips);
       const districtScopeOk = (areaType === "CD" || areaType === "SLDU" || areaType === "SLDL")
@@ -1500,9 +1521,10 @@ export function wireIntelChecksEvents(ctx){
     if (geoAllowSet && geoAllowSet.size){
       return !!normalized && geoAllowSet.has(normalized);
     }
+    const areaType = normalizeAreaTypeInput(area?.type);
     const state = cleanDigits(area?.stateFips, 2);
     if (state && geoid.slice(0, 2) !== state) return false;
-    const county3 = normalizeCounty3(state, area?.countyFips);
+    const county3 = areaType === "COUNTY" ? normalizeCounty3(state, area?.countyFips) : "";
     if (county3 && geoid.slice(2, 5) !== county3) return false;
     return true;
   };

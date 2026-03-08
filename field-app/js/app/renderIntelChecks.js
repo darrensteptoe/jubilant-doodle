@@ -1085,9 +1085,10 @@ function geoRowMatchesArea(row, area, geoAllowSet = null){
     if (!normalized) return false;
     return geoAllowSet.has(normalized);
   }
+  const areaType = String(area?.type || "").trim().toUpperCase();
   const state = normalizedStateForLinks(area?.stateFips);
   if (state && geoid.slice(0, 2) !== state) return false;
-  const county = normalizedCountyForLinks(state, area?.countyFips);
+  const county = areaType === "COUNTY" ? normalizedCountyForLinks(state, area?.countyFips) : "";
   if (county && geoid.slice(2, 5) !== county) return false;
   return true;
 }
@@ -1098,6 +1099,8 @@ function buildAreaGeoFilterSet(state, area){
   const resolution = String(area?.resolution || "tract").toLowerCase() === "block_group" ? "block_group" : "tract";
   const areaType = String(area?.type || "").trim().toUpperCase();
   const areaDistrictCode = normalizedDistrictCodeForAreaType(areaType, area?.district);
+  const areaCounty3 = areaType === "COUNTY" ? normalizedCountyForLinks(stateFips, area?.countyFips) : "";
+  const areaPlaceFips = areaType === "PLACE" ? digitsOnly(area?.placeFips).slice(0, 5) : "";
   const out = new Set();
   const lookup = state?.geoPack?.district?.areaAssistLookup && typeof state.geoPack.district.areaAssistLookup === "object"
     ? state.geoPack.district.areaAssistLookup
@@ -1109,8 +1112,6 @@ function buildAreaGeoFilterSet(state, area){
     const lookupPlaceFips = digitsOnly(lookup.geoPlaceFips).slice(0, 5);
     const lookupAreaType = String(lookup.geoAreaType || "").trim().toUpperCase();
     const lookupDistrictCode = normalizedDistrictCodeForAreaType(areaType, lookup.geoDistrictCode);
-    const areaCounty3 = normalizedCountyForLinks(stateFips, area?.countyFips);
-    const areaPlaceFips = digitsOnly(area?.placeFips).slice(0, 5);
     const countyScopeOk = !areaCounty3 || !lookupCounty3 || areaCounty3 === lookupCounty3;
     const placeScopeOk = !areaPlaceFips || (lookupPlaceFips && areaPlaceFips === lookupPlaceFips);
     const districtScopeOk = (areaType === "CD" || areaType === "SLDU" || areaType === "SLDL")
@@ -1224,8 +1225,9 @@ function extractPlaceCodeForAssist(row){
 function buildAreaAssistModel(censusGeoRows, area){
   const rows = Array.isArray(censusGeoRows) ? censusGeoRows : [];
   const stateRequested = normalizedStateForLinks(area?.stateFips);
-  const countyFilter = normalizedCountyForLinks(stateRequested, area?.countyFips);
-  const placeFilter = digitsOnly(area?.placeFips).slice(0, 5);
+  const areaType = String(area?.type || "").trim().toUpperCase();
+  const countyFilter = areaType === "COUNTY" ? normalizedCountyForLinks(stateRequested, area?.countyFips) : "";
+  const placeFilter = areaType === "PLACE" ? digitsOnly(area?.placeFips).slice(0, 5) : "";
   const resolution = String(area?.resolution || "tract").toLowerCase();
   const stateCounts = new Map();
   const countyCounts = new Map();
@@ -1269,11 +1271,28 @@ function buildAreaAssistModel(censusGeoRows, area){
   return { states, counties, places, geos, state: stateRequested, countyFilter, placeFilter, resolution };
 }
 
+function fallbackAreaAssistGeos(censusGeoRows, area){
+  const rows = Array.isArray(censusGeoRows) ? censusGeoRows : [];
+  const state = normalizedStateForLinks(area?.stateFips);
+  const resolution = String(area?.resolution || "tract").toLowerCase() === "block_group" ? "block_group" : "tract";
+  const out = new Set();
+  for (const row of rows){
+    const geoid = digitsOnly(row?.geoid);
+    if (geoid.length < 11) continue;
+    const id = normalizedGeoIdForAssist(geoid, resolution);
+    if (!id) continue;
+    if (state && id.slice(0, 2) !== state) continue;
+    out.add(id);
+  }
+  return Array.from(out).sort((a, b) => a.localeCompare(b));
+}
+
 function mergeAreaAssistLookup(model, lookup, area){
   const base = model && typeof model === "object" ? model : { states: [], counties: [], places: [], geos: [], state: "", countyFilter: "", placeFilter: "", resolution: "tract" };
   const state = normalizedStateForLinks(area?.stateFips);
-  const countyFilter = normalizedCountyForLinks(state, area?.countyFips);
-  const placeFilter = digitsOnly(area?.placeFips).slice(0, 5);
+  const areaType = String(area?.type || "").trim().toUpperCase();
+  const countyFilter = areaType === "COUNTY" ? normalizedCountyForLinks(state, area?.countyFips) : "";
+  const placeFilter = areaType === "PLACE" ? digitsOnly(area?.placeFips).slice(0, 5) : "";
   const resolution = String(area?.resolution || "tract").toLowerCase() === "block_group" ? "block_group" : "tract";
   const ref = lookup && typeof lookup === "object" ? lookup : null;
   if (!ref || !state){
@@ -1328,7 +1347,6 @@ function mergeAreaAssistLookup(model, lookup, area){
   const lookupPlaceFips = digitsOnly(ref?.geoPlaceFips).slice(0, 5);
   const lookupAreaType = String(ref?.geoAreaType || "").trim().toUpperCase();
   const lookupDistrictCode = normalizedDistrictCodeForAreaType(area?.type, ref?.geoDistrictCode);
-  const areaType = String(area?.type || "").trim().toUpperCase();
   const areaDistrictCode = normalizedDistrictCodeForAreaType(areaType, area?.district);
   const lookupResolution = String(ref?.geoResolution || "").toLowerCase() === "block_group" ? "block_group" : "tract";
   const canMergeGeos =
@@ -2278,10 +2296,13 @@ export function renderIntelChecksModule({
     : null;
   const hasFetch = typeof globalThis.fetch === "function";
   const assistModel = mergeAreaAssistLookup(buildAreaAssistModel(censusGeoRows, areaForDisplay), assistLookup, areaForDisplay);
+  const assistGeoOptions = assistModel.geos.length
+    ? assistModel.geos
+    : fallbackAreaAssistGeos(censusGeoRows, areaForDisplay);
   fillAreaAssistStateSelect(els.intelAreaAssistState, assistModel.states, areaForDisplay);
   fillAreaAssistCountySelect(els.intelAreaAssistCounty, assistModel.counties, areaForDisplay);
   fillAreaAssistPlaceSelect(els.intelAreaAssistPlace, assistModel.places, areaForDisplay);
-  fillAreaAssistGeoSelect(els.intelAreaAssistGeo, assistModel.geos, districtStateForAssist?.selectedGeoId, areaForDisplay);
+  fillAreaAssistGeoSelect(els.intelAreaAssistGeo, assistGeoOptions, districtStateForAssist?.selectedGeoId, areaForDisplay);
   if (els.intelAreaAssistStatus){
     const bits = [];
     if (assistModel.state) bits.push(`State ${assistModel.state}`);
