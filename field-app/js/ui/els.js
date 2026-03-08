@@ -500,6 +500,7 @@ export const els = {
   intelAutoPullStatus: document.getElementById("intelAutoPullStatus"),
   intelAutoPullPlanSummary: document.getElementById("intelAutoPullPlanSummary"),
   intelAutoPullReceiptSummary: document.getElementById("intelAutoPullReceiptSummary"),
+  intelAutoPullReceiptAlignment: document.getElementById("intelAutoPullReceiptAlignment"),
   intelCensusManifestJson: document.getElementById("intelCensusManifestJson"),
   btnIntelImportCensusManifest: document.getElementById("btnIntelImportCensusManifest"),
   intelElectionManifestJson: document.getElementById("intelElectionManifestJson"),

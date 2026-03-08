@@ -113,6 +113,56 @@ function normalizeAutoPullUrls(urls){
 
 /**
  * @param {{
+ *   mode?: unknown,
+ *   selected?: unknown,
+ *   urls?: unknown
+ * }} args
+ * @returns {{
+ *   mode: "manual" | "pinned_verified" | "latest_verified",
+ *   selected: {
+ *     boundarySetId: string | null,
+ *     crosswalkVersionId: string | null,
+ *     censusDatasetId: string | null,
+ *     electionDatasetId: string | null
+ *   },
+ *   urls: {
+ *     censusManifestUrl: string | null,
+ *     electionManifestUrl: string | null,
+ *     crosswalkRowsUrl: string | null,
+ *     precinctResultsUrl: string | null,
+ *     censusGeoRowsUrl: string | null
+ *   }
+ * }}
+ */
+function normalizePlanIdentity(args = {}){
+  const selectedIn = (args.selected && typeof args.selected === "object") ? /** @type {Record<string, any>} */ (args.selected) : {};
+  return {
+    mode: normalizeMode(args.mode),
+    selected: {
+      boundarySetId: str(selectedIn.boundarySetId) || null,
+      crosswalkVersionId: str(selectedIn.crosswalkVersionId) || null,
+      censusDatasetId: str(selectedIn.censusDatasetId) || null,
+      electionDatasetId: str(selectedIn.electionDatasetId) || null,
+    },
+    urls: normalizeAutoPullUrls(args.urls),
+  };
+}
+
+/**
+ * @param {{
+ *   mode?: unknown,
+ *   selected?: unknown,
+ *   urls?: unknown
+ * }} args
+ * @returns {string}
+ */
+export function buildAutoPullPlanFingerprint(args = {}){
+  const normalized = normalizePlanIdentity(args);
+  return JSON.stringify(normalized);
+}
+
+/**
+ * @param {{
  *   dataRefs?: Record<string, any> | null,
  *   dataCatalog?: Record<string, any> | null,
  *   scenario?: Record<string, any> | null,
@@ -240,29 +290,18 @@ export function buildAutoPullUrlPlan(args = {}){
  *   warningCount: number,
  *   warnings: string[],
  *   status: "ok" | "warn" | "bad",
+ *   planFingerprint: string,
  *   fingerprint: string
  * }}
  */
 export function createAutoPullReceipt(args = {}){
-  const mode = normalizeMode(args.mode);
-  const selectedIn = (args && typeof args.selected === "object" && args.selected) || {};
-  const urlsIn = (args && typeof args.urls === "object" && args.urls) || {};
+  const identity = normalizePlanIdentity(args);
+  const mode = identity.mode;
+  const selected = identity.selected;
+  const urls = identity.urls;
   const resultsIn = Array.isArray(args.results) ? args.results : [];
   const ts = str(args.nowIso) || new Date().toISOString();
-
-  const selected = {
-    boundarySetId: str(selectedIn.boundarySetId) || null,
-    crosswalkVersionId: str(selectedIn.crosswalkVersionId) || null,
-    censusDatasetId: str(selectedIn.censusDatasetId) || null,
-    electionDatasetId: str(selectedIn.electionDatasetId) || null,
-  };
-  const urls = {
-    censusManifestUrl: httpUrlOrNull(urlsIn.censusManifestUrl),
-    electionManifestUrl: httpUrlOrNull(urlsIn.electionManifestUrl),
-    crosswalkRowsUrl: httpUrlOrNull(urlsIn.crosswalkRowsUrl),
-    precinctResultsUrl: httpUrlOrNull(urlsIn.precinctResultsUrl),
-    censusGeoRowsUrl: httpUrlOrNull(urlsIn.censusGeoRowsUrl),
-  };
+  const planFingerprint = buildAutoPullPlanFingerprint(identity);
 
   const warnings = [];
   let requestedCount = 0;
@@ -285,9 +324,7 @@ export function createAutoPullReceipt(args = {}){
     ? "ok"
     : (successCount > 0 ? "warn" : "bad");
   const fingerprint = JSON.stringify({
-    mode,
-    selected,
-    urls,
+    planFingerprint,
     requestedCount,
     successCount,
     warningCount,
@@ -303,6 +340,7 @@ export function createAutoPullReceipt(args = {}){
     warningCount,
     warnings,
     status,
+    planFingerprint,
     fingerprint,
   };
 }
@@ -323,6 +361,57 @@ export function summarizeAutoPullReceipt(receipt){
   const okText = Number.isFinite(success) ? String(Math.max(0, Math.trunc(success))) : "0";
   const warnText = Number.isFinite(warningCount) ? String(Math.max(0, Math.trunc(warningCount))) : "0";
   return `Auto-pull run ${ts} · mode ${mode} · imported ${okText}/${reqText} · warnings ${warnText}`;
+}
+
+/**
+ * @param {{
+ *   receipt?: unknown,
+ *   mode?: unknown,
+ *   selected?: unknown,
+ *   urls?: unknown
+ * }} args
+ * @returns {{
+ *   aligned: boolean,
+ *   status: "ok" | "warn" | "muted",
+ *   summaryLine: string
+ * }}
+ */
+export function assessAutoPullReceiptAlignment(args = {}){
+  const receipt = (args.receipt && typeof args.receipt === "object")
+    ? /** @type {Record<string, any>} */ (args.receipt)
+    : null;
+  if (!receipt){
+    return {
+      aligned: false,
+      status: "muted",
+      summaryLine: "Auto-pull receipt alignment: no receipt yet.",
+    };
+  }
+  const expected = buildAutoPullPlanFingerprint({
+    mode: args.mode,
+    selected: args.selected,
+    urls: args.urls,
+  });
+  const actual = str(receipt.planFingerprint);
+  if (!actual){
+    return {
+      aligned: false,
+      status: "warn",
+      summaryLine: "Auto-pull receipt alignment: stale/legacy receipt (missing plan fingerprint).",
+    };
+  }
+  if (actual !== expected){
+    return {
+      aligned: false,
+      status: "warn",
+      summaryLine: "Auto-pull receipt alignment: stale (current refs/URLs differ from last run).",
+    };
+  }
+  return {
+    aligned: true,
+    status: "ok",
+    summaryLine: "Auto-pull receipt alignment: current (matches refs/URLs).",
+  };
 }
 
 /**

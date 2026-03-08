@@ -54,10 +54,12 @@ import {
 } from "./core/districtIntelBuilder.js";
 import {
   buildAutoPullUrlPlan,
+  buildAutoPullPlanFingerprint,
   createAutoPullReceipt,
   summarizeAutoPullReceipt,
   evaluateAutoPullPlan,
   resolveAutoPullUrls,
+  assessAutoPullReceiptAlignment,
 } from "./core/districtAutoPull.js";
 import {
   MODEL_VERSION,
@@ -171,10 +173,12 @@ export const engine = {
     applyDistrictIntelRateOverrides,
     applyDistrictIntelCapacityOverrides,
     buildAutoPullUrlPlan,
+    buildAutoPullPlanFingerprint,
     createAutoPullReceipt,
     summarizeAutoPullReceipt,
     evaluateAutoPullPlan,
     resolveAutoPullUrls,
+    assessAutoPullReceiptAlignment,
     makeScenarioExport,
     deterministicStringify,
     validateScenarioExport,

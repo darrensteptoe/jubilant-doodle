@@ -109,10 +109,12 @@ import {
 } from "./districtIntelBuilder.js";
 import {
   buildAutoPullUrlPlan,
+  buildAutoPullPlanFingerprint,
   createAutoPullReceipt,
   summarizeAutoPullReceipt,
   evaluateAutoPullPlan,
   resolveAutoPullUrls,
+  assessAutoPullReceiptAlignment,
 } from "./districtAutoPull.js";
 import { registerPhase115ATests } from "./selfTestSuites/phase115A.js";
 import { registerReleaseHardeningTests } from "./selfTestSuites/releaseHardening.js";
@@ -1479,10 +1481,12 @@ export function runSelfTests(engine){
     scoreElectionDatasetCompatibility,
     rankElectionDatasetsForScenario,
     buildAutoPullUrlPlan,
+    buildAutoPullPlanFingerprint,
     createAutoPullReceipt,
     summarizeAutoPullReceipt,
     evaluateAutoPullPlan,
     resolveAutoPullUrls,
+    assessAutoPullReceiptAlignment,
     normalizeAreaSelection,
     buildAreaResolverCacheKey,
     deriveAreaResolverContext,

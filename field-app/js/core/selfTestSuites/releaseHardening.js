@@ -51,10 +51,12 @@
  *   scoreElectionDatasetCompatibility: (...args: any[]) => any,
  *   rankElectionDatasetsForScenario: (...args: any[]) => any,
  *   buildAutoPullUrlPlan: (...args: any[]) => any,
+ *   buildAutoPullPlanFingerprint: (...args: any[]) => any,
  *   createAutoPullReceipt: (...args: any[]) => any,
  *   summarizeAutoPullReceipt: (...args: any[]) => any,
  *   evaluateAutoPullPlan: (...args: any[]) => any,
  *   resolveAutoPullUrls: (...args: any[]) => any,
+ *   assessAutoPullReceiptAlignment: (...args: any[]) => any,
  *   normalizeAreaSelection: (...args: any[]) => any,
  *   buildAreaResolverCacheKey: (...args: any[]) => any,
  *   deriveAreaResolverContext: (...args: any[]) => any,
@@ -112,10 +114,12 @@ export function registerReleaseHardeningTests(ctx){
     scoreElectionDatasetCompatibility,
     rankElectionDatasetsForScenario,
     buildAutoPullUrlPlan,
+    buildAutoPullPlanFingerprint,
     createAutoPullReceipt,
     summarizeAutoPullReceipt,
     evaluateAutoPullPlan,
     resolveAutoPullUrls,
+    assessAutoPullReceiptAlignment,
     normalizeAreaSelection,
     buildAreaResolverCacheKey,
     deriveAreaResolverContext,
@@ -1169,6 +1173,120 @@ export function registerReleaseHardeningTests(ctx){
     assert(merged.sourceByKey.electionManifestUrl === "override", "Expected override source marker");
     assert(merged.sourceByKey.precinctResultsUrl === "plan", "Expected plan source marker after fallback");
     assert(merged.availableCount === 5 && merged.missingCount === 0, "Expected all URL slots available after merge");
+    return true;
+  });
+
+  test("Phase 21: auto-pull fingerprint is deterministic for normalized identity", () => {
+    const fpA = buildAutoPullPlanFingerprint({
+      mode: "LATEST_VERIFIED",
+      selected: {
+        boundarySetId: " sldl_2024 ",
+        crosswalkVersionId: " cw_2024 ",
+        censusDatasetId: " acs5_2024 ",
+        electionDatasetId: " mit_2024 ",
+      },
+      urls: {
+        electionManifestUrl: "https://example.test/election.json",
+        censusManifestUrl: "https://example.test/census.json",
+        precinctResultsUrl: "https://example.test/precinct-rows.json",
+        censusGeoRowsUrl: "https://example.test/census-rows.json",
+        crosswalkRowsUrl: "https://example.test/crosswalk-rows.json",
+      },
+    });
+    const fpB = buildAutoPullPlanFingerprint({
+      mode: "latest_verified",
+      selected: {
+        electionDatasetId: "mit_2024",
+        censusDatasetId: "acs5_2024",
+        crosswalkVersionId: "cw_2024",
+        boundarySetId: "sldl_2024",
+      },
+      urls: {
+        crosswalkRowsUrl: "https://example.test/crosswalk-rows.json",
+        censusGeoRowsUrl: "https://example.test/census-rows.json",
+        precinctResultsUrl: "https://example.test/precinct-rows.json",
+        censusManifestUrl: "https://example.test/census.json",
+        electionManifestUrl: "https://example.test/election.json",
+      },
+    });
+    assert(fpA === fpB, "Expected deterministic fingerprint for normalized equivalent identity");
+    return true;
+  });
+
+  test("Phase 21: auto-pull receipt alignment reports current and stale deterministically", () => {
+    const receipt = createAutoPullReceipt({
+      nowIso: "2026-03-07T12:00:00.000Z",
+      mode: "latest_verified",
+      selected: {
+        boundarySetId: "sldl_2024",
+        crosswalkVersionId: "cw_2024",
+        censusDatasetId: "acs5_2024",
+        electionDatasetId: "mit_2024",
+      },
+      urls: {
+        censusManifestUrl: "https://example.test/census-manifest.json",
+        electionManifestUrl: "https://example.test/election-manifest.json",
+        crosswalkRowsUrl: "https://example.test/crosswalk-rows.json",
+        precinctResultsUrl: "https://example.test/precinct-rows.json",
+        censusGeoRowsUrl: "https://example.test/census-rows.json",
+      },
+      results: [{ source: "Census manifest", url: "https://example.test/census-manifest.json", ok: true, message: "ok" }],
+    });
+    const current = assessAutoPullReceiptAlignment({
+      receipt,
+      mode: "latest_verified",
+      selected: receipt.selected,
+      urls: receipt.urls,
+    });
+    assert(current.aligned === true, "Expected aligned receipt for matching refs/URLs");
+    assert(current.status === "ok", "Expected ok status for aligned receipt");
+    const stale = assessAutoPullReceiptAlignment({
+      receipt,
+      mode: "latest_verified",
+      selected: receipt.selected,
+      urls: {
+        ...receipt.urls,
+        electionManifestUrl: "https://example.test/election-manifest-v2.json",
+      },
+    });
+    assert(stale.aligned === false, "Expected stale alignment when URLs drift");
+    assert(stale.status === "warn", "Expected warn status when refs/URLs drift");
+    return true;
+  });
+
+  test("Phase 21: auto-pull receipt alignment warns on legacy receipts without plan fingerprint", () => {
+    const legacyReceipt = {
+      ts: "2026-03-07T12:00:00.000Z",
+      mode: "latest_verified",
+      selected: {
+        boundarySetId: "sldl_2024",
+        crosswalkVersionId: "cw_2024",
+        censusDatasetId: "acs5_2024",
+        electionDatasetId: "mit_2024",
+      },
+      urls: {
+        censusManifestUrl: "https://example.test/census-manifest.json",
+        electionManifestUrl: "https://example.test/election-manifest.json",
+        crosswalkRowsUrl: "https://example.test/crosswalk-rows.json",
+        precinctResultsUrl: "https://example.test/precinct-rows.json",
+        censusGeoRowsUrl: "https://example.test/census-rows.json",
+      },
+      requestedCount: 1,
+      successCount: 1,
+      warningCount: 0,
+      warnings: [],
+      status: "ok",
+      fingerprint: "legacy",
+    };
+    const aligned = assessAutoPullReceiptAlignment({
+      receipt: legacyReceipt,
+      mode: "latest_verified",
+      selected: legacyReceipt.selected,
+      urls: legacyReceipt.urls,
+    });
+    assert(aligned.aligned === false, "Expected non-aligned status for legacy receipt");
+    assert(aligned.status === "warn", "Expected warn status for legacy receipt");
+    assert(String(aligned.summaryLine).includes("missing plan fingerprint"), "Expected missing-fingerprint warning summary");
     return true;
   });
 
