@@ -99,6 +99,28 @@ function pickRowsById(bucket, keys, id){
 }
 
 /**
+ * @param {Record<string, any>} bucket
+ * @param {string[]} keys
+ * @returns {{ rows: unknown[], meta: Record<string, any> | null, id: string }}
+ */
+function pickFirstRows(bucket, keys){
+  for (const key of keys){
+    const node = bucket[key];
+    if (!isObject(node)) continue;
+    const ids = Object.keys(node).sort((a, b) => a.localeCompare(b));
+    for (const id of ids){
+      const row = node[id];
+      if (Array.isArray(row)) return { rows: row, meta: null, id: str(id) };
+      if (isObject(row) && Array.isArray(row.rows)){
+        const meta = isObject(row.meta) ? row.meta : null;
+        return { rows: row.rows, meta, id: str(id) };
+      }
+    }
+  }
+  return { rows: [], meta: null, id: "" };
+}
+
+/**
  * @param {unknown} state
  * @returns {{
  *   area: ReturnType<typeof normalizeAreaSelection>,
@@ -250,26 +272,47 @@ export function resolveDistrictEvidenceInputs(state){
   const district = isObject(s.geoPack) && isObject(s.geoPack.district) ? s.geoPack.district : {};
   const inline = isObject(district.evidenceInputs) ? district.evidenceInputs : {};
   const inlineMeta = isObject(district.evidenceInputMeta) ? district.evidenceInputMeta : {};
+  const directCensusGeoRows = arr(district.censusRowsV2);
+  const directCensusMeta = isObject(district.censusRowsV2Meta) ? district.censusRowsV2Meta : null;
   const inlinePrecinctResults = arr(inline.precinctResults);
   const inlineCrosswalkRows = arr(inline.crosswalkRows);
-  const inlineCensusGeoRows = arr(inline.censusGeoRows);
+  const inlineCensusGeoRowsRaw = arr(inline.censusGeoRows);
+  const inlineCensusGeoRows = inlineCensusGeoRowsRaw.length ? inlineCensusGeoRowsRaw : directCensusGeoRows;
   const inlinePrecinctMeta = isObject(inlineMeta.precinctResults) ? inlineMeta.precinctResults : null;
   const inlineCrosswalkMeta = isObject(inlineMeta.crosswalkRows) ? inlineMeta.crosswalkRows : null;
-  const inlineCensusMeta = isObject(inlineMeta.censusGeoRows) ? inlineMeta.censusGeoRows : null;
+  const inlineCensusMeta = isObject(inlineMeta.censusGeoRows) ? inlineMeta.censusGeoRows : directCensusMeta;
 
   const store = isObject(district.evidenceStore)
     ? district.evidenceStore
     : (isObject(district.datasetRows) ? district.datasetRows : {});
   const hasStore = isObject(store) && Object.keys(store).length > 0;
-  const pickedPrecinct = hasStore
+  let pickedPrecinct = hasStore
     ? pickRowsById(store, ["electionByDatasetId", "election", "electionDatasets"], electionDatasetId)
     : { rows: [], meta: null };
-  const pickedCrosswalk = hasStore
+  let pickedCrosswalk = hasStore
     ? pickRowsById(store, ["crosswalkByVersionId", "crosswalk", "crosswalks"], crosswalkVersionId)
     : { rows: [], meta: null };
-  const pickedCensus = hasStore
+  let pickedCensus = hasStore
     ? pickRowsById(store, ["censusByDatasetId", "census", "censusDatasets"], censusDatasetId)
     : { rows: [], meta: null };
+  if (hasStore && (!electionDatasetId || !pickedPrecinct.rows.length)){
+    const fallback = pickFirstRows(store, ["electionByDatasetId", "election", "electionDatasets"]);
+    if (fallback.rows.length){
+      pickedPrecinct = { rows: fallback.rows, meta: fallback.meta };
+    }
+  }
+  if (hasStore && (!crosswalkVersionId || !pickedCrosswalk.rows.length)){
+    const fallback = pickFirstRows(store, ["crosswalkByVersionId", "crosswalk", "crosswalks"]);
+    if (fallback.rows.length){
+      pickedCrosswalk = { rows: fallback.rows, meta: fallback.meta };
+    }
+  }
+  if (hasStore && (!censusDatasetId || !pickedCensus.rows.length)){
+    const fallback = pickFirstRows(store, ["censusByDatasetId", "census", "censusDatasets"]);
+    if (fallback.rows.length){
+      pickedCensus = { rows: fallback.rows, meta: fallback.meta };
+    }
+  }
 
   const useInlinePrecinct = inlinePrecinctResults.length > 0;
   const useInlineCrosswalk = inlineCrosswalkRows.length > 0;
