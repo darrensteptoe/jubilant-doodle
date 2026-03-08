@@ -1543,16 +1543,30 @@ export function renderIntelChecksModule({
   if (els.intelAutoPullPlanSummary){
     const buildAutoPullUrlPlan = engine?.snapshot?.buildAutoPullUrlPlan;
     const evaluateAutoPullPlan = engine?.snapshot?.evaluateAutoPullPlan;
+    const resolveAutoPullUrls = engine?.snapshot?.resolveAutoPullUrls;
     const resolveDataRefsByPolicy = engine?.snapshot?.resolveDataRefsByPolicy;
+    const manualUrls = {
+      censusManifestUrl: String(els.intelCensusManifestUrl?.value || "").trim() || null,
+      electionManifestUrl: String(els.intelElectionManifestUrl?.value || "").trim() || null,
+      crosswalkRowsUrl: String(els.intelCrosswalkRowsUrl?.value || "").trim() || null,
+      precinctResultsUrl: String(els.intelPrecinctResultsUrl?.value || "").trim() || null,
+      censusGeoRowsUrl: String(els.intelCensusGeoRowsUrl?.value || "").trim() || null,
+    };
+    const manualAny = Object.values(manualUrls).some(Boolean);
     els.intelAutoPullPlanSummary.classList.remove("ok", "warn", "bad", "muted");
-    if (typeof buildAutoPullUrlPlan === "function" && typeof evaluateAutoPullPlan === "function"){
+    if (
+      typeof buildAutoPullUrlPlan === "function" &&
+      typeof evaluateAutoPullPlan === "function" &&
+      typeof resolveAutoPullUrls === "function"
+    ){
       const plan = buildAutoPullUrlPlan({
         dataRefs: state?.dataRefs,
         dataCatalog: state?.dataCatalog,
         scenario: state,
         resolveDataRefsByPolicy,
       });
-      const evalPlan = evaluateAutoPullPlan(plan);
+      const merged = resolveAutoPullUrls({ plan, overrides: manualUrls });
+      const evalPlan = evaluateAutoPullPlan({ mode: plan?.mode, urls: merged?.urls });
       els.intelAutoPullPlanSummary.textContent = String(evalPlan?.summaryLine || "Auto-pull plan: unavailable.");
       if (evalPlan?.status === "ok"){
         els.intelAutoPullPlanSummary.classList.add("ok");
@@ -1565,7 +1579,7 @@ export function renderIntelChecksModule({
       }
       if (els.btnIntelAutoPullAll){
         const hasFetch = typeof globalThis.fetch === "function";
-        els.btnIntelAutoPullAll.disabled = !hasFetch || !evalPlan?.ready;
+        els.btnIntelAutoPullAll.disabled = !hasFetch || (!evalPlan?.ready && !manualAny);
       }
     } else {
       els.intelAutoPullPlanSummary.classList.add("muted");

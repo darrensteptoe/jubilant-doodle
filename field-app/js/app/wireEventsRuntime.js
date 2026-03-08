@@ -1028,6 +1028,7 @@ export function wireIntelChecksEvents(ctx){
       }
       const buildAutoPullUrlPlan = engine?.snapshot?.buildAutoPullUrlPlan;
       const evaluateAutoPullPlan = engine?.snapshot?.evaluateAutoPullPlan;
+      const resolveAutoPullUrls = engine?.snapshot?.resolveAutoPullUrls;
       const resolveDataRefsByPolicy = engine?.snapshot?.resolveDataRefsByPolicy;
       const planBefore = typeof buildAutoPullUrlPlan === "function"
         ? buildAutoPullUrlPlan({
@@ -1037,37 +1038,74 @@ export function wireIntelChecksEvents(ctx){
           resolveDataRefsByPolicy,
         })
         : null;
-      if (planBefore && typeof evaluateAutoPullPlan === "function"){
-        const evalPlan = evaluateAutoPullPlan(planBefore);
+      const manualUrls = {
+        censusManifestUrl: normalizeRemoteUrl(els.intelCensusManifestUrl?.value),
+        electionManifestUrl: normalizeRemoteUrl(els.intelElectionManifestUrl?.value),
+        crosswalkRowsUrl: normalizeRemoteUrl(els.intelCrosswalkRowsUrl?.value),
+        precinctResultsUrl: normalizeRemoteUrl(els.intelPrecinctResultsUrl?.value),
+        censusGeoRowsUrl: normalizeRemoteUrl(els.intelCensusGeoRowsUrl?.value),
+      };
+      const mergedUrls = (
+        typeof resolveAutoPullUrls === "function" &&
+        planBefore &&
+        typeof planBefore === "object"
+      )
+        ? resolveAutoPullUrls({ plan: planBefore, overrides: manualUrls })
+        : {
+          mode: String(s?.dataRefs?.mode || "pinned_verified"),
+          urls: {
+            censusManifestUrl: manualUrls.censusManifestUrl || null,
+            electionManifestUrl: manualUrls.electionManifestUrl || null,
+            crosswalkRowsUrl: manualUrls.crosswalkRowsUrl || null,
+            precinctResultsUrl: manualUrls.precinctResultsUrl || null,
+            censusGeoRowsUrl: manualUrls.censusGeoRowsUrl || null,
+          },
+          availableCount: Object.values(manualUrls).filter(Boolean).length,
+          missingCount: 5 - Object.values(manualUrls).filter(Boolean).length,
+          sourceByKey: {},
+        };
+      if (typeof evaluateAutoPullPlan === "function"){
+        const evalPlan = evaluateAutoPullPlan({ mode: mergedUrls?.mode, urls: mergedUrls?.urls });
         if (!evalPlan?.ready){
           setAutoPullStatus(String(evalPlan?.summaryLine || "Auto-pull blocked: no URL slots available."), "warn");
           return;
         }
       }
+      const fillBlank = (el, value) => {
+        if (!el) return;
+        if (normalizeRemoteUrl(el.value)) return;
+        if (!value) return;
+        el.value = String(value);
+      };
+      fillBlank(els.intelCensusManifestUrl, mergedUrls?.urls?.censusManifestUrl);
+      fillBlank(els.intelElectionManifestUrl, mergedUrls?.urls?.electionManifestUrl);
+      fillBlank(els.intelCrosswalkRowsUrl, mergedUrls?.urls?.crosswalkRowsUrl);
+      fillBlank(els.intelPrecinctResultsUrl, mergedUrls?.urls?.precinctResultsUrl);
+      fillBlank(els.intelCensusGeoRowsUrl, mergedUrls?.urls?.censusGeoRowsUrl);
       const specs = [
         {
           label: "Census manifest",
-          rawUrl: els.intelCensusManifestUrl?.value,
+          rawUrl: mergedUrls?.urls?.censusManifestUrl,
           importFn: importCensusManifestPayload,
         },
         {
           label: "Election manifest",
-          rawUrl: els.intelElectionManifestUrl?.value,
+          rawUrl: mergedUrls?.urls?.electionManifestUrl,
           importFn: importElectionManifestPayload,
         },
         {
           label: "Crosswalk rows",
-          rawUrl: els.intelCrosswalkRowsUrl?.value,
+          rawUrl: mergedUrls?.urls?.crosswalkRowsUrl,
           importFn: importCrosswalkRowsPayload,
         },
         {
           label: "Precinct results",
-          rawUrl: els.intelPrecinctResultsUrl?.value,
+          rawUrl: mergedUrls?.urls?.precinctResultsUrl,
           importFn: importPrecinctResultsPayload,
         },
         {
           label: "Census GEO rows",
-          rawUrl: els.intelCensusGeoRowsUrl?.value,
+          rawUrl: mergedUrls?.urls?.censusGeoRowsUrl,
           importFn: importCensusGeoRowsPayload,
         },
       ];
@@ -1135,20 +1173,14 @@ export function wireIntelChecksEvents(ctx){
       }
       writeAutoPullReceipt(s, {
         nowIso: new Date().toISOString(),
-        mode: planBefore?.mode || s?.dataRefs?.mode || "pinned_verified",
+        mode: mergedUrls?.mode || planBefore?.mode || s?.dataRefs?.mode || "pinned_verified",
         selected: planBefore?.selected || {
           boundarySetId: s?.dataRefs?.boundarySetId || null,
           crosswalkVersionId: s?.dataRefs?.crosswalkVersionId || null,
           censusDatasetId: s?.dataRefs?.censusDatasetId || null,
           electionDatasetId: s?.dataRefs?.electionDatasetId || null,
         },
-        urls: {
-          censusManifestUrl: normalizeRemoteUrl(els.intelCensusManifestUrl?.value),
-          electionManifestUrl: normalizeRemoteUrl(els.intelElectionManifestUrl?.value),
-          crosswalkRowsUrl: normalizeRemoteUrl(els.intelCrosswalkRowsUrl?.value),
-          precinctResultsUrl: normalizeRemoteUrl(els.intelPrecinctResultsUrl?.value),
-          censusGeoRowsUrl: normalizeRemoteUrl(els.intelCensusGeoRowsUrl?.value),
-        },
+        urls: mergedUrls?.urls || manualUrls,
         results: receiptResults,
       });
       if (appliedCount > 0 || receiptResults.length > 0) commitUIUpdate();
