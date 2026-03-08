@@ -2233,7 +2233,13 @@
 <div class="muted" id="intelDistrictIntelStatus" style="margin-top:8px;">District-intel assumptions are OFF.</div>
 <div class="note" id="intelDistrictIntelSummary" style="margin-top:6px;">No district-intel pack generated yet.</div>
 <div class="muted" id="intelDistrictIntelAlignment" style="margin-top:6px;">Alignment: no district-intel pack generated.</div>
-<div class="grid3" style="margin-top:10px;">
+<div class="grid4" style="margin-top:10px;">
+<div class="field">
+<label class="label" for="intelAreaStateFips">State</label>
+<select class="select" id="intelAreaStateFips">
+<option value="">Select state</option>
+</select>
+</div>
 <div class="field">
 <label class="label" for="intelAreaType">Area type</label>
 <select class="select" id="intelAreaType">
@@ -2258,31 +2264,19 @@
 <input class="input" id="intelAreaLabel" placeholder="e.g., NJ-12" type="text"/>
 </div>
 </div>
-<div class="grid3" style="margin-top:10px;">
+<div class="grid2" style="margin-top:10px;">
 <div class="field">
-<label class="label" for="intelAreaQuickCode">Quick code</label>
-<input class="input" id="intelAreaQuickCode" placeholder="e.g., IL-17 or IL-SLDU-13" type="text"/>
-</div>
-<div class="card-actions" style="align-items:end;">
-<button class="btn btn-sm" id="btnIntelAreaApplyQuick" type="button">Apply quick code</button>
-</div>
-<div class="field">
-<label class="label" for="intelAreaCodeSelect">Available codes</label>
+<label class="label" for="intelAreaCodeSelect">Area options in selected state</label>
 <select class="select" id="intelAreaCodeSelect">
 <option value="">None loaded</option>
 </select>
 </div>
+<div class="card-actions" style="align-items:end;">
+<button class="btn btn-sm" id="btnIntelAreaLoadCodes" type="button">Refresh area options</button>
 </div>
-<div class="card-actions" style="margin-top:8px;">
-<button class="btn btn-sm" id="btnIntelAreaLoadCodes" type="button">Load codes from Census API</button>
 </div>
+<div class="muted" style="margin-top:6px;">Manual fallback: Census code lists are available via <a href="https://api.census.gov/data.html" rel="noopener" target="_blank">Census API datasets</a>.</div>
 <div class="grid4" style="margin-top:10px;">
-<div class="field">
-<label class="label" for="intelAreaStateFips">State FIPS</label>
-<select class="select" id="intelAreaStateFips">
-<option value="">Select state</option>
-</select>
-</div>
 <div class="field">
 <label class="label" for="intelAreaDistrict">District code</label>
 <input class="input" id="intelAreaDistrict" placeholder="e.g., 012" type="text"/>
