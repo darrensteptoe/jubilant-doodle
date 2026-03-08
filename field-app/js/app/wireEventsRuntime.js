@@ -442,7 +442,7 @@ export function wireIntelChecksEvents(ctx){
     }, "Area label updated."));
   }
   if (els.intelAreaStateFips){
-    els.intelAreaStateFips.addEventListener("input", () => {
+    els.intelAreaStateFips.addEventListener("change", () => {
       onAreaChange((geo) => {
         const nextState = cleanDigits(els.intelAreaStateFips.value, 2);
         const prevState = cleanDigits(geo.area.stateFips, 2);
@@ -553,30 +553,45 @@ export function wireIntelChecksEvents(ctx){
         setAreaAssistLookupStatus("Fetch API is unavailable in this browser.", "warn");
         return;
       }
+      const countyRaw = cleanDigits(geo?.area?.countyFips || els.intelAreaCountyFips?.value, 5);
+      const county3 = countyRaw.length >= 5 ? countyRaw.slice(2, 5) : cleanDigits(countyRaw, 3);
+      const resolution = String(geo?.resolution || "tract").toLowerCase() === "block_group" ? "block_group" : "tract";
       const countyUrl = `https://api.census.gov/data/2020/dec/pl?get=NAME&for=county:*&in=state:${stateFips}`;
       const placeUrl = `https://api.census.gov/data/2020/dec/pl?get=NAME&for=place:*&in=state:${stateFips}`;
+      const geoUrl = county3
+        ? (resolution === "block_group"
+            ? `https://api.census.gov/data/2020/dec/pl?get=NAME&for=block%20group:*&in=state:${stateFips}%20county:${county3}`
+            : `https://api.census.gov/data/2020/dec/pl?get=NAME&for=tract:*&in=state:${stateFips}%20county:${county3}`)
+        : "";
       const btn = els.btnIntelAreaAssistFetchCodes;
       btn.disabled = true;
-      setAreaAssistLookupStatus(`Fetching county/place lookup for state ${stateFips}...`, "muted");
+      setAreaAssistLookupStatus(`Fetching lookup for state ${stateFips}${county3 ? `, county ${county3}` : ""}...`, "muted");
       try{
-        const [countyPayload, placePayload] = await Promise.all([
+        const requests = [
           fetchJsonFromUrl(countyUrl, "County lookup"),
           fetchJsonFromUrl(placeUrl, "Place lookup"),
-        ]);
+        ];
+        if (geoUrl) requests.push(fetchJsonFromUrl(geoUrl, "GEO lookup"));
+        const [countyPayload, placePayload, geoPayload] = await Promise.all(requests);
         const counties = normalizeCensusCountyLookup(countyPayload, stateFips);
         const places = normalizeCensusPlaceLookup(placePayload, stateFips);
+        const geos = geoUrl ? normalizeCensusGeoLookup(geoPayload, stateFips, resolution) : [];
         district.areaAssistLookup = {
           stateFips,
           counties,
           places,
+          geos,
+          geoResolution: resolution,
+          geoCounty3: county3 || "",
           source: "census_api_2020_dec_pl",
           countyUrl,
           placeUrl,
+          geoUrl: geoUrl || null,
           fetchedAt: new Date().toISOString(),
         };
         setAreaAssistLookupStatus(
-          `Lookup loaded for state ${stateFips}: ${counties.length} counties, ${places.length} places.`,
-          (counties.length || places.length) ? "ok" : "warn"
+          `Lookup loaded for state ${stateFips}: ${counties.length} counties, ${places.length} places${geoUrl ? `, ${geos.length} ${resolution === "block_group" ? "block groups" : "tracts"} in county ${county3}` : ""}.`,
+          (counties.length || places.length || geos.length) ? "ok" : "warn"
         );
         commitUIUpdate();
       } catch (err){
@@ -1157,6 +1172,39 @@ export function wireIntelChecksEvents(ctx){
       }
     }
     return Array.from(out.values()).sort((a, b) => a.placeFips.localeCompare(b.placeFips));
+  };
+
+  const normalizeCensusGeoLookup = (payload, stateFips, resolution) => {
+    const rows = Array.isArray(payload) ? payload : [];
+    const out = new Map();
+    const mode = String(resolution || "").toLowerCase() === "block_group" ? "block_group" : "tract";
+    const start = Array.isArray(rows[0]) ? 1 : 0;
+    for (let i = start; i < rows.length; i += 1){
+      const row = rows[i];
+      let st = "";
+      let county3 = "";
+      let tract6 = "";
+      let bg1 = "";
+      if (Array.isArray(row)){
+        st = cleanDigits(row[1], 2);
+        county3 = cleanDigits(row[2], 3);
+        tract6 = cleanDigits(row[3], 6);
+        bg1 = cleanDigits(row[4], 1);
+      } else if (row && typeof row === "object"){
+        st = cleanDigits(row.state ?? row.STATE ?? stateFips, 2);
+        county3 = cleanDigits(row.county ?? row.COUNTY, 3);
+        tract6 = cleanDigits(row.tract ?? row.TRACT, 6);
+        bg1 = cleanDigits(row.block_group ?? row["block group"] ?? row.BLOCK_GROUP ?? row.BLOCKGROUP ?? row.BLKGRP, 1);
+      }
+      if (!st) st = stateFips;
+      if (st !== stateFips || county3.length !== 3 || tract6.length !== 6) continue;
+      const geoid = mode === "block_group"
+        ? `${st}${county3}${tract6}${bg1}`
+        : `${st}${county3}${tract6}`;
+      if ((mode === "block_group" && geoid.length !== 12) || (mode === "tract" && geoid.length !== 11)) continue;
+      out.set(geoid, geoid);
+    }
+    return Array.from(out.keys()).sort((a, b) => a.localeCompare(b));
   };
 
   const setUrlInputValue = (el, value) => {

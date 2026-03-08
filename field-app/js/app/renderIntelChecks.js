@@ -97,6 +97,8 @@ const STATE_LABEL_BY_FIPS = {
   "72": "PR",
 };
 
+const STATE_FIPS_OPTIONS = Object.keys(STATE_LABEL_BY_FIPS).sort((a, b) => a.localeCompare(b));
+
 function fillCorrelationSelect(selectEl, rows, selectedId){
   if (!selectEl) return;
   const keep = String(selectedId || "");
@@ -1099,6 +1101,9 @@ function buildAreaAssistModel(censusGeoRows, area){
 function mergeAreaAssistLookup(model, lookup, area){
   const base = model && typeof model === "object" ? model : { states: [], counties: [], places: [], geos: [], state: "", countyFilter: "", placeFilter: "", resolution: "tract" };
   const state = normalizedStateForLinks(area?.stateFips);
+  const countyFilter = normalizedCountyForLinks(state, area?.countyFips);
+  const placeFilter = digitsOnly(area?.placeFips).slice(0, 5);
+  const resolution = String(area?.resolution || "tract").toLowerCase() === "block_group" ? "block_group" : "tract";
   const ref = lookup && typeof lookup === "object" ? lookup : null;
   if (!ref || !state){
     return { ...base, lookupLoaded: false, lookupFetchedAt: "" };
@@ -1110,10 +1115,13 @@ function mergeAreaAssistLookup(model, lookup, area){
   const counties = Array.isArray(base.counties) ? base.counties.map((x) => ({ ...x })) : [];
   const places = Array.isArray(base.places) ? base.places.map((x) => ({ ...x })) : [];
   const states = Array.isArray(base.states) ? base.states.map((x) => ({ ...x })) : [];
+  const geos = Array.isArray(base.geos) ? base.geos.slice() : [];
   const countyById = new Map(counties.map((x) => [String(x?.county5 || ""), x]));
   const placeById = new Map(places.map((x) => [`${String(x?.stateFips || "")}${String(x?.placeFips || "")}`, x]));
+  const geoSet = new Set(geos.map((x) => String(x || "")).filter(Boolean));
   const inCounties = Array.isArray(ref?.counties) ? ref.counties : [];
   const inPlaces = Array.isArray(ref?.places) ? ref.places : [];
+  const inGeos = Array.isArray(ref?.geos) ? ref.geos : [];
   for (const row of inCounties){
     const county5Raw = digitsOnly(row?.county5 || `${state}${digitsOnly(row?.county3)}`);
     if (county5Raw.length !== 5 || county5Raw.slice(0, 2) !== state) continue;
@@ -1145,18 +1153,38 @@ function mergeAreaAssistLookup(model, lookup, area){
   if (!states.some((x) => String(x?.stateFips || "") === state)){
     states.push({ stateFips: state, count: 0 });
   }
+  const lookupCounty3 = digitsOnly(ref?.geoCounty3).slice(0, 3);
+  const lookupResolution = String(ref?.geoResolution || "").toLowerCase() === "block_group" ? "block_group" : "tract";
+  const canMergeGeos =
+    !placeFilter &&
+    inGeos.length > 0 &&
+    lookupResolution === resolution &&
+    (!countyFilter || !lookupCounty3 || countyFilter === lookupCounty3);
+  if (canMergeGeos){
+    for (const raw of inGeos){
+      const geoid = digitsOnly(raw);
+      const id = resolution === "block_group" ? geoid.slice(0, 12) : geoid.slice(0, 11);
+      if (!id || geoSet.has(id)) continue;
+      if (id.slice(0, 2) !== state) continue;
+      if (countyFilter && id.slice(2, 5) !== countyFilter) continue;
+      geoSet.add(id);
+      geos.push(id);
+    }
+    geos.sort((a, b) => a.localeCompare(b));
+  }
   counties.sort((a, b) => String(a?.county5 || "").localeCompare(String(b?.county5 || "")));
   places.sort((a, b) => {
     const p = String(a?.placeFips || "").localeCompare(String(b?.placeFips || ""));
     return p !== 0 ? p : String(a?.stateFips || "").localeCompare(String(b?.stateFips || ""));
   });
   states.sort((a, b) => String(a?.stateFips || "").localeCompare(String(b?.stateFips || "")));
-  const loaded = inCounties.length > 0 || inPlaces.length > 0;
+  const loaded = inCounties.length > 0 || inPlaces.length > 0 || inGeos.length > 0;
   return {
     ...base,
     states,
     counties,
     places,
+    geos,
     lookupLoaded: loaded,
     lookupFetchedAt: String(ref?.fetchedAt || ""),
   };
@@ -1184,6 +1212,21 @@ function fillAreaAssistStateSelect(selectEl, states, area){
     selectEl.appendChild(makeOption(stateFips, label));
   }
   selectEl.value = hasSelected ? state : "";
+}
+
+function fillAreaStateFipsSelect(selectEl, selected){
+  if (!selectEl) return;
+  if (selectEl.options.length <= 1){
+    selectEl.innerHTML = "";
+    selectEl.appendChild(makeOption("", "Select state"));
+    for (const fips of STATE_FIPS_OPTIONS){
+      const abbr = STATE_LABEL_BY_FIPS[fips] || fips;
+      selectEl.appendChild(makeOption(fips, `${abbr} (${fips})`));
+    }
+  }
+  const keep = normalizedStateForLinks(selected);
+  selectEl.value = keep;
+  if (selectEl.value !== keep) selectEl.value = "";
 }
 
 function fillAreaAssistCountySelect(selectEl, counties, area){
@@ -1904,6 +1947,15 @@ export function renderIntelChecksModule({
       boundaryVintage: String(geoPack?.source?.vintage || "").trim() || null,
       resolution: String(geoPack?.resolution || "tract").trim().toLowerCase() === "block_group" ? "block_group" : "tract",
     };
+  const inputArea = {
+    type: String(areaRaw?.type || normalizedArea?.type || "").toUpperCase(),
+    resolution: String(geoPack?.resolution || normalizedArea?.resolution || "tract").trim().toLowerCase() === "block_group" ? "block_group" : "tract",
+    label: String(areaRaw?.label || ""),
+    stateFips: digitsOnly(areaRaw?.stateFips).slice(0, 2),
+    district: String(areaRaw?.district || "").trim(),
+    countyFips: digitsOnly(areaRaw?.countyFips).slice(0, 5),
+    placeFips: digitsOnly(areaRaw?.placeFips).slice(0, 5),
+  };
   if (els.intelAreaType){
     const t = String(normalizedArea?.type || "").toUpperCase();
     els.intelAreaType.value = t;
@@ -1914,11 +1966,11 @@ export function renderIntelChecksModule({
     els.intelAreaResolution.value = r;
     if (els.intelAreaResolution.value !== r) els.intelAreaResolution.value = "tract";
   }
-  if (els.intelAreaLabel) els.intelAreaLabel.value = String(normalizedArea?.label || "");
-  if (els.intelAreaStateFips) els.intelAreaStateFips.value = String(normalizedArea?.stateFips || "");
-  if (els.intelAreaDistrict) els.intelAreaDistrict.value = String(normalizedArea?.district || "");
-  if (els.intelAreaCountyFips) els.intelAreaCountyFips.value = String(normalizedArea?.countyFips || "");
-  if (els.intelAreaPlaceFips) els.intelAreaPlaceFips.value = String(normalizedArea?.placeFips || "");
+  if (els.intelAreaLabel) els.intelAreaLabel.value = String(inputArea?.label || "");
+  fillAreaStateFipsSelect(els.intelAreaStateFips, inputArea?.stateFips);
+  if (els.intelAreaDistrict) els.intelAreaDistrict.value = String(inputArea?.district || "");
+  if (els.intelAreaCountyFips) els.intelAreaCountyFips.value = String(inputArea?.countyFips || "");
+  if (els.intelAreaPlaceFips) els.intelAreaPlaceFips.value = String(inputArea?.placeFips || "");
 
   let areaCtx = null;
   if (typeof deriveAreaResolverContext === "function"){
@@ -2000,13 +2052,16 @@ export function renderIntelChecksModule({
   if (els.intelAreaAssistLookupStatus){
     const stateFips = normalizedStateForLinks(areaForDisplay?.stateFips);
     if (!stateFips){
-      els.intelAreaAssistLookupStatus.textContent = "Set State FIPS to fetch county/place lookup lists.";
+      els.intelAreaAssistLookupStatus.textContent = "Set State FIPS to fetch county/place/GEO lookup lists.";
     } else if (!assistLookup || !assistModel.lookupLoaded){
-      els.intelAreaAssistLookupStatus.textContent = `No fetched county/place lookup loaded for state ${stateFips}.`;
+      els.intelAreaAssistLookupStatus.textContent = `No fetched county/place/GEO lookup loaded for state ${stateFips}.`;
     } else {
       const stamp = String(assistModel.lookupFetchedAt || "").trim();
       const when = stamp ? stamp.replace("T", " ").replace("Z", "").slice(0, 19) : "unknown time";
-      els.intelAreaAssistLookupStatus.textContent = `Fetched lookup loaded for state ${stateFips} · counties ${fmtInt(assistModel.counties.length)} · places ${fmtInt(assistModel.places.length)} · ${when}.`;
+      const inGeos = Array.isArray(assistLookup?.geos) ? assistLookup.geos.length : 0;
+      const geoMode = String(assistLookup?.geoResolution || "").toLowerCase() === "block_group" ? "block groups" : "tracts";
+      const geoBits = inGeos > 0 ? ` · ${fmtInt(inGeos)} ${geoMode}` : "";
+      els.intelAreaAssistLookupStatus.textContent = `Fetched lookup loaded for state ${stateFips} · counties ${fmtInt(assistModel.counties.length)} · places ${fmtInt(assistModel.places.length)}${geoBits} · ${when}.`;
     }
   }
 
