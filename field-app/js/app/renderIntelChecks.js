@@ -404,11 +404,11 @@ function pointRadius(value, minValue, maxValue){
   const lo = Number(minValue);
   const hi = Number(maxValue);
   if (!Number.isFinite(v) || !Number.isFinite(lo) || !Number.isFinite(hi) || hi <= lo){
-    return 4;
+    return 5;
   }
   const norm = (Math.sqrt(Math.max(0, v)) - Math.sqrt(Math.max(0, lo)))
     / (Math.sqrt(Math.max(0, hi)) - Math.sqrt(Math.max(0, lo)));
-  return 3 + clampNum(norm, 0, 1) * 8;
+  return 4 + clampNum(norm, 0, 1) * 8;
 }
 
 function renderDistrictEvidenceMap(svgEl, statusEl, mapLayer, opts = {}){
@@ -491,9 +491,11 @@ function renderDistrictEvidenceMap(svgEl, statusEl, mapLayer, opts = {}){
     const lat = Number(row?.lat);
     const lon = Number(row?.lon);
     if (!Number.isFinite(lat) || !Number.isFinite(lon)) continue;
-    const x = pad + ((lon - minLon) / lonSpan) * plotW;
-    const y = pad + ((maxLat - lat) / latSpan) * plotH;
     const r = pointRadius(row?.totalVotes, voteMin, voteMax);
+    const rawX = pad + ((lon - minLon) / lonSpan) * plotW;
+    const rawY = pad + ((maxLat - lat) / latSpan) * plotH;
+    const x = clampNum(rawX, pad + r, width - pad - r);
+    const y = clampNum(rawY, pad + r, height - pad - r);
     const marginPct = Number(row?.marginPct);
     const competitiveness = Number.isFinite(marginPct) ? 1 - clampNum(marginPct / 35, 0, 1) : 0.5;
     const opacity = 0.35 + (competitiveness * 0.5);
@@ -532,7 +534,9 @@ function renderDistrictEvidenceMap(svgEl, statusEl, mapLayer, opts = {}){
 
   if (statusEl){
     statusEl.classList.add("ok");
-    statusEl.textContent = `Read-only centroid map: ${fmtInt(points.length)} GEO points plotted.`;
+    statusEl.textContent = points.length < 10
+      ? `Read-only centroid map: ${fmtInt(points.length)} GEO points plotted (sparse layer).`
+      : `Read-only centroid map: ${fmtInt(points.length)} GEO points plotted.`;
   }
 }
 
