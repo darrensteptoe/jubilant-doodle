@@ -1540,6 +1540,10 @@ export function renderIntelChecksModule({
   if (els.btnIntelAutoFillUrls){
     els.btnIntelAutoFillUrls.disabled = typeof engine?.snapshot?.buildAutoPullUrlPlan !== "function";
   }
+  /** @type {any} */
+  let autoPullPlanForRender = null;
+  /** @type {any} */
+  let autoPullMergedForRender = null;
   if (els.intelAutoPullPlanSummary){
     const buildAutoPullUrlPlan = engine?.snapshot?.buildAutoPullUrlPlan;
     const evaluateAutoPullPlan = engine?.snapshot?.evaluateAutoPullPlan;
@@ -1565,7 +1569,9 @@ export function renderIntelChecksModule({
         scenario: state,
         resolveDataRefsByPolicy,
       });
+      autoPullPlanForRender = plan;
       const merged = resolveAutoPullUrls({ plan, overrides: manualUrls });
+      autoPullMergedForRender = merged;
       const evalPlan = evaluateAutoPullPlan({ mode: plan?.mode, urls: merged?.urls });
       els.intelAutoPullPlanSummary.textContent = String(evalPlan?.summaryLine || "Auto-pull plan: unavailable.");
       if (evalPlan?.status === "ok"){
@@ -1605,6 +1611,37 @@ export function renderIntelChecksModule({
     } else {
       els.intelAutoPullReceiptSummary.classList.add("muted");
       els.intelAutoPullReceiptSummary.textContent = "Auto-pull run: unavailable (missing summary helper).";
+    }
+  }
+  if (els.intelAutoPullReceiptAlignment){
+    const assessAutoPullReceiptAlignment = engine?.snapshot?.assessAutoPullReceiptAlignment;
+    const receipt = state?.geoPack?.district?.autoPullReceipt;
+    els.intelAutoPullReceiptAlignment.classList.remove("ok", "warn", "bad", "muted");
+    if (
+      typeof assessAutoPullReceiptAlignment === "function" &&
+      autoPullPlanForRender &&
+      autoPullMergedForRender
+    ){
+      const alignment = assessAutoPullReceiptAlignment({
+        receipt,
+        mode: autoPullMergedForRender?.mode || autoPullPlanForRender?.mode,
+        selected: autoPullPlanForRender?.selected,
+        urls: autoPullMergedForRender?.urls,
+      });
+      els.intelAutoPullReceiptAlignment.textContent = String(alignment?.summaryLine || "Auto-pull receipt alignment: unavailable.");
+      const status = String(alignment?.status || "muted");
+      if (status === "ok"){
+        els.intelAutoPullReceiptAlignment.classList.add("ok");
+      } else if (status === "warn"){
+        els.intelAutoPullReceiptAlignment.classList.add("warn");
+      } else if (status === "bad"){
+        els.intelAutoPullReceiptAlignment.classList.add("bad");
+      } else {
+        els.intelAutoPullReceiptAlignment.classList.add("muted");
+      }
+    } else {
+      els.intelAutoPullReceiptAlignment.classList.add("muted");
+      els.intelAutoPullReceiptAlignment.textContent = "Auto-pull receipt alignment: unavailable (missing helpers).";
     }
   }
   if (els.intelDistrictEvidenceSelectedElection){
