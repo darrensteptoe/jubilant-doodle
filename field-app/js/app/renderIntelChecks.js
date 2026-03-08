@@ -1846,11 +1846,17 @@ export function renderIntelChecksModule({
 
   if (els.intelUseDistrictToggle){
     els.intelUseDistrictToggle.checked = useDistrictIntel;
-    els.intelUseDistrictToggle.disabled = !packReady || intelAlignmentWarnings.length > 0;
+    els.intelUseDistrictToggle.disabled =
+      !packReady ||
+      intelAlignmentWarnings.length > 0 ||
+      typeof validateDistrictDataContract !== "function";
   }
   if (els.intelDistrictIntelStatus){
     els.intelDistrictIntelStatus.classList.remove("ok", "warn", "bad", "muted");
-    if (useDistrictIntel && packReady && intelAlignmentWarnings.length){
+    if (useDistrictIntel && packReady && typeof validateDistrictDataContract !== "function"){
+      els.intelDistrictIntelStatus.classList.add("warn");
+      els.intelDistrictIntelStatus.textContent = "District-intel assumptions are ON, but provenance validation is unavailable.";
+    } else if (useDistrictIntel && packReady && intelAlignmentWarnings.length){
       els.intelDistrictIntelStatus.classList.add("warn");
       els.intelDistrictIntelStatus.textContent = `District-intel assumptions are ON, but alignment warnings exist: ${intelAlignmentWarnings[0]}`;
     } else if (useDistrictIntel && packReady){
@@ -1859,6 +1865,9 @@ export function renderIntelChecksModule({
     } else if (useDistrictIntel && !packReady){
       els.intelDistrictIntelStatus.classList.add("muted");
       els.intelDistrictIntelStatus.textContent = "District-intel requires a ready pack. Generate assumptions to enable it.";
+    } else if (!useDistrictIntel && packReady && typeof validateDistrictDataContract !== "function"){
+      els.intelDistrictIntelStatus.classList.add("warn");
+      els.intelDistrictIntelStatus.textContent = "District-intel pack ready, but toggle remains disabled because provenance validator is unavailable.";
     } else if (!useDistrictIntel && packReady){
       els.intelDistrictIntelStatus.classList.add("muted");
       els.intelDistrictIntelStatus.textContent = `District-intel pack ready (generated ${generatedAt}) but toggle is OFF.`;
@@ -1957,13 +1966,24 @@ export function renderIntelChecksModule({
     ? evidenceInputs.censusGeoRows
     : (Array.isArray(districtBlob.censusGeoRows) ? districtBlob.censusGeoRows : (Array.isArray(districtBlob.censusRows) ? districtBlob.censusRows : []));
   const resolverMode = String(resolvedInputs?.sourceMode || "");
+  const hasResolverAlignmentGate = !!(
+    resolvedInputs &&
+    typeof resolvedInputs === "object" &&
+    resolvedInputs.alignment &&
+    typeof resolvedInputs.alignment === "object"
+  );
   const resolverNotes = Array.isArray(resolvedInputs?.notes)
     ? resolvedInputs.notes.map((x) => String(x || "").trim()).filter(Boolean)
     : [];
   const resolverAlignmentMismatches = Array.isArray(resolvedInputs?.alignment?.mismatches)
     ? resolvedInputs.alignment.mismatches.map((x) => String(x || "").trim()).filter(Boolean)
     : [];
-  const resolverAllAligned = resolverAlignmentMismatches.length === 0;
+  if (!hasResolverAlignmentGate){
+    const msg = "District evidence alignment gate unavailable in engine snapshot.";
+    resolverNotes.unshift(msg);
+    resolverAlignmentMismatches.unshift(msg);
+  }
+  const resolverAllAligned = hasResolverAlignmentGate && resolverAlignmentMismatches.length === 0;
   const inputSummary = (typeof summarizeDistrictEvidenceInputs === "function")
     ? (() => {
       try{
@@ -2106,6 +2126,7 @@ export function renderIntelChecksModule({
   const assistLookup = (districtStateForAssist && typeof districtStateForAssist.areaAssistLookup === "object")
     ? districtStateForAssist.areaAssistLookup
     : null;
+  const hasFetch = typeof globalThis.fetch === "function";
   const assistModel = mergeAreaAssistLookup(buildAreaAssistModel(censusGeoRows, areaForDisplay), assistLookup, areaForDisplay);
   fillAreaAssistStateSelect(els.intelAreaAssistState, assistModel.states, areaForDisplay);
   fillAreaAssistCountySelect(els.intelAreaAssistCounty, assistModel.counties, areaForDisplay);
@@ -2124,7 +2145,9 @@ export function renderIntelChecksModule({
   }
   if (els.intelAreaAssistLookupStatus){
     const stateFips = normalizedStateForLinks(areaForDisplay?.stateFips);
-    if (!stateFips){
+    if (!hasFetch){
+      els.intelAreaAssistLookupStatus.textContent = "Fetch API unavailable in this browser. Load census GEO rows or enter county/place codes manually.";
+    } else if (!stateFips){
       els.intelAreaAssistLookupStatus.textContent = "Set State FIPS to fetch county/place/GEO lookup lists.";
     } else if (!assistLookup || !assistModel.lookupLoaded){
       els.intelAreaAssistLookupStatus.textContent = `No fetched county/place/GEO lookup loaded for state ${stateFips}.`;
@@ -2137,14 +2160,21 @@ export function renderIntelChecksModule({
       els.intelAreaAssistLookupStatus.textContent = `Fetched lookup loaded for state ${stateFips} · counties ${fmtInt(assistModel.counties.length)} · places ${fmtInt(assistModel.places.length)}${geoBits} · ${when}.`;
     }
   }
+  if (els.btnIntelAreaAssistFetchCodes){
+    const stateFips = normalizedStateForLinks(areaForDisplay?.stateFips);
+    els.btnIntelAreaAssistFetchCodes.disabled = !hasFetch || stateFips.length !== 2;
+  }
 
   const flowAreaReady = areaReadyForFlow(areaForDisplay);
+  const gatedPrecinctResults = hasResolverAlignmentGate ? precinctResults : [];
+  const gatedCrosswalkRows = hasResolverAlignmentGate ? crosswalkRows : [];
+  const gatedCensusGeoRows = hasResolverAlignmentGate ? censusGeoRows : [];
   const scopedCrosswalkRows = flowAreaReady
-    ? crosswalkRows.filter((row) => geoRowMatchesArea({ geoid: row?.geoid }, areaForDisplay))
-    : crosswalkRows;
+    ? gatedCrosswalkRows.filter((row) => geoRowMatchesArea({ geoid: row?.geoid }, areaForDisplay))
+    : gatedCrosswalkRows;
   const scopedCensusGeoRows = flowAreaReady
-    ? censusGeoRows.filter((row) => geoRowMatchesArea(row, areaForDisplay))
-    : censusGeoRows;
+    ? gatedCensusGeoRows.filter((row) => geoRowMatchesArea(row, areaForDisplay))
+    : gatedCensusGeoRows;
   const areaCrosswalkMismatch = flowAreaReady && crosswalkRows.length > 0 && scopedCrosswalkRows.length === 0;
   const areaCensusMismatch = flowAreaReady && censusGeoRows.length > 0 && scopedCensusGeoRows.length === 0;
   const areaDataMismatch = areaCrosswalkMismatch || areaCensusMismatch;
@@ -2159,10 +2189,11 @@ export function renderIntelChecksModule({
     persuasionSignal: {},
   };
   const flowDataReady =
-    precinctResults.length > 0 &&
+    gatedPrecinctResults.length > 0 &&
     scopedCrosswalkRows.length > 0 &&
     scopedCensusGeoRows.length > 0 &&
-    resolverAllAligned;
+    resolverAllAligned &&
+    !areaDataMismatch;
   const setFlowStepStatus = (compiledReady) => {
     if (!els.intelFlowStepStatus) return;
     els.intelFlowStepStatus.classList.remove("ok", "warn", "bad", "muted");
@@ -2539,7 +2570,6 @@ export function renderIntelChecksModule({
   }
   if (els.btnIntelImportCrosswalkRows) els.btnIntelImportCrosswalkRows.disabled = !flowAreaReady;
   if (els.btnIntelImportPrecinctResults) els.btnIntelImportPrecinctResults.disabled = !flowAreaReady;
-  const hasFetch = typeof globalThis.fetch === "function";
   if (els.btnIntelFetchCensusGeoRows) els.btnIntelFetchCensusGeoRows.disabled = !flowAreaReady || !hasFetch;
   if (els.btnIntelImportCensusGeoRows) els.btnIntelImportCensusGeoRows.disabled = !flowAreaReady;
   if (els.intelPrecinctResultsFormat) els.intelPrecinctResultsFormat.disabled = !flowAreaReady;
@@ -2776,7 +2806,7 @@ export function renderIntelChecksModule({
   try{
     evidence = compileDistrictEvidence({
       geoUnits: state?.geoPack?.units || [],
-      precinctResults,
+      precinctResults: gatedPrecinctResults,
       crosswalkRows: scopedCrosswalkRows,
       censusGeoRows: scopedCensusGeoRows,
     });
@@ -2844,7 +2874,7 @@ export function renderIntelChecksModule({
   if (typeof summarizePrecinctEvidenceLayers === "function"){
     try{
       precinctLayers = summarizePrecinctEvidenceLayers({
-        precinctResults,
+        precinctResults: gatedPrecinctResults,
         crosswalkRows: scopedCrosswalkRows,
         geoUnits: state?.geoPack?.units || [],
         maxRows: 30,
@@ -2887,19 +2917,6 @@ export function renderIntelChecksModule({
         bounds: null,
         points: [],
       };
-    }
-    if (
-      (!geoMapLayer || !geoMapLayer.available || !Array.isArray(geoMapLayer.points) || geoMapLayer.points.length === 0)
-      && censusOnlyRows.length > 0
-    ){
-      try{
-        const fallbackLayer = buildGeoEvidenceMapLayer({ geoRows: censusOnlyRows, maxPoints: 500 });
-        if (fallbackLayer?.available && Array.isArray(fallbackLayer.points) && fallbackLayer.points.length > 0){
-          geoMapLayer = fallbackLayer;
-          renderSourceKind = "census_fallback";
-          usingCensusAreaFallback = true;
-        }
-      } catch {}
     }
   }
   const coveragePct = Number(evidence?.reconciliation?.coveragePct);
@@ -2982,7 +2999,7 @@ export function renderIntelChecksModule({
       if (areaCrosswalkMismatch) reasons.push("crosswalk rows");
       if (areaCensusMismatch) reasons.push("census rows");
       els.intelDistrictEvidenceStatus.textContent = `Evidence area mismatch: selected area has no matching ${reasons.join(" + ")}. Reload/import data for this area.`;
-    } else if (!precinctResults.length || !scopedCrosswalkRows.length || !scopedCensusGeoRows.length){
+    } else if (!gatedPrecinctResults.length || !scopedCrosswalkRows.length || !scopedCensusGeoRows.length){
       els.intelDistrictEvidenceStatus.classList.add("warn");
       const note = mergedNotes[0] || "Load precinct results, crosswalk rows, and census geo rows into geoPack.district.evidenceInputs or geoPack.district.evidenceStore to activate full district evidence.";
       els.intelDistrictEvidenceStatus.textContent = note;

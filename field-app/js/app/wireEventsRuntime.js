@@ -704,13 +704,19 @@ export function wireIntelChecksEvents(ctx){
         return;
       }
 
+      if (typeof resolveDistrictEvidenceInputs !== "function"){
+        setDistrictIntelStatus("District-intel generation blocked: alignment gate helper unavailable in engine snapshot.", "warn");
+        return;
+      }
       let resolvedInputs = null;
-      if (typeof resolveDistrictEvidenceInputs === "function"){
-        try{
-          resolvedInputs = resolveDistrictEvidenceInputs(s);
-        } catch {
-          resolvedInputs = null;
-        }
+      try{
+        resolvedInputs = resolveDistrictEvidenceInputs(s);
+      } catch {
+        resolvedInputs = null;
+      }
+      if (!resolvedInputs || typeof resolvedInputs !== "object"){
+        setDistrictIntelStatus("District-intel generation blocked: unable to resolve active aligned evidence inputs.", "warn");
+        return;
       }
       const alignmentMismatches = Array.isArray(resolvedInputs?.alignment?.mismatches)
         ? resolvedInputs.alignment.mismatches.map((x) => String(x || "").trim()).filter(Boolean)
@@ -719,45 +725,27 @@ export function wireIntelChecksEvents(ctx){
         setDistrictIntelStatus(`Cannot generate assumptions until area/data alignment is fixed: ${alignmentMismatches[0]}`, "warn");
         return;
       }
-      const districtBlob = (s?.geoPack && typeof s.geoPack === "object" && s.geoPack.district && typeof s.geoPack.district === "object")
-        ? s.geoPack.district
-        : {};
-      const evidenceInputs = (districtBlob.evidenceInputs && typeof districtBlob.evidenceInputs === "object")
-        ? districtBlob.evidenceInputs
-        : {};
       const precinctResults = Array.isArray(resolvedInputs?.precinctResults)
         ? resolvedInputs.precinctResults
-        : Array.isArray(evidenceInputs.precinctResults)
-        ? evidenceInputs.precinctResults
-        : (Array.isArray(districtBlob.precinctResults) ? districtBlob.precinctResults : []);
+        : [];
       const crosswalkRows = Array.isArray(resolvedInputs?.crosswalkRows)
         ? resolvedInputs.crosswalkRows
-        : Array.isArray(evidenceInputs.crosswalkRows)
-        ? evidenceInputs.crosswalkRows
-        : (Array.isArray(districtBlob.crosswalkRows) ? districtBlob.crosswalkRows : (Array.isArray(districtBlob.precinctToGeo) ? districtBlob.precinctToGeo : []));
+        : [];
       const censusGeoRows = Array.isArray(resolvedInputs?.censusGeoRows)
         ? resolvedInputs.censusGeoRows
-        : Array.isArray(evidenceInputs.censusGeoRows)
-        ? evidenceInputs.censusGeoRows
-        : (Array.isArray(districtBlob.censusGeoRows) ? districtBlob.censusGeoRows : (Array.isArray(districtBlob.censusRows) ? districtBlob.censusRows : []));
-      const area = (s?.geoPack && typeof s.geoPack === "object" && s.geoPack.area && typeof s.geoPack.area === "object")
-        ? s.geoPack.area
-        : {};
-      const areaState = cleanDigits(area?.stateFips, 2);
-      const scopedCrosswalkRows = areaState
-        ? crosswalkRows.filter((row) => rowMatchesArea({ geoid: row?.geoid }, area))
-        : crosswalkRows;
-      const scopedCensusGeoRows = areaState
-        ? censusGeoRows.filter((row) => rowMatchesArea(row, area))
-        : censusGeoRows;
+        : [];
+      if (!precinctResults.length || !crosswalkRows.length || !censusGeoRows.length){
+        setDistrictIntelStatus("Cannot generate assumptions until election, crosswalk, and census rows are all present for the active area.", "warn");
+        return;
+      }
 
       let evidence = null;
       try{
         evidence = compileDistrictEvidence({
           geoUnits: s?.geoPack?.units || [],
           precinctResults,
-          crosswalkRows: scopedCrosswalkRows,
-          censusGeoRows: scopedCensusGeoRows,
+          crosswalkRows,
+          censusGeoRows,
         });
       } catch (err){
         setDistrictIntelStatus(`District evidence compile failed: ${String(err?.message || "unknown error")}`, "bad");
@@ -1309,6 +1297,8 @@ export function wireIntelChecksEvents(ctx){
       } else {
         validationStatus = "aligned";
       }
+    } else if (areaMeta.areaFingerprint){
+      validationStatus = "aligned";
     }
     return {
       areaFingerprint: areaMeta.areaFingerprint || null,
@@ -1926,7 +1916,8 @@ export function wireIntelChecksEvents(ctx){
           setIngestStatus("Census GEO fetch returned no rows for the selected area/resolution.", "warn");
           return;
         }
-        refs.censusDatasetId = `census_api_2020_pl_${stateFips}${county3}_${resolution}`;
+        const activeCensusDatasetId = cleanDataRefId(refs?.censusDatasetId);
+        refs.censusDatasetId = activeCensusDatasetId || `census_api_2020_pl_${stateFips}${county3}_${resolution}`;
         stampDataRefCheck(refs);
         const entry = {
           id: refs.censusDatasetId,

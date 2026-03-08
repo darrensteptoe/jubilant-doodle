@@ -721,6 +721,95 @@ function queueBoundaryFetch(host, statusEl, args, geoid){
   boundaryPending.set(geoid, pending);
 }
 
+export function describeIntelGeoBoundaryStatus(args = {}){
+  const pointCount = Math.max(0, Math.trunc(Number(args?.pointCount) || 0));
+  const geoid = str(args?.geoid);
+  const selectedGeoId = str(args?.selectedGeoId);
+  const hasBoundary = !!args?.hasBoundary;
+  const hasSelectedBoundary = !!args?.hasSelectedBoundary;
+  const areaBoundaryUnavailable = !!args?.areaBoundaryUnavailable;
+  const areaBoundaryLoading = !!args?.areaBoundaryLoading;
+  const selectedBoundaryUnavailable = !!args?.selectedBoundaryUnavailable;
+  const selectedBoundaryLoading = !!args?.selectedBoundaryLoading;
+
+  if (areaBoundaryLoading && selectedBoundaryLoading){
+    return {
+      handled: true,
+      kind: pointCount > 0 ? "warn" : "muted",
+      text: pointCount > 0
+        ? `Interactive map: ${pointCount} GEO points plotted. Loading area boundary ${geoid} and selected GEO boundary ${selectedGeoId}...`
+        : `Loading area boundary ${geoid} and selected GEO boundary ${selectedGeoId}...`,
+    };
+  }
+  if (areaBoundaryLoading){
+    return {
+      handled: true,
+      kind: pointCount > 0 ? "warn" : "muted",
+      text: pointCount > 0
+        ? `Interactive map: ${pointCount} GEO points plotted. Loading boundary for ${geoid}...`
+        : `Loading boundary for ${geoid}...`,
+    };
+  }
+  if (selectedBoundaryLoading){
+    return {
+      handled: true,
+      kind: "warn",
+      text: `Interactive map: ${pointCount} GEO points plotted. Loading selected GEO boundary ${selectedGeoId}...`,
+    };
+  }
+  if (areaBoundaryUnavailable && selectedBoundaryUnavailable && pointCount > 0){
+    return {
+      handled: true,
+      kind: "warn",
+      text: `Interactive map: ${pointCount} GEO points plotted. Area boundary unavailable for ${geoid}; selected GEO boundary unavailable for ${selectedGeoId}.`,
+    };
+  }
+  if (selectedBoundaryUnavailable && hasBoundary){
+    return {
+      handled: true,
+      kind: "warn",
+      text: pointCount > 0
+        ? `Interactive map: ${pointCount} GEO points with area outline (${geoid}). Selected GEO boundary unavailable for ${selectedGeoId}.`
+        : `Interactive map: area outline loaded (${geoid}). Selected GEO boundary unavailable for ${selectedGeoId}.`,
+    };
+  }
+  if (selectedBoundaryUnavailable && pointCount > 0){
+    return {
+      handled: true,
+      kind: "warn",
+      text: `Interactive map: ${pointCount} GEO points plotted. Selected GEO boundary unavailable for ${selectedGeoId}.`,
+    };
+  }
+  if (areaBoundaryUnavailable && hasSelectedBoundary){
+    return {
+      handled: true,
+      kind: "ok",
+      text: pointCount > 0
+        ? `Interactive map: ${pointCount} GEO points with selected GEO boundary (${selectedGeoId}). Area boundary unavailable for ${geoid}.`
+        : `Interactive map: selected GEO boundary loaded (${selectedGeoId}). Area boundary unavailable for ${geoid}.`,
+    };
+  }
+  if (areaBoundaryUnavailable && pointCount > 0){
+    return {
+      handled: true,
+      kind: "warn",
+      text: `Interactive map: ${pointCount} GEO points plotted. Area boundary unavailable for ${geoid}.`,
+    };
+  }
+  if (areaBoundaryUnavailable){
+    return {
+      handled: true,
+      kind: "muted",
+      text: `Map unavailable: boundary fetch unavailable for ${geoid}.`,
+    };
+  }
+  return {
+    handled: false,
+    kind: "muted",
+    text: "",
+  };
+}
+
 export function renderIntelGeoMap(host, statusEl, args = {}){
   const st = mapState(host);
   if (!host || !statusEl){
@@ -755,57 +844,16 @@ export function renderIntelGeoMap(host, statusEl, args = {}){
       queueBoundaryFetch(host, statusEl, args, out.selectedGeoId);
     }
   }
-  if (areaBoundaryLoading && selectedBoundaryLoading){
+  const status = describeIntelGeoBoundaryStatus({
+    ...out,
+    areaBoundaryUnavailable,
+    areaBoundaryLoading,
+    selectedBoundaryUnavailable,
+    selectedBoundaryLoading,
+  });
+  if (status.handled){
     statusEl.classList.remove("ok", "warn", "bad", "muted");
-    statusEl.classList.add(out.pointCount > 0 ? "warn" : "muted");
-    statusEl.textContent = out.pointCount > 0
-      ? `Interactive map: ${out.pointCount} GEO points plotted. Loading area boundary ${out.geoid} and selected GEO boundary ${out.selectedGeoId}...`
-      : `Loading area boundary ${out.geoid} and selected GEO boundary ${out.selectedGeoId}...`;
-    return;
-  }
-  if (areaBoundaryLoading){
-    statusEl.classList.remove("ok", "warn", "bad", "muted");
-    statusEl.classList.add(out.pointCount > 0 ? "warn" : "muted");
-    statusEl.textContent = out.pointCount > 0
-      ? `Interactive map: ${out.pointCount} GEO points plotted. Loading boundary for ${out.geoid}...`
-      : `Loading boundary for ${out.geoid}...`;
-    return;
-  }
-  if (selectedBoundaryLoading){
-    statusEl.classList.remove("ok", "warn", "bad", "muted");
-    statusEl.classList.add("warn");
-    statusEl.textContent = `Interactive map: ${out.pointCount} GEO points plotted. Loading selected GEO boundary ${out.selectedGeoId}...`;
-    return;
-  }
-  if (areaBoundaryUnavailable && selectedBoundaryUnavailable && out.pointCount > 0){
-    statusEl.classList.remove("ok", "warn", "bad", "muted");
-    statusEl.classList.add("warn");
-    statusEl.textContent = `Interactive map: ${out.pointCount} GEO points plotted. Area boundary unavailable for ${out.geoid}; selected GEO boundary unavailable for ${out.selectedGeoId}.`;
-    return;
-  }
-  if (selectedBoundaryUnavailable && out.hasBoundary && out.pointCount > 0){
-    statusEl.classList.remove("ok", "warn", "bad", "muted");
-    statusEl.classList.add("warn");
-    statusEl.textContent = `Interactive map: ${out.pointCount} GEO points with area outline (${out.geoid}). Selected GEO boundary unavailable for ${out.selectedGeoId}.`;
-    return;
-  }
-  if (selectedBoundaryUnavailable && out.pointCount > 0){
-    statusEl.classList.remove("ok", "warn", "bad", "muted");
-    statusEl.classList.add("warn");
-    statusEl.textContent = `Interactive map: ${out.pointCount} GEO points plotted. Selected GEO boundary unavailable for ${out.selectedGeoId}.`;
-    return;
-  }
-  if (areaBoundaryUnavailable && out.hasSelectedBoundary && out.pointCount > 0){
-    statusEl.classList.remove("ok", "warn", "bad", "muted");
-    statusEl.classList.add("ok");
-    statusEl.textContent = `Interactive map: ${out.pointCount} GEO points with selected GEO boundary (${out.selectedGeoId}). Area boundary unavailable for ${out.geoid}.`;
-  } else if (areaBoundaryUnavailable && out.pointCount > 0){
-    statusEl.classList.remove("ok", "warn", "bad", "muted");
-    statusEl.classList.add("warn");
-    statusEl.textContent = `Interactive map: ${out.pointCount} GEO points plotted. Area boundary unavailable for ${out.geoid}.`;
-  } else if (areaBoundaryUnavailable){
-    statusEl.classList.remove("ok", "warn", "bad", "muted");
-    statusEl.classList.add("muted");
-    statusEl.textContent = `Map unavailable: boundary fetch unavailable for ${out.geoid}.`;
+    statusEl.classList.add(status.kind || "muted");
+    statusEl.textContent = status.text;
   }
 }
