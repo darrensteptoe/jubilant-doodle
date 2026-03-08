@@ -2218,9 +2218,9 @@
 </div>
 <div class="card card-section" id="intelDistrictEvidenceCard">
 <div class="card-head card-header">
-<h2 class="card-title">District evidence + data refs</h2>
+<h2 class="card-title">District Intelligence</h2>
 </div>
-<div class="help-text">Select deterministic source refs (mode + boundary/crosswalk/census/election) and verify linkage for precinct election results + census geo rows. This panel only controls evidence inputs, not planning math.</div>
+<div class="help-text">Core flow: select area, fetch census GEO rows, review map + demographics, generate district-intel assumptions, toggle ON/OFF.</div>
 <div class="rowline" style="margin-top:10px; justify-content:space-between; gap:10px;">
 <label class="switch">
 <input id="intelUseDistrictToggle" type="checkbox"/>
@@ -2290,6 +2290,12 @@
 </select>
 </div>
 <div class="field">
+<label class="label" for="intelAcsYearPreference" title="Choose ACS vintage for census enrichment. Auto tries latest available year first.">ACS year</label>
+<select class="select" id="intelAcsYearPreference">
+<option value="auto_latest">Auto latest</option>
+</select>
+</div>
+<div class="field">
 <label class="label" for="intelAreaLabel">Area label (optional)</label>
 <input class="input" id="intelAreaLabel" placeholder="e.g., NJ-12" type="text"/>
 </div>
@@ -2314,7 +2320,10 @@
 </select>
 </div>
 <div class="field" style="display:flex; align-items:flex-end;">
-<button class="btn btn-sm" id="btnIntelAreaAssistFetchCodes" type="button" style="width:100%;">Fetch county/place/GEO lists</button>
+<div class="grid2" style="width:100%; margin:0;">
+<button class="btn btn-sm" id="btnIntelAreaAssistFetchCodes" type="button">Fetch county/place/GEO lists</button>
+<button class="btn btn-sm" id="btnIntelFetchCensusGeoRows" type="button">Fetch Census GEO rows</button>
+</div>
 </div>
 </div>
 <div class="muted" id="intelAreaAssistStatus" style="margin-top:6px;" title="Dropdown options are generated from loaded/fetched census GEO rows.">Set state first, then fetch county/place/GEO lists.</div>
@@ -2322,12 +2331,17 @@
 <div class="note" id="intelAreaResolverSummary" style="margin-top:8px;">Area resolver: not configured.</div>
 <div class="muted" id="intelAreaResolverDetail" style="margin-top:6px;">Set area + resolution to generate a deterministic cache key.</div>
 <div class="muted" id="intelAreaCodeLinks" style="margin-top:6px;" title="Direct code source links. Opens official Census files and scoped API lists in a new tab.">Code lookup links appear after State FIPS is set.</div>
+<details id="intelAreaAdvancedInputs" style="margin-top:8px;">
+<summary class="label">Advanced area inputs</summary>
 <div class="grid2" style="margin-top:8px;">
 <div class="field">
 <label class="label" for="intelAreaDistrict" title="Required only for CD/SLDU/SLDL area types.">District code (district types only)</label>
 <input class="input" id="intelAreaDistrict" placeholder="e.g., 012" type="text"/>
 </div>
 </div>
+</details>
+<details id="intelDistrictAdvancedDataDetails" style="margin-top:10px;">
+<summary class="label">Advanced refs + manual ingest</summary>
 <div class="grid3" style="margin-top:10px;">
 <div class="field">
 <label class="label" for="intelDataRefMode">Data source mode</label>
@@ -2486,13 +2500,13 @@
 <label class="label" for="intelCensusGeoRowsJson">Census GEO rows JSON</label>
 <textarea class="input" id="intelCensusGeoRowsJson" rows="4" placeholder='[{"geoid":"34013010001","values":{"pop":1000,"housing_units":400,"INTPTLAT":40.12,"INTPTLON":-74.01}}]'></textarea>
 <div class="card-actions" style="margin-top:6px;">
-<button class="btn btn-sm" id="btnIntelFetchCensusGeoRows" type="button">Fetch Census GEO rows</button>
 <button class="btn btn-sm" id="btnIntelImportCensusGeoRows" type="button">Import census GEO rows</button>
 </div>
 </div>
 </div>
 <div class="muted" id="intelIngestStatus" style="margin-top:8px;">Ingest status: ready.</div>
 </div>
+</details>
 <div class="note" id="intelDistrictEvidenceSource" style="margin-top:8px;">No pinned datasets selected yet.</div>
 <div class="muted" id="intelDistrictEvidenceInputsSummary" style="margin-top:6px;">Input mode: none · Election rows: 0 · Crosswalk rows: 0 · Census rows: 0</div>
 <div class="muted" id="intelFlowStepStatus" style="margin-top:6px;">Flow: Step 1 select area.</div>
@@ -2521,7 +2535,7 @@
 <div class="intel-geo-map-wrap" style="margin-top:8px;">
 <div class="intel-geo-map" id="intelDistrictEvidenceMapSvg" role="img" aria-label="District evidence map"></div>
 </div>
-<div class="mini-s">Read-only map layer for verification and planning context. No turf cutting.</div>
+<div class="mini-s">Select tract/block to overlay its boundary on the map.</div>
 </div>
 <div class="mini" style="margin-top:10px;">
 <div class="mini-k">GEO inspector</div>
@@ -2576,6 +2590,8 @@
 <div class="muted" id="intelGeoInspectorCopyStatus" style="margin-top:6px;">No summary copied yet.</div>
 </div>
 </div>
+<details id="intelDistrictAdvancedTables" style="margin-top:10px;">
+<summary class="label">Advanced evidence tables (optional)</summary>
 <div class="table-wrap" style="margin-top:10px;">
 <table class="table">
 <thead>
@@ -2679,6 +2695,7 @@
 </tbody>
 </table>
 </div>
+</details>
 </div>
 <div class="card card-section" id="intelCalibrationBriefCard">
 <div class="card-head card-header">
