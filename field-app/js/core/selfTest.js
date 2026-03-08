@@ -47,6 +47,7 @@ import { renderMain } from "../app/renderMain.js";
 import { renderImpactTracePanel } from "../app/render/impactTrace.js";
 import { renderRoiModule } from "../app/renderRoi.js";
 import { renderOptimizationModule } from "../app/renderOptimization.js";
+import { describeIntelGeoBoundaryStatus } from "../app/intelGeoMap.js";
 import { computeWeeklyOpsContextFromState, getEffectiveBaseRates } from "../app/selectors.js";
 import { createEffectiveInputsController } from "../app/effectiveInputs.js";
 import {
@@ -1473,6 +1474,7 @@ export function runSelfTests(engine){
     summarizeGeoEvidenceLayers,
     summarizeGeoOpportunityLayers,
     buildGeoEvidenceMapLayer,
+    describeIntelGeoBoundaryStatus,
     summarizePrecinctEvidenceLayers,
     resolveDistrictEvidenceInputs,
     summarizeDistrictEvidenceInputs,

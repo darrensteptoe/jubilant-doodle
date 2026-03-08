@@ -175,11 +175,12 @@ function evaluateLayerAlignment(layerName, rows, meta, areaContext){
   const flaggedExternal = validationStatus === "external";
   const flaggedPartial = validationStatus === "partial";
   const mismatchByFingerprint = !!(areaFingerprint && areaContext.areaFingerprint && areaFingerprint !== areaContext.areaFingerprint);
+  const mismatchByMissingFingerprint = rowCount > 0 && !areaFingerprint;
   const mismatchByRows = geoidRowCount > 0 && matchedGeoidRows < geoidRowCount;
   const mismatchByFlag = !!((flaggedExternal || flaggedPartial) && !areaFingerprint && geoidRowCount === 0);
-  const mismatch = mismatchByFingerprint || mismatchByRows || mismatchByFlag;
+  const mismatch = mismatchByFingerprint || mismatchByMissingFingerprint || mismatchByRows || mismatchByFlag;
   let status = "unknown";
-  if (mismatchByRows || mismatchByFingerprint || flaggedExternal){
+  if (mismatchByRows || mismatchByFingerprint || mismatchByMissingFingerprint || flaggedExternal){
     status = geoidRowCount > 0 && matchedGeoidRows > 0 && matchedGeoidRows < geoidRowCount
       ? "partial"
       : "external";
@@ -191,6 +192,8 @@ function evaluateLayerAlignment(layerName, rows, meta, areaContext){
   let message = null;
   if (mismatchByFingerprint){
     message = `${layerName} area fingerprint does not match selected area.`;
+  } else if (mismatchByMissingFingerprint){
+    message = `${layerName} is missing area fingerprint metadata for selected area checks.`;
   } else if (mismatchByRows && matchedGeoidRows > 0){
     message = `${layerName} contains mixed-area rows.`;
   } else if (mismatchByRows){

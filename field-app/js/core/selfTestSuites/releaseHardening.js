@@ -40,6 +40,7 @@
  *   summarizeGeoEvidenceLayers: (...args: any[]) => any,
  *   summarizeGeoOpportunityLayers: (...args: any[]) => any,
  *   buildGeoEvidenceMapLayer: (...args: any[]) => any,
+ *   describeIntelGeoBoundaryStatus: (...args: any[]) => any,
  *   summarizePrecinctEvidenceLayers: (...args: any[]) => any,
  *   resolveDistrictEvidenceInputs: (...args: any[]) => any,
  *   summarizeDistrictEvidenceInputs: (...args: any[]) => any,
@@ -106,6 +107,7 @@ export function registerReleaseHardeningTests(ctx){
     summarizeGeoEvidenceLayers,
     summarizeGeoOpportunityLayers,
     buildGeoEvidenceMapLayer,
+    describeIntelGeoBoundaryStatus,
     summarizePrecinctEvidenceLayers,
     resolveDistrictEvidenceInputs,
     summarizeDistrictEvidenceInputs,
@@ -1615,6 +1617,44 @@ export function registerReleaseHardeningTests(ctx){
     return true;
   });
 
+  test("Phase 22: census-only evidence supports deterministic fallback layers", () => {
+    const evidence = compileDistrictEvidence({
+      geoUnits: [],
+      precinctResults: [],
+      crosswalkRows: [],
+      censusGeoRows: [
+        { geoid: "34013010001", values: { pop: 1000, INTPTLAT: 40.12, INTPTLON: -74.01 } },
+      ],
+    });
+    assert(Array.isArray(evidence.geoRows) && evidence.geoRows.length === 1, "Expected single GEO row from census-only evidence");
+    assert(evidence.geoRows[0]?.hasCensus === true, "Expected census flag for fallback GEO row");
+    assert(evidence.geoRows[0]?.hasElection === false, "Expected election flag false for census-only fallback GEO row");
+    const summaryRows = summarizeGeoEvidenceLayers({ geoRows: evidence.geoRows, maxRows: 5 });
+    assert(Array.isArray(summaryRows) && summaryRows.length === 1, "Expected GEO summary rows for census-only fallback");
+    const mapLayer = buildGeoEvidenceMapLayer({ geoRows: evidence.geoRows, maxPoints: 5 });
+    assert(mapLayer?.available === true && Array.isArray(mapLayer.points) && mapLayer.points.length === 1, "Expected map point for census-only fallback");
+    return true;
+  });
+
+  test("Phase 22: boundary status keeps selected GEO boundary visible when area boundary fails", () => {
+    const status = describeIntelGeoBoundaryStatus({
+      pointCount: 7,
+      geoid: "05000US34013",
+      selectedGeoId: "34013010001",
+      hasBoundary: false,
+      hasSelectedBoundary: true,
+      areaBoundaryUnavailable: true,
+      areaBoundaryLoading: false,
+      selectedBoundaryUnavailable: false,
+      selectedBoundaryLoading: false,
+    });
+    assert(status?.handled === true, "Expected explicit status decision for partial boundary success");
+    assert(String(status?.kind) === "ok", "Expected ok status when selected boundary succeeds");
+    assert(String(status?.text || "").includes("selected GEO boundary"), "Expected selected-boundary success text");
+    assert(String(status?.text || "").includes("Area boundary unavailable"), "Expected area-boundary failure text");
+    return true;
+  });
+
   test("Phase 19: precinct evidence layer summary shows votes + mapping coverage deterministically", () => {
     const rows = summarizePrecinctEvidenceLayers({
       geoUnits: [
@@ -1649,6 +1689,17 @@ export function registerReleaseHardeningTests(ctx){
   });
 
   test("Phase 19: district evidence inputs resolve from inline evidenceInputs first", () => {
+    const selectedAreaKey = buildAreaResolverCacheKey({
+      area: {
+        type: "COUNTY",
+        stateFips: "34",
+        countyFips: "34013",
+        district: "",
+        placeFips: "",
+        label: "",
+        resolution: "tract",
+      },
+    });
     const out = resolveDistrictEvidenceInputs({
       dataRefs: {
         censusDatasetId: "acs5_2024",
@@ -1656,11 +1707,18 @@ export function registerReleaseHardeningTests(ctx){
         crosswalkVersionId: "cw_2024",
       },
       geoPack: {
+        resolution: "tract",
+        area: { type: "COUNTY", stateFips: "34", countyFips: "34013" },
         district: {
           evidenceInputs: {
             precinctResults: [{ precinctId: "P1", candidateVotes: { A: 10, B: 12 } }],
             crosswalkRows: [{ precinctId: "P1", geoid: "34013010001", weight: 1 }],
             censusGeoRows: [{ geoid: "34013010001", values: { pop: 100 } }],
+          },
+          evidenceInputMeta: {
+            precinctResults: { areaFingerprint: selectedAreaKey, validationStatus: "aligned" },
+            crosswalkRows: { areaFingerprint: selectedAreaKey, validationStatus: "aligned" },
+            censusGeoRows: { areaFingerprint: selectedAreaKey, validationStatus: "aligned" },
           },
           evidenceStore: {
             electionByDatasetId: { mit_2024: [{ precinctId: "P_IGNORE" }] },
@@ -1678,6 +1736,17 @@ export function registerReleaseHardeningTests(ctx){
   });
 
   test("Phase 19: district evidence inputs resolve by dataRefs from evidenceStore", () => {
+    const selectedAreaKey = buildAreaResolverCacheKey({
+      area: {
+        type: "COUNTY",
+        stateFips: "34",
+        countyFips: "34013",
+        district: "",
+        placeFips: "",
+        label: "",
+        resolution: "tract",
+      },
+    });
     const out = resolveDistrictEvidenceInputs({
       dataRefs: {
         censusDatasetId: "acs5_2024",
@@ -1685,16 +1754,27 @@ export function registerReleaseHardeningTests(ctx){
         crosswalkVersionId: "cw_2024",
       },
       geoPack: {
+        resolution: "tract",
+        area: { type: "COUNTY", stateFips: "34", countyFips: "34013" },
         district: {
           evidenceStore: {
             electionByDatasetId: {
-              mit_2024: [{ precinctId: "P1", candidateVotes: { A: 30, B: 20 } }],
+              mit_2024: {
+                rows: [{ precinctId: "P1", candidateVotes: { A: 30, B: 20 } }],
+                meta: { areaFingerprint: selectedAreaKey, validationStatus: "aligned" },
+              },
             },
             crosswalkByVersionId: {
-              cw_2024: [{ precinctId: "P1", geoid: "34013010001", weight: 1 }],
+              cw_2024: {
+                rows: [{ precinctId: "P1", geoid: "34013010001", weight: 1 }],
+                meta: { areaFingerprint: selectedAreaKey, validationStatus: "aligned" },
+              },
             },
             censusByDatasetId: {
-              acs5_2024: [{ geoid: "34013010001", values: { pop: 1000 } }],
+              acs5_2024: {
+                rows: [{ geoid: "34013010001", values: { pop: 1000 } }],
+                meta: { areaFingerprint: selectedAreaKey, validationStatus: "aligned" },
+              },
             },
           },
         },
@@ -1709,6 +1789,17 @@ export function registerReleaseHardeningTests(ctx){
   });
 
   test("Phase 19: district evidence input summary reports row counts + ready state", () => {
+    const selectedAreaKey = buildAreaResolverCacheKey({
+      area: {
+        type: "COUNTY",
+        stateFips: "34",
+        countyFips: "34013",
+        district: "",
+        placeFips: "",
+        label: "",
+        resolution: "tract",
+      },
+    });
     const summary = summarizeDistrictEvidenceInputs({
       dataRefs: {
         censusDatasetId: "acs5_2024",
@@ -1716,16 +1807,27 @@ export function registerReleaseHardeningTests(ctx){
         crosswalkVersionId: "cw_2024",
       },
       geoPack: {
+        resolution: "tract",
+        area: { type: "COUNTY", stateFips: "34", countyFips: "34013" },
         district: {
           evidenceStore: {
             electionByDatasetId: {
-              mit_2024: [{ precinctId: "P1", candidateVotes: { A: 30, B: 20 } }],
+              mit_2024: {
+                rows: [{ precinctId: "P1", candidateVotes: { A: 30, B: 20 } }],
+                meta: { areaFingerprint: selectedAreaKey, validationStatus: "aligned" },
+              },
             },
             crosswalkByVersionId: {
-              cw_2024: [{ precinctId: "P1", geoid: "34013010001", weight: 1 }],
+              cw_2024: {
+                rows: [{ precinctId: "P1", geoid: "34013010001", weight: 1 }],
+                meta: { areaFingerprint: selectedAreaKey, validationStatus: "aligned" },
+              },
             },
             censusByDatasetId: {
-              acs5_2024: [{ geoid: "34013010001", values: { pop: 1000 } }],
+              acs5_2024: {
+                rows: [{ geoid: "34013010001", values: { pop: 1000 } }],
+                meta: { areaFingerprint: selectedAreaKey, validationStatus: "aligned" },
+              },
             },
           },
         },
@@ -1741,6 +1843,17 @@ export function registerReleaseHardeningTests(ctx){
   });
 
   test("Phase 19: district evidence input summary marks not-ready when a layer is missing", () => {
+    const selectedAreaKey = buildAreaResolverCacheKey({
+      area: {
+        type: "COUNTY",
+        stateFips: "34",
+        countyFips: "34013",
+        district: "",
+        placeFips: "",
+        label: "",
+        resolution: "tract",
+      },
+    });
     const summary = summarizeDistrictEvidenceInputs({
       dataRefs: {
         censusDatasetId: "acs5_2024",
@@ -1748,13 +1861,21 @@ export function registerReleaseHardeningTests(ctx){
         crosswalkVersionId: "cw_2024",
       },
       geoPack: {
+        resolution: "tract",
+        area: { type: "COUNTY", stateFips: "34", countyFips: "34013" },
         district: {
           evidenceStore: {
             electionByDatasetId: {
-              mit_2024: [{ precinctId: "P1", candidateVotes: { A: 30, B: 20 } }],
+              mit_2024: {
+                rows: [{ precinctId: "P1", candidateVotes: { A: 30, B: 20 } }],
+                meta: { areaFingerprint: selectedAreaKey, validationStatus: "aligned" },
+              },
             },
             crosswalkByVersionId: {
-              cw_2024: [{ precinctId: "P1", geoid: "34013010001", weight: 1 }],
+              cw_2024: {
+                rows: [{ precinctId: "P1", geoid: "34013010001", weight: 1 }],
+                meta: { areaFingerprint: selectedAreaKey, validationStatus: "aligned" },
+              },
             },
             censusByDatasetId: {},
           },
@@ -1828,6 +1949,223 @@ export function registerReleaseHardeningTests(ctx){
     assert(Array.isArray(out.precinctResults) && out.precinctResults.length === 0, "Expected election rows blocked on mismatch");
     assert(Array.isArray(out.crosswalkRows) && out.crosswalkRows.length === 0, "Expected crosswalk rows blocked on mismatch");
     assert(Array.isArray(out.censusGeoRows) && out.censusGeoRows.length === 0, "Expected census rows blocked on mismatch");
+    return true;
+  });
+
+  test("Phase 22: district evidence inputs block refs when area fingerprint metadata is missing", () => {
+    const out = resolveDistrictEvidenceInputs({
+      dataRefs: {
+        censusDatasetId: "acs5_2024",
+        electionDatasetId: "mit_2024",
+        crosswalkVersionId: "cw_2024",
+      },
+      geoPack: {
+        resolution: "tract",
+        area: { type: "COUNTY", stateFips: "34", countyFips: "34013" },
+        district: {
+          evidenceStore: {
+            electionByDatasetId: {
+              mit_2024: [{ precinctId: "P1", candidateVotes: { A: 30, B: 20 } }],
+            },
+            crosswalkByVersionId: {
+              cw_2024: [{ precinctId: "P1", geoid: "34013010001", weight: 1 }],
+            },
+            censusByDatasetId: {
+              acs5_2024: [{ geoid: "34013010001", values: { pop: 1000 } }],
+            },
+          },
+        },
+      },
+    });
+    assert(Array.isArray(out?.alignment?.mismatches) && out.alignment.mismatches.length >= 3, "Expected missing-area-fingerprint mismatches");
+    assert(out.alignment.mismatches.some((x) => String(x).includes("missing area fingerprint")), "Expected explicit missing-area-fingerprint reason");
+    assert(Array.isArray(out.precinctResults) && out.precinctResults.length === 0, "Expected precinct rows blocked when fingerprint metadata missing");
+    assert(Array.isArray(out.crosswalkRows) && out.crosswalkRows.length === 0, "Expected crosswalk rows blocked when fingerprint metadata missing");
+    assert(Array.isArray(out.censusGeoRows) && out.censusGeoRows.length === 0, "Expected census rows blocked when fingerprint metadata missing");
+    return true;
+  });
+
+  test("Phase 22: district evidence inputs restore after area-keyed reimport for selected area", () => {
+    const selectedAreaKey = buildAreaResolverCacheKey({
+      area: {
+        type: "COUNTY",
+        stateFips: "34",
+        countyFips: "34013",
+        district: "",
+        placeFips: "",
+        label: "",
+        resolution: "tract",
+      },
+    });
+    const staleAreaKey = buildAreaResolverCacheKey({
+      area: {
+        type: "COUNTY",
+        stateFips: "34",
+        countyFips: "34017",
+        district: "",
+        placeFips: "",
+        label: "",
+        resolution: "tract",
+      },
+    });
+    const stale = resolveDistrictEvidenceInputs({
+      dataRefs: {
+        censusDatasetId: "acs5_2024",
+        electionDatasetId: "mit_2024",
+        crosswalkVersionId: "cw_2024",
+      },
+      geoPack: {
+        resolution: "tract",
+        area: { type: "COUNTY", stateFips: "34", countyFips: "34013" },
+        district: {
+          evidenceStore: {
+            electionByDatasetId: {
+              mit_2024: {
+                rows: [{ precinctId: "P1", candidateVotes: { A: 30, B: 20 } }],
+                meta: { areaFingerprint: staleAreaKey, validationStatus: "aligned" },
+              },
+            },
+            crosswalkByVersionId: {
+              cw_2024: {
+                rows: [{ precinctId: "P1", geoid: "34013010001", weight: 1 }],
+                meta: { areaFingerprint: staleAreaKey, validationStatus: "aligned" },
+              },
+            },
+            censusByDatasetId: {
+              acs5_2024: {
+                rows: [{ geoid: "34013010001", values: { pop: 1000 } }],
+                meta: { areaFingerprint: staleAreaKey, validationStatus: "aligned" },
+              },
+            },
+          },
+        },
+      },
+    });
+    assert(stale.alignment?.allAligned === false, "Expected stale area key to fail alignment");
+    const refreshed = resolveDistrictEvidenceInputs({
+      dataRefs: {
+        censusDatasetId: "acs5_2024",
+        electionDatasetId: "mit_2024",
+        crosswalkVersionId: "cw_2024",
+      },
+      geoPack: {
+        resolution: "tract",
+        area: { type: "COUNTY", stateFips: "34", countyFips: "34013" },
+        district: {
+          evidenceStore: {
+            electionByDatasetId: {
+              mit_2024: {
+                rows: [{ precinctId: "P1", candidateVotes: { A: 30, B: 20 } }],
+                meta: { areaFingerprint: selectedAreaKey, validationStatus: "aligned" },
+              },
+            },
+            crosswalkByVersionId: {
+              cw_2024: {
+                rows: [{ precinctId: "P1", geoid: "34013010001", weight: 1 }],
+                meta: { areaFingerprint: selectedAreaKey, validationStatus: "aligned" },
+              },
+            },
+            censusByDatasetId: {
+              acs5_2024: {
+                rows: [{ geoid: "34013010001", values: { pop: 1000 } }],
+                meta: { areaFingerprint: selectedAreaKey, validationStatus: "aligned" },
+              },
+            },
+          },
+        },
+      },
+    });
+    assert(refreshed.alignment?.allAligned === true, "Expected refreshed area key to pass alignment");
+    assert(Array.isArray(refreshed.precinctResults) && refreshed.precinctResults.length === 1, "Expected election rows visible after area-keyed refresh");
+    assert(Array.isArray(refreshed.crosswalkRows) && refreshed.crosswalkRows.length === 1, "Expected crosswalk rows visible after area-keyed refresh");
+    assert(Array.isArray(refreshed.censusGeoRows) && refreshed.censusGeoRows.length === 1, "Expected census rows visible after area-keyed refresh");
+    return true;
+  });
+
+  test("Phase 22: area switch updates visible aligned rows for active refs", () => {
+    const areaAKey = buildAreaResolverCacheKey({
+      area: {
+        type: "COUNTY",
+        stateFips: "34",
+        countyFips: "34013",
+        district: "",
+        placeFips: "",
+        label: "",
+        resolution: "tract",
+      },
+    });
+    const areaBKey = buildAreaResolverCacheKey({
+      area: {
+        type: "COUNTY",
+        stateFips: "34",
+        countyFips: "34017",
+        district: "",
+        placeFips: "",
+        label: "",
+        resolution: "tract",
+      },
+    });
+    const districtStore = {
+      electionByDatasetId: {
+        mit_2024_a: {
+          rows: [{ precinctId: "PA", candidateVotes: { A: 55, B: 45 } }],
+          meta: { areaFingerprint: areaAKey, validationStatus: "aligned" },
+        },
+        mit_2024_b: {
+          rows: [{ precinctId: "PB", candidateVotes: { A: 40, B: 60 } }],
+          meta: { areaFingerprint: areaBKey, validationStatus: "aligned" },
+        },
+      },
+      crosswalkByVersionId: {
+        cw_2024_a: {
+          rows: [{ precinctId: "PA", geoid: "34013010001", weight: 1 }],
+          meta: { areaFingerprint: areaAKey, validationStatus: "aligned" },
+        },
+        cw_2024_b: {
+          rows: [{ precinctId: "PB", geoid: "34017020001", weight: 1 }],
+          meta: { areaFingerprint: areaBKey, validationStatus: "aligned" },
+        },
+      },
+      censusByDatasetId: {
+        acs5_2024_a: {
+          rows: [{ geoid: "34013010001", values: { pop: 1100 } }],
+          meta: { areaFingerprint: areaAKey, validationStatus: "aligned" },
+        },
+        acs5_2024_b: {
+          rows: [{ geoid: "34017020001", values: { pop: 900 } }],
+          meta: { areaFingerprint: areaBKey, validationStatus: "aligned" },
+        },
+      },
+    };
+    const areaA = resolveDistrictEvidenceInputs({
+      dataRefs: {
+        censusDatasetId: "acs5_2024_a",
+        electionDatasetId: "mit_2024_a",
+        crosswalkVersionId: "cw_2024_a",
+      },
+      geoPack: {
+        resolution: "tract",
+        area: { type: "COUNTY", stateFips: "34", countyFips: "34013" },
+        district: { evidenceStore: districtStore },
+      },
+    });
+    const areaB = resolveDistrictEvidenceInputs({
+      dataRefs: {
+        censusDatasetId: "acs5_2024_b",
+        electionDatasetId: "mit_2024_b",
+        crosswalkVersionId: "cw_2024_b",
+      },
+      geoPack: {
+        resolution: "tract",
+        area: { type: "COUNTY", stateFips: "34", countyFips: "34017" },
+        district: { evidenceStore: districtStore },
+      },
+    });
+    assert(areaA.alignment?.allAligned === true, "Expected area A alignment true");
+    assert(areaB.alignment?.allAligned === true, "Expected area B alignment true");
+    assert(String(areaA.crosswalkRows?.[0]?.geoid || "") === "34013010001", "Expected area A GEO rows");
+    assert(String(areaB.crosswalkRows?.[0]?.geoid || "") === "34017020001", "Expected area B GEO rows");
+    assert(String(areaA.censusGeoRows?.[0]?.geoid || "") !== String(areaB.censusGeoRows?.[0]?.geoid || ""), "Expected visible rows to change after area switch");
     return true;
   });
 
