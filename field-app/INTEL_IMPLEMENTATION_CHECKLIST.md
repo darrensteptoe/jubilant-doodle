@@ -559,3 +559,17 @@ Execution order for additive auto-ingest on top of deterministic/manual ingest.
    - `/Users/anakinskywalker/Downloads/field-app-40/js/core/selfTestSuites/releaseHardening.js`
    - `/Users/anakinskywalker/Downloads/field-app-40/js/core/selfTest.js`
      - adds deterministic receipt summary regression coverage.
+4. [x] Add deterministic auto-pull readiness evaluator and gate:
+   - `/Users/anakinskywalker/Downloads/field-app-40/js/core/districtAutoPull.js`
+     - adds `evaluateAutoPullPlan(...)` for URL-slot readiness/missing-key diagnostics.
+   - `/Users/anakinskywalker/Downloads/field-app-40/js/engine.js`
+     - exposes evaluator in snapshot facade.
+   - `/Users/anakinskywalker/Downloads/field-app-40/index.html`
+   - `/Users/anakinskywalker/Downloads/field-app-40/js/ui/els.js`
+   - `/Users/anakinskywalker/Downloads/field-app-40/js/app/renderIntelChecks.js`
+     - renders read-only auto-pull plan summary and disables fetch when no URL slots are available.
+   - `/Users/anakinskywalker/Downloads/field-app-40/js/app/wireEventsRuntime.js`
+     - blocks fetch action when evaluator reports no ready URL slots.
+   - `/Users/anakinskywalker/Downloads/field-app-40/js/core/selfTestSuites/releaseHardening.js`
+   - `/Users/anakinskywalker/Downloads/field-app-40/js/core/selfTest.js`
+     - adds deterministic readiness/warn-state coverage.
