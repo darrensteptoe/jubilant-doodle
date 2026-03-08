@@ -61,6 +61,8 @@ import {
   resolveAutoPullUrls,
   assessAutoPullReceiptAlignment,
   evaluateAutoPullRunNeed,
+  buildCensusApiPullPlan,
+  censusGeoRowsFromApiPayload,
 } from "./core/districtAutoPull.js";
 import {
   MODEL_VERSION,
@@ -182,6 +184,8 @@ export const engine = {
     resolveAutoPullUrls,
     assessAutoPullReceiptAlignment,
     evaluateAutoPullRunNeed,
+    buildCensusApiPullPlan,
+    censusGeoRowsFromApiPayload,
     makeScenarioExport,
     deterministicStringify,
     validateScenarioExport,
