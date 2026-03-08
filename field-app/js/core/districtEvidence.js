@@ -239,6 +239,125 @@ export function summarizeGeoEvidenceLayers(args){
   return out.slice(0, maxRows);
 }
 
+/**
+ * @param {{
+ *   geoRows?: Array<{
+ *     geoid?: unknown,
+ *     totalVotes?: unknown,
+ *     candidateVotes?: Record<string, unknown>,
+ *     sourcePrecincts?: unknown,
+ *     hasElection?: unknown,
+ *     hasCensus?: unknown,
+ *     census?: Record<string, unknown>
+ *   }>,
+ *   maxRows?: unknown,
+ * }} args
+ * @returns {Array<{
+ *   geoid: string,
+ *   opportunityScore: number,
+ *   competitiveness: number,
+ *   voteMassNorm: number,
+ *   densityNorm: number,
+ *   totalVotes: number,
+ *   sourcePrecincts: number,
+ *   leaderCandidateId: string | null,
+ *   marginPct: number | null,
+ *   hasElection: boolean,
+ *   hasCensus: boolean,
+ *   reasons: string[],
+ * }>}
+ */
+export function summarizeGeoOpportunityLayers(args){
+  const rows = Array.isArray(args?.geoRows) ? args.geoRows : [];
+  const maxRowsRaw = Math.floor(numOrNull(args?.maxRows) ?? 20);
+  const maxRows = clamp(maxRowsRaw, 1, 500);
+  const normalized = [];
+
+  for (const row of rows){
+    if (!isObject(row)) continue;
+    const geoid = str(row.geoid);
+    if (!geoid) continue;
+    const totalVotes = Math.max(0, numOrNull(row.totalVotes) ?? 0);
+    const sourcePrecincts = Math.max(0, Math.floor(numOrNull(row.sourcePrecincts) ?? 0));
+    const hasElection = !!row.hasElection;
+    const hasCensus = !!row.hasCensus;
+    const census = isObject(row.census) ? row.census : {};
+    const housingUnits = Math.max(0, numOrNull(census.housing_units ?? census.housingUnits ?? census.housing) ?? 0);
+    const pop = Math.max(0, numOrNull(census.pop ?? census.population ?? census.total_population) ?? 0);
+    const densityBase = housingUnits > 0
+      ? housingUnits
+      : (pop > 0 ? pop : totalVotes);
+
+    const candidateVotesIn = isObject(row.candidateVotes) ? row.candidateVotes : {};
+    const ranked = Object.keys(candidateVotesIn)
+      .map((candidateId) => ({
+        candidateId: str(candidateId),
+        votes: Math.max(0, numOrNull(candidateVotesIn[candidateId]) ?? 0),
+      }))
+      .filter((x) => x.candidateId && x.votes > 0)
+      .sort((a, b) => (b.votes - a.votes) || a.candidateId.localeCompare(b.candidateId));
+    const leader = ranked[0] || null;
+    const runnerUp = ranked[1] || null;
+    const leaderVotes = leader ? leader.votes : 0;
+    const runnerVotes = runnerUp ? runnerUp.votes : 0;
+    const marginVotes = Math.max(0, leaderVotes - runnerVotes);
+    const marginPct = totalVotes > 0 ? (marginVotes / totalVotes) * 100 : null;
+    const competitiveness = marginPct == null ? 0.5 : (1 - clamp(marginPct / 35, 0, 1));
+
+    normalized.push({
+      geoid,
+      totalVotes,
+      sourcePrecincts,
+      hasElection,
+      hasCensus,
+      leaderCandidateId: leader ? leader.candidateId : null,
+      marginPct,
+      competitiveness,
+      densityBase,
+    });
+  }
+
+  if (!normalized.length) return [];
+  let maxVotes = 0;
+  let maxDensity = 0;
+  for (const row of normalized){
+    if (row.totalVotes > maxVotes) maxVotes = row.totalVotes;
+    if (row.densityBase > maxDensity) maxDensity = row.densityBase;
+  }
+
+  const out = [];
+  for (const row of normalized){
+    const voteMassNorm = maxVotes > 0 ? clamp(row.totalVotes / maxVotes, 0, 1) : 0;
+    const densityNorm = maxDensity > 0 ? clamp(row.densityBase / maxDensity, 0, 1) : 0;
+    const opportunityScoreRaw = (row.competitiveness * 0.5) + (voteMassNorm * 0.3) + (densityNorm * 0.2);
+    const opportunityScore = clamp(opportunityScoreRaw * 100, 0, 100);
+    const reasons = [];
+    if (row.competitiveness >= 0.7) reasons.push("tight prior margin");
+    if (voteMassNorm >= 0.7) reasons.push("high vote mass");
+    if (densityNorm >= 0.7) reasons.push("high density proxy");
+    if (!row.hasElection) reasons.push("no election layer");
+    if (!row.hasCensus) reasons.push("no census layer");
+    if (!reasons.length) reasons.push("balanced profile");
+    out.push({
+      geoid: row.geoid,
+      opportunityScore,
+      competitiveness: row.competitiveness,
+      voteMassNorm,
+      densityNorm,
+      totalVotes: row.totalVotes,
+      sourcePrecincts: row.sourcePrecincts,
+      leaderCandidateId: row.leaderCandidateId,
+      marginPct: row.marginPct,
+      hasElection: row.hasElection,
+      hasCensus: row.hasCensus,
+      reasons,
+    });
+  }
+
+  out.sort((a, b) => (b.opportunityScore - a.opportunityScore) || a.geoid.localeCompare(b.geoid));
+  return out.slice(0, maxRows);
+}
+
 const CENSUS_LAT_KEYS = [
   "centroidLat",
   "centroid_lat",

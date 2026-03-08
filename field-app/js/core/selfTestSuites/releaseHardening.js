@@ -36,6 +36,7 @@
  *   compileDistrictEvidence: (...args: any[]) => any,
  *   derivePersuasionSignalFromElection: (...args: any[]) => any,
  *   summarizeGeoEvidenceLayers: (...args: any[]) => any,
+ *   summarizeGeoOpportunityLayers: (...args: any[]) => any,
  *   buildGeoEvidenceMapLayer: (...args: any[]) => any,
  *   summarizePrecinctEvidenceLayers: (...args: any[]) => any,
  *   resolveDistrictEvidenceInputs: (...args: any[]) => any,
@@ -90,6 +91,7 @@ export function registerReleaseHardeningTests(ctx){
     compileDistrictEvidence,
     derivePersuasionSignalFromElection,
     summarizeGeoEvidenceLayers,
+    summarizeGeoOpportunityLayers,
     buildGeoEvidenceMapLayer,
     summarizePrecinctEvidenceLayers,
     resolveDistrictEvidenceInputs,
@@ -1096,6 +1098,38 @@ export function registerReleaseHardeningTests(ctx){
     assert(layers[0].leaderCandidateId === "B", "Expected B to lead top GEO");
     assert(layers[0].marginVotes > 0, "Expected positive top-two margin in top GEO");
     assert(layers[0].candidateCount === 2, "Expected candidate count in top GEO summary");
+    return true;
+  });
+
+  test("Phase 19: geo opportunity summary ranks opportunity score deterministically", () => {
+    const evidence = compileDistrictEvidence({
+      geoUnits: [
+        { geoid: "34013010001", w: 0.7 },
+        { geoid: "34013010002", w: 0.3 },
+      ],
+      precinctResults: [
+        { precinctId: "P1", candidateVotes: { A: 40, B: 80 } },
+        { precinctId: "P2", candidateVotes: { A: 50, B: 30 } },
+      ],
+      crosswalkRows: [
+        { precinctId: "P1", geoid: "34013010001", weight: 0.5 },
+        { precinctId: "P1", geoid: "34013010002", weight: 0.5 },
+        { precinctId: "P2", geoid: "34013010002", weight: 1.0 },
+      ],
+      censusGeoRows: [
+        { geoid: "34013010001", values: { pop: 1000, housing_units: 400 } },
+        { geoid: "34013010002", values: { pop: 900, housing_units: 350 } },
+      ],
+    });
+    const rows = summarizeGeoOpportunityLayers({
+      geoRows: evidence.geoRows,
+      maxRows: 10,
+    });
+    assert(Array.isArray(rows) && rows.length === 2, "Expected two GEO opportunity rows");
+    assert(rows[0].geoid === "34013010002", "Expected competitive GEO to rank first by opportunity score");
+    assert(Number(rows[0].opportunityScore) > Number(rows[1].opportunityScore), "Expected strict descending opportunity score");
+    assert(Array.isArray(rows[0].reasons) && rows[0].reasons.includes("tight prior margin"), "Expected competitiveness reason tag");
+    assert(Number(rows[0].voteMassNorm) >= Number(rows[1].voteMassNorm), "Expected vote-mass normalization ordering");
     return true;
   });
 

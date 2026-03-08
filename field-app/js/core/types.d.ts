@@ -316,6 +316,21 @@ export interface DistrictEvidencePrecinctLayerRow {
   }>;
 }
 
+export interface DistrictEvidenceGeoOpportunityRow {
+  geoid: string;
+  opportunityScore: number;
+  competitiveness: number;
+  voteMassNorm: number;
+  densityNorm: number;
+  totalVotes: number;
+  sourcePrecincts: number;
+  leaderCandidateId: string | null;
+  marginPct: number | null;
+  hasElection: boolean;
+  hasCensus: boolean;
+  reasons: string[];
+}
+
 export interface DistrictEvidence {
   summary: {
     selectedGeoCount: number;

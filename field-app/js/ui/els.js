@@ -502,6 +502,7 @@ export const els = {
   intelDistrictEvidencePrecinctTbody: document.getElementById("intelDistrictEvidencePrecinctTbody"),
   intelDistrictEvidenceLinkTbody: document.getElementById("intelDistrictEvidenceLinkTbody"),
   intelDistrictEvidenceGeoTbody: document.getElementById("intelDistrictEvidenceGeoTbody"),
+  intelDistrictEvidenceOpportunityTbody: document.getElementById("intelDistrictEvidenceOpportunityTbody"),
   intelScenarioLocked: document.getElementById("intelScenarioLocked"),
   intelScenarioLockReason: document.getElementById("intelScenarioLockReason"),
   intelScenarioLockStatus: document.getElementById("intelScenarioLockStatus"),
