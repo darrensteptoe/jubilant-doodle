@@ -272,6 +272,38 @@ function fillDistrictEvidenceGeoTable(tbody, rows){
   }
 }
 
+function fillDistrictEvidenceOpportunityTable(tbody, rows){
+  if (!tbody) return;
+  tbody.innerHTML = "";
+  if (!rows.length){
+    const tr = document.createElement("tr");
+    tr.innerHTML = '<td colspan="9" class="muted">No GEO opportunity rows available.</td>';
+    tbody.appendChild(tr);
+    return;
+  }
+  const top = rows.slice(0, 20);
+  for (let i = 0; i < top.length; i += 1){
+    const row = top[i];
+    const tr = document.createElement("tr");
+    const marginPct = Number(row?.marginPct);
+    const reasons = Array.isArray(row?.reasons)
+      ? row.reasons.map((x) => String(x || "").trim()).filter(Boolean)
+      : [];
+    tr.innerHTML = `
+      <td class="num">${i + 1}</td>
+      <td>${String(row?.geoid || "—")}</td>
+      <td class="num">${Number.isFinite(Number(row?.opportunityScore)) ? Number(row.opportunityScore).toFixed(1) : "—"}</td>
+      <td class="num">${Number.isFinite(Number(row?.competitiveness)) ? Number(row.competitiveness).toFixed(2) : "—"}</td>
+      <td class="num">${Number.isFinite(Number(row?.voteMassNorm)) ? Number(row.voteMassNorm).toFixed(2) : "—"}</td>
+      <td class="num">${Number.isFinite(Number(row?.densityNorm)) ? Number(row.densityNorm).toFixed(2) : "—"}</td>
+      <td class="num">${fmtInt(row?.totalVotes)}</td>
+      <td class="num">${Number.isFinite(marginPct) ? fmtPct(marginPct, 1) : "—"}</td>
+      <td>${reasons.length ? reasons.join(", ") : "—"}</td>
+    `;
+    tbody.appendChild(tr);
+  }
+}
+
 function fillDistrictEvidencePrecinctTable(tbody, rows){
   if (!tbody) return;
   tbody.innerHTML = "";
@@ -1057,6 +1089,7 @@ export function renderIntelChecksModule({
 
   const compileDistrictEvidence = engine?.snapshot?.compileDistrictEvidence;
   const summarizeGeoEvidenceLayers = engine?.snapshot?.summarizeGeoEvidenceLayers;
+  const summarizeGeoOpportunityLayers = engine?.snapshot?.summarizeGeoOpportunityLayers;
   const buildGeoEvidenceMapLayer = engine?.snapshot?.buildGeoEvidenceMapLayer;
   const summarizePrecinctEvidenceLayers = engine?.snapshot?.summarizePrecinctEvidenceLayers;
   const resolveDistrictEvidenceInputs = engine?.snapshot?.resolveDistrictEvidenceInputs;
@@ -1447,6 +1480,7 @@ export function renderIntelChecksModule({
     fillDistrictEvidencePrecinctTable(els.intelDistrictEvidencePrecinctTbody, []);
     fillDistrictEvidenceLinkTable(els.intelDistrictEvidenceLinkTbody, []);
     fillDistrictEvidenceGeoTable(els.intelDistrictEvidenceGeoTbody, []);
+    fillDistrictEvidenceOpportunityTable(els.intelDistrictEvidenceOpportunityTbody, []);
     renderDistrictEvidenceMap(
       els.intelDistrictEvidenceMapSvg,
       els.intelDistrictEvidenceMapStatus,
@@ -1479,6 +1513,7 @@ export function renderIntelChecksModule({
     fillDistrictEvidencePrecinctTable(els.intelDistrictEvidencePrecinctTbody, []);
     fillDistrictEvidenceLinkTable(els.intelDistrictEvidenceLinkTbody, []);
     fillDistrictEvidenceGeoTable(els.intelDistrictEvidenceGeoTbody, []);
+    fillDistrictEvidenceOpportunityTable(els.intelDistrictEvidenceOpportunityTbody, []);
     renderDistrictEvidenceMap(
       els.intelDistrictEvidenceMapSvg,
       els.intelDistrictEvidenceMapStatus,
@@ -1514,6 +1549,14 @@ export function renderIntelChecksModule({
     }
   } else {
     geoLayers = summarizeEvidenceGeoRows(geoRows, 20);
+  }
+  let opportunityLayers = [];
+  if (typeof summarizeGeoOpportunityLayers === "function"){
+    try{
+      opportunityLayers = summarizeGeoOpportunityLayers({ geoRows, maxRows: 20 });
+    } catch {
+      opportunityLayers = [];
+    }
   }
   let geoMapLayer = {
     available: false,
@@ -1578,6 +1621,7 @@ export function renderIntelChecksModule({
   fillDistrictEvidencePrecinctTable(els.intelDistrictEvidencePrecinctTbody, precinctLayers);
   fillDistrictEvidenceLinkTable(els.intelDistrictEvidenceLinkTbody, links);
   fillDistrictEvidenceGeoTable(els.intelDistrictEvidenceGeoTbody, geoLayers);
+  fillDistrictEvidenceOpportunityTable(els.intelDistrictEvidenceOpportunityTbody, opportunityLayers);
   renderDistrictEvidenceMap(
     els.intelDistrictEvidenceMapSvg,
     els.intelDistrictEvidenceMapStatus,
