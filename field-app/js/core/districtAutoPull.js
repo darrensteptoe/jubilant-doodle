@@ -182,3 +182,116 @@ export function buildAutoPullUrlPlan(args = {}){
   };
 }
 
+/**
+ * @param {{
+ *   nowIso?: string | null,
+ *   mode?: string | null,
+ *   selected?: Record<string, any> | null,
+ *   urls?: Record<string, any> | null,
+ *   results?: Array<{ source: string, url: string | null, ok: boolean, message: string }> | null
+ * }} args
+ * @returns {{
+ *   ts: string,
+ *   mode: "manual" | "pinned_verified" | "latest_verified",
+ *   selected: {
+ *     boundarySetId: string | null,
+ *     crosswalkVersionId: string | null,
+ *     censusDatasetId: string | null,
+ *     electionDatasetId: string | null
+ *   },
+ *   urls: {
+ *     censusManifestUrl: string | null,
+ *     electionManifestUrl: string | null,
+ *     crosswalkRowsUrl: string | null,
+ *     precinctResultsUrl: string | null,
+ *     censusGeoRowsUrl: string | null
+ *   },
+ *   requestedCount: number,
+ *   successCount: number,
+ *   warningCount: number,
+ *   warnings: string[],
+ *   status: "ok" | "warn" | "bad",
+ *   fingerprint: string
+ * }}
+ */
+export function createAutoPullReceipt(args = {}){
+  const mode = normalizeMode(args.mode);
+  const selectedIn = (args && typeof args.selected === "object" && args.selected) || {};
+  const urlsIn = (args && typeof args.urls === "object" && args.urls) || {};
+  const resultsIn = Array.isArray(args.results) ? args.results : [];
+  const ts = str(args.nowIso) || new Date().toISOString();
+
+  const selected = {
+    boundarySetId: str(selectedIn.boundarySetId) || null,
+    crosswalkVersionId: str(selectedIn.crosswalkVersionId) || null,
+    censusDatasetId: str(selectedIn.censusDatasetId) || null,
+    electionDatasetId: str(selectedIn.electionDatasetId) || null,
+  };
+  const urls = {
+    censusManifestUrl: httpUrlOrNull(urlsIn.censusManifestUrl),
+    electionManifestUrl: httpUrlOrNull(urlsIn.electionManifestUrl),
+    crosswalkRowsUrl: httpUrlOrNull(urlsIn.crosswalkRowsUrl),
+    precinctResultsUrl: httpUrlOrNull(urlsIn.precinctResultsUrl),
+    censusGeoRowsUrl: httpUrlOrNull(urlsIn.censusGeoRowsUrl),
+  };
+
+  const warnings = [];
+  let requestedCount = 0;
+  let successCount = 0;
+  for (const row of resultsIn){
+    const source = str(row && typeof row === "object" ? row.source : "");
+    if (!source) continue;
+    requestedCount += 1;
+    const ok = !!(row && typeof row === "object" && row.ok);
+    if (ok){
+      successCount += 1;
+    } else {
+      const msg = str(row && typeof row === "object" ? row.message : "");
+      warnings.push(`${source}: ${msg || "failed"}`);
+    }
+  }
+
+  const warningCount = warnings.length;
+  const status = successCount === requestedCount && warningCount === 0
+    ? "ok"
+    : (successCount > 0 ? "warn" : "bad");
+  const fingerprint = JSON.stringify({
+    mode,
+    selected,
+    urls,
+    requestedCount,
+    successCount,
+    warningCount,
+  });
+
+  return {
+    ts,
+    mode,
+    selected,
+    urls,
+    requestedCount,
+    successCount,
+    warningCount,
+    warnings,
+    status,
+    fingerprint,
+  };
+}
+
+/**
+ * @param {unknown} receipt
+ * @returns {string}
+ */
+export function summarizeAutoPullReceipt(receipt){
+  const r = (receipt && typeof receipt === "object") ? /** @type {Record<string, any>} */ (receipt) : null;
+  if (!r) return "Auto-pull run: none.";
+  const ts = str(r.ts) || "unknown time";
+  const mode = normalizeMode(r.mode);
+  const requested = Number(r.requestedCount);
+  const success = Number(r.successCount);
+  const warningCount = Number(r.warningCount);
+  const reqText = Number.isFinite(requested) ? String(Math.max(0, Math.trunc(requested))) : "0";
+  const okText = Number.isFinite(success) ? String(Math.max(0, Math.trunc(success))) : "0";
+  const warnText = Number.isFinite(warningCount) ? String(Math.max(0, Math.trunc(warningCount))) : "0";
+  return `Auto-pull run ${ts} · mode ${mode} · imported ${okText}/${reqText} · warnings ${warnText}`;
+}

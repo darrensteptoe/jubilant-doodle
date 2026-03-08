@@ -107,7 +107,7 @@ import {
   applyDistrictIntelRateOverrides,
   applyDistrictIntelCapacityOverrides,
 } from "./districtIntelBuilder.js";
-import { buildAutoPullUrlPlan } from "./districtAutoPull.js";
+import { buildAutoPullUrlPlan, createAutoPullReceipt, summarizeAutoPullReceipt } from "./districtAutoPull.js";
 import { registerPhase115ATests } from "./selfTestSuites/phase115A.js";
 import { registerReleaseHardeningTests } from "./selfTestSuites/releaseHardening.js";
 
@@ -1473,6 +1473,8 @@ export function runSelfTests(engine){
     scoreElectionDatasetCompatibility,
     rankElectionDatasetsForScenario,
     buildAutoPullUrlPlan,
+    createAutoPullReceipt,
+    summarizeAutoPullReceipt,
     normalizeAreaSelection,
     buildAreaResolverCacheKey,
     deriveAreaResolverContext,

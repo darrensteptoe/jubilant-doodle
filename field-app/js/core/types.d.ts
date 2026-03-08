@@ -396,3 +396,27 @@ export interface DistrictAutoPullPlan {
   missingCount: number;
   notes: string[];
 }
+
+export interface DistrictAutoPullReceipt {
+  ts: string;
+  mode: "manual" | "pinned_verified" | "latest_verified";
+  selected: {
+    boundarySetId: string | null;
+    crosswalkVersionId: string | null;
+    censusDatasetId: string | null;
+    electionDatasetId: string | null;
+  };
+  urls: {
+    censusManifestUrl: string | null;
+    electionManifestUrl: string | null;
+    crosswalkRowsUrl: string | null;
+    precinctResultsUrl: string | null;
+    censusGeoRowsUrl: string | null;
+  };
+  requestedCount: number;
+  successCount: number;
+  warningCount: number;
+  warnings: string[];
+  status: "ok" | "warn" | "bad";
+  fingerprint: string;
+}

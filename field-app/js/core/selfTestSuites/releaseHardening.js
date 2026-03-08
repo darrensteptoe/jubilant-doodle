@@ -51,6 +51,8 @@
  *   scoreElectionDatasetCompatibility: (...args: any[]) => any,
  *   rankElectionDatasetsForScenario: (...args: any[]) => any,
  *   buildAutoPullUrlPlan: (...args: any[]) => any,
+ *   createAutoPullReceipt: (...args: any[]) => any,
+ *   summarizeAutoPullReceipt: (...args: any[]) => any,
  *   normalizeAreaSelection: (...args: any[]) => any,
  *   buildAreaResolverCacheKey: (...args: any[]) => any,
  *   deriveAreaResolverContext: (...args: any[]) => any,
@@ -108,6 +110,8 @@ export function registerReleaseHardeningTests(ctx){
     scoreElectionDatasetCompatibility,
     rankElectionDatasetsForScenario,
     buildAutoPullUrlPlan,
+    createAutoPullReceipt,
+    summarizeAutoPullReceipt,
     normalizeAreaSelection,
     buildAreaResolverCacheKey,
     deriveAreaResolverContext,
@@ -1076,6 +1080,38 @@ export function registerReleaseHardeningTests(ctx){
     assert(plan.missingCount === 5, "Expected five missing URL slots");
     assert(Array.isArray(plan.notes) && plan.notes.length >= 4, "Expected missing URL notes");
     assert(plan.notes.some((x) => String(x).includes("No census manifest URL")), "Expected census missing URL note");
+    return true;
+  });
+
+  test("Phase 21: auto-pull receipt summarizes deterministic run outcomes", () => {
+    const receipt = createAutoPullReceipt({
+      nowIso: "2026-03-07T12:00:00.000Z",
+      mode: "latest_verified",
+      selected: {
+        boundarySetId: "sldl_2024",
+        crosswalkVersionId: "cw_2024",
+        censusDatasetId: "acs5_2024",
+        electionDatasetId: "mit_2024",
+      },
+      urls: {
+        censusManifestUrl: "https://example.test/acs5-2024-manifest.json",
+        electionManifestUrl: "https://example.test/mit-2024-manifest.json",
+        crosswalkRowsUrl: "https://example.test/cw-2024-rows.json",
+        precinctResultsUrl: "https://example.test/mit-2024-rows.json",
+        censusGeoRowsUrl: "https://example.test/acs5-2024-rows.json",
+      },
+      results: [
+        { source: "Census manifest", url: "https://example.test/acs5-2024-manifest.json", ok: true, message: "ok" },
+        { source: "Election manifest", url: "https://example.test/mit-2024-manifest.json", ok: false, message: "HTTP 404" },
+      ],
+    });
+    assert(receipt.status === "warn", "Expected warn status for mixed success/failure");
+    assert(receipt.requestedCount === 2, "Expected requested count in receipt");
+    assert(receipt.successCount === 1, "Expected success count in receipt");
+    assert(receipt.warningCount === 1, "Expected warning count in receipt");
+    assert(typeof receipt.fingerprint === "string" && receipt.fingerprint.length > 10, "Expected deterministic fingerprint string");
+    const line = summarizeAutoPullReceipt(receipt);
+    assert(String(line).includes("imported 1/2"), "Expected summary line to include imported ratio");
     return true;
   });
 
