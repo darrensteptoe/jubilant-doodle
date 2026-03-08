@@ -305,6 +305,176 @@ function fillDistrictEvidenceOpportunityTable(tbody, rows){
   }
 }
 
+function pickCensusMetric(censusTotals, keys){
+  const src = (censusTotals && typeof censusTotals === "object") ? censusTotals : {};
+  for (const key of keys){
+    const n = Number(src[key]);
+    if (Number.isFinite(n)) return n;
+  }
+  return null;
+}
+
+function toSharePct(raw){
+  const n = Number(raw);
+  if (!Number.isFinite(n)) return null;
+  if (n >= 0 && n <= 1) return n * 100;
+  if (n > 1 && n <= 100) return n;
+  return null;
+}
+
+function mergeCensusTotalsFromGeoRows(censusTotals, geoRows){
+  const out = { ...(censusTotals && typeof censusTotals === "object" ? censusTotals : {}) };
+  if (Object.keys(out).length) return out;
+  const rows = Array.isArray(geoRows) ? geoRows : [];
+  for (const row of rows){
+    const census = (row && typeof row.census === "object") ? row.census : {};
+    for (const key of Object.keys(census)){
+      const n = Number(census[key]);
+      if (!Number.isFinite(n)) continue;
+      out[key] = (Number(out[key]) || 0) + n;
+    }
+  }
+  return out;
+}
+
+function fillDistrictDemographicsTable(tbody, evidence){
+  if (!tbody) return;
+  tbody.innerHTML = "";
+  const ev = (evidence && typeof evidence === "object") ? evidence : {};
+  const censusTotalsRaw = (ev.censusTotals && typeof ev.censusTotals === "object") ? ev.censusTotals : {};
+  const censusTotals = mergeCensusTotalsFromGeoRows(censusTotalsRaw, ev.geoRows);
+  const summary = (ev.summary && typeof ev.summary === "object") ? ev.summary : {};
+  const signal = (ev.persuasionSignal && typeof ev.persuasionSignal === "object") ? ev.persuasionSignal : {};
+
+  const pop = pickCensusMetric(censusTotals, ["pop", "population", "total_population", "B01003_001E", "B01003_001"]);
+  const housing = pickCensusMetric(censusTotals, ["housing_units", "housing", "total_housing_units", "B25001_001E", "B25001_001"]);
+  const renterShare = toSharePct(pickCensusMetric(censusTotals, ["renter_share", "renters_share", "renterPct", "renter_pct"]));
+  const multiunitShare = toSharePct(pickCensusMetric(censusTotals, ["multiunit_share", "multi_unit_share", "multiunit5p_share"]));
+  const baShare = toSharePct(pickCensusMetric(censusTotals, ["ba_plus_share", "baShare", "education_ba_plus", "BA_share", "ba_share"]));
+  const youthShare = toSharePct(pickCensusMetric(censusTotals, ["age_18_34_share", "youth_share"]));
+  const olderShare = toSharePct(pickCensusMetric(censusTotals, ["age_65_plus_share", "older_share"]));
+  const lepShare = toSharePct(pickCensusMetric(censusTotals, ["limited_english_share", "lep_share"]));
+  const commute = pickCensusMetric(censusTotals, ["mean_commute_min", "commute_min", "mean_commute_minutes"]);
+  const totalVotes = Number(summary.totalVotes);
+  const competitiveness = Number(signal.competitivenessPct);
+  const marginPct = Number(signal.marginPct);
+
+  const rows = [
+    { label: "Population", value: Number.isFinite(pop) ? fmtInt(pop) : "—" },
+    { label: "Households", value: Number.isFinite(housing) ? fmtInt(housing) : "—" },
+    { label: "Renter share", value: Number.isFinite(renterShare) ? fmtPct(renterShare, 1) : "—" },
+    { label: "Multi-unit share", value: Number.isFinite(multiunitShare) ? fmtPct(multiunitShare, 1) : "—" },
+    { label: "BA+ share", value: Number.isFinite(baShare) ? fmtPct(baShare, 1) : "—" },
+    { label: "Age 18-34 share", value: Number.isFinite(youthShare) ? fmtPct(youthShare, 1) : "—" },
+    { label: "Age 65+ share", value: Number.isFinite(olderShare) ? fmtPct(olderShare, 1) : "—" },
+    { label: "Limited English share", value: Number.isFinite(lepShare) ? fmtPct(lepShare, 1) : "—" },
+    { label: "Mean commute", value: Number.isFinite(commute) ? `${commute.toFixed(1)} min` : "—" },
+    { label: "Weighted election votes", value: Number.isFinite(totalVotes) ? fmtInt(totalVotes) : "—" },
+    { label: "Competitiveness", value: Number.isFinite(competitiveness) ? fmtPct(competitiveness, 1) : "—" },
+    { label: "Prior margin", value: Number.isFinite(marginPct) ? fmtPct(marginPct, 1) : "—" },
+  ];
+
+  const hasAny = rows.some((row) => row.value !== "—");
+  if (!hasAny){
+    const tr = document.createElement("tr");
+    tr.innerHTML = '<td colspan="2" class="muted">No district demographic rollup yet.</td>';
+    tbody.appendChild(tr);
+    return;
+  }
+  for (const row of rows){
+    const tr = document.createElement("tr");
+    tr.innerHTML = `<td>${row.label}</td><td class="num">${row.value}</td>`;
+    tbody.appendChild(tr);
+  }
+}
+
+function formatAssumptionValue(kind, raw){
+  const n = Number(raw);
+  if (!Number.isFinite(n)) return "—";
+  if (kind === "rate") return fmtPct(n * 100, 1);
+  if (kind === "lift") return n.toFixed(2);
+  if (kind === "count") return n.toFixed(2);
+  return n.toFixed(2);
+}
+
+function formatAssumptionDelta(kind, base, adjusted){
+  const b = Number(base);
+  const a = Number(adjusted);
+  if (!Number.isFinite(b) || !Number.isFinite(a)) return "—";
+  const d = a - b;
+  const sign = d > 0 ? "+" : "";
+  if (kind === "rate"){
+    return `${sign}${(d * 100).toFixed(1)} pp`;
+  }
+  if (kind === "lift"){
+    return `${sign}${d.toFixed(2)}`;
+  }
+  return `${sign}${d.toFixed(2)}`;
+}
+
+function fillDistrictAssumptionTable(tbody, pack, useDistrictIntel, sourceKind = "pack"){
+  if (!tbody) return;
+  tbody.innerHTML = "";
+  const intel = (pack && typeof pack === "object") ? pack : {};
+  const ready = !!intel.ready;
+  const indices = (intel.indices && typeof intel.indices === "object") ? intel.indices : {};
+  const derived = (intel.derivedAssumptions && typeof intel.derivedAssumptions === "object") ? intel.derivedAssumptions : {};
+  const rows = [
+    {
+      label: "Doors per hour",
+      kind: "num",
+      base: Number(derived?.doorsPerHour?.base),
+      adjusted: Number(derived?.doorsPerHour?.adjusted),
+      driver: Number.isFinite(Number(indices.fieldSpeed)) ? `fieldSpeed ${Number(indices.fieldSpeed).toFixed(2)}` : "fieldSpeed",
+    },
+    {
+      label: "Support rate",
+      kind: "rate",
+      base: Number(derived?.persuasionRate?.base),
+      adjusted: Number(derived?.persuasionRate?.adjusted),
+      driver: Number.isFinite(Number(indices.persuasionEnv)) ? `persuasionEnv ${Number(indices.persuasionEnv).toFixed(2)}` : "persuasionEnv",
+    },
+    {
+      label: "Turnout lift",
+      kind: "lift",
+      base: Number(derived?.turnoutLift?.base),
+      adjusted: Number(derived?.turnoutLift?.adjusted),
+      driver: Number.isFinite(Number(indices.turnoutElasticity)) ? `turnoutElasticity ${Number(indices.turnoutElasticity).toFixed(2)}` : "turnoutElasticity",
+    },
+    {
+      label: "Organizer capacity",
+      kind: "count",
+      base: Number(derived?.organizerCapacity?.base),
+      adjusted: Number(derived?.organizerCapacity?.adjusted),
+      driver: Number.isFinite(Number(indices.fieldDifficulty)) ? `fieldDifficulty ${Number(indices.fieldDifficulty).toFixed(2)}` : "fieldDifficulty",
+    },
+  ];
+  const hasValues = rows.some((row) => Number.isFinite(row.base) || Number.isFinite(row.adjusted));
+  if (!ready && !hasValues){
+    const tr = document.createElement("tr");
+    tr.innerHTML = '<td colspan="5" class="muted">No district-intel assumption pack generated yet.</td>';
+    tbody.appendChild(tr);
+    return;
+  }
+  for (const row of rows){
+    const tr = document.createElement("tr");
+    const baseText = formatAssumptionValue(row.kind, row.base);
+    const adjustedText = formatAssumptionValue(row.kind, row.adjusted);
+    const deltaText = formatAssumptionDelta(row.kind, row.base, row.adjusted);
+    const driverText = useDistrictIntel && ready
+      ? `${row.driver} · applied`
+      : (sourceKind === "preview" ? `${row.driver} · preview` : `${row.driver} · generated`);
+    tr.innerHTML = `
+      <td>${row.label}</td>
+      <td class="num">${baseText}</td>
+      <td class="num">${adjustedText}</td>
+      <td class="num">${deltaText}</td>
+      <td>${driverText}</td>
+    `;
+    tbody.appendChild(tr);
+  }
+}
+
 function fillDistrictEvidencePrecinctTable(tbody, rows){
   if (!tbody) return;
   tbody.innerHTML = "";
@@ -1163,8 +1333,10 @@ export function renderIntelChecksModule({
       els.intelDistrictIntelAlignment.textContent = "Alignment: pack provenance matches active data refs.";
     }
   }
+  fillDistrictAssumptionTable(els.intelDistrictAssumptionTbody, districtIntelPack, useDistrictIntel, "pack");
 
   const compileDistrictEvidence = engine?.snapshot?.compileDistrictEvidence;
+  const buildDistrictIntelPackFromEvidence = engine?.snapshot?.buildDistrictIntelPackFromEvidence;
   const summarizeGeoEvidenceLayers = engine?.snapshot?.summarizeGeoEvidenceLayers;
   const summarizeGeoOpportunityLayers = engine?.snapshot?.summarizeGeoOpportunityLayers;
   const buildGeoEvidenceMapLayer = engine?.snapshot?.buildGeoEvidenceMapLayer;
@@ -1214,6 +1386,16 @@ export function renderIntelChecksModule({
     : Array.isArray(evidenceInputs.censusGeoRows)
     ? evidenceInputs.censusGeoRows
     : (Array.isArray(districtBlob.censusGeoRows) ? districtBlob.censusGeoRows : (Array.isArray(districtBlob.censusRows) ? districtBlob.censusRows : []));
+  const fallbackDemographicsEvidence = {
+    censusTotals: (districtBlob && typeof districtBlob.censusTotals === "object") ? districtBlob.censusTotals : {},
+    geoRows: Array.isArray(censusGeoRows)
+      ? censusGeoRows.map((row) => ({
+        census: (row && typeof row.values === "object") ? row.values : {},
+      }))
+      : [],
+    summary: {},
+    persuasionSignal: {},
+  };
   const resolverMode = String(resolvedInputs?.sourceMode || "");
   const resolverNotes = Array.isArray(resolvedInputs?.notes)
     ? resolvedInputs.notes.map((x) => String(x || "").trim()).filter(Boolean)
@@ -1852,6 +2034,7 @@ export function renderIntelChecksModule({
     fillDistrictEvidenceLinkTable(els.intelDistrictEvidenceLinkTbody, []);
     fillDistrictEvidenceGeoTable(els.intelDistrictEvidenceGeoTbody, []);
     fillDistrictEvidenceOpportunityTable(els.intelDistrictEvidenceOpportunityTbody, []);
+    fillDistrictDemographicsTable(els.intelDistrictDemographicsTbody, fallbackDemographicsEvidence);
     renderGeoInspector(els, [], "");
     renderDistrictEvidenceMap(
       els.intelDistrictEvidenceMapSvg,
@@ -1892,6 +2075,7 @@ export function renderIntelChecksModule({
     fillDistrictEvidenceLinkTable(els.intelDistrictEvidenceLinkTbody, []);
     fillDistrictEvidenceGeoTable(els.intelDistrictEvidenceGeoTbody, []);
     fillDistrictEvidenceOpportunityTable(els.intelDistrictEvidenceOpportunityTbody, []);
+    fillDistrictDemographicsTable(els.intelDistrictDemographicsTbody, fallbackDemographicsEvidence);
     renderGeoInspector(els, [], "");
     renderDistrictEvidenceMap(
       els.intelDistrictEvidenceMapSvg,
@@ -1991,6 +2175,47 @@ export function renderIntelChecksModule({
   const mergedNotes = resolverNotes.concat(
     warnings.map((x) => String(x || "").trim()).filter(Boolean)
   );
+  let assumptionPackForDisplay = districtIntelPack;
+  let assumptionSourceKind = "pack";
+  if (!districtIntelPack?.ready && typeof buildDistrictIntelPackFromEvidence === "function"){
+    try{
+      const preview = buildDistrictIntelPackFromEvidence({
+        scenario: state,
+        evidence,
+        refs: effectiveIds,
+        nowIso: String(districtIntelPack?.generatedAt || "1970-01-01T00:00:00.000Z"),
+      });
+      if (preview?.pack && typeof preview.pack === "object"){
+        assumptionPackForDisplay = preview.pack;
+        assumptionSourceKind = "preview";
+      }
+    } catch {}
+  }
+  fillDistrictAssumptionTable(
+    els.intelDistrictAssumptionTbody,
+    assumptionPackForDisplay,
+    useDistrictIntel,
+    assumptionSourceKind
+  );
+  if (!packReady && assumptionSourceKind === "preview"){
+    const p = assumptionPackForDisplay;
+    const bits = [
+      Number.isFinite(Number(p?.indices?.fieldSpeed)) ? `Field speed ${Number(p.indices.fieldSpeed).toFixed(2)}` : null,
+      Number.isFinite(Number(p?.indices?.persuasionEnv)) ? `Persuasion ${Number(p.indices.persuasionEnv).toFixed(2)}` : null,
+      Number.isFinite(Number(p?.indices?.turnoutElasticity)) ? `Turnout elasticity ${Number(p.indices.turnoutElasticity).toFixed(2)}` : null,
+      Number.isFinite(Number(p?.indices?.fieldDifficulty)) ? `Difficulty ${Number(p.indices.fieldDifficulty).toFixed(2)}` : null,
+    ].filter(Boolean);
+    if (els.intelDistrictIntelSummary){
+      els.intelDistrictIntelSummary.textContent = bits.length
+        ? `Preview: ${bits.join(" · ")}. Click Generate assumptions to persist.`
+        : "Preview available from current district evidence. Click Generate assumptions to persist.";
+    }
+    if (els.intelDistrictIntelStatus){
+      els.intelDistrictIntelStatus.classList.remove("ok", "warn", "bad", "muted");
+      els.intelDistrictIntelStatus.classList.add("muted");
+      els.intelDistrictIntelStatus.textContent = "District-intel assumptions previewed from current evidence. Generate assumptions to enable toggle.";
+    }
+  }
 
   if (els.intelDistrictEvidenceStatus){
     els.intelDistrictEvidenceStatus.classList.remove("ok", "warn", "bad", "muted");
@@ -2022,6 +2247,7 @@ export function renderIntelChecksModule({
       ? `Persuasion signal index: ${signal.toFixed(3)}${signalNote ? ` · ${signalNote}` : ""}`
       : "Persuasion signal index: —";
   }
+  fillDistrictDemographicsTable(els.intelDistrictDemographicsTbody, evidence);
 
   fillDistrictEvidenceCandidateTable(els.intelDistrictEvidenceCandidateTbody, candidateTotals);
   fillDistrictEvidencePrecinctTable(els.intelDistrictEvidencePrecinctTbody, precinctLayers);
