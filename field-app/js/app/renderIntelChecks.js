@@ -1092,6 +1092,12 @@ export function renderIntelChecksModule({
   const summarizeGeoOpportunityLayers = engine?.snapshot?.summarizeGeoOpportunityLayers;
   const buildGeoEvidenceMapLayer = engine?.snapshot?.buildGeoEvidenceMapLayer;
   const summarizePrecinctEvidenceLayers = engine?.snapshot?.summarizePrecinctEvidenceLayers;
+  const normalizeCensusManifest = engine?.snapshot?.normalizeCensusManifest;
+  const validateCensusManifest = engine?.snapshot?.validateCensusManifest;
+  const censusManifestToCatalogEntry = engine?.snapshot?.censusManifestToCatalogEntry;
+  const normalizeElectionManifest = engine?.snapshot?.normalizeElectionManifest;
+  const validateElectionManifest = engine?.snapshot?.validateElectionManifest;
+  const electionManifestToCatalogEntry = engine?.snapshot?.electionManifestToCatalogEntry;
   const resolveDistrictEvidenceInputs = engine?.snapshot?.resolveDistrictEvidenceInputs;
   const resolveDataRefsByPolicy = engine?.snapshot?.resolveDataRefsByPolicy;
   const diagnoseDataRefAlignment = engine?.snapshot?.diagnoseDataRefAlignment;
@@ -1448,6 +1454,20 @@ export function renderIntelChecksModule({
   }
   if (els.btnIntelDataRefsPin){
     els.btnIntelDataRefsPin.disabled = typeof engine?.snapshot?.materializePinnedDataRefs !== "function";
+  }
+  if (els.btnIntelImportCensusManifest){
+    els.btnIntelImportCensusManifest.disabled = !(
+      typeof normalizeCensusManifest === "function" &&
+      typeof validateCensusManifest === "function" &&
+      typeof censusManifestToCatalogEntry === "function"
+    );
+  }
+  if (els.btnIntelImportElectionManifest){
+    els.btnIntelImportElectionManifest.disabled = !(
+      typeof normalizeElectionManifest === "function" &&
+      typeof validateElectionManifest === "function" &&
+      typeof electionManifestToCatalogEntry === "function"
+    );
   }
   if (els.intelDistrictEvidenceSelectedElection){
     const topId = String(rankedElectionDatasets?.[0]?.dataset?.id || "").trim();
