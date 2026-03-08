@@ -427,7 +427,7 @@ export function wireIntelChecksEvents(ctx){
     }, "Area label updated."));
   }
   if (els.intelAreaStateFips){
-    els.intelAreaStateFips.addEventListener("change", () => {
+    els.intelAreaStateFips.addEventListener("input", () => {
       onAreaChange((geo) => {
         geo.area.stateFips = cleanDigits(els.intelAreaStateFips.value, 2);
       }, "Area state FIPS updated.");

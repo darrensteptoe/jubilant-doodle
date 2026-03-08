@@ -41,31 +41,6 @@ function makeOption(value, label){
   return opt;
 }
 
-const STATE_OPTIONS = [
-  ["01", "AL"], ["02", "AK"], ["04", "AZ"], ["05", "AR"], ["06", "CA"], ["08", "CO"], ["09", "CT"],
-  ["10", "DE"], ["11", "DC"], ["12", "FL"], ["13", "GA"], ["15", "HI"], ["16", "ID"], ["17", "IL"],
-  ["18", "IN"], ["19", "IA"], ["20", "KS"], ["21", "KY"], ["22", "LA"], ["23", "ME"], ["24", "MD"],
-  ["25", "MA"], ["26", "MI"], ["27", "MN"], ["28", "MS"], ["29", "MO"], ["30", "MT"], ["31", "NE"],
-  ["32", "NV"], ["33", "NH"], ["34", "NJ"], ["35", "NM"], ["36", "NY"], ["37", "NC"], ["38", "ND"],
-  ["39", "OH"], ["40", "OK"], ["41", "OR"], ["42", "PA"], ["44", "RI"], ["45", "SC"], ["46", "SD"],
-  ["47", "TN"], ["48", "TX"], ["49", "UT"], ["50", "VT"], ["51", "VA"], ["53", "WA"], ["54", "WV"],
-  ["55", "WI"], ["56", "WY"], ["72", "PR"],
-];
-
-function fillStateFipsSelect(selectEl, selected){
-  if (!selectEl) return;
-  const keep = String(selected || "");
-  if (selectEl.options.length <= 1){
-    selectEl.innerHTML = "";
-    selectEl.appendChild(makeOption("", "Select state"));
-    for (const row of STATE_OPTIONS){
-      selectEl.appendChild(makeOption(row[0], `${row[1]} (${row[0]})`));
-    }
-  }
-  selectEl.value = keep;
-  if (selectEl.value !== keep) selectEl.value = "";
-}
-
 function fillCorrelationSelect(selectEl, rows, selectedId){
   if (!selectEl) return;
   const keep = String(selectedId || "");
@@ -1270,13 +1245,10 @@ export function renderIntelChecksModule({
     if (els.intelAreaResolution.value !== r) els.intelAreaResolution.value = "tract";
   }
   if (els.intelAreaLabel) els.intelAreaLabel.value = String(normalizedArea?.label || "");
-  fillStateFipsSelect(els.intelAreaStateFips, String(normalizedArea?.stateFips || ""));
+  if (els.intelAreaStateFips) els.intelAreaStateFips.value = String(normalizedArea?.stateFips || "");
   if (els.intelAreaDistrict) els.intelAreaDistrict.value = String(normalizedArea?.district || "");
   if (els.intelAreaCountyFips) els.intelAreaCountyFips.value = String(normalizedArea?.countyFips || "");
   if (els.intelAreaPlaceFips) els.intelAreaPlaceFips.value = String(normalizedArea?.placeFips || "");
-  if (els.intelAreaDistrict) els.intelAreaDistrict.disabled = false;
-  if (els.intelAreaCountyFips) els.intelAreaCountyFips.disabled = false;
-  if (els.intelAreaPlaceFips) els.intelAreaPlaceFips.disabled = false;
 
   let areaCtx = null;
   if (typeof deriveAreaResolverContext === "function"){
