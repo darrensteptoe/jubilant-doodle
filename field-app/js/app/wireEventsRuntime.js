@@ -574,6 +574,8 @@ export function wireIntelChecksEvents(ctx){
     if (district){
       district.selectedGeoId = null;
       district.areaBoundary = null;
+      district.censusRowsV2 = [];
+      district.censusRowsV2Meta = null;
       if (!district.evidenceInputs || typeof district.evidenceInputs !== "object") district.evidenceInputs = {};
       district.evidenceInputs.precinctResults = [];
       district.evidenceInputs.crosswalkRows = [];
@@ -1379,6 +1381,8 @@ export function wireIntelChecksEvents(ctx){
     }
     const meta = buildEvidenceImportMeta(s, rows);
     const status = String(meta.validationStatus || "unknown");
+    district.censusRowsV2 = rows;
+    district.censusRowsV2Meta = meta;
     const key = String(refs?.censusDatasetId || "").trim();
     if (key){
       district.evidenceStore.censusByDatasetId[key] = { rows, meta };

@@ -306,25 +306,23 @@ function fillDistrictEvidenceGeoTable(tbody, rows){
   const top = rows.slice(0, 20);
   for (const row of top){
     const tr = document.createElement("tr");
-    const leaderId = String(row?.leaderCandidateId || "").trim();
-    const leaderVotes = Number(row?.leaderVotes);
-    const leaderSharePct = Number(row?.leaderSharePct);
-    const marginVotes = Number(row?.marginVotes);
-    const marginPct = Number(row?.marginPct);
-    const topCandidate = leaderId
-      ? `${leaderId} (${fmtInt(leaderVotes)} · ${fmtPct(leaderSharePct, 1)})`
-      : "—";
-    const marginText = Number.isFinite(marginVotes)
-      ? `${fmtInt(marginVotes)}${Number.isFinite(marginPct) ? ` (${fmtPct(marginPct, 1)})` : ""}`
-      : "—";
-    const dataFlags = `${row?.hasElection ? "E" : "—"}/${row?.hasCensus ? "C" : "—"}`;
+    const census = (row?.census && typeof row.census === "object") ? row.census : {};
+    const pop = pickRowCensusMetric(census, ["pop", "population", "total_population", "B01003_001E", "B01003_001"]);
+    const housing = pickRowCensusMetric(census, ["housing_units", "housing", "total_housing_units", "B25001_001E", "B25001_001"]);
+    const income = pickRowCensusMetric(census, ["median_income", "median_household_income", "B19013_001E", "B19013_001"]);
+    const renterShare = toSharePct(
+      pickRowCensusMetric(census, ["renter_share", "renters_share", "renterPct", "renter_pct"])
+      ?? ratioRowCensusMetric(census, ["B25003_003E", "B25003_003"], ["B25003_001E", "B25003_001"])
+    );
+    const hasCensus = Object.keys(census).length > 0;
+    const incomeText = Number.isFinite(income) ? `$${fmtInt(income)}` : "—";
     tr.innerHTML = `
       <td>${String(row?.geoid || "—")}</td>
-      <td class="num">${fmtInt(row?.totalVotes)}</td>
-      <td>${topCandidate}</td>
-      <td class="num">${marginText}</td>
-      <td class="num">${fmtInt(row?.sourcePrecincts)}</td>
-      <td>${dataFlags}</td>
+      <td class="num">${Number.isFinite(pop) ? fmtInt(pop) : "—"}</td>
+      <td class="num">${Number.isFinite(housing) ? fmtInt(housing) : "—"}</td>
+      <td class="num">${incomeText}</td>
+      <td class="num">${Number.isFinite(renterShare) ? fmtPct(renterShare, 1) : "—"}</td>
+      <td>${hasCensus ? "Census" : "—"}</td>
     `;
     tbody.appendChild(tr);
   }
@@ -387,6 +385,26 @@ function sumCensusMetric(censusTotals, keys){
 function ratioCensusMetric(censusTotals, numeratorKeys, denominatorKeys){
   const num = sumCensusMetric(censusTotals, numeratorKeys);
   const den = sumCensusMetric(censusTotals, denominatorKeys);
+  if (!Number.isFinite(num) || !Number.isFinite(den) || den <= 0) return null;
+  return num / den;
+}
+
+function sumRowCensusMetric(census, keys){
+  const src = (census && typeof census === "object") ? census : {};
+  let any = false;
+  let total = 0;
+  for (const key of keys){
+    const n = Number(src[key]);
+    if (!Number.isFinite(n)) continue;
+    any = true;
+    total += n;
+  }
+  return any ? total : null;
+}
+
+function ratioRowCensusMetric(census, numeratorKeys, denominatorKeys){
+  const num = sumRowCensusMetric(census, numeratorKeys);
+  const den = sumRowCensusMetric(census, denominatorKeys);
   if (!Number.isFinite(num) || !Number.isFinite(den) || den <= 0) return null;
   return num / den;
 }
@@ -1646,6 +1664,19 @@ export function renderIntelChecksModule({
 } = {}){
   if (!els || !state) return;
   ensureIntelCollections(state);
+  const censusStabilizationMode = true;
+  if (els.intelDistrictAdvancedDataDetails){
+    els.intelDistrictAdvancedDataDetails.hidden = censusStabilizationMode;
+  }
+  if (els.intelDistrictAdvancedTables){
+    els.intelDistrictAdvancedTables.hidden = false;
+  }
+  if (els.intelDistrictElectionTables){
+    els.intelDistrictElectionTables.hidden = censusStabilizationMode;
+  }
+  if (els.intelDistrictEvidenceSelectedElection){
+    els.intelDistrictEvidenceSelectedElection.hidden = censusStabilizationMode;
+  }
 
   const benchmarks = listIntelBenchmarks(state).sort((a, b) => {
     const ar = String(a?.ref || "");
@@ -2312,7 +2343,7 @@ export function renderIntelChecksModule({
     if (assistModel.placeFilter) bits.push(`Place ${assistModel.placeFilter}`);
     bits.push(`${fmtInt(assistModel.counties.length)} county options`);
     bits.push(`${fmtInt(assistModel.places.length)} place options`);
-    bits.push(`${fmtInt(assistModel.geos.length)} GEO options`);
+    bits.push(`${fmtInt(assistGeoOptions.length)} GEO options`);
     els.intelAreaAssistStatus.textContent = bits.join(" · ");
   }
   if (els.intelAreaAssistLookupStatus){
@@ -2406,7 +2437,7 @@ export function renderIntelChecksModule({
     }
     if (!flowDataReady){
       els.intelFlowStepStatus.classList.add("ok");
-      els.intelFlowStepStatus.textContent = "Flow: Census map/demographics ready. Optional: load election + crosswalk for vote overlays.";
+      els.intelFlowStepStatus.textContent = "Flow: Census map/demographics ready.";
       return;
     }
     if (!packReady){
@@ -2551,7 +2582,7 @@ export function renderIntelChecksModule({
     : "No pinned datasets selected yet.";
   if (els.intelDistrictEvidenceSource){
     els.intelDistrictEvidenceSource.textContent = districtEvidenceSourceBaseLine;
-    els.intelDistrictEvidenceSource.title = "Render order: aligned election+crosswalk+census, then selected-area census-only fallback.";
+    els.intelDistrictEvidenceSource.title = "Render source prioritizes selected-area census rows.";
   }
 
   const resolutionNotes = Array.isArray(policyResolution?.notes)
@@ -3188,7 +3219,7 @@ export function renderIntelChecksModule({
     } else if (!gatedPrecinctResults.length || !scopedCrosswalkRows.length){
       els.intelDistrictEvidenceStatus.classList.add("ok");
       const geoCount = Number(evidence?.summary?.geoRowsCount || displayGeoRows.length || 0);
-      els.intelDistrictEvidenceStatus.textContent = `Census-only view ready: ${fmtInt(geoCount)} GEO rows. Load election + crosswalk to enable vote overlays.`;
+      els.intelDistrictEvidenceStatus.textContent = `Census-only view ready: ${fmtInt(geoCount)} GEO rows.`;
     } else if (mergedNotes.length){
       els.intelDistrictEvidenceStatus.classList.add("warn");
       els.intelDistrictEvidenceStatus.textContent = `Evidence compiled with warnings: ${mergedNotes[0]}`;
@@ -3199,13 +3230,11 @@ export function renderIntelChecksModule({
     }
   }
   if (els.intelDistrictEvidenceSource){
-    const renderLine = renderSourceKind === "aligned"
-      ? "Render source: aligned election+crosswalk+census"
-      : renderSourceKind === "census_fallback"
-        ? "Render source: selected-area census-only fallback"
-        : "Render source: none";
+    const renderLine = displayGeoRows.length
+      ? "Render source: selected-area census rows"
+      : "Render source: none";
     els.intelDistrictEvidenceSource.textContent = `${districtEvidenceSourceBaseLine} · ${renderLine}`;
-    els.intelDistrictEvidenceSource.title = "Deterministic render order: aligned full evidence first; selected-area census-only fallback second.";
+    els.intelDistrictEvidenceSource.title = "Render source prioritizes selected-area census rows.";
   }
   if (els.intelDistrictEvidenceCoverage){
     els.intelDistrictEvidenceCoverage.textContent = Number.isFinite(coveragePct)
@@ -3230,7 +3259,7 @@ export function renderIntelChecksModule({
   fillDistrictEvidenceCandidateTable(els.intelDistrictEvidenceCandidateTbody, candidateTotals);
   fillDistrictEvidencePrecinctTable(els.intelDistrictEvidencePrecinctTbody, precinctLayers);
   fillDistrictEvidenceLinkTable(els.intelDistrictEvidenceLinkTbody, links);
-  fillDistrictEvidenceGeoTable(els.intelDistrictEvidenceGeoTbody, geoLayers);
+  fillDistrictEvidenceGeoTable(els.intelDistrictEvidenceGeoTbody, displayGeoRows);
   fillDistrictEvidenceOpportunityTable(els.intelDistrictEvidenceOpportunityTbody, opportunityLayers);
   const districtState = (state?.geoPack && typeof state.geoPack === "object" && state.geoPack.district && typeof state.geoPack.district === "object")
     ? state.geoPack.district
