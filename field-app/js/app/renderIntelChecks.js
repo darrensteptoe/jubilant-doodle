@@ -1257,6 +1257,20 @@ function fillAreaAssistStateSelect(selectEl, states, area){
   const state = normalizedStateForLinks(area?.stateFips);
   const rows = Array.isArray(states) ? states : [];
   selectEl.innerHTML = "";
+  if (state){
+    const match = rows.find((row) => String(row?.stateFips || "") === state) || null;
+    if (!match){
+      selectEl.appendChild(makeOption("", `No state suggestions for ${state}`));
+      selectEl.disabled = true;
+      return;
+    }
+    selectEl.disabled = false;
+    const stateLabel = STATE_LABEL_BY_FIPS[state] ? `${STATE_LABEL_BY_FIPS[state]} (${state})` : state;
+    const label = `${stateLabel} · ${fmtInt(match?.count)} GEO rows`;
+    selectEl.appendChild(makeOption(state, label));
+    selectEl.value = state;
+    return;
+  }
   if (!rows.length){
     selectEl.appendChild(makeOption("", "No state suggestions"));
     selectEl.disabled = true;
@@ -2105,7 +2119,6 @@ export function renderIntelChecksModule({
     if (!assistModel.state) bits.push("Set state to enable county/place/GEO assists");
     if (assistModel.countyFilter) bits.push(`County ${assistModel.countyFilter}`);
     if (assistModel.placeFilter) bits.push(`Place ${assistModel.placeFilter}`);
-    bits.push(`${fmtInt(assistModel.states.length)} state options`);
     bits.push(`${fmtInt(assistModel.counties.length)} county options`);
     bits.push(`${fmtInt(assistModel.places.length)} place options`);
     bits.push(`${fmtInt(assistModel.geos.length)} GEO options`);
