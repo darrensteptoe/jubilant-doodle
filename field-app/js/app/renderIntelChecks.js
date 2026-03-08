@@ -1271,9 +1271,17 @@ export function renderIntelChecksModule({
   }
   if (els.intelAreaLabel) els.intelAreaLabel.value = String(normalizedArea?.label || "");
   fillStateFipsSelect(els.intelAreaStateFips, String(normalizedArea?.stateFips || ""));
+  const areaType = String(normalizedArea?.type || "").toUpperCase();
+  const customEnabled = areaType === "CUSTOM";
+  const districtEnabled = customEnabled || areaType === "CD" || areaType === "SLDU" || areaType === "SLDL";
+  const countyEnabled = customEnabled || areaType === "COUNTY";
+  const placeEnabled = customEnabled || areaType === "PLACE";
   if (els.intelAreaDistrict) els.intelAreaDistrict.value = String(normalizedArea?.district || "");
   if (els.intelAreaCountyFips) els.intelAreaCountyFips.value = String(normalizedArea?.countyFips || "");
   if (els.intelAreaPlaceFips) els.intelAreaPlaceFips.value = String(normalizedArea?.placeFips || "");
+  if (els.intelAreaDistrict) els.intelAreaDistrict.disabled = !districtEnabled;
+  if (els.intelAreaCountyFips) els.intelAreaCountyFips.disabled = !countyEnabled;
+  if (els.intelAreaPlaceFips) els.intelAreaPlaceFips.disabled = !placeEnabled;
   if (els.intelAreaCodeSelect && !els.intelAreaCodeSelect.options.length){
     els.intelAreaCodeSelect.appendChild(makeOption("", "None loaded"));
   }
@@ -1324,16 +1332,18 @@ export function renderIntelChecksModule({
     const bits = [];
     if (areaCacheKey) bits.push(`Cache key: ${areaCacheKey}`);
     if (areaNotes.length) bits.push(`Note: ${areaNotes[0]}`);
+    if (!bits.length){
+      bits.push("Flow: select state → area type → area option, then generate assumptions.");
+    }
     els.intelAreaResolverDetail.textContent = bits.length
       ? bits.join(" · ")
       : "Set area + resolution to generate a deterministic cache key.";
   }
   if (els.btnIntelAreaLoadCodes){
     const hasFetch = typeof globalThis.fetch === "function";
-    els.btnIntelAreaLoadCodes.disabled = !hasFetch;
-  }
-  if (els.btnIntelAreaApplyQuick){
-    els.btnIntelAreaApplyQuick.disabled = false;
+    const hasState = String(normalizedArea?.stateFips || "").trim().length > 0;
+    const hasType = ["CD", "SLDU", "SLDL", "COUNTY", "PLACE"].includes(String(normalizedArea?.type || "").toUpperCase());
+    els.btnIntelAreaLoadCodes.disabled = !(hasFetch && hasState && hasType);
   }
 
   const refsIn = (state?.dataRefs && typeof state.dataRefs === "object") ? state.dataRefs : {};

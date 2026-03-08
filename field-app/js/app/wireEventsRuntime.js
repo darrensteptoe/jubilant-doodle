@@ -191,85 +191,6 @@ export function wireIntelChecksEvents(ctx){
     return m ? Number(m[0]) : null;
   };
 
-  const STATE_FIPS_ABBR = [
-    ["01", "AL"], ["02", "AK"], ["04", "AZ"], ["05", "AR"], ["06", "CA"], ["08", "CO"], ["09", "CT"],
-    ["10", "DE"], ["11", "DC"], ["12", "FL"], ["13", "GA"], ["15", "HI"], ["16", "ID"], ["17", "IL"],
-    ["18", "IN"], ["19", "IA"], ["20", "KS"], ["21", "KY"], ["22", "LA"], ["23", "ME"], ["24", "MD"],
-    ["25", "MA"], ["26", "MI"], ["27", "MN"], ["28", "MS"], ["29", "MO"], ["30", "MT"], ["31", "NE"],
-    ["32", "NV"], ["33", "NH"], ["34", "NJ"], ["35", "NM"], ["36", "NY"], ["37", "NC"], ["38", "ND"],
-    ["39", "OH"], ["40", "OK"], ["41", "OR"], ["42", "PA"], ["44", "RI"], ["45", "SC"], ["46", "SD"],
-    ["47", "TN"], ["48", "TX"], ["49", "UT"], ["50", "VT"], ["51", "VA"], ["53", "WA"], ["54", "WV"],
-    ["55", "WI"], ["56", "WY"], ["72", "PR"],
-  ];
-  const STATE_ABBR_TO_FIPS = Object.fromEntries(STATE_FIPS_ABBR.map((x) => [x[1], x[0]]));
-
-  const parseQuickAreaCode = (raw, currentType) => {
-    const s = String(raw || "").trim().toUpperCase().replace(/\s+/g, "");
-    if (!s) return { ok: false, error: "Quick code is empty." };
-    let m = s.match(/^([A-Z]{2})-(CD|SLDU|SLDL)-(\d{1,3})$/);
-    if (m){
-      const stateFips = STATE_ABBR_TO_FIPS[m[1]] || "";
-      if (!stateFips) return { ok: false, error: "Unknown state abbreviation in quick code." };
-      return {
-        ok: true,
-        area: {
-          type: m[2],
-          stateFips,
-          district: String(Number(m[3])).padStart(3, "0"),
-          countyFips: "",
-          placeFips: "",
-        },
-      };
-    }
-    m = s.match(/^([A-Z]{2})-(\d{1,3})$/);
-    if (m){
-      const stateFips = STATE_ABBR_TO_FIPS[m[1]] || "";
-      if (!stateFips) return { ok: false, error: "Unknown state abbreviation in quick code." };
-      const type = (currentType === "CD" || currentType === "SLDU" || currentType === "SLDL") ? currentType : "CD";
-      return {
-        ok: true,
-        area: {
-          type,
-          stateFips,
-          district: String(Number(m[2])).padStart(3, "0"),
-          countyFips: "",
-          placeFips: "",
-        },
-      };
-    }
-    m = s.match(/^([A-Z]{2})-COUNTY-(\d{1,5})$/);
-    if (m){
-      const stateFips = STATE_ABBR_TO_FIPS[m[1]] || "";
-      if (!stateFips) return { ok: false, error: "Unknown state abbreviation in quick code." };
-      return {
-        ok: true,
-        area: {
-          type: "COUNTY",
-          stateFips,
-          district: "",
-          countyFips: String(Number(m[2])).padStart(3, "0"),
-          placeFips: "",
-        },
-      };
-    }
-    m = s.match(/^([A-Z]{2})-PLACE-(\d{1,5})$/);
-    if (m){
-      const stateFips = STATE_ABBR_TO_FIPS[m[1]] || "";
-      if (!stateFips) return { ok: false, error: "Unknown state abbreviation in quick code." };
-      return {
-        ok: true,
-        area: {
-          type: "PLACE",
-          stateFips,
-          district: "",
-          countyFips: "",
-          placeFips: String(Number(m[2])).padStart(5, "0"),
-        },
-      };
-    }
-    return { ok: false, error: "Quick code format not recognized." };
-  };
-
   const areaTypeToCensusGeo = (type) => {
     const t = String(type || "").toUpperCase();
     if (t === "CD") return "congressional district";
@@ -299,6 +220,82 @@ export function wireIntelChecksEvents(ctx){
     const rows = Array.isArray(s?.dataCatalog?.censusDatasets) ? s.dataCatalog.censusDatasets : [];
     const row = rows.find((x) => String(x?.id || "").trim() === id) || null;
     return toYear(row?.vintage);
+  };
+
+  const resolveAreaOptionsYears = (s) => {
+    const nowYear = new Date().getUTCFullYear();
+    const seeded = [
+      resolveAreaOptionsYear(s),
+      nowYear - 2,
+      nowYear - 3,
+      nowYear - 4,
+      2023,
+      2022,
+    ];
+    const out = [];
+    for (const y of seeded){
+      const year = Number(y);
+      if (!Number.isFinite(year)) continue;
+      if (year < 2009 || year > nowYear) continue;
+      if (!out.includes(year)) out.push(year);
+    }
+    return out;
+  };
+
+  const normalizeAreaCodeFromApi = (areaType, rawCode) => {
+    const digits = String(rawCode || "").replace(/\D+/g, "");
+    if (!digits) return "";
+    const t = String(areaType || "").toUpperCase();
+    if (t === "PLACE") return digits.slice(-5).padStart(5, "0");
+    if (t === "COUNTY") return digits.slice(-3).padStart(3, "0");
+    return digits.slice(-3).padStart(3, "0");
+  };
+
+  const parseAreaCodesApiPayload = (payload, areaType) => {
+    const geoName = areaTypeToCensusGeo(areaType);
+    const table = Array.isArray(payload) ? payload : [];
+    if (!Array.isArray(table) || table.length < 2){
+      return { ok: false, warning: "Area code list returned no rows.", rows: [] };
+    }
+    const header = Array.isArray(table[0]) ? table[0].map((x) => String(x || "").trim()) : [];
+    const idxName = header.indexOf("NAME");
+    const idxCode = header.findIndex((x) => String(x || "").trim().toLowerCase() === geoName.toLowerCase());
+    if (idxCode < 0){
+      return { ok: false, warning: `Area code list missing '${geoName}' column.`, rows: [] };
+    }
+    const seen = new Set();
+    const out = [];
+    for (let i = 1; i < table.length; i += 1){
+      const row = Array.isArray(table[i]) ? table[i] : [];
+      const code = normalizeAreaCodeFromApi(areaType, row[idxCode]);
+      if (!code || seen.has(code)) continue;
+      seen.add(code);
+      out.push({
+        code,
+        label: String(idxName >= 0 ? row[idxName] : "").trim(),
+      });
+    }
+    out.sort((a, b) => a.code.localeCompare(b.code));
+    return { ok: true, warning: "", rows: out };
+  };
+
+  const renderAreaCodeSelect = (areaType, stateFips, rows) => {
+    if (!els.intelAreaCodeSelect) return;
+    const t = normalizeAreaTypeInput(areaType);
+    const opts = Array.isArray(rows) ? rows : [];
+    els.intelAreaCodeSelect.innerHTML = "";
+    const first = document.createElement("option");
+    first.value = "";
+    first.textContent = opts.length ? `Select ${t || "area"} option` : "None loaded";
+    els.intelAreaCodeSelect.appendChild(first);
+    for (const row of opts){
+      const opt = document.createElement("option");
+      opt.value = row.code;
+      opt.textContent = row.label ? `${row.code} · ${row.label}` : row.code;
+      els.intelAreaCodeSelect.appendChild(opt);
+    }
+    els.intelAreaCodeSelect.dataset.areaType = t;
+    els.intelAreaCodeSelect.dataset.stateFips = String(stateFips || "");
   };
 
   const cleanDataRefId = (v) => {
@@ -562,10 +559,83 @@ export function wireIntelChecksEvents(ctx){
     commitUIUpdate();
   };
 
+  const loadAreaCodeOptions = async ({ quiet = false } = {}) => {
+    const s = currentState();
+    if (!s) return;
+    if (typeof fetch !== "function"){
+      if (!quiet) setDataRefStatus("Area option loader unavailable: fetch API missing.", "warn");
+      return;
+    }
+    const geo = ensureGeoPackShape(s);
+    if (!geo) return;
+    const areaType = normalizeAreaTypeInput(geo.area.type);
+    const stateFips = cleanDigits(geo.area.stateFips, 2);
+    const apiKey = getCensusApiKey();
+    const geoName = areaTypeToCensusGeo(areaType);
+    if (!geoName || !stateFips){
+      renderAreaCodeSelect(areaType, stateFips, []);
+      if (!quiet){
+        if (!stateFips){
+          setDataRefStatus("Select state first.", "muted");
+        } else {
+          setDataRefStatus("Select area type (CD, SLDU, SLDL, COUNTY, PLACE).", "muted");
+        }
+      }
+      return;
+    }
+    if (!apiKey){
+      if (!quiet) setDataRefStatus("Census API key is required to load area options.", "warn");
+      return;
+    }
+    const years = resolveAreaOptionsYears(s);
+    if (!years.length){
+      if (!quiet) setDataRefStatus("No usable ACS year available for area options.", "warn");
+      return;
+    }
+    if (els.btnIntelAreaLoadCodes) els.btnIntelAreaLoadCodes.disabled = true;
+    if (!quiet) setDataRefStatus(`Loading ${areaType} options for state ${stateFips}...`, "muted");
+    const warnings = [];
+    try{
+      for (const year of years){
+        const url = buildAreaCodesApiUrl(year, stateFips, areaType, apiKey);
+        if (!url) continue;
+        try{
+          const payload = await fetchJsonFromUrl(url, `Area code list ${year}`);
+          const parsed = parseAreaCodesApiPayload(payload, areaType);
+          if (!parsed.ok){
+            warnings.push(parsed.warning || `No parsable rows for ${year}.`);
+            continue;
+          }
+          renderAreaCodeSelect(areaType, stateFips, parsed.rows);
+          if (parsed.rows.length){
+            setDataRefStatus(`Loaded ${parsed.rows.length} ${areaType} option(s) for state ${stateFips} (${year}).`, "ok");
+            return;
+          }
+          warnings.push(`No ${areaType} options for ${year}.`);
+        } catch (err){
+          warnings.push(`${year}: ${String(err?.message || "request failed")}`);
+        }
+      }
+      renderAreaCodeSelect(areaType, stateFips, []);
+      const msg = warnings.length
+        ? `Unable to load area options. ${warnings[0]}`
+        : "Unable to load area options.";
+      setDataRefStatus(msg, "warn");
+    } finally {
+      if (els.btnIntelAreaLoadCodes) els.btnIntelAreaLoadCodes.disabled = false;
+    }
+  };
+
   if (els.intelAreaType){
-    els.intelAreaType.addEventListener("change", () => onAreaChange((geo) => {
-      geo.area.type = normalizeAreaTypeInput(els.intelAreaType.value);
-    }, "Area type updated."));
+    els.intelAreaType.addEventListener("change", async () => {
+      onAreaChange((geo) => {
+        geo.area.type = normalizeAreaTypeInput(els.intelAreaType.value);
+        geo.area.district = "";
+        geo.area.countyFips = "";
+        geo.area.placeFips = "";
+      }, "Area type updated.");
+      await loadAreaCodeOptions();
+    });
   }
   if (els.intelAreaResolution){
     els.intelAreaResolution.addEventListener("change", () => onAreaChange((geo) => {
@@ -578,11 +648,15 @@ export function wireIntelChecksEvents(ctx){
     }, "Area label updated."));
   }
   if (els.intelAreaStateFips){
-    const onStateChanged = () => onAreaChange((geo) => {
-      geo.area.stateFips = cleanDigits(els.intelAreaStateFips.value, 2);
-    }, "Area state FIPS updated.");
-    els.intelAreaStateFips.addEventListener("input", onStateChanged);
-    els.intelAreaStateFips.addEventListener("change", onStateChanged);
+    els.intelAreaStateFips.addEventListener("change", async () => {
+      onAreaChange((geo) => {
+        geo.area.stateFips = cleanDigits(els.intelAreaStateFips.value, 2);
+        geo.area.district = "";
+        geo.area.countyFips = "";
+        geo.area.placeFips = "";
+      }, "State updated.");
+      await loadAreaCodeOptions();
+    });
   }
   if (els.intelAreaDistrict){
     els.intelAreaDistrict.addEventListener("input", () => onAreaChange((geo) => {
@@ -599,126 +673,9 @@ export function wireIntelChecksEvents(ctx){
       geo.area.placeFips = cleanDigits(els.intelAreaPlaceFips.value, 5);
     }, "Area place FIPS updated."));
   }
-  if (els.btnIntelAreaApplyQuick){
-    const applyQuick = () => {
-      const s = currentState();
-      if (!s) return;
-      const geo = ensureGeoPackShape(s);
-      if (!geo) return;
-      const parsed = parseQuickAreaCode(els.intelAreaQuickCode?.value, geo?.area?.type);
-      if (!parsed.ok){
-        setDataRefStatus(String(parsed.error || "Quick code parse failed."), "warn");
-        return;
-      }
-      onAreaChange((next) => {
-        next.area.type = normalizeAreaTypeInput(parsed.area.type);
-        next.area.stateFips = cleanDigits(parsed.area.stateFips, 2);
-        next.area.district = cleanText(parsed.area.district, 16);
-        next.area.countyFips = cleanDigits(parsed.area.countyFips, 5);
-        next.area.placeFips = cleanDigits(parsed.area.placeFips, 5);
-      }, "Quick code applied.");
-    };
-    els.btnIntelAreaApplyQuick.addEventListener("click", applyQuick);
-    if (els.intelAreaQuickCode){
-      els.intelAreaQuickCode.addEventListener("keydown", (ev) => {
-        if (ev.key !== "Enter") return;
-        ev.preventDefault();
-        applyQuick();
-      });
-    }
-  }
   if (els.btnIntelAreaLoadCodes){
     els.btnIntelAreaLoadCodes.addEventListener("click", async () => {
-      const s = currentState();
-      if (!s) return;
-      if (typeof fetch !== "function"){
-        setDataRefStatus("Area code loader unavailable: fetch API missing.", "warn");
-        return;
-      }
-      const geo = ensureGeoPackShape(s);
-      if (!geo) return;
-      const areaType = normalizeAreaTypeInput(geo.area.type);
-      const stateFips = cleanDigits(geo.area.stateFips, 2);
-      const apiKey = getCensusApiKey();
-      const year = resolveAreaOptionsYear(s);
-      const geoName = areaTypeToCensusGeo(areaType);
-      if (!geoName){
-        setDataRefStatus("Area code loader supports CD, SLDU, SLDL, COUNTY, or PLACE.", "warn");
-        return;
-      }
-      if (!stateFips){
-        setDataRefStatus("Set state first before loading area codes.", "warn");
-        return;
-      }
-      if (!apiKey){
-        setDataRefStatus("Census API key is required to load area codes.", "warn");
-        return;
-      }
-      if (!year){
-        setDataRefStatus("Census year is missing. Set ACS year override or select a census dataset vintage.", "warn");
-        return;
-      }
-      const url = buildAreaCodesApiUrl(year, stateFips, areaType, apiKey);
-      if (!url){
-        setDataRefStatus("Unable to build area code URL.", "warn");
-        return;
-      }
-      setAutoPullButtonsDisabled(true);
-      setDataRefStatus(`Loading ${areaType} codes for state ${stateFips} (${year})...`, "muted");
-      try{
-        const payload = await fetchJsonFromUrl(url, "Area code list");
-        const table = Array.isArray(payload) ? payload : [];
-        if (!Array.isArray(table) || table.length < 2){
-          setDataRefStatus("Area code list returned no rows.", "warn");
-          return;
-        }
-        const header = Array.isArray(table[0]) ? table[0].map((x) => String(x || "").trim()) : [];
-        const idxName = header.indexOf("NAME");
-        const idxCode = header.findIndex((x) => String(x || "").trim().toLowerCase() === geoName.toLowerCase());
-        if (idxCode < 0){
-          setDataRefStatus(`Area code list missing '${geoName}' column.`, "warn");
-          return;
-        }
-        const out = [];
-        const seen = new Set();
-        for (let i = 1; i < table.length; i += 1){
-          const row = Array.isArray(table[i]) ? table[i] : [];
-          const rawCode = String(row[idxCode] || "").replace(/\D+/g, "");
-          if (!rawCode) continue;
-          const code = areaType === "PLACE"
-            ? rawCode.slice(-5).padStart(5, "0")
-            : (areaType === "COUNTY" ? rawCode.slice(-3).padStart(3, "0") : rawCode.slice(-3).padStart(3, "0"));
-          if (!code || seen.has(code)) continue;
-          seen.add(code);
-          out.push({
-            code,
-            label: String(idxName >= 0 ? row[idxName] : "").trim(),
-          });
-        }
-        out.sort((a, b) => a.code.localeCompare(b.code));
-        if (!els.intelAreaCodeSelect){
-          setDataRefStatus("Area code select control is unavailable.", "warn");
-          return;
-        }
-        els.intelAreaCodeSelect.innerHTML = "";
-        const first = document.createElement("option");
-        first.value = "";
-        first.textContent = out.length ? `Select ${areaType} code` : "None loaded";
-        els.intelAreaCodeSelect.appendChild(first);
-        for (const row of out){
-          const opt = document.createElement("option");
-          opt.value = row.code;
-          opt.textContent = row.label ? `${row.code} · ${row.label}` : row.code;
-          els.intelAreaCodeSelect.appendChild(opt);
-        }
-        els.intelAreaCodeSelect.dataset.areaType = areaType;
-        els.intelAreaCodeSelect.dataset.stateFips = stateFips;
-        setDataRefStatus(out.length ? `Loaded ${out.length} ${areaType} code(s).` : "No codes found for selected state/type.", out.length ? "ok" : "warn");
-      } catch (err){
-        setDataRefStatus(`Area code load failed: ${String(err?.message || "request failed")}`, "warn");
-      } finally {
-        setAutoPullButtonsDisabled(false);
-      }
+      await loadAreaCodeOptions();
     });
   }
   if (els.intelAreaCodeSelect){
@@ -737,6 +694,16 @@ export function wireIntelChecksEvents(ctx){
         }
       }, `Area code ${code} applied.`);
     });
+  }
+
+  {
+    const s = currentState();
+    const geo = ensureGeoPackShape(s);
+    const stateFips = String(geo?.area?.stateFips || "").trim();
+    const areaType = String(geo?.area?.type || "").trim().toUpperCase();
+    if (stateFips && areaTypeToCensusGeo(areaType)){
+      void loadAreaCodeOptions({ quiet: true });
+    }
   }
 
   if (els.btnIntelGenerateDistrictIntel){
