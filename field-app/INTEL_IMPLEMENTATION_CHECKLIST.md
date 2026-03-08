@@ -686,3 +686,11 @@ Execution order for additive auto-ingest on top of deterministic/manual ingest.
      - keeps manual area fields canonical and updates assist status with option counts.
    - `/Users/anakinskywalker/Downloads/field-app-40/js/app/wireEventsRuntime.js`
      - wires state/county/place quick-picks to canonical area inputs and stale-state handling.
+11. [x] Add optional state-scoped county/place lookup fetch for assist dropdowns:
+   - `/Users/anakinskywalker/Downloads/field-app-40/index.html`
+   - `/Users/anakinskywalker/Downloads/field-app-40/js/ui/els.js`
+     - adds `Fetch county/place lists` action and lookup status line in the collapsed assist section.
+   - `/Users/anakinskywalker/Downloads/field-app-40/js/app/wireEventsRuntime.js`
+     - fetches Census 2020 PL county/place lists for selected state and stores normalized lookup rows under `geoPack.district.areaAssistLookup`.
+   - `/Users/anakinskywalker/Downloads/field-app-40/js/app/renderIntelChecks.js`
+     - merges fetched lookup rows into assist options without changing canonical area inputs or planning math paths.
