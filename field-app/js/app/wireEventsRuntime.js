@@ -677,6 +677,50 @@ export function wireIntelChecksEvents(ctx){
 
   const setAutoPullStatus = (msg, kind = "muted") => setStatus(els.intelAutoPullStatus, msg, kind);
 
+  const importDataCatalogPayload = (s, payload) => {
+    const normalizeDataCatalog = engine?.snapshot?.normalizeDataCatalog;
+    const buildDataSourceRegistry = engine?.snapshot?.buildDataSourceRegistry;
+    if (typeof normalizeDataCatalog !== "function"){
+      return { applied: false, kind: "warn", message: "Catalog import unavailable: normalizeDataCatalog helper missing." };
+    }
+    const catalogPayload = (payload && typeof payload === "object" && payload.dataCatalog && typeof payload.dataCatalog === "object")
+      ? payload.dataCatalog
+      : payload;
+    const normalized = normalizeDataCatalog(catalogPayload);
+    const boundaryCount = Array.isArray(normalized?.boundarySets) ? normalized.boundarySets.length : 0;
+    const crosswalkCount = Array.isArray(normalized?.crosswalks) ? normalized.crosswalks.length : 0;
+    const censusCount = Array.isArray(normalized?.censusDatasets) ? normalized.censusDatasets.length : 0;
+    const electionCount = Array.isArray(normalized?.electionDatasets) ? normalized.electionDatasets.length : 0;
+    const total = boundaryCount + crosswalkCount + censusCount + electionCount;
+    if (total === 0){
+      return { applied: false, kind: "warn", message: "Catalog import rejected: no boundary/crosswalk/census/election entries found." };
+    }
+    s.dataCatalog = normalized;
+    const refs = ensureDataRefShape(s);
+    if (refs) stampDataRefCheck(refs);
+    const policy = applyDataRefPolicyRuntime({
+      engine,
+      scenario: s,
+      stageLabel: "Catalog import",
+    });
+    if (policy?.scenario && typeof policy.scenario === "object"){
+      if (policy.scenario.dataCatalog && typeof policy.scenario.dataCatalog === "object"){
+        s.dataCatalog = policy.scenario.dataCatalog;
+      }
+      if (policy.scenario.dataRefs && typeof policy.scenario.dataRefs === "object"){
+        s.dataRefs = policy.scenario.dataRefs;
+      }
+    }
+    const policyNote = Array.isArray(policy?.warnings) && policy.warnings.length ? ` ${String(policy.warnings[0])}` : "";
+    const registry = typeof buildDataSourceRegistry === "function" ? buildDataSourceRegistry(s.dataCatalog) : null;
+    const latestBoundary = Array.isArray(registry?.boundarySets) ? registry.boundarySets.filter((x) => !!x?.isLatest).length : 0;
+    const latestCrosswalk = Array.isArray(registry?.crosswalks) ? registry.crosswalks.filter((x) => !!x?.isLatest).length : 0;
+    const latestCensus = Array.isArray(registry?.censusDatasets) ? registry.censusDatasets.filter((x) => !!x?.isLatest).length : 0;
+    const latestElection = Array.isArray(registry?.electionDatasets) ? registry.electionDatasets.filter((x) => !!x?.isLatest).length : 0;
+    const message = `Catalog imported: ${boundaryCount} boundaries, ${crosswalkCount} crosswalks, ${censusCount} census, ${electionCount} election (${latestBoundary}/${latestCrosswalk}/${latestCensus}/${latestElection} latest).${policyNote}`;
+    return { applied: true, kind: "ok", message };
+  };
+
   const importCensusManifestPayload = (s, payload) => {
     const normalizeManifest = engine?.snapshot?.normalizeCensusManifest;
     const validateManifest = engine?.snapshot?.validateCensusManifest;
@@ -925,6 +969,36 @@ export function wireIntelChecksEvents(ctx){
       const out = importCensusManifestPayload(s, parsed.value);
       setIngestStatus(out.message, out.kind);
       if (out.applied) commitUIUpdate();
+    });
+  }
+
+  if (els.btnIntelFetchDataCatalog){
+    els.btnIntelFetchDataCatalog.addEventListener("click", async () => {
+      const s = currentState();
+      if (!s) return;
+      const valid = validateRemoteUrl(els.intelDataCatalogUrl?.value, "Data catalog");
+      if (!valid.ok){
+        setAutoPullStatus(valid.error, "warn");
+        setIngestStatus(valid.error, "warn");
+        return;
+      }
+      if (els.btnIntelFetchDataCatalog) els.btnIntelFetchDataCatalog.disabled = true;
+      setAutoPullStatus("Fetching data catalog...", "muted");
+      try{
+        const district = ensureDistrictEvidenceContainers(s);
+        if (district) district.autoPullCatalogUrl = valid.url;
+        const payload = await fetchJsonFromUrl(valid.url, "Data catalog");
+        const out = importDataCatalogPayload(s, payload);
+        setAutoPullStatus(out.message, out.kind);
+        setIngestStatus(out.message, out.kind);
+        if (out.applied) commitUIUpdate();
+      } catch (err){
+        const msg = `Data catalog fetch failed: ${String(err?.message || "request failed")}`;
+        setAutoPullStatus(msg, "warn");
+        setIngestStatus(msg, "warn");
+      } finally {
+        if (els.btnIntelFetchDataCatalog) els.btnIntelFetchDataCatalog.disabled = false;
+      }
     });
   }
 

@@ -1537,6 +1537,11 @@ export function renderIntelChecksModule({
     const hasFetch = typeof globalThis.fetch === "function";
     els.btnIntelAutoPullAll.disabled = !hasFetch;
   }
+  if (els.btnIntelFetchDataCatalog){
+    const hasFetch = typeof globalThis.fetch === "function";
+    const canNormalize = typeof engine?.snapshot?.normalizeDataCatalog === "function";
+    els.btnIntelFetchDataCatalog.disabled = !(hasFetch && canNormalize);
+  }
   if (els.btnIntelAutoFillUrls){
     els.btnIntelAutoFillUrls.disabled = typeof engine?.snapshot?.buildAutoPullUrlPlan !== "function";
   }
@@ -1549,6 +1554,10 @@ export function renderIntelChecksModule({
     const evaluateAutoPullPlan = engine?.snapshot?.evaluateAutoPullPlan;
     const resolveAutoPullUrls = engine?.snapshot?.resolveAutoPullUrls;
     const resolveDataRefsByPolicy = engine?.snapshot?.resolveDataRefsByPolicy;
+    const savedCatalogUrl = String(state?.geoPack?.district?.autoPullCatalogUrl || "").trim();
+    if (els.intelDataCatalogUrl && !String(els.intelDataCatalogUrl.value || "").trim() && savedCatalogUrl){
+      els.intelDataCatalogUrl.value = savedCatalogUrl;
+    }
     const manualUrls = {
       censusManifestUrl: String(els.intelCensusManifestUrl?.value || "").trim() || null,
       electionManifestUrl: String(els.intelElectionManifestUrl?.value || "").trim() || null,
