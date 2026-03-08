@@ -1099,6 +1099,7 @@ export function renderIntelChecksModule({
   const validateElectionManifest = engine?.snapshot?.validateElectionManifest;
   const electionManifestToCatalogEntry = engine?.snapshot?.electionManifestToCatalogEntry;
   const resolveDistrictEvidenceInputs = engine?.snapshot?.resolveDistrictEvidenceInputs;
+  const summarizeDistrictEvidenceInputs = engine?.snapshot?.summarizeDistrictEvidenceInputs;
   const resolveDataRefsByPolicy = engine?.snapshot?.resolveDataRefsByPolicy;
   const diagnoseDataRefAlignment = engine?.snapshot?.diagnoseDataRefAlignment;
   const buildDataSourceRegistry = engine?.snapshot?.buildDataSourceRegistry;
@@ -1140,6 +1141,33 @@ export function renderIntelChecksModule({
   const resolverNotes = Array.isArray(resolvedInputs?.notes)
     ? resolvedInputs.notes.map((x) => String(x || "").trim()).filter(Boolean)
     : [];
+  const inputSummary = (typeof summarizeDistrictEvidenceInputs === "function")
+    ? (() => {
+      try{
+        return summarizeDistrictEvidenceInputs(state);
+      } catch {
+        return null;
+      }
+    })()
+    : null;
+  if (els.intelDistrictEvidenceInputsSummary){
+    const fallbackLine = [
+      `Input mode: ${resolverMode || "none"}`,
+      `Election rows: ${precinctResults.length}`,
+      `Crosswalk rows: ${crosswalkRows.length}`,
+      `Census rows: ${censusGeoRows.length}`,
+    ].join(" · ");
+    const line = String(inputSummary?.summaryLine || fallbackLine);
+    els.intelDistrictEvidenceInputsSummary.classList.remove("ok", "warn", "muted");
+    if (inputSummary && inputSummary.ready){
+      els.intelDistrictEvidenceInputsSummary.classList.add("ok");
+    } else if ((resolverMode === "inline" || resolverMode === "refs") && (precinctResults.length || crosswalkRows.length || censusGeoRows.length)){
+      els.intelDistrictEvidenceInputsSummary.classList.add("warn");
+    } else {
+      els.intelDistrictEvidenceInputsSummary.classList.add("muted");
+    }
+    els.intelDistrictEvidenceInputsSummary.textContent = line;
+  }
 
   let registry = null;
   if (typeof buildDataSourceRegistry === "function"){
