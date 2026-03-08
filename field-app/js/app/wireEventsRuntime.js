@@ -1222,6 +1222,46 @@ export function wireIntelChecksEvents(ctx){
       }
       const next = currentState();
       if (!next) return;
+      const buildAutoPullUrlPlan = engine?.snapshot?.buildAutoPullUrlPlan;
+      const resolveDataRefsByPolicy = engine?.snapshot?.resolveDataRefsByPolicy;
+      const resolveAutoPullUrls = engine?.snapshot?.resolveAutoPullUrls;
+      const evaluateAutoPullRunNeed = engine?.snapshot?.evaluateAutoPullRunNeed;
+      const plan = typeof buildAutoPullUrlPlan === "function"
+        ? buildAutoPullUrlPlan({
+          dataRefs: next?.dataRefs,
+          dataCatalog: next?.dataCatalog,
+          scenario: next,
+          resolveDataRefsByPolicy,
+        })
+        : null;
+      const manualUrls = {
+        censusManifestUrl: normalizeRemoteUrl(els.intelCensusManifestUrl?.value),
+        electionManifestUrl: normalizeRemoteUrl(els.intelElectionManifestUrl?.value),
+        crosswalkRowsUrl: normalizeRemoteUrl(els.intelCrosswalkRowsUrl?.value),
+        precinctResultsUrl: normalizeRemoteUrl(els.intelPrecinctResultsUrl?.value),
+        censusGeoRowsUrl: normalizeRemoteUrl(els.intelCensusGeoRowsUrl?.value),
+      };
+      const merged = (
+        typeof resolveAutoPullUrls === "function" &&
+        plan &&
+        typeof plan === "object"
+      )
+        ? resolveAutoPullUrls({ plan, overrides: manualUrls })
+        : { mode: next?.dataRefs?.mode || "pinned_verified", urls: manualUrls };
+      const runNeed = typeof evaluateAutoPullRunNeed === "function"
+        ? evaluateAutoPullRunNeed({
+          receipt: next?.geoPack?.district?.autoPullReceipt,
+          mode: merged?.mode || plan?.mode,
+          selected: plan?.selected,
+          urls: merged?.urls || manualUrls,
+        })
+        : null;
+      if (runNeed && runNeed.shouldRun === false){
+        const msg = String(runNeed.summaryLine || "Auto-pull run skipped: current and successful.");
+        setAutoPullStatus(msg, runNeed.status || "ok");
+        setIngestStatus(msg, runNeed.status || "ok");
+        return;
+      }
       await runAutoPullAll(next);
     });
   }

@@ -1659,6 +1659,37 @@ export function renderIntelChecksModule({
       els.intelAutoPullReceiptAlignment.textContent = "Auto-pull receipt alignment: unavailable (missing helpers).";
     }
   }
+  if (els.intelAutoPullRunNeed){
+    const evaluateAutoPullRunNeed = engine?.snapshot?.evaluateAutoPullRunNeed;
+    const receipt = state?.geoPack?.district?.autoPullReceipt;
+    els.intelAutoPullRunNeed.classList.remove("ok", "warn", "bad", "muted");
+    if (
+      typeof evaluateAutoPullRunNeed === "function" &&
+      autoPullPlanForRender &&
+      autoPullMergedForRender
+    ){
+      const runNeed = evaluateAutoPullRunNeed({
+        receipt,
+        mode: autoPullMergedForRender?.mode || autoPullPlanForRender?.mode,
+        selected: autoPullPlanForRender?.selected,
+        urls: autoPullMergedForRender?.urls,
+      });
+      els.intelAutoPullRunNeed.textContent = String(runNeed?.summaryLine || "Auto-pull run need: unavailable.");
+      const status = String(runNeed?.status || "muted");
+      if (status === "ok"){
+        els.intelAutoPullRunNeed.classList.add("ok");
+      } else if (status === "warn"){
+        els.intelAutoPullRunNeed.classList.add("warn");
+      } else if (status === "bad"){
+        els.intelAutoPullRunNeed.classList.add("bad");
+      } else {
+        els.intelAutoPullRunNeed.classList.add("muted");
+      }
+    } else {
+      els.intelAutoPullRunNeed.classList.add("muted");
+      els.intelAutoPullRunNeed.textContent = "Auto-pull run need: unavailable (missing helpers).";
+    }
+  }
   if (els.intelDistrictEvidenceSelectedElection){
     const topId = String(rankedElectionDatasets?.[0]?.dataset?.id || "").trim();
     const rankIndex = Array.isArray(rankedElectionDatasets)
