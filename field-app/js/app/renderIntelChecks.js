@@ -998,6 +998,28 @@ function normalizedCountyForLinks(stateFips, countyFips){
   return "";
 }
 
+function geoRowMatchesArea(row, area){
+  const geoid = digitsOnly(row?.geoid);
+  if (geoid.length < 5) return false;
+  const state = normalizedStateForLinks(area?.stateFips);
+  if (state && geoid.slice(0, 2) !== state) return false;
+  const county = normalizedCountyForLinks(state, area?.countyFips);
+  if (county && geoid.slice(2, 5) !== county) return false;
+  return true;
+}
+
+function rowsOutsideArea(rows, area){
+  const state = normalizedStateForLinks(area?.stateFips);
+  const county = normalizedCountyForLinks(state, area?.countyFips);
+  if (!state && !county) return false;
+  const list = Array.isArray(rows) ? rows : [];
+  if (!list.length) return false;
+  for (const row of list){
+    if (geoRowMatchesArea(row, area)) return false;
+  }
+  return true;
+}
+
 function buildAreaCodeLinksHtml(area){
   const baseStateList = "https://www2.census.gov/geo/docs/reference/codes2020/national_state2020.txt";
   const baseCountyList = "https://www2.census.gov/geo/docs/reference/codes2020/national_county2020.txt";
@@ -2640,6 +2662,17 @@ export function renderIntelChecksModule({
   const candidateTotals = Array.isArray(evidence?.candidateTotals) ? evidence.candidateTotals : [];
   const links = Array.isArray(evidence?.precinctToGeo) ? evidence.precinctToGeo : [];
   const geoRows = Array.isArray(evidence?.geoRows) ? evidence.geoRows : [];
+  const censusOnlyRows = Array.isArray(censusGeoRows)
+    ? censusGeoRows.map((row) => ({
+      geoid: String(row?.geoid || ""),
+      totalVotes: 0,
+      candidateVotes: {},
+      sourcePrecincts: 0,
+      hasElection: false,
+      hasCensus: true,
+      census: row?.values && typeof row.values === "object" ? row.values : {},
+    }))
+    : [];
   let precinctLayers = [];
   if (typeof summarizePrecinctEvidenceLayers === "function"){
     try{
@@ -2677,6 +2710,7 @@ export function renderIntelChecksModule({
     bounds: null,
     points: [],
   };
+  let usingCensusAreaFallback = false;
   if (typeof buildGeoEvidenceMapLayer === "function"){
     try{
       geoMapLayer = buildGeoEvidenceMapLayer({ geoRows, maxPoints: 500 });
@@ -2690,22 +2724,27 @@ export function renderIntelChecksModule({
     }
     if (
       (!geoMapLayer || !geoMapLayer.available || !Array.isArray(geoMapLayer.points) || geoMapLayer.points.length === 0)
-      && Array.isArray(censusGeoRows)
-      && censusGeoRows.length > 0
+      && censusOnlyRows.length > 0
     ){
       try{
-        const censusOnlyRows = censusGeoRows.map((row) => ({
-          geoid: String(row?.geoid || ""),
-          totalVotes: 0,
-          candidateVotes: {},
-          sourcePrecincts: 0,
-          hasElection: false,
-          hasCensus: true,
-          census: row?.values && typeof row.values === "object" ? row.values : {},
-        }));
         const fallbackLayer = buildGeoEvidenceMapLayer({ geoRows: censusOnlyRows, maxPoints: 500 });
         if (fallbackLayer?.available && Array.isArray(fallbackLayer.points) && fallbackLayer.points.length > 0){
           geoMapLayer = fallbackLayer;
+          usingCensusAreaFallback = true;
+        }
+      } catch {}
+    }
+    if (
+      !usingCensusAreaFallback &&
+      geoRows.length > 0 &&
+      censusOnlyRows.length > 0 &&
+      rowsOutsideArea(geoRows, areaForDisplay)
+    ){
+      try{
+        const fallbackLayer = buildGeoEvidenceMapLayer({ geoRows: censusOnlyRows, maxPoints: 500 });
+        if (fallbackLayer?.available && Array.isArray(fallbackLayer.points) && fallbackLayer.points.length > 0){
+          geoMapLayer = fallbackLayer;
+          usingCensusAreaFallback = true;
         }
       } catch {}
     }
@@ -2719,6 +2758,28 @@ export function renderIntelChecksModule({
   const mergedNotes = resolverNotes.concat(
     warnings.map((x) => String(x || "").trim()).filter(Boolean)
   );
+  if (usingCensusAreaFallback){
+    mergedNotes.push("Map/demographics switched to selected-area census rows because current election-linked GEO rows do not match selected area.");
+  }
+  const displayGeoRows = usingCensusAreaFallback ? censusOnlyRows : geoRows;
+  if (usingCensusAreaFallback){
+    if (typeof summarizeGeoEvidenceLayers === "function"){
+      try{
+        geoLayers = summarizeGeoEvidenceLayers({ geoRows: displayGeoRows, maxRows: 20 });
+      } catch {
+        geoLayers = summarizeEvidenceGeoRows(displayGeoRows, 20);
+      }
+    } else {
+      geoLayers = summarizeEvidenceGeoRows(displayGeoRows, 20);
+    }
+    if (typeof summarizeGeoOpportunityLayers === "function"){
+      try{
+        opportunityLayers = summarizeGeoOpportunityLayers({ geoRows: displayGeoRows, maxRows: 20 });
+      } catch {
+        opportunityLayers = [];
+      }
+    }
+  }
   let assumptionPackForDisplay = districtIntelPack;
   let assumptionSourceKind = "pack";
   if (!districtIntelPack?.ready && typeof buildDistrictIntelPackFromEvidence === "function"){
@@ -2791,7 +2852,10 @@ export function renderIntelChecksModule({
       ? `Persuasion signal index: ${signal.toFixed(3)}${signalNote ? ` · ${signalNote}` : ""}`
       : "Persuasion signal index: —";
   }
-  fillDistrictDemographicsTable(els.intelDistrictDemographicsTbody, evidence);
+  fillDistrictDemographicsTable(
+    els.intelDistrictDemographicsTbody,
+    usingCensusAreaFallback ? fallbackDemographicsEvidence : evidence
+  );
 
   fillDistrictEvidenceCandidateTable(els.intelDistrictEvidenceCandidateTbody, candidateTotals);
   fillDistrictEvidencePrecinctTable(els.intelDistrictEvidencePrecinctTbody, precinctLayers);
@@ -2801,14 +2865,14 @@ export function renderIntelChecksModule({
   const districtState = (state?.geoPack && typeof state.geoPack === "object" && state.geoPack.district && typeof state.geoPack.district === "object")
     ? state.geoPack.district
     : null;
-  const geoIdSet = new Set(geoRows.map((x) => String(x?.geoid || "").trim()).filter(Boolean));
-  const firstGeoId = String(geoLayers?.[0]?.geoid || geoRows?.[0]?.geoid || "").trim();
+  const geoIdSet = new Set(displayGeoRows.map((x) => String(x?.geoid || "").trim()).filter(Boolean));
+  const firstGeoId = String(geoLayers?.[0]?.geoid || displayGeoRows?.[0]?.geoid || "").trim();
   let selectedGeoId = String(districtState?.selectedGeoId || "").trim();
   if (!selectedGeoId || !geoIdSet.has(selectedGeoId)){
     selectedGeoId = firstGeoId;
     if (districtState) districtState.selectedGeoId = selectedGeoId || null;
   }
-  renderGeoInspector(els, geoRows, selectedGeoId);
+  renderGeoInspector(els, displayGeoRows, selectedGeoId);
   const areaBoundary = (districtBlob && typeof districtBlob === "object" && districtBlob.areaBoundary && typeof districtBlob.areaBoundary === "object")
     ? districtBlob.areaBoundary
     : ((state?.geoPack && typeof state.geoPack === "object" && state.geoPack.areaBoundary && typeof state.geoPack.areaBoundary === "object")
@@ -2838,6 +2902,6 @@ export function renderIntelChecksModule({
       onSelectGeo,
     }
   );
-  const compileReady = flowDataReady && Array.isArray(geoRows) && geoRows.length > 0;
+  const compileReady = flowDataReady && Array.isArray(displayGeoRows) && displayGeoRows.length > 0;
   setFlowStepStatus(compileReady);
 }
