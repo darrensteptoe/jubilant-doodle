@@ -53,6 +53,7 @@
  *   buildAutoPullUrlPlan: (...args: any[]) => any,
  *   createAutoPullReceipt: (...args: any[]) => any,
  *   summarizeAutoPullReceipt: (...args: any[]) => any,
+ *   evaluateAutoPullPlan: (...args: any[]) => any,
  *   normalizeAreaSelection: (...args: any[]) => any,
  *   buildAreaResolverCacheKey: (...args: any[]) => any,
  *   deriveAreaResolverContext: (...args: any[]) => any,
@@ -112,6 +113,7 @@ export function registerReleaseHardeningTests(ctx){
     buildAutoPullUrlPlan,
     createAutoPullReceipt,
     summarizeAutoPullReceipt,
+    evaluateAutoPullPlan,
     normalizeAreaSelection,
     buildAreaResolverCacheKey,
     deriveAreaResolverContext,
@@ -1112,6 +1114,33 @@ export function registerReleaseHardeningTests(ctx){
     assert(typeof receipt.fingerprint === "string" && receipt.fingerprint.length > 10, "Expected deterministic fingerprint string");
     const line = summarizeAutoPullReceipt(receipt);
     assert(String(line).includes("imported 1/2"), "Expected summary line to include imported ratio");
+    return true;
+  });
+
+  test("Phase 21: auto-pull plan evaluator reports ready/warn states deterministically", () => {
+    const readyEval = evaluateAutoPullPlan({
+      mode: "latest_verified",
+      urls: {
+        censusManifestUrl: "https://example.test/census-manifest.json",
+        electionManifestUrl: "https://example.test/election-manifest.json",
+        crosswalkRowsUrl: "https://example.test/crosswalk-rows.json",
+        precinctResultsUrl: "https://example.test/precinct-rows.json",
+        censusGeoRowsUrl: "https://example.test/census-rows.json",
+      },
+    });
+    assert(readyEval.ready === true, "Expected ready=true when all URLs are present");
+    assert(readyEval.status === "ok", "Expected ok status when all URL slots are present");
+    assert(readyEval.availableCount === 5, "Expected full available URL slot count");
+
+    const partialEval = evaluateAutoPullPlan({
+      mode: "pinned_verified",
+      urls: {
+        censusManifestUrl: "https://example.test/census-manifest.json",
+      },
+    });
+    assert(partialEval.ready === true, "Expected ready=true when at least one URL exists");
+    assert(partialEval.status === "warn", "Expected warn status when some slots are missing");
+    assert(partialEval.missingKeys.includes("electionManifestUrl"), "Expected deterministic missing key list");
     return true;
   });
 

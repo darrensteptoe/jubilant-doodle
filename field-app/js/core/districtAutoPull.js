@@ -295,3 +295,49 @@ export function summarizeAutoPullReceipt(receipt){
   const warnText = Number.isFinite(warningCount) ? String(Math.max(0, Math.trunc(warningCount))) : "0";
   return `Auto-pull run ${ts} · mode ${mode} · imported ${okText}/${reqText} · warnings ${warnText}`;
 }
+
+/**
+ * @param {unknown} plan
+ * @returns {{
+ *   ready: boolean,
+ *   status: "ok" | "warn" | "bad",
+ *   availableCount: number,
+ *   missingCount: number,
+ *   missingKeys: string[],
+ *   summaryLine: string
+ * }}
+ */
+export function evaluateAutoPullPlan(plan){
+  const p = (plan && typeof plan === "object") ? /** @type {Record<string, any>} */ (plan) : {};
+  const urls = (p.urls && typeof p.urls === "object") ? /** @type {Record<string, any>} */ (p.urls) : {};
+  const keyOrder = [
+    "censusManifestUrl",
+    "electionManifestUrl",
+    "crosswalkRowsUrl",
+    "precinctResultsUrl",
+    "censusGeoRowsUrl",
+  ];
+  /** @type {string[]} */
+  const missingKeys = [];
+  for (const key of keyOrder){
+    if (!httpUrlOrNull(urls[key])) missingKeys.push(key);
+  }
+  const availableCount = keyOrder.length - missingKeys.length;
+  const missingCount = missingKeys.length;
+  const mode = normalizeMode(p.mode);
+  const ready = availableCount > 0;
+  const status = availableCount === keyOrder.length
+    ? "ok"
+    : (ready ? "warn" : "bad");
+  const summaryLine = ready
+    ? `Auto-pull plan (${mode}): ${availableCount}/${keyOrder.length} URL slots available.`
+    : `Auto-pull plan (${mode}): no URL slots available.`;
+  return {
+    ready,
+    status,
+    availableCount,
+    missingCount,
+    missingKeys,
+    summaryLine,
+  };
+}

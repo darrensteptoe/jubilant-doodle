@@ -498,6 +498,7 @@ export const els = {
   btnIntelAutoFillUrls: document.getElementById("btnIntelAutoFillUrls"),
   btnIntelAutoPullAll: document.getElementById("btnIntelAutoPullAll"),
   intelAutoPullStatus: document.getElementById("intelAutoPullStatus"),
+  intelAutoPullPlanSummary: document.getElementById("intelAutoPullPlanSummary"),
   intelAutoPullReceiptSummary: document.getElementById("intelAutoPullReceiptSummary"),
   intelCensusManifestJson: document.getElementById("intelCensusManifestJson"),
   btnIntelImportCensusManifest: document.getElementById("btnIntelImportCensusManifest"),
