@@ -348,7 +348,7 @@ export function evaluateAutoPullPlan(plan){
   const missingCount = missingKeys.length;
   const mode = normalizeMode(p.mode);
   const ready = availableCount > 0;
-  const status = availableCount === keyOrder.length
+  const status = availableCount === AUTO_PULL_URL_KEYS.length
     ? "ok"
     : (ready ? "warn" : "bad");
   const summaryLine = ready
