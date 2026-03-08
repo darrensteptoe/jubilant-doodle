@@ -41,6 +41,31 @@ function makeOption(value, label){
   return opt;
 }
 
+const STATE_OPTIONS = [
+  ["01", "AL"], ["02", "AK"], ["04", "AZ"], ["05", "AR"], ["06", "CA"], ["08", "CO"], ["09", "CT"],
+  ["10", "DE"], ["11", "DC"], ["12", "FL"], ["13", "GA"], ["15", "HI"], ["16", "ID"], ["17", "IL"],
+  ["18", "IN"], ["19", "IA"], ["20", "KS"], ["21", "KY"], ["22", "LA"], ["23", "ME"], ["24", "MD"],
+  ["25", "MA"], ["26", "MI"], ["27", "MN"], ["28", "MS"], ["29", "MO"], ["30", "MT"], ["31", "NE"],
+  ["32", "NV"], ["33", "NH"], ["34", "NJ"], ["35", "NM"], ["36", "NY"], ["37", "NC"], ["38", "ND"],
+  ["39", "OH"], ["40", "OK"], ["41", "OR"], ["42", "PA"], ["44", "RI"], ["45", "SC"], ["46", "SD"],
+  ["47", "TN"], ["48", "TX"], ["49", "UT"], ["50", "VT"], ["51", "VA"], ["53", "WA"], ["54", "WV"],
+  ["55", "WI"], ["56", "WY"], ["72", "PR"],
+];
+
+function fillStateFipsSelect(selectEl, selected){
+  if (!selectEl) return;
+  const keep = String(selected || "");
+  if (selectEl.options.length <= 1){
+    selectEl.innerHTML = "";
+    selectEl.appendChild(makeOption("", "Select state"));
+    for (const row of STATE_OPTIONS){
+      selectEl.appendChild(makeOption(row[0], `${row[1]} (${row[0]})`));
+    }
+  }
+  selectEl.value = keep;
+  if (selectEl.value !== keep) selectEl.value = "";
+}
+
 function fillCorrelationSelect(selectEl, rows, selectedId){
   if (!selectEl) return;
   const keep = String(selectedId || "");
@@ -1245,10 +1270,13 @@ export function renderIntelChecksModule({
     if (els.intelAreaResolution.value !== r) els.intelAreaResolution.value = "tract";
   }
   if (els.intelAreaLabel) els.intelAreaLabel.value = String(normalizedArea?.label || "");
-  if (els.intelAreaStateFips) els.intelAreaStateFips.value = String(normalizedArea?.stateFips || "");
+  fillStateFipsSelect(els.intelAreaStateFips, String(normalizedArea?.stateFips || ""));
   if (els.intelAreaDistrict) els.intelAreaDistrict.value = String(normalizedArea?.district || "");
   if (els.intelAreaCountyFips) els.intelAreaCountyFips.value = String(normalizedArea?.countyFips || "");
   if (els.intelAreaPlaceFips) els.intelAreaPlaceFips.value = String(normalizedArea?.placeFips || "");
+  if (els.intelAreaCodeSelect && !els.intelAreaCodeSelect.options.length){
+    els.intelAreaCodeSelect.appendChild(makeOption("", "None loaded"));
+  }
 
   let areaCtx = null;
   if (typeof deriveAreaResolverContext === "function"){
@@ -1299,6 +1327,13 @@ export function renderIntelChecksModule({
     els.intelAreaResolverDetail.textContent = bits.length
       ? bits.join(" · ")
       : "Set area + resolution to generate a deterministic cache key.";
+  }
+  if (els.btnIntelAreaLoadCodes){
+    const hasFetch = typeof globalThis.fetch === "function";
+    els.btnIntelAreaLoadCodes.disabled = !hasFetch;
+  }
+  if (els.btnIntelAreaApplyQuick){
+    els.btnIntelAreaApplyQuick.disabled = false;
   }
 
   const refsIn = (state?.dataRefs && typeof state.dataRefs === "object") ? state.dataRefs : {};
@@ -1390,6 +1425,8 @@ export function renderIntelChecksModule({
     censusDatasetId: String(selectedByPolicy.censusDatasetId || censusId || "").trim(),
     electionDatasetId: String(selectedByPolicy.electionDatasetId || electionId || "").trim(),
   };
+  const censusChoicesCount = Array.isArray(registry?.censusDatasets) ? registry.censusDatasets.length : 0;
+  const electionChoicesCount = Array.isArray(registry?.electionDatasets) ? registry.electionDatasets.length : 0;
   if (els.intelDataRefStatus){
     if (policyResolution?.usedFallbacks && resolutionNotes.length){
       renderDataRefStatus(
@@ -1399,6 +1436,18 @@ export function renderIntelChecksModule({
       );
     } else if (resolutionNotes.length){
       renderDataRefStatus(els.intelDataRefStatus, resolutionNotes[0], "warn");
+    } else if (!censusChoicesCount && !effectiveIds.censusDatasetId){
+      renderDataRefStatus(
+        els.intelDataRefStatus,
+        "No census datasets loaded yet. Use Pull Census via API or import a census manifest.",
+        "muted"
+      );
+    } else if (!electionChoicesCount && !effectiveIds.electionDatasetId){
+      renderDataRefStatus(
+        els.intelDataRefStatus,
+        "No election datasets loaded yet. Import an election manifest/results or run auto-pull.",
+        "muted"
+      );
     } else if (
       !effectiveIds.boundarySetId &&
       !effectiveIds.crosswalkVersionId &&
