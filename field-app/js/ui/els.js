@@ -470,8 +470,6 @@ export const els = {
   intelAreaType: document.getElementById("intelAreaType"),
   intelAreaResolution: document.getElementById("intelAreaResolution"),
   intelAreaLabel: document.getElementById("intelAreaLabel"),
-  intelAreaQuickCode: document.getElementById("intelAreaQuickCode"),
-  btnIntelAreaApplyQuick: document.getElementById("btnIntelAreaApplyQuick"),
   intelAreaCodeSelect: document.getElementById("intelAreaCodeSelect"),
   btnIntelAreaLoadCodes: document.getElementById("btnIntelAreaLoadCodes"),
   intelAreaStateFips: document.getElementById("intelAreaStateFips"),
