@@ -546,3 +546,16 @@ Execution order for additive auto-ingest on top of deterministic/manual ingest.
    - `/Users/anakinskywalker/Downloads/field-app-40/js/core/selfTestSuites/releaseHardening.js`
    - `/Users/anakinskywalker/Downloads/field-app-40/js/core/selfTest.js`
      - adds deterministic tests for auto-pull plan resolution and missing-URL diagnostics.
+3. [x] Add deterministic auto-pull run receipt (provenance + outcome summary):
+   - `/Users/anakinskywalker/Downloads/field-app-40/js/core/districtAutoPull.js`
+     - adds `createAutoPullReceipt(...)` and `summarizeAutoPullReceipt(...)`.
+   - `/Users/anakinskywalker/Downloads/field-app-40/js/engine.js`
+     - exposes receipt helpers via snapshot facade.
+   - `/Users/anakinskywalker/Downloads/field-app-40/index.html`
+   - `/Users/anakinskywalker/Downloads/field-app-40/js/ui/els.js`
+   - `/Users/anakinskywalker/Downloads/field-app-40/js/app/wireEventsRuntime.js`
+   - `/Users/anakinskywalker/Downloads/field-app-40/js/app/renderIntelChecks.js`
+     - stores last auto-pull receipt under `geoPack.district.autoPullReceipt` and renders read-only status line.
+   - `/Users/anakinskywalker/Downloads/field-app-40/js/core/selfTestSuites/releaseHardening.js`
+   - `/Users/anakinskywalker/Downloads/field-app-40/js/core/selfTest.js`
+     - adds deterministic receipt summary regression coverage.
