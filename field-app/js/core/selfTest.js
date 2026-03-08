@@ -93,6 +93,7 @@ import {
   censusManifestToCatalogEntry,
   electionManifestToCatalogEntry,
 } from "./districtIngest.js";
+import { normalizeElectionPrecinctPayload } from "./electionProviderAdapter.js";
 import { allocatePrecinctVotesToGeo } from "./precinctCensusJoin.js";
 import {
   compileDistrictEvidence,
@@ -1465,6 +1466,7 @@ export function runSelfTests(engine){
     validateElectionManifest,
     censusManifestToCatalogEntry,
     electionManifestToCatalogEntry,
+    normalizeElectionPrecinctPayload,
     allocatePrecinctVotesToGeo,
     compileDistrictEvidence,
     derivePersuasionSignalFromElection,

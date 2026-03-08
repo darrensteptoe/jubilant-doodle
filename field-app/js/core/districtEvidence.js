@@ -440,6 +440,8 @@ export function extractGeoEvidenceCentroid(row){
  *     hasCensus: boolean,
  *     leaderCandidateId: string | null,
  *     marginPct: number | null,
+ *     population?: number | null,
+ *     housingUnits?: number | null
  *   }>
  * }}
  */
@@ -471,6 +473,9 @@ export function buildGeoEvidenceMapLayer(args){
     const runnerUp = ranked[1] || null;
     const marginVotes = leader ? Math.max(0, leader.votes - (runnerUp ? runnerUp.votes : 0)) : 0;
     const marginPct = totalVotes > 0 ? (marginVotes / totalVotes) * 100 : null;
+    const census = isObject(row.census) ? row.census : {};
+    const population = numOrNull(census.pop) ?? numOrNull(census.B01003_001E) ?? numOrNull(census.total_population);
+    const housingUnits = numOrNull(census.housing_units) ?? numOrNull(census.B25001_001E) ?? numOrNull(census.total_housing_units);
     points.push({
       geoid,
       lat: centroid.lat,
@@ -481,6 +486,8 @@ export function buildGeoEvidenceMapLayer(args){
       hasCensus,
       leaderCandidateId: leader ? leader.candidateId : null,
       marginPct,
+      population,
+      housingUnits,
     });
   }
 
@@ -791,6 +798,9 @@ export function compileDistrictEvidence(args){
     }
     if (districtWeightSum > 0 && Math.abs(districtWeightSum - 1) > 0.01){
       warnings.push(`Geo unit weights sum to ${districtWeightSum.toFixed(4)} (expected near 1.0).`);
+    }
+    if (geoRows.length === 0 && (censusRows.length > 0 || (Array.isArray(join.perGeo) && join.perGeo.length > 0))){
+      warnings.push("Selected geo units do not overlap imported GEO evidence rows.");
     }
   }
 

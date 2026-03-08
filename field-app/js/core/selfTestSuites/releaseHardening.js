@@ -33,6 +33,7 @@
  *   validateElectionManifest: (...args: any[]) => any,
  *   censusManifestToCatalogEntry: (...args: any[]) => any,
  *   electionManifestToCatalogEntry: (...args: any[]) => any,
+ *   normalizeElectionPrecinctPayload: (...args: any[]) => any,
  *   allocatePrecinctVotesToGeo: (...args: any[]) => any,
  *   compileDistrictEvidence: (...args: any[]) => any,
  *   derivePersuasionSignalFromElection: (...args: any[]) => any,
@@ -98,6 +99,7 @@ export function registerReleaseHardeningTests(ctx){
     validateElectionManifest,
     censusManifestToCatalogEntry,
     electionManifestToCatalogEntry,
+    normalizeElectionPrecinctPayload,
     allocatePrecinctVotesToGeo,
     compileDistrictEvidence,
     derivePersuasionSignalFromElection,
@@ -1446,6 +1448,37 @@ export function registerReleaseHardeningTests(ctx){
     assert(Math.abs(evidence.summary.totalVotes - 84) < 1e-9, "Unexpected total weighted votes");
     assert(Array.isArray(evidence.precinctToGeo) && evidence.precinctToGeo.length === 3, "Expected explicit precinct->geo linkage rows");
     assert(evidence.precinctToGeo[0].precinctId === "P1" && evidence.precinctToGeo[0].geoid === "34013010001", "Expected deterministic precinct linkage ordering");
+    return true;
+  });
+
+  test("Phase 19: election precinct adapter normalizes canonical payload deterministically", () => {
+    const out = normalizeElectionPrecinctPayload({
+      precinctResults: [
+        { precinctId: "P2", candidateVotes: { A: 20, B: 25 }, totalVotes: 45 },
+        { precinctId: "P1", candidateVotes: { A: 40, B: 60 } },
+      ],
+    }, { format: "auto" });
+    assert(out.detectedFormat === "canonical", "Expected canonical detection");
+    assert(out.effectiveFormat === "canonical", "Expected canonical effective format");
+    assert(out.outputCount === 2, "Expected two normalized rows");
+    assert(out.rows[0].precinctId === "P1", "Expected deterministic precinct sort");
+    assert(out.rows[0].candidateVotes.B === 60, "Expected candidate vote map preserved");
+    return true;
+  });
+
+  test("Phase 19: election precinct adapter normalizes long rows into canonical precinct rows", () => {
+    const out = normalizeElectionPrecinctPayload([
+      { precinct: "P1", candidate: "A", candidatevotes: 30, totalvotes: 70 },
+      { precinct: "P1", candidate: "B", candidatevotes: 40, totalvotes: 70 },
+      { precinct: "P2", candidate: "A", candidatevotes: 15, totalvotes: 40 },
+      { precinct: "P2", candidate: "B", candidatevotes: 25, totalvotes: 40 },
+    ], { format: "auto" });
+    assert(out.detectedFormat === "long", "Expected long detection");
+    assert(out.effectiveFormat === "long", "Expected long effective format");
+    assert(out.outputCount === 2, "Expected two canonical precinct rows");
+    assert(out.rows[1].precinctId === "P2", "Expected second row for P2");
+    assert(out.rows[1].totalVotes === 40, "Expected totalVotes from long format");
+    assert(out.rows[1].candidateVotes.B === 25, "Expected candidate vote aggregation from long format");
     return true;
   });
 
