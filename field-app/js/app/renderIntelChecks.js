@@ -1542,16 +1542,28 @@ function fillAreaAssistGeoSelect(selectEl, geos, selectedGeoId, area){
   if (!selectEl) return;
   const state = normalizedStateForLinks(area?.stateFips);
   const rows = Array.isArray(geos) ? geos : [];
-  const keep = normalizedGeoIdForAssist(selectedGeoId, String(rows?.[0]?.length === 12 ? "block_group" : "tract"));
+  const keep = normalizedGeoIdForAssist(
+    selectedGeoId,
+    String(area?.resolution || (rows?.[0]?.length === 12 ? "block_group" : "tract"))
+  );
   selectEl.innerHTML = "";
   if (!state){
     selectEl.appendChild(makeOption("", "Set state first"));
-    selectEl.disabled = true;
+    selectEl.disabled = false;
     return;
   }
   if (!rows.length){
-    selectEl.appendChild(makeOption("", "No GEO suggestions"));
-    selectEl.disabled = true;
+    if (keep){
+      const label = keep.length === 12
+        ? `${keep} · block group ${keep.slice(11, 12)}`
+        : `${keep} · tract ${keep.slice(5, 11)}`;
+      selectEl.appendChild(makeOption(keep, label));
+      selectEl.value = keep;
+    } else {
+      selectEl.appendChild(makeOption("", "Fetch Census GEO rows first"));
+      selectEl.value = "";
+    }
+    selectEl.disabled = false;
     return;
   }
   selectEl.disabled = false;
@@ -1991,10 +2003,7 @@ export function renderIntelChecksModule({
 
   if (els.intelUseDistrictToggle){
     els.intelUseDistrictToggle.checked = useDistrictIntel;
-    els.intelUseDistrictToggle.disabled =
-      !packReady ||
-      intelAlignmentWarnings.length > 0 ||
-      typeof validateDistrictDataContract !== "function";
+    els.intelUseDistrictToggle.disabled = false;
   }
   if (els.intelDistrictIntelStatus){
     els.intelDistrictIntelStatus.classList.remove("ok", "warn", "bad", "muted");
@@ -2012,7 +2021,7 @@ export function renderIntelChecksModule({
       els.intelDistrictIntelStatus.textContent = "District-intel requires a ready pack. Generate assumptions to enable it.";
     } else if (!useDistrictIntel && packReady && typeof validateDistrictDataContract !== "function"){
       els.intelDistrictIntelStatus.classList.add("warn");
-      els.intelDistrictIntelStatus.textContent = "District-intel pack ready, but toggle remains disabled because provenance validator is unavailable.";
+      els.intelDistrictIntelStatus.textContent = "District-intel pack ready, but provenance validation is unavailable.";
     } else if (!useDistrictIntel && packReady){
       els.intelDistrictIntelStatus.classList.add("muted");
       els.intelDistrictIntelStatus.textContent = `District-intel pack ready (generated ${generatedAt}) but toggle is OFF.`;
