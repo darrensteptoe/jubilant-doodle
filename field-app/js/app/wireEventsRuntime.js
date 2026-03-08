@@ -1027,6 +1027,7 @@ export function wireIntelChecksEvents(ctx){
         return;
       }
       const buildAutoPullUrlPlan = engine?.snapshot?.buildAutoPullUrlPlan;
+      const evaluateAutoPullPlan = engine?.snapshot?.evaluateAutoPullPlan;
       const resolveDataRefsByPolicy = engine?.snapshot?.resolveDataRefsByPolicy;
       const planBefore = typeof buildAutoPullUrlPlan === "function"
         ? buildAutoPullUrlPlan({
@@ -1036,6 +1037,13 @@ export function wireIntelChecksEvents(ctx){
           resolveDataRefsByPolicy,
         })
         : null;
+      if (planBefore && typeof evaluateAutoPullPlan === "function"){
+        const evalPlan = evaluateAutoPullPlan(planBefore);
+        if (!evalPlan?.ready){
+          setAutoPullStatus(String(evalPlan?.summaryLine || "Auto-pull blocked: no URL slots available."), "warn");
+          return;
+        }
+      }
       const specs = [
         {
           label: "Census manifest",

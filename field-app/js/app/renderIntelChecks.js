@@ -1540,6 +1540,38 @@ export function renderIntelChecksModule({
   if (els.btnIntelAutoFillUrls){
     els.btnIntelAutoFillUrls.disabled = typeof engine?.snapshot?.buildAutoPullUrlPlan !== "function";
   }
+  if (els.intelAutoPullPlanSummary){
+    const buildAutoPullUrlPlan = engine?.snapshot?.buildAutoPullUrlPlan;
+    const evaluateAutoPullPlan = engine?.snapshot?.evaluateAutoPullPlan;
+    const resolveDataRefsByPolicy = engine?.snapshot?.resolveDataRefsByPolicy;
+    els.intelAutoPullPlanSummary.classList.remove("ok", "warn", "bad", "muted");
+    if (typeof buildAutoPullUrlPlan === "function" && typeof evaluateAutoPullPlan === "function"){
+      const plan = buildAutoPullUrlPlan({
+        dataRefs: state?.dataRefs,
+        dataCatalog: state?.dataCatalog,
+        scenario: state,
+        resolveDataRefsByPolicy,
+      });
+      const evalPlan = evaluateAutoPullPlan(plan);
+      els.intelAutoPullPlanSummary.textContent = String(evalPlan?.summaryLine || "Auto-pull plan: unavailable.");
+      if (evalPlan?.status === "ok"){
+        els.intelAutoPullPlanSummary.classList.add("ok");
+      } else if (evalPlan?.status === "warn"){
+        els.intelAutoPullPlanSummary.classList.add("warn");
+      } else if (evalPlan?.status === "bad"){
+        els.intelAutoPullPlanSummary.classList.add("bad");
+      } else {
+        els.intelAutoPullPlanSummary.classList.add("muted");
+      }
+      if (els.btnIntelAutoPullAll){
+        const hasFetch = typeof globalThis.fetch === "function";
+        els.btnIntelAutoPullAll.disabled = !hasFetch || !evalPlan?.ready;
+      }
+    } else {
+      els.intelAutoPullPlanSummary.classList.add("muted");
+      els.intelAutoPullPlanSummary.textContent = "Auto-pull plan unavailable (missing snapshot helpers).";
+    }
+  }
   if (els.intelAutoPullReceiptSummary){
     const summarizeAutoPullReceipt = engine?.snapshot?.summarizeAutoPullReceipt;
     const receipt = state?.geoPack?.district?.autoPullReceipt;
