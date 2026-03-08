@@ -58,6 +58,7 @@
  *   evaluateAutoPullPlan: (...args: any[]) => any,
  *   resolveAutoPullUrls: (...args: any[]) => any,
  *   assessAutoPullReceiptAlignment: (...args: any[]) => any,
+ *   evaluateAutoPullRunNeed: (...args: any[]) => any,
  *   normalizeAreaSelection: (...args: any[]) => any,
  *   buildAreaResolverCacheKey: (...args: any[]) => any,
  *   deriveAreaResolverContext: (...args: any[]) => any,
@@ -122,6 +123,7 @@ export function registerReleaseHardeningTests(ctx){
     evaluateAutoPullPlan,
     resolveAutoPullUrls,
     assessAutoPullReceiptAlignment,
+    evaluateAutoPullRunNeed,
     normalizeAreaSelection,
     buildAreaResolverCacheKey,
     deriveAreaResolverContext,
@@ -1336,6 +1338,83 @@ export function registerReleaseHardeningTests(ctx){
     assert(aligned.aligned === false, "Expected non-aligned status for legacy receipt");
     assert(aligned.status === "warn", "Expected warn status for legacy receipt");
     assert(String(aligned.summaryLine).includes("missing plan fingerprint"), "Expected missing-fingerprint warning summary");
+    return true;
+  });
+
+  test("Phase 21: auto-pull run-need evaluator returns no-run for current successful receipt", () => {
+    const receipt = createAutoPullReceipt({
+      nowIso: "2026-03-07T12:00:00.000Z",
+      mode: "latest_verified",
+      selected: {
+        boundarySetId: "sldl_2024",
+        crosswalkVersionId: "cw_2024",
+        censusDatasetId: "acs5_2024",
+        electionDatasetId: "mit_2024",
+      },
+      urls: {
+        censusManifestUrl: "https://example.test/census-manifest.json",
+        electionManifestUrl: "https://example.test/election-manifest.json",
+        crosswalkRowsUrl: "https://example.test/crosswalk-rows.json",
+        precinctResultsUrl: "https://example.test/precinct-rows.json",
+        censusGeoRowsUrl: "https://example.test/census-rows.json",
+      },
+      results: [
+        { source: "Census manifest", url: "https://example.test/census-manifest.json", ok: true, message: "ok" },
+        { source: "Election manifest", url: "https://example.test/election-manifest.json", ok: true, message: "ok" },
+      ],
+    });
+    const need = evaluateAutoPullRunNeed({
+      receipt,
+      mode: "latest_verified",
+      selected: receipt.selected,
+      urls: receipt.urls,
+    });
+    assert(need.shouldRun === false, "Expected shouldRun=false for current successful receipt");
+    assert(need.status === "ok", "Expected ok status for current successful receipt");
+    return true;
+  });
+
+  test("Phase 21: auto-pull run-need evaluator returns rerun for stale or warning receipts", () => {
+    const receipt = createAutoPullReceipt({
+      nowIso: "2026-03-07T12:00:00.000Z",
+      mode: "latest_verified",
+      selected: {
+        boundarySetId: "sldl_2024",
+        crosswalkVersionId: "cw_2024",
+        censusDatasetId: "acs5_2024",
+        electionDatasetId: "mit_2024",
+      },
+      urls: {
+        censusManifestUrl: "https://example.test/census-manifest.json",
+        electionManifestUrl: "https://example.test/election-manifest.json",
+        crosswalkRowsUrl: "https://example.test/crosswalk-rows.json",
+        precinctResultsUrl: "https://example.test/precinct-rows.json",
+        censusGeoRowsUrl: "https://example.test/census-rows.json",
+      },
+      results: [
+        { source: "Census manifest", url: "https://example.test/census-manifest.json", ok: true, message: "ok" },
+        { source: "Election manifest", url: "https://example.test/election-manifest.json", ok: false, message: "HTTP 404" },
+      ],
+    });
+    const staleNeed = evaluateAutoPullRunNeed({
+      receipt,
+      mode: "latest_verified",
+      selected: receipt.selected,
+      urls: {
+        ...receipt.urls,
+        electionManifestUrl: "https://example.test/election-manifest-v2.json",
+      },
+    });
+    assert(staleNeed.shouldRun === true, "Expected shouldRun=true when refs/URLs are stale");
+    assert(staleNeed.status === "warn", "Expected warn status when refs/URLs are stale");
+    const warningNeed = evaluateAutoPullRunNeed({
+      receipt,
+      mode: "latest_verified",
+      selected: receipt.selected,
+      urls: receipt.urls,
+    });
+    assert(warningNeed.shouldRun === true, "Expected shouldRun=true when previous run had warnings");
+    assert(warningNeed.status === "warn", "Expected warn status when previous run had warnings");
     return true;
   });
 

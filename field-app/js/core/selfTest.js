@@ -116,6 +116,7 @@ import {
   evaluateAutoPullPlan,
   resolveAutoPullUrls,
   assessAutoPullReceiptAlignment,
+  evaluateAutoPullRunNeed,
 } from "./districtAutoPull.js";
 import { registerPhase115ATests } from "./selfTestSuites/phase115A.js";
 import { registerReleaseHardeningTests } from "./selfTestSuites/releaseHardening.js";
@@ -1489,6 +1490,7 @@ export function runSelfTests(engine){
     evaluateAutoPullPlan,
     resolveAutoPullUrls,
     assessAutoPullReceiptAlignment,
+    evaluateAutoPullRunNeed,
     normalizeAreaSelection,
     buildAreaResolverCacheKey,
     deriveAreaResolverContext,

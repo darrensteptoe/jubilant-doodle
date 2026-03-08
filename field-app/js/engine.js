@@ -60,6 +60,7 @@ import {
   evaluateAutoPullPlan,
   resolveAutoPullUrls,
   assessAutoPullReceiptAlignment,
+  evaluateAutoPullRunNeed,
 } from "./core/districtAutoPull.js";
 import {
   MODEL_VERSION,
@@ -180,6 +181,7 @@ export const engine = {
     evaluateAutoPullPlan,
     resolveAutoPullUrls,
     assessAutoPullReceiptAlignment,
+    evaluateAutoPullRunNeed,
     makeScenarioExport,
     deterministicStringify,
     validateScenarioExport,

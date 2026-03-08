@@ -415,6 +415,76 @@ export function assessAutoPullReceiptAlignment(args = {}){
 }
 
 /**
+ * @param {{
+ *   receipt?: unknown,
+ *   mode?: unknown,
+ *   selected?: unknown,
+ *   urls?: unknown
+ * }} args
+ * @returns {{
+ *   shouldRun: boolean,
+ *   status: "ok" | "warn" | "bad" | "muted",
+ *   summaryLine: string
+ * }}
+ */
+export function evaluateAutoPullRunNeed(args = {}){
+  const urls = normalizeAutoPullUrls(args.urls);
+  const availableCount = Object.values(urls).filter(Boolean).length;
+  if (availableCount <= 0){
+    return {
+      shouldRun: false,
+      status: "bad",
+      summaryLine: "Auto-pull run need: blocked (no URL slots available).",
+    };
+  }
+  const alignment = assessAutoPullReceiptAlignment({
+    receipt: args.receipt,
+    mode: args.mode,
+    selected: args.selected,
+    urls,
+  });
+  if (alignment.status === "muted"){
+    return {
+      shouldRun: true,
+      status: "warn",
+      summaryLine: "Auto-pull run need: yes (no prior receipt).",
+    };
+  }
+  if (alignment.status === "warn"){
+    return {
+      shouldRun: true,
+      status: "warn",
+      summaryLine: "Auto-pull run need: yes (stale refs/URLs vs last run).",
+    };
+  }
+  const receipt = (args.receipt && typeof args.receipt === "object")
+    ? /** @type {Record<string, any>} */ (args.receipt)
+    : null;
+  const requestedCount = Number(receipt?.requestedCount);
+  const successCount = Number(receipt?.successCount);
+  const warningCount = Number(receipt?.warningCount);
+  if (
+    Number.isFinite(requestedCount) &&
+    Number.isFinite(successCount) &&
+    Number.isFinite(warningCount) &&
+    requestedCount > 0 &&
+    successCount === requestedCount &&
+    warningCount === 0
+  ){
+    return {
+      shouldRun: false,
+      status: "ok",
+      summaryLine: "Auto-pull run need: no (current + previous run succeeded).",
+    };
+  }
+  return {
+    shouldRun: true,
+    status: "warn",
+    summaryLine: "Auto-pull run need: yes (current refs/URLs but previous run had warnings).",
+  };
+}
+
+/**
  * @param {unknown} plan
  * @returns {{
  *   ready: boolean,
