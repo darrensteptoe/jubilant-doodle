@@ -484,6 +484,8 @@ export const els = {
   intelAreaAssistPlace: document.getElementById("intelAreaAssistPlace"),
   intelAreaAssistGeo: document.getElementById("intelAreaAssistGeo"),
   intelAreaAssistStatus: document.getElementById("intelAreaAssistStatus"),
+  btnIntelAreaAssistFetchCodes: document.getElementById("btnIntelAreaAssistFetchCodes"),
+  intelAreaAssistLookupStatus: document.getElementById("intelAreaAssistLookupStatus"),
   intelDataRefMode: document.getElementById("intelDataRefMode"),
   intelDataRefBoundarySet: document.getElementById("intelDataRefBoundarySet"),
   intelDataRefCrosswalkVersion: document.getElementById("intelDataRefCrosswalkVersion"),
