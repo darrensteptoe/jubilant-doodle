@@ -586,3 +586,16 @@ Execution order for additive auto-ingest on top of deterministic/manual ingest.
    - `/Users/anakinskywalker/Downloads/field-app-40/js/core/selfTestSuites/releaseHardening.js`
    - `/Users/anakinskywalker/Downloads/field-app-40/js/core/selfTest.js`
      - adds deterministic resolver precedence/fallback regression coverage.
+6. [x] Add deterministic auto-pull receipt alignment status against current refs/URLs:
+   - `/Users/anakinskywalker/Downloads/field-app-40/js/core/districtAutoPull.js`
+     - adds `buildAutoPullPlanFingerprint(...)` and `assessAutoPullReceiptAlignment(...)`.
+     - receipt now carries `planFingerprint` to support stale/current checks.
+   - `/Users/anakinskywalker/Downloads/field-app-40/js/engine.js`
+     - exposes fingerprint/alignment helpers in snapshot facade.
+   - `/Users/anakinskywalker/Downloads/field-app-40/index.html`
+   - `/Users/anakinskywalker/Downloads/field-app-40/js/ui/els.js`
+   - `/Users/anakinskywalker/Downloads/field-app-40/js/app/renderIntelChecks.js`
+     - renders read-only receipt-alignment line with deterministic `ok/warn/muted` status.
+   - `/Users/anakinskywalker/Downloads/field-app-40/js/core/selfTestSuites/releaseHardening.js`
+   - `/Users/anakinskywalker/Downloads/field-app-40/js/core/selfTest.js`
+     - adds deterministic fingerprint + alignment + legacy-receipt regression coverage.
