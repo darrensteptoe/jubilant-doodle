@@ -110,9 +110,53 @@ function mapState(host){
     outlineLayer: null,
     token: 0,
     lastArgs: null,
+    lastFitBounds: null,
+    needsPostShowFit: false,
+    resizeObserver: null,
+    resizeFallbackBound: false,
   };
+  attachMapResizeHooks(host, st);
   host.__intelGeoMapState = st;
   return st;
+}
+
+function hostHasRenderSize(host){
+  if (!host) return false;
+  const w = Number(host.clientWidth || host.offsetWidth || 0);
+  const h = Number(host.clientHeight || host.offsetHeight || 0);
+  return w > 4 && h > 4;
+}
+
+function invalidateAndFitIfNeeded(host, st){
+  if (!host || !st || !st.map) return;
+  if (!hostHasRenderSize(host)) return;
+  try{
+    st.map.invalidateSize({ pan: false, debounceMoveend: true });
+  } catch {}
+  if (
+    st.needsPostShowFit &&
+    st.lastFitBounds &&
+    typeof st.lastFitBounds.isValid === "function" &&
+    st.lastFitBounds.isValid()
+  ){
+    fitBoundsSmart(st.map, st.lastFitBounds);
+    st.needsPostShowFit = false;
+  }
+}
+
+function attachMapResizeHooks(host, st){
+  if (!host || !st || !st.map) return;
+  if (typeof ResizeObserver === "function" && !st.resizeObserver){
+    const ro = new ResizeObserver(() => invalidateAndFitIfNeeded(host, st));
+    ro.observe(host);
+    st.resizeObserver = ro;
+    return;
+  }
+  if (!st.resizeFallbackBound && typeof window !== "undefined"){
+    const onResize = () => invalidateAndFitIfNeeded(host, st);
+    window.addEventListener("resize", onResize);
+    st.resizeFallbackBound = true;
+  }
 }
 
 function cleanupLayers(st){
@@ -379,8 +423,16 @@ function renderMapNow(host, statusEl, args){
   }
 
   if (fitBounds && fitBounds.isValid && fitBounds.isValid()){
-    fitBoundsSmart(st.map, fitBounds);
+    st.lastFitBounds = fitBounds;
+    if (hostHasRenderSize(host)){
+      fitBoundsSmart(st.map, fitBounds);
+      st.needsPostShowFit = false;
+    } else {
+      st.needsPostShowFit = true;
+    }
   } else {
+    st.lastFitBounds = null;
+    st.needsPostShowFit = false;
     st.map.setView(DEFAULT_CENTER, DEFAULT_ZOOM);
   }
 
@@ -398,11 +450,8 @@ function renderMapNow(host, statusEl, args){
     statusEl.textContent = str(mapLayer.reason || "Map unavailable: no centroid coordinates found in census GEO rows.");
   }
 
-  setTimeout(() => {
-    try{
-      st.map.invalidateSize(false);
-    } catch {}
-  }, 0);
+  setTimeout(() => invalidateAndFitIfNeeded(host, st), 0);
+  setTimeout(() => invalidateAndFitIfNeeded(host, st), 120);
 
   return { geoid: boundaryPayload.geoid, hasBoundary, pointCount: points.length };
 }
