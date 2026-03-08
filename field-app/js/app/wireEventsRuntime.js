@@ -170,6 +170,32 @@ export function wireIntelChecksEvents(ctx){
   const setDistrictIntelStatus = (msg, kind = "muted") => setStatus(els.intelDistrictIntelStatus, msg, kind);
   const setGeoInspectorCopyStatus = (msg, kind = "muted") => setStatus(els.intelGeoInspectorCopyStatus, msg, kind);
   const setAreaAssistLookupStatus = (msg, kind = "muted") => setStatus(els.intelAreaAssistLookupStatus, msg, kind);
+  let areaAssistFetchTimer = 0;
+  let censusGeoFetchTimer = 0;
+  const queueAreaAssistLookupFetch = () => {
+    if (!els.btnIntelAreaAssistFetchCodes) return;
+    if (areaAssistFetchTimer){
+      clearTimeout(areaAssistFetchTimer);
+    }
+    areaAssistFetchTimer = setTimeout(() => {
+      areaAssistFetchTimer = 0;
+      const btn = els.btnIntelAreaAssistFetchCodes;
+      if (!btn || btn.disabled) return;
+      btn.click();
+    }, 180);
+  };
+  const queueCensusGeoRowsFetch = () => {
+    if (!els.btnIntelFetchCensusGeoRows) return;
+    if (censusGeoFetchTimer){
+      clearTimeout(censusGeoFetchTimer);
+    }
+    censusGeoFetchTimer = setTimeout(() => {
+      censusGeoFetchTimer = 0;
+      const btn = els.btnIntelFetchCensusGeoRows;
+      if (!btn || btn.disabled) return;
+      btn.click();
+    }, 260);
+  };
 
   const normalizeDataRefMode = (mode) => {
     const m = String(mode || "").trim().toLowerCase();
@@ -299,7 +325,7 @@ export function wireIntelChecksEvents(ctx){
     const geo = s.geoPack;
     if (!geo.area || typeof geo.area !== "object") geo.area = {};
     geo.resolution = normalizeAreaResolutionInput(geo.resolution);
-    geo.area.type = normalizeAreaTypeInput(geo.area.type);
+    geo.area.type = normalizeAreaTypeInput(geo.area.type) || "COUNTY";
     geo.area.stateFips = cleanDigits(geo.area.stateFips, 2);
     geo.area.district = cleanText(geo.area.district, 16);
     geo.area.countyFips = cleanDigits(geo.area.countyFips, 5);
@@ -493,9 +519,13 @@ export function wireIntelChecksEvents(ctx){
     });
   }
   if (els.intelAreaResolution){
-    els.intelAreaResolution.addEventListener("change", () => onAreaChange((geo) => {
-      geo.resolution = normalizeAreaResolutionInput(els.intelAreaResolution.value);
-    }, "Area resolution updated."));
+    els.intelAreaResolution.addEventListener("change", () => {
+      onAreaChange((geo) => {
+        geo.resolution = normalizeAreaResolutionInput(els.intelAreaResolution.value);
+      }, "Area resolution updated.");
+      queueAreaAssistLookupFetch();
+      queueCensusGeoRowsFetch();
+    });
   }
   if (els.intelAreaLabel){
     els.intelAreaLabel.addEventListener("input", () => onAreaChange((geo) => {
@@ -508,6 +538,11 @@ export function wireIntelChecksEvents(ctx){
         const nextState = cleanDigits(els.intelAreaStateFips.value, 2);
         const prevState = cleanDigits(geo.area.stateFips, 2);
         geo.area.stateFips = nextState;
+        const currentType = normalizeAreaTypeInput(geo.area.type);
+        if (!currentType){
+          geo.area.type = "COUNTY";
+          if (els.intelAreaType) els.intelAreaType.value = "COUNTY";
+        }
         if (!nextState || (prevState && prevState !== nextState)){
           geo.area.countyFips = "";
           geo.area.placeFips = "";
@@ -515,6 +550,7 @@ export function wireIntelChecksEvents(ctx){
           if (els.intelAreaPlaceFips) els.intelAreaPlaceFips.value = "";
         }
       }, "Area state FIPS updated.");
+      queueAreaAssistLookupFetch();
     });
   }
   if (els.intelAreaDistrict){
@@ -524,6 +560,7 @@ export function wireIntelChecksEvents(ctx){
   }
   if (els.intelAreaCountyFips){
     els.intelAreaCountyFips.addEventListener("input", () => onAreaChange((geo) => {
+      geo.area.type = "COUNTY";
       geo.area.countyFips = cleanDigits(els.intelAreaCountyFips.value, 5);
     }, "Area county FIPS updated."));
   }
@@ -537,13 +574,18 @@ export function wireIntelChecksEvents(ctx){
       const stateFips = cleanDigits(els.intelAreaAssistState.value, 2);
       if (!stateFips || stateFips.length < 2) return;
       onAreaChange((geo) => {
+        geo.area.type = normalizeAreaTypeInput(geo.area.type) || "COUNTY";
         geo.area.stateFips = stateFips;
         geo.area.countyFips = "";
         geo.area.placeFips = "";
       }, "Area state selected from suggestions.");
+      if (els.intelAreaType && !normalizeAreaTypeInput(els.intelAreaType.value)){
+        els.intelAreaType.value = "COUNTY";
+      }
       if (els.intelAreaStateFips) els.intelAreaStateFips.value = stateFips;
       if (els.intelAreaCountyFips) els.intelAreaCountyFips.value = "";
       if (els.intelAreaPlaceFips) els.intelAreaPlaceFips.value = "";
+      queueAreaAssistLookupFetch();
     });
   }
   if (els.intelAreaAssistCounty){
@@ -552,13 +594,17 @@ export function wireIntelChecksEvents(ctx){
       if (!county5 || county5.length < 5) return;
       const stateFips = county5.slice(0, 2);
       onAreaChange((geo) => {
+        geo.area.type = "COUNTY";
         geo.area.stateFips = stateFips;
         geo.area.countyFips = county5;
         geo.area.placeFips = "";
       }, "Area county selected from suggestions.");
+      if (els.intelAreaType) els.intelAreaType.value = "COUNTY";
       if (els.intelAreaStateFips) els.intelAreaStateFips.value = stateFips;
       if (els.intelAreaCountyFips) els.intelAreaCountyFips.value = county5;
       if (els.intelAreaPlaceFips) els.intelAreaPlaceFips.value = "";
+      queueAreaAssistLookupFetch();
+      queueCensusGeoRowsFetch();
     });
   }
   if (els.intelAreaAssistPlace){
@@ -568,11 +614,14 @@ export function wireIntelChecksEvents(ctx){
       const stateFips = place7.slice(0, 2);
       const placeFips = place7.slice(2, 7);
       onAreaChange((geo) => {
+        geo.area.type = "COUNTY";
         geo.area.stateFips = stateFips;
         geo.area.placeFips = placeFips;
       }, "Area place selected from suggestions.");
+      if (els.intelAreaType) els.intelAreaType.value = "COUNTY";
       if (els.intelAreaStateFips) els.intelAreaStateFips.value = stateFips;
       if (els.intelAreaPlaceFips) els.intelAreaPlaceFips.value = placeFips;
+      queueAreaAssistLookupFetch();
     });
   }
   if (els.intelAreaAssistGeo){
@@ -582,9 +631,11 @@ export function wireIntelChecksEvents(ctx){
       const stateFips = geoid.slice(0, 2);
       const countyFips = geoid.slice(0, 5);
       onAreaChange((geo) => {
+        geo.area.type = "COUNTY";
         geo.area.stateFips = stateFips;
         geo.area.countyFips = countyFips;
       }, "Area narrowed from GEO suggestion.");
+      if (els.intelAreaType) els.intelAreaType.value = "COUNTY";
       if (els.intelAreaStateFips) els.intelAreaStateFips.value = stateFips;
       if (els.intelAreaCountyFips) els.intelAreaCountyFips.value = countyFips;
       const s = currentState();
@@ -593,6 +644,7 @@ export function wireIntelChecksEvents(ctx){
       if (!district) return;
       district.selectedGeoId = geoid;
       commitUIUpdate();
+      queueCensusGeoRowsFetch();
     });
   }
   if (els.btnIntelAreaAssistFetchCodes){
