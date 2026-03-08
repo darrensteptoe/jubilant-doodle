@@ -494,3 +494,15 @@ Execution order for the first functional district-evidence layer.
      - exposes district-ingest manifest normalize/validate/catalog-entry helpers via snapshot facade.
    - `/Users/anakinskywalker/Downloads/field-app-40/js/app/renderIntelChecks.js`
      - disables manifest import buttons when ingest helpers are unavailable in engine snapshot.
+20. [x] Add deterministic evidence-input summary readout for active refs:
+   - `/Users/anakinskywalker/Downloads/field-app-40/js/core/districtEvidenceInputs.js`
+     - adds `summarizeDistrictEvidenceInputs(...)` with source mode, row counts, readiness, and notes.
+   - `/Users/anakinskywalker/Downloads/field-app-40/js/engine.js`
+     - exposes input-summary helper via snapshot facade.
+   - `/Users/anakinskywalker/Downloads/field-app-40/index.html`
+   - `/Users/anakinskywalker/Downloads/field-app-40/js/ui/els.js`
+   - `/Users/anakinskywalker/Downloads/field-app-40/js/app/renderIntelChecks.js`
+     - renders active input summary line (mode + election/crosswalk/census counts) with ready/warn/muted status.
+   - `/Users/anakinskywalker/Downloads/field-app-40/js/core/selfTestSuites/releaseHardening.js`
+   - `/Users/anakinskywalker/Downloads/field-app-40/js/core/selfTest.js`
+     - adds deterministic tests for ready and missing-layer summary behavior.
