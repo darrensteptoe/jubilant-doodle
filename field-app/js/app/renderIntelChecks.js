@@ -1101,8 +1101,8 @@ export function renderIntelChecksModule({
       els.intelDistrictIntelStatus.classList.add("ok");
       els.intelDistrictIntelStatus.textContent = `District-intel assumptions are ON (generated ${generatedAt}).`;
     } else if (useDistrictIntel && !packReady){
-      els.intelDistrictIntelStatus.classList.add("warn");
-      els.intelDistrictIntelStatus.textContent = "District-intel assumptions are ON but no ready pack is available.";
+      els.intelDistrictIntelStatus.classList.add("muted");
+      els.intelDistrictIntelStatus.textContent = "District-intel requires a ready pack. Generate assumptions to enable it.";
     } else if (!useDistrictIntel && packReady){
       els.intelDistrictIntelStatus.classList.add("muted");
       els.intelDistrictIntelStatus.textContent = `District-intel pack ready (generated ${generatedAt}) but toggle is OFF.`;
@@ -1282,9 +1282,6 @@ export function renderIntelChecksModule({
   if (els.intelAreaDistrict) els.intelAreaDistrict.disabled = !districtEnabled;
   if (els.intelAreaCountyFips) els.intelAreaCountyFips.disabled = !countyEnabled;
   if (els.intelAreaPlaceFips) els.intelAreaPlaceFips.disabled = !placeEnabled;
-  if (els.intelAreaCodeSelect && !els.intelAreaCodeSelect.options.length){
-    els.intelAreaCodeSelect.appendChild(makeOption("", "None loaded"));
-  }
 
   let areaCtx = null;
   if (typeof deriveAreaResolverContext === "function"){
@@ -1332,18 +1329,10 @@ export function renderIntelChecksModule({
     const bits = [];
     if (areaCacheKey) bits.push(`Cache key: ${areaCacheKey}`);
     if (areaNotes.length) bits.push(`Note: ${areaNotes[0]}`);
-    if (!bits.length){
-      bits.push("Flow: select state → area type → area option, then generate assumptions.");
-    }
+    if (!bits.length) bits.push("Flow: select state, area type, and IDs, then generate assumptions.");
     els.intelAreaResolverDetail.textContent = bits.length
       ? bits.join(" · ")
       : "Set area + resolution to generate a deterministic cache key.";
-  }
-  if (els.btnIntelAreaLoadCodes){
-    const hasFetch = typeof globalThis.fetch === "function";
-    const hasState = String(normalizedArea?.stateFips || "").trim().length > 0;
-    const hasType = ["CD", "SLDU", "SLDL", "COUNTY", "PLACE"].includes(String(normalizedArea?.type || "").toUpperCase());
-    els.btnIntelAreaLoadCodes.disabled = !(hasFetch && hasState && hasType);
   }
 
   const refsIn = (state?.dataRefs && typeof state.dataRefs === "object") ? state.dataRefs : {};
@@ -1609,15 +1598,6 @@ export function renderIntelChecksModule({
   }
   if (els.btnIntelAutoFillUrls){
     els.btnIntelAutoFillUrls.disabled = typeof engine?.snapshot?.buildAutoPullUrlPlan !== "function";
-  }
-  if (els.intelCensusApiVars && !String(els.intelCensusApiVars.value || "").trim()){
-    els.intelCensusApiVars.value = "B01003_001E,B25001_001E";
-  }
-  if (els.btnIntelPullCensusApi){
-    const hasFetch = typeof globalThis.fetch === "function";
-    const canBuildPlan = typeof engine?.snapshot?.buildCensusApiPullPlan === "function";
-    const canParseRows = typeof engine?.snapshot?.censusGeoRowsFromApiPayload === "function";
-    els.btnIntelPullCensusApi.disabled = !(hasFetch && canBuildPlan && canParseRows);
   }
   /** @type {any} */
   let autoPullPlanForRender = null;
