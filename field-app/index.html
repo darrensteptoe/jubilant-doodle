@@ -2296,6 +2296,12 @@
 </div>
 <div class="grid4" style="margin-top:10px;">
 <div class="field">
+<label class="label" for="intelAreaAssistState" title="State quick-pick built from loaded/fetched GEO rows.">State quick-pick</label>
+<select class="select" id="intelAreaAssistState">
+<option value="">No state suggestions</option>
+</select>
+</div>
+<div class="field">
 <label class="label" for="intelAreaAssistCounty" title="Primary selector for county within selected state.">County</label>
 <select class="select" id="intelAreaAssistCounty">
 <option value="">No county suggestions</option>
@@ -2313,19 +2319,27 @@
 <option value="">No GEO suggestions</option>
 </select>
 </div>
-<div class="field" style="display:flex; align-items:flex-end;">
-<button class="btn btn-sm" id="btnIntelAreaAssistFetchCodes" type="button" style="width:100%;">Fetch county/place/GEO lists</button>
 </div>
+<div class="card-actions" style="margin-top:8px;">
+<button class="btn btn-sm" id="btnIntelAreaAssistFetchCodes" type="button">Fetch county/place/GEO lists</button>
 </div>
 <div class="muted" id="intelAreaAssistStatus" style="margin-top:6px;" title="Dropdown options are generated from loaded/fetched census GEO rows.">Set state first, then fetch county/place/GEO lists.</div>
 <div class="muted" id="intelAreaAssistLookupStatus" style="margin-top:6px;" title="Fetched code lists are optional helpers and do not alter planning math.">No fetched county/place/GEO lookup loaded.</div>
 <div class="note" id="intelAreaResolverSummary" style="margin-top:8px;">Area resolver: not configured.</div>
 <div class="muted" id="intelAreaResolverDetail" style="margin-top:6px;">Set area + resolution to generate a deterministic cache key.</div>
 <div class="muted" id="intelAreaCodeLinks" style="margin-top:6px;" title="Direct code source links. Opens official Census files and scoped API lists in a new tab.">Code lookup links appear after State FIPS is set.</div>
-<div class="grid2" style="margin-top:8px;">
+<div class="grid3" style="margin-top:8px;">
 <div class="field">
 <label class="label" for="intelAreaDistrict" title="Required only for CD/SLDU/SLDL area types.">District code (district types only)</label>
 <input class="input" id="intelAreaDistrict" placeholder="e.g., 012" type="text"/>
+</div>
+<div class="field">
+<label class="label" for="intelAreaCountyFips" title="Manual county FIPS entry (state+county, e.g., 34013).">County FIPS</label>
+<input class="input" id="intelAreaCountyFips" maxlength="5" placeholder="e.g., 013 or 34013" type="text"/>
+</div>
+<div class="field">
+<label class="label" for="intelAreaPlaceFips" title="Manual place FIPS entry (5 digits).">Place FIPS</label>
+<input class="input" id="intelAreaPlaceFips" maxlength="5" placeholder="e.g., 51000" type="text"/>
 </div>
 </div>
 <div class="grid3" style="margin-top:10px;">
