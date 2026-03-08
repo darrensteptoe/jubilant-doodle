@@ -1099,15 +1099,6 @@ function buildAreaGeoFilterSet(state, area){
   const areaType = String(area?.type || "").trim().toUpperCase();
   const areaDistrictCode = normalizedDistrictCodeForAreaType(areaType, area?.district);
   const out = new Set();
-  if (areaType !== "COUNTY" && areaType !== "PLACE"){
-    const units = Array.isArray(state?.geoPack?.units) ? state.geoPack.units : [];
-    for (const row of units){
-      const geoid = digitsOnly(row?.geoid);
-      const id = resolution === "block_group" ? geoid.slice(0, 12) : geoid.slice(0, 11);
-      if (!id || id.slice(0, 2) !== stateFips) continue;
-      out.add(id);
-    }
-  }
   const lookup = state?.geoPack?.district?.areaAssistLookup && typeof state.geoPack.district.areaAssistLookup === "object"
     ? state.geoPack.district.areaAssistLookup
     : null;
@@ -2586,7 +2577,7 @@ export function renderIntelChecksModule({
     } else if (!electionChoicesCount && !effectiveIds.electionDatasetId){
       renderDataRefStatus(
         els.intelDataRefStatus,
-        "No election datasets loaded yet. Import an election manifest/results or run auto-pull.",
+        "No election datasets loaded yet. Election overlays are optional for census-only map + assumptions.",
         "muted"
       );
     } else if (
@@ -2776,7 +2767,7 @@ export function renderIntelChecksModule({
   if (els.btnIntelGenerateDistrictIntel){
     els.btnIntelGenerateDistrictIntel.disabled = !(
       flowAreaReady &&
-      flowDataReady &&
+      censusViewReady &&
       !areaDataMismatch &&
       !dataRefAreaMismatch &&
       typeof engine?.snapshot?.buildDistrictIntelPackFromEvidence === "function" &&

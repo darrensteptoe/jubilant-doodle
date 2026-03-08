@@ -932,8 +932,8 @@ export function wireIntelChecksEvents(ctx){
       const censusGeoRows = Array.isArray(resolvedInputs?.censusGeoRows)
         ? resolvedInputs.censusGeoRows
         : [];
-      if (!precinctResults.length || !crosswalkRows.length || !censusGeoRows.length){
-        setDistrictIntelStatus("Cannot generate assumptions until election, crosswalk, and census rows are all present for the active area.", "warn");
+      if (!censusGeoRows.length){
+        setDistrictIntelStatus("Cannot generate assumptions until census rows are present for the active area.", "warn");
         return;
       }
 
@@ -976,8 +976,14 @@ export function wireIntelChecksEvents(ctx){
         s.districtIntelPack = out.pack;
         if (!s.dataRefs || typeof s.dataRefs !== "object") s.dataRefs = {};
         if (!s.dataRefs.lastCheckedAt) s.dataRefs.lastCheckedAt = new Date().toISOString();
+        const hasElectionLayer = precinctResults.length > 0 && crosswalkRows.length > 0;
         if (out.pack.ready){
-          setDistrictIntelStatus("District-intel assumptions generated.", "ok");
+          setDistrictIntelStatus(
+            hasElectionLayer
+              ? "District-intel assumptions generated."
+              : "District-intel assumptions generated from census-only evidence. Election overlays are optional.",
+            hasElectionLayer ? "ok" : "warn"
+          );
         } else {
           setDistrictIntelStatus("District-intel generated with warnings; pack is not ready.", "warn");
         }
@@ -1458,15 +1464,6 @@ export function wireIntelChecksEvents(ctx){
       return null;
     }
     const out = new Set();
-    if (areaType !== "COUNTY" && areaType !== "PLACE"){
-      const geoPack = (s?.geoPack && typeof s.geoPack === "object") ? s.geoPack : {};
-      const units = Array.isArray(geoPack.units) ? geoPack.units : [];
-      for (const row of units){
-        const id = normalizeAreaGeoId(row?.geoid, resolution);
-        if (!id || id.slice(0, 2) !== stateFips) continue;
-        out.add(id);
-      }
-    }
     const district = ensureGeoDistrict(s);
     const lookup = (district && typeof district.areaAssistLookup === "object") ? district.areaAssistLookup : null;
     if (lookup){
