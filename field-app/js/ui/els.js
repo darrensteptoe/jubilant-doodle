@@ -539,6 +539,7 @@ export const els = {
   intelDistrictEvidenceMapStatus: document.getElementById("intelDistrictEvidenceMapStatus"),
   intelDistrictEvidenceMapSvg: document.getElementById("intelDistrictEvidenceMapSvg"),
   intelGeoInspectorSelect: document.getElementById("intelGeoInspectorSelect"),
+  btnIntelGeoInspectorReloadBoundary: document.getElementById("btnIntelGeoInspectorReloadBoundary"),
   intelGeoInspectorStatus: document.getElementById("intelGeoInspectorStatus"),
   intelGeoInspectorRace: document.getElementById("intelGeoInspectorRace"),
   intelGeoInspectorHouseholds: document.getElementById("intelGeoInspectorHouseholds"),
