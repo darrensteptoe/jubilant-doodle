@@ -2265,11 +2265,11 @@
 </div>
 <div class="grid4" style="margin-top:10px;">
 <div class="field">
-<label class="label" for="intelAreaStateFips">State</label>
+<label class="label" for="intelAreaStateFips" title="Two-digit state FIPS code. Example: 34 for New Jersey.">State</label>
 <input class="input" id="intelAreaStateFips" maxlength="2" placeholder="e.g., 34" type="text"/>
 </div>
 <div class="field">
-<label class="label" for="intelAreaType">Area type</label>
+<label class="label" for="intelAreaType" title="Select which boundary family to resolve for district evidence.">Area type</label>
 <select class="select" id="intelAreaType">
 <option value="">Not set</option>
 <option value="CD">Congressional district (CD)</option>
@@ -2281,7 +2281,7 @@
 </select>
 </div>
 <div class="field">
-<label class="label" for="intelAreaResolution">Resolution</label>
+<label class="label" for="intelAreaResolution" title="Target evidence resolution used for joins and map plotting.">Resolution</label>
 <select class="select" id="intelAreaResolution">
 <option value="tract">Tract</option>
 <option value="block_group">Block group</option>
@@ -2294,20 +2294,51 @@
 </div>
 <div class="grid4" style="margin-top:10px;">
 <div class="field">
-<label class="label" for="intelAreaDistrict">District code</label>
+<label class="label" for="intelAreaDistrict" title="District identifier within the selected state and area type.">District code</label>
 <input class="input" id="intelAreaDistrict" placeholder="e.g., 012" type="text"/>
 </div>
 <div class="field">
-<label class="label" for="intelAreaCountyFips">County FIPS</label>
+<label class="label" for="intelAreaCountyFips" title="County FIPS. Enter 3-digit county code or full 5-digit state+county code.">County FIPS</label>
 <input class="input" id="intelAreaCountyFips" maxlength="5" placeholder="e.g., 013" type="text"/>
 </div>
 <div class="field">
-<label class="label" for="intelAreaPlaceFips">Place FIPS</label>
+<label class="label" for="intelAreaPlaceFips" title="Five-digit place code within the selected state.">Place FIPS</label>
 <input class="input" id="intelAreaPlaceFips" maxlength="5" placeholder="e.g., 51000" type="text"/>
 </div>
 </div>
 <div class="note" id="intelAreaResolverSummary" style="margin-top:8px;">Area resolver: not configured.</div>
 <div class="muted" id="intelAreaResolverDetail" style="margin-top:6px;">Set area + resolution to generate a deterministic cache key.</div>
+<div class="muted" id="intelAreaCodeLinks" style="margin-top:6px;" title="Direct code source links. Opens official Census files and scoped API lists in a new tab.">Code lookup links appear after State FIPS is set.</div>
+<details style="margin-top:8px;">
+<summary class="muted" title="Optional helpers. Base area inputs remain canonical.">Assisted selectors (from loaded census GEO rows)</summary>
+<div class="grid4" style="margin-top:8px;">
+<div class="field">
+<label class="label" for="intelAreaAssistState" title="State quick-pick from loaded GEO rows.">State quick-pick</label>
+<select class="select" id="intelAreaAssistState">
+<option value="">No state suggestions</option>
+</select>
+</div>
+<div class="field">
+<label class="label" for="intelAreaAssistCounty" title="Counties narrow to selected state.">County quick-pick</label>
+<select class="select" id="intelAreaAssistCounty">
+<option value="">No county suggestions</option>
+</select>
+</div>
+<div class="field">
+<label class="label" for="intelAreaAssistPlace" title="Places narrow to selected state when available in loaded rows.">Place quick-pick</label>
+<select class="select" id="intelAreaAssistPlace">
+<option value="">No place suggestions</option>
+</select>
+</div>
+<div class="field">
+<label class="label" for="intelAreaAssistGeo" title="GEO options narrow by state/county/place filters.">Tract/block quick-pick</label>
+<select class="select" id="intelAreaAssistGeo">
+<option value="">No GEO suggestions</option>
+</select>
+</div>
+</div>
+<div class="muted" id="intelAreaAssistStatus" style="margin-top:6px;" title="Assist options are generated only from currently loaded census GEO rows.">Assists populate after census GEO rows are loaded.</div>
+</details>
 <div class="grid3" style="margin-top:10px;">
 <div class="field">
 <label class="label" for="intelDataRefMode">Data source mode</label>

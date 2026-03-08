@@ -532,6 +532,29 @@ Execution order for the first functional district-evidence layer.
    - `/Users/anakinskywalker/Downloads/field-app-40/js/app/renderIntelChecks.js`
      - derives demographic table values from imported census GEO rows when compiled totals are absent.
      - renders district-intel assumption preview from current compiled evidence before `Generate assumptions` persists a ready pack.
+25. [x] Expand Stage 9 demographic derivation support for ACS-code payloads:
+   - `/Users/anakinskywalker/Downloads/field-app-40/js/app/renderIntelChecks.js`
+     - supports direct canonical share keys and fallback ACS-code ratios for renter, multi-unit, BA+, age 18-34, age 65+, and limited-English shares.
+     - reduces empty demographic cells when Census rows are imported with raw ACS variable IDs.
+26. [x] Align map + GEO inspector census key fallback handling:
+   - `/Users/anakinskywalker/Downloads/field-app-40/js/core/districtEvidence.js`
+   - `/Users/anakinskywalker/Downloads/field-app-40/js/app/renderIntelChecks.js`
+     - supports both ACS `_...E` and raw `_...` total-pop/household keys in map-layer and inspector readouts.
+27. [x] Add non-bloated area-code lookup assist + hover guidance in Stage 9:
+   - `/Users/anakinskywalker/Downloads/field-app-40/index.html`
+   - `/Users/anakinskywalker/Downloads/field-app-40/js/ui/els.js`
+   - `/Users/anakinskywalker/Downloads/field-app-40/js/app/renderIntelChecks.js`
+     - keeps manual area inputs unchanged while adding direct state/county/place code file links.
+     - adds state-scoped Census API lookup links (counties/places/tracts/block groups) from current area inputs.
+     - adds concise field-title guidance on area inputs to reduce long helper strings.
+28. [x] Add compact conditional assisted selectors (state-filtered county and GEO picks):
+   - `/Users/anakinskywalker/Downloads/field-app-40/index.html`
+   - `/Users/anakinskywalker/Downloads/field-app-40/js/ui/els.js`
+   - `/Users/anakinskywalker/Downloads/field-app-40/js/app/renderIntelChecks.js`
+   - `/Users/anakinskywalker/Downloads/field-app-40/js/app/wireEventsRuntime.js`
+     - adds collapsible assisted selectors sourced from loaded census GEO rows.
+     - county and GEO options automatically filter by selected state/county/resolution.
+     - selecting assist options writes back to area inputs and GEO inspector selection.
 
 ## Phase 14: Automatic source pull bridge (done)
 Execution order for additive auto-ingest on top of deterministic/manual ingest.
@@ -654,3 +677,12 @@ Execution order for additive auto-ingest on top of deterministic/manual ingest.
    - `/Users/anakinskywalker/Downloads/field-app-40/js/core/selfTestSuites/releaseHardening.js`
    - `/Users/anakinskywalker/Downloads/field-app-40/js/core/selfTest.js`
      - adds deterministic run-need regression coverage for current, stale, and warning outcomes.
+10. [x] Add low-bloat conditional assist chain for area inputs:
+   - `/Users/anakinskywalker/Downloads/field-app-40/index.html`
+   - `/Users/anakinskywalker/Downloads/field-app-40/js/ui/els.js`
+     - extends collapsed assisted selectors to include state + place quick-picks.
+   - `/Users/anakinskywalker/Downloads/field-app-40/js/app/renderIntelChecks.js`
+     - builds deterministic assist options from loaded census GEO rows with `state -> county -> place -> tract/block` narrowing.
+     - keeps manual area fields canonical and updates assist status with option counts.
+   - `/Users/anakinskywalker/Downloads/field-app-40/js/app/wireEventsRuntime.js`
+     - wires state/county/place quick-picks to canonical area inputs and stale-state handling.
