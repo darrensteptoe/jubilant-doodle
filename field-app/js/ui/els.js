@@ -467,6 +467,8 @@ export const els = {
   intelDistrictIntelStatus: document.getElementById("intelDistrictIntelStatus"),
   intelDistrictIntelSummary: document.getElementById("intelDistrictIntelSummary"),
   intelDistrictIntelAlignment: document.getElementById("intelDistrictIntelAlignment"),
+  intelDistrictDemographicsTbody: document.getElementById("intelDistrictDemographicsTbody"),
+  intelDistrictAssumptionTbody: document.getElementById("intelDistrictAssumptionTbody"),
   intelAreaType: document.getElementById("intelAreaType"),
   intelAreaResolution: document.getElementById("intelAreaResolution"),
   intelAreaLabel: document.getElementById("intelAreaLabel"),
