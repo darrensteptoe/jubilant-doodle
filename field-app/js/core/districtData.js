@@ -739,9 +739,6 @@ export function validateDistrictDataContract(scenario){
 
   if (refs.mode === "pinned_verified" && districtDataInUse){
     if (!refs.censusDatasetId) warnings.push("Pinned mode active but censusDatasetId is not set.");
-    if (!refs.electionDatasetId) warnings.push("Pinned mode active but electionDatasetId is not set.");
-    if (!refs.boundarySetId) warnings.push("Pinned mode active but boundarySetId is not set.");
-    if (!refs.crosswalkVersionId) warnings.push("Pinned mode active but crosswalkVersionId is not set.");
   }
 
   if (districtDataInUse){

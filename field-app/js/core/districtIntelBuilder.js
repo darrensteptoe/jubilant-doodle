@@ -261,15 +261,14 @@ export function buildDistrictIntelPackFromEvidence(args){
   const turnoutLiftAdjusted = turnoutLiftBase == null ? null : Math.max(0, turnoutLiftBase * turnoutElasticity);
   const organizerCapacityAdjusted = organizerCapacityBase == null ? null : Math.max(0, organizerCapacityBase / Math.max(0.01, fieldDifficulty));
 
-  const ready = !!(
-    (numOrNull(summary?.totalVotes) || 0) > 0 &&
-    (Object.keys(censusTotalsIn).length > 0 || (numOrNull(summary?.geoRowsCount) || 0) > 0)
-  );
+  const hasElectionEvidence = (numOrNull(summary?.totalVotes) || 0) > 0;
+  const hasCensusEvidence = Object.keys(censusTotalsIn).length > 0 || (numOrNull(summary?.geoRowsCount) || 0) > 0;
+  const ready = !!hasCensusEvidence;
 
-  if ((numOrNull(summary?.totalVotes) || 0) <= 0){
-    warnings.push("No weighted election votes available for district evidence.");
+  if (!hasElectionEvidence){
+    warnings.push("No weighted election votes available for district evidence. Using census-only assumptions.");
   }
-  if (!Object.keys(censusTotalsIn).length){
+  if (!hasCensusEvidence){
     warnings.push("No census totals available for district evidence.");
   }
 

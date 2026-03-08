@@ -257,78 +257,35 @@ export function resolveDistrictEvidenceInputs(state){
   const inlineCrosswalkMeta = isObject(inlineMeta.crosswalkRows) ? inlineMeta.crosswalkRows : null;
   const inlineCensusMeta = isObject(inlineMeta.censusGeoRows) ? inlineMeta.censusGeoRows : null;
 
-  if (inlinePrecinctResults.length || inlineCrosswalkRows.length || inlineCensusGeoRows.length){
-    const precinctAlignment = evaluateLayerAlignment("Precinct results", inlinePrecinctResults, inlinePrecinctMeta, areaContext);
-    const crosswalkAlignment = evaluateLayerAlignment("Crosswalk rows", inlineCrosswalkRows, inlineCrosswalkMeta, areaContext);
-    const censusAlignment = evaluateLayerAlignment("Census GEO rows", inlineCensusGeoRows, inlineCensusMeta, areaContext);
-    const mismatches = [
-      precinctAlignment.message,
-      crosswalkAlignment.message,
-      censusAlignment.message,
-    ].filter(Boolean);
-    if (mismatches.length){
-      notes.push(...mismatches);
-    }
-    return {
-      sourceMode: "inline",
-      precinctResults: precinctAlignment.mismatch ? [] : inlinePrecinctResults,
-      crosswalkRows: crosswalkAlignment.mismatch ? [] : inlineCrosswalkRows,
-      censusGeoRows: censusAlignment.mismatch ? [] : inlineCensusGeoRows,
-      notes,
-      refs: {
-        censusDatasetId,
-        electionDatasetId,
-        crosswalkVersionId,
-      },
-      alignment: {
-        areaFingerprint: areaContext.areaFingerprint,
-        allAligned: !mismatches.length,
-        mismatches,
-        layers: {
-          precinctResults: precinctAlignment,
-          crosswalkRows: crosswalkAlignment,
-          censusGeoRows: censusAlignment,
-        },
-      },
-    };
-  }
-
   const store = isObject(district.evidenceStore)
     ? district.evidenceStore
     : (isObject(district.datasetRows) ? district.datasetRows : {});
+  const hasStore = isObject(store) && Object.keys(store).length > 0;
+  const pickedPrecinct = hasStore
+    ? pickRowsById(store, ["electionByDatasetId", "election", "electionDatasets"], electionDatasetId)
+    : { rows: [], meta: null };
+  const pickedCrosswalk = hasStore
+    ? pickRowsById(store, ["crosswalkByVersionId", "crosswalk", "crosswalks"], crosswalkVersionId)
+    : { rows: [], meta: null };
+  const pickedCensus = hasStore
+    ? pickRowsById(store, ["censusByDatasetId", "census", "censusDatasets"], censusDatasetId)
+    : { rows: [], meta: null };
 
-  if (!isObject(store) || !Object.keys(store).length){
-    notes.push("No district evidence store found.");
-    return {
-      sourceMode: "none",
-      precinctResults: [],
-      crosswalkRows: [],
-      censusGeoRows: [],
-      notes,
-      refs: {
-        censusDatasetId,
-        electionDatasetId,
-        crosswalkVersionId,
-      },
-      alignment: {
-        areaFingerprint: areaContext.areaFingerprint,
-        allAligned: true,
-        mismatches: [],
-        layers: {
-          precinctResults: evaluateLayerAlignment("Precinct results", [], null, areaContext),
-          crosswalkRows: evaluateLayerAlignment("Crosswalk rows", [], null, areaContext),
-          censusGeoRows: evaluateLayerAlignment("Census GEO rows", [], null, areaContext),
-        },
-      },
-    };
-  }
+  const useInlinePrecinct = inlinePrecinctResults.length > 0;
+  const useInlineCrosswalk = inlineCrosswalkRows.length > 0;
+  const useInlineCensus = inlineCensusGeoRows.length > 0;
+  const usingInlineAny = useInlinePrecinct || useInlineCrosswalk || useInlineCensus;
 
-  const pickedPrecinct = pickRowsById(store, ["electionByDatasetId", "election", "electionDatasets"], electionDatasetId);
-  const pickedCrosswalk = pickRowsById(store, ["crosswalkByVersionId", "crosswalk", "crosswalks"], crosswalkVersionId);
-  const pickedCensus = pickRowsById(store, ["censusByDatasetId", "census", "censusDatasets"], censusDatasetId);
-  const precinctAlignment = evaluateLayerAlignment("Precinct results", pickedPrecinct.rows, pickedPrecinct.meta, areaContext);
-  const crosswalkAlignment = evaluateLayerAlignment("Crosswalk rows", pickedCrosswalk.rows, pickedCrosswalk.meta, areaContext);
-  const censusAlignment = evaluateLayerAlignment("Census GEO rows", pickedCensus.rows, pickedCensus.meta, areaContext);
+  const precinctRowsIn = useInlinePrecinct ? inlinePrecinctResults : pickedPrecinct.rows;
+  const crosswalkRowsIn = useInlineCrosswalk ? inlineCrosswalkRows : pickedCrosswalk.rows;
+  const censusGeoRowsIn = useInlineCensus ? inlineCensusGeoRows : pickedCensus.rows;
+  const precinctMetaIn = useInlinePrecinct ? inlinePrecinctMeta : pickedPrecinct.meta;
+  const crosswalkMetaIn = useInlineCrosswalk ? inlineCrosswalkMeta : pickedCrosswalk.meta;
+  const censusMetaIn = useInlineCensus ? inlineCensusMeta : pickedCensus.meta;
+
+  const precinctAlignment = evaluateLayerAlignment("Precinct results", precinctRowsIn, precinctMetaIn, areaContext);
+  const crosswalkAlignment = evaluateLayerAlignment("Crosswalk rows", crosswalkRowsIn, crosswalkMetaIn, areaContext);
+  const censusAlignment = evaluateLayerAlignment("Census GEO rows", censusGeoRowsIn, censusMetaIn, areaContext);
   const mismatches = [
     precinctAlignment.message,
     crosswalkAlignment.message,
@@ -337,25 +294,30 @@ export function resolveDistrictEvidenceInputs(state){
   if (mismatches.length){
     notes.push(...mismatches);
   }
-  const precinctResults = precinctAlignment.mismatch ? [] : pickedPrecinct.rows;
-  const crosswalkRows = crosswalkAlignment.mismatch ? [] : pickedCrosswalk.rows;
-  const censusGeoRows = censusAlignment.mismatch ? [] : pickedCensus.rows;
+  const precinctResults = precinctAlignment.mismatch ? [] : precinctRowsIn;
+  const crosswalkRows = crosswalkAlignment.mismatch ? [] : crosswalkRowsIn;
+  const censusGeoRows = censusAlignment.mismatch ? [] : censusGeoRowsIn;
 
-  if (!electionDatasetId) notes.push("dataRefs.electionDatasetId is not set.");
-  if (!censusDatasetId) notes.push("dataRefs.censusDatasetId is not set.");
-  if (!crosswalkVersionId) notes.push("dataRefs.crosswalkVersionId is not set.");
-  if (electionDatasetId && !precinctResults.length){
+  if (!hasStore && !usingInlineAny){
+    notes.push("No district evidence store found.");
+  }
+  if (!censusDatasetId && !useInlineCensus) notes.push("dataRefs.censusDatasetId is not set.");
+  if (electionDatasetId && !precinctResults.length && !useInlinePrecinct){
     notes.push(`No precinct results rows found for election dataset '${electionDatasetId}'.`);
   }
-  if (censusDatasetId && !censusGeoRows.length){
+  if (censusDatasetId && !censusGeoRows.length && !useInlineCensus){
     notes.push(`No census geo rows found for census dataset '${censusDatasetId}'.`);
   }
-  if (crosswalkVersionId && !crosswalkRows.length){
+  if (crosswalkVersionId && !crosswalkRows.length && !useInlineCrosswalk){
     notes.push(`No crosswalk rows found for crosswalk '${crosswalkVersionId}'.`);
   }
 
+  const sourceMode = (precinctResults.length || crosswalkRows.length || censusGeoRows.length)
+    ? (usingInlineAny ? "inline" : "refs")
+    : (usingInlineAny ? "inline" : (hasStore ? "refs" : "none"));
+
   return {
-    sourceMode: (precinctResults.length || crosswalkRows.length || censusGeoRows.length) ? "refs" : "none",
+    sourceMode,
     precinctResults,
     crosswalkRows,
     censusGeoRows,
