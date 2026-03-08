@@ -612,3 +612,12 @@ Execution order for additive auto-ingest on top of deterministic/manual ingest.
    - `/Users/anakinskywalker/Downloads/field-app-40/js/core/selfTestSuites/releaseHardening.js`
    - `/Users/anakinskywalker/Downloads/field-app-40/js/core/selfTest.js`
      - adds normalization regression coverage to ensure URL metadata survives catalog ingest.
+8. [x] Add one-click catalog+auto-pull orchestration:
+   - `/Users/anakinskywalker/Downloads/field-app-40/index.html`
+   - `/Users/anakinskywalker/Downloads/field-app-40/js/ui/els.js`
+   - `/Users/anakinskywalker/Downloads/field-app-40/js/app/wireEventsRuntime.js`
+     - adds `Fetch catalog + pull` action for end-to-end automatic ingest.
+     - reuses deterministic catalog-import and auto-pull pipelines (no duplicate math/validation paths).
+     - centralizes auto-pull execution in a shared runtime helper to keep behavior consistent across buttons.
+   - `/Users/anakinskywalker/Downloads/field-app-40/js/app/renderIntelChecks.js`
+     - adds button gating for one-click flow (fetch support + required snapshot helpers).
