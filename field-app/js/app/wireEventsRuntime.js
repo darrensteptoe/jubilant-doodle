@@ -27,6 +27,7 @@ import {
 import { ensureBudgetShape } from "./state.js";
 import { applyDataRefPolicyRuntime } from "./dataRefPolicyRuntime.js";
 import { normalizeElectionPrecinctPayload } from "../core/electionProviderAdapter.js";
+import { buildDistrictDemoPayload } from "../core/districtDemoData.js";
 
 /** @param {import("./types").WireEventsCtx} ctx */
 export function wireBudgetTimelineEvents(ctx){
@@ -166,6 +167,7 @@ export function wireIntelChecksEvents(ctx){
   const setDataRefStatus = (msg, kind = "muted") => setStatus(els.intelDataRefStatus, msg, kind);
   const setIngestStatus = (msg, kind = "muted") => setStatus(els.intelIngestStatus, msg, kind);
   const setDistrictIntelStatus = (msg, kind = "muted") => setStatus(els.intelDistrictIntelStatus, msg, kind);
+  const setGeoInspectorCopyStatus = (msg, kind = "muted") => setStatus(els.intelGeoInspectorCopyStatus, msg, kind);
 
   const normalizeDataRefMode = (mode) => {
     const m = String(mode || "").trim().toLowerCase();
@@ -974,6 +976,18 @@ export function wireIntelChecksEvents(ctx){
     if (!el) return;
     el.value = String(value || "");
   };
+  const setJsonInputValue = (el, value) => {
+    if (!el) return;
+    if (value == null){
+      el.value = "";
+      return;
+    }
+    try{
+      el.value = JSON.stringify(value, null, 2);
+    } catch {
+      el.value = "";
+    }
+  };
 
   const applyAutoPullPlanToInputs = (plan) => {
     const urls = plan && typeof plan === "object" ? (plan.urls || {}) : {};
@@ -1413,6 +1427,72 @@ export function wireIntelChecksEvents(ctx){
     });
   }
 
+  if (els.btnIntelLoadDemoData){
+    els.btnIntelLoadDemoData.addEventListener("click", () => {
+      const s = currentState();
+      if (!s) return;
+      const demo = buildDistrictDemoPayload();
+      const geo = ensureGeoPackShape(s);
+      const district = ensureGeoDistrict(s);
+      const refs = ensureDataRefShape(s);
+      if (!geo || !district || !refs){
+        setIngestStatus("Demo load failed: unable to initialize district containers.", "warn");
+        return;
+      }
+
+      geo.area.type = normalizeAreaTypeInput(demo?.area?.type);
+      geo.area.stateFips = cleanDigits(demo?.area?.stateFips, 2);
+      geo.area.district = cleanText(demo?.area?.district, 16);
+      geo.area.countyFips = cleanDigits(demo?.area?.countyFips, 5);
+      geo.area.placeFips = cleanDigits(demo?.area?.placeFips, 5);
+      geo.area.label = cleanText(demo?.area?.label, 120);
+      geo.resolution = normalizeAreaResolutionInput(demo?.resolution);
+      geo.generatedAt = null;
+      district.selectedGeoId = String(demo?.censusGeoRows?.[0]?.geoid || "").trim();
+
+      refs.mode = String(demo?.dataRefs?.mode || "pinned_verified").trim() || "pinned_verified";
+      refs.boundarySetId = String(demo?.dataRefs?.boundarySetId || "").trim() || null;
+      refs.crosswalkVersionId = String(demo?.dataRefs?.crosswalkVersionId || "").trim() || null;
+      refs.censusDatasetId = String(demo?.dataRefs?.censusDatasetId || "").trim() || null;
+      refs.electionDatasetId = String(demo?.dataRefs?.electionDatasetId || "").trim() || null;
+      refs.electionStrictSimilarity = !!demo?.dataRefs?.electionStrictSimilarity;
+      refs.electionMaxYearDelta = cleanDataRefNum(demo?.dataRefs?.electionMaxYearDelta, 0, 30);
+      refs.electionMinCoveragePct = cleanDataRefNum(demo?.dataRefs?.electionMinCoveragePct, 0, 100);
+      stampDataRefCheck(refs);
+
+      const outCatalog = importDataCatalogPayload(s, demo?.dataCatalog);
+      const outCensusManifest = importCensusManifestPayload(s, demo?.censusManifest);
+      const outElectionManifest = importElectionManifestPayload(s, demo?.electionManifest);
+      if (els.intelPrecinctResultsFormat) els.intelPrecinctResultsFormat.value = "canonical";
+      const outCrosswalk = importCrosswalkRowsPayload(s, demo?.crosswalkRows);
+      const outPrecinct = importPrecinctResultsPayload(s, demo?.precinctResults);
+      const outCensusRows = importCensusGeoRowsPayload(s, demo?.censusGeoRows);
+
+      setJsonInputValue(els.intelCensusManifestJson, demo?.censusManifest);
+      setJsonInputValue(els.intelElectionManifestJson, demo?.electionManifest);
+      setJsonInputValue(els.intelCrosswalkRowsJson, demo?.crosswalkRows);
+      setJsonInputValue(els.intelPrecinctResultsJson, demo?.precinctResults);
+      setJsonInputValue(els.intelCensusGeoRowsJson, demo?.censusGeoRows);
+
+      if (s.useDistrictIntel){
+        s.useDistrictIntel = false;
+        if (els.intelUseDistrictToggle) els.intelUseDistrictToggle.checked = false;
+        setDistrictIntelStatus("Demo data loaded. District-intel was turned OFF until assumptions are regenerated.", "muted");
+      }
+      markDistrictIntelStale(s, "Demo district evidence loaded; regenerate district-intel assumptions.");
+
+      const outcomes = [outCatalog, outCensusManifest, outElectionManifest, outCrosswalk, outPrecinct, outCensusRows];
+      const bad = outcomes.find((x) => !x?.applied || x?.kind === "warn");
+      if (bad){
+        setIngestStatus(`Demo loaded with warnings: ${String(bad?.message || "check ingest rows")}`, "warn");
+      } else {
+        setIngestStatus("Demo district package loaded. Generate district-intel assumptions next.", "ok");
+      }
+      setDataRefStatus("Demo data refs loaded.", "ok");
+      commitUIUpdate();
+    });
+  }
+
   const ensureWorkflow = (s) => {
     const wf = getIntelWorkflow(s) || {};
     if (wf.requireCriticalNote == null) wf.requireCriticalNote = true;
@@ -1695,6 +1775,26 @@ export function wireIntelChecksEvents(ctx){
         }
       } catch {
         setCalibrationStatus("Clipboard blocked. Copy text manually from the brief box.", "warn");
+      }
+    });
+  }
+
+  if (els.btnIntelGeoInspectorCopy){
+    els.btnIntelGeoInspectorCopy.addEventListener("click", async () => {
+      const content = String(els.intelGeoInspectorSummary?.value || "").trim();
+      if (!content || content === "No selected GEO summary available."){
+        setGeoInspectorCopyStatus("No GEO summary available to copy yet.", "warn");
+        return;
+      }
+      try{
+        if (navigator?.clipboard?.writeText){
+          await navigator.clipboard.writeText(content);
+          setGeoInspectorCopyStatus("GEO summary copied to clipboard.", "ok");
+        } else {
+          throw new Error("Clipboard API unavailable");
+        }
+      } catch {
+        setGeoInspectorCopyStatus("Clipboard blocked. Copy from the GEO summary box manually.", "warn");
       }
     });
   }

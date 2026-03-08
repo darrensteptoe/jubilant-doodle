@@ -418,6 +418,46 @@ function fillGeoInspectorCensusTable(tbody, census){
   }
 }
 
+function buildGeoInspectorSummaryText(args){
+  const geoid = String(args?.geoid || "").trim();
+  if (!geoid) return "";
+  const totalVotes = Math.max(0, Number(args?.totalVotes) || 0);
+  const leaderId = String(args?.leaderId || "").trim();
+  const leaderVotes = Math.max(0, Number(args?.leaderVotes) || 0);
+  const leaderSharePct = Number.isFinite(Number(args?.leaderSharePct)) ? Number(args.leaderSharePct) : null;
+  const marginVotes = Math.max(0, Number(args?.marginVotes) || 0);
+  const marginPct = Number.isFinite(Number(args?.marginPct)) ? Number(args.marginPct) : null;
+  const pop = Number.isFinite(Number(args?.population)) ? Number(args.population) : null;
+  const housing = Number.isFinite(Number(args?.housingUnits)) ? Number(args.housingUnits) : null;
+  const sourcePrecincts = Math.max(0, Number(args?.sourcePrecincts) || 0);
+  const census = (args?.census && typeof args.census === "object") ? args.census : {};
+  const censusKeys = Object.keys(census).sort((a, b) => a.localeCompare(b));
+  const lines = [
+    `GEOID: ${geoid}`,
+    `Total votes: ${fmtInt(totalVotes)}`,
+    `Leader: ${leaderId || "—"}${leaderId ? ` (${fmtInt(leaderVotes)}${leaderSharePct != null ? `, ${fmtPct(leaderSharePct, 1)}` : ""})` : ""}`,
+    `Margin: ${fmtInt(marginVotes)}${marginPct != null ? ` (${fmtPct(marginPct, 1)})` : ""}`,
+    `Precinct links: ${fmtInt(sourcePrecincts)}`,
+    `Population: ${pop != null ? fmtInt(pop) : "—"}`,
+    `Households: ${housing != null ? fmtInt(housing) : "—"}`,
+    "",
+    "Census values:",
+  ];
+  if (!censusKeys.length){
+    lines.push("- none");
+  } else {
+    for (const key of censusKeys){
+      const raw = census[key];
+      const n = Number(raw);
+      const value = Number.isFinite(n)
+        ? (Number.isInteger(n) ? n.toLocaleString() : n.toFixed(3))
+        : String(raw == null ? "—" : raw);
+      lines.push(`- ${key}: ${value}`);
+    }
+  }
+  return lines.join("\n");
+}
+
 function renderGeoInspector(els, geoRows, selectedGeoId){
   const rows = Array.isArray(geoRows) ? geoRows : [];
   const row = extractGeoInspectorRow(rows, selectedGeoId);
@@ -491,6 +531,32 @@ function renderGeoInspector(els, geoRows, selectedGeoId){
       : "—";
   }
   fillGeoInspectorCensusTable(els.intelGeoInspectorCensusTbody, census);
+  const summary = row
+    ? buildGeoInspectorSummaryText({
+      geoid,
+      totalVotes,
+      leaderId: leader?.candidateId || "",
+      leaderVotes,
+      leaderSharePct,
+      marginVotes,
+      marginPct,
+      sourcePrecincts: Number(row?.sourcePrecincts) || 0,
+      population: pop,
+      housingUnits: housing,
+      census,
+    })
+    : "";
+  if (els.intelGeoInspectorSummary){
+    els.intelGeoInspectorSummary.value = summary || "No selected GEO summary available.";
+  }
+  if (els.btnIntelGeoInspectorCopy){
+    els.btnIntelGeoInspectorCopy.disabled = !summary;
+  }
+  if (els.intelGeoInspectorCopyStatus && !summary){
+    els.intelGeoInspectorCopyStatus.classList.remove("ok", "warn", "bad");
+    els.intelGeoInspectorCopyStatus.classList.add("muted");
+    els.intelGeoInspectorCopyStatus.textContent = "No summary copied yet.";
+  }
 }
 
 function fillDistrictEvidenceDatasetRankTable(tbody, rows, selectedElectionId){
