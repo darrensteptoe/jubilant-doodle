@@ -46,7 +46,7 @@ import {
   buildGeoEvidenceMapLayer,
   summarizePrecinctEvidenceLayers,
 } from "./core/districtEvidence.js";
-import { resolveDistrictEvidenceInputs } from "./core/districtEvidenceInputs.js";
+import { resolveDistrictEvidenceInputs, summarizeDistrictEvidenceInputs } from "./core/districtEvidenceInputs.js";
 import {
   buildDistrictIntelPackFromEvidence,
   applyDistrictIntelRateOverrides,
@@ -159,6 +159,7 @@ export const engine = {
     buildGeoEvidenceMapLayer,
     summarizePrecinctEvidenceLayers,
     resolveDistrictEvidenceInputs,
+    summarizeDistrictEvidenceInputs,
     buildDistrictIntelPackFromEvidence,
     applyDistrictIntelRateOverrides,
     applyDistrictIntelCapacityOverrides,

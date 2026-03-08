@@ -101,7 +101,7 @@ import {
   buildGeoEvidenceMapLayer,
   summarizePrecinctEvidenceLayers,
 } from "./districtEvidence.js";
-import { resolveDistrictEvidenceInputs } from "./districtEvidenceInputs.js";
+import { resolveDistrictEvidenceInputs, summarizeDistrictEvidenceInputs } from "./districtEvidenceInputs.js";
 import {
   buildDistrictIntelPackFromEvidence,
   applyDistrictIntelRateOverrides,
@@ -1461,6 +1461,7 @@ export function runSelfTests(engine){
     buildGeoEvidenceMapLayer,
     summarizePrecinctEvidenceLayers,
     resolveDistrictEvidenceInputs,
+    summarizeDistrictEvidenceInputs,
     buildDistrictIntelPackFromEvidence,
     applyDistrictIntelRateOverrides,
     applyDistrictIntelCapacityOverrides,

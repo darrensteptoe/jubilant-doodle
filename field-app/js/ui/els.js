@@ -501,6 +501,7 @@ export const els = {
   btnIntelImportCensusGeoRows: document.getElementById("btnIntelImportCensusGeoRows"),
   intelIngestStatus: document.getElementById("intelIngestStatus"),
   intelDistrictEvidenceSource: document.getElementById("intelDistrictEvidenceSource"),
+  intelDistrictEvidenceInputsSummary: document.getElementById("intelDistrictEvidenceInputsSummary"),
   intelDistrictEvidenceStatus: document.getElementById("intelDistrictEvidenceStatus"),
   intelDistrictEvidenceCoverage: document.getElementById("intelDistrictEvidenceCoverage"),
   intelDistrictEvidenceVotes: document.getElementById("intelDistrictEvidenceVotes"),

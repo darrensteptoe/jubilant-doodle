@@ -40,6 +40,7 @@
  *   buildGeoEvidenceMapLayer: (...args: any[]) => any,
  *   summarizePrecinctEvidenceLayers: (...args: any[]) => any,
  *   resolveDistrictEvidenceInputs: (...args: any[]) => any,
+ *   summarizeDistrictEvidenceInputs: (...args: any[]) => any,
  *   buildDistrictIntelPackFromEvidence: (...args: any[]) => any,
  *   applyDistrictIntelRateOverrides: (...args: any[]) => any,
  *   applyDistrictIntelCapacityOverrides: (...args: any[]) => any,
@@ -95,6 +96,7 @@ export function registerReleaseHardeningTests(ctx){
     buildGeoEvidenceMapLayer,
     summarizePrecinctEvidenceLayers,
     resolveDistrictEvidenceInputs,
+    summarizeDistrictEvidenceInputs,
     buildDistrictIntelPackFromEvidence,
     applyDistrictIntelRateOverrides,
     applyDistrictIntelCapacityOverrides,
@@ -1274,6 +1276,65 @@ export function registerReleaseHardeningTests(ctx){
     assert(out.crosswalkRows.length === 1, "Expected crosswalk rows from crosswalkByVersionId");
     assert(out.censusGeoRows.length === 1, "Expected census rows from censusByDatasetId");
     assert(Array.isArray(out.notes) && out.notes.length === 0, "Expected no notes when refs resolve cleanly");
+    return true;
+  });
+
+  test("Phase 19: district evidence input summary reports row counts + ready state", () => {
+    const summary = summarizeDistrictEvidenceInputs({
+      dataRefs: {
+        censusDatasetId: "acs5_2024",
+        electionDatasetId: "mit_2024",
+        crosswalkVersionId: "cw_2024",
+      },
+      geoPack: {
+        district: {
+          evidenceStore: {
+            electionByDatasetId: {
+              mit_2024: [{ precinctId: "P1", candidateVotes: { A: 30, B: 20 } }],
+            },
+            crosswalkByVersionId: {
+              cw_2024: [{ precinctId: "P1", geoid: "34013010001", weight: 1 }],
+            },
+            censusByDatasetId: {
+              acs5_2024: [{ geoid: "34013010001", values: { pop: 1000 } }],
+            },
+          },
+        },
+      },
+    });
+    assert(summary.sourceMode === "refs", "Expected refs source mode in summary");
+    assert(summary.counts.precinctResults === 1, "Expected precinct count in summary");
+    assert(summary.counts.crosswalkRows === 1, "Expected crosswalk count in summary");
+    assert(summary.counts.censusGeoRows === 1, "Expected census count in summary");
+    assert(summary.ready === true, "Expected ready=true when all three inputs exist");
+    assert(String(summary.summaryLine).includes("Input mode: refs"), "Expected mode in summary line");
+    return true;
+  });
+
+  test("Phase 19: district evidence input summary marks not-ready when a layer is missing", () => {
+    const summary = summarizeDistrictEvidenceInputs({
+      dataRefs: {
+        censusDatasetId: "acs5_2024",
+        electionDatasetId: "mit_2024",
+        crosswalkVersionId: "cw_2024",
+      },
+      geoPack: {
+        district: {
+          evidenceStore: {
+            electionByDatasetId: {
+              mit_2024: [{ precinctId: "P1", candidateVotes: { A: 30, B: 20 } }],
+            },
+            crosswalkByVersionId: {
+              cw_2024: [{ precinctId: "P1", geoid: "34013010001", weight: 1 }],
+            },
+            censusByDatasetId: {},
+          },
+        },
+      },
+    });
+    assert(summary.ready === false, "Expected ready=false when census rows are missing");
+    assert(summary.counts.censusGeoRows === 0, "Expected missing census count");
+    assert(Array.isArray(summary.notes) && summary.notes.some((x) => String(x).includes("No census geo rows found")), "Expected missing-census note");
     return true;
   });
 

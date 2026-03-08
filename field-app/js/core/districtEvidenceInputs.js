@@ -139,3 +139,50 @@ export function resolveDistrictEvidenceInputs(state){
   };
 }
 
+/**
+ * @param {unknown} state
+ * @returns {{
+ *   sourceMode: "inline" | "refs" | "none",
+ *   refs: {
+ *     censusDatasetId: string,
+ *     electionDatasetId: string,
+ *     crosswalkVersionId: string
+ *   },
+ *   counts: {
+ *     precinctResults: number,
+ *     crosswalkRows: number,
+ *     censusGeoRows: number
+ *   },
+ *   ready: boolean,
+ *   notes: string[],
+ *   summaryLine: string
+ * }}
+ */
+export function summarizeDistrictEvidenceInputs(state){
+  const resolved = resolveDistrictEvidenceInputs(state);
+  const counts = {
+    precinctResults: arr(resolved.precinctResults).length,
+    crosswalkRows: arr(resolved.crosswalkRows).length,
+    censusGeoRows: arr(resolved.censusGeoRows).length,
+  };
+  const ready = counts.precinctResults > 0 && counts.crosswalkRows > 0 && counts.censusGeoRows > 0;
+  const modeLabel = resolved.sourceMode === "inline"
+    ? "inline"
+    : resolved.sourceMode === "refs"
+      ? "refs"
+      : "none";
+  const summaryLine = [
+    `Input mode: ${modeLabel}`,
+    `Election rows: ${counts.precinctResults}`,
+    `Crosswalk rows: ${counts.crosswalkRows}`,
+    `Census rows: ${counts.censusGeoRows}`,
+  ].join(" · ");
+  return {
+    sourceMode: resolved.sourceMode,
+    refs: resolved.refs,
+    counts,
+    ready,
+    notes: arr(resolved.notes).map((x) => str(x)).filter(Boolean),
+    summaryLine,
+  };
+}

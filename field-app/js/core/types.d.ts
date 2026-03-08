@@ -331,6 +331,23 @@ export interface DistrictEvidenceGeoOpportunityRow {
   reasons: string[];
 }
 
+export interface DistrictEvidenceInputSummary {
+  sourceMode: "inline" | "refs" | "none";
+  refs: {
+    censusDatasetId: string;
+    electionDatasetId: string;
+    crosswalkVersionId: string;
+  };
+  counts: {
+    precinctResults: number;
+    crosswalkRows: number;
+    censusGeoRows: number;
+  };
+  ready: boolean;
+  notes: string[];
+  summaryLine: string;
+}
+
 export interface DistrictEvidence {
   summary: {
     selectedGeoCount: number;
