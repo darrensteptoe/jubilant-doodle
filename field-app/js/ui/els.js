@@ -526,6 +526,7 @@ export const els = {
   intelPrecinctResultsFormat: document.getElementById("intelPrecinctResultsFormat"),
   btnIntelImportPrecinctResults: document.getElementById("btnIntelImportPrecinctResults"),
   intelCensusGeoRowsJson: document.getElementById("intelCensusGeoRowsJson"),
+  btnIntelFetchCensusGeoRows: document.getElementById("btnIntelFetchCensusGeoRows"),
   btnIntelImportCensusGeoRows: document.getElementById("btnIntelImportCensusGeoRows"),
   intelIngestStatus: document.getElementById("intelIngestStatus"),
   intelDistrictEvidenceSource: document.getElementById("intelDistrictEvidenceSource"),
