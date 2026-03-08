@@ -466,6 +466,7 @@ export const els = {
   btnIntelGenerateDistrictIntel: document.getElementById("btnIntelGenerateDistrictIntel"),
   intelDistrictIntelStatus: document.getElementById("intelDistrictIntelStatus"),
   intelDistrictIntelSummary: document.getElementById("intelDistrictIntelSummary"),
+  intelDistrictIntelAlignment: document.getElementById("intelDistrictIntelAlignment"),
   intelAreaType: document.getElementById("intelAreaType"),
   intelAreaResolution: document.getElementById("intelAreaResolution"),
   intelAreaLabel: document.getElementById("intelAreaLabel"),

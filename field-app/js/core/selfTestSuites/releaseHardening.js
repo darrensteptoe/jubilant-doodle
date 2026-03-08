@@ -1387,6 +1387,52 @@ export function registerReleaseHardeningTests(ctx){
     return true;
   });
 
+  test("Phase 21: district data contract warns when district-intel provenance drifts from active refs", () => {
+    const scenario = withUniverseDefaults({
+      scenarioName: "Intel provenance drift",
+      raceType: "state_leg",
+      electionDate: "2026-11-03",
+      universeSize: 10000,
+      useDistrictIntel: true,
+      dataRefs: {
+        mode: "pinned_verified",
+        boundarySetId: "sldl_2024",
+        crosswalkVersionId: "cw_2024",
+        censusDatasetId: "acs5_2024",
+        electionDatasetId: "mit_2024",
+      },
+      dataCatalog: {
+        boundarySets: [{ id: "sldl_2024", label: "SLDL 2024", geographyType: "SLDL", vintage: "2024", isVerified: true, isLatest: true }],
+        crosswalks: [{
+          id: "cw_2024",
+          fromBoundarySetId: "sldl_2022",
+          toBoundarySetId: "sldl_2024",
+          unit: "tract",
+          method: "population",
+          quality: { coveragePct: 99, unmatchedPct: 1, weightDriftPct: 0.1, isVerified: true },
+          isLatest: true
+        }],
+        censusDatasets: [{ id: "acs5_2024", kind: "census", label: "ACS 2024", source: "acs5", vintage: "2024", boundarySetId: "sldl_2024", granularity: "tract", refreshedAt: null, hash: null, quality: { coveragePct: 99, isVerified: true }, isLatest: true }],
+        electionDatasets: [{ id: "mit_2024", kind: "election", label: "MIT 2024", source: "mit", vintage: "2024", boundarySetId: "sldl_2024", granularity: "precinct", refreshedAt: null, hash: null, quality: { coveragePct: 99, isVerified: true }, isLatest: true }],
+      },
+      districtIntelPack: {
+        ready: true,
+        provenance: {
+          boundarySetId: "sldl_2024",
+          crosswalkVersionId: "cw_2024",
+          censusDatasetId: "acs5_2023",
+          electionDatasetId: "mit_2023",
+        },
+      },
+      ui: { training: false, dark: false },
+    });
+    const result = validateDistrictDataContract(scenario);
+    assert(result.ok, "Expected provenance drift to warn but not hard-fail");
+    assert(Array.isArray(result.warnings) && result.warnings.some((x) => String(x).includes("provenance censusDatasetId differs")), "Expected census provenance drift warning");
+    assert(Array.isArray(result.warnings) && result.warnings.some((x) => String(x).includes("provenance electionDatasetId differs")), "Expected election provenance drift warning");
+    return true;
+  });
+
   test("Phase 21: district-intel rate/capacity overrides apply only when enabled + ready", () => {
     const stateDisabled = withUniverseDefaults({
       useDistrictIntel: false,
