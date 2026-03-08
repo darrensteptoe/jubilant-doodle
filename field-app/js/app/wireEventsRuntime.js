@@ -168,6 +168,7 @@ export function wireIntelChecksEvents(ctx){
   const setIngestStatus = (msg, kind = "muted") => setStatus(els.intelIngestStatus, msg, kind);
   const setDistrictIntelStatus = (msg, kind = "muted") => setStatus(els.intelDistrictIntelStatus, msg, kind);
   const setGeoInspectorCopyStatus = (msg, kind = "muted") => setStatus(els.intelGeoInspectorCopyStatus, msg, kind);
+  const setAreaAssistLookupStatus = (msg, kind = "muted") => setStatus(els.intelAreaAssistLookupStatus, msg, kind);
 
   const normalizeDataRefMode = (mode) => {
     const m = String(mode || "").trim().toLowerCase();
@@ -531,6 +532,59 @@ export function wireIntelChecksEvents(ctx){
       if (!district) return;
       district.selectedGeoId = geoid;
       commitUIUpdate();
+    });
+  }
+  if (els.btnIntelAreaAssistFetchCodes){
+    els.btnIntelAreaAssistFetchCodes.addEventListener("click", async () => {
+      const s = currentState();
+      if (!s) return;
+      const geo = ensureGeoPackShape(s);
+      const district = ensureGeoDistrict(s);
+      if (!geo || !district){
+        setAreaAssistLookupStatus("Unable to initialize district area lookup containers.", "warn");
+        return;
+      }
+      const stateFips = cleanDigits(geo?.area?.stateFips || els.intelAreaStateFips?.value, 2);
+      if (stateFips.length !== 2){
+        setAreaAssistLookupStatus("Enter State FIPS first (two digits) before fetching lookup lists.", "warn");
+        return;
+      }
+      if (typeof fetch !== "function"){
+        setAreaAssistLookupStatus("Fetch API is unavailable in this browser.", "warn");
+        return;
+      }
+      const countyUrl = `https://api.census.gov/data/2020/dec/pl?get=NAME&for=county:*&in=state:${stateFips}`;
+      const placeUrl = `https://api.census.gov/data/2020/dec/pl?get=NAME&for=place:*&in=state:${stateFips}`;
+      const btn = els.btnIntelAreaAssistFetchCodes;
+      btn.disabled = true;
+      setAreaAssistLookupStatus(`Fetching county/place lookup for state ${stateFips}...`, "muted");
+      try{
+        const [countyPayload, placePayload] = await Promise.all([
+          fetchJsonFromUrl(countyUrl, "County lookup"),
+          fetchJsonFromUrl(placeUrl, "Place lookup"),
+        ]);
+        const counties = normalizeCensusCountyLookup(countyPayload, stateFips);
+        const places = normalizeCensusPlaceLookup(placePayload, stateFips);
+        district.areaAssistLookup = {
+          stateFips,
+          counties,
+          places,
+          source: "census_api_2020_dec_pl",
+          countyUrl,
+          placeUrl,
+          fetchedAt: new Date().toISOString(),
+        };
+        setAreaAssistLookupStatus(
+          `Lookup loaded for state ${stateFips}: ${counties.length} counties, ${places.length} places.`,
+          (counties.length || places.length) ? "ok" : "warn"
+        );
+        commitUIUpdate();
+      } catch (err){
+        const msg = String(err?.message || "lookup fetch failed");
+        setAreaAssistLookupStatus(`Lookup fetch failed: ${msg}`, "warn");
+      } finally {
+        btn.disabled = false;
+      }
     });
   }
   if (els.intelGeoInspectorSelect){
@@ -1041,6 +1095,68 @@ export function wireIntelChecksEvents(ctx){
     } catch (err){
       throw new Error(`${label} response is not valid JSON: ${String(err?.message || "parse failed")}`);
     }
+  };
+
+  const normalizeCensusCountyLookup = (payload, stateFips) => {
+    const rows = Array.isArray(payload) ? payload : [];
+    const out = new Map();
+    const start = Array.isArray(rows[0]) ? 1 : 0;
+    for (let i = start; i < rows.length; i += 1){
+      const row = rows[i];
+      let name = "";
+      let st = "";
+      let county3 = "";
+      if (Array.isArray(row)){
+        name = cleanText(row[0], 160);
+        st = cleanDigits(row[1], 2);
+        county3 = cleanDigits(row[2], 3);
+      } else if (row && typeof row === "object"){
+        name = cleanText(row.NAME ?? row.name, 160);
+        st = cleanDigits(row.state ?? row.STATE ?? stateFips, 2);
+        county3 = cleanDigits(row.county ?? row.COUNTY, 3);
+      }
+      if (!st) st = stateFips;
+      if (st !== stateFips || county3.length !== 3) continue;
+      const county5 = `${st}${county3}`;
+      const existing = out.get(county5);
+      if (!existing){
+        out.set(county5, { stateFips: st, county3, county5, name });
+      } else if (!existing.name && name){
+        existing.name = name;
+      }
+    }
+    return Array.from(out.values()).sort((a, b) => a.county5.localeCompare(b.county5));
+  };
+
+  const normalizeCensusPlaceLookup = (payload, stateFips) => {
+    const rows = Array.isArray(payload) ? payload : [];
+    const out = new Map();
+    const start = Array.isArray(rows[0]) ? 1 : 0;
+    for (let i = start; i < rows.length; i += 1){
+      const row = rows[i];
+      let name = "";
+      let st = "";
+      let placeFips = "";
+      if (Array.isArray(row)){
+        name = cleanText(row[0], 160);
+        st = cleanDigits(row[1], 2);
+        placeFips = cleanDigits(row[2], 5);
+      } else if (row && typeof row === "object"){
+        name = cleanText(row.NAME ?? row.name, 160);
+        st = cleanDigits(row.state ?? row.STATE ?? stateFips, 2);
+        placeFips = cleanDigits(row.place ?? row.PLACE ?? row.place_fips ?? row.placeFips, 5);
+      }
+      if (!st) st = stateFips;
+      if (st !== stateFips || placeFips.length !== 5) continue;
+      const key = `${st}${placeFips}`;
+      const existing = out.get(key);
+      if (!existing){
+        out.set(key, { stateFips: st, placeFips, name });
+      } else if (!existing.name && name){
+        existing.name = name;
+      }
+    }
+    return Array.from(out.values()).sort((a, b) => a.placeFips.localeCompare(b.placeFips));
   };
 
   const setUrlInputValue = (el, value) => {
