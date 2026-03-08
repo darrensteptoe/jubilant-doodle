@@ -375,10 +375,12 @@ function fillGeoInspectorSelect(selectEl, geoRows, selectedGeoId){
   const keep = String(selectedGeoId || "").trim();
   selectEl.innerHTML = "";
   if (!rows.length){
+    selectEl.disabled = true;
     selectEl.appendChild(makeOption("", "No GEO available"));
     selectEl.value = "";
     return;
   }
+  selectEl.disabled = false;
   let hasSelected = false;
   for (const row of rows){
     const geoid = String(row?.geoid || "").trim();
@@ -596,6 +598,28 @@ function areaIdentityLabel(area){
     return bits.length ? `${type} ${bits.join(":")}` : "CUSTOM";
   }
   return "Not set";
+}
+
+function areaReadyForFlow(area){
+  const type = String(area?.type || "").trim().toUpperCase();
+  const stateFips = String(area?.stateFips || "").trim();
+  const district = String(area?.district || "").trim();
+  const countyFips = String(area?.countyFips || "").trim();
+  const placeFips = String(area?.placeFips || "").trim();
+  if (!type) return false;
+  if (type === "CD" || type === "SLDU" || type === "SLDL"){
+    return stateFips.length === 2 && district.length > 0;
+  }
+  if (type === "COUNTY"){
+    return stateFips.length === 2 && countyFips.length >= 3;
+  }
+  if (type === "PLACE"){
+    return stateFips.length === 2 && placeFips.length === 5;
+  }
+  if (type === "CUSTOM"){
+    return !!(stateFips || district || countyFips || placeFips || String(area?.label || "").trim());
+  }
+  return false;
 }
 
 function renderDataRefStatus(el, text, kind = "muted"){
@@ -1016,11 +1040,7 @@ export function renderIntelChecksModule({
 
   if (els.intelUseDistrictToggle){
     els.intelUseDistrictToggle.checked = useDistrictIntel;
-  }
-  if (els.btnIntelGenerateDistrictIntel){
-    els.btnIntelGenerateDistrictIntel.disabled =
-      typeof engine?.snapshot?.buildDistrictIntelPackFromEvidence !== "function" ||
-      typeof engine?.snapshot?.compileDistrictEvidence !== "function";
+    els.intelUseDistrictToggle.disabled = !packReady;
   }
   if (els.intelDistrictIntelStatus){
     els.intelDistrictIntelStatus.classList.remove("ok", "warn", "bad", "muted");
@@ -1257,6 +1277,40 @@ export function renderIntelChecksModule({
       : "Set area + resolution to generate a deterministic cache key.";
   }
 
+  const flowAreaReady = areaReadyForFlow(areaForDisplay);
+  const flowDataReady = precinctResults.length > 0 && crosswalkRows.length > 0 && censusGeoRows.length > 0;
+  const setFlowStepStatus = (compiledReady) => {
+    if (!els.intelFlowStepStatus) return;
+    els.intelFlowStepStatus.classList.remove("ok", "warn", "bad", "muted");
+    if (!flowAreaReady){
+      els.intelFlowStepStatus.classList.add("warn");
+      els.intelFlowStepStatus.textContent = "Flow: Step 1 select area (state + type + ID) before loading data.";
+      return;
+    }
+    if (!flowDataReady){
+      els.intelFlowStepStatus.classList.add("warn");
+      els.intelFlowStepStatus.textContent = "Flow: Step 2 load data (election rows + crosswalk rows + census rows).";
+      return;
+    }
+    if (!compiledReady){
+      els.intelFlowStepStatus.classList.add("warn");
+      els.intelFlowStepStatus.textContent = "Flow: Step 3 compile evidence (fix warnings if compile is incomplete).";
+      return;
+    }
+    if (!packReady){
+      els.intelFlowStepStatus.classList.add("warn");
+      els.intelFlowStepStatus.textContent = "Flow: Step 4 click Generate district-intel assumptions.";
+      return;
+    }
+    if (!useDistrictIntel){
+      els.intelFlowStepStatus.classList.add("ok");
+      els.intelFlowStepStatus.textContent = "Flow: Step 5 toggle Use district-intel assumptions ON to apply.";
+      return;
+    }
+    els.intelFlowStepStatus.classList.add("ok");
+    els.intelFlowStepStatus.textContent = "Flow: Active. Area, data, evidence, and district-intel assumptions are applied.";
+  };
+
   const refsIn = (state?.dataRefs && typeof state.dataRefs === "object") ? state.dataRefs : {};
   const dataRefMode = String(refsIn.mode || "pinned_verified").trim() || "pinned_verified";
   const boundaryId = String(refsIn.boundarySetId || "").trim();
@@ -1484,13 +1538,27 @@ export function renderIntelChecksModule({
     selectedElectionId
   );
   if (els.btnIntelDataRefSelectTopElection){
-    els.btnIntelDataRefSelectTopElection.disabled = !Array.isArray(rankedElectionDatasets) || rankedElectionDatasets.length === 0;
+    els.btnIntelDataRefSelectTopElection.disabled =
+      !flowAreaReady ||
+      !Array.isArray(rankedElectionDatasets) ||
+      rankedElectionDatasets.length === 0;
   }
   if (els.btnIntelDataRefsPin){
-    els.btnIntelDataRefsPin.disabled = typeof engine?.snapshot?.materializePinnedDataRefs !== "function";
+    els.btnIntelDataRefsPin.disabled =
+      !flowAreaReady ||
+      typeof engine?.snapshot?.materializePinnedDataRefs !== "function";
   }
+  if (els.intelDataRefMode) els.intelDataRefMode.disabled = !flowAreaReady;
+  if (els.intelDataRefBoundarySet) els.intelDataRefBoundarySet.disabled = !flowAreaReady;
+  if (els.intelDataRefCrosswalkVersion) els.intelDataRefCrosswalkVersion.disabled = !flowAreaReady;
+  if (els.intelDataRefCensusDataset) els.intelDataRefCensusDataset.disabled = !flowAreaReady;
+  if (els.intelDataRefElectionDataset) els.intelDataRefElectionDataset.disabled = !flowAreaReady;
+  if (els.intelDataRefStrictSimilarity) els.intelDataRefStrictSimilarity.disabled = !flowAreaReady;
+  if (els.intelDataRefMaxYearDelta) els.intelDataRefMaxYearDelta.disabled = !flowAreaReady;
+  if (els.intelDataRefMinCoveragePct) els.intelDataRefMinCoveragePct.disabled = !flowAreaReady;
   if (els.btnIntelImportCensusManifest){
     els.btnIntelImportCensusManifest.disabled = !(
+      flowAreaReady &&
       typeof normalizeCensusManifest === "function" &&
       typeof validateCensusManifest === "function" &&
       typeof censusManifestToCatalogEntry === "function"
@@ -1498,28 +1566,54 @@ export function renderIntelChecksModule({
   }
   if (els.btnIntelImportElectionManifest){
     els.btnIntelImportElectionManifest.disabled = !(
+      flowAreaReady &&
       typeof normalizeElectionManifest === "function" &&
       typeof validateElectionManifest === "function" &&
       typeof electionManifestToCatalogEntry === "function"
     );
   }
+  if (els.btnIntelImportCrosswalkRows) els.btnIntelImportCrosswalkRows.disabled = !flowAreaReady;
+  if (els.btnIntelImportPrecinctResults) els.btnIntelImportPrecinctResults.disabled = !flowAreaReady;
+  if (els.btnIntelImportCensusGeoRows) els.btnIntelImportCensusGeoRows.disabled = !flowAreaReady;
+  if (els.intelPrecinctResultsFormat) els.intelPrecinctResultsFormat.disabled = !flowAreaReady;
+  if (els.intelDataCatalogUrl) els.intelDataCatalogUrl.disabled = !flowAreaReady;
+  if (els.intelCensusManifestUrl) els.intelCensusManifestUrl.disabled = !flowAreaReady;
+  if (els.intelElectionManifestUrl) els.intelElectionManifestUrl.disabled = !flowAreaReady;
+  if (els.intelCrosswalkRowsUrl) els.intelCrosswalkRowsUrl.disabled = !flowAreaReady;
+  if (els.intelPrecinctResultsUrl) els.intelPrecinctResultsUrl.disabled = !flowAreaReady;
+  if (els.intelCensusGeoRowsUrl) els.intelCensusGeoRowsUrl.disabled = !flowAreaReady;
+  if (els.intelCensusManifestJson) els.intelCensusManifestJson.disabled = !flowAreaReady;
+  if (els.intelElectionManifestJson) els.intelElectionManifestJson.disabled = !flowAreaReady;
+  if (els.intelCrosswalkRowsJson) els.intelCrosswalkRowsJson.disabled = !flowAreaReady;
+  if (els.intelPrecinctResultsJson) els.intelPrecinctResultsJson.disabled = !flowAreaReady;
+  if (els.intelCensusGeoRowsJson) els.intelCensusGeoRowsJson.disabled = !flowAreaReady;
   if (els.btnIntelAutoPullAll){
     const hasFetch = typeof globalThis.fetch === "function";
-    els.btnIntelAutoPullAll.disabled = !hasFetch;
+    els.btnIntelAutoPullAll.disabled = !flowAreaReady || !hasFetch;
   }
   if (els.btnIntelFetchDataCatalog){
     const hasFetch = typeof globalThis.fetch === "function";
     const canNormalize = typeof engine?.snapshot?.normalizeDataCatalog === "function";
-    els.btnIntelFetchDataCatalog.disabled = !(hasFetch && canNormalize);
+    els.btnIntelFetchDataCatalog.disabled = !(flowAreaReady && hasFetch && canNormalize);
   }
   if (els.btnIntelCatalogAutoPull){
     const hasFetch = typeof globalThis.fetch === "function";
     const canNormalize = typeof engine?.snapshot?.normalizeDataCatalog === "function";
     const canPlan = typeof engine?.snapshot?.buildAutoPullUrlPlan === "function";
-    els.btnIntelCatalogAutoPull.disabled = !(hasFetch && canNormalize && canPlan);
+    els.btnIntelCatalogAutoPull.disabled = !(flowAreaReady && hasFetch && canNormalize && canPlan);
   }
   if (els.btnIntelAutoFillUrls){
-    els.btnIntelAutoFillUrls.disabled = typeof engine?.snapshot?.buildAutoPullUrlPlan !== "function";
+    els.btnIntelAutoFillUrls.disabled =
+      !flowAreaReady ||
+      typeof engine?.snapshot?.buildAutoPullUrlPlan !== "function";
+  }
+  if (els.btnIntelGenerateDistrictIntel){
+    els.btnIntelGenerateDistrictIntel.disabled = !(
+      flowAreaReady &&
+      flowDataReady &&
+      typeof engine?.snapshot?.buildDistrictIntelPackFromEvidence === "function" &&
+      typeof engine?.snapshot?.compileDistrictEvidence === "function"
+    );
   }
   /** @type {any} */
   let autoPullPlanForRender = null;
@@ -1704,6 +1798,7 @@ export function renderIntelChecksModule({
         selectedGeoId: "",
       }
     );
+    setFlowStepStatus(false);
     fillDistrictEvidenceDatasetRankTable(els.intelDistrictEvidenceDatasetRankTbody, rankedElectionDatasets, selectedElectionId);
     return;
   }
@@ -1743,6 +1838,7 @@ export function renderIntelChecksModule({
         selectedGeoId: "",
       }
     );
+    setFlowStepStatus(false);
     fillDistrictEvidenceDatasetRankTable(els.intelDistrictEvidenceDatasetRankTbody, rankedElectionDatasets, selectedElectionId);
     return;
   }
@@ -1906,4 +2002,6 @@ export function renderIntelChecksModule({
       onSelectGeo,
     }
   );
+  const compileReady = flowDataReady && Array.isArray(geoRows) && geoRows.length > 0;
+  setFlowStepStatus(compileReady);
 }
