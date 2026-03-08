@@ -1540,6 +1540,27 @@ export function renderIntelChecksModule({
   if (els.btnIntelAutoFillUrls){
     els.btnIntelAutoFillUrls.disabled = typeof engine?.snapshot?.buildAutoPullUrlPlan !== "function";
   }
+  if (els.intelAutoPullReceiptSummary){
+    const summarizeAutoPullReceipt = engine?.snapshot?.summarizeAutoPullReceipt;
+    const receipt = state?.geoPack?.district?.autoPullReceipt;
+    els.intelAutoPullReceiptSummary.classList.remove("ok", "warn", "bad", "muted");
+    if (typeof summarizeAutoPullReceipt === "function"){
+      els.intelAutoPullReceiptSummary.textContent = summarizeAutoPullReceipt(receipt);
+      const status = String(receipt?.status || "").trim().toLowerCase();
+      if (status === "ok"){
+        els.intelAutoPullReceiptSummary.classList.add("ok");
+      } else if (status === "warn"){
+        els.intelAutoPullReceiptSummary.classList.add("warn");
+      } else if (status === "bad"){
+        els.intelAutoPullReceiptSummary.classList.add("bad");
+      } else {
+        els.intelAutoPullReceiptSummary.classList.add("muted");
+      }
+    } else {
+      els.intelAutoPullReceiptSummary.classList.add("muted");
+      els.intelAutoPullReceiptSummary.textContent = "Auto-pull run: unavailable (missing summary helper).";
+    }
+  }
   if (els.intelDistrictEvidenceSelectedElection){
     const topId = String(rankedElectionDatasets?.[0]?.dataset?.id || "").trim();
     const rankIndex = Array.isArray(rankedElectionDatasets)

@@ -891,6 +891,28 @@ export function wireIntelChecksEvents(ctx){
     setUrlInputValue(els.intelCensusGeoRowsUrl, urls.censusGeoRowsUrl || "");
   };
 
+  const writeAutoPullReceipt = (s, payload) => {
+    const district = ensureDistrictEvidenceContainers(s);
+    if (!district) return;
+    const createAutoPullReceipt = engine?.snapshot?.createAutoPullReceipt;
+    if (typeof createAutoPullReceipt === "function"){
+      district.autoPullReceipt = createAutoPullReceipt(payload);
+      return;
+    }
+    district.autoPullReceipt = {
+      ts: new Date().toISOString(),
+      mode: String(payload?.mode || "pinned_verified"),
+      selected: payload?.selected || {},
+      urls: payload?.urls || {},
+      requestedCount: Array.isArray(payload?.results) ? payload.results.length : 0,
+      successCount: 0,
+      warningCount: 0,
+      warnings: [],
+      status: "warn",
+      fingerprint: "",
+    };
+  };
+
   if (els.btnIntelImportCensusManifest){
     els.btnIntelImportCensusManifest.addEventListener("click", () => {
       const s = currentState();
@@ -1004,6 +1026,16 @@ export function wireIntelChecksEvents(ctx){
         setAutoPullStatus("Auto-pull unavailable: fetch API not supported in this browser.", "warn");
         return;
       }
+      const buildAutoPullUrlPlan = engine?.snapshot?.buildAutoPullUrlPlan;
+      const resolveDataRefsByPolicy = engine?.snapshot?.resolveDataRefsByPolicy;
+      const planBefore = typeof buildAutoPullUrlPlan === "function"
+        ? buildAutoPullUrlPlan({
+          dataRefs: s?.dataRefs,
+          dataCatalog: s?.dataCatalog,
+          scenario: s,
+          resolveDataRefsByPolicy,
+        })
+        : null;
       const specs = [
         {
           label: "Census manifest",
@@ -1044,11 +1076,19 @@ export function wireIntelChecksEvents(ctx){
       let successCount = 0;
       /** @type {string[]} */
       const warnings = [];
+      /** @type {Array<{ source: string, url: string | null, ok: boolean, message: string }>} */
+      const receiptResults = [];
       try{
         for (const spec of activeSpecs){
           const valid = validateRemoteUrl(spec.rawUrl, spec.label);
           if (!valid.ok){
             warnings.push(valid.error);
+            receiptResults.push({
+              source: spec.label,
+              url: spec.rawUrl,
+              ok: false,
+              message: valid.error,
+            });
             continue;
           }
           try{
@@ -1057,17 +1097,53 @@ export function wireIntelChecksEvents(ctx){
             if (out.applied) appliedCount += 1;
             if (out.kind === "ok"){
               successCount += 1;
+              receiptResults.push({
+                source: spec.label,
+                url: valid.url,
+                ok: true,
+                message: out.message,
+              });
             } else {
               warnings.push(`${spec.label}: ${out.message}`);
+              receiptResults.push({
+                source: spec.label,
+                url: valid.url,
+                ok: false,
+                message: out.message,
+              });
             }
           } catch (err){
             warnings.push(`${spec.label}: ${String(err?.message || "fetch failed")}`);
+            receiptResults.push({
+              source: spec.label,
+              url: valid.url,
+              ok: false,
+              message: String(err?.message || "fetch failed"),
+            });
           }
         }
       } finally {
         if (els.btnIntelAutoPullAll) els.btnIntelAutoPullAll.disabled = false;
       }
-      if (appliedCount > 0) commitUIUpdate();
+      writeAutoPullReceipt(s, {
+        nowIso: new Date().toISOString(),
+        mode: planBefore?.mode || s?.dataRefs?.mode || "pinned_verified",
+        selected: planBefore?.selected || {
+          boundarySetId: s?.dataRefs?.boundarySetId || null,
+          crosswalkVersionId: s?.dataRefs?.crosswalkVersionId || null,
+          censusDatasetId: s?.dataRefs?.censusDatasetId || null,
+          electionDatasetId: s?.dataRefs?.electionDatasetId || null,
+        },
+        urls: {
+          censusManifestUrl: normalizeRemoteUrl(els.intelCensusManifestUrl?.value),
+          electionManifestUrl: normalizeRemoteUrl(els.intelElectionManifestUrl?.value),
+          crosswalkRowsUrl: normalizeRemoteUrl(els.intelCrosswalkRowsUrl?.value),
+          precinctResultsUrl: normalizeRemoteUrl(els.intelPrecinctResultsUrl?.value),
+          censusGeoRowsUrl: normalizeRemoteUrl(els.intelCensusGeoRowsUrl?.value),
+        },
+        results: receiptResults,
+      });
+      if (appliedCount > 0 || receiptResults.length > 0) commitUIUpdate();
       if (!successCount && warnings.length){
         const msg = `Auto pull failed for ${activeSpecs.length} source(s): ${warnings[0]}`;
         setAutoPullStatus(msg, "warn");
