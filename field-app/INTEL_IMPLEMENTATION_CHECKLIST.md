@@ -573,3 +573,16 @@ Execution order for additive auto-ingest on top of deterministic/manual ingest.
    - `/Users/anakinskywalker/Downloads/field-app-40/js/core/selfTestSuites/releaseHardening.js`
    - `/Users/anakinskywalker/Downloads/field-app-40/js/core/selfTest.js`
      - adds deterministic readiness/warn-state coverage.
+5. [x] Add deterministic URL merge behavior (manual overrides + policy-plan fallback):
+   - `/Users/anakinskywalker/Downloads/field-app-40/js/core/districtAutoPull.js`
+     - adds `resolveAutoPullUrls(...)` to merge manual URL inputs with plan-derived URLs.
+     - valid manual URLs win; invalid/blank manual values fall back to plan URLs.
+   - `/Users/anakinskywalker/Downloads/field-app-40/js/engine.js`
+     - exposes resolver in snapshot facade.
+   - `/Users/anakinskywalker/Downloads/field-app-40/js/app/renderIntelChecks.js`
+     - auto-pull readiness now reflects merged URLs (manual + plan).
+   - `/Users/anakinskywalker/Downloads/field-app-40/js/app/wireEventsRuntime.js`
+     - fetch/import now runs against merged URLs, enabling automatic pull from selected refs even when URL inputs are blank.
+   - `/Users/anakinskywalker/Downloads/field-app-40/js/core/selfTestSuites/releaseHardening.js`
+   - `/Users/anakinskywalker/Downloads/field-app-40/js/core/selfTest.js`
+     - adds deterministic resolver precedence/fallback regression coverage.
