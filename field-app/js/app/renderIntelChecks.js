@@ -1533,6 +1533,10 @@ export function renderIntelChecksModule({
       typeof electionManifestToCatalogEntry === "function"
     );
   }
+  if (els.btnIntelAutoPullAll){
+    const hasFetch = typeof globalThis.fetch === "function";
+    els.btnIntelAutoPullAll.disabled = !hasFetch;
+  }
   if (els.intelDistrictEvidenceSelectedElection){
     const topId = String(rankedElectionDatasets?.[0]?.dataset?.id || "").trim();
     const rankIndex = Array.isArray(rankedElectionDatasets)

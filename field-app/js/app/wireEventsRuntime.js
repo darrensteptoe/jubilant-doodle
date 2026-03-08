@@ -675,6 +675,208 @@ export function wireIntelChecksEvents(ctx){
     });
   }
 
+  const setAutoPullStatus = (msg, kind = "muted") => setStatus(els.intelAutoPullStatus, msg, kind);
+
+  const importCensusManifestPayload = (s, payload) => {
+    const normalizeManifest = engine?.snapshot?.normalizeCensusManifest;
+    const validateManifest = engine?.snapshot?.validateCensusManifest;
+    const toCatalogEntry = engine?.snapshot?.censusManifestToCatalogEntry;
+    if (typeof normalizeManifest !== "function" || typeof validateManifest !== "function" || typeof toCatalogEntry !== "function"){
+      return { applied: false, kind: "warn", message: "Census manifest helpers unavailable in engine snapshot." };
+    }
+    const normalized = normalizeManifest(payload);
+    const validation = validateManifest(normalized);
+    if (!validation?.ok){
+      const err = Array.isArray(validation?.errors) && validation.errors.length
+        ? validation.errors[0]
+        : "manifest validation failed";
+      return { applied: false, kind: "warn", message: `Census manifest rejected: ${err}` };
+    }
+    const entry = toCatalogEntry(normalized);
+    const catalog = ensureCatalogLists(s);
+    if (!catalog){
+      return { applied: false, kind: "warn", message: "Unable to initialize data catalog." };
+    }
+    const out = upsertCatalogById(catalog.censusDatasets, entry);
+    catalog.censusDatasets = out.list;
+    const refs = ensureDataRefShape(s);
+    if (refs){
+      refs.censusDatasetId = String(entry?.id || "").trim() || null;
+      if (entry?.boundarySetId && !refs.boundarySetId){
+        refs.boundarySetId = String(entry.boundarySetId);
+        if (s.dataCatalog && typeof s.dataCatalog === "object"){
+          s.dataCatalog.activeBoundarySetId = refs.boundarySetId || null;
+        }
+      }
+      stampDataRefCheck(refs);
+    }
+    return {
+      applied: true,
+      kind: "ok",
+      message: `Census manifest ${out.mode === "updated" ? "updated" : "imported"}: ${entry.id}.`,
+    };
+  };
+
+  const importElectionManifestPayload = (s, payload) => {
+    const normalizeManifest = engine?.snapshot?.normalizeElectionManifest;
+    const validateManifest = engine?.snapshot?.validateElectionManifest;
+    const toCatalogEntry = engine?.snapshot?.electionManifestToCatalogEntry;
+    if (typeof normalizeManifest !== "function" || typeof validateManifest !== "function" || typeof toCatalogEntry !== "function"){
+      return { applied: false, kind: "warn", message: "Election manifest helpers unavailable in engine snapshot." };
+    }
+    const normalized = normalizeManifest(payload);
+    const validation = validateManifest(normalized);
+    if (!validation?.ok){
+      const err = Array.isArray(validation?.errors) && validation.errors.length
+        ? validation.errors[0]
+        : "manifest validation failed";
+      return { applied: false, kind: "warn", message: `Election manifest rejected: ${err}` };
+    }
+    const entry = toCatalogEntry(normalized);
+    const catalog = ensureCatalogLists(s);
+    if (!catalog){
+      return { applied: false, kind: "warn", message: "Unable to initialize data catalog." };
+    }
+    const out = upsertCatalogById(catalog.electionDatasets, entry);
+    catalog.electionDatasets = out.list;
+    const refs = ensureDataRefShape(s);
+    if (refs){
+      refs.electionDatasetId = String(entry?.id || "").trim() || null;
+      if (entry?.boundarySetId && !refs.boundarySetId){
+        refs.boundarySetId = String(entry.boundarySetId);
+        if (s.dataCatalog && typeof s.dataCatalog === "object"){
+          s.dataCatalog.activeBoundarySetId = refs.boundarySetId || null;
+        }
+      }
+      stampDataRefCheck(refs);
+    }
+    return {
+      applied: true,
+      kind: "ok",
+      message: `Election manifest ${out.mode === "updated" ? "updated" : "imported"}: ${entry.id}.`,
+    };
+  };
+
+  const importCrosswalkRowsPayload = (s, payload) => {
+    const rows = rowsFromPayload(payload, "crosswalkRows");
+    if (!Array.isArray(rows) || !rows.length){
+      return { applied: false, kind: "warn", message: "Crosswalk rows must be a non-empty JSON array." };
+    }
+    const refs = ensureDataRefShape(s);
+    const district = ensureDistrictEvidenceContainers(s);
+    if (!district){
+      return { applied: false, kind: "warn", message: "Unable to initialize district evidence containers." };
+    }
+    const key = String(refs?.crosswalkVersionId || "").trim();
+    if (key){
+      district.evidenceStore.crosswalkByVersionId[key] = rows;
+      district.evidenceInputs.crosswalkRows = [];
+      markDistrictIntelStale(s, "Crosswalk rows changed; regenerate district-intel assumptions.");
+      return {
+        applied: true,
+        kind: "ok",
+        message: `Crosswalk rows imported to evidenceStore key '${key}' (${rows.length} rows).`,
+      };
+    }
+    district.evidenceInputs.crosswalkRows = rows;
+    markDistrictIntelStale(s, "Crosswalk rows changed; regenerate district-intel assumptions.");
+    return {
+      applied: true,
+      kind: "warn",
+      message: `Crosswalk rows imported inline (${rows.length} rows). Set crosswalk ref to key this data.`,
+    };
+  };
+
+  const importPrecinctResultsPayload = (s, payload) => {
+    const rows = rowsFromPayload(payload, "precinctResults");
+    if (!Array.isArray(rows) || !rows.length){
+      return { applied: false, kind: "warn", message: "Precinct results must be a non-empty JSON array." };
+    }
+    const refs = ensureDataRefShape(s);
+    const district = ensureDistrictEvidenceContainers(s);
+    if (!district){
+      return { applied: false, kind: "warn", message: "Unable to initialize district evidence containers." };
+    }
+    const key = String(refs?.electionDatasetId || "").trim();
+    if (key){
+      district.evidenceStore.electionByDatasetId[key] = rows;
+      district.evidenceInputs.precinctResults = [];
+      markDistrictIntelStale(s, "Election rows changed; regenerate district-intel assumptions.");
+      return {
+        applied: true,
+        kind: "ok",
+        message: `Precinct results imported to evidenceStore key '${key}' (${rows.length} rows).`,
+      };
+    }
+    district.evidenceInputs.precinctResults = rows;
+    markDistrictIntelStale(s, "Election rows changed; regenerate district-intel assumptions.");
+    return {
+      applied: true,
+      kind: "warn",
+      message: `Precinct results imported inline (${rows.length} rows). Set election dataset ref to key this data.`,
+    };
+  };
+
+  const importCensusGeoRowsPayload = (s, payload) => {
+    const rows = rowsFromPayload(payload, "censusGeoRows");
+    if (!Array.isArray(rows) || !rows.length){
+      return { applied: false, kind: "warn", message: "Census GEO rows must be a non-empty JSON array." };
+    }
+    const refs = ensureDataRefShape(s);
+    const district = ensureDistrictEvidenceContainers(s);
+    if (!district){
+      return { applied: false, kind: "warn", message: "Unable to initialize district evidence containers." };
+    }
+    const key = String(refs?.censusDatasetId || "").trim();
+    if (key){
+      district.evidenceStore.censusByDatasetId[key] = rows;
+      district.evidenceInputs.censusGeoRows = [];
+      markDistrictIntelStale(s, "Census GEO rows changed; regenerate district-intel assumptions.");
+      return {
+        applied: true,
+        kind: "ok",
+        message: `Census GEO rows imported to evidenceStore key '${key}' (${rows.length} rows).`,
+      };
+    }
+    district.evidenceInputs.censusGeoRows = rows;
+    markDistrictIntelStale(s, "Census GEO rows changed; regenerate district-intel assumptions.");
+    return {
+      applied: true,
+      kind: "warn",
+      message: `Census GEO rows imported inline (${rows.length} rows). Set census dataset ref to key this data.`,
+    };
+  };
+
+  const normalizeRemoteUrl = (v) => String(v || "").trim();
+  const validateRemoteUrl = (raw, label) => {
+    const value = normalizeRemoteUrl(raw);
+    if (!value) return { ok: false, error: `${label} URL is empty.` };
+    try{
+      const u = new URL(value);
+      if (u.protocol !== "https:" && u.protocol !== "http:"){
+        return { ok: false, error: `${label} URL must use http/https.` };
+      }
+      return { ok: true, url: u.toString() };
+    } catch (err){
+      return { ok: false, error: `${label} URL is invalid: ${String(err?.message || "invalid URL")}` };
+    }
+  };
+
+  const fetchJsonFromUrl = async (url, label) => {
+    if (typeof fetch !== "function"){
+      throw new Error("Browser fetch API is unavailable.");
+    }
+    const res = await fetch(url, { method: "GET", headers: { Accept: "application/json" } });
+    if (!res?.ok){
+      throw new Error(`${label} request failed (HTTP ${res?.status ?? "?"}).`);
+    }
+    try{
+      return await res.json();
+    } catch (err){
+      throw new Error(`${label} response is not valid JSON: ${String(err?.message || "parse failed")}`);
+    }
+  };
+
   if (els.btnIntelImportCensusManifest){
     els.btnIntelImportCensusManifest.addEventListener("click", () => {
       const s = currentState();
@@ -684,46 +886,9 @@ export function wireIntelChecksEvents(ctx){
         setIngestStatus(parsed.error, "warn");
         return;
       }
-      const normalizeManifest = engine?.snapshot?.normalizeCensusManifest;
-      const validateManifest = engine?.snapshot?.validateCensusManifest;
-      const toCatalogEntry = engine?.snapshot?.censusManifestToCatalogEntry;
-      if (typeof normalizeManifest !== "function" || typeof validateManifest !== "function" || typeof toCatalogEntry !== "function"){
-        setIngestStatus("Census manifest helpers unavailable in engine snapshot.", "warn");
-        return;
-      }
-      const normalized = normalizeManifest(parsed.value);
-      const validation = validateManifest(normalized);
-      if (!validation?.ok){
-        const err = Array.isArray(validation?.errors) && validation.errors.length
-          ? validation.errors[0]
-          : "manifest validation failed";
-        setIngestStatus(`Census manifest rejected: ${err}`, "warn");
-        return;
-      }
-      const entry = toCatalogEntry(normalized);
-      const catalog = ensureCatalogLists(s);
-      if (!catalog){
-        setIngestStatus("Unable to initialize data catalog.", "warn");
-        return;
-      }
-      const out = upsertCatalogById(catalog.censusDatasets, entry);
-      catalog.censusDatasets = out.list;
-      const refs = ensureDataRefShape(s);
-      if (refs){
-        refs.censusDatasetId = String(entry?.id || "").trim() || null;
-        if (entry?.boundarySetId && !refs.boundarySetId){
-          refs.boundarySetId = String(entry.boundarySetId);
-          if (s.dataCatalog && typeof s.dataCatalog === "object"){
-            s.dataCatalog.activeBoundarySetId = refs.boundarySetId || null;
-          }
-        }
-        stampDataRefCheck(refs);
-      }
-      setIngestStatus(
-        `Census manifest ${out.mode === "updated" ? "updated" : "imported"}: ${entry.id}.`,
-        "ok"
-      );
-      commitUIUpdate();
+      const out = importCensusManifestPayload(s, parsed.value);
+      setIngestStatus(out.message, out.kind);
+      if (out.applied) commitUIUpdate();
     });
   }
 
@@ -736,46 +901,9 @@ export function wireIntelChecksEvents(ctx){
         setIngestStatus(parsed.error, "warn");
         return;
       }
-      const normalizeManifest = engine?.snapshot?.normalizeElectionManifest;
-      const validateManifest = engine?.snapshot?.validateElectionManifest;
-      const toCatalogEntry = engine?.snapshot?.electionManifestToCatalogEntry;
-      if (typeof normalizeManifest !== "function" || typeof validateManifest !== "function" || typeof toCatalogEntry !== "function"){
-        setIngestStatus("Election manifest helpers unavailable in engine snapshot.", "warn");
-        return;
-      }
-      const normalized = normalizeManifest(parsed.value);
-      const validation = validateManifest(normalized);
-      if (!validation?.ok){
-        const err = Array.isArray(validation?.errors) && validation.errors.length
-          ? validation.errors[0]
-          : "manifest validation failed";
-        setIngestStatus(`Election manifest rejected: ${err}`, "warn");
-        return;
-      }
-      const entry = toCatalogEntry(normalized);
-      const catalog = ensureCatalogLists(s);
-      if (!catalog){
-        setIngestStatus("Unable to initialize data catalog.", "warn");
-        return;
-      }
-      const out = upsertCatalogById(catalog.electionDatasets, entry);
-      catalog.electionDatasets = out.list;
-      const refs = ensureDataRefShape(s);
-      if (refs){
-        refs.electionDatasetId = String(entry?.id || "").trim() || null;
-        if (entry?.boundarySetId && !refs.boundarySetId){
-          refs.boundarySetId = String(entry.boundarySetId);
-          if (s.dataCatalog && typeof s.dataCatalog === "object"){
-            s.dataCatalog.activeBoundarySetId = refs.boundarySetId || null;
-          }
-        }
-        stampDataRefCheck(refs);
-      }
-      setIngestStatus(
-        `Election manifest ${out.mode === "updated" ? "updated" : "imported"}: ${entry.id}.`,
-        "ok"
-      );
-      commitUIUpdate();
+      const out = importElectionManifestPayload(s, parsed.value);
+      setIngestStatus(out.message, out.kind);
+      if (out.applied) commitUIUpdate();
     });
   }
 
@@ -788,28 +916,9 @@ export function wireIntelChecksEvents(ctx){
         setIngestStatus(parsed.error, "warn");
         return;
       }
-      const rows = rowsFromPayload(parsed.value, "crosswalkRows");
-      if (!Array.isArray(rows) || !rows.length){
-        setIngestStatus("Crosswalk rows must be a non-empty JSON array.", "warn");
-        return;
-      }
-      const refs = ensureDataRefShape(s);
-      const district = ensureDistrictEvidenceContainers(s);
-      if (!district){
-        setIngestStatus("Unable to initialize district evidence containers.", "warn");
-        return;
-      }
-      const key = String(refs?.crosswalkVersionId || "").trim();
-      if (key){
-        district.evidenceStore.crosswalkByVersionId[key] = rows;
-        district.evidenceInputs.crosswalkRows = [];
-        setIngestStatus(`Crosswalk rows imported to evidenceStore key '${key}' (${rows.length} rows).`, "ok");
-      } else {
-        district.evidenceInputs.crosswalkRows = rows;
-        setIngestStatus(`Crosswalk rows imported inline (${rows.length} rows). Set crosswalk ref to key this data.`, "warn");
-      }
-      markDistrictIntelStale(s, "Crosswalk rows changed; regenerate district-intel assumptions.");
-      commitUIUpdate();
+      const out = importCrosswalkRowsPayload(s, parsed.value);
+      setIngestStatus(out.message, out.kind);
+      if (out.applied) commitUIUpdate();
     });
   }
 
@@ -822,28 +931,9 @@ export function wireIntelChecksEvents(ctx){
         setIngestStatus(parsed.error, "warn");
         return;
       }
-      const rows = rowsFromPayload(parsed.value, "precinctResults");
-      if (!Array.isArray(rows) || !rows.length){
-        setIngestStatus("Precinct results must be a non-empty JSON array.", "warn");
-        return;
-      }
-      const refs = ensureDataRefShape(s);
-      const district = ensureDistrictEvidenceContainers(s);
-      if (!district){
-        setIngestStatus("Unable to initialize district evidence containers.", "warn");
-        return;
-      }
-      const key = String(refs?.electionDatasetId || "").trim();
-      if (key){
-        district.evidenceStore.electionByDatasetId[key] = rows;
-        district.evidenceInputs.precinctResults = [];
-        setIngestStatus(`Precinct results imported to evidenceStore key '${key}' (${rows.length} rows).`, "ok");
-      } else {
-        district.evidenceInputs.precinctResults = rows;
-        setIngestStatus(`Precinct results imported inline (${rows.length} rows). Set election dataset ref to key this data.`, "warn");
-      }
-      markDistrictIntelStale(s, "Election rows changed; regenerate district-intel assumptions.");
-      commitUIUpdate();
+      const out = importPrecinctResultsPayload(s, parsed.value);
+      setIngestStatus(out.message, out.kind);
+      if (out.applied) commitUIUpdate();
     });
   }
 
@@ -856,28 +946,99 @@ export function wireIntelChecksEvents(ctx){
         setIngestStatus(parsed.error, "warn");
         return;
       }
-      const rows = rowsFromPayload(parsed.value, "censusGeoRows");
-      if (!Array.isArray(rows) || !rows.length){
-        setIngestStatus("Census GEO rows must be a non-empty JSON array.", "warn");
+      const out = importCensusGeoRowsPayload(s, parsed.value);
+      setIngestStatus(out.message, out.kind);
+      if (out.applied) commitUIUpdate();
+    });
+  }
+
+  if (els.btnIntelAutoPullAll){
+    els.btnIntelAutoPullAll.addEventListener("click", async () => {
+      const s = currentState();
+      if (!s) return;
+      if (typeof fetch !== "function"){
+        setAutoPullStatus("Auto-pull unavailable: fetch API not supported in this browser.", "warn");
         return;
       }
-      const refs = ensureDataRefShape(s);
-      const district = ensureDistrictEvidenceContainers(s);
-      if (!district){
-        setIngestStatus("Unable to initialize district evidence containers.", "warn");
+      const specs = [
+        {
+          label: "Census manifest",
+          rawUrl: els.intelCensusManifestUrl?.value,
+          importFn: importCensusManifestPayload,
+        },
+        {
+          label: "Election manifest",
+          rawUrl: els.intelElectionManifestUrl?.value,
+          importFn: importElectionManifestPayload,
+        },
+        {
+          label: "Crosswalk rows",
+          rawUrl: els.intelCrosswalkRowsUrl?.value,
+          importFn: importCrosswalkRowsPayload,
+        },
+        {
+          label: "Precinct results",
+          rawUrl: els.intelPrecinctResultsUrl?.value,
+          importFn: importPrecinctResultsPayload,
+        },
+        {
+          label: "Census GEO rows",
+          rawUrl: els.intelCensusGeoRowsUrl?.value,
+          importFn: importCensusGeoRowsPayload,
+        },
+      ];
+      const activeSpecs = specs
+        .map((spec) => ({ ...spec, rawUrl: normalizeRemoteUrl(spec.rawUrl) }))
+        .filter((spec) => !!spec.rawUrl);
+      if (!activeSpecs.length){
+        setAutoPullStatus("No auto-pull URLs provided.", "warn");
         return;
       }
-      const key = String(refs?.censusDatasetId || "").trim();
-      if (key){
-        district.evidenceStore.censusByDatasetId[key] = rows;
-        district.evidenceInputs.censusGeoRows = [];
-        setIngestStatus(`Census GEO rows imported to evidenceStore key '${key}' (${rows.length} rows).`, "ok");
-      } else {
-        district.evidenceInputs.censusGeoRows = rows;
-        setIngestStatus(`Census GEO rows imported inline (${rows.length} rows). Set census dataset ref to key this data.`, "warn");
+      setAutoPullStatus(`Fetching ${activeSpecs.length} source(s)...`, "muted");
+      if (els.btnIntelAutoPullAll) els.btnIntelAutoPullAll.disabled = true;
+      let appliedCount = 0;
+      let successCount = 0;
+      /** @type {string[]} */
+      const warnings = [];
+      try{
+        for (const spec of activeSpecs){
+          const valid = validateRemoteUrl(spec.rawUrl, spec.label);
+          if (!valid.ok){
+            warnings.push(valid.error);
+            continue;
+          }
+          try{
+            const payload = await fetchJsonFromUrl(valid.url, spec.label);
+            const out = spec.importFn(s, payload);
+            if (out.applied) appliedCount += 1;
+            if (out.kind === "ok"){
+              successCount += 1;
+            } else {
+              warnings.push(`${spec.label}: ${out.message}`);
+            }
+          } catch (err){
+            warnings.push(`${spec.label}: ${String(err?.message || "fetch failed")}`);
+          }
+        }
+      } finally {
+        if (els.btnIntelAutoPullAll) els.btnIntelAutoPullAll.disabled = false;
       }
-      markDistrictIntelStale(s, "Census GEO rows changed; regenerate district-intel assumptions.");
-      commitUIUpdate();
+      if (appliedCount > 0) commitUIUpdate();
+      if (!successCount && warnings.length){
+        const msg = `Auto pull failed for ${activeSpecs.length} source(s): ${warnings[0]}`;
+        setAutoPullStatus(msg, "warn");
+        setIngestStatus(msg, "warn");
+        return;
+      }
+      if (warnings.length){
+        const msg = `Auto pull imported ${successCount}/${activeSpecs.length} source(s). ${warnings[0]}`;
+        setAutoPullStatus(msg, "warn");
+        setIngestStatus(msg, "warn");
+        return;
+      }
+      const msg = `Auto pull imported ${successCount}/${activeSpecs.length} source(s).`;
+      setAutoPullStatus(msg, "ok");
+      setIngestStatus(msg, "ok");
     });
   }
 
