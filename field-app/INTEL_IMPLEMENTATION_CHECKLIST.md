@@ -621,3 +621,17 @@ Execution order for additive auto-ingest on top of deterministic/manual ingest.
      - centralizes auto-pull execution in a shared runtime helper to keep behavior consistent across buttons.
    - `/Users/anakinskywalker/Downloads/field-app-40/js/app/renderIntelChecks.js`
      - adds button gating for one-click flow (fetch support + required snapshot helpers).
+9. [x] Add deterministic auto-pull run-need evaluator (current vs stale vs retry):
+   - `/Users/anakinskywalker/Downloads/field-app-40/js/core/districtAutoPull.js`
+     - adds `evaluateAutoPullRunNeed(...)` based on URL availability, receipt alignment, and last-run outcome quality.
+   - `/Users/anakinskywalker/Downloads/field-app-40/js/engine.js`
+     - exposes run-need evaluator in snapshot facade.
+   - `/Users/anakinskywalker/Downloads/field-app-40/index.html`
+   - `/Users/anakinskywalker/Downloads/field-app-40/js/ui/els.js`
+   - `/Users/anakinskywalker/Downloads/field-app-40/js/app/renderIntelChecks.js`
+     - renders read-only run-need line with deterministic `ok/warn/bad/muted` status.
+   - `/Users/anakinskywalker/Downloads/field-app-40/js/app/wireEventsRuntime.js`
+     - one-click `Fetch catalog + pull` skips auto-pull when receipt is current + successful.
+   - `/Users/anakinskywalker/Downloads/field-app-40/js/core/selfTestSuites/releaseHardening.js`
+   - `/Users/anakinskywalker/Downloads/field-app-40/js/core/selfTest.js`
+     - adds deterministic run-need regression coverage for current, stale, and warning outcomes.
