@@ -391,6 +391,31 @@ function ratioCensusMetric(censusTotals, numeratorKeys, denominatorKeys){
   return num / den;
 }
 
+function pickRowCensusMetric(census, keys){
+  const src = (census && typeof census === "object") ? census : {};
+  for (const key of keys){
+    const n = Number(src[key]);
+    if (Number.isFinite(n)) return n;
+  }
+  return null;
+}
+
+function weightedGeoCensusMetric(geoRows, valueKeys, weightKeys){
+  const rows = Array.isArray(geoRows) ? geoRows : [];
+  let weighted = 0;
+  let weightTotal = 0;
+  for (const row of rows){
+    const census = (row && typeof row.census === "object") ? row.census : {};
+    const value = pickRowCensusMetric(census, valueKeys);
+    const weight = pickRowCensusMetric(census, weightKeys);
+    if (!Number.isFinite(value) || !Number.isFinite(weight) || weight <= 0) continue;
+    weighted += value * weight;
+    weightTotal += weight;
+  }
+  if (!(weightTotal > 0)) return null;
+  return weighted / weightTotal;
+}
+
 function toSharePct(raw){
   const n = Number(raw);
   if (!Number.isFinite(n)) return null;
@@ -418,6 +443,7 @@ function fillDistrictDemographicsTable(tbody, evidence){
   if (!tbody) return;
   tbody.innerHTML = "";
   const ev = (evidence && typeof evidence === "object") ? evidence : {};
+  const geoRows = Array.isArray(ev.geoRows) ? ev.geoRows : [];
   const censusTotalsRaw = (ev.censusTotals && typeof ev.censusTotals === "object") ? ev.censusTotals : {};
   const censusTotals = mergeCensusTotalsFromGeoRows(censusTotalsRaw, ev.geoRows);
   const summary = (ev.summary && typeof ev.summary === "object") ? ev.summary : {};
@@ -469,7 +495,18 @@ function fillDistrictDemographicsTable(tbody, evidence){
       ["C16002_001E", "C16002_001"]
     )
   );
-  const commute = pickCensusMetric(censusTotals, ["mean_commute_min", "commute_min", "mean_commute_minutes"]);
+  const commute = pickCensusMetric(censusTotals, ["mean_commute_min", "commute_min", "mean_commute_minutes"])
+    ?? ratioCensusMetric(censusTotals, ["B08013_001E", "B08013_001"], ["B08303_001E", "B08303_001"])
+    ?? weightedGeoCensusMetric(
+      geoRows,
+      ["B08134_001E", "B08134_001"],
+      ["B08303_001E", "B08303_001", "B25003_001E", "B25003_001"]
+    );
+  const householdIncome = weightedGeoCensusMetric(
+    geoRows,
+    ["B19013_001E", "B19013_001"],
+    ["B25003_001E", "B25003_001", "housing_units", "B25001_001E", "B25001_001"]
+  );
   const totalVotes = Number(summary.totalVotes);
   const competitiveness = Number(signal.competitivenessPct);
   const marginPct = Number(signal.marginPct);
@@ -484,6 +521,7 @@ function fillDistrictDemographicsTable(tbody, evidence){
     { label: "Age 65+ share", value: Number.isFinite(olderShare) ? fmtPct(olderShare, 1) : "—" },
     { label: "Limited English share", value: Number.isFinite(lepShare) ? fmtPct(lepShare, 1) : "—" },
     { label: "Mean commute", value: Number.isFinite(commute) ? `${commute.toFixed(1)} min` : "—" },
+    { label: "Median household income (HH-weighted)", value: Number.isFinite(householdIncome) ? `$${Math.round(householdIncome).toLocaleString()}` : "—" },
     { label: "Weighted election votes", value: Number.isFinite(totalVotes) ? fmtInt(totalVotes) : "—" },
     { label: "Competitiveness", value: Number.isFinite(competitiveness) ? fmtPct(competitiveness, 1) : "—" },
     { label: "Prior margin", value: Number.isFinite(marginPct) ? fmtPct(marginPct, 1) : "—" },
@@ -1014,14 +1052,90 @@ function normalizedCountyForLinks(stateFips, countyFips){
   return "";
 }
 
-function geoRowMatchesArea(row, area){
+function normalizedDistrictCodeForAreaType(areaType, districtRaw){
+  const type = String(areaType || "").trim().toUpperCase();
+  const digits = digitsOnly(districtRaw);
+  const raw = String(districtRaw || "").trim().toUpperCase();
+  if (type === "CD"){
+    if (digits) return digits.slice(-2).padStart(2, "0");
+    return raw;
+  }
+  if (type === "SLDU" || type === "SLDL"){
+    if (digits) return digits.slice(-3).padStart(3, "0");
+    return raw;
+  }
+  return digits || raw;
+}
+
+function normalizedAcsYearPreference(v){
+  const raw = String(v || "").trim().toLowerCase();
+  if (!raw || raw === "auto" || raw === "auto_latest" || raw === "latest"){
+    return "auto_latest";
+  }
+  const m = String(v || "").trim().match(/^(19|20)\d{2}$/);
+  return m ? m[0] : "auto_latest";
+}
+
+function geoRowMatchesArea(row, area, geoAllowSet = null){
   const geoid = digitsOnly(row?.geoid);
   if (geoid.length < 5) return false;
+  if (geoAllowSet && geoAllowSet.size){
+    const resolution = String(area?.resolution || "tract").toLowerCase() === "block_group" ? "block_group" : "tract";
+    const normalized = resolution === "block_group" ? geoid.slice(0, 12) : geoid.slice(0, 11);
+    if (!normalized) return false;
+    return geoAllowSet.has(normalized);
+  }
   const state = normalizedStateForLinks(area?.stateFips);
   if (state && geoid.slice(0, 2) !== state) return false;
   const county = normalizedCountyForLinks(state, area?.countyFips);
   if (county && geoid.slice(2, 5) !== county) return false;
   return true;
+}
+
+function buildAreaGeoFilterSet(state, area){
+  const stateFips = normalizedStateForLinks(area?.stateFips);
+  if (!stateFips) return null;
+  const resolution = String(area?.resolution || "tract").toLowerCase() === "block_group" ? "block_group" : "tract";
+  const areaType = String(area?.type || "").trim().toUpperCase();
+  const areaDistrictCode = normalizedDistrictCodeForAreaType(areaType, area?.district);
+  const out = new Set();
+  if (areaType !== "COUNTY" && areaType !== "PLACE"){
+    const units = Array.isArray(state?.geoPack?.units) ? state.geoPack.units : [];
+    for (const row of units){
+      const geoid = digitsOnly(row?.geoid);
+      const id = resolution === "block_group" ? geoid.slice(0, 12) : geoid.slice(0, 11);
+      if (!id || id.slice(0, 2) !== stateFips) continue;
+      out.add(id);
+    }
+  }
+  const lookup = state?.geoPack?.district?.areaAssistLookup && typeof state.geoPack.district.areaAssistLookup === "object"
+    ? state.geoPack.district.areaAssistLookup
+    : null;
+  if (lookup){
+    const lookupState = normalizedStateForLinks(lookup.stateFips);
+    const lookupResolution = String(lookup.geoResolution || "tract").toLowerCase() === "block_group" ? "block_group" : "tract";
+    const lookupCounty3 = digitsOnly(lookup.geoCounty3).slice(0, 3);
+    const lookupPlaceFips = digitsOnly(lookup.geoPlaceFips).slice(0, 5);
+    const lookupAreaType = String(lookup.geoAreaType || "").trim().toUpperCase();
+    const lookupDistrictCode = normalizedDistrictCodeForAreaType(areaType, lookup.geoDistrictCode);
+    const areaCounty3 = normalizedCountyForLinks(stateFips, area?.countyFips);
+    const areaPlaceFips = digitsOnly(area?.placeFips).slice(0, 5);
+    const countyScopeOk = !areaCounty3 || !lookupCounty3 || areaCounty3 === lookupCounty3;
+    const placeScopeOk = !areaPlaceFips || (lookupPlaceFips && areaPlaceFips === lookupPlaceFips);
+    const districtScopeOk = (areaType === "CD" || areaType === "SLDU" || areaType === "SLDL")
+      ? (lookupAreaType === areaType && !!areaDistrictCode && lookupDistrictCode === areaDistrictCode)
+      : true;
+    if (lookupState === stateFips && lookupResolution === resolution && countyScopeOk && placeScopeOk && districtScopeOk){
+      const geos = Array.isArray(lookup.geos) ? lookup.geos : [];
+      for (const raw of geos){
+        const geoid = digitsOnly(raw);
+        const id = resolution === "block_group" ? geoid.slice(0, 12) : geoid.slice(0, 11);
+        if (!id || id.slice(0, 2) !== stateFips) continue;
+        out.add(id);
+      }
+    }
+  }
+  return out.size ? out : null;
 }
 
 function mergeDisplayGeoRows(censusRows, electionRows){
@@ -1220,12 +1334,21 @@ function mergeAreaAssistLookup(model, lookup, area){
     states.push({ stateFips: state, count: 0 });
   }
   const lookupCounty3 = digitsOnly(ref?.geoCounty3).slice(0, 3);
+  const lookupPlaceFips = digitsOnly(ref?.geoPlaceFips).slice(0, 5);
+  const lookupAreaType = String(ref?.geoAreaType || "").trim().toUpperCase();
+  const lookupDistrictCode = normalizedDistrictCodeForAreaType(area?.type, ref?.geoDistrictCode);
+  const areaType = String(area?.type || "").trim().toUpperCase();
+  const areaDistrictCode = normalizedDistrictCodeForAreaType(areaType, area?.district);
   const lookupResolution = String(ref?.geoResolution || "").toLowerCase() === "block_group" ? "block_group" : "tract";
   const canMergeGeos =
-    !placeFilter &&
     inGeos.length > 0 &&
     lookupResolution === resolution &&
-    (!countyFilter || !lookupCounty3 || countyFilter === lookupCounty3);
+    (!countyFilter || !lookupCounty3 || countyFilter === lookupCounty3) &&
+    (!placeFilter || (lookupPlaceFips && placeFilter === lookupPlaceFips)) &&
+    (
+      !(areaType === "CD" || areaType === "SLDU" || areaType === "SLDL")
+      || (lookupAreaType === areaType && !!areaDistrictCode && lookupDistrictCode === areaDistrictCode)
+    );
   if (canMergeGeos){
     for (const raw of inGeos){
       const geoid = digitsOnly(raw);
@@ -1307,6 +1430,28 @@ function fillAreaStateFipsSelect(selectEl, selected){
   const keep = normalizedStateForLinks(selected);
   selectEl.value = keep;
   if (selectEl.value !== keep) selectEl.value = "";
+}
+
+function fillAcsYearPreferenceSelect(selectEl, selected){
+  if (!selectEl) return;
+  const keep = normalizedAcsYearPreference(selected);
+  const nowYear = new Date().getUTCFullYear();
+  const years = [];
+  for (let i = 1; i <= 15; i += 1){
+    const y = nowYear - i;
+    if (y < 2009) break;
+    years.push(String(y));
+  }
+  if (keep !== "auto_latest" && !years.includes(keep)){
+    years.unshift(keep);
+  }
+  selectEl.innerHTML = "";
+  selectEl.appendChild(makeOption("auto_latest", "Auto latest"));
+  for (const year of years){
+    selectEl.appendChild(makeOption(year, `ACS ${year}`));
+  }
+  selectEl.value = keep;
+  if (selectEl.value !== keep) selectEl.value = "auto_latest";
 }
 
 function fillAreaAssistCountySelect(selectEl, counties, area){
@@ -2050,6 +2195,10 @@ export function renderIntelChecksModule({
     countyFips: digitsOnly(areaRaw?.countyFips).slice(0, 5),
     placeFips: digitsOnly(areaRaw?.placeFips).slice(0, 5),
   };
+  const areaDistrictState = (state?.geoPack && typeof state.geoPack === "object" && state.geoPack.district && typeof state.geoPack.district === "object")
+    ? state.geoPack.district
+    : null;
+  const acsYearPreference = normalizedAcsYearPreference(areaDistrictState?.acsYearPreference);
   if (els.intelAreaType){
     const t = String(normalizedArea?.type || "").toUpperCase();
     els.intelAreaType.value = t;
@@ -2061,6 +2210,7 @@ export function renderIntelChecksModule({
     if (els.intelAreaResolution.value !== r) els.intelAreaResolution.value = "tract";
   }
   if (els.intelAreaLabel) els.intelAreaLabel.value = String(inputArea?.label || "");
+  fillAcsYearPreferenceSelect(els.intelAcsYearPreference, acsYearPreference);
   fillAreaStateFipsSelect(els.intelAreaStateFips, inputArea?.stateFips);
   if (els.intelAreaDistrict) els.intelAreaDistrict.value = String(inputArea?.district || "");
   if (els.intelAreaCountyFips) els.intelAreaCountyFips.value = String(inputArea?.countyFips || "");
@@ -2136,6 +2286,7 @@ export function renderIntelChecksModule({
     const bits = [];
     if (assistModel.state) bits.push(`State ${assistModel.state}`);
     if (!assistModel.state) bits.push("Set state to enable county/place/GEO assists");
+    bits.push(acsYearPreference === "auto_latest" ? "ACS auto latest" : `ACS ${acsYearPreference}`);
     if (assistModel.countyFilter) bits.push(`County ${assistModel.countyFilter}`);
     if (assistModel.placeFilter) bits.push(`Place ${assistModel.placeFilter}`);
     bits.push(`${fmtInt(assistModel.counties.length)} county options`);
@@ -2166,14 +2317,15 @@ export function renderIntelChecksModule({
   }
 
   const flowAreaReady = areaReadyForFlow(areaForDisplay);
+  const areaGeoFilterSet = buildAreaGeoFilterSet(state, areaForDisplay);
   const gatedPrecinctResults = hasResolverAlignmentGate ? precinctResults : [];
   const gatedCrosswalkRows = hasResolverAlignmentGate ? crosswalkRows : [];
   const gatedCensusGeoRows = hasResolverAlignmentGate ? censusGeoRows : [];
   const scopedCrosswalkRows = flowAreaReady
-    ? gatedCrosswalkRows.filter((row) => geoRowMatchesArea({ geoid: row?.geoid }, areaForDisplay))
+    ? gatedCrosswalkRows.filter((row) => geoRowMatchesArea({ geoid: row?.geoid }, areaForDisplay, areaGeoFilterSet))
     : gatedCrosswalkRows;
   const scopedCensusGeoRows = flowAreaReady
-    ? gatedCensusGeoRows.filter((row) => geoRowMatchesArea(row, areaForDisplay))
+    ? gatedCensusGeoRows.filter((row) => geoRowMatchesArea(row, areaForDisplay, areaGeoFilterSet))
     : gatedCensusGeoRows;
   const areaCrosswalkMismatch = flowAreaReady && crosswalkRows.length > 0 && scopedCrosswalkRows.length === 0;
   const areaCensusMismatch = flowAreaReady && censusGeoRows.length > 0 && scopedCensusGeoRows.length === 0;
@@ -2188,6 +2340,10 @@ export function renderIntelChecksModule({
     summary: {},
     persuasionSignal: {},
   };
+  const censusViewReady =
+    scopedCensusGeoRows.length > 0 &&
+    resolverAllAligned &&
+    !areaDataMismatch;
   const flowDataReady =
     gatedPrecinctResults.length > 0 &&
     scopedCrosswalkRows.length > 0 &&
@@ -2217,14 +2373,19 @@ export function renderIntelChecksModule({
       els.intelFlowStepStatus.textContent = "Flow: Step 2B align selected data refs to selected area.";
       return;
     }
-    if (!flowDataReady){
+    if (!censusViewReady){
       els.intelFlowStepStatus.classList.add("warn");
-      els.intelFlowStepStatus.textContent = "Flow: Step 2 load data (election rows + crosswalk rows + census rows).";
+      els.intelFlowStepStatus.textContent = "Flow: Step 2 load Census GEO rows for selected area.";
       return;
     }
     if (!compiledReady){
       els.intelFlowStepStatus.classList.add("warn");
       els.intelFlowStepStatus.textContent = "Flow: Step 3 compile evidence (fix warnings if compile is incomplete).";
+      return;
+    }
+    if (!flowDataReady){
+      els.intelFlowStepStatus.classList.add("ok");
+      els.intelFlowStepStatus.textContent = "Flow: Census map/demographics ready. Optional: load election + crosswalk for vote overlays.";
       return;
     }
     if (!packReady){
@@ -2999,10 +3160,14 @@ export function renderIntelChecksModule({
       if (areaCrosswalkMismatch) reasons.push("crosswalk rows");
       if (areaCensusMismatch) reasons.push("census rows");
       els.intelDistrictEvidenceStatus.textContent = `Evidence area mismatch: selected area has no matching ${reasons.join(" + ")}. Reload/import data for this area.`;
-    } else if (!gatedPrecinctResults.length || !scopedCrosswalkRows.length || !scopedCensusGeoRows.length){
+    } else if (!scopedCensusGeoRows.length){
       els.intelDistrictEvidenceStatus.classList.add("warn");
-      const note = mergedNotes[0] || "Load precinct results, crosswalk rows, and census geo rows into geoPack.district.evidenceInputs or geoPack.district.evidenceStore to activate full district evidence.";
+      const note = mergedNotes[0] || "Load Census GEO rows for the selected area to activate map + demographics.";
       els.intelDistrictEvidenceStatus.textContent = note;
+    } else if (!gatedPrecinctResults.length || !scopedCrosswalkRows.length){
+      els.intelDistrictEvidenceStatus.classList.add("ok");
+      const geoCount = Number(evidence?.summary?.geoRowsCount || displayGeoRows.length || 0);
+      els.intelDistrictEvidenceStatus.textContent = `Census-only view ready: ${fmtInt(geoCount)} GEO rows. Load election + crosswalk to enable vote overlays.`;
     } else if (mergedNotes.length){
       els.intelDistrictEvidenceStatus.classList.add("warn");
       els.intelDistrictEvidenceStatus.textContent = `Evidence compiled with warnings: ${mergedNotes[0]}`;
@@ -3086,6 +3251,11 @@ export function renderIntelChecksModule({
       onSelectGeo,
     }
   );
-  const compileReady = flowDataReady && Array.isArray(displayGeoRows) && displayGeoRows.length > 0;
+  const compileReady =
+    flowAreaReady &&
+    resolverAllAligned &&
+    !areaDataMismatch &&
+    Array.isArray(displayGeoRows) &&
+    displayGeoRows.length > 0;
   setFlowStepStatus(compileReady);
 }

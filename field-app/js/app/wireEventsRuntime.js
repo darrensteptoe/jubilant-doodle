@@ -196,6 +196,58 @@ export function wireIntelChecksEvents(ctx){
       btn.click();
     }, 260);
   };
+  const ACS5_GEO_ENRICH_MAX_AUTO_STEPS = 6;
+  const ACS5_GEO_ENRICH_VARS = [
+    "B01003_001E",
+    "B25001_001E",
+    "B25003_001E",
+    "B25003_003E",
+    "B25024_001E",
+    "B25024_006E",
+    "B25024_007E",
+    "B25024_008E",
+    "B25024_009E",
+    "B15003_001E",
+    "B15003_022E",
+    "B15003_023E",
+    "B15003_024E",
+    "B15003_025E",
+    "B01001_001E",
+    "B01001_007E",
+    "B01001_008E",
+    "B01001_009E",
+    "B01001_010E",
+    "B01001_011E",
+    "B01001_012E",
+    "B01001_020E",
+    "B01001_021E",
+    "B01001_022E",
+    "B01001_023E",
+    "B01001_024E",
+    "B01001_025E",
+    "B01001_031E",
+    "B01001_032E",
+    "B01001_033E",
+    "B01001_034E",
+    "B01001_035E",
+    "B01001_036E",
+    "B01001_044E",
+    "B01001_045E",
+    "B01001_046E",
+    "B01001_047E",
+    "B01001_048E",
+    "B01001_049E",
+    "C16002_001E",
+    "C16002_004E",
+    "C16002_007E",
+    "C16002_010E",
+    "C16002_013E",
+    "B08013_001E",
+    "B08303_001E",
+    "B08134_001E",
+    "B19013_001E",
+  ];
+  const ACS5_GEO_ENRICH_GET = ["NAME"].concat(ACS5_GEO_ENRICH_VARS).join(",");
 
   const normalizeDataRefMode = (mode) => {
     const m = String(mode || "").trim().toLowerCase();
@@ -212,10 +264,40 @@ export function wireIntelChecksEvents(ctx){
     const r = String(v || "").trim().toLowerCase();
     return r === "block_group" ? "block_group" : "tract";
   };
+  const normalizeAcsYearPreference = (v) => {
+    const raw = String(v || "").trim().toLowerCase();
+    if (!raw || raw === "auto" || raw === "auto_latest" || raw === "latest"){
+      return "auto_latest";
+    }
+    const m = String(v || "").trim().match(/^(19|20)\d{2}$/);
+    return m ? m[0] : "auto_latest";
+  };
+  const buildAcsYearPreferenceList = (preferredYear) => {
+    const pref = normalizeAcsYearPreference(preferredYear);
+    if (pref !== "auto_latest"){
+      return [pref];
+    }
+    const nowYear = new Date().getUTCFullYear();
+    const out = [];
+    for (let i = 1; i <= ACS5_GEO_ENRICH_MAX_AUTO_STEPS; i += 1){
+      const y = nowYear - i;
+      if (y < 2009) break;
+      out.push(String(y));
+    }
+    return out.length ? out : ["2024", "2023", "2022"];
+  };
   const cleanDigits = (v, maxLen = 0) => {
     const d = String(v || "").replace(/\D+/g, "");
     if (maxLen > 0) return d.slice(0, maxLen);
     return d;
+  };
+  const normalizeAreaGeoId = (geoidRaw, resolution) => {
+    const geoid = cleanDigits(geoidRaw, 16);
+    const mode = normalizeAreaResolutionInput(resolution);
+    if (mode === "block_group"){
+      return geoid.length >= 12 ? geoid.slice(0, 12) : "";
+    }
+    return geoid.length >= 11 ? geoid.slice(0, 11) : "";
   };
   const cleanText = (v, maxLen = 120) => String(v || "").trim().slice(0, Math.max(1, maxLen));
   const toYear = (v) => {
@@ -338,6 +420,7 @@ export function wireIntelChecksEvents(ctx){
     const geo = ensureGeoPackShape(s);
     if (!geo) return null;
     if (!geo.district || typeof geo.district !== "object") geo.district = {};
+    geo.district.acsYearPreference = normalizeAcsYearPreference(geo.district.acsYearPreference);
     return geo.district;
   };
 
@@ -516,6 +599,8 @@ export function wireIntelChecksEvents(ctx){
       onAreaChange((geo) => {
         geo.area.type = normalizeAreaTypeInput(els.intelAreaType.value);
       }, "Area type updated.");
+      queueAreaAssistLookupFetch();
+      queueCensusGeoRowsFetch();
     });
   }
   if (els.intelAreaResolution){
@@ -524,6 +609,17 @@ export function wireIntelChecksEvents(ctx){
         geo.resolution = normalizeAreaResolutionInput(els.intelAreaResolution.value);
       }, "Area resolution updated.");
       queueAreaAssistLookupFetch();
+      queueCensusGeoRowsFetch();
+    });
+  }
+  if (els.intelAcsYearPreference){
+    els.intelAcsYearPreference.addEventListener("change", () => {
+      const s = currentState();
+      if (!s) return;
+      const district = ensureGeoDistrict(s);
+      if (!district) return;
+      district.acsYearPreference = normalizeAcsYearPreference(els.intelAcsYearPreference.value);
+      commitUIUpdate();
       queueCensusGeoRowsFetch();
     });
   }
@@ -551,23 +647,37 @@ export function wireIntelChecksEvents(ctx){
         }
       }, "Area state FIPS updated.");
       queueAreaAssistLookupFetch();
+      queueCensusGeoRowsFetch();
     });
   }
   if (els.intelAreaDistrict){
-    els.intelAreaDistrict.addEventListener("input", () => onAreaChange((geo) => {
-      geo.area.district = cleanText(els.intelAreaDistrict.value, 16);
-    }, "Area district code updated."));
+    els.intelAreaDistrict.addEventListener("input", () => {
+      onAreaChange((geo) => {
+        geo.area.district = cleanText(els.intelAreaDistrict.value, 16);
+      }, "Area district code updated.");
+      queueAreaAssistLookupFetch();
+      queueCensusGeoRowsFetch();
+    });
   }
   if (els.intelAreaCountyFips){
-    els.intelAreaCountyFips.addEventListener("input", () => onAreaChange((geo) => {
-      geo.area.type = "COUNTY";
-      geo.area.countyFips = cleanDigits(els.intelAreaCountyFips.value, 5);
-    }, "Area county FIPS updated."));
+    els.intelAreaCountyFips.addEventListener("input", () => {
+      onAreaChange((geo) => {
+        geo.area.type = "COUNTY";
+        geo.area.countyFips = cleanDigits(els.intelAreaCountyFips.value, 5);
+      }, "Area county FIPS updated.");
+      queueAreaAssistLookupFetch();
+      queueCensusGeoRowsFetch();
+    });
   }
   if (els.intelAreaPlaceFips){
-    els.intelAreaPlaceFips.addEventListener("input", () => onAreaChange((geo) => {
-      geo.area.placeFips = cleanDigits(els.intelAreaPlaceFips.value, 5);
-    }, "Area place FIPS updated."));
+    els.intelAreaPlaceFips.addEventListener("input", () => {
+      onAreaChange((geo) => {
+        geo.area.type = "PLACE";
+        geo.area.placeFips = cleanDigits(els.intelAreaPlaceFips.value, 5);
+      }, "Area place FIPS updated.");
+      queueAreaAssistLookupFetch();
+      queueCensusGeoRowsFetch();
+    });
   }
   if (els.intelAreaAssistState){
     els.intelAreaAssistState.addEventListener("change", () => {
@@ -614,14 +724,15 @@ export function wireIntelChecksEvents(ctx){
       const stateFips = place7.slice(0, 2);
       const placeFips = place7.slice(2, 7);
       onAreaChange((geo) => {
-        geo.area.type = "COUNTY";
+        geo.area.type = "PLACE";
         geo.area.stateFips = stateFips;
         geo.area.placeFips = placeFips;
       }, "Area place selected from suggestions.");
-      if (els.intelAreaType) els.intelAreaType.value = "COUNTY";
+      if (els.intelAreaType) els.intelAreaType.value = "PLACE";
       if (els.intelAreaStateFips) els.intelAreaStateFips.value = stateFips;
       if (els.intelAreaPlaceFips) els.intelAreaPlaceFips.value = placeFips;
       queueAreaAssistLookupFetch();
+      queueCensusGeoRowsFetch();
     });
   }
   if (els.intelAreaAssistGeo){
@@ -631,13 +742,23 @@ export function wireIntelChecksEvents(ctx){
       const stateFips = geoid.slice(0, 2);
       const countyFips = geoid.slice(0, 5);
       onAreaChange((geo) => {
-        geo.area.type = "COUNTY";
+        const currentType = normalizeAreaTypeInput(geo.area.type) || "COUNTY";
+        geo.area.type = currentType;
         geo.area.stateFips = stateFips;
-        geo.area.countyFips = countyFips;
+        if (currentType === "COUNTY" || !cleanDigits(geo.area.countyFips, 5)){
+          geo.area.countyFips = countyFips;
+        }
       }, "Area narrowed from GEO suggestion.");
-      if (els.intelAreaType) els.intelAreaType.value = "COUNTY";
+      if (els.intelAreaType && !normalizeAreaTypeInput(els.intelAreaType.value)){
+        els.intelAreaType.value = "COUNTY";
+      }
       if (els.intelAreaStateFips) els.intelAreaStateFips.value = stateFips;
-      if (els.intelAreaCountyFips) els.intelAreaCountyFips.value = countyFips;
+      if (els.intelAreaCountyFips){
+        const currentType = normalizeAreaTypeInput(els.intelAreaType?.value);
+        if (currentType === "COUNTY" || !cleanDigits(els.intelAreaCountyFips.value, 5)){
+          els.intelAreaCountyFips.value = countyFips;
+        }
+      }
       const s = currentState();
       if (!s) return;
       const district = ensureGeoDistrict(s);
@@ -668,27 +789,45 @@ export function wireIntelChecksEvents(ctx){
       }
       const countyRaw = cleanDigits(geo?.area?.countyFips || els.intelAreaCountyFips?.value, 5);
       const county3 = countyRaw.length >= 5 ? countyRaw.slice(2, 5) : cleanDigits(countyRaw, 3);
+      const placeFips = cleanDigits(geo?.area?.placeFips || els.intelAreaPlaceFips?.value, 5);
+      const areaType = normalizeAreaTypeInput(geo?.area?.type);
+      const districtCode = normalizeDistrictCodeForAreaType(areaType, geo?.area?.district || els.intelAreaDistrict?.value);
       const resolution = String(geo?.resolution || "tract").toLowerCase() === "block_group" ? "block_group" : "tract";
       const countyUrl = `https://api.census.gov/data/2020/dec/pl?get=NAME&for=county:*&in=state:${stateFips}`;
       const placeUrl = `https://api.census.gov/data/2020/dec/pl?get=NAME&for=place:*&in=state:${stateFips}`;
-      const geoUrl = county3
-        ? (resolution === "block_group"
-            ? `https://api.census.gov/data/2020/dec/pl?get=NAME&for=block%20group:*&in=state:${stateFips}%20county:${county3}`
-            : `https://api.census.gov/data/2020/dec/pl?get=NAME&for=tract:*&in=state:${stateFips}%20county:${county3}`)
-        : "";
+      const geoRequests = buildGeoLookupRequestPlan({
+        stateFips,
+        county3,
+        placeFips,
+        areaType,
+        district: districtCode,
+        resolution,
+      });
+      const geoScope = geoRequests[0]?.label || ((areaType === "PLACE" && placeFips.length === 5)
+        ? `place ${placeFips}`
+        : (county3 ? `county ${county3}` : ""));
       const btn = els.btnIntelAreaAssistFetchCodes;
       btn.disabled = true;
-      setAreaAssistLookupStatus(`Fetching lookup for state ${stateFips}${county3 ? `, county ${county3}` : ""}...`, "muted");
+      setAreaAssistLookupStatus(`Fetching lookup for state ${stateFips}${geoScope ? `, ${geoScope}` : ""}...`, "muted");
       try{
-        const requests = [
+        const [countyPayload, placePayload] = await Promise.all([
           fetchJsonFromUrl(countyUrl, "County lookup"),
           fetchJsonFromUrl(placeUrl, "Place lookup"),
-        ];
-        if (geoUrl) requests.push(fetchJsonFromUrl(geoUrl, "GEO lookup"));
-        const [countyPayload, placePayload, geoPayload] = await Promise.all(requests);
+        ]);
         const counties = normalizeCensusCountyLookup(countyPayload, stateFips);
         const places = normalizeCensusPlaceLookup(placePayload, stateFips);
-        const geos = geoUrl ? normalizeCensusGeoLookup(geoPayload, stateFips, resolution) : [];
+        let geos = [];
+        let geoUrl = "";
+        let geoScopeLabel = geoScope;
+        for (const req of geoRequests){
+          geoUrl = req.url;
+          geoScopeLabel = req.label || geoScopeLabel;
+          try{
+            const payload = await fetchJsonFromUrl(req.url, "GEO lookup");
+            geos = normalizeCensusGeoLookup(payload, stateFips, resolution);
+            if (geos.length) break;
+          } catch {}
+        }
         district.areaAssistLookup = {
           stateFips,
           counties,
@@ -696,14 +835,21 @@ export function wireIntelChecksEvents(ctx){
           geos,
           geoResolution: resolution,
           geoCounty3: county3 || "",
+          geoPlaceFips: areaType === "PLACE" && placeFips.length === 5 ? placeFips : "",
+          geoAreaType: areaType || null,
+          geoDistrictCode: districtCode || "",
           source: "census_api_2020_dec_pl",
           countyUrl,
           placeUrl,
           geoUrl: geoUrl || null,
+          geoScope: geoScopeLabel || null,
           fetchedAt: new Date().toISOString(),
         };
+        const placeLookupHint = areaType === "PLACE" && placeFips.length === 5 && !county3 && geos.length === 0
+          ? " Add county to use county fallback if place GEO lookup is unavailable."
+          : "";
         setAreaAssistLookupStatus(
-          `Lookup loaded for state ${stateFips}: ${counties.length} counties, ${places.length} places${geoUrl ? `, ${geos.length} ${resolution === "block_group" ? "block groups" : "tracts"} in county ${county3}` : ""}.`,
+          `Lookup loaded for state ${stateFips}: ${counties.length} counties, ${places.length} places${geoUrl ? `, ${geos.length} ${resolution === "block_group" ? "block groups" : "tracts"} in ${geoScopeLabel || "selected area"}` : ""}.${placeLookupHint}`,
           (counties.length || places.length || geos.length) ? "ok" : "warn"
         );
         commitUIUpdate();
@@ -1269,10 +1415,94 @@ export function wireIntelChecksEvents(ctx){
     if (county.length === 3) return county;
     return "";
   };
+  const normalizeDistrictCodeForAreaType = (areaType, districtRaw) => {
+    const type = normalizeAreaTypeInput(areaType);
+    const digits = cleanDigits(districtRaw, 16);
+    const raw = cleanText(districtRaw, 16).toUpperCase();
+    if (type === "CD"){
+      if (digits) return digits.slice(-2).padStart(2, "0");
+      return raw;
+    }
+    if (type === "SLDU" || type === "SLDL"){
+      if (digits) return digits.slice(-3).padStart(3, "0");
+      return raw;
+    }
+    return digits || raw;
+  };
+  const buildDistrictInClauses = ({ stateFips, areaType, districtCode, resolution }) => {
+    const type = normalizeAreaTypeInput(areaType);
+    const district = String(districtCode || "").trim();
+    const mode = normalizeAreaResolutionInput(resolution);
+    if (!district) return [];
+    const keys = type === "CD"
+      ? ["congressional district"]
+      : type === "SLDU"
+        ? ["state legislative district (upper chamber)", "state legislative district (upper)", "state senate district"]
+        : type === "SLDL"
+          ? ["state legislative district (lower chamber)", "state legislative district (lower)", "state house district"]
+          : [];
+    if (!keys.length) return [];
+    return keys.map((key) => ({
+      label: `${type} ${district}`,
+      inClause: mode === "block_group"
+        ? `state:${stateFips} ${key}:${district} tract:*`
+        : `state:${stateFips} ${key}:${district}`,
+    }));
+  };
 
-  const rowMatchesArea = (row, area) => {
+  const buildAreaGeoAllowSet = (s, area) => {
+    const stateFips = cleanDigits(area?.stateFips, 2);
+    const resolution = normalizeAreaResolutionInput(area?.resolution);
+    const areaType = normalizeAreaTypeInput(area?.type);
+    if (!stateFips){
+      return null;
+    }
+    const out = new Set();
+    if (areaType !== "COUNTY" && areaType !== "PLACE"){
+      const geoPack = (s?.geoPack && typeof s.geoPack === "object") ? s.geoPack : {};
+      const units = Array.isArray(geoPack.units) ? geoPack.units : [];
+      for (const row of units){
+        const id = normalizeAreaGeoId(row?.geoid, resolution);
+        if (!id || id.slice(0, 2) !== stateFips) continue;
+        out.add(id);
+      }
+    }
+    const district = ensureGeoDistrict(s);
+    const lookup = (district && typeof district.areaAssistLookup === "object") ? district.areaAssistLookup : null;
+    if (lookup){
+      const lookupState = cleanDigits(lookup.stateFips, 2);
+      const lookupResolution = normalizeAreaResolutionInput(lookup.geoResolution || resolution);
+      const lookupCounty3 = cleanDigits(lookup.geoCounty3, 3);
+      const lookupPlaceFips = cleanDigits(lookup.geoPlaceFips, 5);
+      const lookupAreaType = normalizeAreaTypeInput(lookup.geoAreaType || "");
+      const lookupDistrictCode = normalizeDistrictCodeForAreaType(areaType, lookup.geoDistrictCode || "");
+      const areaCounty3 = normalizeCounty3(stateFips, area?.countyFips);
+      const areaPlaceFips = cleanDigits(area?.placeFips, 5);
+      const areaDistrictCode = normalizeDistrictCodeForAreaType(areaType, area?.district || "");
+      const countyScopeOk = !areaCounty3 || !lookupCounty3 || areaCounty3 === lookupCounty3;
+      const placeScopeOk = !areaPlaceFips || (lookupPlaceFips && areaPlaceFips === lookupPlaceFips);
+      const districtScopeOk = (areaType === "CD" || areaType === "SLDU" || areaType === "SLDL")
+        ? (lookupAreaType === areaType && !!areaDistrictCode && lookupDistrictCode === areaDistrictCode)
+        : true;
+      if (lookupState === stateFips && lookupResolution === resolution && countyScopeOk && placeScopeOk && districtScopeOk){
+        const geos = Array.isArray(lookup.geos) ? lookup.geos : [];
+        for (const raw of geos){
+          const id = normalizeAreaGeoId(raw, resolution);
+          if (!id || id.slice(0, 2) !== stateFips) continue;
+          out.add(id);
+        }
+      }
+    }
+    return out.size ? out : null;
+  };
+
+  const rowMatchesArea = (row, area, geoAllowSet = null) => {
     const geoid = cleanDigits(row?.geoid, 16);
     if (geoid.length < 5) return false;
+    const normalized = normalizeAreaGeoId(geoid, area?.resolution);
+    if (geoAllowSet && geoAllowSet.size){
+      return !!normalized && geoAllowSet.has(normalized);
+    }
     const state = cleanDigits(area?.stateFips, 2);
     if (state && geoid.slice(0, 2) !== state) return false;
     const county3 = normalizeCounty3(state, area?.countyFips);
@@ -1332,13 +1562,14 @@ export function wireIntelChecksEvents(ctx){
   const buildEvidenceImportMeta = (s, rows) => {
     const list = Array.isArray(rows) ? rows : [];
     const areaMeta = buildAreaMeta(s);
+    const areaGeoAllowSet = buildAreaGeoAllowSet(s, areaMeta);
     let geoidRowCount = 0;
     let matchedGeoidRows = 0;
     for (const row of list){
       const geoid = cleanDigits(row?.geoid, 16);
       if (geoid.length < 5) continue;
       geoidRowCount += 1;
-      if (rowMatchesArea({ geoid }, areaMeta)) matchedGeoidRows += 1;
+      if (rowMatchesArea({ geoid }, areaMeta, areaGeoAllowSet)) matchedGeoidRows += 1;
     }
     let validationStatus = "unknown";
     if (geoidRowCount > 0){
@@ -1370,8 +1601,9 @@ export function wireIntelChecksEvents(ctx){
   };
 
   const buildCensusGeoApiUrl = (stateFips, county3, resolution) => {
-    const forClause = resolution === "block_group" ? "block group:*" : "tract:*";
-    const inClause = resolution === "block_group"
+    const mode = normalizeAreaResolutionInput(resolution);
+    const forClause = mode === "block_group" ? "block group:*" : "tract:*";
+    const inClause = mode === "block_group"
       ? `state:${stateFips} county:${county3} tract:*`
       : `state:${stateFips} county:${county3}`;
     const params = new URLSearchParams({
@@ -1380,6 +1612,232 @@ export function wireIntelChecksEvents(ctx){
       in: inClause,
     });
     return `https://api.census.gov/data/2020/dec/pl?${params.toString()}`;
+  };
+
+  const buildCensusGeoApiRequestPlan = ({ stateFips, county3, placeFips, areaType, district, resolution }) => {
+    const mode = normalizeAreaResolutionInput(resolution);
+    const type = normalizeAreaTypeInput(areaType);
+    const districtCode = normalizeDistrictCodeForAreaType(type, district);
+    const isDistrictArea = type === "CD" || type === "SLDU" || type === "SLDL";
+    const requests = [];
+    const push = (url, label) => {
+      if (!url) return;
+      if (requests.some((row) => row.url === url)) return;
+      requests.push({ url, label });
+    };
+    if (isDistrictArea && districtCode){
+      const forClause = mode === "block_group" ? "block group:*" : "tract:*";
+      const inClauses = buildDistrictInClauses({ stateFips, areaType: type, districtCode, resolution: mode });
+      for (const row of inClauses){
+        const params = new URLSearchParams({
+          get: "NAME,P1_001N,H1_001N,INTPTLAT,INTPTLON",
+          for: forClause,
+          in: row.inClause,
+        });
+        push(`https://api.census.gov/data/2020/dec/pl?${params.toString()}`, row.label);
+      }
+      return requests;
+    }
+    const isPlaceArea = normalizeAreaTypeInput(areaType) === "PLACE" && placeFips.length === 5;
+    if (isPlaceArea){
+      const forClause = mode === "block_group" ? "block group:*" : "tract:*";
+      const inClause = mode === "block_group"
+        ? `state:${stateFips} place:${placeFips} tract:*`
+        : `state:${stateFips} place:${placeFips}`;
+      const params = new URLSearchParams({
+        get: "NAME,P1_001N,H1_001N,INTPTLAT,INTPTLON",
+        for: forClause,
+        in: inClause,
+      });
+      push(`https://api.census.gov/data/2020/dec/pl?${params.toString()}`, `place ${placeFips}`);
+    }
+    if (county3.length === 3){
+      push(buildCensusGeoApiUrl(stateFips, county3, mode), `county ${county3}`);
+    }
+    if (!isPlaceArea && !county3 && placeFips.length === 5){
+      const forClause = mode === "block_group" ? "block group:*" : "tract:*";
+      const inClause = mode === "block_group"
+        ? `state:${stateFips} place:${placeFips} tract:*`
+        : `state:${stateFips} place:${placeFips}`;
+      const params = new URLSearchParams({
+        get: "NAME,P1_001N,H1_001N,INTPTLAT,INTPTLON",
+        for: forClause,
+        in: inClause,
+      });
+      push(`https://api.census.gov/data/2020/dec/pl?${params.toString()}`, `place ${placeFips}`);
+    }
+    return requests;
+  };
+
+  const buildGeoLookupRequestPlan = ({ stateFips, county3, placeFips, areaType, district, resolution }) => {
+    const mode = normalizeAreaResolutionInput(resolution);
+    const type = normalizeAreaTypeInput(areaType);
+    const districtCode = normalizeDistrictCodeForAreaType(type, district);
+    const isDistrictArea = type === "CD" || type === "SLDU" || type === "SLDL";
+    const requests = [];
+    const push = (url, label) => {
+      if (!url) return;
+      if (requests.some((row) => row.url === url)) return;
+      requests.push({ url, label });
+    };
+    const forClause = mode === "block_group" ? "block group:*" : "tract:*";
+    if (isDistrictArea && districtCode){
+      const inClauses = buildDistrictInClauses({ stateFips, areaType: type, districtCode, resolution: mode });
+      for (const row of inClauses){
+        const params = new URLSearchParams({
+          get: "NAME",
+          for: forClause,
+          in: row.inClause,
+        });
+        push(`https://api.census.gov/data/2020/dec/pl?${params.toString()}`, row.label);
+      }
+      return requests;
+    }
+    if (type === "PLACE" && placeFips.length === 5){
+      const inClause = mode === "block_group"
+        ? `state:${stateFips} place:${placeFips} tract:*`
+        : `state:${stateFips} place:${placeFips}`;
+      const params = new URLSearchParams({
+        get: "NAME",
+        for: forClause,
+        in: inClause,
+      });
+      push(`https://api.census.gov/data/2020/dec/pl?${params.toString()}`, `place ${placeFips}`);
+    }
+    if (county3.length === 3){
+      const inClause = mode === "block_group"
+        ? `state:${stateFips} county:${county3} tract:*`
+        : `state:${stateFips} county:${county3}`;
+      const params = new URLSearchParams({
+        get: "NAME",
+        for: forClause,
+        in: inClause,
+      });
+      push(`https://api.census.gov/data/2020/dec/pl?${params.toString()}`, `county ${county3}`);
+    }
+    if (type !== "PLACE" && !county3 && placeFips.length === 5){
+      const inClause = mode === "block_group"
+        ? `state:${stateFips} place:${placeFips} tract:*`
+        : `state:${stateFips} place:${placeFips}`;
+      const params = new URLSearchParams({
+        get: "NAME",
+        for: forClause,
+        in: inClause,
+      });
+      push(`https://api.census.gov/data/2020/dec/pl?${params.toString()}`, `place ${placeFips}`);
+    }
+    return requests;
+  };
+
+  const parseCensusScopeFromUrl = (rawUrl) => {
+    try{
+      const u = new URL(String(rawUrl || ""));
+      const forClause = String(u.searchParams.get("for") || "").trim();
+      const inClause = String(u.searchParams.get("in") || "").trim();
+      if (!forClause || !inClause) return null;
+      return { forClause, inClause };
+    } catch {
+      return null;
+    }
+  };
+
+  const buildAcsGeoApiRequestPlanFromCensusUrl = (rawUrl, preferredYear) => {
+    const scope = parseCensusScopeFromUrl(rawUrl);
+    if (!scope) return [];
+    const requests = [];
+    const years = buildAcsYearPreferenceList(preferredYear);
+    for (const year of years){
+      const params = new URLSearchParams({
+        get: ACS5_GEO_ENRICH_GET,
+        for: scope.forClause,
+        in: scope.inClause,
+      });
+      requests.push({
+        year,
+        url: `https://api.census.gov/data/${year}/acs/acs5?${params.toString()}`,
+      });
+    }
+    return requests;
+  };
+
+  const normalizeAcsGeoRowsFromApiPayload = (payload, resolution) => {
+    if (!Array.isArray(payload) || payload.length < 2) return [];
+    const header = Array.isArray(payload[0]) ? payload[0].map((x) => String(x || "").trim()) : [];
+    if (!header.length) return [];
+    const lower = new Map(header.map((name, i) => [name.toLowerCase(), i]));
+    const stateIdx = lower.get("state");
+    const countyIdx = lower.get("county");
+    const tractIdx = lower.get("tract");
+    const blockIdx = lower.get("block group");
+    if (!Number.isInteger(stateIdx) || !Number.isInteger(countyIdx) || !Number.isInteger(tractIdx)) return [];
+    const reserved = new Set(["name", "state", "county", "tract", "block group"]);
+    const valueCols = header
+      .map((name, i) => ({ name, i }))
+      .filter((row) => row.name && !reserved.has(row.name.toLowerCase()));
+    const out = [];
+    for (let i = 1; i < payload.length; i += 1){
+      const row = Array.isArray(payload[i]) ? payload[i] : [];
+      const state = String(row[stateIdx] || "").trim();
+      const county = String(row[countyIdx] || "").trim();
+      const tract = String(row[tractIdx] || "").trim();
+      const blockGroup = Number.isInteger(blockIdx) ? String(row[blockIdx] || "").trim() : "";
+      let geoid = "";
+      if (resolution === "block_group"){
+        if (state.length === 2 && county.length === 3 && tract.length === 6 && blockGroup.length === 1){
+          geoid = `${state}${county}${tract}${blockGroup}`;
+        }
+      } else if (state.length === 2 && county.length === 3 && tract.length === 6){
+        geoid = `${state}${county}${tract}`;
+      }
+      if (!geoid) continue;
+      const values = {};
+      for (const col of valueCols){
+        const n = Number(row[col.i]);
+        if (!Number.isFinite(n) || n <= -666666666) continue;
+        values[col.name] = n;
+      }
+      if (!Object.keys(values).length) continue;
+      out.push({ geoid, values });
+    }
+    out.sort((a, b) => String(a?.geoid || "").localeCompare(String(b?.geoid || "")));
+    return out;
+  };
+
+  const mergeAcsGeoRowsIntoCensusRows = (baseRows, acsRows) => {
+    const base = Array.isArray(baseRows) ? baseRows : [];
+    const acs = Array.isArray(acsRows) ? acsRows : [];
+    if (!base.length || !acs.length){
+      return { rows: base.slice(), matchedCount: 0, valueKeys: [] };
+    }
+    const acsByGeoid = new Map();
+    for (const row of acs){
+      const geoid = cleanDigits(row?.geoid, 16);
+      const values = (row && typeof row.values === "object") ? row.values : {};
+      if (!geoid || !Object.keys(values).length) continue;
+      acsByGeoid.set(geoid, values);
+    }
+    if (!acsByGeoid.size){
+      return { rows: base.slice(), matchedCount: 0, valueKeys: [] };
+    }
+    const valueKeySet = new Set();
+    const out = [];
+    let matchedCount = 0;
+    for (const row of base){
+      const geoid = cleanDigits(row?.geoid, 16);
+      const values = (row && typeof row.values === "object") ? row.values : {};
+      const acsValues = geoid ? acsByGeoid.get(geoid) : null;
+      if (!acsValues){
+        out.push(row);
+        continue;
+      }
+      matchedCount += 1;
+      const mergedValues = { ...values, ...acsValues };
+      for (const key of Object.keys(acsValues)){
+        valueKeySet.add(key);
+      }
+      out.push({ ...row, values: mergedValues });
+    }
+    return { rows: out, matchedCount, valueKeys: Array.from(valueKeySet).sort((a, b) => a.localeCompare(b)) };
   };
 
   const normalizeCensusGeoRowsFromApiPayload = (payload, resolution) => {
@@ -1500,7 +1958,14 @@ export function wireIntelChecksEvents(ctx){
     const rows = Array.isArray(payload) ? payload : [];
     const out = new Map();
     const mode = String(resolution || "").toLowerCase() === "block_group" ? "block_group" : "tract";
-    const start = Array.isArray(rows[0]) ? 1 : 0;
+    const header = Array.isArray(rows[0])
+      ? rows[0].map((x) => String(x || "").trim().toLowerCase())
+      : [];
+    const idxState = header.indexOf("state");
+    const idxCounty = header.indexOf("county");
+    const idxTract = header.indexOf("tract");
+    const idxBlockGroup = header.indexOf("block group");
+    const start = header.length ? 1 : 0;
     for (let i = start; i < rows.length; i += 1){
       const row = rows[i];
       let st = "";
@@ -1508,10 +1973,10 @@ export function wireIntelChecksEvents(ctx){
       let tract6 = "";
       let bg1 = "";
       if (Array.isArray(row)){
-        st = cleanDigits(row[1], 2);
-        county3 = cleanDigits(row[2], 3);
-        tract6 = cleanDigits(row[3], 6);
-        bg1 = cleanDigits(row[4], 1);
+        st = cleanDigits(idxState >= 0 ? row[idxState] : row[1], 2);
+        county3 = cleanDigits(idxCounty >= 0 ? row[idxCounty] : row[2], 3);
+        tract6 = cleanDigits(idxTract >= 0 ? row[idxTract] : row[3], 6);
+        bg1 = cleanDigits(idxBlockGroup >= 0 ? row[idxBlockGroup] : row[4], 1);
       } else if (row && typeof row === "object"){
         st = cleanDigits(row.state ?? row.STATE ?? stateFips, 2);
         county3 = cleanDigits(row.county ?? row.COUNTY, 3);
@@ -1942,56 +2407,128 @@ export function wireIntelChecksEvents(ctx){
       const geo = ensureGeoPackShape(s);
       const refs = ensureDataRefShape(s);
       const catalog = ensureCatalogLists(s);
-      if (!geo || !refs || !catalog){
+      const district = ensureGeoDistrict(s);
+      if (!geo || !refs || !catalog || !district){
         setIngestStatus("Census GEO fetch failed: unable to initialize state containers.", "warn");
         return;
       }
+      const acsYearPreference = normalizeAcsYearPreference(district.acsYearPreference || els.intelAcsYearPreference?.value);
+      district.acsYearPreference = acsYearPreference;
       const stateFips = cleanDigits(geo?.area?.stateFips || els.intelAreaStateFips?.value, 2);
+      const areaType = normalizeAreaTypeInput(geo?.area?.type) || "COUNTY";
       const county3 = normalizeCounty3(stateFips, geo?.area?.countyFips || els.intelAreaCountyFips?.value);
+      const placeFips = cleanDigits(geo?.area?.placeFips || els.intelAreaPlaceFips?.value, 5);
+      const districtCode = normalizeDistrictCodeForAreaType(areaType, geo?.area?.district || els.intelAreaDistrict?.value);
       const resolution = normalizeAreaResolutionInput(geo?.resolution || els.intelAreaResolution?.value);
       if (stateFips.length !== 2){
         setIngestStatus("Set State first before fetching Census GEO rows.", "warn");
         return;
       }
-      if (county3.length !== 3){
-        setIngestStatus("Set County FIPS (3-digit county code or 5-digit state+county code) before fetching Census GEO rows.", "warn");
+      const requestPlan = buildCensusGeoApiRequestPlan({
+        stateFips,
+        county3,
+        placeFips,
+        areaType,
+        district: districtCode,
+        resolution,
+      });
+      if (!requestPlan.length){
+        if ((areaType === "CD" || areaType === "SLDU" || areaType === "SLDL") && !districtCode){
+          setIngestStatus("Set District code before fetching Census GEO rows for district areas.", "warn");
+        } else {
+          setIngestStatus("Set County, Place, or District code before fetching Census GEO rows.", "warn");
+        }
         return;
       }
-      const url = buildCensusGeoApiUrl(stateFips, county3, resolution);
       const btn = els.btnIntelFetchCensusGeoRows;
       btn.disabled = true;
-      setIngestStatus(`Fetching Census GEO rows for state ${stateFips}, county ${county3}, ${resolution}...`, "muted");
+      const acsPrefLabel = acsYearPreference === "auto_latest" ? "ACS auto" : `ACS ${acsYearPreference}`;
+      setIngestStatus(`Fetching Census GEO rows for state ${stateFips}, ${requestPlan[0].label}, ${resolution} (${acsPrefLabel})...`, "muted");
       try{
-        const payload = await fetchJsonFromUrl(url, "Census GEO rows");
-        const rows = normalizeCensusGeoRowsFromApiPayload(payload, resolution);
+        let rows = [];
+        let selectedUrl = "";
+        let selectedLabel = "";
+        let lastErr = "";
+        for (const req of requestPlan){
+          selectedUrl = req.url;
+          selectedLabel = req.label;
+          setIngestStatus(`Fetching Census GEO rows for state ${stateFips}, ${req.label}, ${resolution} (${acsPrefLabel})...`, "muted");
+          try{
+            const payload = await fetchJsonFromUrl(req.url, "Census GEO rows");
+            rows = normalizeCensusGeoRowsFromApiPayload(payload, resolution);
+            if (rows.length){
+              break;
+            }
+            lastErr = `No rows returned for ${req.label}.`;
+          } catch (err){
+            lastErr = String(err?.message || "request failed");
+          }
+        }
         if (!rows.length){
-          setIngestStatus("Census GEO fetch returned no rows for the selected area/resolution.", "warn");
+          if (areaType === "PLACE" && placeFips.length === 5 && !county3){
+            setIngestStatus(`Census GEO fetch returned no rows for place ${placeFips}. Set county too for county fallback, or switch area type to COUNTY.${lastErr ? ` ${lastErr}` : ""}`, "warn");
+          } else {
+            setIngestStatus(`Census GEO fetch returned no rows for the selected area/resolution.${lastErr ? ` ${lastErr}` : ""}`, "warn");
+          }
           return;
         }
+        let acsYear = "";
+        let acsUrl = "";
+        let acsMatchCount = 0;
+        let acsValueKeys = [];
+        const acsPlan = buildAcsGeoApiRequestPlanFromCensusUrl(selectedUrl, acsYearPreference);
+        for (const req of acsPlan){
+          try{
+            const payload = await fetchJsonFromUrl(req.url, `ACS5 ${req.year} GEO rows`);
+            const acsRows = normalizeAcsGeoRowsFromApiPayload(payload, resolution);
+            if (!acsRows.length) continue;
+            const merged = mergeAcsGeoRowsIntoCensusRows(rows, acsRows);
+            if (!merged.matchedCount) continue;
+            rows = merged.rows;
+            acsYear = req.year;
+            acsUrl = req.url;
+            acsMatchCount = merged.matchedCount;
+            acsValueKeys = merged.valueKeys;
+            break;
+          } catch {}
+        }
         const activeCensusDatasetId = cleanDataRefId(refs?.censusDatasetId);
-        refs.censusDatasetId = activeCensusDatasetId || `census_api_2020_pl_${stateFips}${county3}_${resolution}`;
+        const scopeToken = (areaType === "CD" || areaType === "SLDU" || areaType === "SLDL")
+          ? `${stateFips}${areaType.toLowerCase()}${districtCode || "na"}`
+          : (county3.length === 3 ? `${stateFips}${county3}` : (placeFips.length === 5 ? `${stateFips}p${placeFips}` : stateFips));
+        refs.censusDatasetId = activeCensusDatasetId || `census_api_2020_pl_${scopeToken}_${resolution}`;
         stampDataRefCheck(refs);
+        const valueRefs = ["P1_001N", "H1_001N", "INTPTLAT", "INTPTLON"].concat(acsValueKeys);
         const entry = {
           id: refs.censusDatasetId,
-          label: `Census API 2020 PL ${stateFips}${county3} ${resolution}`,
-          vintage: "2020",
+          label: `Census API 2020 PL${acsYear ? ` + ACS5 ${acsYear}` : ""} ${selectedLabel || scopeToken} ${resolution}`,
+          vintage: acsYear ? `2020+${acsYear}` : "2020",
           boundarySetId: String(refs?.boundarySetId || "").trim() || null,
           stateFips,
-          countyFips: `${stateFips}${county3}`,
+          countyFips: county3.length === 3 ? `${stateFips}${county3}` : null,
+          placeFips: placeFips.length === 5 ? placeFips : null,
+          areaType: areaType || null,
+          districtCode: districtCode || null,
           granularity: resolution,
           rowCount: rows.length,
-          variableRefs: ["P1_001N", "H1_001N", "INTPTLAT", "INTPTLON"],
+          variableRefs: Array.from(new Set(valueRefs)),
           quality: { coveragePct: 100, isVerified: true },
           source: {
             type: "census_api",
-            url,
+            url: selectedUrl || requestPlan[0].url,
+            acsYear: acsYear || null,
+            acsUrl: acsUrl || null,
+            acsMatchCount: acsMatchCount || 0,
             fetchedAt: new Date().toISOString(),
           },
         };
         upsertCatalogById(catalog.censusDatasets, entry);
         const out = importCensusGeoRowsPayload(s, rows);
         setJsonInputValue(els.intelCensusGeoRowsJson, rows);
-        setIngestStatus(`${out.message} Source: Census API 2020 PL (${rows.length} rows).`, out.kind || "ok");
+        const acsStatus = acsYear
+          ? ` + ACS5 ${acsYear} (${acsMatchCount}/${rows.length} GEO matched)`
+          : (acsYearPreference === "auto_latest" ? "" : ` + ACS5 ${acsYearPreference} unavailable`);
+        setIngestStatus(`${out.message} Source: Census API 2020 PL${acsStatus} (${selectedLabel || "selected area"} · ${rows.length} rows).`, out.kind || "ok");
         if (out.applied){
           commitUIUpdate();
         }
@@ -2078,6 +2615,7 @@ export function wireIntelChecksEvents(ctx){
       geo.resolution = normalizeAreaResolutionInput(demo?.resolution);
       geo.generatedAt = null;
       district.selectedGeoId = String(demo?.censusGeoRows?.[0]?.geoid || "").trim();
+      district.acsYearPreference = normalizeAcsYearPreference(demo?.acsYearPreference || district.acsYearPreference);
 
       refs.mode = String(demo?.dataRefs?.mode || "pinned_verified").trim() || "pinned_verified";
       refs.boundarySetId = String(demo?.dataRefs?.boundarySetId || "").trim() || null;
