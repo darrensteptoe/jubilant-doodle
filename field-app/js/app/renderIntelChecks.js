@@ -15,6 +15,7 @@ import {
   listShockScenarios,
 } from "./intelControlsRuntime.js";
 import { renderIntelGeoMap } from "./intelGeoMap.js";
+import { renderDistrictCensusSimple } from "./districtCensusSimple.js";
 
 function fmtNum(v){
   const n = Number(v);
@@ -727,9 +728,9 @@ function fillGeoInspectorSelect(selectEl, geoRows, selectedGeoId){
     const geoid = String(row?.geoid || "").trim();
     if (!geoid) continue;
     if (geoid === keep) hasSelected = true;
-    const votes = Number.isFinite(Number(row?.totalVotes)) ? fmtInt(row.totalVotes) : "—";
-    const margin = Number.isFinite(Number(row?.marginPct)) ? fmtPct(row.marginPct, 1) : "—";
-    const label = `${geoid} · votes ${votes} · margin ${margin}`;
+    const population = Number.isFinite(Number(row?.population)) ? fmtInt(row.population) : "—";
+    const housing = Number.isFinite(Number(row?.housingUnits)) ? fmtInt(row.housingUnits) : "—";
+    const label = `${geoid} · pop ${population} · housing ${housing}`;
     selectEl.appendChild(makeOption(geoid, label));
   }
   const fallback = String(rows[0]?.geoid || "").trim();
@@ -762,23 +763,12 @@ function fillGeoInspectorCensusTable(tbody, census){
 function buildGeoInspectorSummaryText(args){
   const geoid = String(args?.geoid || "").trim();
   if (!geoid) return "";
-  const totalVotes = Math.max(0, Number(args?.totalVotes) || 0);
-  const leaderId = String(args?.leaderId || "").trim();
-  const leaderVotes = Math.max(0, Number(args?.leaderVotes) || 0);
-  const leaderSharePct = Number.isFinite(Number(args?.leaderSharePct)) ? Number(args.leaderSharePct) : null;
-  const marginVotes = Math.max(0, Number(args?.marginVotes) || 0);
-  const marginPct = Number.isFinite(Number(args?.marginPct)) ? Number(args.marginPct) : null;
   const pop = Number.isFinite(Number(args?.population)) ? Number(args.population) : null;
   const housing = Number.isFinite(Number(args?.housingUnits)) ? Number(args.housingUnits) : null;
-  const sourcePrecincts = Math.max(0, Number(args?.sourcePrecincts) || 0);
   const census = (args?.census && typeof args.census === "object") ? args.census : {};
   const censusKeys = Object.keys(census).sort((a, b) => a.localeCompare(b));
   const lines = [
     `GEOID: ${geoid}`,
-    `Total votes: ${fmtInt(totalVotes)}`,
-    `Leader: ${leaderId || "—"}${leaderId ? ` (${fmtInt(leaderVotes)}${leaderSharePct != null ? `, ${fmtPct(leaderSharePct, 1)}` : ""})` : ""}`,
-    `Margin: ${fmtInt(marginVotes)}${marginPct != null ? ` (${fmtPct(marginPct, 1)})` : ""}`,
-    `Precinct links: ${fmtInt(sourcePrecincts)}`,
     `Population: ${pop != null ? fmtInt(pop) : "—"}`,
     `Households: ${housing != null ? fmtInt(housing) : "—"}`,
     "",
@@ -803,21 +793,6 @@ function renderGeoInspector(els, geoRows, selectedGeoId){
   const rows = Array.isArray(geoRows) ? geoRows : [];
   const row = extractGeoInspectorRow(rows, selectedGeoId);
   const geoid = String(selectedGeoId || "").trim();
-  const candidateVotes = row && typeof row.candidateVotes === "object" ? row.candidateVotes : {};
-  const ranked = Object.keys(candidateVotes)
-    .map((candidateId) => ({
-      candidateId: String(candidateId || "").trim(),
-      votes: Number(candidateVotes[candidateId]) || 0,
-    }))
-    .filter((x) => x.candidateId && x.votes > 0)
-    .sort((a, b) => (b.votes - a.votes) || a.candidateId.localeCompare(b.candidateId));
-  const totalVotes = Math.max(0, Number(row?.totalVotes) || 0);
-  const leader = ranked[0] || null;
-  const runner = ranked[1] || null;
-  const leaderVotes = Number(leader?.votes || 0);
-  const marginVotes = Math.max(0, leaderVotes - Number(runner?.votes || 0));
-  const marginPct = totalVotes > 0 ? (marginVotes / totalVotes) * 100 : null;
-  const leaderSharePct = totalVotes > 0 ? (leaderVotes / totalVotes) * 100 : null;
   const census = row && typeof row.census === "object" ? row.census : {};
   const pop = Number(census?.pop ?? census?.B01003_001E ?? census?.B01003_001 ?? census?.total_population);
   const housing = Number(census?.housing_units ?? census?.B25001_001E ?? census?.B25001_001 ?? census?.total_housing_units);
@@ -825,23 +800,13 @@ function renderGeoInspector(els, geoRows, selectedGeoId){
   const selectorRows = rows
     .map((row) => {
       const geoid = String(row?.geoid || "").trim();
-      const totalVotes = Number(row?.totalVotes);
-      const candidateVotes = row && typeof row.candidateVotes === "object" ? row.candidateVotes : {};
-      const ranked = Object.keys(candidateVotes)
-        .map((candidateId) => ({
-          candidateId: String(candidateId || "").trim(),
-          votes: Number(candidateVotes[candidateId]) || 0,
-        }))
-        .filter((x) => x.candidateId && x.votes > 0)
-        .sort((a, b) => (b.votes - a.votes) || a.candidateId.localeCompare(b.candidateId));
-      const leaderVotes = Number(ranked?.[0]?.votes || 0);
-      const runnerVotes = Number(ranked?.[1]?.votes || 0);
-      const marginVotes = Math.max(0, leaderVotes - runnerVotes);
-      const marginPct = totalVotes > 0 ? (marginVotes / totalVotes) * 100 : null;
-      return { geoid, totalVotes, marginPct };
+      const census = row && typeof row.census === "object" ? row.census : {};
+      const population = Number(census?.pop ?? census?.B01003_001E ?? census?.B01003_001 ?? census?.total_population);
+      const housingUnits = Number(census?.housing_units ?? census?.B25001_001E ?? census?.B25001_001 ?? census?.total_housing_units);
+      return { geoid, population, housingUnits };
     })
     .filter((x) => x.geoid)
-    .sort((a, b) => (Number(b?.totalVotes) || 0) - (Number(a?.totalVotes) || 0));
+    .sort((a, b) => (Number(b?.population) || 0) - (Number(a?.population) || 0));
   fillGeoInspectorSelect(els.intelGeoInspectorSelect, selectorRows, geoid);
   if (els.btnIntelGeoInspectorReloadBoundary){
     els.btnIntelGeoInspectorReloadBoundary.disabled = !geoid || !row;
@@ -856,13 +821,11 @@ function renderGeoInspector(els, geoRows, selectedGeoId){
       els.intelGeoInspectorStatus.textContent = `Selected GEO ${geoid} not found in current evidence rows.`;
     } else {
       els.intelGeoInspectorStatus.classList.add("ok");
-      els.intelGeoInspectorStatus.textContent = `Selected ${geoid} · precinct links ${fmtInt(row?.sourcePrecincts)} · votes ${fmtInt(totalVotes)}.`;
+      els.intelGeoInspectorStatus.textContent = `Selected ${geoid} · population ${Number.isFinite(pop) ? fmtInt(pop) : "—"} · housing ${Number.isFinite(housing) ? fmtInt(housing) : "—"}.`;
     }
   }
   if (els.intelGeoInspectorRace){
-    els.intelGeoInspectorRace.textContent = leader
-      ? `${leader.candidateId} ${fmtInt(leaderVotes)} (${fmtPct(leaderSharePct, 1)}) · margin ${fmtInt(marginVotes)} (${Number.isFinite(marginPct) ? fmtPct(marginPct, 1) : "—"})`
-      : "No election votes for selected GEO.";
+    els.intelGeoInspectorRace.textContent = geoid || "—";
   }
   if (els.intelGeoInspectorHouseholds){
     els.intelGeoInspectorHouseholds.textContent = Number.isFinite(housing)
@@ -878,13 +841,6 @@ function renderGeoInspector(els, geoRows, selectedGeoId){
   const summary = row
     ? buildGeoInspectorSummaryText({
       geoid,
-      totalVotes,
-      leaderId: leader?.candidateId || "",
-      leaderVotes,
-      leaderSharePct,
-      marginVotes,
-      marginPct,
-      sourcePrecincts: Number(row?.sourcePrecincts) || 0,
       population: pop,
       housingUnits: housing,
       census,
@@ -1183,6 +1139,42 @@ function mergeDisplayGeoRows(censusRows, electionRows){
     });
   }
   return merged;
+}
+
+function buildCensusOnlyEvidence(censusGeoRows, warning = ""){
+  const rows = Array.isArray(censusGeoRows) ? censusGeoRows : [];
+  const geoRows = rows.map((row) => ({
+    geoid: String(row?.geoid || ""),
+    totalVotes: 0,
+    candidateVotes: {},
+    sourcePrecincts: 0,
+    hasElection: false,
+    hasCensus: true,
+    census: row?.values && typeof row.values === "object" ? row.values : {},
+  }));
+  const censusTotals = mergeCensusTotalsFromGeoRows({}, geoRows);
+  const warnings = [];
+  const text = String(warning || "").trim();
+  if (text) warnings.push(text);
+  return {
+    candidateTotals: [],
+    precinctToGeo: [],
+    geoRows,
+    censusTotals,
+    summary: {
+      geoRowsCount: geoRows.length,
+      totalVotes: 0,
+    },
+    reconciliation: {
+      coveragePct: null,
+      unmatchedVotes: 0,
+    },
+    persuasionSignal: {
+      index: null,
+      note: "",
+    },
+    warnings,
+  };
 }
 
 function buildAreaCodeLinksHtml(area){
@@ -1664,6 +1656,7 @@ export function renderIntelChecksModule({
 } = {}){
   if (!els || !state) return;
   ensureIntelCollections(state);
+  const districtPhase1Mode = true;
   const censusStabilizationMode = true;
   if (els.intelDistrictAdvancedDataDetails){
     els.intelDistrictAdvancedDataDetails.hidden = censusStabilizationMode;
@@ -2156,6 +2149,8 @@ export function renderIntelChecksModule({
     : (Array.isArray(districtBlob.crosswalkRows) ? districtBlob.crosswalkRows : (Array.isArray(districtBlob.precinctToGeo) ? districtBlob.precinctToGeo : []));
   const censusGeoRows = Array.isArray(resolvedInputs?.censusGeoRows)
     ? resolvedInputs.censusGeoRows
+    : Array.isArray(districtBlob.censusRowsV2)
+    ? districtBlob.censusRowsV2
     : Array.isArray(evidenceInputs.censusGeoRows)
     ? evidenceInputs.censusGeoRows
     : (Array.isArray(districtBlob.censusGeoRows) ? districtBlob.censusGeoRows : (Array.isArray(districtBlob.censusRows) ? districtBlob.censusRows : []));
@@ -2172,12 +2167,14 @@ export function renderIntelChecksModule({
   const resolverAlignmentMismatches = Array.isArray(resolvedInputs?.alignment?.mismatches)
     ? resolvedInputs.alignment.mismatches.map((x) => String(x || "").trim()).filter(Boolean)
     : [];
-  if (!hasResolverAlignmentGate){
+  if (!hasResolverAlignmentGate && !districtPhase1Mode){
     const msg = "District evidence alignment gate unavailable in engine snapshot.";
     resolverNotes.unshift(msg);
     resolverAlignmentMismatches.unshift(msg);
   }
-  const resolverAllAligned = hasResolverAlignmentGate && resolverAlignmentMismatches.length === 0;
+  const resolverAllAligned = districtPhase1Mode
+    ? true
+    : (hasResolverAlignmentGate && resolverAlignmentMismatches.length === 0);
   const inputSummary = (typeof summarizeDistrictEvidenceInputs === "function")
     ? (() => {
       try{
@@ -2190,15 +2187,17 @@ export function renderIntelChecksModule({
   if (els.intelDistrictEvidenceInputsSummary){
     const fallbackLine = [
       `Input mode: ${resolverMode || "none"}`,
-      `Election rows: ${precinctResults.length}`,
-      `Crosswalk rows: ${crosswalkRows.length}`,
       `Census rows: ${censusGeoRows.length}`,
     ].join(" · ");
-    const line = String(inputSummary?.summaryLine || fallbackLine);
+    const line = districtPhase1Mode
+      ? fallbackLine
+      : String(inputSummary?.summaryLine || fallbackLine);
     els.intelDistrictEvidenceInputsSummary.classList.remove("ok", "warn", "muted");
-    if (inputSummary && inputSummary.ready){
+    if (districtPhase1Mode && censusGeoRows.length > 0){
       els.intelDistrictEvidenceInputsSummary.classList.add("ok");
-    } else if ((resolverMode === "inline" || resolverMode === "refs") && (precinctResults.length || crosswalkRows.length || censusGeoRows.length)){
+    } else if (inputSummary && inputSummary.ready){
+      els.intelDistrictEvidenceInputsSummary.classList.add("ok");
+    } else if ((resolverMode === "inline" || resolverMode === "refs") && censusGeoRows.length){
       els.intelDistrictEvidenceInputsSummary.classList.add("warn");
     } else {
       els.intelDistrictEvidenceInputsSummary.classList.add("muted");
@@ -2370,9 +2369,15 @@ export function renderIntelChecksModule({
 
   const flowAreaReady = areaReadyForFlow(areaForDisplay);
   const areaGeoFilterSet = buildAreaGeoFilterSet(state, areaForDisplay);
-  const gatedPrecinctResults = hasResolverAlignmentGate ? precinctResults : [];
-  const gatedCrosswalkRows = hasResolverAlignmentGate ? crosswalkRows : [];
-  const gatedCensusGeoRows = hasResolverAlignmentGate ? censusGeoRows : [];
+  const gatedPrecinctResults = districtPhase1Mode
+    ? precinctResults
+    : (hasResolverAlignmentGate ? precinctResults : []);
+  const gatedCrosswalkRows = districtPhase1Mode
+    ? crosswalkRows
+    : (hasResolverAlignmentGate ? crosswalkRows : []);
+  const gatedCensusGeoRows = districtPhase1Mode
+    ? censusGeoRows
+    : (hasResolverAlignmentGate ? censusGeoRows : []);
   const scopedCrosswalkRows = flowAreaReady
     ? gatedCrosswalkRows.filter((row) => geoRowMatchesArea({ geoid: row?.geoid }, areaForDisplay, areaGeoFilterSet))
     : gatedCrosswalkRows;
@@ -2381,7 +2386,9 @@ export function renderIntelChecksModule({
     : gatedCensusGeoRows;
   const areaCrosswalkMismatch = flowAreaReady && crosswalkRows.length > 0 && scopedCrosswalkRows.length === 0;
   const areaCensusMismatch = flowAreaReady && censusGeoRows.length > 0 && scopedCensusGeoRows.length === 0;
-  const areaDataMismatch = areaCrosswalkMismatch || areaCensusMismatch;
+  const areaDataMismatch = districtPhase1Mode
+    ? areaCensusMismatch
+    : (areaCrosswalkMismatch || areaCensusMismatch);
   const selectedAreaFallbackDemographicsEvidence = {
     censusTotals: (districtBlob && typeof districtBlob.censusTotals === "object") ? districtBlob.censusTotals : {},
     geoRows: Array.isArray(scopedCensusGeoRows)
@@ -2408,6 +2415,31 @@ export function renderIntelChecksModule({
     if (!flowAreaReady){
       els.intelFlowStepStatus.classList.add("warn");
       els.intelFlowStepStatus.textContent = "Flow: Step 1 select area (state + type + ID) before loading data.";
+      return;
+    }
+    if (districtPhase1Mode){
+      if (!scopedCensusGeoRows.length){
+        els.intelFlowStepStatus.classList.add("warn");
+        els.intelFlowStepStatus.textContent = "Flow: Step 2 fetch Census GEO rows for selected area.";
+        return;
+      }
+      if (!compiledReady){
+        els.intelFlowStepStatus.classList.add("ok");
+        els.intelFlowStepStatus.textContent = "Flow: Census map and demographics are ready.";
+        return;
+      }
+      if (!packReady){
+        els.intelFlowStepStatus.classList.add("warn");
+        els.intelFlowStepStatus.textContent = "Flow: Step 3 click Generate district-intel assumptions.";
+        return;
+      }
+      if (!useDistrictIntel){
+        els.intelFlowStepStatus.classList.add("ok");
+        els.intelFlowStepStatus.textContent = "Flow: Step 4 toggle Use district-intel assumptions ON to apply.";
+        return;
+      }
+      els.intelFlowStepStatus.classList.add("ok");
+      els.intelFlowStepStatus.textContent = "Flow: Active. Census evidence and district-intel assumptions are applied.";
       return;
     }
     if (areaDataMismatch){
@@ -2569,14 +2601,19 @@ export function renderIntelChecksModule({
     }
   }
   const sourceParts = [];
-  if (dataRefMode) sourceParts.push(`Mode: ${dataRefMode}`);
-  if (censusIdForUi) sourceParts.push(`Census: ${censusIdForUi}`);
-  if (electionIdForUi) sourceParts.push(`Election: ${electionIdForUi}`);
-  if (crosswalkIdForUi) sourceParts.push(`Crosswalk: ${crosswalkIdForUi}`);
-  if (resolverMode) sourceParts.push(`Input mode: ${resolverMode}`);
-  if (strictSimilarity) sourceParts.push("Strict: office+race");
-  if (Number.isFinite(maxYearDelta)) sourceParts.push(`Year gap<=${Math.max(0, Math.round(maxYearDelta))}`);
-  if (Number.isFinite(minCoveragePct)) sourceParts.push(`Coverage>=${Math.max(0, Math.min(100, minCoveragePct)).toFixed(1)}%`);
+  if (districtPhase1Mode){
+    if (censusIdForUi) sourceParts.push(`Census: ${censusIdForUi}`);
+    if (resolverMode) sourceParts.push(`Input mode: ${resolverMode}`);
+  } else {
+    if (dataRefMode) sourceParts.push(`Mode: ${dataRefMode}`);
+    if (censusIdForUi) sourceParts.push(`Census: ${censusIdForUi}`);
+    if (electionIdForUi) sourceParts.push(`Election: ${electionIdForUi}`);
+    if (crosswalkIdForUi) sourceParts.push(`Crosswalk: ${crosswalkIdForUi}`);
+    if (resolverMode) sourceParts.push(`Input mode: ${resolverMode}`);
+    if (strictSimilarity) sourceParts.push("Strict: office+race");
+    if (Number.isFinite(maxYearDelta)) sourceParts.push(`Year gap<=${Math.max(0, Math.round(maxYearDelta))}`);
+    if (Number.isFinite(minCoveragePct)) sourceParts.push(`Coverage>=${Math.max(0, Math.min(100, minCoveragePct)).toFixed(1)}%`);
+  }
   const districtEvidenceSourceBaseLine = sourceParts.length
     ? sourceParts.join(" · ")
     : "No pinned datasets selected yet.";
@@ -2817,14 +2854,22 @@ export function renderIntelChecksModule({
       typeof engine?.snapshot?.buildAutoPullUrlPlan !== "function";
   }
   if (els.btnIntelGenerateDistrictIntel){
-    els.btnIntelGenerateDistrictIntel.disabled = !(
-      flowAreaReady &&
-      censusViewReady &&
-      !areaDataMismatch &&
-      !dataRefAreaMismatch &&
-      typeof engine?.snapshot?.buildDistrictIntelPackFromEvidence === "function" &&
-      typeof engine?.snapshot?.compileDistrictEvidence === "function"
-    );
+    if (districtPhase1Mode){
+      els.btnIntelGenerateDistrictIntel.disabled = !(
+        flowAreaReady &&
+        scopedCensusGeoRows.length > 0 &&
+        typeof engine?.snapshot?.buildDistrictIntelPackFromEvidence === "function"
+      );
+    } else {
+      els.btnIntelGenerateDistrictIntel.disabled = !(
+        flowAreaReady &&
+        censusViewReady &&
+        !areaDataMismatch &&
+        !dataRefAreaMismatch &&
+        typeof engine?.snapshot?.buildDistrictIntelPackFromEvidence === "function" &&
+        typeof engine?.snapshot?.compileDistrictEvidence === "function"
+      );
+    }
   }
   /** @type {any} */
   let autoPullPlanForRender = null;
@@ -2983,77 +3028,24 @@ export function renderIntelChecksModule({
     }
   }
 
-  if (typeof compileDistrictEvidence !== "function"){
-    if (els.intelDistrictEvidenceStatus){
-      els.intelDistrictEvidenceStatus.classList.remove("ok", "warn", "bad");
-      els.intelDistrictEvidenceStatus.classList.add("warn");
-      els.intelDistrictEvidenceStatus.textContent = "District evidence compiler unavailable in engine snapshot.";
-    }
-    if (els.intelDistrictEvidenceCoverage) els.intelDistrictEvidenceCoverage.textContent = "Coverage: —";
-    if (els.intelDistrictEvidenceVotes) els.intelDistrictEvidenceVotes.textContent = "Votes: —";
-    if (els.intelDistrictEvidenceSignal) els.intelDistrictEvidenceSignal.textContent = "Persuasion signal: —";
-    fillDistrictEvidenceCandidateTable(els.intelDistrictEvidenceCandidateTbody, []);
-    fillDistrictEvidencePrecinctTable(els.intelDistrictEvidencePrecinctTbody, []);
-    fillDistrictEvidenceLinkTable(els.intelDistrictEvidenceLinkTbody, []);
-    fillDistrictEvidenceGeoTable(els.intelDistrictEvidenceGeoTbody, []);
-    fillDistrictEvidenceOpportunityTable(els.intelDistrictEvidenceOpportunityTbody, []);
-    fillDistrictDemographicsTable(els.intelDistrictDemographicsTbody, selectedAreaFallbackDemographicsEvidence);
-    renderGeoInspector(els, [], "");
-    renderDistrictEvidenceMap(
-      els.intelDistrictEvidenceMapSvg,
-      els.intelDistrictEvidenceMapStatus,
-      { available: false, reason: "Map unavailable: district evidence compiler unavailable.", bounds: null, points: [] },
-      {
-        yourCandidateId: state?.yourCandidateId,
-        area: areaForDisplay,
-        areaBoundary: districtBlob?.areaBoundary || state?.geoPack?.areaBoundary || null,
-        selectedGeoId: "",
-      }
-    );
-    setFlowStepStatus(false);
-    fillDistrictEvidenceDatasetRankTable(els.intelDistrictEvidenceDatasetRankTbody, rankedElectionDatasets, selectedElectionId);
-    return;
-  }
-
   let evidence = null;
-  try{
-    evidence = compileDistrictEvidence({
-      geoUnits: state?.geoPack?.units || [],
-      precinctResults: gatedPrecinctResults,
-      crosswalkRows: scopedCrosswalkRows,
-      censusGeoRows: scopedCensusGeoRows,
-    });
-  } catch (err){
-    if (els.intelDistrictEvidenceStatus){
-      const msg = String(err?.message || "compile failed");
-      els.intelDistrictEvidenceStatus.classList.remove("ok", "warn", "bad");
-      els.intelDistrictEvidenceStatus.classList.add("bad");
-      els.intelDistrictEvidenceStatus.textContent = `District evidence compile failed: ${msg}`;
+  let compileWarn = "";
+  if (typeof compileDistrictEvidence === "function"){
+    try{
+      evidence = compileDistrictEvidence({
+        geoUnits: state?.geoPack?.units || [],
+        precinctResults: gatedPrecinctResults,
+        crosswalkRows: scopedCrosswalkRows,
+        censusGeoRows: scopedCensusGeoRows,
+      });
+    } catch (err){
+      compileWarn = `District evidence compile failed: ${String(err?.message || "unknown error")}`;
     }
-    if (els.intelDistrictEvidenceCoverage) els.intelDistrictEvidenceCoverage.textContent = "Coverage: —";
-    if (els.intelDistrictEvidenceVotes) els.intelDistrictEvidenceVotes.textContent = "Votes: —";
-    if (els.intelDistrictEvidenceSignal) els.intelDistrictEvidenceSignal.textContent = "Persuasion signal: —";
-    fillDistrictEvidenceCandidateTable(els.intelDistrictEvidenceCandidateTbody, []);
-    fillDistrictEvidencePrecinctTable(els.intelDistrictEvidencePrecinctTbody, []);
-    fillDistrictEvidenceLinkTable(els.intelDistrictEvidenceLinkTbody, []);
-    fillDistrictEvidenceGeoTable(els.intelDistrictEvidenceGeoTbody, []);
-    fillDistrictEvidenceOpportunityTable(els.intelDistrictEvidenceOpportunityTbody, []);
-    fillDistrictDemographicsTable(els.intelDistrictDemographicsTbody, selectedAreaFallbackDemographicsEvidence);
-    renderGeoInspector(els, [], "");
-    renderDistrictEvidenceMap(
-      els.intelDistrictEvidenceMapSvg,
-      els.intelDistrictEvidenceMapStatus,
-      { available: false, reason: "Map unavailable: district evidence compile failed.", bounds: null, points: [] },
-      {
-        yourCandidateId: state?.yourCandidateId,
-        area: areaForDisplay,
-        areaBoundary: districtBlob?.areaBoundary || state?.geoPack?.areaBoundary || null,
-        selectedGeoId: "",
-      }
-    );
-    setFlowStepStatus(false);
-    fillDistrictEvidenceDatasetRankTable(els.intelDistrictEvidenceDatasetRankTbody, rankedElectionDatasets, selectedElectionId);
-    return;
+  } else {
+    compileWarn = "";
+  }
+  if (!evidence || typeof evidence !== "object"){
+    evidence = buildCensusOnlyEvidence(scopedCensusGeoRows, compileWarn);
   }
 
   const candidateTotals = Array.isArray(evidence?.candidateTotals) ? evidence.candidateTotals : [];
@@ -3132,17 +3124,15 @@ export function renderIntelChecksModule({
       };
     }
   }
-  const coveragePct = Number(evidence?.reconciliation?.coveragePct);
-  const unmatchedVotes = Number(evidence?.reconciliation?.unmatchedVotes);
-  const totalVotes = Number(evidence?.summary?.totalVotes);
-  const signal = Number(evidence?.persuasionSignal?.index);
-  const signalNote = String(evidence?.persuasionSignal?.note || "").trim();
+  const censusTotalsForDisplay = mergeCensusTotalsFromGeoRows({}, displayGeoRows);
+  const populationTotal = pickCensusMetric(censusTotalsForDisplay, ["pop", "population", "total_population", "B01003_001E", "B01003_001"]);
+  const housingUnitsTotal = pickCensusMetric(censusTotalsForDisplay, ["housing_units", "housing", "total_housing_units", "B25001_001E", "B25001_001"]);
   const warnings = Array.isArray(evidence?.warnings) ? evidence.warnings : [];
   const mergedNotes = resolverNotes.concat(
     warnings.map((x) => String(x || "").trim()).filter(Boolean)
   );
   if (usingCensusAreaFallback){
-    mergedNotes.push("Render source switched to selected-area census-only fallback because aligned election+crosswalk+census rows are not ready.");
+    mergedNotes.push("Render source switched to selected-area census-only fallback.");
   }
   if (usingCensusAreaFallback){
     if (typeof summarizeGeoEvidenceLayers === "function"){
@@ -3209,24 +3199,19 @@ export function renderIntelChecksModule({
     if (areaDataMismatch){
       els.intelDistrictEvidenceStatus.classList.add("warn");
       const reasons = [];
-      if (areaCrosswalkMismatch) reasons.push("crosswalk rows");
       if (areaCensusMismatch) reasons.push("census rows");
+      if (!reasons.length) reasons.push("census rows");
       els.intelDistrictEvidenceStatus.textContent = `Evidence area mismatch: selected area has no matching ${reasons.join(" + ")}. Reload/import data for this area.`;
     } else if (!scopedCensusGeoRows.length){
       els.intelDistrictEvidenceStatus.classList.add("warn");
       const note = mergedNotes[0] || "Load Census GEO rows for the selected area to activate map + demographics.";
       els.intelDistrictEvidenceStatus.textContent = note;
-    } else if (!gatedPrecinctResults.length || !scopedCrosswalkRows.length){
-      els.intelDistrictEvidenceStatus.classList.add("ok");
-      const geoCount = Number(evidence?.summary?.geoRowsCount || displayGeoRows.length || 0);
-      els.intelDistrictEvidenceStatus.textContent = `Census-only view ready: ${fmtInt(geoCount)} GEO rows.`;
     } else if (mergedNotes.length){
       els.intelDistrictEvidenceStatus.classList.add("warn");
       els.intelDistrictEvidenceStatus.textContent = `Evidence compiled with warnings: ${mergedNotes[0]}`;
     } else {
       els.intelDistrictEvidenceStatus.classList.add("ok");
-      els.intelDistrictEvidenceStatus.textContent =
-        `Evidence ready: ${candidateTotals.length} candidates, ${links.length} precinct links, ${Number(evidence?.summary?.geoRowsCount || 0)} geo rows.`;
+      els.intelDistrictEvidenceStatus.textContent = `Census view ready: ${fmtInt(displayGeoRows.length)} GEO rows.`;
     }
   }
   if (els.intelDistrictEvidenceSource){
@@ -3237,19 +3222,17 @@ export function renderIntelChecksModule({
     els.intelDistrictEvidenceSource.title = "Render source prioritizes selected-area census rows.";
   }
   if (els.intelDistrictEvidenceCoverage){
-    els.intelDistrictEvidenceCoverage.textContent = Number.isFinite(coveragePct)
-      ? `Coverage: ${fmtPct(coveragePct, 2)} · Unmatched votes: ${fmtInt(unmatchedVotes)}`
-      : "Coverage: —";
+    els.intelDistrictEvidenceCoverage.textContent = `GEO rows loaded: ${fmtInt(displayGeoRows.length)}`;
   }
   if (els.intelDistrictEvidenceVotes){
-    els.intelDistrictEvidenceVotes.textContent = Number.isFinite(totalVotes)
-      ? `Weighted total votes: ${fmtInt(totalVotes)}`
-      : "Weighted total votes: —";
+    els.intelDistrictEvidenceVotes.textContent = Number.isFinite(populationTotal)
+      ? `Population total: ${fmtInt(populationTotal)}`
+      : "Population total: —";
   }
   if (els.intelDistrictEvidenceSignal){
-    els.intelDistrictEvidenceSignal.textContent = Number.isFinite(signal)
-      ? `Persuasion signal index: ${signal.toFixed(3)}${signalNote ? ` · ${signalNote}` : ""}`
-      : "Persuasion signal index: —";
+    els.intelDistrictEvidenceSignal.textContent = Number.isFinite(housingUnitsTotal)
+      ? `Housing units total: ${fmtInt(housingUnitsTotal)}`
+      : "Housing units total: —";
   }
   fillDistrictDemographicsTable(
     els.intelDistrictDemographicsTbody,
@@ -3302,10 +3285,20 @@ export function renderIntelChecksModule({
     }
   );
   const compileReady =
-    flowAreaReady &&
-    resolverAllAligned &&
-    !areaDataMismatch &&
-    Array.isArray(displayGeoRows) &&
-    displayGeoRows.length > 0;
+    districtPhase1Mode
+      ? (
+        flowAreaReady &&
+        !areaDataMismatch &&
+        Array.isArray(displayGeoRows) &&
+        displayGeoRows.length > 0
+      )
+      : (
+        flowAreaReady &&
+        resolverAllAligned &&
+        !areaDataMismatch &&
+        Array.isArray(displayGeoRows) &&
+        displayGeoRows.length > 0
+      );
   setFlowStepStatus(compileReady);
+  renderDistrictCensusSimple({ els, state, engine });
 }

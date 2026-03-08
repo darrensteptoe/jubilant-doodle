@@ -546,6 +546,7 @@ function renderMapNow(host, statusEl, args){
       lon: p.lon,
       geoid: str(row?.geoid),
       totalVotes: Math.max(0, Number(row?.totalVotes) || 0),
+      hasElection: !!row?.hasElection,
       marginPct: Number.isFinite(Number(row?.marginPct)) ? Number(row.marginPct) : null,
       leaderCandidateId: str(row?.leaderCandidateId),
       population: Number.isFinite(Number(row?.population)) ? Number(row.population) : null,
@@ -617,8 +618,12 @@ function renderMapNow(host, statusEl, args){
       const marginText = row.marginPct == null ? "—" : `${row.marginPct.toFixed(1)}%`;
       const popText = row.population == null ? "—" : String(Math.round(row.population));
       const housingText = row.housingUnits == null ? "—" : String(Math.round(row.housingUnits));
+      const volumeLabel = row.hasElection ? "votes" : "pop";
+      const volumeValue = row.hasElection
+        ? Math.round(row.totalVotes)
+        : (row.population == null ? Math.round(row.totalVotes) : Math.round(row.population));
       marker.bindTooltip(
-        `${row.geoid || "—"} | votes ${Math.round(row.totalVotes)} | top ${row.leaderCandidateId || "—"} | margin ${marginText} | pop ${popText} | housing ${housingText}`,
+        `${row.geoid || "—"} | ${volumeLabel} ${volumeValue} | top ${row.leaderCandidateId || "—"} | margin ${marginText} | pop ${popText} | housing ${housingText}`,
         { direction: "top", offset: [0, -4] }
       );
       if (onSelectGeo){
