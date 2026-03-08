@@ -442,11 +442,69 @@ body.strict-import .toggle-pill:has(#toggleStrictImport) .toggle-dot-new {
 .stage-body-new {
   flex: 1;
   overflow-y: auto;
-  padding: var(--space-5) var(--space-5) var(--space-8);
+  padding: 24px 32px;
   display: flex;
   flex-direction: column;
-  gap: var(--space-5);
+  gap: 28px;
   scroll-padding-top: 12px;
+}
+
+.reach-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 24px;
+}
+
+.reach-controls,
+.reach-state,
+.reach-results {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.advanced-controls {
+  margin-top: 12px;
+  padding: 12px;
+  border: 1px dashed var(--s-rule);
+  border-radius: 8px;
+  display: none;
+}
+
+.show-advanced .advanced-controls {
+  display: block;
+}
+
+.why-panel {
+  padding: 18px;
+  background: var(--s-panel);
+  border: 1px solid var(--s-rule);
+  border-radius: 12px;
+  font-size: 14px;
+}
+
+.why-panel h3 {
+  margin: 0 0 10px;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.why-panel ul {
+  margin: 0;
+  padding-left: 18px;
+  display: grid;
+  gap: 6px;
+}
+
+.status-tag {
+  display: inline-flex;
+  align-items: center;
+  font-size: 11px;
+  padding: 3px 6px;
+  border-radius: 4px;
+  background: #eef2ff;
+  color: #3730a3;
+  border: 1px solid color-mix(in srgb, #3730a3 20%, transparent);
 }
 
 .stage-body-new .grid2,
@@ -535,6 +593,7 @@ body.strict-import .toggle-pill:has(#toggleStrictImport) .toggle-dot-new {
 /* Cards inside stage body use spacing-only module separation. */
 .stage-body-new .card {
   margin-top: 0;
+  border-radius: 12px;
 }
 
 /* Top-level cards touching page background use gray surface; nested cards stay panel/white. */
@@ -544,6 +603,7 @@ body.strict-import .toggle-pill:has(#toggleStrictImport) .toggle-dot-new {
   max-width: none;
   align-self: stretch;
   position: relative;
+  padding-bottom: 18px;
 }
 .stage-body-new > .card .card {
   background: var(--s-panel);
@@ -1042,6 +1102,9 @@ body.focus-view .stage-body-new {
   .checks-grid {
     grid-template-columns: 1fr;
   }
+  .reach-grid {
+    grid-template-columns: 1fr 1fr;
+  }
 }
 
 @media (max-width: 1024px) {
@@ -1069,5 +1132,9 @@ body.focus-view .stage-body-new {
 
   .kpi-strip-new {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .reach-grid {
+    grid-template-columns: 1fr;
   }
 }

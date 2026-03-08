@@ -116,6 +116,7 @@
 <div class="kpi-card-new">
 <span class="kpi-label-new">Primary bottleneck</span>
 <strong class="kpi-value-new" id="kpiBottleneck">—</strong>
+<span class="status-tag" id="kpiPathTag">Balanced</span>
 </div>
 </div>
 <!-- ── STAGE: setup ── -->
@@ -196,10 +197,30 @@
 </div>
 </div>
 </div>
+<div class="card card-section" id="districtSummaryCard">
+<div class="card-head card-header"><h2 class="card-title">District Summary</h2></div>
+<div class="subgrid">
+<div class="mini">
+<div class="mini-k">Universe</div>
+<div class="mini-v" id="districtSummaryUniverse">—</div>
+</div>
+<div class="mini">
+<div class="mini-k">Expected turnout</div>
+<div class="mini-v" id="districtSummaryTurnout">—</div>
+</div>
+<div class="mini">
+<div class="mini-k">Votes to win</div>
+<div class="mini-v" id="districtSummaryNeed">—</div>
+</div>
+</div>
+<div class="rowline" style="margin-top:10px;">
+<span class="status-tag" id="districtSummaryPath">Balanced</span>
+</div>
+</div>
 </div></section>
 
 <!-- ── STAGE: universe ── -->
-<section class="stage-new" id="stage-universe">
+<section class="stage-new" id="stage-universe" style="display:none;">
 <div class="stage-header-new">
 <div class="stage-meta-new">
 <span class="stage-tag-new">Stage 2</span>
@@ -266,7 +287,7 @@
 </div>
 </section>
 <!-- ── STAGE: ballot ── -->
-<section class="stage-new" id="stage-ballot">
+<section class="stage-new" id="stage-ballot" style="display:none;">
 <div class="stage-header-new">
 <div class="stage-meta-new">
 <span class="stage-tag-new">Stage 3</span>
@@ -402,6 +423,7 @@
 <div class="stage-meta-new">
 <span class="stage-tag-new">Stage 4</span>
 <span class="stage-title-new">Reach</span>
+<span class="status-tag" id="reachStatusTag">Balanced</span>
 </div>
 <p class="stage-sub-new">How much contact the program can realistically generate, what share of the target universe it can cover, and where capacity breaks down.</p>
 <div class="training-panel-new" id="train-capacity">
@@ -876,7 +898,7 @@
 </div>
 </section>
 <!-- ── STAGE: structure ── -->
-<section class="stage-new" id="stage-structure">
+<section class="stage-new" id="stage-structure" style="display:none;">
 <div class="stage-header-new">
 <div class="stage-meta-new">
 <span class="stage-tag-new">Stage 6</span>
@@ -962,6 +984,7 @@
 <div class="stage-meta-new">
 <span class="stage-tag-new">Stage 7</span>
 <span class="stage-title-new">Outcome</span>
+<span class="status-tag" id="outcomeStatusTag">Monitoring</span>
 </div>
 <p class="stage-sub-new">Forecast, uncertainty, and what is driving the current path.</p>
 <div class="training-panel-new" id="train-results">
@@ -999,6 +1022,7 @@
 <span class="mc-summary-title">Monte Carlo controls</span>
 <span class="chip">Monte Carlo 10k</span>
 </div>
+<button class="btn btn-sm btn-ghost" onclick="toggleAdvanced(this)" type="button">Advanced assumptions</button>
 <div class="mc-body">
 <div class="grid3">
 <div class="field">
@@ -1098,7 +1122,7 @@
                   Basic mode uses your base contact and support rates, plus the reliability and capacity assumptions above.
                 </div>
 </div>
-<div class="mc-adv" id="mcAdvanced">
+<div class="mc-adv advanced-controls" id="mcAdvanced">
 <div class="note">Advanced mode uses triangular distributions (min / expected / max) per variable.</div>
 <div class="table-wrap">
 <table aria-label="Monte Carlo ranges" class="table sens-table">
@@ -1553,6 +1577,7 @@
 </label>
 <span class="muted" style="font-size:12px;">When ON, marginal lift tapers as you approach the ceiling.</span>
 </div>
+<button class="btn btn-sm btn-ghost" onclick="toggleAdvanced(this)" type="button">Advanced assumptions</button>
 <div class="mc-subpanel active" id="gotvBasic" style="margin-top:10px;">
 <div class="grid3">
 <div class="field">
@@ -1577,7 +1602,7 @@
 </div>
 </div>
 </div>
-<div class="mc-subpanel" id="gotvAdvanced" style="margin-top:10px;">
+<div class="mc-subpanel advanced-controls" id="gotvAdvanced" style="margin-top:10px;">
 <div class="grid3">
 <div class="field">
 <label class="label" for="gotvLiftMin">Lift min (pp)</label>
@@ -3392,18 +3417,26 @@ Volunteer multiplier stays above 1.5" rows="4"></textarea>
   <!-- KEY ASSUMPTIONS -->
   <div class="sidebar-section-new">
     <div class="sidebar-label-new">What changed</div>
+    <div class="kv-mini-new"><span>Win probability</span><span id="inspectorDeltaWinProb">—</span></div>
+    <div class="kv-mini-new"><span>Projected margin</span><span id="inspectorDeltaMargin">—</span></div>
     <div class="assumptions" id="assumptionsSnapshot"></div>
   </div>
 
   <!-- DATA CHECKS & GUARDRAILS -->
   <div class="sidebar-section-new">
     <div class="sidebar-label-new">Key assumptions</div>
+    <div class="kv-mini-new"><span>Persuasion rate</span><span id="inspectorAssumptionPersuasion">—</span></div>
+    <div class="kv-mini-new"><span>Contact rate</span><span id="inspectorAssumptionContact">—</span></div>
+    <div class="kv-mini-new"><span>Turnout lift</span><span id="inspectorAssumptionTurnout">—</span></div>
     <div class="guardrails" id="guardrails"></div>
   </div>
 
   <!-- WIN PATH KPIs -->
   <div class="sidebar-section-new sidebar-win-expected">
     <div class="sidebar-label-new">Source quality</div>
+    <div class="kv-mini-new"><span>Evidence age</span><span id="inspectorSourceAge">—</span></div>
+    <div class="kv-mini-new"><span>Last refresh</span><span id="inspectorSourceRefresh">—</span></div>
+    <div class="kv-mini-new"><span>Data source</span><span id="inspectorSourceType">—</span></div>
     <div class="win-stat-new">
       <span class="win-stat-label-new">Turnout votes</span>
       <span class="win-stat-val-new" id="kpiTurnoutVotes-sidebar">—</span>
@@ -3428,6 +3461,7 @@ Volunteer multiplier stays above 1.5" rows="4"></textarea>
   <!-- EARLY / ED SPLIT -->
   <div class="sidebar-section-new sidebar-early-split">
     <div class="sidebar-label-new">Warnings</div>
+    <div class="banner warn" id="inspectorWarningBand">—</div>
     <div class="kv-mini-new"><span>Early votes (expected)</span><span id="miniEarlyVotes-sidebar">—</span></div>
     <div class="kv-mini-new"><span>Election day votes</span><span id="miniEDVotes-sidebar">—</span></div>
     <div class="kv-mini-new"><span>Note</span><span id="miniEarlyNote-sidebar">—</span></div>
@@ -3438,6 +3472,7 @@ Volunteer multiplier stays above 1.5" rows="4"></textarea>
   <!-- STRESS TEST SUMMARY -->
   <div class="sidebar-section-new">
     <div class="sidebar-label-new">Next action</div>
+    <div class="banner" id="inspectorNextAction">—</div>
     <div class="stress" id="stressBox">
       <div class="stress-item">—</div>
     </div>
@@ -3445,7 +3480,7 @@ Volunteer multiplier stays above 1.5" rows="4"></textarea>
 
   <!-- MONTE CARLO WIN PROBABILITY -->
   <div class="sidebar-section-new">
-    <div class="sidebar-label-new">Summary</div>
+    <div class="sidebar-label-new">Confidence</div>
     <div class="mc-prob-row-new">
       <span class="mc-prob-val-new" id="mcWinProb-sidebar">—</span>
       <span class="mc-prob-sub-new">simulated</span>
@@ -3472,7 +3507,7 @@ Volunteer multiplier stays above 1.5" rows="4"></textarea>
 
   <!-- RISK FRAMING -->
   <div class="sidebar-section-new">
-    <div class="sidebar-label-new">Warnings</div>
+    <div class="sidebar-label-new">Risk profile</div>
     <div style="display:flex; align-items:center; gap:8px; margin-bottom:6px;">
       <span class="badge" id="riskBandTag-sidebar">—</span>
       <span class="muted" id="riskWinProb-sidebar" style="font-size:11px;">—</span>
@@ -3493,7 +3528,7 @@ Volunteer multiplier stays above 1.5" rows="4"></textarea>
 
   <!-- METADATA (RIGHT RAIL ONLY) -->
   <div class="sidebar-section-new" style="margin-top:auto; border-top: 1px solid var(--rule);">
-    <div class="sidebar-label-new">Source quality</div>
+    <div class="sidebar-label-new">Metadata</div>
     <div class="kv-mini-new"><span>Universe basis</span><span id="metaUniverseBasis">—</span></div>
     <div class="kv-mini-new"><span>Source note</span><span id="metaSourceNote">—</span></div>
     <div class="kv-mini-new dim-text"><span id="snapshotHash-sidebar">—</span></div>
@@ -3524,6 +3559,11 @@ function switchStage(btn, stageId) {
 function toggleTrainPanel(id) {
   var el = document.getElementById(id);
   if (el) el.classList.toggle('collapsed');
+}
+
+function toggleAdvanced(btn) {
+  var card = btn ? btn.closest('.card') : null;
+  if (card) card.classList.toggle('show-advanced');
 }
 
 function setText(selector, text) {
@@ -3561,7 +3601,8 @@ function consolidateDistrictStage() {
     turnoutBaselineCard.id = 'districtTurnoutBaselineCard';
   }
   var electorateCard = document.getElementById('electorateWeightingCard');
-  [raceCard, universeCard, ballotCard, turnoutBaselineCard, electorateCard].forEach(function(node){
+  var districtSummaryCard = document.getElementById('districtSummaryCard');
+  [raceCard, universeCard, ballotCard, turnoutBaselineCard, electorateCard, districtSummaryCard].forEach(function(node){
     moveNode(node, setupBody);
   });
   setupBody.querySelectorAll('.setup-divider').forEach(function(node){
@@ -3580,16 +3621,44 @@ function consolidateDistrictStage() {
 function orderCapacitySurface() {
   var capacityBody = document.querySelector('#stage-capacity .stage-body-new');
   if (!capacityBody) return;
-  [
-    'capacityUniverseCard',
-    'weeklyOpsCard',
-    'weeklyOpsLeversCard',
-    'operationsCapacityOutlookCard',
-    'weeklyOpsActionsCard',
-    'weeklyOpsFreshnessCard',
-    'conversionCard'
-  ].forEach(function(id){
-    moveNode(document.getElementById(id), capacityBody);
+  var reachGrid = capacityBody.querySelector('.reach-grid');
+  if (!reachGrid) {
+    reachGrid = document.createElement('div');
+    reachGrid.className = 'reach-grid';
+    reachGrid.innerHTML = '<div class="reach-controls"></div><div class="reach-state"></div><div class="reach-results"></div>';
+    capacityBody.appendChild(reachGrid);
+  }
+  var controlsCol = reachGrid.querySelector('.reach-controls');
+  var stateCol = reachGrid.querySelector('.reach-state');
+  var resultsCol = reachGrid.querySelector('.reach-results');
+  ['weeklyOpsCard', 'weeklyOpsLeversCard'].forEach(function(id){
+    moveNode(document.getElementById(id), controlsCol);
+  });
+  ['capacityUniverseCard', 'operationsCapacityOutlookCard'].forEach(function(id){
+    moveNode(document.getElementById(id), stateCol);
+  });
+  ['weeklyOpsActionsCard', 'weeklyOpsFreshnessCard', 'conversionCard'].forEach(function(id){
+    moveNode(document.getElementById(id), resultsCol);
+  });
+}
+
+function ensureWhyPanels() {
+  var specs = [
+    { stage: 'setup', id: 'whyDistrictPanel', lines: ['Coverage is constrained by district size and baseline support.', 'Turnout baseline sets the floor for every path.', 'Weighting assumptions can materially shift expected demand.'] },
+    { stage: 'capacity', id: 'whyReachPanel', lines: ['Organizer capacity and productivity set the weekly ceiling.', 'Rate assumptions determine attempts needed.', 'Execution drift compounds quickly across remaining weeks.'] },
+    { stage: 'results', id: 'whyOutcomePanel', lines: ['Forecast changes are driven by rates, capacity, and turnout assumptions.', 'Uncertainty band width signals fragility.', 'Small assumption shifts can move win probability materially.'] },
+    { stage: 'roi', id: 'whyTurnoutPanel', lines: ['Cost efficiency depends on contact and support conversion.', 'Lift assumptions drive realized-vote sensitivity.', 'Resource allocation should follow bottleneck relief.'] },
+    { stage: 'gotv', id: 'whyPlanPanel', lines: ['Execution burden is a direct function of current vote goal.', 'Staffing and shift assumptions determine feasibility.', 'If workload is unrealistic, rebalance capacity before assumptions.'] }
+  ];
+  specs.forEach(function(spec){
+    var body = document.querySelector('#stage-' + spec.stage + ' .stage-body-new');
+    if (!body) return;
+    if (document.getElementById(spec.id)) return;
+    var panel = document.createElement('div');
+    panel.className = 'why-panel';
+    panel.id = spec.id;
+    panel.innerHTML = '<h3>Why this result</h3><ul><li>' + spec.lines.join('</li><li>') + '</li></ul>';
+    body.appendChild(panel);
   });
 }
 
@@ -3597,6 +3666,7 @@ function applyShellLayout() {
   enforceShellCopy();
   consolidateDistrictStage();
   orderCapacitySurface();
+  ensureWhyPanels();
 }
 
 document.addEventListener('DOMContentLoaded', function(){
