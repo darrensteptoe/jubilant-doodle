@@ -514,7 +514,7 @@ Execution order for the first functional district-evidence layer.
    - `/Users/anakinskywalker/Downloads/field-app-40/js/core/selfTestSuites/releaseHardening.js`
      - adds deterministic contract warning test for provenance drift.
 
-## Phase 14: Automatic source pull bridge (in progress)
+## Phase 14: Automatic source pull bridge (done)
 Execution order for additive auto-ingest on top of deterministic/manual ingest.
 
 1. [x] Add Stage 9 URL-based auto-pull controls wired into existing validators/importers:
@@ -599,3 +599,16 @@ Execution order for additive auto-ingest on top of deterministic/manual ingest.
    - `/Users/anakinskywalker/Downloads/field-app-40/js/core/selfTestSuites/releaseHardening.js`
    - `/Users/anakinskywalker/Downloads/field-app-40/js/core/selfTest.js`
      - adds deterministic fingerprint + alignment + legacy-receipt regression coverage.
+7. [x] Add remote data-catalog URL bootstrap for automatic source setup:
+   - `/Users/anakinskywalker/Downloads/field-app-40/index.html`
+   - `/Users/anakinskywalker/Downloads/field-app-40/js/ui/els.js`
+   - `/Users/anakinskywalker/Downloads/field-app-40/js/app/wireEventsRuntime.js`
+     - adds one-click fetch/import for a remote `dataCatalog` JSON payload.
+     - applies existing data-ref policy resolver after import so `latest_verified` selections remain deterministic.
+   - `/Users/anakinskywalker/Downloads/field-app-40/js/app/renderIntelChecks.js`
+     - fetch button gating now respects fetch availability + catalog normalizer helper presence.
+   - `/Users/anakinskywalker/Downloads/field-app-40/js/engine.js`
+     - exposes `normalizeDataCatalog` in snapshot facade for deterministic runtime ingest.
+   - `/Users/anakinskywalker/Downloads/field-app-40/js/core/selfTestSuites/releaseHardening.js`
+   - `/Users/anakinskywalker/Downloads/field-app-40/js/core/selfTest.js`
+     - adds normalization regression coverage to ensure URL metadata survives catalog ingest.
