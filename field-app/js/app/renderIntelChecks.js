@@ -1042,6 +1042,22 @@ export function renderIntelChecksModule({
   const turnoutLiftAdj = toFinite(districtIntelPack?.derivedAssumptions?.turnoutLift?.adjusted);
   const generatedAtText = String(districtIntelPack?.generatedAt || "").trim();
   const generatedAt = generatedAtText ? generatedAtText.slice(0, 10) : "—";
+  const validateDistrictDataContract = engine?.snapshot?.validateDistrictDataContract;
+  let districtContract = null;
+  if (typeof validateDistrictDataContract === "function"){
+    try{
+      districtContract = validateDistrictDataContract(state);
+    } catch {
+      districtContract = null;
+    }
+  }
+  const contractWarnings = Array.isArray(districtContract?.warnings)
+    ? districtContract.warnings.map((x) => String(x || "").trim()).filter(Boolean)
+    : [];
+  const intelAlignmentWarnings = contractWarnings.filter((x) => {
+    const t = String(x || "").toLowerCase();
+    return t.includes("provenance") || t.includes("usedistrictintel is on but districtintelpack.ready is false");
+  });
 
   if (els.intelUseDistrictToggle){
     els.intelUseDistrictToggle.checked = useDistrictIntel;
@@ -1053,7 +1069,10 @@ export function renderIntelChecksModule({
   }
   if (els.intelDistrictIntelStatus){
     els.intelDistrictIntelStatus.classList.remove("ok", "warn", "bad", "muted");
-    if (useDistrictIntel && packReady){
+    if (useDistrictIntel && packReady && intelAlignmentWarnings.length){
+      els.intelDistrictIntelStatus.classList.add("warn");
+      els.intelDistrictIntelStatus.textContent = `District-intel assumptions are ON, but alignment warnings exist: ${intelAlignmentWarnings[0]}`;
+    } else if (useDistrictIntel && packReady){
       els.intelDistrictIntelStatus.classList.add("ok");
       els.intelDistrictIntelStatus.textContent = `District-intel assumptions are ON (generated ${generatedAt}).`;
     } else if (useDistrictIntel && !packReady){
@@ -1084,6 +1103,23 @@ export function renderIntelChecksModule({
       els.intelDistrictIntelSummary.textContent = bits.length
         ? bits.join(" · ")
         : "District-intel pack ready (no derived assumption rows available).";
+    }
+  }
+  if (els.intelDistrictIntelAlignment){
+    els.intelDistrictIntelAlignment.classList.remove("ok", "warn", "muted");
+    if (!packReady){
+      els.intelDistrictIntelAlignment.classList.add("muted");
+      els.intelDistrictIntelAlignment.textContent = "Alignment: no district-intel pack generated.";
+    } else if (intelAlignmentWarnings.length){
+      els.intelDistrictIntelAlignment.classList.add("warn");
+      const extra = intelAlignmentWarnings.length > 1 ? ` (+${intelAlignmentWarnings.length - 1} more)` : "";
+      els.intelDistrictIntelAlignment.textContent = `Alignment warning: ${intelAlignmentWarnings[0]}${extra}`;
+    } else if (typeof validateDistrictDataContract !== "function"){
+      els.intelDistrictIntelAlignment.classList.add("muted");
+      els.intelDistrictIntelAlignment.textContent = "Alignment: validator unavailable in engine snapshot.";
+    } else {
+      els.intelDistrictIntelAlignment.classList.add("ok");
+      els.intelDistrictIntelAlignment.textContent = "Alignment: pack provenance matches active data refs.";
     }
   }
 
