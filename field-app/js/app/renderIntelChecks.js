@@ -1271,17 +1271,12 @@ export function renderIntelChecksModule({
   }
   if (els.intelAreaLabel) els.intelAreaLabel.value = String(normalizedArea?.label || "");
   fillStateFipsSelect(els.intelAreaStateFips, String(normalizedArea?.stateFips || ""));
-  const areaType = String(normalizedArea?.type || "").toUpperCase();
-  const customEnabled = areaType === "CUSTOM";
-  const districtEnabled = customEnabled || areaType === "CD" || areaType === "SLDU" || areaType === "SLDL";
-  const countyEnabled = customEnabled || areaType === "COUNTY";
-  const placeEnabled = customEnabled || areaType === "PLACE";
   if (els.intelAreaDistrict) els.intelAreaDistrict.value = String(normalizedArea?.district || "");
   if (els.intelAreaCountyFips) els.intelAreaCountyFips.value = String(normalizedArea?.countyFips || "");
   if (els.intelAreaPlaceFips) els.intelAreaPlaceFips.value = String(normalizedArea?.placeFips || "");
-  if (els.intelAreaDistrict) els.intelAreaDistrict.disabled = !districtEnabled;
-  if (els.intelAreaCountyFips) els.intelAreaCountyFips.disabled = !countyEnabled;
-  if (els.intelAreaPlaceFips) els.intelAreaPlaceFips.disabled = !placeEnabled;
+  if (els.intelAreaDistrict) els.intelAreaDistrict.disabled = false;
+  if (els.intelAreaCountyFips) els.intelAreaCountyFips.disabled = false;
+  if (els.intelAreaPlaceFips) els.intelAreaPlaceFips.disabled = false;
 
   let areaCtx = null;
   if (typeof deriveAreaResolverContext === "function"){
@@ -1438,7 +1433,7 @@ export function renderIntelChecksModule({
     } else if (!censusChoicesCount && !effectiveIds.censusDatasetId){
       renderDataRefStatus(
         els.intelDataRefStatus,
-        "No census datasets loaded yet. Use Pull Census via API or import a census manifest.",
+        "No census datasets loaded yet. Import a census manifest.",
         "muted"
       );
     } else if (!electionChoicesCount && !effectiveIds.electionDatasetId){
