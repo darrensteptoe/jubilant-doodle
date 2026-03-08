@@ -31,6 +31,14 @@ import {
 } from "./core/dataSourceRegistry.js";
 import { normalizeAreaSelection, buildAreaResolverCacheKey, deriveAreaResolverContext } from "./core/areaResolver.js";
 import {
+  normalizeCensusManifest,
+  validateCensusManifest,
+  normalizeElectionManifest,
+  validateElectionManifest,
+  censusManifestToCatalogEntry,
+  electionManifestToCatalogEntry,
+} from "./core/districtIngest.js";
+import {
   compileDistrictEvidence,
   derivePersuasionSignalFromElection,
   summarizeGeoEvidenceLayers,
@@ -138,6 +146,12 @@ export const engine = {
     normalizeAreaSelection,
     buildAreaResolverCacheKey,
     deriveAreaResolverContext,
+    normalizeCensusManifest,
+    validateCensusManifest,
+    normalizeElectionManifest,
+    validateElectionManifest,
+    censusManifestToCatalogEntry,
+    electionManifestToCatalogEntry,
     compileDistrictEvidence,
     derivePersuasionSignalFromElection,
     summarizeGeoEvidenceLayers,
