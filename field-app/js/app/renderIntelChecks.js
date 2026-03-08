@@ -2365,6 +2365,7 @@ export function renderIntelChecksModule({
   }
   if (els.btnIntelImportCrosswalkRows) els.btnIntelImportCrosswalkRows.disabled = !flowAreaReady;
   if (els.btnIntelImportPrecinctResults) els.btnIntelImportPrecinctResults.disabled = !flowAreaReady;
+  const hasFetch = typeof globalThis.fetch === "function";
   if (els.btnIntelFetchCensusGeoRows) els.btnIntelFetchCensusGeoRows.disabled = !flowAreaReady || !hasFetch;
   if (els.btnIntelImportCensusGeoRows) els.btnIntelImportCensusGeoRows.disabled = !flowAreaReady;
   if (els.intelPrecinctResultsFormat) els.intelPrecinctResultsFormat.disabled = !flowAreaReady;
@@ -2380,7 +2381,6 @@ export function renderIntelChecksModule({
   if (els.intelPrecinctResultsJson) els.intelPrecinctResultsJson.disabled = !flowAreaReady;
   if (els.intelCensusGeoRowsJson) els.intelCensusGeoRowsJson.disabled = !flowAreaReady;
   if (els.btnIntelAutoPullAll){
-    const hasFetch = typeof globalThis.fetch === "function";
     els.btnIntelAutoPullAll.disabled = !flowAreaReady || !hasFetch;
   }
   if (els.btnIntelFetchDataCatalog){
