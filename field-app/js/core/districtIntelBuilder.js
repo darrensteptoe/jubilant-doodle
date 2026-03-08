@@ -69,6 +69,36 @@ function pickShare(totals, keys){
 }
 
 /**
+ * @param {Record<string, any>} totals
+ * @param {string[]} keys
+ * @returns {number | null}
+ */
+function sumNums(totals, keys){
+  let any = false;
+  let total = 0;
+  for (const key of keys){
+    const n = numOrNull(totals?.[key]);
+    if (n == null) continue;
+    any = true;
+    total += n;
+  }
+  return any ? total : null;
+}
+
+/**
+ * @param {Record<string, any>} totals
+ * @param {string[]} numKeys
+ * @param {string[]} denKeys
+ * @returns {number | null}
+ */
+function ratioFromTotals(totals, numKeys, denKeys){
+  const num = sumNums(totals, numKeys);
+  const den = sumNums(totals, denKeys);
+  if (num == null || den == null || den <= 0) return null;
+  return num / den;
+}
+
+/**
  * @param {unknown} v
  * @returns {number | null}
  */
@@ -135,15 +165,49 @@ export function buildDistrictIntelPackFromEvidence(args){
     ? evidence.warnings.map((x) => str(x)).filter(Boolean)
     : [];
 
-  const pop = pickNum(censusTotalsIn, ["pop", "population", "total_population", "B01003_001E"]);
-  const housingUnits = pickNum(censusTotalsIn, ["housing_units", "housing", "B25001_001E"]);
-  const renterShare = pickShare(censusTotalsIn, ["renter_share", "renters_share", "renterPct", "renter_pct"]);
-  const multiunitShare = pickShare(censusTotalsIn, ["multiunit_share", "multi_unit_share", "multiunit5p_share"]);
-  const baPlusShare = pickShare(censusTotalsIn, ["ba_plus_share", "baShare", "education_ba_plus"]);
-  const youthShare = pickShare(censusTotalsIn, ["age_18_34_share", "youth_share"]);
-  const olderShare = pickShare(censusTotalsIn, ["age_65_plus_share", "older_share"]);
-  const limitedEnglishShare = pickShare(censusTotalsIn, ["limited_english_share", "lep_share"]);
-  const meanCommuteMin = pickNum(censusTotalsIn, ["mean_commute_min", "commute_min", "mean_commute_minutes"]);
+  const pop = pickNum(censusTotalsIn, ["pop", "population", "total_population", "B01003_001E", "B01003_001"]);
+  const housingUnits = pickNum(censusTotalsIn, ["housing_units", "housing", "B25001_001E", "B25001_001"]);
+  const renterShare = pickShare(censusTotalsIn, ["renter_share", "renters_share", "renterPct", "renter_pct"])
+    ?? ratioFromTotals(censusTotalsIn, ["B25003_003E", "B25003_003"], ["B25003_001E", "B25003_001"]);
+  const multiunitShare = pickShare(censusTotalsIn, ["multiunit_share", "multi_unit_share", "multiunit5p_share"])
+    ?? ratioFromTotals(
+      censusTotalsIn,
+      ["B25024_006E", "B25024_006", "B25024_007E", "B25024_007", "B25024_008E", "B25024_008", "B25024_009E", "B25024_009"],
+      ["B25024_001E", "B25024_001"]
+    );
+  const baPlusShare = pickShare(censusTotalsIn, ["ba_plus_share", "baShare", "education_ba_plus"])
+    ?? ratioFromTotals(
+      censusTotalsIn,
+      ["B15003_022E", "B15003_022", "B15003_023E", "B15003_023", "B15003_024E", "B15003_024", "B15003_025E", "B15003_025"],
+      ["B15003_001E", "B15003_001"]
+    );
+  const youthShare = pickShare(censusTotalsIn, ["age_18_34_share", "youth_share"])
+    ?? ratioFromTotals(
+      censusTotalsIn,
+      ["B01001_007E", "B01001_007", "B01001_008E", "B01001_008", "B01001_009E", "B01001_009", "B01001_010E", "B01001_010", "B01001_011E", "B01001_011", "B01001_012E", "B01001_012", "B01001_031E", "B01001_031", "B01001_032E", "B01001_032", "B01001_033E", "B01001_033", "B01001_034E", "B01001_034", "B01001_035E", "B01001_035", "B01001_036E", "B01001_036"],
+      ["B01001_001E", "B01001_001"]
+    );
+  const olderShare = pickShare(censusTotalsIn, ["age_65_plus_share", "older_share"])
+    ?? ratioFromTotals(
+      censusTotalsIn,
+      ["B01001_020E", "B01001_020", "B01001_021E", "B01001_021", "B01001_022E", "B01001_022", "B01001_023E", "B01001_023", "B01001_024E", "B01001_024", "B01001_025E", "B01001_025", "B01001_044E", "B01001_044", "B01001_045E", "B01001_045", "B01001_046E", "B01001_046", "B01001_047E", "B01001_047", "B01001_048E", "B01001_048", "B01001_049E", "B01001_049"],
+      ["B01001_001E", "B01001_001"]
+    );
+  const limitedEnglishShare = pickShare(censusTotalsIn, ["limited_english_share", "lep_share"])
+    ?? ratioFromTotals(
+      censusTotalsIn,
+      ["C16002_004E", "C16002_004", "C16002_007E", "C16002_007", "C16002_010E", "C16002_010", "C16002_013E", "C16002_013"],
+      ["C16002_001E", "C16002_001"]
+    );
+  const meanCommuteMin = pickNum(censusTotalsIn, ["mean_commute_min", "commute_min", "mean_commute_minutes"])
+    ?? (() => {
+      const travel = sumNums(censusTotalsIn, ["B08013_001E", "B08013_001"]);
+      const workers = sumNums(censusTotalsIn, ["B08303_001E", "B08303_001"]);
+      if (travel != null && workers != null && workers > 0){
+        return travel / workers;
+      }
+      return pickNum(censusTotalsIn, ["B08134_001E", "B08134_001"]);
+    })();
 
   const marginPct = numOrNull(signal?.marginPct);
   const competitiveness = numOrNull(signal?.competitivenessPct);

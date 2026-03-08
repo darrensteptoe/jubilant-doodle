@@ -471,6 +471,7 @@ export const els = {
   intelDistrictAssumptionTbody: document.getElementById("intelDistrictAssumptionTbody"),
   intelAreaType: document.getElementById("intelAreaType"),
   intelAreaResolution: document.getElementById("intelAreaResolution"),
+  intelAcsYearPreference: document.getElementById("intelAcsYearPreference"),
   intelAreaLabel: document.getElementById("intelAreaLabel"),
   intelAreaStateFips: document.getElementById("intelAreaStateFips"),
   intelAreaDistrict: document.getElementById("intelAreaDistrict"),
