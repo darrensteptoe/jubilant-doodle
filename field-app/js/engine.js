@@ -52,6 +52,7 @@ import {
   applyDistrictIntelRateOverrides,
   applyDistrictIntelCapacityOverrides,
 } from "./core/districtIntelBuilder.js";
+import { buildAutoPullUrlPlan } from "./core/districtAutoPull.js";
 import {
   MODEL_VERSION,
   makeScenarioExport,
@@ -163,6 +164,7 @@ export const engine = {
     buildDistrictIntelPackFromEvidence,
     applyDistrictIntelRateOverrides,
     applyDistrictIntelCapacityOverrides,
+    buildAutoPullUrlPlan,
     makeScenarioExport,
     deterministicStringify,
     validateScenarioExport,
