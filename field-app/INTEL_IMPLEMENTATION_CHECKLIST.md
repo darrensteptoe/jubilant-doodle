@@ -254,7 +254,7 @@ Execution order below is fixed and must be followed in sequence.
      - tightened TypeScript check config (non-breaking):
        - `/Users/anakinskywalker/Downloads/field-app-40/tsconfig.json` (`forceConsistentCasingInFileNames`, `noFallthroughCasesInSwitch`, `skipLibCheck`).
 
-## Phase 12: District + Election data contract foundation (in progress)
+## Phase 12: District + Election data contract foundation (done)
 Execution order for MIT precinct + Census integration begins here.
 
 1. [x] Add scenario-level district data contract module:
@@ -305,7 +305,7 @@ Execution order for MIT precinct + Census integration begins here.
     - `latest_verified` to pinned materialization helper in `/Users/anakinskywalker/Downloads/field-app-40/js/core/dataSourceRegistry.js`.
     - regression tests added in `/Users/anakinskywalker/Downloads/field-app-40/js/core/selfTestSuites/releaseHardening.js`.
 
-## Phase 13: MIT precinct + Census evidence compiler (in progress)
+## Phase 13: MIT precinct + Census evidence compiler (done)
 Execution order for the first functional district-evidence layer.
 
 1. [x] Add deterministic district evidence compiler (contract + linkage + candidate totals):
@@ -513,3 +513,16 @@ Execution order for the first functional district-evidence layer.
      - shows explicit alignment line and warns when generated pack provenance differs from active refs.
    - `/Users/anakinskywalker/Downloads/field-app-40/js/core/selfTestSuites/releaseHardening.js`
      - adds deterministic contract warning test for provenance drift.
+
+## Phase 14: Automatic source pull bridge (in progress)
+Execution order for additive auto-ingest on top of deterministic/manual ingest.
+
+1. [x] Add Stage 9 URL-based auto-pull controls wired into existing validators/importers:
+   - `/Users/anakinskywalker/Downloads/field-app-40/index.html`
+     - adds URL inputs for manifests and evidence-row sources + one-click fetch/import action.
+   - `/Users/anakinskywalker/Downloads/field-app-40/js/ui/els.js`
+   - `/Users/anakinskywalker/Downloads/field-app-40/js/app/wireEventsRuntime.js`
+     - adds deterministic fetch/import flow that reuses existing manifest/row import validators.
+     - no planning-math mutation; imported payloads still land in catalog/evidence containers.
+   - `/Users/anakinskywalker/Downloads/field-app-40/js/app/renderIntelChecks.js`
+     - disables auto-pull action when browser fetch API is unavailable.

@@ -2347,6 +2347,38 @@
 <h3 class="card-title">Data ingest (JSON)</h3>
 </div>
 <div class="help-text">Import dataset manifests and evidence rows without editing snapshot files. Manifests update catalog metadata; row imports populate district evidence inputs/store.</div>
+<div class="mini" style="margin-top:10px;">
+<div class="mini-k">Auto pull (URL)</div>
+<div class="mini-s">Fetch JSON directly from URLs (requires provider CORS support). Imported payloads use the same deterministic validators as manual ingest.</div>
+</div>
+<div class="grid2" style="margin-top:10px;">
+<div class="field">
+<label class="label" for="intelCensusManifestUrl">Census manifest URL</label>
+<input class="input" id="intelCensusManifestUrl" placeholder="https://.../census-manifest.json" type="url"/>
+</div>
+<div class="field">
+<label class="label" for="intelElectionManifestUrl">Election manifest URL</label>
+<input class="input" id="intelElectionManifestUrl" placeholder="https://.../election-manifest.json" type="url"/>
+</div>
+</div>
+<div class="grid3" style="margin-top:10px;">
+<div class="field">
+<label class="label" for="intelCrosswalkRowsUrl">Crosswalk rows URL</label>
+<input class="input" id="intelCrosswalkRowsUrl" placeholder="https://.../crosswalk-rows.json" type="url"/>
+</div>
+<div class="field">
+<label class="label" for="intelPrecinctResultsUrl">Precinct results URL</label>
+<input class="input" id="intelPrecinctResultsUrl" placeholder="https://.../precinct-results.json" type="url"/>
+</div>
+<div class="field">
+<label class="label" for="intelCensusGeoRowsUrl">Census GEO rows URL</label>
+<input class="input" id="intelCensusGeoRowsUrl" placeholder="https://.../census-geo-rows.json" type="url"/>
+</div>
+</div>
+<div class="card-actions" style="margin-top:8px;">
+<button class="btn btn-sm" id="btnIntelAutoPullAll" type="button">Fetch &amp; import all URLs</button>
+</div>
+<div class="muted" id="intelAutoPullStatus" style="margin-top:8px;">Auto-pull status: idle.</div>
 <div class="grid2" style="margin-top:10px;">
 <div class="field">
 <label class="label" for="intelCensusManifestJson">Census manifest JSON</label>
