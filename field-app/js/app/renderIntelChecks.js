@@ -787,6 +787,9 @@ function renderGeoInspector(els, geoRows, selectedGeoId){
     .filter((x) => x.geoid)
     .sort((a, b) => (Number(b?.totalVotes) || 0) - (Number(a?.totalVotes) || 0));
   fillGeoInspectorSelect(els.intelGeoInspectorSelect, selectorRows, geoid);
+  if (els.btnIntelGeoInspectorReloadBoundary){
+    els.btnIntelGeoInspectorReloadBoundary.disabled = !geoid || !row;
+  }
   if (els.intelGeoInspectorStatus){
     els.intelGeoInspectorStatus.classList.remove("ok", "warn", "bad", "muted");
     if (!geoid){

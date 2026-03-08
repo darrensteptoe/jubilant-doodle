@@ -8,6 +8,15 @@ const DEFAULT_ZOOM = 4;
 const boundaryCache = new Map();
 const boundaryPending = new Map();
 
+export function resetIntelGeoBoundaryCache(geoid = ""){
+  const id = str(geoid);
+  if (!id){
+    boundaryCache.clear();
+    return;
+  }
+  boundaryCache.delete(id);
+}
+
 function str(v){
   return String(v == null ? "" : v).trim();
 }

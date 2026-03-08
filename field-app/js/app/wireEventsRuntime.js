@@ -28,6 +28,7 @@ import { ensureBudgetShape } from "./state.js";
 import { applyDataRefPolicyRuntime } from "./dataRefPolicyRuntime.js";
 import { normalizeElectionPrecinctPayload } from "../core/electionProviderAdapter.js";
 import { buildDistrictDemoPayload } from "../core/districtDemoData.js";
+import { resetIntelGeoBoundaryCache } from "./intelGeoMap.js";
 
 /** @param {import("./types").WireEventsCtx} ctx */
 export function wireBudgetTimelineEvents(ctx){
@@ -609,6 +610,22 @@ export function wireIntelChecksEvents(ctx){
       const district = ensureGeoDistrict(s);
       if (!district) return;
       district.selectedGeoId = normalizeGeoInspectorId(els.intelGeoInspectorSelect.value);
+      commitUIUpdate();
+    });
+  }
+  if (els.btnIntelGeoInspectorReloadBoundary){
+    els.btnIntelGeoInspectorReloadBoundary.addEventListener("click", () => {
+      const s = currentState();
+      if (!s) return;
+      const district = ensureGeoDistrict(s);
+      if (!district) return;
+      const selected = normalizeGeoInspectorId(district.selectedGeoId || els.intelGeoInspectorSelect?.value || "");
+      if (!selected){
+        setStatus(els.intelDistrictEvidenceMapStatus, "Select a GEO first, then reload boundary.", "warn");
+        return;
+      }
+      district.selectedGeoId = selected;
+      resetIntelGeoBoundaryCache(selected);
       commitUIUpdate();
     });
   }
