@@ -519,6 +519,7 @@ export const els = {
   intelIngestStatus: document.getElementById("intelIngestStatus"),
   intelDistrictEvidenceSource: document.getElementById("intelDistrictEvidenceSource"),
   intelDistrictEvidenceInputsSummary: document.getElementById("intelDistrictEvidenceInputsSummary"),
+  intelFlowStepStatus: document.getElementById("intelFlowStepStatus"),
   intelDistrictEvidenceStatus: document.getElementById("intelDistrictEvidenceStatus"),
   intelDistrictEvidenceCoverage: document.getElementById("intelDistrictEvidenceCoverage"),
   intelDistrictEvidenceVotes: document.getElementById("intelDistrictEvidenceVotes"),
