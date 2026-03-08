@@ -957,6 +957,193 @@ export function wireIntelChecksEvents(ctx){
     };
   };
 
+  const setAutoPullButtonsDisabled = (disabled) => {
+    if (els.btnIntelFetchDataCatalog) els.btnIntelFetchDataCatalog.disabled = !!disabled;
+    if (els.btnIntelCatalogAutoPull) els.btnIntelCatalogAutoPull.disabled = !!disabled;
+    if (els.btnIntelAutoPullAll) els.btnIntelAutoPullAll.disabled = !!disabled;
+  };
+
+  const runAutoPullAll = async (s) => {
+    if (!s) return;
+    if (typeof fetch !== "function"){
+      setAutoPullStatus("Auto-pull unavailable: fetch API not supported in this browser.", "warn");
+      return;
+    }
+    const buildAutoPullUrlPlan = engine?.snapshot?.buildAutoPullUrlPlan;
+    const evaluateAutoPullPlan = engine?.snapshot?.evaluateAutoPullPlan;
+    const resolveAutoPullUrls = engine?.snapshot?.resolveAutoPullUrls;
+    const resolveDataRefsByPolicy = engine?.snapshot?.resolveDataRefsByPolicy;
+    const planBefore = typeof buildAutoPullUrlPlan === "function"
+      ? buildAutoPullUrlPlan({
+        dataRefs: s?.dataRefs,
+        dataCatalog: s?.dataCatalog,
+        scenario: s,
+        resolveDataRefsByPolicy,
+      })
+      : null;
+    const manualUrls = {
+      censusManifestUrl: normalizeRemoteUrl(els.intelCensusManifestUrl?.value),
+      electionManifestUrl: normalizeRemoteUrl(els.intelElectionManifestUrl?.value),
+      crosswalkRowsUrl: normalizeRemoteUrl(els.intelCrosswalkRowsUrl?.value),
+      precinctResultsUrl: normalizeRemoteUrl(els.intelPrecinctResultsUrl?.value),
+      censusGeoRowsUrl: normalizeRemoteUrl(els.intelCensusGeoRowsUrl?.value),
+    };
+    const mergedUrls = (
+      typeof resolveAutoPullUrls === "function" &&
+      planBefore &&
+      typeof planBefore === "object"
+    )
+      ? resolveAutoPullUrls({ plan: planBefore, overrides: manualUrls })
+      : {
+        mode: String(s?.dataRefs?.mode || "pinned_verified"),
+        urls: {
+          censusManifestUrl: manualUrls.censusManifestUrl || null,
+          electionManifestUrl: manualUrls.electionManifestUrl || null,
+          crosswalkRowsUrl: manualUrls.crosswalkRowsUrl || null,
+          precinctResultsUrl: manualUrls.precinctResultsUrl || null,
+          censusGeoRowsUrl: manualUrls.censusGeoRowsUrl || null,
+        },
+        availableCount: Object.values(manualUrls).filter(Boolean).length,
+        missingCount: 5 - Object.values(manualUrls).filter(Boolean).length,
+        sourceByKey: {},
+      };
+    if (typeof evaluateAutoPullPlan === "function"){
+      const evalPlan = evaluateAutoPullPlan({ mode: mergedUrls?.mode, urls: mergedUrls?.urls });
+      if (!evalPlan?.ready){
+        setAutoPullStatus(String(evalPlan?.summaryLine || "Auto-pull blocked: no URL slots available."), "warn");
+        return;
+      }
+    }
+    const fillBlank = (el, value) => {
+      if (!el) return;
+      if (normalizeRemoteUrl(el.value)) return;
+      if (!value) return;
+      el.value = String(value);
+    };
+    fillBlank(els.intelCensusManifestUrl, mergedUrls?.urls?.censusManifestUrl);
+    fillBlank(els.intelElectionManifestUrl, mergedUrls?.urls?.electionManifestUrl);
+    fillBlank(els.intelCrosswalkRowsUrl, mergedUrls?.urls?.crosswalkRowsUrl);
+    fillBlank(els.intelPrecinctResultsUrl, mergedUrls?.urls?.precinctResultsUrl);
+    fillBlank(els.intelCensusGeoRowsUrl, mergedUrls?.urls?.censusGeoRowsUrl);
+    const specs = [
+      {
+        label: "Census manifest",
+        rawUrl: mergedUrls?.urls?.censusManifestUrl,
+        importFn: importCensusManifestPayload,
+      },
+      {
+        label: "Election manifest",
+        rawUrl: mergedUrls?.urls?.electionManifestUrl,
+        importFn: importElectionManifestPayload,
+      },
+      {
+        label: "Crosswalk rows",
+        rawUrl: mergedUrls?.urls?.crosswalkRowsUrl,
+        importFn: importCrosswalkRowsPayload,
+      },
+      {
+        label: "Precinct results",
+        rawUrl: mergedUrls?.urls?.precinctResultsUrl,
+        importFn: importPrecinctResultsPayload,
+      },
+      {
+        label: "Census GEO rows",
+        rawUrl: mergedUrls?.urls?.censusGeoRowsUrl,
+        importFn: importCensusGeoRowsPayload,
+      },
+    ];
+    const activeSpecs = specs
+      .map((spec) => ({ ...spec, rawUrl: normalizeRemoteUrl(spec.rawUrl) }))
+      .filter((spec) => !!spec.rawUrl);
+    if (!activeSpecs.length){
+      setAutoPullStatus("No auto-pull URLs provided.", "warn");
+      return;
+    }
+    setAutoPullStatus(`Fetching ${activeSpecs.length} source(s)...`, "muted");
+    setAutoPullButtonsDisabled(true);
+    let appliedCount = 0;
+    let successCount = 0;
+    /** @type {string[]} */
+    const warnings = [];
+    /** @type {Array<{ source: string, url: string | null, ok: boolean, message: string }>} */
+    const receiptResults = [];
+    try{
+      for (const spec of activeSpecs){
+        const valid = validateRemoteUrl(spec.rawUrl, spec.label);
+        if (!valid.ok){
+          warnings.push(valid.error);
+          receiptResults.push({
+            source: spec.label,
+            url: spec.rawUrl,
+            ok: false,
+            message: valid.error,
+          });
+          continue;
+        }
+        try{
+          const payload = await fetchJsonFromUrl(valid.url, spec.label);
+          const out = spec.importFn(s, payload);
+          if (out.applied) appliedCount += 1;
+          if (out.kind === "ok"){
+            successCount += 1;
+            receiptResults.push({
+              source: spec.label,
+              url: valid.url,
+              ok: true,
+              message: out.message,
+            });
+          } else {
+            warnings.push(`${spec.label}: ${out.message}`);
+            receiptResults.push({
+              source: spec.label,
+              url: valid.url,
+              ok: false,
+              message: out.message,
+            });
+          }
+        } catch (err){
+          warnings.push(`${spec.label}: ${String(err?.message || "fetch failed")}`);
+          receiptResults.push({
+            source: spec.label,
+            url: valid.url,
+            ok: false,
+            message: String(err?.message || "fetch failed"),
+          });
+        }
+      }
+    } finally {
+      setAutoPullButtonsDisabled(false);
+    }
+    writeAutoPullReceipt(s, {
+      nowIso: new Date().toISOString(),
+      mode: mergedUrls?.mode || planBefore?.mode || s?.dataRefs?.mode || "pinned_verified",
+      selected: planBefore?.selected || {
+        boundarySetId: s?.dataRefs?.boundarySetId || null,
+        crosswalkVersionId: s?.dataRefs?.crosswalkVersionId || null,
+        censusDatasetId: s?.dataRefs?.censusDatasetId || null,
+        electionDatasetId: s?.dataRefs?.electionDatasetId || null,
+      },
+      urls: mergedUrls?.urls || manualUrls,
+      results: receiptResults,
+    });
+    if (appliedCount > 0 || receiptResults.length > 0) commitUIUpdate();
+    if (!successCount && warnings.length){
+      const msg = `Auto pull failed for ${activeSpecs.length} source(s): ${warnings[0]}`;
+      setAutoPullStatus(msg, "warn");
+      setIngestStatus(msg, "warn");
+      return;
+    }
+    if (warnings.length){
+      const msg = `Auto pull imported ${successCount}/${activeSpecs.length} source(s). ${warnings[0]}`;
+      setAutoPullStatus(msg, "warn");
+      setIngestStatus(msg, "warn");
+      return;
+    }
+    const msg = `Auto pull imported ${successCount}/${activeSpecs.length} source(s).`;
+    setAutoPullStatus(msg, "ok");
+    setIngestStatus(msg, "ok");
+  };
+
   if (els.btnIntelImportCensusManifest){
     els.btnIntelImportCensusManifest.addEventListener("click", () => {
       const s = currentState();
@@ -982,7 +1169,7 @@ export function wireIntelChecksEvents(ctx){
         setIngestStatus(valid.error, "warn");
         return;
       }
-      if (els.btnIntelFetchDataCatalog) els.btnIntelFetchDataCatalog.disabled = true;
+      setAutoPullButtonsDisabled(true);
       setAutoPullStatus("Fetching data catalog...", "muted");
       try{
         const district = ensureDistrictEvidenceContainers(s);
@@ -997,8 +1184,45 @@ export function wireIntelChecksEvents(ctx){
         setAutoPullStatus(msg, "warn");
         setIngestStatus(msg, "warn");
       } finally {
-        if (els.btnIntelFetchDataCatalog) els.btnIntelFetchDataCatalog.disabled = false;
+        setAutoPullButtonsDisabled(false);
       }
+    });
+  }
+
+  if (els.btnIntelCatalogAutoPull){
+    els.btnIntelCatalogAutoPull.addEventListener("click", async () => {
+      const s = currentState();
+      if (!s) return;
+      const valid = validateRemoteUrl(els.intelDataCatalogUrl?.value, "Data catalog");
+      if (!valid.ok){
+        setAutoPullStatus(valid.error, "warn");
+        setIngestStatus(valid.error, "warn");
+        return;
+      }
+      setAutoPullButtonsDisabled(true);
+      setAutoPullStatus("Fetching data catalog...", "muted");
+      try{
+        const district = ensureDistrictEvidenceContainers(s);
+        if (district) district.autoPullCatalogUrl = valid.url;
+        const payload = await fetchJsonFromUrl(valid.url, "Data catalog");
+        const out = importDataCatalogPayload(s, payload);
+        setAutoPullStatus(out.message, out.kind);
+        setIngestStatus(out.message, out.kind);
+        if (!out.applied){
+          return;
+        }
+        commitUIUpdate();
+      } catch (err){
+        const msg = `Data catalog fetch failed: ${String(err?.message || "request failed")}`;
+        setAutoPullStatus(msg, "warn");
+        setIngestStatus(msg, "warn");
+        return;
+      } finally {
+        setAutoPullButtonsDisabled(false);
+      }
+      const next = currentState();
+      if (!next) return;
+      await runAutoPullAll(next);
     });
   }
 
@@ -1096,183 +1320,7 @@ export function wireIntelChecksEvents(ctx){
     els.btnIntelAutoPullAll.addEventListener("click", async () => {
       const s = currentState();
       if (!s) return;
-      if (typeof fetch !== "function"){
-        setAutoPullStatus("Auto-pull unavailable: fetch API not supported in this browser.", "warn");
-        return;
-      }
-      const buildAutoPullUrlPlan = engine?.snapshot?.buildAutoPullUrlPlan;
-      const evaluateAutoPullPlan = engine?.snapshot?.evaluateAutoPullPlan;
-      const resolveAutoPullUrls = engine?.snapshot?.resolveAutoPullUrls;
-      const resolveDataRefsByPolicy = engine?.snapshot?.resolveDataRefsByPolicy;
-      const planBefore = typeof buildAutoPullUrlPlan === "function"
-        ? buildAutoPullUrlPlan({
-          dataRefs: s?.dataRefs,
-          dataCatalog: s?.dataCatalog,
-          scenario: s,
-          resolveDataRefsByPolicy,
-        })
-        : null;
-      const manualUrls = {
-        censusManifestUrl: normalizeRemoteUrl(els.intelCensusManifestUrl?.value),
-        electionManifestUrl: normalizeRemoteUrl(els.intelElectionManifestUrl?.value),
-        crosswalkRowsUrl: normalizeRemoteUrl(els.intelCrosswalkRowsUrl?.value),
-        precinctResultsUrl: normalizeRemoteUrl(els.intelPrecinctResultsUrl?.value),
-        censusGeoRowsUrl: normalizeRemoteUrl(els.intelCensusGeoRowsUrl?.value),
-      };
-      const mergedUrls = (
-        typeof resolveAutoPullUrls === "function" &&
-        planBefore &&
-        typeof planBefore === "object"
-      )
-        ? resolveAutoPullUrls({ plan: planBefore, overrides: manualUrls })
-        : {
-          mode: String(s?.dataRefs?.mode || "pinned_verified"),
-          urls: {
-            censusManifestUrl: manualUrls.censusManifestUrl || null,
-            electionManifestUrl: manualUrls.electionManifestUrl || null,
-            crosswalkRowsUrl: manualUrls.crosswalkRowsUrl || null,
-            precinctResultsUrl: manualUrls.precinctResultsUrl || null,
-            censusGeoRowsUrl: manualUrls.censusGeoRowsUrl || null,
-          },
-          availableCount: Object.values(manualUrls).filter(Boolean).length,
-          missingCount: 5 - Object.values(manualUrls).filter(Boolean).length,
-          sourceByKey: {},
-        };
-      if (typeof evaluateAutoPullPlan === "function"){
-        const evalPlan = evaluateAutoPullPlan({ mode: mergedUrls?.mode, urls: mergedUrls?.urls });
-        if (!evalPlan?.ready){
-          setAutoPullStatus(String(evalPlan?.summaryLine || "Auto-pull blocked: no URL slots available."), "warn");
-          return;
-        }
-      }
-      const fillBlank = (el, value) => {
-        if (!el) return;
-        if (normalizeRemoteUrl(el.value)) return;
-        if (!value) return;
-        el.value = String(value);
-      };
-      fillBlank(els.intelCensusManifestUrl, mergedUrls?.urls?.censusManifestUrl);
-      fillBlank(els.intelElectionManifestUrl, mergedUrls?.urls?.electionManifestUrl);
-      fillBlank(els.intelCrosswalkRowsUrl, mergedUrls?.urls?.crosswalkRowsUrl);
-      fillBlank(els.intelPrecinctResultsUrl, mergedUrls?.urls?.precinctResultsUrl);
-      fillBlank(els.intelCensusGeoRowsUrl, mergedUrls?.urls?.censusGeoRowsUrl);
-      const specs = [
-        {
-          label: "Census manifest",
-          rawUrl: mergedUrls?.urls?.censusManifestUrl,
-          importFn: importCensusManifestPayload,
-        },
-        {
-          label: "Election manifest",
-          rawUrl: mergedUrls?.urls?.electionManifestUrl,
-          importFn: importElectionManifestPayload,
-        },
-        {
-          label: "Crosswalk rows",
-          rawUrl: mergedUrls?.urls?.crosswalkRowsUrl,
-          importFn: importCrosswalkRowsPayload,
-        },
-        {
-          label: "Precinct results",
-          rawUrl: mergedUrls?.urls?.precinctResultsUrl,
-          importFn: importPrecinctResultsPayload,
-        },
-        {
-          label: "Census GEO rows",
-          rawUrl: mergedUrls?.urls?.censusGeoRowsUrl,
-          importFn: importCensusGeoRowsPayload,
-        },
-      ];
-      const activeSpecs = specs
-        .map((spec) => ({ ...spec, rawUrl: normalizeRemoteUrl(spec.rawUrl) }))
-        .filter((spec) => !!spec.rawUrl);
-      if (!activeSpecs.length){
-        setAutoPullStatus("No auto-pull URLs provided.", "warn");
-        return;
-      }
-      setAutoPullStatus(`Fetching ${activeSpecs.length} source(s)...`, "muted");
-      if (els.btnIntelAutoPullAll) els.btnIntelAutoPullAll.disabled = true;
-      let appliedCount = 0;
-      let successCount = 0;
-      /** @type {string[]} */
-      const warnings = [];
-      /** @type {Array<{ source: string, url: string | null, ok: boolean, message: string }>} */
-      const receiptResults = [];
-      try{
-        for (const spec of activeSpecs){
-          const valid = validateRemoteUrl(spec.rawUrl, spec.label);
-          if (!valid.ok){
-            warnings.push(valid.error);
-            receiptResults.push({
-              source: spec.label,
-              url: spec.rawUrl,
-              ok: false,
-              message: valid.error,
-            });
-            continue;
-          }
-          try{
-            const payload = await fetchJsonFromUrl(valid.url, spec.label);
-            const out = spec.importFn(s, payload);
-            if (out.applied) appliedCount += 1;
-            if (out.kind === "ok"){
-              successCount += 1;
-              receiptResults.push({
-                source: spec.label,
-                url: valid.url,
-                ok: true,
-                message: out.message,
-              });
-            } else {
-              warnings.push(`${spec.label}: ${out.message}`);
-              receiptResults.push({
-                source: spec.label,
-                url: valid.url,
-                ok: false,
-                message: out.message,
-              });
-            }
-          } catch (err){
-            warnings.push(`${spec.label}: ${String(err?.message || "fetch failed")}`);
-            receiptResults.push({
-              source: spec.label,
-              url: valid.url,
-              ok: false,
-              message: String(err?.message || "fetch failed"),
-            });
-          }
-        }
-      } finally {
-        if (els.btnIntelAutoPullAll) els.btnIntelAutoPullAll.disabled = false;
-      }
-      writeAutoPullReceipt(s, {
-        nowIso: new Date().toISOString(),
-        mode: mergedUrls?.mode || planBefore?.mode || s?.dataRefs?.mode || "pinned_verified",
-        selected: planBefore?.selected || {
-          boundarySetId: s?.dataRefs?.boundarySetId || null,
-          crosswalkVersionId: s?.dataRefs?.crosswalkVersionId || null,
-          censusDatasetId: s?.dataRefs?.censusDatasetId || null,
-          electionDatasetId: s?.dataRefs?.electionDatasetId || null,
-        },
-        urls: mergedUrls?.urls || manualUrls,
-        results: receiptResults,
-      });
-      if (appliedCount > 0 || receiptResults.length > 0) commitUIUpdate();
-      if (!successCount && warnings.length){
-        const msg = `Auto pull failed for ${activeSpecs.length} source(s): ${warnings[0]}`;
-        setAutoPullStatus(msg, "warn");
-        setIngestStatus(msg, "warn");
-        return;
-      }
-      if (warnings.length){
-        const msg = `Auto pull imported ${successCount}/${activeSpecs.length} source(s). ${warnings[0]}`;
-        setAutoPullStatus(msg, "warn");
-        setIngestStatus(msg, "warn");
-        return;
-      }
-      const msg = `Auto pull imported ${successCount}/${activeSpecs.length} source(s).`;
-      setAutoPullStatus(msg, "ok");
-      setIngestStatus(msg, "ok");
+      await runAutoPullAll(s);
     });
   }
 

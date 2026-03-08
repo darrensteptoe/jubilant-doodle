@@ -1542,6 +1542,12 @@ export function renderIntelChecksModule({
     const canNormalize = typeof engine?.snapshot?.normalizeDataCatalog === "function";
     els.btnIntelFetchDataCatalog.disabled = !(hasFetch && canNormalize);
   }
+  if (els.btnIntelCatalogAutoPull){
+    const hasFetch = typeof globalThis.fetch === "function";
+    const canNormalize = typeof engine?.snapshot?.normalizeDataCatalog === "function";
+    const canPlan = typeof engine?.snapshot?.buildAutoPullUrlPlan === "function";
+    els.btnIntelCatalogAutoPull.disabled = !(hasFetch && canNormalize && canPlan);
+  }
   if (els.btnIntelAutoFillUrls){
     els.btnIntelAutoFillUrls.disabled = typeof engine?.snapshot?.buildAutoPullUrlPlan !== "function";
   }
