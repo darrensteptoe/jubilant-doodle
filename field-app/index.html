@@ -16,6 +16,7 @@
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&amp;family=IBM+Plex+Sans:wght@300;400;500;600&amp;display=swap" rel="stylesheet"/>
 <link href="./styles-shell.css?v=20260224-c25" rel="stylesheet"/>
 <link href="./styles.css?v=20260224-c25" rel="stylesheet"/>
+<link crossorigin="" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" rel="stylesheet"/>
 </head>
 <body>
 <!-- ── TOPBAR ───────────────────────────────────────────── -->
@@ -2421,6 +2422,12 @@
 <div class="field">
 <label class="label" for="intelPrecinctResultsJson">Precinct results JSON</label>
 <textarea class="input" id="intelPrecinctResultsJson" rows="4" placeholder='[{"precinctId":"P-101","candidateVotes":{"A":512,"B":488}}]'></textarea>
+<label class="label" for="intelPrecinctResultsFormat" style="margin-top:6px;">Precinct input format</label>
+<select class="select" id="intelPrecinctResultsFormat">
+<option value="auto">Auto detect</option>
+<option value="canonical">Canonical precinct rows</option>
+<option value="long">Long candidate rows</option>
+</select>
 <div class="card-actions" style="margin-top:6px;">
 <button class="btn btn-sm" id="btnIntelImportPrecinctResults" type="button">Import precinct results</button>
 </div>
@@ -2457,12 +2464,54 @@
 <div class="muted" id="intelDistrictEvidenceStatus" style="margin-top:10px;">District evidence not compiled yet.</div>
 <div class="note" id="intelDistrictEvidenceSelectedElection" style="margin-top:8px;">Election dataset: none selected</div>
 <div class="mini" style="margin-top:10px;">
-<div class="mini-k">Read-only GEO map</div>
+<div class="mini-k">District GEO map</div>
 <div class="muted" id="intelDistrictEvidenceMapStatus" style="margin-top:6px;">Map unavailable: no centroid coordinates found in census GEO rows.</div>
 <div class="intel-geo-map-wrap" style="margin-top:8px;">
-<svg class="intel-geo-map" id="intelDistrictEvidenceMapSvg" viewBox="0 0 640 360" role="img" aria-label="Read-only centroid map for district evidence"></svg>
+<div class="intel-geo-map" id="intelDistrictEvidenceMapSvg" role="img" aria-label="District evidence map"></div>
 </div>
-<div class="mini-s">Centroid-based verification layer only. No turf cutting.</div>
+<div class="mini-s">Read-only map layer for verification and planning context. No turf cutting.</div>
+</div>
+<div class="mini" style="margin-top:10px;">
+<div class="mini-k">GEO inspector</div>
+<div class="grid2" style="margin-top:8px;">
+<div class="field">
+<label class="label" for="intelGeoInspectorSelect">Selected tract/block group</label>
+<select class="select" id="intelGeoInspectorSelect">
+<option value="">No GEO available</option>
+</select>
+</div>
+<div class="field">
+<label class="label">Status</label>
+<div class="muted" id="intelGeoInspectorStatus">No GEO selected.</div>
+</div>
+</div>
+<div class="grid3" style="margin-top:8px;">
+<div class="mini">
+<div class="mini-k">Race</div>
+<div class="mini-v" id="intelGeoInspectorRace">—</div>
+</div>
+<div class="mini">
+<div class="mini-k">Households</div>
+<div class="mini-v" id="intelGeoInspectorHouseholds">—</div>
+</div>
+<div class="mini">
+<div class="mini-k">Population</div>
+<div class="mini-v" id="intelGeoInspectorPopulation">—</div>
+</div>
+</div>
+<div class="table-wrap" style="margin-top:8px;">
+<table class="table">
+<thead>
+<tr>
+<th>Census field</th>
+<th class="num">Value</th>
+</tr>
+</thead>
+<tbody id="intelGeoInspectorCensusTbody">
+<tr><td class="muted" colspan="2">No census values loaded for selected GEO.</td></tr>
+</tbody>
+</table>
+</div>
 </div>
 <div class="table-wrap" style="margin-top:10px;">
 <table class="table">
@@ -3333,6 +3382,7 @@ Volunteer multiplier stays above 1.5" rows="4"></textarea>
 </aside>
 </div>
 <!-- /app-shell -->
+<script crossorigin="" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="./js/app.js?v=20260224-stable-c87" type="module"></script>
 <script>
 // ── Stage navigation ───────────────────────────────────────────
