@@ -75,6 +75,8 @@ function areaToGeoId(area){
 
 function normalizeFeatureLike(input){
   if (!input) return null;
+  const arc = normalizeArcGisFeatureCollection(input);
+  if (arc) return arc;
   if (asObject(input) && input.type === "FeatureCollection" && Array.isArray(input.features)){
     return input.features.length ? input : null;
   }
@@ -88,6 +90,64 @@ function normalizeFeatureLike(input){
     return { type: "FeatureCollection", features: [{ type: "Feature", geometry: input, properties: {} }] };
   }
   return null;
+}
+
+function normalizeArcGisRing(ring){
+  if (!Array.isArray(ring) || !ring.length) return null;
+  const out = [];
+  for (const pt of ring){
+    const x = num(pt?.[0]);
+    const y = num(pt?.[1]);
+    if (x == null || y == null) continue;
+    out.push([x, y]);
+  }
+  if (out.length < 4) return null;
+  const first = out[0];
+  const last = out[out.length - 1];
+  if (first[0] !== last[0] || first[1] !== last[1]){
+    out.push([first[0], first[1]]);
+  }
+  return out;
+}
+
+function normalizeArcGisGeometry(geometry){
+  if (!asObject(geometry)) return null;
+  if (Number.isFinite(Number(geometry.x)) && Number.isFinite(Number(geometry.y))){
+    return { type: "Point", coordinates: [Number(geometry.x), Number(geometry.y)] };
+  }
+  if (Array.isArray(geometry.rings) && geometry.rings.length){
+    const rings = geometry.rings.map(normalizeArcGisRing).filter(Boolean);
+    if (!rings.length) return null;
+    return { type: "Polygon", coordinates: rings };
+  }
+  if (Array.isArray(geometry.paths) && geometry.paths.length){
+    const paths = geometry.paths
+      .map((path) => Array.isArray(path) ? path.map((pt) => [num(pt?.[0]), num(pt?.[1])]).filter((xy) => xy[0] != null && xy[1] != null) : [])
+      .filter((path) => path.length >= 2);
+    if (!paths.length) return null;
+    return { type: "MultiLineString", coordinates: paths };
+  }
+  if (Array.isArray(geometry.points) && geometry.points.length){
+    const points = geometry.points
+      .map((pt) => [num(pt?.[0]), num(pt?.[1])])
+      .filter((xy) => xy[0] != null && xy[1] != null);
+    if (!points.length) return null;
+    return { type: "MultiPoint", coordinates: points };
+  }
+  return null;
+}
+
+function normalizeArcGisFeatureCollection(input){
+  if (!asObject(input) || !Array.isArray(input.features) || !input.features.length) return null;
+  const features = [];
+  for (const row of input.features){
+    const geometry = normalizeArcGisGeometry(row?.geometry);
+    if (!geometry) continue;
+    const properties = asObject(row?.attributes) ? row.attributes : {};
+    features.push({ type: "Feature", geometry, properties });
+  }
+  if (!features.length) return null;
+  return { type: "FeatureCollection", features };
 }
 
 function mapState(host){
@@ -307,7 +367,7 @@ function tigerwebQueryUrl(service, layer, where){
     outFields: "GEOID,NAME,STATE,COUNTY,PLACE,CD119,SLDU,SLDL",
     returnGeometry: "true",
     outSR: "4326",
-    f: "geojson",
+    f: "pjson",
   });
   return `${base}?${params.toString()}`;
 }
@@ -316,13 +376,19 @@ function buildTigerwebQueryPlan(geoid){
   const g = str(geoid);
   const county = g.match(/^05000US(\d{5})$/);
   if (county){
-    return [tigerwebQueryUrl("State_County", 1, `GEOID='${county[1]}'`)];
+    return [
+      tigerwebQueryUrl("State_County", 1, `GEOID='${county[1]}'`),
+      tigerwebQueryUrl("State_County", 2, `GEOID='${county[1]}'`),
+      tigerwebQueryUrl("State_County", 3, `GEOID='${county[1]}'`),
+    ];
   }
   const place = g.match(/^16000US(\d{7})$/);
   if (place){
     return [
       tigerwebQueryUrl("Places_CouSub_ConCity_SubMCD", 4, `GEOID='${place[1]}'`),
       tigerwebQueryUrl("Places_CouSub_ConCity_SubMCD", 5, `GEOID='${place[1]}'`),
+      tigerwebQueryUrl("Places_CouSub_ConCity_SubMCD", 6, `GEOID='${place[1]}'`),
+      tigerwebQueryUrl("Places_CouSub_ConCity_SubMCD", 7, `GEOID='${place[1]}'`),
     ];
   }
   const cd = g.match(/^50000US(\d{4})$/);
@@ -656,18 +722,11 @@ export function renderIntelGeoMap(host, statusEl, args = {}){
     st.lastArgs = args;
   }
   const out = renderMapNow(host, statusEl, args);
+  let areaBoundaryUnavailable = false;
   if (!out.hasBoundary && out.geoid){
     const cached = boundaryCache.get(out.geoid);
     if (cached && !cached.ok){
-      statusEl.classList.remove("ok", "warn", "bad", "muted");
-      if (out.pointCount > 0){
-        statusEl.classList.add("warn");
-        statusEl.textContent = `Interactive map: ${out.pointCount} GEO points plotted. Boundary fetch unavailable for ${out.geoid}.`;
-      } else {
-        statusEl.classList.add("muted");
-        statusEl.textContent = `Map unavailable: boundary fetch unavailable for ${out.geoid}.`;
-      }
-      return;
+      areaBoundaryUnavailable = true;
     }
     if (!cached){
       if (out.pointCount > 0){
@@ -696,5 +755,18 @@ export function renderIntelGeoMap(host, statusEl, args = {}){
       statusEl.textContent = `Interactive map: ${out.pointCount} GEO points plotted. Loading selected GEO boundary ${out.selectedGeoId}...`;
       queueBoundaryFetch(host, statusEl, args, out.selectedGeoId);
     }
+  }
+  if (areaBoundaryUnavailable && out.hasSelectedBoundary && out.pointCount > 0){
+    statusEl.classList.remove("ok", "warn", "bad", "muted");
+    statusEl.classList.add("ok");
+    statusEl.textContent = `Interactive map: ${out.pointCount} GEO points with selected GEO boundary (${out.selectedGeoId}). Area boundary unavailable for ${out.geoid}.`;
+  } else if (areaBoundaryUnavailable && out.pointCount > 0){
+    statusEl.classList.remove("ok", "warn", "bad", "muted");
+    statusEl.classList.add("warn");
+    statusEl.textContent = `Interactive map: ${out.pointCount} GEO points plotted. Area boundary unavailable for ${out.geoid}.`;
+  } else if (areaBoundaryUnavailable){
+    statusEl.classList.remove("ok", "warn", "bad", "muted");
+    statusEl.classList.add("muted");
+    statusEl.textContent = `Map unavailable: boundary fetch unavailable for ${out.geoid}.`;
   }
 }
