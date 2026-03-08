@@ -708,8 +708,8 @@ export function runSelfTests(engine){
   // --- C) Monte Carlo Stability ---
   test("Monte Carlo: same seed => identical summary output", () => {
     assert(baseline.res, "Baseline computeAll result missing");
-    const sim1 = engine.runMonteCarloSim({ res: baseline.res, weeks: baseline.weeks, needVotes: baseline.needVotes, runs: 2000, seed: "selftest-seed-1" });
-    const sim2 = engine.runMonteCarloSim({ res: baseline.res, weeks: baseline.weeks, needVotes: baseline.needVotes, runs: 2000, seed: "selftest-seed-1" });
+    const sim1 = engine.runMonteCarloSim({ scenario: snap, res: baseline.res, weeks: baseline.weeks, needVotes: baseline.needVotes, runs: 2000, seed: "selftest-seed-1" });
+    const sim2 = engine.runMonteCarloSim({ scenario: snap, res: baseline.res, weeks: baseline.weeks, needVotes: baseline.needVotes, runs: 2000, seed: "selftest-seed-1" });
     const s1 = getMcSummary(sim1);
     const s2 = getMcSummary(sim2);
     assert(s1 && s2, "Monte Carlo summary missing");
@@ -747,8 +747,8 @@ export function runSelfTests(engine){
     // into a constant output regardless of seed (votes=0 for every run). In that case,
     // this test is not informative and should be skipped as a pass.
     if (baseline.weeks == null) return true;
-    const sim1 = engine.runMonteCarloSim({ res: baseline.res, weeks: baseline.weeks, needVotes: baseline.needVotes, runs: 2000, seed: "selftest-seed-A" });
-    const sim2 = engine.runMonteCarloSim({ res: baseline.res, weeks: baseline.weeks, needVotes: baseline.needVotes, runs: 2000, seed: "selftest-seed-B" });
+    const sim1 = engine.runMonteCarloSim({ scenario: snap, res: baseline.res, weeks: baseline.weeks, needVotes: baseline.needVotes, runs: 2000, seed: "selftest-seed-A" });
+    const sim2 = engine.runMonteCarloSim({ scenario: snap, res: baseline.res, weeks: baseline.weeks, needVotes: baseline.needVotes, runs: 2000, seed: "selftest-seed-B" });
     const s1 = getMcSummary(sim1) || {};
     const s2 = getMcSummary(sim2) || {};
     // Degenerate case: if both outputs show zero spread, seed sensitivity can't be asserted.
@@ -802,7 +802,7 @@ export function runSelfTests(engine){
     const detVotes = capContacts * cr * pr * rr;
     const detMargin = detVotes - (baseline.needVotes ?? 0);
 
-    const sim = engine.runMonteCarloSim({ res: baseline.res, weeks: baseline.weeks, needVotes: baseline.needVotes, runs: 5000, seed: "selftest-seed-align" });
+    const sim = engine.runMonteCarloSim({ scenario: snap, res: baseline.res, weeks: baseline.weeks, needVotes: baseline.needVotes, runs: 5000, seed: "selftest-seed-align" });
     const mcMedian = getMcSummary(sim)?.median;
 
     if (mcMedian == null || !isFinite(mcMedian)) return true;
