@@ -2328,6 +2328,67 @@ export function registerReleaseHardeningTests(ctx){
     return true;
   });
 
+  test("Phase 22: district data contract warns when district-intel provenance fields are missing", () => {
+    const scenario = withUniverseDefaults({
+      scenarioName: "Intel provenance missing",
+      raceType: "state_leg",
+      electionDate: "2026-11-03",
+      universeSize: 10000,
+      useDistrictIntel: true,
+      dataRefs: {
+        mode: "pinned_verified",
+        boundarySetId: "sldl_2024",
+        crosswalkVersionId: "cw_2024",
+        censusDatasetId: "acs5_2024",
+        electionDatasetId: "mit_2024",
+      },
+      dataCatalog: {
+        boundarySets: [{ id: "sldl_2024", label: "SLDL 2024", geographyType: "SLDL", vintage: "2024", isVerified: true, isLatest: true }],
+        crosswalks: [{
+          id: "cw_2024",
+          fromBoundarySetId: "sldl_2022",
+          toBoundarySetId: "sldl_2024",
+          unit: "tract",
+          method: "population",
+          quality: { coveragePct: 99, unmatchedPct: 1, weightDriftPct: 0.1, isVerified: true },
+          isLatest: true
+        }],
+        censusDatasets: [{ id: "acs5_2024", kind: "census", label: "ACS 2024", source: "acs5", vintage: "2024", boundarySetId: "sldl_2024", granularity: "tract", refreshedAt: null, hash: null, quality: { coveragePct: 99, isVerified: true }, isLatest: true }],
+        electionDatasets: [{ id: "mit_2024", kind: "election", label: "MIT 2024", source: "mit", vintage: "2024", boundarySetId: "sldl_2024", granularity: "precinct", refreshedAt: null, hash: null, quality: { coveragePct: 99, isVerified: true }, isLatest: true }],
+      },
+      districtIntelPack: {
+        ready: true,
+        provenance: {
+          boundarySetId: null,
+          crosswalkVersionId: null,
+          censusDatasetId: null,
+          electionDatasetId: null,
+          areaFingerprint: null,
+        },
+      },
+      geoPack: {
+        geoPackVersion: "0.1",
+        source: { dataset: null, vintage: null, refreshedAt: null },
+        area: { type: "SLDL", stateFips: "34", district: "029", countyFips: "", placeFips: "", label: "" },
+        resolution: "tract",
+        boundarySetId: "sldl_2024",
+        units: [],
+        district: {},
+        quality: { coveragePct: null, weightSum: null, unmatchedUnits: 0, crosswalkMethod: "", crosswalkQuality: null },
+        generatedAt: null,
+      },
+      ui: { training: false, dark: false },
+    });
+    const result = validateDistrictDataContract(scenario);
+    assert(result.ok, "Expected missing provenance to warn but not hard-fail");
+    assert(Array.isArray(result.warnings) && result.warnings.some((x) => String(x).includes("provenance censusDatasetId missing")), "Expected missing census provenance warning");
+    assert(Array.isArray(result.warnings) && result.warnings.some((x) => String(x).includes("provenance electionDatasetId missing")), "Expected missing election provenance warning");
+    assert(Array.isArray(result.warnings) && result.warnings.some((x) => String(x).includes("provenance boundarySetId missing")), "Expected missing boundary provenance warning");
+    assert(Array.isArray(result.warnings) && result.warnings.some((x) => String(x).includes("provenance crosswalkVersionId missing")), "Expected missing crosswalk provenance warning");
+    assert(Array.isArray(result.warnings) && result.warnings.some((x) => String(x).includes("provenance areaFingerprint missing")), "Expected missing area-fingerprint provenance warning");
+    return true;
+  });
+
   test("Phase 21: district-intel rate/capacity overrides apply only when enabled + ready", () => {
     const stateDisabled = withUniverseDefaults({
       useDistrictIntel: false,
