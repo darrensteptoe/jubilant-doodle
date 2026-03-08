@@ -492,6 +492,7 @@ export const els = {
   intelDataRefFingerprint: document.getElementById("intelDataRefFingerprint"),
   intelDataCatalogUrl: document.getElementById("intelDataCatalogUrl"),
   btnIntelFetchDataCatalog: document.getElementById("btnIntelFetchDataCatalog"),
+  btnIntelCatalogAutoPull: document.getElementById("btnIntelCatalogAutoPull"),
   intelCensusManifestUrl: document.getElementById("intelCensusManifestUrl"),
   intelElectionManifestUrl: document.getElementById("intelElectionManifestUrl"),
   intelCrosswalkRowsUrl: document.getElementById("intelCrosswalkRowsUrl"),
