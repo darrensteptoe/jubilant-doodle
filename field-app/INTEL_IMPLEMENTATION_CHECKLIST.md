@@ -520,6 +520,18 @@ Execution order for the first functional district-evidence layer.
    - `/Users/anakinskywalker/Downloads/field-app-40/js/ui/els.js`
    - `/Users/anakinskywalker/Downloads/field-app-40/js/app/wireEventsRuntime.js`
      - adds `Load demo district data` action that populates JSON fields and imports demo payload end-to-end.
+23. [x] Add explicit Stage 9 district demographics and assumption-delta readouts:
+   - `/Users/anakinskywalker/Downloads/field-app-40/index.html`
+     - adds `District demographics` table and `Assumption` delta table under District Intel status.
+   - `/Users/anakinskywalker/Downloads/field-app-40/js/ui/els.js`
+     - binds `intelDistrictDemographicsTbody` and `intelDistrictAssumptionTbody`.
+   - `/Users/anakinskywalker/Downloads/field-app-40/js/app/renderIntelChecks.js`
+     - renders deterministic district profile metrics from compiled evidence totals.
+     - renders base/adjusted/delta assumption rows with index drivers and applied/generated state.
+24. [x] Add Stage 9 fallback/preview rendering for demographics + assumptions when pack is not persisted yet:
+   - `/Users/anakinskywalker/Downloads/field-app-40/js/app/renderIntelChecks.js`
+     - derives demographic table values from imported census GEO rows when compiled totals are absent.
+     - renders district-intel assumption preview from current compiled evidence before `Generate assumptions` persists a ready pack.
 
 ## Phase 14: Automatic source pull bridge (done)
 Execution order for additive auto-ingest on top of deterministic/manual ingest.
