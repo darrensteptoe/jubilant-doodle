@@ -832,20 +832,40 @@ export function validateDistrictDataContract(scenario){
 
   if (intel.ready){
     const prov = intel.provenance || {};
-    if (refs.censusDatasetId && prov.censusDatasetId && refs.censusDatasetId !== prov.censusDatasetId){
-      warnings.push("districtIntelPack provenance censusDatasetId differs from dataRefs.");
+    if (refs.censusDatasetId){
+      if (!prov.censusDatasetId){
+        warnings.push("districtIntelPack provenance censusDatasetId missing.");
+      } else if (refs.censusDatasetId !== prov.censusDatasetId){
+        warnings.push("districtIntelPack provenance censusDatasetId differs from dataRefs.");
+      }
     }
-    if (refs.electionDatasetId && prov.electionDatasetId && refs.electionDatasetId !== prov.electionDatasetId){
-      warnings.push("districtIntelPack provenance electionDatasetId differs from dataRefs.");
+    if (refs.electionDatasetId){
+      if (!prov.electionDatasetId){
+        warnings.push("districtIntelPack provenance electionDatasetId missing.");
+      } else if (refs.electionDatasetId !== prov.electionDatasetId){
+        warnings.push("districtIntelPack provenance electionDatasetId differs from dataRefs.");
+      }
     }
-    if (refs.boundarySetId && prov.boundarySetId && refs.boundarySetId !== prov.boundarySetId){
-      warnings.push("districtIntelPack provenance boundarySetId differs from dataRefs.");
+    if (refs.boundarySetId){
+      if (!prov.boundarySetId){
+        warnings.push("districtIntelPack provenance boundarySetId missing.");
+      } else if (refs.boundarySetId !== prov.boundarySetId){
+        warnings.push("districtIntelPack provenance boundarySetId differs from dataRefs.");
+      }
     }
-    if (refs.crosswalkVersionId && prov.crosswalkVersionId && refs.crosswalkVersionId !== prov.crosswalkVersionId){
-      warnings.push("districtIntelPack provenance crosswalkVersionId differs from dataRefs.");
+    if (refs.crosswalkVersionId){
+      if (!prov.crosswalkVersionId){
+        warnings.push("districtIntelPack provenance crosswalkVersionId missing.");
+      } else if (refs.crosswalkVersionId !== prov.crosswalkVersionId){
+        warnings.push("districtIntelPack provenance crosswalkVersionId differs from dataRefs.");
+      }
     }
-    if (currentAreaFingerprint && prov.areaFingerprint && currentAreaFingerprint !== prov.areaFingerprint){
-      warnings.push("districtIntelPack provenance areaFingerprint differs from selected area.");
+    if (currentAreaFingerprint){
+      if (!prov.areaFingerprint){
+        warnings.push("districtIntelPack provenance areaFingerprint missing.");
+      } else if (currentAreaFingerprint !== prov.areaFingerprint){
+        warnings.push("districtIntelPack provenance areaFingerprint differs from selected area.");
+      }
     }
   }
 
