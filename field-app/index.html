@@ -2264,18 +2264,6 @@
 <input class="input" id="intelAreaLabel" placeholder="e.g., NJ-12" type="text"/>
 </div>
 </div>
-<div class="grid2" style="margin-top:10px;">
-<div class="field">
-<label class="label" for="intelAreaCodeSelect">Area options in selected state</label>
-<select class="select" id="intelAreaCodeSelect">
-<option value="">None loaded</option>
-</select>
-</div>
-<div class="card-actions" style="align-items:end;">
-<button class="btn btn-sm" id="btnIntelAreaLoadCodes" type="button">Refresh area options</button>
-</div>
-</div>
-<div class="muted" style="margin-top:6px;">Manual fallback: Census code lists are available via <a href="https://api.census.gov/data.html" rel="noopener" target="_blank">Census API datasets</a>.</div>
 <div class="grid4" style="margin-top:10px;">
 <div class="field">
 <label class="label" for="intelAreaDistrict">District code</label>
@@ -2408,28 +2396,6 @@
 <div class="muted" id="intelAutoPullReceiptSummary" style="margin-top:6px;">Auto-pull run: none.</div>
 <div class="muted" id="intelAutoPullReceiptAlignment" style="margin-top:6px;">Auto-pull receipt alignment: no receipt yet.</div>
 <div class="muted" id="intelAutoPullRunNeed" style="margin-top:6px;">Auto-pull run need: not evaluated.</div>
-<div class="mini" style="margin-top:10px;">
-<div class="mini-k">Census API pull</div>
-<div class="mini-s">Direct ACS pull by county scope from area or loaded GEO units. Imports into Census GEO rows.</div>
-</div>
-<div class="grid3" style="margin-top:10px;">
-<div class="field">
-<label class="label" for="intelCensusApiKey">Census API key</label>
-<input class="input" id="intelCensusApiKey" placeholder="Enter Census API key" type="password"/>
-</div>
-<div class="field">
-<label class="label" for="intelCensusApiYear">ACS year override</label>
-<input class="input" id="intelCensusApiYear" max="2099" min="2009" placeholder="blank = selected dataset vintage" step="1" type="number"/>
-</div>
-<div class="field">
-<label class="label" for="intelCensusApiVars">ACS variables</label>
-<input class="input" id="intelCensusApiVars" placeholder="B01003_001E,B25001_001E" type="text"/>
-</div>
-</div>
-<div class="card-actions" style="margin-top:8px;">
-<button class="btn btn-sm" id="btnIntelPullCensusApi" type="button">Pull Census via API</button>
-</div>
-<div class="muted" id="intelCensusApiStatus" style="margin-top:6px;">Census API status: idle.</div>
 <div class="grid2" style="margin-top:10px;">
 <div class="field">
 <label class="label" for="intelCensusManifestJson">Census manifest JSON</label>
