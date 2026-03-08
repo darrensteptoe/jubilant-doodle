@@ -635,3 +635,13 @@ Execution order for additive auto-ingest on top of deterministic/manual ingest.
    - `/Users/anakinskywalker/Downloads/field-app-40/js/core/selfTestSuites/releaseHardening.js`
    - `/Users/anakinskywalker/Downloads/field-app-40/js/core/selfTest.js`
      - adds deterministic run-need regression coverage for current, stale, and warning outcomes.
+10. [x] Add direct Census API pull bridge into Stage 9 ingest flow:
+   - `/Users/anakinskywalker/Downloads/field-app-40/js/core/districtAutoPull.js`
+     - adds `buildCensusApiPullPlan(...)` and `censusGeoRowsFromApiPayload(...)`.
+   - `/Users/anakinskywalker/Downloads/field-app-40/js/engine.js`
+     - exposes Census API planning/parser helpers in snapshot facade.
+   - `/Users/anakinskywalker/Downloads/field-app-40/index.html`
+   - `/Users/anakinskywalker/Downloads/field-app-40/js/ui/els.js`
+   - `/Users/anakinskywalker/Downloads/field-app-40/js/app/renderIntelChecks.js`
+   - `/Users/anakinskywalker/Downloads/field-app-40/js/app/wireEventsRuntime.js`
+     - adds `Pull Census via API` action using current area/refs and imports resulting rows through existing deterministic ingest path.
