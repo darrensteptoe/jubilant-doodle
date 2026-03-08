@@ -3,6 +3,7 @@
 // Pure helpers only: no DOM, no storage, no network.
 
 import { normalizeDistrictIntelPack } from "./districtData.js";
+import { deriveAreaResolverContext } from "./areaResolver.js";
 
 /**
  * @param {unknown} v
@@ -115,6 +116,14 @@ export function buildDistrictIntelPackFromEvidence(args){
   const currentPack = normalizeDistrictIntelPack(scenario?.districtIntelPack);
   const refs = isObject(args?.refs) ? args.refs : {};
   const dataRefs = isObject(scenario?.dataRefs) ? scenario.dataRefs : {};
+  let areaFingerprint = null;
+  try{
+    const ctx = deriveAreaResolverContext({ scenario });
+    const key = str(ctx?.cacheKey);
+    areaFingerprint = key || null;
+  } catch {
+    areaFingerprint = null;
+  }
 
   const boundsMin = numOrNull(currentPack?.bounds?.min) ?? 0.6;
   const boundsMax = Math.max(boundsMin, numOrNull(currentPack?.bounds?.max) ?? 1.4);
@@ -220,6 +229,7 @@ export function buildDistrictIntelPackFromEvidence(args){
       electionDatasetId: str(refs.electionDatasetId || dataRefs?.electionDatasetId) || null,
       boundarySetId: str(refs.boundarySetId || dataRefs?.boundarySetId) || null,
       crosswalkVersionId: str(refs.crosswalkVersionId || dataRefs?.crosswalkVersionId) || null,
+      areaFingerprint,
     },
     generatedAt: nowIso,
     warnings,

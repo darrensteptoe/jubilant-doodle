@@ -12,6 +12,7 @@ export function buildDistrictDemoPayload(){
         id: boundarySetId,
         label: "NJ County 2024",
         geographyType: "COUNTY",
+        stateFips: "34",
         vintage: "2024",
         source: "demo",
         isVerified: true,
@@ -43,6 +44,8 @@ export function buildDistrictDemoPayload(){
         source: "census_demo",
         vintage: "2024",
         boundarySetId,
+        stateFips: "34",
+        countyFips: "013",
         granularity: "tract",
         quality: {
           coveragePct: 100,
@@ -63,6 +66,8 @@ export function buildDistrictDemoPayload(){
         raceType: "local",
         cycleYear: 2024,
         boundarySetId,
+        stateFips: "34",
+        countyFips: "013",
         granularity: "precinct",
         quality: {
           coveragePct: 100,

@@ -1767,6 +1767,121 @@ export function registerReleaseHardeningTests(ctx){
     return true;
   });
 
+  test("Phase 22: district evidence inputs block refs when stored area fingerprint mismatches selected area", () => {
+    const selectedAreaKey = buildAreaResolverCacheKey({
+      area: {
+        type: "COUNTY",
+        stateFips: "34",
+        countyFips: "34013",
+        district: "",
+        placeFips: "",
+        label: "",
+        resolution: "tract",
+      },
+    });
+    const otherAreaKey = buildAreaResolverCacheKey({
+      area: {
+        type: "COUNTY",
+        stateFips: "34",
+        countyFips: "34017",
+        district: "",
+        placeFips: "",
+        label: "",
+        resolution: "tract",
+      },
+    });
+    const out = resolveDistrictEvidenceInputs({
+      dataRefs: {
+        censusDatasetId: "acs5_2024",
+        electionDatasetId: "mit_2024",
+        crosswalkVersionId: "cw_2024",
+      },
+      geoPack: {
+        resolution: "tract",
+        area: { type: "COUNTY", stateFips: "34", countyFips: "34013" },
+        district: {
+          evidenceStore: {
+            electionByDatasetId: {
+              mit_2024: {
+                rows: [{ precinctId: "P1", candidateVotes: { A: 30, B: 20 } }],
+                meta: { areaFingerprint: otherAreaKey, validationStatus: "unknown" },
+              },
+            },
+            crosswalkByVersionId: {
+              cw_2024: {
+                rows: [{ precinctId: "P1", geoid: "34013010001", weight: 1 }],
+                meta: { areaFingerprint: otherAreaKey, validationStatus: "unknown" },
+              },
+            },
+            censusByDatasetId: {
+              acs5_2024: {
+                rows: [{ geoid: "34013010001", values: { pop: 1000 } }],
+                meta: { areaFingerprint: otherAreaKey, validationStatus: "unknown" },
+              },
+            },
+          },
+        },
+      },
+    });
+    assert(String(out?.alignment?.areaFingerprint || "") === selectedAreaKey, "Expected selected-area fingerprint");
+    assert(Array.isArray(out?.alignment?.mismatches) && out.alignment.mismatches.length >= 3, "Expected fingerprint mismatch per layer");
+    assert(Array.isArray(out.precinctResults) && out.precinctResults.length === 0, "Expected election rows blocked on mismatch");
+    assert(Array.isArray(out.crosswalkRows) && out.crosswalkRows.length === 0, "Expected crosswalk rows blocked on mismatch");
+    assert(Array.isArray(out.censusGeoRows) && out.censusGeoRows.length === 0, "Expected census rows blocked on mismatch");
+    return true;
+  });
+
+  test("Phase 22: district evidence summary is ready when refs and area fingerprints align", () => {
+    const selectedAreaKey = buildAreaResolverCacheKey({
+      area: {
+        type: "COUNTY",
+        stateFips: "34",
+        countyFips: "34013",
+        district: "",
+        placeFips: "",
+        label: "",
+        resolution: "tract",
+      },
+    });
+    const summary = summarizeDistrictEvidenceInputs({
+      dataRefs: {
+        censusDatasetId: "acs5_2024",
+        electionDatasetId: "mit_2024",
+        crosswalkVersionId: "cw_2024",
+      },
+      geoPack: {
+        resolution: "tract",
+        area: { type: "COUNTY", stateFips: "34", countyFips: "34013" },
+        district: {
+          evidenceStore: {
+            electionByDatasetId: {
+              mit_2024: {
+                rows: [{ precinctId: "P1", candidateVotes: { A: 30, B: 20 } }],
+                meta: { areaFingerprint: selectedAreaKey, validationStatus: "unknown" },
+              },
+            },
+            crosswalkByVersionId: {
+              cw_2024: {
+                rows: [{ precinctId: "P1", geoid: "34013010001", weight: 1 }],
+                meta: { areaFingerprint: selectedAreaKey, validationStatus: "aligned" },
+              },
+            },
+            censusByDatasetId: {
+              acs5_2024: {
+                rows: [{ geoid: "34013010001", values: { pop: 1000 } }],
+                meta: { areaFingerprint: selectedAreaKey, validationStatus: "aligned" },
+              },
+            },
+          },
+        },
+      },
+    });
+    assert(summary.ready === true, "Expected ready=true when rows and area fingerprints align");
+    assert(summary.alignment?.allAligned === true, "Expected area alignment true");
+    assert(String(summary.summaryLine).includes("Area alignment: aligned"), "Expected aligned summary text");
+    return true;
+  });
+
   test("Phase 21: district-intel pack builder derives bounded indices and assumptions from evidence", () => {
     const evidence = compileDistrictEvidence({
       geoUnits: [
@@ -1851,7 +1966,19 @@ export function registerReleaseHardeningTests(ctx){
           crosswalkVersionId: "cw_2024",
           censusDatasetId: "acs5_2023",
           electionDatasetId: "mit_2023",
+          areaFingerprint: "area:v1|type=SLDL|id=99:999|boundary=-|vintage=-|resolution=tract",
         },
+      },
+      geoPack: {
+        geoPackVersion: "0.1",
+        source: { dataset: null, vintage: null, refreshedAt: null },
+        area: { type: "SLDL", stateFips: "34", district: "029", countyFips: "", placeFips: "", label: "" },
+        resolution: "tract",
+        boundarySetId: "sldl_2024",
+        units: [],
+        district: {},
+        quality: { coveragePct: null, weightSum: null, unmatchedUnits: 0, crosswalkMethod: "", crosswalkQuality: null },
+        generatedAt: null,
       },
       ui: { training: false, dark: false },
     });
@@ -1859,6 +1986,7 @@ export function registerReleaseHardeningTests(ctx){
     assert(result.ok, "Expected provenance drift to warn but not hard-fail");
     assert(Array.isArray(result.warnings) && result.warnings.some((x) => String(x).includes("provenance censusDatasetId differs")), "Expected census provenance drift warning");
     assert(Array.isArray(result.warnings) && result.warnings.some((x) => String(x).includes("provenance electionDatasetId differs")), "Expected election provenance drift warning");
+    assert(Array.isArray(result.warnings) && result.warnings.some((x) => String(x).includes("provenance areaFingerprint differs")), "Expected area-fingerprint provenance drift warning");
     return true;
   });
 

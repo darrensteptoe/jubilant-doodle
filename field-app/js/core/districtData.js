@@ -1,6 +1,7 @@
 // @ts-check
 // Scenario-scoped district intelligence data contract.
 // This layer is metadata/input plumbing only; it must not run planning math.
+import { deriveAreaResolverContext } from "./areaResolver.js";
 
 export const DISTRICT_DATA_VERSION = "0.1.0";
 
@@ -575,7 +576,8 @@ export function normalizeGeoPack(raw){
  *     censusDatasetId: string | null,
  *     electionDatasetId: string | null,
  *     boundarySetId: string | null,
- *     crosswalkVersionId: string | null
+ *     crosswalkVersionId: string | null,
+ *     areaFingerprint: string | null
  *   },
  *   generatedAt: string | null,
  *   warnings: string[]
@@ -603,6 +605,7 @@ export function makeDefaultDistrictIntelPack(){
       electionDatasetId: null,
       boundarySetId: null,
       crosswalkVersionId: null,
+      areaFingerprint: null,
     },
     generatedAt: null,
     warnings: [],
@@ -677,6 +680,7 @@ export function normalizeDistrictIntelPack(raw){
       electionDatasetId: toIdOrNull(provenanceIn.electionDatasetId),
       boundarySetId: toIdOrNull(provenanceIn.boundarySetId),
       crosswalkVersionId: toIdOrNull(provenanceIn.crosswalkVersionId),
+      areaFingerprint: toIdOrNull(provenanceIn.areaFingerprint),
     },
     generatedAt: toIsoOrNull(raw.generatedAt),
     warnings,
@@ -713,6 +717,13 @@ export function validateDistrictDataContract(scenario){
   const geo = normalizeGeoPack(scenario.geoPack);
   const intel = normalizeDistrictIntelPack(scenario.districtIntelPack);
   const useIntel = !!scenario.useDistrictIntel;
+  let currentAreaFingerprint = "";
+  try{
+    const ctx = deriveAreaResolverContext({ scenario });
+    currentAreaFingerprint = toCleanString(ctx?.cacheKey);
+  } catch {
+    currentAreaFingerprint = "";
+  }
   const districtDataInUse = !!(
     useIntel ||
     intel.ready ||
@@ -832,6 +843,9 @@ export function validateDistrictDataContract(scenario){
     }
     if (refs.crosswalkVersionId && prov.crosswalkVersionId && refs.crosswalkVersionId !== prov.crosswalkVersionId){
       warnings.push("districtIntelPack provenance crosswalkVersionId differs from dataRefs.");
+    }
+    if (currentAreaFingerprint && prov.areaFingerprint && currentAreaFingerprint !== prov.areaFingerprint){
+      warnings.push("districtIntelPack provenance areaFingerprint differs from selected area.");
     }
   }
 

@@ -282,8 +282,8 @@ export function summarizeGeoOpportunityLayers(args){
     const hasElection = !!row.hasElection;
     const hasCensus = !!row.hasCensus;
     const census = isObject(row.census) ? row.census : {};
-    const housingUnits = Math.max(0, numOrNull(census.housing_units ?? census.housingUnits ?? census.housing) ?? 0);
-    const pop = Math.max(0, numOrNull(census.pop ?? census.population ?? census.total_population) ?? 0);
+    const housingUnits = Math.max(0, numOrNull(census.housing_units ?? census.housingUnits ?? census.housing ?? census.B25001_001E ?? census.B25001_001) ?? 0);
+    const pop = Math.max(0, numOrNull(census.pop ?? census.population ?? census.total_population ?? census.B01003_001E ?? census.B01003_001) ?? 0);
     const densityBase = housingUnits > 0
       ? housingUnits
       : (pop > 0 ? pop : totalVotes);
@@ -474,8 +474,8 @@ export function buildGeoEvidenceMapLayer(args){
     const marginVotes = leader ? Math.max(0, leader.votes - (runnerUp ? runnerUp.votes : 0)) : 0;
     const marginPct = totalVotes > 0 ? (marginVotes / totalVotes) * 100 : null;
     const census = isObject(row.census) ? row.census : {};
-    const population = numOrNull(census.pop) ?? numOrNull(census.B01003_001E) ?? numOrNull(census.total_population);
-    const housingUnits = numOrNull(census.housing_units) ?? numOrNull(census.B25001_001E) ?? numOrNull(census.total_housing_units);
+    const population = numOrNull(census.pop) ?? numOrNull(census.B01003_001E) ?? numOrNull(census.B01003_001) ?? numOrNull(census.total_population);
+    const housingUnits = numOrNull(census.housing_units) ?? numOrNull(census.B25001_001E) ?? numOrNull(census.B25001_001) ?? numOrNull(census.total_housing_units);
     points.push({
       geoid,
       lat: centroid.lat,

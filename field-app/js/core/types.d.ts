@@ -219,6 +219,7 @@ export interface DistrictIntelPack {
     electionDatasetId: string | null;
     boundarySetId: string | null;
     crosswalkVersionId: string | null;
+    areaFingerprint: string | null;
   };
   generatedAt: string | null;
   warnings: string[];
