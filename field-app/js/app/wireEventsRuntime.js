@@ -443,7 +443,15 @@ export function wireIntelChecksEvents(ctx){
   if (els.intelAreaStateFips){
     els.intelAreaStateFips.addEventListener("input", () => {
       onAreaChange((geo) => {
-        geo.area.stateFips = cleanDigits(els.intelAreaStateFips.value, 2);
+        const nextState = cleanDigits(els.intelAreaStateFips.value, 2);
+        const prevState = cleanDigits(geo.area.stateFips, 2);
+        geo.area.stateFips = nextState;
+        if (!nextState || (prevState && prevState !== nextState)){
+          geo.area.countyFips = "";
+          geo.area.placeFips = "";
+          if (els.intelAreaCountyFips) els.intelAreaCountyFips.value = "";
+          if (els.intelAreaPlaceFips) els.intelAreaPlaceFips.value = "";
+        }
       }, "Area state FIPS updated.");
     });
   }
@@ -461,6 +469,69 @@ export function wireIntelChecksEvents(ctx){
     els.intelAreaPlaceFips.addEventListener("input", () => onAreaChange((geo) => {
       geo.area.placeFips = cleanDigits(els.intelAreaPlaceFips.value, 5);
     }, "Area place FIPS updated."));
+  }
+  if (els.intelAreaAssistState){
+    els.intelAreaAssistState.addEventListener("change", () => {
+      const stateFips = cleanDigits(els.intelAreaAssistState.value, 2);
+      if (!stateFips || stateFips.length < 2) return;
+      onAreaChange((geo) => {
+        geo.area.stateFips = stateFips;
+        geo.area.countyFips = "";
+        geo.area.placeFips = "";
+      }, "Area state selected from suggestions.");
+      if (els.intelAreaStateFips) els.intelAreaStateFips.value = stateFips;
+      if (els.intelAreaCountyFips) els.intelAreaCountyFips.value = "";
+      if (els.intelAreaPlaceFips) els.intelAreaPlaceFips.value = "";
+    });
+  }
+  if (els.intelAreaAssistCounty){
+    els.intelAreaAssistCounty.addEventListener("change", () => {
+      const county5 = cleanDigits(els.intelAreaAssistCounty.value, 5);
+      if (!county5 || county5.length < 5) return;
+      const stateFips = county5.slice(0, 2);
+      onAreaChange((geo) => {
+        geo.area.stateFips = stateFips;
+        geo.area.countyFips = county5;
+        geo.area.placeFips = "";
+      }, "Area county selected from suggestions.");
+      if (els.intelAreaStateFips) els.intelAreaStateFips.value = stateFips;
+      if (els.intelAreaCountyFips) els.intelAreaCountyFips.value = county5;
+      if (els.intelAreaPlaceFips) els.intelAreaPlaceFips.value = "";
+    });
+  }
+  if (els.intelAreaAssistPlace){
+    els.intelAreaAssistPlace.addEventListener("change", () => {
+      const place7 = cleanDigits(els.intelAreaAssistPlace.value, 7);
+      if (!place7 || place7.length < 7) return;
+      const stateFips = place7.slice(0, 2);
+      const placeFips = place7.slice(2, 7);
+      onAreaChange((geo) => {
+        geo.area.stateFips = stateFips;
+        geo.area.placeFips = placeFips;
+      }, "Area place selected from suggestions.");
+      if (els.intelAreaStateFips) els.intelAreaStateFips.value = stateFips;
+      if (els.intelAreaPlaceFips) els.intelAreaPlaceFips.value = placeFips;
+    });
+  }
+  if (els.intelAreaAssistGeo){
+    els.intelAreaAssistGeo.addEventListener("change", () => {
+      const geoid = cleanDigits(els.intelAreaAssistGeo.value, 16);
+      if (!geoid || geoid.length < 5) return;
+      const stateFips = geoid.slice(0, 2);
+      const countyFips = geoid.slice(0, 5);
+      onAreaChange((geo) => {
+        geo.area.stateFips = stateFips;
+        geo.area.countyFips = countyFips;
+      }, "Area narrowed from GEO suggestion.");
+      if (els.intelAreaStateFips) els.intelAreaStateFips.value = stateFips;
+      if (els.intelAreaCountyFips) els.intelAreaCountyFips.value = countyFips;
+      const s = currentState();
+      if (!s) return;
+      const district = ensureGeoDistrict(s);
+      if (!district) return;
+      district.selectedGeoId = geoid;
+      commitUIUpdate();
+    });
   }
   if (els.intelGeoInspectorSelect){
     els.intelGeoInspectorSelect.addEventListener("change", () => {

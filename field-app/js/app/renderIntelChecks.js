@@ -42,6 +42,61 @@ function makeOption(value, label){
   return opt;
 }
 
+const STATE_LABEL_BY_FIPS = {
+  "01": "AL",
+  "02": "AK",
+  "04": "AZ",
+  "05": "AR",
+  "06": "CA",
+  "08": "CO",
+  "09": "CT",
+  "10": "DE",
+  "11": "DC",
+  "12": "FL",
+  "13": "GA",
+  "15": "HI",
+  "16": "ID",
+  "17": "IL",
+  "18": "IN",
+  "19": "IA",
+  "20": "KS",
+  "21": "KY",
+  "22": "LA",
+  "23": "ME",
+  "24": "MD",
+  "25": "MA",
+  "26": "MI",
+  "27": "MN",
+  "28": "MS",
+  "29": "MO",
+  "30": "MT",
+  "31": "NE",
+  "32": "NV",
+  "33": "NH",
+  "34": "NJ",
+  "35": "NM",
+  "36": "NY",
+  "37": "NC",
+  "38": "ND",
+  "39": "OH",
+  "40": "OK",
+  "41": "OR",
+  "42": "PA",
+  "44": "RI",
+  "45": "SC",
+  "46": "SD",
+  "47": "TN",
+  "48": "TX",
+  "49": "UT",
+  "50": "VT",
+  "51": "VA",
+  "53": "WA",
+  "54": "WV",
+  "55": "WI",
+  "56": "WY",
+  "72": "PR",
+};
+
 function fillCorrelationSelect(selectEl, rows, selectedId){
   if (!selectEl) return;
   const keep = String(selectedId || "");
@@ -706,8 +761,8 @@ function renderGeoInspector(els, geoRows, selectedGeoId){
   const marginPct = totalVotes > 0 ? (marginVotes / totalVotes) * 100 : null;
   const leaderSharePct = totalVotes > 0 ? (leaderVotes / totalVotes) * 100 : null;
   const census = row && typeof row.census === "object" ? row.census : {};
-  const pop = Number(census?.pop ?? census?.B01003_001E ?? census?.total_population);
-  const housing = Number(census?.housing_units ?? census?.B25001_001E ?? census?.total_housing_units);
+  const pop = Number(census?.pop ?? census?.B01003_001E ?? census?.B01003_001 ?? census?.total_population);
+  const housing = Number(census?.housing_units ?? census?.B25001_001E ?? census?.B25001_001 ?? census?.total_housing_units);
 
   const selectorRows = rows
     .map((row) => {
@@ -914,6 +969,268 @@ function areaReadyForFlow(area){
     return !!(stateFips || district || countyFips || placeFips || String(area?.label || "").trim());
   }
   return false;
+}
+
+function digitsOnly(v){
+  return String(v == null ? "" : v).replace(/\D+/g, "");
+}
+
+function normalizedStateForLinks(v){
+  const d = digitsOnly(v);
+  if (!d) return "";
+  return d.slice(0, 2).padStart(2, "0");
+}
+
+function normalizedCountyForLinks(stateFips, countyFips){
+  const c = digitsOnly(countyFips);
+  if (!c) return "";
+  if (c.length >= 5){
+    const state = normalizedStateForLinks(stateFips);
+    if (state && c.slice(0, 2) === state) return c.slice(2, 5);
+    return c.slice(-3);
+  }
+  if (c.length >= 3) return c.slice(0, 3);
+  return "";
+}
+
+function buildAreaCodeLinksHtml(area){
+  const baseStateList = "https://www2.census.gov/geo/docs/reference/codes2020/national_state2020.txt";
+  const baseCountyList = "https://www2.census.gov/geo/docs/reference/codes2020/national_county2020.txt";
+  const basePlaceList = "https://www2.census.gov/geo/docs/reference/codes2020/national_place2020.txt";
+  const state = normalizedStateForLinks(area?.stateFips);
+  const county3 = normalizedCountyForLinks(state, area?.countyFips);
+  const links = [
+    `<a href="${baseStateList}" target="_blank" rel="noopener noreferrer">State FIPS list</a>`,
+    `<a href="${baseCountyList}" target="_blank" rel="noopener noreferrer">County FIPS file</a>`,
+    `<a href="${basePlaceList}" target="_blank" rel="noopener noreferrer">Place FIPS file</a>`,
+  ];
+  if (!state){
+    return `Code lookup: ${links.join(" · ")} · Enter State FIPS for scoped Census API lookups.`;
+  }
+  const countyApi = `https://api.census.gov/data/2020/dec/pl?get=NAME&for=county:*&in=state:${state}`;
+  const placeApi = `https://api.census.gov/data/2020/dec/pl?get=NAME&for=place:*&in=state:${state}`;
+  const tractApi = county3
+    ? `https://api.census.gov/data/2020/dec/pl?get=NAME&for=tract:*&in=state:${state}%20county:${county3}`
+    : `https://api.census.gov/data/2020/dec/pl?get=NAME&for=tract:*&in=state:${state}`;
+  links.push(`<a href="${countyApi}" target="_blank" rel="noopener noreferrer">Counties in state ${state}</a>`);
+  links.push(`<a href="${placeApi}" target="_blank" rel="noopener noreferrer">Places in state ${state}</a>`);
+  links.push(`<a href="${tractApi}" target="_blank" rel="noopener noreferrer">Tracts${county3 ? ` in county ${county3}` : " in state"}</a>`);
+  if (county3){
+    const bgApi = `https://api.census.gov/data/2020/dec/pl?get=NAME&for=block%20group:*&in=state:${state}%20county:${county3}`;
+    links.push(`<a href="${bgApi}" target="_blank" rel="noopener noreferrer">Block groups in county ${county3}</a>`);
+  }
+  return `Code lookup: ${links.join(" · ")}`;
+}
+
+function normalizedGeoIdForAssist(geoidRaw, resolution){
+  const g = digitsOnly(geoidRaw);
+  if (!g) return "";
+  if (String(resolution || "").toLowerCase() === "block_group"){
+    return g.length >= 12 ? g.slice(0, 12) : "";
+  }
+  return g.length >= 11 ? g.slice(0, 11) : "";
+}
+
+function extractPlaceCodeForAssist(row){
+  if (!row || typeof row !== "object") return "";
+  const keys = ["placeFips", "place_fips", "place", "placeCode", "PLACEFP", "PLACEFP20"];
+  for (const key of keys){
+    const d = digitsOnly(row[key]);
+    if (d.length === 5) return d;
+  }
+  const values = row.values && typeof row.values === "object" ? row.values : null;
+  if (values){
+    for (const key of keys){
+      const d = digitsOnly(values[key]);
+      if (d.length === 5) return d;
+    }
+  }
+  return "";
+}
+
+function buildAreaAssistModel(censusGeoRows, area){
+  const rows = Array.isArray(censusGeoRows) ? censusGeoRows : [];
+  const stateRequested = normalizedStateForLinks(area?.stateFips);
+  const countyFilter = normalizedCountyForLinks(stateRequested, area?.countyFips);
+  const placeFilter = digitsOnly(area?.placeFips).slice(0, 5);
+  const resolution = String(area?.resolution || "tract").toLowerCase();
+  const stateCounts = new Map();
+  const countyCounts = new Map();
+  const placeCounts = new Map();
+  const geoSet = new Set();
+  const geos = [];
+  for (const row of rows){
+    const geoid = digitsOnly(row?.geoid);
+    if (geoid.length < 11) continue;
+    const rowState = geoid.slice(0, 2);
+    const rowCounty = geoid.slice(2, 5);
+    stateCounts.set(rowState, (stateCounts.get(rowState) || 0) + 1);
+    if (stateRequested && rowState !== stateRequested) continue;
+    const county5 = `${rowState}${rowCounty}`;
+    countyCounts.set(county5, (countyCounts.get(county5) || 0) + 1);
+    const placeCode = extractPlaceCodeForAssist(row);
+    if (placeCode){
+      const placeKey = `${rowState}${placeCode}`;
+      placeCounts.set(placeKey, (placeCounts.get(placeKey) || 0) + 1);
+    }
+    if (countyFilter && rowCounty !== countyFilter) continue;
+    if (placeFilter && placeCode !== placeFilter) continue;
+    const normalizedGeo = normalizedGeoIdForAssist(geoid, resolution);
+    if (!normalizedGeo || geoSet.has(normalizedGeo)) continue;
+    geoSet.add(normalizedGeo);
+    geos.push(normalizedGeo);
+  }
+  const states = Array.from(stateCounts.entries())
+    .map(([stateFips, count]) => ({ stateFips, count }))
+    .sort((a, b) => a.stateFips.localeCompare(b.stateFips));
+  const counties = Array.from(countyCounts.entries())
+    .map(([county5, count]) => ({ county5, count }))
+    .sort((a, b) => a.county5.localeCompare(b.county5));
+  const places = Array.from(placeCounts.entries())
+    .map(([key, count]) => ({ stateFips: key.slice(0, 2), placeFips: key.slice(2, 7), count }))
+    .sort((a, b) => {
+      const p = a.placeFips.localeCompare(b.placeFips);
+      return p !== 0 ? p : a.stateFips.localeCompare(b.stateFips);
+    });
+  geos.sort((a, b) => a.localeCompare(b));
+  return { states, counties, places, geos, state: stateRequested, countyFilter, placeFilter, resolution };
+}
+
+function fillAreaAssistStateSelect(selectEl, states, area){
+  if (!selectEl) return;
+  const state = normalizedStateForLinks(area?.stateFips);
+  const rows = Array.isArray(states) ? states : [];
+  selectEl.innerHTML = "";
+  if (!rows.length){
+    selectEl.appendChild(makeOption("", "No state suggestions"));
+    selectEl.disabled = true;
+    return;
+  }
+  selectEl.disabled = false;
+  selectEl.appendChild(makeOption("", "Select state"));
+  let hasSelected = false;
+  for (const row of rows){
+    const stateFips = String(row?.stateFips || "");
+    if (!stateFips) continue;
+    if (state && state === stateFips) hasSelected = true;
+    const stateLabel = STATE_LABEL_BY_FIPS[stateFips] ? `${STATE_LABEL_BY_FIPS[stateFips]} (${stateFips})` : stateFips;
+    const label = `${stateLabel} · ${fmtInt(row?.count)} GEO rows`;
+    selectEl.appendChild(makeOption(stateFips, label));
+  }
+  selectEl.value = hasSelected ? state : "";
+}
+
+function fillAreaAssistCountySelect(selectEl, counties, area){
+  if (!selectEl) return;
+  const state = normalizedStateForLinks(area?.stateFips);
+  const countyFilter = normalizedCountyForLinks(state, area?.countyFips);
+  const preferredCounty5 = countyFilter && state ? `${state}${countyFilter}` : "";
+  const rows = Array.isArray(counties) ? counties : [];
+  selectEl.innerHTML = "";
+  if (!state){
+    selectEl.appendChild(makeOption("", "Set state first"));
+    selectEl.disabled = true;
+    return;
+  }
+  if (!rows.length){
+    selectEl.appendChild(makeOption("", "No county suggestions"));
+    selectEl.disabled = true;
+    return;
+  }
+  selectEl.disabled = false;
+  selectEl.appendChild(makeOption("", "Select county"));
+  let hasSelected = false;
+  for (const row of rows){
+    const county5 = String(row?.county5 || "");
+    if (!county5) continue;
+    if (preferredCounty5 && preferredCounty5 === county5) hasSelected = true;
+    const label = `${county5} · ${fmtInt(row?.count)} GEO rows`;
+    selectEl.appendChild(makeOption(county5, label));
+  }
+  if (hasSelected){
+    selectEl.value = preferredCounty5;
+  } else {
+    selectEl.value = "";
+  }
+}
+
+function fillAreaAssistPlaceSelect(selectEl, places, area){
+  if (!selectEl) return;
+  const state = normalizedStateForLinks(area?.stateFips);
+  const placeFilter = digitsOnly(area?.placeFips).slice(0, 5);
+  const rows = Array.isArray(places) ? places : [];
+  selectEl.innerHTML = "";
+  if (!state){
+    selectEl.appendChild(makeOption("", "Set state first"));
+    selectEl.disabled = true;
+    return;
+  }
+  if (!rows.length){
+    selectEl.appendChild(makeOption("", "No place suggestions"));
+    selectEl.disabled = true;
+    return;
+  }
+  selectEl.disabled = false;
+  selectEl.appendChild(makeOption("", "Select place"));
+  let hasSelected = false;
+  let added = 0;
+  for (const row of rows){
+    const stateFips = String(row?.stateFips || "");
+    const placeFips = String(row?.placeFips || "");
+    if (!stateFips || !placeFips) continue;
+    const value = `${stateFips}${placeFips}`;
+    if (state && stateFips !== state) continue;
+    if (placeFilter && placeFips === placeFilter) hasSelected = true;
+    const label = `${value} · ${fmtInt(row?.count)} GEO rows`;
+    selectEl.appendChild(makeOption(value, label));
+    added++;
+  }
+  if (!added){
+    selectEl.innerHTML = "";
+    selectEl.appendChild(makeOption("", "No place suggestions"));
+    selectEl.disabled = true;
+    return;
+  }
+  if (hasSelected && state){
+    selectEl.value = `${state}${placeFilter}`;
+  } else {
+    selectEl.value = "";
+  }
+}
+
+function fillAreaAssistGeoSelect(selectEl, geos, selectedGeoId, area){
+  if (!selectEl) return;
+  const state = normalizedStateForLinks(area?.stateFips);
+  const rows = Array.isArray(geos) ? geos : [];
+  const keep = normalizedGeoIdForAssist(selectedGeoId, String(rows?.[0]?.length === 12 ? "block_group" : "tract"));
+  selectEl.innerHTML = "";
+  if (!state){
+    selectEl.appendChild(makeOption("", "Set state first"));
+    selectEl.disabled = true;
+    return;
+  }
+  if (!rows.length){
+    selectEl.appendChild(makeOption("", "No GEO suggestions"));
+    selectEl.disabled = true;
+    return;
+  }
+  selectEl.disabled = false;
+  selectEl.appendChild(makeOption("", "Select tract/block"));
+  let hasSelected = false;
+  for (const geoid of rows){
+    const id = String(geoid || "");
+    if (!id) continue;
+    if (keep && keep === id) hasSelected = true;
+    const label = id.length === 12
+      ? `${id} · block group ${id.slice(11, 12)}`
+      : `${id} · tract ${id.slice(5, 11)}`;
+    selectEl.appendChild(makeOption(id, label));
+  }
+  if (hasSelected){
+    selectEl.value = keep;
+  } else {
+    selectEl.value = "";
+  }
 }
 
 function renderDataRefStatus(el, text, kind = "muted"){
@@ -1581,6 +1898,29 @@ export function renderIntelChecksModule({
     els.intelAreaResolverDetail.textContent = bits.length
       ? bits.join(" · ")
       : "Set area + resolution to generate a deterministic cache key.";
+  }
+  if (els.intelAreaCodeLinks){
+    els.intelAreaCodeLinks.innerHTML = buildAreaCodeLinksHtml(areaForDisplay);
+  }
+  const districtStateForAssist = (state?.geoPack && typeof state.geoPack === "object" && state.geoPack.district && typeof state.geoPack.district === "object")
+    ? state.geoPack.district
+    : null;
+  const assistModel = buildAreaAssistModel(censusGeoRows, areaForDisplay);
+  fillAreaAssistStateSelect(els.intelAreaAssistState, assistModel.states, areaForDisplay);
+  fillAreaAssistCountySelect(els.intelAreaAssistCounty, assistModel.counties, areaForDisplay);
+  fillAreaAssistPlaceSelect(els.intelAreaAssistPlace, assistModel.places, areaForDisplay);
+  fillAreaAssistGeoSelect(els.intelAreaAssistGeo, assistModel.geos, districtStateForAssist?.selectedGeoId, areaForDisplay);
+  if (els.intelAreaAssistStatus){
+    const bits = [];
+    if (assistModel.state) bits.push(`State ${assistModel.state}`);
+    if (!assistModel.state) bits.push("Set state to enable county/place/GEO assists");
+    if (assistModel.countyFilter) bits.push(`County ${assistModel.countyFilter}`);
+    if (assistModel.placeFilter) bits.push(`Place ${assistModel.placeFilter}`);
+    bits.push(`${fmtInt(assistModel.states.length)} state options`);
+    bits.push(`${fmtInt(assistModel.counties.length)} county options`);
+    bits.push(`${fmtInt(assistModel.places.length)} place options`);
+    bits.push(`${fmtInt(assistModel.geos.length)} GEO options`);
+    els.intelAreaAssistStatus.textContent = bits.join(" · ");
   }
 
   const flowAreaReady = areaReadyForFlow(areaForDisplay);
