@@ -54,6 +54,7 @@
  *   createAutoPullReceipt: (...args: any[]) => any,
  *   summarizeAutoPullReceipt: (...args: any[]) => any,
  *   evaluateAutoPullPlan: (...args: any[]) => any,
+ *   resolveAutoPullUrls: (...args: any[]) => any,
  *   normalizeAreaSelection: (...args: any[]) => any,
  *   buildAreaResolverCacheKey: (...args: any[]) => any,
  *   deriveAreaResolverContext: (...args: any[]) => any,
@@ -114,6 +115,7 @@ export function registerReleaseHardeningTests(ctx){
     createAutoPullReceipt,
     summarizeAutoPullReceipt,
     evaluateAutoPullPlan,
+    resolveAutoPullUrls,
     normalizeAreaSelection,
     buildAreaResolverCacheKey,
     deriveAreaResolverContext,
@@ -1141,6 +1143,32 @@ export function registerReleaseHardeningTests(ctx){
     assert(partialEval.ready === true, "Expected ready=true when at least one URL exists");
     assert(partialEval.status === "warn", "Expected warn status when some slots are missing");
     assert(partialEval.missingKeys.includes("electionManifestUrl"), "Expected deterministic missing key list");
+    return true;
+  });
+
+  test("Phase 21: auto-pull URL resolver prioritizes manual overrides and falls back to plan", () => {
+    const merged = resolveAutoPullUrls({
+      plan: {
+        mode: "latest_verified",
+        urls: {
+          censusManifestUrl: "https://example.test/plan-census-manifest.json",
+          electionManifestUrl: "https://example.test/plan-election-manifest.json",
+          crosswalkRowsUrl: "https://example.test/plan-crosswalk-rows.json",
+          precinctResultsUrl: "https://example.test/plan-precinct-rows.json",
+          censusGeoRowsUrl: "https://example.test/plan-census-rows.json",
+        },
+      },
+      overrides: {
+        electionManifestUrl: "https://example.test/manual-election-manifest.json",
+        precinctResultsUrl: "notaurl",
+      },
+    });
+    assert(merged.mode === "latest_verified", "Expected merged mode from plan");
+    assert(merged.urls.electionManifestUrl === "https://example.test/manual-election-manifest.json", "Expected valid manual override to win");
+    assert(merged.urls.precinctResultsUrl === "https://example.test/plan-precinct-rows.json", "Expected invalid manual override to fall back to plan");
+    assert(merged.sourceByKey.electionManifestUrl === "override", "Expected override source marker");
+    assert(merged.sourceByKey.precinctResultsUrl === "plan", "Expected plan source marker after fallback");
+    assert(merged.availableCount === 5 && merged.missingCount === 0, "Expected all URL slots available after merge");
     return true;
   });
 

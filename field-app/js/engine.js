@@ -57,6 +57,7 @@ import {
   createAutoPullReceipt,
   summarizeAutoPullReceipt,
   evaluateAutoPullPlan,
+  resolveAutoPullUrls,
 } from "./core/districtAutoPull.js";
 import {
   MODEL_VERSION,
@@ -173,6 +174,7 @@ export const engine = {
     createAutoPullReceipt,
     summarizeAutoPullReceipt,
     evaluateAutoPullPlan,
+    resolveAutoPullUrls,
     makeScenarioExport,
     deterministicStringify,
     validateScenarioExport,

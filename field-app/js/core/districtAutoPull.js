@@ -82,6 +82,35 @@ function pickRowsUrl(row){
   );
 }
 
+const AUTO_PULL_URL_KEYS = [
+  "censusManifestUrl",
+  "electionManifestUrl",
+  "crosswalkRowsUrl",
+  "precinctResultsUrl",
+  "censusGeoRowsUrl",
+];
+
+/**
+ * @param {unknown} urls
+ * @returns {{
+ *   censusManifestUrl: string | null,
+ *   electionManifestUrl: string | null,
+ *   crosswalkRowsUrl: string | null,
+ *   precinctResultsUrl: string | null,
+ *   censusGeoRowsUrl: string | null
+ * }}
+ */
+function normalizeAutoPullUrls(urls){
+  const u = (urls && typeof urls === "object") ? /** @type {Record<string, any>} */ (urls) : {};
+  return {
+    censusManifestUrl: httpUrlOrNull(u.censusManifestUrl),
+    electionManifestUrl: httpUrlOrNull(u.electionManifestUrl),
+    crosswalkRowsUrl: httpUrlOrNull(u.crosswalkRowsUrl),
+    precinctResultsUrl: httpUrlOrNull(u.precinctResultsUrl),
+    censusGeoRowsUrl: httpUrlOrNull(u.censusGeoRowsUrl),
+  };
+}
+
 /**
  * @param {{
  *   dataRefs?: Record<string, any> | null,
@@ -309,20 +338,13 @@ export function summarizeAutoPullReceipt(receipt){
  */
 export function evaluateAutoPullPlan(plan){
   const p = (plan && typeof plan === "object") ? /** @type {Record<string, any>} */ (plan) : {};
-  const urls = (p.urls && typeof p.urls === "object") ? /** @type {Record<string, any>} */ (p.urls) : {};
-  const keyOrder = [
-    "censusManifestUrl",
-    "electionManifestUrl",
-    "crosswalkRowsUrl",
-    "precinctResultsUrl",
-    "censusGeoRowsUrl",
-  ];
+  const urls = normalizeAutoPullUrls(p.urls);
   /** @type {string[]} */
   const missingKeys = [];
-  for (const key of keyOrder){
-    if (!httpUrlOrNull(urls[key])) missingKeys.push(key);
+  for (const key of AUTO_PULL_URL_KEYS){
+    if (!urls[key]) missingKeys.push(key);
   }
-  const availableCount = keyOrder.length - missingKeys.length;
+  const availableCount = AUTO_PULL_URL_KEYS.length - missingKeys.length;
   const missingCount = missingKeys.length;
   const mode = normalizeMode(p.mode);
   const ready = availableCount > 0;
@@ -330,7 +352,7 @@ export function evaluateAutoPullPlan(plan){
     ? "ok"
     : (ready ? "warn" : "bad");
   const summaryLine = ready
-    ? `Auto-pull plan (${mode}): ${availableCount}/${keyOrder.length} URL slots available.`
+    ? `Auto-pull plan (${mode}): ${availableCount}/${AUTO_PULL_URL_KEYS.length} URL slots available.`
     : `Auto-pull plan (${mode}): no URL slots available.`;
   return {
     ready,
@@ -339,5 +361,59 @@ export function evaluateAutoPullPlan(plan){
     missingCount,
     missingKeys,
     summaryLine,
+  };
+}
+
+/**
+ * @param {{
+ *   plan?: unknown,
+ *   overrides?: unknown
+ * }} args
+ * @returns {{
+ *   mode: "manual" | "pinned_verified" | "latest_verified",
+ *   urls: {
+ *     censusManifestUrl: string | null,
+ *     electionManifestUrl: string | null,
+ *     crosswalkRowsUrl: string | null,
+ *     precinctResultsUrl: string | null,
+ *     censusGeoRowsUrl: string | null
+ *   },
+ *   availableCount: number,
+ *   missingCount: number,
+ *   sourceByKey: Record<string, "override" | "plan" | "none">
+ * }}
+ */
+export function resolveAutoPullUrls(args = {}){
+  const p = (args.plan && typeof args.plan === "object") ? /** @type {Record<string, any>} */ (args.plan) : {};
+  const mode = normalizeMode(p.mode);
+  const planUrls = normalizeAutoPullUrls(p.urls);
+  const overrideUrls = normalizeAutoPullUrls(args.overrides);
+  const urls = {
+    censusManifestUrl: overrideUrls.censusManifestUrl || planUrls.censusManifestUrl || null,
+    electionManifestUrl: overrideUrls.electionManifestUrl || planUrls.electionManifestUrl || null,
+    crosswalkRowsUrl: overrideUrls.crosswalkRowsUrl || planUrls.crosswalkRowsUrl || null,
+    precinctResultsUrl: overrideUrls.precinctResultsUrl || planUrls.precinctResultsUrl || null,
+    censusGeoRowsUrl: overrideUrls.censusGeoRowsUrl || planUrls.censusGeoRowsUrl || null,
+  };
+  const sourceByKey = {};
+  let availableCount = 0;
+  let missingCount = 0;
+  for (const key of AUTO_PULL_URL_KEYS){
+    const hasOverride = !!overrideUrls[key];
+    const hasPlan = !!planUrls[key];
+    if (urls[key]){
+      availableCount += 1;
+      sourceByKey[key] = hasOverride ? "override" : (hasPlan ? "plan" : "none");
+    } else {
+      missingCount += 1;
+      sourceByKey[key] = "none";
+    }
+  }
+  return {
+    mode,
+    urls,
+    availableCount,
+    missingCount,
+    sourceByKey,
   };
 }

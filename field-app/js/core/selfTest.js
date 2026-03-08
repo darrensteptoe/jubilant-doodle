@@ -112,6 +112,7 @@ import {
   createAutoPullReceipt,
   summarizeAutoPullReceipt,
   evaluateAutoPullPlan,
+  resolveAutoPullUrls,
 } from "./districtAutoPull.js";
 import { registerPhase115ATests } from "./selfTestSuites/phase115A.js";
 import { registerReleaseHardeningTests } from "./selfTestSuites/releaseHardening.js";
@@ -1481,6 +1482,7 @@ export function runSelfTests(engine){
     createAutoPullReceipt,
     summarizeAutoPullReceipt,
     evaluateAutoPullPlan,
+    resolveAutoPullUrls,
     normalizeAreaSelection,
     buildAreaResolverCacheKey,
     deriveAreaResolverContext,
