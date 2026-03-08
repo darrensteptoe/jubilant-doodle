@@ -2365,6 +2365,7 @@ export function renderIntelChecksModule({
   }
   if (els.btnIntelImportCrosswalkRows) els.btnIntelImportCrosswalkRows.disabled = !flowAreaReady;
   if (els.btnIntelImportPrecinctResults) els.btnIntelImportPrecinctResults.disabled = !flowAreaReady;
+  if (els.btnIntelFetchCensusGeoRows) els.btnIntelFetchCensusGeoRows.disabled = !flowAreaReady || !hasFetch;
   if (els.btnIntelImportCensusGeoRows) els.btnIntelImportCensusGeoRows.disabled = !flowAreaReady;
   if (els.intelPrecinctResultsFormat) els.intelPrecinctResultsFormat.disabled = !flowAreaReady;
   if (els.intelDataCatalogUrl) els.intelDataCatalogUrl.disabled = !flowAreaReady;

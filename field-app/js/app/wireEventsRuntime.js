@@ -1129,6 +1129,83 @@ export function wireIntelChecksEvents(ctx){
     }
   };
 
+  const normalizeCounty3 = (stateFips, countyFips) => {
+    const state = cleanDigits(stateFips, 2);
+    const county = cleanDigits(countyFips, 5);
+    if (!state || !county) return "";
+    if (county.length >= 5){
+      if (county.slice(0, 2) !== state) return "";
+      return county.slice(2, 5);
+    }
+    if (county.length === 3) return county;
+    return "";
+  };
+
+  const buildCensusGeoApiUrl = (stateFips, county3, resolution) => {
+    const forClause = resolution === "block_group" ? "block group:*" : "tract:*";
+    const inClause = resolution === "block_group"
+      ? `state:${stateFips} county:${county3} tract:*`
+      : `state:${stateFips} county:${county3}`;
+    const params = new URLSearchParams({
+      get: "NAME,P1_001N,H1_001N,INTPTLAT,INTPTLON",
+      for: forClause,
+      in: inClause,
+    });
+    return `https://api.census.gov/data/2020/dec/pl?${params.toString()}`;
+  };
+
+  const normalizeCensusGeoRowsFromApiPayload = (payload, resolution) => {
+    if (!Array.isArray(payload) || payload.length < 2) return [];
+    const header = Array.isArray(payload[0]) ? payload[0].map((x) => String(x || "").trim()) : [];
+    if (!header.length) return [];
+    const idx = new Map(header.map((name, i) => [name, i]));
+    const nameIdx = idx.get("NAME");
+    const popIdx = idx.get("P1_001N");
+    const housingIdx = idx.get("H1_001N");
+    const latIdx = idx.get("INTPTLAT");
+    const lonIdx = idx.get("INTPTLON");
+    const stateIdx = idx.get("state");
+    const countyIdx = idx.get("county");
+    const tractIdx = idx.get("tract");
+    const blockIdx = idx.get("block group");
+    if (!Number.isInteger(stateIdx) || !Number.isInteger(countyIdx) || !Number.isInteger(tractIdx)) return [];
+    const out = [];
+    for (let i = 1; i < payload.length; i += 1){
+      const row = Array.isArray(payload[i]) ? payload[i] : [];
+      const state = String(row[stateIdx] || "").trim();
+      const county = String(row[countyIdx] || "").trim();
+      const tract = String(row[tractIdx] || "").trim();
+      const blockGroup = Number.isInteger(blockIdx) ? String(row[blockIdx] || "").trim() : "";
+      let geoid = "";
+      if (resolution === "block_group"){
+        if (state.length === 2 && county.length === 3 && tract.length === 6 && blockGroup.length === 1){
+          geoid = `${state}${county}${tract}${blockGroup}`;
+        }
+      } else if (state.length === 2 && county.length === 3 && tract.length === 6){
+        geoid = `${state}${county}${tract}`;
+      }
+      if (!geoid) continue;
+      const pop = Number(row[popIdx]);
+      const housing = Number(row[housingIdx]);
+      const lat = Number(row[latIdx]);
+      const lon = Number(row[lonIdx]);
+      out.push({
+        geoid,
+        values: {
+          NAME: Number.isInteger(nameIdx) ? String(row[nameIdx] || "").trim() : "",
+          P1_001N: Number.isFinite(pop) ? pop : 0,
+          H1_001N: Number.isFinite(housing) ? housing : 0,
+          INTPTLAT: Number.isFinite(lat) ? lat : null,
+          INTPTLON: Number.isFinite(lon) ? lon : null,
+          pop: Number.isFinite(pop) ? pop : 0,
+          housing_units: Number.isFinite(housing) ? housing : 0,
+        },
+      });
+    }
+    out.sort((a, b) => String(a?.geoid || "").localeCompare(String(b?.geoid || "")));
+    return out;
+  };
+
   const normalizeCensusCountyLookup = (payload, stateFips) => {
     const rows = Array.isArray(payload) ? payload : [];
     const out = new Map();
@@ -1623,6 +1700,76 @@ export function wireIntelChecksEvents(ctx){
       const out = importPrecinctResultsPayload(s, parsed.value);
       setIngestStatus(out.message, out.kind);
       if (out.applied) commitUIUpdate();
+    });
+  }
+
+  if (els.btnIntelFetchCensusGeoRows){
+    els.btnIntelFetchCensusGeoRows.addEventListener("click", async () => {
+      const s = currentState();
+      if (!s) return;
+      if (typeof fetch !== "function"){
+        setIngestStatus("Census GEO fetch unavailable: browser fetch API is not available.", "warn");
+        return;
+      }
+      const geo = ensureGeoPackShape(s);
+      const refs = ensureDataRefShape(s);
+      const catalog = ensureCatalogLists(s);
+      if (!geo || !refs || !catalog){
+        setIngestStatus("Census GEO fetch failed: unable to initialize state containers.", "warn");
+        return;
+      }
+      const stateFips = cleanDigits(geo?.area?.stateFips || els.intelAreaStateFips?.value, 2);
+      const county3 = normalizeCounty3(stateFips, geo?.area?.countyFips || els.intelAreaCountyFips?.value);
+      const resolution = normalizeAreaResolutionInput(geo?.resolution || els.intelAreaResolution?.value);
+      if (stateFips.length !== 2){
+        setIngestStatus("Set State first before fetching Census GEO rows.", "warn");
+        return;
+      }
+      if (county3.length !== 3){
+        setIngestStatus("Set County FIPS (3-digit county code or 5-digit state+county code) before fetching Census GEO rows.", "warn");
+        return;
+      }
+      const url = buildCensusGeoApiUrl(stateFips, county3, resolution);
+      const btn = els.btnIntelFetchCensusGeoRows;
+      btn.disabled = true;
+      setIngestStatus(`Fetching Census GEO rows for state ${stateFips}, county ${county3}, ${resolution}...`, "muted");
+      try{
+        const payload = await fetchJsonFromUrl(url, "Census GEO rows");
+        const rows = normalizeCensusGeoRowsFromApiPayload(payload, resolution);
+        if (!rows.length){
+          setIngestStatus("Census GEO fetch returned no rows for the selected area/resolution.", "warn");
+          return;
+        }
+        if (!refs.censusDatasetId){
+          refs.censusDatasetId = `census_api_2020_pl_${stateFips}${county3}_${resolution}`;
+        }
+        stampDataRefCheck(refs);
+        const entry = {
+          id: refs.censusDatasetId,
+          label: `Census API 2020 PL ${stateFips}${county3} ${resolution}`,
+          vintage: "2020",
+          granularity: resolution,
+          rowCount: rows.length,
+          variableRefs: ["P1_001N", "H1_001N", "INTPTLAT", "INTPTLON"],
+          quality: { coveragePct: 100, isVerified: true },
+          source: {
+            type: "census_api",
+            url,
+            fetchedAt: new Date().toISOString(),
+          },
+        };
+        upsertCatalogById(catalog.censusDatasets, entry);
+        const out = importCensusGeoRowsPayload(s, rows);
+        setJsonInputValue(els.intelCensusGeoRowsJson, rows);
+        setIngestStatus(`${out.message} Source: Census API 2020 PL (${rows.length} rows).`, out.kind || "ok");
+        if (out.applied){
+          commitUIUpdate();
+        }
+      } catch (err){
+        setIngestStatus(`Census GEO fetch failed: ${String(err?.message || "request failed")}`, "warn");
+      } finally {
+        btn.disabled = false;
+      }
     });
   }
 
