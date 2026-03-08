@@ -495,6 +495,7 @@ export const els = {
   intelCrosswalkRowsUrl: document.getElementById("intelCrosswalkRowsUrl"),
   intelPrecinctResultsUrl: document.getElementById("intelPrecinctResultsUrl"),
   intelCensusGeoRowsUrl: document.getElementById("intelCensusGeoRowsUrl"),
+  btnIntelAutoFillUrls: document.getElementById("btnIntelAutoFillUrls"),
   btnIntelAutoPullAll: document.getElementById("btnIntelAutoPullAll"),
   intelAutoPullStatus: document.getElementById("intelAutoPullStatus"),
   intelCensusManifestJson: document.getElementById("intelCensusManifestJson"),

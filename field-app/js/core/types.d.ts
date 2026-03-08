@@ -94,6 +94,7 @@ export interface DataCatalogCrosswalk {
   toBoundarySetId: string;
   unit: "tract" | "block_group" | "precinct" | "vtd";
   method: "area" | "population" | "vap" | "hybrid";
+  rowsUrl?: string | null;
   quality: {
     coveragePct: number | null;
     unmatchedPct: number | null;
@@ -111,6 +112,8 @@ export interface DataCatalogDataset {
   kind: "census" | "election";
   label: string;
   source: string | null;
+  manifestUrl?: string | null;
+  rowsUrl?: string | null;
   vintage: string | null;
   electionDate?: string | null;
   officeType?: string | null;
@@ -371,4 +374,25 @@ export interface DistrictEvidence {
     deltaPct: number;
   };
   warnings: string[];
+}
+
+export interface DistrictAutoPullPlan {
+  mode: "manual" | "pinned_verified" | "latest_verified";
+  policyLabel: string;
+  selected: {
+    boundarySetId: string | null;
+    crosswalkVersionId: string | null;
+    censusDatasetId: string | null;
+    electionDatasetId: string | null;
+  };
+  urls: {
+    censusManifestUrl: string | null;
+    electionManifestUrl: string | null;
+    crosswalkRowsUrl: string | null;
+    precinctResultsUrl: string | null;
+    censusGeoRowsUrl: string | null;
+  };
+  availableCount: number;
+  missingCount: number;
+  notes: string[];
 }

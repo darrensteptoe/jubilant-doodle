@@ -50,6 +50,7 @@
  *   diagnoseDataRefAlignment: (...args: any[]) => any,
  *   scoreElectionDatasetCompatibility: (...args: any[]) => any,
  *   rankElectionDatasetsForScenario: (...args: any[]) => any,
+ *   buildAutoPullUrlPlan: (...args: any[]) => any,
  *   normalizeAreaSelection: (...args: any[]) => any,
  *   buildAreaResolverCacheKey: (...args: any[]) => any,
  *   deriveAreaResolverContext: (...args: any[]) => any,
@@ -106,6 +107,7 @@ export function registerReleaseHardeningTests(ctx){
     diagnoseDataRefAlignment,
     scoreElectionDatasetCompatibility,
     rankElectionDatasetsForScenario,
+    buildAutoPullUrlPlan,
     normalizeAreaSelection,
     buildAreaResolverCacheKey,
     deriveAreaResolverContext,
@@ -1019,6 +1021,61 @@ export function registerReleaseHardeningTests(ctx){
     assert(Array.isArray(diag.warnings) && diag.warnings.some((x) => String(x).includes("stale")), "Expected stale-age warning");
     assert(Number(diag.details?.selectedMeta?.election?.ageDays) > 700, "Expected election age-days metadata");
     assert(Number(diag.details?.selectedMeta?.census?.ageDays) > 700, "Expected census age-days metadata");
+    return true;
+  });
+
+  test("Phase 21: auto-pull URL plan resolves latest_verified refs deterministically", () => {
+    const catalog = {
+      boundarySets: [
+        { id: "sldl_2024", label: "SLDL 2024", geographyType: "SLDL", isVerified: true, isLatest: true },
+      ],
+      crosswalks: [
+        { id: "cw_2024", fromBoundarySetId: "sldl_2022", toBoundarySetId: "sldl_2024", unit: "tract", method: "population", rowsUrl: "https://example.test/crosswalk-2024.json", quality: { coveragePct: 99, unmatchedPct: 1, weightDriftPct: 0.1, isVerified: true }, isLatest: true },
+      ],
+      censusDatasets: [
+        { id: "acs5_2024", kind: "census", label: "ACS 2024", boundarySetId: "sldl_2024", manifestUrl: "https://example.test/acs5-2024-manifest.json", rowsUrl: "https://example.test/acs5-2024-rows.json", quality: { coveragePct: 98, isVerified: true }, isLatest: true },
+      ],
+      electionDatasets: [
+        { id: "mit_2024", kind: "election", label: "MIT 2024", boundarySetId: "sldl_2024", electionDate: "2024-11-05", officeType: "state_house", raceType: "state_leg", manifestUrl: "https://example.test/mit-2024-manifest.json", rowsUrl: "https://example.test/mit-2024-rows.json", quality: { coveragePct: 97, isVerified: true }, isLatest: true },
+      ],
+    };
+    const plan = buildAutoPullUrlPlan({
+      dataRefs: { mode: "latest_verified" },
+      dataCatalog: catalog,
+      scenario: { raceType: "state_leg", electionDate: "2026-11-03", geoPack: { area: { type: "SLDL" } } },
+      resolveDataRefsByPolicy,
+    });
+    assert(plan.mode === "latest_verified", "Expected latest_verified mode in auto-pull plan");
+    assert(plan.selected.censusDatasetId === "acs5_2024", "Expected latest census id in selected refs");
+    assert(plan.selected.electionDatasetId === "mit_2024", "Expected latest election id in selected refs");
+    assert(plan.urls.censusManifestUrl === "https://example.test/acs5-2024-manifest.json", "Expected census manifest URL from dataset metadata");
+    assert(plan.urls.precinctResultsUrl === "https://example.test/mit-2024-rows.json", "Expected precinct rows URL from election metadata");
+    assert(plan.availableCount === 5, "Expected all five auto-pull URLs available");
+    return true;
+  });
+
+  test("Phase 21: auto-pull URL plan reports deterministic missing-url notes", () => {
+    const plan = buildAutoPullUrlPlan({
+      dataRefs: {
+        mode: "pinned_verified",
+        boundarySetId: "sldl_2024",
+        crosswalkVersionId: "cw_2024",
+        censusDatasetId: "acs5_2024",
+        electionDatasetId: "mit_2024",
+      },
+      dataCatalog: {
+        boundarySets: [{ id: "sldl_2024", label: "SLDL 2024", geographyType: "SLDL", isVerified: true, isLatest: true }],
+        crosswalks: [{ id: "cw_2024", fromBoundarySetId: "sldl_2022", toBoundarySetId: "sldl_2024", unit: "tract", method: "population", quality: { coveragePct: 99, unmatchedPct: 1, weightDriftPct: 0.1, isVerified: true }, isLatest: true }],
+        censusDatasets: [{ id: "acs5_2024", kind: "census", label: "ACS 2024", boundarySetId: "sldl_2024", quality: { coveragePct: 98, isVerified: true }, isLatest: true }],
+        electionDatasets: [{ id: "mit_2024", kind: "election", label: "MIT 2024", boundarySetId: "sldl_2024", electionDate: "2024-11-05", officeType: "state_house", raceType: "state_leg", quality: { coveragePct: 97, isVerified: true }, isLatest: true }],
+      },
+      scenario: { raceType: "state_leg", electionDate: "2026-11-03", geoPack: { area: { type: "SLDL" } } },
+      resolveDataRefsByPolicy,
+    });
+    assert(plan.availableCount === 0, "Expected no URLs when metadata has no URL fields");
+    assert(plan.missingCount === 5, "Expected five missing URL slots");
+    assert(Array.isArray(plan.notes) && plan.notes.length >= 4, "Expected missing URL notes");
+    assert(plan.notes.some((x) => String(x).includes("No census manifest URL")), "Expected census missing URL note");
     return true;
   });
 
