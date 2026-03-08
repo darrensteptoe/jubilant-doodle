@@ -45,91 +45,56 @@
 <!-- ── APP SHELL ─────────────────────────────────────────── -->
 <div class="app-shell">
 <!-- LEFT: Stage navigation rail -->
-<nav aria-label="Planning stages" class="stage-nav-new">
-<div class="nav-group-label-new">Model</div>
-<button class="nav-item-new active" data-stage="setup" onclick="switchStage(this, 'setup')">
+<nav aria-label="Planning stages" class="stage-nav-new"><div class="nav-group-label-new">Planning</div><button class="nav-item-new active" data-stage="setup" onclick="switchStage(this, 'setup')">
 <span class="nav-num-new" data-num="1">1</span>
-<span class="nav-label-new">District</span>
-</button>
-<button class="nav-item-new" data-stage="capacity" onclick="switchStage(this, 'capacity')">
+<span class="nav-label-new">Set up</span>
+</button><div class="nav-group-label-new">Field Execution</div><button class="nav-item-new" data-stage="capacity" onclick="switchStage(this, 'capacity')">
 <span class="nav-num-new" data-num="2">2</span>
-<span class="nav-label-new">Reach</span>
-</button>
-<button class="nav-item-new" data-stage="results" onclick="switchStage(this, 'results')">
+<span class="nav-label-new">Field capacity</span>
+</button><a class="nav-item-new" href="organizer.html">
+<span class="nav-num-new">•</span>
+<span class="nav-label-new">Organizer log</span>
+</a><a class="nav-item-new" href="operations.html">
+<span class="nav-num-new">•</span>
+<span class="nav-label-new">Operations hub</span>
+</a><div class="nav-group-label-new">Analysis &amp; Risk</div><button class="nav-item-new" data-stage="results" onclick="switchStage(this, 'results')">
 <span class="nav-num-new" data-num="3">3</span>
-<span class="nav-label-new">Outcome</span>
-</button>
-<button class="nav-item-new" data-stage="roi" onclick="switchStage(this, 'roi')">
+<span class="nav-label-new">Win path &amp; risk</span>
+</button><button class="nav-item-new" data-stage="roi" onclick="switchStage(this, 'roi')">
 <span class="nav-num-new" data-num="4">4</span>
-<span class="nav-label-new">Turnout</span>
-</button>
-<button class="nav-item-new" data-stage="gotv" onclick="switchStage(this, 'gotv')">
+<span class="nav-label-new">Budget &amp; ROI</span>
+</button><button class="nav-item-new" data-stage="gotv" onclick="switchStage(this, 'gotv')">
 <span class="nav-num-new" data-num="5">5</span>
-<span class="nav-label-new">Plan</span>
-</button>
-<div class="nav-group-label-new">Operations</div>
-<a class="nav-item-new" href="organizer.html">
-<span class="nav-num-new">•</span>
-<span class="nav-label-new">Organizer Log</span>
-</a>
-<a class="nav-item-new" href="operations.html">
-<span class="nav-num-new">•</span>
-<span class="nav-label-new">Operations</span>
-</a>
-<div class="nav-group-label-new">Decisions</div>
-<button class="nav-item-new" data-stage="scenarios" onclick="switchStage(this, 'scenarios')">
+<span class="nav-label-new">GOTV execution planner</span>
+</button><button class="nav-item-new" data-stage="checks" onclick="switchStage(this, 'checks')">
 <span class="nav-num-new" data-num="6">6</span>
-<span class="nav-label-new">Scenarios</span>
-</button>
-<button class="nav-item-new" data-stage="decisions" onclick="switchStage(this, 'decisions')">
+<span class="nav-label-new">Checks &amp; guardrails</span>
+</button><div class="nav-group-label-new">Decisions</div><button class="nav-item-new" data-stage="scenarios" onclick="switchStage(this, 'scenarios')">
 <span class="nav-num-new" data-num="7">7</span>
-<span class="nav-label-new">Decision Log</span>
-</button>
-<div class="nav-group-label-new">System</div>
-<button class="nav-item-new" data-stage="checks" onclick="switchStage(this, 'checks')">
+<span class="nav-label-new">Scenario planning</span>
+</button><button class="nav-item-new" data-stage="decisions" onclick="switchStage(this, 'decisions')">
 <span class="nav-num-new" data-num="8">8</span>
-<span class="nav-label-new">Controls</span>
-</button>
-<button class="nav-item-new" data-stage="integrity" onclick="switchStage(this, 'integrity')">
+<span class="nav-label-new">Decision sessions</span>
+</button><div class="nav-group-label-new">Data &amp; Integrity</div><button class="nav-item-new" data-stage="integrity" onclick="switchStage(this, 'integrity')">
 <span class="nav-num-new" data-num="9">9</span>
-<span class="nav-label-new">Data</span>
-</button>
-</nav>
+<span class="nav-label-new">Import/export &amp; backups</span>
+</button></nav>
 <!-- CENTER: Active stage content -->
 <main class="stage-main-new"><div class="context-bar-new"><div class="topbar-center">
 <span class="scenario-label-new">Active scenario</span>
 <input class="scenario-input-new" id="scenarioName" placeholder="Scenario name…" type="text"/>
 </div><span class="context-hint-new">(name is saved in snapshot exports)</span></div>
-<div class="kpi-strip-new">
-<div class="kpi-card-new">
-<span class="kpi-label-new">Win probability</span>
-<strong class="kpi-value-new" id="kpiWinProb">—</strong>
-</div>
-<div class="kpi-card-new">
-<span class="kpi-label-new">Projected margin</span>
-<strong class="kpi-value-new" id="kpiMargin">—</strong>
-</div>
-<div class="kpi-card-new">
-<span class="kpi-label-new">Votes to win</span>
-<strong class="kpi-value-new" id="kpiVotesNeeded">—</strong>
-</div>
-<div class="kpi-card-new">
-<span class="kpi-label-new">Primary bottleneck</span>
-<strong class="kpi-value-new" id="kpiBottleneck">—</strong>
-<span class="status-tag" id="kpiPathTag">Balanced</span>
-</div>
-</div>
 <!-- ── STAGE: setup ── -->
 <section class="stage-new active-stage" id="stage-setup">
 <div class="stage-header-new">
 <div class="stage-meta-new">
 <span class="stage-tag-new">Stage 1</span>
-<span class="stage-title-new">District</span>
+<span class="stage-title-new">Set up</span>
 </div>
-<p class="stage-sub-new">Race context, electorate shape, ballot baseline, and operating assumptions. This is the starting reality the rest of the engine works from.</p>
+<p class="stage-sub-new">Set race context, timing, and operating mode. This frame drives all downstream vote, production, and risk calculations.</p>
 <div class="training-panel-new" id="train-setup">
 <div class="training-hd-new" onclick="toggleTrainPanel('train-setup')">
-<span>🎓</span><span class="training-title-new">Training — District</span><span class="training-chev-new">▾</span>
+<span>🎓</span><span class="training-title-new">Training — Set up</span><span class="training-chev-new">▾</span>
 </div>
 <div class="training-bd-new">
 <div class="training-col-new">
@@ -197,39 +162,19 @@
 </div>
 </div>
 </div>
-<div class="card card-section" id="districtSummaryCard">
-<div class="card-head card-header"><h2 class="card-title">District Summary</h2></div>
-<div class="subgrid">
-<div class="mini">
-<div class="mini-k">Universe</div>
-<div class="mini-v" id="districtSummaryUniverse">—</div>
-</div>
-<div class="mini">
-<div class="mini-k">Expected turnout</div>
-<div class="mini-v" id="districtSummaryTurnout">—</div>
-</div>
-<div class="mini">
-<div class="mini-k">Votes to win</div>
-<div class="mini-v" id="districtSummaryNeed">—</div>
-</div>
-</div>
-<div class="rowline" style="margin-top:10px;">
-<span class="status-tag" id="districtSummaryPath">Balanced</span>
-</div>
-</div>
 </div></section>
 
 <!-- ── STAGE: universe ── -->
-<section class="stage-new" id="stage-universe" style="display:none;">
+<section class="stage-new" id="stage-universe">
 <div class="stage-header-new">
 <div class="stage-meta-new">
 <span class="stage-tag-new">Stage 2</span>
-<span class="stage-title-new">District</span>
+<span class="stage-title-new">Universe</span>
 </div>
-<p class="stage-sub-new">Universe size and source basis for the electorate in play.</p>
+<p class="stage-sub-new">Define the size of the electorate you’re modeling (registration or expected voters). Every vote count, cost per vote, and plan size depends on this number.</p>
 <div class="training-panel-new" id="train-universe">
 <div class="training-hd-new" onclick="toggleTrainPanel('train-universe')">
-<span>🎓</span><span class="training-title-new">Training — District</span><span class="training-chev-new">▾</span>
+<span>🎓</span><span class="training-title-new">Training — Universe</span><span class="training-chev-new">▾</span>
 </div>
 <div class="training-bd-new">
 <div class="training-col-new">
@@ -287,16 +232,16 @@
 </div>
 </section>
 <!-- ── STAGE: ballot ── -->
-<section class="stage-new" id="stage-ballot" style="display:none;">
+<section class="stage-new" id="stage-ballot">
 <div class="stage-header-new">
 <div class="stage-meta-new">
 <span class="stage-tag-new">Stage 3</span>
-<span class="stage-title-new">District</span>
+<span class="stage-title-new">Ballot &amp; persuasion baseline</span>
 </div>
-<p class="stage-sub-new">Baseline support, undecided handling, and persuasion anchor.</p>
+<p class="stage-sub-new">Establish baseline support and undecided distribution. Persuasion math has no anchor without this.</p>
 <div class="training-panel-new" id="train-ballot">
 <div class="training-hd-new" onclick="toggleTrainPanel('train-ballot')">
-<span>🎓</span><span class="training-title-new">Training — District</span><span class="training-chev-new">▾</span>
+<span>🎓</span><span class="training-title-new">Training — Ballot &amp; Persuasion Baseline</span><span class="training-chev-new">▾</span>
 </div>
 <div class="training-bd-new">
 <div class="training-col-new">
@@ -422,13 +367,12 @@
 <div class="stage-header-new">
 <div class="stage-meta-new">
 <span class="stage-tag-new">Stage 4</span>
-<span class="stage-title-new">Reach</span>
-<span class="status-tag" id="reachStatusTag">Balanced</span>
+<span class="stage-title-new">Field capacity</span>
 </div>
-<p class="stage-sub-new">How much contact the program can realistically generate, what share of the target universe it can cover, and where capacity breaks down.</p>
+<p class="stage-sub-new">Define staff, volunteer capacity, and contact rates. This is the ceiling on your entire plan.</p>
 <div class="training-panel-new" id="train-capacity">
 <div class="training-hd-new" onclick="toggleTrainPanel('train-capacity')">
-<span>🎓</span><span class="training-title-new">Training — Reach</span><span class="training-chev-new">▾</span>
+<span>🎓</span><span class="training-title-new">Training — Field Capacity</span><span class="training-chev-new">▾</span>
 </div>
 <div class="training-bd-new">
 <div class="training-col-new">
@@ -451,7 +395,7 @@
 <div class="stage-body-new">
 <div class="card card-section" id="capacityUniverseCard">
 <div class="card-head card-header">
-<h2 class="card-title">Universe in play</h2>
+<h2 class="card-title">Persuadable universe (movable)</h2>
 </div>
 <div class="grid2">
 <div class="field">
@@ -474,7 +418,7 @@
 </div>
 <div class="card card-section" id="weeklyOpsCard">
 <div class="card-head card-header">
-<h2 class="card-title">Weekly production</h2>
+<h2 class="card-title">This week plan</h2>
 <div class="help-text">A single operational view: what you need this week vs what your current team capacity can actually execute.</div>
 </div>
 <div class="subgrid">
@@ -585,7 +529,7 @@
 </div>
 <div class="card card-section" id="weeklyOpsLeversCard">
 <div class="card-head card-header">
-<h2 class="card-title">Controls</h2>
+<h2 class="card-title">Constraints &amp; levers</h2>
 <div class="help-text">What is actually binding right now, and which knobs move the gap fastest (rough, local estimates).</div>
 </div>
 <div class="note" id="wkLeversIntro">—</div>
@@ -687,7 +631,7 @@
 </div>
 <div class="card card-section" id="operationsCapacityOutlookCard">
 <div class="card-head card-header">
-<h2 class="card-title">Outlook</h2>
+<h2 class="card-title">Capacity outlook + optional override</h2>
 <div class="help-text">Baseline vs expected ramp vs scheduled attempts by week from Operations records. Override is explicit opt-in and OFF by default.</div>
 </div>
 <div class="note" id="twCapOutlookStatus">Loading Operations outlook…</div>
@@ -791,7 +735,7 @@
 </div>
 <div class="card card-section phase-phase2" id="conversionCard">
 <div class="card-head card-header">
-<h2 class="card-title">Persuasion math</h2>
+<h2 class="card-title">Persuasion &amp; contact math</h2>
 <div class="help-text">Field math: Attempts → Contacts (contact rate) → Support IDs (support rate). Used across cost, optimization, and simulation.</div></div>
 <div class="grid2">
 <div class="field">
@@ -820,27 +764,27 @@
 <div class="stage-header-new">
 <div class="stage-meta-new">
 <span class="stage-tag-new">Stage 5</span>
-<span class="stage-title-new">Plan</span>
+<span class="stage-title-new">GOTV execution planner</span>
 </div>
-<p class="stage-sub-new">Execution pacing, workload translation, staffing needs, and what the current vote goal requires operationally.</p>
+<p class="stage-sub-new">Translate modeled turnout assumptions into execution requirements: conversations, doors, shifts, and volunteer load.</p>
 <div class="training-panel-new" id="train-gotv">
 <div class="training-hd-new" onclick="toggleTrainPanel('train-gotv')">
-<span>🎓</span><span class="training-title-new">Training — Plan</span><span class="training-chev-new">▾</span>
+<span>🎓</span><span class="training-title-new">Training — GOTV Execution Planner</span><span class="training-chev-new">▾</span>
 </div>
 <div class="training-bd-new">
 <div class="training-col-new">
 <div class="training-sec-title-new">What this planner does</div>
-<p>This planner converts your current vote goal into field workload. It does <em>not</em> set turnout physics. Baseline turnout, lift, ceiling, and diminishing returns are controlled in Turnout → Lift.</p>
+<p>This planner converts your current vote goal into field workload. It does <em>not</em> set turnout physics. Baseline turnout, lift, ceiling, and diminishing returns are controlled in Budget &amp; ROI → Turnout &amp; GOTV.</p>
 <div class="training-rule-new">Support IDs goal → conversations needed (÷ support rate)<br/>Conversations → doors needed (÷ contact rate)<br/>Doors → shifts needed (÷ doors per shift)<br/>Shifts/week → volunteer load (÷ shifts per volunteer/week)</div>
 </div>
 <div class="training-col-new">
 <div class="training-sec-title-new">Key distinction</div>
 <ul>
-<li><strong>Turnout settings:</strong> Turnout controls vote-impact assumptions</li>
+<li><strong>Turnout settings:</strong> Budget &amp; ROI controls vote-impact assumptions</li>
 <li><strong>This page:</strong> converts those assumptions into staffing burden</li>
 <li><strong>Use order:</strong> set assumptions first, then staff the required workload</li>
 </ul>
-<div class="training-caution-new">If this workload is unrealistic, adjust staffing/productivity first. Change turnout assumptions only in Turnout.</div>
+<div class="training-caution-new">If this workload is unrealistic, adjust staffing/productivity first. Change turnout assumptions only in Budget &amp; ROI.</div>
 </div>
 </div>
 </div>
@@ -848,7 +792,7 @@
 <div class="stage-body-new">
 <div class="card card-section">
 <div class="card-head card-header">
-<h2 class="card-title">Workload</h2>
+<h2 class="card-title">Workload translator</h2>
 <div class="help-text">Set planning inputs, then see required conversations, doors, and shifts.</div>
 </div>
 <div class="grid3">
@@ -863,9 +807,9 @@
 <div class="field">
 <label class="label" for="doorsPerHour">Doors per hour</label>
 <input class="input num" disabled="" id="doorsPerHour" min="0" placeholder="e.g., 30" step="1" type="number"/>
-<div class="help" data-help="Controlled from Reach → Forecast.">
+<div class="help" data-help="Controlled from Field capacity → Execution & uncertainty.">
 <span class="help-title">Source</span>
-<span class="help-text">Read-only mirror from Reach doors/hour.</span>
+<span class="help-text">Read-only mirror from Field capacity doors/hour.</span>
 </div>
 </div>
 <div class="field">
@@ -898,16 +842,16 @@
 </div>
 </section>
 <!-- ── STAGE: structure ── -->
-<section class="stage-new" id="stage-structure" style="display:none;">
+<section class="stage-new" id="stage-structure">
 <div class="stage-header-new">
 <div class="stage-meta-new">
 <span class="stage-tag-new">Stage 6</span>
-<span class="stage-title-new">District</span>
+<span class="stage-title-new">Electorate Weighting</span>
 </div>
-<p class="stage-sub-new">Coalition weighting and support durability assumptions for electorate realism.</p>
+<p class="stage-sub-new">Optional realism layer: weight persuasion and turnout by coalition mix, and apply a support durability factor. OFF = baseline.</p>
 <div class="training-panel-new" id="train-structure">
 <div class="training-hd-new" onclick="toggleTrainPanel('train-structure')">
-<span>🎓</span><span class="training-title-new">Training — District</span><span class="training-chev-new">▾</span>
+<span>🎓</span><span class="training-title-new">Training — Electorate Weighting</span><span class="training-chev-new">▾</span>
 </div>
 <div class="training-bd-new">
 <div class="training-col-new">
@@ -983,13 +927,12 @@
 <div class="stage-header-new">
 <div class="stage-meta-new">
 <span class="stage-tag-new">Stage 7</span>
-<span class="stage-title-new">Outcome</span>
-<span class="status-tag" id="outcomeStatusTag">Monitoring</span>
+<span class="stage-title-new">Win path &amp; risk</span>
 </div>
-<p class="stage-sub-new">Forecast, uncertainty, and what is driving the current path.</p>
+<p class="stage-sub-new">Win path, Monte Carlo stress test, sensitivity analysis, and risk framing. This is the payoff.</p>
 <div class="training-panel-new" id="train-results">
 <div class="training-hd-new" onclick="toggleTrainPanel('train-results')">
-<span>🎓</span><span class="training-title-new">Training — Outcome</span><span class="training-chev-new">▾</span>
+<span>🎓</span><span class="training-title-new">Training — Win Path &amp; Risk</span><span class="training-chev-new">▾</span>
 </div>
 <div class="training-bd-new">
 <div class="training-col-new">
@@ -1014,7 +957,7 @@
 <section class="panel active" id="tab-win">
 <div class="card card-section phase-p3" id="phase3Card">
 <div class="card-head card-header">
-<h2 class="card-title">Forecast</h2>
+<h2 class="card-title">Execution &amp; uncertainty</h2>
 </div>
 <div class="module-desc">Set capacity assumptions and Monte Carlo controls for risk simulation.</div>
 <div class="mc-details">
@@ -1022,7 +965,6 @@
 <span class="mc-summary-title">Monte Carlo controls</span>
 <span class="chip">Monte Carlo 10k</span>
 </div>
-<button class="btn btn-sm btn-ghost" onclick="toggleAdvanced(this)" type="button">Advanced assumptions</button>
 <div class="mc-body">
 <div class="grid3">
 <div class="field">
@@ -1122,7 +1064,7 @@
                   Basic mode uses your base contact and support rates, plus the reliability and capacity assumptions above.
                 </div>
 </div>
-<div class="mc-adv advanced-controls" id="mcAdvanced">
+<div class="mc-adv" id="mcAdvanced">
 <div class="note">Advanced mode uses triangular distributions (min / expected / max) per variable.</div>
 <div class="table-wrap">
 <table aria-label="Monte Carlo ranges" class="table sens-table">
@@ -1199,7 +1141,7 @@
 </div>
 <div class="card card-section card-readonly">
 <div class="card-head card-header">
-<h2 class="card-title">Confidence</h2>
+<h2 class="card-title">Confidence envelope</h2>
 </div>
 <div class="module-desc">Uncertainty ranges from Monte Carlo runs (P10/P50/P90). Helps distinguish tight wins from fragile wins.</div>
 <div class="table-wrap">
@@ -1231,7 +1173,7 @@
 </div>
 <div class="card card-section card-readonly">
 <div class="card-head card-header">
-<h2 class="card-title">Sensitivity</h2>
+<h2 class="card-title">Sensitivity analysis (what matters most)</h2>
 </div>
 <div class="module-desc">Impact uses correlation strength with margin across simulations (higher = more important).</div>
 <div class="table-wrap">
@@ -1250,7 +1192,7 @@
 </div>
 <div class="card card-panel" id="surfaceCard">
 <div class="card-head card-header" style="margin-bottom:8px;">
-<h2 class="card-title">Drivers</h2>
+<h2 class="card-title">Sensitivity analysis (surface)</h2>
 </div>
 <div class="grid2">
 <div class="field">
@@ -1313,7 +1255,7 @@
 </div>
 <div class="card card-section" hidden="" id="explainCard">
 <div class="card-head card-header">
-<h2 class="card-title">Risk flags</h2>
+<h2 class="card-title">What’s driving the result</h2>
 </div>
 <div class="explain">
 <details open="">
@@ -1344,12 +1286,12 @@
 <div class="stage-header-new">
 <div class="stage-meta-new">
 <span class="stage-tag-new">Stage 8</span>
-<span class="stage-title-new">Turnout</span>
+<span class="stage-title-new">Budget &amp; ROI</span>
 </div>
-<p class="stage-sub-new">Turnout assumptions, lift, cost efficiency, and the realized-vote side of the model.</p>
+<p class="stage-sub-new">Turn tactics into dollars and net votes. Find the cheapest path to closing the gap.</p>
 <div class="training-panel-new" id="train-roi">
 <div class="training-hd-new" onclick="toggleTrainPanel('train-roi')">
-<span>🎓</span><span class="training-title-new">Training — Turnout</span><span class="training-chev-new">▾</span>
+<span>🎓</span><span class="training-title-new">Training — Budget &amp; ROI</span><span class="training-chev-new">▾</span>
 </div>
 <div class="training-bd-new">
 <div class="training-col-new">
@@ -1372,7 +1314,7 @@
 <div class="stage-body-new">
 <div class="card card-section phase-roi">
 <div class="card-head card-header">
-<h2 class="card-title">Turnout assumptions</h2>
+<h2 class="card-title">Cost inputs</h2>
 </div>
 <div class="grid3">
 <div class="field">
@@ -1501,7 +1443,7 @@
 </div>
 <div class="card card-section phase-roi">
 <div class="card-head card-header">
-<h2 class="card-title">Cost efficiency</h2>
+<h2 class="card-title">ROI comparison</h2>
 <div class="card-actions">
 <button class="btn btn-link" id="roiRefresh" type="button">Refresh</button>
 </div>
@@ -1530,7 +1472,7 @@
 </div>
 <div class="card card-section phase-p6">
 <div class="card-head card-header">
-<h2 class="card-title">Lift</h2>
+<h2 class="card-title">Turnout &amp; GOTV</h2>
 </div>
 <div class="rowline" style="margin-bottom:10px;">
 <label class="switch">
@@ -1577,7 +1519,6 @@
 </label>
 <span class="muted" style="font-size:12px;">When ON, marginal lift tapers as you approach the ceiling.</span>
 </div>
-<button class="btn btn-sm btn-ghost" onclick="toggleAdvanced(this)" type="button">Advanced assumptions</button>
 <div class="mc-subpanel active" id="gotvBasic" style="margin-top:10px;">
 <div class="grid3">
 <div class="field">
@@ -1602,7 +1543,7 @@
 </div>
 </div>
 </div>
-<div class="mc-subpanel advanced-controls" id="gotvAdvanced" style="margin-top:10px;">
+<div class="mc-subpanel" id="gotvAdvanced" style="margin-top:10px;">
 <div class="grid3">
 <div class="field">
 <label class="label" for="gotvLiftMin">Lift min (pp)</label>
@@ -1639,7 +1580,7 @@
 </div>
 <div class="card card-section phase-p5">
 <div class="card-head card-header">
-<h2 class="card-title">Diminishing returns</h2>
+<h2 class="card-title">Plan optimization</h2>
 <div class="card-actions">
 <button class="btn btn-link" id="optRun" type="button">Optimize</button>
 </div>
@@ -1835,7 +1776,7 @@
 </div>
 <div class="card card-section card-section--timeline phase-p7">
 <div class="card-head card-header">
-<h2 class="card-title">Resource use</h2>
+<h2 class="card-title">Field capacity &amp; timeline</h2>
 </div>
 <div class="rowline" style="margin-bottom:10px;">
 <label class="switch">
@@ -2023,12 +1964,12 @@
 <div class="stage-header-new">
 <div class="stage-meta-new">
 <span class="stage-tag-new">Stage 9</span>
-<span class="stage-title-new">Controls</span>
+<span class="stage-title-new">Checks &amp; guardrails</span>
 </div>
-<p class="stage-sub-new">Benchmarks, guardrails, evidence, review workflow, and model governance.</p>
+<p class="stage-sub-new">Validate inputs, inspect assumptions snapshot, and review guardrails. The most dangerous failures are silent ones.</p>
 <div class="training-panel-new" id="train-checks">
 <div class="training-hd-new" onclick="toggleTrainPanel('train-checks')">
-<span>🎓</span><span class="training-title-new">Training — Controls</span><span class="training-chev-new">▾</span>
+<span>🎓</span><span class="training-title-new">Training — Data Checks &amp; Guardrails</span><span class="training-chev-new">▾</span>
 </div>
 <div class="training-bd-new">
 <div class="training-col-new">
@@ -2277,9 +2218,9 @@
 </div>
 <div class="card card-section" id="intelDistrictEvidenceCard">
 <div class="card-head card-header">
-<h2 class="card-title">District Intelligence</h2>
+<h2 class="card-title">District evidence + data refs</h2>
 </div>
-<div class="help-text">Core flow: select area, fetch census GEO rows, review map + demographics, generate district-intel assumptions, toggle ON/OFF.</div>
+<div class="help-text">Select deterministic source refs (mode + boundary/crosswalk/census/election) and verify linkage for precinct election results + census geo rows. This panel only controls evidence inputs, not planning math.</div>
 <div class="rowline" style="margin-top:10px; justify-content:space-between; gap:10px;">
 <label class="switch">
 <input id="intelUseDistrictToggle" type="checkbox"/>
@@ -2354,12 +2295,6 @@
 </div>
 </div>
 <div class="grid4" style="margin-top:10px;">
-<div class="field" hidden="">
-<label class="label" for="intelAreaAssistState" title="State quick-pick built from loaded/fetched GEO rows.">State quick-pick</label>
-<select class="select" id="intelAreaAssistState">
-<option value="">No state suggestions</option>
-</select>
-</div>
 <div class="field">
 <label class="label" for="intelAreaAssistCounty" title="Primary selector for county within selected state.">County</label>
 <select class="select" id="intelAreaAssistCounty">
@@ -2378,35 +2313,21 @@
 <option value="">No GEO suggestions</option>
 </select>
 </div>
+<div class="field" style="display:flex; align-items:flex-end;">
+<button class="btn btn-sm" id="btnIntelAreaAssistFetchCodes" type="button" style="width:100%;">Fetch county/place/GEO lists</button>
 </div>
-<div class="card-actions" style="margin-top:8px;">
-<button class="btn btn-sm" id="btnIntelAreaAssistFetchCodes" type="button">Fetch county/place/GEO lists</button>
-<button class="btn btn-sm" id="btnIntelFetchCensusGeoRows" type="button">Fetch census GEO rows</button>
 </div>
 <div class="muted" id="intelAreaAssistStatus" style="margin-top:6px;" title="Dropdown options are generated from loaded/fetched census GEO rows.">Set state first, then fetch county/place/GEO lists.</div>
 <div class="muted" id="intelAreaAssistLookupStatus" style="margin-top:6px;" title="Fetched code lists are optional helpers and do not alter planning math.">No fetched county/place/GEO lookup loaded.</div>
 <div class="note" id="intelAreaResolverSummary" style="margin-top:8px;">Area resolver: not configured.</div>
 <div class="muted" id="intelAreaResolverDetail" style="margin-top:6px;">Set area + resolution to generate a deterministic cache key.</div>
 <div class="muted" id="intelAreaCodeLinks" style="margin-top:6px;" title="Direct code source links. Opens official Census files and scoped API lists in a new tab.">Code lookup links appear after State FIPS is set.</div>
-<details id="intelAreaAdvancedInputs" style="margin-top:8px;">
-<summary class="label">Advanced area inputs</summary>
-<div class="grid3" style="margin-top:8px;">
+<div class="grid2" style="margin-top:8px;">
 <div class="field">
 <label class="label" for="intelAreaDistrict" title="Required only for CD/SLDU/SLDL area types.">District code (district types only)</label>
 <input class="input" id="intelAreaDistrict" placeholder="e.g., 012" type="text"/>
 </div>
-<div class="field">
-<label class="label" for="intelAreaCountyFips" title="Manual county FIPS entry (state+county, e.g., 34013).">County FIPS</label>
-<input class="input" id="intelAreaCountyFips" maxlength="5" placeholder="e.g., 013 or 34013" type="text"/>
 </div>
-<div class="field">
-<label class="label" for="intelAreaPlaceFips" title="Manual place FIPS entry (5 digits).">Place FIPS</label>
-<input class="input" id="intelAreaPlaceFips" maxlength="5" placeholder="e.g., 51000" type="text"/>
-</div>
-</div>
-</details>
-<details id="intelDistrictAdvancedDataDetails" style="margin-top:10px;">
-<summary class="label">Advanced refs + manual ingest</summary>
 <div class="grid3" style="margin-top:10px;">
 <div class="field">
 <label class="label" for="intelDataRefMode">Data source mode</label>
@@ -2565,13 +2486,13 @@
 <label class="label" for="intelCensusGeoRowsJson">Census GEO rows JSON</label>
 <textarea class="input" id="intelCensusGeoRowsJson" rows="4" placeholder='[{"geoid":"34013010001","values":{"pop":1000,"housing_units":400,"INTPTLAT":40.12,"INTPTLON":-74.01}}]'></textarea>
 <div class="card-actions" style="margin-top:6px;">
+<button class="btn btn-sm" id="btnIntelFetchCensusGeoRows" type="button">Fetch Census GEO rows</button>
 <button class="btn btn-sm" id="btnIntelImportCensusGeoRows" type="button">Import census GEO rows</button>
 </div>
 </div>
 </div>
 <div class="muted" id="intelIngestStatus" style="margin-top:8px;">Ingest status: ready.</div>
 </div>
-</details>
 <div class="note" id="intelDistrictEvidenceSource" style="margin-top:8px;">No pinned datasets selected yet.</div>
 <div class="muted" id="intelDistrictEvidenceInputsSummary" style="margin-top:6px;">Input mode: none · Election rows: 0 · Crosswalk rows: 0 · Census rows: 0</div>
 <div class="muted" id="intelFlowStepStatus" style="margin-top:6px;">Flow: Step 1 select area.</div>
@@ -2600,7 +2521,7 @@
 <div class="intel-geo-map-wrap" style="margin-top:8px;">
 <div class="intel-geo-map" id="intelDistrictEvidenceMapSvg" role="img" aria-label="District evidence map"></div>
 </div>
-<div class="mini-s">Select tract/block to overlay its boundary on the map.</div>
+<div class="mini-s">Read-only map layer for verification and planning context. No turf cutting.</div>
 </div>
 <div class="mini" style="margin-top:10px;">
 <div class="mini-k">GEO inspector</div>
@@ -2655,8 +2576,6 @@
 <div class="muted" id="intelGeoInspectorCopyStatus" style="margin-top:6px;">No summary copied yet.</div>
 </div>
 </div>
-<details id="intelDistrictAdvancedTables" style="margin-top:10px;">
-<summary class="label">Advanced evidence tables (optional)</summary>
 <div class="table-wrap" style="margin-top:10px;">
 <table class="table">
 <thead>
@@ -2760,7 +2679,6 @@
 </tbody>
 </table>
 </div>
-</details>
 </div>
 <div class="card card-section" id="intelCalibrationBriefCard">
 <div class="card-head card-header">
@@ -2931,16 +2849,16 @@
 <div class="stage-header-new">
 <div class="stage-meta-new">
 <span class="stage-tag-new">Decisions</span>
-<span class="stage-title-new">Scenarios</span>
+<span class="stage-title-new">Scenario planning</span>
 </div>
-<p class="stage-sub-new">Create, compare, and preserve alternate paths through the race.</p>
+<p class="stage-sub-new">Save, compare, and switch between planning scenarios. Use this to model Path A vs Path B before committing resources.</p>
 </div>
 <div class="stage-body-new">
 <div class="card card-section phase-scenarios" id="scenarioCompareCard">
 <div class="card-head card-header">
 <h2 class="card-title">Scenario Compare</h2>
 </div>
-<div class="help-text">Use this page to create, load, and compare planning scenarios. Import/export and backup recovery live in <strong>Data</strong>.</div>
+<div class="help-text">Use this page to create, load, and compare planning scenarios. Import/export and backup recovery live in <strong>Import/export &amp; backups</strong>.</div>
 <div class="banner warn module-feedback" hidden="" id="scWarn"></div>
 <div class="scm">
 <div class="rowline scm-active">
@@ -3006,9 +2924,9 @@
 <div class="stage-header-new">
 <div class="stage-meta-new">
 <span class="stage-tag-new">Decisions</span>
-<span class="stage-title-new">Decision Log</span>
+<span class="stage-title-new">Decision sessions</span>
 </div>
-<p class="stage-sub-new">Structured decision records, rationale, and scenario-linked planning notes.</p>
+<p class="stage-sub-new">Structured decision framework: objectives, constraints, options, and recommendation. Makes tradeoffs explicit.</p>
 </div>
 <div class="stage-body-new">
 </div>
@@ -3355,16 +3273,16 @@ Volunteer multiplier stays above 1.5" rows="4"></textarea>
 <div class="stage-header-new">
 <div class="stage-meta-new">
 <span class="stage-tag-new">Integrity</span>
-<span class="stage-title-new">Data</span>
+<span class="stage-title-new">Import/export &amp; backups</span>
 </div>
-<p class="stage-sub-new">Import, export, backups, recovery, and data-handling rules.</p>
+<p class="stage-sub-new">Snapshot hash, import/export, and data integrity. Ensures an exported scenario re-imports to the same result.</p>
 </div>
 <div class="stage-body-new integrity-stage-body">
 <div class="card card-section">
 <div class="card-head card-header">
 <h2 class="card-title">Import policy &amp; recovery</h2>
 </div>
-<div class="help-text">This page handles file serialization and recovery only. Scenario creation/comparison is managed in <strong>Scenarios</strong>.</div>
+<div class="help-text">This page handles file serialization and recovery only. Scenario creation/comparison is managed in <strong>Scenario planning</strong>.</div>
 <div class="import-feedback-strip">
 <div class="banner warn" hidden="" id="importHashBanner">Snapshot hash differs from exported hash.</div>
 <div class="banner warn" hidden="" id="importWarnBanner"></div>
@@ -3406,37 +3324,29 @@ Volunteer multiplier stays above 1.5" rows="4"></textarea>
 </main>
 <!-- /stage-main-new -->
 <!-- RIGHT: Persistent results sidebar -->
-<aside aria-label="Inspector" class="results-sidebar-new">
+<aside aria-label="Win path results" class="results-sidebar-new">
 
   <!-- INPUT VALIDATION -->
   <div class="sidebar-section-new">
-    <div class="sidebar-label-new">Summary</div>
+    <div class="sidebar-label-new">Input validation</div>
     <ul class="validation" id="validationList"></ul>
   </div>
 
   <!-- KEY ASSUMPTIONS -->
   <div class="sidebar-section-new">
-    <div class="sidebar-label-new">What changed</div>
-    <div class="kv-mini-new"><span>Win probability</span><span id="inspectorDeltaWinProb">—</span></div>
-    <div class="kv-mini-new"><span>Projected margin</span><span id="inspectorDeltaMargin">—</span></div>
+    <div class="sidebar-label-new">Key assumptions</div>
     <div class="assumptions" id="assumptionsSnapshot"></div>
   </div>
 
   <!-- DATA CHECKS & GUARDRAILS -->
   <div class="sidebar-section-new">
-    <div class="sidebar-label-new">Key assumptions</div>
-    <div class="kv-mini-new"><span>Persuasion rate</span><span id="inspectorAssumptionPersuasion">—</span></div>
-    <div class="kv-mini-new"><span>Contact rate</span><span id="inspectorAssumptionContact">—</span></div>
-    <div class="kv-mini-new"><span>Turnout lift</span><span id="inspectorAssumptionTurnout">—</span></div>
+    <div class="sidebar-label-new">Data checks &amp; guardrails</div>
     <div class="guardrails" id="guardrails"></div>
   </div>
 
   <!-- WIN PATH KPIs -->
   <div class="sidebar-section-new sidebar-win-expected">
-    <div class="sidebar-label-new">Source quality</div>
-    <div class="kv-mini-new"><span>Evidence age</span><span id="inspectorSourceAge">—</span></div>
-    <div class="kv-mini-new"><span>Last refresh</span><span id="inspectorSourceRefresh">—</span></div>
-    <div class="kv-mini-new"><span>Data source</span><span id="inspectorSourceType">—</span></div>
+    <div class="sidebar-label-new">Win path — expected</div>
     <div class="win-stat-new">
       <span class="win-stat-label-new">Turnout votes</span>
       <span class="win-stat-val-new" id="kpiTurnoutVotes-sidebar">—</span>
@@ -3460,8 +3370,7 @@ Volunteer multiplier stays above 1.5" rows="4"></textarea>
 
   <!-- EARLY / ED SPLIT -->
   <div class="sidebar-section-new sidebar-early-split">
-    <div class="sidebar-label-new">Warnings</div>
-    <div class="banner warn" id="inspectorWarningBand">—</div>
+    <div class="sidebar-label-new">Early &amp; election day split</div>
     <div class="kv-mini-new"><span>Early votes (expected)</span><span id="miniEarlyVotes-sidebar">—</span></div>
     <div class="kv-mini-new"><span>Election day votes</span><span id="miniEDVotes-sidebar">—</span></div>
     <div class="kv-mini-new"><span>Note</span><span id="miniEarlyNote-sidebar">—</span></div>
@@ -3471,8 +3380,7 @@ Volunteer multiplier stays above 1.5" rows="4"></textarea>
 
   <!-- STRESS TEST SUMMARY -->
   <div class="sidebar-section-new">
-    <div class="sidebar-label-new">Next action</div>
-    <div class="banner" id="inspectorNextAction">—</div>
+    <div class="sidebar-label-new">Stress test summary</div>
     <div class="stress" id="stressBox">
       <div class="stress-item">—</div>
     </div>
@@ -3480,7 +3388,7 @@ Volunteer multiplier stays above 1.5" rows="4"></textarea>
 
   <!-- MONTE CARLO WIN PROBABILITY -->
   <div class="sidebar-section-new">
-    <div class="sidebar-label-new">Confidence</div>
+    <div class="sidebar-label-new">Monte Carlo win probability</div>
     <div class="mc-prob-row-new">
       <span class="mc-prob-val-new" id="mcWinProb-sidebar">—</span>
       <span class="mc-prob-sub-new">simulated</span>
@@ -3507,7 +3415,7 @@ Volunteer multiplier stays above 1.5" rows="4"></textarea>
 
   <!-- RISK FRAMING -->
   <div class="sidebar-section-new">
-    <div class="sidebar-label-new">Risk profile</div>
+    <div class="sidebar-label-new">Risk framing</div>
     <div style="display:flex; align-items:center; gap:8px; margin-bottom:6px;">
       <span class="badge" id="riskBandTag-sidebar">—</span>
       <span class="muted" id="riskWinProb-sidebar" style="font-size:11px;">—</span>
@@ -3540,6 +3448,7 @@ Volunteer multiplier stays above 1.5" rows="4"></textarea>
 <script crossorigin="" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="./js/app.js?v=20260224-stable-c87" type="module"></script>
 <script>
+// ── Stage navigation ───────────────────────────────────────────
 function normalizeStages() {
   var host = document.querySelector('.stage-main-new');
   if (!host) return;
@@ -3548,133 +3457,25 @@ function normalizeStages() {
 }
 
 function switchStage(btn, stageId) {
+  // Nav items
   document.querySelectorAll('.nav-item-new').forEach(el => el.classList.remove('active'));
   btn.classList.add('active');
 
+  // Stage panels
   document.querySelectorAll('.stage-new').forEach(el => el.classList.remove('active-stage'));
   var target = document.getElementById('stage-' + stageId);
   if (target) target.classList.add('active-stage');
 }
 
+// ── Training panel collapse/expand ─────────────────────────────
 function toggleTrainPanel(id) {
   var el = document.getElementById(id);
   if (el) el.classList.toggle('collapsed');
 }
 
-function toggleAdvanced(btn) {
-  var card = btn ? btn.closest('.card') : null;
-  if (card) card.classList.toggle('show-advanced');
-}
-
-function setText(selector, text) {
-  var el = document.querySelector(selector);
-  if (el) el.textContent = text;
-}
-
-function moveNode(node, parent) {
-  if (!node || !parent) return;
-  if (node.parentElement !== parent) parent.appendChild(node);
-}
-
-function enforceShellCopy() {
-  setText('.nav-item-new[data-stage="setup"] .nav-label-new', 'District');
-  setText('.nav-item-new[data-stage="capacity"] .nav-label-new', 'Reach');
-  setText('.nav-item-new[data-stage="results"] .nav-label-new', 'Outcome');
-  setText('.nav-item-new[data-stage="roi"] .nav-label-new', 'Turnout');
-  setText('.nav-item-new[data-stage="gotv"] .nav-label-new', 'Plan');
-  setText('.nav-item-new[data-stage="checks"] .nav-label-new', 'Controls');
-  setText('.nav-item-new[data-stage="scenarios"] .nav-label-new', 'Scenarios');
-  setText('.nav-item-new[data-stage="decisions"] .nav-label-new', 'Decision Log');
-  setText('.nav-item-new[data-stage="integrity"] .nav-label-new', 'Data');
-  setText('#stage-setup .stage-title-new', 'District');
-  setText('#train-setup .training-title-new', 'Training — District');
-}
-
-function consolidateDistrictStage() {
-  var setupBody = document.querySelector('#stage-setup .stage-body-new');
-  if (!setupBody) return;
-  var raceCard = setupBody.querySelector('.card.card-section.phase-setup');
-  var universeCard = document.getElementById('universeCard');
-  var ballotCard = document.getElementById('ballotBaselineCard');
-  var turnoutBaselineCard = document.getElementById('setupTurnoutBaselineModule') || document.getElementById('districtTurnoutBaselineCard') || document.querySelector('#stage-ballot .stage-body-new .card.card-section.phase-p3');
-  if (turnoutBaselineCard && !turnoutBaselineCard.id) {
-    turnoutBaselineCard.id = 'districtTurnoutBaselineCard';
-  }
-  var electorateCard = document.getElementById('electorateWeightingCard');
-  var districtSummaryCard = document.getElementById('districtSummaryCard');
-  [raceCard, universeCard, ballotCard, turnoutBaselineCard, electorateCard, districtSummaryCard].forEach(function(node){
-    moveNode(node, setupBody);
-  });
-  setupBody.querySelectorAll('.setup-divider').forEach(function(node){
-    node.remove();
-  });
-  var setupPersuadable = document.getElementById('setupPersuadableModule');
-  if (setupPersuadable) setupPersuadable.remove();
-  ['stage-universe', 'stage-ballot', 'stage-structure'].forEach(function(id){
-    var section = document.getElementById(id);
-    if (!section) return;
-    section.hidden = true;
-    section.classList.remove('active-stage');
-  });
-}
-
-function orderCapacitySurface() {
-  var capacityBody = document.querySelector('#stage-capacity .stage-body-new');
-  if (!capacityBody) return;
-  var reachGrid = capacityBody.querySelector('.reach-grid');
-  if (!reachGrid) {
-    reachGrid = document.createElement('div');
-    reachGrid.className = 'reach-grid';
-    reachGrid.innerHTML = '<div class="reach-controls"></div><div class="reach-state"></div><div class="reach-results"></div>';
-    capacityBody.appendChild(reachGrid);
-  }
-  var controlsCol = reachGrid.querySelector('.reach-controls');
-  var stateCol = reachGrid.querySelector('.reach-state');
-  var resultsCol = reachGrid.querySelector('.reach-results');
-  ['weeklyOpsCard', 'weeklyOpsLeversCard'].forEach(function(id){
-    moveNode(document.getElementById(id), controlsCol);
-  });
-  ['capacityUniverseCard', 'operationsCapacityOutlookCard'].forEach(function(id){
-    moveNode(document.getElementById(id), stateCol);
-  });
-  ['weeklyOpsActionsCard', 'weeklyOpsFreshnessCard', 'conversionCard'].forEach(function(id){
-    moveNode(document.getElementById(id), resultsCol);
-  });
-}
-
-function ensureWhyPanels() {
-  var specs = [
-    { stage: 'setup', id: 'whyDistrictPanel', lines: ['Coverage is constrained by district size and baseline support.', 'Turnout baseline sets the floor for every path.', 'Weighting assumptions can materially shift expected demand.'] },
-    { stage: 'capacity', id: 'whyReachPanel', lines: ['Organizer capacity and productivity set the weekly ceiling.', 'Rate assumptions determine attempts needed.', 'Execution drift compounds quickly across remaining weeks.'] },
-    { stage: 'results', id: 'whyOutcomePanel', lines: ['Forecast changes are driven by rates, capacity, and turnout assumptions.', 'Uncertainty band width signals fragility.', 'Small assumption shifts can move win probability materially.'] },
-    { stage: 'roi', id: 'whyTurnoutPanel', lines: ['Cost efficiency depends on contact and support conversion.', 'Lift assumptions drive realized-vote sensitivity.', 'Resource allocation should follow bottleneck relief.'] },
-    { stage: 'gotv', id: 'whyPlanPanel', lines: ['Execution burden is a direct function of current vote goal.', 'Staffing and shift assumptions determine feasibility.', 'If workload is unrealistic, rebalance capacity before assumptions.'] }
-  ];
-  specs.forEach(function(spec){
-    var body = document.querySelector('#stage-' + spec.stage + ' .stage-body-new');
-    if (!body) return;
-    if (document.getElementById(spec.id)) return;
-    var panel = document.createElement('div');
-    panel.className = 'why-panel';
-    panel.id = spec.id;
-    panel.innerHTML = '<h3>Why this result</h3><ul><li>' + spec.lines.join('</li><li>') + '</li></ul>';
-    body.appendChild(panel);
-  });
-}
-
-function applyShellLayout() {
-  enforceShellCopy();
-  consolidateDistrictStage();
-  orderCapacitySurface();
-  ensureWhyPanels();
-}
-
 document.addEventListener('DOMContentLoaded', function(){
   normalizeStages();
-  setTimeout(applyShellLayout, 0);
 });
-
-window.addEventListener('load', applyShellLayout);
 </script>
 <div class="modal" hidden="" id="diagModal">
 <div class="modal-backdrop" data-close="1"></div>
