@@ -2389,6 +2389,7 @@
 <div class="card-actions" style="margin-top:8px;">
 <button class="btn btn-sm" id="btnIntelAutoFillUrls" type="button">Populate URLs from selected refs</button>
 <button class="btn btn-sm" id="btnIntelAutoPullAll" type="button">Fetch &amp; import all URLs</button>
+<button class="btn btn-sm" id="btnIntelLoadDemoData" type="button">Load demo district data</button>
 </div>
 <div class="muted" id="intelAutoPullStatus" style="margin-top:8px;">Auto-pull status: idle.</div>
 <div class="muted" id="intelAutoPullPlanSummary" style="margin-top:6px;">Auto-pull plan: not evaluated.</div>
@@ -2512,6 +2513,14 @@
 <tr><td class="muted" colspan="2">No census values loaded for selected GEO.</td></tr>
 </tbody>
 </table>
+</div>
+<div class="field" style="margin-top:8px;">
+<label class="label" for="intelGeoInspectorSummary">Selected GEO summary</label>
+<textarea class="input" id="intelGeoInspectorSummary" rows="6" readonly></textarea>
+<div class="card-actions" style="margin-top:6px;">
+<button class="btn btn-sm" id="btnIntelGeoInspectorCopy" type="button">Copy GEO summary</button>
+</div>
+<div class="muted" id="intelGeoInspectorCopyStatus" style="margin-top:6px;">No summary copied yet.</div>
 </div>
 </div>
 <div class="table-wrap" style="margin-top:10px;">
