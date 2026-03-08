@@ -470,3 +470,15 @@ Execution order for the first functional district-evidence layer.
      - renders active normalized area context + deterministic resolver cache key and notes.
    - `/Users/anakinskywalker/Downloads/field-app-40/js/app/wireEventsRuntime.js`
      - wires area/resolution events, normalizes IDs, and marks district-intel assumptions stale on area changes.
+18. [x] Add Stage 9 GEO opportunity ranking table (read-only targeting cue):
+   - `/Users/anakinskywalker/Downloads/field-app-40/js/core/districtEvidence.js`
+     - adds deterministic `summarizeGeoOpportunityLayers(...)` (composite score from competitiveness + vote mass + density proxy).
+   - `/Users/anakinskywalker/Downloads/field-app-40/js/engine.js`
+     - exposes GEO opportunity summarizer through snapshot facade.
+   - `/Users/anakinskywalker/Downloads/field-app-40/index.html`
+   - `/Users/anakinskywalker/Downloads/field-app-40/js/ui/els.js`
+   - `/Users/anakinskywalker/Downloads/field-app-40/js/app/renderIntelChecks.js`
+     - renders read-only rank table (opportunity, competitiveness, vote mass, density, margin, reasons).
+   - `/Users/anakinskywalker/Downloads/field-app-40/js/core/selfTestSuites/releaseHardening.js`
+   - `/Users/anakinskywalker/Downloads/field-app-40/js/core/selfTest.js`
+     - adds deterministic regression coverage for opportunity ordering + reason tags.
