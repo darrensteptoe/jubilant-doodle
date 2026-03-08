@@ -314,6 +314,26 @@ function pickCensusMetric(censusTotals, keys){
   return null;
 }
 
+function sumCensusMetric(censusTotals, keys){
+  const src = (censusTotals && typeof censusTotals === "object") ? censusTotals : {};
+  let any = false;
+  let total = 0;
+  for (const key of keys){
+    const n = Number(src[key]);
+    if (!Number.isFinite(n)) continue;
+    any = true;
+    total += n;
+  }
+  return any ? total : null;
+}
+
+function ratioCensusMetric(censusTotals, numeratorKeys, denominatorKeys){
+  const num = sumCensusMetric(censusTotals, numeratorKeys);
+  const den = sumCensusMetric(censusTotals, denominatorKeys);
+  if (!Number.isFinite(num) || !Number.isFinite(den) || den <= 0) return null;
+  return num / den;
+}
+
 function toSharePct(raw){
   const n = Number(raw);
   if (!Number.isFinite(n)) return null;
@@ -348,12 +368,50 @@ function fillDistrictDemographicsTable(tbody, evidence){
 
   const pop = pickCensusMetric(censusTotals, ["pop", "population", "total_population", "B01003_001E", "B01003_001"]);
   const housing = pickCensusMetric(censusTotals, ["housing_units", "housing", "total_housing_units", "B25001_001E", "B25001_001"]);
-  const renterShare = toSharePct(pickCensusMetric(censusTotals, ["renter_share", "renters_share", "renterPct", "renter_pct"]));
-  const multiunitShare = toSharePct(pickCensusMetric(censusTotals, ["multiunit_share", "multi_unit_share", "multiunit5p_share"]));
-  const baShare = toSharePct(pickCensusMetric(censusTotals, ["ba_plus_share", "baShare", "education_ba_plus", "BA_share", "ba_share"]));
-  const youthShare = toSharePct(pickCensusMetric(censusTotals, ["age_18_34_share", "youth_share"]));
-  const olderShare = toSharePct(pickCensusMetric(censusTotals, ["age_65_plus_share", "older_share"]));
-  const lepShare = toSharePct(pickCensusMetric(censusTotals, ["limited_english_share", "lep_share"]));
+  const renterShare = toSharePct(
+    pickCensusMetric(censusTotals, ["renter_share", "renters_share", "renterPct", "renter_pct"])
+    ?? ratioCensusMetric(censusTotals, ["B25003_003E", "B25003_003"], ["B25003_001E", "B25003_001"])
+  );
+  const multiunitShare = toSharePct(
+    pickCensusMetric(censusTotals, ["multiunit_share", "multi_unit_share", "multiunit5p_share"])
+    ?? ratioCensusMetric(
+      censusTotals,
+      ["B25024_006E", "B25024_006", "B25024_007E", "B25024_007", "B25024_008E", "B25024_008", "B25024_009E", "B25024_009"],
+      ["B25024_001E", "B25024_001"]
+    )
+  );
+  const baShare = toSharePct(
+    pickCensusMetric(censusTotals, ["ba_plus_share", "baShare", "education_ba_plus", "BA_share", "ba_share"])
+    ?? ratioCensusMetric(
+      censusTotals,
+      ["B15003_022E", "B15003_022", "B15003_023E", "B15003_023", "B15003_024E", "B15003_024", "B15003_025E", "B15003_025"],
+      ["B15003_001E", "B15003_001"]
+    )
+  );
+  const youthShare = toSharePct(
+    pickCensusMetric(censusTotals, ["age_18_34_share", "youth_share"])
+    ?? ratioCensusMetric(
+      censusTotals,
+      ["B01001_007E", "B01001_007", "B01001_008E", "B01001_008", "B01001_009E", "B01001_009", "B01001_010E", "B01001_010", "B01001_011E", "B01001_011", "B01001_012E", "B01001_012", "B01001_031E", "B01001_031", "B01001_032E", "B01001_032", "B01001_033E", "B01001_033", "B01001_034E", "B01001_034", "B01001_035E", "B01001_035", "B01001_036E", "B01001_036"],
+      ["B01001_001E", "B01001_001"]
+    )
+  );
+  const olderShare = toSharePct(
+    pickCensusMetric(censusTotals, ["age_65_plus_share", "older_share"])
+    ?? ratioCensusMetric(
+      censusTotals,
+      ["B01001_020E", "B01001_020", "B01001_021E", "B01001_021", "B01001_022E", "B01001_022", "B01001_023E", "B01001_023", "B01001_024E", "B01001_024", "B01001_025E", "B01001_025", "B01001_044E", "B01001_044", "B01001_045E", "B01001_045", "B01001_046E", "B01001_046", "B01001_047E", "B01001_047", "B01001_048E", "B01001_048", "B01001_049E", "B01001_049"],
+      ["B01001_001E", "B01001_001"]
+    )
+  );
+  const lepShare = toSharePct(
+    pickCensusMetric(censusTotals, ["limited_english_share", "lep_share"])
+    ?? ratioCensusMetric(
+      censusTotals,
+      ["C16002_004E", "C16002_004", "C16002_007E", "C16002_007", "C16002_010E", "C16002_010", "C16002_013E", "C16002_013"],
+      ["C16002_001E", "C16002_001"]
+    )
+  );
   const commute = pickCensusMetric(censusTotals, ["mean_commute_min", "commute_min", "mean_commute_minutes"]);
   const totalVotes = Number(summary.totalVotes);
   const competitiveness = Number(signal.competitivenessPct);
