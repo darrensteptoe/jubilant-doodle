@@ -108,6 +108,7 @@ function mapState(host){
     areaLayer: null,
     pointLayer: null,
     outlineLayer: null,
+    selectedLayer: null,
     token: 0,
     lastArgs: null,
     lastFitBounds: null,
@@ -173,6 +174,10 @@ function cleanupLayers(st){
   if (st.outlineLayer){
     map.removeLayer(st.outlineLayer);
     st.outlineLayer = null;
+  }
+  if (st.selectedLayer){
+    map.removeLayer(st.selectedLayer);
+    st.selectedLayer = null;
   }
 }
 
@@ -283,10 +288,114 @@ async function fetchBoundaryByGeoid(geoid){
       };
     }
   }
+  const tiger = await fetchBoundaryByTigerweb(geoid);
+  if (tiger && tiger.ok){
+    return tiger;
+  }
   return {
     ok: false,
     geoid,
-    source: "censusreporter",
+    source: tiger?.source || "censusreporter",
+    error: "boundary_unavailable",
+  };
+}
+
+function tigerwebQueryUrl(service, layer, where){
+  const base = `https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/${service}/MapServer/${layer}/query`;
+  const params = new URLSearchParams({
+    where,
+    outFields: "GEOID,NAME,STATE,COUNTY,PLACE,CD119,SLDU,SLDL",
+    returnGeometry: "true",
+    outSR: "4326",
+    f: "geojson",
+  });
+  return `${base}?${params.toString()}`;
+}
+
+function buildTigerwebQueryPlan(geoid){
+  const g = str(geoid);
+  const county = g.match(/^05000US(\d{5})$/);
+  if (county){
+    return [tigerwebQueryUrl("State_County", 1, `GEOID='${county[1]}'`)];
+  }
+  const place = g.match(/^16000US(\d{7})$/);
+  if (place){
+    return [
+      tigerwebQueryUrl("Places_CouSub_ConCity_SubMCD", 4, `GEOID='${place[1]}'`),
+      tigerwebQueryUrl("Places_CouSub_ConCity_SubMCD", 5, `GEOID='${place[1]}'`),
+    ];
+  }
+  const cd = g.match(/^50000US(\d{4})$/);
+  if (cd){
+    const state = cd[1].slice(0, 2);
+    const district = cd[1].slice(2, 4);
+    return [
+      tigerwebQueryUrl("Legislative", 0, `GEOID='${cd[1]}'`),
+      tigerwebQueryUrl("Legislative", 0, `STATE='${state}' AND CD119='${district}'`),
+    ];
+  }
+  const sldu = g.match(/^61000US(\d{5})$/);
+  if (sldu){
+    const state = sldu[1].slice(0, 2);
+    const district = sldu[1].slice(2, 5);
+    return [
+      tigerwebQueryUrl("Legislative", 1, `GEOID='${sldu[1]}'`),
+      tigerwebQueryUrl("Legislative", 1, `STATE='${state}' AND SLDU='${district}'`),
+    ];
+  }
+  const sldl = g.match(/^62000US(\d{5})$/);
+  if (sldl){
+    const state = sldl[1].slice(0, 2);
+    const district = sldl[1].slice(2, 5);
+    return [
+      tigerwebQueryUrl("Legislative", 2, `GEOID='${sldl[1]}'`),
+      tigerwebQueryUrl("Legislative", 2, `STATE='${state}' AND SLDL='${district}'`),
+    ];
+  }
+  const tract = g.match(/^(\d{11})$/);
+  if (tract){
+    return [tigerwebQueryUrl("Tracts_Blocks", 0, `GEOID='${tract[1]}'`)];
+  }
+  const blockGroup = g.match(/^(\d{12})$/);
+  if (blockGroup){
+    return [tigerwebQueryUrl("Tracts_Blocks", 1, `GEOID='${blockGroup[1]}'`)];
+  }
+  return [];
+}
+
+async function fetchBoundaryByTigerweb(geoid){
+  const plan = buildTigerwebQueryPlan(geoid);
+  if (!plan.length || typeof fetch !== "function"){
+    return null;
+  }
+  for (const url of plan){
+    let res = null;
+    try{
+      res = await fetch(url, { method: "GET", headers: { Accept: "application/geo+json,application/json" } });
+    } catch {
+      continue;
+    }
+    if (!res || !res.ok) continue;
+    let payload = null;
+    try{
+      payload = await res.json();
+    } catch {
+      continue;
+    }
+    const featureCollection = normalizeFeatureLike(payload);
+    if (featureCollection){
+      return {
+        ok: true,
+        geoid,
+        source: "tigerweb",
+        geojson: featureCollection,
+      };
+    }
+  }
+  return {
+    ok: false,
+    geoid,
+    source: "tigerweb",
     error: "boundary_unavailable",
   };
 }
@@ -295,6 +404,27 @@ function deriveBoundaryGeoJson(args){
   const direct = normalizeFeatureLike(args?.areaBoundary?.geojson || args?.areaBoundary?.feature || args?.areaBoundary?.geometry || args?.areaBoundary);
   if (direct) return { geojson: direct, source: str(args?.areaBoundary?.source || "provided"), geoid: str(args?.areaBoundary?.geoid || "") };
   const geoid = areaToGeoId(args?.area);
+  const cached = areaBoundaryFromCache(geoid);
+  if (cached && cached.geojson){
+    return { geojson: cached.geojson, source: str(cached.source), geoid };
+  }
+  return { geojson: null, source: "", geoid };
+}
+
+function deriveSelectedBoundaryGeoJson(args){
+  const geoid = str(args?.selectedGeoId);
+  if (!geoid){
+    return { geojson: null, source: "", geoid: "" };
+  }
+  const direct = normalizeFeatureLike(
+    args?.selectedGeoBoundary?.geojson ||
+    args?.selectedGeoBoundary?.feature ||
+    args?.selectedGeoBoundary?.geometry ||
+    args?.selectedGeoBoundary
+  );
+  if (direct){
+    return { geojson: direct, source: str(args?.selectedGeoBoundary?.source || "provided"), geoid };
+  }
   const cached = areaBoundaryFromCache(geoid);
   if (cached && cached.geojson){
     return { geojson: cached.geojson, source: str(cached.source), geoid };
@@ -350,7 +480,9 @@ function renderMapNow(host, statusEl, args){
   points.sort((a, b) => (b.totalVotes - a.totalVotes) || a.geoid.localeCompare(b.geoid));
 
   const boundaryPayload = deriveBoundaryGeoJson(args);
+  const selectedBoundaryPayload = deriveSelectedBoundaryGeoJson(args);
   let hasBoundary = false;
+  let hasSelectedBoundary = false;
   let fitBounds = null;
   if (boundaryPayload.geojson){
     st.areaLayer = L.geoJSON(boundaryPayload.geojson, {
@@ -367,6 +499,30 @@ function renderMapNow(host, statusEl, args){
       hasBoundary = fitBounds && fitBounds.isValid && fitBounds.isValid();
     } catch {
       hasBoundary = false;
+    }
+  }
+  if (selectedBoundaryPayload.geojson){
+    st.selectedLayer = L.geoJSON(selectedBoundaryPayload.geojson, {
+      style: () => ({
+        color: "#f59e0b",
+        weight: 3,
+        opacity: 0.95,
+        fillColor: "#f59e0b",
+        fillOpacity: 0.09,
+      }),
+    }).addTo(st.map);
+    try{
+      const selectedBounds = st.selectedLayer.getBounds();
+      if (selectedBounds && selectedBounds.isValid && selectedBounds.isValid()){
+        hasSelectedBoundary = true;
+        if (fitBounds && fitBounds.extend){
+          fitBounds.extend(selectedBounds);
+        } else {
+          fitBounds = selectedBounds;
+        }
+      }
+    } catch {
+      hasSelectedBoundary = false;
     }
   }
 
@@ -436,9 +592,15 @@ function renderMapNow(host, statusEl, args){
     st.map.setView(DEFAULT_CENTER, DEFAULT_ZOOM);
   }
 
-  if (points.length && hasBoundary){
+  if (points.length && hasBoundary && hasSelectedBoundary){
+    statusEl.classList.add("ok");
+    statusEl.textContent = `Interactive map: ${points.length} GEO points with area outline (${boundaryPayload.geoid || "selected area"}) and selected GEO boundary (${selectedBoundaryPayload.geoid || "selected GEO"}).`;
+  } else if (points.length && hasBoundary){
     statusEl.classList.add("ok");
     statusEl.textContent = `Interactive map: ${points.length} GEO points with area outline (${boundaryPayload.geoid || "selected area"}).`;
+  } else if (points.length && hasSelectedBoundary){
+    statusEl.classList.add("ok");
+    statusEl.textContent = `Interactive map: ${points.length} GEO points with selected GEO boundary (${selectedBoundaryPayload.geoid || "selected GEO"}).`;
   } else if (hasBoundary){
     statusEl.classList.add("ok");
     statusEl.textContent = `Interactive map: area outline loaded (${boundaryPayload.geoid || "selected area"}).`;
@@ -453,7 +615,13 @@ function renderMapNow(host, statusEl, args){
   setTimeout(() => invalidateAndFitIfNeeded(host, st), 0);
   setTimeout(() => invalidateAndFitIfNeeded(host, st), 120);
 
-  return { geoid: boundaryPayload.geoid, hasBoundary, pointCount: points.length };
+  return {
+    geoid: boundaryPayload.geoid,
+    hasBoundary,
+    pointCount: points.length,
+    selectedGeoId: selectedBoundaryPayload.geoid,
+    hasSelectedBoundary,
+  };
 }
 
 function queueBoundaryFetch(host, statusEl, args, geoid){
@@ -512,6 +680,21 @@ export function renderIntelGeoMap(host, statusEl, args = {}){
         statusEl.textContent = `Loading boundary for ${out.geoid}...`;
       }
       queueBoundaryFetch(host, statusEl, args, out.geoid);
+    }
+  }
+  if (!out.hasSelectedBoundary && out.selectedGeoId){
+    const cached = boundaryCache.get(out.selectedGeoId);
+    if (cached && !cached.ok){
+      statusEl.classList.remove("ok", "warn", "bad", "muted");
+      statusEl.classList.add("warn");
+      statusEl.textContent = `Interactive map: ${out.pointCount} GEO points plotted. Boundary fetch unavailable for selected GEO ${out.selectedGeoId}.`;
+      return;
+    }
+    if (!cached){
+      statusEl.classList.remove("ok", "warn", "bad", "muted");
+      statusEl.classList.add("warn");
+      statusEl.textContent = `Interactive map: ${out.pointCount} GEO points plotted. Loading selected GEO boundary ${out.selectedGeoId}...`;
+      queueBoundaryFetch(host, statusEl, args, out.selectedGeoId);
     }
   }
 }
