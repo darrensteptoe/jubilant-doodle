@@ -1020,6 +1020,43 @@ function rowsOutsideArea(rows, area){
   return true;
 }
 
+function mergeDisplayGeoRows(censusRows, electionRows){
+  const census = Array.isArray(censusRows) ? censusRows : [];
+  if (!census.length) return [];
+  const election = Array.isArray(electionRows) ? electionRows : [];
+  const electionByGeoid = new Map();
+  for (const row of election){
+    const geoid = String(row?.geoid || "").trim();
+    if (!geoid) continue;
+    electionByGeoid.set(geoid, row);
+  }
+  const merged = [];
+  for (const base of census){
+    const geoid = String(base?.geoid || "").trim();
+    if (!geoid){
+      merged.push(base);
+      continue;
+    }
+    const matched = electionByGeoid.get(geoid);
+    if (!matched || typeof matched !== "object"){
+      merged.push(base);
+      continue;
+    }
+    const totalVotes = Number(matched?.totalVotes);
+    const sourcePrecincts = Number(matched?.sourcePrecincts);
+    merged.push({
+      ...base,
+      totalVotes: Number.isFinite(totalVotes) ? totalVotes : Number(base?.totalVotes) || 0,
+      candidateVotes: (matched?.candidateVotes && typeof matched.candidateVotes === "object")
+        ? matched.candidateVotes
+        : ((base?.candidateVotes && typeof base.candidateVotes === "object") ? base.candidateVotes : {}),
+      sourcePrecincts: Number.isFinite(sourcePrecincts) ? sourcePrecincts : Number(base?.sourcePrecincts) || 0,
+      hasElection: true,
+    });
+  }
+  return merged;
+}
+
 function buildAreaCodeLinksHtml(area){
   const baseStateList = "https://www2.census.gov/geo/docs/reference/codes2020/national_state2020.txt";
   const baseCountyList = "https://www2.census.gov/geo/docs/reference/codes2020/national_county2020.txt";
@@ -2091,13 +2128,27 @@ export function renderIntelChecksModule({
   }
 
   const flowAreaReady = areaReadyForFlow(areaForDisplay);
-  const flowDataReady = precinctResults.length > 0 && crosswalkRows.length > 0 && censusGeoRows.length > 0;
+  const scopedCrosswalkRows = flowAreaReady
+    ? crosswalkRows.filter((row) => geoRowMatchesArea({ geoid: row?.geoid }, areaForDisplay))
+    : crosswalkRows;
+  const scopedCensusGeoRows = flowAreaReady
+    ? censusGeoRows.filter((row) => geoRowMatchesArea(row, areaForDisplay))
+    : censusGeoRows;
+  const areaCrosswalkMismatch = flowAreaReady && crosswalkRows.length > 0 && scopedCrosswalkRows.length === 0;
+  const areaCensusMismatch = flowAreaReady && censusGeoRows.length > 0 && scopedCensusGeoRows.length === 0;
+  const areaDataMismatch = areaCrosswalkMismatch || areaCensusMismatch;
+  const flowDataReady = precinctResults.length > 0 && scopedCrosswalkRows.length > 0 && scopedCensusGeoRows.length > 0;
   const setFlowStepStatus = (compiledReady) => {
     if (!els.intelFlowStepStatus) return;
     els.intelFlowStepStatus.classList.remove("ok", "warn", "bad", "muted");
     if (!flowAreaReady){
       els.intelFlowStepStatus.classList.add("warn");
       els.intelFlowStepStatus.textContent = "Flow: Step 1 select area (state + type + ID) before loading data.";
+      return;
+    }
+    if (areaDataMismatch){
+      els.intelFlowStepStatus.classList.add("warn");
+      els.intelFlowStepStatus.textContent = "Flow: Step 2A align data to selected area (crosswalk/census rows must match area).";
       return;
     }
     if (!flowDataReady){
@@ -2623,8 +2674,8 @@ export function renderIntelChecksModule({
     evidence = compileDistrictEvidence({
       geoUnits: state?.geoPack?.units || [],
       precinctResults,
-      crosswalkRows,
-      censusGeoRows,
+      crosswalkRows: scopedCrosswalkRows,
+      censusGeoRows: scopedCensusGeoRows,
     });
   } catch (err){
     if (els.intelDistrictEvidenceStatus){
@@ -2662,8 +2713,8 @@ export function renderIntelChecksModule({
   const candidateTotals = Array.isArray(evidence?.candidateTotals) ? evidence.candidateTotals : [];
   const links = Array.isArray(evidence?.precinctToGeo) ? evidence.precinctToGeo : [];
   const geoRows = Array.isArray(evidence?.geoRows) ? evidence.geoRows : [];
-  const censusOnlyRows = Array.isArray(censusGeoRows)
-    ? censusGeoRows.map((row) => ({
+  const censusOnlyRows = Array.isArray(scopedCensusGeoRows)
+    ? scopedCensusGeoRows.map((row) => ({
       geoid: String(row?.geoid || ""),
       totalVotes: 0,
       candidateVotes: {},
@@ -2673,12 +2724,22 @@ export function renderIntelChecksModule({
       census: row?.values && typeof row.values === "object" ? row.values : {},
     }))
     : [];
+  const censusMergedGeoRows = mergeDisplayGeoRows(censusOnlyRows, geoRows);
+  const displayGeoRows = censusMergedGeoRows.length ? censusMergedGeoRows : geoRows;
+  const electionMatchedCount = censusMergedGeoRows.reduce((acc, row) => acc + (row?.hasElection ? 1 : 0), 0);
+  const electionRowsOutsideSelectedArea = rowsOutsideArea(geoRows, areaForDisplay);
+  let usingCensusAreaFallback = false;
+  if (censusMergedGeoRows.length){
+    if (!geoRows.length || electionRowsOutsideSelectedArea || electionMatchedCount < geoRows.length){
+      usingCensusAreaFallback = true;
+    }
+  }
   let precinctLayers = [];
   if (typeof summarizePrecinctEvidenceLayers === "function"){
     try{
       precinctLayers = summarizePrecinctEvidenceLayers({
         precinctResults,
-        crosswalkRows,
+        crosswalkRows: scopedCrosswalkRows,
         geoUnits: state?.geoPack?.units || [],
         maxRows: 30,
       });
@@ -2689,17 +2750,17 @@ export function renderIntelChecksModule({
   let geoLayers = [];
   if (typeof summarizeGeoEvidenceLayers === "function"){
     try{
-      geoLayers = summarizeGeoEvidenceLayers({ geoRows, maxRows: 20 });
+      geoLayers = summarizeGeoEvidenceLayers({ geoRows: displayGeoRows, maxRows: 20 });
     } catch {
-      geoLayers = summarizeEvidenceGeoRows(geoRows, 20);
+      geoLayers = summarizeEvidenceGeoRows(displayGeoRows, 20);
     }
   } else {
-    geoLayers = summarizeEvidenceGeoRows(geoRows, 20);
+    geoLayers = summarizeEvidenceGeoRows(displayGeoRows, 20);
   }
   let opportunityLayers = [];
   if (typeof summarizeGeoOpportunityLayers === "function"){
     try{
-      opportunityLayers = summarizeGeoOpportunityLayers({ geoRows, maxRows: 20 });
+      opportunityLayers = summarizeGeoOpportunityLayers({ geoRows: displayGeoRows, maxRows: 20 });
     } catch {
       opportunityLayers = [];
     }
@@ -2710,10 +2771,9 @@ export function renderIntelChecksModule({
     bounds: null,
     points: [],
   };
-  let usingCensusAreaFallback = false;
   if (typeof buildGeoEvidenceMapLayer === "function"){
     try{
-      geoMapLayer = buildGeoEvidenceMapLayer({ geoRows, maxPoints: 500 });
+      geoMapLayer = buildGeoEvidenceMapLayer({ geoRows: displayGeoRows, maxPoints: 500 });
     } catch {
       geoMapLayer = {
         available: false,
@@ -2725,20 +2785,6 @@ export function renderIntelChecksModule({
     if (
       (!geoMapLayer || !geoMapLayer.available || !Array.isArray(geoMapLayer.points) || geoMapLayer.points.length === 0)
       && censusOnlyRows.length > 0
-    ){
-      try{
-        const fallbackLayer = buildGeoEvidenceMapLayer({ geoRows: censusOnlyRows, maxPoints: 500 });
-        if (fallbackLayer?.available && Array.isArray(fallbackLayer.points) && fallbackLayer.points.length > 0){
-          geoMapLayer = fallbackLayer;
-          usingCensusAreaFallback = true;
-        }
-      } catch {}
-    }
-    if (
-      !usingCensusAreaFallback &&
-      geoRows.length > 0 &&
-      censusOnlyRows.length > 0 &&
-      rowsOutsideArea(geoRows, areaForDisplay)
     ){
       try{
         const fallbackLayer = buildGeoEvidenceMapLayer({ geoRows: censusOnlyRows, maxPoints: 500 });
@@ -2761,7 +2807,6 @@ export function renderIntelChecksModule({
   if (usingCensusAreaFallback){
     mergedNotes.push("Map/demographics switched to selected-area census rows because current election-linked GEO rows do not match selected area.");
   }
-  const displayGeoRows = usingCensusAreaFallback ? censusOnlyRows : geoRows;
   if (usingCensusAreaFallback){
     if (typeof summarizeGeoEvidenceLayers === "function"){
       try{
@@ -2824,7 +2869,13 @@ export function renderIntelChecksModule({
 
   if (els.intelDistrictEvidenceStatus){
     els.intelDistrictEvidenceStatus.classList.remove("ok", "warn", "bad", "muted");
-    if (!precinctResults.length || !crosswalkRows.length || !censusGeoRows.length){
+    if (areaDataMismatch){
+      els.intelDistrictEvidenceStatus.classList.add("warn");
+      const reasons = [];
+      if (areaCrosswalkMismatch) reasons.push("crosswalk rows");
+      if (areaCensusMismatch) reasons.push("census rows");
+      els.intelDistrictEvidenceStatus.textContent = `Evidence area mismatch: selected area has no matching ${reasons.join(" + ")}. Reload/import data for this area.`;
+    } else if (!precinctResults.length || !scopedCrosswalkRows.length || !scopedCensusGeoRows.length){
       els.intelDistrictEvidenceStatus.classList.add("warn");
       const note = mergedNotes[0] || "Load precinct results, crosswalk rows, and census geo rows into geoPack.district.evidenceInputs or geoPack.district.evidenceStore to activate full district evidence.";
       els.intelDistrictEvidenceStatus.textContent = note;

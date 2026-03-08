@@ -414,7 +414,9 @@ export function wireIntelChecksEvents(ctx){
     const district = ensureGeoDistrict(s);
     mutator(geo);
     geo.generatedAt = null;
+    geo.areaBoundary = null;
     if (district) district.selectedGeoId = null;
+    if (district) district.areaBoundary = null;
     markDistrictIntelStale(s, "District area/resolution changed; regenerate district-intel assumptions.");
     if (s.useDistrictIntel){
       s.useDistrictIntel = false;
@@ -673,14 +675,24 @@ export function wireIntelChecksEvents(ctx){
         : Array.isArray(evidenceInputs.censusGeoRows)
         ? evidenceInputs.censusGeoRows
         : (Array.isArray(districtBlob.censusGeoRows) ? districtBlob.censusGeoRows : (Array.isArray(districtBlob.censusRows) ? districtBlob.censusRows : []));
+      const area = (s?.geoPack && typeof s.geoPack === "object" && s.geoPack.area && typeof s.geoPack.area === "object")
+        ? s.geoPack.area
+        : {};
+      const areaState = cleanDigits(area?.stateFips, 2);
+      const scopedCrosswalkRows = areaState
+        ? crosswalkRows.filter((row) => rowMatchesArea({ geoid: row?.geoid }, area))
+        : crosswalkRows;
+      const scopedCensusGeoRows = areaState
+        ? censusGeoRows.filter((row) => rowMatchesArea(row, area))
+        : censusGeoRows;
 
       let evidence = null;
       try{
         evidence = compileDistrictEvidence({
           geoUnits: s?.geoPack?.units || [],
           precinctResults,
-          crosswalkRows,
-          censusGeoRows,
+          crosswalkRows: scopedCrosswalkRows,
+          censusGeoRows: scopedCensusGeoRows,
         });
       } catch (err){
         setDistrictIntelStatus(`District evidence compile failed: ${String(err?.message || "unknown error")}`, "bad");
@@ -1139,6 +1151,16 @@ export function wireIntelChecksEvents(ctx){
     }
     if (county.length === 3) return county;
     return "";
+  };
+
+  const rowMatchesArea = (row, area) => {
+    const geoid = cleanDigits(row?.geoid, 16);
+    if (geoid.length < 5) return false;
+    const state = cleanDigits(area?.stateFips, 2);
+    if (state && geoid.slice(0, 2) !== state) return false;
+    const county3 = normalizeCounty3(state, area?.countyFips);
+    if (county3 && geoid.slice(2, 5) !== county3) return false;
+    return true;
   };
 
   const buildCensusGeoApiUrl = (stateFips, county3, resolution) => {
@@ -1740,9 +1762,7 @@ export function wireIntelChecksEvents(ctx){
           setIngestStatus("Census GEO fetch returned no rows for the selected area/resolution.", "warn");
           return;
         }
-        if (!refs.censusDatasetId){
-          refs.censusDatasetId = `census_api_2020_pl_${stateFips}${county3}_${resolution}`;
-        }
+        refs.censusDatasetId = `census_api_2020_pl_${stateFips}${county3}_${resolution}`;
         stampDataRefCheck(refs);
         const entry = {
           id: refs.censusDatasetId,
