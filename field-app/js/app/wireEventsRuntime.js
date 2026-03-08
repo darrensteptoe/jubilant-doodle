@@ -877,6 +877,20 @@ export function wireIntelChecksEvents(ctx){
     }
   };
 
+  const setUrlInputValue = (el, value) => {
+    if (!el) return;
+    el.value = String(value || "");
+  };
+
+  const applyAutoPullPlanToInputs = (plan) => {
+    const urls = plan && typeof plan === "object" ? (plan.urls || {}) : {};
+    setUrlInputValue(els.intelCensusManifestUrl, urls.censusManifestUrl || "");
+    setUrlInputValue(els.intelElectionManifestUrl, urls.electionManifestUrl || "");
+    setUrlInputValue(els.intelCrosswalkRowsUrl, urls.crosswalkRowsUrl || "");
+    setUrlInputValue(els.intelPrecinctResultsUrl, urls.precinctResultsUrl || "");
+    setUrlInputValue(els.intelCensusGeoRowsUrl, urls.censusGeoRowsUrl || "");
+  };
+
   if (els.btnIntelImportCensusManifest){
     els.btnIntelImportCensusManifest.addEventListener("click", () => {
       const s = currentState();
@@ -949,6 +963,36 @@ export function wireIntelChecksEvents(ctx){
       const out = importCensusGeoRowsPayload(s, parsed.value);
       setIngestStatus(out.message, out.kind);
       if (out.applied) commitUIUpdate();
+    });
+  }
+
+  if (els.btnIntelAutoFillUrls){
+    els.btnIntelAutoFillUrls.addEventListener("click", () => {
+      const s = currentState();
+      if (!s) return;
+      const buildAutoPullUrlPlan = engine?.snapshot?.buildAutoPullUrlPlan;
+      const resolveDataRefsByPolicy = engine?.snapshot?.resolveDataRefsByPolicy;
+      if (typeof buildAutoPullUrlPlan !== "function"){
+        setAutoPullStatus("Auto-fill unavailable: engine snapshot does not expose buildAutoPullUrlPlan.", "warn");
+        return;
+      }
+      const plan = buildAutoPullUrlPlan({
+        dataRefs: s?.dataRefs,
+        dataCatalog: s?.dataCatalog,
+        scenario: s,
+        resolveDataRefsByPolicy,
+      });
+      applyAutoPullPlanToInputs(plan);
+      const available = Number(plan?.availableCount) || 0;
+      const modeLabel = String(plan?.policyLabel || plan?.mode || "policy");
+      if (available <= 0){
+        const note = Array.isArray(plan?.notes) && plan.notes.length ? ` ${plan.notes[0]}` : "";
+        setAutoPullStatus(`No URLs available from ${modeLabel}.${note}`, "warn");
+      } else if (Array.isArray(plan?.notes) && plan.notes.length){
+        setAutoPullStatus(`Loaded ${available}/5 URL(s) from ${modeLabel}. ${plan.notes[0]}`, "warn");
+      } else {
+        setAutoPullStatus(`Loaded ${available}/5 URL(s) from ${modeLabel}.`, "ok");
+      }
     });
   }
 

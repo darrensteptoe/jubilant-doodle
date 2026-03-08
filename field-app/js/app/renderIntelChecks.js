@@ -1537,6 +1537,9 @@ export function renderIntelChecksModule({
     const hasFetch = typeof globalThis.fetch === "function";
     els.btnIntelAutoPullAll.disabled = !hasFetch;
   }
+  if (els.btnIntelAutoFillUrls){
+    els.btnIntelAutoFillUrls.disabled = typeof engine?.snapshot?.buildAutoPullUrlPlan !== "function";
+  }
   if (els.intelDistrictEvidenceSelectedElection){
     const topId = String(rankedElectionDatasets?.[0]?.dataset?.id || "").trim();
     const rankIndex = Array.isArray(rankedElectionDatasets)
