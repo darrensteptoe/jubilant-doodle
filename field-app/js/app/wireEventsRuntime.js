@@ -1091,7 +1091,7 @@ export function wireIntelChecksEvents(ctx){
       markDistrictIntelStale(s, "Crosswalk rows changed; regenerate district-intel assumptions.");
       return {
         applied: true,
-        kind: status === "aligned" || status === "unknown" ? "ok" : "warn",
+        kind: status === "aligned" ? "ok" : "warn",
         message: `Crosswalk rows imported to evidenceStore key '${key}' (${rows.length} rows; area ${status}).`,
       };
     }
@@ -1128,7 +1128,7 @@ export function wireIntelChecksEvents(ctx){
       markDistrictIntelStale(s, "Election rows changed; regenerate district-intel assumptions.");
       return {
         applied: true,
-        kind: status === "aligned" || status === "unknown" ? "ok" : "warn",
+        kind: status === "aligned" ? "ok" : "warn",
         message: `Precinct results imported to evidenceStore key '${key}'${suffix} Area ${status}.`,
       };
     }
@@ -1162,7 +1162,7 @@ export function wireIntelChecksEvents(ctx){
       markDistrictIntelStale(s, "Census GEO rows changed; regenerate district-intel assumptions.");
       return {
         applied: true,
-        kind: status === "aligned" || status === "unknown" ? "ok" : "warn",
+        kind: status === "aligned" ? "ok" : "warn",
         message: `Census GEO rows imported to evidenceStore key '${key}' (${rows.length} rows; area ${status}).`,
       };
     }
