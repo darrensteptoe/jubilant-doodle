@@ -526,3 +526,23 @@ Execution order for additive auto-ingest on top of deterministic/manual ingest.
      - no planning-math mutation; imported payloads still land in catalog/evidence containers.
    - `/Users/anakinskywalker/Downloads/field-app-40/js/app/renderIntelChecks.js`
      - disables auto-pull action when browser fetch API is unavailable.
+2. [x] Add provider adapter + data-ref-mode refresh policy bridge for URL population:
+   - `/Users/anakinskywalker/Downloads/field-app-40/js/core/districtAutoPull.js`
+     - deterministic `buildAutoPullUrlPlan(...)` resolves URL candidates from selected refs/catalog metadata.
+     - applies mode policy semantics:
+       - `pinned_verified`: fixed refs,
+       - `latest_verified`: resolved refs at pull time,
+       - `manual`: explicit refs.
+   - `/Users/anakinskywalker/Downloads/field-app-40/js/core/districtData.js`
+   - `/Users/anakinskywalker/Downloads/field-app-40/js/core/districtIngest.js`
+     - extends catalog/manifest normalization to preserve optional `manifestUrl` / `rowsUrl` metadata.
+   - `/Users/anakinskywalker/Downloads/field-app-40/js/engine.js`
+     - exposes `buildAutoPullUrlPlan` in snapshot facade.
+   - `/Users/anakinskywalker/Downloads/field-app-40/index.html`
+   - `/Users/anakinskywalker/Downloads/field-app-40/js/ui/els.js`
+   - `/Users/anakinskywalker/Downloads/field-app-40/js/app/wireEventsRuntime.js`
+   - `/Users/anakinskywalker/Downloads/field-app-40/js/app/renderIntelChecks.js`
+     - adds "Populate URLs from selected refs" action.
+   - `/Users/anakinskywalker/Downloads/field-app-40/js/core/selfTestSuites/releaseHardening.js`
+   - `/Users/anakinskywalker/Downloads/field-app-40/js/core/selfTest.js`
+     - adds deterministic tests for auto-pull plan resolution and missing-URL diagnostics.
