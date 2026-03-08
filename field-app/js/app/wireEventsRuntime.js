@@ -26,6 +26,7 @@ import {
 } from "./intelControlsRuntime.js";
 import { ensureBudgetShape } from "./state.js";
 import { applyDataRefPolicyRuntime } from "./dataRefPolicyRuntime.js";
+import { normalizeElectionPrecinctPayload } from "../core/electionProviderAdapter.js";
 
 /** @param {import("./types").WireEventsCtx} ctx */
 export function wireBudgetTimelineEvents(ctx){
@@ -302,6 +303,15 @@ export function wireIntelChecksEvents(ctx){
     return geo;
   };
 
+  const ensureGeoDistrict = (s) => {
+    const geo = ensureGeoPackShape(s);
+    if (!geo) return null;
+    if (!geo.district || typeof geo.district !== "object") geo.district = {};
+    return geo.district;
+  };
+
+  const normalizeGeoInspectorId = (v) => String(v || "").trim().slice(0, 32);
+
   const stampDataRefCheck = (refs) => {
     if (!refs || typeof refs !== "object") return;
     refs.lastCheckedAt = new Date().toISOString();
@@ -397,8 +407,10 @@ export function wireIntelChecksEvents(ctx){
     if (!s) return;
     const geo = ensureGeoPackShape(s);
     if (!geo) return;
+    const district = ensureGeoDistrict(s);
     mutator(geo);
     geo.generatedAt = null;
+    if (district) district.selectedGeoId = null;
     markDistrictIntelStale(s, "District area/resolution changed; regenerate district-intel assumptions.");
     if (s.useDistrictIntel){
       s.useDistrictIntel = false;
@@ -447,6 +459,16 @@ export function wireIntelChecksEvents(ctx){
     els.intelAreaPlaceFips.addEventListener("input", () => onAreaChange((geo) => {
       geo.area.placeFips = cleanDigits(els.intelAreaPlaceFips.value, 5);
     }, "Area place FIPS updated."));
+  }
+  if (els.intelGeoInspectorSelect){
+    els.intelGeoInspectorSelect.addEventListener("change", () => {
+      const s = currentState();
+      if (!s) return;
+      const district = ensureGeoDistrict(s);
+      if (!district) return;
+      district.selectedGeoId = normalizeGeoInspectorId(els.intelGeoInspectorSelect.value);
+      commitUIUpdate();
+    });
   }
   if (els.btnIntelGenerateDistrictIntel){
     els.btnIntelGenerateDistrictIntel.addEventListener("click", () => {
@@ -856,8 +878,10 @@ export function wireIntelChecksEvents(ctx){
   };
 
   const importPrecinctResultsPayload = (s, payload) => {
-    const rows = rowsFromPayload(payload, "precinctResults");
-    if (!Array.isArray(rows) || !rows.length){
+    const format = String(els.intelPrecinctResultsFormat?.value || "auto").trim().toLowerCase();
+    const normalized = normalizeElectionPrecinctPayload(payload, { format });
+    const rows = Array.isArray(normalized?.rows) ? normalized.rows : [];
+    if (!rows.length){
       return { applied: false, kind: "warn", message: "Precinct results must be a non-empty JSON array." };
     }
     const refs = ensureDataRefShape(s);
@@ -865,6 +889,7 @@ export function wireIntelChecksEvents(ctx){
     if (!district){
       return { applied: false, kind: "warn", message: "Unable to initialize district evidence containers." };
     }
+    const suffix = ` (${normalized.outputCount}/${normalized.inputCount} rows via ${normalized.effectiveFormat}; rejected ${normalized.rejectedCount}).`;
     const key = String(refs?.electionDatasetId || "").trim();
     if (key){
       district.evidenceStore.electionByDatasetId[key] = rows;
@@ -873,7 +898,7 @@ export function wireIntelChecksEvents(ctx){
       return {
         applied: true,
         kind: "ok",
-        message: `Precinct results imported to evidenceStore key '${key}' (${rows.length} rows).`,
+        message: `Precinct results imported to evidenceStore key '${key}'${suffix}`,
       };
     }
     district.evidenceInputs.precinctResults = rows;
@@ -881,7 +906,7 @@ export function wireIntelChecksEvents(ctx){
     return {
       applied: true,
       kind: "warn",
-      message: `Precinct results imported inline (${rows.length} rows). Set election dataset ref to key this data.`,
+      message: `Precinct results imported inline${suffix} Set election dataset ref to key this data.`,
     };
   };
 

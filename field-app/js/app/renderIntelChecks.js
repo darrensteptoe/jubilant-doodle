@@ -14,6 +14,7 @@ import {
   listMissingNoteAudit,
   listShockScenarios,
 } from "./intelControlsRuntime.js";
+import { renderIntelGeoMap } from "./intelGeoMap.js";
 
 function fmtNum(v){
   const n = Number(v);
@@ -347,197 +348,147 @@ function fillDistrictEvidencePrecinctTable(tbody, rows){
   }
 }
 
-const SVG_NS = "http://www.w3.org/2000/svg";
-const MAP_CANDIDATE_COLORS = [
-  "#0ea5e9",
-  "#22c55e",
-  "#f97316",
-  "#eab308",
-  "#ef4444",
-  "#a855f7",
-  "#14b8a6",
-  "#f43f5e",
-  "#84cc16",
-  "#6366f1",
-];
-
-function clampNum(n, min, max){
-  if (!Number.isFinite(n)) return min;
-  return Math.max(min, Math.min(max, n));
-}
-
-function hashStringToIndex(s, mod){
-  const text = String(s || "");
-  if (!text || !mod) return 0;
-  let h = 2166136261 >>> 0;
-  for (let i = 0; i < text.length; i++){
-    h ^= text.charCodeAt(i);
-    h = Math.imul(h, 16777619) >>> 0;
-  }
-  return h % mod;
-}
-
-function candidateColor(candidateId){
-  const id = String(candidateId || "").trim();
-  if (!id) return "#64748b";
-  return MAP_CANDIDATE_COLORS[hashStringToIndex(id, MAP_CANDIDATE_COLORS.length)];
-}
-
-function clearSvg(el){
-  if (!el) return;
-  while (el.firstChild){
-    el.removeChild(el.firstChild);
-  }
-}
-
-function appendSvgNode(svgEl, tag, attrs = {}){
-  const node = document.createElementNS(SVG_NS, tag);
-  for (const key of Object.keys(attrs)){
-    node.setAttribute(key, String(attrs[key]));
-  }
-  svgEl.appendChild(node);
-  return node;
-}
-
-function pointRadius(value, minValue, maxValue){
-  const v = Number(value);
-  const lo = Number(minValue);
-  const hi = Number(maxValue);
-  if (!Number.isFinite(v) || !Number.isFinite(lo) || !Number.isFinite(hi) || hi <= lo){
-    return 5;
-  }
-  const norm = (Math.sqrt(Math.max(0, v)) - Math.sqrt(Math.max(0, lo)))
-    / (Math.sqrt(Math.max(0, hi)) - Math.sqrt(Math.max(0, lo)));
-  return 4 + clampNum(norm, 0, 1) * 8;
-}
-
 function renderDistrictEvidenceMap(svgEl, statusEl, mapLayer, opts = {}){
-  if (!svgEl && !statusEl) return;
-  const layer = mapLayer && typeof mapLayer === "object" ? mapLayer : {};
-  const points = Array.isArray(layer.points) ? layer.points : [];
-  const bounds = layer && typeof layer.bounds === "object" ? layer.bounds : null;
+  renderIntelGeoMap(svgEl, statusEl, {
+    mapLayer,
+    yourCandidateId: String(opts?.yourCandidateId || "").trim(),
+    area: opts?.area || null,
+    areaBoundary: opts?.areaBoundary || null,
+    selectedGeoId: String(opts?.selectedGeoId || "").trim(),
+    onSelectGeo: typeof opts?.onSelectGeo === "function" ? opts.onSelectGeo : null,
+  });
+}
 
-  if (statusEl){
-    statusEl.classList.remove("ok", "warn", "bad", "muted");
+function extractGeoInspectorRow(geoRows, geoid){
+  const id = String(geoid || "").trim();
+  if (!id) return null;
+  const rows = Array.isArray(geoRows) ? geoRows : [];
+  for (const row of rows){
+    if (String(row?.geoid || "").trim() === id) return row;
   }
-  if (svgEl){
-    clearSvg(svgEl);
-    svgEl.setAttribute("viewBox", "0 0 640 360");
-    svgEl.setAttribute("role", "img");
-    svgEl.setAttribute("aria-label", "Read-only centroid map for district evidence");
-  }
+  return null;
+}
 
-  if (!layer.available || !points.length || !bounds){
-    if (statusEl){
-      statusEl.classList.add("muted");
-      statusEl.textContent = String(layer.reason || "Map unavailable: no centroid coordinates found in census GEO rows.");
-    }
+function fillGeoInspectorSelect(selectEl, geoRows, selectedGeoId){
+  if (!selectEl) return;
+  const rows = Array.isArray(geoRows) ? geoRows : [];
+  const keep = String(selectedGeoId || "").trim();
+  selectEl.innerHTML = "";
+  if (!rows.length){
+    selectEl.appendChild(makeOption("", "No GEO available"));
+    selectEl.value = "";
     return;
   }
+  let hasSelected = false;
+  for (const row of rows){
+    const geoid = String(row?.geoid || "").trim();
+    if (!geoid) continue;
+    if (geoid === keep) hasSelected = true;
+    const votes = Number.isFinite(Number(row?.totalVotes)) ? fmtInt(row.totalVotes) : "—";
+    const margin = Number.isFinite(Number(row?.marginPct)) ? fmtPct(row.marginPct, 1) : "—";
+    const label = `${geoid} · votes ${votes} · margin ${margin}`;
+    selectEl.appendChild(makeOption(geoid, label));
+  }
+  const fallback = String(rows[0]?.geoid || "").trim();
+  selectEl.value = hasSelected ? keep : fallback;
+}
 
-  const minLat = Number(bounds.minLat);
-  const maxLat = Number(bounds.maxLat);
-  const minLon = Number(bounds.minLon);
-  const maxLon = Number(bounds.maxLon);
-  if (!Number.isFinite(minLat) || !Number.isFinite(maxLat) || !Number.isFinite(minLon) || !Number.isFinite(maxLon)){
-    if (statusEl){
-      statusEl.classList.add("warn");
-      statusEl.textContent = "Map unavailable: invalid centroid bounds.";
-    }
+function fillGeoInspectorCensusTable(tbody, census){
+  if (!tbody) return;
+  tbody.innerHTML = "";
+  const data = (census && typeof census === "object") ? census : {};
+  const keys = Object.keys(data).sort((a, b) => a.localeCompare(b));
+  if (!keys.length){
+    const tr = document.createElement("tr");
+    tr.innerHTML = '<td colspan="2" class="muted">No census values loaded for selected GEO.</td>';
+    tbody.appendChild(tr);
     return;
   }
-
-  const latSpan = Math.max(1e-9, maxLat - minLat);
-  const lonSpan = Math.max(1e-9, maxLon - minLon);
-  const width = 640;
-  const height = 360;
-  const pad = 18;
-  const plotW = width - (pad * 2);
-  const plotH = height - (pad * 2);
-  const voteValues = points.map((p) => Number(p?.totalVotes) || 0);
-  const voteMin = voteValues.length ? Math.min(...voteValues) : 0;
-  const voteMax = voteValues.length ? Math.max(...voteValues) : 0;
-  const yourCandidateId = String(opts?.yourCandidateId || "").trim();
-
-  appendSvgNode(svgEl, "rect", {
-    x: 0, y: 0, width, height,
-    rx: 10, ry: 10,
-    fill: "rgba(148,163,184,0.08)",
-    stroke: "rgba(148,163,184,0.35)",
-    "stroke-width": 1,
-  });
-  for (let i = 1; i <= 4; i++){
-    const gx = pad + (plotW * i) / 5;
-    const gy = pad + (plotH * i) / 5;
-    appendSvgNode(svgEl, "line", {
-      x1: gx, y1: pad, x2: gx, y2: height - pad,
-      stroke: "rgba(148,163,184,0.16)",
-      "stroke-width": 1,
-    });
-    appendSvgNode(svgEl, "line", {
-      x1: pad, y1: gy, x2: width - pad, y2: gy,
-      stroke: "rgba(148,163,184,0.16)",
-      "stroke-width": 1,
-    });
+  for (const key of keys){
+    const raw = data[key];
+    const num = Number(raw);
+    const value = Number.isFinite(num)
+      ? (Number.isInteger(num) ? num.toLocaleString() : num.toFixed(3))
+      : String(raw == null ? "—" : raw);
+    const tr = document.createElement("tr");
+    tr.innerHTML = `<td>${key}</td><td class="num">${value}</td>`;
+    tbody.appendChild(tr);
   }
-  appendSvgNode(svgEl, "rect", {
-    x: pad, y: pad, width: plotW, height: plotH,
-    fill: "transparent",
-    stroke: "rgba(148,163,184,0.26)",
-    "stroke-width": 1,
-  });
+}
 
-  for (const row of points){
-    const lat = Number(row?.lat);
-    const lon = Number(row?.lon);
-    if (!Number.isFinite(lat) || !Number.isFinite(lon)) continue;
-    const r = pointRadius(row?.totalVotes, voteMin, voteMax);
-    const rawX = pad + ((lon - minLon) / lonSpan) * plotW;
-    const rawY = pad + ((maxLat - lat) / latSpan) * plotH;
-    const x = clampNum(rawX, pad + r, width - pad - r);
-    const y = clampNum(rawY, pad + r, height - pad - r);
-    const marginPct = Number(row?.marginPct);
-    const competitiveness = Number.isFinite(marginPct) ? 1 - clampNum(marginPct / 35, 0, 1) : 0.5;
-    const opacity = 0.35 + (competitiveness * 0.5);
-    const leaderId = String(row?.leaderCandidateId || "").trim();
-    const dot = appendSvgNode(svgEl, "circle", {
-      cx: x.toFixed(2),
-      cy: y.toFixed(2),
-      r: r.toFixed(2),
-      fill: candidateColor(leaderId),
-      "fill-opacity": opacity.toFixed(2),
-      stroke: yourCandidateId && leaderId && leaderId === yourCandidateId ? "rgba(248,250,252,0.95)" : "rgba(15,23,42,0.9)",
-      "stroke-width": yourCandidateId && leaderId && leaderId === yourCandidateId ? 1.8 : 1.1,
-    });
-    const title = document.createElementNS(SVG_NS, "title");
-    title.textContent =
-      `${String(row?.geoid || "—")} · top ${leaderId || "—"} · votes ${fmtInt(row?.totalVotes)}`
-      + (Number.isFinite(marginPct) ? ` · margin ${fmtPct(marginPct, 1)}` : "");
-    dot.appendChild(title);
+function renderGeoInspector(els, geoRows, selectedGeoId){
+  const rows = Array.isArray(geoRows) ? geoRows : [];
+  const row = extractGeoInspectorRow(rows, selectedGeoId);
+  const geoid = String(selectedGeoId || "").trim();
+  const candidateVotes = row && typeof row.candidateVotes === "object" ? row.candidateVotes : {};
+  const ranked = Object.keys(candidateVotes)
+    .map((candidateId) => ({
+      candidateId: String(candidateId || "").trim(),
+      votes: Number(candidateVotes[candidateId]) || 0,
+    }))
+    .filter((x) => x.candidateId && x.votes > 0)
+    .sort((a, b) => (b.votes - a.votes) || a.candidateId.localeCompare(b.candidateId));
+  const totalVotes = Math.max(0, Number(row?.totalVotes) || 0);
+  const leader = ranked[0] || null;
+  const runner = ranked[1] || null;
+  const leaderVotes = Number(leader?.votes || 0);
+  const marginVotes = Math.max(0, leaderVotes - Number(runner?.votes || 0));
+  const marginPct = totalVotes > 0 ? (marginVotes / totalVotes) * 100 : null;
+  const leaderSharePct = totalVotes > 0 ? (leaderVotes / totalVotes) * 100 : null;
+  const census = row && typeof row.census === "object" ? row.census : {};
+  const pop = Number(census?.pop ?? census?.B01003_001E ?? census?.total_population);
+  const housing = Number(census?.housing_units ?? census?.B25001_001E ?? census?.total_housing_units);
+
+  const selectorRows = rows
+    .map((row) => {
+      const geoid = String(row?.geoid || "").trim();
+      const totalVotes = Number(row?.totalVotes);
+      const candidateVotes = row && typeof row.candidateVotes === "object" ? row.candidateVotes : {};
+      const ranked = Object.keys(candidateVotes)
+        .map((candidateId) => ({
+          candidateId: String(candidateId || "").trim(),
+          votes: Number(candidateVotes[candidateId]) || 0,
+        }))
+        .filter((x) => x.candidateId && x.votes > 0)
+        .sort((a, b) => (b.votes - a.votes) || a.candidateId.localeCompare(b.candidateId));
+      const leaderVotes = Number(ranked?.[0]?.votes || 0);
+      const runnerVotes = Number(ranked?.[1]?.votes || 0);
+      const marginVotes = Math.max(0, leaderVotes - runnerVotes);
+      const marginPct = totalVotes > 0 ? (marginVotes / totalVotes) * 100 : null;
+      return { geoid, totalVotes, marginPct };
+    })
+    .filter((x) => x.geoid)
+    .sort((a, b) => (Number(b?.totalVotes) || 0) - (Number(a?.totalVotes) || 0));
+  fillGeoInspectorSelect(els.intelGeoInspectorSelect, selectorRows, geoid);
+  if (els.intelGeoInspectorStatus){
+    els.intelGeoInspectorStatus.classList.remove("ok", "warn", "bad", "muted");
+    if (!geoid){
+      els.intelGeoInspectorStatus.classList.add("muted");
+      els.intelGeoInspectorStatus.textContent = "No GEO selected.";
+    } else if (!row){
+      els.intelGeoInspectorStatus.classList.add("warn");
+      els.intelGeoInspectorStatus.textContent = `Selected GEO ${geoid} not found in current evidence rows.`;
+    } else {
+      els.intelGeoInspectorStatus.classList.add("ok");
+      els.intelGeoInspectorStatus.textContent = `Selected ${geoid} · precinct links ${fmtInt(row?.sourcePrecincts)} · votes ${fmtInt(totalVotes)}.`;
+    }
   }
-
-  appendSvgNode(svgEl, "text", {
-    x: pad,
-    y: 14,
-    fill: "rgba(148,163,184,0.95)",
-    "font-size": 11,
-    "font-weight": 600,
-  }).textContent = `N ${maxLat.toFixed(3)}  ·  S ${minLat.toFixed(3)}`;
-  appendSvgNode(svgEl, "text", {
-    x: width - pad,
-    y: height - 6,
-    "text-anchor": "end",
-    fill: "rgba(148,163,184,0.95)",
-    "font-size": 11,
-    "font-weight": 600,
-  }).textContent = `W ${minLon.toFixed(3)}  ·  E ${maxLon.toFixed(3)}`;
-
-  if (statusEl){
-    statusEl.classList.add("ok");
-    statusEl.textContent = points.length < 10
-      ? `Read-only centroid map: ${fmtInt(points.length)} GEO points plotted (sparse layer).`
-      : `Read-only centroid map: ${fmtInt(points.length)} GEO points plotted.`;
+  if (els.intelGeoInspectorRace){
+    els.intelGeoInspectorRace.textContent = leader
+      ? `${leader.candidateId} ${fmtInt(leaderVotes)} (${fmtPct(leaderSharePct, 1)}) · margin ${fmtInt(marginVotes)} (${Number.isFinite(marginPct) ? fmtPct(marginPct, 1) : "—"})`
+      : "No election votes for selected GEO.";
   }
+  if (els.intelGeoInspectorHouseholds){
+    els.intelGeoInspectorHouseholds.textContent = Number.isFinite(housing)
+      ? fmtInt(housing)
+      : "—";
+  }
+  if (els.intelGeoInspectorPopulation){
+    els.intelGeoInspectorPopulation.textContent = Number.isFinite(pop)
+      ? fmtInt(pop)
+      : "—";
+  }
+  fillGeoInspectorCensusTable(els.intelGeoInspectorCensusTbody, census);
 }
 
 function fillDistrictEvidenceDatasetRankTable(tbody, rows, selectedElectionId){
@@ -1741,11 +1692,17 @@ export function renderIntelChecksModule({
     fillDistrictEvidenceLinkTable(els.intelDistrictEvidenceLinkTbody, []);
     fillDistrictEvidenceGeoTable(els.intelDistrictEvidenceGeoTbody, []);
     fillDistrictEvidenceOpportunityTable(els.intelDistrictEvidenceOpportunityTbody, []);
+    renderGeoInspector(els, [], "");
     renderDistrictEvidenceMap(
       els.intelDistrictEvidenceMapSvg,
       els.intelDistrictEvidenceMapStatus,
       { available: false, reason: "Map unavailable: district evidence compiler unavailable.", bounds: null, points: [] },
-      { yourCandidateId: state?.yourCandidateId }
+      {
+        yourCandidateId: state?.yourCandidateId,
+        area: areaForDisplay,
+        areaBoundary: districtBlob?.areaBoundary || state?.geoPack?.areaBoundary || null,
+        selectedGeoId: "",
+      }
     );
     fillDistrictEvidenceDatasetRankTable(els.intelDistrictEvidenceDatasetRankTbody, rankedElectionDatasets, selectedElectionId);
     return;
@@ -1774,11 +1731,17 @@ export function renderIntelChecksModule({
     fillDistrictEvidenceLinkTable(els.intelDistrictEvidenceLinkTbody, []);
     fillDistrictEvidenceGeoTable(els.intelDistrictEvidenceGeoTbody, []);
     fillDistrictEvidenceOpportunityTable(els.intelDistrictEvidenceOpportunityTbody, []);
+    renderGeoInspector(els, [], "");
     renderDistrictEvidenceMap(
       els.intelDistrictEvidenceMapSvg,
       els.intelDistrictEvidenceMapStatus,
       { available: false, reason: "Map unavailable: district evidence compile failed.", bounds: null, points: [] },
-      { yourCandidateId: state?.yourCandidateId }
+      {
+        yourCandidateId: state?.yourCandidateId,
+        area: areaForDisplay,
+        areaBoundary: districtBlob?.areaBoundary || state?.geoPack?.areaBoundary || null,
+        selectedGeoId: "",
+      }
     );
     fillDistrictEvidenceDatasetRankTable(els.intelDistrictEvidenceDatasetRankTbody, rankedElectionDatasets, selectedElectionId);
     return;
@@ -1835,6 +1798,27 @@ export function renderIntelChecksModule({
         points: [],
       };
     }
+    if (
+      (!geoMapLayer || !geoMapLayer.available || !Array.isArray(geoMapLayer.points) || geoMapLayer.points.length === 0)
+      && Array.isArray(censusGeoRows)
+      && censusGeoRows.length > 0
+    ){
+      try{
+        const censusOnlyRows = censusGeoRows.map((row) => ({
+          geoid: String(row?.geoid || ""),
+          totalVotes: 0,
+          candidateVotes: {},
+          sourcePrecincts: 0,
+          hasElection: false,
+          hasCensus: true,
+          census: row?.values && typeof row.values === "object" ? row.values : {},
+        }));
+        const fallbackLayer = buildGeoEvidenceMapLayer({ geoRows: censusOnlyRows, maxPoints: 500 });
+        if (fallbackLayer?.available && Array.isArray(fallbackLayer.points) && fallbackLayer.points.length > 0){
+          geoMapLayer = fallbackLayer;
+        }
+      } catch {}
+    }
   }
   const coveragePct = Number(evidence?.reconciliation?.coveragePct);
   const unmatchedVotes = Number(evidence?.reconciliation?.unmatchedVotes);
@@ -1882,10 +1866,44 @@ export function renderIntelChecksModule({
   fillDistrictEvidenceLinkTable(els.intelDistrictEvidenceLinkTbody, links);
   fillDistrictEvidenceGeoTable(els.intelDistrictEvidenceGeoTbody, geoLayers);
   fillDistrictEvidenceOpportunityTable(els.intelDistrictEvidenceOpportunityTbody, opportunityLayers);
+  const districtState = (state?.geoPack && typeof state.geoPack === "object" && state.geoPack.district && typeof state.geoPack.district === "object")
+    ? state.geoPack.district
+    : null;
+  const geoIdSet = new Set(geoRows.map((x) => String(x?.geoid || "").trim()).filter(Boolean));
+  const firstGeoId = String(geoLayers?.[0]?.geoid || geoRows?.[0]?.geoid || "").trim();
+  let selectedGeoId = String(districtState?.selectedGeoId || "").trim();
+  if (!selectedGeoId || !geoIdSet.has(selectedGeoId)){
+    selectedGeoId = firstGeoId;
+    if (districtState) districtState.selectedGeoId = selectedGeoId || null;
+  }
+  renderGeoInspector(els, geoRows, selectedGeoId);
+  const areaBoundary = (districtBlob && typeof districtBlob === "object" && districtBlob.areaBoundary && typeof districtBlob.areaBoundary === "object")
+    ? districtBlob.areaBoundary
+    : ((state?.geoPack && typeof state.geoPack === "object" && state.geoPack.areaBoundary && typeof state.geoPack.areaBoundary === "object")
+      ? state.geoPack.areaBoundary
+      : null);
+  const onSelectGeo = (geoid) => {
+    const nextGeoId = String(geoid || "").trim();
+    if (!nextGeoId) return;
+    if (els.intelGeoInspectorSelect){
+      if (els.intelGeoInspectorSelect.value !== nextGeoId){
+        els.intelGeoInspectorSelect.value = nextGeoId;
+      }
+      els.intelGeoInspectorSelect.dispatchEvent(new Event("change", { bubbles: true }));
+      return;
+    }
+    if (districtState) districtState.selectedGeoId = nextGeoId;
+  };
   renderDistrictEvidenceMap(
     els.intelDistrictEvidenceMapSvg,
     els.intelDistrictEvidenceMapStatus,
     geoMapLayer,
-    { yourCandidateId: state?.yourCandidateId }
+    {
+      yourCandidateId: state?.yourCandidateId,
+      area: areaForDisplay,
+      areaBoundary,
+      selectedGeoId,
+      onSelectGeo,
+    }
   );
 }
