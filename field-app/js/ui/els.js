@@ -490,6 +490,8 @@ export const els = {
   intelDataRefAlignmentSummary: document.getElementById("intelDataRefAlignmentSummary"),
   intelDataRefAlignmentDetail: document.getElementById("intelDataRefAlignmentDetail"),
   intelDataRefFingerprint: document.getElementById("intelDataRefFingerprint"),
+  intelDataCatalogUrl: document.getElementById("intelDataCatalogUrl"),
+  btnIntelFetchDataCatalog: document.getElementById("btnIntelFetchDataCatalog"),
   intelCensusManifestUrl: document.getElementById("intelCensusManifestUrl"),
   intelElectionManifestUrl: document.getElementById("intelElectionManifestUrl"),
   intelCrosswalkRowsUrl: document.getElementById("intelCrosswalkRowsUrl"),

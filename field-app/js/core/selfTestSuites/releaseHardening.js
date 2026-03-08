@@ -24,6 +24,7 @@
  *   makeDefaultDataCatalog: (...args: any[]) => any,
  *   makeDefaultGeoPack: (...args: any[]) => any,
  *   makeDefaultDistrictIntelPack: (...args: any[]) => any,
+ *   normalizeDataCatalog: (...args: any[]) => any,
  *   normalizeDistrictDataState: (...args: any[]) => any,
  *   validateDistrictDataContract: (...args: any[]) => any,
  *   normalizeCensusManifest: (...args: any[]) => any,
@@ -87,6 +88,7 @@ export function registerReleaseHardeningTests(ctx){
     makeDefaultDataCatalog,
     makeDefaultGeoPack,
     makeDefaultDistrictIntelPack,
+    normalizeDataCatalog,
     normalizeDistrictDataState,
     validateDistrictDataContract,
     normalizeCensusManifest,
@@ -1088,6 +1090,53 @@ export function registerReleaseHardeningTests(ctx){
     assert(plan.missingCount === 5, "Expected five missing URL slots");
     assert(Array.isArray(plan.notes) && plan.notes.length >= 4, "Expected missing URL notes");
     assert(plan.notes.some((x) => String(x).includes("No census manifest URL")), "Expected census missing URL note");
+    return true;
+  });
+
+  test("Phase 21: data catalog normalization preserves URL metadata for auto-pull", () => {
+    const catalog = normalizeDataCatalog({
+      boundarySets: [{ id: "sldl_2024", label: "SLDL 2024", geographyType: "SLDL", isVerified: true, isLatest: true }],
+      crosswalks: [{
+        id: "cw_2024",
+        fromBoundarySetId: "sldl_2022",
+        toBoundarySetId: "sldl_2024",
+        unit: "tract",
+        method: "population",
+        rowsUrl: "https://example.test/crosswalk-2024-rows.json",
+        quality: { coveragePct: 99, unmatchedPct: 1, weightDriftPct: 0.1, isVerified: true },
+        isLatest: true,
+      }],
+      censusDatasets: [{
+        id: "acs5_2024",
+        label: "ACS 2024",
+        source: "acs5",
+        boundarySetId: "sldl_2024",
+        granularity: "tract",
+        manifestUrl: "https://example.test/acs5-2024-manifest.json",
+        rowsUrl: "https://example.test/acs5-2024-rows.json",
+        quality: { coveragePct: 98, isVerified: true },
+        isLatest: true,
+      }],
+      electionDatasets: [{
+        id: "mit_2024",
+        label: "MIT 2024",
+        source: "mit",
+        boundarySetId: "sldl_2024",
+        electionDate: "2024-11-05",
+        officeType: "state_house",
+        raceType: "state_leg",
+        granularity: "precinct",
+        manifestUrl: "https://example.test/mit-2024-manifest.json",
+        rowsUrl: "https://example.test/mit-2024-rows.json",
+        quality: { coveragePct: 97, isVerified: true },
+        isLatest: true,
+      }],
+    });
+    assert(catalog.crosswalks[0]?.rowsUrl === "https://example.test/crosswalk-2024-rows.json", "Expected crosswalk rowsUrl to persist through normalization");
+    assert(catalog.censusDatasets[0]?.manifestUrl === "https://example.test/acs5-2024-manifest.json", "Expected census manifestUrl to persist through normalization");
+    assert(catalog.censusDatasets[0]?.rowsUrl === "https://example.test/acs5-2024-rows.json", "Expected census rowsUrl to persist through normalization");
+    assert(catalog.electionDatasets[0]?.manifestUrl === "https://example.test/mit-2024-manifest.json", "Expected election manifestUrl to persist through normalization");
+    assert(catalog.electionDatasets[0]?.rowsUrl === "https://example.test/mit-2024-rows.json", "Expected election rowsUrl to persist through normalization");
     return true;
   });
 

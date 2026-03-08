@@ -72,6 +72,7 @@ import {
   makeDefaultDataCatalog,
   makeDefaultGeoPack,
   makeDefaultDistrictIntelPack,
+  normalizeDataCatalog,
   normalizeDistrictDataState,
   validateDistrictDataContract,
 } from "./districtData.js";
@@ -1454,6 +1455,7 @@ export function runSelfTests(engine){
     makeDefaultDataCatalog,
     makeDefaultGeoPack,
     makeDefaultDistrictIntelPack,
+    normalizeDataCatalog,
     normalizeDistrictDataState,
     validateDistrictDataContract,
     normalizeCensusManifest,
