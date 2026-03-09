@@ -2080,6 +2080,10 @@
 <option value="">All tracts</option>
 </select>
 </div>
+<div class="rowline" style="gap:8px; margin-bottom:8px; align-items:flex-end;">
+<textarea class="input" id="censusGeoPaste" placeholder="Paste GEOIDs (comma, space, or newline separated)" rows="2" style="min-height:64px;"></textarea>
+<button class="btn btn-sm btn-ghost" id="btnCensusApplyGeoPaste" type="button">Apply GEOIDs</button>
+</div>
 <label class="label" for="censusGeoSelect">GEO units</label>
 <select class="select" id="censusGeoSelect" multiple="" size="12"></select>
 <div class="rowline" style="margin-top:8px; gap:8px;">
@@ -2096,9 +2100,33 @@
 <tr><td class="muted" colspan="2">No ACS rows loaded.</td></tr>
 </tbody>
 </table>
+<div class="rowline" style="margin-top:8px; gap:8px; justify-content:flex-end;">
+<button class="btn btn-sm btn-ghost" id="btnCensusExportAggregateCsv" type="button">Export CSV</button>
+<button class="btn btn-sm btn-ghost" id="btnCensusExportAggregateJson" type="button">Export JSON</button>
+</div>
 </div>
 </div>
 <div class="muted" id="censusSelectionSummary">No GEO selected. Select one or more GEO units to aggregate.</div>
+<div class="grid2" style="margin-top:8px;">
+<div class="field">
+<label class="label" for="censusSelectionSetName">Save selection set</label>
+<div class="rowline" style="gap:8px;">
+<input class="input" id="censusSelectionSetName" placeholder="e.g., Persuasion cluster north"/>
+<button class="btn btn-sm btn-ghost" id="btnCensusSaveSelectionSet" type="button">Save set</button>
+</div>
+</div>
+<div class="field">
+<label class="label" for="censusSelectionSetSelect">Saved sets</label>
+<div class="rowline" style="gap:8px;">
+<select class="select" id="censusSelectionSetSelect">
+<option value="">Saved sets</option>
+</select>
+<button class="btn btn-sm btn-ghost" id="btnCensusLoadSelectionSet" type="button">Load set</button>
+<button class="btn btn-sm btn-ghost" id="btnCensusDeleteSelectionSet" type="button">Delete</button>
+</div>
+</div>
+</div>
+<div class="muted" id="censusSelectionSetStatus">No saved selection sets.</div>
 <div class="muted" id="censusLastFetch">No fetch yet.</div>
 <div class="rowline" style="margin-top:10px; justify-content:space-between; gap:10px;">
 <div class="muted" id="censusMapStatus">Map idle. Select GEO units, then load boundaries.</div>
@@ -3079,7 +3107,7 @@ Volunteer multiplier stays above 1.5" rows="4"></textarea>
 </aside>
 </div>
 <!-- /app-shell -->
-<script src="./js/app.js?v=20260309-census-phase1-7" type="module"></script>
+<script src="./js/app.js?v=20260309-census-phase1-8" type="module"></script>
 <script>
 // ── Stage navigation ───────────────────────────────────────────
 function normalizeStages() {
