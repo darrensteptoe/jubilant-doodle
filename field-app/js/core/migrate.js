@@ -34,7 +34,7 @@ function applyScenarioDefaults(scen){
     }
   }
   scen.intelState = normalizeIntelState(scen.intelState);
-  scen.census = normalizeCensusState(scen.census);
+  scen.census = normalizeCensusState(scen.census, { resetRuntime: true });
   return scen;
 }
 

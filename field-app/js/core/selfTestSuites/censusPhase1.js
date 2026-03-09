@@ -24,6 +24,15 @@ export function registerCensusPhase1Tests(ctx){
     assert(normalized.countyFips === "009", "countyFips did not normalize");
   });
 
+  test("Census Phase1: runtime cache key normalization modes", () => {
+    const keep = normalizeCensusState({ activeRowsKey: "abc|123", loadedRowCount: 88 });
+    assert(keep.activeRowsKey === "abc|123", "runtime key should persist in runtime normalization");
+    assert(keep.loadedRowCount === 88, "loadedRowCount should persist in runtime normalization");
+    const reset = normalizeCensusState({ activeRowsKey: "abc|123", loadedRowCount: 88 }, { resetRuntime: true });
+    assert(reset.activeRowsKey === "", "runtime key should reset when requested");
+    assert(reset.loadedRowCount === 0, "loadedRowCount should reset when requested");
+  });
+
   test("Census Phase1: ACS URL builder contract", () => {
     const url = buildAcsQueryUrl({
       year: "2024",

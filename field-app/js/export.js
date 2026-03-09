@@ -224,7 +224,7 @@ function ensureUniverseDefaults(scen){
 
 function ensureScenarioDefaults(scen){
   const s = ensureUniverseDefaults(scen);
-  s.census = normalizeCensusState(s.census);
+  s.census = normalizeCensusState(s.census, { resetRuntime: true });
   return s;
 }
 

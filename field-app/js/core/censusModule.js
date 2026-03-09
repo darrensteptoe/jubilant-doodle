@@ -253,7 +253,7 @@ export function makeDefaultCensusState(){
   };
 }
 
-export function normalizeCensusState(input){
+export function normalizeCensusState(input, { resetRuntime = false } = {}){
   const base = makeDefaultCensusState();
   const src = input && typeof input === "object" ? input : {};
   const out = { ...base, ...src };
@@ -272,8 +272,10 @@ export function normalizeCensusState(input){
     ? out.selectedGeoids.map((v) => cleanText(v)).filter((v) => !!v)
     : [];
   out.rowsByGeoid = {};
-  out.activeRowsKey = "";
-  out.loadedRowCount = 0;
+  out.activeRowsKey = resetRuntime ? "" : cleanText(out.activeRowsKey);
+  out.loadedRowCount = resetRuntime
+    ? 0
+    : (Number.isFinite(Number(out.loadedRowCount)) ? Math.max(0, Math.floor(Number(out.loadedRowCount))) : 0);
   out.loadingGeo = !!out.loadingGeo;
   out.loadingRows = !!out.loadingRows;
   out.status = cleanText(out.status) || "Ready.";
@@ -294,6 +296,8 @@ export function normalizeCensusState(input){
     out.geoOptions = [];
     out.selectedGeoids = [];
     out.rowsByGeoid = {};
+    out.activeRowsKey = "";
+    out.loadedRowCount = 0;
   }
   return out;
 }
