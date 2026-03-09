@@ -739,17 +739,19 @@ export function aggregateRowsForSelection({ rowsByGeoid, selectedGeoids, metricS
     if (!spec) continue;
     if (spec.kind === "sum"){
       let total = 0;
+      let seen = 0;
       for (const geoid of geos){
         const row = rows[geoid];
         if (!row) continue;
         const part = sumVars(row.values, spec.sumVars);
         total += part.total;
+        seen += part.count;
       }
       metrics[metricId] = {
         id: metricId,
         label: spec.label,
         format: spec.format,
-        value: Number.isFinite(total) ? total : null,
+        value: seen > 0 && Number.isFinite(total) ? total : null,
       };
       continue;
     }
@@ -820,18 +822,21 @@ export function filterGeoOptions(options, { search = "", tractFilter = "" } = {}
 }
 
 function formatInt(value){
+  if (value == null || value === "") return "-";
   const n = Number(value);
   if (!Number.isFinite(n)) return "-";
   return Math.round(n).toLocaleString("en-US");
 }
 
 function formatPct1(value){
+  if (value == null || value === "") return "-";
   const n = Number(value);
   if (!Number.isFinite(n)) return "-";
   return `${(n * 100).toFixed(1)}%`;
 }
 
 function formatCurrency0(value){
+  if (value == null || value === "") return "-";
   const n = Number(value);
   if (!Number.isFinite(n)) return "-";
   return `$${Math.round(n).toLocaleString("en-US")}`;

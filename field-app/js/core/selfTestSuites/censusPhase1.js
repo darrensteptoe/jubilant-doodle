@@ -9,6 +9,7 @@ import {
   getVariablesForMetricSet,
   buildTigerBoundaryQueryUrls,
   filterGeoOptions,
+  formatMetricValue,
 } from "../censusModule.js";
 
 export function registerCensusPhase1Tests(ctx){
@@ -105,6 +106,13 @@ export function registerCensusPhase1Tests(ctx){
     const income = incomeAgg.metrics.median_household_income_est?.value;
     const expectedIncome = (60000 * 400 + 50000 * 600) / 1000;
     assert(Math.abs(income - expectedIncome) <= 1e-12, `income weighted estimate mismatch: ${income}`);
+
+    const emptyAgg = aggregateRowsForSelection({
+      rowsByGeoid,
+      selectedGeoids: [],
+      metricSet: "core",
+    });
+    assert(emptyAgg.metrics.population_total?.value == null, "sum metric should be null when selection is empty");
   });
 
   test("Census Phase1: variable catalog validation", () => {
@@ -147,5 +155,11 @@ export function registerCensusPhase1Tests(ctx){
     assert(placeUrls.length === 2, "place boundary should query both place layers");
     assert(placeUrls[0].includes("/TIGERweb/Places_CouSub_ConCity_SubMCD/MapServer/4/query"), "place incorporated layer mismatch");
     assert(placeUrls[1].includes("/TIGERweb/Places_CouSub_ConCity_SubMCD/MapServer/5/query"), "place CDP layer mismatch");
+  });
+
+  test("Census Phase1: metric formatter handles missing values", () => {
+    assert(formatMetricValue(null, "int") === "-", "int formatter should show dash for null");
+    assert(formatMetricValue(undefined, "pct1") === "-", "pct formatter should show dash for undefined");
+    assert(formatMetricValue("", "currency0") === "-", "currency formatter should show dash for empty string");
   });
 }

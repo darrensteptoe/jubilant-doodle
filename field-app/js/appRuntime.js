@@ -1,5 +1,5 @@
 // @ts-check
-import { engine } from "./engine.js?v=20260309-census-phase1-6";
+import { engine } from "./engine.js?v=20260309-census-phase1-7";
 import {
   computeCapacityContacts as coreComputeCapacityContacts,
   computeCapacityBreakdown as coreComputeCapacityBreakdown,
