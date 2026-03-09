@@ -4,13 +4,7 @@
 // Pure module: no DOM, no imports from app/optimizer, no state mutation.
 
 import { makeDefaultIntelState, normalizeIntelState } from "./intelState.js";
-import {
-  makeDefaultDataRefs,
-  makeDefaultDataCatalog,
-  makeDefaultGeoPack,
-  makeDefaultDistrictIntelPack,
-  normalizeDistrictDataState,
-} from "./districtData.js";
+import { makeDefaultCensusState, normalizeCensusState } from "./censusModule.js";
 
 export const CURRENT_SCHEMA_VERSION = "1.4.0";
 
@@ -24,12 +18,7 @@ const SCENARIO_DEFAULTS = {
   retentionFactor: 0.80,
   // Phase 17 — Intel metadata and governance state (non-math annotations only)
   intelState: makeDefaultIntelState(),
-  // Phase 18 — District intelligence and external data pinning contract
-  useDistrictIntel: false,
-  dataRefs: makeDefaultDataRefs(),
-  dataCatalog: makeDefaultDataCatalog(),
-  geoPack: makeDefaultGeoPack(),
-  districtIntelPack: makeDefaultDistrictIntelPack(),
+  census: makeDefaultCensusState(),
 };
 
 /**
@@ -45,7 +34,7 @@ function applyScenarioDefaults(scen){
     }
   }
   scen.intelState = normalizeIntelState(scen.intelState);
-  normalizeDistrictDataState(scen);
+  scen.census = normalizeCensusState(scen.census);
   return scen;
 }
 

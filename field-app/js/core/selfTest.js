@@ -47,7 +47,6 @@ import { renderMain } from "../app/renderMain.js";
 import { renderImpactTracePanel } from "../app/render/impactTrace.js";
 import { renderRoiModule } from "../app/renderRoi.js";
 import { renderOptimizationModule } from "../app/renderOptimization.js";
-import { describeIntelGeoBoundaryStatus } from "../app/intelGeoMap.js";
 import { computeWeeklyOpsContextFromState, getEffectiveBaseRates } from "../app/selectors.js";
 import { createEffectiveInputsController } from "../app/effectiveInputs.js";
 import {
@@ -68,60 +67,8 @@ import { syncFeatureFlagsFromState } from "../app/featureFlags.js";
 import { normalizeLoadedState as normalizeLoadedStateApp } from "../app/state.js";
 import { resolveFeatureFlags } from "./featureFlags.js";
 import { validateOperationsCapacityInput } from "../features/operations/io.js";
-import {
-  makeDefaultDataRefs,
-  makeDefaultDataCatalog,
-  makeDefaultGeoPack,
-  makeDefaultDistrictIntelPack,
-  normalizeDataCatalog,
-  normalizeDistrictDataState,
-  validateDistrictDataContract,
-} from "./districtData.js";
-import {
-  buildDataSourceRegistry,
-  resolveDataRefsByPolicy,
-  materializePinnedDataRefs,
-  diagnoseDataRefAlignment,
-  scoreElectionDatasetCompatibility,
-  rankElectionDatasetsForScenario,
-} from "./dataSourceRegistry.js";
-import { normalizeAreaSelection, buildAreaResolverCacheKey, deriveAreaResolverContext } from "./areaResolver.js";
-import {
-  normalizeCensusManifest,
-  validateCensusManifest,
-  normalizeElectionManifest,
-  validateElectionManifest,
-  censusManifestToCatalogEntry,
-  electionManifestToCatalogEntry,
-} from "./districtIngest.js";
-import { normalizeElectionPrecinctPayload } from "./electionProviderAdapter.js";
-import { allocatePrecinctVotesToGeo } from "./precinctCensusJoin.js";
-import {
-  compileDistrictEvidence,
-  derivePersuasionSignalFromElection,
-  summarizeGeoEvidenceLayers,
-  summarizeGeoOpportunityLayers,
-  buildGeoEvidenceMapLayer,
-  summarizePrecinctEvidenceLayers,
-} from "./districtEvidence.js";
-import { resolveDistrictEvidenceInputs, summarizeDistrictEvidenceInputs } from "./districtEvidenceInputs.js";
-import {
-  buildDistrictIntelPackFromEvidence,
-  applyDistrictIntelRateOverrides,
-  applyDistrictIntelCapacityOverrides,
-} from "./districtIntelBuilder.js";
-import {
-  buildAutoPullUrlPlan,
-  buildAutoPullPlanFingerprint,
-  createAutoPullReceipt,
-  summarizeAutoPullReceipt,
-  evaluateAutoPullPlan,
-  resolveAutoPullUrls,
-  assessAutoPullReceiptAlignment,
-  evaluateAutoPullRunNeed,
-} from "./districtAutoPull.js";
 import { registerPhase115ATests } from "./selfTestSuites/phase115A.js";
-import { registerReleaseHardeningTests } from "./selfTestSuites/releaseHardening.js";
+import { registerCensusPhase1Tests } from "./selfTestSuites/censusPhase1.js";
 
 function withUniverseDefaults(s){
   // Phase 16 fields are now required for stable hashing/export roundtrips.
@@ -134,7 +81,6 @@ function withUniverseDefaults(s){
   if (out.universeOtherPct == null) out.universeOtherPct = UNIVERSE_DEFAULTS.otherPct;
   if (out.retentionFactor == null) out.retentionFactor = UNIVERSE_DEFAULTS.retentionFactor;
   if (out.intelState == null) out.intelState = makeDefaultIntelState();
-  normalizeDistrictDataState(out);
   return out;
 }
 
@@ -325,6 +271,11 @@ export function runSelfTests(engine){
     getEffectiveBaseRates,
     computeUniverseAdjustedRates,
     validateOperationsCapacityInput,
+  });
+
+  registerCensusPhase1Tests({
+    test,
+    assert,
   });
 
   // --- C) Phase 8B — Marginal value diagnostics (pure) ---
@@ -1433,74 +1384,6 @@ export function runSelfTests(engine){
     assert(recomputed === payload.snapshotHash, "Recomputed hash differs after export/import roundtrip");
     return true;
   });
-
-
-  registerReleaseHardeningTests({
-    test,
-    assert,
-    withUniverseDefaults,
-    makeDefaultIntelState,
-    makeScenarioExport,
-    MODEL_VERSION,
-    APP_VERSION,
-    BUILD_ID,
-    formatSummaryText,
-    SELFTEST_GATE,
-    gateFromSelfTestResult,
-    writeBackupEntry,
-    readBackups,
-    CURRENT_SCHEMA_VERSION,
-    computeSnapshotHash,
-    migrateSnapshot,
-    validateScenarioExport,
-    checkStrictImportPolicy,
-    makeDefaultDataRefs,
-    makeDefaultDataCatalog,
-    makeDefaultGeoPack,
-    makeDefaultDistrictIntelPack,
-    normalizeDataCatalog,
-    normalizeDistrictDataState,
-    validateDistrictDataContract,
-    normalizeCensusManifest,
-    validateCensusManifest,
-    normalizeElectionManifest,
-    validateElectionManifest,
-    censusManifestToCatalogEntry,
-    electionManifestToCatalogEntry,
-    normalizeElectionPrecinctPayload,
-    allocatePrecinctVotesToGeo,
-    compileDistrictEvidence,
-    derivePersuasionSignalFromElection,
-    summarizeGeoEvidenceLayers,
-    summarizeGeoOpportunityLayers,
-    buildGeoEvidenceMapLayer,
-    describeIntelGeoBoundaryStatus,
-    summarizePrecinctEvidenceLayers,
-    resolveDistrictEvidenceInputs,
-    summarizeDistrictEvidenceInputs,
-    buildDistrictIntelPackFromEvidence,
-    applyDistrictIntelRateOverrides,
-    applyDistrictIntelCapacityOverrides,
-    buildDataSourceRegistry,
-    resolveDataRefsByPolicy,
-    materializePinnedDataRefs,
-    diagnoseDataRefAlignment,
-    scoreElectionDatasetCompatibility,
-    rankElectionDatasetsForScenario,
-    buildAutoPullUrlPlan,
-    buildAutoPullPlanFingerprint,
-    createAutoPullReceipt,
-    summarizeAutoPullReceipt,
-    evaluateAutoPullPlan,
-    resolveAutoPullUrls,
-    assessAutoPullReceiptAlignment,
-    evaluateAutoPullRunNeed,
-    normalizeAreaSelection,
-    buildAreaResolverCacheKey,
-    deriveAreaResolverContext,
-  });
-
-
 
   // --- D) Phase 12 — Decision Intelligence (sidecar) ---
   test("Phase 12: analysis does not mutate snapshot", () => {

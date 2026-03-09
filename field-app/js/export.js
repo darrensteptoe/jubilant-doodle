@@ -10,7 +10,7 @@ import { computeSnapshotHash } from "./core/hash.js";
 import { CURRENT_SCHEMA_VERSION } from "./core/migrate.js";
 import { APP_VERSION, BUILD_ID } from "./build.js";
 import { UNIVERSE_DEFAULTS } from "./core/universeLayer.js";
-import { normalizeDistrictDataState } from "./core/districtData.js";
+import { normalizeCensusState } from "./core/censusModule.js";
 
 export const MODEL_VERSION = "1.0.0";
 
@@ -224,8 +224,7 @@ function ensureUniverseDefaults(scen){
 
 function ensureScenarioDefaults(scen){
   const s = ensureUniverseDefaults(scen);
-  // Phase 18+ district data refs/intel pack are required in canonical snapshot shape.
-  normalizeDistrictDataState(s);
+  s.census = normalizeCensusState(s.census);
   return s;
 }
 

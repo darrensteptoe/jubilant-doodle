@@ -20,48 +20,6 @@ import { computeSnapshotHash } from "./core/hash.js";
 import { migrateSnapshot, CURRENT_SCHEMA_VERSION } from "./core/migrate.js";
 import { checkStrictImportPolicy } from "./core/importPolicy.js";
 import { validateImportedScenarioData, computeAssumptionBenchmarkWarnings } from "./core/importQuality.js";
-import { normalizeDataCatalog, validateDistrictDataContract } from "./core/districtData.js";
-import {
-  buildDataSourceRegistry,
-  resolveDataRefsByPolicy,
-  materializePinnedDataRefs,
-  diagnoseDataRefAlignment,
-  scoreElectionDatasetCompatibility,
-  rankElectionDatasetsForScenario,
-} from "./core/dataSourceRegistry.js";
-import { normalizeAreaSelection, buildAreaResolverCacheKey, deriveAreaResolverContext } from "./core/areaResolver.js";
-import {
-  normalizeCensusManifest,
-  validateCensusManifest,
-  normalizeElectionManifest,
-  validateElectionManifest,
-  censusManifestToCatalogEntry,
-  electionManifestToCatalogEntry,
-} from "./core/districtIngest.js";
-import {
-  compileDistrictEvidence,
-  derivePersuasionSignalFromElection,
-  summarizeGeoEvidenceLayers,
-  summarizeGeoOpportunityLayers,
-  buildGeoEvidenceMapLayer,
-  summarizePrecinctEvidenceLayers,
-} from "./core/districtEvidence.js";
-import { resolveDistrictEvidenceInputs, summarizeDistrictEvidenceInputs } from "./core/districtEvidenceInputs.js";
-import {
-  buildDistrictIntelPackFromEvidence,
-  applyDistrictIntelRateOverrides,
-  applyDistrictIntelCapacityOverrides,
-} from "./core/districtIntelBuilder.js";
-import {
-  buildAutoPullUrlPlan,
-  buildAutoPullPlanFingerprint,
-  createAutoPullReceipt,
-  summarizeAutoPullReceipt,
-  evaluateAutoPullPlan,
-  resolveAutoPullUrls,
-  assessAutoPullReceiptAlignment,
-  evaluateAutoPullRunNeed,
-} from "./core/districtAutoPull.js";
 import {
   MODEL_VERSION,
   makeScenarioExport,
@@ -146,42 +104,6 @@ export const engine = {
     checkStrictImportPolicy,
     validateImportedScenarioData,
     computeAssumptionBenchmarkWarnings,
-    normalizeDataCatalog,
-    validateDistrictDataContract,
-    buildDataSourceRegistry,
-    resolveDataRefsByPolicy,
-    materializePinnedDataRefs,
-    diagnoseDataRefAlignment,
-    scoreElectionDatasetCompatibility,
-    rankElectionDatasetsForScenario,
-    normalizeAreaSelection,
-    buildAreaResolverCacheKey,
-    deriveAreaResolverContext,
-    normalizeCensusManifest,
-    validateCensusManifest,
-    normalizeElectionManifest,
-    validateElectionManifest,
-    censusManifestToCatalogEntry,
-    electionManifestToCatalogEntry,
-    compileDistrictEvidence,
-    derivePersuasionSignalFromElection,
-    summarizeGeoEvidenceLayers,
-    summarizeGeoOpportunityLayers,
-    buildGeoEvidenceMapLayer,
-    summarizePrecinctEvidenceLayers,
-    resolveDistrictEvidenceInputs,
-    summarizeDistrictEvidenceInputs,
-    buildDistrictIntelPackFromEvidence,
-    applyDistrictIntelRateOverrides,
-    applyDistrictIntelCapacityOverrides,
-    buildAutoPullUrlPlan,
-    buildAutoPullPlanFingerprint,
-    createAutoPullReceipt,
-    summarizeAutoPullReceipt,
-    evaluateAutoPullPlan,
-    resolveAutoPullUrls,
-    assessAutoPullReceiptAlignment,
-    evaluateAutoPullRunNeed,
     makeScenarioExport,
     deterministicStringify,
     validateScenarioExport,
