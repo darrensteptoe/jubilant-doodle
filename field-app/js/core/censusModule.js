@@ -227,6 +227,43 @@ function defaultYear(){
   return years[0] || "2024";
 }
 
+function normalizeGeoidsForResolutionInternal(geoids, resolution){
+  const targetLen = geoidLengthForResolution(resolution);
+  const seen = new Set();
+  const out = [];
+  for (const raw of Array.isArray(geoids) ? geoids : []){
+    const digits = cleanText(raw).replace(/\D+/g, "");
+    if (digits.length !== targetLen || seen.has(digits)) continue;
+    seen.add(digits);
+    out.push(digits);
+  }
+  return out;
+}
+
+function normalizeSelectionSets(input){
+  const rows = Array.isArray(input) ? input : [];
+  const out = [];
+  for (const raw of rows){
+    const row = raw && typeof raw === "object" ? raw : null;
+    if (!row) continue;
+    const resolution = ["place", "tract", "block_group"].includes(String(row.resolution || "")) ? String(row.resolution) : "tract";
+    const name = cleanText(row.name);
+    const geoids = normalizeGeoidsForResolutionInternal(row.geoids, resolution);
+    if (!name || !geoids.length) continue;
+    out.push({
+      name,
+      resolution,
+      stateFips: fips(row.stateFips, 2),
+      countyFips: fips(row.countyFips, 3),
+      placeFips: fips(row.placeFips, 5),
+      geoids,
+      updatedAt: cleanText(row.updatedAt),
+    });
+    if (out.length >= 50) break;
+  }
+  return out;
+}
+
 export function makeDefaultCensusState(){
   return {
     year: defaultYear(),
@@ -249,6 +286,9 @@ export function makeDefaultCensusState(){
     lastFetchAt: "",
     variableCatalogYear: "",
     variableCatalogCount: 0,
+    selectionSets: [],
+    selectionSetDraftName: "",
+    selectedSelectionSetKey: "",
     requestSeq: 0,
   };
 }
@@ -283,6 +323,9 @@ export function normalizeCensusState(input, { resetRuntime = false } = {}){
   out.lastFetchAt = cleanText(out.lastFetchAt);
   out.variableCatalogYear = cleanText(out.variableCatalogYear);
   out.variableCatalogCount = Number.isFinite(Number(out.variableCatalogCount)) ? Number(out.variableCatalogCount) : 0;
+  out.selectionSets = normalizeSelectionSets(out.selectionSets);
+  out.selectionSetDraftName = cleanText(out.selectionSetDraftName);
+  out.selectedSelectionSetKey = cleanText(out.selectedSelectionSetKey);
   out.requestSeq = Number.isFinite(Number(out.requestSeq)) ? Number(out.requestSeq) : 0;
   if (out.resolution === "place"){
     out.countyFips = "";
@@ -612,17 +655,14 @@ function geoidLengthForResolution(resolution){
   return 12;
 }
 
-function normalizedGeoidsForResolution(geoids, resolution){
-  const targetLen = geoidLengthForResolution(resolution);
-  const seen = new Set();
-  const out = [];
-  for (const raw of Array.isArray(geoids) ? geoids : []){
-    const digits = cleanText(raw).replace(/\D+/g, "");
-    if (digits.length !== targetLen || seen.has(digits)) continue;
-    seen.add(digits);
-    out.push(digits);
-  }
-  return out;
+export function normalizeGeoidsForResolution(geoids, resolution){
+  return normalizeGeoidsForResolutionInternal(geoids, resolution);
+}
+
+export function parseGeoidInput(text, resolution){
+  const raw = cleanText(text);
+  if (!raw) return [];
+  return normalizeGeoidsForResolutionInternal(raw.split(/[\s,;|]+/g), resolution);
 }
 
 function chunk(values, size){
@@ -637,7 +677,7 @@ export function buildTigerBoundaryQueryUrls({ resolution, geoids, chunkSize = 60
   const type = String(resolution || "").trim();
   const layers = Array.isArray(TIGER_BOUNDARY_LAYERS[type]) ? TIGER_BOUNDARY_LAYERS[type] : [];
   if (!layers.length) return [];
-  const normalizedGeoids = normalizedGeoidsForResolution(geoids, type);
+  const normalizedGeoids = normalizeGeoidsForResolutionInternal(geoids, type);
   if (!normalizedGeoids.length) return [];
   const chunkLen = Number.isFinite(Number(chunkSize)) && Number(chunkSize) > 0 ? Number(chunkSize) : 60;
   const inChunks = chunk(normalizedGeoids, chunkLen);
@@ -681,7 +721,7 @@ function featureGeoid(feature){
 
 export async function fetchTigerBoundaryGeojson({ resolution, geoids, chunkSize = 60, fetchImpl } = {}){
   const type = String(resolution || "").trim();
-  const normalizedGeoids = normalizedGeoidsForResolution(geoids, type);
+  const normalizedGeoids = normalizeGeoidsForResolutionInternal(geoids, type);
   const urls = buildTigerBoundaryQueryUrls({ resolution: type, geoids: normalizedGeoids, chunkSize });
   if (!urls.length){
     return {

@@ -10,6 +10,7 @@ import {
   buildTigerBoundaryQueryUrls,
   filterGeoOptions,
   formatMetricValue,
+  parseGeoidInput,
 } from "../censusModule.js";
 
 export function registerCensusPhase1Tests(ctx){
@@ -32,6 +33,14 @@ export function registerCensusPhase1Tests(ctx){
     const reset = normalizeCensusState({ stateFips: "17", countyFips: "031", activeRowsKey: "abc|123", loadedRowCount: 88 }, { resetRuntime: true });
     assert(reset.activeRowsKey === "", "runtime key should reset when requested");
     assert(reset.loadedRowCount === 0, "loadedRowCount should reset when requested");
+    const withSets = normalizeCensusState({
+      selectionSets: [
+        { name: "A", resolution: "tract", stateFips: "17", countyFips: "031", geoids: ["17031010100", "17031010100"] },
+        { name: "", resolution: "tract", geoids: ["17031010100"] },
+      ],
+    });
+    assert(Array.isArray(withSets.selectionSets) && withSets.selectionSets.length === 1, "selection set normalization mismatch");
+    assert(withSets.selectionSets[0].geoids.length === 1, "selection set geoid dedupe mismatch");
   });
 
   test("Census Phase1: ACS URL builder contract", () => {
@@ -161,5 +170,14 @@ export function registerCensusPhase1Tests(ctx){
     assert(formatMetricValue(null, "int") === "-", "int formatter should show dash for null");
     assert(formatMetricValue(undefined, "pct1") === "-", "pct formatter should show dash for undefined");
     assert(formatMetricValue("", "currency0") === "-", "currency formatter should show dash for empty string");
+  });
+
+  test("Census Phase1: GEOID paste parser", () => {
+    const tract = parseGeoidInput("17031010100, 17031010200\n17031010100", "tract");
+    assert(tract.length === 2, "tract GEOID parse/dedupe mismatch");
+    const blockGroup = parseGeoidInput("170310101001 abc 170310101002", "block_group");
+    assert(blockGroup.length === 2, "block group GEOID parse mismatch");
+    const place = parseGeoidInput("1714000|1714100", "place");
+    assert(place.length === 2, "place GEOID parse mismatch");
   });
 }
