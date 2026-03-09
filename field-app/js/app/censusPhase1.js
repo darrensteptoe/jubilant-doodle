@@ -405,6 +405,7 @@ function rowsKeyFromState(s){
 }
 
 function getRowsForState(s){
+  if (!cleanText(s?.stateFips)) return {};
   const key = cleanText(s.activeRowsKey);
   if (!key) return {};
   const rows = rowsCache.get(key);
