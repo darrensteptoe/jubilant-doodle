@@ -13,6 +13,8 @@ import {
   validateMetricSetWithCatalog,
   aggregateRowsForSelection,
   buildAggregateTableRows,
+  filterGeoOptions,
+  fetchTigerBoundaryGeojson,
 } from "../core/censusModule.js";
 
 const variableCatalogCache = new Map();
@@ -20,6 +22,23 @@ let stateOptionsCache = null;
 const countyOptionsCache = new Map();
 const placeOptionsCache = new Map();
 const rowsCache = new Map();
+const LEAFLET_CSS_ID = "fpeLeafletCss";
+const LEAFLET_SCRIPT_ID = "fpeLeafletScript";
+const LEAFLET_CSS_URL = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.css";
+const LEAFLET_JS_URL = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.js";
+let leafletLoadPromise = null;
+let mapInstance = null;
+let mapHost = null;
+let mapOverlayLayer = null;
+let mapRequestSeq = 0;
+let mapLoadedSelectionKey = "";
+const mapRuntimeStatus = {
+  loading: false,
+  error: "",
+  text: "Map idle. Select GEO units, then load boundaries.",
+  featureCount: 0,
+  missingCount: 0,
+};
 
 function cleanText(v){
   return String(v == null ? "" : v).trim();
@@ -129,13 +148,184 @@ function contextText(s){
   return s.stateFips && s.countyFips ? `state ${s.stateFips} county ${s.countyFips}` : "no state/county";
 }
 
+function mapSelectionKey(s){
+  const geoids = Array.isArray(s?.selectedGeoids) ? s.selectedGeoids.map((v) => cleanText(v)).filter((v) => !!v) : [];
+  const uniq = Array.from(new Set(geoids)).sort((a, b) => a.localeCompare(b));
+  return [cleanText(s?.resolution), ...uniq].join("|");
+}
+
+function setMapRuntimeStatus(text, isError = false){
+  mapRuntimeStatus.text = cleanText(text) || "Map idle.";
+  mapRuntimeStatus.error = isError ? mapRuntimeStatus.text : "";
+}
+
+function clearMapOverlay(statusText = ""){
+  if (mapInstance && mapOverlayLayer && typeof mapInstance.removeLayer === "function"){
+    mapInstance.removeLayer(mapOverlayLayer);
+  }
+  mapOverlayLayer = null;
+  mapLoadedSelectionKey = "";
+  mapRuntimeStatus.featureCount = 0;
+  mapRuntimeStatus.missingCount = 0;
+  if (statusText){
+    setMapRuntimeStatus(statusText, false);
+  }
+}
+
+function ensureLeafletCss(){
+  if (typeof document === "undefined") return;
+  if (document.getElementById(LEAFLET_CSS_ID)) return;
+  const link = document.createElement("link");
+  link.id = LEAFLET_CSS_ID;
+  link.rel = "stylesheet";
+  link.href = LEAFLET_CSS_URL;
+  document.head.appendChild(link);
+}
+
+function ensureLeaflet(){
+  if (typeof window === "undefined" || typeof document === "undefined"){
+    return Promise.reject(new Error("Map runtime unavailable."));
+  }
+  if (window.L && typeof window.L.map === "function"){
+    return Promise.resolve(window.L);
+  }
+  if (leafletLoadPromise) return leafletLoadPromise;
+  ensureLeafletCss();
+  leafletLoadPromise = new Promise((resolve, reject) => {
+    const existing = document.getElementById(LEAFLET_SCRIPT_ID);
+    if (existing){
+      existing.addEventListener("load", () => resolve(window.L), { once: true });
+      existing.addEventListener("error", () => reject(new Error("Failed to load Leaflet.")), { once: true });
+      return;
+    }
+    const script = document.createElement("script");
+    script.id = LEAFLET_SCRIPT_ID;
+    script.src = LEAFLET_JS_URL;
+    script.async = true;
+    script.onload = () => {
+      if (window.L && typeof window.L.map === "function"){
+        resolve(window.L);
+        return;
+      }
+      reject(new Error("Leaflet loaded but unavailable."));
+    };
+    script.onerror = () => reject(new Error("Failed to load Leaflet."));
+    document.head.appendChild(script);
+  });
+  return leafletLoadPromise;
+}
+
+function ensureMapMounted(container){
+  if (!container || typeof window === "undefined" || !window.L || typeof window.L.map !== "function"){
+    return null;
+  }
+  if (mapInstance && mapHost === container){
+    if (typeof mapInstance.invalidateSize === "function"){
+      mapInstance.invalidateSize(false);
+    }
+    return mapInstance;
+  }
+  if (mapInstance && mapHost && mapHost !== container){
+    mapInstance.remove();
+    mapInstance = null;
+    mapOverlayLayer = null;
+  }
+  mapHost = container;
+  mapInstance = window.L.map(container, { zoomControl: true }).setView([39.5, -98.35], 4);
+  window.L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+    maxZoom: 18,
+    attribution: "&copy; OpenStreetMap contributors",
+  }).addTo(mapInstance);
+  if (typeof requestAnimationFrame === "function"){
+    requestAnimationFrame(() => {
+      if (mapInstance && typeof mapInstance.invalidateSize === "function"){
+        mapInstance.invalidateSize(false);
+      }
+    });
+  }
+  return mapInstance;
+}
+
+function applyMapOverlay(featureCollection){
+  if (!mapInstance || !window.L) return;
+  if (mapOverlayLayer && typeof mapInstance.removeLayer === "function"){
+    mapInstance.removeLayer(mapOverlayLayer);
+  }
+  mapOverlayLayer = window.L.geoJSON(featureCollection, {
+    style: () => ({
+      color: "#f04f37",
+      weight: 2,
+      fillColor: "#f04f37",
+      fillOpacity: 0.12,
+    }),
+  }).addTo(mapInstance);
+  if (typeof mapOverlayLayer.getBounds === "function"){
+    const bounds = mapOverlayLayer.getBounds();
+    if (bounds && typeof bounds.isValid === "function" && bounds.isValid()){
+      mapInstance.fitBounds(bounds.pad(0.15));
+    }
+  }
+}
+
+async function onLoadMapBoundaries({ s, els, commitUIUpdate }){
+  if (!s || !els || !els.censusMap){
+    setMapRuntimeStatus("Map container unavailable.", true);
+    commitUIUpdate({ persist: false });
+    return;
+  }
+  const selected = Array.isArray(s.selectedGeoids) ? s.selectedGeoids.map((v) => cleanText(v)).filter((v) => !!v) : [];
+  if (!selected.length){
+    clearMapOverlay("Select one or more GEO units first.");
+    commitUIUpdate({ persist: false });
+    return;
+  }
+  const seq = ++mapRequestSeq;
+  mapRuntimeStatus.loading = true;
+  setMapRuntimeStatus(`Loading ${selected.length} boundary ${selected.length === 1 ? "shape" : "shapes"}...`, false);
+  commitUIUpdate({ persist: false });
+  try{
+    await ensureLeaflet();
+    const map = ensureMapMounted(els.censusMap);
+    if (!map){
+      throw new Error("Could not initialize map.");
+    }
+    const result = await fetchTigerBoundaryGeojson({
+      resolution: s.resolution,
+      geoids: selected,
+    });
+    if (seq !== mapRequestSeq) return;
+    applyMapOverlay(result.featureCollection);
+    mapRuntimeStatus.featureCount = Array.isArray(result.featureCollection?.features) ? result.featureCollection.features.length : 0;
+    mapRuntimeStatus.missingCount = Array.isArray(result.missingGeoids) ? result.missingGeoids.length : 0;
+    mapLoadedSelectionKey = mapSelectionKey(s);
+    if (!mapRuntimeStatus.featureCount){
+      setMapRuntimeStatus("No boundary features returned for selected GEOs.", true);
+    } else if (mapRuntimeStatus.missingCount > 0){
+      setMapRuntimeStatus(`Loaded ${mapRuntimeStatus.featureCount} boundaries; ${mapRuntimeStatus.missingCount} GEOIDs not matched.`, false);
+    } else {
+      setMapRuntimeStatus(`Loaded ${mapRuntimeStatus.featureCount} boundaries.`, false);
+    }
+  } catch (err){
+    if (seq !== mapRequestSeq) return;
+    setMapRuntimeStatus(cleanText(err?.message) || "Boundary load failed.", true);
+  } finally {
+    if (seq === mapRequestSeq){
+      mapRuntimeStatus.loading = false;
+      commitUIUpdate({ persist: false });
+    }
+  }
+}
+
 function resetGeoData(s){
+  s.geoSearch = "";
+  s.tractFilter = "";
   s.geoOptions = [];
   s.selectedGeoids = [];
   s.rowsByGeoid = {};
   s.activeRowsKey = "";
   s.loadedRowCount = 0;
   s.lastFetchAt = "";
+  clearMapOverlay("Map cleared. Load boundaries for the new GEO selection.");
 }
 
 function placeGeoid(stateFips, placeFips){
@@ -190,6 +380,20 @@ function rowsCount(rowsByGeoid){
   return Object.keys(rowsByGeoid && typeof rowsByGeoid === "object" ? rowsByGeoid : {}).length;
 }
 
+function uniqueTractRows(options){
+  const rows = Array.isArray(options) ? options : [];
+  const seen = new Set();
+  const out = [];
+  for (const row of rows){
+    const tract = cleanText(row?.tract);
+    if (!tract || seen.has(tract)) continue;
+    seen.add(tract);
+    out.push({ value: tract, label: tract });
+  }
+  out.sort((a, b) => a.value.localeCompare(b.value));
+  return out;
+}
+
 function rowsKeyFromState(s){
   return [
     cleanText(s.year),
@@ -229,6 +433,11 @@ export function renderCensusPhase1Module({ els, state } = {}){
   const placeRows = Array.isArray(placeOptionsCache.get(cleanText(s.stateFips))) ? placeOptionsCache.get(cleanText(s.stateFips)) : [];
   fillSelect(els.censusCountyFips, buildSubRows(countyRows), s.countyFips, "Select county");
   fillSelect(els.censusPlaceFips, buildSubRows(placeRows), s.placeFips, "Select place");
+  if (els.censusGeoSearch && document.activeElement !== els.censusGeoSearch){
+    els.censusGeoSearch.value = s.geoSearch || "";
+  }
+  const tractRows = s.resolution === "block_group" ? uniqueTractRows(s.geoOptions) : [];
+  fillSelect(els.censusTractFilter, tractRows, s.tractFilter, "All tracts");
 
   if (els.censusCountyFips){
     els.censusCountyFips.disabled = s.resolution === "place" || !s.stateFips;
@@ -236,8 +445,18 @@ export function renderCensusPhase1Module({ els, state } = {}){
   if (els.censusPlaceFips){
     els.censusPlaceFips.disabled = s.resolution !== "place" || !s.stateFips;
   }
+  if (els.censusGeoSearch){
+    els.censusGeoSearch.disabled = !s.geoOptions.length;
+  }
+  if (els.censusTractFilter){
+    els.censusTractFilter.disabled = s.resolution !== "block_group" || !s.geoOptions.length;
+  }
 
-  fillMultiSelect(els.censusGeoSelect, s.geoOptions, s.selectedGeoids);
+  const filteredGeoOptions = filterGeoOptions(s.geoOptions, {
+    search: s.geoSearch,
+    tractFilter: s.tractFilter,
+  });
+  fillMultiSelect(els.censusGeoSelect, filteredGeoOptions, s.selectedGeoids);
 
   if (els.btnCensusLoadGeo){
     els.btnCensusLoadGeo.disabled = s.loadingGeo || !contextReadyForGeo(s);
@@ -246,10 +465,16 @@ export function renderCensusPhase1Module({ els, state } = {}){
     els.btnCensusFetchRows.disabled = s.loadingRows || !contextReadyForGeo(s);
   }
   if (els.btnCensusSelectAll){
-    els.btnCensusSelectAll.disabled = !s.geoOptions.length;
+    els.btnCensusSelectAll.disabled = !filteredGeoOptions.length;
   }
   if (els.btnCensusClearSelection){
     els.btnCensusClearSelection.disabled = !s.selectedGeoids.length;
+  }
+  if (els.btnCensusLoadMap){
+    els.btnCensusLoadMap.disabled = mapRuntimeStatus.loading || !s.selectedGeoids.length;
+  }
+  if (els.btnCensusClearMap){
+    els.btnCensusClearMap.disabled = mapRuntimeStatus.loading || !mapRuntimeStatus.featureCount;
   }
 
   const runtimeRows = getRowsForState(s);
@@ -295,13 +520,14 @@ export function renderCensusPhase1Module({ els, state } = {}){
 
   if (els.censusGeoStats){
     const totalGeo = s.geoOptions.length;
+    const visibleGeo = filteredGeoOptions.length;
     const selectedGeo = s.selectedGeoids.length;
     const loadedRows = rowsCount(runtimeRows);
-    els.censusGeoStats.textContent = `${selectedGeo} selected of ${totalGeo} GEOs. ${loadedRows} rows loaded.`;
+    els.censusGeoStats.textContent = `${selectedGeo} selected. ${visibleGeo}/${totalGeo} visible GEOs. ${loadedRows} rows loaded.`;
   }
 
   if (els.censusSelectionSummary){
-    const summary = s.selectedGeoids.length
+    const summary = s.selectedGeoids.length > 0
       ? `Aggregate reflects ${s.selectedGeoids.length} selected GEO units.`
       : "No GEO selected. Select one or more GEO units to aggregate.";
     els.censusSelectionSummary.textContent = summary;
@@ -309,6 +535,27 @@ export function renderCensusPhase1Module({ els, state } = {}){
 
   if (els.censusLastFetch){
     els.censusLastFetch.textContent = fmtTs(s.lastFetchAt);
+  }
+
+  if (els.censusMapStatus){
+    els.censusMapStatus.classList.remove("ok", "warn", "bad", "muted");
+    if (mapRuntimeStatus.error){
+      els.censusMapStatus.classList.add("bad");
+    } else if (mapRuntimeStatus.loading){
+      els.censusMapStatus.classList.add("warn");
+    } else {
+      els.censusMapStatus.classList.add("muted");
+    }
+    const selectedKey = mapSelectionKey(s);
+    if (!mapRuntimeStatus.loading && mapLoadedSelectionKey && selectedKey !== mapLoadedSelectionKey && !mapRuntimeStatus.error){
+      els.censusMapStatus.textContent = "Selection changed. Reload boundaries to refresh map.";
+    } else {
+      els.censusMapStatus.textContent = mapRuntimeStatus.error || mapRuntimeStatus.text;
+    }
+  }
+
+  if (els.censusMap && mapInstance && mapHost === els.censusMap && typeof mapInstance.invalidateSize === "function"){
+    mapInstance.invalidateSize(false);
   }
 }
 
@@ -341,6 +588,10 @@ async function onLoadGeo({ s, key, getState, commitUIUpdate }){
     const current = ensureCensusStateModule(getState());
     if (!current || current.requestSeq !== seq) return;
     current.geoOptions = options;
+    const tractRows = current.resolution === "block_group" ? uniqueTractRows(current.geoOptions) : [];
+    if (current.resolution !== "block_group" || !tractRows.some((row) => cleanText(row.value) === cleanText(current.tractFilter))){
+      current.tractFilter = "";
+    }
     if (current.resolution === "place" && current.placeFips){
       const preferred = placeGeoid(current.stateFips, current.placeFips);
       current.selectedGeoids = options.some((row) => cleanText(row.geoid) === preferred) ? [preferred] : [];
@@ -567,6 +818,26 @@ export function wireCensusPhase1EventsModule(ctx){
     });
   }
 
+  if (els.censusGeoSearch){
+    els.censusGeoSearch.addEventListener("input", () => {
+      withState((_, s) => {
+        s.geoSearch = cleanText(els.censusGeoSearch.value);
+        setStatus(s, "Search filter updated.", false);
+      });
+      commitUIUpdate({ persist: false });
+    });
+  }
+
+  if (els.censusTractFilter){
+    els.censusTractFilter.addEventListener("change", () => {
+      withState((_, s) => {
+        s.tractFilter = cleanText(els.censusTractFilter.value);
+        setStatus(s, s.tractFilter ? `Tract filter set to ${s.tractFilter}.` : "Tract filter cleared.", false);
+      });
+      commitUIUpdate({ persist: false });
+    });
+  }
+
   if (els.btnCensusLoadGeo){
     els.btnCensusLoadGeo.addEventListener("click", async () => {
       const key = cleanText(els.censusApiKey?.value) || readCensusApiKeyModule();
@@ -625,7 +896,11 @@ export function wireCensusPhase1EventsModule(ctx){
   if (els.btnCensusSelectAll){
     els.btnCensusSelectAll.addEventListener("click", () => {
       withState((_, s) => {
-        s.selectedGeoids = s.geoOptions.map((row) => cleanText(row.geoid));
+        const filteredGeoOptions = filterGeoOptions(s.geoOptions, {
+          search: s.geoSearch,
+          tractFilter: s.tractFilter,
+        });
+        s.selectedGeoids = filteredGeoOptions.map((row) => cleanText(row.geoid));
         setStatus(s, `Selected ${s.selectedGeoids.length} GEO units.`, false);
       });
       commitUIUpdate();
@@ -639,6 +914,21 @@ export function wireCensusPhase1EventsModule(ctx){
         setStatus(s, "Selection cleared.", false);
       });
       commitUIUpdate();
+    });
+  }
+
+  if (els.btnCensusLoadMap){
+    els.btnCensusLoadMap.addEventListener("click", async () => {
+      const s = ensureCensusStateModule(currentState());
+      if (!s) return;
+      await onLoadMapBoundaries({ s, els, commitUIUpdate });
+    });
+  }
+
+  if (els.btnCensusClearMap){
+    els.btnCensusClearMap.addEventListener("click", () => {
+      clearMapOverlay("Map overlay cleared.");
+      commitUIUpdate({ persist: false });
     });
   }
 
