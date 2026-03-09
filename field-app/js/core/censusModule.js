@@ -163,6 +163,15 @@ const METRIC_SET_MAP = {
   all: Object.keys(METRICS),
 };
 
+const TIGER_BOUNDARY_LAYERS = {
+  tract: [{ service: "Tracts_Blocks", layer: 10, field: "GEOID" }],
+  block_group: [{ service: "Tracts_Blocks", layer: 11, field: "GEOID" }],
+  place: [
+    { service: "Places_CouSub_ConCity_SubMCD", layer: 4, field: "GEOID" },
+    { service: "Places_CouSub_ConCity_SubMCD", layer: 5, field: "GEOID" },
+  ],
+};
+
 export function listResolutionOptions(){
   return RESOLUTION_OPTIONS.map((x) => ({ ...x }));
 }
@@ -226,6 +235,8 @@ export function makeDefaultCensusState(){
     stateFips: "",
     countyFips: "",
     placeFips: "",
+    geoSearch: "",
+    tractFilter: "",
     geoOptions: [],
     selectedGeoids: [],
     rowsByGeoid: {},
@@ -254,6 +265,8 @@ export function normalizeCensusState(input){
   out.stateFips = fips(out.stateFips, 2);
   out.countyFips = fips(out.countyFips, 3);
   out.placeFips = fips(out.placeFips, 5);
+  out.geoSearch = cleanText(out.geoSearch);
+  out.tractFilter = fips(out.tractFilter, 6);
   out.geoOptions = Array.isArray(out.geoOptions) ? out.geoOptions.map((row) => ({ ...row })) : [];
   out.selectedGeoids = Array.isArray(out.selectedGeoids)
     ? out.selectedGeoids.map((v) => cleanText(v)).filter((v) => !!v)
@@ -271,10 +284,13 @@ export function normalizeCensusState(input){
   out.requestSeq = Number.isFinite(Number(out.requestSeq)) ? Number(out.requestSeq) : 0;
   if (out.resolution === "place"){
     out.countyFips = "";
+    out.tractFilter = "";
   }
   if (!out.stateFips){
     out.countyFips = "";
     out.placeFips = "";
+    out.geoSearch = "";
+    out.tractFilter = "";
     out.geoOptions = [];
     out.selectedGeoids = [];
     out.rowsByGeoid = {};
@@ -588,6 +604,114 @@ export async function fetchVariableCatalog({ year, key, fetchImpl } = {}){
   return vars;
 }
 
+function geoidLengthForResolution(resolution){
+  if (resolution === "place") return 7;
+  if (resolution === "tract") return 11;
+  return 12;
+}
+
+function normalizedGeoidsForResolution(geoids, resolution){
+  const targetLen = geoidLengthForResolution(resolution);
+  const seen = new Set();
+  const out = [];
+  for (const raw of Array.isArray(geoids) ? geoids : []){
+    const digits = cleanText(raw).replace(/\D+/g, "");
+    if (digits.length !== targetLen || seen.has(digits)) continue;
+    seen.add(digits);
+    out.push(digits);
+  }
+  return out;
+}
+
+function chunk(values, size){
+  const out = [];
+  for (let i = 0; i < values.length; i += size){
+    out.push(values.slice(i, i + size));
+  }
+  return out;
+}
+
+export function buildTigerBoundaryQueryUrls({ resolution, geoids, chunkSize = 60 } = {}){
+  const type = String(resolution || "").trim();
+  const layers = Array.isArray(TIGER_BOUNDARY_LAYERS[type]) ? TIGER_BOUNDARY_LAYERS[type] : [];
+  if (!layers.length) return [];
+  const normalizedGeoids = normalizedGeoidsForResolution(geoids, type);
+  if (!normalizedGeoids.length) return [];
+  const chunkLen = Number.isFinite(Number(chunkSize)) && Number(chunkSize) > 0 ? Number(chunkSize) : 60;
+  const inChunks = chunk(normalizedGeoids, chunkLen);
+  const urls = [];
+  for (const layer of layers){
+    for (const inChunk of inChunks){
+      const where = `${layer.field} IN (${inChunk.map((id) => `'${id}'`).join(",")})`;
+      const params = [];
+      params.push(`where=${encodeURIComponent(where)}`);
+      params.push(`outFields=${encodeURIComponent("GEOID,NAME")}`);
+      params.push("returnGeometry=true");
+      params.push(`outSR=${encodeURIComponent("4326")}`);
+      params.push(`f=${encodeURIComponent("geojson")}`);
+      urls.push(`https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/${layer.service}/MapServer/${layer.layer}/query?${params.join("&")}`);
+    }
+  }
+  return urls;
+}
+
+async function fetchGeoJson(url, fetchImpl = globalThis.fetch){
+  if (typeof fetchImpl !== "function"){
+    throw new Error("Fetch is unavailable.");
+  }
+  const res = await fetchImpl(url);
+  if (!res || !res.ok){
+    const status = res?.status ?? "";
+    const text = res?.statusText || "Request failed";
+    throw new Error(`Boundary request failed (${status}): ${text}`);
+  }
+  const json = await res.json();
+  if (!json || typeof json !== "object" || !Array.isArray(json.features)){
+    throw new Error("Unexpected boundary response format.");
+  }
+  return json;
+}
+
+function featureGeoid(feature){
+  const raw = feature?.properties?.GEOID ?? feature?.properties?.geoid ?? feature?.id;
+  return cleanText(raw).replace(/\D+/g, "");
+}
+
+export async function fetchTigerBoundaryGeojson({ resolution, geoids, chunkSize = 60, fetchImpl } = {}){
+  const type = String(resolution || "").trim();
+  const normalizedGeoids = normalizedGeoidsForResolution(geoids, type);
+  const urls = buildTigerBoundaryQueryUrls({ resolution: type, geoids: normalizedGeoids, chunkSize });
+  if (!urls.length){
+    return {
+      featureCollection: { type: "FeatureCollection", features: [] },
+      requestedGeoids: normalizedGeoids,
+      matchedGeoids: [],
+      missingGeoids: normalizedGeoids.slice(),
+    };
+  }
+  const deduped = new Map();
+  for (const url of urls){
+    const geo = await fetchGeoJson(url, fetchImpl);
+    for (const feature of geo.features){
+      const geoid = featureGeoid(feature);
+      const key = geoid || `${deduped.size + 1}`;
+      if (!deduped.has(key)){
+        deduped.set(key, feature);
+      }
+    }
+  }
+  const matched = new Set();
+  for (const key of deduped.keys()){
+    if (key) matched.add(key);
+  }
+  return {
+    featureCollection: { type: "FeatureCollection", features: Array.from(deduped.values()) },
+    requestedGeoids: normalizedGeoids,
+    matchedGeoids: Array.from(matched),
+    missingGeoids: normalizedGeoids.filter((id) => !matched.has(id)),
+  };
+}
+
 function sumVars(rowValues, variableIds){
   let total = 0;
   let count = 0;
@@ -604,7 +728,7 @@ export function aggregateRowsForSelection({ rowsByGeoid, selectedGeoids, metricS
   const rows = rowsByGeoid && typeof rowsByGeoid === "object" ? rowsByGeoid : {};
   const geos = Array.isArray(selectedGeoids) && selectedGeoids.length
     ? selectedGeoids.map((v) => cleanText(v)).filter((v) => !!v)
-    : Object.keys(rows);
+    : [];
   const metricIds = getMetricIdsForSet(metricSet);
   const metrics = {};
 
@@ -677,6 +801,20 @@ export function aggregateRowsForSelection({ rowsByGeoid, selectedGeoids, metricS
     selectedGeoids: geos,
     metrics,
   };
+}
+
+export function filterGeoOptions(options, { search = "", tractFilter = "" } = {}){
+  const rows = Array.isArray(options) ? options : [];
+  const term = cleanText(search).toLowerCase();
+  const tract = fips(tractFilter, 6);
+  return rows.filter((row) => {
+    if (tract && cleanText(row?.tract) !== tract) return false;
+    if (!term) return true;
+    const label = cleanText(row?.label).toLowerCase();
+    const geoid = cleanText(row?.geoid).toLowerCase();
+    const name = cleanText(row?.name).toLowerCase();
+    return label.includes(term) || geoid.includes(term) || name.includes(term);
+  });
 }
 
 function formatInt(value){

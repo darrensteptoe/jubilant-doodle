@@ -7,6 +7,8 @@ import {
   aggregateRowsForSelection,
   validateMetricSetWithCatalog,
   getVariablesForMetricSet,
+  buildTigerBoundaryQueryUrls,
+  filterGeoOptions,
 } from "../censusModule.js";
 
 export function registerCensusPhase1Tests(ctx){
@@ -105,5 +107,36 @@ export function registerCensusPhase1Tests(ctx){
     const checkMissing = validateMetricSetWithCatalog("core", missingOne);
     assert(checkMissing.ok === false, "expected missing-variable validation failure");
     assert(Array.isArray(checkMissing.missing) && checkMissing.missing.length === 1, "missing variable count mismatch");
+  });
+
+  test("Census Phase1: GEO option filter by search and tract", () => {
+    const options = [
+      { geoid: "170310101001", label: "BG 1", name: "Alpha", tract: "010100" },
+      { geoid: "170310101002", label: "BG 2", name: "Beta", tract: "010100" },
+      { geoid: "170310102001", label: "BG 3", name: "Gamma", tract: "010200" },
+    ];
+    const bySearch = filterGeoOptions(options, { search: "beta" });
+    assert(bySearch.length === 1 && bySearch[0].geoid === "170310101002", "search filter mismatch");
+    const byTract = filterGeoOptions(options, { tractFilter: "010100" });
+    assert(byTract.length === 2, "tract filter mismatch");
+    const byBoth = filterGeoOptions(options, { search: "bg 3", tractFilter: "010200" });
+    assert(byBoth.length === 1 && byBoth[0].geoid === "170310102001", "combined filter mismatch");
+  });
+
+  test("Census Phase1: TIGER boundary URL builder", () => {
+    const tractUrls = buildTigerBoundaryQueryUrls({
+      resolution: "tract",
+      geoids: ["17031010100", "17031010200"],
+      chunkSize: 1,
+    });
+    assert(tractUrls.length === 2, "tract boundary URL chunking mismatch");
+    assert(tractUrls[0].includes("/TIGERweb/Tracts_Blocks/MapServer/10/query"), "tract layer URL mismatch");
+    const placeUrls = buildTigerBoundaryQueryUrls({
+      resolution: "place",
+      geoids: ["1714000"],
+    });
+    assert(placeUrls.length === 2, "place boundary should query both place layers");
+    assert(placeUrls[0].includes("/TIGERweb/Places_CouSub_ConCity_SubMCD/MapServer/4/query"), "place incorporated layer mismatch");
+    assert(placeUrls[1].includes("/TIGERweb/Places_CouSub_ConCity_SubMCD/MapServer/5/query"), "place CDP layer mismatch");
   });
 }
