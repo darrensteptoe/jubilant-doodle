@@ -1655,6 +1655,8 @@ export function renderIntelChecksModule({
   driftSummary = null,
 } = {}){
   if (!els || !state) return;
+  renderDistrictCensusSimple({ els, state, engine });
+  return;
   ensureIntelCollections(state);
   const districtPhase1Mode = true;
   const censusStabilizationMode = true;

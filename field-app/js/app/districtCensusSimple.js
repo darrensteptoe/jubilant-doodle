@@ -59,18 +59,18 @@ const STATE_LABEL_BY_FIPS = {
   "72": "PR",
 };
 
-const ACS_VARIABLES = [
+const DEFAULT_ACS_VARIABLES = [
+  "B01003_001E",
   "B19013_001E",
-  "B25003_001E", "B25003_002E", "B25003_003E",
+  "B25003_001E", "B25003_003E",
   "B25024_001E", "B25024_006E", "B25024_007E", "B25024_008E", "B25024_009E",
   "B15003_001E", "B15003_022E", "B15003_023E", "B15003_024E", "B15003_025E",
-  "C16002_001E", "C16002_004E", "C16002_007E", "C16002_010E", "C16002_013E",
-  "B01001_001E",
-  "B01001_007E", "B01001_008E", "B01001_009E", "B01001_010E", "B01001_011E", "B01001_012E",
-  "B01001_031E", "B01001_032E", "B01001_033E", "B01001_034E", "B01001_035E", "B01001_036E",
-  "B01001_020E", "B01001_021E", "B01001_022E", "B01001_023E", "B01001_024E", "B01001_025E",
-  "B01001_044E", "B01001_045E", "B01001_046E", "B01001_047E", "B01001_048E", "B01001_049E",
+  "C16002_001E", "C16002_004E",
 ];
+
+const ACS_VARIABLE_LIMIT = 60;
+const ACS_CATALOG_DISPLAY_LIMIT = 500;
+const DEFAULT_CENSUS_API_KEY = "a59d216d186bced9d252633906350432d2805c74";
 
 function str(v){
   return String(v == null ? "" : v).trim();
@@ -195,6 +195,55 @@ function isObject(v){
   return !!v && typeof v === "object" && !Array.isArray(v);
 }
 
+function normalizeAcsVariableCode(v){
+  const code = str(v).toUpperCase();
+  if (!code) return "";
+  if (!/^[A-Z0-9_]+[EM]$/.test(code)) return "";
+  return code;
+}
+
+function normalizeAcsVariableList(list, fallback = []){
+  const source = Array.isArray(list) ? list : fallback;
+  const out = [];
+  const seen = new Set();
+  for (const raw of source){
+    const code = normalizeAcsVariableCode(raw);
+    if (!code) continue;
+    if (seen.has(code)) continue;
+    seen.add(code);
+    out.push(code);
+    if (out.length >= ACS_VARIABLE_LIMIT) break;
+  }
+  return out;
+}
+
+function normalizeAcsCatalog(payload){
+  const vars = isObject(payload?.variables) ? payload.variables : {};
+  const out = [];
+  for (const key of Object.keys(vars)){
+    const code = normalizeAcsVariableCode(key);
+    if (!code || !code.endsWith("E")) continue;
+    const row = isObject(vars[key]) ? vars[key] : {};
+    const label = str(row.label).replace(/!!/g, " > ");
+    const concept = str(row.concept);
+    out.push({
+      code,
+      label: label || code,
+      concept,
+    });
+  }
+  out.sort((a, b) => a.code.localeCompare(b.code));
+  return out;
+}
+
+function withApiKey(url, apiKey){
+  const key = str(apiKey);
+  if (!key) return url;
+  const u = new URL(url);
+  u.searchParams.set("key", key);
+  return u.toString();
+}
+
 function ensureScenarioShape(state){
   if (!isObject(state.geoPack)) state.geoPack = {};
   const geo = state.geoPack;
@@ -215,6 +264,17 @@ function ensureScenarioShape(state){
   if (!isObject(district.messages)) district.messages = {};
   district.selectedGeoId = str(district.selectedGeoId);
   district.acsYearPreference = str(district.acsYearPreference || "auto_latest") || "auto_latest";
+  district.censusApiKey = str(district.censusApiKey || DEFAULT_CENSUS_API_KEY);
+  district.acsVariableSearch = str(district.acsVariableSearch);
+  if (!Array.isArray(district.acsVariableCatalog)) district.acsVariableCatalog = [];
+  district.acsVariableCatalog = district.acsVariableCatalog
+    .map((row) => ({
+      code: normalizeAcsVariableCode(row?.code),
+      label: str(row?.label),
+      concept: str(row?.concept),
+    }))
+    .filter((row) => !!row.code);
+  district.selectedAcsVariables = normalizeAcsVariableList(district.selectedAcsVariables, DEFAULT_ACS_VARIABLES);
   if (!isObject(state.dataRefs)) state.dataRefs = {};
   if (!isObject(state.dataCatalog)) state.dataCatalog = { boundarySets: [], crosswalks: [], censusDatasets: [], electionDatasets: [] };
   if (!Array.isArray(state.dataCatalog.censusDatasets)) state.dataCatalog.censusDatasets = [];
@@ -638,14 +698,15 @@ function acsYearOptions(){
   return out;
 }
 
-async function fetchJson(url){
+async function fetchJson(url, apiKey = ""){
   if (typeof fetch !== "function") throw new Error("Browser fetch API is unavailable.");
-  const res = await fetch(url, { method: "GET", headers: { Accept: "application/json" } });
+  const finalUrl = withApiKey(url, apiKey);
+  const res = await fetch(finalUrl, { method: "GET", headers: { Accept: "application/json" } });
   if (!res?.ok) throw new Error(`Request failed (HTTP ${res?.status || "?"}).`);
   return res.json();
 }
 
-async function resolveAcsYear(preference){
+async function resolveAcsYear(preference, apiKey = ""){
   const pref = str(preference);
   if (/^\d{4}$/.test(pref)) return pref;
   const now = new Date();
@@ -654,19 +715,19 @@ async function resolveAcsYear(preference){
   for (let year = max; year >= min; year -= 1){
     const url = `https://api.census.gov/data/${year}/acs/acs5?get=NAME&for=us:1`;
     try{
-      await fetchJson(url);
+      await fetchJson(url, apiKey);
       return String(year);
     } catch {}
   }
   throw new Error("Unable to resolve an available ACS year.");
 }
 
-async function fetchLookupPayload(area){
+async function fetchLookupPayload(area, apiKey = ""){
   const stateFips = normalizeStateFips(area.stateFips);
   const resolution = normalizeAreaResolutionInput(area.resolution);
   const countyUrl = `https://api.census.gov/data/2020/dec/pl?get=NAME&for=county:*&in=state:${stateFips}`;
   const placeUrl = `https://api.census.gov/data/2020/dec/pl?get=NAME&for=place:*&in=state:${stateFips}`;
-  const [countyPayload, placePayload] = await Promise.all([fetchJson(countyUrl), fetchJson(placeUrl)]);
+  const [countyPayload, placePayload] = await Promise.all([fetchJson(countyUrl, apiKey), fetchJson(placeUrl, apiKey)]);
   const countyRows = parseCensusJsonTable(countyPayload);
   const placeRows = parseCensusJsonTable(placePayload);
   const geoRequests = buildLookupGeoRequests(area);
@@ -674,7 +735,7 @@ async function fetchLookupPayload(area){
   let geoSource = "";
   for (const req of geoRequests){
     try{
-      const payload = await fetchJson(req.url);
+      const payload = await fetchJson(req.url, apiKey);
       const parsed = parseCensusJsonTable(payload);
       if (parsed.length){
         geoRows = parsed;
@@ -691,13 +752,13 @@ async function fetchLookupPayload(area){
   };
 }
 
-async function fetchDecRows(area){
+async function fetchDecRows(area, apiKey = ""){
   const requests = buildCensusGeoRequests(area);
   const byGeoid = new Map();
   let source = "";
   for (const req of requests){
     try{
-      const payload = await fetchJson(req.url);
+      const payload = await fetchJson(req.url, apiKey);
       const parsed = parseDecGeoRows(parseCensusJsonTable(payload), area.resolution);
       if (!parsed.length) continue;
       for (const row of parsed){
@@ -712,11 +773,13 @@ async function fetchDecRows(area){
   };
 }
 
-async function fetchAcsRowsByCounty(stateFips, resolution, counties, acsYear){
+async function fetchAcsRowsByCounty(stateFips, resolution, counties, acsYear, variableCodes, apiKey = ""){
   const mode = normalizeAreaResolutionInput(resolution);
   const countyList = Array.from(new Set((Array.isArray(counties) ? counties : []).map((x) => digits(x).slice(0, 3)).filter(Boolean)));
+  const selectedVars = normalizeAcsVariableList(variableCodes, []);
+  if (!selectedVars.length) return new Map();
   const byGeoid = new Map();
-  const getVars = ["NAME", ...ACS_VARIABLES].join(",");
+  const getVars = ["NAME", ...selectedVars].join(",");
   for (const county3 of countyList){
     const params = new URLSearchParams({
       get: getVars,
@@ -728,7 +791,7 @@ async function fetchAcsRowsByCounty(stateFips, resolution, counties, acsYear){
     const url = `https://api.census.gov/data/${acsYear}/acs/acs5?${params.toString()}`;
     let payload = null;
     try{
-      payload = await fetchJson(url);
+      payload = await fetchJson(url, apiKey);
     } catch {
       continue;
     }
@@ -746,7 +809,7 @@ async function fetchAcsRowsByCounty(stateFips, resolution, counties, acsYear){
       }
       if (!geoid) continue;
       const values = {};
-      for (const key of ACS_VARIABLES){
+      for (const key of selectedVars){
         const n = num(row[key]);
         if (n == null) continue;
         values[key] = n;
@@ -1007,6 +1070,8 @@ function flowStatus(areaReady, rowCount, packReady){
 
 async function handleFetchLookup(state){
   const area = currentArea(state);
+  const { district } = ensureScenarioShape(state);
+  const apiKey = str(district.censusApiKey);
   if (!normalizeStateFips(area.stateFips)){
     setMessage(state, "lookup", "Set state first, then fetch county/place/GEO lists.", "warn");
     return;
@@ -1014,12 +1079,11 @@ async function handleFetchLookup(state){
   setMessage(state, "lookup", "Fetching county/place/GEO lookup lists...", "muted");
   let payload = null;
   try{
-    payload = await fetchLookupPayload(area);
+    payload = await fetchLookupPayload(area, apiKey);
   } catch (err){
     setMessage(state, "lookup", `Lookup fetch failed: ${str(err?.message || err)}`, "warn");
     return;
   }
-  const { district } = ensureScenarioShape(state);
   district.areaAssistLookup = {
     stateFips: area.stateFips,
     geoResolution: area.resolution,
@@ -1043,12 +1107,15 @@ async function handleFetchLookup(state){
 
 async function handleFetchCensusRows(state){
   const area = currentArea(state);
+  const { district } = ensureScenarioShape(state);
+  const apiKey = str(district.censusApiKey);
+  const selectedVars = normalizeAcsVariableList(district.selectedAcsVariables, DEFAULT_ACS_VARIABLES);
   if (!isAreaReady(area)){
     setMessage(state, "fetch", "Complete area selection first, then fetch Census GEO rows.", "warn");
     return;
   }
   setMessage(state, "fetch", "Fetching Census GEO rows from API...", "muted");
-  const decOut = await fetchDecRows(area).catch((err) => ({ rows: [], source: "", error: err }));
+  const decOut = await fetchDecRows(area, apiKey).catch((err) => ({ rows: [], source: "", error: err }));
   if (!Array.isArray(decOut.rows) || !decOut.rows.length){
     const msg = decOut?.error ? str(decOut.error?.message || decOut.error) : "No GEO rows returned for selected area.";
     setMessage(state, "fetch", `Census fetch failed: ${msg}`, "warn");
@@ -1057,16 +1124,25 @@ async function handleFetchCensusRows(state){
 
   const acsPref = str(state?.geoPack?.district?.acsYearPreference || "auto_latest") || "auto_latest";
   let acsYear = "";
-  try{
-    acsYear = await resolveAcsYear(acsPref);
-  } catch (err){
-    setMessage(state, "fetch", `Census fetch warning: ${str(err?.message || err)} Using DEC-only fields.`, "warn");
+  if (selectedVars.length){
+    try{
+      acsYear = await resolveAcsYear(acsPref, apiKey);
+    } catch (err){
+      setMessage(state, "fetch", `Census fetch warning: ${str(err?.message || err)} Using DEC-only fields.`, "warn");
+    }
   }
 
   const countySet = Array.from(new Set(decOut.rows.map((row) => digits(row.geoid).slice(2, 5)).filter(Boolean)));
   let acsByGeoid = new Map();
-  if (acsYear && countySet.length){
-    acsByGeoid = await fetchAcsRowsByCounty(area.stateFips, area.resolution, countySet, acsYear).catch(() => new Map());
+  if (acsYear && countySet.length && selectedVars.length){
+    acsByGeoid = await fetchAcsRowsByCounty(
+      area.stateFips,
+      area.resolution,
+      countySet,
+      acsYear,
+      selectedVars,
+      apiKey
+    ).catch(() => new Map());
   }
 
   const mergedRows = decOut.rows.map((row) => {
@@ -1083,7 +1159,6 @@ async function handleFetchCensusRows(state){
 
   const datasetId = ensureCatalogDataset(state, area, acsYear || "2020");
   const areaFingerprint = buildAreaResolverCacheKey({ area });
-  const { district } = ensureScenarioShape(state);
   district.censusRowsV2 = mergedRows;
   district.censusRowsV2Meta = {
     datasetId,
@@ -1096,6 +1171,7 @@ async function handleFetchCensusRows(state){
     geoidRowCount: mergedRows.length,
     matchedGeoidRows: mergedRows.length,
     rowCount: mergedRows.length,
+    acsVariableCount: selectedVars.length,
     resolution: area.resolution,
     stateFips: area.stateFips,
   };
@@ -1104,7 +1180,7 @@ async function handleFetchCensusRows(state){
   setMessage(
     state,
     "fetch",
-    `Loaded ${mergedRows.length} ${area.resolution === "block_group" ? "block groups" : "tracts"}${acsYear ? ` with ACS ${acsYear}` : ""}.`,
+    `Loaded ${mergedRows.length} ${area.resolution === "block_group" ? "block groups" : "tracts"}${acsYear ? ` with ACS ${acsYear}` : ""}${acsYear ? ` (${selectedVars.length} vars)` : ""}.`,
     "ok"
   );
 }
@@ -1175,49 +1251,91 @@ function fillStateSelect(selectEl, selectedState){
   fillSelect(selectEl, options, selectedState, "Select state");
 }
 
-function simplifyCardChrome(els){
-  if (els.intelDistrictAdvancedDataDetails) els.intelDistrictAdvancedDataDetails.hidden = true;
-  if (els.intelDistrictElectionTables) els.intelDistrictElectionTables.hidden = true;
-  if (els.intelDistrictEvidenceSelectedElection) els.intelDistrictEvidenceSelectedElection.hidden = true;
-  if (els.intelDistrictAdvancedTables) els.intelDistrictAdvancedTables.hidden = true;
-  if (els.intelAreaAdvancedInputs) els.intelAreaAdvancedInputs.hidden = true;
-  if (els.intelDistrictEvidenceSource) els.intelDistrictEvidenceSource.hidden = true;
-  if (els.intelDistrictEvidenceInputsSummary) els.intelDistrictEvidenceInputsSummary.hidden = true;
-  if (els.intelAreaResolverDetail) els.intelAreaResolverDetail.hidden = true;
-  if (els.intelAreaCodeLinks) els.intelAreaCodeLinks.hidden = true;
-  if (els.intelDataRefStatus) els.intelDataRefStatus.hidden = true;
-  if (els.intelDataRefAlignmentSummary) els.intelDataRefAlignmentSummary.hidden = true;
-  if (els.intelDataRefAlignmentDetail) els.intelDataRefAlignmentDetail.hidden = true;
-  if (els.intelDistrictIntelAlignment) els.intelDistrictIntelAlignment.hidden = true;
+function filterAcsCatalogRows(catalog, search){
+  const rows = Array.isArray(catalog) ? catalog : [];
+  const q = str(search).toLowerCase();
+  let filtered = rows;
+  if (q){
+    filtered = rows.filter((row) => {
+      const code = str(row?.code).toLowerCase();
+      const label = str(row?.label).toLowerCase();
+      const concept = str(row?.concept).toLowerCase();
+      return code.includes(q) || label.includes(q) || concept.includes(q);
+    });
+  }
+  return filtered.slice(0, ACS_CATALOG_DISPLAY_LIMIT);
+}
 
-  const setMini = (valueEl, title, subtitle) => {
-    const card = valueEl?.closest(".mini");
-    if (!card) return;
-    const k = card.querySelector(".mini-k");
-    const s = card.querySelector(".mini-s");
-    if (k) k.textContent = title;
-    if (s) s.textContent = subtitle;
-  };
+function fillAcsCatalogSelect(selectEl, rows){
+  if (!selectEl) return;
+  selectEl.innerHTML = "";
+  for (const row of Array.isArray(rows) ? rows : []){
+    const opt = document.createElement("option");
+    opt.value = str(row?.code);
+    const code = str(row?.code);
+    const label = str(row?.label || code);
+    const concept = str(row?.concept);
+    opt.textContent = concept ? `${code} — ${label} (${concept})` : `${code} — ${label}`;
+    selectEl.appendChild(opt);
+  }
+}
 
-  setMini(
-    els.intelDistrictEvidenceCoverage,
-    "GEO rows",
-    "Selected-area Census GEO rows"
-  );
-  setMini(
-    els.intelDistrictEvidenceVotes,
-    "Population",
-    "Summed from loaded Census GEO rows"
-  );
-  setMini(
-    els.intelDistrictEvidenceSignal,
-    "Housing units",
-    "Summed from loaded Census GEO rows"
-  );
-  setMini(
-    els.intelGeoInspectorRace,
-    "Selected GEO",
-    ""
+function fillAcsSelectedSelect(selectEl, selectedVars, catalog){
+  if (!selectEl) return;
+  const selected = normalizeAcsVariableList(selectedVars, []);
+  const byCode = new Map((Array.isArray(catalog) ? catalog : []).map((row) => [str(row?.code), row]));
+  selectEl.innerHTML = "";
+  for (const code of selected){
+    const row = byCode.get(code);
+    const opt = document.createElement("option");
+    opt.value = code;
+    const label = str(row?.label || code);
+    opt.textContent = `${code} — ${label}`;
+    selectEl.appendChild(opt);
+  }
+}
+
+function readSelectedOptionValues(selectEl){
+  if (!selectEl) return [];
+  const out = [];
+  for (const opt of Array.from(selectEl.selectedOptions || [])){
+    const value = str(opt?.value);
+    if (value) out.push(value);
+  }
+  return out;
+}
+
+async function handleLoadAcsVariableCatalog(state){
+  const { district } = ensureScenarioShape(state);
+  const apiKey = str(district.censusApiKey);
+  const prefYear = str(district.acsYearPreference || "auto_latest") || "auto_latest";
+  let year = "";
+  try{
+    year = await resolveAcsYear(prefYear, apiKey);
+  } catch (err){
+    setMessage(state, "variables", `Could not resolve ACS year: ${str(err?.message || err)}`, "warn");
+    return;
+  }
+  const url = `https://api.census.gov/data/${year}/acs/acs5/variables.json`;
+  let payload = null;
+  try{
+    payload = await fetchJson(url, apiKey);
+  } catch (err){
+    setMessage(state, "variables", `Variable catalog load failed: ${str(err?.message || err)}`, "warn");
+    return;
+  }
+  const catalog = normalizeAcsCatalog(payload);
+  if (!catalog.length){
+    setMessage(state, "variables", `No ACS variables parsed for ${year}.`, "warn");
+    return;
+  }
+  district.acsVariableCatalog = catalog;
+  district.selectedAcsVariables = normalizeAcsVariableList(district.selectedAcsVariables, DEFAULT_ACS_VARIABLES);
+  setMessage(
+    state,
+    "variables",
+    `Loaded ${catalog.length.toLocaleString()} ACS variables for ${year}.`,
+    "ok"
   );
 }
 
@@ -1226,13 +1344,26 @@ export function renderDistrictCensusSimple({ els, state, engine } = {}){
   const { district } = ensureScenarioShape(state);
   const area = currentArea(state);
   applyAreaToState(state, area);
-  simplifyCardChrome(els);
 
   fillStateSelect(els.intelAreaStateFips, area.stateFips);
   syncAreaInputsFromState(els, area);
   fillSelect(els.intelAcsYearPreference, acsYearOptions(), district.acsYearPreference, "Auto latest");
+  if (els.intelCensusApiKey && document.activeElement !== els.intelCensusApiKey){
+    els.intelCensusApiKey.value = district.censusApiKey || "";
+  }
 
   const lookup = isObject(district.areaAssistLookup) ? district.areaAssistLookup : {};
+  const catalog = Array.isArray(district.acsVariableCatalog) ? district.acsVariableCatalog : [];
+  const filteredCatalog = filterAcsCatalogRows(catalog, district.acsVariableSearch);
+  fillAcsCatalogSelect(els.intelAcsVarCatalog, filteredCatalog);
+  fillAcsSelectedSelect(els.intelAcsVarSelected, district.selectedAcsVariables, catalog);
+  if (els.intelAcsVarSearch && document.activeElement !== els.intelAcsVarSearch){
+    els.intelAcsVarSearch.value = district.acsVariableSearch || "";
+  }
+  if (els.btnIntelAcsVarAdd) els.btnIntelAcsVarAdd.disabled = !filteredCatalog.length;
+  if (els.btnIntelAcsVarRemove) els.btnIntelAcsVarRemove.disabled = !normalizeAcsVariableList(district.selectedAcsVariables, []).length;
+  if (els.btnIntelLoadAcsVariables) els.btnIntelLoadAcsVariables.disabled = false;
+
   const counties = Array.isArray(lookup.counties) ? lookup.counties : [];
   const places = Array.isArray(lookup.places) ? lookup.places : [];
   const rowsAll = Array.isArray(district.censusRowsV2) ? district.censusRowsV2 : [];
@@ -1310,6 +1441,19 @@ export function renderDistrictCensusSimple({ els, state, engine } = {}){
     els.intelAreaResolverSummary.textContent = area.type
       ? `Area resolver: ${area.type} ${areaIdentity(area)} · ${area.resolution === "block_group" ? "block group" : "tract"}`
       : "Area resolver: not configured.";
+  }
+
+  const variableMsg = getMessage(state, "variables");
+  if (els.intelAcsVarStatus){
+    const selectedCount = normalizeAcsVariableList(district.selectedAcsVariables, []).length;
+    const keyState = str(district.censusApiKey) ? "API key set" : "API key optional";
+    if (variableMsg.text){
+      setStatus(els.intelAcsVarStatus, `${variableMsg.text} Selected: ${selectedCount}. ${keyState}.`, variableMsg.kind);
+    } else if (catalog.length){
+      setStatus(els.intelAcsVarStatus, `Catalog loaded (${catalog.length.toLocaleString()} vars). Selected: ${selectedCount}. ${keyState}.`, "ok");
+    } else {
+      setStatus(els.intelAcsVarStatus, `Selected variables: ${selectedCount}. Load catalog to search and narrow fields. ${keyState}.`, "muted");
+    }
   }
 
   const lookupMsg = getMessage(state, "lookup");
@@ -1583,6 +1727,63 @@ export function wireDistrictCensusSimpleEvents(ctx = {}){
       withState((state) => {
         const { district } = ensureScenarioShape(state);
         district.acsYearPreference = str(els.intelAcsYearPreference.value || "auto_latest") || "auto_latest";
+      });
+    });
+  }
+
+  if (els.intelCensusApiKey){
+    els.intelCensusApiKey.addEventListener("input", () => {
+      withState((state) => {
+        const { district } = ensureScenarioShape(state);
+        district.censusApiKey = str(els.intelCensusApiKey.value);
+      });
+    });
+  }
+
+  if (els.intelAcsVarSearch){
+    els.intelAcsVarSearch.addEventListener("input", () => {
+      withState((state) => {
+        const { district } = ensureScenarioShape(state);
+        district.acsVariableSearch = str(els.intelAcsVarSearch.value);
+      });
+    });
+  }
+
+  if (els.btnIntelLoadAcsVariables){
+    els.btnIntelLoadAcsVariables.addEventListener("click", async () => {
+      const s = currentState();
+      if (!s) return;
+      ensureScenarioShape(s);
+      setMessage(s, "variables", "Loading ACS variable catalog...", "muted");
+      update();
+      await handleLoadAcsVariableCatalog(s);
+      update();
+    });
+  }
+
+  if (els.btnIntelAcsVarAdd){
+    els.btnIntelAcsVarAdd.addEventListener("click", () => {
+      withState((state) => {
+        const { district } = ensureScenarioShape(state);
+        const addCodes = readSelectedOptionValues(els.intelAcsVarCatalog);
+        const merged = normalizeAcsVariableList(
+          [...normalizeAcsVariableList(district.selectedAcsVariables, DEFAULT_ACS_VARIABLES), ...addCodes],
+          DEFAULT_ACS_VARIABLES
+        );
+        district.selectedAcsVariables = merged;
+        setMessage(state, "variables", `Selected ${merged.length} ACS variables.`, "ok");
+      });
+    });
+  }
+
+  if (els.btnIntelAcsVarRemove){
+    els.btnIntelAcsVarRemove.addEventListener("click", () => {
+      withState((state) => {
+        const { district } = ensureScenarioShape(state);
+        const removeSet = new Set(readSelectedOptionValues(els.intelAcsVarSelected).map((x) => normalizeAcsVariableCode(x)).filter(Boolean));
+        const kept = normalizeAcsVariableList(district.selectedAcsVariables, DEFAULT_ACS_VARIABLES).filter((code) => !removeSet.has(code));
+        district.selectedAcsVariables = normalizeAcsVariableList(kept, DEFAULT_ACS_VARIABLES);
+        setMessage(state, "variables", `Selected ${district.selectedAcsVariables.length} ACS variables.`, "ok");
       });
     });
   }
