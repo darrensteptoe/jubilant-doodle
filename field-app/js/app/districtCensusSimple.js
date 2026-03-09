@@ -1061,11 +1061,10 @@ function applyAreaToState(state, area){
   geo.resolution = normalizeAreaResolutionInput(area.resolution);
 }
 
-function flowStatus(areaReady, rowCount, packReady){
+function flowStatus(areaReady, rowCount){
   if (!areaReady) return "Flow: Step 1 select state + area type + area code.";
   if (!rowCount) return "Flow: Step 2 fetch Census GEO rows for the selected area.";
-  if (!packReady) return "Flow: Step 3 review map + demographics, then Step 4 generate assumptions.";
-  return "Flow: Step 5 toggle district-intel assumptions ON/OFF.";
+  return "Flow: Step 3 review map + demographics and pick GEO overlays.";
 }
 
 async function handleFetchLookup(state){
@@ -1097,6 +1096,7 @@ async function handleFetchLookup(state){
     geoSource: payload.geoSource,
     fetchedAt: new Date().toISOString(),
   };
+  district.autoLookupKey = `${area.stateFips}|${area.type}|${area.countyFips}|${area.placeFips}|${area.district}|${area.resolution}`;
   setMessage(
     state,
     "lookup",
@@ -1394,7 +1394,7 @@ export function renderDistrictCensusSimple({ els, state, engine } = {}){
     geoOptions.length ? "Select GEO" : "No GEO suggestions"
   );
 
-  if (els.intelAreaAssistGeo) els.intelAreaAssistGeo.disabled = !geoOptions.length;
+  if (els.intelAreaAssistGeo) els.intelAreaAssistGeo.disabled = false;
 
   fillGeoInspectorSelect(els.intelGeoInspectorSelect, rowsScoped, selectedGeoId);
   const selectedRow = rowsScoped.find((row) => row.geoid === selectedGeoId) || null;
@@ -1539,7 +1539,7 @@ export function renderDistrictCensusSimple({ els, state, engine } = {}){
   }
 
   if (els.intelFlowStepStatus){
-    els.intelFlowStepStatus.textContent = flowStatus(isAreaReady(area), rowsScoped.length, packReady);
+    els.intelFlowStepStatus.textContent = flowStatus(isAreaReady(area), rowsScoped.length);
   }
 
   if (els.btnIntelGenerateDistrictIntel) els.btnIntelGenerateDistrictIntel.disabled = !rowsScoped.length;
@@ -1584,6 +1584,28 @@ export function wireDistrictCensusSimpleEvents(ctx = {}){
     update();
   };
 
+  let autoLookupTimer = 0;
+  const queueAutoLookup = () => {
+    if (autoLookupTimer) clearTimeout(autoLookupTimer);
+    autoLookupTimer = setTimeout(async () => {
+      autoLookupTimer = 0;
+      const s = currentState();
+      if (!s) return;
+      ensureScenarioShape(s);
+      const area = currentArea(s);
+      if (!area.stateFips) return;
+      const { district } = ensureScenarioShape(s);
+      const lookup = isObject(district.areaAssistLookup) ? district.areaAssistLookup : null;
+      const areaKey = `${area.stateFips}|${area.type}|${area.countyFips}|${area.placeFips}|${area.district}|${area.resolution}`;
+      if (str(district.autoLookupKey) === areaKey && lookup && lookup.fetchedAt) return;
+      district.autoLookupKey = areaKey;
+      setMessage(s, "lookup", "Fetching county/place/GEO lookup lists...", "muted");
+      update();
+      await handleFetchLookup(s);
+      update();
+    }, 220);
+  };
+
   if (els.intelAreaStateFips){
     els.intelAreaStateFips.addEventListener("change", () => {
       withState((state) => {
@@ -1596,6 +1618,7 @@ export function wireDistrictCensusSimpleEvents(ctx = {}){
         applyAreaToState(state, area);
         clearCensusRowsForAreaChange(state);
       });
+      queueAutoLookup();
     });
   }
 
@@ -1610,6 +1633,7 @@ export function wireDistrictCensusSimpleEvents(ctx = {}){
         applyAreaToState(state, area);
         clearCensusRowsForAreaChange(state);
       });
+      queueAutoLookup();
     });
   }
 
@@ -1621,6 +1645,7 @@ export function wireDistrictCensusSimpleEvents(ctx = {}){
         applyAreaToState(state, area);
         clearCensusRowsForAreaChange(state);
       });
+      queueAutoLookup();
     });
   }
 
@@ -1642,6 +1667,7 @@ export function wireDistrictCensusSimpleEvents(ctx = {}){
         applyAreaToState(state, area);
         clearCensusRowsForAreaChange(state);
       });
+      queueAutoLookup();
     });
   }
 
@@ -1656,6 +1682,7 @@ export function wireDistrictCensusSimpleEvents(ctx = {}){
         applyAreaToState(state, area);
         clearCensusRowsForAreaChange(state);
       });
+      queueAutoLookup();
     });
   }
 
@@ -1670,6 +1697,7 @@ export function wireDistrictCensusSimpleEvents(ctx = {}){
         applyAreaToState(state, area);
         clearCensusRowsForAreaChange(state);
       });
+      queueAutoLookup();
     });
   }
 
@@ -1684,6 +1712,7 @@ export function wireDistrictCensusSimpleEvents(ctx = {}){
         applyAreaToState(state, area);
         clearCensusRowsForAreaChange(state);
       });
+      queueAutoLookup();
     });
   }
 
@@ -1699,6 +1728,7 @@ export function wireDistrictCensusSimpleEvents(ctx = {}){
         applyAreaToState(state, area);
         clearCensusRowsForAreaChange(state);
       });
+      queueAutoLookup();
     });
   }
 
