@@ -296,8 +296,6 @@ export function normalizeCensusState(input, { resetRuntime = false } = {}){
     out.geoOptions = [];
     out.selectedGeoids = [];
     out.rowsByGeoid = {};
-    out.activeRowsKey = "";
-    out.loadedRowCount = 0;
   }
   return out;
 }
