@@ -10,7 +10,11 @@ import { computeSnapshotHash } from "./core/hash.js";
 import { CURRENT_SCHEMA_VERSION } from "./core/migrate.js";
 import { APP_VERSION, BUILD_ID } from "./build.js";
 import { UNIVERSE_DEFAULTS } from "./core/universeLayer.js";
-import { normalizeCensusState } from "./core/censusModule.js";
+import {
+  normalizeCensusState,
+  normalizeRaceFootprint,
+  normalizeAssumptionProvenance,
+} from "./core/censusModule.js";
 
 export const MODEL_VERSION = "1.0.0";
 
@@ -225,6 +229,8 @@ function ensureUniverseDefaults(scen){
 function ensureScenarioDefaults(scen){
   const s = ensureUniverseDefaults(scen);
   s.census = normalizeCensusState(s.census, { resetRuntime: true });
+  s.raceFootprint = normalizeRaceFootprint(s.raceFootprint);
+  s.assumptionsProvenance = normalizeAssumptionProvenance(s.assumptionsProvenance);
   return s;
 }
 

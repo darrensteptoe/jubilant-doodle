@@ -11,6 +11,11 @@ import {
   filterGeoOptions,
   formatMetricValue,
   parseGeoidInput,
+  makeDefaultRaceFootprint,
+  normalizeRaceFootprint,
+  computeRaceFootprintFingerprint,
+  makeDefaultAssumptionProvenance,
+  normalizeAssumptionProvenance,
 } from "../censusModule.js";
 
 export function registerCensusPhase1Tests(ctx){
@@ -179,5 +184,37 @@ export function registerCensusPhase1Tests(ctx){
     assert(blockGroup.length === 2, "block group GEOID parse mismatch");
     const place = parseGeoidInput("1714000|1714100", "place");
     assert(place.length === 2, "place GEOID parse mismatch");
+  });
+
+  test("Census Phase1: race footprint normalization and fingerprint", () => {
+    const base = makeDefaultRaceFootprint();
+    assert(base && typeof base === "object", "default race footprint missing");
+    const normalized = normalizeRaceFootprint({
+      year: "2024",
+      resolution: "tract",
+      metricSet: "core",
+      stateFips: "17",
+      countyFips: "31",
+      geoids: ["17031010100", "17031010200", "17031010100"],
+    });
+    assert(normalized.stateFips === "17", "race footprint state did not normalize");
+    assert(normalized.countyFips === "031", "race footprint county did not normalize");
+    assert(Array.isArray(normalized.geoids) && normalized.geoids.length === 2, "race footprint geoid dedupe mismatch");
+    const fingerprint = computeRaceFootprintFingerprint(normalized);
+    assert(typeof fingerprint === "string" && fingerprint.includes("17031010100"), "race footprint fingerprint mismatch");
+  });
+
+  test("Census Phase1: assumption provenance normalization", () => {
+    const base = makeDefaultAssumptionProvenance();
+    assert(base && typeof base === "object", "default assumption provenance missing");
+    const normalized = normalizeAssumptionProvenance({
+      source: "census_phase1",
+      raceFootprintFingerprint: "a|b|c",
+      censusRowsKey: 12345,
+      generatedAt: "2026-03-09T22:00:00.000Z",
+    });
+    assert(normalized.source === "census_phase1", "provenance source mismatch");
+    assert(normalized.raceFootprintFingerprint === "a|b|c", "provenance footprint key mismatch");
+    assert(normalized.censusRowsKey === "12345", "provenance rows key mismatch");
   });
 }

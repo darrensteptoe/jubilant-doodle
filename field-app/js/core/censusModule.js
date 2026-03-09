@@ -264,6 +264,79 @@ function normalizeSelectionSets(input){
   return out;
 }
 
+export function makeDefaultRaceFootprint(){
+  return {
+    source: "",
+    year: "",
+    resolution: "",
+    metricSet: "",
+    stateFips: "",
+    countyFips: "",
+    placeFips: "",
+    geoids: [],
+    rowCount: 0,
+    rowsKey: "",
+    fingerprint: "",
+    updatedAt: "",
+  };
+}
+
+export function normalizeRaceFootprint(input){
+  const base = makeDefaultRaceFootprint();
+  const src = input && typeof input === "object" ? input : {};
+  const out = { ...base, ...src };
+  out.source = cleanText(out.source);
+  out.year = cleanText(out.year);
+  const resolution = cleanText(out.resolution);
+  out.resolution = ["place", "tract", "block_group"].includes(resolution) ? resolution : "";
+  out.metricSet = METRIC_SET_MAP[String(out.metricSet || "")] ? String(out.metricSet) : "";
+  out.stateFips = fips(out.stateFips, 2);
+  out.countyFips = out.resolution === "place" ? "" : fips(out.countyFips, 3);
+  out.placeFips = out.resolution === "place" ? fips(out.placeFips, 5) : "";
+  out.geoids = out.resolution
+    ? normalizeGeoidsForResolutionInternal(out.geoids, out.resolution).sort((a, b) => a.localeCompare(b))
+    : [];
+  out.rowCount = Number.isFinite(Number(out.rowCount)) ? Math.max(0, Math.floor(Number(out.rowCount))) : 0;
+  out.rowsKey = cleanText(out.rowsKey);
+  out.fingerprint = cleanText(out.fingerprint);
+  out.updatedAt = cleanText(out.updatedAt);
+  return out;
+}
+
+export function computeRaceFootprintFingerprint(input){
+  const out = normalizeRaceFootprint(input);
+  if (!out.resolution || !out.stateFips || !out.geoids.length) return "";
+  return [
+    out.year,
+    out.resolution,
+    out.metricSet,
+    out.stateFips,
+    out.countyFips,
+    out.placeFips,
+    out.geoids.join(","),
+  ].join("|");
+}
+
+export function makeDefaultAssumptionProvenance(){
+  return {
+    source: "",
+    raceFootprintFingerprint: "",
+    censusRowsKey: "",
+    generatedAt: "",
+  };
+}
+
+export function normalizeAssumptionProvenance(input){
+  const base = makeDefaultAssumptionProvenance();
+  const src = input && typeof input === "object" ? input : {};
+  const out = { ...base, ...src };
+  out.source = cleanText(out.source);
+  out.raceFootprintFingerprint = cleanText(out.raceFootprintFingerprint);
+  out.censusRowsKey = cleanText(out.censusRowsKey);
+  out.generatedAt = cleanText(out.generatedAt);
+  return out;
+}
+
 export function makeDefaultCensusState(){
   return {
     year: defaultYear(),

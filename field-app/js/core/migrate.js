@@ -4,9 +4,16 @@
 // Pure module: no DOM, no imports from app/optimizer, no state mutation.
 
 import { makeDefaultIntelState, normalizeIntelState } from "./intelState.js";
-import { makeDefaultCensusState, normalizeCensusState } from "./censusModule.js";
+import {
+  makeDefaultCensusState,
+  normalizeCensusState,
+  makeDefaultRaceFootprint,
+  normalizeRaceFootprint,
+  makeDefaultAssumptionProvenance,
+  normalizeAssumptionProvenance,
+} from "./censusModule.js";
 
-export const CURRENT_SCHEMA_VERSION = "1.4.0";
+export const CURRENT_SCHEMA_VERSION = "1.5.0";
 
 const SCENARIO_DEFAULTS = {
   // Phase 16 — Universe composition + retention (aggregate)
@@ -19,6 +26,8 @@ const SCENARIO_DEFAULTS = {
   // Phase 17 — Intel metadata and governance state (non-math annotations only)
   intelState: makeDefaultIntelState(),
   census: makeDefaultCensusState(),
+  raceFootprint: makeDefaultRaceFootprint(),
+  assumptionsProvenance: makeDefaultAssumptionProvenance(),
 };
 
 /**
@@ -35,6 +44,8 @@ function applyScenarioDefaults(scen){
   }
   scen.intelState = normalizeIntelState(scen.intelState);
   scen.census = normalizeCensusState(scen.census, { resetRuntime: true });
+  scen.raceFootprint = normalizeRaceFootprint(scen.raceFootprint);
+  scen.assumptionsProvenance = normalizeAssumptionProvenance(scen.assumptionsProvenance);
   return scen;
 }
 

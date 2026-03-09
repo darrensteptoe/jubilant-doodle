@@ -68,8 +68,12 @@ import { normalizeLoadedState as normalizeLoadedStateApp } from "../app/state.js
 import { resolveFeatureFlags } from "./featureFlags.js";
 import { validateOperationsCapacityInput } from "../features/operations/io.js";
 import { registerPhase115ATests } from "./selfTestSuites/phase115A.js";
-import { registerCensusPhase1Tests } from "./selfTestSuites/censusPhase1.js?v=20260309-census-phase1-8";
-import { makeDefaultCensusState } from "./censusModule.js";
+import { registerCensusPhase1Tests } from "./selfTestSuites/censusPhase1.js?v=20260309-census-phase1-9";
+import {
+  makeDefaultCensusState,
+  makeDefaultRaceFootprint,
+  makeDefaultAssumptionProvenance,
+} from "./censusModule.js";
 
 function withUniverseDefaults(s){
   // Phase 16 fields are now required for stable hashing/export roundtrips.
@@ -83,6 +87,8 @@ function withUniverseDefaults(s){
   if (out.retentionFactor == null) out.retentionFactor = UNIVERSE_DEFAULTS.retentionFactor;
   if (out.intelState == null) out.intelState = makeDefaultIntelState();
   if (out.census == null) out.census = makeDefaultCensusState();
+  if (out.raceFootprint == null) out.raceFootprint = makeDefaultRaceFootprint();
+  if (out.assumptionsProvenance == null) out.assumptionsProvenance = makeDefaultAssumptionProvenance();
   return out;
 }
 
