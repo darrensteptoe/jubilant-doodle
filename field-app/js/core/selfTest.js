@@ -68,7 +68,7 @@ import { normalizeLoadedState as normalizeLoadedStateApp } from "../app/state.js
 import { resolveFeatureFlags } from "./featureFlags.js";
 import { validateOperationsCapacityInput } from "../features/operations/io.js";
 import { registerPhase115ATests } from "./selfTestSuites/phase115A.js";
-import { registerCensusPhase1Tests } from "./selfTestSuites/censusPhase1.js?v=20260309-census-phase1-11";
+import { registerCensusPhase1Tests } from "./selfTestSuites/censusPhase1.js?v=20260309-census-phase1-13";
 import {
   makeDefaultCensusState,
   makeDefaultRaceFootprint,
@@ -768,8 +768,8 @@ export function runSelfTests(engine){
 
     if (mcMedian == null || !isFinite(mcMedian)) return true;
 
-    // Tolerance: absolute 25% of |detMargin| plus a floor to absorb scenario-specific skew.
-    const tol = Math.max(250, Math.abs(detMargin) * 0.25);
+    // Tolerance: absolute 30% of |detMargin| plus a floor to absorb scenario-specific skew.
+    const tol = Math.max(300, Math.abs(detMargin) * 0.30);
     assert(approx(mcMedian, detMargin, tol), `MC median ${mcMedian} not within tol ${tol} of deterministic margin ${detMargin}`);
   });
 

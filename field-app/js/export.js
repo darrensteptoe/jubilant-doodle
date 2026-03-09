@@ -229,8 +229,12 @@ function ensureUniverseDefaults(scen){
 function ensureScenarioDefaults(scen){
   const s = ensureUniverseDefaults(scen);
   s.census = normalizeCensusState(s.census, { resetRuntime: true });
-  s.raceFootprint = normalizeRaceFootprint(s.raceFootprint);
-  s.assumptionsProvenance = normalizeAssumptionProvenance(s.assumptionsProvenance);
+  if (Object.prototype.hasOwnProperty.call(s, "raceFootprint")){
+    s.raceFootprint = normalizeRaceFootprint(s.raceFootprint);
+  }
+  if (Object.prototype.hasOwnProperty.call(s, "assumptionsProvenance")){
+    s.assumptionsProvenance = normalizeAssumptionProvenance(s.assumptionsProvenance);
+  }
   return s;
 }
 
