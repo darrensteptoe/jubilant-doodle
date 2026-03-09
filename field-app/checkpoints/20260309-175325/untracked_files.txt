@@ -1,0 +1,10 @@
+checkpoints/20260309-175325/base_head.txt
+checkpoints/20260309-175325/base_head_short.txt
+checkpoints/20260309-175325/staged.patch
+checkpoints/20260309-175325/status.full.txt
+checkpoints/20260309-175325/status.short.txt
+checkpoints/20260309-175325/untracked_files.txt
+checkpoints/20260309-175325/working_tree.patch
+js/app/censusPhase1.js
+js/core/censusModule.js
+js/core/selfTestSuites/censusPhase1.js

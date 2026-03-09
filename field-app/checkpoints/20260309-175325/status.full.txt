@@ -1,0 +1,47 @@
+On branch main
+Changes not staged for commit:
+  (use "git add/rm <file>..." to update what will be committed)
+  (use "git restore <file>..." to discard changes in working directory)
+	deleted:    INTEL_IMPLEMENTATION_CHECKLIST.md
+	modified:   index.html
+	modified:   js/app.js
+	modified:   js/app/backupRecovery.js
+	deleted:    js/app/dataRefPolicyRuntime.js
+	modified:   js/app/defaultState.js
+	modified:   js/app/effectiveInputs.js
+	modified:   js/app/normalizeLoadedState.js
+	modified:   js/app/renderIntelChecks.js
+	modified:   js/app/renderMain.js
+	modified:   js/app/scenarioLockUi.js
+	modified:   js/app/selectors.js
+	modified:   js/app/state.js
+	modified:   js/app/stateNormalizationHelpers.js
+	modified:   js/app/wireEventsRuntime.js
+	modified:   js/appRuntime.js
+	deleted:    js/core/areaResolver.js
+	deleted:    js/core/dataSourceRegistry.js
+	deleted:    js/core/districtAutoPull.js
+	deleted:    js/core/districtData.js
+	deleted:    js/core/districtEvidence.js
+	deleted:    js/core/districtEvidenceInputs.js
+	deleted:    js/core/districtIngest.js
+	deleted:    js/core/districtIntelBuilder.js
+	modified:   js/core/migrate.js
+	deleted:    js/core/precinctCensusJoin.js
+	modified:   js/core/selfTest.js
+	deleted:    js/core/selfTestSuites/releaseHardening.js
+	deleted:    js/core/types.d.ts
+	modified:   js/engine.js
+	modified:   js/export.js
+	deleted:    js/schemas/districtData.v1.schema.json
+	modified:   js/ui/els.js
+	modified:   styles.css
+
+Untracked files:
+  (use "git add <file>..." to include in what will be committed)
+	checkpoints/
+	js/app/censusPhase1.js
+	js/core/censusModule.js
+	js/core/selfTestSuites/censusPhase1.js
+
+no changes added to commit (use "git add" and/or "git commit -a")

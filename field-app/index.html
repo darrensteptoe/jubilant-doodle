@@ -2107,6 +2107,12 @@
 </div>
 </div>
 <div class="muted" id="censusSelectionSummary">No GEO selected. Select one or more GEO units to aggregate.</div>
+<div class="rowline" style="margin-top:8px; gap:8px; flex-wrap:wrap;">
+<button class="btn btn-sm btn-ghost" id="btnCensusSetRaceFootprint" type="button">Set as race footprint</button>
+<button class="btn btn-sm btn-ghost" id="btnCensusClearRaceFootprint" type="button">Clear race footprint</button>
+</div>
+<div class="muted" id="censusRaceFootprintStatus">Race footprint not set.</div>
+<div class="muted" id="censusAssumptionProvenanceStatus">Assumption provenance not set.</div>
 <div class="grid2" style="margin-top:8px;">
 <div class="field">
 <label class="label" for="censusSelectionSetName">Save selection set</label>
@@ -3107,7 +3113,7 @@ Volunteer multiplier stays above 1.5" rows="4"></textarea>
 </aside>
 </div>
 <!-- /app-shell -->
-<script src="./js/app.js?v=20260309-census-phase1-8" type="module"></script>
+<script src="./js/app.js?v=20260309-census-phase1-9" type="module"></script>
 <script>
 // ── Stage navigation ───────────────────────────────────────────
 function normalizeStages() {

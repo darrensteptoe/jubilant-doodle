@@ -1,0 +1,38 @@
+ D INTEL_IMPLEMENTATION_CHECKLIST.md
+ M index.html
+ M js/app.js
+ M js/app/backupRecovery.js
+ D js/app/dataRefPolicyRuntime.js
+ M js/app/defaultState.js
+ M js/app/effectiveInputs.js
+ M js/app/normalizeLoadedState.js
+ M js/app/renderIntelChecks.js
+ M js/app/renderMain.js
+ M js/app/scenarioLockUi.js
+ M js/app/selectors.js
+ M js/app/state.js
+ M js/app/stateNormalizationHelpers.js
+ M js/app/wireEventsRuntime.js
+ M js/appRuntime.js
+ D js/core/areaResolver.js
+ D js/core/dataSourceRegistry.js
+ D js/core/districtAutoPull.js
+ D js/core/districtData.js
+ D js/core/districtEvidence.js
+ D js/core/districtEvidenceInputs.js
+ D js/core/districtIngest.js
+ D js/core/districtIntelBuilder.js
+ M js/core/migrate.js
+ D js/core/precinctCensusJoin.js
+ M js/core/selfTest.js
+ D js/core/selfTestSuites/releaseHardening.js
+ D js/core/types.d.ts
+ M js/engine.js
+ M js/export.js
+ D js/schemas/districtData.v1.schema.json
+ M js/ui/els.js
+ M styles.css
+?? checkpoints/
+?? js/app/censusPhase1.js
+?? js/core/censusModule.js
+?? js/core/selfTestSuites/censusPhase1.js
