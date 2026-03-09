@@ -38,7 +38,7 @@ export function requiredScenarioKeysMissingModule(scen){
     "candidates","undecidedPct","yourCandidateId","undecidedMode","persuasionPct",
     "earlyVoteExp","supportRatePct","contactRatePct","turnoutReliabilityPct",
     "universeLayerEnabled","universeDemPct","universeRepPct","universeNpaPct","universeOtherPct","retentionFactor",
-    "mcMode","mcVolatility","mcSeed","budget","timelineEnabled","census","ui"
+    "mcMode","mcVolatility","mcSeed","budget","timelineEnabled","census","raceFootprint","assumptionsProvenance","ui"
   ];
   const missing = [];
   if (!scen || typeof scen !== "object") return required.slice();

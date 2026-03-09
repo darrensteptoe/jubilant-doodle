@@ -1,6 +1,13 @@
 // @ts-check
 import { makeDefaultIntelState, normalizeIntelState } from "../core/intelState.js";
-import { makeDefaultCensusState, normalizeCensusState } from "../core/censusModule.js";
+import {
+  makeDefaultCensusState,
+  normalizeCensusState,
+  makeDefaultRaceFootprint,
+  normalizeRaceFootprint,
+  makeDefaultAssumptionProvenance,
+  normalizeAssumptionProvenance,
+} from "../core/censusModule.js";
 import { makeDefaultFeatureFlags, syncFeatureFlagsFromState } from "./featureFlags.js";
 
 export const DEFAULTS_BY_TEMPLATE = {
@@ -133,6 +140,8 @@ export function makeDefaultState({ createId = defaultCreateId } = {}){
     mcLast: null,
     mcLastHash: "",
     census: makeDefaultCensusState(),
+    raceFootprint: makeDefaultRaceFootprint(),
+    assumptionsProvenance: makeDefaultAssumptionProvenance(),
     intelState: makeDefaultIntelState(),
     features: makeDefaultFeatureFlags(),
     ui: {
@@ -189,6 +198,8 @@ export function normalizeLoadedState(s, { createId = defaultCreateId } = {}){
   out.userSplit = (s?.userSplit && typeof s.userSplit === "object") ? s.userSplit : {};
   out.intelState = normalizeIntelState(s?.intelState);
   out.census = normalizeCensusState(s?.census, { resetRuntime: true });
+  out.raceFootprint = normalizeRaceFootprint(s?.raceFootprint);
+  out.assumptionsProvenance = normalizeAssumptionProvenance(s?.assumptionsProvenance);
   out.ui = { ...base.ui, ...(s?.ui || {}) };
 
   ensureBudgetShape(out, { createId });
@@ -215,7 +226,7 @@ export function requiredScenarioKeysMissing(scen){
     "candidates", "undecidedPct", "yourCandidateId", "undecidedMode", "persuasionPct",
     "earlyVoteExp", "supportRatePct", "contactRatePct", "turnoutReliabilityPct",
     "universeLayerEnabled", "universeDemPct", "universeRepPct", "universeNpaPct", "universeOtherPct", "retentionFactor",
-    "mcMode", "mcVolatility", "mcSeed", "budget", "timelineEnabled", "census", "ui",
+    "mcMode", "mcVolatility", "mcSeed", "budget", "timelineEnabled", "census", "raceFootprint", "assumptionsProvenance", "ui",
   ];
   const missing = [];
   if (!scen || typeof scen !== "object") return required.slice();

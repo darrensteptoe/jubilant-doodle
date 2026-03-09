@@ -16,6 +16,12 @@ import {
   filterGeoOptions,
   fetchTigerBoundaryGeojson,
   parseGeoidInput,
+  normalizeGeoidsForResolution,
+  makeDefaultRaceFootprint,
+  normalizeRaceFootprint,
+  computeRaceFootprintFingerprint,
+  makeDefaultAssumptionProvenance,
+  normalizeAssumptionProvenance,
 } from "../core/censusModule.js";
 
 const variableCatalogCache = new Map();
@@ -467,6 +473,40 @@ function uniqueGeoids(values){
   return out;
 }
 
+function liveRaceFootprintFromCensusState(s, { source = "census_phase1", updatedAt = "" } = {}){
+  const resolution = cleanText(s?.resolution);
+  const geoids = ["place", "tract", "block_group"].includes(resolution)
+    ? normalizeGeoidsForResolution(uniqueGeoids(s?.selectedGeoids), resolution).sort((a, b) => a.localeCompare(b))
+    : [];
+  const footprint = normalizeRaceFootprint({
+    source,
+    year: cleanText(s?.year),
+    resolution,
+    metricSet: cleanText(s?.metricSet),
+    stateFips: cleanText(s?.stateFips),
+    countyFips: cleanText(s?.countyFips),
+    placeFips: cleanText(s?.placeFips),
+    geoids,
+    rowCount: Number.isFinite(Number(s?.loadedRowCount)) ? Number(s.loadedRowCount) : 0,
+    rowsKey: cleanText(s?.activeRowsKey),
+    updatedAt: cleanText(updatedAt),
+  });
+  footprint.fingerprint = computeRaceFootprintFingerprint(footprint);
+  return footprint;
+}
+
+function storedRaceFootprintFromState(state){
+  const stored = normalizeRaceFootprint(state?.raceFootprint);
+  const fingerprint = cleanText(stored.fingerprint) || computeRaceFootprintFingerprint(stored);
+  return { ...stored, fingerprint };
+}
+
+function ensureAssumptionProvenance(state){
+  if (!state || typeof state !== "object") return makeDefaultAssumptionProvenance();
+  state.assumptionsProvenance = normalizeAssumptionProvenance(state.assumptionsProvenance);
+  return state.assumptionsProvenance;
+}
+
 function aggregateSnapshot(s){
   const runtimeRows = getRowsForState(s);
   const aggregate = aggregateRowsForSelection({
@@ -521,6 +561,8 @@ export function renderCensusPhase1Module({ els, state } = {}){
   if (!els || !state) return;
   const s = ensureCensusStateModule(state);
   if (!s) return;
+  const storedFootprint = storedRaceFootprintFromState(state);
+  const liveFootprint = liveRaceFootprintFromCensusState(s);
 
   const storedKey = readCensusApiKeyModule();
   if (els.censusApiKey && typeof document !== "undefined" && document.activeElement !== els.censusApiKey){
@@ -581,6 +623,12 @@ export function renderCensusPhase1Module({ els, state } = {}){
   }
   if (els.btnCensusClearSelection){
     els.btnCensusClearSelection.disabled = !s.selectedGeoids.length;
+  }
+  if (els.btnCensusSetRaceFootprint){
+    els.btnCensusSetRaceFootprint.disabled = !s.selectedGeoids.length || !s.loadedRowCount;
+  }
+  if (els.btnCensusClearRaceFootprint){
+    els.btnCensusClearRaceFootprint.disabled = !storedFootprint.geoids.length;
   }
   if (els.btnCensusApplyGeoPaste){
     els.btnCensusApplyGeoPaste.disabled = !s.geoOptions.length;
@@ -655,6 +703,35 @@ export function renderCensusPhase1Module({ els, state } = {}){
       ? `Aggregate reflects ${s.selectedGeoids.length} selected GEO units.`
       : "No GEO selected. Select one or more GEO units to aggregate.";
     els.censusSelectionSummary.textContent = summary;
+  }
+
+  if (els.censusRaceFootprintStatus){
+    if (!storedFootprint.geoids.length || !storedFootprint.fingerprint){
+      els.censusRaceFootprintStatus.textContent = "Race footprint not set.";
+    } else {
+      const area = storedFootprint.resolution === "place"
+        ? `state ${storedFootprint.stateFips} place ${storedFootprint.placeFips}`
+        : `state ${storedFootprint.stateFips} county ${storedFootprint.countyFips}`;
+      const match = liveFootprint.fingerprint && liveFootprint.fingerprint === storedFootprint.fingerprint
+        ? "Current selection matches."
+        : "Current selection differs.";
+      els.censusRaceFootprintStatus.textContent = `Race footprint: ${storedFootprint.geoids.length} GEOs (${storedFootprint.resolution}) in ${area}. ${match}`;
+    }
+  }
+
+  if (els.censusAssumptionProvenanceStatus){
+    const provenance = normalizeAssumptionProvenance(state.assumptionsProvenance);
+    if (!provenance.raceFootprintFingerprint){
+      els.censusAssumptionProvenanceStatus.textContent = "Assumption provenance not set.";
+    } else if (!storedFootprint.fingerprint || provenance.raceFootprintFingerprint !== storedFootprint.fingerprint){
+      els.censusAssumptionProvenanceStatus.textContent = "Assumption provenance is stale: footprint mismatch.";
+    } else if (provenance.censusRowsKey && provenance.censusRowsKey !== cleanText(s.activeRowsKey)){
+      els.censusAssumptionProvenanceStatus.textContent = "Assumption provenance is stale: ACS row context changed.";
+    } else {
+      els.censusAssumptionProvenanceStatus.textContent = provenance.generatedAt
+        ? `Assumption provenance aligned with race footprint (generated ${fmtTs(provenance.generatedAt).replace("Last fetch: ", "")}).`
+        : "Assumption provenance aligned with race footprint.";
+    }
   }
 
   if (els.censusSelectionSetStatus){
@@ -1065,6 +1142,41 @@ export function wireCensusPhase1EventsModule(ctx){
       withState((_, s) => {
         s.selectedGeoids = [];
         setStatus(s, "Selection cleared.", false);
+      });
+      commitUIUpdate();
+    });
+  }
+
+  if (els.btnCensusSetRaceFootprint){
+    els.btnCensusSetRaceFootprint.addEventListener("click", () => {
+      withState((state, s) => {
+        const footprint = liveRaceFootprintFromCensusState(s, { updatedAt: new Date().toISOString() });
+        if (!footprint.geoids.length){
+          setStatus(s, "Select one or more GEO units before setting race footprint.", true);
+          return;
+        }
+        if (!footprint.rowCount || !footprint.rowsKey){
+          setStatus(s, "Fetch ACS rows before setting race footprint.", true);
+          return;
+        }
+        state.raceFootprint = footprint;
+        const provenance = ensureAssumptionProvenance(state);
+        provenance.source = "census_phase1";
+        provenance.raceFootprintFingerprint = footprint.fingerprint;
+        provenance.censusRowsKey = footprint.rowsKey;
+        provenance.generatedAt = "";
+        setStatus(s, `Race footprint set from current selection (${footprint.geoids.length} GEOs).`, false);
+      });
+      commitUIUpdate();
+    });
+  }
+
+  if (els.btnCensusClearRaceFootprint){
+    els.btnCensusClearRaceFootprint.addEventListener("click", () => {
+      withState((state, s) => {
+        state.raceFootprint = makeDefaultRaceFootprint();
+        state.assumptionsProvenance = makeDefaultAssumptionProvenance();
+        setStatus(s, "Race footprint cleared.", false);
       });
       commitUIUpdate();
     });

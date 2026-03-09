@@ -1,6 +1,10 @@
 // @ts-check
 import { makeDefaultIntelState } from "../core/intelState.js";
-import { makeDefaultCensusState } from "../core/censusModule.js";
+import {
+  makeDefaultCensusState,
+  makeDefaultRaceFootprint,
+  makeDefaultAssumptionProvenance,
+} from "../core/censusModule.js";
 import { makeDefaultFeatureFlags } from "./featureFlags.js";
 
 /** @param {import("./types").DefaultStateCtx} ctx */
@@ -121,6 +125,8 @@ export function makeDefaultStateModule(ctx){
     mcLast: null,
     mcLastHash: "",
     census: makeDefaultCensusState(),
+    raceFootprint: makeDefaultRaceFootprint(),
+    assumptionsProvenance: makeDefaultAssumptionProvenance(),
     intelState: makeDefaultIntelState(),
     features: makeDefaultFeatureFlags(),
     ui: {

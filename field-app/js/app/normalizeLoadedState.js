@@ -1,6 +1,10 @@
 // @ts-check
 import { normalizeIntelState } from "../core/intelState.js";
-import { normalizeCensusState } from "../core/censusModule.js";
+import {
+  normalizeCensusState,
+  normalizeRaceFootprint,
+  normalizeAssumptionProvenance,
+} from "../core/censusModule.js";
 import { syncFeatureFlagsFromState } from "./featureFlags.js";
 import { ensureBudgetShape } from "./state.js";
 
@@ -38,6 +42,8 @@ export function normalizeLoadedStateModule(s, deps){
   out.userSplit = (src.userSplit && typeof src.userSplit === "object") ? src.userSplit : {};
   out.intelState = normalizeIntelState(src.intelState);
   out.census = normalizeCensusState(src.census, { resetRuntime: true });
+  out.raceFootprint = normalizeRaceFootprint(src.raceFootprint);
+  out.assumptionsProvenance = normalizeAssumptionProvenance(src.assumptionsProvenance);
   out.ui = { ...base.ui, ...(src.ui || {}) };
 
   ensureBudgetShape(out);
