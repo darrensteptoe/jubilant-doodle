@@ -2218,21 +2218,9 @@
 </div>
 <div class="card card-section" id="intelDistrictEvidenceCard">
 <div class="card-head card-header">
-<h2 class="card-title">District Intelligence</h2>
+<h2 class="card-title">District Census (Phase 1)</h2>
 </div>
-<div class="help-text">Census-first flow: select area, fetch Census GEO rows, review map + demographics, generate assumptions, toggle ON/OFF.</div>
-<div class="rowline" style="margin-top:10px; justify-content:space-between; gap:10px;">
-<label class="switch">
-<input id="intelUseDistrictToggle" type="checkbox"/>
-<span class="slider"></span>
-<span class="switch-label">Use district-intel assumptions</span>
-</label>
-<div class="card-actions">
-<button class="btn btn-sm" id="btnIntelGenerateDistrictIntel" type="button">Generate assumptions</button>
-</div>
-</div>
-<div class="muted" id="intelDistrictIntelStatus" style="margin-top:8px;">District-intel assumptions are OFF.</div>
-<div class="note" id="intelDistrictIntelSummary" style="margin-top:6px;">No district-intel pack generated yet.</div>
+<div class="help-text">Phase 1 Census flow: select geography, fetch GEO rows, review demographics and map overlay.</div>
 <div class="grid4" style="margin-top:12px;">
 <div class="field">
 <label class="label" for="intelAreaStateFips">State</label>
@@ -2265,44 +2253,17 @@
 <option value="auto_latest">Auto latest</option>
 </select>
 </div>
+</div>
+<div class="grid3" style="margin-top:10px;">
 <div class="field">
 <label class="label" for="intelAreaLabel">Area label (optional)</label>
 <input class="input" id="intelAreaLabel" placeholder="e.g., IL-13" type="text"/>
 </div>
 <div class="field">
-<label class="label" for="intelCensusApiKey">Census API key (optional)</label>
-<input class="input" id="intelCensusApiKey" placeholder="Enter Census API key" type="password" autocomplete="off"/>
+<label class="label" for="intelAreaDistrict">District code (for CD/SLDU/SLDL)</label>
+<input class="input" id="intelAreaDistrict" placeholder="e.g., 13 or 013" type="text"/>
 </div>
-</div>
-<div class="mini" style="margin-top:10px;">
-<div class="mini-k">ACS variable selection</div>
-<div class="help-text" style="margin-top:6px;">Load the ACS variable catalog, search, choose variables, then fetch Census GEO rows.</div>
-<div class="rowline" style="margin-top:8px; justify-content:space-between; gap:10px;">
-<div class="field" style="flex:1;">
-<label class="label" for="intelAcsVarSearch">Search variables</label>
-<input class="input" id="intelAcsVarSearch" placeholder="e.g., income, renter, B19013_001E" type="text"/>
-</div>
-<div class="card-actions" style="align-items:end;">
-<button class="btn btn-sm" id="btnIntelLoadAcsVariables" type="button">Load ACS variable catalog</button>
-</div>
-</div>
-<div class="grid2" style="margin-top:8px;">
-<div class="field">
-<label class="label" for="intelAcsVarCatalog">Catalog results</label>
-<select class="select" id="intelAcsVarCatalog" multiple size="8"></select>
-<div class="card-actions" style="margin-top:6px;">
-<button class="btn btn-sm" id="btnIntelAcsVarAdd" type="button">Add selected</button>
-</div>
-</div>
-<div class="field">
-<label class="label" for="intelAcsVarSelected">Selected ACS variables</label>
-<select class="select" id="intelAcsVarSelected" multiple size="8"></select>
-<div class="card-actions" style="margin-top:6px;">
-<button class="btn btn-sm" id="btnIntelAcsVarRemove" type="button">Remove selected</button>
-</div>
-</div>
-</div>
-<div class="muted" id="intelAcsVarStatus" style="margin-top:6px;">Selected ACS variables will be requested during fetch.</div>
+<div></div>
 </div>
 <div class="grid4" style="margin-top:10px;">
 <div class="field">
@@ -2333,10 +2294,42 @@
 <div class="muted" id="intelAreaAssistStatus" style="margin-top:6px;">Set state first, then fetch county/place/GEO lists.</div>
 <div class="muted" id="intelAreaAssistLookupStatus" style="margin-top:6px;">No fetched county/place/GEO lookup loaded.</div>
 <div class="note" id="intelAreaResolverSummary" style="margin-top:8px;">Area resolver: not configured.</div>
-<input class="input" id="intelAreaDistrict" type="hidden"/>
 <input class="input" id="intelAreaCountyFips" type="hidden"/>
 <input class="input" id="intelAreaPlaceFips" type="hidden"/>
-<div class="muted" id="intelFlowStepStatus" style="margin-top:8px;">Flow: Step 1 select area.</div>
+<div class="muted" id="intelFlowStepStatus" style="margin-top:8px;">Flow: select an area, then fetch Census GEO rows.</div>
+<div class="mini" style="margin-top:12px;">
+<div class="mini-k">ACS variables + API key</div>
+<div class="grid2" style="margin-top:8px;">
+<div class="field">
+<label class="label" for="intelCensusApiKey">Census API key (optional)</label>
+<input class="input" id="intelCensusApiKey" placeholder="Enter Census API key" type="password" autocomplete="off"/>
+</div>
+<div class="field">
+<label class="label" for="intelAcsVarSearch">Search ACS variables</label>
+<input class="input" id="intelAcsVarSearch" placeholder="e.g., income, renter, B19013_001E" type="text"/>
+</div>
+</div>
+<div class="rowline" style="margin-top:8px;">
+<button class="btn btn-sm" id="btnIntelLoadAcsVariables" type="button">Load ACS variable catalog</button>
+</div>
+<div class="grid2" style="margin-top:8px;">
+<div class="field">
+<label class="label" for="intelAcsVarCatalog">Catalog results</label>
+<select class="select" id="intelAcsVarCatalog" multiple size="7"></select>
+<div class="card-actions" style="margin-top:6px;">
+<button class="btn btn-sm" id="btnIntelAcsVarAdd" type="button">Add selected</button>
+</div>
+</div>
+<div class="field">
+<label class="label" for="intelAcsVarSelected">Selected variables</label>
+<select class="select" id="intelAcsVarSelected" multiple size="7"></select>
+<div class="card-actions" style="margin-top:6px;">
+<button class="btn btn-sm" id="btnIntelAcsVarRemove" type="button">Remove selected</button>
+</div>
+</div>
+</div>
+<div class="muted" id="intelAcsVarStatus" style="margin-top:6px;">Selected ACS variables will be included in Census fetch.</div>
+</div>
 <div class="grid3" style="margin-top:10px;">
 <div class="mini">
 <div class="mini-k">GEO rows</div>
@@ -2355,7 +2348,14 @@
 </div>
 </div>
 <div class="muted" id="intelDistrictEvidenceStatus" style="margin-top:10px;">District evidence not compiled yet.</div>
-<div class="table-wrap" style="margin-top:10px;">
+<div class="mini" style="margin-top:12px;">
+<div class="mini-k">Map overlay</div>
+<div class="muted" id="intelDistrictEvidenceMapStatus" style="margin-top:6px;">Map unavailable: no centroid coordinates found in census GEO rows.</div>
+<div class="intel-geo-map-wrap" style="margin-top:8px;">
+<div class="intel-geo-map" id="intelDistrictEvidenceMapSvg" role="img" aria-label="District evidence map"></div>
+</div>
+</div>
+<div class="table-wrap" style="margin-top:12px;">
 <table class="table">
 <thead>
 <tr>
@@ -2368,31 +2368,8 @@
 </tbody>
 </table>
 </div>
-<div class="table-wrap" style="margin-top:10px;">
-<table class="table">
-<thead>
-<tr>
-<th>Assumption</th>
-<th class="num">Base</th>
-<th class="num">Adjusted</th>
-<th class="num">Delta</th>
-<th>Driver</th>
-</tr>
-</thead>
-<tbody id="intelDistrictAssumptionTbody">
-<tr><td class="muted" colspan="5">No district-intel assumption pack generated yet.</td></tr>
-</tbody>
-</table>
-</div>
-<div class="mini" style="margin-top:10px;">
-<div class="mini-k">District GEO map</div>
-<div class="muted" id="intelDistrictEvidenceMapStatus" style="margin-top:6px;">Map unavailable: no centroid coordinates found in census GEO rows.</div>
-<div class="intel-geo-map-wrap" style="margin-top:8px;">
-<div class="intel-geo-map" id="intelDistrictEvidenceMapSvg" role="img" aria-label="District evidence map"></div>
-</div>
-</div>
-<div class="mini" style="margin-top:10px;">
-<div class="mini-k">GEO inspector</div>
+<div class="mini" style="margin-top:12px;">
+<div class="mini-k">Selected GEO inspector</div>
 <div class="grid2" style="margin-top:8px;">
 <div class="field">
 <label class="label" for="intelGeoInspectorSelect">Selected tract/block group</label>
@@ -2444,6 +2421,14 @@
 <div class="muted" id="intelGeoInspectorCopyStatus" style="margin-top:6px;">No summary copied yet.</div>
 </div>
 </div>
+<table style="display:none;">
+<tbody id="intelDistrictAssumptionTbody"></tbody>
+<tbody id="intelDistrictEvidenceGeoTbody"></tbody>
+</table>
+<input id="intelUseDistrictToggle" type="checkbox" hidden/>
+<button id="btnIntelGenerateDistrictIntel" type="button" hidden>Generate assumptions</button>
+<div id="intelDistrictIntelStatus" hidden></div>
+<div id="intelDistrictIntelSummary" hidden></div>
 </div>
 <div class="card card-section" id="intelCalibrationBriefCard">
 <div class="card-head card-header">
@@ -3211,7 +3196,7 @@ Volunteer multiplier stays above 1.5" rows="4"></textarea>
 </div>
 <!-- /app-shell -->
 <script crossorigin="" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-<script src="./js/app.js?v=20260224-stable-c87" type="module"></script>
+<script src="./js/app.js?v=20260308-census-reset-1" type="module"></script>
 <script>
 // ── Stage navigation ───────────────────────────────────────────
 function normalizeStages() {
