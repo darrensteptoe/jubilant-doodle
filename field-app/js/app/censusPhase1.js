@@ -56,7 +56,8 @@ export function ensureCensusStateModule(state){
 }
 
 function fillSelect(el, rows, value, placeholderLabel){
-  if (!el) return;
+  if (!el || typeof el.appendChild !== "function" || !("innerHTML" in el)) return;
+  if (typeof document === "undefined" || typeof document.createElement !== "function") return;
   const prev = cleanText(value);
   el.innerHTML = "";
   const ph = document.createElement("option");
@@ -74,7 +75,8 @@ function fillSelect(el, rows, value, placeholderLabel){
 }
 
 function fillMultiSelect(el, rows, selectedGeoids){
-  if (!el) return;
+  if (!el || typeof el.appendChild !== "function" || !("innerHTML" in el)) return;
+  if (typeof document === "undefined" || typeof document.createElement !== "function") return;
   const selected = new Set(Array.isArray(selectedGeoids) ? selectedGeoids.map((v) => cleanText(v)) : []);
   el.innerHTML = "";
   for (const row of rows || []){
@@ -211,7 +213,7 @@ export function renderCensusPhase1Module({ els, state } = {}){
   if (!s) return;
 
   const storedKey = readCensusApiKeyModule();
-  if (els.censusApiKey && document.activeElement !== els.censusApiKey){
+  if (els.censusApiKey && typeof document !== "undefined" && document.activeElement !== els.censusApiKey){
     els.censusApiKey.value = storedKey;
   }
 
@@ -258,7 +260,13 @@ export function renderCensusPhase1Module({ els, state } = {}){
   });
   const tableRows = buildAggregateTableRows(aggregate, s.metricSet);
 
-  if (els.censusAggregateTbody){
+  if (
+    els.censusAggregateTbody &&
+    typeof els.censusAggregateTbody.appendChild === "function" &&
+    "innerHTML" in els.censusAggregateTbody &&
+    typeof document !== "undefined" &&
+    typeof document.createElement === "function"
+  ){
     els.censusAggregateTbody.innerHTML = "";
     if (!tableRows.length){
       const tr = document.createElement("tr");
