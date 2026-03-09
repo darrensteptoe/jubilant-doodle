@@ -15,6 +15,7 @@ import {
   buildAggregateTableRows,
   filterGeoOptions,
   fetchTigerBoundaryGeojson,
+  parseGeoidInput,
 } from "../core/censusModule.js";
 
 const variableCatalogCache = new Map();
@@ -412,6 +413,110 @@ function getRowsForState(s){
   return rows && typeof rows === "object" ? rows : {};
 }
 
+function contextFingerprint(s){
+  const resolution = cleanText(s?.resolution);
+  const stateFips = cleanText(s?.stateFips);
+  const countyFips = resolution === "place" ? "" : cleanText(s?.countyFips);
+  const placeFips = resolution === "place" ? cleanText(s?.placeFips) : "";
+  return [
+    resolution,
+    stateFips,
+    countyFips,
+    placeFips,
+  ].join("|");
+}
+
+function setRowContextFingerprint(row){
+  const resolution = cleanText(row?.resolution);
+  const stateFips = cleanText(row?.stateFips);
+  const countyFips = resolution === "place" ? "" : cleanText(row?.countyFips);
+  const placeFips = resolution === "place" ? cleanText(row?.placeFips) : "";
+  return [
+    resolution,
+    stateFips,
+    countyFips,
+    placeFips,
+  ].join("|");
+}
+
+function buildSelectionSetRows(selectionSets){
+  const rows = Array.isArray(selectionSets) ? selectionSets : [];
+  return rows.map((row, idx) => ({
+    value: String(idx),
+    label: `${cleanText(row.name)} · ${cleanText(row.resolution)} · ${Array.isArray(row.geoids) ? row.geoids.length : 0} GEO`,
+  }));
+}
+
+function getSelectionSetByKey(selectionSets, key){
+  const rows = Array.isArray(selectionSets) ? selectionSets : [];
+  const idx = Number(key);
+  if (!Number.isInteger(idx) || idx < 0 || idx >= rows.length) return null;
+  const row = rows[idx];
+  return row && typeof row === "object" ? row : null;
+}
+
+function uniqueGeoids(values){
+  const out = [];
+  const seen = new Set();
+  for (const raw of Array.isArray(values) ? values : []){
+    const id = cleanText(raw);
+    if (!id || seen.has(id)) continue;
+    seen.add(id);
+    out.push(id);
+  }
+  return out;
+}
+
+function aggregateSnapshot(s){
+  const runtimeRows = getRowsForState(s);
+  const aggregate = aggregateRowsForSelection({
+    rowsByGeoid: runtimeRows,
+    selectedGeoids: s.selectedGeoids,
+    metricSet: s.metricSet,
+  });
+  const tableRows = buildAggregateTableRows(aggregate, s.metricSet);
+  return { runtimeRows, aggregate, tableRows };
+}
+
+function csvEscape(value){
+  const text = String(value == null ? "" : value);
+  if (!/[",\n]/.test(text)) return text;
+  return `"${text.replace(/"/g, "\"\"")}"`;
+}
+
+function downloadTextFile(text, filename, mime){
+  if (typeof document === "undefined" || typeof URL === "undefined" || typeof Blob === "undefined") return false;
+  const blob = new Blob([String(text == null ? "" : text)], { type: mime || "text/plain" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename || "download.txt";
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+  return true;
+}
+
+function fileStamp(){
+  return new Date().toISOString().replace(/[:.]/g, "-");
+}
+
+function fileSlugPart(text){
+  return cleanText(text).replace(/[^a-z0-9_-]+/gi, "-").replace(/-+/g, "-").replace(/^-|-$/g, "").toLowerCase();
+}
+
+function exportBaseName(s){
+  const parts = [
+    "census-aggregate",
+    fileSlugPart(s.resolution) || "resolution",
+    fileSlugPart(s.stateFips) || "state",
+    fileSlugPart(s.countyFips || s.placeFips) || "area",
+    fileStamp(),
+  ];
+  return parts.filter((x) => !!x).join("-");
+}
+
 export function renderCensusPhase1Module({ els, state } = {}){
   if (!els || !state) return;
   const s = ensureCensusStateModule(state);
@@ -439,6 +544,12 @@ export function renderCensusPhase1Module({ els, state } = {}){
   }
   const tractRows = s.resolution === "block_group" ? uniqueTractRows(s.geoOptions) : [];
   fillSelect(els.censusTractFilter, tractRows, s.tractFilter, "All tracts");
+  if (els.censusSelectionSetName && document.activeElement !== els.censusSelectionSetName){
+    els.censusSelectionSetName.value = s.selectionSetDraftName || "";
+  }
+  const setRows = buildSelectionSetRows(s.selectionSets);
+  const selectedSetKey = setRows.some((row) => row.value === cleanText(s.selectedSelectionSetKey)) ? cleanText(s.selectedSelectionSetKey) : "";
+  fillSelect(els.censusSelectionSetSelect, setRows, selectedSetKey, "Saved sets");
 
   if (els.censusCountyFips){
     els.censusCountyFips.disabled = s.resolution === "place" || !s.stateFips;
@@ -471,6 +582,18 @@ export function renderCensusPhase1Module({ els, state } = {}){
   if (els.btnCensusClearSelection){
     els.btnCensusClearSelection.disabled = !s.selectedGeoids.length;
   }
+  if (els.btnCensusApplyGeoPaste){
+    els.btnCensusApplyGeoPaste.disabled = !s.geoOptions.length;
+  }
+  if (els.btnCensusSaveSelectionSet){
+    els.btnCensusSaveSelectionSet.disabled = !s.selectedGeoids.length || !cleanText(s.selectionSetDraftName);
+  }
+  if (els.btnCensusLoadSelectionSet){
+    els.btnCensusLoadSelectionSet.disabled = !selectedSetKey || !s.geoOptions.length;
+  }
+  if (els.btnCensusDeleteSelectionSet){
+    els.btnCensusDeleteSelectionSet.disabled = !selectedSetKey;
+  }
   if (els.btnCensusLoadMap){
     els.btnCensusLoadMap.disabled = mapRuntimeStatus.loading || !s.selectedGeoids.length;
   }
@@ -478,13 +601,13 @@ export function renderCensusPhase1Module({ els, state } = {}){
     els.btnCensusClearMap.disabled = mapRuntimeStatus.loading || !mapRuntimeStatus.featureCount;
   }
 
-  const runtimeRows = getRowsForState(s);
-  const aggregate = aggregateRowsForSelection({
-    rowsByGeoid: runtimeRows,
-    selectedGeoids: s.selectedGeoids,
-    metricSet: s.metricSet,
-  });
-  const tableRows = buildAggregateTableRows(aggregate, s.metricSet);
+  const { runtimeRows, tableRows } = aggregateSnapshot(s);
+  if (els.btnCensusExportAggregateCsv){
+    els.btnCensusExportAggregateCsv.disabled = !tableRows.length || !s.selectedGeoids.length;
+  }
+  if (els.btnCensusExportAggregateJson){
+    els.btnCensusExportAggregateJson.disabled = !tableRows.length || !s.selectedGeoids.length;
+  }
 
   if (
     els.censusAggregateTbody &&
@@ -532,6 +655,16 @@ export function renderCensusPhase1Module({ els, state } = {}){
       ? `Aggregate reflects ${s.selectedGeoids.length} selected GEO units.`
       : "No GEO selected. Select one or more GEO units to aggregate.";
     els.censusSelectionSummary.textContent = summary;
+  }
+
+  if (els.censusSelectionSetStatus){
+    const setCount = Array.isArray(s.selectionSets) ? s.selectionSets.length : 0;
+    if (!setCount){
+      els.censusSelectionSetStatus.textContent = "No saved selection sets.";
+    } else {
+      const matchCount = (s.selectionSets || []).filter((row) => setRowContextFingerprint(row) === contextFingerprint(s)).length;
+      els.censusSelectionSetStatus.textContent = `${setCount} saved set${setCount === 1 ? "" : "s"}. ${matchCount} match current context.`;
+    }
   }
 
   if (els.censusLastFetch){
@@ -840,6 +973,24 @@ export function wireCensusPhase1EventsModule(ctx){
     });
   }
 
+  if (els.censusSelectionSetName){
+    els.censusSelectionSetName.addEventListener("input", () => {
+      withState((_, s) => {
+        s.selectionSetDraftName = cleanText(els.censusSelectionSetName.value);
+      });
+      commitUIUpdate({ persist: false });
+    });
+  }
+
+  if (els.censusSelectionSetSelect){
+    els.censusSelectionSetSelect.addEventListener("change", () => {
+      withState((_, s) => {
+        s.selectedSelectionSetKey = cleanText(els.censusSelectionSetSelect.value);
+      });
+      commitUIUpdate({ persist: false });
+    });
+  }
+
   if (els.btnCensusLoadGeo){
     els.btnCensusLoadGeo.addEventListener("click", async () => {
       const key = cleanText(els.censusApiKey?.value) || readCensusApiKeyModule();
@@ -916,6 +1067,183 @@ export function wireCensusPhase1EventsModule(ctx){
         setStatus(s, "Selection cleared.", false);
       });
       commitUIUpdate();
+    });
+  }
+
+  if (els.btnCensusApplyGeoPaste){
+    els.btnCensusApplyGeoPaste.addEventListener("click", () => {
+      withState((_, s) => {
+        const parsed = parseGeoidInput(els.censusGeoPaste?.value, s.resolution);
+        if (!parsed.length){
+          setStatus(s, "No valid GEOIDs detected in paste input.", true);
+          return;
+        }
+        const available = new Set((s.geoOptions || []).map((row) => cleanText(row.geoid)));
+        const matched = parsed.filter((id) => available.has(id));
+        if (!matched.length){
+          setStatus(s, "Pasted GEOIDs did not match loaded GEO list.", true);
+          return;
+        }
+        s.selectedGeoids = matched;
+        const unmatched = parsed.length - matched.length;
+        setStatus(s, unmatched > 0
+          ? `Applied GEOIDs: ${matched.length} matched, ${unmatched} unmatched.`
+          : `Applied GEOIDs: ${matched.length} matched.`, false);
+      });
+      commitUIUpdate();
+    });
+  }
+
+  if (els.btnCensusSaveSelectionSet){
+    els.btnCensusSaveSelectionSet.addEventListener("click", () => {
+      withState((_, s) => {
+        const name = cleanText(s.selectionSetDraftName || els.censusSelectionSetName?.value);
+        const geoids = uniqueGeoids(s.selectedGeoids);
+        if (!name){
+          setStatus(s, "Enter a set name before saving.", true);
+          return;
+        }
+        if (!geoids.length){
+          setStatus(s, "Select GEO units before saving a set.", true);
+          return;
+        }
+        const rows = Array.isArray(s.selectionSets) ? s.selectionSets.slice() : [];
+        const context = contextFingerprint(s);
+        const existingIdx = rows.findIndex((row) => cleanText(row?.name).toLowerCase() === name.toLowerCase() && setRowContextFingerprint(row) === context);
+        const record = {
+          name,
+          resolution: cleanText(s.resolution),
+          stateFips: cleanText(s.stateFips),
+          countyFips: cleanText(s.countyFips),
+          placeFips: cleanText(s.placeFips),
+          geoids,
+          updatedAt: new Date().toISOString(),
+        };
+        if (existingIdx >= 0){
+          rows[existingIdx] = record;
+          s.selectedSelectionSetKey = String(existingIdx);
+        } else {
+          rows.unshift(record);
+          if (rows.length > 50) rows.length = 50;
+          s.selectedSelectionSetKey = "0";
+        }
+        s.selectionSets = rows;
+        s.selectionSetDraftName = name;
+        setStatus(s, `Saved set "${name}" with ${geoids.length} GEO units.`, false);
+      });
+      commitUIUpdate();
+    });
+  }
+
+  if (els.btnCensusLoadSelectionSet){
+    els.btnCensusLoadSelectionSet.addEventListener("click", () => {
+      withState((_, s) => {
+        const row = getSelectionSetByKey(s.selectionSets, s.selectedSelectionSetKey);
+        if (!row){
+          setStatus(s, "Select a saved set to load.", true);
+          return;
+        }
+        const available = new Set((s.geoOptions || []).map((opt) => cleanText(opt.geoid)));
+        const matched = uniqueGeoids(row.geoids).filter((id) => available.has(id));
+        if (!matched.length){
+          setStatus(s, "Saved set has no GEOIDs in current loaded list. Load matching GEO list first.", true);
+          return;
+        }
+        s.selectedGeoids = matched;
+        s.selectionSetDraftName = cleanText(row.name);
+        const missing = uniqueGeoids(row.geoids).length - matched.length;
+        setStatus(s, missing > 0
+          ? `Loaded set "${row.name}": ${matched.length} matched, ${missing} unavailable in current list.`
+          : `Loaded set "${row.name}" with ${matched.length} GEO units.`, false);
+      });
+      commitUIUpdate();
+    });
+  }
+
+  if (els.btnCensusDeleteSelectionSet){
+    els.btnCensusDeleteSelectionSet.addEventListener("click", () => {
+      withState((_, s) => {
+        const idx = Number(s.selectedSelectionSetKey);
+        if (!Number.isInteger(idx) || idx < 0 || idx >= (s.selectionSets || []).length){
+          setStatus(s, "Select a saved set to delete.", true);
+          return;
+        }
+        const rows = s.selectionSets.slice();
+        const removed = rows.splice(idx, 1)[0];
+        s.selectionSets = rows;
+        s.selectedSelectionSetKey = "";
+        setStatus(s, `Deleted set "${cleanText(removed?.name) || "Unnamed"}".`, false);
+      });
+      commitUIUpdate();
+    });
+  }
+
+  if (els.btnCensusExportAggregateCsv){
+    els.btnCensusExportAggregateCsv.addEventListener("click", () => {
+      withState((_, s) => {
+        const { tableRows } = aggregateSnapshot(s);
+        if (!tableRows.length || !s.selectedGeoids.length){
+          setStatus(s, "No aggregate available to export.", true);
+          return;
+        }
+        const headers = ["metric_id", "metric_label", "value", "value_text", "format", "year", "resolution", "state_fips", "county_fips", "place_fips", "selected_geo_count"];
+        const lines = [headers.map(csvEscape).join(",")];
+        for (const row of tableRows){
+          const values = [
+            row.id,
+            row.label,
+            row.value,
+            row.valueText,
+            row.format,
+            s.year,
+            s.resolution,
+            s.stateFips,
+            s.countyFips,
+            s.placeFips,
+            s.selectedGeoids.length,
+          ];
+          lines.push(values.map(csvEscape).join(","));
+        }
+        const ok = downloadTextFile(lines.join("\n"), `${exportBaseName(s)}.csv`, "text/csv");
+        setStatus(s, ok ? "Aggregate CSV exported." : "CSV export failed.", !ok);
+      });
+      commitUIUpdate({ persist: false });
+    });
+  }
+
+  if (els.btnCensusExportAggregateJson){
+    els.btnCensusExportAggregateJson.addEventListener("click", () => {
+      withState((_, s) => {
+        const { tableRows } = aggregateSnapshot(s);
+        if (!tableRows.length || !s.selectedGeoids.length){
+          setStatus(s, "No aggregate available to export.", true);
+          return;
+        }
+        const payload = {
+          exportedAt: new Date().toISOString(),
+          context: {
+            year: s.year,
+            resolution: s.resolution,
+            metricSet: s.metricSet,
+            stateFips: s.stateFips,
+            countyFips: s.countyFips,
+            placeFips: s.placeFips,
+          },
+          selectedGeoids: s.selectedGeoids.slice(),
+          selectedGeoCount: s.selectedGeoids.length,
+          rowsLoaded: s.loadedRowCount,
+          metrics: tableRows.map((row) => ({
+            id: row.id,
+            label: row.label,
+            value: row.value,
+            valueText: row.valueText,
+            format: row.format,
+          })),
+        };
+        const ok = downloadTextFile(JSON.stringify(payload, null, 2), `${exportBaseName(s)}.json`, "application/json");
+        setStatus(s, ok ? "Aggregate JSON exported." : "JSON export failed.", !ok);
+      });
+      commitUIUpdate({ persist: false });
     });
   }
 
