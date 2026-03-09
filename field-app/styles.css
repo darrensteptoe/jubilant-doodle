@@ -602,37 +602,6 @@ input[type="date"].input{
 .mini-v{ font-size: 14px; font-weight: 750; margin-top: 6px; }
 .metric-v{ font-size: 14px; font-weight: 750; margin-top: 4px; }
 
-.intel-geo-map-wrap{
-  border: 1px solid var(--rule);
-  border-radius: var(--radius);
-  background: color-mix(in srgb, var(--panel) 92%, var(--bg));
-  overflow: hidden;
-}
-.intel-geo-map{
-  display: block;
-  width: 100%;
-  min-height: 320px;
-  height: 420px;
-}
-.intel-geo-map .leaflet-container{
-  width: 100%;
-  height: 100%;
-  background: color-mix(in srgb, var(--panel) 92%, var(--bg));
-}
-.intel-geo-map.leaflet-container{
-  width: 100%;
-  height: 100%;
-  background: color-mix(in srgb, var(--panel) 92%, var(--bg));
-}
-.intel-geo-map .leaflet-control-attribution{
-  font-size: 10px;
-}
-.intel-geo-map .leaflet-tooltip{
-  background: rgba(15, 23, 42, 0.95);
-  color: #f8fafc;
-  border: 1px solid rgba(148,163,184,0.35);
-}
-
 /* =========================
    12) Validation + DI boxes (required)
    ========================= */

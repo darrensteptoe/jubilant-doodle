@@ -16,7 +16,6 @@
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&amp;family=IBM+Plex+Sans:wght@300;400;500;600&amp;display=swap" rel="stylesheet"/>
 <link href="./styles-shell.css?v=20260224-c25" rel="stylesheet"/>
 <link href="./styles.css?v=20260224-c25" rel="stylesheet"/>
-<link crossorigin="" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" rel="stylesheet"/>
 </head>
 <body>
 <!-- ── TOPBAR ───────────────────────────────────────────── -->
@@ -2011,6 +2010,91 @@
 </div>
 </div>
 </div>
+<div class="card card-section" id="censusPhase1Card">
+<div class="card-head card-header">
+<h2 class="card-title">Census data (phase 1)</h2>
+</div>
+<div class="help-text">Census-only flow: select geography context, fetch ACS rows from API, multi-select GEO units, and review aggregate demographics.</div>
+<div class="grid3" style="margin-top:10px;">
+<div class="field">
+<label class="label" for="censusApiKey">Census API key</label>
+<input autocomplete="off" class="input" id="censusApiKey" placeholder="Paste key once. Saved in this browser only." type="text"/>
+</div>
+<div class="field">
+<label class="label" for="censusAcsYear">ACS 5-year</label>
+<select class="select" id="censusAcsYear">
+<option value="">Select year</option>
+</select>
+</div>
+<div class="field">
+<label class="label" for="censusResolution">Resolution</label>
+<select class="select" id="censusResolution">
+<option value="">Select resolution</option>
+</select>
+</div>
+</div>
+<div class="grid3" style="margin-top:10px;">
+<div class="field">
+<label class="label" for="censusStateFips">State</label>
+<select class="select" id="censusStateFips">
+<option value="">Select state</option>
+</select>
+</div>
+<div class="field">
+<label class="label" for="censusCountyFips">County</label>
+<select class="select" id="censusCountyFips">
+<option value="">Select county</option>
+</select>
+</div>
+<div class="field">
+<label class="label" for="censusPlaceFips">Place</label>
+<select class="select" id="censusPlaceFips">
+<option value="">Select place</option>
+</select>
+</div>
+</div>
+<div class="grid2" style="margin-top:10px;">
+<div class="field">
+<label class="label" for="censusMetricSet">Data bundle</label>
+<select class="select" id="censusMetricSet">
+<option value="">Select bundle</option>
+</select>
+</div>
+<div class="field">
+<label class="label">Actions</label>
+<div class="rowline" style="gap:8px; flex-wrap:wrap;">
+<button class="btn btn-sm" id="btnCensusLoadGeo" type="button">Load GEO list</button>
+<button class="btn btn-sm btn-ghost" id="btnCensusFetchRows" type="button">Fetch ACS rows</button>
+</div>
+</div>
+</div>
+<div class="rowline" style="margin-top:10px; justify-content:space-between; gap:10px;">
+<div class="muted" id="censusStatus">Ready.</div>
+<div class="muted" id="censusGeoStats">0 selected of 0 GEOs. 0 rows loaded.</div>
+</div>
+<div class="grid2" style="margin-top:10px;">
+<div class="field">
+<label class="label" for="censusGeoSelect">GEO units</label>
+<select class="select" id="censusGeoSelect" multiple="" size="12"></select>
+<div class="rowline" style="margin-top:8px; gap:8px;">
+<button class="btn btn-sm btn-ghost" id="btnCensusSelectAll" type="button">Select all</button>
+<button class="btn btn-sm btn-ghost" id="btnCensusClearSelection" type="button">Clear</button>
+</div>
+</div>
+<div class="table-wrap">
+<table class="table" aria-label="Census aggregate table">
+<thead>
+<tr><th>Metric</th><th class="num">Value</th></tr>
+</thead>
+<tbody id="censusAggregateTbody">
+<tr><td class="muted" colspan="2">No ACS rows loaded.</td></tr>
+</tbody>
+</table>
+</div>
+</div>
+<div class="muted" id="censusSelectionSummary">No GEO selected. Select one or more GEO units to aggregate.</div>
+<div class="muted" id="censusLastFetch">No fetch yet.</div>
+</div>
 <div class="card card-section" id="intelWorkflowCard">
 <div class="card-head card-header">
 <h2 class="card-title">Workflow governance</h2>
@@ -2214,212 +2298,6 @@
 <tr><td class="muted" colspan="5">No evidence records yet.</td></tr>
 </tbody>
 </table>
-</div>
-</div>
-<div class="card card-section" id="intelDistrictEvidenceCard">
-<div class="card-head card-header">
-<h2 class="card-title">District Census (Phase 1)</h2>
-</div>
-<div class="help-text">Phase 1 Census flow: select geography, fetch GEO rows, review demographics and map overlay.</div>
-<div class="grid4" style="margin-top:12px;">
-<div class="field">
-<label class="label" for="intelAreaStateFips">State</label>
-<select class="select" id="intelAreaStateFips">
-<option value="">Select state</option>
-</select>
-</div>
-<div class="field">
-<label class="label" for="intelAreaType">Area type</label>
-<select class="select" id="intelAreaType">
-<option value="">Not set</option>
-<option value="CD">Congressional district (CD)</option>
-<option value="SLDU">State senate (SLDU)</option>
-<option value="SLDL">State house (SLDL)</option>
-<option value="COUNTY">County</option>
-<option value="PLACE">Place / city</option>
-<option value="CUSTOM">Custom</option>
-</select>
-</div>
-<div class="field">
-<label class="label" for="intelAreaResolution">Resolution</label>
-<select class="select" id="intelAreaResolution">
-<option value="tract">Tract</option>
-<option value="block_group">Block group</option>
-</select>
-</div>
-<div class="field">
-<label class="label" for="intelAcsYearPreference">ACS year</label>
-<select class="select" id="intelAcsYearPreference">
-<option value="auto_latest">Auto latest</option>
-</select>
-</div>
-</div>
-<div class="grid3" style="margin-top:10px;">
-<div class="field">
-<label class="label" for="intelAreaLabel">Area label (optional)</label>
-<input class="input" id="intelAreaLabel" placeholder="e.g., IL-13" type="text"/>
-</div>
-<div class="field">
-<label class="label" for="intelAreaDistrict">District code (for CD/SLDU/SLDL)</label>
-<input class="input" id="intelAreaDistrict" placeholder="e.g., 13 or 013" type="text"/>
-</div>
-<div></div>
-</div>
-<div class="grid4" style="margin-top:10px;">
-<div class="field">
-<label class="label" for="intelAreaAssistCounty">County</label>
-<select class="select" id="intelAreaAssistCounty">
-<option value="">No county suggestions</option>
-</select>
-</div>
-<div class="field">
-<label class="label" for="intelAreaAssistPlace">Place / city</label>
-<select class="select" id="intelAreaAssistPlace">
-<option value="">No place suggestions</option>
-</select>
-</div>
-<div class="field">
-<label class="label" for="intelAreaAssistGeo">Tract/block</label>
-<select class="select" id="intelAreaAssistGeo">
-<option value="">No GEO suggestions</option>
-</select>
-</div>
-<div class="field" style="display:flex; align-items:flex-end;">
-<div class="grid2" style="width:100%; margin:0;">
-<button class="btn btn-sm" id="btnIntelAreaAssistFetchCodes" type="button">Fetch county/place/GEO lists</button>
-<button class="btn btn-sm" id="btnIntelFetchCensusGeoRows" type="button">Fetch Census GEO rows</button>
-</div>
-</div>
-</div>
-<div class="muted" id="intelAreaAssistStatus" style="margin-top:6px;">Set state first, then fetch county/place/GEO lists.</div>
-<div class="muted" id="intelAreaAssistLookupStatus" style="margin-top:6px;">No fetched county/place/GEO lookup loaded.</div>
-<div class="note" id="intelAreaResolverSummary" style="margin-top:8px;">Area resolver: not configured.</div>
-<input class="input" id="intelAreaCountyFips" type="hidden"/>
-<input class="input" id="intelAreaPlaceFips" type="hidden"/>
-<div class="muted" id="intelFlowStepStatus" style="margin-top:8px;">Flow: select an area, then fetch Census GEO rows.</div>
-<div class="mini" style="margin-top:12px;">
-<div class="mini-k">ACS variables + API key</div>
-<div class="grid2" style="margin-top:8px;">
-<div class="field">
-<label class="label" for="intelCensusApiKey">Census API key (optional)</label>
-<input class="input" id="intelCensusApiKey" placeholder="Enter Census API key" type="password" autocomplete="off"/>
-</div>
-<div class="field">
-<label class="label" for="intelAcsVarSearch">Search ACS variables</label>
-<input class="input" id="intelAcsVarSearch" placeholder="e.g., income, renter, B19013_001E" type="text"/>
-</div>
-</div>
-<div class="rowline" style="margin-top:8px;">
-<button class="btn btn-sm" id="btnIntelLoadAcsVariables" type="button">Load ACS variable catalog</button>
-</div>
-<div class="grid2" style="margin-top:8px;">
-<div class="field">
-<label class="label" for="intelAcsVarCatalog">Catalog results</label>
-<select class="select" id="intelAcsVarCatalog" multiple size="7"></select>
-<div class="card-actions" style="margin-top:6px;">
-<button class="btn btn-sm" id="btnIntelAcsVarAdd" type="button">Add selected</button>
-</div>
-</div>
-<div class="field">
-<label class="label" for="intelAcsVarSelected">Selected variables</label>
-<select class="select" id="intelAcsVarSelected" multiple size="7"></select>
-<div class="card-actions" style="margin-top:6px;">
-<button class="btn btn-sm" id="btnIntelAcsVarRemove" type="button">Remove selected</button>
-</div>
-</div>
-</div>
-<div class="muted" id="intelAcsVarStatus" style="margin-top:6px;">Selected ACS variables will be included in Census fetch.</div>
-</div>
-<div class="grid3" style="margin-top:10px;">
-<div class="mini">
-<div class="mini-k">GEO rows</div>
-<div class="mini-v" id="intelDistrictEvidenceCoverage">GEO rows loaded: —</div>
-<div class="mini-s">Selected-area Census GEO rows</div>
-</div>
-<div class="mini">
-<div class="mini-k">Population</div>
-<div class="mini-v" id="intelDistrictEvidenceVotes">Population total: —</div>
-<div class="mini-s">Summed from loaded Census GEO rows</div>
-</div>
-<div class="mini">
-<div class="mini-k">Housing units</div>
-<div class="mini-v" id="intelDistrictEvidenceSignal">Housing units total: —</div>
-<div class="mini-s">Summed from loaded Census GEO rows</div>
-</div>
-</div>
-<div class="muted" id="intelDistrictEvidenceStatus" style="margin-top:10px;">District evidence not compiled yet.</div>
-<div class="mini" style="margin-top:12px;">
-<div class="mini-k">Map overlay</div>
-<div class="muted" id="intelDistrictEvidenceMapStatus" style="margin-top:6px;">Map unavailable: no centroid coordinates found in census GEO rows.</div>
-<div class="intel-geo-map-wrap" style="margin-top:8px;">
-<div class="intel-geo-map" id="intelDistrictEvidenceMapSvg" role="img" aria-label="District evidence map"></div>
-</div>
-</div>
-<div class="table-wrap" style="margin-top:12px;">
-<table class="table">
-<thead>
-<tr>
-<th>District demographics</th>
-<th class="num">Value</th>
-</tr>
-</thead>
-<tbody id="intelDistrictDemographicsTbody">
-<tr><td class="muted" colspan="2">No district demographic rollup yet.</td></tr>
-</tbody>
-</table>
-</div>
-<div class="mini" style="margin-top:12px;">
-<div class="mini-k">Selected GEO inspector</div>
-<div class="grid2" style="margin-top:8px;">
-<div class="field">
-<label class="label" for="intelGeoInspectorSelect">Selected tract/block group</label>
-<select class="select" id="intelGeoInspectorSelect">
-<option value="">No GEO available</option>
-</select>
-<div class="card-actions" style="margin-top:6px;">
-<button class="btn btn-sm" id="btnIntelGeoInspectorReloadBoundary" type="button">Reload selected GEO boundary</button>
-</div>
-</div>
-<div class="field">
-<label class="label">Status</label>
-<div class="muted" id="intelGeoInspectorStatus">No GEO selected.</div>
-</div>
-</div>
-<div class="grid3" style="margin-top:8px;">
-<div class="mini">
-<div class="mini-k">Selected GEO</div>
-<div class="mini-v" id="intelGeoInspectorRace">—</div>
-</div>
-<div class="mini">
-<div class="mini-k">Households</div>
-<div class="mini-v" id="intelGeoInspectorHouseholds">—</div>
-</div>
-<div class="mini">
-<div class="mini-k">Population</div>
-<div class="mini-v" id="intelGeoInspectorPopulation">—</div>
-</div>
-</div>
-<div class="table-wrap" style="margin-top:8px;">
-<table class="table">
-<thead>
-<tr>
-<th>Census field</th>
-<th class="num">Value</th>
-</tr>
-</thead>
-<tbody id="intelGeoInspectorCensusTbody">
-<tr><td class="muted" colspan="2">No census values loaded for selected GEO.</td></tr>
-</tbody>
-</table>
-</div>
-<div class="field" style="margin-top:8px;">
-<label class="label" for="intelGeoInspectorSummary">Selected GEO summary</label>
-<textarea class="input" id="intelGeoInspectorSummary" rows="6" readonly></textarea>
-<div class="card-actions" style="margin-top:6px;">
-<button class="btn btn-sm" id="btnIntelGeoInspectorCopy" type="button">Copy GEO summary</button>
-</div>
-<div class="muted" id="intelGeoInspectorCopyStatus" style="margin-top:6px;">No summary copied yet.</div>
-</div>
 </div>
 </div>
 <div class="card card-section" id="intelCalibrationBriefCard">
@@ -3187,8 +3065,7 @@ Volunteer multiplier stays above 1.5" rows="4"></textarea>
 </aside>
 </div>
 <!-- /app-shell -->
-<script crossorigin="" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-<script src="./js/app.js?v=20260309-census-phase1-2" type="module"></script>
+<script src="./js/app.js?v=20260309-census-phase1-1" type="module"></script>
 <script>
 // ── Stage navigation ───────────────────────────────────────────
 function normalizeStages() {
