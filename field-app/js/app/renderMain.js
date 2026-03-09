@@ -1,5 +1,6 @@
 // @ts-check
 import { buildModelInputFromState } from "./modelInput.js";
+import { renderCensusPhase1Module } from "./censusPhase1.js";
 
 /** @param {import("./types").RenderMainCtx} ctx */
 export function renderMain(ctx){
@@ -154,6 +155,7 @@ export function renderMain(ctx){
   safeCall(() => renderSensitivitySnapshotE4());
   safeCall(() => renderDecisionConfidenceE5(res, weeks, { weeklyContext, executionSnapshot }));
   safeCall(() => renderImpactTraceE6(res, weeks, { weeklyContext, executionSnapshot }));
+  safeCall(() => renderCensusPhase1Module({ els, state }));
 
   safeCall(() => renderUniverse16Card());
 

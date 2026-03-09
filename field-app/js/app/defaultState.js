@@ -1,11 +1,6 @@
 // @ts-check
 import { makeDefaultIntelState } from "../core/intelState.js";
-import {
-  makeDefaultDataRefs,
-  makeDefaultDataCatalog,
-  makeDefaultGeoPack,
-  makeDefaultDistrictIntelPack,
-} from "../core/districtData.js";
+import { makeDefaultCensusState } from "../core/censusModule.js";
 import { makeDefaultFeatureFlags } from "./featureFlags.js";
 
 /** @param {import("./types").DefaultStateCtx} ctx */
@@ -20,11 +15,6 @@ export function makeDefaultStateModule(ctx){
     universeBasis: "registered",
     universeSize: "",
     sourceNote: "",
-    useDistrictIntel: false,
-    dataRefs: makeDefaultDataRefs(),
-    dataCatalog: makeDefaultDataCatalog(),
-    geoPack: makeDefaultGeoPack(),
-    districtIntelPack: makeDefaultDistrictIntelPack(),
     turnoutA: "",
     turnoutB: "",
     bandWidth: defaultsByTemplate["state_leg"].bandWidth,
@@ -130,6 +120,7 @@ export function makeDefaultStateModule(ctx){
 
     mcLast: null,
     mcLastHash: "",
+    census: makeDefaultCensusState(),
     intelState: makeDefaultIntelState(),
     features: makeDefaultFeatureFlags(),
     ui: {

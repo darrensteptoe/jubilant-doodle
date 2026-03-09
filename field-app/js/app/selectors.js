@@ -2,7 +2,6 @@
 import { safeNum, clamp } from "../utils.js";
 import { normalizeUniversePercents, UNIVERSE_DEFAULTS } from "../core/universeLayer.js";
 import { resolveFeatureFlags } from "../core/featureFlags.js";
-import { applyDistrictIntelRateOverrides } from "../core/districtIntelBuilder.js";
 import {
   deriveNeedVotesOrZero as coreDeriveNeedVotesOrZero,
   deriveWeeksRemainingCeil as coreDeriveWeeksRemainingCeil
@@ -64,23 +63,14 @@ export function getEffectiveBaseRates(state, { computeUniverseAdjustedRates } = 
     supportRate: sr,
     turnoutReliability: tr,
   });
-  const intelAdj = applyDistrictIntelRateOverrides({
-    state,
-    rates: {
-      cr,
-      sr: adj.srAdj,
-      tr: adj.trAdj,
-    }
-  });
 
   return {
-    cr: intelAdj.rates.cr,
-    sr: intelAdj.rates.sr,
-    tr: intelAdj.rates.tr,
+    cr,
+    sr: adj.srAdj,
+    tr: adj.trAdj,
     cfg,
     meta: {
       universe: adj.meta,
-      districtIntel: intelAdj.meta,
     },
     volatilityBoost: adj.volatilityBoost || 0,
   };

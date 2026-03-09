@@ -1,12 +1,6 @@
 // @ts-check
 import { makeDefaultIntelState, normalizeIntelState } from "../core/intelState.js";
-import {
-  makeDefaultDataRefs,
-  makeDefaultDataCatalog,
-  makeDefaultGeoPack,
-  makeDefaultDistrictIntelPack,
-  normalizeDistrictDataState,
-} from "../core/districtData.js";
+import { makeDefaultCensusState, normalizeCensusState } from "../core/censusModule.js";
 import { makeDefaultFeatureFlags, syncFeatureFlagsFromState } from "./featureFlags.js";
 
 export const DEFAULTS_BY_TEMPLATE = {
@@ -39,11 +33,6 @@ export function makeDefaultState({ createId = defaultCreateId } = {}){
     universeBasis: "registered",
     universeSize: "",
     sourceNote: "",
-    useDistrictIntel: false,
-    dataRefs: makeDefaultDataRefs(),
-    dataCatalog: makeDefaultDataCatalog(),
-    geoPack: makeDefaultGeoPack(),
-    districtIntelPack: makeDefaultDistrictIntelPack(),
     turnoutA: "",
     turnoutB: "",
     bandWidth: DEFAULTS_BY_TEMPLATE.state_leg.bandWidth,
@@ -143,6 +132,7 @@ export function makeDefaultState({ createId = defaultCreateId } = {}){
 
     mcLast: null,
     mcLastHash: "",
+    census: makeDefaultCensusState(),
     intelState: makeDefaultIntelState(),
     features: makeDefaultFeatureFlags(),
     ui: {
@@ -198,8 +188,8 @@ export function normalizeLoadedState(s, { createId = defaultCreateId } = {}){
   out.candidates = Array.isArray(s?.candidates) ? s.candidates : base.candidates;
   out.userSplit = (s?.userSplit && typeof s.userSplit === "object") ? s.userSplit : {};
   out.intelState = normalizeIntelState(s?.intelState);
+  out.census = normalizeCensusState(s?.census);
   out.ui = { ...base.ui, ...(s?.ui || {}) };
-  normalizeDistrictDataState(out);
 
   ensureBudgetShape(out, { createId });
 
@@ -222,11 +212,10 @@ export function requiredScenarioKeysMissing(scen){
   const required = [
     "scenarioName", "raceType", "electionDate", "weeksRemaining", "mode",
     "universeBasis", "universeSize", "turnoutA", "turnoutB", "bandWidth",
-    "useDistrictIntel", "dataRefs", "dataCatalog", "geoPack", "districtIntelPack",
     "candidates", "undecidedPct", "yourCandidateId", "undecidedMode", "persuasionPct",
     "earlyVoteExp", "supportRatePct", "contactRatePct", "turnoutReliabilityPct",
     "universeLayerEnabled", "universeDemPct", "universeRepPct", "universeNpaPct", "universeOtherPct", "retentionFactor",
-    "mcMode", "mcVolatility", "mcSeed", "budget", "timelineEnabled", "ui",
+    "mcMode", "mcVolatility", "mcSeed", "budget", "timelineEnabled", "census", "ui",
   ];
   const missing = [];
   if (!scen || typeof scen !== "object") return required.slice();

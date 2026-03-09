@@ -1,6 +1,6 @@
 // @ts-check
 import { normalizeIntelState } from "../core/intelState.js";
-import { normalizeDistrictDataState } from "../core/districtData.js";
+import { normalizeCensusState } from "../core/censusModule.js";
 import { syncFeatureFlagsFromState } from "./featureFlags.js";
 import { ensureBudgetShape } from "./state.js";
 
@@ -37,8 +37,8 @@ export function normalizeLoadedStateModule(s, deps){
   out.candidates = Array.isArray(src.candidates) ? src.candidates : base.candidates;
   out.userSplit = (src.userSplit && typeof src.userSplit === "object") ? src.userSplit : {};
   out.intelState = normalizeIntelState(src.intelState);
+  out.census = normalizeCensusState(src.census);
   out.ui = { ...base.ui, ...(src.ui || {}) };
-  normalizeDistrictDataState(out);
 
   ensureBudgetShape(out);
 
