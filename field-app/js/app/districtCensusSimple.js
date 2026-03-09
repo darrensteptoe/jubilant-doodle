@@ -1175,15 +1175,58 @@ function fillStateSelect(selectEl, selectedState){
   fillSelect(selectEl, options, selectedState, "Select state");
 }
 
+function simplifyCardChrome(els){
+  if (els.intelDistrictAdvancedDataDetails) els.intelDistrictAdvancedDataDetails.hidden = true;
+  if (els.intelDistrictElectionTables) els.intelDistrictElectionTables.hidden = true;
+  if (els.intelDistrictEvidenceSelectedElection) els.intelDistrictEvidenceSelectedElection.hidden = true;
+  if (els.intelDistrictAdvancedTables) els.intelDistrictAdvancedTables.hidden = true;
+  if (els.intelAreaAdvancedInputs) els.intelAreaAdvancedInputs.hidden = true;
+  if (els.intelDistrictEvidenceSource) els.intelDistrictEvidenceSource.hidden = true;
+  if (els.intelDistrictEvidenceInputsSummary) els.intelDistrictEvidenceInputsSummary.hidden = true;
+  if (els.intelAreaResolverDetail) els.intelAreaResolverDetail.hidden = true;
+  if (els.intelAreaCodeLinks) els.intelAreaCodeLinks.hidden = true;
+  if (els.intelDataRefStatus) els.intelDataRefStatus.hidden = true;
+  if (els.intelDataRefAlignmentSummary) els.intelDataRefAlignmentSummary.hidden = true;
+  if (els.intelDataRefAlignmentDetail) els.intelDataRefAlignmentDetail.hidden = true;
+  if (els.intelDistrictIntelAlignment) els.intelDistrictIntelAlignment.hidden = true;
+
+  const setMini = (valueEl, title, subtitle) => {
+    const card = valueEl?.closest(".mini");
+    if (!card) return;
+    const k = card.querySelector(".mini-k");
+    const s = card.querySelector(".mini-s");
+    if (k) k.textContent = title;
+    if (s) s.textContent = subtitle;
+  };
+
+  setMini(
+    els.intelDistrictEvidenceCoverage,
+    "GEO rows",
+    "Selected-area Census GEO rows"
+  );
+  setMini(
+    els.intelDistrictEvidenceVotes,
+    "Population",
+    "Summed from loaded Census GEO rows"
+  );
+  setMini(
+    els.intelDistrictEvidenceSignal,
+    "Housing units",
+    "Summed from loaded Census GEO rows"
+  );
+  setMini(
+    els.intelGeoInspectorRace,
+    "Selected GEO",
+    ""
+  );
+}
+
 export function renderDistrictCensusSimple({ els, state, engine } = {}){
   if (!els || !state) return;
   const { district } = ensureScenarioShape(state);
   const area = currentArea(state);
   applyAreaToState(state, area);
-
-  if (els.intelDistrictAdvancedDataDetails) els.intelDistrictAdvancedDataDetails.hidden = true;
-  if (els.intelDistrictElectionTables) els.intelDistrictElectionTables.hidden = true;
-  if (els.intelDistrictEvidenceSelectedElection) els.intelDistrictEvidenceSelectedElection.hidden = true;
+  simplifyCardChrome(els);
 
   fillStateSelect(els.intelAreaStateFips, area.stateFips);
   syncAreaInputsFromState(els, area);
@@ -1263,26 +1306,10 @@ export function renderDistrictCensusSimple({ els, state, engine } = {}){
   if (els.intelDistrictEvidenceVotes) els.intelDistrictEvidenceVotes.textContent = `Population total: ${population == null ? "—" : fmtInt(population)}`;
   if (els.intelDistrictEvidenceSignal) els.intelDistrictEvidenceSignal.textContent = `Housing units total: ${housing == null ? "—" : fmtInt(housing)}`;
 
-  const areaFingerprint = buildAreaResolverCacheKey({ area });
   if (els.intelAreaResolverSummary){
     els.intelAreaResolverSummary.textContent = area.type
       ? `Area resolver: ${area.type} ${areaIdentity(area)} · ${area.resolution === "block_group" ? "block group" : "tract"}`
       : "Area resolver: not configured.";
-  }
-  if (els.intelAreaResolverDetail){
-    els.intelAreaResolverDetail.textContent = area.type
-      ? `Cache key: ${areaFingerprint}`
-      : "Set area + resolution to generate a deterministic cache key.";
-  }
-
-  if (els.intelAreaCodeLinks){
-    if (!area.stateFips){
-      els.intelAreaCodeLinks.textContent = "Code lookup links appear after State FIPS is set.";
-    } else {
-      const base = `https://api.census.gov/data/2020/dec/pl?get=NAME&for=county:*&in=state:${area.stateFips}`;
-      const links = [`County list API: ${base}`];
-      els.intelAreaCodeLinks.textContent = links.join(" · ");
-    }
   }
 
   const lookupMsg = getMessage(state, "lookup");
@@ -1317,15 +1344,6 @@ export function renderDistrictCensusSimple({ els, state, engine } = {}){
     } else {
       setStatus(els.intelDistrictEvidenceStatus, "District evidence not compiled yet.", "muted");
     }
-  }
-
-  if (els.intelDistrictEvidenceSource){
-    const datasetId = str(state?.dataRefs?.censusDatasetId);
-    const sourceBits = [];
-    if (datasetId) sourceBits.push(`Census dataset: ${datasetId}`);
-    if (acsYear) sourceBits.push(`ACS year: ${acsYear}`);
-    sourceBits.push(rowsScoped.length ? "Render source: selected-area census rows" : "Render source: none");
-    els.intelDistrictEvidenceSource.textContent = sourceBits.join(" · ");
   }
 
   const geoRowsForMap = rowsScoped.map((row) => ({
@@ -1376,21 +1394,6 @@ export function renderDistrictCensusSimple({ els, state, engine } = {}){
     }
   }
 
-  if (els.intelDistrictIntelAlignment){
-    if (!packReady){
-      setStatus(els.intelDistrictIntelAlignment, "Alignment: no district-intel pack generated.", "muted");
-    } else {
-      const provenanceArea = str(state?.districtIntelPack?.provenance?.areaFingerprint);
-      if (!provenanceArea){
-        setStatus(els.intelDistrictIntelAlignment, "Alignment warning: pack provenance area fingerprint missing.", "warn");
-      } else if (provenanceArea !== areaFingerprint){
-        setStatus(els.intelDistrictIntelAlignment, "Alignment warning: pack provenance differs from current area. Regenerate assumptions.", "warn");
-      } else {
-        setStatus(els.intelDistrictIntelAlignment, "Alignment: pack provenance matches current area.", "ok");
-      }
-    }
-  }
-
   if (els.intelFlowStepStatus){
     els.intelFlowStepStatus.textContent = flowStatus(isAreaReady(area), rowsScoped.length, packReady);
   }
@@ -1410,9 +1413,6 @@ export function renderDistrictCensusSimple({ els, state, engine } = {}){
     }
   }
 
-  if (els.intelDataRefStatus) setStatus(els.intelDataRefStatus, "Data refs auto-managed by Census fetch for this card.", "muted");
-  if (els.intelDataRefAlignmentSummary) els.intelDataRefAlignmentSummary.textContent = "Alignment: Census-only mode active.";
-  if (els.intelDataRefAlignmentDetail) els.intelDataRefAlignmentDetail.textContent = "Election/crosswalk refs are disabled in this rebuild phase.";
 }
 
 export function wireDistrictCensusSimpleEvents(ctx = {}){
