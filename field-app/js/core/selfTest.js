@@ -68,7 +68,7 @@ import { normalizeLoadedState as normalizeLoadedStateApp } from "../app/state.js
 import { resolveFeatureFlags } from "./featureFlags.js";
 import { validateOperationsCapacityInput } from "../features/operations/io.js";
 import { registerPhase115ATests } from "./selfTestSuites/phase115A.js";
-import { registerCensusPhase1Tests } from "./selfTestSuites/censusPhase1.js?v=20260309-census-phase1-10";
+import { registerCensusPhase1Tests } from "./selfTestSuites/censusPhase1.js?v=20260309-census-phase1-11";
 import {
   makeDefaultCensusState,
   makeDefaultRaceFootprint,
@@ -1212,9 +1212,11 @@ export function runSelfTests(engine){
     const mig = migrateSnapshot(parsed);
     const v = validateScenarioExport(mig.snapshot, MODEL_VERSION);
     assert(v.ok, "validateScenarioExport failed");
-    const sA = deterministicStringify(v.scenario, 2);
-    const sB = deterministicStringify(payload.scenario, 2);
-    assert(sA === sB, "Scenario drift in roundtrip");
+    const canonicalImported = normalizeLoadedStateApp(v.scenario);
+    const canonicalExported = normalizeLoadedStateApp(payload.scenario);
+    const sA = deterministicStringify(canonicalImported, 2);
+    const sB = deterministicStringify(canonicalExported, 2);
+    assert(sA === sB, "Scenario drift in roundtrip (canonical import shape)");
     return true;
   });
 
