@@ -25,10 +25,10 @@ export function registerCensusPhase1Tests(ctx){
   });
 
   test("Census Phase1: runtime cache key normalization modes", () => {
-    const keep = normalizeCensusState({ activeRowsKey: "abc|123", loadedRowCount: 88 });
+    const keep = normalizeCensusState({ stateFips: "17", countyFips: "031", activeRowsKey: "abc|123", loadedRowCount: 88 });
     assert(keep.activeRowsKey === "abc|123", "runtime key should persist in runtime normalization");
     assert(keep.loadedRowCount === 88, "loadedRowCount should persist in runtime normalization");
-    const reset = normalizeCensusState({ activeRowsKey: "abc|123", loadedRowCount: 88 }, { resetRuntime: true });
+    const reset = normalizeCensusState({ stateFips: "17", countyFips: "031", activeRowsKey: "abc|123", loadedRowCount: 88 }, { resetRuntime: true });
     assert(reset.activeRowsKey === "", "runtime key should reset when requested");
     assert(reset.loadedRowCount === 0, "loadedRowCount should reset when requested");
   });
