@@ -37,7 +37,7 @@ export function normalizeLoadedStateModule(s, deps){
   out.candidates = Array.isArray(src.candidates) ? src.candidates : base.candidates;
   out.userSplit = (src.userSplit && typeof src.userSplit === "object") ? src.userSplit : {};
   out.intelState = normalizeIntelState(src.intelState);
-  out.census = normalizeCensusState(src.census);
+  out.census = normalizeCensusState(src.census, { resetRuntime: true });
   out.ui = { ...base.ui, ...(src.ui || {}) };
 
   ensureBudgetShape(out);

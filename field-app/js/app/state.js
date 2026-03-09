@@ -188,7 +188,7 @@ export function normalizeLoadedState(s, { createId = defaultCreateId } = {}){
   out.candidates = Array.isArray(s?.candidates) ? s.candidates : base.candidates;
   out.userSplit = (s?.userSplit && typeof s.userSplit === "object") ? s.userSplit : {};
   out.intelState = normalizeIntelState(s?.intelState);
-  out.census = normalizeCensusState(s?.census);
+  out.census = normalizeCensusState(s?.census, { resetRuntime: true });
   out.ui = { ...base.ui, ...(s?.ui || {}) };
 
   ensureBudgetShape(out, { createId });

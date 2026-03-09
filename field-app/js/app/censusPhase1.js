@@ -443,7 +443,7 @@ export function renderCensusPhase1Module({ els, state } = {}){
     els.censusCountyFips.disabled = s.resolution === "place" || !s.stateFips;
   }
   if (els.censusPlaceFips){
-    els.censusPlaceFips.disabled = s.resolution !== "place" || !s.stateFips;
+    els.censusPlaceFips.disabled = !s.stateFips;
   }
   if (els.censusGeoSearch){
     els.censusGeoSearch.disabled = !s.geoOptions.length;
@@ -754,7 +754,6 @@ export function wireCensusPhase1EventsModule(ctx){
       withState((_, s) => {
         s.resolution = cleanText(els.censusResolution.value) || "tract";
         s.countyFips = s.resolution === "place" ? "" : s.countyFips;
-        s.placeFips = s.resolution === "place" ? s.placeFips : "";
         resetGeoData(s);
         setStatus(s, `Resolution set to ${s.resolution}. Load GEO list next.`, false);
       });
@@ -809,9 +808,11 @@ export function wireCensusPhase1EventsModule(ctx){
           const selected = placeGeoid(s.stateFips, s.placeFips);
           s.selectedGeoids = selected ? [selected] : [];
           setStatus(s, s.placeFips ? "Place set. Selection updated." : "Select place to continue.", false);
-        } else {
+        } else if (s.resolution === "place"){
           resetGeoData(s);
           setStatus(s, s.placeFips ? "Place set. Load GEO list next." : "Select place to continue.", false);
+        } else {
+          setStatus(s, s.placeFips ? "Place selected. Tract/block fetch still uses county." : "Place cleared.", false);
         }
       });
       commitUIUpdate();
