@@ -2220,7 +2220,7 @@
 <div class="card-head card-header">
 <h2 class="card-title">District Intelligence</h2>
 </div>
-<div class="help-text">Core flow: select area, fetch census GEO rows, review map + demographics, generate district-intel assumptions, toggle ON/OFF.</div>
+<div class="help-text">Census-first flow: select area, fetch Census GEO rows, review map + demographics, generate assumptions, toggle ON/OFF.</div>
 <div class="rowline" style="margin-top:10px; justify-content:space-between; gap:10px;">
 <label class="switch">
 <input id="intelUseDistrictToggle" type="checkbox"/>
@@ -2233,7 +2233,128 @@
 </div>
 <div class="muted" id="intelDistrictIntelStatus" style="margin-top:8px;">District-intel assumptions are OFF.</div>
 <div class="note" id="intelDistrictIntelSummary" style="margin-top:6px;">No district-intel pack generated yet.</div>
-<div class="muted" id="intelDistrictIntelAlignment" style="margin-top:6px;">Alignment: no district-intel pack generated.</div>
+<div class="grid4" style="margin-top:12px;">
+<div class="field">
+<label class="label" for="intelAreaStateFips">State</label>
+<select class="select" id="intelAreaStateFips">
+<option value="">Select state</option>
+</select>
+</div>
+<div class="field">
+<label class="label" for="intelAreaType">Area type</label>
+<select class="select" id="intelAreaType">
+<option value="">Not set</option>
+<option value="CD">Congressional district (CD)</option>
+<option value="SLDU">State senate (SLDU)</option>
+<option value="SLDL">State house (SLDL)</option>
+<option value="COUNTY">County</option>
+<option value="PLACE">Place / city</option>
+<option value="CUSTOM">Custom</option>
+</select>
+</div>
+<div class="field">
+<label class="label" for="intelAreaResolution">Resolution</label>
+<select class="select" id="intelAreaResolution">
+<option value="tract">Tract</option>
+<option value="block_group">Block group</option>
+</select>
+</div>
+<div class="field">
+<label class="label" for="intelAcsYearPreference">ACS year</label>
+<select class="select" id="intelAcsYearPreference">
+<option value="auto_latest">Auto latest</option>
+</select>
+</div>
+<div class="field">
+<label class="label" for="intelAreaLabel">Area label (optional)</label>
+<input class="input" id="intelAreaLabel" placeholder="e.g., IL-13" type="text"/>
+</div>
+<div class="field">
+<label class="label" for="intelCensusApiKey">Census API key (optional)</label>
+<input class="input" id="intelCensusApiKey" placeholder="Enter Census API key" type="password" autocomplete="off"/>
+</div>
+</div>
+<div class="mini" style="margin-top:10px;">
+<div class="mini-k">ACS variable selection</div>
+<div class="help-text" style="margin-top:6px;">Load the ACS variable catalog, search, choose variables, then fetch Census GEO rows.</div>
+<div class="rowline" style="margin-top:8px; justify-content:space-between; gap:10px;">
+<div class="field" style="flex:1;">
+<label class="label" for="intelAcsVarSearch">Search variables</label>
+<input class="input" id="intelAcsVarSearch" placeholder="e.g., income, renter, B19013_001E" type="text"/>
+</div>
+<div class="card-actions" style="align-items:end;">
+<button class="btn btn-sm" id="btnIntelLoadAcsVariables" type="button">Load ACS variable catalog</button>
+</div>
+</div>
+<div class="grid2" style="margin-top:8px;">
+<div class="field">
+<label class="label" for="intelAcsVarCatalog">Catalog results</label>
+<select class="select" id="intelAcsVarCatalog" multiple size="8"></select>
+<div class="card-actions" style="margin-top:6px;">
+<button class="btn btn-sm" id="btnIntelAcsVarAdd" type="button">Add selected</button>
+</div>
+</div>
+<div class="field">
+<label class="label" for="intelAcsVarSelected">Selected ACS variables</label>
+<select class="select" id="intelAcsVarSelected" multiple size="8"></select>
+<div class="card-actions" style="margin-top:6px;">
+<button class="btn btn-sm" id="btnIntelAcsVarRemove" type="button">Remove selected</button>
+</div>
+</div>
+</div>
+<div class="muted" id="intelAcsVarStatus" style="margin-top:6px;">Selected ACS variables will be requested during fetch.</div>
+</div>
+<div class="grid4" style="margin-top:10px;">
+<div class="field">
+<label class="label" for="intelAreaAssistCounty">County</label>
+<select class="select" id="intelAreaAssistCounty">
+<option value="">No county suggestions</option>
+</select>
+</div>
+<div class="field">
+<label class="label" for="intelAreaAssistPlace">Place / city</label>
+<select class="select" id="intelAreaAssistPlace">
+<option value="">No place suggestions</option>
+</select>
+</div>
+<div class="field">
+<label class="label" for="intelAreaAssistGeo">Tract/block</label>
+<select class="select" id="intelAreaAssistGeo">
+<option value="">No GEO suggestions</option>
+</select>
+</div>
+<div class="field" style="display:flex; align-items:flex-end;">
+<div class="grid2" style="width:100%; margin:0;">
+<button class="btn btn-sm" id="btnIntelAreaAssistFetchCodes" type="button">Fetch county/place/GEO lists</button>
+<button class="btn btn-sm" id="btnIntelFetchCensusGeoRows" type="button">Fetch Census GEO rows</button>
+</div>
+</div>
+</div>
+<div class="muted" id="intelAreaAssistStatus" style="margin-top:6px;">Set state first, then fetch county/place/GEO lists.</div>
+<div class="muted" id="intelAreaAssistLookupStatus" style="margin-top:6px;">No fetched county/place/GEO lookup loaded.</div>
+<div class="note" id="intelAreaResolverSummary" style="margin-top:8px;">Area resolver: not configured.</div>
+<input class="input" id="intelAreaDistrict" type="hidden"/>
+<input class="input" id="intelAreaCountyFips" type="hidden"/>
+<input class="input" id="intelAreaPlaceFips" type="hidden"/>
+<div class="muted" id="intelFlowStepStatus" style="margin-top:8px;">Flow: Step 1 select area.</div>
+<div class="grid3" style="margin-top:10px;">
+<div class="mini">
+<div class="mini-k">GEO rows</div>
+<div class="mini-v" id="intelDistrictEvidenceCoverage">GEO rows loaded: —</div>
+<div class="mini-s">Selected-area Census GEO rows</div>
+</div>
+<div class="mini">
+<div class="mini-k">Population</div>
+<div class="mini-v" id="intelDistrictEvidenceVotes">Population total: —</div>
+<div class="mini-s">Summed from loaded Census GEO rows</div>
+</div>
+<div class="mini">
+<div class="mini-k">Housing units</div>
+<div class="mini-v" id="intelDistrictEvidenceSignal">Housing units total: —</div>
+<div class="mini-s">Summed from loaded Census GEO rows</div>
+</div>
+</div>
+<div class="muted" id="intelDistrictEvidenceStatus" style="margin-top:10px;">District evidence not compiled yet.</div>
 <div class="table-wrap" style="margin-top:10px;">
 <table class="table">
 <thead>
@@ -2263,279 +2384,12 @@
 </tbody>
 </table>
 </div>
-<div class="grid4" style="margin-top:10px;">
-<div class="field">
-<label class="label" for="intelAreaStateFips" title="Two-digit state FIPS code. Example: 34 for New Jersey.">State</label>
-<select class="select" id="intelAreaStateFips">
-<option value="">Select state</option>
-</select>
-</div>
-<div class="field">
-<label class="label" for="intelAreaType" title="Select which boundary family to resolve for district evidence.">Area type</label>
-<select class="select" id="intelAreaType">
-<option value="">Not set</option>
-<option value="CD">Congressional district (CD)</option>
-<option value="SLDU">State senate (SLDU)</option>
-<option value="SLDL">State house (SLDL)</option>
-<option value="COUNTY">County</option>
-<option value="PLACE">Place / city</option>
-<option value="CUSTOM">Custom</option>
-</select>
-</div>
-<div class="field">
-<label class="label" for="intelAreaResolution" title="Target evidence resolution used for joins and map plotting.">Resolution</label>
-<select class="select" id="intelAreaResolution">
-<option value="tract">Tract</option>
-<option value="block_group">Block group</option>
-</select>
-</div>
-<div class="field">
-<label class="label" for="intelAcsYearPreference" title="Choose ACS vintage for census enrichment. Auto tries latest available year first.">ACS year</label>
-<select class="select" id="intelAcsYearPreference">
-<option value="auto_latest">Auto latest</option>
-</select>
-</div>
-<div class="field">
-<label class="label" for="intelAreaLabel">Area label (optional)</label>
-<input class="input" id="intelAreaLabel" placeholder="e.g., NJ-12" type="text"/>
-</div>
-</div>
-<div class="grid4" style="margin-top:10px;">
-<div class="field">
-<label class="label" for="intelAreaAssistCounty" title="Primary selector for county within selected state.">County</label>
-<select class="select" id="intelAreaAssistCounty">
-<option value="">No county suggestions</option>
-</select>
-</div>
-<div class="field">
-<label class="label" for="intelAreaAssistPlace" title="Primary selector for place within selected state.">Place / city</label>
-<select class="select" id="intelAreaAssistPlace">
-<option value="">No place suggestions</option>
-</select>
-</div>
-<div class="field">
-<label class="label" for="intelAreaAssistGeo" title="Primary selector for tract/block within selected filters.">Tract/block</label>
-<select class="select" id="intelAreaAssistGeo">
-<option value="">No GEO suggestions</option>
-</select>
-</div>
-<div class="field" style="display:flex; align-items:flex-end;">
-<div class="grid2" style="width:100%; margin:0;">
-<button class="btn btn-sm" id="btnIntelAreaAssistFetchCodes" type="button">Fetch county/place/GEO lists</button>
-<button class="btn btn-sm" id="btnIntelFetchCensusGeoRows" type="button">Fetch Census GEO rows</button>
-</div>
-</div>
-</div>
-<div class="muted" id="intelAreaAssistStatus" style="margin-top:6px;" title="Dropdown options are generated from loaded/fetched census GEO rows.">Set state first, then fetch county/place/GEO lists.</div>
-<div class="muted" id="intelAreaAssistLookupStatus" style="margin-top:6px;" title="Fetched code lists are optional helpers and do not alter planning math.">No fetched county/place/GEO lookup loaded.</div>
-<div class="note" id="intelAreaResolverSummary" style="margin-top:8px;">Area resolver: not configured.</div>
-<div class="muted" id="intelAreaResolverDetail" style="margin-top:6px;">Set area + resolution to generate a deterministic cache key.</div>
-<div class="muted" id="intelAreaCodeLinks" style="margin-top:6px;" title="Direct code source links. Opens official Census files and scoped API lists in a new tab.">Code lookup links appear after State FIPS is set.</div>
-<details id="intelAreaAdvancedInputs" style="margin-top:8px;">
-<summary class="label">Advanced area inputs</summary>
-<div class="grid2" style="margin-top:8px;">
-<div class="field">
-<label class="label" for="intelAreaDistrict" title="Required only for CD/SLDU/SLDL area types.">District code (district types only)</label>
-<input class="input" id="intelAreaDistrict" placeholder="e.g., 012" type="text"/>
-</div>
-</div>
-</details>
-<details id="intelDistrictAdvancedDataDetails" style="margin-top:10px;">
-<summary class="label">Advanced refs + manual ingest</summary>
-<div class="grid3" style="margin-top:10px;">
-<div class="field">
-<label class="label" for="intelDataRefMode">Data source mode</label>
-<select class="select" id="intelDataRefMode">
-<option value="pinned_verified">Pinned verified</option>
-<option value="latest_verified">Latest verified</option>
-<option value="manual">Manual</option>
-</select>
-</div>
-<div class="field">
-<label class="label" for="intelDataRefBoundarySet">Boundary set</label>
-<select class="select" id="intelDataRefBoundarySet">
-<option value="">None selected</option>
-</select>
-</div>
-<div class="field">
-<label class="label" for="intelDataRefCrosswalkVersion">Crosswalk</label>
-<select class="select" id="intelDataRefCrosswalkVersion">
-<option value="">None selected</option>
-</select>
-</div>
-</div>
-<div class="grid2" style="margin-top:10px;">
-<div class="field">
-<label class="label" for="intelDataRefCensusDataset">Census dataset</label>
-<select class="select" id="intelDataRefCensusDataset">
-<option value="">None selected</option>
-</select>
-</div>
-<div class="field">
-<label class="label" for="intelDataRefElectionDataset">Election dataset</label>
-<select class="select" id="intelDataRefElectionDataset">
-<option value="">None selected</option>
-</select>
-</div>
-</div>
-<div class="grid3" style="margin-top:10px;">
-<div class="field">
-<label class="label" for="intelDataRefStrictSimilarity">Strict similarity filter</label>
-<label class="switch">
-<input id="intelDataRefStrictSimilarity" type="checkbox"/>
-<span class="slider"></span>
-<span class="switch-label">Require office + race match</span>
-</label>
-</div>
-<div class="field">
-<label class="label" for="intelDataRefMaxYearDelta">Max cycle gap (years)</label>
-<input class="input" id="intelDataRefMaxYearDelta" min="0" placeholder="blank = no limit" step="1" type="number"/>
-</div>
-<div class="field">
-<label class="label" for="intelDataRefMinCoveragePct">Min election coverage %</label>
-<input class="input" id="intelDataRefMinCoveragePct" max="100" min="0" placeholder="blank = no floor" step="0.1" type="number"/>
-</div>
-</div>
-<div class="rowline" style="margin-top:10px; justify-content:space-between; gap:10px;">
-<div class="muted" id="intelDataRefStatus">Data refs ready.</div>
-<div class="card-actions">
-<button class="btn btn-sm" id="btnIntelDataRefSelectTopElection" type="button">Use top compatible election</button>
-<button class="btn btn-sm" id="btnIntelDataRefsPin" type="button">Pin current selection</button>
-</div>
-</div>
-<div class="note" id="intelDataRefAlignmentSummary" style="margin-top:8px;">Alignment: not evaluated yet.</div>
-<div class="muted" id="intelDataRefAlignmentDetail" style="margin-top:6px;">Coverage/year-gap checks will appear after refs resolve.</div>
-<div class="muted" id="intelDataRefFingerprint" style="margin-top:4px;">Selection fingerprint: —</div>
-<div class="card card-section" id="intelDataIngestCard" style="margin-top:10px;">
-<div class="card-head card-header">
-<h3 class="card-title">Data ingest (JSON)</h3>
-</div>
-<div class="help-text">Import dataset manifests and evidence rows without editing snapshot files. Manifests update catalog metadata; row imports populate district evidence inputs/store.</div>
-<div class="mini" style="margin-top:10px;">
-<div class="mini-k">Auto pull (URL)</div>
-<div class="mini-s">Fetch JSON directly from URLs (requires provider CORS support). Imported payloads use the same deterministic validators as manual ingest.</div>
-</div>
-<div class="grid2" style="margin-top:10px;">
-<div class="field">
-<label class="label" for="intelDataCatalogUrl">Data catalog URL</label>
-<input class="input" id="intelDataCatalogUrl" placeholder="https://.../district-data-catalog.json" type="url"/>
-</div>
-<div class="card-actions" style="align-items:end;">
-<button class="btn btn-sm" id="btnIntelFetchDataCatalog" type="button">Fetch &amp; import catalog</button>
-<button class="btn btn-sm" id="btnIntelCatalogAutoPull" type="button">Fetch catalog + pull</button>
-</div>
-</div>
-<div class="grid2" style="margin-top:10px;">
-<div class="field">
-<label class="label" for="intelCensusManifestUrl">Census manifest URL</label>
-<input class="input" id="intelCensusManifestUrl" placeholder="https://.../census-manifest.json" type="url"/>
-</div>
-<div class="field">
-<label class="label" for="intelElectionManifestUrl">Election manifest URL</label>
-<input class="input" id="intelElectionManifestUrl" placeholder="https://.../election-manifest.json" type="url"/>
-</div>
-</div>
-<div class="grid3" style="margin-top:10px;">
-<div class="field">
-<label class="label" for="intelCrosswalkRowsUrl">Crosswalk rows URL</label>
-<input class="input" id="intelCrosswalkRowsUrl" placeholder="https://.../crosswalk-rows.json" type="url"/>
-</div>
-<div class="field">
-<label class="label" for="intelPrecinctResultsUrl">Precinct results URL</label>
-<input class="input" id="intelPrecinctResultsUrl" placeholder="https://.../precinct-results.json" type="url"/>
-</div>
-<div class="field">
-<label class="label" for="intelCensusGeoRowsUrl">Census GEO rows URL</label>
-<input class="input" id="intelCensusGeoRowsUrl" placeholder="https://.../census-geo-rows.json" type="url"/>
-</div>
-</div>
-<div class="card-actions" style="margin-top:8px;">
-<button class="btn btn-sm" id="btnIntelAutoFillUrls" type="button">Populate URLs from selected refs</button>
-<button class="btn btn-sm" id="btnIntelAutoPullAll" type="button">Fetch &amp; import all URLs</button>
-<button class="btn btn-sm" id="btnIntelLoadDemoData" type="button">Load demo district data</button>
-</div>
-<div class="muted" id="intelAutoPullStatus" style="margin-top:8px;">Auto-pull status: idle.</div>
-<div class="muted" id="intelAutoPullPlanSummary" style="margin-top:6px;">Auto-pull plan: not evaluated.</div>
-<div class="muted" id="intelAutoPullReceiptSummary" style="margin-top:6px;">Auto-pull run: none.</div>
-<div class="muted" id="intelAutoPullReceiptAlignment" style="margin-top:6px;">Auto-pull receipt alignment: no receipt yet.</div>
-<div class="muted" id="intelAutoPullRunNeed" style="margin-top:6px;">Auto-pull run need: not evaluated.</div>
-<div class="grid2" style="margin-top:10px;">
-<div class="field">
-<label class="label" for="intelCensusManifestJson">Census manifest JSON</label>
-<textarea class="input" id="intelCensusManifestJson" rows="4" placeholder='{"id":"acs5_2024","label":"ACS 2024","vintage":"2024","boundarySetId":"sldl_2024","granularity":"tract","rowCount":4231,"variableRefs":["B01003_001E"],"quality":{"coveragePct":98.4,"isVerified":true}}'></textarea>
-<div class="card-actions" style="margin-top:6px;">
-<button class="btn btn-sm" id="btnIntelImportCensusManifest" type="button">Import census manifest</button>
-</div>
-</div>
-<div class="field">
-<label class="label" for="intelElectionManifestJson">Election manifest JSON</label>
-<textarea class="input" id="intelElectionManifestJson" rows="4" placeholder='{"id":"mit_state_house_2024","label":"MIT NJ House 2024","vintage":"2024","electionDate":"2024-11-05","officeType":"state_house","raceType":"state_leg","boundarySetId":"sldl_2024","granularity":"precinct","rowCount":982,"candidateIds":["A","B"],"quality":{"coveragePct":97.1,"isVerified":true}}'></textarea>
-<div class="card-actions" style="margin-top:6px;">
-<button class="btn btn-sm" id="btnIntelImportElectionManifest" type="button">Import election manifest</button>
-</div>
-</div>
-</div>
-<div class="grid3" style="margin-top:10px;">
-<div class="field">
-<label class="label" for="intelCrosswalkRowsJson">Crosswalk rows JSON</label>
-<textarea class="input" id="intelCrosswalkRowsJson" rows="4" placeholder='[{"precinctId":"P-101","geoid":"34013010001","weight":0.72}]'></textarea>
-<div class="card-actions" style="margin-top:6px;">
-<button class="btn btn-sm" id="btnIntelImportCrosswalkRows" type="button">Import crosswalk rows</button>
-</div>
-</div>
-<div class="field">
-<label class="label" for="intelPrecinctResultsJson">Precinct results JSON</label>
-<textarea class="input" id="intelPrecinctResultsJson" rows="4" placeholder='[{"precinctId":"P-101","candidateVotes":{"A":512,"B":488}}]'></textarea>
-<label class="label" for="intelPrecinctResultsFormat" style="margin-top:6px;">Precinct input format</label>
-<select class="select" id="intelPrecinctResultsFormat">
-<option value="auto">Auto detect</option>
-<option value="canonical">Canonical precinct rows</option>
-<option value="long">Long candidate rows</option>
-</select>
-<div class="card-actions" style="margin-top:6px;">
-<button class="btn btn-sm" id="btnIntelImportPrecinctResults" type="button">Import precinct results</button>
-</div>
-</div>
-<div class="field">
-<label class="label" for="intelCensusGeoRowsJson">Census GEO rows JSON</label>
-<textarea class="input" id="intelCensusGeoRowsJson" rows="4" placeholder='[{"geoid":"34013010001","values":{"pop":1000,"housing_units":400,"INTPTLAT":40.12,"INTPTLON":-74.01}}]'></textarea>
-<div class="card-actions" style="margin-top:6px;">
-<button class="btn btn-sm" id="btnIntelImportCensusGeoRows" type="button">Import census GEO rows</button>
-</div>
-</div>
-</div>
-<div class="muted" id="intelIngestStatus" style="margin-top:8px;">Ingest status: ready.</div>
-</div>
-</details>
-<div class="note" id="intelDistrictEvidenceSource" style="margin-top:8px;">No pinned datasets selected yet.</div>
-<div class="muted" id="intelDistrictEvidenceInputsSummary" style="margin-top:6px;">Input mode: none · Election rows: 0 · Crosswalk rows: 0 · Census rows: 0</div>
-<div class="muted" id="intelFlowStepStatus" style="margin-top:6px;">Flow: Step 1 select area.</div>
-<div class="grid3" style="margin-top:10px;">
-<div class="mini">
-<div class="mini-k">Coverage</div>
-<div class="mini-v" id="intelDistrictEvidenceCoverage">Coverage: —</div>
-<div class="mini-s">Reconciliation coverage and unmatched votes</div>
-</div>
-<div class="mini">
-<div class="mini-k">Votes</div>
-<div class="mini-v" id="intelDistrictEvidenceVotes">Weighted total votes: —</div>
-<div class="mini-s">Joined election vote mass in selected GEO units</div>
-</div>
-<div class="mini">
-<div class="mini-k">Persuasion signal</div>
-<div class="mini-v" id="intelDistrictEvidenceSignal">Persuasion signal index: —</div>
-<div class="mini-s">Competitiveness-derived index (read-only)</div>
-</div>
-</div>
-<div class="muted" id="intelDistrictEvidenceStatus" style="margin-top:10px;">District evidence not compiled yet.</div>
-<div class="note" id="intelDistrictEvidenceSelectedElection" style="margin-top:8px;">Election dataset: none selected</div>
 <div class="mini" style="margin-top:10px;">
 <div class="mini-k">District GEO map</div>
 <div class="muted" id="intelDistrictEvidenceMapStatus" style="margin-top:6px;">Map unavailable: no centroid coordinates found in census GEO rows.</div>
 <div class="intel-geo-map-wrap" style="margin-top:8px;">
 <div class="intel-geo-map" id="intelDistrictEvidenceMapSvg" role="img" aria-label="District evidence map"></div>
 </div>
-<div class="mini-s">Select tract/block to overlay its boundary on the map.</div>
 </div>
 <div class="mini" style="margin-top:10px;">
 <div class="mini-k">GEO inspector</div>
@@ -2556,7 +2410,7 @@
 </div>
 <div class="grid3" style="margin-top:8px;">
 <div class="mini">
-<div class="mini-k">Race</div>
+<div class="mini-k">Selected GEO</div>
 <div class="mini-v" id="intelGeoInspectorRace">—</div>
 </div>
 <div class="mini">
@@ -2590,115 +2444,6 @@
 <div class="muted" id="intelGeoInspectorCopyStatus" style="margin-top:6px;">No summary copied yet.</div>
 </div>
 </div>
-<details id="intelDistrictAdvancedTables" style="margin-top:10px;">
-<summary class="label">Advanced GEO tables (optional)</summary>
-<div class="table-wrap" style="margin-top:10px;">
-<table class="table">
-<thead>
-<tr>
-<th>GEOID</th>
-<th class="num">Population</th>
-<th class="num">Housing units</th>
-<th class="num">Median HH income</th>
-<th class="num">Renter %</th>
-<th>Data</th>
-</tr>
-</thead>
-<tbody id="intelDistrictEvidenceGeoTbody">
-<tr><td class="muted" colspan="6">No GEO layer rows available.</td></tr>
-</tbody>
-</table>
-</div>
-</details>
-<details id="intelDistrictElectionTables" style="margin-top:10px;">
-<summary class="label">Election overlay tables (optional)</summary>
-<div class="table-wrap" style="margin-top:10px;">
-<table class="table">
-<thead>
-<tr>
-<th class="num">Rank</th>
-<th>Election dataset</th>
-<th>Office</th>
-<th>Cycle</th>
-<th class="num">Year gap</th>
-<th class="num">Coverage</th>
-<th class="num">Compatibility</th>
-<th>Notes</th>
-</tr>
-</thead>
-<tbody id="intelDistrictEvidenceDatasetRankTbody">
-<tr><td class="muted" colspan="8">No compatible election datasets available.</td></tr>
-</tbody>
-</table>
-</div>
-<div class="table-wrap" style="margin-top:10px;">
-<table class="table">
-<thead>
-<tr>
-<th>Candidate</th>
-<th class="num">Votes</th>
-<th class="num">Share</th>
-</tr>
-</thead>
-<tbody id="intelDistrictEvidenceCandidateTbody">
-<tr><td class="muted" colspan="3">No candidate totals available.</td></tr>
-</tbody>
-</table>
-</div>
-<div class="table-wrap" style="margin-top:10px;">
-<table class="table">
-<thead>
-<tr>
-<th>Precinct</th>
-<th class="num">Votes</th>
-<th>Top candidate</th>
-<th class="num">Margin</th>
-<th class="num">Mapped GEOs · weight</th>
-<th>Top GEO links</th>
-<th class="num">Candidates</th>
-</tr>
-</thead>
-<tbody id="intelDistrictEvidencePrecinctTbody">
-<tr><td class="muted" colspan="7">No precinct layer rows available.</td></tr>
-</tbody>
-</table>
-</div>
-<div class="table-wrap" style="margin-top:10px;">
-<table class="table">
-<thead>
-<tr>
-<th>Precinct</th>
-<th>GEOID</th>
-<th class="num">Crosswalk w</th>
-<th class="num">Effective w</th>
-</tr>
-</thead>
-<tbody id="intelDistrictEvidenceLinkTbody">
-<tr><td class="muted" colspan="4">No precinct-to-geo links available.</td></tr>
-</tbody>
-</table>
-</div>
-<div class="table-wrap" style="margin-top:10px;">
-<table class="table">
-<thead>
-<tr>
-<th class="num">Rank</th>
-<th>GEOID</th>
-<th class="num">Opportunity</th>
-<th class="num">Competitiveness</th>
-<th class="num">Vote mass</th>
-<th class="num">Density</th>
-<th class="num">Votes</th>
-<th class="num">Margin %</th>
-<th>Why prioritized</th>
-</tr>
-</thead>
-<tbody id="intelDistrictEvidenceOpportunityTbody">
-<tr><td class="muted" colspan="9">No GEO opportunity rows available.</td></tr>
-</tbody>
-</table>
-</div>
-</details>
 </div>
 <div class="card card-section" id="intelCalibrationBriefCard">
 <div class="card-head card-header">
