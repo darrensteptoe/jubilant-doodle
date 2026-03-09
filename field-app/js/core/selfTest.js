@@ -69,6 +69,7 @@ import { resolveFeatureFlags } from "./featureFlags.js";
 import { validateOperationsCapacityInput } from "../features/operations/io.js";
 import { registerPhase115ATests } from "./selfTestSuites/phase115A.js";
 import { registerCensusPhase1Tests } from "./selfTestSuites/censusPhase1.js";
+import { makeDefaultCensusState } from "./censusModule.js";
 
 function withUniverseDefaults(s){
   // Phase 16 fields are now required for stable hashing/export roundtrips.
@@ -81,6 +82,7 @@ function withUniverseDefaults(s){
   if (out.universeOtherPct == null) out.universeOtherPct = UNIVERSE_DEFAULTS.otherPct;
   if (out.retentionFactor == null) out.retentionFactor = UNIVERSE_DEFAULTS.retentionFactor;
   if (out.intelState == null) out.intelState = makeDefaultIntelState();
+  if (out.census == null) out.census = makeDefaultCensusState();
   return out;
 }
 
