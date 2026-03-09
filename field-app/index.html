@@ -2074,6 +2074,12 @@
 </div>
 <div class="grid2" style="margin-top:10px;">
 <div class="field">
+<div class="rowline" style="gap:8px; margin-bottom:8px;">
+<input class="input" id="censusGeoSearch" placeholder="Search GEO name or GEOID" type="text"/>
+<select class="select" id="censusTractFilter" style="max-width:180px;">
+<option value="">All tracts</option>
+</select>
+</div>
 <label class="label" for="censusGeoSelect">GEO units</label>
 <select class="select" id="censusGeoSelect" multiple="" size="12"></select>
 <div class="rowline" style="margin-top:8px; gap:8px;">
@@ -2094,6 +2100,14 @@
 </div>
 <div class="muted" id="censusSelectionSummary">No GEO selected. Select one or more GEO units to aggregate.</div>
 <div class="muted" id="censusLastFetch">No fetch yet.</div>
+<div class="rowline" style="margin-top:10px; justify-content:space-between; gap:10px;">
+<div class="muted" id="censusMapStatus">Map idle. Select GEO units, then load boundaries.</div>
+<div class="rowline" style="gap:8px;">
+<button class="btn btn-sm btn-ghost" id="btnCensusLoadMap" type="button">Load boundaries</button>
+<button class="btn btn-sm btn-ghost" id="btnCensusClearMap" type="button">Clear map</button>
+</div>
+</div>
+<div class="census-map" id="censusMap"></div>
 </div>
 <div class="card card-section" id="intelWorkflowCard">
 <div class="card-head card-header">
@@ -3065,7 +3079,7 @@ Volunteer multiplier stays above 1.5" rows="4"></textarea>
 </aside>
 </div>
 <!-- /app-shell -->
-<script src="./js/app.js?v=20260309-census-phase1-1" type="module"></script>
+<script src="./js/app.js?v=20260309-census-phase1-2" type="module"></script>
 <script>
 // ── Stage navigation ───────────────────────────────────────────
 function normalizeStages() {
