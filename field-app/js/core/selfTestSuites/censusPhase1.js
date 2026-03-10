@@ -2,7 +2,11 @@ import {
   CENSUS_DEFAULT_API_KEY,
   makeDefaultCensusState,
   normalizeCensusState,
+  listAcsYears,
+  listMetricSetOptions,
   evaluateResolutionContract,
+  shouldApplyRequestResult,
+  evaluateCensusDependencyHealth,
   listResolutionOptions,
   buildAcsQueryUrl,
   buildGeoLookupUrl,
@@ -99,6 +103,37 @@ export function registerCensusPhase1Tests(ctx){
     assert(contract.unsupportedByNormalize.includes("state_senate_district"), "contract should report normalize mismatch");
   });
 
+  test("Census Phase1: async request sequencing accepts only latest seq", () => {
+    assert(shouldApplyRequestResult({ activeSeq: 5, resultSeq: 5 }) === true, "matching seq should apply");
+    assert(shouldApplyRequestResult({ activeSeq: 6, resultSeq: 5 }) === false, "stale seq should not apply");
+    assert(shouldApplyRequestResult({ activeSeq: 0, resultSeq: 1 }) === false, "invalid active seq should not apply");
+    assert(shouldApplyRequestResult({ activeSeq: 2, resultSeq: 0 }) === false, "invalid result seq should not apply");
+  });
+
+  test("Census Phase1: dependency health baseline contract", () => {
+    const dep = evaluateCensusDependencyHealth({
+      fetchImpl: () => Promise.resolve({ ok: true }),
+    });
+    assert(dep && typeof dep === "object", "dependency health response missing");
+    assert(Array.isArray(dep.issues), "dependency health issues missing");
+    assert(dep.ok === true, "dependency health baseline should be ok");
+  });
+
+  test("Census Phase1: dependency health fails loud on invalid dependencies", () => {
+    const dep = evaluateCensusDependencyHealth({
+      fetchImpl: null,
+      tigerBaseUrl: "http://insecure.example.com",
+      censusApiBase: "not-a-url",
+      leafletCssUrl: "",
+      leafletJsUrl: "http://leaflet.invalid/script.js",
+      shpJsUrl: "http://shp.invalid/script.js",
+    });
+    assert(dep.ok === false, "dependency health should fail on invalid dependency contract");
+    const badCodes = dep.issues.filter((issue) => issue.kind === "bad").map((issue) => String(issue.code || ""));
+    assert(badCodes.includes("fetch_unavailable"), "dependency health should flag missing fetch");
+    assert(badCodes.includes("census_api_base_invalid"), "dependency health should flag invalid census api endpoint");
+  });
+
   test("Census Phase1: runtime cache key normalization modes", () => {
     const keep = normalizeCensusState({ stateFips: "17", countyFips: "031", activeRowsKey: "abc|123", loadedRowCount: 88 });
     assert(keep.activeRowsKey === "abc|123", "runtime key should persist in runtime normalization");
@@ -114,6 +149,165 @@ export function registerCensusPhase1Tests(ctx){
     });
     assert(Array.isArray(withSets.selectionSets) && withSets.selectionSets.length === 1, "selection set normalization mismatch");
     assert(withSets.selectionSets[0].geoids.length === 1, "selection set geoid dedupe mismatch");
+  });
+
+  test("Census Phase1: normalization sweep preserves context invariants", () => {
+    const resolutions = ["place", "tract", "block_group", "congressional_district", "state_senate_district", "state_house_district"];
+    for (const resolution of resolutions){
+      const normalized = normalizeCensusState({
+        year: "2024",
+        resolution,
+        metricSet: "core",
+        stateFips: "17",
+        countyFips: "031",
+        placeFips: "14000",
+        tractFilter: "010100",
+        selectedGeoids: ["17031010100"],
+      });
+      assert(normalized.resolution === resolution, `resolution sweep mismatch for ${resolution}`);
+      assert(normalized.stateFips === "17", `stateFips sweep mismatch for ${resolution}`);
+      if (resolutionNeedsCounty(resolution)){
+        assert(normalized.countyFips === "031", `county should persist for ${resolution}`);
+      } else {
+        assert(normalized.countyFips === "", `county should clear for ${resolution}`);
+      }
+      assert(normalized.placeFips === "14000", `place should normalize/persist for ${resolution}`);
+      if (resolution === "block_group"){
+        assert(normalized.tractFilter === "010100", "tractFilter should persist for block_group");
+      } else {
+        assert(normalized.tractFilter === "", `tractFilter should clear for ${resolution}`);
+      }
+    }
+    const noState = normalizeCensusState({
+      stateFips: "",
+      countyFips: "031",
+      placeFips: "14000",
+      geoOptions: [{ geoid: "17031010100", label: "x" }],
+      selectedGeoids: ["17031010100"],
+      rowsByGeoid: { "17031010100": { geoid: "17031010100" } },
+    });
+    assert(noState.countyFips === "", "no-state normalization should clear county");
+    assert(noState.placeFips === "", "no-state normalization should clear place");
+    assert(Array.isArray(noState.geoOptions) && noState.geoOptions.length === 0, "no-state normalization should clear geo options");
+    assert(Array.isArray(noState.selectedGeoids) && noState.selectedGeoids.length === 0, "no-state normalization should clear selected geoids");
+  });
+
+  test("Census Phase1: deterministic transition fuzz sweep preserves invariants", () => {
+    const validYears = new Set(listAcsYears());
+    const validMetricSets = new Set(listMetricSetOptions().map((row) => String(row?.id || "")));
+    const resolutionIds = ["place", "tract", "block_group", "congressional_district", "state_senate_district", "state_house_district"];
+    const stateChoices = ["", "17", "06", "12"];
+    const countyChoices = ["", "001", "031", "113"];
+    const placeChoices = ["", "14000", "70000", "53000"];
+    const tractChoices = ["", "010100", "011200", "990000"];
+    const yearChoices = Array.from(validYears).slice(0, 4);
+    const metricChoices = Array.from(validMetricSets);
+    const operations = [
+      "set_state",
+      "set_resolution",
+      "set_county",
+      "set_place",
+      "set_tract",
+      "set_year",
+      "set_metric",
+      "reset_runtime",
+      "set_selected",
+    ];
+    const assertInvariants = (state) => {
+      assert(validYears.has(String(state.year || "")), `invalid year invariant: ${state.year}`);
+      assert(validMetricSets.has(String(state.metricSet || "")), `invalid metric set invariant: ${state.metricSet}`);
+      assert(resolutionIds.includes(String(state.resolution || "")), `invalid resolution invariant: ${state.resolution}`);
+      if (!state.stateFips){
+        assert(state.countyFips === "", "county should clear when state is empty");
+        assert(state.placeFips === "", "place should clear when state is empty");
+        assert(Array.isArray(state.geoOptions) && state.geoOptions.length === 0, "geo options should clear when state is empty");
+        assert(Array.isArray(state.selectedGeoids) && state.selectedGeoids.length === 0, "selected geos should clear when state is empty");
+      }
+      if (!resolutionNeedsCounty(state.resolution)){
+        assert(state.countyFips === "", `county should be empty for resolution ${state.resolution}`);
+      }
+      if (state.resolution !== "block_group"){
+        assert(state.tractFilter === "", `tract filter should clear for resolution ${state.resolution}`);
+      }
+      if (state.selectedGeoids.length){
+        for (const geoid of state.selectedGeoids){
+          assert(typeof geoid === "string" && geoid.length > 0, "selected geoid invariant failed");
+        }
+      }
+    };
+    let seed = 948721;
+    const pick = (arr) => {
+      seed = (seed * 1664525 + 1013904223) % 4294967296;
+      const idx = Math.abs(seed) % arr.length;
+      return arr[idx];
+    };
+    for (let run = 0; run < 80; run += 1){
+      let state = makeDefaultCensusState();
+      for (let step = 0; step < 24; step += 1){
+        const op = pick(operations);
+        if (op === "set_state"){
+          state.stateFips = pick(stateChoices);
+          if (!state.stateFips){
+            state.countyFips = "";
+            state.placeFips = "";
+            state.geoOptions = [];
+            state.selectedGeoids = [];
+            state.rowsByGeoid = {};
+            state.activeRowsKey = "";
+            state.loadedRowCount = 0;
+          }
+        } else if (op === "set_resolution"){
+          state.resolution = pick(resolutionIds);
+          if (!resolutionNeedsCounty(state.resolution)){
+            state.countyFips = "";
+          }
+          if (state.resolution !== "block_group"){
+            state.tractFilter = "";
+          }
+          state.geoOptions = [];
+          state.selectedGeoids = [];
+          state.rowsByGeoid = {};
+          state.activeRowsKey = "";
+          state.loadedRowCount = 0;
+        } else if (op === "set_county"){
+          state.countyFips = pick(countyChoices);
+          state.geoOptions = [];
+          state.selectedGeoids = [];
+          state.rowsByGeoid = {};
+          state.activeRowsKey = "";
+          state.loadedRowCount = 0;
+        } else if (op === "set_place"){
+          state.placeFips = pick(placeChoices);
+        } else if (op === "set_tract"){
+          state.tractFilter = pick(tractChoices);
+        } else if (op === "set_year"){
+          state.year = pick(yearChoices);
+          state.rowsByGeoid = {};
+          state.activeRowsKey = "";
+          state.loadedRowCount = 0;
+          state.lastFetchAt = "";
+          state.variableCatalogYear = "";
+          state.variableCatalogCount = 0;
+        } else if (op === "set_metric"){
+          state.metricSet = pick(metricChoices);
+          state.rowsByGeoid = {};
+          state.activeRowsKey = "";
+          state.loadedRowCount = 0;
+          state.lastFetchAt = "";
+          state.variableCatalogYear = "";
+          state.variableCatalogCount = 0;
+        } else if (op === "reset_runtime"){
+          state.rowsByGeoid = {};
+          state.activeRowsKey = "";
+          state.loadedRowCount = 0;
+          state.lastFetchAt = "";
+        } else if (op === "set_selected"){
+          state.selectedGeoids = ["17031010100", "17031010200"];
+        }
+        state = normalizeCensusState(state);
+        assertInvariants(state);
+      }
+    }
   });
 
   test("Census Phase1: district resolution normalization and context requirements", () => {

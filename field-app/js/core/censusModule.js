@@ -1282,6 +1282,110 @@ export function evaluateResolutionContract({ options, normalizeState } = {}){
   };
 }
 
+function normalizeSeq(v){
+  const n = Number(v);
+  return Number.isFinite(n) && n > 0 ? Math.floor(n) : 0;
+}
+
+export function shouldApplyRequestResult({ activeSeq, resultSeq } = {}){
+  const active = normalizeSeq(activeSeq);
+  const result = normalizeSeq(resultSeq);
+  if (!active || !result) return false;
+  return active === result;
+}
+
+export function evaluateCensusDependencyHealth(args = {}){
+  const input = args && typeof args === "object" ? args : {};
+  const {
+    fetchImpl,
+    tigerBaseUrl = TIGER_BASE_URL,
+    censusApiBase = "https://api.census.gov/data",
+    leafletCssUrl = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.css",
+    leafletJsUrl = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.js",
+    shpJsUrl = "https://unpkg.com/shpjs@6.2.0/dist/shp.min.js",
+  } = input;
+  const out = {
+    ok: true,
+    checks: [],
+    issues: [],
+  };
+  const hasProvidedFetch = Object.prototype.hasOwnProperty.call(input, "fetchImpl");
+  const runtimeFetch = hasProvidedFetch ? fetchImpl : globalThis.fetch;
+  const fetchAvailable = typeof runtimeFetch === "function";
+  out.checks.push({ id: "fetch", ok: fetchAvailable });
+  if (!fetchAvailable){
+    out.issues.push({
+      kind: "bad",
+      code: "fetch_unavailable",
+      text: "Census dependency health: fetch API unavailable in runtime.",
+    });
+  }
+  const urlCtorAvailable = typeof URL === "function";
+  out.checks.push({ id: "url_ctor", ok: urlCtorAvailable });
+  const endpointRows = [
+    { id: "tiger_base", value: tigerBaseUrl },
+    { id: "census_api_base", value: censusApiBase },
+    { id: "leaflet_css", value: leafletCssUrl },
+    { id: "leaflet_js", value: leafletJsUrl },
+    { id: "shpjs", value: shpJsUrl },
+  ];
+  if (!urlCtorAvailable){
+    out.issues.push({
+      kind: "warn",
+      code: "url_ctor_unavailable",
+      text: "Census dependency health: URL parser unavailable; endpoint contract checks limited.",
+    });
+  }
+  for (const row of endpointRows){
+    const value = cleanText(row.value);
+    if (!value){
+      out.issues.push({
+        kind: "bad",
+        code: `${row.id}_missing`,
+        text: `Census dependency health: endpoint "${row.id}" is missing.`,
+      });
+      continue;
+    }
+    if (!urlCtorAvailable){
+      continue;
+    }
+    let parsed = null;
+    try{
+      parsed = new URL(value);
+    } catch {
+      parsed = null;
+    }
+    const valid = !!parsed;
+    out.checks.push({ id: `${row.id}_parse`, ok: valid });
+    if (!valid){
+      out.issues.push({
+        kind: "bad",
+        code: `${row.id}_invalid`,
+        text: `Census dependency health: endpoint "${row.id}" is invalid (${value}).`,
+      });
+      continue;
+    }
+    if (parsed.protocol !== "https:"){
+      out.issues.push({
+        kind: "bad",
+        code: `${row.id}_https_required`,
+        text: `Census dependency health: endpoint "${row.id}" must use HTTPS.`,
+      });
+    }
+  }
+  const abortAvailable = typeof globalThis.AbortController === "function";
+  out.checks.push({ id: "abort_controller", ok: abortAvailable });
+  if (!abortAvailable){
+    out.issues.push({
+      kind: "warn",
+      code: "abort_controller_unavailable",
+      text: "Census dependency health: AbortController unavailable; request cancellation degraded.",
+    });
+  }
+  out.ok = !out.issues.some((issue) => issue.kind === "bad");
+  return out;
+}
+
 function encodeGetVars(vars){
   const deduped = [];
   const seen = new Set();

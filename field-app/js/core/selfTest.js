@@ -1240,6 +1240,86 @@ export function runSelfTests(engine){
     return true;
   });
 
+  test("Phase 9A: Export → Import preserves Census semantic context", () => {
+    const census = {
+      ...makeDefaultCensusState(),
+      year: "2024",
+      resolution: "congressional_district",
+      metricSet: "core",
+      stateFips: "17",
+      countyFips: "",
+      placeFips: "14000",
+      selectedGeoids: ["1707", "1708"],
+      loadedRowCount: 2,
+      activeRowsKey: "rows|2024|congressional_district|core|17||",
+    };
+    const footprint = buildRaceFootprintFromCensusSelection(census);
+    const scenario = withUniverseDefaults({
+      scenarioName: "Census semantic roundtrip",
+      raceType: "state_leg",
+      electionDate: "2026-11-03",
+      weeksRemaining: "",
+      mode: "persuasion",
+      universeBasis: "registered",
+      universeSize: 1000,
+      turnoutA: 40,
+      turnoutB: 44,
+      bandWidth: 4,
+      candidates: [{ id: "a", name: "A", supportPct: 40 }, { id: "b", name: "B", supportPct: 40 }],
+      undecidedPct: 20,
+      yourCandidateId: "a",
+      undecidedMode: "even",
+      persuasionPct: 30,
+      earlyVoteExp: 40,
+      supportRatePct: 55,
+      contactRatePct: 22,
+      turnoutReliabilityPct: 80,
+      mcMode: "basic",
+      mcVolatility: 10,
+      mcSeed: 123,
+      budget: { overheadAmount: 0, includeOverhead: false, tactics: {}, optimize: { mode: "budget", budgetAmount: 0, capacityAttempts: "", step: 25, useDecay: false, objective: "net" } },
+      timelineEnabled: false,
+      ui: { training: false, dark: false },
+      census,
+      raceFootprint: {
+        ...footprint,
+        fingerprint: footprint.fingerprint,
+      },
+      assumptionsProvenance: {
+        source: "census_phase1",
+        raceFootprintFingerprint: footprint.fingerprint,
+        censusRowsKey: footprint.rowsKey,
+        acsYear: census.year,
+        metricSet: census.metricSet,
+        generatedAt: "2026-03-10T02:00:00.000Z",
+      },
+      footprintCapacity: {
+        source: "census_phase1",
+        population: 500000,
+        year: census.year,
+        metricSet: census.metricSet,
+        raceFootprintFingerprint: footprint.fingerprint,
+        censusRowsKey: footprint.rowsKey,
+        updatedAt: "2026-03-10T02:00:00.000Z",
+      },
+    });
+    const payload = makeScenarioExport({ modelVersion: MODEL_VERSION, scenarioState: scenario });
+    const parsed = JSON.parse(deterministicStringify(payload));
+    const mig = migrateSnapshot(parsed);
+    const v = validateScenarioExport(mig.snapshot, MODEL_VERSION);
+    assert(v.ok, "validateScenarioExport failed");
+    const canonical = normalizeLoadedStateApp(v.scenario);
+    assert(canonical.census.resolution === "congressional_district", "census resolution drifted");
+    assert(canonical.census.stateFips === "17", "census stateFips drifted");
+    assert(canonical.census.placeFips === "14000", "census placeFips drifted");
+    assert(Array.isArray(canonical.census.selectedGeoids) && canonical.census.selectedGeoids.length === 2, "census selected geoids drifted");
+    assert(canonical.raceFootprint.resolution === "congressional_district", "race footprint resolution drifted");
+    assert(canonical.raceFootprint.stateFips === "17", "race footprint stateFips drifted");
+    assert(canonical.assumptionsProvenance.acsYear === "2024", "provenance acsYear drifted");
+    assert(canonical.assumptionsProvenance.metricSet === "core", "provenance metricSet drifted");
+    return true;
+  });
+
   test("Phase 10: export includes schemaVersion (and appVersion)", () => {
     const payload = makeScenarioExport({ modelVersion: MODEL_VERSION, schemaVersion: CURRENT_SCHEMA_VERSION, appVersion: MODEL_VERSION, scenarioState: { a: 1 } });
     assert(payload.schemaVersion === CURRENT_SCHEMA_VERSION, "Missing/incorrect schemaVersion on export");
