@@ -32,7 +32,7 @@ import {
   detectElectionCsvFormat,
   normalizeElectionCsvRows,
   parseCsvText,
-} from "../censusModule.js?v=20260309-census-phase1-34";
+} from "../censusModule.js?v=20260310-census-phase1-38";
 
 export function registerCensusPhase1Tests(ctx){
   const { test, assert } = ctx;
@@ -534,14 +534,14 @@ export function registerCensusPhase1Tests(ctx){
 
   test("Census Phase1: footprint feasibility warns when provenance is stale", () => {
     const censusState = {
-      year: "2025",
+      year: "2024",
       resolution: "tract",
       metricSet: "core",
       stateFips: "17",
       countyFips: "031",
       selectedGeoids: ["17031010100"],
       loadedRowCount: 1,
-      activeRowsKey: "2025|tract|17|031|core",
+      activeRowsKey: "2024|tract|17|031|core",
     };
     const live = buildRaceFootprintFromCensusSelection(censusState);
     const result = evaluateFootprintFeasibility({
@@ -552,13 +552,13 @@ export function registerCensusPhase1Tests(ctx){
           source: "census_phase1",
           raceFootprintFingerprint: live.fingerprint,
           censusRowsKey: live.rowsKey,
-          acsYear: "2024",
+          acsYear: "2023",
           metricSet: "core",
         },
         footprintCapacity: {
           source: "census_phase1",
           population: 1200,
-          year: "2025",
+          year: "2024",
           metricSet: "core",
           raceFootprintFingerprint: live.fingerprint,
           censusRowsKey: live.rowsKey,
