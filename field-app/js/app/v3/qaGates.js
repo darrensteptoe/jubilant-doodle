@@ -15,6 +15,9 @@ const STAGE_EXPECTATIONS = {
     "#v3IntelBriefKind",
     "#v3BtnIntelCaptureObserved",
     "#v3BtnCensusLoadGeo",
+    "#v3BtnCensusApplyGeoPaste",
+    "#v3BtnCensusLoadMap",
+    "#v3BtnCensusElectionCsvDryRun",
     "#v3CensusStatus",
     "#intelWorkflowStatus",
     "#censusStatus"
@@ -30,6 +33,7 @@ const STAGE_EXPECTATIONS = {
     "#v3DecisionActiveSession",
     "#v3DecisionSessionSelect",
     "#v3DecisionRecommendSelect",
+    "#v3BtnDecisionSensRun",
     "#v3DecisionObjectiveSummary",
     "#v3DecisionSummaryPreview",
     "#decisionActiveLabel"

@@ -510,6 +510,27 @@ function buildControlsCensusBridge(target) {
     closestSelector: ".grid2",
     target: root
   });
+
+  const geoSelectionActions = createFieldGrid("fpe-field-grid--2");
+  geoSelectionActions.innerHTML = `
+    <div class="field">
+      <label class="fpe-control-label">GEO selection actions</label>
+      <div class="fpe-action-row">
+        <button class="fpe-btn fpe-btn--ghost" id="v3BtnCensusApplyGeoPaste" type="button">Apply GEOIDs</button>
+        <button class="fpe-btn fpe-btn--ghost" id="v3BtnCensusSelectAll" type="button">Select all</button>
+        <button class="fpe-btn fpe-btn--ghost" id="v3BtnCensusClearSelection" type="button">Clear selection</button>
+      </div>
+    </div>
+    <div class="field">
+      <label class="fpe-control-label">Aggregate exports</label>
+      <div class="fpe-action-row">
+        <button class="fpe-btn fpe-btn--ghost" id="v3BtnCensusExportAggregateCsv" type="button">Export CSV</button>
+        <button class="fpe-btn fpe-btn--ghost" id="v3BtnCensusExportAggregateJson" type="button">Export JSON</button>
+      </div>
+    </div>
+  `;
+  root.append(geoSelectionActions);
+
   mountLegacyClosest({
     key: "v3-controls-census-advisory-table",
     childSelector: "#censusAdvisoryTbody",
@@ -531,12 +552,13 @@ function buildControlsCensusBridge(target) {
     selector: "#censusSelectionSummary",
     target: root
   });
-  mountLegacyClosest({
-    key: "v3-controls-census-footprint-actions",
-    childSelector: "#btnCensusSetRaceFootprint",
-    closestSelector: ".rowline",
-    target: root
-  });
+  const footprintActions = document.createElement("div");
+  footprintActions.className = "fpe-action-row";
+  footprintActions.innerHTML = `
+    <button class="fpe-btn fpe-btn--ghost" id="v3BtnCensusSetRaceFootprint" type="button">Set as race footprint</button>
+    <button class="fpe-btn fpe-btn--ghost" id="v3BtnCensusClearRaceFootprint" type="button">Clear race footprint</button>
+  `;
+  root.append(footprintActions);
   mountLegacyNode({
     key: "v3-controls-census-footprint-status",
     selector: "#censusRaceFootprintStatus",
@@ -568,12 +590,46 @@ function buildControlsCensusBridge(target) {
     selector: "#censusPhase1Card > details",
     target: root
   });
-  mountLegacyClosest({
-    key: "v3-controls-census-selection-set-grid",
-    childSelector: "#censusSelectionSetName",
-    closestSelector: ".grid2",
-    target: root
-  });
+  const electionActionGrid = createFieldGrid("fpe-field-grid--2");
+  electionActionGrid.innerHTML = `
+    <div class="field">
+      <label class="fpe-control-label">Election CSV templates</label>
+      <div class="fpe-action-row">
+        <button class="fpe-btn fpe-btn--ghost" id="v3BtnCensusDownloadElectionCsvTemplate" type="button">Download long-format template</button>
+        <button class="fpe-btn fpe-btn--ghost" id="v3BtnCensusDownloadElectionCsvWideTemplate" type="button">Download wide-format template</button>
+      </div>
+    </div>
+    <div class="field">
+      <label class="fpe-control-label">Election CSV dry-run</label>
+      <div class="fpe-action-row">
+        <button class="fpe-btn fpe-btn--ghost" id="v3BtnCensusElectionCsvDryRun" type="button">Run dry-run parse</button>
+        <button class="fpe-btn fpe-btn--ghost" id="v3BtnCensusElectionCsvClear" type="button">Clear preview</button>
+      </div>
+      <div class="fpe-help" id="v3CensusElectionCsvDryRunStatus">No dry-run run yet.</div>
+      <div class="fpe-help" id="v3CensusElectionCsvPreviewMeta">No normalized preview rows.</div>
+    </div>
+  `;
+  root.append(electionActionGrid);
+
+  const selectionSetGrid = createFieldGrid("fpe-field-grid--2");
+  selectionSetGrid.innerHTML = `
+    <div class="field">
+      <label class="fpe-control-label" for="v3CensusSelectionSetName">Save selection set</label>
+      <input class="fpe-input" id="v3CensusSelectionSetName" type="text"/>
+      <div class="fpe-action-row" style="margin-top:8px;">
+        <button class="fpe-btn fpe-btn--ghost" id="v3BtnCensusSaveSelectionSet" type="button">Save set</button>
+      </div>
+    </div>
+    <div class="field">
+      <label class="fpe-control-label" for="v3CensusSelectionSetSelect">Saved sets</label>
+      <select class="fpe-input" id="v3CensusSelectionSetSelect"></select>
+      <div class="fpe-action-row" style="margin-top:8px;">
+        <button class="fpe-btn fpe-btn--ghost" id="v3BtnCensusLoadSelectionSet" type="button">Load set</button>
+        <button class="fpe-btn fpe-btn--ghost" id="v3BtnCensusDeleteSelectionSet" type="button">Delete</button>
+      </div>
+    </div>
+  `;
+  root.append(selectionSetGrid);
   mountLegacyNode({
     key: "v3-controls-census-selection-set-status",
     selector: "#censusSelectionSetStatus",
@@ -584,28 +640,54 @@ function buildControlsCensusBridge(target) {
     selector: "#censusLastFetch",
     target: root
   });
-  mountLegacyClosest({
-    key: "v3-controls-census-map-actions-row",
-    childSelector: "#censusMapStatus",
-    closestSelector: ".rowline",
-    target: root
-  });
-  mountLegacyClosest({
-    key: "v3-controls-census-vtd-zip-row",
-    childSelector: "#censusMapQaVtdZip",
-    closestSelector: ".rowline",
-    target: root
-  });
+  const mapActionsGrid = createFieldGrid("fpe-field-grid--2");
+  mapActionsGrid.innerHTML = `
+    <div class="field">
+      <label class="fpe-control-label">Map status</label>
+      <div class="fpe-help" id="v3CensusMapStatus">Map idle.</div>
+      <label class="fpe-switch" style="margin-top:8px;">
+        <input id="v3CensusMapQaVtdToggle" type="checkbox"/>
+        <span>VTD QA overlay</span>
+      </label>
+    </div>
+    <div class="field">
+      <label class="fpe-control-label">Map actions</label>
+      <div class="fpe-action-row">
+        <button class="fpe-btn fpe-btn--ghost" id="v3BtnCensusLoadMap" type="button">Load boundaries</button>
+        <button class="fpe-btn fpe-btn--ghost" id="v3BtnCensusClearMap" type="button">Clear map</button>
+      </div>
+    </div>
+  `;
+  root.append(mapActionsGrid);
+
+  const vtdUploadGrid = createFieldGrid("fpe-field-grid--2");
+  vtdUploadGrid.innerHTML = `
+    <div class="field">
+      <label class="fpe-control-label">VTD ZIP overlay source (optional)</label>
+      <div id="v3CensusMapQaVtdZipHost"></div>
+    </div>
+    <div class="field">
+      <label class="fpe-control-label">VTD ZIP action</label>
+      <div class="fpe-action-row">
+        <button class="fpe-btn fpe-btn--ghost" id="v3BtnCensusMapQaVtdZipClear" type="button">Clear VTD ZIP</button>
+      </div>
+      <div class="fpe-help" id="v3CensusMapQaVtdZipStatus">No VTD ZIP loaded.</div>
+    </div>
+  `;
+  root.append(vtdUploadGrid);
   mountLegacyNode({
-    key: "v3-controls-census-vtd-zip-status",
-    selector: "#censusMapQaVtdZipStatus",
-    target: root
+    key: "v3-controls-census-vtd-zip-input",
+    selector: "#censusMapQaVtdZip",
+    target: document.getElementById("v3CensusMapQaVtdZipHost")
   });
+
   mountLegacyNode({
     key: "v3-controls-census-map",
     selector: "#censusMap",
     target: root
   });
+
+  hideLegacyCensusActionButtons();
 }
 
 function wireControlsWorkflowBridge() {
@@ -639,16 +721,101 @@ function wireControlsCensusBridge() {
   }
   root.dataset.wired = "1";
 
+  bindFieldProxy("v3CensusSelectionSetName", "censusSelectionSetName");
+  bindSelectProxy("v3CensusSelectionSetSelect", "censusSelectionSetSelect");
+  bindCheckboxProxy("v3CensusMapQaVtdToggle", "censusMapQaVtdToggle");
+
   bindClickProxy("v3BtnCensusLoadGeo", "btnCensusLoadGeo");
   bindClickProxy("v3BtnCensusFetchRows", "btnCensusFetchRows");
+  bindClickProxy("v3BtnCensusApplyGeoPaste", "btnCensusApplyGeoPaste");
+  bindClickProxy("v3BtnCensusSelectAll", "btnCensusSelectAll");
+  bindClickProxy("v3BtnCensusClearSelection", "btnCensusClearSelection");
+  bindClickProxy("v3BtnCensusExportAggregateCsv", "btnCensusExportAggregateCsv");
+  bindClickProxy("v3BtnCensusExportAggregateJson", "btnCensusExportAggregateJson");
+  bindClickProxy("v3BtnCensusSetRaceFootprint", "btnCensusSetRaceFootprint");
+  bindClickProxy("v3BtnCensusClearRaceFootprint", "btnCensusClearRaceFootprint");
+  bindClickProxy(
+    "v3BtnCensusDownloadElectionCsvTemplate",
+    "btnCensusDownloadElectionCsvTemplate"
+  );
+  bindClickProxy(
+    "v3BtnCensusDownloadElectionCsvWideTemplate",
+    "btnCensusDownloadElectionCsvWideTemplate"
+  );
+  bindClickProxy("v3BtnCensusElectionCsvDryRun", "btnCensusElectionCsvDryRun");
+  bindClickProxy("v3BtnCensusElectionCsvClear", "btnCensusElectionCsvClear");
+  bindClickProxy("v3BtnCensusSaveSelectionSet", "btnCensusSaveSelectionSet");
+  bindClickProxy("v3BtnCensusLoadSelectionSet", "btnCensusLoadSelectionSet");
+  bindClickProxy("v3BtnCensusDeleteSelectionSet", "btnCensusDeleteSelectionSet");
+  bindClickProxy("v3BtnCensusLoadMap", "btnCensusLoadMap");
+  bindClickProxy("v3BtnCensusClearMap", "btnCensusClearMap");
+  bindClickProxy("v3BtnCensusMapQaVtdZipClear", "btnCensusMapQaVtdZipClear");
 }
 
 function syncControlsCensusBridge() {
+  syncFieldValue("v3CensusSelectionSetName", "censusSelectionSetName");
+  syncSelectValue("v3CensusSelectionSetSelect", "censusSelectionSetSelect");
+  syncCheckboxValue("v3CensusMapQaVtdToggle", "censusMapQaVtdToggle");
+
   setText("v3CensusStatus", readText("#censusStatus"));
   setText("v3CensusGeoStats", readText("#censusGeoStats"));
+  setText("v3CensusMapStatus", readText("#censusMapStatus"));
+  setText("v3CensusMapQaVtdZipStatus", readText("#censusMapQaVtdZipStatus"));
+  setText("v3CensusElectionCsvDryRunStatus", readText("#censusElectionCsvDryRunStatus"));
+  setText("v3CensusElectionCsvPreviewMeta", readText("#censusElectionCsvPreviewMeta"));
+
+  const v3QaToggle = document.getElementById("v3CensusMapQaVtdToggle");
+  const legacyQaToggle = document.getElementById("censusMapQaVtdToggle");
+  if (v3QaToggle instanceof HTMLInputElement && legacyQaToggle instanceof HTMLInputElement) {
+    v3QaToggle.disabled = legacyQaToggle.disabled;
+  }
 
   syncButtonDisabled("v3BtnCensusLoadGeo", "btnCensusLoadGeo");
   syncButtonDisabled("v3BtnCensusFetchRows", "btnCensusFetchRows");
+  syncButtonDisabled("v3BtnCensusApplyGeoPaste", "btnCensusApplyGeoPaste");
+  syncButtonDisabled("v3BtnCensusSelectAll", "btnCensusSelectAll");
+  syncButtonDisabled("v3BtnCensusClearSelection", "btnCensusClearSelection");
+  syncButtonDisabled("v3BtnCensusExportAggregateCsv", "btnCensusExportAggregateCsv");
+  syncButtonDisabled("v3BtnCensusExportAggregateJson", "btnCensusExportAggregateJson");
+  syncButtonDisabled("v3BtnCensusSetRaceFootprint", "btnCensusSetRaceFootprint");
+  syncButtonDisabled("v3BtnCensusClearRaceFootprint", "btnCensusClearRaceFootprint");
+  syncButtonDisabled(
+    "v3BtnCensusDownloadElectionCsvTemplate",
+    "btnCensusDownloadElectionCsvTemplate"
+  );
+  syncButtonDisabled(
+    "v3BtnCensusDownloadElectionCsvWideTemplate",
+    "btnCensusDownloadElectionCsvWideTemplate"
+  );
+  syncButtonDisabled("v3BtnCensusElectionCsvDryRun", "btnCensusElectionCsvDryRun");
+  syncButtonDisabled("v3BtnCensusElectionCsvClear", "btnCensusElectionCsvClear");
+  syncButtonDisabled("v3BtnCensusSaveSelectionSet", "btnCensusSaveSelectionSet");
+  syncButtonDisabled("v3BtnCensusLoadSelectionSet", "btnCensusLoadSelectionSet");
+  syncButtonDisabled("v3BtnCensusDeleteSelectionSet", "btnCensusDeleteSelectionSet");
+  syncButtonDisabled("v3BtnCensusLoadMap", "btnCensusLoadMap");
+  syncButtonDisabled("v3BtnCensusClearMap", "btnCensusClearMap");
+  syncButtonDisabled("v3BtnCensusMapQaVtdZipClear", "btnCensusMapQaVtdZipClear");
+}
+
+function hideLegacyCensusActionButtons() {
+  [
+    "btnCensusApplyGeoPaste",
+    "btnCensusSelectAll",
+    "btnCensusClearSelection",
+    "btnCensusExportAggregateCsv",
+    "btnCensusExportAggregateJson",
+    "btnCensusDownloadElectionCsvTemplate",
+    "btnCensusDownloadElectionCsvWideTemplate",
+    "btnCensusElectionCsvDryRun",
+    "btnCensusElectionCsvClear"
+  ].forEach((id) => {
+    const legacy = document.getElementById(id);
+    if (!(legacy instanceof HTMLElement)) {
+      return;
+    }
+    legacy.style.display = "none";
+    legacy.setAttribute("aria-hidden", "true");
+  });
 }
 
 function wireControlsBenchmarkBridge() {

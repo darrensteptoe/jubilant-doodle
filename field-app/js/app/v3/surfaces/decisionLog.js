@@ -190,10 +190,17 @@ export function renderDecisionLogSurface(mount) {
   mountDecisionRow(diagnosticsBody, "v3-decision-bneck-kpis-row", "#bneckPrimary");
   mountDecisionRow(diagnosticsBody, "v3-decision-bneck-table-row", "#bneckTbody");
   mountDecisionRow(diagnosticsBody, "v3-decision-sens-tag-row", "#sensTag");
+  const sensitivityActions = document.createElement("div");
+  sensitivityActions.className = "fpe-action-row";
+  sensitivityActions.innerHTML = `
+    <button class="fpe-btn fpe-btn--ghost" id="v3BtnDecisionSensRun" type="button">Run snapshot</button>
+  `;
+  diagnosticsBody.append(sensitivityActions);
   mountDecisionRow(diagnosticsBody, "v3-decision-sens-table-row", "#sensTbody");
   mountDecisionRow(diagnosticsBody, "v3-decision-conf-tag-row", "#confTag");
   mountDecisionRow(diagnosticsBody, "v3-decision-conf-kpis-row", "#confExec");
   mountDecisionRow(diagnosticsBody, "v3-decision-conf-banner-row", "#confBanner");
+  hideLegacyDecisionDiagnosticsActions();
 
   const recommendationBody = getCardBody(recommendationCard);
   recommendationBody.innerHTML = `
@@ -304,6 +311,7 @@ function wireDecisionBridge() {
   bindClickProxy("v3BtnDecisionOptionRenameSave", "btnDecisionOptionRenameSave");
   bindClickProxy("v3BtnDecisionOptionDelete", "btnDecisionOptionDelete");
   bindClickProxy("v3BtnDecisionOptionLinkScenario", "btnDecisionOptionLinkScenario");
+  bindClickProxy("v3BtnDecisionSensRun", "btnSensRun");
   bindClickProxy("v3BtnDecisionCopyMd", "btnDecisionCopyMd");
   bindClickProxy("v3BtnDecisionCopyText", "btnDecisionCopyText");
   bindClickProxy("v3BtnDecisionDownloadJson", "btnDecisionDownloadJson");
@@ -344,7 +352,17 @@ function syncDecisionBridgeUi() {
   syncButtonDisabled("v3BtnDecisionOptionRenameSave", "btnDecisionOptionRenameSave");
   syncButtonDisabled("v3BtnDecisionOptionDelete", "btnDecisionOptionDelete");
   syncButtonDisabled("v3BtnDecisionOptionLinkScenario", "btnDecisionOptionLinkScenario");
+  syncButtonDisabled("v3BtnDecisionSensRun", "btnSensRun");
   syncButtonDisabled("v3BtnDecisionCopyMd", "btnDecisionCopyMd");
   syncButtonDisabled("v3BtnDecisionCopyText", "btnDecisionCopyText");
   syncButtonDisabled("v3BtnDecisionDownloadJson", "btnDecisionDownloadJson");
+}
+
+function hideLegacyDecisionDiagnosticsActions() {
+  const legacy = document.getElementById("btnSensRun");
+  if (!(legacy instanceof HTMLElement)) {
+    return;
+  }
+  legacy.style.display = "none";
+  legacy.setAttribute("aria-hidden", "true");
 }
