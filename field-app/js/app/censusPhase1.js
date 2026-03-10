@@ -6,6 +6,7 @@ import {
   listMetricSetOptions,
   normalizeCensusState,
   evaluateResolutionContract,
+  shouldApplyRequestResult,
   fetchStateOptions,
   fetchCountyOptions,
   fetchPlaceOptions,
@@ -1690,7 +1691,7 @@ async function onLoadGeo({ s, key, getState, commitUIUpdate }){
       key,
     });
     const current = ensureCensusStateModule(getState());
-    if (!current || current.requestSeq !== seq) return;
+    if (!current || !shouldApplyRequestResult({ activeSeq: current.requestSeq, resultSeq: seq })) return;
     current.geoOptions = options;
     const tractRows = current.resolution === "block_group" ? uniqueTractRows(current.geoOptions) : [];
     if (current.resolution !== "block_group" || !tractRows.some((row) => cleanText(row.value) === cleanText(current.tractFilter))){
@@ -1713,13 +1714,13 @@ async function onLoadGeo({ s, key, getState, commitUIUpdate }){
     setStatus(current, `${options.length} GEO options loaded for ${currentResolutionLabel}.`, false);
   } catch (err){
     const current = ensureCensusStateModule(getState());
-    if (!current || current.requestSeq !== seq) return;
+    if (!current || !shouldApplyRequestResult({ activeSeq: current.requestSeq, resultSeq: seq })) return;
     const msg = cleanText(err?.message) || "Failed to load GEO list.";
     resetGeoData(current);
     setStatus(current, msg, true);
   }
   const finalState = ensureCensusStateModule(getState());
-  if (finalState && finalState.requestSeq === seq){
+  if (finalState && shouldApplyRequestResult({ activeSeq: finalState.requestSeq, resultSeq: seq })){
     setLoadingFlags(finalState, "geo", false);
   }
   commitUIUpdate();
@@ -1744,7 +1745,7 @@ async function onFetchRows({ s, key, getState, commitUIUpdate }){
     }
     const check = validateMetricSetWithCatalog(s.metricSet, variableNames);
     const currentBeforeRows = ensureCensusStateModule(getState());
-    if (!currentBeforeRows || currentBeforeRows.requestSeq !== seq) return;
+    if (!currentBeforeRows || !shouldApplyRequestResult({ activeSeq: currentBeforeRows.requestSeq, resultSeq: seq })) return;
     currentBeforeRows.variableCatalogYear = s.year;
     currentBeforeRows.variableCatalogCount = Array.isArray(variableNames) ? variableNames.length : 0;
     if (!check.ok){
@@ -1762,7 +1763,7 @@ async function onFetchRows({ s, key, getState, commitUIUpdate }){
       key,
     });
     const current = ensureCensusStateModule(getState());
-    if (!current || current.requestSeq !== seq) return;
+    if (!current || !shouldApplyRequestResult({ activeSeq: current.requestSeq, resultSeq: seq })) return;
     const rowsKey = rowsKeyFromState(current);
     rowsCache.set(rowsKey, rowsByGeoid);
     current.rowsByGeoid = {};
@@ -1784,7 +1785,7 @@ async function onFetchRows({ s, key, getState, commitUIUpdate }){
     setStatus(current, `Loaded ${current.loadedRowCount} ACS rows for ${currentResolutionLabel}.`, false);
   } catch (err){
     const current = ensureCensusStateModule(getState());
-    if (!current || current.requestSeq !== seq) return;
+    if (!current || !shouldApplyRequestResult({ activeSeq: current.requestSeq, resultSeq: seq })) return;
     const msg = cleanText(err?.message) || "Failed to fetch ACS rows.";
     disableCensusApplyAdjustments(current);
     current.rowsByGeoid = {};
@@ -1794,7 +1795,7 @@ async function onFetchRows({ s, key, getState, commitUIUpdate }){
     setStatus(current, msg, true);
   }
   const finalState = ensureCensusStateModule(getState());
-  if (finalState && finalState.requestSeq === seq){
+  if (finalState && shouldApplyRequestResult({ activeSeq: finalState.requestSeq, resultSeq: seq })){
     setLoadingFlags(finalState, "rows", false);
   }
   commitUIUpdate();

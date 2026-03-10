@@ -5,6 +5,7 @@ import {
   clampCensusApplyMultipliers,
   evaluateCensusApplyMode,
   evaluateCensusPaceAgainstAdvisory,
+  evaluateCensusDependencyHealth,
   evaluateFootprintFeasibility,
   evaluateResolutionContract,
 } from "../core/censusModule.js";
@@ -76,6 +77,15 @@ export function renderValidationModule(args){
       kind: "bad",
       text: `Census resolution contract mismatch (${issueIds.join(", ")}). Refresh runtime before using Census selectors.`,
     });
+  }
+  const dependencyHealth = evaluateCensusDependencyHealth();
+  if (!dependencyHealth.ok || dependencyHealth.issues.some((issue) => issue.kind === "warn")){
+    for (const issue of dependencyHealth.issues){
+      items.push({
+        kind: issue.kind === "bad" ? "bad" : "warn",
+        text: String(issue.text || ""),
+      });
+    }
   }
   for (const issue of footprint.issues){
     items.push({
