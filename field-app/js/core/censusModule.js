@@ -453,7 +453,8 @@ export function buildRaceFootprintFromCensusSelection(censusState){
 }
 
 export function assessRaceFootprintAlignment({ censusState, raceFootprint, assumptionsProvenance } = {}){
-  const live = buildRaceFootprintFromCensusSelection(censusState);
+  const census = normalizeCensusState(censusState);
+  const live = buildRaceFootprintFromCensusSelection(census);
   const storedRaw = normalizeRaceFootprint(raceFootprint);
   const stored = {
     ...storedRaw,
@@ -463,15 +464,15 @@ export function assessRaceFootprintAlignment({ censusState, raceFootprint, assum
   const footprintDefined = !!stored.fingerprint && Array.isArray(stored.geoids) && stored.geoids.length > 0;
   const selectionHasContext = !!live.fingerprint;
   const selectionMatches = footprintDefined && selectionHasContext && live.fingerprint === stored.fingerprint;
-  const rowsKey = cleanText(censusState?.activeRowsKey);
-  const activeYear = cleanText(censusState?.year);
-  const activeMetricSet = cleanText(censusState?.metricSet);
+  const activeRowsKey = cleanText(census?.activeRowsKey) || cleanText(live.rowsKey) || cleanText(stored.rowsKey);
+  const activeYear = cleanText(census?.year) || cleanText(live.year) || cleanText(stored.year);
+  const activeMetricSet = cleanText(census?.metricSet) || cleanText(live.metricSet) || cleanText(stored.metricSet);
   const provenanceHasFingerprint = !!provenance.raceFootprintFingerprint;
   const provenanceHasRowsKey = !!provenance.censusRowsKey;
   const provenanceHasYear = !!provenance.acsYear;
   const provenanceHasMetricSet = !!provenance.metricSet;
   const provenanceFingerprintMatches = provenanceHasFingerprint && provenance.raceFootprintFingerprint === stored.fingerprint;
-  const provenanceRowsKeyMatches = provenanceHasRowsKey && provenance.censusRowsKey === rowsKey;
+  const provenanceRowsKeyMatches = provenanceHasRowsKey && provenance.censusRowsKey === activeRowsKey;
   const provenanceYearMatches = provenanceHasYear && provenance.acsYear === activeYear;
   const provenanceMetricSetMatches = provenanceHasMetricSet && provenance.metricSet === activeMetricSet;
   const provenanceAligned = footprintDefined
@@ -1905,6 +1906,151 @@ export function buildAggregateTableRows(aggregate, metricSet){
       valueText: formatMetricValue(row.value, row.format),
       format: row.format,
     }));
+}
+
+function clampRange(value, min, max){
+  const n = Number(value);
+  if (!Number.isFinite(n)) return min;
+  if (n < min) return min;
+  if (n > max) return max;
+  return n;
+}
+
+function metricNum(metrics, id){
+  const value = Number(metrics?.[id]?.value);
+  return Number.isFinite(value) ? value : null;
+}
+
+function advisoryBand(value){
+  const n = Number(value);
+  if (!Number.isFinite(n)) return "—";
+  if (n >= 1.08) return "High";
+  if (n <= 0.92) return "Low";
+  return "Moderate";
+}
+
+export function buildCensusAssumptionAdvisory({ aggregate, doorShare, doorsPerHour, callsPerHour } = {}){
+  const selectedGeoCount = Number.isFinite(Number(aggregate?.selectedGeoCount))
+    ? Math.max(0, Math.floor(Number(aggregate.selectedGeoCount)))
+    : 0;
+  const metrics = aggregate?.metrics && typeof aggregate.metrics === "object" ? aggregate.metrics : {};
+
+  let availableSignals = 0;
+  const totalSignals = 6;
+  const pickShare = (id, fallback) => {
+    const value = metricNum(metrics, id);
+    if (value == null) return fallback;
+    availableSignals += 1;
+    return clampRange(value, 0, 1);
+  };
+  const pickMetric = (id, fallback) => {
+    const value = metricNum(metrics, id);
+    if (value == null) return fallback;
+    availableSignals += 1;
+    return value;
+  };
+
+  const renterShare = pickShare("renter_share", 0.35);
+  const multiUnitShare = pickShare("multi_unit_share", 0.20);
+  const limitedEnglishShare = pickShare("limited_english_share", 0.05);
+  const baPlusShare = pickShare("ba_plus_share", 0.33);
+  const medianIncome = pickMetric("median_household_income_est", 65000);
+  const population = metricNum(metrics, "population_total");
+  const housingUnits = metricNum(metrics, "housing_units_total");
+  let densityRatio = 0.45;
+  if (Number.isFinite(population) && population > 0 && Number.isFinite(housingUnits) && housingUnits > 0){
+    densityRatio = housingUnits / population;
+    availableSignals += 1;
+  }
+  densityRatio = clampRange(densityRatio, 0.2, 0.9);
+
+  const incomeNorm = clampRange((medianIncome - 35000) / 65000, 0, 1);
+  const densityNorm = clampRange((densityRatio - 0.25) / 0.45, 0, 1);
+
+  const fieldSpeed = clampRange(
+    1
+      + (0.22 * densityNorm)
+      + (0.12 * multiUnitShare)
+      + (0.06 * renterShare)
+      - (0.14 * limitedEnglishShare),
+    0.75,
+    1.30,
+  );
+  const persuasionEnvironment = clampRange(
+    1
+      + (0.16 * baPlusShare)
+      + (0.08 * renterShare)
+      + (0.10 * incomeNorm)
+      - (0.08 * limitedEnglishShare),
+    0.80,
+    1.30,
+  );
+  const turnoutElasticity = clampRange(
+    1
+      + (0.20 * renterShare)
+      + (0.12 * limitedEnglishShare)
+      + (0.08 * (1 - baPlusShare))
+      - (0.06 * incomeNorm),
+    0.80,
+    1.35,
+  );
+  const fieldDifficulty = clampRange(
+    1
+      + (0.20 * limitedEnglishShare)
+      + (0.10 * multiUnitShare)
+      + (0.08 * (1 - densityNorm))
+      - (0.05 * renterShare),
+    0.80,
+    1.40,
+  );
+
+  const shareRaw = Number(doorShare);
+  const share = Number.isFinite(shareRaw) ? clampRange(shareRaw, 0, 1) : 0.5;
+  const dph = Number(doorsPerHour);
+  const cph = Number(callsPerHour);
+  const hasBaseAph = Number.isFinite(dph) && dph > 0 && Number.isFinite(cph) && cph > 0;
+  const baseAph = hasBaseAph ? (share * dph) + ((1 - share) * cph) : null;
+  const doorsMultiplier = clampRange(fieldSpeed / fieldDifficulty, 0.70, 1.30);
+  const adjustedAph = baseAph != null ? baseAph * doorsMultiplier : null;
+  const aphDeltaPct = (baseAph != null && baseAph > 0 && adjustedAph != null) ? ((adjustedAph / baseAph) - 1) : null;
+
+  const ready = selectedGeoCount > 0 && availableSignals > 0;
+  const reason = ready
+    ? "ready"
+    : (selectedGeoCount > 0 ? "signals_unavailable" : "selection_missing");
+
+  return {
+    ready,
+    reason,
+    selectedGeoCount,
+    coverage: {
+      availableSignals,
+      totalSignals,
+    },
+    indices: {
+      fieldSpeed,
+      persuasionEnvironment,
+      turnoutElasticity,
+      fieldDifficulty,
+    },
+    bands: {
+      fieldSpeed: advisoryBand(fieldSpeed),
+      persuasionEnvironment: advisoryBand(persuasionEnvironment),
+      turnoutElasticity: advisoryBand(turnoutElasticity),
+      fieldDifficulty: advisoryBand(fieldDifficulty),
+    },
+    multipliers: {
+      doorsPerHour: doorsMultiplier,
+      persuasion: persuasionEnvironment,
+      turnoutLift: turnoutElasticity,
+      organizerLoad: fieldDifficulty,
+    },
+    aph: {
+      base: baseAph,
+      adjusted: adjustedAph,
+      deltaPct: aphDeltaPct,
+    },
+  };
 }
 
 export function validateMetricSetWithCatalog(metricSet, variableNames){

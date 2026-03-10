@@ -27,10 +27,11 @@ import {
   getElectionCsvUploadGuide,
   buildElectionCsvTemplate,
   buildElectionCsvWideTemplate,
+  buildCensusAssumptionAdvisory,
   detectElectionCsvFormat,
   normalizeElectionCsvRows,
   parseCsvText,
-} from "../censusModule.js";
+} from "../censusModule.js?v=20260309-census-phase1-32";
 
 export function registerCensusPhase1Tests(ctx){
   const { test, assert } = ctx;
@@ -359,6 +360,32 @@ export function registerCensusPhase1Tests(ctx){
     assert(bundleMismatch.reason === "provenance_metric_set_mismatch", "metric bundle mismatch reason mismatch");
   });
 
+  test("Census Phase1: alignment tolerates runtime rows key reset when footprint/provenance match", () => {
+    const censusState = {
+      year: "2024",
+      resolution: "tract",
+      metricSet: "core",
+      stateFips: "17",
+      countyFips: "031",
+      selectedGeoids: ["17031010100", "17031010200"],
+      loadedRowCount: 2,
+      activeRowsKey: "2024|tract|17|031|core",
+    };
+    const live = buildRaceFootprintFromCensusSelection(censusState);
+    const aligned = assessRaceFootprintAlignment({
+      censusState: { ...censusState, activeRowsKey: "" },
+      raceFootprint: { ...live, fingerprint: live.fingerprint },
+      assumptionsProvenance: {
+        source: "census_phase1",
+        raceFootprintFingerprint: live.fingerprint,
+        censusRowsKey: live.rowsKey,
+        acsYear: "2024",
+        metricSet: "core",
+      },
+    });
+    assert(aligned.readyForAssumptions === true, `alignment should be ready when runtime key resets (${aligned.reason})`);
+  });
+
   test("Census Phase1: footprint capacity normalization", () => {
     const normalized = normalizeFootprintCapacity({
       source: "census_phase1",
@@ -487,6 +514,46 @@ export function registerCensusPhase1Tests(ctx){
     assert(summary.text === "", "ok summary should have empty text");
   });
 
+  test("Census Phase1: ACS advisory computes indices and APH adjustment", () => {
+    const advisory = buildCensusAssumptionAdvisory({
+      aggregate: {
+        selectedGeoCount: 2,
+        metrics: {
+          population_total: { value: 2500 },
+          housing_units_total: { value: 1100 },
+          renter_share: { value: 0.52 },
+          multi_unit_share: { value: 0.44 },
+          limited_english_share: { value: 0.11 },
+          ba_plus_share: { value: 0.38 },
+          median_household_income_est: { value: 68000 },
+        },
+      },
+      doorShare: 0.55,
+      doorsPerHour: 22,
+      callsPerHour: 18,
+    });
+    assert(advisory.ready === true, "advisory should be ready");
+    assert(advisory.reason === "ready", "advisory reason mismatch");
+    assert(advisory.coverage.availableSignals >= 6, "advisory signal coverage mismatch");
+    assert(advisory.indices.fieldSpeed > 0 && advisory.indices.fieldSpeed < 2, "fieldSpeed index out of bounds");
+    assert(advisory.indices.fieldDifficulty > 0 && advisory.indices.fieldDifficulty < 2, "fieldDifficulty index out of bounds");
+    assert(Number.isFinite(advisory.aph.base), "base APH should be finite");
+    assert(Number.isFinite(advisory.aph.adjusted), "adjusted APH should be finite");
+    assert(Number.isFinite(advisory.aph.deltaPct), "advisory APH delta should be finite");
+  });
+
+  test("Census Phase1: ACS advisory handles missing selection", () => {
+    const advisory = buildCensusAssumptionAdvisory({
+      aggregate: {
+        selectedGeoCount: 0,
+        metrics: {},
+      },
+    });
+    assert(advisory.ready === false, "advisory should not be ready without selection");
+    assert(advisory.reason === "selection_missing", "advisory missing-selection reason mismatch");
+    assert(advisory.coverage.availableSignals === 0, "advisory missing-selection coverage mismatch");
+  });
+
   test("Census Phase1: election CSV guide and template contract", () => {
     const guide = getElectionCsvUploadGuide();
     assert(guide.schemaVersion === "election_results_csv.v1", "csv guide schema version mismatch");
@@ -518,6 +585,8 @@ export function registerCensusPhase1Tests(ctx){
       "censusElectionCsvPrecinctFilter",
       "btnCensusElectionCsvDryRun",
       "btnCensusElectionCsvClear",
+      "censusAdvisoryStatus",
+      "censusAdvisoryTbody",
       "censusMapQaVtdToggle",
       "censusMapQaVtdZip",
       "btnCensusMapQaVtdZipClear",

@@ -67,6 +67,7 @@ export const els = {
   btnCensusClearMap: document.getElementById("btnCensusClearMap"),
   censusStatus: document.getElementById("censusStatus"),
   censusGeoStats: document.getElementById("censusGeoStats"),
+  censusAdvisoryStatus: document.getElementById("censusAdvisoryStatus"),
   censusSelectionSummary: document.getElementById("censusSelectionSummary"),
   censusRaceFootprintStatus: document.getElementById("censusRaceFootprintStatus"),
   censusAssumptionProvenanceStatus: document.getElementById("censusAssumptionProvenanceStatus"),
@@ -80,6 +81,7 @@ export const els = {
   censusMap: document.getElementById("censusMap"),
   censusMapStatus: document.getElementById("censusMapStatus"),
   censusMapQaVtdZipStatus: document.getElementById("censusMapQaVtdZipStatus"),
+  censusAdvisoryTbody: document.getElementById("censusAdvisoryTbody"),
   censusAggregateTbody: document.getElementById("censusAggregateTbody"),
 
   // Phase D1 — Decision Sessions
