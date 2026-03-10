@@ -77,6 +77,8 @@ export const els = {
   censusRaceFootprintStatus: document.getElementById("censusRaceFootprintStatus"),
   censusAssumptionProvenanceStatus: document.getElementById("censusAssumptionProvenanceStatus"),
   censusFootprintCapacityStatus: document.getElementById("censusFootprintCapacityStatus"),
+  censusApplyAdjustmentsToggle: document.getElementById("censusApplyAdjustmentsToggle"),
+  censusApplyAdjustmentsStatus: document.getElementById("censusApplyAdjustmentsStatus"),
   censusElectionCsvGuideStatus: document.getElementById("censusElectionCsvGuideStatus"),
   censusElectionCsvDryRunStatus: document.getElementById("censusElectionCsvDryRunStatus"),
   censusElectionCsvPreviewMeta: document.getElementById("censusElectionCsvPreviewMeta"),

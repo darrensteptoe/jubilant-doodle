@@ -1,5 +1,5 @@
 // @ts-check
-import { engine } from "./engine.js?v=20260310-census-phase1-38";
+import { engine } from "./engine.js?v=20260310-census-phase1-40";
 import {
   computeCapacityContacts as coreComputeCapacityContacts,
   computeCapacityBreakdown as coreComputeCapacityBreakdown,
@@ -1518,8 +1518,8 @@ function isDevMode(){
 
 function initDevTools(){
   const loadSelfTestsModule = () =>
-    import("./selfTest.js?v=20260310-census-phase1-38")
-      .catch(() => import("./core/selfTest.js?v=20260310-census-phase1-38"));
+    import("./selfTest.js?v=20260310-census-phase1-40")
+      .catch(() => import("./core/selfTest.js?v=20260310-census-phase1-40"));
   initDevToolsModule({
     isDevMode,
     getState: () => state,

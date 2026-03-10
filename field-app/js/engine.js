@@ -32,7 +32,7 @@ import {
   hasNonFiniteNumbers,
 } from "./export.js";
 
-import { runSelfTests as _runSelfTests } from "./core/selfTest.js?v=20260310-census-phase1-38";
+import { runSelfTests as _runSelfTests } from "./core/selfTest.js?v=20260310-census-phase1-40";
 import { gateFromSelfTestResult, SELFTEST_GATE } from "./core/selfTestGate.js";
 
 // Phase R2 — Risk framing + robust selection (pure, additive)

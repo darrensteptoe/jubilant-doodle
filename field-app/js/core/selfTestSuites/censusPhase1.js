@@ -30,10 +30,12 @@ import {
   buildCensusAssumptionAdvisory,
   evaluateCensusPaceAgainstAdvisory,
   evaluateQaOverlayNonBlocking,
+  clampCensusApplyMultipliers,
+  evaluateCensusApplyMode,
   detectElectionCsvFormat,
   normalizeElectionCsvRows,
   parseCsvText,
-} from "../censusModule.js?v=20260310-census-phase1-39";
+} from "../censusModule.js?v=20260310-census-phase1-40";
 
 export function registerCensusPhase1Tests(ctx){
   const { test, assert } = ctx;
@@ -47,6 +49,7 @@ export function registerCensusPhase1Tests(ctx){
     const base = makeDefaultCensusState();
     assert(base && typeof base === "object", "default census state missing");
     assert(base.mapQaVtdOverlay === false, "default VTD QA overlay toggle should be false");
+    assert(base.applyAdjustedAssumptions === false, "default apply-adjusted toggle should be false");
     const normalized = normalizeCensusState({ year: "1900", resolution: "bad", metricSet: "x", stateFips: "7", countyFips: "9" });
     assert(normalized.resolution === "tract", "resolution did not normalize");
     assert(normalized.metricSet === "core", "metricSet did not normalize");
@@ -54,6 +57,8 @@ export function registerCensusPhase1Tests(ctx){
     assert(normalized.countyFips === "009", "countyFips did not normalize");
     const normalizedToggle = normalizeCensusState({ mapQaVtdOverlay: 1 });
     assert(normalizedToggle.mapQaVtdOverlay === true, "VTD QA overlay toggle should normalize to boolean");
+    const normalizedApplyToggle = normalizeCensusState({ applyAdjustedAssumptions: 1 });
+    assert(normalizedApplyToggle.applyAdjustedAssumptions === true, "apply-adjusted toggle should normalize to boolean");
   });
 
   test("Census Phase1: runtime cache key normalization modes", () => {
@@ -428,6 +433,82 @@ export function registerCensusPhase1Tests(ctx){
     });
     assert(ready.reason === "ready", "provenance should resolve to ready");
     assert(ready.readyForAssumptions === true, "ready transition should enable assumptions");
+  });
+
+  test("Census Phase1: apply-mode gate requires provenance alignment, rows, and advisory", () => {
+    const censusState = {
+      year: "2024",
+      resolution: "tract",
+      metricSet: "core",
+      stateFips: "17",
+      countyFips: "031",
+      selectedGeoids: ["17031010100"],
+      loadedRowCount: 1,
+      activeRowsKey: "2024|tract|17|031|core",
+      applyAdjustedAssumptions: true,
+    };
+    const live = buildRaceFootprintFromCensusSelection(censusState);
+    const ready = evaluateCensusApplyMode({
+      applyRequested: true,
+      censusState,
+      raceFootprint: { ...live, fingerprint: live.fingerprint },
+      assumptionsProvenance: {
+        source: "census_phase1",
+        raceFootprintFingerprint: live.fingerprint,
+        censusRowsKey: live.rowsKey,
+        acsYear: "2024",
+        metricSet: "core",
+      },
+      advisoryReady: true,
+      hasRows: true,
+    });
+    assert(ready.ready === true, "apply mode should be ready with strict alignment");
+    assert(ready.reason === "ready", "apply mode ready reason mismatch");
+    const missingRows = evaluateCensusApplyMode({
+      applyRequested: true,
+      censusState,
+      raceFootprint: { ...live, fingerprint: live.fingerprint },
+      assumptionsProvenance: {
+        source: "census_phase1",
+        raceFootprintFingerprint: live.fingerprint,
+        censusRowsKey: live.rowsKey,
+        acsYear: "2024",
+        metricSet: "core",
+      },
+      advisoryReady: true,
+      hasRows: false,
+    });
+    assert(missingRows.ready === false, "apply mode should block when rows are missing");
+    assert(missingRows.reason === "rows_not_ready", "apply mode missing rows reason mismatch");
+    const stale = evaluateCensusApplyMode({
+      applyRequested: true,
+      censusState,
+      raceFootprint: { ...live, fingerprint: live.fingerprint },
+      assumptionsProvenance: {
+        source: "census_phase1",
+        raceFootprintFingerprint: live.fingerprint,
+        censusRowsKey: live.rowsKey,
+        acsYear: "2023",
+        metricSet: "core",
+      },
+      advisoryReady: true,
+      hasRows: true,
+    });
+    assert(stale.ready === false, "apply mode should block on stale provenance");
+    assert(stale.reason === "provenance_year_mismatch", "apply mode stale reason mismatch");
+  });
+
+  test("Census Phase1: apply multipliers are bounded", () => {
+    const multipliers = clampCensusApplyMultipliers({
+      doorsPerHour: 1.8,
+      persuasion: 0.4,
+      turnoutLift: 1.3,
+      organizerLoad: 0.1,
+    });
+    assert(multipliers.doorsPerHour === 1.15, "doors multiplier upper bound mismatch");
+    assert(multipliers.persuasion === 0.9, "persuasion multiplier lower bound mismatch");
+    assert(multipliers.turnoutLift === 1.1, "turnout multiplier upper bound mismatch");
+    assert(multipliers.organizerLoad === 0.85, "organizer-load multiplier lower bound mismatch");
   });
 
   test("Census Phase1: alignment tolerates runtime rows key reset when footprint/provenance match", () => {
@@ -938,6 +1019,8 @@ export function registerCensusPhase1Tests(ctx){
       "censusAdvisoryTbody",
       "censusAdvisoryGuide",
       "censusAdvisoryGuideTbody",
+      "censusApplyAdjustmentsToggle",
+      "censusApplyAdjustmentsStatus",
       "censusMapQaVtdToggle",
       "censusMapQaVtdZip",
       "btnCensusMapQaVtdZipClear",

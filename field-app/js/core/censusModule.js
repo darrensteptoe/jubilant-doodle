@@ -216,6 +216,13 @@ const METRIC_SET_MAP = {
   all: Object.keys(METRICS),
 };
 
+export const CENSUS_APPLY_BOUNDS = {
+  doorsPerHour: { min: 0.85, max: 1.15 },
+  persuasion: { min: 0.90, max: 1.10 },
+  turnoutLift: { min: 0.90, max: 1.10 },
+  organizerLoad: { min: 0.85, max: 1.20 },
+};
+
 const ALWAYS_ACS_VARIABLES = ["B01003_001E"];
 
 const TIGER_BOUNDARY_LAYERS = {
@@ -1084,6 +1091,7 @@ export function makeDefaultCensusState(){
     variableCatalogYear: "",
     variableCatalogCount: 0,
     mapQaVtdOverlay: false,
+    applyAdjustedAssumptions: false,
     selectionSets: [],
     selectionSetDraftName: "",
     selectedSelectionSetKey: "",
@@ -1122,6 +1130,7 @@ export function normalizeCensusState(input, { resetRuntime = false } = {}){
   out.variableCatalogYear = cleanText(out.variableCatalogYear);
   out.variableCatalogCount = Number.isFinite(Number(out.variableCatalogCount)) ? Number(out.variableCatalogCount) : 0;
   out.mapQaVtdOverlay = !!out.mapQaVtdOverlay;
+  out.applyAdjustedAssumptions = !!out.applyAdjustedAssumptions;
   out.selectionSets = normalizeSelectionSets(out.selectionSets);
   out.selectionSetDraftName = cleanText(out.selectionSetDraftName);
   out.selectedSelectionSetKey = cleanText(out.selectedSelectionSetKey);
@@ -2363,6 +2372,72 @@ export function evaluateQaOverlayNonBlocking({ primaryFeatureCount, qaEnabled, q
     qaFailed: false,
     blocking: !primaryReady,
     code: primaryReady ? "qa_ready" : "primary_missing",
+  };
+}
+
+export function clampCensusApplyMultipliers(input = {}){
+  const src = input && typeof input === "object" ? input : {};
+  const doorsRaw = Number(src.doorsPerHour);
+  const persuasionRaw = Number(src.persuasion);
+  const turnoutRaw = Number(src.turnoutLift);
+  const organizerRaw = Number(src.organizerLoad);
+  return {
+    doorsPerHour: clampRange(
+      Number.isFinite(doorsRaw) ? doorsRaw : 1,
+      CENSUS_APPLY_BOUNDS.doorsPerHour.min,
+      CENSUS_APPLY_BOUNDS.doorsPerHour.max,
+    ),
+    persuasion: clampRange(
+      Number.isFinite(persuasionRaw) ? persuasionRaw : 1,
+      CENSUS_APPLY_BOUNDS.persuasion.min,
+      CENSUS_APPLY_BOUNDS.persuasion.max,
+    ),
+    turnoutLift: clampRange(
+      Number.isFinite(turnoutRaw) ? turnoutRaw : 1,
+      CENSUS_APPLY_BOUNDS.turnoutLift.min,
+      CENSUS_APPLY_BOUNDS.turnoutLift.max,
+    ),
+    organizerLoad: clampRange(
+      Number.isFinite(organizerRaw) ? organizerRaw : 1,
+      CENSUS_APPLY_BOUNDS.organizerLoad.min,
+      CENSUS_APPLY_BOUNDS.organizerLoad.max,
+    ),
+  };
+}
+
+export function evaluateCensusApplyMode({
+  applyRequested,
+  censusState,
+  raceFootprint,
+  assumptionsProvenance,
+  advisoryReady,
+  hasRows,
+} = {}){
+  const alignment = assessRaceFootprintAlignment({
+    censusState,
+    raceFootprint,
+    assumptionsProvenance,
+  });
+  const requested = !!applyRequested;
+  const rowsReady = !!hasRows;
+  const signalsReady = !!advisoryReady;
+  let reason = "ready";
+  if (!requested){
+    reason = "toggle_off";
+  } else if (!alignment.readyForAssumptions){
+    reason = alignment.reason || "alignment_not_ready";
+  } else if (!rowsReady){
+    reason = "rows_not_ready";
+  } else if (!signalsReady){
+    reason = "advisory_not_ready";
+  }
+  return {
+    requested,
+    ready: reason === "ready",
+    reason,
+    alignment,
+    rowsReady,
+    signalsReady,
   };
 }
 

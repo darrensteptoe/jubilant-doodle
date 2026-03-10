@@ -47,6 +47,7 @@ import { renderMain } from "../app/renderMain.js";
 import { renderImpactTracePanel } from "../app/render/impactTrace.js";
 import { renderRoiModule } from "../app/renderRoi.js";
 import { renderOptimizationModule } from "../app/renderOptimization.js";
+import { renderAssumptionsModule } from "../app/renderAssumptions.js";
 import { computeWeeklyOpsContextFromState, getEffectiveBaseRates } from "../app/selectors.js";
 import { createEffectiveInputsController } from "../app/effectiveInputs.js";
 import {
@@ -68,13 +69,14 @@ import { normalizeLoadedState as normalizeLoadedStateApp } from "../app/state.js
 import { resolveFeatureFlags } from "./featureFlags.js";
 import { validateOperationsCapacityInput } from "../features/operations/io.js";
 import { registerPhase115ATests } from "./selfTestSuites/phase115A.js";
-import { registerCensusPhase1Tests } from "./selfTestSuites/censusPhase1.js?v=20260310-census-phase1-39";
+import { registerCensusPhase1Tests } from "./selfTestSuites/censusPhase1.js?v=20260310-census-phase1-40";
 import {
   makeDefaultCensusState,
   makeDefaultRaceFootprint,
   makeDefaultAssumptionProvenance,
   makeDefaultFootprintCapacity,
-} from "./censusModule.js?v=20260310-census-phase1-39";
+  buildRaceFootprintFromCensusSelection,
+} from "./censusModule.js?v=20260310-census-phase1-40";
 
 function withUniverseDefaults(s){
   // Phase 16 fields are now required for stable hashing/export roundtrips.
@@ -2561,6 +2563,183 @@ export function runSelfTests(engine){
       assert(valueFor("Required attempts per week") === "1234", "Impact trace required attempts should come from context");
       assert(valueFor("Capacity contacts possible per week") === "987", "Impact trace capacity should come from context");
       assert(valueFor("Gap vs required contacts (per week)") === "+247", "Impact trace gap should come from context");
+    } finally {
+      mount.remove();
+    }
+    return true;
+  });
+
+  test("Census Phase1 UI: assumptions snapshot includes Census operating band", () => {
+    const mount = document.createElement("div");
+    const assumptionsSnapshot = document.createElement("div");
+    mount.appendChild(assumptionsSnapshot);
+    document.body.appendChild(mount);
+    try {
+      const census = {
+        year: "2024",
+        resolution: "tract",
+        metricSet: "all",
+        stateFips: "17",
+        countyFips: "031",
+        selectedGeoids: ["17031010100", "17031010200"],
+        activeRowsKey: "2024|tract|17|031|all",
+        applyAdjustedAssumptions: true,
+        rowsByGeoid: {
+          "17031010100": {
+            geoid: "17031010100",
+            values: {
+              B01003_001E: 1000,
+              B11001_001E: 420,
+              B25001_001E: 450,
+              B25003_001E: 400,
+              B25003_002E: 200,
+              B25003_003E: 200,
+              B25024_001E: 330,
+              B25024_003E: 80,
+              B25024_004E: 60,
+              B15003_001E: 700,
+              B15003_022E: 120,
+              B15003_023E: 90,
+              B15003_024E: 50,
+              B15003_025E: 30,
+              C16002_001E: 900,
+              C16002_004E: 20,
+              C16002_007E: 15,
+              C16002_010E: 10,
+              C16002_013E: 5,
+              B19013_001E: 62000,
+            },
+          },
+          "17031010200": {
+            geoid: "17031010200",
+            values: {
+              B01003_001E: 1400,
+              B11001_001E: 560,
+              B25001_001E: 620,
+              B25003_001E: 560,
+              B25003_002E: 260,
+              B25003_003E: 300,
+              B25024_001E: 540,
+              B25024_003E: 140,
+              B25024_004E: 100,
+              B15003_001E: 1000,
+              B15003_022E: 180,
+              B15003_023E: 140,
+              B15003_024E: 90,
+              B15003_025E: 60,
+              C16002_001E: 1200,
+              C16002_004E: 32,
+              C16002_007E: 24,
+              C16002_010E: 18,
+              C16002_013E: 12,
+              B19013_001E: 70000,
+            },
+          },
+        },
+      };
+      const footprint = buildRaceFootprintFromCensusSelection(census);
+      const state = {
+        scenarioName: "Census test",
+        raceType: "federal",
+        mode: "persuasion",
+        electionDate: "2026-11-03",
+        candidates: [{ id: "you", name: "You" }],
+        yourCandidateId: "you",
+        undecidedMode: "proportional",
+        universeBasis: "registered",
+        sourceNote: "",
+        supportRatePct: 55,
+        turnoutReliabilityPct: 80,
+        contactRatePct: 22,
+        orgCount: 3,
+        orgHoursPerWeek: 12,
+        volunteerMultBase: 1.1,
+        channelDoorPct: 60,
+        doorsPerHour3: 22,
+        callsPerHour3: 18,
+        census,
+        raceFootprint: { ...footprint, fingerprint: footprint.fingerprint },
+        assumptionsProvenance: {
+          source: "census_phase1",
+          raceFootprintFingerprint: footprint.fingerprint,
+          censusRowsKey: footprint.rowsKey,
+          acsYear: "2024",
+          metricSet: "all",
+        },
+        footprintCapacity: {
+          source: "census_phase1",
+          population: 2400,
+          year: "2024",
+          metricSet: "all",
+          raceFootprintFingerprint: footprint.fingerprint,
+          censusRowsKey: footprint.rowsKey,
+        },
+      };
+      const res = {
+        raw: {
+          universeSize: 1200,
+          turnoutA: 52,
+          turnoutB: 56,
+          bandWidth: 3,
+          persuasionPct: 28,
+          earlyVoteExp: 15,
+        },
+        turnout: {
+          expectedPct: 54,
+          votesPer1pct: 12,
+        },
+        expected: {
+          persuasionNeed: 350,
+        },
+      };
+      const block = (title, kvs) => {
+        const div = document.createElement("div");
+        div.className = "assump-block";
+        const t = document.createElement("div");
+        t.className = "assump-title";
+        t.textContent = title;
+        const body = document.createElement("div");
+        body.className = "assump-body";
+        for (const row of kvs) body.appendChild(row);
+        div.appendChild(t);
+        div.appendChild(body);
+        return div;
+      };
+      const kv = (k, v) => {
+        const row = document.createElement("div");
+        row.className = "kv";
+        const dk = document.createElement("div");
+        dk.className = "k";
+        dk.textContent = k;
+        const dv = document.createElement("div");
+        dv.className = "v";
+        dv.textContent = v;
+        row.appendChild(dk);
+        row.appendChild(dv);
+        return row;
+      };
+      renderAssumptionsModule({
+        els: { assumptionsSnapshot },
+        state,
+        res,
+        weeks: 10,
+        block,
+        kv,
+        labelTemplate: (v) => String(v || "—"),
+        assumptionsProfileLabel: () => "Custom overrides",
+        labelUndecidedMode: (v) => String(v || "—"),
+        getYourName: () => "You",
+        fmtInt: (n) => String(Math.round(Number(n) || 0)),
+      });
+      const titles = Array.from(assumptionsSnapshot.querySelectorAll(".assump-title")).map((node) => String(node.textContent || "").trim());
+      assert(titles.includes("Census operating band"), "assumptions snapshot missing Census operating band block");
+      const censusBlock = Array.from(assumptionsSnapshot.querySelectorAll(".assump-block"))
+        .find((node) => String(node.querySelector(".assump-title")?.textContent || "").trim() === "Census operating band");
+      assert(!!censusBlock, "Census operating band block not rendered");
+      const blockText = String(censusBlock.textContent || "");
+      assert(blockText.includes("Apply mode"), "Census operating band should include apply mode row");
+      assert(blockText.includes("Achievable APH (p25/p50/p75)"), "Census operating band should include APH band row");
+      assert(blockText.includes("Required APH"), "Census operating band should include required APH row");
     } finally {
       mount.remove();
     }
