@@ -31,12 +31,13 @@ import {
   evaluateFootprintFeasibility,
   summarizeFootprintFeasibilityIssues,
   buildCensusAssumptionAdvisory,
+  evaluateCensusPaceAgainstAdvisory,
   buildElectionCsvTemplate,
   buildElectionCsvWideTemplate,
   getElectionCsvUploadGuide,
   parseCsvText,
   normalizeElectionCsvRows,
-} from "../core/censusModule.js?v=20260309-census-phase1-32";
+} from "../core/censusModule.js?v=20260309-census-phase1-34";
 
 const variableCatalogCache = new Map();
 let stateOptionsCache = null;
@@ -1100,6 +1101,17 @@ export function renderCensusPhase1Module({ els, state, res } = {}){
     doorsPerHour: Number(state?.doorsPerHour3 ?? state?.doorsPerHour),
     callsPerHour: Number(state?.callsPerHour3),
   });
+  const advisoryPace = evaluateCensusPaceAgainstAdvisory({
+    advisory,
+    needVotes: Number(res?.expected?.persuasionNeed),
+    weeks: Number(state?.weeksRemaining),
+    contactRatePct: Number(state?.contactRatePct),
+    supportRatePct: Number(state?.supportRatePct),
+    turnoutReliabilityPct: Number(state?.turnoutReliabilityPct),
+    orgCount: Number(state?.orgCount),
+    orgHoursPerWeek: Number(state?.orgHoursPerWeek),
+    volunteerMult: Number(state?.volunteerMultBase),
+  });
   if (els.btnCensusExportAggregateCsv){
     els.btnCensusExportAggregateCsv.disabled = !tableRows.length || !s.selectedGeoids.length;
   }
@@ -1156,6 +1168,15 @@ export function renderCensusPhase1Module({ els, state, res } = {}){
           { label: "Advisory doors/hour multiplier", value: `${fIdx(advisory.multipliers.doorsPerHour)} (${fPct(advisory.aph.deltaPct)})` },
           { label: "Current blended APH", value: fNum(advisory.aph.base) },
           { label: "Environment-adjusted APH", value: fNum(advisory.aph.adjusted) },
+          { label: "Required APH to hit goal", value: advisoryPace.ready ? fNum(advisoryPace.requiredAph) : "—" },
+          {
+            label: "APH feasibility check",
+            value: advisoryPace.ready
+              ? (advisoryPace.feasible
+                ? `Within range (${fPct(advisoryPace.gapPct)})`
+                : `Shortfall (${fPct(advisoryPace.gapPct)})`)
+              : "—",
+          },
         ]
       : [];
     els.censusAdvisoryTbody.innerHTML = "";
@@ -1373,14 +1394,26 @@ export function renderCensusPhase1Module({ els, state, res } = {}){
       const coverageText = `${advisory.coverage.availableSignals}/${advisory.coverage.totalSignals}`;
       const hasAph = Number.isFinite(Number(advisory.aph.base)) && Number.isFinite(Number(advisory.aph.adjusted));
       const deltaAbs = Math.abs(Number(advisory.aph.deltaPct));
-      if (!hasAph){
+      if (advisoryPace.ready && advisoryPace.severity === "bad"){
+        els.censusAdvisoryStatus.classList.add("bad");
+      } else if (advisoryPace.ready && advisoryPace.severity === "warn"){
+        els.censusAdvisoryStatus.classList.add("warn");
+      } else if (!hasAph){
         els.censusAdvisoryStatus.classList.add("muted");
       } else if (Number.isFinite(deltaAbs) && deltaAbs >= 0.15){
         els.censusAdvisoryStatus.classList.add("warn");
       } else {
         els.censusAdvisoryStatus.classList.add("ok");
       }
-      if (hasAph){
+      if (advisoryPace.ready){
+        const req = Number(advisoryPace.requiredAph).toFixed(1);
+        const adj = Number(advisoryPace.availableAph).toFixed(1);
+        const gap = `${(Number(advisoryPace.gapPct) * 100).toFixed(1)}%`;
+        const buffer = `${Math.abs(Number(advisoryPace.gapPct) * 100).toFixed(1)}%`;
+        els.censusAdvisoryStatus.textContent = advisoryPace.feasible
+          ? `Assumption advisory ready. Signal coverage ${coverageText}. Required APH ${req} vs adjusted APH ${adj} (${buffer} buffer).`
+          : `Assumption advisory ready. Signal coverage ${coverageText}. Required APH ${req} vs adjusted APH ${adj} (${gap} shortfall).`;
+      } else if (hasAph){
         const pct = `${(Number(advisory.aph.deltaPct) * 100).toFixed(1)}%`;
         els.censusAdvisoryStatus.textContent = `Assumption advisory ready. Signal coverage ${coverageText}. Environment-adjusted APH delta ${pct}.`;
       } else {
