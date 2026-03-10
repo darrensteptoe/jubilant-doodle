@@ -100,8 +100,15 @@ const electionCsvDryRun = {
   warnings: [],
   records: [],
 };
+const RESOLUTION_OPTIONS = listResolutionOptions()
+  .map((row) => ({ id: cleanText(row?.id), label: cleanText(row?.label) }))
+  .filter((row) => !!row.id);
+const DISTRICT_RESOLUTION_IDS = ["congressional_district", "state_senate_district", "state_house_district"];
+const MISSING_DISTRICT_RESOLUTION_IDS = DISTRICT_RESOLUTION_IDS.filter(
+  (id) => !RESOLUTION_OPTIONS.some((row) => row.id === id),
+);
 const RESOLUTION_LABEL_BY_ID = Object.fromEntries(
-  listResolutionOptions().map((row) => [cleanText(row?.id), cleanText(row?.label)]),
+  RESOLUTION_OPTIONS.map((row) => [row.id, row.label]),
 );
 
 function cleanText(v){
@@ -1042,7 +1049,7 @@ export function renderCensusPhase1Module({ els, state, res } = {}){
 
   const yearRows = listAcsYears().map((y) => ({ value: y, label: y }));
   fillSelect(els.censusAcsYear, yearRows, s.year, "Select year");
-  fillSelect(els.censusResolution, listResolutionOptions().map((row) => ({ value: row.id, label: row.label })), s.resolution, "Select resolution");
+  fillSelect(els.censusResolution, RESOLUTION_OPTIONS.map((row) => ({ value: row.id, label: row.label })), s.resolution, "Select resolution");
   fillSelect(els.censusMetricSet, listMetricSetOptions().map((row) => ({ value: row.id, label: row.label })), s.metricSet, "Select bundle");
 
   const stateRows = Array.isArray(stateOptionsCache) ? stateOptionsCache : [];
@@ -1068,21 +1075,25 @@ export function renderCensusPhase1Module({ els, state, res } = {}){
     els.censusCountyFips.disabled = !s.stateFips || !resolutionNeedsCounty(s.resolution);
   }
   if (els.censusPlaceFips){
-    els.censusPlaceFips.disabled = !s.stateFips || s.resolution !== "place";
+    els.censusPlaceFips.disabled = !s.stateFips;
   }
   if (els.censusContextHint){
-    const resolution = cleanText(s.resolution);
-    if (!s.stateFips){
-      els.censusContextHint.textContent = "Select a state first, then set geography context for the current resolution.";
-    } else if (resolutionNeedsCounty(resolution)){
-      els.censusContextHint.textContent = "County is required for this resolution. Place is not used.";
-    } else if (resolution === "place"){
-      els.censusContextHint.textContent = "Place is required for this resolution. County is not used.";
-    } else if (isDistrictResolution(resolution)){
-      const label = RESOLUTION_LABEL_BY_ID[resolution] || "district";
-      els.censusContextHint.textContent = `${label} uses state-only context. County and place are not used.`;
+    if (MISSING_DISTRICT_RESOLUTION_IDS.length){
+      els.censusContextHint.textContent = `District resolutions are unavailable in the currently loaded browser bundle (${MISSING_DISTRICT_RESOLUTION_IDS.join(", ")}). Hard refresh to load the latest JS.`;
     } else {
-      els.censusContextHint.textContent = "State-only context active for this resolution.";
+      const resolution = cleanText(s.resolution);
+      if (!s.stateFips){
+        els.censusContextHint.textContent = "Select a state first, then set geography context for the current resolution.";
+      } else if (resolutionNeedsCounty(resolution)){
+        els.censusContextHint.textContent = "County is required for this resolution. Place is not used.";
+      } else if (resolution === "place"){
+        els.censusContextHint.textContent = "Place is required for this resolution. County is not used.";
+      } else if (isDistrictResolution(resolution)){
+        const label = RESOLUTION_LABEL_BY_ID[resolution] || "district";
+        els.censusContextHint.textContent = `${label} uses state-only context. County and place are not used.`;
+      } else {
+        els.censusContextHint.textContent = "State-only context active for this resolution.";
+      }
     }
   }
   if (els.censusGeoSearch){
