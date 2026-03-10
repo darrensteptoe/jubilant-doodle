@@ -325,6 +325,7 @@ function normalizeCensusPhase1Card(card) {
   const selectionSetStatus = card.querySelector("#censusSelectionSetStatus");
 
   const geoSelectionGrid = findClosest(card, "#censusGeoSearch", ".grid2");
+  const aggregateExportActions = findClosest(card, "#btnCensusExportAggregateCsv", ".rowline");
 
   const advisoryTable = findClosest(card, "#censusAdvisoryTbody", ".table-wrap");
   const advisoryStatus = card.querySelector("#censusAdvisoryStatus");
@@ -344,6 +345,18 @@ function normalizeCensusPhase1Card(card) {
   const mapHost = card.querySelector("#censusMap");
 
   const electionDetails = findClosest(card, "#censusElectionCsvGuideStatus", "details");
+  const electionGuideNote = electionDetails?.querySelector(":scope > .note");
+  const electionGuideStatus = card.querySelector("#censusElectionCsvGuideStatus");
+  const electionGuideTable = electionDetails?.querySelector("table[aria-label='Election CSV required columns']")?.closest(".table-wrap");
+  const electionGuideSchema = Array.from(electionDetails?.querySelectorAll(":scope > .muted") || []).find((node) =>
+    (node.textContent || "").toLowerCase().includes("schema:")
+  );
+  const electionTemplateActions = findClosest(card, "#btnCensusDownloadElectionCsvTemplate", ".rowline");
+  const electionUploadGrid = findClosest(card, "#censusElectionCsvFile", ".grid2");
+  const electionPrecinctField = findClosest(card, "#censusElectionCsvPrecinctFilter", ".field");
+  const electionDryRunStatus = card.querySelector("#censusElectionCsvDryRunStatus");
+  const electionPreviewMeta = card.querySelector("#censusElectionCsvPreviewMeta");
+  const electionPreviewTable = findClosest(card, "#censusElectionCsvPreviewTbody", ".table-wrap");
 
   const layout = document.createElement("div");
   layout.className = "fpe-census-layout";
@@ -372,9 +385,6 @@ function normalizeCensusPhase1Card(card) {
   appendIfPresent(geographySection.body, contextHint);
   layout.appendChild(geographySection.section);
 
-  const topRow = document.createElement("div");
-  topRow.className = "fpe-census-top-row";
-
   const bundleSection = createCensusSection({
     title: "Data bundle, fetch, and saved sets",
     description: "Choose the ACS bundle, fetch rows, then save/load reusable GEO selection sets."
@@ -399,34 +409,17 @@ function normalizeCensusPhase1Card(card) {
     bundleSection.body.appendChild(statusStrip);
   }
   appendIfPresent(bundleSection.body, selectionSetGrid, selectionSetStatus);
-  topRow.appendChild(bundleSection.section);
-
-  const mapSection = createCensusSection({
-    title: "Map and boundary QA",
-    description: "Boundary overlay controls and QA source management for visual verification."
-  });
-  if (mapStatusRow instanceof HTMLElement) {
-    mapStatusRow.classList.add("fpe-census-map-row");
-  }
-  appendIfPresent(mapSection.body, mapStatusRow, mapZipRow, mapZipStatus);
-
-  if (mapHost instanceof HTMLElement) {
-    const mapShell = document.createElement("div");
-    mapShell.className = "fpe-census-map-shell";
-    const mapOverlay = document.createElement("div");
-    mapOverlay.className = "fpe-census-map-overlay";
-    mapOverlay.textContent = "Map idle. Select GEO units and load boundaries.";
-    mapShell.append(mapHost, mapOverlay);
-    mapSection.body.appendChild(mapShell);
-  }
-  topRow.appendChild(mapSection.section);
-  layout.appendChild(topRow);
+  layout.appendChild(bundleSection.section);
 
   const geoMetricsSection = createCensusSection({
     title: "GEO selection and aggregate metrics",
     description: "Search/paste/select GEO units and review aggregated demographic outputs."
   });
+  if (aggregateExportActions instanceof HTMLElement) {
+    aggregateExportActions.classList.add("fpe-census-aggregate-actions", "fpe-action-row");
+  }
   appendIfPresent(geoMetricsSection.body, geoSelectionGrid);
+  appendIfPresent(geoMetricsSection.body, aggregateExportActions);
   layout.appendChild(geoMetricsSection.section);
 
   const footprintSection = createCensusSection({
@@ -457,11 +450,57 @@ function normalizeCensusPhase1Card(card) {
     description: "Template download, dry-run validation, and preview before import."
   });
   if (electionDetails instanceof HTMLDetailsElement) {
-    electionDetails.open = true;
     electionDetails.classList.add("fpe-census-election-details");
+    electionDetails.open = false;
+    const summary = electionDetails.querySelector(":scope > summary");
+    if (summary instanceof HTMLElement) {
+      summary.textContent = "Instructions";
+    }
+
+    const guideBody = document.createElement("div");
+    guideBody.className = "fpe-census-election-guide";
+    appendIfPresent(guideBody, electionGuideNote, electionGuideStatus, electionGuideTable, electionGuideSchema);
+
+    if (summary) {
+      electionDetails.replaceChildren(summary, guideBody);
+    } else {
+      electionDetails.replaceChildren(guideBody);
+    }
   }
-  appendIfPresent(electionSection.body, electionDetails);
+
+  if (electionTemplateActions instanceof HTMLElement) {
+    electionTemplateActions.classList.add("fpe-action-row");
+  }
+  appendIfPresent(electionSection.body, electionTemplateActions, electionUploadGrid, electionPrecinctField);
+
+  const electionStatusStrip = document.createElement("div");
+  electionStatusStrip.className = "fpe-census-election-status-strip";
+  appendIfPresent(electionStatusStrip, toStatusChip(electionDryRunStatus), toStatusChip(electionPreviewMeta));
+  if (electionStatusStrip.children.length) {
+    electionSection.body.appendChild(electionStatusStrip);
+  }
+  appendIfPresent(electionSection.body, electionPreviewTable, electionDetails);
   layout.appendChild(electionSection.section);
+
+  const mapSection = createCensusSection({
+    title: "Map and boundary QA",
+    description: "Boundary overlay controls and QA source management for visual verification."
+  });
+  if (mapStatusRow instanceof HTMLElement) {
+    mapStatusRow.classList.add("fpe-census-map-row");
+  }
+  appendIfPresent(mapSection.body, mapStatusRow, mapZipRow, mapZipStatus);
+
+  if (mapHost instanceof HTMLElement) {
+    const mapShell = document.createElement("div");
+    mapShell.className = "fpe-census-map-shell";
+    const mapOverlay = document.createElement("div");
+    mapOverlay.className = "fpe-census-map-overlay";
+    mapOverlay.textContent = "Map idle. Select GEO units and load boundaries.";
+    mapShell.append(mapHost, mapOverlay);
+    mapSection.body.appendChild(mapShell);
+  }
+  layout.appendChild(mapSection.section);
 
   card.replaceChildren(layout);
   syncCensusMapShellState();
