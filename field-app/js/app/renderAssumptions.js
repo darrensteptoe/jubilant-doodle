@@ -6,7 +6,9 @@ import {
   clampCensusApplyMultipliers,
   evaluateCensusApplyMode,
   evaluateCensusPaceAgainstAdvisory,
+  formatRaceFootprintScope,
   normalizeFootprintCapacity,
+  resolutionLabel,
 } from "../core/censusModule.js";
 
 export function renderAssumptionsModule(args){
@@ -32,9 +34,8 @@ export function renderAssumptionsModule(args){
   });
   const capacity = normalizeFootprintCapacity(state?.footprintCapacity);
   const storedFootprint = footprint.stored;
-  const scope = storedFootprint.resolution === "place"
-    ? (storedFootprint.stateFips && storedFootprint.placeFips ? `${storedFootprint.stateFips}-${storedFootprint.placeFips}` : "—")
-    : (storedFootprint.stateFips && storedFootprint.countyFips ? `${storedFootprint.stateFips}-${storedFootprint.countyFips}` : "—");
+  const scope = formatRaceFootprintScope(storedFootprint);
+  const resolutionText = resolutionLabel(storedFootprint.resolution) || "—";
 
   blocks.push(block("Race & scenario", [
     kv("Scenario", state.scenarioName || "—"),
@@ -47,7 +48,7 @@ export function renderAssumptionsModule(args){
 
   blocks.push(block("Race footprint", [
     kv("Defined", footprint.footprintDefined ? "Yes" : "No"),
-    kv("Resolution", storedFootprint.resolution || "—"),
+    kv("Resolution", resolutionText),
     kv("GEO units", footprint.footprintDefined ? String(storedFootprint.geoids.length) : "—"),
     kv("Population capacity", Number.isFinite(Number(capacity.population)) ? fmtInt(Number(capacity.population)) : "—"),
     kv("Scope", scope),

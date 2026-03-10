@@ -3,11 +3,15 @@
  * @param {() => void} fn
  * @returns {void}
  */
-export function safeCallModule(fn){
+export function safeCallModule(fn, opts = {}){
   try{
     fn();
-  } catch {
-    // keep UI alive
+    return true;
+  } catch (err){
+    if (typeof opts?.onError === "function"){
+      opts.onError(err, String(opts?.label || ""));
+    }
+    return false;
   }
 }
 

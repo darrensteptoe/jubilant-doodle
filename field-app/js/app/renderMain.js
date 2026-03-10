@@ -139,30 +139,31 @@ export function renderMain(ctx){
   setText(els.metaUniverseBasis, state.universeBasis || "—");
   setText(els.metaSourceNote, state.sourceNote || "—");
 
-  safeCall(() => renderStress(res));
-  safeCall(() => renderValidation(res, weeks));
-  safeCall(() => renderAssumptions(res, weeks));
-  safeCall(() => renderGuardrails(res));
-  safeCall(() => renderConversion(res, weeks));
-  safeCall(() => renderPhase3(res, weeks));
-  safeCall(() => renderWeeklyOps(res, weeks, { weeklyContext, executionSnapshot }));
-  safeCall(() => renderWeeklyOpsInsights(res, weeks, { weeklyContext, executionSnapshot }));
-  safeCall(() => renderWeeklyOpsFreshness(res, weeks, { weeklyContext, executionSnapshot }));
-  safeCall(() => scheduleOperationsCapacityOutlookRender(weeks));
-  safeCall(() => renderAssumptionDriftE1(res, weeks, { weeklyContext, executionSnapshot }));
-  safeCall(() => renderRiskFramingE2());
-  safeCall(() => renderBottleneckAttributionE3(res, weeks));
-  safeCall(() => renderSensitivitySnapshotE4());
-  safeCall(() => renderDecisionConfidenceE5(res, weeks, { weeklyContext, executionSnapshot }));
-  safeCall(() => renderImpactTraceE6(res, weeks, { weeklyContext, executionSnapshot }));
-  safeCall(() => renderCensusPhase1Module({ els, state, res }));
+  const run = (label, fn) => safeCall(fn, { label });
+  run("render.stress", () => renderStress(res));
+  run("render.validation", () => renderValidation(res, weeks));
+  run("render.assumptions", () => renderAssumptions(res, weeks));
+  run("render.guardrails", () => renderGuardrails(res));
+  run("render.conversion", () => renderConversion(res, weeks));
+  run("render.phase3", () => renderPhase3(res, weeks));
+  run("render.weeklyOps", () => renderWeeklyOps(res, weeks, { weeklyContext, executionSnapshot }));
+  run("render.weeklyOpsInsights", () => renderWeeklyOpsInsights(res, weeks, { weeklyContext, executionSnapshot }));
+  run("render.weeklyOpsFreshness", () => renderWeeklyOpsFreshness(res, weeks, { weeklyContext, executionSnapshot }));
+  run("render.operationsCapacityOutlook", () => scheduleOperationsCapacityOutlookRender(weeks));
+  run("render.assumptionDriftE1", () => renderAssumptionDriftE1(res, weeks, { weeklyContext, executionSnapshot }));
+  run("render.riskFramingE2", () => renderRiskFramingE2());
+  run("render.bottleneckAttributionE3", () => renderBottleneckAttributionE3(res, weeks));
+  run("render.sensitivitySnapshotE4", () => renderSensitivitySnapshotE4());
+  run("render.decisionConfidenceE5", () => renderDecisionConfidenceE5(res, weeks, { weeklyContext, executionSnapshot }));
+  run("render.impactTraceE6", () => renderImpactTraceE6(res, weeks, { weeklyContext, executionSnapshot }));
+  run("render.censusPhase1", () => renderCensusPhase1Module({ els, state, res }));
 
-  safeCall(() => renderUniverse16Card());
+  run("render.universe16", () => renderUniverse16Card());
 
-  safeCall(() => renderRoi(res, weeks));
-  safeCall(() => renderOptimization(res, weeks));
-  safeCall(() => renderTimeline(res, weeks));
-  safeCall(() => renderDecisionIntelligencePanel({ res, weeks }));
+  run("render.roi", () => renderRoi(res, weeks));
+  run("render.optimization", () => renderOptimization(res, weeks));
+  run("render.timeline", () => renderTimeline(res, weeks));
+  run("render.decisionIntelligencePanel", () => renderDecisionIntelligencePanel({ res, weeks }));
 
   let nextSnapshot = null;
   try{

@@ -40,7 +40,12 @@ import {
   getElectionCsvUploadGuide,
   parseCsvText,
   normalizeElectionCsvRows,
-} from "../core/censusModule.js?v=20260310-census-phase1-40";
+  isDistrictResolution,
+  formatRaceFootprintScope,
+  resolutionLabel,
+  resolutionNeedsCounty,
+  resolutionSupportsBoundaryOverlay,
+} from "../core/censusModule.js";
 
 const variableCatalogCache = new Map();
 let stateOptionsCache = null;
@@ -95,6 +100,9 @@ const electionCsvDryRun = {
   warnings: [],
   records: [],
 };
+const RESOLUTION_LABEL_BY_ID = Object.fromEntries(
+  listResolutionOptions().map((row) => [cleanText(row?.id), cleanText(row?.label)]),
+);
 
 function cleanText(v){
   return String(v == null ? "" : v).trim();
@@ -193,16 +201,32 @@ function setStatus(s, text, isError = false){
 }
 
 function contextReadyForGeo(s){
-  if (!s.stateFips) return false;
-  if (s.resolution === "place") return true;
-  return !!s.countyFips;
+  const resolution = cleanText(s?.resolution);
+  if (!cleanText(s?.stateFips)) return false;
+  if (!resolutionNeedsCounty(resolution)) return true;
+  return !!cleanText(s?.countyFips);
 }
 
 function contextText(s){
-  if (s.resolution === "place"){
-    return s.stateFips ? `state ${s.stateFips}` : "no state";
+  const resolution = cleanText(s?.resolution);
+  if (!cleanText(s?.stateFips)){
+    return "no state";
   }
-  return s.stateFips && s.countyFips ? `state ${s.stateFips} county ${s.countyFips}` : "no state/county";
+  if (resolutionNeedsCounty(resolution)){
+    return cleanText(s?.countyFips)
+      ? `state ${s.stateFips} county ${s.countyFips}`
+      : `state ${s.stateFips} county not set`;
+  }
+  if (resolution === "place"){
+    return cleanText(s?.placeFips)
+      ? `state ${s.stateFips} place ${s.placeFips}`
+      : `state ${s.stateFips}`;
+  }
+  if (isDistrictResolution(resolution)){
+    const label = RESOLUTION_LABEL_BY_ID[resolution] || "district";
+    return `state ${s.stateFips} ${label.toLowerCase()}`;
+  }
+  return `state ${s.stateFips}`;
 }
 
 function mapSelectionKey(s){
@@ -576,6 +600,12 @@ async function onLoadMapBoundaries({ s, els, commitUIUpdate }){
     commitUIUpdate({ persist: false });
     return;
   }
+  if (!resolutionSupportsBoundaryOverlay(s.resolution)){
+    const label = RESOLUTION_LABEL_BY_ID[cleanText(s.resolution)] || cleanText(s.resolution) || "selected resolution";
+    clearMapOverlay(`Boundary overlay unavailable for ${label}.`);
+    commitUIUpdate({ persist: false });
+    return;
+  }
   const seq = ++mapRequestSeq;
   mapRuntimeStatus.loading = true;
   mapRuntimeStatus.qaLoading = false;
@@ -743,7 +773,7 @@ function rowsKeyFromState(s){
     cleanText(s.year),
     cleanText(s.resolution),
     cleanText(s.stateFips),
-    cleanText(s.countyFips),
+    resolutionNeedsCounty(cleanText(s.resolution)) ? cleanText(s.countyFips) : "",
     cleanText(s.metricSet),
   ].join("|");
 }
@@ -759,7 +789,7 @@ function getRowsForState(s){
 function contextFingerprint(s){
   const resolution = cleanText(s?.resolution);
   const stateFips = cleanText(s?.stateFips);
-  const countyFips = resolution === "place" ? "" : cleanText(s?.countyFips);
+  const countyFips = resolutionNeedsCounty(resolution) ? cleanText(s?.countyFips) : "";
   const placeFips = resolution === "place" ? cleanText(s?.placeFips) : "";
   return [
     resolution,
@@ -772,7 +802,7 @@ function contextFingerprint(s){
 function setRowContextFingerprint(row){
   const resolution = cleanText(row?.resolution);
   const stateFips = cleanText(row?.stateFips);
-  const countyFips = resolution === "place" ? "" : cleanText(row?.countyFips);
+  const countyFips = resolutionNeedsCounty(resolution) ? cleanText(row?.countyFips) : "";
   const placeFips = resolution === "place" ? cleanText(row?.placeFips) : "";
   return [
     resolution,
@@ -1035,10 +1065,25 @@ export function renderCensusPhase1Module({ els, state, res } = {}){
   fillSelect(els.censusSelectionSetSelect, setRows, selectedSetKey, "Saved sets");
 
   if (els.censusCountyFips){
-    els.censusCountyFips.disabled = s.resolution === "place" || !s.stateFips;
+    els.censusCountyFips.disabled = !s.stateFips || !resolutionNeedsCounty(s.resolution);
   }
   if (els.censusPlaceFips){
-    els.censusPlaceFips.disabled = !s.stateFips;
+    els.censusPlaceFips.disabled = !s.stateFips || s.resolution !== "place";
+  }
+  if (els.censusContextHint){
+    const resolution = cleanText(s.resolution);
+    if (!s.stateFips){
+      els.censusContextHint.textContent = "Select a state first, then set geography context for the current resolution.";
+    } else if (resolutionNeedsCounty(resolution)){
+      els.censusContextHint.textContent = "County is required for this resolution. Place is not used.";
+    } else if (resolution === "place"){
+      els.censusContextHint.textContent = "Place is required for this resolution. County is not used.";
+    } else if (isDistrictResolution(resolution)){
+      const label = RESOLUTION_LABEL_BY_ID[resolution] || "district";
+      els.censusContextHint.textContent = `${label} uses state-only context. County and place are not used.`;
+    } else {
+      els.censusContextHint.textContent = "State-only context active for this resolution.";
+    }
   }
   if (els.censusGeoSearch){
     els.censusGeoSearch.disabled = !s.geoOptions.length;
@@ -1107,7 +1152,10 @@ export function renderCensusPhase1Module({ els, state, res } = {}){
     els.btnCensusDeleteSelectionSet.disabled = !selectedSetKey;
   }
   if (els.btnCensusLoadMap){
-    els.btnCensusLoadMap.disabled = mapRuntimeStatus.loading || mapRuntimeStatus.qaLoading || !s.selectedGeoids.length;
+    els.btnCensusLoadMap.disabled = !resolutionSupportsBoundaryOverlay(s.resolution)
+      || mapRuntimeStatus.loading
+      || mapRuntimeStatus.qaLoading
+      || !s.selectedGeoids.length;
   }
   if (els.btnCensusClearMap){
     els.btnCensusClearMap.disabled = mapRuntimeStatus.loading || mapRuntimeStatus.qaLoading || (!mapRuntimeStatus.featureCount && !mapRuntimeStatus.qaFeatureCount);
@@ -1309,13 +1357,12 @@ export function renderCensusPhase1Module({ els, state, res } = {}){
     if (!alignment.footprintDefined){
       els.censusRaceFootprintStatus.textContent = "Race footprint not set.";
     } else {
-      const area = storedFootprint.resolution === "place"
-        ? `state ${storedFootprint.stateFips} place ${storedFootprint.placeFips}`
-        : `state ${storedFootprint.stateFips} county ${storedFootprint.countyFips}`;
+      const area = formatRaceFootprintScope(storedFootprint);
+      const label = resolutionLabel(storedFootprint.resolution) || storedFootprint.resolution || "resolution";
       const match = alignment.selectionMatches
         ? "Current selection matches."
         : "Current selection differs.";
-      els.censusRaceFootprintStatus.textContent = `Race footprint: ${storedFootprint.geoids.length} GEOs (${storedFootprint.resolution}) in ${area}. ${match}`;
+      els.censusRaceFootprintStatus.textContent = `Race footprint: ${storedFootprint.geoids.length} GEOs (${label}) in ${area}. ${match}`;
     }
   }
 
@@ -1541,8 +1588,11 @@ export function renderCensusPhase1Module({ els, state, res } = {}){
   }
 
   if (els.censusMapStatus){
+    const boundarySupported = resolutionSupportsBoundaryOverlay(s.resolution);
     els.censusMapStatus.classList.remove("ok", "warn", "bad", "muted");
-    if (mapRuntimeStatus.error){
+    if (!boundarySupported){
+      els.censusMapStatus.classList.add("muted");
+    } else if (mapRuntimeStatus.error){
       els.censusMapStatus.classList.add("bad");
     } else if (mapRuntimeStatus.loading || mapRuntimeStatus.qaLoading){
       els.censusMapStatus.classList.add("warn");
@@ -1553,7 +1603,10 @@ export function renderCensusPhase1Module({ els, state, res } = {}){
     }
     const selectedKey = mapSelectionKey(s);
     const qaText = cleanText(mapRuntimeStatus.qaText);
-    if (!mapRuntimeStatus.loading && mapLoadedSelectionKey && selectedKey !== mapLoadedSelectionKey && !mapRuntimeStatus.error){
+    if (!boundarySupported){
+      const label = RESOLUTION_LABEL_BY_ID[cleanText(s.resolution)] || cleanText(s.resolution) || "selected resolution";
+      els.censusMapStatus.textContent = `Boundary overlay unavailable for ${label}. Use place, tract, or block group for map overlays.`;
+    } else if (!mapRuntimeStatus.loading && mapLoadedSelectionKey && selectedKey !== mapLoadedSelectionKey && !mapRuntimeStatus.error){
       const base = "Selection changed. Reload boundaries to refresh map.";
       els.censusMapStatus.textContent = qaText ? `${base} ${qaText}` : base;
     } else {
@@ -1582,14 +1635,15 @@ async function loadStateScopedLists(s, key){
 }
 
 async function onLoadGeo({ s, key, getState, commitUIUpdate }){
+  const resolutionLabel = RESOLUTION_LABEL_BY_ID[cleanText(s.resolution)] || cleanText(s.resolution) || "resolution";
   if (!contextReadyForGeo(s)){
-    setStatus(s, `Select required geography context for ${s.resolution}.`, true);
+    setStatus(s, `Select required geography context for ${resolutionLabel}.`, true);
     commitUIUpdate();
     return;
   }
   const seq = nextSeq(s);
   setLoadingFlags(s, "geo", true);
-  setStatus(s, `Loading GEO list for ${contextText(s)} (${s.resolution})...`, false);
+  setStatus(s, `Loading GEO list for ${contextText(s)} (${resolutionLabel})...`, false);
   commitUIUpdate({ persist: false });
   try{
     const options = await fetchGeoOptions({
@@ -1619,7 +1673,8 @@ async function onLoadGeo({ s, key, getState, commitUIUpdate }){
     current.activeRowsKey = "";
     current.loadedRowCount = 0;
     current.lastFetchAt = "";
-    setStatus(current, `${options.length} GEO options loaded for ${current.resolution}.`, false);
+    const currentResolutionLabel = RESOLUTION_LABEL_BY_ID[cleanText(current.resolution)] || cleanText(current.resolution) || "resolution";
+    setStatus(current, `${options.length} GEO options loaded for ${currentResolutionLabel}.`, false);
   } catch (err){
     const current = ensureCensusStateModule(getState());
     if (!current || current.requestSeq !== seq) return;
@@ -1635,14 +1690,15 @@ async function onLoadGeo({ s, key, getState, commitUIUpdate }){
 }
 
 async function onFetchRows({ s, key, getState, commitUIUpdate }){
+  const resolutionLabel = RESOLUTION_LABEL_BY_ID[cleanText(s.resolution)] || cleanText(s.resolution) || "resolution";
   if (!contextReadyForGeo(s)){
-    setStatus(s, `Select required geography context for ${s.resolution}.`, true);
+    setStatus(s, `Select required geography context for ${resolutionLabel}.`, true);
     commitUIUpdate();
     return;
   }
   const seq = nextSeq(s);
   setLoadingFlags(s, "rows", true);
-  setStatus(s, `Fetching ACS rows for ${contextText(s)} (${s.resolution}, ${s.year})...`, false);
+  setStatus(s, `Fetching ACS rows for ${contextText(s)} (${resolutionLabel}, ${s.year})...`, false);
   commitUIUpdate({ persist: false });
   try{
     let variableNames = variableCatalogCache.get(s.year);
@@ -1688,7 +1744,8 @@ async function onFetchRows({ s, key, getState, commitUIUpdate }){
       ? filtered
       : current.geoOptions.slice(0, Math.min(current.geoOptions.length, 25)).map((row) => cleanText(row.geoid));
     current.lastFetchAt = new Date().toISOString();
-    setStatus(current, `Loaded ${current.loadedRowCount} ACS rows for ${current.resolution}.`, false);
+    const currentResolutionLabel = RESOLUTION_LABEL_BY_ID[cleanText(current.resolution)] || cleanText(current.resolution) || "resolution";
+    setStatus(current, `Loaded ${current.loadedRowCount} ACS rows for ${currentResolutionLabel}.`, false);
   } catch (err){
     const current = ensureCensusStateModule(getState());
     if (!current || current.requestSeq !== seq) return;
@@ -1793,9 +1850,18 @@ export function wireCensusPhase1EventsModule(ctx){
     els.censusResolution.addEventListener("change", () => {
       withState((_, s) => {
         s.resolution = cleanText(els.censusResolution.value) || "tract";
-        s.countyFips = s.resolution === "place" ? "" : s.countyFips;
+        if (!resolutionNeedsCounty(s.resolution)){
+          s.countyFips = "";
+        }
+        if (s.resolution !== "place"){
+          s.placeFips = "";
+        }
+        if (s.resolution !== "block_group"){
+          s.tractFilter = "";
+        }
         resetGeoData(s);
-        setStatus(s, `Resolution set to ${s.resolution}. Load GEO list next.`, false);
+        const label = RESOLUTION_LABEL_BY_ID[cleanText(s.resolution)] || cleanText(s.resolution);
+        setStatus(s, `Resolution set to ${label || s.resolution}. Load GEO list next.`, false);
       });
       commitUIUpdate();
     });
@@ -1809,7 +1875,7 @@ export function wireCensusPhase1EventsModule(ctx){
         s.countyFips = "";
         s.placeFips = "";
         resetGeoData(s);
-        setStatus(s, s.stateFips ? "Loading county/place lists..." : "Select a state to continue.", false);
+        setStatus(s, s.stateFips ? "Loading lookup lists..." : "Select a state to continue.", false);
       });
       commitUIUpdate({ persist: false });
       const s = ensureCensusStateModule(currentState());
@@ -1819,11 +1885,11 @@ export function wireCensusPhase1EventsModule(ctx){
         await loadStateScopedLists(s, key);
         const latest = ensureCensusStateModule(currentState());
         if (!latest || !latest.stateFips) return;
-        setStatus(latest, "County/place lists loaded. Choose geography context and load GEO list.", false);
+        setStatus(latest, "Lookup lists loaded. Choose geography context and load GEO list.", false);
       } catch (err){
         const latest = ensureCensusStateModule(currentState());
         if (!latest) return;
-        setStatus(latest, cleanText(err?.message) || "Failed to load county/place lists.", true);
+        setStatus(latest, cleanText(err?.message) || "Failed to load lookup lists.", true);
       }
       commitUIUpdate();
     });
@@ -1853,7 +1919,7 @@ export function wireCensusPhase1EventsModule(ctx){
           resetGeoData(s);
           setStatus(s, s.placeFips ? "Place set. Load GEO list next." : "Select place to continue.", false);
         } else {
-          setStatus(s, s.placeFips ? "Place selected. Tract/block fetch still uses county." : "Place cleared.", false);
+          setStatus(s, s.placeFips ? "Place selected. Current resolution does not use place filter." : "Place cleared.", false);
         }
       });
       commitUIUpdate();
