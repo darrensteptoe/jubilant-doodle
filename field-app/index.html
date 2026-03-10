@@ -3086,6 +3086,18 @@ Volunteer multiplier stays above 1.5" rows="4"></textarea>
 </div>
 <div class="help-text">Use these controls for file exchange, reporting, and audit-safe handoffs.</div>
 </div>
+<div class="card card-section">
+<div class="card-head card-header">
+<h2 class="card-title">External storage (USB)</h2>
+</div>
+<div class="integrity-actions">
+<button class="btn btn-sm" id="btnUsbStorageConnect" type="button">Connect folder</button>
+<button class="btn btn-sm btn-ghost" id="btnUsbStorageLoad" type="button">Load from folder</button>
+<button class="btn btn-sm btn-ghost" id="btnUsbStorageSave" type="button">Save to folder now</button>
+<button class="btn btn-sm btn-ghost" id="btnUsbStorageDisconnect" type="button">Disconnect</button>
+</div>
+<div class="help-text" id="usbStorageStatus">Using browser storage only.</div>
+</div>
 </div>
 </section>
 </main>
@@ -3212,7 +3224,7 @@ Volunteer multiplier stays above 1.5" rows="4"></textarea>
 </aside>
 </div>
 <!-- /app-shell -->
-<script src="./js/app.js?v=20260309-census-phase1-34" type="module"></script>
+<script src="./js/app.js?v=20260309-census-phase1-35" type="module"></script>
 <script>
 // ── Stage navigation ───────────────────────────────────────────
 function normalizeStages() {
