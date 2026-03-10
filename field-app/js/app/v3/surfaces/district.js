@@ -324,7 +324,8 @@ function normalizeCensusPhase1Card(card) {
   const selectionSetGrid = findClosest(card, "#censusSelectionSetName", ".grid2");
   const selectionSetStatus = card.querySelector("#censusSelectionSetStatus");
 
-  const geoSelectionGrid = findClosest(card, "#censusGeoSearch", ".grid2");
+  const geoSelectionField = findClosest(card, "#censusGeoSearch", ".field");
+  const aggregateTable = findClosest(card, "#censusAggregateTbody", ".table-wrap");
   const aggregateExportActions = findClosest(card, "#btnCensusExportAggregateCsv", ".rowline");
 
   const advisoryTable = findClosest(card, "#censusAdvisoryTbody", ".table-wrap");
@@ -385,16 +386,22 @@ function normalizeCensusPhase1Card(card) {
   appendIfPresent(geographySection.body, contextHint);
   layout.appendChild(geographySection.section);
 
-  const bundleSection = createCensusSection({
-    title: "Data bundle, fetch, and saved sets",
-    description: "Choose the ACS bundle, fetch rows, then save/load reusable GEO selection sets."
+  const workflowSection = createCensusSection({
+    title: "GEO data workflow",
+    description:
+      "Run setup, select GEO units, and review aggregate outputs in one contained workflow."
+  });
+
+  const setupBlock = createCensusSubsection({
+    title: "Setup",
+    description: "Choose data bundle and fetch rows."
   });
   const bundleGrid = createFieldGrid("fpe-field-grid--2");
   appendIfPresent(bundleGrid, metricSetField);
   const fetchActionsField = createFetchActionsField(fetchActions);
   appendIfPresent(bundleGrid, fetchActionsField);
   if (bundleGrid.children.length) {
-    bundleSection.body.appendChild(bundleGrid);
+    setupBlock.body.appendChild(bundleGrid);
   }
 
   const statusStrip = document.createElement("div");
@@ -406,21 +413,28 @@ function normalizeCensusPhase1Card(card) {
     toStatusChip(censusLastFetch)
   );
   if (statusStrip.children.length) {
-    bundleSection.body.appendChild(statusStrip);
+    setupBlock.body.appendChild(statusStrip);
   }
-  appendIfPresent(bundleSection.body, selectionSetGrid, selectionSetStatus);
-  layout.appendChild(bundleSection.section);
+  const selectionBlock = createCensusSubsection({
+    title: "Selection",
+    description: "Search/paste/select GEO units and manage saved sets."
+  });
+  appendIfPresent(selectionBlock.body, geoSelectionField, selectionSetGrid, selectionSetStatus);
 
-  const geoMetricsSection = createCensusSection({
-    title: "GEO selection and aggregate metrics",
-    description: "Search/paste/select GEO units and review aggregated demographic outputs."
+  const outputBlock = createCensusSubsection({
+    title: "Output",
+    description: "Aggregate demographic metrics from selected GEO units."
   });
   if (aggregateExportActions instanceof HTMLElement) {
     aggregateExportActions.classList.add("fpe-census-aggregate-actions", "fpe-action-row");
   }
-  appendIfPresent(geoMetricsSection.body, geoSelectionGrid);
-  appendIfPresent(geoMetricsSection.body, aggregateExportActions);
-  layout.appendChild(geoMetricsSection.section);
+  appendIfPresent(outputBlock.body, aggregateTable, aggregateExportActions);
+
+  const workflowTopGrid = document.createElement("div");
+  workflowTopGrid.className = "fpe-census-workflow-grid";
+  appendIfPresent(workflowTopGrid, setupBlock.section, selectionBlock.section);
+  appendIfPresent(workflowSection.body, workflowTopGrid, outputBlock.section);
+  layout.appendChild(workflowSection.section);
 
   const footprintSection = createCensusSection({
     title: "Race footprint and assumption apply",
@@ -553,6 +567,29 @@ function createCensusSection({ title, description = "" }) {
 
   section.append(head, body);
   return { section, body, headMain };
+}
+
+function createCensusSubsection({ title, description = "" }) {
+  const section = document.createElement("section");
+  section.className = "fpe-census-subsection";
+
+  const heading = document.createElement("h4");
+  heading.className = "fpe-census-subsection__title";
+  heading.textContent = title;
+  section.appendChild(heading);
+
+  if (description) {
+    const text = document.createElement("p");
+    text.className = "fpe-census-subsection__desc";
+    text.textContent = description;
+    section.appendChild(text);
+  }
+
+  const body = document.createElement("div");
+  body.className = "fpe-census-subsection__body";
+  section.appendChild(body);
+
+  return { section, body };
 }
 
 function setCensusSectionHeaderControl(sectionParts, control) {
