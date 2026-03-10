@@ -19,6 +19,7 @@ const ELECTION_CSV_LONG_COLUMNS = [
 const ELECTION_CSV_OPTIONAL_COLUMNS = [
   "party",
   "total_votes_precinct",
+  "registered_voters",
   "source",
   "notes",
 ];
@@ -28,18 +29,20 @@ function canonicalCsvKey(value){
 }
 
 const ELECTION_CSV_ALIAS_GROUPS = {
-  state_fips: ["state_fips", "statefips", "state"],
-  county_fips: ["county_fips", "countyfips", "county"],
-  election_date: ["election_date", "electiondate", "date"],
-  office: ["office", "contestname", "contest"],
+  state_fips: ["state_fips", "statefips"],
+  county_fips: ["county_fips", "countyfips"],
+  election_date: ["election_date", "electiondate"],
+  office: ["office", "contestname"],
   district_id: ["district_id", "districtid", "eiscontestid", "contestid"],
-  precinct_id: ["precinct_id", "precinctid", "precinctname", "precinct"],
+  precinct_id: ["precinct_id", "precinctid", "precinctname"],
   candidate: ["candidate", "candidatename"],
   votes: ["votes", "votecount"],
   party: ["party", "partyname"],
-  total_votes_precinct: ["total_votes_precinct", "totalvotesprecinct", "totalvotes"],
+  total_votes_precinct: ["total_votes_precinct", "totalvotesprecinct"],
+  registered_voters: ["registered_voters", "registeredvoters", "registered", "registration"],
   source: ["source"],
   notes: ["notes"],
+  ignored_meta: ["jurisdictionid", "juriscontainerid", "jurisname", "eiscandidateid", "eispartyid"],
 };
 
 const ELECTION_CSV_ALIAS_CANONICAL = Object.fromEntries(
@@ -560,6 +563,7 @@ export function getElectionCsvUploadGuide(){
     party: "DEM",
     votes: "1245",
     total_votes_precinct: "3140",
+    registered_voters: "4120",
     source: "County certified results",
     notes: "",
   };
@@ -573,6 +577,7 @@ export function getElectionCsvUploadGuide(){
     "Jane Candidate": "1245",
     "John Candidate": "1830",
     total_votes_precinct: "3140",
+    registered_voters: "4120",
     source: "County certified results",
     notes: "",
   };
@@ -599,7 +604,9 @@ export function getElectionCsvUploadGuide(){
     notes: [
       "Use either long format (candidate + votes columns) or wide format (candidate names as columns).",
       "All base columns must be present with exact names.",
-      "votes and total_votes_precinct must be non-negative integers.",
+      "votes, total_votes_precinct, and registered_voters must be non-negative integers.",
+      "Long format accepts extra columns and ignores them.",
+      "Wide format treats non-reserved columns as candidate columns; non-numeric values are skipped with warnings.",
       "Rows with invalid keys or values fail validation and are rejected.",
       "Import should run in dry-run mode first before commit.",
     ],
@@ -786,6 +793,7 @@ export function detectElectionCsvFormat(headers){
     "votes",
     "party",
     "total_votes_precinct",
+    "registered_voters",
     "source",
     "notes",
   ];
@@ -814,8 +822,9 @@ export function detectElectionCsvFormat(headers){
 function parseCsvNonNegativeInteger(value){
   const text = cleanText(value);
   if (!text) return null;
-  if (!/^\d+$/.test(text)) return Number.NaN;
-  const n = Number(text);
+  const normalized = text.replace(/,/g, "");
+  if (!/^\d+$/.test(normalized)) return Number.NaN;
+  const n = Number(normalized);
   if (!Number.isFinite(n) || n < 0) return Number.NaN;
   return n;
 }
@@ -887,7 +896,9 @@ export function normalizeElectionCsvRows(rows, { headers, context } = {}){
       const candidateProbe = cleanText(row[detected.resolvedColumns.candidate]);
       const officeProbe = cleanText(row[detected.resolvedColumns.office]);
       const districtProbe = cleanText(row[detected.resolvedColumns.district_id]);
-      if (!candidateProbe && !officeProbe && !districtProbe){
+      const districtIsEmptyOrZero = !districtProbe || /^0+$/.test(districtProbe);
+      const officeIsEmptyOrZero = !officeProbe || /^0+$/.test(officeProbe);
+      if (!candidateProbe && officeIsEmptyOrZero && districtIsEmptyOrZero){
         skippedSummaryRows += 1;
         continue;
       }
@@ -911,6 +922,11 @@ export function normalizeElectionCsvRows(rows, { headers, context } = {}){
       pushError(`Row ${rowNum}: total_votes_precinct must be a non-negative integer.`);
       rowHasError = true;
     }
+    const registeredVoters = parseCsvNonNegativeInteger(row[detected.resolvedColumns.registered_voters]);
+    if (Number.isNaN(registeredVoters)){
+      pushError(`Row ${rowNum}: registered_voters must be a non-negative integer.`);
+      rowHasError = true;
+    }
     if (rowHasError) continue;
     if (detected.format === "long"){
       const candidate = cleanText(row[detected.resolvedColumns.candidate]);
@@ -929,6 +945,7 @@ export function normalizeElectionCsvRows(rows, { headers, context } = {}){
         party,
         votes,
         total_votes_precinct: totalVotesPrecinct,
+        registered_voters: registeredVoters,
         source,
         notes,
       });
@@ -940,8 +957,7 @@ export function normalizeElectionCsvRows(rows, { headers, context } = {}){
       if (parsedVotes == null) continue;
       if (Number.isNaN(parsedVotes)){
         const label = cleanText(detected.originalByCanonical[key]) || key;
-        pushError(`Row ${rowNum}: ${label} must be a non-negative integer.`);
-        rowHasError = true;
+        pushWarning(`Row ${rowNum}: ${label} is non-numeric and was skipped.`);
         continue;
       }
       staged.push({
@@ -950,6 +966,7 @@ export function normalizeElectionCsvRows(rows, { headers, context } = {}){
         party,
         votes: parsedVotes,
         total_votes_precinct: totalVotesPrecinct,
+        registered_voters: registeredVoters,
         source,
         notes,
       });

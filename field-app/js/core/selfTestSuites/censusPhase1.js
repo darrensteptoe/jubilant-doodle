@@ -409,6 +409,7 @@ export function registerCensusPhase1Tests(ctx){
     assert(guide.schemaVersion === "election_results_csv.v1", "csv guide schema version mismatch");
     assert(Array.isArray(guide.requiredColumns) && guide.requiredColumns.includes("precinct_id"), "csv guide required columns missing");
     assert(Array.isArray(guide.optionalColumns) && guide.optionalColumns.includes("party"), "csv guide optional columns missing");
+    assert(Array.isArray(guide.optionalColumns) && guide.optionalColumns.includes("registered_voters"), "csv guide registered_voters optional column missing");
     assert(Array.isArray(guide.acceptedFormats) && guide.acceptedFormats.length >= 2, "csv guide formats missing");
     const template = buildElectionCsvTemplate();
     const lines = String(template || "").trim().split("\n");
@@ -447,6 +448,7 @@ export function registerCensusPhase1Tests(ctx){
         "Jane Doe": "1245",
         "John Roe": "1830",
         total_votes_precinct: "3140",
+        registered_voters: "4120",
       },
     ];
     const normalized = normalizeElectionCsvRows(rows, { headers: Object.keys(rows[0]) });
@@ -457,6 +459,7 @@ export function registerCensusPhase1Tests(ctx){
     assert(names[0] === "Jane Doe" && names[1] === "John Roe", "wide normalization candidate names mismatch");
     const totalVotes = normalized.records.reduce((acc, row) => acc + Number(row.votes || 0), 0);
     assert(totalVotes === 3075, "wide normalization vote totals mismatch");
+    assert(normalized.records.every((row) => Number(row.registered_voters) === 4120), "wide normalization registered_voters mismatch");
   });
 
   test("Census Phase1: long election CSV normalization preserves candidate rows", () => {
@@ -501,9 +504,10 @@ export function registerCensusPhase1Tests(ctx){
       {
         JurisdictionID: "16",
         JurisName: "COOK",
-        EISContestID: "",
+        EISContestID: "0",
         ContestName: "",
         PrecinctName: "7000001",
+        Registration: "1015",
         CandidateName: "",
         VoteCount: "231",
       },
@@ -513,6 +517,7 @@ export function registerCensusPhase1Tests(ctx){
         EISContestID: "12921",
         ContestName: "PRESIDENT",
         PrecinctName: "7000001",
+        Registration: "1015",
         CandidateName: "JANE DOE",
         VoteCount: "150",
       },
@@ -522,6 +527,7 @@ export function registerCensusPhase1Tests(ctx){
         EISContestID: "12921",
         ContestName: "PRESIDENT",
         PrecinctName: "7000001",
+        Registration: "1015",
         CandidateName: "JOHN ROE",
         VoteCount: "81",
       },
@@ -538,9 +544,71 @@ export function registerCensusPhase1Tests(ctx){
     assert(normalized.format === "long", "alias normalization should detect long format");
     assert(Array.isArray(normalized.records) && normalized.records.length === 2, "alias normalization record count mismatch");
     assert(Number(normalized.skippedSummaryRows) === 1, "alias normalization summary skip mismatch");
+    assert(Array.isArray(normalized.errors) && normalized.errors.length === 0, "alias normalization should not emit errors");
     const first = normalized.records[0];
     assert(first.state_fips === "17", "alias normalization state context mismatch");
     assert(first.county_fips === "031", "alias normalization county context mismatch");
     assert(first.election_date === "2024-11-05", "alias normalization date context mismatch");
+    assert(Number(first.registered_voters) === 1015, "alias normalization registered_voters mismatch");
+  });
+
+  test("Census Phase1: broad aliases are rejected without explicit mapping", () => {
+    const rows = [
+      {
+        state: "17",
+        county: "031",
+        date: "2024-11-05",
+        office: "US House",
+        district_id: "IL-07",
+        precinct_id: "17-031-001A",
+        candidate: "Jane Doe",
+        votes: "1245",
+      },
+    ];
+    const normalized = normalizeElectionCsvRows(rows, { headers: Object.keys(rows[0]) });
+    assert(normalized.ok === false, "broad aliases should not pass normalization");
+    const msg = Array.isArray(normalized.errors) && normalized.errors.length ? String(normalized.errors[0]) : "";
+    assert(msg.includes("Missing required base columns"), "broad alias failure message mismatch");
+  });
+
+  test("Census Phase1: registration header is reserved in wide format", () => {
+    const detected = detectElectionCsvFormat([
+      "state_fips",
+      "county_fips",
+      "election_date",
+      "office",
+      "district_id",
+      "precinct_id",
+      "Registration",
+      "Jane Doe",
+      "John Roe",
+    ]);
+    assert(detected.format === "wide", "wide detection with registration header failed");
+    assert(Array.isArray(detected.candidateColumns) && detected.candidateColumns.length === 2, "registration should not be treated as candidate column");
+  });
+
+  test("Census Phase1: wide normalization skips non-numeric extra columns", () => {
+    const rows = [
+      {
+        state_fips: "17",
+        county_fips: "031",
+        election_date: "2024-11-05",
+        office: "US House",
+        district_id: "IL-07",
+        precinct_id: "17-031-001A",
+        JurisdictionID: "16",
+        "Jane Doe": "1,245",
+        "John Roe": "1830",
+        "Batch Label": "A-1",
+      },
+    ];
+    const normalized = normalizeElectionCsvRows(rows, { headers: Object.keys(rows[0]) });
+    assert(normalized.ok === true, "wide normalization with non-numeric extras should succeed");
+    assert(Array.isArray(normalized.records) && normalized.records.length === 2, "wide normalization should only keep numeric candidate vote columns");
+    const names = normalized.records.map((x) => x.candidate).sort((a, b) => a.localeCompare(b));
+    assert(names[0] === "Jane Doe" && names[1] === "John Roe", "wide normalization candidate names mismatch with extras");
+    const totalVotes = normalized.records.reduce((acc, row) => acc + Number(row.votes || 0), 0);
+    assert(totalVotes === 3075, "wide normalization should parse comma-formatted vote values");
+    assert(Array.isArray(normalized.warnings) && normalized.warnings.some((msg) => String(msg).includes("non-numeric and was skipped")), "wide normalization should warn on non-numeric extra columns");
   });
 }
