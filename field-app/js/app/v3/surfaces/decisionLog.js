@@ -6,7 +6,19 @@ import {
   getCardBody
 } from "../componentFactory.js";
 import { mountLegacyClosest } from "../compat.js";
-import { readSelectedLabel, readText, setText } from "../surfaceUtils.js";
+import {
+  bindCheckboxProxy,
+  bindClickProxy,
+  bindFieldProxy,
+  bindSelectProxy,
+  readSelectedLabel,
+  readText,
+  setText,
+  syncCheckboxValue,
+  syncButtonDisabled,
+  syncFieldValue,
+  syncSelectValue
+} from "../surfaceUtils.js";
 
 export function renderDecisionLogSurface(mount) {
   const frame = createSurfaceFrame("two-col");
@@ -43,24 +55,129 @@ export function renderDecisionLogSurface(mount) {
     description: "Current decision posture at a glance."
   });
 
-  const sessionBody = getCardBody(sessionCard);
-  mountDecisionRowline(sessionBody, "v3-decision-active-row", "#decisionActiveLabel");
-  mountDecisionRow(sessionBody, "v3-decision-session-row", "#decisionSessionSelect");
-  mountDecisionRow(sessionBody, "v3-decision-rename-row", "#decisionRename");
-  mountDecisionRow(sessionBody, "v3-decision-objective-row", "#decisionObjective");
-  mountDecisionRow(sessionBody, "v3-decision-notes-row", "#decisionNotes");
+  getCardBody(sessionCard).innerHTML = `
+    <div id="v3DecisionBridgeRoot">
+      <div class="fpe-help" id="v3DecisionActiveLabel">Active session: -</div>
+      <div class="fpe-field-grid fpe-field-grid--2">
+        <div class="field">
+          <label class="fpe-control-label" for="v3DecisionSessionSelect">Sessions</label>
+          <select class="fpe-input" id="v3DecisionSessionSelect"></select>
+        </div>
+        <div class="field">
+          <label class="fpe-control-label">Session actions</label>
+          <div class="fpe-action-row">
+            <button class="fpe-btn" id="v3BtnDecisionNew" type="button">New session</button>
+          </div>
+        </div>
+      </div>
+      <div class="fpe-field-grid fpe-field-grid--2">
+        <div class="field">
+          <label class="fpe-control-label" for="v3DecisionRename">Rename session</label>
+          <input class="fpe-input" id="v3DecisionRename" type="text"/>
+        </div>
+        <div class="field">
+          <label class="fpe-control-label">Rename actions</label>
+          <div class="fpe-action-row">
+            <button class="fpe-btn fpe-btn--ghost" id="v3BtnDecisionRenameSave" type="button">Save</button>
+            <button class="fpe-btn fpe-btn--ghost" id="v3BtnDecisionDelete" type="button">Delete</button>
+          </div>
+        </div>
+      </div>
+      <div class="fpe-field-grid fpe-field-grid--2">
+        <div class="field">
+          <label class="fpe-control-label" for="v3DecisionObjective">Objective</label>
+          <select class="fpe-input" id="v3DecisionObjective"></select>
+        </div>
+        <div class="field">
+          <label class="fpe-control-label">Scenario linkage</label>
+          <div class="fpe-action-row">
+            <button class="fpe-btn fpe-btn--ghost" id="v3BtnDecisionLinkScenario" type="button">Link to active scenario</button>
+          </div>
+          <div class="fpe-help" id="v3DecisionScenarioLabel">-</div>
+        </div>
+      </div>
+      <div class="field">
+        <label class="fpe-control-label" for="v3DecisionNotes">Notes</label>
+        <textarea class="fpe-input" id="v3DecisionNotes" rows="5"></textarea>
+      </div>
+    </div>
+  `;
 
-  const assumptionsBody = getCardBody(assumptionsCard);
-  mountDecisionRow(assumptionsBody, "v3-decision-budget-row", "#decisionBudget");
-  mountDecisionRow(assumptionsBody, "v3-decision-turf-row", "#decisionTurfAccess");
-  mountDecisionRow(assumptionsBody, "v3-decision-risk-posture-row", "#decisionRiskPosture");
-  mountDecisionRow(assumptionsBody, "v3-decision-non-negotiables-row", "#decisionNonNegotiables");
+  getCardBody(assumptionsCard).innerHTML = `
+    <div class="fpe-field-grid fpe-field-grid--2">
+      <div class="field">
+        <label class="fpe-control-label" for="v3DecisionBudget">Budget cap ($)</label>
+        <input class="fpe-input" id="v3DecisionBudget" inputmode="decimal" type="text"/>
+      </div>
+      <div class="field">
+        <label class="fpe-control-label" for="v3DecisionVolunteerHrs">Volunteer hrs/week</label>
+        <input class="fpe-input" id="v3DecisionVolunteerHrs" inputmode="decimal" type="text"/>
+      </div>
+    </div>
+    <div class="fpe-field-grid fpe-field-grid--2">
+      <div class="field">
+        <label class="fpe-control-label" for="v3DecisionTurfAccess">Turf access</label>
+        <select class="fpe-input" id="v3DecisionTurfAccess"></select>
+      </div>
+      <div class="field">
+        <label class="fpe-control-label" for="v3DecisionBlackoutDates">Blackout dates</label>
+        <input class="fpe-input" id="v3DecisionBlackoutDates" type="text"/>
+      </div>
+    </div>
+    <div class="fpe-field-grid fpe-field-grid--1">
+      <div class="field">
+        <label class="fpe-control-label" for="v3DecisionRiskPosture">Risk posture</label>
+        <select class="fpe-input" id="v3DecisionRiskPosture"></select>
+      </div>
+    </div>
+    <div class="field">
+      <label class="fpe-control-label" for="v3DecisionNonNegotiables">Non-negotiables (one per line)</label>
+      <textarea class="fpe-input" id="v3DecisionNonNegotiables" rows="4"></textarea>
+    </div>
+  `;
 
-  const optionsBody = getCardBody(optionsCard);
-  mountDecisionRow(optionsBody, "v3-decision-option-select-row", "#decisionOptionSelect");
-  mountDecisionRow(optionsBody, "v3-decision-option-rename-row", "#decisionOptionRename");
-  mountDecisionRow(optionsBody, "v3-decision-option-scenario-row", "#decisionOptionScenarioLabel");
-  mountDecisionRow(optionsBody, "v3-decision-option-tactics-row", "#decisionOptionTacticDoors");
+  getCardBody(optionsCard).innerHTML = `
+    <div class="fpe-field-grid fpe-field-grid--2">
+      <div class="field">
+        <label class="fpe-control-label" for="v3DecisionOptionSelect">Option</label>
+        <select class="fpe-input" id="v3DecisionOptionSelect"></select>
+      </div>
+      <div class="field">
+        <label class="fpe-control-label">Option actions</label>
+        <div class="fpe-action-row">
+          <button class="fpe-btn" id="v3BtnDecisionOptionNew" type="button">New option</button>
+        </div>
+      </div>
+    </div>
+    <div class="fpe-field-grid fpe-field-grid--2">
+      <div class="field">
+        <label class="fpe-control-label" for="v3DecisionOptionRename">Rename option</label>
+        <input class="fpe-input" id="v3DecisionOptionRename" type="text"/>
+      </div>
+      <div class="field">
+        <label class="fpe-control-label">Rename actions</label>
+        <div class="fpe-action-row">
+          <button class="fpe-btn fpe-btn--ghost" id="v3BtnDecisionOptionRenameSave" type="button">Save</button>
+          <button class="fpe-btn fpe-btn--ghost" id="v3BtnDecisionOptionDelete" type="button">Delete</button>
+        </div>
+      </div>
+    </div>
+    <div class="field">
+      <label class="fpe-control-label">Option scenario</label>
+      <div class="fpe-action-row">
+        <div class="fpe-help" id="v3DecisionOptionScenarioLabel">-</div>
+        <button class="fpe-btn fpe-btn--ghost" id="v3BtnDecisionOptionLinkScenario" type="button">Link option to active scenario</button>
+      </div>
+    </div>
+    <div class="field">
+      <label class="fpe-control-label">Tactics tags</label>
+      <div class="fpe-action-row">
+        <label class="fpe-switch"><input id="v3DecisionOptionTacticDoors" type="checkbox"/><span>Doors</span></label>
+        <label class="fpe-switch"><input id="v3DecisionOptionTacticPhones" type="checkbox"/><span>Phones</span></label>
+        <label class="fpe-switch"><input id="v3DecisionOptionTacticDigital" type="checkbox"/><span>Digital</span></label>
+      </div>
+    </div>
+  `;
 
   const diagnosticsBody = getCardBody(diagnosticsCard);
   mountDecisionRow(diagnosticsBody, "v3-decision-drift-tag-row", "#driftStatusTag");
@@ -79,16 +196,34 @@ export function renderDecisionLogSurface(mount) {
   mountDecisionRow(diagnosticsBody, "v3-decision-conf-banner-row", "#confBanner");
 
   const recommendationBody = getCardBody(recommendationCard);
-  mountDecisionRow(recommendationBody, "v3-decision-recommend-row", "#decisionRecommendSelect");
-  mountDecisionRow(recommendationBody, "v3-decision-what-true-row", "#decisionWhatTrue");
-  mountDecisionRow(recommendationBody, "v3-decision-summary-preview-row", "#decisionSummaryPreview");
-  mountDecisionRow(recommendationBody, "v3-decision-copy-row", "#decisionCopyStatus");
+  recommendationBody.innerHTML = `
+    <div class="fpe-field-grid fpe-field-grid--1">
+      <div class="field">
+        <label class="fpe-control-label" for="v3DecisionRecommendSelect">Recommended option</label>
+        <select class="fpe-input" id="v3DecisionRecommendSelect"></select>
+      </div>
+    </div>
+    <div class="field">
+      <label class="fpe-control-label" for="v3DecisionWhatTrue">What needs to be true (one per line)</label>
+      <textarea class="fpe-input" id="v3DecisionWhatTrue" rows="4"></textarea>
+    </div>
+    <div class="field">
+      <label class="fpe-control-label" for="v3DecisionSummaryPreview">Client-ready summary (preview)</label>
+      <textarea class="fpe-input" id="v3DecisionSummaryPreview" rows="14" readonly></textarea>
+    </div>
+    <div class="fpe-action-row">
+      <div class="fpe-help" id="v3DecisionCopyStatus">-</div>
+      <button class="fpe-btn fpe-btn--ghost" id="v3BtnDecisionCopyMd" type="button">Copy markdown</button>
+      <button class="fpe-btn fpe-btn--ghost" id="v3BtnDecisionCopyText" type="button">Copy text</button>
+      <button class="fpe-btn fpe-btn--ghost" id="v3BtnDecisionDownloadJson" type="button">Download JSON</button>
+    </div>
+  `;
 
   getCardBody(summaryCard).innerHTML = `
     <div class="fpe-summary-grid">
       <div class="fpe-summary-row"><span>Active session</span><strong id="v3DecisionActiveSession">-</strong></div>
       <div class="fpe-summary-row"><span>Linked scenario</span><strong id="v3DecisionScenario">-</strong></div>
-      <div class="fpe-summary-row"><span>Objective</span><strong id="v3DecisionObjective">-</strong></div>
+      <div class="fpe-summary-row"><span>Objective</span><strong id="v3DecisionObjectiveSummary">-</strong></div>
       <div class="fpe-summary-row"><span>Selected option</span><strong id="v3DecisionOption">-</strong></div>
       <div class="fpe-summary-row"><span>Recommended option</span><strong id="v3DecisionRecommended">-</strong></div>
       <div class="fpe-summary-row"><span>Confidence tag</span><strong id="v3DecisionConfidence">-</strong></div>
@@ -110,6 +245,7 @@ export function renderDecisionLogSurface(mount) {
     ])
   );
 
+  wireDecisionBridge();
   return refreshDecisionSummary;
 }
 
@@ -122,22 +258,93 @@ function mountDecisionRow(target, key, childSelector) {
   });
 }
 
-function mountDecisionRowline(target, key, childSelector) {
-  mountLegacyClosest({
-    key,
-    childSelector,
-    closestSelector: ".rowline",
-    target
-  });
-}
-
 function refreshDecisionSummary() {
+  syncDecisionBridgeUi();
+
   setText("v3DecisionActiveSession", readText("#decisionActiveLabel"));
   setText("v3DecisionScenario", readText("#decisionScenarioLabel"));
-  setText("v3DecisionObjective", readSelectedLabel("#decisionObjective"));
+  setText("v3DecisionObjectiveSummary", readSelectedLabel("#decisionObjective"));
   setText("v3DecisionOption", readSelectedLabel("#decisionOptionSelect"));
   setText("v3DecisionRecommended", readSelectedLabel("#decisionRecommendSelect"));
   setText("v3DecisionConfidence", readText("#confTag"));
   setText("v3DecisionRisk", readText("#riskBandTag"));
   setText("v3DecisionBottleneck", readText("#bneckTag"));
+}
+
+function wireDecisionBridge() {
+  const root = document.getElementById("v3DecisionBridgeRoot");
+  if (!root || root.dataset.wired === "1") {
+    return;
+  }
+  root.dataset.wired = "1";
+
+  bindSelectProxy("v3DecisionSessionSelect", "decisionSessionSelect");
+  bindFieldProxy("v3DecisionRename", "decisionRename");
+  bindSelectProxy("v3DecisionObjective", "decisionObjective");
+  bindFieldProxy("v3DecisionNotes", "decisionNotes");
+  bindFieldProxy("v3DecisionBudget", "decisionBudget");
+  bindFieldProxy("v3DecisionVolunteerHrs", "decisionVolunteerHrs");
+  bindSelectProxy("v3DecisionTurfAccess", "decisionTurfAccess");
+  bindFieldProxy("v3DecisionBlackoutDates", "decisionBlackoutDates");
+  bindSelectProxy("v3DecisionRiskPosture", "decisionRiskPosture");
+  bindFieldProxy("v3DecisionNonNegotiables", "decisionNonNegotiables");
+  bindSelectProxy("v3DecisionOptionSelect", "decisionOptionSelect");
+  bindFieldProxy("v3DecisionOptionRename", "decisionOptionRename");
+  bindCheckboxProxy("v3DecisionOptionTacticDoors", "decisionOptionTacticDoors");
+  bindCheckboxProxy("v3DecisionOptionTacticPhones", "decisionOptionTacticPhones");
+  bindCheckboxProxy("v3DecisionOptionTacticDigital", "decisionOptionTacticDigital");
+  bindSelectProxy("v3DecisionRecommendSelect", "decisionRecommendSelect");
+  bindFieldProxy("v3DecisionWhatTrue", "decisionWhatTrue");
+
+  bindClickProxy("v3BtnDecisionNew", "btnDecisionNew");
+  bindClickProxy("v3BtnDecisionRenameSave", "btnDecisionRenameSave");
+  bindClickProxy("v3BtnDecisionDelete", "btnDecisionDelete");
+  bindClickProxy("v3BtnDecisionLinkScenario", "btnDecisionLinkScenario");
+  bindClickProxy("v3BtnDecisionOptionNew", "btnDecisionOptionNew");
+  bindClickProxy("v3BtnDecisionOptionRenameSave", "btnDecisionOptionRenameSave");
+  bindClickProxy("v3BtnDecisionOptionDelete", "btnDecisionOptionDelete");
+  bindClickProxy("v3BtnDecisionOptionLinkScenario", "btnDecisionOptionLinkScenario");
+  bindClickProxy("v3BtnDecisionCopyMd", "btnDecisionCopyMd");
+  bindClickProxy("v3BtnDecisionCopyText", "btnDecisionCopyText");
+  bindClickProxy("v3BtnDecisionDownloadJson", "btnDecisionDownloadJson");
+}
+
+function syncDecisionBridgeUi() {
+  syncSelectValue("v3DecisionSessionSelect", "decisionSessionSelect");
+  syncSelectValue("v3DecisionObjective", "decisionObjective");
+  syncSelectValue("v3DecisionTurfAccess", "decisionTurfAccess");
+  syncSelectValue("v3DecisionRiskPosture", "decisionRiskPosture");
+  syncSelectValue("v3DecisionOptionSelect", "decisionOptionSelect");
+  syncSelectValue("v3DecisionRecommendSelect", "decisionRecommendSelect");
+
+  syncFieldValue("v3DecisionRename", "decisionRename");
+  syncFieldValue("v3DecisionNotes", "decisionNotes");
+  syncFieldValue("v3DecisionBudget", "decisionBudget");
+  syncFieldValue("v3DecisionVolunteerHrs", "decisionVolunteerHrs");
+  syncFieldValue("v3DecisionBlackoutDates", "decisionBlackoutDates");
+  syncFieldValue("v3DecisionNonNegotiables", "decisionNonNegotiables");
+  syncFieldValue("v3DecisionOptionRename", "decisionOptionRename");
+  syncFieldValue("v3DecisionWhatTrue", "decisionWhatTrue");
+  syncFieldValue("v3DecisionSummaryPreview", "decisionSummaryPreview");
+
+  syncCheckboxValue("v3DecisionOptionTacticDoors", "decisionOptionTacticDoors");
+  syncCheckboxValue("v3DecisionOptionTacticPhones", "decisionOptionTacticPhones");
+  syncCheckboxValue("v3DecisionOptionTacticDigital", "decisionOptionTacticDigital");
+
+  setText("v3DecisionActiveLabel", readText("#decisionActiveLabel"));
+  setText("v3DecisionScenarioLabel", readText("#decisionScenarioLabel"));
+  setText("v3DecisionOptionScenarioLabel", readText("#decisionOptionScenarioLabel"));
+  setText("v3DecisionCopyStatus", readText("#decisionCopyStatus"));
+
+  syncButtonDisabled("v3BtnDecisionNew", "btnDecisionNew");
+  syncButtonDisabled("v3BtnDecisionRenameSave", "btnDecisionRenameSave");
+  syncButtonDisabled("v3BtnDecisionDelete", "btnDecisionDelete");
+  syncButtonDisabled("v3BtnDecisionLinkScenario", "btnDecisionLinkScenario");
+  syncButtonDisabled("v3BtnDecisionOptionNew", "btnDecisionOptionNew");
+  syncButtonDisabled("v3BtnDecisionOptionRenameSave", "btnDecisionOptionRenameSave");
+  syncButtonDisabled("v3BtnDecisionOptionDelete", "btnDecisionOptionDelete");
+  syncButtonDisabled("v3BtnDecisionOptionLinkScenario", "btnDecisionOptionLinkScenario");
+  syncButtonDisabled("v3BtnDecisionCopyMd", "btnDecisionCopyMd");
+  syncButtonDisabled("v3BtnDecisionCopyText", "btnDecisionCopyText");
+  syncButtonDisabled("v3BtnDecisionDownloadJson", "btnDecisionDownloadJson");
 }

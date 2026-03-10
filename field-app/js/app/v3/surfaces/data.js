@@ -6,12 +6,15 @@ import {
   getCardBody
 } from "../componentFactory.js";
 import {
+  bindCheckboxProxy,
   bindClickProxy,
+  bindSelectProxy,
   getLegacyEl,
   readText,
   setText,
+  syncCheckboxValue,
   syncButtonDisabled,
-  syncSelectOptions
+  syncSelectValue
 } from "../surfaceUtils.js";
 
 export function renderDataSurface(mount) {
@@ -147,26 +150,8 @@ function wireDataBridge() {
   }
   root.dataset.wired = "1";
 
-  const strictToggle = document.getElementById("v3DataStrictToggle");
-  strictToggle?.addEventListener("change", () => {
-    const legacy = getLegacyEl("toggleStrictImport");
-    if (!(legacy instanceof HTMLInputElement)) {
-      return;
-    }
-    legacy.checked = strictToggle.checked;
-    legacy.dispatchEvent(new Event("input", { bubbles: true }));
-    legacy.dispatchEvent(new Event("change", { bubbles: true }));
-  });
-
-  const restoreBackup = document.getElementById("v3DataRestoreBackup");
-  restoreBackup?.addEventListener("change", () => {
-    const legacy = getLegacyEl("restoreBackup");
-    if (!(legacy instanceof HTMLSelectElement)) {
-      return;
-    }
-    legacy.value = restoreBackup.value;
-    legacy.dispatchEvent(new Event("change", { bubbles: true }));
-  });
+  bindCheckboxProxy("v3DataStrictToggle", "toggleStrictImport");
+  bindSelectProxy("v3DataRestoreBackup", "restoreBackup");
 
   bindClickProxy("v3DataBtnSaveJson", "btnSaveJson");
   bindClickProxy("v3DataBtnLoadJson", "loadJson");
@@ -186,16 +171,8 @@ function syncDataBridgeUi() {
   const legacyWarnBanner = getLegacyEl("importWarnBanner");
   const legacyUsbStatus = getLegacyEl("usbStorageStatus");
 
-  const strictToggle = document.getElementById("v3DataStrictToggle");
-  if (strictToggle instanceof HTMLInputElement && legacyStrict instanceof HTMLInputElement) {
-    strictToggle.checked = legacyStrict.checked;
-  }
-
-  const restoreBackup = document.getElementById("v3DataRestoreBackup");
-  if (restoreBackup instanceof HTMLSelectElement && legacyRestore instanceof HTMLSelectElement) {
-    syncSelectOptions(restoreBackup, legacyRestore);
-    restoreBackup.value = legacyRestore.value;
-  }
+  syncCheckboxValue("v3DataStrictToggle", "toggleStrictImport");
+  syncSelectValue("v3DataRestoreBackup", "restoreBackup");
 
   const hashBannerUi = document.getElementById("v3DataHashBannerUi");
   if (hashBannerUi && legacyHashBanner instanceof HTMLElement) {

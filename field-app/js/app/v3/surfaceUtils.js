@@ -76,3 +76,96 @@ export function syncSelectOptions(target, source) {
     target.appendChild(next);
   });
 }
+
+export function bindSelectProxy(v3Id, legacyId) {
+  const v3 = document.getElementById(v3Id);
+  if (!(v3 instanceof HTMLSelectElement)) {
+    return;
+  }
+
+  v3.addEventListener("change", () => {
+    const legacy = getLegacyEl(legacyId);
+    if (!(legacy instanceof HTMLSelectElement)) {
+      return;
+    }
+    legacy.value = v3.value;
+    legacy.dispatchEvent(new Event("change", { bubbles: true }));
+  });
+}
+
+export function bindFieldProxy(v3Id, legacyId) {
+  const v3 = document.getElementById(v3Id);
+  if (!(v3 instanceof HTMLInputElement || v3 instanceof HTMLTextAreaElement)) {
+    return;
+  }
+
+  v3.addEventListener("input", () => {
+    const legacy = getLegacyEl(legacyId);
+    if (!(legacy instanceof HTMLInputElement || legacy instanceof HTMLTextAreaElement)) {
+      return;
+    }
+    legacy.value = v3.value;
+    legacy.dispatchEvent(new Event("input", { bubbles: true }));
+    legacy.dispatchEvent(new Event("change", { bubbles: true }));
+  });
+}
+
+export function bindCheckboxProxy(v3Id, legacyId) {
+  const v3 = document.getElementById(v3Id);
+  if (!(v3 instanceof HTMLInputElement)) {
+    return;
+  }
+
+  v3.addEventListener("change", () => {
+    const legacy = getLegacyEl(legacyId);
+    if (!(legacy instanceof HTMLInputElement)) {
+      return;
+    }
+    legacy.checked = v3.checked;
+    legacy.dispatchEvent(new Event("input", { bubbles: true }));
+    legacy.dispatchEvent(new Event("change", { bubbles: true }));
+  });
+}
+
+export function syncSelectValue(v3Id, legacyId) {
+  const v3 = document.getElementById(v3Id);
+  const legacy = getLegacyEl(legacyId);
+  if (!(v3 instanceof HTMLSelectElement) || !(legacy instanceof HTMLSelectElement)) {
+    return;
+  }
+  if (document.activeElement === v3) {
+    return;
+  }
+
+  syncSelectOptions(v3, legacy);
+  v3.value = legacy.value;
+}
+
+export function syncFieldValue(v3Id, legacyId) {
+  const v3 = document.getElementById(v3Id);
+  const legacy = getLegacyEl(legacyId);
+  if (
+    !(v3 instanceof HTMLInputElement || v3 instanceof HTMLTextAreaElement) ||
+    !(legacy instanceof HTMLInputElement || legacy instanceof HTMLTextAreaElement)
+  ) {
+    return;
+  }
+  if (document.activeElement === v3) {
+    return;
+  }
+
+  v3.value = legacy.value;
+}
+
+export function syncCheckboxValue(v3Id, legacyId) {
+  const v3 = document.getElementById(v3Id);
+  const legacy = getLegacyEl(legacyId);
+  if (!(v3 instanceof HTMLInputElement) || !(legacy instanceof HTMLInputElement)) {
+    return;
+  }
+  if (document.activeElement === v3) {
+    return;
+  }
+
+  v3.checked = legacy.checked;
+}

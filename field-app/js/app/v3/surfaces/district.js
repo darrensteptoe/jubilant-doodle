@@ -7,7 +7,7 @@ import {
 } from "../componentFactory.js";
 import { mountLegacyClosest, mountLegacyNode } from "../compat.js";
 import { readDistrictSnapshot } from "../stateBridge.js";
-import { createFieldGrid, setText } from "../surfaceUtils.js";
+import { bindClickProxy, createFieldGrid, setText, syncButtonDisabled } from "../surfaceUtils.js";
 
 export function renderDistrictSurface(mount) {
   const frame = createSurfaceFrame("two-col");
@@ -104,6 +104,12 @@ export function renderDistrictSurface(mount) {
     closestSelector: ".field",
     target: baselineTop
   });
+  const baselineActions = document.createElement("div");
+  baselineActions.className = "fpe-action-row";
+  baselineActions.innerHTML = `
+    <button class="fpe-btn fpe-btn--ghost" id="v3BtnAddCandidate" type="button">Add candidate</button>
+  `;
+  baselineBody.append(baselineActions);
   mountLegacyNode({
     key: "v3-district-candidate-table",
     selector: "#ballotBaselineCard .table-wrap",
@@ -236,6 +242,7 @@ export function renderDistrictSurface(mount) {
     ])
   );
 
+  bindClickProxy("v3BtnAddCandidate", "btnAddCandidate");
   return refreshDistrictSummary;
 }
 
@@ -246,4 +253,5 @@ function refreshDistrictSummary() {
   setText("v3DistrictTurnout", snapshot.turnoutExpected);
   setText("v3DistrictProjected", snapshot.projectedVotes);
   setText("v3DistrictNeed", snapshot.persuasionNeed);
+  syncButtonDisabled("v3BtnAddCandidate", "btnAddCandidate");
 }

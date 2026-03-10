@@ -6,7 +6,18 @@ import {
   getCardBody
 } from "../componentFactory.js";
 import { mountLegacyClosest, mountLegacyNode } from "../compat.js";
-import { getLegacyEl, readText, setText } from "../surfaceUtils.js";
+import {
+  bindCheckboxProxy,
+  bindClickProxy,
+  bindFieldProxy,
+  bindSelectProxy,
+  readText,
+  setText,
+  syncCheckboxValue,
+  syncButtonDisabled,
+  syncFieldValue,
+  syncSelectValue
+} from "../surfaceUtils.js";
 
 export function renderControlsSurface(mount) {
   const frame = createSurfaceFrame("two-col");
@@ -106,30 +117,236 @@ export function renderControlsSurface(mount) {
     </div>
   `;
 
-  mountLegacyNode({
-    key: "v3-controls-evidence-card",
-    selector: "#intelEvidenceCard",
-    target: getCardBody(evidenceCard)
-  });
+  getCardBody(benchmarkCard).innerHTML = `
+    <div id="v3ControlsBenchmarkBridgeRoot">
+      <div class="fpe-help">Define empirical ranges by race type. These warnings never alter deterministic or Monte Carlo outputs.</div>
+      <div class="fpe-field-grid fpe-field-grid--3">
+        <div class="field">
+          <label class="fpe-control-label" for="v3IntelBenchmarkRef">Reference</label>
+          <select class="fpe-input" id="v3IntelBenchmarkRef"></select>
+        </div>
+        <div class="field">
+          <label class="fpe-control-label" for="v3IntelBenchmarkRaceType">Race type scope</label>
+          <select class="fpe-input" id="v3IntelBenchmarkRaceType"></select>
+        </div>
+        <div class="field">
+          <label class="fpe-control-label" for="v3IntelBenchmarkDefault">Default value</label>
+          <input class="fpe-input" id="v3IntelBenchmarkDefault" type="number" step="0.01"/>
+        </div>
+      </div>
+      <div class="fpe-field-grid fpe-field-grid--3">
+        <div class="field">
+          <label class="fpe-control-label" for="v3IntelBenchmarkMin">Range min</label>
+          <input class="fpe-input" id="v3IntelBenchmarkMin" type="number" step="0.01"/>
+        </div>
+        <div class="field">
+          <label class="fpe-control-label" for="v3IntelBenchmarkMax">Range max</label>
+          <input class="fpe-input" id="v3IntelBenchmarkMax" type="number" step="0.01"/>
+        </div>
+        <div class="field">
+          <label class="fpe-control-label" for="v3IntelBenchmarkWarnAbove">Warn above</label>
+          <input class="fpe-input" id="v3IntelBenchmarkWarnAbove" type="number" step="0.01"/>
+        </div>
+      </div>
+      <div class="fpe-field-grid fpe-field-grid--2">
+        <div class="field">
+          <label class="fpe-control-label" for="v3IntelBenchmarkHardAbove">Hard above</label>
+          <input class="fpe-input" id="v3IntelBenchmarkHardAbove" type="number" step="0.01"/>
+        </div>
+        <div class="field">
+          <label class="fpe-control-label" for="v3IntelBenchmarkSourceTitle">Source title</label>
+          <input class="fpe-input" id="v3IntelBenchmarkSourceTitle" type="text"/>
+        </div>
+      </div>
+      <div class="field">
+        <label class="fpe-control-label" for="v3IntelBenchmarkSourceNotes">Source notes</label>
+        <textarea class="fpe-input" id="v3IntelBenchmarkSourceNotes" rows="2"></textarea>
+      </div>
+      <div class="fpe-action-row">
+        <button class="fpe-btn" id="v3BtnIntelBenchmarkLoadDefaults" type="button">Load defaults</button>
+        <button class="fpe-btn" id="v3BtnIntelBenchmarkSave" type="button">Save benchmark</button>
+      </div>
+      <div class="fpe-help" id="v3IntelBenchmarkCount">0 benchmark entries configured.</div>
+      <div class="fpe-help" id="v3IntelBenchmarkStatus">Ready.</div>
+      <div id="v3ControlsBenchmarkTableHost" style="margin-top:10px;"></div>
+    </div>
+  `;
 
-  mountLegacyNode({
-    key: "v3-controls-benchmark-card",
-    selector: "#intelBenchmarkCard",
-    target: getCardBody(benchmarkCard)
-  });
+  getCardBody(evidenceCard).innerHTML = `
+    <div id="v3ControlsEvidenceBridgeRoot">
+      <div class="fpe-help">Resolve missing audit items by attaching evidence and rationale.</div>
+      <div class="fpe-help">Workflow: 1) Select critical edit 2) Add title/source/date (+ note when required) 3) Attach evidence.</div>
+      <div class="fpe-field-grid fpe-field-grid--2">
+        <div class="field">
+          <label class="fpe-control-label" for="v3IntelAuditSelect">Critical assumption edit to resolve</label>
+          <select class="fpe-input" id="v3IntelAuditSelect"></select>
+        </div>
+        <div class="field">
+          <label class="fpe-control-label" for="v3IntelEvidenceTitle">Evidence title</label>
+          <input class="fpe-input" id="v3IntelEvidenceTitle" type="text"/>
+        </div>
+      </div>
+      <div class="fpe-field-grid fpe-field-grid--3">
+        <div class="field">
+          <label class="fpe-control-label" for="v3IntelEvidenceSource">Evidence source</label>
+          <input class="fpe-input" id="v3IntelEvidenceSource" type="text"/>
+        </div>
+        <div class="field">
+          <label class="fpe-control-label" for="v3IntelEvidenceCapturedAt">Captured date</label>
+          <input class="fpe-input" id="v3IntelEvidenceCapturedAt" type="date"/>
+        </div>
+        <div class="field">
+          <label class="fpe-control-label" for="v3IntelEvidenceUrl">URL or file hint</label>
+          <input class="fpe-input" id="v3IntelEvidenceUrl" type="text"/>
+        </div>
+      </div>
+      <div class="field">
+        <label class="fpe-control-label" for="v3IntelEvidenceNotes">Evidence notes</label>
+        <textarea class="fpe-input" id="v3IntelEvidenceNotes" rows="2"></textarea>
+      </div>
+      <div class="fpe-action-row">
+        <button class="fpe-btn" id="v3BtnIntelEvidenceAttach" type="button">Attach evidence</button>
+      </div>
+      <div class="fpe-help" id="v3IntelMissingEvidenceCount">0 critical assumption edit(s) missing evidence.</div>
+      <div class="fpe-help" id="v3IntelMissingNoteCount">0 critical assumption edit(s) missing note.</div>
+      <div class="fpe-help" id="v3IntelEvidenceStatus">Select an audit item, then attach evidence.</div>
+      <div id="v3ControlsEvidenceTableHost" style="margin-top:10px;"></div>
+    </div>
+  `;
 
-  mountLegacyNode({
-    key: "v3-controls-calibration-card",
-    selector: "#intelCalibrationBriefCard",
-    target: getCardBody(calibrationCard)
-  });
+  getCardBody(calibrationCard).innerHTML = `
+    <div id="v3ControlsCalibrationBridgeRoot">
+      <div class="fpe-help">Generate a client-ready calibration note from benchmark catalog, evidence coverage, and expert toggles.</div>
+      <div class="fpe-field-grid fpe-field-grid--2">
+        <div class="field">
+          <label class="fpe-control-label" for="v3IntelBriefKind">Brief type</label>
+          <select class="fpe-input" id="v3IntelBriefKind"></select>
+        </div>
+        <div class="field">
+          <label class="fpe-control-label">Brief actions</label>
+          <div class="fpe-action-row">
+            <button class="fpe-btn" id="v3BtnIntelCalibrationGenerate" type="button">Generate brief</button>
+            <button class="fpe-btn fpe-btn--ghost" id="v3BtnIntelCalibrationCopy" type="button">Copy brief</button>
+          </div>
+        </div>
+      </div>
+      <div class="fpe-field-grid fpe-field-grid--3">
+        <div class="field">
+          <label class="fpe-control-label" for="v3IntelMcDistribution">Monte Carlo distribution</label>
+          <select class="fpe-input" id="v3IntelMcDistribution"></select>
+        </div>
+        <div class="field">
+          <label class="fpe-control-label" for="v3IntelCorrelatedShocks">Correlated shocks</label>
+          <label class="fpe-switch">
+            <input id="v3IntelCorrelatedShocks" type="checkbox"/>
+            <span>Enable correlation model in MC</span>
+          </label>
+        </div>
+        <div class="field">
+          <label class="fpe-control-label" for="v3IntelCorrelationMatrixId">Correlation model</label>
+          <select class="fpe-input" id="v3IntelCorrelationMatrixId"></select>
+        </div>
+      </div>
+      <div class="fpe-help" id="v3IntelCorrelationDisabledHint">No models yet.</div>
+      <div class="fpe-field-grid fpe-field-grid--4">
+        <div class="field">
+          <label class="fpe-control-label" for="v3IntelCapacityDecayEnabled">Capacity decay</label>
+          <label class="fpe-switch">
+            <input id="v3IntelCapacityDecayEnabled" type="checkbox"/>
+            <span>Enable weekly capacity decay</span>
+          </label>
+        </div>
+        <div class="field">
+          <label class="fpe-control-label" for="v3IntelDecayModelType">Decay model</label>
+          <select class="fpe-input" id="v3IntelDecayModelType"></select>
+        </div>
+        <div class="field">
+          <label class="fpe-control-label" for="v3IntelDecayWeeklyPct">Weekly decay %</label>
+          <input class="fpe-input" id="v3IntelDecayWeeklyPct" type="number"/>
+        </div>
+        <div class="field">
+          <label class="fpe-control-label" for="v3IntelDecayFloorPct">Floor % of baseline</label>
+          <input class="fpe-input" id="v3IntelDecayFloorPct" type="number"/>
+        </div>
+      </div>
+      <div class="fpe-help" id="v3IntelDecayStatus">Capacity decay OFF.</div>
+      <div class="fpe-action-row">
+        <button class="fpe-btn" id="v3BtnIntelAddDefaultCorrelation" type="button">Add default model</button>
+        <button class="fpe-btn fpe-btn--ghost" id="v3BtnIntelImportCorrelationJson" type="button">Import model JSON</button>
+      </div>
+      <div class="fpe-help" id="v3IntelCorrelationStatus">No correlation models configured.</div>
+      <div class="field">
+        <label class="fpe-control-label" for="v3IntelCorrelationJson">Correlation model JSON</label>
+        <textarea class="fpe-input" id="v3IntelCorrelationJson" rows="5"></textarea>
+      </div>
+      <div class="fpe-field-grid fpe-field-grid--3">
+        <div class="field">
+          <label class="fpe-control-label" for="v3IntelShockScenariosEnabled">Shock scenarios</label>
+          <label class="fpe-switch">
+            <input id="v3IntelShockScenariosEnabled" type="checkbox"/>
+            <span>Enable stochastic shock sampling in MC</span>
+          </label>
+        </div>
+        <div class="field">
+          <label class="fpe-control-label">Configured shocks</label>
+          <div class="fpe-help" id="v3IntelShockScenarioCount">0 scenarios configured.</div>
+        </div>
+        <div class="field">
+          <label class="fpe-control-label">Shock actions</label>
+          <div class="fpe-action-row">
+            <button class="fpe-btn" id="v3BtnIntelAddDefaultShock" type="button">Add default shock</button>
+            <button class="fpe-btn fpe-btn--ghost" id="v3BtnIntelImportShockJson" type="button">Import shock JSON</button>
+          </div>
+        </div>
+      </div>
+      <div class="field">
+        <label class="fpe-control-label" for="v3IntelShockJson">Shock scenario JSON</label>
+        <textarea class="fpe-input" id="v3IntelShockJson" rows="5"></textarea>
+      </div>
+      <div class="fpe-help" id="v3IntelShockStatus">No shock scenarios configured.</div>
+      <div class="fpe-help" id="v3IntelCalibrationStatus">No calibration brief generated yet.</div>
+      <div class="field">
+        <label class="fpe-control-label" for="v3IntelCalibrationBriefContent">Brief content</label>
+        <textarea class="fpe-input" id="v3IntelCalibrationBriefContent" rows="14" readonly></textarea>
+      </div>
+    </div>
+  `;
 
-  mountLegacyClosest({
-    key: "v3-controls-feedback-card",
-    childSelector: "#btnIntelCaptureObserved",
-    closestSelector: ".card",
-    target: getCardBody(feedbackCard)
-  });
+  getCardBody(feedbackCard).innerHTML = `
+    <div id="v3ControlsFeedbackBridgeRoot">
+      <div class="fpe-help">Capture rolling observed metrics and generate metadata-only drift recommendations.</div>
+      <div class="fpe-action-row">
+        <button class="fpe-btn" id="v3BtnIntelCaptureObserved" type="button">Capture observed metrics</button>
+        <button class="fpe-btn fpe-btn--ghost" id="v3BtnIntelGenerateRecommendations" type="button">Generate drift recommendations</button>
+        <button class="fpe-btn fpe-btn--ghost" id="v3BtnIntelApplyTopRecommendation" type="button">Apply top recommendation</button>
+      </div>
+      <div class="fpe-field-grid fpe-field-grid--2">
+        <div class="fpe-help" id="v3IntelObservedCount">0 observed metric entries captured.</div>
+        <div class="fpe-help" id="v3IntelRecommendationCount">0 active drift recommendations.</div>
+      </div>
+      <div class="fpe-help" id="v3IntelObservedStatus">No observed metrics captured yet.</div>
+      <div class="fpe-help" id="v3IntelRecommendationStatus">No drift recommendations generated yet.</div>
+      <div class="field">
+        <label class="fpe-control-label" for="v3IntelWhatIfInput">What-if request parser</label>
+        <div class="fpe-action-row">
+          <button class="fpe-btn fpe-btn--ghost" id="v3BtnIntelParseWhatIf" type="button">Parse what-if request</button>
+        </div>
+        <textarea class="fpe-input" id="v3IntelWhatIfInput" rows="3"></textarea>
+      </div>
+      <div class="fpe-field-grid fpe-field-grid--2">
+        <div class="fpe-help" id="v3IntelWhatIfCount">0 what-if requests parsed.</div>
+        <div class="fpe-help" id="v3IntelWhatIfStatus">No what-if requests parsed yet.</div>
+      </div>
+      <div class="field">
+        <label class="fpe-control-label" for="v3IntelWhatIfPreview">Latest parsed request</label>
+        <textarea class="fpe-input" id="v3IntelWhatIfPreview" rows="5" readonly></textarea>
+      </div>
+      <div class="field">
+        <label class="fpe-control-label" for="v3IntelRecommendationPreview">Recommendation preview</label>
+        <textarea class="fpe-input" id="v3IntelRecommendationPreview" rows="6" readonly></textarea>
+      </div>
+    </div>
+  `;
 
   getCardBody(summaryCard).innerHTML = `
     <div class="fpe-summary-grid">
@@ -159,12 +376,34 @@ export function renderControlsSurface(mount) {
     ])
   );
 
+  mountLegacyClosest({
+    key: "v3-controls-benchmark-table-wrap",
+    childSelector: "#intelBenchmarkTbody",
+    closestSelector: ".table-wrap",
+    target: document.getElementById("v3ControlsBenchmarkTableHost")
+  });
+
+  mountLegacyClosest({
+    key: "v3-controls-evidence-table-wrap",
+    childSelector: "#intelEvidenceTbody",
+    closestSelector: ".table-wrap",
+    target: document.getElementById("v3ControlsEvidenceTableHost")
+  });
+
   wireControlsWorkflowBridge();
+  wireControlsBenchmarkBridge();
+  wireControlsEvidenceBridge();
+  wireControlsCalibrationBridge();
+  wireControlsFeedbackBridge();
   return refreshControlsSummary;
 }
 
 function refreshControlsSummary() {
   syncControlsWorkflowBridge();
+  syncControlsBenchmarkBridge();
+  syncControlsEvidenceBridge();
+  syncControlsCalibrationBridge();
+  syncControlsFeedbackBridge();
 
   setText("v3ControlsWorkflowStatus", readText("#intelWorkflowStatus"));
   setText("v3ControlsBenchmarkCount", readText("#intelBenchmarkCount"));
@@ -182,74 +421,178 @@ function wireControlsWorkflowBridge() {
   }
   root.dataset.wired = "1";
 
-  bindCheckboxBridge("v3IntelScenarioLocked", "intelScenarioLocked");
-  bindCheckboxBridge("v3IntelRequireCriticalNote", "intelRequireCriticalNote");
-  bindCheckboxBridge("v3IntelRequireCriticalEvidence", "intelRequireCriticalEvidence");
-  bindInputBridge("v3IntelScenarioLockReason", "intelScenarioLockReason");
-  bindInputBridge("v3IntelCriticalChangeNote", "intelCriticalChangeNote");
+  bindCheckboxProxy("v3IntelScenarioLocked", "intelScenarioLocked");
+  bindCheckboxProxy("v3IntelRequireCriticalNote", "intelRequireCriticalNote");
+  bindCheckboxProxy("v3IntelRequireCriticalEvidence", "intelRequireCriticalEvidence");
+  bindFieldProxy("v3IntelScenarioLockReason", "intelScenarioLockReason");
+  bindFieldProxy("v3IntelCriticalChangeNote", "intelCriticalChangeNote");
 }
 
 function syncControlsWorkflowBridge() {
   syncCheckboxValue("v3IntelScenarioLocked", "intelScenarioLocked");
   syncCheckboxValue("v3IntelRequireCriticalNote", "intelRequireCriticalNote");
   syncCheckboxValue("v3IntelRequireCriticalEvidence", "intelRequireCriticalEvidence");
-  syncInputValue("v3IntelScenarioLockReason", "intelScenarioLockReason");
-  syncInputValue("v3IntelCriticalChangeNote", "intelCriticalChangeNote");
+  syncFieldValue("v3IntelScenarioLockReason", "intelScenarioLockReason");
+  syncFieldValue("v3IntelCriticalChangeNote", "intelCriticalChangeNote");
   setText("v3IntelScenarioLockStatus", readText("#intelScenarioLockStatus"));
   setText("v3IntelWorkflowStatus", readText("#intelWorkflowStatus"));
 }
 
-function bindCheckboxBridge(v3Id, legacyId) {
-  const v3 = document.getElementById(v3Id);
-  if (!(v3 instanceof HTMLInputElement)) {
+function wireControlsBenchmarkBridge() {
+  const root = document.getElementById("v3ControlsBenchmarkBridgeRoot");
+  if (!root || root.dataset.wired === "1") {
     return;
   }
+  root.dataset.wired = "1";
 
-  v3.addEventListener("change", () => {
-    const legacy = getLegacyEl(legacyId);
-    if (!(legacy instanceof HTMLInputElement)) {
-      return;
-    }
-    legacy.checked = v3.checked;
-    legacy.dispatchEvent(new Event("input", { bubbles: true }));
-    legacy.dispatchEvent(new Event("change", { bubbles: true }));
-  });
+  bindSelectProxy("v3IntelBenchmarkRef", "intelBenchmarkRef");
+  bindSelectProxy("v3IntelBenchmarkRaceType", "intelBenchmarkRaceType");
+  bindFieldProxy("v3IntelBenchmarkDefault", "intelBenchmarkDefault");
+  bindFieldProxy("v3IntelBenchmarkMin", "intelBenchmarkMin");
+  bindFieldProxy("v3IntelBenchmarkMax", "intelBenchmarkMax");
+  bindFieldProxy("v3IntelBenchmarkWarnAbove", "intelBenchmarkWarnAbove");
+  bindFieldProxy("v3IntelBenchmarkHardAbove", "intelBenchmarkHardAbove");
+  bindFieldProxy("v3IntelBenchmarkSourceTitle", "intelBenchmarkSourceTitle");
+  bindFieldProxy("v3IntelBenchmarkSourceNotes", "intelBenchmarkSourceNotes");
+
+  bindClickProxy("v3BtnIntelBenchmarkLoadDefaults", "btnIntelBenchmarkLoadDefaults");
+  bindClickProxy("v3BtnIntelBenchmarkSave", "btnIntelBenchmarkSave");
 }
 
-function bindInputBridge(v3Id, legacyId) {
-  const v3 = document.getElementById(v3Id);
-  if (!(v3 instanceof HTMLInputElement || v3 instanceof HTMLTextAreaElement)) {
-    return;
-  }
+function syncControlsBenchmarkBridge() {
+  syncSelectValue("v3IntelBenchmarkRef", "intelBenchmarkRef");
+  syncSelectValue("v3IntelBenchmarkRaceType", "intelBenchmarkRaceType");
+  syncFieldValue("v3IntelBenchmarkDefault", "intelBenchmarkDefault");
+  syncFieldValue("v3IntelBenchmarkMin", "intelBenchmarkMin");
+  syncFieldValue("v3IntelBenchmarkMax", "intelBenchmarkMax");
+  syncFieldValue("v3IntelBenchmarkWarnAbove", "intelBenchmarkWarnAbove");
+  syncFieldValue("v3IntelBenchmarkHardAbove", "intelBenchmarkHardAbove");
+  syncFieldValue("v3IntelBenchmarkSourceTitle", "intelBenchmarkSourceTitle");
+  syncFieldValue("v3IntelBenchmarkSourceNotes", "intelBenchmarkSourceNotes");
+  setText("v3IntelBenchmarkCount", readText("#intelBenchmarkCount"));
+  setText("v3IntelBenchmarkStatus", readText("#intelBenchmarkStatus"));
 
-  v3.addEventListener("input", () => {
-    const legacy = getLegacyEl(legacyId);
-    if (!(legacy instanceof HTMLInputElement || legacy instanceof HTMLTextAreaElement)) {
-      return;
-    }
-    legacy.value = v3.value;
-    legacy.dispatchEvent(new Event("input", { bubbles: true }));
-    legacy.dispatchEvent(new Event("change", { bubbles: true }));
-  });
+  syncButtonDisabled("v3BtnIntelBenchmarkLoadDefaults", "btnIntelBenchmarkLoadDefaults");
+  syncButtonDisabled("v3BtnIntelBenchmarkSave", "btnIntelBenchmarkSave");
 }
 
-function syncCheckboxValue(v3Id, legacyId) {
-  const v3 = document.getElementById(v3Id);
-  const legacy = getLegacyEl(legacyId);
-  if (!(v3 instanceof HTMLInputElement) || !(legacy instanceof HTMLInputElement)) {
+function wireControlsEvidenceBridge() {
+  const root = document.getElementById("v3ControlsEvidenceBridgeRoot");
+  if (!root || root.dataset.wired === "1") {
     return;
   }
-  v3.checked = legacy.checked;
+  root.dataset.wired = "1";
+
+  bindSelectProxy("v3IntelAuditSelect", "intelAuditSelect");
+  bindFieldProxy("v3IntelEvidenceTitle", "intelEvidenceTitle");
+  bindFieldProxy("v3IntelEvidenceSource", "intelEvidenceSource");
+  bindFieldProxy("v3IntelEvidenceCapturedAt", "intelEvidenceCapturedAt");
+  bindFieldProxy("v3IntelEvidenceUrl", "intelEvidenceUrl");
+  bindFieldProxy("v3IntelEvidenceNotes", "intelEvidenceNotes");
+
+  bindClickProxy("v3BtnIntelEvidenceAttach", "btnIntelEvidenceAttach");
 }
 
-function syncInputValue(v3Id, legacyId) {
-  const v3 = document.getElementById(v3Id);
-  const legacy = getLegacyEl(legacyId);
-  if (
-    !(v3 instanceof HTMLInputElement || v3 instanceof HTMLTextAreaElement) ||
-    !(legacy instanceof HTMLInputElement || legacy instanceof HTMLTextAreaElement)
-  ) {
+function syncControlsEvidenceBridge() {
+  syncSelectValue("v3IntelAuditSelect", "intelAuditSelect");
+  syncFieldValue("v3IntelEvidenceTitle", "intelEvidenceTitle");
+  syncFieldValue("v3IntelEvidenceSource", "intelEvidenceSource");
+  syncFieldValue("v3IntelEvidenceCapturedAt", "intelEvidenceCapturedAt");
+  syncFieldValue("v3IntelEvidenceUrl", "intelEvidenceUrl");
+  syncFieldValue("v3IntelEvidenceNotes", "intelEvidenceNotes");
+
+  setText("v3IntelMissingEvidenceCount", readText("#intelMissingEvidenceCount"));
+  setText("v3IntelMissingNoteCount", readText("#intelMissingNoteCount"));
+  setText("v3IntelEvidenceStatus", readText("#intelEvidenceStatus"));
+
+  syncButtonDisabled("v3BtnIntelEvidenceAttach", "btnIntelEvidenceAttach");
+}
+
+function wireControlsCalibrationBridge() {
+  const root = document.getElementById("v3ControlsCalibrationBridgeRoot");
+  if (!root || root.dataset.wired === "1") {
     return;
   }
-  v3.value = legacy.value;
+  root.dataset.wired = "1";
+
+  bindSelectProxy("v3IntelBriefKind", "intelBriefKind");
+  bindSelectProxy("v3IntelMcDistribution", "intelMcDistribution");
+  bindCheckboxProxy("v3IntelCorrelatedShocks", "intelCorrelatedShocks");
+  bindSelectProxy("v3IntelCorrelationMatrixId", "intelCorrelationMatrixId");
+  bindCheckboxProxy("v3IntelCapacityDecayEnabled", "intelCapacityDecayEnabled");
+  bindSelectProxy("v3IntelDecayModelType", "intelDecayModelType");
+  bindFieldProxy("v3IntelDecayWeeklyPct", "intelDecayWeeklyPct");
+  bindFieldProxy("v3IntelDecayFloorPct", "intelDecayFloorPct");
+  bindFieldProxy("v3IntelCorrelationJson", "intelCorrelationJson");
+  bindCheckboxProxy("v3IntelShockScenariosEnabled", "intelShockScenariosEnabled");
+  bindFieldProxy("v3IntelShockJson", "intelShockJson");
+
+  bindClickProxy("v3BtnIntelCalibrationGenerate", "btnIntelCalibrationGenerate");
+  bindClickProxy("v3BtnIntelCalibrationCopy", "btnIntelCalibrationCopy");
+  bindClickProxy("v3BtnIntelAddDefaultCorrelation", "btnIntelAddDefaultCorrelation");
+  bindClickProxy("v3BtnIntelImportCorrelationJson", "btnIntelImportCorrelationJson");
+  bindClickProxy("v3BtnIntelAddDefaultShock", "btnIntelAddDefaultShock");
+  bindClickProxy("v3BtnIntelImportShockJson", "btnIntelImportShockJson");
+}
+
+function syncControlsCalibrationBridge() {
+  syncSelectValue("v3IntelBriefKind", "intelBriefKind");
+  syncSelectValue("v3IntelMcDistribution", "intelMcDistribution");
+  syncCheckboxValue("v3IntelCorrelatedShocks", "intelCorrelatedShocks");
+  syncSelectValue("v3IntelCorrelationMatrixId", "intelCorrelationMatrixId");
+  syncCheckboxValue("v3IntelCapacityDecayEnabled", "intelCapacityDecayEnabled");
+  syncSelectValue("v3IntelDecayModelType", "intelDecayModelType");
+  syncFieldValue("v3IntelDecayWeeklyPct", "intelDecayWeeklyPct");
+  syncFieldValue("v3IntelDecayFloorPct", "intelDecayFloorPct");
+  syncFieldValue("v3IntelCorrelationJson", "intelCorrelationJson");
+  syncCheckboxValue("v3IntelShockScenariosEnabled", "intelShockScenariosEnabled");
+  syncFieldValue("v3IntelShockJson", "intelShockJson");
+  syncFieldValue("v3IntelCalibrationBriefContent", "intelCalibrationBriefContent");
+
+  setText("v3IntelCorrelationDisabledHint", readText("#intelCorrelationDisabledHint"));
+  setText("v3IntelDecayStatus", readText("#intelDecayStatus"));
+  setText("v3IntelCorrelationStatus", readText("#intelCorrelationStatus"));
+  setText("v3IntelShockScenarioCount", readText("#intelShockScenarioCount"));
+  setText("v3IntelShockStatus", readText("#intelShockStatus"));
+  setText("v3IntelCalibrationStatus", readText("#intelCalibrationStatus"));
+
+  syncButtonDisabled("v3BtnIntelCalibrationGenerate", "btnIntelCalibrationGenerate");
+  syncButtonDisabled("v3BtnIntelCalibrationCopy", "btnIntelCalibrationCopy");
+  syncButtonDisabled("v3BtnIntelAddDefaultCorrelation", "btnIntelAddDefaultCorrelation");
+  syncButtonDisabled("v3BtnIntelImportCorrelationJson", "btnIntelImportCorrelationJson");
+  syncButtonDisabled("v3BtnIntelAddDefaultShock", "btnIntelAddDefaultShock");
+  syncButtonDisabled("v3BtnIntelImportShockJson", "btnIntelImportShockJson");
+}
+
+function wireControlsFeedbackBridge() {
+  const root = document.getElementById("v3ControlsFeedbackBridgeRoot");
+  if (!root || root.dataset.wired === "1") {
+    return;
+  }
+  root.dataset.wired = "1";
+
+  bindFieldProxy("v3IntelWhatIfInput", "intelWhatIfInput");
+
+  bindClickProxy("v3BtnIntelCaptureObserved", "btnIntelCaptureObserved");
+  bindClickProxy("v3BtnIntelGenerateRecommendations", "btnIntelGenerateRecommendations");
+  bindClickProxy("v3BtnIntelApplyTopRecommendation", "btnIntelApplyTopRecommendation");
+  bindClickProxy("v3BtnIntelParseWhatIf", "btnIntelParseWhatIf");
+}
+
+function syncControlsFeedbackBridge() {
+  syncFieldValue("v3IntelWhatIfInput", "intelWhatIfInput");
+  syncFieldValue("v3IntelWhatIfPreview", "intelWhatIfPreview");
+  syncFieldValue("v3IntelRecommendationPreview", "intelRecommendationPreview");
+
+  setText("v3IntelObservedCount", readText("#intelObservedCount"));
+  setText("v3IntelRecommendationCount", readText("#intelRecommendationCount"));
+  setText("v3IntelObservedStatus", readText("#intelObservedStatus"));
+  setText("v3IntelRecommendationStatus", readText("#intelRecommendationStatus"));
+  setText("v3IntelWhatIfCount", readText("#intelWhatIfCount"));
+  setText("v3IntelWhatIfStatus", readText("#intelWhatIfStatus"));
+
+  syncButtonDisabled("v3BtnIntelCaptureObserved", "btnIntelCaptureObserved");
+  syncButtonDisabled("v3BtnIntelGenerateRecommendations", "btnIntelGenerateRecommendations");
+  syncButtonDisabled("v3BtnIntelApplyTopRecommendation", "btnIntelApplyTopRecommendation");
+  syncButtonDisabled("v3BtnIntelParseWhatIf", "btnIntelParseWhatIf");
 }

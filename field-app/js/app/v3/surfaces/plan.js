@@ -6,7 +6,7 @@ import {
   getCardBody
 } from "../componentFactory.js";
 import { mountLegacyClosest, mountLegacyNode } from "../compat.js";
-import { readText, setText } from "../surfaceUtils.js";
+import { bindClickProxy, readText, setText, syncButtonDisabled } from "../surfaceUtils.js";
 
 export function renderPlanSurface(mount) {
   const frame = createSurfaceFrame("two-col");
@@ -58,6 +58,12 @@ export function renderPlanSurface(mount) {
   });
 
   const optimizerBody = getCardBody(optimizerCard);
+  const optimizerActions = document.createElement("div");
+  optimizerActions.className = "fpe-action-row";
+  optimizerActions.innerHTML = `
+    <button class="fpe-btn fpe-btn--ghost" id="v3BtnOptRun" type="button">Optimize</button>
+  `;
+  optimizerBody.append(optimizerActions);
   mountLegacyNode({
     key: "v3-plan-opt-help",
     selector: "#stage-roi .phase-p5 > .help-text",
@@ -175,6 +181,7 @@ export function renderPlanSurface(mount) {
     ])
   );
 
+  bindClickProxy("v3BtnOptRun", "optRun");
   return refreshPlanSummary;
 }
 
@@ -185,4 +192,5 @@ function refreshPlanSummary() {
   setText("v3PlanConstraint", readText("#tlConstraint"));
   setText("v3PlanShortfallVotes", readText("#tlShortfallVotes"));
   setText("v3PlanBinding", readText("#optBinding"));
+  syncButtonDisabled("v3BtnOptRun", "optRun");
 }

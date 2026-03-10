@@ -7,12 +7,14 @@ import {
 } from "../componentFactory.js";
 import { mountLegacyNode } from "../compat.js";
 import {
+  bindFieldProxy,
   bindClickProxy,
-  getLegacyEl,
+  bindSelectProxy,
   readText,
   setText,
   syncButtonDisabled,
-  syncSelectOptions
+  syncFieldValue,
+  syncSelectValue
 } from "../surfaceUtils.js";
 
 export function renderScenariosSurface(mount) {
@@ -142,25 +144,8 @@ function wireScenariosBridge() {
   }
   root.dataset.wired = "1";
 
-  const select = document.getElementById("v3ScenarioSelect");
-  select?.addEventListener("change", () => {
-    const legacy = getLegacyEl("scenarioSelect");
-    if (!(legacy instanceof HTMLSelectElement)) {
-      return;
-    }
-    legacy.value = select.value;
-    legacy.dispatchEvent(new Event("change", { bubbles: true }));
-  });
-
-  const newName = document.getElementById("v3ScenarioNewName");
-  newName?.addEventListener("input", () => {
-    const legacy = getLegacyEl("scenarioNewName");
-    if (!(legacy instanceof HTMLInputElement)) {
-      return;
-    }
-    legacy.value = newName.value;
-    legacy.dispatchEvent(new Event("input", { bubbles: true }));
-  });
+  bindSelectProxy("v3ScenarioSelect", "scenarioSelect");
+  bindFieldProxy("v3ScenarioNewName", "scenarioNewName");
 
   bindClickProxy("v3BtnScenarioSaveNew", "btnScenarioSaveNew");
   bindClickProxy("v3BtnScenarioCloneBaseline", "btnScenarioCloneBaseline");
@@ -170,22 +155,9 @@ function wireScenariosBridge() {
 }
 
 function syncScenariosBridgeUi() {
-  const legacySelect = getLegacyEl("scenarioSelect");
-  const legacyName = getLegacyEl("scenarioNewName");
-  const legacyActive = getLegacyEl("activeScenarioLabel");
-
-  const v3Select = document.getElementById("v3ScenarioSelect");
-  if (v3Select instanceof HTMLSelectElement && legacySelect instanceof HTMLSelectElement) {
-    syncSelectOptions(v3Select, legacySelect);
-    v3Select.value = legacySelect.value;
-  }
-
-  const v3Name = document.getElementById("v3ScenarioNewName");
-  if (v3Name instanceof HTMLInputElement && legacyName instanceof HTMLInputElement) {
-    v3Name.value = legacyName.value;
-  }
-
-  setText("v3ScenarioActiveLabel", legacyActive ? (legacyActive.textContent || "").trim() : "");
+  syncSelectValue("v3ScenarioSelect", "scenarioSelect");
+  syncFieldValue("v3ScenarioNewName", "scenarioNewName");
+  setText("v3ScenarioActiveLabel", readText("#activeScenarioLabel"));
 
   syncButtonDisabled("v3BtnScenarioSaveNew", "btnScenarioSaveNew");
   syncButtonDisabled("v3BtnScenarioCloneBaseline", "btnScenarioCloneBaseline");

@@ -2,14 +2,18 @@ import { V3_STAGE_REGISTRY } from "./stageRegistry.js";
 import { getActiveStageId, mountStage } from "./stageMount.js";
 
 const STAGE_EXPECTATIONS = {
-  district: ["#v3DistrictUniverse", "#raceType", "#universeSize", "#turnoutA"],
+  district: ["#v3DistrictUniverse", "#v3BtnAddCandidate", "#raceType", "#universeSize", "#turnoutA"],
   reach: ["#v3ReachGoal", "#wkGoal", "#wkCapacityPerWeek"],
   outcome: ["#v3OutcomeWinProb", "#mcWinProb-sidebar", "#mcP50"],
-  turnout: ["#v3TurnoutSummary", "#turnoutSummary", "#roiTbody"],
-  plan: ["#v3PlanExecutable", "#tlPercent", "#outShiftsPerWeek"],
+  turnout: ["#v3TurnoutSummary", "#v3BtnRoiRefresh", "#turnoutSummary", "#roiTbody"],
+  plan: ["#v3PlanExecutable", "#v3BtnOptRun", "#tlPercent", "#outShiftsPerWeek"],
   controls: [
     "#v3ControlsWorkflowStatus",
     "#v3IntelScenarioLocked",
+    "#v3IntelBenchmarkRef",
+    "#v3IntelAuditSelect",
+    "#v3IntelBriefKind",
+    "#v3BtnIntelCaptureObserved",
     "#intelWorkflowStatus",
     "#censusStatus"
   ],
@@ -20,7 +24,14 @@ const STAGE_EXPECTATIONS = {
     "#activeScenarioLabel",
     "#scmCompareWrap"
   ],
-  "decision-log": ["#v3DecisionActiveSession", "#decisionActiveLabel", "#decisionSummaryPreview"],
+  "decision-log": [
+    "#v3DecisionActiveSession",
+    "#v3DecisionSessionSelect",
+    "#v3DecisionRecommendSelect",
+    "#v3DecisionObjectiveSummary",
+    "#v3DecisionSummaryPreview",
+    "#decisionActiveLabel"
+  ],
   data: [
     "#v3DataStrictImport",
     "#v3DataStrictToggle",

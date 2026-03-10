@@ -7,7 +7,7 @@ import {
 } from "../componentFactory.js";
 import { mountLegacyClosest, mountLegacyNode } from "../compat.js";
 import { readTurnoutSnapshot } from "../stateBridge.js";
-import { createFieldGrid, readText, setText } from "../surfaceUtils.js";
+import { bindClickProxy, createFieldGrid, readText, setText, syncButtonDisabled } from "../surfaceUtils.js";
 
 export function renderTurnoutSurface(mount) {
   const frame = createSurfaceFrame("two-col");
@@ -68,12 +68,12 @@ export function renderTurnoutSurface(mount) {
   });
 
   const efficiencyBody = getCardBody(efficiencyCard);
-  mountLegacyClosest({
-    key: "v3-turnout-roi-actions",
-    childSelector: "#roiRefresh",
-    closestSelector: ".card-actions",
-    target: efficiencyBody
-  });
+  const efficiencyActions = document.createElement("div");
+  efficiencyActions.className = "fpe-action-row";
+  efficiencyActions.innerHTML = `
+    <button class="fpe-btn fpe-btn--ghost" id="v3BtnRoiRefresh" type="button">Refresh</button>
+  `;
+  efficiencyBody.append(efficiencyActions);
   mountLegacyClosest({
     key: "v3-turnout-roi-table",
     childSelector: "#roiTbody",
@@ -161,6 +161,7 @@ export function renderTurnoutSurface(mount) {
     ])
   );
 
+  bindClickProxy("v3BtnRoiRefresh", "roiRefresh");
   return refreshTurnoutSummary;
 }
 
@@ -173,4 +174,5 @@ function refreshTurnoutSummary() {
   setText("v3TurnoutImpactNeed", readText("#kpiPersuasionNeed-sidebar"));
   setText("v3TurnoutImpactMargin", readText("#mcP50"));
   setText("v3TurnoutImpactWinProb", readText("#mcWinProb-sidebar"));
+  syncButtonDisabled("v3BtnRoiRefresh", "roiRefresh");
 }
