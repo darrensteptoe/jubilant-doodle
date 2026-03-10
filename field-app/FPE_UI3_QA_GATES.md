@@ -40,48 +40,68 @@ Scope: UI architecture migration only (engine and right rail frozen)
   - Console error sweep after stage switching loops.
 
 ### Reach
-- Status: Hybrid (B)
-- Current implementation: legacy card mounts inside v3 wrapper cards.
+- Status: In progress (B -> C native structure pass started)
+- Current implementation: v3-native card layout with targeted field/block mounts.
 - Remaining checks:
-  - Functional walkthrough for all weekly ops controls.
+  - Manual browser regression against legacy values for weekly outputs.
+  - Console error sweep after repeated stage switching.
   - Visual pass for 3-column scanability at 1280 and 1024 widths.
 
 ### Outcome
-- Status: Hybrid (B)
-- Current implementation: forecast and explain cards mounted into v3 layout.
+- Status: In progress (B -> C native structure pass started)
+- Current implementation: v3-native outcome cards with targeted simulation/output mounts.
 - Remaining checks:
   - Monte Carlo run/re-run interactions from v3 shell.
   - Risk framing consistency with right rail.
+  - Regression check for confidence-envelope and sensitivity values.
 
 ### Turnout
-- Status: Hybrid-plus (B+)
-- Current implementation: v3 layout cards with targeted mounts + v3 summary card.
+- Status: In progress (B -> C native structure pass started)
+- Current implementation: v3-native turnout layout with targeted ROI/turnout mounts.
 - Remaining checks:
   - ROI table refresh behavior under control changes.
   - Turnout summary consistency across mode toggles.
+  - Regression check for turnout banner and realized-vote readouts.
 
 ### Plan
-- Status: Hybrid (B)
-- Current implementation: workload/optimizer/freshness cards mounted into v3 layout.
+- Status: In progress (B -> C native structure pass started)
+- Current implementation: v3-native plan layout with targeted workload/optimization/timeline mounts.
 - Remaining checks:
   - Timeline-constrained optimization flow.
-  - Freshness imports/exports and action buttons.
+  - Workload translator regression against legacy values.
+  - Decision-intelligence panel behavior and constraint summaries.
 
 ### Controls
-- Status: Hybrid (B)
-- Current implementation: stage-body mount in v3 card.
+- Status: In progress (B -> C native structure pass started)
+- Current implementation: v3-native controls layout with targeted governance/census/evidence mounts.
+- Remaining checks:
+  - Census flow parity (load GEOs, fetch rows, aggregate, map rendering) in v3 mount context.
+  - Governance workflow checks (lock toggles, evidence attach, benchmark save).
+  - Calibration + feedback-loop interactions and console-error sweep.
 
 ### Scenarios
-- Status: Hybrid (B)
-- Current implementation: stage-body mount in v3 card.
+- Status: In progress (B -> C native structure pass started)
+- Current implementation: v3-native scenario workspace/comparison cards with targeted mounts.
+- Remaining checks:
+  - Save/load/clone/delete scenario actions from v3 workspace.
+  - Comparison grid visibility and diff counts under baseline/non-baseline states.
+  - Summary panel refresh during rapid scenario switching.
 
 ### Decision Log
-- Status: Hybrid (B)
-- Current implementation: stage-body mount in v3 card.
+- Status: In progress (B -> C native structure pass started)
+- Current implementation: v3-native decision cards with targeted row-level mounts.
+- Remaining checks:
+  - Session/objective/options actions under repeated edits.
+  - Diagnostics panel updates (drift/risk/bottleneck/sensitivity/confidence) after reruns.
+  - Recommendation export buttons and summary preview behavior.
 
 ### Data
-- Status: Hybrid (B)
-- Current implementation: stage-body mount in v3 card.
+- Status: In progress (B -> C native structure pass started)
+- Current implementation: v3-native data cards with targeted policy/import/storage mounts.
+- Remaining checks:
+  - Strict import toggle and restore-backup behavior.
+  - Import/export button flows (JSON/CSV/copy summary) and banner visibility.
+  - USB folder connect/load/save/disconnect behavior in v3 context.
 
 ## Execution Notes
 - `js/core/*` remains unchanged for this phase.
