@@ -9,10 +9,11 @@ import { mountLegacyClosest, mountLegacyNode } from "../compat.js";
 import { createFieldGrid, readText, setText } from "../surfaceUtils.js";
 
 export function renderReachSurface(mount) {
-  const frame = createSurfaceFrame("three-col");
+  const frame = createSurfaceFrame("two-col");
   const controls = createColumn("controls");
   const modelState = createColumn("state");
   const results = createColumn("results");
+  results.classList.add("fpe-col--full-row");
 
   const universeCard = createCard({
     title: "Universe assumptions",

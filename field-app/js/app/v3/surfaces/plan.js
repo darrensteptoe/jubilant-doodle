@@ -2,11 +2,19 @@ import {
   createCard,
   createColumn,
   createSurfaceFrame,
+  setCardHeaderControl,
   createWhyPanel,
   getCardBody
 } from "../componentFactory.js";
 import { mountLegacyClosest, mountLegacyNode } from "../compat.js";
-import { bindClickProxy, readText, setText, syncButtonDisabled } from "../surfaceUtils.js";
+import {
+  bindCheckboxProxy,
+  bindClickProxy,
+  readText,
+  setText,
+  syncButtonDisabled,
+  syncCheckboxValue
+} from "../surfaceUtils.js";
 
 export function renderPlanSurface(mount) {
   const frame = createSurfaceFrame("two-col");
@@ -27,6 +35,16 @@ export function renderPlanSurface(mount) {
     title: "Timeline & execution risk",
     description: "Timeline feasibility, staffing throughput, and risk diagnostics."
   });
+  const timelineHeaderToggle = document.createElement("div");
+  timelineHeaderToggle.className = "fpe-header-switch";
+  timelineHeaderToggle.innerHTML = `
+    <span class="fpe-header-switch__label">Timeline module</span>
+    <label class="fpe-switch">
+      <input id="v3PlanTimelineEnabledToggle" type="checkbox"/>
+      <span>Enable</span>
+    </label>
+  `;
+  setCardHeaderControl(timelineCard, timelineHeaderToggle);
 
   const summaryCard = createCard({
     title: "Plan summary",
@@ -111,12 +129,6 @@ export function renderPlanSurface(mount) {
 
   const timelineBody = getCardBody(timelineCard);
   mountLegacyClosest({
-    key: "v3-plan-tl-toggle",
-    childSelector: "#timelineEnabled",
-    closestSelector: ".rowline",
-    target: timelineBody
-  });
-  mountLegacyClosest({
     key: "v3-plan-tl-grid-a",
     childSelector: "#timelineWeeksAuto",
     closestSelector: ".grid3",
@@ -182,6 +194,7 @@ export function renderPlanSurface(mount) {
   );
 
   bindClickProxy("v3BtnOptRun", "optRun");
+  bindCheckboxProxy("v3PlanTimelineEnabledToggle", "timelineEnabled");
   return refreshPlanSummary;
 }
 
@@ -193,4 +206,11 @@ function refreshPlanSummary() {
   setText("v3PlanShortfallVotes", readText("#tlShortfallVotes"));
   setText("v3PlanBinding", readText("#optBinding"));
   syncButtonDisabled("v3BtnOptRun", "optRun");
+  syncCheckboxValue("v3PlanTimelineEnabledToggle", "timelineEnabled");
+
+  const v3Toggle = document.getElementById("v3PlanTimelineEnabledToggle");
+  const legacyToggle = document.getElementById("timelineEnabled");
+  if (v3Toggle instanceof HTMLInputElement && legacyToggle instanceof HTMLInputElement) {
+    v3Toggle.disabled = legacyToggle.disabled;
+  }
 }

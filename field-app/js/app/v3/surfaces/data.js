@@ -2,6 +2,7 @@ import {
   createCard,
   createColumn,
   createSurfaceFrame,
+  setCardHeaderControl,
   createWhyPanel,
   getCardBody
 } from "../componentFactory.js";
@@ -26,6 +27,16 @@ export function renderDataSurface(mount) {
     title: "Import policy & recovery",
     description: "Strict import mode, integrity warnings, and local backup restore controls."
   });
+  const policyHeaderToggle = document.createElement("div");
+  policyHeaderToggle.className = "fpe-header-switch";
+  policyHeaderToggle.innerHTML = `
+    <span class="fpe-header-switch__label">Strict import policy</span>
+    <label class="fpe-switch">
+      <input id="v3DataStrictToggle" type="checkbox"/>
+      <span>Enable</span>
+    </label>
+  `;
+  setCardHeaderControl(policyCard, policyHeaderToggle);
 
   const exchangeCard = createCard({
     title: "Scenario import/export",
@@ -46,15 +57,8 @@ export function renderDataSurface(mount) {
     <div id="v3DataBridgeRoot">
       <div class="fpe-alert fpe-alert--warn" id="v3DataHashBannerUi" hidden>Snapshot hash differs from exported hash.</div>
       <div class="fpe-alert fpe-alert--warn" id="v3DataWarnBannerUi" hidden></div>
-      <div class="fpe-field-grid fpe-field-grid--2">
-        <div class="field">
-          <label class="fpe-control-label" for="v3DataStrictToggle">Strict import policy</label>
-          <label class="fpe-switch">
-            <input id="v3DataStrictToggle" type="checkbox"/>
-            <span>Block newer schema and hash-mismatch imports</span>
-          </label>
-          <div class="fpe-help">When ON, imports are blocked for newer schema versions and integrity hash mismatches.</div>
-        </div>
+      <div class="fpe-help">When ON, imports are blocked for newer schema versions and integrity hash mismatches.</div>
+      <div class="fpe-field-grid fpe-field-grid--1">
         <div class="field">
           <label class="fpe-control-label" for="v3DataRestoreBackup">Restore auto-backup</label>
           <select class="fpe-input" id="v3DataRestoreBackup">

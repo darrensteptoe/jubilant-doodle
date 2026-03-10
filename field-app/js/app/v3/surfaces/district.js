@@ -2,17 +2,25 @@ import {
   createCard,
   createColumn,
   createSurfaceFrame,
+  setCardHeaderControl,
   createWhyPanel,
   getCardBody
 } from "../componentFactory.js";
 import { mountLegacyClosest, mountLegacyNode } from "../compat.js";
 import { readDistrictSnapshot } from "../stateBridge.js";
-import { bindClickProxy, createFieldGrid, setText, syncButtonDisabled } from "../surfaceUtils.js";
+import {
+  bindCheckboxProxy,
+  bindClickProxy,
+  createFieldGrid,
+  setText,
+  syncButtonDisabled,
+  syncCheckboxValue
+} from "../surfaceUtils.js";
 
 export function renderDistrictSurface(mount) {
   const frame = createSurfaceFrame("two-col");
-  const left = createColumn("primary");
-  const right = createColumn("secondary");
+  frame.classList.add("fpe-surface-frame--single");
+  const main = createColumn("primary");
 
   const raceCard = createCard({
     title: "Race context",
@@ -38,10 +46,25 @@ export function renderDistrictSurface(mount) {
     title: "Electorate structure",
     description: "Optional weighting and durability assumptions."
   });
+  const structureHeaderToggle = document.createElement("div");
+  structureHeaderToggle.className = "fpe-header-switch";
+  structureHeaderToggle.innerHTML = `
+    <span class="fpe-header-switch__label">Electorate weighting</span>
+    <label class="fpe-switch">
+      <input id="v3DistrictElectorateWeightingToggle" type="checkbox"/>
+      <span>Enable</span>
+    </label>
+  `;
+  setCardHeaderControl(structureCard, structureHeaderToggle);
 
   const summaryCard = createCard({
     title: "District summary",
     description: "The baseline state that all downstream surfaces inherit."
+  });
+
+  const censusCard = createCard({
+    title: "Census assumptions",
+    description: "Geography context, ACS rows, aggregate demographics, and election CSV dry-run workflow."
   });
 
   const raceGrid = createFieldGrid("fpe-field-grid--2");
@@ -162,12 +185,6 @@ export function renderDistrictSurface(mount) {
   });
 
   const structureBody = getCardBody(structureCard);
-  mountLegacyClosest({
-    key: "v3-district-structure-toggle",
-    childSelector: "#universe16Enabled",
-    closestSelector: ".row",
-    target: structureBody
-  });
   const structureShares = createFieldGrid("fpe-field-grid--4");
   structureBody.append(structureShares);
   mountLegacyClosest({
@@ -219,6 +236,13 @@ export function renderDistrictSurface(mount) {
     target: structureBody
   });
 
+  const censusBody = getCardBody(censusCard);
+  mountLegacyNode({
+    key: "v3-district-census-phase1-card",
+    selector: "#censusPhase1Card",
+    target: censusBody
+  });
+
   getCardBody(summaryCard).innerHTML = `
     <div class="fpe-summary-grid">
       <div class="fpe-summary-row"><span>Universe</span><strong id="v3DistrictUniverse">-</strong></div>
@@ -229,10 +253,17 @@ export function renderDistrictSurface(mount) {
     </div>
   `;
 
-  left.append(raceCard, electorateCard, baselineCard, turnoutCard);
-  right.append(structureCard, summaryCard);
+  main.append(
+    raceCard,
+    electorateCard,
+    baselineCard,
+    turnoutCard,
+    structureCard,
+    censusCard,
+    summaryCard
+  );
 
-  frame.append(left, right);
+  frame.append(main);
   mount.append(frame);
   mount.append(
     createWhyPanel([
@@ -243,6 +274,7 @@ export function renderDistrictSurface(mount) {
   );
 
   bindClickProxy("v3BtnAddCandidate", "btnAddCandidate");
+  bindCheckboxProxy("v3DistrictElectorateWeightingToggle", "universe16Enabled");
   return refreshDistrictSummary;
 }
 
@@ -254,4 +286,11 @@ function refreshDistrictSummary() {
   setText("v3DistrictProjected", snapshot.projectedVotes);
   setText("v3DistrictNeed", snapshot.persuasionNeed);
   syncButtonDisabled("v3BtnAddCandidate", "btnAddCandidate");
+  syncCheckboxValue("v3DistrictElectorateWeightingToggle", "universe16Enabled");
+
+  const v3Toggle = document.getElementById("v3DistrictElectorateWeightingToggle");
+  const legacyToggle = document.getElementById("universe16Enabled");
+  if (v3Toggle instanceof HTMLInputElement && legacyToggle instanceof HTMLInputElement) {
+    v3Toggle.disabled = legacyToggle.disabled;
+  }
 }

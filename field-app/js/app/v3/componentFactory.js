@@ -32,6 +32,21 @@ export function getCardBody(card) {
   return card.querySelector(".fpe-card__body");
 }
 
+export function setCardHeaderControl(card, control) {
+  if (!card || !control) {
+    return null;
+  }
+
+  const headMain = card.querySelector(".fpe-card__head-main");
+  if (!headMain) {
+    return null;
+  }
+
+  control.classList.add("fpe-card__head-control");
+  headMain.append(control);
+  return control;
+}
+
 export function createWhyPanel(items = []) {
   const panel = document.createElement("section");
   panel.className = "fpe-why";

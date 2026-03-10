@@ -2,11 +2,32 @@ import { V3_STAGE_REGISTRY } from "./stageRegistry.js";
 import { getActiveStageId, mountStage } from "./stageMount.js";
 
 const STAGE_EXPECTATIONS = {
-  district: ["#v3DistrictUniverse", "#v3BtnAddCandidate", "#raceType", "#universeSize", "#turnoutA"],
+  district: [
+    "#v3DistrictUniverse",
+    "#v3BtnAddCandidate",
+    "#v3DistrictElectorateWeightingToggle",
+    "#censusPhase1Card",
+    "#censusStatus",
+    "#raceType",
+    "#universeSize",
+    "#turnoutA"
+  ],
   reach: ["#v3ReachGoal", "#wkGoal", "#wkCapacityPerWeek"],
   outcome: ["#v3OutcomeWinProb", "#v3BtnComputeSurface", "#mcWinProb-sidebar", "#mcP50"],
-  turnout: ["#v3TurnoutSummary", "#v3BtnRoiRefresh", "#turnoutSummary", "#roiTbody"],
-  plan: ["#v3PlanExecutable", "#v3BtnOptRun", "#tlPercent", "#outShiftsPerWeek"],
+  turnout: [
+    "#v3TurnoutSummary",
+    "#v3BtnRoiRefresh",
+    "#v3TurnoutEnabledToggle",
+    "#turnoutSummary",
+    "#roiTbody"
+  ],
+  plan: [
+    "#v3PlanExecutable",
+    "#v3BtnOptRun",
+    "#v3PlanTimelineEnabledToggle",
+    "#tlPercent",
+    "#outShiftsPerWeek"
+  ],
   controls: [
     "#v3ControlsWorkflowStatus",
     "#v3IntelScenarioLocked",
@@ -14,13 +35,8 @@ const STAGE_EXPECTATIONS = {
     "#v3IntelAuditSelect",
     "#v3IntelBriefKind",
     "#v3BtnIntelCaptureObserved",
-    "#v3BtnCensusLoadGeo",
-    "#v3BtnCensusApplyGeoPaste",
-    "#v3BtnCensusLoadMap",
-    "#v3BtnCensusElectionCsvDryRun",
-    "#v3CensusStatus",
     "#intelWorkflowStatus",
-    "#censusStatus"
+    "#intelCalibrationStatus"
   ],
   scenarios: [
     "#v3ScenarioActive",

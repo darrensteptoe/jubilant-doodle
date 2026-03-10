@@ -2,12 +2,21 @@ import {
   createCard,
   createColumn,
   createSurfaceFrame,
+  setCardHeaderControl,
   createWhyPanel,
   getCardBody
 } from "../componentFactory.js";
 import { mountLegacyClosest, mountLegacyNode } from "../compat.js";
 import { readTurnoutSnapshot } from "../stateBridge.js";
-import { bindClickProxy, createFieldGrid, readText, setText, syncButtonDisabled } from "../surfaceUtils.js";
+import {
+  bindCheckboxProxy,
+  bindClickProxy,
+  createFieldGrid,
+  readText,
+  setText,
+  syncButtonDisabled,
+  syncCheckboxValue
+} from "../surfaceUtils.js";
 
 export function renderTurnoutSurface(mount) {
   const frame = createSurfaceFrame("two-col");
@@ -28,6 +37,16 @@ export function renderTurnoutSurface(mount) {
     title: "Turnout mechanics",
     description: "Baseline turnout, lift behavior, and diminishing-return controls."
   });
+  const assumptionsHeaderToggle = document.createElement("div");
+  assumptionsHeaderToggle.className = "fpe-header-switch";
+  assumptionsHeaderToggle.innerHTML = `
+    <span class="fpe-header-switch__label">Turnout module</span>
+    <label class="fpe-switch">
+      <input id="v3TurnoutEnabledToggle" type="checkbox"/>
+      <span>Enable</span>
+    </label>
+  `;
+  setCardHeaderControl(assumptionsCard, assumptionsHeaderToggle);
 
   const impactCard = createCard({
     title: "Realized vote impact",
@@ -93,12 +112,6 @@ export function renderTurnoutSurface(mount) {
 
   const assumptionsBody = getCardBody(assumptionsCard);
   mountLegacyClosest({
-    key: "v3-turnout-toggle-row",
-    childSelector: "#turnoutEnabled",
-    closestSelector: ".rowline",
-    target: assumptionsBody
-  });
-  mountLegacyClosest({
     key: "v3-turnout-base-grid",
     childSelector: "#turnoutBaselinePct",
     closestSelector: ".grid3",
@@ -162,6 +175,7 @@ export function renderTurnoutSurface(mount) {
   );
 
   bindClickProxy("v3BtnRoiRefresh", "roiRefresh");
+  bindCheckboxProxy("v3TurnoutEnabledToggle", "turnoutEnabled");
   return refreshTurnoutSummary;
 }
 
@@ -175,4 +189,11 @@ function refreshTurnoutSummary() {
   setText("v3TurnoutImpactMargin", readText("#mcP50"));
   setText("v3TurnoutImpactWinProb", readText("#mcWinProb-sidebar"));
   syncButtonDisabled("v3BtnRoiRefresh", "roiRefresh");
+  syncCheckboxValue("v3TurnoutEnabledToggle", "turnoutEnabled");
+
+  const v3Toggle = document.getElementById("v3TurnoutEnabledToggle");
+  const legacyToggle = document.getElementById("turnoutEnabled");
+  if (v3Toggle instanceof HTMLInputElement && legacyToggle instanceof HTMLInputElement) {
+    v3Toggle.disabled = legacyToggle.disabled;
+  }
 }

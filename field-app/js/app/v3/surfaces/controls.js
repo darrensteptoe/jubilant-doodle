@@ -30,11 +30,6 @@ export function renderControlsSurface(mount) {
     description: "Canonical dynamic status remains in the right rail; this page is governance workflow."
   });
 
-  const censusCard = createCard({
-    title: "Census assumptions",
-    description: "Geography context, ACS rows, aggregate demographics, and election CSV dry-run workflow."
-  });
-
   const workflowCard = createCard({
     title: "Scenario governance",
     description: "Scenario lock and critical-change documentation requirements."
@@ -73,8 +68,6 @@ export function renderControlsSurface(mount) {
       <div class="fpe-summary-row"><span>Integrity stack</span><strong>Validation and guardrail checks</strong></div>
     </div>
   `;
-
-  buildControlsCensusBridge(getCardBody(censusCard));
 
   getCardBody(workflowCard).innerHTML = `
     <div id="v3ControlsWorkflowBridgeRoot">
@@ -362,7 +355,7 @@ export function renderControlsSurface(mount) {
     <div class="note" style="margin-top:8px;">Dynamic output duplication is intentionally removed from center panels to keep one canonical status source.</div>
   `;
 
-  left.append(statusCard, censusCard, workflowCard, evidenceCard);
+  left.append(statusCard, workflowCard, evidenceCard);
   right.append(benchmarkCard, calibrationCard, feedbackCard, summaryCard);
 
   frame.append(left, right);
@@ -391,7 +384,6 @@ export function renderControlsSurface(mount) {
   });
 
   wireControlsWorkflowBridge();
-  wireControlsCensusBridge();
   wireControlsBenchmarkBridge();
   wireControlsEvidenceBridge();
   wireControlsCalibrationBridge();
@@ -401,7 +393,6 @@ export function renderControlsSurface(mount) {
 
 function refreshControlsSummary() {
   syncControlsWorkflowBridge();
-  syncControlsCensusBridge();
   syncControlsBenchmarkBridge();
   syncControlsEvidenceBridge();
   syncControlsCalibrationBridge();
@@ -574,12 +565,6 @@ function buildControlsCensusBridge(target) {
     selector: "#censusFootprintCapacityStatus",
     target: root
   });
-  mountLegacyClosest({
-    key: "v3-controls-census-apply-toggle",
-    childSelector: "#censusApplyAdjustmentsToggle",
-    closestSelector: ".switch",
-    target: root
-  });
   mountLegacyNode({
     key: "v3-controls-census-apply-status",
     selector: "#censusApplyAdjustmentsStatus",
@@ -724,6 +709,10 @@ function wireControlsCensusBridge() {
   bindFieldProxy("v3CensusSelectionSetName", "censusSelectionSetName");
   bindSelectProxy("v3CensusSelectionSetSelect", "censusSelectionSetSelect");
   bindCheckboxProxy("v3CensusMapQaVtdToggle", "censusMapQaVtdToggle");
+  bindCheckboxProxy(
+    "v3ControlsCensusApplyAdjustmentsToggle",
+    "censusApplyAdjustmentsToggle"
+  );
 
   bindClickProxy("v3BtnCensusLoadGeo", "btnCensusLoadGeo");
   bindClickProxy("v3BtnCensusFetchRows", "btnCensusFetchRows");
@@ -756,6 +745,10 @@ function syncControlsCensusBridge() {
   syncFieldValue("v3CensusSelectionSetName", "censusSelectionSetName");
   syncSelectValue("v3CensusSelectionSetSelect", "censusSelectionSetSelect");
   syncCheckboxValue("v3CensusMapQaVtdToggle", "censusMapQaVtdToggle");
+  syncCheckboxValue(
+    "v3ControlsCensusApplyAdjustmentsToggle",
+    "censusApplyAdjustmentsToggle"
+  );
 
   setText("v3CensusStatus", readText("#censusStatus"));
   setText("v3CensusGeoStats", readText("#censusGeoStats"));
@@ -768,6 +761,14 @@ function syncControlsCensusBridge() {
   const legacyQaToggle = document.getElementById("censusMapQaVtdToggle");
   if (v3QaToggle instanceof HTMLInputElement && legacyQaToggle instanceof HTMLInputElement) {
     v3QaToggle.disabled = legacyQaToggle.disabled;
+  }
+  const v3CensusApplyToggle = document.getElementById("v3ControlsCensusApplyAdjustmentsToggle");
+  const legacyCensusApplyToggle = document.getElementById("censusApplyAdjustmentsToggle");
+  if (
+    v3CensusApplyToggle instanceof HTMLInputElement &&
+    legacyCensusApplyToggle instanceof HTMLInputElement
+  ) {
+    v3CensusApplyToggle.disabled = legacyCensusApplyToggle.disabled;
   }
 
   syncButtonDisabled("v3BtnCensusLoadGeo", "btnCensusLoadGeo");
