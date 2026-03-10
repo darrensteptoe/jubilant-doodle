@@ -61,6 +61,8 @@ export const els = {
   btnCensusExportAggregateCsv: document.getElementById("btnCensusExportAggregateCsv"),
   btnCensusExportAggregateJson: document.getElementById("btnCensusExportAggregateJson"),
   censusMapQaVtdToggle: document.getElementById("censusMapQaVtdToggle"),
+  censusMapQaVtdZip: document.getElementById("censusMapQaVtdZip"),
+  btnCensusMapQaVtdZipClear: document.getElementById("btnCensusMapQaVtdZipClear"),
   btnCensusLoadMap: document.getElementById("btnCensusLoadMap"),
   btnCensusClearMap: document.getElementById("btnCensusClearMap"),
   censusStatus: document.getElementById("censusStatus"),
@@ -77,6 +79,7 @@ export const els = {
   censusLastFetch: document.getElementById("censusLastFetch"),
   censusMap: document.getElementById("censusMap"),
   censusMapStatus: document.getElementById("censusMapStatus"),
+  censusMapQaVtdZipStatus: document.getElementById("censusMapQaVtdZipStatus"),
   censusAggregateTbody: document.getElementById("censusAggregateTbody"),
 
   // Phase D1 — Decision Sessions

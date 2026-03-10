@@ -519,6 +519,9 @@ export function registerCensusPhase1Tests(ctx){
       "btnCensusElectionCsvDryRun",
       "btnCensusElectionCsvClear",
       "censusMapQaVtdToggle",
+      "censusMapQaVtdZip",
+      "btnCensusMapQaVtdZipClear",
+      "censusMapQaVtdZipStatus",
     ];
     for (const id of requiredIds){
       assert(!!document.getElementById(id), `missing guide control: ${id}`);
