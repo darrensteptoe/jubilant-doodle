@@ -913,42 +913,40 @@
 }
 
 .fpe-surface-pane[data-v3-stage="district"] .fpe-census-status-list {
+  margin: 0;
+  padding-left: 18px;
   display: flex;
   flex-direction: column;
   gap: 8px;
+  list-style: disc;
 }
 
-.fpe-surface-pane[data-v3-stage="district"] .fpe-census-status-list > * {
+.fpe-surface-pane[data-v3-stage="district"] .fpe-census-status-list > .fpe-census-status-item {
   margin: 0;
-  position: relative;
-  padding-left: 14px;
-  line-height: 1.45;
+  color: var(--fpe-muted);
   font-size: 12px;
+  line-height: 1.45;
   font-weight: 400;
+}
+
+.fpe-surface-pane[data-v3-stage="district"] .fpe-census-status-list > .fpe-census-status-item::marker {
   color: var(--fpe-muted);
 }
 
-.fpe-surface-pane[data-v3-stage="district"] .fpe-census-status-list > *::before {
-  content: "•";
-  position: absolute;
-  left: 0;
-  top: 0;
-  color: var(--fpe-muted);
-  font-weight: 700;
-}
-
-.fpe-surface-pane[data-v3-stage="district"] .fpe-message-window--warn .fpe-census-status-list > *::before {
+.fpe-surface-pane[data-v3-stage="district"] .fpe-message-window--warn .fpe-census-status-list > .fpe-census-status-item::marker {
   color: var(--fpe-warning);
 }
 
-.fpe-surface-pane[data-v3-stage="district"] .fpe-message-window--warn .fpe-census-status-list > * {
-  color: var(--fpe-muted);
-}
-
-.fpe-surface-pane[data-v3-stage="district"] .fpe-census-status-list > .muted,
-.fpe-surface-pane[data-v3-stage="district"] .fpe-census-status-list > .note,
-.fpe-surface-pane[data-v3-stage="district"] .fpe-census-status-list > .help-text {
+.fpe-surface-pane[data-v3-stage="district"] .fpe-census-status-list > .fpe-census-status-item > * {
   margin: 0;
+  border: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  padding: 0 !important;
+  color: inherit !important;
+  font-size: inherit !important;
+  line-height: inherit !important;
+  font-weight: inherit !important;
 }
 
 .fpe-surface-pane[data-v3-stage="district"] .fpe-census-subsection--setup .fpe-field-grid,
