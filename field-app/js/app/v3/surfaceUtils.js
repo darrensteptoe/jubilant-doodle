@@ -241,6 +241,116 @@ export function normalizeSurfaceActionRows(root) {
   });
 }
 
+export function normalizeSurfaceMessages(root) {
+  if (!(root instanceof HTMLElement)) {
+    return;
+  }
+
+  const candidates = root.querySelectorAll(
+    [
+      ".fpe-card__body > .muted",
+      ".fpe-card__body > .note",
+      ".fpe-card__body > .help-text",
+      ".fpe-card__body > .help",
+      ".fpe-card__body > .banner",
+      ".fpe-census-section__body > .muted",
+      ".fpe-census-section__body > .note",
+      ".fpe-census-subsection__body > .muted",
+      ".fpe-census-subsection__body > .note",
+      ".fpe-census-subsection__body > .help-text",
+      ".fpe-census-subsection__body > .help",
+      ".fpe-census-subsection__body > .banner"
+    ].join(",")
+  );
+
+  candidates.forEach((node) => {
+    if (!(node instanceof HTMLElement)) {
+      return;
+    }
+    if (node.dataset.v3MessageNormalized === "1") {
+      return;
+    }
+    if (node.closest(".fpe-message-window")) {
+      return;
+    }
+    if (
+      node.closest(
+        ".field, .table-wrap, .fpe-action-row, .fpe-contained-block, .fpe-summary-grid, .fpe-census-status-chip"
+      )
+    ) {
+      return;
+    }
+
+    const text = (node.textContent || "").trim();
+    if (!text) {
+      return;
+    }
+
+    const tone = classifyMessageTone(text, node);
+    const label = labelForTone(tone);
+    const window = createMessageWindow(label, tone);
+    const body = window.querySelector(".fpe-message-window__body");
+    if (!(body instanceof HTMLElement) || !(node.parentElement instanceof HTMLElement)) {
+      return;
+    }
+
+    node.dataset.v3MessageNormalized = "1";
+    node.classList.add("fpe-message-window__text");
+    node.parentElement.insertBefore(window, node);
+    body.appendChild(node);
+  });
+}
+
+function createMessageWindow(label, tone) {
+  const root = document.createElement("div");
+  root.className = `fpe-message-window fpe-message-window--${tone}`;
+
+  const head = document.createElement("div");
+  head.className = "fpe-message-window__head";
+
+  const tag = document.createElement("span");
+  tag.className = "fpe-message-window__tag";
+  tag.textContent = label;
+
+  head.appendChild(tag);
+
+  const body = document.createElement("div");
+  body.className = "fpe-message-window__body";
+
+  root.append(head, body);
+  return root;
+}
+
+function labelForTone(tone) {
+  if (tone === "warn") {
+    return "Warning";
+  }
+  if (tone === "tip") {
+    return "Tip";
+  }
+  if (tone === "status") {
+    return "Status";
+  }
+  return "Info";
+}
+
+function classifyMessageTone(text, node) {
+  const source = `${node.id || ""} ${node.className || ""} ${text}`.toLowerCase();
+
+  if (
+    /warn|warning|invalid|missing|error|fail|incomplete|not set|stale|risk|shortfall|required|pending/.test(source)
+  ) {
+    return "warn";
+  }
+  if (/tip|guide|how to|best practice|workflow|instructions|recommended/.test(source)) {
+    return "tip";
+  }
+  if (/status|ready|loaded|selected|last fetch|active|enabled|disabled|coverage|delta|using/.test(source)) {
+    return "status";
+  }
+  return "info";
+}
+
 function isActionNode(node) {
   if (!(node instanceof HTMLElement)) {
     return false;

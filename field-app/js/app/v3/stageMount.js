@@ -8,7 +8,7 @@ import { renderPlanSurface } from "./surfaces/plan.js";
 import { renderReachSurface } from "./surfaces/reach.js";
 import { renderScenariosSurface } from "./surfaces/scenarios.js";
 import { renderTurnoutSurface } from "./surfaces/turnout.js";
-import { normalizeSurfaceActionRows } from "./surfaceUtils.js";
+import { normalizeSurfaceActionRows, normalizeSurfaceMessages } from "./surfaceUtils.js";
 
 const SURFACE_MAP = {
   controls: renderControlsSurface,
@@ -113,6 +113,7 @@ function ensureSurfaceState(stage, mount) {
   const renderer = SURFACE_MAP[stage.surface];
   const rendered = typeof renderer === "function" ? renderer(pane, stage) : null;
   normalizeSurfaceActionRows(pane);
+  normalizeSurfaceMessages(pane);
   const refresh =
     typeof rendered === "function"
       ? rendered

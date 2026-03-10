@@ -291,6 +291,7 @@ function refreshDistrictSummary() {
   if (v3Toggle instanceof HTMLInputElement && legacyToggle instanceof HTMLInputElement) {
     v3Toggle.disabled = legacyToggle.disabled;
   }
+  syncDistrictCensusMessageTones();
   syncCensusMapShellState();
 }
 
@@ -365,7 +366,12 @@ function normalizeCensusPhase1Card(card) {
 
   if (intro) {
     intro.classList.add("fpe-census-intro");
-    layout.appendChild(intro);
+    const introWindow = createCensusMessageWindow({
+      label: "Workflow guide",
+      tone: "tip"
+    });
+    introWindow.body.appendChild(intro);
+    layout.appendChild(introWindow.root);
   }
 
   const workflowSection = createCensusSection({
@@ -459,15 +465,25 @@ function normalizeCensusPhase1Card(card) {
     inputId: "censusApplyAdjustmentsToggle"
   });
   setCensusSectionHeaderControl(footprintSection, applyAdjustmentsHeaderControl);
+  appendIfPresent(footprintSection.body, footprintActions);
+  const footprintStatusWindow = createCensusMessageWindow({
+    label: "Current status",
+    tone: "status"
+  });
+  const footprintStatusList = document.createElement("div");
+  footprintStatusList.className = "fpe-census-status-list";
   appendIfPresent(
-    footprintSection.body,
+    footprintStatusList,
     selectionSummary,
-    footprintActions,
     raceFootprintStatus,
     provenanceStatus,
     capacityStatus,
     applyAdjustmentsStatus
   );
+  if (footprintStatusList.children.length) {
+    footprintStatusWindow.body.appendChild(footprintStatusList);
+    footprintSection.body.appendChild(footprintStatusWindow.root);
+  }
   layout.appendChild(footprintSection.section);
 
   const advisorySection = createCensusSection({
@@ -482,7 +498,15 @@ function normalizeCensusPhase1Card(card) {
       summary.textContent = "Instructions";
     }
   }
-  appendIfPresent(advisorySection.body, advisoryGuide, advisoryTable, advisoryStatus);
+  appendIfPresent(advisorySection.body, advisoryGuide, advisoryTable);
+  const advisoryStatusWindow = createCensusMessageWindow({
+    label: "Signal status",
+    tone: "status"
+  });
+  appendIfPresent(advisoryStatusWindow.body, advisoryStatus);
+  if (advisoryStatusWindow.body.children.length) {
+    advisorySection.body.appendChild(advisoryStatusWindow.root);
+  }
   layout.appendChild(advisorySection.section);
 
   const electionSection = createCensusSection({
@@ -549,6 +573,7 @@ function normalizeCensusPhase1Card(card) {
   layout.appendChild(mapSection.section);
 
   card.replaceChildren(layout);
+  syncDistrictCensusMessageTones();
   syncCensusMapShellState();
 }
 
@@ -603,6 +628,25 @@ function createCensusSubsection({ title, description = "" }) {
   section.appendChild(body);
 
   return { section, body };
+}
+
+function createCensusMessageWindow({ label, tone = "info" }) {
+  const root = document.createElement("div");
+  root.className = `fpe-message-window fpe-message-window--${tone}`;
+
+  const head = document.createElement("div");
+  head.className = "fpe-message-window__head";
+
+  const tag = document.createElement("span");
+  tag.className = "fpe-message-window__tag";
+  tag.textContent = label;
+  head.appendChild(tag);
+
+  const body = document.createElement("div");
+  body.className = "fpe-message-window__body";
+
+  root.append(head, body);
+  return { root, body };
 }
 
 function setCensusSectionHeaderControl(sectionParts, control) {
@@ -706,6 +750,54 @@ function syncCensusMapShellState() {
       ? "Map idle. Select GEO units and click Load boundaries."
       : "Boundary map active.";
   }
+}
+
+function syncDistrictCensusMessageTones() {
+  syncMessageTone("censusAdvisoryStatus", "Signal status");
+  syncMessageTone("censusRaceFootprintStatus", "Current status");
+  syncMessageTone("censusAssumptionProvenanceStatus", "Current status");
+  syncMessageTone("censusFootprintCapacityStatus", "Current status");
+  syncMessageTone("censusApplyAdjustmentsStatus", "Current status");
+}
+
+function syncMessageTone(id, defaultLabel) {
+  const node = document.getElementById(id);
+  if (!(node instanceof HTMLElement)) {
+    return;
+  }
+
+  const windowEl = node.closest(".fpe-message-window");
+  if (!(windowEl instanceof HTMLElement)) {
+    return;
+  }
+
+  const tone = detectMessageTone(node.textContent || "");
+  windowEl.classList.remove("fpe-message-window--warn", "fpe-message-window--status", "fpe-message-window--tip", "fpe-message-window--info");
+  windowEl.classList.add(`fpe-message-window--${tone}`);
+
+  const tag = windowEl.querySelector(".fpe-message-window__tag");
+  if (!(tag instanceof HTMLElement)) {
+    return;
+  }
+  tag.textContent = tone === "warn" ? "Warning" : defaultLabel;
+}
+
+function detectMessageTone(text) {
+  const value = String(text || "").toLowerCase();
+  if (
+    /warn|warning|invalid|missing|error|fail|incomplete|not set|stale|risk|shortfall|required|pending|off\b/.test(
+      value
+    )
+  ) {
+    return "warn";
+  }
+  if (/tip|guide|workflow|instructions|recommended/.test(value)) {
+    return "tip";
+  }
+  if (/status|ready|loaded|selected|last fetch|active|enabled|disabled|coverage|delta|using/.test(value)) {
+    return "status";
+  }
+  return "info";
 }
 
 function isCensusMapIdle(statusText) {
