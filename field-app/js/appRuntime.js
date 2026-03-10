@@ -436,6 +436,8 @@ function getUsbStorageController(){
     renderDecisionSessionD1,
     persist,
     serializeStateForPersistence,
+    reportPersistenceFailure,
+    clearPersistenceFailure,
   });
   return usbStorageController;
 }
@@ -443,7 +445,12 @@ function getUsbStorageController(){
 function wireUsbStorageEvents(){
   if (els.btnUsbStorageConnect){
     els.btnUsbStorageConnect.addEventListener("click", async () => {
-      await getUsbStorageController().connect();
+      const controller = getUsbStorageController();
+      const result = await controller.connect();
+      if (result?.ok){
+        clearPersistenceFailure("state");
+        clearPersistenceFailure("backup");
+      }
     });
   }
   if (els.btnUsbStorageLoad){
@@ -530,7 +537,9 @@ function assumptionsProfileLabel(src = state){
   return assumptionsProfileLabelModule(src, labelTemplate);
 }
 
-let state = normalizeLoadedScenarioRuntime(loadState() || makeDefaultState());
+const initialStoredState = loadState();
+let state = normalizeLoadedScenarioRuntime(initialStoredState || makeDefaultState());
+const bootHadLocalState = !!initialStoredState;
 let lastCriticalAuditSnapshot = buildCriticalAuditSnapshot(state);
 
 // setState(patchFn) — controlled state mutation for UI-only writes.
@@ -1536,7 +1545,11 @@ function init(){
       if (controller.isConnected()){
         clearPersistenceFailure("state");
         clearPersistenceFailure("backup");
+        if (!bootHadLocalState){
+          return controller.loadFromFolder({ suppressMissingStatus: true });
+        }
       }
+      return null;
     }).catch(() => {});
   });
   ensureScenarioRegistry();
