@@ -838,6 +838,24 @@
   color: var(--fpe-text);
 }
 
+.fpe-surface-pane[data-v3-stage="district"] .fpe-census-aggregate-actions {
+  justify-content: flex-start !important;
+}
+
+.fpe-surface-pane[data-v3-stage="district"] .fpe-census-election-status-strip {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.fpe-surface-pane[data-v3-stage="district"] .fpe-census-election-guide {
+  margin-top: 10px;
+}
+
+.fpe-surface-pane[data-v3-stage="district"] .fpe-census-election-guide > * + * {
+  margin-top: 10px;
+}
+
 .fpe-card__body > .card,
 .fpe-card__body > .stage-body-new {
   margin: 0;
@@ -1115,6 +1133,10 @@
 
 @media (max-width: 640px) {
   .fpe-surface-pane[data-v3-stage="district"] .fpe-census-status-strip {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .fpe-surface-pane[data-v3-stage="district"] .fpe-census-election-status-strip {
     grid-template-columns: minmax(0, 1fr);
   }
 
