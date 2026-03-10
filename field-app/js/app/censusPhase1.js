@@ -37,7 +37,7 @@ import {
   getElectionCsvUploadGuide,
   parseCsvText,
   normalizeElectionCsvRows,
-} from "../core/censusModule.js?v=20260309-census-phase1-34";
+} from "../core/censusModule.js?v=20260310-census-phase1-38";
 
 const variableCatalogCache = new Map();
 let stateOptionsCache = null;
