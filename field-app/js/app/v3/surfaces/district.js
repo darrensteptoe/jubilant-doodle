@@ -447,7 +447,15 @@ function normalizeCensusPhase1Card(card) {
     title: "Advisory signals",
     description: "Review computed signal levels and interpretation guidance for the selected footprint."
   });
-  appendIfPresent(advisorySection.body, advisoryTable, advisoryStatus, advisoryGuide);
+  if (advisoryGuide instanceof HTMLDetailsElement) {
+    advisoryGuide.classList.add("fpe-census-instruction-details");
+    advisoryGuide.open = false;
+    const summary = advisoryGuide.querySelector(":scope > summary");
+    if (summary instanceof HTMLElement) {
+      summary.textContent = "Instructions";
+    }
+  }
+  appendIfPresent(advisorySection.body, advisoryGuide, advisoryTable, advisoryStatus);
   layout.appendChild(advisorySection.section);
 
   const electionSection = createCensusSection({
@@ -455,7 +463,7 @@ function normalizeCensusPhase1Card(card) {
     description: "Template download, dry-run validation, and preview before import."
   });
   if (electionDetails instanceof HTMLDetailsElement) {
-    electionDetails.classList.add("fpe-census-election-details");
+    electionDetails.classList.add("fpe-census-instruction-details", "fpe-census-election-details");
     electionDetails.open = false;
     const summary = electionDetails.querySelector(":scope > summary");
     if (summary instanceof HTMLElement) {
@@ -464,7 +472,17 @@ function normalizeCensusPhase1Card(card) {
 
     const guideBody = document.createElement("div");
     guideBody.className = "fpe-census-election-guide";
-    appendIfPresent(guideBody, electionGuideNote, electionGuideStatus, electionGuideTable, electionGuideSchema);
+    if (electionTemplateActions instanceof HTMLElement) {
+      electionTemplateActions.classList.add("fpe-action-row");
+    }
+    appendIfPresent(
+      guideBody,
+      electionGuideNote,
+      electionGuideStatus,
+      electionGuideTable,
+      electionGuideSchema,
+      electionTemplateActions
+    );
 
     if (summary) {
       electionDetails.replaceChildren(summary, guideBody);
@@ -472,11 +490,7 @@ function normalizeCensusPhase1Card(card) {
       electionDetails.replaceChildren(guideBody);
     }
   }
-
-  if (electionTemplateActions instanceof HTMLElement) {
-    electionTemplateActions.classList.add("fpe-action-row");
-  }
-  appendIfPresent(electionSection.body, electionTemplateActions, electionUploadGrid, electionPrecinctField);
+  appendIfPresent(electionSection.body, electionDetails, electionUploadGrid, electionPrecinctField);
 
   const electionStatusStrip = document.createElement("div");
   electionStatusStrip.className = "fpe-census-election-status-strip";
@@ -484,7 +498,7 @@ function normalizeCensusPhase1Card(card) {
   if (electionStatusStrip.children.length) {
     electionSection.body.appendChild(electionStatusStrip);
   }
-  appendIfPresent(electionSection.body, electionPreviewTable, electionDetails);
+  appendIfPresent(electionSection.body, electionPreviewTable);
   layout.appendChild(electionSection.section);
 
   const mapSection = createCensusSection({
