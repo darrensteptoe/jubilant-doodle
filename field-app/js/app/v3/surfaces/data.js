@@ -5,8 +5,14 @@ import {
   createWhyPanel,
   getCardBody
 } from "../componentFactory.js";
-import { mountLegacyClosest } from "../compat.js";
-import { readText, setText } from "../surfaceUtils.js";
+import {
+  bindClickProxy,
+  getLegacyEl,
+  readText,
+  setText,
+  syncButtonDisabled,
+  syncSelectOptions
+} from "../surfaceUtils.js";
 
 export function renderDataSurface(mount) {
   const frame = createSurfaceFrame("two-col");
@@ -33,26 +39,50 @@ export function renderDataSurface(mount) {
     description: "Current policy and storage posture."
   });
 
-  mountLegacyClosest({
-    key: "v3-data-policy-card",
-    childSelector: "#toggleStrictImport",
-    closestSelector: ".card",
-    target: getCardBody(policyCard)
-  });
+  getCardBody(policyCard).innerHTML = `
+    <div id="v3DataBridgeRoot">
+      <div class="fpe-alert fpe-alert--warn" id="v3DataHashBannerUi" hidden>Snapshot hash differs from exported hash.</div>
+      <div class="fpe-alert fpe-alert--warn" id="v3DataWarnBannerUi" hidden></div>
+      <div class="fpe-field-grid fpe-field-grid--2">
+        <div class="field">
+          <label class="fpe-control-label" for="v3DataStrictToggle">Strict import policy</label>
+          <label class="fpe-switch">
+            <input id="v3DataStrictToggle" type="checkbox"/>
+            <span>Block newer schema and hash-mismatch imports</span>
+          </label>
+          <div class="fpe-help">When ON, imports are blocked for newer schema versions and integrity hash mismatches.</div>
+        </div>
+        <div class="field">
+          <label class="fpe-control-label" for="v3DataRestoreBackup">Restore auto-backup</label>
+          <select class="fpe-input" id="v3DataRestoreBackup">
+            <option value="">Restore backup…</option>
+          </select>
+          <div class="fpe-help">Restores saved planner inputs from local browser backups.</div>
+        </div>
+      </div>
+    </div>
+  `;
 
-  mountLegacyClosest({
-    key: "v3-data-exchange-card",
-    childSelector: "#btnSaveJson",
-    closestSelector: ".card",
-    target: getCardBody(exchangeCard)
-  });
+  getCardBody(exchangeCard).innerHTML = `
+    <div class="fpe-action-row">
+      <button class="fpe-btn" id="v3DataBtnSaveJson" type="button">Export Scenario JSON</button>
+      <button class="fpe-btn fpe-btn--ghost" id="v3DataBtnLoadJson" type="button">Import Scenario JSON</button>
+      <button class="fpe-btn fpe-btn--ghost" id="v3DataBtnCopySummary" type="button">Copy Summary</button>
+      <button class="fpe-btn fpe-btn--ghost" id="v3DataBtnExportCsv" type="button">Export CSV</button>
+    </div>
+    <div class="fpe-help">Use these controls for file exchange, reporting, and audit-safe handoffs.</div>
+    <div class="fpe-help" id="v3DataImportFileStatus">No import file selected.</div>
+  `;
 
-  mountLegacyClosest({
-    key: "v3-data-storage-card",
-    childSelector: "#btnUsbStorageConnect",
-    closestSelector: ".card",
-    target: getCardBody(storageCard)
-  });
+  getCardBody(storageCard).innerHTML = `
+    <div class="fpe-action-row">
+      <button class="fpe-btn" id="v3DataBtnUsbConnect" type="button">Connect folder</button>
+      <button class="fpe-btn fpe-btn--ghost" id="v3DataBtnUsbLoad" type="button">Load from folder</button>
+      <button class="fpe-btn fpe-btn--ghost" id="v3DataBtnUsbSave" type="button">Save to folder now</button>
+      <button class="fpe-btn fpe-btn--ghost" id="v3DataBtnUsbDisconnect" type="button">Disconnect</button>
+    </div>
+    <div class="fpe-help" id="v3DataUsbStatusUi">Using browser storage only.</div>
+  `;
 
   getCardBody(summaryCard).innerHTML = `
     <div class="fpe-summary-grid">
@@ -77,12 +107,15 @@ export function renderDataSurface(mount) {
     ])
   );
 
+  wireDataBridge();
   return refreshDataSummary;
 }
 
 function refreshDataSummary() {
-  const strictToggle = document.getElementById("toggleStrictImport");
-  const restoreBackup = document.getElementById("restoreBackup");
+  syncDataBridgeUi();
+
+  const strictToggle = getLegacyEl("toggleStrictImport");
+  const restoreBackup = getLegacyEl("restoreBackup");
   const hashBanner = document.getElementById("importHashBanner");
   const warnBanner = document.getElementById("importWarnBanner");
 
@@ -105,4 +138,93 @@ function refreshDataSummary() {
     warnBanner && !warnBanner.hidden ? readText("#importWarnBanner") || "Visible" : "Hidden"
   );
   setText("v3DataUsbStatus", readText("#usbStorageStatus"));
+}
+
+function wireDataBridge() {
+  const root = document.getElementById("v3DataBridgeRoot");
+  if (!root || root.dataset.wired === "1") {
+    return;
+  }
+  root.dataset.wired = "1";
+
+  const strictToggle = document.getElementById("v3DataStrictToggle");
+  strictToggle?.addEventListener("change", () => {
+    const legacy = getLegacyEl("toggleStrictImport");
+    if (!(legacy instanceof HTMLInputElement)) {
+      return;
+    }
+    legacy.checked = strictToggle.checked;
+    legacy.dispatchEvent(new Event("input", { bubbles: true }));
+    legacy.dispatchEvent(new Event("change", { bubbles: true }));
+  });
+
+  const restoreBackup = document.getElementById("v3DataRestoreBackup");
+  restoreBackup?.addEventListener("change", () => {
+    const legacy = getLegacyEl("restoreBackup");
+    if (!(legacy instanceof HTMLSelectElement)) {
+      return;
+    }
+    legacy.value = restoreBackup.value;
+    legacy.dispatchEvent(new Event("change", { bubbles: true }));
+  });
+
+  bindClickProxy("v3DataBtnSaveJson", "btnSaveJson");
+  bindClickProxy("v3DataBtnLoadJson", "loadJson");
+  bindClickProxy("v3DataBtnCopySummary", "btnCopySummary");
+  bindClickProxy("v3DataBtnExportCsv", "btnExportCsv");
+  bindClickProxy("v3DataBtnUsbConnect", "btnUsbStorageConnect");
+  bindClickProxy("v3DataBtnUsbLoad", "btnUsbStorageLoad");
+  bindClickProxy("v3DataBtnUsbSave", "btnUsbStorageSave");
+  bindClickProxy("v3DataBtnUsbDisconnect", "btnUsbStorageDisconnect");
+}
+
+function syncDataBridgeUi() {
+  const legacyStrict = getLegacyEl("toggleStrictImport");
+  const legacyRestore = getLegacyEl("restoreBackup");
+  const legacyLoadJson = getLegacyEl("loadJson");
+  const legacyHashBanner = getLegacyEl("importHashBanner");
+  const legacyWarnBanner = getLegacyEl("importWarnBanner");
+  const legacyUsbStatus = getLegacyEl("usbStorageStatus");
+
+  const strictToggle = document.getElementById("v3DataStrictToggle");
+  if (strictToggle instanceof HTMLInputElement && legacyStrict instanceof HTMLInputElement) {
+    strictToggle.checked = legacyStrict.checked;
+  }
+
+  const restoreBackup = document.getElementById("v3DataRestoreBackup");
+  if (restoreBackup instanceof HTMLSelectElement && legacyRestore instanceof HTMLSelectElement) {
+    syncSelectOptions(restoreBackup, legacyRestore);
+    restoreBackup.value = legacyRestore.value;
+  }
+
+  const hashBannerUi = document.getElementById("v3DataHashBannerUi");
+  if (hashBannerUi && legacyHashBanner instanceof HTMLElement) {
+    hashBannerUi.hidden = legacyHashBanner.hidden;
+    hashBannerUi.textContent = (legacyHashBanner.textContent || "").trim() || "Snapshot hash differs from exported hash.";
+  }
+
+  const warnBannerUi = document.getElementById("v3DataWarnBannerUi");
+  if (warnBannerUi && legacyWarnBanner instanceof HTMLElement) {
+    warnBannerUi.hidden = legacyWarnBanner.hidden;
+    warnBannerUi.textContent = (legacyWarnBanner.textContent || "").trim() || "Import warning.";
+  }
+
+  setText("v3DataUsbStatusUi", legacyUsbStatus ? (legacyUsbStatus.textContent || "").trim() : "");
+  setText("v3DataImportFileStatus", describeImportFile(legacyLoadJson));
+
+  syncButtonDisabled("v3DataBtnSaveJson", "btnSaveJson");
+  syncButtonDisabled("v3DataBtnLoadJson", "loadJson");
+  syncButtonDisabled("v3DataBtnCopySummary", "btnCopySummary");
+  syncButtonDisabled("v3DataBtnExportCsv", "btnExportCsv");
+  syncButtonDisabled("v3DataBtnUsbConnect", "btnUsbStorageConnect");
+  syncButtonDisabled("v3DataBtnUsbLoad", "btnUsbStorageLoad");
+  syncButtonDisabled("v3DataBtnUsbSave", "btnUsbStorageSave");
+  syncButtonDisabled("v3DataBtnUsbDisconnect", "btnUsbStorageDisconnect");
+}
+
+function describeImportFile(legacyLoadJson) {
+  if (!(legacyLoadJson instanceof HTMLInputElement) || !legacyLoadJson.files || !legacyLoadJson.files.length) {
+    return "No import file selected.";
+  }
+  return `Selected import: ${legacyLoadJson.files[0].name}`;
 }

@@ -6,7 +6,7 @@ import {
   getCardBody
 } from "../componentFactory.js";
 import { mountLegacyClosest, mountLegacyNode } from "../compat.js";
-import { readText, setText } from "../surfaceUtils.js";
+import { getLegacyEl, readText, setText } from "../surfaceUtils.js";
 
 export function renderControlsSurface(mount) {
   const frame = createSurfaceFrame("two-col");
@@ -65,11 +65,46 @@ export function renderControlsSurface(mount) {
     target: getCardBody(censusCard)
   });
 
-  mountLegacyNode({
-    key: "v3-controls-workflow-card",
-    selector: "#intelWorkflowCard",
-    target: getCardBody(workflowCard)
-  });
+  getCardBody(workflowCard).innerHTML = `
+    <div id="v3ControlsWorkflowBridgeRoot">
+      <div class="fpe-help">Lock scenario edits for client-safe reviews and require note/evidence on critical assumption changes.</div>
+      <div class="fpe-field-grid fpe-field-grid--3">
+        <div class="field">
+          <label class="fpe-control-label" for="v3IntelScenarioLocked">Scenario lock</label>
+          <label class="fpe-switch">
+            <input id="v3IntelScenarioLocked" type="checkbox"/>
+            <span>Lock scenario edits</span>
+          </label>
+        </div>
+        <div class="field">
+          <label class="fpe-control-label" for="v3IntelRequireCriticalNote">Critical note required</label>
+          <label class="fpe-switch">
+            <input id="v3IntelRequireCriticalNote" type="checkbox"/>
+            <span>Require rationale note</span>
+          </label>
+        </div>
+        <div class="field">
+          <label class="fpe-control-label" for="v3IntelRequireCriticalEvidence">Critical evidence required</label>
+          <label class="fpe-switch">
+            <input id="v3IntelRequireCriticalEvidence" type="checkbox"/>
+            <span>Require evidence attachment</span>
+          </label>
+        </div>
+      </div>
+      <div class="fpe-field-grid fpe-field-grid--2">
+        <div class="field">
+          <label class="fpe-control-label" for="v3IntelScenarioLockReason">Lock reason</label>
+          <input class="fpe-input" id="v3IntelScenarioLockReason" placeholder="e.g., Client review freeze until Friday" type="text"/>
+        </div>
+        <div class="field">
+          <label class="fpe-control-label" for="v3IntelCriticalChangeNote">Critical change note</label>
+          <textarea class="fpe-input" id="v3IntelCriticalChangeNote" rows="2"></textarea>
+        </div>
+      </div>
+      <div class="fpe-help" id="v3IntelScenarioLockStatus">Scenario lock OFF.</div>
+      <div class="fpe-help" id="v3IntelWorkflowStatus">Governance controls healthy.</div>
+    </div>
+  `;
 
   mountLegacyNode({
     key: "v3-controls-evidence-card",
@@ -124,10 +159,13 @@ export function renderControlsSurface(mount) {
     ])
   );
 
+  wireControlsWorkflowBridge();
   return refreshControlsSummary;
 }
 
 function refreshControlsSummary() {
+  syncControlsWorkflowBridge();
+
   setText("v3ControlsWorkflowStatus", readText("#intelWorkflowStatus"));
   setText("v3ControlsBenchmarkCount", readText("#intelBenchmarkCount"));
   setText("v3ControlsMissingEvidence", readText("#intelMissingEvidenceCount"));
@@ -135,4 +173,83 @@ function refreshControlsSummary() {
   setText("v3ControlsRecommendationCount", readText("#intelRecommendationCount"));
   setText("v3ControlsCensusStatus", readText("#censusStatus"));
   setText("v3ControlsCensusSelection", readText("#censusGeoStats"));
+}
+
+function wireControlsWorkflowBridge() {
+  const root = document.getElementById("v3ControlsWorkflowBridgeRoot");
+  if (!root || root.dataset.wired === "1") {
+    return;
+  }
+  root.dataset.wired = "1";
+
+  bindCheckboxBridge("v3IntelScenarioLocked", "intelScenarioLocked");
+  bindCheckboxBridge("v3IntelRequireCriticalNote", "intelRequireCriticalNote");
+  bindCheckboxBridge("v3IntelRequireCriticalEvidence", "intelRequireCriticalEvidence");
+  bindInputBridge("v3IntelScenarioLockReason", "intelScenarioLockReason");
+  bindInputBridge("v3IntelCriticalChangeNote", "intelCriticalChangeNote");
+}
+
+function syncControlsWorkflowBridge() {
+  syncCheckboxValue("v3IntelScenarioLocked", "intelScenarioLocked");
+  syncCheckboxValue("v3IntelRequireCriticalNote", "intelRequireCriticalNote");
+  syncCheckboxValue("v3IntelRequireCriticalEvidence", "intelRequireCriticalEvidence");
+  syncInputValue("v3IntelScenarioLockReason", "intelScenarioLockReason");
+  syncInputValue("v3IntelCriticalChangeNote", "intelCriticalChangeNote");
+  setText("v3IntelScenarioLockStatus", readText("#intelScenarioLockStatus"));
+  setText("v3IntelWorkflowStatus", readText("#intelWorkflowStatus"));
+}
+
+function bindCheckboxBridge(v3Id, legacyId) {
+  const v3 = document.getElementById(v3Id);
+  if (!(v3 instanceof HTMLInputElement)) {
+    return;
+  }
+
+  v3.addEventListener("change", () => {
+    const legacy = getLegacyEl(legacyId);
+    if (!(legacy instanceof HTMLInputElement)) {
+      return;
+    }
+    legacy.checked = v3.checked;
+    legacy.dispatchEvent(new Event("input", { bubbles: true }));
+    legacy.dispatchEvent(new Event("change", { bubbles: true }));
+  });
+}
+
+function bindInputBridge(v3Id, legacyId) {
+  const v3 = document.getElementById(v3Id);
+  if (!(v3 instanceof HTMLInputElement || v3 instanceof HTMLTextAreaElement)) {
+    return;
+  }
+
+  v3.addEventListener("input", () => {
+    const legacy = getLegacyEl(legacyId);
+    if (!(legacy instanceof HTMLInputElement || legacy instanceof HTMLTextAreaElement)) {
+      return;
+    }
+    legacy.value = v3.value;
+    legacy.dispatchEvent(new Event("input", { bubbles: true }));
+    legacy.dispatchEvent(new Event("change", { bubbles: true }));
+  });
+}
+
+function syncCheckboxValue(v3Id, legacyId) {
+  const v3 = document.getElementById(v3Id);
+  const legacy = getLegacyEl(legacyId);
+  if (!(v3 instanceof HTMLInputElement) || !(legacy instanceof HTMLInputElement)) {
+    return;
+  }
+  v3.checked = legacy.checked;
+}
+
+function syncInputValue(v3Id, legacyId) {
+  const v3 = document.getElementById(v3Id);
+  const legacy = getLegacyEl(legacyId);
+  if (
+    !(v3 instanceof HTMLInputElement || v3 instanceof HTMLTextAreaElement) ||
+    !(legacy instanceof HTMLInputElement || legacy instanceof HTMLTextAreaElement)
+  ) {
+    return;
+  }
+  v3.value = legacy.value;
 }

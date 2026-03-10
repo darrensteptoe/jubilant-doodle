@@ -7,10 +7,27 @@ const STAGE_EXPECTATIONS = {
   outcome: ["#v3OutcomeWinProb", "#mcWinProb-sidebar", "#mcP50"],
   turnout: ["#v3TurnoutSummary", "#turnoutSummary", "#roiTbody"],
   plan: ["#v3PlanExecutable", "#tlPercent", "#outShiftsPerWeek"],
-  controls: ["#v3ControlsWorkflowStatus", "#intelWorkflowStatus", "#censusStatus"],
-  scenarios: ["#v3ScenarioActive", "#activeScenarioLabel", "#scmCompareWrap"],
+  controls: [
+    "#v3ControlsWorkflowStatus",
+    "#v3IntelScenarioLocked",
+    "#intelWorkflowStatus",
+    "#censusStatus"
+  ],
+  scenarios: [
+    "#v3ScenarioActive",
+    "#v3ScenarioSelect",
+    "#v3BtnScenarioSaveNew",
+    "#activeScenarioLabel",
+    "#scmCompareWrap"
+  ],
   "decision-log": ["#v3DecisionActiveSession", "#decisionActiveLabel", "#decisionSummaryPreview"],
-  data: ["#v3DataStrictImport", "#toggleStrictImport", "#usbStorageStatus"]
+  data: [
+    "#v3DataStrictImport",
+    "#v3DataStrictToggle",
+    "#v3DataBtnSaveJson",
+    "#toggleStrictImport",
+    "#usbStorageStatus"
+  ]
 };
 
 export function runV3QaSmoke({ restoreStage = true, logToConsole = true } = {}) {

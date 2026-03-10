@@ -6,7 +6,14 @@ import {
   getCardBody
 } from "../componentFactory.js";
 import { mountLegacyNode } from "../compat.js";
-import { readText, setText } from "../surfaceUtils.js";
+import {
+  bindClickProxy,
+  getLegacyEl,
+  readText,
+  setText,
+  syncButtonDisabled,
+  syncSelectOptions
+} from "../surfaceUtils.js";
 
 export function renderScenariosSurface(mount) {
   const frame = createSurfaceFrame("two-col");
@@ -50,11 +57,28 @@ export function renderScenariosSurface(mount) {
     target: statusBody
   });
 
-  mountLegacyNode({
-    key: "v3-scenarios-workspace",
-    selector: "#scenarioCompareCard .scm",
-    target: getCardBody(workspaceCard)
-  });
+  getCardBody(workspaceCard).innerHTML = `
+    <div id="v3ScenarioBridgeRoot">
+      <div class="fpe-help" id="v3ScenarioActiveLabel">Active scenario: -</div>
+      <div class="fpe-field-grid fpe-field-grid--2">
+        <div class="field">
+          <label class="fpe-control-label" for="v3ScenarioSelect">Scenarios</label>
+          <select class="fpe-input" id="v3ScenarioSelect"></select>
+        </div>
+        <div class="field">
+          <label class="fpe-control-label" for="v3ScenarioNewName">New scenario</label>
+          <input class="fpe-input" id="v3ScenarioNewName" placeholder="e.g., Path A - full GOTV" type="text"/>
+        </div>
+      </div>
+      <div class="fpe-action-row">
+        <button class="fpe-btn" id="v3BtnScenarioSaveNew" type="button">Save as new scenario</button>
+        <button class="fpe-btn fpe-btn--ghost" id="v3BtnScenarioCloneBaseline" type="button">Clone baseline</button>
+        <button class="fpe-btn" id="v3BtnScenarioLoadSelected" type="button">Load selected</button>
+        <button class="fpe-btn fpe-btn--ghost" id="v3BtnScenarioReturnBaseline" type="button">Return to baseline</button>
+        <button class="fpe-btn fpe-btn--ghost" id="v3BtnScenarioDelete" type="button">Delete scenario</button>
+      </div>
+    </div>
+  `;
 
   mountLegacyNode({
     key: "v3-scenarios-compare-wrap",
@@ -85,10 +109,13 @@ export function renderScenariosSurface(mount) {
     ])
   );
 
+  wireScenariosBridge();
   return refreshScenariosSummary;
 }
 
 function refreshScenariosSummary() {
+  syncScenariosBridgeUi();
+
   const compareGrid = document.getElementById("scmCompareGrid");
   const compareEmpty = document.getElementById("scmCompareEmpty");
   const inputDiffCount = document.querySelectorAll("#scmDiffInputs li").length;
@@ -106,4 +133,63 @@ function refreshScenariosSummary() {
   if (compareEmpty && compareGrid && compareGrid.hidden) {
     setText("v3ScenarioCompareMode", (compareEmpty.textContent || "").trim());
   }
+}
+
+function wireScenariosBridge() {
+  const root = document.getElementById("v3ScenarioBridgeRoot");
+  if (!root || root.dataset.wired === "1") {
+    return;
+  }
+  root.dataset.wired = "1";
+
+  const select = document.getElementById("v3ScenarioSelect");
+  select?.addEventListener("change", () => {
+    const legacy = getLegacyEl("scenarioSelect");
+    if (!(legacy instanceof HTMLSelectElement)) {
+      return;
+    }
+    legacy.value = select.value;
+    legacy.dispatchEvent(new Event("change", { bubbles: true }));
+  });
+
+  const newName = document.getElementById("v3ScenarioNewName");
+  newName?.addEventListener("input", () => {
+    const legacy = getLegacyEl("scenarioNewName");
+    if (!(legacy instanceof HTMLInputElement)) {
+      return;
+    }
+    legacy.value = newName.value;
+    legacy.dispatchEvent(new Event("input", { bubbles: true }));
+  });
+
+  bindClickProxy("v3BtnScenarioSaveNew", "btnScenarioSaveNew");
+  bindClickProxy("v3BtnScenarioCloneBaseline", "btnScenarioCloneBaseline");
+  bindClickProxy("v3BtnScenarioLoadSelected", "btnScenarioLoadSelected");
+  bindClickProxy("v3BtnScenarioReturnBaseline", "btnScenarioReturnBaseline");
+  bindClickProxy("v3BtnScenarioDelete", "btnScenarioDelete");
+}
+
+function syncScenariosBridgeUi() {
+  const legacySelect = getLegacyEl("scenarioSelect");
+  const legacyName = getLegacyEl("scenarioNewName");
+  const legacyActive = getLegacyEl("activeScenarioLabel");
+
+  const v3Select = document.getElementById("v3ScenarioSelect");
+  if (v3Select instanceof HTMLSelectElement && legacySelect instanceof HTMLSelectElement) {
+    syncSelectOptions(v3Select, legacySelect);
+    v3Select.value = legacySelect.value;
+  }
+
+  const v3Name = document.getElementById("v3ScenarioNewName");
+  if (v3Name instanceof HTMLInputElement && legacyName instanceof HTMLInputElement) {
+    v3Name.value = legacyName.value;
+  }
+
+  setText("v3ScenarioActiveLabel", legacyActive ? (legacyActive.textContent || "").trim() : "");
+
+  syncButtonDisabled("v3BtnScenarioSaveNew", "btnScenarioSaveNew");
+  syncButtonDisabled("v3BtnScenarioCloneBaseline", "btnScenarioCloneBaseline");
+  syncButtonDisabled("v3BtnScenarioLoadSelected", "btnScenarioLoadSelected");
+  syncButtonDisabled("v3BtnScenarioReturnBaseline", "btnScenarioReturnBaseline");
+  syncButtonDisabled("v3BtnScenarioDelete", "btnScenarioDelete");
 }
