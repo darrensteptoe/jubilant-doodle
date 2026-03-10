@@ -2117,6 +2117,24 @@
 </table>
 </div>
 <div class="muted" id="censusAdvisoryStatus" style="margin-top:6px;">Assumption advisory pending.</div>
+<details id="censusAdvisoryGuide" style="margin-top:8px;">
+<summary>Advisory signal guide</summary>
+<div class="muted" style="margin-top:6px;">All advisory indices are centered at <strong>1.00</strong> baseline for the selected GEO footprint.</div>
+<div class="table-wrap" style="margin-top:8px;">
+<table class="table" aria-label="Advisory signal ranges">
+<thead>
+<tr><th>Signal</th><th>What it means</th><th>Low</th><th>Moderate</th><th>High</th></tr>
+</thead>
+<tbody id="censusAdvisoryGuideTbody">
+<tr><td>Field speed index</td><td>Expected canvassing throughput in this footprint.</td><td>&le; 0.92</td><td>0.93-1.07</td><td>&ge; 1.08</td></tr>
+<tr><td>Persuasion environment</td><td>Structural persuasion potential from ACS profile mix.</td><td>&le; 0.92</td><td>0.93-1.07</td><td>&ge; 1.08</td></tr>
+<tr><td>Turnout elasticity</td><td>Expected turnout responsiveness to GOTV pressure.</td><td>&le; 0.92</td><td>0.93-1.07</td><td>&ge; 1.08</td></tr>
+<tr><td>Field difficulty</td><td>Operational friction and organizer load for contact execution.</td><td>&le; 0.92 (easier)</td><td>0.93-1.07</td><td>&ge; 1.08 (harder)</td></tr>
+<tr><td>Advisory doors/hour multiplier</td><td>Multiplier applied to blended APH to estimate environment-adjusted APH.</td><td>&lt; 0.90</td><td>0.90-1.10</td><td>&gt; 1.10</td></tr>
+</tbody>
+</table>
+</div>
+</details>
 <div class="muted" id="censusSelectionSummary">No GEO selected. Select one or more GEO units to aggregate.</div>
 <div class="rowline" style="margin-top:8px; gap:8px; flex-wrap:wrap;">
 <button class="btn btn-sm btn-ghost" id="btnCensusSetRaceFootprint" type="button">Set as race footprint</button>
@@ -3192,7 +3210,7 @@ Volunteer multiplier stays above 1.5" rows="4"></textarea>
 </aside>
 </div>
 <!-- /app-shell -->
-<script src="./js/app.js?v=20260309-census-phase1-32" type="module"></script>
+<script src="./js/app.js?v=20260309-census-phase1-33" type="module"></script>
 <script>
 // ── Stage navigation ───────────────────────────────────────────
 function normalizeStages() {
