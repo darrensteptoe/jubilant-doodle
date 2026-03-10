@@ -641,8 +641,21 @@
   margin-top: 8px;
 }
 
+#app-shell-v3-root .fpe-surface .table-wrap {
+  border: 1px solid var(--fpe-rule);
+  border-radius: var(--fpe-radius-sm);
+  background: var(--fpe-panel);
+  overflow: auto;
+}
+
+#app-shell-v3-root .fpe-surface .table thead,
+#app-shell-v3-root .fpe-surface .table tr:first-child > th {
+  background: color-mix(in srgb, var(--fpe-rule) 22%, var(--fpe-panel));
+}
+
 #app-shell-v3-root .fpe-surface .table thead th {
-  background: var(--fpe-panel-muted) !important;
+  background: color-mix(in srgb, var(--fpe-rule) 22%, var(--fpe-panel)) !important;
+  border-bottom: 1px solid color-mix(in srgb, var(--fpe-rule) 88%, transparent);
 }
 
 #app-shell-v3-root .fpe-card__body .fpe-field-grid--2,
@@ -811,6 +824,16 @@
 
 .fpe-surface-pane[data-v3-stage="district"] .fpe-census-subsection__body > * + * {
   margin-top: 10px;
+}
+
+.fpe-surface-pane[data-v3-stage="district"] .fpe-census-subsection--setup .fpe-field-grid,
+.fpe-surface-pane[data-v3-stage="district"] .fpe-census-subsection--output .fpe-field-grid {
+  margin-bottom: 10px;
+}
+
+.fpe-surface-pane[data-v3-stage="district"] .fpe-census-fetch-row {
+  margin-top: 2px;
+  margin-bottom: 10px;
 }
 
 .fpe-surface-pane[data-v3-stage="district"] .fpe-census-status-strip {
