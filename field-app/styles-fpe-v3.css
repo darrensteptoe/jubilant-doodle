@@ -547,6 +547,77 @@
   margin: 0;
 }
 
+.fpe-message-window {
+  border: 1px solid var(--fpe-rule);
+  border-radius: var(--fpe-radius-sm);
+  background: var(--fpe-panel-muted);
+  padding: 10px 12px;
+}
+
+.fpe-message-window__head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.fpe-message-window__tag {
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid color-mix(in srgb, var(--fpe-rule) 90%, transparent);
+  border-radius: 999px;
+  padding: 2px 7px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--fpe-muted);
+}
+
+.fpe-message-window__body > * + * {
+  margin-top: 8px;
+}
+
+.fpe-message-window__body .muted,
+.fpe-message-window__body .note,
+.fpe-message-window__body .help-text,
+.fpe-message-window__body .help,
+.fpe-message-window__body .banner,
+.fpe-message-window__body .fpe-census-intro {
+  margin: 0;
+  line-height: 1.45;
+}
+
+.fpe-message-window--warn {
+  border-color: color-mix(in srgb, var(--fpe-warning) 32%, var(--fpe-rule));
+  background: color-mix(in srgb, var(--fpe-warning) 10%, var(--fpe-panel));
+}
+
+.fpe-message-window--warn .fpe-message-window__tag {
+  border-color: color-mix(in srgb, var(--fpe-warning) 38%, var(--fpe-rule));
+  color: var(--fpe-warning);
+}
+
+.fpe-message-window--status {
+  border-color: color-mix(in srgb, var(--fpe-accent) 22%, var(--fpe-rule));
+  background: color-mix(in srgb, var(--fpe-accent) 7%, var(--fpe-panel));
+}
+
+.fpe-message-window--status .fpe-message-window__tag {
+  border-color: color-mix(in srgb, var(--fpe-accent) 30%, var(--fpe-rule));
+  color: color-mix(in srgb, var(--fpe-accent) 80%, var(--fpe-text));
+}
+
+.fpe-message-window--tip {
+  border-color: color-mix(in srgb, var(--fpe-success) 24%, var(--fpe-rule));
+  background: color-mix(in srgb, var(--fpe-success) 8%, var(--fpe-panel));
+}
+
+.fpe-message-window--tip .fpe-message-window__tag {
+  border-color: color-mix(in srgb, var(--fpe-success) 32%, var(--fpe-rule));
+  color: color-mix(in srgb, var(--fpe-success) 80%, var(--fpe-text));
+}
+
 .fpe-action-row .mini-s,
 .fpe-action-row .muted,
 .fpe-action-row .help-text {
@@ -824,6 +895,18 @@
 
 .fpe-surface-pane[data-v3-stage="district"] .fpe-census-subsection__body > * + * {
   margin-top: 10px;
+}
+
+.fpe-surface-pane[data-v3-stage="district"] .fpe-census-status-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.fpe-surface-pane[data-v3-stage="district"] .fpe-census-status-list > .muted,
+.fpe-surface-pane[data-v3-stage="district"] .fpe-census-status-list > .note,
+.fpe-surface-pane[data-v3-stage="district"] .fpe-census-status-list > .help-text {
+  margin: 0;
 }
 
 .fpe-surface-pane[data-v3-stage="district"] .fpe-census-subsection--setup .fpe-field-grid,
