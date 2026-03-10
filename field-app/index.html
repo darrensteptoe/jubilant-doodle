@@ -2106,6 +2106,17 @@
 </div>
 </div>
 </div>
+<div class="table-wrap" style="margin-top:8px;">
+<table class="table" aria-label="Census assumptions advisory">
+<thead>
+<tr><th>Advisory signal</th><th class="num">Value</th></tr>
+</thead>
+<tbody id="censusAdvisoryTbody">
+<tr><td class="muted" colspan="2">Load ACS rows for selected GEO units to compute advisory indices.</td></tr>
+</tbody>
+</table>
+</div>
+<div class="muted" id="censusAdvisoryStatus" style="margin-top:6px;">Assumption advisory pending.</div>
 <div class="muted" id="censusSelectionSummary">No GEO selected. Select one or more GEO units to aggregate.</div>
 <div class="rowline" style="margin-top:8px; gap:8px; flex-wrap:wrap;">
 <button class="btn btn-sm btn-ghost" id="btnCensusSetRaceFootprint" type="button">Set as race footprint</button>
@@ -3181,7 +3192,7 @@ Volunteer multiplier stays above 1.5" rows="4"></textarea>
 </aside>
 </div>
 <!-- /app-shell -->
-<script src="./js/app.js?v=20260309-census-phase1-29" type="module"></script>
+<script src="./js/app.js?v=20260309-census-phase1-32" type="module"></script>
 <script>
 // ── Stage navigation ───────────────────────────────────────────
 function normalizeStages() {
