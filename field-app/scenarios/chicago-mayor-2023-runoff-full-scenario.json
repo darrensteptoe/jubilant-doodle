@@ -1,0 +1,449 @@
+{
+  "schemaVersion": "1.6.0",
+  "appVersion": "1.0",
+  "buildId": "dev",
+  "modelVersion": "1.0.0",
+  "exportedAt": "2026-03-10T18:15:00.000Z",
+  "scenario": {
+    "scenarioName": "Chicago Mayor 2023 Runoff - Full System Demo",
+    "raceType": "municipal",
+    "electionDate": "2023-04-04",
+    "weeksRemaining": 8,
+    "mode": "persuasion",
+    "universeBasis": "registered",
+    "universeSize": 1560000,
+    "sourceNote": "Historical back-test scenario for the April 4, 2023 Chicago mayoral runoff. Candidates: Brandon Johnson vs Paul Vallas. First-round context candidates included Brandon Johnson, Paul Vallas, Jesus \"Chuy\" Garcia, Lori Lightfoot, and Willie Wilson.",
+    "turnoutA": 34,
+    "turnoutB": 45,
+    "bandWidth": 4,
+    "candidates": [
+      {
+        "id": "brandon_johnson_2023",
+        "name": "Brandon Johnson",
+        "supportPct": 46
+      },
+      {
+        "id": "paul_vallas_2023",
+        "name": "Paul Vallas",
+        "supportPct": 44
+      }
+    ],
+    "undecidedPct": 10,
+    "yourCandidateId": "brandon_johnson_2023",
+    "undecidedMode": "proportional",
+    "userSplit": {},
+    "persuasionPct": 24,
+    "earlyVoteExp": 41,
+    "goalSupportIds": "",
+    "supportRatePct": 52,
+    "contactRatePct": 19,
+    "doorsPerHour": 17,
+    "hoursPerShift": 3,
+    "shiftsPerVolunteerPerWeek": 2,
+    "orgCount": 35,
+    "orgHoursPerWeek": 42,
+    "volunteerMultBase": 2.4,
+    "channelDoorPct": 62,
+    "doorsPerHour3": 17,
+    "callsPerHour3": 22,
+    "turnoutReliabilityPct": 78,
+    "turnoutEnabled": true,
+    "turnoutBaselinePct": 36,
+    "turnoutTargetOverridePct": 41,
+    "gotvMode": "advanced",
+    "gotvLiftPP": 1.4,
+    "gotvMaxLiftPP": 6,
+    "gotvDiminishing": true,
+    "gotvLiftMin": 0.7,
+    "gotvLiftMode": 1.3,
+    "gotvLiftMax": 2.2,
+    "gotvMaxLiftPP2": 6,
+    "timelineEnabled": true,
+    "timelineActiveWeeks": 8,
+    "timelineGotvWeeks": 2,
+    "timelineStaffCount": 55,
+    "timelineStaffHours": 42,
+    "timelineVolCount": 1750,
+    "timelineVolHours": 4,
+    "timelineRampEnabled": true,
+    "timelineRampMode": "linear",
+    "timelineDoorsPerHour": 17,
+    "timelineCallsPerHour": 22,
+    "timelineTextsPerHour": 140,
+    "crmEnabled": true,
+    "scheduleEnabled": true,
+    "twCapOverrideEnabled": true,
+    "twCapOverrideMode": "scheduled",
+    "twCapOverrideHorizonWeeks": 8,
+    "mcMode": "advanced",
+    "mcVolatility": "med",
+    "mcSeed": "chicago-2023-runoff-backtest",
+    "budget": {
+      "overheadAmount": 85000,
+      "includeOverhead": true,
+      "tactics": {
+        "doors": {
+          "enabled": true,
+          "cpa": 0.95,
+          "kind": "persuasion",
+          "crPct": 19,
+          "srPct": 52
+        },
+        "phones": {
+          "enabled": true,
+          "cpa": 0.11,
+          "kind": "persuasion",
+          "crPct": 12,
+          "srPct": 48
+        },
+        "texts": {
+          "enabled": true,
+          "cpa": 0.04,
+          "kind": "turnout",
+          "crPct": 6,
+          "srPct": 36
+        }
+      },
+      "optimize": {
+        "mode": "budget",
+        "budgetAmount": 1250000,
+        "capacityAttempts": 420000,
+        "step": 100,
+        "useDecay": true,
+        "objective": "net",
+        "tlConstrainedEnabled": true,
+        "tlConstrainedObjective": "max_net"
+      }
+    },
+    "mcContactMin": 15,
+    "mcContactMode": 19,
+    "mcContactMax": 24,
+    "mcPersMin": 20,
+    "mcPersMode": 24,
+    "mcPersMax": 30,
+    "mcReliMin": 70,
+    "mcReliMode": 78,
+    "mcReliMax": 85,
+    "mcDphMin": 14,
+    "mcDphMode": 17,
+    "mcDphMax": 20,
+    "mcCphMin": 18,
+    "mcCphMode": 22,
+    "mcCphMax": 26,
+    "mcVolMin": 1.8,
+    "mcVolMode": 2.4,
+    "mcVolMax": 3.2,
+    "mcLast": null,
+    "mcLastHash": "",
+    "universeLayerEnabled": true,
+    "universeDemPct": 62,
+    "universeRepPct": 11,
+    "universeNpaPct": 23,
+    "universeOtherPct": 4,
+    "retentionFactor": 0.84,
+    "census": {
+      "year": "2024",
+      "resolution": "tract",
+      "metricSet": "all",
+      "stateFips": "17",
+      "countyFips": "031",
+      "placeFips": "14000",
+      "geoSearch": "",
+      "tractFilter": "",
+      "geoOptions": [],
+      "selectedGeoids": [
+        "17031010100",
+        "17031010201",
+        "17031010300",
+        "17031010400",
+        "17031010501",
+        "17031010600",
+        "17031010701",
+        "17031010800"
+      ],
+      "rowsByGeoid": {},
+      "activeRowsKey": "",
+      "loadedRowCount": 0,
+      "loadingGeo": false,
+      "loadingRows": false,
+      "status": "Chicago context loaded. Fetch GEO list and ACS rows to hydrate runtime data.",
+      "error": "",
+      "lastFetchAt": "",
+      "variableCatalogYear": "",
+      "variableCatalogCount": 0,
+      "mapQaVtdOverlay": true,
+      "applyAdjustedAssumptions": false,
+      "selectionSets": [
+        {
+          "name": "Northwest Persuasion Cluster",
+          "resolution": "tract",
+          "stateFips": "17",
+          "countyFips": "031",
+          "placeFips": "",
+          "geoids": [
+            "17031010100",
+            "17031010201",
+            "17031010300"
+          ],
+          "updatedAt": "2026-03-10T18:10:00.000Z"
+        },
+        {
+          "name": "Lakefront Turnout Cluster",
+          "resolution": "tract",
+          "stateFips": "17",
+          "countyFips": "031",
+          "placeFips": "",
+          "geoids": [
+            "17031010400",
+            "17031010501",
+            "17031010600"
+          ],
+          "updatedAt": "2026-03-10T18:11:00.000Z"
+        },
+        {
+          "name": "Southwest Field Mix Cluster",
+          "resolution": "tract",
+          "stateFips": "17",
+          "countyFips": "031",
+          "placeFips": "",
+          "geoids": [
+            "17031010701",
+            "17031010800"
+          ],
+          "updatedAt": "2026-03-10T18:12:00.000Z"
+        }
+      ],
+      "selectionSetDraftName": "",
+      "selectedSelectionSetKey": "0",
+      "requestSeq": 0
+    },
+    "raceFootprint": {
+      "source": "census_phase1",
+      "year": "2024",
+      "resolution": "tract",
+      "metricSet": "all",
+      "stateFips": "17",
+      "countyFips": "031",
+      "placeFips": "",
+      "geoids": [
+        "17031010100",
+        "17031010201",
+        "17031010300",
+        "17031010400",
+        "17031010501",
+        "17031010600",
+        "17031010701",
+        "17031010800"
+      ],
+      "rowCount": 0,
+      "rowsKey": "",
+      "fingerprint": "2024|tract|all|17|031||17031010100,17031010201,17031010300,17031010400,17031010501,17031010600,17031010701,17031010800",
+      "updatedAt": "2026-03-10T18:13:00.000Z"
+    },
+    "assumptionsProvenance": {
+      "source": "manual_seed",
+      "raceFootprintFingerprint": "2024|tract|all|17|031||17031010100,17031010201,17031010300,17031010400,17031010501,17031010600,17031010701,17031010800",
+      "censusRowsKey": "",
+      "acsYear": "2024",
+      "metricSet": "all",
+      "generatedAt": "2026-03-10T18:13:00.000Z"
+    },
+    "footprintCapacity": {
+      "source": "manual_seed",
+      "population": 318450,
+      "year": "2024",
+      "metricSet": "all",
+      "raceFootprintFingerprint": "2024|tract|all|17|031||17031010100,17031010201,17031010300,17031010400,17031010501,17031010600,17031010701,17031010800",
+      "censusRowsKey": "",
+      "updatedAt": "2026-03-10T18:13:00.000Z"
+    },
+    "intelState": {
+      "version": "1.0.0",
+      "refCatalog": {},
+      "evidence": [
+        {
+          "id": "ev_chi_runoff_results",
+          "title": "Chicago Mayor Runoff 2023 certified totals",
+          "source": "Chicago Board of Elections",
+          "capturedAt": "2023-04-04",
+          "ref": "core.turnoutBaselinePct"
+        },
+        {
+          "id": "ev_chi_turnout_profile",
+          "title": "Ward-level turnout profile baseline",
+          "source": "City Clerk historical turnout",
+          "capturedAt": "2023-02-28",
+          "ref": "core.contactRatePct"
+        }
+      ],
+      "benchmarks": [
+        {
+          "id": "bm_support_rate_muni",
+          "ref": "core.supportRatePct",
+          "raceType": "municipal",
+          "range": {
+            "min": 40,
+            "max": 65
+          },
+          "severityBands": {
+            "warnAbove": 68,
+            "hardAbove": 75
+          },
+          "source": {
+            "title": "Historical municipal persuasion programs",
+            "type": "internal"
+          }
+        },
+        {
+          "id": "bm_contact_rate_muni",
+          "ref": "core.contactRatePct",
+          "raceType": "municipal",
+          "range": {
+            "min": 12,
+            "max": 26
+          },
+          "severityBands": {
+            "warnAbove": 28,
+            "hardAbove": 34
+          },
+          "source": {
+            "title": "Urban field cycle benchmarks",
+            "type": "internal"
+          }
+        }
+      ],
+      "flags": [],
+      "audit": [],
+      "briefs": [
+        {
+          "id": "brief_calibration_chi_2023",
+          "kind": "calibrationSources",
+          "promptId": "calibration_backtest_municipal",
+          "model": "manual",
+          "createdAt": "2026-03-10T18:14:00.000Z",
+          "content": "Runoff structure increases late turnout variability. Keep persuasion assumptions bounded and enforce field-capacity realism checks against footprint limits."
+        }
+      ],
+      "recommendations": [
+        {
+          "id": "rec_focus_nw_lakefront",
+          "createdAt": "2026-03-10T18:14:30.000Z",
+          "priority": "high",
+          "title": "Prioritize persuasion + turnout split",
+          "content": "Use persuasion-heavy contacts in northwest persuasion clusters and turnout-heavy execution in lakefront high-propensity clusters."
+        }
+      ],
+      "observedMetrics": [
+        {
+          "id": "obs_turnout_baseline_2023",
+          "ref": "core.turnoutBaselinePct",
+          "value": 36,
+          "capturedAt": "2023-04-05",
+          "source": "historical backtest"
+        }
+      ],
+      "intelRequests": [
+        {
+          "id": "req_census_refresh_2024",
+          "createdAt": "2026-03-10T18:14:45.000Z",
+          "status": "open",
+          "title": "Refresh ACS pull for selected tract footprint"
+        }
+      ],
+      "correlationModels": [
+        {
+          "id": "corr_muni_base",
+          "label": "Municipal baseline",
+          "refs": [
+            "core.contactRatePct",
+            "core.supportRatePct"
+          ],
+          "matrix": [
+            [
+              1,
+              0.35
+            ],
+            [
+              0.35,
+              1
+            ]
+          ],
+          "notes": "Mild positive correlation between contact and support quality in mature programs."
+        }
+      ],
+      "shockScenarios": [
+        {
+          "id": "shock_weather_dropoff",
+          "label": "Bad weather GOTV weekend",
+          "impacts": [
+            {
+              "ref": "core.turnoutBaselinePct",
+              "delta": -2.2
+            },
+            {
+              "ref": "core.contactRatePct",
+              "delta": -1.1
+            }
+          ],
+          "probability": 0.25,
+          "notes": "Late severe weather dampens contact execution and election-day turnout."
+        }
+      ],
+      "workflow": {
+        "scenarioLocked": false,
+        "lockReason": "",
+        "lockedAt": null,
+        "lockedBy": "",
+        "governanceBaselineAt": null,
+        "requireCriticalNote": true,
+        "requireCriticalEvidence": true
+      },
+      "simToggles": {
+        "mcDistribution": "triangular",
+        "correlatedShocks": true,
+        "correlationMatrixId": "corr_muni_base",
+        "shockScenariosEnabled": true
+      },
+      "expertToggles": {
+        "capacityDecayEnabled": true,
+        "decayModel": {
+          "type": "linear",
+          "weeklyDecayPct": 0.03,
+          "floorPctOfBaseline": 0.7
+        }
+      }
+    },
+    "features": {
+      "turnout": {
+        "modelingEnabled": true
+      },
+      "timeline": {
+        "enabled": true
+      },
+      "universe": {
+        "weightingEnabled": true
+      },
+      "risk": {
+        "mcDistribution": "triangular",
+        "correlatedShocks": true,
+        "shockScenariosEnabled": true
+      },
+      "capacity": {
+        "decayEnabled": true
+      }
+    },
+    "ui": {
+      "training": false,
+      "dark": false,
+      "advDiag": true,
+      "strictImport": false,
+      "activeTab": "win",
+      "assumptionsProfile": "custom_overrides",
+      "decision": {
+        "sessions": {},
+        "activeSessionId": null
+      },
+      "mcMeta": null
+    }
+  }
+}
