@@ -10,10 +10,8 @@ import { createFieldGrid, readText, setText } from "../surfaceUtils.js";
 
 export function renderReachSurface(mount) {
   const frame = createSurfaceFrame("two-col");
-  const controls = createColumn("controls");
-  const modelState = createColumn("state");
-  const results = createColumn("results");
-  results.classList.add("fpe-col--full-row");
+  const left = createColumn("left");
+  const right = createColumn("right");
 
   const universeCard = createCard({
     title: "Universe assumptions",
@@ -184,10 +182,22 @@ export function renderReachSurface(mount) {
   });
 
   const freshnessBody = getCardBody(freshnessCard);
+  const freshnessContext = document.createElement("div");
+  freshnessContext.className = "fpe-contained-block";
+  freshnessBody.append(freshnessContext);
   mountLegacyNode({
-    key: "v3-reach-freshness-top-note",
-    selector: "#weeklyOpsFreshnessCard > .note",
-    target: freshnessBody
+    key: "v3-reach-freshness-context-text",
+    selector: "#weeklyOpsFreshnessCard > .note > div:first-child",
+    target: freshnessContext
+  });
+  const freshnessTopActions = document.createElement("div");
+  freshnessTopActions.className = "fpe-action-row";
+  freshnessTopActions.style.marginTop = "10px";
+  freshnessContext.append(freshnessTopActions);
+  mountLegacyNode({
+    key: "v3-reach-freshness-export-btn",
+    selector: "#dailyLogExportBtn",
+    target: freshnessTopActions
   });
   mountLegacyClosest({
     key: "v3-reach-freshness-import-field",
@@ -195,34 +205,102 @@ export function renderReachSurface(mount) {
     closestSelector: ".field",
     target: freshnessBody
   });
+  const importField = freshnessBody.querySelector("#dailyLogImportText")?.closest(".field");
+  if (importField) {
+    const importActions = document.createElement("div");
+    importActions.className = "fpe-action-row";
+    importActions.style.marginTop = "10px";
+    importField.append(importActions);
+    const importBtn = importField.querySelector("#dailyLogImportBtn");
+    const importMsg = importField.querySelector("#dailyLogImportMsg");
+    if (importBtn) {
+      importActions.append(importBtn);
+    }
+    if (importMsg) {
+      importActions.append(importMsg);
+    }
+  }
   mountLegacyClosest({
     key: "v3-reach-freshness-subgrid",
     childSelector: "#wkLastUpdate",
     closestSelector: ".subgrid",
     target: freshnessBody
   });
-  mountLegacyClosest({
-    key: "v3-reach-freshness-analyst-note",
-    childSelector: "#applyRollingCRBtn",
-    closestSelector: ".note",
-    target: freshnessBody
+  const analystTools = document.createElement("div");
+  analystTools.className = "fpe-contained-block";
+  analystTools.style.marginTop = "10px";
+  analystTools.innerHTML = `<div class="fpe-help" style="margin-top:0;">Analyst tools</div>`;
+  freshnessBody.append(analystTools);
+  const analystActions = document.createElement("div");
+  analystActions.className = "fpe-action-row";
+  analystActions.style.marginTop = "8px";
+  analystTools.append(analystActions);
+  mountLegacyNode({
+    key: "v3-reach-analyst-cr-btn",
+    selector: "#applyRollingCRBtn",
+    target: analystActions
+  });
+  mountLegacyNode({
+    key: "v3-reach-analyst-sr-btn",
+    selector: "#applyRollingSRBtn",
+    target: analystActions
+  });
+  mountLegacyNode({
+    key: "v3-reach-analyst-aph-btn",
+    selector: "#applyRollingAPHBtn",
+    target: analystActions
+  });
+  mountLegacyNode({
+    key: "v3-reach-analyst-all-btn",
+    selector: "#applyRollingAllBtn",
+    target: analystActions
+  });
+  mountLegacyNode({
+    key: "v3-reach-analyst-msg",
+    selector: "#applyRollingMsg",
+    target: analystActions
+  });
+  const freshnessRealityNote = document.createElement("div");
+  freshnessRealityNote.className = "fpe-contained-block";
+  freshnessRealityNote.style.marginTop = "10px";
+  freshnessBody.append(freshnessRealityNote);
+  mountLegacyNode({
+    key: "v3-reach-freshness-reality-note",
+    selector: "#weeklyOpsFreshnessCard > .note:last-of-type",
+    target: freshnessRealityNote
   });
 
   const actionsBody = getCardBody(actionsCard);
-  mountLegacyNode({
-    key: "v3-reach-actions-bar",
-    selector: "#weeklyOpsActionsCard .wkActionBar",
-    target: actionsBody
-  });
+  const actionsListWrap = document.createElement("div");
+  actionsListWrap.className = "fpe-contained-block";
+  actionsBody.append(actionsListWrap);
   mountLegacyNode({
     key: "v3-reach-actions-list",
     selector: "#wkActionsList",
-    target: actionsBody
+    target: actionsListWrap
+  });
+  const actionsUndoRow = document.createElement("div");
+  actionsUndoRow.className = "fpe-action-row";
+  actionsUndoRow.style.marginTop = "12px";
+  actionsBody.append(actionsUndoRow);
+  mountLegacyNode({
+    key: "v3-reach-actions-undo-btn",
+    selector: "#wkUndoActionBtn",
+    target: actionsUndoRow
   });
   mountLegacyNode({
+    key: "v3-reach-actions-undo-msg",
+    selector: "#wkUndoActionMsg",
+    target: actionsUndoRow
+  });
+  const actionsGuidance = document.createElement("div");
+  actionsGuidance.className = "fpe-contained-block";
+  actionsGuidance.style.marginTop = "10px";
+  actionsBody.append(actionsGuidance);
+  mountLegacyNode({
     key: "v3-reach-actions-note",
-    selector: "#weeklyOpsActionsCard .note",
-    target: actionsBody
+    selector: "#weeklyOpsActionsCard > .note",
+    target: actionsGuidance
   });
 
   const conversionBody = getCardBody(conversionCard);
@@ -257,11 +335,10 @@ export function renderReachSurface(mount) {
     </div>
   `;
 
-  controls.append(universeCard, leversCard);
-  modelState.append(weeklyCard, outlookCard, freshnessCard);
-  results.append(actionsCard, conversionCard, summaryCard);
+  left.append(universeCard, leversCard, freshnessCard, conversionCard, summaryCard);
+  right.append(weeklyCard, outlookCard, actionsCard);
 
-  frame.append(controls, modelState, results);
+  frame.append(left, right);
   mount.append(frame);
   mount.append(
     createWhyPanel([

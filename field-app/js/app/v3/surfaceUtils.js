@@ -169,3 +169,84 @@ export function syncCheckboxValue(v3Id, legacyId) {
 
   v3.checked = legacy.checked;
 }
+
+export function normalizeSurfaceActionRows(root) {
+  if (!(root instanceof HTMLElement)) {
+    return;
+  }
+
+  const candidates = root.querySelectorAll(
+    ".note, .help-text, .muted, .rowline, .card-actions, .wkActionBar, .integrity-actions, .scm-actions"
+  );
+
+  candidates.forEach((node) => {
+    if (!(node instanceof HTMLElement)) {
+      return;
+    }
+    if (node.dataset.v3ActionNormalized === "1") {
+      return;
+    }
+    if (node.closest(".fpe-action-row")) {
+      return;
+    }
+
+    const hasFormControls = node.querySelector(
+      "input:not([type='button']):not([type='submit']), select, textarea"
+    );
+    const childNodes = Array.from(node.childNodes).filter((child) => {
+      if (child.nodeType === Node.TEXT_NODE) {
+        return Boolean((child.textContent || "").trim());
+      }
+      return true;
+    });
+
+    const actionNodes = [];
+    const contentNodes = [];
+
+    childNodes.forEach((child) => {
+      if (isActionNode(child)) {
+        actionNodes.push(child);
+        return;
+      }
+      contentNodes.push(child);
+    });
+
+    if (!actionNodes.length) {
+      return;
+    }
+
+    node.dataset.v3ActionNormalized = "1";
+
+    if (hasFormControls) {
+      node.classList.add("fpe-action-row");
+      return;
+    }
+
+    const wrapper = document.createElement("div");
+    wrapper.className = "fpe-action-group";
+
+    if (contentNodes.length) {
+      const content = document.createElement("div");
+      content.className = "fpe-contained-block";
+      contentNodes.forEach((item) => content.appendChild(item));
+      wrapper.appendChild(content);
+    }
+
+    const actionRow = document.createElement("div");
+    actionRow.className = "fpe-action-row";
+    actionNodes.forEach((item) => actionRow.appendChild(item));
+    wrapper.appendChild(actionRow);
+
+    node.replaceWith(wrapper);
+  });
+}
+
+function isActionNode(node) {
+  if (!(node instanceof HTMLElement)) {
+    return false;
+  }
+
+  return node.matches(
+    "button, .btn, .fpe-btn, a.btn, input[type='button'], input[type='submit']"
+  );
+}
