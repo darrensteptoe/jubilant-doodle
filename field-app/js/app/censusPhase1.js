@@ -32,12 +32,13 @@ import {
   summarizeFootprintFeasibilityIssues,
   buildCensusAssumptionAdvisory,
   evaluateCensusPaceAgainstAdvisory,
+  evaluateQaOverlayNonBlocking,
   buildElectionCsvTemplate,
   buildElectionCsvWideTemplate,
   getElectionCsvUploadGuide,
   parseCsvText,
   normalizeElectionCsvRows,
-} from "../core/censusModule.js?v=20260310-census-phase1-38";
+} from "../core/censusModule.js?v=20260310-census-phase1-39";
 
 const variableCatalogCache = new Map();
 let stateOptionsCache = null;
@@ -634,7 +635,13 @@ async function onLoadMapBoundaries({ s, els, commitUIUpdate }){
   } catch (err){
     if (seq !== mapRequestSeq) return;
     const msg = cleanText(err?.message) || "Boundary load failed.";
-    if (mapRuntimeStatus.qaLoading){
+    const qaFailure = !!mapRuntimeStatus.qaLoading;
+    const qaPolicy = evaluateQaOverlayNonBlocking({
+      primaryFeatureCount: mapRuntimeStatus.featureCount,
+      qaEnabled: !!s.mapQaVtdOverlay,
+      qaFailed: qaFailure,
+    });
+    if (qaFailure && !qaPolicy.blocking){
       clearMapQaOverlay(`VTD QA overlay unavailable: ${msg}`);
       mapRuntimeStatus.qaLoading = false;
       mapRuntimeStatus.qaText = cleanText(mapRuntimeStatus.qaText) || "VTD QA overlay unavailable.";
@@ -1100,6 +1107,8 @@ export function renderCensusPhase1Module({ els, state, res } = {}){
     doorShare: canonicalDoorShare,
     doorsPerHour: Number(state?.doorsPerHour3 ?? state?.doorsPerHour),
     callsPerHour: Number(state?.callsPerHour3),
+    rowsByGeoid: runtimeRows,
+    selectedGeoids: s.selectedGeoids,
   });
   const advisoryPace = evaluateCensusPaceAgainstAdvisory({
     advisory,
@@ -1159,6 +1168,13 @@ export function renderCensusPhase1Module({ els, state, res } = {}){
       const n = Number(v);
       return Number.isFinite(n) ? n.toFixed(1) : "—";
     };
+    const fBand = (band) => {
+      const low = Number(band?.low);
+      const mid = Number(band?.mid);
+      const high = Number(band?.high);
+      if (!Number.isFinite(low) || !Number.isFinite(mid) || !Number.isFinite(high)) return "—";
+      return `${fNum(low)} / ${fNum(mid)} / ${fNum(high)}`;
+    };
     const rows = advisory.ready
       ? [
           { label: "Field speed index", value: `${fIdx(advisory.indices.fieldSpeed)} (${advisory.bands.fieldSpeed})` },
@@ -1167,14 +1183,17 @@ export function renderCensusPhase1Module({ els, state, res } = {}){
           { label: "Field difficulty", value: `${fIdx(advisory.indices.fieldDifficulty)} (${advisory.bands.fieldDifficulty})` },
           { label: "Advisory doors/hour multiplier", value: `${fIdx(advisory.multipliers.doorsPerHour)} (${fPct(advisory.aph.deltaPct)})` },
           { label: "Current blended APH", value: fNum(advisory.aph.base) },
-          { label: "Environment-adjusted APH", value: fNum(advisory.aph.adjusted) },
+          { label: "Achievable APH band (p25/p50/p75)", value: fBand(advisory.aph.range) },
+          { label: "Environment-adjusted APH (p50)", value: fNum(advisory.aph.adjusted) },
           { label: "Required APH to hit goal", value: advisoryPace.ready ? fNum(advisoryPace.requiredAph) : "—" },
           {
             label: "APH feasibility check",
             value: advisoryPace.ready
               ? (advisoryPace.feasible
-                ? `Within range (${fPct(advisoryPace.gapPct)})`
-                : `Shortfall (${fPct(advisoryPace.gapPct)})`)
+                ? (advisoryPace.severity === "warn"
+                  ? `Near top of range (${fPct(advisoryPace.gapPct)})`
+                  : `Within range (${fPct(advisoryPace.gapPct)})`)
+                : `Above plausible range (${fPct(advisoryPace.gapPct)})`)
               : "—",
           },
         ]
@@ -1410,9 +1429,21 @@ export function renderCensusPhase1Module({ els, state, res } = {}){
         const adj = Number(advisoryPace.availableAph).toFixed(1);
         const gap = `${(Number(advisoryPace.gapPct) * 100).toFixed(1)}%`;
         const buffer = `${Math.abs(Number(advisoryPace.gapPct) * 100).toFixed(1)}%`;
-        els.censusAdvisoryStatus.textContent = advisoryPace.feasible
-          ? `Assumption advisory ready. Signal coverage ${coverageText}. Required APH ${req} vs adjusted APH ${adj} (${buffer} buffer).`
-          : `Assumption advisory ready. Signal coverage ${coverageText}. Required APH ${req} vs adjusted APH ${adj} (${gap} shortfall).`;
+        const band = advisoryPace.availableAphRange;
+        if (band){
+          const low = Number(band.low).toFixed(1);
+          const mid = Number(band.mid).toFixed(1);
+          const high = Number(band.high).toFixed(1);
+          els.censusAdvisoryStatus.textContent = advisoryPace.feasible
+            ? (advisoryPace.severity === "warn"
+              ? `Assumption advisory ready. Signal coverage ${coverageText}. Required APH ${req} vs achievable band ${low}/${mid}/${high} (near top, ${buffer} headroom).`
+              : `Assumption advisory ready. Signal coverage ${coverageText}. Required APH ${req} vs achievable band ${low}/${mid}/${high} (${buffer} headroom).`)
+            : `Assumption advisory ready. Signal coverage ${coverageText}. Required APH ${req} vs achievable band ${low}/${mid}/${high} (${gap} above plausible range).`;
+        } else {
+          els.censusAdvisoryStatus.textContent = advisoryPace.feasible
+            ? `Assumption advisory ready. Signal coverage ${coverageText}. Required APH ${req} vs adjusted APH ${adj} (${buffer} buffer).`
+            : `Assumption advisory ready. Signal coverage ${coverageText}. Required APH ${req} vs adjusted APH ${adj} (${gap} shortfall).`;
+        }
       } else if (hasAph){
         const pct = `${(Number(advisory.aph.deltaPct) * 100).toFixed(1)}%`;
         els.censusAdvisoryStatus.textContent = `Assumption advisory ready. Signal coverage ${coverageText}. Environment-adjusted APH delta ${pct}.`;

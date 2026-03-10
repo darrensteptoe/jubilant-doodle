@@ -1,5 +1,10 @@
 // @ts-check
-import { evaluateFootprintFeasibility } from "../core/censusModule.js";
+import {
+  aggregateRowsForSelection,
+  buildCensusAssumptionAdvisory,
+  evaluateCensusPaceAgainstAdvisory,
+  evaluateFootprintFeasibility,
+} from "../core/censusModule.js";
 
 export function renderValidationModule(args){
   const {
@@ -75,6 +80,74 @@ export function renderValidationModule(args){
       kind: "ok",
       text: "Assumption provenance aligned with race footprint.",
     });
+  }
+
+  const censusState = state?.census && typeof state.census === "object" ? state.census : null;
+  const rowsByGeoid = censusState?.rowsByGeoid && typeof censusState.rowsByGeoid === "object" ? censusState.rowsByGeoid : {};
+  const selectedGeoids = Array.isArray(censusState?.selectedGeoids) ? censusState.selectedGeoids : [];
+  if (selectedGeoids.length && Object.keys(rowsByGeoid).length){
+    const canonicalDoorShare = (() => {
+      const rawPct = Number(state?.channelDoorPct);
+      if (Number.isFinite(rawPct)){
+        const pct = Math.min(100, Math.max(0, rawPct));
+        return pct / 100;
+      }
+      return 0.5;
+    })();
+    const aggregate = aggregateRowsForSelection({
+      rowsByGeoid,
+      selectedGeoids,
+      metricSet: censusState?.metricSet,
+    });
+    const advisory = buildCensusAssumptionAdvisory({
+      aggregate,
+      doorShare: canonicalDoorShare,
+      doorsPerHour: Number(state?.doorsPerHour3 ?? state?.doorsPerHour),
+      callsPerHour: Number(state?.callsPerHour3),
+      rowsByGeoid,
+      selectedGeoids,
+    });
+    const pace = evaluateCensusPaceAgainstAdvisory({
+      advisory,
+      needVotes: Number(res?.expected?.persuasionNeed),
+      weeks: Number(state?.weeksRemaining),
+      contactRatePct: Number(state?.contactRatePct),
+      supportRatePct: Number(state?.supportRatePct),
+      turnoutReliabilityPct: Number(state?.turnoutReliabilityPct),
+      orgCount: Number(state?.orgCount),
+      orgHoursPerWeek: Number(state?.orgHoursPerWeek),
+      volunteerMult: Number(state?.volunteerMultBase),
+    });
+    if (pace.ready){
+      const req = fNum(pace.requiredAph);
+      if (pace.availableAphRange){
+        const low = fNum(pace.availableAphRange.low);
+        const mid = fNum(pace.availableAphRange.mid);
+        const high = fNum(pace.availableAphRange.high);
+        if (pace.severity === "bad"){
+          items.push({
+            kind: "bad",
+            text: `Census APH feasibility: required ${req} is above achievable band ${low}/${mid}/${high}.`,
+          });
+        } else if (pace.severity === "warn"){
+          items.push({
+            kind: "warn",
+            text: `Census APH feasibility: required ${req} is near the top of achievable band ${low}/${mid}/${high}.`,
+          });
+        } else {
+          items.push({
+            kind: "ok",
+            text: `Census APH feasibility: required ${req} is inside achievable band ${low}/${mid}/${high}.`,
+          });
+        }
+      } else {
+        const available = fNum(pace.availableAph);
+        items.push({
+          kind: pace.severity === "bad" ? "bad" : (pace.severity === "warn" ? "warn" : "ok"),
+          text: `Census APH feasibility: required ${req} vs adjusted ${available}.`,
+        });
+      }
+    }
   }
 
   if (Array.isArray(benchmarkWarnings) && benchmarkWarnings.length){
