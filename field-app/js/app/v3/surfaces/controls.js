@@ -11,6 +11,7 @@ import {
   bindClickProxy,
   bindFieldProxy,
   bindSelectProxy,
+  createFieldGrid,
   readText,
   setText,
   syncCheckboxValue,
@@ -64,17 +65,16 @@ export function renderControlsSurface(mount) {
     description: "Current controls posture, evidence status, and calibration readiness."
   });
 
-  mountLegacyNode({
-    key: "v3-controls-status-stack-card",
-    selector: "#stage-checks .stage-body-new > .card:first-of-type",
-    target: getCardBody(statusCard)
-  });
+  getCardBody(statusCard).innerHTML = `
+    <div class="fpe-help">Canonical dynamic status remains in the right rail to prevent drift and duplicate headlines.</div>
+    <div class="fpe-summary-grid" style="margin-top:10px;">
+      <div class="fpe-summary-row"><span>Outcome stack</span><strong>Win path and expected state</strong></div>
+      <div class="fpe-summary-row"><span>Fragility stack</span><strong>Stress + Monte Carlo behavior</strong></div>
+      <div class="fpe-summary-row"><span>Integrity stack</span><strong>Validation and guardrail checks</strong></div>
+    </div>
+  `;
 
-  mountLegacyNode({
-    key: "v3-controls-census-card",
-    selector: "#censusPhase1Card",
-    target: getCardBody(censusCard)
-  });
+  buildControlsCensusBridge(getCardBody(censusCard));
 
   getCardBody(workflowCard).innerHTML = `
     <div id="v3ControlsWorkflowBridgeRoot">
@@ -391,6 +391,7 @@ export function renderControlsSurface(mount) {
   });
 
   wireControlsWorkflowBridge();
+  wireControlsCensusBridge();
   wireControlsBenchmarkBridge();
   wireControlsEvidenceBridge();
   wireControlsCalibrationBridge();
@@ -400,6 +401,7 @@ export function renderControlsSurface(mount) {
 
 function refreshControlsSummary() {
   syncControlsWorkflowBridge();
+  syncControlsCensusBridge();
   syncControlsBenchmarkBridge();
   syncControlsEvidenceBridge();
   syncControlsCalibrationBridge();
@@ -412,6 +414,198 @@ function refreshControlsSummary() {
   setText("v3ControlsRecommendationCount", readText("#intelRecommendationCount"));
   setText("v3ControlsCensusStatus", readText("#censusStatus"));
   setText("v3ControlsCensusSelection", readText("#censusGeoStats"));
+}
+
+function buildControlsCensusBridge(target) {
+  if (!target) {
+    return;
+  }
+
+  target.innerHTML = `
+    <div id="v3ControlsCensusBridgeRoot">
+      <div class="fpe-help">Census-only flow: set geography context, fetch ACS rows, review aggregate demographics, and validate map/selection integrity.</div>
+    </div>
+  `;
+  const root = document.getElementById("v3ControlsCensusBridgeRoot");
+  if (!root) {
+    return;
+  }
+
+  const contextGrid = createFieldGrid("fpe-field-grid--3");
+  root.append(contextGrid);
+  mountLegacyClosest({
+    key: "v3-controls-census-api-key-field",
+    childSelector: "#censusApiKey",
+    closestSelector: ".field",
+    target: contextGrid
+  });
+  mountLegacyClosest({
+    key: "v3-controls-census-year-field",
+    childSelector: "#censusAcsYear",
+    closestSelector: ".field",
+    target: contextGrid
+  });
+  mountLegacyClosest({
+    key: "v3-controls-census-resolution-field",
+    childSelector: "#censusResolution",
+    closestSelector: ".field",
+    target: contextGrid
+  });
+  mountLegacyNode({
+    key: "v3-controls-census-context-hint",
+    selector: "#censusContextHint",
+    target: root
+  });
+
+  const geoGrid = createFieldGrid("fpe-field-grid--3");
+  root.append(geoGrid);
+  mountLegacyClosest({
+    key: "v3-controls-census-state-field",
+    childSelector: "#censusStateFips",
+    closestSelector: ".field",
+    target: geoGrid
+  });
+  mountLegacyClosest({
+    key: "v3-controls-census-county-field",
+    childSelector: "#censusCountyFips",
+    closestSelector: ".field",
+    target: geoGrid
+  });
+  mountLegacyClosest({
+    key: "v3-controls-census-place-field",
+    childSelector: "#censusPlaceFips",
+    closestSelector: ".field",
+    target: geoGrid
+  });
+
+  const bundleGrid = createFieldGrid("fpe-field-grid--2");
+  root.append(bundleGrid);
+  mountLegacyClosest({
+    key: "v3-controls-census-metric-set-field",
+    childSelector: "#censusMetricSet",
+    closestSelector: ".field",
+    target: bundleGrid
+  });
+  const actionField = document.createElement("div");
+  actionField.className = "field";
+  actionField.innerHTML = `
+    <label class="fpe-control-label">Actions</label>
+    <div class="fpe-action-row">
+      <button class="fpe-btn" id="v3BtnCensusLoadGeo" type="button">Load GEO list</button>
+      <button class="fpe-btn fpe-btn--ghost" id="v3BtnCensusFetchRows" type="button">Fetch ACS rows</button>
+    </div>
+  `;
+  bundleGrid.append(actionField);
+
+  const statusGrid = createFieldGrid("fpe-field-grid--2");
+  statusGrid.innerHTML = `
+    <div class="fpe-help" id="v3CensusStatus">Ready.</div>
+    <div class="fpe-help" id="v3CensusGeoStats">0 selected of 0 GEOs. 0 rows loaded.</div>
+  `;
+  root.append(statusGrid);
+
+  mountLegacyClosest({
+    key: "v3-controls-census-main-grid",
+    childSelector: "#censusGeoSearch",
+    closestSelector: ".grid2",
+    target: root
+  });
+  mountLegacyClosest({
+    key: "v3-controls-census-advisory-table",
+    childSelector: "#censusAdvisoryTbody",
+    closestSelector: ".table-wrap",
+    target: root
+  });
+  mountLegacyNode({
+    key: "v3-controls-census-advisory-status",
+    selector: "#censusAdvisoryStatus",
+    target: root
+  });
+  mountLegacyNode({
+    key: "v3-controls-census-advisory-guide",
+    selector: "#censusAdvisoryGuide",
+    target: root
+  });
+  mountLegacyNode({
+    key: "v3-controls-census-selection-summary",
+    selector: "#censusSelectionSummary",
+    target: root
+  });
+  mountLegacyClosest({
+    key: "v3-controls-census-footprint-actions",
+    childSelector: "#btnCensusSetRaceFootprint",
+    closestSelector: ".rowline",
+    target: root
+  });
+  mountLegacyNode({
+    key: "v3-controls-census-footprint-status",
+    selector: "#censusRaceFootprintStatus",
+    target: root
+  });
+  mountLegacyNode({
+    key: "v3-controls-census-provenance-status",
+    selector: "#censusAssumptionProvenanceStatus",
+    target: root
+  });
+  mountLegacyNode({
+    key: "v3-controls-census-capacity-status",
+    selector: "#censusFootprintCapacityStatus",
+    target: root
+  });
+  mountLegacyClosest({
+    key: "v3-controls-census-apply-toggle",
+    childSelector: "#censusApplyAdjustmentsToggle",
+    closestSelector: ".switch",
+    target: root
+  });
+  mountLegacyNode({
+    key: "v3-controls-census-apply-status",
+    selector: "#censusApplyAdjustmentsStatus",
+    target: root
+  });
+  mountLegacyNode({
+    key: "v3-controls-census-election-details",
+    selector: "#censusPhase1Card > details",
+    target: root
+  });
+  mountLegacyClosest({
+    key: "v3-controls-census-selection-set-grid",
+    childSelector: "#censusSelectionSetName",
+    closestSelector: ".grid2",
+    target: root
+  });
+  mountLegacyNode({
+    key: "v3-controls-census-selection-set-status",
+    selector: "#censusSelectionSetStatus",
+    target: root
+  });
+  mountLegacyNode({
+    key: "v3-controls-census-last-fetch",
+    selector: "#censusLastFetch",
+    target: root
+  });
+  mountLegacyClosest({
+    key: "v3-controls-census-map-actions-row",
+    childSelector: "#censusMapStatus",
+    closestSelector: ".rowline",
+    target: root
+  });
+  mountLegacyClosest({
+    key: "v3-controls-census-vtd-zip-row",
+    childSelector: "#censusMapQaVtdZip",
+    closestSelector: ".rowline",
+    target: root
+  });
+  mountLegacyNode({
+    key: "v3-controls-census-vtd-zip-status",
+    selector: "#censusMapQaVtdZipStatus",
+    target: root
+  });
+  mountLegacyNode({
+    key: "v3-controls-census-map",
+    selector: "#censusMap",
+    target: root
+  });
 }
 
 function wireControlsWorkflowBridge() {
@@ -436,6 +630,25 @@ function syncControlsWorkflowBridge() {
   syncFieldValue("v3IntelCriticalChangeNote", "intelCriticalChangeNote");
   setText("v3IntelScenarioLockStatus", readText("#intelScenarioLockStatus"));
   setText("v3IntelWorkflowStatus", readText("#intelWorkflowStatus"));
+}
+
+function wireControlsCensusBridge() {
+  const root = document.getElementById("v3ControlsCensusBridgeRoot");
+  if (!root || root.dataset.wired === "1") {
+    return;
+  }
+  root.dataset.wired = "1";
+
+  bindClickProxy("v3BtnCensusLoadGeo", "btnCensusLoadGeo");
+  bindClickProxy("v3BtnCensusFetchRows", "btnCensusFetchRows");
+}
+
+function syncControlsCensusBridge() {
+  setText("v3CensusStatus", readText("#censusStatus"));
+  setText("v3CensusGeoStats", readText("#censusGeoStats"));
+
+  syncButtonDisabled("v3BtnCensusLoadGeo", "btnCensusLoadGeo");
+  syncButtonDisabled("v3BtnCensusFetchRows", "btnCensusFetchRows");
 }
 
 function wireControlsBenchmarkBridge() {

@@ -4,7 +4,7 @@ import { getActiveStageId, mountStage } from "./stageMount.js";
 const STAGE_EXPECTATIONS = {
   district: ["#v3DistrictUniverse", "#v3BtnAddCandidate", "#raceType", "#universeSize", "#turnoutA"],
   reach: ["#v3ReachGoal", "#wkGoal", "#wkCapacityPerWeek"],
-  outcome: ["#v3OutcomeWinProb", "#mcWinProb-sidebar", "#mcP50"],
+  outcome: ["#v3OutcomeWinProb", "#v3BtnComputeSurface", "#mcWinProb-sidebar", "#mcP50"],
   turnout: ["#v3TurnoutSummary", "#v3BtnRoiRefresh", "#turnoutSummary", "#roiTbody"],
   plan: ["#v3PlanExecutable", "#v3BtnOptRun", "#tlPercent", "#outShiftsPerWeek"],
   controls: [
@@ -14,6 +14,8 @@ const STAGE_EXPECTATIONS = {
     "#v3IntelAuditSelect",
     "#v3IntelBriefKind",
     "#v3BtnIntelCaptureObserved",
+    "#v3BtnCensusLoadGeo",
+    "#v3CensusStatus",
     "#intelWorkflowStatus",
     "#censusStatus"
   ],

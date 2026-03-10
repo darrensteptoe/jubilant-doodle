@@ -6,7 +6,7 @@ import {
   getCardBody
 } from "../componentFactory.js";
 import { mountLegacyClosest, mountLegacyNode } from "../compat.js";
-import { readText, setText } from "../surfaceUtils.js";
+import { bindClickProxy, readText, setText, syncButtonDisabled } from "../surfaceUtils.js";
 
 export function renderOutcomeSurface(mount) {
   const frame = createSurfaceFrame("two-col");
@@ -99,9 +99,32 @@ export function renderOutcomeSurface(mount) {
     closestSelector: ".card",
     target: sensitivityBody
   });
+  mountLegacyClosest({
+    key: "v3-outcome-surface-grid",
+    childSelector: "#surfaceLever",
+    closestSelector: ".grid2",
+    target: sensitivityBody
+  });
+  const surfaceActions = document.createElement("div");
+  surfaceActions.className = "fpe-action-row";
+  surfaceActions.innerHTML = `
+    <button class="fpe-btn fpe-btn--ghost" id="v3BtnComputeSurface" type="button">Compute Surface</button>
+  `;
+  sensitivityBody.append(surfaceActions);
   mountLegacyNode({
-    key: "v3-outcome-surface-card",
-    selector: "#surfaceCard",
+    key: "v3-outcome-surface-status",
+    selector: "#surfaceStatus",
+    target: sensitivityBody
+  });
+  mountLegacyClosest({
+    key: "v3-outcome-surface-table",
+    childSelector: "#surfaceTbody",
+    closestSelector: ".table-wrap",
+    target: sensitivityBody
+  });
+  mountLegacyNode({
+    key: "v3-outcome-surface-summary",
+    selector: "#surfaceSummary",
     target: sensitivityBody
   });
 
@@ -137,6 +160,7 @@ export function renderOutcomeSurface(mount) {
     ])
   );
 
+  bindClickProxy("v3BtnComputeSurface", "btnComputeSurface");
   return refreshOutcomeSummary;
 }
 
@@ -147,4 +171,5 @@ function refreshOutcomeSummary() {
   setText("v3OutcomeP90", readText("#mcP90"));
   setText("v3OutcomeRiskGrade", readText("#mcRiskGrade"));
   setText("v3OutcomeFragility", readText("#mcFragility"));
+  syncButtonDisabled("v3BtnComputeSurface", "btnComputeSurface");
 }
