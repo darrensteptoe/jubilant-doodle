@@ -1,5 +1,13 @@
 // @ts-check
-import { assessRaceFootprintAlignment, normalizeFootprintCapacity } from "../core/censusModule.js";
+import {
+  aggregateRowsForSelection,
+  assessRaceFootprintAlignment,
+  buildCensusAssumptionAdvisory,
+  clampCensusApplyMultipliers,
+  evaluateCensusApplyMode,
+  evaluateCensusPaceAgainstAdvisory,
+  normalizeFootprintCapacity,
+} from "../core/censusModule.js";
 
 export function renderAssumptionsModule(args){
   const {
@@ -49,6 +57,106 @@ export function renderAssumptionsModule(args){
     kv("Provenance", !footprint.footprintDefined
       ? "—"
       : (footprint.provenanceAligned ? "Aligned" : "Stale / missing")),
+  ]));
+
+  const applyModeReasonLabel = (reason) => {
+    const code = String(reason || "").trim();
+    if (!code || code === "toggle_off") return "OFF";
+    if (code === "ready") return "ON";
+    if (code === "rows_not_ready") return "Blocked (rows not ready)";
+    if (code === "advisory_not_ready") return "Blocked (advisory not ready)";
+    if (code === "selection_mismatch") return "Blocked (selection mismatch)";
+    if (code.startsWith("provenance_")) return "Blocked (provenance stale)";
+    if (code === "alignment_not_ready") return "Blocked (alignment)";
+    return `Blocked (${code})`;
+  };
+  const fmtOne = (v) => {
+    const n = Number(v);
+    return Number.isFinite(n) ? n.toFixed(1) : "—";
+  };
+  const fmtBand = (band) => {
+    const low = Number(band?.low);
+    const mid = Number(band?.mid);
+    const high = Number(band?.high);
+    if (!Number.isFinite(low) || !Number.isFinite(mid) || !Number.isFinite(high)) return "—";
+    return `${low.toFixed(1)} / ${mid.toFixed(1)} / ${high.toFixed(1)}`;
+  };
+
+  const censusState = state?.census && typeof state.census === "object" ? state.census : null;
+  const rowsByGeoid = censusState?.rowsByGeoid && typeof censusState.rowsByGeoid === "object" ? censusState.rowsByGeoid : {};
+  const selectedGeoids = Array.isArray(censusState?.selectedGeoids) ? censusState.selectedGeoids : [];
+  const hasRows = selectedGeoids.length > 0 && Object.keys(rowsByGeoid).length > 0 && !!String(censusState?.activeRowsKey || "").trim();
+  let advisory = null;
+  let pace = null;
+  let applyGate = { requested: false, ready: false, reason: "toggle_off" };
+  let applyMultipliers = null;
+
+  if (hasRows){
+    const rawPct = Number(state?.channelDoorPct);
+    const doorShare = Number.isFinite(rawPct) ? (Math.max(0, Math.min(100, rawPct)) / 100) : 0.5;
+    const aggregate = aggregateRowsForSelection({
+      rowsByGeoid,
+      selectedGeoids,
+      metricSet: censusState?.metricSet,
+    });
+    advisory = buildCensusAssumptionAdvisory({
+      aggregate,
+      doorShare,
+      doorsPerHour: Number(state?.doorsPerHour3 ?? state?.doorsPerHour),
+      callsPerHour: Number(state?.callsPerHour3),
+      rowsByGeoid,
+      selectedGeoids,
+    });
+    applyGate = evaluateCensusApplyMode({
+      applyRequested: !!censusState?.applyAdjustedAssumptions,
+      censusState,
+      raceFootprint: state?.raceFootprint,
+      assumptionsProvenance: state?.assumptionsProvenance,
+      advisoryReady: !!advisory?.ready,
+      hasRows,
+    });
+    if (applyGate.ready && applyGate.requested){
+      applyMultipliers = clampCensusApplyMultipliers(advisory?.multipliers || {});
+    }
+    pace = evaluateCensusPaceAgainstAdvisory({
+      advisory,
+      needVotes: Number(res?.expected?.persuasionNeed),
+      weeks: Number(weeks),
+      contactRatePct: Number(state?.contactRatePct),
+      supportRatePct: applyMultipliers
+        ? (Number(state?.supportRatePct) * applyMultipliers.persuasion)
+        : Number(state?.supportRatePct),
+      turnoutReliabilityPct: applyMultipliers
+        ? (Number(state?.turnoutReliabilityPct) * applyMultipliers.turnoutLift)
+        : Number(state?.turnoutReliabilityPct),
+      orgCount: Number(state?.orgCount),
+      orgHoursPerWeek: applyMultipliers
+        ? (Number(state?.orgHoursPerWeek) / applyMultipliers.organizerLoad)
+        : Number(state?.orgHoursPerWeek),
+      volunteerMult: Number(state?.volunteerMultBase),
+    });
+  }
+
+  const feasibilityText = (() => {
+    if (!pace?.ready) return "—";
+    if (pace.severity === "bad") return "Above plausible range";
+    if (pace.severity === "warn") return "Near top of achievable range";
+    return "Inside achievable range";
+  })();
+  const applyModeText = (() => {
+    if (applyMultipliers){
+      return `ON (${applyMultipliers.doorsPerHour.toFixed(2)}x DPH, ${applyMultipliers.persuasion.toFixed(2)}x SR, ${applyMultipliers.turnoutLift.toFixed(2)}x TR, ${applyMultipliers.organizerLoad.toFixed(2)}x load)`;
+    }
+    return applyModeReasonLabel(applyGate.reason);
+  })();
+
+  blocks.push(block("Census operating band", [
+    kv("Rows context", hasRows ? (censusState.activeRowsKey || "Loaded") : "Not loaded"),
+    kv("Signal coverage", advisory?.ready ? `${advisory.coverage.availableSignals}/${advisory.coverage.totalSignals}` : "—"),
+    kv("Apply mode", applyModeText),
+    kv("Achievable APH (p25/p50/p75)", advisory?.ready ? fmtBand(advisory.aph?.range) : "—"),
+    kv("Required APH", pace?.ready ? fmtOne(pace.requiredAph) : "—"),
+    kv("Feasibility", feasibilityText),
   ]));
 
   blocks.push(block("Universe & turnout", [

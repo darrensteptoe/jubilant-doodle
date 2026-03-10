@@ -2,6 +2,8 @@
 import {
   aggregateRowsForSelection,
   buildCensusAssumptionAdvisory,
+  clampCensusApplyMultipliers,
+  evaluateCensusApplyMode,
   evaluateCensusPaceAgainstAdvisory,
   evaluateFootprintFeasibility,
 } from "../core/censusModule.js";
@@ -107,19 +109,40 @@ export function renderValidationModule(args){
       rowsByGeoid,
       selectedGeoids,
     });
+    const applyGate = evaluateCensusApplyMode({
+      applyRequested: !!censusState?.applyAdjustedAssumptions,
+      censusState,
+      raceFootprint: state?.raceFootprint,
+      assumptionsProvenance: state?.assumptionsProvenance,
+      advisoryReady: !!advisory.ready,
+      hasRows: !!Object.keys(rowsByGeoid).length && !!String(censusState?.activeRowsKey || "").trim(),
+    });
+    const applyMultipliers = (applyGate.ready && applyGate.requested)
+      ? clampCensusApplyMultipliers(advisory.multipliers)
+      : null;
+    const adjustedSupportRatePct = applyMultipliers
+      ? (Number(state?.supportRatePct) * applyMultipliers.persuasion)
+      : Number(state?.supportRatePct);
+    const adjustedTurnoutReliabilityPct = applyMultipliers
+      ? (Number(state?.turnoutReliabilityPct) * applyMultipliers.turnoutLift)
+      : Number(state?.turnoutReliabilityPct);
+    const adjustedOrgHoursPerWeek = applyMultipliers
+      ? (Number(state?.orgHoursPerWeek) / applyMultipliers.organizerLoad)
+      : Number(state?.orgHoursPerWeek);
     const pace = evaluateCensusPaceAgainstAdvisory({
       advisory,
       needVotes: Number(res?.expected?.persuasionNeed),
       weeks: Number(state?.weeksRemaining),
       contactRatePct: Number(state?.contactRatePct),
-      supportRatePct: Number(state?.supportRatePct),
-      turnoutReliabilityPct: Number(state?.turnoutReliabilityPct),
+      supportRatePct: adjustedSupportRatePct,
+      turnoutReliabilityPct: adjustedTurnoutReliabilityPct,
       orgCount: Number(state?.orgCount),
-      orgHoursPerWeek: Number(state?.orgHoursPerWeek),
+      orgHoursPerWeek: adjustedOrgHoursPerWeek,
       volunteerMult: Number(state?.volunteerMultBase),
     });
     if (pace.ready){
       const req = fNum(pace.requiredAph);
+      const sourceTag = applyMultipliers ? " (Census-adjusted assumptions ON)" : "";
       if (pace.availableAphRange){
         const low = fNum(pace.availableAphRange.low);
         const mid = fNum(pace.availableAphRange.mid);
@@ -127,24 +150,24 @@ export function renderValidationModule(args){
         if (pace.severity === "bad"){
           items.push({
             kind: "bad",
-            text: `Census APH feasibility: required ${req} is above achievable band ${low}/${mid}/${high}.`,
+            text: `Census APH feasibility${sourceTag}: required ${req} is above achievable band ${low}/${mid}/${high}.`,
           });
         } else if (pace.severity === "warn"){
           items.push({
             kind: "warn",
-            text: `Census APH feasibility: required ${req} is near the top of achievable band ${low}/${mid}/${high}.`,
+            text: `Census APH feasibility${sourceTag}: required ${req} is near the top of achievable band ${low}/${mid}/${high}.`,
           });
         } else {
           items.push({
             kind: "ok",
-            text: `Census APH feasibility: required ${req} is inside achievable band ${low}/${mid}/${high}.`,
+            text: `Census APH feasibility${sourceTag}: required ${req} is inside achievable band ${low}/${mid}/${high}.`,
           });
         }
       } else {
         const available = fNum(pace.availableAph);
         items.push({
           kind: pace.severity === "bad" ? "bad" : (pace.severity === "warn" ? "warn" : "ok"),
-          text: `Census APH feasibility: required ${req} vs adjusted ${available}.`,
+          text: `Census APH feasibility${sourceTag}: required ${req} vs adjusted ${available}.`,
         });
       }
     }

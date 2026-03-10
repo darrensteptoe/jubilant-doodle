@@ -1,5 +1,12 @@
 // @ts-check
 import { validateOperationsCapacityInput } from "../features/operations/io.js";
+import {
+  aggregateRowsForSelection,
+  assessRaceFootprintAlignment,
+  buildCensusAssumptionAdvisory,
+  clampCensusApplyMultipliers,
+  evaluateCensusApplyMode,
+} from "../core/censusModule.js";
 
 /**
  * @typedef {Record<string, any>} AnyState
@@ -48,14 +55,73 @@ export function createEffectiveInputsController({
     const eff = (s === baseState) ? getEffectiveBaseRates() : getEffectiveBaseRatesFromSnap(s);
 
     let orgCount = safeNum(s.orgCount);
-    const orgHoursPerWeek = safeNum(s.orgHoursPerWeek);
+    const baseOrgHoursPerWeek = safeNum(s.orgHoursPerWeek);
+    let orgHoursPerWeek = baseOrgHoursPerWeek;
     const volunteerMult = safeNum(s.volunteerMultBase);
     const doorSharePct = safeNum(s.channelDoorPct);
     const doorShare = (doorSharePct == null) ? null : clamp(doorSharePct, 0, 100) / 100;
     const doorsPerHour = canonicalDoorsPerHourFromSnap(s);
     const callsPerHour = safeNum(s.callsPerHour3);
-    const doorsPerHourAdjusted = doorsPerHour;
-    const callsPerHourAdjusted = callsPerHour;
+    let doorsPerHourAdjusted = doorsPerHour;
+    let callsPerHourAdjusted = callsPerHour;
+    const baseSr = eff.sr;
+    const baseTr = eff.tr;
+    let srAdjusted = baseSr;
+    let trAdjusted = baseTr;
+    const censusState = (s?.census && typeof s.census === "object") ? s.census : {};
+    const censusRows = (censusState?.rowsByGeoid && typeof censusState.rowsByGeoid === "object") ? censusState.rowsByGeoid : {};
+    const censusSelectedGeoids = Array.isArray(censusState?.selectedGeoids) ? censusState.selectedGeoids : [];
+    const hasRows = !!Object.keys(censusRows).length && censusSelectedGeoids.length > 0 && !!String(censusState?.activeRowsKey || "").trim();
+    const advisory = hasRows
+      ? buildCensusAssumptionAdvisory({
+          aggregate: aggregateRowsForSelection({
+            rowsByGeoid: censusRows,
+            selectedGeoids: censusSelectedGeoids,
+            metricSet: censusState?.metricSet,
+          }),
+          doorShare,
+          doorsPerHour,
+          callsPerHour,
+          rowsByGeoid: censusRows,
+          selectedGeoids: censusSelectedGeoids,
+        })
+      : null;
+    const censusApplyGate = evaluateCensusApplyMode({
+      applyRequested: !!censusState?.applyAdjustedAssumptions,
+      censusState,
+      raceFootprint: s?.raceFootprint,
+      assumptionsProvenance: s?.assumptionsProvenance,
+      advisoryReady: !!advisory?.ready,
+      hasRows,
+    });
+    let censusApply = {
+      requested: censusApplyGate.requested,
+      applied: false,
+      reason: censusApplyGate.reason,
+      multipliers: clampCensusApplyMultipliers({}),
+      alignmentReason: censusApplyGate.alignment?.reason || "",
+    };
+    if (censusApplyGate.ready && advisory?.multipliers){
+      const multipliers = clampCensusApplyMultipliers(advisory.multipliers);
+      if (doorsPerHourAdjusted != null) doorsPerHourAdjusted = doorsPerHourAdjusted * multipliers.doorsPerHour;
+      if (callsPerHourAdjusted != null) callsPerHourAdjusted = callsPerHourAdjusted * multipliers.doorsPerHour;
+      if (orgHoursPerWeek != null && multipliers.organizerLoad > 0){
+        orgHoursPerWeek = orgHoursPerWeek / multipliers.organizerLoad;
+      }
+      if (srAdjusted != null){
+        srAdjusted = clamp(srAdjusted * multipliers.persuasion, 0, 1);
+      }
+      if (trAdjusted != null){
+        trAdjusted = clamp(trAdjusted * multipliers.turnoutLift, 0, 1);
+      }
+      censusApply = {
+        requested: true,
+        applied: true,
+        reason: "ready",
+        multipliers,
+        alignmentReason: censusApplyGate.alignment?.reason || "ready",
+      };
+    }
 
     let source = "baseline-manual";
     let overrideTargetAttemptsPerWeek = null;
@@ -90,8 +156,8 @@ export function createEffectiveInputsController({
     const compiled = {
       rates: {
         cr: eff.cr,
-        sr: eff.sr,
-        tr: eff.tr,
+        sr: srAdjusted,
+        tr: trAdjusted,
       },
       capacity: {
         orgCount,
@@ -108,21 +174,21 @@ export function createEffectiveInputsController({
         twCapOverrideEnabled: overrideEnabled,
         twCapOverrideMode: overrideMode,
         twCapOverrideTargetAttemptsPerWeek: overrideTargetAttemptsPerWeek,
+        censusApply,
       }
     };
 
     const seamCheck = validateOperationsCapacityInput(compiled);
     if (!seamCheck.ok){
-      // Fail soft: preserve deterministic planner behavior via baseline capacity/rate path.
       return {
         rates: {
           cr: eff.cr,
-          sr: eff.sr,
-          tr: eff.tr,
+          sr: baseSr,
+          tr: baseTr,
         },
         capacity: {
           orgCount: safeNum(s.orgCount),
-          orgHoursPerWeek: safeNum(s.orgHoursPerWeek),
+          orgHoursPerWeek: baseOrgHoursPerWeek,
           volunteerMult: safeNum(s.volunteerMultBase),
           doorSharePct,
           doorShare,
@@ -135,6 +201,11 @@ export function createEffectiveInputsController({
           twCapOverrideEnabled: false,
           twCapOverrideMode: "baseline",
           twCapOverrideTargetAttemptsPerWeek: null,
+          censusApply: {
+            ...censusApply,
+            applied: false,
+            reason: "seam_fallback",
+          },
         }
       };
     }

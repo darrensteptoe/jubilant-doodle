@@ -28,6 +28,8 @@ import {
   normalizeFootprintCapacity,
   buildRaceFootprintFromCensusSelection,
   assessRaceFootprintAlignment,
+  clampCensusApplyMultipliers,
+  evaluateCensusApplyMode,
   evaluateFootprintFeasibility,
   summarizeFootprintFeasibilityIssues,
   buildCensusAssumptionAdvisory,
@@ -38,7 +40,7 @@ import {
   getElectionCsvUploadGuide,
   parseCsvText,
   normalizeElectionCsvRows,
-} from "../core/censusModule.js?v=20260310-census-phase1-39";
+} from "../core/censusModule.js?v=20260310-census-phase1-40";
 
 const variableCatalogCache = new Map();
 let stateOptionsCache = null;
@@ -658,6 +660,7 @@ async function onLoadMapBoundaries({ s, els, commitUIUpdate }){
 }
 
 function resetGeoData(s){
+  disableCensusApplyAdjustments(s);
   s.geoSearch = "";
   s.tractFilter = "";
   s.geoOptions = [];
@@ -850,6 +853,33 @@ function selectedPopulationFromRows(rowsByGeoid, selectedGeoids){
     seen += 1;
   }
   return seen > 0 ? total : null;
+}
+
+function disableCensusApplyAdjustments(s){
+  if (!s || typeof s !== "object") return false;
+  if (!s.applyAdjustedAssumptions) return false;
+  s.applyAdjustedAssumptions = false;
+  return true;
+}
+
+function applyModeReasonText(reason){
+  const key = cleanText(reason);
+  if (key === "toggle_off") return "Census-adjusted assumptions are OFF.";
+  if (key === "footprint_not_set") return "Apply mode unavailable: set race footprint first.";
+  if (key === "selection_context_missing") return "Apply mode unavailable: Census selection context is missing.";
+  if (key === "selection_mismatch") return "Apply mode unavailable: current selection differs from race footprint.";
+  if (key === "provenance_not_set") return "Apply mode unavailable: assumption provenance is not set.";
+  if (key === "provenance_rows_not_set") return "Apply mode unavailable: provenance rows key is missing.";
+  if (key === "provenance_year_not_set") return "Apply mode unavailable: provenance ACS year is missing.";
+  if (key === "provenance_metric_set_not_set") return "Apply mode unavailable: provenance metric bundle is missing.";
+  if (key === "provenance_footprint_mismatch") return "Apply mode unavailable: provenance footprint mismatch.";
+  if (key === "provenance_rows_mismatch") return "Apply mode unavailable: provenance row context mismatch.";
+  if (key === "provenance_year_mismatch") return "Apply mode unavailable: provenance ACS year mismatch.";
+  if (key === "provenance_metric_set_mismatch") return "Apply mode unavailable: provenance metric bundle mismatch.";
+  if (key === "rows_not_ready") return "Apply mode unavailable: fetch ACS rows for the current selection first.";
+  if (key === "advisory_not_ready") return "Apply mode unavailable: advisory signals are not ready.";
+  if (key === "ready") return "Census-adjusted assumptions are active.";
+  return "Census-adjusted assumptions are unavailable.";
 }
 
 function csvEscape(value){
@@ -1110,17 +1140,52 @@ export function renderCensusPhase1Module({ els, state, res } = {}){
     rowsByGeoid: runtimeRows,
     selectedGeoids: s.selectedGeoids,
   });
+  let applyGate = evaluateCensusApplyMode({
+    applyRequested: !!s.applyAdjustedAssumptions,
+    censusState: s,
+    raceFootprint: state.raceFootprint,
+    assumptionsProvenance: state.assumptionsProvenance,
+    advisoryReady: !!advisory.ready,
+    hasRows: !!Object.keys(runtimeRows).length && !!cleanText(s.activeRowsKey),
+  });
+  if (applyGate.requested && !applyGate.ready){
+    s.applyAdjustedAssumptions = false;
+    applyGate = evaluateCensusApplyMode({
+      applyRequested: false,
+      censusState: s,
+      raceFootprint: state.raceFootprint,
+      assumptionsProvenance: state.assumptionsProvenance,
+      advisoryReady: !!advisory.ready,
+      hasRows: !!Object.keys(runtimeRows).length && !!cleanText(s.activeRowsKey),
+    });
+  }
+  const applyMultipliers = clampCensusApplyMultipliers(advisory?.multipliers || {});
+  const applyForPace = applyGate.ready && !!s.applyAdjustedAssumptions;
   const advisoryPace = evaluateCensusPaceAgainstAdvisory({
     advisory,
     needVotes: Number(res?.expected?.persuasionNeed),
     weeks: Number(state?.weeksRemaining),
     contactRatePct: Number(state?.contactRatePct),
-    supportRatePct: Number(state?.supportRatePct),
-    turnoutReliabilityPct: Number(state?.turnoutReliabilityPct),
+    supportRatePct: applyForPace
+      ? (Number(state?.supportRatePct) * applyMultipliers.persuasion)
+      : Number(state?.supportRatePct),
+    turnoutReliabilityPct: applyForPace
+      ? (Number(state?.turnoutReliabilityPct) * applyMultipliers.turnoutLift)
+      : Number(state?.turnoutReliabilityPct),
     orgCount: Number(state?.orgCount),
-    orgHoursPerWeek: Number(state?.orgHoursPerWeek),
+    orgHoursPerWeek: applyForPace
+      ? (Number(state?.orgHoursPerWeek) / applyMultipliers.organizerLoad)
+      : Number(state?.orgHoursPerWeek),
     volunteerMult: Number(state?.volunteerMultBase),
   });
+  const applyToggleEnabled = alignment.readyForAssumptions
+    && advisory.ready
+    && !!Object.keys(runtimeRows).length
+    && !!cleanText(s.activeRowsKey);
+  if (els.censusApplyAdjustmentsToggle){
+    els.censusApplyAdjustmentsToggle.checked = !!s.applyAdjustedAssumptions;
+    els.censusApplyAdjustmentsToggle.disabled = !applyToggleEnabled;
+  }
   if (els.btnCensusExportAggregateCsv){
     els.btnCensusExportAggregateCsv.disabled = !tableRows.length || !s.selectedGeoids.length;
   }
@@ -1331,6 +1396,27 @@ export function renderCensusPhase1Module({ els, state, res } = {}){
     els.censusFootprintCapacityStatus.textContent = text;
   }
 
+  if (els.censusApplyAdjustmentsStatus){
+    els.censusApplyAdjustmentsStatus.classList.remove("ok", "warn", "bad", "muted");
+    let tone = "muted";
+    let text = applyModeReasonText(applyGate.reason);
+    if (applyGate.ready && s.applyAdjustedAssumptions){
+      tone = "ok";
+      text = `Census-adjusted assumptions are ON. DPH ${applyMultipliers.doorsPerHour.toFixed(2)}x, persuasion ${applyMultipliers.persuasion.toFixed(2)}x, turnout ${applyMultipliers.turnoutLift.toFixed(2)}x, organizer load ${applyMultipliers.organizerLoad.toFixed(2)}x.`;
+    } else if (applyGate.reason === "toggle_off"){
+      tone = applyToggleEnabled ? "muted" : "warn";
+      if (applyToggleEnabled){
+        text = "Census-adjusted assumptions are OFF. Toggle ON to apply bounded multipliers.";
+      }
+    } else if (String(applyGate.reason || "").startsWith("provenance_") || applyGate.reason === "selection_mismatch"){
+      tone = "warn";
+    } else {
+      tone = "warn";
+    }
+    els.censusApplyAdjustmentsStatus.classList.add(tone);
+    els.censusApplyAdjustmentsStatus.textContent = text;
+  }
+
   if (els.censusElectionCsvGuideStatus){
     const guide = getElectionCsvUploadGuide();
     const formatCount = Array.isArray(guide.acceptedFormats) ? guide.acceptedFormats.length : 1;
@@ -1429,6 +1515,7 @@ export function renderCensusPhase1Module({ els, state, res } = {}){
         const adj = Number(advisoryPace.availableAph).toFixed(1);
         const gap = `${(Number(advisoryPace.gapPct) * 100).toFixed(1)}%`;
         const buffer = `${Math.abs(Number(advisoryPace.gapPct) * 100).toFixed(1)}%`;
+        const sourceTag = applyForPace ? " Census-adjusted assumptions ON." : "";
         const band = advisoryPace.availableAphRange;
         if (band){
           const low = Number(band.low).toFixed(1);
@@ -1436,13 +1523,13 @@ export function renderCensusPhase1Module({ els, state, res } = {}){
           const high = Number(band.high).toFixed(1);
           els.censusAdvisoryStatus.textContent = advisoryPace.feasible
             ? (advisoryPace.severity === "warn"
-              ? `Assumption advisory ready. Signal coverage ${coverageText}. Required APH ${req} vs achievable band ${low}/${mid}/${high} (near top, ${buffer} headroom).`
-              : `Assumption advisory ready. Signal coverage ${coverageText}. Required APH ${req} vs achievable band ${low}/${mid}/${high} (${buffer} headroom).`)
-            : `Assumption advisory ready. Signal coverage ${coverageText}. Required APH ${req} vs achievable band ${low}/${mid}/${high} (${gap} above plausible range).`;
+              ? `Assumption advisory ready. Signal coverage ${coverageText}. Required APH ${req} vs achievable band ${low}/${mid}/${high} (near top, ${buffer} headroom).${sourceTag}`
+              : `Assumption advisory ready. Signal coverage ${coverageText}. Required APH ${req} vs achievable band ${low}/${mid}/${high} (${buffer} headroom).${sourceTag}`)
+            : `Assumption advisory ready. Signal coverage ${coverageText}. Required APH ${req} vs achievable band ${low}/${mid}/${high} (${gap} above plausible range).${sourceTag}`;
         } else {
           els.censusAdvisoryStatus.textContent = advisoryPace.feasible
-            ? `Assumption advisory ready. Signal coverage ${coverageText}. Required APH ${req} vs adjusted APH ${adj} (${buffer} buffer).`
-            : `Assumption advisory ready. Signal coverage ${coverageText}. Required APH ${req} vs adjusted APH ${adj} (${gap} shortfall).`;
+            ? `Assumption advisory ready. Signal coverage ${coverageText}. Required APH ${req} vs adjusted APH ${adj} (${buffer} buffer).${sourceTag}`
+            : `Assumption advisory ready. Signal coverage ${coverageText}. Required APH ${req} vs adjusted APH ${adj} (${gap} shortfall).${sourceTag}`;
         }
       } else if (hasAph){
         const pct = `${(Number(advisory.aph.deltaPct) * 100).toFixed(1)}%`;
@@ -1606,6 +1693,7 @@ async function onFetchRows({ s, key, getState, commitUIUpdate }){
     const current = ensureCensusStateModule(getState());
     if (!current || current.requestSeq !== seq) return;
     const msg = cleanText(err?.message) || "Failed to fetch ACS rows.";
+    disableCensusApplyAdjustments(current);
     current.rowsByGeoid = {};
     current.activeRowsKey = "";
     current.loadedRowCount = 0;
@@ -1668,6 +1756,7 @@ export function wireCensusPhase1EventsModule(ctx){
   if (els.censusAcsYear){
     els.censusAcsYear.addEventListener("change", () => {
       withState((_, s) => {
+        const applyWasOn = disableCensusApplyAdjustments(s);
         s.year = cleanText(els.censusAcsYear.value);
         s.rowsByGeoid = {};
         s.activeRowsKey = "";
@@ -1675,7 +1764,8 @@ export function wireCensusPhase1EventsModule(ctx){
         s.lastFetchAt = "";
         s.variableCatalogYear = "";
         s.variableCatalogCount = 0;
-        setStatus(s, `ACS year set to ${s.year}. Cached rows cleared; footprint/provenance now stale until refetch.`, false);
+        const suffix = applyWasOn ? " Census-adjusted assumptions turned OFF." : "";
+        setStatus(s, `ACS year set to ${s.year}. Cached rows cleared; footprint/provenance now stale until refetch.${suffix}`, false);
       });
       commitUIUpdate();
     });
@@ -1684,6 +1774,7 @@ export function wireCensusPhase1EventsModule(ctx){
   if (els.censusMetricSet){
     els.censusMetricSet.addEventListener("change", () => {
       withState((_, s) => {
+        const applyWasOn = disableCensusApplyAdjustments(s);
         s.metricSet = cleanText(els.censusMetricSet.value) || "core";
         s.rowsByGeoid = {};
         s.activeRowsKey = "";
@@ -1691,7 +1782,8 @@ export function wireCensusPhase1EventsModule(ctx){
         s.lastFetchAt = "";
         s.variableCatalogYear = "";
         s.variableCatalogCount = 0;
-        setStatus(s, "Bundle changed. Cached rows cleared; footprint/provenance now stale until refetch.", false);
+        const suffix = applyWasOn ? " Census-adjusted assumptions turned OFF." : "";
+        setStatus(s, `Bundle changed. Cached rows cleared; footprint/provenance now stale until refetch.${suffix}`, false);
       });
       commitUIUpdate();
     });
@@ -1751,6 +1843,7 @@ export function wireCensusPhase1EventsModule(ctx){
   if (els.censusPlaceFips){
     els.censusPlaceFips.addEventListener("change", () => {
       withState((_, s) => {
+        disableCensusApplyAdjustments(s);
         s.placeFips = cleanText(els.censusPlaceFips.value);
         if (s.resolution === "place" && s.geoOptions.length){
           const selected = placeGeoid(s.stateFips, s.placeFips);
@@ -1853,6 +1946,7 @@ export function wireCensusPhase1EventsModule(ctx){
   if (els.censusGeoSelect){
     els.censusGeoSelect.addEventListener("change", () => {
       withState((_, s) => {
+        disableCensusApplyAdjustments(s);
         s.selectedGeoids = selectionFromMultiSelect(els.censusGeoSelect);
         setStatus(s, "Selection updated.", false);
       });
@@ -1863,6 +1957,7 @@ export function wireCensusPhase1EventsModule(ctx){
   if (els.btnCensusSelectAll){
     els.btnCensusSelectAll.addEventListener("click", () => {
       withState((_, s) => {
+        disableCensusApplyAdjustments(s);
         const filteredGeoOptions = filterGeoOptions(s.geoOptions, {
           search: s.geoSearch,
           tractFilter: s.tractFilter,
@@ -1877,6 +1972,7 @@ export function wireCensusPhase1EventsModule(ctx){
   if (els.btnCensusClearSelection){
     els.btnCensusClearSelection.addEventListener("click", () => {
       withState((_, s) => {
+        disableCensusApplyAdjustments(s);
         s.selectedGeoids = [];
         setStatus(s, "Selection cleared.", false);
       });
@@ -1928,10 +2024,62 @@ export function wireCensusPhase1EventsModule(ctx){
   if (els.btnCensusClearRaceFootprint){
     els.btnCensusClearRaceFootprint.addEventListener("click", () => {
       withState((state, s) => {
+        disableCensusApplyAdjustments(s);
         state.raceFootprint = makeDefaultRaceFootprint();
         state.assumptionsProvenance = makeDefaultAssumptionProvenance();
         state.footprintCapacity = makeDefaultFootprintCapacity();
         setStatus(s, "Race footprint cleared.", false);
+      });
+      commitUIUpdate();
+    });
+  }
+
+  if (els.censusApplyAdjustmentsToggle){
+    els.censusApplyAdjustmentsToggle.addEventListener("change", () => {
+      withState((state, s) => {
+        const wantsOn = !!els.censusApplyAdjustmentsToggle.checked;
+        if (!wantsOn){
+          s.applyAdjustedAssumptions = false;
+          setStatus(s, "Census-adjusted assumptions turned OFF.", false);
+          return;
+        }
+        const { runtimeRows, aggregate } = aggregateSnapshot(s);
+        const canonicalDoorShare = (() => {
+          const rawPct = Number(state?.channelDoorPct);
+          if (Number.isFinite(rawPct)){
+            const pct = Math.min(100, Math.max(0, rawPct));
+            return pct / 100;
+          }
+          return 0.5;
+        })();
+        const advisory = buildCensusAssumptionAdvisory({
+          aggregate,
+          doorShare: canonicalDoorShare,
+          doorsPerHour: Number(state?.doorsPerHour3 ?? state?.doorsPerHour),
+          callsPerHour: Number(state?.callsPerHour3),
+          rowsByGeoid: runtimeRows,
+          selectedGeoids: s.selectedGeoids,
+        });
+        const applyGate = evaluateCensusApplyMode({
+          applyRequested: true,
+          censusState: s,
+          raceFootprint: state.raceFootprint,
+          assumptionsProvenance: state.assumptionsProvenance,
+          advisoryReady: !!advisory.ready,
+          hasRows: !!Object.keys(runtimeRows).length && !!cleanText(s.activeRowsKey),
+        });
+        if (!applyGate.ready){
+          s.applyAdjustedAssumptions = false;
+          setStatus(s, applyModeReasonText(applyGate.reason), true);
+          return;
+        }
+        const multipliers = clampCensusApplyMultipliers(advisory.multipliers);
+        s.applyAdjustedAssumptions = true;
+        setStatus(
+          s,
+          `Census-adjusted assumptions ON (DPH ${multipliers.doorsPerHour.toFixed(2)}x, persuasion ${multipliers.persuasion.toFixed(2)}x, turnout ${multipliers.turnoutLift.toFixed(2)}x, organizer load ${multipliers.organizerLoad.toFixed(2)}x).`,
+          false,
+        );
       });
       commitUIUpdate();
     });
@@ -2067,6 +2215,7 @@ export function wireCensusPhase1EventsModule(ctx){
   if (els.btnCensusApplyGeoPaste){
     els.btnCensusApplyGeoPaste.addEventListener("click", () => {
       withState((_, s) => {
+        disableCensusApplyAdjustments(s);
         const parsed = parseGeoidInput(els.censusGeoPaste?.value, s.resolution);
         if (!parsed.length){
           setStatus(s, "No valid GEOIDs detected in paste input.", true);
@@ -2132,6 +2281,7 @@ export function wireCensusPhase1EventsModule(ctx){
   if (els.btnCensusLoadSelectionSet){
     els.btnCensusLoadSelectionSet.addEventListener("click", () => {
       withState((_, s) => {
+        disableCensusApplyAdjustments(s);
         const row = getSelectionSetByKey(s.selectionSets, s.selectedSelectionSetKey);
         if (!row){
           setStatus(s, "Select a saved set to load.", true);
