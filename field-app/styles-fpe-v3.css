@@ -836,6 +836,7 @@
   opacity: 0;
 }
 
+.fpe-surface-pane[data-v3-stage="district"] .fpe-census-instruction-details,
 .fpe-surface-pane[data-v3-stage="district"] .fpe-census-election-details {
   border: 1px solid var(--fpe-rule);
   border-radius: var(--fpe-radius-sm);
@@ -843,6 +844,7 @@
   padding: 10px 12px;
 }
 
+.fpe-surface-pane[data-v3-stage="district"] .fpe-census-instruction-details > summary,
 .fpe-surface-pane[data-v3-stage="district"] .fpe-census-election-details > summary {
   cursor: pointer;
   font-weight: 600;
