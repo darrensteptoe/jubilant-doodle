@@ -28,6 +28,7 @@ import {
   buildElectionCsvWideTemplate,
   detectElectionCsvFormat,
   normalizeElectionCsvRows,
+  parseCsvText,
 } from "../censusModule.js";
 
 export function registerCensusPhase1Tests(ctx){
@@ -485,5 +486,61 @@ export function registerCensusPhase1Tests(ctx){
     assert(normalized.ok === true, "long normalization should succeed");
     assert(normalized.format === "long", "long normalization format mismatch");
     assert(Array.isArray(normalized.records) && normalized.records.length === 2, "long normalization record count mismatch");
+  });
+
+  test("Census Phase1: CSV parser handles quoted values", () => {
+    const parsed = parseCsvText("\"a\",\"b\"\n\"x,1\",\"y\"\n");
+    assert(parsed.ok === true, "csv parser should succeed");
+    assert(Array.isArray(parsed.headers) && parsed.headers.length === 2, "csv parser header count mismatch");
+    assert(Array.isArray(parsed.rows) && parsed.rows.length === 1, "csv parser row count mismatch");
+    assert(parsed.rows[0].a === "x,1", "csv parser quoted value mismatch");
+  });
+
+  test("Census Phase1: alias election CSV normalization uses context and skips summary rows", () => {
+    const rows = [
+      {
+        JurisdictionID: "16",
+        JurisName: "COOK",
+        EISContestID: "",
+        ContestName: "",
+        PrecinctName: "7000001",
+        CandidateName: "",
+        VoteCount: "231",
+      },
+      {
+        JurisdictionID: "16",
+        JurisName: "COOK",
+        EISContestID: "12921",
+        ContestName: "PRESIDENT",
+        PrecinctName: "7000001",
+        CandidateName: "JANE DOE",
+        VoteCount: "150",
+      },
+      {
+        JurisdictionID: "16",
+        JurisName: "COOK",
+        EISContestID: "12921",
+        ContestName: "PRESIDENT",
+        PrecinctName: "7000001",
+        CandidateName: "JOHN ROE",
+        VoteCount: "81",
+      },
+    ];
+    const normalized = normalizeElectionCsvRows(rows, {
+      headers: Object.keys(rows[0]),
+      context: {
+        state_fips: "17",
+        county_fips: "031",
+        election_date: "2024-11-05",
+      },
+    });
+    assert(normalized.ok === true, "alias normalization should succeed");
+    assert(normalized.format === "long", "alias normalization should detect long format");
+    assert(Array.isArray(normalized.records) && normalized.records.length === 2, "alias normalization record count mismatch");
+    assert(Number(normalized.skippedSummaryRows) === 1, "alias normalization summary skip mismatch");
+    const first = normalized.records[0];
+    assert(first.state_fips === "17", "alias normalization state context mismatch");
+    assert(first.county_fips === "031", "alias normalization county context mismatch");
+    assert(first.election_date === "2024-11-05", "alias normalization date context mismatch");
   });
 }

@@ -23,10 +23,32 @@ const ELECTION_CSV_OPTIONAL_COLUMNS = [
   "notes",
 ];
 
-const ELECTION_CSV_RESERVED_COLUMNS = new Set([
-  ...ELECTION_CSV_LONG_COLUMNS,
-  ...ELECTION_CSV_OPTIONAL_COLUMNS,
-]);
+function canonicalCsvKey(value){
+  return cleanText(value).toLowerCase().replace(/[^a-z0-9]+/g, "");
+}
+
+const ELECTION_CSV_ALIAS_GROUPS = {
+  state_fips: ["state_fips", "statefips", "state"],
+  county_fips: ["county_fips", "countyfips", "county"],
+  election_date: ["election_date", "electiondate", "date"],
+  office: ["office", "contestname", "contest"],
+  district_id: ["district_id", "districtid", "eiscontestid", "contestid"],
+  precinct_id: ["precinct_id", "precinctid", "precinctname", "precinct"],
+  candidate: ["candidate", "candidatename"],
+  votes: ["votes", "votecount"],
+  party: ["party", "partyname"],
+  total_votes_precinct: ["total_votes_precinct", "totalvotesprecinct", "totalvotes"],
+  source: ["source"],
+  notes: ["notes"],
+};
+
+const ELECTION_CSV_ALIAS_CANONICAL = Object.fromEntries(
+  Object.entries(ELECTION_CSV_ALIAS_GROUPS).map(([key, values]) => [key, values.map((value) => canonicalCsvKey(value))]),
+);
+
+const ELECTION_CSV_RESERVED_CANONICAL_COLUMNS = new Set(
+  Object.values(ELECTION_CSV_ALIAS_CANONICAL).flat(),
+);
 
 const YEARS_FLOOR = 2016;
 
@@ -590,6 +612,138 @@ function csvCell(value){
   return `"${text.replace(/"/g, "\"\"")}"`;
 }
 
+export function parseCsvText(text, { maxRows = 250000 } = {}){
+  const raw = String(text == null ? "" : text).replace(/^\uFEFF/, "");
+  const errors = [];
+  const warnings = [];
+  if (!cleanText(raw)){
+    return {
+      ok: false,
+      headers: [],
+      rows: [],
+      errors: ["CSV is empty."],
+      warnings,
+    };
+  }
+  const rows = [];
+  let row = [];
+  let field = "";
+  let inQuotes = false;
+  let idx = 0;
+  while (idx < raw.length){
+    const ch = raw[idx];
+    if (inQuotes){
+      if (ch === "\""){
+        const next = raw[idx + 1];
+        if (next === "\""){
+          field += "\"";
+          idx += 2;
+          continue;
+        }
+        inQuotes = false;
+        idx += 1;
+        continue;
+      }
+      field += ch;
+      idx += 1;
+      continue;
+    }
+    if (ch === "\""){
+      inQuotes = true;
+      idx += 1;
+      continue;
+    }
+    if (ch === ","){
+      row.push(field);
+      field = "";
+      idx += 1;
+      continue;
+    }
+    if (ch === "\n" || ch === "\r"){
+      row.push(field);
+      rows.push(row);
+      if (rows.length > maxRows){
+        errors.push(`CSV exceeds max row limit (${Math.floor(Number(maxRows))}).`);
+        break;
+      }
+      row = [];
+      field = "";
+      if (ch === "\r" && raw[idx + 1] === "\n"){
+        idx += 2;
+      } else {
+        idx += 1;
+      }
+      continue;
+    }
+    field += ch;
+    idx += 1;
+  }
+  if (inQuotes){
+    errors.push("CSV parse error: unmatched quote.");
+  } else if (field.length > 0 || row.length > 0){
+    row.push(field);
+    rows.push(row);
+  }
+  while (rows.length){
+    const last = rows[rows.length - 1];
+    if (Array.isArray(last) && last.every((value) => cleanText(value) === "")){
+      rows.pop();
+      continue;
+    }
+    break;
+  }
+  if (!rows.length){
+    errors.push("CSV has no rows.");
+    return { ok: false, headers: [], rows: [], errors, warnings };
+  }
+  const headerRaw = Array.isArray(rows[0]) ? rows[0] : [];
+  const headers = headerRaw.map((value, colIdx) => {
+    const key = cleanText(value);
+    if (!key) return `__col_${colIdx + 1}`;
+    return key;
+  });
+  const lowerSeen = new Set();
+  const duplicateHeaders = [];
+  for (const key of headers){
+    const lower = canonicalCsvKey(key);
+    if (lowerSeen.has(lower)){
+      duplicateHeaders.push(key);
+      continue;
+    }
+    lowerSeen.add(lower);
+  }
+  if (duplicateHeaders.length){
+    errors.push(`CSV has duplicate header(s): ${duplicateHeaders.join(", ")}.`);
+  }
+  const outRows = [];
+  for (let i = 1; i < rows.length; i += 1){
+    const sourceRow = Array.isArray(rows[i]) ? rows[i] : [];
+    if (sourceRow.every((value) => cleanText(value) === "")) continue;
+    if (sourceRow.length > headers.length){
+      const extra = sourceRow.slice(headers.length).some((value) => cleanText(value) !== "");
+      if (extra){
+        errors.push(`Row ${i}: has more columns than header.`);
+        continue;
+      }
+    }
+    const record = {};
+    for (let col = 0; col < headers.length; col += 1){
+      record[headers[col]] = sourceRow[col] == null ? "" : String(sourceRow[col]);
+    }
+    outRows.push(record);
+  }
+  if (!outRows.length && !errors.length){
+    warnings.push("CSV has header but no data rows.");
+  }
+  return {
+    ok: errors.length === 0,
+    headers,
+    rows: outRows,
+    errors,
+    warnings,
+  };
+}
+
 export function buildElectionCsvTemplate(){
   const guide = getElectionCsvUploadGuide();
   const columns = [...guide.requiredColumns, ...guide.optionalColumns];
@@ -609,29 +763,49 @@ export function detectElectionCsvFormat(headers){
   const rawHeaders = Array.isArray(headers) ? headers : [];
   const normalized = [];
   const seen = new Set();
-  const originalByLower = {};
+  const originalByCanonical = {};
   for (const raw of rawHeaders){
     const original = cleanText(raw);
-    const lower = original.toLowerCase();
-    if (!lower || seen.has(lower)) continue;
-    seen.add(lower);
-    normalized.push(lower);
-    originalByLower[lower] = original;
+    const canonical = canonicalCsvKey(original);
+    if (!canonical || seen.has(canonical)) continue;
+    seen.add(canonical);
+    normalized.push(canonical);
+    originalByCanonical[canonical] = original;
   }
-  const set = new Set(normalized);
-  const missingBaseColumns = ELECTION_CSV_BASE_COLUMNS.filter((key) => !set.has(key));
-  const hasLongColumns = set.has("candidate") && set.has("votes");
-  const candidateColumns = normalized.filter((key) => !ELECTION_CSV_RESERVED_COLUMNS.has(key));
+  const pick = (key) => {
+    const aliases = ELECTION_CSV_ALIAS_CANONICAL[key] || [canonicalCsvKey(key)];
+    for (const alias of aliases){
+      if (seen.has(alias)) return alias;
+    }
+    return "";
+  };
+  const resolvedColumns = {};
+  const canonicalKeys = [
+    ...ELECTION_CSV_BASE_COLUMNS,
+    "candidate",
+    "votes",
+    "party",
+    "total_votes_precinct",
+    "source",
+    "notes",
+  ];
+  for (const key of canonicalKeys){
+    resolvedColumns[key] = pick(key);
+  }
+  const missingBaseColumns = ELECTION_CSV_BASE_COLUMNS.filter((key) => !resolvedColumns[key]);
+  const hasLongColumns = !!resolvedColumns.candidate && !!resolvedColumns.votes;
+  const candidateColumns = normalized.filter((key) => !ELECTION_CSV_RESERVED_CANONICAL_COLUMNS.has(key));
   let format = "invalid";
-  if (!missingBaseColumns.length && hasLongColumns){
+  if (hasLongColumns){
     format = "long";
-  } else if (!missingBaseColumns.length && candidateColumns.length){
+  } else if (candidateColumns.length){
     format = "wide";
   }
   return {
     format,
     headers: normalized,
-    originalByLower,
+    originalByCanonical,
+    resolvedColumns,
     candidateColumns,
     missingBaseColumns,
   };
@@ -650,61 +824,103 @@ function rowLookup(row){
   const src = row && typeof row === "object" ? row : {};
   const out = {};
   for (const [rawKey, rawValue] of Object.entries(src)){
-    const key = cleanText(rawKey).toLowerCase();
+    const key = canonicalCsvKey(rawKey);
     if (!key || Object.prototype.hasOwnProperty.call(out, key)) continue;
     out[key] = rawValue;
   }
   return out;
 }
 
-export function normalizeElectionCsvRows(rows, { headers } = {}){
+export function normalizeElectionCsvRows(rows, { headers, context } = {}){
   const list = Array.isArray(rows) ? rows : [];
   const headerList = Array.isArray(headers) && headers.length
     ? headers
     : (list.length ? Object.keys(list[0] || {}) : []);
   const detected = detectElectionCsvFormat(headerList);
+  const contextRow = rowLookup(context && typeof context === "object" ? context : {});
   const errors = [];
   const warnings = [];
   const records = [];
-  if (detected.format === "invalid"){
-    if (detected.missingBaseColumns.length){
-      errors.push(`Missing required base columns: ${detected.missingBaseColumns.join(", ")}.`);
+  const MAX_DIAGNOSTICS = 200;
+  let errorOverflow = 0;
+  let warningOverflow = 0;
+  const pushError = (msg) => {
+    if (errors.length < MAX_DIAGNOSTICS){
+      errors.push(msg);
     } else {
-      errors.push("Schema requires candidate+votes columns (long) or candidate-name columns (wide).");
+      errorOverflow += 1;
+    }
+  };
+  const pushWarning = (msg) => {
+    if (warnings.length < MAX_DIAGNOSTICS){
+      warnings.push(msg);
+    } else {
+      warningOverflow += 1;
+    }
+  };
+  const contextValue = (key) => {
+    const aliases = ELECTION_CSV_ALIAS_CANONICAL[key] || [canonicalCsvKey(key)];
+    for (const alias of aliases){
+      const value = cleanText(contextRow[alias]);
+      if (value) return value;
+    }
+    return "";
+  };
+  if (detected.format === "invalid"){
+    if (!detected.resolvedColumns.candidate && !detected.candidateColumns.length){
+      pushError("Schema requires candidate+votes columns (long) or candidate-name columns (wide).");
+    } else {
+      pushError("Could not detect election CSV format.");
     }
     return { ok: false, format: detected.format, detected, records, errors, warnings };
   }
+  const missingBaseAfterContext = ELECTION_CSV_BASE_COLUMNS.filter((key) => !detected.resolvedColumns[key] && !contextValue(key));
+  if (missingBaseAfterContext.length){
+    pushError(`Missing required base columns: ${missingBaseAfterContext.join(", ")}.`);
+    return { ok: false, format: detected.format, detected, records, errors, warnings };
+  }
+  let skippedSummaryRows = 0;
   for (let i = 0; i < list.length; i += 1){
     const row = rowLookup(list[i]);
     const rowNum = i + 1;
+    if (detected.format === "long"){
+      const candidateProbe = cleanText(row[detected.resolvedColumns.candidate]);
+      const officeProbe = cleanText(row[detected.resolvedColumns.office]);
+      const districtProbe = cleanText(row[detected.resolvedColumns.district_id]);
+      if (!candidateProbe && !officeProbe && !districtProbe){
+        skippedSummaryRows += 1;
+        continue;
+      }
+    }
     const common = {};
     let rowHasError = false;
     for (const key of ELECTION_CSV_BASE_COLUMNS){
-      const value = cleanText(row[key]);
+      const rowValue = detected.resolvedColumns[key] ? row[detected.resolvedColumns[key]] : "";
+      const value = cleanText(rowValue || contextValue(key));
       if (!value){
-        errors.push(`Row ${rowNum}: missing ${key}.`);
+        pushError(`Row ${rowNum}: missing ${key}.`);
         rowHasError = true;
       }
       common[key] = value;
     }
-    const party = cleanText(row.party);
-    const source = cleanText(row.source);
-    const notes = cleanText(row.notes);
-    const totalVotesPrecinct = parseCsvNonNegativeInteger(row.total_votes_precinct);
+    const party = cleanText(row[detected.resolvedColumns.party]);
+    const source = cleanText(row[detected.resolvedColumns.source]);
+    const notes = cleanText(row[detected.resolvedColumns.notes]);
+    const totalVotesPrecinct = parseCsvNonNegativeInteger(row[detected.resolvedColumns.total_votes_precinct]);
     if (Number.isNaN(totalVotesPrecinct)){
-      errors.push(`Row ${rowNum}: total_votes_precinct must be a non-negative integer.`);
+      pushError(`Row ${rowNum}: total_votes_precinct must be a non-negative integer.`);
       rowHasError = true;
     }
     if (rowHasError) continue;
     if (detected.format === "long"){
-      const candidate = cleanText(row.candidate);
-      const votes = parseCsvNonNegativeInteger(row.votes);
+      const candidate = cleanText(row[detected.resolvedColumns.candidate]);
+      const votes = parseCsvNonNegativeInteger(row[detected.resolvedColumns.votes]);
       if (!candidate){
-        errors.push(`Row ${rowNum}: missing candidate.`);
+        pushWarning(`Row ${rowNum}: missing candidate; row skipped.`);
         continue;
       }
       if (votes == null || Number.isNaN(votes)){
-        errors.push(`Row ${rowNum}: votes must be a non-negative integer.`);
+        pushError(`Row ${rowNum}: votes must be a non-negative integer.`);
         continue;
       }
       records.push({
@@ -723,14 +939,14 @@ export function normalizeElectionCsvRows(rows, { headers } = {}){
       const parsedVotes = parseCsvNonNegativeInteger(row[key]);
       if (parsedVotes == null) continue;
       if (Number.isNaN(parsedVotes)){
-        const label = cleanText(detected.originalByLower[key]) || key;
-        errors.push(`Row ${rowNum}: ${label} must be a non-negative integer.`);
+        const label = cleanText(detected.originalByCanonical[key]) || key;
+        pushError(`Row ${rowNum}: ${label} must be a non-negative integer.`);
         rowHasError = true;
         continue;
       }
       staged.push({
         ...common,
-        candidate: cleanText(detected.originalByLower[key]) || key,
+        candidate: cleanText(detected.originalByCanonical[key]) || key,
         party,
         votes: parsedVotes,
         total_votes_precinct: totalVotesPrecinct,
@@ -740,10 +956,19 @@ export function normalizeElectionCsvRows(rows, { headers } = {}){
     }
     if (rowHasError) continue;
     if (!staged.length){
-      warnings.push(`Row ${rowNum}: no candidate vote columns with values.`);
+      pushWarning(`Row ${rowNum}: no candidate vote columns with values.`);
       continue;
     }
     records.push(...staged);
+  }
+  if (skippedSummaryRows > 0){
+    pushWarning(`Skipped ${skippedSummaryRows.toLocaleString("en-US")} summary row(s) with no candidate/contest fields.`);
+  }
+  if (errorOverflow > 0){
+    errors.push(`${errorOverflow.toLocaleString("en-US")} additional error(s) omitted.`);
+  }
+  if (warningOverflow > 0){
+    warnings.push(`${warningOverflow.toLocaleString("en-US")} additional warning(s) omitted.`);
   }
   return {
     ok: errors.length === 0,
@@ -752,6 +977,7 @@ export function normalizeElectionCsvRows(rows, { headers } = {}){
     records,
     errors,
     warnings,
+    skippedSummaryRows,
   };
 }
 
