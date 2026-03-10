@@ -1214,7 +1214,7 @@ export function normalizeCensusState(input, { resetRuntime = false } = {}){
   out.metricSet = METRIC_SET_MAP[String(out.metricSet || "")] ? String(out.metricSet) : "core";
   out.stateFips = fips(out.stateFips, 2);
   out.countyFips = resolutionNeedsCounty(out.resolution) ? fips(out.countyFips, 3) : "";
-  out.placeFips = out.resolution === "place" ? fips(out.placeFips, 5) : "";
+  out.placeFips = fips(out.placeFips, 5);
   out.geoSearch = cleanText(out.geoSearch);
   out.tractFilter = fips(out.tractFilter, 6);
   out.geoOptions = Array.isArray(out.geoOptions) ? out.geoOptions.map((row) => ({ ...row })) : [];

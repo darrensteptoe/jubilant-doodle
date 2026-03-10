@@ -3260,6 +3260,25 @@ export function runSelfTests(engine){
     return true;
   });
 
+  test("Phase 9 UI: Census resolution selector contains required options", () => {
+    const select = document.getElementById("censusResolution");
+    assert(select && typeof select === "object", "Missing censusResolution selector");
+    const values = Array.from(select?.options || [])
+      .map((opt) => String(opt?.value || "").trim())
+      .filter((value) => !!value);
+    const required = [
+      "place",
+      "tract",
+      "block_group",
+      "congressional_district",
+      "state_senate_district",
+      "state_house_district",
+    ];
+    const missing = required.filter((value) => !values.includes(value));
+    assert(missing.length === 0, `Census resolution selector missing: ${missing.join(", ")}`);
+    return true;
+  });
+
   test("Phase 9: feature flags sync mirrors legacy toggles when features are absent", () => {
     const s = {
       turnoutEnabled: true,

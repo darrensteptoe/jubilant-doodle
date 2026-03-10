@@ -125,7 +125,7 @@ export function registerCensusPhase1Tests(ctx){
     });
     assert(district.resolution === "congressional_district", "district resolution should normalize");
     assert(district.countyFips === "", "district resolution should clear county context");
-    assert(district.placeFips === "", "district resolution should clear place context");
+    assert(district.placeFips === "14000", "place context should normalize and persist");
     assert(isDistrictResolution(district.resolution) === true, "district resolution helper mismatch");
     assert(resolutionNeedsCounty(district.resolution) === false, "district resolution should not require county context");
     assert(resolutionNeedsCounty("tract") === true, "tract should require county context");
