@@ -227,6 +227,10 @@ const TIGER_BOUNDARY_LAYERS = {
   ],
 };
 
+const TIGER_BASE_URL = "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb";
+const TIGER_SERVICE_CATALOG_URL = `${TIGER_BASE_URL}?f=pjson`;
+let tigerVtdLayerCache = null;
+
 export function listResolutionOptions(){
   return RESOLUTION_OPTIONS.map((x) => ({ ...x }));
 }
@@ -380,6 +384,8 @@ export function makeDefaultAssumptionProvenance(){
     source: "",
     raceFootprintFingerprint: "",
     censusRowsKey: "",
+    acsYear: "",
+    metricSet: "",
     generatedAt: "",
   };
 }
@@ -391,6 +397,8 @@ export function normalizeAssumptionProvenance(input){
   out.source = cleanText(out.source);
   out.raceFootprintFingerprint = cleanText(out.raceFootprintFingerprint);
   out.censusRowsKey = cleanText(out.censusRowsKey);
+  out.acsYear = cleanText(out.acsYear);
+  out.metricSet = METRIC_SET_MAP[String(out.metricSet || "")] ? String(out.metricSet) : "";
   out.generatedAt = cleanText(out.generatedAt);
   return out;
 }
@@ -456,10 +464,21 @@ export function assessRaceFootprintAlignment({ censusState, raceFootprint, assum
   const selectionHasContext = !!live.fingerprint;
   const selectionMatches = footprintDefined && selectionHasContext && live.fingerprint === stored.fingerprint;
   const rowsKey = cleanText(censusState?.activeRowsKey);
+  const activeYear = cleanText(censusState?.year);
+  const activeMetricSet = cleanText(censusState?.metricSet);
   const provenanceHasFingerprint = !!provenance.raceFootprintFingerprint;
+  const provenanceHasRowsKey = !!provenance.censusRowsKey;
+  const provenanceHasYear = !!provenance.acsYear;
+  const provenanceHasMetricSet = !!provenance.metricSet;
   const provenanceFingerprintMatches = provenanceHasFingerprint && provenance.raceFootprintFingerprint === stored.fingerprint;
-  const provenanceRowsKeyMatches = !provenance.censusRowsKey || provenance.censusRowsKey === rowsKey;
-  const provenanceAligned = footprintDefined && provenanceFingerprintMatches && provenanceRowsKeyMatches;
+  const provenanceRowsKeyMatches = provenanceHasRowsKey && provenance.censusRowsKey === rowsKey;
+  const provenanceYearMatches = provenanceHasYear && provenance.acsYear === activeYear;
+  const provenanceMetricSetMatches = provenanceHasMetricSet && provenance.metricSet === activeMetricSet;
+  const provenanceAligned = footprintDefined
+    && provenanceFingerprintMatches
+    && provenanceRowsKeyMatches
+    && provenanceYearMatches
+    && provenanceMetricSetMatches;
   let reason = "ready";
   if (!footprintDefined){
     reason = "footprint_not_set";
@@ -469,10 +488,20 @@ export function assessRaceFootprintAlignment({ censusState, raceFootprint, assum
     reason = "selection_mismatch";
   } else if (!provenanceHasFingerprint){
     reason = "provenance_not_set";
+  } else if (!provenanceHasRowsKey){
+    reason = "provenance_rows_not_set";
+  } else if (!provenanceHasYear){
+    reason = "provenance_year_not_set";
+  } else if (!provenanceHasMetricSet){
+    reason = "provenance_metric_set_not_set";
   } else if (!provenanceFingerprintMatches){
     reason = "provenance_footprint_mismatch";
   } else if (!provenanceRowsKeyMatches){
     reason = "provenance_rows_mismatch";
+  } else if (!provenanceYearMatches){
+    reason = "provenance_year_mismatch";
+  } else if (!provenanceMetricSetMatches){
+    reason = "provenance_metric_set_mismatch";
   }
   return {
     reason,
@@ -509,9 +538,18 @@ export function evaluateFootprintFeasibility({ state, res } = {}){
   }
   const pop = Number(capacity.population);
   const hasPopulation = Number.isFinite(pop) && pop > 0;
+  const capacityStale = (
+    (capacity.raceFootprintFingerprint && capacity.raceFootprintFingerprint !== alignment.stored.fingerprint) ||
+    (capacity.censusRowsKey && capacity.censusRowsKey !== cleanText(state?.census?.activeRowsKey)) ||
+    (capacity.year && capacity.year !== cleanText(state?.census?.year)) ||
+    (capacity.metricSet && capacity.metricSet !== cleanText(state?.census?.metricSet))
+  );
   if (!hasPopulation){
     out.push({ kind: "warn", code: "capacity_population_missing", text: "Footprint population capacity is missing. Re-set race footprint after ACS fetch." });
     return { alignment, capacity, issues: out };
+  }
+  if (capacityStale){
+    out.push({ kind: "warn", code: "capacity_stale", text: "Footprint capacity is stale for current ACS year/bundle context." });
   }
   const universe = Number(res?.raw?.universeSize);
   if (Number.isFinite(universe) && universe > pop){
@@ -889,6 +927,11 @@ export function normalizeElectionCsvRows(rows, { headers, context } = {}){
     return { ok: false, format: detected.format, detected, records, errors, warnings };
   }
   let skippedSummaryRows = 0;
+  const wideColumnStats = {};
+  for (const key of detected.candidateColumns || []){
+    wideColumnStats[key] = { numeric: 0, invalid: 0 };
+  }
+  let wideRowsWithoutVotes = 0;
   for (let i = 0; i < list.length; i += 1){
     const row = rowLookup(list[i]);
     const rowNum = i + 1;
@@ -956,9 +999,13 @@ export function normalizeElectionCsvRows(rows, { headers, context } = {}){
       const parsedVotes = parseCsvNonNegativeInteger(row[key]);
       if (parsedVotes == null) continue;
       if (Number.isNaN(parsedVotes)){
-        const label = cleanText(detected.originalByCanonical[key]) || key;
-        pushWarning(`Row ${rowNum}: ${label} is non-numeric and was skipped.`);
+        if (wideColumnStats[key]){
+          wideColumnStats[key].invalid += 1;
+        }
         continue;
+      }
+      if (wideColumnStats[key]){
+        wideColumnStats[key].numeric += 1;
       }
       staged.push({
         ...common,
@@ -973,10 +1020,25 @@ export function normalizeElectionCsvRows(rows, { headers, context } = {}){
     }
     if (rowHasError) continue;
     if (!staged.length){
-      pushWarning(`Row ${rowNum}: no candidate vote columns with values.`);
+      wideRowsWithoutVotes += 1;
       continue;
     }
     records.push(...staged);
+  }
+  if (detected.format === "wide"){
+    for (const key of detected.candidateColumns){
+      const stats = wideColumnStats[key] || { numeric: 0, invalid: 0 };
+      if (!stats.invalid) continue;
+      const label = cleanText(detected.originalByCanonical[key]) || key;
+      if (!stats.numeric){
+        pushWarning(`${label}: no numeric vote values found; column skipped (${stats.invalid.toLocaleString("en-US")} non-numeric cell(s)).`);
+      } else {
+        pushWarning(`${label}: ${stats.invalid.toLocaleString("en-US")} non-numeric cell(s) skipped.`);
+      }
+    }
+    if (wideRowsWithoutVotes > 0){
+      pushWarning(`${wideRowsWithoutVotes.toLocaleString("en-US")} row(s) had no numeric candidate vote values and were skipped.`);
+    }
   }
   if (skippedSummaryRows > 0){
     pushWarning(`Skipped ${skippedSummaryRows.toLocaleString("en-US")} summary row(s) with no candidate/contest fields.`);
@@ -1020,6 +1082,7 @@ export function makeDefaultCensusState(){
     lastFetchAt: "",
     variableCatalogYear: "",
     variableCatalogCount: 0,
+    mapQaVtdOverlay: false,
     selectionSets: [],
     selectionSetDraftName: "",
     selectedSelectionSetKey: "",
@@ -1057,6 +1120,7 @@ export function normalizeCensusState(input, { resetRuntime = false } = {}){
   out.lastFetchAt = cleanText(out.lastFetchAt);
   out.variableCatalogYear = cleanText(out.variableCatalogYear);
   out.variableCatalogCount = Number.isFinite(Number(out.variableCatalogCount)) ? Number(out.variableCatalogCount) : 0;
+  out.mapQaVtdOverlay = !!out.mapQaVtdOverlay;
   out.selectionSets = normalizeSelectionSets(out.selectionSets);
   out.selectionSetDraftName = cleanText(out.selectionSetDraftName);
   out.selectedSelectionSetKey = cleanText(out.selectedSelectionSetKey);
@@ -1448,6 +1512,180 @@ async function fetchGeoJson(url, fetchImpl = globalThis.fetch){
   return json;
 }
 
+async function fetchObjectJson(url, fetchImpl = globalThis.fetch, label = "request"){
+  if (typeof fetchImpl !== "function"){
+    throw new Error("Fetch is unavailable.");
+  }
+  const res = await fetchImpl(url);
+  if (!res || !res.ok){
+    const status = res?.status ?? "";
+    const text = res?.statusText || "Request failed";
+    throw new Error(`${label} failed (${status}): ${text}`);
+  }
+  const json = await res.json();
+  if (!json || typeof json !== "object" || Array.isArray(json)){
+    throw new Error(`Unexpected ${label} response format.`);
+  }
+  return json;
+}
+
+function pickFieldName(fields, aliases){
+  const list = Array.isArray(fields) ? fields : [];
+  const wanted = new Set((aliases || []).map((value) => canonicalCsvKey(value)));
+  for (const field of list){
+    const name = cleanText(field?.name);
+    if (!name) continue;
+    if (wanted.has(canonicalCsvKey(name))){
+      return name;
+    }
+  }
+  return "";
+}
+
+function safeLayerId(layer){
+  const n = Number(layer?.id);
+  return Number.isFinite(n) ? Math.floor(n) : null;
+}
+
+function scoreVtdLayerCandidate(layer){
+  const name = cleanText(layer?.name).toLowerCase();
+  const geometryType = cleanText(layer?.geometryType).toLowerCase();
+  let score = 0;
+  if (/vtd|voting/.test(name)) score += 5;
+  if (/district/.test(name)) score += 1;
+  if (/polygon/.test(geometryType)) score += 1;
+  return score;
+}
+
+function buildServiceUrl(serviceName, suffix = ""){
+  const service = cleanText(serviceName);
+  const tail = cleanText(suffix);
+  if (!service) return "";
+  if (!tail) return `${TIGER_BASE_URL}/${service}`;
+  return `${TIGER_BASE_URL}/${service}/${tail}`;
+}
+
+function serviceNameScore(serviceName){
+  const name = cleanText(serviceName).toLowerCase();
+  let score = 0;
+  if (/vtd/.test(name)) score += 6;
+  if (/voting/.test(name)) score += 4;
+  if (/district/.test(name)) score += 1;
+  return score;
+}
+
+export async function discoverTigerVtdLayer({ fetchImpl } = {}){
+  if (tigerVtdLayerCache && typeof tigerVtdLayerCache === "object"){
+    return { ...tigerVtdLayerCache, fields: { ...(tigerVtdLayerCache.fields || {}) } };
+  }
+  const catalog = await fetchObjectJson(TIGER_SERVICE_CATALOG_URL, fetchImpl, "Tiger service catalog request");
+  const services = Array.isArray(catalog.services) ? catalog.services : [];
+  const mapServices = services
+    .filter((row) => cleanText(row?.type).toLowerCase() === "mapserver")
+    .map((row) => cleanText(row?.name))
+    .filter((name) => !!name)
+    .sort((a, b) => serviceNameScore(b) - serviceNameScore(a));
+  for (const serviceName of mapServices.slice(0, 48)){
+    const mapUrl = `${buildServiceUrl(serviceName, "MapServer")}?f=pjson`;
+    let mapMeta = null;
+    try{
+      mapMeta = await fetchObjectJson(mapUrl, fetchImpl, "Tiger map metadata request");
+    } catch {
+      continue;
+    }
+    const layers = (Array.isArray(mapMeta.layers) ? mapMeta.layers : [])
+      .map((layer) => ({ ...layer, _score: scoreVtdLayerCandidate(layer) }))
+      .sort((a, b) => Number(b._score) - Number(a._score));
+    for (const layer of layers){
+      if (Number(layer._score) < 1) continue;
+      const layerId = safeLayerId(layer);
+      if (layerId == null) continue;
+      const layerUrl = `${buildServiceUrl(serviceName, `MapServer/${layerId}`)}?f=pjson`;
+      let layerMeta = null;
+      try{
+        layerMeta = await fetchObjectJson(layerUrl, fetchImpl, "Tiger layer metadata request");
+      } catch {
+        continue;
+      }
+      const fields = Array.isArray(layerMeta.fields) ? layerMeta.fields : [];
+      const stateField = pickFieldName(fields, ["statefp20", "statefp", "state"]);
+      const countyField = pickFieldName(fields, ["countyfp20", "countyfp", "county"]);
+      const geoidField = pickFieldName(fields, ["geoid20", "geoidfp20", "geoid", "geoidfp", "vtdst20", "vtdi"]);
+      if (!stateField && !geoidField) continue;
+      if (!countyField && !geoidField) continue;
+      const nameField = pickFieldName(fields, ["name20", "name", "namelsad20", "namelsad", "label"]);
+      const config = {
+        serviceName,
+        layerId,
+        layerName: cleanText(layer?.name),
+        fields: {
+          state: stateField,
+          county: countyField,
+          geoid: geoidField,
+          name: nameField,
+        },
+      };
+      tigerVtdLayerCache = config;
+      return { ...config, fields: { ...config.fields } };
+    }
+  }
+  throw new Error("VTD overlay layer not found on Tigerweb.");
+}
+
+export function buildTigerVtdBoundaryQueryUrl({ layerConfig, stateFips, countyFips } = {}){
+  const cfg = layerConfig && typeof layerConfig === "object" ? layerConfig : {};
+  const serviceName = cleanText(cfg.serviceName);
+  const layerIdRaw = Number(cfg.layerId);
+  const layerId = Number.isFinite(layerIdRaw) ? Math.floor(layerIdRaw) : null;
+  const state = fips(stateFips, 2);
+  const county = fips(countyFips, 3);
+  if (!serviceName || layerId == null || !state || !county) return "";
+  const stateField = cleanText(cfg?.fields?.state);
+  const countyField = cleanText(cfg?.fields?.county);
+  const geoidField = cleanText(cfg?.fields?.geoid);
+  const nameField = cleanText(cfg?.fields?.name);
+  let where = "";
+  if (stateField && countyField){
+    where = `${stateField}='${state}' AND ${countyField}='${county}'`;
+  } else if (geoidField){
+    where = `${geoidField} LIKE '${state}${county}%'`;
+  } else if (stateField){
+    where = `${stateField}='${state}'`;
+  }
+  if (!where) return "";
+  const outFields = [];
+  const seen = new Set();
+  for (const field of [geoidField, nameField, stateField, countyField]){
+    const name = cleanText(field);
+    if (!name || seen.has(name)) continue;
+    seen.add(name);
+    outFields.push(name);
+  }
+  const params = [];
+  params.push(`where=${encodeURIComponent(where)}`);
+  params.push(`outFields=${encodeURIComponent(outFields.length ? outFields.join(",") : "*")}`);
+  params.push("returnGeometry=true");
+  params.push(`outSR=${encodeURIComponent("4326")}`);
+  params.push(`f=${encodeURIComponent("geojson")}`);
+  return `${buildServiceUrl(serviceName, `MapServer/${layerId}/query`)}?${params.join("&")}`;
+}
+
+function readFeatureProperty(feature, fieldName){
+  const key = cleanText(fieldName);
+  if (!key) return "";
+  const props = feature?.properties && typeof feature.properties === "object" ? feature.properties : {};
+  if (Object.prototype.hasOwnProperty.call(props, key)){
+    return props[key];
+  }
+  const lower = key.toLowerCase();
+  for (const [propKey, propValue] of Object.entries(props)){
+    if (String(propKey).toLowerCase() === lower){
+      return propValue;
+    }
+  }
+  return "";
+}
+
 function featureGeoid(feature){
   const raw = feature?.properties?.GEOID ?? feature?.properties?.geoid ?? feature?.id;
   return cleanText(raw).replace(/\D+/g, "");
@@ -1485,6 +1723,38 @@ export async function fetchTigerBoundaryGeojson({ resolution, geoids, chunkSize 
     requestedGeoids: normalizedGeoids,
     matchedGeoids: Array.from(matched),
     missingGeoids: normalizedGeoids.filter((id) => !matched.has(id)),
+  };
+}
+
+export async function fetchTigerVtdBoundaryGeojson({ stateFips, countyFips, fetchImpl } = {}){
+  const state = fips(stateFips, 2);
+  const county = fips(countyFips, 3);
+  if (!state || !county){
+    throw new Error("VTD overlay requires state and county context.");
+  }
+  const layerConfig = await discoverTigerVtdLayer({ fetchImpl });
+  const queryUrl = buildTigerVtdBoundaryQueryUrl({ layerConfig, stateFips: state, countyFips: county });
+  if (!queryUrl){
+    throw new Error("Could not build VTD overlay query for this context.");
+  }
+  const geo = await fetchGeoJson(queryUrl, fetchImpl);
+  const deduped = new Map();
+  for (const feature of geo.features){
+    const geoidRaw = readFeatureProperty(feature, layerConfig?.fields?.geoid);
+    const geoid = cleanText(geoidRaw).replace(/\D+/g, "") || featureGeoid(feature);
+    const key = geoid || `${deduped.size + 1}`;
+    if (!deduped.has(key)){
+      deduped.set(key, feature);
+    }
+  }
+  const features = Array.from(deduped.values());
+  return {
+    featureCollection: { type: "FeatureCollection", features },
+    serviceName: cleanText(layerConfig.serviceName),
+    layerId: Number.isFinite(Number(layerConfig.layerId)) ? Math.floor(Number(layerConfig.layerId)) : null,
+    stateFips: state,
+    countyFips: county,
+    featureCount: features.length,
   };
 }
 

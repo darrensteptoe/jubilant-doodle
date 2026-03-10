@@ -10,6 +10,7 @@ import {
   validateMetricSetWithCatalog,
   getVariablesForMetricSet,
   buildTigerBoundaryQueryUrls,
+  buildTigerVtdBoundaryQueryUrl,
   filterGeoOptions,
   formatMetricValue,
   parseGeoidInput,
@@ -42,11 +43,14 @@ export function registerCensusPhase1Tests(ctx){
   test("Census Phase1: default and normalization contract", () => {
     const base = makeDefaultCensusState();
     assert(base && typeof base === "object", "default census state missing");
+    assert(base.mapQaVtdOverlay === false, "default VTD QA overlay toggle should be false");
     const normalized = normalizeCensusState({ year: "1900", resolution: "bad", metricSet: "x", stateFips: "7", countyFips: "9" });
     assert(normalized.resolution === "tract", "resolution did not normalize");
     assert(normalized.metricSet === "core", "metricSet did not normalize");
     assert(normalized.stateFips === "07", "stateFips did not normalize");
     assert(normalized.countyFips === "009", "countyFips did not normalize");
+    const normalizedToggle = normalizeCensusState({ mapQaVtdOverlay: 1 });
+    assert(normalizedToggle.mapQaVtdOverlay === true, "VTD QA overlay toggle should normalize to boolean");
   });
 
   test("Census Phase1: runtime cache key normalization modes", () => {
@@ -198,6 +202,33 @@ export function registerCensusPhase1Tests(ctx){
     assert(placeUrls[1].includes("/TIGERweb/Places_CouSub_ConCity_SubMCD/MapServer/5/query"), "place CDP layer mismatch");
   });
 
+  test("Census Phase1: VTD boundary URL builder", () => {
+    const layerConfig = {
+      serviceName: "Voting_Districts",
+      layerId: 0,
+      fields: {
+        state: "STATEFP20",
+        county: "COUNTYFP20",
+        geoid: "GEOID20",
+        name: "NAME20",
+      },
+    };
+    const url = buildTigerVtdBoundaryQueryUrl({
+      layerConfig,
+      stateFips: "17",
+      countyFips: "031",
+    });
+    assert(url.includes("/TIGERweb/Voting_Districts/MapServer/0/query"), "VTD query URL path mismatch");
+    assert(url.includes("STATEFP20"), "VTD query URL should include state field");
+    assert(url.includes("COUNTYFP20"), "VTD query URL should include county field");
+    const missingCounty = buildTigerVtdBoundaryQueryUrl({
+      layerConfig,
+      stateFips: "17",
+      countyFips: "",
+    });
+    assert(missingCounty === "", "VTD query URL should require county context");
+  });
+
   test("Census Phase1: metric formatter handles missing values", () => {
     assert(formatMetricValue(null, "int") === "-", "int formatter should show dash for null");
     assert(formatMetricValue(undefined, "pct1") === "-", "pct formatter should show dash for undefined");
@@ -238,11 +269,15 @@ export function registerCensusPhase1Tests(ctx){
       source: "census_phase1",
       raceFootprintFingerprint: "a|b|c",
       censusRowsKey: 12345,
+      acsYear: 2024,
+      metricSet: "core",
       generatedAt: "2026-03-09T22:00:00.000Z",
     });
     assert(normalized.source === "census_phase1", "provenance source mismatch");
     assert(normalized.raceFootprintFingerprint === "a|b|c", "provenance footprint key mismatch");
     assert(normalized.censusRowsKey === "12345", "provenance rows key mismatch");
+    assert(normalized.acsYear === "2024", "provenance year mismatch");
+    assert(normalized.metricSet === "core", "provenance metricSet mismatch");
   });
 
   test("Census Phase1: race footprint alignment evaluator", () => {
@@ -264,6 +299,8 @@ export function registerCensusPhase1Tests(ctx){
         source: "census_phase1",
         raceFootprintFingerprint: live.fingerprint,
         censusRowsKey: live.rowsKey,
+        acsYear: "2024",
+        metricSet: "core",
       },
     });
     assert(aligned.readyForAssumptions === true, "alignment should be ready");
@@ -274,10 +311,52 @@ export function registerCensusPhase1Tests(ctx){
         source: "census_phase1",
         raceFootprintFingerprint: live.fingerprint,
         censusRowsKey: live.rowsKey,
+        acsYear: "2024",
+        metricSet: "core",
       },
     });
     assert(mismatch.readyForAssumptions === false, "mismatch should block readiness");
     assert(mismatch.reason === "selection_mismatch", "mismatch reason should be selection_mismatch");
+  });
+
+  test("Census Phase1: provenance strictness enforces year and metric bundle", () => {
+    const censusState = {
+      year: "2024",
+      resolution: "tract",
+      metricSet: "core",
+      stateFips: "17",
+      countyFips: "031",
+      selectedGeoids: ["17031010100", "17031010200"],
+      loadedRowCount: 2,
+      activeRowsKey: "2024|tract|17|031|core",
+    };
+    const live = buildRaceFootprintFromCensusSelection(censusState);
+    const yearMismatch = assessRaceFootprintAlignment({
+      censusState,
+      raceFootprint: { ...live, fingerprint: live.fingerprint },
+      assumptionsProvenance: {
+        source: "census_phase1",
+        raceFootprintFingerprint: live.fingerprint,
+        censusRowsKey: live.rowsKey,
+        acsYear: "2023",
+        metricSet: "core",
+      },
+    });
+    assert(yearMismatch.readyForAssumptions === false, "year mismatch should block readiness");
+    assert(yearMismatch.reason === "provenance_year_mismatch", "year mismatch reason mismatch");
+    const bundleMismatch = assessRaceFootprintAlignment({
+      censusState,
+      raceFootprint: { ...live, fingerprint: live.fingerprint },
+      assumptionsProvenance: {
+        source: "census_phase1",
+        raceFootprintFingerprint: live.fingerprint,
+        censusRowsKey: live.rowsKey,
+        acsYear: "2024",
+        metricSet: "housing",
+      },
+    });
+    assert(bundleMismatch.readyForAssumptions === false, "metric bundle mismatch should block readiness");
+    assert(bundleMismatch.reason === "provenance_metric_set_mismatch", "metric bundle mismatch reason mismatch");
   });
 
   test("Census Phase1: footprint capacity normalization", () => {
@@ -318,6 +397,8 @@ export function registerCensusPhase1Tests(ctx){
           source: "census_phase1",
           raceFootprintFingerprint: live.fingerprint,
           censusRowsKey: live.rowsKey,
+          acsYear: "2024",
+          metricSet: "core",
         },
         footprintCapacity: {
           source: "census_phase1",
@@ -360,6 +441,8 @@ export function registerCensusPhase1Tests(ctx){
           source: "census_phase1",
           raceFootprintFingerprint: live.fingerprint,
           censusRowsKey: live.rowsKey,
+          acsYear: "2024",
+          metricSet: "core",
         },
         footprintCapacity: {
           source: "census_phase1",
@@ -422,6 +505,24 @@ export function registerCensusPhase1Tests(ctx){
     const wideTemplate = buildElectionCsvWideTemplate();
     const wideLines = String(wideTemplate || "").trim().split("\n");
     assert(wideLines.length === 2, "wide csv template should contain header and sample row");
+  });
+
+  test("Census Phase1: election CSV guide block and template controls render", () => {
+    if (typeof document === "undefined" || typeof document.getElementById !== "function"){
+      return;
+    }
+    const requiredIds = [
+      "censusElectionCsvGuideStatus",
+      "btnCensusDownloadElectionCsvTemplate",
+      "btnCensusDownloadElectionCsvWideTemplate",
+      "censusElectionCsvPrecinctFilter",
+      "btnCensusElectionCsvDryRun",
+      "btnCensusElectionCsvClear",
+      "censusMapQaVtdToggle",
+    ];
+    for (const id of requiredIds){
+      assert(!!document.getElementById(id), `missing guide control: ${id}`);
+    }
   });
 
   test("Census Phase1: election CSV format detection supports long and wide", () => {
@@ -609,6 +710,9 @@ export function registerCensusPhase1Tests(ctx){
     assert(names[0] === "Jane Doe" && names[1] === "John Roe", "wide normalization candidate names mismatch with extras");
     const totalVotes = normalized.records.reduce((acc, row) => acc + Number(row.votes || 0), 0);
     assert(totalVotes === 3075, "wide normalization should parse comma-formatted vote values");
-    assert(Array.isArray(normalized.warnings) && normalized.warnings.some((msg) => String(msg).includes("non-numeric and was skipped")), "wide normalization should warn on non-numeric extra columns");
+    assert(
+      Array.isArray(normalized.warnings) && normalized.warnings.some((msg) => String(msg).includes("non-numeric cell(s)")),
+      "wide normalization should warn on non-numeric extra columns",
+    );
   });
 }

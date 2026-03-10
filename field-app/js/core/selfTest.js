@@ -68,7 +68,7 @@ import { normalizeLoadedState as normalizeLoadedStateApp } from "../app/state.js
 import { resolveFeatureFlags } from "./featureFlags.js";
 import { validateOperationsCapacityInput } from "../features/operations/io.js";
 import { registerPhase115ATests } from "./selfTestSuites/phase115A.js";
-import { registerCensusPhase1Tests } from "./selfTestSuites/censusPhase1.js?v=20260309-census-phase1-24";
+import { registerCensusPhase1Tests } from "./selfTestSuites/censusPhase1.js?v=20260309-census-phase1-28";
 import {
   makeDefaultCensusState,
   makeDefaultRaceFootprint,
