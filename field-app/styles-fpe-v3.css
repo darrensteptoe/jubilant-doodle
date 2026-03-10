@@ -490,8 +490,45 @@
 .fpe-action-row {
   display: flex;
   flex-wrap: wrap;
+  align-items: center;
   gap: 8px;
   margin-bottom: 10px;
+}
+
+.fpe-action-group {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.fpe-action-group > .fpe-action-row {
+  margin-bottom: 0;
+}
+
+.fpe-contained-block {
+  border: 1px solid var(--fpe-rule);
+  border-radius: var(--fpe-radius-sm);
+  background: var(--fpe-panel-muted);
+  padding: 10px 12px;
+}
+
+.fpe-contained-block .bullets {
+  margin: 0;
+  padding-left: 18px;
+}
+
+.fpe-contained-block .note,
+.fpe-contained-block .help-text,
+.fpe-contained-block .muted,
+.fpe-contained-block .mini-s {
+  margin: 0;
+}
+
+.fpe-action-row .mini-s,
+.fpe-action-row .muted,
+.fpe-action-row .help-text {
+  margin: 0;
 }
 
 .fpe-surface .fpe-btn {
@@ -606,6 +643,14 @@
 .fpe-surface-pane[data-v3-stage="district"] .fpe-card__body .fpe-field-grid--4,
 .fpe-surface-pane[data-v3-stage="district"] .fpe-card__body .grid4 {
   min-width: 0;
+}
+
+.fpe-surface-pane[data-v3-stage="district"] .fpe-card__body .inline-metrics {
+  display: grid !important;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  min-width: 0;
+  align-items: stretch;
 }
 
 .fpe-card__body > .card,
