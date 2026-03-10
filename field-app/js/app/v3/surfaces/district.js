@@ -44,7 +44,8 @@ export function renderDistrictSurface(mount) {
 
   const structureCard = createCard({
     title: "Electorate structure",
-    description: "Optional weighting and durability assumptions."
+    description:
+      "This layer weights persuasion and turnout reliability by party composition and applies a single retention factor. It is aggregate-only (not a CRM)."
   });
   const structureHeaderToggle = document.createElement("div");
   structureHeaderToggle.className = "fpe-header-switch";
@@ -120,6 +121,7 @@ export function renderDistrictSurface(mount) {
   const baselineBody = getCardBody(baselineCard);
   const baselineTop = createFieldGrid("fpe-field-grid--1");
   const baselineBottom = createFieldGrid("fpe-field-grid--2");
+  baselineBottom.style.marginTop = "14px";
   baselineBody.append(baselineTop);
   mountLegacyClosest({
     key: "v3-district-yourCandidate-field",
@@ -228,11 +230,6 @@ export function renderDistrictSurface(mount) {
   mountLegacyNode({
     key: "v3-district-structure-warn",
     selector: "#universe16Warn",
-    target: structureBody
-  });
-  mountLegacyNode({
-    key: "v3-district-structure-note",
-    selector: "#electorateWeightingCard .note",
     target: structureBody
   });
 
