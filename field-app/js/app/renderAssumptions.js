@@ -1,5 +1,5 @@
 // @ts-check
-import { assessRaceFootprintAlignment } from "../core/censusModule.js";
+import { assessRaceFootprintAlignment, normalizeFootprintCapacity } from "../core/censusModule.js";
 
 export function renderAssumptionsModule(args){
   const {
@@ -22,6 +22,7 @@ export function renderAssumptionsModule(args){
     raceFootprint: state?.raceFootprint,
     assumptionsProvenance: state?.assumptionsProvenance,
   });
+  const capacity = normalizeFootprintCapacity(state?.footprintCapacity);
   const storedFootprint = footprint.stored;
   const scope = storedFootprint.resolution === "place"
     ? (storedFootprint.stateFips && storedFootprint.placeFips ? `${storedFootprint.stateFips}-${storedFootprint.placeFips}` : "—")
@@ -40,6 +41,7 @@ export function renderAssumptionsModule(args){
     kv("Defined", footprint.footprintDefined ? "Yes" : "No"),
     kv("Resolution", storedFootprint.resolution || "—"),
     kv("GEO units", footprint.footprintDefined ? String(storedFootprint.geoids.length) : "—"),
+    kv("Population capacity", Number.isFinite(Number(capacity.population)) ? fmtInt(Number(capacity.population)) : "—"),
     kv("Scope", scope),
     kv("Selection alignment", !footprint.footprintDefined
       ? "—"

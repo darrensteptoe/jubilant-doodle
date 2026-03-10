@@ -1,5 +1,6 @@
 import {
   CENSUS_LOCAL_KEY,
+  CENSUS_DEFAULT_API_KEY,
   listAcsYears,
   listResolutionOptions,
   listMetricSetOptions,
@@ -22,8 +23,12 @@ import {
   computeRaceFootprintFingerprint,
   makeDefaultAssumptionProvenance,
   normalizeAssumptionProvenance,
+  makeDefaultFootprintCapacity,
+  normalizeFootprintCapacity,
   buildRaceFootprintFromCensusSelection,
   assessRaceFootprintAlignment,
+  buildElectionCsvTemplate,
+  getElectionCsvUploadGuide,
 } from "../core/censusModule.js";
 
 const variableCatalogCache = new Map();
@@ -62,15 +67,16 @@ function getStorage(){
 
 export function readCensusApiKeyModule(){
   const storage = getStorage();
-  if (!storage) return "";
-  return cleanText(storage.getItem(CENSUS_LOCAL_KEY));
+  if (!storage) return CENSUS_DEFAULT_API_KEY;
+  const stored = cleanText(storage.getItem(CENSUS_LOCAL_KEY));
+  return stored || CENSUS_DEFAULT_API_KEY;
 }
 
 export function writeCensusApiKeyModule(value){
   const storage = getStorage();
   if (!storage) return;
   const key = cleanText(value);
-  if (!key){
+  if (!key || key === CENSUS_DEFAULT_API_KEY){
     storage.removeItem(CENSUS_LOCAL_KEY);
     return;
   }
@@ -505,6 +511,21 @@ function aggregateSnapshot(s){
   return { runtimeRows, aggregate, tableRows };
 }
 
+function selectedPopulationFromRows(rowsByGeoid, selectedGeoids){
+  const rows = rowsByGeoid && typeof rowsByGeoid === "object" ? rowsByGeoid : {};
+  const geoids = Array.isArray(selectedGeoids) ? selectedGeoids : [];
+  let total = 0;
+  let seen = 0;
+  for (const geoid of geoids){
+    const row = rows[cleanText(geoid)];
+    const value = Number(row?.values?.B01003_001E);
+    if (!Number.isFinite(value) || value < 0) continue;
+    total += value;
+    seen += 1;
+  }
+  return seen > 0 ? total : null;
+}
+
 function csvEscape(value){
   const text = String(value == null ? "" : value);
   if (!/[",\n]/.test(text)) return text;
@@ -548,6 +569,7 @@ export function renderCensusPhase1Module({ els, state } = {}){
   if (!els || !state) return;
   const s = ensureCensusStateModule(state);
   if (!s) return;
+  const footprintCapacity = normalizeFootprintCapacity(state.footprintCapacity);
   const alignment = assessRaceFootprintAlignment({
     censusState: s,
     raceFootprint: state.raceFootprint,
@@ -619,6 +641,9 @@ export function renderCensusPhase1Module({ els, state } = {}){
   }
   if (els.btnCensusClearRaceFootprint){
     els.btnCensusClearRaceFootprint.disabled = !alignment.footprintDefined;
+  }
+  if (els.btnCensusDownloadElectionCsvTemplate){
+    els.btnCensusDownloadElectionCsvTemplate.disabled = false;
   }
   if (els.btnCensusApplyGeoPaste){
     els.btnCensusApplyGeoPaste.disabled = !s.geoOptions.length;
@@ -725,6 +750,30 @@ export function renderCensusPhase1Module({ els, state } = {}){
         ? `Assumption provenance aligned with race footprint (generated ${fmtTs(provenance.generatedAt).replace("Last fetch: ", "")}).`
         : "Assumption provenance aligned with race footprint.";
     }
+  }
+
+  if (els.censusFootprintCapacityStatus){
+    if (!alignment.footprintDefined){
+      els.censusFootprintCapacityStatus.textContent = "Footprint capacity: not set.";
+    } else if (!Number.isFinite(Number(footprintCapacity.population))){
+      els.censusFootprintCapacityStatus.textContent = "Footprint capacity: population unavailable. Re-set race footprint after ACS fetch.";
+    } else {
+      const stale = (
+        (footprintCapacity.raceFootprintFingerprint && footprintCapacity.raceFootprintFingerprint !== alignment.stored.fingerprint) ||
+        (footprintCapacity.censusRowsKey && footprintCapacity.censusRowsKey !== cleanText(s.activeRowsKey)) ||
+        (footprintCapacity.year && footprintCapacity.year !== cleanText(s.year))
+      );
+      if (stale){
+        els.censusFootprintCapacityStatus.textContent = `Footprint capacity population: ${Math.round(Number(footprintCapacity.population)).toLocaleString("en-US")} (ACS ${footprintCapacity.year || "—"}, stale).`;
+      } else {
+        els.censusFootprintCapacityStatus.textContent = `Footprint capacity population: ${Math.round(Number(footprintCapacity.population)).toLocaleString("en-US")} (ACS ${footprintCapacity.year || "—"}).`;
+      }
+    }
+  }
+
+  if (els.censusElectionCsvGuideStatus){
+    const guide = getElectionCsvUploadGuide();
+    els.censusElectionCsvGuideStatus.textContent = `Election CSV schema ${guide.schemaVersion}: ${guide.requiredColumns.length} required column(s).`;
   }
 
   if (els.censusSelectionSetStatus){
@@ -916,11 +965,28 @@ export function wireCensusPhase1EventsModule(ctx){
   };
 
   if (els.censusApiKey){
-    els.censusApiKey.addEventListener("change", () => {
-      writeCensusApiKeyModule(els.censusApiKey.value);
+    els.censusApiKey.addEventListener("change", async () => {
+      const key = cleanText(els.censusApiKey.value);
+      writeCensusApiKeyModule(key);
       withState((_, s) => {
-        setStatus(s, "Census API key saved in local browser storage.", false);
+        setStatus(s, "Census API key saved. Loading geography lookups...", false);
       });
+      commitUIUpdate({ persist: false });
+      const s = ensureCensusStateModule(currentState());
+      if (!s) return;
+      try{
+        await ensureStateOptions(key);
+        if (s.stateFips){
+          await loadStateScopedLists(s, key);
+        }
+        const latest = ensureCensusStateModule(currentState());
+        if (!latest) return;
+        setStatus(latest, latest.stateFips ? "Census module ready." : "State list loaded. Select state and geography, then load GEO list.", false);
+      } catch (err){
+        const latest = ensureCensusStateModule(currentState());
+        if (!latest) return;
+        setStatus(latest, cleanText(err?.message) || "Failed to load geography lookups.", true);
+      }
       commitUIUpdate({ persist: false });
     });
   }
@@ -1153,12 +1219,27 @@ export function wireCensusPhase1EventsModule(ctx){
           return;
         }
         state.raceFootprint = footprint;
+        const runtimeRows = getRowsForState(s);
+        const population = selectedPopulationFromRows(runtimeRows, footprint.geoids);
+        state.footprintCapacity = normalizeFootprintCapacity({
+          source: "census_phase1",
+          population,
+          year: cleanText(s.year),
+          metricSet: cleanText(s.metricSet),
+          raceFootprintFingerprint: footprint.fingerprint,
+          censusRowsKey: footprint.rowsKey,
+          updatedAt: new Date().toISOString(),
+        });
         const provenance = ensureAssumptionProvenance(state);
         provenance.source = "census_phase1";
         provenance.raceFootprintFingerprint = footprint.fingerprint;
         provenance.censusRowsKey = footprint.rowsKey;
         provenance.generatedAt = "";
-        setStatus(s, `Race footprint set from current selection (${footprint.geoids.length} GEOs).`, false);
+        if (Number.isFinite(Number(population))){
+          setStatus(s, `Race footprint set (${footprint.geoids.length} GEOs, pop ${Math.round(Number(population)).toLocaleString("en-US")}).`, false);
+        } else {
+          setStatus(s, `Race footprint set (${footprint.geoids.length} GEOs). Population unavailable for current ACS rows.`, false);
+        }
       });
       commitUIUpdate();
     });
@@ -1169,9 +1250,21 @@ export function wireCensusPhase1EventsModule(ctx){
       withState((state, s) => {
         state.raceFootprint = makeDefaultRaceFootprint();
         state.assumptionsProvenance = makeDefaultAssumptionProvenance();
+        state.footprintCapacity = makeDefaultFootprintCapacity();
         setStatus(s, "Race footprint cleared.", false);
       });
       commitUIUpdate();
+    });
+  }
+
+  if (els.btnCensusDownloadElectionCsvTemplate){
+    els.btnCensusDownloadElectionCsvTemplate.addEventListener("click", () => {
+      withState((_, s) => {
+        const csv = buildElectionCsvTemplate();
+        const ok = downloadTextFile(csv, `election-results-template-${fileStamp()}.csv`, "text/csv");
+        setStatus(s, ok ? "Election CSV template downloaded." : "Election CSV template download failed.", !ok);
+      });
+      commitUIUpdate({ persist: false });
     });
   }
 
@@ -1368,8 +1461,7 @@ export function wireCensusPhase1EventsModule(ctx){
   }
 
   (async () => {
-    const key = readCensusApiKeyModule();
-    if (!key) return;
+    const key = cleanText(readCensusApiKeyModule()) || cleanText(els.censusApiKey?.value);
     const s = ensureCensusStateModule(currentState());
     if (!s) return;
     try{

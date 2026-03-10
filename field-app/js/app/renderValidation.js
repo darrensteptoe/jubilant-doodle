@@ -1,5 +1,5 @@
 // @ts-check
-import { assessRaceFootprintAlignment } from "../core/censusModule.js";
+import { evaluateFootprintFeasibility } from "../core/censusModule.js";
 
 export function renderValidationModule(args){
   const {
@@ -57,33 +57,23 @@ export function renderValidationModule(args){
     });
   }
 
-  const footprint = assessRaceFootprintAlignment({
-    censusState: state?.census,
-    raceFootprint: state?.raceFootprint,
-    assumptionsProvenance: state?.assumptionsProvenance,
-  });
-  if (!footprint.footprintDefined){
+  const footprint = evaluateFootprintFeasibility({ state, res });
+  for (const issue of footprint.issues){
     items.push({
-      kind: "warn",
-      text: "Race footprint not set. Use Census card to set canonical race boundary.",
+      kind: issue.kind === "bad" ? "bad" : "warn",
+      text: String(issue.text || ""),
     });
-  } else if (!footprint.selectionHasContext){
+  }
+  if (footprint.alignment.footprintDefined && footprint.alignment.selectionMatches){
     items.push({
-      kind: "warn",
-      text: "Race footprint set, but Census selection context is missing.",
+      kind: "ok",
+      text: "Census selection matches race footprint.",
     });
-  } else {
+  }
+  if (footprint.alignment.footprintDefined && footprint.alignment.provenanceAligned){
     items.push({
-      kind: footprint.selectionMatches ? "ok" : "warn",
-      text: footprint.selectionMatches
-        ? "Census selection matches race footprint."
-        : "Census selection differs from race footprint.",
-    });
-    items.push({
-      kind: footprint.provenanceAligned ? "ok" : "warn",
-      text: footprint.provenanceAligned
-        ? "Assumption provenance aligned with race footprint."
-        : "Assumption provenance is stale or missing for current footprint.",
+      kind: "ok",
+      text: "Assumption provenance aligned with race footprint.",
     });
   }
 

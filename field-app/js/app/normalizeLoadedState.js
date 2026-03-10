@@ -4,6 +4,7 @@ import {
   normalizeCensusState,
   normalizeRaceFootprint,
   normalizeAssumptionProvenance,
+  normalizeFootprintCapacity,
 } from "../core/censusModule.js";
 import { syncFeatureFlagsFromState } from "./featureFlags.js";
 import { ensureBudgetShape } from "./state.js";
@@ -44,6 +45,7 @@ export function normalizeLoadedStateModule(s, deps){
   out.census = normalizeCensusState(src.census, { resetRuntime: true });
   out.raceFootprint = normalizeRaceFootprint(src.raceFootprint);
   out.assumptionsProvenance = normalizeAssumptionProvenance(src.assumptionsProvenance);
+  out.footprintCapacity = normalizeFootprintCapacity(src.footprintCapacity);
   out.ui = { ...base.ui, ...(src.ui || {}) };
 
   ensureBudgetShape(out);

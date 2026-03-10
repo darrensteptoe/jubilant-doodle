@@ -4,6 +4,7 @@ import {
   makeDefaultCensusState,
   makeDefaultRaceFootprint,
   makeDefaultAssumptionProvenance,
+  makeDefaultFootprintCapacity,
 } from "../core/censusModule.js";
 import { makeDefaultFeatureFlags } from "./featureFlags.js";
 
@@ -127,6 +128,7 @@ export function makeDefaultStateModule(ctx){
     census: makeDefaultCensusState(),
     raceFootprint: makeDefaultRaceFootprint(),
     assumptionsProvenance: makeDefaultAssumptionProvenance(),
+    footprintCapacity: makeDefaultFootprintCapacity(),
     intelState: makeDefaultIntelState(),
     features: makeDefaultFeatureFlags(),
     ui: {

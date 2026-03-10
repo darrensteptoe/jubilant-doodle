@@ -7,6 +7,8 @@ import {
   normalizeRaceFootprint,
   makeDefaultAssumptionProvenance,
   normalizeAssumptionProvenance,
+  makeDefaultFootprintCapacity,
+  normalizeFootprintCapacity,
 } from "../core/censusModule.js";
 import { makeDefaultFeatureFlags, syncFeatureFlagsFromState } from "./featureFlags.js";
 
@@ -142,6 +144,7 @@ export function makeDefaultState({ createId = defaultCreateId } = {}){
     census: makeDefaultCensusState(),
     raceFootprint: makeDefaultRaceFootprint(),
     assumptionsProvenance: makeDefaultAssumptionProvenance(),
+    footprintCapacity: makeDefaultFootprintCapacity(),
     intelState: makeDefaultIntelState(),
     features: makeDefaultFeatureFlags(),
     ui: {
@@ -200,6 +203,7 @@ export function normalizeLoadedState(s, { createId = defaultCreateId } = {}){
   out.census = normalizeCensusState(s?.census, { resetRuntime: true });
   out.raceFootprint = normalizeRaceFootprint(s?.raceFootprint);
   out.assumptionsProvenance = normalizeAssumptionProvenance(s?.assumptionsProvenance);
+  out.footprintCapacity = normalizeFootprintCapacity(s?.footprintCapacity);
   out.ui = { ...base.ui, ...(s?.ui || {}) };
 
   ensureBudgetShape(out, { createId });
@@ -226,7 +230,7 @@ export function requiredScenarioKeysMissing(scen){
     "candidates", "undecidedPct", "yourCandidateId", "undecidedMode", "persuasionPct",
     "earlyVoteExp", "supportRatePct", "contactRatePct", "turnoutReliabilityPct",
     "universeLayerEnabled", "universeDemPct", "universeRepPct", "universeNpaPct", "universeOtherPct", "retentionFactor",
-    "mcMode", "mcVolatility", "mcSeed", "budget", "timelineEnabled", "census", "raceFootprint", "assumptionsProvenance", "ui",
+    "mcMode", "mcVolatility", "mcSeed", "budget", "timelineEnabled", "census", "raceFootprint", "assumptionsProvenance", "footprintCapacity", "ui",
   ];
   const missing = [];
   if (!scen || typeof scen !== "object") return required.slice();
