@@ -2115,7 +2115,7 @@
 <div class="muted" id="censusAssumptionProvenanceStatus">Assumption provenance not set.</div>
 <div class="muted" id="censusFootprintCapacityStatus">Footprint capacity: not set.</div>
 <details style="margin-top:8px;">
-<summary>Election CSV upload guide (future)</summary>
+<summary>Election CSV format guide</summary>
 <div class="note" style="margin-top:8px;">Keep election import separate from Census assumptions. Use strict CSV schema and dry-run validation before commit.</div>
 <div class="muted" id="censusElectionCsvGuideStatus" style="margin-top:6px;">Election CSV schema guide loading.</div>
 <div class="table-wrap" style="margin-top:8px;">
@@ -2130,9 +2130,11 @@
 <tr><td>precinct_id</td><td>Stable precinct key per county.</td></tr>
 <tr><td>candidate + votes</td><td>Long format: one row per candidate with non-negative integer votes.</td></tr>
 <tr><td>candidate name columns</td><td>Wide format: each candidate is a column header and each cell is that candidate's vote total in the precinct.</td></tr>
+<tr><td>Validation behavior</td><td>Dry-run fails loud on required-field/type errors and reports all warnings before ingest.</td></tr>
 </tbody>
 </table>
 </div>
+<div class="muted" style="margin-top:6px;">Schema: <code>election_results_csv.v1</code>. Start with a template, then run dry-run parse before any import.</div>
 <div class="rowline" style="margin-top:8px; gap:8px;">
 <button class="btn btn-sm btn-ghost" id="btnCensusDownloadElectionCsvTemplate" type="button">Download long-format CSV template</button>
 <button class="btn btn-sm btn-ghost" id="btnCensusDownloadElectionCsvWideTemplate" type="button">Download wide-format CSV template</button>
@@ -2149,6 +2151,10 @@
 <button class="btn btn-sm btn-ghost" id="btnCensusElectionCsvClear" type="button">Clear preview</button>
 </div>
 </div>
+</div>
+<div class="field" style="margin-top:8px;">
+<label class="label" for="censusElectionCsvPrecinctFilter">Preview precinct filter (optional)</label>
+<input class="input" id="censusElectionCsvPrecinctFilter" placeholder="e.g., 170058, 170059, 170060" type="text"/>
 </div>
 <div class="muted" id="censusElectionCsvDryRunStatus" style="margin-top:6px;">No dry-run run yet.</div>
 <div class="muted" id="censusElectionCsvPreviewMeta" style="margin-top:4px;">No normalized preview rows.</div>
@@ -2187,10 +2193,22 @@
 <div class="rowline" style="margin-top:10px; justify-content:space-between; gap:10px;">
 <div class="muted" id="censusMapStatus">Map idle. Select GEO units, then load boundaries.</div>
 <div class="rowline" style="gap:8px;">
+<label class="rowline" for="censusMapQaVtdToggle" style="gap:6px; align-items:center;">
+<input id="censusMapQaVtdToggle" type="checkbox"/>
+<span class="muted">VTD QA overlay</span>
+</label>
 <button class="btn btn-sm btn-ghost" id="btnCensusLoadMap" type="button">Load boundaries</button>
 <button class="btn btn-sm btn-ghost" id="btnCensusClearMap" type="button">Clear map</button>
 </div>
 </div>
+<div class="rowline" style="margin-top:8px; gap:8px; align-items:flex-end; flex-wrap:wrap;">
+<div class="field" style="margin:0; min-width:280px;">
+<label class="label" for="censusMapQaVtdZip">VTD ZIP overlay source (optional)</label>
+<input accept=".zip,application/zip" class="input" id="censusMapQaVtdZip" type="file"/>
+</div>
+<button class="btn btn-sm btn-ghost" id="btnCensusMapQaVtdZipClear" type="button">Clear VTD ZIP</button>
+</div>
+<div class="muted" id="censusMapQaVtdZipStatus" style="margin-top:6px;">No VTD ZIP loaded. VTD QA overlay source is TIGERweb.</div>
 <div class="census-map" id="censusMap"></div>
 </div>
 <div class="card card-section" id="intelWorkflowCard">
@@ -3163,7 +3181,7 @@ Volunteer multiplier stays above 1.5" rows="4"></textarea>
 </aside>
 </div>
 <!-- /app-shell -->
-<script src="./js/app.js?v=20260309-census-phase1-24" type="module"></script>
+<script src="./js/app.js?v=20260309-census-phase1-29" type="module"></script>
 <script>
 // ── Stage navigation ───────────────────────────────────────────
 function normalizeStages() {
