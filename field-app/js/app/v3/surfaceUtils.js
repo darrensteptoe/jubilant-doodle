@@ -286,6 +286,15 @@ export function normalizeSurfaceMessages(root) {
       return;
     }
 
+    // Do not wrap form/control groups as message windows.
+    // Those should remain in regular card layout blocks.
+    const hasControls = node.querySelector(
+      "input, select, textarea, button, .btn, .fpe-btn, .switch"
+    );
+    if (hasControls) {
+      return;
+    }
+
     const tone = classifyMessageTone(text, node);
     const label = labelForTone(tone);
     const window = createMessageWindow(label, tone);
