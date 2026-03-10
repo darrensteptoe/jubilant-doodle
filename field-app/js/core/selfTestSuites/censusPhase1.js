@@ -31,7 +31,7 @@ import {
   detectElectionCsvFormat,
   normalizeElectionCsvRows,
   parseCsvText,
-} from "../censusModule.js?v=20260309-census-phase1-32";
+} from "../censusModule.js?v=20260309-census-phase1-33";
 
 export function registerCensusPhase1Tests(ctx){
   const { test, assert } = ctx;
@@ -587,6 +587,8 @@ export function registerCensusPhase1Tests(ctx){
       "btnCensusElectionCsvClear",
       "censusAdvisoryStatus",
       "censusAdvisoryTbody",
+      "censusAdvisoryGuide",
+      "censusAdvisoryGuideTbody",
       "censusMapQaVtdToggle",
       "censusMapQaVtdZip",
       "btnCensusMapQaVtdZipClear",
