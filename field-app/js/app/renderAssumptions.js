@@ -1,4 +1,6 @@
 // @ts-check
+import { assessRaceFootprintAlignment } from "../core/censusModule.js";
+
 export function renderAssumptionsModule(args){
   const {
     els,
@@ -15,6 +17,15 @@ export function renderAssumptionsModule(args){
   } = args || {};
 
   const blocks = [];
+  const footprint = assessRaceFootprintAlignment({
+    censusState: state?.census,
+    raceFootprint: state?.raceFootprint,
+    assumptionsProvenance: state?.assumptionsProvenance,
+  });
+  const storedFootprint = footprint.stored;
+  const scope = storedFootprint.resolution === "place"
+    ? (storedFootprint.stateFips && storedFootprint.placeFips ? `${storedFootprint.stateFips}-${storedFootprint.placeFips}` : "—")
+    : (storedFootprint.stateFips && storedFootprint.countyFips ? `${storedFootprint.stateFips}-${storedFootprint.countyFips}` : "—");
 
   blocks.push(block("Race & scenario", [
     kv("Scenario", state.scenarioName || "—"),
@@ -23,6 +34,19 @@ export function renderAssumptionsModule(args){
     kv("Mode", state.mode === "late_start" ? "Late-start / turnout-heavy" : "Persuasion-first"),
     kv("Election date", state.electionDate || "—"),
     kv("Weeks remaining", weeks == null ? "—" : String(weeks)),
+  ]));
+
+  blocks.push(block("Race footprint", [
+    kv("Defined", footprint.footprintDefined ? "Yes" : "No"),
+    kv("Resolution", storedFootprint.resolution || "—"),
+    kv("GEO units", footprint.footprintDefined ? String(storedFootprint.geoids.length) : "—"),
+    kv("Scope", scope),
+    kv("Selection alignment", !footprint.footprintDefined
+      ? "—"
+      : (footprint.selectionHasContext ? (footprint.selectionMatches ? "Match" : "Different") : "No context")),
+    kv("Provenance", !footprint.footprintDefined
+      ? "—"
+      : (footprint.provenanceAligned ? "Aligned" : "Stale / missing")),
   ]));
 
   blocks.push(block("Universe & turnout", [

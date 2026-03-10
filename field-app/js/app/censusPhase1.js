@@ -22,6 +22,8 @@ import {
   computeRaceFootprintFingerprint,
   makeDefaultAssumptionProvenance,
   normalizeAssumptionProvenance,
+  buildRaceFootprintFromCensusSelection,
+  assessRaceFootprintAlignment,
 } from "../core/censusModule.js";
 
 const variableCatalogCache = new Map();
@@ -474,31 +476,16 @@ function uniqueGeoids(values){
 }
 
 function liveRaceFootprintFromCensusState(s, { source = "census_phase1", updatedAt = "" } = {}){
-  const resolution = cleanText(s?.resolution);
-  const geoids = ["place", "tract", "block_group"].includes(resolution)
-    ? normalizeGeoidsForResolution(uniqueGeoids(s?.selectedGeoids), resolution).sort((a, b) => a.localeCompare(b))
-    : [];
   const footprint = normalizeRaceFootprint({
+    ...buildRaceFootprintFromCensusSelection({
+      ...s,
+      selectedGeoids: normalizeGeoidsForResolution(uniqueGeoids(s?.selectedGeoids), cleanText(s?.resolution)),
+    }),
     source,
-    year: cleanText(s?.year),
-    resolution,
-    metricSet: cleanText(s?.metricSet),
-    stateFips: cleanText(s?.stateFips),
-    countyFips: cleanText(s?.countyFips),
-    placeFips: cleanText(s?.placeFips),
-    geoids,
-    rowCount: Number.isFinite(Number(s?.loadedRowCount)) ? Number(s.loadedRowCount) : 0,
-    rowsKey: cleanText(s?.activeRowsKey),
     updatedAt: cleanText(updatedAt),
   });
   footprint.fingerprint = computeRaceFootprintFingerprint(footprint);
   return footprint;
-}
-
-function storedRaceFootprintFromState(state){
-  const stored = normalizeRaceFootprint(state?.raceFootprint);
-  const fingerprint = cleanText(stored.fingerprint) || computeRaceFootprintFingerprint(stored);
-  return { ...stored, fingerprint };
 }
 
 function ensureAssumptionProvenance(state){
@@ -561,8 +548,11 @@ export function renderCensusPhase1Module({ els, state } = {}){
   if (!els || !state) return;
   const s = ensureCensusStateModule(state);
   if (!s) return;
-  const storedFootprint = storedRaceFootprintFromState(state);
-  const liveFootprint = liveRaceFootprintFromCensusState(s);
+  const alignment = assessRaceFootprintAlignment({
+    censusState: s,
+    raceFootprint: state.raceFootprint,
+    assumptionsProvenance: state.assumptionsProvenance,
+  });
 
   const storedKey = readCensusApiKeyModule();
   if (els.censusApiKey && typeof document !== "undefined" && document.activeElement !== els.censusApiKey){
@@ -628,7 +618,7 @@ export function renderCensusPhase1Module({ els, state } = {}){
     els.btnCensusSetRaceFootprint.disabled = !s.selectedGeoids.length || !s.loadedRowCount;
   }
   if (els.btnCensusClearRaceFootprint){
-    els.btnCensusClearRaceFootprint.disabled = !storedFootprint.geoids.length;
+    els.btnCensusClearRaceFootprint.disabled = !alignment.footprintDefined;
   }
   if (els.btnCensusApplyGeoPaste){
     els.btnCensusApplyGeoPaste.disabled = !s.geoOptions.length;
@@ -706,13 +696,14 @@ export function renderCensusPhase1Module({ els, state } = {}){
   }
 
   if (els.censusRaceFootprintStatus){
-    if (!storedFootprint.geoids.length || !storedFootprint.fingerprint){
+    const storedFootprint = alignment.stored;
+    if (!alignment.footprintDefined){
       els.censusRaceFootprintStatus.textContent = "Race footprint not set.";
     } else {
       const area = storedFootprint.resolution === "place"
         ? `state ${storedFootprint.stateFips} place ${storedFootprint.placeFips}`
         : `state ${storedFootprint.stateFips} county ${storedFootprint.countyFips}`;
-      const match = liveFootprint.fingerprint && liveFootprint.fingerprint === storedFootprint.fingerprint
+      const match = alignment.selectionMatches
         ? "Current selection matches."
         : "Current selection differs.";
       els.censusRaceFootprintStatus.textContent = `Race footprint: ${storedFootprint.geoids.length} GEOs (${storedFootprint.resolution}) in ${area}. ${match}`;
@@ -720,12 +711,14 @@ export function renderCensusPhase1Module({ els, state } = {}){
   }
 
   if (els.censusAssumptionProvenanceStatus){
-    const provenance = normalizeAssumptionProvenance(state.assumptionsProvenance);
-    if (!provenance.raceFootprintFingerprint){
+    const provenance = alignment.provenance;
+    if (alignment.reason === "footprint_not_set"){
       els.censusAssumptionProvenanceStatus.textContent = "Assumption provenance not set.";
-    } else if (!storedFootprint.fingerprint || provenance.raceFootprintFingerprint !== storedFootprint.fingerprint){
+    } else if (!provenance.raceFootprintFingerprint){
+      els.censusAssumptionProvenanceStatus.textContent = "Assumption provenance not set.";
+    } else if (alignment.reason === "provenance_footprint_mismatch"){
       els.censusAssumptionProvenanceStatus.textContent = "Assumption provenance is stale: footprint mismatch.";
-    } else if (provenance.censusRowsKey && provenance.censusRowsKey !== cleanText(s.activeRowsKey)){
+    } else if (alignment.reason === "provenance_rows_mismatch"){
       els.censusAssumptionProvenanceStatus.textContent = "Assumption provenance is stale: ACS row context changed.";
     } else {
       els.censusAssumptionProvenanceStatus.textContent = provenance.generatedAt

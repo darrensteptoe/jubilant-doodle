@@ -1,4 +1,6 @@
 // @ts-check
+import { assessRaceFootprintAlignment } from "../core/censusModule.js";
+
 export function renderValidationModule(args){
   const {
     els,
@@ -52,6 +54,36 @@ export function renderValidationModule(args){
     items.push({
       kind: "ok",
       text: `Weeks remaining: ${weeks} (reference for later phases).`
+    });
+  }
+
+  const footprint = assessRaceFootprintAlignment({
+    censusState: state?.census,
+    raceFootprint: state?.raceFootprint,
+    assumptionsProvenance: state?.assumptionsProvenance,
+  });
+  if (!footprint.footprintDefined){
+    items.push({
+      kind: "warn",
+      text: "Race footprint not set. Use Census card to set canonical race boundary.",
+    });
+  } else if (!footprint.selectionHasContext){
+    items.push({
+      kind: "warn",
+      text: "Race footprint set, but Census selection context is missing.",
+    });
+  } else {
+    items.push({
+      kind: footprint.selectionMatches ? "ok" : "warn",
+      text: footprint.selectionMatches
+        ? "Census selection matches race footprint."
+        : "Census selection differs from race footprint.",
+    });
+    items.push({
+      kind: footprint.provenanceAligned ? "ok" : "warn",
+      text: footprint.provenanceAligned
+        ? "Assumption provenance aligned with race footprint."
+        : "Assumption provenance is stale or missing for current footprint.",
     });
   }
 
