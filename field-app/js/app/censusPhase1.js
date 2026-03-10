@@ -46,12 +46,16 @@ const LEAFLET_CSS_ID = "fpeLeafletCss";
 const LEAFLET_SCRIPT_ID = "fpeLeafletScript";
 const LEAFLET_CSS_URL = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.css";
 const LEAFLET_JS_URL = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.js";
+const SHPJS_SCRIPT_ID = "fpeShpJsScript";
+const SHPJS_URL = "https://unpkg.com/shpjs@6.2.0/dist/shp.min.js";
 let leafletLoadPromise = null;
+let shpJsLoadPromise = null;
 let mapInstance = null;
 let mapHost = null;
 let mapOverlayLayer = null;
 let mapQaVtdLayer = null;
 let mapRequestSeq = 0;
+let mapQaVtdUploadSeq = 0;
 let mapLoadedSelectionKey = "";
 let electionCsvRequestSeq = 0;
 const mapRuntimeStatus = {
@@ -63,6 +67,14 @@ const mapRuntimeStatus = {
   qaLoading: false,
   qaText: "",
   qaFeatureCount: 0,
+};
+const mapQaVtdUpload = {
+  fileName: "",
+  statusText: "No VTD ZIP loaded. VTD QA overlay source is TIGERweb.",
+  statusLevel: "muted",
+  loading: false,
+  featureCount: 0,
+  featureCollection: null,
 };
 const electionCsvDryRun = {
   fileName: "",
@@ -272,6 +284,175 @@ function ensureLeaflet(){
   return leafletLoadPromise;
 }
 
+function ensureShpJs(){
+  if (typeof window === "undefined" || typeof document === "undefined"){
+    return Promise.reject(new Error("ZIP parser unavailable."));
+  }
+  if (typeof window.shp === "function"){
+    return Promise.resolve(window.shp);
+  }
+  if (shpJsLoadPromise) return shpJsLoadPromise;
+  shpJsLoadPromise = new Promise((resolve, reject) => {
+    const existing = document.getElementById(SHPJS_SCRIPT_ID);
+    if (existing){
+      existing.addEventListener("load", () => {
+        if (typeof window.shp === "function"){
+          resolve(window.shp);
+          return;
+        }
+        reject(new Error("SHP parser loaded but unavailable."));
+      }, { once: true });
+      existing.addEventListener("error", () => reject(new Error("Failed to load SHP parser.")), { once: true });
+      return;
+    }
+    const script = document.createElement("script");
+    script.id = SHPJS_SCRIPT_ID;
+    script.src = SHPJS_URL;
+    script.async = true;
+    script.onload = () => {
+      if (typeof window.shp === "function"){
+        resolve(window.shp);
+        return;
+      }
+      reject(new Error("SHP parser loaded but unavailable."));
+    };
+    script.onerror = () => reject(new Error("Failed to load SHP parser."));
+    document.head.appendChild(script);
+  });
+  return shpJsLoadPromise;
+}
+
+function readArrayBufferFile(file){
+  if (!file) return Promise.reject(new Error("No file selected."));
+  if (typeof file.arrayBuffer === "function"){
+    return file.arrayBuffer();
+  }
+  return new Promise((resolve, reject) => {
+    if (typeof FileReader !== "function"){
+      reject(new Error("FileReader unavailable."));
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = () => reject(new Error("Failed to read ZIP file."));
+    reader.readAsArrayBuffer(file);
+  });
+}
+
+function normalizeGeojsonFeatureCollection(input){
+  const stack = Array.isArray(input) ? input.slice() : [input];
+  const features = [];
+  while (stack.length){
+    const item = stack.shift();
+    if (!item) continue;
+    if (Array.isArray(item)){
+      for (const sub of item){
+        stack.push(sub);
+      }
+      continue;
+    }
+    if (item.type === "FeatureCollection" && Array.isArray(item.features)){
+      for (const feature of item.features){
+        if (feature && feature.type === "Feature"){
+          features.push(feature);
+        }
+      }
+      continue;
+    }
+    if (item.type === "Feature"){
+      features.push(item);
+    }
+  }
+  return { type: "FeatureCollection", features };
+}
+
+function featurePropByAliases(feature, aliases){
+  const props = feature?.properties && typeof feature.properties === "object" ? feature.properties : {};
+  const keys = Object.keys(props);
+  const wanted = (aliases || []).map((x) => canonicalToken(x)).filter((x) => !!x);
+  for (const key of keys){
+    const canonical = canonicalToken(key);
+    if (!canonical) continue;
+    if (!wanted.includes(canonical)) continue;
+    return props[key];
+  }
+  return "";
+}
+
+function filterVtdFeatureCollectionByContext(featureCollection, { stateFips, countyFips } = {}){
+  const fc = featureCollection && typeof featureCollection === "object" ? featureCollection : { type: "FeatureCollection", features: [] };
+  const features = Array.isArray(fc.features) ? fc.features : [];
+  const state = cleanFips(stateFips, 2);
+  const county = cleanFips(countyFips, 3);
+  if (!state && !county){
+    return { type: "FeatureCollection", features: features.slice() };
+  }
+  const filtered = features.filter((feature) => {
+    const geoidRaw = cleanText(featurePropByAliases(feature, ["GEOID20", "GEOID", "GEOIDFP20", "GEOIDFP", "VTDST20"]));
+    const geoidDigits = geoidRaw.replace(/\D+/g, "");
+    const featureState = cleanFips(featurePropByAliases(feature, ["STATEFP20", "STATEFP", "STATE"]), 2) || cleanFips(geoidDigits.slice(0, 2), 2);
+    const featureCounty = cleanFips(featurePropByAliases(feature, ["COUNTYFP20", "COUNTYFP", "COUNTY"]), 3) || cleanFips(geoidDigits.slice(2, 5), 3);
+    if (state && featureState && featureState !== state){
+      return false;
+    }
+    if (county && featureCounty && featureCounty !== county){
+      return false;
+    }
+    if (county && !featureCounty && geoidDigits.length >= 5){
+      return geoidDigits.slice(2, 5) === county;
+    }
+    return true;
+  });
+  return { type: "FeatureCollection", features: filtered };
+}
+
+function setMapQaVtdUploadStatus(text, level = "muted"){
+  mapQaVtdUpload.statusText = cleanText(text) || "No VTD ZIP loaded. VTD QA overlay source is TIGERweb.";
+  mapQaVtdUpload.statusLevel = ["ok", "warn", "bad", "muted"].includes(cleanText(level)) ? cleanText(level) : "muted";
+}
+
+function clearMapQaVtdUploadRuntime(){
+  mapQaVtdUpload.fileName = "";
+  mapQaVtdUpload.loading = false;
+  mapQaVtdUpload.featureCount = 0;
+  mapQaVtdUpload.featureCollection = null;
+  setMapQaVtdUploadStatus("No VTD ZIP loaded. VTD QA overlay source is TIGERweb.", "muted");
+}
+
+async function loadMapQaVtdZipFile(file){
+  const seq = ++mapQaVtdUploadSeq;
+  mapQaVtdUpload.loading = true;
+  mapQaVtdUpload.fileName = cleanText(file?.name);
+  setMapQaVtdUploadStatus(`Loading VTD ZIP ${mapQaVtdUpload.fileName || ""}...`, "warn");
+  try{
+    const shp = await ensureShpJs();
+    const buffer = await readArrayBufferFile(file);
+    if (seq !== mapQaVtdUploadSeq) return false;
+    const parsed = await shp(buffer);
+    if (seq !== mapQaVtdUploadSeq) return false;
+    const featureCollection = normalizeGeojsonFeatureCollection(parsed);
+    const featureCount = Array.isArray(featureCollection.features) ? featureCollection.features.length : 0;
+    mapQaVtdUpload.featureCollection = featureCollection;
+    mapQaVtdUpload.featureCount = featureCount;
+    if (featureCount > 0){
+      setMapQaVtdUploadStatus(`Loaded VTD ZIP ${mapQaVtdUpload.fileName} (${featureCount.toLocaleString("en-US")} precinct polygons).`, "ok");
+      return true;
+    }
+    setMapQaVtdUploadStatus(`Loaded VTD ZIP ${mapQaVtdUpload.fileName}, but no polygon features were found.`, "warn");
+    return false;
+  } catch (err){
+    if (seq !== mapQaVtdUploadSeq) return false;
+    mapQaVtdUpload.featureCollection = null;
+    mapQaVtdUpload.featureCount = 0;
+    setMapQaVtdUploadStatus(`VTD ZIP load failed: ${cleanText(err?.message) || "unknown error."}`, "bad");
+    return false;
+  } finally {
+    if (seq === mapQaVtdUploadSeq){
+      mapQaVtdUpload.loading = false;
+    }
+  }
+}
+
 function ensureMapMounted(container){
   if (!container || typeof window === "undefined" || !window.L || typeof window.L.map !== "function"){
     return null;
@@ -421,8 +602,17 @@ async function onLoadMapBoundaries({ s, els, commitUIUpdate }){
     }
     if (s.mapQaVtdOverlay){
       const qaContext = mapQaCountyContext(s);
-      if (!qaContext.stateFips || !qaContext.countyFips){
-        clearMapQaOverlay("VTD QA overlay unavailable for this selection (county context required).");
+      if (mapQaVtdUpload.featureCollection){
+        const uploaded = filterVtdFeatureCollectionByContext(mapQaVtdUpload.featureCollection, qaContext);
+        applyMapQaOverlay(uploaded);
+        mapRuntimeStatus.qaFeatureCount = Array.isArray(uploaded.features) ? uploaded.features.length : 0;
+        if (mapRuntimeStatus.qaFeatureCount > 0){
+          mapRuntimeStatus.qaText = `VTD QA overlay loaded from ZIP (${mapRuntimeStatus.qaFeatureCount.toLocaleString("en-US")} polygons). Hover/click polygons for precinct labels.`;
+        } else {
+          mapRuntimeStatus.qaText = "VTD ZIP loaded, but no precinct polygons matched current state/county context.";
+        }
+      } else if (!qaContext.stateFips || !qaContext.countyFips){
+        clearMapQaOverlay("VTD QA overlay unavailable for this selection (county context required, or upload ZIP).");
       } else {
         mapRuntimeStatus.qaLoading = true;
         const qaResult = await fetchTigerVtdBoundaryGeojson({
@@ -885,7 +1075,13 @@ export function renderCensusPhase1Module({ els, state, res } = {}){
   }
   if (els.censusMapQaVtdToggle){
     els.censusMapQaVtdToggle.checked = !!s.mapQaVtdOverlay;
-    els.censusMapQaVtdToggle.disabled = mapRuntimeStatus.loading || mapRuntimeStatus.qaLoading;
+    els.censusMapQaVtdToggle.disabled = mapRuntimeStatus.loading || mapRuntimeStatus.qaLoading || mapQaVtdUpload.loading;
+  }
+  if (els.censusMapQaVtdZip){
+    els.censusMapQaVtdZip.disabled = mapQaVtdUpload.loading;
+  }
+  if (els.btnCensusMapQaVtdZipClear){
+    els.btnCensusMapQaVtdZipClear.disabled = mapQaVtdUpload.loading || (!mapQaVtdUpload.fileName && !mapQaVtdUpload.featureCollection);
   }
 
   const { runtimeRows, tableRows } = aggregateSnapshot(s);
@@ -1127,6 +1323,12 @@ export function renderCensusPhase1Module({ els, state, res } = {}){
       const base = mapRuntimeStatus.error || mapRuntimeStatus.text;
       els.censusMapStatus.textContent = qaText ? `${base} ${qaText}` : base;
     }
+  }
+
+  if (els.censusMapQaVtdZipStatus){
+    els.censusMapQaVtdZipStatus.classList.remove("ok", "warn", "bad", "muted");
+    els.censusMapQaVtdZipStatus.classList.add(mapQaVtdUpload.statusLevel || "muted");
+    els.censusMapQaVtdZipStatus.textContent = mapQaVtdUpload.statusText || "No VTD ZIP loaded. VTD QA overlay source is TIGERweb.";
   }
 
   if (els.censusMap && mapInstance && mapHost === els.censusMap && typeof mapInstance.invalidateSize === "function"){
@@ -1902,6 +2104,74 @@ export function wireCensusPhase1EventsModule(ctx){
           ? "VTD QA overlay enabled (visual only). Reload boundaries."
           : "VTD QA overlay disabled.", false);
       });
+      commitUIUpdate({ persist: false });
+    });
+  }
+
+  if (els.censusMapQaVtdZip){
+    els.censusMapQaVtdZip.addEventListener("change", async () => {
+      const file = els.censusMapQaVtdZip?.files?.[0];
+      if (!file){
+        mapQaVtdUploadSeq += 1;
+        clearMapQaVtdUploadRuntime();
+        const s = ensureCensusStateModule(currentState());
+        if (s){
+          if (s.mapQaVtdOverlay){
+            clearMapQaOverlay("VTD ZIP cleared. Reload boundaries to draw TIGERweb QA overlay.");
+            setStatus(s, "VTD ZIP cleared. Reload boundaries to use TIGERweb QA source.", false);
+          } else {
+            setStatus(s, "VTD ZIP cleared.", false);
+          }
+        }
+        commitUIUpdate({ persist: false });
+        return;
+      }
+      const ok = await loadMapQaVtdZipFile(file);
+      const s = ensureCensusStateModule(currentState());
+      if (!s){
+        commitUIUpdate({ persist: false });
+        return;
+      }
+      if (!ok){
+        if (s.mapQaVtdOverlay){
+          clearMapQaOverlay();
+        }
+        setStatus(s, cleanText(mapQaVtdUpload.statusText) || "VTD ZIP load failed.", true);
+        commitUIUpdate({ persist: false });
+        return;
+      }
+      setStatus(s, "VTD ZIP loaded. QA overlay will use ZIP polygons for matching state/county context.", false);
+      commitUIUpdate({ persist: false });
+      if (s.mapQaVtdOverlay && mapRuntimeStatus.featureCount > 0){
+        await onLoadMapBoundaries({ s, els, commitUIUpdate });
+      }
+    });
+  }
+
+  if (els.btnCensusMapQaVtdZipClear){
+    els.btnCensusMapQaVtdZipClear.addEventListener("click", async () => {
+      mapQaVtdUploadSeq += 1;
+      clearMapQaVtdUploadRuntime();
+      if (els.censusMapQaVtdZip){
+        els.censusMapQaVtdZip.value = "";
+      }
+      const s = ensureCensusStateModule(currentState());
+      if (!s){
+        commitUIUpdate({ persist: false });
+        return;
+      }
+      if (s.mapQaVtdOverlay && mapRuntimeStatus.featureCount > 0){
+        setStatus(s, "VTD ZIP cleared. Reloading QA overlay from TIGERweb...", false);
+        commitUIUpdate({ persist: false });
+        await onLoadMapBoundaries({ s, els, commitUIUpdate });
+        return;
+      }
+      if (s.mapQaVtdOverlay){
+        clearMapQaOverlay("VTD ZIP cleared. Reload boundaries to draw TIGERweb QA overlay.");
+        setStatus(s, "VTD ZIP cleared. Reload boundaries to use TIGERweb QA source.", false);
+      } else {
+        setStatus(s, "VTD ZIP cleared.", false);
+      }
       commitUIUpdate({ persist: false });
     });
   }
