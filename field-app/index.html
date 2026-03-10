@@ -2131,6 +2131,8 @@
 <tr><td>Turnout elasticity</td><td>Expected turnout responsiveness to GOTV pressure.</td><td>&le; 0.92</td><td>0.93-1.07</td><td>&ge; 1.08</td></tr>
 <tr><td>Field difficulty</td><td>Operational friction and organizer load for contact execution.</td><td>&le; 0.92 (easier)</td><td>0.93-1.07</td><td>&ge; 1.08 (harder)</td></tr>
 <tr><td>Advisory doors/hour multiplier</td><td>Multiplier applied to blended APH to estimate environment-adjusted APH.</td><td>&lt; 0.90</td><td>0.90-1.10</td><td>&gt; 1.10</td></tr>
+<tr><td>Required APH to hit goal</td><td>Required attempts per organizer hour to hit current need votes under current rates and weeks.</td><td colspan="3">Computed from your plan inputs</td></tr>
+<tr><td>APH feasibility check</td><td>Compares required APH vs environment-adjusted APH.</td><td>&gt; 0% shortfall</td><td>-10% to 0%</td><td>&le; -10% buffer</td></tr>
 </tbody>
 </table>
 </div>
@@ -3210,7 +3212,7 @@ Volunteer multiplier stays above 1.5" rows="4"></textarea>
 </aside>
 </div>
 <!-- /app-shell -->
-<script src="./js/app.js?v=20260309-census-phase1-33" type="module"></script>
+<script src="./js/app.js?v=20260309-census-phase1-34" type="module"></script>
 <script>
 // ── Stage navigation ───────────────────────────────────────────
 function normalizeStages() {
