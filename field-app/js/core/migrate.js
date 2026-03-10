@@ -11,9 +11,11 @@ import {
   normalizeRaceFootprint,
   makeDefaultAssumptionProvenance,
   normalizeAssumptionProvenance,
+  makeDefaultFootprintCapacity,
+  normalizeFootprintCapacity,
 } from "./censusModule.js";
 
-export const CURRENT_SCHEMA_VERSION = "1.5.0";
+export const CURRENT_SCHEMA_VERSION = "1.6.0";
 
 const SCENARIO_DEFAULTS = {
   // Phase 16 — Universe composition + retention (aggregate)
@@ -28,6 +30,7 @@ const SCENARIO_DEFAULTS = {
   census: makeDefaultCensusState(),
   raceFootprint: makeDefaultRaceFootprint(),
   assumptionsProvenance: makeDefaultAssumptionProvenance(),
+  footprintCapacity: makeDefaultFootprintCapacity(),
 };
 
 /**
@@ -46,6 +49,7 @@ function applyScenarioDefaults(scen){
   scen.census = normalizeCensusState(scen.census, { resetRuntime: true });
   scen.raceFootprint = normalizeRaceFootprint(scen.raceFootprint);
   scen.assumptionsProvenance = normalizeAssumptionProvenance(scen.assumptionsProvenance);
+  scen.footprintCapacity = normalizeFootprintCapacity(scen.footprintCapacity);
   return scen;
 }
 

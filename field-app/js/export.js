@@ -14,6 +14,7 @@ import {
   normalizeCensusState,
   normalizeRaceFootprint,
   normalizeAssumptionProvenance,
+  normalizeFootprintCapacity,
 } from "./core/censusModule.js";
 
 export const MODEL_VERSION = "1.0.0";
@@ -234,6 +235,9 @@ function ensureScenarioDefaults(scen){
   }
   if (Object.prototype.hasOwnProperty.call(s, "assumptionsProvenance")){
     s.assumptionsProvenance = normalizeAssumptionProvenance(s.assumptionsProvenance);
+  }
+  if (Object.prototype.hasOwnProperty.call(s, "footprintCapacity")){
+    s.footprintCapacity = normalizeFootprintCapacity(s.footprintCapacity);
   }
   return s;
 }

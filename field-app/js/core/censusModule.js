@@ -1,4 +1,5 @@
 export const CENSUS_LOCAL_KEY = "fpe.census.apiKey";
+export const CENSUS_DEFAULT_API_KEY = "a59d216d186bced9d252633906350432d2805c74";
 
 const YEARS_FLOOR = 2016;
 
@@ -163,6 +164,8 @@ const METRIC_SET_MAP = {
   all: Object.keys(METRICS),
 };
 
+const ALWAYS_ACS_VARIABLES = ["B01003_001E"];
+
 const TIGER_BOUNDARY_LAYERS = {
   tract: [{ service: "Tracts_Blocks", layer: 10, field: "GEOID" }],
   block_group: [{ service: "Tracts_Blocks", layer: 11, field: "GEOID" }],
@@ -204,6 +207,9 @@ export function getMetricsForSet(metricSetId){
 export function getVariablesForMetricSet(metricSetId){
   const ids = getMetricIdsForSet(metricSetId);
   const uniq = new Set();
+  for (const v of ALWAYS_ACS_VARIABLES){
+    uniq.add(String(v));
+  }
   for (const id of ids){
     const spec = METRICS[id];
     if (!spec) continue;
@@ -337,6 +343,33 @@ export function normalizeAssumptionProvenance(input){
   return out;
 }
 
+export function makeDefaultFootprintCapacity(){
+  return {
+    source: "",
+    population: null,
+    year: "",
+    metricSet: "",
+    raceFootprintFingerprint: "",
+    censusRowsKey: "",
+    updatedAt: "",
+  };
+}
+
+export function normalizeFootprintCapacity(input){
+  const base = makeDefaultFootprintCapacity();
+  const src = input && typeof input === "object" ? input : {};
+  const out = { ...base, ...src };
+  out.source = cleanText(out.source);
+  const populationRaw = Number(out.population);
+  out.population = Number.isFinite(populationRaw) && populationRaw >= 0 ? populationRaw : null;
+  out.year = cleanText(out.year);
+  out.metricSet = METRIC_SET_MAP[String(out.metricSet || "")] ? String(out.metricSet) : "";
+  out.raceFootprintFingerprint = cleanText(out.raceFootprintFingerprint);
+  out.censusRowsKey = cleanText(out.censusRowsKey);
+  out.updatedAt = cleanText(out.updatedAt);
+  return out;
+}
+
 export function buildRaceFootprintFromCensusSelection(censusState){
   const s = censusState && typeof censusState === "object" ? censusState : {};
   const resolution = cleanText(s.resolution);
@@ -400,6 +433,103 @@ export function assessRaceFootprintAlignment({ censusState, raceFootprint, assum
     stored,
     provenance,
   };
+}
+
+export function evaluateFootprintFeasibility({ state, res } = {}){
+  const alignment = assessRaceFootprintAlignment({
+    censusState: state?.census,
+    raceFootprint: state?.raceFootprint,
+    assumptionsProvenance: state?.assumptionsProvenance,
+  });
+  const capacity = normalizeFootprintCapacity(state?.footprintCapacity);
+  const out = [];
+  if (!alignment.footprintDefined){
+    out.push({ kind: "warn", code: "footprint_not_set", text: "Race footprint not set. Use Census card to set canonical race boundary." });
+    return { alignment, capacity, issues: out };
+  }
+  if (!alignment.selectionHasContext){
+    out.push({ kind: "warn", code: "selection_context_missing", text: "Race footprint set, but Census selection context is missing." });
+  } else if (!alignment.selectionMatches){
+    out.push({ kind: "warn", code: "selection_mismatch", text: "Census selection differs from race footprint." });
+  }
+  if (!alignment.provenanceAligned){
+    out.push({ kind: "warn", code: "provenance_stale", text: "Assumption provenance is stale or missing for current footprint." });
+  }
+  const pop = Number(capacity.population);
+  const hasPopulation = Number.isFinite(pop) && pop > 0;
+  if (!hasPopulation){
+    out.push({ kind: "warn", code: "capacity_population_missing", text: "Footprint population capacity is missing. Re-set race footprint after ACS fetch." });
+    return { alignment, capacity, issues: out };
+  }
+  const universe = Number(res?.raw?.universeSize);
+  if (Number.isFinite(universe) && universe > pop){
+    out.push({ kind: "bad", code: "universe_exceeds_population", text: `Universe size (${Math.round(universe).toLocaleString("en-US")}) exceeds footprint population (${Math.round(pop).toLocaleString("en-US")}).` });
+  }
+  const turnoutVotes = Number(res?.expected?.turnoutVotes);
+  if (Number.isFinite(turnoutVotes) && turnoutVotes > pop){
+    out.push({ kind: "bad", code: "turnout_exceeds_population", text: `Turnout votes (${Math.round(turnoutVotes).toLocaleString("en-US")}) exceed footprint population (${Math.round(pop).toLocaleString("en-US")}).` });
+  }
+  const winThreshold = Number(res?.expected?.winThreshold);
+  if (Number.isFinite(winThreshold) && winThreshold > pop){
+    out.push({ kind: "bad", code: "threshold_exceeds_population", text: `Win threshold (${Math.round(winThreshold).toLocaleString("en-US")}) exceeds footprint population (${Math.round(pop).toLocaleString("en-US")}).` });
+  }
+  const needVotes = Number(res?.expected?.persuasionNeed);
+  if (Number.isFinite(needVotes) && needVotes > pop){
+    out.push({ kind: "bad", code: "need_exceeds_population", text: `Persuasion need (${Math.round(needVotes).toLocaleString("en-US")}) exceeds footprint population (${Math.round(pop).toLocaleString("en-US")}).` });
+  }
+  return { alignment, capacity, issues: out };
+}
+
+export function getElectionCsvUploadGuide(){
+  const requiredColumns = [
+    "state_fips",
+    "county_fips",
+    "election_date",
+    "office",
+    "district_id",
+    "precinct_id",
+    "candidate",
+    "votes",
+  ];
+  const optionalColumns = [
+    "party",
+    "total_votes_precinct",
+    "source",
+    "notes",
+  ];
+  const sampleRow = {
+    state_fips: "17",
+    county_fips: "031",
+    election_date: "2024-11-05",
+    office: "US House",
+    district_id: "IL-07",
+    precinct_id: "17-031-001A",
+    candidate: "Candidate Name",
+    party: "DEM",
+    votes: "1245",
+    total_votes_precinct: "3140",
+    source: "County certified results",
+    notes: "",
+  };
+  return {
+    schemaVersion: "election_results_csv.v1",
+    requiredColumns,
+    optionalColumns,
+    sampleRow,
+    notes: [
+      "All required columns must be present with exact names.",
+      "votes and total_votes_precinct must be non-negative integers.",
+      "Rows with invalid keys or values fail validation and are rejected.",
+      "Import should run in dry-run mode first before commit.",
+    ],
+  };
+}
+
+export function buildElectionCsvTemplate(){
+  const guide = getElectionCsvUploadGuide();
+  const columns = [...guide.requiredColumns, ...guide.optionalColumns];
+  const row = columns.map((key) => cleanText(guide.sampleRow?.[key]));
+  return `${columns.join(",")}\n${row.join(",")}\n`;
 }
 
 export function makeDefaultCensusState(){

@@ -68,11 +68,12 @@ import { normalizeLoadedState as normalizeLoadedStateApp } from "../app/state.js
 import { resolveFeatureFlags } from "./featureFlags.js";
 import { validateOperationsCapacityInput } from "../features/operations/io.js";
 import { registerPhase115ATests } from "./selfTestSuites/phase115A.js";
-import { registerCensusPhase1Tests } from "./selfTestSuites/censusPhase1.js?v=20260309-census-phase1-15";
+import { registerCensusPhase1Tests } from "./selfTestSuites/censusPhase1.js?v=20260309-census-phase1-18";
 import {
   makeDefaultCensusState,
   makeDefaultRaceFootprint,
   makeDefaultAssumptionProvenance,
+  makeDefaultFootprintCapacity,
 } from "./censusModule.js";
 
 function withUniverseDefaults(s){
@@ -89,6 +90,7 @@ function withUniverseDefaults(s){
   if (out.census == null) out.census = makeDefaultCensusState();
   if (out.raceFootprint == null) out.raceFootprint = makeDefaultRaceFootprint();
   if (out.assumptionsProvenance == null) out.assumptionsProvenance = makeDefaultAssumptionProvenance();
+  if (out.footprintCapacity == null) out.footprintCapacity = makeDefaultFootprintCapacity();
   return out;
 }
 
