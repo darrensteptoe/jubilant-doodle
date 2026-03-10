@@ -337,6 +337,71 @@ export function normalizeAssumptionProvenance(input){
   return out;
 }
 
+export function buildRaceFootprintFromCensusSelection(censusState){
+  const s = censusState && typeof censusState === "object" ? censusState : {};
+  const resolution = cleanText(s.resolution);
+  const geoids = ["place", "tract", "block_group"].includes(resolution)
+    ? normalizeGeoidsForResolutionInternal(s.selectedGeoids, resolution).sort((a, b) => a.localeCompare(b))
+    : [];
+  const out = normalizeRaceFootprint({
+    source: "census_phase1",
+    year: cleanText(s.year),
+    resolution,
+    metricSet: cleanText(s.metricSet),
+    stateFips: cleanText(s.stateFips),
+    countyFips: cleanText(s.countyFips),
+    placeFips: cleanText(s.placeFips),
+    geoids,
+    rowCount: Number.isFinite(Number(s.loadedRowCount)) ? Number(s.loadedRowCount) : 0,
+    rowsKey: cleanText(s.activeRowsKey),
+  });
+  out.fingerprint = computeRaceFootprintFingerprint(out);
+  return out;
+}
+
+export function assessRaceFootprintAlignment({ censusState, raceFootprint, assumptionsProvenance } = {}){
+  const live = buildRaceFootprintFromCensusSelection(censusState);
+  const storedRaw = normalizeRaceFootprint(raceFootprint);
+  const stored = {
+    ...storedRaw,
+    fingerprint: cleanText(storedRaw.fingerprint) || computeRaceFootprintFingerprint(storedRaw),
+  };
+  const provenance = normalizeAssumptionProvenance(assumptionsProvenance);
+  const footprintDefined = !!stored.fingerprint && Array.isArray(stored.geoids) && stored.geoids.length > 0;
+  const selectionHasContext = !!live.fingerprint;
+  const selectionMatches = footprintDefined && selectionHasContext && live.fingerprint === stored.fingerprint;
+  const rowsKey = cleanText(censusState?.activeRowsKey);
+  const provenanceHasFingerprint = !!provenance.raceFootprintFingerprint;
+  const provenanceFingerprintMatches = provenanceHasFingerprint && provenance.raceFootprintFingerprint === stored.fingerprint;
+  const provenanceRowsKeyMatches = !provenance.censusRowsKey || provenance.censusRowsKey === rowsKey;
+  const provenanceAligned = footprintDefined && provenanceFingerprintMatches && provenanceRowsKeyMatches;
+  let reason = "ready";
+  if (!footprintDefined){
+    reason = "footprint_not_set";
+  } else if (!selectionHasContext){
+    reason = "selection_context_missing";
+  } else if (!selectionMatches){
+    reason = "selection_mismatch";
+  } else if (!provenanceHasFingerprint){
+    reason = "provenance_not_set";
+  } else if (!provenanceFingerprintMatches){
+    reason = "provenance_footprint_mismatch";
+  } else if (!provenanceRowsKeyMatches){
+    reason = "provenance_rows_mismatch";
+  }
+  return {
+    reason,
+    readyForAssumptions: reason === "ready",
+    footprintDefined,
+    selectionHasContext,
+    selectionMatches,
+    provenanceAligned,
+    live,
+    stored,
+    provenance,
+  };
+}
+
 export function makeDefaultCensusState(){
   return {
     year: defaultYear(),

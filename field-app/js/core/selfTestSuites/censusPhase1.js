@@ -14,6 +14,8 @@ import {
   makeDefaultRaceFootprint,
   normalizeRaceFootprint,
   computeRaceFootprintFingerprint,
+  buildRaceFootprintFromCensusSelection,
+  assessRaceFootprintAlignment,
   makeDefaultAssumptionProvenance,
   normalizeAssumptionProvenance,
 } from "../censusModule.js";
@@ -216,5 +218,40 @@ export function registerCensusPhase1Tests(ctx){
     assert(normalized.source === "census_phase1", "provenance source mismatch");
     assert(normalized.raceFootprintFingerprint === "a|b|c", "provenance footprint key mismatch");
     assert(normalized.censusRowsKey === "12345", "provenance rows key mismatch");
+  });
+
+  test("Census Phase1: race footprint alignment evaluator", () => {
+    const censusState = {
+      year: "2024",
+      resolution: "tract",
+      metricSet: "core",
+      stateFips: "17",
+      countyFips: "031",
+      selectedGeoids: ["17031010100", "17031010200"],
+      loadedRowCount: 2,
+      activeRowsKey: "2024|tract|17|031|core",
+    };
+    const live = buildRaceFootprintFromCensusSelection(censusState);
+    const aligned = assessRaceFootprintAlignment({
+      censusState,
+      raceFootprint: { ...live, fingerprint: live.fingerprint },
+      assumptionsProvenance: {
+        source: "census_phase1",
+        raceFootprintFingerprint: live.fingerprint,
+        censusRowsKey: live.rowsKey,
+      },
+    });
+    assert(aligned.readyForAssumptions === true, "alignment should be ready");
+    const mismatch = assessRaceFootprintAlignment({
+      censusState: { ...censusState, selectedGeoids: ["17031010300"] },
+      raceFootprint: { ...live, fingerprint: live.fingerprint },
+      assumptionsProvenance: {
+        source: "census_phase1",
+        raceFootprintFingerprint: live.fingerprint,
+        censusRowsKey: live.rowsKey,
+      },
+    });
+    assert(mismatch.readyForAssumptions === false, "mismatch should block readiness");
+    assert(mismatch.reason === "selection_mismatch", "mismatch reason should be selection_mismatch");
   });
 }
