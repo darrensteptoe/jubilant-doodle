@@ -2135,6 +2135,32 @@
 </div>
 <div class="rowline" style="margin-top:8px; gap:8px;">
 <button class="btn btn-sm btn-ghost" id="btnCensusDownloadElectionCsvTemplate" type="button">Download long-format CSV template</button>
+<button class="btn btn-sm btn-ghost" id="btnCensusDownloadElectionCsvWideTemplate" type="button">Download wide-format CSV template</button>
+</div>
+<div class="grid2" style="margin-top:8px;">
+<div class="field">
+<label class="label" for="censusElectionCsvFile">Election CSV file</label>
+<input accept=".csv,text/csv" class="input" id="censusElectionCsvFile" type="file"/>
+</div>
+<div class="field">
+<label class="label">Dry-run</label>
+<div class="rowline" style="gap:8px;">
+<button class="btn btn-sm btn-ghost" id="btnCensusElectionCsvDryRun" type="button">Run dry-run parse</button>
+<button class="btn btn-sm btn-ghost" id="btnCensusElectionCsvClear" type="button">Clear preview</button>
+</div>
+</div>
+</div>
+<div class="muted" id="censusElectionCsvDryRunStatus" style="margin-top:6px;">No dry-run run yet.</div>
+<div class="muted" id="censusElectionCsvPreviewMeta" style="margin-top:4px;">No normalized preview rows.</div>
+<div class="table-wrap" style="margin-top:8px;">
+<table class="table" aria-label="Election CSV dry-run preview">
+<thead>
+<tr><th>Precinct</th><th>Candidate</th><th class="num">Votes</th><th class="num">Total precinct votes</th></tr>
+</thead>
+<tbody id="censusElectionCsvPreviewTbody">
+<tr><td class="muted" colspan="4">No dry-run preview yet.</td></tr>
+</tbody>
+</table>
 </div>
 </details>
 <div class="grid2" style="margin-top:8px;">
@@ -3137,7 +3163,7 @@ Volunteer multiplier stays above 1.5" rows="4"></textarea>
 </aside>
 </div>
 <!-- /app-shell -->
-<script src="./js/app.js?v=20260309-census-phase1-20" type="module"></script>
+<script src="./js/app.js?v=20260309-census-phase1-21" type="module"></script>
 <script>
 // ── Stage navigation ───────────────────────────────────────────
 function normalizeStages() {
