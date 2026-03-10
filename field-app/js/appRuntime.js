@@ -1,5 +1,5 @@
 // @ts-check
-import { engine } from "./engine.js?v=20260309-census-phase1-32";
+import { engine } from "./engine.js?v=20260309-census-phase1-34";
 import {
   computeCapacityContacts as coreComputeCapacityContacts,
   computeCapacityBreakdown as coreComputeCapacityBreakdown,
@@ -17,6 +17,7 @@ import {
   readBackups,
   persistStateSnapshot,
   appendBackupEntry,
+  serializeStateForPersistence,
 } from "./storage.js";
 import { APP_VERSION, BUILD_ID } from "./build.js";
 import { computeSnapshotHash } from "./core/hash.js";
@@ -211,6 +212,7 @@ import {
 } from "./app/wireEventsRuntime.js";
 import { wireEventsOrchestratorModule } from "./app/wireEventsOrchestrator.js";
 import { createCandidateUiController } from "./app/candidateUi.js";
+import { createUsbStorageController } from "./app/usbStorage.js";
 import {
   getUniverseLayerConfig as getUniverseLayerConfigFromStateSelector,
   getEffectiveBaseRates as getEffectiveBaseRatesFromStateSelector,
@@ -385,6 +387,7 @@ function scheduleOperationsCapacityOutlookRender(weeks){
 }
 
 let backupRecoveryController = null;
+let usbStorageController = null;
 
 function getBackupRecoveryController(){
   if (backupRecoveryController) return backupRecoveryController;
@@ -410,6 +413,54 @@ function getBackupRecoveryController(){
     renderDecisionSessionD1,
   });
   return backupRecoveryController;
+}
+
+function getUsbStorageController(){
+  if (usbStorageController) return usbStorageController;
+  usbStorageController = createUsbStorageController({
+    els,
+    getState: () => state,
+    replaceState: (next) => { state = next; },
+    normalizeLoadedState: normalizeLoadedScenarioRuntime,
+    ensureScenarioRegistry,
+    ensureDecisionScaffold,
+    SCENARIO_BASELINE_ID,
+    scenarioInputsFromState,
+    scenarioOutputsFromState,
+    applyStateToUI,
+    rebuildCandidateTable,
+    applyThemeFromState,
+    render,
+    safeCall,
+    renderScenarioManagerC1,
+    renderDecisionSessionD1,
+    persist,
+    serializeStateForPersistence,
+  });
+  return usbStorageController;
+}
+
+function wireUsbStorageEvents(){
+  if (els.btnUsbStorageConnect){
+    els.btnUsbStorageConnect.addEventListener("click", async () => {
+      await getUsbStorageController().connect();
+    });
+  }
+  if (els.btnUsbStorageLoad){
+    els.btnUsbStorageLoad.addEventListener("click", async () => {
+      await getUsbStorageController().loadFromFolder();
+    });
+  }
+  if (els.btnUsbStorageSave){
+    els.btnUsbStorageSave.addEventListener("click", async () => {
+      await getUsbStorageController().saveNow({ requestPermission: true });
+    });
+  }
+  if (els.btnUsbStorageDisconnect){
+    els.btnUsbStorageDisconnect.addEventListener("click", async () => {
+      await getUsbStorageController().disconnect();
+    });
+  }
 }
 
 async function copyDebugBundle(){
@@ -860,14 +911,21 @@ function switchToStage(stageId){
 }
 
 function persist(){
+  const usbController = getUsbStorageController();
+  if (usbController.isConnected()){
+    clearPersistenceFailure("state");
+    clearPersistenceFailure("backup");
+    usbController.scheduleSave();
+    return;
+  }
   const result = persistStateSnapshot(state);
   if (result?.ok){
     clearPersistenceFailure("state");
   } else {
     reportPersistenceFailure("state", result);
   }
-  // Phase 11 — auto-backup (fail-soft)
   scheduleBackupWrite();
+  usbController.scheduleSave();
 }
 
 function render(){
@@ -1460,7 +1518,7 @@ function initDevTools(){
     getSelfTestAccessors,
     setSelfTestGateStatus: (next) => { selfTestGateStatus = next; },
     updateSelfTestGateBadge,
-    loadSelfTests: () => import("./selfTest.js"),
+    loadSelfTests: () => import("./selfTest.js?v=20260309-census-phase1-35"),
   });
 }
 function composeSetupStage(){
@@ -1471,6 +1529,16 @@ function init(){
   try { composeSetupStage(); } catch {}
   installGlobalErrorCapture();
   preflightEls();
+  wireUsbStorageEvents();
+  safeCall(() => {
+    const controller = getUsbStorageController();
+    Promise.resolve(controller.init()).then(() => {
+      if (controller.isConnected()){
+        clearPersistenceFailure("state");
+        clearPersistenceFailure("backup");
+      }
+    }).catch(() => {});
+  });
   ensureScenarioRegistry();
   ensureDecisionScaffold();
   runInitScenarioDecisionWiringModule({

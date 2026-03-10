@@ -1,5 +1,7 @@
 // @ts-check
 const KEY = "dsc_field_engine_state_v1";
+const BACKUP_KEY = "fpe_backups_v1";
+const MAX_BACKUPS = 5;
 
 export function loadState(){
   try{
@@ -28,14 +30,71 @@ function persistenceError(code, fallback, err){
   };
 }
 
+function isObject(value){
+  return !!value && typeof value === "object" && !Array.isArray(value);
+}
+
+function compactCensusForPersistence(census){
+  if (!isObject(census)) return census;
+  const out = { ...census };
+  out.geoOptions = [];
+  out.rowsByGeoid = {};
+  out.loadingGeo = false;
+  out.loadingRows = false;
+  out.requestSeq = 0;
+  return out;
+}
+
+function compactScenarioRecordForPersistence(record){
+  if (!isObject(record)) return record;
+  const out = { ...record };
+  if (isObject(out.inputs)){
+    out.inputs = compactStateForPersistence(out.inputs);
+  }
+  return out;
+}
+
+function compactStateForPersistence(state){
+  if (!isObject(state)) return state;
+  const out = { ...state };
+  if (isObject(out.census)){
+    out.census = compactCensusForPersistence(out.census);
+  }
+  if (isObject(out.ui)){
+    const ui = { ...out.ui };
+    if (isObject(ui.scenarios)){
+      const next = {};
+      for (const [id, record] of Object.entries(ui.scenarios)){
+        next[id] = compactScenarioRecordForPersistence(record);
+      }
+      ui.scenarios = next;
+    }
+    out.ui = ui;
+  }
+  return out;
+}
+
+export function prepareStateForPersistence(state){
+  return compactStateForPersistence(state);
+}
+
+export function serializeStateForPersistence(state){
+  return safeStringify(prepareStateForPersistence(state));
+}
+
 export function persistStateSnapshot(state, storageOverride){
   const store = storageOverride || localStorage;
-  const encoded = safeStringify(state);
+  const encoded = serializeStateForPersistence(state);
   if (!encoded.ok){
     return persistenceError("serialize_failed", "State serialization failed.", encoded.error);
   }
-  const ok = safeSet(store, KEY, encoded.text);
+  let ok = safeSet(store, KEY, encoded.text);
   if (!ok){
+    safeRemove(store, BACKUP_KEY);
+    ok = safeSet(store, KEY, encoded.text);
+    if (ok){
+      return { ok: true, bytes: encoded.text.length, clearedBackups: true };
+    }
     return persistenceError("write_failed", "State save failed (storage quota or browser policy).");
   }
   return { ok: true, bytes: encoded.text.length };
@@ -54,15 +113,14 @@ export function clearState(){
 }
 
 
-// Phase 11 — auto-backup snapshots (rolling 5, fail-soft)
-const BACKUP_KEY = "fpe_backups_v1";
-const MAX_BACKUPS = 5;
-
 function safeGet(storage, key){
   try{ return storage.getItem(key); } catch { return null; }
 }
 function safeSet(storage, key, value){
   try{ storage.setItem(key, value); return true; } catch { return false; }
+}
+function safeRemove(storage, key){
+  try{ storage.removeItem(key); return true; } catch { return false; }
 }
 
 export function readBackups(storageOverride){
@@ -91,9 +149,18 @@ export function appendBackupEntry(entry, storageOverride){
     if (!encoded.ok){
       return persistenceError("backup_serialize_failed", "Backup serialization failed.", encoded.error);
     }
-    const ok = safeSet(store, BACKUP_KEY, encoded.text);
+    let ok = safeSet(store, BACKUP_KEY, encoded.text);
     if (!ok){
-      return persistenceError("backup_write_failed", "Backup save failed (storage quota or browser policy).");
+      const fallback = [entry];
+      const fallbackEncoded = safeStringify(fallback);
+      if (!fallbackEncoded.ok){
+        return persistenceError("backup_serialize_failed", "Backup serialization failed.", fallbackEncoded.error);
+      }
+      ok = safeSet(store, BACKUP_KEY, fallbackEncoded.text);
+      if (!ok){
+        return persistenceError("backup_write_failed", "Backup save failed (storage quota or browser policy).");
+      }
+      return { ok: true, backups: fallback, bytes: fallbackEncoded.text.length, trimmed: true };
     }
     return { ok: true, backups: next, bytes: encoded.text.length };
   } catch (err){

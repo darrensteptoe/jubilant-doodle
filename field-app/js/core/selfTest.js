@@ -24,7 +24,7 @@ import { createScenarioManager } from "../scenarioManager.js";
 import { migrateSnapshot, CURRENT_SCHEMA_VERSION } from "./migrate.js";
 import { APP_VERSION, BUILD_ID } from "../build.js";
 import { SELFTEST_GATE, gateFromSelfTestResult } from "./selfTestGate.js";
-import { readBackups, writeBackupEntry } from "../storage.js";
+import { readBackups, writeBackupEntry, persistStateSnapshot } from "../storage.js";
 import { checkStrictImportPolicy } from "./importPolicy.js";
 import { computeConfidenceEnvelope } from "./confidenceEnvelope.js";
 import { computeSensitivitySurface } from "./sensitivitySurface.js";
@@ -1355,6 +1355,92 @@ export function runSelfTests(engine){
     assert(r.replaced === 1, `Expected 1 updated, got ${r.replaced}`);
     const norm = normalizeDailyLogArrayE11(r.merged);
     assert(norm.length === 3, "Merged log should have 3 unique dates");
+    return true;
+  });
+
+  test("Phase 11: storage persistence compacts census runtime payload", () => {
+    const storage = {
+      map: new Map(),
+      getItem(key){ return this.map.has(key) ? this.map.get(key) : null; },
+      setItem(key, value){ this.map.set(key, String(value)); },
+      removeItem(key){ this.map.delete(key); },
+    };
+    const state = withUniverseDefaults({
+      scenarioName: "CompactCheck",
+      census: {
+        year: "2024",
+        resolution: "tract",
+        metricSet: "core",
+        stateFips: "17",
+        countyFips: "031",
+        geoOptions: [{ geoid: "17031010100", label: "Tract 101" }],
+        rowsByGeoid: { "17031010100": { geoid: "17031010100", values: { B01003_001E: 1000 } } },
+        loadingGeo: true,
+        loadingRows: true,
+        requestSeq: 99,
+      },
+      ui: {
+        scenarios: {
+          baseline: {
+            id: "baseline",
+            name: "Baseline",
+            inputs: {
+              census: {
+                year: "2024",
+                resolution: "tract",
+                metricSet: "core",
+                stateFips: "17",
+                countyFips: "031",
+                geoOptions: [{ geoid: "17031010100", label: "Tract 101" }],
+                rowsByGeoid: { "17031010100": { geoid: "17031010100", values: { B01003_001E: 1000 } } },
+                loadingGeo: true,
+                loadingRows: true,
+                requestSeq: 88,
+              },
+            },
+          },
+        },
+      },
+    });
+    const result = persistStateSnapshot(state, storage);
+    assert(result?.ok === true, "state persistence should succeed");
+    const raw = storage.getItem("dsc_field_engine_state_v1");
+    assert(typeof raw === "string" && raw.length > 0, "state key should be written");
+    const saved = JSON.parse(raw);
+    assert(Array.isArray(saved?.census?.geoOptions) && saved.census.geoOptions.length === 0, "census geoOptions should be compacted");
+    assert(Object.keys(saved?.census?.rowsByGeoid || {}).length === 0, "census rowsByGeoid should be compacted");
+    assert(saved?.census?.loadingGeo === false, "loadingGeo should be reset in persisted state");
+    assert(saved?.census?.loadingRows === false, "loadingRows should be reset in persisted state");
+    assert(saved?.census?.requestSeq === 0, "requestSeq should reset in persisted state");
+    const nestedInputs = saved?.ui?.scenarios?.baseline?.inputs;
+    assert(Array.isArray(nestedInputs?.census?.geoOptions) && nestedInputs.census.geoOptions.length === 0, "scenario input census geoOptions should be compacted");
+    return true;
+  });
+
+  test("Phase 11: storage persistence retries after backup key clear", () => {
+    const storage = {
+      removed: false,
+      payload: "",
+      getItem(){ return null; },
+      setItem(key, value){
+        if (key === "dsc_field_engine_state_v1" && !this.removed){
+          throw new Error("quota");
+        }
+        if (key === "dsc_field_engine_state_v1"){
+          this.payload = String(value);
+        }
+      },
+      removeItem(key){
+        if (key === "fpe_backups_v1"){
+          this.removed = true;
+        }
+      },
+    };
+    const state = withUniverseDefaults({ scenarioName: "RetryCheck", universeSize: 1000 });
+    const result = persistStateSnapshot(state, storage);
+    assert(result?.ok === true, "state persistence should recover after backup clear");
+    assert(result?.clearedBackups === true, "result should report backup clear recovery");
+    assert(typeof storage.payload === "string" && storage.payload.length > 0, "state payload should be written after recovery");
     return true;
   });
 
