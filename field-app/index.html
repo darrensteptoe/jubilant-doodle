@@ -2113,6 +2113,30 @@
 </div>
 <div class="muted" id="censusRaceFootprintStatus">Race footprint not set.</div>
 <div class="muted" id="censusAssumptionProvenanceStatus">Assumption provenance not set.</div>
+<div class="muted" id="censusFootprintCapacityStatus">Footprint capacity: not set.</div>
+<details style="margin-top:8px;">
+<summary>Election CSV upload guide (future)</summary>
+<div class="note" style="margin-top:8px;">Keep election import separate from Census assumptions. Use strict CSV schema and dry-run validation before commit.</div>
+<div class="muted" id="censusElectionCsvGuideStatus" style="margin-top:6px;">Election CSV schema guide loading.</div>
+<div class="table-wrap" style="margin-top:8px;">
+<table class="table" aria-label="Election CSV required columns">
+<thead>
+<tr><th>Required columns</th><th>Rule</th></tr>
+</thead>
+<tbody>
+<tr><td>state_fips, county_fips</td><td>2-digit and 3-digit FIPS strings.</td></tr>
+<tr><td>election_date</td><td>YYYY-MM-DD.</td></tr>
+<tr><td>office, district_id</td><td>Canonical office + district labels.</td></tr>
+<tr><td>precinct_id</td><td>Stable precinct key per county.</td></tr>
+<tr><td>candidate</td><td>Candidate display name.</td></tr>
+<tr><td>votes</td><td>Non-negative integer.</td></tr>
+</tbody>
+</table>
+</div>
+<div class="rowline" style="margin-top:8px; gap:8px;">
+<button class="btn btn-sm btn-ghost" id="btnCensusDownloadElectionCsvTemplate" type="button">Download CSV template</button>
+</div>
+</details>
 <div class="grid2" style="margin-top:8px;">
 <div class="field">
 <label class="label" for="censusSelectionSetName">Save selection set</label>
@@ -3113,7 +3137,7 @@ Volunteer multiplier stays above 1.5" rows="4"></textarea>
 </aside>
 </div>
 <!-- /app-shell -->
-<script src="./js/app.js?v=20260309-census-phase1-15" type="module"></script>
+<script src="./js/app.js?v=20260309-census-phase1-18" type="module"></script>
 <script>
 // ── Stage navigation ───────────────────────────────────────────
 function normalizeStages() {
