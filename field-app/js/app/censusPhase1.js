@@ -30,12 +30,13 @@ import {
   assessRaceFootprintAlignment,
   evaluateFootprintFeasibility,
   summarizeFootprintFeasibilityIssues,
+  buildCensusAssumptionAdvisory,
   buildElectionCsvTemplate,
   buildElectionCsvWideTemplate,
   getElectionCsvUploadGuide,
   parseCsvText,
   normalizeElectionCsvRows,
-} from "../core/censusModule.js";
+} from "../core/censusModule.js?v=20260309-census-phase1-32";
 
 const variableCatalogCache = new Map();
 let stateOptionsCache = null;
@@ -1084,7 +1085,21 @@ export function renderCensusPhase1Module({ els, state, res } = {}){
     els.btnCensusMapQaVtdZipClear.disabled = mapQaVtdUpload.loading || (!mapQaVtdUpload.fileName && !mapQaVtdUpload.featureCollection);
   }
 
-  const { runtimeRows, tableRows } = aggregateSnapshot(s);
+  const { runtimeRows, aggregate, tableRows } = aggregateSnapshot(s);
+  const canonicalDoorShare = (() => {
+    const rawPct = Number(state?.channelDoorPct);
+    if (Number.isFinite(rawPct)){
+      const pct = Math.min(100, Math.max(0, rawPct));
+      return pct / 100;
+    }
+    return 0.5;
+  })();
+  const advisory = buildCensusAssumptionAdvisory({
+    aggregate,
+    doorShare: canonicalDoorShare,
+    doorsPerHour: Number(state?.doorsPerHour3 ?? state?.doorsPerHour),
+    callsPerHour: Number(state?.callsPerHour3),
+  });
   if (els.btnCensusExportAggregateCsv){
     els.btnCensusExportAggregateCsv.disabled = !tableRows.length || !s.selectedGeoids.length;
   }
@@ -1109,6 +1124,50 @@ export function renderCensusPhase1Module({ els, state, res } = {}){
         const tr = document.createElement("tr");
         tr.innerHTML = `<td>${row.label}</td><td class="num">${row.valueText}</td>`;
         els.censusAggregateTbody.appendChild(tr);
+      }
+    }
+  }
+
+  if (
+    els.censusAdvisoryTbody &&
+    typeof els.censusAdvisoryTbody.appendChild === "function" &&
+    "innerHTML" in els.censusAdvisoryTbody &&
+    typeof document !== "undefined" &&
+    typeof document.createElement === "function"
+  ){
+    const fIdx = (v) => {
+      const n = Number(v);
+      return Number.isFinite(n) ? n.toFixed(2) : "—";
+    };
+    const fPct = (v) => {
+      const n = Number(v);
+      return Number.isFinite(n) ? `${(n * 100).toFixed(1)}%` : "—";
+    };
+    const fNum = (v) => {
+      const n = Number(v);
+      return Number.isFinite(n) ? n.toFixed(1) : "—";
+    };
+    const rows = advisory.ready
+      ? [
+          { label: "Field speed index", value: `${fIdx(advisory.indices.fieldSpeed)} (${advisory.bands.fieldSpeed})` },
+          { label: "Persuasion environment", value: `${fIdx(advisory.indices.persuasionEnvironment)} (${advisory.bands.persuasionEnvironment})` },
+          { label: "Turnout elasticity", value: `${fIdx(advisory.indices.turnoutElasticity)} (${advisory.bands.turnoutElasticity})` },
+          { label: "Field difficulty", value: `${fIdx(advisory.indices.fieldDifficulty)} (${advisory.bands.fieldDifficulty})` },
+          { label: "Advisory doors/hour multiplier", value: `${fIdx(advisory.multipliers.doorsPerHour)} (${fPct(advisory.aph.deltaPct)})` },
+          { label: "Current blended APH", value: fNum(advisory.aph.base) },
+          { label: "Environment-adjusted APH", value: fNum(advisory.aph.adjusted) },
+        ]
+      : [];
+    els.censusAdvisoryTbody.innerHTML = "";
+    if (!rows.length){
+      const tr = document.createElement("tr");
+      tr.innerHTML = '<td class="muted" colspan="2">Load ACS rows for selected GEO units to compute advisory indices.</td>';
+      els.censusAdvisoryTbody.appendChild(tr);
+    } else {
+      for (const row of rows){
+        const tr = document.createElement("tr");
+        tr.innerHTML = `<td>${row.label}</td><td class="num">${row.value}</td>`;
+        els.censusAdvisoryTbody.appendChild(tr);
       }
     }
   }
@@ -1301,6 +1360,33 @@ export function renderCensusPhase1Module({ els, state, res } = {}){
 
   if (els.censusLastFetch){
     els.censusLastFetch.textContent = fmtTs(s.lastFetchAt);
+  }
+
+  if (els.censusAdvisoryStatus){
+    els.censusAdvisoryStatus.classList.remove("ok", "warn", "bad", "muted");
+    if (!advisory.ready){
+      els.censusAdvisoryStatus.classList.add("muted");
+      els.censusAdvisoryStatus.textContent = advisory.reason === "selection_missing"
+        ? "Assumption advisory pending: select GEO units and fetch ACS rows."
+        : "Assumption advisory pending: ACS signal metrics are unavailable.";
+    } else {
+      const coverageText = `${advisory.coverage.availableSignals}/${advisory.coverage.totalSignals}`;
+      const hasAph = Number.isFinite(Number(advisory.aph.base)) && Number.isFinite(Number(advisory.aph.adjusted));
+      const deltaAbs = Math.abs(Number(advisory.aph.deltaPct));
+      if (!hasAph){
+        els.censusAdvisoryStatus.classList.add("muted");
+      } else if (Number.isFinite(deltaAbs) && deltaAbs >= 0.15){
+        els.censusAdvisoryStatus.classList.add("warn");
+      } else {
+        els.censusAdvisoryStatus.classList.add("ok");
+      }
+      if (hasAph){
+        const pct = `${(Number(advisory.aph.deltaPct) * 100).toFixed(1)}%`;
+        els.censusAdvisoryStatus.textContent = `Assumption advisory ready. Signal coverage ${coverageText}. Environment-adjusted APH delta ${pct}.`;
+      } else {
+        els.censusAdvisoryStatus.textContent = `Assumption advisory ready. Signal coverage ${coverageText}. APH advisory unavailable until doors/hour and calls/hour are set.`;
+      }
+    }
   }
 
   if (els.censusMapStatus){
