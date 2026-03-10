@@ -32,6 +32,7 @@
   --fpe-card-title: 15px;
   --fpe-body: 14px;
   --fpe-small: 12px;
+  --fpe-field-text: 12px;
   --fpe-kpi: 24px;
 }
 
@@ -237,7 +238,7 @@
   border-radius: var(--fpe-radius-sm);
   background: var(--fpe-panel-muted);
   padding: 0 11px;
-  font-size: var(--fpe-body);
+  font-size: var(--fpe-field-text);
 }
 
 .fpe-page-head {
@@ -381,6 +382,7 @@
 
 .fpe-card__body {
   padding: 16px 18px;
+  overflow-x: auto;
 }
 
 .fpe-field-grid {
@@ -397,8 +399,11 @@
   display: block;
   margin-bottom: 6px;
   color: var(--fpe-muted);
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .fpe-input {
@@ -409,12 +414,33 @@
   background: var(--fpe-panel);
   color: var(--fpe-text);
   padding: 0 10px;
-  font: inherit;
+  font-size: var(--fpe-field-text);
+  line-height: 1.3;
 }
 
 .fpe-input:focus-visible {
   outline: 2px solid rgba(29, 78, 216, 0.35);
   outline-offset: 2px;
+}
+
+.fpe-context__input::placeholder,
+.fpe-input::placeholder,
+#app-shell-v3-root .fpe-card__body .input::placeholder,
+#app-shell-v3-root .fpe-card__body textarea::placeholder {
+  font-size: var(--fpe-field-text);
+}
+
+#app-shell-v3-root .fpe-card__body .input,
+#app-shell-v3-root .fpe-card__body .select,
+#app-shell-v3-root .fpe-card__body textarea {
+  font-size: var(--fpe-field-text);
+  line-height: 1.3;
+}
+
+#app-shell-v3-root .fpe-card__body .label {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .fpe-switch {
@@ -474,6 +500,25 @@
 
 .fpe-field-grid--4 {
   grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+#app-shell-v3-root .fpe-card__body .fpe-field-grid--2,
+#app-shell-v3-root .fpe-card__body .grid2 {
+  grid-template-columns: repeat(2, minmax(190px, 1fr));
+  min-width: 420px;
+}
+
+#app-shell-v3-root .fpe-card__body .fpe-field-grid--3,
+#app-shell-v3-root .fpe-card__body .grid3,
+#app-shell-v3-root .fpe-card__body .subgrid {
+  grid-template-columns: repeat(3, minmax(190px, 1fr));
+  min-width: 640px;
+}
+
+#app-shell-v3-root .fpe-card__body .fpe-field-grid--4,
+#app-shell-v3-root .fpe-card__body .grid4 {
+  grid-template-columns: repeat(4, minmax(170px, 1fr));
+  min-width: 760px;
 }
 
 .fpe-card__body > .card,
@@ -710,10 +755,23 @@
     grid-template-columns: minmax(0, 1fr);
   }
 
-  .fpe-field-grid--2,
-  .fpe-field-grid--3,
-  .fpe-field-grid--4 {
-    grid-template-columns: minmax(0, 1fr);
+  #app-shell-v3-root .fpe-card__body .fpe-field-grid--2,
+  #app-shell-v3-root .fpe-card__body .grid2 {
+    grid-template-columns: repeat(2, minmax(190px, 1fr));
+    min-width: 420px;
+  }
+
+  #app-shell-v3-root .fpe-card__body .fpe-field-grid--3,
+  #app-shell-v3-root .fpe-card__body .grid3,
+  #app-shell-v3-root .fpe-card__body .subgrid {
+    grid-template-columns: repeat(3, minmax(190px, 1fr));
+    min-width: 640px;
+  }
+
+  #app-shell-v3-root .fpe-card__body .fpe-field-grid--4,
+  #app-shell-v3-root .fpe-card__body .grid4 {
+    grid-template-columns: repeat(4, minmax(170px, 1fr));
+    min-width: 760px;
   }
 }
 
