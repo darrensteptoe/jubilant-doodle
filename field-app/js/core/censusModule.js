@@ -1921,6 +1921,185 @@ function metricNum(metrics, id){
   return Number.isFinite(value) ? value : null;
 }
 
+function rowVarNum(rowValues, variableId){
+  const value = Number(rowValues?.[variableId]);
+  return Number.isFinite(value) ? value : null;
+}
+
+function ratioFromRow(rowValues, numeratorVars, denominatorVars, fallback){
+  let numerator = 0;
+  let denominator = 0;
+  let denominatorSeen = false;
+  for (const id of numeratorVars || []){
+    const value = rowVarNum(rowValues, id);
+    if (value == null) continue;
+    numerator += value;
+  }
+  for (const id of denominatorVars || []){
+    const value = rowVarNum(rowValues, id);
+    if (value == null) continue;
+    denominator += value;
+    denominatorSeen = true;
+  }
+  if (!denominatorSeen || denominator <= 0) return fallback;
+  return clampRange(numerator / denominator, 0, 1);
+}
+
+function computeAdvisoryIndices({ renterShare, multiUnitShare, limitedEnglishShare, baPlusShare, medianIncome, densityRatio } = {}){
+  const renter = clampRange(Number(renterShare), 0, 1);
+  const multi = clampRange(Number(multiUnitShare), 0, 1);
+  const limitedEnglish = clampRange(Number(limitedEnglishShare), 0, 1);
+  const baPlus = clampRange(Number(baPlusShare), 0, 1);
+  const income = Number.isFinite(Number(medianIncome)) ? Number(medianIncome) : 65000;
+  const density = clampRange(Number(densityRatio), 0.2, 0.9);
+  const incomeNorm = clampRange((income - 35000) / 65000, 0, 1);
+  const densityNorm = clampRange((density - 0.25) / 0.45, 0, 1);
+  const fieldSpeed = clampRange(
+    1
+      + (0.22 * densityNorm)
+      + (0.12 * multi)
+      + (0.06 * renter)
+      - (0.14 * limitedEnglish),
+    0.75,
+    1.30,
+  );
+  const persuasionEnvironment = clampRange(
+    1
+      + (0.16 * baPlus)
+      + (0.08 * renter)
+      + (0.10 * incomeNorm)
+      - (0.08 * limitedEnglish),
+    0.80,
+    1.30,
+  );
+  const turnoutElasticity = clampRange(
+    1
+      + (0.20 * renter)
+      + (0.12 * limitedEnglish)
+      + (0.08 * (1 - baPlus))
+      - (0.06 * incomeNorm),
+    0.80,
+    1.35,
+  );
+  const fieldDifficulty = clampRange(
+    1
+      + (0.20 * limitedEnglish)
+      + (0.10 * multi)
+      + (0.08 * (1 - densityNorm))
+      - (0.05 * renter),
+    0.80,
+    1.40,
+  );
+  return {
+    fieldSpeed,
+    persuasionEnvironment,
+    turnoutElasticity,
+    fieldDifficulty,
+  };
+}
+
+function weightedQuantile(samples, q){
+  const rows = Array.isArray(samples) ? samples.slice() : [];
+  if (!rows.length) return null;
+  const percentile = clampRange(Number(q), 0, 1);
+  rows.sort((a, b) => Number(a.value) - Number(b.value));
+  let totalWeight = 0;
+  for (const row of rows){
+    const weight = Number(row?.weight);
+    totalWeight += Number.isFinite(weight) && weight > 0 ? weight : 1;
+  }
+  if (totalWeight <= 0) return null;
+  const target = totalWeight * percentile;
+  let seen = 0;
+  for (const row of rows){
+    const weight = Number(row?.weight);
+    seen += Number.isFinite(weight) && weight > 0 ? weight : 1;
+    if (seen >= target){
+      const value = Number(row?.value);
+      return Number.isFinite(value) ? value : null;
+    }
+  }
+  const last = rows[rows.length - 1];
+  const value = Number(last?.value);
+  return Number.isFinite(value) ? value : null;
+}
+
+function advisoryMultiplierBand({
+  rowsByGeoid,
+  selectedGeoids,
+  fallbackMultiplier,
+  fallbackSignals,
+} = {}){
+  const rows = rowsByGeoid && typeof rowsByGeoid === "object" ? rowsByGeoid : {};
+  const geos = Array.isArray(selectedGeoids) ? selectedGeoids.map((v) => cleanText(v)).filter((v) => !!v) : [];
+  const fallback = Number.isFinite(Number(fallbackMultiplier)) ? clampRange(Number(fallbackMultiplier), 0.70, 1.30) : 1;
+  const renterFallback = clampRange(Number(fallbackSignals?.renterShare), 0, 1);
+  const multiFallback = clampRange(Number(fallbackSignals?.multiUnitShare), 0, 1);
+  const limitedEnglishFallback = clampRange(Number(fallbackSignals?.limitedEnglishShare), 0, 1);
+  const baPlusFallback = clampRange(Number(fallbackSignals?.baPlusShare), 0, 1);
+  const incomeFallback = Number.isFinite(Number(fallbackSignals?.medianIncome)) ? Number(fallbackSignals?.medianIncome) : 65000;
+  const densityFallback = clampRange(Number(fallbackSignals?.densityRatio), 0.2, 0.9);
+  const samples = [];
+  for (const geoid of geos){
+    const row = rows[geoid];
+    if (!row || typeof row !== "object") continue;
+    const values = row?.values && typeof row.values === "object" ? row.values : {};
+    const renterShare = ratioFromRow(values, ["B25003_003E"], ["B25003_001E"], renterFallback);
+    const multiUnitShare = ratioFromRow(
+      values,
+      ["B25024_003E", "B25024_004E", "B25024_005E", "B25024_006E", "B25024_007E", "B25024_008E", "B25024_009E", "B25024_010E", "B25024_011E"],
+      ["B25024_001E"],
+      multiFallback,
+    );
+    const limitedEnglishShare = ratioFromRow(values, ["C16002_004E", "C16002_007E", "C16002_010E", "C16002_013E"], ["C16002_001E"], limitedEnglishFallback);
+    const baPlusShare = ratioFromRow(values, ["B15003_022E", "B15003_023E", "B15003_024E", "B15003_025E"], ["B15003_001E"], baPlusFallback);
+    const medianIncome = (() => {
+      const value = rowVarNum(values, "B19013_001E");
+      return value != null && value > 0 ? value : incomeFallback;
+    })();
+    const densityRatio = (() => {
+      const population = rowVarNum(values, "B01003_001E");
+      const housingUnits = rowVarNum(values, "B25001_001E");
+      if (population != null && population > 0 && housingUnits != null && housingUnits > 0){
+        return clampRange(housingUnits / population, 0.2, 0.9);
+      }
+      return densityFallback;
+    })();
+    const indices = computeAdvisoryIndices({
+      renterShare,
+      multiUnitShare,
+      limitedEnglishShare,
+      baPlusShare,
+      medianIncome,
+      densityRatio,
+    });
+    const multiplier = clampRange(indices.fieldSpeed / indices.fieldDifficulty, 0.70, 1.30);
+    const populationWeight = rowVarNum(values, "B01003_001E");
+    const weight = populationWeight != null && populationWeight > 0 ? populationWeight : 1;
+    samples.push({ value: multiplier, weight });
+  }
+  if (!samples.length){
+    return {
+      low: fallback,
+      mid: fallback,
+      high: fallback,
+      sampleCount: 0,
+    };
+  }
+  const low = weightedQuantile(samples, 0.25);
+  const mid = weightedQuantile(samples, 0.50);
+  const high = weightedQuantile(samples, 0.75);
+  const lowValue = Number.isFinite(Number(low)) ? clampRange(Number(low), 0.70, 1.30) : fallback;
+  const midValue = Number.isFinite(Number(mid)) ? clampRange(Number(mid), 0.70, 1.30) : fallback;
+  const highValue = Number.isFinite(Number(high)) ? clampRange(Number(high), 0.70, 1.30) : fallback;
+  return {
+    low: Math.min(lowValue, midValue, highValue),
+    mid: midValue,
+    high: Math.max(lowValue, midValue, highValue),
+    sampleCount: samples.length,
+  };
+}
+
 function advisoryBand(value){
   const n = Number(value);
   if (!Number.isFinite(n)) return "—";
@@ -1929,10 +2108,15 @@ function advisoryBand(value){
   return "Moderate";
 }
 
-export function buildCensusAssumptionAdvisory({ aggregate, doorShare, doorsPerHour, callsPerHour } = {}){
-  const selectedGeoCount = Number.isFinite(Number(aggregate?.selectedGeoCount))
-    ? Math.max(0, Math.floor(Number(aggregate.selectedGeoCount)))
-    : 0;
+export function buildCensusAssumptionAdvisory({ aggregate, doorShare, doorsPerHour, callsPerHour, rowsByGeoid, selectedGeoids } = {}){
+  const selectedIds = Array.isArray(selectedGeoids) && selectedGeoids.length
+    ? selectedGeoids.map((v) => cleanText(v)).filter((v) => !!v)
+    : (Array.isArray(aggregate?.selectedGeoids) ? aggregate.selectedGeoids.map((v) => cleanText(v)).filter((v) => !!v) : []);
+  const selectedGeoCount = selectedIds.length > 0
+    ? selectedIds.length
+    : (Number.isFinite(Number(aggregate?.selectedGeoCount))
+      ? Math.max(0, Math.floor(Number(aggregate.selectedGeoCount)))
+      : 0);
   const metrics = aggregate?.metrics && typeof aggregate.metrics === "object" ? aggregate.metrics : {};
 
   let availableSignals = 0;
@@ -1964,45 +2148,18 @@ export function buildCensusAssumptionAdvisory({ aggregate, doorShare, doorsPerHo
   }
   densityRatio = clampRange(densityRatio, 0.2, 0.9);
 
-  const incomeNorm = clampRange((medianIncome - 35000) / 65000, 0, 1);
-  const densityNorm = clampRange((densityRatio - 0.25) / 0.45, 0, 1);
-
-  const fieldSpeed = clampRange(
-    1
-      + (0.22 * densityNorm)
-      + (0.12 * multiUnitShare)
-      + (0.06 * renterShare)
-      - (0.14 * limitedEnglishShare),
-    0.75,
-    1.30,
-  );
-  const persuasionEnvironment = clampRange(
-    1
-      + (0.16 * baPlusShare)
-      + (0.08 * renterShare)
-      + (0.10 * incomeNorm)
-      - (0.08 * limitedEnglishShare),
-    0.80,
-    1.30,
-  );
-  const turnoutElasticity = clampRange(
-    1
-      + (0.20 * renterShare)
-      + (0.12 * limitedEnglishShare)
-      + (0.08 * (1 - baPlusShare))
-      - (0.06 * incomeNorm),
-    0.80,
-    1.35,
-  );
-  const fieldDifficulty = clampRange(
-    1
-      + (0.20 * limitedEnglishShare)
-      + (0.10 * multiUnitShare)
-      + (0.08 * (1 - densityNorm))
-      - (0.05 * renterShare),
-    0.80,
-    1.40,
-  );
+  const indices = computeAdvisoryIndices({
+    renterShare,
+    multiUnitShare,
+    limitedEnglishShare,
+    baPlusShare,
+    medianIncome,
+    densityRatio,
+  });
+  const fieldSpeed = indices.fieldSpeed;
+  const persuasionEnvironment = indices.persuasionEnvironment;
+  const turnoutElasticity = indices.turnoutElasticity;
+  const fieldDifficulty = indices.fieldDifficulty;
 
   const shareRaw = Number(doorShare);
   const share = Number.isFinite(shareRaw) ? clampRange(shareRaw, 0, 1) : 0.5;
@@ -2011,8 +2168,28 @@ export function buildCensusAssumptionAdvisory({ aggregate, doorShare, doorsPerHo
   const hasBaseAph = Number.isFinite(dph) && dph > 0 && Number.isFinite(cph) && cph > 0;
   const baseAph = hasBaseAph ? (share * dph) + ((1 - share) * cph) : null;
   const doorsMultiplier = clampRange(fieldSpeed / fieldDifficulty, 0.70, 1.30);
-  const adjustedAph = baseAph != null ? baseAph * doorsMultiplier : null;
+  const multiplierBand = advisoryMultiplierBand({
+    rowsByGeoid,
+    selectedGeoids: selectedIds,
+    fallbackMultiplier: doorsMultiplier,
+    fallbackSignals: {
+      renterShare,
+      multiUnitShare,
+      limitedEnglishShare,
+      baPlusShare,
+      medianIncome,
+      densityRatio,
+    },
+  });
+  const bandMid = Number(multiplierBand.mid);
+  const effectiveMultiplier = Number.isFinite(bandMid) ? bandMid : doorsMultiplier;
+  const adjustedAph = baseAph != null ? baseAph * effectiveMultiplier : null;
   const aphDeltaPct = (baseAph != null && baseAph > 0 && adjustedAph != null) ? ((adjustedAph / baseAph) - 1) : null;
+  const aphRange = {
+    low: baseAph != null ? baseAph * Number(multiplierBand.low) : null,
+    mid: baseAph != null ? baseAph * Number(multiplierBand.mid) : null,
+    high: baseAph != null ? baseAph * Number(multiplierBand.high) : null,
+  };
 
   const ready = selectedGeoCount > 0 && availableSignals > 0;
   const reason = ready
@@ -2040,15 +2217,17 @@ export function buildCensusAssumptionAdvisory({ aggregate, doorShare, doorsPerHo
       fieldDifficulty: advisoryBand(fieldDifficulty),
     },
     multipliers: {
-      doorsPerHour: doorsMultiplier,
+      doorsPerHour: effectiveMultiplier,
       persuasion: persuasionEnvironment,
       turnoutLift: turnoutElasticity,
       organizerLoad: fieldDifficulty,
     },
+    multiplierBand,
     aph: {
       base: baseAph,
       adjusted: adjustedAph,
       deltaPct: aphDeltaPct,
+      range: aphRange,
     },
   };
 }
@@ -2072,7 +2251,15 @@ export function evaluateCensusPaceAgainstAdvisory({
   volunteerMult,
 } = {}){
   const adjustedAph = Number(advisory?.aph?.adjusted);
-  const hasAdjustedAph = Number.isFinite(adjustedAph) && adjustedAph > 0;
+  const aphRangeRaw = advisory?.aph?.range && typeof advisory.aph.range === "object" ? advisory.aph.range : null;
+  const rangeLow = Number(aphRangeRaw?.low);
+  const rangeMid = Number(aphRangeRaw?.mid);
+  const rangeHigh = Number(aphRangeRaw?.high);
+  const hasRange = Number.isFinite(rangeLow) && rangeLow > 0
+    && Number.isFinite(rangeMid) && rangeMid > 0
+    && Number.isFinite(rangeHigh) && rangeHigh > 0;
+  const availableAph = hasRange ? rangeMid : adjustedAph;
+  const hasAdjustedAph = Number.isFinite(availableAph) && availableAph > 0;
   const goalRaw = Number(needVotes);
   const hasGoal = Number.isFinite(goalRaw) && goalRaw >= 0;
   const weeksRaw = Number(weeks);
@@ -2107,12 +2294,14 @@ export function evaluateCensusPaceAgainstAdvisory({
     return {
       ready: false,
       reason,
-      availableAph: hasAdjustedAph ? adjustedAph : null,
+      availableAph: hasAdjustedAph ? availableAph : null,
+      availableAphRange: hasRange ? { low: rangeLow, mid: rangeMid, high: rangeHigh } : null,
       requiredAph: null,
       gapPct: null,
       ratio: null,
       feasible: null,
       severity: "muted",
+      nearTop: null,
       requiredAttemptsPerWeek: null,
       capacityHoursPerWeek: hasCapacityHours ? capacityHoursPerWeek : null,
     };
@@ -2122,22 +2311,58 @@ export function evaluateCensusPaceAgainstAdvisory({
   const requiredAttemptsTotal = safeGoal > 0 ? (safeGoal / (cr * sr * tr)) : 0;
   const requiredAttemptsPerWeek = requiredAttemptsTotal / weeksRaw;
   const requiredAph = requiredAttemptsPerWeek / capacityHoursPerWeek;
-  const ratio = requiredAph / adjustedAph;
+  const comparisonAph = hasRange ? rangeHigh : availableAph;
+  const ratio = requiredAph / comparisonAph;
   const gapPct = ratio - 1;
   const feasible = ratio <= 1;
-  const severity = feasible ? "ok" : (ratio > 1.2 ? "bad" : "warn");
+  const nearTop = hasRange ? (feasible && requiredAph >= (rangeHigh * 0.9)) : false;
+  const severity = hasRange
+    ? (feasible ? (nearTop ? "warn" : "ok") : "bad")
+    : (feasible ? "ok" : (ratio > 1.2 ? "bad" : "warn"));
 
   return {
     ready: true,
     reason,
-    availableAph: adjustedAph,
+    availableAph,
+    availableAphRange: hasRange ? { low: rangeLow, mid: rangeMid, high: rangeHigh } : null,
     requiredAph,
     gapPct,
     ratio,
     feasible,
     severity,
+    nearTop,
     requiredAttemptsPerWeek,
     capacityHoursPerWeek,
+  };
+}
+
+export function evaluateQaOverlayNonBlocking({ primaryFeatureCount, qaEnabled, qaFailed } = {}){
+  const primaryCount = Number(primaryFeatureCount);
+  const primaryReady = Number.isFinite(primaryCount) && primaryCount > 0;
+  if (!qaEnabled){
+    return {
+      primaryReady,
+      qaEnabled: false,
+      qaFailed: false,
+      blocking: !primaryReady,
+      code: primaryReady ? "primary_ready" : "primary_missing",
+    };
+  }
+  if (qaFailed){
+    return {
+      primaryReady,
+      qaEnabled: true,
+      qaFailed: true,
+      blocking: !primaryReady,
+      code: primaryReady ? "qa_non_blocking" : "qa_blocking",
+    };
+  }
+  return {
+    primaryReady,
+    qaEnabled: true,
+    qaFailed: false,
+    blocking: !primaryReady,
+    code: primaryReady ? "qa_ready" : "primary_missing",
   };
 }
 

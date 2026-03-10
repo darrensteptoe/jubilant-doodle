@@ -29,10 +29,11 @@ import {
   buildElectionCsvWideTemplate,
   buildCensusAssumptionAdvisory,
   evaluateCensusPaceAgainstAdvisory,
+  evaluateQaOverlayNonBlocking,
   detectElectionCsvFormat,
   normalizeElectionCsvRows,
   parseCsvText,
-} from "../censusModule.js?v=20260310-census-phase1-38";
+} from "../censusModule.js?v=20260310-census-phase1-39";
 
 export function registerCensusPhase1Tests(ctx){
   const { test, assert } = ctx;
@@ -231,6 +232,23 @@ export function registerCensusPhase1Tests(ctx){
     assert(missingCounty === "", "VTD query URL should require county context");
   });
 
+  test("Census Phase1: VTD QA overlay failure remains non-blocking when primary overlay is loaded", () => {
+    const nonBlocking = evaluateQaOverlayNonBlocking({
+      primaryFeatureCount: 12,
+      qaEnabled: true,
+      qaFailed: true,
+    });
+    assert(nonBlocking.blocking === false, "qa failure should be non-blocking when primary features exist");
+    assert(nonBlocking.code === "qa_non_blocking", "qa non-blocking code mismatch");
+    const blocking = evaluateQaOverlayNonBlocking({
+      primaryFeatureCount: 0,
+      qaEnabled: true,
+      qaFailed: true,
+    });
+    assert(blocking.blocking === true, "qa failure should be blocking when primary overlay is missing");
+    assert(blocking.code === "qa_blocking", "qa blocking code mismatch");
+  });
+
   test("Census Phase1: metric formatter handles missing values", () => {
     assert(formatMetricValue(null, "int") === "-", "int formatter should show dash for null");
     assert(formatMetricValue(undefined, "pct1") === "-", "pct formatter should show dash for undefined");
@@ -359,6 +377,57 @@ export function registerCensusPhase1Tests(ctx){
     });
     assert(bundleMismatch.readyForAssumptions === false, "metric bundle mismatch should block readiness");
     assert(bundleMismatch.reason === "provenance_metric_set_mismatch", "metric bundle mismatch reason mismatch");
+  });
+
+  test("Census Phase1: provenance reason transitions resolve to ready", () => {
+    const censusState = {
+      year: "2024",
+      resolution: "tract",
+      metricSet: "core",
+      stateFips: "17",
+      countyFips: "031",
+      selectedGeoids: ["17031010100", "17031010200"],
+      loadedRowCount: 2,
+      activeRowsKey: "2024|tract|17|031|core",
+    };
+    const live = buildRaceFootprintFromCensusSelection(censusState);
+    const missingRows = assessRaceFootprintAlignment({
+      censusState,
+      raceFootprint: { ...live, fingerprint: live.fingerprint },
+      assumptionsProvenance: {
+        source: "census_phase1",
+        raceFootprintFingerprint: live.fingerprint,
+        censusRowsKey: "",
+        acsYear: "2024",
+        metricSet: "core",
+      },
+    });
+    assert(missingRows.reason === "provenance_rows_not_set", "missing rows reason mismatch");
+    const rowMismatch = assessRaceFootprintAlignment({
+      censusState,
+      raceFootprint: { ...live, fingerprint: live.fingerprint },
+      assumptionsProvenance: {
+        source: "census_phase1",
+        raceFootprintFingerprint: live.fingerprint,
+        censusRowsKey: "2024|tract|17|031|demographics",
+        acsYear: "2024",
+        metricSet: "core",
+      },
+    });
+    assert(rowMismatch.reason === "provenance_rows_mismatch", "rows mismatch reason mismatch");
+    const ready = assessRaceFootprintAlignment({
+      censusState,
+      raceFootprint: { ...live, fingerprint: live.fingerprint },
+      assumptionsProvenance: {
+        source: "census_phase1",
+        raceFootprintFingerprint: live.fingerprint,
+        censusRowsKey: live.rowsKey,
+        acsYear: "2024",
+        metricSet: "core",
+      },
+    });
+    assert(ready.reason === "ready", "provenance should resolve to ready");
+    assert(ready.readyForAssumptions === true, "ready transition should enable assumptions");
   });
 
   test("Census Phase1: alignment tolerates runtime rows key reset when footprint/provenance match", () => {
@@ -624,6 +693,99 @@ export function registerCensusPhase1Tests(ctx){
     assert(Number.isFinite(advisory.aph.base), "base APH should be finite");
     assert(Number.isFinite(advisory.aph.adjusted), "adjusted APH should be finite");
     assert(Number.isFinite(advisory.aph.deltaPct), "advisory APH delta should be finite");
+    assert(Number.isFinite(advisory.aph.range?.low), "advisory APH low band should be finite");
+    assert(Number.isFinite(advisory.aph.range?.mid), "advisory APH mid band should be finite");
+    assert(Number.isFinite(advisory.aph.range?.high), "advisory APH high band should be finite");
+    assert(advisory.aph.range.low <= advisory.aph.range.mid && advisory.aph.range.mid <= advisory.aph.range.high, "advisory APH band order mismatch");
+  });
+
+  test("Census Phase1: ACS advisory computes weighted APH band from selected GEO variability", () => {
+    const rowsByGeoid = {
+      "17031010100": {
+        values: {
+          B01003_001E: 1000,
+          B25001_001E: 420,
+          B25003_003E: 260,
+          B25003_001E: 400,
+          B25024_003E: 120,
+          B25024_004E: 80,
+          B25024_001E: 300,
+          C16002_004E: 20,
+          C16002_007E: 15,
+          C16002_010E: 10,
+          C16002_013E: 5,
+          C16002_001E: 900,
+          B15003_022E: 90,
+          B15003_023E: 60,
+          B15003_024E: 30,
+          B15003_025E: 20,
+          B15003_001E: 700,
+          B19013_001E: 52000,
+        },
+      },
+      "17031010200": {
+        values: {
+          B01003_001E: 2500,
+          B25001_001E: 980,
+          B25003_003E: 300,
+          B25003_001E: 800,
+          B25024_003E: 90,
+          B25024_004E: 60,
+          B25024_001E: 900,
+          C16002_004E: 30,
+          C16002_007E: 20,
+          C16002_010E: 12,
+          C16002_013E: 8,
+          C16002_001E: 2000,
+          B15003_022E: 260,
+          B15003_023E: 210,
+          B15003_024E: 120,
+          B15003_025E: 70,
+          B15003_001E: 1800,
+          B19013_001E: 86000,
+        },
+      },
+      "17031010300": {
+        values: {
+          B01003_001E: 700,
+          B25001_001E: 310,
+          B25003_003E: 230,
+          B25003_001E: 290,
+          B25024_003E: 110,
+          B25024_004E: 75,
+          B25024_001E: 210,
+          C16002_004E: 35,
+          C16002_007E: 28,
+          C16002_010E: 20,
+          C16002_013E: 14,
+          C16002_001E: 500,
+          B15003_022E: 40,
+          B15003_023E: 25,
+          B15003_024E: 15,
+          B15003_025E: 10,
+          B15003_001E: 420,
+          B19013_001E: 42000,
+        },
+      },
+    };
+    const aggregate = aggregateRowsForSelection({
+      rowsByGeoid,
+      selectedGeoids: ["17031010100", "17031010200", "17031010300"],
+      metricSet: "all",
+    });
+    const advisory = buildCensusAssumptionAdvisory({
+      aggregate,
+      rowsByGeoid,
+      selectedGeoids: ["17031010100", "17031010200", "17031010300"],
+      doorShare: 0.6,
+      doorsPerHour: 24,
+      callsPerHour: 16,
+    });
+    assert(advisory.multiplierBand.sampleCount === 3, "advisory multiplier sample count mismatch");
+    assert(advisory.multiplierBand.low <= advisory.multiplierBand.mid, "advisory multiplier low/mid order mismatch");
+    assert(advisory.multiplierBand.mid <= advisory.multiplierBand.high, "advisory multiplier mid/high order mismatch");
+    assert(advisory.aph.range.low <= advisory.aph.range.mid, "advisory APH low/mid order mismatch");
+    assert(advisory.aph.range.mid <= advisory.aph.range.high, "advisory APH mid/high order mismatch");
   });
 
   test("Census Phase1: ACS advisory handles missing selection", () => {
@@ -679,6 +841,49 @@ export function registerCensusPhase1Tests(ctx){
     assert(pace.feasible === true, "pace advisory should mark feasible");
     assert(pace.severity === "ok", "pace advisory severity should be ok");
     assert(Number.isFinite(pace.gapPct) && pace.gapPct <= 0, "pace advisory gap should be non-positive");
+  });
+
+  test("Census Phase1: pace advisory uses achievable APH band for severity", () => {
+    const nearTop = evaluateCensusPaceAgainstAdvisory({
+      advisory: {
+        aph: {
+          adjusted: 20,
+          range: { low: 18, mid: 20, high: 22 },
+        },
+      },
+      needVotes: 500,
+      weeks: 10,
+      contactRatePct: 25,
+      supportRatePct: 60,
+      turnoutReliabilityPct: 80,
+      orgCount: 2,
+      orgHoursPerWeek: 10,
+      volunteerMult: 1,
+    });
+    assert(nearTop.ready === true, "band pace check should be ready");
+    assert(nearTop.feasible === true, "near-top band case should remain feasible");
+    assert(nearTop.severity === "warn", "near-top band case should warn");
+    assert(nearTop.nearTop === true, "near-top flag mismatch");
+    const aboveBand = evaluateCensusPaceAgainstAdvisory({
+      advisory: {
+        aph: {
+          adjusted: 20,
+          range: { low: 18, mid: 20, high: 22 },
+        },
+      },
+      needVotes: 560,
+      weeks: 10,
+      contactRatePct: 25,
+      supportRatePct: 60,
+      turnoutReliabilityPct: 80,
+      orgCount: 2,
+      orgHoursPerWeek: 10,
+      volunteerMult: 1,
+    });
+    assert(aboveBand.ready === true, "above-band pace check should be ready");
+    assert(aboveBand.feasible === false, "above-band pace case should be infeasible");
+    assert(aboveBand.severity === "bad", "above-band pace case should be bad");
+    assert(aboveBand.gapPct > 0, "above-band gap should be positive");
   });
 
   test("Census Phase1: pace advisory reports missing inputs", () => {

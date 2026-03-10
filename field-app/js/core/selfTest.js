@@ -68,13 +68,13 @@ import { normalizeLoadedState as normalizeLoadedStateApp } from "../app/state.js
 import { resolveFeatureFlags } from "./featureFlags.js";
 import { validateOperationsCapacityInput } from "../features/operations/io.js";
 import { registerPhase115ATests } from "./selfTestSuites/phase115A.js";
-import { registerCensusPhase1Tests } from "./selfTestSuites/censusPhase1.js?v=20260310-census-phase1-38";
+import { registerCensusPhase1Tests } from "./selfTestSuites/censusPhase1.js?v=20260310-census-phase1-39";
 import {
   makeDefaultCensusState,
   makeDefaultRaceFootprint,
   makeDefaultAssumptionProvenance,
   makeDefaultFootprintCapacity,
-} from "./censusModule.js?v=20260310-census-phase1-38";
+} from "./censusModule.js?v=20260310-census-phase1-39";
 
 function withUniverseDefaults(s){
   // Phase 16 fields are now required for stable hashing/export roundtrips.
