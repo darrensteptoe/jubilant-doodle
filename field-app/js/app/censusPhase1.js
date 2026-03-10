@@ -16,6 +16,7 @@ import {
   buildAggregateTableRows,
   filterGeoOptions,
   fetchTigerBoundaryGeojson,
+  fetchTigerVtdBoundaryGeojson,
   parseGeoidInput,
   normalizeGeoidsForResolution,
   makeDefaultRaceFootprint,
@@ -49,6 +50,7 @@ let leafletLoadPromise = null;
 let mapInstance = null;
 let mapHost = null;
 let mapOverlayLayer = null;
+let mapQaVtdLayer = null;
 let mapRequestSeq = 0;
 let mapLoadedSelectionKey = "";
 let electionCsvRequestSeq = 0;
@@ -58,6 +60,9 @@ const mapRuntimeStatus = {
   text: "Map idle. Select GEO units, then load boundaries.",
   featureCount: 0,
   missingCount: 0,
+  qaLoading: false,
+  qaText: "",
+  qaFeatureCount: 0,
 };
 const electionCsvDryRun = {
   fileName: "",
@@ -68,6 +73,7 @@ const electionCsvDryRun = {
   format: "",
   parsedRows: 0,
   normalizedRows: 0,
+  precinctFilter: "",
   errors: [],
   warnings: [],
   records: [],
@@ -193,11 +199,28 @@ function setMapRuntimeStatus(text, isError = false){
   mapRuntimeStatus.error = isError ? mapRuntimeStatus.text : "";
 }
 
+function cleanFips(v, len){
+  const digits = cleanText(v).replace(/\D+/g, "");
+  if (!digits) return "";
+  return digits.padStart(len, "0").slice(-len);
+}
+
+function clearMapQaOverlay(statusText = ""){
+  if (mapInstance && mapQaVtdLayer && typeof mapInstance.removeLayer === "function"){
+    mapInstance.removeLayer(mapQaVtdLayer);
+  }
+  mapQaVtdLayer = null;
+  mapRuntimeStatus.qaFeatureCount = 0;
+  mapRuntimeStatus.qaLoading = false;
+  mapRuntimeStatus.qaText = cleanText(statusText);
+}
+
 function clearMapOverlay(statusText = ""){
   if (mapInstance && mapOverlayLayer && typeof mapInstance.removeLayer === "function"){
     mapInstance.removeLayer(mapOverlayLayer);
   }
   mapOverlayLayer = null;
+  clearMapQaOverlay();
   mapLoadedSelectionKey = "";
   mapRuntimeStatus.featureCount = 0;
   mapRuntimeStatus.missingCount = 0;
@@ -263,6 +286,7 @@ function ensureMapMounted(container){
     mapInstance.remove();
     mapInstance = null;
     mapOverlayLayer = null;
+    mapQaVtdLayer = null;
   }
   mapHost = container;
   mapInstance = window.L.map(container, { zoomControl: true }).setView([39.5, -98.35], 4);
@@ -301,6 +325,59 @@ function applyMapOverlay(featureCollection){
   }
 }
 
+function applyMapQaOverlay(featureCollection){
+  if (!mapInstance || !window.L) return;
+  if (mapQaVtdLayer && typeof mapInstance.removeLayer === "function"){
+    mapInstance.removeLayer(mapQaVtdLayer);
+  }
+  const labelForFeature = (feature) => {
+    const props = feature?.properties && typeof feature.properties === "object" ? feature.properties : {};
+    const pick = (keys) => {
+      for (const key of keys){
+        const value = cleanText(props?.[key]);
+        if (value) return value;
+      }
+      return "";
+    };
+    const label = pick(["NAME20", "NAME", "NAMELSAD20", "NAMELSAD", "VTDST20", "VTDI20", "LABEL"]);
+    if (label) return label;
+    const geoid = cleanText(feature?.properties?.GEOID20 || feature?.properties?.GEOID || feature?.id).replace(/\D+/g, "");
+    return geoid;
+  };
+  mapQaVtdLayer = window.L.geoJSON(featureCollection, {
+    style: () => ({
+      color: "#3d8bfd",
+      weight: 1,
+      fillColor: "#3d8bfd",
+      fillOpacity: 0,
+    }),
+    onEachFeature: (feature, layer) => {
+      if (!layer) return;
+      const label = labelForFeature(feature);
+      if (!label) return;
+      if (typeof layer.bindTooltip === "function"){
+        layer.bindTooltip(label, { direction: "top", sticky: true, opacity: 0.95 });
+      }
+      if (typeof layer.bindPopup === "function"){
+        const geoid = cleanText(feature?.properties?.GEOID20 || feature?.properties?.GEOID || feature?.id);
+        const popupText = geoid && geoid !== label ? `${label} (${geoid})` : label;
+        layer.bindPopup(popupText);
+      }
+    },
+  }).addTo(mapInstance);
+}
+
+function mapQaCountyContext(s){
+  const selected = Array.isArray(s?.selectedGeoids) ? s.selectedGeoids.map((v) => cleanText(v)).filter((v) => !!v) : [];
+  const first = selected[0] || "";
+  const stateFips = cleanFips(s?.stateFips || first.slice(0, 2), 2);
+  let countyFips = cleanFips(s?.countyFips, 3);
+  if (!countyFips && first.length >= 5){
+    countyFips = cleanFips(first.slice(2, 5), 3);
+  }
+  return { stateFips, countyFips };
+}
+
 async function onLoadMapBoundaries({ s, els, commitUIUpdate }){
   if (!s || !els || !els.censusMap){
     setMapRuntimeStatus("Map container unavailable.", true);
@@ -315,6 +392,9 @@ async function onLoadMapBoundaries({ s, els, commitUIUpdate }){
   }
   const seq = ++mapRequestSeq;
   mapRuntimeStatus.loading = true;
+  mapRuntimeStatus.qaLoading = false;
+  mapRuntimeStatus.qaText = "";
+  mapRuntimeStatus.qaFeatureCount = 0;
   setMapRuntimeStatus(`Loading ${selected.length} boundary ${selected.length === 1 ? "shape" : "shapes"}...`, false);
   commitUIUpdate({ persist: false });
   try{
@@ -339,12 +419,40 @@ async function onLoadMapBoundaries({ s, els, commitUIUpdate }){
     } else {
       setMapRuntimeStatus(`Loaded ${mapRuntimeStatus.featureCount} boundaries.`, false);
     }
+    if (s.mapQaVtdOverlay){
+      const qaContext = mapQaCountyContext(s);
+      if (!qaContext.stateFips || !qaContext.countyFips){
+        clearMapQaOverlay("VTD QA overlay unavailable for this selection (county context required).");
+      } else {
+        mapRuntimeStatus.qaLoading = true;
+        const qaResult = await fetchTigerVtdBoundaryGeojson({
+          stateFips: qaContext.stateFips,
+          countyFips: qaContext.countyFips,
+        });
+        if (seq !== mapRequestSeq) return;
+        applyMapQaOverlay(qaResult.featureCollection);
+        mapRuntimeStatus.qaFeatureCount = Number.isFinite(Number(qaResult.featureCount)) ? Math.max(0, Math.floor(Number(qaResult.featureCount))) : 0;
+        mapRuntimeStatus.qaText = mapRuntimeStatus.qaFeatureCount > 0
+          ? `VTD QA overlay loaded (${mapRuntimeStatus.qaFeatureCount.toLocaleString("en-US")} polygons). Hover/click polygons for precinct labels.`
+          : "VTD QA overlay returned no polygons.";
+      }
+    } else {
+      clearMapQaOverlay();
+    }
   } catch (err){
     if (seq !== mapRequestSeq) return;
-    setMapRuntimeStatus(cleanText(err?.message) || "Boundary load failed.", true);
+    const msg = cleanText(err?.message) || "Boundary load failed.";
+    if (mapRuntimeStatus.qaLoading){
+      clearMapQaOverlay(`VTD QA overlay unavailable: ${msg}`);
+      mapRuntimeStatus.qaLoading = false;
+      mapRuntimeStatus.qaText = cleanText(mapRuntimeStatus.qaText) || "VTD QA overlay unavailable.";
+    } else {
+      setMapRuntimeStatus(msg, true);
+    }
   } finally {
     if (seq === mapRequestSeq){
       mapRuntimeStatus.loading = false;
+      mapRuntimeStatus.qaLoading = false;
       commitUIUpdate({ persist: false });
     }
   }
@@ -573,6 +681,40 @@ function fileSlugPart(text){
   return cleanText(text).replace(/[^a-z0-9_-]+/gi, "-").replace(/-+/g, "-").replace(/^-|-$/g, "").toLowerCase();
 }
 
+function canonicalToken(value){
+  return cleanText(value).toLowerCase().replace(/[^a-z0-9]+/g, "");
+}
+
+function parsePrecinctFilterTokens(value){
+  const parts = cleanText(value).split(/[\s,;|]+/g);
+  const out = [];
+  const seen = new Set();
+  for (const part of parts){
+    const token = canonicalToken(part);
+    if (!token || seen.has(token)) continue;
+    seen.add(token);
+    out.push(token);
+  }
+  return out;
+}
+
+function filterElectionDryRunRecords(records, filterText){
+  const rows = Array.isArray(records) ? records : [];
+  const tokens = parsePrecinctFilterTokens(filterText);
+  if (!tokens.length){
+    return { rows: rows.slice(), tokens };
+  }
+  const filtered = rows.filter((row) => {
+    const precinct = canonicalToken(row?.precinct_id);
+    if (!precinct) return false;
+    for (const token of tokens){
+      if (precinct === token || precinct.includes(token)) return true;
+    }
+    return false;
+  });
+  return { rows: filtered, tokens };
+}
+
 function exportBaseName(s){
   const parts = [
     "census-aggregate",
@@ -593,6 +735,7 @@ function resetElectionCsvDryRunRuntime(){
   electionCsvDryRun.format = "";
   electionCsvDryRun.parsedRows = 0;
   electionCsvDryRun.normalizedRows = 0;
+  electionCsvDryRun.precinctFilter = "";
   electionCsvDryRun.errors = [];
   electionCsvDryRun.warnings = [];
   electionCsvDryRun.records = [];
@@ -710,8 +853,17 @@ export function renderCensusPhase1Module({ els, state, res } = {}){
     els.btnCensusElectionCsvDryRun.disabled = !hasFile;
   }
   if (els.btnCensusElectionCsvClear){
-    const hasPreview = !!(electionCsvDryRun.fileName || electionCsvDryRun.records.length || electionCsvDryRun.errors.length || electionCsvDryRun.warnings.length);
+    const hasPreview = !!(
+      electionCsvDryRun.fileName ||
+      electionCsvDryRun.records.length ||
+      electionCsvDryRun.errors.length ||
+      electionCsvDryRun.warnings.length ||
+      cleanText(electionCsvDryRun.precinctFilter)
+    );
     els.btnCensusElectionCsvClear.disabled = !hasPreview;
+  }
+  if (els.censusElectionCsvPrecinctFilter && document.activeElement !== els.censusElectionCsvPrecinctFilter){
+    els.censusElectionCsvPrecinctFilter.value = cleanText(electionCsvDryRun.precinctFilter);
   }
   if (els.btnCensusApplyGeoPaste){
     els.btnCensusApplyGeoPaste.disabled = !s.geoOptions.length;
@@ -726,10 +878,14 @@ export function renderCensusPhase1Module({ els, state, res } = {}){
     els.btnCensusDeleteSelectionSet.disabled = !selectedSetKey;
   }
   if (els.btnCensusLoadMap){
-    els.btnCensusLoadMap.disabled = mapRuntimeStatus.loading || !s.selectedGeoids.length;
+    els.btnCensusLoadMap.disabled = mapRuntimeStatus.loading || mapRuntimeStatus.qaLoading || !s.selectedGeoids.length;
   }
   if (els.btnCensusClearMap){
-    els.btnCensusClearMap.disabled = mapRuntimeStatus.loading || !mapRuntimeStatus.featureCount;
+    els.btnCensusClearMap.disabled = mapRuntimeStatus.loading || mapRuntimeStatus.qaLoading || (!mapRuntimeStatus.featureCount && !mapRuntimeStatus.qaFeatureCount);
+  }
+  if (els.censusMapQaVtdToggle){
+    els.censusMapQaVtdToggle.checked = !!s.mapQaVtdOverlay;
+    els.censusMapQaVtdToggle.disabled = mapRuntimeStatus.loading || mapRuntimeStatus.qaLoading;
   }
 
   const { runtimeRows, tableRows } = aggregateSnapshot(s);
@@ -807,16 +963,30 @@ export function renderCensusPhase1Module({ els, state, res } = {}){
     const provenance = alignment.provenance;
     if (alignment.reason === "footprint_not_set"){
       els.censusAssumptionProvenanceStatus.textContent = "Assumption provenance not set.";
+    } else if (alignment.reason === "selection_context_missing"){
+      els.censusAssumptionProvenanceStatus.textContent = "Assumption provenance blocked: load ACS rows for the active year and bundle.";
+    } else if (alignment.reason === "selection_mismatch"){
+      els.censusAssumptionProvenanceStatus.textContent = "Assumption provenance blocked: current selection differs from saved race footprint.";
     } else if (!provenance.raceFootprintFingerprint){
       els.censusAssumptionProvenanceStatus.textContent = "Assumption provenance not set.";
+    } else if (alignment.reason === "provenance_rows_not_set"){
+      els.censusAssumptionProvenanceStatus.textContent = "Assumption provenance is stale: ACS rows key missing.";
+    } else if (alignment.reason === "provenance_year_not_set"){
+      els.censusAssumptionProvenanceStatus.textContent = "Assumption provenance is stale: ACS year missing.";
+    } else if (alignment.reason === "provenance_metric_set_not_set"){
+      els.censusAssumptionProvenanceStatus.textContent = "Assumption provenance is stale: metric bundle missing.";
     } else if (alignment.reason === "provenance_footprint_mismatch"){
       els.censusAssumptionProvenanceStatus.textContent = "Assumption provenance is stale: footprint mismatch.";
     } else if (alignment.reason === "provenance_rows_mismatch"){
       els.censusAssumptionProvenanceStatus.textContent = "Assumption provenance is stale: ACS row context changed.";
+    } else if (alignment.reason === "provenance_year_mismatch"){
+      els.censusAssumptionProvenanceStatus.textContent = `Assumption provenance is stale: ACS year mismatch (provenance ${provenance.acsYear || "—"}, active ${cleanText(s.year) || "—"}).`;
+    } else if (alignment.reason === "provenance_metric_set_mismatch"){
+      els.censusAssumptionProvenanceStatus.textContent = `Assumption provenance is stale: metric bundle mismatch (provenance ${provenance.metricSet || "—"}, active ${cleanText(s.metricSet) || "—"}).`;
     } else {
       els.censusAssumptionProvenanceStatus.textContent = provenance.generatedAt
         ? `Assumption provenance aligned with race footprint (generated ${fmtTs(provenance.generatedAt).replace("Last fetch: ", "")}).`
-        : "Assumption provenance aligned with race footprint.";
+        : `Assumption provenance aligned with race footprint (ACS ${provenance.acsYear || "—"}, bundle ${provenance.metricSet || "—"}).`;
     }
   }
 
@@ -834,14 +1004,15 @@ export function renderCensusPhase1Module({ els, state, res } = {}){
       const stale = (
         (footprintCapacity.raceFootprintFingerprint && footprintCapacity.raceFootprintFingerprint !== alignment.stored.fingerprint) ||
         (footprintCapacity.censusRowsKey && footprintCapacity.censusRowsKey !== cleanText(s.activeRowsKey)) ||
-        (footprintCapacity.year && footprintCapacity.year !== cleanText(s.year))
+        (footprintCapacity.year && footprintCapacity.year !== cleanText(s.year)) ||
+        (footprintCapacity.metricSet && footprintCapacity.metricSet !== cleanText(s.metricSet))
       );
       if (stale){
         tone = "warn";
-        text = `Footprint capacity population: ${Math.round(Number(footprintCapacity.population)).toLocaleString("en-US")} (ACS ${footprintCapacity.year || "—"}, stale).`;
+        text = `Footprint capacity population: ${Math.round(Number(footprintCapacity.population)).toLocaleString("en-US")} (ACS ${footprintCapacity.year || "—"}, bundle ${footprintCapacity.metricSet || "—"}, stale).`;
       } else {
         tone = "ok";
-        text = `Footprint capacity population: ${Math.round(Number(footprintCapacity.population)).toLocaleString("en-US")} (ACS ${footprintCapacity.year || "—"}).`;
+        text = `Footprint capacity population: ${Math.round(Number(footprintCapacity.population)).toLocaleString("en-US")} (ACS ${footprintCapacity.year || "—"}, bundle ${footprintCapacity.metricSet || "—"}).`;
       }
     }
     if (feasibilitySummary.level === "bad"){
@@ -878,13 +1049,18 @@ export function renderCensusPhase1Module({ els, state, res } = {}){
   }
 
   if (els.censusElectionCsvPreviewMeta){
+    const allRecords = Array.isArray(electionCsvDryRun.records) ? electionCsvDryRun.records : [];
+    const filtered = filterElectionDryRunRecords(allRecords, electionCsvDryRun.precinctFilter);
+    const filteredCount = filtered.rows.length;
     const formatLabel = cleanText(electionCsvDryRun.format) || "—";
     const fileLabel = cleanText(electionCsvDryRun.fileName) || "none";
     const parseCount = Number.isFinite(Number(electionCsvDryRun.parsedRows)) ? Math.max(0, Math.floor(Number(electionCsvDryRun.parsedRows))) : 0;
     const normalizedCount = Number.isFinite(Number(electionCsvDryRun.normalizedRows)) ? Math.max(0, Math.floor(Number(electionCsvDryRun.normalizedRows))) : 0;
     const errCount = Array.isArray(electionCsvDryRun.errors) ? electionCsvDryRun.errors.length : 0;
     const warnCount = Array.isArray(electionCsvDryRun.warnings) ? electionCsvDryRun.warnings.length : 0;
-    els.censusElectionCsvPreviewMeta.textContent = `File: ${fileLabel} · Format: ${formatLabel} · Parsed rows: ${parseCount.toLocaleString("en-US")} · Normalized rows: ${normalizedCount.toLocaleString("en-US")} · Errors: ${errCount} · Warnings: ${warnCount}`;
+    const filterLabel = cleanText(electionCsvDryRun.precinctFilter);
+    const filterText = filterLabel ? ` · Precinct filter: ${filterLabel} (${filteredCount.toLocaleString("en-US")} match)` : "";
+    els.censusElectionCsvPreviewMeta.textContent = `File: ${fileLabel} · Format: ${formatLabel} · Parsed rows: ${parseCount.toLocaleString("en-US")} · Normalized rows: ${normalizedCount.toLocaleString("en-US")} · Errors: ${errCount} · Warnings: ${warnCount}${filterText}`;
   }
 
   if (
@@ -894,11 +1070,15 @@ export function renderCensusPhase1Module({ els, state, res } = {}){
     typeof document !== "undefined" &&
     typeof document.createElement === "function"
   ){
-    const previewRows = Array.isArray(electionCsvDryRun.records) ? electionCsvDryRun.records.slice(0, 25) : [];
+    const allRecords = Array.isArray(electionCsvDryRun.records) ? electionCsvDryRun.records : [];
+    const filtered = filterElectionDryRunRecords(allRecords, electionCsvDryRun.precinctFilter);
+    const previewRows = filtered.rows.slice(0, 50);
     els.censusElectionCsvPreviewTbody.innerHTML = "";
     if (!previewRows.length){
       const tr = document.createElement("tr");
-      tr.innerHTML = '<td class="muted" colspan="4">No dry-run preview yet.</td>';
+      tr.innerHTML = filtered.tokens.length
+        ? '<td class="muted" colspan="4">No rows match the current precinct filter.</td>'
+        : '<td class="muted" colspan="4">No dry-run preview yet.</td>';
       els.censusElectionCsvPreviewTbody.appendChild(tr);
     } else {
       for (const row of previewRows){
@@ -931,16 +1111,21 @@ export function renderCensusPhase1Module({ els, state, res } = {}){
     els.censusMapStatus.classList.remove("ok", "warn", "bad", "muted");
     if (mapRuntimeStatus.error){
       els.censusMapStatus.classList.add("bad");
-    } else if (mapRuntimeStatus.loading){
+    } else if (mapRuntimeStatus.loading || mapRuntimeStatus.qaLoading){
+      els.censusMapStatus.classList.add("warn");
+    } else if (cleanText(mapRuntimeStatus.qaText).toLowerCase().includes("unavailable")){
       els.censusMapStatus.classList.add("warn");
     } else {
       els.censusMapStatus.classList.add("muted");
     }
     const selectedKey = mapSelectionKey(s);
+    const qaText = cleanText(mapRuntimeStatus.qaText);
     if (!mapRuntimeStatus.loading && mapLoadedSelectionKey && selectedKey !== mapLoadedSelectionKey && !mapRuntimeStatus.error){
-      els.censusMapStatus.textContent = "Selection changed. Reload boundaries to refresh map.";
+      const base = "Selection changed. Reload boundaries to refresh map.";
+      els.censusMapStatus.textContent = qaText ? `${base} ${qaText}` : base;
     } else {
-      els.censusMapStatus.textContent = mapRuntimeStatus.error || mapRuntimeStatus.text;
+      const base = mapRuntimeStatus.error || mapRuntimeStatus.text;
+      els.censusMapStatus.textContent = qaText ? `${base} ${qaText}` : base;
     }
   }
 
@@ -1136,7 +1321,9 @@ export function wireCensusPhase1EventsModule(ctx){
         s.activeRowsKey = "";
         s.loadedRowCount = 0;
         s.lastFetchAt = "";
-        setStatus(s, `ACS year set to ${s.year}. Fetch rows to refresh data.`, false);
+        s.variableCatalogYear = "";
+        s.variableCatalogCount = 0;
+        setStatus(s, `ACS year set to ${s.year}. Cached rows cleared; footprint/provenance now stale until refetch.`, false);
       });
       commitUIUpdate();
     });
@@ -1150,7 +1337,9 @@ export function wireCensusPhase1EventsModule(ctx){
         s.activeRowsKey = "";
         s.loadedRowCount = 0;
         s.lastFetchAt = "";
-        setStatus(s, "Bundle changed. Fetch rows to refresh aggregate data.", false);
+        s.variableCatalogYear = "";
+        s.variableCatalogCount = 0;
+        setStatus(s, "Bundle changed. Cached rows cleared; footprint/provenance now stale until refetch.", false);
       });
       commitUIUpdate();
     });
@@ -1371,6 +1560,8 @@ export function wireCensusPhase1EventsModule(ctx){
         provenance.source = "census_phase1";
         provenance.raceFootprintFingerprint = footprint.fingerprint;
         provenance.censusRowsKey = footprint.rowsKey;
+        provenance.acsYear = cleanText(s.year);
+        provenance.metricSet = cleanText(s.metricSet);
         provenance.generatedAt = "";
         if (Number.isFinite(Number(population))){
           setStatus(s, `Race footprint set (${footprint.geoids.length} GEOs, pop ${Math.round(Number(population)).toLocaleString("en-US")}).`, false);
@@ -1434,6 +1625,13 @@ export function wireCensusPhase1EventsModule(ctx){
       electionCsvDryRun.warnings = [];
       electionCsvDryRun.records = [];
       setElectionCsvDryRunStatus(`Selected file ${electionCsvDryRun.fileName} (${Math.round(electionCsvDryRun.fileSize / 1024).toLocaleString("en-US")} KB).`, "muted");
+      commitUIUpdate({ persist: false });
+    });
+  }
+
+  if (els.censusElectionCsvPrecinctFilter){
+    els.censusElectionCsvPrecinctFilter.addEventListener("input", () => {
+      electionCsvDryRun.precinctFilter = cleanText(els.censusElectionCsvPrecinctFilter.value);
       commitUIUpdate({ persist: false });
     });
   }
@@ -1686,6 +1884,23 @@ export function wireCensusPhase1EventsModule(ctx){
         };
         const ok = downloadTextFile(JSON.stringify(payload, null, 2), `${exportBaseName(s)}.json`, "application/json");
         setStatus(s, ok ? "Aggregate JSON exported." : "JSON export failed.", !ok);
+      });
+      commitUIUpdate({ persist: false });
+    });
+  }
+
+  if (els.censusMapQaVtdToggle){
+    els.censusMapQaVtdToggle.addEventListener("change", () => {
+      withState((_, s) => {
+        s.mapQaVtdOverlay = !!els.censusMapQaVtdToggle.checked;
+        if (!s.mapQaVtdOverlay){
+          clearMapQaOverlay();
+        } else {
+          mapRuntimeStatus.qaText = "VTD QA overlay enabled. Reload boundaries to apply.";
+        }
+        setStatus(s, s.mapQaVtdOverlay
+          ? "VTD QA overlay enabled (visual only). Reload boundaries."
+          : "VTD QA overlay disabled.", false);
       });
       commitUIUpdate({ persist: false });
     });
