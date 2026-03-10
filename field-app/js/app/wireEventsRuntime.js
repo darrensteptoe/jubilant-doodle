@@ -953,6 +953,24 @@ function shouldWarnNumericCoercion(before, after){
   return true;
 }
 
+function shouldScaleFractionalPercents(values, maxTotal = 1.25){
+  const nums = Array.isArray(values)
+    ? values.filter((v) => Number.isFinite(Number(v)) && Number(v) >= 0).map((v) => Number(v))
+    : [];
+  if (nums.length < 2) return false;
+  let max = 0;
+  let sum = 0;
+  let positiveCount = 0;
+  for (const n of nums){
+    if (n > max) max = n;
+    sum += n;
+    if (n > 0) positiveCount += 1;
+  }
+  if (!positiveCount) return false;
+  if (max > 1) return false;
+  return sum > 0 && sum <= maxTotal;
+}
+
 function sanitizeImportedScenarioData(scenario){
   const out = (scenario && typeof scenario === "object") ? structuredClone(scenario) : {};
   const warnings = [];
@@ -1001,38 +1019,60 @@ function sanitizeImportedScenarioData(scenario){
   }
 
   if (Array.isArray(out.candidates)){
+    const candidateRows = [];
     for (const cand of out.candidates){
       if (!cand || typeof cand !== "object") continue;
       if (!Object.prototype.hasOwnProperty.call(cand, "supportPct")) continue;
       const before = cand.supportPct;
-      let after = coerceImportedNumber(before);
-      if (typeof after === "number" && after > 0 && after <= 1 && !(typeof before === "string" && before.trim().endsWith("%"))){
+      const after = coerceImportedNumber(before);
+      candidateRows.push({
+        cand,
+        before,
+        after,
+        fromPercentString: (typeof before === "string" && before.trim().endsWith("%")),
+      });
+    }
+    const scaleCandidates = !candidateRows.some((row) => row.fromPercentString)
+      && shouldScaleFractionalPercents(candidateRows.map((row) => row.after));
+    for (const row of candidateRows){
+      let after = row.after;
+      if (scaleCandidates && typeof after === "number"){
         const scaled = after * 100;
         warnings.push(`Scaled candidate supportPct from decimal ${after} to percent ${scaled}.`);
         after = scaled;
       }
-      if (after !== before){
-        cand.supportPct = after;
-        if (shouldWarnNumericCoercion(before, after)){
-          warnings.push(`Coerced candidate supportPct '${before}' to ${after}.`);
+      if (after !== row.before){
+        row.cand.supportPct = after;
+        if (shouldWarnNumericCoercion(row.before, after)){
+          warnings.push(`Coerced candidate supportPct '${row.before}' to ${after}.`);
         }
       }
     }
   }
 
   if (out.userSplit && typeof out.userSplit === "object"){
-    for (const key of Object.keys(out.userSplit)){
+    const splitRows = Object.keys(out.userSplit).map((key) => {
       const before = out.userSplit[key];
-      let after = coerceImportedNumber(before);
-      if (typeof after === "number" && after > 0 && after <= 1 && !(typeof before === "string" && before.trim().endsWith("%"))){
+      return {
+        key,
+        before,
+        after: coerceImportedNumber(before),
+        fromPercentString: (typeof before === "string" && before.trim().endsWith("%")),
+      };
+    });
+    const scaleUserSplit = !splitRows.some((row) => row.fromPercentString)
+      && shouldScaleFractionalPercents(splitRows.map((row) => row.after));
+    for (const row of splitRows){
+      let after = row.after;
+      if (scaleUserSplit && typeof after === "number"){
         const scaled = after * 100;
-        warnings.push(`Scaled userSplit['${key}'] from decimal ${after} to percent ${scaled}.`);
+        warnings.push(`Scaled userSplit['${row.key}'] from decimal ${after} to percent ${scaled}.`);
         after = scaled;
       }
-      if (after !== before){
-        out.userSplit[key] = after;
-        if (shouldWarnNumericCoercion(before, after)){
-          warnings.push(`Coerced userSplit['${key}'] from '${before}' to ${after}.`);
+      if (after !== row.before){
+        out.userSplit[row.key] = after;
+        if (shouldWarnNumericCoercion(row.before, after)){
+          warnings.push(`Coerced userSplit['${row.key}'] from '${row.before}' to ${after}.`);
         }
       }
     }
