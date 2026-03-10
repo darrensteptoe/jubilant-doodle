@@ -149,13 +149,16 @@
 .fpe-layout {
   display: grid;
   grid-template-columns: var(--fpe-nav-w) minmax(0, 1fr) var(--fpe-right-w);
+  height: calc(100vh - var(--fpe-topbar-h));
   min-height: calc(100vh - var(--fpe-topbar-h));
+  overflow: hidden;
 }
 
 .fpe-nav {
   border-right: 1px solid var(--fpe-rule);
   background: linear-gradient(180deg, #fdfefe 0%, #f6f9ff 100%);
   padding: var(--fpe-space-3) 0 var(--fpe-space-5);
+  overflow-y: auto;
 }
 
 .fpe-nav__group {
@@ -199,8 +202,10 @@
 
 .fpe-main {
   min-width: 0;
+  min-height: 0;
   display: flex;
   flex-direction: column;
+  overflow: hidden;
 }
 
 .fpe-context,
@@ -299,6 +304,9 @@
 }
 
 .fpe-surface {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
   padding-top: var(--fpe-space-5);
   padding-bottom: var(--fpe-space-8);
   min-width: 0;
@@ -453,17 +461,130 @@
 
 .fpe-right-rail-slot {
   min-width: 0;
+  min-height: 0;
   border-left: 1px solid var(--fpe-rule);
   background: var(--fpe-panel);
-  overflow: hidden;
+  overflow-y: auto;
+  overflow-x: hidden;
 }
 
 .fpe-right-rail-slot .results-sidebar-new {
+  --s-panel: var(--fpe-panel);
+  --s-bg: var(--fpe-panel-muted);
+  --s-rule: var(--fpe-rule);
+  --s-text: var(--fpe-text);
+  --s-muted: var(--fpe-muted);
+  --s-accent: var(--fpe-accent);
+  --s-accent-dim: var(--fpe-accent-soft);
   width: 100%;
-  min-height: 100%;
+  min-height: 0;
+  height: 100%;
   border-left: 0;
+  background: var(--fpe-panel);
   box-shadow: none;
   overflow-y: auto;
+  overflow-x: hidden;
+}
+
+.fpe-right-rail-slot .results-sidebar-new .sidebar-section-new.sidebar-win-expected {
+  background: color-mix(in srgb, var(--fpe-accent) 8%, var(--fpe-panel));
+}
+
+.fpe-right-rail-slot .results-sidebar-new .sidebar-section-new.sidebar-win-expected .sidebar-label-new,
+.fpe-right-rail-slot .results-sidebar-new .sidebar-section-new.sidebar-win-expected .win-stat-label-new,
+.fpe-right-rail-slot .results-sidebar-new .sidebar-section-new.sidebar-win-expected .win-stat-sub-new {
+  color: var(--fpe-muted);
+}
+
+.fpe-right-rail-slot .results-sidebar-new .sidebar-section-new.sidebar-win-expected .win-stat-val-new {
+  color: var(--fpe-text);
+}
+
+.fpe-right-rail-slot .results-sidebar-new .sidebar-section-new.sidebar-win-expected .win-stat-new {
+  border-bottom-color: color-mix(in srgb, var(--fpe-rule) 70%, transparent);
+}
+
+.fpe-right-rail-slot .results-sidebar-new .sidebar-section-new.sidebar-early-split {
+  background: color-mix(in srgb, var(--fpe-rule) 20%, var(--fpe-panel));
+}
+
+.fpe-right-rail-slot .results-sidebar-new .sidebar-section-new.sidebar-early-split .sidebar-label-new,
+.fpe-right-rail-slot .results-sidebar-new .sidebar-section-new.sidebar-early-split .kv-mini-new span:first-child {
+  color: var(--fpe-muted);
+}
+
+.fpe-right-rail-slot .results-sidebar-new .sidebar-section-new.sidebar-early-split .kv-mini-new span:last-child {
+  color: var(--fpe-text);
+}
+
+.fpe-right-rail-slot .results-sidebar-new .sidebar-section-new.sidebar-early-split .kv-mini-new {
+  border-bottom-color: color-mix(in srgb, var(--fpe-rule) 70%, transparent);
+}
+
+.fpe-right-rail-slot .results-sidebar-new .stress-item {
+  background: color-mix(in srgb, var(--fpe-rule) 20%, var(--fpe-panel));
+  border-color: color-mix(in srgb, var(--fpe-rule) 78%, transparent);
+}
+
+.fpe-right-rail-slot .results-sidebar-new .assump-block {
+  background: color-mix(in srgb, var(--fpe-rule) 16%, var(--fpe-panel));
+  border-color: color-mix(in srgb, var(--fpe-rule) 78%, transparent);
+}
+
+.fpe-right-rail-slot .results-sidebar-new .dim-text {
+  color: color-mix(in srgb, var(--fpe-muted) 72%, transparent) !important;
+}
+
+.fpe-right-rail-slot .results-sidebar-new .kv-mini-new span:last-child,
+.fpe-right-rail-slot .results-sidebar-new .kv .v {
+  color: var(--fpe-text);
+}
+
+.fpe-right-rail-slot .results-sidebar-new .sidebar-label-new {
+  color: color-mix(in srgb, var(--fpe-muted) 78%, transparent);
+}
+
+.fpe-right-rail-slot .results-sidebar-new .prob-bar-new .viz-track {
+  fill: color-mix(in srgb, var(--fpe-rule) 80%, transparent);
+}
+
+.fpe-right-rail-slot .results-sidebar-new .viz-marker {
+  fill: var(--fpe-accent);
+}
+
+.fpe-right-rail-slot .results-sidebar-new .viz-zero {
+  stroke: color-mix(in srgb, var(--fpe-muted) 55%, transparent);
+}
+
+.fpe-right-rail-slot .results-sidebar-new .viz-bar {
+  fill: color-mix(in srgb, var(--fpe-text) 16%, transparent);
+}
+
+.fpe-right-rail-slot .results-sidebar-new .viz-winshade {
+  fill: color-mix(in srgb, var(--fpe-accent) 10%, transparent);
+}
+
+.fpe-right-rail-slot .results-sidebar-new .mc-meta-new,
+.fpe-right-rail-slot .results-sidebar-new .prob-range-new {
+  color: color-mix(in srgb, var(--fpe-muted) 72%, transparent);
+}
+
+.fpe-right-rail-slot .results-sidebar-new .mc-prob-sub-new,
+.fpe-right-rail-slot .results-sidebar-new .win-stat-sub-new {
+  color: color-mix(in srgb, var(--fpe-muted) 78%, transparent);
+}
+
+.fpe-right-rail-slot .results-sidebar-new::-webkit-scrollbar {
+  width: 6px;
+}
+
+.fpe-right-rail-slot .results-sidebar-new::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.fpe-right-rail-slot .results-sidebar-new::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--fpe-rule) 85%, transparent);
+  border-radius: 999px;
 }
 
 @media (max-width: 1260px) {
