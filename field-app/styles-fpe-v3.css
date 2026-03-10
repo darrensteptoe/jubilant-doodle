@@ -578,6 +578,12 @@
   margin-top: 8px;
 }
 
+.fpe-message-window__body,
+.fpe-message-window__body * {
+  font-size: 12px;
+  line-height: 1.45;
+}
+
 .fpe-message-window__body .muted,
 .fpe-message-window__body .note,
 .fpe-message-window__body .help-text,
@@ -586,6 +592,15 @@
 .fpe-message-window__body .fpe-census-intro {
   margin: 0;
   line-height: 1.45;
+  border: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  padding: 0 !important;
+  color: var(--fpe-muted);
+}
+
+.fpe-message-window__body a {
+  font-size: inherit;
 }
 
 .fpe-message-window--warn {
@@ -908,6 +923,9 @@
   position: relative;
   padding-left: 14px;
   line-height: 1.45;
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--fpe-muted);
 }
 
 .fpe-surface-pane[data-v3-stage="district"] .fpe-census-status-list > *::before {
@@ -921,6 +939,10 @@
 
 .fpe-surface-pane[data-v3-stage="district"] .fpe-message-window--warn .fpe-census-status-list > *::before {
   color: var(--fpe-warning);
+}
+
+.fpe-surface-pane[data-v3-stage="district"] .fpe-message-window--warn .fpe-census-status-list > * {
+  color: var(--fpe-muted);
 }
 
 .fpe-surface-pane[data-v3-stage="district"] .fpe-census-status-list > .muted,
