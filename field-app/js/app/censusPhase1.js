@@ -27,6 +27,8 @@ import {
   normalizeFootprintCapacity,
   buildRaceFootprintFromCensusSelection,
   assessRaceFootprintAlignment,
+  evaluateFootprintFeasibility,
+  summarizeFootprintFeasibilityIssues,
   buildElectionCsvTemplate,
   getElectionCsvUploadGuide,
 } from "../core/censusModule.js";
@@ -565,7 +567,7 @@ function exportBaseName(s){
   return parts.filter((x) => !!x).join("-");
 }
 
-export function renderCensusPhase1Module({ els, state } = {}){
+export function renderCensusPhase1Module({ els, state, res } = {}){
   if (!els || !state) return;
   const s = ensureCensusStateModule(state);
   if (!s) return;
@@ -575,6 +577,8 @@ export function renderCensusPhase1Module({ els, state } = {}){
     raceFootprint: state.raceFootprint,
     assumptionsProvenance: state.assumptionsProvenance,
   });
+  const feasibility = evaluateFootprintFeasibility({ state, res });
+  const feasibilitySummary = summarizeFootprintFeasibilityIssues(feasibility.issues);
 
   const storedKey = readCensusApiKeyModule();
   if (els.censusApiKey && typeof document !== "undefined" && document.activeElement !== els.censusApiKey){
@@ -753,10 +757,15 @@ export function renderCensusPhase1Module({ els, state } = {}){
   }
 
   if (els.censusFootprintCapacityStatus){
+    els.censusFootprintCapacityStatus.classList.remove("ok", "warn", "bad", "muted");
+    let tone = "muted";
+    let text = "";
     if (!alignment.footprintDefined){
-      els.censusFootprintCapacityStatus.textContent = "Footprint capacity: not set.";
+      tone = "muted";
+      text = "Footprint capacity: not set.";
     } else if (!Number.isFinite(Number(footprintCapacity.population))){
-      els.censusFootprintCapacityStatus.textContent = "Footprint capacity: population unavailable. Re-set race footprint after ACS fetch.";
+      tone = "warn";
+      text = "Footprint capacity: population unavailable. Re-set race footprint after ACS fetch.";
     } else {
       const stale = (
         (footprintCapacity.raceFootprintFingerprint && footprintCapacity.raceFootprintFingerprint !== alignment.stored.fingerprint) ||
@@ -764,16 +773,38 @@ export function renderCensusPhase1Module({ els, state } = {}){
         (footprintCapacity.year && footprintCapacity.year !== cleanText(s.year))
       );
       if (stale){
-        els.censusFootprintCapacityStatus.textContent = `Footprint capacity population: ${Math.round(Number(footprintCapacity.population)).toLocaleString("en-US")} (ACS ${footprintCapacity.year || "—"}, stale).`;
+        tone = "warn";
+        text = `Footprint capacity population: ${Math.round(Number(footprintCapacity.population)).toLocaleString("en-US")} (ACS ${footprintCapacity.year || "—"}, stale).`;
       } else {
-        els.censusFootprintCapacityStatus.textContent = `Footprint capacity population: ${Math.round(Number(footprintCapacity.population)).toLocaleString("en-US")} (ACS ${footprintCapacity.year || "—"}).`;
+        tone = "ok";
+        text = `Footprint capacity population: ${Math.round(Number(footprintCapacity.population)).toLocaleString("en-US")} (ACS ${footprintCapacity.year || "—"}).`;
       }
     }
+    if (feasibilitySummary.level === "bad"){
+      tone = "bad";
+      if (feasibilitySummary.text && !text.includes(feasibilitySummary.text)){
+        text = `${text} Blocked: ${feasibilitySummary.text}`;
+      }
+    } else if (feasibilitySummary.level === "warn"){
+      if (tone !== "bad"){
+        tone = tone === "ok" ? "warn" : tone;
+      }
+      if (feasibilitySummary.text && !text.includes(feasibilitySummary.text)){
+        text = `${text} Warning: ${feasibilitySummary.text}`;
+      }
+    }
+    if (!text){
+      text = "Footprint feasibility checks clear.";
+      tone = "ok";
+    }
+    els.censusFootprintCapacityStatus.classList.add(tone);
+    els.censusFootprintCapacityStatus.textContent = text;
   }
 
   if (els.censusElectionCsvGuideStatus){
     const guide = getElectionCsvUploadGuide();
-    els.censusElectionCsvGuideStatus.textContent = `Election CSV schema ${guide.schemaVersion}: ${guide.requiredColumns.length} required column(s).`;
+    const formatCount = Array.isArray(guide.acceptedFormats) ? guide.acceptedFormats.length : 1;
+    els.censusElectionCsvGuideStatus.textContent = `Election CSV schema ${guide.schemaVersion}: ${formatCount} supported format(s) (long and wide).`;
   }
 
   if (els.censusSelectionSetStatus){

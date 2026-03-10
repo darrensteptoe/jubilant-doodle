@@ -155,7 +155,7 @@ export function renderMain(ctx){
   safeCall(() => renderSensitivitySnapshotE4());
   safeCall(() => renderDecisionConfidenceE5(res, weeks, { weeklyContext, executionSnapshot }));
   safeCall(() => renderImpactTraceE6(res, weeks, { weeklyContext, executionSnapshot }));
-  safeCall(() => renderCensusPhase1Module({ els, state }));
+  safeCall(() => renderCensusPhase1Module({ els, state, res }));
 
   safeCall(() => renderUniverse16Card());
 
