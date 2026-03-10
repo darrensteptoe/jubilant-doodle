@@ -124,7 +124,6 @@ const RESOLUTION_OPTIONS = (() => {
   }
   return Array.from(byId.values());
 })();
-const DISTRICT_RESOLUTION_IDS = ["congressional_district", "state_senate_district", "state_house_district"];
 const RESOLUTION_CONTRACT = evaluateResolutionContract({
   options: RESOLUTION_OPTIONS_SOURCE,
   normalizeState: normalizeCensusState,
@@ -133,7 +132,6 @@ const RESOLUTION_CONTRACT_ISSUES = Array.from(new Set([
   ...RESOLUTION_CONTRACT.missingInOptions,
   ...RESOLUTION_CONTRACT.unsupportedByNormalize,
 ]));
-const MISSING_DISTRICT_RESOLUTION_IDS = DISTRICT_RESOLUTION_IDS.filter((id) => RESOLUTION_CONTRACT_ISSUES.includes(id));
 const RESOLUTION_LABEL_BY_ID = Object.fromEntries(
   RESOLUTION_OPTIONS.map((row) => [row.id, row.label]),
 );
@@ -1891,9 +1889,6 @@ export function wireCensusPhase1EventsModule(ctx){
         s.resolution = requestedResolution;
         if (!resolutionNeedsCounty(s.resolution)){
           s.countyFips = "";
-        }
-        if (s.resolution !== "place"){
-          s.placeFips = "";
         }
         if (s.resolution !== "block_group"){
           s.tractFilter = "";
