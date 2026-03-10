@@ -6,6 +6,7 @@ import {
   evaluateCensusApplyMode,
   evaluateCensusPaceAgainstAdvisory,
   evaluateFootprintFeasibility,
+  evaluateResolutionContract,
 } from "../core/censusModule.js";
 
 export function renderValidationModule(args){
@@ -65,6 +66,17 @@ export function renderValidationModule(args){
   }
 
   const footprint = evaluateFootprintFeasibility({ state, res });
+  const resolutionContract = evaluateResolutionContract();
+  if (!resolutionContract.ok){
+    const issueIds = Array.from(new Set([
+      ...(Array.isArray(resolutionContract.missingInOptions) ? resolutionContract.missingInOptions : []),
+      ...(Array.isArray(resolutionContract.unsupportedByNormalize) ? resolutionContract.unsupportedByNormalize : []),
+    ]));
+    items.push({
+      kind: "bad",
+      text: `Census resolution contract mismatch (${issueIds.join(", ")}). Refresh runtime before using Census selectors.`,
+    });
+  }
   for (const issue of footprint.issues){
     items.push({
       kind: issue.kind === "bad" ? "bad" : "warn",

@@ -5,6 +5,7 @@ import {
   listResolutionOptions,
   listMetricSetOptions,
   normalizeCensusState,
+  evaluateResolutionContract,
   fetchStateOptions,
   fetchCountyOptions,
   fetchPlaceOptions,
@@ -124,9 +125,15 @@ const RESOLUTION_OPTIONS = (() => {
   return Array.from(byId.values());
 })();
 const DISTRICT_RESOLUTION_IDS = ["congressional_district", "state_senate_district", "state_house_district"];
-const MISSING_DISTRICT_RESOLUTION_IDS = DISTRICT_RESOLUTION_IDS.filter(
-  (id) => !RESOLUTION_OPTIONS_SOURCE.some((row) => row.id === id),
-);
+const RESOLUTION_CONTRACT = evaluateResolutionContract({
+  options: RESOLUTION_OPTIONS_SOURCE,
+  normalizeState: normalizeCensusState,
+});
+const RESOLUTION_CONTRACT_ISSUES = Array.from(new Set([
+  ...RESOLUTION_CONTRACT.missingInOptions,
+  ...RESOLUTION_CONTRACT.unsupportedByNormalize,
+]));
+const MISSING_DISTRICT_RESOLUTION_IDS = DISTRICT_RESOLUTION_IDS.filter((id) => RESOLUTION_CONTRACT_ISSUES.includes(id));
 const RESOLUTION_LABEL_BY_ID = Object.fromEntries(
   RESOLUTION_OPTIONS.map((row) => [row.id, row.label]),
 );
@@ -1098,8 +1105,8 @@ export function renderCensusPhase1Module({ els, state, res } = {}){
     els.censusPlaceFips.disabled = !s.stateFips;
   }
   if (els.censusContextHint){
-    if (MISSING_DISTRICT_RESOLUTION_IDS.length){
-      els.censusContextHint.textContent = `District resolutions are unavailable in the currently loaded browser bundle (${MISSING_DISTRICT_RESOLUTION_IDS.join(", ")}). Hard refresh to load the latest JS.`;
+    if (RESOLUTION_CONTRACT_ISSUES.length){
+      els.censusContextHint.textContent = `Resolution contract mismatch in loaded runtime (${RESOLUTION_CONTRACT_ISSUES.join(", ")}). Hard refresh to load the latest JS bundle.`;
     } else {
       const resolution = cleanText(s.resolution);
       if (!s.stateFips){
