@@ -30,7 +30,10 @@ import {
   evaluateFootprintFeasibility,
   summarizeFootprintFeasibilityIssues,
   buildElectionCsvTemplate,
+  buildElectionCsvWideTemplate,
   getElectionCsvUploadGuide,
+  parseCsvText,
+  normalizeElectionCsvRows,
 } from "../core/censusModule.js";
 
 const variableCatalogCache = new Map();
@@ -48,12 +51,26 @@ let mapHost = null;
 let mapOverlayLayer = null;
 let mapRequestSeq = 0;
 let mapLoadedSelectionKey = "";
+let electionCsvRequestSeq = 0;
 const mapRuntimeStatus = {
   loading: false,
   error: "",
   text: "Map idle. Select GEO units, then load boundaries.",
   featureCount: 0,
   missingCount: 0,
+};
+const electionCsvDryRun = {
+  fileName: "",
+  fileSize: 0,
+  fileUpdatedAt: "",
+  statusText: "No dry-run run yet.",
+  statusLevel: "muted",
+  format: "",
+  parsedRows: 0,
+  normalizedRows: 0,
+  errors: [],
+  warnings: [],
+  records: [],
 };
 
 function cleanText(v){
@@ -567,6 +584,42 @@ function exportBaseName(s){
   return parts.filter((x) => !!x).join("-");
 }
 
+function resetElectionCsvDryRunRuntime(){
+  electionCsvDryRun.fileName = "";
+  electionCsvDryRun.fileSize = 0;
+  electionCsvDryRun.fileUpdatedAt = "";
+  electionCsvDryRun.statusText = "No dry-run run yet.";
+  electionCsvDryRun.statusLevel = "muted";
+  electionCsvDryRun.format = "";
+  electionCsvDryRun.parsedRows = 0;
+  electionCsvDryRun.normalizedRows = 0;
+  electionCsvDryRun.errors = [];
+  electionCsvDryRun.warnings = [];
+  electionCsvDryRun.records = [];
+}
+
+function setElectionCsvDryRunStatus(text, level = "muted"){
+  electionCsvDryRun.statusText = cleanText(text) || "No dry-run run yet.";
+  electionCsvDryRun.statusLevel = ["ok", "warn", "bad", "muted"].includes(cleanText(level)) ? cleanText(level) : "muted";
+}
+
+function readTextFile(file){
+  if (!file) return Promise.reject(new Error("No file selected."));
+  if (typeof file.text === "function"){
+    return file.text();
+  }
+  return new Promise((resolve, reject) => {
+    if (typeof FileReader !== "function"){
+      reject(new Error("FileReader unavailable."));
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result == null ? "" : reader.result));
+    reader.onerror = () => reject(new Error("Failed to read file."));
+    reader.readAsText(file);
+  });
+}
+
 export function renderCensusPhase1Module({ els, state, res } = {}){
   if (!els || !state) return;
   const s = ensureCensusStateModule(state);
@@ -648,6 +701,17 @@ export function renderCensusPhase1Module({ els, state, res } = {}){
   }
   if (els.btnCensusDownloadElectionCsvTemplate){
     els.btnCensusDownloadElectionCsvTemplate.disabled = false;
+  }
+  if (els.btnCensusDownloadElectionCsvWideTemplate){
+    els.btnCensusDownloadElectionCsvWideTemplate.disabled = false;
+  }
+  if (els.btnCensusElectionCsvDryRun){
+    const hasFile = !!(els.censusElectionCsvFile && els.censusElectionCsvFile.files && els.censusElectionCsvFile.files.length);
+    els.btnCensusElectionCsvDryRun.disabled = !hasFile;
+  }
+  if (els.btnCensusElectionCsvClear){
+    const hasPreview = !!(electionCsvDryRun.fileName || electionCsvDryRun.records.length || electionCsvDryRun.errors.length || electionCsvDryRun.warnings.length);
+    els.btnCensusElectionCsvClear.disabled = !hasPreview;
   }
   if (els.btnCensusApplyGeoPaste){
     els.btnCensusApplyGeoPaste.disabled = !s.geoOptions.length;
@@ -805,6 +869,48 @@ export function renderCensusPhase1Module({ els, state, res } = {}){
     const guide = getElectionCsvUploadGuide();
     const formatCount = Array.isArray(guide.acceptedFormats) ? guide.acceptedFormats.length : 1;
     els.censusElectionCsvGuideStatus.textContent = `Election CSV schema ${guide.schemaVersion}: ${formatCount} supported format(s) (long and wide).`;
+  }
+
+  if (els.censusElectionCsvDryRunStatus){
+    els.censusElectionCsvDryRunStatus.classList.remove("ok", "warn", "bad", "muted");
+    els.censusElectionCsvDryRunStatus.classList.add(electionCsvDryRun.statusLevel || "muted");
+    els.censusElectionCsvDryRunStatus.textContent = electionCsvDryRun.statusText || "No dry-run run yet.";
+  }
+
+  if (els.censusElectionCsvPreviewMeta){
+    const formatLabel = cleanText(electionCsvDryRun.format) || "—";
+    const fileLabel = cleanText(electionCsvDryRun.fileName) || "none";
+    const parseCount = Number.isFinite(Number(electionCsvDryRun.parsedRows)) ? Math.max(0, Math.floor(Number(electionCsvDryRun.parsedRows))) : 0;
+    const normalizedCount = Number.isFinite(Number(electionCsvDryRun.normalizedRows)) ? Math.max(0, Math.floor(Number(electionCsvDryRun.normalizedRows))) : 0;
+    const errCount = Array.isArray(electionCsvDryRun.errors) ? electionCsvDryRun.errors.length : 0;
+    const warnCount = Array.isArray(electionCsvDryRun.warnings) ? electionCsvDryRun.warnings.length : 0;
+    els.censusElectionCsvPreviewMeta.textContent = `File: ${fileLabel} · Format: ${formatLabel} · Parsed rows: ${parseCount.toLocaleString("en-US")} · Normalized rows: ${normalizedCount.toLocaleString("en-US")} · Errors: ${errCount} · Warnings: ${warnCount}`;
+  }
+
+  if (
+    els.censusElectionCsvPreviewTbody &&
+    typeof els.censusElectionCsvPreviewTbody.appendChild === "function" &&
+    "innerHTML" in els.censusElectionCsvPreviewTbody &&
+    typeof document !== "undefined" &&
+    typeof document.createElement === "function"
+  ){
+    const previewRows = Array.isArray(electionCsvDryRun.records) ? electionCsvDryRun.records.slice(0, 25) : [];
+    els.censusElectionCsvPreviewTbody.innerHTML = "";
+    if (!previewRows.length){
+      const tr = document.createElement("tr");
+      tr.innerHTML = '<td class="muted" colspan="4">No dry-run preview yet.</td>';
+      els.censusElectionCsvPreviewTbody.appendChild(tr);
+    } else {
+      for (const row of previewRows){
+        const tr = document.createElement("tr");
+        const precinct = cleanText(row?.precinct_id) || "—";
+        const candidate = cleanText(row?.candidate) || "—";
+        const votes = Number.isFinite(Number(row?.votes)) ? Math.round(Number(row.votes)).toLocaleString("en-US") : "—";
+        const total = Number.isFinite(Number(row?.total_votes_precinct)) ? Math.round(Number(row.total_votes_precinct)).toLocaleString("en-US") : "—";
+        tr.innerHTML = `<td>${precinct}</td><td>${candidate}</td><td class="num">${votes}</td><td class="num">${total}</td>`;
+        els.censusElectionCsvPreviewTbody.appendChild(tr);
+      }
+    }
   }
 
   if (els.censusSelectionSetStatus){
@@ -1295,6 +1401,115 @@ export function wireCensusPhase1EventsModule(ctx){
         const ok = downloadTextFile(csv, `election-results-template-${fileStamp()}.csv`, "text/csv");
         setStatus(s, ok ? "Election CSV template downloaded." : "Election CSV template download failed.", !ok);
       });
+      commitUIUpdate({ persist: false });
+    });
+  }
+
+  if (els.btnCensusDownloadElectionCsvWideTemplate){
+    els.btnCensusDownloadElectionCsvWideTemplate.addEventListener("click", () => {
+      withState((_, s) => {
+        const csv = buildElectionCsvWideTemplate();
+        const ok = downloadTextFile(csv, `election-results-wide-template-${fileStamp()}.csv`, "text/csv");
+        setStatus(s, ok ? "Election wide-format CSV template downloaded." : "Election wide-format CSV template download failed.", !ok);
+      });
+      commitUIUpdate({ persist: false });
+    });
+  }
+
+  if (els.censusElectionCsvFile){
+    els.censusElectionCsvFile.addEventListener("change", () => {
+      const file = els.censusElectionCsvFile?.files?.[0];
+      if (!file){
+        resetElectionCsvDryRunRuntime();
+        commitUIUpdate({ persist: false });
+        return;
+      }
+      electionCsvDryRun.fileName = cleanText(file.name);
+      electionCsvDryRun.fileSize = Number.isFinite(Number(file.size)) ? Math.max(0, Number(file.size)) : 0;
+      electionCsvDryRun.fileUpdatedAt = new Date().toISOString();
+      electionCsvDryRun.format = "";
+      electionCsvDryRun.parsedRows = 0;
+      electionCsvDryRun.normalizedRows = 0;
+      electionCsvDryRun.errors = [];
+      electionCsvDryRun.warnings = [];
+      electionCsvDryRun.records = [];
+      setElectionCsvDryRunStatus(`Selected file ${electionCsvDryRun.fileName} (${Math.round(electionCsvDryRun.fileSize / 1024).toLocaleString("en-US")} KB).`, "muted");
+      commitUIUpdate({ persist: false });
+    });
+  }
+
+  if (els.btnCensusElectionCsvDryRun){
+    els.btnCensusElectionCsvDryRun.addEventListener("click", async () => {
+      const seq = ++electionCsvRequestSeq;
+      const file = els.censusElectionCsvFile?.files?.[0];
+      const state = currentState();
+      const s = ensureCensusStateModule(state);
+      if (!file || !s){
+        setElectionCsvDryRunStatus("Select an election CSV file first.", "warn");
+        commitUIUpdate({ persist: false });
+        return;
+      }
+      setElectionCsvDryRunStatus(`Running dry-run parse for ${cleanText(file.name)}...`, "warn");
+      commitUIUpdate({ persist: false });
+      try{
+        const text = await readTextFile(file);
+        if (seq !== electionCsvRequestSeq) return;
+        const parsed = parseCsvText(text, { maxRows: 500000 });
+        electionCsvDryRun.fileName = cleanText(file.name);
+        electionCsvDryRun.fileSize = Number.isFinite(Number(file.size)) ? Math.max(0, Number(file.size)) : 0;
+        electionCsvDryRun.fileUpdatedAt = new Date().toISOString();
+        electionCsvDryRun.parsedRows = Array.isArray(parsed.rows) ? parsed.rows.length : 0;
+        if (!parsed.ok){
+          electionCsvDryRun.format = "";
+          electionCsvDryRun.normalizedRows = 0;
+          electionCsvDryRun.records = [];
+          electionCsvDryRun.errors = Array.isArray(parsed.errors) ? parsed.errors.slice(0, 200) : [];
+          electionCsvDryRun.warnings = Array.isArray(parsed.warnings) ? parsed.warnings.slice(0, 200) : [];
+          const first = cleanText(electionCsvDryRun.errors[0]) || "parse failed.";
+          setElectionCsvDryRunStatus(`Dry-run failed: ${first}`, "bad");
+          commitUIUpdate({ persist: false });
+          return;
+        }
+        const normalized = normalizeElectionCsvRows(parsed.rows, {
+          headers: parsed.headers,
+          context: {
+            state_fips: cleanText(s.stateFips),
+            county_fips: cleanText(s.countyFips),
+            election_date: cleanText(state?.electionDate),
+          },
+        });
+        if (seq !== electionCsvRequestSeq) return;
+        electionCsvDryRun.format = cleanText(normalized.format) || "invalid";
+        electionCsvDryRun.records = Array.isArray(normalized.records) ? normalized.records.slice() : [];
+        electionCsvDryRun.normalizedRows = electionCsvDryRun.records.length;
+        electionCsvDryRun.errors = Array.isArray(normalized.errors) ? normalized.errors.slice(0, 200) : [];
+        electionCsvDryRun.warnings = Array.isArray(normalized.warnings) ? normalized.warnings.slice(0, 200) : [];
+        if (!normalized.ok){
+          const first = cleanText(electionCsvDryRun.errors[0]) || "validation failed.";
+          setElectionCsvDryRunStatus(`Dry-run failed (${electionCsvDryRun.format || "invalid"}): ${first}`, "bad");
+          commitUIUpdate({ persist: false });
+          return;
+        }
+        if (electionCsvDryRun.warnings.length){
+          setElectionCsvDryRunStatus(`Dry-run parsed ${electionCsvDryRun.normalizedRows.toLocaleString("en-US")} normalized candidate rows (${electionCsvDryRun.format} format) with ${electionCsvDryRun.warnings.length} warning(s).`, "warn");
+        } else {
+          setElectionCsvDryRunStatus(`Dry-run parsed ${electionCsvDryRun.normalizedRows.toLocaleString("en-US")} normalized candidate rows (${electionCsvDryRun.format} format).`, "ok");
+        }
+      } catch (err){
+        if (seq !== electionCsvRequestSeq) return;
+        electionCsvDryRun.records = [];
+        electionCsvDryRun.normalizedRows = 0;
+        electionCsvDryRun.errors = [cleanText(err?.message) || "Dry-run failed."];
+        setElectionCsvDryRunStatus(electionCsvDryRun.errors[0], "bad");
+      }
+      commitUIUpdate({ persist: false });
+    });
+  }
+
+  if (els.btnCensusElectionCsvClear){
+    els.btnCensusElectionCsvClear.addEventListener("click", () => {
+      resetElectionCsvDryRunRuntime();
+      if (els.censusElectionCsvFile) els.censusElectionCsvFile.value = "";
       commitUIUpdate({ persist: false });
     });
   }
