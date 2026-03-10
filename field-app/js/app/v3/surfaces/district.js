@@ -317,7 +317,8 @@ function normalizeCensusPhase1Card(card) {
   const contextHint = card.querySelector("#censusContextHint");
 
   const metricSetField = findClosest(card, "#censusMetricSet", ".field");
-  const fetchActions = findClosest(card, "#btnCensusLoadGeo", ".rowline");
+  const loadGeoButton = card.querySelector("#btnCensusLoadGeo");
+  const fetchAcsButton = card.querySelector("#btnCensusFetchRows");
   const censusStatus = card.querySelector("#censusStatus");
   const censusGeoStats = card.querySelector("#censusGeoStats");
   const censusLastFetch = card.querySelector("#censusLastFetch");
@@ -367,25 +368,6 @@ function normalizeCensusPhase1Card(card) {
     layout.appendChild(intro);
   }
 
-  const geographySection = createCensusSection({
-    title: "Geography context",
-    description: "Set API/year/resolution and geographic scope before loading GEO units."
-  });
-  const geographyTopGrid = createFieldGrid("fpe-field-grid--3");
-  appendIfPresent(geographyTopGrid, apiKeyField, acsYearField, resolutionField);
-  if (geographyTopGrid.children.length) {
-    geographySection.body.appendChild(geographyTopGrid);
-  }
-  appendIfPresent(geographySection.body, resolutionHint);
-
-  const geographyBottomGrid = createFieldGrid("fpe-field-grid--3");
-  appendIfPresent(geographyBottomGrid, stateField, countyField, placeField);
-  if (geographyBottomGrid.children.length) {
-    geographySection.body.appendChild(geographyBottomGrid);
-  }
-  appendIfPresent(geographySection.body, contextHint);
-  layout.appendChild(geographySection.section);
-
   const workflowSection = createCensusSection({
     title: "GEO data workflow",
     description:
@@ -394,16 +376,54 @@ function normalizeCensusPhase1Card(card) {
 
   const setupBlock = createCensusSubsection({
     title: "Setup",
-    description: "Choose data bundle and fetch rows."
+    description: "Geography context and scope for Census data pulls."
   });
-  const bundleGrid = createFieldGrid("fpe-field-grid--2");
-  appendIfPresent(bundleGrid, metricSetField);
-  const fetchActionsField = createFetchActionsField(fetchActions);
-  appendIfPresent(bundleGrid, fetchActionsField);
-  if (bundleGrid.children.length) {
-    setupBlock.body.appendChild(bundleGrid);
+  const setupTopGrid = createFieldGrid("fpe-field-grid--3");
+  appendIfPresent(setupTopGrid, apiKeyField, acsYearField, resolutionField);
+  if (setupTopGrid.children.length) {
+    setupBlock.body.appendChild(setupTopGrid);
   }
+  appendIfPresent(setupBlock.body, resolutionHint);
 
+  const setupBottomGrid = createFieldGrid("fpe-field-grid--3");
+  appendIfPresent(setupBottomGrid, stateField, countyField, placeField);
+  if (setupBottomGrid.children.length) {
+    setupBlock.body.appendChild(setupBottomGrid);
+  }
+  appendIfPresent(setupBlock.body, contextHint);
+
+  const selectionBlock = createCensusSubsection({
+    title: "Selection",
+    description: "Search/paste/select GEO units and manage saved sets."
+  });
+  const loadGeoField = createActionField({
+    labelText: "Fetch actions",
+    buttons: [loadGeoButton]
+  });
+  appendIfPresent(selectionBlock.body, loadGeoField, geoSelectionField, selectionSetGrid, selectionSetStatus);
+
+  const outputBlock = createCensusSubsection({
+    title: "Output",
+    description: "Set data bundle, fetch ACS rows, and review aggregate metrics."
+  });
+  const outputTopGrid = createFieldGrid("fpe-field-grid--2");
+  const fetchAcsField = createActionField({
+    labelText: "Fetch actions",
+    buttons: [fetchAcsButton]
+  });
+  appendIfPresent(outputTopGrid, metricSetField, fetchAcsField);
+  if (outputTopGrid.children.length) {
+    outputBlock.body.appendChild(outputTopGrid);
+  }
+  if (aggregateExportActions instanceof HTMLElement) {
+    aggregateExportActions.classList.add("fpe-census-aggregate-actions", "fpe-action-row");
+  }
+  appendIfPresent(outputBlock.body, aggregateTable, aggregateExportActions);
+
+  const statusBlock = createCensusSubsection({
+    title: "Workflow status",
+    description: "Live runtime feedback for fetch and selection state."
+  });
   const statusStrip = document.createElement("div");
   statusStrip.className = "fpe-census-status-strip";
   appendIfPresent(
@@ -413,27 +433,13 @@ function normalizeCensusPhase1Card(card) {
     toStatusChip(censusLastFetch)
   );
   if (statusStrip.children.length) {
-    setupBlock.body.appendChild(statusStrip);
+    statusBlock.body.appendChild(statusStrip);
   }
-  const selectionBlock = createCensusSubsection({
-    title: "Selection",
-    description: "Search/paste/select GEO units and manage saved sets."
-  });
-  appendIfPresent(selectionBlock.body, geoSelectionField, selectionSetGrid, selectionSetStatus);
-
-  const outputBlock = createCensusSubsection({
-    title: "Output",
-    description: "Aggregate demographic metrics from selected GEO units."
-  });
-  if (aggregateExportActions instanceof HTMLElement) {
-    aggregateExportActions.classList.add("fpe-census-aggregate-actions", "fpe-action-row");
-  }
-  appendIfPresent(outputBlock.body, aggregateTable, aggregateExportActions);
 
   const workflowTopGrid = document.createElement("div");
   workflowTopGrid.className = "fpe-census-workflow-grid";
   appendIfPresent(workflowTopGrid, setupBlock.section, selectionBlock.section);
-  appendIfPresent(workflowSection.body, workflowTopGrid, outputBlock.section);
+  appendIfPresent(workflowSection.body, workflowTopGrid, statusBlock.section, outputBlock.section);
   layout.appendChild(workflowSection.section);
 
   const footprintSection = createCensusSection({
@@ -627,18 +633,22 @@ function toStatusChip(node) {
   return chip;
 }
 
-function createFetchActionsField(row) {
-  if (!(row instanceof HTMLElement)) {
+function createActionField({ labelText, buttons = [] }) {
+  const validButtons = buttons.filter((node) => node instanceof HTMLElement);
+  if (!validButtons.length) {
     return null;
   }
-  row.classList.add("fpe-action-row");
+
+  const row = document.createElement("div");
+  row.className = "fpe-action-row";
+  validButtons.forEach((button) => row.appendChild(button));
 
   const field = document.createElement("div");
   field.className = "field";
 
   const label = document.createElement("label");
   label.className = "fpe-control-label";
-  label.textContent = "Fetch actions";
+  label.textContent = labelText;
 
   field.append(label, row);
   return field;
