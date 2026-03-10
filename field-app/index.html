@@ -16,8 +16,11 @@
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&amp;family=IBM+Plex+Sans:wght@300;400;500;600&amp;display=swap" rel="stylesheet"/>
 <link href="./styles-shell.css?v=20260224-c25" rel="stylesheet"/>
 <link href="./styles.css?v=20260224-c25" rel="stylesheet"/>
+<link href="./styles-fpe-v3.css?v=20260310-fpe-ui-v3" rel="stylesheet"/>
 </head>
 <body>
+<div hidden="" id="app-shell-v3-root"></div>
+<div id="app-shell-legacy">
 <!-- ── TOPBAR ───────────────────────────────────────────── -->
 <header class="topbar-new">
 <div class="brand-new">
@@ -3248,7 +3251,10 @@ Volunteer multiplier stays above 1.5" rows="4"></textarea>
 </aside>
 </div>
 <!-- /app-shell -->
+</div>
+<!-- /app-shell-legacy -->
 <script src="./js/app.js?v=20260310-census-phase1-40" type="module"></script>
+<script src="./js/app/v3/index.js?v=20260310-fpe-ui-v3" type="module"></script>
 <script>
 // ── Stage navigation ───────────────────────────────────────────
 function normalizeStages() {
