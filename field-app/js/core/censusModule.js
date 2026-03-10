@@ -2053,6 +2053,94 @@ export function buildCensusAssumptionAdvisory({ aggregate, doorShare, doorsPerHo
   };
 }
 
+function pctToUnitOrNull(value){
+  const raw = Number(value);
+  if (!Number.isFinite(raw)) return null;
+  const bounded = clampRange(raw, 0, 100);
+  return bounded / 100;
+}
+
+export function evaluateCensusPaceAgainstAdvisory({
+  advisory,
+  needVotes,
+  weeks,
+  contactRatePct,
+  supportRatePct,
+  turnoutReliabilityPct,
+  orgCount,
+  orgHoursPerWeek,
+  volunteerMult,
+} = {}){
+  const adjustedAph = Number(advisory?.aph?.adjusted);
+  const hasAdjustedAph = Number.isFinite(adjustedAph) && adjustedAph > 0;
+  const goalRaw = Number(needVotes);
+  const hasGoal = Number.isFinite(goalRaw) && goalRaw >= 0;
+  const weeksRaw = Number(weeks);
+  const hasWeeks = Number.isFinite(weeksRaw) && weeksRaw > 0;
+  const cr = pctToUnitOrNull(contactRatePct);
+  const sr = pctToUnitOrNull(supportRatePct);
+  const tr = pctToUnitOrNull(turnoutReliabilityPct);
+  const hasRates = cr != null && cr > 0 && sr != null && sr > 0 && tr != null && tr > 0;
+  const orgs = Number(orgCount);
+  const hours = Number(orgHoursPerWeek);
+  const vmRaw = Number(volunteerMult);
+  const vm = Number.isFinite(vmRaw) && vmRaw > 0 ? vmRaw : 1;
+  const capacityHoursPerWeek = (Number.isFinite(orgs) && orgs > 0 && Number.isFinite(hours) && hours > 0)
+    ? (orgs * hours * vm)
+    : null;
+  const hasCapacityHours = Number.isFinite(capacityHoursPerWeek) && capacityHoursPerWeek > 0;
+
+  let reason = "ready";
+  if (!hasAdjustedAph){
+    reason = "advisory_aph_missing";
+  } else if (!hasGoal){
+    reason = "need_votes_missing";
+  } else if (!hasWeeks){
+    reason = "weeks_missing";
+  } else if (!hasRates){
+    reason = "rates_missing";
+  } else if (!hasCapacityHours){
+    reason = "capacity_hours_missing";
+  }
+
+  if (reason !== "ready"){
+    return {
+      ready: false,
+      reason,
+      availableAph: hasAdjustedAph ? adjustedAph : null,
+      requiredAph: null,
+      gapPct: null,
+      ratio: null,
+      feasible: null,
+      severity: "muted",
+      requiredAttemptsPerWeek: null,
+      capacityHoursPerWeek: hasCapacityHours ? capacityHoursPerWeek : null,
+    };
+  }
+
+  const safeGoal = Math.max(0, goalRaw);
+  const requiredAttemptsTotal = safeGoal > 0 ? (safeGoal / (cr * sr * tr)) : 0;
+  const requiredAttemptsPerWeek = requiredAttemptsTotal / weeksRaw;
+  const requiredAph = requiredAttemptsPerWeek / capacityHoursPerWeek;
+  const ratio = requiredAph / adjustedAph;
+  const gapPct = ratio - 1;
+  const feasible = ratio <= 1;
+  const severity = feasible ? "ok" : (ratio > 1.2 ? "bad" : "warn");
+
+  return {
+    ready: true,
+    reason,
+    availableAph: adjustedAph,
+    requiredAph,
+    gapPct,
+    ratio,
+    feasible,
+    severity,
+    requiredAttemptsPerWeek,
+    capacityHoursPerWeek,
+  };
+}
+
 export function validateMetricSetWithCatalog(metricSet, variableNames){
   const vars = new Set(Array.isArray(variableNames) ? variableNames.map((v) => cleanText(v)) : []);
   const required = getVariablesForMetricSet(metricSet);

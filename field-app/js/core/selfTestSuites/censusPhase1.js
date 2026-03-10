@@ -28,10 +28,11 @@ import {
   buildElectionCsvTemplate,
   buildElectionCsvWideTemplate,
   buildCensusAssumptionAdvisory,
+  evaluateCensusPaceAgainstAdvisory,
   detectElectionCsvFormat,
   normalizeElectionCsvRows,
   parseCsvText,
-} from "../censusModule.js?v=20260309-census-phase1-33";
+} from "../censusModule.js?v=20260309-census-phase1-34";
 
 export function registerCensusPhase1Tests(ctx){
   const { test, assert } = ctx;
@@ -552,6 +553,66 @@ export function registerCensusPhase1Tests(ctx){
     assert(advisory.ready === false, "advisory should not be ready without selection");
     assert(advisory.reason === "selection_missing", "advisory missing-selection reason mismatch");
     assert(advisory.coverage.availableSignals === 0, "advisory missing-selection coverage mismatch");
+  });
+
+  test("Census Phase1: pace advisory marks shortfall when required APH exceeds adjusted APH", () => {
+    const advisory = {
+      aph: { adjusted: 14.2 },
+    };
+    const pace = evaluateCensusPaceAgainstAdvisory({
+      advisory,
+      needVotes: 1800,
+      weeks: 10,
+      contactRatePct: 22,
+      supportRatePct: 55,
+      turnoutReliabilityPct: 80,
+      orgCount: 2,
+      orgHoursPerWeek: 10,
+      volunteerMult: 1,
+    });
+    assert(pace.ready === true, "pace advisory should be ready");
+    assert(pace.feasible === false, "pace advisory should detect shortfall");
+    assert(pace.severity === "bad" || pace.severity === "warn", "pace advisory severity mismatch");
+    assert(Number.isFinite(pace.requiredAph) && pace.requiredAph > 0, "required APH should be positive");
+    assert(Number.isFinite(pace.gapPct) && pace.gapPct > 0, "pace advisory gap should be positive");
+  });
+
+  test("Census Phase1: pace advisory marks feasible when adjusted APH covers required APH", () => {
+    const advisory = {
+      aph: { adjusted: 30 },
+    };
+    const pace = evaluateCensusPaceAgainstAdvisory({
+      advisory,
+      needVotes: 600,
+      weeks: 12,
+      contactRatePct: 30,
+      supportRatePct: 60,
+      turnoutReliabilityPct: 85,
+      orgCount: 3,
+      orgHoursPerWeek: 12,
+      volunteerMult: 1.1,
+    });
+    assert(pace.ready === true, "pace advisory should be ready");
+    assert(pace.feasible === true, "pace advisory should mark feasible");
+    assert(pace.severity === "ok", "pace advisory severity should be ok");
+    assert(Number.isFinite(pace.gapPct) && pace.gapPct <= 0, "pace advisory gap should be non-positive");
+  });
+
+  test("Census Phase1: pace advisory reports missing inputs", () => {
+    const pace = evaluateCensusPaceAgainstAdvisory({
+      advisory: { aph: { adjusted: null } },
+      needVotes: null,
+      weeks: null,
+      contactRatePct: null,
+      supportRatePct: null,
+      turnoutReliabilityPct: null,
+      orgCount: null,
+      orgHoursPerWeek: null,
+      volunteerMult: null,
+    });
+    assert(pace.ready === false, "pace advisory should not be ready");
+    assert(pace.reason === "advisory_aph_missing", "pace advisory missing-input reason mismatch");
+    assert(pace.severity === "muted", "pace advisory missing-input severity mismatch");
   });
 
   test("Census Phase1: election CSV guide and template contract", () => {
