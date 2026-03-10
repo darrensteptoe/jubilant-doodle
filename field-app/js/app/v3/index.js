@@ -113,15 +113,12 @@ function wireTopbarBridge() {
   });
   resetBtn?.addEventListener("click", () => clickLegacy("btnResetAll"));
 
+  syncTrainingToggle();
   trainingToggle?.addEventListener("change", () => {
-    const legacyToggle = document.getElementById("toggleTraining");
-    if (!legacyToggle) {
-      return;
-    }
-
-    legacyToggle.checked = trainingToggle.checked;
-    legacyToggle.dispatchEvent(new Event("change", { bubbles: true }));
+    setLegacyTrainingState(trainingToggle.checked);
+    syncTrainingToggle();
   });
+  document.getElementById("toggleTraining")?.addEventListener("change", syncTrainingToggle);
 
   legacyBtn?.addEventListener("click", () => {
     const params = new URLSearchParams(window.location.search);
@@ -166,10 +163,45 @@ function clickLegacy(id) {
   }
 }
 
+function readLegacyTrainingState() {
+  const legacyToggle = document.getElementById("toggleTraining");
+  if (!legacyToggle) {
+    return document.body.classList.contains("training");
+  }
+
+  const enabled = !!legacyToggle.checked;
+  if (document.body.classList.contains("training") !== enabled) {
+    document.body.classList.toggle("training", enabled);
+  }
+  return enabled;
+}
+
+function setLegacyTrainingState(enabled) {
+  const normalized = !!enabled;
+  const legacyToggle = document.getElementById("toggleTraining");
+  if (!legacyToggle) {
+    document.body.classList.toggle("training", normalized);
+    return;
+  }
+
+  legacyToggle.checked = normalized;
+  legacyToggle.dispatchEvent(new Event("change", { bubbles: true }));
+}
+
+function syncTrainingToggle() {
+  const v3Toggle = document.getElementById("v3ToggleTraining");
+  if (!v3Toggle) {
+    return;
+  }
+
+  v3Toggle.checked = readLegacyTrainingState();
+}
+
 function syncAll() {
   syncKpis();
   refreshActiveStage();
   syncScenarioMirror();
+  syncTrainingToggle();
 }
 
 function syncScenarioMirror() {
