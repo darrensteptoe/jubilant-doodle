@@ -100,12 +100,32 @@ const electionCsvDryRun = {
   warnings: [],
   records: [],
 };
-const RESOLUTION_OPTIONS = listResolutionOptions()
+const RESOLUTION_OPTIONS_SOURCE = listResolutionOptions()
   .map((row) => ({ id: cleanText(row?.id), label: cleanText(row?.label) }))
   .filter((row) => !!row.id);
+const RESOLUTION_OPTIONS_FALLBACK = [
+  { id: "place", label: "Place" },
+  { id: "tract", label: "Tract" },
+  { id: "block_group", label: "Block group" },
+  { id: "congressional_district", label: "Congressional district" },
+  { id: "state_senate_district", label: "State senate district (upper)" },
+  { id: "state_house_district", label: "State house district (lower)" },
+];
+const RESOLUTION_OPTIONS = (() => {
+  const byId = new Map();
+  for (const row of RESOLUTION_OPTIONS_SOURCE){
+    byId.set(row.id, row);
+  }
+  for (const row of RESOLUTION_OPTIONS_FALLBACK){
+    if (!byId.has(row.id)){
+      byId.set(row.id, row);
+    }
+  }
+  return Array.from(byId.values());
+})();
 const DISTRICT_RESOLUTION_IDS = ["congressional_district", "state_senate_district", "state_house_district"];
 const MISSING_DISTRICT_RESOLUTION_IDS = DISTRICT_RESOLUTION_IDS.filter(
-  (id) => !RESOLUTION_OPTIONS.some((row) => row.id === id),
+  (id) => !RESOLUTION_OPTIONS_SOURCE.some((row) => row.id === id),
 );
 const RESOLUTION_LABEL_BY_ID = Object.fromEntries(
   RESOLUTION_OPTIONS.map((row) => [row.id, row.label]),
@@ -1859,8 +1879,9 @@ export function wireCensusPhase1EventsModule(ctx){
 
   if (els.censusResolution){
     els.censusResolution.addEventListener("change", () => {
+      const requestedResolution = cleanText(els.censusResolution.value) || "tract";
       withState((_, s) => {
-        s.resolution = cleanText(els.censusResolution.value) || "tract";
+        s.resolution = requestedResolution;
         if (!resolutionNeedsCounty(s.resolution)){
           s.countyFips = "";
         }
@@ -1875,6 +1896,13 @@ export function wireCensusPhase1EventsModule(ctx){
         setStatus(s, `Resolution set to ${label || s.resolution}. Load GEO list next.`, false);
       });
       commitUIUpdate();
+      const latest = ensureCensusStateModule(currentState());
+      if (latest && latest.resolution !== requestedResolution){
+        withState((_, s) => {
+          setStatus(s, `Resolution "${requestedResolution}" is unavailable in the loaded runtime. Hard refresh to load the latest JS bundle.`, true);
+        });
+        commitUIUpdate();
+      }
     });
   }
 
