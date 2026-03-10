@@ -1,0 +1,484 @@
+{
+  "schemaVersion": "1.6.0",
+  "appVersion": "1.0",
+  "buildId": "dev",
+  "modelVersion": "1.0.0",
+  "exportedAt": "2026-03-10T18:35:00.000Z",
+  "scenario": {
+    "scenarioName": "Chicago Mayor 2023 First Round - Full System Demo",
+    "raceType": "municipal",
+    "electionDate": "2023-02-28",
+    "weeksRemaining": 10,
+    "mode": "persuasion",
+    "universeBasis": "registered",
+    "universeSize": 1560000,
+    "sourceNote": "Historical back-test scenario for the February 28, 2023 Chicago mayoral first round. Candidate slate and first-round shares reflect official reported results context: Paul Vallas, Brandon Johnson, Lori Lightfoot, Chuy Garcia, Willie Wilson, JaMal Green, Kam Buckner, Sophia King, and Roderick Sawyer.",
+    "turnoutA": 32,
+    "turnoutB": 40,
+    "bandWidth": 4,
+    "candidates": [
+      {
+        "id": "paul_vallas_2023",
+        "name": "Paul Vallas",
+        "supportPct": 32.90
+      },
+      {
+        "id": "brandon_johnson_2023",
+        "name": "Brandon Johnson",
+        "supportPct": 21.63
+      },
+      {
+        "id": "lori_lightfoot_2023",
+        "name": "Lori Lightfoot",
+        "supportPct": 16.81
+      },
+      {
+        "id": "chuy_garcia_2023",
+        "name": "Chuy Garcia",
+        "supportPct": 13.68
+      },
+      {
+        "id": "willie_wilson_2023",
+        "name": "Willie Wilson",
+        "supportPct": 9.13
+      },
+      {
+        "id": "jamal_green_2023",
+        "name": "JaMal Green",
+        "supportPct": 2.17
+      },
+      {
+        "id": "kam_buckner_2023",
+        "name": "Kam Buckner",
+        "supportPct": 1.96
+      },
+      {
+        "id": "sophia_king_2023",
+        "name": "Sophia King",
+        "supportPct": 1.27
+      },
+      {
+        "id": "roderick_sawyer_2023",
+        "name": "Roderick Sawyer",
+        "supportPct": 0.43
+      }
+    ],
+    "undecidedPct": 0,
+    "yourCandidateId": "brandon_johnson_2023",
+    "undecidedMode": "proportional",
+    "userSplit": {},
+    "persuasionPct": 36,
+    "earlyVoteExp": 37,
+    "goalSupportIds": "",
+    "supportRatePct": 41,
+    "contactRatePct": 17,
+    "doorsPerHour": 16,
+    "hoursPerShift": 3,
+    "shiftsPerVolunteerPerWeek": 2,
+    "orgCount": 42,
+    "orgHoursPerWeek": 42,
+    "volunteerMultBase": 2.6,
+    "channelDoorPct": 58,
+    "doorsPerHour3": 16,
+    "callsPerHour3": 21,
+    "turnoutReliabilityPct": 76,
+    "turnoutEnabled": true,
+    "turnoutBaselinePct": 35,
+    "turnoutTargetOverridePct": 38,
+    "gotvMode": "advanced",
+    "gotvLiftPP": 1.2,
+    "gotvMaxLiftPP": 6,
+    "gotvDiminishing": true,
+    "gotvLiftMin": 0.6,
+    "gotvLiftMode": 1.2,
+    "gotvLiftMax": 2.0,
+    "gotvMaxLiftPP2": 6,
+    "timelineEnabled": true,
+    "timelineActiveWeeks": 10,
+    "timelineGotvWeeks": 2,
+    "timelineStaffCount": 62,
+    "timelineStaffHours": 42,
+    "timelineVolCount": 1950,
+    "timelineVolHours": 4,
+    "timelineRampEnabled": true,
+    "timelineRampMode": "linear",
+    "timelineDoorsPerHour": 16,
+    "timelineCallsPerHour": 21,
+    "timelineTextsPerHour": 135,
+    "crmEnabled": true,
+    "scheduleEnabled": true,
+    "twCapOverrideEnabled": true,
+    "twCapOverrideMode": "scheduled",
+    "twCapOverrideHorizonWeeks": 10,
+    "mcMode": "advanced",
+    "mcVolatility": "med",
+    "mcSeed": "chicago-2023-first-round-backtest",
+    "budget": {
+      "overheadAmount": 98000,
+      "includeOverhead": true,
+      "tactics": {
+        "doors": {
+          "enabled": true,
+          "cpa": 1.05,
+          "kind": "persuasion",
+          "crPct": 17,
+          "srPct": 41
+        },
+        "phones": {
+          "enabled": true,
+          "cpa": 0.13,
+          "kind": "persuasion",
+          "crPct": 11,
+          "srPct": 36
+        },
+        "texts": {
+          "enabled": true,
+          "cpa": 0.045,
+          "kind": "turnout",
+          "crPct": 6,
+          "srPct": 30
+        }
+      },
+      "optimize": {
+        "mode": "budget",
+        "budgetAmount": 1450000,
+        "capacityAttempts": 520000,
+        "step": 100,
+        "useDecay": true,
+        "objective": "net",
+        "tlConstrainedEnabled": true,
+        "tlConstrainedObjective": "max_net"
+      }
+    },
+    "mcContactMin": 13,
+    "mcContactMode": 17,
+    "mcContactMax": 22,
+    "mcPersMin": 28,
+    "mcPersMode": 36,
+    "mcPersMax": 44,
+    "mcReliMin": 68,
+    "mcReliMode": 76,
+    "mcReliMax": 84,
+    "mcDphMin": 13,
+    "mcDphMode": 16,
+    "mcDphMax": 19,
+    "mcCphMin": 17,
+    "mcCphMode": 21,
+    "mcCphMax": 25,
+    "mcVolMin": 1.9,
+    "mcVolMode": 2.6,
+    "mcVolMax": 3.4,
+    "mcLast": null,
+    "mcLastHash": "",
+    "universeLayerEnabled": true,
+    "universeDemPct": 62,
+    "universeRepPct": 11,
+    "universeNpaPct": 23,
+    "universeOtherPct": 4,
+    "retentionFactor": 0.84,
+    "census": {
+      "year": "2024",
+      "resolution": "tract",
+      "metricSet": "all",
+      "stateFips": "17",
+      "countyFips": "031",
+      "placeFips": "14000",
+      "geoSearch": "",
+      "tractFilter": "",
+      "geoOptions": [],
+      "selectedGeoids": [
+        "17031010100",
+        "17031010201",
+        "17031010300",
+        "17031010400",
+        "17031010501",
+        "17031010600",
+        "17031010701",
+        "17031010800"
+      ],
+      "rowsByGeoid": {},
+      "activeRowsKey": "",
+      "loadedRowCount": 0,
+      "loadingGeo": false,
+      "loadingRows": false,
+      "status": "Chicago context loaded. Fetch GEO list and ACS rows to hydrate runtime data.",
+      "error": "",
+      "lastFetchAt": "",
+      "variableCatalogYear": "",
+      "variableCatalogCount": 0,
+      "mapQaVtdOverlay": true,
+      "applyAdjustedAssumptions": false,
+      "selectionSets": [
+        {
+          "name": "Northwest Persuasion Cluster",
+          "resolution": "tract",
+          "stateFips": "17",
+          "countyFips": "031",
+          "placeFips": "",
+          "geoids": [
+            "17031010100",
+            "17031010201",
+            "17031010300"
+          ],
+          "updatedAt": "2026-03-10T18:10:00.000Z"
+        },
+        {
+          "name": "Lakefront Turnout Cluster",
+          "resolution": "tract",
+          "stateFips": "17",
+          "countyFips": "031",
+          "placeFips": "",
+          "geoids": [
+            "17031010400",
+            "17031010501",
+            "17031010600"
+          ],
+          "updatedAt": "2026-03-10T18:11:00.000Z"
+        },
+        {
+          "name": "Southwest Field Mix Cluster",
+          "resolution": "tract",
+          "stateFips": "17",
+          "countyFips": "031",
+          "placeFips": "",
+          "geoids": [
+            "17031010701",
+            "17031010800"
+          ],
+          "updatedAt": "2026-03-10T18:12:00.000Z"
+        }
+      ],
+      "selectionSetDraftName": "",
+      "selectedSelectionSetKey": "0",
+      "requestSeq": 0
+    },
+    "raceFootprint": {
+      "source": "census_phase1",
+      "year": "2024",
+      "resolution": "tract",
+      "metricSet": "all",
+      "stateFips": "17",
+      "countyFips": "031",
+      "placeFips": "",
+      "geoids": [
+        "17031010100",
+        "17031010201",
+        "17031010300",
+        "17031010400",
+        "17031010501",
+        "17031010600",
+        "17031010701",
+        "17031010800"
+      ],
+      "rowCount": 0,
+      "rowsKey": "",
+      "fingerprint": "2024|tract|all|17|031||17031010100,17031010201,17031010300,17031010400,17031010501,17031010600,17031010701,17031010800",
+      "updatedAt": "2026-03-10T18:34:00.000Z"
+    },
+    "assumptionsProvenance": {
+      "source": "manual_seed",
+      "raceFootprintFingerprint": "2024|tract|all|17|031||17031010100,17031010201,17031010300,17031010400,17031010501,17031010600,17031010701,17031010800",
+      "censusRowsKey": "",
+      "acsYear": "2024",
+      "metricSet": "all",
+      "generatedAt": "2026-03-10T18:34:00.000Z"
+    },
+    "footprintCapacity": {
+      "source": "manual_seed",
+      "population": 318450,
+      "year": "2024",
+      "metricSet": "all",
+      "raceFootprintFingerprint": "2024|tract|all|17|031||17031010100,17031010201,17031010300,17031010400,17031010501,17031010600,17031010701,17031010800",
+      "censusRowsKey": "",
+      "updatedAt": "2026-03-10T18:34:00.000Z"
+    },
+    "intelState": {
+      "version": "1.0.0",
+      "refCatalog": {},
+      "evidence": [
+        {
+          "id": "ev_chi_first_round_results",
+          "title": "Chicago Mayor First Round 2023 certified totals",
+          "source": "Chicago Board of Elections",
+          "capturedAt": "2023-02-28",
+          "ref": "core.turnoutBaselinePct"
+        },
+        {
+          "id": "ev_chi_multicandidate_context",
+          "title": "Nine-candidate first-round field profile",
+          "source": "Public election reporting",
+          "capturedAt": "2023-02-28",
+          "ref": "core.supportRatePct"
+        }
+      ],
+      "benchmarks": [
+        {
+          "id": "bm_support_rate_muni",
+          "ref": "core.supportRatePct",
+          "raceType": "municipal",
+          "range": {
+            "min": 40,
+            "max": 65
+          },
+          "severityBands": {
+            "warnAbove": 68,
+            "hardAbove": 75
+          },
+          "source": {
+            "title": "Historical municipal persuasion programs",
+            "type": "internal"
+          }
+        },
+        {
+          "id": "bm_contact_rate_muni",
+          "ref": "core.contactRatePct",
+          "raceType": "municipal",
+          "range": {
+            "min": 12,
+            "max": 26
+          },
+          "severityBands": {
+            "warnAbove": 28,
+            "hardAbove": 34
+          },
+          "source": {
+            "title": "Urban field cycle benchmarks",
+            "type": "internal"
+          }
+        }
+      ],
+      "flags": [],
+      "audit": [],
+      "briefs": [
+        {
+          "id": "brief_calibration_chi_2023_first_round",
+          "kind": "calibrationSources",
+          "promptId": "calibration_backtest_municipal_first_round",
+          "model": "manual",
+          "createdAt": "2026-03-10T18:34:30.000Z",
+          "content": "Nine-candidate ballot increases fragmentation and decreases direct persuasion conversion for any one campaign. Capacity realism checks should be enforced against footprint population and turnout bounds."
+        }
+      ],
+      "recommendations": [
+        {
+          "id": "rec_first_round_fragmented_field",
+          "createdAt": "2026-03-10T18:34:45.000Z",
+          "priority": "high",
+          "title": "Treat first-round persuasion as fragmented",
+          "content": "Model lower conversion efficiency versus runoff conditions and preserve stronger GOTV finish assumptions in final weeks."
+        }
+      ],
+      "observedMetrics": [
+        {
+          "id": "obs_turnout_baseline_2023_first_round",
+          "ref": "core.turnoutBaselinePct",
+          "value": 35.85,
+          "capturedAt": "2023-03-01",
+          "source": "historical backtest"
+        }
+      ],
+      "intelRequests": [
+        {
+          "id": "req_census_refresh_2024_first_round",
+          "createdAt": "2026-03-10T18:34:50.000Z",
+          "status": "open",
+          "title": "Refresh ACS pull for first-round selected tract footprint"
+        }
+      ],
+      "correlationModels": [
+        {
+          "id": "corr_muni_base",
+          "label": "Municipal baseline",
+          "refs": [
+            "core.contactRatePct",
+            "core.supportRatePct"
+          ],
+          "matrix": [
+            [
+              1,
+              0.35
+            ],
+            [
+              0.35,
+              1
+            ]
+          ],
+          "notes": "Mild positive correlation between contact and support quality in mature programs."
+        }
+      ],
+      "shockScenarios": [
+        {
+          "id": "shock_late_break_fragmented_field",
+          "label": "Late-break volatility in fragmented field",
+          "impacts": [
+            {
+              "ref": "core.supportRatePct",
+              "delta": -2.1
+            },
+            {
+              "ref": "core.contactRatePct",
+              "delta": -1
+            }
+          ],
+          "probability": 0.32,
+          "notes": "Multi-candidate race volatility lowers stable persuasion conversion near election day."
+        }
+      ],
+      "workflow": {
+        "scenarioLocked": false,
+        "lockReason": "",
+        "lockedAt": null,
+        "lockedBy": "",
+        "governanceBaselineAt": null,
+        "requireCriticalNote": true,
+        "requireCriticalEvidence": true
+      },
+      "simToggles": {
+        "mcDistribution": "triangular",
+        "correlatedShocks": true,
+        "correlationMatrixId": "corr_muni_base",
+        "shockScenariosEnabled": true
+      },
+      "expertToggles": {
+        "capacityDecayEnabled": true,
+        "decayModel": {
+          "type": "linear",
+          "weeklyDecayPct": 0.03,
+          "floorPctOfBaseline": 0.7
+        }
+      }
+    },
+    "features": {
+      "turnout": {
+        "modelingEnabled": true
+      },
+      "timeline": {
+        "enabled": true
+      },
+      "universe": {
+        "weightingEnabled": true
+      },
+      "risk": {
+        "mcDistribution": "triangular",
+        "correlatedShocks": true,
+        "shockScenariosEnabled": true
+      },
+      "capacity": {
+        "decayEnabled": true
+      }
+    },
+    "ui": {
+      "training": false,
+      "dark": false,
+      "advDiag": true,
+      "strictImport": false,
+      "activeTab": "win",
+      "assumptionsProfile": "custom_overrides",
+      "decision": {
+        "sessions": {},
+        "activeSessionId": null
+      },
+      "mcMeta": null
+    }
+  }
+}
