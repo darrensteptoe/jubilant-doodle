@@ -1,4 +1,5 @@
 // @ts-check
+import { prepareStateForPersistence } from "../storage.js";
 /**
  * @typedef {Record<string, any>} AnyState
  * @typedef {{
@@ -78,7 +79,7 @@ export function createBackupRecoveryController(deps = {}){
       backupTimer = setTimeout(() => {
         safeCall(() => {
           const currentState = getState();
-          const scenarioClone = structuredClone(currentState);
+          const scenarioClone = structuredClone(prepareStateForPersistence(currentState));
           const snapshot = {
             modelVersion: engine.snapshot.MODEL_VERSION,
             schemaVersion: engine.snapshot.CURRENT_SCHEMA_VERSION,
