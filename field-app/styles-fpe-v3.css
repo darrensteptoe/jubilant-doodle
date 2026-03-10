@@ -411,8 +411,8 @@
 
 .fpe-field-grid {
   display: grid;
-  gap: 12px;
-  margin: 0 0 12px;
+  gap: 14px;
+  margin: 0 0 14px;
 }
 
 .fpe-field-grid .field {
@@ -421,13 +421,21 @@
 
 .fpe-control-label {
   display: block;
-  margin-bottom: 6px;
+  margin-bottom: 4px;
   color: var(--fpe-muted);
   font-size: 11px;
   font-weight: 600;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.fpe-card__body .field .help,
+.fpe-card__body .field .note,
+.fpe-card__body .field .help-text,
+.fpe-card__body .field .muted {
+  display: block;
+  margin-top: 6px;
 }
 
 .fpe-input {
@@ -605,6 +613,24 @@
   grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 
+#app-shell-v3-root .fpe-card__body .table-wrap + .fpe-field-grid,
+#app-shell-v3-root .fpe-card__body .table-wrap + .field,
+#app-shell-v3-root .fpe-card__body .table-wrap + .note,
+#app-shell-v3-root .fpe-card__body .table-wrap + .muted,
+#app-shell-v3-root .fpe-card__body .table-wrap + .help-text,
+#app-shell-v3-root .fpe-card__body .table-wrap + .fpe-contained-block {
+  margin-top: 14px;
+}
+
+#app-shell-v3-root .fpe-card__body .fpe-field-grid + .table-wrap,
+#app-shell-v3-root .fpe-card__body .field + .table-wrap {
+  margin-top: 8px;
+}
+
+#app-shell-v3-root .fpe-surface .table thead th {
+  background: var(--fpe-panel-muted) !important;
+}
+
 #app-shell-v3-root .fpe-card__body .fpe-field-grid--2,
 #app-shell-v3-root .fpe-card__body .grid2 {
   grid-template-columns: repeat(2, minmax(190px, 1fr));
@@ -651,6 +677,17 @@
   gap: 12px;
   min-width: 0;
   align-items: stretch;
+}
+
+.fpe-surface-pane[data-v3-stage="district"] #universe16Derived {
+  min-height: 38px;
+  border: 1px solid var(--fpe-rule) !important;
+  border-radius: var(--fpe-radius-sm);
+  background: var(--fpe-panel) !important;
+  padding: 0 10px !important;
+  display: flex;
+  align-items: center;
+  color: var(--fpe-text);
 }
 
 .fpe-card__body > .card,
