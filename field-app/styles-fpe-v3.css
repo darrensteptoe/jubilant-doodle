@@ -729,11 +729,22 @@
   background: var(--fpe-panel-muted);
 }
 
+.fpe-surface-pane[data-v3-stage="district"] .fpe-census-section__head-main {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
 .fpe-surface-pane[data-v3-stage="district"] .fpe-census-section__title {
   margin: 0;
   font-size: 14px;
   line-height: 1.3;
   color: var(--fpe-text);
+}
+
+.fpe-surface-pane[data-v3-stage="district"] .fpe-census-section__head-main .fpe-header-switch {
+  margin-left: auto;
 }
 
 .fpe-surface-pane[data-v3-stage="district"] .fpe-census-section__desc {
@@ -1132,6 +1143,15 @@
 }
 
 @media (max-width: 640px) {
+  .fpe-surface-pane[data-v3-stage="district"] .fpe-census-section__head-main {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .fpe-surface-pane[data-v3-stage="district"] .fpe-census-section__head-main .fpe-header-switch {
+    margin-left: 0;
+  }
+
   .fpe-surface-pane[data-v3-stage="district"] .fpe-census-status-strip {
     grid-template-columns: minmax(0, 1fr);
   }
