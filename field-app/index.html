@@ -164,7 +164,7 @@
 </div></section>
 
 <!-- ── STAGE: universe ── -->
-<section class="stage-new" id="stage-universe">
+<section class="stage-shell" hidden="" id="stage-universe">
 <div class="stage-header-new">
 <div class="stage-meta-new">
 <span class="stage-tag-new">Stage 2</span>
@@ -231,7 +231,7 @@
 </div>
 </section>
 <!-- ── STAGE: ballot ── -->
-<section class="stage-new" id="stage-ballot">
+<section class="stage-shell" hidden="" id="stage-ballot">
 <div class="stage-header-new">
 <div class="stage-meta-new">
 <span class="stage-tag-new">Stage 3</span>
@@ -836,12 +836,28 @@
 <div class="mini-v" id="outDoorsPerShift">—</div>
 <div class="mini-s">Doors/hour × Hours/shift</div>
 </div>
+<div class="mini">
+<div class="mini-k">Total shifts</div>
+<div class="mini-v" id="outTotalShifts">—</div>
+<div class="mini-s">Doors needed ÷ Doors per shift</div>
 </div>
+<div class="mini">
+<div class="mini-k">Shifts/week</div>
+<div class="mini-v" id="outShiftsPerWeek">—</div>
+<div class="mini-s">Total shifts ÷ Weeks remaining</div>
+</div>
+<div class="mini">
+<div class="mini-k">Volunteers needed</div>
+<div class="mini-v" id="outVolunteersNeeded">—</div>
+<div class="mini-s">Shifts/week ÷ Shifts per volunteer/week</div>
+</div>
+</div>
+<div class="banner" hidden="" id="convFeasBanner" style="margin-top:10px;">—</div>
 </div>
 </div>
 </section>
 <!-- ── STAGE: structure ── -->
-<section class="stage-new" id="stage-structure">
+<section class="stage-shell" hidden="" id="stage-structure">
 <div class="stage-header-new">
 <div class="stage-meta-new">
 <span class="stage-tag-new">Stage 6</span>
@@ -2033,6 +2049,7 @@
 </select>
 </div>
 </div>
+<div class="muted" style="margin-top:6px;">Resolution supports place, tract, block group, congressional district, and state legislative district scopes.</div>
 <div class="grid3" style="margin-top:10px;">
 <div class="field">
 <label class="label" for="censusStateFips">State</label>
@@ -2053,6 +2070,7 @@
 </select>
 </div>
 </div>
+<div class="muted" id="censusContextHint" style="margin-top:6px;">County is required for tract/block group. Place is used only for place resolution. District resolutions are state-only.</div>
 <div class="grid2" style="margin-top:10px;">
 <div class="field">
 <label class="label" for="censusMetricSet">Data bundle</label>
