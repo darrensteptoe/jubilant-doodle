@@ -68,7 +68,7 @@ import { normalizeLoadedState as normalizeLoadedStateApp } from "../app/state.js
 import { resolveFeatureFlags } from "./featureFlags.js";
 import { validateOperationsCapacityInput } from "../features/operations/io.js";
 import { registerPhase115ATests } from "./selfTestSuites/phase115A.js";
-import { registerCensusPhase1Tests } from "./selfTestSuites/censusPhase1.js?v=20260309-census-phase1-34";
+import { registerCensusPhase1Tests } from "./selfTestSuites/censusPhase1.js?v=20260310-census-phase1-37";
 import {
   makeDefaultCensusState,
   makeDefaultRaceFootprint,
@@ -1679,6 +1679,31 @@ export function runSelfTests(engine){
       if (!id) continue;
       if (seen.has(id)) throw new Error(`Duplicate id detected: ${id}`);
       seen.add(id);
+    }
+    return true;
+  });
+
+  test("UI Smoke: census and USB persistence controls exist", () => {
+    if (typeof document === "undefined") return true;
+    const required = [
+      "censusPhase1Card",
+      "censusStateFips",
+      "censusCountyFips",
+      "censusGeoSelect",
+      "btnCensusFetchRows",
+      "censusAggregateTbody",
+      "censusMap",
+      "btnUsbStorageConnect",
+      "btnUsbStorageLoad",
+      "btnUsbStorageSave",
+      "btnUsbStorageDisconnect",
+      "usbStorageStatus",
+    ];
+    for (const id of required){
+      const el = document.getElementById(id);
+      if (!el) throw new Error(`Missing element id: ${id}`);
+      const matches = document.querySelectorAll(`[id="${id}"]`);
+      if (matches.length !== 1) throw new Error(`Duplicate id detected: ${id}`);
     }
     return true;
   });

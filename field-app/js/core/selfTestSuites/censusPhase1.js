@@ -490,6 +490,89 @@ export function registerCensusPhase1Tests(ctx){
     assert(codes.includes("capacity_population_missing"), "capacity missing warning should fire");
   });
 
+  test("Census Phase1: footprint feasibility warns when capacity context is stale", () => {
+    const censusState = {
+      year: "2025",
+      resolution: "tract",
+      metricSet: "demographics",
+      stateFips: "17",
+      countyFips: "031",
+      selectedGeoids: ["17031010100"],
+      loadedRowCount: 1,
+      activeRowsKey: "2025|tract|17|031|demographics",
+    };
+    const live = buildRaceFootprintFromCensusSelection(censusState);
+    const result = evaluateFootprintFeasibility({
+      state: {
+        census: censusState,
+        raceFootprint: { ...live, fingerprint: live.fingerprint },
+        assumptionsProvenance: {
+          source: "census_phase1",
+          raceFootprintFingerprint: live.fingerprint,
+          censusRowsKey: live.rowsKey,
+          acsYear: "2025",
+          metricSet: "demographics",
+        },
+        footprintCapacity: {
+          source: "census_phase1",
+          population: 1200,
+          year: "2024",
+          metricSet: "core",
+          raceFootprintFingerprint: live.fingerprint,
+          censusRowsKey: "2024|tract|17|031|core",
+        },
+      },
+      res: {
+        raw: { universeSize: 300 },
+        expected: { turnoutVotes: 180, winThreshold: 95, persuasionNeed: 40 },
+      },
+    });
+    const codes = result.issues.map((x) => x.code);
+    assert(codes.includes("capacity_stale"), "capacity stale warning should fire");
+    assert(!codes.includes("capacity_population_missing"), "capacity stale case should keep population available");
+  });
+
+  test("Census Phase1: footprint feasibility warns when provenance is stale", () => {
+    const censusState = {
+      year: "2025",
+      resolution: "tract",
+      metricSet: "core",
+      stateFips: "17",
+      countyFips: "031",
+      selectedGeoids: ["17031010100"],
+      loadedRowCount: 1,
+      activeRowsKey: "2025|tract|17|031|core",
+    };
+    const live = buildRaceFootprintFromCensusSelection(censusState);
+    const result = evaluateFootprintFeasibility({
+      state: {
+        census: censusState,
+        raceFootprint: { ...live, fingerprint: live.fingerprint },
+        assumptionsProvenance: {
+          source: "census_phase1",
+          raceFootprintFingerprint: live.fingerprint,
+          censusRowsKey: live.rowsKey,
+          acsYear: "2024",
+          metricSet: "core",
+        },
+        footprintCapacity: {
+          source: "census_phase1",
+          population: 1200,
+          year: "2025",
+          metricSet: "core",
+          raceFootprintFingerprint: live.fingerprint,
+          censusRowsKey: live.rowsKey,
+        },
+      },
+      res: {
+        raw: { universeSize: 300 },
+        expected: { turnoutVotes: 180, winThreshold: 95, persuasionNeed: 40 },
+      },
+    });
+    const codes = result.issues.map((x) => x.code);
+    assert(codes.includes("provenance_stale"), "provenance stale warning should fire");
+  });
+
   test("Census Phase1: footprint feasibility summary prioritizes bad over warn", () => {
     const summary = summarizeFootprintFeasibilityIssues([
       { kind: "warn", text: "Warning message." },
