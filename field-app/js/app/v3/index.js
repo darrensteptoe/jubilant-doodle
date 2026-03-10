@@ -1,29 +1,24 @@
 import { syncKpis } from "./kpiBridge.js";
 import { wireV3Nav } from "./nav.js";
+import { installV3QaSmokeBridge, runV3QaSmoke } from "./qaGates.js";
 import { renderV3Shell } from "./shell.js";
 import { refreshActiveStage, mountStage } from "./stageMount.js";
-import { V3_DEFAULT_STAGE } from "./stageRegistry.js";
+import { getStageById, V3_DEFAULT_STAGE } from "./stageRegistry.js";
 
-const UI_MODE_KEY = "fpe-ui-shell-mode";
+const STAGE_KEY = "fpe-ui-v3-stage";
+const STAGE_QUERY_PARAM = "stage";
 let syncTimer = null;
 
 function resolveUiMode() {
   const params = new URLSearchParams(window.location.search);
   const urlMode = params.get("ui");
 
-  if (urlMode === "v3") {
-    localStorage.setItem(UI_MODE_KEY, "v3");
-    return "v3";
-  }
-
   if (urlMode === "legacy") {
-    localStorage.setItem(UI_MODE_KEY, "legacy");
     return "legacy";
   }
 
-  const storedMode = localStorage.getItem(UI_MODE_KEY);
-  if (storedMode === "legacy") {
-    return "legacy";
+  if (urlMode === "v3") {
+    return "v3";
   }
 
   return "v3";
@@ -50,15 +45,14 @@ function bootV3() {
     legacy.hidden = true;
 
     wireV3Nav((stageId) => {
-      mountStage(stageId);
-      syncAll();
+      navigateStage(stageId, { persist: true });
     });
 
+    installV3QaSmokeBridge();
     wireTopbarBridge();
     wireScenarioBridge();
 
-    mountStage(V3_DEFAULT_STAGE);
-    syncAll();
+    navigateStage(resolveInitialStage(), { persist: true });
     startSyncLoop();
   } catch (err) {
     console.error("[v3-shell] failed to boot, reverting to legacy shell", err);
@@ -67,13 +61,56 @@ function bootV3() {
   }
 }
 
+function resolveInitialStage() {
+  const params = new URLSearchParams(window.location.search);
+  const urlStage = params.get(STAGE_QUERY_PARAM);
+  if (urlStage && getStageById(urlStage)) {
+    return urlStage;
+  }
+
+  const storedStage = localStorage.getItem(STAGE_KEY);
+  if (storedStage && getStageById(storedStage)) {
+    return storedStage;
+  }
+
+  return V3_DEFAULT_STAGE;
+}
+
+function navigateStage(stageId, { persist = true } = {}) {
+  const resolved = getStageById(stageId) ? stageId : V3_DEFAULT_STAGE;
+  mountStage(resolved);
+
+  if (persist) {
+    persistStage(resolved);
+  }
+
+  syncAll();
+}
+
+function persistStage(stageId) {
+  localStorage.setItem(STAGE_KEY, stageId);
+  const params = new URLSearchParams(window.location.search);
+  params.set(STAGE_QUERY_PARAM, stageId);
+  const query = params.toString();
+  const nextUrl = query ? `${window.location.pathname}?${query}` : window.location.pathname;
+  window.history.replaceState({}, "", nextUrl);
+}
+
 function wireTopbarBridge() {
   const diagnosticsBtn = document.getElementById("v3BtnDiagnostics");
   const resetBtn = document.getElementById("v3BtnReset");
   const trainingToggle = document.getElementById("v3ToggleTraining");
   const legacyBtn = document.getElementById("v3SwitchLegacy");
 
-  diagnosticsBtn?.addEventListener("click", () => clickLegacy("btnDiagnostics"));
+  diagnosticsBtn?.addEventListener("click", () => {
+    try {
+      runV3QaSmoke({ restoreStage: true, logToConsole: true });
+    } catch (err) {
+      console.warn("[v3-shell] qa smoke failed", err);
+    }
+
+    clickLegacy("btnDiagnostics");
+  });
   resetBtn?.addEventListener("click", () => clickLegacy("btnResetAll"));
 
   trainingToggle?.addEventListener("change", () => {
@@ -87,8 +124,11 @@ function wireTopbarBridge() {
   });
 
   legacyBtn?.addEventListener("click", () => {
-    localStorage.setItem(UI_MODE_KEY, "legacy");
-    window.location.reload();
+    const params = new URLSearchParams(window.location.search);
+    params.set("ui", "legacy");
+    const query = params.toString();
+    const nextUrl = query ? `${window.location.pathname}?${query}` : window.location.pathname;
+    window.location.assign(nextUrl);
   });
 }
 

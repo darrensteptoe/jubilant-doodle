@@ -5,27 +5,33 @@ import {
   createWhyPanel,
   getCardBody
 } from "../componentFactory.js";
-import { mountLegacyCardFromChild } from "../compat.js";
+import { mountLegacyClosest, mountLegacyNode } from "../compat.js";
 import { readTurnoutSnapshot } from "../stateBridge.js";
+import { createFieldGrid, readText, setText } from "../surfaceUtils.js";
 
 export function renderTurnoutSurface(mount) {
   const frame = createSurfaceFrame("two-col");
   const left = createColumn("primary");
   const right = createColumn("secondary");
 
-  const assumptionsCard = createCard({
-    title: "Turnout assumptions",
-    description: "Baseline turnout, lift behavior, and diminishing-return controls."
+  const costInputsCard = createCard({
+    title: "Cost inputs",
+    description: "Per-attempt tactic settings and overhead assumptions."
   });
 
   const efficiencyCard = createCard({
-    title: "Efficiency",
+    title: "ROI comparison",
     description: "Cost-per-net-vote and tactic comparison under current assumptions."
   });
 
-  const costInputsCard = createCard({
-    title: "Cost model inputs",
-    description: "Per-attempt costs, tactic settings, and overhead behavior."
+  const assumptionsCard = createCard({
+    title: "Turnout mechanics",
+    description: "Baseline turnout, lift behavior, and diminishing-return controls."
+  });
+
+  const impactCard = createCard({
+    title: "Realized vote impact",
+    description: "Readout of current turnout context against vote requirements."
   });
 
   const summaryCard = createCard({
@@ -33,23 +39,106 @@ export function renderTurnoutSurface(mount) {
     description: "Current turnout context and vote-impact readout."
   });
 
-  mountLegacyCardFromChild({
-    key: "v3-turnout-assumptions",
-    childSelector: "#turnoutEnabled",
-    target: getCardBody(assumptionsCard)
-  });
-
-  mountLegacyCardFromChild({
-    key: "v3-turnout-efficiency",
-    childSelector: "#roiTbody",
-    target: getCardBody(efficiencyCard)
-  });
-
-  mountLegacyCardFromChild({
-    key: "v3-turnout-cost-inputs",
+  const costBody = getCardBody(costInputsCard);
+  const costFields = createFieldGrid("fpe-field-grid--3");
+  costBody.append(costFields);
+  mountLegacyClosest({
+    key: "v3-turnout-cost-doors-field",
     childSelector: "#roiDoorsEnabled",
-    target: getCardBody(costInputsCard)
+    closestSelector: ".field",
+    target: costFields
   });
+  mountLegacyClosest({
+    key: "v3-turnout-cost-phones-field",
+    childSelector: "#roiPhonesEnabled",
+    closestSelector: ".field",
+    target: costFields
+  });
+  mountLegacyClosest({
+    key: "v3-turnout-cost-texts-field",
+    childSelector: "#roiTextsEnabled",
+    closestSelector: ".field",
+    target: costFields
+  });
+  mountLegacyClosest({
+    key: "v3-turnout-cost-overhead-grid",
+    childSelector: "#roiOverheadAmount",
+    closestSelector: ".grid2",
+    target: costBody
+  });
+
+  const efficiencyBody = getCardBody(efficiencyCard);
+  mountLegacyClosest({
+    key: "v3-turnout-roi-actions",
+    childSelector: "#roiRefresh",
+    closestSelector: ".card-actions",
+    target: efficiencyBody
+  });
+  mountLegacyClosest({
+    key: "v3-turnout-roi-table",
+    childSelector: "#roiTbody",
+    closestSelector: ".table-wrap",
+    target: efficiencyBody
+  });
+  mountLegacyNode({
+    key: "v3-turnout-roi-banner",
+    selector: "#roiBanner",
+    target: efficiencyBody
+  });
+  mountLegacyNode({
+    key: "v3-turnout-roi-note",
+    selector: "#roiBanner ~ .note",
+    target: efficiencyBody
+  });
+
+  const assumptionsBody = getCardBody(assumptionsCard);
+  mountLegacyClosest({
+    key: "v3-turnout-toggle-row",
+    childSelector: "#turnoutEnabled",
+    closestSelector: ".rowline",
+    target: assumptionsBody
+  });
+  mountLegacyClosest({
+    key: "v3-turnout-base-grid",
+    childSelector: "#turnoutBaselinePct",
+    closestSelector: ".grid3",
+    target: assumptionsBody
+  });
+  mountLegacyClosest({
+    key: "v3-turnout-diminishing-row",
+    childSelector: "#gotvDiminishing",
+    closestSelector: ".rowline",
+    target: assumptionsBody
+  });
+  mountLegacyNode({
+    key: "v3-turnout-basic-panel",
+    selector: "#gotvBasic",
+    target: assumptionsBody
+  });
+  mountLegacyNode({
+    key: "v3-turnout-advanced-panel",
+    selector: "#gotvAdvanced",
+    target: assumptionsBody
+  });
+  mountLegacyNode({
+    key: "v3-turnout-summary-note",
+    selector: "#stage-roi .phase-p6 > .note",
+    target: assumptionsBody
+  });
+  mountLegacyNode({
+    key: "v3-turnout-summary-banner",
+    selector: "#turnoutSummary",
+    target: assumptionsBody
+  });
+
+  getCardBody(impactCard).innerHTML = `
+    <div class="fpe-summary-grid">
+      <div class="fpe-summary-row"><span>Expected turnout votes</span><strong id="v3TurnoutImpactVotes">-</strong></div>
+      <div class="fpe-summary-row"><span>Persuasion votes needed</span><strong id="v3TurnoutImpactNeed">-</strong></div>
+      <div class="fpe-summary-row"><span>Projected margin context</span><strong id="v3TurnoutImpactMargin">-</strong></div>
+      <div class="fpe-summary-row"><span>Win probability</span><strong id="v3TurnoutImpactWinProb">-</strong></div>
+    </div>
+  `;
 
   getCardBody(summaryCard).innerHTML = `
     <div class="fpe-summary-grid">
@@ -59,8 +148,8 @@ export function renderTurnoutSurface(mount) {
     </div>
   `;
 
-  left.append(assumptionsCard, efficiencyCard);
-  right.append(costInputsCard, summaryCard);
+  left.append(costInputsCard, efficiencyCard);
+  right.append(assumptionsCard, impactCard, summaryCard);
 
   frame.append(left, right);
   mount.append(frame);
@@ -80,11 +169,8 @@ function refreshTurnoutSummary() {
   setText("v3TurnoutSummary", snapshot.turnoutSummary || "-");
   setText("v3TurnoutVotes", snapshot.turnoutVotes || "-");
   setText("v3TurnoutNeedVotes", snapshot.needVotes || "-");
-}
-
-function setText(id, value) {
-  const el = document.getElementById(id);
-  if (el) {
-    el.textContent = value;
-  }
+  setText("v3TurnoutImpactVotes", readText("#kpiTurnoutVotes-sidebar"));
+  setText("v3TurnoutImpactNeed", readText("#kpiPersuasionNeed-sidebar"));
+  setText("v3TurnoutImpactMargin", readText("#mcP50"));
+  setText("v3TurnoutImpactWinProb", readText("#mcWinProb-sidebar"));
 }

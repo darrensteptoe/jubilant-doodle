@@ -7,6 +7,7 @@ import {
 } from "../componentFactory.js";
 import { mountLegacyClosest, mountLegacyNode } from "../compat.js";
 import { readDistrictSnapshot } from "../stateBridge.js";
+import { createFieldGrid, setText } from "../surfaceUtils.js";
 
 export function renderDistrictSurface(mount) {
   const frame = createSurfaceFrame("two-col");
@@ -245,17 +246,4 @@ function refreshDistrictSummary() {
   setText("v3DistrictTurnout", snapshot.turnoutExpected);
   setText("v3DistrictProjected", snapshot.projectedVotes);
   setText("v3DistrictNeed", snapshot.persuasionNeed);
-}
-
-function setText(id, value) {
-  const el = document.getElementById(id);
-  if (el) {
-    el.textContent = value || "-";
-  }
-}
-
-function createFieldGrid(variant) {
-  const el = document.createElement("div");
-  el.className = `fpe-field-grid ${variant}`;
-  return el;
 }
