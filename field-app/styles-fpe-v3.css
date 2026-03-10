@@ -329,11 +329,19 @@
   gap: var(--fpe-space-5);
 }
 
+.fpe-surface-frame--single {
+  grid-template-columns: minmax(0, 1fr);
+}
+
 .fpe-col {
   display: flex;
   flex-direction: column;
   gap: var(--fpe-space-5);
   min-width: 0;
+}
+
+.fpe-col--full-row {
+  grid-column: 1 / -1;
 }
 
 .fpe-card {
@@ -355,6 +363,22 @@
   align-items: center;
   justify-content: space-between;
   gap: var(--fpe-space-3);
+}
+
+.fpe-card__head-control {
+  flex: 0 0 auto;
+}
+
+.fpe-header-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.fpe-header-switch__label {
+  font-size: 12px;
+  color: var(--fpe-muted);
+  white-space: nowrap;
 }
 
 .fpe-card__title {
@@ -470,6 +494,48 @@
   margin-bottom: 10px;
 }
 
+.fpe-surface .fpe-btn {
+  border-color: var(--fpe-rule);
+  background: transparent;
+  color: var(--fpe-text);
+  min-height: 32px;
+  font-size: 12px;
+}
+
+.fpe-surface .fpe-btn:hover {
+  background: var(--fpe-panel-muted);
+}
+
+#app-shell-v3-root .fpe-surface .btn,
+#app-shell-v3-root .fpe-surface .btn.btn-ghost,
+#app-shell-v3-root .fpe-surface .btn.btn-primary,
+#app-shell-v3-root .fpe-surface .btn.btn-link {
+  border: 1px solid var(--fpe-rule);
+  background: transparent;
+  color: var(--fpe-text);
+  min-height: 32px;
+  border-radius: var(--fpe-radius-sm);
+  padding: 0 10px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+#app-shell-v3-root .fpe-surface .btn:hover,
+#app-shell-v3-root .fpe-surface .btn.btn-ghost:hover,
+#app-shell-v3-root .fpe-surface .btn.btn-primary:hover,
+#app-shell-v3-root .fpe-surface .btn.btn-link:hover {
+  border-color: var(--fpe-rule);
+  background: var(--fpe-panel-muted);
+  color: var(--fpe-text);
+}
+
+#app-shell-v3-root .fpe-surface .btn:active,
+#app-shell-v3-root .fpe-surface .btn.btn-ghost:active,
+#app-shell-v3-root .fpe-surface .btn.btn-primary:active,
+#app-shell-v3-root .fpe-surface .btn.btn-link:active {
+  transform: none;
+}
+
 .fpe-alert {
   border: 1px solid var(--fpe-rule);
   border-radius: var(--fpe-radius-sm);
@@ -519,6 +585,27 @@
 #app-shell-v3-root .fpe-card__body .grid4 {
   grid-template-columns: repeat(4, minmax(170px, 1fr));
   min-width: 760px;
+}
+
+.fpe-surface-pane[data-v3-stage="reach"] .fpe-card__body .fpe-field-grid--3,
+.fpe-surface-pane[data-v3-stage="reach"] .fpe-card__body .grid3,
+.fpe-surface-pane[data-v3-stage="reach"] .fpe-card__body .subgrid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  min-width: 0;
+}
+
+.fpe-surface-pane[data-v3-stage="reach"] .fpe-card__body .fpe-field-grid--4,
+.fpe-surface-pane[data-v3-stage="reach"] .fpe-card__body .grid4 {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  min-width: 0;
+}
+
+.fpe-surface-pane[data-v3-stage="district"] .fpe-card__body .fpe-field-grid--3,
+.fpe-surface-pane[data-v3-stage="district"] .fpe-card__body .grid3,
+.fpe-surface-pane[data-v3-stage="district"] .fpe-card__body .subgrid,
+.fpe-surface-pane[data-v3-stage="district"] .fpe-card__body .fpe-field-grid--4,
+.fpe-surface-pane[data-v3-stage="district"] .fpe-card__body .grid4 {
+  min-width: 0;
 }
 
 .fpe-card__body > .card,
@@ -772,6 +859,19 @@
   #app-shell-v3-root .fpe-card__body .grid4 {
     grid-template-columns: repeat(4, minmax(170px, 1fr));
     min-width: 760px;
+  }
+
+  .fpe-surface-pane[data-v3-stage="reach"] .fpe-card__body .fpe-field-grid--3,
+  .fpe-surface-pane[data-v3-stage="reach"] .fpe-card__body .grid3,
+  .fpe-surface-pane[data-v3-stage="reach"] .fpe-card__body .subgrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    min-width: 0;
+  }
+
+  .fpe-surface-pane[data-v3-stage="reach"] .fpe-card__body .fpe-field-grid--4,
+  .fpe-surface-pane[data-v3-stage="reach"] .fpe-card__body .grid4 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    min-width: 0;
   }
 }
 
