@@ -915,18 +915,20 @@
 .fpe-surface-pane[data-v3-stage="district"] .fpe-census-status-list {
   margin: 0;
   padding-left: 18px;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  list-style: disc;
+  list-style-type: disc !important;
+  list-style-position: outside;
 }
 
 .fpe-surface-pane[data-v3-stage="district"] .fpe-census-status-list > .fpe-census-status-item {
-  margin: 0;
+  margin: 0 0 8px 0;
   color: var(--fpe-muted);
   font-size: 12px;
   line-height: 1.45;
   font-weight: 400;
+}
+
+.fpe-surface-pane[data-v3-stage="district"] .fpe-census-status-list > .fpe-census-status-item:last-child {
+  margin-bottom: 0;
 }
 
 .fpe-surface-pane[data-v3-stage="district"] .fpe-census-status-list > .fpe-census-status-item::marker {
