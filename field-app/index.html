@@ -2128,13 +2128,13 @@
 <tr><td>election_date</td><td>YYYY-MM-DD.</td></tr>
 <tr><td>office, district_id</td><td>Canonical office + district labels.</td></tr>
 <tr><td>precinct_id</td><td>Stable precinct key per county.</td></tr>
-<tr><td>candidate</td><td>Candidate display name.</td></tr>
-<tr><td>votes</td><td>Non-negative integer.</td></tr>
+<tr><td>candidate + votes</td><td>Long format: one row per candidate with non-negative integer votes.</td></tr>
+<tr><td>candidate name columns</td><td>Wide format: each candidate is a column header and each cell is that candidate's vote total in the precinct.</td></tr>
 </tbody>
 </table>
 </div>
 <div class="rowline" style="margin-top:8px; gap:8px;">
-<button class="btn btn-sm btn-ghost" id="btnCensusDownloadElectionCsvTemplate" type="button">Download CSV template</button>
+<button class="btn btn-sm btn-ghost" id="btnCensusDownloadElectionCsvTemplate" type="button">Download long-format CSV template</button>
 </div>
 </details>
 <div class="grid2" style="margin-top:8px;">
@@ -3137,7 +3137,7 @@ Volunteer multiplier stays above 1.5" rows="4"></textarea>
 </aside>
 </div>
 <!-- /app-shell -->
-<script src="./js/app.js?v=20260309-census-phase1-18" type="module"></script>
+<script src="./js/app.js?v=20260309-census-phase1-20" type="module"></script>
 <script>
 // ── Stage navigation ───────────────────────────────────────────
 function normalizeStages() {
