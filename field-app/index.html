@@ -2145,6 +2145,12 @@
 <div class="muted" id="censusRaceFootprintStatus">Race footprint not set.</div>
 <div class="muted" id="censusAssumptionProvenanceStatus">Assumption provenance not set.</div>
 <div class="muted" id="censusFootprintCapacityStatus">Footprint capacity: not set.</div>
+<label class="switch" style="margin-top:8px;">
+<input id="censusApplyAdjustmentsToggle" type="checkbox"/>
+<span class="slider"></span>
+<span class="switch-label">Apply Census-adjusted assumptions</span>
+</label>
+<div class="muted" id="censusApplyAdjustmentsStatus">Census-adjusted assumptions are OFF.</div>
 <details style="margin-top:8px;">
 <summary>Election CSV format guide</summary>
 <div class="note" style="margin-top:8px;">Keep election import separate from Census assumptions. Use strict CSV schema and dry-run validation before commit.</div>
@@ -3224,7 +3230,7 @@ Volunteer multiplier stays above 1.5" rows="4"></textarea>
 </aside>
 </div>
 <!-- /app-shell -->
-<script src="./js/app.js?v=20260310-census-phase1-38" type="module"></script>
+<script src="./js/app.js?v=20260310-census-phase1-40" type="module"></script>
 <script>
 // ── Stage navigation ───────────────────────────────────────────
 function normalizeStages() {
