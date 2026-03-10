@@ -40,7 +40,7 @@ export function renderTurnoutSurface(mount) {
   const assumptionsHeaderToggle = document.createElement("div");
   assumptionsHeaderToggle.className = "fpe-header-switch";
   assumptionsHeaderToggle.innerHTML = `
-    <span class="fpe-header-switch__label">Turnout module</span>
+    <span class="fpe-header-switch__label">Turnout module (enable to apply)</span>
     <label class="fpe-switch">
       <input id="v3TurnoutEnabledToggle" type="checkbox"/>
       <span>Enable</span>

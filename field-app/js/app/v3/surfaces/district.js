@@ -50,7 +50,7 @@ export function renderDistrictSurface(mount) {
   const structureHeaderToggle = document.createElement("div");
   structureHeaderToggle.className = "fpe-header-switch";
   structureHeaderToggle.innerHTML = `
-    <span class="fpe-header-switch__label">Electorate weighting</span>
+    <span class="fpe-header-switch__label">Electorate weighting (enable to apply)</span>
     <label class="fpe-switch">
       <input id="v3DistrictElectorateWeightingToggle" type="checkbox"/>
       <span>Enable</span>
@@ -426,6 +426,12 @@ function normalizeCensusPhase1Card(card) {
     title: "Race footprint and assumption apply",
     description: "Bind selected GEO units to race footprint and control adjusted-assumption application."
   });
+  const applyAdjustmentsHeaderControl = createModuleHeaderToggle({
+    labelText: "Census adjustments (enable to apply)",
+    sourceToggle: applyAdjustmentsToggle,
+    inputId: "censusApplyAdjustmentsToggle"
+  });
+  setCensusSectionHeaderControl(footprintSection, applyAdjustmentsHeaderControl);
   appendIfPresent(
     footprintSection.body,
     selectionSummary,
@@ -433,7 +439,6 @@ function normalizeCensusPhase1Card(card) {
     raceFootprintStatus,
     provenanceStatus,
     capacityStatus,
-    applyAdjustmentsToggle,
     applyAdjustmentsStatus
   );
   layout.appendChild(footprintSection.section);
@@ -513,10 +518,14 @@ function createCensusSection({ title, description = "" }) {
   const head = document.createElement("header");
   head.className = "fpe-census-section__head";
 
+  const headMain = document.createElement("div");
+  headMain.className = "fpe-census-section__head-main";
+
   const heading = document.createElement("h3");
   heading.className = "fpe-census-section__title";
   heading.textContent = title;
-  head.appendChild(heading);
+  headMain.appendChild(heading);
+  head.appendChild(headMain);
 
   if (description) {
     const text = document.createElement("p");
@@ -529,7 +538,16 @@ function createCensusSection({ title, description = "" }) {
   body.className = "fpe-census-section__body";
 
   section.append(head, body);
-  return { section, body };
+  return { section, body, headMain };
+}
+
+function setCensusSectionHeaderControl(sectionParts, control) {
+  if (!sectionParts || !(sectionParts.headMain instanceof HTMLElement) || !(control instanceof HTMLElement)) {
+    return;
+  }
+
+  control.classList.add("fpe-card__head-control");
+  sectionParts.headMain.appendChild(control);
 }
 
 function findClosest(root, selector, closestSelector) {
@@ -573,6 +591,34 @@ function createFetchActionsField(row) {
 
   field.append(label, row);
   return field;
+}
+
+function createModuleHeaderToggle({ labelText, sourceToggle, inputId }) {
+  const root = document.createElement("div");
+  root.className = "fpe-header-switch fpe-header-switch--module";
+
+  const label = document.createElement("span");
+  label.className = "fpe-header-switch__label";
+  label.textContent = labelText;
+
+  const switchWrap = document.createElement("label");
+  switchWrap.className = "fpe-switch";
+
+  const input =
+    sourceToggle instanceof HTMLElement
+      ? sourceToggle.querySelector(`#${inputId}`)
+      : null;
+
+  if (input instanceof HTMLInputElement) {
+    switchWrap.appendChild(input);
+  }
+
+  const switchText = document.createElement("span");
+  switchText.textContent = "Enable";
+  switchWrap.appendChild(switchText);
+
+  root.append(label, switchWrap);
+  return root;
 }
 
 function syncCensusMapShellState() {

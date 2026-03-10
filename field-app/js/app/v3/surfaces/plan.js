@@ -38,7 +38,7 @@ export function renderPlanSurface(mount) {
   const timelineHeaderToggle = document.createElement("div");
   timelineHeaderToggle.className = "fpe-header-switch";
   timelineHeaderToggle.innerHTML = `
-    <span class="fpe-header-switch__label">Timeline module</span>
+    <span class="fpe-header-switch__label">Timeline module (enable to apply)</span>
     <label class="fpe-switch">
       <input id="v3PlanTimelineEnabledToggle" type="checkbox"/>
       <span>Enable</span>
