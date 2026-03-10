@@ -378,14 +378,21 @@ function normalizeCensusPhase1Card(card) {
     title: "Setup",
     description: "Geography context and scope for Census data pulls."
   });
-  const setupTopGrid = createFieldGrid("fpe-field-grid--3");
-  appendIfPresent(setupTopGrid, apiKeyField, acsYearField, resolutionField);
-  if (setupTopGrid.children.length) {
-    setupBlock.body.appendChild(setupTopGrid);
+  setupBlock.section.classList.add("fpe-census-subsection--setup");
+  const setupApiGrid = createFieldGrid("fpe-field-grid--1");
+  appendIfPresent(setupApiGrid, apiKeyField);
+  if (setupApiGrid.children.length) {
+    setupBlock.body.appendChild(setupApiGrid);
+  }
+
+  const setupConfigGrid = createFieldGrid("fpe-field-grid--1");
+  appendIfPresent(setupConfigGrid, acsYearField, resolutionField);
+  if (setupConfigGrid.children.length) {
+    setupBlock.body.appendChild(setupConfigGrid);
   }
   appendIfPresent(setupBlock.body, resolutionHint);
 
-  const setupBottomGrid = createFieldGrid("fpe-field-grid--3");
+  const setupBottomGrid = createFieldGrid("fpe-field-grid--1");
   appendIfPresent(setupBottomGrid, stateField, countyField, placeField);
   if (setupBottomGrid.children.length) {
     setupBlock.body.appendChild(setupBottomGrid);
@@ -406,15 +413,12 @@ function normalizeCensusPhase1Card(card) {
     title: "Output",
     description: "Set data bundle, fetch ACS rows, and review aggregate metrics."
   });
-  const outputTopGrid = createFieldGrid("fpe-field-grid--2");
-  const fetchAcsField = createActionField({
-    labelText: "Fetch actions",
-    buttons: [fetchAcsButton]
-  });
-  appendIfPresent(outputTopGrid, metricSetField, fetchAcsField);
-  if (outputTopGrid.children.length) {
-    outputBlock.body.appendChild(outputTopGrid);
-  }
+  outputBlock.section.classList.add("fpe-census-subsection--output");
+  appendIfPresent(outputBlock.body, metricSetField);
+  const fetchAcsRow = document.createElement("div");
+  fetchAcsRow.className = "fpe-action-row fpe-census-fetch-row";
+  appendIfPresent(fetchAcsRow, fetchAcsButton);
+  appendIfPresent(outputBlock.body, fetchAcsRow);
   if (aggregateExportActions instanceof HTMLElement) {
     aggregateExportActions.classList.add("fpe-census-aggregate-actions", "fpe-action-row");
   }
@@ -436,10 +440,13 @@ function normalizeCensusPhase1Card(card) {
     statusBlock.body.appendChild(statusStrip);
   }
 
-  const workflowTopGrid = document.createElement("div");
-  workflowTopGrid.className = "fpe-census-workflow-grid";
-  appendIfPresent(workflowTopGrid, setupBlock.section, selectionBlock.section);
-  appendIfPresent(workflowSection.body, workflowTopGrid, statusBlock.section, outputBlock.section);
+  appendIfPresent(
+    workflowSection.body,
+    setupBlock.section,
+    selectionBlock.section,
+    statusBlock.section,
+    outputBlock.section
+  );
   layout.appendChild(workflowSection.section);
 
   const footprintSection = createCensusSection({
