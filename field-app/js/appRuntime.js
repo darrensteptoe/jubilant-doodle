@@ -1,5 +1,5 @@
 // @ts-check
-import { engine } from "./engine.js?v=20260310-census-phase1-40";
+import { engine } from "./engine.js";
 import {
   computeCapacityContacts as coreComputeCapacityContacts,
   computeCapacityBreakdown as coreComputeCapacityBreakdown,
@@ -911,8 +911,19 @@ function renderUniverse16Card(){
   });
 }
 
-function safeCall(fn){
-  safeCallModule(fn);
+function safeCall(fn, meta){
+  const label = typeof meta === "string"
+    ? meta
+    : String(meta?.label || "");
+  safeCallModule(fn, {
+    label,
+    onError: (err, callLabel) => {
+      const msg = err?.message ? String(err.message) : String(err || "Unknown safe-call error");
+      recordError("safe-call", callLabel ? `${callLabel}: ${msg}` : msg, {
+        label: callLabel || "",
+      });
+    },
+  });
 }
 
 function switchToStage(stageId){
@@ -1518,8 +1529,8 @@ function isDevMode(){
 
 function initDevTools(){
   const loadSelfTestsModule = () =>
-    import("./selfTest.js?v=20260310-census-phase1-40")
-      .catch(() => import("./core/selfTest.js?v=20260310-census-phase1-40"));
+    import("./selfTest.js")
+      .catch(() => import("./core/selfTest.js"));
   initDevToolsModule({
     isDevMode,
     getState: () => state,

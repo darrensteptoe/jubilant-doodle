@@ -55,11 +55,58 @@ const ELECTION_CSV_RESERVED_CANONICAL_COLUMNS = new Set(
 
 const YEARS_FLOOR = 2016;
 
-const RESOLUTION_OPTIONS = [
-  { id: "place", label: "Place" },
-  { id: "tract", label: "Tract" },
-  { id: "block_group", label: "Block group" },
-];
+const RESOLUTION_CONFIG = {
+  place: {
+    id: "place",
+    label: "Place",
+    forClause: "place:*",
+    requiresCounty: false,
+    geoidLength: 7,
+  },
+  tract: {
+    id: "tract",
+    label: "Tract",
+    forClause: "tract:*",
+    requiresCounty: true,
+    geoidLength: 11,
+  },
+  block_group: {
+    id: "block_group",
+    label: "Block group",
+    forClause: "block group:*",
+    requiresCounty: true,
+    geoidLength: 12,
+  },
+  congressional_district: {
+    id: "congressional_district",
+    label: "Congressional district",
+    forClause: "congressional district:*",
+    requiresCounty: false,
+    geoidLength: 4,
+  },
+  state_senate_district: {
+    id: "state_senate_district",
+    label: "State senate district (upper)",
+    forClause: "state legislative district (upper chamber):*",
+    requiresCounty: false,
+    geoidLength: 5,
+  },
+  state_house_district: {
+    id: "state_house_district",
+    label: "State house district (lower)",
+    forClause: "state legislative district (lower chamber):*",
+    requiresCounty: false,
+    geoidLength: 5,
+  },
+};
+
+const RESOLUTION_OPTIONS = Object.values(RESOLUTION_CONFIG).map((row) => ({ id: row.id, label: row.label }));
+const RESOLUTION_IDS = new Set(Object.keys(RESOLUTION_CONFIG));
+const DISTRICT_RESOLUTIONS = new Set([
+  "congressional_district",
+  "state_senate_district",
+  "state_house_district",
+]);
 
 const METRIC_SET_OPTIONS = [
   { id: "core", label: "Core" },
@@ -242,6 +289,54 @@ export function listResolutionOptions(){
   return RESOLUTION_OPTIONS.map((x) => ({ ...x }));
 }
 
+export function resolutionLabel(resolution){
+  const key = cleanText(resolution);
+  return cleanText(RESOLUTION_CONFIG[key]?.label) || key;
+}
+
+export function isDistrictResolution(resolution){
+  return DISTRICT_RESOLUTIONS.has(cleanText(resolution));
+}
+
+export function resolutionNeedsCounty(resolution){
+  const key = cleanText(resolution);
+  return !!RESOLUTION_CONFIG[key]?.requiresCounty;
+}
+
+export function resolutionSupportsBoundaryOverlay(resolution){
+  const key = cleanText(resolution);
+  return Array.isArray(TIGER_BOUNDARY_LAYERS[key]) && TIGER_BOUNDARY_LAYERS[key].length > 0;
+}
+
+export function formatRaceFootprintScope(input, maxPreview = 3){
+  const footprint = normalizeRaceFootprint(input);
+  if (!footprint.resolution || !footprint.stateFips) return "—";
+  if (footprint.resolution === "place"){
+    return footprint.placeFips ? `${footprint.stateFips}-${footprint.placeFips}` : footprint.stateFips;
+  }
+  if (resolutionNeedsCounty(footprint.resolution)){
+    return footprint.countyFips ? `${footprint.stateFips}-${footprint.countyFips}` : footprint.stateFips;
+  }
+  if (isDistrictResolution(footprint.resolution)){
+    const resolutionLen = geoidLengthForResolution(footprint.resolution);
+    const districtIds = Array.from(
+      new Set(
+        footprint.geoids
+          .map((raw) => cleanText(raw).replace(/\D+/g, ""))
+          .filter((digits) => digits.length === resolutionLen)
+          .map((digits) => digits.slice(2)),
+      ),
+    ).sort((a, b) => a.localeCompare(b));
+    if (!districtIds.length) return `state ${footprint.stateFips}`;
+    const limitRaw = Number(maxPreview);
+    const limit = Number.isFinite(limitRaw) && limitRaw > 0 ? Math.floor(limitRaw) : 3;
+    const preview = districtIds.slice(0, limit).join(", ");
+    const extra = districtIds.length > limit ? ` +${districtIds.length - limit} more` : "";
+    return `state ${footprint.stateFips}: ${preview}${extra}`;
+  }
+  return `state ${footprint.stateFips}`;
+}
+
 export function listMetricSetOptions(){
   return METRIC_SET_OPTIONS.map((x) => ({ ...x }));
 }
@@ -315,7 +410,8 @@ function normalizeSelectionSets(input){
   for (const raw of rows){
     const row = raw && typeof raw === "object" ? raw : null;
     if (!row) continue;
-    const resolution = ["place", "tract", "block_group"].includes(String(row.resolution || "")) ? String(row.resolution) : "tract";
+    const resolutionRaw = cleanText(row.resolution);
+    const resolution = RESOLUTION_IDS.has(resolutionRaw) ? resolutionRaw : "tract";
     const name = cleanText(row.name);
     const geoids = normalizeGeoidsForResolutionInternal(row.geoids, resolution);
     if (!name || !geoids.length) continue;
@@ -323,8 +419,8 @@ function normalizeSelectionSets(input){
       name,
       resolution,
       stateFips: fips(row.stateFips, 2),
-      countyFips: fips(row.countyFips, 3),
-      placeFips: fips(row.placeFips, 5),
+      countyFips: resolutionNeedsCounty(resolution) ? fips(row.countyFips, 3) : "",
+      placeFips: resolution === "place" ? fips(row.placeFips, 5) : "",
       geoids,
       updatedAt: cleanText(row.updatedAt),
     });
@@ -357,10 +453,10 @@ export function normalizeRaceFootprint(input){
   out.source = cleanText(out.source);
   out.year = cleanText(out.year);
   const resolution = cleanText(out.resolution);
-  out.resolution = ["place", "tract", "block_group"].includes(resolution) ? resolution : "";
+  out.resolution = RESOLUTION_IDS.has(resolution) ? resolution : "";
   out.metricSet = METRIC_SET_MAP[String(out.metricSet || "")] ? String(out.metricSet) : "";
   out.stateFips = fips(out.stateFips, 2);
-  out.countyFips = out.resolution === "place" ? "" : fips(out.countyFips, 3);
+  out.countyFips = resolutionNeedsCounty(out.resolution) ? fips(out.countyFips, 3) : "";
   out.placeFips = out.resolution === "place" ? fips(out.placeFips, 5) : "";
   out.geoids = out.resolution
     ? normalizeGeoidsForResolutionInternal(out.geoids, out.resolution).sort((a, b) => a.localeCompare(b))
@@ -440,7 +536,7 @@ export function normalizeFootprintCapacity(input){
 export function buildRaceFootprintFromCensusSelection(censusState){
   const s = censusState && typeof censusState === "object" ? censusState : {};
   const resolution = cleanText(s.resolution);
-  const geoids = ["place", "tract", "block_group"].includes(resolution)
+  const geoids = RESOLUTION_IDS.has(resolution)
     ? normalizeGeoidsForResolutionInternal(s.selectedGeoids, resolution).sort((a, b) => a.localeCompare(b))
     : [];
   const out = normalizeRaceFootprint({
@@ -1106,11 +1202,11 @@ export function normalizeCensusState(input, { resetRuntime = false } = {}){
   const years = new Set(listAcsYears());
   out.year = years.has(String(out.year || "")) ? String(out.year) : base.year;
   const resolution = String(out.resolution || "");
-  out.resolution = ["place", "tract", "block_group"].includes(resolution) ? resolution : "tract";
+  out.resolution = RESOLUTION_IDS.has(resolution) ? resolution : "tract";
   out.metricSet = METRIC_SET_MAP[String(out.metricSet || "")] ? String(out.metricSet) : "core";
   out.stateFips = fips(out.stateFips, 2);
-  out.countyFips = fips(out.countyFips, 3);
-  out.placeFips = fips(out.placeFips, 5);
+  out.countyFips = resolutionNeedsCounty(out.resolution) ? fips(out.countyFips, 3) : "";
+  out.placeFips = out.resolution === "place" ? fips(out.placeFips, 5) : "";
   out.geoSearch = cleanText(out.geoSearch);
   out.tractFilter = fips(out.tractFilter, 6);
   out.geoOptions = Array.isArray(out.geoOptions) ? out.geoOptions.map((row) => ({ ...row })) : [];
@@ -1135,10 +1231,7 @@ export function normalizeCensusState(input, { resetRuntime = false } = {}){
   out.selectionSetDraftName = cleanText(out.selectionSetDraftName);
   out.selectedSelectionSetKey = cleanText(out.selectedSelectionSetKey);
   out.requestSeq = Number.isFinite(Number(out.requestSeq)) ? Number(out.requestSeq) : 0;
-  if (out.resolution === "place"){
-    out.countyFips = "";
-    out.tractFilter = "";
-  }
+  if (out.resolution !== "block_group") out.tractFilter = "";
   if (!out.stateFips){
     out.countyFips = "";
     out.placeFips = "";
@@ -1280,6 +1373,18 @@ function extractName(row){
   return cleanText(row?.NAME || row?.name || "");
 }
 
+function valueByAliases(row, aliases){
+  const src = row && typeof row === "object" ? row : {};
+  const wanted = new Set((aliases || []).map((value) => canonicalCsvKey(value)));
+  if (!wanted.size) return "";
+  for (const [key, value] of Object.entries(src)){
+    if (wanted.has(canonicalCsvKey(key))){
+      return value;
+    }
+  }
+  return "";
+}
+
 function geoidFromRow(row, resolution){
   const state = fips(row?.state, 2);
   if (resolution === "place"){
@@ -1290,6 +1395,18 @@ function geoidFromRow(row, resolution){
     const county = fips(row?.county, 3);
     const tract = fips(row?.tract, 6);
     return state && county && tract ? `${state}${county}${tract}` : "";
+  }
+  if (resolution === "congressional_district"){
+    const district = fips(valueByAliases(row, ["congressional district"]), 2);
+    return state && district ? `${state}${district}` : "";
+  }
+  if (resolution === "state_senate_district"){
+    const district = fips(valueByAliases(row, ["state legislative district (upper chamber)", "state legislative district upper chamber", "sldu"]), 3);
+    return state && district ? `${state}${district}` : "";
+  }
+  if (resolution === "state_house_district"){
+    const district = fips(valueByAliases(row, ["state legislative district (lower chamber)", "state legislative district lower chamber", "sldl"]), 3);
+    return state && district ? `${state}${district}` : "";
   }
   const county = fips(row?.county, 3);
   const tract = fips(row?.tract, 6);
@@ -1304,6 +1421,9 @@ function geoLabel(name, geoid){
 }
 
 export function optionFromRow(row, resolution){
+  const congressionalDistrict = fips(valueByAliases(row, ["congressional district"]), 2);
+  const senateDistrict = fips(valueByAliases(row, ["state legislative district (upper chamber)", "state legislative district upper chamber", "sldu"]), 3);
+  const houseDistrict = fips(valueByAliases(row, ["state legislative district (lower chamber)", "state legislative district lower chamber", "sldl"]), 3);
   const geoid = geoidFromRow(row, resolution);
   const name = extractName(row);
   return {
@@ -1315,6 +1435,9 @@ export function optionFromRow(row, resolution){
     place: fips(row?.place, 5),
     tract: fips(row?.tract, 6),
     blockGroup: fips(row?.["block group"], 1),
+    congressionalDistrict,
+    stateSenateDistrict: senateDistrict,
+    stateHouseDistrict: houseDistrict,
   };
 }
 
@@ -1356,28 +1479,30 @@ export async function fetchPlaceOptions({ stateFips, key, fetchImpl } = {}){
 }
 
 function geoForClause(resolution){
-  if (resolution === "place") return "place:*";
-  if (resolution === "tract") return "tract:*";
-  return "block group:*";
+  const key = cleanText(resolution);
+  return cleanText(RESOLUTION_CONFIG[key]?.forClause) || RESOLUTION_CONFIG.block_group.forClause;
 }
 
 function geoInClauses({ resolution, stateFips, countyFips }){
+  const key = cleanText(resolution);
   const state = fips(stateFips, 2);
   const county = fips(countyFips, 3);
-  if (resolution === "place"){
+  if (!resolutionNeedsCounty(key)){
     return [`state:${state}`];
   }
-  if (resolution === "tract"){
-    return [`state:${state}`, `county:${county}`];
+  if (key === "block_group"){
+    return [`state:${state}`, `county:${county}`, "tract:*"];
   }
-  return [`state:${state}`, `county:${county}`, "tract:*"];
+  return [`state:${state}`, `county:${county}`];
 }
 
 function requiredForResolution(resolution, stateFips, countyFips){
+  const key = cleanText(resolution);
+  if (!RESOLUTION_IDS.has(key)) return false;
   const state = fips(stateFips, 2);
   const county = fips(countyFips, 3);
   if (!state) return false;
-  if (resolution === "place") return true;
+  if (!resolutionNeedsCounty(key)) return true;
   return !!county;
 }
 
@@ -1458,9 +1583,10 @@ export async function fetchVariableCatalog({ year, key, fetchImpl } = {}){
 }
 
 function geoidLengthForResolution(resolution){
-  if (resolution === "place") return 7;
-  if (resolution === "tract") return 11;
-  return 12;
+  const key = cleanText(resolution);
+  const configured = Number(RESOLUTION_CONFIG[key]?.geoidLength);
+  if (Number.isFinite(configured) && configured > 0) return Math.floor(configured);
+  return RESOLUTION_CONFIG.block_group.geoidLength;
 }
 
 export function normalizeGeoidsForResolution(geoids, resolution){

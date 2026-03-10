@@ -2,6 +2,7 @@ import {
   CENSUS_DEFAULT_API_KEY,
   makeDefaultCensusState,
   normalizeCensusState,
+  listResolutionOptions,
   buildAcsQueryUrl,
   buildGeoLookupUrl,
   parseCensusTable,
@@ -35,7 +36,12 @@ import {
   detectElectionCsvFormat,
   normalizeElectionCsvRows,
   parseCsvText,
-} from "../censusModule.js?v=20260310-census-phase1-40";
+  formatRaceFootprintScope,
+  isDistrictResolution,
+  resolutionLabel,
+  resolutionNeedsCounty,
+  resolutionSupportsBoundaryOverlay,
+} from "../censusModule.js";
 
 export function registerCensusPhase1Tests(ctx){
   const { test, assert } = ctx;
@@ -61,6 +67,16 @@ export function registerCensusPhase1Tests(ctx){
     assert(normalizedApplyToggle.applyAdjustedAssumptions === true, "apply-adjusted toggle should normalize to boolean");
   });
 
+  test("Census Phase1: resolution options include district scopes", () => {
+    const ids = new Set(listResolutionOptions().map((row) => String(row?.id || "")));
+    assert(ids.has("place"), "resolution options missing place");
+    assert(ids.has("tract"), "resolution options missing tract");
+    assert(ids.has("block_group"), "resolution options missing block_group");
+    assert(ids.has("congressional_district"), "resolution options missing congressional district");
+    assert(ids.has("state_senate_district"), "resolution options missing state senate district");
+    assert(ids.has("state_house_district"), "resolution options missing state house district");
+  });
+
   test("Census Phase1: runtime cache key normalization modes", () => {
     const keep = normalizeCensusState({ stateFips: "17", countyFips: "031", activeRowsKey: "abc|123", loadedRowCount: 88 });
     assert(keep.activeRowsKey === "abc|123", "runtime key should persist in runtime normalization");
@@ -76,6 +92,70 @@ export function registerCensusPhase1Tests(ctx){
     });
     assert(Array.isArray(withSets.selectionSets) && withSets.selectionSets.length === 1, "selection set normalization mismatch");
     assert(withSets.selectionSets[0].geoids.length === 1, "selection set geoid dedupe mismatch");
+  });
+
+  test("Census Phase1: district resolution normalization and context requirements", () => {
+    const district = normalizeCensusState({
+      resolution: "congressional_district",
+      stateFips: "17",
+      countyFips: "031",
+      placeFips: "14000",
+    });
+    assert(district.resolution === "congressional_district", "district resolution should normalize");
+    assert(district.countyFips === "", "district resolution should clear county context");
+    assert(district.placeFips === "", "district resolution should clear place context");
+    assert(isDistrictResolution(district.resolution) === true, "district resolution helper mismatch");
+    assert(resolutionNeedsCounty(district.resolution) === false, "district resolution should not require county context");
+    assert(resolutionNeedsCounty("tract") === true, "tract should require county context");
+  });
+
+  test("Census Phase1: resolution label and footprint scope formatting", () => {
+    assert(resolutionLabel("congressional_district") === "Congressional district", "resolution label mismatch");
+    const districtScope = formatRaceFootprintScope({
+      resolution: "congressional_district",
+      stateFips: "17",
+      geoids: ["1707", "1713", "1702", "1701", "1712"],
+    }, 3);
+    assert(districtScope === "state 17: 01, 02, 07 +2 more", `district scope mismatch: ${districtScope}`);
+    const tractScope = formatRaceFootprintScope({
+      resolution: "tract",
+      stateFips: "17",
+      countyFips: "031",
+      geoids: ["17031010100"],
+    });
+    assert(tractScope === "17-031", `tract scope mismatch: ${tractScope}`);
+    const placeScope = formatRaceFootprintScope({
+      resolution: "place",
+      stateFips: "17",
+      placeFips: "14000",
+      geoids: ["1714000"],
+    });
+    assert(placeScope === "17-14000", `place scope mismatch: ${placeScope}`);
+  });
+
+  test("Census Phase1: district option GEOID mapping", () => {
+    const congressional = optionFromRow(
+      { NAME: "Congressional District 7", state: "17", "congressional district": "07" },
+      "congressional_district",
+    );
+    assert(congressional.geoid === "1707", `unexpected congressional geoid: ${congressional.geoid}`);
+    const senate = optionFromRow(
+      { NAME: "State Senate District 13", state: "17", "state legislative district (upper chamber)": "013" },
+      "state_senate_district",
+    );
+    assert(senate.geoid === "17013", `unexpected state senate geoid: ${senate.geoid}`);
+    const house = optionFromRow(
+      { NAME: "State House District 26", state: "17", "state legislative district (lower chamber)": "026" },
+      "state_house_district",
+    );
+    assert(house.geoid === "17026", `unexpected state house geoid: ${house.geoid}`);
+  });
+
+  test("Census Phase1: boundary overlay support matrix", () => {
+    assert(resolutionSupportsBoundaryOverlay("tract") === true, "tract boundary overlay should be supported");
+    assert(resolutionSupportsBoundaryOverlay("block_group") === true, "block group boundary overlay should be supported");
+    assert(resolutionSupportsBoundaryOverlay("place") === true, "place boundary overlay should be supported");
+    assert(resolutionSupportsBoundaryOverlay("congressional_district") === false, "district boundary overlay should be disabled");
   });
 
   test("Census Phase1: ACS URL builder contract", () => {
@@ -267,6 +347,8 @@ export function registerCensusPhase1Tests(ctx){
     assert(blockGroup.length === 2, "block group GEOID parse mismatch");
     const place = parseGeoidInput("1714000|1714100", "place");
     assert(place.length === 2, "place GEOID parse mismatch");
+    const senate = parseGeoidInput("17013,17014,17013", "state_senate_district");
+    assert(senate.length === 2, "state senate district GEOID parse mismatch");
   });
 
   test("Census Phase1: race footprint normalization and fingerprint", () => {
