@@ -174,6 +174,8 @@ export function createUsbStorageController(deps = {}){
     renderDecisionSessionD1,
     persist,
     serializeStateForPersistence,
+    reportPersistenceFailure,
+    clearPersistenceFailure,
   } = deps;
 
   let handle = null;
@@ -217,6 +219,20 @@ export function createUsbStorageController(deps = {}){
     renderStatus();
   }
 
+  function reportUsbFailure(code, message){
+    if (typeof reportPersistenceFailure !== "function") return;
+    reportPersistenceFailure("state", {
+      ok: false,
+      code: cleanText(code) || "usb_write_failed",
+      error: cleanText(message) || "USB save failed.",
+    });
+  }
+
+  function clearUsbFailure(){
+    if (typeof clearPersistenceFailure !== "function") return;
+    clearPersistenceFailure("state");
+  }
+
   async function connect(){
     if (!supported){
       renderStatus();
@@ -243,6 +259,7 @@ export function createUsbStorageController(deps = {}){
       connected = false;
       needsReconnect = true;
       await writeStoredHandle(nextHandle);
+      reportUsbFailure("usb_permission_denied", "USB folder permission denied.");
       setStatus("Folder selected but write permission was not granted.");
       return { ok: false, error: "permission_denied" };
     }
@@ -252,9 +269,11 @@ export function createUsbStorageController(deps = {}){
     await writeStoredHandle(nextHandle);
     const seeded = await saveNow({ requestPermission: false });
     if (seeded?.ok){
+      clearUsbFailure();
       clearStatusOverride();
+      return { ok: true };
     }
-    return { ok: true };
+    return { ok: false, error: seeded?.error || "seed_failed" };
   }
 
   async function disconnect(){
@@ -267,6 +286,7 @@ export function createUsbStorageController(deps = {}){
       saveTimer = null;
     }
     await clearStoredHandle();
+    clearUsbFailure();
     clearStatusOverride();
     return { ok: true };
   }
@@ -296,7 +316,7 @@ export function createUsbStorageController(deps = {}){
     if (typeof persist === "function") persist();
   }
 
-  async function loadFromFolder(){
+  async function loadFromFolder({ suppressMissingStatus = false } = {}){
     if (!supported || !handle || !connected){
       setStatus("Connect folder before loading.");
       return { ok: false, error: "not_connected" };
@@ -305,20 +325,27 @@ export function createUsbStorageController(deps = {}){
     if (!granted){
       connected = false;
       needsReconnect = true;
+      reportUsbFailure("usb_permission_denied", "USB folder permission denied.");
       setStatus("Folder permission denied.");
       return { ok: false, error: "permission_denied" };
     }
     const read = await readStateFile(handle);
     if (!read.ok){
+      reportUsbFailure("usb_read_failed", `USB load failed: ${read.error}`);
       setStatus(`Load failed: ${read.error}`);
       return { ok: false, error: "load_failed" };
     }
     if (!read.exists || !isObject(read.state)){
-      setStatus(`No ${STATE_FILE} found in ${handle.name}.`);
+      if (!suppressMissingStatus){
+        setStatus(`No ${STATE_FILE} found in ${handle.name}.`);
+      } else {
+        clearStatusOverride();
+      }
       return { ok: false, error: "missing_state_file" };
     }
     applyLoadedState(read.state);
     lastSavedAt = cleanText(read.savedAt) || lastSavedAt;
+    clearUsbFailure();
     clearStatusOverride();
     return { ok: true };
   }
@@ -338,12 +365,14 @@ export function createUsbStorageController(deps = {}){
       if (!granted){
         connected = false;
         needsReconnect = true;
+        reportUsbFailure("usb_permission_denied", "USB folder permission denied.");
         setStatus("Folder permission denied.");
         return { ok: false, error: "permission_denied" };
       }
       const serialized = serializeStateForPersistence(getState());
       if (!serialized?.ok){
         const msg = cleanText(serialized?.error?.message || serialized?.error || "State serialization failed.");
+        reportUsbFailure("usb_serialize_failed", `USB save failed: ${msg}`);
         setStatus(`Save failed: ${msg}`);
         return { ok: false, error: "serialize_failed" };
       }
@@ -351,6 +380,7 @@ export function createUsbStorageController(deps = {}){
       try{
         stateObject = JSON.parse(serialized.text);
       } catch {
+        reportUsbFailure("usb_serialize_failed", "USB save failed: serialized state is invalid JSON.");
         setStatus("Save failed: serialized state is invalid JSON.");
         return { ok: false, error: "parse_failed" };
       }
@@ -363,12 +393,14 @@ export function createUsbStorageController(deps = {}){
       lastSavedAt = payload.savedAt;
       connected = true;
       needsReconnect = false;
+      clearUsbFailure();
       clearStatusOverride();
       return { ok: true };
     } catch (err){
       const msg = cleanText(err?.message) || "Unable to write state file.";
       connected = false;
       needsReconnect = true;
+      reportUsbFailure("usb_write_failed", `USB save failed: ${msg}`);
       setStatus(`Save failed: ${msg}`);
       return { ok: false, error: "write_failed" };
     } finally{
