@@ -22,8 +22,12 @@ import {
   normalizeAssumptionProvenance,
   normalizeFootprintCapacity,
   evaluateFootprintFeasibility,
+  summarizeFootprintFeasibilityIssues,
   getElectionCsvUploadGuide,
   buildElectionCsvTemplate,
+  buildElectionCsvWideTemplate,
+  detectElectionCsvFormat,
+  normalizeElectionCsvRows,
 } from "../censusModule.js";
 
 export function registerCensusPhase1Tests(ctx){
@@ -374,11 +378,37 @@ export function registerCensusPhase1Tests(ctx){
     assert(codes.includes("capacity_population_missing"), "capacity missing warning should fire");
   });
 
+  test("Census Phase1: footprint feasibility summary prioritizes bad over warn", () => {
+    const summary = summarizeFootprintFeasibilityIssues([
+      { kind: "warn", text: "Warning message." },
+      { kind: "bad", text: "Bad message." },
+      { kind: "warn", text: "Later warning." },
+    ]);
+    assert(summary.level === "bad", "summary should prioritize bad level");
+    assert(summary.text === "Bad message.", "summary should use first bad message");
+  });
+
+  test("Census Phase1: footprint feasibility summary returns warn when only warnings exist", () => {
+    const summary = summarizeFootprintFeasibilityIssues([
+      { kind: "warn", text: "Warning message." },
+      { kind: "warn", text: "Other warning." },
+    ]);
+    assert(summary.level === "warn", "summary should return warn level");
+    assert(summary.text === "Warning message.", "summary should use first warning");
+  });
+
+  test("Census Phase1: footprint feasibility summary returns ok when issues are empty", () => {
+    const summary = summarizeFootprintFeasibilityIssues([]);
+    assert(summary.level === "ok", "summary should return ok level");
+    assert(summary.text === "", "ok summary should have empty text");
+  });
+
   test("Census Phase1: election CSV guide and template contract", () => {
     const guide = getElectionCsvUploadGuide();
     assert(guide.schemaVersion === "election_results_csv.v1", "csv guide schema version mismatch");
     assert(Array.isArray(guide.requiredColumns) && guide.requiredColumns.includes("precinct_id"), "csv guide required columns missing");
     assert(Array.isArray(guide.optionalColumns) && guide.optionalColumns.includes("party"), "csv guide optional columns missing");
+    assert(Array.isArray(guide.acceptedFormats) && guide.acceptedFormats.length >= 2, "csv guide formats missing");
     const template = buildElectionCsvTemplate();
     const lines = String(template || "").trim().split("\n");
     assert(lines.length === 2, "csv template should contain header and sample row");
@@ -387,5 +417,73 @@ export function registerCensusPhase1Tests(ctx){
     const expectedHeader = [...guide.requiredColumns, ...guide.optionalColumns];
     assert(header.join(",") === expectedHeader.join(","), "csv template header mismatch");
     assert(sample.length === header.length, "csv template sample column count mismatch");
+    const wideTemplate = buildElectionCsvWideTemplate();
+    const wideLines = String(wideTemplate || "").trim().split("\n");
+    assert(wideLines.length === 2, "wide csv template should contain header and sample row");
+  });
+
+  test("Census Phase1: election CSV format detection supports long and wide", () => {
+    const longDetected = detectElectionCsvFormat([
+      "state_fips", "county_fips", "election_date", "office", "district_id", "precinct_id", "candidate", "votes",
+    ]);
+    assert(longDetected.format === "long", "long format detection failed");
+    const wideDetected = detectElectionCsvFormat([
+      "state_fips", "county_fips", "election_date", "office", "district_id", "precinct_id", "Jane Doe", "John Roe",
+    ]);
+    assert(wideDetected.format === "wide", "wide format detection failed");
+    assert(Array.isArray(wideDetected.candidateColumns) && wideDetected.candidateColumns.length === 2, "wide candidate column detection mismatch");
+  });
+
+  test("Census Phase1: wide election CSV normalization expands candidate columns", () => {
+    const rows = [
+      {
+        state_fips: "17",
+        county_fips: "031",
+        election_date: "2024-11-05",
+        office: "US House",
+        district_id: "IL-07",
+        precinct_id: "17-031-001A",
+        "Jane Doe": "1245",
+        "John Roe": "1830",
+        total_votes_precinct: "3140",
+      },
+    ];
+    const normalized = normalizeElectionCsvRows(rows, { headers: Object.keys(rows[0]) });
+    assert(normalized.ok === true, "wide normalization should succeed");
+    assert(normalized.format === "wide", "wide normalization format mismatch");
+    assert(Array.isArray(normalized.records) && normalized.records.length === 2, "wide normalization record count mismatch");
+    const names = normalized.records.map((x) => x.candidate).sort((a, b) => a.localeCompare(b));
+    assert(names[0] === "Jane Doe" && names[1] === "John Roe", "wide normalization candidate names mismatch");
+    const totalVotes = normalized.records.reduce((acc, row) => acc + Number(row.votes || 0), 0);
+    assert(totalVotes === 3075, "wide normalization vote totals mismatch");
+  });
+
+  test("Census Phase1: long election CSV normalization preserves candidate rows", () => {
+    const rows = [
+      {
+        state_fips: "17",
+        county_fips: "031",
+        election_date: "2024-11-05",
+        office: "US House",
+        district_id: "IL-07",
+        precinct_id: "17-031-001A",
+        candidate: "Jane Doe",
+        votes: "1245",
+      },
+      {
+        state_fips: "17",
+        county_fips: "031",
+        election_date: "2024-11-05",
+        office: "US House",
+        district_id: "IL-07",
+        precinct_id: "17-031-001A",
+        candidate: "John Roe",
+        votes: "1830",
+      },
+    ];
+    const normalized = normalizeElectionCsvRows(rows, { headers: Object.keys(rows[0]) });
+    assert(normalized.ok === true, "long normalization should succeed");
+    assert(normalized.format === "long", "long normalization format mismatch");
+    assert(Array.isArray(normalized.records) && normalized.records.length === 2, "long normalization record count mismatch");
   });
 }

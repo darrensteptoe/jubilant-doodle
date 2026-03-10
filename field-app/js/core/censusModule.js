@@ -1,6 +1,33 @@
 export const CENSUS_LOCAL_KEY = "fpe.census.apiKey";
 export const CENSUS_DEFAULT_API_KEY = "a59d216d186bced9d252633906350432d2805c74";
 
+const ELECTION_CSV_BASE_COLUMNS = [
+  "state_fips",
+  "county_fips",
+  "election_date",
+  "office",
+  "district_id",
+  "precinct_id",
+];
+
+const ELECTION_CSV_LONG_COLUMNS = [
+  ...ELECTION_CSV_BASE_COLUMNS,
+  "candidate",
+  "votes",
+];
+
+const ELECTION_CSV_OPTIONAL_COLUMNS = [
+  "party",
+  "total_votes_precinct",
+  "source",
+  "notes",
+];
+
+const ELECTION_CSV_RESERVED_COLUMNS = new Set([
+  ...ELECTION_CSV_LONG_COLUMNS,
+  ...ELECTION_CSV_OPTIONAL_COLUMNS,
+]);
+
 const YEARS_FLOOR = 2016;
 
 const RESOLUTION_OPTIONS = [
@@ -480,23 +507,26 @@ export function evaluateFootprintFeasibility({ state, res } = {}){
   return { alignment, capacity, issues: out };
 }
 
+export function summarizeFootprintFeasibilityIssues(issues){
+  const rows = Array.isArray(issues) ? issues : [];
+  for (const row of rows){
+    const text = cleanText(row?.text);
+    if (!text) continue;
+    if (cleanText(row?.kind) === "bad"){
+      return { level: "bad", text };
+    }
+  }
+  for (const row of rows){
+    const text = cleanText(row?.text);
+    if (!text) continue;
+    return { level: "warn", text };
+  }
+  return { level: "ok", text: "" };
+}
+
 export function getElectionCsvUploadGuide(){
-  const requiredColumns = [
-    "state_fips",
-    "county_fips",
-    "election_date",
-    "office",
-    "district_id",
-    "precinct_id",
-    "candidate",
-    "votes",
-  ];
-  const optionalColumns = [
-    "party",
-    "total_votes_precinct",
-    "source",
-    "notes",
-  ];
+  const requiredColumns = ELECTION_CSV_LONG_COLUMNS.slice();
+  const optionalColumns = ELECTION_CSV_OPTIONAL_COLUMNS.slice();
   const sampleRow = {
     state_fips: "17",
     county_fips: "031",
@@ -511,13 +541,42 @@ export function getElectionCsvUploadGuide(){
     source: "County certified results",
     notes: "",
   };
+  const wideSampleRow = {
+    state_fips: "17",
+    county_fips: "031",
+    election_date: "2024-11-05",
+    office: "US House",
+    district_id: "IL-07",
+    precinct_id: "17-031-001A",
+    "Jane Candidate": "1245",
+    "John Candidate": "1830",
+    total_votes_precinct: "3140",
+    source: "County certified results",
+    notes: "",
+  };
   return {
     schemaVersion: "election_results_csv.v1",
+    baseColumns: ELECTION_CSV_BASE_COLUMNS.slice(),
     requiredColumns,
     optionalColumns,
+    acceptedFormats: [
+      {
+        id: "long",
+        label: "Long format",
+        requiredColumns: ELECTION_CSV_LONG_COLUMNS.slice(),
+      },
+      {
+        id: "wide",
+        label: "Wide format",
+        requiredColumns: ELECTION_CSV_BASE_COLUMNS.slice(),
+        candidateColumnsRule: "One or more candidate-name columns, each containing non-negative integer vote counts.",
+      },
+    ],
     sampleRow,
+    wideSampleRow,
     notes: [
-      "All required columns must be present with exact names.",
+      "Use either long format (candidate + votes columns) or wide format (candidate names as columns).",
+      "All base columns must be present with exact names.",
       "votes and total_votes_precinct must be non-negative integers.",
       "Rows with invalid keys or values fail validation and are rejected.",
       "Import should run in dry-run mode first before commit.",
@@ -525,11 +584,175 @@ export function getElectionCsvUploadGuide(){
   };
 }
 
+function csvCell(value){
+  const text = cleanText(value);
+  if (!/[",\n]/.test(text)) return text;
+  return `"${text.replace(/"/g, "\"\"")}"`;
+}
+
 export function buildElectionCsvTemplate(){
   const guide = getElectionCsvUploadGuide();
   const columns = [...guide.requiredColumns, ...guide.optionalColumns];
-  const row = columns.map((key) => cleanText(guide.sampleRow?.[key]));
-  return `${columns.join(",")}\n${row.join(",")}\n`;
+  const row = columns.map((key) => csvCell(guide.sampleRow?.[key]));
+  return `${columns.map(csvCell).join(",")}\n${row.join(",")}\n`;
+}
+
+export function buildElectionCsvWideTemplate(){
+  const guide = getElectionCsvUploadGuide();
+  const wideKeys = Object.keys(guide.wideSampleRow || {});
+  const columns = [...guide.baseColumns, ...wideKeys.filter((k) => !ELECTION_CSV_BASE_COLUMNS.includes(k))];
+  const row = columns.map((key) => csvCell(guide.wideSampleRow?.[key]));
+  return `${columns.map(csvCell).join(",")}\n${row.join(",")}\n`;
+}
+
+export function detectElectionCsvFormat(headers){
+  const rawHeaders = Array.isArray(headers) ? headers : [];
+  const normalized = [];
+  const seen = new Set();
+  const originalByLower = {};
+  for (const raw of rawHeaders){
+    const original = cleanText(raw);
+    const lower = original.toLowerCase();
+    if (!lower || seen.has(lower)) continue;
+    seen.add(lower);
+    normalized.push(lower);
+    originalByLower[lower] = original;
+  }
+  const set = new Set(normalized);
+  const missingBaseColumns = ELECTION_CSV_BASE_COLUMNS.filter((key) => !set.has(key));
+  const hasLongColumns = set.has("candidate") && set.has("votes");
+  const candidateColumns = normalized.filter((key) => !ELECTION_CSV_RESERVED_COLUMNS.has(key));
+  let format = "invalid";
+  if (!missingBaseColumns.length && hasLongColumns){
+    format = "long";
+  } else if (!missingBaseColumns.length && candidateColumns.length){
+    format = "wide";
+  }
+  return {
+    format,
+    headers: normalized,
+    originalByLower,
+    candidateColumns,
+    missingBaseColumns,
+  };
+}
+
+function parseCsvNonNegativeInteger(value){
+  const text = cleanText(value);
+  if (!text) return null;
+  if (!/^\d+$/.test(text)) return Number.NaN;
+  const n = Number(text);
+  if (!Number.isFinite(n) || n < 0) return Number.NaN;
+  return n;
+}
+
+function rowLookup(row){
+  const src = row && typeof row === "object" ? row : {};
+  const out = {};
+  for (const [rawKey, rawValue] of Object.entries(src)){
+    const key = cleanText(rawKey).toLowerCase();
+    if (!key || Object.prototype.hasOwnProperty.call(out, key)) continue;
+    out[key] = rawValue;
+  }
+  return out;
+}
+
+export function normalizeElectionCsvRows(rows, { headers } = {}){
+  const list = Array.isArray(rows) ? rows : [];
+  const headerList = Array.isArray(headers) && headers.length
+    ? headers
+    : (list.length ? Object.keys(list[0] || {}) : []);
+  const detected = detectElectionCsvFormat(headerList);
+  const errors = [];
+  const warnings = [];
+  const records = [];
+  if (detected.format === "invalid"){
+    if (detected.missingBaseColumns.length){
+      errors.push(`Missing required base columns: ${detected.missingBaseColumns.join(", ")}.`);
+    } else {
+      errors.push("Schema requires candidate+votes columns (long) or candidate-name columns (wide).");
+    }
+    return { ok: false, format: detected.format, detected, records, errors, warnings };
+  }
+  for (let i = 0; i < list.length; i += 1){
+    const row = rowLookup(list[i]);
+    const rowNum = i + 1;
+    const common = {};
+    let rowHasError = false;
+    for (const key of ELECTION_CSV_BASE_COLUMNS){
+      const value = cleanText(row[key]);
+      if (!value){
+        errors.push(`Row ${rowNum}: missing ${key}.`);
+        rowHasError = true;
+      }
+      common[key] = value;
+    }
+    const party = cleanText(row.party);
+    const source = cleanText(row.source);
+    const notes = cleanText(row.notes);
+    const totalVotesPrecinct = parseCsvNonNegativeInteger(row.total_votes_precinct);
+    if (Number.isNaN(totalVotesPrecinct)){
+      errors.push(`Row ${rowNum}: total_votes_precinct must be a non-negative integer.`);
+      rowHasError = true;
+    }
+    if (rowHasError) continue;
+    if (detected.format === "long"){
+      const candidate = cleanText(row.candidate);
+      const votes = parseCsvNonNegativeInteger(row.votes);
+      if (!candidate){
+        errors.push(`Row ${rowNum}: missing candidate.`);
+        continue;
+      }
+      if (votes == null || Number.isNaN(votes)){
+        errors.push(`Row ${rowNum}: votes must be a non-negative integer.`);
+        continue;
+      }
+      records.push({
+        ...common,
+        candidate,
+        party,
+        votes,
+        total_votes_precinct: totalVotesPrecinct,
+        source,
+        notes,
+      });
+      continue;
+    }
+    const staged = [];
+    for (const key of detected.candidateColumns){
+      const parsedVotes = parseCsvNonNegativeInteger(row[key]);
+      if (parsedVotes == null) continue;
+      if (Number.isNaN(parsedVotes)){
+        const label = cleanText(detected.originalByLower[key]) || key;
+        errors.push(`Row ${rowNum}: ${label} must be a non-negative integer.`);
+        rowHasError = true;
+        continue;
+      }
+      staged.push({
+        ...common,
+        candidate: cleanText(detected.originalByLower[key]) || key,
+        party,
+        votes: parsedVotes,
+        total_votes_precinct: totalVotesPrecinct,
+        source,
+        notes,
+      });
+    }
+    if (rowHasError) continue;
+    if (!staged.length){
+      warnings.push(`Row ${rowNum}: no candidate vote columns with values.`);
+      continue;
+    }
+    records.push(...staged);
+  }
+  return {
+    ok: errors.length === 0,
+    format: detected.format,
+    detected,
+    records,
+    errors,
+    warnings,
+  };
 }
 
 export function makeDefaultCensusState(){
