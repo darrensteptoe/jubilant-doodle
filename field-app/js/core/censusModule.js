@@ -107,6 +107,14 @@ const DISTRICT_RESOLUTIONS = new Set([
   "state_senate_district",
   "state_house_district",
 ]);
+const RESOLUTION_CONTRACT_REQUIRED_IDS = [
+  "place",
+  "tract",
+  "block_group",
+  "congressional_district",
+  "state_senate_district",
+  "state_house_district",
+];
 
 const METRIC_SET_OPTIONS = [
   { id: "core", label: "Core" },
@@ -1242,6 +1250,36 @@ export function normalizeCensusState(input, { resetRuntime = false } = {}){
     out.rowsByGeoid = {};
   }
   return out;
+}
+
+export function evaluateResolutionContract({ options, normalizeState } = {}){
+  const sourceRows = Array.isArray(options) ? options : listResolutionOptions();
+  const optionIds = Array.from(new Set(
+    sourceRows.map((row) => cleanText(row?.id)).filter((id) => !!id),
+  ));
+  const missingInOptions = RESOLUTION_CONTRACT_REQUIRED_IDS.filter((id) => !optionIds.includes(id));
+  const unknownOptionIds = optionIds.filter((id) => !RESOLUTION_CONTRACT_REQUIRED_IDS.includes(id));
+  const normalizer = typeof normalizeState === "function" ? normalizeState : normalizeCensusState;
+  const unsupportedByNormalize = [];
+  for (const id of RESOLUTION_CONTRACT_REQUIRED_IDS){
+    let normalizedId = "";
+    try{
+      normalizedId = cleanText(normalizer({ resolution: id })?.resolution);
+    } catch {
+      normalizedId = "";
+    }
+    if (normalizedId !== id){
+      unsupportedByNormalize.push(id);
+    }
+  }
+  return {
+    ok: missingInOptions.length === 0 && unsupportedByNormalize.length === 0,
+    requiredIds: RESOLUTION_CONTRACT_REQUIRED_IDS.slice(),
+    optionIds,
+    missingInOptions,
+    unsupportedByNormalize,
+    unknownOptionIds,
+  };
 }
 
 function encodeGetVars(vars){

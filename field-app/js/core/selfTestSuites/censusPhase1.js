@@ -2,6 +2,7 @@ import {
   CENSUS_DEFAULT_API_KEY,
   makeDefaultCensusState,
   normalizeCensusState,
+  evaluateResolutionContract,
   listResolutionOptions,
   buildAcsQueryUrl,
   buildGeoLookupUrl,
@@ -75,6 +76,27 @@ export function registerCensusPhase1Tests(ctx){
     assert(ids.has("congressional_district"), "resolution options missing congressional district");
     assert(ids.has("state_senate_district"), "resolution options missing state senate district");
     assert(ids.has("state_house_district"), "resolution options missing state house district");
+  });
+
+  test("Census Phase1: resolution contract passes baseline", () => {
+    const contract = evaluateResolutionContract();
+    assert(contract.ok === true, "resolution contract should pass baseline");
+    assert(Array.isArray(contract.missingInOptions) && contract.missingInOptions.length === 0, "missing resolution options contract failure");
+    assert(Array.isArray(contract.unsupportedByNormalize) && contract.unsupportedByNormalize.length === 0, "normalize support contract failure");
+  });
+
+  test("Census Phase1: resolution contract fails loud when options/normalize drift", () => {
+    const contract = evaluateResolutionContract({
+      options: [
+        { id: "place", label: "Place" },
+        { id: "tract", label: "Tract" },
+        { id: "block_group", label: "Block group" },
+      ],
+      normalizeState: (input) => ({ resolution: String(input?.resolution || "") === "tract" ? "tract" : "tract" }),
+    });
+    assert(contract.ok === false, "resolution contract should fail on drift");
+    assert(contract.missingInOptions.includes("congressional_district"), "contract should report missing congressional district option");
+    assert(contract.unsupportedByNormalize.includes("state_senate_district"), "contract should report normalize mismatch");
   });
 
   test("Census Phase1: runtime cache key normalization modes", () => {
