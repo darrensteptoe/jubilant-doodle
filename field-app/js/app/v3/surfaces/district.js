@@ -311,7 +311,6 @@ function normalizeCensusPhase1Card(card) {
   card.dataset.v3CensusNormalized = "1";
   card.classList.add("fpe-census-card");
 
-  const intro = card.querySelector(":scope > .help-text");
   const resolutionHint = card.querySelector(":scope > .muted:not([id])");
 
   const apiKeyField = findClosest(card, "#censusApiKey", ".field");
@@ -370,16 +369,6 @@ function normalizeCensusPhase1Card(card) {
 
   const layout = document.createElement("div");
   layout.className = "fpe-census-layout";
-
-  if (intro) {
-    intro.classList.add("fpe-census-intro");
-    const introWindow = createCensusMessageWindow({
-      label: "Workflow guide",
-      tone: "tip"
-    });
-    introWindow.body.appendChild(intro);
-    layout.appendChild(introWindow.root);
-  }
 
   const workflowSection = createCensusSection({
     title: "GEO data workflow",
@@ -513,14 +502,14 @@ function normalizeCensusPhase1Card(card) {
       tone: "tip"
     });
     const instructionList = document.createElement("ul");
-    instructionList.className = "fpe-census-status-list";
-    appendStatusTextItems(
+    instructionList.className = "fpe-census-instruction-list";
+    appendInstructionTextItems(
       instructionList,
       "Use this module to translate selected GEO demographics into practical operating constraints before finalizing plan assumptions.",
       "Read the signal table first: values near 1.00 are baseline, values below 1.00 indicate lower capacity or tougher conditions, and values above 1.00 indicate stronger conditions.",
       "Treat APH feasibility as the decision gate: if required APH is above the achievable band, adjust staffing, timeline, or expected vote need before locking assumptions."
     );
-    appendStatusItems(instructionList, advisoryGuideNote);
+    appendInstructionItems(instructionList, advisoryGuideNote);
     if (instructionList.children.length) {
       instructionWindow.body.appendChild(instructionList);
       guideBody.appendChild(instructionWindow.root);
@@ -564,8 +553,8 @@ function normalizeCensusPhase1Card(card) {
       tone: "tip"
     });
     const instructionList = document.createElement("ul");
-    instructionList.className = "fpe-census-status-list";
-    appendStatusItems(instructionList, electionGuideNote, electionGuideStatus, electionGuideSchema);
+    instructionList.className = "fpe-census-instruction-list";
+    appendInstructionItems(instructionList, electionGuideNote, electionGuideStatus, electionGuideSchema);
     if (instructionList.children.length) {
       instructionWindow.body.appendChild(instructionList);
       guideBody.appendChild(instructionWindow.root);
@@ -751,7 +740,23 @@ function appendStatusItems(list, ...nodes) {
   });
 }
 
-function appendStatusTextItems(list, ...texts) {
+function appendInstructionItems(list, ...nodes) {
+  if (!(list instanceof HTMLElement)) {
+    return;
+  }
+
+  nodes.forEach((node) => {
+    if (!(node instanceof HTMLElement)) {
+      return;
+    }
+    const item = document.createElement("li");
+    item.className = "fpe-census-instruction-item";
+    item.appendChild(node);
+    list.appendChild(item);
+  });
+}
+
+function appendInstructionTextItems(list, ...texts) {
   if (!(list instanceof HTMLElement)) {
     return;
   }
@@ -762,7 +767,7 @@ function appendStatusTextItems(list, ...texts) {
       return;
     }
     const item = document.createElement("li");
-    item.className = "fpe-census-status-item";
+    item.className = "fpe-census-instruction-item";
     item.textContent = value;
     list.appendChild(item);
   });
