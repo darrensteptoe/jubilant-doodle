@@ -452,6 +452,10 @@ body.dark #app-shell-v3-root {
   gap: var(--fpe-space-5);
 }
 
+.fpe-surface-frame--subsection {
+  margin-top: var(--fpe-space-5);
+}
+
 .fpe-surface-frame--single {
   grid-template-columns: minmax(0, 1fr);
 }
