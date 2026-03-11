@@ -1460,6 +1460,28 @@ body.training #app-shell-v3-root .fpe-surface .help {
   text-align: right;
 }
 
+.fpe-surface-pane[data-v3-stage="district"] .fpe-district-top-row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--fpe-space-3);
+  align-items: stretch;
+}
+
+.fpe-surface-pane[data-v3-stage="district"] .fpe-district-top-row .fpe-why {
+  margin-top: 0;
+  height: 100%;
+}
+
+.fpe-surface-pane[data-v3-stage="district"] .fpe-district-top-row .fpe-card {
+  height: 100%;
+}
+
+@media (max-width: 1100px) {
+  .fpe-surface-pane[data-v3-stage="district"] .fpe-district-top-row {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
 .fpe-why {
   margin-top: var(--fpe-space-5);
   border: 1px solid var(--fpe-rule);
