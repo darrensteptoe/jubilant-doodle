@@ -16,6 +16,7 @@
   --fpe-topbar-tone-b: color-mix(in srgb, #c9d0da 60%, #ffffff);
   --fpe-topbar-glaze-start: color-mix(in srgb, var(--fpe-panel) 40%, transparent);
   --fpe-topbar-glaze-end: color-mix(in srgb, #ffffff 94%, var(--fpe-panel));
+  --fpe-topbar-photo: url("./assets/AdobeStock_271073143.jpeg");
   --fpe-topbar-base: linear-gradient(
     90deg,
     var(--fpe-topbar-tone-a) 0%,
@@ -118,11 +119,12 @@ body.dark #app-shell-v3-root {
       var(--fpe-topbar-glaze-start) 0%,
       var(--fpe-topbar-glaze-end) 100%
     ),
+    var(--fpe-topbar-photo),
     var(--fpe-topbar-base);
-  background-size: 100% 100%, 100% 100%;
-  background-position: center, center;
-  background-repeat: no-repeat, no-repeat;
-  background-blend-mode: normal, normal;
+  background-size: 100% 100%, cover, 100% 100%;
+  background-position: center, center, center;
+  background-repeat: no-repeat, no-repeat, no-repeat;
+  background-blend-mode: normal, luminosity, normal;
   border-bottom: 1px solid var(--fpe-rule);
 }
 
