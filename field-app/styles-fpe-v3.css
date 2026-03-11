@@ -19,7 +19,10 @@
   --fpe-flag-star: color-mix(in srgb, #ffffff 92%, var(--fpe-panel));
   --fpe-topbar-overlay-start: color-mix(in srgb, var(--fpe-panel) 46%, transparent);
   --fpe-topbar-overlay-end: color-mix(in srgb, #ffffff 92%, var(--fpe-panel));
-  --fpe-topbar-flag-photo: url("./AdobeStock_271073143.jpeg");
+  --fpe-topbar-flag-photo:
+    url("/assets/AdobeStock_271073143.jpeg"),
+    url("./assets/AdobeStock_271073143.jpeg"),
+    url("./assets/usa-flag-topbar.jpg");
   --fpe-topbar-flag-fallback:
     linear-gradient(
       90deg,
