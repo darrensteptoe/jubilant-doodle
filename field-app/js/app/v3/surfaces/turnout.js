@@ -19,23 +19,29 @@ import {
 } from "../surfaceUtils.js";
 
 export function renderTurnoutSurface(mount) {
-  const frame = createSurfaceFrame("two-col");
-  const left = createColumn("primary");
-  const right = createColumn("secondary");
+  const frame = createSurfaceFrame("three-col");
+  const controlsCol = createColumn("controls");
+  const analysisCol = createColumn("analysis");
+  const resultsCol = createColumn("results");
+
+  const assumptionsCard = createCard({
+    title: "Turnout assumptions",
+    description: "Baseline turnout, target override, and modeling mode."
+  });
+
+  const liftCard = createCard({
+    title: "Lift behavior",
+    description: "Diminishing-return behavior and basic/advanced lift controls."
+  });
 
   const costInputsCard = createCard({
-    title: "Cost inputs",
+    title: "Tactic cost inputs",
     description: "Per-attempt tactic settings and overhead assumptions."
   });
 
   const efficiencyCard = createCard({
-    title: "ROI comparison",
+    title: "Efficiency comparison",
     description: "Cost-per-net-vote and tactic comparison under current assumptions."
-  });
-
-  const assumptionsCard = createCard({
-    title: "Turnout mechanics",
-    description: "Baseline turnout, lift behavior, and diminishing-return controls."
   });
   const assumptionsHeaderToggle = document.createElement("div");
   assumptionsHeaderToggle.className = "fpe-header-switch";
@@ -117,41 +123,47 @@ export function renderTurnoutSurface(mount) {
     closestSelector: ".grid3",
     target: assumptionsBody
   });
+
+  const liftBody = getCardBody(liftCard);
   mountLegacyClosest({
     key: "v3-turnout-diminishing-row",
     childSelector: "#gotvDiminishing",
     closestSelector: ".rowline",
-    target: assumptionsBody
+    target: liftBody
   });
   mountLegacyNode({
     key: "v3-turnout-basic-panel",
     selector: "#gotvBasic",
-    target: assumptionsBody
+    target: liftBody
   });
   mountLegacyNode({
     key: "v3-turnout-advanced-panel",
     selector: "#gotvAdvanced",
-    target: assumptionsBody
+    target: liftBody
   });
   mountLegacyNode({
     key: "v3-turnout-summary-note",
     selector: "#stage-roi .phase-p6 > .note",
-    target: assumptionsBody
+    target: liftBody
   });
+
+  const impactBody = getCardBody(impactCard);
   mountLegacyNode({
     key: "v3-turnout-summary-banner",
     selector: "#turnoutSummary",
-    target: assumptionsBody
+    target: impactBody
   });
-
-  getCardBody(impactCard).innerHTML = `
-    <div class="fpe-summary-grid">
-      <div class="fpe-summary-row"><span>Expected turnout votes</span><strong id="v3TurnoutImpactVotes">-</strong></div>
-      <div class="fpe-summary-row"><span>Persuasion votes needed</span><strong id="v3TurnoutImpactNeed">-</strong></div>
-      <div class="fpe-summary-row"><span>Projected margin context</span><strong id="v3TurnoutImpactMargin">-</strong></div>
-      <div class="fpe-summary-row"><span>Win probability</span><strong id="v3TurnoutImpactWinProb">-</strong></div>
-    </div>
-  `;
+  impactBody.insertAdjacentHTML(
+    "beforeend",
+    `
+      <div class="fpe-summary-grid">
+        <div class="fpe-summary-row"><span>Expected turnout votes</span><strong id="v3TurnoutImpactVotes">-</strong></div>
+        <div class="fpe-summary-row"><span>Persuasion votes needed</span><strong id="v3TurnoutImpactNeed">-</strong></div>
+        <div class="fpe-summary-row"><span>Projected margin context</span><strong id="v3TurnoutImpactMargin">-</strong></div>
+        <div class="fpe-summary-row"><span>Win probability</span><strong id="v3TurnoutImpactWinProb">-</strong></div>
+      </div>
+    `
+  );
 
   getCardBody(summaryCard).innerHTML = `
     <div class="fpe-summary-grid">
@@ -161,10 +173,11 @@ export function renderTurnoutSurface(mount) {
     </div>
   `;
 
-  left.append(costInputsCard, efficiencyCard);
-  right.append(assumptionsCard, impactCard, summaryCard);
+  controlsCol.append(assumptionsCard, liftCard);
+  analysisCol.append(costInputsCard, efficiencyCard);
+  resultsCol.append(impactCard, summaryCard);
 
-  frame.append(left, right);
+  frame.append(controlsCol, analysisCol, resultsCol);
   mount.append(frame);
   mount.append(
     createWhyPanel([

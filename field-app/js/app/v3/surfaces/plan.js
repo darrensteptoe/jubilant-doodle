@@ -17,9 +17,10 @@ import {
 } from "../surfaceUtils.js";
 
 export function renderPlanSurface(mount) {
-  const frame = createSurfaceFrame("two-col");
-  const left = createColumn("primary");
-  const right = createColumn("secondary");
+  const frame = createSurfaceFrame("three-col");
+  const workloadCol = createColumn("workload");
+  const timelineCol = createColumn("timeline");
+  const riskCol = createColumn("risk");
 
   const workloadCard = createCard({
     title: "Workload translator",
@@ -32,8 +33,8 @@ export function renderPlanSurface(mount) {
   });
 
   const timelineCard = createCard({
-    title: "Timeline & execution risk",
-    description: "Timeline feasibility, staffing throughput, and risk diagnostics."
+    title: "Timeline & staffing",
+    description: "Timeline feasibility, staffing throughput, and weekly pacing diagnostics."
   });
   const timelineHeaderToggle = document.createElement("div");
   timelineHeaderToggle.className = "fpe-header-switch";
@@ -45,6 +46,11 @@ export function renderPlanSurface(mount) {
     </label>
   `;
   setCardHeaderControl(timelineCard, timelineHeaderToggle);
+
+  const riskCard = createCard({
+    title: "Execution risk",
+    description: "Constraint diagnostics and decision-intelligence recommendations."
+  });
 
   const summaryCard = createCard({
     title: "Plan summary",
@@ -158,15 +164,17 @@ export function renderPlanSurface(mount) {
     closestSelector: ".grid2",
     target: timelineBody
   });
+
+  const riskBody = getCardBody(riskCard);
   mountLegacyNode({
     key: "v3-plan-tl-decision-intel",
     selector: "#decisionIntelCard",
-    target: timelineBody
+    target: riskBody
   });
   mountLegacyNode({
     key: "v3-plan-tl-banner",
     selector: "#tlBanner",
-    target: timelineBody
+    target: riskBody
   });
 
   getCardBody(summaryCard).innerHTML = `
@@ -180,10 +188,11 @@ export function renderPlanSurface(mount) {
     </div>
   `;
 
-  left.append(workloadCard, optimizerCard);
-  right.append(timelineCard, summaryCard);
+  workloadCol.append(workloadCard, optimizerCard);
+  timelineCol.append(timelineCard);
+  riskCol.append(riskCard, summaryCard);
 
-  frame.append(left, right);
+  frame.append(workloadCol, timelineCol, riskCol);
   mount.append(frame);
   mount.append(
     createWhyPanel([
