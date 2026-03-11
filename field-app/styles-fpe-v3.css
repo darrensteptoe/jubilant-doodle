@@ -914,13 +914,16 @@
 
 .fpe-surface-pane[data-v3-stage="district"] .fpe-census-status-list {
   margin: 0;
-  padding-left: 18px;
-  list-style-type: disc !important;
-  list-style-position: outside;
+  padding: 0;
+  list-style: none;
 }
 
 .fpe-surface-pane[data-v3-stage="district"] .fpe-census-status-list > .fpe-census-status-item {
   margin: 0 0 8px 0;
+  display: grid;
+  grid-template-columns: 10px minmax(0, 1fr);
+  column-gap: 8px;
+  align-items: start;
   color: var(--fpe-muted);
   font-size: 12px;
   line-height: 1.45;
@@ -931,11 +934,15 @@
   margin-bottom: 0;
 }
 
-.fpe-surface-pane[data-v3-stage="district"] .fpe-census-status-list > .fpe-census-status-item::marker {
+.fpe-surface-pane[data-v3-stage="district"] .fpe-census-status-list > .fpe-census-status-item::before {
+  content: "•";
+  display: block;
+  font-size: 14px;
+  line-height: 1.2;
   color: var(--fpe-muted);
 }
 
-.fpe-surface-pane[data-v3-stage="district"] .fpe-message-window--warn .fpe-census-status-list > .fpe-census-status-item::marker {
+.fpe-surface-pane[data-v3-stage="district"] .fpe-message-window--warn .fpe-census-status-list > .fpe-census-status-item::before {
   color: var(--fpe-warning);
 }
 
