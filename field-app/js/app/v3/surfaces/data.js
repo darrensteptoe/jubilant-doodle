@@ -2,9 +2,9 @@ import {
   createCard,
   createColumn,
   createSurfaceFrame,
-  setCardHeaderControl,
   createWhyPanel,
-  getCardBody
+  getCardBody,
+  setCardHeaderControl
 } from "../componentFactory.js";
 import {
   bindCheckboxProxy,
@@ -13,15 +13,16 @@ import {
   getLegacyEl,
   readText,
   setText,
-  syncCheckboxValue,
   syncButtonDisabled,
+  syncCheckboxValue,
   syncSelectValue
 } from "../surfaceUtils.js";
 
 export function renderDataSurface(mount) {
-  const frame = createSurfaceFrame("two-col");
-  const left = createColumn("primary");
-  const right = createColumn("secondary");
+  const frame = createSurfaceFrame("three-col");
+  const policyCol = createColumn("policy");
+  const exchangeCol = createColumn("exchange");
+  const infraCol = createColumn("infra");
 
   const policyCard = createCard({
     title: "Import policy & recovery",
@@ -40,7 +41,7 @@ export function renderDataSurface(mount) {
 
   const exchangeCard = createCard({
     title: "Scenario import/export",
-    description: "JSON/CSV export and summary handoff tools."
+    description: "JSON/CSV export and summary handoff controls."
   });
 
   const storageCard = createCard({
@@ -55,9 +56,14 @@ export function renderDataSurface(mount) {
 
   getCardBody(policyCard).innerHTML = `
     <div id="v3DataBridgeRoot">
+      <div class="fpe-contained-block">
+        <ul class="bullets">
+          <li>Use strict mode when import integrity must be enforced for client-safe handoff.</li>
+          <li>Restore backup only after confirming scenario and timestamp.</li>
+        </ul>
+      </div>
       <div class="fpe-alert fpe-alert--warn" id="v3DataHashBannerUi" hidden>Snapshot hash differs from exported hash.</div>
       <div class="fpe-alert fpe-alert--warn" id="v3DataWarnBannerUi" hidden></div>
-      <div class="fpe-help">When ON, imports are blocked for newer schema versions and integrity hash mismatches.</div>
       <div class="fpe-field-grid fpe-field-grid--1">
         <div class="field">
           <label class="fpe-control-label" for="v3DataRestoreBackup">Restore auto-backup</label>
@@ -71,24 +77,41 @@ export function renderDataSurface(mount) {
   `;
 
   getCardBody(exchangeCard).innerHTML = `
+    <div class="fpe-contained-block">
+      <ul class="bullets">
+        <li>Use JSON for full scenario interchange and CSV for reporting extracts.</li>
+        <li>Copy summary after final QA to avoid stale handoff text.</li>
+      </ul>
+    </div>
     <div class="fpe-action-row">
       <button class="fpe-btn" id="v3DataBtnSaveJson" type="button">Export Scenario JSON</button>
       <button class="fpe-btn fpe-btn--ghost" id="v3DataBtnLoadJson" type="button">Import Scenario JSON</button>
       <button class="fpe-btn fpe-btn--ghost" id="v3DataBtnCopySummary" type="button">Copy Summary</button>
       <button class="fpe-btn fpe-btn--ghost" id="v3DataBtnExportCsv" type="button">Export CSV</button>
     </div>
-    <div class="fpe-help">Use these controls for file exchange, reporting, and audit-safe handoffs.</div>
-    <div class="fpe-help" id="v3DataImportFileStatus">No import file selected.</div>
+    <div class="fpe-contained-block">
+      <div class="fpe-control-label">Import file status</div>
+      <div class="fpe-help fpe-help--flush" id="v3DataImportFileStatus">No import file selected.</div>
+    </div>
   `;
 
   getCardBody(storageCard).innerHTML = `
+    <div class="fpe-contained-block">
+      <ul class="bullets">
+        <li>Use folder connect/load/save for controlled external storage workflows.</li>
+        <li>Disconnect when done to avoid accidental writes to prior sessions.</li>
+      </ul>
+    </div>
     <div class="fpe-action-row">
       <button class="fpe-btn" id="v3DataBtnUsbConnect" type="button">Connect folder</button>
       <button class="fpe-btn fpe-btn--ghost" id="v3DataBtnUsbLoad" type="button">Load from folder</button>
       <button class="fpe-btn fpe-btn--ghost" id="v3DataBtnUsbSave" type="button">Save to folder now</button>
       <button class="fpe-btn fpe-btn--ghost" id="v3DataBtnUsbDisconnect" type="button">Disconnect</button>
     </div>
-    <div class="fpe-help" id="v3DataUsbStatusUi">Using browser storage only.</div>
+    <div class="fpe-contained-block">
+      <div class="fpe-control-label">USB status</div>
+      <div class="fpe-help fpe-help--flush" id="v3DataUsbStatusUi">Using browser storage only.</div>
+    </div>
   `;
 
   getCardBody(summaryCard).innerHTML = `
@@ -101,9 +124,11 @@ export function renderDataSurface(mount) {
     </div>
   `;
 
-  left.append(policyCard, exchangeCard);
-  right.append(storageCard, summaryCard);
-  frame.append(left, right);
+  policyCol.append(policyCard);
+  exchangeCol.append(exchangeCard);
+  infraCol.append(storageCard, summaryCard);
+
+  frame.append(policyCol, exchangeCol, infraCol);
   mount.append(frame);
 
   mount.append(
@@ -168,8 +193,6 @@ function wireDataBridge() {
 }
 
 function syncDataBridgeUi() {
-  const legacyStrict = getLegacyEl("toggleStrictImport");
-  const legacyRestore = getLegacyEl("restoreBackup");
   const legacyLoadJson = getLegacyEl("loadJson");
   const legacyHashBanner = getLegacyEl("importHashBanner");
   const legacyWarnBanner = getLegacyEl("importWarnBanner");
@@ -181,7 +204,8 @@ function syncDataBridgeUi() {
   const hashBannerUi = document.getElementById("v3DataHashBannerUi");
   if (hashBannerUi && legacyHashBanner instanceof HTMLElement) {
     hashBannerUi.hidden = legacyHashBanner.hidden;
-    hashBannerUi.textContent = (legacyHashBanner.textContent || "").trim() || "Snapshot hash differs from exported hash.";
+    hashBannerUi.textContent =
+      (legacyHashBanner.textContent || "").trim() || "Snapshot hash differs from exported hash.";
   }
 
   const warnBannerUi = document.getElementById("v3DataWarnBannerUi");
@@ -204,7 +228,11 @@ function syncDataBridgeUi() {
 }
 
 function describeImportFile(legacyLoadJson) {
-  if (!(legacyLoadJson instanceof HTMLInputElement) || !legacyLoadJson.files || !legacyLoadJson.files.length) {
+  if (
+    !(legacyLoadJson instanceof HTMLInputElement) ||
+    !legacyLoadJson.files ||
+    !legacyLoadJson.files.length
+  ) {
     return "No import file selected.";
   }
   return `Selected import: ${legacyLoadJson.files[0].name}`;
