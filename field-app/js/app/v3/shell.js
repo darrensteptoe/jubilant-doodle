@@ -43,11 +43,15 @@ export function renderV3Shell(root) {
           <span class="fpe-build">UI 3.0</span>
         </div>
         <div class="fpe-topbar__actions">
-          <label class="fpe-toggle" title="Show training explanations for each section">
-            <input hidden id="v3ToggleTraining" type="checkbox" />
-            <span class="fpe-toggle__dot"></span>
-            <span>Training</span>
-          </label>
+          <button
+            class="fpe-btn fpe-btn--ghost fpe-btn--training"
+            id="v3BtnTraining"
+            type="button"
+            aria-pressed="false"
+            title="Show training explanations for each section"
+          >
+            Training
+          </button>
           <button class="fpe-btn fpe-btn--ghost" id="v3BtnDiagnostics" type="button">Diagnostics</button>
           <button class="fpe-btn fpe-btn--danger" id="v3BtnReset" type="button">Reset scenario</button>
           <button class="fpe-btn fpe-btn--ghost" id="v3SwitchLegacy" type="button">Legacy shell</button>

@@ -99,8 +99,7 @@ function persistStage(stageId) {
 function wireTopbarBridge() {
   const diagnosticsBtn = document.getElementById("v3BtnDiagnostics");
   const resetBtn = document.getElementById("v3BtnReset");
-  const trainingToggle = document.getElementById("v3ToggleTraining");
-  const trainingToggleWrap = trainingToggle?.closest(".fpe-toggle");
+  const trainingBtn = document.getElementById("v3BtnTraining");
   const legacyBtn = document.getElementById("v3SwitchLegacy");
 
   diagnosticsBtn?.addEventListener("click", () => {
@@ -114,28 +113,10 @@ function wireTopbarBridge() {
   });
   resetBtn?.addEventListener("click", () => clickLegacy("btnResetAll"));
 
-  const onTrainingToggleChange = () => {
-    if (!trainingToggle) {
-      return;
-    }
-    setLegacyTrainingState(trainingToggle.checked);
-    syncTrainingToggle();
-  };
-
   syncTrainingToggle();
-  trainingToggle?.addEventListener("change", onTrainingToggleChange);
-  trainingToggleWrap?.addEventListener("click", (event) => {
-    if (!trainingToggle) {
-      return;
-    }
-
-    if (event.target === trainingToggle) {
-      return;
-    }
-
-    event.preventDefault();
-    trainingToggle.checked = !trainingToggle.checked;
-    onTrainingToggleChange();
+  trainingBtn?.addEventListener("click", () => {
+    setLegacyTrainingState(!readLegacyTrainingState());
+    syncTrainingToggle();
   });
   document.getElementById("toggleTraining")?.addEventListener("change", syncTrainingToggle);
 
@@ -210,12 +191,14 @@ function setLegacyTrainingState(enabled) {
 }
 
 function syncTrainingToggle() {
-  const v3Toggle = document.getElementById("v3ToggleTraining");
-  if (!v3Toggle) {
+  const v3Btn = document.getElementById("v3BtnTraining");
+  if (!(v3Btn instanceof HTMLButtonElement)) {
     return;
   }
 
-  v3Toggle.checked = readLegacyTrainingState();
+  const enabled = readLegacyTrainingState();
+  v3Btn.setAttribute("aria-pressed", enabled ? "true" : "false");
+  v3Btn.classList.toggle("is-active", enabled);
 }
 
 function syncAll() {
