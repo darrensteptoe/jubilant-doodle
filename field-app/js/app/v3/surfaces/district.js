@@ -528,17 +528,42 @@ function normalizeCensusPhase1Card(card) {
 
     const guideBody = document.createElement("div");
     guideBody.className = "fpe-census-election-guide";
-    if (electionTemplateActions instanceof HTMLElement) {
-      electionTemplateActions.classList.add("fpe-action-row");
+    const instructionWindow = createCensusMessageWindow({
+      label: "Instruction flow",
+      tone: "tip"
+    });
+    const instructionList = document.createElement("ul");
+    instructionList.className = "fpe-census-status-list";
+    appendStatusItems(instructionList, electionGuideNote, electionGuideStatus, electionGuideSchema);
+    if (instructionList.children.length) {
+      instructionWindow.body.appendChild(instructionList);
+      guideBody.appendChild(instructionWindow.root);
     }
-    appendIfPresent(
-      guideBody,
-      electionGuideNote,
-      electionGuideStatus,
-      electionGuideTable,
-      electionGuideSchema,
-      electionTemplateActions
-    );
+
+    appendIfPresent(guideBody, electionGuideTable);
+
+    const templateButtons = [];
+    if (electionTemplateActions instanceof HTMLElement) {
+      templateButtons.push(
+        ...Array.from(
+          electionTemplateActions.querySelectorAll(
+            "#btnCensusDownloadElectionCsvTemplate, #btnCensusDownloadElectionCsvWideTemplate"
+          )
+        )
+      );
+    }
+    const templateActionsField = createActionField({
+      labelText: "Template downloads",
+      buttons: templateButtons
+    });
+    if (templateActionsField instanceof HTMLElement) {
+      templateActionsField.classList.add("fpe-census-template-actions");
+      const helper = document.createElement("p");
+      helper.className = "fpe-help";
+      helper.textContent = "Choose one format, complete required columns, then run dry-run parse before import.";
+      templateActionsField.appendChild(helper);
+      guideBody.appendChild(templateActionsField);
+    }
 
     if (summary) {
       electionDetails.replaceChildren(summary, guideBody);
