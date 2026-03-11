@@ -13,7 +13,8 @@ import {
   fetchGeoOptions,
   fetchAcsRows,
   fetchVariableCatalog,
-  validateMetricSetWithCatalog,
+  resolveMetricSetVariables,
+  auditMetricSetsWithCatalog,
   aggregateRowsForSelection,
   buildAggregateTableRows,
   filterGeoOptions,
@@ -2110,13 +2111,18 @@ async function onFetchRows({ s, key, getState, commitUIUpdate }){
       variableNames = await fetchVariableCatalog({ year: s.year, key });
       variableCatalogCache.set(s.year, variableNames);
     }
-    const check = validateMetricSetWithCatalog(s.metricSet, variableNames);
+    const variableResolution = resolveMetricSetVariables(s.metricSet, variableNames);
+    const bundleAudit = auditMetricSetsWithCatalog(variableNames);
+    const summary = bundleAudit?.summary && typeof bundleAudit.summary === "object" ? bundleAudit.summary : null;
+    const auditSummaryText = summary
+      ? ` Catalog audit: ${summary.fullyCompatible}/${summary.total} bundles fully compatible, ${summary.partiallyCompatible} partial, ${summary.incompatible} incompatible.`
+      : "";
     const currentBeforeRows = ensureCensusStateModule(getState());
     if (!currentBeforeRows || !shouldApplyRequestResult({ activeSeq: currentBeforeRows.requestSeq, resultSeq: seq })) return;
     currentBeforeRows.variableCatalogYear = s.year;
     currentBeforeRows.variableCatalogCount = Array.isArray(variableNames) ? variableNames.length : 0;
-    if (!check.ok){
-      setStatus(currentBeforeRows, `Selected bundle has missing ACS variables for year ${s.year}: ${check.missing.join(", ")}`, true);
+    if (!variableResolution.available.length){
+      setStatus(currentBeforeRows, `Selected bundle has no compatible ACS variables for year ${s.year}.${auditSummaryText}`, true);
       setLoadingFlags(currentBeforeRows, "rows", false);
       commitUIUpdate();
       return;
@@ -2127,6 +2133,7 @@ async function onFetchRows({ s, key, getState, commitUIUpdate }){
       stateFips: s.stateFips,
       countyFips: s.countyFips,
       metricSet: s.metricSet,
+      variableNames,
       key,
     });
     const current = ensureCensusStateModule(getState());
@@ -2149,7 +2156,20 @@ async function onFetchRows({ s, key, getState, commitUIUpdate }){
       : current.geoOptions.slice(0, Math.min(current.geoOptions.length, 25)).map((row) => cleanText(row.geoid));
     current.lastFetchAt = new Date().toISOString();
     const currentResolutionLabel = RESOLUTION_LABEL_BY_ID[cleanText(current.resolution)] || cleanText(current.resolution) || "resolution";
-    setStatus(current, `Loaded ${current.loadedRowCount} ACS rows for ${currentResolutionLabel}.`, false);
+    const missing = Array.isArray(variableResolution.missing) ? variableResolution.missing : [];
+    if (missing.length){
+      const preview = missing.slice(0, 8).join(", ");
+      const extra = missing.length > 8 ? ` +${missing.length - 8} more` : "";
+      const coveragePct = Number(variableResolution.coveragePct);
+      const coverageText = Number.isFinite(coveragePct) ? `${(coveragePct * 100).toFixed(0)}%` : "partial";
+      setStatus(
+        current,
+        `Loaded ${current.loadedRowCount} ACS rows for ${currentResolutionLabel}. Bundle fallback active (${coverageText} vars present); missing: ${preview}${extra}.${auditSummaryText}`,
+        false,
+      );
+    } else {
+      setStatus(current, `Loaded ${current.loadedRowCount} ACS rows for ${currentResolutionLabel}.${auditSummaryText}`, false);
+    }
   } catch (err){
     const current = ensureCensusStateModule(getState());
     if (!current || !shouldApplyRequestResult({ activeSeq: current.requestSeq, resultSeq: seq })) return;
