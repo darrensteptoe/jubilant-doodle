@@ -338,6 +338,8 @@ function normalizeCensusPhase1Card(card) {
   const advisoryTable = findClosest(card, "#censusAdvisoryTbody", ".table-wrap");
   const advisoryStatus = card.querySelector("#censusAdvisoryStatus");
   const advisoryGuide = card.querySelector("#censusAdvisoryGuide");
+  const advisoryGuideNote = advisoryGuide?.querySelector(":scope > .muted");
+  const advisoryGuideTable = advisoryGuide?.querySelector("table[aria-label='Advisory signal ranges']")?.closest(".table-wrap");
 
   const selectionSummary = card.querySelector("#censusSelectionSummary");
   const footprintActions = findClosest(card, "#btnCensusSetRaceFootprint", ".rowline");
@@ -496,11 +498,40 @@ function normalizeCensusPhase1Card(card) {
     description: "Review computed signal levels and interpretation guidance for the selected footprint."
   });
   if (advisoryGuide instanceof HTMLDetailsElement) {
-    advisoryGuide.classList.add("fpe-census-instruction-details");
+    advisoryGuide.classList.add("fpe-census-instruction-details", "fpe-census-election-details");
     advisoryGuide.open = false;
     const summary = advisoryGuide.querySelector(":scope > summary");
     if (summary instanceof HTMLElement) {
       summary.textContent = "Instructions";
+    }
+
+    const guideBody = document.createElement("div");
+    guideBody.className = "fpe-census-election-guide";
+
+    const instructionWindow = createCensusMessageWindow({
+      label: "Instruction flow",
+      tone: "tip"
+    });
+    const instructionList = document.createElement("ul");
+    instructionList.className = "fpe-census-status-list";
+    appendStatusTextItems(
+      instructionList,
+      "Use this module to translate selected GEO demographics into practical operating constraints before finalizing plan assumptions.",
+      "Read the signal table first: values near 1.00 are baseline, values below 1.00 indicate lower capacity or tougher conditions, and values above 1.00 indicate stronger conditions.",
+      "Treat APH feasibility as the decision gate: if required APH is above the achievable band, adjust staffing, timeline, or expected vote need before locking assumptions."
+    );
+    appendStatusItems(instructionList, advisoryGuideNote);
+    if (instructionList.children.length) {
+      instructionWindow.body.appendChild(instructionList);
+      guideBody.appendChild(instructionWindow.root);
+    }
+
+    appendIfPresent(guideBody, advisoryGuideTable);
+
+    if (summary) {
+      advisoryGuide.replaceChildren(summary, guideBody);
+    } else {
+      advisoryGuide.replaceChildren(guideBody);
     }
   }
   appendIfPresent(advisorySection.body, advisoryGuide, advisoryTable);
@@ -716,6 +747,23 @@ function appendStatusItems(list, ...nodes) {
     const item = document.createElement("li");
     item.className = "fpe-census-status-item";
     item.appendChild(node);
+    list.appendChild(item);
+  });
+}
+
+function appendStatusTextItems(list, ...texts) {
+  if (!(list instanceof HTMLElement)) {
+    return;
+  }
+
+  texts.forEach((text) => {
+    const value = String(text || "").trim();
+    if (!value) {
+      return;
+    }
+    const item = document.createElement("li");
+    item.className = "fpe-census-status-item";
+    item.textContent = value;
     list.appendChild(item);
   });
 }
