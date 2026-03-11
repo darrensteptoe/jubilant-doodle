@@ -35,6 +35,8 @@
   --fpe-small: 12px;
   --fpe-field-text: 12px;
   --fpe-kpi: 24px;
+  --fpe-stack-gap: var(--fpe-space-3);
+  --fpe-field-gap: var(--fpe-space-2);
 }
 
 #app-shell-v3-root {
@@ -426,7 +428,7 @@
 .fpe-field-grid {
   display: grid;
   gap: 14px;
-  margin: 0 0 14px;
+  margin: 0;
 }
 
 .fpe-field-grid .field {
@@ -524,12 +526,16 @@
   line-height: 1.45;
 }
 
+.fpe-help--flush {
+  margin-top: 0;
+}
+
 .fpe-action-row {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: 8px;
-  margin-bottom: 10px;
+  margin-bottom: 0;
 }
 
 #app-shell-v3-root .fpe-card__body .field > .fpe-action-row {
@@ -540,7 +546,7 @@
   display: flex;
   flex-direction: column;
   gap: 10px;
-  margin-bottom: 10px;
+  margin-bottom: 0;
 }
 
 .fpe-action-group > .fpe-action-row {
@@ -727,7 +733,7 @@ body.training #app-shell-v3-root .fpe-surface .help {
   font-size: 12px;
   line-height: 1.45;
   padding: 8px 10px;
-  margin-bottom: 10px;
+  margin-bottom: 0;
 }
 
 .fpe-alert--warn {
@@ -751,18 +757,17 @@ body.training #app-shell-v3-root .fpe-surface .help {
   grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 
-#app-shell-v3-root .fpe-card__body .table-wrap + .fpe-field-grid,
-#app-shell-v3-root .fpe-card__body .table-wrap + .field,
-#app-shell-v3-root .fpe-card__body .table-wrap + .note,
-#app-shell-v3-root .fpe-card__body .table-wrap + .muted,
-#app-shell-v3-root .fpe-card__body .table-wrap + .help-text,
-#app-shell-v3-root .fpe-card__body .table-wrap + .fpe-contained-block {
-  margin-top: 14px;
+#app-shell-v3-root .fpe-surface-pane .fpe-card__body > * {
+  margin-top: 0 !important;
+  margin-bottom: 0 !important;
 }
 
-#app-shell-v3-root .fpe-card__body .fpe-field-grid + .table-wrap,
-#app-shell-v3-root .fpe-card__body .field + .table-wrap {
-  margin-top: 8px;
+#app-shell-v3-root .fpe-surface-pane .fpe-card__body > * + * {
+  margin-top: var(--fpe-stack-gap) !important;
+}
+
+#app-shell-v3-root .fpe-surface-pane .fpe-card__body .field > * + * {
+  margin-top: var(--fpe-field-gap) !important;
 }
 
 #app-shell-v3-root .fpe-surface .table-wrap {
