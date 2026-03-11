@@ -985,6 +985,34 @@ body.training #app-shell-v3-root .fpe-surface .help {
   font-weight: inherit !important;
 }
 
+.fpe-surface-pane[data-v3-stage="district"] .fpe-census-instruction-list {
+  margin: 0;
+  padding-left: 18px;
+}
+
+.fpe-surface-pane[data-v3-stage="district"] .fpe-census-instruction-list > .fpe-census-instruction-item {
+  margin: 0;
+  color: var(--fpe-muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.fpe-surface-pane[data-v3-stage="district"] .fpe-census-instruction-list > .fpe-census-instruction-item + .fpe-census-instruction-item {
+  margin-top: 8px;
+}
+
+.fpe-surface-pane[data-v3-stage="district"] .fpe-census-instruction-list > .fpe-census-instruction-item > * {
+  margin: 0;
+  border: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  padding: 0 !important;
+  color: inherit !important;
+  font-size: inherit !important;
+  line-height: inherit !important;
+  font-weight: inherit !important;
+}
+
 .fpe-surface-pane[data-v3-stage="district"] .fpe-census-subsection--setup .fpe-field-grid,
 .fpe-surface-pane[data-v3-stage="district"] .fpe-census-subsection--output .fpe-field-grid {
   margin-bottom: 10px;
@@ -1104,6 +1132,20 @@ body.training #app-shell-v3-root .fpe-surface .help {
 
 .fpe-surface-pane[data-v3-stage="district"] .fpe-census-election-guide > * + * {
   margin-top: 10px;
+}
+
+.fpe-surface-pane[data-v3-stage="district"] .fpe-census-template-actions {
+  margin-top: 2px;
+}
+
+.fpe-surface-pane[data-v3-stage="district"] .fpe-census-template-actions .fpe-action-row {
+  justify-content: flex-start;
+  flex-wrap: wrap;
+  margin-bottom: 6px;
+}
+
+.fpe-surface-pane[data-v3-stage="district"] .fpe-census-template-actions .fpe-help {
+  margin: 0;
 }
 
 .fpe-card__body > .card,
