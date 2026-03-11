@@ -18,7 +18,7 @@
   --fpe-topbar-glaze-start: color-mix(in srgb, var(--fpe-panel) 40%, transparent);
   --fpe-topbar-glaze-end: color-mix(in srgb, #ffffff 94%, var(--fpe-panel));
   --fpe-topbar-photo: url("./assets/AdobeStock_271073143.jpeg");
-  --fpe-topbar-photo-opacity: 0.32;
+  --fpe-topbar-photo-opacity: 0.72;
   --fpe-topbar-base: linear-gradient(
     90deg,
     var(--fpe-topbar-tone-a) 0%,
@@ -61,7 +61,7 @@ body.dark #app-shell-v3-root {
   --fpe-topbar-tone-b: color-mix(in srgb, #2f3743 66%, #101827);
   --fpe-topbar-glaze-start: color-mix(in srgb, #0b1220 52%, transparent);
   --fpe-topbar-glaze-end: color-mix(in srgb, #0b1220 86%, #101827);
-  --fpe-topbar-photo-opacity: 0.26;
+  --fpe-topbar-photo-opacity: 0.64;
   --fpe-topbar-base: linear-gradient(
     90deg,
     var(--fpe-topbar-tone-a) 0%,
@@ -79,7 +79,7 @@ body.dark #app-shell-v3-root {
     --fpe-topbar-tone-b: color-mix(in srgb, #2f3743 66%, #101827);
     --fpe-topbar-glaze-start: color-mix(in srgb, #0b1220 52%, transparent);
     --fpe-topbar-glaze-end: color-mix(in srgb, #0b1220 86%, #101827);
-    --fpe-topbar-photo-opacity: 0.26;
+    --fpe-topbar-photo-opacity: 0.64;
     --fpe-topbar-base: linear-gradient(
       90deg,
       var(--fpe-topbar-tone-a) 0%,
@@ -129,22 +129,23 @@ body.dark #app-shell-v3-root {
   content: "";
   position: absolute;
   top: 0;
-  right: 0;
   bottom: 0;
-  width: min(46%, 560px);
+  left: 0;
+  right: 0;
   background-image:
     linear-gradient(
-      270deg,
-      var(--fpe-topbar-glaze-start) 0%,
-      var(--fpe-topbar-glaze-end) 72%,
-      transparent 100%
+      90deg,
+      transparent 0%,
+      transparent 58%,
+      color-mix(in srgb, var(--fpe-panel) 55%, transparent) 68%,
+      var(--fpe-panel) 76%,
+      var(--fpe-panel) 100%
     ),
-    var(--fpe-topbar-photo),
-    var(--fpe-topbar-base);
-  background-size: 100% 100%, cover, 100% 100%;
-  background-position: center, center, center;
-  background-repeat: no-repeat, no-repeat, no-repeat;
-  background-blend-mode: normal, luminosity, normal;
+    var(--fpe-topbar-photo);
+  background-size: 100% 100%, cover;
+  background-position: center, left center;
+  background-repeat: no-repeat, no-repeat;
+  background-blend-mode: normal, normal;
   opacity: var(--fpe-topbar-photo-opacity);
   pointer-events: none;
 }
