@@ -225,7 +225,7 @@ body.dark #app-shell-v3-root {
 }
 
 .fpe-btn--training.is-active {
-  color: #ffffff;
+  color: var(--fpe-text);
   border-color: color-mix(in srgb, var(--fpe-accent) 64%, #ffffff 18%);
   background: color-mix(in srgb, var(--fpe-accent) 34%, transparent);
   box-shadow:
@@ -1355,6 +1355,77 @@ body.training #app-shell-v3-root .fpe-surface .help {
   margin: 0;
 }
 
+.fpe-surface-pane[data-v3-stage="scenarios"] .scm {
+  display: flex;
+  flex-direction: column;
+  gap: var(--fpe-space-3);
+}
+
+.fpe-surface-pane[data-v3-stage="scenarios"] .scm .scm-active {
+  margin: 0;
+}
+
+.fpe-surface-pane[data-v3-stage="scenarios"] .scm .scm-active .note,
+.fpe-surface-pane[data-v3-stage="scenarios"] .scm .scm-field .label,
+.fpe-surface-pane[data-v3-stage="scenarios"] .scm .scm-compare .note,
+.fpe-surface-pane[data-v3-stage="scenarios"] .scm .scm-compare .muted {
+  color: var(--fpe-muted);
+}
+
+.fpe-surface-pane[data-v3-stage="scenarios"] .scm .scm-row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--fpe-space-3);
+}
+
+.fpe-surface-pane[data-v3-stage="scenarios"] .scm .scm-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--fpe-space-2);
+}
+
+.fpe-surface-pane[data-v3-stage="scenarios"] .scm .sc-divider {
+  margin: 0;
+  border-top: 1px solid var(--fpe-rule);
+}
+
+.fpe-surface-pane[data-v3-stage="scenarios"] .scm-compare {
+  margin-top: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--fpe-space-3);
+}
+
+.fpe-surface-pane[data-v3-stage="scenarios"] .scm-compare-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr);
+  gap: var(--fpe-space-3);
+  margin-top: 0;
+}
+
+.fpe-surface-pane[data-v3-stage="scenarios"] .diff-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.fpe-surface-pane[data-v3-stage="scenarios"] .diff-item {
+  border: 1px solid var(--fpe-rule);
+  border-radius: var(--fpe-radius-sm);
+  background: var(--fpe-panel-muted);
+}
+
+.fpe-surface-pane[data-v3-stage="decision-log"] .scm-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--fpe-space-3);
+}
+
+.fpe-surface-pane[data-v3-stage="decision-log"] .scm-row .note,
+.fpe-surface-pane[data-v3-stage="decision-log"] .scm-row .muted {
+  color: var(--fpe-muted);
+}
+
 .fpe-card__body > .card,
 .fpe-card__body > .stage-body-new {
   margin: 0;
@@ -1510,6 +1581,18 @@ body.training #app-shell-v3-root .fpe-surface .help {
   fill: color-mix(in srgb, var(--fpe-accent) 10%, transparent);
 }
 
+.fpe-right-rail-slot .results-sidebar-new .validation li.ok {
+  border-color: color-mix(in srgb, var(--fpe-accent) 22%, var(--fpe-rule));
+  background: color-mix(in srgb, var(--fpe-accent) 7%, var(--fpe-panel));
+  color: color-mix(in srgb, var(--fpe-accent) 82%, var(--fpe-text));
+}
+
+.fpe-right-rail-slot .results-sidebar-new .validation li.warn {
+  border-color: color-mix(in srgb, var(--fpe-warning) 32%, var(--fpe-rule));
+  background: color-mix(in srgb, var(--fpe-warning) 10%, var(--fpe-panel));
+  color: var(--fpe-warning);
+}
+
 .fpe-right-rail-slot .results-sidebar-new .mc-meta-new,
 .fpe-right-rail-slot .results-sidebar-new .prob-range-new {
   color: color-mix(in srgb, var(--fpe-muted) 72%, transparent);
@@ -1652,6 +1735,11 @@ body.training #app-shell-v3-root .fpe-surface .help {
   .fpe-surface-pane[data-v3-stage="scenarios"] .fpe-card__body .grid2 {
     grid-template-columns: 1fr;
     min-width: 0;
+  }
+
+  .fpe-surface-pane[data-v3-stage="scenarios"] .scm .scm-row,
+  .fpe-surface-pane[data-v3-stage="scenarios"] .scm-compare-grid {
+    grid-template-columns: 1fr;
   }
 
   .fpe-surface-pane[data-v3-stage="controls"] .fpe-card__body .fpe-field-grid--2,
