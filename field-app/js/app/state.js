@@ -11,6 +11,7 @@ import {
   normalizeFootprintCapacity,
 } from "../core/censusModule.js";
 import { makeDefaultFeatureFlags, syncFeatureFlagsFromState } from "./featureFlags.js";
+import { makeDefaultTargetingState, normalizeTargetingState } from "./targetingRuntime.js";
 
 export const DEFAULTS_BY_TEMPLATE = {
   federal: { bandWidth: 4, persuasionPct: 28, earlyVoteExp: 45 },
@@ -142,6 +143,7 @@ export function makeDefaultState({ createId = defaultCreateId } = {}){
     mcLast: null,
     mcLastHash: "",
     census: makeDefaultCensusState(),
+    targeting: makeDefaultTargetingState(),
     raceFootprint: makeDefaultRaceFootprint(),
     assumptionsProvenance: makeDefaultAssumptionProvenance(),
     footprintCapacity: makeDefaultFootprintCapacity(),
@@ -201,6 +203,7 @@ export function normalizeLoadedState(s, { createId = defaultCreateId } = {}){
   out.userSplit = (s?.userSplit && typeof s.userSplit === "object") ? s.userSplit : {};
   out.intelState = normalizeIntelState(s?.intelState);
   out.census = normalizeCensusState(s?.census, { resetRuntime: true });
+  out.targeting = normalizeTargetingState(s?.targeting);
   out.raceFootprint = normalizeRaceFootprint(s?.raceFootprint);
   out.assumptionsProvenance = normalizeAssumptionProvenance(s?.assumptionsProvenance);
   out.footprintCapacity = normalizeFootprintCapacity(s?.footprintCapacity);

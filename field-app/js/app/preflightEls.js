@@ -52,6 +52,17 @@ export function preflightElsModule(ctx){
       "btnCensusClearRaceFootprint",
       "censusApplyAdjustmentsToggle",
       "censusApplyAdjustmentsStatus",
+      "targetingGeoLevel",
+      "targetingModelId",
+      "targetingWeightVotePotential",
+      "targetingWeightTurnoutOpportunity",
+      "targetingWeightPersuasionIndex",
+      "targetingWeightFieldEfficiency",
+      "btnTargetingResetWeights",
+      "btnRunTargeting",
+      "targetingStatus",
+      "targetingMeta",
+      "targetingResultsTbody",
     ];
     const missing = required.filter((k) => els[k] == null);
     if (missing.length) recordError("dom-preflight", `Missing required element(s): ${missing.join(", ")}`);

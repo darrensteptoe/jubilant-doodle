@@ -7,6 +7,7 @@ import {
   makeDefaultFootprintCapacity,
 } from "../core/censusModule.js";
 import { makeDefaultFeatureFlags } from "./featureFlags.js";
+import { makeDefaultTargetingState } from "./targetingRuntime.js";
 
 /** @param {import("./types").DefaultStateCtx} ctx */
 export function makeDefaultStateModule(ctx){
@@ -126,6 +127,7 @@ export function makeDefaultStateModule(ctx){
     mcLast: null,
     mcLastHash: "",
     census: makeDefaultCensusState(),
+    targeting: makeDefaultTargetingState(),
     raceFootprint: makeDefaultRaceFootprint(),
     assumptionsProvenance: makeDefaultAssumptionProvenance(),
     footprintCapacity: makeDefaultFootprintCapacity(),

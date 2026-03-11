@@ -48,6 +48,16 @@ import {
   resolutionNeedsCounty,
   resolutionSupportsBoundaryOverlay,
 } from "../core/censusModule.js";
+import {
+  buildTargetRankingCsv,
+  buildTargetRankingPayload,
+  computeTargetingContextKey,
+  listTargetGeoLevels,
+  listTargetModelOptions,
+  makeDefaultTargetingState,
+  normalizeTargetingState,
+  runTargetRanking,
+} from "./targetingRuntime.js";
 
 const variableCatalogCache = new Map();
 let stateOptionsCache = null;
@@ -231,6 +241,12 @@ export function ensureCensusStateModule(state){
   if (!state || typeof state !== "object") return null;
   state.census = normalizeCensusState(state.census);
   return state.census;
+}
+
+function ensureTargetingState(state){
+  if (!state || typeof state !== "object") return makeDefaultTargetingState();
+  state.targeting = normalizeTargetingState(state.targeting);
+  return state.targeting;
 }
 
 function fillSelect(el, rows, value, placeholderLabel){
@@ -1429,6 +1445,18 @@ export function renderCensusPhase1Module({ els, state, res } = {}){
             label: "Vehicle availability / no-vehicle HH",
             value: `${fPct(advisory.indices.vehicleAvailability)} / ${fPct(advisory.indices.noVehicleShare)}`,
           },
+          {
+            label: "Long / super commute share",
+            value: `${fPct(advisory.indices.longCommuteShare)} / ${fPct(advisory.indices.superCommuteShare)}`,
+          },
+          {
+            label: "No-internet share",
+            value: fPct(advisory.indices.noInternetShare),
+          },
+          {
+            label: "Poverty share",
+            value: fPct(advisory.indices.povertyShare),
+          },
           { label: "Walkability factor", value: `${fIdx(advisory.indices.walkability)}x` },
           { label: "Contact probability modifier", value: `${fIdx(advisory.multipliers.contactRate)}x` },
           { label: "Estimated doors/hour factor", value: `${fIdx(advisory.indices.estimatedDoorsPerHourFactor)}x` },
@@ -1475,6 +1503,216 @@ export function renderCensusPhase1Module({ els, state, res } = {}){
         const tr = document.createElement("tr");
         tr.innerHTML = `<td>${row.label}</td><td class="num">${row.value}</td>`;
         els.censusAdvisoryTbody.appendChild(tr);
+      }
+    }
+  }
+
+  const targeting = ensureTargetingState(state);
+  const targetingRows = Array.isArray(targeting?.lastRows) ? targeting.lastRows : [];
+  const targetingMeta = targeting?.lastMeta && typeof targeting.lastMeta === "object" ? targeting.lastMeta : null;
+  const targetingRowsLoaded = rowsCount(runtimeRows) > 0;
+  const sampleRow = Object.values(runtimeRows || {})[0];
+  const sampleValues = sampleRow && typeof sampleRow === "object" ? sampleRow.values : null;
+  const targetingSignalChecks = [
+    { id: "B01001_001E", label: "age mix" },
+    { id: "B15003_001E", label: "education" },
+    { id: "B08201_001E", label: "vehicle availability" },
+    { id: "B25024_001E", label: "housing structure" },
+    { id: "B05001_001E", label: "citizenship" },
+    { id: "B08303_001E", label: "commute profile" },
+    { id: "B17001_001E", label: "poverty status" },
+    { id: "B28002_001E", label: "internet access" },
+  ];
+  const targetingMissingSignals = targetingRowsLoaded
+    ? targetingSignalChecks
+      .filter((item) => !Number.isFinite(Number(sampleValues?.[item.id])))
+      .map((item) => item.label)
+    : [];
+  const targetingContextKey = computeTargetingContextKey({ state, censusState: s, config: targeting });
+  const targetingStale = !!targetingRows.length
+    && !!cleanText(targetingMeta?.contextKey)
+    && cleanText(targetingMeta?.contextKey) !== cleanText(targetingContextKey);
+  const targetModelOptions = listTargetModelOptions();
+  const targetModelLabelById = new Map(targetModelOptions.map((row) => [cleanText(row.id), cleanText(row.label)]));
+  const activeModelLabel = targetModelLabelById.get(cleanText(targeting.modelId)) || cleanText(targeting.modelId) || "Target model";
+
+  fillSelect(
+    els.targetingGeoLevel,
+    listTargetGeoLevels().map((row) => ({ value: row.id, label: row.label })),
+    targeting.geoLevel,
+    "Select geography level",
+  );
+  fillSelect(
+    els.targetingModelId,
+    targetModelOptions.map((row) => ({ value: row.id, label: row.label })),
+    targeting.modelId,
+    "Select target model",
+  );
+  if (els.targetingTopN && document.activeElement !== els.targetingTopN){
+    els.targetingTopN.value = String(targeting.topN ?? "");
+  }
+  if (els.targetingMinHousingUnits && document.activeElement !== els.targetingMinHousingUnits){
+    els.targetingMinHousingUnits.value = String(targeting.minHousingUnits ?? "");
+  }
+  if (els.targetingMinPopulation && document.activeElement !== els.targetingMinPopulation){
+    els.targetingMinPopulation.value = String(targeting.minPopulation ?? "");
+  }
+  if (els.targetingMinScore && document.activeElement !== els.targetingMinScore){
+    els.targetingMinScore.value = String(targeting.minScore ?? "");
+  }
+  if (els.targetingOnlyRaceFootprint){
+    els.targetingOnlyRaceFootprint.checked = !!targeting.onlyRaceFootprint;
+  }
+  if (els.targetingPrioritizeYoung){
+    els.targetingPrioritizeYoung.checked = !!targeting.criteria?.prioritizeYoung;
+  }
+  if (els.targetingPrioritizeRenters){
+    els.targetingPrioritizeRenters.checked = !!targeting.criteria?.prioritizeRenters;
+  }
+  if (els.targetingAvoidHighMultiUnit){
+    els.targetingAvoidHighMultiUnit.checked = !!targeting.criteria?.avoidHighMultiUnit;
+  }
+  if (els.targetingDensityFloor){
+    const floor = cleanText(targeting.criteria?.densityFloor) || "none";
+    els.targetingDensityFloor.value = ["none", "medium", "high"].includes(floor) ? floor : "none";
+  }
+  const houseModelActive = cleanText(targeting.modelId) === "house_v1";
+  if (els.targetingWeightVotePotential && document.activeElement !== els.targetingWeightVotePotential){
+    const value = Number(targeting.weights?.votePotential);
+    els.targetingWeightVotePotential.value = Number.isFinite(value) ? value.toFixed(2) : "0.35";
+  }
+  if (els.targetingWeightTurnoutOpportunity && document.activeElement !== els.targetingWeightTurnoutOpportunity){
+    const value = Number(targeting.weights?.turnoutOpportunity);
+    els.targetingWeightTurnoutOpportunity.value = Number.isFinite(value) ? value.toFixed(2) : "0.25";
+  }
+  if (els.targetingWeightPersuasionIndex && document.activeElement !== els.targetingWeightPersuasionIndex){
+    const value = Number(targeting.weights?.persuasionIndex);
+    els.targetingWeightPersuasionIndex.value = Number.isFinite(value) ? value.toFixed(2) : "0.20";
+  }
+  if (els.targetingWeightFieldEfficiency && document.activeElement !== els.targetingWeightFieldEfficiency){
+    const value = Number(targeting.weights?.fieldEfficiency);
+    els.targetingWeightFieldEfficiency.value = Number.isFinite(value) ? value.toFixed(2) : "0.20";
+  }
+  if (els.targetingWeightVotePotential){
+    els.targetingWeightVotePotential.disabled = !houseModelActive;
+  }
+  if (els.targetingWeightTurnoutOpportunity){
+    els.targetingWeightTurnoutOpportunity.disabled = !houseModelActive;
+  }
+  if (els.targetingWeightPersuasionIndex){
+    els.targetingWeightPersuasionIndex.disabled = !houseModelActive;
+  }
+  if (els.targetingWeightFieldEfficiency){
+    els.targetingWeightFieldEfficiency.disabled = !houseModelActive;
+  }
+  if (els.btnTargetingResetWeights){
+    els.btnTargetingResetWeights.disabled = !houseModelActive;
+  }
+  if (els.btnRunTargeting){
+    els.btnRunTargeting.disabled = !targetingRowsLoaded;
+  }
+  if (els.btnExportTargetingCsv){
+    els.btnExportTargetingCsv.disabled = !targetingRows.length;
+  }
+  if (els.btnExportTargetingJson){
+    els.btnExportTargetingJson.disabled = !targetingRows.length;
+  }
+  if (els.targetingStatus){
+    els.targetingStatus.classList.remove("ok", "warn", "bad", "muted");
+    if (!targetingRowsLoaded){
+      els.targetingStatus.classList.add("muted");
+      els.targetingStatus.textContent = "Load ACS rows, then run targeting.";
+    } else if (!targetingRows.length){
+      els.targetingStatus.classList.add("muted");
+      els.targetingStatus.textContent = "Targeting not run yet.";
+    } else if (targetingMissingSignals.length){
+      els.targetingStatus.classList.add("warn");
+      els.targetingStatus.textContent = `Targeting ran with fallback signals (missing: ${targetingMissingSignals.join(", ")}). Use Turnout potential or Field efficiency bundle for full scoring.`;
+    } else if (targetingStale){
+      els.targetingStatus.classList.add("warn");
+      els.targetingStatus.textContent = "Targeting settings or selection changed. Re-run targeting to refresh rankings.";
+    } else {
+      const topCount = targetingRows.filter((row) => !!row?.isTopTarget).length;
+      els.targetingStatus.classList.add("ok");
+      els.targetingStatus.textContent = `Targeting ready. ${topCount} top targets flagged under ${activeModelLabel}.`;
+    }
+  }
+  if (els.targetingMeta){
+    if (!targetingRows.length || !targetingMeta){
+      els.targetingMeta.textContent = `Model: ${activeModelLabel}.`;
+    } else {
+      const level = cleanText(targetingMeta.geoLevel) || cleanText(targeting.geoLevel) || "block_group";
+      const levelLabel = level === "tract" ? "Tract" : "Block group";
+      const ranText = cleanText(targetingMeta.ranAt)
+        ? fmtTs(targetingMeta.ranAt).replace("Last fetch: ", "")
+        : "not recorded";
+      const totalRows = Number.isFinite(Number(targetingMeta.totalRows))
+        ? Math.max(0, Math.floor(Number(targetingMeta.totalRows)))
+        : targetingRows.length;
+      const topN = Number.isFinite(Number(targetingMeta.topN))
+        ? Math.max(1, Math.floor(Number(targetingMeta.topN)))
+        : Math.max(1, Math.floor(Number(targeting.topN || 25)));
+      const weightNote = houseModelActive
+        ? ` House weights: VP ${Number(targeting.weights?.votePotential || 0).toFixed(2)} · TO ${Number(targeting.weights?.turnoutOpportunity || 0).toFixed(2)} · PI ${Number(targeting.weights?.persuasionIndex || 0).toFixed(2)} · FE ${Number(targeting.weights?.fieldEfficiency || 0).toFixed(2)}.`
+        : "";
+      els.targetingMeta.textContent = `${levelLabel} ranking · ${totalRows.toLocaleString("en-US")} rows · Top ${topN.toLocaleString("en-US")} flagged · Last run ${ranText}.${weightNote}`;
+    }
+  }
+  if (
+    els.targetingResultsTbody &&
+    typeof els.targetingResultsTbody.appendChild === "function" &&
+    "innerHTML" in els.targetingResultsTbody &&
+    typeof document !== "undefined" &&
+    typeof document.createElement === "function"
+  ){
+    els.targetingResultsTbody.innerHTML = "";
+    if (!targetingRowsLoaded){
+      const tr = document.createElement("tr");
+      tr.innerHTML = '<td class="muted" colspan="6">Load ACS rows to enable targeting.</td>';
+      els.targetingResultsTbody.appendChild(tr);
+    } else if (!targetingRows.length){
+      const tr = document.createElement("tr");
+      tr.innerHTML = '<td class="muted" colspan="6">No ranked GEOs yet. Run targeting to generate results.</td>';
+      els.targetingResultsTbody.appendChild(tr);
+    } else {
+      const cap = Math.max(25, Math.min(300, Math.floor(Number(targeting.topN || 25) * 4)));
+      const displayRows = targetingRows.slice(0, cap);
+      const formatNum = (value, digits = 1) => {
+        const n = Number(value);
+        return Number.isFinite(n) ? n.toFixed(digits) : "—";
+      };
+      for (const row of displayRows){
+        const tr = document.createElement("tr");
+        const rankTd = document.createElement("td");
+        rankTd.textContent = row.isTopTarget ? `${row.rank}*` : String(row.rank || "—");
+        const geoTd = document.createElement("td");
+        const geoid = cleanText(row.geoid);
+        const label = cleanText(row.label);
+        const memberCount = Number.isFinite(Number(row.memberCount)) ? Math.max(1, Math.floor(Number(row.memberCount))) : 1;
+        geoTd.textContent = memberCount > 1
+          ? `${label || geoid} (${memberCount} block groups)`
+          : (label || geoid || "—");
+        const scoreTd = document.createElement("td");
+        scoreTd.className = "num";
+        scoreTd.textContent = formatNum(row.score, 1);
+        const votesTd = document.createElement("td");
+        votesTd.className = "num";
+        votesTd.textContent = formatNum(row.votesPerOrganizerHour, 2);
+        const reasonTd = document.createElement("td");
+        const targetLabel = cleanText(row.targetLabel);
+        const reasons = Array.isArray(row.reasons) ? row.reasons.map((x) => cleanText(x)).filter((x) => !!x) : [];
+        const reasonText = reasons.length ? reasons.join(" • ") : (cleanText(row.reasonText) || "—");
+        reasonTd.textContent = targetLabel ? `${targetLabel}: ${reasonText}` : reasonText;
+        const flagsTd = document.createElement("td");
+        const flags = Array.isArray(row.flags) ? row.flags.map((x) => cleanText(x)).filter((x) => !!x) : [];
+        flagsTd.textContent = flags.length ? flags.join(" • ") : (cleanText(row.flagText) || "—");
+        tr.append(rankTd, geoTd, scoreTd, votesTd, reasonTd, flagsTd);
+        els.targetingResultsTbody.appendChild(tr);
+      }
+      if (targetingRows.length > displayRows.length){
+        const tr = document.createElement("tr");
+        tr.innerHTML = `<td class="muted" colspan="6">Showing first ${displayRows.length.toLocaleString("en-US")} of ${targetingRows.length.toLocaleString("en-US")} ranked rows. Export for full list.</td>`;
+        els.targetingResultsTbody.appendChild(tr);
       }
     }
   }
@@ -1935,6 +2173,12 @@ export function wireCensusPhase1EventsModule(ctx){
     const s = ensureCensusStateModule(state);
     if (!s) return;
     fn(state, s);
+  };
+  const withTargeting = (fn) => {
+    withState((state, s) => {
+      const targeting = ensureTargetingState(state);
+      fn(state, s, targeting);
+    });
   };
 
   if (els.censusApiKey){
@@ -2621,6 +2865,283 @@ export function wireCensusPhase1EventsModule(ctx){
         };
         const ok = downloadTextFile(JSON.stringify(payload, null, 2), `${exportBaseName(s)}.json`, "application/json");
         setStatus(s, ok ? "Aggregate JSON exported." : "JSON export failed.", !ok);
+      });
+      commitUIUpdate({ persist: false });
+    });
+  }
+
+  if (els.targetingGeoLevel){
+    els.targetingGeoLevel.addEventListener("change", () => {
+      withTargeting((_, s, targeting) => {
+        targeting.geoLevel = cleanText(els.targetingGeoLevel.value) || targeting.geoLevel;
+        setStatus(s, "Targeting geography level updated. Re-run targeting to refresh rankings.", false);
+      });
+      commitUIUpdate({ persist: false });
+    });
+  }
+
+  if (els.targetingModelId){
+    els.targetingModelId.addEventListener("change", () => {
+      withTargeting((_, s, targeting) => {
+        targeting.modelId = cleanText(els.targetingModelId.value) || targeting.modelId;
+        setStatus(s, "Target model updated. Re-run targeting to refresh rankings.", false);
+      });
+      commitUIUpdate({ persist: false });
+    });
+  }
+
+  if (els.targetingTopN){
+    els.targetingTopN.addEventListener("input", () => {
+      withTargeting((_, __, targeting) => {
+        const n = Number(els.targetingTopN.value);
+        if (Number.isFinite(n)){
+          targeting.topN = Math.max(1, Math.min(500, Math.floor(n)));
+        }
+      });
+      commitUIUpdate({ persist: false });
+    });
+  }
+
+  if (els.targetingMinHousingUnits){
+    els.targetingMinHousingUnits.addEventListener("input", () => {
+      withTargeting((_, __, targeting) => {
+        const n = Number(els.targetingMinHousingUnits.value);
+        if (Number.isFinite(n)){
+          targeting.minHousingUnits = Math.max(0, Math.floor(n));
+        }
+      });
+      commitUIUpdate({ persist: false });
+    });
+  }
+
+  if (els.targetingMinPopulation){
+    els.targetingMinPopulation.addEventListener("input", () => {
+      withTargeting((_, __, targeting) => {
+        const n = Number(els.targetingMinPopulation.value);
+        if (Number.isFinite(n)){
+          targeting.minPopulation = Math.max(0, Math.floor(n));
+        }
+      });
+      commitUIUpdate({ persist: false });
+    });
+  }
+
+  if (els.targetingMinScore){
+    els.targetingMinScore.addEventListener("input", () => {
+      withTargeting((_, __, targeting) => {
+        const n = Number(els.targetingMinScore.value);
+        if (Number.isFinite(n)){
+          targeting.minScore = Math.max(0, n);
+        }
+      });
+      commitUIUpdate({ persist: false });
+    });
+  }
+
+  if (els.targetingOnlyRaceFootprint){
+    els.targetingOnlyRaceFootprint.addEventListener("change", () => {
+      withTargeting((_, s, targeting) => {
+        targeting.onlyRaceFootprint = !!els.targetingOnlyRaceFootprint.checked;
+        setStatus(s, "Targeting footprint filter updated. Re-run targeting to refresh rankings.", false);
+      });
+      commitUIUpdate({ persist: false });
+    });
+  }
+
+  if (els.targetingPrioritizeYoung){
+    els.targetingPrioritizeYoung.addEventListener("change", () => {
+      withTargeting((_, s, targeting) => {
+        targeting.criteria = targeting.criteria || {};
+        targeting.criteria.prioritizeYoung = !!els.targetingPrioritizeYoung.checked;
+        setStatus(s, "Targeting age-priority rule updated. Re-run targeting to refresh rankings.", false);
+      });
+      commitUIUpdate({ persist: false });
+    });
+  }
+
+  if (els.targetingPrioritizeRenters){
+    els.targetingPrioritizeRenters.addEventListener("change", () => {
+      withTargeting((_, s, targeting) => {
+        targeting.criteria = targeting.criteria || {};
+        targeting.criteria.prioritizeRenters = !!els.targetingPrioritizeRenters.checked;
+        setStatus(s, "Targeting renter-priority rule updated. Re-run targeting to refresh rankings.", false);
+      });
+      commitUIUpdate({ persist: false });
+    });
+  }
+
+  if (els.targetingAvoidHighMultiUnit){
+    els.targetingAvoidHighMultiUnit.addEventListener("change", () => {
+      withTargeting((_, s, targeting) => {
+        targeting.criteria = targeting.criteria || {};
+        targeting.criteria.avoidHighMultiUnit = !!els.targetingAvoidHighMultiUnit.checked;
+        setStatus(s, "Targeting multi-unit filter updated. Re-run targeting to refresh rankings.", false);
+      });
+      commitUIUpdate({ persist: false });
+    });
+  }
+
+  if (els.targetingDensityFloor){
+    els.targetingDensityFloor.addEventListener("change", () => {
+      withTargeting((_, s, targeting) => {
+        targeting.criteria = targeting.criteria || {};
+        const floor = cleanText(els.targetingDensityFloor.value);
+        targeting.criteria.densityFloor = ["none", "medium", "high"].includes(floor) ? floor : "none";
+        setStatus(s, "Targeting density floor updated. Re-run targeting to refresh rankings.", false);
+      });
+      commitUIUpdate({ persist: false });
+    });
+  }
+
+  if (els.targetingWeightVotePotential){
+    els.targetingWeightVotePotential.addEventListener("input", () => {
+      withTargeting((_, __, targeting) => {
+        targeting.weights = targeting.weights || {};
+        const n = Number(els.targetingWeightVotePotential.value);
+        if (Number.isFinite(n)){
+          targeting.weights.votePotential = Math.max(0, n);
+        }
+      });
+      commitUIUpdate({ persist: false });
+    });
+  }
+
+  if (els.targetingWeightTurnoutOpportunity){
+    els.targetingWeightTurnoutOpportunity.addEventListener("input", () => {
+      withTargeting((_, __, targeting) => {
+        targeting.weights = targeting.weights || {};
+        const n = Number(els.targetingWeightTurnoutOpportunity.value);
+        if (Number.isFinite(n)){
+          targeting.weights.turnoutOpportunity = Math.max(0, n);
+        }
+      });
+      commitUIUpdate({ persist: false });
+    });
+  }
+
+  if (els.targetingWeightPersuasionIndex){
+    els.targetingWeightPersuasionIndex.addEventListener("input", () => {
+      withTargeting((_, __, targeting) => {
+        targeting.weights = targeting.weights || {};
+        const n = Number(els.targetingWeightPersuasionIndex.value);
+        if (Number.isFinite(n)){
+          targeting.weights.persuasionIndex = Math.max(0, n);
+        }
+      });
+      commitUIUpdate({ persist: false });
+    });
+  }
+
+  if (els.targetingWeightFieldEfficiency){
+    els.targetingWeightFieldEfficiency.addEventListener("input", () => {
+      withTargeting((_, __, targeting) => {
+        targeting.weights = targeting.weights || {};
+        const n = Number(els.targetingWeightFieldEfficiency.value);
+        if (Number.isFinite(n)){
+          targeting.weights.fieldEfficiency = Math.max(0, n);
+        }
+      });
+      commitUIUpdate({ persist: false });
+    });
+  }
+
+  if (els.btnTargetingResetWeights){
+    els.btnTargetingResetWeights.addEventListener("click", () => {
+      withTargeting((_, s, targeting) => {
+        targeting.weights = {
+          votePotential: 0.35,
+          turnoutOpportunity: 0.25,
+          persuasionIndex: 0.20,
+          fieldEfficiency: 0.20,
+        };
+        setStatus(s, "House model weights reset to default blend.", false);
+      });
+      commitUIUpdate({ persist: false });
+    });
+  }
+
+  if (els.btnRunTargeting){
+    els.btnRunTargeting.addEventListener("click", () => {
+      withTargeting((state, s, targeting) => {
+        const runtimeRows = getRowsForState(s);
+        const loadedCount = rowsCount(runtimeRows);
+        if (!loadedCount){
+          setStatus(s, "Load ACS rows before running targeting.", true);
+          return;
+        }
+        const result = runTargetRanking({
+          state,
+          censusState: s,
+          rowsByGeoid: runtimeRows,
+        });
+        targeting.lastRows = Array.isArray(result?.rows) ? result.rows : [];
+        targeting.lastMeta = result?.meta && typeof result.meta === "object"
+          ? result.meta
+          : null;
+        targeting.lastRun = cleanText(result?.meta?.ranAt) || new Date().toISOString();
+        if (!targeting.lastRows.length){
+          setStatus(s, "Targeting run complete: no rows matched current filters. Relax thresholds and retry.", false);
+          return;
+        }
+        const topCount = targeting.lastRows.filter((row) => !!row?.isTopTarget).length;
+        setStatus(
+          s,
+          `Targeting run complete: ${targeting.lastRows.length.toLocaleString("en-US")} rows ranked, ${topCount.toLocaleString("en-US")} top targets flagged.`,
+          false,
+        );
+      });
+      commitUIUpdate();
+    });
+  }
+
+  if (els.btnExportTargetingCsv){
+    els.btnExportTargetingCsv.addEventListener("click", () => {
+      withTargeting((_, s, targeting) => {
+        const rows = Array.isArray(targeting.lastRows) ? targeting.lastRows : [];
+        if (!rows.length){
+          setStatus(s, "Run targeting before exporting CSV.", true);
+          return;
+        }
+        const csv = buildTargetRankingCsv(rows);
+        const model = fileSlugPart(cleanText(targeting.modelId) || "model");
+        const file = `target-ranking-${model}-${fileStamp()}.csv`;
+        const ok = downloadTextFile(csv, file, "text/csv");
+        setStatus(s, ok ? "Target rankings CSV exported." : "Target rankings CSV export failed.", !ok);
+      });
+      commitUIUpdate({ persist: false });
+    });
+  }
+
+  if (els.btnExportTargetingJson){
+    els.btnExportTargetingJson.addEventListener("click", () => {
+      withTargeting((_, s, targeting) => {
+        const rows = Array.isArray(targeting.lastRows) ? targeting.lastRows : [];
+        if (!rows.length){
+          setStatus(s, "Run targeting before exporting JSON.", true);
+          return;
+        }
+        const config = {
+          enabled: !!targeting.enabled,
+          geoLevel: cleanText(targeting.geoLevel),
+          modelId: cleanText(targeting.modelId),
+          topN: Number(targeting.topN),
+          minHousingUnits: Number(targeting.minHousingUnits),
+          minPopulation: Number(targeting.minPopulation),
+          minScore: Number(targeting.minScore),
+          excludeZeroHousing: !!targeting.excludeZeroHousing,
+          onlyRaceFootprint: !!targeting.onlyRaceFootprint,
+          weights: targeting.weights && typeof targeting.weights === "object" ? { ...targeting.weights } : {},
+          criteria: targeting.criteria && typeof targeting.criteria === "object" ? { ...targeting.criteria } : {},
+        };
+        const payload = buildTargetRankingPayload({
+          rows,
+          meta: targeting.lastMeta,
+          config,
+        });
+        const model = fileSlugPart(cleanText(targeting.modelId) || "model");
+        const file = `target-ranking-${model}-${fileStamp()}.json`;
+        const ok = downloadTextFile(JSON.stringify(payload, null, 2), file, "application/json");
+        setStatus(s, ok ? "Target rankings JSON exported." : "Target rankings JSON export failed.", !ok);
       });
       commitUIUpdate({ persist: false });
     });
