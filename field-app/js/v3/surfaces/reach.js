@@ -332,18 +332,17 @@ export function renderReachSurface(mount) {
     </div>
   `;
 
-  left.append(summaryCard, actionsCard, universeCard, leversCard);
-  right.append(outlookCard, freshnessCard, conversionCard, weeklyCard);
+  const whyPanel = createWhyPanel([
+    "Reach is bounded by throughput and conversion physics, not aspiration.",
+    "This page should immediately show whether current capacity can close the modeled need.",
+    "Use levers to resolve bottlenecks before changing outcome assumptions."
+  ]);
+
+  left.append(outlookCard, freshnessCard, universeCard, weeklyCard, conversionCard, leversCard);
+  right.append(summaryCard, actionsCard, whyPanel);
 
   frame.append(left, right);
   mount.append(frame);
-  mount.append(
-    createWhyPanel([
-      "Reach is bounded by throughput and conversion physics, not aspiration.",
-      "This page should immediately show whether current capacity can close the modeled need.",
-      "Use levers to resolve bottlenecks before changing outcome assumptions."
-    ])
-  );
 
   wireReachControlProxies();
   return refreshReachSummary;
