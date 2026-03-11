@@ -914,6 +914,28 @@ body.training #app-shell-v3-root .fpe-surface .help {
   min-width: 0;
 }
 
+.fpe-surface-pane[data-v3-stage="decision-log"] .fpe-card__body .fpe-field-grid--2,
+.fpe-surface-pane[data-v3-stage="decision-log"] .fpe-card__body .grid2,
+.fpe-surface-pane[data-v3-stage="decision-log"] .fpe-card__body .fpe-field-grid--3,
+.fpe-surface-pane[data-v3-stage="decision-log"] .fpe-card__body .grid3,
+.fpe-surface-pane[data-v3-stage="decision-log"] .fpe-card__body .subgrid,
+.fpe-surface-pane[data-v3-stage="decision-log"] .fpe-card__body .fpe-field-grid--4,
+.fpe-surface-pane[data-v3-stage="decision-log"] .fpe-card__body .grid4 {
+  grid-template-columns: minmax(0, 1fr);
+  min-width: 0;
+}
+
+.fpe-surface-pane[data-v3-stage="data"] .fpe-card__body .fpe-field-grid--2,
+.fpe-surface-pane[data-v3-stage="data"] .fpe-card__body .grid2,
+.fpe-surface-pane[data-v3-stage="data"] .fpe-card__body .fpe-field-grid--3,
+.fpe-surface-pane[data-v3-stage="data"] .fpe-card__body .grid3,
+.fpe-surface-pane[data-v3-stage="data"] .fpe-card__body .subgrid,
+.fpe-surface-pane[data-v3-stage="data"] .fpe-card__body .fpe-field-grid--4,
+.fpe-surface-pane[data-v3-stage="data"] .fpe-card__body .grid4 {
+  grid-template-columns: minmax(0, 1fr);
+  min-width: 0;
+}
+
 .fpe-surface-pane[data-v3-stage="district"] .fpe-card__body .fpe-field-grid--3,
 .fpe-surface-pane[data-v3-stage="district"] .fpe-card__body .grid3,
 .fpe-surface-pane[data-v3-stage="district"] .fpe-card__body .subgrid,
@@ -1543,6 +1565,24 @@ body.training #app-shell-v3-root .fpe-surface .help {
   .fpe-surface-pane[data-v3-stage="controls"] .fpe-card__body .subgrid,
   .fpe-surface-pane[data-v3-stage="controls"] .fpe-card__body .fpe-field-grid--4,
   .fpe-surface-pane[data-v3-stage="controls"] .fpe-card__body .grid4 {
+    grid-template-columns: 1fr;
+    min-width: 0;
+  }
+
+  .fpe-surface-pane[data-v3-stage="decision-log"] .fpe-card__body .fpe-field-grid--2,
+  .fpe-surface-pane[data-v3-stage="decision-log"] .fpe-card__body .grid2,
+  .fpe-surface-pane[data-v3-stage="decision-log"] .fpe-card__body .fpe-field-grid--3,
+  .fpe-surface-pane[data-v3-stage="decision-log"] .fpe-card__body .grid3,
+  .fpe-surface-pane[data-v3-stage="decision-log"] .fpe-card__body .subgrid,
+  .fpe-surface-pane[data-v3-stage="decision-log"] .fpe-card__body .fpe-field-grid--4,
+  .fpe-surface-pane[data-v3-stage="decision-log"] .fpe-card__body .grid4,
+  .fpe-surface-pane[data-v3-stage="data"] .fpe-card__body .fpe-field-grid--2,
+  .fpe-surface-pane[data-v3-stage="data"] .fpe-card__body .grid2,
+  .fpe-surface-pane[data-v3-stage="data"] .fpe-card__body .fpe-field-grid--3,
+  .fpe-surface-pane[data-v3-stage="data"] .fpe-card__body .grid3,
+  .fpe-surface-pane[data-v3-stage="data"] .fpe-card__body .subgrid,
+  .fpe-surface-pane[data-v3-stage="data"] .fpe-card__body .fpe-field-grid--4,
+  .fpe-surface-pane[data-v3-stage="data"] .fpe-card__body .grid4 {
     grid-template-columns: 1fr;
     min-width: 0;
   }
