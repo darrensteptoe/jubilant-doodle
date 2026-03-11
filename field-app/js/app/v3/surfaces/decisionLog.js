@@ -11,6 +11,7 @@ import {
   bindClickProxy,
   bindFieldProxy,
   bindSelectProxy,
+  syncControlDisabled,
   readSelectedLabel,
   readText,
   setText,
@@ -384,6 +385,24 @@ function syncDecisionBridgeUi() {
   syncCheckboxValue("v3DecisionOptionTacticDoors", "decisionOptionTacticDoors");
   syncCheckboxValue("v3DecisionOptionTacticPhones", "decisionOptionTacticPhones");
   syncCheckboxValue("v3DecisionOptionTacticDigital", "decisionOptionTacticDigital");
+
+  syncControlDisabled("v3DecisionSessionSelect", "decisionSessionSelect");
+  syncControlDisabled("v3DecisionRename", "decisionRename");
+  syncControlDisabled("v3DecisionObjective", "decisionObjective");
+  syncControlDisabled("v3DecisionNotes", "decisionNotes");
+  syncControlDisabled("v3DecisionBudget", "decisionBudget");
+  syncControlDisabled("v3DecisionVolunteerHrs", "decisionVolunteerHrs");
+  syncControlDisabled("v3DecisionTurfAccess", "decisionTurfAccess");
+  syncControlDisabled("v3DecisionBlackoutDates", "decisionBlackoutDates");
+  syncControlDisabled("v3DecisionRiskPosture", "decisionRiskPosture");
+  syncControlDisabled("v3DecisionNonNegotiables", "decisionNonNegotiables");
+  syncControlDisabled("v3DecisionOptionSelect", "decisionOptionSelect");
+  syncControlDisabled("v3DecisionOptionRename", "decisionOptionRename");
+  syncControlDisabled("v3DecisionOptionTacticDoors", "decisionOptionTacticDoors");
+  syncControlDisabled("v3DecisionOptionTacticPhones", "decisionOptionTacticPhones");
+  syncControlDisabled("v3DecisionOptionTacticDigital", "decisionOptionTacticDigital");
+  syncControlDisabled("v3DecisionRecommendSelect", "decisionRecommendSelect");
+  syncControlDisabled("v3DecisionWhatTrue", "decisionWhatTrue");
 
   setText("v3DecisionActiveLabel", readText("#decisionActiveLabel"));
   setText("v3DecisionScenarioLabel", readText("#decisionScenarioLabel"));

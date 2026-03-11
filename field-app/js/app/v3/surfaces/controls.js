@@ -12,6 +12,7 @@ import {
   bindFieldProxy,
   bindSelectProxy,
   readText,
+  syncControlDisabled,
   setText,
   syncButtonDisabled,
   syncCheckboxValue,
@@ -502,6 +503,13 @@ function syncControlsWorkflowBridge() {
   syncCheckboxValue("v3IntelRequireCriticalEvidence", "intelRequireCriticalEvidence");
   syncFieldValue("v3IntelScenarioLockReason", "intelScenarioLockReason");
   syncFieldValue("v3IntelCriticalChangeNote", "intelCriticalChangeNote");
+  syncControlsDisabled([
+    ["v3IntelScenarioLocked", "intelScenarioLocked"],
+    ["v3IntelRequireCriticalNote", "intelRequireCriticalNote"],
+    ["v3IntelRequireCriticalEvidence", "intelRequireCriticalEvidence"],
+    ["v3IntelScenarioLockReason", "intelScenarioLockReason"],
+    ["v3IntelCriticalChangeNote", "intelCriticalChangeNote"]
+  ]);
   setText("v3IntelScenarioLockStatus", readText("#intelScenarioLockStatus"));
   setText("v3IntelWorkflowStatus", readText("#intelWorkflowStatus"));
 }
@@ -537,6 +545,17 @@ function syncControlsBenchmarkBridge() {
   syncFieldValue("v3IntelBenchmarkHardAbove", "intelBenchmarkHardAbove");
   syncFieldValue("v3IntelBenchmarkSourceTitle", "intelBenchmarkSourceTitle");
   syncFieldValue("v3IntelBenchmarkSourceNotes", "intelBenchmarkSourceNotes");
+  syncControlsDisabled([
+    ["v3IntelBenchmarkRef", "intelBenchmarkRef"],
+    ["v3IntelBenchmarkRaceType", "intelBenchmarkRaceType"],
+    ["v3IntelBenchmarkDefault", "intelBenchmarkDefault"],
+    ["v3IntelBenchmarkMin", "intelBenchmarkMin"],
+    ["v3IntelBenchmarkMax", "intelBenchmarkMax"],
+    ["v3IntelBenchmarkWarnAbove", "intelBenchmarkWarnAbove"],
+    ["v3IntelBenchmarkHardAbove", "intelBenchmarkHardAbove"],
+    ["v3IntelBenchmarkSourceTitle", "intelBenchmarkSourceTitle"],
+    ["v3IntelBenchmarkSourceNotes", "intelBenchmarkSourceNotes"]
+  ]);
   setText("v3IntelBenchmarkCount", readText("#intelBenchmarkCount"));
   setText("v3IntelBenchmarkStatus", readText("#intelBenchmarkStatus"));
 
@@ -568,6 +587,14 @@ function syncControlsEvidenceBridge() {
   syncFieldValue("v3IntelEvidenceCapturedAt", "intelEvidenceCapturedAt");
   syncFieldValue("v3IntelEvidenceUrl", "intelEvidenceUrl");
   syncFieldValue("v3IntelEvidenceNotes", "intelEvidenceNotes");
+  syncControlsDisabled([
+    ["v3IntelAuditSelect", "intelAuditSelect"],
+    ["v3IntelEvidenceTitle", "intelEvidenceTitle"],
+    ["v3IntelEvidenceSource", "intelEvidenceSource"],
+    ["v3IntelEvidenceCapturedAt", "intelEvidenceCapturedAt"],
+    ["v3IntelEvidenceUrl", "intelEvidenceUrl"],
+    ["v3IntelEvidenceNotes", "intelEvidenceNotes"]
+  ]);
 
   setText("v3IntelMissingEvidenceCount", readText("#intelMissingEvidenceCount"));
   setText("v3IntelMissingNoteCount", readText("#intelMissingNoteCount"));
@@ -616,6 +643,20 @@ function syncControlsCalibrationBridge() {
   syncCheckboxValue("v3IntelShockScenariosEnabled", "intelShockScenariosEnabled");
   syncFieldValue("v3IntelShockJson", "intelShockJson");
   syncFieldValue("v3IntelCalibrationBriefContent", "intelCalibrationBriefContent");
+  syncControlsDisabled([
+    ["v3IntelBriefKind", "intelBriefKind"],
+    ["v3IntelMcDistribution", "intelMcDistribution"],
+    ["v3IntelCorrelatedShocks", "intelCorrelatedShocks"],
+    ["v3IntelCorrelationMatrixId", "intelCorrelationMatrixId"],
+    ["v3IntelCapacityDecayEnabled", "intelCapacityDecayEnabled"],
+    ["v3IntelDecayModelType", "intelDecayModelType"],
+    ["v3IntelDecayWeeklyPct", "intelDecayWeeklyPct"],
+    ["v3IntelDecayFloorPct", "intelDecayFloorPct"],
+    ["v3IntelCorrelationJson", "intelCorrelationJson"],
+    ["v3IntelShockScenariosEnabled", "intelShockScenariosEnabled"],
+    ["v3IntelShockJson", "intelShockJson"],
+    ["v3IntelCalibrationBriefContent", "intelCalibrationBriefContent"]
+  ]);
 
   setText("v3IntelCorrelationDisabledHint", readText("#intelCorrelationDisabledHint"));
   setText("v3IntelDecayStatus", readText("#intelDecayStatus"));
@@ -651,6 +692,11 @@ function syncControlsFeedbackBridge() {
   syncFieldValue("v3IntelWhatIfInput", "intelWhatIfInput");
   syncFieldValue("v3IntelWhatIfPreview", "intelWhatIfPreview");
   syncFieldValue("v3IntelRecommendationPreview", "intelRecommendationPreview");
+  syncControlsDisabled([
+    ["v3IntelWhatIfInput", "intelWhatIfInput"],
+    ["v3IntelWhatIfPreview", "intelWhatIfPreview"],
+    ["v3IntelRecommendationPreview", "intelRecommendationPreview"]
+  ]);
 
   setText("v3IntelObservedCount", readText("#intelObservedCount"));
   setText("v3IntelRecommendationCount", readText("#intelRecommendationCount"));
@@ -663,4 +709,10 @@ function syncControlsFeedbackBridge() {
   syncButtonDisabled("v3BtnIntelGenerateRecommendations", "btnIntelGenerateRecommendations");
   syncButtonDisabled("v3BtnIntelApplyTopRecommendation", "btnIntelApplyTopRecommendation");
   syncButtonDisabled("v3BtnIntelParseWhatIf", "btnIntelParseWhatIf");
+}
+
+function syncControlsDisabled(pairs) {
+  pairs.forEach(([v3Id, legacyId]) => {
+    syncControlDisabled(v3Id, legacyId);
+  });
 }

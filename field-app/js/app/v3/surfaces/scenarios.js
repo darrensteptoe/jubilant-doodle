@@ -8,6 +8,7 @@ import {
 import { mountLegacyNode } from "../compat.js";
 import {
   bindClickProxy,
+  syncControlDisabled,
   bindFieldProxy,
   bindSelectProxy,
   readText,
@@ -168,6 +169,9 @@ function syncScenariosBridgeUi() {
   syncSelectValue("v3ScenarioSelect", "scenarioSelect");
   syncFieldValue("v3ScenarioNewName", "scenarioNewName");
   setText("v3ScenarioActiveLabel", readText("#activeScenarioLabel"));
+
+  syncControlDisabled("v3ScenarioSelect", "scenarioSelect");
+  syncControlDisabled("v3ScenarioNewName", "scenarioNewName");
 
   syncButtonDisabled("v3BtnScenarioSaveNew", "btnScenarioSaveNew");
   syncButtonDisabled("v3BtnScenarioCloneBaseline", "btnScenarioCloneBaseline");

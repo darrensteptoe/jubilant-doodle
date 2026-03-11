@@ -14,7 +14,8 @@ import {
   createFieldGrid,
   setText,
   syncButtonDisabled,
-  syncCheckboxValue
+  syncCheckboxValue,
+  syncControlDisabled
 } from "../surfaceUtils.js";
 
 export function renderDistrictSurface(mount) {
@@ -289,12 +290,7 @@ function refreshDistrictSummary() {
   setText("v3DistrictNeed", snapshot.persuasionNeed);
   syncButtonDisabled("v3BtnAddCandidate", "btnAddCandidate");
   syncCheckboxValue("v3DistrictElectorateWeightingToggle", "universe16Enabled");
-
-  const v3Toggle = document.getElementById("v3DistrictElectorateWeightingToggle");
-  const legacyToggle = document.getElementById("universe16Enabled");
-  if (v3Toggle instanceof HTMLInputElement && legacyToggle instanceof HTMLInputElement) {
-    v3Toggle.disabled = legacyToggle.disabled;
-  }
+  syncControlDisabled("v3DistrictElectorateWeightingToggle", "universe16Enabled");
   syncDistrictCensusMessageTones();
   syncCensusMapShellState();
 }

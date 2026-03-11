@@ -13,11 +13,11 @@ import {
   bindClickProxy,
   bindFieldProxy,
   bindSelectProxy,
-  createFieldGrid,
   readText,
   setText,
   syncButtonDisabled,
   syncCheckboxValue,
+  syncControlDisabled,
   syncFieldValue,
   syncSelectValue
 } from "../surfaceUtils.js";
@@ -128,32 +128,107 @@ export function renderTurnoutSurface(mount) {
   `;
 
   const costBody = getCardBody(costInputsCard);
-  const costFields = createFieldGrid("fpe-field-grid--3");
-  costBody.append(costFields);
-  mountLegacyClosest({
-    key: "v3-turnout-cost-doors-field",
-    childSelector: "#roiDoorsEnabled",
-    closestSelector: ".field",
-    target: costFields
-  });
-  mountLegacyClosest({
-    key: "v3-turnout-cost-phones-field",
-    childSelector: "#roiPhonesEnabled",
-    closestSelector: ".field",
-    target: costFields
-  });
-  mountLegacyClosest({
-    key: "v3-turnout-cost-texts-field",
-    childSelector: "#roiTextsEnabled",
-    closestSelector: ".field",
-    target: costFields
-  });
-  mountLegacyClosest({
-    key: "v3-turnout-cost-overhead-grid",
-    childSelector: "#roiOverheadAmount",
-    closestSelector: ".grid2",
-    target: costBody
-  });
+  costBody.innerHTML = `
+    <div class="fpe-field-grid fpe-field-grid--3">
+      <div class="field">
+        <div class="fpe-contained-block">
+          <div class="fpe-control-label">Doors tactic</div>
+          <label class="fpe-switch">
+            <input id="v3RoiDoorsEnabled" type="checkbox"/>
+            <span>Enable doors</span>
+          </label>
+        </div>
+        <div class="fpe-field-grid fpe-field-grid--2">
+          <div class="field">
+            <label class="fpe-control-label" for="v3RoiDoorsCpa">Cost / attempt ($)</label>
+            <input class="fpe-input" id="v3RoiDoorsCpa" min="0" step="0.01" type="number"/>
+          </div>
+          <div class="field">
+            <label class="fpe-control-label" for="v3RoiDoorsKind">Tactic type</label>
+            <select class="fpe-input" id="v3RoiDoorsKind"></select>
+          </div>
+          <div class="field">
+            <label class="fpe-control-label" for="v3RoiDoorsCr">Contact rate override %</label>
+            <input class="fpe-input" id="v3RoiDoorsCr" max="100" min="0" step="0.1" type="number"/>
+          </div>
+          <div class="field">
+            <label class="fpe-control-label" for="v3RoiDoorsSr">Support rate override %</label>
+            <input class="fpe-input" id="v3RoiDoorsSr" max="100" min="0" step="0.1" type="number"/>
+          </div>
+        </div>
+      </div>
+
+      <div class="field">
+        <div class="fpe-contained-block">
+          <div class="fpe-control-label">Phones tactic</div>
+          <label class="fpe-switch">
+            <input id="v3RoiPhonesEnabled" type="checkbox"/>
+            <span>Enable phones</span>
+          </label>
+        </div>
+        <div class="fpe-field-grid fpe-field-grid--2">
+          <div class="field">
+            <label class="fpe-control-label" for="v3RoiPhonesCpa">Cost / attempt ($)</label>
+            <input class="fpe-input" id="v3RoiPhonesCpa" min="0" step="0.01" type="number"/>
+          </div>
+          <div class="field">
+            <label class="fpe-control-label" for="v3RoiPhonesKind">Tactic type</label>
+            <select class="fpe-input" id="v3RoiPhonesKind"></select>
+          </div>
+          <div class="field">
+            <label class="fpe-control-label" for="v3RoiPhonesCr">Contact rate override %</label>
+            <input class="fpe-input" id="v3RoiPhonesCr" max="100" min="0" step="0.1" type="number"/>
+          </div>
+          <div class="field">
+            <label class="fpe-control-label" for="v3RoiPhonesSr">Support rate override %</label>
+            <input class="fpe-input" id="v3RoiPhonesSr" max="100" min="0" step="0.1" type="number"/>
+          </div>
+        </div>
+      </div>
+
+      <div class="field">
+        <div class="fpe-contained-block">
+          <div class="fpe-control-label">Texts tactic</div>
+          <label class="fpe-switch">
+            <input id="v3RoiTextsEnabled" type="checkbox"/>
+            <span>Enable texts</span>
+          </label>
+        </div>
+        <div class="fpe-field-grid fpe-field-grid--2">
+          <div class="field">
+            <label class="fpe-control-label" for="v3RoiTextsCpa">Cost / attempt ($)</label>
+            <input class="fpe-input" id="v3RoiTextsCpa" min="0" step="0.01" type="number"/>
+          </div>
+          <div class="field">
+            <label class="fpe-control-label" for="v3RoiTextsKind">Tactic type</label>
+            <select class="fpe-input" id="v3RoiTextsKind"></select>
+          </div>
+          <div class="field">
+            <label class="fpe-control-label" for="v3RoiTextsCr">Contact rate override %</label>
+            <input class="fpe-input" id="v3RoiTextsCr" max="100" min="0" step="0.1" type="number"/>
+          </div>
+          <div class="field">
+            <label class="fpe-control-label" for="v3RoiTextsSr">Support rate override %</label>
+            <input class="fpe-input" id="v3RoiTextsSr" max="100" min="0" step="0.1" type="number"/>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="fpe-field-grid fpe-field-grid--2">
+      <div class="field">
+        <label class="fpe-control-label" for="v3RoiOverheadAmount">Overhead amount ($)</label>
+        <input class="fpe-input" id="v3RoiOverheadAmount" min="0" step="1" type="number"/>
+      </div>
+      <div class="field">
+        <label class="fpe-control-label">Include overhead in ROI</label>
+        <label class="fpe-switch">
+          <input id="v3RoiIncludeOverhead" type="checkbox"/>
+          <span>Allocate overhead across required attempts</span>
+        </label>
+      </div>
+    </div>
+  `;
 
   const efficiencyBody = getCardBody(efficiencyCard);
   const efficiencyActions = document.createElement("div");
@@ -225,6 +300,7 @@ export function renderTurnoutSurface(mount) {
 
 function wireTurnoutControlProxies() {
   bindClickProxy("v3BtnRoiRefresh", "roiRefresh");
+
   bindCheckboxProxy("v3TurnoutEnabledToggle", "turnoutEnabled");
   bindFieldProxy("v3TurnoutBaselinePct", "turnoutBaselinePct");
   bindFieldProxy("v3TurnoutTargetOverridePct", "turnoutTargetOverridePct");
@@ -237,6 +313,27 @@ function wireTurnoutControlProxies() {
   bindFieldProxy("v3GotvLiftMode", "gotvLiftMode");
   bindFieldProxy("v3GotvLiftMax", "gotvLiftMax");
   bindFieldProxy("v3GotvMaxLiftPP2", "gotvMaxLiftPP2");
+
+  bindCheckboxProxy("v3RoiDoorsEnabled", "roiDoorsEnabled");
+  bindFieldProxy("v3RoiDoorsCpa", "roiDoorsCpa");
+  bindSelectProxy("v3RoiDoorsKind", "roiDoorsKind");
+  bindFieldProxy("v3RoiDoorsCr", "roiDoorsCr");
+  bindFieldProxy("v3RoiDoorsSr", "roiDoorsSr");
+
+  bindCheckboxProxy("v3RoiPhonesEnabled", "roiPhonesEnabled");
+  bindFieldProxy("v3RoiPhonesCpa", "roiPhonesCpa");
+  bindSelectProxy("v3RoiPhonesKind", "roiPhonesKind");
+  bindFieldProxy("v3RoiPhonesCr", "roiPhonesCr");
+  bindFieldProxy("v3RoiPhonesSr", "roiPhonesSr");
+
+  bindCheckboxProxy("v3RoiTextsEnabled", "roiTextsEnabled");
+  bindFieldProxy("v3RoiTextsCpa", "roiTextsCpa");
+  bindSelectProxy("v3RoiTextsKind", "roiTextsKind");
+  bindFieldProxy("v3RoiTextsCr", "roiTextsCr");
+  bindFieldProxy("v3RoiTextsSr", "roiTextsSr");
+
+  bindFieldProxy("v3RoiOverheadAmount", "roiOverheadAmount");
+  bindCheckboxProxy("v3RoiIncludeOverhead", "roiIncludeOverhead");
 }
 
 function refreshTurnoutSummary() {
@@ -261,18 +358,55 @@ function refreshTurnoutSummary() {
   syncFieldValue("v3GotvLiftMax", "gotvLiftMax");
   syncFieldValue("v3GotvMaxLiftPP2", "gotvMaxLiftPP2");
 
+  syncCheckboxValue("v3RoiDoorsEnabled", "roiDoorsEnabled");
+  syncFieldValue("v3RoiDoorsCpa", "roiDoorsCpa");
+  syncSelectValue("v3RoiDoorsKind", "roiDoorsKind");
+  syncFieldValue("v3RoiDoorsCr", "roiDoorsCr");
+  syncFieldValue("v3RoiDoorsSr", "roiDoorsSr");
+
+  syncCheckboxValue("v3RoiPhonesEnabled", "roiPhonesEnabled");
+  syncFieldValue("v3RoiPhonesCpa", "roiPhonesCpa");
+  syncSelectValue("v3RoiPhonesKind", "roiPhonesKind");
+  syncFieldValue("v3RoiPhonesCr", "roiPhonesCr");
+  syncFieldValue("v3RoiPhonesSr", "roiPhonesSr");
+
+  syncCheckboxValue("v3RoiTextsEnabled", "roiTextsEnabled");
+  syncFieldValue("v3RoiTextsCpa", "roiTextsCpa");
+  syncSelectValue("v3RoiTextsKind", "roiTextsKind");
+  syncFieldValue("v3RoiTextsCr", "roiTextsCr");
+  syncFieldValue("v3RoiTextsSr", "roiTextsSr");
+
+  syncFieldValue("v3RoiOverheadAmount", "roiOverheadAmount");
+  syncCheckboxValue("v3RoiIncludeOverhead", "roiIncludeOverhead");
+
+  syncControlDisabled("v3TurnoutEnabledToggle", "turnoutEnabled");
+  syncControlDisabled("v3TurnoutBaselinePct", "turnoutBaselinePct");
+  syncControlDisabled("v3TurnoutTargetOverridePct", "turnoutTargetOverridePct");
+  syncControlDisabled("v3TurnoutMode", "gotvMode");
+  syncControlDisabled("v3TurnoutDiminishingToggle", "gotvDiminishing");
+  syncControlDisabled("v3GotvLiftPP", "gotvLiftPP");
+  syncControlDisabled("v3GotvMaxLiftPP", "gotvMaxLiftPP");
+  syncControlDisabled("v3GotvLiftMin", "gotvLiftMin");
+  syncControlDisabled("v3GotvLiftMode", "gotvLiftMode");
+  syncControlDisabled("v3GotvLiftMax", "gotvLiftMax");
+  syncControlDisabled("v3GotvMaxLiftPP2", "gotvMaxLiftPP2");
+  syncControlDisabled("v3RoiDoorsEnabled", "roiDoorsEnabled");
+  syncControlDisabled("v3RoiDoorsCpa", "roiDoorsCpa");
+  syncControlDisabled("v3RoiDoorsKind", "roiDoorsKind");
+  syncControlDisabled("v3RoiDoorsCr", "roiDoorsCr");
+  syncControlDisabled("v3RoiDoorsSr", "roiDoorsSr");
+  syncControlDisabled("v3RoiPhonesEnabled", "roiPhonesEnabled");
+  syncControlDisabled("v3RoiPhonesCpa", "roiPhonesCpa");
+  syncControlDisabled("v3RoiPhonesKind", "roiPhonesKind");
+  syncControlDisabled("v3RoiPhonesCr", "roiPhonesCr");
+  syncControlDisabled("v3RoiPhonesSr", "roiPhonesSr");
+  syncControlDisabled("v3RoiTextsEnabled", "roiTextsEnabled");
+  syncControlDisabled("v3RoiTextsCpa", "roiTextsCpa");
+  syncControlDisabled("v3RoiTextsKind", "roiTextsKind");
+  syncControlDisabled("v3RoiTextsCr", "roiTextsCr");
+  syncControlDisabled("v3RoiTextsSr", "roiTextsSr");
+  syncControlDisabled("v3RoiOverheadAmount", "roiOverheadAmount");
+  syncControlDisabled("v3RoiIncludeOverhead", "roiIncludeOverhead");
+
   syncButtonDisabled("v3BtnRoiRefresh", "roiRefresh");
-  syncCheckboxValue("v3TurnoutEnabledToggle", "turnoutEnabled");
-
-  const v3Toggle = document.getElementById("v3TurnoutEnabledToggle");
-  const legacyToggle = document.getElementById("turnoutEnabled");
-  if (v3Toggle instanceof HTMLInputElement && legacyToggle instanceof HTMLInputElement) {
-    v3Toggle.disabled = legacyToggle.disabled;
-  }
-
-  const v3Diminishing = document.getElementById("v3TurnoutDiminishingToggle");
-  const legacyDiminishing = document.getElementById("gotvDiminishing");
-  if (v3Diminishing instanceof HTMLInputElement && legacyDiminishing instanceof HTMLInputElement) {
-    v3Diminishing.disabled = legacyDiminishing.disabled;
-  }
 }

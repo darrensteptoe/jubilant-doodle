@@ -170,6 +170,28 @@ export function syncCheckboxValue(v3Id, legacyId) {
   v3.checked = legacy.checked;
 }
 
+export function syncControlDisabled(v3Id, legacyId) {
+  const v3 = document.getElementById(v3Id);
+  const legacy = getLegacyEl(legacyId);
+
+  const v3Control =
+    v3 instanceof HTMLInputElement ||
+    v3 instanceof HTMLSelectElement ||
+    v3 instanceof HTMLTextAreaElement ||
+    v3 instanceof HTMLButtonElement;
+  const legacyControl =
+    legacy instanceof HTMLInputElement ||
+    legacy instanceof HTMLSelectElement ||
+    legacy instanceof HTMLTextAreaElement ||
+    legacy instanceof HTMLButtonElement;
+
+  if (!v3Control || !legacyControl) {
+    return;
+  }
+
+  v3.disabled = legacy.disabled;
+}
+
 export function normalizeSurfaceActionRows(root) {
   if (!(root instanceof HTMLElement)) {
     return;

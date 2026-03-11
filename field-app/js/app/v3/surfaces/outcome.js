@@ -12,6 +12,7 @@ import {
   bindSelectProxy,
   readText,
   setText,
+  syncControlDisabled,
   syncButtonDisabled,
   syncFieldValue,
   syncSelectValue
@@ -289,6 +290,21 @@ function refreshOutcomeSummary() {
   syncFieldValue("v3OutcomeSurfaceMax", "surfaceMax");
   syncFieldValue("v3OutcomeSurfaceSteps", "surfaceSteps");
   syncFieldValue("v3OutcomeSurfaceTarget", "surfaceTarget");
+
+  syncControlDisabled("v3OutcomeOrgCount", "orgCount");
+  syncControlDisabled("v3OutcomeOrgHours", "orgHoursPerWeek");
+  syncControlDisabled("v3OutcomeVolunteerMult", "volunteerMultBase");
+  syncControlDisabled("v3OutcomeDoorShare", "channelDoorPct");
+  syncControlDisabled("v3OutcomeDoorsPerHour", "doorsPerHour3");
+  syncControlDisabled("v3OutcomeCallsPerHour", "callsPerHour3");
+  syncControlDisabled("v3OutcomeMcMode", "mcMode");
+  syncControlDisabled("v3OutcomeMcSeed", "mcSeed");
+  syncControlDisabled("v3OutcomeSurfaceLever", "surfaceLever");
+  syncControlDisabled("v3OutcomeSurfaceMode", "surfaceMode");
+  syncControlDisabled("v3OutcomeSurfaceMin", "surfaceMin");
+  syncControlDisabled("v3OutcomeSurfaceMax", "surfaceMax");
+  syncControlDisabled("v3OutcomeSurfaceSteps", "surfaceSteps");
+  syncControlDisabled("v3OutcomeSurfaceTarget", "surfaceTarget");
 
   setText("v3OutcomeWeeksRemaining", readText("#p3Weeks"));
   setText("v3OutcomeCapContacts", readText("#p3CapContacts"));

@@ -9,6 +9,7 @@ import {
 import {
   bindCheckboxProxy,
   bindClickProxy,
+  syncControlDisabled,
   bindSelectProxy,
   getLegacyEl,
   readText,
@@ -200,6 +201,8 @@ function syncDataBridgeUi() {
 
   syncCheckboxValue("v3DataStrictToggle", "toggleStrictImport");
   syncSelectValue("v3DataRestoreBackup", "restoreBackup");
+  syncControlDisabled("v3DataStrictToggle", "toggleStrictImport");
+  syncControlDisabled("v3DataRestoreBackup", "restoreBackup");
 
   const hashBannerUi = document.getElementById("v3DataHashBannerUi");
   if (hashBannerUi && legacyHashBanner instanceof HTMLElement) {
