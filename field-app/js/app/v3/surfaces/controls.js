@@ -62,7 +62,7 @@ export function renderControlsSurface(mount) {
 
   getCardBody(statusCard).innerHTML = `
     <div class="fpe-help">Canonical dynamic status remains in the right rail to prevent drift and duplicate headlines.</div>
-    <div class="fpe-summary-grid" style="margin-top:10px;">
+    <div class="fpe-summary-grid">
       <div class="fpe-summary-row"><span>Outcome stack</span><strong>Win path and expected state</strong></div>
       <div class="fpe-summary-row"><span>Fragility stack</span><strong>Stress + Monte Carlo behavior</strong></div>
       <div class="fpe-summary-row"><span>Integrity stack</span><strong>Validation and guardrail checks</strong></div>
@@ -161,7 +161,7 @@ export function renderControlsSurface(mount) {
       </div>
       <div class="fpe-help" id="v3IntelBenchmarkCount">0 benchmark entries configured.</div>
       <div class="fpe-help" id="v3IntelBenchmarkStatus">Ready.</div>
-      <div id="v3ControlsBenchmarkTableHost" style="margin-top:10px;"></div>
+      <div id="v3ControlsBenchmarkTableHost"></div>
     </div>
   `;
 
@@ -203,7 +203,7 @@ export function renderControlsSurface(mount) {
       <div class="fpe-help" id="v3IntelMissingEvidenceCount">0 critical assumption edit(s) missing evidence.</div>
       <div class="fpe-help" id="v3IntelMissingNoteCount">0 critical assumption edit(s) missing note.</div>
       <div class="fpe-help" id="v3IntelEvidenceStatus">Select an audit item, then attach evidence.</div>
-      <div id="v3ControlsEvidenceTableHost" style="margin-top:10px;"></div>
+      <div id="v3ControlsEvidenceTableHost"></div>
     </div>
   `;
 
@@ -351,8 +351,8 @@ export function renderControlsSurface(mount) {
       <div class="fpe-summary-row"><span>Census fetch status</span><strong id="v3ControlsCensusStatus">-</strong></div>
       <div class="fpe-summary-row"><span>Census selection</span><strong id="v3ControlsCensusSelection">-</strong></div>
     </div>
-    <div class="note" style="margin-top:12px;">Recommended sequence before decisions or exports: validate right-rail checks, confirm assumption intent, review guardrails, then run self-test.</div>
-    <div class="note" style="margin-top:8px;">Dynamic output duplication is intentionally removed from center panels to keep one canonical status source.</div>
+    <div class="note">Recommended sequence before decisions or exports: validate right-rail checks, confirm assumption intent, review guardrails, then run self-test.</div>
+    <div class="note">Dynamic output duplication is intentionally removed from center panels to keep one canonical status source.</div>
   `;
 
   left.append(statusCard, workflowCard, evidenceCard);
@@ -601,14 +601,14 @@ function buildControlsCensusBridge(target) {
     <div class="field">
       <label class="fpe-control-label" for="v3CensusSelectionSetName">Save selection set</label>
       <input class="fpe-input" id="v3CensusSelectionSetName" type="text"/>
-      <div class="fpe-action-row" style="margin-top:8px;">
+      <div class="fpe-action-row">
         <button class="fpe-btn fpe-btn--ghost" id="v3BtnCensusSaveSelectionSet" type="button">Save set</button>
       </div>
     </div>
     <div class="field">
       <label class="fpe-control-label" for="v3CensusSelectionSetSelect">Saved sets</label>
       <select class="fpe-input" id="v3CensusSelectionSetSelect"></select>
-      <div class="fpe-action-row" style="margin-top:8px;">
+      <div class="fpe-action-row">
         <button class="fpe-btn fpe-btn--ghost" id="v3BtnCensusLoadSelectionSet" type="button">Load set</button>
         <button class="fpe-btn fpe-btn--ghost" id="v3BtnCensusDeleteSelectionSet" type="button">Delete</button>
       </div>
@@ -630,7 +630,7 @@ function buildControlsCensusBridge(target) {
     <div class="field">
       <label class="fpe-control-label">Map status</label>
       <div class="fpe-help" id="v3CensusMapStatus">Map idle.</div>
-      <label class="fpe-switch" style="margin-top:8px;">
+      <label class="fpe-switch">
         <input id="v3CensusMapQaVtdToggle" type="checkbox"/>
         <span>VTD QA overlay</span>
       </label>

@@ -192,7 +192,6 @@ export function renderReachSurface(mount) {
   });
   const freshnessTopActions = document.createElement("div");
   freshnessTopActions.className = "fpe-action-row";
-  freshnessTopActions.style.marginTop = "10px";
   freshnessContext.append(freshnessTopActions);
   mountLegacyNode({
     key: "v3-reach-freshness-export-btn",
@@ -209,7 +208,6 @@ export function renderReachSurface(mount) {
   if (importField) {
     const importActions = document.createElement("div");
     importActions.className = "fpe-action-row";
-    importActions.style.marginTop = "10px";
     importField.append(importActions);
     const importBtn = importField.querySelector("#dailyLogImportBtn");
     const importMsg = importField.querySelector("#dailyLogImportMsg");
@@ -228,12 +226,10 @@ export function renderReachSurface(mount) {
   });
   const analystTools = document.createElement("div");
   analystTools.className = "fpe-contained-block";
-  analystTools.style.marginTop = "10px";
-  analystTools.innerHTML = `<div class="fpe-help" style="margin-top:0;">Analyst tools</div>`;
+  analystTools.innerHTML = `<div class="fpe-help fpe-help--flush">Analyst tools</div>`;
   freshnessBody.append(analystTools);
   const analystActions = document.createElement("div");
   analystActions.className = "fpe-action-row";
-  analystActions.style.marginTop = "8px";
   analystTools.append(analystActions);
   mountLegacyNode({
     key: "v3-reach-analyst-cr-btn",
@@ -262,7 +258,6 @@ export function renderReachSurface(mount) {
   });
   const freshnessRealityNote = document.createElement("div");
   freshnessRealityNote.className = "fpe-contained-block";
-  freshnessRealityNote.style.marginTop = "10px";
   freshnessBody.append(freshnessRealityNote);
   mountLegacyNode({
     key: "v3-reach-freshness-reality-note",
@@ -281,7 +276,6 @@ export function renderReachSurface(mount) {
   });
   const actionsUndoRow = document.createElement("div");
   actionsUndoRow.className = "fpe-action-row";
-  actionsUndoRow.style.marginTop = "12px";
   actionsBody.append(actionsUndoRow);
   mountLegacyNode({
     key: "v3-reach-actions-undo-btn",
@@ -295,7 +289,6 @@ export function renderReachSurface(mount) {
   });
   const actionsGuidance = document.createElement("div");
   actionsGuidance.className = "fpe-contained-block";
-  actionsGuidance.style.marginTop = "10px";
   actionsBody.append(actionsGuidance);
   mountLegacyNode({
     key: "v3-reach-actions-note",

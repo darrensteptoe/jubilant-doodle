@@ -121,7 +121,6 @@ export function renderDistrictSurface(mount) {
   const baselineBody = getCardBody(baselineCard);
   const baselineTop = createFieldGrid("fpe-field-grid--1");
   const baselineBottom = createFieldGrid("fpe-field-grid--2");
-  baselineBottom.style.marginTop = "14px";
   baselineBody.append(baselineTop);
   mountLegacyClosest({
     key: "v3-district-yourCandidate-field",

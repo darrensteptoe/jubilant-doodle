@@ -9,18 +9,24 @@ import { mountLegacyClosest, mountLegacyNode } from "../compat.js";
 import { bindClickProxy, readText, setText, syncButtonDisabled } from "../surfaceUtils.js";
 
 export function renderOutcomeSurface(mount) {
-  const frame = createSurfaceFrame("two-col");
-  const left = createColumn("primary");
-  const right = createColumn("secondary");
+  const frame = createSurfaceFrame("three-col");
+  const controlsCol = createColumn("controls");
+  const analysisCol = createColumn("analysis");
+  const interpretationCol = createColumn("interpretation");
 
   const controlsCard = createCard({
     title: "Simulation controls",
     description: "Execution assumptions, uncertainty mode, and Monte Carlo run controls."
   });
 
-  const outputCard = createCard({
-    title: "Forecast outputs",
-    description: "Win probability distribution and confidence envelope."
+  const forecastCard = createCard({
+    title: "Forecast",
+    description: "Win probability and projected margin under current assumptions."
+  });
+
+  const confidenceCard = createCard({
+    title: "Confidence envelope",
+    description: "P10/P50/P90 spread and distribution shape."
   });
 
   const sensitivityCard = createCard({
@@ -78,18 +84,26 @@ export function renderOutcomeSurface(mount) {
     target: controlsBody
   });
 
-  const outputBody = getCardBody(outputCard);
+  const forecastBody = getCardBody(forecastCard);
   mountLegacyClosest({
-    key: "v3-outcome-output-kpis",
+    key: "v3-outcome-forecast-kpis",
     childSelector: "#mcWinProb",
     closestSelector: ".kpis",
-    target: outputBody
+    target: forecastBody
   });
+
+  const confidenceBody = getCardBody(confidenceCard);
   mountLegacyClosest({
-    key: "v3-outcome-output-envelope",
+    key: "v3-outcome-confidence-envelope",
     childSelector: "#mcP10",
     closestSelector: ".card",
-    target: outputBody
+    target: confidenceBody
+  });
+  mountLegacyClosest({
+    key: "v3-outcome-confidence-distribution",
+    childSelector: "#mcDistSvg",
+    closestSelector: ".card",
+    target: confidenceBody
   });
 
   const sensitivityBody = getCardBody(sensitivityCard);
@@ -147,10 +161,11 @@ export function renderOutcomeSurface(mount) {
     </div>
   `;
 
-  left.append(controlsCard, outputCard);
-  right.append(sensitivityCard, interpretationCard, summaryCard);
+  controlsCol.append(controlsCard, forecastCard);
+  analysisCol.append(confidenceCard, sensitivityCard);
+  interpretationCol.append(interpretationCard, summaryCard);
 
-  frame.append(left, right);
+  frame.append(controlsCol, analysisCol, interpretationCol);
   mount.append(frame);
   mount.append(
     createWhyPanel([
