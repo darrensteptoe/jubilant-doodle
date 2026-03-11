@@ -51,9 +51,70 @@ import {
 
 const variableCatalogCache = new Map();
 let stateOptionsCache = null;
+let stateOptionsUsingFallback = false;
 const countyOptionsCache = new Map();
 const placeOptionsCache = new Map();
 const rowsCache = new Map();
+const STATE_OPTIONS_FALLBACK = [
+  { fips: "01", name: "Alabama" },
+  { fips: "02", name: "Alaska" },
+  { fips: "04", name: "Arizona" },
+  { fips: "05", name: "Arkansas" },
+  { fips: "06", name: "California" },
+  { fips: "08", name: "Colorado" },
+  { fips: "09", name: "Connecticut" },
+  { fips: "10", name: "Delaware" },
+  { fips: "11", name: "District of Columbia" },
+  { fips: "12", name: "Florida" },
+  { fips: "13", name: "Georgia" },
+  { fips: "15", name: "Hawaii" },
+  { fips: "16", name: "Idaho" },
+  { fips: "17", name: "Illinois" },
+  { fips: "18", name: "Indiana" },
+  { fips: "19", name: "Iowa" },
+  { fips: "20", name: "Kansas" },
+  { fips: "21", name: "Kentucky" },
+  { fips: "22", name: "Louisiana" },
+  { fips: "23", name: "Maine" },
+  { fips: "24", name: "Maryland" },
+  { fips: "25", name: "Massachusetts" },
+  { fips: "26", name: "Michigan" },
+  { fips: "27", name: "Minnesota" },
+  { fips: "28", name: "Mississippi" },
+  { fips: "29", name: "Missouri" },
+  { fips: "30", name: "Montana" },
+  { fips: "31", name: "Nebraska" },
+  { fips: "32", name: "Nevada" },
+  { fips: "33", name: "New Hampshire" },
+  { fips: "34", name: "New Jersey" },
+  { fips: "35", name: "New Mexico" },
+  { fips: "36", name: "New York" },
+  { fips: "37", name: "North Carolina" },
+  { fips: "38", name: "North Dakota" },
+  { fips: "39", name: "Ohio" },
+  { fips: "40", name: "Oklahoma" },
+  { fips: "41", name: "Oregon" },
+  { fips: "42", name: "Pennsylvania" },
+  { fips: "44", name: "Rhode Island" },
+  { fips: "45", name: "South Carolina" },
+  { fips: "46", name: "South Dakota" },
+  { fips: "47", name: "Tennessee" },
+  { fips: "48", name: "Texas" },
+  { fips: "49", name: "Utah" },
+  { fips: "50", name: "Vermont" },
+  { fips: "51", name: "Virginia" },
+  { fips: "53", name: "Washington" },
+  { fips: "54", name: "West Virginia" },
+  { fips: "55", name: "Wisconsin" },
+  { fips: "56", name: "Wyoming" },
+  { fips: "60", name: "American Samoa" },
+  { fips: "66", name: "Guam" },
+  { fips: "69", name: "Northern Mariana Islands" },
+  { fips: "72", name: "Puerto Rico" },
+  { fips: "78", name: "U.S. Virgin Islands" },
+];
+stateOptionsCache = STATE_OPTIONS_FALLBACK.slice();
+stateOptionsUsingFallback = true;
 const LEAFLET_CSS_ID = "fpeLeafletCss";
 const LEAFLET_SCRIPT_ID = "fpeLeafletScript";
 const LEAFLET_CSS_URL = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.css";
@@ -753,9 +814,23 @@ function nextSeq(s){
 
 async function ensureStateOptions(key){
   if (Array.isArray(stateOptionsCache) && stateOptionsCache.length) return stateOptionsCache;
-  const rows = await fetchStateOptions({ key });
-  stateOptionsCache = rows;
-  return rows;
+  try{
+    const rows = await fetchStateOptions({ key });
+    if (Array.isArray(rows) && rows.length){
+      stateOptionsCache = rows;
+      stateOptionsUsingFallback = false;
+      return rows;
+    }
+    throw new Error("No state rows returned.");
+  } catch (err){
+    if (!stateOptionsUsingFallback){
+      const reason = cleanText(err?.message) || "Lookup failed";
+      console.warn(`[censusPhase1] Using built-in fallback state list: ${reason}`);
+    }
+    stateOptionsUsingFallback = true;
+    stateOptionsCache = STATE_OPTIONS_FALLBACK.slice();
+    return stateOptionsCache;
+  }
 }
 
 async function ensureCountyOptions(stateFips, key){
@@ -1109,7 +1184,9 @@ export function renderCensusPhase1Module({ els, state, res } = {}){
     } else {
       const resolution = cleanText(s.resolution);
       if (!s.stateFips){
-        els.censusContextHint.textContent = "Select a state first, then set geography context for the current resolution.";
+        els.censusContextHint.textContent = stateOptionsUsingFallback
+          ? "Select a state first. Fallback state list is active; county/place lookups require working Census API access."
+          : "Select a state first, then set geography context for the current resolution.";
       } else if (resolutionNeedsCounty(resolution)){
         els.censusContextHint.textContent = "County is required for this resolution. Place is not used.";
       } else if (resolution === "place"){
@@ -1837,7 +1914,17 @@ export function wireCensusPhase1EventsModule(ctx){
         }
         const latest = ensureCensusStateModule(currentState());
         if (!latest) return;
-        setStatus(latest, latest.stateFips ? "Census module ready." : "State list loaded. Select state and geography, then load GEO list.", false);
+        if (latest.stateFips){
+          setStatus(latest, "Census module ready.", false);
+        } else {
+          setStatus(
+            latest,
+            stateOptionsUsingFallback
+              ? "State list loaded (fallback). Select state and geography, then load GEO list."
+              : "State list loaded. Select state and geography, then load GEO list.",
+            false
+          );
+        }
       } catch (err){
         const latest = ensureCensusStateModule(currentState());
         if (!latest) return;
@@ -2608,7 +2695,17 @@ export function wireCensusPhase1EventsModule(ctx){
       if (s.stateFips){
         await loadStateScopedLists(s, key);
       }
-      setStatus(s, s.stateFips ? "Census module ready." : "Select state and geography, then load GEO list.", false);
+      if (s.stateFips){
+        setStatus(s, "Census module ready.", false);
+      } else {
+        setStatus(
+          s,
+          stateOptionsUsingFallback
+            ? "State list loaded (fallback). Select state and geography, then load GEO list."
+            : "Select state and geography, then load GEO list.",
+          false
+        );
+      }
     } catch {
       setStatus(s, "Could not pre-load Census lookups. Enter key and load GEO list manually.", true);
     }
