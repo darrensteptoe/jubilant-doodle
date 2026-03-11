@@ -3,7 +3,6 @@ import {
   createColumn,
   createSurfaceFrame,
   setCardHeaderControl,
-  createWhyPanel,
   getCardBody
 } from "../componentFactory.js";
 import { mountLegacyClosest, mountLegacyNode } from "../compat.js";
@@ -332,14 +331,8 @@ export function renderReachSurface(mount) {
     </div>
   `;
 
-  const whyPanel = createWhyPanel([
-    "Reach is bounded by throughput and conversion physics, not aspiration.",
-    "This page should immediately show whether current capacity can close the modeled need.",
-    "Use levers to resolve bottlenecks before changing outcome assumptions."
-  ]);
-
-  left.append(outlookCard, freshnessCard, universeCard, weeklyCard, conversionCard, leversCard);
-  right.append(summaryCard, actionsCard, whyPanel);
+  left.append(outlookCard, freshnessCard, universeCard, conversionCard);
+  right.append(summaryCard, weeklyCard, leversCard, actionsCard);
 
   frame.append(left, right);
   mount.append(frame);
