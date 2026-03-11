@@ -12,11 +12,13 @@
   --fpe-danger: var(--bad-fg);
   --fpe-focus: color-mix(in srgb, var(--accent) 30%, transparent);
   --fpe-header-red-tint: transparent;
+  --fpe-shell-tint: color-mix(in srgb, #8d98a8 10%, var(--fpe-bg));
   --fpe-topbar-tone-a: color-mix(in srgb, #6f7a88 30%, var(--fpe-panel));
   --fpe-topbar-tone-b: color-mix(in srgb, #c9d0da 60%, #ffffff);
   --fpe-topbar-glaze-start: color-mix(in srgb, var(--fpe-panel) 40%, transparent);
   --fpe-topbar-glaze-end: color-mix(in srgb, #ffffff 94%, var(--fpe-panel));
   --fpe-topbar-photo: url("./assets/AdobeStock_271073143.jpeg");
+  --fpe-topbar-photo-opacity: 0.32;
   --fpe-topbar-base: linear-gradient(
     90deg,
     var(--fpe-topbar-tone-a) 0%,
@@ -54,10 +56,12 @@
 }
 
 body.dark #app-shell-v3-root {
+  --fpe-shell-tint: color-mix(in srgb, #4e5866 24%, #0b1220);
   --fpe-topbar-tone-a: color-mix(in srgb, #4e5866 68%, #0b1220);
   --fpe-topbar-tone-b: color-mix(in srgb, #2f3743 66%, #101827);
   --fpe-topbar-glaze-start: color-mix(in srgb, #0b1220 52%, transparent);
   --fpe-topbar-glaze-end: color-mix(in srgb, #0b1220 86%, #101827);
+  --fpe-topbar-photo-opacity: 0.26;
   --fpe-topbar-base: linear-gradient(
     90deg,
     var(--fpe-topbar-tone-a) 0%,
@@ -70,10 +74,12 @@ body.dark #app-shell-v3-root {
 
 @media (prefers-color-scheme: dark) {
   body:not(.light) #app-shell-v3-root {
+    --fpe-shell-tint: color-mix(in srgb, #4e5866 24%, #0b1220);
     --fpe-topbar-tone-a: color-mix(in srgb, #4e5866 68%, #0b1220);
     --fpe-topbar-tone-b: color-mix(in srgb, #2f3743 66%, #101827);
     --fpe-topbar-glaze-start: color-mix(in srgb, #0b1220 52%, transparent);
     --fpe-topbar-glaze-end: color-mix(in srgb, #0b1220 86%, #101827);
+    --fpe-topbar-photo-opacity: 0.26;
     --fpe-topbar-base: linear-gradient(
       90deg,
       var(--fpe-topbar-tone-a) 0%,
@@ -99,7 +105,7 @@ body.dark #app-shell-v3-root {
   color: var(--fpe-text);
   background: radial-gradient(
     circle at 8% 0%,
-    color-mix(in srgb, var(--fpe-accent) 10%, var(--fpe-bg)) 0%,
+    var(--fpe-shell-tint) 0%,
     var(--fpe-bg) 42%,
     color-mix(in srgb, var(--fpe-panel) 82%, var(--fpe-bg)) 100%
   );
@@ -107,17 +113,31 @@ body.dark #app-shell-v3-root {
 }
 
 .fpe-topbar {
+  position: relative;
   height: var(--fpe-topbar-h);
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: var(--fpe-space-4);
   padding: 0 var(--fpe-space-5);
+  background: var(--fpe-panel);
+  border-bottom: 1px solid var(--fpe-rule);
+  overflow: hidden;
+}
+
+.fpe-topbar::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: min(46%, 560px);
   background-image:
     linear-gradient(
-      90deg,
+      270deg,
       var(--fpe-topbar-glaze-start) 0%,
-      var(--fpe-topbar-glaze-end) 100%
+      var(--fpe-topbar-glaze-end) 72%,
+      transparent 100%
     ),
     var(--fpe-topbar-photo),
     var(--fpe-topbar-base);
@@ -125,14 +145,27 @@ body.dark #app-shell-v3-root {
   background-position: center, center, center;
   background-repeat: no-repeat, no-repeat, no-repeat;
   background-blend-mode: normal, luminosity, normal;
-  border-bottom: 1px solid var(--fpe-rule);
+  opacity: var(--fpe-topbar-photo-opacity);
+  pointer-events: none;
+}
+
+.fpe-topbar > * {
+  position: relative;
+  z-index: 1;
 }
 
 .fpe-topbar__brand {
   display: flex;
   align-items: center;
   gap: var(--fpe-space-3);
+  flex: 1 1 auto;
+  margin-right: auto;
+  min-height: calc(var(--fpe-topbar-h) - 10px);
+  max-width: calc(100% - 260px);
+  padding: 0 12px;
+  border-radius: 10px;
   min-width: 0;
+  overflow: hidden;
 }
 
 .fpe-brand {
@@ -140,7 +173,9 @@ body.dark #app-shell-v3-root {
   font-weight: 700;
   letter-spacing: 0.01em;
   color: var(--fpe-topbar-title);
-  text-shadow: 0 1px 2px color-mix(in srgb, #000000 28%, transparent);
+  text-shadow:
+    0 1px 0 color-mix(in srgb, #000000 42%, transparent),
+    0 2px 8px color-mix(in srgb, #000000 24%, transparent);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -164,22 +199,27 @@ body.dark #app-shell-v3-root {
 }
 
 .fpe-topbar .fpe-btn {
-  border-color: color-mix(in srgb, #ffffff 24%, var(--fpe-rule));
-  background: color-mix(in srgb, #0b1220 22%, transparent);
-  color: var(--fpe-topbar-ui);
+  border-color: var(--fpe-rule);
+  background: var(--fpe-panel);
+  color: var(--fpe-text);
 }
 
 .fpe-topbar .fpe-btn:hover {
-  background: color-mix(in srgb, #0b1220 34%, transparent);
+  background: var(--fpe-panel-muted);
 }
 
 .fpe-topbar .fpe-btn--danger {
-  border-color: color-mix(in srgb, #ffffff 34%, var(--fpe-rule));
-  color: var(--fpe-topbar-ui);
+  border-color: color-mix(in srgb, var(--fpe-danger) 35%, var(--fpe-rule));
+  color: var(--fpe-danger);
+  background: color-mix(in srgb, var(--fpe-danger) 4%, var(--fpe-panel));
+}
+
+.fpe-topbar .fpe-btn--danger:hover {
+  background: color-mix(in srgb, var(--fpe-danger) 10%, var(--fpe-panel));
 }
 
 .fpe-btn--training {
-  font-weight: 600;
+  font-weight: 400;
   transition: box-shadow 140ms ease, border-color 140ms ease, background-color 140ms ease, color 140ms ease;
 }
 
@@ -694,6 +734,20 @@ body.dark #app-shell-v3-root {
   font-size: inherit;
 }
 
+.fpe-message-window__body .fpe-status-list {
+  margin: 0;
+  padding-left: 18px;
+  list-style: disc;
+  display: grid;
+  gap: 6px;
+}
+
+.fpe-message-window__body .fpe-status-list li {
+  margin: 0;
+  padding: 0;
+  color: inherit;
+}
+
 #app-shell-v3-root .fpe-surface .help {
   display: none;
   border: 1px dashed color-mix(in srgb, var(--fpe-rule) 80%, transparent);
@@ -884,6 +938,34 @@ body.training #app-shell-v3-root .fpe-surface .help {
 .fpe-surface-pane[data-v3-stage="reach"] .fpe-card__body .fpe-field-grid--4,
 .fpe-surface-pane[data-v3-stage="reach"] .fpe-card__body .grid4 {
   grid-template-columns: repeat(2, minmax(0, 1fr));
+  min-width: 0;
+}
+
+.fpe-surface-pane[data-v3-stage="outcome"] .fpe-card__body .fpe-field-grid--3,
+.fpe-surface-pane[data-v3-stage="outcome"] .fpe-card__body .grid3,
+.fpe-surface-pane[data-v3-stage="outcome"] .fpe-card__body .subgrid,
+.fpe-surface-pane[data-v3-stage="turnout"] .fpe-card__body .fpe-field-grid--3,
+.fpe-surface-pane[data-v3-stage="turnout"] .fpe-card__body .grid3,
+.fpe-surface-pane[data-v3-stage="turnout"] .fpe-card__body .subgrid,
+.fpe-surface-pane[data-v3-stage="plan"] .fpe-card__body .fpe-field-grid--3,
+.fpe-surface-pane[data-v3-stage="plan"] .fpe-card__body .grid3,
+.fpe-surface-pane[data-v3-stage="plan"] .fpe-card__body .subgrid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  min-width: 0;
+}
+
+.fpe-surface-pane[data-v3-stage="outcome"] .fpe-card__body .fpe-field-grid--4,
+.fpe-surface-pane[data-v3-stage="outcome"] .fpe-card__body .grid4,
+.fpe-surface-pane[data-v3-stage="turnout"] .fpe-card__body .fpe-field-grid--4,
+.fpe-surface-pane[data-v3-stage="turnout"] .fpe-card__body .grid4,
+.fpe-surface-pane[data-v3-stage="plan"] .fpe-card__body .fpe-field-grid--4,
+.fpe-surface-pane[data-v3-stage="plan"] .fpe-card__body .grid4 {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  min-width: 0;
+}
+
+.fpe-surface-pane[data-v3-stage="scenarios"] .fpe-card__body .fpe-field-grid--2,
+.fpe-surface-pane[data-v3-stage="scenarios"] .fpe-card__body .grid2 {
   min-width: 0;
 }
 
@@ -1547,6 +1629,27 @@ body.training #app-shell-v3-root .fpe-surface .help {
   .fpe-surface-pane[data-v3-stage="reach"] .fpe-card__body .fpe-field-grid--4,
   .fpe-surface-pane[data-v3-stage="reach"] .fpe-card__body .grid4 {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+    min-width: 0;
+  }
+
+  .fpe-surface-pane[data-v3-stage="outcome"] .fpe-card__body .fpe-field-grid--3,
+  .fpe-surface-pane[data-v3-stage="outcome"] .fpe-card__body .grid3,
+  .fpe-surface-pane[data-v3-stage="outcome"] .fpe-card__body .subgrid,
+  .fpe-surface-pane[data-v3-stage="outcome"] .fpe-card__body .fpe-field-grid--4,
+  .fpe-surface-pane[data-v3-stage="outcome"] .fpe-card__body .grid4,
+  .fpe-surface-pane[data-v3-stage="turnout"] .fpe-card__body .fpe-field-grid--3,
+  .fpe-surface-pane[data-v3-stage="turnout"] .fpe-card__body .grid3,
+  .fpe-surface-pane[data-v3-stage="turnout"] .fpe-card__body .subgrid,
+  .fpe-surface-pane[data-v3-stage="turnout"] .fpe-card__body .fpe-field-grid--4,
+  .fpe-surface-pane[data-v3-stage="turnout"] .fpe-card__body .grid4,
+  .fpe-surface-pane[data-v3-stage="plan"] .fpe-card__body .fpe-field-grid--3,
+  .fpe-surface-pane[data-v3-stage="plan"] .fpe-card__body .grid3,
+  .fpe-surface-pane[data-v3-stage="plan"] .fpe-card__body .subgrid,
+  .fpe-surface-pane[data-v3-stage="plan"] .fpe-card__body .fpe-field-grid--4,
+  .fpe-surface-pane[data-v3-stage="plan"] .fpe-card__body .grid4,
+  .fpe-surface-pane[data-v3-stage="scenarios"] .fpe-card__body .fpe-field-grid--2,
+  .fpe-surface-pane[data-v3-stage="scenarios"] .fpe-card__body .grid2 {
+    grid-template-columns: 1fr;
     min-width: 0;
   }
 
