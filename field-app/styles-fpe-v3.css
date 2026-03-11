@@ -11,6 +11,7 @@
   --fpe-warning: var(--warn-fg);
   --fpe-danger: var(--bad-fg);
   --fpe-focus: color-mix(in srgb, var(--accent) 30%, transparent);
+  --fpe-header-red-tint: color-mix(in srgb, var(--fpe-danger) 9%, transparent);
 
   --fpe-space-1: 4px;
   --fpe-space-2: 8px;
@@ -67,7 +68,9 @@
   justify-content: space-between;
   gap: var(--fpe-space-4);
   padding: 0 var(--fpe-space-5);
-  background: var(--fpe-panel);
+  background:
+    radial-gradient(circle at 0% 0%, var(--fpe-header-red-tint) 0%, transparent 62%),
+    var(--fpe-panel);
   border-bottom: 1px solid var(--fpe-rule);
 }
 
@@ -258,7 +261,9 @@
 }
 
 .fpe-page-head {
-  background: var(--fpe-panel);
+  background:
+    radial-gradient(circle at 0% 0%, var(--fpe-header-red-tint) 0%, transparent 64%),
+    var(--fpe-panel);
   border-bottom: 1px solid var(--fpe-rule);
   padding-top: var(--fpe-space-5);
   padding-bottom: var(--fpe-space-4);
@@ -370,7 +375,9 @@
 
 .fpe-card__head {
   border-bottom: 1px solid var(--fpe-rule);
-  background: var(--fpe-panel-muted);
+  background:
+    radial-gradient(circle at 0% 0%, var(--fpe-header-red-tint) 0%, transparent 64%),
+    var(--fpe-panel-muted);
   padding: 14px 17px 12px;
 }
 
@@ -875,7 +882,9 @@ body.training #app-shell-v3-root .fpe-surface .help {
 .fpe-surface-pane[data-v3-stage="district"] .fpe-census-section__head {
   padding: 12px 14px;
   border-bottom: 1px solid var(--fpe-rule);
-  background: var(--fpe-panel-muted);
+  background:
+    radial-gradient(circle at 0% 0%, var(--fpe-header-red-tint) 0%, transparent 64%),
+    var(--fpe-panel-muted);
 }
 
 .fpe-surface-pane[data-v3-stage="district"] .fpe-census-section__head-main {
