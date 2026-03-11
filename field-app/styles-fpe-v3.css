@@ -14,6 +14,9 @@
   --fpe-header-red-tint: transparent;
   --fpe-table-head-bg: color-mix(in srgb, var(--fpe-rule) 22%, var(--fpe-panel));
   --fpe-header-bg: color-mix(in srgb, var(--fpe-rule) 30%, var(--fpe-panel));
+  --fpe-block-instruction-bg: color-mix(in srgb, var(--fpe-accent) 4%, var(--fpe-panel));
+  --fpe-block-status-bg: color-mix(in srgb, var(--fpe-accent) 7%, var(--fpe-panel));
+  --fpe-action-strip-bg: color-mix(in srgb, var(--fpe-rule) 10%, var(--fpe-panel));
   --fpe-shell-tint: color-mix(in srgb, #8d98a8 10%, var(--fpe-bg));
   --fpe-topbar-tone-a: color-mix(in srgb, #6f7a88 30%, var(--fpe-panel));
   --fpe-topbar-tone-b: color-mix(in srgb, #c9d0da 60%, #ffffff);
@@ -60,6 +63,9 @@
 body.dark #app-shell-v3-root {
   --fpe-table-head-bg: color-mix(in srgb, var(--fpe-rule) 24%, var(--fpe-panel));
   --fpe-header-bg: color-mix(in srgb, var(--fpe-rule) 32%, var(--fpe-panel));
+  --fpe-block-instruction-bg: color-mix(in srgb, var(--fpe-accent) 10%, var(--fpe-panel));
+  --fpe-block-status-bg: color-mix(in srgb, var(--fpe-accent) 13%, var(--fpe-panel));
+  --fpe-action-strip-bg: color-mix(in srgb, var(--fpe-rule) 16%, var(--fpe-panel));
   --fpe-shell-tint: color-mix(in srgb, #4e5866 24%, #0b1220);
   --fpe-topbar-tone-a: color-mix(in srgb, #4e5866 68%, #0b1220);
   --fpe-topbar-tone-b: color-mix(in srgb, #2f3743 66%, #101827);
@@ -80,6 +86,9 @@ body.dark #app-shell-v3-root {
   body:not(.light) #app-shell-v3-root {
     --fpe-table-head-bg: color-mix(in srgb, var(--fpe-rule) 24%, var(--fpe-panel));
     --fpe-header-bg: color-mix(in srgb, var(--fpe-rule) 32%, var(--fpe-panel));
+    --fpe-block-instruction-bg: color-mix(in srgb, var(--fpe-accent) 10%, var(--fpe-panel));
+    --fpe-block-status-bg: color-mix(in srgb, var(--fpe-accent) 13%, var(--fpe-panel));
+    --fpe-action-strip-bg: color-mix(in srgb, var(--fpe-rule) 16%, var(--fpe-panel));
     --fpe-shell-tint: color-mix(in srgb, #4e5866 24%, #0b1220);
     --fpe-topbar-tone-a: color-mix(in srgb, #4e5866 68%, #0b1220);
     --fpe-topbar-tone-b: color-mix(in srgb, #2f3743 66%, #101827);
@@ -657,6 +666,13 @@ body.dark #app-shell-v3-root {
   margin-bottom: 0;
 }
 
+.fpe-action-strip {
+  border: 1px solid var(--fpe-rule);
+  border-radius: var(--fpe-radius-sm);
+  background: var(--fpe-action-strip-bg);
+  padding: 8px 10px;
+}
+
 #app-shell-v3-root .fpe-card__body .field > .fpe-action-row {
   margin-bottom: 0;
 }
@@ -679,6 +695,16 @@ body.dark #app-shell-v3-root {
   padding: 10px 12px;
 }
 
+.fpe-contained-block--instruction {
+  border-color: color-mix(in srgb, var(--fpe-accent) 20%, var(--fpe-rule));
+  background: var(--fpe-block-instruction-bg);
+}
+
+.fpe-contained-block--status {
+  border-color: color-mix(in srgb, var(--fpe-accent) 28%, var(--fpe-rule));
+  background: var(--fpe-block-status-bg);
+}
+
 .fpe-contained-block .bullets {
   margin: 0;
   padding-left: 18px;
@@ -689,6 +715,23 @@ body.dark #app-shell-v3-root {
 .fpe-contained-block .muted,
 .fpe-contained-block .mini-s {
   margin: 0;
+}
+
+.fpe-status-strip {
+  display: grid;
+  gap: 10px;
+}
+
+.fpe-status-strip--2 {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.fpe-status-strip--3 {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.fpe-status-strip > .fpe-contained-block {
+  height: 100%;
 }
 
 .fpe-message-window {
@@ -1466,6 +1509,14 @@ body.training #app-shell-v3-root .fpe-surface .help {
   text-align: right;
 }
 
+.fpe-turnout-impact-value {
+  margin-top: 4px;
+  color: var(--fpe-text);
+  font-size: 18px;
+  line-height: 1.25;
+  font-weight: 600;
+}
+
 .fpe-surface-pane[data-v3-stage="district"] .fpe-district-top-row {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -1714,6 +1765,11 @@ body.training #app-shell-v3-root .fpe-surface .help {
   .fpe-surface-frame--two-col,
   .fpe-surface-frame--three-col {
     grid-template-columns: minmax(0, 1fr);
+  }
+
+  .fpe-status-strip--2,
+  .fpe-status-strip--3 {
+    grid-template-columns: 1fr;
   }
 
   #app-shell-v3-root .fpe-card__body .fpe-field-grid--2,

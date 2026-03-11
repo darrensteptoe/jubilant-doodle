@@ -2151,6 +2151,9 @@
 <tr><td>Persuasion environment</td><td>Structural persuasion potential from ACS profile mix.</td><td>&le; 0.92</td><td>0.93-1.07</td><td>&ge; 1.08</td></tr>
 <tr><td>Turnout elasticity</td><td>Expected turnout responsiveness to GOTV pressure.</td><td>&le; 0.92</td><td>0.93-1.07</td><td>&ge; 1.08</td></tr>
 <tr><td>Field difficulty</td><td>Operational friction and organizer load for contact execution.</td><td>&le; 0.92 (easier)</td><td>0.93-1.07</td><td>&ge; 1.08 (harder)</td></tr>
+<tr><td>Long/super commute share</td><td>Higher shares imply weaker weekday contact availability and tighter canvass windows.</td><td>&le; 12%</td><td>13-27%</td><td>&ge; 28%</td></tr>
+<tr><td>No-internet share</td><td>Higher shares reduce digital follow-up and reminder coverage.</td><td>&le; 8%</td><td>9-19%</td><td>&ge; 20%</td></tr>
+<tr><td>Poverty share</td><td>Higher shares can indicate larger turnout-opportunity upside with higher execution risk.</td><td>&le; 10%</td><td>11-17%</td><td>&ge; 18%</td></tr>
 <tr><td>Advisory doors/hour multiplier</td><td>Multiplier applied to blended APH to estimate environment-adjusted APH.</td><td>&lt; 0.90</td><td>0.90-1.10</td><td>&gt; 1.10</td></tr>
 <tr><td>Required APH to hit goal</td><td>Required attempts per organizer hour to hit current need votes under current rates and weeks.</td><td colspan="3">Computed from your plan inputs</td></tr>
 <tr><td>APH feasibility check</td><td>Compares required APH vs environment-adjusted APH.</td><td>&gt; 0% shortfall</td><td>-10% to 0%</td><td>&le; -10% buffer</td></tr>
@@ -2158,6 +2161,124 @@
 </table>
 </div>
 </details>
+<div class="card card-section" id="targetingLabCard" style="margin-top:8px;">
+<div class="card-head card-header">
+<h2 class="card-title">Targeting lab</h2>
+</div>
+<div class="help-text">Rank GEO units by model-driven target score. This is a derived layer and does not modify core scenario math.</div>
+<div class="grid3" style="margin-top:8px;">
+<div class="field">
+<label class="label" for="targetingGeoLevel">Geography level</label>
+<select class="select" id="targetingGeoLevel">
+<option value="block_group">Block group</option>
+<option value="tract">Tract</option>
+</select>
+</div>
+<div class="field">
+<label class="label" for="targetingModelId">Target model</label>
+<select class="select" id="targetingModelId">
+<option value="turnout_opportunity">Turnout Opportunity</option>
+<option value="persuasion_first">Persuasion First</option>
+<option value="field_efficiency">Field Efficiency</option>
+<option value="house_v1">House Model v1</option>
+</select>
+</div>
+<div class="field">
+<label class="label" for="targetingTopN">Top N</label>
+<input class="input" id="targetingTopN" inputmode="numeric" min="1" step="1" type="number"/>
+</div>
+</div>
+<div class="grid3" style="margin-top:8px;">
+<div class="field">
+<label class="label" for="targetingMinHousingUnits">Minimum housing units</label>
+<input class="input" id="targetingMinHousingUnits" inputmode="numeric" min="0" step="1" type="number"/>
+</div>
+<div class="field">
+<label class="label" for="targetingMinPopulation">Minimum population</label>
+<input class="input" id="targetingMinPopulation" inputmode="numeric" min="0" step="1" type="number"/>
+</div>
+<div class="field">
+<label class="label" for="targetingMinScore">Minimum score</label>
+<input class="input" id="targetingMinScore" inputmode="decimal" min="0" step="0.1" type="number"/>
+</div>
+</div>
+<div class="rowline" style="margin-top:8px; gap:12px; flex-wrap:wrap;">
+<label class="switch">
+<input checked="" id="targetingOnlyRaceFootprint" type="checkbox"/>
+<span class="slider"></span>
+<span class="switch-label">Only race footprint</span>
+</label>
+<label class="switch">
+<input checked="" id="targetingPrioritizeYoung" type="checkbox"/>
+<span class="slider"></span>
+<span class="switch-label">Prioritize young profile</span>
+</label>
+<label class="switch">
+<input id="targetingPrioritizeRenters" type="checkbox"/>
+<span class="slider"></span>
+<span class="switch-label">Prioritize renters</span>
+</label>
+<label class="switch">
+<input id="targetingAvoidHighMultiUnit" type="checkbox"/>
+<span class="slider"></span>
+<span class="switch-label">Avoid high multi-unit</span>
+</label>
+<div class="field" style="min-width:180px;">
+<label class="label" for="targetingDensityFloor">Density floor</label>
+<select class="select" id="targetingDensityFloor">
+<option value="none">None</option>
+<option value="medium">Medium+</option>
+<option value="high">High only</option>
+</select>
+</div>
+</div>
+<div class="muted" style="margin-top:8px;">House model weights (used when Target model = House Model v1). Weights auto-normalize on run.</div>
+<div class="grid2" style="margin-top:8px;">
+<div class="field">
+<label class="label" for="targetingWeightVotePotential">Vote potential weight</label>
+<input class="input" id="targetingWeightVotePotential" inputmode="decimal" min="0" step="0.01" type="number"/>
+</div>
+<div class="field">
+<label class="label" for="targetingWeightTurnoutOpportunity">Turnout opportunity weight</label>
+<input class="input" id="targetingWeightTurnoutOpportunity" inputmode="decimal" min="0" step="0.01" type="number"/>
+</div>
+<div class="field">
+<label class="label" for="targetingWeightPersuasionIndex">Persuasion index weight</label>
+<input class="input" id="targetingWeightPersuasionIndex" inputmode="decimal" min="0" step="0.01" type="number"/>
+</div>
+<div class="field">
+<label class="label" for="targetingWeightFieldEfficiency">Field efficiency weight</label>
+<input class="input" id="targetingWeightFieldEfficiency" inputmode="decimal" min="0" step="0.01" type="number"/>
+</div>
+</div>
+<div class="rowline" style="margin-top:8px; gap:8px;">
+<button class="btn btn-sm btn-ghost" id="btnTargetingResetWeights" type="button">Reset house weights</button>
+</div>
+<div class="rowline" style="margin-top:8px; gap:8px;">
+<button class="btn btn-sm btn-ghost" id="btnRunTargeting" type="button">Run targeting</button>
+<button class="btn btn-sm btn-ghost" id="btnExportTargetingCsv" type="button">Export targets CSV</button>
+<button class="btn btn-sm btn-ghost" id="btnExportTargetingJson" type="button">Export targets JSON</button>
+</div>
+<div class="muted" id="targetingStatus" style="margin-top:6px;">Targeting not run yet.</div>
+<div class="muted" id="targetingMeta" style="margin-top:4px;">Load ACS rows, then run targeting.</div>
+<div class="table-wrap" style="margin-top:8px;">
+<table class="table" aria-label="Targeting rankings">
+<thead>
+<tr>
+<th>Rank</th>
+<th>Geography</th>
+<th class="num">Score</th>
+<th class="num">Votes/hr</th>
+<th>Reason</th>
+<th>Flags</th>
+</tr>
+</thead>
+<tbody id="targetingResultsTbody">
+<tr><td class="muted" colspan="6">Run targeting to generate ranked GEOs.</td></tr>
+</tbody>
+</table>
+</div>
+</div>
 <div class="muted" id="censusSelectionSummary">No GEO selected. Select one or more GEO units to aggregate.</div>
 <div class="rowline" style="margin-top:8px; gap:8px; flex-wrap:wrap;">
 <button class="btn btn-sm btn-ghost" id="btnCensusSetRaceFootprint" type="button">Set as race footprint</button>
