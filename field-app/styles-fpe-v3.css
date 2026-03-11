@@ -12,6 +12,8 @@
   --fpe-danger: var(--bad-fg);
   --fpe-focus: color-mix(in srgb, var(--accent) 30%, transparent);
   --fpe-header-red-tint: transparent;
+  --fpe-table-head-bg: color-mix(in srgb, var(--fpe-rule) 22%, var(--fpe-panel));
+  --fpe-header-bg: color-mix(in srgb, var(--fpe-rule) 30%, var(--fpe-panel));
   --fpe-shell-tint: color-mix(in srgb, #8d98a8 10%, var(--fpe-bg));
   --fpe-topbar-tone-a: color-mix(in srgb, #6f7a88 30%, var(--fpe-panel));
   --fpe-topbar-tone-b: color-mix(in srgb, #c9d0da 60%, #ffffff);
@@ -56,6 +58,8 @@
 }
 
 body.dark #app-shell-v3-root {
+  --fpe-table-head-bg: color-mix(in srgb, var(--fpe-rule) 24%, var(--fpe-panel));
+  --fpe-header-bg: color-mix(in srgb, var(--fpe-rule) 32%, var(--fpe-panel));
   --fpe-shell-tint: color-mix(in srgb, #4e5866 24%, #0b1220);
   --fpe-topbar-tone-a: color-mix(in srgb, #4e5866 68%, #0b1220);
   --fpe-topbar-tone-b: color-mix(in srgb, #2f3743 66%, #101827);
@@ -74,6 +78,8 @@ body.dark #app-shell-v3-root {
 
 @media (prefers-color-scheme: dark) {
   body:not(.light) #app-shell-v3-root {
+    --fpe-table-head-bg: color-mix(in srgb, var(--fpe-rule) 24%, var(--fpe-panel));
+    --fpe-header-bg: color-mix(in srgb, var(--fpe-rule) 32%, var(--fpe-panel));
     --fpe-shell-tint: color-mix(in srgb, #4e5866 24%, #0b1220);
     --fpe-topbar-tone-a: color-mix(in srgb, #4e5866 68%, #0b1220);
     --fpe-topbar-tone-b: color-mix(in srgb, #2f3743 66%, #101827);
@@ -365,7 +371,7 @@ body.dark #app-shell-v3-root {
 .fpe-page-head {
   background:
     radial-gradient(circle at 0% 0%, var(--fpe-header-red-tint) 0%, transparent 64%),
-    var(--fpe-panel);
+    var(--fpe-header-bg);
   border-bottom: 1px solid var(--fpe-rule);
   padding-top: var(--fpe-space-5);
   padding-bottom: var(--fpe-space-4);
@@ -483,7 +489,7 @@ body.dark #app-shell-v3-root {
   border-bottom: 1px solid var(--fpe-rule);
   background:
     radial-gradient(circle at 0% 0%, var(--fpe-header-red-tint) 0%, transparent 64%),
-    var(--fpe-panel-muted);
+    var(--fpe-header-bg);
   padding: 14px 17px 12px;
 }
 
@@ -906,11 +912,11 @@ body.training #app-shell-v3-root .fpe-surface .help {
 
 #app-shell-v3-root .fpe-surface .table thead,
 #app-shell-v3-root .fpe-surface .table tr:first-child > th {
-  background: color-mix(in srgb, var(--fpe-rule) 22%, var(--fpe-panel));
+  background: var(--fpe-table-head-bg);
 }
 
 #app-shell-v3-root .fpe-surface .table thead th {
-  background: color-mix(in srgb, var(--fpe-rule) 22%, var(--fpe-panel)) !important;
+  background: var(--fpe-table-head-bg) !important;
   border-bottom: 1px solid color-mix(in srgb, var(--fpe-rule) 88%, transparent);
 }
 
@@ -1073,7 +1079,7 @@ body.training #app-shell-v3-root .fpe-surface .help {
   border-bottom: 1px solid var(--fpe-rule);
   background:
     radial-gradient(circle at 0% 0%, var(--fpe-header-red-tint) 0%, transparent 64%),
-    var(--fpe-panel-muted);
+    var(--fpe-header-bg);
 }
 
 .fpe-surface-pane[data-v3-stage="district"] .fpe-census-section__head-main {
