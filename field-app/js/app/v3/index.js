@@ -7,7 +7,6 @@ import { getStageById, V3_DEFAULT_STAGE } from "./stageRegistry.js";
 
 const STAGE_KEY = "fpe-ui-v3-stage";
 const STAGE_QUERY_PARAM = "stage";
-const TRAINING_DEFAULT_KEY = "fpe-ui-v3-training-default-applied";
 let syncTimer = null;
 
 function resolveUiMode() {
@@ -51,7 +50,6 @@ function bootV3() {
 
     installV3QaSmokeBridge();
     wireTopbarBridge();
-    enforceTrainingDefaultOff();
     wireScenarioBridge();
 
     navigateStage(resolveInitialStage(), { persist: true });
@@ -184,25 +182,6 @@ function clickLegacy(id) {
   }
 }
 
-function enforceTrainingDefaultOff() {
-  try {
-    if (window.sessionStorage.getItem(TRAINING_DEFAULT_KEY) === "1") {
-      return;
-    }
-  } catch {
-    // ignore storage errors
-  }
-
-  setLegacyTrainingState(false);
-  syncTrainingToggle();
-
-  try {
-    window.sessionStorage.setItem(TRAINING_DEFAULT_KEY, "1");
-  } catch {
-    // ignore storage errors
-  }
-}
-
 function readLegacyTrainingState() {
   const legacyToggle = document.getElementById("toggleTraining");
   if (!legacyToggle) {
@@ -218,13 +197,15 @@ function readLegacyTrainingState() {
 
 function setLegacyTrainingState(enabled) {
   const normalized = !!enabled;
+  document.body.classList.toggle("training", normalized);
+
   const legacyToggle = document.getElementById("toggleTraining");
   if (!legacyToggle) {
-    document.body.classList.toggle("training", normalized);
     return;
   }
 
   legacyToggle.checked = normalized;
+  legacyToggle.dispatchEvent(new Event("input", { bubbles: true }));
   legacyToggle.dispatchEvent(new Event("change", { bubbles: true }));
 }
 

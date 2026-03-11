@@ -470,9 +470,9 @@ function normalizeCensusPhase1Card(card) {
     label: "Current status",
     tone: "status"
   });
-  const footprintStatusList = document.createElement("div");
+  const footprintStatusList = document.createElement("ul");
   footprintStatusList.className = "fpe-census-status-list";
-  appendIfPresent(
+  appendStatusItems(
     footprintStatusList,
     selectionSummary,
     raceFootprintStatus,
@@ -671,6 +671,22 @@ function appendIfPresent(target, ...nodes) {
     if (node instanceof Node) {
       target.appendChild(node);
     }
+  });
+}
+
+function appendStatusItems(list, ...nodes) {
+  if (!(list instanceof HTMLElement)) {
+    return;
+  }
+
+  nodes.forEach((node) => {
+    if (!(node instanceof HTMLElement)) {
+      return;
+    }
+    const item = document.createElement("li");
+    item.className = "fpe-census-status-item";
+    item.appendChild(node);
+    list.appendChild(item);
   });
 }
 

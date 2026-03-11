@@ -250,15 +250,11 @@ export function normalizeSurfaceMessages(root) {
     [
       ".fpe-card__body > .muted",
       ".fpe-card__body > .note",
-      ".fpe-card__body > .help-text",
-      ".fpe-card__body > .help",
       ".fpe-card__body > .banner",
       ".fpe-census-section__body > .muted",
       ".fpe-census-section__body > .note",
       ".fpe-census-subsection__body > .muted",
       ".fpe-census-subsection__body > .note",
-      ".fpe-census-subsection__body > .help-text",
-      ".fpe-census-subsection__body > .help",
       ".fpe-census-subsection__body > .banner"
     ].join(",")
   );
