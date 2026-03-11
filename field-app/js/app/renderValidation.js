@@ -145,6 +145,9 @@ export function renderValidationModule(args){
     const adjustedSupportRatePct = applyMultipliers
       ? (Number(state?.supportRatePct) * applyMultipliers.persuasion)
       : Number(state?.supportRatePct);
+    const adjustedContactRatePct = applyMultipliers
+      ? (Number(state?.contactRatePct) * applyMultipliers.contactRate)
+      : Number(state?.contactRatePct);
     const adjustedTurnoutReliabilityPct = applyMultipliers
       ? (Number(state?.turnoutReliabilityPct) * applyMultipliers.turnoutLift)
       : Number(state?.turnoutReliabilityPct);
@@ -155,7 +158,7 @@ export function renderValidationModule(args){
       advisory,
       needVotes: Number(res?.expected?.persuasionNeed),
       weeks: Number(state?.weeksRemaining),
-      contactRatePct: Number(state?.contactRatePct),
+      contactRatePct: adjustedContactRatePct,
       supportRatePct: adjustedSupportRatePct,
       turnoutReliabilityPct: adjustedTurnoutReliabilityPct,
       orgCount: Number(state?.orgCount),
@@ -172,12 +175,12 @@ export function renderValidationModule(args){
         if (pace.severity === "bad"){
           items.push({
             kind: "bad",
-            text: `Census APH feasibility${sourceTag}: required ${req} is above achievable band ${low}/${mid}/${high}.`,
+            text: `Census APH feasibility${sourceTag}: required ${req} is above high achievable ${high} (band ${low}/${mid}/${high}).`,
           });
         } else if (pace.severity === "warn"){
           items.push({
             kind: "warn",
-            text: `Census APH feasibility${sourceTag}: required ${req} is near the top of achievable band ${low}/${mid}/${high}.`,
+            text: `Census APH feasibility${sourceTag}: required ${req} is near high achievable ${high} (band ${low}/${mid}/${high}).`,
           });
         } else {
           items.push({

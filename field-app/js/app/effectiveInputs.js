@@ -2,7 +2,6 @@
 import { validateOperationsCapacityInput } from "../features/operations/io.js";
 import {
   aggregateRowsForSelection,
-  assessRaceFootprintAlignment,
   buildCensusAssumptionAdvisory,
   clampCensusApplyMultipliers,
   evaluateCensusApplyMode,
@@ -64,8 +63,10 @@ export function createEffectiveInputsController({
     const callsPerHour = safeNum(s.callsPerHour3);
     let doorsPerHourAdjusted = doorsPerHour;
     let callsPerHourAdjusted = callsPerHour;
+    const baseCr = eff.cr;
     const baseSr = eff.sr;
     const baseTr = eff.tr;
+    let crAdjusted = baseCr;
     let srAdjusted = baseSr;
     let trAdjusted = baseTr;
     const censusState = (s?.census && typeof s.census === "object") ? s.census : {};
@@ -107,6 +108,9 @@ export function createEffectiveInputsController({
       if (callsPerHourAdjusted != null) callsPerHourAdjusted = callsPerHourAdjusted * multipliers.doorsPerHour;
       if (orgHoursPerWeek != null && multipliers.organizerLoad > 0){
         orgHoursPerWeek = orgHoursPerWeek / multipliers.organizerLoad;
+      }
+      if (crAdjusted != null){
+        crAdjusted = clamp(crAdjusted * multipliers.contactRate, 0, 1);
       }
       if (srAdjusted != null){
         srAdjusted = clamp(srAdjusted * multipliers.persuasion, 0, 1);
@@ -155,7 +159,7 @@ export function createEffectiveInputsController({
 
     const compiled = {
       rates: {
-        cr: eff.cr,
+        cr: crAdjusted,
         sr: srAdjusted,
         tr: trAdjusted,
       },

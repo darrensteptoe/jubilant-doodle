@@ -123,7 +123,9 @@ export function renderAssumptionsModule(args){
       advisory,
       needVotes: Number(res?.expected?.persuasionNeed),
       weeks: Number(weeks),
-      contactRatePct: Number(state?.contactRatePct),
+      contactRatePct: applyMultipliers
+        ? (Number(state?.contactRatePct) * applyMultipliers.contactRate)
+        : Number(state?.contactRatePct),
       supportRatePct: applyMultipliers
         ? (Number(state?.supportRatePct) * applyMultipliers.persuasion)
         : Number(state?.supportRatePct),
@@ -146,7 +148,7 @@ export function renderAssumptionsModule(args){
   })();
   const applyModeText = (() => {
     if (applyMultipliers){
-      return `ON (${applyMultipliers.doorsPerHour.toFixed(2)}x DPH, ${applyMultipliers.persuasion.toFixed(2)}x SR, ${applyMultipliers.turnoutLift.toFixed(2)}x TR, ${applyMultipliers.organizerLoad.toFixed(2)}x load)`;
+      return `ON (${applyMultipliers.doorsPerHour.toFixed(2)}x DPH, ${applyMultipliers.contactRate.toFixed(2)}x CR, ${applyMultipliers.persuasion.toFixed(2)}x SR, ${applyMultipliers.turnoutLift.toFixed(2)}x TR, ${applyMultipliers.organizerLoad.toFixed(2)}x load)`;
     }
     return applyModeReasonLabel(applyGate.reason);
   })();

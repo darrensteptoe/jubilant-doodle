@@ -1327,7 +1327,9 @@ export function renderCensusPhase1Module({ els, state, res } = {}){
     advisory,
     needVotes: Number(res?.expected?.persuasionNeed),
     weeks: Number(state?.weeksRemaining),
-    contactRatePct: Number(state?.contactRatePct),
+    contactRatePct: applyForPace
+      ? (Number(state?.contactRatePct) * applyMultipliers.contactRate)
+      : Number(state?.contactRatePct),
     supportRatePct: applyForPace
       ? (Number(state?.supportRatePct) * applyMultipliers.persuasion)
       : Number(state?.supportRatePct),
@@ -1402,12 +1404,35 @@ export function renderCensusPhase1Module({ els, state, res } = {}){
       if (!Number.isFinite(low) || !Number.isFinite(mid) || !Number.isFinite(high)) return "—";
       return `${fNum(low)} / ${fNum(mid)} / ${fNum(high)}`;
     };
+    const fAgeMix = (ageDistribution) => {
+      const age = ageDistribution && typeof ageDistribution === "object" ? ageDistribution : {};
+      return [
+        `18-24 ${fPct(age.age18to24)}`,
+        `25-34 ${fPct(age.age25to34)}`,
+        `35-44 ${fPct(age.age35to44)}`,
+        `45-64 ${fPct(age.age45to64)}`,
+        `65+ ${fPct(age.age65Plus)}`,
+      ].join(" | ");
+    };
     const rows = advisory.ready
       ? [
           { label: "Field speed index", value: `${fIdx(advisory.indices.fieldSpeed)} (${advisory.bands.fieldSpeed})` },
           { label: "Persuasion environment", value: `${fIdx(advisory.indices.persuasionEnvironment)} (${advisory.bands.persuasionEnvironment})` },
           { label: "Turnout elasticity", value: `${fIdx(advisory.indices.turnoutElasticity)} (${advisory.bands.turnoutElasticity})` },
+          { label: "Turnout potential index", value: `${fIdx(advisory.indices.turnoutPotential)} (${advisory.bands.turnoutPotential})` },
           { label: "Field difficulty", value: `${fIdx(advisory.indices.fieldDifficulty)} (${advisory.bands.fieldDifficulty})` },
+          {
+            label: "Housing density ratio (units / resident)",
+            value: `${fIdx(advisory.indices.densityRatio)} (${advisory.indices?.densityBand?.label || "—"})`,
+          },
+          {
+            label: "Vehicle availability / no-vehicle HH",
+            value: `${fPct(advisory.indices.vehicleAvailability)} / ${fPct(advisory.indices.noVehicleShare)}`,
+          },
+          { label: "Walkability factor", value: `${fIdx(advisory.indices.walkability)}x` },
+          { label: "Contact probability modifier", value: `${fIdx(advisory.multipliers.contactRate)}x` },
+          { label: "Estimated doors/hour factor", value: `${fIdx(advisory.indices.estimatedDoorsPerHourFactor)}x` },
+          { label: "Age distribution", value: fAgeMix(advisory.indices.ageDistribution) },
           { label: "Advisory doors/hour multiplier", value: `${fIdx(advisory.multipliers.doorsPerHour)} (${fPct(advisory.aph.deltaPct)})` },
           { label: "Current blended APH", value: fNum(advisory.aph.base) },
           { label: "Achievable APH band (p25/p50/p75)", value: fBand(advisory.aph.range) },
@@ -1415,13 +1440,28 @@ export function renderCensusPhase1Module({ els, state, res } = {}){
           { label: "Required APH to hit goal", value: advisoryPace.ready ? fNum(advisoryPace.requiredAph) : "—" },
           {
             label: "APH feasibility check",
-            value: advisoryPace.ready
-              ? (advisoryPace.feasible
-                ? (advisoryPace.severity === "warn"
-                  ? `Near top of range (${fPct(advisoryPace.gapPct)})`
-                  : `Within range (${fPct(advisoryPace.gapPct)})`)
-                : `Above plausible range (${fPct(advisoryPace.gapPct)})`)
-              : "—",
+            value: (() => {
+              if (!advisoryPace.ready) return "—";
+              const req = fNum(advisoryPace.requiredAph);
+              const band = advisoryPace.availableAphRange;
+              if (band){
+                const low = fNum(band.low);
+                const high = fNum(band.high);
+                if (!advisoryPace.feasible){
+                  return `Required ${req} > high ${high} (${fPct(advisoryPace.gapPct)})`;
+                }
+                if (advisoryPace.severity === "warn"){
+                  return `Required ${req} near high ${high} (${fPct(advisoryPace.gapPct)})`;
+                }
+                return `Required ${req} inside ${low}-${high} (${fPct(advisoryPace.gapPct)})`;
+              }
+              if (!advisoryPace.feasible){
+                return `Required ${req} above adjusted ${fNum(advisoryPace.availableAph)} (${fPct(advisoryPace.gapPct)})`;
+              }
+              return advisoryPace.severity === "warn"
+                ? `Required ${req} near adjusted ${fNum(advisoryPace.availableAph)} (${fPct(advisoryPace.gapPct)})`
+                : `Required ${req} within adjusted ${fNum(advisoryPace.availableAph)} (${fPct(advisoryPace.gapPct)})`;
+            })(),
           },
         ]
       : [];
@@ -1563,7 +1603,7 @@ export function renderCensusPhase1Module({ els, state, res } = {}){
     let text = applyModeReasonText(applyGate.reason);
     if (applyGate.ready && s.applyAdjustedAssumptions){
       tone = "ok";
-      text = `Census-adjusted assumptions are ON. DPH ${applyMultipliers.doorsPerHour.toFixed(2)}x, persuasion ${applyMultipliers.persuasion.toFixed(2)}x, turnout ${applyMultipliers.turnoutLift.toFixed(2)}x, organizer load ${applyMultipliers.organizerLoad.toFixed(2)}x.`;
+      text = `Census-adjusted assumptions are ON. DPH ${applyMultipliers.doorsPerHour.toFixed(2)}x, contact ${applyMultipliers.contactRate.toFixed(2)}x, persuasion ${applyMultipliers.persuasion.toFixed(2)}x, turnout ${applyMultipliers.turnoutLift.toFixed(2)}x, organizer load ${applyMultipliers.organizerLoad.toFixed(2)}x.`;
     } else if (applyGate.reason === "toggle_off"){
       tone = applyToggleEnabled ? "muted" : "warn";
       if (applyToggleEnabled){
@@ -2272,7 +2312,7 @@ export function wireCensusPhase1EventsModule(ctx){
         s.applyAdjustedAssumptions = true;
         setStatus(
           s,
-          `Census-adjusted assumptions ON (DPH ${multipliers.doorsPerHour.toFixed(2)}x, persuasion ${multipliers.persuasion.toFixed(2)}x, turnout ${multipliers.turnoutLift.toFixed(2)}x, organizer load ${multipliers.organizerLoad.toFixed(2)}x).`,
+          `Census-adjusted assumptions ON (DPH ${multipliers.doorsPerHour.toFixed(2)}x, contact ${multipliers.contactRate.toFixed(2)}x, persuasion ${multipliers.persuasion.toFixed(2)}x, turnout ${multipliers.turnoutLift.toFixed(2)}x, organizer load ${multipliers.organizerLoad.toFixed(2)}x).`,
           false,
         );
       });
