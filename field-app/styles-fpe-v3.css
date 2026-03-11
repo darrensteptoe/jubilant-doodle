@@ -532,6 +532,10 @@
   margin-bottom: 10px;
 }
 
+#app-shell-v3-root .fpe-card__body .field > .fpe-action-row {
+  margin-bottom: 0;
+}
+
 .fpe-action-group {
   display: flex;
   flex-direction: column;
@@ -898,8 +902,13 @@ body.training #app-shell-v3-root .fpe-surface .help {
   padding: 14px;
 }
 
+.fpe-surface-pane[data-v3-stage="district"] .fpe-census-section__body > * {
+  margin-top: 0 !important;
+  margin-bottom: 0 !important;
+}
+
 .fpe-surface-pane[data-v3-stage="district"] .fpe-census-section__body > * + * {
-  margin-top: 12px;
+  margin-top: 12px !important;
 }
 
 .fpe-surface-pane[data-v3-stage="district"] .fpe-census-workflow-grid {
@@ -935,8 +944,13 @@ body.training #app-shell-v3-root .fpe-surface .help {
   margin-top: 10px;
 }
 
+.fpe-surface-pane[data-v3-stage="district"] .fpe-census-subsection__body > * {
+  margin-top: 0 !important;
+  margin-bottom: 0 !important;
+}
+
 .fpe-surface-pane[data-v3-stage="district"] .fpe-census-subsection__body > * + * {
-  margin-top: 10px;
+  margin-top: 12px !important;
 }
 
 .fpe-surface-pane[data-v3-stage="district"] .fpe-census-status-list {
@@ -1013,14 +1027,8 @@ body.training #app-shell-v3-root .fpe-surface .help {
   font-weight: inherit !important;
 }
 
-.fpe-surface-pane[data-v3-stage="district"] .fpe-census-subsection--setup .fpe-field-grid,
-.fpe-surface-pane[data-v3-stage="district"] .fpe-census-subsection--output .fpe-field-grid {
-  margin-bottom: 10px;
-}
-
 .fpe-surface-pane[data-v3-stage="district"] .fpe-census-fetch-row {
-  margin-top: 2px;
-  margin-bottom: 10px;
+  margin: 0;
 }
 
 .fpe-surface-pane[data-v3-stage="district"] .fpe-census-status-strip {
@@ -1135,13 +1143,13 @@ body.training #app-shell-v3-root .fpe-surface .help {
 }
 
 .fpe-surface-pane[data-v3-stage="district"] .fpe-census-template-actions {
-  margin-top: 2px;
+  margin-top: 0;
 }
 
 .fpe-surface-pane[data-v3-stage="district"] .fpe-census-template-actions .fpe-action-row {
   justify-content: flex-start;
   flex-wrap: wrap;
-  margin-bottom: 6px;
+  margin-bottom: 0;
 }
 
 .fpe-surface-pane[data-v3-stage="district"] .fpe-census-template-actions .fpe-help {
