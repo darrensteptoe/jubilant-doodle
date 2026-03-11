@@ -1698,7 +1698,13 @@ async function fetchJson(url, fetchImpl = globalThis.fetch){
   const res = await fetchImpl(url);
   if (!res || !res.ok){
     const status = res?.status ?? "";
-    const text = res?.statusText || "Request failed";
+    let text = "";
+    try{
+      const raw = await res.text();
+      text = cleanText(raw);
+      if (text.length > 220) text = `${text.slice(0, 220)}…`;
+    } catch {}
+    if (!text) text = res?.statusText || "Request failed";
     throw new Error(`Census request failed (${status}): ${text}`);
   }
   const json = await res.json();
@@ -1945,25 +1951,60 @@ function rowToData(row, resolution, variableIds){
   };
 }
 
+const ACS_MAX_GET_VARIABLES_PER_REQUEST = 45;
+
+function normalizeAcsVariableIds(variableIds){
+  const out = [];
+  const seen = new Set();
+  for (const raw of variableIds || []){
+    const key = cleanText(raw);
+    if (!key || key === "NAME" || seen.has(key)) continue;
+    seen.add(key);
+    out.push(key);
+  }
+  return out;
+}
+
 export async function fetchAcsRows({ year, resolution, stateFips, countyFips, metricSet, variableNames, key, fetchImpl } = {}){
   if (!requiredForResolution(resolution, stateFips, countyFips)) return {};
   const resolved = resolveMetricSetVariables(metricSet, variableNames);
-  const variableIds = resolved.available;
-  const json = resolution === "block_group"
-    ? await fetchBlockGroupTable({ year, getVars: ["NAME", ...variableIds], stateFips, countyFips, key, fetchImpl })
-    : await fetchJson(buildAcsQueryUrl({
-      year,
-      getVars: ["NAME", ...variableIds],
-      forClause: geoForClause(resolution),
-      inClauses: geoInClauses({ resolution, stateFips, countyFips }),
-      key,
-    }), fetchImpl);
-  const rows = parseCensusTable(json)
-    .map((row) => rowToData(row, resolution, variableIds))
-    .filter((row) => !!row.geoid);
   const out = {};
-  for (const row of rows){
-    out[row.geoid] = row;
+  const variableIds = normalizeAcsVariableIds(resolved.available);
+  const variableChunks = variableIds.length
+    ? chunk(variableIds, ACS_MAX_GET_VARIABLES_PER_REQUEST)
+    : [[]];
+  for (const chunkVars of variableChunks){
+    const getVars = ["NAME", ...chunkVars];
+    const json = resolution === "block_group"
+      ? await fetchBlockGroupTable({ year, getVars, stateFips, countyFips, key, fetchImpl })
+      : await fetchJson(buildAcsQueryUrl({
+        year,
+        getVars,
+        forClause: geoForClause(resolution),
+        inClauses: geoInClauses({ resolution, stateFips, countyFips }),
+        key,
+      }), fetchImpl);
+    const rows = parseCensusTable(json)
+      .map((row) => rowToData(row, resolution, chunkVars))
+      .filter((row) => !!row.geoid);
+    for (const row of rows){
+      const existing = out[row.geoid];
+      if (!existing){
+        out[row.geoid] = {
+          ...row,
+          values: { ...row.values },
+        };
+        continue;
+      }
+      if (!existing.label && row.label) existing.label = row.label;
+      if (!existing.name && row.name) existing.name = row.name;
+      existing.values = existing.values && typeof existing.values === "object"
+        ? existing.values
+        : {};
+      for (const [varId, value] of Object.entries(row.values || {})){
+        existing.values[varId] = value;
+      }
+    }
   }
   return out;
 }
@@ -1976,7 +2017,13 @@ export async function fetchVariableCatalog({ year, key, fetchImpl } = {}){
   const res = await fetcher(url);
   if (!res || !res.ok){
     const status = res?.status ?? "";
-    const text = res?.statusText || "Request failed";
+    let text = "";
+    try{
+      const raw = await res.text();
+      text = cleanText(raw);
+      if (text.length > 220) text = `${text.slice(0, 220)}…`;
+    } catch {}
+    if (!text) text = res?.statusText || "Request failed";
     throw new Error(`Variable catalog request failed (${status}): ${text}`);
   }
   const json = await res.json();
