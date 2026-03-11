@@ -586,8 +586,6 @@
 
 .fpe-message-window__body .muted,
 .fpe-message-window__body .note,
-.fpe-message-window__body .help-text,
-.fpe-message-window__body .help,
 .fpe-message-window__body .banner,
 .fpe-message-window__body .fpe-census-intro {
   margin: 0;
@@ -601,6 +599,27 @@
 
 .fpe-message-window__body a {
   font-size: inherit;
+}
+
+#app-shell-v3-root .fpe-surface .help {
+  display: none;
+  border: 1px dashed color-mix(in srgb, var(--fpe-rule) 80%, transparent);
+  border-radius: var(--fpe-radius-sm);
+  background: var(--fpe-panel-muted);
+  padding: 10px 12px;
+  color: var(--fpe-muted);
+}
+
+body.training #app-shell-v3-root .fpe-surface .help {
+  display: block;
+}
+
+#app-shell-v3-root .fpe-surface .help .help-title {
+  color: var(--fpe-muted);
+}
+
+#app-shell-v3-root .fpe-surface .help .help-text {
+  color: var(--fpe-muted);
 }
 
 .fpe-message-window--warn {
