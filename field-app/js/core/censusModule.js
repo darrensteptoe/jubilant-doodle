@@ -123,6 +123,7 @@ const METRIC_SET_OPTIONS = [
   { id: "income", label: "Income" },
   { id: "education", label: "Education" },
   { id: "language", label: "Language" },
+  { id: "field_efficiency", label: "Field efficiency" },
   { id: "turnout_potential", label: "Turnout potential" },
   { id: "all", label: "All bundles" },
 ];
@@ -292,6 +293,15 @@ const METRICS = {
     denominatorVars: ["B08201_001E"],
     format: "pct1",
   },
+  citizen_share: {
+    id: "citizen_share",
+    label: "Citizen share",
+    kind: "ratio",
+    vars: ["B05001_002E", "B05001_007E", "B05001_001E"],
+    numeratorVars: ["B05001_002E", "B05001_007E"],
+    denominatorVars: ["B05001_001E"],
+    format: "pct1",
+  },
   age_18_24_share: {
     id: "age_18_24_share",
     label: "Age 18-24 share",
@@ -337,6 +347,60 @@ const METRICS = {
     denominatorVars: ["B01001_001E"],
     format: "pct1",
   },
+  male_share: {
+    id: "male_share",
+    label: "Male share",
+    kind: "ratio",
+    vars: ["B01001_002E", "B01001_001E"],
+    numeratorVars: ["B01001_002E"],
+    denominatorVars: ["B01001_001E"],
+    format: "pct1",
+  },
+  female_share: {
+    id: "female_share",
+    label: "Female share",
+    kind: "ratio",
+    vars: ["B01001_026E", "B01001_001E"],
+    numeratorVars: ["B01001_026E"],
+    denominatorVars: ["B01001_001E"],
+    format: "pct1",
+  },
+  poverty_share: {
+    id: "poverty_share",
+    label: "Below-poverty share",
+    kind: "ratio",
+    vars: ["B17001_002E", "B17001_001E"],
+    numeratorVars: ["B17001_002E"],
+    denominatorVars: ["B17001_001E"],
+    format: "pct1",
+  },
+  long_commute_share: {
+    id: "long_commute_share",
+    label: "Long commute share (45m+)",
+    kind: "ratio",
+    vars: ["B08303_011E", "B08303_012E", "B08303_013E", "B08303_001E"],
+    numeratorVars: ["B08303_011E", "B08303_012E", "B08303_013E"],
+    denominatorVars: ["B08303_001E"],
+    format: "pct1",
+  },
+  super_commute_share: {
+    id: "super_commute_share",
+    label: "Super-commute share (60m+)",
+    kind: "ratio",
+    vars: ["B08303_012E", "B08303_013E", "B08303_001E"],
+    numeratorVars: ["B08303_012E", "B08303_013E"],
+    denominatorVars: ["B08303_001E"],
+    format: "pct1",
+  },
+  no_internet_share: {
+    id: "no_internet_share",
+    label: "No-internet share",
+    kind: "ratio",
+    vars: ["B28002_013E", "B28002_001E"],
+    numeratorVars: ["B28002_013E"],
+    denominatorVars: ["B28002_001E"],
+    format: "pct1",
+  },
   multi_unit_share: {
     id: "multi_unit_share",
     label: "Multi-unit share",
@@ -376,6 +440,9 @@ const METRIC_SET_MAP = {
     "white_share",
     "black_share",
     "hispanic_share",
+    "citizen_share",
+    "male_share",
+    "female_share",
     "age_18_24_share",
     "age_25_34_share",
     "age_35_44_share",
@@ -383,6 +450,17 @@ const METRIC_SET_MAP = {
     "age_65_plus_share",
   ],
   housing: ["housing_units_total", "owner_occupied_share", "renter_share", "multi_unit_share", "no_vehicle_share"],
+  field_efficiency: [
+    "population_total",
+    "housing_units_total",
+    "renter_share",
+    "multi_unit_share",
+    "no_vehicle_share",
+    "long_commute_share",
+    "super_commute_share",
+    "no_internet_share",
+    "limited_english_share",
+  ],
   income: ["median_household_income_est"],
   education: ["ba_plus_share"],
   language: ["limited_english_share"],
@@ -394,6 +472,13 @@ const METRIC_SET_MAP = {
     "ba_plus_share",
     "median_household_income_est",
     "no_vehicle_share",
+    "long_commute_share",
+    "super_commute_share",
+    "no_internet_share",
+    "poverty_share",
+    "citizen_share",
+    "male_share",
+    "female_share",
     "age_18_24_share",
     "age_25_34_share",
     "age_35_44_share",
@@ -2403,6 +2488,10 @@ function computeAdvisoryIndices({
   medianIncome,
   densityRatio,
   noVehicleShare,
+  longCommuteShare,
+  superCommuteShare,
+  noInternetShare,
+  povertyShare,
   age18to24Share,
   age25to34Share,
   age35to44Share,
@@ -2414,6 +2503,10 @@ function computeAdvisoryIndices({
   const limitedEnglish = clampRange(Number(limitedEnglishShare), 0, 1);
   const baPlus = clampRange(Number(baPlusShare), 0, 1);
   const noVehicle = clampRange(Number(noVehicleShare), 0, 1);
+  const longCommute = clampRange(Number(longCommuteShare), 0, 1);
+  const superCommute = clampRange(Number(superCommuteShare), 0, 1);
+  const noInternet = clampRange(Number(noInternetShare), 0, 1);
+  const poverty = clampRange(Number(povertyShare), 0, 1);
   const age18to24 = clampRange(Number(age18to24Share), 0, 1);
   const age25to34 = clampRange(Number(age25to34Share), 0, 1);
   const age35to44 = clampRange(Number(age35to44Share), 0, 1);
@@ -2426,7 +2519,7 @@ function computeAdvisoryIndices({
   const densityNorm = clampRange((density - 0.25) / 0.45, 0, 1);
   const vehicleAvailability = clampRange(1 - noVehicle, 0, 1);
   const walkability = clampRange(
-    0.92 + (0.22 * noVehicle) + (0.16 * densityNorm) - (0.10 * multi),
+    0.92 + (0.22 * noVehicle) + (0.16 * densityNorm) - (0.10 * multi) - (0.08 * longCommute),
     0.78,
     1.12,
   );
@@ -2437,7 +2530,8 @@ function computeAdvisoryIndices({
       + (0.10 * incomeNorm)
       + (0.12 * primeAgeShare)
       + (0.06 * age65Plus)
-      - (0.10 * age18to24),
+      - (0.10 * age18to24)
+      + (0.08 * poverty),
     0.75,
     1.30,
   );
@@ -2450,7 +2544,9 @@ function computeAdvisoryIndices({
       + (0.22 * densityNorm)
       + (0.12 * multi)
       + (0.06 * renter)
-      - (0.14 * limitedEnglish),
+      - (0.14 * limitedEnglish)
+      - (0.10 * longCommute)
+      - (0.08 * noInternet),
     0.75,
     1.30,
   );
@@ -2459,7 +2555,8 @@ function computeAdvisoryIndices({
       + (0.16 * baPlus)
       + (0.08 * renter)
       + (0.10 * incomeNorm)
-      - (0.08 * limitedEnglish),
+      - (0.08 * limitedEnglish)
+      + (0.10 * poverty),
     0.80,
     1.30,
   );
@@ -2470,7 +2567,8 @@ function computeAdvisoryIndices({
       + (0.08 * (1 - baPlus))
       - (0.06 * incomeNorm)
       + (0.04 * age18to24)
-      + (0.03 * age65Plus),
+      + (0.03 * age65Plus)
+      + (0.10 * poverty),
     0.80,
     1.35,
   );
@@ -2479,7 +2577,10 @@ function computeAdvisoryIndices({
       + (0.20 * limitedEnglish)
       + (0.10 * multi)
       + (0.08 * (1 - densityNorm))
-      - (0.05 * renter),
+      - (0.05 * renter)
+      + (0.16 * longCommute)
+      + (0.10 * superCommute)
+      + (0.08 * noInternet),
     0.80,
     1.40,
   );
@@ -2490,8 +2591,8 @@ function computeAdvisoryIndices({
   );
   const doorsPerHourMultiplier = clampRange(
     (fieldSpeed / fieldDifficulty) * estimatedDoorsPerHourFactor,
-    0.70,
-    1.30,
+      0.70,
+      1.30,
   );
   return {
     fieldSpeed,
@@ -2502,6 +2603,10 @@ function computeAdvisoryIndices({
     walkability,
     vehicleAvailability,
     noVehicleShare: noVehicle,
+    longCommuteShare: longCommute,
+    superCommuteShare: superCommute,
+    noInternetShare: noInternet,
+    povertyShare: poverty,
     densityBand,
     contactRateModifier,
     estimatedDoorsPerHourFactor,
@@ -2556,6 +2661,10 @@ function advisoryMultiplierBand({
   const limitedEnglishFallback = clampRange(Number(fallbackSignals?.limitedEnglishShare), 0, 1);
   const baPlusFallback = clampRange(Number(fallbackSignals?.baPlusShare), 0, 1);
   const noVehicleFallback = clampRange(Number(fallbackSignals?.noVehicleShare), 0, 1);
+  const longCommuteFallback = clampRange(Number(fallbackSignals?.longCommuteShare), 0, 1);
+  const superCommuteFallback = clampRange(Number(fallbackSignals?.superCommuteShare), 0, 1);
+  const noInternetFallback = clampRange(Number(fallbackSignals?.noInternetShare), 0, 1);
+  const povertyFallback = clampRange(Number(fallbackSignals?.povertyShare), 0, 1);
   const age18to24Fallback = clampRange(Number(fallbackSignals?.age18to24Share), 0, 1);
   const age25to34Fallback = clampRange(Number(fallbackSignals?.age25to34Share), 0, 1);
   const age35to44Fallback = clampRange(Number(fallbackSignals?.age35to44Share), 0, 1);
@@ -2578,6 +2687,10 @@ function advisoryMultiplierBand({
     const limitedEnglishShare = ratioFromRow(values, ["C16002_004E", "C16002_007E", "C16002_010E", "C16002_013E"], ["C16002_001E"], limitedEnglishFallback);
     const baPlusShare = ratioFromRow(values, ["B15003_022E", "B15003_023E", "B15003_024E", "B15003_025E"], ["B15003_001E"], baPlusFallback);
     const noVehicleShare = ratioFromRow(values, ["B08201_002E"], ["B08201_001E"], noVehicleFallback);
+    const longCommuteShare = ratioFromRow(values, ["B08303_011E", "B08303_012E", "B08303_013E"], ["B08303_001E"], longCommuteFallback);
+    const superCommuteShare = ratioFromRow(values, ["B08303_012E", "B08303_013E"], ["B08303_001E"], superCommuteFallback);
+    const noInternetShare = ratioFromRow(values, ["B28002_013E"], ["B28002_001E"], noInternetFallback);
+    const povertyShare = ratioFromRow(values, ["B17001_002E"], ["B17001_001E"], povertyFallback);
     const age18to24Share = ratioFromRow(values, AGE_18_24_VARS, ["B01001_001E"], age18to24Fallback);
     const age25to34Share = ratioFromRow(values, AGE_25_34_VARS, ["B01001_001E"], age25to34Fallback);
     const age35to44Share = ratioFromRow(values, AGE_35_44_VARS, ["B01001_001E"], age35to44Fallback);
@@ -2603,6 +2716,10 @@ function advisoryMultiplierBand({
       medianIncome,
       densityRatio,
       noVehicleShare,
+      longCommuteShare,
+      superCommuteShare,
+      noInternetShare,
+      povertyShare,
       age18to24Share,
       age25to34Share,
       age35to44Share,
@@ -2656,7 +2773,7 @@ export function buildCensusAssumptionAdvisory({ aggregate, doorShare, doorsPerHo
   const metrics = aggregate?.metrics && typeof aggregate.metrics === "object" ? aggregate.metrics : {};
 
   let availableSignals = 0;
-  const totalSignals = 8;
+  const totalSignals = 12;
   const pickShare = (id, fallback) => {
     const value = metricNum(metrics, id);
     if (value == null) return { value: fallback, available: false };
@@ -2674,6 +2791,10 @@ export function buildCensusAssumptionAdvisory({ aggregate, doorShare, doorsPerHo
   const baPlusSignal = pickShare("ba_plus_share", 0.33);
   const incomeSignal = pickMetric("median_household_income_est", 65000);
   const noVehicleSignal = pickShare("no_vehicle_share", 0.08);
+  const longCommuteSignal = pickShare("long_commute_share", 0.18);
+  const superCommuteSignal = pickShare("super_commute_share", 0.08);
+  const noInternetSignal = pickShare("no_internet_share", 0.12);
+  const povertySignal = pickShare("poverty_share", 0.11);
   const age18to24Signal = pickShare("age_18_24_share", 0.10);
   const age25to34Signal = pickShare("age_25_34_share", 0.14);
   const age35to44Signal = pickShare("age_35_44_share", 0.13);
@@ -2686,6 +2807,10 @@ export function buildCensusAssumptionAdvisory({ aggregate, doorShare, doorsPerHo
   if (baPlusSignal.available) availableSignals += 1;
   if (incomeSignal.available) availableSignals += 1;
   if (noVehicleSignal.available) availableSignals += 1;
+  if (longCommuteSignal.available) availableSignals += 1;
+  if (superCommuteSignal.available) availableSignals += 1;
+  if (noInternetSignal.available) availableSignals += 1;
+  if (povertySignal.available) availableSignals += 1;
 
   const ageDistributionAvailable =
     age18to24Signal.available &&
@@ -2701,6 +2826,10 @@ export function buildCensusAssumptionAdvisory({ aggregate, doorShare, doorsPerHo
   const baPlusShare = baPlusSignal.value;
   const medianIncome = incomeSignal.value;
   const noVehicleShare = noVehicleSignal.value;
+  const longCommuteShare = longCommuteSignal.value;
+  const superCommuteShare = superCommuteSignal.value;
+  const noInternetShare = noInternetSignal.value;
+  const povertyShare = povertySignal.value;
   const age18to24Share = age18to24Signal.value;
   const age25to34Share = age25to34Signal.value;
   const age35to44Share = age35to44Signal.value;
@@ -2724,6 +2853,10 @@ export function buildCensusAssumptionAdvisory({ aggregate, doorShare, doorsPerHo
     medianIncome,
     densityRatio,
     noVehicleShare,
+    longCommuteShare,
+    superCommuteShare,
+    noInternetShare,
+    povertyShare,
     age18to24Share,
     age25to34Share,
     age35to44Share,
@@ -2758,6 +2891,10 @@ export function buildCensusAssumptionAdvisory({ aggregate, doorShare, doorsPerHo
       medianIncome,
       densityRatio,
       noVehicleShare,
+      longCommuteShare,
+      superCommuteShare,
+      noInternetShare,
+      povertyShare,
       age18to24Share,
       age25to34Share,
       age35to44Share,
@@ -2796,6 +2933,10 @@ export function buildCensusAssumptionAdvisory({ aggregate, doorShare, doorsPerHo
       turnoutPotential,
       vehicleAvailability: indices.vehicleAvailability,
       noVehicleShare,
+      longCommuteShare: indices.longCommuteShare,
+      superCommuteShare: indices.superCommuteShare,
+      noInternetShare: indices.noInternetShare,
+      povertyShare: indices.povertyShare,
       walkability: indices.walkability,
       contactRateModifier,
       estimatedDoorsPerHourFactor,
