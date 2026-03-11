@@ -123,7 +123,61 @@ const METRIC_SET_OPTIONS = [
   { id: "income", label: "Income" },
   { id: "education", label: "Education" },
   { id: "language", label: "Language" },
+  { id: "turnout_potential", label: "Turnout potential" },
   { id: "all", label: "All bundles" },
+];
+
+const AGE_18_24_VARS = [
+  "B01001_007E",
+  "B01001_008E",
+  "B01001_009E",
+  "B01001_010E",
+  "B01001_031E",
+  "B01001_032E",
+  "B01001_033E",
+  "B01001_034E",
+];
+
+const AGE_25_34_VARS = [
+  "B01001_011E",
+  "B01001_012E",
+  "B01001_035E",
+  "B01001_036E",
+];
+
+const AGE_35_44_VARS = [
+  "B01001_013E",
+  "B01001_014E",
+  "B01001_037E",
+  "B01001_038E",
+];
+
+const AGE_45_64_VARS = [
+  "B01001_015E",
+  "B01001_016E",
+  "B01001_017E",
+  "B01001_018E",
+  "B01001_019E",
+  "B01001_039E",
+  "B01001_040E",
+  "B01001_041E",
+  "B01001_042E",
+  "B01001_043E",
+];
+
+const AGE_65_PLUS_VARS = [
+  "B01001_020E",
+  "B01001_021E",
+  "B01001_022E",
+  "B01001_023E",
+  "B01001_024E",
+  "B01001_025E",
+  "B01001_044E",
+  "B01001_045E",
+  "B01001_046E",
+  "B01001_047E",
+  "B01001_048E",
+  "B01001_049E",
 ];
 
 const METRICS = {
@@ -229,6 +283,60 @@ const METRICS = {
     denominatorVars: ["C16002_001E"],
     format: "pct1",
   },
+  no_vehicle_share: {
+    id: "no_vehicle_share",
+    label: "No-vehicle HH share",
+    kind: "ratio",
+    vars: ["B08201_002E", "B08201_001E"],
+    numeratorVars: ["B08201_002E"],
+    denominatorVars: ["B08201_001E"],
+    format: "pct1",
+  },
+  age_18_24_share: {
+    id: "age_18_24_share",
+    label: "Age 18-24 share",
+    kind: "ratio",
+    vars: [...AGE_18_24_VARS, "B01001_001E"],
+    numeratorVars: AGE_18_24_VARS,
+    denominatorVars: ["B01001_001E"],
+    format: "pct1",
+  },
+  age_25_34_share: {
+    id: "age_25_34_share",
+    label: "Age 25-34 share",
+    kind: "ratio",
+    vars: [...AGE_25_34_VARS, "B01001_001E"],
+    numeratorVars: AGE_25_34_VARS,
+    denominatorVars: ["B01001_001E"],
+    format: "pct1",
+  },
+  age_35_44_share: {
+    id: "age_35_44_share",
+    label: "Age 35-44 share",
+    kind: "ratio",
+    vars: [...AGE_35_44_VARS, "B01001_001E"],
+    numeratorVars: AGE_35_44_VARS,
+    denominatorVars: ["B01001_001E"],
+    format: "pct1",
+  },
+  age_45_64_share: {
+    id: "age_45_64_share",
+    label: "Age 45-64 share",
+    kind: "ratio",
+    vars: [...AGE_45_64_VARS, "B01001_001E"],
+    numeratorVars: AGE_45_64_VARS,
+    denominatorVars: ["B01001_001E"],
+    format: "pct1",
+  },
+  age_65_plus_share: {
+    id: "age_65_plus_share",
+    label: "Age 65+ share",
+    kind: "ratio",
+    vars: [...AGE_65_PLUS_VARS, "B01001_001E"],
+    numeratorVars: AGE_65_PLUS_VARS,
+    denominatorVars: ["B01001_001E"],
+    format: "pct1",
+  },
   multi_unit_share: {
     id: "multi_unit_share",
     label: "Multi-unit share",
@@ -263,16 +371,42 @@ const METRICS = {
 
 const METRIC_SET_MAP = {
   core: ["population_total", "households_total", "housing_units_total", "owner_occupied_share", "renter_share"],
-  demographics: ["population_total", "white_share", "black_share", "hispanic_share"],
-  housing: ["housing_units_total", "owner_occupied_share", "renter_share", "multi_unit_share"],
+  demographics: [
+    "population_total",
+    "white_share",
+    "black_share",
+    "hispanic_share",
+    "age_18_24_share",
+    "age_25_34_share",
+    "age_35_44_share",
+    "age_45_64_share",
+    "age_65_plus_share",
+  ],
+  housing: ["housing_units_total", "owner_occupied_share", "renter_share", "multi_unit_share", "no_vehicle_share"],
   income: ["median_household_income_est"],
   education: ["ba_plus_share"],
   language: ["limited_english_share"],
+  turnout_potential: [
+    "population_total",
+    "housing_units_total",
+    "renter_share",
+    "multi_unit_share",
+    "ba_plus_share",
+    "median_household_income_est",
+    "no_vehicle_share",
+    "age_18_24_share",
+    "age_25_34_share",
+    "age_35_44_share",
+    "age_45_64_share",
+    "age_65_plus_share",
+    "limited_english_share",
+  ],
   all: Object.keys(METRICS),
 };
 
 export const CENSUS_APPLY_BOUNDS = {
   doorsPerHour: { min: 0.85, max: 1.15 },
+  contactRate: { min: 0.82, max: 1.05 },
   persuasion: { min: 0.90, max: 1.10 },
   turnoutLift: { min: 0.90, max: 1.10 },
   organizerLoad: { min: 0.85, max: 1.20 },
@@ -2222,15 +2356,95 @@ function ratioFromRow(rowValues, numeratorVars, denominatorVars, fallback){
   return clampRange(numerator / denominator, 0, 1);
 }
 
-function computeAdvisoryIndices({ renterShare, multiUnitShare, limitedEnglishShare, baPlusShare, medianIncome, densityRatio } = {}){
+function densityBandFromRatio(densityRatio){
+  const density = clampRange(Number(densityRatio), 0.2, 0.9);
+  if (density >= 0.64){
+    return {
+      id: "dense_multiunit_access",
+      label: "High density (access friction)",
+      multiplier: 0.94,
+    };
+  }
+  if (density >= 0.52){
+    return {
+      id: "urban_mixed",
+      label: "Urban mixed",
+      multiplier: 1.03,
+    };
+  }
+  if (density >= 0.40){
+    return {
+      id: "suburban_mixed",
+      label: "Suburban mixed",
+      multiplier: 0.97,
+    };
+  }
+  return {
+    id: "dispersed_low_density",
+    label: "Dispersed / low density",
+    multiplier: 0.88,
+  };
+}
+
+function contactRateModifierFromShares({ multiUnitShare, renterShare } = {}){
+  const multi = clampRange(Number(multiUnitShare), 0, 1);
+  const renter = clampRange(Number(renterShare), 0, 1);
+  // Access friction adjustment:
+  // base example from user request: 1 - (multi_unit_share * 0.15)
+  // plus renter friction term to reflect lower direct-contact success in high-renter contexts.
+  return clampRange(1 - (multi * 0.15) - (renter * 0.05), 0.75, 1.05);
+}
+
+function computeAdvisoryIndices({
+  renterShare,
+  multiUnitShare,
+  limitedEnglishShare,
+  baPlusShare,
+  medianIncome,
+  densityRatio,
+  noVehicleShare,
+  age18to24Share,
+  age25to34Share,
+  age35to44Share,
+  age45to64Share,
+  age65PlusShare,
+} = {}){
   const renter = clampRange(Number(renterShare), 0, 1);
   const multi = clampRange(Number(multiUnitShare), 0, 1);
   const limitedEnglish = clampRange(Number(limitedEnglishShare), 0, 1);
   const baPlus = clampRange(Number(baPlusShare), 0, 1);
+  const noVehicle = clampRange(Number(noVehicleShare), 0, 1);
+  const age18to24 = clampRange(Number(age18to24Share), 0, 1);
+  const age25to34 = clampRange(Number(age25to34Share), 0, 1);
+  const age35to44 = clampRange(Number(age35to44Share), 0, 1);
+  const age45to64 = clampRange(Number(age45to64Share), 0, 1);
+  const age65Plus = clampRange(Number(age65PlusShare), 0, 1);
   const income = Number.isFinite(Number(medianIncome)) ? Number(medianIncome) : 65000;
   const density = clampRange(Number(densityRatio), 0.2, 0.9);
+  const densityBand = densityBandFromRatio(density);
   const incomeNorm = clampRange((income - 35000) / 65000, 0, 1);
   const densityNorm = clampRange((density - 0.25) / 0.45, 0, 1);
+  const vehicleAvailability = clampRange(1 - noVehicle, 0, 1);
+  const walkability = clampRange(
+    0.92 + (0.22 * noVehicle) + (0.16 * densityNorm) - (0.10 * multi),
+    0.78,
+    1.12,
+  );
+  const primeAgeShare = clampRange(age25to34 + age35to44 + age45to64, 0, 1);
+  const turnoutPotential = clampRange(
+    0.90
+      + (0.20 * baPlus)
+      + (0.10 * incomeNorm)
+      + (0.12 * primeAgeShare)
+      + (0.06 * age65Plus)
+      - (0.10 * age18to24),
+    0.75,
+    1.30,
+  );
+  const contactRateModifier = contactRateModifierFromShares({
+    multiUnitShare: multi,
+    renterShare: renter,
+  });
   const fieldSpeed = clampRange(
     1
       + (0.22 * densityNorm)
@@ -2254,7 +2468,9 @@ function computeAdvisoryIndices({ renterShare, multiUnitShare, limitedEnglishSha
       + (0.20 * renter)
       + (0.12 * limitedEnglish)
       + (0.08 * (1 - baPlus))
-      - (0.06 * incomeNorm),
+      - (0.06 * incomeNorm)
+      + (0.04 * age18to24)
+      + (0.03 * age65Plus),
     0.80,
     1.35,
   );
@@ -2267,11 +2483,36 @@ function computeAdvisoryIndices({ renterShare, multiUnitShare, limitedEnglishSha
     0.80,
     1.40,
   );
+  const estimatedDoorsPerHourFactor = clampRange(
+    densityBand.multiplier * walkability * contactRateModifier,
+    0.72,
+    1.22,
+  );
+  const doorsPerHourMultiplier = clampRange(
+    (fieldSpeed / fieldDifficulty) * estimatedDoorsPerHourFactor,
+    0.70,
+    1.30,
+  );
   return {
     fieldSpeed,
     persuasionEnvironment,
     turnoutElasticity,
     fieldDifficulty,
+    turnoutPotential,
+    walkability,
+    vehicleAvailability,
+    noVehicleShare: noVehicle,
+    densityBand,
+    contactRateModifier,
+    estimatedDoorsPerHourFactor,
+    doorsPerHourMultiplier,
+    ageDistribution: {
+      age18to24,
+      age25to34,
+      age35to44,
+      age45to64,
+      age65Plus,
+    },
   };
 }
 
@@ -2314,6 +2555,12 @@ function advisoryMultiplierBand({
   const multiFallback = clampRange(Number(fallbackSignals?.multiUnitShare), 0, 1);
   const limitedEnglishFallback = clampRange(Number(fallbackSignals?.limitedEnglishShare), 0, 1);
   const baPlusFallback = clampRange(Number(fallbackSignals?.baPlusShare), 0, 1);
+  const noVehicleFallback = clampRange(Number(fallbackSignals?.noVehicleShare), 0, 1);
+  const age18to24Fallback = clampRange(Number(fallbackSignals?.age18to24Share), 0, 1);
+  const age25to34Fallback = clampRange(Number(fallbackSignals?.age25to34Share), 0, 1);
+  const age35to44Fallback = clampRange(Number(fallbackSignals?.age35to44Share), 0, 1);
+  const age45to64Fallback = clampRange(Number(fallbackSignals?.age45to64Share), 0, 1);
+  const age65PlusFallback = clampRange(Number(fallbackSignals?.age65PlusShare), 0, 1);
   const incomeFallback = Number.isFinite(Number(fallbackSignals?.medianIncome)) ? Number(fallbackSignals?.medianIncome) : 65000;
   const densityFallback = clampRange(Number(fallbackSignals?.densityRatio), 0.2, 0.9);
   const samples = [];
@@ -2330,6 +2577,12 @@ function advisoryMultiplierBand({
     );
     const limitedEnglishShare = ratioFromRow(values, ["C16002_004E", "C16002_007E", "C16002_010E", "C16002_013E"], ["C16002_001E"], limitedEnglishFallback);
     const baPlusShare = ratioFromRow(values, ["B15003_022E", "B15003_023E", "B15003_024E", "B15003_025E"], ["B15003_001E"], baPlusFallback);
+    const noVehicleShare = ratioFromRow(values, ["B08201_002E"], ["B08201_001E"], noVehicleFallback);
+    const age18to24Share = ratioFromRow(values, AGE_18_24_VARS, ["B01001_001E"], age18to24Fallback);
+    const age25to34Share = ratioFromRow(values, AGE_25_34_VARS, ["B01001_001E"], age25to34Fallback);
+    const age35to44Share = ratioFromRow(values, AGE_35_44_VARS, ["B01001_001E"], age35to44Fallback);
+    const age45to64Share = ratioFromRow(values, AGE_45_64_VARS, ["B01001_001E"], age45to64Fallback);
+    const age65PlusShare = ratioFromRow(values, AGE_65_PLUS_VARS, ["B01001_001E"], age65PlusFallback);
     const medianIncome = (() => {
       const value = rowVarNum(values, "B19013_001E");
       return value != null && value > 0 ? value : incomeFallback;
@@ -2349,8 +2602,14 @@ function advisoryMultiplierBand({
       baPlusShare,
       medianIncome,
       densityRatio,
+      noVehicleShare,
+      age18to24Share,
+      age25to34Share,
+      age35to44Share,
+      age45to64Share,
+      age65PlusShare,
     });
-    const multiplier = clampRange(indices.fieldSpeed / indices.fieldDifficulty, 0.70, 1.30);
+    const multiplier = clampRange(indices.doorsPerHourMultiplier, 0.70, 1.30);
     const populationWeight = rowVarNum(values, "B01003_001E");
     const weight = populationWeight != null && populationWeight > 0 ? populationWeight : 1;
     samples.push({ value: multiplier, weight });
@@ -2397,25 +2656,57 @@ export function buildCensusAssumptionAdvisory({ aggregate, doorShare, doorsPerHo
   const metrics = aggregate?.metrics && typeof aggregate.metrics === "object" ? aggregate.metrics : {};
 
   let availableSignals = 0;
-  const totalSignals = 6;
+  const totalSignals = 8;
   const pickShare = (id, fallback) => {
     const value = metricNum(metrics, id);
-    if (value == null) return fallback;
-    availableSignals += 1;
-    return clampRange(value, 0, 1);
+    if (value == null) return { value: fallback, available: false };
+    return { value: clampRange(value, 0, 1), available: true };
   };
   const pickMetric = (id, fallback) => {
     const value = metricNum(metrics, id);
-    if (value == null) return fallback;
-    availableSignals += 1;
-    return value;
+    if (value == null) return { value: fallback, available: false };
+    return { value, available: true };
   };
 
-  const renterShare = pickShare("renter_share", 0.35);
-  const multiUnitShare = pickShare("multi_unit_share", 0.20);
-  const limitedEnglishShare = pickShare("limited_english_share", 0.05);
-  const baPlusShare = pickShare("ba_plus_share", 0.33);
-  const medianIncome = pickMetric("median_household_income_est", 65000);
+  const renterSignal = pickShare("renter_share", 0.35);
+  const multiSignal = pickShare("multi_unit_share", 0.20);
+  const limitedEnglishSignal = pickShare("limited_english_share", 0.05);
+  const baPlusSignal = pickShare("ba_plus_share", 0.33);
+  const incomeSignal = pickMetric("median_household_income_est", 65000);
+  const noVehicleSignal = pickShare("no_vehicle_share", 0.08);
+  const age18to24Signal = pickShare("age_18_24_share", 0.10);
+  const age25to34Signal = pickShare("age_25_34_share", 0.14);
+  const age35to44Signal = pickShare("age_35_44_share", 0.13);
+  const age45to64Signal = pickShare("age_45_64_share", 0.26);
+  const age65PlusSignal = pickShare("age_65_plus_share", 0.18);
+
+  if (renterSignal.available) availableSignals += 1;
+  if (multiSignal.available) availableSignals += 1;
+  if (limitedEnglishSignal.available) availableSignals += 1;
+  if (baPlusSignal.available) availableSignals += 1;
+  if (incomeSignal.available) availableSignals += 1;
+  if (noVehicleSignal.available) availableSignals += 1;
+
+  const ageDistributionAvailable =
+    age18to24Signal.available &&
+    age25to34Signal.available &&
+    age35to44Signal.available &&
+    age45to64Signal.available &&
+    age65PlusSignal.available;
+  if (ageDistributionAvailable) availableSignals += 1;
+
+  const renterShare = renterSignal.value;
+  const multiUnitShare = multiSignal.value;
+  const limitedEnglishShare = limitedEnglishSignal.value;
+  const baPlusShare = baPlusSignal.value;
+  const medianIncome = incomeSignal.value;
+  const noVehicleShare = noVehicleSignal.value;
+  const age18to24Share = age18to24Signal.value;
+  const age25to34Share = age25to34Signal.value;
+  const age35to44Share = age35to44Signal.value;
+  const age45to64Share = age45to64Signal.value;
+  const age65PlusShare = age65PlusSignal.value;
+
   const population = metricNum(metrics, "population_total");
   const housingUnits = metricNum(metrics, "housing_units_total");
   let densityRatio = 0.45;
@@ -2432,11 +2723,21 @@ export function buildCensusAssumptionAdvisory({ aggregate, doorShare, doorsPerHo
     baPlusShare,
     medianIncome,
     densityRatio,
+    noVehicleShare,
+    age18to24Share,
+    age25to34Share,
+    age35to44Share,
+    age45to64Share,
+    age65PlusShare,
   });
   const fieldSpeed = indices.fieldSpeed;
   const persuasionEnvironment = indices.persuasionEnvironment;
   const turnoutElasticity = indices.turnoutElasticity;
   const fieldDifficulty = indices.fieldDifficulty;
+  const turnoutPotential = indices.turnoutPotential;
+  const contactRateModifier = indices.contactRateModifier;
+  const estimatedDoorsPerHourFactor = indices.estimatedDoorsPerHourFactor;
+  const doorsPerHourMultiplier = indices.doorsPerHourMultiplier;
 
   const shareRaw = Number(doorShare);
   const share = Number.isFinite(shareRaw) ? clampRange(shareRaw, 0, 1) : 0.5;
@@ -2444,7 +2745,7 @@ export function buildCensusAssumptionAdvisory({ aggregate, doorShare, doorsPerHo
   const cph = Number(callsPerHour);
   const hasBaseAph = Number.isFinite(dph) && dph > 0 && Number.isFinite(cph) && cph > 0;
   const baseAph = hasBaseAph ? (share * dph) + ((1 - share) * cph) : null;
-  const doorsMultiplier = clampRange(fieldSpeed / fieldDifficulty, 0.70, 1.30);
+  const doorsMultiplier = clampRange(doorsPerHourMultiplier, 0.70, 1.30);
   const multiplierBand = advisoryMultiplierBand({
     rowsByGeoid,
     selectedGeoids: selectedIds,
@@ -2456,6 +2757,12 @@ export function buildCensusAssumptionAdvisory({ aggregate, doorShare, doorsPerHo
       baPlusShare,
       medianIncome,
       densityRatio,
+      noVehicleShare,
+      age18to24Share,
+      age25to34Share,
+      age35to44Share,
+      age45to64Share,
+      age65PlusShare,
     },
   });
   const bandMid = Number(multiplierBand.mid);
@@ -2486,15 +2793,36 @@ export function buildCensusAssumptionAdvisory({ aggregate, doorShare, doorsPerHo
       persuasionEnvironment,
       turnoutElasticity,
       fieldDifficulty,
+      turnoutPotential,
+      vehicleAvailability: indices.vehicleAvailability,
+      noVehicleShare,
+      walkability: indices.walkability,
+      contactRateModifier,
+      estimatedDoorsPerHourFactor,
+      densityRatio,
+      densityBand: {
+        id: indices.densityBand.id,
+        label: indices.densityBand.label,
+        multiplier: indices.densityBand.multiplier,
+      },
+      ageDistribution: {
+        age18to24: indices.ageDistribution.age18to24,
+        age25to34: indices.ageDistribution.age25to34,
+        age35to44: indices.ageDistribution.age35to44,
+        age45to64: indices.ageDistribution.age45to64,
+        age65Plus: indices.ageDistribution.age65Plus,
+      },
     },
     bands: {
       fieldSpeed: advisoryBand(fieldSpeed),
       persuasionEnvironment: advisoryBand(persuasionEnvironment),
       turnoutElasticity: advisoryBand(turnoutElasticity),
       fieldDifficulty: advisoryBand(fieldDifficulty),
+      turnoutPotential: advisoryBand(turnoutPotential),
     },
     multipliers: {
       doorsPerHour: effectiveMultiplier,
+      contactRate: contactRateModifier,
       persuasion: persuasionEnvironment,
       turnoutLift: turnoutElasticity,
       organizerLoad: fieldDifficulty,
@@ -2646,6 +2974,7 @@ export function evaluateQaOverlayNonBlocking({ primaryFeatureCount, qaEnabled, q
 export function clampCensusApplyMultipliers(input = {}){
   const src = input && typeof input === "object" ? input : {};
   const doorsRaw = Number(src.doorsPerHour);
+  const contactRateRaw = Number(src.contactRate);
   const persuasionRaw = Number(src.persuasion);
   const turnoutRaw = Number(src.turnoutLift);
   const organizerRaw = Number(src.organizerLoad);
@@ -2654,6 +2983,11 @@ export function clampCensusApplyMultipliers(input = {}){
       Number.isFinite(doorsRaw) ? doorsRaw : 1,
       CENSUS_APPLY_BOUNDS.doorsPerHour.min,
       CENSUS_APPLY_BOUNDS.doorsPerHour.max,
+    ),
+    contactRate: clampRange(
+      Number.isFinite(contactRateRaw) ? contactRateRaw : 1,
+      CENSUS_APPLY_BOUNDS.contactRate.min,
+      CENSUS_APPLY_BOUNDS.contactRate.max,
     ),
     persuasion: clampRange(
       Number.isFinite(persuasionRaw) ? persuasionRaw : 1,
