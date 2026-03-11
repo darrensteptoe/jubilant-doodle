@@ -7,8 +7,8 @@ import {
 } from "../componentFactory.js";
 import { mountLegacyNode } from "../compat.js";
 import {
-  bindFieldProxy,
   bindClickProxy,
+  bindFieldProxy,
   bindSelectProxy,
   readText,
   setText,
@@ -19,13 +19,8 @@ import {
 
 export function renderScenariosSurface(mount) {
   const frame = createSurfaceFrame("two-col");
-  const left = createColumn("primary");
-  const right = createColumn("secondary");
-
-  const statusCard = createCard({
-    title: "Scenario status",
-    description: "Current scenario context, warnings, and storage behavior."
-  });
+  const left = createColumn("workspace");
+  const right = createColumn("comparison");
 
   const workspaceCard = createCard({
     title: "Scenario workspace",
@@ -37,44 +32,37 @@ export function renderScenariosSurface(mount) {
     description: "Baseline versus active scenario differences in inputs and outputs."
   });
 
+  const guidanceCard = createCard({
+    title: "Guidance & alerts",
+    description: "Operational guidance and dynamic warnings for scenario management."
+  });
+
   const summaryCard = createCard({
     title: "Comparison summary",
     description: "Quick readout of active scenario state and diff volume."
   });
 
-  const statusBody = getCardBody(statusCard);
-  mountLegacyNode({
-    key: "v3-scenarios-help",
-    selector: "#scenarioCompareCard .help-text",
-    target: statusBody
-  });
-  mountLegacyNode({
-    key: "v3-scenarios-warning",
-    selector: "#scWarn",
-    target: statusBody
-  });
-  mountLegacyNode({
-    key: "v3-scenarios-storage-note",
-    selector: "#scenarioCompareCard > .note:last-of-type",
-    target: statusBody
-  });
-
   getCardBody(workspaceCard).innerHTML = `
     <div id="v3ScenarioBridgeRoot">
-      <div class="fpe-help" id="v3ScenarioActiveLabel">Active scenario: -</div>
+      <div class="fpe-contained-block">
+        <div class="fpe-control-label">Active scenario</div>
+        <div class="fpe-help fpe-help--flush" id="v3ScenarioActiveLabel">-</div>
+      </div>
       <div class="fpe-field-grid fpe-field-grid--2">
         <div class="field">
           <label class="fpe-control-label" for="v3ScenarioSelect">Scenarios</label>
           <select class="fpe-input" id="v3ScenarioSelect"></select>
         </div>
         <div class="field">
-          <label class="fpe-control-label" for="v3ScenarioNewName">New scenario</label>
+          <label class="fpe-control-label" for="v3ScenarioNewName">New scenario name</label>
           <input class="fpe-input" id="v3ScenarioNewName" placeholder="e.g., Path A - full GOTV" type="text"/>
         </div>
       </div>
       <div class="fpe-action-row">
         <button class="fpe-btn" id="v3BtnScenarioSaveNew" type="button">Save as new scenario</button>
         <button class="fpe-btn fpe-btn--ghost" id="v3BtnScenarioCloneBaseline" type="button">Clone baseline</button>
+      </div>
+      <div class="fpe-action-row">
         <button class="fpe-btn" id="v3BtnScenarioLoadSelected" type="button">Load selected</button>
         <button class="fpe-btn fpe-btn--ghost" id="v3BtnScenarioReturnBaseline" type="button">Return to baseline</button>
         <button class="fpe-btn fpe-btn--ghost" id="v3BtnScenarioDelete" type="button">Delete scenario</button>
@@ -82,10 +70,32 @@ export function renderScenariosSurface(mount) {
     </div>
   `;
 
+  const compareBody = getCardBody(compareCard);
   mountLegacyNode({
     key: "v3-scenarios-compare-wrap",
     selector: "#scmCompareWrap",
-    target: getCardBody(compareCard)
+    target: compareBody
+  });
+
+  const guidanceBody = getCardBody(guidanceCard);
+  guidanceBody.innerHTML = `
+    <div class="fpe-contained-block">
+      <ul class="bullets">
+        <li>Keep baseline as a stable reference and branch alternatives as named scenarios.</li>
+        <li>Use compare mode to isolate exactly which assumptions or outputs changed.</li>
+        <li>Log decision rationale against explicit scenario IDs, not ad-hoc edits.</li>
+      </ul>
+    </div>
+  `;
+  mountLegacyNode({
+    key: "v3-scenarios-warning",
+    selector: "#scWarn",
+    target: guidanceBody
+  });
+  mountLegacyNode({
+    key: "v3-scenarios-storage-note",
+    selector: "#scenarioCompareCard > .note:last-of-type",
+    target: guidanceBody
   });
 
   getCardBody(summaryCard).innerHTML = `
@@ -98,7 +108,7 @@ export function renderScenariosSurface(mount) {
     </div>
   `;
 
-  left.append(statusCard, workspaceCard);
+  left.append(workspaceCard, guidanceCard);
   right.append(compareCard, summaryCard);
   frame.append(left, right);
   mount.append(frame);
