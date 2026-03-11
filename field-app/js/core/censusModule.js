@@ -297,8 +297,8 @@ const METRICS = {
     id: "citizen_share",
     label: "Citizen share",
     kind: "ratio",
-    vars: ["B05001_002E", "B05001_007E", "B05001_001E"],
-    numeratorVars: ["B05001_002E", "B05001_007E"],
+    vars: ["B05001_002E", "B05001_003E", "B05001_004E", "B05001_005E", "B05001_001E"],
+    numeratorVars: ["B05001_002E", "B05001_003E", "B05001_004E", "B05001_005E"],
     denominatorVars: ["B05001_001E"],
     format: "pct1",
   },
@@ -601,6 +601,46 @@ export function getVariablesForMetricSet(metricSetId){
     for (const v of spec.vars || []) uniq.add(String(v));
   }
   return Array.from(uniq);
+}
+
+export function resolveMetricSetVariables(metricSetId, variableNames){
+  const requested = getVariablesForMetricSet(metricSetId);
+  const catalog = new Set(Array.isArray(variableNames) ? variableNames.map((v) => cleanText(v)).filter((v) => !!v) : []);
+  if (!catalog.size){
+    return {
+      metricSet: cleanText(metricSetId) || "core",
+      requested,
+      available: requested.slice(),
+      missing: [],
+      coveragePct: requested.length ? 1 : 0,
+    };
+  }
+  const available = requested.filter((v) => catalog.has(v));
+  const missing = requested.filter((v) => !catalog.has(v));
+  return {
+    metricSet: cleanText(metricSetId) || "core",
+    requested,
+    available,
+    missing,
+    coveragePct: requested.length ? (available.length / requested.length) : 0,
+  };
+}
+
+export function auditMetricSetsWithCatalog(variableNames){
+  const metricSets = listMetricSetOptions().map((row) => cleanText(row.id)).filter((id) => !!id);
+  const results = metricSets.map((metricSet) => resolveMetricSetVariables(metricSet, variableNames));
+  const fullyCompatible = results.filter((row) => row.missing.length === 0).length;
+  const partiallyCompatible = results.filter((row) => row.available.length > 0 && row.missing.length > 0).length;
+  const incompatible = results.filter((row) => row.available.length === 0).length;
+  return {
+    metricSets: results,
+    summary: {
+      total: results.length,
+      fullyCompatible,
+      partiallyCompatible,
+      incompatible,
+    },
+  };
 }
 
 function cleanText(v){
@@ -1905,9 +1945,10 @@ function rowToData(row, resolution, variableIds){
   };
 }
 
-export async function fetchAcsRows({ year, resolution, stateFips, countyFips, metricSet, key, fetchImpl } = {}){
+export async function fetchAcsRows({ year, resolution, stateFips, countyFips, metricSet, variableNames, key, fetchImpl } = {}){
   if (!requiredForResolution(resolution, stateFips, countyFips)) return {};
-  const variableIds = getVariablesForMetricSet(metricSet);
+  const resolved = resolveMetricSetVariables(metricSet, variableNames);
+  const variableIds = resolved.available;
   const json = resolution === "block_group"
     ? await fetchBlockGroupTable({ year, getVars: ["NAME", ...variableIds], stateFips, countyFips, key, fetchImpl })
     : await fetchJson(buildAcsQueryUrl({
