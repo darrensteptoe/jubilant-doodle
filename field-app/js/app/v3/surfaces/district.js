@@ -227,6 +227,11 @@ export function renderDistrictSurface(mount) {
     closestSelector: ".field",
     target: structureDerived
   });
+  const derivedInternalEl = structureBody.querySelector("#universe16Derived");
+  if (derivedInternalEl instanceof HTMLElement) {
+    derivedInternalEl.classList.remove("muted");
+    derivedInternalEl.classList.add("fpe-readonly-field");
+  }
   mountLegacyNode({
     key: "v3-district-structure-warn",
     selector: "#universe16Warn",
