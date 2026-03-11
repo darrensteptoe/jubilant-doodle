@@ -12,10 +12,10 @@
   --fpe-danger: var(--bad-fg);
   --fpe-focus: color-mix(in srgb, var(--accent) 30%, transparent);
   --fpe-header-red-tint: color-mix(in srgb, var(--fpe-danger) 6%, transparent);
-  --fpe-flag-blue: color-mix(in srgb, #0a3161 72%, var(--fpe-panel));
-  --fpe-flag-blue-deep: color-mix(in srgb, #061a3a 72%, var(--fpe-panel));
-  --fpe-flag-red: color-mix(in srgb, #b22234 44%, var(--fpe-panel));
-  --fpe-flag-white: color-mix(in srgb, #ffffff 84%, var(--fpe-panel));
+  --fpe-flag-blue: color-mix(in srgb, #7a8492 72%, var(--fpe-panel));
+  --fpe-flag-blue-deep: color-mix(in srgb, #5e6672 72%, var(--fpe-panel));
+  --fpe-flag-red: color-mix(in srgb, #c8ced7 58%, var(--fpe-panel));
+  --fpe-flag-white: color-mix(in srgb, #f4f7fb 88%, var(--fpe-panel));
   --fpe-flag-star: color-mix(in srgb, #ffffff 92%, var(--fpe-panel));
   --fpe-topbar-overlay-start: color-mix(in srgb, var(--fpe-panel) 46%, transparent);
   --fpe-topbar-overlay-end: color-mix(in srgb, #ffffff 92%, var(--fpe-panel));
@@ -68,10 +68,10 @@
 }
 
 body.dark #app-shell-v3-root {
-  --fpe-flag-blue: color-mix(in srgb, #0a3161 64%, #0a111d);
-  --fpe-flag-blue-deep: color-mix(in srgb, #061a3a 78%, #060a12);
-  --fpe-flag-red: color-mix(in srgb, #b22234 42%, #120d12);
-  --fpe-flag-white: color-mix(in srgb, #dbe5f7 24%, #101827);
+  --fpe-flag-blue: color-mix(in srgb, #6b7482 62%, #0a111d);
+  --fpe-flag-blue-deep: color-mix(in srgb, #4a525d 76%, #060a12);
+  --fpe-flag-red: color-mix(in srgb, #8b93a0 50%, #101827);
+  --fpe-flag-white: color-mix(in srgb, #d2d9e4 30%, #101827);
   --fpe-flag-star: color-mix(in srgb, #ffffff 88%, #101827);
   --fpe-topbar-overlay-start: color-mix(in srgb, #0b1220 44%, transparent);
   --fpe-topbar-overlay-end: color-mix(in srgb, #0b1220 90%, var(--fpe-panel));
@@ -81,10 +81,10 @@ body.dark #app-shell-v3-root {
 
 @media (prefers-color-scheme: dark) {
   body:not(.light) #app-shell-v3-root {
-    --fpe-flag-blue: color-mix(in srgb, #0a3161 64%, #0a111d);
-    --fpe-flag-blue-deep: color-mix(in srgb, #061a3a 78%, #060a12);
-    --fpe-flag-red: color-mix(in srgb, #b22234 42%, #120d12);
-    --fpe-flag-white: color-mix(in srgb, #dbe5f7 24%, #101827);
+    --fpe-flag-blue: color-mix(in srgb, #6b7482 62%, #0a111d);
+    --fpe-flag-blue-deep: color-mix(in srgb, #4a525d 76%, #060a12);
+    --fpe-flag-red: color-mix(in srgb, #8b93a0 50%, #101827);
+    --fpe-flag-white: color-mix(in srgb, #d2d9e4 30%, #101827);
     --fpe-flag-star: color-mix(in srgb, #ffffff 88%, #101827);
     --fpe-topbar-overlay-start: color-mix(in srgb, #0b1220 44%, transparent);
     --fpe-topbar-overlay-end: color-mix(in srgb, #0b1220 90%, var(--fpe-panel));
@@ -132,6 +132,7 @@ body.dark #app-shell-v3-root {
   background-size: 100% 100%, cover, cover;
   background-position: center, center, center;
   background-repeat: no-repeat, no-repeat, no-repeat;
+  background-blend-mode: normal, luminosity, normal;
   border-bottom: 1px solid var(--fpe-rule);
 }
 
@@ -170,31 +171,33 @@ body.dark #app-shell-v3-root {
   gap: var(--fpe-space-2);
 }
 
-.fpe-toggle {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 12px;
+.fpe-topbar .fpe-btn {
+  border-color: color-mix(in srgb, #ffffff 24%, var(--fpe-rule));
+  background: color-mix(in srgb, #0b1220 22%, transparent);
   color: var(--fpe-topbar-ui);
-  font-weight: 500;
 }
 
-.fpe-toggle__dot {
-  width: 16px;
-  height: 16px;
-  border-radius: 999px;
-  border: 1px solid var(--fpe-rule);
-  background: linear-gradient(
-    180deg,
-    var(--fpe-panel) 0%,
-    color-mix(in srgb, var(--fpe-panel) 68%, var(--fpe-bg)) 100%
-  );
+.fpe-topbar .fpe-btn:hover {
+  background: color-mix(in srgb, #0b1220 34%, transparent);
 }
 
-.fpe-toggle input:checked + .fpe-toggle__dot {
-  border-color: var(--fpe-accent);
-  background: var(--fpe-accent);
-  box-shadow: inset 0 0 0 3px var(--fpe-panel);
+.fpe-topbar .fpe-btn--danger {
+  border-color: color-mix(in srgb, var(--fpe-danger) 44%, #ffffff 16%);
+  color: color-mix(in srgb, #ffffff 72%, var(--fpe-danger));
+}
+
+.fpe-btn--training {
+  font-weight: 600;
+  transition: box-shadow 140ms ease, border-color 140ms ease, background-color 140ms ease, color 140ms ease;
+}
+
+.fpe-btn--training.is-active {
+  color: #ffffff;
+  border-color: color-mix(in srgb, var(--fpe-accent) 64%, #ffffff 18%);
+  background: color-mix(in srgb, var(--fpe-accent) 34%, transparent);
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--fpe-accent) 28%, transparent),
+    0 0 16px color-mix(in srgb, var(--fpe-accent) 44%, transparent);
 }
 
 .fpe-btn {
@@ -1567,7 +1570,7 @@ body.training #app-shell-v3-root .fpe-surface .help {
     font-size: 12px;
   }
 
-  .fpe-topbar__actions .fpe-toggle,
+  .fpe-topbar__actions #v3BtnTraining,
   .fpe-topbar__actions #v3SwitchLegacy {
     display: none;
   }
