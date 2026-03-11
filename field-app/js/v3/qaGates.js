@@ -12,16 +12,39 @@ const STAGE_EXPECTATIONS = {
     "#universeSize",
     "#turnoutA"
   ],
-  reach: ["#v3ReachGoal", "#wkGoal", "#wkCapacityPerWeek"],
-  outcome: ["#v3OutcomeWinProb", "#v3BtnComputeSurface", "#mcWinProb-sidebar", "#mcP50"],
+  reach: [
+    "#v3ReachGoal",
+    "#v3ReachPersuasionPct",
+    "#v3ReachSupportRatePct",
+    "#v3ReachCapOverrideEnabled",
+    "#wkGoal",
+    "#wkCapacityPerWeek"
+  ],
+  outcome: [
+    "#v3OutcomeWinProb",
+    "#v3OutcomeOrgCount",
+    "#v3OutcomeMcMode",
+    "#v3BtnOutcomeRun",
+    "#v3BtnComputeSurface",
+    "#mcWinProb-sidebar",
+    "#mcP50"
+  ],
   turnout: [
     "#v3TurnoutSummary",
+    "#v3TurnoutBaselinePct",
+    "#v3TurnoutMode",
+    "#v3TurnoutDiminishingToggle",
+    "#v3RoiDoorsEnabled",
+    "#v3RoiOverheadAmount",
     "#v3BtnRoiRefresh",
     "#v3TurnoutEnabledToggle",
     "#turnoutSummary",
     "#roiTbody"
   ],
   plan: [
+    "#v3PlanGoalSupportIds",
+    "#v3PlanOptMode",
+    "#v3PlanTimelineActiveWeeks",
     "#v3PlanExecutable",
     "#v3BtnOptRun",
     "#v3PlanTimelineEnabledToggle",

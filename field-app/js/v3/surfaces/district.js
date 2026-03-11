@@ -14,7 +14,8 @@ import {
   createFieldGrid,
   setText,
   syncButtonDisabled,
-  syncCheckboxValue
+  syncCheckboxValue,
+  syncControlDisabled
 } from "../surfaceUtils.js";
 
 export function renderDistrictSurface(mount) {
@@ -121,7 +122,6 @@ export function renderDistrictSurface(mount) {
   const baselineBody = getCardBody(baselineCard);
   const baselineTop = createFieldGrid("fpe-field-grid--1");
   const baselineBottom = createFieldGrid("fpe-field-grid--2");
-  baselineBottom.style.marginTop = "14px";
   baselineBody.append(baselineTop);
   mountLegacyClosest({
     key: "v3-district-yourCandidate-field",
@@ -227,6 +227,11 @@ export function renderDistrictSurface(mount) {
     closestSelector: ".field",
     target: structureDerived
   });
+  const derivedInternalEl = structureBody.querySelector("#universe16Derived");
+  if (derivedInternalEl instanceof HTMLElement) {
+    derivedInternalEl.classList.remove("muted");
+    derivedInternalEl.classList.add("fpe-readonly-field");
+  }
   mountLegacyNode({
     key: "v3-district-structure-warn",
     selector: "#universe16Warn",
@@ -285,12 +290,7 @@ function refreshDistrictSummary() {
   setText("v3DistrictNeed", snapshot.persuasionNeed);
   syncButtonDisabled("v3BtnAddCandidate", "btnAddCandidate");
   syncCheckboxValue("v3DistrictElectorateWeightingToggle", "universe16Enabled");
-
-  const v3Toggle = document.getElementById("v3DistrictElectorateWeightingToggle");
-  const legacyToggle = document.getElementById("universe16Enabled");
-  if (v3Toggle instanceof HTMLInputElement && legacyToggle instanceof HTMLInputElement) {
-    v3Toggle.disabled = legacyToggle.disabled;
-  }
+  syncControlDisabled("v3DistrictElectorateWeightingToggle", "universe16Enabled");
   syncDistrictCensusMessageTones();
   syncCensusMapShellState();
 }
@@ -306,7 +306,6 @@ function normalizeCensusPhase1Card(card) {
   card.dataset.v3CensusNormalized = "1";
   card.classList.add("fpe-census-card");
 
-  const intro = card.querySelector(":scope > .help-text");
   const resolutionHint = card.querySelector(":scope > .muted:not([id])");
 
   const apiKeyField = findClosest(card, "#censusApiKey", ".field");
@@ -333,6 +332,8 @@ function normalizeCensusPhase1Card(card) {
   const advisoryTable = findClosest(card, "#censusAdvisoryTbody", ".table-wrap");
   const advisoryStatus = card.querySelector("#censusAdvisoryStatus");
   const advisoryGuide = card.querySelector("#censusAdvisoryGuide");
+  const advisoryGuideNote = advisoryGuide?.querySelector(":scope > .muted");
+  const advisoryGuideTable = advisoryGuide?.querySelector("table[aria-label='Advisory signal ranges']")?.closest(".table-wrap");
 
   const selectionSummary = card.querySelector("#censusSelectionSummary");
   const footprintActions = findClosest(card, "#btnCensusSetRaceFootprint", ".rowline");
@@ -363,16 +364,6 @@ function normalizeCensusPhase1Card(card) {
 
   const layout = document.createElement("div");
   layout.className = "fpe-census-layout";
-
-  if (intro) {
-    intro.classList.add("fpe-census-intro");
-    const introWindow = createCensusMessageWindow({
-      label: "Workflow guide",
-      tone: "tip"
-    });
-    introWindow.body.appendChild(intro);
-    layout.appendChild(introWindow.root);
-  }
 
   const workflowSection = createCensusSection({
     title: "GEO data workflow",
@@ -470,9 +461,9 @@ function normalizeCensusPhase1Card(card) {
     label: "Current status",
     tone: "status"
   });
-  const footprintStatusList = document.createElement("div");
+  const footprintStatusList = document.createElement("ul");
   footprintStatusList.className = "fpe-census-status-list";
-  appendIfPresent(
+  appendStatusItems(
     footprintStatusList,
     selectionSummary,
     raceFootprintStatus,
@@ -491,11 +482,40 @@ function normalizeCensusPhase1Card(card) {
     description: "Review computed signal levels and interpretation guidance for the selected footprint."
   });
   if (advisoryGuide instanceof HTMLDetailsElement) {
-    advisoryGuide.classList.add("fpe-census-instruction-details");
+    advisoryGuide.classList.add("fpe-census-instruction-details", "fpe-census-election-details");
     advisoryGuide.open = false;
     const summary = advisoryGuide.querySelector(":scope > summary");
     if (summary instanceof HTMLElement) {
       summary.textContent = "Instructions";
+    }
+
+    const guideBody = document.createElement("div");
+    guideBody.className = "fpe-census-election-guide";
+
+    const instructionWindow = createCensusMessageWindow({
+      label: "Instruction flow",
+      tone: "tip"
+    });
+    const instructionList = document.createElement("ul");
+    instructionList.className = "fpe-census-instruction-list";
+    appendInstructionTextItems(
+      instructionList,
+      "Use this module to translate selected GEO demographics into practical operating constraints before finalizing plan assumptions.",
+      "Read the signal table first: values near 1.00 are baseline, values below 1.00 indicate lower capacity or tougher conditions, and values above 1.00 indicate stronger conditions.",
+      "Treat APH feasibility as the decision gate: if required APH is above the achievable band, adjust staffing, timeline, or expected vote need before locking assumptions."
+    );
+    appendInstructionItems(instructionList, advisoryGuideNote);
+    if (instructionList.children.length) {
+      instructionWindow.body.appendChild(instructionList);
+      guideBody.appendChild(instructionWindow.root);
+    }
+
+    appendIfPresent(guideBody, advisoryGuideTable);
+
+    if (summary) {
+      advisoryGuide.replaceChildren(summary, guideBody);
+    } else {
+      advisoryGuide.replaceChildren(guideBody);
     }
   }
   appendIfPresent(advisorySection.body, advisoryGuide, advisoryTable);
@@ -523,17 +543,42 @@ function normalizeCensusPhase1Card(card) {
 
     const guideBody = document.createElement("div");
     guideBody.className = "fpe-census-election-guide";
-    if (electionTemplateActions instanceof HTMLElement) {
-      electionTemplateActions.classList.add("fpe-action-row");
+    const instructionWindow = createCensusMessageWindow({
+      label: "Instruction flow",
+      tone: "tip"
+    });
+    const instructionList = document.createElement("ul");
+    instructionList.className = "fpe-census-instruction-list";
+    appendInstructionItems(instructionList, electionGuideNote, electionGuideStatus, electionGuideSchema);
+    if (instructionList.children.length) {
+      instructionWindow.body.appendChild(instructionList);
+      guideBody.appendChild(instructionWindow.root);
     }
-    appendIfPresent(
-      guideBody,
-      electionGuideNote,
-      electionGuideStatus,
-      electionGuideTable,
-      electionGuideSchema,
-      electionTemplateActions
-    );
+
+    appendIfPresent(guideBody, electionGuideTable);
+
+    const templateButtons = [];
+    if (electionTemplateActions instanceof HTMLElement) {
+      templateButtons.push(
+        ...Array.from(
+          electionTemplateActions.querySelectorAll(
+            "#btnCensusDownloadElectionCsvTemplate, #btnCensusDownloadElectionCsvWideTemplate"
+          )
+        )
+      );
+    }
+    const templateActionsField = createActionField({
+      labelText: "Template downloads",
+      buttons: templateButtons
+    });
+    if (templateActionsField instanceof HTMLElement) {
+      templateActionsField.classList.add("fpe-census-template-actions");
+      const helper = document.createElement("p");
+      helper.className = "fpe-help";
+      helper.textContent = "Choose one format, complete required columns, then run dry-run parse before import.";
+      templateActionsField.appendChild(helper);
+      guideBody.appendChild(templateActionsField);
+    }
 
     if (summary) {
       electionDetails.replaceChildren(summary, guideBody);
@@ -671,6 +716,55 @@ function appendIfPresent(target, ...nodes) {
     if (node instanceof Node) {
       target.appendChild(node);
     }
+  });
+}
+
+function appendStatusItems(list, ...nodes) {
+  if (!(list instanceof HTMLElement)) {
+    return;
+  }
+
+  nodes.forEach((node) => {
+    if (!(node instanceof HTMLElement)) {
+      return;
+    }
+    const item = document.createElement("li");
+    item.className = "fpe-census-status-item";
+    item.appendChild(node);
+    list.appendChild(item);
+  });
+}
+
+function appendInstructionItems(list, ...nodes) {
+  if (!(list instanceof HTMLElement)) {
+    return;
+  }
+
+  nodes.forEach((node) => {
+    if (!(node instanceof HTMLElement)) {
+      return;
+    }
+    const item = document.createElement("li");
+    item.className = "fpe-census-instruction-item";
+    item.appendChild(node);
+    list.appendChild(item);
+  });
+}
+
+function appendInstructionTextItems(list, ...texts) {
+  if (!(list instanceof HTMLElement)) {
+    return;
+  }
+
+  texts.forEach((text) => {
+    const value = String(text || "").trim();
+    if (!value) {
+      return;
+    }
+    const item = document.createElement("li");
+    item.className = "fpe-census-instruction-item";
+    item.textContent = value;
+    list.appendChild(item);
   });
 }
 

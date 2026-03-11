@@ -11,23 +11,25 @@ import {
   bindClickProxy,
   bindFieldProxy,
   bindSelectProxy,
+  syncControlDisabled,
   readSelectedLabel,
   readText,
   setText,
-  syncCheckboxValue,
   syncButtonDisabled,
+  syncCheckboxValue,
   syncFieldValue,
   syncSelectValue
 } from "../surfaceUtils.js";
 
 export function renderDecisionLogSurface(mount) {
-  const frame = createSurfaceFrame("two-col");
-  const left = createColumn("primary");
-  const right = createColumn("secondary");
+  const frame = createSurfaceFrame("three-col");
+  const contextCol = createColumn("context");
+  const optionsCol = createColumn("options");
+  const outputCol = createColumn("output");
 
   const sessionCard = createCard({
     title: "Session context",
-    description: "Session selection, naming, objective, scenario linkage, and working notes."
+    description: "Session selection, objective, scenario linkage, and working notes."
   });
 
   const assumptionsCard = createCard({
@@ -57,7 +59,17 @@ export function renderDecisionLogSurface(mount) {
 
   getCardBody(sessionCard).innerHTML = `
     <div id="v3DecisionBridgeRoot">
-      <div class="fpe-help" id="v3DecisionActiveLabel">Active session: -</div>
+      <div class="fpe-contained-block">
+        <ul class="bullets">
+          <li>Create a dedicated session for each decision checkpoint.</li>
+          <li>Link the active scenario before recording rationale.</li>
+          <li>Keep notes concise and decision-focused for auditability.</li>
+        </ul>
+      </div>
+      <div class="fpe-contained-block">
+        <div class="fpe-control-label">Active session</div>
+        <div class="fpe-help fpe-help--flush" id="v3DecisionActiveLabel">-</div>
+      </div>
       <div class="fpe-field-grid fpe-field-grid--2">
         <div class="field">
           <label class="fpe-control-label" for="v3DecisionSessionSelect">Sessions</label>
@@ -93,7 +105,9 @@ export function renderDecisionLogSurface(mount) {
           <div class="fpe-action-row">
             <button class="fpe-btn fpe-btn--ghost" id="v3BtnDecisionLinkScenario" type="button">Link to active scenario</button>
           </div>
-          <div class="fpe-help" id="v3DecisionScenarioLabel">-</div>
+          <div class="fpe-contained-block">
+            <div class="fpe-help fpe-help--flush" id="v3DecisionScenarioLabel">-</div>
+          </div>
         </div>
       </div>
       <div class="field">
@@ -104,6 +118,12 @@ export function renderDecisionLogSurface(mount) {
   `;
 
   getCardBody(assumptionsCard).innerHTML = `
+    <div class="fpe-contained-block">
+      <ul class="bullets">
+        <li>Set hard constraints first so option scoring reflects real operating limits.</li>
+        <li>Use non-negotiables to encode client or compliance requirements.</li>
+      </ul>
+    </div>
     <div class="fpe-field-grid fpe-field-grid--2">
       <div class="field">
         <label class="fpe-control-label" for="v3DecisionBudget">Budget cap ($)</label>
@@ -137,6 +157,12 @@ export function renderDecisionLogSurface(mount) {
   `;
 
   getCardBody(optionsCard).innerHTML = `
+    <div class="fpe-contained-block">
+      <ul class="bullets">
+        <li>Keep option names concise and operationally distinct.</li>
+        <li>Attach scenario linkage per option before recommendation export.</li>
+      </ul>
+    </div>
     <div class="fpe-field-grid fpe-field-grid--2">
       <div class="field">
         <label class="fpe-control-label" for="v3DecisionOptionSelect">Option</label>
@@ -165,8 +191,10 @@ export function renderDecisionLogSurface(mount) {
     <div class="field">
       <label class="fpe-control-label">Option scenario</label>
       <div class="fpe-action-row">
-        <div class="fpe-help" id="v3DecisionOptionScenarioLabel">-</div>
         <button class="fpe-btn fpe-btn--ghost" id="v3BtnDecisionOptionLinkScenario" type="button">Link option to active scenario</button>
+      </div>
+      <div class="fpe-contained-block">
+        <div class="fpe-help fpe-help--flush" id="v3DecisionOptionScenarioLabel">-</div>
       </div>
     </div>
     <div class="field">
@@ -180,6 +208,14 @@ export function renderDecisionLogSurface(mount) {
   `;
 
   const diagnosticsBody = getCardBody(diagnosticsCard);
+  diagnosticsBody.innerHTML = `
+    <div class="fpe-contained-block">
+      <ul class="bullets">
+        <li>Read drift and risk first, then confirm bottlenecks before recommendation lock.</li>
+        <li>Use sensitivity snapshot as a sanity check before client summary export.</li>
+      </ul>
+    </div>
+  `;
   mountDecisionRow(diagnosticsBody, "v3-decision-drift-tag-row", "#driftStatusTag");
   mountDecisionRow(diagnosticsBody, "v3-decision-drift-kpis-row", "#driftReq");
   mountDecisionRow(diagnosticsBody, "v3-decision-drift-banner-row", "#driftSlipBanner");
@@ -204,6 +240,12 @@ export function renderDecisionLogSurface(mount) {
 
   const recommendationBody = getCardBody(recommendationCard);
   recommendationBody.innerHTML = `
+    <div class="fpe-contained-block">
+      <ul class="bullets">
+        <li>Recommendation should map to a named option and explicit required truths.</li>
+        <li>Review preview text before copy/download handoff.</li>
+      </ul>
+    </div>
     <div class="fpe-field-grid fpe-field-grid--1">
       <div class="field">
         <label class="fpe-control-label" for="v3DecisionRecommendSelect">Recommended option</label>
@@ -218,8 +260,11 @@ export function renderDecisionLogSurface(mount) {
       <label class="fpe-control-label" for="v3DecisionSummaryPreview">Client-ready summary (preview)</label>
       <textarea class="fpe-input" id="v3DecisionSummaryPreview" rows="14" readonly></textarea>
     </div>
+    <div class="fpe-contained-block">
+      <div class="fpe-control-label">Copy status</div>
+      <div class="fpe-help fpe-help--flush" id="v3DecisionCopyStatus">-</div>
+    </div>
     <div class="fpe-action-row">
-      <div class="fpe-help" id="v3DecisionCopyStatus">-</div>
       <button class="fpe-btn fpe-btn--ghost" id="v3BtnDecisionCopyMd" type="button">Copy markdown</button>
       <button class="fpe-btn fpe-btn--ghost" id="v3BtnDecisionCopyText" type="button">Copy text</button>
       <button class="fpe-btn fpe-btn--ghost" id="v3BtnDecisionDownloadJson" type="button">Download JSON</button>
@@ -239,16 +284,18 @@ export function renderDecisionLogSurface(mount) {
     </div>
   `;
 
-  left.append(sessionCard, assumptionsCard, optionsCard);
-  right.append(diagnosticsCard, recommendationCard, summaryCard);
-  frame.append(left, right);
+  contextCol.append(sessionCard, assumptionsCard);
+  optionsCol.append(optionsCard, diagnosticsCard);
+  outputCol.append(recommendationCard, summaryCard);
+
+  frame.append(contextCol, optionsCol, outputCol);
   mount.append(frame);
 
   mount.append(
     createWhyPanel([
       "Decision logs turn model output into explicit operating choices with traceable rationale.",
       "Constraints, options, and recommendation should be reviewed together to prevent hidden tradeoffs.",
-      "The confidence framing helps teams calibrate execution risk before commitment."
+      "Confidence framing helps teams calibrate execution risk before commitment."
     ])
   );
 
@@ -338,6 +385,24 @@ function syncDecisionBridgeUi() {
   syncCheckboxValue("v3DecisionOptionTacticDoors", "decisionOptionTacticDoors");
   syncCheckboxValue("v3DecisionOptionTacticPhones", "decisionOptionTacticPhones");
   syncCheckboxValue("v3DecisionOptionTacticDigital", "decisionOptionTacticDigital");
+
+  syncControlDisabled("v3DecisionSessionSelect", "decisionSessionSelect");
+  syncControlDisabled("v3DecisionRename", "decisionRename");
+  syncControlDisabled("v3DecisionObjective", "decisionObjective");
+  syncControlDisabled("v3DecisionNotes", "decisionNotes");
+  syncControlDisabled("v3DecisionBudget", "decisionBudget");
+  syncControlDisabled("v3DecisionVolunteerHrs", "decisionVolunteerHrs");
+  syncControlDisabled("v3DecisionTurfAccess", "decisionTurfAccess");
+  syncControlDisabled("v3DecisionBlackoutDates", "decisionBlackoutDates");
+  syncControlDisabled("v3DecisionRiskPosture", "decisionRiskPosture");
+  syncControlDisabled("v3DecisionNonNegotiables", "decisionNonNegotiables");
+  syncControlDisabled("v3DecisionOptionSelect", "decisionOptionSelect");
+  syncControlDisabled("v3DecisionOptionRename", "decisionOptionRename");
+  syncControlDisabled("v3DecisionOptionTacticDoors", "decisionOptionTacticDoors");
+  syncControlDisabled("v3DecisionOptionTacticPhones", "decisionOptionTacticPhones");
+  syncControlDisabled("v3DecisionOptionTacticDigital", "decisionOptionTacticDigital");
+  syncControlDisabled("v3DecisionRecommendSelect", "decisionRecommendSelect");
+  syncControlDisabled("v3DecisionWhatTrue", "decisionWhatTrue");
 
   setText("v3DecisionActiveLabel", readText("#decisionActiveLabel"));
   setText("v3DecisionScenarioLabel", readText("#decisionScenarioLabel"));

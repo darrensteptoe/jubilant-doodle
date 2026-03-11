@@ -170,6 +170,28 @@ export function syncCheckboxValue(v3Id, legacyId) {
   v3.checked = legacy.checked;
 }
 
+export function syncControlDisabled(v3Id, legacyId) {
+  const v3 = document.getElementById(v3Id);
+  const legacy = getLegacyEl(legacyId);
+
+  const v3Control =
+    v3 instanceof HTMLInputElement ||
+    v3 instanceof HTMLSelectElement ||
+    v3 instanceof HTMLTextAreaElement ||
+    v3 instanceof HTMLButtonElement;
+  const legacyControl =
+    legacy instanceof HTMLInputElement ||
+    legacy instanceof HTMLSelectElement ||
+    legacy instanceof HTMLTextAreaElement ||
+    legacy instanceof HTMLButtonElement;
+
+  if (!v3Control || !legacyControl) {
+    return;
+  }
+
+  v3.disabled = legacy.disabled;
+}
+
 export function normalizeSurfaceActionRows(root) {
   if (!(root instanceof HTMLElement)) {
     return;
@@ -250,15 +272,11 @@ export function normalizeSurfaceMessages(root) {
     [
       ".fpe-card__body > .muted",
       ".fpe-card__body > .note",
-      ".fpe-card__body > .help-text",
-      ".fpe-card__body > .help",
       ".fpe-card__body > .banner",
       ".fpe-census-section__body > .muted",
       ".fpe-census-section__body > .note",
       ".fpe-census-subsection__body > .muted",
       ".fpe-census-subsection__body > .note",
-      ".fpe-census-subsection__body > .help-text",
-      ".fpe-census-subsection__body > .help",
       ".fpe-census-subsection__body > .banner"
     ].join(",")
   );
@@ -286,6 +304,15 @@ export function normalizeSurfaceMessages(root) {
       return;
     }
 
+    // Do not wrap form/control groups as message windows.
+    // Those should remain in regular card layout blocks.
+    const hasControls = node.querySelector(
+      "input, select, textarea, button, .btn, .fpe-btn, .switch"
+    );
+    if (hasControls) {
+      return;
+    }
+
     const tone = classifyMessageTone(text, node);
     const label = labelForTone(tone);
     const window = createMessageWindow(label, tone);
@@ -299,6 +326,8 @@ export function normalizeSurfaceMessages(root) {
     node.parentElement.insertBefore(window, node);
     body.appendChild(node);
   });
+
+  normalizeMessageWindowLists(root);
 }
 
 function createMessageWindow(label, tone) {
@@ -349,6 +378,85 @@ function classifyMessageTone(text, node) {
     return "status";
   }
   return "info";
+}
+
+function normalizeMessageWindowLists(root) {
+  const bodies = root.querySelectorAll(".fpe-message-window__body");
+  bodies.forEach((body) => {
+    if (!(body instanceof HTMLElement)) {
+      return;
+    }
+    if (body.dataset.v3ListNormalized === "1") {
+      return;
+    }
+
+    const hasStructuredContent = body.querySelector(
+      "ul, ol, table, .table-wrap, .fpe-field-grid, .grid2, .grid3, .grid4, .subgrid, .field"
+    );
+    if (hasStructuredContent) {
+      body.dataset.v3ListNormalized = "1";
+      return;
+    }
+
+    const candidates = Array.from(body.children).filter(
+      (child) =>
+        child instanceof HTMLElement &&
+        child.matches(
+          ".fpe-message-window__text, .note, .muted, .banner, p, div, span"
+        )
+    );
+
+    let converted = false;
+    candidates.forEach((candidate) => {
+      if (!(candidate instanceof HTMLElement)) {
+        return;
+      }
+      if (candidate.querySelector("ul, ol, table, .table-wrap")) {
+        return;
+      }
+
+      const lines = (candidate.textContent || "")
+        .split(/\n+/)
+        .map((line) => line.trim())
+        .filter(Boolean);
+
+      if (lines.length < 2) {
+        return;
+      }
+
+      const list = document.createElement("ul");
+      list.className = "fpe-status-list";
+      lines.forEach((line) => {
+        const item = document.createElement("li");
+        item.textContent = line;
+        list.appendChild(item);
+      });
+
+      candidate.replaceWith(list);
+      converted = true;
+    });
+
+    if (!converted) {
+      const lines = (body.textContent || "")
+        .split(/\n+/)
+        .map((line) => line.trim())
+        .filter(Boolean);
+
+      if (lines.length > 1) {
+        body.textContent = "";
+        const list = document.createElement("ul");
+        list.className = "fpe-status-list";
+        lines.forEach((line) => {
+          const item = document.createElement("li");
+          item.textContent = line;
+          list.appendChild(item);
+        });
+        body.appendChild(list);
+      }
+    }
+
+    body.dataset.v3ListNormalized = "1";
+  });
 }
 
 function isActionNode(node) {

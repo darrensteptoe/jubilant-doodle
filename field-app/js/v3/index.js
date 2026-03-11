@@ -7,7 +7,6 @@ import { getStageById, V3_DEFAULT_STAGE } from "./stageRegistry.js";
 
 const STAGE_KEY = "fpe-ui-v3-stage";
 const STAGE_QUERY_PARAM = "stage";
-const TRAINING_DEFAULT_KEY = "fpe-ui-v3-training-default-applied";
 let syncTimer = null;
 
 function resolveUiMode() {
@@ -51,7 +50,6 @@ function bootV3() {
 
     installV3QaSmokeBridge();
     wireTopbarBridge();
-    enforceTrainingDefaultOff();
     wireScenarioBridge();
 
     navigateStage(resolveInitialStage(), { persist: true });
@@ -101,8 +99,7 @@ function persistStage(stageId) {
 function wireTopbarBridge() {
   const diagnosticsBtn = document.getElementById("v3BtnDiagnostics");
   const resetBtn = document.getElementById("v3BtnReset");
-  const trainingToggle = document.getElementById("v3ToggleTraining");
-  const trainingToggleWrap = trainingToggle?.closest(".fpe-toggle");
+  const trainingBtn = document.getElementById("v3BtnTraining");
   const legacyBtn = document.getElementById("v3SwitchLegacy");
 
   diagnosticsBtn?.addEventListener("click", () => {
@@ -116,28 +113,10 @@ function wireTopbarBridge() {
   });
   resetBtn?.addEventListener("click", () => clickLegacy("btnResetAll"));
 
-  const onTrainingToggleChange = () => {
-    if (!trainingToggle) {
-      return;
-    }
-    setLegacyTrainingState(trainingToggle.checked);
-    syncTrainingToggle();
-  };
-
   syncTrainingToggle();
-  trainingToggle?.addEventListener("change", onTrainingToggleChange);
-  trainingToggleWrap?.addEventListener("click", (event) => {
-    if (!trainingToggle) {
-      return;
-    }
-
-    if (event.target === trainingToggle) {
-      return;
-    }
-
-    event.preventDefault();
-    trainingToggle.checked = !trainingToggle.checked;
-    onTrainingToggleChange();
+  trainingBtn?.addEventListener("click", () => {
+    setLegacyTrainingState(!readLegacyTrainingState());
+    syncTrainingToggle();
   });
   document.getElementById("toggleTraining")?.addEventListener("change", syncTrainingToggle);
 
@@ -184,25 +163,6 @@ function clickLegacy(id) {
   }
 }
 
-function enforceTrainingDefaultOff() {
-  try {
-    if (window.sessionStorage.getItem(TRAINING_DEFAULT_KEY) === "1") {
-      return;
-    }
-  } catch {
-    // ignore storage errors
-  }
-
-  setLegacyTrainingState(false);
-  syncTrainingToggle();
-
-  try {
-    window.sessionStorage.setItem(TRAINING_DEFAULT_KEY, "1");
-  } catch {
-    // ignore storage errors
-  }
-}
-
 function readLegacyTrainingState() {
   const legacyToggle = document.getElementById("toggleTraining");
   if (!legacyToggle) {
@@ -218,23 +178,27 @@ function readLegacyTrainingState() {
 
 function setLegacyTrainingState(enabled) {
   const normalized = !!enabled;
+  document.body.classList.toggle("training", normalized);
+
   const legacyToggle = document.getElementById("toggleTraining");
   if (!legacyToggle) {
-    document.body.classList.toggle("training", normalized);
     return;
   }
 
   legacyToggle.checked = normalized;
+  legacyToggle.dispatchEvent(new Event("input", { bubbles: true }));
   legacyToggle.dispatchEvent(new Event("change", { bubbles: true }));
 }
 
 function syncTrainingToggle() {
-  const v3Toggle = document.getElementById("v3ToggleTraining");
-  if (!v3Toggle) {
+  const v3Btn = document.getElementById("v3BtnTraining");
+  if (!(v3Btn instanceof HTMLButtonElement)) {
     return;
   }
 
-  v3Toggle.checked = readLegacyTrainingState();
+  const enabled = readLegacyTrainingState();
+  v3Btn.setAttribute("aria-pressed", enabled ? "true" : "false");
+  v3Btn.classList.toggle("is-active", enabled);
 }
 
 function syncAll() {
