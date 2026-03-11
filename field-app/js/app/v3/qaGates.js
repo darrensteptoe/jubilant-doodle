@@ -13,9 +13,20 @@ const STAGE_EXPECTATIONS = {
     "#turnoutA"
   ],
   reach: ["#v3ReachGoal", "#wkGoal", "#wkCapacityPerWeek"],
-  outcome: ["#v3OutcomeWinProb", "#v3BtnComputeSurface", "#mcWinProb-sidebar", "#mcP50"],
+  outcome: [
+    "#v3OutcomeWinProb",
+    "#v3OutcomeOrgCount",
+    "#v3OutcomeMcMode",
+    "#v3BtnOutcomeRun",
+    "#v3BtnComputeSurface",
+    "#mcWinProb-sidebar",
+    "#mcP50"
+  ],
   turnout: [
     "#v3TurnoutSummary",
+    "#v3TurnoutBaselinePct",
+    "#v3TurnoutMode",
+    "#v3TurnoutDiminishingToggle",
     "#v3BtnRoiRefresh",
     "#v3TurnoutEnabledToggle",
     "#turnoutSummary",
