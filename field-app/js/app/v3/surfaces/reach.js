@@ -3,6 +3,7 @@ import {
   createColumn,
   createSurfaceFrame,
   setCardHeaderControl,
+  createWhyPanel,
   getCardBody
 } from "../componentFactory.js";
 import { mountLegacyClosest, mountLegacyNode } from "../compat.js";
@@ -336,6 +337,13 @@ export function renderReachSurface(mount) {
 
   frame.append(left, right);
   mount.append(frame);
+  mount.append(
+    createWhyPanel([
+      "Reach converts campaign ambition into weekly throughput constraints you can actually operate.",
+      "If required attempts exceed capacity, win-path forecasts will not be executable without staffing, timeline, or rate changes.",
+      "Use this page to close the weekly gap before locking scenario decisions."
+    ])
+  );
 
   wireReachControlProxies();
   return refreshReachSummary;

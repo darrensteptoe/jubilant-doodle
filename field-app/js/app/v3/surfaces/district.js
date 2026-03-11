@@ -256,25 +256,27 @@ export function renderDistrictSurface(mount) {
     </div>
   `;
 
+  const whyPanel = createWhyPanel([
+    "District sets the denominators and assumptions every downstream result depends on.",
+    "If baseline support or universe definitions drift, all win-path outputs drift with them.",
+    "Use this page to verify race reality before operational planning."
+  ]);
+  const topRow = document.createElement("div");
+  topRow.className = "fpe-district-top-row";
+  topRow.append(whyPanel, summaryCard);
+
   main.append(
+    topRow,
     raceCard,
     electorateCard,
     baselineCard,
     turnoutCard,
     structureCard,
-    censusCard,
-    summaryCard
+    censusCard
   );
 
   frame.append(main);
   mount.append(frame);
-  mount.append(
-    createWhyPanel([
-      "District sets the denominators and assumptions every downstream result depends on.",
-      "If baseline support or universe definitions drift, all win-path outputs drift with them.",
-      "Use this page to verify race reality before operational planning."
-    ])
-  );
 
   bindClickProxy("v3BtnAddCandidate", "btnAddCandidate");
   bindCheckboxProxy("v3DistrictElectorateWeightingToggle", "universe16Enabled");
