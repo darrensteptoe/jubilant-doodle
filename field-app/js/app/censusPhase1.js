@@ -1633,8 +1633,11 @@ export function renderCensusPhase1Module({ els, state, res } = {}){
       els.targetingStatus.textContent = "Targeting settings or selection changed. Re-run targeting to refresh rankings.";
     } else {
       const topCount = targetingRows.filter((row) => !!row?.isTopTarget).length;
+      const turnoutCount = targetingRows.filter((row) => !!row?.isTurnoutPriority).length;
+      const persuasionCount = targetingRows.filter((row) => !!row?.isPersuasionPriority).length;
+      const efficiencyCount = targetingRows.filter((row) => !!row?.isEfficiencyPriority).length;
       els.targetingStatus.classList.add("ok");
-      els.targetingStatus.textContent = `Targeting ready. ${topCount} top targets flagged under ${activeModelLabel}.`;
+      els.targetingStatus.textContent = `Targeting ready. ${topCount} top targets under ${activeModelLabel}; core priorities flagged (T/P/E): ${turnoutCount}/${persuasionCount}/${efficiencyCount}.`;
     }
   }
   if (els.targetingMeta){
@@ -1652,10 +1655,13 @@ export function renderCensusPhase1Module({ els, state, res } = {}){
       const topN = Number.isFinite(Number(targetingMeta.topN))
         ? Math.max(1, Math.floor(Number(targetingMeta.topN)))
         : Math.max(1, Math.floor(Number(targeting.topN || 25)));
+      const turnoutCount = targetingRows.filter((row) => !!row?.isTurnoutPriority).length;
+      const persuasionCount = targetingRows.filter((row) => !!row?.isPersuasionPriority).length;
+      const efficiencyCount = targetingRows.filter((row) => !!row?.isEfficiencyPriority).length;
       const weightNote = houseModelActive
         ? ` House weights: VP ${Number(targeting.weights?.votePotential || 0).toFixed(2)} · TO ${Number(targeting.weights?.turnoutOpportunity || 0).toFixed(2)} · PI ${Number(targeting.weights?.persuasionIndex || 0).toFixed(2)} · FE ${Number(targeting.weights?.fieldEfficiency || 0).toFixed(2)}.`
         : "";
-      els.targetingMeta.textContent = `${levelLabel} ranking · ${totalRows.toLocaleString("en-US")} rows · Top ${topN.toLocaleString("en-US")} flagged · Last run ${ranText}.${weightNote}`;
+      els.targetingMeta.textContent = `${levelLabel} ranking · ${totalRows.toLocaleString("en-US")} rows · Top ${topN.toLocaleString("en-US")} flagged · Core top-10 flags (T/P/E): ${turnoutCount}/${persuasionCount}/${efficiencyCount} · Last run ${ranText}.${weightNote}`;
     }
   }
   if (
@@ -1702,7 +1708,13 @@ export function renderCensusPhase1Module({ els, state, res } = {}){
         const targetLabel = cleanText(row.targetLabel);
         const reasons = Array.isArray(row.reasons) ? row.reasons.map((x) => cleanText(x)).filter((x) => !!x) : [];
         const reasonText = reasons.length ? reasons.join(" • ") : (cleanText(row.reasonText) || "—");
-        reasonTd.textContent = targetLabel ? `${targetLabel}: ${reasonText}` : reasonText;
+        const badges = [];
+        if (row.isTopTarget) badges.push("Top target");
+        if (row.isTurnoutPriority) badges.push("Turnout priority");
+        if (row.isPersuasionPriority) badges.push("Persuasion priority");
+        if (row.isEfficiencyPriority) badges.push("Efficiency priority");
+        const headline = targetLabel ? `${targetLabel}: ${reasonText}` : reasonText;
+        reasonTd.textContent = badges.length ? `[${badges.join(" | ")}] ${headline}` : headline;
         const flagsTd = document.createElement("td");
         const flags = Array.isArray(row.flags) ? row.flags.map((x) => cleanText(x)).filter((x) => !!x) : [];
         flagsTd.textContent = flags.length ? flags.join(" • ") : (cleanText(row.flagText) || "—");

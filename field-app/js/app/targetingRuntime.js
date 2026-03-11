@@ -51,6 +51,8 @@ function normalizeRows(input){
   return rows.map((row) => {
     const reasons = Array.isArray(row?.reasons) ? row.reasons.map((value) => cleanText(value)).filter((value) => !!value) : [];
     const flags = Array.isArray(row?.flags) ? row.flags.map((value) => cleanText(value)).filter((value) => !!value) : [];
+    const scoreByModelSrc = row?.scoreByModel && typeof row.scoreByModel === "object" ? row.scoreByModel : {};
+    const modelRanksSrc = row?.modelRanks && typeof row.modelRanks === "object" ? row.modelRanks : {};
     return {
       rank: Number.isFinite(Number(row?.rank)) ? Math.max(1, Math.floor(Number(row.rank))) : 0,
       geoid: cleanText(row?.geoid),
@@ -65,6 +67,19 @@ function normalizeRows(input){
       flags,
       rawSignals: row?.rawSignals && typeof row.rawSignals === "object" ? { ...row.rawSignals } : {},
       componentScores: row?.componentScores && typeof row.componentScores === "object" ? { ...row.componentScores } : {},
+      scoreByModel: {
+        turnout_opportunity: Number.isFinite(Number(scoreByModelSrc.turnout_opportunity)) ? Number(scoreByModelSrc.turnout_opportunity) : null,
+        persuasion_first: Number.isFinite(Number(scoreByModelSrc.persuasion_first)) ? Number(scoreByModelSrc.persuasion_first) : null,
+        field_efficiency: Number.isFinite(Number(scoreByModelSrc.field_efficiency)) ? Number(scoreByModelSrc.field_efficiency) : null,
+      },
+      modelRanks: {
+        turnout_opportunity: Number.isFinite(Number(modelRanksSrc.turnout_opportunity)) ? Math.max(1, Math.floor(Number(modelRanksSrc.turnout_opportunity))) : null,
+        persuasion_first: Number.isFinite(Number(modelRanksSrc.persuasion_first)) ? Math.max(1, Math.floor(Number(modelRanksSrc.persuasion_first))) : null,
+        field_efficiency: Number.isFinite(Number(modelRanksSrc.field_efficiency)) ? Math.max(1, Math.floor(Number(modelRanksSrc.field_efficiency))) : null,
+      },
+      isTurnoutPriority: !!row?.isTurnoutPriority,
+      isPersuasionPriority: !!row?.isPersuasionPriority,
+      isEfficiencyPriority: !!row?.isEfficiencyPriority,
       votesPerOrganizerHour: Number.isFinite(Number(row?.votesPerOrganizerHour)) ? Number(row.votesPerOrganizerHour) : null,
     };
   }).filter((row) => !!row.geoid);
@@ -350,6 +365,7 @@ export function runTargetRanking({ state, censusState, rowsByGeoid } = {}){
   const turnoutNorm = minMaxNormalize(extracted.map((row) => row.rawSignals.turnoutOpportunityRaw), 0);
   const persuasionNorm = minMaxNormalize(extracted.map((row) => row.rawSignals.persuasionIndexRaw), 0);
   const fieldNorm = minMaxNormalize(extracted.map((row) => row.rawSignals.fieldEfficiencyRaw), 0);
+  const coreModelIds = ["turnout_opportunity", "persuasion_first", "field_efficiency"];
 
   const scored = extracted.map((row, idx) => {
     const components = {
@@ -358,25 +374,44 @@ export function runTargetRanking({ state, censusState, rowsByGeoid } = {}){
       persuasionIndex: persuasionNorm[idx],
       fieldEfficiency: fieldNorm[idx],
     };
-    const score = scoreTargetRow({
+    const selected = scoreTargetRow({
       modelId: cfg.modelId,
       components,
       rawSignals: row.rawSignals,
       config: cfg,
     });
+    const scoreByModel = {};
+    for (const modelId of coreModelIds){
+      const byModel = scoreTargetRow({
+        modelId,
+        components,
+        rawSignals: row.rawSignals,
+        config: cfg,
+      });
+      scoreByModel[modelId] = byModel.score;
+    }
     return {
       geoid: row.geoid,
       label: row.label || row.geoid,
       memberCount: Number.isFinite(Number(row.memberCount)) ? Number(row.memberCount) : 1,
       sourceGeoids: Array.isArray(row.sourceGeoids) ? row.sourceGeoids.slice() : [row.geoid],
-      score: score.score,
-      componentScores: score.componentScores,
-      reasons: score.reasons,
-      flags: score.flags,
-      targetLabel: cleanText(score.targetLabel),
-      reasonText: score.reasons.join(" "),
-      flagText: score.flags.join(" "),
+      score: selected.score,
+      componentScores: selected.componentScores,
+      reasons: selected.reasons,
+      flags: selected.flags,
+      targetLabel: cleanText(selected.targetLabel),
+      reasonText: selected.reasons.join(" "),
+      flagText: selected.flags.join(" "),
       rawSignals: row.rawSignals,
+      scoreByModel,
+      modelRanks: {
+        turnout_opportunity: null,
+        persuasion_first: null,
+        field_efficiency: null,
+      },
+      isTurnoutPriority: false,
+      isPersuasionPriority: false,
+      isEfficiencyPriority: false,
       votesPerOrganizerHour: Number.isFinite(Number(row.rawSignals?.votesPerOrganizerHour))
         ? Number(row.rawSignals.votesPerOrganizerHour)
         : null,
@@ -390,6 +425,35 @@ export function runTargetRanking({ state, censusState, rowsByGeoid } = {}){
     rank: index + 1,
     isTopTarget: index < topN,
   }));
+  const corePriorityN = 10;
+  const rankByModel = {};
+  for (const modelId of coreModelIds){
+    const sorted = ranked.slice().sort((a, b) => {
+      const aScore = Number(a?.scoreByModel?.[modelId]);
+      const bScore = Number(b?.scoreByModel?.[modelId]);
+      const aa = Number.isFinite(aScore) ? aScore : -Infinity;
+      const bb = Number.isFinite(bScore) ? bScore : -Infinity;
+      return bb - aa;
+    });
+    const map = new Map();
+    for (let i = 0; i < sorted.length; i += 1){
+      map.set(sorted[i].geoid, i + 1);
+    }
+    rankByModel[modelId] = map;
+  }
+  for (const row of ranked){
+    const turnoutRank = rankByModel.turnout_opportunity?.get(row.geoid) ?? null;
+    const persuasionRank = rankByModel.persuasion_first?.get(row.geoid) ?? null;
+    const efficiencyRank = rankByModel.field_efficiency?.get(row.geoid) ?? null;
+    row.modelRanks = {
+      turnout_opportunity: turnoutRank,
+      persuasion_first: persuasionRank,
+      field_efficiency: efficiencyRank,
+    };
+    row.isTurnoutPriority = Number.isFinite(Number(turnoutRank)) && Number(turnoutRank) <= corePriorityN;
+    row.isPersuasionPriority = Number.isFinite(Number(persuasionRank)) && Number(persuasionRank) <= corePriorityN;
+    row.isEfficiencyPriority = Number.isFinite(Number(efficiencyRank)) && Number(efficiencyRank) <= corePriorityN;
+  }
 
   const model = listTargetModels().find((row) => row.id === cfg.modelId) || listTargetModels()[0] || { id: cfg.modelId, label: cfg.modelId };
   const meta = {
@@ -443,6 +507,13 @@ export function buildTargetRankingCsv(rows){
     "availability_modifier",
     "density_band",
     "contact_modifier",
+    "turnout_rank",
+    "persuasion_rank",
+    "efficiency_rank",
+    "is_top_target",
+    "is_turnout_priority",
+    "is_persuasion_priority",
+    "is_efficiency_priority",
     "reasons",
     "flags",
   ];
@@ -473,6 +544,13 @@ export function buildTargetRankingCsv(rows){
       Number.isFinite(Number(row.rawSignals?.availabilityModifier)) ? Number(row.rawSignals.availabilityModifier).toFixed(4) : "",
       cleanText(row.rawSignals?.densityBand?.label || row.rawSignals?.densityBand?.id),
       Number.isFinite(Number(row.rawSignals?.contactRateModifier)) ? Number(row.rawSignals.contactRateModifier).toFixed(4) : "",
+      Number.isFinite(Number(row.modelRanks?.turnout_opportunity)) ? Number(row.modelRanks.turnout_opportunity).toFixed(0) : "",
+      Number.isFinite(Number(row.modelRanks?.persuasion_first)) ? Number(row.modelRanks.persuasion_first).toFixed(0) : "",
+      Number.isFinite(Number(row.modelRanks?.field_efficiency)) ? Number(row.modelRanks.field_efficiency).toFixed(0) : "",
+      row.isTopTarget ? "1" : "0",
+      row.isTurnoutPriority ? "1" : "0",
+      row.isPersuasionPriority ? "1" : "0",
+      row.isEfficiencyPriority ? "1" : "0",
       Array.isArray(row.reasons) ? row.reasons.join(" | ") : "",
       Array.isArray(row.flags) ? row.flags.join(" | ") : "",
     ];
