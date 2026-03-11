@@ -17,7 +17,23 @@
   --fpe-flag-red: color-mix(in srgb, #b22234 44%, var(--fpe-panel));
   --fpe-flag-white: color-mix(in srgb, #ffffff 84%, var(--fpe-panel));
   --fpe-flag-star: color-mix(in srgb, #ffffff 92%, var(--fpe-panel));
-  --fpe-topbar-fade: color-mix(in srgb, #ffffff 82%, var(--fpe-panel));
+  --fpe-topbar-overlay-start: color-mix(in srgb, var(--fpe-panel) 46%, transparent);
+  --fpe-topbar-overlay-end: color-mix(in srgb, #ffffff 92%, var(--fpe-panel));
+  --fpe-topbar-flag-photo: url("./AdobeStock_271073143.jpeg");
+  --fpe-topbar-flag-fallback:
+    linear-gradient(
+      90deg,
+      color-mix(in srgb, var(--fpe-flag-blue) 95%, transparent) 0%,
+      color-mix(in srgb, var(--fpe-flag-blue) 90%, transparent) 18%,
+      transparent 18%
+    ),
+    repeating-linear-gradient(
+      172deg,
+      var(--fpe-flag-red) 0px,
+      var(--fpe-flag-red) 9px,
+      var(--fpe-flag-white) 9px,
+      var(--fpe-flag-white) 18px
+    );
   --fpe-topbar-title: #ffffff;
   --fpe-topbar-ui: color-mix(in srgb, #ffffff 78%, var(--fpe-panel));
 
@@ -54,7 +70,8 @@ body.dark #app-shell-v3-root {
   --fpe-flag-red: color-mix(in srgb, #b22234 42%, #120d12);
   --fpe-flag-white: color-mix(in srgb, #dbe5f7 24%, #101827);
   --fpe-flag-star: color-mix(in srgb, #ffffff 88%, #101827);
-  --fpe-topbar-fade: color-mix(in srgb, #0b1220 82%, var(--fpe-panel));
+  --fpe-topbar-overlay-start: color-mix(in srgb, #0b1220 44%, transparent);
+  --fpe-topbar-overlay-end: color-mix(in srgb, #0b1220 90%, var(--fpe-panel));
   --fpe-topbar-title: #f5f8ff;
   --fpe-topbar-ui: color-mix(in srgb, #e8eefc 82%, #101827);
 }
@@ -66,7 +83,8 @@ body.dark #app-shell-v3-root {
     --fpe-flag-red: color-mix(in srgb, #b22234 42%, #120d12);
     --fpe-flag-white: color-mix(in srgb, #dbe5f7 24%, #101827);
     --fpe-flag-star: color-mix(in srgb, #ffffff 88%, #101827);
-    --fpe-topbar-fade: color-mix(in srgb, #0b1220 82%, var(--fpe-panel));
+    --fpe-topbar-overlay-start: color-mix(in srgb, #0b1220 44%, transparent);
+    --fpe-topbar-overlay-end: color-mix(in srgb, #0b1220 90%, var(--fpe-panel));
     --fpe-topbar-title: #f5f8ff;
     --fpe-topbar-ui: color-mix(in srgb, #e8eefc 82%, #101827);
   }
@@ -100,69 +118,18 @@ body.dark #app-shell-v3-root {
   justify-content: space-between;
   gap: var(--fpe-space-4);
   padding: 0 var(--fpe-space-5);
-  position: relative;
-  isolation: isolate;
-  overflow: hidden;
-  background:
+  background-image:
     linear-gradient(
       90deg,
-      transparent 0%,
-      transparent 20%,
-      var(--fpe-topbar-fade) 100%
+      var(--fpe-topbar-overlay-start) 0%,
+      var(--fpe-topbar-overlay-end) 100%
     ),
-    linear-gradient(
-      175deg,
-      var(--fpe-flag-red) 0px,
-      var(--fpe-flag-red) 10px,
-      var(--fpe-flag-white) 10px,
-      var(--fpe-flag-white) 20px
-    ),
-    var(--fpe-topbar-fade);
+    var(--fpe-topbar-flag-photo),
+    var(--fpe-topbar-flag-fallback);
+  background-size: 100% 100%, cover, cover;
+  background-position: center, center, center;
+  background-repeat: no-repeat, no-repeat, no-repeat;
   border-bottom: 1px solid var(--fpe-rule);
-}
-
-.fpe-topbar::before {
-  content: "";
-  position: absolute;
-  inset: 0 auto 0 0;
-  width: clamp(180px, 23%, 320px);
-  border-top-right-radius: 58% 100%;
-  border-bottom-right-radius: 58% 100%;
-  border-right: 1px solid color-mix(in srgb, var(--fpe-flag-blue) 72%, var(--fpe-rule));
-  background:
-    radial-gradient(circle at 7px 7px, var(--fpe-flag-star) 0 2px, transparent 2.4px) 0 0 / 28px 20px repeat,
-    radial-gradient(circle at 21px 17px, color-mix(in srgb, var(--fpe-flag-star) 85%, transparent) 0 1.8px, transparent 2.2px) 0 0 / 28px 20px repeat,
-    radial-gradient(
-      120% 140% at 12% 8%,
-      color-mix(in srgb, #ffffff 13%, transparent) 0%,
-      transparent 48%
-    ),
-    linear-gradient(
-      145deg,
-      var(--fpe-flag-blue) 0%,
-      color-mix(in srgb, var(--fpe-flag-blue) 86%, var(--fpe-flag-blue-deep)) 52%,
-      var(--fpe-flag-blue-deep) 100%
-    );
-  z-index: -1;
-}
-
-.fpe-topbar::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(
-    180deg,
-    color-mix(in srgb, #ffffff 8%, transparent) 0%,
-    transparent 38%,
-    color-mix(in srgb, #000000 7%, transparent) 100%
-  );
-  pointer-events: none;
-  z-index: -1;
-}
-
-.fpe-topbar > * {
-  position: relative;
-  z-index: 1;
 }
 
 .fpe-topbar__brand {
