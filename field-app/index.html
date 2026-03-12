@@ -2877,6 +2877,27 @@ function runModuleImportProbe(){
   if (window.__FPE_IMPORT_PROBE_RUNNING__) return Promise.resolve([]);
   window.__FPE_IMPORT_PROBE_RUNNING__ = true;
   var urls = [
+    './js/core/model.js',
+    './js/core/monteCarlo.js',
+    './js/core/optimize.js',
+    './js/core/budget.js',
+    './js/core/timeline.js',
+    './js/core/timelineOptimizer.js',
+    './js/core/marginalValue.js',
+    './js/core/decisionIntelligence.js',
+    './js/core/sensitivitySurface.js',
+    './js/core/universeLayer.js',
+    './js/core/explainMap.js',
+    './js/core/hash.js',
+    './js/core/migrate.js',
+    './js/core/importPolicy.js',
+    './js/core/importQuality.js',
+    './js/core/selfTest.js',
+    './js/core/selfTestGate.js',
+    './js/core/risk.js',
+    './js/core/robust.js',
+    './js/core/censusModule.js',
+    './js/export.js',
     './js/engine.js',
     './js/build.js',
     './js/utils.js',
@@ -2916,7 +2937,12 @@ function runDeepModuleGraphProbe(startUrl){
   if (window.__FPE_DEEP_PROBE_RUNNING__) return Promise.resolve([]);
   window.__FPE_DEEP_PROBE_RUNNING__ = true;
   var maxNodes = 260;
-  var queue = [String(startUrl || './js/appRuntime.js?v=20260312-runtime-crashfix-11')];
+  var queue = [];
+  try{
+    queue.push(new URL(String(startUrl || './js/appRuntime.js?v=20260312-runtime-crashfix-11'), window.location.href).toString());
+  } catch {
+    queue.push(String(startUrl || './js/appRuntime.js?v=20260312-runtime-crashfix-11'));
+  }
   var visited = Object.create(null);
   var lines = [];
 
