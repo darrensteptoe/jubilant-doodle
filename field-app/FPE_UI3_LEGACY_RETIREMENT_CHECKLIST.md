@@ -40,24 +40,28 @@ Reference artifact:
 - Outcome v3 now reads win probability from v3 KPI (`#v3KpiWinProb`) and derives weekly gap from v3 note context, removing direct reads of `#mcWinProb-sidebar` and `#wkGapPerWeek`.
 - Turnout v3 now uses turnout snapshot + v3 KPI for impact/status copy, removing direct reads of `#kpiTurnoutVotes-sidebar/#kpiPersuasionNeed-sidebar/#mcWinProb-sidebar/#turnoutSummary/#roiBanner`.
 - Data v3 summary/status now derives from v3 controls/bridge UI state, removing direct reads of `#importHashBanner/#importWarnBanner/#usbStorageStatus`.
+- Controls v3 now derives workflow/evidence/calibration/feedback status copy from v3 bridge state, removing direct reads from legacy `#intel*Status/#intel*Count` text nodes.
+- Outcome v3 confidence adjunct text now derives in v3 (no direct reads of legacy `#opsAtt*`, `#opsCon*`, `#opsFinish*`, `#mcMoS/#mcDownside/#mcES10`, `#mcShift60/#mcShift70/#mcShift80`, `#mcShock10/#mcShock25/#mcShock50`, or `#impactTraceList`), and outcome capacity note no longer falls back to `stage-capacity` / `stage-setup` IDs.
+- Turnout v3 margin context now resolves from v3 KPI (`#v3KpiMargin`) instead of `#mcP50-sidebar`, removing Turnout’s last `stage-integrity` dependency.
 
 ## Stage dependency map (current)
 Counts below are unique legacy IDs referenced by each v3 surface.
 
 | V3 Surface | Legacy Container(s) | Legacy ID Count |
 | --- | --- | --- |
-| District | `stage-setup` | 22 |
-| District | `stage-checks` | 65 |
-| District | `stage-gotv` | 8 |
+| District | `stage-ballot` | 7 |
+| District | `stage-checks` | 60 |
+| District | `stage-setup` | 4 |
+| District | `stage-structure` | 6 |
+| District | `stage-universe` | 3 |
 | Reach | `stage-capacity` | 0 |
-| Outcome | `stage-results` | 60 |
-| Outcome | `stage-integrity` | 0 |
+| Outcome | `stage-results` | 40 |
+| Outcome | `stage-integrity` | 6 |
+| Outcome | `stage-roi` | 1 |
 | Turnout | `stage-roi` | 30 |
-| Turnout | `stage-results` | 0 |
-| Turnout | `stage-integrity` | 0 |
 | Plan | `stage-roi` | 40 |
 | Plan | `stage-gotv` | 10 |
-| Controls | `stage-checks` | 69 |
+| Controls | `stage-checks` | 50 |
 | Scenarios | retired (`stage-scenarios`) | 0 |
 | Decision Log | retired (`stage-decisions`) | 0 |
 | Data | `stage-integrity` | 10 |

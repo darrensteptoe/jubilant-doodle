@@ -130,6 +130,9 @@ Scope: UI architecture migration only (engine and right rail frozen)
 - Outcome bridge reduction: v3 Outcome now reads win probability from v3 KPI (`#v3KpiWinProb`) and derives weekly gap from note context, removing direct reads from `#mcWinProb-sidebar` and `#wkGapPerWeek`.
 - Turnout bridge reduction: v3 Turnout impact/status now uses turnout snapshot + v3 KPI, removing direct reads from sidebar/status IDs (`#kpiTurnoutVotes-sidebar/#kpiPersuasionNeed-sidebar/#mcWinProb-sidebar/#turnoutSummary/#roiBanner`).
 - Data bridge reduction: v3 Data status summary now derives from v3 bridge-state controls, removing direct reads from `#importHashBanner/#importWarnBanner/#usbStorageStatus`.
+- Controls bridge reduction: v3 Controls now derives governance/evidence/calibration/feedback status text from v3 bridge state (no direct `#intel*Status/#intel*Count` text reads).
+- Outcome bridge reduction: v3 Outcome confidence adjunct copy is now v3-derived (no direct reads from legacy `#opsAtt*`, `#opsCon*`, `#opsFinish*`, `#mcMoS/#mcDownside/#mcES10`, `#mcShift60/#mcShift70/#mcShift80`, `#mcShock10/#mcShock25/#mcShock50`, or `#impactTraceList`), and outcome capacity context no longer falls back to legacy `stage-capacity`/`stage-setup` IDs.
+- Turnout bridge reduction: v3 Turnout projected-margin context now reads from v3 KPI (`#v3KpiMargin`) rather than right-rail `#mcP50-sidebar`.
 - Legacy `stage-capacity` visual surface has been retired from `index.html` user flow (hidden retired stub retained during transition); preflight no longer requires legacy Reach assumption IDs.
 - Added v3 stage persistence/cutover behavior (`js/app/v3/index.js`):
   - Active stage persists to local storage.
