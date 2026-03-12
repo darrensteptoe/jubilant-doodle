@@ -490,9 +490,9 @@ function refreshOutcomeSummary() {
   setText("v3OutcomeGapContacts", readText("#p3GapContacts"));
   setText("v3OutcomeGapNote", readText("#p3GapNote"));
 
-  setText("v3OutcomeMcFreshTag", readFirstText(["#mcFreshTag-sidebar", "#mcFreshTag"]));
-  setText("v3OutcomeMcLastRun", readFirstText(["#mcLastRun-sidebar", "#mcLastRun"]));
-  setText("v3OutcomeMcStale", readFirstText(["#mcStale-sidebar", "#mcStale"]));
+  setText("v3OutcomeMcFreshTag", readText("#mcFreshTag-sidebar"));
+  setText("v3OutcomeMcLastRun", readText("#mcLastRun-sidebar"));
+  setText("v3OutcomeMcStale", readText("#mcStale-sidebar"));
   setText("v3OutcomeSurfaceStatus", readText("#surfaceStatus"));
   setText("v3OutcomeSurfaceSummary", readText("#surfaceSummary"));
   setText("v3OutcomeImpactTraceNote", readText("#impactTraceNote"));
@@ -501,19 +501,19 @@ function refreshOutcomeSummary() {
   setText("v3OutcomeForecastMedian", readText("#mcMedian"));
   setText("v3OutcomeForecastP95", readText("#mcP95"));
   setText("v3OutcomeForecastP5", readText("#mcP5"));
-  const outcomeP10 = readOutcomeSidebarMetric("#mcP10-sidebar", "#mcP10", /^P10:\s*/i);
-  const outcomeP50 = readOutcomeSidebarMetric("#mcP50-sidebar", "#mcP50", /^Median:\s*/i);
-  const outcomeP90 = readOutcomeSidebarMetric("#mcP90-sidebar", "#mcP90", /^P90:\s*/i);
-  const outcomeRiskLabel = readFirstText(["#riskBandTag-sidebar", "#mcRiskLabel"]);
+  const outcomeP10 = readOutcomeSidebarMetric("#mcP10-sidebar", null, /^P10:\s*/i);
+  const outcomeP50 = readOutcomeSidebarMetric("#mcP50-sidebar", null, /^Median:\s*/i);
+  const outcomeP90 = readOutcomeSidebarMetric("#mcP90-sidebar", null, /^P90:\s*/i);
+  const outcomeRiskLabel = readText("#riskBandTag-sidebar");
 
   setText("v3OutcomeForecastRisk", outcomeRiskLabel);
   setText("v3OutcomeRiskFlagLabel", outcomeRiskLabel);
   setText("v3OutcomeRiskFlagGrade", readText("#mcRiskGrade"));
   setText("v3OutcomeRiskFlagFragility", readText("#mcFragility"));
   setText("v3OutcomeRiskFlagGapNote", readText("#p3GapNote"));
-  setText("v3OutcomeRiskFlagFresh", readFirstText(["#mcFreshTag-sidebar", "#mcFreshTag"]));
-  setText("v3OutcomeRiskFlagLastRun", readFirstText(["#mcLastRun-sidebar", "#mcLastRun"]));
-  setText("v3OutcomeRiskFlagStale", readFirstText(["#mcStale-sidebar", "#mcStale"]));
+  setText("v3OutcomeRiskFlagFresh", readText("#mcFreshTag-sidebar"));
+  setText("v3OutcomeRiskFlagLastRun", readText("#mcLastRun-sidebar"));
+  setText("v3OutcomeRiskFlagStale", readText("#mcStale-sidebar"));
 
   setText("v3OutcomeWinProb", readText("#mcWinProb-sidebar"));
   setText("v3OutcomeP50", outcomeP50);
@@ -574,22 +574,14 @@ function setJoinedText(targetId, values, separator = " / ") {
   setText(targetId, parts.length ? parts.join(separator) : "—");
 }
 
-function readFirstText(selectors = []) {
-  const list = Array.isArray(selectors) ? selectors : [selectors];
-  for (const selector of list) {
-    const value = readText(selector);
-    if (value) {
-      return value;
-    }
-  }
-  return "";
-}
-
-function readOutcomeSidebarMetric(sidebarSelector, fallbackSelector, prefixPattern = null) {
+function readOutcomeSidebarMetric(sidebarSelector, fallbackSelector = null, prefixPattern = null) {
   const sidebarRaw = readText(sidebarSelector);
   const sidebarValue = prefixPattern ? sidebarRaw.replace(prefixPattern, "").trim() : sidebarRaw.trim();
   if (sidebarValue) {
     return sidebarValue;
   }
-  return readText(fallbackSelector) || "—";
+  if (fallbackSelector) {
+    return readText(fallbackSelector) || "—";
+  }
+  return "—";
 }
