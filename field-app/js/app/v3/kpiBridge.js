@@ -1,5 +1,5 @@
 import { createKpiCard } from "./componentFactory.js";
-import { firstNonEmpty, parseNumber, readText } from "./stateBridge.js";
+import { firstNonMissing, isMissingValue, readNumber } from "./stateBridge.js";
 
 const KPI_SPECS = [
   { id: "v3KpiWinProb", label: "Win probability" },
@@ -22,10 +22,10 @@ export function ensureKpiStrip() {
 export function syncKpis() {
   ensureKpiStrip();
 
-  const winProb = firstNonEmpty(["#mcWinProb-sidebar", "#mcWinProb"]);
-  const margin = firstNonEmpty(["#mcP50", "#riskMarginBand-sidebar", "#mcMedian"]);
-  const persuasionNeed = firstNonEmpty(["#kpiPersuasionNeed-sidebar", "#kpiPersuasionNeed"]);
-  const bottleneck = firstNonEmpty(["#wkConstraint", "#optBinding"]) || inferBottleneck();
+  const winProb = firstNonMissing(["#mcWinProb-sidebar", "#mcWinProb"]);
+  const margin = firstNonMissing(["#mcP50", "#riskMarginBand-sidebar", "#mcMedian"]);
+  const persuasionNeed = firstNonMissing(["#kpiPersuasionNeed-sidebar", "#kpiPersuasionNeed"]);
+  const bottleneck = firstNonMissing(["#wkConstraint", "#optBinding"]) || inferBottleneck();
 
   setKpiValue("v3KpiWinProb", winProb || "-");
   setKpiValue("v3KpiMargin", margin || "-");
@@ -36,21 +36,41 @@ export function syncKpis() {
 function setKpiValue(id, value) {
   const node = document.getElementById(id);
   const valueNode = node ? node.querySelector(".fpe-kpi__value") : null;
-  if (valueNode) {
-    valueNode.textContent = value;
+  const normalized = String(value || "-").trim() || "-";
+  if (valueNode instanceof HTMLElement) {
+    valueNode.textContent = normalized;
+  }
+  if (node instanceof HTMLElement) {
+    node.classList.toggle("is-empty", isMissingValue(normalized));
+    node.classList.remove("fpe-kpi--neutral", "fpe-kpi--ok", "fpe-kpi--warn", "fpe-kpi--bad");
+    node.classList.add(`fpe-kpi--${classifyKpiTone(id, normalized)}`);
   }
 }
 
 function inferBottleneck() {
-  const gap = parseNumber(readText("#wkGapPerWeek"));
+  const gap = readNumber("#wkGapPerWeek");
   if (Number.isFinite(gap) && gap > 0) {
     return "Throughput constrained";
   }
 
-  const missRisk = parseNumber(readText("#opsMissProb"));
+  const missRisk = readNumber("#opsMissProb");
   if (Number.isFinite(missRisk) && missRisk > 40) {
     return "Timeline risk";
   }
 
   return "Balanced";
+}
+
+function classifyKpiTone(id, value) {
+  const source = `${id} ${value}`.toLowerCase();
+  if (/(none|balanced|clear|ok)/.test(source)) {
+    return "ok";
+  }
+  if (/(risk|constrained|gap|warning|binding)/.test(source)) {
+    return "warn";
+  }
+  if (/(error|fail|critical)/.test(source)) {
+    return "bad";
+  }
+  return "neutral";
 }

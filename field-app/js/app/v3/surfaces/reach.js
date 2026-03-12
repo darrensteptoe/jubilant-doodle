@@ -2,22 +2,13 @@ import {
   createCard,
   createColumn,
   createSurfaceFrame,
-  setCardHeaderControl,
   createWhyPanel,
-  getCardBody
+  getCardBody,
+  setCardHeaderControl
 } from "../componentFactory.js";
-import { mountLegacyClosest, mountLegacyNode } from "../compat.js";
-import {
-  bindCheckboxProxy,
-  bindFieldProxy,
-  bindSelectProxy,
-  readText,
-  setText,
-  syncControlDisabled,
-  syncCheckboxValue,
-  syncFieldValue,
-  syncSelectValue
-} from "../surfaceUtils.js";
+import { setText } from "../surfaceUtils.js";
+
+const REACH_API_KEY = "__FPE_REACH_API__";
 
 export function renderReachSurface(mount) {
   const frame = createSurfaceFrame("two-col");
@@ -90,32 +81,30 @@ export function renderReachSurface(mount) {
   `;
 
   const leversBody = getCardBody(leversCard);
-  mountLegacyNode({
-    key: "v3-reach-levers-intro",
-    selector: "#wkLeversIntro",
-    target: leversBody
-  });
-  mountLegacyNode({
-    key: "v3-reach-levers-bestmoves-intro",
-    selector: "#wkBestMovesIntro",
-    target: leversBody
-  });
-  mountLegacyNode({
-    key: "v3-reach-levers-bestmoves-list",
-    selector: "#wkBestMovesList",
-    target: leversBody
-  });
-  mountLegacyClosest({
-    key: "v3-reach-levers-table-wrap",
-    childSelector: "#wkLeversTbody",
-    closestSelector: ".table-wrap",
-    target: leversBody
-  });
-  mountLegacyNode({
-    key: "v3-reach-levers-foot",
-    selector: "#wkLeversFoot",
-    target: leversBody
-  });
+  leversBody.innerHTML = `
+    <div class="fpe-contained-block fpe-contained-block--instruction">
+      <div class="fpe-help fpe-help--flush" id="v3ReachLeversIntro">-</div>
+    </div>
+    <div class="fpe-contained-block" id="v3ReachBestMovesBlock">
+      <div class="fpe-help fpe-help--flush" id="v3ReachBestMovesIntro">Best 3 moves — impact per unit:</div>
+      <ul class="bullets" id="v3ReachBestMovesList"></ul>
+    </div>
+    <div class="table-wrap">
+      <table aria-label="Constraints and levers (v3)" class="table">
+        <thead>
+          <tr>
+            <th>Lever</th>
+            <th class="num">Impact</th>
+            <th>Cost unit</th>
+            <th class="num">Efficiency</th>
+            <th>Apply</th>
+          </tr>
+        </thead>
+        <tbody id="v3ReachLeversTbody"></tbody>
+      </table>
+    </div>
+    <div class="fpe-help fpe-help--flush" id="v3ReachLeversFoot">-</div>
+  `;
 
   const weeklyBody = getCardBody(weeklyCard);
   weeklyBody.innerHTML = `
@@ -127,22 +116,14 @@ export function renderReachSurface(mount) {
       <div class="fpe-summary-row"><span>Capacity / week</span><strong id="v3ReachCapacity">-</strong></div>
       <div class="fpe-summary-row"><span>Weekly gap</span><strong id="v3ReachGap">-</strong></div>
       <div class="fpe-summary-row"><span>Finish date (convos)</span><strong id="v3ReachFinishConvos">-</strong></div>
-      <div class="fpe-summary-row"><span>Finish date (doors)</span><strong id="v3ReachFinishDoors">-</strong></div>
+      <div class="fpe-summary-row"><span>Finish date (attempts)</span><strong id="v3ReachFinishDoors">-</strong></div>
       <div class="fpe-summary-row"><span>Primary constraint</span><strong id="v3ReachConstraint">-</strong></div>
       <div class="fpe-summary-row"><span>Constraint note</span><strong id="v3ReachConstraintNote">-</strong></div>
       <div class="fpe-summary-row"><span>Pace status</span><strong id="v3ReachPace">-</strong></div>
     </div>
+    <div class="fpe-alert fpe-alert--warn" hidden id="v3ReachWkBanner"></div>
+    <div class="fpe-alert fpe-alert--warn" hidden id="v3ReachWkExecBanner"></div>
   `;
-  mountLegacyNode({
-    key: "v3-reach-weekly-banner",
-    selector: "#wkBanner",
-    target: weeklyBody
-  });
-  mountLegacyNode({
-    key: "v3-reach-weekly-exec-banner",
-    selector: "#wkExecBanner",
-    target: weeklyBody
-  });
 
   const outlookBody = getCardBody(outlookCard);
   outlookBody.innerHTML = `
@@ -178,133 +159,110 @@ export function renderReachSurface(mount) {
       <div class="fpe-summary-row"><span>Median days to readiness</span><strong id="v3ReachDiagMedianReadyDays">-</strong></div>
       <div class="fpe-summary-row"><span>Diagnostic note</span><strong id="v3ReachDiagHintNote">-</strong></div>
     </div>
+
+    <div class="table-wrap">
+      <table aria-label="Operations capacity outlook (v3)" class="table">
+        <thead>
+          <tr>
+            <th>Week starting</th>
+            <th class="num">Baseline</th>
+            <th class="num">Expected ramp</th>
+            <th class="num">Scheduled</th>
+            <th class="num">Scheduled − ramp</th>
+          </tr>
+        </thead>
+        <tbody id="v3ReachOutlookTbody"></tbody>
+      </table>
+    </div>
+
+    <div class="fpe-help fpe-help--flush" id="v3ReachOutlookBasis">-</div>
   `;
-  mountLegacyClosest({
-    key: "v3-reach-outlook-table-wrap",
-    childSelector: "#twCapOutlookTbody",
-    closestSelector: ".table-wrap",
-    target: outlookBody
-  });
-  mountLegacyNode({
-    key: "v3-reach-outlook-basis-note",
-    selector: "#twCapOutlookBasis",
-    target: outlookBody
-  });
 
   const freshnessBody = getCardBody(freshnessCard);
-  const freshnessContext = document.createElement("div");
-  freshnessContext.className = "fpe-contained-block";
-  freshnessBody.append(freshnessContext);
-  mountLegacyNode({
-    key: "v3-reach-freshness-context-text",
-    selector: "#weeklyOpsFreshnessCard > .note > div:first-child",
-    target: freshnessContext
-  });
-  const freshnessTopActions = document.createElement("div");
-  freshnessTopActions.className = "fpe-action-row";
-  freshnessContext.append(freshnessTopActions);
-  mountLegacyNode({
-    key: "v3-reach-freshness-export-btn",
-    selector: "#dailyLogExportBtn",
-    target: freshnessTopActions
-  });
-  mountLegacyClosest({
-    key: "v3-reach-freshness-import-field",
-    childSelector: "#dailyLogImportText",
-    closestSelector: ".field",
-    target: freshnessBody
-  });
-  const importField = freshnessBody.querySelector("#dailyLogImportText")?.closest(".field");
-  if (importField) {
-    const importActions = document.createElement("div");
-    importActions.className = "fpe-action-row";
-    importField.append(importActions);
-    const importBtn = importField.querySelector("#dailyLogImportBtn");
-    const importMsg = importField.querySelector("#dailyLogImportMsg");
-    if (importBtn) {
-      importActions.append(importBtn);
-    }
-    if (importMsg) {
-      importActions.append(importMsg);
-    }
-  }
-  mountLegacyClosest({
-    key: "v3-reach-freshness-subgrid",
-    childSelector: "#wkLastUpdate",
-    closestSelector: ".subgrid",
-    target: freshnessBody
-  });
-  const analystTools = document.createElement("div");
-  analystTools.className = "fpe-contained-block";
-  analystTools.innerHTML = `<div class="fpe-help fpe-help--flush">Analyst tools</div>`;
-  freshnessBody.append(analystTools);
-  const analystActions = document.createElement("div");
-  analystActions.className = "fpe-action-row";
-  analystTools.append(analystActions);
-  mountLegacyNode({
-    key: "v3-reach-analyst-cr-btn",
-    selector: "#applyRollingCRBtn",
-    target: analystActions
-  });
-  mountLegacyNode({
-    key: "v3-reach-analyst-sr-btn",
-    selector: "#applyRollingSRBtn",
-    target: analystActions
-  });
-  mountLegacyNode({
-    key: "v3-reach-analyst-aph-btn",
-    selector: "#applyRollingAPHBtn",
-    target: analystActions
-  });
-  mountLegacyNode({
-    key: "v3-reach-analyst-all-btn",
-    selector: "#applyRollingAllBtn",
-    target: analystActions
-  });
-  mountLegacyNode({
-    key: "v3-reach-analyst-msg",
-    selector: "#applyRollingMsg",
-    target: analystActions
-  });
-  const freshnessRealityNote = document.createElement("div");
-  freshnessRealityNote.className = "fpe-contained-block";
-  freshnessBody.append(freshnessRealityNote);
-  mountLegacyNode({
-    key: "v3-reach-freshness-reality-note",
-    selector: "#weeklyOpsFreshnessCard > .note:last-of-type",
-    target: freshnessRealityNote
-  });
+  freshnessBody.innerHTML = `
+    <div class="fpe-contained-block fpe-contained-block--instruction">
+      <div class="fpe-help fpe-help--flush">
+        Organizer input lives on a separate page for clean data entry.
+        <a class="link" href="organizer.html">Open organizer page</a>
+        <span class="mini-s">|</span>
+        <a class="link" href="operations.html">Open operations hub</a>
+      </div>
+      <div class="fpe-action-row">
+        <button class="fpe-btn fpe-btn--ghost" id="v3ReachFreshExportBtn" type="button">Export daily log</button>
+      </div>
+    </div>
+
+    <div class="field">
+      <label class="fpe-control-label" for="v3ReachDailyLogImportText">Import daily log (paste JSON)</label>
+      <textarea class="fpe-input" id="v3ReachDailyLogImportText" placeholder='Paste JSON array of entries (or {"dailyLog": [...]})' rows="5"></textarea>
+      <div class="fpe-action-row">
+        <button class="fpe-btn fpe-btn--ghost" id="v3ReachDailyLogImportBtn" type="button">Import & merge</button>
+        <span class="mini-s" id="v3ReachDailyLogImportMsg"></span>
+      </div>
+    </div>
+
+    <div class="fpe-status-strip fpe-status-strip--3">
+      <div class="fpe-contained-block fpe-contained-block--status">
+        <div class="fpe-control-label">Last update</div>
+        <div class="fpe-help fpe-help--flush" id="v3ReachFreshLastUpdate">-</div>
+        <div class="fpe-help fpe-help--flush" id="v3ReachFreshNote">-</div>
+      </div>
+      <div class="fpe-contained-block fpe-contained-block--status">
+        <div class="fpe-control-label">Rolling 7-day attempts</div>
+        <div class="fpe-help fpe-help--flush" id="v3ReachFreshRollingAttempts">-</div>
+        <div class="fpe-help fpe-help--flush" id="v3ReachFreshRollingNote">-</div>
+      </div>
+      <div class="fpe-contained-block fpe-contained-block--status">
+        <div class="fpe-control-label">Plan status</div>
+        <div class="fpe-help fpe-help--flush" id="v3ReachFreshStatus">-</div>
+        <div class="fpe-help fpe-help--flush">Based on whether your log supports the assumed rates/capacity</div>
+      </div>
+      <div class="fpe-contained-block fpe-contained-block--status">
+        <div class="fpe-control-label">Rolling 7-day contact rate</div>
+        <div class="fpe-help fpe-help--flush" id="v3ReachFreshRollingCR">-</div>
+        <div class="fpe-help fpe-help--flush" id="v3ReachFreshRollingCRNote">-</div>
+      </div>
+      <div class="fpe-contained-block fpe-contained-block--status">
+        <div class="fpe-control-label">Rolling 7-day support rate</div>
+        <div class="fpe-help fpe-help--flush" id="v3ReachFreshRollingSR">-</div>
+        <div class="fpe-help fpe-help--flush" id="v3ReachFreshRollingSRNote">-</div>
+      </div>
+      <div class="fpe-contained-block fpe-contained-block--status">
+        <div class="fpe-control-label">Rolling attempts per org hour</div>
+        <div class="fpe-help fpe-help--flush" id="v3ReachFreshRollingAPH">-</div>
+        <div class="fpe-help fpe-help--flush" id="v3ReachFreshRollingAPHNote">-</div>
+      </div>
+    </div>
+
+    <div class="fpe-contained-block">
+      <div class="fpe-help fpe-help--flush">Analyst tools</div>
+      <div class="fpe-action-row">
+        <button class="fpe-btn fpe-btn--ghost" id="v3ReachApplyRollingCRBtn" type="button">Use rolling contact rate</button>
+        <button class="fpe-btn fpe-btn--ghost" id="v3ReachApplyRollingSRBtn" type="button">Use rolling support rate</button>
+        <button class="fpe-btn fpe-btn--ghost" id="v3ReachApplyRollingAPHBtn" type="button">Use rolling productivity</button>
+        <button class="fpe-btn fpe-btn--ghost" id="v3ReachApplyRollingAllBtn" type="button">Apply all rolling calibrations</button>
+        <span class="mini-s" id="v3ReachApplyRollingMsg"></span>
+      </div>
+    </div>
+
+    <div class="fpe-contained-block fpe-contained-block--instruction">
+      <div class="fpe-help fpe-help--flush" id="v3ReachFreshRealityNote">
+        Reality check uses your daily log to estimate actual rates/capacity over the last 7 entries.
+      </div>
+    </div>
+  `;
 
   const actionsBody = getCardBody(actionsCard);
-  const actionsListWrap = document.createElement("div");
-  actionsListWrap.className = "fpe-contained-block";
-  actionsBody.append(actionsListWrap);
-  mountLegacyNode({
-    key: "v3-reach-actions-list",
-    selector: "#wkActionsList",
-    target: actionsListWrap
-  });
-  const actionsUndoRow = document.createElement("div");
-  actionsUndoRow.className = "fpe-action-row";
-  actionsBody.append(actionsUndoRow);
-  mountLegacyNode({
-    key: "v3-reach-actions-undo-btn",
-    selector: "#wkUndoActionBtn",
-    target: actionsUndoRow
-  });
-  mountLegacyNode({
-    key: "v3-reach-actions-undo-msg",
-    selector: "#wkUndoActionMsg",
-    target: actionsUndoRow
-  });
-  const actionsGuidance = document.createElement("div");
-  actionsGuidance.className = "fpe-contained-block";
-  actionsBody.append(actionsGuidance);
-  mountLegacyNode({
-    key: "v3-reach-actions-note",
-    selector: "#weeklyOpsActionsCard > .note",
-    target: actionsGuidance
-  });
+  actionsBody.innerHTML = `
+    <div class="fpe-contained-block">
+      <ul class="bullets" id="v3ReachActionsList"></ul>
+    </div>
+    <div class="fpe-action-row">
+      <button class="fpe-btn fpe-btn--ghost" id="v3ReachUndoActionBtn" type="button">Undo last applied action</button>
+      <span class="mini-s" id="v3ReachUndoActionMsg"></span>
+    </div>
+    <div class="fpe-help fpe-help--flush" id="v3ReachActionsNote">-</div>
+  `;
 
   const conversionBody = getCardBody(conversionCard);
   conversionBody.innerHTML = `
@@ -332,11 +290,14 @@ export function renderReachSurface(mount) {
     </div>
   `;
 
+  const bridgeRoot = document.createElement("div");
+  bridgeRoot.id = "v3ReachBridgeRoot";
+  bridgeRoot.append(frame);
+
   left.append(outlookCard, freshnessCard, universeCard, conversionCard);
   right.append(summaryCard, weeklyCard, leversCard, actionsCard);
-
   frame.append(left, right);
-  mount.append(frame);
+  mount.append(bridgeRoot);
   mount.append(
     createWhyPanel([
       "Reach converts campaign ambition into weekly throughput constraints you can actually operate.",
@@ -345,77 +306,503 @@ export function renderReachSurface(mount) {
     ])
   );
 
-  wireReachControlProxies();
+  wireReachEvents();
   return refreshReachSummary;
 }
 
-function wireReachControlProxies() {
-  bindFieldProxy("v3ReachPersuasionPct", "persuasionPct");
-  bindFieldProxy("v3ReachEarlyVoteExp", "earlyVoteExp");
-
-  bindCheckboxProxy("v3ReachCapOverrideEnabled", "twCapOverrideEnabled");
-  bindSelectProxy("v3ReachCapOverrideMode", "twCapOverrideMode");
-  bindFieldProxy("v3ReachCapOverrideHorizonWeeks", "twCapOverrideHorizonWeeks");
-
-  bindFieldProxy("v3ReachSupportRatePct", "supportRatePct");
-  bindFieldProxy("v3ReachContactRatePct", "contactRatePct");
+function getReachApi() {
+  const candidate = window[REACH_API_KEY];
+  if (!candidate || typeof candidate !== "object") {
+    return null;
+  }
+  return candidate;
 }
 
 function refreshReachSummary() {
-  setText("v3ReachGoal", readText("#wkGoal"));
-  setText("v3ReachRequiredAttempts", readText("#wkAttemptsPerWeek"));
-  setText("v3ReachRequiredConvos", readText("#wkReqConvosWeek"));
-  setText("v3ReachRequiredDoors", readText("#wkReqDoorAttemptsWeek"));
-  setText("v3ReachCapacity", readText("#wkCapacityPerWeek"));
-  setText("v3ReachGap", readText("#wkGapPerWeek"));
-  setText("v3ReachConstraint", readText("#wkConstraint"));
-  setText("v3ReachConstraintNote", readText("#wkConstraintNote"));
-  setText("v3ReachPace", readText("#wkPaceStatus"));
-  setText("v3ReachFinishConvos", readText("#wkFinishConvos"));
-  setText("v3ReachFinishDoors", readText("#wkFinishDoors"));
+  const api = getReachApi();
+  if (!api || typeof api.getView !== "function") {
+    renderReachUnavailable();
+    return;
+  }
 
-  setText("v3ReachOutlookStatus", readText("#twCapOutlookStatus"));
-  setText("v3ReachOutlookSource", readText("#twCapOutlookActiveSource"));
-  setText("v3ReachOutlookBaseline", readText("#twCapOutlookBaseline"));
-  setText("v3ReachOutlookRamp", readText("#twCapOutlookRampTotal"));
-  setText("v3ReachOutlookScheduled", readText("#twCapOutlookScheduledTotal"));
-  setText("v3ReachOutlookHorizon", readText("#twCapOutlookHorizon"));
+  const payload = api.getView();
+  if (!payload || typeof payload !== "object") {
+    renderReachUnavailable();
+    return;
+  }
 
-  setText("v3ReachDiagInterviewPass", readText("#twDiagInterviewPass"));
-  setText("v3ReachDiagOfferAccept", readText("#twDiagOfferAccept"));
-  setText("v3ReachDiagOnboardingCompletion", readText("#twDiagOnboardingCompletion"));
-  setText("v3ReachDiagTrainingCompletion", readText("#twDiagTrainingCompletion"));
-  setText("v3ReachDiagCompositeSignal", readText("#twDiagCompositeSignal"));
-  setText("v3ReachDiagReadyNow", readText("#twDiagReadyNow"));
-  setText("v3ReachDiagReadyPerWeek", readText("#twDiagReadyPerWeek"));
-  setText("v3ReachDiagReadyIn14d", readText("#twDiagReadyIn14d"));
-  setText("v3ReachDiagMedianReadyDays", readText("#twDiagMedianReadyDays"));
-  setText("v3ReachDiagHintNote", readText("#twDiagHintNote"));
+  applyReachView(payload);
+}
 
-  setText("v3ReachSummaryGoal", readText("#wkGoal"));
-  setText("v3ReachSummaryRequiredAttempts", readText("#wkAttemptsPerWeek"));
-  setText("v3ReachSummaryCapacity", readText("#wkCapacityPerWeek"));
-  setText("v3ReachSummaryGap", readText("#wkGapPerWeek"));
-  setText("v3ReachSummaryConstraint", readText("#wkConstraint"));
-  setText("v3ReachSummaryPace", readText("#wkPaceStatus"));
+function applyReachView(view) {
+  const inputs = view.inputs || {};
+  const controls = view.controls || {};
+  const options = view.options || {};
+  const weekly = view.weekly || {};
+  const freshness = view.freshness || {};
+  const levers = view.levers || {};
+  const actions = view.actions || {};
+  const summary = view.summary || {};
+  const outlook = view.outlook || {};
 
-  syncFieldValue("v3ReachPersuasionPct", "persuasionPct");
-  syncFieldValue("v3ReachEarlyVoteExp", "earlyVoteExp");
+  syncInputValue("v3ReachPersuasionPct", inputs.persuasionPct);
+  syncInputValue("v3ReachEarlyVoteExp", inputs.earlyVoteExp);
+  syncInputValue("v3ReachSupportRatePct", inputs.supportRatePct);
+  syncInputValue("v3ReachContactRatePct", inputs.contactRatePct);
+  syncInputValue("v3ReachCapOverrideHorizonWeeks", inputs.twCapOverrideHorizonWeeks);
+  syncInputValue("v3ReachDailyLogImportText", inputs.dailyLogImportText);
+  syncCheckboxValue("v3ReachCapOverrideEnabled", !!inputs.twCapOverrideEnabled);
+  syncSelectOptions("v3ReachCapOverrideMode", options.twCapOverrideMode || [], inputs.twCapOverrideMode);
 
-  syncCheckboxValue("v3ReachCapOverrideEnabled", "twCapOverrideEnabled");
-  syncSelectValue("v3ReachCapOverrideMode", "twCapOverrideMode");
-  syncFieldValue("v3ReachCapOverrideHorizonWeeks", "twCapOverrideHorizonWeeks");
+  setControlDisabled("v3ReachPersuasionPct", !!controls.locked);
+  setControlDisabled("v3ReachEarlyVoteExp", !!controls.locked);
+  setControlDisabled("v3ReachSupportRatePct", !!controls.locked);
+  setControlDisabled("v3ReachContactRatePct", !!controls.locked);
+  setControlDisabled("v3ReachCapOverrideEnabled", !!controls.locked);
+  setControlDisabled("v3ReachCapOverrideMode", !!controls.twCapOverrideModeDisabled);
+  setControlDisabled("v3ReachCapOverrideHorizonWeeks", !!controls.twCapOverrideHorizonWeeksDisabled);
+  setControlDisabled("v3ReachDailyLogImportText", !!controls.locked);
+  setButtonDisabled("v3ReachDailyLogImportBtn", !!controls.locked);
+  setButtonDisabled("v3ReachApplyRollingCRBtn", !!controls.locked);
+  setButtonDisabled("v3ReachApplyRollingSRBtn", !!controls.locked);
+  setButtonDisabled("v3ReachApplyRollingAPHBtn", !!controls.locked);
+  setButtonDisabled("v3ReachApplyRollingAllBtn", !!controls.locked);
+  setButtonDisabled("v3ReachUndoActionBtn", !!controls.undoDisabled);
 
-  syncFieldValue("v3ReachSupportRatePct", "supportRatePct");
-  syncFieldValue("v3ReachContactRatePct", "contactRatePct");
+  setText("v3ReachGoal", weekly.goal);
+  setText("v3ReachRequiredAttempts", weekly.requiredAttempts);
+  setText("v3ReachRequiredConvos", weekly.requiredConvos);
+  setText("v3ReachRequiredDoors", weekly.requiredDoors);
+  setText("v3ReachCapacity", weekly.capacity);
+  setText("v3ReachGap", weekly.gap);
+  setText("v3ReachConstraint", weekly.constraint);
+  setText("v3ReachConstraintNote", weekly.constraintNote);
+  setText("v3ReachPace", weekly.paceStatus);
+  setText("v3ReachFinishConvos", weekly.finishConvos);
+  setText("v3ReachFinishDoors", weekly.finishAttempts);
+  applyBanner("v3ReachWkBanner", weekly.wkBanner);
+  applyBanner("v3ReachWkExecBanner", weekly.wkExecBanner);
 
-  syncControlDisabled("v3ReachPersuasionPct", "persuasionPct");
-  syncControlDisabled("v3ReachEarlyVoteExp", "earlyVoteExp");
+  setText("v3ReachSummaryGoal", summary.goal);
+  setText("v3ReachSummaryRequiredAttempts", summary.requiredAttempts);
+  setText("v3ReachSummaryCapacity", summary.capacity);
+  setText("v3ReachSummaryGap", summary.gap);
+  setText("v3ReachSummaryConstraint", summary.constraint);
+  setText("v3ReachSummaryPace", summary.pace);
 
-  syncControlDisabled("v3ReachCapOverrideEnabled", "twCapOverrideEnabled");
-  syncControlDisabled("v3ReachCapOverrideMode", "twCapOverrideMode");
-  syncControlDisabled("v3ReachCapOverrideHorizonWeeks", "twCapOverrideHorizonWeeks");
+  setText("v3ReachOutlookStatus", outlook.status);
+  setText("v3ReachOutlookSource", outlook.activeSource);
+  setText("v3ReachOutlookBaseline", outlook.baseline);
+  setText("v3ReachOutlookRamp", outlook.rampTotal);
+  setText("v3ReachOutlookScheduled", outlook.scheduledTotal);
+  setText("v3ReachOutlookHorizon", outlook.horizon);
+  setText("v3ReachDiagInterviewPass", outlook.interviewPass);
+  setText("v3ReachDiagOfferAccept", outlook.offerAccept);
+  setText("v3ReachDiagOnboardingCompletion", outlook.onboardingCompletion);
+  setText("v3ReachDiagTrainingCompletion", outlook.trainingCompletion);
+  setText("v3ReachDiagCompositeSignal", outlook.compositeSignal);
+  setText("v3ReachDiagReadyNow", outlook.readyNow);
+  setText("v3ReachDiagReadyPerWeek", outlook.readyPerWeek);
+  setText("v3ReachDiagReadyIn14d", outlook.readyIn14d);
+  setText("v3ReachDiagMedianReadyDays", outlook.medianReadyDays);
+  setText("v3ReachDiagHintNote", outlook.hintNote);
+  setText("v3ReachOutlookBasis", outlook.basis);
+  renderReachOutlookRows(outlook.rows || []);
 
-  syncControlDisabled("v3ReachSupportRatePct", "supportRatePct");
-  syncControlDisabled("v3ReachContactRatePct", "contactRatePct");
+  setText("v3ReachDailyLogImportMsg", freshness.dailyLogImportMsg);
+  setText("v3ReachFreshLastUpdate", freshness.lastUpdate);
+  setText("v3ReachFreshNote", freshness.freshNote);
+  setText("v3ReachFreshRollingAttempts", freshness.rollingAttempts);
+  setText("v3ReachFreshRollingNote", freshness.rollingNote);
+  setText("v3ReachFreshStatus", freshness.status);
+  setText("v3ReachFreshRollingCR", freshness.rollingCR);
+  setText("v3ReachFreshRollingCRNote", freshness.rollingCRNote);
+  setText("v3ReachFreshRollingSR", freshness.rollingSR);
+  setText("v3ReachFreshRollingSRNote", freshness.rollingSRNote);
+  setText("v3ReachFreshRollingAPH", freshness.rollingAPH);
+  setText("v3ReachFreshRollingAPHNote", freshness.rollingAPHNote);
+  setText("v3ReachApplyRollingMsg", freshness.applyRollingMsg);
+  setText("v3ReachUndoActionMsg", freshness.undoActionMsg);
+  setText("v3ReachFreshRealityNote", weekly.actualConvosNote || "Reality check uses your daily log to estimate actual rates/capacity over the last 7 entries.");
+
+  setText("v3ReachLeversIntro", levers.intro);
+  setText("v3ReachBestMovesIntro", levers.bestMovesIntro);
+  setText("v3ReachLeversFoot", levers.foot);
+  setText("v3ReachActionsNote", actions.note);
+  toggleElement("v3ReachBestMovesBlock", levers.showBestMoves !== false);
+  toggleElement("v3ReachLeversFoot", !!levers.foot);
+  renderReachBestMoves(levers.bestMoves || []);
+  renderReachLeversRows(levers.rows || []);
+  renderReachActions(actions.list || []);
+}
+
+function wireReachEvents() {
+  const root = document.getElementById("v3ReachBridgeRoot");
+  if (!(root instanceof HTMLElement) || root.dataset.wired === "1") {
+    return;
+  }
+  root.dataset.wired = "1";
+
+  bindInput("v3ReachPersuasionPct", (api, value) => api.setField?.("persuasionPct", value));
+  bindInput("v3ReachEarlyVoteExp", (api, value) => api.setField?.("earlyVoteExp", value));
+  bindInput("v3ReachSupportRatePct", (api, value) => api.setField?.("supportRatePct", value));
+  bindInput("v3ReachContactRatePct", (api, value) => api.setField?.("contactRatePct", value));
+  bindInput("v3ReachCapOverrideHorizonWeeks", (api, value) => api.setOverrideHorizon?.(value));
+  bindTextarea("v3ReachDailyLogImportText", (api, value) => api.setDailyLogImportText?.(value));
+  bindCheckbox("v3ReachCapOverrideEnabled", (api, checked) => api.setOverrideEnabled?.(checked));
+  bindSelect("v3ReachCapOverrideMode", (api, value) => api.setOverrideMode?.(value));
+
+  bindButton("v3ReachUndoActionBtn", (api) => api.undoLastAction?.());
+  bindButton("v3ReachFreshExportBtn", (api) => api.exportDailyLog?.());
+  bindButton("v3ReachDailyLogImportBtn", (api) => {
+    const field = document.getElementById("v3ReachDailyLogImportText");
+    const text = field instanceof HTMLTextAreaElement ? field.value : "";
+    return api.importDailyLog?.(text);
+  });
+  bindButton("v3ReachApplyRollingCRBtn", (api) => api.applyRolling?.("contact"));
+  bindButton("v3ReachApplyRollingSRBtn", (api) => api.applyRolling?.("support"));
+  bindButton("v3ReachApplyRollingAPHBtn", (api) => api.applyRolling?.("productivity"));
+  bindButton("v3ReachApplyRollingAllBtn", (api) => api.applyRollingAll?.());
+
+  const applyHandler = (event) => {
+    const target = event.target;
+    if (!(target instanceof HTMLElement)) {
+      return;
+    }
+    const btn = target.closest("button[data-v3-reach-lever-id]");
+    if (!(btn instanceof HTMLButtonElement)) {
+      return;
+    }
+    const api = getReachApi();
+    if (!api || typeof api.applyLever !== "function") {
+      return;
+    }
+    api.applyLever(btn.dataset.v3ReachLeverId || "");
+    refreshReachSummary();
+  };
+  document.getElementById("v3ReachBestMovesList")?.addEventListener("click", applyHandler);
+  document.getElementById("v3ReachLeversTbody")?.addEventListener("click", applyHandler);
+}
+
+function bindInput(id, action) {
+  const input = document.getElementById(id);
+  if (!(input instanceof HTMLInputElement)) {
+    return;
+  }
+  input.addEventListener("change", () => {
+    const api = getReachApi();
+    if (!api || typeof action !== "function") {
+      return;
+    }
+    action(api, input.value);
+    refreshReachSummary();
+  });
+}
+
+function bindTextarea(id, action) {
+  const input = document.getElementById(id);
+  if (!(input instanceof HTMLTextAreaElement)) {
+    return;
+  }
+  input.addEventListener("input", () => {
+    const api = getReachApi();
+    if (!api || typeof action !== "function") {
+      return;
+    }
+    action(api, input.value);
+  });
+}
+
+function bindCheckbox(id, action) {
+  const input = document.getElementById(id);
+  if (!(input instanceof HTMLInputElement)) {
+    return;
+  }
+  input.addEventListener("change", () => {
+    const api = getReachApi();
+    if (!api || typeof action !== "function") {
+      return;
+    }
+    action(api, input.checked);
+    refreshReachSummary();
+  });
+}
+
+function bindSelect(id, action) {
+  const input = document.getElementById(id);
+  if (!(input instanceof HTMLSelectElement)) {
+    return;
+  }
+  input.addEventListener("change", () => {
+    const api = getReachApi();
+    if (!api || typeof action !== "function") {
+      return;
+    }
+    action(api, input.value);
+    refreshReachSummary();
+  });
+}
+
+function bindButton(id, action) {
+  const button = document.getElementById(id);
+  if (!(button instanceof HTMLButtonElement)) {
+    return;
+  }
+  button.addEventListener("click", () => {
+    const api = getReachApi();
+    if (!api || typeof action !== "function") {
+      return;
+    }
+    action(api);
+    refreshReachSummary();
+  });
+}
+
+function syncInputValue(id, value) {
+  const el = document.getElementById(id);
+  if (!(el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement)) {
+    return;
+  }
+  if (document.activeElement === el) {
+    return;
+  }
+  const text = value == null ? "" : String(value);
+  if (el.value !== text) {
+    el.value = text;
+  }
+}
+
+function syncCheckboxValue(id, checked) {
+  const el = document.getElementById(id);
+  if (!(el instanceof HTMLInputElement)) {
+    return;
+  }
+  if (document.activeElement === el) {
+    return;
+  }
+  el.checked = !!checked;
+}
+
+function syncSelectOptions(id, options, selectedValue) {
+  const el = document.getElementById(id);
+  if (!(el instanceof HTMLSelectElement)) {
+    return;
+  }
+
+  const normalized = Array.isArray(options)
+    ? options.map((opt) => ({
+        value: String(opt?.value ?? ""),
+        label: String(opt?.label ?? opt?.value ?? "")
+      }))
+    : [];
+
+  const current = Array.from(el.options).map((opt) => `${opt.value}::${opt.textContent || ""}`);
+  const next = normalized.map((opt) => `${opt.value}::${opt.label}`);
+  const same = current.length === next.length && current.every((item, index) => item === next[index]);
+  if (!same) {
+    el.innerHTML = "";
+    normalized.forEach((opt) => {
+      const option = document.createElement("option");
+      option.value = opt.value;
+      option.textContent = opt.label;
+      el.appendChild(option);
+    });
+  }
+
+  if (document.activeElement === el) {
+    return;
+  }
+
+  const wanted = selectedValue == null ? "" : String(selectedValue);
+  if (el.value !== wanted) {
+    el.value = wanted;
+  }
+}
+
+function setControlDisabled(id, disabled) {
+  const el = document.getElementById(id);
+  if (
+    !(el instanceof HTMLInputElement) &&
+    !(el instanceof HTMLSelectElement) &&
+    !(el instanceof HTMLTextAreaElement) &&
+    !(el instanceof HTMLButtonElement)
+  ) {
+    return;
+  }
+  el.disabled = !!disabled;
+}
+
+function setButtonDisabled(id, disabled) {
+  const el = document.getElementById(id);
+  if (!(el instanceof HTMLButtonElement)) {
+    return;
+  }
+  el.disabled = !!disabled;
+}
+
+function applyBanner(id, banner) {
+  const el = document.getElementById(id);
+  if (!(el instanceof HTMLElement)) {
+    return;
+  }
+  const show = !!banner?.show && String(banner?.text || "").trim().length > 0;
+  el.hidden = !show;
+  el.classList.remove("ok", "warn", "bad");
+  if (show) {
+    el.classList.add(String(banner?.kind || "warn"));
+    el.textContent = String(banner?.text || "");
+  } else {
+    el.textContent = "";
+  }
+}
+
+function renderReachOutlookRows(rows) {
+  const body = document.getElementById("v3ReachOutlookTbody");
+  if (!(body instanceof HTMLElement)) {
+    return;
+  }
+  body.innerHTML = "";
+
+  const list = Array.isArray(rows) ? rows : [];
+  list.forEach((row) => {
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td>${escapeHtml(row?.weekStarting)}</td>
+      <td class="num">${escapeHtml(row?.baseline)}</td>
+      <td class="num">${escapeHtml(row?.ramp)}</td>
+      <td class="num">${escapeHtml(row?.scheduled)}</td>
+      <td class="num">${escapeHtml(row?.delta)}</td>
+    `;
+    body.appendChild(tr);
+  });
+
+  if (!body.children.length) {
+    const tr = document.createElement("tr");
+    tr.className = "fpe-empty-row";
+    const td = document.createElement("td");
+    td.colSpan = 5;
+    td.className = "fpe-empty-state";
+    td.textContent = "No outlook data.";
+    tr.appendChild(td);
+    body.appendChild(tr);
+  }
+}
+
+function renderReachBestMoves(rows) {
+  const list = document.getElementById("v3ReachBestMovesList");
+  if (!(list instanceof HTMLElement)) {
+    return;
+  }
+  list.innerHTML = "";
+  const items = Array.isArray(rows) ? rows : [];
+  items.forEach((row) => {
+    const li = document.createElement("li");
+    const line = document.createElement("div");
+    line.className = "fpe-action-row";
+    const text = document.createElement("span");
+    text.textContent = String(row?.text || "");
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "fpe-btn fpe-btn--ghost";
+    btn.dataset.v3ReachLeverId = String(row?.id || "");
+    btn.textContent = "Apply";
+    line.append(text, btn);
+    li.appendChild(line);
+    list.appendChild(li);
+  });
+
+  if (!list.children.length) {
+    const li = document.createElement("li");
+    li.className = "fpe-empty-state";
+    li.textContent = "No top moves available under current inputs.";
+    list.appendChild(li);
+  }
+}
+
+function renderReachLeversRows(rows) {
+  const body = document.getElementById("v3ReachLeversTbody");
+  if (!(body instanceof HTMLElement)) {
+    return;
+  }
+  body.innerHTML = "";
+  const list = Array.isArray(rows) ? rows : [];
+  list.forEach((row) => {
+    const tr = document.createElement("tr");
+    const label = document.createElement("td");
+    label.textContent = String(row?.label || "—");
+    const impact = document.createElement("td");
+    impact.className = "num";
+    impact.textContent = String(row?.impact || "—");
+    const cost = document.createElement("td");
+    cost.textContent = String(row?.costUnit || "—");
+    const eff = document.createElement("td");
+    eff.className = "num";
+    eff.textContent = String(row?.efficiency || "—");
+    const apply = document.createElement("td");
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "fpe-btn fpe-btn--ghost";
+    btn.dataset.v3ReachLeverId = String(row?.id || "");
+    btn.textContent = "Apply";
+    apply.appendChild(btn);
+    tr.append(label, impact, cost, eff, apply);
+    body.appendChild(tr);
+  });
+
+  if (!body.children.length) {
+    const tr = document.createElement("tr");
+    tr.className = "fpe-empty-row";
+    const td = document.createElement("td");
+    td.colSpan = 5;
+    td.className = "fpe-empty-state";
+    td.textContent = "No lever estimates available under current inputs.";
+    tr.appendChild(td);
+    body.appendChild(tr);
+  }
+}
+
+function renderReachActions(rows) {
+  const list = document.getElementById("v3ReachActionsList");
+  if (!(list instanceof HTMLElement)) {
+    return;
+  }
+  list.innerHTML = "";
+  const items = Array.isArray(rows) ? rows : [];
+  items.forEach((textValue) => {
+    const li = document.createElement("li");
+    li.textContent = String(textValue || "");
+    list.appendChild(li);
+  });
+  if (!list.children.length) {
+    const li = document.createElement("li");
+    li.className = "fpe-empty-state";
+    li.textContent = "No recommended actions at this time.";
+    list.appendChild(li);
+  }
+}
+
+function toggleElement(id, show) {
+  const el = document.getElementById(id);
+  if (!(el instanceof HTMLElement)) {
+    return;
+  }
+  el.hidden = !show;
+}
+
+function renderReachUnavailable() {
+  setText("v3ReachLeversIntro", "Reach runtime bridge unavailable.");
+  setText("v3ReachActionsNote", "Reload the app to restore Reach runtime wiring.");
+  renderReachActions([]);
+  renderReachBestMoves([]);
+  renderReachLeversRows([]);
+  renderReachOutlookRows([]);
+}
+
+function escapeHtml(value) {
+  return String(value == null ? "—" : value)
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#39;");
 }

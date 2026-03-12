@@ -2,12 +2,14 @@ import { syncKpis } from "./kpiBridge.js";
 import { wireV3Nav } from "./nav.js";
 import { installV3QaSmokeBridge, runV3QaSmoke } from "./qaGates.js";
 import { renderV3Shell } from "./shell.js";
-import { refreshActiveStage, mountStage } from "./stageMount.js";
-import { getStageById, V3_DEFAULT_STAGE } from "./stageRegistry.js";
+import { getActiveStageId, refreshActiveStage, mountStage } from "./stageMount.js";
+import { resolveV3StageId, V3_DEFAULT_STAGE } from "./stageRegistry.js";
 
 const STAGE_KEY = "fpe-ui-v3-stage";
 const STAGE_QUERY_PARAM = "stage";
+const NAV_BRIDGE_KEY = "__FPE_V3_NAV__";
 let syncTimer = null;
+let popstateWired = false;
 
 function resolveUiMode() {
   const params = new URLSearchParams(window.location.search);
@@ -33,6 +35,7 @@ function bootV3() {
   }
 
   if (resolveUiMode() !== "v3") {
+    uninstallNavigationBridge();
     root.hidden = true;
     legacy.hidden = false;
     return;
@@ -44,9 +47,11 @@ function bootV3() {
     root.hidden = false;
     legacy.hidden = true;
 
+    installNavigationBridge();
     wireV3Nav((stageId) => {
       navigateStage(stageId, { persist: true });
     });
+    wirePopstateBridge();
 
     installV3QaSmokeBridge();
     wireTopbarBridge();
@@ -56,6 +61,7 @@ function bootV3() {
     startSyncLoop();
   } catch (err) {
     console.error("[v3-shell] failed to boot, reverting to legacy shell", err);
+    uninstallNavigationBridge();
     root.hidden = true;
     legacy.hidden = false;
   }
@@ -63,21 +69,21 @@ function bootV3() {
 
 function resolveInitialStage() {
   const params = new URLSearchParams(window.location.search);
-  const urlStage = params.get(STAGE_QUERY_PARAM);
-  if (urlStage && getStageById(urlStage)) {
-    return urlStage;
+  const rawUrlStage = params.get(STAGE_QUERY_PARAM);
+  if (rawUrlStage) {
+    return resolveV3StageId(rawUrlStage);
   }
 
-  const storedStage = localStorage.getItem(STAGE_KEY);
-  if (storedStage && getStageById(storedStage)) {
-    return storedStage;
+  const rawStoredStage = localStorage.getItem(STAGE_KEY);
+  if (rawStoredStage) {
+    return resolveV3StageId(rawStoredStage);
   }
 
   return V3_DEFAULT_STAGE;
 }
 
 function navigateStage(stageId, { persist = true } = {}) {
-  const resolved = getStageById(stageId) ? stageId : V3_DEFAULT_STAGE;
+  const resolved = resolveV3StageId(stageId);
   mountStage(resolved);
 
   if (persist) {
@@ -94,6 +100,42 @@ function persistStage(stageId) {
   const query = params.toString();
   const nextUrl = query ? `${window.location.pathname}?${query}` : window.location.pathname;
   window.history.replaceState({}, "", nextUrl);
+}
+
+function wirePopstateBridge() {
+  if (popstateWired) {
+    return;
+  }
+
+  window.addEventListener("popstate", onPopstate);
+  popstateWired = true;
+}
+
+function onPopstate() {
+  if (resolveUiMode() !== "v3") {
+    return;
+  }
+
+  const params = new URLSearchParams(window.location.search);
+  navigateStage(params.get(STAGE_QUERY_PARAM), { persist: false });
+}
+
+function installNavigationBridge() {
+  window[NAV_BRIDGE_KEY] = {
+    active: true,
+    navigateStage: (stageId, options = {}) => {
+      navigateStage(stageId, { persist: options.persist !== false });
+    },
+    resolveStageId: resolveV3StageId,
+    getActiveStageId: () => getActiveStageId()
+  };
+}
+
+function uninstallNavigationBridge() {
+  const existing = window[NAV_BRIDGE_KEY];
+  if (existing && typeof existing === "object") {
+    existing.active = false;
+  }
 }
 
 function wireTopbarBridge() {

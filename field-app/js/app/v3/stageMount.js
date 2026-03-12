@@ -8,7 +8,13 @@ import { renderPlanSurface } from "./surfaces/plan.js";
 import { renderReachSurface } from "./surfaces/reach.js";
 import { renderScenariosSurface } from "./surfaces/scenarios.js";
 import { renderTurnoutSurface } from "./surfaces/turnout.js";
-import { normalizeSurfaceActionRows, normalizeSurfaceMessages } from "./surfaceUtils.js";
+import {
+  normalizeSurfaceActionRows,
+  normalizeSurfaceBlocks,
+  normalizeSurfaceEmptyStates,
+  normalizeSurfaceMessages,
+  normalizeSurfaceStatusPills
+} from "./surfaceUtils.js";
 
 const SURFACE_MAP = {
   controls: renderControlsSurface,
@@ -23,6 +29,7 @@ const SURFACE_MAP = {
 };
 
 let activeSurfaceRefresh = null;
+let activeSurfacePane = null;
 let activeStageId = V3_DEFAULT_STAGE;
 const STAGE_SURFACES = new Map();
 
@@ -64,6 +71,7 @@ export function mountStage(stageId) {
     surfaceState.pane.hidden = false;
   }
   activeSurfaceRefresh = surfaceState ? surfaceState.refresh : null;
+  activeSurfacePane = surfaceState ? surfaceState.pane : null;
 
   syncLegacyRightRail();
   refreshActiveStage();
@@ -73,6 +81,7 @@ export function refreshActiveStage() {
   if (typeof activeSurfaceRefresh === "function") {
     activeSurfaceRefresh();
   }
+  normalizeSurfacePane(activeSurfacePane);
 }
 
 export function getActiveStageId() {
@@ -112,8 +121,7 @@ function ensureSurfaceState(stage, mount) {
 
   const renderer = SURFACE_MAP[stage.surface];
   const rendered = typeof renderer === "function" ? renderer(pane, stage) : null;
-  normalizeSurfaceActionRows(pane);
-  normalizeSurfaceMessages(pane);
+  normalizeSurfacePane(pane);
   const refresh =
     typeof rendered === "function"
       ? rendered
@@ -130,4 +138,15 @@ function hideAllSurfacePanes(mount) {
   mount.querySelectorAll(".fpe-surface-pane").forEach((pane) => {
     pane.hidden = true;
   });
+}
+
+function normalizeSurfacePane(pane) {
+  if (!(pane instanceof HTMLElement)) {
+    return;
+  }
+  normalizeSurfaceActionRows(pane);
+  normalizeSurfaceBlocks(pane);
+  normalizeSurfaceMessages(pane);
+  normalizeSurfaceStatusPills(pane);
+  normalizeSurfaceEmptyStates(pane);
 }

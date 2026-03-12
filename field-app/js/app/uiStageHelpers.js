@@ -22,6 +22,17 @@ export function safeCallModule(fn, opts = {}){
 export function switchToStageModule(stageId){
   const id = String(stageId || "").trim();
   if (!id) return;
+
+  const v3NavBridge = window["__FPE_V3_NAV__"];
+  if (v3NavBridge?.active && typeof v3NavBridge.navigateStage === "function"){
+    const nextStageId =
+      typeof v3NavBridge.resolveStageId === "function"
+        ? v3NavBridge.resolveStageId(id)
+        : id;
+    v3NavBridge.navigateStage(nextStageId, { persist: true });
+    return;
+  }
+
   const btn = document.querySelector(`.nav-item-new[data-stage="${id}"]`);
   if (btn && typeof window.switchStage === "function"){
     window.switchStage(btn, id);

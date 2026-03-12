@@ -6,7 +6,6 @@ import {
   createWhyPanel,
   getCardBody
 } from "../componentFactory.js";
-import { mountLegacyClosest, mountLegacyNode } from "../compat.js";
 import {
   bindCheckboxProxy,
   bindClickProxy,
@@ -18,6 +17,7 @@ import {
   syncCheckboxValue,
   syncControlDisabled,
   syncFieldValue,
+  syncLegacyTableRows,
   syncSelectValue
 } from "../surfaceUtils.js";
 
@@ -33,7 +33,7 @@ export function renderPlanSurface(mount) {
   });
 
   const optimizerCard = createCard({
-    title: "Optimization",
+    title: "Weekly pacing & optimization",
     description: "Budget, objective, and timeline-constrained allocation controls."
   });
 
@@ -54,7 +54,12 @@ export function renderPlanSurface(mount) {
 
   const riskCard = createCard({
     title: "Execution risk",
-    description: "Constraint diagnostics and decision-intelligence recommendations."
+    description: "Constraint diagnostics and timeline shortfall posture."
+  });
+
+  const actionsCard = createCard({
+    title: "Recommended actions",
+    description: "Decision-intelligence recommendations to recover feasibility."
   });
 
   const summaryCard = createCard({
@@ -93,12 +98,11 @@ export function renderPlanSurface(mount) {
     </div>
 
     <div class="fpe-help fpe-help--flush">Workload math uses support/contact assumptions from Reach and updates in real time as timeline/staffing settings change.</div>
+    <div class="fpe-contained-block fpe-contained-block--status">
+      <div class="fpe-control-label">Workload status</div>
+      <div class="fpe-help fpe-help--flush" id="v3PlanWorkloadBanner">-</div>
+    </div>
   `;
-  mountLegacyNode({
-    key: "v3-plan-workload-banner",
-    selector: "#convFeasBanner",
-    target: workloadBody
-  });
 
   const optimizerBody = getCardBody(optimizerCard);
   optimizerBody.innerHTML = `
@@ -149,29 +153,51 @@ export function renderPlanSurface(mount) {
       <div class="fpe-summary-row"><span>Gap context</span><strong id="v3PlanOptGapContext">-</strong></div>
       <div class="fpe-summary-row"><span>Binding constraint</span><strong id="v3PlanBinding">-</strong></div>
     </div>
-  `;
 
-  mountLegacyNode({
-    key: "v3-plan-opt-banner",
-    selector: "#optBanner",
-    target: optimizerBody
-  });
-  mountLegacyNode({
-    key: "v3-plan-opt-tl-results",
-    selector: "#tlOptResults",
-    target: optimizerBody
-  });
-  mountLegacyClosest({
-    key: "v3-plan-opt-table",
-    childSelector: "#optTbody",
-    closestSelector: ".table-wrap",
-    target: optimizerBody
-  });
-  mountLegacyNode({
-    key: "v3-plan-opt-note",
-    selector: "#stage-roi .phase-p5 > .note",
-    target: optimizerBody
-  });
+    <div class="fpe-contained-block fpe-contained-block--status">
+      <div class="fpe-control-label">Optimizer status</div>
+      <div class="fpe-help fpe-help--flush" id="v3PlanOptBanner">-</div>
+    </div>
+    <div class="fpe-status-strip fpe-status-strip--2">
+      <div class="fpe-contained-block fpe-contained-block--status">
+        <div class="fpe-control-label">Timeline goal feasible</div>
+        <div class="fpe-help fpe-help--flush" id="v3PlanTlOptGoalFeasible">-</div>
+      </div>
+      <div class="fpe-contained-block fpe-contained-block--status">
+        <div class="fpe-control-label">Max achievable net votes</div>
+        <div class="fpe-help fpe-help--flush" id="v3PlanTlOptMaxNetVotes">-</div>
+      </div>
+      <div class="fpe-contained-block fpe-contained-block--status">
+        <div class="fpe-control-label">Remaining gap net votes</div>
+        <div class="fpe-help fpe-help--flush" id="v3PlanTlOptRemainingGap">-</div>
+      </div>
+      <div class="fpe-contained-block fpe-contained-block--status">
+        <div class="fpe-control-label">Timeline binding constraints</div>
+        <div class="fpe-help fpe-help--flush" id="v3PlanTlOptBinding">-</div>
+      </div>
+    </div>
+
+    <div class="table-wrap">
+      <table class="table" aria-label="Plan optimizer allocation">
+        <thead>
+          <tr>
+            <th>Tactic</th>
+            <th class="num">Attempts</th>
+            <th class="num">Cost</th>
+            <th class="num">Expected net votes</th>
+          </tr>
+        </thead>
+        <tbody id="v3PlanOptAllocTbody">
+          <tr>
+            <td class="muted" colspan="4">Run optimization to generate tactic allocation.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="fpe-help fpe-help--flush" id="v3PlanOptInterpretation">
+      Interpretation: If diminishing returns is OFF and there are no caps, allocation can concentrate in the strongest marginal tactic.
+    </div>
+  `;
 
   const timelineBody = getCardBody(timelineCard);
   timelineBody.innerHTML = `
@@ -249,31 +275,114 @@ export function renderPlanSurface(mount) {
   `;
 
   const riskBody = getCardBody(riskCard);
-  mountLegacyNode({
-    key: "v3-plan-tl-decision-intel",
-    selector: "#decisionIntelCard",
-    target: riskBody
-  });
-  mountLegacyNode({
-    key: "v3-plan-tl-banner",
-    selector: "#tlBanner",
-    target: riskBody
-  });
+  riskBody.innerHTML = `
+    <div class="fpe-contained-block fpe-contained-block--status">
+      <div class="fpe-control-label">Timeline risk status</div>
+      <div class="fpe-help fpe-help--flush" id="v3PlanTimelineBanner">-</div>
+    </div>
+    <div class="fpe-summary-grid">
+      <div class="fpe-summary-row"><span>% plan executable</span><strong id="v3PlanRiskExecutable">-</strong></div>
+      <div class="fpe-summary-row"><span>Constraint type</span><strong id="v3PlanRiskConstraint">-</strong></div>
+      <div class="fpe-summary-row"><span>Shortfall attempts</span><strong id="v3PlanRiskShortfallAttempts">-</strong></div>
+      <div class="fpe-summary-row"><span>Shortfall net votes</span><strong id="v3PlanRiskShortfallVotes">-</strong></div>
+    </div>
+  `;
+
+  const actionsBody = getCardBody(actionsCard);
+  actionsBody.innerHTML = `
+    <div class="fpe-alert fpe-alert--warn" hidden id="v3PlanDiWarn"></div>
+    <div class="fpe-status-strip fpe-status-strip--3">
+      <div class="fpe-contained-block fpe-contained-block--status">
+        <div class="fpe-control-label">Primary bottleneck</div>
+        <div class="fpe-help fpe-help--flush" id="v3PlanDiPrimary">-</div>
+      </div>
+      <div class="fpe-contained-block fpe-contained-block--status">
+        <div class="fpe-control-label">Secondary bottleneck</div>
+        <div class="fpe-help fpe-help--flush" id="v3PlanDiSecondary">-</div>
+      </div>
+      <div class="fpe-contained-block fpe-contained-block--status">
+        <div class="fpe-control-label">Not binding</div>
+        <div class="fpe-help fpe-help--flush" id="v3PlanDiNotBinding">-</div>
+      </div>
+    </div>
+
+    <div class="fpe-contained-block fpe-contained-block--instruction">
+      <div class="fpe-control-label">Recommendations</div>
+      <ul class="bullets">
+        <li id="v3PlanDiRecVol">-</li>
+        <li id="v3PlanDiRecCost">-</li>
+        <li id="v3PlanDiRecProb">-</li>
+      </ul>
+    </div>
+
+    <div class="fpe-field-grid fpe-field-grid--3">
+      <div class="table-wrap">
+        <table class="table" aria-label="Top levers — Volunteer load">
+          <thead>
+            <tr><th>Top levers — Volunteer load</th><th class="num">Δ volunteers</th></tr>
+          </thead>
+          <tbody id="v3PlanDiVolTbody">
+            <tr><td class="muted">-</td><td class="num muted">-</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="table-wrap">
+        <table class="table" aria-label="Top levers — Cost">
+          <thead>
+            <tr><th>Top levers — Cost</th><th class="num">Δ cost</th></tr>
+          </thead>
+          <tbody id="v3PlanDiCostTbody">
+            <tr><td class="muted">-</td><td class="num muted">-</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="table-wrap">
+        <table class="table" aria-label="Top levers — Win probability">
+          <thead>
+            <tr><th>Top levers — Win probability</th><th class="num">Δ prob</th></tr>
+          </thead>
+          <tbody id="v3PlanDiProbTbody">
+            <tr><td class="muted">-</td><td class="num muted">-</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  `;
 
   getCardBody(summaryCard).innerHTML = `
-    <div class="fpe-summary-grid">
-      <div class="fpe-summary-row"><span>Shifts / week</span><strong id="v3PlanSummaryShiftsPerWeek">-</strong></div>
-      <div class="fpe-summary-row"><span>Volunteers needed</span><strong id="v3PlanSummaryVolunteersNeeded">-</strong></div>
-      <div class="fpe-summary-row"><span>Plan executable</span><strong id="v3PlanSummaryExecutable">-</strong></div>
-      <div class="fpe-summary-row"><span>Timeline constraint</span><strong id="v3PlanSummaryConstraint">-</strong></div>
-      <div class="fpe-summary-row"><span>Optimizer binding</span><strong id="v3PlanSummaryBinding">-</strong></div>
-      <div class="fpe-summary-row"><span>Gap context</span><strong id="v3PlanSummaryGapContext">-</strong></div>
+    <div class="fpe-status-strip fpe-status-strip--3">
+      <div class="fpe-contained-block fpe-contained-block--status">
+        <div class="fpe-control-label">Shifts / week</div>
+        <div class="fpe-help fpe-help--flush" id="v3PlanSummaryShiftsPerWeek">-</div>
+      </div>
+      <div class="fpe-contained-block fpe-contained-block--status">
+        <div class="fpe-control-label">Volunteers needed</div>
+        <div class="fpe-help fpe-help--flush" id="v3PlanSummaryVolunteersNeeded">-</div>
+      </div>
+      <div class="fpe-contained-block fpe-contained-block--status">
+        <div class="fpe-control-label">Plan executable</div>
+        <div class="fpe-help fpe-help--flush" id="v3PlanSummaryExecutable">-</div>
+      </div>
+    </div>
+    <div class="fpe-status-strip fpe-status-strip--3">
+      <div class="fpe-contained-block fpe-contained-block--status">
+        <div class="fpe-control-label">Timeline constraint</div>
+        <div class="fpe-help fpe-help--flush" id="v3PlanSummaryConstraint">-</div>
+      </div>
+      <div class="fpe-contained-block fpe-contained-block--status">
+        <div class="fpe-control-label">Optimizer binding</div>
+        <div class="fpe-help fpe-help--flush" id="v3PlanSummaryBinding">-</div>
+      </div>
+      <div class="fpe-contained-block fpe-contained-block--status">
+        <div class="fpe-control-label">Gap context</div>
+        <div class="fpe-help fpe-help--flush" id="v3PlanSummaryGapContext">-</div>
+      </div>
     </div>
   `;
 
   workloadCol.append(workloadCard, optimizerCard);
   timelineCol.append(timelineCard);
-  riskCol.append(riskCard, summaryCard);
+  riskCol.append(riskCard, actionsCard, summaryCard);
 
   frame.append(workloadCol, timelineCol, riskCol);
   mount.append(frame);
@@ -330,6 +439,24 @@ function refreshPlanSummary() {
   setText("v3PlanOptTotalVotes", readText("#optTotalVotes"));
   setText("v3PlanOptGapContext", readText("#optGapContext"));
   setText("v3PlanBinding", readText("#optBinding"));
+  setText("v3PlanWorkloadBanner", readText("#convFeasBanner"));
+  setText("v3PlanOptBanner", readText("#optBanner"));
+  setText("v3PlanTlOptGoalFeasible", readText("#tlOptGoalFeasible"));
+  setText("v3PlanTlOptMaxNetVotes", readText("#tlOptMaxNetVotes"));
+  setText("v3PlanTlOptRemainingGap", readText("#tlOptRemainingGap"));
+  setText("v3PlanTlOptBinding", readText("#tlOptBinding"));
+  setText("v3PlanTimelineBanner", readText("#tlBanner"));
+  setText("v3PlanRiskExecutable", readText("#tlPercent"));
+  setText("v3PlanRiskConstraint", readText("#tlConstraint"));
+  setText("v3PlanRiskShortfallAttempts", readText("#tlShortfallAttempts"));
+  setText("v3PlanRiskShortfallVotes", readText("#tlShortfallVotes"));
+  syncLegacyTableRows({
+    sourceSelector: "#optTbody",
+    targetBodyId: "v3PlanOptAllocTbody",
+    expectedCols: 4,
+    emptyLabel: "Run optimization to generate tactic allocation.",
+    numericColumns: [1, 2]
+  });
 
   setText("v3PlanExecutable", readText("#tlPercent"));
   setText("v3PlanCompletionWeek", readText("#tlCompletionWeek"));
@@ -344,6 +471,7 @@ function refreshPlanSummary() {
   setText("v3PlanSummaryConstraint", readText("#tlConstraint"));
   setText("v3PlanSummaryBinding", readText("#optBinding"));
   setText("v3PlanSummaryGapContext", readText("#optGapContext"));
+  syncPlanDecisionIntel();
 
   syncFieldValue("v3PlanGoalSupportIds", "goalSupportIds");
   syncFieldValue("v3PlanDoorsPerHour", "doorsPerHour");
@@ -400,4 +528,46 @@ function refreshPlanSummary() {
   syncControlDisabled("v3PlanTimelineDoorsPerHour", "timelineDoorsPerHour");
   syncControlDisabled("v3PlanTimelineCallsPerHour", "timelineCallsPerHour");
   syncControlDisabled("v3PlanTimelineTextsPerHour", "timelineTextsPerHour");
+}
+
+function syncPlanDecisionIntel() {
+  const warnSource = document.getElementById("diWarn");
+  const warnTarget = document.getElementById("v3PlanDiWarn");
+  if (warnTarget instanceof HTMLElement) {
+    const text = (warnSource?.textContent || "").trim();
+    const show = Boolean(text) && !warnSource?.hidden;
+    warnTarget.hidden = !show;
+    warnTarget.textContent = show ? text : "";
+  }
+
+  setText("v3PlanDiPrimary", readText("#diPrimary"));
+  setText("v3PlanDiSecondary", readText("#diSecondary"));
+  setText("v3PlanDiNotBinding", readText("#diNotBinding"));
+  setText("v3PlanDiRecVol", readText("#diRecVol"));
+  setText("v3PlanDiRecCost", readText("#diRecCost"));
+  setText("v3PlanDiRecProb", readText("#diRecProb"));
+
+  syncLegacyTableRows({
+    sourceSelector: "#diVolTbody",
+    targetBodyId: "v3PlanDiVolTbody",
+    expectedCols: 2,
+    emptyLabel: "No volunteer levers available.",
+    numericColumns: [1]
+  });
+
+  syncLegacyTableRows({
+    sourceSelector: "#diCostTbody",
+    targetBodyId: "v3PlanDiCostTbody",
+    expectedCols: 2,
+    emptyLabel: "No cost levers available.",
+    numericColumns: [1]
+  });
+
+  syncLegacyTableRows({
+    sourceSelector: "#diProbTbody",
+    targetBodyId: "v3PlanDiProbTbody",
+    expectedCols: 2,
+    emptyLabel: "No probability levers available.",
+    numericColumns: [1]
+  });
 }

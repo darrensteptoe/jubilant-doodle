@@ -15,9 +15,41 @@ export function readText(selector) {
 }
 
 export function firstNonEmpty(selectors = []) {
-  for (const selector of selectors) {
+  const list = Array.isArray(selectors) ? selectors : [selectors];
+  for (const selector of list) {
     const value = readText(selector);
     if (value) {
+      return value;
+    }
+  }
+  return "";
+}
+
+export function readNumber(selector) {
+  return parseNumber(readText(selector));
+}
+
+export function isMissingValue(value) {
+  const normalized = String(value == null ? "" : value).trim();
+  return !normalized || normalized === "-" || normalized === "—";
+}
+
+export function readFirstNumber(selectors = []) {
+  const list = Array.isArray(selectors) ? selectors : [selectors];
+  for (const selector of list) {
+    const value = readNumber(selector);
+    if (Number.isFinite(value)) {
+      return value;
+    }
+  }
+  return NaN;
+}
+
+export function firstNonMissing(selectors = []) {
+  const list = Array.isArray(selectors) ? selectors : [selectors];
+  for (const selector of list) {
+    const value = readText(selector);
+    if (!isMissingValue(value)) {
       return value;
     }
   }

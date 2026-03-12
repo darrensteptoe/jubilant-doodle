@@ -5,7 +5,6 @@ import {
   createWhyPanel,
   getCardBody
 } from "../componentFactory.js";
-import { mountLegacyClosest } from "../compat.js";
 import {
   bindCheckboxProxy,
   bindClickProxy,
@@ -17,6 +16,7 @@ import {
   syncButtonDisabled,
   syncCheckboxValue,
   syncFieldValue,
+  syncLegacyTableRows,
   syncSelectValue
 } from "../surfaceUtils.js";
 
@@ -27,7 +27,7 @@ export function renderControlsSurface(mount) {
   const calibrationCol = createColumn("calibration");
 
   const workflowCard = createCard({
-    title: "Scenario governance",
+    title: "Guardrails",
     description: "Scenario lock and critical-change documentation requirements."
   });
 
@@ -42,18 +42,18 @@ export function renderControlsSurface(mount) {
   });
 
   const feedbackCard = createCard({
-    title: "Feedback loop",
+    title: "Review workflow",
     description: "Capture observed metrics and generate metadata-only drift recommendations."
   });
 
   const calibrationCard = createCard({
-    title: "Calibration brief",
-    description: "Client-facing calibration narrative, expert toggles, and stochastic model controls."
+    title: "Integrity summary",
+    description: "Calibration narrative, expert toggles, and stochastic model controls."
   });
 
   const summaryCard = createCard({
-    title: "Governance summary",
-    description: "Current controls posture, evidence status, and calibration readiness."
+    title: "Current warnings",
+    description: "Live governance warning posture across evidence, calibration, and recommendation workflows."
   });
 
   getCardBody(workflowCard).innerHTML = `
@@ -98,7 +98,7 @@ export function renderControlsSurface(mount) {
           <textarea class="fpe-input" id="v3IntelCriticalChangeNote" rows="2"></textarea>
         </div>
       </div>
-      <div class="fpe-field-grid fpe-field-grid--2">
+      <div class="fpe-status-strip fpe-status-strip--2">
         <div class="fpe-contained-block">
           <div class="fpe-control-label">Lock status</div>
           <div class="fpe-help fpe-help--flush" id="v3IntelScenarioLockStatus">Scenario lock OFF.</div>
@@ -151,7 +151,7 @@ export function renderControlsSurface(mount) {
       <div class="fpe-action-row">
         <button class="fpe-btn" id="v3BtnIntelEvidenceAttach" type="button">Attach evidence</button>
       </div>
-      <div class="fpe-field-grid fpe-field-grid--3">
+      <div class="fpe-status-strip fpe-status-strip--3">
         <div class="fpe-contained-block">
           <div class="fpe-control-label">Missing evidence</div>
           <div class="fpe-help fpe-help--flush" id="v3IntelMissingEvidenceCount">0 critical assumption edit(s) missing evidence.</div>
@@ -165,7 +165,22 @@ export function renderControlsSurface(mount) {
           <div class="fpe-help fpe-help--flush" id="v3IntelEvidenceStatus">Select an audit item, then attach evidence.</div>
         </div>
       </div>
-      <div id="v3ControlsEvidenceTableHost"></div>
+      <div class="table-wrap">
+        <table class="table" aria-label="Controls evidence records">
+          <thead>
+            <tr>
+              <th>Evidence title</th>
+              <th>Source</th>
+              <th>Captured</th>
+              <th>Ref</th>
+              <th>ID</th>
+            </tr>
+          </thead>
+          <tbody id="v3IntelEvidenceTbody">
+            <tr><td class="muted" colspan="5">No evidence records yet.</td></tr>
+          </tbody>
+        </table>
+      </div>
     </div>
   `;
 
@@ -224,7 +239,7 @@ export function renderControlsSurface(mount) {
         <button class="fpe-btn" id="v3BtnIntelBenchmarkLoadDefaults" type="button">Load defaults</button>
         <button class="fpe-btn" id="v3BtnIntelBenchmarkSave" type="button">Save benchmark</button>
       </div>
-      <div class="fpe-field-grid fpe-field-grid--2">
+      <div class="fpe-status-strip fpe-status-strip--2">
         <div class="fpe-contained-block">
           <div class="fpe-control-label">Catalog size</div>
           <div class="fpe-help fpe-help--flush" id="v3IntelBenchmarkCount">0 benchmark entries configured.</div>
@@ -234,7 +249,23 @@ export function renderControlsSurface(mount) {
           <div class="fpe-help fpe-help--flush" id="v3IntelBenchmarkStatus">Ready.</div>
         </div>
       </div>
-      <div id="v3ControlsBenchmarkTableHost"></div>
+      <div class="table-wrap">
+        <table class="table" aria-label="Controls benchmark catalog">
+          <thead>
+            <tr>
+              <th>Reference</th>
+              <th>Race type</th>
+              <th class="num">Range</th>
+              <th class="num">Warn/Hard</th>
+              <th>Source</th>
+              <th class="num">Action</th>
+            </tr>
+          </thead>
+          <tbody id="v3IntelBenchmarkTbody">
+            <tr><td class="muted" colspan="6">No benchmark entries configured.</td></tr>
+          </tbody>
+        </table>
+      </div>
     </div>
   `;
 
@@ -371,7 +402,7 @@ export function renderControlsSurface(mount) {
         <button class="fpe-btn fpe-btn--ghost" id="v3BtnIntelGenerateRecommendations" type="button">Generate drift recommendations</button>
         <button class="fpe-btn fpe-btn--ghost" id="v3BtnIntelApplyTopRecommendation" type="button">Apply top recommendation</button>
       </div>
-      <div class="fpe-field-grid fpe-field-grid--2">
+      <div class="fpe-status-strip fpe-status-strip--2">
         <div class="fpe-contained-block">
           <div class="fpe-control-label">Observed count</div>
           <div class="fpe-help fpe-help--flush" id="v3IntelObservedCount">0 observed metric entries captured.</div>
@@ -381,7 +412,7 @@ export function renderControlsSurface(mount) {
           <div class="fpe-help fpe-help--flush" id="v3IntelRecommendationCount">0 active drift recommendations.</div>
         </div>
       </div>
-      <div class="fpe-field-grid fpe-field-grid--2">
+      <div class="fpe-status-strip fpe-status-strip--2">
         <div class="fpe-contained-block">
           <div class="fpe-control-label">Observed status</div>
           <div class="fpe-help fpe-help--flush" id="v3IntelObservedStatus">No observed metrics captured yet.</div>
@@ -398,7 +429,7 @@ export function renderControlsSurface(mount) {
         </div>
         <textarea class="fpe-input" id="v3IntelWhatIfInput" rows="3"></textarea>
       </div>
-      <div class="fpe-field-grid fpe-field-grid--2">
+      <div class="fpe-status-strip fpe-status-strip--2">
         <div class="fpe-contained-block">
           <div class="fpe-control-label">Parsed request count</div>
           <div class="fpe-help fpe-help--flush" id="v3IntelWhatIfCount">0 what-if requests parsed.</div>
@@ -420,21 +451,38 @@ export function renderControlsSurface(mount) {
   `;
 
   getCardBody(summaryCard).innerHTML = `
-    <div class="fpe-summary-grid">
-      <div class="fpe-summary-row"><span>Governance status</span><strong id="v3ControlsWorkflowStatus">-</strong></div>
-      <div class="fpe-summary-row"><span>Benchmark entries</span><strong id="v3ControlsBenchmarkCount">-</strong></div>
-      <div class="fpe-summary-row"><span>Missing evidence</span><strong id="v3ControlsMissingEvidence">-</strong></div>
-      <div class="fpe-summary-row"><span>Calibration status</span><strong id="v3ControlsCalibrationStatus">-</strong></div>
-      <div class="fpe-summary-row"><span>Drift recommendation count</span><strong id="v3ControlsRecommendationCount">-</strong></div>
+    <div class="fpe-status-strip fpe-status-strip--3">
+      <div class="fpe-contained-block fpe-contained-block--status">
+        <div class="fpe-control-label">Governance status</div>
+        <div class="fpe-help fpe-help--flush" id="v3ControlsWorkflowStatus">-</div>
+      </div>
+      <div class="fpe-contained-block fpe-contained-block--status">
+        <div class="fpe-control-label">Benchmark entries</div>
+        <div class="fpe-help fpe-help--flush" id="v3ControlsBenchmarkCount">-</div>
+      </div>
+      <div class="fpe-contained-block fpe-contained-block--status">
+        <div class="fpe-control-label">Missing evidence</div>
+        <div class="fpe-help fpe-help--flush" id="v3ControlsMissingEvidence">-</div>
+      </div>
+    </div>
+    <div class="fpe-status-strip fpe-status-strip--2">
+      <div class="fpe-contained-block fpe-contained-block--status">
+        <div class="fpe-control-label">Calibration status</div>
+        <div class="fpe-help fpe-help--flush" id="v3ControlsCalibrationStatus">-</div>
+      </div>
+      <div class="fpe-contained-block fpe-contained-block--status">
+        <div class="fpe-control-label">Drift recommendation count</div>
+        <div class="fpe-help fpe-help--flush" id="v3ControlsRecommendationCount">-</div>
+      </div>
     </div>
     <div class="fpe-contained-block">
       <div class="fpe-help fpe-help--flush">Dynamic status remains canonical in the right rail to avoid duplicated and diverging outputs.</div>
     </div>
   `;
 
-  governanceCol.append(workflowCard, evidenceCard);
-  benchmarkCol.append(benchmarkCard, feedbackCard);
-  calibrationCol.append(calibrationCard, summaryCard);
+  governanceCol.append(benchmarkCard, evidenceCard);
+  benchmarkCol.append(workflowCard, feedbackCard);
+  calibrationCol.append(summaryCard, calibrationCard);
 
   frame.append(governanceCol, benchmarkCol, calibrationCol);
   mount.append(frame);
@@ -446,20 +494,6 @@ export function renderControlsSurface(mount) {
       "Use this page to verify auditability and calibration readiness before exporting scenarios."
     ])
   );
-
-  mountLegacyClosest({
-    key: "v3-controls-benchmark-table-wrap",
-    childSelector: "#intelBenchmarkTbody",
-    closestSelector: ".table-wrap",
-    target: document.getElementById("v3ControlsBenchmarkTableHost")
-  });
-
-  mountLegacyClosest({
-    key: "v3-controls-evidence-table-wrap",
-    childSelector: "#intelEvidenceTbody",
-    closestSelector: ".table-wrap",
-    target: document.getElementById("v3ControlsEvidenceTableHost")
-  });
 
   wireControlsWorkflowBridge();
   wireControlsBenchmarkBridge();
@@ -533,6 +567,29 @@ function wireControlsBenchmarkBridge() {
 
   bindClickProxy("v3BtnIntelBenchmarkLoadDefaults", "btnIntelBenchmarkLoadDefaults");
   bindClickProxy("v3BtnIntelBenchmarkSave", "btnIntelBenchmarkSave");
+
+  const v3BenchmarkTbody = document.getElementById("v3IntelBenchmarkTbody");
+  if (v3BenchmarkTbody) {
+    v3BenchmarkTbody.addEventListener("click", (event) => {
+      const target = event?.target;
+      if (!(target instanceof HTMLElement)) return;
+      const removeBtn = target.closest("[data-bm-remove]");
+      if (!(removeBtn instanceof HTMLElement)) return;
+      const removeId = String(removeBtn.getAttribute("data-bm-remove") || "").trim();
+      if (!removeId) return;
+
+      const legacyButtons = Array.from(
+        document.querySelectorAll("#intelBenchmarkTbody [data-bm-remove]")
+      );
+      const legacyBtn = legacyButtons.find((btn) => {
+        if (!(btn instanceof HTMLElement)) return false;
+        return String(btn.getAttribute("data-bm-remove") || "").trim() === removeId;
+      });
+      if (legacyBtn instanceof HTMLElement) {
+        legacyBtn.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      }
+    });
+  }
 }
 
 function syncControlsBenchmarkBridge() {
@@ -558,6 +615,12 @@ function syncControlsBenchmarkBridge() {
   ]);
   setText("v3IntelBenchmarkCount", readText("#intelBenchmarkCount"));
   setText("v3IntelBenchmarkStatus", readText("#intelBenchmarkStatus"));
+  syncLegacyTableRows({
+    sourceSelector: "#intelBenchmarkTbody",
+    targetBodyId: "v3IntelBenchmarkTbody",
+    expectedCols: 6,
+    emptyLabel: "No benchmark entries configured."
+  });
 
   syncButtonDisabled("v3BtnIntelBenchmarkLoadDefaults", "btnIntelBenchmarkLoadDefaults");
   syncButtonDisabled("v3BtnIntelBenchmarkSave", "btnIntelBenchmarkSave");
@@ -599,6 +662,12 @@ function syncControlsEvidenceBridge() {
   setText("v3IntelMissingEvidenceCount", readText("#intelMissingEvidenceCount"));
   setText("v3IntelMissingNoteCount", readText("#intelMissingNoteCount"));
   setText("v3IntelEvidenceStatus", readText("#intelEvidenceStatus"));
+  syncLegacyTableRows({
+    sourceSelector: "#intelEvidenceTbody",
+    targetBodyId: "v3IntelEvidenceTbody",
+    expectedCols: 5,
+    emptyLabel: "No evidence records yet."
+  });
 
   syncButtonDisabled("v3BtnIntelEvidenceAttach", "btnIntelEvidenceAttach");
 }

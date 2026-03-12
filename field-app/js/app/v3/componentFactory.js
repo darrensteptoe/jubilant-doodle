@@ -75,3 +75,83 @@ export function createKpiCard(label, id = "") {
 
   return el;
 }
+
+export function createInstructionBlock(items = []) {
+  const block = document.createElement("div");
+  block.className = "fpe-contained-block fpe-contained-block--instruction";
+
+  const list = document.createElement("ul");
+  list.className = "bullets";
+  items.forEach((item) => {
+    const li = document.createElement("li");
+    li.textContent = item;
+    list.appendChild(li);
+  });
+  block.appendChild(list);
+  return block;
+}
+
+export function createStatusBlock({ label, value = "-", id = "" }) {
+  const block = document.createElement("div");
+  block.className = "fpe-contained-block fpe-contained-block--status";
+  block.innerHTML = `
+    <div class="fpe-control-label">${label}</div>
+    <div class="fpe-help fpe-help--flush"${id ? ` id="${id}"` : ""}>${value}</div>
+  `;
+  return block;
+}
+
+export function createStatusStrip(columns = 2, blocks = []) {
+  const strip = document.createElement("div");
+  strip.className = `fpe-status-strip fpe-status-strip--${columns}`;
+  blocks.forEach((block) => {
+    if (block) {
+      strip.appendChild(block);
+    }
+  });
+  return strip;
+}
+
+export function createTableWrap({
+  ariaLabel = "Data table",
+  headers = [],
+  tbodyId = "",
+  emptyLabel = "No rows.",
+  numericColumns = []
+}) {
+  const wrap = document.createElement("div");
+  wrap.className = "table-wrap";
+
+  const table = document.createElement("table");
+  table.className = "table";
+  table.setAttribute("aria-label", ariaLabel);
+
+  const thead = document.createElement("thead");
+  const headRow = document.createElement("tr");
+  headers.forEach((label, index) => {
+    const th = document.createElement("th");
+    th.textContent = label;
+    if (numericColumns.includes(index)) {
+      th.classList.add("num");
+    }
+    headRow.appendChild(th);
+  });
+  thead.appendChild(headRow);
+
+  const tbody = document.createElement("tbody");
+  if (tbodyId) {
+    tbody.id = tbodyId;
+  }
+  const emptyRow = document.createElement("tr");
+  emptyRow.className = "fpe-empty-row";
+  const emptyCell = document.createElement("td");
+  emptyCell.className = "fpe-empty-state";
+  emptyCell.colSpan = Math.max(1, headers.length);
+  emptyCell.textContent = emptyLabel;
+  emptyRow.appendChild(emptyCell);
+  tbody.appendChild(emptyRow);
+
+  table.append(thead, tbody);
+  wrap.appendChild(table);
+  return wrap;
+}

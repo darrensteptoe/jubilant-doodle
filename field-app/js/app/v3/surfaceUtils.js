@@ -36,6 +36,7 @@ export function bindClickProxy(v3Id, legacyId) {
   if (!v3) {
     return;
   }
+  markBridgeTarget(v3, "click", legacyId);
 
   v3.addEventListener("click", () => {
     const legacy = getLegacyEl(legacyId);
@@ -82,6 +83,7 @@ export function bindSelectProxy(v3Id, legacyId) {
   if (!(v3 instanceof HTMLSelectElement)) {
     return;
   }
+  markBridgeTarget(v3, "select", legacyId);
 
   v3.addEventListener("change", () => {
     const legacy = getLegacyEl(legacyId);
@@ -98,6 +100,7 @@ export function bindFieldProxy(v3Id, legacyId) {
   if (!(v3 instanceof HTMLInputElement || v3 instanceof HTMLTextAreaElement)) {
     return;
   }
+  markBridgeTarget(v3, "field", legacyId);
 
   v3.addEventListener("input", () => {
     const legacy = getLegacyEl(legacyId);
@@ -115,6 +118,7 @@ export function bindCheckboxProxy(v3Id, legacyId) {
   if (!(v3 instanceof HTMLInputElement)) {
     return;
   }
+  markBridgeTarget(v3, "checkbox", legacyId);
 
   v3.addEventListener("change", () => {
     const legacy = getLegacyEl(legacyId);
@@ -192,6 +196,116 @@ export function syncControlDisabled(v3Id, legacyId) {
   v3.disabled = legacy.disabled;
 }
 
+export function syncLegacyListItems({
+  sourceSelector,
+  targetId,
+  emptyItem = "No items.",
+  itemSelector = ":scope > li"
+}) {
+  const source = document.querySelector(sourceSelector);
+  const target = document.getElementById(targetId);
+  if (!(source instanceof HTMLElement) || !(target instanceof HTMLElement)) {
+    return 0;
+  }
+
+  target.innerHTML = "";
+  let count = 0;
+  const items = Array.from(source.querySelectorAll(itemSelector));
+  items.forEach((sourceItem) => {
+    if (!(sourceItem instanceof HTMLElement)) {
+      return;
+    }
+    const li = document.createElement("li");
+    li.innerHTML = sourceItem.innerHTML;
+    target.appendChild(li);
+    count += 1;
+  });
+
+  if (!count) {
+    const li = document.createElement("li");
+    li.textContent = emptyItem;
+    li.classList.add("fpe-empty-state");
+    target.appendChild(li);
+  }
+
+  return count;
+}
+
+export function syncLegacyTableRows({
+  sourceSelector,
+  targetBodyId,
+  expectedCols = 1,
+  emptyLabel = "No rows.",
+  numericColumns = null
+}) {
+  const source = document.querySelector(sourceSelector);
+  const target = document.getElementById(targetBodyId);
+  if (!(target instanceof HTMLElement)) {
+    return 0;
+  }
+
+  target.innerHTML = "";
+  const sourceRows = source ? Array.from(source.querySelectorAll(":scope > tr")) : [];
+  const expected = Math.max(1, Number(expectedCols) || 1);
+  const numericSet = Array.isArray(numericColumns)
+    ? new Set(numericColumns.map((idx) => Number(idx)).filter((idx) => Number.isFinite(idx)))
+    : null;
+
+  let appended = 0;
+  sourceRows.forEach((sourceRow) => {
+    if (!(sourceRow instanceof HTMLTableRowElement)) {
+      return;
+    }
+    const sourceCells = Array.from(sourceRow.children).filter((cell) => cell instanceof HTMLTableCellElement);
+    if (!sourceCells.length) {
+      return;
+    }
+
+    const tr = document.createElement("tr");
+    sourceCells.forEach((cell, index) => {
+      const td = document.createElement("td");
+      td.innerHTML = cell.innerHTML || "—";
+      if (cell.classList.contains("num")) {
+        td.classList.add("num");
+      }
+      const shouldBeNumeric = numericSet
+        ? numericSet.has(index)
+        : index > 0 && index < expected - 1;
+      if (shouldBeNumeric) {
+        td.classList.add("num");
+      }
+
+      td.querySelectorAll("button").forEach((btn) => {
+        btn.className = "fpe-btn fpe-btn--ghost";
+      });
+      tr.appendChild(td);
+    });
+
+    while (tr.children.length < expected) {
+      const td = document.createElement("td");
+      td.textContent = "—";
+      td.className = "muted";
+      tr.appendChild(td);
+    }
+
+    target.appendChild(tr);
+    appended += 1;
+  });
+
+  if (!appended) {
+    const tr = document.createElement("tr");
+    const td = document.createElement("td");
+    td.colSpan = expected;
+    td.textContent = emptyLabel;
+    td.className = "fpe-empty-state";
+    tr.classList.add("fpe-empty-row");
+    tr.appendChild(td);
+    target.appendChild(tr);
+  }
+
+  return appended;
+}
+
 export function normalizeSurfaceActionRows(root) {
   if (!(root instanceof HTMLElement)) {
     return;
@@ -261,6 +375,24 @@ export function normalizeSurfaceActionRows(root) {
 
     node.replaceWith(wrapper);
   });
+
+  root.querySelectorAll(".fpe-action-row").forEach((row) => {
+    if (!(row instanceof HTMLElement)) {
+      return;
+    }
+    applyActionStripClass(row);
+  });
+}
+
+function markBridgeTarget(el, kind, legacyId) {
+  if (!(el instanceof HTMLElement)) {
+    return;
+  }
+  if (!legacyId) {
+    return;
+  }
+  el.dataset.v3LegacyId = legacyId;
+  el.dataset.v3BridgeKind = kind;
 }
 
 export function normalizeSurfaceMessages(root) {
@@ -330,6 +462,91 @@ export function normalizeSurfaceMessages(root) {
   normalizeMessageWindowLists(root);
 }
 
+export function normalizeSurfaceBlocks(root) {
+  if (!(root instanceof HTMLElement)) {
+    return;
+  }
+
+  root.querySelectorAll(".fpe-contained-block").forEach((block) => {
+    if (!(block instanceof HTMLElement)) {
+      return;
+    }
+    if (block.dataset.v3BlockNormalized === "1") {
+      return;
+    }
+    block.dataset.v3BlockNormalized = "1";
+
+    if (block.querySelector("ul.bullets, ol.bullets")) {
+      block.classList.add("fpe-contained-block--instruction");
+      return;
+    }
+
+    const hasStatusShape =
+      Boolean(block.querySelector(".fpe-control-label")) &&
+      Boolean(block.querySelector(".fpe-help, .muted, .note")) &&
+      !block.querySelector("input, select, textarea, button, .btn, .fpe-btn, .switch");
+
+    if (hasStatusShape) {
+      block.classList.add("fpe-contained-block--status");
+    }
+  });
+}
+
+export function normalizeSurfaceStatusPills(root) {
+  if (!(root instanceof HTMLElement)) {
+    return;
+  }
+
+  const nodes = root.querySelectorAll(".tag, .badge, .fpe-card__status");
+  nodes.forEach((node) => {
+    if (!(node instanceof HTMLElement)) {
+      return;
+    }
+    if (node.dataset.v3StatusPill === "1") {
+      return;
+    }
+    node.dataset.v3StatusPill = "1";
+    node.classList.add("fpe-status-pill");
+    node.classList.remove(
+      "fpe-status-pill--ok",
+      "fpe-status-pill--warn",
+      "fpe-status-pill--bad",
+      "fpe-status-pill--neutral"
+    );
+
+    const tone = classifyStatusTone(node);
+    node.classList.add(`fpe-status-pill--${tone}`);
+  });
+}
+
+export function normalizeSurfaceEmptyStates(root) {
+  if (!(root instanceof HTMLElement)) {
+    return;
+  }
+
+  root.querySelectorAll("tbody tr").forEach((row) => {
+    if (!(row instanceof HTMLTableRowElement)) {
+      return;
+    }
+    if (row.children.length !== 1) {
+      return;
+    }
+    const cell = row.children[0];
+    if (!(cell instanceof HTMLTableCellElement)) {
+      return;
+    }
+    if (cell.colSpan < 2) {
+      return;
+    }
+
+    const text = (cell.textContent || "").trim();
+    if (isEmptyStateText(text)) {
+      row.classList.add("fpe-empty-row");
+      cell.classList.add("fpe-empty-state");
+    }
+  });
+}
+
 function createMessageWindow(label, tone) {
   const root = document.createElement("div");
   root.className = `fpe-message-window fpe-message-window--${tone}`;
@@ -378,6 +595,39 @@ function classifyMessageTone(text, node) {
     return "status";
   }
   return "info";
+}
+
+function classifyStatusTone(node) {
+  const source = `${node.className || ""} ${(node.textContent || "").trim()}`.toLowerCase();
+
+  if (/(^|\s)(bad|error|critical|high-risk|red)(\s|$)/.test(source)) {
+    return "bad";
+  }
+  if (/(^|\s)(warn|warning|yellow|caution|pending|binding|risk)(\s|$)/.test(source)) {
+    return "warn";
+  }
+  if (/(^|\s)(ok|green|clear|ready|healthy|balanced|low)(\s|$)/.test(source)) {
+    return "ok";
+  }
+  return "neutral";
+}
+
+function isEmptyStateText(text) {
+  const normalized = String(text || "").trim().toLowerCase();
+  if (!normalized) {
+    return true;
+  }
+  if (normalized === "-" || normalized === "—") {
+    return true;
+  }
+  return (
+    normalized.startsWith("no ") ||
+    normalized.startsWith("not ") ||
+    normalized.includes("no rows") ||
+    normalized.includes("no records") ||
+    normalized.includes("not loaded") ||
+    normalized.includes("run snapshot")
+  );
 }
 
 function normalizeMessageWindowLists(root) {
@@ -457,6 +707,26 @@ function normalizeMessageWindowLists(root) {
 
     body.dataset.v3ListNormalized = "1";
   });
+}
+
+function applyActionStripClass(row) {
+  if (!(row instanceof HTMLElement)) {
+    return;
+  }
+
+  const hasAction = Boolean(
+    row.querySelector("button, .btn, .fpe-btn, a.btn, input[type='button'], input[type='submit']")
+  );
+  if (!hasAction) {
+    return;
+  }
+
+  const hasStatusText = Boolean(row.querySelector(".help, .help-text, .muted, .note, .mini-s"));
+  if (!hasStatusText) {
+    return;
+  }
+
+  row.classList.add("fpe-action-strip");
 }
 
 function isActionNode(node) {

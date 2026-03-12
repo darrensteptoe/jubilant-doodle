@@ -6,7 +6,6 @@ import {
   createWhyPanel,
   getCardBody
 } from "../componentFactory.js";
-import { mountLegacyClosest, mountLegacyNode } from "../compat.js";
 import { readTurnoutSnapshot } from "../stateBridge.js";
 import {
   bindCheckboxProxy,
@@ -19,6 +18,7 @@ import {
   syncCheckboxValue,
   syncControlDisabled,
   syncFieldValue,
+  syncLegacyTableRows,
   syncSelectValue
 } from "../surfaceUtils.js";
 
@@ -30,22 +30,22 @@ export function renderTurnoutSurface(mount) {
 
   const assumptionsCard = createCard({
     title: "Turnout assumptions",
-    description: "Baseline turnout, target override, and GOTV lift mode."
+    description: "Baseline turnout, target override, and module activation for realized-vote modeling."
   });
 
   const liftCard = createCard({
-    title: "Lift behavior",
-    description: "Diminishing-return behavior and basic/advanced lift controls."
+    title: "Lift controls",
+    description: "Diminishing-return behavior and lift parameters used to estimate turnout response."
   });
 
   const costInputsCard = createCard({
-    title: "Tactic cost inputs",
-    description: "Per-attempt tactic settings and overhead assumptions."
+    title: "Efficiency inputs",
+    description: "Per-attempt tactic settings and overhead assumptions for ROI comparison."
   });
 
   const efficiencyCard = createCard({
     title: "Efficiency comparison",
-    description: "Cost-per-net-vote and tactic comparison under current assumptions."
+    description: "Cost-per-net-vote and tactic comparison under current turnout assumptions."
   });
 
   const assumptionsHeaderToggle = document.createElement("div");
@@ -61,7 +61,7 @@ export function renderTurnoutSurface(mount) {
 
   const impactCard = createCard({
     title: "Realized vote impact",
-    description: "Readout of current turnout context against vote requirements."
+    description: "Turnout contribution against persuasion vote requirements and forecast posture."
   });
 
   const summaryCard = createCard({
@@ -231,42 +231,61 @@ export function renderTurnoutSurface(mount) {
   `;
 
   const efficiencyBody = getCardBody(efficiencyCard);
-  const efficiencyActions = document.createElement("div");
-  efficiencyActions.className = "fpe-action-row";
-  efficiencyActions.innerHTML = `
-    <button class="fpe-btn fpe-btn--ghost" id="v3BtnRoiRefresh" type="button">Refresh</button>
+  efficiencyBody.innerHTML = `
+    <div class="fpe-action-row">
+      <button class="fpe-btn fpe-btn--ghost" id="v3BtnRoiRefresh" type="button">Refresh</button>
+    </div>
+    <div class="table-wrap">
+      <table class="table" aria-label="Turnout efficiency comparison">
+        <thead>
+          <tr>
+            <th>Tactic</th>
+            <th class="num">Cost / attempt</th>
+            <th class="num">Cost / net vote</th>
+            <th class="num">Cost / TA net vote</th>
+            <th class="num">Total cost to close gap</th>
+            <th>Feasibility</th>
+          </tr>
+        </thead>
+        <tbody id="v3TurnoutRoiTbody">
+          <tr>
+            <td class="muted" colspan="6">Refresh ROI to compute efficiency comparison.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="fpe-contained-block fpe-contained-block--status">
+      <div class="fpe-control-label">ROI status</div>
+      <div class="fpe-help fpe-help--flush" id="v3TurnoutRoiBanner">-</div>
+    </div>
+    <div class="fpe-help fpe-help--flush">
+      ROI backbone: Attempts -> Contacts (CR) -> Support IDs (SR) -> Net votes (turnout-adjusted). Costs are deterministic.
+    </div>
   `;
-  efficiencyBody.append(efficiencyActions);
-  mountLegacyClosest({
-    key: "v3-turnout-roi-table",
-    childSelector: "#roiTbody",
-    closestSelector: ".table-wrap",
-    target: efficiencyBody
-  });
-  mountLegacyNode({
-    key: "v3-turnout-roi-banner",
-    selector: "#roiBanner",
-    target: efficiencyBody
-  });
-  mountLegacyNode({
-    key: "v3-turnout-roi-note",
-    selector: "#roiBanner ~ .note",
-    target: efficiencyBody
-  });
 
   const impactBody = getCardBody(impactCard);
-  mountLegacyNode({
-    key: "v3-turnout-summary-banner",
-    selector: "#turnoutSummary",
-    target: impactBody
-  });
   impactBody.insertAdjacentHTML(
     "beforeend",
     `
+      <div class="fpe-contained-block fpe-contained-block--status">
+        <div class="fpe-control-label">Turnout status</div>
+        <div class="fpe-help fpe-help--flush" id="v3TurnoutStatusBanner">-</div>
+      </div>
+      <div class="fpe-field-grid fpe-field-grid--3">
+        <div class="fpe-contained-block">
+          <div class="fpe-control-label">Expected turnout votes</div>
+          <div class="fpe-turnout-impact-value" id="v3TurnoutImpactVotes">-</div>
+        </div>
+        <div class="fpe-contained-block">
+          <div class="fpe-control-label">Persuasion votes needed</div>
+          <div class="fpe-turnout-impact-value" id="v3TurnoutImpactNeed">-</div>
+        </div>
+        <div class="fpe-contained-block">
+          <div class="fpe-control-label">Projected margin context</div>
+          <div class="fpe-turnout-impact-value" id="v3TurnoutImpactMargin">-</div>
+        </div>
+      </div>
       <div class="fpe-summary-grid">
-        <div class="fpe-summary-row"><span>Expected turnout votes</span><strong id="v3TurnoutImpactVotes">-</strong></div>
-        <div class="fpe-summary-row"><span>Persuasion votes needed</span><strong id="v3TurnoutImpactNeed">-</strong></div>
-        <div class="fpe-summary-row"><span>Projected margin context</span><strong id="v3TurnoutImpactMargin">-</strong></div>
         <div class="fpe-summary-row"><span>Win probability</span><strong id="v3TurnoutImpactWinProb">-</strong></div>
       </div>
     `
@@ -281,7 +300,7 @@ export function renderTurnoutSurface(mount) {
   `;
 
   controlsCol.append(assumptionsCard, liftCard);
-  analysisCol.append(costInputsCard, efficiencyCard);
+  analysisCol.append(efficiencyCard, costInputsCard);
   resultsCol.append(impactCard, summaryCard);
 
   frame.append(controlsCol, analysisCol, resultsCol);
@@ -345,6 +364,15 @@ function refreshTurnoutSummary() {
   setText("v3TurnoutImpactNeed", readText("#kpiPersuasionNeed-sidebar"));
   setText("v3TurnoutImpactMargin", readText("#mcP50"));
   setText("v3TurnoutImpactWinProb", readText("#mcWinProb-sidebar"));
+  setText("v3TurnoutStatusBanner", readText("#turnoutSummary"));
+  setText("v3TurnoutRoiBanner", readText("#roiBanner"));
+  syncLegacyTableRows({
+    sourceSelector: "#roiTbody",
+    targetBodyId: "v3TurnoutRoiTbody",
+    expectedCols: 6,
+    emptyLabel: "Refresh ROI to compute efficiency comparison.",
+    numericColumns: [1, 2, 3, 4]
+  });
 
   syncFieldValue("v3TurnoutBaselinePct", "turnoutBaselinePct");
   syncFieldValue("v3TurnoutTargetOverridePct", "turnoutTargetOverridePct");

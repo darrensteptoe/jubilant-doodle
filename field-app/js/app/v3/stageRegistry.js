@@ -87,3 +87,36 @@ export const V3_DEFAULT_STAGE = "district";
 export function getStageById(stageId) {
   return V3_STAGE_REGISTRY.find((stage) => stage.id === stageId) || null;
 }
+
+export function getStageByLegacyId(stageId) {
+  const normalized = String(stageId || "").trim().toLowerCase();
+  if (!normalized) {
+    return null;
+  }
+
+  return (
+    V3_STAGE_REGISTRY.find((stage) =>
+      Array.isArray(stage.legacyStageIds) &&
+      stage.legacyStageIds.some((legacyId) => String(legacyId || "").trim().toLowerCase() === normalized)
+    ) || null
+  );
+}
+
+export function resolveV3StageId(stageId) {
+  const normalized = String(stageId || "").trim();
+  if (!normalized) {
+    return V3_DEFAULT_STAGE;
+  }
+
+  const byV3Id = getStageById(normalized);
+  if (byV3Id) {
+    return byV3Id.id;
+  }
+
+  const byLegacyId = getStageByLegacyId(normalized);
+  if (byLegacyId) {
+    return byLegacyId.id;
+  }
+
+  return V3_DEFAULT_STAGE;
+}

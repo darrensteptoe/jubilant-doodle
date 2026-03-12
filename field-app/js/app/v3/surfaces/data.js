@@ -12,6 +12,7 @@ import {
   syncControlDisabled,
   bindSelectProxy,
   getLegacyEl,
+  readSelectedLabel,
   readText,
   setText,
   syncButtonDisabled,
@@ -26,7 +27,7 @@ export function renderDataSurface(mount) {
   const infraCol = createColumn("infra");
 
   const policyCard = createCard({
-    title: "Import policy & recovery",
+    title: "Policy & restore",
     description: "Strict import mode, integrity warnings, and local backup restore controls."
   });
   const policyHeaderToggle = document.createElement("div");
@@ -41,17 +42,17 @@ export function renderDataSurface(mount) {
   setCardHeaderControl(policyCard, policyHeaderToggle);
 
   const exchangeCard = createCard({
-    title: "Scenario import/export",
+    title: "Import / export",
     description: "JSON/CSV export and summary handoff controls."
   });
 
   const storageCard = createCard({
-    title: "External storage",
+    title: "Backups & storage",
     description: "Connect removable storage and manage manual sync operations."
   });
 
   const summaryCard = createCard({
-    title: "Data operations summary",
+    title: "Data summary",
     description: "Current policy and storage posture."
   });
 
@@ -116,12 +117,39 @@ export function renderDataSurface(mount) {
   `;
 
   getCardBody(summaryCard).innerHTML = `
-    <div class="fpe-summary-grid">
-      <div class="fpe-summary-row"><span>Strict import</span><strong id="v3DataStrictImport">-</strong></div>
-      <div class="fpe-summary-row"><span>Backup options</span><strong id="v3DataBackupCount">-</strong></div>
-      <div class="fpe-summary-row"><span>Import hash banner</span><strong id="v3DataHashBanner">-</strong></div>
-      <div class="fpe-summary-row"><span>Import warning banner</span><strong id="v3DataWarnBanner">-</strong></div>
-      <div class="fpe-summary-row"><span>USB storage status</span><strong id="v3DataUsbStatus">-</strong></div>
+    <div class="fpe-status-strip fpe-status-strip--2">
+      <div class="fpe-contained-block fpe-contained-block--status">
+        <div class="fpe-control-label">Strict import</div>
+        <div class="fpe-help fpe-help--flush" id="v3DataStrictImport">-</div>
+      </div>
+      <div class="fpe-contained-block fpe-contained-block--status">
+        <div class="fpe-control-label">Backup options</div>
+        <div class="fpe-help fpe-help--flush" id="v3DataBackupCount">-</div>
+      </div>
+    </div>
+    <div class="fpe-status-strip fpe-status-strip--3">
+      <div class="fpe-contained-block fpe-contained-block--status">
+        <div class="fpe-control-label">Import hash banner</div>
+        <div class="fpe-help fpe-help--flush" id="v3DataHashBanner">-</div>
+      </div>
+      <div class="fpe-contained-block fpe-contained-block--status">
+        <div class="fpe-control-label">Import warning banner</div>
+        <div class="fpe-help fpe-help--flush" id="v3DataWarnBanner">-</div>
+      </div>
+      <div class="fpe-contained-block fpe-contained-block--status">
+        <div class="fpe-control-label">USB storage status</div>
+        <div class="fpe-help fpe-help--flush" id="v3DataUsbStatus">-</div>
+      </div>
+    </div>
+    <div class="fpe-status-strip fpe-status-strip--2">
+      <div class="fpe-contained-block fpe-contained-block--status">
+        <div class="fpe-control-label">Selected backup</div>
+        <div class="fpe-help fpe-help--flush" id="v3DataRestoreSelection">-</div>
+      </div>
+      <div class="fpe-contained-block fpe-contained-block--status">
+        <div class="fpe-control-label">Import file</div>
+        <div class="fpe-help fpe-help--flush" id="v3DataImportFileSummary">-</div>
+      </div>
     </div>
   `;
 
@@ -171,6 +199,8 @@ function refreshDataSummary() {
     warnBanner && !warnBanner.hidden ? readText("#importWarnBanner") || "Visible" : "Hidden"
   );
   setText("v3DataUsbStatus", readText("#usbStorageStatus"));
+  setText("v3DataRestoreSelection", readSelectedLabel("#restoreBackup") || "No backup selected.");
+  setText("v3DataImportFileSummary", describeImportFile(getLegacyEl("loadJson")));
 }
 
 function wireDataBridge() {

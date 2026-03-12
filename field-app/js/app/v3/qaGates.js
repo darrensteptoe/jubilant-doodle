@@ -6,85 +6,125 @@ const STAGE_EXPECTATIONS = {
     "#v3DistrictUniverse",
     "#v3BtnAddCandidate",
     "#v3DistrictElectorateWeightingToggle",
-    "#censusPhase1Card",
-    "#censusStatus",
-    "#raceType",
-    "#universeSize",
-    "#turnoutA"
+    "#v3CensusStatus",
+    "#v3CensusAggregateTbody",
+    "#v3CensusAdvisoryTbody",
+    "#v3CensusMapShell",
+    "#v3DistrictTargetingStatus",
+    "#v3BtnDistrictRunTargeting",
+    "#v3DistrictTargetingResultsTbody",
+    "#v3DistrictRaceType",
+    "#v3DistrictUniverseSize",
+    "#v3DistrictTurnoutA"
   ],
   reach: [
     "#v3ReachGoal",
     "#v3ReachPersuasionPct",
     "#v3ReachSupportRatePct",
     "#v3ReachCapOverrideEnabled",
-    "#wkGoal",
-    "#wkCapacityPerWeek"
+    "#v3ReachOutlookTbody",
+    "#v3ReachLeversTbody"
   ],
   outcome: [
     "#v3OutcomeWinProb",
     "#v3OutcomeOrgCount",
     "#v3OutcomeMcMode",
+    "#v3OutcomeMcVolatility",
+    "#v3OutcomeTurnoutReliabilityPct",
+    "#v3OutcomeConfMargins",
+    "#v3OutcomeSensitivityTbody",
+    "#v3OutcomeSurfaceTbody",
+    "#v3OutcomeImpactTraceList",
     "#v3BtnOutcomeRun",
     "#v3BtnComputeSurface",
-    "#mcWinProb-sidebar",
-    "#mcP50"
+    "#v3OutcomeForecastWinProb"
   ],
   turnout: [
     "#v3TurnoutSummary",
     "#v3TurnoutBaselinePct",
     "#v3TurnoutMode",
     "#v3TurnoutDiminishingToggle",
+    "#v3TurnoutStatusBanner",
+    "#v3TurnoutRoiBanner",
+    "#v3TurnoutRoiTbody",
     "#v3RoiDoorsEnabled",
     "#v3RoiOverheadAmount",
     "#v3BtnRoiRefresh",
     "#v3TurnoutEnabledToggle",
-    "#turnoutSummary",
-    "#roiTbody"
+    "#v3TurnoutImpactMargin"
   ],
   plan: [
     "#v3PlanGoalSupportIds",
     "#v3PlanOptMode",
     "#v3PlanTimelineActiveWeeks",
     "#v3PlanExecutable",
+    "#v3PlanWorkloadBanner",
+    "#v3PlanOptBanner",
+    "#v3PlanTimelineBanner",
+    "#v3PlanOptAllocTbody",
+    "#v3PlanSummaryShiftsPerWeek",
+    "#v3PlanSummaryVolunteersNeeded",
+    "#v3PlanSummaryExecutable",
+    "#v3PlanSummaryConstraint",
+    "#v3PlanSummaryBinding",
+    "#v3PlanSummaryGapContext",
     "#v3BtnOptRun",
     "#v3PlanTimelineEnabledToggle",
-    "#tlPercent",
-    "#outShiftsPerWeek"
+    "#v3PlanWeekList"
   ],
   controls: [
     "#v3ControlsWorkflowStatus",
+    "#v3ControlsBenchmarkCount",
+    "#v3ControlsMissingEvidence",
+    "#v3ControlsCalibrationStatus",
+    "#v3ControlsRecommendationCount",
+    "#v3IntelBenchmarkTbody",
+    "#v3IntelEvidenceTbody",
     "#v3IntelScenarioLocked",
     "#v3IntelBenchmarkRef",
     "#v3IntelAuditSelect",
     "#v3IntelBriefKind",
     "#v3BtnIntelCaptureObserved",
-    "#intelWorkflowStatus",
-    "#intelCalibrationStatus"
+    "#v3IntelWorkflowStatus",
+    "#v3IntelCalibrationStatus"
   ],
   scenarios: [
     "#v3ScenarioActive",
     "#v3ScenarioSelect",
+    "#v3ScenarioWarningStatus",
+    "#v3ScenarioStorageStatus",
+    "#v3ScenarioDiffInputs",
+    "#v3ScenarioDiffOutputs",
     "#v3BtnScenarioSaveNew",
-    "#activeScenarioLabel",
-    "#scmCompareWrap"
+    "#v3ScenarioActiveLabel"
   ],
   "decision-log": [
     "#v3DecisionActiveSession",
     "#v3DecisionSessionSelect",
     "#v3DecisionRecommendSelect",
     "#v3BtnDecisionSensRun",
+    "#v3DecisionDriftTag",
+    "#v3DecisionBneckTbody",
+    "#v3DecisionSensTbody",
     "#v3DecisionObjectiveSummary",
+    "#v3DecisionRecommended",
+    "#v3DecisionConfidence",
+    "#v3DecisionRisk",
+    "#v3DecisionBottleneck",
     "#v3DecisionSummaryPreview",
-    "#decisionActiveLabel"
+    "#v3DecisionActiveLabel"
   ],
   data: [
     "#v3DataStrictImport",
     "#v3DataStrictToggle",
+    "#v3DataRestoreSelection",
+    "#v3DataImportFileSummary",
     "#v3DataBtnSaveJson",
-    "#toggleStrictImport",
-    "#usbStorageStatus"
+    "#v3DataUsbStatus",
+    "#v3DataHashBanner"
   ]
 };
+const STAGES_EXPECTING_NO_LEGACY_BRIDGE = new Set(["reach", "scenarios", "decision-log"]);
 
 export function runV3QaSmoke({ restoreStage = true, logToConsole = true } = {}) {
   const startedAt = Date.now();
@@ -96,6 +136,7 @@ export function runV3QaSmoke({ restoreStage = true, logToConsole = true } = {}) 
   recordCheck(checks, "v3-surface-mount", isTruthy(document.getElementById("v3SurfaceMount")));
   recordCheck(checks, "v3-kpi-strip", isTruthy(document.getElementById("v3KpiStrip")));
   recordCheck(checks, "v3-right-rail-slot", isTruthy(document.getElementById("v3RightRailSlot")));
+  recordCheck(checks, "legacy-shell-hidden", isTruthy(document.getElementById("app-shell-legacy")?.hidden));
   recordCheck(
     checks,
     "legacy-right-rail-present",
@@ -129,7 +170,32 @@ export function runV3QaSmoke({ restoreStage = true, logToConsole = true } = {}) 
       recordCheck(
         checks,
         `${stage.id}:selector:${selector}`,
-        isTruthy(document.querySelector(selector))
+        isTruthy(isSelectorInPane(pane, selector))
+      );
+    }
+
+    if (pane instanceof HTMLElement) {
+      const expectsNoLegacyBridge = STAGES_EXPECTING_NO_LEGACY_BRIDGE.has(stage.id);
+      const bridgedControls = Array.from(pane.querySelectorAll("[data-v3-legacy-id]"));
+      recordCheck(
+        checks,
+        `${stage.id}:bridge-control-count`,
+        expectsNoLegacyBridge ? bridgedControls.length === 0 : bridgedControls.length > 0
+      );
+      const missingBridgeTargets = bridgedControls.filter((el) => {
+        if (!(el instanceof HTMLElement)) {
+          return false;
+        }
+        const legacyId = el.dataset.v3LegacyId;
+        if (!legacyId) {
+          return false;
+        }
+        return !document.getElementById(legacyId);
+      });
+      recordCheck(
+        checks,
+        `${stage.id}:bridge-targets-exist`,
+        expectsNoLegacyBridge ? true : missingBridgeTargets.length === 0
       );
     }
   }
@@ -170,6 +236,21 @@ function recordCheck(checks, name, pass) {
 
 function isTruthy(value) {
   return Boolean(value);
+}
+
+function isSelectorInPane(pane, selector) {
+  if (!(pane instanceof HTMLElement) || !selector) {
+    return false;
+  }
+
+  const idMatch = selector.match(/^#([A-Za-z0-9_-]+)$/);
+  if (idMatch) {
+    const el = document.getElementById(idMatch[1]);
+    return !!el && pane.contains(el);
+  }
+
+  const el = pane.querySelector(selector);
+  return !!el;
 }
 
 function logQaReport(report) {

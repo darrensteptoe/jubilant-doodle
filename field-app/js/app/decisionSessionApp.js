@@ -315,6 +315,18 @@ export function wireDecisionSessionBindings(ctx){
   } = ctx || {};
 
   if (!els) return;
+  const hasLegacyDecisionUi = !!(
+    els.decisionActiveLabel ||
+    els.decisionSessionSelect ||
+    els.decisionObjective ||
+    els.decisionNotes ||
+    els.decisionOptionSelect ||
+    els.decisionRecommendSelect ||
+    els.decisionSummaryPreview ||
+    els.btnDecisionNew ||
+    els.btnDecisionOptionNew
+  );
+  if (!hasLegacyDecisionUi) return;
 
   const wireInput = (el, patchFn, { parse = v => v, event, onCommit } = {}) => {
     if (!el) return;

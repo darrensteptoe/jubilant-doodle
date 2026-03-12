@@ -23,6 +23,21 @@ export function wireScenarioManagerBindings(ctx){
   } = ctx || {};
 
   if (!els || typeof getState !== "function" || typeof replaceState !== "function") return;
+  const hasLegacyScenarioUi = !!(
+    els.activeScenarioLabel ||
+    els.scenarioSelect ||
+    els.scenarioNewName ||
+    els.btnScenarioSaveNew ||
+    els.btnScenarioCloneBaseline ||
+    els.btnScenarioLoadSelected ||
+    els.btnScenarioReturnBaseline ||
+    els.btnScenarioDelete ||
+    els.scWarn ||
+    els.scenarioStorageNote ||
+    els.scmDiffInputs ||
+    els.scmDiffOutputs
+  );
+  if (!hasLegacyScenarioUi) return;
 
   const createScenarioRecord = ({ name, fromInputs, fromOutputs }) => {
     const state = getState();

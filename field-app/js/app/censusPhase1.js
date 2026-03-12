@@ -2106,12 +2106,31 @@ async function onFetchRows({ s, key, getState, commitUIUpdate }){
   setStatus(s, `Fetching ACS rows for ${contextText(s)} (${resolutionLabel}, ${s.year})...`, false);
   commitUIUpdate({ persist: false });
   try{
+    const chooseCompatibleMetricSet = (audit) => {
+      const rows = Array.isArray(audit?.metricSets) ? audit.metricSets : [];
+      const compatible = rows.filter((row) => Array.isArray(row?.available) && row.available.length > 0);
+      if (!compatible.length) return "";
+      const nonAll = compatible.filter((row) => cleanText(row.metricSet) !== "all");
+      const pool = nonAll.length ? nonAll : compatible;
+      pool.sort((a, b) => {
+        const aAvail = Number.isFinite(Number(a?.available?.length)) ? Number(a.available.length) : 0;
+        const bAvail = Number.isFinite(Number(b?.available?.length)) ? Number(b.available.length) : 0;
+        if (bAvail !== aAvail) return bAvail - aAvail;
+        const aCoverage = Number.isFinite(Number(a?.coveragePct)) ? Number(a.coveragePct) : 0;
+        const bCoverage = Number.isFinite(Number(b?.coveragePct)) ? Number(b.coveragePct) : 0;
+        if (bCoverage !== aCoverage) return bCoverage - aCoverage;
+        return cleanText(a?.metricSet).localeCompare(cleanText(b?.metricSet));
+      });
+      return cleanText(pool[0]?.metricSet);
+    };
+
     let variableNames = variableCatalogCache.get(s.year);
     if (!Array.isArray(variableNames)){
       variableNames = await fetchVariableCatalog({ year: s.year, key });
       variableCatalogCache.set(s.year, variableNames);
     }
-    const variableResolution = resolveMetricSetVariables(s.metricSet, variableNames);
+    let activeMetricSet = cleanText(s.metricSet) || "core";
+    let variableResolution = resolveMetricSetVariables(activeMetricSet, variableNames);
     const bundleAudit = auditMetricSetsWithCatalog(variableNames);
     const summary = bundleAudit?.summary && typeof bundleAudit.summary === "object" ? bundleAudit.summary : null;
     const auditSummaryText = summary
@@ -2122,17 +2141,31 @@ async function onFetchRows({ s, key, getState, commitUIUpdate }){
     currentBeforeRows.variableCatalogYear = s.year;
     currentBeforeRows.variableCatalogCount = Array.isArray(variableNames) ? variableNames.length : 0;
     if (!variableResolution.available.length){
-      setStatus(currentBeforeRows, `Selected bundle has no compatible ACS variables for year ${s.year}.${auditSummaryText}`, true);
-      setLoadingFlags(currentBeforeRows, "rows", false);
-      commitUIUpdate();
-      return;
+      const fallbackMetricSet = chooseCompatibleMetricSet(bundleAudit);
+      if (!fallbackMetricSet){
+        setStatus(currentBeforeRows, `Selected bundle has no compatible ACS variables for year ${s.year}.${auditSummaryText}`, true);
+        setLoadingFlags(currentBeforeRows, "rows", false);
+        commitUIUpdate();
+        return;
+      }
+      const originalMetricSet = activeMetricSet;
+      activeMetricSet = fallbackMetricSet;
+      currentBeforeRows.metricSet = fallbackMetricSet;
+      s.metricSet = fallbackMetricSet;
+      variableResolution = resolveMetricSetVariables(activeMetricSet, variableNames);
+      setStatus(
+        currentBeforeRows,
+        `Selected bundle ${originalMetricSet || "—"} is incompatible with ACS ${s.year}. Auto-switched to ${fallbackMetricSet}.${auditSummaryText}`,
+        false
+      );
+      commitUIUpdate({ persist: false });
     }
     const rowsByGeoid = await fetchAcsRows({
       year: s.year,
       resolution: s.resolution,
       stateFips: s.stateFips,
       countyFips: s.countyFips,
-      metricSet: s.metricSet,
+      metricSet: activeMetricSet,
       variableNames,
       key,
     });
@@ -2164,11 +2197,11 @@ async function onFetchRows({ s, key, getState, commitUIUpdate }){
       const coverageText = Number.isFinite(coveragePct) ? `${(coveragePct * 100).toFixed(0)}%` : "partial";
       setStatus(
         current,
-        `Loaded ${current.loadedRowCount} ACS rows for ${currentResolutionLabel}. Bundle fallback active (${coverageText} vars present); missing: ${preview}${extra}.${auditSummaryText}`,
+        `Loaded ${current.loadedRowCount} ACS rows for ${currentResolutionLabel} using bundle ${activeMetricSet}. Bundle fallback active (${coverageText} vars present); missing: ${preview}${extra}.${auditSummaryText}`,
         false,
       );
     } else {
-      setStatus(current, `Loaded ${current.loadedRowCount} ACS rows for ${currentResolutionLabel}.${auditSummaryText}`, false);
+      setStatus(current, `Loaded ${current.loadedRowCount} ACS rows for ${currentResolutionLabel} using bundle ${activeMetricSet}.${auditSummaryText}`, false);
     }
   } catch (err){
     const current = ensureCensusStateModule(getState());

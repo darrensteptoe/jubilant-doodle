@@ -41,6 +41,12 @@ export function createOperationsCapacityOutlookController(deps = {}){
     updatedAt: null,
   };
 
+  const writeOutlookSnapshot = (state, snapshot) => {
+    if (!state || typeof state !== "object") return;
+    if (!state.ui || typeof state.ui !== "object") state.ui = {};
+    state.ui.twCapOutlookLatest = snapshot || null;
+  };
+
   const emptyOutlook = (message) => {
     const state = (typeof getState === "function" ? getState() : null) || {};
     overrideSig = "";
@@ -66,6 +72,27 @@ export function createOperationsCapacityOutlookController(deps = {}){
     twCapText(els?.twDiagReadyIn14d, "—");
     twCapText(els?.twDiagMedianReadyDays, "—");
     twCapText(els?.twDiagHintNote, "Display-only diagnostics. Add interview/onboarding/training records to unlock hints.");
+    writeOutlookSnapshot(state, {
+      status: message || "No Operations data.",
+      activeSource: state?.twCapOverrideEnabled ? "Override ON (data unavailable; fallback baseline)" : "Override OFF",
+      baseline: "—",
+      rampTotal: "—",
+      scheduledTotal: "—",
+      horizon: "—",
+      interviewPass: "—",
+      offerAccept: "—",
+      onboardingCompletion: "—",
+      trainingCompletion: "—",
+      compositeSignal: "—",
+      readyNow: "—",
+      readyPerWeek: "—",
+      readyIn14d: "—",
+      medianReadyDays: "—",
+      hintNote: "Display-only diagnostics. Add interview/onboarding/training records to unlock hints.",
+      basis: "Override is OFF by default. When enabled, FPE capacity uses selected Operations source with automatic fallback to baseline if data is unavailable.",
+      rows: [],
+      computedAt: new Date().toISOString(),
+    });
     if (els?.twCapOutlookTbody){
       els.twCapOutlookTbody.innerHTML = '<tr><td class="muted" colspan="5">No outlook data.</td></tr>';
     }
@@ -91,7 +118,6 @@ export function createOperationsCapacityOutlookController(deps = {}){
 
   const render = async (seq, horizonWeeks) => {
     if (seq !== outlookSeq) return;
-    if (!els?.twCapOutlookTbody) return;
     outlookLastRunMs = Date.now();
 
     twCapText(els.twCapOutlookStatus, "Updating Operations outlook…");
@@ -252,6 +278,36 @@ export function createOperationsCapacityOutlookController(deps = {}){
       "Override is OFF by default. When enabled, FPE capacity uses selected Operations source with automatic fallback to baseline if data is unavailable."
     );
 
+    writeOutlookSnapshot(state, {
+      status: `Source: baseline + pipeline + shifts · pipeline open ${openPipeline}/${pipelineCount} · shifts ${shiftCount} · beyond horizon +${beyondHorizonAdds.toFixed(2)} expected active`,
+      activeSource: activeSourceLabel,
+      baseline: twCapFmtInt(baselineAttempts),
+      rampTotal: twCapFmtInt(expectedByEnd),
+      scheduledTotal: twCapFmtInt(scheduledTotal),
+      horizon: `${rows.length} weeks · +${expectedAddedFte.toFixed(2)} expected active`,
+      interviewPass: twCapRatioText(interviewPassCount, interviewCompleteCount),
+      offerAccept: twCapRatioText(offerAcceptedCount, offerExtendedCount),
+      onboardingCompletion: twCapRatioText(onboardingCompleted, onboardingRows.length),
+      trainingCompletion: twCapRatioText(trainingCompleted, trainingRows.length),
+      compositeSignal: twCapFmtPct01(compositeRampSignal),
+      readyNow: twCapFmtInt(readiness.readyNow),
+      readyPerWeek: twCapFmt1(readiness.recentReadyPerWeek),
+      readyIn14d: twCapFmt1(readiness.projectedReady14d),
+      medianReadyDays: Number.isFinite(readiness.medianReadyDays) ? twCapFmt1(readiness.medianReadyDays) : "—",
+      hintNote: Number.isFinite(compositeRampSignal)
+        ? `Display-only diagnostics. Composite ramp signal ${(100 * compositeRampSignal).toFixed(1)}% (no engine mutation).`
+        : "Display-only diagnostics. Add interview/onboarding/training records to unlock hints.",
+      basis: "Override is OFF by default. When enabled, FPE capacity uses selected Operations source with automatic fallback to baseline if data is unavailable.",
+      rows: rows.map((row) => ({
+        weekStarting: row.weekStarting,
+        baseline: twCapFmtInt(row.baseline),
+        ramp: twCapFmtInt(row.ramp),
+        scheduled: twCapFmtInt(row.scheduled),
+        delta: twCapFmtSigned(row.delta),
+      })),
+      computedAt: new Date().toISOString(),
+    });
+
     if (state?.twCapOverrideEnabled && activeMode !== "baseline"){
       const sig = JSON.stringify({
         mode: activeMode,
@@ -270,23 +326,23 @@ export function createOperationsCapacityOutlookController(deps = {}){
       overrideSig = "";
     }
 
-    if (!els.twCapOutlookTbody) return;
-    els.twCapOutlookTbody.innerHTML = "";
-    for (const row of rows){
-      const tr = document.createElement("tr");
-      tr.innerHTML = `
-      <td>${row.weekStarting}</td>
-      <td class="num">${twCapFmtInt(row.baseline)}</td>
-      <td class="num">${twCapFmtInt(row.ramp)}</td>
-      <td class="num">${twCapFmtInt(row.scheduled)}</td>
-      <td class="num">${twCapFmtSigned(row.delta)}</td>
-    `;
-      els.twCapOutlookTbody.appendChild(tr);
+    if (els.twCapOutlookTbody){
+      els.twCapOutlookTbody.innerHTML = "";
+      for (const row of rows){
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+        <td>${row.weekStarting}</td>
+        <td class="num">${twCapFmtInt(row.baseline)}</td>
+        <td class="num">${twCapFmtInt(row.ramp)}</td>
+        <td class="num">${twCapFmtInt(row.scheduled)}</td>
+        <td class="num">${twCapFmtSigned(row.delta)}</td>
+      `;
+        els.twCapOutlookTbody.appendChild(tr);
+      }
     }
   };
 
   const schedule = (weeks) => {
-    if (!els?.twCapOutlookTbody) return;
     const seq = ++outlookSeq;
     if (outlookTimer) clearTimeout(outlookTimer);
 
