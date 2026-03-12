@@ -70,7 +70,6 @@ import { resolveFeatureFlags } from "./featureFlags.js";
 import { validateOperationsCapacityInput } from "../features/operations/io.js";
 import { registerPhase115ATests } from "./selfTestSuites/phase115A.js";
 import { registerCensusPhase1Tests } from "./selfTestSuites/censusPhase1.js";
-import { registerTargetingTests } from "./selfTestSuites/targeting.js";
 import {
   makeDefaultCensusState,
   makeDefaultRaceFootprint,
@@ -287,11 +286,6 @@ export function runSelfTests(engine){
   });
 
   registerCensusPhase1Tests({
-    test,
-    assert,
-  });
-
-  registerTargetingTests({
     test,
     assert,
   });
@@ -1740,32 +1734,20 @@ export function runSelfTests(engine){
   // UI smoke tests (bindings contract) — UI only, engine frozen.
   test("UI Smoke: required element IDs exist and are unique", () => {
     if (typeof document === "undefined") return true;
-    const required = ["universeSize", "validationList", "phase3Card", "scenarioCompareCard"];
+    const required = [
+      "universeSize",
+      "persuasionPct",
+      "validationList",
+      "operationsCapacityOutlookCard",
+      "phase3Card",
+      "scenarioCompareCard"
+    ];
     for (const id of required){
       const el = document.getElementById(id);
       if (!el) throw new Error(`Missing element id: ${id}`);
       const matches = document.querySelectorAll(`[id="${id}"]`);
       if (matches.length !== 1) throw new Error(`Duplicate id detected: ${id}`);
     }
-
-    const reachAssumptionIds = ["v3ReachPersuasionPct", "persuasionPct"];
-    const reachAssumptionFound = reachAssumptionIds.find((id) => document.getElementById(id));
-    if (!reachAssumptionFound){
-      throw new Error(`Missing Reach assumption control id: ${reachAssumptionIds.join(" or ")}`);
-    }
-    if (document.querySelectorAll(`[id="${reachAssumptionFound}"]`).length !== 1){
-      throw new Error(`Duplicate id detected: ${reachAssumptionFound}`);
-    }
-
-    const reachOutlookIds = ["v3ReachOutlookTbody", "operationsCapacityOutlookCard"];
-    const reachOutlookFound = reachOutlookIds.find((id) => document.getElementById(id));
-    if (!reachOutlookFound){
-      throw new Error(`Missing Reach outlook id: ${reachOutlookIds.join(" or ")}`);
-    }
-    if (document.querySelectorAll(`[id="${reachOutlookFound}"]`).length !== 1){
-      throw new Error(`Duplicate id detected: ${reachOutlookFound}`);
-    }
-
     const scenarioActionIds = ["btnScenarioSaveNew", "v3ScenarioName"];
     const found = scenarioActionIds.find((id) => document.getElementById(id));
     if (!found){

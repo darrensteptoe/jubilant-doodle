@@ -32,6 +32,7 @@ import {
   hasNonFiniteNumbers,
 } from "./export.js";
 
+import { runSelfTests as _runSelfTests } from "./core/selfTest.js";
 import { gateFromSelfTestResult, SELFTEST_GATE } from "./core/selfTestGate.js";
 
 // Phase R2 — Risk framing + robust selection (pure, additive)
@@ -68,26 +69,6 @@ function buildAccessors(){
     computeRoiRows: (...args) => computeRoiRows(...args),
     computeCapacityBreakdown: (args) => computeCapacityBreakdown(args),
   };
-}
-
-let selfTestModulePromise = null;
-async function runEngineSelfTests(){
-  if (!selfTestModulePromise){
-    selfTestModulePromise = import("./core/selfTest.js").catch(() => null);
-  }
-  const mod = await selfTestModulePromise;
-  const runSelfTests = mod && typeof mod.runSelfTests === "function"
-    ? mod.runSelfTests
-    : null;
-  if (!runSelfTests){
-    return {
-      total: 1,
-      passed: 0,
-      failed: 1,
-      failures: [{ name: "SelfTestLoader", message: "core/selfTest.js failed to load" }],
-    };
-  }
-  return runSelfTests(buildAccessors());
 }
 
 // Facade — MUST expose ONLY the documented surface area.
@@ -134,7 +115,7 @@ export const engine = {
   },
 
   selfTest: {
-    runSelfTests: () => runEngineSelfTests(),
+    runSelfTests: () => _runSelfTests(buildAccessors()),
     gateFromSelfTestResult,
     SELFTEST_GATE,
   },
