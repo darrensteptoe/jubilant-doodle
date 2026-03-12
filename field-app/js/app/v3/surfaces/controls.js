@@ -15,10 +15,9 @@ import {
   syncButtonDisabled,
   syncCheckboxValue,
   syncFieldValue,
-  syncLegacyTableRows,
   syncSelectValue
 } from "../surfaceUtils.js";
-import { listIntelEvidence } from "../../intelControlsRuntime.js";
+import { benchmarkRefLabel, listIntelBenchmarks, listIntelEvidence } from "../../intelControlsRuntime.js";
 
 const SCENARIO_API_KEY = "__FPE_SCENARIO_API__";
 
@@ -580,9 +579,7 @@ function wireControlsBenchmarkBridge() {
       const removeId = String(removeBtn.getAttribute("data-bm-remove") || "").trim();
       if (!removeId) return;
 
-      const legacyButtons = Array.from(
-        document.querySelectorAll("#intelBenchmarkTbody [data-bm-remove]")
-      );
+      const legacyButtons = Array.from(document.querySelectorAll("#app-shell-legacy [data-bm-remove]"));
       const legacyBtn = legacyButtons.find((btn) => {
         if (!(btn instanceof HTMLElement)) return false;
         return String(btn.getAttribute("data-bm-remove") || "").trim() === removeId;
@@ -615,17 +612,58 @@ function syncControlsBenchmarkBridge() {
     ["v3IntelBenchmarkSourceTitle", "intelBenchmarkSourceTitle"],
     ["v3IntelBenchmarkSourceNotes", "intelBenchmarkSourceNotes"]
   ]);
-  const benchmarkRows = syncLegacyTableRows({
-    sourceSelector: "#intelBenchmarkTbody",
-    targetBodyId: "v3IntelBenchmarkTbody",
-    expectedCols: 6,
-    emptyLabel: "No benchmark entries configured."
-  });
+  const benchmarkRows = syncBenchmarkRowsFromIntel();
   setText("v3IntelBenchmarkCount", formatRecordCount(benchmarkRows, "benchmark entry", "configured"));
   setText("v3IntelBenchmarkStatus", buildBenchmarkStatus());
 
   syncButtonDisabled("v3BtnIntelBenchmarkLoadDefaults", "btnIntelBenchmarkLoadDefaults");
   syncButtonDisabled("v3BtnIntelBenchmarkSave", "btnIntelBenchmarkSave");
+}
+
+function syncBenchmarkRowsFromIntel() {
+  const tbody = document.getElementById("v3IntelBenchmarkTbody");
+  if (!(tbody instanceof HTMLTableSectionElement)) {
+    return 0;
+  }
+
+  const intel = getActiveIntelStateSnapshot();
+  const rows = intel
+    ? listIntelBenchmarks({ intelState: intel }).slice().sort((a, b) => {
+        const ar = String(a?.ref || "");
+        const br = String(b?.ref || "");
+        return ar.localeCompare(br);
+      })
+    : [];
+  tbody.innerHTML = "";
+
+  if (!rows.length) {
+    const tr = document.createElement("tr");
+    const td = document.createElement("td");
+    td.colSpan = 6;
+    td.className = "muted";
+    td.textContent = "No benchmark entries configured.";
+    tr.appendChild(td);
+    tbody.appendChild(tr);
+    return 0;
+  }
+
+  rows.forEach((row) => {
+    const tr = document.createElement("tr");
+    const range = `${fmtNum(row?.range?.min)} .. ${fmtNum(row?.range?.max)}`;
+    const severity = `${fmtNum(row?.severityBands?.warnAbove)} / ${fmtNum(row?.severityBands?.hardAbove)}`;
+    const source = row?.source?.title || row?.source?.type || "—";
+    const removeId = String(row?.id || "");
+
+    appendCell(tr, benchmarkRefLabel(row?.ref), { subtext: row?.ref || "—" });
+    appendCell(tr, row?.raceType || "all");
+    appendCell(tr, range, { numeric: true });
+    appendCell(tr, severity, { numeric: true });
+    appendCell(tr, source);
+    appendCell(tr, "—", { numeric: true, actionId: removeId });
+    tbody.appendChild(tr);
+  });
+
+  return rows.length;
 }
 
 function wireControlsEvidenceBridge() {
@@ -1011,8 +1049,38 @@ function formatIsoDate(iso) {
   return text ? text.slice(0, 10) : "—";
 }
 
-function appendCell(row, value) {
+function appendCell(row, value, options = null) {
   const td = document.createElement("td");
-  td.textContent = String(value ?? "—");
+  if (options?.numeric) {
+    td.classList.add("num");
+  }
+  if (options?.actionId) {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "fpe-btn fpe-btn--ghost";
+    btn.textContent = "Remove";
+    btn.setAttribute("data-bm-remove", String(options.actionId));
+    td.appendChild(btn);
+    row.appendChild(td);
+    return;
+  }
+  const main = document.createElement("div");
+  main.textContent = String(value ?? "—");
+  td.appendChild(main);
+  if (options?.subtext) {
+    const sub = document.createElement("div");
+    sub.className = "muted";
+    sub.style.fontSize = "11px";
+    sub.textContent = String(options.subtext);
+    td.appendChild(sub);
+  }
   row.appendChild(td);
+}
+
+function fmtNum(value) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) {
+    return "—";
+  }
+  return Number.isInteger(n) ? String(n) : n.toFixed(2);
 }
