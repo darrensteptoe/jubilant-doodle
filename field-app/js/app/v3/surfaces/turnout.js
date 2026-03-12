@@ -362,7 +362,7 @@ function refreshTurnoutSummary() {
   setText("v3TurnoutNeedVotes", snapshot.needVotes || "-");
   setText("v3TurnoutImpactVotes", readText("#kpiTurnoutVotes-sidebar"));
   setText("v3TurnoutImpactNeed", readText("#kpiPersuasionNeed-sidebar"));
-  setText("v3TurnoutImpactMargin", readText("#mcP50"));
+  setText("v3TurnoutImpactMargin", readTurnoutMarginContext());
   setText("v3TurnoutImpactWinProb", readText("#mcWinProb-sidebar"));
   setText("v3TurnoutStatusBanner", readText("#turnoutSummary"));
   setText("v3TurnoutRoiBanner", readText("#roiBanner"));
@@ -437,4 +437,12 @@ function refreshTurnoutSummary() {
   syncControlDisabled("v3RoiIncludeOverhead", "roiIncludeOverhead");
 
   syncButtonDisabled("v3BtnRoiRefresh", "roiRefresh");
+}
+
+function readTurnoutMarginContext() {
+  const sidebar = readText("#mcP50-sidebar").replace(/^Median:\s*/i, "").trim();
+  if (sidebar) {
+    return sidebar;
+  }
+  return "—";
 }
