@@ -28,6 +28,8 @@ export function preflightElsModule(ctx){
       "candTbody",
       "undecidedPct",
       "undecidedMode",
+      "persuasionPct",
+      "earlyVoteExp",
       "censusPhase1Card",
       "censusApiKey",
       "censusAcsYear",

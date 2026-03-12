@@ -1680,65 +1680,63 @@ export function wireSafetyAndDiagnosticsEvents(ctx){
     return (initialState && typeof initialState === "object") ? initialState : null;
   };
 
-  if (!els || !currentState()) return;
+  if (!els || !currentState() || typeof safeCall !== "function") return;
 
-  if (els.toggleStrictImport){
-    const state = currentState();
-    els.toggleStrictImport.checked = !!state?.ui?.strictImport;
-    document.body.classList.toggle("strict-import", !!state?.ui?.strictImport);
-    els.toggleStrictImport.addEventListener("change", () => {
-      document.body.classList.toggle("strict-import", !!els.toggleStrictImport.checked);
-      setState((s) => { s.ui.strictImport = !!els.toggleStrictImport.checked; });
-    });
-  }
-
-  if (els.restoreBackup){
-    if (typeof safeCall === "function"){
-      safeCall(() => { refreshBackupDropdown(); }, { label: "wire.refreshBackupDropdown" });
-    } else {
-      try { refreshBackupDropdown(); } catch {}
+  safeCall(() => {
+    if (els.toggleStrictImport){
+      const state = currentState();
+      els.toggleStrictImport.checked = !!state?.ui?.strictImport;
+      document.body.classList.toggle("strict-import", !!state?.ui?.strictImport);
+      els.toggleStrictImport.addEventListener("change", () => {
+        document.body.classList.toggle("strict-import", !!els.toggleStrictImport.checked);
+        setState((s) => { s.ui.strictImport = !!els.toggleStrictImport.checked; });
+      });
     }
-    els.restoreBackup.addEventListener("change", () => {
-      const v = els.restoreBackup.value;
-      if (!v) return;
-      restoreBackupByIndex(v);
-      els.restoreBackup.value = "";
-    });
-  }
 
-  if (els.btnDiagnostics) els.btnDiagnostics.addEventListener("click", openDiagnostics);
-  if (els.btnDiagClose) els.btnDiagClose.addEventListener("click", closeDiagnostics);
-  if (els.diagModal){
-    els.diagModal.addEventListener("click", (e) => {
-      const t = e?.target;
-      if (t && t.getAttribute && t.getAttribute("data-close") === "1") closeDiagnostics();
-    });
-  }
-  if (els.btnCopyDebug) els.btnCopyDebug.addEventListener("click", () => { safeCall?.(() => { copyDebugBundle(); }); });
+    if (els.restoreBackup){
+      refreshBackupDropdown();
+      els.restoreBackup.addEventListener("change", () => {
+        const v = els.restoreBackup.value;
+        if (!v) return;
+        restoreBackupByIndex(v);
+        els.restoreBackup.value = "";
+      });
+    }
 
-  if (els.dailyLogExportBtn) els.dailyLogExportBtn.addEventListener("click", () => { safeCall?.(() => { exportDailyLog(); }); });
-  if (els.dailyLogImportBtn) els.dailyLogImportBtn.addEventListener("click", () => {
-    safeCall?.(() => {
-      const raw = String(els.dailyLogImportText?.value || "").trim();
-      if (!raw){
-        if (els.dailyLogImportMsg) els.dailyLogImportMsg.textContent = "Paste JSON first";
-        return;
-      }
-      let parsed = null;
-      try{
-        parsed = JSON.parse(raw);
-      } catch {
-        if (els.dailyLogImportMsg) els.dailyLogImportMsg.textContent = "Invalid JSON";
-        return;
-      }
-      const r = mergeDailyLogIntoState(parsed);
-      if (els.dailyLogImportMsg) els.dailyLogImportMsg.textContent = r.msg;
+    if (els.btnDiagnostics) els.btnDiagnostics.addEventListener("click", openDiagnostics);
+    if (els.btnDiagClose) els.btnDiagClose.addEventListener("click", closeDiagnostics);
+    if (els.diagModal){
+      els.diagModal.addEventListener("click", (e) => {
+        const t = e?.target;
+        if (t && t.getAttribute && t.getAttribute("data-close") === "1") closeDiagnostics();
+      });
+    }
+    if (els.btnCopyDebug) els.btnCopyDebug.addEventListener("click", () => { safeCall(() => { copyDebugBundle(); }); });
+
+    if (els.dailyLogExportBtn) els.dailyLogExportBtn.addEventListener("click", () => { safeCall(() => { exportDailyLog(); }); });
+    if (els.dailyLogImportBtn) els.dailyLogImportBtn.addEventListener("click", () => {
+      safeCall(() => {
+        const raw = String(els.dailyLogImportText?.value || "").trim();
+        if (!raw){
+          if (els.dailyLogImportMsg) els.dailyLogImportMsg.textContent = "Paste JSON first";
+          return;
+        }
+        let parsed = null;
+        try{
+          parsed = JSON.parse(raw);
+        } catch {
+          if (els.dailyLogImportMsg) els.dailyLogImportMsg.textContent = "Invalid JSON";
+          return;
+        }
+        const r = mergeDailyLogIntoState(parsed);
+        if (els.dailyLogImportMsg) els.dailyLogImportMsg.textContent = r.msg;
+      });
     });
+
+    if (els.applyRollingCRBtn) els.applyRollingCRBtn.addEventListener("click", () => { safeCall(() => { applyRollingRateToAssumption("contact"); }); });
+    if (els.applyRollingSRBtn) els.applyRollingSRBtn.addEventListener("click", () => { safeCall(() => { applyRollingRateToAssumption("support"); }); });
+    if (els.applyRollingAPHBtn) els.applyRollingAPHBtn.addEventListener("click", () => { safeCall(() => { applyRollingRateToAssumption("productivity"); }); });
+    if (els.applyRollingAllBtn) els.applyRollingAllBtn.addEventListener("click", () => { safeCall(() => { applyAllRollingCalibrations?.(); }); });
+    if (els.wkUndoActionBtn) els.wkUndoActionBtn.addEventListener("click", () => { safeCall(() => { undoLastWeeklyAction(); }); });
   });
-
-  if (els.applyRollingCRBtn) els.applyRollingCRBtn.addEventListener("click", () => { safeCall?.(() => { applyRollingRateToAssumption("contact"); }); });
-  if (els.applyRollingSRBtn) els.applyRollingSRBtn.addEventListener("click", () => { safeCall?.(() => { applyRollingRateToAssumption("support"); }); });
-  if (els.applyRollingAPHBtn) els.applyRollingAPHBtn.addEventListener("click", () => { safeCall?.(() => { applyRollingRateToAssumption("productivity"); }); });
-  if (els.applyRollingAllBtn) els.applyRollingAllBtn.addEventListener("click", () => { safeCall?.(() => { applyAllRollingCalibrations?.(); }); });
-  if (els.wkUndoActionBtn) els.wkUndoActionBtn.addEventListener("click", () => { safeCall?.(() => { undoLastWeeklyAction(); }); });
 }
