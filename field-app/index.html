@@ -2583,8 +2583,8 @@
 <!-- /app-shell -->
 </div>
 <!-- /app-shell-legacy -->
-<script src="./js/app.js?v=20260312-runtime-crashfix-9" type="module"></script>
-<script src="./js/app/v3/index.js?v=20260312-runtime-crashfix-9" type="module"></script>
+<script src="./js/app.js?v=20260312-runtime-crashfix-10" type="module"></script>
+<script src="./js/app/v3/index.js?v=20260312-runtime-crashfix-10" type="module"></script>
 <script>
 // ── Stage navigation ───────────────────────────────────────────
 window.__FPE_BOOT_ERRORS = Array.isArray(window.__FPE_BOOT_ERRORS) ? window.__FPE_BOOT_ERRORS : [];
@@ -2755,13 +2755,13 @@ function runBootProbe(){
   if (window.__FPE_BOOT_PROBE_RUNNING__) return;
   window.__FPE_BOOT_PROBE_RUNNING__ = true;
   var urls = [
-    './js/app.js?v=20260312-runtime-crashfix-9',
-    './js/appRuntime.js?v=20260312-runtime-crashfix-9',
+    './js/app.js?v=20260312-runtime-crashfix-10',
+    './js/appRuntime.js?v=20260312-runtime-crashfix-10',
     './js/engine.js',
     './js/build.js',
     './js/app/renderMain.js',
     './js/app/wireEventsRuntime.js',
-    './js/app/v3/index.js?v=20260312-runtime-crashfix-9'
+    './js/app/v3/index.js?v=20260312-runtime-crashfix-10'
   ];
   Promise.all(urls.map(function(url){
     return fetch(url, { cache: 'no-store' })
@@ -2789,7 +2789,7 @@ function attemptRuntimeBootstrapFallback(){
   if (window.__FPE_BOOTSTRAP_ATTEMPTED__) return;
   window.__FPE_BOOTSTRAP_ATTEMPTED__ = true;
   window.__FPE_BOOT_PHASE__ = 'inline-runtime-import-start';
-  import('./js/appRuntime.js?v=20260312-runtime-crashfix-9')
+  import('./js/appRuntime.js?v=20260312-runtime-crashfix-10')
     .then(function(){
       if (window.__FPE_BOOT_READY__ !== false) window.__FPE_BOOT_READY__ = true;
       window.__FPE_BOOT_PHASE__ = 'inline-runtime-import-ready';
@@ -2808,20 +2808,23 @@ function attemptRuntimeBootstrapFallback(){
 
 document.addEventListener('DOMContentLoaded', function(){
   runBootProbe();
+  window.setTimeout(function(){
+    runBootProbe();
+    if (window.__FPE_BOOT_READY__ !== true) {
+      attemptRuntimeBootstrapFallback();
+    }
+  }, 50);
+
   if (shouldUseLegacyShell()) {
     initLegacyInlineShell();
     return;
   }
 
   window.setTimeout(function(){
-    runBootProbe();
-    if (window.__FPE_BOOT_READY__ !== true) {
-      attemptRuntimeBootstrapFallback();
-    }
     if (!isV3BridgeActive()) {
       initLegacyInlineShell();
     }
-  }, 50);
+  }, 0);
 });
 </script>
 <div class="modal" hidden="" id="diagModal">
