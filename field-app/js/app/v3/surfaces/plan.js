@@ -21,6 +21,8 @@ import {
   syncSelectValue
 } from "../surfaceUtils.js";
 
+const REACH_API_KEY = "__FPE_REACH_API__";
+
 export function renderPlanSurface(mount) {
   const frame = createSurfaceFrame("three-col");
   const workloadCol = createColumn("workload");
@@ -427,8 +429,9 @@ function wirePlanControlProxies() {
 }
 
 function refreshPlanSummary() {
-  const outConversationsNeeded = readText("#outConversationsNeeded");
-  const outDoorsNeeded = readText("#outDoorsNeeded");
+  const reachWeekly = readReachWeeklySnapshot();
+  const outConversationsNeeded = String(reachWeekly.requiredConvos || "").trim();
+  const outDoorsNeeded = String(reachWeekly.requiredDoors || "").trim();
   const workload = buildPlanWorkloadOutputs({ outDoorsNeeded });
   const outShiftsPerWeek = workload.shiftsPerWeek;
   const outVolunteersNeeded = workload.volunteersNeeded;
@@ -656,6 +659,26 @@ function buildPlanRecommendationProbability(constraint, shortfallVotes) {
     return "Close remaining vote shortfall to improve modeled win confidence.";
   }
   return "Probability posture is stable under current assumptions.";
+}
+
+function readReachWeeklySnapshot() {
+  const api = window[REACH_API_KEY];
+  if (!api || typeof api !== "object" || typeof api.getView !== "function") {
+    return {};
+  }
+  try {
+    const view = api.getView();
+    if (!view || typeof view !== "object") {
+      return {};
+    }
+    const weekly = view.weekly;
+    if (!weekly || typeof weekly !== "object") {
+      return {};
+    }
+    return weekly;
+  } catch {
+    return {};
+  }
 }
 
 function buildPlanDerivedStatus({ outShiftsPerWeek, outVolunteersNeeded }) {
