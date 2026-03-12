@@ -134,6 +134,9 @@ Scope: UI architecture migration only (engine and right rail frozen)
 - Outcome bridge reduction: v3 Outcome confidence adjunct copy is now v3-derived (no direct reads from legacy `#opsAtt*`, `#opsCon*`, `#opsFinish*`, `#mcMoS/#mcDownside/#mcES10`, `#mcShift60/#mcShift70/#mcShift80`, `#mcShock10/#mcShock25/#mcShock50`, or `#impactTraceList`), and outcome capacity context no longer falls back to legacy `stage-capacity`/`stage-setup` IDs.
 - Turnout bridge reduction: v3 Turnout projected-margin context now reads from v3 KPI (`#v3KpiMargin`) rather than right-rail `#mcP50-sidebar`.
 - Plan bridge reduction: v3 Plan optimizer/timeline adjunct cards now derive totals and timeline diagnostics from v3-rendered state (`v3PlanOptAllocTbody` + synced timeline fields), removing direct reads of legacy `#optTotal*`, `#tlOpt*`, `#tlCompletionWeek`, and `#tlWeekList`.
+- Outcome bridge reduction: v3 Outcome risk/freshness/cliff status stack now derives from v3 confidence context (no direct reads from right-rail `#riskBandTag-sidebar/#riskVolatility-sidebar/#riskPlainBanner-sidebar/#mcFreshTag-sidebar/#mcLastRun-sidebar/#mcStale-sidebar`), and no longer reads `#timelineWeeksAuto` from legacy ROI stage.
+- Plan bridge reduction: v3 Plan Decision-Intel levers table no longer mirrors legacy `#diVolTbody/#diCostTbody/#diProbTbody`; rows now render natively from current v3 plan context.
+- Outcome bridge reduction: v3 Outcome percentile context now reads from legacy confidence-envelope IDs (`#mcP10/#mcP50/#mcP90`) instead of right-rail percentile tags, removing Outcome dependency on `stage-integrity` and consolidating Outcome legacy reads under `stage-results`.
 - Legacy `stage-capacity` visual surface has been retired from `index.html` user flow (hidden retired stub retained during transition); preflight no longer requires legacy Reach assumption IDs.
 - Added v3 stage persistence/cutover behavior (`js/app/v3/index.js`):
   - Active stage persists to local storage.

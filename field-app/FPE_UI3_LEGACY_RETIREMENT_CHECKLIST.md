@@ -44,6 +44,9 @@ Reference artifact:
 - Outcome v3 confidence adjunct text now derives in v3 (no direct reads of legacy `#opsAtt*`, `#opsCon*`, `#opsFinish*`, `#mcMoS/#mcDownside/#mcES10`, `#mcShift60/#mcShift70/#mcShift80`, `#mcShock10/#mcShock25/#mcShock50`, or `#impactTraceList`), and outcome capacity note no longer falls back to `stage-capacity` / `stage-setup` IDs.
 - Turnout v3 margin context now resolves from v3 KPI (`#v3KpiMargin`) instead of `#mcP50-sidebar`, removing Turnout’s last `stage-integrity` dependency.
 - Plan v3 timeline/optimizer adjunct copy now derives in v3 (no direct reads of legacy `#optTotalAttempts/#optTotalCost/#optTotalVotes`, `#tlOptGoalFeasible/#tlOptMaxNetVotes/#tlOptRemainingGap/#tlOptBinding`, `#tlCompletionWeek`, or `#tlWeekList`).
+- Outcome v3 now derives risk-grade/freshness/fragility/cliff status copy in v3 logic (no direct reads from `#riskBandTag-sidebar/#riskVolatility-sidebar/#riskPlainBanner-sidebar/#mcFreshTag-sidebar/#mcLastRun-sidebar/#mcStale-sidebar`), and no longer reads legacy timeline weeks from ROI stage.
+- Plan v3 decision-intel lever tables are now native v3 rows derived from current plan context (no legacy mirrors from `#diVolTbody/#diCostTbody/#diProbTbody`).
+- Outcome v3 percentile context now reads directly from confidence-envelope IDs (`#mcP10/#mcP50/#mcP90`) rather than sidebar percentile tags, fully removing Outcome’s direct `stage-integrity` dependency.
 
 ## Stage dependency map (current)
 Counts below are unique legacy IDs referenced by each v3 surface.
@@ -56,11 +59,9 @@ Counts below are unique legacy IDs referenced by each v3 surface.
 | District | `stage-structure` | 6 |
 | District | `stage-universe` | 3 |
 | Reach | `stage-capacity` | 0 |
-| Outcome | `stage-results` | 40 |
-| Outcome | `stage-integrity` | 6 |
-| Outcome | `stage-roi` | 1 |
+| Outcome | `stage-results` | 43 |
 | Turnout | `stage-roi` | 30 |
-| Plan | `stage-roi` | 31 |
+| Plan | `stage-roi` | 28 |
 | Plan | `stage-gotv` | 10 |
 | Controls | `stage-checks` | 50 |
 | Scenarios | retired (`stage-scenarios`) | 0 |
