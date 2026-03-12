@@ -119,7 +119,7 @@ Scope: UI architecture migration only (engine and right rail frozen)
 - Reach bridge fix: `Finish date` now correctly reads legacy `#wkFinishAttempts` (previous stale `#wkFinishDoors` reference removed), and label text now matches the underlying attempts metric.
 - Reach bridge hardening: removed v3 legacy DOM fallback reads for weekly/outlook/levers/actions; Reach v3 now uses runtime API bridge only (`window.__FPE_REACH_API__`), reducing dependency on `stage-capacity`.
 - Turnout bridge reduction: removed direct `#mcP50` read from v3 Turnout impact context; margin context now resolves from right-rail `#mcP50-sidebar`, eliminating Turnout's direct dependency on `stage-results`.
-- Outcome bridge reduction: v3 Outcome now prefers right-rail MC/risk metrics (`#mcP10-sidebar/#mcP50-sidebar/#mcP90-sidebar`, freshness tags, risk band) before legacy `stage-results` IDs, reducing hard coupling while keeping legacy fallback.
+- Outcome bridge reduction: v3 Outcome now sources core MC/risk display metrics directly from right-rail IDs (`#mcP10-sidebar/#mcP50-sidebar/#mcP90-sidebar`, freshness tags, risk band) instead of legacy `stage-results` IDs for those fields.
 - Legacy `stage-capacity` visual surface has been retired from `index.html` user flow (hidden retired stub retained during transition); preflight no longer requires legacy Reach assumption IDs.
 - Added v3 stage persistence/cutover behavior (`js/app/v3/index.js`):
   - Active stage persists to local storage.
