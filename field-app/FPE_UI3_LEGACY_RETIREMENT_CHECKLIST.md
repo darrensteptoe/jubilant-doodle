@@ -35,6 +35,8 @@ Reference artifact:
 - Outcome v3 surface now sources forecast median/upside/downside display from sidebar percentiles (`#mcP50-sidebar/#mcP90-sidebar/#mcP10-sidebar`) instead of legacy `#mcMedian/#mcP95/#mcP5`.
 - Outcome v3 surface now uses native v3 copy for surface/impact helper text, removing direct reads from legacy `#surfaceStatus/#surfaceSummary/#impactTraceNote`.
 - Outcome v3 confidence envelope now derives miss-risk label in v3 from `#opsMissProb`, removing direct read of legacy `#opsMissTag`.
+- Outcome v3 now derives `Shift needed (P50/P10)` directly from sidebar margin values (`#mcP50-sidebar/#mcP10-sidebar`), removing direct reads from legacy `#mcShiftP50/#mcShiftP10`.
+- Plan v3 surface now derives workload/optimizer/timeline status copy and decision-intel summary text in v3 logic, removing direct reads from legacy banner/recommendation IDs (`#convFeasBanner/#optBanner/#tlBanner/#di*`).
 
 ## Stage dependency map (current)
 Counts below are unique legacy IDs referenced by each v3 surface.
@@ -45,13 +47,13 @@ Counts below are unique legacy IDs referenced by each v3 surface.
 | District | `stage-checks` | 65 |
 | District | `stage-gotv` | 8 |
 | Reach | `stage-capacity` | 0 |
-| Outcome | `stage-results` | 79 |
+| Outcome | `stage-results` | 77 |
 | Outcome | `stage-integrity` | 1 |
 | Turnout | `stage-roi` | 32 |
 | Turnout | `stage-results` | 0 |
 | Turnout | `stage-integrity` | 3 |
-| Plan | `stage-roi` | 49 |
-| Plan | `stage-gotv` | 11 |
+| Plan | `stage-roi` | 40 |
+| Plan | `stage-gotv` | 10 |
 | Controls | `stage-checks` | 69 |
 | Scenarios | retired (`stage-scenarios`) | 0 |
 | Decision Log | retired (`stage-decisions`) | 0 |

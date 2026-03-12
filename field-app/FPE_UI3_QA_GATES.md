@@ -125,6 +125,8 @@ Scope: UI architecture migration only (engine and right rail frozen)
 - Outcome bridge reduction: v3 Outcome weekly capacity/gap context now resolves from weekly-ops IDs (`#wkCapacityPerWeek/#wkGapPerWeek/#wkConstraintNote` + `#timelineWeeksAuto/#weeksRemaining`) instead of legacy `#p3*` result IDs.
 - Outcome bridge reduction: v3 Outcome surface-status/summary/impact-note helper copy is now native in the v3 card body, removing direct reads from legacy `#surfaceStatus/#surfaceSummary/#impactTraceNote`.
 - Outcome bridge reduction: v3 Outcome confidence miss-risk label is now derived from `#opsMissProb` in v3 logic, removing direct dependency on legacy `#opsMissTag`.
+- Outcome bridge reduction: v3 Outcome shift-needed (P50/P10) values are now derived from sidebar margins, removing direct reads from legacy `#mcShiftP50/#mcShiftP10`.
+- Plan bridge reduction: v3 Plan workload/optimizer/timeline banners and decision-intel text summaries are now derived in v3 logic, removing direct reads from legacy banner/recommendation IDs (`#convFeasBanner/#optBanner/#tlBanner/#di*`).
 - Legacy `stage-capacity` visual surface has been retired from `index.html` user flow (hidden retired stub retained during transition); preflight no longer requires legacy Reach assumption IDs.
 - Added v3 stage persistence/cutover behavior (`js/app/v3/index.js`):
   - Active stage persists to local storage.
