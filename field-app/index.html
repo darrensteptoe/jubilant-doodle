@@ -2583,8 +2583,8 @@
 <!-- /app-shell -->
 </div>
 <!-- /app-shell-legacy -->
-<script src="./js/app.js?v=20260312-runtime-crashfix-7" type="module"></script>
-<script src="./js/app/v3/index.js?v=20260312-runtime-crashfix-7" type="module"></script>
+<script src="./js/appBoot.js?v=20260312-runtime-crashfix-8" type="module"></script>
+<script src="./js/app/v3/index.js?v=20260312-runtime-crashfix-8" type="module"></script>
 <script>
 // ── Stage navigation ───────────────────────────────────────────
 window.__FPE_BOOT_ERRORS = Array.isArray(window.__FPE_BOOT_ERRORS) ? window.__FPE_BOOT_ERRORS : [];
@@ -2755,13 +2755,13 @@ function runBootProbe(){
   if (window.__FPE_BOOT_PROBE_RUNNING__) return;
   window.__FPE_BOOT_PROBE_RUNNING__ = true;
   var urls = [
-    './js/app.js?v=20260312-runtime-crashfix-7',
-    './js/appRuntime.js?v=20260312-runtime-crashfix-7',
+    './js/appBoot.js?v=20260312-runtime-crashfix-8',
+    './js/appRuntime.js?v=20260312-runtime-crashfix-8',
     './js/engine.js',
     './js/build.js',
     './js/app/renderMain.js',
     './js/app/wireEventsRuntime.js',
-    './js/app/v3/index.js?v=20260312-runtime-crashfix-7'
+    './js/app/v3/index.js?v=20260312-runtime-crashfix-8'
   ];
   Promise.all(urls.map(function(url){
     return fetch(url, { cache: 'no-store' })
