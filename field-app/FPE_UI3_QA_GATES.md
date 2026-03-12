@@ -127,6 +127,9 @@ Scope: UI architecture migration only (engine and right rail frozen)
 - Outcome bridge reduction: v3 Outcome confidence miss-risk label is now derived from `#opsMissProb` in v3 logic, removing direct dependency on legacy `#opsMissTag`.
 - Outcome bridge reduction: v3 Outcome shift-needed (P50/P10) values are now derived from sidebar margins, removing direct reads from legacy `#mcShiftP50/#mcShiftP10`.
 - Plan bridge reduction: v3 Plan workload/optimizer/timeline banners and decision-intel text summaries are now derived in v3 logic, removing direct reads from legacy banner/recommendation IDs (`#convFeasBanner/#optBanner/#tlBanner/#di*`).
+- Outcome bridge reduction: v3 Outcome now reads win probability from v3 KPI (`#v3KpiWinProb`) and derives weekly gap from note context, removing direct reads from `#mcWinProb-sidebar` and `#wkGapPerWeek`.
+- Turnout bridge reduction: v3 Turnout impact/status now uses turnout snapshot + v3 KPI, removing direct reads from sidebar/status IDs (`#kpiTurnoutVotes-sidebar/#kpiPersuasionNeed-sidebar/#mcWinProb-sidebar/#turnoutSummary/#roiBanner`).
+- Data bridge reduction: v3 Data status summary now derives from v3 bridge-state controls, removing direct reads from `#importHashBanner/#importWarnBanner/#usbStorageStatus`.
 - Legacy `stage-capacity` visual surface has been retired from `index.html` user flow (hidden retired stub retained during transition); preflight no longer requires legacy Reach assumption IDs.
 - Added v3 stage persistence/cutover behavior (`js/app/v3/index.js`):
   - Active stage persists to local storage.

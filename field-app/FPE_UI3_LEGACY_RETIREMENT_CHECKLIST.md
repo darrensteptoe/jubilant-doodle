@@ -37,6 +37,9 @@ Reference artifact:
 - Outcome v3 confidence envelope now derives miss-risk label in v3 from `#opsMissProb`, removing direct read of legacy `#opsMissTag`.
 - Outcome v3 now derives `Shift needed (P50/P10)` directly from sidebar margin values (`#mcP50-sidebar/#mcP10-sidebar`), removing direct reads from legacy `#mcShiftP50/#mcShiftP10`.
 - Plan v3 surface now derives workload/optimizer/timeline status copy and decision-intel summary text in v3 logic, removing direct reads from legacy banner/recommendation IDs (`#convFeasBanner/#optBanner/#tlBanner/#di*`).
+- Outcome v3 now reads win probability from v3 KPI (`#v3KpiWinProb`) and derives weekly gap from v3 note context, removing direct reads of `#mcWinProb-sidebar` and `#wkGapPerWeek`.
+- Turnout v3 now uses turnout snapshot + v3 KPI for impact/status copy, removing direct reads of `#kpiTurnoutVotes-sidebar/#kpiPersuasionNeed-sidebar/#mcWinProb-sidebar/#turnoutSummary/#roiBanner`.
+- Data v3 summary/status now derives from v3 controls/bridge UI state, removing direct reads of `#importHashBanner/#importWarnBanner/#usbStorageStatus`.
 
 ## Stage dependency map (current)
 Counts below are unique legacy IDs referenced by each v3 surface.
@@ -47,17 +50,17 @@ Counts below are unique legacy IDs referenced by each v3 surface.
 | District | `stage-checks` | 65 |
 | District | `stage-gotv` | 8 |
 | Reach | `stage-capacity` | 0 |
-| Outcome | `stage-results` | 77 |
-| Outcome | `stage-integrity` | 1 |
-| Turnout | `stage-roi` | 32 |
+| Outcome | `stage-results` | 60 |
+| Outcome | `stage-integrity` | 0 |
+| Turnout | `stage-roi` | 30 |
 | Turnout | `stage-results` | 0 |
-| Turnout | `stage-integrity` | 3 |
+| Turnout | `stage-integrity` | 0 |
 | Plan | `stage-roi` | 40 |
 | Plan | `stage-gotv` | 10 |
 | Controls | `stage-checks` | 69 |
 | Scenarios | retired (`stage-scenarios`) | 0 |
 | Decision Log | retired (`stage-decisions`) | 0 |
-| Data | `stage-integrity` | 13 |
+| Data | `stage-integrity` | 10 |
 
 ## Safe delete order (enforced)
 Delete only when the referenced surface(s) show zero bridge targets for that legacy container.
