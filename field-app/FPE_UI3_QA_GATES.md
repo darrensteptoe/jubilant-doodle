@@ -121,6 +121,10 @@ Scope: UI architecture migration only (engine and right rail frozen)
 - Turnout bridge reduction: removed direct `#mcP50` read from v3 Turnout impact context; margin context now resolves from right-rail `#mcP50-sidebar`, eliminating Turnout's direct dependency on `stage-results`.
 - Outcome bridge reduction: v3 Outcome now sources core MC/risk display metrics directly from right-rail IDs (`#mcP10-sidebar/#mcP50-sidebar/#mcP90-sidebar`, freshness tags, risk band) instead of legacy `stage-results` IDs for those fields.
 - Outcome bridge reduction: v3 Outcome risk-grade/fragility/cliff readouts now resolve from right-rail risk context (`#riskBandTag-sidebar`, `#riskVolatility-sidebar`, `#riskPlainBanner-sidebar`) instead of legacy `#mcRiskGrade/#mcFragility/#mcCliff`.
+- Outcome bridge reduction: v3 Outcome forecast median/upside/downside now resolves from sidebar percentiles (`#mcP50-sidebar/#mcP90-sidebar/#mcP10-sidebar`) instead of legacy `#mcMedian/#mcP95/#mcP5`.
+- Outcome bridge reduction: v3 Outcome weekly capacity/gap context now resolves from weekly-ops IDs (`#wkCapacityPerWeek/#wkGapPerWeek/#wkConstraintNote` + `#timelineWeeksAuto/#weeksRemaining`) instead of legacy `#p3*` result IDs.
+- Outcome bridge reduction: v3 Outcome surface-status/summary/impact-note helper copy is now native in the v3 card body, removing direct reads from legacy `#surfaceStatus/#surfaceSummary/#impactTraceNote`.
+- Outcome bridge reduction: v3 Outcome confidence miss-risk label is now derived from `#opsMissProb` in v3 logic, removing direct dependency on legacy `#opsMissTag`.
 - Legacy `stage-capacity` visual surface has been retired from `index.html` user flow (hidden retired stub retained during transition); preflight no longer requires legacy Reach assumption IDs.
 - Added v3 stage persistence/cutover behavior (`js/app/v3/index.js`):
   - Active stage persists to local storage.

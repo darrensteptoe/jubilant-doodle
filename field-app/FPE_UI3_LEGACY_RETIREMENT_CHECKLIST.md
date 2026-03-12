@@ -32,6 +32,9 @@ Reference artifact:
 - Turnout v3 surface no longer reads legacy `#mcP50` from `stage-results` for impact margin context; it now uses right-rail `#mcP50-sidebar`.
 - Outcome v3 surface now sources core MC/risk display values (P10/P50/P90 + freshness + risk band) from right-rail sidebar IDs, reducing direct reads from `stage-results`.
 - Outcome v3 surface now sources risk-grade/fragility/cliff context from right-rail risk IDs (`#riskBandTag-sidebar`, `#riskVolatility-sidebar`, `#riskPlainBanner-sidebar`) instead of legacy `#mcRiskGrade/#mcFragility/#mcCliff`.
+- Outcome v3 surface now sources forecast median/upside/downside display from sidebar percentiles (`#mcP50-sidebar/#mcP90-sidebar/#mcP10-sidebar`) instead of legacy `#mcMedian/#mcP95/#mcP5`.
+- Outcome v3 surface now uses native v3 copy for surface/impact helper text, removing direct reads from legacy `#surfaceStatus/#surfaceSummary/#impactTraceNote`.
+- Outcome v3 confidence envelope now derives miss-risk label in v3 from `#opsMissProb`, removing direct read of legacy `#opsMissTag`.
 
 ## Stage dependency map (current)
 Counts below are unique legacy IDs referenced by each v3 surface.
@@ -42,7 +45,7 @@ Counts below are unique legacy IDs referenced by each v3 surface.
 | District | `stage-checks` | 65 |
 | District | `stage-gotv` | 8 |
 | Reach | `stage-capacity` | 0 |
-| Outcome | `stage-results` | 83 |
+| Outcome | `stage-results` | 79 |
 | Outcome | `stage-integrity` | 1 |
 | Turnout | `stage-roi` | 32 |
 | Turnout | `stage-results` | 0 |

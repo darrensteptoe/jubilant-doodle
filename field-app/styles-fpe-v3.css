@@ -22,8 +22,6 @@
   --fpe-topbar-tone-b: color-mix(in srgb, #c9d0da 60%, #ffffff);
   --fpe-topbar-glaze-start: color-mix(in srgb, var(--fpe-panel) 40%, transparent);
   --fpe-topbar-glaze-end: color-mix(in srgb, #ffffff 94%, var(--fpe-panel));
-  --fpe-topbar-photo: url("./assets/AdobeStock_271073143.jpeg");
-  --fpe-topbar-photo-opacity: 0.72;
   --fpe-topbar-base: linear-gradient(
     90deg,
     var(--fpe-topbar-tone-a) 0%,
@@ -71,7 +69,6 @@ body.dark #app-shell-v3-root {
   --fpe-topbar-tone-b: color-mix(in srgb, #2f3743 66%, #101827);
   --fpe-topbar-glaze-start: color-mix(in srgb, #0b1220 52%, transparent);
   --fpe-topbar-glaze-end: color-mix(in srgb, #0b1220 86%, #101827);
-  --fpe-topbar-photo-opacity: 0.64;
   --fpe-topbar-base: linear-gradient(
     90deg,
     var(--fpe-topbar-tone-a) 0%,
@@ -94,7 +91,6 @@ body.dark #app-shell-v3-root {
     --fpe-topbar-tone-b: color-mix(in srgb, #2f3743 66%, #101827);
     --fpe-topbar-glaze-start: color-mix(in srgb, #0b1220 52%, transparent);
     --fpe-topbar-glaze-end: color-mix(in srgb, #0b1220 86%, #101827);
-    --fpe-topbar-photo-opacity: 0.64;
     --fpe-topbar-base: linear-gradient(
       90deg,
       var(--fpe-topbar-tone-a) 0%,
@@ -150,18 +146,16 @@ body.dark #app-shell-v3-root {
   background-image:
     linear-gradient(
       90deg,
-      transparent 0%,
-      transparent 58%,
-      color-mix(in srgb, var(--fpe-panel) 55%, transparent) 68%,
-      var(--fpe-panel) 76%,
+      var(--fpe-topbar-glaze-start) 0%,
+      color-mix(in srgb, var(--fpe-topbar-glaze-start) 48%, var(--fpe-topbar-base)) 42%,
+      color-mix(in srgb, var(--fpe-topbar-glaze-end) 74%, var(--fpe-panel)) 66%,
+      var(--fpe-panel) 80%,
       var(--fpe-panel) 100%
-    ),
-    var(--fpe-topbar-photo);
-  background-size: 100% 100%, cover;
-  background-position: center, left center;
-  background-repeat: no-repeat, no-repeat;
-  background-blend-mode: normal, normal;
-  opacity: var(--fpe-topbar-photo-opacity);
+    );
+  background-size: 100% 100%;
+  background-position: left center;
+  background-repeat: no-repeat;
+  opacity: 1;
   pointer-events: none;
 }
 
