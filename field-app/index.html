@@ -2583,11 +2583,13 @@
 <!-- /app-shell -->
 </div>
 <!-- /app-shell-legacy -->
-<script src="./js/app.js?v=20260312-runtime-crashfix-4" type="module"></script>
-<script src="./js/app/v3/index.js?v=20260312-runtime-crashfix-4" type="module"></script>
+<script src="./js/app.js?v=20260312-runtime-crashfix-5" type="module"></script>
+<script src="./js/app/v3/index.js?v=20260312-runtime-crashfix-5" type="module"></script>
 <script>
 // ── Stage navigation ───────────────────────────────────────────
 window.__FPE_BOOT_ERRORS = Array.isArray(window.__FPE_BOOT_ERRORS) ? window.__FPE_BOOT_ERRORS : [];
+window.__FPE_BOOT_PHASE__ = window.__FPE_BOOT_PHASE__ || 'inline-started';
+window.__FPE_BOOT_READY__ = (typeof window.__FPE_BOOT_READY__ === 'boolean') ? window.__FPE_BOOT_READY__ : null;
 window.addEventListener('error', function(evt){
   try{
     var msg = (evt && evt.message) ? String(evt.message) : 'Unknown runtime error';
@@ -2597,6 +2599,15 @@ window.addEventListener('error', function(evt){
     window.__FPE_BOOT_ERRORS = window.__FPE_BOOT_ERRORS.slice(0, 20);
   } catch {}
 });
+window.addEventListener('error', function(evt){
+  try{
+    var tgt = evt && evt.target;
+    var src = tgt && (tgt.src || tgt.href) ? String(tgt.src || tgt.href) : '';
+    if (!src) return;
+    window.__FPE_BOOT_ERRORS.unshift('resource-error: ' + src);
+    window.__FPE_BOOT_ERRORS = window.__FPE_BOOT_ERRORS.slice(0, 30);
+  } catch {}
+}, true);
 window.addEventListener('unhandledrejection', function(evt){
   try{
     var reason = evt && evt.reason;
@@ -2656,11 +2667,17 @@ function openEmergencyDiagnostics(){
   var errors = document.getElementById('diagErrors');
   if (!modal) return;
   if (errors){
+    var probes = [];
+    probes.push('boot-ready: ' + String(window.__FPE_BOOT_READY__));
+    probes.push('boot-phase: ' + String(window.__FPE_BOOT_PHASE__ || 'unknown'));
+    probes.push('v3-bridge-active: ' + String(isV3BridgeActive()));
+    probes.push('legacy-diagnostics-btn: ' + String(!!document.getElementById('btnDiagnostics')));
+    probes.push('v3-diagnostics-btn: ' + String(!!document.getElementById('v3BtnDiagnostics')));
     var rows = Array.isArray(window.__FPE_BOOT_ERRORS) ? window.__FPE_BOOT_ERRORS : [];
     if (!rows.length){
-      errors.textContent = 'No captured boot errors.';
+      errors.textContent = probes.join('\n') + '\n\nNo captured boot errors.';
     } else {
-      errors.textContent = rows.join('\n');
+      errors.textContent = probes.join('\n') + '\n\n' + rows.join('\n');
     }
   }
   modal.hidden = false;
