@@ -427,29 +427,38 @@ function wirePlanControlProxies() {
 }
 
 function refreshPlanSummary() {
+  const outShiftsPerWeek = readText("#outShiftsPerWeek");
+  const outVolunteersNeeded = readText("#outVolunteersNeeded");
+  const optGapContext = readText("#optGapContext");
+  const optBinding = readText("#optBinding");
+  const tlPercent = readText("#tlPercent");
+  const tlConstraint = readText("#tlConstraint");
+  const tlShortfallAttempts = readText("#tlShortfallAttempts");
+  const tlShortfallVotes = readText("#tlShortfallVotes");
+
   setText("v3PlanConversationsNeeded", readText("#outConversationsNeeded"));
   setText("v3PlanDoorsNeeded", readText("#outDoorsNeeded"));
   setText("v3PlanDoorsPerShift", readText("#outDoorsPerShift"));
   setText("v3PlanTotalShifts", readText("#outTotalShifts"));
-  setText("v3PlanShiftsPerWeek", readText("#outShiftsPerWeek"));
-  setText("v3PlanVolunteersNeeded", readText("#outVolunteersNeeded"));
+  setText("v3PlanShiftsPerWeek", outShiftsPerWeek);
+  setText("v3PlanVolunteersNeeded", outVolunteersNeeded);
 
   setText("v3PlanOptTotalAttempts", readText("#optTotalAttempts"));
   setText("v3PlanOptTotalCost", readText("#optTotalCost"));
   setText("v3PlanOptTotalVotes", readText("#optTotalVotes"));
-  setText("v3PlanOptGapContext", readText("#optGapContext"));
-  setText("v3PlanBinding", readText("#optBinding"));
-  setText("v3PlanWorkloadBanner", readText("#convFeasBanner"));
-  setText("v3PlanOptBanner", readText("#optBanner"));
+  setText("v3PlanOptGapContext", optGapContext);
+  setText("v3PlanBinding", optBinding);
+  setText("v3PlanWorkloadBanner", buildPlanWorkloadBanner(outShiftsPerWeek, outVolunteersNeeded));
+  setText("v3PlanOptBanner", buildPlanOptimizerBanner(optBinding, optGapContext));
   setText("v3PlanTlOptGoalFeasible", readText("#tlOptGoalFeasible"));
   setText("v3PlanTlOptMaxNetVotes", readText("#tlOptMaxNetVotes"));
   setText("v3PlanTlOptRemainingGap", readText("#tlOptRemainingGap"));
   setText("v3PlanTlOptBinding", readText("#tlOptBinding"));
-  setText("v3PlanTimelineBanner", readText("#tlBanner"));
-  setText("v3PlanRiskExecutable", readText("#tlPercent"));
-  setText("v3PlanRiskConstraint", readText("#tlConstraint"));
-  setText("v3PlanRiskShortfallAttempts", readText("#tlShortfallAttempts"));
-  setText("v3PlanRiskShortfallVotes", readText("#tlShortfallVotes"));
+  setText("v3PlanTimelineBanner", buildPlanTimelineBanner(tlPercent, tlConstraint, tlShortfallAttempts, tlShortfallVotes));
+  setText("v3PlanRiskExecutable", tlPercent);
+  setText("v3PlanRiskConstraint", tlConstraint);
+  setText("v3PlanRiskShortfallAttempts", tlShortfallAttempts);
+  setText("v3PlanRiskShortfallVotes", tlShortfallVotes);
   syncLegacyTableRows({
     sourceSelector: "#optTbody",
     targetBodyId: "v3PlanOptAllocTbody",
@@ -458,20 +467,25 @@ function refreshPlanSummary() {
     numericColumns: [1, 2]
   });
 
-  setText("v3PlanExecutable", readText("#tlPercent"));
+  setText("v3PlanExecutable", tlPercent);
   setText("v3PlanCompletionWeek", readText("#tlCompletionWeek"));
-  setText("v3PlanShortfallAttempts", readText("#tlShortfallAttempts"));
-  setText("v3PlanConstraint", readText("#tlConstraint"));
-  setText("v3PlanShortfallVotes", readText("#tlShortfallVotes"));
+  setText("v3PlanShortfallAttempts", tlShortfallAttempts);
+  setText("v3PlanConstraint", tlConstraint);
+  setText("v3PlanShortfallVotes", tlShortfallVotes);
   setText("v3PlanWeekList", readText("#tlWeekList"));
 
-  setText("v3PlanSummaryShiftsPerWeek", readText("#outShiftsPerWeek"));
-  setText("v3PlanSummaryVolunteersNeeded", readText("#outVolunteersNeeded"));
-  setText("v3PlanSummaryExecutable", readText("#tlPercent"));
-  setText("v3PlanSummaryConstraint", readText("#tlConstraint"));
-  setText("v3PlanSummaryBinding", readText("#optBinding"));
-  setText("v3PlanSummaryGapContext", readText("#optGapContext"));
-  syncPlanDecisionIntel();
+  setText("v3PlanSummaryShiftsPerWeek", outShiftsPerWeek);
+  setText("v3PlanSummaryVolunteersNeeded", outVolunteersNeeded);
+  setText("v3PlanSummaryExecutable", tlPercent);
+  setText("v3PlanSummaryConstraint", tlConstraint);
+  setText("v3PlanSummaryBinding", optBinding);
+  setText("v3PlanSummaryGapContext", optGapContext);
+  syncPlanDecisionIntel({
+    tlConstraint,
+    optBinding,
+    tlShortfallAttempts,
+    tlShortfallVotes
+  });
 
   syncFieldValue("v3PlanGoalSupportIds", "goalSupportIds");
   syncFieldValue("v3PlanDoorsPerHour", "doorsPerHour");
@@ -530,22 +544,31 @@ function refreshPlanSummary() {
   syncControlDisabled("v3PlanTimelineTextsPerHour", "timelineTextsPerHour");
 }
 
-function syncPlanDecisionIntel() {
-  const warnSource = document.getElementById("diWarn");
+function syncPlanDecisionIntel(planContext = null) {
+  const context = planContext || {};
+  const tlConstraint = String(context.tlConstraint || "").trim();
+  const optBinding = String(context.optBinding || "").trim();
+  const shortfallAttempts = String(context.tlShortfallAttempts || "").trim();
+  const shortfallVotes = String(context.tlShortfallVotes || "").trim();
+
   const warnTarget = document.getElementById("v3PlanDiWarn");
   if (warnTarget instanceof HTMLElement) {
-    const text = (warnSource?.textContent || "").trim();
-    const show = Boolean(text) && !warnSource?.hidden;
+    const contextText = buildPlanDecisionWarning(tlConstraint, shortfallVotes);
+    const text = contextText;
+    const show = Boolean(text);
     warnTarget.hidden = !show;
     warnTarget.textContent = show ? text : "";
   }
 
-  setText("v3PlanDiPrimary", readText("#diPrimary"));
-  setText("v3PlanDiSecondary", readText("#diSecondary"));
-  setText("v3PlanDiNotBinding", readText("#diNotBinding"));
-  setText("v3PlanDiRecVol", readText("#diRecVol"));
-  setText("v3PlanDiRecCost", readText("#diRecCost"));
-  setText("v3PlanDiRecProb", readText("#diRecProb"));
+  setText("v3PlanDiPrimary", tlConstraint || optBinding || "No active bottleneck");
+  setText(
+    "v3PlanDiSecondary",
+    tlConstraint && optBinding && tlConstraint !== optBinding ? optBinding : "No secondary bottleneck signaled"
+  );
+  setText("v3PlanDiNotBinding", "See optimizer allocation rows for non-binding levers.");
+  setText("v3PlanDiRecVol", buildPlanRecommendationVolunteers(tlConstraint, shortfallAttempts));
+  setText("v3PlanDiRecCost", buildPlanRecommendationCost(optBinding));
+  setText("v3PlanDiRecProb", buildPlanRecommendationProbability(tlConstraint, shortfallVotes));
 
   syncLegacyTableRows({
     sourceSelector: "#diVolTbody",
@@ -570,4 +593,79 @@ function syncPlanDecisionIntel() {
     emptyLabel: "No probability levers available.",
     numericColumns: [1]
   });
+}
+
+function buildPlanWorkloadBanner(shiftsPerWeek, volunteersNeeded) {
+  if (!shiftsPerWeek && !volunteersNeeded) {
+    return "Set support goal and pacing assumptions to generate workload requirements.";
+  }
+  return `Workload target: ${shiftsPerWeek || "—"} shifts/week and ${volunteersNeeded || "—"} volunteers needed.`;
+}
+
+function buildPlanOptimizerBanner(optBinding, optGapContext) {
+  const binding = String(optBinding || "").trim();
+  const gap = String(optGapContext || "").trim();
+  if (!binding && !gap) {
+    return "Run optimization to generate allocation and binding-constraint posture.";
+  }
+  if (binding && gap) {
+    return `${binding} is currently binding. ${gap}`;
+  }
+  return binding || gap;
+}
+
+function buildPlanTimelineBanner(executablePct, constraint, shortfallAttempts, shortfallVotes) {
+  const pct = String(executablePct || "").trim();
+  const binding = String(constraint || "").trim();
+  const attempts = String(shortfallAttempts || "").trim();
+  const votes = String(shortfallVotes || "").trim();
+
+  if (!pct && !binding && !attempts && !votes) {
+    return "Timeline diagnostics update as staffing and pace assumptions change.";
+  }
+  return `Executable: ${pct || "—"}; Constraint: ${binding || "—"}; Shortfall attempts: ${attempts || "—"}; Shortfall votes: ${votes || "—"}.`;
+}
+
+function buildPlanDecisionWarning(constraint, shortfallVotes) {
+  const c = String(constraint || "").toLowerCase();
+  const votesText = String(shortfallVotes || "").trim();
+  const votesNum = Number(votesText.replace(/[^\d.-]/g, ""));
+  if (c && (c.includes("timeline") || c.includes("capacity") || c.includes("staff"))) {
+    return "Execution risk is elevated under current timeline/staffing assumptions.";
+  }
+  if (Number.isFinite(votesNum) && votesNum > 0) {
+    return `Remaining timeline shortfall detected: ${votesText} net votes.`;
+  }
+  return "";
+}
+
+function buildPlanRecommendationVolunteers(constraint, shortfallAttempts) {
+  const c = String(constraint || "").toLowerCase();
+  if (c.includes("staff") || c.includes("capacity")) {
+    return "Increase organizer or volunteer weekly hours to close the capacity bottleneck.";
+  }
+  if (String(shortfallAttempts || "").trim()) {
+    return "Reduce attempts shortfall by increasing weekly shift coverage or narrowing target scope.";
+  }
+  return "Volunteer load is currently within modeled bounds.";
+}
+
+function buildPlanRecommendationCost(optBinding) {
+  const binding = String(optBinding || "").toLowerCase();
+  if (binding.includes("budget") || binding.includes("cost")) {
+    return "Reallocate toward lower-cost channels before adding new spend.";
+  }
+  return "Keep budget allocation aligned to channels with highest marginal net votes.";
+}
+
+function buildPlanRecommendationProbability(constraint, shortfallVotes) {
+  const c = String(constraint || "").toLowerCase();
+  const votesNum = Number(String(shortfallVotes || "").replace(/[^\d.-]/g, ""));
+  if (c.includes("timeline") || c.includes("week")) {
+    return "Improve probability posture by de-risking timeline: pull effort earlier in the schedule.";
+  }
+  if (Number.isFinite(votesNum) && votesNum > 0) {
+    return "Close remaining vote shortfall to improve modeled win confidence.";
+  }
+  return "Probability posture is stable under current assumptions.";
 }

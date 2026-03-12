@@ -509,6 +509,8 @@ function refreshOutcomeSummary() {
   const outcomeP10 = readOutcomeSidebarMetric("#mcP10-sidebar", null, /^P10:\s*/i);
   const outcomeP50 = readOutcomeSidebarMetric("#mcP50-sidebar", null, /^Median:\s*/i);
   const outcomeP90 = readOutcomeSidebarMetric("#mcP90-sidebar", null, /^P90:\s*/i);
+  const outcomeShiftP50 = deriveShiftFromMargin(outcomeP50);
+  const outcomeShiftP10 = deriveShiftFromMargin(outcomeP10);
   const outcomeRiskLabel = readText("#riskBandTag-sidebar");
   setText("v3OutcomeForecastMedian", outcomeP50);
   setText("v3OutcomeForecastP95", outcomeP90);
@@ -538,8 +540,8 @@ function refreshOutcomeSummary() {
   setText("v3OutcomeConfMoS", readText("#mcMoS"));
   setText("v3OutcomeConfDownside", readText("#mcDownside"));
   setText("v3OutcomeConfES10", readText("#mcES10"));
-  setText("v3OutcomeConfShiftP50", readText("#mcShiftP50"));
-  setText("v3OutcomeConfShiftP10", readText("#mcShiftP10"));
+  setText("v3OutcomeConfShiftP50", outcomeShiftP50);
+  setText("v3OutcomeConfShiftP10", outcomeShiftP10);
   setText("v3OutcomeConfFragility", readText("#riskVolatility-sidebar"));
   setText("v3OutcomeConfCliff", readText("#riskPlainBanner-sidebar"));
   setText("v3OutcomeConfRiskGrade", outcomeRiskLabel);
@@ -624,4 +626,25 @@ function buildMissRiskSummary() {
   }
 
   return `${missProbText} ${riskTag}`;
+}
+
+function deriveShiftFromMargin(rawMargin) {
+  const marginNum = parseSignedNumber(rawMargin);
+  if (!Number.isFinite(marginNum)) {
+    return "—";
+  }
+  if (marginNum >= 0) {
+    return "0";
+  }
+  return `${Math.ceil(Math.abs(marginNum))}`;
+}
+
+function parseSignedNumber(rawValue) {
+  const text = String(rawValue || "").trim();
+  if (!text || text === "—") {
+    return NaN;
+  }
+  const cleaned = text.replace(/,/g, "").replace(/[^\d.+-]/g, "");
+  const parsed = Number(cleaned);
+  return Number.isFinite(parsed) ? parsed : NaN;
 }
