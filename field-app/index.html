@@ -3002,10 +3002,31 @@ function normalizeStages() {
   stages.forEach(function(sec){ host.appendChild(sec); });
 }
 
+function shouldUseLegacyShell() {
+  try {
+    var params = new URLSearchParams(window.location.search || '');
+    return params.get('ui') === 'legacy';
+  } catch (err) {
+    return false;
+  }
+}
+
+function isV3BridgeActive() {
+  var bridge = window.__FPE_V3_NAV__;
+  return !!(bridge && bridge.active && typeof bridge.navigateStage === 'function');
+}
+
 function switchStage(btn, stageId) {
+  if (isV3BridgeActive()) {
+    try {
+      window.__FPE_V3_NAV__.navigateStage(stageId, { persist: true });
+      return;
+    } catch (err) {}
+  }
+
   // Nav items
   document.querySelectorAll('.nav-item-new').forEach(el => el.classList.remove('active'));
-  btn.classList.add('active');
+  if (btn) btn.classList.add('active');
 
   // Stage panels
   document.querySelectorAll('.stage-new').forEach(el => el.classList.remove('active-stage'));
@@ -3039,7 +3060,11 @@ function closeEmergencyDiagnostics(){
   if (modal) modal.hidden = true;
 }
 
-document.addEventListener('DOMContentLoaded', function(){
+function initLegacyInlineShell() {
+  var host = document.querySelector('.stage-main-new');
+  if (host && host.dataset.legacyInlineInit === '1') return;
+  if (host) host.dataset.legacyInlineInit = '1';
+
   normalizeStages();
   var btnOpen = document.getElementById('btnDiagnostics');
   if (btnOpen){
@@ -3049,6 +3074,19 @@ document.addEventListener('DOMContentLoaded', function(){
   if (btnClose){
     btnClose.addEventListener('click', closeEmergencyDiagnostics);
   }
+}
+
+document.addEventListener('DOMContentLoaded', function(){
+  if (shouldUseLegacyShell()) {
+    initLegacyInlineShell();
+    return;
+  }
+
+  window.setTimeout(function(){
+    if (!isV3BridgeActive()) {
+      initLegacyInlineShell();
+    }
+  }, 0);
 });
 </script>
 <div class="modal" hidden="" id="diagModal">
