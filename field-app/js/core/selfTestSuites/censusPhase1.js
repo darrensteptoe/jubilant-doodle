@@ -14,6 +14,8 @@ import {
   optionFromRow,
   aggregateRowsForSelection,
   validateMetricSetWithCatalog,
+  resolveMetricSetVariables,
+  auditMetricSetsWithCatalog,
   getVariablesForMetricSet,
   buildTigerBoundaryQueryUrls,
   buildTigerVtdBoundaryQueryUrl,
@@ -132,6 +134,48 @@ export function registerCensusPhase1Tests(ctx){
     const badCodes = dep.issues.filter((issue) => issue.kind === "bad").map((issue) => String(issue.code || ""));
     assert(badCodes.includes("fetch_unavailable"), "dependency health should flag missing fetch");
     assert(badCodes.includes("census_api_base_invalid"), "dependency health should flag invalid census api endpoint");
+  });
+
+  test("Census Phase1: metric-set resolution honors variable catalog coverage", () => {
+    const coreVars = getVariablesForMetricSet("core");
+    assert(Array.isArray(coreVars) && coreVars.length > 0, "core metric-set variables missing");
+    const trimmedCatalog = coreVars.slice(0, Math.max(1, coreVars.length - 1));
+    const resolution = resolveMetricSetVariables("core", trimmedCatalog);
+    assert(Array.isArray(resolution.available), "available variables missing");
+    assert(Array.isArray(resolution.missing), "missing variables missing");
+    assert(resolution.available.length > 0, "expected partial core availability");
+    assert(resolution.missing.length > 0, "expected missing core variables under trimmed catalog");
+    assert(Number.isFinite(Number(resolution.coveragePct)), "coveragePct should be numeric");
+  });
+
+  test("Census Phase1: metric-set audit classifies full, partial, and incompatible bundles", () => {
+    const coreVars = getVariablesForMetricSet("core");
+    const demographicsVars = getVariablesForMetricSet("demographics");
+    const compositeCatalog = Array.from(new Set([
+      ...coreVars.slice(0, Math.max(1, coreVars.length - 1)),
+      ...(demographicsVars.length ? [String(demographicsVars[0])] : []),
+    ]));
+    const audit = auditMetricSetsWithCatalog(compositeCatalog);
+    assert(audit && typeof audit === "object", "bundle audit missing");
+    assert(Array.isArray(audit.metricSets) && audit.metricSets.length > 0, "bundle audit results missing");
+    assert(audit.summary && typeof audit.summary === "object", "bundle audit summary missing");
+    assert(Number.isFinite(Number(audit.summary.total)) && Number(audit.summary.total) > 0, "bundle audit summary total invalid");
+    assert(Number.isFinite(Number(audit.summary.partiallyCompatible)), "bundle audit partial count invalid");
+    assert(Number.isFinite(Number(audit.summary.incompatible)), "bundle audit incompatible count invalid");
+    assert(audit.summary.partiallyCompatible > 0, "bundle audit should detect partial compatibility");
+    assert(audit.summary.incompatible > 0, "bundle audit should detect incompatibility");
+  });
+
+  test("Census Phase1: citizenship metric uses 2024-compatible ACS variables", () => {
+    const demographicsVars = new Set(getVariablesForMetricSet("demographics"));
+    const turnoutVars = new Set(getVariablesForMetricSet("turnout_potential"));
+    const requiredCitizenVars = ["B05001_001E", "B05001_002E", "B05001_003E", "B05001_004E", "B05001_005E"];
+    for (const varId of requiredCitizenVars){
+      assert(demographicsVars.has(varId), `demographics metric set missing ${varId}`);
+      assert(turnoutVars.has(varId), `turnout_potential metric set missing ${varId}`);
+    }
+    assert(!demographicsVars.has("B05001_007E"), "deprecated citizenship variable B05001_007E should not be required");
+    assert(!turnoutVars.has("B05001_007E"), "deprecated citizenship variable B05001_007E should not be required");
   });
 
   test("Census Phase1: runtime cache key normalization modes", () => {
