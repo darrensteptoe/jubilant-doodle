@@ -42,7 +42,7 @@ Counts below are unique legacy IDs referenced by each v3 surface.
 | Outcome | `stage-results` | 83 |
 | Outcome | `stage-integrity` | 1 |
 | Turnout | `stage-roi` | 32 |
-| Turnout | `stage-results` | 1 |
+| Turnout | `stage-results` | 0 |
 | Turnout | `stage-integrity` | 3 |
 | Plan | `stage-roi` | 49 |
 | Plan | `stage-gotv` | 11 |
@@ -105,5 +105,5 @@ For each container before deletion:
 - [ ] Create checkpoint note and proceed to next container.
 
 ## Immediate next target
-Recommended next retirement target: `stage-results` bridge-reduction pass.  
-`stage-capacity` has been retired from user flow; next shared blocker is `stage-results` used by Outcome + Turnout.
+Recommended next retirement target: `stage-results` bridge-reduction pass (Outcome focus).  
+`stage-capacity` and Turnout's direct `stage-results` dependency have been retired from user flow; next shared blocker is `stage-results` reads in Outcome.
