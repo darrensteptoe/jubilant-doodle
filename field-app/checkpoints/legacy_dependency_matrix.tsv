@@ -21,7 +21,6 @@ controls	intelBenchmarkRaceType	stage-checks@L2490
 controls	intelBenchmarkRef	stage-checks@L2469
 controls	intelBenchmarkSourceNotes	stage-checks@L2529
 controls	intelBenchmarkSourceTitle	stage-checks@L2524
-controls	intelBenchmarkTbody	stage-checks@L2553
 controls	intelBenchmarkWarnAbove	stage-checks@L2514
 controls	intelBriefKind	stage-checks@L2624
 controls	intelCalibrationBriefContent	stage-checks@L2762
