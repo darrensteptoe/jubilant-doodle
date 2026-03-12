@@ -3,6 +3,7 @@
 export function preflightElsModule(ctx){
   const { els, recordError } = ctx || {};
   try{
+    const hasEl = (id) => Boolean((els && els[id]) || document.getElementById(id));
     const required = [
       "scenarioName",
       "buildStamp",
@@ -64,7 +65,7 @@ export function preflightElsModule(ctx){
       "targetingMeta",
       "targetingResultsTbody",
     ];
-    const missing = required.filter((k) => els[k] == null);
+    const missing = required.filter((k) => !hasEl(k));
     if (missing.length) recordError("dom-preflight", `Missing required element(s): ${missing.join(", ")}`);
   } catch { /* ignore */ }
 }
