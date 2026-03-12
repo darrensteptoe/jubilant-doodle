@@ -23,15 +23,15 @@ export function runInitPostBootModule(ctx){
     persist,
   } = ctx || {};
 
-  updateBuildStamp();
-  updateSelfTestGateBadge();
-  updatePersistenceStatusChip();
-  refreshBackupDropdown();
+  safeCall(() => { updateBuildStamp(); }, { label: "postboot.updateBuildStamp" });
+  safeCall(() => { updateSelfTestGateBadge(); }, { label: "postboot.updateSelfTestGateBadge" });
+  safeCall(() => { updatePersistenceStatusChip(); }, { label: "postboot.updatePersistenceStatusChip" });
+  safeCall(() => { refreshBackupDropdown(); }, { label: "postboot.refreshBackupDropdown" });
 
-  applyStateToUI();
-  rebuildCandidateTable();
-  initTabs();
-  initExplainCard();
+  safeCall(() => { applyStateToUI(); }, { label: "postboot.applyStateToUI" });
+  safeCall(() => { rebuildCandidateTable(); }, { label: "postboot.rebuildCandidateTable" });
+  safeCall(() => { initTabs(); }, { label: "postboot.initTabs" });
+  safeCall(() => { initExplainCard(); }, { label: "postboot.initExplainCard" });
   safeCall(() => { wireSensitivitySurface(); }, { label: "postboot.wireSensitivitySurface" });
   safeCall(() => { wireEvents(); }, { label: "postboot.wireEvents" });
   safeCall(() => { initDevTools(); }, { label: "postboot.initDevTools" });
@@ -45,5 +45,5 @@ export function runInitPostBootModule(ctx){
     }
     renderScenarioManagerC1();
   } catch {}
-  persist();
+  safeCall(() => { persist(); }, { label: "postboot.persist" });
 }

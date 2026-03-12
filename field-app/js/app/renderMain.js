@@ -1,6 +1,46 @@
 // @ts-check
 import { buildModelInputFromState } from "./modelInput.js";
-import { renderCensusPhase1Module } from "./censusPhase1.js";
+
+let censusRenderModulePromise = null;
+let censusRenderModule = null;
+let censusRenderLoadFailed = false;
+
+function renderCensusPhase1Safe(ctx){
+  if (typeof censusRenderModule === "function"){
+    censusRenderModule(ctx);
+    return;
+  }
+  if (censusRenderLoadFailed){
+    return;
+  }
+  if (!censusRenderModulePromise){
+    censusRenderModulePromise = import("./censusPhase1.js")
+      .then((mod) => {
+        const fn = (mod && typeof mod.renderCensusPhase1Module === "function")
+          ? mod.renderCensusPhase1Module
+          : null;
+        censusRenderModule = fn;
+        if (!fn){
+          censusRenderLoadFailed = true;
+        }
+        return fn;
+      })
+      .catch((err) => {
+        censusRenderLoadFailed = true;
+        console.error("[renderMain] failed to load census render module", err);
+        return null;
+      });
+  }
+  censusRenderModulePromise.then((fn) => {
+    if (typeof fn === "function"){
+      try {
+        fn(ctx);
+      } catch (err) {
+        console.error("[renderMain] census render failed", err);
+      }
+    }
+  });
+}
 
 /** @param {import("./types").RenderMainCtx} ctx */
 export function renderMain(ctx){
@@ -161,7 +201,7 @@ export function renderMain(ctx){
   run("render.sensitivitySnapshotE4", () => renderSensitivitySnapshotE4());
   run("render.decisionConfidenceE5", () => renderDecisionConfidenceE5(res, weeks, { weeklyContext, executionSnapshot }));
   run("render.impactTraceE6", () => renderImpactTraceE6(res, weeks, { weeklyContext, executionSnapshot }));
-  run("render.censusPhase1", () => renderCensusPhase1Module({ els, state, res }));
+  run("render.censusPhase1", () => renderCensusPhase1Safe({ els, state, res }));
 
   run("render.universe16", () => renderUniverse16Card());
 

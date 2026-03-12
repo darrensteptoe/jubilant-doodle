@@ -25,7 +25,34 @@ import {
   upsertBenchmarkEntry,
 } from "./intelControlsRuntime.js";
 import { ensureBudgetShape } from "./state.js";
-import { wireCensusPhase1EventsModule } from "./censusPhase1.js";
+
+let censusWireModulePromise = null;
+let censusWireModule = null;
+let censusWireLoadFailed = false;
+
+function loadCensusWireModule(){
+  if (censusWireModule) return Promise.resolve(censusWireModule);
+  if (censusWireLoadFailed) return Promise.resolve(null);
+  if (!censusWireModulePromise){
+    censusWireModulePromise = import("./censusPhase1.js")
+      .then((mod) => {
+        const fn = (mod && typeof mod.wireCensusPhase1EventsModule === "function")
+          ? mod.wireCensusPhase1EventsModule
+          : null;
+        censusWireModule = fn;
+        if (!fn){
+          censusWireLoadFailed = true;
+        }
+        return fn;
+      })
+      .catch((err) => {
+        censusWireLoadFailed = true;
+        console.error("[wireEvents] failed to load census wiring module", err);
+        return null;
+      });
+  }
+  return censusWireModulePromise;
+}
 
 /** @param {import("./types").WireEventsCtx} ctx */
 export function wireBudgetTimelineEvents(ctx){
@@ -1428,21 +1455,24 @@ export function wirePrimaryPlannerEvents(ctx){
 
   if (!els || !currentState()) return;
 
-  const wireCensus = () => wireCensusPhase1EventsModule({
-    els,
-    state: initialState,
-    getState,
-    commitUIUpdate,
-  });
-  if (typeof safeCall === "function"){
-    safeCall(wireCensus, { label: "wire.censusPhase1" });
-  } else {
+  loadCensusWireModule().then((wireModule) => {
+    if (typeof wireModule !== "function") return;
+    const wireCensus = () => wireModule({
+      els,
+      state: initialState,
+      getState,
+      commitUIUpdate,
+    });
+    if (typeof safeCall === "function"){
+      safeCall(wireCensus, { label: "wire.censusPhase1" });
+      return;
+    }
     try {
       wireCensus();
     } catch (err) {
       console.error("[wireEvents] census wiring failed", err);
     }
-  }
+  });
 
   if (els.scenarioName){
     els.scenarioName.addEventListener("input", () => {
