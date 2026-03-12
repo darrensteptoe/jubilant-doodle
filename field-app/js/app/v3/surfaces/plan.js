@@ -427,19 +427,26 @@ function wirePlanControlProxies() {
 }
 
 function refreshPlanSummary() {
-  const outShiftsPerWeek = readText("#outShiftsPerWeek");
-  const outVolunteersNeeded = readText("#outVolunteersNeeded");
-  const optGapContext = readText("#optGapContext");
-  const optBinding = readText("#optBinding");
-  const tlPercent = readText("#tlPercent");
-  const tlConstraint = readText("#tlConstraint");
-  const tlShortfallAttempts = readText("#tlShortfallAttempts");
-  const tlShortfallVotes = readText("#tlShortfallVotes");
+  const outConversationsNeeded = readText("#outConversationsNeeded");
+  const outDoorsNeeded = readText("#outDoorsNeeded");
+  const workload = buildPlanWorkloadOutputs({ outDoorsNeeded });
+  const outShiftsPerWeek = workload.shiftsPerWeek;
+  const outVolunteersNeeded = workload.volunteersNeeded;
+  const derived = buildPlanDerivedStatus({
+    outShiftsPerWeek,
+    outVolunteersNeeded
+  });
+  const optGapContext = derived.gapContext;
+  const optBinding = derived.binding;
+  const tlPercent = derived.executablePct;
+  const tlConstraint = derived.constraint;
+  const tlShortfallAttempts = derived.shortfallAttempts;
+  const tlShortfallVotes = derived.shortfallVotes;
 
-  setText("v3PlanConversationsNeeded", readText("#outConversationsNeeded"));
-  setText("v3PlanDoorsNeeded", readText("#outDoorsNeeded"));
-  setText("v3PlanDoorsPerShift", readText("#outDoorsPerShift"));
-  setText("v3PlanTotalShifts", readText("#outTotalShifts"));
+  setText("v3PlanConversationsNeeded", outConversationsNeeded || "—");
+  setText("v3PlanDoorsNeeded", outDoorsNeeded || "—");
+  setText("v3PlanDoorsPerShift", workload.doorsPerShift);
+  setText("v3PlanTotalShifts", workload.totalShifts);
   setText("v3PlanShiftsPerWeek", outShiftsPerWeek);
   setText("v3PlanVolunteersNeeded", outVolunteersNeeded);
 
@@ -651,6 +658,114 @@ function buildPlanRecommendationProbability(constraint, shortfallVotes) {
   return "Probability posture is stable under current assumptions.";
 }
 
+function buildPlanDerivedStatus({ outShiftsPerWeek, outVolunteersNeeded }) {
+  const requiredShifts = parsePlanNumber(outShiftsPerWeek);
+  const volunteersNeeded = parsePlanNumber(outVolunteersNeeded);
+  const doorsPerShift = parsePlanNumber(readSummaryText("v3PlanDoorsPerShift"));
+  const hoursPerShift = parsePlanNumber(readInputValue("v3PlanHoursPerShift"));
+  const shiftsPerVolunteer = parsePlanNumber(readInputValue("v3PlanShiftsPerVolunteer"));
+  const timelineEnabled = readCheckboxState("v3PlanTimelineEnabledToggle");
+  const staffCount = parsePlanNumber(readInputValue("v3PlanTimelineStaffCount"));
+  const staffHours = parsePlanNumber(readInputValue("v3PlanTimelineStaffHours"));
+  const volunteerCount = parsePlanNumber(readInputValue("v3PlanTimelineVolCount"));
+
+  const staffShiftCapacity = Number.isFinite(staffCount) && Number.isFinite(staffHours) && Number.isFinite(hoursPerShift) && hoursPerShift > 0
+    ? (staffCount * staffHours) / hoursPerShift
+    : NaN;
+  const volunteerShiftCapacity = Number.isFinite(volunteerCount) && Number.isFinite(shiftsPerVolunteer) && shiftsPerVolunteer > 0
+    ? volunteerCount * shiftsPerVolunteer
+    : NaN;
+  const capacityShifts = sumFinite(staffShiftCapacity, volunteerShiftCapacity);
+
+  const executablePctNum = Number.isFinite(requiredShifts) && requiredShifts > 0 && Number.isFinite(capacityShifts)
+    ? (capacityShifts / requiredShifts) * 100
+    : NaN;
+  const executablePct = Number.isFinite(executablePctNum)
+    ? `${Math.max(0, Math.min(100, Math.round(executablePctNum)))}%`
+    : "Pending";
+
+  const shortfallShifts = Number.isFinite(requiredShifts) && Number.isFinite(capacityShifts)
+    ? Math.max(0, requiredShifts - capacityShifts)
+    : NaN;
+  const shortfallAttemptsNum = Number.isFinite(shortfallShifts) && Number.isFinite(doorsPerShift)
+    ? Math.max(0, shortfallShifts * doorsPerShift)
+    : NaN;
+  const shortfallAttempts = Number.isFinite(shortfallAttemptsNum)
+    ? formatPlanWhole(shortfallAttemptsNum)
+    : "—";
+
+  const shortfallVotesNum = Number.isFinite(shortfallShifts) && Number.isFinite(volunteersNeeded) && Number.isFinite(requiredShifts) && requiredShifts > 0
+    ? Math.max(0, (shortfallShifts / requiredShifts) * volunteersNeeded)
+    : NaN;
+  const shortfallVotes = Number.isFinite(shortfallVotesNum)
+    ? formatPlanWhole(shortfallVotesNum)
+    : "—";
+
+  let constraint = "Pending timeline inputs";
+  if (!timelineEnabled) {
+    constraint = "Timeline module disabled";
+  } else if (Number.isFinite(shortfallShifts)) {
+    if (shortfallShifts > 0) {
+      constraint = "Staffing capacity";
+    } else {
+      constraint = "No timeline constraint";
+    }
+  }
+
+  const binding = constraint.includes("capacity")
+    ? "Staffing capacity"
+    : constraint.includes("disabled")
+      ? "Timeline disabled"
+      : "No binding optimizer constraint";
+
+  const gapContext = Number.isFinite(shortfallAttemptsNum) && shortfallAttemptsNum > 0
+    ? `${formatPlanWhole(shortfallAttemptsNum)} attempts shortfall vs schedule`
+    : "No attempt shortfall at current pace";
+
+  return {
+    executablePct,
+    constraint,
+    shortfallAttempts,
+    shortfallVotes,
+    binding,
+    gapContext
+  };
+}
+
+function buildPlanWorkloadOutputs({ outDoorsNeeded }) {
+  const doorsNeededNum = parsePlanNumber(outDoorsNeeded);
+  const doorsPerHour = parsePlanNumber(readInputValue("v3PlanDoorsPerHour"));
+  const hoursPerShift = parsePlanNumber(readInputValue("v3PlanHoursPerShift"));
+  const shiftsPerVolunteer = parsePlanNumber(readInputValue("v3PlanShiftsPerVolunteer"));
+  const timelineWeeksAuto = parsePlanNumber(readInputValue("v3PlanTimelineWeeksAuto"));
+  const activeWeeks = parsePlanNumber(readInputValue("v3PlanTimelineActiveWeeks"));
+  const weeks = Number.isFinite(activeWeeks) && activeWeeks > 0
+    ? activeWeeks
+    : Number.isFinite(timelineWeeksAuto) && timelineWeeksAuto > 0
+      ? timelineWeeksAuto
+      : NaN;
+
+  const doorsPerShiftNum = Number.isFinite(doorsPerHour) && Number.isFinite(hoursPerShift)
+    ? doorsPerHour * hoursPerShift
+    : NaN;
+  const totalShiftsNum = Number.isFinite(doorsNeededNum) && Number.isFinite(doorsPerShiftNum) && doorsPerShiftNum > 0
+    ? doorsNeededNum / doorsPerShiftNum
+    : NaN;
+  const shiftsPerWeekNum = Number.isFinite(totalShiftsNum) && Number.isFinite(weeks) && weeks > 0
+    ? totalShiftsNum / weeks
+    : NaN;
+  const volunteersNeededNum = Number.isFinite(shiftsPerWeekNum) && Number.isFinite(shiftsPerVolunteer) && shiftsPerVolunteer > 0
+    ? shiftsPerWeekNum / shiftsPerVolunteer
+    : NaN;
+
+  return {
+    doorsPerShift: Number.isFinite(doorsPerShiftNum) ? formatPlanWhole(doorsPerShiftNum) : "—",
+    totalShifts: Number.isFinite(totalShiftsNum) ? formatPlanWhole(totalShiftsNum) : "—",
+    shiftsPerWeek: Number.isFinite(shiftsPerWeekNum) ? formatPlanWhole(shiftsPerWeekNum) : "—",
+    volunteersNeeded: Number.isFinite(volunteersNeededNum) ? formatPlanWhole(volunteersNeededNum) : "—"
+  };
+}
+
 function readPlanOptimizerTotals() {
   const tableBody = document.getElementById("v3PlanOptAllocTbody");
   if (!(tableBody instanceof HTMLTableSectionElement)) {
@@ -781,6 +896,30 @@ function readInputValue(id) {
     return "";
   }
   return String(el.value || "").trim();
+}
+
+function readCheckboxState(id) {
+  const el = document.getElementById(id);
+  if (!(el instanceof HTMLInputElement)) {
+    return false;
+  }
+  return !!el.checked;
+}
+
+function readSummaryText(id) {
+  const el = document.getElementById(id);
+  if (!(el instanceof HTMLElement)) {
+    return "";
+  }
+  return String(el.textContent || "").trim();
+}
+
+function sumFinite(...values) {
+  const nums = values.filter((v) => Number.isFinite(v));
+  if (!nums.length) {
+    return NaN;
+  }
+  return nums.reduce((acc, value) => acc + value, 0);
 }
 
 function parsePlanNumber(rawValue) {
