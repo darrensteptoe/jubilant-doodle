@@ -324,6 +324,11 @@ function closeDiagnostics(){
   return getDiagnosticsRuntimeController().closeDiagnostics();
 }
 
+try{
+  window.__FPE_OPEN_DIAGNOSTICS__ = openDiagnostics;
+  window.__FPE_CLOSE_DIAGNOSTICS__ = closeDiagnostics;
+} catch {}
+
 function wireDiagnosticsFallback(){
   const openBtn = document.getElementById("btnDiagnostics");
   const closeBtn = document.getElementById("btnDiagClose");
@@ -3949,9 +3954,11 @@ function fmtSigned(v){
 }
 
 try{
+  try { window.__FPE_BOOT_PHASE__ = "runtime-init-start"; } catch {}
   init();
   try{
     window.__FPE_BOOT_READY__ = true;
+    window.__FPE_BOOT_PHASE__ = "runtime-ready";
   } catch {}
 } catch (err){
   const message = err?.message ? String(err.message) : String(err || "Unknown init failure");
@@ -3959,6 +3966,7 @@ try{
   try{
     recordError("boot-failure", message);
     window.__FPE_BOOT_READY__ = false;
+    window.__FPE_BOOT_PHASE__ = "runtime-init-failed";
     const rows = Array.isArray(window.__FPE_BOOT_ERRORS) ? window.__FPE_BOOT_ERRORS : [];
     rows.unshift(`boot-failure: ${message}`);
     window.__FPE_BOOT_ERRORS = rows.slice(0, 30);
