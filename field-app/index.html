@@ -2583,8 +2583,8 @@
 <!-- /app-shell -->
 </div>
 <!-- /app-shell-legacy -->
-<script src="./js/appRuntime.js?v=20260312-runtime-crashfix-10" type="module"></script>
-<script src="./js/app/v3/index.js?v=20260312-runtime-crashfix-10" type="module"></script>
+<script src="./js/appRuntime.js?v=20260312-runtime-crashfix-11" type="module"></script>
+<script src="./js/app/v3/index.js?v=20260312-runtime-crashfix-11" type="module"></script>
 <script>
 // ── Stage navigation ───────────────────────────────────────────
 window.__FPE_BOOT_ERRORS = Array.isArray(window.__FPE_BOOT_ERRORS) ? window.__FPE_BOOT_ERRORS : [];
@@ -2755,12 +2755,12 @@ function runBootProbe(){
   if (window.__FPE_BOOT_PROBE_RUNNING__) return;
   window.__FPE_BOOT_PROBE_RUNNING__ = true;
   var urls = [
-    './js/appRuntime.js?v=20260312-runtime-crashfix-10',
+    './js/appRuntime.js?v=20260312-runtime-crashfix-11',
     './js/engine.js',
     './js/build.js',
     './js/app/renderMain.js',
     './js/app/wireEventsRuntime.js',
-    './js/app/v3/index.js?v=20260312-runtime-crashfix-10'
+    './js/app/v3/index.js?v=20260312-runtime-crashfix-11'
   ];
   Promise.all(urls.map(function(url){
     return fetch(url, { cache: 'no-store' })
@@ -2779,7 +2779,18 @@ function runBootProbe(){
       });
   }))
     .then(function(lines){
-      window.__FPE_BOOT_PROBES__ = lines.slice(0, 40);
+      return Promise.all([
+        Promise.resolve(lines),
+        probeModuleBody('./js/appRuntime.js?v=20260312-runtime-crashfix-11', 'default'),
+        probeModuleBody('./js/appRuntime.js?v=20260312-runtime-crashfix-11', 'no-store')
+      ]).then(function(all){
+        var baseLines = Array.isArray(all[0]) ? all[0] : [];
+        var combined = baseLines.concat([String(all[1] || ''), String(all[2] || '')]);
+        window.__FPE_BOOT_PROBES__ = combined.slice(0, 80);
+        return combined;
+      });
+    })
+    .then(function(lines){
       var htmlHits = lines.filter(function(line){
         return String(line || '').indexOf('[AUTH_OR_ROUTING_HTML_RESPONSE]') >= 0;
       });
@@ -2802,21 +2813,110 @@ function runBootProbe(){
 function extractModuleSpecs(sourceText){
   var text = String(sourceText || '');
   var specs = [];
-  var re = /(?:^|\n)\s*import\s+(?:[^'";]+?\s+from\s+)?["']([^"']+)["']\s*;?|(?:^|\n)\s*export\s+[^'";]*?\s+from\s+["']([^"']+)["']\s*;?/g;
+  var reFrom = /\bfrom\s*["']([^"']+)["']/g;
+  var reImportSide = /(?:^|[\n;])\s*import\s*["']([^"']+)["']/g;
+  var reDyn = /\bimport\s*\(\s*["']([^"']+)["']\s*\)/g;
   var m;
-  while ((m = re.exec(text))) {
-    var spec = m[1] || m[2] || '';
+  while ((m = reFrom.exec(text))) {
+    var spec = m[1] || '';
     if (!spec || spec.charAt(0) !== '.') continue;
     specs.push(spec);
   }
-  return specs;
+  while ((m = reImportSide.exec(text))) {
+    var side = m[1] || '';
+    if (!side || side.charAt(0) !== '.') continue;
+    specs.push(side);
+  }
+  while ((m = reDyn.exec(text))) {
+    var dyn = m[1] || '';
+    if (!dyn || dyn.charAt(0) !== '.') continue;
+    specs.push(dyn);
+  }
+  var dedup = [];
+  var seen = Object.create(null);
+  for (var i = 0; i < specs.length; i += 1){
+    var next = specs[i];
+    if (!next || seen[next]) continue;
+    seen[next] = true;
+    dedup.push(next);
+  }
+  return dedup;
+}
+
+function classifyJsBody(text){
+  var body = String(text || '');
+  var trimmed = body.trim();
+  if (!trimmed) return 'empty';
+  if (/^<!doctype html>/i.test(trimmed) || /^<html/i.test(trimmed) || /^<\?xml/i.test(trimmed)) return 'html';
+  if (/^(?:\/\/|\/\*|\bimport\b|\bexport\b|\bconst\b|\blet\b|\bvar\b|\bfunction\b|\(\s*function\b)/.test(trimmed)) return 'js-like';
+  if (trimmed.charAt(0) === '<') return 'html-like';
+  return 'unknown';
+}
+
+function probeModuleBody(url, cacheMode){
+  return fetch(url, { cache: cacheMode || 'default' })
+    .then(function(resp){
+      var ct = '';
+      try { ct = String(resp.headers.get('content-type') || ''); } catch {}
+      return resp.text().then(function(body){
+        var bodyText = String(body || '');
+        var kind = classifyJsBody(bodyText);
+        var prefix = bodyText.trim().slice(0, 80).replace(/\s+/g, ' ');
+        return 'probe-body(' + String(cacheMode || 'default') + '): ' + url +
+          ' -> ' + resp.status + (ct ? (' [' + ct + ']') : '') +
+          ' kind=' + kind + ' bytes=' + bodyText.length + ' head=' + JSON.stringify(prefix);
+      });
+    })
+    .catch(function(err){
+      var msg = err && err.message ? String(err.message) : String(err || 'body fetch failed');
+      return 'probe-body(' + String(cacheMode || 'default') + '): ' + url + ' -> error: ' + msg;
+    });
+}
+
+function runModuleImportProbe(){
+  if (window.__FPE_IMPORT_PROBE_RUNNING__) return Promise.resolve([]);
+  window.__FPE_IMPORT_PROBE_RUNNING__ = true;
+  var urls = [
+    './js/engine.js',
+    './js/build.js',
+    './js/utils.js',
+    './js/app/renderMain.js',
+    './js/app/wireEventsRuntime.js',
+    './js/app/defaultState.js',
+    './js/app/normalizeLoadedState.js',
+    './js/app/preflightEls.js',
+    './js/app/decisionSessionApp.js',
+    './js/app/render/executionAnalysis.js',
+    './js/app/usbStorage.js',
+    './js/features/operations/metricsCache.js'
+  ];
+  var lines = [];
+  var chain = Promise.resolve();
+  urls.forEach(function(url){
+    chain = chain.then(function(){
+      return import(url)
+        .then(function(){
+          lines.push('import-probe: ' + url + ' -> ok');
+        })
+        .catch(function(err){
+          var name = err && err.name ? String(err.name) : 'Error';
+          var msg = err && err.message ? String(err.message) : String(err || 'import failed');
+          lines.push('import-probe: ' + url + ' -> fail: ' + name + ': ' + msg);
+        });
+    });
+  });
+  return chain.then(function(){
+    return lines;
+  }).finally(function(){
+    window.__FPE_IMPORT_PROBE_RUNNING__ = false;
+  });
 }
 
 function runDeepModuleGraphProbe(startUrl){
   if (window.__FPE_DEEP_PROBE_RUNNING__) return Promise.resolve([]);
   window.__FPE_DEEP_PROBE_RUNNING__ = true;
   var maxNodes = 260;
-  var queue = [String(startUrl || './js/appRuntime.js?v=20260312-runtime-crashfix-10')];
+  var queue = [String(startUrl || './js/appRuntime.js?v=20260312-runtime-crashfix-11')];
   var visited = Object.create(null);
   var lines = [];
 
@@ -2886,7 +2986,7 @@ function attemptRuntimeBootstrapFallback(){
   if (window.__FPE_BOOTSTRAP_ATTEMPTED__) return;
   window.__FPE_BOOTSTRAP_ATTEMPTED__ = true;
   window.__FPE_BOOT_PHASE__ = 'inline-runtime-import-start';
-  import('./js/appRuntime.js?v=20260312-runtime-crashfix-10')
+  import('./js/appRuntime.js?v=20260312-runtime-crashfix-11')
     .then(function(){
       if (window.__FPE_BOOT_READY__ !== false) window.__FPE_BOOT_READY__ = true;
       window.__FPE_BOOT_PHASE__ = 'inline-runtime-import-ready';
@@ -2909,7 +3009,7 @@ function attemptRuntimeBootstrapFallback(){
         rows.unshift('bootstrap-fallback-detail: ' + detail);
       }
       window.__FPE_BOOT_ERRORS = rows.slice(0, 30);
-      runDeepModuleGraphProbe('./js/appRuntime.js?v=20260312-runtime-crashfix-10')
+      runDeepModuleGraphProbe('./js/appRuntime.js?v=20260312-runtime-crashfix-11')
         .then(function(lines){
           if (!Array.isArray(lines) || !lines.length) return;
           var prev = Array.isArray(window.__FPE_BOOT_PROBES__) ? window.__FPE_BOOT_PROBES__ : [];
@@ -2921,6 +3021,22 @@ function attemptRuntimeBootstrapFallback(){
           if (failures.length){
             var errs = Array.isArray(window.__FPE_BOOT_ERRORS) ? window.__FPE_BOOT_ERRORS : [];
             errs.unshift('deep-probe-failures:');
+            failures.slice(0, 8).forEach(function(line){ errs.unshift(String(line)); });
+            window.__FPE_BOOT_ERRORS = errs.slice(0, 30);
+          }
+        })
+        .catch(function(){});
+      runModuleImportProbe()
+        .then(function(lines){
+          if (!Array.isArray(lines) || !lines.length) return;
+          var prev = Array.isArray(window.__FPE_BOOT_PROBES__) ? window.__FPE_BOOT_PROBES__ : [];
+          window.__FPE_BOOT_PROBES__ = prev.concat(lines).slice(0, 260);
+          var failures = lines.filter(function(line){
+            return String(line || '').indexOf(' -> fail: ') >= 0;
+          });
+          if (failures.length){
+            var errs = Array.isArray(window.__FPE_BOOT_ERRORS) ? window.__FPE_BOOT_ERRORS : [];
+            errs.unshift('import-probe-failures:');
             failures.slice(0, 8).forEach(function(line){ errs.unshift(String(line)); });
             window.__FPE_BOOT_ERRORS = errs.slice(0, 30);
           }
