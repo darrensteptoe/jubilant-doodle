@@ -32,10 +32,10 @@ export function runInitPostBootModule(ctx){
   rebuildCandidateTable();
   initTabs();
   initExplainCard();
-  safeCall(() => { wireSensitivitySurface(); });
-  wireEvents();
-  initDevTools();
-  render();
+  safeCall(() => { wireSensitivitySurface(); }, { label: "postboot.wireSensitivitySurface" });
+  safeCall(() => { wireEvents(); }, { label: "postboot.wireEvents" });
+  safeCall(() => { initDevTools(); }, { label: "postboot.initDevTools" });
+  safeCall(() => { render(); }, { label: "postboot.render" });
   try{
     const state = getState();
     const b = state?.ui?.scenarios?.[SCENARIO_BASELINE_ID];

@@ -66,101 +66,125 @@ export function wireEventsOrchestratorModule(args){
     computeRealityDrift,
   } = args || {};
 
-  wireSafetyAndDiagnosticsEvents({
-    els,
-    getState: () => state(),
-    setState,
-    refreshBackupDropdown,
-    restoreBackupByIndex,
-    openDiagnostics,
-    closeDiagnostics,
-    copyDebugBundle,
-    exportDailyLog,
-    mergeDailyLogIntoState,
-    applyRollingRateToAssumption,
-    applyAllRollingCalibrations,
-    undoLastWeeklyAction,
-    safeCall,
+  const runWire = (label, fn) => {
+    if (typeof safeCall === "function") {
+      safeCall(fn, { label: `wire.${label}` });
+      return;
+    }
+    try {
+      fn();
+    } catch (err) {
+      console.error(`[wireEvents] ${label} failed`, err);
+    }
+  };
+
+  runWire("safetyAndDiagnostics", () => {
+    wireSafetyAndDiagnosticsEvents({
+      els,
+      getState: () => state(),
+      setState,
+      refreshBackupDropdown,
+      restoreBackupByIndex,
+      openDiagnostics,
+      closeDiagnostics,
+      copyDebugBundle,
+      exportDailyLog,
+      mergeDailyLogIntoState,
+      applyRollingRateToAssumption,
+      applyAllRollingCalibrations,
+      undoLastWeeklyAction,
+      safeCall,
+    });
   });
 
-  wirePrimaryPlannerEvents({
-    els,
-    getState: () => state(),
-    safeNum,
-    commitUIUpdate,
-    schedulePersist,
-    applyTemplateDefaultsForRace,
-    applyStateToUI,
-    refreshAssumptionsProfile,
-    uid,
-    rebuildCandidateTable,
-    rebuildUserSplitInputs,
-    markMcStale,
-    switchToStage,
-    setCanonicalDoorsPerHour,
-    canonicalDoorsPerHourFromSnap,
-    clamp,
-    syncGotvModeUI,
-    syncMcModeUI,
-    wireSensitivitySurface,
-    safeCall,
-    runMonteCarloNow,
+  runWire("primaryPlanner", () => {
+    wirePrimaryPlannerEvents({
+      els,
+      getState: () => state(),
+      safeNum,
+      commitUIUpdate,
+      schedulePersist,
+      applyTemplateDefaultsForRace,
+      applyStateToUI,
+      refreshAssumptionsProfile,
+      uid,
+      rebuildCandidateTable,
+      rebuildUserSplitInputs,
+      markMcStale,
+      switchToStage,
+      setCanonicalDoorsPerHour,
+      canonicalDoorsPerHourFromSnap,
+      clamp,
+      syncGotvModeUI,
+      syncMcModeUI,
+      wireSensitivitySurface,
+      safeCall,
+      runMonteCarloNow,
+    });
   });
 
-  wireBudgetTimelineEvents({
-    els,
-    getState: () => state(),
-    safeNum,
-    commitUIUpdate,
-    render,
+  runWire("budgetTimeline", () => {
+    wireBudgetTimelineEvents({
+      els,
+      getState: () => state(),
+      safeNum,
+      commitUIUpdate,
+      render,
+    });
   });
 
-  wireIntelChecksEvents({
-    els,
-    getState: () => state(),
-    engine,
-    commitUIUpdate,
-    safeNum,
-    computeRealityDrift,
-    markMcStale,
+  runWire("intelChecks", () => {
+    wireIntelChecksEvents({
+      els,
+      getState: () => state(),
+      engine,
+      commitUIUpdate,
+      safeNum,
+      computeRealityDrift,
+      markMcStale,
+    });
   });
 
-  wireTabAndExportEvents({
-    els,
-    getState: () => state(),
-    persist,
-    engine,
-    APP_VERSION,
-    BUILD_ID,
-    getLastResultsSnapshot,
-    setLastExportHash,
-    downloadText,
+  runWire("tabAndExport", () => {
+    wireTabAndExportEvents({
+      els,
+      getState: () => state(),
+      persist,
+      engine,
+      APP_VERSION,
+      BUILD_ID,
+      getLastResultsSnapshot,
+      setLastExportHash,
+      downloadText,
+    });
   });
 
-  wireResetImportAndUiToggles({
-    els,
-    getState: () => state(),
-    replaceState,
-    makeDefaultState,
-    ensureScenarioRegistry,
-    ensureDecisionScaffold,
-    SCENARIO_BASELINE_ID,
-    scenarioInputsFromState,
-    scenarioOutputsFromState,
-    clearState,
-    applyStateToUI,
-    rebuildCandidateTable,
-    applyThemeFromState,
-    render,
-    safeCall,
-    renderScenarioManagerC1,
-    renderDecisionSessionD1,
-    persist,
-    readJsonFile,
-    engine,
-    requiredScenarioKeysMissing,
-    normalizeLoadedState,
-    setText,
-    getLastResultsSnapshot,
+  runWire("resetImportAndUiToggles", () => {
+    wireResetImportAndUiToggles({
+      els,
+      getState: () => state(),
+      replaceState,
+      makeDefaultState,
+      ensureScenarioRegistry,
+      ensureDecisionScaffold,
+      SCENARIO_BASELINE_ID,
+      scenarioInputsFromState,
+      scenarioOutputsFromState,
+      clearState,
+      applyStateToUI,
+      rebuildCandidateTable,
+      applyThemeFromState,
+      render,
+      safeCall,
+      renderScenarioManagerC1,
+      renderDecisionSessionD1,
+      persist,
+      readJsonFile,
+      engine,
+      requiredScenarioKeysMissing,
+      normalizeLoadedState,
+      setText,
+      getLastResultsSnapshot,
+    });
   });
 }

@@ -1428,12 +1428,21 @@ export function wirePrimaryPlannerEvents(ctx){
 
   if (!els || !currentState()) return;
 
-  wireCensusPhase1EventsModule({
+  const wireCensus = () => wireCensusPhase1EventsModule({
     els,
     state: initialState,
     getState,
     commitUIUpdate,
   });
+  if (typeof safeCall === "function"){
+    safeCall(wireCensus, { label: "wire.censusPhase1" });
+  } else {
+    try {
+      wireCensus();
+    } catch (err) {
+      console.error("[wireEvents] census wiring failed", err);
+    }
+  }
 
   if (els.scenarioName){
     els.scenarioName.addEventListener("input", () => {

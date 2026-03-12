@@ -111,14 +111,19 @@ export function renderMain(ctx){
     executionSnapshot,
   });
 
-  els.turnoutExpected.textContent = res.turnout.expectedPct == null ? "—" : `${res.turnout.expectedPct.toFixed(1)}%`;
-  els.turnoutBand.textContent = res.turnout.bestPct == null ? "—" : `${res.turnout.bestPct.toFixed(1)}% / ${res.turnout.worstPct.toFixed(1)}%`;
-  els.votesPer1pct.textContent = (res.turnout.votesPer1pct == null) ? "—" : fmtInt(res.turnout.votesPer1pct);
+  setText(els.turnoutExpected, res.turnout.expectedPct == null ? "—" : `${res.turnout.expectedPct.toFixed(1)}%`);
+  setText(
+    els.turnoutBand,
+    res.turnout.bestPct == null ? "—" : `${res.turnout.bestPct.toFixed(1)}% / ${res.turnout.worstPct.toFixed(1)}%`
+  );
+  setText(els.votesPer1pct, (res.turnout.votesPer1pct == null) ? "—" : fmtInt(res.turnout.votesPer1pct));
 
-  els.supportTotal.textContent = res.validation.supportTotalPct == null ? "—" : `${res.validation.supportTotalPct.toFixed(1)}%`;
+  setText(els.supportTotal, res.validation.supportTotalPct == null ? "—" : `${res.validation.supportTotalPct.toFixed(1)}%`);
 
-  els.candWarn.hidden = res.validation.candidateTableOk;
-  els.candWarn.textContent = res.validation.candidateTableOk ? "" : res.validation.candidateTableMsg;
+  if (els.candWarn){
+    els.candWarn.hidden = !!res.validation.candidateTableOk;
+    els.candWarn.textContent = res.validation.candidateTableOk ? "" : (res.validation.candidateTableMsg || "");
+  }
 
   setText(els.kpiTurnoutVotesSidebar, res.expected.turnoutVotes == null ? "—" : fmtInt(res.expected.turnoutVotes));
   setText(els.kpiTurnoutBandSidebar, res.turnout.bandVotesText || "—");
@@ -187,5 +192,7 @@ export function renderMain(ctx){
 
   setText(els.snapshotHash, nextSnapshot?.snapshotHash || "—");
   setText(els.snapshotHashSidebar, nextSnapshot?.snapshotHash || "—");
-  els.explainCard.hidden = !state.ui.training;
+  if (els.explainCard){
+    els.explainCard.hidden = !state.ui.training;
+  }
 }
