@@ -324,6 +324,34 @@ function closeDiagnostics(){
   return getDiagnosticsRuntimeController().closeDiagnostics();
 }
 
+function wireDiagnosticsFallback(){
+  const openBtn = document.getElementById("btnDiagnostics");
+  const closeBtn = document.getElementById("btnDiagClose");
+  const modal = document.getElementById("diagModal");
+  const errorsBox = document.getElementById("diagErrors");
+
+  if (openBtn && !openBtn.dataset.diagFallbackWired){
+    openBtn.dataset.diagFallbackWired = "1";
+    openBtn.addEventListener("click", () => {
+      try {
+        openDiagnostics();
+      } catch {
+        if (modal) modal.hidden = false;
+        if (errorsBox && !String(errorsBox.textContent || "").trim()){
+          errorsBox.textContent = "Diagnostics fallback opened. Runtime diagnostics controller unavailable.";
+        }
+      }
+    });
+  }
+
+  if (closeBtn && !closeBtn.dataset.diagFallbackWired){
+    closeBtn.dataset.diagFallbackWired = "1";
+    closeBtn.addEventListener("click", () => {
+      try { closeDiagnostics(); } catch { if (modal) modal.hidden = true; }
+    });
+  }
+}
+
 async function getOperationsDiagnosticsSnapshot(){
   return getDiagnosticsRuntimeController().getOperationsDiagnosticsSnapshot();
 }
@@ -3531,6 +3559,7 @@ function init(){
   try { normalizeStageLayoutModule(); } catch {}
   try { composeSetupStage(); } catch {}
   installGlobalErrorCapture();
+  safeCall(() => { wireDiagnosticsFallback(); }, { label: "init.wireDiagnosticsFallback" });
   safeCall(() => { preflightEls(); }, { label: "init.preflightEls" });
   safeCall(() => { wireUsbStorageEvents(); }, { label: "init.wireUsbStorageEvents" });
   safeCall(() => {
@@ -3919,4 +3948,19 @@ function fmtSigned(v){
   return fmtSignedModule(v, fmtInt);
 }
 
-init();
+try{
+  init();
+  try{
+    window.__FPE_BOOT_READY__ = true;
+  } catch {}
+} catch (err){
+  const message = err?.message ? String(err.message) : String(err || "Unknown init failure");
+  console.error("[appRuntime] fatal init failure", err);
+  try{
+    recordError("boot-failure", message);
+    window.__FPE_BOOT_READY__ = false;
+    const rows = Array.isArray(window.__FPE_BOOT_ERRORS) ? window.__FPE_BOOT_ERRORS : [];
+    rows.unshift(`boot-failure: ${message}`);
+    window.__FPE_BOOT_ERRORS = rows.slice(0, 30);
+  } catch {}
+}
