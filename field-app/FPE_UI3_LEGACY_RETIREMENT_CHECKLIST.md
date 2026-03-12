@@ -27,6 +27,8 @@ Reference artifact:
 ## Completed retirements
 - `stage-scenarios` removed from `index.html` (legacy nav item removed as part of the same pass).
 - `stage-decisions` removed from `index.html` (legacy nav item removed; Decision Log runs from runtime API bridge in v3).
+- Reach v3 surface no longer reads legacy stage-capacity DOM IDs; it now hard-fails to runtime API bridge (`window.__FPE_REACH_API__`) instead of mirroring legacy DOM.
+- Legacy `stage-capacity` visual markup retired from `index.html` (kept as hidden retired stub); legacy nav item for capacity removed.
 
 ## Stage dependency map (current)
 Counts below are unique legacy IDs referenced by each v3 surface.
@@ -36,7 +38,7 @@ Counts below are unique legacy IDs referenced by each v3 surface.
 | District | `stage-setup` | 22 |
 | District | `stage-checks` | 65 |
 | District | `stage-gotv` | 8 |
-| Reach | `stage-capacity` | 66 |
+| Reach | `stage-capacity` | 0 |
 | Outcome | `stage-results` | 83 |
 | Outcome | `stage-integrity` | 1 |
 | Turnout | `stage-roi` | 32 |
@@ -103,5 +105,5 @@ For each container before deletion:
 - [ ] Create checkpoint note and proceed to next container.
 
 ## Immediate next target
-Recommended next retirement target: `stage-capacity` bridge-reduction pass, then container removal.  
-This is the next isolated container after scenarios/decisions retirement.
+Recommended next retirement target: `stage-results` bridge-reduction pass.  
+`stage-capacity` has been retired from user flow; next shared blocker is `stage-results` used by Outcome + Turnout.

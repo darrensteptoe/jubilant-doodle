@@ -46,6 +46,7 @@ Scope: UI architecture migration only (engine and right rail frozen)
   - Manual browser regression against legacy values for weekly outputs.
   - Console error sweep after repeated stage switching.
   - Visual pass for 3-column scanability at 1280 and 1024 widths.
+  - Confirm `window.__FPE_REACH_API__` availability on first paint (v3 no longer falls back to legacy stage-capacity DOM mirrors).
 
 ### Outcome
 - Status: In progress (B -> C native structure pass started)
@@ -116,6 +117,8 @@ Scope: UI architecture migration only (engine and right rail frozen)
 - Bridge hardening: removed fragile structural legacy selectors in migrated surfaces (`> .note`, `:last-of-type`, descendant class lookups) and switched to explicit legacy IDs for Reach/Outcome status-note sync paths.
 - Bridge hardening: v3 proxy bindings now stamp bridge metadata (`data-v3-legacy-id`, `data-v3-bridge-kind`) on bridged controls, and QA smoke now verifies per-stage bridge target existence (`bridge-control-count`, `bridge-targets-exist`) while allowing explicitly native stages (currently `scenarios` and `decision-log`) to run with zero legacy bridges.
 - Reach bridge fix: `Finish date` now correctly reads legacy `#wkFinishAttempts` (previous stale `#wkFinishDoors` reference removed), and label text now matches the underlying attempts metric.
+- Reach bridge hardening: removed v3 legacy DOM fallback reads for weekly/outlook/levers/actions; Reach v3 now uses runtime API bridge only (`window.__FPE_REACH_API__`), reducing dependency on `stage-capacity`.
+- Legacy `stage-capacity` visual surface has been retired from `index.html` user flow (hidden retired stub retained during transition); preflight no longer requires legacy Reach assumption IDs.
 - Added v3 stage persistence/cutover behavior (`js/app/v3/index.js`):
   - Active stage persists to local storage.
   - URL deep-link query (`?stage=<id>`) restores stage on reload.
