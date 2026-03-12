@@ -2583,13 +2583,14 @@
 <!-- /app-shell -->
 </div>
 <!-- /app-shell-legacy -->
-<script src="./js/app.js?v=20260312-runtime-crashfix-5" type="module"></script>
-<script src="./js/app/v3/index.js?v=20260312-runtime-crashfix-5" type="module"></script>
+<script src="./js/app.js?v=20260312-runtime-crashfix-7" type="module"></script>
+<script src="./js/app/v3/index.js?v=20260312-runtime-crashfix-7" type="module"></script>
 <script>
 // ── Stage navigation ───────────────────────────────────────────
 window.__FPE_BOOT_ERRORS = Array.isArray(window.__FPE_BOOT_ERRORS) ? window.__FPE_BOOT_ERRORS : [];
 window.__FPE_BOOT_PHASE__ = window.__FPE_BOOT_PHASE__ || 'inline-started';
 window.__FPE_BOOT_READY__ = (typeof window.__FPE_BOOT_READY__ === 'boolean') ? window.__FPE_BOOT_READY__ : null;
+window.__FPE_BOOT_PROBES__ = Array.isArray(window.__FPE_BOOT_PROBES__) ? window.__FPE_BOOT_PROBES__ : [];
 window.addEventListener('error', function(evt){
   try{
     var msg = (evt && evt.message) ? String(evt.message) : 'Unknown runtime error';
@@ -2663,6 +2664,11 @@ function toggleTrainPanel(id) {
 }
 
 function openEmergencyDiagnostics(){
+  try{
+    if (typeof window.__FPE_OPEN_DIAGNOSTICS__ === 'function'){
+      window.__FPE_OPEN_DIAGNOSTICS__();
+    }
+  } catch {}
   var modal = document.getElementById('diagModal');
   var errors = document.getElementById('diagErrors');
   if (!modal) return;
@@ -2674,10 +2680,11 @@ function openEmergencyDiagnostics(){
     probes.push('legacy-diagnostics-btn: ' + String(!!document.getElementById('btnDiagnostics')));
     probes.push('v3-diagnostics-btn: ' + String(!!document.getElementById('v3BtnDiagnostics')));
     var rows = Array.isArray(window.__FPE_BOOT_ERRORS) ? window.__FPE_BOOT_ERRORS : [];
+    var probesRows = Array.isArray(window.__FPE_BOOT_PROBES__) ? window.__FPE_BOOT_PROBES__ : [];
     if (!rows.length){
-      errors.textContent = probes.join('\n') + '\n\nNo captured boot errors.';
+      errors.textContent = probes.join('\n') + '\n\n' + (probesRows.length ? probesRows.join('\n') + '\n\n' : '') + 'No captured boot errors.';
     } else {
-      errors.textContent = probes.join('\n') + '\n\n' + rows.join('\n');
+      errors.textContent = probes.join('\n') + '\n\n' + (probesRows.length ? probesRows.join('\n') + '\n\n' : '') + rows.join('\n');
     }
   }
   modal.hidden = false;
@@ -2685,6 +2692,12 @@ function openEmergencyDiagnostics(){
 window.openEmergencyDiagnostics = openEmergencyDiagnostics;
 
 function closeEmergencyDiagnostics(){
+  try{
+    if (typeof window.__FPE_CLOSE_DIAGNOSTICS__ === 'function'){
+      window.__FPE_CLOSE_DIAGNOSTICS__();
+      return;
+    }
+  } catch {}
   var modal = document.getElementById('diagModal');
   if (modal) modal.hidden = true;
 }
@@ -2715,15 +2728,71 @@ function initLegacyInlineShell() {
   if (btnClose){
     btnClose.addEventListener('click', closeEmergencyDiagnostics);
   }
+  var btnCopy = document.getElementById('btnCopyDebug');
+  if (btnCopy && !btnCopy.dataset.inlineCopyWired){
+    btnCopy.dataset.inlineCopyWired = '1';
+    btnCopy.addEventListener('click', function(){
+      try{
+        var text = String((document.getElementById('diagErrors') || {}).textContent || '').trim();
+        if (!text) return;
+        if (navigator.clipboard && navigator.clipboard.writeText){
+          navigator.clipboard.writeText(text).catch(function(){});
+          return;
+        }
+        var ta = document.createElement('textarea');
+        ta.value = text;
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand('copy');
+        ta.remove();
+      } catch {}
+    });
+  }
+}
+
+function runBootProbe(){
+  if (window.__FPE_BOOT_READY__ === true) return;
+  if (window.__FPE_BOOT_PROBE_RUNNING__) return;
+  window.__FPE_BOOT_PROBE_RUNNING__ = true;
+  var urls = [
+    './js/app.js?v=20260312-runtime-crashfix-7',
+    './js/appRuntime.js?v=20260312-runtime-crashfix-7',
+    './js/engine.js',
+    './js/build.js',
+    './js/app/renderMain.js',
+    './js/app/wireEventsRuntime.js',
+    './js/app/v3/index.js?v=20260312-runtime-crashfix-7'
+  ];
+  Promise.all(urls.map(function(url){
+    return fetch(url, { cache: 'no-store' })
+      .then(function(resp){
+        var ct = '';
+        try { ct = String(resp.headers.get('content-type') || ''); } catch {}
+        return 'probe: ' + url + ' -> ' + resp.status + ' ' + (resp.ok ? 'ok' : 'fail') + (ct ? (' [' + ct + ']') : '');
+      })
+      .catch(function(err){
+        var msg = err && err.message ? String(err.message) : String(err || 'fetch failed');
+        return 'probe: ' + url + ' -> error: ' + msg;
+      });
+  }))
+    .then(function(lines){
+      window.__FPE_BOOT_PROBES__ = lines.slice(0, 40);
+    })
+    .catch(function(){})
+    .finally(function(){
+      window.__FPE_BOOT_PROBE_RUNNING__ = false;
+    });
 }
 
 document.addEventListener('DOMContentLoaded', function(){
+  runBootProbe();
   if (shouldUseLegacyShell()) {
     initLegacyInlineShell();
     return;
   }
 
   window.setTimeout(function(){
+    runBootProbe();
     if (!isV3BridgeActive()) {
       initLegacyInlineShell();
     }
