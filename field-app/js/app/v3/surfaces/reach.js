@@ -6,7 +6,7 @@ import {
   getCardBody,
   setCardHeaderControl
 } from "../componentFactory.js";
-import { readText, setText, syncLegacyTableRows } from "../surfaceUtils.js";
+import { setText } from "../surfaceUtils.js";
 
 const REACH_API_KEY = "__FPE_REACH_API__";
 
@@ -322,20 +322,20 @@ function refreshReachSummary() {
   const api = getReachApi();
   try {
     if (!api || typeof api.getView !== "function") {
-      refreshReachLegacySummary();
+      renderReachUnavailable();
       return;
     }
 
     const payload = api.getView();
     if (!payload || typeof payload !== "object") {
-      refreshReachLegacySummary();
+      renderReachUnavailable();
       return;
     }
 
     applyReachView(payload);
   } catch (error) {
-    console.error("[v3-reach] runtime bridge failed, falling back to legacy mirror", error);
-    refreshReachLegacySummary();
+    console.error("[v3-reach] runtime bridge failed", error);
+    renderReachUnavailable();
   }
 }
 
@@ -801,109 +801,6 @@ function renderReachUnavailable() {
   renderReachBestMoves([]);
   renderReachLeversRows([]);
   renderReachOutlookRows([]);
-}
-
-function refreshReachLegacySummary() {
-  setText("v3ReachGoal", readText("#wkGoal"));
-  setText("v3ReachRequiredAttempts", readText("#wkAttemptsPerWeek"));
-  setText("v3ReachRequiredConvos", readText("#wkReqConvosWeek"));
-  setText("v3ReachRequiredDoors", readText("#wkReqDoorAttemptsWeek"));
-  setText("v3ReachCapacity", readText("#wkCapacityPerWeek"));
-  setText("v3ReachGap", readText("#wkGapPerWeek"));
-  setText("v3ReachConstraint", readText("#wkConstraint"));
-  setText("v3ReachConstraintNote", readText("#wkConstraintNote"));
-  setText("v3ReachPace", readText("#wkPaceStatus"));
-  setText("v3ReachFinishConvos", readText("#wkFinishConvos"));
-  setText("v3ReachFinishDoors", readText("#wkFinishAttempts"));
-
-  setText("v3ReachOutlookStatus", readText("#twCapOutlookStatus"));
-  setText("v3ReachOutlookSource", readText("#twCapOutlookActiveSource"));
-  setText("v3ReachOutlookBaseline", readText("#twCapOutlookBaseline"));
-  setText("v3ReachOutlookRamp", readText("#twCapOutlookRampTotal"));
-  setText("v3ReachOutlookScheduled", readText("#twCapOutlookScheduledTotal"));
-  setText("v3ReachOutlookHorizon", readText("#twCapOutlookHorizon"));
-  setText("v3ReachDiagInterviewPass", readText("#twDiagInterviewPass"));
-  setText("v3ReachDiagOfferAccept", readText("#twDiagOfferAccept"));
-  setText("v3ReachDiagOnboardingCompletion", readText("#twDiagOnboardingCompletion"));
-  setText("v3ReachDiagTrainingCompletion", readText("#twDiagTrainingCompletion"));
-  setText("v3ReachDiagCompositeSignal", readText("#twDiagCompositeSignal"));
-  setText("v3ReachDiagReadyNow", readText("#twDiagReadyNow"));
-  setText("v3ReachDiagReadyPerWeek", readText("#twDiagReadyPerWeek"));
-  setText("v3ReachDiagReadyIn14d", readText("#twDiagReadyIn14d"));
-  setText("v3ReachDiagMedianReadyDays", readText("#twDiagMedianReadyDays"));
-  setText("v3ReachDiagHintNote", readText("#twDiagHintNote"));
-  setText("v3ReachOutlookBasis", readText("#twCapOutlookBasis"));
-
-  setText("v3ReachSummaryGoal", readText("#wkGoal"));
-  setText("v3ReachSummaryRequiredAttempts", readText("#wkAttemptsPerWeek"));
-  setText("v3ReachSummaryCapacity", readText("#wkCapacityPerWeek"));
-  setText("v3ReachSummaryGap", readText("#wkGapPerWeek"));
-  setText("v3ReachSummaryConstraint", readText("#wkConstraint"));
-  setText("v3ReachSummaryPace", readText("#wkPaceStatus"));
-
-  setText("v3ReachDailyLogImportMsg", readText("#dailyLogImportMsg"));
-  setText("v3ReachFreshLastUpdate", readText("#wkLastUpdate"));
-  setText("v3ReachFreshNote", readText("#wkFreshNote"));
-  setText("v3ReachFreshRollingAttempts", readText("#wkRollingAttempts"));
-  setText("v3ReachFreshRollingNote", readText("#wkRollingNote"));
-  setText("v3ReachFreshStatus", readText("#wkFreshStatus"));
-  setText("v3ReachFreshRollingCR", readText("#wkRollingCR"));
-  setText("v3ReachFreshRollingCRNote", readText("#wkRollingCRNote"));
-  setText("v3ReachFreshRollingSR", readText("#wkRollingSR"));
-  setText("v3ReachFreshRollingSRNote", readText("#wkRollingSRNote"));
-  setText("v3ReachFreshRollingAPH", readText("#wkRollingAPH"));
-  setText("v3ReachFreshRollingAPHNote", readText("#wkRollingAPHNote"));
-  setText("v3ReachApplyRollingMsg", readText("#applyRollingMsg"));
-  setText("v3ReachUndoActionMsg", readText("#wkUndoActionMsg"));
-  setText("v3ReachFreshRealityNote", readText("#wkFreshRealityNote"));
-
-  setText("v3ReachLeversIntro", readText("#wkLeversIntro"));
-  setText("v3ReachBestMovesIntro", readText("#wkBestMovesIntro"));
-  setText("v3ReachLeversFoot", readText("#wkLeversFoot"));
-  setText("v3ReachActionsNote", readText("#wkActionsNote"));
-
-  syncLegacyTableRows({
-    sourceSelector: "#twCapOutlookTbody",
-    targetBodyId: "v3ReachOutlookTbody",
-    expectedCols: 5,
-    emptyLabel: "No outlook data.",
-    numericColumns: [1, 2, 3, 4]
-  });
-  syncLegacyTableRows({
-    sourceSelector: "#wkLeversTbody",
-    targetBodyId: "v3ReachLeversTbody",
-    expectedCols: 5,
-    emptyLabel: "No lever estimates available under current inputs.",
-    numericColumns: [1, 3]
-  });
-
-  refreshReachLegacyList("#wkBestMovesList", "v3ReachBestMovesList", "No top moves available under current inputs.");
-  refreshReachLegacyList("#wkActionsList", "v3ReachActionsList", "No recommended actions at this time.");
-  toggleElement("v3ReachBestMovesBlock", !document.getElementById("wkBestMovesIntro")?.hidden);
-  toggleElement("v3ReachLeversFoot", !document.getElementById("wkLeversFoot")?.hidden);
-}
-
-function refreshReachLegacyList(sourceSelector, targetId, emptyText) {
-  const source = document.querySelector(sourceSelector);
-  const target = document.getElementById(targetId);
-  if (!(target instanceof HTMLElement)) {
-    return;
-  }
-
-  target.innerHTML = "";
-  const items = source ? Array.from(source.querySelectorAll(":scope > li")) : [];
-  items.forEach((item) => {
-    const li = document.createElement("li");
-    li.textContent = (item.textContent || "").trim();
-    target.appendChild(li);
-  });
-
-  if (!target.children.length) {
-    const li = document.createElement("li");
-    li.className = "fpe-empty-state";
-    li.textContent = emptyText;
-    target.appendChild(li);
-  }
 }
 
 function escapeHtml(value) {
