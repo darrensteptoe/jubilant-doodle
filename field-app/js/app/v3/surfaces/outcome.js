@@ -485,32 +485,40 @@ function refreshOutcomeSummary() {
   syncControlDisabled("v3OutcomeSurfaceSteps", "surfaceSteps");
   syncControlDisabled("v3OutcomeSurfaceTarget", "surfaceTarget");
 
-  setText("v3OutcomeWeeksRemaining", readText("#p3Weeks"));
-  setText("v3OutcomeCapContacts", readText("#p3CapContacts"));
-  setText("v3OutcomeGapContacts", readText("#p3GapContacts"));
-  setText("v3OutcomeGapNote", readText("#p3GapNote"));
+  const outcomeWeeksRemaining = readFirstNonEmpty(["#timelineWeeksAuto", "#weeksRemaining"]);
+  const outcomeCapacityPerWeek = readFirstNonEmpty(["#wkCapacityPerWeek", "#wkAttemptsPerWeek"]);
+  const outcomeGapPerWeek = readText("#wkGapPerWeek");
+  const outcomeGapNote = readFirstNonEmpty(["#wkConstraintNote", "#wkBanner", "#v3KpiBottleneck"]);
+
+  setText("v3OutcomeWeeksRemaining", outcomeWeeksRemaining || "—");
+  setText("v3OutcomeCapContacts", outcomeCapacityPerWeek || "—");
+  setText("v3OutcomeGapContacts", outcomeGapPerWeek || "—");
+  setText("v3OutcomeGapNote", outcomeGapNote || "—");
 
   setText("v3OutcomeMcFreshTag", readText("#mcFreshTag-sidebar"));
   setText("v3OutcomeMcLastRun", readText("#mcLastRun-sidebar"));
   setText("v3OutcomeMcStale", readText("#mcStale-sidebar"));
-  setText("v3OutcomeSurfaceStatus", readText("#surfaceStatus"));
-  setText("v3OutcomeSurfaceSummary", readText("#surfaceSummary"));
-  setText("v3OutcomeImpactTraceNote", readText("#impactTraceNote"));
+  setText("v3OutcomeSurfaceStatus", "Run surface compute to refresh win-band diagnostics.");
+  setText("v3OutcomeSurfaceSummary", "Compute to see safe zones, cliffs, and diminishing returns.");
+  setText(
+    "v3OutcomeImpactTraceNote",
+    "Live dependency map for key planning outputs. This is explanatory only; it does not change model math."
+  );
 
   setText("v3OutcomeForecastWinProb", readText("#mcWinProb-sidebar"));
-  setText("v3OutcomeForecastMedian", readText("#mcMedian"));
-  setText("v3OutcomeForecastP95", readText("#mcP95"));
-  setText("v3OutcomeForecastP5", readText("#mcP5"));
   const outcomeP10 = readOutcomeSidebarMetric("#mcP10-sidebar", null, /^P10:\s*/i);
   const outcomeP50 = readOutcomeSidebarMetric("#mcP50-sidebar", null, /^Median:\s*/i);
   const outcomeP90 = readOutcomeSidebarMetric("#mcP90-sidebar", null, /^P90:\s*/i);
   const outcomeRiskLabel = readText("#riskBandTag-sidebar");
+  setText("v3OutcomeForecastMedian", outcomeP50);
+  setText("v3OutcomeForecastP95", outcomeP90);
+  setText("v3OutcomeForecastP5", outcomeP10);
 
   setText("v3OutcomeForecastRisk", outcomeRiskLabel);
   setText("v3OutcomeRiskFlagLabel", outcomeRiskLabel);
   setText("v3OutcomeRiskFlagGrade", outcomeRiskLabel);
   setText("v3OutcomeRiskFlagFragility", readText("#riskVolatility-sidebar"));
-  setText("v3OutcomeRiskFlagGapNote", readText("#p3GapNote"));
+  setText("v3OutcomeRiskFlagGapNote", outcomeGapNote || "—");
   setText("v3OutcomeRiskFlagFresh", readText("#mcFreshTag-sidebar"));
   setText("v3OutcomeRiskFlagLastRun", readText("#mcLastRun-sidebar"));
   setText("v3OutcomeRiskFlagStale", readText("#mcStale-sidebar"));
@@ -526,7 +534,7 @@ function refreshOutcomeSummary() {
   setJoinedText("v3OutcomeConfAttempts", [readText("#opsAttP10"), readText("#opsAttP50"), readText("#opsAttP90")], " / ");
   setJoinedText("v3OutcomeConfConvos", [readText("#opsConP10"), readText("#opsConP50"), readText("#opsConP90")], " / ");
   setJoinedText("v3OutcomeConfFinish", [readText("#opsFinishP10"), readText("#opsFinishP50"), readText("#opsFinishP90")], " / ");
-  setJoinedText("v3OutcomeConfMissRisk", [readText("#opsMissProb"), readText("#opsMissTag")], " ");
+  setText("v3OutcomeConfMissRisk", buildMissRiskSummary());
   setText("v3OutcomeConfMoS", readText("#mcMoS"));
   setText("v3OutcomeConfDownside", readText("#mcDownside"));
   setText("v3OutcomeConfES10", readText("#mcES10"));
@@ -584,4 +592,36 @@ function readOutcomeSidebarMetric(sidebarSelector, fallbackSelector = null, pref
     return readText(fallbackSelector) || "—";
   }
   return "—";
+}
+
+function readFirstNonEmpty(selectors = []) {
+  const list = Array.isArray(selectors) ? selectors : [selectors];
+  for (const selector of list) {
+    const value = readText(selector);
+    if (value) {
+      return value;
+    }
+  }
+  return "";
+}
+
+function buildMissRiskSummary() {
+  const missProbText = readText("#opsMissProb");
+  if (!missProbText) {
+    return "—";
+  }
+
+  const parsed = Number(String(missProbText).replace(/[^\d.-]/g, ""));
+  if (!Number.isFinite(parsed)) {
+    return missProbText;
+  }
+
+  let riskTag = "Low risk";
+  if (parsed >= 40) {
+    riskTag = "High risk";
+  } else if (parsed >= 20) {
+    riskTag = "Moderate risk";
+  }
+
+  return `${missProbText} ${riskTag}`;
 }
