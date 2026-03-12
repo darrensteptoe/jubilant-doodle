@@ -2583,8 +2583,8 @@
 <!-- /app-shell -->
 </div>
 <!-- /app-shell-legacy -->
-<script src="./js/app.js?v=20260312-runtime-crashfix-2" type="module"></script>
-<script src="./js/app/v3/index.js?v=20260312-runtime-crashfix-2" type="module"></script>
+<script src="./js/app.js?v=20260312-runtime-crashfix-4" type="module"></script>
+<script src="./js/app/v3/index.js?v=20260312-runtime-crashfix-4" type="module"></script>
 <script>
 // ── Stage navigation ───────────────────────────────────────────
 window.__FPE_BOOT_ERRORS = Array.isArray(window.__FPE_BOOT_ERRORS) ? window.__FPE_BOOT_ERRORS : [];
@@ -2665,11 +2665,13 @@ function openEmergencyDiagnostics(){
   }
   modal.hidden = false;
 }
+window.openEmergencyDiagnostics = openEmergencyDiagnostics;
 
 function closeEmergencyDiagnostics(){
   var modal = document.getElementById('diagModal');
   if (modal) modal.hidden = true;
 }
+window.closeEmergencyDiagnostics = closeEmergencyDiagnostics;
 
 function initLegacyInlineShell() {
   var host = document.querySelector('.stage-main-new');
@@ -2680,6 +2682,17 @@ function initLegacyInlineShell() {
   var btnOpen = document.getElementById('btnDiagnostics');
   if (btnOpen){
     btnOpen.addEventListener('click', openEmergencyDiagnostics);
+  }
+  // v3 topbar diagnostics button is dynamic; bind delegated fallback once.
+  if (!document.body.dataset.diagFallbackDelegated){
+    document.body.dataset.diagFallbackDelegated = '1';
+    document.addEventListener('click', function(evt){
+      try{
+        var target = evt && evt.target ? evt.target.closest('#btnDiagnostics, #v3BtnDiagnostics, [data-open-diag="1"]') : null;
+        if (!target) return;
+        openEmergencyDiagnostics();
+      } catch {}
+    }, true);
   }
   var btnClose = document.getElementById('btnDiagClose');
   if (btnClose){
