@@ -81,7 +81,7 @@ Scope: UI architecture migration only (engine and right rail frozen)
 
 ### Scenarios
 - Status: In progress (B -> C native structure pass started)
-- Current implementation: v3-native scenario workspace controls bridged to legacy scenario IDs; comparison panel remains compatibility-mounted.
+- Current implementation: v3-native scenario workspace and comparison panel now run through the runtime scenario API bridge (`window.__FPE_SCENARIO_API__`) with no legacy ID-bound controls in the v3 pane.
 - Remaining checks:
   - Save/load/clone/delete scenario actions from v3 workspace.
   - Comparison grid visibility and diff counts under baseline/non-baseline states.
@@ -89,7 +89,7 @@ Scope: UI architecture migration only (engine and right rail frozen)
 
 ### Decision Log
 - Status: In progress (B -> C native structure pass started)
-- Current implementation: v3-native session/assumptions/options/recommendation cards bridged to legacy decision IDs; diagnostics rows remain compatibility-mounted.
+- Current implementation: v3-native session/assumptions/options/recommendation/diagnostics cards now run through the runtime decision API bridge (`window.__FPE_DECISION_API__`) without legacy ID-bound controls in the v3 pane; `Run snapshot` now uses the shared DOM-independent sensitivity compute path.
 - Remaining checks:
   - Session/objective/options actions under repeated edits.
   - Diagnostics panel updates (drift/risk/bottleneck/sensitivity/confidence) after reruns.
@@ -112,21 +112,30 @@ Scope: UI architecture migration only (engine and right rail frozen)
 - Added v3 QA smoke harness (`js/app/v3/qaGates.js`):
   - Runs automatically when clicking the v3 Diagnostics button (logs pass/fail table to console, then opens legacy diagnostics modal).
   - Can be run manually in-browser with `window.runV3QaSmoke()`.
+  - Stage selector checks are now scoped to the active v3 pane (not global DOM), so hidden legacy IDs can no longer produce false passes.
+- Bridge hardening: removed fragile structural legacy selectors in migrated surfaces (`> .note`, `:last-of-type`, descendant class lookups) and switched to explicit legacy IDs for Reach/Outcome status-note sync paths.
+- Bridge hardening: v3 proxy bindings now stamp bridge metadata (`data-v3-legacy-id`, `data-v3-bridge-kind`) on bridged controls, and QA smoke now verifies per-stage bridge target existence (`bridge-control-count`, `bridge-targets-exist`) while allowing explicitly native stages (currently `scenarios` and `decision-log`) to run with zero legacy bridges.
+- Reach bridge fix: `Finish date` now correctly reads legacy `#wkFinishAttempts` (previous stale `#wkFinishDoors` reference removed), and label text now matches the underlying attempts metric.
 - Added v3 stage persistence/cutover behavior (`js/app/v3/index.js`):
   - Active stage persists to local storage.
   - URL deep-link query (`?stage=<id>`) restores stage on reload.
   - v3 is default; legacy shell opens only via explicit URL mode flag (`?ui=legacy`).
 - Phase 11 native bridge started on Data (`js/app/v3/surfaces/data.js`), replacing compatibility card mounts with native v3 controls wired to existing legacy handlers.
-- Phase 11 native bridge expanded on Scenarios workspace (`js/app/v3/surfaces/scenarios.js`), while keeping comparison grid in compatibility mode.
+- Phase 11 native bridge expanded on Scenarios workspace (`js/app/v3/surfaces/scenarios.js`) and now runs fully through the runtime scenario API bridge (no v3 legacy-control proxies required).
+- Phase 11 native bridge expanded on Decision Log (`js/app/v3/surfaces/decisionLog.js`) and now runs fully through the runtime decision API bridge (no v3 legacy-control proxies required).
+- Legacy scenario manager wiring now short-circuits when scenario DOM controls are absent (`js/app/scenarioManagerBindings.js`), enabling safe `stage-scenarios` retirement sequencing.
+- Legacy decision-session wiring now short-circuits when decision DOM controls are absent (`js/app/decisionSessionApp.js`), reducing hard boot coupling before `stage-decisions` retirement.
+- Legacy `stage-scenarios` container and nav entry have been retired from `index.html`; Scenarios now operates exclusively through v3 surface + runtime scenario API bridge.
+- Legacy `stage-decisions` container and nav entry have been retired from `index.html`; Decision Log now operates through v3 surface + runtime decision API bridge.
 - Phase 11 native bridge expanded on Controls (`js/app/v3/surfaces/controls.js`) for workflow, benchmark, evidence, and calibration cards.
-- Phase 11 native bridge expanded on Decision Log (`js/app/v3/surfaces/decisionLog.js`) for session, assumptions, options, and recommendation cards.
-- Hardening refactor: Controls, Decision Log, Scenarios, and Data now use the shared bridge helper API (reducing per-surface custom wiring code and keeping bridge behavior consistent).
+- Hardening refactor: Controls and Data use the shared bridge helper API (reducing per-surface custom wiring code and keeping bridge behavior consistent), while Scenarios and Decision Log now use dedicated runtime API bridges.
 - Legacy header actions migrated into native v3 card-body actions on primary modeling surfaces:
   - District: `Add candidate`
   - Outcome: `Compute Surface`
   - Turnout: `Refresh` (ROI comparison)
   - Plan: `Optimize`
 - Decision Log diagnostics now includes a native v3 `Run snapshot` action proxy, replacing reliance on the legacy inline sensitivity button in mounted diagnostics rows.
+- Sensitivity snapshot computation now has a DOM-independent runtime path (`computeSensitivitySnapshotCache`), so Decision Log snapshot runs no longer require legacy E4 DOM.
 - Module-level ON/OFF toggles now follow header placement convention (label-left, switch-right) on migrated cards: District electorate weighting, Turnout module, Plan timeline module, Controls census apply-adjustments, and Data strict import policy.
 - Surface action styling is normalized to compact neutral controls (`Add candidate` style) for all non-topbar buttons, including legacy `.btn` elements mounted inside v3 cards.
 - District surface is now a single-column wide workspace (`fpe-surface-frame--single`) and now hosts the Census assumptions surface (`#censusPhase1Card`) for maximum working room.

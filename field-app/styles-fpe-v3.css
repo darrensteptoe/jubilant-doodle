@@ -442,6 +442,28 @@ body.dark #app-shell-v3-root {
   font-weight: 600;
 }
 
+.fpe-kpi.is-empty .fpe-kpi__value {
+  color: var(--fpe-muted);
+}
+
+.fpe-kpi--ok {
+  border-color: color-mix(in srgb, var(--fpe-success) 28%, var(--fpe-rule));
+}
+
+.fpe-kpi--neutral {
+  border-color: var(--fpe-rule);
+}
+
+.fpe-kpi--warn {
+  border-color: color-mix(in srgb, var(--fpe-warning) 36%, var(--fpe-rule));
+  background: color-mix(in srgb, var(--fpe-warning) 8%, var(--fpe-panel-muted));
+}
+
+.fpe-kpi--bad {
+  border-color: color-mix(in srgb, var(--fpe-danger) 42%, var(--fpe-rule));
+  background: color-mix(in srgb, var(--fpe-danger) 9%, var(--fpe-panel-muted));
+}
+
 .fpe-surface {
   flex: 1 1 auto;
   min-height: 0;
@@ -541,6 +563,42 @@ body.dark #app-shell-v3-root {
   color: var(--fpe-muted);
 }
 
+#app-shell-v3-root .fpe-surface .fpe-status-pill,
+#app-shell-v3-root .fpe-surface .tag,
+#app-shell-v3-root .fpe-surface .badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  border: 1px solid color-mix(in srgb, var(--fpe-rule) 90%, transparent);
+  border-radius: 999px;
+  padding: 2px 8px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  line-height: 1.2;
+  color: var(--fpe-muted);
+  background: color-mix(in srgb, var(--fpe-rule) 12%, transparent);
+}
+
+#app-shell-v3-root .fpe-surface .fpe-status-pill--ok {
+  border-color: color-mix(in srgb, var(--fpe-success) 32%, var(--fpe-rule));
+  color: color-mix(in srgb, var(--fpe-success) 82%, var(--fpe-text));
+  background: color-mix(in srgb, var(--fpe-success) 10%, transparent);
+}
+
+#app-shell-v3-root .fpe-surface .fpe-status-pill--warn {
+  border-color: color-mix(in srgb, var(--fpe-warning) 40%, var(--fpe-rule));
+  color: color-mix(in srgb, var(--fpe-warning) 82%, var(--fpe-text));
+  background: color-mix(in srgb, var(--fpe-warning) 12%, transparent);
+}
+
+#app-shell-v3-root .fpe-surface .fpe-status-pill--bad {
+  border-color: color-mix(in srgb, var(--fpe-danger) 48%, var(--fpe-rule));
+  color: color-mix(in srgb, var(--fpe-danger) 84%, var(--fpe-text));
+  background: color-mix(in srgb, var(--fpe-danger) 12%, transparent);
+}
+
 .fpe-card__desc {
   margin: 7px 0 0;
   color: var(--fpe-muted);
@@ -555,17 +613,21 @@ body.dark #app-shell-v3-root {
 
 .fpe-field-grid {
   display: grid;
-  gap: 14px;
+  gap: var(--fpe-stack-gap);
   margin: 0;
 }
 
 .fpe-field-grid .field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--fpe-field-gap);
   margin: 0;
+  min-width: 0;
 }
 
 .fpe-control-label {
   display: block;
-  margin-bottom: 4px;
+  margin: 0;
   color: var(--fpe-muted);
   font-size: 11px;
   font-weight: 600;
@@ -579,7 +641,7 @@ body.dark #app-shell-v3-root {
 .fpe-card__body .field .help-text,
 .fpe-card__body .field .muted {
   display: block;
-  margin-top: 6px;
+  margin: 0;
 }
 
 .fpe-input {
@@ -629,6 +691,8 @@ body.dark #app-shell-v3-root {
 }
 
 #app-shell-v3-root .fpe-card__body .label {
+  display: block;
+  margin: 0;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -648,7 +712,7 @@ body.dark #app-shell-v3-root {
 }
 
 .fpe-help {
-  margin-top: 8px;
+  margin: 0;
   color: var(--fpe-muted);
   font-size: 12px;
   line-height: 1.45;
@@ -662,7 +726,7 @@ body.dark #app-shell-v3-root {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 8px;
+  gap: var(--fpe-field-gap);
   margin-bottom: 0;
 }
 
@@ -728,6 +792,10 @@ body.dark #app-shell-v3-root {
 
 .fpe-status-strip--3 {
   grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.fpe-status-strip--4 {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 
 .fpe-status-strip > .fpe-contained-block {
@@ -961,6 +1029,13 @@ body.training #app-shell-v3-root .fpe-surface .help {
 #app-shell-v3-root .fpe-surface .table thead th {
   background: var(--fpe-table-head-bg) !important;
   border-bottom: 1px solid color-mix(in srgb, var(--fpe-rule) 88%, transparent);
+}
+
+#app-shell-v3-root .fpe-surface .fpe-empty-row > td,
+#app-shell-v3-root .fpe-surface td.fpe-empty-state,
+#app-shell-v3-root .fpe-surface li.fpe-empty-state {
+  color: var(--fpe-muted);
+  font-style: italic;
 }
 
 #app-shell-v3-root .fpe-card__body .fpe-field-grid--2,
@@ -1408,6 +1483,30 @@ body.training #app-shell-v3-root .fpe-surface .help {
   margin: 0;
 }
 
+.fpe-surface-pane[data-v3-stage="district"] .fpe-targeting-lab {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.fpe-surface-pane[data-v3-stage="district"] .fpe-targeting-lab > * {
+  margin-top: 0 !important;
+  margin-bottom: 0 !important;
+}
+
+.fpe-surface-pane[data-v3-stage="district"] .fpe-targeting-lab .fpe-action-row {
+  justify-content: flex-start;
+  flex-wrap: wrap;
+}
+
+.fpe-surface-pane[data-v3-stage="district"] .fpe-targeting-lab .fpe-help {
+  color: var(--fpe-muted);
+}
+
+.fpe-surface-pane[data-v3-stage="district"] .fpe-targeting-lab .fpe-field-grid .field {
+  min-width: 0;
+}
+
 .fpe-surface-pane[data-v3-stage="scenarios"] .scm {
   display: flex;
   flex-direction: column;
@@ -1768,7 +1867,8 @@ body.training #app-shell-v3-root .fpe-surface .help {
   }
 
   .fpe-status-strip--2,
-  .fpe-status-strip--3 {
+  .fpe-status-strip--3,
+  .fpe-status-strip--4 {
     grid-template-columns: 1fr;
   }
 
