@@ -3513,8 +3513,8 @@ function init(){
   try { normalizeStageLayoutModule(); } catch {}
   try { composeSetupStage(); } catch {}
   installGlobalErrorCapture();
-  preflightEls();
-  wireUsbStorageEvents();
+  safeCall(() => { preflightEls(); }, { label: "init.preflightEls" });
+  safeCall(() => { wireUsbStorageEvents(); }, { label: "init.wireUsbStorageEvents" });
   safeCall(() => {
     const controller = getUsbStorageController();
     Promise.resolve(controller.init()).then(() => {
@@ -3528,70 +3528,74 @@ function init(){
       return null;
     }).catch(() => {});
   });
-  ensureScenarioRegistry();
-  installScenarioBridge();
-  ensureDecisionScaffold();
-  installDecisionBridge();
-  runInitScenarioDecisionWiringModule({
-    els,
-    getState: () => state,
-    replaceState: (next) => { state = next; },
-    setState,
-    ensureScenarioRegistry,
-    ensureDecisionScaffold,
-    SCENARIO_BASELINE_ID,
-    SCENARIO_MAX,
-    setScenarioWarn,
-    uid,
-    scenarioClone,
-    scenarioInputsFromState,
-    scenarioOutputsFromState,
-    persist,
-    renderScenarioManagerC1,
-    markMcStale,
-    applyStateToUI,
-    render,
-    safeCall,
-    renderDecisionSessionD1,
-    createDecisionSessionActions,
-    wireScenarioManagerBindings,
-    wireDecisionSessionBindings,
-    makeDecisionSessionId,
-    makeDecisionOptionId,
-    OBJECTIVE_TEMPLATES,
-    getActiveDecisionSession,
-    ensureDecisionSessionShape,
-    getActiveDecisionOption,
-    ensureDecisionOptionShape,
-    renderDecisionSummaryD4,
-    buildDecisionSummaryText,
-    copyTextToClipboard,
-    decisionSummaryPlainText,
-    decisionSessionExportObject,
-    downloadJsonObject,
-    runSensitivitySnapshotE4,
-  });
-  runInitPostBootModule({
-    updateBuildStamp,
-    updateSelfTestGateBadge,
-    updatePersistenceStatusChip,
-    refreshBackupDropdown,
-    applyStateToUI,
-    rebuildCandidateTable,
-    initTabs,
-    initExplainCard,
-    safeCall,
-    wireSensitivitySurface,
-    wireEvents,
-    initDevTools,
-    render,
-    getState: () => state,
-    SCENARIO_BASELINE_ID,
-    scenarioInputsFromState,
-    scenarioOutputsFromState,
-    renderScenarioManagerC1,
-    persist,
-  });
+  safeCall(() => { ensureScenarioRegistry(); }, { label: "init.ensureScenarioRegistry" });
+  safeCall(() => { installScenarioBridge(); }, { label: "init.installScenarioBridge" });
+  safeCall(() => { ensureDecisionScaffold(); }, { label: "init.ensureDecisionScaffold" });
+  safeCall(() => { installDecisionBridge(); }, { label: "init.installDecisionBridge" });
+  safeCall(() => {
+    runInitScenarioDecisionWiringModule({
+      els,
+      getState: () => state,
+      replaceState: (next) => { state = next; },
+      setState,
+      ensureScenarioRegistry,
+      ensureDecisionScaffold,
+      SCENARIO_BASELINE_ID,
+      SCENARIO_MAX,
+      setScenarioWarn,
+      uid,
+      scenarioClone,
+      scenarioInputsFromState,
+      scenarioOutputsFromState,
+      persist,
+      renderScenarioManagerC1,
+      markMcStale,
+      applyStateToUI,
+      render,
+      safeCall,
+      renderDecisionSessionD1,
+      createDecisionSessionActions,
+      wireScenarioManagerBindings,
+      wireDecisionSessionBindings,
+      makeDecisionSessionId,
+      makeDecisionOptionId,
+      OBJECTIVE_TEMPLATES,
+      getActiveDecisionSession,
+      ensureDecisionSessionShape,
+      getActiveDecisionOption,
+      ensureDecisionOptionShape,
+      renderDecisionSummaryD4,
+      buildDecisionSummaryText,
+      copyTextToClipboard,
+      decisionSummaryPlainText,
+      decisionSessionExportObject,
+      downloadJsonObject,
+      runSensitivitySnapshotE4,
+    });
+  }, { label: "init.runInitScenarioDecisionWiring" });
+  safeCall(() => {
+    runInitPostBootModule({
+      updateBuildStamp,
+      updateSelfTestGateBadge,
+      updatePersistenceStatusChip,
+      refreshBackupDropdown,
+      applyStateToUI,
+      rebuildCandidateTable,
+      initTabs,
+      initExplainCard,
+      safeCall,
+      wireSensitivitySurface,
+      wireEvents,
+      initDevTools,
+      render,
+      getState: () => state,
+      SCENARIO_BASELINE_ID,
+      scenarioInputsFromState,
+      scenarioOutputsFromState,
+      renderScenarioManagerC1,
+      persist,
+    });
+  }, { label: "init.runInitPostBoot" });
 }
 
 
