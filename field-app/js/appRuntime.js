@@ -3617,9 +3617,6 @@ function init(){
 }
 
 
-init();
-
-
 // =========================
 // Phase 5.5 — Self-test accessors (dev-only)
 // =========================
@@ -3921,3 +3918,5 @@ function renderMcVisuals(summary){
 function fmtSigned(v){
   return fmtSignedModule(v, fmtInt);
 }
+
+init();

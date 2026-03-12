@@ -628,10 +628,23 @@ export function resolveMetricSetVariables(metricSetId, variableNames){
 
 export function auditMetricSetsWithCatalog(variableNames){
   const metricSets = listMetricSetOptions().map((row) => cleanText(row.id)).filter((id) => !!id);
-  const results = metricSets.map((metricSet) => resolveMetricSetVariables(metricSet, variableNames));
-  const fullyCompatible = results.filter((row) => row.missing.length === 0).length;
-  const partiallyCompatible = results.filter((row) => row.available.length > 0 && row.missing.length > 0).length;
-  const incompatible = results.filter((row) => row.available.length === 0).length;
+  const always = new Set(ALWAYS_ACS_VARIABLES.map((id) => cleanText(id)).filter((id) => !!id));
+  const results = metricSets.map((metricSet) => {
+    const row = resolveMetricSetVariables(metricSet, variableNames);
+    const bundleRequested = row.requested.filter((id) => !always.has(cleanText(id)));
+    const bundleAvailable = row.available.filter((id) => !always.has(cleanText(id)));
+    const bundleMissing = row.missing.filter((id) => !always.has(cleanText(id)));
+    return {
+      ...row,
+      bundleRequested,
+      bundleAvailable,
+      bundleMissing,
+      bundleCoveragePct: bundleRequested.length ? (bundleAvailable.length / bundleRequested.length) : 1,
+    };
+  });
+  const fullyCompatible = results.filter((row) => row.bundleMissing.length === 0).length;
+  const partiallyCompatible = results.filter((row) => row.bundleAvailable.length > 0 && row.bundleMissing.length > 0).length;
+  const incompatible = results.filter((row) => row.bundleAvailable.length === 0).length;
   return {
     metricSets: results,
     summary: {
