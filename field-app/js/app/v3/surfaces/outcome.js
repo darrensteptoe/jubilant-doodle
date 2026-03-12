@@ -487,8 +487,8 @@ function refreshOutcomeSummary() {
 
   const outcomeWeeksRemaining = readFirstNonEmpty(["#timelineWeeksAuto", "#weeksRemaining"]);
   const outcomeCapacityPerWeek = readFirstNonEmpty(["#wkCapacityPerWeek", "#wkAttemptsPerWeek"]);
-  const outcomeGapPerWeek = readText("#wkGapPerWeek");
   const outcomeGapNote = readFirstNonEmpty(["#wkConstraintNote", "#wkBanner", "#v3KpiBottleneck"]);
+  const outcomeGapPerWeek = deriveGapFromNote(outcomeGapNote);
 
   setText("v3OutcomeWeeksRemaining", outcomeWeeksRemaining || "—");
   setText("v3OutcomeCapContacts", outcomeCapacityPerWeek || "—");
@@ -505,7 +505,8 @@ function refreshOutcomeSummary() {
     "Live dependency map for key planning outputs. This is explanatory only; it does not change model math."
   );
 
-  setText("v3OutcomeForecastWinProb", readText("#mcWinProb-sidebar"));
+  const outcomeWinProb = readOutcomeWinProbability();
+  setText("v3OutcomeForecastWinProb", outcomeWinProb);
   const outcomeP10 = readOutcomeSidebarMetric("#mcP10-sidebar", null, /^P10:\s*/i);
   const outcomeP50 = readOutcomeSidebarMetric("#mcP50-sidebar", null, /^Median:\s*/i);
   const outcomeP90 = readOutcomeSidebarMetric("#mcP90-sidebar", null, /^P90:\s*/i);
@@ -525,7 +526,7 @@ function refreshOutcomeSummary() {
   setText("v3OutcomeRiskFlagLastRun", readText("#mcLastRun-sidebar"));
   setText("v3OutcomeRiskFlagStale", readText("#mcStale-sidebar"));
 
-  setText("v3OutcomeWinProb", readText("#mcWinProb-sidebar"));
+  setText("v3OutcomeWinProb", outcomeWinProb);
   setText("v3OutcomeP50", outcomeP50);
   setText("v3OutcomeP10", outcomeP10);
   setText("v3OutcomeP90", outcomeP90);
@@ -647,4 +648,21 @@ function parseSignedNumber(rawValue) {
   const cleaned = text.replace(/,/g, "").replace(/[^\d.+-]/g, "");
   const parsed = Number(cleaned);
   return Number.isFinite(parsed) ? parsed : NaN;
+}
+
+function readOutcomeWinProbability() {
+  const kpiValue = readText("#v3KpiWinProb .fpe-kpi__value");
+  return kpiValue || "—";
+}
+
+function deriveGapFromNote(noteText) {
+  const text = String(noteText || "").trim();
+  if (!text) {
+    return "—";
+  }
+  const numeric = text.match(/[+-]?\d[\d,]*/);
+  if (numeric && numeric[0]) {
+    return numeric[0];
+  }
+  return "See note";
 }

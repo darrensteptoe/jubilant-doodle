@@ -357,15 +357,18 @@ function wireTurnoutControlProxies() {
 
 function refreshTurnoutSummary() {
   const snapshot = readTurnoutSnapshot();
-  setText("v3TurnoutSummary", snapshot.turnoutSummary || "-");
-  setText("v3TurnoutVotes", snapshot.turnoutVotes || "-");
-  setText("v3TurnoutNeedVotes", snapshot.needVotes || "-");
-  setText("v3TurnoutImpactVotes", readText("#kpiTurnoutVotes-sidebar"));
-  setText("v3TurnoutImpactNeed", readText("#kpiPersuasionNeed-sidebar"));
+  const turnoutSummary = String(snapshot.turnoutSummary || "").trim();
+  const turnoutVotes = String(snapshot.turnoutVotes || "").trim();
+  const needVotes = String(snapshot.needVotes || "").trim();
+
+  setText("v3TurnoutSummary", turnoutSummary || "-");
+  setText("v3TurnoutVotes", turnoutVotes || "-");
+  setText("v3TurnoutNeedVotes", needVotes || "-");
+  setText("v3TurnoutImpactVotes", turnoutVotes || "-");
+  setText("v3TurnoutImpactNeed", needVotes || "-");
   setText("v3TurnoutImpactMargin", readTurnoutMarginContext());
-  setText("v3TurnoutImpactWinProb", readText("#mcWinProb-sidebar"));
-  setText("v3TurnoutStatusBanner", readText("#turnoutSummary"));
-  setText("v3TurnoutRoiBanner", readText("#roiBanner"));
+  setText("v3TurnoutImpactWinProb", readV3WinProbability());
+  setText("v3TurnoutStatusBanner", buildTurnoutStatusBanner(turnoutSummary, turnoutVotes, needVotes));
   syncLegacyTableRows({
     sourceSelector: "#roiTbody",
     targetBodyId: "v3TurnoutRoiTbody",
@@ -373,6 +376,7 @@ function refreshTurnoutSummary() {
     emptyLabel: "Refresh ROI to compute efficiency comparison.",
     numericColumns: [1, 2, 3, 4]
   });
+  setText("v3TurnoutRoiBanner", buildRoiStatusBanner());
 
   syncFieldValue("v3TurnoutBaselinePct", "turnoutBaselinePct");
   syncFieldValue("v3TurnoutTargetOverridePct", "turnoutTargetOverridePct");
@@ -445,4 +449,27 @@ function readTurnoutMarginContext() {
     return sidebar;
   }
   return "—";
+}
+
+function readV3WinProbability() {
+  const value = readText("#v3KpiWinProb .fpe-kpi__value");
+  return value || "—";
+}
+
+function buildTurnoutStatusBanner(summary, turnoutVotes, needVotes) {
+  if (summary) {
+    return summary;
+  }
+  if (turnoutVotes || needVotes) {
+    return `Expected turnout votes ${turnoutVotes || "—"} vs persuasion need ${needVotes || "—"}.`;
+  }
+  return "Set turnout assumptions and refresh ROI to evaluate realized-vote impact.";
+}
+
+function buildRoiStatusBanner() {
+  const bodyText = readText("#v3TurnoutRoiTbody");
+  if (!bodyText || /refresh roi to compute/i.test(bodyText)) {
+    return "Refresh ROI to compute efficiency comparison.";
+  }
+  return "ROI comparison reflects current tactic settings.";
 }

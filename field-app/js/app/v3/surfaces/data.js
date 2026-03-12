@@ -177,8 +177,9 @@ function refreshDataSummary() {
 
   const strictToggle = getLegacyEl("toggleStrictImport");
   const restoreBackup = getLegacyEl("restoreBackup");
-  const hashBanner = document.getElementById("importHashBanner");
-  const warnBanner = document.getElementById("importWarnBanner");
+  const hashBannerUi = document.getElementById("v3DataHashBannerUi");
+  const warnBannerUi = document.getElementById("v3DataWarnBannerUi");
+  const usbStatusUi = readText("#v3DataUsbStatusUi");
 
   setText(
     "v3DataStrictImport",
@@ -192,13 +193,13 @@ function refreshDataSummary() {
   );
   setText(
     "v3DataHashBanner",
-    hashBanner && !hashBanner.hidden ? readText("#importHashBanner") || "Visible" : "Hidden"
+    hashBannerUi && !hashBannerUi.hidden ? (hashBannerUi.textContent || "").trim() || "Visible" : "Hidden"
   );
   setText(
     "v3DataWarnBanner",
-    warnBanner && !warnBanner.hidden ? readText("#importWarnBanner") || "Visible" : "Hidden"
+    warnBannerUi && !warnBannerUi.hidden ? (warnBannerUi.textContent || "").trim() || "Visible" : "Hidden"
   );
-  setText("v3DataUsbStatus", readText("#usbStorageStatus"));
+  setText("v3DataUsbStatus", usbStatusUi || "Using browser storage only.");
   setText("v3DataRestoreSelection", readSelectedLabel("#restoreBackup") || "No backup selected.");
   setText("v3DataImportFileSummary", describeImportFile(getLegacyEl("loadJson")));
 }
@@ -225,9 +226,6 @@ function wireDataBridge() {
 
 function syncDataBridgeUi() {
   const legacyLoadJson = getLegacyEl("loadJson");
-  const legacyHashBanner = getLegacyEl("importHashBanner");
-  const legacyWarnBanner = getLegacyEl("importWarnBanner");
-  const legacyUsbStatus = getLegacyEl("usbStorageStatus");
 
   syncCheckboxValue("v3DataStrictToggle", "toggleStrictImport");
   syncSelectValue("v3DataRestoreBackup", "restoreBackup");
@@ -235,19 +233,18 @@ function syncDataBridgeUi() {
   syncControlDisabled("v3DataRestoreBackup", "restoreBackup");
 
   const hashBannerUi = document.getElementById("v3DataHashBannerUi");
-  if (hashBannerUi && legacyHashBanner instanceof HTMLElement) {
-    hashBannerUi.hidden = legacyHashBanner.hidden;
-    hashBannerUi.textContent =
-      (legacyHashBanner.textContent || "").trim() || "Snapshot hash differs from exported hash.";
+  if (hashBannerUi instanceof HTMLElement) {
+    hashBannerUi.hidden = true;
+    hashBannerUi.textContent = "No import hash warning.";
   }
 
   const warnBannerUi = document.getElementById("v3DataWarnBannerUi");
-  if (warnBannerUi && legacyWarnBanner instanceof HTMLElement) {
-    warnBannerUi.hidden = legacyWarnBanner.hidden;
-    warnBannerUi.textContent = (legacyWarnBanner.textContent || "").trim() || "Import warning.";
+  if (warnBannerUi instanceof HTMLElement) {
+    warnBannerUi.hidden = true;
+    warnBannerUi.textContent = "No import warnings.";
   }
 
-  setText("v3DataUsbStatusUi", legacyUsbStatus ? (legacyUsbStatus.textContent || "").trim() : "");
+  setText("v3DataUsbStatusUi", describeUsbStatusFromControls());
   setText("v3DataImportFileStatus", describeImportFile(legacyLoadJson));
 
   syncButtonDisabled("v3DataBtnSaveJson", "btnSaveJson");
@@ -269,4 +266,26 @@ function describeImportFile(legacyLoadJson) {
     return "No import file selected.";
   }
   return `Selected import: ${legacyLoadJson.files[0].name}`;
+}
+
+function describeUsbStatusFromControls() {
+  const connectBtn = document.getElementById("v3DataBtnUsbConnect");
+  const loadBtn = document.getElementById("v3DataBtnUsbLoad");
+  const saveBtn = document.getElementById("v3DataBtnUsbSave");
+  const disconnectBtn = document.getElementById("v3DataBtnUsbDisconnect");
+
+  if (
+    loadBtn instanceof HTMLButtonElement &&
+    saveBtn instanceof HTMLButtonElement &&
+    (!loadBtn.disabled || !saveBtn.disabled)
+  ) {
+    return "External folder connected.";
+  }
+  if (disconnectBtn instanceof HTMLButtonElement && !disconnectBtn.disabled) {
+    return "External folder session available.";
+  }
+  if (connectBtn instanceof HTMLButtonElement && !connectBtn.disabled) {
+    return "Using browser storage only.";
+  }
+  return "Storage status unavailable.";
 }
