@@ -80,6 +80,19 @@
 <span class="scenario-label-new">Active scenario</span>
 <input class="scenario-input-new" id="scenarioName" placeholder="Scenario name…" type="text"/>
 </div><span class="context-hint-new">(name is saved in snapshot exports)</span></div>
+<section class="card card-section" hidden="" id="scenarioManagerCard">
+<div aria-live="polite" class="mini-s" id="scWarn"></div>
+<div class="rowline" style="gap:8px; flex-wrap:wrap;">
+<select class="select" id="scenarioSelect"></select>
+<input class="input" id="scenarioNewName" placeholder="New scenario name" type="text"/>
+<button class="btn btn-sm btn-ghost" id="btnScenarioSaveNew" type="button">Save new</button>
+<button class="btn btn-sm btn-ghost" id="btnScenarioCloneBaseline" type="button">Clone baseline</button>
+<button class="btn btn-sm btn-ghost" id="btnScenarioDelete" type="button">Delete</button>
+<button class="btn btn-sm btn-ghost" id="btnScenarioLoadSelected" type="button">Load selected</button>
+<button class="btn btn-sm btn-ghost" id="btnScenarioReturnBaseline" type="button">Return baseline</button>
+</div>
+<div class="muted" id="activeScenarioLabel">Active scenario: baseline</div>
+</section>
 <section class="card card-section" hidden="" id="scenarioCompareCard">
 <div class="card-head card-header">
 <h2 class="card-title">Scenario comparison</h2>
