@@ -508,8 +508,8 @@ function refreshOutcomeSummary() {
 
   setText("v3OutcomeForecastRisk", outcomeRiskLabel);
   setText("v3OutcomeRiskFlagLabel", outcomeRiskLabel);
-  setText("v3OutcomeRiskFlagGrade", readText("#mcRiskGrade"));
-  setText("v3OutcomeRiskFlagFragility", readText("#mcFragility"));
+  setText("v3OutcomeRiskFlagGrade", outcomeRiskLabel);
+  setText("v3OutcomeRiskFlagFragility", readText("#riskVolatility-sidebar"));
   setText("v3OutcomeRiskFlagGapNote", readText("#p3GapNote"));
   setText("v3OutcomeRiskFlagFresh", readText("#mcFreshTag-sidebar"));
   setText("v3OutcomeRiskFlagLastRun", readText("#mcLastRun-sidebar"));
@@ -519,8 +519,8 @@ function refreshOutcomeSummary() {
   setText("v3OutcomeP50", outcomeP50);
   setText("v3OutcomeP10", outcomeP10);
   setText("v3OutcomeP90", outcomeP90);
-  setText("v3OutcomeRiskGrade", readText("#mcRiskGrade"));
-  setText("v3OutcomeFragility", readText("#mcFragility"));
+  setText("v3OutcomeRiskGrade", outcomeRiskLabel);
+  setText("v3OutcomeFragility", readText("#riskVolatility-sidebar"));
 
   setJoinedText("v3OutcomeConfMargins", [outcomeP10, outcomeP50, outcomeP90], " / ");
   setJoinedText("v3OutcomeConfAttempts", [readText("#opsAttP10"), readText("#opsAttP50"), readText("#opsAttP90")], " / ");
@@ -532,9 +532,9 @@ function refreshOutcomeSummary() {
   setText("v3OutcomeConfES10", readText("#mcES10"));
   setText("v3OutcomeConfShiftP50", readText("#mcShiftP50"));
   setText("v3OutcomeConfShiftP10", readText("#mcShiftP10"));
-  setText("v3OutcomeConfFragility", readText("#mcFragility"));
-  setText("v3OutcomeConfCliff", readText("#mcCliff"));
-  setText("v3OutcomeConfRiskGrade", readText("#mcRiskGrade"));
+  setText("v3OutcomeConfFragility", readText("#riskVolatility-sidebar"));
+  setText("v3OutcomeConfCliff", readText("#riskPlainBanner-sidebar"));
+  setText("v3OutcomeConfRiskGrade", outcomeRiskLabel);
   setText("v3OutcomeConfShift60", readText("#mcShift60"));
   setText("v3OutcomeConfShift70", readText("#mcShift70"));
   setText("v3OutcomeConfShift80", readText("#mcShift80"));
