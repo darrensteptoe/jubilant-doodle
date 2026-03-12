@@ -120,6 +120,7 @@ Scope: UI architecture migration only (engine and right rail frozen)
 - Reach bridge hardening: removed v3 legacy DOM fallback reads for weekly/outlook/levers/actions; Reach v3 now uses runtime API bridge only (`window.__FPE_REACH_API__`), reducing dependency on `stage-capacity`.
 - Turnout bridge reduction: removed direct `#mcP50` read from v3 Turnout impact context; margin context now resolves from right-rail `#mcP50-sidebar`, eliminating Turnout's direct dependency on `stage-results`.
 - Outcome bridge reduction: v3 Outcome now sources core MC/risk display metrics directly from right-rail IDs (`#mcP10-sidebar/#mcP50-sidebar/#mcP90-sidebar`, freshness tags, risk band) instead of legacy `stage-results` IDs for those fields.
+- Outcome bridge reduction: v3 Outcome risk-grade/fragility/cliff readouts now resolve from right-rail risk context (`#riskBandTag-sidebar`, `#riskVolatility-sidebar`, `#riskPlainBanner-sidebar`) instead of legacy `#mcRiskGrade/#mcFragility/#mcCliff`.
 - Legacy `stage-capacity` visual surface has been retired from `index.html` user flow (hidden retired stub retained during transition); preflight no longer requires legacy Reach assumption IDs.
 - Added v3 stage persistence/cutover behavior (`js/app/v3/index.js`):
   - Active stage persists to local storage.
