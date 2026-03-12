@@ -18,6 +18,9 @@ import {
   syncLegacyTableRows,
   syncSelectValue
 } from "../surfaceUtils.js";
+import { listIntelEvidence } from "../../intelControlsRuntime.js";
+
+const SCENARIO_API_KEY = "__FPE_SCENARIO_API__";
 
 export function renderControlsSurface(mount) {
   const frame = createSurfaceFrame("three-col");
@@ -658,12 +661,7 @@ function syncControlsEvidenceBridge() {
     ["v3IntelEvidenceNotes", "intelEvidenceNotes"]
   ]);
 
-  const evidenceRows = syncLegacyTableRows({
-    sourceSelector: "#intelEvidenceTbody",
-    targetBodyId: "v3IntelEvidenceTbody",
-    expectedCols: 5,
-    emptyLabel: "No evidence records yet."
-  });
+  const evidenceRows = syncEvidenceRowsFromIntel();
   const unresolved = unresolvedAuditCount();
   setText(
     "v3IntelMissingEvidenceCount",
@@ -680,6 +678,40 @@ function syncControlsEvidenceBridge() {
   setText("v3IntelEvidenceStatus", buildEvidenceStatus(evidenceRows, unresolved));
 
   syncButtonDisabled("v3BtnIntelEvidenceAttach", "btnIntelEvidenceAttach");
+}
+
+function syncEvidenceRowsFromIntel() {
+  const tbody = document.getElementById("v3IntelEvidenceTbody");
+  if (!(tbody instanceof HTMLTableSectionElement)) {
+    return 0;
+  }
+
+  const intel = getActiveIntelStateSnapshot();
+  const rows = intel ? listIntelEvidence({ intelState: intel }, { limit: 12 }) : [];
+  tbody.innerHTML = "";
+
+  if (!rows.length) {
+    const tr = document.createElement("tr");
+    const td = document.createElement("td");
+    td.colSpan = 5;
+    td.className = "muted";
+    td.textContent = "No evidence records yet.";
+    tr.appendChild(td);
+    tbody.appendChild(tr);
+    return 0;
+  }
+
+  rows.forEach((row) => {
+    const tr = document.createElement("tr");
+    appendCell(tr, row?.title || "—");
+    appendCell(tr, row?.source || "—");
+    appendCell(tr, formatIsoDate(row?.capturedAt));
+    appendCell(tr, row?.ref || "—");
+    appendCell(tr, row?.id || "—");
+    tbody.appendChild(tr);
+  });
+
+  return rows.length;
 }
 
 function wireControlsCalibrationBridge() {
@@ -955,4 +987,32 @@ function buildWhatIfCount() {
 function buildWhatIfStatus() {
   const lines = previewLineCount("v3IntelWhatIfPreview");
   return lines > 0 ? "What-if request parsed." : "No what-if requests parsed yet.";
+}
+
+function getActiveIntelStateSnapshot() {
+  const api = window?.[SCENARIO_API_KEY];
+  if (!api || typeof api.getView !== "function") {
+    return null;
+  }
+  const view = api.getView();
+  const activeIntel = view?.active?.inputs?.intelState;
+  if (activeIntel && typeof activeIntel === "object") {
+    return activeIntel;
+  }
+  const baselineIntel = view?.baseline?.inputs?.intelState;
+  if (baselineIntel && typeof baselineIntel === "object") {
+    return baselineIntel;
+  }
+  return null;
+}
+
+function formatIsoDate(iso) {
+  const text = String(iso || "").trim();
+  return text ? text.slice(0, 10) : "—";
+}
+
+function appendCell(row, value) {
+  const td = document.createElement("td");
+  td.textContent = String(value ?? "—");
+  row.appendChild(td);
 }
