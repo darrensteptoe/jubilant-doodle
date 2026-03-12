@@ -362,32 +362,22 @@ export function renderSensitivitySnapshotPanel({ els, state, mcStaleness = null 
   els.sensBanner.textContent = cache.banner || "—";
 }
 
-export async function runSensitivitySnapshotPanel({
-  els,
+export function computeSensitivitySnapshotCache({
   state,
   lastRenderCtx,
   clamp,
   runMonteCarloSim,
-  persist,
-  renderSensitivitySnapshotE4,
-  getMcStaleness
+  runs = 2000,
 }){
-  if (!els.sensTag || !els.sensTbody || !els.sensBanner || !els.btnSensRun) return;
-
-  const base = state.mcLast;
-  if (!base) return;
-
-  const stale = (typeof getMcStaleness === "function") ? getMcStaleness() : null;
-  if (stale?.isStale){
-    const reason = stale.reasonText || "inputs changed";
-    els.sensBanner.className = "banner warn";
-    els.sensBanner.textContent = `Monte Carlo is stale (${reason}). Re-run MC, then run snapshot.`;
-    els.btnSensRun.disabled = true;
-    return;
+  const base = state?.mcLast;
+  if (!base){
+    return { ok: false, code: "missing_base_mc" };
   }
 
   const ctx = lastRenderCtx;
-  if (!ctx || !ctx.res) return;
+  if (!ctx || !ctx.res){
+    return { ok: false, code: "missing_render_context" };
+  }
 
   const weeks = (ctx.weeks != null && ctx.weeks >= 0) ? ctx.weeks : null;
   const needVotes = (ctx.needVotes != null && ctx.needVotes >= 0) ? ctx.needVotes : null;
@@ -396,8 +386,6 @@ export async function runSensitivitySnapshotPanel({
   const baseP = clamp(Number(base.winProb ?? 0), 0, 1);
   const baseP50 = (base.confidenceEnvelope?.percentiles?.p50 != null) ? Number(base.confidenceEnvelope.percentiles.p50)
     : (base.median != null ? Number(base.median) : null);
-
-  const runs = 2000;
 
   const fmtWinDelta = (p) => {
     if (p == null || !isFinite(p)) return "—";
@@ -422,13 +410,6 @@ export async function runSensitivitySnapshotPanel({
     if (m != null && isFinite(m)) return Number(m);
     return null;
   };
-
-  const setBusy = (on) => {
-    els.btnSensRun.disabled = !!on;
-    els.btnSensRun.textContent = on ? "Running…" : "Run snapshot";
-  };
-
-  const mk = (label, nextState, note) => ({ label, nextState, note });
 
   const bump = (v, f, lo, hi) => {
     const n = Number(v);
@@ -460,47 +441,102 @@ export async function runSensitivitySnapshotPanel({
   }
 
   const jobs = [
-    mk("+10% doors", s1, "Doors/hr × 1.10"),
-    mk("+10% phones", s2, "Calls/hr × 1.10"),
-    mk("+10% volunteers", s3, "Volunteer multiplier × 1.10"),
-    mk("+5pp turnout lift", s4, "GOTV lift + 5pp"),
+    { label: "+10% doors", nextState: s1, note: "Doors/hr × 1.10" },
+    { label: "+10% phones", nextState: s2, note: "Calls/hr × 1.10" },
+    { label: "+10% volunteers", nextState: s3, note: "Volunteer multiplier × 1.10" },
+    { label: "+5pp turnout lift", nextState: s4, note: "GOTV lift + 5pp" },
   ];
 
-  setBusy(true);
-  try{
-    const rows = [];
-    for (const j of jobs){
-      const sim = runMonteCarloSim({ scenario: j.nextState, res: ctx.res, weeks, needVotes, runs, seed });
-      const p = simWin(sim);
-      const m = simP50(sim);
-      rows.push({
-        label: j.label,
-        dWin: fmtWinDelta(p),
-        dP50: fmtMarginDelta(m),
-        note: j.note,
-      });
-    }
+  const rows = [];
+  for (const job of jobs){
+    const sim = runMonteCarloSim({
+      scenario: job.nextState,
+      res: ctx.res,
+      weeks,
+      needVotes,
+      runs,
+      seed
+    });
+    const p = simWin(sim);
+    const m = simP50(sim);
+    rows.push({
+      label: job.label,
+      dWin: fmtWinDelta(p),
+      dP50: fmtMarginDelta(m),
+      note: job.note,
+    });
+  }
 
-    const best = rows.reduce((a,r) => {
-      const m = parseFloat(String(r.dWin||"").replace(/[^0-9\-\.]+/g, ""));
-      if (!isFinite(m)) return a;
-      const abs = Math.abs(m);
-      if (!a || abs > a.abs) return { abs, r };
-      return a;
-    }, null);
+  const best = rows.reduce((acc, row) => {
+    const m = parseFloat(String(row.dWin || "").replace(/[^0-9\-\.]+/g, ""));
+    if (!isFinite(m)) return acc;
+    const abs = Math.abs(m);
+    if (!acc || abs > acc.abs) return { abs, row };
+    return acc;
+  }, null);
 
-    const banner = best ? `Biggest movement in win probability: ${best.r.label} (${best.r.dWin}).` : "Snapshot complete.";
-    const cls = best && best.abs >= 5 ? "warn" : "ok";
+  const banner = best ? `Biggest movement in win probability: ${best.row.label} (${best.row.dWin}).` : "Snapshot complete.";
+  const cls = best && best.abs >= 5 ? "warn" : "ok";
 
-    if (!state.ui) state.ui = {};
-    state.ui.e4Sensitivity = {
+  return {
+    ok: true,
+    code: "ok",
+    cache: {
       baseHash: state.mcLastHash,
       computedAt: Date.now(),
       rows,
       banner,
       tag: "Mini surface",
       cls,
-    };
+    },
+  };
+}
+
+export async function runSensitivitySnapshotPanel({
+  els,
+  state,
+  lastRenderCtx,
+  clamp,
+  runMonteCarloSim,
+  persist,
+  renderSensitivitySnapshotE4,
+  getMcStaleness
+}){
+  if (!els.sensTag || !els.sensTbody || !els.sensBanner || !els.btnSensRun) return;
+
+  const base = state.mcLast;
+  if (!base) return;
+
+  const stale = (typeof getMcStaleness === "function") ? getMcStaleness() : null;
+  if (stale?.isStale){
+    const reason = stale.reasonText || "inputs changed";
+    els.sensBanner.className = "banner warn";
+    els.sensBanner.textContent = `Monte Carlo is stale (${reason}). Re-run MC, then run snapshot.`;
+    els.btnSensRun.disabled = true;
+    return;
+  }
+
+  const ctx = lastRenderCtx;
+  if (!ctx || !ctx.res) return;
+
+  const setBusy = (on) => {
+    els.btnSensRun.disabled = !!on;
+    els.btnSensRun.textContent = on ? "Running…" : "Run snapshot";
+  };
+
+  setBusy(true);
+  try{
+    const computed = computeSensitivitySnapshotCache({
+      state,
+      lastRenderCtx: ctx,
+      clamp,
+      runMonteCarloSim,
+    });
+    if (!computed.ok || !computed.cache){
+      return;
+    }
+    if (!state.ui) state.ui = {};
+    state.ui.e4Sensitivity = computed.cache;
     persist();
     renderSensitivitySnapshotE4();
   } finally {
