@@ -25,9 +25,7 @@ export function syncKpis() {
   const winProb = firstNonMissing(["#mcWinProb-sidebar", "#mcWinProb"]);
   const margin = firstNonMissing(["#mcP50", "#riskMarginBand-sidebar", "#mcMedian"]);
   const persuasionNeed = firstNonMissing(["#kpiPersuasionNeed-sidebar", "#kpiPersuasionNeed"]);
-  const bottleneck =
-    firstNonMissing(["#v3ReachSummaryConstraint", "#v3ReachConstraint", "#wkConstraint", "#optBinding"]) ||
-    inferBottleneck();
+  const bottleneck = firstNonMissing(["#wkConstraint", "#optBinding"]) || inferBottleneck();
 
   setKpiValue("v3KpiWinProb", winProb || "-");
   setKpiValue("v3KpiMargin", margin || "-");
@@ -50,7 +48,7 @@ function setKpiValue(id, value) {
 }
 
 function inferBottleneck() {
-  const gap = firstFiniteNumber(["#v3ReachSummaryGap", "#v3ReachGap", "#wkGapPerWeek"]);
+  const gap = readNumber("#wkGapPerWeek");
   if (Number.isFinite(gap) && gap > 0) {
     return "Throughput constrained";
   }
@@ -61,16 +59,6 @@ function inferBottleneck() {
   }
 
   return "Balanced";
-}
-
-function firstFiniteNumber(selectors) {
-  for (const selector of selectors) {
-    const n = readNumber(selector);
-    if (Number.isFinite(n)) {
-      return n;
-    }
-  }
-  return NaN;
 }
 
 function classifyKpiTone(id, value) {

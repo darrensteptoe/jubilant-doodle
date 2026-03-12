@@ -151,13 +151,7 @@ function wireTopbarBridge() {
       console.warn("[v3-shell] qa smoke failed", err);
     }
 
-    const clicked = clickLegacy("btnDiagnostics");
-    window.setTimeout(() => {
-      const modal = document.getElementById("diagModal");
-      if (!clicked || (modal && modal.hidden)) {
-        openDiagnosticsFallback();
-      }
-    }, 0);
+    clickLegacy("btnDiagnostics");
   });
   resetBtn?.addEventListener("click", () => clickLegacy("btnResetAll"));
 
@@ -208,18 +202,6 @@ function clickLegacy(id) {
   const el = document.getElementById(id);
   if (el && typeof el.click === "function") {
     el.click();
-    return true;
-  }
-  return false;
-}
-
-function openDiagnosticsFallback() {
-  const modal = document.getElementById("diagModal");
-  if (modal) modal.hidden = false;
-
-  const box = document.getElementById("diagErrors");
-  if (box && !String(box.textContent || "").trim()) {
-    box.textContent = "Diagnostics fallback opened from v3 shell.";
   }
 }
 
