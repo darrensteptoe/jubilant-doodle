@@ -2583,8 +2583,8 @@
 <!-- /app-shell -->
 </div>
 <!-- /app-shell-legacy -->
-<script src="./js/appBoot.js?v=20260312-runtime-crashfix-8" type="module"></script>
-<script src="./js/app/v3/index.js?v=20260312-runtime-crashfix-8" type="module"></script>
+<script src="./js/app.js?v=20260312-runtime-crashfix-9" type="module"></script>
+<script src="./js/app/v3/index.js?v=20260312-runtime-crashfix-9" type="module"></script>
 <script>
 // ── Stage navigation ───────────────────────────────────────────
 window.__FPE_BOOT_ERRORS = Array.isArray(window.__FPE_BOOT_ERRORS) ? window.__FPE_BOOT_ERRORS : [];
@@ -2755,13 +2755,13 @@ function runBootProbe(){
   if (window.__FPE_BOOT_PROBE_RUNNING__) return;
   window.__FPE_BOOT_PROBE_RUNNING__ = true;
   var urls = [
-    './js/appBoot.js?v=20260312-runtime-crashfix-8',
-    './js/appRuntime.js?v=20260312-runtime-crashfix-8',
+    './js/app.js?v=20260312-runtime-crashfix-9',
+    './js/appRuntime.js?v=20260312-runtime-crashfix-9',
     './js/engine.js',
     './js/build.js',
     './js/app/renderMain.js',
     './js/app/wireEventsRuntime.js',
-    './js/app/v3/index.js?v=20260312-runtime-crashfix-8'
+    './js/app/v3/index.js?v=20260312-runtime-crashfix-9'
   ];
   Promise.all(urls.map(function(url){
     return fetch(url, { cache: 'no-store' })
@@ -2784,6 +2784,28 @@ function runBootProbe(){
     });
 }
 
+function attemptRuntimeBootstrapFallback(){
+  if (window.__FPE_BOOT_READY__ === true) return;
+  if (window.__FPE_BOOTSTRAP_ATTEMPTED__) return;
+  window.__FPE_BOOTSTRAP_ATTEMPTED__ = true;
+  window.__FPE_BOOT_PHASE__ = 'inline-runtime-import-start';
+  import('./js/appRuntime.js?v=20260312-runtime-crashfix-9')
+    .then(function(){
+      if (window.__FPE_BOOT_READY__ !== false) window.__FPE_BOOT_READY__ = true;
+      window.__FPE_BOOT_PHASE__ = 'inline-runtime-import-ready';
+      var rows = Array.isArray(window.__FPE_BOOT_ERRORS) ? window.__FPE_BOOT_ERRORS : [];
+      rows.unshift('bootstrap-fallback: imported appRuntime directly');
+      window.__FPE_BOOT_ERRORS = rows.slice(0, 30);
+    })
+    .catch(function(err){
+      var msg = err && err.message ? String(err.message) : String(err || 'inline runtime import failed');
+      window.__FPE_BOOT_PHASE__ = 'inline-runtime-import-failed';
+      var rows = Array.isArray(window.__FPE_BOOT_ERRORS) ? window.__FPE_BOOT_ERRORS : [];
+      rows.unshift('bootstrap-fallback-failed: ' + msg);
+      window.__FPE_BOOT_ERRORS = rows.slice(0, 30);
+    });
+}
+
 document.addEventListener('DOMContentLoaded', function(){
   runBootProbe();
   if (shouldUseLegacyShell()) {
@@ -2793,10 +2815,13 @@ document.addEventListener('DOMContentLoaded', function(){
 
   window.setTimeout(function(){
     runBootProbe();
+    if (window.__FPE_BOOT_READY__ !== true) {
+      attemptRuntimeBootstrapFallback();
+    }
     if (!isV3BridgeActive()) {
       initLegacyInlineShell();
     }
-  }, 0);
+  }, 50);
 });
 </script>
 <div class="modal" hidden="" id="diagModal">
