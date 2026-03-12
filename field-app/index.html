@@ -2944,10 +2944,29 @@
 <!-- /app-shell -->
 </div>
 <!-- /app-shell-legacy -->
-<script src="./js/app.js?v=20260310-census-phase1-40" type="module"></script>
-<script src="./js/app/v3/index.js?v=20260310-fpe-ui-v3-census-workflow-card-fix2" type="module"></script>
+<script src="./js/app.js?v=20260311-boot-hotfix-1" type="module"></script>
+<script src="./js/app/v3/index.js?v=20260311-boot-hotfix-1" type="module"></script>
 <script>
 // ── Stage navigation ───────────────────────────────────────────
+window.__FPE_BOOT_ERRORS = Array.isArray(window.__FPE_BOOT_ERRORS) ? window.__FPE_BOOT_ERRORS : [];
+window.addEventListener('error', function(evt){
+  try{
+    var msg = (evt && evt.message) ? String(evt.message) : 'Unknown runtime error';
+    var src = (evt && evt.filename) ? String(evt.filename) : '';
+    var line = (evt && evt.lineno) ? String(evt.lineno) : '';
+    window.__FPE_BOOT_ERRORS.unshift([msg, src, line].filter(Boolean).join(' @ '));
+    window.__FPE_BOOT_ERRORS = window.__FPE_BOOT_ERRORS.slice(0, 20);
+  } catch {}
+});
+window.addEventListener('unhandledrejection', function(evt){
+  try{
+    var reason = evt && evt.reason;
+    var msg = reason && reason.message ? String(reason.message) : String(reason || 'Unhandled rejection');
+    window.__FPE_BOOT_ERRORS.unshift(msg);
+    window.__FPE_BOOT_ERRORS = window.__FPE_BOOT_ERRORS.slice(0, 20);
+  } catch {}
+});
+
 function normalizeStages() {
   var host = document.querySelector('.stage-main-new');
   if (!host) return;
@@ -2972,8 +2991,36 @@ function toggleTrainPanel(id) {
   if (el) el.classList.toggle('collapsed');
 }
 
+function openEmergencyDiagnostics(){
+  var modal = document.getElementById('diagModal');
+  var errors = document.getElementById('diagErrors');
+  if (!modal) return;
+  if (errors){
+    var rows = Array.isArray(window.__FPE_BOOT_ERRORS) ? window.__FPE_BOOT_ERRORS : [];
+    if (!rows.length){
+      errors.textContent = 'No captured boot errors.';
+    } else {
+      errors.textContent = rows.join('\n');
+    }
+  }
+  modal.hidden = false;
+}
+
+function closeEmergencyDiagnostics(){
+  var modal = document.getElementById('diagModal');
+  if (modal) modal.hidden = true;
+}
+
 document.addEventListener('DOMContentLoaded', function(){
   normalizeStages();
+  var btnOpen = document.getElementById('btnDiagnostics');
+  if (btnOpen){
+    btnOpen.addEventListener('click', openEmergencyDiagnostics);
+  }
+  var btnClose = document.getElementById('btnDiagClose');
+  if (btnClose){
+    btnClose.addEventListener('click', closeEmergencyDiagnostics);
+  }
 });
 </script>
 <div class="modal" hidden="" id="diagModal">
