@@ -10,7 +10,6 @@ import {
   bindClickProxy,
   bindFieldProxy,
   bindSelectProxy,
-  readText,
   syncControlDisabled,
   setText,
   syncButtonDisabled,
@@ -510,11 +509,11 @@ function refreshControlsSummary() {
   syncControlsCalibrationBridge();
   syncControlsFeedbackBridge();
 
-  setText("v3ControlsWorkflowStatus", readText("#intelWorkflowStatus"));
-  setText("v3ControlsBenchmarkCount", readText("#intelBenchmarkCount"));
-  setText("v3ControlsMissingEvidence", readText("#intelMissingEvidenceCount"));
-  setText("v3ControlsCalibrationStatus", readText("#intelCalibrationStatus"));
-  setText("v3ControlsRecommendationCount", readText("#intelRecommendationCount"));
+  setText("v3ControlsWorkflowStatus", readDomTextById("v3IntelWorkflowStatus") || "Governance controls healthy.");
+  setText("v3ControlsBenchmarkCount", readDomTextById("v3IntelBenchmarkCount") || "0 benchmark entries configured.");
+  setText("v3ControlsMissingEvidence", readDomTextById("v3IntelMissingEvidenceCount") || "0 critical assumption edit(s) missing evidence.");
+  setText("v3ControlsCalibrationStatus", readDomTextById("v3IntelCalibrationStatus") || "No calibration brief generated yet.");
+  setText("v3ControlsRecommendationCount", readDomTextById("v3IntelRecommendationCount") || "0 active drift recommendations.");
 }
 
 function wireControlsWorkflowBridge() {
@@ -544,8 +543,8 @@ function syncControlsWorkflowBridge() {
     ["v3IntelScenarioLockReason", "intelScenarioLockReason"],
     ["v3IntelCriticalChangeNote", "intelCriticalChangeNote"]
   ]);
-  setText("v3IntelScenarioLockStatus", readText("#intelScenarioLockStatus"));
-  setText("v3IntelWorkflowStatus", readText("#intelWorkflowStatus"));
+  setText("v3IntelScenarioLockStatus", buildScenarioLockStatus());
+  setText("v3IntelWorkflowStatus", buildWorkflowStatus());
 }
 
 function wireControlsBenchmarkBridge() {
@@ -613,14 +612,14 @@ function syncControlsBenchmarkBridge() {
     ["v3IntelBenchmarkSourceTitle", "intelBenchmarkSourceTitle"],
     ["v3IntelBenchmarkSourceNotes", "intelBenchmarkSourceNotes"]
   ]);
-  setText("v3IntelBenchmarkCount", readText("#intelBenchmarkCount"));
-  setText("v3IntelBenchmarkStatus", readText("#intelBenchmarkStatus"));
-  syncLegacyTableRows({
+  const benchmarkRows = syncLegacyTableRows({
     sourceSelector: "#intelBenchmarkTbody",
     targetBodyId: "v3IntelBenchmarkTbody",
     expectedCols: 6,
     emptyLabel: "No benchmark entries configured."
   });
+  setText("v3IntelBenchmarkCount", formatRecordCount(benchmarkRows, "benchmark entry", "configured"));
+  setText("v3IntelBenchmarkStatus", buildBenchmarkStatus());
 
   syncButtonDisabled("v3BtnIntelBenchmarkLoadDefaults", "btnIntelBenchmarkLoadDefaults");
   syncButtonDisabled("v3BtnIntelBenchmarkSave", "btnIntelBenchmarkSave");
@@ -659,15 +658,26 @@ function syncControlsEvidenceBridge() {
     ["v3IntelEvidenceNotes", "intelEvidenceNotes"]
   ]);
 
-  setText("v3IntelMissingEvidenceCount", readText("#intelMissingEvidenceCount"));
-  setText("v3IntelMissingNoteCount", readText("#intelMissingNoteCount"));
-  setText("v3IntelEvidenceStatus", readText("#intelEvidenceStatus"));
-  syncLegacyTableRows({
+  const evidenceRows = syncLegacyTableRows({
     sourceSelector: "#intelEvidenceTbody",
     targetBodyId: "v3IntelEvidenceTbody",
     expectedCols: 5,
     emptyLabel: "No evidence records yet."
   });
+  const unresolved = unresolvedAuditCount();
+  setText(
+    "v3IntelMissingEvidenceCount",
+    unresolved > 0
+      ? `${unresolved} critical assumption edit(s) missing evidence.`
+      : "0 critical assumption edit(s) missing evidence."
+  );
+  setText(
+    "v3IntelMissingNoteCount",
+    unresolved > 0
+      ? `${unresolved} critical assumption edit(s) missing note.`
+      : "0 critical assumption edit(s) missing note."
+  );
+  setText("v3IntelEvidenceStatus", buildEvidenceStatus(evidenceRows, unresolved));
 
   syncButtonDisabled("v3BtnIntelEvidenceAttach", "btnIntelEvidenceAttach");
 }
@@ -727,12 +737,12 @@ function syncControlsCalibrationBridge() {
     ["v3IntelCalibrationBriefContent", "intelCalibrationBriefContent"]
   ]);
 
-  setText("v3IntelCorrelationDisabledHint", readText("#intelCorrelationDisabledHint"));
-  setText("v3IntelDecayStatus", readText("#intelDecayStatus"));
-  setText("v3IntelCorrelationStatus", readText("#intelCorrelationStatus"));
-  setText("v3IntelShockScenarioCount", readText("#intelShockScenarioCount"));
-  setText("v3IntelShockStatus", readText("#intelShockStatus"));
-  setText("v3IntelCalibrationStatus", readText("#intelCalibrationStatus"));
+  setText("v3IntelCorrelationDisabledHint", buildCorrelationDisabledHint());
+  setText("v3IntelDecayStatus", buildDecayStatus());
+  setText("v3IntelCorrelationStatus", buildCorrelationStatus());
+  setText("v3IntelShockScenarioCount", buildShockScenarioCount());
+  setText("v3IntelShockStatus", buildShockStatus());
+  setText("v3IntelCalibrationStatus", buildCalibrationStatus());
 
   syncButtonDisabled("v3BtnIntelCalibrationGenerate", "btnIntelCalibrationGenerate");
   syncButtonDisabled("v3BtnIntelCalibrationCopy", "btnIntelCalibrationCopy");
@@ -767,12 +777,12 @@ function syncControlsFeedbackBridge() {
     ["v3IntelRecommendationPreview", "intelRecommendationPreview"]
   ]);
 
-  setText("v3IntelObservedCount", readText("#intelObservedCount"));
-  setText("v3IntelRecommendationCount", readText("#intelRecommendationCount"));
-  setText("v3IntelObservedStatus", readText("#intelObservedStatus"));
-  setText("v3IntelRecommendationStatus", readText("#intelRecommendationStatus"));
-  setText("v3IntelWhatIfCount", readText("#intelWhatIfCount"));
-  setText("v3IntelWhatIfStatus", readText("#intelWhatIfStatus"));
+  setText("v3IntelObservedCount", buildObservedCount());
+  setText("v3IntelRecommendationCount", buildRecommendationCount());
+  setText("v3IntelObservedStatus", buildObservedStatus());
+  setText("v3IntelRecommendationStatus", buildRecommendationStatus());
+  setText("v3IntelWhatIfCount", buildWhatIfCount());
+  setText("v3IntelWhatIfStatus", buildWhatIfStatus());
 
   syncButtonDisabled("v3BtnIntelCaptureObserved", "btnIntelCaptureObserved");
   syncButtonDisabled("v3BtnIntelGenerateRecommendations", "btnIntelGenerateRecommendations");
@@ -784,4 +794,165 @@ function syncControlsDisabled(pairs) {
   pairs.forEach(([v3Id, legacyId]) => {
     syncControlDisabled(v3Id, legacyId);
   });
+}
+
+function readDomTextById(id) {
+  const el = document.getElementById(id);
+  return el ? (el.textContent || "").trim() : "";
+}
+
+function readInputValueById(id) {
+  const el = document.getElementById(id);
+  if (!(el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement || el instanceof HTMLSelectElement)) {
+    return "";
+  }
+  return String(el.value || "").trim();
+}
+
+function isCheckedById(id) {
+  const el = document.getElementById(id);
+  return el instanceof HTMLInputElement ? Boolean(el.checked) : false;
+}
+
+function selectOptionCount(id) {
+  const el = document.getElementById(id);
+  if (!(el instanceof HTMLSelectElement)) {
+    return 0;
+  }
+  return Math.max(0, el.options.length);
+}
+
+function unresolvedAuditCount() {
+  const options = selectOptionCount("v3IntelAuditSelect");
+  return Math.max(0, options - 1);
+}
+
+function formatRecordCount(count, noun, suffix) {
+  const n = Number.isFinite(Number(count)) ? Number(count) : 0;
+  const label = n === 1 ? noun : `${noun}s`;
+  return `${n} ${label} ${suffix}.`;
+}
+
+function buildScenarioLockStatus() {
+  const locked = isCheckedById("v3IntelScenarioLocked");
+  const reason = readInputValueById("v3IntelScenarioLockReason");
+  if (!locked) {
+    return "Scenario lock OFF.";
+  }
+  return reason ? `Scenario lock ON (${reason}).` : "Scenario lock ON.";
+}
+
+function buildWorkflowStatus() {
+  const requireNote = isCheckedById("v3IntelRequireCriticalNote");
+  const requireEvidence = isCheckedById("v3IntelRequireCriticalEvidence");
+  const lock = isCheckedById("v3IntelScenarioLocked");
+  if (lock || requireNote || requireEvidence) {
+    return "Governance controls active.";
+  }
+  return "Governance controls healthy.";
+}
+
+function buildBenchmarkStatus() {
+  const ref = readInputValueById("v3IntelBenchmarkRef");
+  return ref ? "Benchmark ready to save." : "Select reference and race type, then save benchmark.";
+}
+
+function buildEvidenceStatus(evidenceRows, unresolved) {
+  const title = readInputValueById("v3IntelEvidenceTitle");
+  const source = readInputValueById("v3IntelEvidenceSource");
+  if (unresolved === 0) {
+    return evidenceRows > 0 ? "All critical edits resolved with evidence." : "No unresolved critical edits.";
+  }
+  if (title && source) {
+    return "Ready to attach evidence.";
+  }
+  return "Select an audit item, then attach evidence.";
+}
+
+function buildCorrelationDisabledHint() {
+  const count = Math.max(0, selectOptionCount("v3IntelCorrelationMatrixId") - 1);
+  return count > 0 ? "Correlation models available. Select a model to apply." : "No models yet.";
+}
+
+function buildDecayStatus() {
+  const enabled = isCheckedById("v3IntelCapacityDecayEnabled");
+  const weeklyPct = readInputValueById("v3IntelDecayWeeklyPct");
+  if (!enabled) {
+    return "Capacity decay OFF.";
+  }
+  return weeklyPct ? `Capacity decay ON at ${weeklyPct}% weekly.` : "Capacity decay ON.";
+}
+
+function buildCorrelationStatus() {
+  const count = Math.max(0, selectOptionCount("v3IntelCorrelationMatrixId") - 1);
+  return count > 0 ? `${count} correlation model(s) configured.` : "No correlation models configured.";
+}
+
+function buildShockScenarioCount() {
+  const json = readInputValueById("v3IntelShockJson");
+  if (!json) {
+    return "0 scenarios configured.";
+  }
+  try {
+    const parsed = JSON.parse(json);
+    if (Array.isArray(parsed)) {
+      return `${parsed.length} scenarios configured.`;
+    }
+    if (parsed && Array.isArray(parsed.scenarios)) {
+      return `${parsed.scenarios.length} scenarios configured.`;
+    }
+  } catch {}
+  return "1 scenario payload loaded.";
+}
+
+function buildShockStatus() {
+  const enabled = isCheckedById("v3IntelShockScenariosEnabled");
+  const json = readInputValueById("v3IntelShockJson");
+  if (!enabled) {
+    return "Shock scenarios disabled.";
+  }
+  return json ? "Shock scenarios enabled and ready." : "Shock scenarios enabled (no payload loaded).";
+}
+
+function buildCalibrationStatus() {
+  const brief = readInputValueById("v3IntelCalibrationBriefContent");
+  return brief ? "Calibration brief generated." : "No calibration brief generated yet.";
+}
+
+function previewLineCount(id) {
+  const text = readInputValueById(id);
+  if (!text) {
+    return 0;
+  }
+  return text.split(/\n+/).map((line) => line.trim()).filter(Boolean).length;
+}
+
+function buildObservedCount() {
+  const lines = previewLineCount("v3IntelRecommendationPreview");
+  return lines > 0 ? `${lines} observed metric entries captured.` : "0 observed metric entries captured.";
+}
+
+function buildRecommendationCount() {
+  const lines = previewLineCount("v3IntelRecommendationPreview");
+  return lines > 0 ? `${lines} active drift recommendations.` : "0 active drift recommendations.";
+}
+
+function buildObservedStatus() {
+  const lines = previewLineCount("v3IntelRecommendationPreview");
+  return lines > 0 ? "Observed metrics captured." : "No observed metrics captured yet.";
+}
+
+function buildRecommendationStatus() {
+  const lines = previewLineCount("v3IntelRecommendationPreview");
+  return lines > 0 ? "Drift recommendations ready for review." : "No drift recommendations generated yet.";
+}
+
+function buildWhatIfCount() {
+  const lines = previewLineCount("v3IntelWhatIfPreview");
+  return lines > 0 ? `${lines} what-if request(s) parsed.` : "0 what-if requests parsed.";
+}
+
+function buildWhatIfStatus() {
+  const lines = previewLineCount("v3IntelWhatIfPreview");
+  return lines > 0 ? "What-if request parsed." : "No what-if requests parsed yet.";
 }

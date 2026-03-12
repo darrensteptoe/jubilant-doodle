@@ -444,9 +444,9 @@ function refreshTurnoutSummary() {
 }
 
 function readTurnoutMarginContext() {
-  const sidebar = readText("#mcP50-sidebar").replace(/^Median:\s*/i, "").trim();
-  if (sidebar) {
-    return sidebar;
+  const kpiMargin = readText("#v3KpiMargin .fpe-kpi__value").trim();
+  if (kpiMargin) {
+    return kpiMargin;
   }
   return "—";
 }

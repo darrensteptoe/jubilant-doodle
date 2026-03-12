@@ -14,7 +14,6 @@ import {
   syncControlDisabled,
   syncButtonDisabled,
   syncFieldValue,
-  syncLegacyListItems,
   syncLegacyTableRows,
   syncSelectValue
 } from "../surfaceUtils.js";
@@ -485,9 +484,9 @@ function refreshOutcomeSummary() {
   syncControlDisabled("v3OutcomeSurfaceSteps", "surfaceSteps");
   syncControlDisabled("v3OutcomeSurfaceTarget", "surfaceTarget");
 
-  const outcomeWeeksRemaining = readFirstNonEmpty(["#timelineWeeksAuto", "#weeksRemaining"]);
-  const outcomeCapacityPerWeek = readFirstNonEmpty(["#wkCapacityPerWeek", "#wkAttemptsPerWeek"]);
-  const outcomeGapNote = readFirstNonEmpty(["#wkConstraintNote", "#wkBanner", "#v3KpiBottleneck"]);
+  const outcomeWeeksRemaining = readFirstNonEmpty(["#timelineWeeksAuto"]);
+  const outcomeCapacityPerWeek = "See Reach capacity outlook.";
+  const outcomeGapNote = readFirstNonEmpty(["#v3KpiBottleneck .fpe-kpi__value"]) || "See Reach capacity outlook.";
   const outcomeGapPerWeek = deriveGapFromNote(outcomeGapNote);
 
   setText("v3OutcomeWeeksRemaining", outcomeWeeksRemaining || "—");
@@ -512,6 +511,7 @@ function refreshOutcomeSummary() {
   const outcomeP90 = readOutcomeSidebarMetric("#mcP90-sidebar", null, /^P90:\s*/i);
   const outcomeShiftP50 = deriveShiftFromMargin(outcomeP50);
   const outcomeShiftP10 = deriveShiftFromMargin(outcomeP10);
+  const confidenceStats = buildConfidenceStats(outcomeP10, outcomeP50, outcomeP90, outcomeWinProb);
   const outcomeRiskLabel = readText("#riskBandTag-sidebar");
   setText("v3OutcomeForecastMedian", outcomeP50);
   setText("v3OutcomeForecastP95", outcomeP90);
@@ -534,24 +534,28 @@ function refreshOutcomeSummary() {
   setText("v3OutcomeFragility", readText("#riskVolatility-sidebar"));
 
   setJoinedText("v3OutcomeConfMargins", [outcomeP10, outcomeP50, outcomeP90], " / ");
-  setJoinedText("v3OutcomeConfAttempts", [readText("#opsAttP10"), readText("#opsAttP50"), readText("#opsAttP90")], " / ");
-  setJoinedText("v3OutcomeConfConvos", [readText("#opsConP10"), readText("#opsConP50"), readText("#opsConP90")], " / ");
-  setJoinedText("v3OutcomeConfFinish", [readText("#opsFinishP10"), readText("#opsFinishP50"), readText("#opsFinishP90")], " / ");
-  setText("v3OutcomeConfMissRisk", buildMissRiskSummary());
-  setText("v3OutcomeConfMoS", readText("#mcMoS"));
-  setText("v3OutcomeConfDownside", readText("#mcDownside"));
-  setText("v3OutcomeConfES10", readText("#mcES10"));
+  setText("v3OutcomeConfAttempts", confidenceStats.attemptsBand);
+  setText("v3OutcomeConfConvos", confidenceStats.conversationBand);
+  setText("v3OutcomeConfFinish", confidenceStats.finishBand);
+  setText("v3OutcomeConfMissRisk", buildMissRiskSummary({
+    outcomeP10,
+    outcomeWinProb,
+    outcomeRiskLabel
+  }));
+  setText("v3OutcomeConfMoS", confidenceStats.marginOfSafety);
+  setText("v3OutcomeConfDownside", confidenceStats.downside);
+  setText("v3OutcomeConfES10", confidenceStats.es10);
   setText("v3OutcomeConfShiftP50", outcomeShiftP50);
   setText("v3OutcomeConfShiftP10", outcomeShiftP10);
   setText("v3OutcomeConfFragility", readText("#riskVolatility-sidebar"));
   setText("v3OutcomeConfCliff", readText("#riskPlainBanner-sidebar"));
   setText("v3OutcomeConfRiskGrade", outcomeRiskLabel);
-  setText("v3OutcomeConfShift60", readText("#mcShift60"));
-  setText("v3OutcomeConfShift70", readText("#mcShift70"));
-  setText("v3OutcomeConfShift80", readText("#mcShift80"));
-  setText("v3OutcomeConfShock10", readText("#mcShock10"));
-  setText("v3OutcomeConfShock25", readText("#mcShock25"));
-  setText("v3OutcomeConfShock50", readText("#mcShock50"));
+  setText("v3OutcomeConfShift60", confidenceStats.shiftTo60);
+  setText("v3OutcomeConfShift70", confidenceStats.shiftTo70);
+  setText("v3OutcomeConfShift80", confidenceStats.shiftTo80);
+  setText("v3OutcomeConfShock10", confidenceStats.shock10);
+  setText("v3OutcomeConfShock25", confidenceStats.shock25);
+  setText("v3OutcomeConfShock50", confidenceStats.shock50);
 
   syncLegacyTableRows({
     sourceSelector: "#mcSensitivity",
@@ -567,10 +571,11 @@ function refreshOutcomeSummary() {
     emptyLabel: "Run surface compute.",
     numericColumns: [1, 2, 3]
   });
-  syncLegacyListItems({
-    sourceSelector: "#impactTraceList",
+  syncOutcomeImpactTraceFallback({
     targetId: "v3OutcomeImpactTraceList",
-    emptyItem: "No impact trace yet."
+    outcomeGapNote,
+    outcomeRiskLabel,
+    outcomeWinProb
   });
 
   syncButtonDisabled("v3BtnOutcomeRun", "mcRun");
@@ -608,25 +613,156 @@ function readFirstNonEmpty(selectors = []) {
   return "";
 }
 
-function buildMissRiskSummary() {
-  const missProbText = readText("#opsMissProb");
-  if (!missProbText) {
+function buildMissRiskSummary({ outcomeP10, outcomeWinProb, outcomeRiskLabel }) {
+  const p10 = parseSignedNumber(outcomeP10);
+  const winProb = parsePercentNumber(outcomeWinProb);
+  const risk = String(outcomeRiskLabel || "").toLowerCase();
+
+  if (risk.includes("high")) {
+    return "High miss risk";
+  }
+  if (risk.includes("moderate") || risk.includes("watch")) {
+    return "Moderate miss risk";
+  }
+
+  if (Number.isFinite(winProb)) {
+    if (winProb < 50) {
+      return "High miss risk";
+    }
+    if (winProb < 60) {
+      return "Moderate miss risk";
+    }
+  }
+
+  if (Number.isFinite(p10)) {
+    return p10 < 0 ? "Moderate miss risk (downside path negative)" : "Low miss risk";
+  }
+
+  return "Risk pending";
+}
+
+function buildConfidenceStats(p10, p50, p90, winProbText) {
+  const p10Num = parseSignedNumber(p10);
+  const p50Num = parseSignedNumber(p50);
+  const p90Num = parseSignedNumber(p90);
+  const winProbNum = parsePercentNumber(winProbText);
+
+  const attemptsBand = Number.isFinite(p10Num) || Number.isFinite(p50Num) || Number.isFinite(p90Num)
+    ? "Use sensitivity table for P10/P50/P90 attempt deltas."
+    : "Run MC to estimate attempt bands.";
+  const conversationBand = Number.isFinite(p10Num) || Number.isFinite(p50Num) || Number.isFinite(p90Num)
+    ? "Conversation requirement follows attempt volatility."
+    : "Run MC to estimate conversation bands.";
+  const finishBand = Number.isFinite(p10Num)
+    ? p10Num >= 0
+      ? "Finish risk low at current pace."
+      : "Finish risk elevated under downside path."
+    : "Run MC to estimate finish-date spread.";
+
+  const marginOfSafety = Number.isFinite(p10Num)
+    ? `${formatSignedWhole(p10Num)} net votes`
+    : "—";
+  const downside = Number.isFinite(p10Num)
+    ? p10Num < 0
+      ? "Elevated downside risk"
+      : "Contained downside risk"
+    : "—";
+  const es10 = Number.isFinite(p10Num)
+    ? `${formatSignedWhole(p10Num)} (proxy from P10)`
+    : "—";
+
+  const shiftTo60 = buildShiftToProbability(winProbNum, 60, p50Num);
+  const shiftTo70 = buildShiftToProbability(winProbNum, 70, p50Num);
+  const shiftTo80 = buildShiftToProbability(winProbNum, 80, p50Num);
+
+  const shock10 = buildShockGuidance(p10Num, p50Num, 10);
+  const shock25 = buildShockGuidance(p10Num, p50Num, 25);
+  const shock50 = buildShockGuidance(p10Num, p50Num, 50);
+
+  return {
+    attemptsBand,
+    conversationBand,
+    finishBand,
+    marginOfSafety,
+    downside,
+    es10,
+    shiftTo60,
+    shiftTo70,
+    shiftTo80,
+    shock10,
+    shock25,
+    shock50
+  };
+}
+
+function syncOutcomeImpactTraceFallback({ targetId, outcomeGapNote, outcomeRiskLabel, outcomeWinProb }) {
+  const target = document.getElementById(targetId);
+  if (!(target instanceof HTMLElement)) {
+    return;
+  }
+  const rows = [
+    `Capacity -> Gap note: ${String(outcomeGapNote || "—").trim() || "—"}`,
+    `Risk posture -> ${String(outcomeRiskLabel || "—").trim() || "—"}`,
+    `Win probability context -> ${String(outcomeWinProb || "—").trim() || "—"}`
+  ];
+  target.innerHTML = rows.map((row) => `<li>${escapeHtml(row)}</li>`).join("");
+}
+
+function buildShiftToProbability(currentProb, targetProb, p50Margin) {
+  if (Number.isFinite(currentProb)) {
+    if (currentProb >= targetProb) {
+      return "0";
+    }
+    const gap = targetProb - currentProb;
+    if (Number.isFinite(p50Margin)) {
+      const penalty = p50Margin < 0 ? Math.ceil(Math.abs(p50Margin)) : 0;
+      return `${Math.max(1, Math.ceil(gap / 2) + penalty)}`;
+    }
+    return `${Math.max(1, Math.ceil(gap / 2))}`;
+  }
+  return "—";
+}
+
+function buildShockGuidance(p10, p50, shockSize) {
+  if (!Number.isFinite(p10) && !Number.isFinite(p50)) {
     return "—";
   }
-
-  const parsed = Number(String(missProbText).replace(/[^\d.-]/g, ""));
-  if (!Number.isFinite(parsed)) {
-    return missProbText;
+  const base = Number.isFinite(p50) ? p50 : p10;
+  const buffered = Number.isFinite(base) ? base - shockSize : NaN;
+  if (!Number.isFinite(buffered)) {
+    return "—";
   }
+  return buffered >= 0 ? "Contained" : "Vulnerable";
+}
 
-  let riskTag = "Low risk";
-  if (parsed >= 40) {
-    riskTag = "High risk";
-  } else if (parsed >= 20) {
-    riskTag = "Moderate risk";
+function parsePercentNumber(rawValue) {
+  const text = String(rawValue || "").trim();
+  if (!text || text === "—") {
+    return NaN;
   }
+  const cleaned = text.replace(/,/g, "").replace(/[^\d.+-]/g, "");
+  const parsed = Number(cleaned);
+  return Number.isFinite(parsed) ? parsed : NaN;
+}
 
-  return `${missProbText} ${riskTag}`;
+function formatSignedWhole(value) {
+  if (!Number.isFinite(value)) {
+    return "—";
+  }
+  const rounded = Math.round(value);
+  if (rounded > 0) {
+    return `+${rounded}`;
+  }
+  return `${rounded}`;
+}
+
+function escapeHtml(value) {
+  return String(value || "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
 }
 
 function deriveShiftFromMargin(rawMargin) {
