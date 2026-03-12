@@ -547,6 +547,53 @@ export function normalizeSurfaceEmptyStates(root) {
   });
 }
 
+export function normalizeSurfaceInstructionPanels(root) {
+  if (!(root instanceof HTMLElement)) {
+    return;
+  }
+
+  const panels = root.querySelectorAll("details");
+  panels.forEach((panel) => {
+    if (!(panel instanceof HTMLDetailsElement)) {
+      return;
+    }
+
+    const summary = panel.querySelector(":scope > summary");
+    if (!(summary instanceof HTMLElement)) {
+      return;
+    }
+
+    const summaryText = (summary.textContent || "").trim().toLowerCase();
+    if (!/instruction|workflow|guide/.test(summaryText)) {
+      return;
+    }
+
+    if (panel.dataset.v3InstructionNormalized === "1") {
+      return;
+    }
+    panel.dataset.v3InstructionNormalized = "1";
+
+    panel.classList.add("fpe-instructions");
+    summary.classList.add("fpe-instructions__summary");
+
+    const labelText = (summary.textContent || "").trim() || "Instructions";
+    summary.textContent = "";
+    const label = document.createElement("span");
+    label.className = "fpe-instructions__label";
+    label.textContent = labelText;
+    summary.appendChild(label);
+
+    let body = panel.querySelector(":scope > .fpe-instructions__body");
+    if (!(body instanceof HTMLElement)) {
+      body = document.createElement("div");
+      body.className = "fpe-instructions__body";
+      const children = Array.from(panel.children).filter((child) => child !== summary);
+      children.forEach((child) => body.appendChild(child));
+      panel.appendChild(body);
+    }
+  });
+}
+
 function createMessageWindow(label, tone) {
   const root = document.createElement("div");
   root.className = `fpe-message-window fpe-message-window--${tone}`;

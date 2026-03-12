@@ -12,6 +12,7 @@ import {
   normalizeSurfaceActionRows,
   normalizeSurfaceBlocks,
   normalizeSurfaceEmptyStates,
+  normalizeSurfaceInstructionPanels,
   normalizeSurfaceMessages,
   normalizeSurfaceStatusPills
 } from "./surfaceUtils.js";
@@ -149,4 +150,5 @@ function normalizeSurfacePane(pane) {
   normalizeSurfaceMessages(pane);
   normalizeSurfaceStatusPills(pane);
   normalizeSurfaceEmptyStates(pane);
+  normalizeSurfaceInstructionPanels(pane);
 }
