@@ -80,6 +80,21 @@
 <span class="scenario-label-new">Active scenario</span>
 <input class="scenario-input-new" id="scenarioName" placeholder="Scenario name…" type="text"/>
 </div><span class="context-hint-new">(name is saved in snapshot exports)</span></div>
+<section class="card card-section" hidden="" id="scenarioCompareCard">
+<div class="card-head card-header">
+<h2 class="card-title">Scenario comparison</h2>
+</div>
+<div hidden="" id="scmCompareWrap">
+<div class="rowline" style="justify-content:space-between; gap:8px;">
+<span class="muted" id="scmCompareTag">No comparison loaded.</span>
+</div>
+<div class="muted" id="scmCompareEmpty">Select a scenario to compare against baseline.</div>
+<div class="table-wrap" id="scmCompareGrid"></div>
+<div class="muted" id="scmDiffInputs"></div>
+<div class="muted" id="scmDiffInputsFoot"></div>
+<div class="muted" id="scmDiffOutputs"></div>
+</div>
+</section>
 <!-- ── STAGE: setup ── -->
 <section class="stage-new active-stage" id="stage-setup">
 <div class="stage-header-new">
@@ -2944,8 +2959,8 @@
 <!-- /app-shell -->
 </div>
 <!-- /app-shell-legacy -->
-<script src="./js/app.js?v=20260311-runtime-export-hotfix-1" type="module"></script>
-<script src="./js/app/v3/index.js?v=20260311-runtime-export-hotfix-1" type="module"></script>
+<script src="./js/app.js?v=20260312-runtime-init-order-fix-1" type="module"></script>
+<script src="./js/app/v3/index.js?v=20260312-runtime-init-order-fix-1" type="module"></script>
 <script>
 // ── Stage navigation ───────────────────────────────────────────
 window.__FPE_BOOT_ERRORS = Array.isArray(window.__FPE_BOOT_ERRORS) ? window.__FPE_BOOT_ERRORS : [];
