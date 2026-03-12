@@ -571,29 +571,9 @@ function syncPlanDecisionIntel(planContext = null) {
   setText("v3PlanDiRecCost", buildPlanRecommendationCost(optBinding));
   setText("v3PlanDiRecProb", buildPlanRecommendationProbability(tlConstraint, shortfallVotes));
 
-  syncLegacyTableRows({
-    sourceSelector: "#diVolTbody",
-    targetBodyId: "v3PlanDiVolTbody",
-    expectedCols: 2,
-    emptyLabel: "No volunteer levers available.",
-    numericColumns: [1]
-  });
-
-  syncLegacyTableRows({
-    sourceSelector: "#diCostTbody",
-    targetBodyId: "v3PlanDiCostTbody",
-    expectedCols: 2,
-    emptyLabel: "No cost levers available.",
-    numericColumns: [1]
-  });
-
-  syncLegacyTableRows({
-    sourceSelector: "#diProbTbody",
-    targetBodyId: "v3PlanDiProbTbody",
-    expectedCols: 2,
-    emptyLabel: "No probability levers available.",
-    numericColumns: [1]
-  });
+  renderPlanDecisionRows("v3PlanDiVolTbody", buildPlanVolunteerLevers(tlConstraint, shortfallAttempts));
+  renderPlanDecisionRows("v3PlanDiCostTbody", buildPlanCostLevers(optBinding, shortfallAttempts));
+  renderPlanDecisionRows("v3PlanDiProbTbody", buildPlanProbabilityLevers(tlConstraint, shortfallVotes));
 }
 
 function buildPlanWorkloadBanner(shiftsPerWeek, volunteersNeeded) {
@@ -835,4 +815,73 @@ function formatPlanCurrency(value) {
     return "—";
   }
   return `$${Math.round(value).toLocaleString()}`;
+}
+
+function renderPlanDecisionRows(targetBodyId, rows) {
+  const body = document.getElementById(targetBodyId);
+  if (!(body instanceof HTMLTableSectionElement)) {
+    return;
+  }
+  const normalized = Array.isArray(rows) ? rows.filter((row) => Array.isArray(row) && row.length >= 2) : [];
+  if (!normalized.length) {
+    body.innerHTML = '<tr><td class="muted">No levers available.</td><td class="num muted">—</td></tr>';
+    return;
+  }
+  body.innerHTML = normalized
+    .map(([label, delta]) => `<tr><td>${escapePlanHtml(label)}</td><td class="num">${escapePlanHtml(delta)}</td></tr>`)
+    .join("");
+}
+
+function buildPlanVolunteerLevers(constraint, shortfallAttempts) {
+  const c = String(constraint || "").toLowerCase();
+  const attempts = parsePlanNumber(shortfallAttempts);
+  if (Number.isFinite(attempts) && attempts > 0) {
+    return [
+      ["Add organizer shift coverage", `+${formatPlanWhole(Math.ceil(attempts / 250))}`],
+      ["Increase volunteer hours / week", `+${formatPlanWhole(Math.ceil(attempts / 400))}`]
+    ];
+  }
+  if (c.includes("staff") || c.includes("capacity")) {
+    return [["Increase active volunteer pool", "Priority"]];
+  }
+  return [["Volunteer load within range", "—"]];
+}
+
+function buildPlanCostLevers(optBinding, shortfallAttempts) {
+  const binding = String(optBinding || "").toLowerCase();
+  const attempts = parsePlanNumber(shortfallAttempts);
+  if (binding.includes("budget") || binding.includes("cost")) {
+    return [
+      ["Shift effort to lower-cost channels", "High"],
+      ["Reduce low-yield tactic share", "Medium"]
+    ];
+  }
+  if (Number.isFinite(attempts) && attempts > 0) {
+    return [["Phase spend earlier in cycle", "Medium"]];
+  }
+  return [["Cost posture stable", "—"]];
+}
+
+function buildPlanProbabilityLevers(constraint, shortfallVotes) {
+  const c = String(constraint || "").toLowerCase();
+  const votes = parsePlanNumber(shortfallVotes);
+  if (Number.isFinite(votes) && votes > 0) {
+    return [
+      ["Close remaining net-vote gap", `${formatPlanWhole(votes)}`],
+      ["Advance execution to earlier weeks", "Medium"]
+    ];
+  }
+  if (c.includes("timeline") || c.includes("week")) {
+    return [["De-risk timeline concentration", "High"]];
+  }
+  return [["Probability posture stable", "—"]];
+}
+
+function escapePlanHtml(value) {
+  return String(value || "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/\"/g, "&quot;")
+    .replace(/'/g, "&#39;");
 }

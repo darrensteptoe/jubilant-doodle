@@ -484,9 +484,9 @@ function refreshOutcomeSummary() {
   syncControlDisabled("v3OutcomeSurfaceSteps", "surfaceSteps");
   syncControlDisabled("v3OutcomeSurfaceTarget", "surfaceTarget");
 
-  const outcomeWeeksRemaining = readFirstNonEmpty(["#timelineWeeksAuto"]);
+  const outcomeWeeksRemaining = "See Plan timeline.";
   const outcomeCapacityPerWeek = "See Reach capacity outlook.";
-  const outcomeGapNote = readFirstNonEmpty(["#v3KpiBottleneck .fpe-kpi__value"]) || "See Reach capacity outlook.";
+  const outcomeGapNote = readText("#v3KpiBottleneck .fpe-kpi__value") || "See Reach capacity outlook.";
   const outcomeGapPerWeek = deriveGapFromNote(outcomeGapNote);
 
   setText("v3OutcomeWeeksRemaining", outcomeWeeksRemaining || "—");
@@ -494,9 +494,6 @@ function refreshOutcomeSummary() {
   setText("v3OutcomeGapContacts", outcomeGapPerWeek || "—");
   setText("v3OutcomeGapNote", outcomeGapNote || "—");
 
-  setText("v3OutcomeMcFreshTag", readText("#mcFreshTag-sidebar"));
-  setText("v3OutcomeMcLastRun", readText("#mcLastRun-sidebar"));
-  setText("v3OutcomeMcStale", readText("#mcStale-sidebar"));
   setText("v3OutcomeSurfaceStatus", "Run surface compute to refresh win-band diagnostics.");
   setText("v3OutcomeSurfaceSummary", "Compute to see safe zones, cliffs, and diminishing returns.");
   setText(
@@ -506,32 +503,43 @@ function refreshOutcomeSummary() {
 
   const outcomeWinProb = readOutcomeWinProbability();
   setText("v3OutcomeForecastWinProb", outcomeWinProb);
-  const outcomeP10 = readOutcomeSidebarMetric("#mcP10-sidebar", null, /^P10:\s*/i);
-  const outcomeP50 = readOutcomeSidebarMetric("#mcP50-sidebar", null, /^Median:\s*/i);
-  const outcomeP90 = readOutcomeSidebarMetric("#mcP90-sidebar", null, /^P90:\s*/i);
+  const outcomeP10 = readText("#mcP10") || "—";
+  const outcomeP50 = readText("#mcP50") || "—";
+  const outcomeP90 = readText("#mcP90") || "—";
   const outcomeShiftP50 = deriveShiftFromMargin(outcomeP50);
   const outcomeShiftP10 = deriveShiftFromMargin(outcomeP10);
   const confidenceStats = buildConfidenceStats(outcomeP10, outcomeP50, outcomeP90, outcomeWinProb);
-  const outcomeRiskLabel = readText("#riskBandTag-sidebar");
+  const outcomeRiskLabel = buildOutcomeRiskLabel({
+    p10: outcomeP10,
+    p50: outcomeP50,
+    p90: outcomeP90,
+    winProb: outcomeWinProb
+  });
+  const outcomeFragility = buildOutcomeFragility(outcomeP10, outcomeP90);
+  const outcomeCliff = buildOutcomeCliff(outcomeP10, outcomeP50);
+  const mcStatus = buildOutcomeMcStatus(outcomeWinProb, outcomeP10, outcomeP90);
   setText("v3OutcomeForecastMedian", outcomeP50);
   setText("v3OutcomeForecastP95", outcomeP90);
   setText("v3OutcomeForecastP5", outcomeP10);
 
+  setText("v3OutcomeMcFreshTag", mcStatus.freshTag);
+  setText("v3OutcomeMcLastRun", mcStatus.lastRun);
+  setText("v3OutcomeMcStale", mcStatus.staleTag);
   setText("v3OutcomeForecastRisk", outcomeRiskLabel);
   setText("v3OutcomeRiskFlagLabel", outcomeRiskLabel);
   setText("v3OutcomeRiskFlagGrade", outcomeRiskLabel);
-  setText("v3OutcomeRiskFlagFragility", readText("#riskVolatility-sidebar"));
+  setText("v3OutcomeRiskFlagFragility", outcomeFragility);
   setText("v3OutcomeRiskFlagGapNote", outcomeGapNote || "—");
-  setText("v3OutcomeRiskFlagFresh", readText("#mcFreshTag-sidebar"));
-  setText("v3OutcomeRiskFlagLastRun", readText("#mcLastRun-sidebar"));
-  setText("v3OutcomeRiskFlagStale", readText("#mcStale-sidebar"));
+  setText("v3OutcomeRiskFlagFresh", mcStatus.freshTag);
+  setText("v3OutcomeRiskFlagLastRun", mcStatus.lastRun);
+  setText("v3OutcomeRiskFlagStale", mcStatus.staleTag);
 
   setText("v3OutcomeWinProb", outcomeWinProb);
   setText("v3OutcomeP50", outcomeP50);
   setText("v3OutcomeP10", outcomeP10);
   setText("v3OutcomeP90", outcomeP90);
   setText("v3OutcomeRiskGrade", outcomeRiskLabel);
-  setText("v3OutcomeFragility", readText("#riskVolatility-sidebar"));
+  setText("v3OutcomeFragility", outcomeFragility);
 
   setJoinedText("v3OutcomeConfMargins", [outcomeP10, outcomeP50, outcomeP90], " / ");
   setText("v3OutcomeConfAttempts", confidenceStats.attemptsBand);
@@ -547,8 +555,8 @@ function refreshOutcomeSummary() {
   setText("v3OutcomeConfES10", confidenceStats.es10);
   setText("v3OutcomeConfShiftP50", outcomeShiftP50);
   setText("v3OutcomeConfShiftP10", outcomeShiftP10);
-  setText("v3OutcomeConfFragility", readText("#riskVolatility-sidebar"));
-  setText("v3OutcomeConfCliff", readText("#riskPlainBanner-sidebar"));
+  setText("v3OutcomeConfFragility", outcomeFragility);
+  setText("v3OutcomeConfCliff", outcomeCliff);
   setText("v3OutcomeConfRiskGrade", outcomeRiskLabel);
   setText("v3OutcomeConfShift60", confidenceStats.shiftTo60);
   setText("v3OutcomeConfShift70", confidenceStats.shiftTo70);
@@ -590,29 +598,6 @@ function setJoinedText(targetId, values, separator = " / ") {
   setText(targetId, parts.length ? parts.join(separator) : "—");
 }
 
-function readOutcomeSidebarMetric(sidebarSelector, fallbackSelector = null, prefixPattern = null) {
-  const sidebarRaw = readText(sidebarSelector);
-  const sidebarValue = prefixPattern ? sidebarRaw.replace(prefixPattern, "").trim() : sidebarRaw.trim();
-  if (sidebarValue) {
-    return sidebarValue;
-  }
-  if (fallbackSelector) {
-    return readText(fallbackSelector) || "—";
-  }
-  return "—";
-}
-
-function readFirstNonEmpty(selectors = []) {
-  const list = Array.isArray(selectors) ? selectors : [selectors];
-  for (const selector of list) {
-    const value = readText(selector);
-    if (value) {
-      return value;
-    }
-  }
-  return "";
-}
-
 function buildMissRiskSummary({ outcomeP10, outcomeWinProb, outcomeRiskLabel }) {
   const p10 = parseSignedNumber(outcomeP10);
   const winProb = parsePercentNumber(outcomeWinProb);
@@ -639,6 +624,72 @@ function buildMissRiskSummary({ outcomeP10, outcomeWinProb, outcomeRiskLabel }) 
   }
 
   return "Risk pending";
+}
+
+function buildOutcomeRiskLabel({ p10, p50, p90, winProb }) {
+  const p10Num = parseSignedNumber(p10);
+  const p50Num = parseSignedNumber(p50);
+  const p90Num = parseSignedNumber(p90);
+  const winProbNum = parsePercentNumber(winProb);
+
+  if (Number.isFinite(winProbNum) && winProbNum < 50) {
+    return "High risk";
+  }
+  if (Number.isFinite(p10Num) && Number.isFinite(p50Num) && p10Num < 0 && p50Num < 0) {
+    return "High risk";
+  }
+  if (Number.isFinite(p10Num) && p10Num < 0) {
+    return "Moderate risk";
+  }
+  if (Number.isFinite(p90Num) && p90Num <= 0) {
+    return "Watch";
+  }
+  return "Low risk";
+}
+
+function buildOutcomeFragility(p10, p90) {
+  const low = parseSignedNumber(p10);
+  const high = parseSignedNumber(p90);
+  if (!Number.isFinite(low) || !Number.isFinite(high)) {
+    return "Pending";
+  }
+  const spread = Math.abs(high - low);
+  if (spread >= 80) {
+    return "High";
+  }
+  if (spread >= 40) {
+    return "Moderate";
+  }
+  return "Low";
+}
+
+function buildOutcomeCliff(p10, p50) {
+  const low = parseSignedNumber(p10);
+  const mid = parseSignedNumber(p50);
+  if (!Number.isFinite(low) || !Number.isFinite(mid)) {
+    return "Pending";
+  }
+  if (low < 0 && mid >= 0) {
+    return "Potential cliff under downside path";
+  }
+  if (mid < 0) {
+    return "Active cliff risk";
+  }
+  return "No immediate cliff signal";
+}
+
+function buildOutcomeMcStatus(winProb, p10, p90) {
+  const winProbNum = parsePercentNumber(winProb);
+  const p10Num = parseSignedNumber(p10);
+  const p90Num = parseSignedNumber(p90);
+
+  const freshTag = Number.isFinite(winProbNum) ? "MC snapshot available" : "MC pending";
+  const lastRun = Number.isFinite(winProbNum) ? "Recent run reflected in KPI strip" : "No run reflected yet";
+  let staleTag = "Unknown";
+  if (Number.isFinite(p10Num) && Number.isFinite(p90Num)) {
+    staleTag = Math.abs(p90Num - p10Num) > 0 ? "Current distribution loaded" : "Distribution appears flat";
+  }
+  return { freshTag, lastRun, staleTag };
 }
 
 function buildConfidenceStats(p10, p50, p90, winProbText) {
