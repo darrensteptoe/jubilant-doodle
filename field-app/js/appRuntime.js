@@ -3530,7 +3530,6 @@ function init(){
   });
   ensureScenarioRegistry();
   installScenarioBridge();
-  installReachBridge();
   ensureDecisionScaffold();
   installDecisionBridge();
   runInitScenarioDecisionWiringModule({
