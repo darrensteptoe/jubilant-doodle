@@ -443,17 +443,18 @@ function refreshPlanSummary() {
   setText("v3PlanShiftsPerWeek", outShiftsPerWeek);
   setText("v3PlanVolunteersNeeded", outVolunteersNeeded);
 
-  setText("v3PlanOptTotalAttempts", readText("#optTotalAttempts"));
-  setText("v3PlanOptTotalCost", readText("#optTotalCost"));
-  setText("v3PlanOptTotalVotes", readText("#optTotalVotes"));
+  const optTotals = readPlanOptimizerTotals();
+  setText("v3PlanOptTotalAttempts", optTotals.attempts);
+  setText("v3PlanOptTotalCost", optTotals.cost);
+  setText("v3PlanOptTotalVotes", optTotals.votes);
   setText("v3PlanOptGapContext", optGapContext);
   setText("v3PlanBinding", optBinding);
   setText("v3PlanWorkloadBanner", buildPlanWorkloadBanner(outShiftsPerWeek, outVolunteersNeeded));
   setText("v3PlanOptBanner", buildPlanOptimizerBanner(optBinding, optGapContext));
-  setText("v3PlanTlOptGoalFeasible", readText("#tlOptGoalFeasible"));
-  setText("v3PlanTlOptMaxNetVotes", readText("#tlOptMaxNetVotes"));
-  setText("v3PlanTlOptRemainingGap", readText("#tlOptRemainingGap"));
-  setText("v3PlanTlOptBinding", readText("#tlOptBinding"));
+  setText("v3PlanTlOptGoalFeasible", buildPlanTimelineGoalFeasible(tlPercent, tlShortfallVotes));
+  setText("v3PlanTlOptMaxNetVotes", buildPlanTimelineMaxNetVotes(optTotals.votes, tlPercent));
+  setText("v3PlanTlOptRemainingGap", buildPlanTimelineRemainingGap(tlShortfallVotes));
+  setText("v3PlanTlOptBinding", buildPlanTimelineBinding(tlConstraint, optBinding));
   setText("v3PlanTimelineBanner", buildPlanTimelineBanner(tlPercent, tlConstraint, tlShortfallAttempts, tlShortfallVotes));
   setText("v3PlanRiskExecutable", tlPercent);
   setText("v3PlanRiskConstraint", tlConstraint);
@@ -468,11 +469,11 @@ function refreshPlanSummary() {
   });
 
   setText("v3PlanExecutable", tlPercent);
-  setText("v3PlanCompletionWeek", readText("#tlCompletionWeek"));
+  setText("v3PlanCompletionWeek", buildPlanCompletionWeek(tlPercent));
   setText("v3PlanShortfallAttempts", tlShortfallAttempts);
   setText("v3PlanConstraint", tlConstraint);
   setText("v3PlanShortfallVotes", tlShortfallVotes);
-  setText("v3PlanWeekList", readText("#tlWeekList"));
+  setText("v3PlanWeekList", buildPlanWeekPreview(tlPercent));
 
   setText("v3PlanSummaryShiftsPerWeek", outShiftsPerWeek);
   setText("v3PlanSummaryVolunteersNeeded", outVolunteersNeeded);
@@ -668,4 +669,170 @@ function buildPlanRecommendationProbability(constraint, shortfallVotes) {
     return "Close remaining vote shortfall to improve modeled win confidence.";
   }
   return "Probability posture is stable under current assumptions.";
+}
+
+function readPlanOptimizerTotals() {
+  const tableBody = document.getElementById("v3PlanOptAllocTbody");
+  if (!(tableBody instanceof HTMLTableSectionElement)) {
+    return { attempts: "—", cost: "—", votes: "—" };
+  }
+
+  let attempts = 0;
+  let cost = 0;
+  let votes = 0;
+  let countedRows = 0;
+  tableBody.querySelectorAll("tr").forEach((row) => {
+    const cells = row.querySelectorAll("td");
+    if (cells.length < 4) {
+      return;
+    }
+    const a = parsePlanNumber(cells[1]?.textContent);
+    const c = parsePlanNumber(cells[2]?.textContent);
+    const v = parsePlanNumber(cells[3]?.textContent);
+    const hasAny = Number.isFinite(a) || Number.isFinite(c) || Number.isFinite(v);
+    if (!hasAny) {
+      return;
+    }
+    countedRows += 1;
+    attempts += Number.isFinite(a) ? a : 0;
+    cost += Number.isFinite(c) ? c : 0;
+    votes += Number.isFinite(v) ? v : 0;
+  });
+
+  if (!countedRows) {
+    return { attempts: "—", cost: "—", votes: "—" };
+  }
+  return {
+    attempts: formatPlanWhole(attempts),
+    cost: formatPlanCurrency(cost),
+    votes: formatPlanWhole(votes)
+  };
+}
+
+function buildPlanTimelineGoalFeasible(tlPercent, tlShortfallVotes) {
+  const pct = parsePlanPercent(tlPercent);
+  if (Number.isFinite(pct)) {
+    return pct >= 100 ? "Yes" : "No";
+  }
+  const shortfallVotes = parsePlanNumber(tlShortfallVotes);
+  if (Number.isFinite(shortfallVotes)) {
+    return shortfallVotes <= 0 ? "Yes" : "No";
+  }
+  return "Pending";
+}
+
+function buildPlanTimelineMaxNetVotes(optTotalVotes, tlPercent) {
+  const votes = parsePlanNumber(optTotalVotes);
+  const pct = parsePlanPercent(tlPercent);
+  if (Number.isFinite(votes) && Number.isFinite(pct) && pct > 0 && pct < 100) {
+    return formatPlanWhole(votes * (100 / pct));
+  }
+  if (Number.isFinite(votes)) {
+    return formatPlanWhole(votes);
+  }
+  return "—";
+}
+
+function buildPlanTimelineRemainingGap(tlShortfallVotes) {
+  const gap = parsePlanNumber(tlShortfallVotes);
+  if (!Number.isFinite(gap)) {
+    return "—";
+  }
+  if (gap <= 0) {
+    return "0";
+  }
+  return formatPlanWhole(gap);
+}
+
+function buildPlanTimelineBinding(tlConstraint, optBinding) {
+  const tl = String(tlConstraint || "").trim();
+  const opt = String(optBinding || "").trim();
+  if (tl && opt && tl !== opt) {
+    return `${tl}; optimizer: ${opt}`;
+  }
+  return tl || opt || "Not binding";
+}
+
+function buildPlanCompletionWeek(tlPercent) {
+  const pct = parsePlanPercent(tlPercent);
+  const autoWeeks = parsePlanNumber(readInputValue("v3PlanTimelineWeeksAuto"));
+  const activeWeeks = parsePlanNumber(readInputValue("v3PlanTimelineActiveWeeks"));
+  const baseline = Number.isFinite(activeWeeks) && activeWeeks > 0
+    ? activeWeeks
+    : Number.isFinite(autoWeeks) && autoWeeks > 0
+      ? autoWeeks
+      : NaN;
+
+  if (!Number.isFinite(pct) || !Number.isFinite(baseline)) {
+    return "Pending";
+  }
+  if (pct >= 100) {
+    return `Week ${Math.max(1, Math.round(baseline))}`;
+  }
+  const projected = Math.ceil((baseline * 100) / Math.max(1, pct));
+  return `Week ${Math.max(1, projected)}`;
+}
+
+function buildPlanWeekPreview(tlPercent) {
+  const pct = parsePlanPercent(tlPercent);
+  const activeWeeks = parsePlanNumber(readInputValue("v3PlanTimelineActiveWeeks"));
+  const gotvWeeks = parsePlanNumber(readInputValue("v3PlanTimelineGotvWeeks"));
+
+  if (!Number.isFinite(activeWeeks) || activeWeeks <= 0) {
+    return "Set Active production weeks to render pacing preview.";
+  }
+
+  const total = Math.max(1, Math.round(activeWeeks));
+  const gotv = Number.isFinite(gotvWeeks) && gotvWeeks > 0 ? Math.min(total, Math.round(gotvWeeks)) : 0;
+  const regular = Math.max(0, total - gotv);
+  const completionTag = Number.isFinite(pct) ? `${Math.round(pct)}% executable` : "executable % pending";
+
+  const lines = [
+    `Regular weeks: ${regular}`,
+    `GOTV weeks: ${gotv}`,
+    `Status: ${completionTag}`
+  ];
+  return lines.join("\n");
+}
+
+function readInputValue(id) {
+  const el = document.getElementById(id);
+  if (!(el instanceof HTMLInputElement)) {
+    return "";
+  }
+  return String(el.value || "").trim();
+}
+
+function parsePlanNumber(rawValue) {
+  const text = String(rawValue || "").trim();
+  if (!text || text === "-" || text === "—") {
+    return NaN;
+  }
+  const cleaned = text.replace(/,/g, "").replace(/[^\d.+-]/g, "");
+  const num = Number(cleaned);
+  return Number.isFinite(num) ? num : NaN;
+}
+
+function parsePlanPercent(rawValue) {
+  const text = String(rawValue || "").trim();
+  if (!text || text === "-" || text === "—") {
+    return NaN;
+  }
+  const cleaned = text.replace(/,/g, "").replace(/[^\d.+-]/g, "");
+  const num = Number(cleaned);
+  return Number.isFinite(num) ? num : NaN;
+}
+
+function formatPlanWhole(value) {
+  if (!Number.isFinite(value)) {
+    return "—";
+  }
+  return `${Math.round(value).toLocaleString()}`;
+}
+
+function formatPlanCurrency(value) {
+  if (!Number.isFinite(value)) {
+    return "—";
+  }
+  return `$${Math.round(value).toLocaleString()}`;
 }
