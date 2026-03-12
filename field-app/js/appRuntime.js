@@ -24,13 +24,7 @@ import { computeSnapshotHash } from "./core/hash.js";
 import { makeRng, triSample } from "./core/rng.js";
 import { renderRiskFramingPanel } from "./app/render/riskFraming.js";
 import { renderAssumptionDriftPanel } from "./app/render/assumptionDrift.js";
-import {
-  renderBottleneckAttributionPanel,
-  renderConversionPanel,
-  renderSensitivitySnapshotPanel,
-  runSensitivitySnapshotPanel,
-  computeSensitivitySnapshotCache
-} from "./app/render/executionAnalysis.js";
+import * as executionAnalysisModule from "./app/render/executionAnalysis.js";
 import { renderWeeklyOpsInsightsPanel, renderWeeklyOpsFreshnessPanel } from "./app/render/weeklyOpsInsights.js";
 import { renderDecisionConfidencePanel, renderDecisionIntelligencePanelView } from "./app/render/decisionPanels.js";
 import { renderImpactTracePanel } from "./app/render/impactTrace.js";
@@ -80,7 +74,7 @@ import {
   exportDailyLogCore
 } from "./app/dailyLog.js";
 import { createDiagnosticsRuntimeController } from "./app/diagnosticsRuntime.js";
-import { copyDebugBundleModule } from "./app/debugBundle.js";
+import * as debugBundleModule from "./app/debugBundle.js";
 import { createBackupRecoveryController } from "./app/backupRecovery.js";
 import { renderScenarioManagerPanel } from "./app/renderScenarioManager.js";
 import {
@@ -224,9 +218,33 @@ import {
   getEffectiveBaseRates as getEffectiveBaseRatesFromStateSelector,
   computeWeeklyOpsContextFromState as computeWeeklyOpsContextFromStateSelector
 } from "./app/selectors.js";
-import { getOperationsMetricsSnapshot } from "./features/operations/metricsCache.js";
+import * as operationsMetricsCacheModule from "./features/operations/metricsCache.js";
 import { PIPELINE_STAGES, DEFAULT_FORECAST_CONFIG } from "./features/operations/schema.js";
 import { els } from "./ui/els.js";
+
+const renderBottleneckAttributionPanel =
+  executionAnalysisModule?.renderBottleneckAttributionPanel || (() => {});
+const renderConversionPanel =
+  executionAnalysisModule?.renderConversionPanel || (() => {});
+const renderSensitivitySnapshotPanel =
+  executionAnalysisModule?.renderSensitivitySnapshotPanel || (() => {});
+const runSensitivitySnapshotPanel =
+  executionAnalysisModule?.runSensitivitySnapshotPanel || (async () => ({ ok: false, code: "missing_module" }));
+const computeSensitivitySnapshotCache =
+  executionAnalysisModule?.computeSensitivitySnapshotCache || (() => ({ ok: false, code: "missing_module" }));
+
+const copyDebugBundleModule =
+  debugBundleModule?.copyDebugBundleModule || (async () => null);
+
+const getOperationsMetricsSnapshot =
+  operationsMetricsCacheModule?.getOperationsMetricsSnapshot ||
+  (async () => ({
+    revision: -1,
+    loadedAt: new Date().toISOString(),
+    stores: {},
+    counts: {},
+    rollups: null,
+  }));
 
 function downloadText(text, filename, mime){
   try{
