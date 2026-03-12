@@ -802,6 +802,55 @@ body.dark #app-shell-v3-root {
   height: 100%;
 }
 
+.fpe-instructions {
+  border: 1px solid var(--fpe-rule);
+  border-radius: var(--fpe-radius-sm);
+  background: color-mix(in srgb, var(--fpe-panel-muted) 92%, var(--fpe-panel));
+  overflow: hidden;
+}
+
+.fpe-instructions__summary {
+  position: relative;
+  list-style: none;
+  cursor: pointer;
+  padding: 10px 12px;
+  border-bottom: 1px solid color-mix(in srgb, var(--fpe-rule) 82%, transparent);
+  background: var(--fpe-header-bg);
+  user-select: none;
+}
+
+.fpe-instructions__summary::-webkit-details-marker {
+  display: none;
+}
+
+.fpe-instructions__summary::before {
+  content: "▸";
+  display: inline-block;
+  margin-right: 8px;
+  color: var(--fpe-muted);
+  transform: translateY(-1px);
+}
+
+.fpe-instructions[open] > .fpe-instructions__summary::before {
+  content: "▾";
+}
+
+.fpe-instructions__label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--fpe-text);
+}
+
+.fpe-instructions__body {
+  padding: 10px 12px;
+  display: grid;
+  gap: var(--fpe-field-gap);
+}
+
+.fpe-instructions__body > * {
+  margin: 0 !important;
+}
+
 .fpe-message-window {
   border: 1px solid var(--fpe-rule);
   border-radius: var(--fpe-radius-sm);
