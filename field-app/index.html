@@ -2583,7 +2583,7 @@
 <!-- /app-shell -->
 </div>
 <!-- /app-shell-legacy -->
-<script src="./js/app.js?v=20260312-runtime-crashfix-10" type="module"></script>
+<script src="./js/appRuntime.js?v=20260312-runtime-crashfix-10" type="module"></script>
 <script src="./js/app/v3/index.js?v=20260312-runtime-crashfix-10" type="module"></script>
 <script>
 // ── Stage navigation ───────────────────────────────────────────
@@ -2755,7 +2755,6 @@ function runBootProbe(){
   if (window.__FPE_BOOT_PROBE_RUNNING__) return;
   window.__FPE_BOOT_PROBE_RUNNING__ = true;
   var urls = [
-    './js/app.js?v=20260312-runtime-crashfix-10',
     './js/appRuntime.js?v=20260312-runtime-crashfix-10',
     './js/engine.js',
     './js/build.js',
@@ -2768,7 +2767,11 @@ function runBootProbe(){
       .then(function(resp){
         var ct = '';
         try { ct = String(resp.headers.get('content-type') || ''); } catch {}
-        return 'probe: ' + url + ' -> ' + resp.status + ' ' + (resp.ok ? 'ok' : 'fail') + (ct ? (' [' + ct + ']') : '');
+        var line = 'probe: ' + url + ' -> ' + resp.status + ' ' + (resp.ok ? 'ok' : 'fail') + (ct ? (' [' + ct + ']') : '');
+        if (/text\/html/i.test(ct)) {
+          line += ' [AUTH_OR_ROUTING_HTML_RESPONSE]';
+        }
+        return line;
       })
       .catch(function(err){
         var msg = err && err.message ? String(err.message) : String(err || 'fetch failed');
@@ -2777,11 +2780,105 @@ function runBootProbe(){
   }))
     .then(function(lines){
       window.__FPE_BOOT_PROBES__ = lines.slice(0, 40);
+      var htmlHits = lines.filter(function(line){
+        return String(line || '').indexOf('[AUTH_OR_ROUTING_HTML_RESPONSE]') >= 0;
+      });
+      if (htmlHits.length){
+        var rows = Array.isArray(window.__FPE_BOOT_ERRORS) ? window.__FPE_BOOT_ERRORS : [];
+        rows.unshift('boot-auth-warning: one or more JS module URLs returned HTML (likely auth/session or edge routing issue).');
+        rows.unshift('boot-auth-hits: ' + htmlHits.map(function(line){
+          var m = String(line).match(/^probe:\s+(.+?)\s+->/);
+          return m && m[1] ? m[1] : line;
+        }).join(', '));
+        window.__FPE_BOOT_ERRORS = rows.slice(0, 30);
+      }
     })
     .catch(function(){})
     .finally(function(){
       window.__FPE_BOOT_PROBE_RUNNING__ = false;
     });
+}
+
+function extractModuleSpecs(sourceText){
+  var text = String(sourceText || '');
+  var specs = [];
+  var re = /(?:^|\n)\s*import\s+(?:[^'";]+?\s+from\s+)?["']([^"']+)["']\s*;?|(?:^|\n)\s*export\s+[^'";]*?\s+from\s+["']([^"']+)["']\s*;?/g;
+  var m;
+  while ((m = re.exec(text))) {
+    var spec = m[1] || m[2] || '';
+    if (!spec || spec.charAt(0) !== '.') continue;
+    specs.push(spec);
+  }
+  return specs;
+}
+
+function runDeepModuleGraphProbe(startUrl){
+  if (window.__FPE_DEEP_PROBE_RUNNING__) return Promise.resolve([]);
+  window.__FPE_DEEP_PROBE_RUNNING__ = true;
+  var maxNodes = 260;
+  var queue = [String(startUrl || './js/appRuntime.js?v=20260312-runtime-crashfix-10')];
+  var visited = Object.create(null);
+  var lines = [];
+
+  function normalizeSpec(spec){
+    var idx = String(spec || '').indexOf('?');
+    return idx >= 0 ? String(spec).slice(0, idx) : String(spec || '');
+  }
+
+  function enqueue(baseUrl, spec){
+    try{
+      var normalized = normalizeSpec(spec);
+      var abs = new URL(normalized, baseUrl).toString();
+      if (!visited[abs]) queue.push(abs);
+    } catch {}
+  }
+
+  function fetchOne(url){
+    return fetch(url, { cache: 'no-store' })
+      .then(function(resp){
+        var ct = '';
+        try { ct = String(resp.headers.get('content-type') || ''); } catch {}
+        var statusLine = 'graph: ' + url + ' -> ' + resp.status + ' ' + (resp.ok ? 'ok' : 'fail') + (ct ? (' [' + ct + ']') : '');
+        lines.push(statusLine);
+        if (!resp.ok) return null;
+        return resp.text().then(function(body){
+          var bodyText = String(body || '');
+          if (/text\/html/i.test(ct) || /^\s*<!doctype html>/i.test(bodyText) || /^\s*<html/i.test(bodyText)) {
+            lines.push('graph-error: non-js response at ' + url);
+            return null;
+          }
+          var specs = extractModuleSpecs(bodyText);
+          for (var i = 0; i < specs.length; i += 1){
+            enqueue(url, specs[i]);
+          }
+          return null;
+        }).catch(function(err){
+          var msg = err && err.message ? String(err.message) : String(err || 'text read failed');
+          lines.push('graph-error: read failure at ' + url + ' -> ' + msg);
+          return null;
+        });
+      })
+      .catch(function(err){
+        var msg = err && err.message ? String(err.message) : String(err || 'fetch failed');
+        lines.push('graph: ' + url + ' -> error: ' + msg);
+        return null;
+      });
+  }
+
+  var chain = Promise.resolve();
+  function step(){
+    if (!queue.length || Object.keys(visited).length >= maxNodes) return Promise.resolve();
+    var url = queue.shift();
+    if (!url || visited[url]) return step();
+    visited[url] = true;
+    return fetchOne(url).then(step);
+  }
+
+  return chain.then(step).then(function(){
+    return lines;
+  }).finally(function(){
+    window.__FPE_DEEP_PROBE_RUNNING__ = false;
+  });
 }
 
 function attemptRuntimeBootstrapFallback(){
@@ -2799,10 +2896,36 @@ function attemptRuntimeBootstrapFallback(){
     })
     .catch(function(err){
       var msg = err && err.message ? String(err.message) : String(err || 'inline runtime import failed');
+      var name = err && err.name ? String(err.name) : '';
+      var stack = err && err.stack ? String(err.stack) : '';
       window.__FPE_BOOT_PHASE__ = 'inline-runtime-import-failed';
       var rows = Array.isArray(window.__FPE_BOOT_ERRORS) ? window.__FPE_BOOT_ERRORS : [];
       rows.unshift('bootstrap-fallback-failed: ' + msg);
+      if (name || stack){
+        var detail = [name, msg].filter(Boolean).join(': ');
+        if (stack){
+          detail += ' | stack: ' + stack.split('\\n').slice(0, 3).join(' <- ');
+        }
+        rows.unshift('bootstrap-fallback-detail: ' + detail);
+      }
       window.__FPE_BOOT_ERRORS = rows.slice(0, 30);
+      runDeepModuleGraphProbe('./js/appRuntime.js?v=20260312-runtime-crashfix-10')
+        .then(function(lines){
+          if (!Array.isArray(lines) || !lines.length) return;
+          var prev = Array.isArray(window.__FPE_BOOT_PROBES__) ? window.__FPE_BOOT_PROBES__ : [];
+          var merged = prev.concat(lines);
+          window.__FPE_BOOT_PROBES__ = merged.slice(0, 220);
+          var failures = lines.filter(function(line){
+            return /->\s(4\d\d|5\d\d)\b|graph-error|-> error:/i.test(String(line || ''));
+          });
+          if (failures.length){
+            var errs = Array.isArray(window.__FPE_BOOT_ERRORS) ? window.__FPE_BOOT_ERRORS : [];
+            errs.unshift('deep-probe-failures:');
+            failures.slice(0, 8).forEach(function(line){ errs.unshift(String(line)); });
+            window.__FPE_BOOT_ERRORS = errs.slice(0, 30);
+          }
+        })
+        .catch(function(){});
     });
 }
 
