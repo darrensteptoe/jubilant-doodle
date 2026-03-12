@@ -1740,14 +1740,22 @@ export function runSelfTests(engine){
       "validationList",
       "operationsCapacityOutlookCard",
       "phase3Card",
-      "scenarioCompareCard",
-      "btnScenarioSaveNew"
+      "scenarioCompareCard"
     ];
     for (const id of required){
       const el = document.getElementById(id);
       if (!el) throw new Error(`Missing element id: ${id}`);
       const matches = document.querySelectorAll(`[id="${id}"]`);
       if (matches.length !== 1) throw new Error(`Duplicate id detected: ${id}`);
+    }
+    const scenarioActionIds = ["btnScenarioSaveNew", "v3ScenarioName"];
+    const found = scenarioActionIds.find((id) => document.getElementById(id));
+    if (!found){
+      throw new Error(`Missing scenario control id: ${scenarioActionIds.join(" or ")}`);
+    }
+    const foundMatches = document.querySelectorAll(`[id="${found}"]`);
+    if (foundMatches.length !== 1){
+      throw new Error(`Duplicate id detected: ${found}`);
     }
     return true;
   });

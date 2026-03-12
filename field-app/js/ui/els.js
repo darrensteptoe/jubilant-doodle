@@ -33,6 +33,7 @@ export const els = {
   scmDiffInputs: document.getElementById("scmDiffInputs"),
   scmDiffInputsFoot: document.getElementById("scmDiffInputsFoot"),
   scmDiffOutputs: document.getElementById("scmDiffOutputs"),
+  censusPhase1Card: document.getElementById("censusPhase1Card"),
   censusApiKey: document.getElementById("censusApiKey"),
   censusAcsYear: document.getElementById("censusAcsYear"),
   censusResolution: document.getElementById("censusResolution"),
