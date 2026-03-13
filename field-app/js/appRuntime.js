@@ -3359,6 +3359,12 @@ const OUTCOME_SURFACE_NUMERIC_FIELDS = new Set([
   "surfaceSteps",
   "surfaceTarget",
 ]);
+const OUTCOME_SURFACE_DEFAULTS = {
+  surfaceLever: "volunteerMultiplier",
+  surfaceMode: "fast",
+  surfaceSteps: "21",
+  surfaceTarget: "70",
+};
 
 function outcomeBridgeSelectId(field){
   if (field === "mcMode") return "mcMode";
@@ -3394,7 +3400,7 @@ function outcomeBridgeReadSelectOptions(field){
   return rows.length ? rows : fallback;
 }
 
-function outcomeBridgeReadControlValue(field){
+function outcomeBridgeReadLegacyControlValue(field){
   const id = outcomeBridgeControlId(field);
   if (!id){
     return "";
@@ -3404,6 +3410,138 @@ function outcomeBridgeReadControlValue(field){
     return "";
   }
   return String(control.value ?? "");
+}
+
+function outcomeBridgeDefaultSelectValue(field, preferredValue = ""){
+  const options = outcomeBridgeReadSelectOptions(field);
+  const preferred = String(preferredValue || "").trim();
+  if (preferred && options.some((row) => String(row?.value ?? "") === preferred)){
+    return preferred;
+  }
+  const fallback = String(OUTCOME_SURFACE_DEFAULTS[field] || "").trim();
+  if (fallback && options.some((row) => String(row?.value ?? "") === fallback)){
+    return fallback;
+  }
+  return options.length ? String(options[0]?.value ?? "") : "";
+}
+
+function outcomeBridgeResolvedSurfaceInputs(){
+  const storedInputs = (state?.ui && typeof state.ui === "object" && state.ui.outcomeSurfaceInputs && typeof state.ui.outcomeSurfaceInputs === "object")
+    ? state.ui.outcomeSurfaceInputs
+    : {};
+
+  const rawLever = String(
+    storedInputs.surfaceLever ??
+    outcomeBridgeReadLegacyControlValue("surfaceLever") ??
+    ""
+  );
+  const surfaceLever = outcomeBridgeDefaultSelectValue("surfaceLever", rawLever);
+  const spec = surfaceLeverSpec(surfaceLever) || surfaceLeverSpec(OUTCOME_SURFACE_DEFAULTS.surfaceLever);
+
+  const rawMode = String(
+    storedInputs.surfaceMode ??
+    outcomeBridgeReadLegacyControlValue("surfaceMode") ??
+    ""
+  );
+  const surfaceMode = outcomeBridgeDefaultSelectValue("surfaceMode", rawMode);
+
+  const base = spec ? surfaceBaselineValue(spec) : null;
+  const defaultMin = spec
+    ? surfaceClamp((base != null ? Number(base) * 0.8 : spec.clampLo), spec.clampLo, spec.clampHi)
+    : "";
+  const defaultMax = spec
+    ? surfaceClamp((base != null ? Number(base) * 1.2 : spec.clampHi), spec.clampLo, spec.clampHi)
+    : "";
+
+  const rawMin = storedInputs.surfaceMin ?? outcomeBridgeReadLegacyControlValue("surfaceMin");
+  const minNum = Number(rawMin);
+  const surfaceMin = Number.isFinite(minNum) && spec
+    ? String(surfaceClamp(minNum, spec.clampLo, spec.clampHi))
+    : (defaultMin === "" ? "" : String(defaultMin));
+
+  const rawMax = storedInputs.surfaceMax ?? outcomeBridgeReadLegacyControlValue("surfaceMax");
+  const maxNum = Number(rawMax);
+  const surfaceMax = Number.isFinite(maxNum) && spec
+    ? String(surfaceClamp(maxNum, spec.clampLo, spec.clampHi))
+    : (defaultMax === "" ? "" : String(defaultMax));
+
+  const rawSteps = storedInputs.surfaceSteps ?? outcomeBridgeReadLegacyControlValue("surfaceSteps");
+  const stepsNum = Math.floor(Number(rawSteps));
+  const surfaceSteps = Number.isFinite(stepsNum)
+    ? String(Math.max(5, Math.min(51, stepsNum)))
+    : String(OUTCOME_SURFACE_DEFAULTS.surfaceSteps);
+
+  const rawTarget = storedInputs.surfaceTarget ?? outcomeBridgeReadLegacyControlValue("surfaceTarget");
+  const targetNum = Number(rawTarget);
+  const surfaceTarget = Number.isFinite(targetNum)
+    ? String(Math.max(50, Math.min(99, Math.round(targetNum))))
+    : String(OUTCOME_SURFACE_DEFAULTS.surfaceTarget);
+
+  return {
+    surfaceLever,
+    surfaceMode,
+    surfaceMin,
+    surfaceMax,
+    surfaceSteps,
+    surfaceTarget,
+  };
+}
+
+function outcomeBridgeSyncLegacyControl(field, value){
+  const id = outcomeBridgeControlId(field);
+  const control = id ? document.getElementById(id) : null;
+  if (!(control instanceof HTMLInputElement) && !(control instanceof HTMLSelectElement)){
+    return;
+  }
+  const nextValue = value == null ? "" : String(value);
+  if (String(control.value ?? "") === nextValue){
+    return;
+  }
+  control.value = nextValue;
+  if (control instanceof HTMLInputElement){
+    control.dispatchEvent(new Event("input", { bubbles: true }));
+  }
+  control.dispatchEvent(new Event("change", { bubbles: true }));
+}
+
+function outcomeBridgeWriteSurfaceInputs(nextState, surfaceInputs){
+  if (!nextState.ui || typeof nextState.ui !== "object"){
+    nextState.ui = {};
+  }
+  if (!nextState.ui.outcomeSurfaceInputs || typeof nextState.ui.outcomeSurfaceInputs !== "object"){
+    nextState.ui.outcomeSurfaceInputs = {};
+  }
+  const target = nextState.ui.outcomeSurfaceInputs;
+  target.surfaceLever = String(surfaceInputs?.surfaceLever ?? "");
+  target.surfaceMode = String(surfaceInputs?.surfaceMode ?? "");
+  target.surfaceMin = String(surfaceInputs?.surfaceMin ?? "");
+  target.surfaceMax = String(surfaceInputs?.surfaceMax ?? "");
+  target.surfaceSteps = String(surfaceInputs?.surfaceSteps ?? "");
+  target.surfaceTarget = String(surfaceInputs?.surfaceTarget ?? "");
+}
+
+function outcomeBridgeWriteSurfaceCache(nextState, { rows, statusText, summaryText } = {}){
+  if (!nextState.ui || typeof nextState.ui !== "object"){
+    nextState.ui = {};
+  }
+  nextState.ui.lastOutcomeSurfaceRows = Array.isArray(rows)
+    ? rows.map((row) => ({
+        leverValue: row?.leverValue ?? "",
+        winProb: Number.isFinite(Number(row?.winProb)) ? Number(row.winProb) : null,
+        p10: Number.isFinite(Number(row?.p10)) ? Number(row.p10) : null,
+        p50: Number.isFinite(Number(row?.p50)) ? Number(row.p50) : null,
+        p90: Number.isFinite(Number(row?.p90)) ? Number(row.p90) : null,
+      }))
+    : [];
+  nextState.ui.lastOutcomeSurfaceStatus = String(statusText || "").trim();
+  nextState.ui.lastOutcomeSurfaceSummary = String(summaryText || "").trim();
+}
+
+function outcomeBridgeSetSurfaceComputing(nextState, enabled){
+  if (!nextState.ui || typeof nextState.ui !== "object"){
+    nextState.ui = {};
+  }
+  nextState.ui.outcomeSurfaceComputing = !!enabled;
 }
 
 function outcomeBridgeNormalizeSelect(field, rawValue){
@@ -3436,19 +3574,33 @@ function outcomeBridgeNormalizeNumber(field, rawValue){
 }
 
 function outcomeBridgeApplySurfaceField(field, rawValue){
-  const id = outcomeBridgeControlId(field);
-  const control = id ? document.getElementById(id) : null;
-  if (!(control instanceof HTMLInputElement) && !(control instanceof HTMLSelectElement)){
-    return { ok: false, code: "not_available", view: outcomeBridgeStateView() };
-  }
+  const current = outcomeBridgeResolvedSurfaceInputs();
+  const next = { ...current };
 
-  if (control instanceof HTMLSelectElement){
+  if (OUTCOME_SURFACE_SELECT_FIELDS.has(field)){
     const normalized = outcomeBridgeNormalizeSelect(field, rawValue);
     if (!normalized.ok){
       return { ok: false, code: normalized.code, view: outcomeBridgeStateView() };
     }
-    control.value = normalized.value;
-    control.dispatchEvent(new Event("change", { bubbles: true }));
+    next[field] = normalized.value;
+    if (field === "surfaceLever"){
+      const spec = surfaceLeverSpec(next.surfaceLever) || surfaceLeverSpec(OUTCOME_SURFACE_DEFAULTS.surfaceLever);
+      if (spec){
+        const base = surfaceBaselineValue(spec);
+        const lo = base != null ? Number(base) * 0.8 : spec.clampLo;
+        const hi = base != null ? Number(base) * 1.2 : spec.clampHi;
+        next.surfaceMin = String(surfaceClamp(lo, spec.clampLo, spec.clampHi));
+        next.surfaceMax = String(surfaceClamp(hi, spec.clampLo, spec.clampHi));
+      }
+    }
+    setState((target) => {
+      outcomeBridgeWriteSurfaceInputs(target, next);
+    });
+    outcomeBridgeSyncLegacyControl(field, next[field]);
+    if (field === "surfaceLever"){
+      outcomeBridgeSyncLegacyControl("surfaceMin", next.surfaceMin);
+      outcomeBridgeSyncLegacyControl("surfaceMax", next.surfaceMax);
+    }
     return { ok: true, view: outcomeBridgeStateView() };
   }
 
@@ -3456,9 +3608,11 @@ function outcomeBridgeApplySurfaceField(field, rawValue){
   if (!normalized.ok){
     return { ok: false, code: normalized.code, view: outcomeBridgeStateView() };
   }
-  control.value = normalized.value === "" ? "" : String(normalized.value);
-  control.dispatchEvent(new Event("input", { bubbles: true }));
-  control.dispatchEvent(new Event("change", { bubbles: true }));
+  next[field] = normalized.value === "" ? "" : String(normalized.value);
+  setState((target) => {
+    outcomeBridgeWriteSurfaceInputs(target, next);
+  });
+  outcomeBridgeSyncLegacyControl(field, next[field]);
   return { ok: true, view: outcomeBridgeStateView() };
 }
 
@@ -3511,9 +3665,12 @@ function outcomeBridgeStateView(){
 
   const surfaceStatusText = String(state?.ui?.lastOutcomeSurfaceStatus || "").trim();
   const surfaceSummaryText = String(state?.ui?.lastOutcomeSurfaceSummary || "").trim();
+  const surfaceInputs = outcomeBridgeResolvedSurfaceInputs();
+  const surfaceComputing = !!(state?.ui && state.ui.outcomeSurfaceComputing);
   const runButton = els?.mcRun instanceof HTMLButtonElement ? els.mcRun : null;
   const rerunButton = els?.mcRerun instanceof HTMLButtonElement ? els.mcRerun : null;
   const surfaceButton = els?.btnComputeSurface instanceof HTMLButtonElement ? els.btnComputeSurface : null;
+  const surfaceDisabled = surfaceComputing || !!surfaceButton?.disabled;
 
   return {
     inputs: {
@@ -3546,12 +3703,12 @@ function outcomeBridgeStateView(){
       mcVolMin: state.mcVolMin ?? "",
       mcVolMode: state.mcVolMode ?? "",
       mcVolMax: state.mcVolMax ?? "",
-      surfaceLever: outcomeBridgeReadControlValue("surfaceLever"),
-      surfaceMode: outcomeBridgeReadControlValue("surfaceMode"),
-      surfaceMin: outcomeBridgeReadControlValue("surfaceMin"),
-      surfaceMax: outcomeBridgeReadControlValue("surfaceMax"),
-      surfaceSteps: outcomeBridgeReadControlValue("surfaceSteps"),
-      surfaceTarget: outcomeBridgeReadControlValue("surfaceTarget"),
+      surfaceLever: surfaceInputs.surfaceLever,
+      surfaceMode: surfaceInputs.surfaceMode,
+      surfaceMin: surfaceInputs.surfaceMin,
+      surfaceMax: surfaceInputs.surfaceMax,
+      surfaceSteps: surfaceInputs.surfaceSteps,
+      surfaceTarget: surfaceInputs.surfaceTarget,
     },
     options: {
       mcMode: outcomeBridgeReadSelectOptions("mcMode"),
@@ -3563,7 +3720,7 @@ function outcomeBridgeStateView(){
       locked,
       runDisabled: !!(runButton?.disabled || locked),
       rerunDisabled: !!(rerunButton?.disabled || locked),
-      surfaceDisabled: !!surfaceButton?.disabled,
+      surfaceDisabled,
     },
     mc: {
       winProb: safeNum(mc?.winProb),
@@ -3582,6 +3739,21 @@ function outcomeBridgeStateView(){
     surfaceStatusText,
     surfaceSummaryText,
   };
+}
+
+function outcomeBridgeBuildSurfaceSummaryText({ spec, result, targetPercent } = {}){
+  const summarySink = { textContent: "" };
+  renderSurfaceResultCore({
+    els: {
+      surfaceSummary: summarySink,
+      surfaceTarget: { value: String(targetPercent ?? 70) },
+      surfaceTbody: null,
+    },
+    spec,
+    result,
+    fmtSigned,
+  });
+  return String(summarySink.textContent || "").trim();
 }
 
 function outcomeBridgeSetField(field, rawValue){
@@ -3711,12 +3883,108 @@ function outcomeBridgeRerunMc(){
 }
 
 function outcomeBridgeComputeSurface(){
-  const button = els?.btnComputeSurface;
-  if (!(button instanceof HTMLButtonElement) || typeof button.click !== "function"){
-    return { ok: false, code: "not_available", view: outcomeBridgeStateView() };
+  const surfaceInputs = outcomeBridgeResolvedSurfaceInputs();
+  const spec = surfaceLeverSpec(surfaceInputs.surfaceLever);
+  if (!spec){
+    setState((next) => {
+      outcomeBridgeWriteSurfaceInputs(next, surfaceInputs);
+      outcomeBridgeSetSurfaceComputing(next, false);
+      outcomeBridgeWriteSurfaceCache(next, {
+        rows: [],
+        statusText: "Unknown lever.",
+        summaryText: String(next?.ui?.lastOutcomeSurfaceSummary || "").trim(),
+      });
+    });
+    return { ok: false, code: "invalid_value", view: outcomeBridgeStateView() };
   }
-  button.click();
-  return { ok: true, view: outcomeBridgeStateView() };
+
+  const minV = surfaceClamp(surfaceInputs.surfaceMin, spec.clampLo, spec.clampHi);
+  const maxV = surfaceClamp(surfaceInputs.surfaceMax, spec.clampLo, spec.clampHi);
+  const lo = Math.min(minV, maxV);
+  const hi = Math.max(minV, maxV);
+  const steps = Math.max(5, Math.floor(Number(surfaceInputs.surfaceSteps) || 21));
+  const runs = surfaceInputs.surfaceMode === "full" ? 10000 : 2000;
+  const targetPercent = Number(surfaceInputs.surfaceTarget);
+  const targetWinProb = Number.isFinite(targetPercent)
+    ? surfaceClamp(targetPercent, 50, 99) / 100
+    : 0.70;
+
+  setState((next) => {
+    outcomeBridgeWriteSurfaceInputs(next, {
+      ...surfaceInputs,
+      surfaceMin: String(lo),
+      surfaceMax: String(hi),
+      surfaceSteps: String(steps),
+      surfaceTarget: String(Math.round(targetWinProb * 100)),
+    });
+    outcomeBridgeSetSurfaceComputing(next, true);
+    outcomeBridgeWriteSurfaceCache(next, {
+      rows: [],
+      statusText: "Computing…",
+      summaryText: String(next?.ui?.lastOutcomeSurfaceSummary || "").trim(),
+    });
+  });
+  outcomeBridgeSyncLegacyControl("surfaceLever", surfaceInputs.surfaceLever);
+  outcomeBridgeSyncLegacyControl("surfaceMode", surfaceInputs.surfaceMode);
+  outcomeBridgeSyncLegacyControl("surfaceMin", String(lo));
+  outcomeBridgeSyncLegacyControl("surfaceMax", String(hi));
+  outcomeBridgeSyncLegacyControl("surfaceSteps", String(steps));
+  outcomeBridgeSyncLegacyControl("surfaceTarget", String(Math.round(targetWinProb * 100)));
+
+  try{
+    const snap = getStateSnapshot();
+    let planningSnapshot = null;
+    try{
+      planningSnapshot = computeElectionSnapshot({ state: snap, nowDate: new Date(), toNum: safeNum });
+    } catch {
+      planningSnapshot = null;
+    }
+    const modelInput = buildModelInputFromState(snap, safeNum);
+    const res = planningSnapshot?.res || engine.computeAll(modelInput);
+    const weeks = planningSnapshot?.weeks ?? derivedWeeksRemaining();
+    const needVotes = (planningSnapshot?.needVotes != null) ? planningSnapshot.needVotes : deriveNeedVotes(res);
+
+    const seed = state?.mcSeed || "";
+    const result = engine.computeSensitivitySurface({
+      engine: { withPatchedState, runMonteCarloSim },
+      baseline: { res, weeks, needVotes, scenario: snap },
+      sweep: {
+        leverKey: surfaceInputs.surfaceLever,
+        minValue: lo,
+        maxValue: hi,
+        steps,
+      },
+      options: { runs, seed, targetWinProb },
+    });
+
+    const doneStatus = `Done (${runs.toLocaleString()} runs × ${steps} points)`;
+    const summaryText = outcomeBridgeBuildSurfaceSummaryText({
+      spec,
+      result,
+      targetPercent: Math.round(targetWinProb * 100),
+    });
+
+    setState((next) => {
+      outcomeBridgeSetSurfaceComputing(next, false);
+      outcomeBridgeWriteSurfaceCache(next, {
+        rows: Array.isArray(result?.points) ? result.points : [],
+        statusText: doneStatus,
+        summaryText,
+      });
+    });
+    return { ok: true, view: outcomeBridgeStateView() };
+  } catch (err){
+    const errText = err?.message ? err.message : String(err || "Error");
+    setState((next) => {
+      outcomeBridgeSetSurfaceComputing(next, false);
+      outcomeBridgeWriteSurfaceCache(next, {
+        rows: [],
+        statusText: errText,
+        summaryText: String(next?.ui?.lastOutcomeSurfaceSummary || "").trim(),
+      });
+    });
+    return { ok: false, code: "runtime_error", view: outcomeBridgeStateView() };
+  }
 }
 
 function installOutcomeBridge(){
