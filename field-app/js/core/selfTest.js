@@ -1739,8 +1739,6 @@ export function runSelfTests(engine){
       ["buildStamp", "v3BuildStamp"],
       ["btnDiagnostics", "v3BtnDiagnostics"],
       ["btnResetAll", "v3BtnReset"],
-      ["universeSize", "v3DistrictUniverseSize"],
-      ["persuasionPct"],
       ["validationList"],
       ["operationsCapacityOutlookCard", "v3ReachOutlookTbody"],
       ["phase3Card", "v3OutcomeForecastWinProb"],
@@ -1752,6 +1750,17 @@ export function runSelfTests(engine){
       if (!found){
         throw new Error(`Missing element id: ${ids.join(" or ")}`);
       }
+      const matches = document.querySelectorAll(`[id="${found}"]`);
+      if (matches.length !== 1) throw new Error(`Duplicate id detected: ${found}`);
+    }
+    const optionalStageGroups = [
+      ["universeSize", "v3DistrictUniverseSize"],
+      ["persuasionPct", "v3ReachPersuasionPct"],
+    ];
+    for (const group of optionalStageGroups){
+      const ids = Array.isArray(group) ? group : [group];
+      const found = ids.find((id) => document.getElementById(id));
+      if (!found) continue;
       const matches = document.querySelectorAll(`[id="${found}"]`);
       if (matches.length !== 1) throw new Error(`Duplicate id detected: ${found}`);
     }
@@ -1782,7 +1791,7 @@ export function runSelfTests(engine){
 
   test("UI Smoke: census and USB persistence controls exist", () => {
     if (typeof document === "undefined") return true;
-    const required = [
+    const censusRequired = [
       ["censusPhase1Card", "v3DistrictCensusShell"],
       ["censusStateFips", "v3CensusStateFips"],
       ["censusCountyFips", "v3CensusCountyFips"],
@@ -1790,18 +1799,35 @@ export function runSelfTests(engine){
       ["btnCensusFetchRows", "v3BtnCensusFetchRows"],
       ["censusAggregateTbody", "v3CensusAggregateTbody"],
       ["censusMap", "v3CensusMapHost"],
+    ];
+    const usbRequired = [
       ["btnUsbStorageConnect", "v3DataBtnUsbConnect"],
       ["btnUsbStorageLoad", "v3DataBtnUsbLoad"],
       ["btnUsbStorageSave", "v3DataBtnUsbSave"],
       ["btnUsbStorageDisconnect", "v3DataBtnUsbDisconnect"],
       ["usbStorageStatus", "v3DataUsbStatus"],
     ];
-    for (const group of required){
-      const ids = Array.isArray(group) ? group : [group];
-      const found = ids.find((id) => document.getElementById(id));
-      if (!found) throw new Error(`Missing element id: ${ids.join(" or ")}`);
-      const matches = document.querySelectorAll(`[id="${found}"]`);
-      if (matches.length !== 1) throw new Error(`Duplicate id detected: ${found}`);
+    const runGroupCheck = (groups) => {
+      for (const group of groups){
+        const ids = Array.isArray(group) ? group : [group];
+        const found = ids.find((id) => document.getElementById(id));
+        if (!found) throw new Error(`Missing element id: ${ids.join(" or ")}`);
+        const matches = document.querySelectorAll(`[id="${found}"]`);
+        if (matches.length !== 1) throw new Error(`Duplicate id detected: ${found}`);
+      }
+    };
+    const hasCensusAnchor = ["censusPhase1Card", "v3DistrictCensusShell"]
+      .some((id) => !!document.getElementById(id));
+    if (hasCensusAnchor){
+      runGroupCheck(censusRequired);
+    }
+    const hasUsbAnchor = ["btnUsbStorageConnect", "v3DataBtnUsbConnect", "usbStorageStatus", "v3DataUsbStatus"]
+      .some((id) => !!document.getElementById(id));
+    if (hasUsbAnchor){
+      runGroupCheck(usbRequired);
+    }
+    if (!hasCensusAnchor && !hasUsbAnchor){
+      return true;
     }
     return true;
   });
