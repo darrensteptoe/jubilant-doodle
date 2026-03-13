@@ -5,20 +5,21 @@ export function renderStressModule(args){
     res,
   } = args || {};
 
-  if (!els?.stressBox) return;
-  const lines = res.stressSummary || [];
-  els.stressBox.innerHTML = "";
+  const stressBoxEl = els?.stressBox;
+  if (!stressBoxEl) return;
+  const lines = Array.isArray(res?.stressSummary) ? res.stressSummary : [];
+  stressBoxEl.innerHTML = "";
   if (!lines.length){
     const div = document.createElement("div");
     div.className = "stress-item";
     div.textContent = "—";
-    els.stressBox.appendChild(div);
+    stressBoxEl.appendChild(div);
     return;
   }
   for (const s of lines){
     const div = document.createElement("div");
     div.className = "stress-item";
     div.textContent = s;
-    els.stressBox.appendChild(div);
+    stressBoxEl.appendChild(div);
   }
 }
