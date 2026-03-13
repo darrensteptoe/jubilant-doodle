@@ -3260,7 +3260,201 @@ function installPlanBridge(){
   };
 }
 
+const OUTCOME_SELECT_OPTIONS = {
+  mcMode: [
+    { value: "basic", label: "Basic (volatility slider)" },
+    { value: "advanced", label: "Advanced (min / mode / max)" },
+  ],
+  mcVolatility: [
+    { value: "low", label: "Low" },
+    { value: "med", label: "Medium" },
+    { value: "high", label: "High" },
+  ],
+  surfaceLever: [
+    { value: "volunteerMultiplier", label: "Volunteer multiplier" },
+    { value: "supportRate", label: "Support rate (%)" },
+    { value: "contactRate", label: "Contact rate (%)" },
+    { value: "turnoutReliability", label: "Turnout reliability (%)" },
+  ],
+  surfaceMode: [
+    { value: "fast", label: "Fast (2k runs)" },
+    { value: "full", label: "Full (10k runs)" },
+  ],
+};
+
+const OUTCOME_NUMERIC_RULES = {
+  orgCount: { min: 0, max: 10000, step: 1, allowBlank: true },
+  orgHoursPerWeek: { min: 0, max: 168, step: 1, allowBlank: true },
+  volunteerMultBase: { min: 0, max: 20, step: 0.05, allowBlank: true },
+  channelDoorPct: { min: 0, max: 100, step: 1, allowBlank: true },
+  doorsPerHour3: { min: 0, max: 1000, step: 1, allowBlank: true },
+  callsPerHour3: { min: 0, max: 1000, step: 1, allowBlank: true },
+  turnoutReliabilityPct: { min: 0, max: 100, step: 0.5, allowBlank: true },
+  mcContactMin: { min: 0, max: 100, step: 0.1, allowBlank: true },
+  mcContactMode: { min: 0, max: 100, step: 0.1, allowBlank: true },
+  mcContactMax: { min: 0, max: 100, step: 0.1, allowBlank: true },
+  mcPersMin: { min: 0, max: 100, step: 0.1, allowBlank: true },
+  mcPersMode: { min: 0, max: 100, step: 0.1, allowBlank: true },
+  mcPersMax: { min: 0, max: 100, step: 0.1, allowBlank: true },
+  mcReliMin: { min: 0, max: 100, step: 0.5, allowBlank: true },
+  mcReliMode: { min: 0, max: 100, step: 0.5, allowBlank: true },
+  mcReliMax: { min: 0, max: 100, step: 0.5, allowBlank: true },
+  mcDphMin: { min: 0, max: 1000, step: 1, allowBlank: true },
+  mcDphMode: { min: 0, max: 1000, step: 1, allowBlank: true },
+  mcDphMax: { min: 0, max: 1000, step: 1, allowBlank: true },
+  mcCphMin: { min: 0, max: 1000, step: 1, allowBlank: true },
+  mcCphMode: { min: 0, max: 1000, step: 1, allowBlank: true },
+  mcCphMax: { min: 0, max: 1000, step: 1, allowBlank: true },
+  mcVolMin: { min: 0, max: 20, step: 0.05, allowBlank: true },
+  mcVolMode: { min: 0, max: 20, step: 0.05, allowBlank: true },
+  mcVolMax: { min: 0, max: 20, step: 0.05, allowBlank: true },
+  surfaceMin: { min: -1000, max: 1000, step: 0.01, allowBlank: true },
+  surfaceMax: { min: -1000, max: 1000, step: 0.01, allowBlank: true },
+  surfaceSteps: { min: 5, max: 51, step: 1, allowBlank: true },
+  surfaceTarget: { min: 50, max: 99, step: 1, allowBlank: true },
+};
+
+const OUTCOME_MODEL_SELECT_FIELDS = new Set(["mcMode", "mcVolatility"]);
+const OUTCOME_SURFACE_SELECT_FIELDS = new Set(["surfaceLever", "surfaceMode"]);
+const OUTCOME_TEXT_FIELDS = new Set(["mcSeed"]);
+const OUTCOME_MODEL_NUMERIC_FIELDS = new Set([
+  "orgCount",
+  "orgHoursPerWeek",
+  "volunteerMultBase",
+  "channelDoorPct",
+  "doorsPerHour3",
+  "callsPerHour3",
+  "turnoutReliabilityPct",
+  "mcContactMin",
+  "mcContactMode",
+  "mcContactMax",
+  "mcPersMin",
+  "mcPersMode",
+  "mcPersMax",
+  "mcReliMin",
+  "mcReliMode",
+  "mcReliMax",
+  "mcDphMin",
+  "mcDphMode",
+  "mcDphMax",
+  "mcCphMin",
+  "mcCphMode",
+  "mcCphMax",
+  "mcVolMin",
+  "mcVolMode",
+  "mcVolMax",
+]);
+const OUTCOME_SURFACE_NUMERIC_FIELDS = new Set([
+  "surfaceMin",
+  "surfaceMax",
+  "surfaceSteps",
+  "surfaceTarget",
+]);
+
+function outcomeBridgeSelectId(field){
+  if (field === "mcMode") return "mcMode";
+  if (field === "mcVolatility") return "mcVolatility";
+  if (field === "surfaceLever") return "surfaceLever";
+  if (field === "surfaceMode") return "surfaceMode";
+  return "";
+}
+
+function outcomeBridgeControlId(field){
+  if (field === "surfaceLever") return "surfaceLever";
+  if (field === "surfaceMode") return "surfaceMode";
+  if (field === "surfaceMin") return "surfaceMin";
+  if (field === "surfaceMax") return "surfaceMax";
+  if (field === "surfaceSteps") return "surfaceSteps";
+  if (field === "surfaceTarget") return "surfaceTarget";
+  return "";
+}
+
+function outcomeBridgeReadSelectOptions(field){
+  const selectId = outcomeBridgeSelectId(field);
+  const fallback = OUTCOME_SELECT_OPTIONS[field] || [];
+  const select = (selectId && els && els[selectId] instanceof HTMLSelectElement)
+    ? els[selectId]
+    : null;
+  if (!(select instanceof HTMLSelectElement)){
+    return fallback;
+  }
+  const rows = Array.from(select.options).map((opt) => ({
+    value: String(opt?.value ?? ""),
+    label: String(opt?.textContent ?? opt?.value ?? ""),
+  }));
+  return rows.length ? rows : fallback;
+}
+
+function outcomeBridgeReadControlValue(field){
+  const id = outcomeBridgeControlId(field);
+  if (!id){
+    return "";
+  }
+  const control = document.getElementById(id);
+  if (!(control instanceof HTMLInputElement) && !(control instanceof HTMLSelectElement)){
+    return "";
+  }
+  return String(control.value ?? "");
+}
+
+function outcomeBridgeNormalizeSelect(field, rawValue){
+  const value = String(rawValue ?? "").trim();
+  const options = outcomeBridgeReadSelectOptions(field);
+  if (!value){
+    return { ok: false, code: "invalid_value", value: "" };
+  }
+  const valid = options.some((row) => String(row?.value ?? "") === value);
+  if (!valid){
+    return { ok: false, code: "invalid_value", value: "" };
+  }
+  return { ok: true, code: "", value };
+}
+
+function outcomeBridgeNormalizeNumber(field, rawValue){
+  const rules = OUTCOME_NUMERIC_RULES[field] || {};
+  const parsed = reachBridgeClampNumber(rawValue, {
+    min: rules.min,
+    max: rules.max,
+    step: rules.step,
+  });
+  if (parsed === null){
+    return { ok: false, code: "invalid_value", value: null };
+  }
+  if ((parsed === "" || parsed == null) && rules.allowBlank){
+    return { ok: true, code: "", value: "" };
+  }
+  return { ok: true, code: "", value: parsed };
+}
+
+function outcomeBridgeApplySurfaceField(field, rawValue){
+  const id = outcomeBridgeControlId(field);
+  const control = id ? document.getElementById(id) : null;
+  if (!(control instanceof HTMLInputElement) && !(control instanceof HTMLSelectElement)){
+    return { ok: false, code: "not_available", view: outcomeBridgeStateView() };
+  }
+
+  if (control instanceof HTMLSelectElement){
+    const normalized = outcomeBridgeNormalizeSelect(field, rawValue);
+    if (!normalized.ok){
+      return { ok: false, code: normalized.code, view: outcomeBridgeStateView() };
+    }
+    control.value = normalized.value;
+    control.dispatchEvent(new Event("change", { bubbles: true }));
+    return { ok: true, view: outcomeBridgeStateView() };
+  }
+
+  const normalized = outcomeBridgeNormalizeNumber(field, rawValue);
+  if (!normalized.ok){
+    return { ok: false, code: normalized.code, view: outcomeBridgeStateView() };
+  }
+  control.value = normalized.value === "" ? "" : String(normalized.value);
+  control.dispatchEvent(new Event("input", { bubbles: true }));
+  control.dispatchEvent(new Event("change", { bubbles: true }));
+  return { ok: true, view: outcomeBridgeStateView() };
+}
+
 function outcomeBridgeStateView(){
+  const locked = isScenarioLockedForEdits(state);
   const mc = state?.mcLast;
   const ce = mc?.confidenceEnvelope || null;
   const percentiles = ce?.percentiles || {};
@@ -3308,8 +3502,60 @@ function outcomeBridgeStateView(){
 
   const surfaceStatusText = String(state?.ui?.lastOutcomeSurfaceStatus || "").trim();
   const surfaceSummaryText = String(state?.ui?.lastOutcomeSurfaceSummary || "").trim();
+  const runButton = els?.mcRun instanceof HTMLButtonElement ? els.mcRun : null;
+  const rerunButton = els?.mcRerun instanceof HTMLButtonElement ? els.mcRerun : null;
+  const surfaceButton = els?.btnComputeSurface instanceof HTMLButtonElement ? els.btnComputeSurface : null;
 
   return {
+    inputs: {
+      orgCount: state.orgCount ?? "",
+      orgHoursPerWeek: state.orgHoursPerWeek ?? "",
+      volunteerMultBase: state.volunteerMultBase ?? "",
+      channelDoorPct: state.channelDoorPct ?? "",
+      doorsPerHour3: canonicalDoorsPerHourFromSnap(state) ?? "",
+      callsPerHour3: state.callsPerHour3 ?? "",
+      mcMode: state.mcMode || "basic",
+      mcSeed: state.mcSeed || "",
+      mcVolatility: state.mcVolatility || "med",
+      turnoutReliabilityPct: state.turnoutReliabilityPct ?? "",
+      mcRuns: 10000,
+      mcContactMin: state.mcContactMin ?? "",
+      mcContactMode: state.mcContactMode ?? "",
+      mcContactMax: state.mcContactMax ?? "",
+      mcPersMin: state.mcPersMin ?? "",
+      mcPersMode: state.mcPersMode ?? "",
+      mcPersMax: state.mcPersMax ?? "",
+      mcReliMin: state.mcReliMin ?? "",
+      mcReliMode: state.mcReliMode ?? "",
+      mcReliMax: state.mcReliMax ?? "",
+      mcDphMin: state.mcDphMin ?? "",
+      mcDphMode: state.mcDphMode ?? "",
+      mcDphMax: state.mcDphMax ?? "",
+      mcCphMin: state.mcCphMin ?? "",
+      mcCphMode: state.mcCphMode ?? "",
+      mcCphMax: state.mcCphMax ?? "",
+      mcVolMin: state.mcVolMin ?? "",
+      mcVolMode: state.mcVolMode ?? "",
+      mcVolMax: state.mcVolMax ?? "",
+      surfaceLever: outcomeBridgeReadControlValue("surfaceLever"),
+      surfaceMode: outcomeBridgeReadControlValue("surfaceMode"),
+      surfaceMin: outcomeBridgeReadControlValue("surfaceMin"),
+      surfaceMax: outcomeBridgeReadControlValue("surfaceMax"),
+      surfaceSteps: outcomeBridgeReadControlValue("surfaceSteps"),
+      surfaceTarget: outcomeBridgeReadControlValue("surfaceTarget"),
+    },
+    options: {
+      mcMode: outcomeBridgeReadSelectOptions("mcMode"),
+      mcVolatility: outcomeBridgeReadSelectOptions("mcVolatility"),
+      surfaceLever: outcomeBridgeReadSelectOptions("surfaceLever"),
+      surfaceMode: outcomeBridgeReadSelectOptions("surfaceMode"),
+    },
+    controls: {
+      locked,
+      runDisabled: !!(runButton?.disabled || locked),
+      rerunDisabled: !!(rerunButton?.disabled || locked),
+      surfaceDisabled: !!surfaceButton?.disabled,
+    },
     mc: {
       winProb: safeNum(mc?.winProb),
       p10: safeNum(percentiles?.p10),
@@ -3329,9 +3575,148 @@ function outcomeBridgeStateView(){
   };
 }
 
+function outcomeBridgeSetField(field, rawValue){
+  const key = String(field || "").trim();
+  if (!key){
+    return { ok: false, code: "invalid_field", view: outcomeBridgeStateView() };
+  }
+
+  if (OUTCOME_SURFACE_SELECT_FIELDS.has(key) || OUTCOME_SURFACE_NUMERIC_FIELDS.has(key)){
+    return outcomeBridgeApplySurfaceField(key, rawValue);
+  }
+
+  if (!OUTCOME_MODEL_SELECT_FIELDS.has(key) && !OUTCOME_TEXT_FIELDS.has(key) && !OUTCOME_MODEL_NUMERIC_FIELDS.has(key)){
+    return { ok: false, code: "invalid_field", view: outcomeBridgeStateView() };
+  }
+
+  if (isScenarioLockedForEdits(state)){
+    return { ok: false, code: "locked", view: outcomeBridgeStateView() };
+  }
+
+  if (OUTCOME_MODEL_SELECT_FIELDS.has(key)){
+    const normalized = outcomeBridgeNormalizeSelect(key, rawValue);
+    if (!normalized.ok){
+      return { ok: false, code: normalized.code, view: outcomeBridgeStateView() };
+    }
+    setState((next) => {
+      if (key === "mcMode"){
+        next.mcMode = normalized.value;
+      } else if (key === "mcVolatility"){
+        next.mcVolatility = normalized.value;
+      }
+    });
+    if (key === "mcMode"){
+      syncMcModeUI();
+    }
+    markMcStale();
+    return { ok: true, view: outcomeBridgeStateView() };
+  }
+
+  if (OUTCOME_TEXT_FIELDS.has(key)){
+    const value = String(rawValue ?? "");
+    setState((next) => {
+      if (key === "mcSeed"){
+        next.mcSeed = value;
+      }
+    });
+    markMcStale();
+    return { ok: true, view: outcomeBridgeStateView() };
+  }
+
+  const normalized = outcomeBridgeNormalizeNumber(key, rawValue);
+  if (!normalized.ok){
+    return { ok: false, code: normalized.code, view: outcomeBridgeStateView() };
+  }
+  setState((next) => {
+    const value = normalized.value;
+    if (key === "orgCount"){
+      next.orgCount = safeNum(value);
+    } else if (key === "orgHoursPerWeek"){
+      next.orgHoursPerWeek = safeNum(value);
+    } else if (key === "volunteerMultBase"){
+      next.volunteerMultBase = safeNum(value);
+    } else if (key === "channelDoorPct"){
+      next.channelDoorPct = safeNum(value);
+    } else if (key === "doorsPerHour3"){
+      setCanonicalDoorsPerHour(next, value);
+    } else if (key === "callsPerHour3"){
+      next.callsPerHour3 = safeNum(value);
+    } else if (key === "turnoutReliabilityPct"){
+      next.turnoutReliabilityPct = safeNum(value);
+    } else if (key === "mcContactMin"){
+      next.mcContactMin = safeNum(value);
+    } else if (key === "mcContactMode"){
+      next.mcContactMode = safeNum(value);
+    } else if (key === "mcContactMax"){
+      next.mcContactMax = safeNum(value);
+    } else if (key === "mcPersMin"){
+      next.mcPersMin = safeNum(value);
+    } else if (key === "mcPersMode"){
+      next.mcPersMode = safeNum(value);
+    } else if (key === "mcPersMax"){
+      next.mcPersMax = safeNum(value);
+    } else if (key === "mcReliMin"){
+      next.mcReliMin = safeNum(value);
+    } else if (key === "mcReliMode"){
+      next.mcReliMode = safeNum(value);
+    } else if (key === "mcReliMax"){
+      next.mcReliMax = safeNum(value);
+    } else if (key === "mcDphMin"){
+      next.mcDphMin = safeNum(value);
+    } else if (key === "mcDphMode"){
+      next.mcDphMode = safeNum(value);
+    } else if (key === "mcDphMax"){
+      next.mcDphMax = safeNum(value);
+    } else if (key === "mcCphMin"){
+      next.mcCphMin = safeNum(value);
+    } else if (key === "mcCphMode"){
+      next.mcCphMode = safeNum(value);
+    } else if (key === "mcCphMax"){
+      next.mcCphMax = safeNum(value);
+    } else if (key === "mcVolMin"){
+      next.mcVolMin = safeNum(value);
+    } else if (key === "mcVolMode"){
+      next.mcVolMode = safeNum(value);
+    } else if (key === "mcVolMax"){
+      next.mcVolMax = safeNum(value);
+    }
+  });
+  markMcStale();
+  return { ok: true, view: outcomeBridgeStateView() };
+}
+
+function outcomeBridgeRunMc(){
+  if (isScenarioLockedForEdits(state)){
+    return { ok: false, code: "locked", view: outcomeBridgeStateView() };
+  }
+  runMonteCarloNow();
+  return { ok: true, view: outcomeBridgeStateView() };
+}
+
+function outcomeBridgeRerunMc(){
+  if (isScenarioLockedForEdits(state)){
+    return { ok: false, code: "locked", view: outcomeBridgeStateView() };
+  }
+  runMonteCarloNow();
+  return { ok: true, view: outcomeBridgeStateView() };
+}
+
+function outcomeBridgeComputeSurface(){
+  const button = els?.btnComputeSurface;
+  if (!(button instanceof HTMLButtonElement) || typeof button.click !== "function"){
+    return { ok: false, code: "not_available", view: outcomeBridgeStateView() };
+  }
+  button.click();
+  return { ok: true, view: outcomeBridgeStateView() };
+}
+
 function installOutcomeBridge(){
   window[OUTCOME_BRIDGE_KEY] = {
     getView: () => outcomeBridgeStateView(),
+    setField: (field, value) => outcomeBridgeSetField(field, value),
+    runMc: () => outcomeBridgeRunMc(),
+    rerunMc: () => outcomeBridgeRerunMc(),
+    computeSurface: () => outcomeBridgeComputeSurface(),
   };
 }
 
