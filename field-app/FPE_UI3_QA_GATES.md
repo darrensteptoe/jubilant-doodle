@@ -184,6 +184,11 @@ Scope: UI architecture migration only (engine and right rail frozen)
 - Runtime hardening: assumptions snapshot panel now renders with guarded writes when `assumptionsSnapshot` is absent (no hard return on assumption snapshot mount target).
 - Runtime hardening: guardrails panel now renders with guarded writes when `guardrails` target is absent (no hard return on guardrails mount target).
 - Runtime hardening: MC margin-chart renderers now use guarded writes for `svgMargin*` targets (app + compat panel paths), avoiding render short-circuit when partial chart nodes are absent.
+- Runtime hardening: backup-recovery dropdown refresh now uses guarded writes when `restoreBackup` is absent (no hard return on restore select target).
+- Runtime hardening: decision session/options renderers now avoid hard returns on select/label targets and continue guarded panel updates when those specific nodes are absent.
+- Runtime hardening: sensitivity surface defaults now use guarded lever/range refs for `surfaceLever/surfaceMin/surfaceMax`.
+- Runtime hardening: appRuntime weekly undo and MC/GOTV mode sync helpers now use guarded refs (no direct `els.*` hard-return gates on `wkUndoActionBtn`, `mc*`, `gotv*` mode nodes).
+- Runtime hardening: DOM preflight now enforces Census/Targeting required IDs only when those feature anchors are present, reducing false missing-ID noise during staged retirement.
 - Legacy flow retirement: removed legacy left-nav `integrity` entry while retaining `stage-integrity` DOM for runtime parity checks.
 - Legacy flow retirement: `stage-integrity` section is hidden as a retired stub (DOM retained).
 - Legacy `stage-capacity` visual surface has been retired from `index.html` user flow (hidden retired stub retained during transition); preflight no longer requires legacy Reach assumption IDs.

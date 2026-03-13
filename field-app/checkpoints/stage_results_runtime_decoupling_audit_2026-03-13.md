@@ -25,6 +25,25 @@ Goal: reduce hard coupling to legacy `stage-results` DOM without deleting markup
   - removed hard all-node gate on `svgMargin*` chart IDs.
   - margin-chart render path now uses guarded writes for partial/missing chart targets.
 
+- `js/app/backupRecovery.js`
+  - removed hard gate on `els.restoreBackup` in backup dropdown refresh path.
+  - backup list refresh now uses guarded writes and no-op safety when restore-select target is absent.
+
+- `js/app/decisionSessionApp.js`
+  - removed hard gates on `decisionOptionSelect` and `decisionSessionSelect/decisionActiveLabel` panel entry points.
+  - decision session/options panels now continue guarded updates for other available nodes even when select nodes are absent.
+
+- `js/app/sensitivitySurfaceUi.js`
+  - sensitivity default-application path now uses guarded lever/range refs (`surfaceLever/surfaceMin/surfaceMax`) via local refs.
+
+- `js/appRuntime.js`
+  - weekly undo helper (`syncWeeklyUndoUI`) now uses guarded button ref instead of direct hard return on `wkUndoActionBtn`.
+  - MC/GOTV mode sync helpers now use guarded refs for mode toggles and pill classes (no direct `els.*` hard-return gates on `mc*` / `gotv*` mode targets).
+
+- `js/app/preflightEls.js`
+  - preflight required-ID enforcement is now feature-aware for Census and Targeting groups.
+  - Census/Targeting IDs are only required when their anchor nodes are present, reducing false missing-ID diagnostics during staged legacy retirement.
+
 - `js/app/monteCarloApp.js`
   - freshness renderer now runs with sidebar-only tags (`mcFreshTag-sidebar`, `mcLastRun-sidebar`, `mcStale-sidebar`).
   - removed assumptions that primary freshness tags always exist.
@@ -70,6 +89,10 @@ Compatibility mirror updated:
 - Runtime sensitivity rows now continue updating through sidebar mirror target (`mcSensitivity-sidebar`) even if primary sensitivity table is absent.
 - Runtime assumptions snapshot + guardrails panels now continue compute/update flow even when corresponding legacy mount targets are absent.
 - Runtime MC margin-chart renderers now tolerate partial/missing `svgMargin*` nodes without hard short-circuit.
+- Runtime backup dropdown refresh now tolerates missing restore-select target without hard short-circuit.
+- Runtime decision session/options panels now tolerate missing select/label targets while preserving guarded updates to other panel nodes.
+- Runtime shell helpers now tolerate missing weekly-undo/mode-toggle nodes without direct `els.*` hard-return gating.
+- Runtime preflight now tolerates missing Census/Targeting groups when those feature anchors are absent, reducing non-actionable `dom-preflight` noise.
 - Legacy `results` nav entry is retired from legacy user flow; `stage-results` remains mounted for controlled runtime retirement.
 - Legacy `stage-results` section is now hidden as a retired stub (IDs retained in DOM).
 - Legacy `roi` and `gotv` nav entries are retired from legacy user flow; `stage-roi` and `stage-gotv` remain mounted for controlled runtime retirement.

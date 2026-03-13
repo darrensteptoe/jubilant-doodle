@@ -90,6 +90,11 @@ Reference artifact:
 - Assumptions snapshot runtime panel now renders with guarded writes when `assumptionsSnapshot` is absent, preserving assumption-block compute flow during legacy panel retirement.
 - Guardrails runtime panel now renders with guarded writes when `guardrails` target is absent, preserving guardrail compute flow during partial DOM retirement.
 - MC margin-chart runtime renderers now render with guarded writes when `svgMargin*` targets are partially absent (app + compat panel paths), preventing avoidable short-circuit during staged results-panel retirement.
+- Backup recovery dropdown refresh now renders with guarded writes when `restoreBackup` is absent, preventing avoidable early return during partial data-panel retirement.
+- Decision session/options render paths now avoid hard returns on `decisionOptionSelect` and `decisionSessionSelect/decisionActiveLabel`, preserving non-select decision panel updates during staged Decision Log retirement.
+- Sensitivity surface defaults now use guarded element refs for lever/range controls (`surfaceLever/surfaceMin/surfaceMax`) and avoid direct `els.*` hard-return gating.
+- Runtime shell helpers in `appRuntime` now use guarded refs for weekly undo and mode toggle pills (`wkUndoActionBtn`, `mc* mode`, `gotv* mode`) instead of direct `els.*` hard-return gates.
+- DOM preflight is now feature-aware for Census/Targeting groups (only enforces those ID sets when their feature anchors are present), reducing false `dom-preflight` errors during staged legacy retirement.
 - Legacy `integrity` nav entry has been removed from legacy left-rail user flow; `stage-integrity` DOM remains mounted for controlled retirement.
 - Legacy `stage-integrity` section is now hidden in legacy flow (retired stub), while IDs remain mounted for parity and rollback safety.
 - Controls v3 evidence table now renders from scenario-bridge intel state (`window.__FPE_SCENARIO_API__`) instead of mirroring legacy `#intelEvidenceTbody`.
