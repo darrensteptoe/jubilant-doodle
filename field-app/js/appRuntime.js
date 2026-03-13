@@ -1702,12 +1702,16 @@ const REACH_OVERRIDE_MODE_OPTIONS = [
   { value: "scheduled", label: "Scheduled attempts" },
   { value: "max", label: "Max(ramp, scheduled)" },
 ];
-const REACH_NUMERIC_FIELDS = new Set([
-  "persuasionPct",
-  "earlyVoteExp",
-  "supportRatePct",
-  "contactRatePct",
-]);
+const REACH_FIELD_RULES = {
+  persuasionPct: { min: 0, max: 100, step: 0.1 },
+  earlyVoteExp: { min: 0, max: 100, step: 0.1 },
+  supportRatePct: { min: 0, max: 100, step: 0.1 },
+  contactRatePct: { min: 0, max: 100, step: 0.1 },
+  goalSupportIds: { min: 0, max: 10000000, step: 1 },
+  hoursPerShift: { min: 0, max: 24, step: 0.5 },
+  shiftsPerVolunteerPerWeek: { min: 0, max: 21, step: 0.5 },
+};
+const REACH_NUMERIC_FIELDS = new Set(Object.keys(REACH_FIELD_RULES));
 let reachBridgeDailyLogImportMsg = "";
 let reachBridgeApplyMsg = "";
 let reachBridgeCachedLevers = [];
@@ -2453,6 +2457,9 @@ function reachBridgeStateView(){
       earlyVoteExp: currentState?.earlyVoteExp ?? "",
       supportRatePct: currentState?.supportRatePct ?? "",
       contactRatePct: currentState?.contactRatePct ?? "",
+      goalSupportIds: currentState?.goalSupportIds ?? "",
+      hoursPerShift: currentState?.hoursPerShift ?? "",
+      shiftsPerVolunteerPerWeek: currentState?.shiftsPerVolunteerPerWeek ?? "",
       twCapOverrideEnabled: overrideEnabled,
       twCapOverrideMode: currentState?.twCapOverrideMode || "baseline",
       twCapOverrideHorizonWeeks: currentState?.twCapOverrideHorizonWeeks ?? "",
@@ -2527,11 +2534,8 @@ function reachBridgeSetField(field, rawValue){
     return { ok: false, code: "locked", view: reachBridgeStateView() };
   }
 
-  const parsed = reachBridgeClampNumber(rawValue, {
-    min: 0,
-    max: 100,
-    step: 0.1,
-  });
+  const rules = REACH_FIELD_RULES[field] || {};
+  const parsed = reachBridgeClampNumber(rawValue, rules);
   if (parsed === null){
     return { ok: false, code: "invalid_value", view: reachBridgeStateView() };
   }
@@ -3672,6 +3676,7 @@ function init(){
   safeCall(() => { ensureScenarioRegistry(); }, { label: "init.ensureScenarioRegistry" });
   safeCall(() => { installDataBridge(); }, { label: "init.installDataBridge" });
   safeCall(() => { installScenarioBridge(); }, { label: "init.installScenarioBridge" });
+  safeCall(() => { installReachBridge(); }, { label: "init.installReachBridge" });
   safeCall(() => { ensureDecisionScaffold(); }, { label: "init.ensureDecisionScaffold" });
   safeCall(() => { installDecisionBridge(); }, { label: "init.installDecisionBridge" });
   safeCall(() => {
