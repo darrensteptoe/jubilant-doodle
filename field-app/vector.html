@@ -4,470 +4,428 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Vector Intelligence — Campaign Planning</title>
-
+<title>Vector Intelligence</title>
 <style>
-  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+* { box-sizing: border-box; margin: 0; padding: 0; }
 
-  :root {
-    --navy:   #0f1f3d;
-    --navy2:  #1a3260;
-    --gold:   #b8922a;
-    --gold2:  #d4aa44;
-    --cream:  #f5f1ea;
-    --text:   #1a1a1a;
-    --muted:  #5a5a5a;
-    --rule:   #d0c9bc;
-  }
+body {
+font-family: -apple-system, ‘Helvetica Neue’, Helvetica, Arial, sans-serif;
+font-weight: 300;
+background: #f5f1ea;
+color: #1a1a1a;
+}
 
-  html { font-size: 15px; }
+/* ── TOP BAR ── */
+.topbar {
+background: #0f1f3d;
+width: 100%;
+position: relative;
+overflow: hidden;
+}
 
-  body {
-    font-family: -apple-system, 'Helvetica Neue', Helvetica, Arial, sans-serif;
-    font-weight: 300;
-    background: var(--cream);
-    color: var(--text);
-    min-height: 100vh;
-  }
+.topbar-grid {
+background-image:
+repeating-linear-gradient(90deg, transparent, transparent 119px, rgba(255,255,255,0.03) 119px, rgba(255,255,255,0.03) 120px),
+repeating-linear-gradient(0deg, transparent, transparent 59px, rgba(255,255,255,0.03) 59px, rgba(255,255,255,0.03) 60px);
+position: absolute;
+inset: 0;
+pointer-events: none;
+}
 
-  /* ── HEADER ─────────────────────────────────────────── */
-  header {
-    background: var(--navy);
-    padding: 0;
-    position: relative;
-    overflow: hidden;
-  }
+.topbar-inner {
+max-width: 900px;
+margin: 0 auto;
+padding: 52px 48px 44px;
+display: flex;
+justify-content: space-between;
+align-items: flex-end;
+position: relative;
+z-index: 1;
+}
 
-  header::before {
-    content: '';
-    position: absolute;
-    inset: 0;
-    background:
-      repeating-linear-gradient(
-        90deg,
-        transparent,
-        transparent 119px,
-        rgba(255,255,255,0.025) 119px,
-        rgba(255,255,255,0.025) 120px
-      ),
-      repeating-linear-gradient(
-        0deg,
-        transparent,
-        transparent 59px,
-        rgba(255,255,255,0.025) 59px,
-        rgba(255,255,255,0.025) 60px
-      );
-    pointer-events: none;
-  }
+.wordmark {
+font-family: Palatino, ‘Palatino Linotype’, ‘Book Antiqua’, Georgia, serif;
+font-size: 2.6rem;
+font-weight: 700;
+color: #ffffff;
+letter-spacing: 0.07em;
+line-height: 1;
+margin-bottom: 10px;
+}
 
-  .header-inner {
-    max-width: 900px;
-    margin: 0 auto;
-    padding: 56px 48px 48px;
-    position: relative;
-    z-index: 1;
-    display: grid;
-    grid-template-columns: 1fr auto;
-    gap: 32px;
-    align-items: end;
-  }
+.wordmark-dot { color: #d4aa44; }
 
-  .logo-block { display: flex; flex-direction: column; gap: 10px; }
+.sub {
+font-size: 0.7rem;
+letter-spacing: 0.22em;
+text-transform: uppercase;
+color: rgba(255,255,255,0.45);
+font-weight: 400;
+}
 
-  .wordmark {
-    font-family: 'Palatino Linotype', Palatino, 'Book Antiqua', Georgia, serif;
-    font-weight: 700;
-    font-size: 2.8rem;
-    color: #fff;
-    letter-spacing: 0.06em;
-    line-height: 1;
-  }
+.topbar-right {
+display: flex;
+align-items: center;
+gap: 12px;
+padding-bottom: 6px;
+}
 
-  .wordmark span {
-    color: var(--gold2);
-  }
+.topbar-line {
+display: block;
+width: 44px;
+height: 2px;
+background: #b8922a;
+flex-shrink: 0;
+}
 
-  .tagline {
-    font-size: 0.78rem;
-    font-weight: 400;
-    letter-spacing: 0.2em;
-    text-transform: uppercase;
-    color: rgba(255,255,255,0.5);
-  }
+.topbar-quote {
+font-family: Palatino, ‘Palatino Linotype’, ‘Book Antiqua’, Georgia, serif;
+font-style: italic;
+font-size: 1rem;
+color: rgba(255,255,255,0.55);
+white-space: nowrap;
+}
 
-  .header-rule {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    padding-bottom: 4px;
-  }
+/* ── GOLD BAR ── */
+.goldbar {
+height: 4px;
+background: #b8922a;
+}
 
-  .header-rule span {
-    display: block;
-    width: 48px;
-    height: 2px;
-    background: var(--gold);
-  }
+/* ── MAIN ── */
+.main {
+max-width: 900px;
+margin: 0 auto;
+padding: 52px 48px 0;
+}
 
-  .header-rule p {
-    font-family: 'Palatino Linotype', Palatino, 'Book Antiqua', Georgia, serif;
-    font-style: italic;
-    font-size: 1.05rem;
-    color: rgba(255,255,255,0.65);
-    white-space: nowrap;
-  }
+/* ── INTRO ── */
+.intro {
+display: grid;
+grid-template-columns: 1fr 1fr;
+gap: 48px;
+padding-bottom: 48px;
+border-bottom: 1px solid #d0c9bc;
+margin-bottom: 48px;
+}
 
-  /* ── GOLD BAR ───────────────────────────────────────── */
-  .gold-bar {
-    background: var(--gold);
-    height: 4px;
-  }
+.intro-hed {
+font-family: Palatino, ‘Palatino Linotype’, ‘Book Antiqua’, Georgia, serif;
+font-size: 2rem;
+font-weight: 600;
+line-height: 1.28;
+color: #0f1f3d;
+}
 
-  /* ── MAIN ───────────────────────────────────────────── */
-  main {
-    max-width: 900px;
-    margin: 0 auto;
-    padding: 56px 48px 64px;
-  }
+.intro-hed i {
+font-style: italic;
+color: #b8922a;
+}
 
-  /* ── INTRO ──────────────────────────────────────────── */
-  .intro {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 48px;
-    padding-bottom: 52px;
-    border-bottom: 1px solid var(--rule);
-    margin-bottom: 52px;
-  }
+.intro-right {
+display: flex;
+flex-direction: column;
+justify-content: center;
+gap: 14px;
+}
 
-  .intro-headline {
-    font-family: 'Palatino Linotype', Palatino, 'Book Antiqua', Georgia, serif;
-    font-size: 2.1rem;
-    font-weight: 600;
-    line-height: 1.25;
-    color: var(--navy);
-  }
+.intro-right p {
+font-size: 0.9rem;
+line-height: 1.78;
+color: #5a5a5a;
+}
 
-  .intro-headline em {
-    font-style: italic;
-    color: var(--gold);
-  }
+.intro-right p b {
+color: #1a1a1a;
+font-weight: 500;
+}
 
-  .intro-body {
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    gap: 14px;
-  }
+/* ── SECTION LABEL ── */
+.sec-label {
+font-size: 0.66rem;
+letter-spacing: 0.22em;
+text-transform: uppercase;
+color: #b8922a;
+font-weight: 500;
+margin-bottom: 24px;
+display: flex;
+align-items: center;
+gap: 12px;
+}
 
-  .intro-body p {
-    font-size: 0.93rem;
-    line-height: 1.75;
-    color: var(--muted);
-  }
+.sec-label::after {
+content: ‘’;
+flex: 1;
+height: 1px;
+background: #d0c9bc;
+display: block;
+}
 
-  .intro-body p strong {
-    color: var(--text);
-    font-weight: 500;
-  }
+/* ── CAPABILITIES ── */
+.caps {
+display: grid;
+grid-template-columns: repeat(3, 1fr);
+gap: 2px;
+background: #d0c9bc;
+border: 1px solid #d0c9bc;
+margin-bottom: 48px;
+}
 
-  /* ── WHAT WE DO ─────────────────────────────────────── */
-  .section-label {
-    font-size: 0.68rem;
-    letter-spacing: 0.22em;
-    text-transform: uppercase;
-    color: var(--gold);
-    font-weight: 500;
-    margin-bottom: 28px;
-    display: flex;
-    align-items: center;
-    gap: 10px;
-  }
+.cap {
+background: #ffffff;
+padding: 26px 22px;
+}
 
-  .section-label::after {
-    content: '';
-    display: block;
-    flex: 1;
-    height: 1px;
-    background: var(--rule);
-  }
+.cap-bar {
+width: 22px;
+height: 3px;
+background: #b8922a;
+margin-bottom: 14px;
+}
 
-  .capabilities {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 2px;
-    margin-bottom: 52px;
-    border: 1px solid var(--rule);
-  }
+.cap-title {
+font-family: Palatino, ‘Palatino Linotype’, ‘Book Antiqua’, Georgia, serif;
+font-size: 1.05rem;
+font-weight: 600;
+color: #0f1f3d;
+margin-bottom: 10px;
+line-height: 1.3;
+}
 
-  .cap-item {
-    background: #fff;
-    padding: 28px 24px;
-    position: relative;
-  }
+.cap-desc {
+font-size: 0.8rem;
+line-height: 1.72;
+color: #5a5a5a;
+}
 
-  .cap-item::before {
-    content: '';
-    display: block;
-    width: 24px;
-    height: 3px;
-    background: var(--gold);
-    margin-bottom: 16px;
-  }
+/* ── DIFFERENTIATORS ── */
+.diff {
+display: grid;
+grid-template-columns: 1fr 1fr;
+gap: 32px 40px;
+margin-bottom: 48px;
+padding-bottom: 48px;
+border-bottom: 1px solid #d0c9bc;
+}
 
-  .cap-title {
-    font-family: 'Palatino Linotype', Palatino, 'Book Antiqua', Georgia, serif;
-    font-size: 1.1rem;
-    font-weight: 600;
-    color: var(--navy);
-    margin-bottom: 10px;
-    line-height: 1.3;
-  }
+.diff-item {
+display: flex;
+gap: 16px;
+align-items: flex-start;
+}
 
-  .cap-desc {
-    font-size: 0.82rem;
-    line-height: 1.7;
-    color: var(--muted);
-  }
+.diff-num {
+font-family: Palatino, ‘Palatino Linotype’, ‘Book Antiqua’, Georgia, serif;
+font-size: 1.9rem;
+font-weight: 700;
+color: #b8922a;
+line-height: 1;
+min-width: 30px;
+opacity: 0.55;
+}
 
-  /* ── DIFFERENTIATORS ────────────────────────────────── */
-  .diff-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 32px;
-    margin-bottom: 52px;
-    padding-bottom: 52px;
-    border-bottom: 1px solid var(--rule);
-  }
+.diff-body h4 {
+font-size: 0.84rem;
+font-weight: 500;
+color: #0f1f3d;
+margin-bottom: 7px;
+letter-spacing: 0.01em;
+}
 
-  .diff-item {
-    display: flex;
-    gap: 16px;
-    align-items: flex-start;
-  }
+.diff-body p {
+font-size: 0.79rem;
+line-height: 1.72;
+color: #5a5a5a;
+}
 
-  .diff-number {
-    font-family: 'Palatino Linotype', Palatino, 'Book Antiqua', Georgia, serif;
-    font-size: 2rem;
-    font-weight: 700;
-    color: var(--gold);
-    line-height: 1;
-    min-width: 32px;
-    opacity: 0.6;
-  }
+/* ── HOW IT WORKS ── */
+.how {
+display: grid;
+grid-template-columns: repeat(4, 1fr);
+gap: 0;
+margin-bottom: 0;
+position: relative;
+}
 
-  .diff-text h4 {
-    font-size: 0.85rem;
-    font-weight: 500;
-    color: var(--navy);
-    margin-bottom: 6px;
-    letter-spacing: 0.02em;
-  }
+.how::before {
+content: ‘’;
+position: absolute;
+top: 21px;
+left: calc(12.5% + 10px);
+right: calc(12.5% + 10px);
+height: 1px;
+background: #d0c9bc;
+z-index: 0;
+}
 
-  .diff-text p {
-    font-size: 0.8rem;
-    line-height: 1.7;
-    color: var(--muted);
-  }
+.how-step {
+display: flex;
+flex-direction: column;
+align-items: center;
+text-align: center;
+padding: 0 10px;
+position: relative;
+z-index: 1;
+}
 
-  /* ── HOW IT WORKS ───────────────────────────────────── */
-  .how-grid {
-    display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    gap: 0;
-    margin-bottom: 52px;
-    position: relative;
-  }
+.step-dot {
+width: 42px;
+height: 42px;
+border-radius: 50%;
+background: #0f1f3d;
+display: flex;
+align-items: center;
+justify-content: center;
+margin-bottom: 14px;
+font-family: Palatino, ‘Palatino Linotype’, ‘Book Antiqua’, Georgia, serif;
+font-size: 1rem;
+font-weight: 700;
+color: #d4aa44;
+flex-shrink: 0;
+}
 
-  .how-grid::before {
-    content: '';
-    position: absolute;
-    top: 22px;
-    left: calc(12.5% + 12px);
-    right: calc(12.5% + 12px);
-    height: 1px;
-    background: var(--rule);
-    z-index: 0;
-  }
+.step-title {
+font-size: 0.78rem;
+font-weight: 500;
+color: #0f1f3d;
+margin-bottom: 7px;
+line-height: 1.3;
+}
 
-  .how-step {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    text-align: center;
-    padding: 0 12px;
-    position: relative;
-    z-index: 1;
-  }
+.step-desc {
+font-size: 0.73rem;
+line-height: 1.66;
+color: #5a5a5a;
+}
 
-  .step-dot {
-    width: 44px;
-    height: 44px;
-    border-radius: 50%;
-    background: var(--navy);
-    border: 2px solid var(--navy);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    margin-bottom: 14px;
-    font-family: 'Palatino Linotype', Palatino, 'Book Antiqua', Georgia, serif;
-    font-size: 1.05rem;
-    font-weight: 700;
-    color: var(--gold2);
-  }
+/* ── CTA FOOTER ── */
+.cta {
+background: #0f1f3d;
+padding: 38px 48px;
+display: grid;
+grid-template-columns: 1fr auto;
+gap: 32px;
+align-items: center;
+margin: 52px -48px 0;
+}
 
-  .step-title {
-    font-size: 0.8rem;
-    font-weight: 500;
-    color: var(--navy);
-    margin-bottom: 6px;
-    line-height: 1.3;
-  }
+.cta h3 {
+font-family: Palatino, ‘Palatino Linotype’, ‘Book Antiqua’, Georgia, serif;
+font-size: 1.45rem;
+font-weight: 600;
+color: #ffffff;
+line-height: 1.3;
+margin-bottom: 6px;
+}
 
-  .step-desc {
-    font-size: 0.75rem;
-    line-height: 1.65;
-    color: var(--muted);
-  }
+.cta p {
+font-size: 0.8rem;
+color: rgba(255,255,255,0.45);
+line-height: 1.6;
+}
 
-  /* ── FOOTER CTA ─────────────────────────────────────── */
-  .cta-block {
-    background: var(--navy);
-    padding: 40px 48px;
-    display: grid;
-    grid-template-columns: 1fr auto;
-    gap: 32px;
-    align-items: center;
-    margin: 0 -48px -64px;
-  }
+.cta-right {
+display: flex;
+flex-direction: column;
+align-items: flex-end;
+gap: 6px;
+flex-shrink: 0;
+}
 
-  .cta-block h3 {
-    font-family: 'Palatino Linotype', Palatino, 'Book Antiqua', Georgia, serif;
-    font-size: 1.5rem;
-    font-weight: 600;
-    color: #fff;
-    line-height: 1.3;
-    margin-bottom: 6px;
-  }
+.cta-email {
+font-size: 0.86rem;
+font-weight: 500;
+color: #d4aa44;
+text-decoration: none;
+border-bottom: 1px solid rgba(212,170,68,0.35);
+padding-bottom: 2px;
+letter-spacing: 0.01em;
+}
 
-  .cta-block p {
-    font-size: 0.82rem;
-    color: rgba(255,255,255,0.5);
-    line-height: 1.6;
-  }
-
-  .cta-contact {
-    display: flex;
-    flex-direction: column;
-    align-items: flex-end;
-    gap: 6px;
-    flex-shrink: 0;
-  }
-
-  .cta-email {
-    font-size: 0.88rem;
-    font-weight: 500;
-    color: var(--gold2);
-    letter-spacing: 0.02em;
-    text-decoration: none;
-    border-bottom: 1px solid rgba(212,170,68,0.3);
-    padding-bottom: 2px;
-  }
-
-  .cta-note {
-    font-size: 0.72rem;
-    color: rgba(255,255,255,0.3);
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-  }
-
-  /* ── PRINT STYLES ───────────────────────────────────── */
-  @media print {
-    body { background: white; }
-    .cap-item { background: #f9f9f9; }
-  }
-
-  @media (max-width: 720px) {
-    .header-inner { grid-template-columns: 1fr; }
-    .intro { grid-template-columns: 1fr; }
-    .capabilities { grid-template-columns: 1fr; }
-    .diff-grid { grid-template-columns: 1fr; }
-    .how-grid { grid-template-columns: 1fr 1fr; }
-    .how-grid::before { display: none; }
-    .cta-block { grid-template-columns: 1fr; margin: 0 -24px -64px; padding: 32px 24px; }
-    .cta-contact { align-items: flex-start; }
-    main { padding: 40px 24px 64px; }
-    .header-inner { padding: 40px 24px 36px; }
-  }
+.cta-note {
+font-size: 0.68rem;
+color: rgba(255,255,255,0.28);
+letter-spacing: 0.1em;
+text-transform: uppercase;
+}
 </style>
 
 </head>
 <body>
 
-<header>
-  <div class="header-inner">
-    <div class="logo-block">
-      <div class="wordmark">VECTOR<span>.</span></div>
-      <div class="tagline">Campaign Intelligence &nbsp;·&nbsp; All Levels of Government</div>
+<!-- TOP BAR -->
+
+<div class="topbar">
+  <div class="topbar-grid"></div>
+  <div class="topbar-inner">
+    <div>
+      <div class="wordmark">VECTOR<span class="wordmark-dot">.</span></div>
+      <div class="sub">Campaign Intelligence &nbsp;&middot;&nbsp; All Levels of Government</div>
     </div>
-    <div class="header-rule">
-      <span></span>
-      <p>Know your path. Close the gap.</p>
+    <div class="topbar-right">
+      <span class="topbar-line"></span>
+      <span class="topbar-quote">Know your path. Close the gap.</span>
     </div>
   </div>
-</header>
-<div class="gold-bar"></div>
+</div>
+<div class="goldbar"></div>
 
-<main>
+<div class="main">
 
   <!-- INTRO -->
 
-  <section class="intro">
-    <h2 class="intro-headline">
+  <div class="intro">
+    <div class="intro-hed">
       Every campaign has a number.<br>
-      <em>Vector finds it —<br>and shows you how to reach it.</em>
-    </h2>
-    <div class="intro-body">
-      <p>Vector Intelligence is a <strong>managed campaign analytics service</strong> built for candidates and campaign professionals who need more than a gut feeling about whether their field plan is going to work.</p>
-      <p>We don't sell software licenses. We embed a senior analyst in your campaign for the cycle — running the numbers, managing the model, and delivering answers on your schedule, every week through election day.</p>
-      <p>From city council to U.S. Senate, the core question is always the same: <strong>how many votes do you need, and do you have a realistic path to get them?</strong> That's what Vector was built to answer.</p>
+      <i>Vector finds it &mdash;<br>and shows you how to reach it.</i>
     </div>
-  </section>
+    <div class="intro-right">
+      <p>Vector Intelligence is a <b>managed campaign analytics service</b> built for candidates and campaign professionals who need more than a gut feeling about whether their field plan is going to work.</p>
+      <p>We don&rsquo;t sell software licenses. We embed a senior analyst in your campaign for the cycle &mdash; running the numbers, managing the model, and delivering answers on your schedule, every week through election day.</p>
+      <p>From city council to U.S. Senate, the core question is always the same: <b>how many votes do you need, and do you have a realistic path to get them?</b> That&rsquo;s what Vector was built to answer.</p>
+    </div>
+  </div>
 
   <!-- CAPABILITIES -->
 
-  <div class="section-label">What Vector Does</div>
-  <div class="capabilities">
+  <div class="sec-label">What Vector Does</div>
+  <div class="caps">
 
 ```
-<div class="cap-item">
+<div class="cap">
+  <div class="cap-bar"></div>
   <div class="cap-title">Win Path Modeling</div>
-  <p class="cap-desc">We translate your universe, vote shares, and turnout assumptions into a precise picture of how many votes you need to win — and how far you are from that threshold today.</p>
+  <p class="cap-desc">We translate your universe, vote shares, and turnout assumptions into a precise picture of how many votes you need to win &mdash; and how far you are from that threshold today.</p>
 </div>
 
-<div class="cap-item">
+<div class="cap">
+  <div class="cap-bar"></div>
   <div class="cap-title">Field Plan Feasibility</div>
-  <p class="cap-desc">Your plan looks good on paper. Vector stress-tests it. We model your actual capacity — organizers, hours, contact rates, channel mix — against what the race actually requires.</p>
+  <p class="cap-desc">Your plan looks good on paper. Vector stress-tests it. We model your actual capacity &mdash; organizers, hours, contact rates, channel mix &mdash; against what the race actually requires.</p>
 </div>
 
-<div class="cap-item">
-  <div class="cap-title">Persuasion & GOTV Modeling</div>
+<div class="cap">
+  <div class="cap-bar"></div>
+  <div class="cap-title">Persuasion &amp; GOTV Modeling</div>
   <p class="cap-desc">We separate the work you can do from the votes it actually produces. Persuasion, turnout lift, and undecided allocation modeled together so your plan reflects reality.</p>
 </div>
 
-<div class="cap-item">
-  <div class="cap-title">Budget & ROI Optimization</div>
+<div class="cap">
+  <div class="cap-bar"></div>
+  <div class="cap-title">Budget &amp; ROI Optimization</div>
   <p class="cap-desc">Which tactic closes the gap most efficiently? We compute cost per net vote across every tactic and optimize your mix under real budget and timeline constraints.</p>
 </div>
 
-<div class="cap-item">
-  <div class="cap-title">Risk & Scenario Analysis</div>
-  <p class="cap-desc">Monte Carlo simulation stress-tests your assumptions across 10,000 scenarios. You see your win probability range, not just a point estimate — and what it takes to move that number.</p>
+<div class="cap">
+  <div class="cap-bar"></div>
+  <div class="cap-title">Risk &amp; Scenario Analysis</div>
+  <p class="cap-desc">Monte Carlo simulation stress-tests your assumptions across 10,000 scenarios. You see your win probability range, not just a point estimate &mdash; and what it takes to move that number.</p>
 </div>
 
-<div class="cap-item">
-  <div class="cap-title">Weekly Pacing & Reality Checks</div>
-  <p class="cap-desc">As your field program runs, we compare actual contact rates and productivity to your assumptions. If the plan is drifting, you'll know — and you'll know exactly which lever to pull.</p>
+<div class="cap">
+  <div class="cap-bar"></div>
+  <div class="cap-title">Weekly Pacing &amp; Reality Checks</div>
+  <p class="cap-desc">As your field program runs, we compare actual contact rates and productivity to your assumptions. If the plan is drifting, you&rsquo;ll know &mdash; and you&rsquo;ll know exactly which lever to pull.</p>
 </div>
 ```
 
@@ -475,39 +433,39 @@
 
   <!-- DIFFERENTIATORS -->
 
-  <div class="section-label">Why Vector</div>
-  <div class="diff-grid">
+  <div class="sec-label">Why Vector</div>
+  <div class="diff">
 
 ```
 <div class="diff-item">
-  <div class="diff-number">01</div>
-  <div class="diff-text">
+  <div class="diff-num">01</div>
+  <div class="diff-body">
     <h4>Managed, Not Self-Serve</h4>
-    <p>You don't learn a tool. You get answers. We run the platform, manage the model, and deliver outputs — so your team stays focused on the campaign, not the software.</p>
+    <p>You don&rsquo;t learn a tool. You get answers. We run the platform, manage the model, and deliver outputs &mdash; so your team stays focused on the campaign, not the software.</p>
   </div>
 </div>
 
 <div class="diff-item">
-  <div class="diff-number">02</div>
-  <div class="diff-text">
+  <div class="diff-num">02</div>
+  <div class="diff-body">
     <h4>Deterministic by Design</h4>
     <p>Same inputs always produce the same outputs. No black boxes. Every number traces back to an assumption, and every assumption can be challenged and changed.</p>
   </div>
 </div>
 
 <div class="diff-item">
-  <div class="diff-number">03</div>
-  <div class="diff-text">
+  <div class="diff-num">03</div>
+  <div class="diff-body">
     <h4>Voter File Integration</h4>
-    <p>We integrate your voter file directly into the model — so universe construction, turnout baselines, and persuadable targeting are grounded in your actual data, not generic assumptions.</p>
+    <p>We integrate your voter file directly into the model &mdash; so universe construction, turnout baselines, and persuadable targeting are grounded in your actual data, not generic assumptions.</p>
   </div>
 </div>
 
 <div class="diff-item">
-  <div class="diff-number">04</div>
-  <div class="diff-text">
+  <div class="diff-num">04</div>
+  <div class="diff-body">
     <h4>Standing Access, Full Cycle</h4>
-    <p>Weekly reporting, 1–2 standing meetings per week, and on-call access to your analyst throughout the cycle. When race conditions shift, we turn around new scenarios same day.</p>
+    <p>Weekly reporting, 1&ndash;2 standing meetings per week, and on-call access to your analyst throughout the cycle. When race conditions shift, we turn around new scenarios same day.</p>
   </div>
 </div>
 ```
@@ -516,8 +474,8 @@
 
   <!-- HOW IT WORKS -->
 
-  <div class="section-label">How an Engagement Works</div>
-  <div class="how-grid">
+  <div class="sec-label">How an Engagement Works</div>
+  <div class="how">
     <div class="how-step">
       <div class="step-dot">1</div>
       <div class="step-title">Initial Consultation</div>
@@ -525,7 +483,7 @@
     </div>
     <div class="how-step">
       <div class="step-dot">2</div>
-      <div class="step-title">Model Build & Data Integration</div>
+      <div class="step-title">Model Build &amp; Data Integration</div>
       <p class="step-desc">We build your win path model, integrate your voter file, and construct the opening scenario library.</p>
     </div>
     <div class="how-step">
@@ -535,17 +493,24 @@
     </div>
     <div class="how-step">
       <div class="step-dot">4</div>
-      <div class="step-title">Election Day & Close</div>
+      <div class="step-title">Election Day &amp; Close</div>
       <p class="step-desc">War room scenario support through election day, followed by post-cycle archive and debrief.</p>
     </div>
   </div>
 
   <!-- CTA -->
 
-  <div class="cta-block">
+  <div class="cta">
     <div>
       <h3>Ready to know your number?</h3>
-      <p>Engagements are available for all levels of government. Initial consultations are complimentary.<br>Pricing is scoped to your race after the first conversation.</p>
+      <p>Engagements available for all levels of government. Initial consultations are complimentary.<br>Pricing is scoped to your race after the first conversation.</p>
     </div>
-    <div class="cta-contact">
-      <a href="/cdn-cgi/l/email-protection#fa9995948e9b998eba8c9f998e958893948e9f9696939d9f94999fd4999597" class="cta-email"><span class="__cf_email__" data-cfemail="5b3834352f3a382f1b2d3e382f342932352f3e3737323c3e35383e75383436">[email&
+    <div class="cta-right">
+      <a href="mailto:contact@vectorintelligence.com" class="cta-email">contact@vectorintelligence.com</a>
+      <span class="cta-note">Confidential &nbsp;&middot;&nbsp; Not for distribution</span>
+    </div>
+  </div>
+
+</div>
+</body>
+</html>
