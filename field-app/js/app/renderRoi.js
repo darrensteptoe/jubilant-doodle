@@ -166,49 +166,48 @@ export function renderRoiModule(args){
   }
 
   const roiTbody = els?.roiTbody;
-  if (!(roiTbody instanceof HTMLElement)) {
-    return;
-  }
-  roiTbody.innerHTML = "";
-  if (!rows.length){
-    const trEl = document.createElement("tr");
-    trEl.innerHTML = '<td class="muted">—</td><td class="num muted">—</td><td class="num muted">—</td><td class="num muted">—</td><td class="muted">—</td>';
-    roiTbody.appendChild(trEl);
-    return;
-  }
+  if (roiTbody instanceof HTMLElement) {
+    roiTbody.innerHTML = "";
+    if (!rows.length){
+      const trEl = document.createElement("tr");
+      trEl.innerHTML = '<td class="muted">—</td><td class="num muted">—</td><td class="num muted">—</td><td class="num muted">—</td><td class="muted">—</td>';
+      roiTbody.appendChild(trEl);
+      return;
+    }
 
-  for (const r of rows){
-    const trEl = document.createElement("tr");
+    for (const r of rows){
+      const trEl = document.createElement("tr");
 
-    const td0 = document.createElement("td");
-    td0.textContent = r.label;
+      const td0 = document.createElement("td");
+      td0.textContent = r.label;
 
-    const td1 = document.createElement("td");
-    td1.className = "num";
-    td1.textContent = r.cpa == null ? "—" : `$${r.cpa.toFixed(2)}`;
+      const td1 = document.createElement("td");
+      td1.className = "num";
+      td1.textContent = r.cpa == null ? "—" : `$${r.cpa.toFixed(2)}`;
 
-    const td2 = document.createElement("td");
-    td2.className = "num";
-    td2.textContent = r.costPerNetVote == null ? "—" : `$${r.costPerNetVote.toFixed(2)}`;
+      const td2 = document.createElement("td");
+      td2.className = "num";
+      td2.textContent = r.costPerNetVote == null ? "—" : `$${r.costPerNetVote.toFixed(2)}`;
 
-    const td2b = document.createElement("td");
-    td2b.className = "num";
-    td2b.textContent = (!turnoutModel.enabled || r.costPerTurnoutAdjustedNetVote == null) ? "—" : `$${r.costPerTurnoutAdjustedNetVote.toFixed(2)}`;
+      const td2b = document.createElement("td");
+      td2b.className = "num";
+      td2b.textContent = (!turnoutModel.enabled || r.costPerTurnoutAdjustedNetVote == null) ? "—" : `$${r.costPerTurnoutAdjustedNetVote.toFixed(2)}`;
 
-    const td3 = document.createElement("td");
-    td3.className = "num";
-    td3.textContent = r.totalCost == null ? "—" : `$${fmtInt(Math.round(r.totalCost))}`;
+      const td3 = document.createElement("td");
+      td3.className = "num";
+      td3.textContent = r.totalCost == null ? "—" : `$${fmtInt(Math.round(r.totalCost))}`;
 
-    const td4 = document.createElement("td");
-    td4.textContent = r.feasibilityText || "—";
+      const td4 = document.createElement("td");
+      td4.textContent = r.feasibilityText || "—";
 
-    trEl.appendChild(td0);
-    trEl.appendChild(td1);
-    trEl.appendChild(td2);
-    trEl.appendChild(td2b);
-    trEl.appendChild(td3);
-    trEl.appendChild(td4);
+      trEl.appendChild(td0);
+      trEl.appendChild(td1);
+      trEl.appendChild(td2);
+      trEl.appendChild(td2b);
+      trEl.appendChild(td3);
+      trEl.appendChild(td4);
 
-    roiTbody.appendChild(trEl);
+      roiTbody.appendChild(trEl);
+    }
   }
 }
