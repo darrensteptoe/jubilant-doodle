@@ -166,6 +166,7 @@ export function renderWeeklyExecutionStatusModule(args){
 export function renderWeeklyOpsModule(args){
   const {
     els,
+    state,
     res,
     weeks,
     ctx,
@@ -258,6 +259,32 @@ export function renderWeeklyOpsModule(args){
       els.wkBanner.classList.add(bannerKind);
       els.wkBanner.textContent = bannerMsg;
     }
+  }
+
+  if (!state?.ui || typeof state.ui !== "object") {
+    // keep render path side-effect free when state is not injected
+  } else {
+    state.ui.lastWeeklyOps = {
+      goal,
+      weeks,
+      supportRate: sr,
+      contactRate: cr,
+      conversationsPerWeek: convosPerWeek,
+      attemptsPerWeek,
+      capacityPerWeek: capTotal,
+      capacityByTactic: {
+        doors: cap?.doors ?? null,
+        phones: cap?.phones ?? null,
+      },
+      gapPerWeek: gap,
+      constraint,
+      note,
+      banner: {
+        shown: !!bannerShow,
+        kind: bannerKind || "",
+        text: bannerMsg || "",
+      },
+    };
   }
 
   renderWeeklyExecutionStatus(context);

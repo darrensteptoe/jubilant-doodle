@@ -327,6 +327,23 @@ export function renderConversionPanel({
     convFeasBannerEl.className = `banner ${cls}`.trim();
     convFeasBannerEl.textContent = msg;
   }
+
+  if (!state.ui || typeof state.ui !== "object") state.ui = {};
+  state.ui.lastConversion = {
+    goalNetVotes: goal,
+    conversationsNeeded: convosNeeded,
+    doorsNeeded,
+    doorsPerShift,
+    totalShifts,
+    shiftsPerWeek,
+    volunteersNeeded: volsNeeded,
+    feasibility: {
+      kind: cls || "",
+      text: msg || "",
+      shown: !!show,
+    },
+  };
+
   renderPhase3(res, weeks);
 }
 

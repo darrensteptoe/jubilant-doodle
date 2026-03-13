@@ -33,7 +33,7 @@ export function syncKpis() {
     formatBridgeMargin(outcomeView?.mc?.p50) ||
     readSidebarMarginFallback();
   const persuasionNeed = firstNonMissing(["#kpiPersuasionNeed-sidebar", "#kpiPersuasionNeed"]);
-  const bottleneck = inferBottleneck(outcomeView) || firstNonMissing(["#wkConstraint", "#optBinding"]);
+  const bottleneck = inferBottleneck(outcomeView);
 
   setKpiValue("v3KpiWinProb", winProb || "-");
   setKpiValue("v3KpiMargin", margin || "-");
@@ -73,6 +73,16 @@ function inferBottleneck(outcomeView = null) {
   }
   if (reachConstraint.includes("feasible") || reachConstraint.includes("none")) {
     return "Balanced";
+  }
+
+  const gapFromBridge = Number(
+    reachView?.weekly?.gapPerWeek ??
+    reachView?.weekly?.gap ??
+    reachView?.summary?.gapPerWeek ??
+    reachView?.summary?.gap
+  );
+  if (Number.isFinite(gapFromBridge) && gapFromBridge > 0) {
+    return "Throughput constrained";
   }
 
   const gap = readNumber("#wkGapPerWeek");
