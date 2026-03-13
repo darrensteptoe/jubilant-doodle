@@ -76,6 +76,9 @@ Reference artifact:
 - Legacy `stage-roi` and `stage-gotv` sections are now hidden in legacy flow (retired stubs), while DOM IDs remain mounted for parity and rollback safety.
 - Timeline runtime (`renderTimelineModule`) now computes and cache-updates without requiring legacy timeline DOM gates (`timelineEnabled`, `tlPercent`, `tl*` fields), reducing `stage-gotv` deletion risk.
 - Phase3 runtime (`renderPhase3Module`) now computes and refreshes MC freshness/results without requiring legacy `p3*` DOM gates, reducing `stage-results` deletion risk.
+- Compatibility MC phase3 panels (`js/app/render/monteCarlo.js`, `js/render/monteCarlo.js`) now run without hard `p3*` DOM gates, preserving freshness/results update paths if legacy result nodes are absent.
+- Conversion runtime panel (`renderConversionPanel`) now computes and continues phase3 refresh without hard requiring legacy `out*`/`convFeasBanner` nodes, reducing `stage-gotv` deletion risk.
+- ROI runtime panel (`renderRoiModule`) no longer hard-returns when `roiTbody` is absent; ROI caches/banner/summary updates now remain live without legacy table nodes.
 - Controls v3 evidence table now renders from scenario-bridge intel state (`window.__FPE_SCENARIO_API__`) instead of mirroring legacy `#intelEvidenceTbody`.
 - Controls v3 benchmark table now renders from scenario-bridge intel state (`window.__FPE_SCENARIO_API__`) and remove actions route by benchmark id, instead of mirroring legacy `#intelBenchmarkTbody`.
 - Controls v3 feedback previews (what-if + recommendations) now render from scenario-bridge intel state and no longer mirror legacy preview textareas (`#intelWhatIfPreview/#intelRecommendationPreview`).
