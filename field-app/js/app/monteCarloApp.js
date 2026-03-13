@@ -436,16 +436,20 @@ export function renderOpsEnvelopeD2Module(args){
     persist,
     fmtInt,
   } = args || {};
-
-  if (!els.opsAttP10 && !els.opsConP10) return;
+  const opsAttP10El = els?.opsAttP10;
+  const opsAttP50El = els?.opsAttP50;
+  const opsAttP90El = els?.opsAttP90;
+  const opsConP10El = els?.opsConP10;
+  const opsConP50El = els?.opsConP50;
+  const opsConP90El = els?.opsConP90;
 
   const clear = () => {
-    if (els.opsAttP10) els.opsAttP10.textContent = "—";
-    if (els.opsAttP50) els.opsAttP50.textContent = "—";
-    if (els.opsAttP90) els.opsAttP90.textContent = "—";
-    if (els.opsConP10) els.opsConP10.textContent = "—";
-    if (els.opsConP50) els.opsConP50.textContent = "—";
-    if (els.opsConP90) els.opsConP90.textContent = "—";
+    if (opsAttP10El) opsAttP10El.textContent = "—";
+    if (opsAttP50El) opsAttP50El.textContent = "—";
+    if (opsAttP90El) opsAttP90El.textContent = "—";
+    if (opsConP10El) opsConP10El.textContent = "—";
+    if (opsConP50El) opsConP50El.textContent = "—";
+    if (opsConP90El) opsConP90El.textContent = "—";
   };
 
   if (!state.mcLast){
@@ -470,12 +474,12 @@ export function renderOpsEnvelopeD2Module(args){
 
   const fmt = (v) => (v == null || !isFinite(v)) ? "—" : fmtInt(Math.round(v));
 
-  if (els.opsAttP10) els.opsAttP10.textContent = fmt(env.attempts.p10);
-  if (els.opsAttP50) els.opsAttP50.textContent = fmt(env.attempts.p50);
-  if (els.opsAttP90) els.opsAttP90.textContent = fmt(env.attempts.p90);
-  if (els.opsConP10) els.opsConP10.textContent = fmt(env.convos.p10);
-  if (els.opsConP50) els.opsConP50.textContent = fmt(env.convos.p50);
-  if (els.opsConP90) els.opsConP90.textContent = fmt(env.convos.p90);
+  if (opsAttP10El) opsAttP10El.textContent = fmt(env.attempts.p10);
+  if (opsAttP50El) opsAttP50El.textContent = fmt(env.attempts.p50);
+  if (opsAttP90El) opsAttP90El.textContent = fmt(env.attempts.p90);
+  if (opsConP10El) opsConP10El.textContent = fmt(env.convos.p10);
+  if (opsConP50El) opsConP50El.textContent = fmt(env.convos.p50);
+  if (opsConP90El) opsConP90El.textContent = fmt(env.convos.p90);
 }
 
 export function hashFinishEnvelopeInputsModule(args){
@@ -608,13 +612,14 @@ export function renderFinishEnvelopeD3Module(args){
     persist,
     fmtISODate,
   } = args || {};
-
-  if (!els.opsFinishP10 && !els.opsFinishP50 && !els.opsFinishP90) return;
+  const opsFinishP10El = els?.opsFinishP10;
+  const opsFinishP50El = els?.opsFinishP50;
+  const opsFinishP90El = els?.opsFinishP90;
 
   const clear = () => {
-    if (els.opsFinishP10) els.opsFinishP10.textContent = "—";
-    if (els.opsFinishP50) els.opsFinishP50.textContent = "—";
-    if (els.opsFinishP90) els.opsFinishP90.textContent = "—";
+    if (opsFinishP10El) opsFinishP10El.textContent = "—";
+    if (opsFinishP50El) opsFinishP50El.textContent = "—";
+    if (opsFinishP90El) opsFinishP90El.textContent = "—";
   };
 
   if (!state.mcLast){
@@ -644,9 +649,9 @@ export function renderFinishEnvelopeD3Module(args){
     return fmtISODate(dt);
   };
 
-  if (els.opsFinishP10) els.opsFinishP10.textContent = fmt(env.p10Days);
-  if (els.opsFinishP50) els.opsFinishP50.textContent = fmt(env.p50Days);
-  if (els.opsFinishP90) els.opsFinishP90.textContent = fmt(env.p90Days);
+  if (opsFinishP10El) opsFinishP10El.textContent = fmt(env.p10Days);
+  if (opsFinishP50El) opsFinishP50El.textContent = fmt(env.p50Days);
+  if (opsFinishP90El) opsFinishP90El.textContent = fmt(env.p90Days);
 }
 
 export function hashMissRiskInputsModule(args){
@@ -755,12 +760,19 @@ export function renderMissRiskD4Module(args){
   } = args || {};
   const missProbEl = els?.opsMissProb;
   const missTagEl = els?.opsMissTag;
+  const missProbSidebarEl = els?.opsMissProbSidebar;
+  const missTagSidebarEl = els?.opsMissTagSidebar;
 
   const clear = () => {
     if (missProbEl) missProbEl.textContent = "—";
+    if (missProbSidebarEl) missProbSidebarEl.textContent = "—";
     if (missTagEl){
       missTagEl.textContent = "—";
       missTagEl.classList.remove("ok", "warn", "bad");
+    }
+    if (missTagSidebarEl){
+      missTagSidebarEl.textContent = "—";
+      missTagSidebarEl.classList.remove("ok", "warn", "bad");
     }
   };
 
@@ -788,8 +800,16 @@ export function renderMissRiskD4Module(args){
   const pct = (prob == null || !isFinite(prob)) ? "—" : `${(prob * 100).toFixed(1)}%`;
 
   if (missProbEl) missProbEl.textContent = pct;
+  if (missProbSidebarEl) missProbSidebarEl.textContent = pct;
 
-  if (missTagEl){
+  const applyTag = (el, label, cls) => {
+    if (!el) return;
+    el.textContent = label;
+    el.classList.remove("ok", "warn", "bad");
+    el.classList.add(cls);
+  };
+
+  if (missTagEl || missTagSidebarEl){
     let label = "Low";
     let cls = "ok";
     if (prob >= 0.60){
@@ -799,9 +819,8 @@ export function renderMissRiskD4Module(args){
       label = "Moderate";
       cls = "warn";
     }
-    missTagEl.textContent = label;
-    missTagEl.classList.remove("ok", "warn", "bad");
-    missTagEl.classList.add(cls);
+    applyTag(missTagEl, label, cls);
+    applyTag(missTagSidebarEl, label, cls);
   }
 }
 
