@@ -23,8 +23,8 @@ export function applyStateToUiBindings({
   els.undecidedPct.value = state.undecidedPct ?? "";
   els.undecidedMode.value = state.undecidedMode || "proportional";
 
-  els.persuasionPct.value = state.persuasionPct ?? "";
-  els.earlyVoteExp.value = state.earlyVoteExp ?? "";
+  if (els.persuasionPct) els.persuasionPct.value = state.persuasionPct ?? "";
+  if (els.earlyVoteExp) els.earlyVoteExp.value = state.earlyVoteExp ?? "";
 
   if (els.goalSupportIds) els.goalSupportIds.value = state.goalSupportIds ?? "";
   if (els.supportRatePct) els.supportRatePct.value = state.supportRatePct ?? "";

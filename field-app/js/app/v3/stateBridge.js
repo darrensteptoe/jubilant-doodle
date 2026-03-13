@@ -72,7 +72,7 @@ export function formatInteger(value) {
 }
 
 function readExpectedTurnoutPct() {
-  const direct = readText("#turnoutExpected");
+  const direct = firstNonMissing(["#v3DistrictTurnoutExpected", "#turnoutExpected"]);
   if (!isMissingValue(direct)) {
     return direct;
   }
@@ -86,8 +86,8 @@ function readExpectedTurnoutPct() {
 }
 
 export function readDistrictSnapshot() {
-  const universeRaw = parseNumber(readText("#universeSize"));
-  const baselineSupport = readText("#supportTotal");
+  const universeRaw = readFirstNumber(["#v3DistrictUniverseSize", "#universeSize"]);
+  const baselineSupport = firstNonMissing(["#v3DistrictSupportTotal", "#supportTotal"]);
   const turnoutExpected = readExpectedTurnoutPct();
   const projectedVotes = firstNonEmpty(["#kpiYourVotes-sidebar"]);
   const persuasionNeed = firstNonEmpty(["#kpiPersuasionNeed-sidebar"]);
