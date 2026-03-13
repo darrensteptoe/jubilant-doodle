@@ -512,17 +512,26 @@ function refreshOutcomeSummary() {
     "Live dependency map for key planning outputs. This is explanatory only; it does not change model math."
   );
 
-  const outcomeWinProb = readOutcomeWinProbability();
+  const bridgeMc = outcomeView?.mc || null;
+  const outcomeWinProb =
+    formatBridgeWinProb(bridgeMc?.winProb) ||
+    readOutcomeWinProbability();
   setText("v3OutcomeForecastWinProb", outcomeWinProb);
-  const outcomeP10 = readOutcomeSidebarPercentile("mcP10-sidebar");
+  const outcomeP10 =
+    formatBridgeMargin(bridgeMc?.p10) ||
+    readOutcomeSidebarPercentile("mcP10-sidebar");
   const outcomeP50 =
+    formatBridgeMargin(bridgeMc?.p50) ||
     readText("#v3KpiMargin .fpe-kpi__value") ||
     readOutcomeSidebarPercentile("mcP50-sidebar");
-  const outcomeP90 = readOutcomeSidebarPercentile("mcP90-sidebar");
+  const outcomeP90 =
+    formatBridgeMargin(bridgeMc?.p90) ||
+    readOutcomeSidebarPercentile("mcP90-sidebar");
   const outcomeShiftP50 = deriveShiftFromMargin(outcomeP50);
   const outcomeShiftP10 = deriveShiftFromMargin(outcomeP10);
   const confidenceStats = buildConfidenceStats(outcomeP10, outcomeP50, outcomeP90, outcomeWinProb);
-  const outcomeRiskLabel = buildOutcomeRiskLabel({
+  const bridgeRiskGrade = String(bridgeMc?.riskGrade || "").trim();
+  const outcomeRiskLabel = bridgeRiskGrade || buildOutcomeRiskLabel({
     p10: outcomeP10,
     p50: outcomeP50,
     p90: outcomeP90,
@@ -530,7 +539,12 @@ function refreshOutcomeSummary() {
   });
   const outcomeFragility = buildOutcomeFragility(outcomeP10, outcomeP90);
   const outcomeCliff = buildOutcomeCliff(outcomeP10, outcomeP50);
-  const mcStatus = buildOutcomeMcStatus(outcomeWinProb, outcomeP10, outcomeP90);
+  const derivedMcStatus = buildOutcomeMcStatus(outcomeWinProb, outcomeP10, outcomeP90);
+  const mcStatus = {
+    freshTag: String(bridgeMc?.freshTag || derivedMcStatus.freshTag || "—"),
+    lastRun: String(bridgeMc?.lastRun || derivedMcStatus.lastRun || "—"),
+    staleTag: String(bridgeMc?.staleTag || derivedMcStatus.staleTag || "—"),
+  };
   setText("v3OutcomeForecastMedian", outcomeP50);
   setText("v3OutcomeForecastP95", outcomeP90);
   setText("v3OutcomeForecastP5", outcomeP10);
@@ -916,6 +930,22 @@ function formatSignedWhole(value) {
     return `+${rounded}`;
   }
   return `${rounded}`;
+}
+
+function formatBridgeWinProb(value) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) {
+    return "";
+  }
+  return `${(n * 100).toFixed(1)}%`;
+}
+
+function formatBridgeMargin(value) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) {
+    return "";
+  }
+  return formatSignedWhole(n);
 }
 
 function escapeHtml(value) {
