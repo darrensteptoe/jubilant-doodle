@@ -64,6 +64,7 @@ Compatibility mirror updated:
 - Compatibility phase3 MC renderers (`js/app/render/monteCarlo.js`, `js/render/monteCarlo.js`) now run without hard `p3*` DOM gates.
 - Conversion runtime panel now computes and still invokes phase3 refresh without hard requiring legacy `out*` / `convFeasBanner` nodes.
 - ROI runtime panel now keeps cache/banner/summary updates active without hard requiring `roiTbody` (legacy table render path is conditional).
+- Sensitivity snapshot render/run paths now tolerate missing legacy E4 DOM targets (`sens*` nodes), preserving cache compute/persist behavior.
 
 ## Remaining runtime coupling (intentional for now)
 

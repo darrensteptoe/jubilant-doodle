@@ -79,6 +79,7 @@ Reference artifact:
 - Compatibility MC phase3 panels (`js/app/render/monteCarlo.js`, `js/render/monteCarlo.js`) now run without hard `p3*` DOM gates, preserving freshness/results update paths if legacy result nodes are absent.
 - Conversion runtime panel (`renderConversionPanel`) now computes and continues phase3 refresh without hard requiring legacy `out*`/`convFeasBanner` nodes, reducing `stage-gotv` deletion risk.
 - ROI runtime panel (`renderRoiModule`) no longer hard-returns when `roiTbody` is absent; ROI caches/banner/summary updates now remain live without legacy table nodes.
+- Sensitivity snapshot render/run paths now tolerate missing legacy E4 DOM (`sens*` nodes, run button), keeping snapshot-cache behavior usable during/after legacy stage retirement.
 - Controls v3 evidence table now renders from scenario-bridge intel state (`window.__FPE_SCENARIO_API__`) instead of mirroring legacy `#intelEvidenceTbody`.
 - Controls v3 benchmark table now renders from scenario-bridge intel state (`window.__FPE_SCENARIO_API__`) and remove actions route by benchmark id, instead of mirroring legacy `#intelBenchmarkTbody`.
 - Controls v3 feedback previews (what-if + recommendations) now render from scenario-bridge intel state and no longer mirror legacy preview textareas (`#intelWhatIfPreview/#intelRecommendationPreview`).
