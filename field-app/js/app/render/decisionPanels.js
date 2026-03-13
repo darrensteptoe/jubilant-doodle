@@ -17,17 +17,24 @@ export function renderDecisionConfidencePanel({
   scenarioInputsFromState,
   fmtInt
 }){
-  if (!els.confTag || !els.confExec || !els.confRisk || !els.confTight || !els.confDiv || !els.confBanner) return;
+  const confTagEl = els?.confTag;
+  const confExecEl = els?.confExec;
+  const confRiskEl = els?.confRisk;
+  const confTightEl = els?.confTight;
+  const confDivEl = els?.confDiv;
+  const confBannerEl = els?.confBanner;
 
   const setTag = (cls, text) => {
-    els.confTag.classList.remove("ok","warn","bad");
-    if (cls) els.confTag.classList.add(cls);
-    els.confTag.textContent = text || "—";
+    if (!confTagEl) return;
+    confTagEl.classList.remove("ok","warn","bad");
+    if (cls) confTagEl.classList.add(cls);
+    confTagEl.textContent = text || "—";
   };
 
   const setBanner = (cls, text) => {
-    els.confBanner.className = `banner ${cls || ""}`.trim();
-    els.confBanner.textContent = text || "—";
+    if (!confBannerEl) return;
+    confBannerEl.className = `banner ${cls || ""}`.trim();
+    confBannerEl.textContent = text || "—";
   };
 
   const computeExec = () => {
@@ -158,13 +165,13 @@ export function renderDecisionConfidencePanel({
   const div = computeDivergence();
 
   const execLabel = exec.status === "green" ? "On pace" : exec.status === "yellow" ? "Drifting" : exec.status === "red" ? "Off pace" : "—";
-  els.confExec.textContent = execLabel;
+  if (confExecEl) confExecEl.textContent = execLabel;
 
   const riskLabel = risk.band === "high" ? "High confidence" : risk.band === "lean" ? "Lean" : risk.band === "volatile" ? "Volatile" : "—";
-  els.confRisk.textContent = riskLabel;
+  if (confRiskEl) confRiskEl.textContent = riskLabel;
 
-  els.confTight.textContent = tight.label || "—";
-  els.confDiv.textContent = div.label || "—";
+  if (confTightEl) confTightEl.textContent = tight.label || "—";
+  if (confDivEl) confDivEl.textContent = div.label || "—";
 
   const scorePiece = (kind) => {
     if (kind === "exec"){
@@ -245,7 +252,16 @@ export function renderDecisionIntelligencePanelView({
   runMonteCarloSim,
   fmtInt
 }){
-  if (!els.diPrimary || !els.diVolTbody || !els.diCostTbody || !els.diProbTbody) return;
+  const diPrimaryEl = els?.diPrimary;
+  const diSecondaryEl = els?.diSecondary;
+  const diNotBindingEl = els?.diNotBinding;
+  const diRecVolEl = els?.diRecVol;
+  const diRecCostEl = els?.diRecCost;
+  const diRecProbEl = els?.diRecProb;
+  const diVolTbodyEl = els?.diVolTbody;
+  const diCostTbodyEl = els?.diCostTbody;
+  const diProbTbodyEl = els?.diProbTbody;
+  const diWarnEl = els?.diWarn;
 
   const clearTable = (tbody) => { if (tbody) tbody.innerHTML = ""; };
   const stubRow = (tbody) => {
@@ -258,14 +274,14 @@ export function renderDecisionIntelligencePanelView({
   };
 
   const setWarn = (msg) => {
-    if (!els.diWarn) return;
+    if (!diWarnEl) return;
     if (!msg){
-      els.diWarn.hidden = true;
-      els.diWarn.textContent = "";
+      diWarnEl.hidden = true;
+      diWarnEl.textContent = "";
       return;
     }
-    els.diWarn.hidden = false;
-    els.diWarn.textContent = msg;
+    diWarnEl.hidden = false;
+    diWarnEl.textContent = msg;
   };
 
   try{
@@ -288,16 +304,16 @@ export function renderDecisionIntelligencePanelView({
 
     setWarn(di?.warning || null);
 
-    if (els.diPrimary) els.diPrimary.textContent = di?.bottlenecks?.primary || "—";
-    if (els.diSecondary) els.diSecondary.textContent = di?.bottlenecks?.secondary || "—";
-    if (els.diNotBinding){
+    if (diPrimaryEl) diPrimaryEl.textContent = di?.bottlenecks?.primary || "—";
+    if (diSecondaryEl) diSecondaryEl.textContent = di?.bottlenecks?.secondary || "—";
+    if (diNotBindingEl){
       const nb = Array.isArray(di?.bottlenecks?.notBinding) ? di.bottlenecks.notBinding : [];
-      els.diNotBinding.textContent = nb.length ? nb.join(", ") : "—";
+      diNotBindingEl.textContent = nb.length ? nb.join(", ") : "—";
     }
 
-    if (els.diRecVol) els.diRecVol.textContent = di?.recs?.volunteers || "—";
-    if (els.diRecCost) els.diRecCost.textContent = di?.recs?.cost || "—";
-    if (els.diRecProb) els.diRecProb.textContent = di?.recs?.probability || "—";
+    if (diRecVolEl) diRecVolEl.textContent = di?.recs?.volunteers || "—";
+    if (diRecCostEl) diRecCostEl.textContent = di?.recs?.cost || "—";
+    if (diRecProbEl) diRecProbEl.textContent = di?.recs?.probability || "—";
 
     const fill = (tbody, rows, fmt) => {
       clearTable(tbody);
@@ -324,20 +340,20 @@ export function renderDecisionIntelligencePanelView({
       return sign + String(v);
     };
 
-    fill(els.diVolTbody, di?.rankings?.volunteers, (v)=>fmtSigned(v, "vol"));
-    fill(els.diCostTbody, di?.rankings?.cost, (v)=>fmtSigned(v, "cost"));
-    fill(els.diProbTbody, di?.rankings?.probability, (v)=>fmtSigned(v, "prob"));
+    fill(diVolTbodyEl, di?.rankings?.volunteers, (v)=>fmtSigned(v, "vol"));
+    fill(diCostTbodyEl, di?.rankings?.cost, (v)=>fmtSigned(v, "cost"));
+    fill(diProbTbodyEl, di?.rankings?.probability, (v)=>fmtSigned(v, "prob"));
 
   } catch {
     setWarn("Decision Intelligence failed (panel render error).");
-    if (els.diPrimary) els.diPrimary.textContent = "—";
-    if (els.diSecondary) els.diSecondary.textContent = "—";
-    if (els.diNotBinding) els.diNotBinding.textContent = "—";
-    if (els.diRecVol) els.diRecVol.textContent = "—";
-    if (els.diRecCost) els.diRecCost.textContent = "—";
-    if (els.diRecProb) els.diRecProb.textContent = "—";
-    clearTable(els.diVolTbody); stubRow(els.diVolTbody);
-    clearTable(els.diCostTbody); stubRow(els.diCostTbody);
-    clearTable(els.diProbTbody); stubRow(els.diProbTbody);
+    if (diPrimaryEl) diPrimaryEl.textContent = "—";
+    if (diSecondaryEl) diSecondaryEl.textContent = "—";
+    if (diNotBindingEl) diNotBindingEl.textContent = "—";
+    if (diRecVolEl) diRecVolEl.textContent = "—";
+    if (diRecCostEl) diRecCostEl.textContent = "—";
+    if (diRecProbEl) diRecProbEl.textContent = "—";
+    clearTable(diVolTbodyEl); stubRow(diVolTbodyEl);
+    clearTable(diCostTbodyEl); stubRow(diCostTbodyEl);
+    clearTable(diProbTbodyEl); stubRow(diProbTbodyEl);
   }
 }

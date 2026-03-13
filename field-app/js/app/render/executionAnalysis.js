@@ -13,18 +13,27 @@ export function renderBottleneckAttributionPanel({
   getEffectiveBaseRates,
   deriveNeedVotes
 }){
-  if (!els.bneckTag || !els.bneckPrimary || !els.bneckSecondary || !els.bneckTbody || !els.bneckWarn) return;
+  const bneckTagEl = els?.bneckTag;
+  const bneckPrimaryEl = els?.bneckPrimary;
+  const bneckSecondaryEl = els?.bneckSecondary;
+  const bneckTbodyEl = els?.bneckTbody;
+  const bneckWarnEl = els?.bneckWarn;
   const features = resolveFeatureFlags(state || {});
 
-  const clear = () => { els.bneckTbody.innerHTML = ""; };
+  const clear = () => {
+    if (bneckTbodyEl) bneckTbodyEl.innerHTML = "";
+  };
   const stub = () => {
     clear();
-    els.bneckTbody.innerHTML = '<tr><td class="muted">—</td><td class="num muted">—</td><td class="muted">—</td></tr>';
+    if (bneckTbodyEl){
+      bneckTbodyEl.innerHTML = '<tr><td class="muted">—</td><td class="num muted">—</td><td class="muted">—</td></tr>';
+    }
   };
 
   const setWarn = (t) => {
-    els.bneckWarn.textContent = t || "";
-    els.bneckWarn.style.display = t ? "block" : "none";
+    if (!bneckWarnEl) return;
+    bneckWarnEl.textContent = t || "";
+    bneckWarnEl.style.display = t ? "block" : "none";
   };
 
   const fmtDelta = (v) => {
@@ -77,10 +86,12 @@ export function renderBottleneckAttributionPanel({
   const tlOn = !!state.budget?.optimize?.tlConstrainedEnabled;
   const timelineEnabled = !!features.timelineEnabled;
   if (!tlOn || !timelineEnabled){
-    els.bneckTag.textContent = "—";
-    els.bneckTag.classList.remove("ok","warn","bad");
-    els.bneckPrimary.textContent = state.ui?.lastDiagnostics?.primaryBottleneck || "—";
-    els.bneckSecondary.textContent = state.ui?.lastDiagnostics?.secondaryNotes || "—";
+    if (bneckTagEl){
+      bneckTagEl.textContent = "—";
+      bneckTagEl.classList.remove("ok","warn","bad");
+    }
+    if (bneckPrimaryEl) bneckPrimaryEl.textContent = state.ui?.lastDiagnostics?.primaryBottleneck || "—";
+    if (bneckSecondaryEl) bneckSecondaryEl.textContent = state.ui?.lastDiagnostics?.secondaryNotes || "—";
     stub();
     setWarn("Enable Timeline-constrained optimization to compute constraint impacts.");
     return;
@@ -162,14 +173,16 @@ export function renderBottleneckAttributionPanel({
   const baseMax = safeNum(baseMeta.maxAchievableNetVotes) ?? null;
 
   const ps = computePrimarySecondary({ maxAttemptsByTactic: base.maxAttemptsByTactic || null });
-  els.bneckPrimary.textContent = ps.primary;
-  els.bneckSecondary.textContent = ps.secondary;
+  if (bneckPrimaryEl) bneckPrimaryEl.textContent = ps.primary;
+  if (bneckSecondaryEl) bneckSecondaryEl.textContent = ps.secondary;
 
   const bindingObj = baseMeta.bindingObj || state.ui?.lastTlMeta?.bindingObj || {};
   const badgeCls = (bindingObj?.budget || bindingObj?.capacity || (Array.isArray(bindingObj?.timeline) && bindingObj.timeline.length)) ? "warn" : "ok";
-  els.bneckTag.textContent = badgeCls === "ok" ? "Clear" : "Binding";
-  els.bneckTag.classList.remove("ok","warn","bad");
-  els.bneckTag.classList.add(badgeCls);
+  if (bneckTagEl){
+    bneckTagEl.textContent = badgeCls === "ok" ? "Clear" : "Binding";
+    bneckTagEl.classList.remove("ok","warn","bad");
+    bneckTagEl.classList.add(badgeCls);
+  }
 
   const buildRow = (name, delta, notes) => {
     const trEl = document.createElement("tr");
@@ -221,10 +234,12 @@ export function renderBottleneckAttributionPanel({
   })();
 
   clear();
-  els.bneckTbody.appendChild(buildRow("Timeline capacity", staffHours10.delta, staffHours10.notes));
-  els.bneckTbody.appendChild(buildRow("Budget ceiling", budget10.delta, budget10.notes));
-  els.bneckTbody.appendChild(buildRow("Contact rate", contactRate10.delta, contactRate10.notes));
-  els.bneckTbody.appendChild(buildRow("Volunteer hours", volHours10.delta, volHours10.notes));
+  if (bneckTbodyEl){
+    bneckTbodyEl.appendChild(buildRow("Timeline capacity", staffHours10.delta, staffHours10.notes));
+    bneckTbodyEl.appendChild(buildRow("Budget ceiling", budget10.delta, budget10.notes));
+    bneckTbodyEl.appendChild(buildRow("Contact rate", contactRate10.delta, contactRate10.notes));
+    bneckTbodyEl.appendChild(buildRow("Volunteer hours", volHours10.delta, volHours10.notes));
+  }
 }
 
 export function renderConversionPanel({
