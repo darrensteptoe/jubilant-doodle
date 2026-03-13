@@ -50,9 +50,11 @@ Reference artifact:
 - Plan v3 now derives optimizer/timeline binding and shortfall status (`optBinding/optGapContext/tlPercent/tlConstraint/tlShortfall*`) from v3 plan context instead of direct legacy ROI status IDs.
 - Plan v3 workload row now derives `doors/shift`, `total shifts`, `shifts/week`, and `volunteers needed` from v3 workload/timeline inputs (no direct reads of legacy `#outDoorsPerShift/#outTotalShifts/#outShiftsPerWeek/#outVolunteersNeeded`).
 - Plan v3 now reads `required conversations` and `required doors` from Reach runtime bridge view (`window.__FPE_REACH_API__.getView().weekly`) instead of direct legacy `#outConversationsNeeded/#outDoorsNeeded` reads.
+- Plan v3 workload `Doors per hour (source)` field now mirrors from v3 timeline `Doors attempts / hour` (already synced to `timelineDoorsPerHour`), removing direct legacy `#doorsPerHour` read from `stage-gotv`.
 - Controls v3 evidence table now renders from scenario-bridge intel state (`window.__FPE_SCENARIO_API__`) instead of mirroring legacy `#intelEvidenceTbody`.
 - Controls v3 benchmark table now renders from scenario-bridge intel state (`window.__FPE_SCENARIO_API__`) and remove actions route by benchmark id, instead of mirroring legacy `#intelBenchmarkTbody`.
 - Controls v3 feedback previews (what-if + recommendations) now render from scenario-bridge intel state and no longer mirror legacy preview textareas (`#intelWhatIfPreview/#intelRecommendationPreview`).
+- Data v3 controls now execute through runtime data API bridge (`window.__FPE_DATA_API__`) with zero direct legacy selector bindings in the Data surface.
 
 ## Stage dependency map (current)
 Counts below are unique legacy IDs referenced by each v3 surface.
@@ -68,11 +70,11 @@ Counts below are unique legacy IDs referenced by each v3 surface.
 | Outcome | `stage-results` | 43 |
 | Turnout | `stage-roi` | 30 |
 | Plan | `stage-roi` | 22 |
-| Plan | `stage-gotv` | 4 |
+| Plan | `stage-gotv` | 3 |
 | Controls | `stage-checks` | 46 |
 | Scenarios | retired (`stage-scenarios`) | 0 |
 | Decision Log | retired (`stage-decisions`) | 0 |
-| Data | `stage-integrity` | 10 |
+| Data | runtime data API bridge (`window.__FPE_DATA_API__`) | 0 |
 
 ## Safe delete order (enforced)
 Delete only when the referenced surface(s) show zero bridge targets for that legacy container.
@@ -93,7 +95,7 @@ Reason: shared by District (electorate controls) and Plan (workload outputs).
 Reason: shared by Controls and District Census/Targeting bridge.
 
 6. `stage-integrity`
-Reason: shared by Data plus sidebar KPI fallbacks used by Outcome/Turnout.
+Reason: runtime data handlers are still legacy control-backed (event source IDs), so `stage-integrity` cannot be removed until Data handlers are fully native in runtime.
 
 7. `stage-ballot`, `stage-universe`, `stage-structure`, `stage-setup`
 Reason: setup compose path and District bridge still rely on setup-era DOM.
