@@ -7,7 +7,7 @@ export function createMcStateController({
   computeSnapshotHash,
 } = {}){
   function markMcStale(){
-    if (!els?.mcStale) return;
+    if (!els?.mcStale && !els?.mcStaleSidebar) return;
     const state = getState();
     if (state?.mcLast){
       setHidden(els.mcStale, false);
@@ -16,11 +16,17 @@ export function createMcStateController({
   }
 
   function clearMcStale(){
-    if (!els?.mcStale) return;
+    if (!els?.mcStale && !els?.mcStaleSidebar) return;
     setHidden(els.mcStale, true);
     setHidden(els.mcStaleSidebar, true);
-    els.mcStale.classList.remove("warn", "ok");
-    els.mcStale.classList.add("warn");
+    if (els.mcStale){
+      els.mcStale.classList.remove("warn", "ok");
+      els.mcStale.classList.add("warn");
+    }
+    if (els.mcStaleSidebar){
+      els.mcStaleSidebar.classList.remove("warn", "ok");
+      els.mcStaleSidebar.classList.add("warn");
+    }
   }
 
   function computeDailyLogHash(){
@@ -39,4 +45,3 @@ export function createMcStateController({
     computeDailyLogHash,
   };
 }
-

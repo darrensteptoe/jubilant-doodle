@@ -52,7 +52,14 @@ export function renderMcFreshnessModule(args){
     renderMissRiskD4,
   } = args || {};
 
-  if (!els.mcFreshTag && !els.mcLastRun && !els.mcStale) return;
+  if (
+    !els.mcFreshTag &&
+    !els.mcFreshTagSidebar &&
+    !els.mcLastRun &&
+    !els.mcLastRunSidebar &&
+    !els.mcStale &&
+    !els.mcStaleSidebar
+  ) return;
 
   const has = !!state.mcLast;
   const meta = (state.ui && state.ui.mcMeta && typeof state.ui.mcMeta === "object") ? state.ui.mcMeta : null;
@@ -61,13 +68,19 @@ export function renderMcFreshnessModule(args){
   if (els.mcRerunSidebar) els.mcRerunSidebar.disabled = !has;
 
   if (!has){
-    if (els.mcFreshTag){
+    if (els.mcFreshTag || els.mcFreshTagSidebar){
       setTextPair(els.mcFreshTag, els.mcFreshTagSidebar, "Not run");
-      els.mcFreshTag.classList.remove("ok", "warn", "bad");
-      els.mcFreshTag.classList.add("warn");
+      if (els.mcFreshTag){
+        els.mcFreshTag.classList.remove("ok", "warn", "bad");
+        els.mcFreshTag.classList.add("warn");
+      }
+      if (els.mcFreshTagSidebar){
+        els.mcFreshTagSidebar.classList.remove("ok", "warn", "bad");
+        els.mcFreshTagSidebar.classList.add("warn");
+      }
     }
-    if (els.mcLastRun) setTextPair(els.mcLastRun, els.mcLastRunSidebar, "Last run: —");
-    if (els.mcStale){
+    if (els.mcLastRun || els.mcLastRunSidebar) setTextPair(els.mcLastRun, els.mcLastRunSidebar, "Last run: —");
+    if (els.mcStale || els.mcStaleSidebar){
       setHidden(els.mcStale, true);
       setHidden(els.mcStaleSidebar, true);
     }
@@ -99,18 +112,24 @@ export function renderMcFreshnessModule(args){
     cls = "warn";
   }
 
-  if (els.mcFreshTag){
+  if (els.mcFreshTag || els.mcFreshTagSidebar){
     setTextPair(els.mcFreshTag, els.mcFreshTagSidebar, status);
-    els.mcFreshTag.classList.remove("ok", "warn", "bad");
-    els.mcFreshTag.classList.add(cls);
+    if (els.mcFreshTag){
+      els.mcFreshTag.classList.remove("ok", "warn", "bad");
+      els.mcFreshTag.classList.add(cls);
+    }
+    if (els.mcFreshTagSidebar){
+      els.mcFreshTagSidebar.classList.remove("ok", "warn", "bad");
+      els.mcFreshTagSidebar.classList.add(cls);
+    }
   }
 
-  if (els.mcLastRun){
+  if (els.mcLastRun || els.mcLastRunSidebar){
     const ts = meta && meta.lastRunAt ? meta.lastRunAt : "";
     setTextPair(els.mcLastRun, els.mcLastRunSidebar, `Last run: ${formatMcTimestampModule(ts)}`);
   }
 
-  if (els.mcStale){
+  if (els.mcStale || els.mcStaleSidebar){
     setHidden(els.mcStale, !(staleInputs || staleLog));
     setHidden(els.mcStaleSidebar, !(staleInputs || staleLog));
   }
@@ -734,14 +753,14 @@ export function renderMissRiskD4Module(args){
     computeMissRiskD4,
     persist,
   } = args || {};
-
-  if (!els.opsMissProb && !els.opsMissTag) return;
+  const missProbEl = els?.opsMissProb;
+  const missTagEl = els?.opsMissTag;
 
   const clear = () => {
-    if (els.opsMissProb) els.opsMissProb.textContent = "—";
-    if (els.opsMissTag){
-      els.opsMissTag.textContent = "—";
-      els.opsMissTag.classList.remove("ok", "warn", "bad");
+    if (missProbEl) missProbEl.textContent = "—";
+    if (missTagEl){
+      missTagEl.textContent = "—";
+      missTagEl.classList.remove("ok", "warn", "bad");
     }
   };
 
@@ -768,9 +787,9 @@ export function renderMissRiskD4Module(args){
   const prob = env.prob;
   const pct = (prob == null || !isFinite(prob)) ? "—" : `${(prob * 100).toFixed(1)}%`;
 
-  if (els.opsMissProb) els.opsMissProb.textContent = pct;
+  if (missProbEl) missProbEl.textContent = pct;
 
-  if (els.opsMissTag){
+  if (missTagEl){
     let label = "Low";
     let cls = "ok";
     if (prob >= 0.60){
@@ -780,9 +799,9 @@ export function renderMissRiskD4Module(args){
       label = "Moderate";
       cls = "warn";
     }
-    els.opsMissTag.textContent = label;
-    els.opsMissTag.classList.remove("ok", "warn", "bad");
-    els.opsMissTag.classList.add(cls);
+    missTagEl.textContent = label;
+    missTagEl.classList.remove("ok", "warn", "bad");
+    missTagEl.classList.add(cls);
   }
 }
 
