@@ -69,6 +69,9 @@ Compatibility mirror updated:
 - Weekly ops insights/freshness runtime panels now tolerate missing legacy `wk*` nodes via guarded writes, preserving compute/update behavior during retired-stub cleanup.
 - Weekly ops summary runtime module (`renderWeeklyOpsModule`) now tolerates missing `wkGoal` and continues summary/execution refresh with guarded writes.
 - Assumption drift runtime panel now tolerates missing `drift*` nodes with guarded writes while preserving drift compute/update behavior.
+- Scenario comparison runtime panel now tolerates missing `scm*` nodes with guarded writes while preserving diff computation/render flow.
+- Scenario comparison runtime panel now guards `state.ui`/registry access for early-boot safety (no null dereference on missing scenario UI state).
+- Stress summary runtime panel now tolerates missing/invalid stress summaries with guarded writes (`res?.stressSummary` array guard).
 - Legacy `integrity` nav entry is retired from legacy user flow; `stage-integrity` remains mounted for controlled runtime retirement.
 - Legacy `stage-integrity` section is now hidden as a retired stub (IDs retained in DOM).
 

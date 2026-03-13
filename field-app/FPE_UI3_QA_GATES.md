@@ -178,6 +178,9 @@ Scope: UI architecture migration only (engine and right rail frozen)
 - Runtime hardening: weekly ops insights/freshness panels now render with guarded writes when legacy `wk*` nodes are partially absent (no hard all-node gate).
 - Runtime hardening: weekly ops summary module now continues rendering with guarded writes when `wkGoal` is absent (no hard return on that legacy summary node).
 - Runtime hardening: assumption drift panel now renders with guarded writes when `drift*` nodes are partially absent (no hard return on `driftStatusTag`).
+- Runtime hardening: scenario comparison panel now renders with guarded writes when `scm*` nodes are partially absent (no hard return on compare-wrap/tag IDs).
+- Runtime hardening: scenario comparison panel now guards `state.ui`/registry access for early-boot safety (no throw on missing `state.ui`).
+- Runtime hardening: stress summary panel now uses guarded target + resilient summary array handling (`res?.stressSummary`).
 - Legacy flow retirement: removed legacy left-nav `integrity` entry while retaining `stage-integrity` DOM for runtime parity checks.
 - Legacy flow retirement: `stage-integrity` section is hidden as a retired stub (DOM retained).
 - Legacy `stage-capacity` visual surface has been retired from `index.html` user flow (hidden retired stub retained during transition); preflight no longer requires legacy Reach assumption IDs.

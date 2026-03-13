@@ -84,6 +84,9 @@ Reference artifact:
 - Weekly ops insights/freshness runtime panels now render with guarded writes when legacy `wk*` nodes are partially absent, reducing coupling to legacy execution sub-panels.
 - Weekly ops summary runtime module (`renderWeeklyOpsModule`) no longer hard-returns on missing `wkGoal`; summary and execution status now continue with guarded writes when weekly legacy nodes are absent.
 - Assumption drift runtime panel now renders with guarded writes when `drift*` nodes are partially absent, keeping drift compute path active during legacy sub-panel retirement.
+- Scenario comparison runtime panel now renders with guarded writes when `scm*` nodes are partially absent, reducing hard coupling to legacy compare card wrappers.
+- Scenario comparison runtime panel now guards `state.ui` access and scenario-registry initialization calls, preventing early-boot null dereference.
+- Stress summary runtime panel now uses guarded writes and resilient summary input handling (`res?.stressSummary`), preventing avoidable render short-circuits.
 - Legacy `integrity` nav entry has been removed from legacy left-rail user flow; `stage-integrity` DOM remains mounted for controlled retirement.
 - Legacy `stage-integrity` section is now hidden in legacy flow (retired stub), while IDs remain mounted for parity and rollback safety.
 - Controls v3 evidence table now renders from scenario-bridge intel state (`window.__FPE_SCENARIO_API__`) instead of mirroring legacy `#intelEvidenceTbody`.
