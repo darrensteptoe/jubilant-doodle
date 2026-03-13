@@ -71,12 +71,26 @@ export function formatInteger(value) {
   return Math.round(value).toLocaleString();
 }
 
+function readExpectedTurnoutPct() {
+  const direct = readText("#turnoutExpected");
+  if (!isMissingValue(direct)) {
+    return direct;
+  }
+
+  const turnoutA = readFirstNumber(["#v3DistrictTurnoutA", "#turnoutA"]);
+  const turnoutB = readFirstNumber(["#v3DistrictTurnoutB", "#turnoutB"]);
+  if (Number.isFinite(turnoutA) && Number.isFinite(turnoutB)) {
+    return `${((turnoutA + turnoutB) / 2).toFixed(1)}%`;
+  }
+  return "";
+}
+
 export function readDistrictSnapshot() {
   const universeRaw = parseNumber(readText("#universeSize"));
   const baselineSupport = readText("#supportTotal");
-  const turnoutExpected = firstNonEmpty(["#turnoutExpected", "#kpiTurnoutVotes-sidebar"]);
-  const projectedVotes = firstNonEmpty(["#kpiYourVotes-sidebar", "#kpiYourVotes"]);
-  const persuasionNeed = firstNonEmpty(["#kpiPersuasionNeed-sidebar", "#kpiPersuasionNeed"]);
+  const turnoutExpected = readExpectedTurnoutPct();
+  const projectedVotes = firstNonEmpty(["#kpiYourVotes-sidebar"]);
+  const persuasionNeed = firstNonEmpty(["#kpiPersuasionNeed-sidebar"]);
 
   return {
     universe: formatInteger(universeRaw),

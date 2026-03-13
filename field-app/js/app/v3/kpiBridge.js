@@ -32,7 +32,7 @@ export function syncKpis() {
   const margin =
     formatBridgeMargin(outcomeView?.mc?.p50) ||
     readSidebarMarginFallback();
-  const persuasionNeed = firstNonMissing(["#kpiPersuasionNeed-sidebar", "#kpiPersuasionNeed"]);
+  const persuasionNeed = firstNonMissing(["#kpiPersuasionNeed-sidebar"]);
   const bottleneck = inferBottleneck(outcomeView);
 
   setKpiValue("v3KpiWinProb", winProb || "-");
