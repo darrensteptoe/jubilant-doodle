@@ -5,12 +5,12 @@ export function preflightElsModule(ctx){
   try{
     const hasEl = (id) => Boolean((els && els[id]) || document.getElementById(id));
     const requiredAlways = [
-      "scenarioName",
-      "buildStamp",
+      ["scenarioName", "v3ScenarioName"],
+      ["buildStamp", "v3BuildStamp"],
       "selfTestGate",
       "persistenceStatus",
-      "btnDiagnostics",
-      "btnResetAll",
+      ["btnDiagnostics", "v3BtnDiagnostics"],
+      ["btnResetAll", "v3BtnReset"],
       "diagModal",
       "diagErrors",
       "btnDiagClose",
@@ -78,7 +78,12 @@ export function preflightElsModule(ctx){
       required.push(...requiredTargeting);
     }
 
-    const missing = required.filter((k) => !hasEl(k));
+    const missing = required
+      .filter((req) => {
+        if (Array.isArray(req)) return !req.some((id) => hasEl(id));
+        return !hasEl(req);
+      })
+      .map((req) => Array.isArray(req) ? req.join(" or ") : req);
     if (missing.length) recordError("dom-preflight", `Missing required element(s): ${missing.join(", ")}`);
   } catch { /* ignore */ }
 }

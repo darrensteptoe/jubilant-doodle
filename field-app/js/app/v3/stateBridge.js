@@ -1,3 +1,5 @@
+const TURNOUT_API_KEY = "__FPE_TURNOUT_API__";
+
 function readFromElement(el) {
   if (!el) {
     return "";
@@ -86,9 +88,31 @@ export function readDistrictSnapshot() {
 }
 
 export function readTurnoutSnapshot() {
+  const bridgeSummary = readTurnoutBridgeSummary();
   return {
-    turnoutSummary: firstNonEmpty(["#kpiTurnoutBand-sidebar", "#turnoutSummary"]),
-    turnoutVotes: firstNonEmpty(["#kpiTurnoutVotes-sidebar", "#kpiTurnoutVotes"]),
-    needVotes: firstNonEmpty(["#kpiPersuasionNeed-sidebar", "#kpiPersuasionNeed"])
+    turnoutSummary: bridgeSummary?.turnoutSummary || firstNonEmpty(["#kpiTurnoutBand-sidebar", "#turnoutSummary"]),
+    turnoutVotes: bridgeSummary?.turnoutVotes || firstNonEmpty(["#kpiTurnoutVotes-sidebar", "#kpiTurnoutVotes"]),
+    needVotes: bridgeSummary?.needVotes || firstNonEmpty(["#kpiPersuasionNeed-sidebar", "#kpiPersuasionNeed"])
   };
+}
+
+function readTurnoutBridgeSummary() {
+  try {
+    const api = window[TURNOUT_API_KEY];
+    if (!api || typeof api.getView !== "function") {
+      return null;
+    }
+    const view = api.getView();
+    const summary = view?.summary;
+    if (!summary || typeof summary !== "object") {
+      return null;
+    }
+    return {
+      turnoutSummary: String(summary.turnoutSummaryText || "").trim(),
+      turnoutVotes: String(summary.turnoutVotesText || "").trim(),
+      needVotes: String(summary.needVotesText || "").trim(),
+    };
+  } catch {
+    return null;
+  }
 }
