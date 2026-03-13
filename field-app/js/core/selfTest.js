@@ -1740,7 +1740,7 @@ export function runSelfTests(engine){
       ["btnDiagnostics", "v3BtnDiagnostics"],
       ["btnResetAll", "v3BtnReset"],
       ["universeSize", "v3DistrictUniverseSize"],
-      ["persuasionPct", "v3DistrictPersuasionPct"],
+      ["persuasionPct"],
       ["validationList"],
       ["operationsCapacityOutlookCard", "v3ReachOutlookTbody"],
       ["phase3Card", "v3OutcomeForecastWinProb"],
@@ -1783,24 +1783,25 @@ export function runSelfTests(engine){
   test("UI Smoke: census and USB persistence controls exist", () => {
     if (typeof document === "undefined") return true;
     const required = [
-      "censusPhase1Card",
-      "censusStateFips",
-      "censusCountyFips",
-      "censusGeoSelect",
-      "btnCensusFetchRows",
-      "censusAggregateTbody",
-      "censusMap",
-      "btnUsbStorageConnect",
-      "btnUsbStorageLoad",
-      "btnUsbStorageSave",
-      "btnUsbStorageDisconnect",
-      "usbStorageStatus",
+      ["censusPhase1Card", "v3DistrictCensusShell"],
+      ["censusStateFips", "v3CensusStateFips"],
+      ["censusCountyFips", "v3CensusCountyFips"],
+      ["censusGeoSelect", "v3CensusGeoSelect"],
+      ["btnCensusFetchRows", "v3BtnCensusFetchRows"],
+      ["censusAggregateTbody", "v3CensusAggregateTbody"],
+      ["censusMap", "v3CensusMapHost"],
+      ["btnUsbStorageConnect", "v3DataBtnUsbConnect"],
+      ["btnUsbStorageLoad", "v3DataBtnUsbLoad"],
+      ["btnUsbStorageSave", "v3DataBtnUsbSave"],
+      ["btnUsbStorageDisconnect", "v3DataBtnUsbDisconnect"],
+      ["usbStorageStatus", "v3DataUsbStatus"],
     ];
-    for (const id of required){
-      const el = document.getElementById(id);
-      if (!el) throw new Error(`Missing element id: ${id}`);
-      const matches = document.querySelectorAll(`[id="${id}"]`);
-      if (matches.length !== 1) throw new Error(`Duplicate id detected: ${id}`);
+    for (const group of required){
+      const ids = Array.isArray(group) ? group : [group];
+      const found = ids.find((id) => document.getElementById(id));
+      if (!found) throw new Error(`Missing element id: ${ids.join(" or ")}`);
+      const matches = document.querySelectorAll(`[id="${found}"]`);
+      if (matches.length !== 1) throw new Error(`Duplicate id detected: ${found}`);
     }
     return true;
   });
