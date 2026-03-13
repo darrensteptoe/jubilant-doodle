@@ -183,7 +183,9 @@ export function renderAssumptionsModule(args){
     kv("Early vote % (Expected)", res.raw.earlyVoteExp == null ? "—" : `${res.raw.earlyVoteExp.toFixed(1)}%`),
   ]));
 
-  if (!els.assumptionsSnapshot) return;
-  els.assumptionsSnapshot.innerHTML = "";
-  for (const b of blocks) els.assumptionsSnapshot.appendChild(b);
+  const assumptionsSnapshotEl = els?.assumptionsSnapshot || null;
+  if (assumptionsSnapshotEl){
+    assumptionsSnapshotEl.innerHTML = "";
+    for (const b of blocks) assumptionsSnapshotEl.appendChild(b);
+  }
 }

@@ -8,14 +8,17 @@ export function renderGuardrailsModule(args){
   } = args || {};
 
   const gs = [];
-  for (const g of res.guardrails){
+  const guardrails = Array.isArray(res?.guardrails) ? res.guardrails : [];
+  for (const g of guardrails){
     gs.push(block(g.title, g.lines.map(l => kv(l.k, l.v))));
   }
-  if (!els.guardrails) return;
-  els.guardrails.innerHTML = "";
-  if (!gs.length){
-    els.guardrails.textContent = "—";
-    return;
+  const guardrailsEl = els?.guardrails || null;
+  if (guardrailsEl){
+    guardrailsEl.innerHTML = "";
+    if (!gs.length){
+      guardrailsEl.textContent = "—";
+      return;
+    }
+    for (const b of gs) guardrailsEl.appendChild(b);
   }
-  for (const b of gs) els.guardrails.appendChild(b);
 }

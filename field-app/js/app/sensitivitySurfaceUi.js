@@ -53,8 +53,10 @@ export function applySurfaceDefaultsCore({
 }
 
 export function renderSurfaceStubCore({ els }){
-  if (!els.surfaceTbody) return;
-  els.surfaceTbody.innerHTML = '<tr><td class="muted">—</td><td class="num muted">—</td><td class="num muted">—</td><td class="num muted">—</td><td class="num muted">—</td></tr>';
+  const surfaceTbodyEl = els?.surfaceTbody || null;
+  if (surfaceTbodyEl){
+    surfaceTbodyEl.innerHTML = '<tr><td class="muted">—</td><td class="num muted">—</td><td class="num muted">—</td><td class="num muted">—</td><td class="num muted">—</td></tr>';
+  }
   if (els.surfaceSummary) els.surfaceSummary.textContent = "Compute to see safe zones, cliffs, and diminishing returns.";
   if (els.surfaceStatus) els.surfaceStatus.textContent = "";
 }
@@ -65,12 +67,14 @@ export function renderSurfaceResultCore({
   result,
   fmtSigned,
 }){
-  if (!els.surfaceTbody) return;
+  const surfaceTbodyEl = els?.surfaceTbody || null;
 
   const pts = Array.isArray(result?.points) ? result.points : [];
   const analysis = result?.analysis || null;
 
-  els.surfaceTbody.innerHTML = "";
+  if (surfaceTbodyEl){
+    surfaceTbodyEl.innerHTML = "";
+  }
   if (!pts.length){
     renderSurfaceStubCore({ els });
     if (els.surfaceSummary) els.surfaceSummary.textContent = result?.warning ? String(result.warning) : "No points returned.";
@@ -92,7 +96,7 @@ export function renderSurfaceResultCore({
     const td4 = document.createElement("td"); td4.className = "num"; td4.textContent = fmtSigned(p.p90);
 
     tr.appendChild(td0); tr.appendChild(td1); tr.appendChild(td2); tr.appendChild(td3); tr.appendChild(td4);
-    els.surfaceTbody.appendChild(tr);
+    if (surfaceTbodyEl) surfaceTbodyEl.appendChild(tr);
   }
 
   const parts = [];

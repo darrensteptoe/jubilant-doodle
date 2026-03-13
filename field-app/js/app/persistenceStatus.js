@@ -1,22 +1,23 @@
 // @ts-check
 export function updatePersistenceStatusChipModule(els, persistenceState){
-  if (!els.persistenceStatus) return;
+  const persistenceStatusEl = els?.persistenceStatus || null;
+  if (!persistenceStatusEl) return;
   const stateIssue = !persistenceState.stateSaveOk;
   const backupIssue = !persistenceState.backupSaveOk;
   if (!stateIssue && !backupIssue){
-    els.persistenceStatus.hidden = true;
-    els.persistenceStatus.textContent = "Save issue";
-    els.persistenceStatus.title = "";
+    persistenceStatusEl.hidden = true;
+    persistenceStatusEl.textContent = "Save issue";
+    persistenceStatusEl.title = "";
     return;
   }
-  els.persistenceStatus.hidden = false;
+  persistenceStatusEl.hidden = false;
   if (stateIssue){
-    els.persistenceStatus.textContent = "State save issue";
-    els.persistenceStatus.title = persistenceState.stateError || "Could not save planner state.";
+    persistenceStatusEl.textContent = "State save issue";
+    persistenceStatusEl.title = persistenceState.stateError || "Could not save planner state.";
     return;
   }
-  els.persistenceStatus.textContent = "Backup save issue";
-  els.persistenceStatus.title = persistenceState.backupError || "Could not save backup snapshot.";
+  persistenceStatusEl.textContent = "Backup save issue";
+  persistenceStatusEl.title = persistenceState.backupError || "Could not save backup snapshot.";
 }
 
 /** @param {import("./types").PersistenceStatusCtx} ctx */
