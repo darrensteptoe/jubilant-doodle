@@ -2795,6 +2795,16 @@ function turnoutBridgeStateView(){
   const doors = tactics?.doors || {};
   const phones = tactics?.phones || {};
   const texts = tactics?.texts || {};
+  const roiRowsRaw = Array.isArray(state?.ui?.lastRoiRows) ? state.ui.lastRoiRows : [];
+  const roiRows = roiRowsRaw.map((row) => ({
+    label: String(row?.label || ""),
+    cpa: safeNum(row?.cpa),
+    costPerNetVote: safeNum(row?.costPerNetVote),
+    costPerTurnoutAdjustedNetVote: safeNum(row?.costPerTurnoutAdjustedNetVote),
+    totalCost: safeNum(row?.totalCost),
+    feasibilityText: String(row?.feasibilityText || ""),
+  }));
+  const roiBannerText = String(state?.ui?.lastRoiBanner?.text || "").trim();
   const locked = isScenarioLockedForEdits(state);
   return {
     inputs: {
@@ -2832,6 +2842,8 @@ function turnoutBridgeStateView(){
       refreshDisabled: false,
     },
     options: TURNOUT_SELECT_OPTIONS,
+    roiRows,
+    roiBannerText,
   };
 }
 
@@ -3076,6 +3088,13 @@ function ensurePlanBridgeShape(target){
 function planBridgeStateView(){
   ensurePlanBridgeShape(state);
   const optimize = state?.budget?.optimize || {};
+  const optimizerRowsRaw = Array.isArray(state?.ui?.lastPlanRows) ? state.ui.lastPlanRows : [];
+  const optimizerRows = optimizerRowsRaw.map((row) => ({
+    tactic: String(row?.tactic || ""),
+    attempts: safeNum(row?.attempts),
+    cost: safeNum(row?.cost),
+    expectedNetVotes: safeNum(row?.expectedNetVotes),
+  }));
   const locked = isScenarioLockedForEdits(state);
   return {
     inputs: {
@@ -3104,6 +3123,7 @@ function planBridgeStateView(){
       runDisabled: locked,
     },
     options: PLAN_SELECT_OPTIONS,
+    optimizerRows,
   };
 }
 
