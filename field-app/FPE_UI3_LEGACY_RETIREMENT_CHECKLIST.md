@@ -76,6 +76,7 @@ Reference artifact:
 - Legacy `stage-results` has been collapsed to an empty retired stub anchor (`<section id="stage-results">`) so no legacy Outcome controls remain mounted in user/runtime flow.
 - Legacy `roi` and `gotv` nav entries have been removed from legacy left-rail user flow; `stage-roi` and `stage-gotv` DOM remain mounted for controlled retirement.
 - Legacy `stage-roi` and `stage-gotv` sections are now hidden in legacy flow (retired stubs), while DOM IDs remain mounted for parity and rollback safety.
+- Legacy `stage-gotv` has been collapsed to an empty retired stub anchor (`<section id="stage-gotv">`), removing legacy conversion/workload controls from mounted DOM while keeping rollback anchor.
 - Timeline runtime (`renderTimelineModule`) now computes and cache-updates without requiring legacy timeline DOM gates (`timelineEnabled`, `tlPercent`, `tl*` fields), reducing `stage-gotv` deletion risk.
 - Phase3 runtime (`renderPhase3Module`) now computes and refreshes MC freshness/results without requiring legacy `p3*` DOM gates, reducing `stage-results` deletion risk.
 - Compatibility MC phase3 panels (`js/app/render/monteCarlo.js`, `js/render/monteCarlo.js`) now run without hard `p3*` DOM gates, preserving freshness/results update paths if legacy result nodes are absent.

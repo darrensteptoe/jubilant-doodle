@@ -170,6 +170,7 @@ Scope: UI architecture migration only (engine and right rail frozen)
 - Legacy flow retirement: `stage-results` is now an empty retired stub anchor (no internal legacy controls mounted).
 - Legacy flow retirement: removed legacy left-nav `roi` and `gotv` entries while retaining `stage-roi`/`stage-gotv` DOM for runtime parity checks.
 - Legacy flow retirement: `stage-roi` and `stage-gotv` sections are hidden as retired stubs (DOM retained).
+- Legacy flow retirement: `stage-gotv` is now an empty retired stub anchor (no internal legacy controls mounted).
 - Runtime hardening: timeline renderer now computes/cache-updates without hard requiring legacy timeline DOM gates (`timelineEnabled`, `tlPercent`, `tl*`), reducing coupling to `stage-gotv` markup.
 - Runtime hardening: phase3 renderer now computes/cache-updates and continues MC refresh/render even when legacy `p3*` output nodes are absent, reducing coupling to `stage-results` markup.
 - Runtime hardening: compatibility MC phase3 renderers (`js/app/render/monteCarlo.js`, `js/render/monteCarlo.js`) now compute/cache-update without hard requiring legacy `p3*` nodes.
