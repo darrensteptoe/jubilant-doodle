@@ -28,7 +28,7 @@ Reference artifact:
 - `stage-scenarios` removed from `index.html` (legacy nav item removed as part of the same pass).
 - `stage-decisions` removed from `index.html` (legacy nav item removed; Decision Log runs from runtime API bridge in v3).
 - Reach v3 surface no longer reads legacy stage-capacity DOM IDs; it now hard-fails to runtime API bridge (`window.__FPE_REACH_API__`) instead of mirroring legacy DOM.
-- Legacy `stage-capacity` visual markup retired from `index.html` (kept as hidden retired stub); legacy nav item for capacity removed.
+- Legacy `stage-capacity` container has been fully removed from `index.html`; legacy nav item for capacity had already been removed.
 - Turnout v3 surface no longer reads legacy `#mcP50` from `stage-results` for impact margin context; it now uses right-rail `#mcP50-sidebar`.
 - Outcome v3 surface now sources core MC/risk display values (P10/P50/P90 + freshness + risk band) from right-rail sidebar IDs, reducing direct reads from `stage-results`.
 - Outcome v3 surface now sources risk-grade/fragility/cliff context from right-rail risk IDs (`#riskBandTag-sidebar`, `#riskVolatility-sidebar`, `#riskPlainBanner-sidebar`) instead of legacy `#mcRiskGrade/#mcFragility/#mcCliff`.
@@ -122,6 +122,7 @@ Reference artifact:
 - Removed stale duplicate v3 turnout surface file (`js/app/v3/turnout.js`); active Turnout surface remains `js/app/v3/surfaces/turnout.js`.
 - Legacy `integrity` nav entry has been removed from legacy left-rail user flow; `stage-integrity` DOM remains mounted for controlled retirement.
 - Legacy `stage-integrity` section is now hidden in legacy flow (retired stub), while IDs remain mounted for parity and rollback safety.
+- Runtime apply-state helpers now guard writes for Reach assumptions (`persuasionPct`, `earlyVoteExp`) so boot/render stays stable after `stage-capacity` removal.
 - Controls v3 evidence table now renders from scenario-bridge intel state (`window.__FPE_SCENARIO_API__`) instead of mirroring legacy `#intelEvidenceTbody`.
 - Controls v3 benchmark table now renders from scenario-bridge intel state (`window.__FPE_SCENARIO_API__`) and remove actions route by benchmark id, instead of mirroring legacy `#intelBenchmarkTbody`.
 - Controls v3 feedback previews (what-if + recommendations) now render from scenario-bridge intel state and no longer mirror legacy preview textareas (`#intelWhatIfPreview/#intelRecommendationPreview`).
@@ -137,7 +138,7 @@ Counts below are unique legacy IDs referenced by each v3 surface.
 | District | `stage-setup` | 4 |
 | District | `stage-structure` | 6 |
 | District | `stage-universe` | 3 |
-| Reach | `stage-capacity` | 0 |
+| Reach | retired (`stage-capacity` removed) | 0 |
 | Outcome | `stage-results` | 0 |
 | Turnout | `stage-roi` | 0 |
 | Plan | `stage-roi` | 0 |
@@ -150,8 +151,8 @@ Counts below are unique legacy IDs referenced by each v3 surface.
 ## Safe delete order (enforced)
 Delete only when the referenced surface(s) show zero bridge targets for that legacy container.
 
-1. `stage-capacity`
-Reason: isolated to Reach surface.
+1. `stage-capacity` (completed)
+Reason: isolated to Reach surface; removed after Reach bridge dependency reached zero.
 
 2. `stage-results`
 Reason: v3 Outcome bridge targets are zero; remaining blocker is runtime result/rail render paths that still write/read legacy results-stage DOM.
