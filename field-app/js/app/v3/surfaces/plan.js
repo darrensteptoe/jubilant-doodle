@@ -401,9 +401,9 @@ export function renderPlanSurface(mount) {
 }
 
 function wirePlanControlProxies() {
-  bindFieldProxy("v3PlanGoalSupportIds", "goalSupportIds");
-  bindFieldProxy("v3PlanHoursPerShift", "hoursPerShift");
-  bindFieldProxy("v3PlanShiftsPerVolunteer", "shiftsPerVolunteerPerWeek");
+  wirePlanReachField("v3PlanGoalSupportIds", "goalSupportIds");
+  wirePlanReachField("v3PlanHoursPerShift", "hoursPerShift");
+  wirePlanReachField("v3PlanShiftsPerVolunteer", "shiftsPerVolunteerPerWeek");
 
   bindSelectProxy("v3PlanOptMode", "optMode");
   bindSelectProxy("v3PlanOptObjective", "optObjective");
@@ -429,6 +429,7 @@ function wirePlanControlProxies() {
 }
 
 function refreshPlanSummary() {
+  const reachView = readReachView();
   const reachWeekly = readReachWeeklySnapshot();
   const outConversationsNeeded = String(reachWeekly.requiredConvos || "").trim();
   const outDoorsNeeded = String(reachWeekly.requiredDoors || "").trim();
@@ -498,9 +499,13 @@ function refreshPlanSummary() {
     tlShortfallVotes
   });
 
-  syncFieldValue("v3PlanGoalSupportIds", "goalSupportIds");
-  syncFieldValue("v3PlanHoursPerShift", "hoursPerShift");
-  syncFieldValue("v3PlanShiftsPerVolunteer", "shiftsPerVolunteerPerWeek");
+  syncPlanReachField("v3PlanGoalSupportIds", reachView?.inputs?.goalSupportIds, !!reachView?.controls?.locked);
+  syncPlanReachField("v3PlanHoursPerShift", reachView?.inputs?.hoursPerShift, !!reachView?.controls?.locked);
+  syncPlanReachField(
+    "v3PlanShiftsPerVolunteer",
+    reachView?.inputs?.shiftsPerVolunteerPerWeek,
+    !!reachView?.controls?.locked
+  );
 
   syncSelectValue("v3PlanOptMode", "optMode");
   syncSelectValue("v3PlanOptObjective", "optObjective");
@@ -526,10 +531,6 @@ function refreshPlanSummary() {
   syncPlanFieldMirror("v3PlanDoorsPerHour", "v3PlanTimelineDoorsPerHour");
 
   syncButtonDisabled("v3BtnOptRun", "optRun");
-
-  syncControlDisabled("v3PlanGoalSupportIds", "goalSupportIds");
-  syncControlDisabled("v3PlanHoursPerShift", "hoursPerShift");
-  syncControlDisabled("v3PlanShiftsPerVolunteer", "shiftsPerVolunteerPerWeek");
 
   syncControlDisabled("v3PlanOptMode", "optMode");
   syncControlDisabled("v3PlanOptObjective", "optObjective");
@@ -672,24 +673,64 @@ function buildPlanRecommendationProbability(constraint, shortfallVotes) {
   return "Probability posture is stable under current assumptions.";
 }
 
-function readReachWeeklySnapshot() {
+function wirePlanReachField(id, field) {
+  const input = document.getElementById(id);
+  if (!(input instanceof HTMLInputElement)) {
+    return;
+  }
+  if (input.dataset.v3ReachBound === "1") {
+    return;
+  }
+  input.dataset.v3ReachBound = "1";
+  const onChange = () => {
+    const api = getReachApi();
+    if (!api || typeof api.setField !== "function") {
+      return;
+    }
+    api.setField(field, input.value);
+  };
+  input.addEventListener("input", onChange);
+  input.addEventListener("change", onChange);
+}
+
+function syncPlanReachField(id, value, locked) {
+  const input = document.getElementById(id);
+  if (!(input instanceof HTMLInputElement)) {
+    return;
+  }
+  if (document.activeElement !== input) {
+    input.value = value == null ? "" : String(value);
+  }
+  input.disabled = !!locked;
+}
+
+function getReachApi() {
   const api = window[REACH_API_KEY];
   if (!api || typeof api !== "object" || typeof api.getView !== "function") {
-    return {};
+    return null;
+  }
+  return api;
+}
+
+function readReachView() {
+  const api = getReachApi();
+  if (!api) {
+    return null;
   }
   try {
     const view = api.getView();
-    if (!view || typeof view !== "object") {
-      return {};
-    }
-    const weekly = view.weekly;
-    if (!weekly || typeof weekly !== "object") {
-      return {};
-    }
-    return weekly;
+    return view && typeof view === "object" ? view : null;
   } catch {
+    return null;
+  }
+}
+
+function readReachWeeklySnapshot() {
+  const view = readReachView();
+  if (!view || typeof view.weekly !== "object" || !view.weekly) {
     return {};
   }
+  return view.weekly;
 }
 
 function buildPlanDerivedStatus({ outShiftsPerWeek, outVolunteersNeeded }) {
