@@ -15,6 +15,8 @@ export function preflightElsModule(ctx){
       "diagErrors",
       "btnDiagClose",
       "btnCopyDebug",
+    ];
+    const requiredDistrictCore = [
       ["raceType", "v3DistrictRaceType"],
       ["electionDate", "v3DistrictElectionDate"],
       ["weeksRemaining", "v3DistrictWeeksRemaining"],
@@ -28,8 +30,10 @@ export function preflightElsModule(ctx){
       ["candTbody", "v3DistrictCandTbody"],
       ["undecidedPct", "v3DistrictUndecidedPct"],
       ["undecidedMode", "v3DistrictUndecidedMode"],
-      "persuasionPct",
-      "earlyVoteExp",
+    ];
+    const requiredReachCore = [
+      ["persuasionPct", "v3ReachPersuasionPct"],
+      ["earlyVoteExp", "v3ReachEarlyVoteExp"],
     ];
     const requiredCensus = [
       ["censusPhase1Card", "v3DistrictCensusShell"],
@@ -71,6 +75,22 @@ export function preflightElsModule(ctx){
     ];
 
     const required = [...requiredAlways];
+    if (
+      hasEl("raceType") ||
+      hasEl("v3DistrictRaceType") ||
+      hasEl("universeSize") ||
+      hasEl("v3DistrictUniverseSize")
+    ){
+      required.push(...requiredDistrictCore);
+    }
+    if (
+      hasEl("persuasionPct") ||
+      hasEl("v3ReachPersuasionPct") ||
+      hasEl("earlyVoteExp") ||
+      hasEl("v3ReachEarlyVoteExp")
+    ){
+      required.push(...requiredReachCore);
+    }
     if (hasEl("censusPhase1Card") || hasEl("v3DistrictCensusShell")){
       required.push(...requiredCensus);
     }
