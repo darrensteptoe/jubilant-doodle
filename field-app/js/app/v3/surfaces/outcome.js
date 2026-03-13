@@ -366,129 +366,187 @@ export function renderOutcomeSurface(mount) {
 }
 
 function wireOutcomeControlProxies() {
-  bindFieldProxy("v3OutcomeOrgCount", "orgCount");
-  bindFieldProxy("v3OutcomeOrgHours", "orgHoursPerWeek");
-  bindFieldProxy("v3OutcomeVolunteerMult", "volunteerMultBase");
-  bindFieldProxy("v3OutcomeDoorShare", "channelDoorPct");
-  bindFieldProxy("v3OutcomeDoorsPerHour", "doorsPerHour3");
-  bindFieldProxy("v3OutcomeCallsPerHour", "callsPerHour3");
+  const api = getOutcomeApi();
+  if (!api || typeof api.setField !== "function") {
+    bindFieldProxy("v3OutcomeOrgCount", "orgCount");
+    bindFieldProxy("v3OutcomeOrgHours", "orgHoursPerWeek");
+    bindFieldProxy("v3OutcomeVolunteerMult", "volunteerMultBase");
+    bindFieldProxy("v3OutcomeDoorShare", "channelDoorPct");
+    bindFieldProxy("v3OutcomeDoorsPerHour", "doorsPerHour3");
+    bindFieldProxy("v3OutcomeCallsPerHour", "callsPerHour3");
 
-  bindSelectProxy("v3OutcomeMcMode", "mcMode");
-  bindFieldProxy("v3OutcomeMcSeed", "mcSeed");
-  bindSelectProxy("v3OutcomeMcVolatility", "mcVolatility");
-  bindFieldProxy("v3OutcomeTurnoutReliabilityPct", "turnoutReliabilityPct");
+    bindSelectProxy("v3OutcomeMcMode", "mcMode");
+    bindFieldProxy("v3OutcomeMcSeed", "mcSeed");
+    bindSelectProxy("v3OutcomeMcVolatility", "mcVolatility");
+    bindFieldProxy("v3OutcomeTurnoutReliabilityPct", "turnoutReliabilityPct");
 
-  bindFieldProxy("v3OutcomeMcContactMin", "mcContactMin");
-  bindFieldProxy("v3OutcomeMcContactMode", "mcContactMode");
-  bindFieldProxy("v3OutcomeMcContactMax", "mcContactMax");
-  bindFieldProxy("v3OutcomeMcPersMin", "mcPersMin");
-  bindFieldProxy("v3OutcomeMcPersMode", "mcPersMode");
-  bindFieldProxy("v3OutcomeMcPersMax", "mcPersMax");
-  bindFieldProxy("v3OutcomeMcReliMin", "mcReliMin");
-  bindFieldProxy("v3OutcomeMcReliMode", "mcReliMode");
-  bindFieldProxy("v3OutcomeMcReliMax", "mcReliMax");
-  bindFieldProxy("v3OutcomeMcDphMin", "mcDphMin");
-  bindFieldProxy("v3OutcomeMcDphMode", "mcDphMode");
-  bindFieldProxy("v3OutcomeMcDphMax", "mcDphMax");
-  bindFieldProxy("v3OutcomeMcCphMin", "mcCphMin");
-  bindFieldProxy("v3OutcomeMcCphMode", "mcCphMode");
-  bindFieldProxy("v3OutcomeMcCphMax", "mcCphMax");
-  bindFieldProxy("v3OutcomeMcVolMin", "mcVolMin");
-  bindFieldProxy("v3OutcomeMcVolMode", "mcVolMode");
-  bindFieldProxy("v3OutcomeMcVolMax", "mcVolMax");
+    bindFieldProxy("v3OutcomeMcContactMin", "mcContactMin");
+    bindFieldProxy("v3OutcomeMcContactMode", "mcContactMode");
+    bindFieldProxy("v3OutcomeMcContactMax", "mcContactMax");
+    bindFieldProxy("v3OutcomeMcPersMin", "mcPersMin");
+    bindFieldProxy("v3OutcomeMcPersMode", "mcPersMode");
+    bindFieldProxy("v3OutcomeMcPersMax", "mcPersMax");
+    bindFieldProxy("v3OutcomeMcReliMin", "mcReliMin");
+    bindFieldProxy("v3OutcomeMcReliMode", "mcReliMode");
+    bindFieldProxy("v3OutcomeMcReliMax", "mcReliMax");
+    bindFieldProxy("v3OutcomeMcDphMin", "mcDphMin");
+    bindFieldProxy("v3OutcomeMcDphMode", "mcDphMode");
+    bindFieldProxy("v3OutcomeMcDphMax", "mcDphMax");
+    bindFieldProxy("v3OutcomeMcCphMin", "mcCphMin");
+    bindFieldProxy("v3OutcomeMcCphMode", "mcCphMode");
+    bindFieldProxy("v3OutcomeMcCphMax", "mcCphMax");
+    bindFieldProxy("v3OutcomeMcVolMin", "mcVolMin");
+    bindFieldProxy("v3OutcomeMcVolMode", "mcVolMode");
+    bindFieldProxy("v3OutcomeMcVolMax", "mcVolMax");
 
-  bindClickProxy("v3BtnOutcomeRun", "mcRun");
-  bindClickProxy("v3BtnOutcomeRerun", "mcRerun");
-  bindClickProxy("v3BtnComputeSurface", "btnComputeSurface");
+    bindClickProxy("v3BtnOutcomeRun", "mcRun");
+    bindClickProxy("v3BtnOutcomeRerun", "mcRerun");
+    bindClickProxy("v3BtnComputeSurface", "btnComputeSurface");
 
-  bindSelectProxy("v3OutcomeSurfaceLever", "surfaceLever");
-  bindSelectProxy("v3OutcomeSurfaceMode", "surfaceMode");
-  bindFieldProxy("v3OutcomeSurfaceMin", "surfaceMin");
-  bindFieldProxy("v3OutcomeSurfaceMax", "surfaceMax");
-  bindFieldProxy("v3OutcomeSurfaceSteps", "surfaceSteps");
-  bindFieldProxy("v3OutcomeSurfaceTarget", "surfaceTarget");
+    bindSelectProxy("v3OutcomeSurfaceLever", "surfaceLever");
+    bindSelectProxy("v3OutcomeSurfaceMode", "surfaceMode");
+    bindFieldProxy("v3OutcomeSurfaceMin", "surfaceMin");
+    bindFieldProxy("v3OutcomeSurfaceMax", "surfaceMax");
+    bindFieldProxy("v3OutcomeSurfaceSteps", "surfaceSteps");
+    bindFieldProxy("v3OutcomeSurfaceTarget", "surfaceTarget");
+    return;
+  }
+
+  bindOutcomeInputField("v3OutcomeOrgCount", "orgCount", "orgCount");
+  bindOutcomeInputField("v3OutcomeOrgHours", "orgHoursPerWeek", "orgHoursPerWeek");
+  bindOutcomeInputField("v3OutcomeVolunteerMult", "volunteerMultBase", "volunteerMultBase");
+  bindOutcomeInputField("v3OutcomeDoorShare", "channelDoorPct", "channelDoorPct");
+  bindOutcomeInputField("v3OutcomeDoorsPerHour", "doorsPerHour3", "doorsPerHour3");
+  bindOutcomeInputField("v3OutcomeCallsPerHour", "callsPerHour3", "callsPerHour3");
+
+  bindOutcomeSelectField("v3OutcomeMcMode", "mcMode", "mcMode");
+  bindOutcomeInputField("v3OutcomeMcSeed", "mcSeed", "mcSeed");
+  bindOutcomeSelectField("v3OutcomeMcVolatility", "mcVolatility", "mcVolatility");
+  bindOutcomeInputField("v3OutcomeTurnoutReliabilityPct", "turnoutReliabilityPct", "turnoutReliabilityPct");
+
+  bindOutcomeInputField("v3OutcomeMcContactMin", "mcContactMin", "mcContactMin");
+  bindOutcomeInputField("v3OutcomeMcContactMode", "mcContactMode", "mcContactMode");
+  bindOutcomeInputField("v3OutcomeMcContactMax", "mcContactMax", "mcContactMax");
+  bindOutcomeInputField("v3OutcomeMcPersMin", "mcPersMin", "mcPersMin");
+  bindOutcomeInputField("v3OutcomeMcPersMode", "mcPersMode", "mcPersMode");
+  bindOutcomeInputField("v3OutcomeMcPersMax", "mcPersMax", "mcPersMax");
+  bindOutcomeInputField("v3OutcomeMcReliMin", "mcReliMin", "mcReliMin");
+  bindOutcomeInputField("v3OutcomeMcReliMode", "mcReliMode", "mcReliMode");
+  bindOutcomeInputField("v3OutcomeMcReliMax", "mcReliMax", "mcReliMax");
+  bindOutcomeInputField("v3OutcomeMcDphMin", "mcDphMin", "mcDphMin");
+  bindOutcomeInputField("v3OutcomeMcDphMode", "mcDphMode", "mcDphMode");
+  bindOutcomeInputField("v3OutcomeMcDphMax", "mcDphMax", "mcDphMax");
+  bindOutcomeInputField("v3OutcomeMcCphMin", "mcCphMin", "mcCphMin");
+  bindOutcomeInputField("v3OutcomeMcCphMode", "mcCphMode", "mcCphMode");
+  bindOutcomeInputField("v3OutcomeMcCphMax", "mcCphMax", "mcCphMax");
+  bindOutcomeInputField("v3OutcomeMcVolMin", "mcVolMin", "mcVolMin");
+  bindOutcomeInputField("v3OutcomeMcVolMode", "mcVolMode", "mcVolMode");
+  bindOutcomeInputField("v3OutcomeMcVolMax", "mcVolMax", "mcVolMax");
+
+  bindOutcomeAction("v3BtnOutcomeRun", "runMc", "mcRun");
+  bindOutcomeAction("v3BtnOutcomeRerun", "rerunMc", "mcRerun");
+  bindOutcomeAction("v3BtnComputeSurface", "computeSurface", "btnComputeSurface");
+
+  bindOutcomeSelectField("v3OutcomeSurfaceLever", "surfaceLever", "surfaceLever");
+  bindOutcomeSelectField("v3OutcomeSurfaceMode", "surfaceMode", "surfaceMode");
+  bindOutcomeInputField("v3OutcomeSurfaceMin", "surfaceMin", "surfaceMin");
+  bindOutcomeInputField("v3OutcomeSurfaceMax", "surfaceMax", "surfaceMax");
+  bindOutcomeInputField("v3OutcomeSurfaceSteps", "surfaceSteps", "surfaceSteps");
+  bindOutcomeInputField("v3OutcomeSurfaceTarget", "surfaceTarget", "surfaceTarget");
 }
 
 function refreshOutcomeSummary() {
-  syncFieldValue("v3OutcomeOrgCount", "orgCount");
-  syncFieldValue("v3OutcomeOrgHours", "orgHoursPerWeek");
-  syncFieldValue("v3OutcomeVolunteerMult", "volunteerMultBase");
-  syncFieldValue("v3OutcomeDoorShare", "channelDoorPct");
-  syncFieldValue("v3OutcomeDoorsPerHour", "doorsPerHour3");
-  syncFieldValue("v3OutcomeCallsPerHour", "callsPerHour3");
+  const outcomeView = readOutcomeBridgeView();
+  const hasBridgeInputs = !!(outcomeView?.inputs && typeof outcomeView.inputs === "object");
+  const hasBridgeControls = !!(outcomeView?.controls && typeof outcomeView.controls === "object");
 
-  syncSelectValue("v3OutcomeMcMode", "mcMode");
-  syncFieldValue("v3OutcomeMcSeed", "mcSeed");
-  syncSelectValue("v3OutcomeMcVolatility", "mcVolatility");
-  syncFieldValue("v3OutcomeTurnoutReliabilityPct", "turnoutReliabilityPct");
+  if (hasBridgeInputs) {
+    applyOutcomeControlView(outcomeView);
+  } else {
+    syncFieldValue("v3OutcomeOrgCount", "orgCount");
+    syncFieldValue("v3OutcomeOrgHours", "orgHoursPerWeek");
+    syncFieldValue("v3OutcomeVolunteerMult", "volunteerMultBase");
+    syncFieldValue("v3OutcomeDoorShare", "channelDoorPct");
+    syncFieldValue("v3OutcomeDoorsPerHour", "doorsPerHour3");
+    syncFieldValue("v3OutcomeCallsPerHour", "callsPerHour3");
+
+    syncSelectValue("v3OutcomeMcMode", "mcMode");
+    syncFieldValue("v3OutcomeMcSeed", "mcSeed");
+    syncSelectValue("v3OutcomeMcVolatility", "mcVolatility");
+    syncFieldValue("v3OutcomeTurnoutReliabilityPct", "turnoutReliabilityPct");
+
+    syncFieldValue("v3OutcomeMcContactMin", "mcContactMin");
+    syncFieldValue("v3OutcomeMcContactMode", "mcContactMode");
+    syncFieldValue("v3OutcomeMcContactMax", "mcContactMax");
+    syncFieldValue("v3OutcomeMcPersMin", "mcPersMin");
+    syncFieldValue("v3OutcomeMcPersMode", "mcPersMode");
+    syncFieldValue("v3OutcomeMcPersMax", "mcPersMax");
+    syncFieldValue("v3OutcomeMcReliMin", "mcReliMin");
+    syncFieldValue("v3OutcomeMcReliMode", "mcReliMode");
+    syncFieldValue("v3OutcomeMcReliMax", "mcReliMax");
+    syncFieldValue("v3OutcomeMcDphMin", "mcDphMin");
+    syncFieldValue("v3OutcomeMcDphMode", "mcDphMode");
+    syncFieldValue("v3OutcomeMcDphMax", "mcDphMax");
+    syncFieldValue("v3OutcomeMcCphMin", "mcCphMin");
+    syncFieldValue("v3OutcomeMcCphMode", "mcCphMode");
+    syncFieldValue("v3OutcomeMcCphMax", "mcCphMax");
+    syncFieldValue("v3OutcomeMcVolMin", "mcVolMin");
+    syncFieldValue("v3OutcomeMcVolMode", "mcVolMode");
+    syncFieldValue("v3OutcomeMcVolMax", "mcVolMax");
+
+    syncSelectValue("v3OutcomeSurfaceLever", "surfaceLever");
+    syncSelectValue("v3OutcomeSurfaceMode", "surfaceMode");
+    syncFieldValue("v3OutcomeSurfaceMin", "surfaceMin");
+    syncFieldValue("v3OutcomeSurfaceMax", "surfaceMax");
+    syncFieldValue("v3OutcomeSurfaceSteps", "surfaceSteps");
+    syncFieldValue("v3OutcomeSurfaceTarget", "surfaceTarget");
+  }
+
   const mcRunsInput = document.getElementById("v3OutcomeMcRuns");
   if (mcRunsInput instanceof HTMLInputElement) {
     if (document.activeElement !== mcRunsInput) {
-      mcRunsInput.value = "10000";
+      const runsValue = hasBridgeInputs ? String(outcomeView?.inputs?.mcRuns ?? "10000") : "10000";
+      mcRunsInput.value = runsValue;
     }
     mcRunsInput.disabled = true;
   }
 
-  syncFieldValue("v3OutcomeMcContactMin", "mcContactMin");
-  syncFieldValue("v3OutcomeMcContactMode", "mcContactMode");
-  syncFieldValue("v3OutcomeMcContactMax", "mcContactMax");
-  syncFieldValue("v3OutcomeMcPersMin", "mcPersMin");
-  syncFieldValue("v3OutcomeMcPersMode", "mcPersMode");
-  syncFieldValue("v3OutcomeMcPersMax", "mcPersMax");
-  syncFieldValue("v3OutcomeMcReliMin", "mcReliMin");
-  syncFieldValue("v3OutcomeMcReliMode", "mcReliMode");
-  syncFieldValue("v3OutcomeMcReliMax", "mcReliMax");
-  syncFieldValue("v3OutcomeMcDphMin", "mcDphMin");
-  syncFieldValue("v3OutcomeMcDphMode", "mcDphMode");
-  syncFieldValue("v3OutcomeMcDphMax", "mcDphMax");
-  syncFieldValue("v3OutcomeMcCphMin", "mcCphMin");
-  syncFieldValue("v3OutcomeMcCphMode", "mcCphMode");
-  syncFieldValue("v3OutcomeMcCphMax", "mcCphMax");
-  syncFieldValue("v3OutcomeMcVolMin", "mcVolMin");
-  syncFieldValue("v3OutcomeMcVolMode", "mcVolMode");
-  syncFieldValue("v3OutcomeMcVolMax", "mcVolMax");
-
-  syncSelectValue("v3OutcomeSurfaceLever", "surfaceLever");
-  syncSelectValue("v3OutcomeSurfaceMode", "surfaceMode");
-  syncFieldValue("v3OutcomeSurfaceMin", "surfaceMin");
-  syncFieldValue("v3OutcomeSurfaceMax", "surfaceMax");
-  syncFieldValue("v3OutcomeSurfaceSteps", "surfaceSteps");
-  syncFieldValue("v3OutcomeSurfaceTarget", "surfaceTarget");
-
-  syncControlDisabled("v3OutcomeOrgCount", "orgCount");
-  syncControlDisabled("v3OutcomeOrgHours", "orgHoursPerWeek");
-  syncControlDisabled("v3OutcomeVolunteerMult", "volunteerMultBase");
-  syncControlDisabled("v3OutcomeDoorShare", "channelDoorPct");
-  syncControlDisabled("v3OutcomeDoorsPerHour", "doorsPerHour3");
-  syncControlDisabled("v3OutcomeCallsPerHour", "callsPerHour3");
-  syncControlDisabled("v3OutcomeMcMode", "mcMode");
-  syncControlDisabled("v3OutcomeMcSeed", "mcSeed");
-  syncControlDisabled("v3OutcomeMcVolatility", "mcVolatility");
-  syncControlDisabled("v3OutcomeTurnoutReliabilityPct", "turnoutReliabilityPct");
-  syncControlDisabled("v3OutcomeMcContactMin", "mcContactMin");
-  syncControlDisabled("v3OutcomeMcContactMode", "mcContactMode");
-  syncControlDisabled("v3OutcomeMcContactMax", "mcContactMax");
-  syncControlDisabled("v3OutcomeMcPersMin", "mcPersMin");
-  syncControlDisabled("v3OutcomeMcPersMode", "mcPersMode");
-  syncControlDisabled("v3OutcomeMcPersMax", "mcPersMax");
-  syncControlDisabled("v3OutcomeMcReliMin", "mcReliMin");
-  syncControlDisabled("v3OutcomeMcReliMode", "mcReliMode");
-  syncControlDisabled("v3OutcomeMcReliMax", "mcReliMax");
-  syncControlDisabled("v3OutcomeMcDphMin", "mcDphMin");
-  syncControlDisabled("v3OutcomeMcDphMode", "mcDphMode");
-  syncControlDisabled("v3OutcomeMcDphMax", "mcDphMax");
-  syncControlDisabled("v3OutcomeMcCphMin", "mcCphMin");
-  syncControlDisabled("v3OutcomeMcCphMode", "mcCphMode");
-  syncControlDisabled("v3OutcomeMcCphMax", "mcCphMax");
-  syncControlDisabled("v3OutcomeMcVolMin", "mcVolMin");
-  syncControlDisabled("v3OutcomeMcVolMode", "mcVolMode");
-  syncControlDisabled("v3OutcomeMcVolMax", "mcVolMax");
-  syncControlDisabled("v3OutcomeSurfaceLever", "surfaceLever");
-  syncControlDisabled("v3OutcomeSurfaceMode", "surfaceMode");
-  syncControlDisabled("v3OutcomeSurfaceMin", "surfaceMin");
-  syncControlDisabled("v3OutcomeSurfaceMax", "surfaceMax");
-  syncControlDisabled("v3OutcomeSurfaceSteps", "surfaceSteps");
-  syncControlDisabled("v3OutcomeSurfaceTarget", "surfaceTarget");
+  if (!hasBridgeControls) {
+    syncControlDisabled("v3OutcomeOrgCount", "orgCount");
+    syncControlDisabled("v3OutcomeOrgHours", "orgHoursPerWeek");
+    syncControlDisabled("v3OutcomeVolunteerMult", "volunteerMultBase");
+    syncControlDisabled("v3OutcomeDoorShare", "channelDoorPct");
+    syncControlDisabled("v3OutcomeDoorsPerHour", "doorsPerHour3");
+    syncControlDisabled("v3OutcomeCallsPerHour", "callsPerHour3");
+    syncControlDisabled("v3OutcomeMcMode", "mcMode");
+    syncControlDisabled("v3OutcomeMcSeed", "mcSeed");
+    syncControlDisabled("v3OutcomeMcVolatility", "mcVolatility");
+    syncControlDisabled("v3OutcomeTurnoutReliabilityPct", "turnoutReliabilityPct");
+    syncControlDisabled("v3OutcomeMcContactMin", "mcContactMin");
+    syncControlDisabled("v3OutcomeMcContactMode", "mcContactMode");
+    syncControlDisabled("v3OutcomeMcContactMax", "mcContactMax");
+    syncControlDisabled("v3OutcomeMcPersMin", "mcPersMin");
+    syncControlDisabled("v3OutcomeMcPersMode", "mcPersMode");
+    syncControlDisabled("v3OutcomeMcPersMax", "mcPersMax");
+    syncControlDisabled("v3OutcomeMcReliMin", "mcReliMin");
+    syncControlDisabled("v3OutcomeMcReliMode", "mcReliMode");
+    syncControlDisabled("v3OutcomeMcReliMax", "mcReliMax");
+    syncControlDisabled("v3OutcomeMcDphMin", "mcDphMin");
+    syncControlDisabled("v3OutcomeMcDphMode", "mcDphMode");
+    syncControlDisabled("v3OutcomeMcDphMax", "mcDphMax");
+    syncControlDisabled("v3OutcomeMcCphMin", "mcCphMin");
+    syncControlDisabled("v3OutcomeMcCphMode", "mcCphMode");
+    syncControlDisabled("v3OutcomeMcCphMax", "mcCphMax");
+    syncControlDisabled("v3OutcomeMcVolMin", "mcVolMin");
+    syncControlDisabled("v3OutcomeMcVolMode", "mcVolMode");
+    syncControlDisabled("v3OutcomeMcVolMax", "mcVolMax");
+    syncControlDisabled("v3OutcomeSurfaceLever", "surfaceLever");
+    syncControlDisabled("v3OutcomeSurfaceMode", "surfaceMode");
+    syncControlDisabled("v3OutcomeSurfaceMin", "surfaceMin");
+    syncControlDisabled("v3OutcomeSurfaceMax", "surfaceMax");
+    syncControlDisabled("v3OutcomeSurfaceSteps", "surfaceSteps");
+    syncControlDisabled("v3OutcomeSurfaceTarget", "surfaceTarget");
+  }
 
   const outcomeWeeksRemaining = "See Plan timeline.";
   const outcomeCapacityPerWeek = "See Reach capacity outlook.";
@@ -500,7 +558,6 @@ function refreshOutcomeSummary() {
   setText("v3OutcomeGapContacts", outcomeGapPerWeek || "—");
   setText("v3OutcomeGapNote", outcomeGapNote || "—");
 
-  const outcomeView = readOutcomeBridgeView();
   const defaultSurfaceStatus = "Run surface compute to refresh win-band diagnostics.";
   const defaultSurfaceSummary = "Compute to see safe zones, cliffs, and diminishing returns.";
   const bridgedSurfaceStatus = String(outcomeView?.surfaceStatusText || "").trim();
@@ -628,9 +685,15 @@ function refreshOutcomeSummary() {
     outcomeWinProb
   });
 
-  syncButtonDisabled("v3BtnOutcomeRun", "mcRun");
-  syncButtonDisabled("v3BtnOutcomeRerun", "mcRerun");
-  syncButtonDisabled("v3BtnComputeSurface", "btnComputeSurface");
+  if (hasBridgeControls) {
+    setOutcomeControlDisabled("v3BtnOutcomeRun", !!outcomeView?.controls?.runDisabled);
+    setOutcomeControlDisabled("v3BtnOutcomeRerun", !!outcomeView?.controls?.rerunDisabled);
+    setOutcomeControlDisabled("v3BtnComputeSurface", !!outcomeView?.controls?.surfaceDisabled);
+  } else {
+    syncButtonDisabled("v3BtnOutcomeRun", "mcRun");
+    syncButtonDisabled("v3BtnOutcomeRerun", "mcRerun");
+    syncButtonDisabled("v3BtnComputeSurface", "btnComputeSurface");
+  }
 }
 
 function setJoinedText(targetId, values, separator = " / ") {
@@ -651,6 +714,221 @@ function readOutcomeBridgeView() {
   } catch {
     return null;
   }
+}
+
+function getOutcomeApi() {
+  const api = window[OUTCOME_API_KEY];
+  return api && typeof api === "object" ? api : null;
+}
+
+function bindOutcomeInputField(v3Id, field, legacyId) {
+  const input = document.getElementById(v3Id);
+  if (!(input instanceof HTMLInputElement)) {
+    return;
+  }
+  if (input.dataset.v3OutcomeBound === "1") {
+    return;
+  }
+  input.dataset.v3OutcomeBound = "1";
+  const onChange = () => {
+    const api = getOutcomeApi();
+    if (api && typeof api.setField === "function") {
+      api.setField(field, input.value);
+      return;
+    }
+    dispatchLegacyField(legacyId, input.value);
+  };
+  input.addEventListener("input", onChange);
+  input.addEventListener("change", onChange);
+}
+
+function bindOutcomeSelectField(v3Id, field, legacyId) {
+  const select = document.getElementById(v3Id);
+  if (!(select instanceof HTMLSelectElement)) {
+    return;
+  }
+  if (select.dataset.v3OutcomeBound === "1") {
+    return;
+  }
+  select.dataset.v3OutcomeBound = "1";
+  select.addEventListener("change", () => {
+    const api = getOutcomeApi();
+    if (api && typeof api.setField === "function") {
+      api.setField(field, select.value);
+      return;
+    }
+    dispatchLegacyField(legacyId, select.value, { isSelect: true });
+  });
+}
+
+function bindOutcomeAction(v3Id, actionName, legacyId) {
+  const button = document.getElementById(v3Id);
+  if (!(button instanceof HTMLButtonElement)) {
+    return;
+  }
+  if (button.dataset.v3OutcomeBound === "1") {
+    return;
+  }
+  button.dataset.v3OutcomeBound = "1";
+  button.addEventListener("click", () => {
+    const api = getOutcomeApi();
+    if (api && typeof api[actionName] === "function") {
+      api[actionName]();
+      return;
+    }
+    const legacyBtn = document.getElementById(legacyId);
+    if (legacyBtn instanceof HTMLElement && typeof legacyBtn.click === "function") {
+      legacyBtn.click();
+    }
+  });
+}
+
+function dispatchLegacyField(id, value, { isSelect = false } = {}) {
+  const legacy = document.getElementById(id);
+  if (isSelect) {
+    if (!(legacy instanceof HTMLSelectElement)) {
+      return;
+    }
+    legacy.value = String(value ?? "");
+    legacy.dispatchEvent(new Event("change", { bubbles: true }));
+    return;
+  }
+  if (!(legacy instanceof HTMLInputElement) && !(legacy instanceof HTMLTextAreaElement)) {
+    return;
+  }
+  legacy.value = String(value ?? "");
+  legacy.dispatchEvent(new Event("input", { bubbles: true }));
+  legacy.dispatchEvent(new Event("change", { bubbles: true }));
+}
+
+function syncOutcomeInputValue(id, value) {
+  const input = document.getElementById(id);
+  if (!(input instanceof HTMLInputElement)) {
+    return;
+  }
+  if (document.activeElement === input) {
+    return;
+  }
+  input.value = value == null ? "" : String(value);
+}
+
+function syncOutcomeSelectOptions(id, options, selectedValue) {
+  const select = document.getElementById(id);
+  if (!(select instanceof HTMLSelectElement)) {
+    return;
+  }
+  const normalized = Array.isArray(options)
+    ? options.map((option) => ({
+        value: String(option?.value ?? ""),
+        label: String(option?.label ?? option?.value ?? "")
+      }))
+    : [];
+  const current = Array.from(select.options).map((option) => `${option.value}::${option.textContent || ""}`);
+  const next = normalized.map((option) => `${option.value}::${option.label}`);
+  const isSame = current.length === next.length && current.every((item, index) => item === next[index]);
+  if (!isSame) {
+    select.innerHTML = "";
+    normalized.forEach((option) => {
+      const node = document.createElement("option");
+      node.value = option.value;
+      node.textContent = option.label;
+      select.appendChild(node);
+    });
+  }
+  if (document.activeElement !== select) {
+    select.value = selectedValue == null ? "" : String(selectedValue);
+  }
+}
+
+function setOutcomeControlDisabled(id, disabled) {
+  const control = document.getElementById(id);
+  if (
+    !(control instanceof HTMLInputElement) &&
+    !(control instanceof HTMLSelectElement) &&
+    !(control instanceof HTMLButtonElement)
+  ) {
+    return;
+  }
+  control.disabled = !!disabled;
+}
+
+function applyOutcomeControlView(view) {
+  const inputs = view?.inputs && typeof view.inputs === "object" ? view.inputs : {};
+  const options = view?.options && typeof view.options === "object" ? view.options : {};
+  const controls = view?.controls && typeof view.controls === "object" ? view.controls : {};
+
+  syncOutcomeInputValue("v3OutcomeOrgCount", inputs.orgCount);
+  syncOutcomeInputValue("v3OutcomeOrgHours", inputs.orgHoursPerWeek);
+  syncOutcomeInputValue("v3OutcomeVolunteerMult", inputs.volunteerMultBase);
+  syncOutcomeInputValue("v3OutcomeDoorShare", inputs.channelDoorPct);
+  syncOutcomeInputValue("v3OutcomeDoorsPerHour", inputs.doorsPerHour3);
+  syncOutcomeInputValue("v3OutcomeCallsPerHour", inputs.callsPerHour3);
+  syncOutcomeSelectOptions("v3OutcomeMcMode", options.mcMode || [], inputs.mcMode);
+  syncOutcomeInputValue("v3OutcomeMcSeed", inputs.mcSeed);
+  syncOutcomeSelectOptions("v3OutcomeMcVolatility", options.mcVolatility || [], inputs.mcVolatility);
+  syncOutcomeInputValue("v3OutcomeTurnoutReliabilityPct", inputs.turnoutReliabilityPct);
+
+  syncOutcomeInputValue("v3OutcomeMcContactMin", inputs.mcContactMin);
+  syncOutcomeInputValue("v3OutcomeMcContactMode", inputs.mcContactMode);
+  syncOutcomeInputValue("v3OutcomeMcContactMax", inputs.mcContactMax);
+  syncOutcomeInputValue("v3OutcomeMcPersMin", inputs.mcPersMin);
+  syncOutcomeInputValue("v3OutcomeMcPersMode", inputs.mcPersMode);
+  syncOutcomeInputValue("v3OutcomeMcPersMax", inputs.mcPersMax);
+  syncOutcomeInputValue("v3OutcomeMcReliMin", inputs.mcReliMin);
+  syncOutcomeInputValue("v3OutcomeMcReliMode", inputs.mcReliMode);
+  syncOutcomeInputValue("v3OutcomeMcReliMax", inputs.mcReliMax);
+  syncOutcomeInputValue("v3OutcomeMcDphMin", inputs.mcDphMin);
+  syncOutcomeInputValue("v3OutcomeMcDphMode", inputs.mcDphMode);
+  syncOutcomeInputValue("v3OutcomeMcDphMax", inputs.mcDphMax);
+  syncOutcomeInputValue("v3OutcomeMcCphMin", inputs.mcCphMin);
+  syncOutcomeInputValue("v3OutcomeMcCphMode", inputs.mcCphMode);
+  syncOutcomeInputValue("v3OutcomeMcCphMax", inputs.mcCphMax);
+  syncOutcomeInputValue("v3OutcomeMcVolMin", inputs.mcVolMin);
+  syncOutcomeInputValue("v3OutcomeMcVolMode", inputs.mcVolMode);
+  syncOutcomeInputValue("v3OutcomeMcVolMax", inputs.mcVolMax);
+
+  syncOutcomeSelectOptions("v3OutcomeSurfaceLever", options.surfaceLever || [], inputs.surfaceLever);
+  syncOutcomeSelectOptions("v3OutcomeSurfaceMode", options.surfaceMode || [], inputs.surfaceMode);
+  syncOutcomeInputValue("v3OutcomeSurfaceMin", inputs.surfaceMin);
+  syncOutcomeInputValue("v3OutcomeSurfaceMax", inputs.surfaceMax);
+  syncOutcomeInputValue("v3OutcomeSurfaceSteps", inputs.surfaceSteps);
+  syncOutcomeInputValue("v3OutcomeSurfaceTarget", inputs.surfaceTarget);
+
+  const locked = !!controls.locked;
+  setOutcomeControlDisabled("v3OutcomeOrgCount", locked);
+  setOutcomeControlDisabled("v3OutcomeOrgHours", locked);
+  setOutcomeControlDisabled("v3OutcomeVolunteerMult", locked);
+  setOutcomeControlDisabled("v3OutcomeDoorShare", locked);
+  setOutcomeControlDisabled("v3OutcomeDoorsPerHour", locked);
+  setOutcomeControlDisabled("v3OutcomeCallsPerHour", locked);
+  setOutcomeControlDisabled("v3OutcomeMcMode", locked);
+  setOutcomeControlDisabled("v3OutcomeMcSeed", locked);
+  setOutcomeControlDisabled("v3OutcomeMcVolatility", locked);
+  setOutcomeControlDisabled("v3OutcomeTurnoutReliabilityPct", locked);
+  setOutcomeControlDisabled("v3OutcomeMcContactMin", locked);
+  setOutcomeControlDisabled("v3OutcomeMcContactMode", locked);
+  setOutcomeControlDisabled("v3OutcomeMcContactMax", locked);
+  setOutcomeControlDisabled("v3OutcomeMcPersMin", locked);
+  setOutcomeControlDisabled("v3OutcomeMcPersMode", locked);
+  setOutcomeControlDisabled("v3OutcomeMcPersMax", locked);
+  setOutcomeControlDisabled("v3OutcomeMcReliMin", locked);
+  setOutcomeControlDisabled("v3OutcomeMcReliMode", locked);
+  setOutcomeControlDisabled("v3OutcomeMcReliMax", locked);
+  setOutcomeControlDisabled("v3OutcomeMcDphMin", locked);
+  setOutcomeControlDisabled("v3OutcomeMcDphMode", locked);
+  setOutcomeControlDisabled("v3OutcomeMcDphMax", locked);
+  setOutcomeControlDisabled("v3OutcomeMcCphMin", locked);
+  setOutcomeControlDisabled("v3OutcomeMcCphMode", locked);
+  setOutcomeControlDisabled("v3OutcomeMcCphMax", locked);
+  setOutcomeControlDisabled("v3OutcomeMcVolMin", locked);
+  setOutcomeControlDisabled("v3OutcomeMcVolMode", locked);
+  setOutcomeControlDisabled("v3OutcomeMcVolMax", locked);
+  setOutcomeControlDisabled("v3OutcomeSurfaceLever", !!controls.surfaceDisabled);
+  setOutcomeControlDisabled("v3OutcomeSurfaceMode", !!controls.surfaceDisabled);
+  setOutcomeControlDisabled("v3OutcomeSurfaceMin", !!controls.surfaceDisabled);
+  setOutcomeControlDisabled("v3OutcomeSurfaceMax", !!controls.surfaceDisabled);
+  setOutcomeControlDisabled("v3OutcomeSurfaceSteps", !!controls.surfaceDisabled);
+  setOutcomeControlDisabled("v3OutcomeSurfaceTarget", !!controls.surfaceDisabled);
 }
 
 function renderOutcomeSensitivityRows(rows) {
