@@ -419,6 +419,8 @@ export const els = {
   opsFinishP90: document.getElementById("opsFinishP90"),
   opsMissProb: document.getElementById("opsMissProb"),
   opsMissTag: document.getElementById("opsMissTag"),
+  opsMissProbSidebar: document.getElementById("opsMissProb-sidebar"),
+  opsMissTagSidebar: document.getElementById("opsMissTag-sidebar"),
   mcMoS: document.getElementById("mcMoS"),
   mcDownside: document.getElementById("mcDownside"),
   mcES10: document.getElementById("mcES10"),
