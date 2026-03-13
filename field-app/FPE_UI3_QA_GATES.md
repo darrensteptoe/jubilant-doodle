@@ -155,6 +155,10 @@ Scope: UI architecture migration only (engine and right rail frozen)
 - Outcome bridge reduction: v3 Outcome controls/actions now bind exclusively via runtime Outcome API (`setField/runMc/rerunMc/computeSurface/getView`) with no legacy proxy fallback path.
 - QA gate update: v3 smoke now treats Reach, Outcome, Turnout, Plan, Scenarios, Decision Log, and Data as no-legacy-bridge stages (`bridge-control-count` expects zero `data-v3-legacy-id` controls); District and Controls remain bridged during migration.
 - KPI bridge reduction: v3 KPI strip now uses runtime Outcome/Reach bridge views plus right-rail context for win probability, margin, and bottleneck status (no `stage-results` selector fallback on KPI win/margin fields).
+- Runtime hardening: MC render paths now render sidebar confidence/win metrics even when legacy primary result IDs are absent (no early return on missing `#mcWinProb`).
+- Runtime hardening: MC freshness/stale tags now update via sidebar-only targets even when legacy primary freshness nodes are absent.
+- Runtime hardening: risk-framing panel now updates via sidebar-only targets and no longer hard-requires legacy primary risk nodes.
+- Runtime hardening: D4 miss-risk computation/cache now runs without requiring legacy `opsMissProb/opsMissTag` DOM nodes.
 - Legacy `stage-capacity` visual surface has been retired from `index.html` user flow (hidden retired stub retained during transition); preflight no longer requires legacy Reach assumption IDs.
 - Added v3 stage persistence/cutover behavior (`js/app/v3/index.js`):
   - Active stage persists to local storage.

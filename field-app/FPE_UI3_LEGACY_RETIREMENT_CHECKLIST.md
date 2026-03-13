@@ -61,6 +61,10 @@ Reference artifact:
 - Outcome v3 forecast/confidence freshness values now source from runtime MC state via outcome bridge (`window.__FPE_OUTCOME_API__.getView().mc`) with sidebar/KPI fallback retained only as non-stage compatibility context.
 - Outcome v3 controls/actions now bind exclusively through runtime Outcome API (`window.__FPE_OUTCOME_API__.setField/runMc/rerunMc/computeSurface/getView`) with no legacy proxy fallback path.
 - KPI strip sync now uses runtime Outcome/Reach bridge views (`window.__FPE_OUTCOME_API__`, `window.__FPE_REACH_API__`) plus right-rail context for win probability, P50 margin, and bottleneck labels, removing `stage-results` selector fallback for those KPI fields.
+- MC runtime renderers now support sidebar-only targets (`mcWinProb-sidebar`, `mcP10/50/90-sidebar`) and no longer hard-require legacy primary result nodes (`#mcWinProb/#mcP10/#mcP50/#mcP90`) to render confidence outputs.
+- MC freshness/staleness runtime paths now support sidebar-only targets (`mcFreshTag-sidebar`, `mcLastRun-sidebar`, `mcStale-sidebar`) and no longer depend on legacy primary freshness nodes to update status.
+- Risk framing runtime now supports sidebar-only targets (`riskBandTag-sidebar`, `riskWinProb-sidebar`, `riskMarginBand-sidebar`, `riskVolatility-sidebar`, `riskPlainBanner-sidebar`) and no longer hard-requires legacy primary risk nodes.
+- Miss-risk runtime (`renderMissRiskD4`) now computes/cache-updates even when legacy `opsMiss*` DOM nodes are absent, removing DOM-presence gating for D4 risk state.
 - Controls v3 evidence table now renders from scenario-bridge intel state (`window.__FPE_SCENARIO_API__`) instead of mirroring legacy `#intelEvidenceTbody`.
 - Controls v3 benchmark table now renders from scenario-bridge intel state (`window.__FPE_SCENARIO_API__`) and remove actions route by benchmark id, instead of mirroring legacy `#intelBenchmarkTbody`.
 - Controls v3 feedback previews (what-if + recommendations) now render from scenario-bridge intel state and no longer mirror legacy preview textareas (`#intelWhatIfPreview/#intelRecommendationPreview`).
