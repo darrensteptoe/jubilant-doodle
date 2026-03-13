@@ -60,6 +60,7 @@ Reference artifact:
 - Outcome v3 sensitivity and surface tables now render directly from runtime outcome bridge cache (`window.__FPE_OUTCOME_API__`) with no legacy table mirror fallback.
 - Outcome v3 forecast/confidence freshness values now source from runtime MC state via outcome bridge (`window.__FPE_OUTCOME_API__.getView().mc`) with sidebar/KPI fallback retained only as non-stage compatibility context.
 - Outcome v3 controls/actions now bind exclusively through runtime Outcome API (`window.__FPE_OUTCOME_API__.setField/runMc/rerunMc/computeSurface/getView`) with no legacy proxy fallback path.
+- Outcome runtime bridge now stores surface controls in v3 state cache (`state.ui.outcomeSurfaceInputs`) and runs sensitivity-surface compute directly from runtime state/engine (no hard dependency on legacy `#surface*` controls or `#btnComputeSurface` click path).
 - KPI strip sync now uses runtime Outcome/Reach bridge views (`window.__FPE_OUTCOME_API__`, `window.__FPE_REACH_API__`) plus right-rail context for win probability, P50 margin, and bottleneck labels, removing `stage-results` selector fallback for those KPI fields.
 - MC runtime renderers now support sidebar-only targets (`mcWinProb-sidebar`, `mcP10/50/90-sidebar`) and no longer hard-require legacy primary result nodes (`#mcWinProb/#mcP10/#mcP50/#mcP90`) to render confidence outputs.
 - MC freshness/staleness runtime paths now support sidebar-only targets (`mcFreshTag-sidebar`, `mcLastRun-sidebar`, `mcStale-sidebar`) and no longer depend on legacy primary freshness nodes to update status.
