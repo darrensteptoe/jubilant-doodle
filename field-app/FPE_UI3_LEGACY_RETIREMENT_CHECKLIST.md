@@ -53,6 +53,7 @@ Reference artifact:
 - Plan v3 workload `Doors per hour (source)` field now mirrors from v3 timeline `Doors attempts / hour` (already synced to `timelineDoorsPerHour`), removing direct legacy `#doorsPerHour` read from `stage-gotv`.
 - Plan v3 workload input controls (`goalSupportIds`, `hoursPerShift`, `shiftsPerVolunteerPerWeek`) now bind through Reach runtime bridge set/get (`window.__FPE_REACH_API__.setField/getView`) instead of direct legacy `stage-gotv` DOM IDs.
 - Plan v3 optimizer/timeline controls now bind through runtime Plan API bridge (`window.__FPE_PLAN_API__.setField/runOptimize/getView`) instead of direct legacy `stage-roi` control IDs; remaining Plan legacy dependency is allocation table mirror source `#optTbody`.
+- Turnout v3 assumptions/lift/ROI controls now bind through runtime Turnout API bridge (`window.__FPE_TURNOUT_API__.setField/refreshRoi/getView`) instead of direct legacy `stage-roi` control IDs; remaining Turnout legacy dependency is ROI table mirror source `#roiTbody`.
 - Outcome v3 now reads percentile margins from v3 KPI + right-rail percentile tags (`#v3KpiMargin`, `#mcP10-sidebar/#mcP50-sidebar/#mcP90-sidebar`) instead of legacy confidence-envelope IDs (`#mcP10/#mcP50/#mcP90`), reducing direct `stage-results` dependency.
 - Outcome v3 Monte Carlo run-count display (`v3OutcomeMcRuns`) is now native fixed UI state (`10000`) and no longer mirrors legacy `#mcRuns`.
 - Controls v3 evidence table now renders from scenario-bridge intel state (`window.__FPE_SCENARIO_API__`) instead of mirroring legacy `#intelEvidenceTbody`.
@@ -72,7 +73,7 @@ Counts below are unique legacy IDs referenced by each v3 surface.
 | District | `stage-universe` | 3 |
 | Reach | `stage-capacity` | 0 |
 | Outcome | `stage-results` | 39 |
-| Turnout | `stage-roi` | 30 |
+| Turnout | `stage-roi` | 1 |
 | Plan | `stage-roi` | 1 |
 | Plan | `stage-gotv` | 0 |
 | Controls | `stage-checks` | 46 |
@@ -87,10 +88,10 @@ Delete only when the referenced surface(s) show zero bridge targets for that leg
 Reason: isolated to Reach surface.
 
 2. `stage-results`
-Reason: shared by Outcome and Turnout; remove only after both are native C-state.
+Reason: currently blocked by Outcome bridge targets; remove only after Outcome reaches zero legacy IDs.
 
 3. `stage-roi`
-Reason: still shared by Turnout and Plan (`#optTbody` mirror source remains in Plan).
+Reason: still shared by Turnout and Plan (table mirror sources `#roiTbody` and `#optTbody`).
 
 4. `stage-gotv`
 Reason: currently retained for District coupling during migration; Plan bridge dependencies have been removed.
