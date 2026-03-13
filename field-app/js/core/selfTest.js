@@ -1735,18 +1735,21 @@ export function runSelfTests(engine){
   test("UI Smoke: required element IDs exist and are unique", () => {
     if (typeof document === "undefined") return true;
     const required = [
-      "universeSize",
-      "persuasionPct",
-      "validationList",
-      "operationsCapacityOutlookCard",
-      "phase3Card",
-      "scenarioCompareCard"
+      ["universeSize", "v3DistrictUniverseSize"],
+      ["persuasionPct", "v3DistrictPersuasionPct"],
+      ["validationList"],
+      ["operationsCapacityOutlookCard", "v3ReachOutlookTbody"],
+      ["phase3Card", "v3OutcomeForecastWinProb"],
+      ["scenarioCompareCard", "v3ScenarioDiffOutputs"]
     ];
-    for (const id of required){
-      const el = document.getElementById(id);
-      if (!el) throw new Error(`Missing element id: ${id}`);
-      const matches = document.querySelectorAll(`[id="${id}"]`);
-      if (matches.length !== 1) throw new Error(`Duplicate id detected: ${id}`);
+    for (const group of required){
+      const ids = Array.isArray(group) ? group : [group];
+      const found = ids.find((id) => document.getElementById(id));
+      if (!found){
+        throw new Error(`Missing element id: ${ids.join(" or ")}`);
+      }
+      const matches = document.querySelectorAll(`[id="${found}"]`);
+      if (matches.length !== 1) throw new Error(`Duplicate id detected: ${found}`);
     }
     const scenarioActionIds = ["btnScenarioSaveNew", "v3ScenarioName"];
     const found = scenarioActionIds.find((id) => document.getElementById(id));

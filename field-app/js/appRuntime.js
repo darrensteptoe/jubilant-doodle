@@ -2807,6 +2807,9 @@ function turnoutBridgeStateView(){
     feasibilityText: String(row?.feasibilityText || ""),
   }));
   const roiBannerText = String(state?.ui?.lastRoiBanner?.text || "").trim();
+  const turnoutSummary = state?.ui?.lastTurnout && typeof state.ui.lastTurnout === "object"
+    ? state.ui.lastTurnout
+    : {};
   const locked = isScenarioLockedForEdits(state);
   return {
     inputs: {
@@ -2846,6 +2849,11 @@ function turnoutBridgeStateView(){
     options: TURNOUT_SELECT_OPTIONS,
     roiRows,
     roiBannerText,
+    summary: {
+      turnoutSummaryText: String(turnoutSummary.summaryText || "").trim(),
+      turnoutVotesText: String(turnoutSummary.turnoutVotesText || "").trim(),
+      needVotesText: String(turnoutSummary.needVotesText || "").trim(),
+    },
   };
 }
 
