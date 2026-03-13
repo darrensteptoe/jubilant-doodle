@@ -44,6 +44,18 @@ Goal: reduce hard coupling to legacy `stage-results` DOM without deleting markup
   - preflight required-ID enforcement is now feature-aware for Census and Targeting groups.
   - Census/Targeting IDs are only required when their anchor nodes are present, reducing false missing-ID diagnostics during staged legacy retirement.
 
+- `js/app/render/executionAnalysis.js`
+  - conversion panel now caches derived workload + feasibility outputs into `state.ui.lastConversion`.
+  - runtime conversion model remains readable even when legacy `out*` or banner nodes are not mounted.
+
+- `js/app/weeklyOpsPanels.js`
+  - weekly ops summary panel now caches derived weekly context into `state.ui.lastWeeklyOps`.
+  - this provides a non-DOM source for weekly gap/constraint/banner context during staged legacy panel retirement.
+
+- `js/app/v3/kpiBridge.js`
+  - KPI bottleneck inference now reads weekly gap from Reach runtime bridge view first.
+  - legacy `#wkGapPerWeek` remains compatibility fallback only.
+
 - `js/app/monteCarloApp.js`
   - freshness renderer now runs with sidebar-only tags (`mcFreshTag-sidebar`, `mcLastRun-sidebar`, `mcStale-sidebar`).
   - removed assumptions that primary freshness tags always exist.

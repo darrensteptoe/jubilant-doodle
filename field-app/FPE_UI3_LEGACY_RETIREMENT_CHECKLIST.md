@@ -96,6 +96,10 @@ Reference artifact:
 - Runtime shell helpers in `appRuntime` now use guarded refs for weekly undo and mode toggle pills (`wkUndoActionBtn`, `mc* mode`, `gotv* mode`) instead of direct `els.*` hard-return gates.
 - DOM preflight is now feature-aware for Census/Targeting groups (only enforces those ID sets when their feature anchors are present), reducing false `dom-preflight` errors during staged legacy retirement.
 - District electorate-structure derived/warning status is now computed natively in v3 using core universe-layer math (`computeUniverseAdjustedRates` + `normalizeUniversePercents`) instead of mirroring legacy `#universe16Derived/#universe16Warn`.
+- Weekly ops runtime now caches derived execution summary in `state.ui.lastWeeklyOps`, keeping the weekly status model readable even when legacy `wk*` nodes are absent.
+- Conversion runtime now caches workload/feasibility outputs in `state.ui.lastConversion`, reducing reliance on legacy `out*`/`convFeasBanner` nodes as the only source of truth.
+- KPI bottleneck inference now resolves weekly gap from Reach runtime bridge view first, with legacy `#wkGapPerWeek` used only as compatibility fallback.
+- KPI strip no longer falls back to legacy `#wkConstraint/#optBinding` text for bottleneck label; bottleneck is bridge-derived.
 - Legacy `integrity` nav entry has been removed from legacy left-rail user flow; `stage-integrity` DOM remains mounted for controlled retirement.
 - Legacy `stage-integrity` section is now hidden in legacy flow (retired stub), while IDs remain mounted for parity and rollback safety.
 - Controls v3 evidence table now renders from scenario-bridge intel state (`window.__FPE_SCENARIO_API__`) instead of mirroring legacy `#intelEvidenceTbody`.
@@ -177,5 +181,5 @@ For each container before deletion:
 - [ ] Create checkpoint note and proceed to next container.
 
 ## Immediate next target
-Recommended next retirement target: `stage-results` runtime decoupling pass (post-Outcome).  
-Outcome v3 bridge targets are now zero; next shared blocker is runtime result/rail write-path coupling to legacy results-stage DOM.
+Recommended next retirement target: `stage-roi` + `stage-gotv` runtime read-path reduction pass.  
+Stage bridge counts are already zero for Plan/Turnout; remaining blocker is runtime overlap code that still writes legacy ROI/GOTV nodes for parity.
