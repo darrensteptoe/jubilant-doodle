@@ -152,6 +152,7 @@ Scope: UI architecture migration only (engine and right rail frozen)
 - Outcome bridge reduction: v3 Outcome MC run-count display (`v3OutcomeMcRuns`) is now native fixed UI state and no longer mirrors legacy `#mcRuns`.
 - Outcome bridge reduction: v3 Outcome sensitivity + surface tables now read from runtime outcome bridge cache (`window.__FPE_OUTCOME_API__`) first, with legacy `#mcSensitivity/#surfaceTbody` mirror fallback kept for boot-safe compatibility.
 - Outcome bridge reduction: v3 Outcome forecast/confidence freshness values now read from runtime MC state via outcome bridge (`window.__FPE_OUTCOME_API__.getView().mc`) first, with sidebar/KPI fallback retained for compatibility.
+- Outcome bridge reduction: v3 Outcome controls/actions now bind bridge-first via runtime Outcome API (`setField/runMc/rerunMc/computeSurface/getView`) with legacy proxy fallback retained for boot-safe compatibility.
 - Legacy `stage-capacity` visual surface has been retired from `index.html` user flow (hidden retired stub retained during transition); preflight no longer requires legacy Reach assumption IDs.
 - Added v3 stage persistence/cutover behavior (`js/app/v3/index.js`):
   - Active stage persists to local storage.

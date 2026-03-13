@@ -59,6 +59,7 @@ Reference artifact:
 - Outcome v3 Monte Carlo run-count display (`v3OutcomeMcRuns`) is now native fixed UI state (`10000`) and no longer mirrors legacy `#mcRuns`.
 - Outcome v3 sensitivity and surface tables now prefer runtime outcome bridge cache (`window.__FPE_OUTCOME_API__`) with legacy table mirror fallback (`#mcSensitivity`, `#surfaceTbody`) as a boot-safe compatibility path.
 - Outcome v3 forecast/confidence freshness values now prefer runtime MC state via outcome bridge (`window.__FPE_OUTCOME_API__.getView().mc`) with sidebar/KPI fallback retained for compatibility.
+- Outcome v3 controls/actions now bind bridge-first through runtime Outcome API (`window.__FPE_OUTCOME_API__.setField/runMc/rerunMc/computeSurface/getView`) with legacy proxy fallback retained for boot-safe compatibility.
 - Controls v3 evidence table now renders from scenario-bridge intel state (`window.__FPE_SCENARIO_API__`) instead of mirroring legacy `#intelEvidenceTbody`.
 - Controls v3 benchmark table now renders from scenario-bridge intel state (`window.__FPE_SCENARIO_API__`) and remove actions route by benchmark id, instead of mirroring legacy `#intelBenchmarkTbody`.
 - Controls v3 feedback previews (what-if + recommendations) now render from scenario-bridge intel state and no longer mirror legacy preview textareas (`#intelWhatIfPreview/#intelRecommendationPreview`).
