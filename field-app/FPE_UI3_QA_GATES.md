@@ -150,9 +150,11 @@ Scope: UI architecture migration only (engine and right rail frozen)
 - Plan/Turnout bridge reduction: v3 allocation/ROI tables now render from runtime bridge view caches instead of mirroring legacy `#optTbody/#roiTbody`.
 - Outcome bridge reduction: v3 Outcome percentile context now resolves from v3 KPI + right-rail percentiles (`#v3KpiMargin`, `#mcP10-sidebar/#mcP50-sidebar/#mcP90-sidebar`) instead of direct reads of legacy confidence-envelope IDs (`#mcP10/#mcP50/#mcP90`).
 - Outcome bridge reduction: v3 Outcome MC run-count display (`v3OutcomeMcRuns`) is now native fixed UI state and no longer mirrors legacy `#mcRuns`.
-- Outcome bridge reduction: v3 Outcome sensitivity + surface tables now read from runtime outcome bridge cache (`window.__FPE_OUTCOME_API__`) first, with legacy `#mcSensitivity/#surfaceTbody` mirror fallback kept for boot-safe compatibility.
-- Outcome bridge reduction: v3 Outcome forecast/confidence freshness values now read from runtime MC state via outcome bridge (`window.__FPE_OUTCOME_API__.getView().mc`) first, with sidebar/KPI fallback retained for compatibility.
-- Outcome bridge reduction: v3 Outcome controls/actions now bind bridge-first via runtime Outcome API (`setField/runMc/rerunMc/computeSurface/getView`) with legacy proxy fallback retained for boot-safe compatibility.
+- Outcome bridge reduction: v3 Outcome sensitivity + surface tables now render directly from runtime outcome bridge cache (`window.__FPE_OUTCOME_API__`) with no legacy table mirror fallback path.
+- Outcome bridge reduction: v3 Outcome forecast/confidence freshness values now read from runtime MC state via outcome bridge (`window.__FPE_OUTCOME_API__.getView().mc`), with sidebar/KPI fallback retained only as non-stage compatibility context.
+- Outcome bridge reduction: v3 Outcome controls/actions now bind exclusively via runtime Outcome API (`setField/runMc/rerunMc/computeSurface/getView`) with no legacy proxy fallback path.
+- QA gate update: v3 smoke now treats Reach, Outcome, Turnout, Plan, Scenarios, Decision Log, and Data as no-legacy-bridge stages (`bridge-control-count` expects zero `data-v3-legacy-id` controls); District and Controls remain bridged during migration.
+- KPI bridge reduction: v3 KPI strip now uses runtime Outcome/Reach bridge views plus right-rail context for win probability, margin, and bottleneck status (no `stage-results` selector fallback on KPI win/margin fields).
 - Legacy `stage-capacity` visual surface has been retired from `index.html` user flow (hidden retired stub retained during transition); preflight no longer requires legacy Reach assumption IDs.
 - Added v3 stage persistence/cutover behavior (`js/app/v3/index.js`):
   - Active stage persists to local storage.

@@ -57,9 +57,10 @@ Reference artifact:
 - Plan and Turnout v3 allocation/ROI tables now render from runtime bridge view caches (`state.ui.lastPlanRows`, `state.ui.lastRoiRows`) instead of mirroring legacy `#optTbody/#roiTbody`.
 - Outcome v3 now reads percentile margins from v3 KPI + right-rail percentile tags (`#v3KpiMargin`, `#mcP10-sidebar/#mcP50-sidebar/#mcP90-sidebar`) instead of legacy confidence-envelope IDs (`#mcP10/#mcP50/#mcP90`), reducing direct `stage-results` dependency.
 - Outcome v3 Monte Carlo run-count display (`v3OutcomeMcRuns`) is now native fixed UI state (`10000`) and no longer mirrors legacy `#mcRuns`.
-- Outcome v3 sensitivity and surface tables now prefer runtime outcome bridge cache (`window.__FPE_OUTCOME_API__`) with legacy table mirror fallback (`#mcSensitivity`, `#surfaceTbody`) as a boot-safe compatibility path.
-- Outcome v3 forecast/confidence freshness values now prefer runtime MC state via outcome bridge (`window.__FPE_OUTCOME_API__.getView().mc`) with sidebar/KPI fallback retained for compatibility.
-- Outcome v3 controls/actions now bind bridge-first through runtime Outcome API (`window.__FPE_OUTCOME_API__.setField/runMc/rerunMc/computeSurface/getView`) with legacy proxy fallback retained for boot-safe compatibility.
+- Outcome v3 sensitivity and surface tables now render directly from runtime outcome bridge cache (`window.__FPE_OUTCOME_API__`) with no legacy table mirror fallback.
+- Outcome v3 forecast/confidence freshness values now source from runtime MC state via outcome bridge (`window.__FPE_OUTCOME_API__.getView().mc`) with sidebar/KPI fallback retained only as non-stage compatibility context.
+- Outcome v3 controls/actions now bind exclusively through runtime Outcome API (`window.__FPE_OUTCOME_API__.setField/runMc/rerunMc/computeSurface/getView`) with no legacy proxy fallback path.
+- KPI strip sync now uses runtime Outcome/Reach bridge views (`window.__FPE_OUTCOME_API__`, `window.__FPE_REACH_API__`) plus right-rail context for win probability, P50 margin, and bottleneck labels, removing `stage-results` selector fallback for those KPI fields.
 - Controls v3 evidence table now renders from scenario-bridge intel state (`window.__FPE_SCENARIO_API__`) instead of mirroring legacy `#intelEvidenceTbody`.
 - Controls v3 benchmark table now renders from scenario-bridge intel state (`window.__FPE_SCENARIO_API__`) and remove actions route by benchmark id, instead of mirroring legacy `#intelBenchmarkTbody`.
 - Controls v3 feedback previews (what-if + recommendations) now render from scenario-bridge intel state and no longer mirror legacy preview textareas (`#intelWhatIfPreview/#intelRecommendationPreview`).
@@ -76,7 +77,7 @@ Counts below are unique legacy IDs referenced by each v3 surface.
 | District | `stage-structure` | 6 |
 | District | `stage-universe` | 3 |
 | Reach | `stage-capacity` | 0 |
-| Outcome | `stage-results` | 39 |
+| Outcome | `stage-results` | 0 |
 | Turnout | `stage-roi` | 0 |
 | Plan | `stage-roi` | 0 |
 | Plan | `stage-gotv` | 0 |
@@ -92,7 +93,7 @@ Delete only when the referenced surface(s) show zero bridge targets for that leg
 Reason: isolated to Reach surface.
 
 2. `stage-results`
-Reason: currently blocked by Outcome bridge targets; remove only after Outcome reaches zero legacy IDs.
+Reason: v3 Outcome bridge targets are zero; remaining blocker is runtime result/rail render paths that still write/read legacy results-stage DOM.
 
 3. `stage-roi`
 Reason: v3 bridge dependencies are zero; remaining blocker is runtime ROI/optimization render paths still writing legacy stage-roi DOM.
@@ -139,5 +140,5 @@ For each container before deletion:
 - [ ] Create checkpoint note and proceed to next container.
 
 ## Immediate next target
-Recommended next retirement target: `stage-results` bridge-reduction pass (Outcome focus).  
-`stage-capacity` and Turnout's direct `stage-results` dependency have been retired from user flow; next shared blocker is `stage-results` reads in Outcome.
+Recommended next retirement target: `stage-results` runtime decoupling pass (post-Outcome).  
+Outcome v3 bridge targets are now zero; next shared blocker is runtime result/rail write-path coupling to legacy results-stage DOM.
