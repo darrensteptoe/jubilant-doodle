@@ -150,6 +150,7 @@ Scope: UI architecture migration only (engine and right rail frozen)
 - Plan/Turnout bridge reduction: v3 allocation/ROI tables now render from runtime bridge view caches instead of mirroring legacy `#optTbody/#roiTbody`.
 - Outcome bridge reduction: v3 Outcome percentile context now resolves from v3 KPI + right-rail percentiles (`#v3KpiMargin`, `#mcP10-sidebar/#mcP50-sidebar/#mcP90-sidebar`) instead of direct reads of legacy confidence-envelope IDs (`#mcP10/#mcP50/#mcP90`).
 - Outcome bridge reduction: v3 Outcome MC run-count display (`v3OutcomeMcRuns`) is now native fixed UI state and no longer mirrors legacy `#mcRuns`.
+- Outcome bridge reduction: v3 Outcome sensitivity + surface tables now read from runtime outcome bridge cache (`window.__FPE_OUTCOME_API__`) first, with legacy `#mcSensitivity/#surfaceTbody` mirror fallback kept for boot-safe compatibility.
 - Legacy `stage-capacity` visual surface has been retired from `index.html` user flow (hidden retired stub retained during transition); preflight no longer requires legacy Reach assumption IDs.
 - Added v3 stage persistence/cutover behavior (`js/app/v3/index.js`):
   - Active stage persists to local storage.

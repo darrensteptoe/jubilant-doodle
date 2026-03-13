@@ -57,6 +57,7 @@ Reference artifact:
 - Plan and Turnout v3 allocation/ROI tables now render from runtime bridge view caches (`state.ui.lastPlanRows`, `state.ui.lastRoiRows`) instead of mirroring legacy `#optTbody/#roiTbody`.
 - Outcome v3 now reads percentile margins from v3 KPI + right-rail percentile tags (`#v3KpiMargin`, `#mcP10-sidebar/#mcP50-sidebar/#mcP90-sidebar`) instead of legacy confidence-envelope IDs (`#mcP10/#mcP50/#mcP90`), reducing direct `stage-results` dependency.
 - Outcome v3 Monte Carlo run-count display (`v3OutcomeMcRuns`) is now native fixed UI state (`10000`) and no longer mirrors legacy `#mcRuns`.
+- Outcome v3 sensitivity and surface tables now prefer runtime outcome bridge cache (`window.__FPE_OUTCOME_API__`) with legacy table mirror fallback (`#mcSensitivity`, `#surfaceTbody`) as a boot-safe compatibility path.
 - Controls v3 evidence table now renders from scenario-bridge intel state (`window.__FPE_SCENARIO_API__`) instead of mirroring legacy `#intelEvidenceTbody`.
 - Controls v3 benchmark table now renders from scenario-bridge intel state (`window.__FPE_SCENARIO_API__`) and remove actions route by benchmark id, instead of mirroring legacy `#intelBenchmarkTbody`.
 - Controls v3 feedback previews (what-if + recommendations) now render from scenario-bridge intel state and no longer mirror legacy preview textareas (`#intelWhatIfPreview/#intelRecommendationPreview`).
