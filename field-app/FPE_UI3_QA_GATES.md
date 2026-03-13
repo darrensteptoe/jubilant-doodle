@@ -181,6 +181,9 @@ Scope: UI architecture migration only (engine and right rail frozen)
 - Runtime hardening: scenario comparison panel now renders with guarded writes when `scm*` nodes are partially absent (no hard return on compare-wrap/tag IDs).
 - Runtime hardening: scenario comparison panel now guards `state.ui`/registry access for early-boot safety (no throw on missing `state.ui`).
 - Runtime hardening: stress summary panel now uses guarded target + resilient summary array handling (`res?.stressSummary`).
+- Runtime hardening: assumptions snapshot panel now renders with guarded writes when `assumptionsSnapshot` is absent (no hard return on assumption snapshot mount target).
+- Runtime hardening: guardrails panel now renders with guarded writes when `guardrails` target is absent (no hard return on guardrails mount target).
+- Runtime hardening: MC margin-chart renderers now use guarded writes for `svgMargin*` targets (app + compat panel paths), avoiding render short-circuit when partial chart nodes are absent.
 - Legacy flow retirement: removed legacy left-nav `integrity` entry while retaining `stage-integrity` DOM for runtime parity checks.
 - Legacy flow retirement: `stage-integrity` section is hidden as a retired stub (DOM retained).
 - Legacy `stage-capacity` visual surface has been retired from `index.html` user flow (hidden retired stub retained during transition); preflight no longer requires legacy Reach assumption IDs.

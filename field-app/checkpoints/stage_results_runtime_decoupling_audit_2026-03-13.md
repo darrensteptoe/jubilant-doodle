@@ -13,6 +13,18 @@ Goal: reduce hard coupling to legacy `stage-results` DOM without deleting markup
 - `js/app/render/monteCarlo.js`
   - same sidebar-capable safety changes as above for the panel path.
 
+- `js/app/renderAssumptions.js`
+  - removed hard gate on `els.assumptionsSnapshot`.
+  - assumptions block render now uses guarded writes, preserving compute/update flow when snapshot mount target is absent.
+
+- `js/app/renderGuardrails.js`
+  - removed hard gate on `els.guardrails`.
+  - guardrails panel render now uses guarded writes and resilient guardrail list extraction.
+
+- `js/app/renderMcVisuals.js`
+  - removed hard all-node gate on `svgMargin*` chart IDs.
+  - margin-chart render path now uses guarded writes for partial/missing chart targets.
+
 - `js/app/monteCarloApp.js`
   - freshness renderer now runs with sidebar-only tags (`mcFreshTag-sidebar`, `mcLastRun-sidebar`, `mcStale-sidebar`).
   - removed assumptions that primary freshness tags always exist.
@@ -40,6 +52,7 @@ Goal: reduce hard coupling to legacy `stage-results` DOM without deleting markup
 - `js/render/monteCarlo.js`
   - compatibility mirror kept in sync for confidence adjunct dual-write behavior.
   - compatibility mirror kept in sync for sensitivity mirror target writes.
+  - compatibility mirror kept in sync for guarded `svgMargin*` chart rendering.
 
 - `index.html` + `js/ui/els.js`
   - added right-rail mirror nodes/selectors for adjunct metrics (`* -sidebar` IDs), implemented as hidden mirror targets to avoid visual redesign in this pass.
@@ -55,6 +68,8 @@ Compatibility mirror updated:
 - Runtime D2/D3/D4 envelope caches now remain live even when primary results-stage envelope tables are absent.
 - Runtime MC confidence adjunct values now continue updating through sidebar mirror IDs even if primary adjunct table nodes are removed.
 - Runtime sensitivity rows now continue updating through sidebar mirror target (`mcSensitivity-sidebar`) even if primary sensitivity table is absent.
+- Runtime assumptions snapshot + guardrails panels now continue compute/update flow even when corresponding legacy mount targets are absent.
+- Runtime MC margin-chart renderers now tolerate partial/missing `svgMargin*` nodes without hard short-circuit.
 - Legacy `results` nav entry is retired from legacy user flow; `stage-results` remains mounted for controlled runtime retirement.
 - Legacy `stage-results` section is now hidden as a retired stub (IDs retained in DOM).
 - Legacy `roi` and `gotv` nav entries are retired from legacy user flow; `stage-roi` and `stage-gotv` remain mounted for controlled runtime retirement.

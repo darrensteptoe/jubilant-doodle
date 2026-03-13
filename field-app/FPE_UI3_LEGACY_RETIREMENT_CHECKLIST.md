@@ -87,6 +87,9 @@ Reference artifact:
 - Scenario comparison runtime panel now renders with guarded writes when `scm*` nodes are partially absent, reducing hard coupling to legacy compare card wrappers.
 - Scenario comparison runtime panel now guards `state.ui` access and scenario-registry initialization calls, preventing early-boot null dereference.
 - Stress summary runtime panel now uses guarded writes and resilient summary input handling (`res?.stressSummary`), preventing avoidable render short-circuits.
+- Assumptions snapshot runtime panel now renders with guarded writes when `assumptionsSnapshot` is absent, preserving assumption-block compute flow during legacy panel retirement.
+- Guardrails runtime panel now renders with guarded writes when `guardrails` target is absent, preserving guardrail compute flow during partial DOM retirement.
+- MC margin-chart runtime renderers now render with guarded writes when `svgMargin*` targets are partially absent (app + compat panel paths), preventing avoidable short-circuit during staged results-panel retirement.
 - Legacy `integrity` nav entry has been removed from legacy left-rail user flow; `stage-integrity` DOM remains mounted for controlled retirement.
 - Legacy `stage-integrity` section is now hidden in legacy flow (retired stub), while IDs remain mounted for parity and rollback safety.
 - Controls v3 evidence table now renders from scenario-bridge intel state (`window.__FPE_SCENARIO_API__`) instead of mirroring legacy `#intelEvidenceTbody`.
