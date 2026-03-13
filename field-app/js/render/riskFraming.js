@@ -1,16 +1,33 @@
 // @ts-check
 export function renderRiskFramingPanel({ els, state, setTextPair, fmtSigned, clamp, mcStaleness = null }){
-  if (!els.riskBandTag || !els.riskWinProb || !els.riskMarginBand || !els.riskVolatility || !els.riskPlainBanner) return;
+  const hasBand = !!(els?.riskBandTag || els?.riskBandTagSidebar);
+  const hasWin = !!(els?.riskWinProb || els?.riskWinProbSidebar);
+  const hasMargin = !!(els?.riskMarginBand || els?.riskMarginBandSidebar);
+  const hasVol = !!(els?.riskVolatility || els?.riskVolatilitySidebar);
+  const hasBanner = !!(els?.riskPlainBanner || els?.riskPlainBannerSidebar);
+  if (!hasBand || !hasWin || !hasMargin || !hasVol || !hasBanner) return;
 
   const setTag = (label, cls) => {
     setTextPair(els.riskBandTag, els.riskBandTagSidebar, label || "—");
-    els.riskBandTag.classList.remove("ok", "warn", "bad");
-    if (cls) els.riskBandTag.classList.add(cls);
+    if (els.riskBandTag){
+      els.riskBandTag.classList.remove("ok", "warn", "bad");
+      if (cls) els.riskBandTag.classList.add(cls);
+    }
+    if (els.riskBandTagSidebar){
+      els.riskBandTagSidebar.classList.remove("ok", "warn", "bad");
+      if (cls) els.riskBandTagSidebar.classList.add(cls);
+    }
   };
 
   const setBanner = (text, cls) => {
-    els.riskPlainBanner.className = `banner ${cls || ""}`.trim();
-    els.riskPlainBanner.textContent = text || "—";
+    if (els.riskPlainBanner){
+      els.riskPlainBanner.className = `banner ${cls || ""}`.trim();
+      els.riskPlainBanner.textContent = text || "—";
+    }
+    if (els.riskPlainBannerSidebar){
+      els.riskPlainBannerSidebar.className = `banner ${cls || ""}`.trim();
+      els.riskPlainBannerSidebar.textContent = text || "—";
+    }
   };
 
   const s = state.mcLast;
