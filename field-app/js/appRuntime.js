@@ -527,9 +527,132 @@ function restoreBackupByIndex(idx){
 // Module-level constants
 const SCENARIO_BASELINE_ID = "baseline";
 const SCENARIO_MAX = 20;
+const DATA_BRIDGE_KEY = "__FPE_DATA_API__";
 const SCENARIO_BRIDGE_KEY = "__FPE_SCENARIO_API__";
 const REACH_BRIDGE_KEY = "__FPE_REACH_API__";
 const DECISION_BRIDGE_KEY = "__FPE_DECISION_API__";
+
+function dataBridgeBuildBackupOptions(){
+  const selectEl = els?.restoreBackup;
+  if (!(selectEl instanceof HTMLSelectElement)) {
+    return [];
+  }
+  return Array.from(selectEl.options || [])
+    .filter((opt) => opt && String(opt.value || "").trim())
+    .map((opt) => ({
+      value: String(opt.value || ""),
+      label: String(opt.textContent || "").trim() || String(opt.value || "")
+    }));
+}
+
+function dataBridgeStateView(){
+  const strictToggle = els?.toggleStrictImport;
+  const restoreSelect = els?.restoreBackup;
+  const loadJsonInput = els?.loadJson;
+  const usb = getUsbStorageController();
+  const usbConnected = !!usb?.isConnected?.();
+  const strictImport =
+    strictToggle instanceof HTMLInputElement
+      ? !!strictToggle.checked
+      : !!state?.ui?.strictImport;
+  const importFileName =
+    loadJsonInput instanceof HTMLInputElement &&
+    loadJsonInput.files &&
+    loadJsonInput.files.length
+      ? String(loadJsonInput.files[0]?.name || "")
+      : "";
+  const hashBannerText =
+    els?.importHashBanner instanceof HTMLElement && !els.importHashBanner.hidden
+      ? String(els.importHashBanner.textContent || "").trim()
+      : "";
+  const warnBannerText =
+    els?.importWarnBanner instanceof HTMLElement && !els.importWarnBanner.hidden
+      ? String(els.importWarnBanner.textContent || "").trim()
+      : "";
+  const usbStatusText = String(els?.usbStorageStatus?.textContent || "").trim();
+
+  return {
+    strictImport,
+    backupOptions: dataBridgeBuildBackupOptions(),
+    selectedBackup: restoreSelect instanceof HTMLSelectElement ? String(restoreSelect.value || "") : "",
+    importFileName,
+    hashBannerText,
+    warnBannerText,
+    usbConnected,
+    usbStatus: usbStatusText || (usbConnected ? "External folder connected." : "Using browser storage only."),
+    controls: {
+      strictToggleDisabled: strictToggle instanceof HTMLInputElement ? !!strictToggle.disabled : true,
+      restoreDisabled: restoreSelect instanceof HTMLSelectElement ? !!restoreSelect.disabled : true,
+      saveJsonDisabled: els?.btnSaveJson instanceof HTMLButtonElement ? !!els.btnSaveJson.disabled : true,
+      loadJsonDisabled: loadJsonInput instanceof HTMLInputElement ? !!loadJsonInput.disabled : true,
+      copySummaryDisabled: els?.btnCopySummary instanceof HTMLButtonElement ? !!els.btnCopySummary.disabled : true,
+      exportCsvDisabled: els?.btnExportCsv instanceof HTMLButtonElement ? !!els.btnExportCsv.disabled : true,
+      usbConnectDisabled: els?.btnUsbStorageConnect instanceof HTMLButtonElement ? !!els.btnUsbStorageConnect.disabled : true,
+      usbLoadDisabled: els?.btnUsbStorageLoad instanceof HTMLButtonElement ? !!els.btnUsbStorageLoad.disabled : true,
+      usbSaveDisabled: els?.btnUsbStorageSave instanceof HTMLButtonElement ? !!els.btnUsbStorageSave.disabled : true,
+      usbDisconnectDisabled: els?.btnUsbStorageDisconnect instanceof HTMLButtonElement ? !!els.btnUsbStorageDisconnect.disabled : true,
+    }
+  };
+}
+
+function dataBridgeSetStrictImport(enabled){
+  const next = !!enabled;
+  if (els?.toggleStrictImport instanceof HTMLInputElement){
+    els.toggleStrictImport.checked = next;
+    try{
+      document.body.classList.toggle("strict-import", next);
+    } catch {}
+    els.toggleStrictImport.dispatchEvent(new Event("input", { bubbles: true }));
+    els.toggleStrictImport.dispatchEvent(new Event("change", { bubbles: true }));
+    return { ok: true, view: dataBridgeStateView() };
+  }
+  setState((s) => {
+    if (!s.ui || typeof s.ui !== "object") s.ui = {};
+    s.ui.strictImport = next;
+  });
+  return { ok: true, view: dataBridgeStateView() };
+}
+
+function dataBridgeRestoreBackup(index){
+  const value = String(index ?? "").trim();
+  if (!value){
+    return { ok: false, code: "missing_index", view: dataBridgeStateView() };
+  }
+  restoreBackupByIndex(value);
+  if (els?.restoreBackup instanceof HTMLSelectElement){
+    els.restoreBackup.value = "";
+  }
+  return { ok: true, view: dataBridgeStateView() };
+}
+
+function dataBridgeTrigger(action){
+  const key = String(action || "").trim();
+  const handlers = {
+    save_json: els?.btnSaveJson,
+    load_json: els?.loadJson,
+    copy_summary: els?.btnCopySummary,
+    export_csv: els?.btnExportCsv,
+    usb_connect: els?.btnUsbStorageConnect,
+    usb_load: els?.btnUsbStorageLoad,
+    usb_save: els?.btnUsbStorageSave,
+    usb_disconnect: els?.btnUsbStorageDisconnect,
+  };
+  const target = handlers[key];
+  if (!(target instanceof HTMLElement) || typeof target.click !== "function"){
+    return { ok: false, code: "not_available", view: dataBridgeStateView() };
+  }
+  target.click();
+  return { ok: true, view: dataBridgeStateView() };
+}
+
+function installDataBridge(){
+  window[DATA_BRIDGE_KEY] = {
+    getView: () => dataBridgeStateView(),
+    setStrictImport: (enabled) => dataBridgeSetStrictImport(enabled),
+    restoreBackup: (index) => dataBridgeRestoreBackup(index),
+    trigger: (action) => dataBridgeTrigger(action),
+  };
+}
 
 // Phase 13 — DOM preflight (prevents silent boot failures)
 function preflightEls(){
@@ -3547,6 +3670,7 @@ function init(){
     }).catch(() => {});
   });
   safeCall(() => { ensureScenarioRegistry(); }, { label: "init.ensureScenarioRegistry" });
+  safeCall(() => { installDataBridge(); }, { label: "init.installDataBridge" });
   safeCall(() => { installScenarioBridge(); }, { label: "init.installScenarioBridge" });
   safeCall(() => { ensureDecisionScaffold(); }, { label: "init.ensureDecisionScaffold" });
   safeCall(() => { installDecisionBridge(); }, { label: "init.installDecisionBridge" });
