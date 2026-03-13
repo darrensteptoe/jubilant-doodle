@@ -219,9 +219,9 @@ Scope: UI architecture migration only (engine and right rail frozen)
 - KPI bridge reduction: persuasion-need KPI now resolves from sidebar target only (`#kpiPersuasionNeed-sidebar`) with no legacy primary fallback selector.
 - Turnout bridge reduction: Turnout efficiency banner now reads from runtime Turnout bridge (`roiBannerText`) and no longer mirrors legacy `#roiBanner` note text nodes.
 - Turnout bridge reduction: Turnout summary/votes/need readouts now resolve from Turnout runtime bridge summary (`view.summary`) backed by runtime cache (`state.ui.lastTurnout`) before any selector fallback.
-- Legacy flow retirement: removed legacy left-nav `integrity` entry while retaining `stage-integrity` DOM for runtime parity checks.
-- Legacy flow retirement: `stage-integrity` section is hidden as a retired stub (DOM retained).
-- Legacy flow retirement: legacy nav entries for `capacity`, `results`, `roi`, `gotv`, and `integrity` are hidden in legacy shell to keep user flow on migrated v3 surfaces while DOM stubs remain for rollback.
+- Legacy flow retirement: removed legacy left-nav `integrity` entry.
+- Legacy flow retirement: `stage-integrity` is now an empty retired stub; runtime integrity IDs are preserved in hidden bridge host `#legacy-integrity-bridge-host` for parity while Data bridge remains runtime-backed.
+- Legacy flow retirement: legacy nav entries for `capacity`, `results`, `roi`, `gotv`, and `integrity` are removed from legacy shell user flow while DOM stubs remain for rollback.
 - Legacy shell hardening: fixed missing `</section>` closure after structure stage to keep section tree balanced during further staged deletions.
 - Legacy `stage-capacity` container has been removed from `index.html`; preflight no longer requires legacy Reach assumption IDs.
 - Added v3 stage persistence/cutover behavior (`js/app/v3/index.js`):
