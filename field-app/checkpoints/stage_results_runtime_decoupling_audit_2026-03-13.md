@@ -68,6 +68,7 @@ Compatibility mirror updated:
 - Decision confidence/intelligence runtime panels now tolerate missing legacy `conf*` / `di*` nodes via guarded writes, preserving compute paths as legacy ROI/GOTV blocks are retired.
 - Weekly ops insights/freshness runtime panels now tolerate missing legacy `wk*` nodes via guarded writes, preserving compute/update behavior during retired-stub cleanup.
 - Weekly ops summary runtime module (`renderWeeklyOpsModule`) now tolerates missing `wkGoal` and continues summary/execution refresh with guarded writes.
+- Assumption drift runtime panel now tolerates missing `drift*` nodes with guarded writes while preserving drift compute/update behavior.
 - Legacy `integrity` nav entry is retired from legacy user flow; `stage-integrity` remains mounted for controlled runtime retirement.
 - Legacy `stage-integrity` section is now hidden as a retired stub (IDs retained in DOM).
 

@@ -83,6 +83,7 @@ Reference artifact:
 - Decision confidence/intelligence runtime panels now compute/cache-update without hard requiring legacy `conf*` / `di*` DOM nodes, reducing coupling to legacy ROI/GOTV panel blocks.
 - Weekly ops insights/freshness runtime panels now render with guarded writes when legacy `wk*` nodes are partially absent, reducing coupling to legacy execution sub-panels.
 - Weekly ops summary runtime module (`renderWeeklyOpsModule`) no longer hard-returns on missing `wkGoal`; summary and execution status now continue with guarded writes when weekly legacy nodes are absent.
+- Assumption drift runtime panel now renders with guarded writes when `drift*` nodes are partially absent, keeping drift compute path active during legacy sub-panel retirement.
 - Legacy `integrity` nav entry has been removed from legacy left-rail user flow; `stage-integrity` DOM remains mounted for controlled retirement.
 - Legacy `stage-integrity` section is now hidden in legacy flow (retired stub), while IDs remain mounted for parity and rollback safety.
 - Controls v3 evidence table now renders from scenario-bridge intel state (`window.__FPE_SCENARIO_API__`) instead of mirroring legacy `#intelEvidenceTbody`.
