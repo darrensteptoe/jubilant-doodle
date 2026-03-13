@@ -499,7 +499,6 @@ function refreshPlanSummary() {
   });
 
   syncFieldValue("v3PlanGoalSupportIds", "goalSupportIds");
-  syncFieldValue("v3PlanDoorsPerHour", "doorsPerHour");
   syncFieldValue("v3PlanHoursPerShift", "hoursPerShift");
   syncFieldValue("v3PlanShiftsPerVolunteer", "shiftsPerVolunteerPerWeek");
 
@@ -524,11 +523,11 @@ function refreshPlanSummary() {
   syncFieldValue("v3PlanTimelineDoorsPerHour", "timelineDoorsPerHour");
   syncFieldValue("v3PlanTimelineCallsPerHour", "timelineCallsPerHour");
   syncFieldValue("v3PlanTimelineTextsPerHour", "timelineTextsPerHour");
+  syncPlanFieldMirror("v3PlanDoorsPerHour", "v3PlanTimelineDoorsPerHour");
 
   syncButtonDisabled("v3BtnOptRun", "optRun");
 
   syncControlDisabled("v3PlanGoalSupportIds", "goalSupportIds");
-  syncControlDisabled("v3PlanDoorsPerHour", "doorsPerHour");
   syncControlDisabled("v3PlanHoursPerShift", "hoursPerShift");
   syncControlDisabled("v3PlanShiftsPerVolunteer", "shiftsPerVolunteerPerWeek");
 
@@ -584,6 +583,18 @@ function syncPlanDecisionIntel(planContext = null) {
   renderPlanDecisionRows("v3PlanDiVolTbody", buildPlanVolunteerLevers(tlConstraint, shortfallAttempts));
   renderPlanDecisionRows("v3PlanDiCostTbody", buildPlanCostLevers(optBinding, shortfallAttempts));
   renderPlanDecisionRows("v3PlanDiProbTbody", buildPlanProbabilityLevers(tlConstraint, shortfallVotes));
+}
+
+function syncPlanFieldMirror(targetId, sourceId) {
+  const target = document.getElementById(targetId);
+  const source = document.getElementById(sourceId);
+  if (!(target instanceof HTMLInputElement) || !(source instanceof HTMLInputElement)) {
+    return;
+  }
+  if (document.activeElement !== target) {
+    target.value = source.value || "";
+  }
+  target.disabled = true;
 }
 
 function buildPlanWorkloadBanner(shiftsPerWeek, volunteersNeeded) {

@@ -6,19 +6,19 @@ import {
   getCardBody,
   setCardHeaderControl
 } from "../componentFactory.js";
-import {
-  bindCheckboxProxy,
-  bindClickProxy,
-  syncControlDisabled,
-  bindSelectProxy,
-  getLegacyEl,
-  readSelectedLabel,
-  readText,
-  setText,
-  syncButtonDisabled,
-  syncCheckboxValue,
-  syncSelectValue
-} from "../surfaceUtils.js";
+import { setText } from "../surfaceUtils.js";
+
+const DATA_API_KEY = "__FPE_DATA_API__";
+const DATA_ACTIONS = {
+  saveJson: "save_json",
+  loadJson: "load_json",
+  copySummary: "copy_summary",
+  exportCsv: "export_csv",
+  usbConnect: "usb_connect",
+  usbLoad: "usb_load",
+  usbSave: "usb_save",
+  usbDisconnect: "usb_disconnect",
+};
 
 export function renderDataSurface(mount) {
   const frame = createSurfaceFrame("three-col");
@@ -175,33 +175,41 @@ export function renderDataSurface(mount) {
 function refreshDataSummary() {
   syncDataBridgeUi();
 
-  const strictToggle = getLegacyEl("toggleStrictImport");
-  const restoreBackup = getLegacyEl("restoreBackup");
+  const strictToggle = document.getElementById("v3DataStrictToggle");
+  const restoreSelect = document.getElementById("v3DataRestoreBackup");
   const hashBannerUi = document.getElementById("v3DataHashBannerUi");
   const warnBannerUi = document.getElementById("v3DataWarnBannerUi");
-  const usbStatusUi = readText("#v3DataUsbStatusUi");
+  const usbStatusUi = readElText("v3DataUsbStatusUi");
+  const importFileStatus = readElText("v3DataImportFileStatus");
 
   setText(
     "v3DataStrictImport",
-    strictToggle && "checked" in strictToggle && strictToggle.checked ? "ON" : "OFF"
+    strictToggle instanceof HTMLInputElement && strictToggle.checked ? "ON" : "OFF"
   );
   setText(
     "v3DataBackupCount",
-    restoreBackup && "options" in restoreBackup
-      ? String(Math.max(0, restoreBackup.options.length - 1))
+    restoreSelect instanceof HTMLSelectElement
+      ? String(Math.max(0, restoreSelect.options.length - 1))
       : "0"
   );
   setText(
     "v3DataHashBanner",
-    hashBannerUi && !hashBannerUi.hidden ? (hashBannerUi.textContent || "").trim() || "Visible" : "Hidden"
+    hashBannerUi instanceof HTMLElement && !hashBannerUi.hidden
+      ? (hashBannerUi.textContent || "").trim() || "Visible"
+      : "Hidden"
   );
   setText(
     "v3DataWarnBanner",
-    warnBannerUi && !warnBannerUi.hidden ? (warnBannerUi.textContent || "").trim() || "Visible" : "Hidden"
+    warnBannerUi instanceof HTMLElement && !warnBannerUi.hidden
+      ? (warnBannerUi.textContent || "").trim() || "Visible"
+      : "Hidden"
   );
   setText("v3DataUsbStatus", usbStatusUi || "Using browser storage only.");
-  setText("v3DataRestoreSelection", readSelectedLabel("#restoreBackup") || "No backup selected.");
-  setText("v3DataImportFileSummary", describeImportFile(getLegacyEl("loadJson")));
+  setText(
+    "v3DataRestoreSelection",
+    readSelectLabel(restoreSelect instanceof HTMLSelectElement ? restoreSelect : null) || "No backup selected."
+  );
+  setText("v3DataImportFileSummary", importFileStatus || "No import file selected.");
 }
 
 function wireDataBridge() {
@@ -211,81 +219,159 @@ function wireDataBridge() {
   }
   root.dataset.wired = "1";
 
-  bindCheckboxProxy("v3DataStrictToggle", "toggleStrictImport");
-  bindSelectProxy("v3DataRestoreBackup", "restoreBackup");
+  const strictToggle = document.getElementById("v3DataStrictToggle");
+  if (strictToggle instanceof HTMLInputElement) {
+    strictToggle.addEventListener("change", () => {
+      const api = getDataApi();
+      if (!api || typeof api.setStrictImport !== "function") {
+        return;
+      }
+      api.setStrictImport(!!strictToggle.checked);
+      refreshDataSummary();
+    });
+  }
 
-  bindClickProxy("v3DataBtnSaveJson", "btnSaveJson");
-  bindClickProxy("v3DataBtnLoadJson", "loadJson");
-  bindClickProxy("v3DataBtnCopySummary", "btnCopySummary");
-  bindClickProxy("v3DataBtnExportCsv", "btnExportCsv");
-  bindClickProxy("v3DataBtnUsbConnect", "btnUsbStorageConnect");
-  bindClickProxy("v3DataBtnUsbLoad", "btnUsbStorageLoad");
-  bindClickProxy("v3DataBtnUsbSave", "btnUsbStorageSave");
-  bindClickProxy("v3DataBtnUsbDisconnect", "btnUsbStorageDisconnect");
+  const restoreSelect = document.getElementById("v3DataRestoreBackup");
+  if (restoreSelect instanceof HTMLSelectElement) {
+    restoreSelect.addEventListener("change", () => {
+      const value = String(restoreSelect.value || "").trim();
+      if (!value) {
+        return;
+      }
+      const api = getDataApi();
+      if (!api || typeof api.restoreBackup !== "function") {
+        return;
+      }
+      api.restoreBackup(value);
+      refreshDataSummary();
+    });
+  }
+
+  bindDataAction("v3DataBtnSaveJson", DATA_ACTIONS.saveJson);
+  bindDataAction("v3DataBtnLoadJson", DATA_ACTIONS.loadJson);
+  bindDataAction("v3DataBtnCopySummary", DATA_ACTIONS.copySummary);
+  bindDataAction("v3DataBtnExportCsv", DATA_ACTIONS.exportCsv);
+  bindDataAction("v3DataBtnUsbConnect", DATA_ACTIONS.usbConnect);
+  bindDataAction("v3DataBtnUsbLoad", DATA_ACTIONS.usbLoad);
+  bindDataAction("v3DataBtnUsbSave", DATA_ACTIONS.usbSave);
+  bindDataAction("v3DataBtnUsbDisconnect", DATA_ACTIONS.usbDisconnect);
+}
+
+function bindDataAction(v3Id, action) {
+  const btn = document.getElementById(v3Id);
+  if (!(btn instanceof HTMLButtonElement)) {
+    return;
+  }
+  btn.addEventListener("click", () => {
+    const api = getDataApi();
+    if (!api || typeof api.trigger !== "function") {
+      return;
+    }
+    api.trigger(action);
+    refreshDataSummary();
+  });
 }
 
 function syncDataBridgeUi() {
-  const legacyLoadJson = getLegacyEl("loadJson");
+  const api = getDataApi();
+  const view = api?.getView?.();
+  if (!view || typeof view !== "object") {
+    return;
+  }
 
-  syncCheckboxValue("v3DataStrictToggle", "toggleStrictImport");
-  syncSelectValue("v3DataRestoreBackup", "restoreBackup");
-  syncControlDisabled("v3DataStrictToggle", "toggleStrictImport");
-  syncControlDisabled("v3DataRestoreBackup", "restoreBackup");
+  const strictToggle = document.getElementById("v3DataStrictToggle");
+  if (strictToggle instanceof HTMLInputElement) {
+    if (document.activeElement !== strictToggle) {
+      strictToggle.checked = !!view.strictImport;
+    }
+    strictToggle.disabled = !!view?.controls?.strictToggleDisabled;
+  }
+
+  const restoreSelect = document.getElementById("v3DataRestoreBackup");
+  if (restoreSelect instanceof HTMLSelectElement) {
+    syncBackupSelect(restoreSelect, Array.isArray(view.backupOptions) ? view.backupOptions : [], view.selectedBackup);
+    restoreSelect.disabled = !!view?.controls?.restoreDisabled;
+  }
 
   const hashBannerUi = document.getElementById("v3DataHashBannerUi");
   if (hashBannerUi instanceof HTMLElement) {
-    hashBannerUi.hidden = true;
-    hashBannerUi.textContent = "No import hash warning.";
+    const text = String(view.hashBannerText || "").trim();
+    hashBannerUi.hidden = !text;
+    hashBannerUi.textContent = text || "No import hash warning.";
   }
 
   const warnBannerUi = document.getElementById("v3DataWarnBannerUi");
   if (warnBannerUi instanceof HTMLElement) {
-    warnBannerUi.hidden = true;
-    warnBannerUi.textContent = "No import warnings.";
+    const text = String(view.warnBannerText || "").trim();
+    warnBannerUi.hidden = !text;
+    warnBannerUi.textContent = text || "No import warnings.";
   }
 
-  setText("v3DataUsbStatusUi", describeUsbStatusFromControls());
-  setText("v3DataImportFileStatus", describeImportFile(legacyLoadJson));
+  setText("v3DataUsbStatusUi", String(view.usbStatus || "Using browser storage only."));
+  setText(
+    "v3DataImportFileStatus",
+    view.importFileName ? `Selected import: ${view.importFileName}` : "No import file selected."
+  );
 
-  syncButtonDisabled("v3DataBtnSaveJson", "btnSaveJson");
-  syncButtonDisabled("v3DataBtnLoadJson", "loadJson");
-  syncButtonDisabled("v3DataBtnCopySummary", "btnCopySummary");
-  syncButtonDisabled("v3DataBtnExportCsv", "btnExportCsv");
-  syncButtonDisabled("v3DataBtnUsbConnect", "btnUsbStorageConnect");
-  syncButtonDisabled("v3DataBtnUsbLoad", "btnUsbStorageLoad");
-  syncButtonDisabled("v3DataBtnUsbSave", "btnUsbStorageSave");
-  syncButtonDisabled("v3DataBtnUsbDisconnect", "btnUsbStorageDisconnect");
+  syncButtonDisabledLocal("v3DataBtnSaveJson", !!view?.controls?.saveJsonDisabled);
+  syncButtonDisabledLocal("v3DataBtnLoadJson", !!view?.controls?.loadJsonDisabled);
+  syncButtonDisabledLocal("v3DataBtnCopySummary", !!view?.controls?.copySummaryDisabled);
+  syncButtonDisabledLocal("v3DataBtnExportCsv", !!view?.controls?.exportCsvDisabled);
+  syncButtonDisabledLocal("v3DataBtnUsbConnect", !!view?.controls?.usbConnectDisabled);
+  syncButtonDisabledLocal("v3DataBtnUsbLoad", !!view?.controls?.usbLoadDisabled);
+  syncButtonDisabledLocal("v3DataBtnUsbSave", !!view?.controls?.usbSaveDisabled);
+  syncButtonDisabledLocal("v3DataBtnUsbDisconnect", !!view?.controls?.usbDisconnectDisabled);
 }
 
-function describeImportFile(legacyLoadJson) {
-  if (
-    !(legacyLoadJson instanceof HTMLInputElement) ||
-    !legacyLoadJson.files ||
-    !legacyLoadJson.files.length
-  ) {
-    return "No import file selected.";
+function syncBackupSelect(selectEl, options, selectedValue) {
+  const selected = String(selectedValue || "");
+  const nextValues = options.map((opt) => `${String(opt.value || "")}::${String(opt.label || "")}`);
+  const currentValues = Array.from(selectEl.options)
+    .slice(1)
+    .map((opt) => `${String(opt.value || "")}::${String(opt.textContent || "")}`);
+  const matches = nextValues.length === currentValues.length && nextValues.every((v, i) => v === currentValues[i]);
+  if (!matches) {
+    selectEl.innerHTML = "";
+    const base = document.createElement("option");
+    base.value = "";
+    base.textContent = "Restore backup…";
+    selectEl.appendChild(base);
+    options.forEach((opt) => {
+      const item = document.createElement("option");
+      item.value = String(opt.value || "");
+      item.textContent = String(opt.label || opt.value || "");
+      selectEl.appendChild(item);
+    });
   }
-  return `Selected import: ${legacyLoadJson.files[0].name}`;
+  if (document.activeElement !== selectEl) {
+    selectEl.value = selected;
+  }
 }
 
-function describeUsbStatusFromControls() {
-  const connectBtn = document.getElementById("v3DataBtnUsbConnect");
-  const loadBtn = document.getElementById("v3DataBtnUsbLoad");
-  const saveBtn = document.getElementById("v3DataBtnUsbSave");
-  const disconnectBtn = document.getElementById("v3DataBtnUsbDisconnect");
+function syncButtonDisabledLocal(id, disabled) {
+  const btn = document.getElementById(id);
+  if (btn instanceof HTMLButtonElement) {
+    btn.disabled = !!disabled;
+  }
+}
 
-  if (
-    loadBtn instanceof HTMLButtonElement &&
-    saveBtn instanceof HTMLButtonElement &&
-    (!loadBtn.disabled || !saveBtn.disabled)
-  ) {
-    return "External folder connected.";
+function readElText(id) {
+  const el = document.getElementById(id);
+  return el ? String(el.textContent || "").trim() : "";
+}
+
+function readSelectLabel(selectEl) {
+  if (!(selectEl instanceof HTMLSelectElement)) {
+    return "";
   }
-  if (disconnectBtn instanceof HTMLButtonElement && !disconnectBtn.disabled) {
-    return "External folder session available.";
+  const option = selectEl.options[selectEl.selectedIndex];
+  return option ? String(option.textContent || "").trim() : "";
+}
+
+function getDataApi() {
+  const api = window?.[DATA_API_KEY];
+  if (!api || typeof api.getView !== "function") {
+    return null;
   }
-  if (connectBtn instanceof HTMLButtonElement && !connectBtn.disabled) {
-    return "Using browser storage only.";
-  }
-  return "Storage status unavailable.";
+  return api;
 }
