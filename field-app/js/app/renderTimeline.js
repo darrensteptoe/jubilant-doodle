@@ -10,11 +10,17 @@ export function renderTimelineModule(args){
     fmtInt,
     engine,
   } = args || {};
-
-  if (!els?.timelineEnabled || !els?.tlPercent) return;
+  const tlPercentEl = els?.tlPercent;
+  const tlCompletionWeekEl = els?.tlCompletionWeek;
+  const tlShortfallAttemptsEl = els?.tlShortfallAttempts;
+  const tlConstraintEl = els?.tlConstraint;
+  const tlShortfallVotesEl = els?.tlShortfallVotes;
+  const tlWeekListEl = els?.tlWeekList;
   const features = resolveFeatureFlags(state || {});
 
-  if (els.timelineWeeksAuto) els.timelineWeeksAuto.value = (weeks == null) ? "" : String(Math.max(0, Math.floor(weeks)));
+  if (els?.timelineWeeksAuto) {
+    els.timelineWeeksAuto.value = (weeks == null) ? "" : String(Math.max(0, Math.floor(weeks)));
+  }
 
   const enabled = !!features.timelineEnabled;
   const banner = els.tlBanner;
@@ -31,12 +37,21 @@ export function renderTimelineModule(args){
   };
 
   if (!enabled){
-    els.tlPercent.textContent = "—";
-    els.tlCompletionWeek.textContent = "—";
-    els.tlShortfallAttempts.textContent = "—";
-    els.tlConstraint.textContent = "—";
-    if (els.tlShortfallVotes) els.tlShortfallVotes.textContent = "—";
-    if (els.tlWeekList) els.tlWeekList.textContent = "—";
+    if (!state.ui || typeof state.ui !== "object") state.ui = {};
+    state.ui.lastTimeline = {
+      percentPlanExecutable: null,
+      projectedCompletionWeek: null,
+      shortfallAttempts: null,
+      shortfallNetVotes: null,
+      constraintType: null
+    };
+
+    if (tlPercentEl) tlPercentEl.textContent = "—";
+    if (tlCompletionWeekEl) tlCompletionWeekEl.textContent = "—";
+    if (tlShortfallAttemptsEl) tlShortfallAttemptsEl.textContent = "—";
+    if (tlConstraintEl) tlConstraintEl.textContent = "—";
+    if (tlShortfallVotesEl) tlShortfallVotesEl.textContent = "—";
+    if (tlWeekListEl) tlWeekListEl.textContent = "—";
     hideBanner();
     return;
   }
@@ -92,20 +107,24 @@ export function renderTimelineModule(args){
   };
 
   const pct = Math.round((tl.percentPlanExecutable ?? 0) * 100);
-  els.tlPercent.textContent = `${pct}%`;
-  els.tlCompletionWeek.textContent = (tl.projectedCompletionWeek == null) ? "—" : String(tl.projectedCompletionWeek);
-  els.tlShortfallAttempts.textContent = fmtInt(Math.round(tl.shortfallAttempts ?? 0));
-  els.tlConstraint.textContent = tl.constraintType || "—";
+  if (tlPercentEl) tlPercentEl.textContent = `${pct}%`;
+  if (tlCompletionWeekEl) {
+    tlCompletionWeekEl.textContent = (tl.projectedCompletionWeek == null) ? "—" : String(tl.projectedCompletionWeek);
+  }
+  if (tlShortfallAttemptsEl) {
+    tlShortfallAttemptsEl.textContent = fmtInt(Math.round(tl.shortfallAttempts ?? 0));
+  }
+  if (tlConstraintEl) tlConstraintEl.textContent = tl.constraintType || "—";
 
-  if (els.tlShortfallVotes){
-    els.tlShortfallVotes.textContent = (tl.shortfallNetVotes == null) ? "—" : fmtInt(Math.round(tl.shortfallNetVotes));
+  if (tlShortfallVotesEl){
+    tlShortfallVotesEl.textContent = (tl.shortfallNetVotes == null) ? "—" : fmtInt(Math.round(tl.shortfallNetVotes));
   }
 
-  if (els.tlWeekList){
+  if (tlWeekListEl){
     if (!tl.weekly || !tl.weekly.length){
-      els.tlWeekList.textContent = "—";
+      tlWeekListEl.textContent = "—";
     } else {
-      els.tlWeekList.textContent = tl.weekly.map(w => `Week ${w.week}: ${fmtInt(Math.round(w.attempts || 0))} attempts`).join("\n");
+      tlWeekListEl.textContent = tl.weekly.map(w => `Week ${w.week}: ${fmtInt(Math.round(w.attempts || 0))} attempts`).join("\n");
     }
   }
 
