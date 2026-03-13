@@ -90,9 +90,9 @@ export function readDistrictSnapshot() {
 export function readTurnoutSnapshot() {
   const bridgeSummary = readTurnoutBridgeSummary();
   return {
-    turnoutSummary: bridgeSummary?.turnoutSummary || firstNonEmpty(["#kpiTurnoutBand-sidebar", "#turnoutSummary"]),
-    turnoutVotes: bridgeSummary?.turnoutVotes || firstNonEmpty(["#kpiTurnoutVotes-sidebar", "#kpiTurnoutVotes"]),
-    needVotes: bridgeSummary?.needVotes || firstNonEmpty(["#kpiPersuasionNeed-sidebar", "#kpiPersuasionNeed"])
+    turnoutSummary: bridgeSummary?.turnoutSummary || firstNonEmpty(["#kpiTurnoutBand-sidebar"]),
+    turnoutVotes: bridgeSummary?.turnoutVotes || firstNonEmpty(["#kpiTurnoutVotes-sidebar"]),
+    needVotes: bridgeSummary?.needVotes || firstNonEmpty(["#kpiPersuasionNeed-sidebar"])
   };
 }
 
