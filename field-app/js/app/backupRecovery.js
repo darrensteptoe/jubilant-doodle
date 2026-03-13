@@ -55,19 +55,21 @@ export function createBackupRecoveryController(deps = {}){
 
   function refreshBackupDropdown(){
     try{
-      if (!els.restoreBackup) return;
-      const backups = readBackups();
-      const cur = els.restoreBackup.value;
-      els.restoreBackup.innerHTML = '<option value="">Restore backup...</option>';
-      backups.forEach((b, i) => {
-        const opt = document.createElement("option");
-        const name = (b?.scenarioName || "").trim();
-        const when = b?.ts ? String(b.ts).replace("T", " ").replace("Z", "") : "";
-        opt.value = String(i);
-        opt.textContent = `${when}${name ? " — " + name : ""}`;
-        els.restoreBackup.appendChild(opt);
-      });
-      els.restoreBackup.value = cur && cur !== "" ? cur : "";
+      const restoreBackupEl = els?.restoreBackup || null;
+      if (restoreBackupEl){
+        const backups = readBackups();
+        const cur = restoreBackupEl.value;
+        restoreBackupEl.innerHTML = '<option value="">Restore backup...</option>';
+        backups.forEach((b, i) => {
+          const opt = document.createElement("option");
+          const name = (b?.scenarioName || "").trim();
+          const when = b?.ts ? String(b.ts).replace("T", " ").replace("Z", "") : "";
+          opt.value = String(i);
+          opt.textContent = `${when}${name ? " — " + name : ""}`;
+          restoreBackupEl.appendChild(opt);
+        });
+        restoreBackupEl.value = cur && cur !== "" ? cur : "";
+      }
     } catch {
       // ignore
     }

@@ -546,7 +546,7 @@ export function renderDecisionOptionsPanelCore({
   getActiveDecisionOption,
   decisionScenarioLabel,
 }){
-  if (!els.decisionOptionSelect) return;
+  const decisionOptionSelectEl = els?.decisionOptionSelect || null;
   if (!session) return;
 
   ensureDecisionSessionShape(session);
@@ -554,22 +554,26 @@ export function renderDecisionOptionsPanelCore({
   const options = listDecisionOptions(session);
   const active = getActiveDecisionOption(session);
 
-  els.decisionOptionSelect.innerHTML = "";
+  if (decisionOptionSelectEl) decisionOptionSelectEl.innerHTML = "";
   if (!options.length){
     const opt = document.createElement("option");
     opt.value = "";
     opt.textContent = "No options yet";
-    els.decisionOptionSelect.appendChild(opt);
-    els.decisionOptionSelect.value = "";
+    if (decisionOptionSelectEl){
+      decisionOptionSelectEl.appendChild(opt);
+      decisionOptionSelectEl.value = "";
+    }
   } else {
     for (const o of options){
       const opt = document.createElement("option");
       opt.value = o.id;
       opt.textContent = o.label || o.id;
-      els.decisionOptionSelect.appendChild(opt);
+      if (decisionOptionSelectEl) decisionOptionSelectEl.appendChild(opt);
     }
-    els.decisionOptionSelect.value = session.activeOptionId || options[0].id;
-    if (!session.activeOptionId) session.activeOptionId = els.decisionOptionSelect.value;
+    if (decisionOptionSelectEl){
+      decisionOptionSelectEl.value = session.activeOptionId || options[0].id;
+      if (!session.activeOptionId) session.activeOptionId = decisionOptionSelectEl.value;
+    }
   }
 
   const has = !!active;
@@ -615,10 +619,9 @@ export function renderDecisionSessionPanelCore({
   renderDecisionOptions,
   renderDecisionSummary,
 }){
-  if (!els.decisionSessionSelect && !els.decisionActiveLabel) return;
   ensureDecisionScaffold();
   const sessions = listDecisionSessions();
-  const activeId = state.ui.decision.activeSessionId;
+  const activeId = String(state?.ui?.decision?.activeSessionId || "");
   const active = getActiveDecisionSession();
   ensureDecisionSessionShape(active);
 

@@ -34,8 +34,11 @@ export function applySurfaceDefaultsCore({
   surfaceBaselineValue,
   surfaceClamp,
 }){
-  if (!els.surfaceLever || !els.surfaceMin || !els.surfaceMax) return;
-  const spec = surfaceLeverSpec(els.surfaceLever.value);
+  const surfaceLeverEl = els?.surfaceLever || null;
+  const surfaceMinEl = els?.surfaceMin || null;
+  const surfaceMaxEl = els?.surfaceMax || null;
+  if (!surfaceLeverEl || !surfaceMinEl || !surfaceMaxEl) return;
+  const spec = surfaceLeverSpec(surfaceLeverEl.value);
   if (!spec) return;
 
   const base = surfaceBaselineValue(spec);
@@ -45,11 +48,11 @@ export function applySurfaceDefaultsCore({
   const minV = surfaceClamp(lo, spec.clampLo, spec.clampHi);
   const maxV = surfaceClamp(hi, spec.clampLo, spec.clampHi);
 
-  els.surfaceMin.step = String(spec.step);
-  els.surfaceMax.step = String(spec.step);
+  surfaceMinEl.step = String(spec.step);
+  surfaceMaxEl.step = String(spec.step);
 
-  els.surfaceMin.value = String(minV);
-  els.surfaceMax.value = String(maxV);
+  surfaceMinEl.value = String(minV);
+  surfaceMaxEl.value = String(maxV);
 }
 
 export function renderSurfaceStubCore({ els }){
