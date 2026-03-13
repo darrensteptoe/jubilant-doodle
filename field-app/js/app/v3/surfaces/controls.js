@@ -839,12 +839,10 @@ function wireControlsFeedbackBridge() {
 
 function syncControlsFeedbackBridge() {
   syncFieldValue("v3IntelWhatIfInput", "intelWhatIfInput");
-  syncFieldValue("v3IntelWhatIfPreview", "intelWhatIfPreview");
-  syncFieldValue("v3IntelRecommendationPreview", "intelRecommendationPreview");
+  setTextareaValue("v3IntelWhatIfPreview", buildWhatIfPreviewFromIntel());
+  setTextareaValue("v3IntelRecommendationPreview", buildRecommendationPreviewFromIntel());
   syncControlsDisabled([
-    ["v3IntelWhatIfInput", "intelWhatIfInput"],
-    ["v3IntelWhatIfPreview", "intelWhatIfPreview"],
-    ["v3IntelRecommendationPreview", "intelRecommendationPreview"]
+    ["v3IntelWhatIfInput", "intelWhatIfInput"]
   ]);
 
   setText("v3IntelObservedCount", buildObservedCount());
@@ -990,15 +988,27 @@ function buildCalibrationStatus() {
 }
 
 function previewLineCount(id) {
-  const text = readInputValueById(id);
-  if (!text) {
+  const intel = getActiveIntelStateSnapshot();
+  if (!intel || typeof intel !== "object") {
     return 0;
   }
-  return text.split(/\n+/).map((line) => line.trim()).filter(Boolean).length;
+  const whatIfRows = Array.isArray(intel.intelRequests) ? intel.intelRequests.length : 0;
+  const recommendationRows = Array.isArray(intel.recommendations) ? intel.recommendations.length : 0;
+  const observedRows = Array.isArray(intel.observedMetrics) ? intel.observedMetrics.length : 0;
+  if (id === "v3IntelObserved") {
+    return observedRows;
+  }
+  if (id === "v3IntelWhatIfPreview") {
+    return whatIfRows;
+  }
+  if (id === "v3IntelRecommendationPreview") {
+    return recommendationRows;
+  }
+  return 0;
 }
 
 function buildObservedCount() {
-  const lines = previewLineCount("v3IntelRecommendationPreview");
+  const lines = previewLineCount("v3IntelObserved");
   return lines > 0 ? `${lines} observed metric entries captured.` : "0 observed metric entries captured.";
 }
 
@@ -1008,7 +1018,7 @@ function buildRecommendationCount() {
 }
 
 function buildObservedStatus() {
-  const lines = previewLineCount("v3IntelRecommendationPreview");
+  const lines = previewLineCount("v3IntelObserved");
   return lines > 0 ? "Observed metrics captured." : "No observed metrics captured yet.";
 }
 
@@ -1025,6 +1035,42 @@ function buildWhatIfCount() {
 function buildWhatIfStatus() {
   const lines = previewLineCount("v3IntelWhatIfPreview");
   return lines > 0 ? "What-if request parsed." : "No what-if requests parsed yet.";
+}
+
+function buildWhatIfPreviewFromIntel() {
+  const intel = getActiveIntelStateSnapshot();
+  const rows = Array.isArray(intel?.intelRequests) ? intel.intelRequests.slice() : [];
+  if (!rows.length) {
+    return "";
+  }
+  rows.sort((a, b) => String(b?.createdAt || "").localeCompare(String(a?.createdAt || "")));
+  const latest = rows[0] || {};
+  const summary = String(latest?.summary || "").trim();
+  const prompt = String(latest?.prompt || "").trim();
+  const status = String(latest?.status || "").trim() || "parsed";
+  const lines = [];
+  lines.push(`Status: ${status}`);
+  if (summary) lines.push(`Summary: ${summary}`);
+  if (prompt) lines.push(`Prompt: ${prompt}`);
+  return lines.join("\n");
+}
+
+function buildRecommendationPreviewFromIntel() {
+  const intel = getActiveIntelStateSnapshot();
+  const rows = Array.isArray(intel?.recommendations) ? intel.recommendations.slice() : [];
+  if (!rows.length) {
+    return "";
+  }
+  rows.sort((a, b) => Number(a?.priority ?? 999) - Number(b?.priority ?? 999));
+  return rows
+    .slice(0, 8)
+    .map((row, idx) => {
+      const priority = Number.isFinite(Number(row?.priority)) ? `P${Number(row.priority)}` : "P?";
+      const title = String(row?.title || `Recommendation ${idx + 1}`).trim();
+      const detail = String(row?.detail || "").trim();
+      return detail ? `[${priority}] ${title}: ${detail}` : `[${priority}] ${title}`;
+    })
+    .join("\n");
 }
 
 function getActiveIntelStateSnapshot() {
@@ -1083,4 +1129,15 @@ function fmtNum(value) {
     return "—";
   }
   return Number.isInteger(n) ? String(n) : n.toFixed(2);
+}
+
+function setTextareaValue(id, value) {
+  const el = document.getElementById(id);
+  if (!(el instanceof HTMLTextAreaElement)) {
+    return;
+  }
+  if (document.activeElement === el) {
+    return;
+  }
+  el.value = String(value || "");
 }
