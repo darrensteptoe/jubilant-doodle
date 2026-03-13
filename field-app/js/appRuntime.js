@@ -3261,6 +3261,32 @@ function installPlanBridge(){
 }
 
 function outcomeBridgeStateView(){
+  const mc = state?.mcLast;
+  const ce = mc?.confidenceEnvelope || null;
+  const percentiles = ce?.percentiles || {};
+  const risk = ce?.risk || {};
+  const fragility = risk?.fragility || {};
+  const advisor = risk?.advisor || {};
+  const mcMeta = (state?.ui && typeof state.ui === "object" && state.ui.mcMeta && typeof state.ui.mcMeta === "object")
+    ? state.ui.mcMeta
+    : null;
+
+  let mcLastRun = "";
+  if (mcMeta?.lastRunAt){
+    try{
+      mcLastRun = new Date(mcMeta.lastRunAt).toLocaleString();
+    } catch {
+      mcLastRun = String(mcMeta.lastRunAt || "");
+    }
+  }
+
+  const mcFreshTag = !mc
+    ? "MC pending"
+    : (mcMeta?.isStale ? "Stale" : "Fresh");
+  const mcStaleTag = !mc
+    ? "No run yet"
+    : (mcMeta?.isStale ? String(mcMeta.staleReason || "inputs changed") : "Current");
+
   const sensitivityRowsRaw = Array.isArray(state?.ui?.lastOutcomeSensitivityRows)
     ? state.ui.lastOutcomeSensitivityRows
     : [];
@@ -3284,6 +3310,18 @@ function outcomeBridgeStateView(){
   const surfaceSummaryText = String(state?.ui?.lastOutcomeSurfaceSummary || "").trim();
 
   return {
+    mc: {
+      winProb: safeNum(mc?.winProb),
+      p10: safeNum(percentiles?.p10),
+      p50: safeNum(percentiles?.p50),
+      p90: safeNum(percentiles?.p90),
+      riskGrade: String(advisor?.grade || "").trim(),
+      fragilityIndex: safeNum(fragility?.fragilityIndex),
+      cliffRisk: safeNum(fragility?.cliffRisk),
+      freshTag: mcFreshTag,
+      lastRun: mcLastRun,
+      staleTag: mcStaleTag,
+    },
     sensitivityRows,
     surfaceRows,
     surfaceStatusText,
