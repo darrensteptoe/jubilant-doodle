@@ -348,10 +348,14 @@ function wireTurnoutControlProxies() {
 }
 
 function refreshTurnoutSummary() {
+  const turnoutView = readTurnoutView();
+  const bridgeSummary = turnoutView?.summary && typeof turnoutView.summary === "object"
+    ? turnoutView.summary
+    : {};
   const snapshot = readTurnoutSnapshot();
-  const turnoutSummary = String(snapshot.turnoutSummary || "").trim();
-  const turnoutVotes = String(snapshot.turnoutVotes || "").trim();
-  const needVotes = String(snapshot.needVotes || "").trim();
+  const turnoutSummary = String(bridgeSummary.turnoutSummaryText || snapshot.turnoutSummary || "").trim();
+  const turnoutVotes = String(bridgeSummary.turnoutVotesText || snapshot.turnoutVotes || "").trim();
+  const needVotes = String(bridgeSummary.needVotesText || snapshot.needVotes || "").trim();
 
   setText("v3TurnoutSummary", turnoutSummary || "-");
   setText("v3TurnoutVotes", turnoutVotes || "-");
@@ -361,7 +365,6 @@ function refreshTurnoutSummary() {
   setText("v3TurnoutImpactMargin", readTurnoutMarginContext());
   setText("v3TurnoutImpactWinProb", readV3WinProbability());
   setText("v3TurnoutStatusBanner", buildTurnoutStatusBanner(turnoutSummary, turnoutVotes, needVotes));
-  const turnoutView = readTurnoutView();
   applyTurnoutView(turnoutView);
   setText("v3TurnoutRoiBanner", buildRoiStatusBanner(turnoutView));
 }
