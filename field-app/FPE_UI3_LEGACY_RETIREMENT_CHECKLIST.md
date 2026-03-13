@@ -73,6 +73,7 @@ Reference artifact:
 - MC sensitivity rows now dual-render to hidden sidebar mirror target (`#mcSensitivity-sidebar`) to preserve runtime updates without primary sensitivity table nodes.
 - Legacy `results` nav entry has been removed from legacy left-rail user flow; `stage-results` DOM remains in place for controlled retirement.
 - Legacy `stage-results` section is now hidden in legacy flow (retired stub), while DOM IDs remain mounted for parity and rollback safety.
+- Legacy `stage-results` has been collapsed to an empty retired stub anchor (`<section id="stage-results">`) so no legacy Outcome controls remain mounted in user/runtime flow.
 - Legacy `roi` and `gotv` nav entries have been removed from legacy left-rail user flow; `stage-roi` and `stage-gotv` DOM remain mounted for controlled retirement.
 - Legacy `stage-roi` and `stage-gotv` sections are now hidden in legacy flow (retired stubs), while DOM IDs remain mounted for parity and rollback safety.
 - Timeline runtime (`renderTimelineModule`) now computes and cache-updates without requiring legacy timeline DOM gates (`timelineEnabled`, `tlPercent`, `tl*` fields), reducing `stage-gotv` deletion risk.

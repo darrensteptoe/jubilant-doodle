@@ -167,6 +167,7 @@ Scope: UI architecture migration only (engine and right rail frozen)
 - Runtime hardening: MC sensitivity rows now mirror to hidden right-rail target (`#mcSensitivity-sidebar`), preserving updates when legacy sensitivity table node is absent.
 - Legacy flow retirement: removed legacy left-nav `results` entry while retaining `stage-results` DOM for runtime parity checks.
 - Legacy flow retirement: `stage-results` section is hidden as a retired stub (DOM retained).
+- Legacy flow retirement: `stage-results` is now an empty retired stub anchor (no internal legacy controls mounted).
 - Legacy flow retirement: removed legacy left-nav `roi` and `gotv` entries while retaining `stage-roi`/`stage-gotv` DOM for runtime parity checks.
 - Legacy flow retirement: `stage-roi` and `stage-gotv` sections are hidden as retired stubs (DOM retained).
 - Runtime hardening: timeline renderer now computes/cache-updates without hard requiring legacy timeline DOM gates (`timelineEnabled`, `tlPercent`, `tl*`), reducing coupling to `stage-gotv` markup.
