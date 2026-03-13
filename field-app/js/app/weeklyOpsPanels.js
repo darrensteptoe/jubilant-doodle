@@ -174,8 +174,6 @@ export function renderWeeklyOpsModule(args){
     renderWeeklyExecutionStatus,
   } = args || {};
 
-  if (!els.wkGoal) return;
-
   const context = ctx || computeWeeklyOpsContext(res, weeks) || {};
   const goal = context.goal ?? 0;
   const sr = context.sr;
@@ -189,12 +187,12 @@ export function renderWeeklyOpsModule(args){
   const fmtMaybeInt = (v) => (v == null || !isFinite(v)) ? "—" : fmtInt(Math.ceil(v));
   const fmtMaybe = (v) => (v == null || !isFinite(v)) ? "—" : fmtInt(Math.round(v));
 
-  els.wkGoal.textContent = (goal == null) ? "—" : fmtInt(Math.round(goal));
+  if (els.wkGoal) els.wkGoal.textContent = (goal == null) ? "—" : fmtInt(Math.round(goal));
 
-  els.wkConvosPerWeek.textContent = fmtMaybeInt(convosPerWeek);
-  els.wkAttemptsPerWeek.textContent = fmtMaybeInt(attemptsPerWeek);
+  if (els.wkConvosPerWeek) els.wkConvosPerWeek.textContent = fmtMaybeInt(convosPerWeek);
+  if (els.wkAttemptsPerWeek) els.wkAttemptsPerWeek.textContent = fmtMaybeInt(attemptsPerWeek);
 
-  els.wkCapacityPerWeek.textContent = fmtMaybeInt(capTotal);
+  if (els.wkCapacityPerWeek) els.wkCapacityPerWeek.textContent = fmtMaybeInt(capTotal);
   if (els.wkCapacityBreakdown){
     if (cap && cap.doors != null && cap.phones != null){
       els.wkCapacityBreakdown.textContent = `${fmtMaybe(cap.doors)} doors + ${fmtMaybe(cap.phones)} calls`;
