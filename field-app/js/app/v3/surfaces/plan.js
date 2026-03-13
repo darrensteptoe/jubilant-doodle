@@ -7,21 +7,14 @@ import {
   getCardBody
 } from "../componentFactory.js";
 import {
-  bindCheckboxProxy,
-  bindClickProxy,
-  bindFieldProxy,
-  bindSelectProxy,
   readText,
   setText,
-  syncButtonDisabled,
-  syncCheckboxValue,
-  syncControlDisabled,
-  syncFieldValue,
   syncLegacyTableRows,
-  syncSelectValue
 } from "../surfaceUtils.js";
 
 const REACH_API_KEY = "__FPE_REACH_API__";
+const PLAN_API_KEY = "__FPE_PLAN_API__";
+const SCENARIO_API_KEY = "__FPE_SCENARIO_API__";
 
 export function renderPlanSurface(mount) {
   const frame = createSurfaceFrame("three-col");
@@ -405,27 +398,27 @@ function wirePlanControlProxies() {
   wirePlanReachField("v3PlanHoursPerShift", "hoursPerShift");
   wirePlanReachField("v3PlanShiftsPerVolunteer", "shiftsPerVolunteerPerWeek");
 
-  bindSelectProxy("v3PlanOptMode", "optMode");
-  bindSelectProxy("v3PlanOptObjective", "optObjective");
-  bindCheckboxProxy("v3PlanTlOptEnabled", "tlOptEnabled");
-  bindSelectProxy("v3PlanTlOptObjective", "tlOptObjective");
-  bindFieldProxy("v3PlanOptBudget", "optBudget");
-  bindFieldProxy("v3PlanOptStep", "optStep");
-  bindCheckboxProxy("v3PlanOptUseDecay", "optUseDecay");
-  bindClickProxy("v3BtnOptRun", "optRun");
+  bindPlanSelectField("v3PlanOptMode", "optMode");
+  bindPlanSelectField("v3PlanOptObjective", "optObjective");
+  bindPlanCheckboxField("v3PlanTlOptEnabled", "tlOptEnabled");
+  bindPlanSelectField("v3PlanTlOptObjective", "tlOptObjective");
+  bindPlanInputField("v3PlanOptBudget", "optBudget");
+  bindPlanInputField("v3PlanOptStep", "optStep");
+  bindPlanCheckboxField("v3PlanOptUseDecay", "optUseDecay");
+  bindPlanAction("v3BtnOptRun", "runOptimize");
 
-  bindCheckboxProxy("v3PlanTimelineEnabledToggle", "timelineEnabled");
-  bindFieldProxy("v3PlanTimelineActiveWeeks", "timelineActiveWeeks");
-  bindFieldProxy("v3PlanTimelineGotvWeeks", "timelineGotvWeeks");
-  bindFieldProxy("v3PlanTimelineStaffCount", "timelineStaffCount");
-  bindFieldProxy("v3PlanTimelineStaffHours", "timelineStaffHours");
-  bindFieldProxy("v3PlanTimelineVolCount", "timelineVolCount");
-  bindFieldProxy("v3PlanTimelineVolHours", "timelineVolHours");
-  bindCheckboxProxy("v3PlanTimelineRampEnabled", "timelineRampEnabled");
-  bindSelectProxy("v3PlanTimelineRampMode", "timelineRampMode");
-  bindFieldProxy("v3PlanTimelineDoorsPerHour", "timelineDoorsPerHour");
-  bindFieldProxy("v3PlanTimelineCallsPerHour", "timelineCallsPerHour");
-  bindFieldProxy("v3PlanTimelineTextsPerHour", "timelineTextsPerHour");
+  bindPlanCheckboxField("v3PlanTimelineEnabledToggle", "timelineEnabled");
+  bindPlanInputField("v3PlanTimelineActiveWeeks", "timelineActiveWeeks");
+  bindPlanInputField("v3PlanTimelineGotvWeeks", "timelineGotvWeeks");
+  bindPlanInputField("v3PlanTimelineStaffCount", "timelineStaffCount");
+  bindPlanInputField("v3PlanTimelineStaffHours", "timelineStaffHours");
+  bindPlanInputField("v3PlanTimelineVolCount", "timelineVolCount");
+  bindPlanInputField("v3PlanTimelineVolHours", "timelineVolHours");
+  bindPlanCheckboxField("v3PlanTimelineRampEnabled", "timelineRampEnabled");
+  bindPlanSelectField("v3PlanTimelineRampMode", "timelineRampMode");
+  bindPlanInputField("v3PlanTimelineDoorsPerHour", "timelineDoorsPerHour");
+  bindPlanInputField("v3PlanTimelineCallsPerHour", "timelineCallsPerHour");
+  bindPlanInputField("v3PlanTimelineTextsPerHour", "timelineTextsPerHour");
 }
 
 function refreshPlanSummary() {
@@ -507,52 +500,10 @@ function refreshPlanSummary() {
     !!reachView?.controls?.locked
   );
 
-  syncSelectValue("v3PlanOptMode", "optMode");
-  syncSelectValue("v3PlanOptObjective", "optObjective");
-  syncCheckboxValue("v3PlanTlOptEnabled", "tlOptEnabled");
-  syncSelectValue("v3PlanTlOptObjective", "tlOptObjective");
-  syncFieldValue("v3PlanOptBudget", "optBudget");
-  syncFieldValue("v3PlanOptStep", "optStep");
-  syncCheckboxValue("v3PlanOptUseDecay", "optUseDecay");
-
-  syncCheckboxValue("v3PlanTimelineEnabledToggle", "timelineEnabled");
-  syncFieldValue("v3PlanTimelineWeeksAuto", "timelineWeeksAuto");
-  syncFieldValue("v3PlanTimelineActiveWeeks", "timelineActiveWeeks");
-  syncFieldValue("v3PlanTimelineGotvWeeks", "timelineGotvWeeks");
-  syncFieldValue("v3PlanTimelineStaffCount", "timelineStaffCount");
-  syncFieldValue("v3PlanTimelineStaffHours", "timelineStaffHours");
-  syncFieldValue("v3PlanTimelineVolCount", "timelineVolCount");
-  syncFieldValue("v3PlanTimelineVolHours", "timelineVolHours");
-  syncCheckboxValue("v3PlanTimelineRampEnabled", "timelineRampEnabled");
-  syncSelectValue("v3PlanTimelineRampMode", "timelineRampMode");
-  syncFieldValue("v3PlanTimelineDoorsPerHour", "timelineDoorsPerHour");
-  syncFieldValue("v3PlanTimelineCallsPerHour", "timelineCallsPerHour");
-  syncFieldValue("v3PlanTimelineTextsPerHour", "timelineTextsPerHour");
+  applyPlanView(readPlanView());
+  syncPlanTimelineWeeksAuto("v3PlanTimelineWeeksAuto");
   syncPlanFieldMirror("v3PlanDoorsPerHour", "v3PlanTimelineDoorsPerHour");
-
-  syncButtonDisabled("v3BtnOptRun", "optRun");
-
-  syncControlDisabled("v3PlanOptMode", "optMode");
-  syncControlDisabled("v3PlanOptObjective", "optObjective");
-  syncControlDisabled("v3PlanTlOptEnabled", "tlOptEnabled");
-  syncControlDisabled("v3PlanTlOptObjective", "tlOptObjective");
-  syncControlDisabled("v3PlanOptBudget", "optBudget");
-  syncControlDisabled("v3PlanOptStep", "optStep");
-  syncControlDisabled("v3PlanOptUseDecay", "optUseDecay");
-
-  syncControlDisabled("v3PlanTimelineEnabledToggle", "timelineEnabled");
-  syncControlDisabled("v3PlanTimelineWeeksAuto", "timelineWeeksAuto");
-  syncControlDisabled("v3PlanTimelineActiveWeeks", "timelineActiveWeeks");
-  syncControlDisabled("v3PlanTimelineGotvWeeks", "timelineGotvWeeks");
-  syncControlDisabled("v3PlanTimelineStaffCount", "timelineStaffCount");
-  syncControlDisabled("v3PlanTimelineStaffHours", "timelineStaffHours");
-  syncControlDisabled("v3PlanTimelineVolCount", "timelineVolCount");
-  syncControlDisabled("v3PlanTimelineVolHours", "timelineVolHours");
-  syncControlDisabled("v3PlanTimelineRampEnabled", "timelineRampEnabled");
-  syncControlDisabled("v3PlanTimelineRampMode", "timelineRampMode");
-  syncControlDisabled("v3PlanTimelineDoorsPerHour", "timelineDoorsPerHour");
-  syncControlDisabled("v3PlanTimelineCallsPerHour", "timelineCallsPerHour");
-  syncControlDisabled("v3PlanTimelineTextsPerHour", "timelineTextsPerHour");
+  syncPlanAutoFieldDisabled("v3PlanTimelineWeeksAuto");
 }
 
 function syncPlanDecisionIntel(planContext = null) {
@@ -704,6 +655,217 @@ function syncPlanReachField(id, value, locked) {
   input.disabled = !!locked;
 }
 
+function bindPlanInputField(id, field) {
+  const input = document.getElementById(id);
+  if (!(input instanceof HTMLInputElement)) {
+    return;
+  }
+  if (input.dataset.v3PlanBound === "1") {
+    return;
+  }
+  input.dataset.v3PlanBound = "1";
+  const onInput = () => {
+    const api = getPlanApi();
+    if (!api || typeof api.setField !== "function") {
+      return;
+    }
+    api.setField(field, input.value);
+  };
+  input.addEventListener("input", onInput);
+  input.addEventListener("change", onInput);
+}
+
+function bindPlanCheckboxField(id, field) {
+  const input = document.getElementById(id);
+  if (!(input instanceof HTMLInputElement)) {
+    return;
+  }
+  if (input.dataset.v3PlanBound === "1") {
+    return;
+  }
+  input.dataset.v3PlanBound = "1";
+  input.addEventListener("change", () => {
+    const api = getPlanApi();
+    if (!api || typeof api.setField !== "function") {
+      return;
+    }
+    api.setField(field, input.checked);
+  });
+}
+
+function bindPlanSelectField(id, field) {
+  const input = document.getElementById(id);
+  if (!(input instanceof HTMLSelectElement)) {
+    return;
+  }
+  if (input.dataset.v3PlanBound === "1") {
+    return;
+  }
+  input.dataset.v3PlanBound = "1";
+  input.addEventListener("change", () => {
+    const api = getPlanApi();
+    if (!api || typeof api.setField !== "function") {
+      return;
+    }
+    api.setField(field, input.value);
+  });
+}
+
+function bindPlanAction(id, actionName) {
+  const button = document.getElementById(id);
+  if (!(button instanceof HTMLButtonElement)) {
+    return;
+  }
+  if (button.dataset.v3PlanBound === "1") {
+    return;
+  }
+  button.dataset.v3PlanBound = "1";
+  button.addEventListener("click", () => {
+    const api = getPlanApi();
+    if (!api || typeof api[actionName] !== "function") {
+      return;
+    }
+    api[actionName]();
+  });
+}
+
+function syncPlanInputValue(id, value) {
+  const input = document.getElementById(id);
+  if (!(input instanceof HTMLInputElement)) {
+    return;
+  }
+  if (document.activeElement === input) {
+    return;
+  }
+  input.value = value == null ? "" : String(value);
+}
+
+function syncPlanCheckboxValue(id, value) {
+  const input = document.getElementById(id);
+  if (!(input instanceof HTMLInputElement)) {
+    return;
+  }
+  if (document.activeElement === input) {
+    return;
+  }
+  input.checked = !!value;
+}
+
+function syncPlanSelectOptions(id, options, selectedValue) {
+  const select = document.getElementById(id);
+  if (!(select instanceof HTMLSelectElement)) {
+    return;
+  }
+  const normalized = Array.isArray(options)
+    ? options.map((option) => ({
+        value: String(option?.value ?? ""),
+        label: String(option?.label ?? option?.value ?? "")
+      }))
+    : [];
+  const current = Array.from(select.options).map((option) => `${option.value}::${option.textContent || ""}`);
+  const next = normalized.map((option) => `${option.value}::${option.label}`);
+  const isSame =
+    current.length === next.length &&
+    current.every((item, index) => item === next[index]);
+  if (!isSame) {
+    select.innerHTML = "";
+    normalized.forEach((option) => {
+      const node = document.createElement("option");
+      node.value = option.value;
+      node.textContent = option.label;
+      select.appendChild(node);
+    });
+  }
+  if (document.activeElement === select) {
+    return;
+  }
+  select.value = selectedValue == null ? "" : String(selectedValue);
+}
+
+function setPlanControlDisabled(id, disabled) {
+  const control = document.getElementById(id);
+  if (
+    !(control instanceof HTMLInputElement) &&
+    !(control instanceof HTMLSelectElement) &&
+    !(control instanceof HTMLButtonElement) &&
+    !(control instanceof HTMLTextAreaElement)
+  ) {
+    return;
+  }
+  control.disabled = !!disabled;
+}
+
+function applyPlanView(view) {
+  if (!view || typeof view !== "object") {
+    return;
+  }
+  const inputs = view.inputs && typeof view.inputs === "object" ? view.inputs : {};
+  const options = view.options && typeof view.options === "object" ? view.options : {};
+  const controls = view.controls && typeof view.controls === "object" ? view.controls : {};
+
+  syncPlanSelectOptions("v3PlanOptMode", options.optMode || [], inputs.optMode);
+  syncPlanSelectOptions("v3PlanOptObjective", options.optObjective || [], inputs.optObjective);
+  syncPlanSelectOptions("v3PlanTlOptObjective", options.tlOptObjective || [], inputs.tlOptObjective);
+  syncPlanSelectOptions("v3PlanTimelineRampMode", options.timelineRampMode || [], inputs.timelineRampMode);
+
+  syncPlanCheckboxValue("v3PlanTlOptEnabled", inputs.tlOptEnabled);
+  syncPlanCheckboxValue("v3PlanOptUseDecay", inputs.optUseDecay);
+  syncPlanCheckboxValue("v3PlanTimelineEnabledToggle", inputs.timelineEnabled);
+  syncPlanCheckboxValue("v3PlanTimelineRampEnabled", inputs.timelineRampEnabled);
+
+  syncPlanInputValue("v3PlanOptBudget", inputs.optBudget);
+  syncPlanInputValue("v3PlanOptStep", inputs.optStep);
+  syncPlanInputValue("v3PlanTimelineActiveWeeks", inputs.timelineActiveWeeks);
+  syncPlanInputValue("v3PlanTimelineGotvWeeks", inputs.timelineGotvWeeks);
+  syncPlanInputValue("v3PlanTimelineStaffCount", inputs.timelineStaffCount);
+  syncPlanInputValue("v3PlanTimelineStaffHours", inputs.timelineStaffHours);
+  syncPlanInputValue("v3PlanTimelineVolCount", inputs.timelineVolCount);
+  syncPlanInputValue("v3PlanTimelineVolHours", inputs.timelineVolHours);
+  syncPlanInputValue("v3PlanTimelineDoorsPerHour", inputs.timelineDoorsPerHour);
+  syncPlanInputValue("v3PlanTimelineCallsPerHour", inputs.timelineCallsPerHour);
+  syncPlanInputValue("v3PlanTimelineTextsPerHour", inputs.timelineTextsPerHour);
+
+  const locked = !!controls.locked;
+  setPlanControlDisabled("v3PlanOptMode", locked);
+  setPlanControlDisabled("v3PlanOptObjective", locked);
+  setPlanControlDisabled("v3PlanTlOptEnabled", locked);
+  setPlanControlDisabled("v3PlanTlOptObjective", locked);
+  setPlanControlDisabled("v3PlanOptBudget", locked);
+  setPlanControlDisabled("v3PlanOptStep", locked);
+  setPlanControlDisabled("v3PlanOptUseDecay", locked);
+  setPlanControlDisabled("v3BtnOptRun", !!controls.runDisabled);
+  setPlanControlDisabled("v3PlanTimelineEnabledToggle", locked);
+  setPlanControlDisabled("v3PlanTimelineActiveWeeks", locked);
+  setPlanControlDisabled("v3PlanTimelineGotvWeeks", locked);
+  setPlanControlDisabled("v3PlanTimelineStaffCount", locked);
+  setPlanControlDisabled("v3PlanTimelineStaffHours", locked);
+  setPlanControlDisabled("v3PlanTimelineVolCount", locked);
+  setPlanControlDisabled("v3PlanTimelineVolHours", locked);
+  setPlanControlDisabled("v3PlanTimelineRampEnabled", locked);
+  setPlanControlDisabled("v3PlanTimelineRampMode", locked);
+  setPlanControlDisabled("v3PlanTimelineDoorsPerHour", locked);
+  setPlanControlDisabled("v3PlanTimelineCallsPerHour", locked);
+  setPlanControlDisabled("v3PlanTimelineTextsPerHour", locked);
+}
+
+function syncPlanTimelineWeeksAuto(id) {
+  const input = document.getElementById(id);
+  if (!(input instanceof HTMLInputElement)) {
+    return;
+  }
+  const weeks = readScenarioWeeksRemaining();
+  if (document.activeElement !== input) {
+    input.value = Number.isFinite(weeks) ? String(Math.max(0, Math.round(weeks))) : "";
+  }
+}
+
+function syncPlanAutoFieldDisabled(id) {
+  const input = document.getElementById(id);
+  if (input instanceof HTMLInputElement) {
+    input.disabled = true;
+  }
+}
+
 function getReachApi() {
   const api = window[REACH_API_KEY];
   if (!api || typeof api !== "object" || typeof api.getView !== "function") {
@@ -712,8 +874,52 @@ function getReachApi() {
   return api;
 }
 
+function getPlanApi() {
+  const api = window[PLAN_API_KEY];
+  if (!api || typeof api !== "object" || typeof api.getView !== "function") {
+    return null;
+  }
+  return api;
+}
+
+function getScenarioApi() {
+  const api = window[SCENARIO_API_KEY];
+  if (!api || typeof api !== "object" || typeof api.getView !== "function") {
+    return null;
+  }
+  return api;
+}
+
+function readScenarioWeeksRemaining() {
+  const api = getScenarioApi();
+  if (!api) {
+    return NaN;
+  }
+  try {
+    const view = api.getView();
+    const raw = view?.active?.inputs?.weeksRemaining;
+    const num = Number(raw);
+    return Number.isFinite(num) ? num : NaN;
+  } catch {
+    return NaN;
+  }
+}
+
 function readReachView() {
   const api = getReachApi();
+  if (!api) {
+    return null;
+  }
+  try {
+    const view = api.getView();
+    return view && typeof view === "object" ? view : null;
+  } catch {
+    return null;
+  }
+}
+
+function readPlanView() {
+  const api = getPlanApi();
   if (!api) {
     return null;
   }
