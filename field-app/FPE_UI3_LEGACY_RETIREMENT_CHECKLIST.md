@@ -82,6 +82,7 @@ Reference artifact:
 - Sensitivity snapshot render/run paths now tolerate missing legacy E4 DOM (`sens*` nodes, run button), keeping snapshot-cache behavior usable during/after legacy stage retirement.
 - Decision confidence/intelligence runtime panels now compute/cache-update without hard requiring legacy `conf*` / `di*` DOM nodes, reducing coupling to legacy ROI/GOTV panel blocks.
 - Weekly ops insights/freshness runtime panels now render with guarded writes when legacy `wk*` nodes are partially absent, reducing coupling to legacy execution sub-panels.
+- Weekly ops summary runtime module (`renderWeeklyOpsModule`) no longer hard-returns on missing `wkGoal`; summary and execution status now continue with guarded writes when weekly legacy nodes are absent.
 - Legacy `integrity` nav entry has been removed from legacy left-rail user flow; `stage-integrity` DOM remains mounted for controlled retirement.
 - Legacy `stage-integrity` section is now hidden in legacy flow (retired stub), while IDs remain mounted for parity and rollback safety.
 - Controls v3 evidence table now renders from scenario-bridge intel state (`window.__FPE_SCENARIO_API__`) instead of mirroring legacy `#intelEvidenceTbody`.

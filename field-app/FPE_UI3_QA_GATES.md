@@ -176,6 +176,7 @@ Scope: UI architecture migration only (engine and right rail frozen)
 - Runtime hardening: sensitivity snapshot render/run paths now no-op safely when legacy `sens*` DOM nodes are absent, while preserving cache compute/persist flow.
 - Runtime hardening: decision confidence/intelligence panels now render with guarded writes when legacy `conf*` / `di*` nodes are absent (no early-return hard gate on those legacy blocks).
 - Runtime hardening: weekly ops insights/freshness panels now render with guarded writes when legacy `wk*` nodes are partially absent (no hard all-node gate).
+- Runtime hardening: weekly ops summary module now continues rendering with guarded writes when `wkGoal` is absent (no hard return on that legacy summary node).
 - Legacy flow retirement: removed legacy left-nav `integrity` entry while retaining `stage-integrity` DOM for runtime parity checks.
 - Legacy flow retirement: `stage-integrity` section is hidden as a retired stub (DOM retained).
 - Legacy `stage-capacity` visual surface has been retired from `index.html` user flow (hidden retired stub retained during transition); preflight no longer requires legacy Reach assumption IDs.
