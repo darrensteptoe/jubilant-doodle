@@ -38,7 +38,6 @@ controls	intelEvidenceSource	stage-checks@L2584
 controls	intelEvidenceTitle	stage-checks@L2578
 controls	intelEvidenceUrl	stage-checks@L2592
 controls	intelMcDistribution	stage-checks@L2639
-controls	intelRecommendationPreview	stage-checks@L2757
 controls	intelRequireCriticalEvidence	stage-checks@L2440
 controls	intelRequireCriticalNote	stage-checks@L2432
 controls	intelScenarioLockReason	stage-checks@L2449
@@ -46,7 +45,6 @@ controls	intelScenarioLocked	stage-checks@L2424
 controls	intelShockJson	stage-checks@L2720
 controls	intelShockScenariosEnabled	stage-checks@L2701
 controls	intelWhatIfInput	stage-checks@L2745
-controls	intelWhatIfPreview	stage-checks@L2753
 data	btnCopySummary	stage-integrity@L2830
 data	btnExportCsv	stage-integrity@L2831
 data	btnSaveJson	stage-integrity@L2827
