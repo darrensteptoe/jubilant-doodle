@@ -532,6 +532,7 @@ const SCENARIO_BRIDGE_KEY = "__FPE_SCENARIO_API__";
 const REACH_BRIDGE_KEY = "__FPE_REACH_API__";
 const TURNOUT_BRIDGE_KEY = "__FPE_TURNOUT_API__";
 const PLAN_BRIDGE_KEY = "__FPE_PLAN_API__";
+const OUTCOME_BRIDGE_KEY = "__FPE_OUTCOME_API__";
 const DECISION_BRIDGE_KEY = "__FPE_DECISION_API__";
 
 function dataBridgeBuildBackupOptions(){
@@ -3259,6 +3260,43 @@ function installPlanBridge(){
   };
 }
 
+function outcomeBridgeStateView(){
+  const sensitivityRowsRaw = Array.isArray(state?.ui?.lastOutcomeSensitivityRows)
+    ? state.ui.lastOutcomeSensitivityRows
+    : [];
+  const sensitivityRows = sensitivityRowsRaw.map((row) => ({
+    label: String(row?.label || ""),
+    impact: safeNum(row?.impact),
+  }));
+
+  const surfaceRowsRaw = Array.isArray(state?.ui?.lastOutcomeSurfaceRows)
+    ? state.ui.lastOutcomeSurfaceRows
+    : [];
+  const surfaceRows = surfaceRowsRaw.map((row) => ({
+    leverValue: row?.leverValue ?? "",
+    winProb: safeNum(row?.winProb),
+    p10: safeNum(row?.p10),
+    p50: safeNum(row?.p50),
+    p90: safeNum(row?.p90),
+  }));
+
+  const surfaceStatusText = String(state?.ui?.lastOutcomeSurfaceStatus || "").trim();
+  const surfaceSummaryText = String(state?.ui?.lastOutcomeSurfaceSummary || "").trim();
+
+  return {
+    sensitivityRows,
+    surfaceRows,
+    surfaceStatusText,
+    surfaceSummaryText,
+  };
+}
+
+function installOutcomeBridge(){
+  window[OUTCOME_BRIDGE_KEY] = {
+    getView: () => outcomeBridgeStateView(),
+  };
+}
+
 let decisionBridgeCopyStatus = "";
 
 function hasLegacyDecisionManagerDom(){
@@ -4237,6 +4275,7 @@ function init(){
   safeCall(() => { installReachBridge(); }, { label: "init.installReachBridge" });
   safeCall(() => { installTurnoutBridge(); }, { label: "init.installTurnoutBridge" });
   safeCall(() => { installPlanBridge(); }, { label: "init.installPlanBridge" });
+  safeCall(() => { installOutcomeBridge(); }, { label: "init.installOutcomeBridge" });
   safeCall(() => { ensureDecisionScaffold(); }, { label: "init.ensureDecisionScaffold" });
   safeCall(() => { installDecisionBridge(); }, { label: "init.installDecisionBridge" });
   safeCall(() => {
@@ -4587,6 +4626,7 @@ function renderMcResults(summary){
     renderMcResultsModule,
     els,
     summary,
+    state,
     setTextPair,
     fmtSigned,
     fmtInt,
