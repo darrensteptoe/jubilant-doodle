@@ -174,6 +174,10 @@ Scope: UI architecture migration only (engine and right rail frozen)
 - Runtime hardening: conversion panel now computes and triggers phase3 refresh without hard requiring legacy `out*` output nodes or `convFeasBanner`.
 - Runtime hardening: ROI renderer now keeps cache/banner/summary updates active even when legacy `roiTbody` is absent (table render is conditional).
 - Runtime hardening: sensitivity snapshot render/run paths now no-op safely when legacy `sens*` DOM nodes are absent, while preserving cache compute/persist flow.
+- Runtime hardening: decision confidence/intelligence panels now render with guarded writes when legacy `conf*` / `di*` nodes are absent (no early-return hard gate on those legacy blocks).
+- Runtime hardening: weekly ops insights/freshness panels now render with guarded writes when legacy `wk*` nodes are partially absent (no hard all-node gate).
+- Legacy flow retirement: removed legacy left-nav `integrity` entry while retaining `stage-integrity` DOM for runtime parity checks.
+- Legacy flow retirement: `stage-integrity` section is hidden as a retired stub (DOM retained).
 - Legacy `stage-capacity` visual surface has been retired from `index.html` user flow (hidden retired stub retained during transition); preflight no longer requires legacy Reach assumption IDs.
 - Added v3 stage persistence/cutover behavior (`js/app/v3/index.js`):
   - Active stage persists to local storage.

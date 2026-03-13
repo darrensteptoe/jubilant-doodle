@@ -65,6 +65,10 @@ Compatibility mirror updated:
 - Conversion runtime panel now computes and still invokes phase3 refresh without hard requiring legacy `out*` / `convFeasBanner` nodes.
 - ROI runtime panel now keeps cache/banner/summary updates active without hard requiring `roiTbody` (legacy table render path is conditional).
 - Sensitivity snapshot render/run paths now tolerate missing legacy E4 DOM targets (`sens*` nodes), preserving cache compute/persist behavior.
+- Decision confidence/intelligence runtime panels now tolerate missing legacy `conf*` / `di*` nodes via guarded writes, preserving compute paths as legacy ROI/GOTV blocks are retired.
+- Weekly ops insights/freshness runtime panels now tolerate missing legacy `wk*` nodes via guarded writes, preserving compute/update behavior during retired-stub cleanup.
+- Legacy `integrity` nav entry is retired from legacy user flow; `stage-integrity` remains mounted for controlled runtime retirement.
+- Legacy `stage-integrity` section is now hidden as a retired stub (IDs retained in DOM).
 
 ## Remaining runtime coupling (intentional for now)
 
