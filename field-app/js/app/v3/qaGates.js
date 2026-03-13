@@ -124,7 +124,15 @@ const STAGE_EXPECTATIONS = {
     "#v3DataHashBanner"
   ]
 };
-const STAGES_EXPECTING_NO_LEGACY_BRIDGE = new Set(["reach", "scenarios", "decision-log"]);
+const STAGES_EXPECTING_NO_LEGACY_BRIDGE = new Set([
+  "reach",
+  "outcome",
+  "turnout",
+  "plan",
+  "scenarios",
+  "decision-log",
+  "data"
+]);
 
 export function runV3QaSmoke({ restoreStage = true, logToConsole = true } = {}) {
   const startedAt = Date.now();
