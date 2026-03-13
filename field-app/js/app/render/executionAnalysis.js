@@ -239,7 +239,13 @@ export function renderConversionPanel({
   setText,
   renderPhase3
 }){
-  if (!els.outConversationsNeeded) return;
+  const outConversationsNeededEl = els?.outConversationsNeeded;
+  const outDoorsNeededEl = els?.outDoorsNeeded;
+  const outDoorsPerShiftEl = els?.outDoorsPerShift;
+  const outTotalShiftsEl = els?.outTotalShifts;
+  const outShiftsPerWeekEl = els?.outShiftsPerWeek;
+  const outVolunteersNeededEl = els?.outVolunteersNeeded;
+  const convFeasBannerEl = els?.convFeasBanner;
 
   const needVotes = (typeof deriveNeedVotes === "function")
     ? deriveNeedVotes(res, state?.goalSupportIds)
@@ -264,14 +270,12 @@ export function renderConversionPanel({
   const volsNeeded = (shiftsPerWeek != null && spv && spv > 0) ? shiftsPerWeek / spv : null;
 
   const fmtMaybe = (v) => (v == null || !isFinite(v)) ? "—" : fmtInt(Math.ceil(v));
-  setText(els.outConversationsNeeded, fmtMaybe(convosNeeded));
-  setText(els.outDoorsNeeded, fmtMaybe(doorsNeeded));
-  setText(els.outDoorsPerShift, (doorsPerShift == null || !isFinite(doorsPerShift)) ? "—" : fmtInt(Math.round(doorsPerShift)));
-  setText(els.outTotalShifts, fmtMaybe(totalShifts));
-  setText(els.outShiftsPerWeek, fmtMaybe(shiftsPerWeek));
-  setText(els.outVolunteersNeeded, fmtMaybe(volsNeeded));
-
-  if (!els.convFeasBanner) return;
+  setText(outConversationsNeededEl, fmtMaybe(convosNeeded));
+  setText(outDoorsNeededEl, fmtMaybe(doorsNeeded));
+  setText(outDoorsPerShiftEl, (doorsPerShift == null || !isFinite(doorsPerShift)) ? "—" : fmtInt(Math.round(doorsPerShift)));
+  setText(outTotalShiftsEl, fmtMaybe(totalShifts));
+  setText(outShiftsPerWeekEl, fmtMaybe(shiftsPerWeek));
+  setText(outVolunteersNeededEl, fmtMaybe(volsNeeded));
 
   let msg = "";
   let cls = "";
@@ -303,9 +307,11 @@ export function renderConversionPanel({
     }
   }
 
-  els.convFeasBanner.hidden = !show;
-  els.convFeasBanner.className = `banner ${cls}`.trim();
-  els.convFeasBanner.textContent = msg;
+  if (convFeasBannerEl){
+    convFeasBannerEl.hidden = !show;
+    convFeasBannerEl.className = `banner ${cls}`.trim();
+    convFeasBannerEl.textContent = msg;
+  }
   renderPhase3(res, weeks);
 }
 

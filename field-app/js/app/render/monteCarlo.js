@@ -15,11 +15,14 @@ export function renderPhase3Panel({
   renderMcFreshness,
   renderMcResults
 }){
-  if (!els.p3CapContacts) return;
+  const p3WeeksEl = els?.p3Weeks;
+  const p3CapContactsEl = els?.p3CapContacts;
+  const p3GapContactsEl = els?.p3GapContacts;
+  const p3GapNoteEl = els?.p3GapNote;
   const features = resolveFeatureFlags(state || {});
 
   const w = (weeks != null && weeks >= 0) ? weeks : null;
-  els.p3Weeks.textContent = w == null ? "—" : fmtInt(w);
+  if (p3WeeksEl) p3WeeksEl.textContent = w == null ? "—" : fmtInt(w);
 
   const eff = getEffectiveBaseRates();
   const cr = eff.cr;
@@ -52,7 +55,7 @@ export function renderPhase3Panel({
     capacityDecay,
   });
 
-  els.p3CapContacts.textContent = (capContacts == null) ? "—" : fmtInt(Math.floor(capContacts));
+  if (p3CapContactsEl) p3CapContactsEl.textContent = (capContacts == null) ? "—" : fmtInt(Math.floor(capContacts));
 
   const needVotes = deriveNeedVotes(res);
 
@@ -64,16 +67,16 @@ export function renderPhase3Panel({
   }
 
   if (capContacts == null || reqContacts == null){
-    els.p3GapContacts.textContent = "—";
-    els.p3GapNote.textContent = "Enter Phase 2 rates + Phase 3 capacity to compute.";
+    if (p3GapContactsEl) p3GapContactsEl.textContent = "—";
+    if (p3GapNoteEl) p3GapNoteEl.textContent = "Enter Phase 2 rates + Phase 3 capacity to compute.";
   } else {
     const gap = capContacts - reqContacts;
     const sign = gap >= 0 ? "+" : "−";
-    els.p3GapContacts.textContent = `${sign}${fmtInt(Math.ceil(Math.abs(gap)))}`;
+    if (p3GapContactsEl) p3GapContactsEl.textContent = `${sign}${fmtInt(Math.ceil(Math.abs(gap)))}`;
     if (gap >= 0){
-      els.p3GapNote.textContent = "Capacity ≥ requirement (base rates).";
+      if (p3GapNoteEl) p3GapNoteEl.textContent = "Capacity ≥ requirement (base rates).";
     } else {
-      els.p3GapNote.textContent = "Shortfall vs requirement (base rates).";
+      if (p3GapNoteEl) p3GapNoteEl.textContent = "Shortfall vs requirement (base rates).";
     }
   }
 
