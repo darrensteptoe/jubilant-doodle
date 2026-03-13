@@ -17,6 +17,23 @@ export function createSensitivitySurfaceController({
   renderSurfaceStub,
   renderSurfaceResult,
 } = {}){
+  function writeOutcomeSurfaceCache({ rows, statusText, summaryText } = {}){
+    const s = getState();
+    if (!s || typeof s !== "object") return;
+    if (!s.ui || typeof s.ui !== "object") s.ui = {};
+    s.ui.lastOutcomeSurfaceRows = Array.isArray(rows)
+      ? rows.map((row) => ({
+          leverValue: row?.leverValue ?? "",
+          winProb: Number.isFinite(Number(row?.winProb)) ? Number(row.winProb) : null,
+          p10: Number.isFinite(Number(row?.p10)) ? Number(row.p10) : null,
+          p50: Number.isFinite(Number(row?.p50)) ? Number(row.p50) : null,
+          p90: Number.isFinite(Number(row?.p90)) ? Number(row.p90) : null,
+        }))
+      : [];
+    s.ui.lastOutcomeSurfaceStatus = String(statusText || "").trim();
+    s.ui.lastOutcomeSurfaceSummary = String(summaryText || "").trim();
+  }
+
   function wireSensitivitySurface(){
     if (!els?.surfaceLever || !els?.btnComputeSurface) return;
     if (els.btnComputeSurface.dataset.wiredSurface === "1") return;
@@ -24,10 +41,20 @@ export function createSensitivitySurfaceController({
 
     applySurfaceDefaults();
     renderSurfaceStub();
+    writeOutcomeSurfaceCache({
+      rows: [],
+      statusText: "",
+      summaryText: els?.surfaceSummary?.textContent || "",
+    });
 
     els.surfaceLever.addEventListener("change", () => {
       applySurfaceDefaults();
       renderSurfaceStub();
+      writeOutcomeSurfaceCache({
+        rows: [],
+        statusText: "",
+        summaryText: els?.surfaceSummary?.textContent || "",
+      });
     });
 
     els.btnComputeSurface.addEventListener("click", async () => {
@@ -39,6 +66,11 @@ export function createSensitivitySurfaceController({
         const spec = surfaceLeverSpec(leverKey);
         if (!spec){
           if (els.surfaceStatus) els.surfaceStatus.textContent = "Unknown lever.";
+          writeOutcomeSurfaceCache({
+            rows: [],
+            statusText: els?.surfaceStatus?.textContent || "Unknown lever.",
+            summaryText: els?.surfaceSummary?.textContent || "",
+          });
           return;
         }
 
@@ -77,12 +109,24 @@ export function createSensitivitySurfaceController({
 
         renderSurfaceResult({ spec, result });
 
+        const doneStatus = `Done (${runs.toLocaleString()} runs × ${steps} points)`;
         if (els.surfaceStatus){
-          els.surfaceStatus.textContent = `Done (${runs.toLocaleString()} runs × ${steps} points)`;
+          els.surfaceStatus.textContent = doneStatus;
         }
+        writeOutcomeSurfaceCache({
+          rows: Array.isArray(result?.points) ? result.points : [],
+          statusText: doneStatus,
+          summaryText: els?.surfaceSummary?.textContent || "",
+        });
       } catch (err){
         renderSurfaceStub();
-        if (els.surfaceStatus) els.surfaceStatus.textContent = err?.message ? err.message : String(err || "Error");
+        const errText = err?.message ? err.message : String(err || "Error");
+        if (els.surfaceStatus) els.surfaceStatus.textContent = errText;
+        writeOutcomeSurfaceCache({
+          rows: [],
+          statusText: errText,
+          summaryText: els?.surfaceSummary?.textContent || "",
+        });
       } finally {
         if (els.btnComputeSurface) els.btnComputeSurface.disabled = false;
       }
@@ -91,4 +135,3 @@ export function createSensitivitySurfaceController({
 
   return { wireSensitivitySurface };
 }
-

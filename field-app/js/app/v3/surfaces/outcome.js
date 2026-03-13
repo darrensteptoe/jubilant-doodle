@@ -18,6 +18,8 @@ import {
   syncSelectValue
 } from "../surfaceUtils.js";
 
+const OUTCOME_API_KEY = "__FPE_OUTCOME_API__";
+
 export function renderOutcomeSurface(mount) {
   const frame = createSurfaceFrame("three-col");
   const forecastCol = createColumn("forecast");
@@ -498,8 +500,13 @@ function refreshOutcomeSummary() {
   setText("v3OutcomeGapContacts", outcomeGapPerWeek || "—");
   setText("v3OutcomeGapNote", outcomeGapNote || "—");
 
-  setText("v3OutcomeSurfaceStatus", "Run surface compute to refresh win-band diagnostics.");
-  setText("v3OutcomeSurfaceSummary", "Compute to see safe zones, cliffs, and diminishing returns.");
+  const outcomeView = readOutcomeBridgeView();
+  const defaultSurfaceStatus = "Run surface compute to refresh win-band diagnostics.";
+  const defaultSurfaceSummary = "Compute to see safe zones, cliffs, and diminishing returns.";
+  const bridgedSurfaceStatus = String(outcomeView?.surfaceStatusText || "").trim();
+  const bridgedSurfaceSummary = String(outcomeView?.surfaceSummaryText || "").trim();
+  setText("v3OutcomeSurfaceStatus", bridgedSurfaceStatus || defaultSurfaceStatus);
+  setText("v3OutcomeSurfaceSummary", bridgedSurfaceSummary || defaultSurfaceSummary);
   setText(
     "v3OutcomeImpactTraceNote",
     "Live dependency map for key planning outputs. This is explanatory only; it does not change model math."
@@ -571,20 +578,35 @@ function refreshOutcomeSummary() {
   setText("v3OutcomeConfShock25", confidenceStats.shock25);
   setText("v3OutcomeConfShock50", confidenceStats.shock50);
 
-  syncLegacyTableRows({
-    sourceSelector: "#mcSensitivity",
-    targetBodyId: "v3OutcomeSensitivityTbody",
-    expectedCols: 2,
-    emptyLabel: "Run simulations to rank drivers.",
-    numericColumns: [1]
-  });
-  syncLegacyTableRows({
-    sourceSelector: "#surfaceTbody",
-    targetBodyId: "v3OutcomeSurfaceTbody",
-    expectedCols: 5,
-    emptyLabel: "Run surface compute.",
-    numericColumns: [1, 2, 3]
-  });
+  const bridgedSensitivityRows = Array.isArray(outcomeView?.sensitivityRows)
+    ? outcomeView.sensitivityRows
+    : null;
+  if (bridgedSensitivityRows){
+    renderOutcomeSensitivityRows(bridgedSensitivityRows);
+  } else {
+    syncLegacyTableRows({
+      sourceSelector: "#mcSensitivity",
+      targetBodyId: "v3OutcomeSensitivityTbody",
+      expectedCols: 2,
+      emptyLabel: "Run simulations to rank drivers.",
+      numericColumns: [1]
+    });
+  }
+
+  const bridgedSurfaceRows = Array.isArray(outcomeView?.surfaceRows)
+    ? outcomeView.surfaceRows
+    : null;
+  if (bridgedSurfaceRows){
+    renderOutcomeSurfaceRows(bridgedSurfaceRows);
+  } else {
+    syncLegacyTableRows({
+      sourceSelector: "#surfaceTbody",
+      targetBodyId: "v3OutcomeSurfaceTbody",
+      expectedCols: 5,
+      emptyLabel: "Run surface compute.",
+      numericColumns: [1, 2, 3]
+    });
+  }
   syncOutcomeImpactTraceFallback({
     targetId: "v3OutcomeImpactTraceList",
     outcomeGapNote,
@@ -602,6 +624,89 @@ function setJoinedText(targetId, values, separator = " / ") {
     ? values.map((value) => String(value || "").trim()).filter((value) => !!value && value !== "—")
     : [];
   setText(targetId, parts.length ? parts.join(separator) : "—");
+}
+
+function readOutcomeBridgeView() {
+  const api = window[OUTCOME_API_KEY];
+  if (!api || typeof api.getView !== "function") {
+    return null;
+  }
+  try {
+    const view = api.getView();
+    return view && typeof view === "object" ? view : null;
+  } catch {
+    return null;
+  }
+}
+
+function renderOutcomeSensitivityRows(rows) {
+  const tbody = document.getElementById("v3OutcomeSensitivityTbody");
+  if (!(tbody instanceof HTMLElement)) {
+    return;
+  }
+  tbody.innerHTML = "";
+  const list = Array.isArray(rows) ? rows : [];
+  if (!list.length) {
+    tbody.innerHTML = '<tr><td class="muted">Run simulations to rank drivers.</td><td class="num muted">-</td></tr>';
+    return;
+  }
+  for (const row of list) {
+    const tr = document.createElement("tr");
+    const td0 = document.createElement("td");
+    td0.textContent = String(row?.label || "—");
+    const td1 = document.createElement("td");
+    td1.className = "num";
+    const impact = Number(row?.impact);
+    td1.textContent = Number.isFinite(impact) ? impact.toFixed(2) : "—";
+    tr.append(td0, td1);
+    tbody.appendChild(tr);
+  }
+}
+
+function renderOutcomeSurfaceRows(rows) {
+  const tbody = document.getElementById("v3OutcomeSurfaceTbody");
+  if (!(tbody instanceof HTMLElement)) {
+    return;
+  }
+  tbody.innerHTML = "";
+  const list = Array.isArray(rows) ? rows : [];
+  if (!list.length) {
+    tbody.innerHTML = `
+      <tr>
+        <td class="muted">Run surface compute.</td>
+        <td class="num muted">-</td>
+        <td class="num muted">-</td>
+        <td class="num muted">-</td>
+        <td class="num muted">-</td>
+      </tr>
+    `;
+    return;
+  }
+  for (const row of list) {
+    const tr = document.createElement("tr");
+    const td0 = document.createElement("td");
+    td0.textContent = String(row?.leverValue ?? "—");
+
+    const td1 = document.createElement("td");
+    td1.className = "num";
+    const winProb = Number(row?.winProb);
+    td1.textContent = Number.isFinite(winProb) ? `${(winProb * 100).toFixed(1)}%` : "—";
+
+    const td2 = document.createElement("td");
+    td2.className = "num";
+    td2.textContent = formatSignedWhole(Number(row?.p10));
+
+    const td3 = document.createElement("td");
+    td3.className = "num";
+    td3.textContent = formatSignedWhole(Number(row?.p50));
+
+    const td4 = document.createElement("td");
+    td4.className = "num";
+    td4.textContent = formatSignedWhole(Number(row?.p90));
+
+    tr.append(td0, td1, td2, td3, td4);
+    tbody.appendChild(tr);
+  }
 }
 
 function buildMissRiskSummary({ outcomeP10, outcomeWinProb, outcomeRiskLabel }) {

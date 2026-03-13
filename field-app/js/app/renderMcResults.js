@@ -3,6 +3,7 @@ export function renderMcResultsModule(args){
   const {
     els,
     summary,
+    state,
     setTextPair,
     fmtSigned,
     fmtInt,
@@ -51,9 +52,21 @@ export function renderMcResultsModule(args){
     els.mcRiskLabel.textContent = `${label} — Need: ${fmtInt(Math.round(summary.needVotes))} net persuasion votes.${extra}`;
   }
 
+  const sensitivityRows = Array.isArray(summary?.sensitivity)
+    ? summary.sensitivity.map((row) => ({
+        label: String(row?.label || ""),
+        impact: Number.isFinite(Number(row?.impact)) ? Number(row.impact) : null,
+      }))
+    : [];
+
+  if (state && typeof state === "object"){
+    if (!state.ui || typeof state.ui !== "object") state.ui = {};
+    state.ui.lastOutcomeSensitivityRows = structuredClone(sensitivityRows);
+  }
+
   if (els.mcSensitivity){
     els.mcSensitivity.innerHTML = "";
-    summary.sensitivity.forEach(row => {
+    sensitivityRows.forEach((row) => {
       const tr = document.createElement("tr");
       const tdA = document.createElement("td");
       tdA.textContent = row.label;

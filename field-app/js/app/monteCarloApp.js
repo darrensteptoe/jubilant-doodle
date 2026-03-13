@@ -285,6 +285,7 @@ export function renderMcResultsAdapterModule(args){
     renderMcResultsModule,
     els,
     summary,
+    state,
     setTextPair,
     fmtSigned,
     fmtInt,
@@ -293,6 +294,7 @@ export function renderMcResultsAdapterModule(args){
   return renderMcResultsModule({
     els,
     summary,
+    state,
     setTextPair,
     fmtSigned,
     fmtInt,
