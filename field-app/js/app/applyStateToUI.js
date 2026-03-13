@@ -12,24 +12,27 @@ export function applyStateToUIView(ctx){
 
   if (!els || !state) return;
 
-  els.scenarioName.value = state.scenarioName || "";
-  els.raceType.value = state.raceType || "state_leg";
-  els.electionDate.value = state.electionDate || "";
-  els.weeksRemaining.value = state.weeksRemaining || "";
-  els.mode.value = state.mode || "persuasion";
+  const setValue = (el, v) => { if (el) el.value = v ?? ""; };
+  const setChecked = (el, v) => { if (el) el.checked = !!v; };
 
-  els.universeBasis.value = state.universeBasis || "registered";
-  els.universeSize.value = state.universeSize ?? "";
-  els.sourceNote.value = state.sourceNote || "";
-  if (els.toggleStrictImport) els.toggleStrictImport.checked = !!state?.ui?.strictImport;
+  setValue(els.scenarioName, state.scenarioName || "");
+  setValue(els.raceType, state.raceType || "state_leg");
+  setValue(els.electionDate, state.electionDate || "");
+  setValue(els.weeksRemaining, state.weeksRemaining || "");
+  setValue(els.mode, state.mode || "persuasion");
+
+  setValue(els.universeBasis, state.universeBasis || "registered");
+  setValue(els.universeSize, state.universeSize ?? "");
+  setValue(els.sourceNote, state.sourceNote || "");
+  setChecked(els.toggleStrictImport, !!state?.ui?.strictImport);
   document.body.classList.toggle("strict-import", !!state?.ui?.strictImport);
 
-  els.turnoutA.value = state.turnoutA ?? "";
-  els.turnoutB.value = state.turnoutB ?? "";
-  els.bandWidth.value = state.bandWidth ?? "";
+  setValue(els.turnoutA, state.turnoutA ?? "");
+  setValue(els.turnoutB, state.turnoutB ?? "");
+  setValue(els.bandWidth, state.bandWidth ?? "");
 
-  els.undecidedPct.value = state.undecidedPct ?? "";
-  els.undecidedMode.value = state.undecidedMode || "proportional";
+  setValue(els.undecidedPct, state.undecidedPct ?? "");
+  setValue(els.undecidedMode, state.undecidedMode || "proportional");
 
   if (els.persuasionPct) els.persuasionPct.value = state.persuasionPct ?? "";
   if (els.earlyVoteExp) els.earlyVoteExp.value = state.earlyVoteExp ?? "";

@@ -6,22 +6,27 @@ export function applyStateToUiBindings({
   syncGotvModeUI,
   applyThemeFromState,
 }){
-  els.scenarioName.value = state.scenarioName || "";
-  els.raceType.value = state.raceType || "state_leg";
-  els.electionDate.value = state.electionDate || "";
-  els.weeksRemaining.value = state.weeksRemaining || "";
-  els.mode.value = state.mode || "persuasion";
+  if (!els || !state) return;
 
-  els.universeBasis.value = state.universeBasis || "registered";
-  els.universeSize.value = state.universeSize ?? "";
-  els.sourceNote.value = state.sourceNote || "";
+  const setValue = (el, v) => { if (el) el.value = v ?? ""; };
+  const setChecked = (el, v) => { if (el) el.checked = !!v; };
 
-  els.turnoutA.value = state.turnoutA ?? "";
-  els.turnoutB.value = state.turnoutB ?? "";
-  els.bandWidth.value = state.bandWidth ?? "";
+  setValue(els.scenarioName, state.scenarioName || "");
+  setValue(els.raceType, state.raceType || "state_leg");
+  setValue(els.electionDate, state.electionDate || "");
+  setValue(els.weeksRemaining, state.weeksRemaining || "");
+  setValue(els.mode, state.mode || "persuasion");
 
-  els.undecidedPct.value = state.undecidedPct ?? "";
-  els.undecidedMode.value = state.undecidedMode || "proportional";
+  setValue(els.universeBasis, state.universeBasis || "registered");
+  setValue(els.universeSize, state.universeSize ?? "");
+  setValue(els.sourceNote, state.sourceNote || "");
+
+  setValue(els.turnoutA, state.turnoutA ?? "");
+  setValue(els.turnoutB, state.turnoutB ?? "");
+  setValue(els.bandWidth, state.bandWidth ?? "");
+
+  setValue(els.undecidedPct, state.undecidedPct ?? "");
+  setValue(els.undecidedMode, state.undecidedMode || "proportional");
 
   if (els.persuasionPct) els.persuasionPct.value = state.persuasionPct ?? "";
   if (els.earlyVoteExp) els.earlyVoteExp.value = state.earlyVoteExp ?? "";
@@ -127,9 +132,9 @@ export function applyStateToUiBindings({
   if (els.timelineCallsPerHour) els.timelineCallsPerHour.value = state.timelineCallsPerHour ?? "";
   if (els.timelineTextsPerHour) els.timelineTextsPerHour.value = state.timelineTextsPerHour ?? "";
 
-  if (els.toggleAdvDiag) els.toggleAdvDiag.checked = !!state.ui?.advDiag;
+  setChecked(els.toggleAdvDiag, !!state.ui?.advDiag);
   if (els.advDiagBox) els.advDiagBox.hidden = !state.ui?.advDiag;
-  if (els.toggleTraining) els.toggleTraining.checked = !!state.ui?.training;
+  setChecked(els.toggleTraining, !!state.ui?.training);
 
   document.body.classList.toggle("training", !!state.ui?.training);
   applyThemeFromState();
