@@ -99,6 +99,7 @@ Reference artifact:
 - DOM preflight District/Reach control checks are now stage-aware (enforced only when those surface anchors are present), preventing false boot failures when non-active surfaces are unmounted.
 - Self-test UI smoke now accepts v3 fallbacks for legacy-only capacity/results/scenario-compare cards, preventing false red gates while retiring hidden legacy stage containers.
 - Self-test UI smoke now treats District/Reach core controls as optional stage-scoped checks (uniqueness only when present), avoiding false failures after container retirement.
+- Self-test UI smoke now treats Reach/Outcome/Scenario stage-card IDs as optional stage-scoped checks (uniqueness only when present), avoiding false failures when those surfaces are unmounted.
 - DOM preflight now accepts legacy-or-v3 Census/Targeting IDs (phase card, controls, status rows, map host, targeting controls/results) to prevent false boot failures during staged legacy container retirement.
 - Self-test UI smoke now accepts v3 fallback IDs for census + USB persistence controls (`v3DistrictCensusShell`, `v3Census*`, `v3DataBtnUsb*`, `v3DataUsbStatus`) to prevent false red gates while retiring `stage-checks`/`stage-integrity`.
 - Self-test UI smoke census + USB checks are now stage-aware (only enforced when Census/Data anchors are present), reducing coupling to non-mounted surfaces.
@@ -112,6 +113,8 @@ Reference artifact:
 - Turnout summary readout now resolves from sidebar/bridge context (`#kpiTurnoutBand-sidebar`) instead of legacy ROI summary text nodes.
 - Turnout summary snapshot now resolves from bridge/sidebar context only (`#kpiTurnoutBand-sidebar`), removing the remaining legacy `#turnoutSummary` fallback path.
 - Turnout snapshot votes/need now resolve from bridge/sidebar context only (`#kpiTurnoutVotes-sidebar`, `#kpiPersuasionNeed-sidebar`), removing non-sidebar fallback selector paths.
+- District summary expected-turnout snapshot now resolves from turnout baseline/v3-derived average (`turnoutA`, `turnoutB`) rather than falling back to turnout-votes KPI text.
+- KPI persuasion-need sync now resolves from sidebar-only target (`#kpiPersuasionNeed-sidebar`), removing legacy primary fallback selector path.
 - Turnout ROI banner/readout now resolves from Turnout runtime bridge view (`__FPE_TURNOUT_API__.getView().roiBannerText`) instead of mirroring legacy `#roiBanner` / sibling note nodes.
 - Turnout v3 summary values (status/votes/need) now resolve from Turnout runtime bridge summary (`__FPE_TURNOUT_API__.getView().summary`) backed by runtime cache (`state.ui.lastTurnout`) rather than relying only on sidebar/legacy text nodes.
 - v3 state-bridge turnout snapshot (`js/app/v3/stateBridge.js`) now resolves Turnout summary values from runtime Turnout bridge first (`__FPE_TURNOUT_API__.getView().summary`) with selector fallback only for compatibility.

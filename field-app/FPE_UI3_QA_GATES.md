@@ -196,6 +196,7 @@ Scope: UI architecture migration only (engine and right rail frozen)
 - QA hardening: UI smoke required-ID test now accepts v3 fallbacks for legacy-only capacity/results/scenario-compare cards (`operationsCapacityOutlookCard|v3ReachOutlookTbody`, `phase3Card|v3OutcomeForecastWinProb`, `scenarioCompareCard|v3ScenarioDiffOutputs`) to prevent false failures during staged legacy container retirement.
 - QA hardening: UI smoke now accepts v3 shell fallbacks for scenario/build/diagnostics/reset IDs and supports v3 scenario-save action ID (`v3BtnScenarioSaveNew`) as a valid control target.
 - QA hardening: UI smoke required-ID test now treats District/Reach core control IDs as optional stage-scoped checks (uniqueness enforced only when present), avoiding false failures when those surfaces are not mounted.
+- QA hardening: UI smoke Reach/Outcome/Scenario stage-card IDs (`operationsCapacityOutlookCard|v3ReachOutlookTbody`, `phase3Card|v3OutcomeForecastWinProb`, `scenarioCompareCard|v3ScenarioDiffOutputs`) are now optional stage-scoped checks (uniqueness enforced only when present).
 - QA hardening: UI smoke census + USB control checks now accept v3 fallback IDs (`v3DistrictCensusShell`, `v3Census*`, `v3DataBtnUsb*`, `v3DataUsbStatus`) to avoid false failures during stage-checks and stage-integrity retirement.
 - QA hardening: UI smoke census + USB checks are now stage-aware (run only when Census/Data anchors are present), avoiding false failures when those surfaces are not mounted.
 - District bridge reduction: electorate-structure derived text + normalization warning now render natively in v3 using core universe-layer math instead of legacy `#universe16Derived/#universe16Warn` mirrors.
@@ -208,6 +209,8 @@ Scope: UI architecture migration only (engine and right rail frozen)
 - Turnout bridge reduction: Turnout summary readout resolves from sidebar/bridge context (`#kpiTurnoutBand-sidebar`) instead of legacy ROI summary text nodes.
 - Turnout bridge reduction: v3 turnout snapshot now resolves summary text from bridge/sidebar only (`#kpiTurnoutBand-sidebar`), removing the last `#turnoutSummary` fallback dependency.
 - Turnout bridge reduction: v3 turnout snapshot votes/need now resolve from bridge/sidebar only (`#kpiTurnoutVotes-sidebar`, `#kpiPersuasionNeed-sidebar`) with no non-sidebar fallback selectors.
+- District bridge hardening: District summary expected-turnout readout now uses turnout baseline value or v3-derived average (`turnoutA/turnoutB`) instead of falling back to turnout-votes KPI text.
+- KPI bridge reduction: persuasion-need KPI now resolves from sidebar target only (`#kpiPersuasionNeed-sidebar`) with no legacy primary fallback selector.
 - Turnout bridge reduction: Turnout efficiency banner now reads from runtime Turnout bridge (`roiBannerText`) and no longer mirrors legacy `#roiBanner` note text nodes.
 - Turnout bridge reduction: Turnout summary/votes/need readouts now resolve from Turnout runtime bridge summary (`view.summary`) backed by runtime cache (`state.ui.lastTurnout`) before any selector fallback.
 - Legacy flow retirement: removed legacy left-nav `integrity` entry while retaining `stage-integrity` DOM for runtime parity checks.
