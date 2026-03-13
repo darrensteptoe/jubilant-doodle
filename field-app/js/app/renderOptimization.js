@@ -15,8 +15,12 @@ export function renderOptimizationModule(args){
     engine,
   } = args || {};
 
-  if (!els?.optTbody) return;
   const features = resolveFeatureFlags(state || {});
+  const optTbody = els?.optTbody instanceof HTMLElement ? els.optTbody : null;
+  const clearPlanRowsCache = () => {
+    if (!state.ui || typeof state.ui !== "object") state.ui = {};
+    state.ui.lastPlanRows = [];
+  };
 
   const needVotes = deriveNeedVotes(res);
   if (els.optGapContext) els.optGapContext.textContent = (needVotes == null) ? "—" : fmtInt(Math.round(needVotes));
@@ -75,9 +79,10 @@ export function renderOptimizationModule(args){
     if (capField) capField.hidden = isBudget;
   }
 
-  els.optTbody.innerHTML = "";
+  if (optTbody) optTbody.innerHTML = "";
 
   if (!tactics.length){
+    clearPlanRowsCache();
     hideBanner();
     showBanner("warn", "Optimization: Enable at least one tactic (Doors/Phones/Texts) in Phase 4 inputs.");
     setTotals(null);
@@ -86,6 +91,7 @@ export function renderOptimizationModule(args){
   }
 
   if (!(cr && cr > 0) || !(sr && sr > 0) || !(tr && tr > 0)){
+    clearPlanRowsCache();
     hideBanner();
     showBanner("warn", "Optimization: Enter Phase 2 Contact rate + Support rate and Phase 3 Turnout reliability to optimize.");
     setTotals(null);
@@ -172,6 +178,7 @@ export function renderOptimizationModule(args){
   }
 
   if (!result){
+    clearPlanRowsCache();
     setTotals(null);
     stubRow();
     return;
@@ -312,30 +319,32 @@ export function renderOptimizationModule(args){
     if (!a) continue;
     any = true;
 
-    const trEl = document.createElement("tr");
+    if (optTbody){
+      const trEl = document.createElement("tr");
 
-    const td0 = document.createElement("td");
-    td0.textContent = t.label;
+      const td0 = document.createElement("td");
+      td0.textContent = t.label;
 
-    const td1 = document.createElement("td");
-    td1.className = "num";
-    td1.textContent = fmtInt(Math.round(a));
+      const td1 = document.createElement("td");
+      td1.className = "num";
+      td1.textContent = fmtInt(Math.round(a));
 
-    const td2 = document.createElement("td");
-    td2.className = "num";
-    td2.textContent = `$${fmtInt(Math.round(a * t.costPerAttempt))}`;
+      const td2 = document.createElement("td");
+      td2.className = "num";
+      td2.textContent = `$${fmtInt(Math.round(a * t.costPerAttempt))}`;
 
-    const td3 = document.createElement("td");
-    td3.className = "num";
-    const obj = (state.budget?.optimize?.objective || "net");
-    const vpa = (obj === "turnout") ? (t.turnoutAdjustedNetVotesPerAttempt ?? t.netVotesPerAttempt) : t.netVotesPerAttempt;
-    td3.textContent = fmtInt(Math.round(a * (Number.isFinite(vpa) ? vpa : 0)));
+      const td3 = document.createElement("td");
+      td3.className = "num";
+      const obj = (state.budget?.optimize?.objective || "net");
+      const vpa = (obj === "turnout") ? (t.turnoutAdjustedNetVotesPerAttempt ?? t.netVotesPerAttempt) : t.netVotesPerAttempt;
+      td3.textContent = fmtInt(Math.round(a * (Number.isFinite(vpa) ? vpa : 0)));
 
-    trEl.appendChild(td0);
-    trEl.appendChild(td1);
-    trEl.appendChild(td2);
-    trEl.appendChild(td3);
-    els.optTbody.appendChild(trEl);
+      trEl.appendChild(td0);
+      trEl.appendChild(td1);
+      trEl.appendChild(td2);
+      trEl.appendChild(td3);
+      optTbody.appendChild(trEl);
+    }
   }
 
   if (!any) stubRow();
@@ -422,8 +431,9 @@ export function renderOptimizationModule(args){
   }
 
   function stubRow(){
+    if (!optTbody) return;
     const tr = document.createElement("tr");
     tr.innerHTML = '<td class="muted">—</td><td class="num muted">—</td><td class="num muted">—</td><td class="num muted">—</td>';
-    els.optTbody.appendChild(tr);
+    optTbody.appendChild(tr);
   }
 }

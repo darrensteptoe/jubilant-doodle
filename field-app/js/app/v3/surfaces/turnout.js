@@ -10,7 +10,6 @@ import { readTurnoutSnapshot } from "../stateBridge.js";
 import {
   readText,
   setText,
-  syncLegacyTableRows,
 } from "../surfaceUtils.js";
 
 const TURNOUT_API_KEY = "__FPE_TURNOUT_API__";
@@ -362,15 +361,9 @@ function refreshTurnoutSummary() {
   setText("v3TurnoutImpactMargin", readTurnoutMarginContext());
   setText("v3TurnoutImpactWinProb", readV3WinProbability());
   setText("v3TurnoutStatusBanner", buildTurnoutStatusBanner(turnoutSummary, turnoutVotes, needVotes));
-  syncLegacyTableRows({
-    sourceSelector: "#roiTbody",
-    targetBodyId: "v3TurnoutRoiTbody",
-    expectedCols: 6,
-    emptyLabel: "Refresh ROI to compute efficiency comparison.",
-    numericColumns: [1, 2, 3, 4]
-  });
-  setText("v3TurnoutRoiBanner", buildRoiStatusBanner());
-  applyTurnoutView(readTurnoutView());
+  const turnoutView = readTurnoutView();
+  applyTurnoutView(turnoutView);
+  setText("v3TurnoutRoiBanner", buildRoiStatusBanner(turnoutView));
 }
 
 function bindTurnoutField(id, field) {
@@ -551,6 +544,7 @@ function applyTurnoutView(view) {
 
   syncTurnoutInputValue("v3RoiOverheadAmount", inputs.roiOverheadAmount);
   syncTurnoutCheckboxValue("v3RoiIncludeOverhead", inputs.roiIncludeOverhead);
+  renderTurnoutRoiRows(view.roiRows);
 
   const locked = !!controls.locked;
   setTurnoutControlDisabled("v3TurnoutEnabledToggle", locked);
@@ -582,6 +576,62 @@ function applyTurnoutView(view) {
   setTurnoutControlDisabled("v3RoiOverheadAmount", locked);
   setTurnoutControlDisabled("v3RoiIncludeOverhead", locked);
   setTurnoutControlDisabled("v3BtnRoiRefresh", !!controls.refreshDisabled);
+}
+
+function renderTurnoutRoiRows(rows) {
+  const tbody = document.getElementById("v3TurnoutRoiTbody");
+  if (!(tbody instanceof HTMLElement)) {
+    return;
+  }
+  const list = Array.isArray(rows) ? rows : [];
+  tbody.innerHTML = "";
+
+  if (!list.length) {
+    const tr = document.createElement("tr");
+    tr.innerHTML = `<td class="muted" colspan="6">Refresh ROI to compute efficiency comparison.</td>`;
+    tbody.appendChild(tr);
+    return;
+  }
+
+  list.forEach((row) => {
+    const tr = document.createElement("tr");
+
+    const td0 = document.createElement("td");
+    td0.textContent = String(row?.label || "—");
+
+    const td1 = document.createElement("td");
+    td1.className = "num";
+    td1.textContent = formatTurnoutCurrency(row?.cpa, 2);
+
+    const td2 = document.createElement("td");
+    td2.className = "num";
+    td2.textContent = formatTurnoutCurrency(row?.costPerNetVote, 2);
+
+    const td3 = document.createElement("td");
+    td3.className = "num";
+    td3.textContent = formatTurnoutCurrency(row?.costPerTurnoutAdjustedNetVote, 2);
+
+    const td4 = document.createElement("td");
+    td4.className = "num";
+    td4.textContent = formatTurnoutCurrency(row?.totalCost, 0);
+
+    const td5 = document.createElement("td");
+    td5.textContent = String(row?.feasibilityText || "—");
+
+    tr.append(td0, td1, td2, td3, td4, td5);
+    tbody.appendChild(tr);
+  });
+}
+
+function formatTurnoutCurrency(value, decimals = 0) {
+  const num = Number(value);
+  if (!Number.isFinite(num)) {
+    return "—";
+  }
+  return `$${num.toLocaleString(undefined, {
+    minimumFractionDigits: decimals,
+    maximumFractionDigits: decimals
+  })}`;
 }
 
 function getTurnoutApi() {
@@ -628,9 +678,13 @@ function buildTurnoutStatusBanner(summary, turnoutVotes, needVotes) {
   return "Set turnout assumptions and refresh ROI to evaluate realized-vote impact.";
 }
 
-function buildRoiStatusBanner() {
-  const bodyText = readText("#v3TurnoutRoiTbody");
-  if (!bodyText || /refresh roi to compute/i.test(bodyText)) {
+function buildRoiStatusBanner(view) {
+  const text = String(view?.roiBannerText || "").trim();
+  if (text) {
+    return text;
+  }
+  const hasRows = Array.isArray(view?.roiRows) && view.roiRows.length > 0;
+  if (!hasRows) {
     return "Refresh ROI to compute efficiency comparison.";
   }
   return "ROI comparison reflects current tactic settings.";

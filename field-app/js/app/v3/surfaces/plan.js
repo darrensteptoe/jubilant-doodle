@@ -9,7 +9,6 @@ import {
 import {
   readText,
   setText,
-  syncLegacyTableRows,
 } from "../surfaceUtils.js";
 
 const REACH_API_KEY = "__FPE_REACH_API__";
@@ -464,13 +463,6 @@ function refreshPlanSummary() {
   setText("v3PlanRiskConstraint", tlConstraint);
   setText("v3PlanRiskShortfallAttempts", tlShortfallAttempts);
   setText("v3PlanRiskShortfallVotes", tlShortfallVotes);
-  syncLegacyTableRows({
-    sourceSelector: "#optTbody",
-    targetBodyId: "v3PlanOptAllocTbody",
-    expectedCols: 4,
-    emptyLabel: "Run optimization to generate tactic allocation.",
-    numericColumns: [1, 2]
-  });
 
   setText("v3PlanExecutable", tlPercent);
   setText("v3PlanCompletionWeek", buildPlanCompletionWeek(tlPercent));
@@ -802,6 +794,7 @@ function applyPlanView(view) {
   const inputs = view.inputs && typeof view.inputs === "object" ? view.inputs : {};
   const options = view.options && typeof view.options === "object" ? view.options : {};
   const controls = view.controls && typeof view.controls === "object" ? view.controls : {};
+  renderPlanAllocationRows(view.optimizerRows);
 
   syncPlanSelectOptions("v3PlanOptMode", options.optMode || [], inputs.optMode);
   syncPlanSelectOptions("v3PlanOptObjective", options.optObjective || [], inputs.optObjective);
@@ -846,6 +839,43 @@ function applyPlanView(view) {
   setPlanControlDisabled("v3PlanTimelineDoorsPerHour", locked);
   setPlanControlDisabled("v3PlanTimelineCallsPerHour", locked);
   setPlanControlDisabled("v3PlanTimelineTextsPerHour", locked);
+}
+
+function renderPlanAllocationRows(rows) {
+  const tbody = document.getElementById("v3PlanOptAllocTbody");
+  if (!(tbody instanceof HTMLElement)) {
+    return;
+  }
+  const list = Array.isArray(rows) ? rows : [];
+  tbody.innerHTML = "";
+
+  if (!list.length) {
+    const tr = document.createElement("tr");
+    tr.innerHTML = '<td class="muted" colspan="4">Run optimization to generate tactic allocation.</td>';
+    tbody.appendChild(tr);
+    return;
+  }
+
+  list.forEach((row) => {
+    const tr = document.createElement("tr");
+    const td0 = document.createElement("td");
+    td0.textContent = String(row?.tactic || "—");
+
+    const td1 = document.createElement("td");
+    td1.className = "num";
+    td1.textContent = formatPlanWhole(row?.attempts);
+
+    const td2 = document.createElement("td");
+    td2.className = "num";
+    td2.textContent = formatPlanCurrency(row?.cost);
+
+    const td3 = document.createElement("td");
+    td3.className = "num";
+    td3.textContent = formatPlanWhole(row?.expectedNetVotes);
+
+    tr.append(td0, td1, td2, td3);
+    tbody.appendChild(tr);
+  });
 }
 
 function syncPlanTimelineWeeksAuto(id) {

@@ -18,7 +18,6 @@ export function renderRoiModule(args){
     fmtInt,
   } = args || {};
 
-  if (!els?.roiTbody) return;
   const features = resolveFeatureFlags(state || {});
 
   const needVotes = deriveNeedVotes(res);
@@ -123,6 +122,12 @@ export function renderRoiModule(args){
     turnoutModel,
   });
 
+  if (!state.ui || typeof state.ui !== "object") state.ui = {};
+  state.ui.lastRoiRows = structuredClone(Array.isArray(rows) ? rows : []);
+  state.ui.lastRoiBanner = banner
+    ? { kind: String(banner.kind || ""), text: String(banner.text || "") }
+    : null;
+
   if (els.roiBanner){
     if (banner){
       els.roiBanner.hidden = false;
@@ -160,11 +165,15 @@ export function renderRoiModule(args){
     }
   }
 
-  els.roiTbody.innerHTML = "";
+  const roiTbody = els?.roiTbody;
+  if (!(roiTbody instanceof HTMLElement)) {
+    return;
+  }
+  roiTbody.innerHTML = "";
   if (!rows.length){
     const trEl = document.createElement("tr");
     trEl.innerHTML = '<td class="muted">—</td><td class="num muted">—</td><td class="num muted">—</td><td class="num muted">—</td><td class="muted">—</td>';
-    els.roiTbody.appendChild(trEl);
+    roiTbody.appendChild(trEl);
     return;
   }
 
@@ -200,6 +209,6 @@ export function renderRoiModule(args){
     trEl.appendChild(td3);
     trEl.appendChild(td4);
 
-    els.roiTbody.appendChild(trEl);
+    roiTbody.appendChild(trEl);
   }
 }
