@@ -95,6 +95,7 @@ Reference artifact:
 - Sensitivity surface defaults now use guarded element refs for lever/range controls (`surfaceLever/surfaceMin/surfaceMax`) and avoid direct `els.*` hard-return gating.
 - Runtime shell helpers in `appRuntime` now use guarded refs for weekly undo and mode toggle pills (`wkUndoActionBtn`, `mc* mode`, `gotv* mode`) instead of direct `els.*` hard-return gates.
 - DOM preflight is now feature-aware for Census/Targeting groups (only enforces those ID sets when their feature anchors are present), reducing false `dom-preflight` errors during staged legacy retirement.
+- Self-test UI smoke now accepts v3 fallbacks for legacy-only capacity/results/scenario-compare cards, preventing false red gates while retiring hidden legacy stage containers.
 - District electorate-structure derived/warning status is now computed natively in v3 using core universe-layer math (`computeUniverseAdjustedRates` + `normalizeUniversePercents`) instead of mirroring legacy `#universe16Derived/#universe16Warn`.
 - Weekly ops runtime now caches derived execution summary in `state.ui.lastWeeklyOps`, keeping the weekly status model readable even when legacy `wk*` nodes are absent.
 - Conversion runtime now caches workload/feasibility outputs in `state.ui.lastConversion`, reducing reliance on legacy `out*`/`convFeasBanner` nodes as the only source of truth.
@@ -103,6 +104,7 @@ Reference artifact:
 - Turnout v3 no longer mounts helper copy from `#stage-roi .phase-p6 > .note`; helper text is now native in the v3 card.
 - Turnout summary readout now resolves from sidebar/bridge context first (`#kpiTurnoutBand-sidebar`) and only then legacy `#turnoutSummary` fallback.
 - Turnout ROI banner/readout now resolves from Turnout runtime bridge view (`__FPE_TURNOUT_API__.getView().roiBannerText`) instead of mirroring legacy `#roiBanner` / sibling note nodes.
+- Turnout v3 summary values (status/votes/need) now resolve from Turnout runtime bridge summary (`__FPE_TURNOUT_API__.getView().summary`) backed by runtime cache (`state.ui.lastTurnout`) rather than relying only on sidebar/legacy text nodes.
 - Legacy `integrity` nav entry has been removed from legacy left-rail user flow; `stage-integrity` DOM remains mounted for controlled retirement.
 - Legacy `stage-integrity` section is now hidden in legacy flow (retired stub), while IDs remain mounted for parity and rollback safety.
 - Controls v3 evidence table now renders from scenario-bridge intel state (`window.__FPE_SCENARIO_API__`) instead of mirroring legacy `#intelEvidenceTbody`.

@@ -189,6 +189,7 @@ Scope: UI architecture migration only (engine and right rail frozen)
 - Runtime hardening: sensitivity surface defaults now use guarded lever/range refs for `surfaceLever/surfaceMin/surfaceMax`.
 - Runtime hardening: appRuntime weekly undo and MC/GOTV mode sync helpers now use guarded refs (no direct `els.*` hard-return gates on `wkUndoActionBtn`, `mc*`, `gotv*` mode nodes).
 - Runtime hardening: DOM preflight now enforces Census/Targeting required IDs only when those feature anchors are present, reducing false missing-ID noise during staged retirement.
+- QA hardening: UI smoke required-ID test now accepts v3 fallbacks for legacy-only capacity/results/scenario-compare cards (`operationsCapacityOutlookCard|v3ReachOutlookTbody`, `phase3Card|v3OutcomeForecastWinProb`, `scenarioCompareCard|v3ScenarioDiffOutputs`) to prevent false failures during staged legacy container retirement.
 - District bridge reduction: electorate-structure derived text + normalization warning now render natively in v3 using core universe-layer math instead of legacy `#universe16Derived/#universe16Warn` mirrors.
 - Runtime hardening: weekly ops renderer now caches derived execution context in `state.ui.lastWeeklyOps`, so consumers can read the model without legacy `wk*` DOM nodes.
 - Runtime hardening: conversion renderer now caches workload/feasibility outputs in `state.ui.lastConversion` instead of relying only on legacy `out*` + banner nodes.
@@ -197,6 +198,7 @@ Scope: UI architecture migration only (engine and right rail frozen)
 - Turnout bridge reduction: Turnout helper copy no longer mounts from `#stage-roi .phase-p6 > .note`; v3 Turnout now uses native helper text.
 - Turnout bridge reduction: Turnout summary readout now resolves sidebar/bridge first (`#kpiTurnoutBand-sidebar`) with legacy `#turnoutSummary` as fallback only.
 - Turnout bridge reduction: Turnout efficiency banner now reads from runtime Turnout bridge (`roiBannerText`) and no longer mirrors legacy `#roiBanner` note text nodes.
+- Turnout bridge reduction: Turnout summary/votes/need readouts now resolve from Turnout runtime bridge summary (`view.summary`) backed by runtime cache (`state.ui.lastTurnout`) before any selector fallback.
 - Legacy flow retirement: removed legacy left-nav `integrity` entry while retaining `stage-integrity` DOM for runtime parity checks.
 - Legacy flow retirement: `stage-integrity` section is hidden as a retired stub (DOM retained).
 - Legacy `stage-capacity` visual surface has been retired from `index.html` user flow (hidden retired stub retained during transition); preflight no longer requires legacy Reach assumption IDs.
