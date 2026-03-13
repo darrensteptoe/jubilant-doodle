@@ -1,0 +1,559 @@
+<!DOCTYPE html>
+
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Vector Intelligence — Campaign Planning</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,600;0,700;1,400&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+–navy:   #0f1f3d;
+–navy2:  #1a3260;
+–gold:   #b8922a;
+–gold2:  #d4aa44;
+–cream:  #f5f1ea;
+–text:   #1a1a1a;
+–muted:  #5a5a5a;
+–rule:   #d0c9bc;
+}
+
+html { font-size: 15px; }
+
+body {
+font-family: ‘DM Sans’, sans-serif;
+font-weight: 300;
+background: var(–cream);
+color: var(–text);
+min-height: 100vh;
+}
+
+/* ── HEADER ─────────────────────────────────────────── */
+header {
+background: var(–navy);
+padding: 0;
+position: relative;
+overflow: hidden;
+}
+
+header::before {
+content: ‘’;
+position: absolute;
+inset: 0;
+background:
+repeating-linear-gradient(
+90deg,
+transparent,
+transparent 119px,
+rgba(255,255,255,0.025) 119px,
+rgba(255,255,255,0.025) 120px
+),
+repeating-linear-gradient(
+0deg,
+transparent,
+transparent 59px,
+rgba(255,255,255,0.025) 59px,
+rgba(255,255,255,0.025) 60px
+);
+pointer-events: none;
+}
+
+.header-inner {
+max-width: 900px;
+margin: 0 auto;
+padding: 56px 48px 48px;
+position: relative;
+z-index: 1;
+display: grid;
+grid-template-columns: 1fr auto;
+gap: 32px;
+align-items: end;
+}
+
+.logo-block { display: flex; flex-direction: column; gap: 10px; }
+
+.wordmark {
+font-family: ‘Cormorant Garamond’, serif;
+font-weight: 700;
+font-size: 2.8rem;
+color: #fff;
+letter-spacing: 0.06em;
+line-height: 1;
+}
+
+.wordmark span {
+color: var(–gold2);
+}
+
+.tagline {
+font-size: 0.78rem;
+font-weight: 400;
+letter-spacing: 0.2em;
+text-transform: uppercase;
+color: rgba(255,255,255,0.5);
+}
+
+.header-rule {
+display: flex;
+align-items: center;
+gap: 12px;
+padding-bottom: 4px;
+}
+
+.header-rule span {
+display: block;
+width: 48px;
+height: 2px;
+background: var(–gold);
+}
+
+.header-rule p {
+font-family: ‘Cormorant Garamond’, serif;
+font-style: italic;
+font-size: 1.05rem;
+color: rgba(255,255,255,0.65);
+white-space: nowrap;
+}
+
+/* ── GOLD BAR ───────────────────────────────────────── */
+.gold-bar {
+background: var(–gold);
+height: 4px;
+}
+
+/* ── MAIN ───────────────────────────────────────────── */
+main {
+max-width: 900px;
+margin: 0 auto;
+padding: 56px 48px 64px;
+}
+
+/* ── INTRO ──────────────────────────────────────────── */
+.intro {
+display: grid;
+grid-template-columns: 1fr 1fr;
+gap: 48px;
+padding-bottom: 52px;
+border-bottom: 1px solid var(–rule);
+margin-bottom: 52px;
+}
+
+.intro-headline {
+font-family: ‘Cormorant Garamond’, serif;
+font-size: 2.1rem;
+font-weight: 600;
+line-height: 1.25;
+color: var(–navy);
+}
+
+.intro-headline em {
+font-style: italic;
+color: var(–gold);
+}
+
+.intro-body {
+display: flex;
+flex-direction: column;
+justify-content: center;
+gap: 14px;
+}
+
+.intro-body p {
+font-size: 0.93rem;
+line-height: 1.75;
+color: var(–muted);
+}
+
+.intro-body p strong {
+color: var(–text);
+font-weight: 500;
+}
+
+/* ── WHAT WE DO ─────────────────────────────────────── */
+.section-label {
+font-size: 0.68rem;
+letter-spacing: 0.22em;
+text-transform: uppercase;
+color: var(–gold);
+font-weight: 500;
+margin-bottom: 28px;
+display: flex;
+align-items: center;
+gap: 10px;
+}
+
+.section-label::after {
+content: ‘’;
+display: block;
+flex: 1;
+height: 1px;
+background: var(–rule);
+}
+
+.capabilities {
+display: grid;
+grid-template-columns: repeat(3, 1fr);
+gap: 2px;
+margin-bottom: 52px;
+border: 1px solid var(–rule);
+}
+
+.cap-item {
+background: #fff;
+padding: 28px 24px;
+position: relative;
+}
+
+.cap-item::before {
+content: ‘’;
+display: block;
+width: 24px;
+height: 3px;
+background: var(–gold);
+margin-bottom: 16px;
+}
+
+.cap-title {
+font-family: ‘Cormorant Garamond’, serif;
+font-size: 1.1rem;
+font-weight: 600;
+color: var(–navy);
+margin-bottom: 10px;
+line-height: 1.3;
+}
+
+.cap-desc {
+font-size: 0.82rem;
+line-height: 1.7;
+color: var(–muted);
+}
+
+/* ── DIFFERENTIATORS ────────────────────────────────── */
+.diff-grid {
+display: grid;
+grid-template-columns: 1fr 1fr;
+gap: 32px;
+margin-bottom: 52px;
+padding-bottom: 52px;
+border-bottom: 1px solid var(–rule);
+}
+
+.diff-item {
+display: flex;
+gap: 16px;
+align-items: flex-start;
+}
+
+.diff-number {
+font-family: ‘Cormorant Garamond’, serif;
+font-size: 2rem;
+font-weight: 700;
+color: var(–gold);
+line-height: 1;
+min-width: 32px;
+opacity: 0.6;
+}
+
+.diff-text h4 {
+font-size: 0.85rem;
+font-weight: 500;
+color: var(–navy);
+margin-bottom: 6px;
+letter-spacing: 0.02em;
+}
+
+.diff-text p {
+font-size: 0.8rem;
+line-height: 1.7;
+color: var(–muted);
+}
+
+/* ── HOW IT WORKS ───────────────────────────────────── */
+.how-grid {
+display: grid;
+grid-template-columns: repeat(4, 1fr);
+gap: 0;
+margin-bottom: 52px;
+position: relative;
+}
+
+.how-grid::before {
+content: ‘’;
+position: absolute;
+top: 22px;
+left: calc(12.5% + 12px);
+right: calc(12.5% + 12px);
+height: 1px;
+background: var(–rule);
+z-index: 0;
+}
+
+.how-step {
+display: flex;
+flex-direction: column;
+align-items: center;
+text-align: center;
+padding: 0 12px;
+position: relative;
+z-index: 1;
+}
+
+.step-dot {
+width: 44px;
+height: 44px;
+border-radius: 50%;
+background: var(–navy);
+border: 2px solid var(–navy);
+display: flex;
+align-items: center;
+justify-content: center;
+margin-bottom: 14px;
+font-family: ‘Cormorant Garamond’, serif;
+font-size: 1.05rem;
+font-weight: 700;
+color: var(–gold2);
+}
+
+.step-title {
+font-size: 0.8rem;
+font-weight: 500;
+color: var(–navy);
+margin-bottom: 6px;
+line-height: 1.3;
+}
+
+.step-desc {
+font-size: 0.75rem;
+line-height: 1.65;
+color: var(–muted);
+}
+
+/* ── FOOTER CTA ─────────────────────────────────────── */
+.cta-block {
+background: var(–navy);
+padding: 40px 48px;
+display: grid;
+grid-template-columns: 1fr auto;
+gap: 32px;
+align-items: center;
+margin: 0 -48px -64px;
+}
+
+.cta-block h3 {
+font-family: ‘Cormorant Garamond’, serif;
+font-size: 1.5rem;
+font-weight: 600;
+color: #fff;
+line-height: 1.3;
+margin-bottom: 6px;
+}
+
+.cta-block p {
+font-size: 0.82rem;
+color: rgba(255,255,255,0.5);
+line-height: 1.6;
+}
+
+.cta-contact {
+display: flex;
+flex-direction: column;
+align-items: flex-end;
+gap: 6px;
+flex-shrink: 0;
+}
+
+.cta-email {
+font-size: 0.88rem;
+font-weight: 500;
+color: var(–gold2);
+letter-spacing: 0.02em;
+text-decoration: none;
+border-bottom: 1px solid rgba(212,170,68,0.3);
+padding-bottom: 2px;
+}
+
+.cta-note {
+font-size: 0.72rem;
+color: rgba(255,255,255,0.3);
+letter-spacing: 0.08em;
+text-transform: uppercase;
+}
+
+/* ── PRINT STYLES ───────────────────────────────────── */
+@media print {
+body { background: white; }
+.cap-item { background: #f9f9f9; }
+}
+
+@media (max-width: 720px) {
+.header-inner { grid-template-columns: 1fr; }
+.intro { grid-template-columns: 1fr; }
+.capabilities { grid-template-columns: 1fr; }
+.diff-grid { grid-template-columns: 1fr; }
+.how-grid { grid-template-columns: 1fr 1fr; }
+.how-grid::before { display: none; }
+.cta-block { grid-template-columns: 1fr; margin: 0 -24px -64px; padding: 32px 24px; }
+.cta-contact { align-items: flex-start; }
+main { padding: 40px 24px 64px; }
+.header-inner { padding: 40px 24px 36px; }
+}
+</style>
+
+</head>
+<body>
+
+<header>
+  <div class="header-inner">
+    <div class="logo-block">
+      <div class="wordmark">VECTOR<span>.</span></div>
+      <div class="tagline">Campaign Intelligence &nbsp;·&nbsp; All Levels of Government</div>
+    </div>
+    <div class="header-rule">
+      <span></span>
+      <p>Know your path. Close the gap.</p>
+    </div>
+  </div>
+</header>
+<div class="gold-bar"></div>
+
+<main>
+
+  <!-- INTRO -->
+
+  <section class="intro">
+    <h2 class="intro-headline">
+      Every campaign has a number.<br>
+      <em>Vector finds it —<br>and shows you how to reach it.</em>
+    </h2>
+    <div class="intro-body">
+      <p>Vector Intelligence is a <strong>managed campaign analytics service</strong> built for candidates and campaign professionals who need more than a gut feeling about whether their field plan is going to work.</p>
+      <p>We don't sell software licenses. We embed a senior analyst in your campaign for the cycle — running the numbers, managing the model, and delivering answers on your schedule, every week through election day.</p>
+      <p>From city council to U.S. Senate, the core question is always the same: <strong>how many votes do you need, and do you have a realistic path to get them?</strong> That's what Vector was built to answer.</p>
+    </div>
+  </section>
+
+  <!-- CAPABILITIES -->
+
+  <div class="section-label">What Vector Does</div>
+  <div class="capabilities">
+
+```
+<div class="cap-item">
+  <div class="cap-title">Win Path Modeling</div>
+  <p class="cap-desc">We translate your universe, vote shares, and turnout assumptions into a precise picture of how many votes you need to win — and how far you are from that threshold today.</p>
+</div>
+
+<div class="cap-item">
+  <div class="cap-title">Field Plan Feasibility</div>
+  <p class="cap-desc">Your plan looks good on paper. Vector stress-tests it. We model your actual capacity — organizers, hours, contact rates, channel mix — against what the race actually requires.</p>
+</div>
+
+<div class="cap-item">
+  <div class="cap-title">Persuasion & GOTV Modeling</div>
+  <p class="cap-desc">We separate the work you can do from the votes it actually produces. Persuasion, turnout lift, and undecided allocation modeled together so your plan reflects reality.</p>
+</div>
+
+<div class="cap-item">
+  <div class="cap-title">Budget & ROI Optimization</div>
+  <p class="cap-desc">Which tactic closes the gap most efficiently? We compute cost per net vote across every tactic and optimize your mix under real budget and timeline constraints.</p>
+</div>
+
+<div class="cap-item">
+  <div class="cap-title">Risk & Scenario Analysis</div>
+  <p class="cap-desc">Monte Carlo simulation stress-tests your assumptions across 10,000 scenarios. You see your win probability range, not just a point estimate — and what it takes to move that number.</p>
+</div>
+
+<div class="cap-item">
+  <div class="cap-title">Weekly Pacing & Reality Checks</div>
+  <p class="cap-desc">As your field program runs, we compare actual contact rates and productivity to your assumptions. If the plan is drifting, you'll know — and you'll know exactly which lever to pull.</p>
+</div>
+```
+
+  </div>
+
+  <!-- DIFFERENTIATORS -->
+
+  <div class="section-label">Why Vector</div>
+  <div class="diff-grid">
+
+```
+<div class="diff-item">
+  <div class="diff-number">01</div>
+  <div class="diff-text">
+    <h4>Managed, Not Self-Serve</h4>
+    <p>You don't learn a tool. You get answers. We run the platform, manage the model, and deliver outputs — so your team stays focused on the campaign, not the software.</p>
+  </div>
+</div>
+
+<div class="diff-item">
+  <div class="diff-number">02</div>
+  <div class="diff-text">
+    <h4>Deterministic by Design</h4>
+    <p>Same inputs always produce the same outputs. No black boxes. Every number traces back to an assumption, and every assumption can be challenged and changed.</p>
+  </div>
+</div>
+
+<div class="diff-item">
+  <div class="diff-number">03</div>
+  <div class="diff-text">
+    <h4>Voter File Integration</h4>
+    <p>We integrate your voter file directly into the model — so universe construction, turnout baselines, and persuadable targeting are grounded in your actual data, not generic assumptions.</p>
+  </div>
+</div>
+
+<div class="diff-item">
+  <div class="diff-number">04</div>
+  <div class="diff-text">
+    <h4>Standing Access, Full Cycle</h4>
+    <p>Weekly reporting, 1–2 standing meetings per week, and on-call access to your analyst throughout the cycle. When race conditions shift, we turn around new scenarios same day.</p>
+  </div>
+</div>
+```
+
+  </div>
+
+  <!-- HOW IT WORKS -->
+
+  <div class="section-label">How an Engagement Works</div>
+  <div class="how-grid">
+    <div class="how-step">
+      <div class="step-dot">1</div>
+      <div class="step-title">Initial Consultation</div>
+      <p class="step-desc">We scope the race, assess data availability, and align on your cycle timeline and reporting cadence.</p>
+    </div>
+    <div class="how-step">
+      <div class="step-dot">2</div>
+      <div class="step-title">Model Build & Data Integration</div>
+      <p class="step-desc">We build your win path model, integrate your voter file, and construct the opening scenario library.</p>
+    </div>
+    <div class="how-step">
+      <div class="step-dot">3</div>
+      <div class="step-title">Weekly Cycle Operations</div>
+      <p class="step-desc">Standing meetings, weekly scenario outputs, field pacing reports, and on-call access as the race evolves.</p>
+    </div>
+    <div class="how-step">
+      <div class="step-dot">4</div>
+      <div class="step-title">Election Day & Close</div>
+      <p class="step-desc">War room scenario support through election day, followed by post-cycle archive and debrief.</p>
+    </div>
+  </div>
+
+  <!-- CTA -->
+
+  <div class="cta-block">
+    <div>
+      <h3>Ready to know your number?</h3>
+      <p>Engagements are available for all levels of government. Initial consultations are complimentary.<br>Pricing is scoped to your race after the first conversation.</p>
+    </div>
+    <div class="cta-contact">
+      <a href="mailto:contact@vectorintelligence.com" class="cta-email">contact@vectorintelligence.com</a>
+      <span class="cta-note">Confidential &nbsp;·&nbsp; Not for distribution</span>
+    </div>
+  </div>
+
+</main>
+</body>
+</html>
