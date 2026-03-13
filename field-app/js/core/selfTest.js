@@ -1735,6 +1735,10 @@ export function runSelfTests(engine){
   test("UI Smoke: required element IDs exist and are unique", () => {
     if (typeof document === "undefined") return true;
     const required = [
+      ["scenarioName", "v3ScenarioName"],
+      ["buildStamp", "v3BuildStamp"],
+      ["btnDiagnostics", "v3BtnDiagnostics"],
+      ["btnResetAll", "v3BtnReset"],
       ["universeSize", "v3DistrictUniverseSize"],
       ["persuasionPct", "v3DistrictPersuasionPct"],
       ["validationList"],
@@ -1751,7 +1755,7 @@ export function runSelfTests(engine){
       const matches = document.querySelectorAll(`[id="${found}"]`);
       if (matches.length !== 1) throw new Error(`Duplicate id detected: ${found}`);
     }
-    const scenarioActionIds = ["btnScenarioSaveNew", "v3ScenarioName"];
+    const scenarioActionIds = ["btnScenarioSaveNew", "v3BtnScenarioSaveNew", "v3ScenarioName"];
     const found = scenarioActionIds.find((id) => document.getElementById(id));
     if (!found){
       throw new Error(`Missing scenario control id: ${scenarioActionIds.join(" or ")}`);
