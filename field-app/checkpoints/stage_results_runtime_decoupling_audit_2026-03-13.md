@@ -60,6 +60,7 @@ Compatibility mirror updated:
 - Legacy `roi` and `gotv` nav entries are retired from legacy user flow; `stage-roi` and `stage-gotv` remain mounted for controlled runtime retirement.
 - Legacy `stage-roi` and `stage-gotv` sections are now hidden as retired stubs (IDs retained in DOM).
 - Timeline runtime (`renderTimelineModule`) now cache-updates timeline outputs even when legacy `timelineEnabled`/`tl*` DOM targets are absent, reducing hard gate coupling ahead of `stage-gotv` retirement.
+- Phase3 runtime (`renderPhase3Module`) now cache-updates and still runs MC freshness/results even when legacy `p3*` output nodes are absent, reducing hard gate coupling ahead of `stage-results` retirement.
 
 ## Remaining runtime coupling (intentional for now)
 

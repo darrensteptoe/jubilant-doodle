@@ -75,6 +75,7 @@ Reference artifact:
 - Legacy `roi` and `gotv` nav entries have been removed from legacy left-rail user flow; `stage-roi` and `stage-gotv` DOM remain mounted for controlled retirement.
 - Legacy `stage-roi` and `stage-gotv` sections are now hidden in legacy flow (retired stubs), while DOM IDs remain mounted for parity and rollback safety.
 - Timeline runtime (`renderTimelineModule`) now computes and cache-updates without requiring legacy timeline DOM gates (`timelineEnabled`, `tlPercent`, `tl*` fields), reducing `stage-gotv` deletion risk.
+- Phase3 runtime (`renderPhase3Module`) now computes and refreshes MC freshness/results without requiring legacy `p3*` DOM gates, reducing `stage-results` deletion risk.
 - Controls v3 evidence table now renders from scenario-bridge intel state (`window.__FPE_SCENARIO_API__`) instead of mirroring legacy `#intelEvidenceTbody`.
 - Controls v3 benchmark table now renders from scenario-bridge intel state (`window.__FPE_SCENARIO_API__`) and remove actions route by benchmark id, instead of mirroring legacy `#intelBenchmarkTbody`.
 - Controls v3 feedback previews (what-if + recommendations) now render from scenario-bridge intel state and no longer mirror legacy preview textareas (`#intelWhatIfPreview/#intelRecommendationPreview`).

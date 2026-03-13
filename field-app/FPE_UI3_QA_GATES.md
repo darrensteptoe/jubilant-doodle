@@ -169,6 +169,7 @@ Scope: UI architecture migration only (engine and right rail frozen)
 - Legacy flow retirement: removed legacy left-nav `roi` and `gotv` entries while retaining `stage-roi`/`stage-gotv` DOM for runtime parity checks.
 - Legacy flow retirement: `stage-roi` and `stage-gotv` sections are hidden as retired stubs (DOM retained).
 - Runtime hardening: timeline renderer now computes/cache-updates without hard requiring legacy timeline DOM gates (`timelineEnabled`, `tlPercent`, `tl*`), reducing coupling to `stage-gotv` markup.
+- Runtime hardening: phase3 renderer now computes/cache-updates and continues MC refresh/render even when legacy `p3*` output nodes are absent, reducing coupling to `stage-results` markup.
 - Legacy `stage-capacity` visual surface has been retired from `index.html` user flow (hidden retired stub retained during transition); preflight no longer requires legacy Reach assumption IDs.
 - Added v3 stage persistence/cutover behavior (`js/app/v3/index.js`):
   - Active stage persists to local storage.
