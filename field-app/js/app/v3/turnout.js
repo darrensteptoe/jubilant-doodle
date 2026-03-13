@@ -18,6 +18,8 @@ import {
   syncCheckboxValue
 } from "../surfaceUtils.js";
 
+const TURNOUT_API_KEY = "__FPE_TURNOUT_API__";
+
 export function renderTurnoutSurface(mount) {
   const frame = createSurfaceFrame("three-col");
   const controlsCol = createColumn("controls");
@@ -105,16 +107,10 @@ export function renderTurnoutSurface(mount) {
     closestSelector: ".table-wrap",
     target: efficiencyBody
   });
-  mountLegacyNode({
-    key: "v3-turnout-roi-banner",
-    selector: "#roiBanner",
-    target: efficiencyBody
-  });
-  mountLegacyNode({
-    key: "v3-turnout-roi-note",
-    selector: "#roiBanner ~ .note",
-    target: efficiencyBody
-  });
+  efficiencyBody.insertAdjacentHTML(
+    "beforeend",
+    `<div class="fpe-help fpe-help--flush" id="v3TurnoutRoiBanner">-</div>`
+  );
 
   const assumptionsBody = getCardBody(assumptionsCard);
   mountLegacyClosest({
@@ -141,18 +137,16 @@ export function renderTurnoutSurface(mount) {
     selector: "#gotvAdvanced",
     target: liftBody
   });
-  mountLegacyNode({
-    key: "v3-turnout-summary-note",
-    selector: "#stage-roi .phase-p6 > .note",
-    target: liftBody
-  });
+  liftBody.insertAdjacentHTML(
+    "beforeend",
+    `<div class="fpe-help fpe-help--flush">Use basic mode for a single lift assumption, or advanced mode to model uncertainty bounds.</div>`
+  );
 
   const impactBody = getCardBody(impactCard);
-  mountLegacyNode({
-    key: "v3-turnout-summary-banner",
-    selector: "#turnoutSummary",
-    target: impactBody
-  });
+  impactBody.insertAdjacentHTML(
+    "beforeend",
+    `<div class="fpe-help fpe-help--flush" id="v3TurnoutImpactSummary">-</div>`
+  );
   impactBody.insertAdjacentHTML(
     "beforeend",
     `
@@ -194,7 +188,10 @@ export function renderTurnoutSurface(mount) {
 
 function refreshTurnoutSummary() {
   const snapshot = readTurnoutSnapshot();
+  const turnoutView = readTurnoutBridgeView();
   setText("v3TurnoutSummary", snapshot.turnoutSummary || "-");
+  setText("v3TurnoutImpactSummary", snapshot.turnoutSummary || "-");
+  setText("v3TurnoutRoiBanner", turnoutView?.roiBannerText || "-");
   setText("v3TurnoutVotes", snapshot.turnoutVotes || "-");
   setText("v3TurnoutNeedVotes", snapshot.needVotes || "-");
   setText("v3TurnoutImpactVotes", readText("#kpiTurnoutVotes-sidebar"));
@@ -209,5 +206,18 @@ function refreshTurnoutSummary() {
   const legacyToggle = document.getElementById("turnoutEnabled");
   if (v3Toggle instanceof HTMLInputElement && legacyToggle instanceof HTMLInputElement) {
     v3Toggle.disabled = legacyToggle.disabled;
+  }
+}
+
+function readTurnoutBridgeView() {
+  const api = window[TURNOUT_API_KEY];
+  if (!api || typeof api.getView !== "function") {
+    return null;
+  }
+  try {
+    const view = api.getView();
+    return view && typeof view === "object" ? view : null;
+  } catch {
+    return null;
   }
 }

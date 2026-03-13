@@ -1,5 +1,5 @@
 import { createKpiCard } from "./componentFactory.js";
-import { firstNonMissing, isMissingValue, readNumber, readText } from "./stateBridge.js";
+import { firstNonMissing, isMissingValue, readText } from "./stateBridge.js";
 
 const OUTCOME_API_KEY = "__FPE_OUTCOME_API__";
 const REACH_API_KEY = "__FPE_REACH_API__";
@@ -82,11 +82,6 @@ function inferBottleneck(outcomeView = null) {
     reachView?.summary?.gap
   );
   if (Number.isFinite(gapFromBridge) && gapFromBridge > 0) {
-    return "Throughput constrained";
-  }
-
-  const gap = readNumber("#wkGapPerWeek");
-  if (Number.isFinite(gap) && gap > 0) {
     return "Throughput constrained";
   }
 

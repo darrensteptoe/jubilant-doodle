@@ -87,7 +87,7 @@ export function readDistrictSnapshot() {
 
 export function readTurnoutSnapshot() {
   return {
-    turnoutSummary: firstNonEmpty(["#turnoutSummary", "#kpiTurnoutBand-sidebar"]),
+    turnoutSummary: firstNonEmpty(["#kpiTurnoutBand-sidebar", "#turnoutSummary"]),
     turnoutVotes: firstNonEmpty(["#kpiTurnoutVotes-sidebar", "#kpiTurnoutVotes"]),
     needVotes: firstNonEmpty(["#kpiPersuasionNeed-sidebar", "#kpiPersuasionNeed"])
   };
