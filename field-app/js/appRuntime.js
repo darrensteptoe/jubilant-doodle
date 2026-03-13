@@ -746,9 +746,10 @@ let lastExportHash = null;
 let lastAppliedWeeklyAction = null;
 
 function syncWeeklyUndoUI(){
-  if (!els.wkUndoActionBtn) return;
+  const wkUndoActionBtnEl = els?.wkUndoActionBtn || null;
+  if (!wkUndoActionBtnEl) return;
   const has = !!lastAppliedWeeklyAction;
-  els.wkUndoActionBtn.disabled = !has;
+  wkUndoActionBtnEl.disabled = !has;
   if (els.wkUndoActionMsg) els.wkUndoActionMsg.textContent = has ? (lastAppliedWeeklyAction.label || "") : "";
 }
 
@@ -4818,18 +4819,24 @@ export function getSelfTestAccessors(){
    ========================= */
 
 function syncMcModeUI(){
-  if (!els.mcBasic || !els.mcAdvanced || !els.mcMode) return;
-  const mode = els.mcMode.value || "basic";
-  els.mcBasic.classList.toggle("active", mode === "basic");
-  els.mcAdvanced.classList.toggle("active", mode === "advanced");
+  const mcBasicEl = els?.mcBasic || null;
+  const mcAdvancedEl = els?.mcAdvanced || null;
+  const mcModeEl = els?.mcMode || null;
+  if (!mcModeEl) return;
+  const mode = mcModeEl.value || "basic";
+  if (mcBasicEl) mcBasicEl.classList.toggle("active", mode === "basic");
+  if (mcAdvancedEl) mcAdvancedEl.classList.toggle("active", mode === "advanced");
 }
 
 
 function syncGotvModeUI(){
-  if (!els.gotvBasic || !els.gotvAdvanced || !els.gotvMode) return;
-  const mode = els.gotvMode.value || "basic";
-  els.gotvBasic.classList.toggle("active", mode === "basic");
-  els.gotvAdvanced.classList.toggle("active", mode === "advanced");
+  const gotvBasicEl = els?.gotvBasic || null;
+  const gotvAdvancedEl = els?.gotvAdvanced || null;
+  const gotvModeEl = els?.gotvMode || null;
+  if (!gotvModeEl) return;
+  const mode = gotvModeEl.value || "basic";
+  if (gotvBasicEl) gotvBasicEl.classList.toggle("active", mode === "basic");
+  if (gotvAdvancedEl) gotvAdvancedEl.classList.toggle("active", mode === "advanced");
 }
 
 let mcStateController = null;
