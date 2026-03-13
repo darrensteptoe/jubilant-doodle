@@ -67,6 +67,14 @@ Reference artifact:
 - Miss-risk runtime (`renderMissRiskD4`) now computes/cache-updates even when legacy `opsMiss*` DOM nodes are absent, removing DOM-presence gating for D4 risk state.
 - Miss-risk runtime now dual-writes to right-rail mirror IDs (`#opsMissProb-sidebar`, `#opsMissTag-sidebar`) so active miss-risk readouts persist without `stage-results` table nodes.
 - Ops/finish envelope runtime paths (`renderOpsEnvelopeD2`, `renderFinishEnvelopeD3`) now compute/cache-update without requiring legacy `opsAtt*` / `opsFinish*` DOM nodes.
+- MC confidence adjunct outputs (`mcMoS`, downside/ES10, shift targets, shocks, risk grade/label, fragility/cliff) now dual-write to sidebar mirror IDs (`*-sidebar`) via runtime MC render paths.
+- MC summary KPI outputs (`mcMedian`, `mcP95`, `mcP5`) now dual-write to sidebar mirror IDs (`#mcMedian-sidebar/#mcP95-sidebar/#mcP5-sidebar`) via runtime MC render paths.
+- MC sensitivity rows now dual-render to hidden sidebar mirror target (`#mcSensitivity-sidebar`) to preserve runtime updates without primary sensitivity table nodes.
+- Legacy `results` nav entry has been removed from legacy left-rail user flow; `stage-results` DOM remains in place for controlled retirement.
+- Legacy `stage-results` section is now hidden in legacy flow (retired stub), while DOM IDs remain mounted for parity and rollback safety.
+- Legacy `roi` and `gotv` nav entries have been removed from legacy left-rail user flow; `stage-roi` and `stage-gotv` DOM remain mounted for controlled retirement.
+- Legacy `stage-roi` and `stage-gotv` sections are now hidden in legacy flow (retired stubs), while DOM IDs remain mounted for parity and rollback safety.
+- Timeline runtime (`renderTimelineModule`) now computes and cache-updates without requiring legacy timeline DOM gates (`timelineEnabled`, `tlPercent`, `tl*` fields), reducing `stage-gotv` deletion risk.
 - Controls v3 evidence table now renders from scenario-bridge intel state (`window.__FPE_SCENARIO_API__`) instead of mirroring legacy `#intelEvidenceTbody`.
 - Controls v3 benchmark table now renders from scenario-bridge intel state (`window.__FPE_SCENARIO_API__`) and remove actions route by benchmark id, instead of mirroring legacy `#intelBenchmarkTbody`.
 - Controls v3 feedback previews (what-if + recommendations) now render from scenario-bridge intel state and no longer mirror legacy preview textareas (`#intelWhatIfPreview/#intelRecommendationPreview`).

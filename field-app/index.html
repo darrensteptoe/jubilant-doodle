@@ -50,29 +50,17 @@
 <nav aria-label="Planning stages" class="stage-nav-new"><div class="nav-group-label-new">Planning</div><button class="nav-item-new active" data-stage="setup" onclick="switchStage(this, 'setup')">
 <span class="nav-num-new" data-num="1">1</span>
 <span class="nav-label-new">Set up</span>
-</button><div class="nav-group-label-new">Field Execution</div><button class="nav-item-new" data-stage="capacity" onclick="switchStage(this, 'capacity')">
-<span class="nav-num-new" data-num="2">2</span>
-<span class="nav-label-new">Field capacity</span>
-</button><a class="nav-item-new" href="organizer.html">
+</button><div class="nav-group-label-new">Field Execution</div><a class="nav-item-new" href="organizer.html">
 <span class="nav-num-new">•</span>
 <span class="nav-label-new">Organizer log</span>
 </a><a class="nav-item-new" href="operations.html">
 <span class="nav-num-new">•</span>
 <span class="nav-label-new">Operations hub</span>
-</a><div class="nav-group-label-new">Analysis &amp; Risk</div><button class="nav-item-new" data-stage="results" onclick="switchStage(this, 'results')">
-<span class="nav-num-new" data-num="3">3</span>
-<span class="nav-label-new">Win path &amp; risk</span>
-</button><button class="nav-item-new" data-stage="roi" onclick="switchStage(this, 'roi')">
-<span class="nav-num-new" data-num="4">4</span>
-<span class="nav-label-new">Budget &amp; ROI</span>
-</button><button class="nav-item-new" data-stage="gotv" onclick="switchStage(this, 'gotv')">
-<span class="nav-num-new" data-num="5">5</span>
-<span class="nav-label-new">GOTV execution planner</span>
-</button><button class="nav-item-new" data-stage="checks" onclick="switchStage(this, 'checks')">
-<span class="nav-num-new" data-num="6">6</span>
+</a><div class="nav-group-label-new">Analysis &amp; Risk</div><button class="nav-item-new" data-stage="checks" onclick="switchStage(this, 'checks')">
+<span class="nav-num-new" data-num="2">2</span>
 <span class="nav-label-new">Checks &amp; guardrails</span>
 </button><div class="nav-group-label-new">Data &amp; Integrity</div><button class="nav-item-new" data-stage="integrity" onclick="switchStage(this, 'integrity')">
-<span class="nav-num-new" data-num="8">8</span>
+<span class="nav-num-new" data-num="3">3</span>
 <span class="nav-label-new">Import/export &amp; backups</span>
 </button></nav>
 <!-- CENTER: Active stage content -->
@@ -387,7 +375,7 @@
 </div>
 </section>
 <!-- ── STAGE: capacity ── -->
-<section class="stage-new" id="stage-capacity">
+<section class="stage-new" hidden id="stage-capacity">
 <div class="stage-header-new">
 <div class="stage-meta-new">
 <span class="stage-tag-new">Stage 4</span>
@@ -784,7 +772,7 @@
 </div>
 </section>
 <!-- ── STAGE: gotv ── -->
-<section class="stage-new" id="stage-gotv">
+<section class="stage-new" hidden="" id="stage-gotv">
 <div class="stage-header-new">
 <div class="stage-meta-new">
 <span class="stage-tag-new">Stage 5</span>
@@ -963,7 +951,7 @@
 </div>
 </div>
 <!-- ── STAGE: results ── -->
-<section class="stage-new" id="stage-results">
+<section class="stage-new" hidden id="stage-results">
 <div class="stage-header-new">
 <div class="stage-meta-new">
 <span class="stage-tag-new">Stage 7</span>
@@ -1322,7 +1310,7 @@
 </div>
 </section>
 <!-- ── STAGE: roi ── -->
-<section class="stage-new" id="stage-roi">
+<section class="stage-new" hidden="" id="stage-roi">
 <div class="stage-header-new">
 <div class="stage-meta-new">
 <span class="stage-tag-new">Stage 8</span>
@@ -2962,6 +2950,27 @@
         <span id="opsMissProb-sidebar">—</span>
         <span class="tag" id="opsMissTag-sidebar">—</span>
       </span>
+    </div>
+    <div hidden id="mcAdjMirrorSidebar">
+      <span id="mcMedian-sidebar">—</span>
+      <span id="mcP95-sidebar">—</span>
+      <span id="mcP5-sidebar">—</span>
+      <span id="mcMoS-sidebar">—</span>
+      <span id="mcDownside-sidebar">—</span>
+      <span id="mcES10-sidebar">—</span>
+      <span id="mcShiftP50-sidebar">—</span>
+      <span id="mcShiftP10-sidebar">—</span>
+      <span id="mcFragility-sidebar">—</span>
+      <span id="mcCliff-sidebar">—</span>
+      <span id="mcRiskGrade-sidebar">—</span>
+      <span id="mcShift60-sidebar">—</span>
+      <span id="mcShift70-sidebar">—</span>
+      <span id="mcShift80-sidebar">—</span>
+      <span id="mcShock10-sidebar">—</span>
+      <span id="mcShock25-sidebar">—</span>
+      <span id="mcShock50-sidebar">—</span>
+      <span id="mcRiskLabel-sidebar">—</span>
+      <div id="mcSensitivity-sidebar"></div>
     </div>
     <div class="banner" hidden id="riskPlainBanner-sidebar"></div>
   </div>

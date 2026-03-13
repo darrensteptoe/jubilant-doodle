@@ -161,6 +161,14 @@ Scope: UI architecture migration only (engine and right rail frozen)
 - Runtime hardening: D4 miss-risk computation/cache now runs without requiring legacy `opsMissProb/opsMissTag` DOM nodes.
 - Runtime hardening: D4 miss-risk UI now mirrors to right-rail IDs (`#opsMissProb-sidebar`, `#opsMissTag-sidebar`) so miss-risk status remains visible when legacy results-table nodes are absent.
 - Runtime hardening: D2/D3 envelope renderers now compute/cache-update even when legacy `opsAtt*` / `opsFinish*` table nodes are absent.
+- Runtime hardening: MC confidence adjunct metrics now mirror to right-rail `*-sidebar` IDs (hidden mirror targets), preserving updates when legacy adjunct table nodes are absent.
+- Runtime hardening: MC summary KPI metrics (`mcMedian`, `mcP95`, `mcP5`) now mirror to right-rail `*-sidebar` IDs (hidden mirror targets), preserving updates when legacy summary KPI nodes are absent.
+- Runtime hardening: MC sensitivity rows now mirror to hidden right-rail target (`#mcSensitivity-sidebar`), preserving updates when legacy sensitivity table node is absent.
+- Legacy flow retirement: removed legacy left-nav `results` entry while retaining `stage-results` DOM for runtime parity checks.
+- Legacy flow retirement: `stage-results` section is hidden as a retired stub (DOM retained).
+- Legacy flow retirement: removed legacy left-nav `roi` and `gotv` entries while retaining `stage-roi`/`stage-gotv` DOM for runtime parity checks.
+- Legacy flow retirement: `stage-roi` and `stage-gotv` sections are hidden as retired stubs (DOM retained).
+- Runtime hardening: timeline renderer now computes/cache-updates without hard requiring legacy timeline DOM gates (`timelineEnabled`, `tlPercent`, `tl*`), reducing coupling to `stage-gotv` markup.
 - Legacy `stage-capacity` visual surface has been retired from `index.html` user flow (hidden retired stub retained during transition); preflight no longer requires legacy Reach assumption IDs.
 - Added v3 stage persistence/cutover behavior (`js/app/v3/index.js`):
   - Active stage persists to local storage.
