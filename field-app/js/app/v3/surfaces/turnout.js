@@ -8,19 +8,12 @@ import {
 } from "../componentFactory.js";
 import { readTurnoutSnapshot } from "../stateBridge.js";
 import {
-  bindCheckboxProxy,
-  bindClickProxy,
-  bindFieldProxy,
-  bindSelectProxy,
   readText,
   setText,
-  syncButtonDisabled,
-  syncCheckboxValue,
-  syncControlDisabled,
-  syncFieldValue,
   syncLegacyTableRows,
-  syncSelectValue
 } from "../surfaceUtils.js";
+
+const TURNOUT_API_KEY = "__FPE_TURNOUT_API__";
 
 export function renderTurnoutSurface(mount) {
   const frame = createSurfaceFrame("three-col");
@@ -318,41 +311,41 @@ export function renderTurnoutSurface(mount) {
 }
 
 function wireTurnoutControlProxies() {
-  bindClickProxy("v3BtnRoiRefresh", "roiRefresh");
+  bindTurnoutAction("v3BtnRoiRefresh", "refreshRoi");
 
-  bindCheckboxProxy("v3TurnoutEnabledToggle", "turnoutEnabled");
-  bindFieldProxy("v3TurnoutBaselinePct", "turnoutBaselinePct");
-  bindFieldProxy("v3TurnoutTargetOverridePct", "turnoutTargetOverridePct");
-  bindSelectProxy("v3TurnoutMode", "gotvMode");
-  bindCheckboxProxy("v3TurnoutDiminishingToggle", "gotvDiminishing");
+  bindTurnoutCheckbox("v3TurnoutEnabledToggle", "turnoutEnabled");
+  bindTurnoutField("v3TurnoutBaselinePct", "turnoutBaselinePct");
+  bindTurnoutField("v3TurnoutTargetOverridePct", "turnoutTargetOverridePct");
+  bindTurnoutSelect("v3TurnoutMode", "gotvMode");
+  bindTurnoutCheckbox("v3TurnoutDiminishingToggle", "gotvDiminishing");
 
-  bindFieldProxy("v3GotvLiftPP", "gotvLiftPP");
-  bindFieldProxy("v3GotvMaxLiftPP", "gotvMaxLiftPP");
-  bindFieldProxy("v3GotvLiftMin", "gotvLiftMin");
-  bindFieldProxy("v3GotvLiftMode", "gotvLiftMode");
-  bindFieldProxy("v3GotvLiftMax", "gotvLiftMax");
-  bindFieldProxy("v3GotvMaxLiftPP2", "gotvMaxLiftPP2");
+  bindTurnoutField("v3GotvLiftPP", "gotvLiftPP");
+  bindTurnoutField("v3GotvMaxLiftPP", "gotvMaxLiftPP");
+  bindTurnoutField("v3GotvLiftMin", "gotvLiftMin");
+  bindTurnoutField("v3GotvLiftMode", "gotvLiftMode");
+  bindTurnoutField("v3GotvLiftMax", "gotvLiftMax");
+  bindTurnoutField("v3GotvMaxLiftPP2", "gotvMaxLiftPP2");
 
-  bindCheckboxProxy("v3RoiDoorsEnabled", "roiDoorsEnabled");
-  bindFieldProxy("v3RoiDoorsCpa", "roiDoorsCpa");
-  bindSelectProxy("v3RoiDoorsKind", "roiDoorsKind");
-  bindFieldProxy("v3RoiDoorsCr", "roiDoorsCr");
-  bindFieldProxy("v3RoiDoorsSr", "roiDoorsSr");
+  bindTurnoutCheckbox("v3RoiDoorsEnabled", "roiDoorsEnabled");
+  bindTurnoutField("v3RoiDoorsCpa", "roiDoorsCpa");
+  bindTurnoutSelect("v3RoiDoorsKind", "roiDoorsKind");
+  bindTurnoutField("v3RoiDoorsCr", "roiDoorsCr");
+  bindTurnoutField("v3RoiDoorsSr", "roiDoorsSr");
 
-  bindCheckboxProxy("v3RoiPhonesEnabled", "roiPhonesEnabled");
-  bindFieldProxy("v3RoiPhonesCpa", "roiPhonesCpa");
-  bindSelectProxy("v3RoiPhonesKind", "roiPhonesKind");
-  bindFieldProxy("v3RoiPhonesCr", "roiPhonesCr");
-  bindFieldProxy("v3RoiPhonesSr", "roiPhonesSr");
+  bindTurnoutCheckbox("v3RoiPhonesEnabled", "roiPhonesEnabled");
+  bindTurnoutField("v3RoiPhonesCpa", "roiPhonesCpa");
+  bindTurnoutSelect("v3RoiPhonesKind", "roiPhonesKind");
+  bindTurnoutField("v3RoiPhonesCr", "roiPhonesCr");
+  bindTurnoutField("v3RoiPhonesSr", "roiPhonesSr");
 
-  bindCheckboxProxy("v3RoiTextsEnabled", "roiTextsEnabled");
-  bindFieldProxy("v3RoiTextsCpa", "roiTextsCpa");
-  bindSelectProxy("v3RoiTextsKind", "roiTextsKind");
-  bindFieldProxy("v3RoiTextsCr", "roiTextsCr");
-  bindFieldProxy("v3RoiTextsSr", "roiTextsSr");
+  bindTurnoutCheckbox("v3RoiTextsEnabled", "roiTextsEnabled");
+  bindTurnoutField("v3RoiTextsCpa", "roiTextsCpa");
+  bindTurnoutSelect("v3RoiTextsKind", "roiTextsKind");
+  bindTurnoutField("v3RoiTextsCr", "roiTextsCr");
+  bindTurnoutField("v3RoiTextsSr", "roiTextsSr");
 
-  bindFieldProxy("v3RoiOverheadAmount", "roiOverheadAmount");
-  bindCheckboxProxy("v3RoiIncludeOverhead", "roiIncludeOverhead");
+  bindTurnoutField("v3RoiOverheadAmount", "roiOverheadAmount");
+  bindTurnoutCheckbox("v3RoiIncludeOverhead", "roiIncludeOverhead");
 }
 
 function refreshTurnoutSummary() {
@@ -377,70 +370,239 @@ function refreshTurnoutSummary() {
     numericColumns: [1, 2, 3, 4]
   });
   setText("v3TurnoutRoiBanner", buildRoiStatusBanner());
+  applyTurnoutView(readTurnoutView());
+}
 
-  syncFieldValue("v3TurnoutBaselinePct", "turnoutBaselinePct");
-  syncFieldValue("v3TurnoutTargetOverridePct", "turnoutTargetOverridePct");
-  syncSelectValue("v3TurnoutMode", "gotvMode");
-  syncCheckboxValue("v3TurnoutDiminishingToggle", "gotvDiminishing");
+function bindTurnoutField(id, field) {
+  const input = document.getElementById(id);
+  if (!(input instanceof HTMLInputElement)) {
+    return;
+  }
+  if (input.dataset.v3TurnoutBound === "1") {
+    return;
+  }
+  input.dataset.v3TurnoutBound = "1";
+  const onInput = () => {
+    const api = getTurnoutApi();
+    if (!api || typeof api.setField !== "function") {
+      return;
+    }
+    api.setField(field, input.value);
+  };
+  input.addEventListener("input", onInput);
+  input.addEventListener("change", onInput);
+}
 
-  syncFieldValue("v3GotvLiftPP", "gotvLiftPP");
-  syncFieldValue("v3GotvMaxLiftPP", "gotvMaxLiftPP");
-  syncFieldValue("v3GotvLiftMin", "gotvLiftMin");
-  syncFieldValue("v3GotvLiftMode", "gotvLiftMode");
-  syncFieldValue("v3GotvLiftMax", "gotvLiftMax");
-  syncFieldValue("v3GotvMaxLiftPP2", "gotvMaxLiftPP2");
+function bindTurnoutCheckbox(id, field) {
+  const input = document.getElementById(id);
+  if (!(input instanceof HTMLInputElement)) {
+    return;
+  }
+  if (input.dataset.v3TurnoutBound === "1") {
+    return;
+  }
+  input.dataset.v3TurnoutBound = "1";
+  input.addEventListener("change", () => {
+    const api = getTurnoutApi();
+    if (!api || typeof api.setField !== "function") {
+      return;
+    }
+    api.setField(field, input.checked);
+  });
+}
 
-  syncCheckboxValue("v3RoiDoorsEnabled", "roiDoorsEnabled");
-  syncFieldValue("v3RoiDoorsCpa", "roiDoorsCpa");
-  syncSelectValue("v3RoiDoorsKind", "roiDoorsKind");
-  syncFieldValue("v3RoiDoorsCr", "roiDoorsCr");
-  syncFieldValue("v3RoiDoorsSr", "roiDoorsSr");
+function bindTurnoutSelect(id, field) {
+  const input = document.getElementById(id);
+  if (!(input instanceof HTMLSelectElement)) {
+    return;
+  }
+  if (input.dataset.v3TurnoutBound === "1") {
+    return;
+  }
+  input.dataset.v3TurnoutBound = "1";
+  input.addEventListener("change", () => {
+    const api = getTurnoutApi();
+    if (!api || typeof api.setField !== "function") {
+      return;
+    }
+    api.setField(field, input.value);
+  });
+}
 
-  syncCheckboxValue("v3RoiPhonesEnabled", "roiPhonesEnabled");
-  syncFieldValue("v3RoiPhonesCpa", "roiPhonesCpa");
-  syncSelectValue("v3RoiPhonesKind", "roiPhonesKind");
-  syncFieldValue("v3RoiPhonesCr", "roiPhonesCr");
-  syncFieldValue("v3RoiPhonesSr", "roiPhonesSr");
+function bindTurnoutAction(id, actionName) {
+  const button = document.getElementById(id);
+  if (!(button instanceof HTMLButtonElement)) {
+    return;
+  }
+  if (button.dataset.v3TurnoutBound === "1") {
+    return;
+  }
+  button.dataset.v3TurnoutBound = "1";
+  button.addEventListener("click", () => {
+    const api = getTurnoutApi();
+    if (!api || typeof api[actionName] !== "function") {
+      return;
+    }
+    api[actionName]();
+  });
+}
 
-  syncCheckboxValue("v3RoiTextsEnabled", "roiTextsEnabled");
-  syncFieldValue("v3RoiTextsCpa", "roiTextsCpa");
-  syncSelectValue("v3RoiTextsKind", "roiTextsKind");
-  syncFieldValue("v3RoiTextsCr", "roiTextsCr");
-  syncFieldValue("v3RoiTextsSr", "roiTextsSr");
+function syncTurnoutInputValue(id, value) {
+  const input = document.getElementById(id);
+  if (!(input instanceof HTMLInputElement)) {
+    return;
+  }
+  if (document.activeElement === input) {
+    return;
+  }
+  input.value = value == null ? "" : String(value);
+}
 
-  syncFieldValue("v3RoiOverheadAmount", "roiOverheadAmount");
-  syncCheckboxValue("v3RoiIncludeOverhead", "roiIncludeOverhead");
+function syncTurnoutCheckboxValue(id, value) {
+  const input = document.getElementById(id);
+  if (!(input instanceof HTMLInputElement)) {
+    return;
+  }
+  if (document.activeElement === input) {
+    return;
+  }
+  input.checked = !!value;
+}
 
-  syncControlDisabled("v3TurnoutEnabledToggle", "turnoutEnabled");
-  syncControlDisabled("v3TurnoutBaselinePct", "turnoutBaselinePct");
-  syncControlDisabled("v3TurnoutTargetOverridePct", "turnoutTargetOverridePct");
-  syncControlDisabled("v3TurnoutMode", "gotvMode");
-  syncControlDisabled("v3TurnoutDiminishingToggle", "gotvDiminishing");
-  syncControlDisabled("v3GotvLiftPP", "gotvLiftPP");
-  syncControlDisabled("v3GotvMaxLiftPP", "gotvMaxLiftPP");
-  syncControlDisabled("v3GotvLiftMin", "gotvLiftMin");
-  syncControlDisabled("v3GotvLiftMode", "gotvLiftMode");
-  syncControlDisabled("v3GotvLiftMax", "gotvLiftMax");
-  syncControlDisabled("v3GotvMaxLiftPP2", "gotvMaxLiftPP2");
-  syncControlDisabled("v3RoiDoorsEnabled", "roiDoorsEnabled");
-  syncControlDisabled("v3RoiDoorsCpa", "roiDoorsCpa");
-  syncControlDisabled("v3RoiDoorsKind", "roiDoorsKind");
-  syncControlDisabled("v3RoiDoorsCr", "roiDoorsCr");
-  syncControlDisabled("v3RoiDoorsSr", "roiDoorsSr");
-  syncControlDisabled("v3RoiPhonesEnabled", "roiPhonesEnabled");
-  syncControlDisabled("v3RoiPhonesCpa", "roiPhonesCpa");
-  syncControlDisabled("v3RoiPhonesKind", "roiPhonesKind");
-  syncControlDisabled("v3RoiPhonesCr", "roiPhonesCr");
-  syncControlDisabled("v3RoiPhonesSr", "roiPhonesSr");
-  syncControlDisabled("v3RoiTextsEnabled", "roiTextsEnabled");
-  syncControlDisabled("v3RoiTextsCpa", "roiTextsCpa");
-  syncControlDisabled("v3RoiTextsKind", "roiTextsKind");
-  syncControlDisabled("v3RoiTextsCr", "roiTextsCr");
-  syncControlDisabled("v3RoiTextsSr", "roiTextsSr");
-  syncControlDisabled("v3RoiOverheadAmount", "roiOverheadAmount");
-  syncControlDisabled("v3RoiIncludeOverhead", "roiIncludeOverhead");
+function syncTurnoutSelectOptions(id, options, selectedValue) {
+  const select = document.getElementById(id);
+  if (!(select instanceof HTMLSelectElement)) {
+    return;
+  }
+  const normalized = Array.isArray(options)
+    ? options.map((option) => ({
+        value: String(option?.value ?? ""),
+        label: String(option?.label ?? option?.value ?? "")
+      }))
+    : [];
+  const current = Array.from(select.options).map((option) => `${option.value}::${option.textContent || ""}`);
+  const next = normalized.map((option) => `${option.value}::${option.label}`);
+  const isSame = current.length === next.length && current.every((item, index) => item === next[index]);
+  if (!isSame) {
+    select.innerHTML = "";
+    normalized.forEach((option) => {
+      const node = document.createElement("option");
+      node.value = option.value;
+      node.textContent = option.label;
+      select.appendChild(node);
+    });
+  }
+  if (document.activeElement === select) {
+    return;
+  }
+  select.value = selectedValue == null ? "" : String(selectedValue);
+}
 
-  syncButtonDisabled("v3BtnRoiRefresh", "roiRefresh");
+function setTurnoutControlDisabled(id, disabled) {
+  const control = document.getElementById(id);
+  if (
+    !(control instanceof HTMLInputElement) &&
+    !(control instanceof HTMLSelectElement) &&
+    !(control instanceof HTMLButtonElement)
+  ) {
+    return;
+  }
+  control.disabled = !!disabled;
+}
+
+function applyTurnoutView(view) {
+  if (!view || typeof view !== "object") {
+    return;
+  }
+  const inputs = view.inputs && typeof view.inputs === "object" ? view.inputs : {};
+  const options = view.options && typeof view.options === "object" ? view.options : {};
+  const controls = view.controls && typeof view.controls === "object" ? view.controls : {};
+
+  syncTurnoutSelectOptions("v3TurnoutMode", options.gotvMode || [], inputs.gotvMode);
+  syncTurnoutSelectOptions("v3RoiDoorsKind", options.tacticKind || [], inputs.roiDoorsKind);
+  syncTurnoutSelectOptions("v3RoiPhonesKind", options.tacticKind || [], inputs.roiPhonesKind);
+  syncTurnoutSelectOptions("v3RoiTextsKind", options.tacticKind || [], inputs.roiTextsKind);
+
+  syncTurnoutCheckboxValue("v3TurnoutEnabledToggle", inputs.turnoutEnabled);
+  syncTurnoutInputValue("v3TurnoutBaselinePct", inputs.turnoutBaselinePct);
+  syncTurnoutInputValue("v3TurnoutTargetOverridePct", inputs.turnoutTargetOverridePct);
+  syncTurnoutCheckboxValue("v3TurnoutDiminishingToggle", inputs.gotvDiminishing);
+  syncTurnoutInputValue("v3GotvLiftPP", inputs.gotvLiftPP);
+  syncTurnoutInputValue("v3GotvMaxLiftPP", inputs.gotvMaxLiftPP);
+  syncTurnoutInputValue("v3GotvLiftMin", inputs.gotvLiftMin);
+  syncTurnoutInputValue("v3GotvLiftMode", inputs.gotvLiftMode);
+  syncTurnoutInputValue("v3GotvLiftMax", inputs.gotvLiftMax);
+  syncTurnoutInputValue("v3GotvMaxLiftPP2", inputs.gotvMaxLiftPP2);
+
+  syncTurnoutCheckboxValue("v3RoiDoorsEnabled", inputs.roiDoorsEnabled);
+  syncTurnoutInputValue("v3RoiDoorsCpa", inputs.roiDoorsCpa);
+  syncTurnoutInputValue("v3RoiDoorsCr", inputs.roiDoorsCr);
+  syncTurnoutInputValue("v3RoiDoorsSr", inputs.roiDoorsSr);
+
+  syncTurnoutCheckboxValue("v3RoiPhonesEnabled", inputs.roiPhonesEnabled);
+  syncTurnoutInputValue("v3RoiPhonesCpa", inputs.roiPhonesCpa);
+  syncTurnoutInputValue("v3RoiPhonesCr", inputs.roiPhonesCr);
+  syncTurnoutInputValue("v3RoiPhonesSr", inputs.roiPhonesSr);
+
+  syncTurnoutCheckboxValue("v3RoiTextsEnabled", inputs.roiTextsEnabled);
+  syncTurnoutInputValue("v3RoiTextsCpa", inputs.roiTextsCpa);
+  syncTurnoutInputValue("v3RoiTextsCr", inputs.roiTextsCr);
+  syncTurnoutInputValue("v3RoiTextsSr", inputs.roiTextsSr);
+
+  syncTurnoutInputValue("v3RoiOverheadAmount", inputs.roiOverheadAmount);
+  syncTurnoutCheckboxValue("v3RoiIncludeOverhead", inputs.roiIncludeOverhead);
+
+  const locked = !!controls.locked;
+  setTurnoutControlDisabled("v3TurnoutEnabledToggle", locked);
+  setTurnoutControlDisabled("v3TurnoutBaselinePct", locked);
+  setTurnoutControlDisabled("v3TurnoutTargetOverridePct", locked);
+  setTurnoutControlDisabled("v3TurnoutMode", locked);
+  setTurnoutControlDisabled("v3TurnoutDiminishingToggle", locked);
+  setTurnoutControlDisabled("v3GotvLiftPP", locked);
+  setTurnoutControlDisabled("v3GotvMaxLiftPP", locked);
+  setTurnoutControlDisabled("v3GotvLiftMin", locked);
+  setTurnoutControlDisabled("v3GotvLiftMode", locked);
+  setTurnoutControlDisabled("v3GotvLiftMax", locked);
+  setTurnoutControlDisabled("v3GotvMaxLiftPP2", locked);
+  setTurnoutControlDisabled("v3RoiDoorsEnabled", locked);
+  setTurnoutControlDisabled("v3RoiDoorsCpa", locked);
+  setTurnoutControlDisabled("v3RoiDoorsKind", locked);
+  setTurnoutControlDisabled("v3RoiDoorsCr", locked);
+  setTurnoutControlDisabled("v3RoiDoorsSr", locked);
+  setTurnoutControlDisabled("v3RoiPhonesEnabled", locked);
+  setTurnoutControlDisabled("v3RoiPhonesCpa", locked);
+  setTurnoutControlDisabled("v3RoiPhonesKind", locked);
+  setTurnoutControlDisabled("v3RoiPhonesCr", locked);
+  setTurnoutControlDisabled("v3RoiPhonesSr", locked);
+  setTurnoutControlDisabled("v3RoiTextsEnabled", locked);
+  setTurnoutControlDisabled("v3RoiTextsCpa", locked);
+  setTurnoutControlDisabled("v3RoiTextsKind", locked);
+  setTurnoutControlDisabled("v3RoiTextsCr", locked);
+  setTurnoutControlDisabled("v3RoiTextsSr", locked);
+  setTurnoutControlDisabled("v3RoiOverheadAmount", locked);
+  setTurnoutControlDisabled("v3RoiIncludeOverhead", locked);
+  setTurnoutControlDisabled("v3BtnRoiRefresh", !!controls.refreshDisabled);
+}
+
+function getTurnoutApi() {
+  const api = window[TURNOUT_API_KEY];
+  if (!api || typeof api !== "object" || typeof api.getView !== "function") {
+    return null;
+  }
+  return api;
+}
+
+function readTurnoutView() {
+  const api = getTurnoutApi();
+  if (!api) {
+    return null;
+  }
+  try {
+    const view = api.getView();
+    return view && typeof view === "object" ? view : null;
+  } catch {
+    return null;
+  }
 }
 
 function readTurnoutMarginContext() {
