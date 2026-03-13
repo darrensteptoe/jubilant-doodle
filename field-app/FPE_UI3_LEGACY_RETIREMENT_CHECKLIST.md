@@ -76,6 +76,7 @@ Reference artifact:
 - Legacy `stage-results` has been collapsed to an empty retired stub anchor (`<section id="stage-results">`) so no legacy Outcome controls remain mounted in user/runtime flow.
 - Legacy `roi` and `gotv` nav entries have been removed from legacy left-rail user flow; `stage-roi` and `stage-gotv` DOM remain mounted for controlled retirement.
 - Legacy `stage-roi` and `stage-gotv` sections are now hidden in legacy flow (retired stubs), while DOM IDs remain mounted for parity and rollback safety.
+- Legacy `stage-roi` has been collapsed to an empty retired stub anchor (`<section id="stage-roi">`), removing legacy ROI/optimizer/timeline controls from mounted DOM while keeping rollback anchor.
 - Legacy `stage-gotv` has been collapsed to an empty retired stub anchor (`<section id="stage-gotv">`), removing legacy conversion/workload controls from mounted DOM while keeping rollback anchor.
 - Timeline runtime (`renderTimelineModule`) now computes and cache-updates without requiring legacy timeline DOM gates (`timelineEnabled`, `tlPercent`, `tl*` fields), reducing `stage-gotv` deletion risk.
 - Phase3 runtime (`renderPhase3Module`) now computes and refreshes MC freshness/results without requiring legacy `p3*` DOM gates, reducing `stage-results` deletion risk.
@@ -163,8 +164,8 @@ Reason: isolated to Reach surface; removed after Reach bridge dependency reached
 2. `stage-results`
 Reason: v3 Outcome bridge targets are zero; remaining blocker is runtime result/rail render paths that still write/read legacy results-stage DOM.
 
-3. `stage-roi`
-Reason: v3 bridge dependencies are zero; remaining blocker is runtime ROI/optimization render paths still writing legacy stage-roi DOM.
+3. `stage-roi` (completed)
+Reason: v3 bridge dependencies reached zero and the legacy section is now an empty retired stub anchor.
 
 4. `stage-gotv`
 Reason: currently retained for District coupling during migration; Plan bridge dependencies have been removed.
@@ -208,5 +209,5 @@ For each container before deletion:
 - [ ] Create checkpoint note and proceed to next container.
 
 ## Immediate next target
-Recommended next retirement target: `stage-roi` + `stage-gotv` runtime read-path reduction pass.  
-Stage bridge counts are already zero for Plan/Turnout; remaining blocker is runtime overlap code that still writes legacy ROI/GOTV nodes for parity.
+Recommended next retirement target: `stage-checks` runtime read-path reduction pass.  
+`stage-roi` and `stage-gotv` are already collapsed to retired stubs; next blocker is District/Controls shared checks/intel legacy DOM.
