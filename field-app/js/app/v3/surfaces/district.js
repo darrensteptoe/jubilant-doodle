@@ -21,6 +21,7 @@ import {
   syncLegacyTableRows,
   syncSelectValue
 } from "../surfaceUtils.js";
+import { computeUniverseAdjustedRates, normalizeUniversePercents } from "../../../core/universeLayer.js";
 
 let districtLegacyCensusCard = null;
 
@@ -686,9 +687,45 @@ function dispatchLegacyInput(node) {
 
 function syncDistrictStructureDerived() {
   const derived = document.getElementById("v3DistrictDerived");
+  const enabled = readCheckboxChecked("v3DistrictElectorateWeightingToggle");
+  const demPct = readNumberField("v3DistrictDemPct");
+  const repPct = readNumberField("v3DistrictRepPct");
+  const npaPct = readNumberField("v3DistrictNpaPct");
+  const otherPct = readNumberField("v3DistrictOtherPct");
+  const retentionFactor = readNumberField("v3DistrictRetentionFactor");
+  const supportRate = readRateDecimal([
+    "v3ReachSupportRatePct",
+    "supportRatePct"
+  ]);
+  const turnoutReliability = readRateDecimal([
+    "v3OutcomeTurnoutReliabilityPct",
+    "turnoutReliabilityPct"
+  ]);
+  const adjusted = computeUniverseAdjustedRates({
+    enabled,
+    universePercents: { demPct, repPct, npaPct, otherPct },
+    retentionFactor,
+    supportRate,
+    turnoutReliability
+  });
+
   if (derived instanceof HTMLElement) {
-    const legacyText = (document.getElementById("universe16Derived")?.textContent || "").trim();
-    derived.textContent = legacyText || "-";
+    if (!enabled) {
+      derived.textContent = "Disabled (baseline behavior).";
+    } else {
+      const parts = [];
+      const pMult = Number(adjusted?.meta?.persuasionMultiplier);
+      const tMult = Number(adjusted?.meta?.turnoutMultiplier);
+      const turnoutBoost = Number(adjusted?.meta?.turnoutBoostApplied);
+      const srAdj = Number(adjusted?.srAdj);
+      const trAdj = Number(adjusted?.trAdj);
+      parts.push(`Persuasion multiplier: ${Number.isFinite(pMult) ? pMult.toFixed(2) : "—"}`);
+      parts.push(`Turnout multiplier: ${Number.isFinite(tMult) ? tMult.toFixed(2) : "—"}`);
+      parts.push(`Turnout boost: ${Number.isFinite(turnoutBoost) ? `${(turnoutBoost * 100).toFixed(1)}%` : "—"}`);
+      parts.push(`Effective support rate: ${Number.isFinite(srAdj) ? `${(srAdj * 100).toFixed(1)}%` : "—"}`);
+      parts.push(`Effective turnout reliability: ${Number.isFinite(trAdj) ? `${(trAdj * 100).toFixed(1)}%` : "—"}`);
+      derived.textContent = parts.join(" · ");
+    }
   }
 
   const v3Warn = document.getElementById("v3DistrictStructureWarn");
@@ -696,11 +733,39 @@ function syncDistrictStructureDerived() {
     return;
   }
 
-  const legacyWarn = document.getElementById("universe16Warn");
-  const text = (legacyWarn?.textContent || "").trim();
-  const showWarn = Boolean(text) && !legacyWarn?.hidden;
+  const normalized = normalizeUniversePercents({ demPct, repPct, npaPct, otherPct });
+  const text = enabled && normalized?.normalized ? String(normalized.warning || "").trim() : "";
+  const showWarn = Boolean(text);
   v3Warn.hidden = !showWarn;
   v3Warn.textContent = showWarn ? text : "";
+}
+
+function readNumberField(id) {
+  const node = document.getElementById(id);
+  if (!(node instanceof HTMLInputElement)) {
+    return null;
+  }
+  const value = Number(node.value);
+  return Number.isFinite(value) ? value : null;
+}
+
+function readCheckboxChecked(id) {
+  const node = document.getElementById(id);
+  return node instanceof HTMLInputElement ? !!node.checked : false;
+}
+
+function readRateDecimal(ids = []) {
+  for (const id of ids) {
+    const node = document.getElementById(id);
+    if (!(node instanceof HTMLInputElement)) {
+      continue;
+    }
+    const value = Number(node.value);
+    if (Number.isFinite(value)) {
+      return Math.max(0, Math.min(100, value)) / 100;
+    }
+  }
+  return null;
 }
 
 function syncDistrictTargetingLab() {
