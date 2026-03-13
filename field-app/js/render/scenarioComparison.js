@@ -18,32 +18,39 @@ export function renderScenarioComparisonPanel({
   fmtInt,
   fmtISODate
 }){
-  if (!els.scmCompareWrap) return;
-  ensureScenarioRegistry();
+  const scmCompareWrapEl = els?.scmCompareWrap;
+  const scmCompareTagEl = els?.scmCompareTag;
+  const scmCompareEmptyEl = els?.scmCompareEmpty;
+  const scmCompareGridEl = els?.scmCompareGrid;
+  const scmDiffInputsEl = els?.scmDiffInputs;
+  const scmDiffOutputsEl = els?.scmDiffOutputs;
+  const scmDiffInputsFootEl = els?.scmDiffInputsFoot;
+  if (!scmCompareWrapEl && !scmCompareTagEl && !scmCompareEmptyEl && !scmCompareGridEl && !scmDiffInputsEl && !scmDiffOutputsEl) return;
+  if (typeof ensureScenarioRegistry === "function") ensureScenarioRegistry();
 
-  const reg = state.ui.scenarios;
-  const activeId = state.ui.activeScenarioId;
+  const ui = state?.ui || {};
+  const reg = ui.scenarios || {};
+  const activeId = ui.activeScenarioId;
   const baseRec = reg?.[SCENARIO_BASELINE_ID] || null;
   const activeRec = reg?.[activeId] || null;
 
   const isDiff = !!(baseRec && activeRec && activeId !== SCENARIO_BASELINE_ID);
 
-  if (els.scmCompareEmpty) els.scmCompareEmpty.hidden = isDiff;
-  if (els.scmCompareGrid) els.scmCompareGrid.hidden = !isDiff;
-
-  if (!els.scmCompareTag) return;
+  if (scmCompareEmptyEl) scmCompareEmptyEl.hidden = isDiff;
+  if (scmCompareGridEl) scmCompareGridEl.hidden = !isDiff;
 
   const setCompareTag = (kind, text) => {
-    els.scmCompareTag.classList.remove("ok","warn","bad");
-    if (kind) els.scmCompareTag.classList.add(kind);
-    els.scmCompareTag.textContent = text || "—";
+    if (!scmCompareTagEl) return;
+    scmCompareTagEl.classList.remove("ok","warn","bad");
+    if (kind) scmCompareTagEl.classList.add(kind);
+    scmCompareTagEl.textContent = text || "—";
   };
 
   if (!isDiff){
     setCompareTag(null, "—");
-    if (els.scmDiffInputs) els.scmDiffInputs.innerHTML = "";
-    if (els.scmDiffOutputs) els.scmDiffOutputs.innerHTML = "";
-    if (els.scmDiffInputsFoot) els.scmDiffInputsFoot.textContent = "";
+    if (scmDiffInputsEl) scmDiffInputsEl.innerHTML = "";
+    if (scmDiffOutputsEl) scmDiffOutputsEl.innerHTML = "";
+    if (scmDiffInputsFootEl) scmDiffInputsFootEl.textContent = "";
     return;
   }
 
@@ -124,8 +131,8 @@ export function renderScenarioComparisonPanel({
     return !((a === b) || (String(a ?? "") === String(b ?? "")));
   });
 
-  if (els.scmDiffInputs){
-    els.scmDiffInputs.innerHTML = "";
+  if (scmDiffInputsEl){
+    scmDiffInputsEl.innerHTML = "";
     const maxShow = 12;
     const showKeys = diffKeys.slice(0, maxShow);
     for (const k of showKeys){
@@ -139,11 +146,11 @@ export function renderScenarioComparisonPanel({
       line.textContent = `${fmtV(k, baseInputs?.[k])} → ${fmtV(k, actInputs?.[k])}`;
       li.appendChild(head);
       li.appendChild(line);
-      els.scmDiffInputs.appendChild(li);
+      scmDiffInputsEl.appendChild(li);
     }
     const remaining = (diffKeys.length - showKeys.length) + otherChanged.length;
-    if (els.scmDiffInputsFoot){
-      els.scmDiffInputsFoot.textContent = remaining > 0
+    if (scmDiffInputsFootEl){
+      scmDiffInputsFootEl.textContent = remaining > 0
         ? `${remaining} more changed input(s) not shown.`
         : "";
     }
@@ -243,8 +250,8 @@ export function renderScenarioComparisonPanel({
     },
   ];
 
-  if (els.scmDiffOutputs){
-    els.scmDiffOutputs.innerHTML = "";
+  if (scmDiffOutputsEl){
+    scmDiffOutputsEl.innerHTML = "";
     for (const r of rows){
       const tr = document.createElement("tr");
       const kind = r.kind;
@@ -255,7 +262,7 @@ export function renderScenarioComparisonPanel({
         <td class="num">${r.fmtAct()}</td>
         <td class="num"><span class="delta ${kind || ""}">${deltaText}</span></td>
       `;
-      els.scmDiffOutputs.appendChild(tr);
+      scmDiffOutputsEl.appendChild(tr);
     }
   }
 

@@ -15,47 +15,53 @@ export function renderWeeklyOpsInsightsPanel({
   applyWeeklyLeverScenario,
   computeRealityDrift
 }){
-  if (!els.wkLeversIntro || !els.wkActionsList || !els.wkBestMovesList || !els.wkLeversTbody) return;
+  const wkLeversIntroEl = els?.wkLeversIntro;
+  const wkActionsListEl = els?.wkActionsList;
+  const wkBestMovesListEl = els?.wkBestMovesList;
+  const wkLeversTbodyEl = els?.wkLeversTbody;
+  const wkLeversFootEl = els?.wkLeversFoot;
+  const wkBestMovesIntroEl = els?.wkBestMovesIntro;
+  if (!wkLeversIntroEl && !wkActionsListEl && !wkBestMovesListEl && !wkLeversTbodyEl) return;
 
   const opsCtx = ctx || computeWeeklyOpsContext(res, weeks);
   const fmtCeil = (v) => (v == null || !isFinite(v)) ? "—" : fmtInt(Math.ceil(v));
   const fmtNum1 = (v) => (v == null || !isFinite(v)) ? "—" : (Number(v).toFixed(1));
 
-  els.wkBestMovesList.innerHTML = "";
-  els.wkActionsList.innerHTML = "";
-  els.wkLeversTbody.innerHTML = "";
+  if (wkBestMovesListEl) wkBestMovesListEl.innerHTML = "";
+  if (wkActionsListEl) wkActionsListEl.innerHTML = "";
+  if (wkLeversTbodyEl) wkLeversTbodyEl.innerHTML = "";
 
   syncWeeklyUndoUI();
 
-  if (els.wkLeversFoot) els.wkLeversFoot.hidden = false;
-  if (els.wkBestMovesIntro) els.wkBestMovesIntro.hidden = false;
+  if (wkLeversFootEl) wkLeversFootEl.hidden = false;
+  if (wkBestMovesIntroEl) wkBestMovesIntroEl.hidden = false;
 
   if (opsCtx.goal <= 0){
-    els.wkLeversIntro.textContent = "No operational gap to analyze (goal is 0 under current inputs).";
-    addBullet(els.wkActionsList, "Set a goal (Support IDs needed) or adjust win path assumptions to generate a real plan.");
-    if (els.wkBestMovesIntro) els.wkBestMovesIntro.hidden = true;
-    if (els.wkLeversFoot) els.wkLeversFoot.hidden = true;
+    if (wkLeversIntroEl) wkLeversIntroEl.textContent = "No operational gap to analyze (goal is 0 under current inputs).";
+    addBullet(wkActionsListEl, "Set a goal (Support IDs needed) or adjust win path assumptions to generate a real plan.");
+    if (wkBestMovesIntroEl) wkBestMovesIntroEl.hidden = true;
+    if (wkLeversFootEl) wkLeversFootEl.hidden = true;
     return;
   }
   if (opsCtx.weeks == null || opsCtx.weeks <= 0){
-    els.wkLeversIntro.textContent = "Timeline is missing. Set election date or weeks remaining to compute weekly pressure.";
-    addBullet(els.wkActionsList, "Enter an election date (or weeks remaining) so the plan can compute per-week targets.");
-    if (els.wkBestMovesIntro) els.wkBestMovesIntro.hidden = true;
-    if (els.wkLeversFoot) els.wkLeversFoot.hidden = true;
+    if (wkLeversIntroEl) wkLeversIntroEl.textContent = "Timeline is missing. Set election date or weeks remaining to compute weekly pressure.";
+    addBullet(wkActionsListEl, "Enter an election date (or weeks remaining) so the plan can compute per-week targets.");
+    if (wkBestMovesIntroEl) wkBestMovesIntroEl.hidden = true;
+    if (wkLeversFootEl) wkLeversFootEl.hidden = true;
     return;
   }
   if (opsCtx.sr == null || opsCtx.sr <= 0 || opsCtx.cr == null || opsCtx.cr <= 0){
-    els.wkLeversIntro.textContent = "Rates are missing. Enter Support rate and Contact rate to estimate workload.";
-    addBullet(els.wkActionsList, "Fill Support rate (%) and Contact rate (%) in Phase 2.");
-    if (els.wkBestMovesIntro) els.wkBestMovesIntro.hidden = true;
-    if (els.wkLeversFoot) els.wkLeversFoot.hidden = true;
+    if (wkLeversIntroEl) wkLeversIntroEl.textContent = "Rates are missing. Enter Support rate and Contact rate to estimate workload.";
+    addBullet(wkActionsListEl, "Fill Support rate (%) and Contact rate (%) in Phase 2.");
+    if (wkBestMovesIntroEl) wkBestMovesIntroEl.hidden = true;
+    if (wkLeversFootEl) wkLeversFootEl.hidden = true;
     return;
   }
   if (opsCtx.capTotal == null || !isFinite(opsCtx.capTotal)){
-    els.wkLeversIntro.textContent = "Capacity inputs are incomplete. Fill Phase 3 execution inputs to compute what is executable.";
-    addBullet(els.wkActionsList, "Enter organizers, hours/week, doors/hr, calls/hr, and channel split in Phase 3.");
-    if (els.wkBestMovesIntro) els.wkBestMovesIntro.hidden = true;
-    if (els.wkLeversFoot) els.wkLeversFoot.hidden = true;
+    if (wkLeversIntroEl) wkLeversIntroEl.textContent = "Capacity inputs are incomplete. Fill Phase 3 execution inputs to compute what is executable.";
+    addBullet(wkActionsListEl, "Enter organizers, hours/week, doors/hr, calls/hr, and channel split in Phase 3.");
+    if (wkBestMovesIntroEl) wkBestMovesIntroEl.hidden = true;
+    if (wkLeversFootEl) wkLeversFootEl.hidden = true;
     return;
   }
 
@@ -64,9 +70,11 @@ export function renderWeeklyOpsInsightsPanel({
   const gap = (baseReq != null && baseCap != null) ? Math.max(0, baseReq - baseCap) : null;
   const isGap = (gap != null && gap > 0);
 
-  els.wkLeversIntro.textContent = isGap
-    ? `You are short by ~${fmtCeil(gap)} attempts/week. These levers estimate attempts/week relief in consistent units.`
-    : "You are currently feasible (capacity covers attempts/week). These levers estimate buffer gained per unit.";
+  if (wkLeversIntroEl){
+    wkLeversIntroEl.textContent = isGap
+      ? `You are short by ~${fmtCeil(gap)} attempts/week. These levers estimate attempts/week relief in consistent units.`
+      : "You are currently feasible (capacity covers attempts/week). These levers estimate buffer gained per unit.";
+  }
 
   const capTotal = (p) => {
     const out = computeCapacityBreakdown(p);
@@ -219,8 +227,8 @@ export function renderWeeklyOpsInsightsPanel({
     .sort((a,b) => (b.impactUse - a.impactUse));
 
   if (usable.length === 0){
-    addBullet(els.wkActionsList, "No lever estimates available under current inputs.");
-    if (els.wkBestMovesIntro) els.wkBestMovesIntro.hidden = true;
+    addBullet(wkActionsListEl, "No lever estimates available under current inputs.");
+    if (wkBestMovesIntroEl) wkBestMovesIntroEl.hidden = true;
     return;
   }
 
@@ -241,7 +249,7 @@ export function renderWeeklyOpsInsightsPanel({
     btn.addEventListener("click", () => { safeCall(() => { applyWeeklyLeverScenario(l, opsCtx); }); });
     li.appendChild(span);
     li.appendChild(btn);
-    els.wkBestMovesList.appendChild(li);
+    if (wkBestMovesListEl) wkBestMovesListEl.appendChild(li);
   }
 
   const rows = usable.slice(0, 10);
@@ -271,7 +279,7 @@ export function renderWeeklyOpsInsightsPanel({
     tr.appendChild(td3);
     tr.appendChild(td4);
     tr.appendChild(td5);
-    els.wkLeversTbody.appendChild(tr);
+    if (wkLeversTbodyEl) wkLeversTbodyEl.appendChild(tr);
   }
 
   const bestCap = usable.filter(x => x.kind === "capacity").sort((a,b) => (b.impactUse - a.impactUse))[0] || null;
@@ -326,7 +334,7 @@ export function renderWeeklyOpsInsightsPanel({
       actions.push("Use the buffer to absorb volatility (bad weeks, weather, volunteer drop-off) or to front-load early vote chasing.");
     }
   }
-  for (const a of actions.slice(0, 4)) addBullet(els.wkActionsList, a);
+  for (const a of actions.slice(0, 4)) addBullet(wkActionsListEl, a);
 }
 
 export function renderWeeklyOpsFreshnessPanel({
@@ -339,7 +347,9 @@ export function renderWeeklyOpsFreshnessPanel({
   safeNum,
   computeWeeklyOpsContext
 }){
-  if (!els.wkLastUpdate || !els.wkFreshStatus) return;
+  const wkLastUpdateEl = els?.wkLastUpdate;
+  const wkFreshStatusEl = els?.wkFreshStatus;
+  if (!wkLastUpdateEl && !wkFreshStatusEl) return;
 
   const fInt = (v) => (v == null || !isFinite(v)) ? "—" : (String(Math.round(v)).replace(/\B(?=(\d{3})+(?!\d))/g, ","));
   const fPct = (v) => (v == null || !isFinite(v)) ? "—" : ((v * 100).toFixed(1) + "%");
@@ -349,7 +359,7 @@ export function renderWeeklyOpsFreshnessPanel({
   const log = Array.isArray(state.ui?.dailyLog) ? state.ui.dailyLog : null;
   const hasLog = snap ? !!snap?.log?.hasLog : !!(log && log.length);
   if (!hasLog){
-    els.wkLastUpdate.textContent = "—";
+    if (wkLastUpdateEl) wkLastUpdateEl.textContent = "—";
     if (els.wkFreshNote) els.wkFreshNote.textContent = "No daily log configured yet";
     if (els.wkRollingAttempts) els.wkRollingAttempts.textContent = "—";
     if (els.wkRollingNote) els.wkRollingNote.textContent = "Add entries in organizer.html to activate reality checks";
@@ -359,13 +369,13 @@ export function renderWeeklyOpsFreshnessPanel({
     if (els.wkRollingSRNote) els.wkRollingSRNote.textContent = "—";
     if (els.wkRollingAPH) els.wkRollingAPH.textContent = "—";
     if (els.wkRollingAPHNote) els.wkRollingAPHNote.textContent = "—";
-    els.wkFreshStatus.textContent = "Not tracking";
+    if (wkFreshStatusEl) wkFreshStatusEl.textContent = "Not tracking";
     return;
   }
 
   const sorted = snap?.log?.sorted || [...log].filter(x => x && x.date).sort((a,b) => String(a.date).localeCompare(String(b.date)));
   const last = sorted[sorted.length - 1];
-  els.wkLastUpdate.textContent = last?.date || "—";
+  if (wkLastUpdateEl) wkLastUpdateEl.textContent = last?.date || "—";
   if (els.wkFreshNote) els.wkFreshNote.textContent = "Using state.ui.dailyLog";
 
   const sumAttempts = snap?.log?.sumAttemptsWindow ?? 0;
@@ -424,16 +434,18 @@ export function renderWeeklyOpsFreshnessPanel({
   if (expectedAPH != null && actualAPH != null && isFinite(actualAPH) && actualAPH < expectedAPH * tol) flags.push("productivity below assumed");
 
   if (ratio == null || !isFinite(ratio)){
-    els.wkFreshStatus.textContent = flags.length ? "Assumptions drifting" : "Needs inputs";
+    if (wkFreshStatusEl) wkFreshStatusEl.textContent = flags.length ? "Assumptions drifting" : "Needs inputs";
     return;
   }
 
-  if (ratio >= 1.0 && flags.length === 0) els.wkFreshStatus.textContent = "On pace";
-  else if (ratio >= 1.0 && flags.length) els.wkFreshStatus.textContent = "On pace (assumptions off)";
-  else if (ratio >= 0.85 && flags.length === 0) els.wkFreshStatus.textContent = "Slightly behind";
-  else if (ratio >= 0.85 && flags.length) els.wkFreshStatus.textContent = "Behind (rates/capacity off)";
-  else if (flags.length) els.wkFreshStatus.textContent = "Behind";
-  else els.wkFreshStatus.textContent = "Behind";
+  if (wkFreshStatusEl){
+    if (ratio >= 1.0 && flags.length === 0) wkFreshStatusEl.textContent = "On pace";
+    else if (ratio >= 1.0 && flags.length) wkFreshStatusEl.textContent = "On pace (assumptions off)";
+    else if (ratio >= 0.85 && flags.length === 0) wkFreshStatusEl.textContent = "Slightly behind";
+    else if (ratio >= 0.85 && flags.length) wkFreshStatusEl.textContent = "Behind (rates/capacity off)";
+    else if (flags.length) wkFreshStatusEl.textContent = "Behind";
+    else wkFreshStatusEl.textContent = "Behind";
+  }
 
   if (flags.length && els.wkFreshNote){
     els.wkFreshNote.textContent = `Reality check: ${flags.join(", ")}`;

@@ -13,18 +13,27 @@ export function renderBottleneckAttributionPanel({
   getEffectiveBaseRates,
   deriveNeedVotes
 }){
-  if (!els.bneckTag || !els.bneckPrimary || !els.bneckSecondary || !els.bneckTbody || !els.bneckWarn) return;
+  const bneckTagEl = els?.bneckTag;
+  const bneckPrimaryEl = els?.bneckPrimary;
+  const bneckSecondaryEl = els?.bneckSecondary;
+  const bneckTbodyEl = els?.bneckTbody;
+  const bneckWarnEl = els?.bneckWarn;
   const features = resolveFeatureFlags(state || {});
 
-  const clear = () => { els.bneckTbody.innerHTML = ""; };
+  const clear = () => {
+    if (bneckTbodyEl) bneckTbodyEl.innerHTML = "";
+  };
   const stub = () => {
     clear();
-    els.bneckTbody.innerHTML = '<tr><td class="muted">—</td><td class="num muted">—</td><td class="muted">—</td></tr>';
+    if (bneckTbodyEl){
+      bneckTbodyEl.innerHTML = '<tr><td class="muted">—</td><td class="num muted">—</td><td class="muted">—</td></tr>';
+    }
   };
 
   const setWarn = (t) => {
-    els.bneckWarn.textContent = t || "";
-    els.bneckWarn.style.display = t ? "block" : "none";
+    if (!bneckWarnEl) return;
+    bneckWarnEl.textContent = t || "";
+    bneckWarnEl.style.display = t ? "block" : "none";
   };
 
   const fmtDelta = (v) => {
@@ -77,10 +86,12 @@ export function renderBottleneckAttributionPanel({
   const tlOn = !!state.budget?.optimize?.tlConstrainedEnabled;
   const timelineEnabled = !!features.timelineEnabled;
   if (!tlOn || !timelineEnabled){
-    els.bneckTag.textContent = "—";
-    els.bneckTag.classList.remove("ok","warn","bad");
-    els.bneckPrimary.textContent = state.ui?.lastDiagnostics?.primaryBottleneck || "—";
-    els.bneckSecondary.textContent = state.ui?.lastDiagnostics?.secondaryNotes || "—";
+    if (bneckTagEl){
+      bneckTagEl.textContent = "—";
+      bneckTagEl.classList.remove("ok","warn","bad");
+    }
+    if (bneckPrimaryEl) bneckPrimaryEl.textContent = state.ui?.lastDiagnostics?.primaryBottleneck || "—";
+    if (bneckSecondaryEl) bneckSecondaryEl.textContent = state.ui?.lastDiagnostics?.secondaryNotes || "—";
     stub();
     setWarn("Enable Timeline-constrained optimization to compute constraint impacts.");
     return;
@@ -162,14 +173,16 @@ export function renderBottleneckAttributionPanel({
   const baseMax = safeNum(baseMeta.maxAchievableNetVotes) ?? null;
 
   const ps = computePrimarySecondary({ maxAttemptsByTactic: base.maxAttemptsByTactic || null });
-  els.bneckPrimary.textContent = ps.primary;
-  els.bneckSecondary.textContent = ps.secondary;
+  if (bneckPrimaryEl) bneckPrimaryEl.textContent = ps.primary;
+  if (bneckSecondaryEl) bneckSecondaryEl.textContent = ps.secondary;
 
   const bindingObj = baseMeta.bindingObj || state.ui?.lastTlMeta?.bindingObj || {};
   const badgeCls = (bindingObj?.budget || bindingObj?.capacity || (Array.isArray(bindingObj?.timeline) && bindingObj.timeline.length)) ? "warn" : "ok";
-  els.bneckTag.textContent = badgeCls === "ok" ? "Clear" : "Binding";
-  els.bneckTag.classList.remove("ok","warn","bad");
-  els.bneckTag.classList.add(badgeCls);
+  if (bneckTagEl){
+    bneckTagEl.textContent = badgeCls === "ok" ? "Clear" : "Binding";
+    bneckTagEl.classList.remove("ok","warn","bad");
+    bneckTagEl.classList.add(badgeCls);
+  }
 
   const buildRow = (name, delta, notes) => {
     const trEl = document.createElement("tr");
@@ -221,10 +234,12 @@ export function renderBottleneckAttributionPanel({
   })();
 
   clear();
-  els.bneckTbody.appendChild(buildRow("Timeline capacity", staffHours10.delta, staffHours10.notes));
-  els.bneckTbody.appendChild(buildRow("Budget ceiling", budget10.delta, budget10.notes));
-  els.bneckTbody.appendChild(buildRow("Contact rate", contactRate10.delta, contactRate10.notes));
-  els.bneckTbody.appendChild(buildRow("Volunteer hours", volHours10.delta, volHours10.notes));
+  if (bneckTbodyEl){
+    bneckTbodyEl.appendChild(buildRow("Timeline capacity", staffHours10.delta, staffHours10.notes));
+    bneckTbodyEl.appendChild(buildRow("Budget ceiling", budget10.delta, budget10.notes));
+    bneckTbodyEl.appendChild(buildRow("Contact rate", contactRate10.delta, contactRate10.notes));
+    bneckTbodyEl.appendChild(buildRow("Volunteer hours", volHours10.delta, volHours10.notes));
+  }
 }
 
 export function renderConversionPanel({
@@ -239,7 +254,13 @@ export function renderConversionPanel({
   setText,
   renderPhase3
 }){
-  if (!els.outConversationsNeeded) return;
+  const outConversationsNeededEl = els?.outConversationsNeeded;
+  const outDoorsNeededEl = els?.outDoorsNeeded;
+  const outDoorsPerShiftEl = els?.outDoorsPerShift;
+  const outTotalShiftsEl = els?.outTotalShifts;
+  const outShiftsPerWeekEl = els?.outShiftsPerWeek;
+  const outVolunteersNeededEl = els?.outVolunteersNeeded;
+  const convFeasBannerEl = els?.convFeasBanner;
 
   const needVotes = (typeof deriveNeedVotes === "function")
     ? deriveNeedVotes(res, state?.goalSupportIds)
@@ -264,14 +285,12 @@ export function renderConversionPanel({
   const volsNeeded = (shiftsPerWeek != null && spv && spv > 0) ? shiftsPerWeek / spv : null;
 
   const fmtMaybe = (v) => (v == null || !isFinite(v)) ? "—" : fmtInt(Math.ceil(v));
-  setText(els.outConversationsNeeded, fmtMaybe(convosNeeded));
-  setText(els.outDoorsNeeded, fmtMaybe(doorsNeeded));
-  setText(els.outDoorsPerShift, (doorsPerShift == null || !isFinite(doorsPerShift)) ? "—" : fmtInt(Math.round(doorsPerShift)));
-  setText(els.outTotalShifts, fmtMaybe(totalShifts));
-  setText(els.outShiftsPerWeek, fmtMaybe(shiftsPerWeek));
-  setText(els.outVolunteersNeeded, fmtMaybe(volsNeeded));
-
-  if (!els.convFeasBanner) return;
+  setText(outConversationsNeededEl, fmtMaybe(convosNeeded));
+  setText(outDoorsNeededEl, fmtMaybe(doorsNeeded));
+  setText(outDoorsPerShiftEl, (doorsPerShift == null || !isFinite(doorsPerShift)) ? "—" : fmtInt(Math.round(doorsPerShift)));
+  setText(outTotalShiftsEl, fmtMaybe(totalShifts));
+  setText(outShiftsPerWeekEl, fmtMaybe(shiftsPerWeek));
+  setText(outVolunteersNeededEl, fmtMaybe(volsNeeded));
 
   let msg = "";
   let cls = "";
@@ -303,38 +322,49 @@ export function renderConversionPanel({
     }
   }
 
-  els.convFeasBanner.hidden = !show;
-  els.convFeasBanner.className = `banner ${cls}`.trim();
-  els.convFeasBanner.textContent = msg;
+  if (convFeasBannerEl){
+    convFeasBannerEl.hidden = !show;
+    convFeasBannerEl.className = `banner ${cls}`.trim();
+    convFeasBannerEl.textContent = msg;
+  }
   renderPhase3(res, weeks);
 }
 
 export function renderSensitivitySnapshotPanel({ els, state, mcStaleness = null }){
-  if (!els.sensTag || !els.sensTbody || !els.sensBanner || !els.btnSensRun) return;
+  const sensTagEl = els?.sensTag;
+  const sensTbodyEl = els?.sensTbody;
+  const sensBannerEl = els?.sensBanner;
+  const btnSensRunEl = els?.btnSensRun;
 
   const stub = (msg, cls) => {
-    els.sensTbody.innerHTML = '<tr><td class="muted">—</td><td class="num muted">—</td><td class="num muted">—</td><td class="muted">—</td></tr>';
-    els.sensTag.textContent = "—";
-    els.sensTag.classList.remove("ok","warn","bad");
-    els.sensBanner.className = `banner ${cls || ""}`.trim();
-    els.sensBanner.textContent = msg || "—";
+    if (sensTbodyEl) {
+      sensTbodyEl.innerHTML = '<tr><td class="muted">—</td><td class="num muted">—</td><td class="num muted">—</td><td class="muted">—</td></tr>';
+    }
+    if (sensTagEl) {
+      sensTagEl.textContent = "—";
+      sensTagEl.classList.remove("ok","warn","bad");
+    }
+    if (sensBannerEl) {
+      sensBannerEl.className = `banner ${cls || ""}`.trim();
+      sensBannerEl.textContent = msg || "—";
+    }
   };
 
   const base = state.mcLast;
   if (!base){
     stub("Run Monte Carlo to enable the sensitivity snapshot.", "warn");
-    els.btnSensRun.disabled = true;
+    if (btnSensRunEl) btnSensRunEl.disabled = true;
     return;
   }
 
   if (mcStaleness?.isStale){
     const reason = mcStaleness.reasonText || "inputs changed";
     stub(`Monte Carlo is stale (${reason}). Re-run MC, then run snapshot.`, "warn");
-    els.btnSensRun.disabled = true;
+    if (btnSensRunEl) btnSensRunEl.disabled = true;
     return;
   }
 
-  els.btnSensRun.disabled = false;
+  if (btnSensRunEl) btnSensRunEl.disabled = false;
 
   const cache = state.ui?.e4Sensitivity;
   if (!cache || cache.baseHash !== state.mcLastHash || !Array.isArray(cache.rows) || cache.rows.length === 0){
@@ -342,24 +372,30 @@ export function renderSensitivitySnapshotPanel({ els, state, mcStaleness = null 
     return;
   }
 
-  els.sensTbody.innerHTML = "";
-  for (const r of cache.rows){
-    const tr = document.createElement("tr");
-    const td0 = document.createElement("td"); td0.textContent = r.label || "—";
-    const td1 = document.createElement("td"); td1.className = "num"; td1.textContent = r.dWin || "—";
-    const td2 = document.createElement("td"); td2.className = "num"; td2.textContent = r.dP50 || "—";
-    const td3 = document.createElement("td"); td3.className = "muted"; td3.textContent = r.note || "";
-    tr.appendChild(td0); tr.appendChild(td1); tr.appendChild(td2); tr.appendChild(td3);
-    els.sensTbody.appendChild(tr);
+  if (sensTbodyEl) {
+    sensTbodyEl.innerHTML = "";
+    for (const r of cache.rows){
+      const tr = document.createElement("tr");
+      const td0 = document.createElement("td"); td0.textContent = r.label || "—";
+      const td1 = document.createElement("td"); td1.className = "num"; td1.textContent = r.dWin || "—";
+      const td2 = document.createElement("td"); td2.className = "num"; td2.textContent = r.dP50 || "—";
+      const td3 = document.createElement("td"); td3.className = "muted"; td3.textContent = r.note || "";
+      tr.appendChild(td0); tr.appendChild(td1); tr.appendChild(td2); tr.appendChild(td3);
+      sensTbodyEl.appendChild(tr);
+    }
   }
 
   const tag = cache.tag || "Snapshot";
-  els.sensTag.textContent = tag;
-  els.sensTag.classList.remove("ok","warn","bad");
-  if (cache.cls) els.sensTag.classList.add(cache.cls);
+  if (sensTagEl) {
+    sensTagEl.textContent = tag;
+    sensTagEl.classList.remove("ok","warn","bad");
+    if (cache.cls) sensTagEl.classList.add(cache.cls);
+  }
 
-  els.sensBanner.className = `banner ${cache.cls || ""}`.trim();
-  els.sensBanner.textContent = cache.banner || "—";
+  if (sensBannerEl) {
+    sensBannerEl.className = `banner ${cache.cls || ""}`.trim();
+    sensBannerEl.textContent = cache.banner || "—";
+  }
 }
 
 export function computeSensitivitySnapshotCache({
@@ -502,7 +538,8 @@ export async function runSensitivitySnapshotPanel({
   renderSensitivitySnapshotE4,
   getMcStaleness
 }){
-  if (!els.sensTag || !els.sensTbody || !els.sensBanner || !els.btnSensRun) return;
+  const btnSensRunEl = els?.btnSensRun;
+  const sensBannerEl = els?.sensBanner;
 
   const base = state.mcLast;
   if (!base) return;
@@ -510,9 +547,11 @@ export async function runSensitivitySnapshotPanel({
   const stale = (typeof getMcStaleness === "function") ? getMcStaleness() : null;
   if (stale?.isStale){
     const reason = stale.reasonText || "inputs changed";
-    els.sensBanner.className = "banner warn";
-    els.sensBanner.textContent = `Monte Carlo is stale (${reason}). Re-run MC, then run snapshot.`;
-    els.btnSensRun.disabled = true;
+    if (sensBannerEl){
+      sensBannerEl.className = "banner warn";
+      sensBannerEl.textContent = `Monte Carlo is stale (${reason}). Re-run MC, then run snapshot.`;
+    }
+    if (btnSensRunEl) btnSensRunEl.disabled = true;
     return;
   }
 
@@ -520,8 +559,9 @@ export async function runSensitivitySnapshotPanel({
   if (!ctx || !ctx.res) return;
 
   const setBusy = (on) => {
-    els.btnSensRun.disabled = !!on;
-    els.btnSensRun.textContent = on ? "Running…" : "Run snapshot";
+    if (!btnSensRunEl) return;
+    btnSensRunEl.disabled = !!on;
+    btnSensRunEl.textContent = on ? "Running…" : "Run snapshot";
   };
 
   setBusy(true);
