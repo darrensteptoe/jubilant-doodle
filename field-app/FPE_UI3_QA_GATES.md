@@ -192,8 +192,11 @@ Scope: UI architecture migration only (engine and right rail frozen)
 - District bridge reduction: electorate-structure derived text + normalization warning now render natively in v3 using core universe-layer math instead of legacy `#universe16Derived/#universe16Warn` mirrors.
 - Runtime hardening: weekly ops renderer now caches derived execution context in `state.ui.lastWeeklyOps`, so consumers can read the model without legacy `wk*` DOM nodes.
 - Runtime hardening: conversion renderer now caches workload/feasibility outputs in `state.ui.lastConversion` instead of relying only on legacy `out*` + banner nodes.
-- KPI bridge reduction: bottleneck inference now reads weekly gap from Reach runtime bridge (`__FPE_REACH_API__.getView()`) before legacy `#wkGapPerWeek` fallback.
+- KPI bridge reduction: bottleneck inference now reads weekly gap from Reach runtime bridge (`__FPE_REACH_API__.getView()`); legacy `#wkGapPerWeek` fallback removed.
 - KPI bridge reduction: bottleneck label no longer falls back to legacy `#wkConstraint/#optBinding` text mirrors.
+- Turnout bridge reduction: Turnout helper copy no longer mounts from `#stage-roi .phase-p6 > .note`; v3 Turnout now uses native helper text.
+- Turnout bridge reduction: Turnout summary readout now resolves sidebar/bridge first (`#kpiTurnoutBand-sidebar`) with legacy `#turnoutSummary` as fallback only.
+- Turnout bridge reduction: Turnout efficiency banner now reads from runtime Turnout bridge (`roiBannerText`) and no longer mirrors legacy `#roiBanner` note text nodes.
 - Legacy flow retirement: removed legacy left-nav `integrity` entry while retaining `stage-integrity` DOM for runtime parity checks.
 - Legacy flow retirement: `stage-integrity` section is hidden as a retired stub (DOM retained).
 - Legacy `stage-capacity` visual surface has been retired from `index.html` user flow (hidden retired stub retained during transition); preflight no longer requires legacy Reach assumption IDs.

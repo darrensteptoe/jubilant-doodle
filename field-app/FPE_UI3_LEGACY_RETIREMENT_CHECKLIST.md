@@ -98,8 +98,11 @@ Reference artifact:
 - District electorate-structure derived/warning status is now computed natively in v3 using core universe-layer math (`computeUniverseAdjustedRates` + `normalizeUniversePercents`) instead of mirroring legacy `#universe16Derived/#universe16Warn`.
 - Weekly ops runtime now caches derived execution summary in `state.ui.lastWeeklyOps`, keeping the weekly status model readable even when legacy `wk*` nodes are absent.
 - Conversion runtime now caches workload/feasibility outputs in `state.ui.lastConversion`, reducing reliance on legacy `out*`/`convFeasBanner` nodes as the only source of truth.
-- KPI bottleneck inference now resolves weekly gap from Reach runtime bridge view first, with legacy `#wkGapPerWeek` used only as compatibility fallback.
+- KPI bottleneck inference now resolves weekly gap entirely from Reach runtime bridge view (legacy `#wkGapPerWeek` fallback removed).
 - KPI strip no longer falls back to legacy `#wkConstraint/#optBinding` text for bottleneck label; bottleneck is bridge-derived.
+- Turnout v3 no longer mounts helper copy from `#stage-roi .phase-p6 > .note`; helper text is now native in the v3 card.
+- Turnout summary readout now resolves from sidebar/bridge context first (`#kpiTurnoutBand-sidebar`) and only then legacy `#turnoutSummary` fallback.
+- Turnout ROI banner/readout now resolves from Turnout runtime bridge view (`__FPE_TURNOUT_API__.getView().roiBannerText`) instead of mirroring legacy `#roiBanner` / sibling note nodes.
 - Legacy `integrity` nav entry has been removed from legacy left-rail user flow; `stage-integrity` DOM remains mounted for controlled retirement.
 - Legacy `stage-integrity` section is now hidden in legacy flow (retired stub), while IDs remain mounted for parity and rollback safety.
 - Controls v3 evidence table now renders from scenario-bridge intel state (`window.__FPE_SCENARIO_API__`) instead of mirroring legacy `#intelEvidenceTbody`.

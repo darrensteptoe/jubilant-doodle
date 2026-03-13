@@ -28,8 +28,16 @@ Goal: keep model/render state live when legacy ROI/GOTV nodes are partially or f
   - bottleneck inference now reads weekly gap from Reach bridge view first:
     - `reachView.weekly.gapPerWeek|gap`
     - `reachView.summary.gapPerWeek|gap`
-  - legacy `#wkGapPerWeek` is retained as compatibility fallback only.
+  - legacy `#wkGapPerWeek` compatibility fallback removed.
   - legacy `#wkConstraint/#optBinding` fallback labels were removed from KPI bottleneck text resolution.
+
+- `js/app/v3/turnout.js`
+  - removed direct stage-scoped helper mount from legacy selector `#stage-roi .phase-p6 > .note`.
+  - turnout impact helper text is now native in v3.
+  - efficiency banner now reads from Turnout bridge view (`roiBannerText`) instead of mirroring legacy `#roiBanner` + sibling note nodes.
+
+- `js/app/v3/stateBridge.js`
+  - turnout summary bridge now resolves from sidebar band (`#kpiTurnoutBand-sidebar`) before legacy `#turnoutSummary`.
 
 ## Current status
 
