@@ -99,6 +99,7 @@ Reference artifact:
 - District electorate-structure derived/warning status is now computed natively in v3 using core universe-layer math (`computeUniverseAdjustedRates` + `normalizeUniversePercents`) instead of mirroring legacy `#universe16Derived/#universe16Warn`.
 - Weekly ops runtime now caches derived execution summary in `state.ui.lastWeeklyOps`, keeping the weekly status model readable even when legacy `wk*` nodes are absent.
 - Conversion runtime now caches workload/feasibility outputs in `state.ui.lastConversion`, reducing reliance on legacy `out*`/`convFeasBanner` nodes as the only source of truth.
+- ROI runtime now updates turnout summary cache (`state.ui.lastTurnout`) without requiring legacy `turnoutSummary` DOM, and optimizer early-return paths now clear/normalize plan caches (`state.ui.lastPlanRows/lastPlanMeta/lastSummary`) to prevent stale v3 plan summaries when legacy ROI nodes are absent.
 - KPI bottleneck inference now resolves weekly gap entirely from Reach runtime bridge view (legacy `#wkGapPerWeek` fallback removed).
 - KPI strip no longer falls back to legacy `#wkConstraint/#optBinding` text for bottleneck label; bottleneck is bridge-derived.
 - Turnout v3 no longer mounts helper copy from `#stage-roi .phase-p6 > .note`; helper text is now native in the v3 card.

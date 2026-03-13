@@ -193,6 +193,7 @@ Scope: UI architecture migration only (engine and right rail frozen)
 - District bridge reduction: electorate-structure derived text + normalization warning now render natively in v3 using core universe-layer math instead of legacy `#universe16Derived/#universe16Warn` mirrors.
 - Runtime hardening: weekly ops renderer now caches derived execution context in `state.ui.lastWeeklyOps`, so consumers can read the model without legacy `wk*` DOM nodes.
 - Runtime hardening: conversion renderer now caches workload/feasibility outputs in `state.ui.lastConversion` instead of relying only on legacy `out*` + banner nodes.
+- Runtime hardening: ROI renderer now updates turnout summary cache (`state.ui.lastTurnout`) even when legacy `turnoutSummary` DOM is absent; Plan optimizer early-return paths now clear/normalize plan caches (`state.ui.lastPlanRows/lastPlanMeta/lastSummary`) to avoid stale v3 summaries when legacy ROI markup is missing.
 - KPI bridge reduction: bottleneck inference now reads weekly gap from Reach runtime bridge (`__FPE_REACH_API__.getView()`); legacy `#wkGapPerWeek` fallback removed.
 - KPI bridge reduction: bottleneck label no longer falls back to legacy `#wkConstraint/#optBinding` text mirrors.
 - Turnout bridge reduction: Turnout helper copy no longer mounts from `#stage-roi .phase-p6 > .note`; v3 Turnout now uses native helper text.
