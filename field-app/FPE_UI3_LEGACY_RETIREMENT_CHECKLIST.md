@@ -95,7 +95,10 @@ Reference artifact:
 - Sensitivity surface defaults now use guarded element refs for lever/range controls (`surfaceLever/surfaceMin/surfaceMax`) and avoid direct `els.*` hard-return gating.
 - Runtime shell helpers in `appRuntime` now use guarded refs for weekly undo and mode toggle pills (`wkUndoActionBtn`, `mc* mode`, `gotv* mode`) instead of direct `els.*` hard-return gates.
 - DOM preflight is now feature-aware for Census/Targeting groups (only enforces those ID sets when their feature anchors are present), reducing false `dom-preflight` errors during staged legacy retirement.
+- DOM preflight now accepts legacy-or-v3 District core control IDs (race/election/weeks/mode/universe/candidate/turnout) to prevent false boot failures during setup-era retirement.
 - Self-test UI smoke now accepts v3 fallbacks for legacy-only capacity/results/scenario-compare cards, preventing false red gates while retiring hidden legacy stage containers.
+- DOM preflight now accepts legacy-or-v3 Census/Targeting IDs (phase card, controls, status rows, map host, targeting controls/results) to prevent false boot failures during staged legacy container retirement.
+- Self-test UI smoke now accepts v3 fallback IDs for census + USB persistence controls (`v3DistrictCensusShell`, `v3Census*`, `v3DataBtnUsb*`, `v3DataUsbStatus`) to prevent false red gates while retiring `stage-checks`/`stage-integrity`.
 - District electorate-structure derived/warning status is now computed natively in v3 using core universe-layer math (`computeUniverseAdjustedRates` + `normalizeUniversePercents`) instead of mirroring legacy `#universe16Derived/#universe16Warn`.
 - Weekly ops runtime now caches derived execution summary in `state.ui.lastWeeklyOps`, keeping the weekly status model readable even when legacy `wk*` nodes are absent.
 - Conversion runtime now caches workload/feasibility outputs in `state.ui.lastConversion`, reducing reliance on legacy `out*`/`convFeasBanner` nodes as the only source of truth.

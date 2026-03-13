@@ -190,8 +190,11 @@ Scope: UI architecture migration only (engine and right rail frozen)
 - Runtime hardening: appRuntime weekly undo and MC/GOTV mode sync helpers now use guarded refs (no direct `els.*` hard-return gates on `wkUndoActionBtn`, `mc*`, `gotv*` mode nodes).
 - Runtime hardening: DOM preflight now enforces Census/Targeting required IDs only when those feature anchors are present, reducing false missing-ID noise during staged retirement.
 - Runtime hardening: DOM preflight now accepts legacy-or-v3 shell IDs for scenario/build/diagnostics/reset controls to prevent false `dom-preflight` failures during shell cutover.
+- Runtime hardening: DOM preflight now accepts legacy-or-v3 District core controls (race/election/weeks/mode/universe/candidate/turnout fields) to prevent false boot failures while setup-era legacy markup is retired.
+- Runtime hardening: DOM preflight now accepts legacy-or-v3 Census and Targeting IDs (card/control/table/status/map) so staged retirement does not trigger false missing-ID boot failures.
 - QA hardening: UI smoke required-ID test now accepts v3 fallbacks for legacy-only capacity/results/scenario-compare cards (`operationsCapacityOutlookCard|v3ReachOutlookTbody`, `phase3Card|v3OutcomeForecastWinProb`, `scenarioCompareCard|v3ScenarioDiffOutputs`) to prevent false failures during staged legacy container retirement.
 - QA hardening: UI smoke now accepts v3 shell fallbacks for scenario/build/diagnostics/reset IDs and supports v3 scenario-save action ID (`v3BtnScenarioSaveNew`) as a valid control target.
+- QA hardening: UI smoke census + USB control checks now accept v3 fallback IDs (`v3DistrictCensusShell`, `v3Census*`, `v3DataBtnUsb*`, `v3DataUsbStatus`) to avoid false failures during stage-checks and stage-integrity retirement.
 - District bridge reduction: electorate-structure derived text + normalization warning now render natively in v3 using core universe-layer math instead of legacy `#universe16Derived/#universe16Warn` mirrors.
 - Runtime hardening: weekly ops renderer now caches derived execution context in `state.ui.lastWeeklyOps`, so consumers can read the model without legacy `wk*` DOM nodes.
 - Runtime hardening: conversion renderer now caches workload/feasibility outputs in `state.ui.lastConversion` instead of relying only on legacy `out*` + banner nodes.
