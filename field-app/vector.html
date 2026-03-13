@@ -5,401 +5,400 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Vector Intelligence — Campaign Planning</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,600;0,700;1,400&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-:root {
-–navy:   #0f1f3d;
-–navy2:  #1a3260;
-–gold:   #b8922a;
-–gold2:  #d4aa44;
-–cream:  #f5f1ea;
-–text:   #1a1a1a;
-–muted:  #5a5a5a;
-–rule:   #d0c9bc;
-}
+  :root {
+    --navy:   #0f1f3d;
+    --navy2:  #1a3260;
+    --gold:   #b8922a;
+    --gold2:  #d4aa44;
+    --cream:  #f5f1ea;
+    --text:   #1a1a1a;
+    --muted:  #5a5a5a;
+    --rule:   #d0c9bc;
+  }
 
-html { font-size: 15px; }
+  html { font-size: 15px; }
 
-body {
-font-family: ‘DM Sans’, sans-serif;
-font-weight: 300;
-background: var(–cream);
-color: var(–text);
-min-height: 100vh;
-}
+  body {
+    font-family: -apple-system, 'Helvetica Neue', Helvetica, Arial, sans-serif;
+    font-weight: 300;
+    background: var(--cream);
+    color: var(--text);
+    min-height: 100vh;
+  }
 
-/* ── HEADER ─────────────────────────────────────────── */
-header {
-background: var(–navy);
-padding: 0;
-position: relative;
-overflow: hidden;
-}
+  /* ── HEADER ─────────────────────────────────────────── */
+  header {
+    background: var(--navy);
+    padding: 0;
+    position: relative;
+    overflow: hidden;
+  }
 
-header::before {
-content: ‘’;
-position: absolute;
-inset: 0;
-background:
-repeating-linear-gradient(
-90deg,
-transparent,
-transparent 119px,
-rgba(255,255,255,0.025) 119px,
-rgba(255,255,255,0.025) 120px
-),
-repeating-linear-gradient(
-0deg,
-transparent,
-transparent 59px,
-rgba(255,255,255,0.025) 59px,
-rgba(255,255,255,0.025) 60px
-);
-pointer-events: none;
-}
+  header::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background:
+      repeating-linear-gradient(
+        90deg,
+        transparent,
+        transparent 119px,
+        rgba(255,255,255,0.025) 119px,
+        rgba(255,255,255,0.025) 120px
+      ),
+      repeating-linear-gradient(
+        0deg,
+        transparent,
+        transparent 59px,
+        rgba(255,255,255,0.025) 59px,
+        rgba(255,255,255,0.025) 60px
+      );
+    pointer-events: none;
+  }
 
-.header-inner {
-max-width: 900px;
-margin: 0 auto;
-padding: 56px 48px 48px;
-position: relative;
-z-index: 1;
-display: grid;
-grid-template-columns: 1fr auto;
-gap: 32px;
-align-items: end;
-}
+  .header-inner {
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 56px 48px 48px;
+    position: relative;
+    z-index: 1;
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 32px;
+    align-items: end;
+  }
 
-.logo-block { display: flex; flex-direction: column; gap: 10px; }
+  .logo-block { display: flex; flex-direction: column; gap: 10px; }
 
-.wordmark {
-font-family: ‘Cormorant Garamond’, serif;
-font-weight: 700;
-font-size: 2.8rem;
-color: #fff;
-letter-spacing: 0.06em;
-line-height: 1;
-}
+  .wordmark {
+    font-family: 'Palatino Linotype', Palatino, 'Book Antiqua', Georgia, serif;
+    font-weight: 700;
+    font-size: 2.8rem;
+    color: #fff;
+    letter-spacing: 0.06em;
+    line-height: 1;
+  }
 
-.wordmark span {
-color: var(–gold2);
-}
+  .wordmark span {
+    color: var(--gold2);
+  }
 
-.tagline {
-font-size: 0.78rem;
-font-weight: 400;
-letter-spacing: 0.2em;
-text-transform: uppercase;
-color: rgba(255,255,255,0.5);
-}
+  .tagline {
+    font-size: 0.78rem;
+    font-weight: 400;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: rgba(255,255,255,0.5);
+  }
 
-.header-rule {
-display: flex;
-align-items: center;
-gap: 12px;
-padding-bottom: 4px;
-}
+  .header-rule {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding-bottom: 4px;
+  }
 
-.header-rule span {
-display: block;
-width: 48px;
-height: 2px;
-background: var(–gold);
-}
+  .header-rule span {
+    display: block;
+    width: 48px;
+    height: 2px;
+    background: var(--gold);
+  }
 
-.header-rule p {
-font-family: ‘Cormorant Garamond’, serif;
-font-style: italic;
-font-size: 1.05rem;
-color: rgba(255,255,255,0.65);
-white-space: nowrap;
-}
+  .header-rule p {
+    font-family: 'Palatino Linotype', Palatino, 'Book Antiqua', Georgia, serif;
+    font-style: italic;
+    font-size: 1.05rem;
+    color: rgba(255,255,255,0.65);
+    white-space: nowrap;
+  }
 
-/* ── GOLD BAR ───────────────────────────────────────── */
-.gold-bar {
-background: var(–gold);
-height: 4px;
-}
+  /* ── GOLD BAR ───────────────────────────────────────── */
+  .gold-bar {
+    background: var(--gold);
+    height: 4px;
+  }
 
-/* ── MAIN ───────────────────────────────────────────── */
-main {
-max-width: 900px;
-margin: 0 auto;
-padding: 56px 48px 64px;
-}
+  /* ── MAIN ───────────────────────────────────────────── */
+  main {
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 56px 48px 64px;
+  }
 
-/* ── INTRO ──────────────────────────────────────────── */
-.intro {
-display: grid;
-grid-template-columns: 1fr 1fr;
-gap: 48px;
-padding-bottom: 52px;
-border-bottom: 1px solid var(–rule);
-margin-bottom: 52px;
-}
+  /* ── INTRO ──────────────────────────────────────────── */
+  .intro {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 48px;
+    padding-bottom: 52px;
+    border-bottom: 1px solid var(--rule);
+    margin-bottom: 52px;
+  }
 
-.intro-headline {
-font-family: ‘Cormorant Garamond’, serif;
-font-size: 2.1rem;
-font-weight: 600;
-line-height: 1.25;
-color: var(–navy);
-}
+  .intro-headline {
+    font-family: 'Palatino Linotype', Palatino, 'Book Antiqua', Georgia, serif;
+    font-size: 2.1rem;
+    font-weight: 600;
+    line-height: 1.25;
+    color: var(--navy);
+  }
 
-.intro-headline em {
-font-style: italic;
-color: var(–gold);
-}
+  .intro-headline em {
+    font-style: italic;
+    color: var(--gold);
+  }
 
-.intro-body {
-display: flex;
-flex-direction: column;
-justify-content: center;
-gap: 14px;
-}
+  .intro-body {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 14px;
+  }
 
-.intro-body p {
-font-size: 0.93rem;
-line-height: 1.75;
-color: var(–muted);
-}
+  .intro-body p {
+    font-size: 0.93rem;
+    line-height: 1.75;
+    color: var(--muted);
+  }
 
-.intro-body p strong {
-color: var(–text);
-font-weight: 500;
-}
+  .intro-body p strong {
+    color: var(--text);
+    font-weight: 500;
+  }
 
-/* ── WHAT WE DO ─────────────────────────────────────── */
-.section-label {
-font-size: 0.68rem;
-letter-spacing: 0.22em;
-text-transform: uppercase;
-color: var(–gold);
-font-weight: 500;
-margin-bottom: 28px;
-display: flex;
-align-items: center;
-gap: 10px;
-}
+  /* ── WHAT WE DO ─────────────────────────────────────── */
+  .section-label {
+    font-size: 0.68rem;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: var(--gold);
+    font-weight: 500;
+    margin-bottom: 28px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
 
-.section-label::after {
-content: ‘’;
-display: block;
-flex: 1;
-height: 1px;
-background: var(–rule);
-}
+  .section-label::after {
+    content: '';
+    display: block;
+    flex: 1;
+    height: 1px;
+    background: var(--rule);
+  }
 
-.capabilities {
-display: grid;
-grid-template-columns: repeat(3, 1fr);
-gap: 2px;
-margin-bottom: 52px;
-border: 1px solid var(–rule);
-}
+  .capabilities {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 2px;
+    margin-bottom: 52px;
+    border: 1px solid var(--rule);
+  }
 
-.cap-item {
-background: #fff;
-padding: 28px 24px;
-position: relative;
-}
+  .cap-item {
+    background: #fff;
+    padding: 28px 24px;
+    position: relative;
+  }
 
-.cap-item::before {
-content: ‘’;
-display: block;
-width: 24px;
-height: 3px;
-background: var(–gold);
-margin-bottom: 16px;
-}
+  .cap-item::before {
+    content: '';
+    display: block;
+    width: 24px;
+    height: 3px;
+    background: var(--gold);
+    margin-bottom: 16px;
+  }
 
-.cap-title {
-font-family: ‘Cormorant Garamond’, serif;
-font-size: 1.1rem;
-font-weight: 600;
-color: var(–navy);
-margin-bottom: 10px;
-line-height: 1.3;
-}
+  .cap-title {
+    font-family: 'Palatino Linotype', Palatino, 'Book Antiqua', Georgia, serif;
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: var(--navy);
+    margin-bottom: 10px;
+    line-height: 1.3;
+  }
 
-.cap-desc {
-font-size: 0.82rem;
-line-height: 1.7;
-color: var(–muted);
-}
+  .cap-desc {
+    font-size: 0.82rem;
+    line-height: 1.7;
+    color: var(--muted);
+  }
 
-/* ── DIFFERENTIATORS ────────────────────────────────── */
-.diff-grid {
-display: grid;
-grid-template-columns: 1fr 1fr;
-gap: 32px;
-margin-bottom: 52px;
-padding-bottom: 52px;
-border-bottom: 1px solid var(–rule);
-}
+  /* ── DIFFERENTIATORS ────────────────────────────────── */
+  .diff-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 32px;
+    margin-bottom: 52px;
+    padding-bottom: 52px;
+    border-bottom: 1px solid var(--rule);
+  }
 
-.diff-item {
-display: flex;
-gap: 16px;
-align-items: flex-start;
-}
+  .diff-item {
+    display: flex;
+    gap: 16px;
+    align-items: flex-start;
+  }
 
-.diff-number {
-font-family: ‘Cormorant Garamond’, serif;
-font-size: 2rem;
-font-weight: 700;
-color: var(–gold);
-line-height: 1;
-min-width: 32px;
-opacity: 0.6;
-}
+  .diff-number {
+    font-family: 'Palatino Linotype', Palatino, 'Book Antiqua', Georgia, serif;
+    font-size: 2rem;
+    font-weight: 700;
+    color: var(--gold);
+    line-height: 1;
+    min-width: 32px;
+    opacity: 0.6;
+  }
 
-.diff-text h4 {
-font-size: 0.85rem;
-font-weight: 500;
-color: var(–navy);
-margin-bottom: 6px;
-letter-spacing: 0.02em;
-}
+  .diff-text h4 {
+    font-size: 0.85rem;
+    font-weight: 500;
+    color: var(--navy);
+    margin-bottom: 6px;
+    letter-spacing: 0.02em;
+  }
 
-.diff-text p {
-font-size: 0.8rem;
-line-height: 1.7;
-color: var(–muted);
-}
+  .diff-text p {
+    font-size: 0.8rem;
+    line-height: 1.7;
+    color: var(--muted);
+  }
 
-/* ── HOW IT WORKS ───────────────────────────────────── */
-.how-grid {
-display: grid;
-grid-template-columns: repeat(4, 1fr);
-gap: 0;
-margin-bottom: 52px;
-position: relative;
-}
+  /* ── HOW IT WORKS ───────────────────────────────────── */
+  .how-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 0;
+    margin-bottom: 52px;
+    position: relative;
+  }
 
-.how-grid::before {
-content: ‘’;
-position: absolute;
-top: 22px;
-left: calc(12.5% + 12px);
-right: calc(12.5% + 12px);
-height: 1px;
-background: var(–rule);
-z-index: 0;
-}
+  .how-grid::before {
+    content: '';
+    position: absolute;
+    top: 22px;
+    left: calc(12.5% + 12px);
+    right: calc(12.5% + 12px);
+    height: 1px;
+    background: var(--rule);
+    z-index: 0;
+  }
 
-.how-step {
-display: flex;
-flex-direction: column;
-align-items: center;
-text-align: center;
-padding: 0 12px;
-position: relative;
-z-index: 1;
-}
+  .how-step {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    padding: 0 12px;
+    position: relative;
+    z-index: 1;
+  }
 
-.step-dot {
-width: 44px;
-height: 44px;
-border-radius: 50%;
-background: var(–navy);
-border: 2px solid var(–navy);
-display: flex;
-align-items: center;
-justify-content: center;
-margin-bottom: 14px;
-font-family: ‘Cormorant Garamond’, serif;
-font-size: 1.05rem;
-font-weight: 700;
-color: var(–gold2);
-}
+  .step-dot {
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    background: var(--navy);
+    border: 2px solid var(--navy);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 14px;
+    font-family: 'Palatino Linotype', Palatino, 'Book Antiqua', Georgia, serif;
+    font-size: 1.05rem;
+    font-weight: 700;
+    color: var(--gold2);
+  }
 
-.step-title {
-font-size: 0.8rem;
-font-weight: 500;
-color: var(–navy);
-margin-bottom: 6px;
-line-height: 1.3;
-}
+  .step-title {
+    font-size: 0.8rem;
+    font-weight: 500;
+    color: var(--navy);
+    margin-bottom: 6px;
+    line-height: 1.3;
+  }
 
-.step-desc {
-font-size: 0.75rem;
-line-height: 1.65;
-color: var(–muted);
-}
+  .step-desc {
+    font-size: 0.75rem;
+    line-height: 1.65;
+    color: var(--muted);
+  }
 
-/* ── FOOTER CTA ─────────────────────────────────────── */
-.cta-block {
-background: var(–navy);
-padding: 40px 48px;
-display: grid;
-grid-template-columns: 1fr auto;
-gap: 32px;
-align-items: center;
-margin: 0 -48px -64px;
-}
+  /* ── FOOTER CTA ─────────────────────────────────────── */
+  .cta-block {
+    background: var(--navy);
+    padding: 40px 48px;
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 32px;
+    align-items: center;
+    margin: 0 -48px -64px;
+  }
 
-.cta-block h3 {
-font-family: ‘Cormorant Garamond’, serif;
-font-size: 1.5rem;
-font-weight: 600;
-color: #fff;
-line-height: 1.3;
-margin-bottom: 6px;
-}
+  .cta-block h3 {
+    font-family: 'Palatino Linotype', Palatino, 'Book Antiqua', Georgia, serif;
+    font-size: 1.5rem;
+    font-weight: 600;
+    color: #fff;
+    line-height: 1.3;
+    margin-bottom: 6px;
+  }
 
-.cta-block p {
-font-size: 0.82rem;
-color: rgba(255,255,255,0.5);
-line-height: 1.6;
-}
+  .cta-block p {
+    font-size: 0.82rem;
+    color: rgba(255,255,255,0.5);
+    line-height: 1.6;
+  }
 
-.cta-contact {
-display: flex;
-flex-direction: column;
-align-items: flex-end;
-gap: 6px;
-flex-shrink: 0;
-}
+  .cta-contact {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 6px;
+    flex-shrink: 0;
+  }
 
-.cta-email {
-font-size: 0.88rem;
-font-weight: 500;
-color: var(–gold2);
-letter-spacing: 0.02em;
-text-decoration: none;
-border-bottom: 1px solid rgba(212,170,68,0.3);
-padding-bottom: 2px;
-}
+  .cta-email {
+    font-size: 0.88rem;
+    font-weight: 500;
+    color: var(--gold2);
+    letter-spacing: 0.02em;
+    text-decoration: none;
+    border-bottom: 1px solid rgba(212,170,68,0.3);
+    padding-bottom: 2px;
+  }
 
-.cta-note {
-font-size: 0.72rem;
-color: rgba(255,255,255,0.3);
-letter-spacing: 0.08em;
-text-transform: uppercase;
-}
+  .cta-note {
+    font-size: 0.72rem;
+    color: rgba(255,255,255,0.3);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
 
-/* ── PRINT STYLES ───────────────────────────────────── */
-@media print {
-body { background: white; }
-.cap-item { background: #f9f9f9; }
-}
+  /* ── PRINT STYLES ───────────────────────────────────── */
+  @media print {
+    body { background: white; }
+    .cap-item { background: #f9f9f9; }
+  }
 
-@media (max-width: 720px) {
-.header-inner { grid-template-columns: 1fr; }
-.intro { grid-template-columns: 1fr; }
-.capabilities { grid-template-columns: 1fr; }
-.diff-grid { grid-template-columns: 1fr; }
-.how-grid { grid-template-columns: 1fr 1fr; }
-.how-grid::before { display: none; }
-.cta-block { grid-template-columns: 1fr; margin: 0 -24px -64px; padding: 32px 24px; }
-.cta-contact { align-items: flex-start; }
-main { padding: 40px 24px 64px; }
-.header-inner { padding: 40px 24px 36px; }
-}
+  @media (max-width: 720px) {
+    .header-inner { grid-template-columns: 1fr; }
+    .intro { grid-template-columns: 1fr; }
+    .capabilities { grid-template-columns: 1fr; }
+    .diff-grid { grid-template-columns: 1fr; }
+    .how-grid { grid-template-columns: 1fr 1fr; }
+    .how-grid::before { display: none; }
+    .cta-block { grid-template-columns: 1fr; margin: 0 -24px -64px; padding: 32px 24px; }
+    .cta-contact { align-items: flex-start; }
+    main { padding: 40px 24px 64px; }
+    .header-inner { padding: 40px 24px 36px; }
+  }
 </style>
 
 </head>
@@ -549,11 +548,4 @@ main { padding: 40px 24px 64px; }
       <p>Engagements are available for all levels of government. Initial consultations are complimentary.<br>Pricing is scoped to your race after the first conversation.</p>
     </div>
     <div class="cta-contact">
-      <a href="mailto:contact@vectorintelligence.com" class="cta-email">contact@vectorintelligence.com</a>
-      <span class="cta-note">Confidential &nbsp;·&nbsp; Not for distribution</span>
-    </div>
-  </div>
-
-</main>
-</body>
-</html>
+      <a href="/cdn-cgi/l/email-protection#fa9995948e9b998eba8c9f998e958893948e9f9696939d9f94999fd4999597" class="cta-email"><span class="__cf_email__" data-cfemail="5b3834352f3a382f1b2d3e382f342932352f3e3737323c3e35383e75383436">[email&
