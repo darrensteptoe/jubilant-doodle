@@ -45,16 +45,6 @@ controls	intelScenarioLocked	stage-checks@L2424
 controls	intelShockJson	stage-checks@L2720
 controls	intelShockScenariosEnabled	stage-checks@L2701
 controls	intelWhatIfInput	stage-checks@L2745
-data	btnCopySummary	stage-integrity@L2830
-data	btnExportCsv	stage-integrity@L2831
-data	btnSaveJson	stage-integrity@L2827
-data	btnUsbStorageConnect	stage-integrity@L2840
-data	btnUsbStorageDisconnect	stage-integrity@L2843
-data	btnUsbStorageLoad	stage-integrity@L2841
-data	btnUsbStorageSave	stage-integrity@L2842
-data	loadJson	stage-integrity@L2829
-data	restoreBackup	stage-integrity@L2815
-data	toggleStrictImport	stage-integrity@L2807
 district	bandWidth	stage-ballot@L365
 district	btnAddCandidate	stage-ballot@L293
 district	btnCensusApplyGeoPaste	stage-checks@L2128
@@ -149,9 +139,6 @@ outcome	mcDphMax	stage-results@L1142
 outcome	mcDphMin	stage-results@L1140
 outcome	mcDphMode	stage-results@L1141
 outcome	mcMode	stage-results@L1060
-outcome	mcP10	stage-results@L1190
-outcome	mcP50	stage-results@L1190
-outcome	mcP90	stage-results@L1190
 outcome	mcPersMax	stage-results@L1130
 outcome	mcPersMin	stage-results@L1128
 outcome	mcPersMode	stage-results@L1129
@@ -160,7 +147,6 @@ outcome	mcReliMin	stage-results@L1134
 outcome	mcReliMode	stage-results@L1135
 outcome	mcRerun	stage-results@L1070
 outcome	mcRun	stage-results@L1069
-outcome	mcRuns	stage-results@L1100
 outcome	mcSeed	stage-results@L1067
 outcome	mcSensitivity	stage-results@L1227
 outcome	mcVolMax	stage-results@L1154
@@ -178,7 +164,6 @@ outcome	surfaceTarget	stage-results@L1268
 outcome	surfaceTbody	stage-results@L1286
 outcome	turnoutReliabilityPct	stage-results@L1092
 outcome	volunteerMultBase	stage-results@L1020
-plan	doorsPerHour	stage-gotv@L833
 plan	goalSupportIds	stage-gotv@L825
 plan	hoursPerShift	stage-gotv@L841
 plan	optBudget	stage-roi@L1665

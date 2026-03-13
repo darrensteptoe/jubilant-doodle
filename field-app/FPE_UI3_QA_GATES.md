@@ -98,7 +98,7 @@ Scope: UI architecture migration only (engine and right rail frozen)
 
 ### Data
 - Status: In progress (B -> C native bridge pass started)
-- Current implementation: v3-native data controls rendered in v3 markup with event/state bridge to legacy data IDs (no mounted legacy cards).
+- Current implementation: v3-native data controls rendered in v3 markup and driven via runtime data API bridge (`window.__FPE_DATA_API__`) with no direct legacy selector proxies in the Data surface.
 - Remaining checks:
   - Strict import toggle and restore-backup behavior.
   - Import/export button flows (JSON/CSV/copy summary) and banner visibility.
@@ -141,8 +141,12 @@ Scope: UI architecture migration only (engine and right rail frozen)
 - Controls bridge reduction: v3 Controls evidence table now renders directly from scenario-bridge intel state (`window.__FPE_SCENARIO_API__`) and no longer mirrors legacy `#intelEvidenceTbody`.
 - Controls bridge reduction: v3 Controls benchmark table now renders directly from scenario-bridge intel state and no longer mirrors legacy `#intelBenchmarkTbody`; remove actions dispatch by benchmark id to legacy handlers.
 - Controls bridge reduction: v3 Feedback what-if/recommendation preview panes now render directly from scenario-bridge intel state and no longer mirror legacy `#intelWhatIfPreview/#intelRecommendationPreview`.
+- Data bridge reduction: v3 Data action + state wiring now runs through runtime data API bridge (`window.__FPE_DATA_API__`) with zero direct legacy ID proxies in `surfaces/data.js`.
 - Plan bridge reduction: v3 Plan workload row (`doors/shift`, `total shifts`, `shifts/week`, `volunteers needed`) now derives from v3 workload/timeline inputs, removing direct reads of legacy GOTV output IDs (`#outDoorsPerShift/#outTotalShifts/#outShiftsPerWeek/#outVolunteersNeeded`).
 - Plan bridge reduction: v3 Plan now resolves required conversations/doors via Reach runtime bridge (`__FPE_REACH_API__.getView().weekly`) instead of direct reads of legacy `#outConversationsNeeded/#outDoorsNeeded`.
+- Plan bridge reduction: v3 Plan workload `Doors per hour (source)` now mirrors from v3 timeline `timelineDoorsPerHour` control, removing direct legacy `#doorsPerHour` dependency.
+- Outcome bridge reduction: v3 Outcome percentile context now resolves from v3 KPI + right-rail percentiles (`#v3KpiMargin`, `#mcP10-sidebar/#mcP50-sidebar/#mcP90-sidebar`) instead of direct reads of legacy confidence-envelope IDs (`#mcP10/#mcP50/#mcP90`).
+- Outcome bridge reduction: v3 Outcome MC run-count display (`v3OutcomeMcRuns`) is now native fixed UI state and no longer mirrors legacy `#mcRuns`.
 - Legacy `stage-capacity` visual surface has been retired from `index.html` user flow (hidden retired stub retained during transition); preflight no longer requires legacy Reach assumption IDs.
 - Added v3 stage persistence/cutover behavior (`js/app/v3/index.js`):
   - Active stage persists to local storage.
