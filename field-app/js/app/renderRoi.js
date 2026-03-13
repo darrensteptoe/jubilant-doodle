@@ -138,41 +138,46 @@ export function renderRoiModule(args){
     }
   }
 
-  if (els.turnoutSummary){
-    if (turnoutModel.enabled){
-      const U = safeNum(state.universeSize);
-      const tuPct = safeNum(state.persuasionPct);
-      const targetUniverseSize = (U != null && tuPct != null) ? Math.round(U * (clamp(tuPct, 0, 100) / 100)) : null;
-      const contacts = (capAttempts != null && cr != null) ? Math.max(0, capAttempts * cr) : 0;
+  const needVotesText = needVotes == null ? "—" : fmtInt(Math.round(needVotes));
+  if (turnoutModel.enabled){
+    const U = safeNum(state.universeSize);
+    const tuPct = safeNum(state.persuasionPct);
+    const targetUniverseSize = (U != null && tuPct != null) ? Math.round(U * (clamp(tuPct, 0, 100) / 100)) : null;
+    const contacts = (capAttempts != null && cr != null) ? Math.max(0, capAttempts * cr) : 0;
 
-      const avgLiftPP = computeAvgLiftPP({
-        baselineTurnoutPct: turnoutModel.baselineTurnoutPct,
-        liftPerContactPP: turnoutModel.liftPerContactPP,
-        maxLiftPP: turnoutModel.maxLiftPP,
-        contacts,
-        universeSize: targetUniverseSize || 0,
-        useDiminishing: turnoutModel.useDiminishing,
-      });
+    const avgLiftPP = computeAvgLiftPP({
+      baselineTurnoutPct: turnoutModel.baselineTurnoutPct,
+      liftPerContactPP: turnoutModel.liftPerContactPP,
+      maxLiftPP: turnoutModel.maxLiftPP,
+      contacts,
+      universeSize: targetUniverseSize || 0,
+      useDiminishing: turnoutModel.useDiminishing,
+    });
 
-      const gotvAddedVotes = (targetUniverseSize != null) ? Math.round(targetUniverseSize * (avgLiftPP / 100)) : 0;
-      const baseTxt = (turnoutModel.baselineTurnoutPct != null && isFinite(turnoutModel.baselineTurnoutPct)) ? `${Number(turnoutModel.baselineTurnoutPct).toFixed(1)}%` : "—";
+    const gotvAddedVotes = (targetUniverseSize != null) ? Math.round(targetUniverseSize * (avgLiftPP / 100)) : 0;
+    const baseTxt = (turnoutModel.baselineTurnoutPct != null && isFinite(turnoutModel.baselineTurnoutPct)) ? `${Number(turnoutModel.baselineTurnoutPct).toFixed(1)}%` : "—";
+    const summaryText = `Turnout enabled: baseline ${baseTxt} · modeled avg lift ${avgLiftPP.toFixed(1)}pp · implied +${fmtInt(gotvAddedVotes)} votes (at capacity ceiling).`;
 
+    state.ui.lastTurnout = {
+      summaryText,
+      turnoutVotesText: fmtInt(gotvAddedVotes),
+      needVotesText,
+    };
+
+    if (els.turnoutSummary){
       els.turnoutSummary.hidden = false;
       els.turnoutSummary.className = "banner ok";
-      const summaryText = `Turnout enabled: baseline ${baseTxt} · modeled avg lift ${avgLiftPP.toFixed(1)}pp · implied +${fmtInt(gotvAddedVotes)} votes (at capacity ceiling).`;
       els.turnoutSummary.textContent = summaryText;
-      state.ui.lastTurnout = {
-        summaryText,
-        turnoutVotesText: fmtInt(gotvAddedVotes),
-        needVotesText: needVotes == null ? "—" : fmtInt(Math.round(needVotes)),
-      };
-    } else {
+    }
+  } else {
+    state.ui.lastTurnout = {
+      summaryText: "Turnout module disabled.",
+      turnoutVotesText: "—",
+      needVotesText,
+    };
+
+    if (els.turnoutSummary){
       els.turnoutSummary.hidden = true;
-      state.ui.lastTurnout = {
-        summaryText: "Turnout module disabled.",
-        turnoutVotesText: "—",
-        needVotesText: needVotes == null ? "—" : fmtInt(Math.round(needVotes)),
-      };
     }
   }
 

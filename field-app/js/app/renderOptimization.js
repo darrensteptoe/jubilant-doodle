@@ -17,9 +17,18 @@ export function renderOptimizationModule(args){
 
   const features = resolveFeatureFlags(state || {});
   const optTbody = els?.optTbody instanceof HTMLElement ? els.optTbody : null;
-  const clearPlanRowsCache = () => {
+  const clearPlanCaches = () => {
     if (!state.ui || typeof state.ui !== "object") state.ui = {};
     state.ui.lastPlanRows = [];
+    state.ui.lastPlanMeta = null;
+    state.ui.lastSummary = {
+      objective: (state?.budget?.optimize?.objective || "net"),
+      netVotes: 0,
+      cost: 0,
+      feasible: null,
+      primaryBottleneck: null,
+      topAllocations: []
+    };
   };
 
   const needVotes = deriveNeedVotes(res);
@@ -82,7 +91,7 @@ export function renderOptimizationModule(args){
   if (optTbody) optTbody.innerHTML = "";
 
   if (!tactics.length){
-    clearPlanRowsCache();
+    clearPlanCaches();
     hideBanner();
     showBanner("warn", "Optimization: Enable at least one tactic (Doors/Phones/Texts) in Phase 4 inputs.");
     setTotals(null);
@@ -91,7 +100,7 @@ export function renderOptimizationModule(args){
   }
 
   if (!(cr && cr > 0) || !(sr && sr > 0) || !(tr && tr > 0)){
-    clearPlanRowsCache();
+    clearPlanCaches();
     hideBanner();
     showBanner("warn", "Optimization: Enter Phase 2 Contact rate + Support rate and Phase 3 Turnout reliability to optimize.");
     setTotals(null);
@@ -178,7 +187,7 @@ export function renderOptimizationModule(args){
   }
 
   if (!result){
-    clearPlanRowsCache();
+    clearPlanCaches();
     setTotals(null);
     stubRow();
     return;
