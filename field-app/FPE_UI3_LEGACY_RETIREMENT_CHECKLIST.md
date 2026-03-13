@@ -106,6 +106,9 @@ Reference artifact:
 - Turnout summary readout now resolves from sidebar/bridge context first (`#kpiTurnoutBand-sidebar`) and only then legacy `#turnoutSummary` fallback.
 - Turnout ROI banner/readout now resolves from Turnout runtime bridge view (`__FPE_TURNOUT_API__.getView().roiBannerText`) instead of mirroring legacy `#roiBanner` / sibling note nodes.
 - Turnout v3 summary values (status/votes/need) now resolve from Turnout runtime bridge summary (`__FPE_TURNOUT_API__.getView().summary`) backed by runtime cache (`state.ui.lastTurnout`) rather than relying only on sidebar/legacy text nodes.
+- v3 state-bridge turnout snapshot (`js/app/v3/stateBridge.js`) now resolves Turnout summary values from runtime Turnout bridge first (`__FPE_TURNOUT_API__.getView().summary`) with selector fallback only for compatibility.
+- DOM preflight now accepts legacy-or-v3 shell IDs for scenario/build/diagnostics/reset controls, reducing false boot failures during legacy shell retirement.
+- Removed stale duplicate v3 turnout surface file (`js/app/v3/turnout.js`); active Turnout surface remains `js/app/v3/surfaces/turnout.js`.
 - Legacy `integrity` nav entry has been removed from legacy left-rail user flow; `stage-integrity` DOM remains mounted for controlled retirement.
 - Legacy `stage-integrity` section is now hidden in legacy flow (retired stub), while IDs remain mounted for parity and rollback safety.
 - Controls v3 evidence table now renders from scenario-bridge intel state (`window.__FPE_SCENARIO_API__`) instead of mirroring legacy `#intelEvidenceTbody`.
