@@ -1739,10 +1739,7 @@ export function runSelfTests(engine){
       ["buildStamp", "v3BuildStamp"],
       ["btnDiagnostics", "v3BtnDiagnostics"],
       ["btnResetAll", "v3BtnReset"],
-      ["validationList"],
-      ["operationsCapacityOutlookCard", "v3ReachOutlookTbody"],
-      ["phase3Card", "v3OutcomeForecastWinProb"],
-      ["scenarioCompareCard", "v3ScenarioDiffOutputs"]
+      ["validationList"]
     ];
     for (const group of required){
       const ids = Array.isArray(group) ? group : [group];
@@ -1756,6 +1753,9 @@ export function runSelfTests(engine){
     const optionalStageGroups = [
       ["universeSize", "v3DistrictUniverseSize"],
       ["persuasionPct", "v3ReachPersuasionPct"],
+      ["operationsCapacityOutlookCard", "v3ReachOutlookTbody"],
+      ["phase3Card", "v3OutcomeForecastWinProb"],
+      ["scenarioCompareCard", "v3ScenarioDiffOutputs"],
     ];
     for (const group of optionalStageGroups){
       const ids = Array.isArray(group) ? group : [group];
