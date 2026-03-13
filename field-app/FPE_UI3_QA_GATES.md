@@ -194,6 +194,7 @@ Scope: UI architecture migration only (engine and right rail frozen)
 - Runtime hardening: DOM preflight District/Reach core controls are now stage-aware (only enforced when District/Reach anchors are present), preventing false boot failures when those surfaces are not mounted.
 - Runtime hardening: DOM preflight now accepts legacy-or-v3 Census and Targeting IDs (card/control/table/status/map) so staged retirement does not trigger false missing-ID boot failures.
 - Runtime hardening: apply-state/UI binding paths now guard Reach assumption control writes (`persuasionPct`, `earlyVoteExp`) so app boot/render remains stable after `stage-capacity` container removal.
+- Runtime hardening: apply-state/UI binding paths now guard baseline legacy-shell controls (`scenarioName`, race/setup controls, turnout band controls, undecided controls) so staged container retirement cannot trigger boot-time null writes.
 - QA hardening: UI smoke required-ID test now accepts v3 fallbacks for legacy-only capacity/results/scenario-compare cards (`operationsCapacityOutlookCard|v3ReachOutlookTbody`, `phase3Card|v3OutcomeForecastWinProb`, `scenarioCompareCard|v3ScenarioDiffOutputs`) to prevent false failures during staged legacy container retirement.
 - QA hardening: UI smoke now accepts v3 shell fallbacks for scenario/build/diagnostics/reset IDs and supports v3 scenario-save action ID (`v3BtnScenarioSaveNew`) as a valid control target.
 - QA hardening: UI smoke required-ID test now treats District/Reach core control IDs as optional stage-scoped checks (uniqueness enforced only when present), avoiding false failures when those surfaces are not mounted.
@@ -216,6 +217,8 @@ Scope: UI architecture migration only (engine and right rail frozen)
 - Turnout bridge reduction: Turnout summary/votes/need readouts now resolve from Turnout runtime bridge summary (`view.summary`) backed by runtime cache (`state.ui.lastTurnout`) before any selector fallback.
 - Legacy flow retirement: removed legacy left-nav `integrity` entry while retaining `stage-integrity` DOM for runtime parity checks.
 - Legacy flow retirement: `stage-integrity` section is hidden as a retired stub (DOM retained).
+- Legacy flow retirement: legacy nav entries for `capacity`, `results`, `roi`, `gotv`, and `integrity` are hidden in legacy shell to keep user flow on migrated v3 surfaces while DOM stubs remain for rollback.
+- Legacy shell hardening: fixed missing `</section>` closure after structure stage to keep section tree balanced during further staged deletions.
 - Legacy `stage-capacity` container has been removed from `index.html`; preflight no longer requires legacy Reach assumption IDs.
 - Added v3 stage persistence/cutover behavior (`js/app/v3/index.js`):
   - Active stage persists to local storage.

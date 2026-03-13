@@ -123,6 +123,9 @@ Reference artifact:
 - Legacy `integrity` nav entry has been removed from legacy left-rail user flow; `stage-integrity` DOM remains mounted for controlled retirement.
 - Legacy `stage-integrity` section is now hidden in legacy flow (retired stub), while IDs remain mounted for parity and rollback safety.
 - Runtime apply-state helpers now guard writes for Reach assumptions (`persuasionPct`, `earlyVoteExp`) so boot/render stays stable after `stage-capacity` removal.
+- Runtime apply-state/bootstrap wiring now guards legacy-shell baseline inputs (`scenarioName`, race/setup controls, turnout band controls, undecided controls) so missing legacy nodes do not hard-fail boot.
+- Legacy left-rail entries for retired legacy stages (`capacity`, `results`, `roi`, `gotv`, `integrity`) are now hidden from legacy user flow while stubs remain mounted for rollback safety.
+- Legacy shell section structure was rebalanced (missing `</section>` after structure stage fixed) to prevent DOM drift during staged retirement edits.
 - Controls v3 evidence table now renders from scenario-bridge intel state (`window.__FPE_SCENARIO_API__`) instead of mirroring legacy `#intelEvidenceTbody`.
 - Controls v3 benchmark table now renders from scenario-bridge intel state (`window.__FPE_SCENARIO_API__`) and remove actions route by benchmark id, instead of mirroring legacy `#intelBenchmarkTbody`.
 - Controls v3 feedback previews (what-if + recommendations) now render from scenario-bridge intel state and no longer mirror legacy preview textareas (`#intelWhatIfPreview/#intelRecommendationPreview`).
