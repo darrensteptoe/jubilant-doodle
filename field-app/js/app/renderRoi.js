@@ -159,9 +159,20 @@ export function renderRoiModule(args){
 
       els.turnoutSummary.hidden = false;
       els.turnoutSummary.className = "banner ok";
-      els.turnoutSummary.textContent = `Turnout enabled: baseline ${baseTxt} · modeled avg lift ${avgLiftPP.toFixed(1)}pp · implied +${fmtInt(gotvAddedVotes)} votes (at capacity ceiling).`;
+      const summaryText = `Turnout enabled: baseline ${baseTxt} · modeled avg lift ${avgLiftPP.toFixed(1)}pp · implied +${fmtInt(gotvAddedVotes)} votes (at capacity ceiling).`;
+      els.turnoutSummary.textContent = summaryText;
+      state.ui.lastTurnout = {
+        summaryText,
+        turnoutVotesText: fmtInt(gotvAddedVotes),
+        needVotesText: needVotes == null ? "—" : fmtInt(Math.round(needVotes)),
+      };
     } else {
       els.turnoutSummary.hidden = true;
+      state.ui.lastTurnout = {
+        summaryText: "Turnout module disabled.",
+        turnoutVotesText: "—",
+        needVotesText: needVotes == null ? "—" : fmtInt(Math.round(needVotes)),
+      };
     }
   }
 
