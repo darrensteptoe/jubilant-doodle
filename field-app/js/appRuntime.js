@@ -530,6 +530,7 @@ const SCENARIO_MAX = 20;
 const DATA_BRIDGE_KEY = "__FPE_DATA_API__";
 const SCENARIO_BRIDGE_KEY = "__FPE_SCENARIO_API__";
 const REACH_BRIDGE_KEY = "__FPE_REACH_API__";
+const PLAN_BRIDGE_KEY = "__FPE_PLAN_API__";
 const DECISION_BRIDGE_KEY = "__FPE_DECISION_API__";
 
 function dataBridgeBuildBackupOptions(){
@@ -2701,6 +2702,253 @@ function installReachBridge(){
   };
 }
 
+const PLAN_SELECT_OPTIONS = {
+  optMode: [
+    { value: "budget", label: "Budget-constrained" },
+    { value: "capacity", label: "Capacity-constrained" },
+  ],
+  optObjective: [
+    { value: "net", label: "Net Votes" },
+    { value: "turnout", label: "Turnout-Adjusted Net Votes" },
+  ],
+  tlOptObjective: [
+    { value: "max_net", label: "Maximize net votes by deadline" },
+    { value: "min_cost_goal", label: "Minimize cost while meeting goal (if feasible)" },
+  ],
+  timelineRampMode: [
+    { value: "linear", label: "Linear" },
+    { value: "s", label: "S-curve" },
+  ],
+};
+
+const PLAN_NUMERIC_RULES = {
+  optBudget: { min: 0, max: 1000000000, step: 1 },
+  optStep: { min: 1, max: 1000000, step: 1 },
+  timelineActiveWeeks: { min: 0, max: 520, step: 1, allowBlank: true },
+  timelineGotvWeeks: { min: 0, max: 52, step: 1, allowBlank: true },
+  timelineStaffCount: { min: 0, max: 10000, step: 1 },
+  timelineStaffHours: { min: 0, max: 168, step: 1 },
+  timelineVolCount: { min: 0, max: 100000, step: 1 },
+  timelineVolHours: { min: 0, max: 168, step: 1 },
+  timelineDoorsPerHour: { min: 0, max: 1000, step: 1 },
+  timelineCallsPerHour: { min: 0, max: 1000, step: 1 },
+  timelineTextsPerHour: { min: 0, max: 5000, step: 1 },
+};
+
+const PLAN_BOOLEAN_FIELDS = new Set([
+  "tlOptEnabled",
+  "optUseDecay",
+  "timelineEnabled",
+  "timelineRampEnabled",
+]);
+
+const PLAN_SELECT_FIELDS = new Set([
+  "optMode",
+  "optObjective",
+  "tlOptObjective",
+  "timelineRampMode",
+]);
+
+const PLAN_NUMERIC_FIELDS = new Set(Object.keys(PLAN_NUMERIC_RULES));
+
+function ensurePlanBridgeShape(target){
+  if (!target || typeof target !== "object"){
+    return;
+  }
+  if (!target.budget || typeof target.budget !== "object"){
+    target.budget = {};
+  }
+  if (!target.budget.optimize || typeof target.budget.optimize !== "object"){
+    target.budget.optimize = {};
+  }
+  const optimize = target.budget.optimize;
+  if (!optimize.mode) optimize.mode = "budget";
+  if (!optimize.objective) optimize.objective = "net";
+  if (typeof optimize.tlConstrainedEnabled !== "boolean") optimize.tlConstrainedEnabled = false;
+  if (!optimize.tlConstrainedObjective) optimize.tlConstrainedObjective = "max_net";
+  if (!Number.isFinite(Number(optimize.budgetAmount))) optimize.budgetAmount = 10000;
+  if (!Number.isFinite(Number(optimize.step))) optimize.step = 25;
+  if (typeof optimize.useDecay !== "boolean") optimize.useDecay = false;
+  if (typeof target.timelineEnabled !== "boolean") target.timelineEnabled = false;
+  if (target.timelineActiveWeeks == null) target.timelineActiveWeeks = "";
+  if (target.timelineGotvWeeks == null) target.timelineGotvWeeks = "";
+  if (!Number.isFinite(Number(target.timelineStaffCount))) target.timelineStaffCount = 0;
+  if (!Number.isFinite(Number(target.timelineStaffHours))) target.timelineStaffHours = 0;
+  if (!Number.isFinite(Number(target.timelineVolCount))) target.timelineVolCount = 0;
+  if (!Number.isFinite(Number(target.timelineVolHours))) target.timelineVolHours = 0;
+  if (typeof target.timelineRampEnabled !== "boolean") target.timelineRampEnabled = false;
+  if (!target.timelineRampMode) target.timelineRampMode = "linear";
+  if (!Number.isFinite(Number(target.timelineDoorsPerHour))) target.timelineDoorsPerHour = 30;
+  if (!Number.isFinite(Number(target.timelineCallsPerHour))) target.timelineCallsPerHour = 20;
+  if (!Number.isFinite(Number(target.timelineTextsPerHour))) target.timelineTextsPerHour = 120;
+}
+
+function planBridgeStateView(){
+  ensurePlanBridgeShape(state);
+  const optimize = state?.budget?.optimize || {};
+  const locked = isScenarioLockedForEdits(state);
+  return {
+    inputs: {
+      optMode: optimize.mode || "budget",
+      optObjective: optimize.objective || "net",
+      tlOptEnabled: !!optimize.tlConstrainedEnabled,
+      tlOptObjective: optimize.tlConstrainedObjective || "max_net",
+      optBudget: optimize.budgetAmount ?? "",
+      optStep: optimize.step ?? "",
+      optUseDecay: !!optimize.useDecay,
+      timelineEnabled: !!state.timelineEnabled,
+      timelineActiveWeeks: state.timelineActiveWeeks ?? "",
+      timelineGotvWeeks: state.timelineGotvWeeks ?? "",
+      timelineStaffCount: state.timelineStaffCount ?? "",
+      timelineStaffHours: state.timelineStaffHours ?? "",
+      timelineVolCount: state.timelineVolCount ?? "",
+      timelineVolHours: state.timelineVolHours ?? "",
+      timelineRampEnabled: !!state.timelineRampEnabled,
+      timelineRampMode: state.timelineRampMode || "linear",
+      timelineDoorsPerHour: state.timelineDoorsPerHour ?? "",
+      timelineCallsPerHour: state.timelineCallsPerHour ?? "",
+      timelineTextsPerHour: state.timelineTextsPerHour ?? "",
+    },
+    controls: {
+      locked,
+      runDisabled: locked,
+    },
+    options: PLAN_SELECT_OPTIONS,
+  };
+}
+
+function planBridgeNormalizeSelect(field, rawValue){
+  const options = PLAN_SELECT_OPTIONS[field];
+  const text = String(rawValue ?? "").trim();
+  if (!Array.isArray(options) || !options.length){
+    return { ok: false, value: "", code: "invalid_field" };
+  }
+  if (options.some((opt) => String(opt?.value ?? "") === text)){
+    return { ok: true, value: text, code: "" };
+  }
+  return { ok: false, value: "", code: "invalid_value" };
+}
+
+function planBridgeNormalizeNumber(field, rawValue){
+  const rules = PLAN_NUMERIC_RULES[field] || {};
+  const parsed = reachBridgeClampNumber(rawValue, {
+    min: rules.min,
+    max: rules.max,
+    step: rules.step,
+  });
+  if (parsed === null){
+    return { ok: false, value: null, code: "invalid_value" };
+  }
+  if ((parsed === "" || parsed == null) && rules.allowBlank){
+    return { ok: true, value: "", code: "" };
+  }
+  return { ok: true, value: parsed, code: "" };
+}
+
+function planBridgeSetField(field, rawValue){
+  const key = String(field || "").trim();
+  if (!key){
+    return { ok: false, code: "invalid_field", view: planBridgeStateView() };
+  }
+  if (isScenarioLockedForEdits(state)){
+    return { ok: false, code: "locked", view: planBridgeStateView() };
+  }
+
+  let mode = "none";
+  if (PLAN_BOOLEAN_FIELDS.has(key)) mode = "boolean";
+  else if (PLAN_SELECT_FIELDS.has(key)) mode = "select";
+  else if (PLAN_NUMERIC_FIELDS.has(key)) mode = "numeric";
+  if (mode === "none"){
+    return { ok: false, code: "invalid_field", view: planBridgeStateView() };
+  }
+
+  if (mode === "select"){
+    const normalized = planBridgeNormalizeSelect(key, rawValue);
+    if (!normalized.ok){
+      return { ok: false, code: normalized.code, view: planBridgeStateView() };
+    }
+    setState((next) => {
+      ensurePlanBridgeShape(next);
+      if (key === "optMode"){
+        next.budget.optimize.mode = normalized.value;
+      } else if (key === "optObjective"){
+        next.budget.optimize.objective = normalized.value;
+      } else if (key === "tlOptObjective"){
+        next.budget.optimize.tlConstrainedObjective = normalized.value;
+      } else if (key === "timelineRampMode"){
+        next.timelineRampMode = normalized.value;
+      }
+    });
+    return { ok: true, view: planBridgeStateView() };
+  }
+
+  if (mode === "boolean"){
+    const checked = !!rawValue;
+    setState((next) => {
+      ensurePlanBridgeShape(next);
+      if (key === "tlOptEnabled"){
+        next.budget.optimize.tlConstrainedEnabled = checked;
+      } else if (key === "optUseDecay"){
+        next.budget.optimize.useDecay = checked;
+      } else if (key === "timelineEnabled"){
+        next.timelineEnabled = checked;
+      } else if (key === "timelineRampEnabled"){
+        next.timelineRampEnabled = checked;
+      }
+    });
+    return { ok: true, view: planBridgeStateView() };
+  }
+
+  const normalized = planBridgeNormalizeNumber(key, rawValue);
+  if (!normalized.ok){
+    return { ok: false, code: normalized.code, view: planBridgeStateView() };
+  }
+  setState((next) => {
+    ensurePlanBridgeShape(next);
+    const value = normalized.value;
+    if (key === "optBudget"){
+      next.budget.optimize.budgetAmount = safeNum(value) ?? 0;
+    } else if (key === "optStep"){
+      next.budget.optimize.step = safeNum(value) ?? 25;
+    } else if (key === "timelineActiveWeeks"){
+      next.timelineActiveWeeks = value === "" ? "" : String(value);
+    } else if (key === "timelineGotvWeeks"){
+      next.timelineGotvWeeks = safeNum(value);
+    } else if (key === "timelineStaffCount"){
+      next.timelineStaffCount = safeNum(value) ?? 0;
+    } else if (key === "timelineStaffHours"){
+      next.timelineStaffHours = safeNum(value) ?? 0;
+    } else if (key === "timelineVolCount"){
+      next.timelineVolCount = safeNum(value) ?? 0;
+    } else if (key === "timelineVolHours"){
+      next.timelineVolHours = safeNum(value) ?? 0;
+    } else if (key === "timelineDoorsPerHour"){
+      next.timelineDoorsPerHour = safeNum(value) ?? 0;
+    } else if (key === "timelineCallsPerHour"){
+      next.timelineCallsPerHour = safeNum(value) ?? 0;
+    } else if (key === "timelineTextsPerHour"){
+      next.timelineTextsPerHour = safeNum(value) ?? 0;
+    }
+  });
+  return { ok: true, view: planBridgeStateView() };
+}
+
+function planBridgeRunOptimize(){
+  if (isScenarioLockedForEdits(state)){
+    return { ok: false, code: "locked", view: planBridgeStateView() };
+  }
+  render();
+  return { ok: true, view: planBridgeStateView() };
+}
+
+function installPlanBridge(){
+  window[PLAN_BRIDGE_KEY] = {
+    getView: () => planBridgeStateView(),
+    setField: (field, value) => planBridgeSetField(field, value),
+    runOptimize: () => planBridgeRunOptimize(),
+  };
+}
+
 let decisionBridgeCopyStatus = "";
 
 function hasLegacyDecisionManagerDom(){
@@ -3677,6 +3925,7 @@ function init(){
   safeCall(() => { installDataBridge(); }, { label: "init.installDataBridge" });
   safeCall(() => { installScenarioBridge(); }, { label: "init.installScenarioBridge" });
   safeCall(() => { installReachBridge(); }, { label: "init.installReachBridge" });
+  safeCall(() => { installPlanBridge(); }, { label: "init.installPlanBridge" });
   safeCall(() => { ensureDecisionScaffold(); }, { label: "init.ensureDecisionScaffold" });
   safeCall(() => { installDecisionBridge(); }, { label: "init.installDecisionBridge" });
   safeCall(() => {
