@@ -202,7 +202,9 @@ Scope: UI architecture migration only (engine and right rail frozen)
 - KPI bridge reduction: bottleneck inference now reads weekly gap from Reach runtime bridge (`__FPE_REACH_API__.getView()`); legacy `#wkGapPerWeek` fallback removed.
 - KPI bridge reduction: bottleneck label no longer falls back to legacy `#wkConstraint/#optBinding` text mirrors.
 - Turnout bridge reduction: Turnout helper copy no longer mounts from `#stage-roi .phase-p6 > .note`; v3 Turnout now uses native helper text.
-- Turnout bridge reduction: Turnout summary readout now resolves sidebar/bridge first (`#kpiTurnoutBand-sidebar`) with legacy `#turnoutSummary` as fallback only.
+- Turnout bridge reduction: Turnout summary readout resolves from sidebar/bridge context (`#kpiTurnoutBand-sidebar`) instead of legacy ROI summary text nodes.
+- Turnout bridge reduction: v3 turnout snapshot now resolves summary text from bridge/sidebar only (`#kpiTurnoutBand-sidebar`), removing the last `#turnoutSummary` fallback dependency.
+- Turnout bridge reduction: v3 turnout snapshot votes/need now resolve from bridge/sidebar only (`#kpiTurnoutVotes-sidebar`, `#kpiPersuasionNeed-sidebar`) with no non-sidebar fallback selectors.
 - Turnout bridge reduction: Turnout efficiency banner now reads from runtime Turnout bridge (`roiBannerText`) and no longer mirrors legacy `#roiBanner` note text nodes.
 - Turnout bridge reduction: Turnout summary/votes/need readouts now resolve from Turnout runtime bridge summary (`view.summary`) backed by runtime cache (`state.ui.lastTurnout`) before any selector fallback.
 - Legacy flow retirement: removed legacy left-nav `integrity` entry while retaining `stage-integrity` DOM for runtime parity checks.

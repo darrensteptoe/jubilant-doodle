@@ -106,7 +106,9 @@ Reference artifact:
 - KPI bottleneck inference now resolves weekly gap entirely from Reach runtime bridge view (legacy `#wkGapPerWeek` fallback removed).
 - KPI strip no longer falls back to legacy `#wkConstraint/#optBinding` text for bottleneck label; bottleneck is bridge-derived.
 - Turnout v3 no longer mounts helper copy from `#stage-roi .phase-p6 > .note`; helper text is now native in the v3 card.
-- Turnout summary readout now resolves from sidebar/bridge context first (`#kpiTurnoutBand-sidebar`) and only then legacy `#turnoutSummary` fallback.
+- Turnout summary readout now resolves from sidebar/bridge context (`#kpiTurnoutBand-sidebar`) instead of legacy ROI summary text nodes.
+- Turnout summary snapshot now resolves from bridge/sidebar context only (`#kpiTurnoutBand-sidebar`), removing the remaining legacy `#turnoutSummary` fallback path.
+- Turnout snapshot votes/need now resolve from bridge/sidebar context only (`#kpiTurnoutVotes-sidebar`, `#kpiPersuasionNeed-sidebar`), removing non-sidebar fallback selector paths.
 - Turnout ROI banner/readout now resolves from Turnout runtime bridge view (`__FPE_TURNOUT_API__.getView().roiBannerText`) instead of mirroring legacy `#roiBanner` / sibling note nodes.
 - Turnout v3 summary values (status/votes/need) now resolve from Turnout runtime bridge summary (`__FPE_TURNOUT_API__.getView().summary`) backed by runtime cache (`state.ui.lastTurnout`) rather than relying only on sidebar/legacy text nodes.
 - v3 state-bridge turnout snapshot (`js/app/v3/stateBridge.js`) now resolves Turnout summary values from runtime Turnout bridge first (`__FPE_TURNOUT_API__.getView().summary`) with selector fallback only for compatibility.
