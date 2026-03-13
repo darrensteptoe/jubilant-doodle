@@ -316,31 +316,40 @@ export function renderConversionPanel({
 }
 
 export function renderSensitivitySnapshotPanel({ els, state, mcStaleness = null }){
-  if (!els.sensTag || !els.sensTbody || !els.sensBanner || !els.btnSensRun) return;
+  const sensTagEl = els?.sensTag;
+  const sensTbodyEl = els?.sensTbody;
+  const sensBannerEl = els?.sensBanner;
+  const btnSensRunEl = els?.btnSensRun;
 
   const stub = (msg, cls) => {
-    els.sensTbody.innerHTML = '<tr><td class="muted">—</td><td class="num muted">—</td><td class="num muted">—</td><td class="muted">—</td></tr>';
-    els.sensTag.textContent = "—";
-    els.sensTag.classList.remove("ok","warn","bad");
-    els.sensBanner.className = `banner ${cls || ""}`.trim();
-    els.sensBanner.textContent = msg || "—";
+    if (sensTbodyEl) {
+      sensTbodyEl.innerHTML = '<tr><td class="muted">—</td><td class="num muted">—</td><td class="num muted">—</td><td class="muted">—</td></tr>';
+    }
+    if (sensTagEl) {
+      sensTagEl.textContent = "—";
+      sensTagEl.classList.remove("ok","warn","bad");
+    }
+    if (sensBannerEl) {
+      sensBannerEl.className = `banner ${cls || ""}`.trim();
+      sensBannerEl.textContent = msg || "—";
+    }
   };
 
   const base = state.mcLast;
   if (!base){
     stub("Run Monte Carlo to enable the sensitivity snapshot.", "warn");
-    els.btnSensRun.disabled = true;
+    if (btnSensRunEl) btnSensRunEl.disabled = true;
     return;
   }
 
   if (mcStaleness?.isStale){
     const reason = mcStaleness.reasonText || "inputs changed";
     stub(`Monte Carlo is stale (${reason}). Re-run MC, then run snapshot.`, "warn");
-    els.btnSensRun.disabled = true;
+    if (btnSensRunEl) btnSensRunEl.disabled = true;
     return;
   }
 
-  els.btnSensRun.disabled = false;
+  if (btnSensRunEl) btnSensRunEl.disabled = false;
 
   const cache = state.ui?.e4Sensitivity;
   if (!cache || cache.baseHash !== state.mcLastHash || !Array.isArray(cache.rows) || cache.rows.length === 0){
@@ -348,24 +357,30 @@ export function renderSensitivitySnapshotPanel({ els, state, mcStaleness = null 
     return;
   }
 
-  els.sensTbody.innerHTML = "";
-  for (const r of cache.rows){
-    const tr = document.createElement("tr");
-    const td0 = document.createElement("td"); td0.textContent = r.label || "—";
-    const td1 = document.createElement("td"); td1.className = "num"; td1.textContent = r.dWin || "—";
-    const td2 = document.createElement("td"); td2.className = "num"; td2.textContent = r.dP50 || "—";
-    const td3 = document.createElement("td"); td3.className = "muted"; td3.textContent = r.note || "";
-    tr.appendChild(td0); tr.appendChild(td1); tr.appendChild(td2); tr.appendChild(td3);
-    els.sensTbody.appendChild(tr);
+  if (sensTbodyEl) {
+    sensTbodyEl.innerHTML = "";
+    for (const r of cache.rows){
+      const tr = document.createElement("tr");
+      const td0 = document.createElement("td"); td0.textContent = r.label || "—";
+      const td1 = document.createElement("td"); td1.className = "num"; td1.textContent = r.dWin || "—";
+      const td2 = document.createElement("td"); td2.className = "num"; td2.textContent = r.dP50 || "—";
+      const td3 = document.createElement("td"); td3.className = "muted"; td3.textContent = r.note || "";
+      tr.appendChild(td0); tr.appendChild(td1); tr.appendChild(td2); tr.appendChild(td3);
+      sensTbodyEl.appendChild(tr);
+    }
   }
 
   const tag = cache.tag || "Snapshot";
-  els.sensTag.textContent = tag;
-  els.sensTag.classList.remove("ok","warn","bad");
-  if (cache.cls) els.sensTag.classList.add(cache.cls);
+  if (sensTagEl) {
+    sensTagEl.textContent = tag;
+    sensTagEl.classList.remove("ok","warn","bad");
+    if (cache.cls) sensTagEl.classList.add(cache.cls);
+  }
 
-  els.sensBanner.className = `banner ${cache.cls || ""}`.trim();
-  els.sensBanner.textContent = cache.banner || "—";
+  if (sensBannerEl) {
+    sensBannerEl.className = `banner ${cache.cls || ""}`.trim();
+    sensBannerEl.textContent = cache.banner || "—";
+  }
 }
 
 export function computeSensitivitySnapshotCache({
@@ -508,7 +523,8 @@ export async function runSensitivitySnapshotPanel({
   renderSensitivitySnapshotE4,
   getMcStaleness
 }){
-  if (!els.sensTag || !els.sensTbody || !els.sensBanner || !els.btnSensRun) return;
+  const btnSensRunEl = els?.btnSensRun;
+  const sensBannerEl = els?.sensBanner;
 
   const base = state.mcLast;
   if (!base) return;
@@ -516,9 +532,11 @@ export async function runSensitivitySnapshotPanel({
   const stale = (typeof getMcStaleness === "function") ? getMcStaleness() : null;
   if (stale?.isStale){
     const reason = stale.reasonText || "inputs changed";
-    els.sensBanner.className = "banner warn";
-    els.sensBanner.textContent = `Monte Carlo is stale (${reason}). Re-run MC, then run snapshot.`;
-    els.btnSensRun.disabled = true;
+    if (sensBannerEl){
+      sensBannerEl.className = "banner warn";
+      sensBannerEl.textContent = `Monte Carlo is stale (${reason}). Re-run MC, then run snapshot.`;
+    }
+    if (btnSensRunEl) btnSensRunEl.disabled = true;
     return;
   }
 
@@ -526,8 +544,9 @@ export async function runSensitivitySnapshotPanel({
   if (!ctx || !ctx.res) return;
 
   const setBusy = (on) => {
-    els.btnSensRun.disabled = !!on;
-    els.btnSensRun.textContent = on ? "Running…" : "Run snapshot";
+    if (!btnSensRunEl) return;
+    btnSensRunEl.disabled = !!on;
+    btnSensRunEl.textContent = on ? "Running…" : "Run snapshot";
   };
 
   setBusy(true);
