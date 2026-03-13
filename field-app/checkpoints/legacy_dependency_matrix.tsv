@@ -164,8 +164,6 @@ outcome	surfaceTarget	stage-results@L1268
 outcome	surfaceTbody	stage-results@L1286
 outcome	turnoutReliabilityPct	stage-results@L1092
 outcome	volunteerMultBase	stage-results@L1020
-plan	goalSupportIds	stage-gotv@L825
-plan	hoursPerShift	stage-gotv@L841
 plan	optBudget	stage-roi@L1665
 plan	optMode	stage-roi@L1632
 plan	optObjective	stage-roi@L1640
@@ -173,7 +171,6 @@ plan	optRun	stage-roi@L1625
 plan	optStep	stage-roi@L1677
 plan	optTbody	stage-roi@L1808
 plan	optUseDecay	stage-roi@L1683
-plan	shiftsPerVolunteerPerWeek	stage-gotv@L845
 plan	timelineActiveWeeks	stage-roi@L1837
 plan	timelineCallsPerHour	stage-roi@L1893
 plan	timelineDoorsPerHour	stage-roi@L1889

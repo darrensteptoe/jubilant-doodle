@@ -51,6 +51,7 @@ Reference artifact:
 - Plan v3 workload row now derives `doors/shift`, `total shifts`, `shifts/week`, and `volunteers needed` from v3 workload/timeline inputs (no direct reads of legacy `#outDoorsPerShift/#outTotalShifts/#outShiftsPerWeek/#outVolunteersNeeded`).
 - Plan v3 now reads `required conversations` and `required doors` from Reach runtime bridge view (`window.__FPE_REACH_API__.getView().weekly`) instead of direct legacy `#outConversationsNeeded/#outDoorsNeeded` reads.
 - Plan v3 workload `Doors per hour (source)` field now mirrors from v3 timeline `Doors attempts / hour` (already synced to `timelineDoorsPerHour`), removing direct legacy `#doorsPerHour` read from `stage-gotv`.
+- Plan v3 workload input controls (`goalSupportIds`, `hoursPerShift`, `shiftsPerVolunteerPerWeek`) now bind through Reach runtime bridge set/get (`window.__FPE_REACH_API__.setField/getView`) instead of direct legacy `stage-gotv` DOM IDs.
 - Outcome v3 now reads percentile margins from v3 KPI + right-rail percentile tags (`#v3KpiMargin`, `#mcP10-sidebar/#mcP50-sidebar/#mcP90-sidebar`) instead of legacy confidence-envelope IDs (`#mcP10/#mcP50/#mcP90`), reducing direct `stage-results` dependency.
 - Outcome v3 Monte Carlo run-count display (`v3OutcomeMcRuns`) is now native fixed UI state (`10000`) and no longer mirrors legacy `#mcRuns`.
 - Controls v3 evidence table now renders from scenario-bridge intel state (`window.__FPE_SCENARIO_API__`) instead of mirroring legacy `#intelEvidenceTbody`.
@@ -72,7 +73,7 @@ Counts below are unique legacy IDs referenced by each v3 surface.
 | Outcome | `stage-results` | 39 |
 | Turnout | `stage-roi` | 30 |
 | Plan | `stage-roi` | 22 |
-| Plan | `stage-gotv` | 3 |
+| Plan | `stage-gotv` | 0 |
 | Controls | `stage-checks` | 46 |
 | Scenarios | retired (`stage-scenarios`) | 0 |
 | Decision Log | retired (`stage-decisions`) | 0 |
@@ -91,7 +92,7 @@ Reason: shared by Outcome and Turnout; remove only after both are native C-state
 Reason: shared by Turnout and Plan.
 
 4. `stage-gotv`
-Reason: shared by District (electorate controls) and Plan (workload outputs).
+Reason: currently retained for District coupling during migration; Plan bridge dependencies have been removed.
 
 5. `stage-checks`
 Reason: shared by Controls and District Census/Targeting bridge.
