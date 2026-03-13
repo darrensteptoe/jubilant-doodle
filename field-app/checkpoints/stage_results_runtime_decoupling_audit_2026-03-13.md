@@ -16,6 +16,7 @@ Goal: reduce hard coupling to legacy `stage-results` DOM without deleting markup
 - `js/app/monteCarloApp.js`
   - freshness renderer now runs with sidebar-only tags (`mcFreshTag-sidebar`, `mcLastRun-sidebar`, `mcStale-sidebar`).
   - removed assumptions that primary freshness tags always exist.
+  - D2/D3 envelope renderers (`renderOpsEnvelopeD2`, `renderFinishEnvelopeD3`) now compute/cache-update without requiring primary `opsAtt*` / `opsFinish*` DOM nodes.
 
 - `js/app/mcState.js`
   - stale-state controller now handles sidebar-only stale tag nodes.
@@ -26,6 +27,7 @@ Goal: reduce hard coupling to legacy `stage-results` DOM without deleting markup
 - `js/app/monteCarloApp.js` (`renderMissRiskD4`)
   - removed DOM-presence gate on `opsMissProb/opsMissTag`.
   - D4 miss-risk now computes and updates `state.ui.missRiskD4` cache even when legacy miss-risk nodes are absent.
+  - D4 miss-risk now mirrors probability + severity tag to right-rail IDs (`opsMissProb-sidebar`, `opsMissTag-sidebar`).
 
 Compatibility mirror updated:
 - `js/render/monteCarlo.js`
@@ -35,6 +37,7 @@ Compatibility mirror updated:
 
 - V3 KPI + Outcome/Reach surfaces no longer require primary `stage-results` nodes for core probability/margin/risk display.
 - Runtime MC/risk freshness and framing can continue updating right-rail/sidebar outputs if primary results-stage elements are removed.
+- Runtime D2/D3/D4 envelope caches now remain live even when primary results-stage envelope tables are absent.
 
 ## Remaining runtime coupling (intentional for now)
 
@@ -42,12 +45,11 @@ Compatibility mirror updated:
   - `mcMedian`, `mcP5`, `mcP95`
   - confidence adjunct table fields (`mcMoS`, `mcDownside`, `mcES10`, `mcShift*`, `mcShock*`, `mcRiskLabel`)
   - `mcSensitivity` table
-  - `opsMissProb` / `opsMissTag`
 
 These no longer block boot if missing, but legacy pane parity would degrade if removed before native replacements are completed.
 
 ## Next safe step
 
-1. Add native v3/bridge equivalents for `opsMissProb`/`opsMissTag` and confidence adjunct readouts.
+1. Add native v3/bridge equivalents for remaining confidence adjunct readouts.
 2. Move any remaining consumers from primary-only IDs to bridge cache or right-rail IDs.
 3. Only then retire `stage-results` markup behind a hidden stub.

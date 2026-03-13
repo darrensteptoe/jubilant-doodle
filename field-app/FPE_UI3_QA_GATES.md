@@ -159,6 +159,8 @@ Scope: UI architecture migration only (engine and right rail frozen)
 - Runtime hardening: MC freshness/stale tags now update via sidebar-only targets even when legacy primary freshness nodes are absent.
 - Runtime hardening: risk-framing panel now updates via sidebar-only targets and no longer hard-requires legacy primary risk nodes.
 - Runtime hardening: D4 miss-risk computation/cache now runs without requiring legacy `opsMissProb/opsMissTag` DOM nodes.
+- Runtime hardening: D4 miss-risk UI now mirrors to right-rail IDs (`#opsMissProb-sidebar`, `#opsMissTag-sidebar`) so miss-risk status remains visible when legacy results-table nodes are absent.
+- Runtime hardening: D2/D3 envelope renderers now compute/cache-update even when legacy `opsAtt*` / `opsFinish*` table nodes are absent.
 - Legacy `stage-capacity` visual surface has been retired from `index.html` user flow (hidden retired stub retained during transition); preflight no longer requires legacy Reach assumption IDs.
 - Added v3 stage persistence/cutover behavior (`js/app/v3/index.js`):
   - Active stage persists to local storage.
