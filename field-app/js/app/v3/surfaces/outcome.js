@@ -375,7 +375,6 @@ function wireOutcomeControlProxies() {
   bindFieldProxy("v3OutcomeMcSeed", "mcSeed");
   bindSelectProxy("v3OutcomeMcVolatility", "mcVolatility");
   bindFieldProxy("v3OutcomeTurnoutReliabilityPct", "turnoutReliabilityPct");
-  bindFieldProxy("v3OutcomeMcRuns", "mcRuns");
 
   bindFieldProxy("v3OutcomeMcContactMin", "mcContactMin");
   bindFieldProxy("v3OutcomeMcContactMode", "mcContactMode");
@@ -420,7 +419,13 @@ function refreshOutcomeSummary() {
   syncFieldValue("v3OutcomeMcSeed", "mcSeed");
   syncSelectValue("v3OutcomeMcVolatility", "mcVolatility");
   syncFieldValue("v3OutcomeTurnoutReliabilityPct", "turnoutReliabilityPct");
-  syncFieldValue("v3OutcomeMcRuns", "mcRuns");
+  const mcRunsInput = document.getElementById("v3OutcomeMcRuns");
+  if (mcRunsInput instanceof HTMLInputElement) {
+    if (document.activeElement !== mcRunsInput) {
+      mcRunsInput.value = "10000";
+    }
+    mcRunsInput.disabled = true;
+  }
 
   syncFieldValue("v3OutcomeMcContactMin", "mcContactMin");
   syncFieldValue("v3OutcomeMcContactMode", "mcContactMode");
@@ -458,7 +463,6 @@ function refreshOutcomeSummary() {
   syncControlDisabled("v3OutcomeMcSeed", "mcSeed");
   syncControlDisabled("v3OutcomeMcVolatility", "mcVolatility");
   syncControlDisabled("v3OutcomeTurnoutReliabilityPct", "turnoutReliabilityPct");
-  syncControlDisabled("v3OutcomeMcRuns", "mcRuns");
   syncControlDisabled("v3OutcomeMcContactMin", "mcContactMin");
   syncControlDisabled("v3OutcomeMcContactMode", "mcContactMode");
   syncControlDisabled("v3OutcomeMcContactMax", "mcContactMax");
@@ -503,9 +507,11 @@ function refreshOutcomeSummary() {
 
   const outcomeWinProb = readOutcomeWinProbability();
   setText("v3OutcomeForecastWinProb", outcomeWinProb);
-  const outcomeP10 = readText("#mcP10") || "—";
-  const outcomeP50 = readText("#mcP50") || "—";
-  const outcomeP90 = readText("#mcP90") || "—";
+  const outcomeP10 = readOutcomeSidebarPercentile("mcP10-sidebar");
+  const outcomeP50 =
+    readText("#v3KpiMargin .fpe-kpi__value") ||
+    readOutcomeSidebarPercentile("mcP50-sidebar");
+  const outcomeP90 = readOutcomeSidebarPercentile("mcP90-sidebar");
   const outcomeShiftP50 = deriveShiftFromMargin(outcomeP50);
   const outcomeShiftP10 = deriveShiftFromMargin(outcomeP10);
   const confidenceStats = buildConfidenceStats(outcomeP10, outcomeP50, outcomeP90, outcomeWinProb);
@@ -840,6 +846,16 @@ function parseSignedNumber(rawValue) {
 function readOutcomeWinProbability() {
   const kpiValue = readText("#v3KpiWinProb .fpe-kpi__value");
   return kpiValue || "—";
+}
+
+function readOutcomeSidebarPercentile(id) {
+  const raw = readText(`#${id}`);
+  if (!raw) {
+    return "—";
+  }
+  const idx = raw.indexOf(":");
+  const value = idx >= 0 ? raw.slice(idx + 1).trim() : raw.trim();
+  return value || "—";
 }
 
 function deriveGapFromNote(noteText) {
