@@ -92,22 +92,22 @@ export function renderMcResultsPanel({
   setTextPair,
   renderMcVisuals
 }){
-  if (!els.mcWinProb) return;
+  if (!els || (!els.mcWinProb && !els.mcWinProbSidebar)) return;
 
   if (summary.winProbTurnoutAdjusted != null && summary.winProbTurnoutAdjusted !== summary.winProb){
     setTextPair(els.mcWinProb, els.mcWinProbSidebar, `${(summary.winProb * 100).toFixed(1)}% (TA: ${(summary.winProbTurnoutAdjusted * 100).toFixed(1)}%)`);
   } else {
     setTextPair(els.mcWinProb, els.mcWinProbSidebar, `${(summary.winProb * 100).toFixed(1)}%`);
   }
-  els.mcMedian.textContent = fmtSigned(summary.median);
-  els.mcP5.textContent = fmtSigned(summary.p5);
-  els.mcP95.textContent = fmtSigned(summary.p95);
+  if (els.mcMedian) els.mcMedian.textContent = fmtSigned(summary.median);
+  if (els.mcP5) els.mcP5.textContent = fmtSigned(summary.p5);
+  if (els.mcP95) els.mcP95.textContent = fmtSigned(summary.p95);
 
   if (summary.confidenceEnvelope){
     const ce = summary.confidenceEnvelope;
-    if (els.mcP10) setTextPair(els.mcP10, els.mcP10Sidebar, fmtSigned(ce.percentiles?.p10));
-    if (els.mcP50) setTextPair(els.mcP50, els.mcP50Sidebar, fmtSigned(ce.percentiles?.p50));
-    if (els.mcP90) setTextPair(els.mcP90, els.mcP90Sidebar, fmtSigned(ce.percentiles?.p90));
+    if (els.mcP10 || els.mcP10Sidebar) setTextPair(els.mcP10, els.mcP10Sidebar, fmtSigned(ce.percentiles?.p10));
+    if (els.mcP50 || els.mcP50Sidebar) setTextPair(els.mcP50, els.mcP50Sidebar, fmtSigned(ce.percentiles?.p50));
+    if (els.mcP90 || els.mcP90Sidebar) setTextPair(els.mcP90, els.mcP90Sidebar, fmtSigned(ce.percentiles?.p90));
     if (els.mcMoS) els.mcMoS.textContent = fmtSigned(ce.risk?.marginOfSafety);
     if (els.mcDownside) els.mcDownside.textContent = `${((ce.risk?.downsideRiskMass ?? 0) * 100).toFixed(1)}%`;
     if (els.mcES10) els.mcES10.textContent = fmtSigned(ce.risk?.expectedShortfall10);

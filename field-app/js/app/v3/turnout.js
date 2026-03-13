@@ -199,7 +199,8 @@ function refreshTurnoutSummary() {
   setText("v3TurnoutNeedVotes", snapshot.needVotes || "-");
   setText("v3TurnoutImpactVotes", readText("#kpiTurnoutVotes-sidebar"));
   setText("v3TurnoutImpactNeed", readText("#kpiPersuasionNeed-sidebar"));
-  setText("v3TurnoutImpactMargin", readText("#mcP50"));
+  const marginContext = readText("#v3KpiMargin .fpe-kpi__value") || readText("#mcP50-sidebar");
+  setText("v3TurnoutImpactMargin", marginContext);
   setText("v3TurnoutImpactWinProb", readText("#mcWinProb-sidebar"));
   syncButtonDisabled("v3BtnRoiRefresh", "roiRefresh");
   syncCheckboxValue("v3TurnoutEnabledToggle", "turnoutEnabled");
