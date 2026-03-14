@@ -146,6 +146,13 @@ export function runV3QaSmoke({ restoreStage = true, logToConsole = true } = {}) 
   recordCheck(checks, "v3-kpi-strip", isTruthy(document.getElementById("v3KpiStrip")));
   recordCheck(checks, "v3-right-rail-slot", isTruthy(document.getElementById("v3RightRailSlot")));
   recordCheck(checks, "legacy-shell-hidden", isTruthy(document.getElementById("app-shell-legacy")?.hidden));
+  recordCheck(checks, "district-bridge-api", hasBridgeGetter("__FPE_DISTRICT_API__"));
+  recordCheck(checks, "reach-bridge-api", hasBridgeGetter("__FPE_REACH_API__"));
+  recordCheck(checks, "turnout-bridge-api", hasBridgeGetter("__FPE_TURNOUT_API__"));
+  recordCheck(checks, "plan-bridge-api", hasBridgeGetter("__FPE_PLAN_API__"));
+  recordCheck(checks, "outcome-bridge-api", hasBridgeGetter("__FPE_OUTCOME_API__"));
+  recordCheck(checks, "decision-bridge-api", hasBridgeGetter("__FPE_DECISION_API__"));
+  recordCheck(checks, "data-bridge-api", hasBridgeGetter("__FPE_DATA_API__"));
   recordCheck(checks, "legacy-census-bridge-host", isTruthy(document.getElementById("legacyCensusBridgeHost")));
   recordCheck(
     checks,
@@ -254,6 +261,29 @@ export function runV3QaSmoke({ restoreStage = true, logToConsole = true } = {}) 
       );
     }
 
+    if (stage.id === "district") {
+      const districtView = readBridgeView("__FPE_DISTRICT_API__");
+      recordCheck(
+        checks,
+        "district:bridge-view-summary",
+        isTruthy(districtView && typeof districtView.summary === "object")
+      );
+      const summary = districtView?.summary || {};
+      recordCheck(
+        checks,
+        "district:bridge-summary-keys",
+        isTruthy(
+          hasNonEmpty(summary.universeText)
+          && hasNonEmpty(summary.baselineSupportText)
+          && hasNonEmpty(summary.turnoutExpectedText)
+          && hasNonEmpty(summary.turnoutBandText)
+          && hasNonEmpty(summary.votesPer1pctText)
+          && hasNonEmpty(summary.projectedVotesText)
+          && hasNonEmpty(summary.persuasionNeedText)
+        )
+      );
+    }
+
     if (pane instanceof HTMLElement) {
       const expectsNoLegacyBridge = STAGES_EXPECTING_NO_LEGACY_BRIDGE.has(stage.id);
       const bridgedControls = Array.from(pane.querySelectorAll("[data-v3-legacy-id]"));
@@ -316,6 +346,28 @@ function recordCheck(checks, name, pass) {
 
 function isTruthy(value) {
   return Boolean(value);
+}
+
+function hasNonEmpty(value) {
+  const text = String(value == null ? "" : value).trim();
+  return text.length > 0;
+}
+
+function hasBridgeGetter(key) {
+  const bridge = window?.[key];
+  return !!bridge && typeof bridge.getView === "function";
+}
+
+function readBridgeView(key) {
+  try {
+    const bridge = window?.[key];
+    if (!bridge || typeof bridge.getView !== "function") {
+      return null;
+    }
+    return bridge.getView();
+  } catch {
+    return null;
+  }
 }
 
 function isSelectorInPane(pane, selector) {

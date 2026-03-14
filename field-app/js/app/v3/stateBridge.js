@@ -87,25 +87,30 @@ function readExpectedTurnoutPct() {
 }
 
 function readDistrictBridgeSummary() {
+  const view = readDistrictBridgeView();
+  const summary = view?.summary;
+  if (!summary || typeof summary !== "object") {
+    return null;
+  }
+  return {
+    universe: String(summary.universeText || "").trim(),
+    baselineSupport: String(summary.baselineSupportText || "").trim(),
+    turnoutExpected: String(summary.turnoutExpectedText || "").trim(),
+    turnoutBand: String(summary.turnoutBandText || "").trim(),
+    votesPer1pct: String(summary.votesPer1pctText || "").trim(),
+    projectedVotes: String(summary.projectedVotesText || "").trim(),
+    persuasionNeed: String(summary.persuasionNeedText || "").trim(),
+  };
+}
+
+function readDistrictBridgeView() {
   try {
     const api = window[DISTRICT_API_KEY];
     if (!api || typeof api.getView !== "function") {
       return null;
     }
     const view = api.getView();
-    const summary = view?.summary;
-    if (!summary || typeof summary !== "object") {
-      return null;
-    }
-    return {
-      universe: String(summary.universeText || "").trim(),
-      baselineSupport: String(summary.baselineSupportText || "").trim(),
-      turnoutExpected: String(summary.turnoutExpectedText || "").trim(),
-      turnoutBand: String(summary.turnoutBandText || "").trim(),
-      votesPer1pct: String(summary.votesPer1pctText || "").trim(),
-      projectedVotes: String(summary.projectedVotesText || "").trim(),
-      persuasionNeed: String(summary.persuasionNeedText || "").trim(),
-    };
+    return view && typeof view === "object" ? view : null;
   } catch {
     return null;
   }
@@ -129,6 +134,30 @@ export function readDistrictSnapshot() {
     votesPer1pct: !isMissingValue(bridgeSummary?.votesPer1pct) ? bridgeSummary.votesPer1pct : (votesPer1pctFallback || "-"),
     projectedVotes: !isMissingValue(bridgeSummary?.projectedVotes) ? bridgeSummary.projectedVotes : (projectedVotesFallback || "-"),
     persuasionNeed: !isMissingValue(bridgeSummary?.persuasionNeed) ? bridgeSummary.persuasionNeed : (persuasionNeedFallback || "-")
+  };
+}
+
+export function readDistrictTargetingSnapshot() {
+  const view = readDistrictBridgeView();
+  const targeting = view?.targeting;
+  if (!targeting || typeof targeting !== "object") {
+    return null;
+  }
+
+  const rowsRaw = Array.isArray(targeting.rows) ? targeting.rows : [];
+  const rows = rowsRaw.map((row) => ({
+    rank: String(row?.rankText || "").trim(),
+    geography: String(row?.geoText || "").trim(),
+    score: String(row?.scoreText || "").trim(),
+    votesPerHour: String(row?.votesPerHourText || "").trim(),
+    reason: String(row?.reasonText || "").trim(),
+    flags: String(row?.flagsText || "").trim(),
+  })).filter((row) => row.rank || row.geography || row.score || row.votesPerHour || row.reason || row.flags);
+
+  return {
+    statusText: String(targeting.statusText || "").trim(),
+    metaText: String(targeting.metaText || "").trim(),
+    rows,
   };
 }
 

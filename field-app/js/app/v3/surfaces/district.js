@@ -6,7 +6,7 @@ import {
   createWhyPanel,
   getCardBody
 } from "../componentFactory.js";
-import { readDistrictSnapshot } from "../stateBridge.js";
+import { readDistrictSnapshot, readDistrictTargetingSnapshot } from "../stateBridge.js";
 import {
   bindCheckboxProxy,
   bindFieldProxy,
@@ -769,16 +769,22 @@ function readRateDecimal(ids = []) {
 }
 
 function syncDistrictTargetingLab() {
-  setText("v3DistrictTargetingStatus", document.getElementById("targetingStatus")?.textContent || "");
-  setText("v3DistrictTargetingMeta", document.getElementById("targetingMeta")?.textContent || "");
-
-  syncLegacyTableRows({
-    sourceSelector: "#targetingResultsTbody",
-    targetBodyId: "v3DistrictTargetingResultsTbody",
-    expectedCols: 6,
-    emptyLabel: "Run targeting to generate ranked GEOs.",
-    numericColumns: [0, 2, 3]
-  });
+  const bridgeSnapshot = readDistrictTargetingSnapshot();
+  if (bridgeSnapshot) {
+    setText("v3DistrictTargetingStatus", bridgeSnapshot.statusText || "Run targeting to generate ranked GEOs.");
+    setText("v3DistrictTargetingMeta", bridgeSnapshot.metaText || "No targeting run yet.");
+    renderDistrictTargetingRows(bridgeSnapshot.rows || []);
+  } else {
+    setText("v3DistrictTargetingStatus", document.getElementById("targetingStatus")?.textContent || "");
+    setText("v3DistrictTargetingMeta", document.getElementById("targetingMeta")?.textContent || "");
+    syncLegacyTableRows({
+      sourceSelector: "#targetingResultsTbody",
+      targetBodyId: "v3DistrictTargetingResultsTbody",
+      expectedCols: 6,
+      emptyLabel: "Run targeting to generate ranked GEOs.",
+      numericColumns: [0, 2, 3]
+    });
+  }
 
   syncSelectValue("v3DistrictTargetingGeoLevel", "targetingGeoLevel");
   syncSelectValue("v3DistrictTargetingModelId", "targetingModelId");
@@ -815,6 +821,43 @@ function syncDistrictTargetingLab() {
   syncButtonDisabled("v3BtnDistrictRunTargeting", "btnRunTargeting");
   syncButtonDisabled("v3BtnDistrictExportTargetingCsv", "btnExportTargetingCsv");
   syncButtonDisabled("v3BtnDistrictExportTargetingJson", "btnExportTargetingJson");
+}
+
+function renderDistrictTargetingRows(rows) {
+  const tbody = document.getElementById("v3DistrictTargetingResultsTbody");
+  if (!(tbody instanceof HTMLElement)) {
+    return;
+  }
+  tbody.innerHTML = "";
+  const list = Array.isArray(rows) ? rows : [];
+  if (!list.length) {
+    const tr = document.createElement("tr");
+    tr.innerHTML = '<td class="muted" colspan="6">Run targeting to generate ranked GEOs.</td>';
+    tbody.append(tr);
+    return;
+  }
+
+  for (const row of list) {
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td class="num">${escapeHtml(row.rank || "—")}</td>
+      <td>${escapeHtml(row.geography || "—")}</td>
+      <td class="num">${escapeHtml(row.score || "—")}</td>
+      <td class="num">${escapeHtml(row.votesPerHour || "—")}</td>
+      <td>${escapeHtml(row.reason || "—")}</td>
+      <td>${escapeHtml(row.flags || "—")}</td>
+    `;
+    tbody.append(tr);
+  }
+}
+
+function escapeHtml(value) {
+  return String(value == null ? "" : value)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
 }
 
 function renderDistrictCensusProxyShell({ legacyCard, target }) {
