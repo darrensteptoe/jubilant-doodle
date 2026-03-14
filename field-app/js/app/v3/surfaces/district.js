@@ -1587,9 +1587,7 @@ function syncCensusMapShellState() {
     return;
   }
 
-  const statusText =
-    (document.getElementById("v3CensusMapStatus")?.textContent || "").trim() ||
-    (document.getElementById("censusMapStatus")?.textContent || "").trim();
+  const statusText = (document.getElementById("v3CensusMapStatus")?.textContent || "").trim();
   const isIdle = isCensusMapIdle(statusText);
   shell.classList.toggle("is-idle", isIdle);
   shell.classList.toggle("is-active", !isIdle);
@@ -1603,9 +1601,7 @@ function syncCensusMapShellState() {
 }
 
 function syncDistrictCensusMessageTones() {
-  const advisoryText =
-    (document.getElementById("v3CensusAdvisoryStatus")?.textContent || "").trim() ||
-    (document.getElementById("censusAdvisoryStatus")?.textContent || "").trim();
+  const advisoryText = (document.getElementById("v3CensusAdvisoryStatus")?.textContent || "").trim();
   syncMessageToneByWindow("v3CensusAdvisoryStatusWindow", advisoryText, "Signal status");
 
   const footprintText = [
