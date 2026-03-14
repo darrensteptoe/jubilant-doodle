@@ -1426,6 +1426,10 @@ function initLegacyInlineShell() {
   if (host && host.dataset.legacyInlineInit === '1') return;
   if (host) host.dataset.legacyInlineInit = '1';
 
+  restoreLegacyCardToOrigin('stage-setup');
+  restoreLegacyCardToOrigin('stage-universe');
+  restoreLegacyCardToOrigin('stage-ballot');
+  restoreLegacyCardToOrigin('stage-structure');
   restoreLegacyCardToOrigin('censusPhase1Card');
   restoreLegacyCardToOrigin('targetingLabCard');
   normalizeStages();
@@ -1445,6 +1449,10 @@ document.addEventListener('DOMContentLoaded', function(){
     return;
   }
 
+  moveLegacyCardToBridgeHost('stage-setup');
+  moveLegacyCardToBridgeHost('stage-universe');
+  moveLegacyCardToBridgeHost('stage-ballot');
+  moveLegacyCardToBridgeHost('stage-structure');
   moveLegacyCardToBridgeHost('censusPhase1Card');
   moveLegacyCardToBridgeHost('targetingLabCard');
   window.setTimeout(function(){

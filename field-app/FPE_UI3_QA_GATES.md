@@ -256,6 +256,8 @@ Scope: UI architecture migration only (engine and right rail frozen)
 - Controls census bridge now exposes native v3 body actions for GEO selection (`Apply GEOIDs`, `Select all`, `Clear selection`), aggregate exports (`Export CSV/JSON`), and election CSV workflow (`template downloads`, `dry-run`, `clear preview`) with proxy wiring to legacy handlers.
 - Legacy-shell hardening: added runtime Census bridge host isolation (`#legacyCensusBridgeHost`) so `#censusPhase1Card` and `#targetingLabCard` are rehomed outside `stage-checks` during v3 boot and restored when explicit legacy mode is requested.
 - QA hardening: v3 smoke now asserts Census/Targeting bridge-host mounts (`legacy-census-bridge-host`, `legacy-census-bridge-mounted`, `legacy-targeting-bridge-mounted`) to catch stage-checks coupling regressions early.
+- Legacy-shell hardening: setup-era legacy stage sections (`#stage-setup`, `#stage-universe`, `#stage-ballot`, `#stage-structure`) are now rehomed into `#legacyCensusBridgeHost` during v3 boot and restored in explicit legacy mode.
+- QA hardening: v3 smoke now asserts setup-era bridge-host mounts (`legacy-setup-bridge-mounted`, `legacy-universe-bridge-mounted`, `legacy-ballot-bridge-mounted`, `legacy-structure-bridge-mounted`) to catch stage-layout coupling regressions.
 - Resolved duplicate ID conflict in Decision Log (`v3DecisionObjective`) and added focused-field sync guards in Controls/Decision Log bridge loops to prevent input jitter during periodic refresh.
 - Static selector audits currently pass:
   - All legacy IDs referenced by v3 surface bridges are present in `index.html`.

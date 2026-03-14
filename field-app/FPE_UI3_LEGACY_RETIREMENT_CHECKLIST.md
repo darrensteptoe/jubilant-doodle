@@ -137,6 +137,7 @@ Reference artifact:
 - Data v3 controls now execute through runtime data API bridge (`window.__FPE_DATA_API__`) with zero direct legacy selector bindings in the Data surface.
 - Legacy Census/Targeting bridge isolation added in `index.html`: `#censusPhase1Card` and `#targetingLabCard` now move into hidden `#legacyCensusBridgeHost` during v3 boot (and restore for explicit legacy mode), reducing structural coupling between District bridge controls and the `stage-checks` container.
 - Legacy `checks` nav entry has been removed from legacy user flow, and `stage-checks` is now hidden/retired in legacy flow while retaining internal IDs for compatibility during District bridge reduction.
+- Legacy setup-era stage isolation added in `index.html`: `#stage-setup`, `#stage-universe`, `#stage-ballot`, and `#stage-structure` now move into hidden `#legacyCensusBridgeHost` during v3 boot (and restore for explicit legacy mode), reducing legacy stage-layout coupling while preserving ID compatibility.
 
 ## Stage dependency map (current)
 Counts below are unique legacy IDs referenced by each v3 surface.
