@@ -161,6 +161,33 @@ export function readDistrictTargetingSnapshot() {
   };
 }
 
+export function readDistrictCensusSnapshot() {
+  const view = readDistrictBridgeView();
+  const census = view?.census;
+  if (!census || typeof census !== "object") {
+    return null;
+  }
+
+  return {
+    contextHint: String(census.contextHint || "").trim(),
+    selectionSetStatus: String(census.selectionSetStatus || "").trim(),
+    statusText: String(census.statusText || "").trim(),
+    geoStatsText: String(census.geoStatsText || "").trim(),
+    lastFetchText: String(census.lastFetchText || "").trim(),
+    selectionSummaryText: String(census.selectionSummaryText || "").trim(),
+    raceFootprintStatusText: String(census.raceFootprintStatusText || "").trim(),
+    assumptionProvenanceStatusText: String(census.assumptionProvenanceStatusText || "").trim(),
+    footprintCapacityStatusText: String(census.footprintCapacityStatusText || "").trim(),
+    applyAdjustmentsStatusText: String(census.applyAdjustmentsStatusText || "").trim(),
+    advisoryStatusText: String(census.advisoryStatusText || "").trim(),
+    electionCsvGuideStatusText: String(census.electionCsvGuideStatusText || "").trim(),
+    electionCsvDryRunStatusText: String(census.electionCsvDryRunStatusText || "").trim(),
+    electionCsvPreviewMetaText: String(census.electionCsvPreviewMetaText || "").trim(),
+    mapStatusText: String(census.mapStatusText || "").trim(),
+    mapQaVtdZipStatusText: String(census.mapQaVtdZipStatusText || "").trim(),
+  };
+}
+
 export function readTurnoutSnapshot() {
   const bridgeSummary = readTurnoutBridgeSummary();
   return {

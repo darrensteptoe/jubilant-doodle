@@ -6,7 +6,11 @@ import {
   createWhyPanel,
   getCardBody
 } from "../componentFactory.js";
-import { readDistrictSnapshot, readDistrictTargetingSnapshot } from "../stateBridge.js";
+import {
+  readDistrictSnapshot,
+  readDistrictTargetingSnapshot,
+  readDistrictCensusSnapshot
+} from "../stateBridge.js";
 import {
   bindCheckboxProxy,
   bindFieldProxy,
@@ -1244,22 +1248,103 @@ function bindDistrictCensusProxies() {
 }
 
 function syncDistrictCensusProxy() {
-  syncLegacyText("v3CensusContextHint", "censusContextHint", "State-only context active for this resolution.");
-  syncLegacyText("v3CensusSelectionSetStatus", "censusSelectionSetStatus", "No saved selection sets.");
-  syncLegacyText("v3CensusStatus", "censusStatus", "Ready.");
-  syncLegacyText("v3CensusGeoStats", "censusGeoStats", "0 selected of 0 GEOs. 0 rows loaded.");
-  syncLegacyText("v3CensusLastFetch", "censusLastFetch", "No fetch yet.");
-  syncLegacyText("v3CensusSelectionSummary", "censusSelectionSummary", "No GEO selected.");
-  syncLegacyText("v3CensusRaceFootprintStatus", "censusRaceFootprintStatus", "Race footprint not set.");
-  syncLegacyText("v3CensusAssumptionProvenanceStatus", "censusAssumptionProvenanceStatus", "Assumption provenance not set.");
-  syncLegacyText("v3CensusFootprintCapacityStatus", "censusFootprintCapacityStatus", "Footprint capacity: not set.");
-  syncLegacyText("v3CensusApplyAdjustmentsStatus", "censusApplyAdjustmentsStatus", "Census-adjusted assumptions are OFF.");
-  syncLegacyText("v3CensusAdvisoryStatus", "censusAdvisoryStatus", "Assumption advisory pending.");
-  syncLegacyText("v3CensusElectionCsvGuideStatus", "censusElectionCsvGuideStatus", "Election CSV schema guide loading.");
-  syncLegacyText("v3CensusElectionCsvDryRunStatus", "censusElectionCsvDryRunStatus", "No dry-run run yet.");
-  syncLegacyText("v3CensusElectionCsvPreviewMeta", "censusElectionCsvPreviewMeta", "No normalized preview rows.");
-  syncLegacyText("v3CensusMapStatus", "censusMapStatus", "Map idle. Select GEO units and click Load boundaries.");
-  syncLegacyText("v3CensusMapQaVtdZipStatus", "censusMapQaVtdZipStatus", "No VTD ZIP loaded.");
+  const bridgeSnapshot = readDistrictCensusSnapshot();
+  syncLegacyOrBridgeText({
+    v3Id: "v3CensusContextHint",
+    legacyId: "censusContextHint",
+    bridgeText: bridgeSnapshot?.contextHint,
+    fallback: "State-only context active for this resolution."
+  });
+  syncLegacyOrBridgeText({
+    v3Id: "v3CensusSelectionSetStatus",
+    legacyId: "censusSelectionSetStatus",
+    bridgeText: bridgeSnapshot?.selectionSetStatus,
+    fallback: "No saved selection sets."
+  });
+  syncLegacyOrBridgeText({
+    v3Id: "v3CensusStatus",
+    legacyId: "censusStatus",
+    bridgeText: bridgeSnapshot?.statusText,
+    fallback: "Ready."
+  });
+  syncLegacyOrBridgeText({
+    v3Id: "v3CensusGeoStats",
+    legacyId: "censusGeoStats",
+    bridgeText: bridgeSnapshot?.geoStatsText,
+    fallback: "0 selected of 0 GEOs. 0 rows loaded."
+  });
+  syncLegacyOrBridgeText({
+    v3Id: "v3CensusLastFetch",
+    legacyId: "censusLastFetch",
+    bridgeText: bridgeSnapshot?.lastFetchText,
+    fallback: "No fetch yet."
+  });
+  syncLegacyOrBridgeText({
+    v3Id: "v3CensusSelectionSummary",
+    legacyId: "censusSelectionSummary",
+    bridgeText: bridgeSnapshot?.selectionSummaryText,
+    fallback: "No GEO selected."
+  });
+  syncLegacyOrBridgeText({
+    v3Id: "v3CensusRaceFootprintStatus",
+    legacyId: "censusRaceFootprintStatus",
+    bridgeText: bridgeSnapshot?.raceFootprintStatusText,
+    fallback: "Race footprint not set."
+  });
+  syncLegacyOrBridgeText({
+    v3Id: "v3CensusAssumptionProvenanceStatus",
+    legacyId: "censusAssumptionProvenanceStatus",
+    bridgeText: bridgeSnapshot?.assumptionProvenanceStatusText,
+    fallback: "Assumption provenance not set."
+  });
+  syncLegacyOrBridgeText({
+    v3Id: "v3CensusFootprintCapacityStatus",
+    legacyId: "censusFootprintCapacityStatus",
+    bridgeText: bridgeSnapshot?.footprintCapacityStatusText,
+    fallback: "Footprint capacity: not set."
+  });
+  syncLegacyOrBridgeText({
+    v3Id: "v3CensusApplyAdjustmentsStatus",
+    legacyId: "censusApplyAdjustmentsStatus",
+    bridgeText: bridgeSnapshot?.applyAdjustmentsStatusText,
+    fallback: "Census-adjusted assumptions are OFF."
+  });
+  syncLegacyOrBridgeText({
+    v3Id: "v3CensusAdvisoryStatus",
+    legacyId: "censusAdvisoryStatus",
+    bridgeText: bridgeSnapshot?.advisoryStatusText,
+    fallback: "Assumption advisory pending."
+  });
+  syncLegacyOrBridgeText({
+    v3Id: "v3CensusElectionCsvGuideStatus",
+    legacyId: "censusElectionCsvGuideStatus",
+    bridgeText: bridgeSnapshot?.electionCsvGuideStatusText,
+    fallback: "Election CSV schema guide loading."
+  });
+  syncLegacyOrBridgeText({
+    v3Id: "v3CensusElectionCsvDryRunStatus",
+    legacyId: "censusElectionCsvDryRunStatus",
+    bridgeText: bridgeSnapshot?.electionCsvDryRunStatusText,
+    fallback: "No dry-run run yet."
+  });
+  syncLegacyOrBridgeText({
+    v3Id: "v3CensusElectionCsvPreviewMeta",
+    legacyId: "censusElectionCsvPreviewMeta",
+    bridgeText: bridgeSnapshot?.electionCsvPreviewMetaText,
+    fallback: "No normalized preview rows."
+  });
+  syncLegacyOrBridgeText({
+    v3Id: "v3CensusMapStatus",
+    legacyId: "censusMapStatus",
+    bridgeText: bridgeSnapshot?.mapStatusText,
+    fallback: "Map idle. Select GEO units and click Load boundaries."
+  });
+  syncLegacyOrBridgeText({
+    v3Id: "v3CensusMapQaVtdZipStatus",
+    legacyId: "censusMapQaVtdZipStatus",
+    bridgeText: bridgeSnapshot?.mapQaVtdZipStatusText,
+    fallback: "No VTD ZIP loaded."
+  });
 
   syncSelectValue("v3CensusAcsYear", "censusAcsYear");
   syncSelectValue("v3CensusResolution", "censusResolution");
@@ -1347,6 +1432,15 @@ function syncLegacyText(v3Id, legacyId, fallback = "—") {
   }
   const text = (document.getElementById(legacyId)?.textContent || "").trim();
   target.textContent = text || fallback;
+}
+
+function syncLegacyOrBridgeText({ v3Id, legacyId, bridgeText, fallback = "—" }) {
+  const text = String(bridgeText || "").trim();
+  if (text) {
+    setText(v3Id, text);
+    return;
+  }
+  syncLegacyText(v3Id, legacyId, fallback);
 }
 
 function bindMultiSelectProxy(v3Id, legacyId) {

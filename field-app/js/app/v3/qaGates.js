@@ -282,6 +282,16 @@ export function runV3QaSmoke({ restoreStage = true, logToConsole = true } = {}) 
           && hasNonEmpty(summary.persuasionNeedText)
         )
       );
+      const census = districtView?.census || {};
+      recordCheck(
+        checks,
+        "district:bridge-census-keys",
+        isTruthy(
+          hasNonEmpty(census.statusText)
+          && hasNonEmpty(census.geoStatsText)
+          && hasNonEmpty(census.selectionSummaryText)
+        )
+      );
     }
 
     if (pane instanceof HTMLElement) {
