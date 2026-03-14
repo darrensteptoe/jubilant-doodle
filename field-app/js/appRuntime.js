@@ -202,7 +202,16 @@ import {
   upsertBenchmarkEntry,
   removeBenchmarkEntry,
   loadDefaultBenchmarksForRaceType,
-  attachEvidenceRecord
+  attachEvidenceRecord,
+  generateCalibrationSourceBrief,
+  generateScenarioSummaryBrief,
+  generateScenarioDiffBrief,
+  generateDriftExplanationBrief,
+  generateSensitivityInterpretationBrief,
+  addDefaultCorrelationModel,
+  importCorrelationModelsJson,
+  addDefaultShockScenario,
+  importShockScenariosJson
 } from "./app/intelControlsRuntime.js";
 import { renderIntelChecksModule } from "./app/renderIntelChecks.js";
 import { applyWeeklyLeverScenarioModule } from "./app/weeklyLeverScenarioAction.js";
@@ -2122,9 +2131,123 @@ function scenarioBridgeAttachEvidence(payload){
   };
 }
 
+function scenarioBridgeGenerateIntelBrief(kind){
+  const briefKind = String(kind || "calibrationSources").trim() || "calibrationSources";
+  let result = null;
+  if (briefKind === "scenarioSummary"){
+    result = generateScenarioSummaryBrief(state);
+  } else if (briefKind === "scenarioDiff"){
+    result = generateScenarioDiffBrief(state, { baselineId: "baseline" });
+  } else if (briefKind === "driftExplanation"){
+    result = generateDriftExplanationBrief(state, { drift: computeRealityDrift() });
+  } else if (briefKind === "sensitivityInterpretation"){
+    result = generateSensitivityInterpretationBrief(state);
+  } else {
+    result = generateCalibrationSourceBrief(state);
+  }
+  if (!result?.ok){
+    return {
+      ok: false,
+      code: "generate_brief_failed",
+      error: String(result?.error || "Failed to generate brief."),
+      kind: briefKind,
+      view: scenarioBridgeStateView()
+    };
+  }
+  commitUIUpdate({ allowScenarioLockBypass: true });
+  return {
+    ok: true,
+    kind: briefKind,
+    brief: result.brief || null,
+    view: scenarioBridgeStateView()
+  };
+}
+
+function scenarioBridgeAddDefaultCorrelation(){
+  const result = addDefaultCorrelationModel(state);
+  if (!result?.ok){
+    return {
+      ok: false,
+      code: "add_correlation_failed",
+      error: String(result?.error || "Failed to add default correlation model."),
+      view: scenarioBridgeStateView()
+    };
+  }
+  markMcStale();
+  commitUIUpdate({ allowScenarioLockBypass: true });
+  return {
+    ok: true,
+    mode: result.mode || "updated",
+    row: result.row || null,
+    view: scenarioBridgeStateView()
+  };
+}
+
+function scenarioBridgeImportCorrelationModels(jsonText){
+  const result = importCorrelationModelsJson(state, jsonText || "");
+  if (!result?.ok){
+    return {
+      ok: false,
+      code: "import_correlation_failed",
+      error: String(result?.error || "Failed to import correlation models."),
+      view: scenarioBridgeStateView()
+    };
+  }
+  markMcStale();
+  commitUIUpdate({ allowScenarioLockBypass: true });
+  return {
+    ok: true,
+    created: Number(result.created || 0),
+    updated: Number(result.updated || 0),
+    view: scenarioBridgeStateView()
+  };
+}
+
+function scenarioBridgeAddDefaultShock(){
+  const result = addDefaultShockScenario(state);
+  if (!result?.ok){
+    return {
+      ok: false,
+      code: "add_shock_failed",
+      error: String(result?.error || "Failed to add default shock scenario."),
+      view: scenarioBridgeStateView()
+    };
+  }
+  markMcStale();
+  commitUIUpdate({ allowScenarioLockBypass: true });
+  return {
+    ok: true,
+    mode: result.mode || "updated",
+    row: result.row || null,
+    view: scenarioBridgeStateView()
+  };
+}
+
+function scenarioBridgeImportShockScenarios(jsonText){
+  const result = importShockScenariosJson(state, jsonText || "");
+  if (!result?.ok){
+    return {
+      ok: false,
+      code: "import_shock_failed",
+      error: String(result?.error || "Failed to import shock scenarios."),
+      view: scenarioBridgeStateView()
+    };
+  }
+  markMcStale();
+  commitUIUpdate({ allowScenarioLockBypass: true });
+  return {
+    ok: true,
+    created: Number(result.created || 0),
+    updated: Number(result.updated || 0),
+    view: scenarioBridgeStateView()
+  };
+}
+
 function installScenarioBridge(){
   window[SCENARIO_BRIDGE_KEY] = {
     getView: () => scenarioBridgeStateView(),
+    getLiveInputs: () => scenarioClone(scenarioInputsFromState(state) || {}),
+    getLiveOutputs: () => scenarioClone(scenarioOutputsFromState(state) || {}),
     selectScenario: (id) => scenarioBridgeSelect(id),
     saveNew: (name) => scenarioBridgeSaveNew(name),
     cloneBaseline: (name) => scenarioBridgeCloneBaseline(name),
@@ -2137,7 +2260,12 @@ function installScenarioBridge(){
     saveBenchmark: (payload) => scenarioBridgeSaveBenchmark(payload),
     loadDefaultBenchmarks: (raceType) => scenarioBridgeLoadDefaultBenchmarks(raceType),
     removeBenchmark: (benchmarkId) => scenarioBridgeRemoveBenchmark(benchmarkId),
-    attachEvidence: (payload) => scenarioBridgeAttachEvidence(payload)
+    attachEvidence: (payload) => scenarioBridgeAttachEvidence(payload),
+    generateIntelBrief: (kind) => scenarioBridgeGenerateIntelBrief(kind),
+    addDefaultCorrelationModel: () => scenarioBridgeAddDefaultCorrelation(),
+    importCorrelationModels: (jsonText) => scenarioBridgeImportCorrelationModels(jsonText),
+    addDefaultShockScenario: () => scenarioBridgeAddDefaultShock(),
+    importShockScenarios: (jsonText) => scenarioBridgeImportShockScenarios(jsonText)
   };
 }
 
