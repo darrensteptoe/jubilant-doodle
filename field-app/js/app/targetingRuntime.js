@@ -10,6 +10,234 @@ const TARGET_GEO_LEVELS = Object.freeze([
   { id: "tract", label: "Tract" },
 ]);
 
+const TARGET_MODEL_PRESETS = Object.freeze({
+  turnout_opportunity: Object.freeze({
+    id: "turnout_opportunity",
+    modelId: "turnout_opportunity",
+    label: "Turnout Opportunity (Core)",
+    description: "Core turnout-opportunity profile.",
+    geoLevel: "block_group",
+    topN: 50,
+    minHousingUnits: 50,
+    minPopulation: 120,
+    minScore: 0.35,
+    excludeZeroHousing: true,
+    onlyRaceFootprint: true,
+    criteria: {
+      prioritizeYoung: true,
+      prioritizeRenters: true,
+      avoidHighMultiUnit: false,
+      densityFloor: "medium",
+    },
+    weights: {
+      votePotential: 0.30,
+      turnoutOpportunity: 0.50,
+      persuasionIndex: 0.10,
+      fieldEfficiency: 0.10,
+    },
+  }),
+  persuasion_first: Object.freeze({
+    id: "persuasion_first",
+    modelId: "persuasion_first",
+    label: "Persuasion First (Core)",
+    description: "Core persuasion-first profile.",
+    geoLevel: "block_group",
+    topN: 40,
+    minHousingUnits: 40,
+    minPopulation: 100,
+    minScore: 0.40,
+    excludeZeroHousing: true,
+    onlyRaceFootprint: true,
+    criteria: {
+      prioritizeYoung: false,
+      prioritizeRenters: false,
+      avoidHighMultiUnit: false,
+      densityFloor: "medium",
+    },
+    weights: {
+      votePotential: 0.30,
+      turnoutOpportunity: 0.15,
+      persuasionIndex: 0.45,
+      fieldEfficiency: 0.10,
+    },
+  }),
+  field_efficiency: Object.freeze({
+    id: "field_efficiency",
+    modelId: "field_efficiency",
+    label: "Field Efficiency (Core)",
+    description: "Core field-efficiency profile.",
+    geoLevel: "block_group",
+    topN: 35,
+    minHousingUnits: 75,
+    minPopulation: 150,
+    minScore: 0.50,
+    excludeZeroHousing: true,
+    onlyRaceFootprint: true,
+    criteria: {
+      prioritizeYoung: false,
+      prioritizeRenters: false,
+      avoidHighMultiUnit: true,
+      densityFloor: "high",
+    },
+    weights: {
+      votePotential: 0.35,
+      turnoutOpportunity: 0.15,
+      persuasionIndex: 0.05,
+      fieldEfficiency: 0.45,
+    },
+  }),
+  house_v1: Object.freeze({
+    id: "house_v1",
+    modelId: "house_v1",
+    label: "House Model v1 (Core)",
+    description: "Balanced core house profile.",
+    geoLevel: "block_group",
+    topN: 25,
+    minHousingUnits: 35,
+    minPopulation: 90,
+    minScore: 0.38,
+    excludeZeroHousing: true,
+    onlyRaceFootprint: true,
+    criteria: {
+      prioritizeYoung: true,
+      prioritizeRenters: false,
+      avoidHighMultiUnit: false,
+      densityFloor: "medium",
+    },
+    weights: {
+      votePotential: 0.35,
+      turnoutOpportunity: 0.25,
+      persuasionIndex: 0.20,
+      fieldEfficiency: 0.20,
+    },
+  }),
+  obama_persuasion: Object.freeze({
+    id: "obama_persuasion",
+    modelId: "persuasion_first",
+    label: "Obama Persuasion",
+    description: "Persuasion-heavy targeting window with medium-density guardrails.",
+    geoLevel: "block_group",
+    topN: 40,
+    minHousingUnits: 40,
+    minPopulation: 100,
+    minScore: 0.40,
+    excludeZeroHousing: true,
+    onlyRaceFootprint: true,
+    criteria: {
+      prioritizeYoung: false,
+      prioritizeRenters: false,
+      avoidHighMultiUnit: false,
+      densityFloor: "medium",
+    },
+    weights: {
+      votePotential: 0.30,
+      turnoutOpportunity: 0.15,
+      persuasionIndex: 0.45,
+      fieldEfficiency: 0.10,
+    },
+  }),
+  obama_turnout: Object.freeze({
+    id: "obama_turnout",
+    modelId: "turnout_opportunity",
+    label: "Obama Turnout",
+    description: "Mobilization-first profile for turnout expansion.",
+    geoLevel: "block_group",
+    topN: 50,
+    minHousingUnits: 50,
+    minPopulation: 120,
+    minScore: 0.35,
+    excludeZeroHousing: true,
+    onlyRaceFootprint: true,
+    criteria: {
+      prioritizeYoung: true,
+      prioritizeRenters: true,
+      avoidHighMultiUnit: false,
+      densityFloor: "medium",
+    },
+    weights: {
+      votePotential: 0.30,
+      turnoutOpportunity: 0.50,
+      persuasionIndex: 0.05,
+      fieldEfficiency: 0.15,
+    },
+  }),
+  biden_expansion: Object.freeze({
+    id: "biden_expansion",
+    modelId: "persuasion_first",
+    label: "Biden Expansion",
+    description: "Vote-bank expansion blend across vote scale, persuasion, and turnout.",
+    geoLevel: "block_group",
+    topN: 50,
+    minHousingUnits: 45,
+    minPopulation: 110,
+    minScore: 0.36,
+    excludeZeroHousing: true,
+    onlyRaceFootprint: true,
+    criteria: {
+      prioritizeYoung: true,
+      prioritizeRenters: true,
+      avoidHighMultiUnit: false,
+      densityFloor: "medium",
+    },
+    weights: {
+      votePotential: 0.40,
+      turnoutOpportunity: 0.20,
+      persuasionIndex: 0.30,
+      fieldEfficiency: 0.10,
+    },
+  }),
+  efficiency_sweep: Object.freeze({
+    id: "efficiency_sweep",
+    modelId: "field_efficiency",
+    label: "Efficiency Sweep",
+    description: "Late-cycle high-efficiency sweep with strict field feasibility filters.",
+    geoLevel: "block_group",
+    topN: 35,
+    minHousingUnits: 75,
+    minPopulation: 150,
+    minScore: 0.50,
+    excludeZeroHousing: true,
+    onlyRaceFootprint: true,
+    criteria: {
+      prioritizeYoung: false,
+      prioritizeRenters: false,
+      avoidHighMultiUnit: true,
+      densityFloor: "high",
+    },
+    weights: {
+      votePotential: 0.35,
+      turnoutOpportunity: 0.15,
+      persuasionIndex: 0.05,
+      fieldEfficiency: 0.45,
+    },
+  }),
+  hybrid_model: Object.freeze({
+    id: "hybrid_model",
+    modelId: "house_v1",
+    label: "Hybrid Model",
+    description: "Balanced persuasion + turnout + feasibility blend for mixed districts.",
+    geoLevel: "block_group",
+    topN: 30,
+    minHousingUnits: 35,
+    minPopulation: 90,
+    minScore: 0.38,
+    excludeZeroHousing: true,
+    onlyRaceFootprint: true,
+    criteria: {
+      prioritizeYoung: true,
+      prioritizeRenters: false,
+      avoidHighMultiUnit: false,
+      densityFloor: "medium",
+    },
+    weights: {
+      votePotential: 0.35,
+      turnoutOpportunity: 0.25,
+      persuasionIndex: 0.20,
+      fieldEfficiency: 0.20,
+    },
+  }),
+});
+
 function cleanText(value){
   return String(value == null ? "" : value).trim();
 }
@@ -88,6 +316,8 @@ function normalizeRows(input){
 function normalizeMeta(input){
   const src = input && typeof input === "object" ? input : {};
   return {
+    presetId: cleanText(src.presetId),
+    presetLabel: cleanText(src.presetLabel),
     modelId: cleanText(src.modelId) || "turnout_opportunity",
     modelLabel: cleanText(src.modelLabel),
     geoLevel: cleanText(src.geoLevel) || "block_group",
@@ -111,29 +341,70 @@ function normalizeCriteria(input){
   };
 }
 
+function normalizeTargetModelPreset(modelId, input){
+  const src = input && typeof input === "object" ? input : {};
+  const geoLevelRaw = cleanText(src.geoLevel);
+  const geoLevel = TARGET_GEO_LEVELS.some((row) => row.id === geoLevelRaw) ? geoLevelRaw : "block_group";
+  const coreModelIds = new Set(listTargetModels().map((row) => cleanText(row.id)));
+  const resolvedModelIdRaw = cleanText(src.modelId) || cleanText(modelId);
+  const resolvedModelId = coreModelIds.has(resolvedModelIdRaw) ? resolvedModelIdRaw : "house_v1";
+  return {
+    id: cleanText(src.id) || cleanText(modelId) || "house_v1",
+    modelId: resolvedModelId,
+    label: cleanText(src.label) || cleanText(modelId) || "Model preset",
+    description: cleanText(src.description),
+    geoLevel,
+    topN: Number.isFinite(Number(src.topN)) ? clamp(Number(src.topN), 1, 500) : 25,
+    minHousingUnits: Number.isFinite(Number(src.minHousingUnits)) ? Math.max(0, Number(src.minHousingUnits)) : 0,
+    minPopulation: Number.isFinite(Number(src.minPopulation)) ? Math.max(0, Number(src.minPopulation)) : 0,
+    minScore: Number.isFinite(Number(src.minScore)) ? Math.max(0, Number(src.minScore)) : 0,
+    excludeZeroHousing: src.excludeZeroHousing == null ? true : !!src.excludeZeroHousing,
+    onlyRaceFootprint: src.onlyRaceFootprint == null ? true : !!src.onlyRaceFootprint,
+    weights: normalizeWeights(src.weights),
+    criteria: normalizeCriteria(src.criteria),
+  };
+}
+
+export function getTargetModelPreset(modelId){
+  const id = cleanText(modelId);
+  const key = Object.prototype.hasOwnProperty.call(TARGET_MODEL_PRESETS, id) ? id : "turnout_opportunity";
+  return normalizeTargetModelPreset(key, TARGET_MODEL_PRESETS[key]);
+}
+
+export function applyTargetModelPreset(targetingState, modelId){
+  const target = targetingState && typeof targetingState === "object"
+    ? targetingState
+    : makeDefaultTargetingState();
+  const preset = getTargetModelPreset(modelId);
+  target.presetId = preset.id;
+  target.modelId = preset.modelId;
+  target.geoLevel = preset.geoLevel;
+  target.topN = preset.topN;
+  target.minHousingUnits = preset.minHousingUnits;
+  target.minPopulation = preset.minPopulation;
+  target.minScore = preset.minScore;
+  target.excludeZeroHousing = preset.excludeZeroHousing;
+  target.onlyRaceFootprint = preset.onlyRaceFootprint;
+  target.weights = { ...preset.weights };
+  target.criteria = { ...preset.criteria };
+  return { targeting: target, preset };
+}
+
 export function makeDefaultTargetingState(){
+  const preset = getTargetModelPreset("turnout_opportunity");
   return {
     enabled: true,
-    geoLevel: "block_group",
-    modelId: "turnout_opportunity",
-    topN: 25,
-    minHousingUnits: 25,
-    minPopulation: 0,
-    minScore: 0,
-    excludeZeroHousing: true,
-    onlyRaceFootprint: true,
-    weights: {
-      votePotential: 0.35,
-      turnoutOpportunity: 0.25,
-      persuasionIndex: 0.20,
-      fieldEfficiency: 0.20,
-    },
-    criteria: {
-      prioritizeYoung: true,
-      prioritizeRenters: false,
-      avoidHighMultiUnit: false,
-      densityFloor: "none",
-    },
+    presetId: preset.id,
+    geoLevel: preset.geoLevel,
+    modelId: preset.modelId,
+    topN: preset.topN,
+    minHousingUnits: preset.minHousingUnits,
+    minPopulation: preset.minPopulation,
+    minScore: preset.minScore,
+    excludeZeroHousing: !!preset.excludeZeroHousing,
+    onlyRaceFootprint: !!preset.onlyRaceFootprint,
+    weights: { ...preset.weights },
+    criteria: { ...preset.criteria },
     lastRun: "",
     lastRows: [],
     lastMeta: null,
@@ -144,24 +415,45 @@ export function normalizeTargetingState(input){
   const base = makeDefaultTargetingState();
   const src = input && typeof input === "object" ? input : {};
   const modelIds = new Set(listTargetModels().map((row) => row.id));
-  const geoLevelRaw = cleanText(src.geoLevel);
-  const geoLevel = TARGET_GEO_LEVELS.some((row) => row.id === geoLevelRaw) ? geoLevelRaw : base.geoLevel;
+  const presetIds = new Set(Object.keys(TARGET_MODEL_PRESETS).map((id) => cleanText(id)));
+  const presetIdRaw = cleanText(src.presetId);
   const modelIdRaw = cleanText(src.modelId);
-  const modelId = modelIds.has(modelIdRaw) ? modelIdRaw : base.modelId;
+  const presetId = presetIds.has(presetIdRaw)
+    ? presetIdRaw
+    : (presetIds.has(modelIdRaw) ? modelIdRaw : cleanText(base.presetId));
+  const preset = getTargetModelPreset(presetId);
+  const geoLevelRaw = cleanText(src.geoLevel);
+  const geoLevel = TARGET_GEO_LEVELS.some((row) => row.id === geoLevelRaw)
+    ? geoLevelRaw
+    : cleanText(preset?.geoLevel || base.geoLevel);
+  const modelId = modelIds.has(modelIdRaw)
+    ? modelIdRaw
+    : (modelIds.has(cleanText(preset?.modelId)) ? cleanText(preset.modelId) : base.modelId);
+  const hasTopN = Number.isFinite(Number(src.topN));
+  const hasMinHousingUnits = Number.isFinite(Number(src.minHousingUnits));
+  const hasMinPopulation = Number.isFinite(Number(src.minPopulation));
+  const hasMinScore = Number.isFinite(Number(src.minScore));
+  const hasExcludeZeroHousing = src.excludeZeroHousing != null;
+  const hasOnlyRaceFootprint = src.onlyRaceFootprint != null;
+  const hasWeights = !!(src.weights && typeof src.weights === "object" && Object.keys(src.weights).length);
+  const hasCriteria = !!(src.criteria && typeof src.criteria === "object" && Object.keys(src.criteria).length);
+  const presetWeights = normalizeWeights(preset?.weights);
+  const presetCriteria = normalizeCriteria(preset?.criteria);
   return {
     ...base,
     ...src,
     enabled: src.enabled == null ? base.enabled : !!src.enabled,
+    presetId,
     geoLevel,
     modelId,
-    topN: Number.isFinite(Number(src.topN)) ? clamp(Number(src.topN), 1, 500) : base.topN,
-    minHousingUnits: Number.isFinite(Number(src.minHousingUnits)) ? Math.max(0, Number(src.minHousingUnits)) : base.minHousingUnits,
-    minPopulation: Number.isFinite(Number(src.minPopulation)) ? Math.max(0, Number(src.minPopulation)) : base.minPopulation,
-    minScore: Number.isFinite(Number(src.minScore)) ? Math.max(0, Number(src.minScore)) : base.minScore,
-    excludeZeroHousing: src.excludeZeroHousing == null ? base.excludeZeroHousing : !!src.excludeZeroHousing,
-    onlyRaceFootprint: src.onlyRaceFootprint == null ? base.onlyRaceFootprint : !!src.onlyRaceFootprint,
-    weights: normalizeWeights(src.weights),
-    criteria: normalizeCriteria(src.criteria),
+    topN: hasTopN ? clamp(Number(src.topN), 1, 500) : (preset?.topN ?? base.topN),
+    minHousingUnits: hasMinHousingUnits ? Math.max(0, Number(src.minHousingUnits)) : (preset?.minHousingUnits ?? base.minHousingUnits),
+    minPopulation: hasMinPopulation ? Math.max(0, Number(src.minPopulation)) : (preset?.minPopulation ?? base.minPopulation),
+    minScore: hasMinScore ? Math.max(0, Number(src.minScore)) : (preset?.minScore ?? base.minScore),
+    excludeZeroHousing: hasExcludeZeroHousing ? !!src.excludeZeroHousing : (preset?.excludeZeroHousing ?? base.excludeZeroHousing),
+    onlyRaceFootprint: hasOnlyRaceFootprint ? !!src.onlyRaceFootprint : (preset?.onlyRaceFootprint ?? base.onlyRaceFootprint),
+    weights: hasWeights ? normalizeWeights(src.weights) : presetWeights,
+    criteria: hasCriteria ? normalizeCriteria(src.criteria) : presetCriteria,
     lastRun: cleanText(src.lastRun),
     lastRows: normalizeRows(src.lastRows),
     lastMeta: src.lastMeta ? normalizeMeta(src.lastMeta) : null,
@@ -173,11 +465,47 @@ export function listTargetGeoLevels(){
 }
 
 export function listTargetModelOptions(){
-  return listTargetModels();
+  const preferredOrder = [
+    "obama_persuasion",
+    "obama_turnout",
+    "biden_expansion",
+    "efficiency_sweep",
+    "hybrid_model",
+    "turnout_opportunity",
+    "persuasion_first",
+    "field_efficiency",
+    "house_v1",
+  ];
+  const seen = new Set();
+  const ordered = [];
+  for (const id of preferredOrder){
+    if (Object.prototype.hasOwnProperty.call(TARGET_MODEL_PRESETS, id) && !seen.has(id)){
+      ordered.push(id);
+      seen.add(id);
+    }
+  }
+  for (const id of Object.keys(TARGET_MODEL_PRESETS)){
+    if (!seen.has(id)){
+      ordered.push(id);
+      seen.add(id);
+    }
+  }
+  return ordered.map((id) => {
+    const preset = normalizeTargetModelPreset(id, TARGET_MODEL_PRESETS[id]);
+    return {
+      id: preset.id,
+      label: preset.label,
+      description: preset.description || `Preset mapped to ${preset.modelId}.`,
+      modelId: preset.modelId,
+    };
+  });
 }
 
 export function computeTargetingContextKey({ state, censusState, config } = {}){
   const modelIds = new Set(listTargetModels().map((row) => row.id));
+  const presetIds = new Set(Object.keys(TARGET_MODEL_PRESETS).map((id) => cleanText(id)));
+  const presetIdRaw = cleanText(config?.presetId);
+  const presetId = presetIds.has(presetIdRaw) ? presetIdRaw : "";
   const geoLevelRaw = cleanText(config?.geoLevel);
   const geoLevel = TARGET_GEO_LEVELS.some((row) => row.id === geoLevelRaw) ? geoLevelRaw : "block_group";
   const modelIdRaw = cleanText(config?.modelId);
@@ -212,6 +540,7 @@ export function computeTargetingContextKey({ state, censusState, config } = {}){
     cleanText(s.year),
     cleanText(s.resolution),
     cleanText(s.metricSet),
+    presetId,
     geoLevel,
     modelId,
     String(topN),
@@ -456,7 +785,10 @@ export function runTargetRanking({ state, censusState, rowsByGeoid } = {}){
   }
 
   const model = listTargetModels().find((row) => row.id === cfg.modelId) || listTargetModels()[0] || { id: cfg.modelId, label: cfg.modelId };
+  const preset = getTargetModelPreset(cfg.presetId || cfg.modelId);
   const meta = {
+    presetId: cleanText(preset?.id) || cleanText(cfg.presetId) || cleanText(cfg.modelId),
+    presetLabel: cleanText(preset?.label) || cleanText(cfg.presetId) || cleanText(cfg.modelId),
     modelId: model.id,
     modelLabel: model.label,
     geoLevel: cfg.geoLevel,

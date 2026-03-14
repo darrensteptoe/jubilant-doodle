@@ -50,9 +50,11 @@ import {
   resolutionSupportsBoundaryOverlay,
 } from "../core/censusModule.js";
 import {
+  applyTargetModelPreset,
   buildTargetRankingCsv,
   buildTargetRankingPayload,
   computeTargetingContextKey,
+  getTargetModelPreset,
   listTargetGeoLevels,
   listTargetModelOptions,
   makeDefaultTargetingState,
@@ -1535,7 +1537,11 @@ export function renderCensusPhase1Module({ els, state, res } = {}){
     && cleanText(targetingMeta?.contextKey) !== cleanText(targetingContextKey);
   const targetModelOptions = listTargetModelOptions();
   const targetModelLabelById = new Map(targetModelOptions.map((row) => [cleanText(row.id), cleanText(row.label)]));
-  const activeModelLabel = targetModelLabelById.get(cleanText(targeting.modelId)) || cleanText(targeting.modelId) || "Target model";
+  const activePresetId = cleanText(targeting.presetId) || cleanText(targeting.modelId);
+  const activeModelLabel = targetModelLabelById.get(activePresetId)
+    || targetModelLabelById.get(cleanText(targeting.modelId))
+    || cleanText(targeting.modelId)
+    || "Target model";
 
   fillSelect(
     els.targetingGeoLevel,
@@ -1546,7 +1552,7 @@ export function renderCensusPhase1Module({ els, state, res } = {}){
   fillSelect(
     els.targetingModelId,
     targetModelOptions.map((row) => ({ value: row.id, label: row.label })),
-    targeting.modelId,
+    activePresetId,
     "Select target model",
   );
   if (els.targetingTopN && document.activeElement !== els.targetingTopN){
@@ -2948,8 +2954,10 @@ export function wireCensusPhase1EventsModule(ctx){
   if (els.targetingModelId){
     els.targetingModelId.addEventListener("change", () => {
       withTargeting((_, s, targeting) => {
-        targeting.modelId = cleanText(els.targetingModelId.value) || targeting.modelId;
-        setStatus(s, "Target model updated. Re-run targeting to refresh rankings.", false);
+        const nextModelId = cleanText(els.targetingModelId.value) || targeting.modelId;
+        const applied = applyTargetModelPreset(targeting, nextModelId);
+        const presetLabel = cleanText(applied?.preset?.label) || "model preset";
+        setStatus(s, `Target model preset applied (${presetLabel}). Re-run targeting to refresh rankings.`, false);
       });
       commitUIUpdate({ persist: false });
     });
@@ -3113,13 +3121,15 @@ export function wireCensusPhase1EventsModule(ctx){
   if (els.btnTargetingResetWeights){
     els.btnTargetingResetWeights.addEventListener("click", () => {
       withTargeting((_, s, targeting) => {
+        const preset = getTargetModelPreset(cleanText(targeting.presetId) || cleanText(targeting.modelId));
         targeting.weights = {
-          votePotential: 0.35,
-          turnoutOpportunity: 0.25,
-          persuasionIndex: 0.20,
-          fieldEfficiency: 0.20,
+          votePotential: Number(preset?.weights?.votePotential) || 0.35,
+          turnoutOpportunity: Number(preset?.weights?.turnoutOpportunity) || 0.25,
+          persuasionIndex: Number(preset?.weights?.persuasionIndex) || 0.20,
+          fieldEfficiency: Number(preset?.weights?.fieldEfficiency) || 0.20,
         };
-        setStatus(s, "House model weights reset to default blend.", false);
+        const presetLabel = cleanText(preset?.label) || "House model";
+        setStatus(s, `${presetLabel} weights reset to preset defaults.`, false);
       });
       commitUIUpdate({ persist: false });
     });
@@ -3187,6 +3197,7 @@ export function wireCensusPhase1EventsModule(ctx){
         }
         const config = {
           enabled: !!targeting.enabled,
+          presetId: cleanText(targeting.presetId),
           geoLevel: cleanText(targeting.geoLevel),
           modelId: cleanText(targeting.modelId),
           topN: Number(targeting.topN),
