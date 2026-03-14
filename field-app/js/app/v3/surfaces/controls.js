@@ -48,7 +48,6 @@ const BENCHMARK_RACE_TYPE_OPTIONS = ["all", "federal", "state_leg", "municipal",
 let benchmarkActionStatus = "";
 let evidenceActionStatus = "";
 let calibrationActionStatus = "";
-let correlationActionStatus = "";
 let shockActionStatus = "";
 let observedActionStatus = "";
 let recommendationActionStatus = "";
@@ -1018,12 +1017,8 @@ function wireControlsCalibrationBridge() {
     addCorrBtn.addEventListener("click", () => {
       const result = addDefaultCorrelationViaScenarioApi();
       if (!result?.ok) {
-        correlationActionStatus = String(result?.error || "Failed to add default correlation model.");
         return;
       }
-      correlationActionStatus = result.mode === "created"
-        ? "Default correlation model added."
-        : "Default correlation model updated.";
     });
   }
 
@@ -1032,10 +1027,8 @@ function wireControlsCalibrationBridge() {
     importCorrBtn.addEventListener("click", () => {
       const result = importCorrelationModelsViaScenarioApi(readInputValueById("v3IntelCorrelationJson"));
       if (!result?.ok) {
-        correlationActionStatus = String(result?.error || "Correlation model import failed.");
         return;
       }
-      correlationActionStatus = `Imported correlation models: ${Number(result.created || 0)} created, ${Number(result.updated || 0)} updated.`;
     });
   }
 
@@ -1113,7 +1106,7 @@ function syncControlsCalibrationBridge() {
     setText("v3IntelShockStatus", "Scenario bridge unavailable.");
     setText("v3IntelCalibrationStatus", "Scenario bridge unavailable.");
   } else {
-    setText("v3IntelCorrelationStatus", correlationActionStatus || buildCorrelationStatus());
+    setText("v3IntelCorrelationStatus", buildCorrelationStatus());
     setText("v3IntelShockScenarioCount", buildShockScenarioCount());
     setText("v3IntelShockStatus", shockActionStatus || buildShockStatus());
     setText("v3IntelCalibrationStatus", calibrationActionStatus || buildCalibrationStatus());
@@ -1816,11 +1809,39 @@ function buildDecayStatus() {
 }
 
 function buildCorrelationStatus() {
+  const enabled = isCheckedById("v3IntelCorrelatedShocks");
+  const selectedModelId = readInputValueById("v3IntelCorrelationMatrixId");
+  const selectedModelLabel = readSelectedOptionLabelById("v3IntelCorrelationMatrixId");
   const intel = getActiveIntelStateSnapshot();
   const count = Array.isArray(intel?.correlationModels)
     ? intel.correlationModels.length
     : Math.max(0, selectOptionCount("v3IntelCorrelationMatrixId") - 1);
-  return count > 0 ? `${count} correlation model(s) configured.` : "No correlation models configured.";
+
+  if (!enabled) {
+    return count > 0
+      ? `Correlation model OFF (${count} model${count === 1 ? "" : "s"} available).`
+      : "Correlation model OFF (no models configured).";
+  }
+
+  if (count <= 0) {
+    return "Correlation model ON, but no models are configured.";
+  }
+
+  const hasSelection = selectedModelId && selectedModelId.toLowerCase() !== "none";
+  if (!hasSelection) {
+    return `Correlation model ON (${count} model${count === 1 ? "" : "s"} available, select one).`;
+  }
+
+  return `Correlation model ON (${selectedModelLabel || selectedModelId}).`;
+}
+
+function readSelectedOptionLabelById(id) {
+  const el = document.getElementById(id);
+  if (!(el instanceof HTMLSelectElement)) {
+    return "";
+  }
+  const option = el.selectedOptions && el.selectedOptions.length ? el.selectedOptions[0] : null;
+  return option ? String(option.textContent || "").trim() : "";
 }
 
 function buildShockScenarioCount() {
