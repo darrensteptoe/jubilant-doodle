@@ -2606,6 +2606,11 @@ function districtBridgeFallbackTurnout(currentState){
   };
 }
 
+function districtBridgeReadLegacyText(id, fallback = ""){
+  const text = String(document.getElementById(id)?.textContent || "").trim();
+  return text || String(fallback || "");
+}
+
 function districtBridgeStateView(){
   const currentState = state || {};
   const res = lastRenderCtx?.res || null;
@@ -2675,6 +2680,24 @@ function districtBridgeStateView(){
     ? `Ranked ${districtBridgeFmtInt(targetingRows.length)} GEO rows.`
     : "Run targeting to generate ranked GEOs.";
   const targetingMetaText = targetingMetaBits.join(" · ") || "No targeting run yet.";
+  const census = {
+    contextHint: districtBridgeReadLegacyText("censusContextHint", "State-only context active for this resolution."),
+    selectionSetStatus: districtBridgeReadLegacyText("censusSelectionSetStatus", "No saved selection sets."),
+    statusText: districtBridgeReadLegacyText("censusStatus", "Ready."),
+    geoStatsText: districtBridgeReadLegacyText("censusGeoStats", "0 selected of 0 GEOs. 0 rows loaded."),
+    lastFetchText: districtBridgeReadLegacyText("censusLastFetch", "No fetch yet."),
+    selectionSummaryText: districtBridgeReadLegacyText("censusSelectionSummary", "No GEO selected."),
+    raceFootprintStatusText: districtBridgeReadLegacyText("censusRaceFootprintStatus", "Race footprint not set."),
+    assumptionProvenanceStatusText: districtBridgeReadLegacyText("censusAssumptionProvenanceStatus", "Assumption provenance not set."),
+    footprintCapacityStatusText: districtBridgeReadLegacyText("censusFootprintCapacityStatus", "Footprint capacity: not set."),
+    applyAdjustmentsStatusText: districtBridgeReadLegacyText("censusApplyAdjustmentsStatus", "Census-adjusted assumptions are OFF."),
+    advisoryStatusText: districtBridgeReadLegacyText("censusAdvisoryStatus", "Assumption advisory pending."),
+    electionCsvGuideStatusText: districtBridgeReadLegacyText("censusElectionCsvGuideStatus", "Election CSV schema guide loading."),
+    electionCsvDryRunStatusText: districtBridgeReadLegacyText("censusElectionCsvDryRunStatus", "No dry-run run yet."),
+    electionCsvPreviewMetaText: districtBridgeReadLegacyText("censusElectionCsvPreviewMeta", "No normalized preview rows."),
+    mapStatusText: districtBridgeReadLegacyText("censusMapStatus", "Map idle. Select GEO units and click Load boundaries."),
+    mapQaVtdZipStatusText: districtBridgeReadLegacyText("censusMapQaVtdZipStatus", "No VTD ZIP loaded."),
+  };
 
   return {
     summary,
@@ -2683,6 +2706,7 @@ function districtBridgeStateView(){
       metaText: targetingMetaText,
       rows: targetingRows,
     },
+    census,
     controls: {
       locked: isScenarioLockedForEdits(currentState),
     },
