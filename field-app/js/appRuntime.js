@@ -2612,6 +2612,9 @@ function districtBridgeStateView(){
   const universeSize = safeNum(currentState?.universeSize);
   const supportTotalFromState = districtBridgeSupportTotalFromState(currentState);
   const turnoutFallback = districtBridgeFallbackTurnout(currentState);
+  const targetingState = (currentState?.targeting && typeof currentState.targeting === "object")
+    ? currentState.targeting
+    : {};
 
   const supportTotalPct = safeNum(res?.validation?.supportTotalPct);
   const turnoutExpectedPct = safeNum(res?.turnout?.expectedPct);
@@ -2639,8 +2642,47 @@ function districtBridgeStateView(){
     persuasionNeedText: persuasionNeed == null ? "—" : districtBridgeFmtInt(persuasionNeed),
   };
 
+  const targetingRowsRaw = Array.isArray(targetingState?.lastRows) ? targetingState.lastRows : [];
+  const targetingRows = targetingRowsRaw.map((row, idx) => {
+    const rankValue = safeNum(row?.rank);
+    const scoreValue = safeNum(row?.score);
+    const vphValue = safeNum(row?.votesPerOrganizerHour);
+    const reason = String(row?.reasonText || (Array.isArray(row?.reasons) ? row.reasons[0] : "") || "").trim();
+    const flags = String(row?.flagText || (Array.isArray(row?.flags) ? row.flags.join("; ") : "") || "").trim();
+    const geoLabel = String(row?.label || row?.geoid || "").trim();
+    return {
+      rankText: rankValue == null ? String(idx + 1) : String(Math.max(1, Math.floor(rankValue))),
+      geoText: geoLabel || "—",
+      scoreText: scoreValue == null ? "—" : scoreValue.toFixed(3),
+      votesPerHourText: vphValue == null ? "—" : vphValue.toFixed(2),
+      reasonText: reason || "—",
+      flagsText: flags || "—",
+    };
+  });
+  const targetingMeta = (targetingState?.lastMeta && typeof targetingState.lastMeta === "object")
+    ? targetingState.lastMeta
+    : {};
+  const targetingModel = String(targetingMeta?.modelLabel || targetingMeta?.modelId || targetingState?.modelId || "").trim();
+  const targetingGeoLevel = String(targetingMeta?.geoLevel || targetingState?.geoLevel || "").trim();
+  const targetingTopN = safeNum(targetingMeta?.topN) ?? safeNum(targetingState?.topN);
+  const targetingRanAt = String(targetingMeta?.ranAt || targetingState?.lastRun || "").trim();
+  const targetingMetaBits = [];
+  if (targetingModel) targetingMetaBits.push(targetingModel);
+  if (targetingGeoLevel) targetingMetaBits.push(targetingGeoLevel);
+  if (targetingTopN != null) targetingMetaBits.push(`Top ${Math.max(1, Math.floor(targetingTopN))}`);
+  if (targetingRanAt) targetingMetaBits.push(`Ran ${targetingRanAt}`);
+  const targetingStatusText = targetingRows.length
+    ? `Ranked ${districtBridgeFmtInt(targetingRows.length)} GEO rows.`
+    : "Run targeting to generate ranked GEOs.";
+  const targetingMetaText = targetingMetaBits.join(" · ") || "No targeting run yet.";
+
   return {
     summary,
+    targeting: {
+      statusText: targetingStatusText,
+      metaText: targetingMetaText,
+      rows: targetingRows,
+    },
     controls: {
       locked: isScenarioLockedForEdits(currentState),
     },
