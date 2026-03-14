@@ -139,6 +139,7 @@ Reference artifact:
 - Legacy `checks` nav entry has been removed from legacy user flow, and `stage-checks` is now hidden/retired in legacy flow while retaining internal IDs for compatibility during District bridge reduction.
 - Legacy setup-era stage isolation added in `index.html`: `#stage-setup`, `#stage-universe`, `#stage-ballot`, and `#stage-structure` now move into hidden `#legacyCensusBridgeHost` during v3 boot (and restore for explicit legacy mode), reducing legacy stage-layout coupling while preserving ID compatibility.
 - Legacy setup-era and checks stages are now hidden/retired by default in non-legacy mode (`setLegacyStageVisibility(false)`) and only re-enabled for explicit legacy mode (`?ui=legacy`), reducing accidental legacy flow activation during v3 sessions.
+- Runtime init now gates setup-stage composition (`composeSetupStageModule`) behind legacy mode/visible setup-stage checks, reducing v3 boot-time dependence on legacy setup-stage reshaping.
 
 ## Stage dependency map (current)
 Counts below are unique legacy IDs referenced by each v3 surface.
