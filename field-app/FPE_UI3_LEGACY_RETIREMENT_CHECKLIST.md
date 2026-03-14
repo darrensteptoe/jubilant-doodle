@@ -71,13 +71,9 @@ Reference artifact:
 - MC confidence adjunct outputs (`mcMoS`, downside/ES10, shift targets, shocks, risk grade/label, fragility/cliff) now dual-write to sidebar mirror IDs (`*-sidebar`) via runtime MC render paths.
 - MC summary KPI outputs (`mcMedian`, `mcP95`, `mcP5`) now dual-write to sidebar mirror IDs (`#mcMedian-sidebar/#mcP95-sidebar/#mcP5-sidebar`) via runtime MC render paths.
 - MC sensitivity rows now dual-render to hidden sidebar mirror target (`#mcSensitivity-sidebar`) to preserve runtime updates without primary sensitivity table nodes.
-- Legacy `results` nav entry has been removed from legacy left-rail user flow; `stage-results` DOM remains in place for controlled retirement.
-- Legacy `stage-results` section is now hidden in legacy flow (retired stub), while DOM IDs remain mounted for parity and rollback safety.
-- Legacy `stage-results` has been collapsed to an empty retired stub anchor (`<section id="stage-results">`) so no legacy Outcome controls remain mounted in user/runtime flow.
-- Legacy `roi` and `gotv` nav entries have been removed from legacy left-rail user flow; `stage-roi` and `stage-gotv` DOM remain mounted for controlled retirement.
-- Legacy `stage-roi` and `stage-gotv` sections are now hidden in legacy flow (retired stubs), while DOM IDs remain mounted for parity and rollback safety.
-- Legacy `stage-roi` has been collapsed to an empty retired stub anchor (`<section id="stage-roi">`), removing legacy ROI/optimizer/timeline controls from mounted DOM while keeping rollback anchor.
-- Legacy `stage-gotv` has been collapsed to an empty retired stub anchor (`<section id="stage-gotv">`), removing legacy conversion/workload controls from mounted DOM while keeping rollback anchor.
+- Legacy `results`, `roi`, and `gotv` nav entries have been removed from legacy left-rail user flow.
+- Legacy retired containers `stage-results`, `stage-roi`, and `stage-gotv` have now been removed from `index.html` after bridge dependency reached zero and runtime guards were hardened.
+- Legacy retired container `stage-integrity` has now been removed from `index.html` (Data is runtime-native via `window.__FPE_DATA_API__`).
 - Timeline runtime (`renderTimelineModule`) now computes and cache-updates without requiring legacy timeline DOM gates (`timelineEnabled`, `tlPercent`, `tl*` fields), reducing `stage-gotv` deletion risk.
 - Phase3 runtime (`renderPhase3Module`) now computes and refreshes MC freshness/results without requiring legacy `p3*` DOM gates, reducing `stage-results` deletion risk.
 - Compatibility MC phase3 panels (`js/app/render/monteCarlo.js`, `js/render/monteCarlo.js`) now run without hard `p3*` DOM gates, preserving freshness/results update paths if legacy result nodes are absent.
@@ -125,11 +121,11 @@ Reference artifact:
 - DOM preflight now accepts legacy-or-v3 shell IDs for scenario/build/diagnostics/reset controls, reducing false boot failures during legacy shell retirement.
 - Removed stale duplicate v3 turnout surface file (`js/app/v3/turnout.js`); active Turnout surface remains `js/app/v3/surfaces/turnout.js`.
 - Legacy `integrity` nav entry has been removed from legacy left-rail user flow.
-- Legacy `stage-integrity` section is now collapsed to an empty retired stub.
+- Legacy `stage-integrity` retired stub has been removed from `index.html`.
 - Data v3 bridge actions are now runtime-native (no legacy integrity control IDs required).
 - Runtime apply-state helpers now guard writes for Reach assumptions (`persuasionPct`, `earlyVoteExp`) so boot/render stays stable after `stage-capacity` removal.
 - Runtime apply-state/bootstrap wiring now guards legacy-shell baseline inputs (`scenarioName`, race/setup controls, turnout band controls, undecided controls) so missing legacy nodes do not hard-fail boot.
-- Legacy left-rail entries for retired legacy stages (`capacity`, `results`, `roi`, `gotv`, `integrity`) are now removed from legacy user flow while stubs remain mounted for rollback safety.
+- Legacy left-rail entries for retired legacy stages (`capacity`, `results`, `roi`, `gotv`, `integrity`) are removed from legacy user flow and retired stage stubs are removed from `index.html`.
 - Legacy shell section structure was rebalanced (missing `</section>` after structure stage fixed) to prevent DOM drift during staged retirement edits.
 - Controls v3 evidence table now renders from scenario-bridge intel state (`window.__FPE_SCENARIO_API__`) instead of mirroring legacy `#intelEvidenceTbody`.
 - Controls v3 benchmark table now renders from scenario-bridge intel state (`window.__FPE_SCENARIO_API__`) and remove actions route by benchmark id, instead of mirroring legacy `#intelBenchmarkTbody`.
@@ -151,10 +147,10 @@ Counts below are unique legacy IDs referenced by each v3 surface.
 | District | `stage-structure` | 6 |
 | District | `stage-universe` | 3 |
 | Reach | retired (`stage-capacity` removed) | 0 |
-| Outcome | `stage-results` | 0 |
-| Turnout | `stage-roi` | 0 |
-| Plan | `stage-roi` | 0 |
-| Plan | `stage-gotv` | 0 |
+| Outcome | removed (`stage-results`) | 0 |
+| Turnout | removed (`stage-roi`) | 0 |
+| Plan | removed (`stage-roi`) | 0 |
+| Plan | removed (`stage-gotv`) | 0 |
 | Controls | `stage-checks` | 0 |
 | Scenarios | retired (`stage-scenarios`) | 0 |
 | Decision Log | retired (`stage-decisions`) | 0 |
@@ -166,20 +162,20 @@ Delete only when the referenced surface(s) show zero bridge targets for that leg
 1. `stage-capacity` (completed)
 Reason: isolated to Reach surface; removed after Reach bridge dependency reached zero.
 
-2. `stage-results`
-Reason: v3 Outcome bridge targets are zero; remaining blocker is runtime result/rail render paths that still write/read legacy results-stage DOM.
+2. `stage-results` (completed)
+Reason: v3 Outcome bridge targets reached zero and runtime result paths now run with sidebar-only/guarded targets; retired container removed from `index.html`.
 
 3. `stage-roi` (completed)
 Reason: v3 bridge dependencies reached zero and the legacy section is now an empty retired stub anchor.
 
-4. `stage-gotv`
-Reason: currently retained for District coupling during migration; Plan bridge dependencies have been removed.
+4. `stage-gotv` (completed)
+Reason: Plan bridge dependencies reached zero and runtime timeline/conversion guards were hardened; retired container removed from `index.html`.
 
 5. `stage-checks`
 Reason: now isolated to District Census/Targeting bridge after Controls migration to scenario API.
 
-6. `stage-integrity` (completed: container retired)
-Reason: stage container retired and Data handlers now run through runtime-native bridge actions, so legacy integrity control ID dependency is removed.
+6. `stage-integrity` (completed)
+Reason: Data handlers run through runtime-native bridge actions, so legacy integrity control ID dependency was removed and retired container removed from `index.html`.
 
 7. `stage-ballot`, `stage-universe`, `stage-structure`, `stage-setup`
 Reason: setup compose path and District bridge still rely on setup-era DOM.
@@ -215,4 +211,4 @@ For each container before deletion:
 
 ## Immediate next target
 Recommended next retirement target: `stage-checks` runtime read-path reduction pass.  
-`stage-roi` and `stage-gotv` are already collapsed to retired stubs; next blocker is District/Controls shared checks/intel legacy DOM.
+Current blocker is District Census/Targeting bridge on `stage-checks` plus District setup-era containers (`stage-setup`, `stage-universe`, `stage-structure`, `stage-ballot`).

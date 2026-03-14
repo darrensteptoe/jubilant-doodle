@@ -171,13 +171,8 @@ Scope: UI architecture migration only (engine and right rail frozen)
 - Runtime hardening: MC confidence adjunct metrics now mirror to right-rail `*-sidebar` IDs (hidden mirror targets), preserving updates when legacy adjunct table nodes are absent.
 - Runtime hardening: MC summary KPI metrics (`mcMedian`, `mcP95`, `mcP5`) now mirror to right-rail `*-sidebar` IDs (hidden mirror targets), preserving updates when legacy summary KPI nodes are absent.
 - Runtime hardening: MC sensitivity rows now mirror to hidden right-rail target (`#mcSensitivity-sidebar`), preserving updates when legacy sensitivity table node is absent.
-- Legacy flow retirement: removed legacy left-nav `results` entry while retaining `stage-results` DOM for runtime parity checks.
-- Legacy flow retirement: `stage-results` section is hidden as a retired stub (DOM retained).
-- Legacy flow retirement: `stage-results` is now an empty retired stub anchor (no internal legacy controls mounted).
-- Legacy flow retirement: removed legacy left-nav `roi` and `gotv` entries while retaining `stage-roi`/`stage-gotv` DOM for runtime parity checks.
-- Legacy flow retirement: `stage-roi` and `stage-gotv` sections are hidden as retired stubs (DOM retained).
-- Legacy flow retirement: `stage-roi` is now an empty retired stub anchor (no internal legacy ROI/optimizer/timeline controls mounted).
-- Legacy flow retirement: `stage-gotv` is now an empty retired stub anchor (no internal legacy controls mounted).
+- Legacy flow retirement: removed legacy left-nav `results`, `roi`, and `gotv` entries.
+- Legacy flow retirement: retired containers `stage-results`, `stage-roi`, and `stage-gotv` are removed from `index.html` after bridge dependency reached zero.
 - Runtime hardening: timeline renderer now computes/cache-updates without hard requiring legacy timeline DOM gates (`timelineEnabled`, `tlPercent`, `tl*`), reducing coupling to `stage-gotv` markup.
 - Runtime hardening: phase3 renderer now computes/cache-updates and continues MC refresh/render even when legacy `p3*` output nodes are absent, reducing coupling to `stage-results` markup.
 - Runtime hardening: compatibility MC phase3 renderers (`js/app/render/monteCarlo.js`, `js/render/monteCarlo.js`) now compute/cache-update without hard requiring legacy `p3*` nodes.
@@ -225,10 +220,9 @@ Scope: UI architecture migration only (engine and right rail frozen)
 - KPI bridge reduction: persuasion-need KPI now resolves from sidebar target only (`#kpiPersuasionNeed-sidebar`) with no legacy primary fallback selector.
 - Turnout bridge reduction: Turnout efficiency banner now reads from runtime Turnout bridge (`roiBannerText`) and no longer mirrors legacy `#roiBanner` note text nodes.
 - Turnout bridge reduction: Turnout summary/votes/need readouts now resolve from Turnout runtime bridge summary (`view.summary`) backed by runtime cache (`state.ui.lastTurnout`) before any selector fallback.
-- Legacy flow retirement: removed legacy left-nav `integrity` entry.
-- Legacy flow retirement: `stage-integrity` is now an empty retired stub.
+- Legacy flow retirement: removed legacy left-nav `integrity` entry and removed retired `stage-integrity` container from `index.html`.
 - Data bridge hardening: Data actions (`save/load/copy/export/USB/strict/restore`) now execute through runtime-native `__FPE_DATA_API__` handlers without legacy integrity control IDs.
-- Legacy flow retirement: legacy nav entries for `capacity`, `results`, `roi`, `gotv`, and `integrity` are removed from legacy shell user flow while DOM stubs remain for rollback.
+- Legacy flow retirement: legacy nav entries for `capacity`, `results`, `roi`, `gotv`, and `integrity` are removed from legacy shell user flow; corresponding retired stage stubs have been deleted from `index.html`.
 - Legacy shell hardening: fixed missing `</section>` closure after structure stage to keep section tree balanced during further staged deletions.
 - Legacy `stage-capacity` container has been removed from `index.html`; preflight no longer requires legacy Reach assumption IDs.
 - Added v3 stage persistence/cutover behavior (`js/app/v3/index.js`):
