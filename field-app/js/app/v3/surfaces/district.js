@@ -22,7 +22,6 @@ import {
   syncCheckboxValue,
   syncControlDisabled,
   syncFieldValue,
-  syncLegacyTableRows,
   syncSelectValue
 } from "../surfaceUtils.js";
 import { computeUniverseAdjustedRates, normalizeUniversePercents } from "../../../core/universeLayer.js";
@@ -779,15 +778,9 @@ function syncDistrictTargetingLab() {
     setText("v3DistrictTargetingMeta", bridgeSnapshot.metaText || "No targeting run yet.");
     renderDistrictTargetingRows(bridgeSnapshot.rows || []);
   } else {
-    setText("v3DistrictTargetingStatus", document.getElementById("targetingStatus")?.textContent || "");
-    setText("v3DistrictTargetingMeta", document.getElementById("targetingMeta")?.textContent || "");
-    syncLegacyTableRows({
-      sourceSelector: "#targetingResultsTbody",
-      targetBodyId: "v3DistrictTargetingResultsTbody",
-      expectedCols: 6,
-      emptyLabel: "Run targeting to generate ranked GEOs.",
-      numericColumns: [0, 2, 3]
-    });
+    setText("v3DistrictTargetingStatus", "Run targeting to generate ranked GEOs.");
+    setText("v3DistrictTargetingMeta", "No targeting run yet.");
+    renderDistrictTargetingRows([]);
   }
 
   syncSelectValue("v3DistrictTargetingGeoLevel", "targetingGeoLevel");
@@ -1251,97 +1244,81 @@ function syncDistrictCensusProxy() {
   const bridgeSnapshot = readDistrictCensusSnapshot();
   syncLegacyOrBridgeText({
     v3Id: "v3CensusContextHint",
-    legacyId: "censusContextHint",
     bridgeText: bridgeSnapshot?.contextHint,
     fallback: "State-only context active for this resolution."
   });
   syncLegacyOrBridgeText({
     v3Id: "v3CensusSelectionSetStatus",
-    legacyId: "censusSelectionSetStatus",
     bridgeText: bridgeSnapshot?.selectionSetStatus,
     fallback: "No saved selection sets."
   });
   syncLegacyOrBridgeText({
     v3Id: "v3CensusStatus",
-    legacyId: "censusStatus",
     bridgeText: bridgeSnapshot?.statusText,
     fallback: "Ready."
   });
   syncLegacyOrBridgeText({
     v3Id: "v3CensusGeoStats",
-    legacyId: "censusGeoStats",
     bridgeText: bridgeSnapshot?.geoStatsText,
     fallback: "0 selected of 0 GEOs. 0 rows loaded."
   });
   syncLegacyOrBridgeText({
     v3Id: "v3CensusLastFetch",
-    legacyId: "censusLastFetch",
     bridgeText: bridgeSnapshot?.lastFetchText,
     fallback: "No fetch yet."
   });
   syncLegacyOrBridgeText({
     v3Id: "v3CensusSelectionSummary",
-    legacyId: "censusSelectionSummary",
     bridgeText: bridgeSnapshot?.selectionSummaryText,
     fallback: "No GEO selected."
   });
   syncLegacyOrBridgeText({
     v3Id: "v3CensusRaceFootprintStatus",
-    legacyId: "censusRaceFootprintStatus",
     bridgeText: bridgeSnapshot?.raceFootprintStatusText,
     fallback: "Race footprint not set."
   });
   syncLegacyOrBridgeText({
     v3Id: "v3CensusAssumptionProvenanceStatus",
-    legacyId: "censusAssumptionProvenanceStatus",
     bridgeText: bridgeSnapshot?.assumptionProvenanceStatusText,
     fallback: "Assumption provenance not set."
   });
   syncLegacyOrBridgeText({
     v3Id: "v3CensusFootprintCapacityStatus",
-    legacyId: "censusFootprintCapacityStatus",
     bridgeText: bridgeSnapshot?.footprintCapacityStatusText,
     fallback: "Footprint capacity: not set."
   });
   syncLegacyOrBridgeText({
     v3Id: "v3CensusApplyAdjustmentsStatus",
-    legacyId: "censusApplyAdjustmentsStatus",
     bridgeText: bridgeSnapshot?.applyAdjustmentsStatusText,
     fallback: "Census-adjusted assumptions are OFF."
   });
   syncLegacyOrBridgeText({
     v3Id: "v3CensusAdvisoryStatus",
-    legacyId: "censusAdvisoryStatus",
     bridgeText: bridgeSnapshot?.advisoryStatusText,
     fallback: "Assumption advisory pending."
   });
   syncLegacyOrBridgeText({
     v3Id: "v3CensusElectionCsvGuideStatus",
-    legacyId: "censusElectionCsvGuideStatus",
     bridgeText: bridgeSnapshot?.electionCsvGuideStatusText,
     fallback: "Election CSV schema guide loading."
   });
   syncLegacyOrBridgeText({
     v3Id: "v3CensusElectionCsvDryRunStatus",
-    legacyId: "censusElectionCsvDryRunStatus",
     bridgeText: bridgeSnapshot?.electionCsvDryRunStatusText,
     fallback: "No dry-run run yet."
   });
   syncLegacyOrBridgeText({
     v3Id: "v3CensusElectionCsvPreviewMeta",
-    legacyId: "censusElectionCsvPreviewMeta",
     bridgeText: bridgeSnapshot?.electionCsvPreviewMetaText,
     fallback: "No normalized preview rows."
   });
   syncLegacyOrBridgeText({
     v3Id: "v3CensusMapStatus",
-    legacyId: "censusMapStatus",
     bridgeText: bridgeSnapshot?.mapStatusText,
     fallback: "Map idle. Select GEO units and click Load boundaries."
   });
   syncLegacyOrBridgeText({
     v3Id: "v3CensusMapQaVtdZipStatus",
-    legacyId: "censusMapQaVtdZipStatus",
     bridgeText: bridgeSnapshot?.mapQaVtdZipStatusText,
     fallback: "No VTD ZIP loaded."
   });
@@ -1402,74 +1379,36 @@ function syncDistrictCensusProxy() {
   syncButtonDisabled("v3BtnCensusClearMap", "btnCensusClearMap");
   syncButtonDisabled("v3BtnCensusMapQaVtdZipClear", "btnCensusMapQaVtdZipClear");
 
-  const hasBridgeRows =
-    !!bridgeSnapshot
-    && (Array.isArray(bridgeSnapshot.aggregateRows)
-      || Array.isArray(bridgeSnapshot.advisoryRows)
-      || Array.isArray(bridgeSnapshot.electionPreviewRows));
-  if (hasBridgeRows) {
-    renderDistrictCensusTableRows({
-      targetBodyId: "v3CensusAggregateTbody",
-      rows: bridgeSnapshot.aggregateRows,
-      expectedCols: 2,
-      emptyLabel: "No ACS rows loaded.",
-      numericColumns: [1]
-    });
-    renderDistrictCensusTableRows({
-      targetBodyId: "v3CensusAdvisoryTbody",
-      rows: bridgeSnapshot.advisoryRows,
-      expectedCols: 2,
-      emptyLabel: "Load ACS rows for selected GEO units to compute advisory indices.",
-      numericColumns: [1]
-    });
-    renderDistrictCensusTableRows({
-      targetBodyId: "v3CensusElectionCsvPreviewTbody",
-      rows: bridgeSnapshot.electionPreviewRows,
-      expectedCols: 4,
-      emptyLabel: "No dry-run preview yet.",
-      numericColumns: [2, 3]
-    });
-  } else {
-    syncLegacyTableRows({
-      sourceSelector: "#censusAggregateTbody",
-      targetBodyId: "v3CensusAggregateTbody",
-      expectedCols: 2,
-      emptyLabel: "No ACS rows loaded.",
-      numericColumns: [1]
-    });
-    syncLegacyTableRows({
-      sourceSelector: "#censusAdvisoryTbody",
-      targetBodyId: "v3CensusAdvisoryTbody",
-      expectedCols: 2,
-      emptyLabel: "Load ACS rows for selected GEO units to compute advisory indices.",
-      numericColumns: [1]
-    });
-    syncLegacyTableRows({
-      sourceSelector: "#censusElectionCsvPreviewTbody",
-      targetBodyId: "v3CensusElectionCsvPreviewTbody",
-      expectedCols: 4,
-      emptyLabel: "No dry-run preview yet.",
-      numericColumns: [2, 3]
-    });
-  }
+  renderDistrictCensusTableRows({
+    targetBodyId: "v3CensusAggregateTbody",
+    rows: bridgeSnapshot?.aggregateRows,
+    expectedCols: 2,
+    emptyLabel: "No ACS rows loaded.",
+    numericColumns: [1]
+  });
+  renderDistrictCensusTableRows({
+    targetBodyId: "v3CensusAdvisoryTbody",
+    rows: bridgeSnapshot?.advisoryRows,
+    expectedCols: 2,
+    emptyLabel: "Load ACS rows for selected GEO units to compute advisory indices.",
+    numericColumns: [1]
+  });
+  renderDistrictCensusTableRows({
+    targetBodyId: "v3CensusElectionCsvPreviewTbody",
+    rows: bridgeSnapshot?.electionPreviewRows,
+    expectedCols: 4,
+    emptyLabel: "No dry-run preview yet.",
+    numericColumns: [2, 3]
+  });
 }
 
-function syncLegacyText(v3Id, legacyId, fallback = "—") {
-  const target = document.getElementById(v3Id);
-  if (!(target instanceof HTMLElement)) {
-    return;
-  }
-  const text = (document.getElementById(legacyId)?.textContent || "").trim();
-  target.textContent = text || fallback;
-}
-
-function syncLegacyOrBridgeText({ v3Id, legacyId, bridgeText, fallback = "—" }) {
+function syncLegacyOrBridgeText({ v3Id, bridgeText, fallback = "—" }) {
   const text = String(bridgeText || "").trim();
   if (text) {
     setText(v3Id, text);
     return;
   }
-  syncLegacyText(v3Id, legacyId, fallback);
+  setText(v3Id, fallback);
 }
 
 function renderDistrictCensusTableRows({
