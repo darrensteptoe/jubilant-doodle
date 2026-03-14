@@ -19,7 +19,9 @@ import {
 } from "../surfaceUtils.js";
 import {
   benchmarkRefLabel,
+  intelBriefKindLabel,
   listIntelBenchmarks,
+  listIntelBriefKinds,
   listIntelEvidence,
   listMissingEvidenceAudit,
   listMissingNoteAudit
@@ -47,6 +49,9 @@ const BENCHMARK_REF_OPTIONS = [
 const BENCHMARK_RACE_TYPE_OPTIONS = ["all", "federal", "state_leg", "municipal", "county"];
 let benchmarkActionStatus = "";
 let evidenceActionStatus = "";
+let calibrationActionStatus = "";
+let correlationActionStatus = "";
+let shockActionStatus = "";
 
 export function renderControlsSurface(mount) {
   const frame = createSurfaceFrame("three-col");
@@ -985,15 +990,113 @@ function wireControlsCalibrationBridge() {
   bindCheckboxProxy("v3IntelShockScenariosEnabled", "intelShockScenariosEnabled");
   bindFieldProxy("v3IntelShockJson", "intelShockJson");
 
-  bindClickProxy("v3BtnIntelCalibrationGenerate", "btnIntelCalibrationGenerate");
-  bindClickProxy("v3BtnIntelCalibrationCopy", "btnIntelCalibrationCopy");
-  bindClickProxy("v3BtnIntelAddDefaultCorrelation", "btnIntelAddDefaultCorrelation");
-  bindClickProxy("v3BtnIntelImportCorrelationJson", "btnIntelImportCorrelationJson");
-  bindClickProxy("v3BtnIntelAddDefaultShock", "btnIntelAddDefaultShock");
-  bindClickProxy("v3BtnIntelImportShockJson", "btnIntelImportShockJson");
+  if (!hasCalibrationScenarioApi()) {
+    bindClickProxy("v3BtnIntelCalibrationGenerate", "btnIntelCalibrationGenerate");
+    bindClickProxy("v3BtnIntelCalibrationCopy", "btnIntelCalibrationCopy");
+    bindClickProxy("v3BtnIntelAddDefaultCorrelation", "btnIntelAddDefaultCorrelation");
+    bindClickProxy("v3BtnIntelImportCorrelationJson", "btnIntelImportCorrelationJson");
+    bindClickProxy("v3BtnIntelAddDefaultShock", "btnIntelAddDefaultShock");
+    bindClickProxy("v3BtnIntelImportShockJson", "btnIntelImportShockJson");
+    return;
+  }
+
+  const generateBtn = document.getElementById("v3BtnIntelCalibrationGenerate");
+  if (generateBtn instanceof HTMLButtonElement) {
+    generateBtn.addEventListener("click", () => {
+      const kind = selectedBriefKind();
+      const result = generateIntelBriefViaScenarioApi(kind);
+      if (!result?.ok) {
+        calibrationActionStatus = String(result?.error || `Failed to generate ${intelBriefKindLabel(kind).toLowerCase()} brief.`);
+        return;
+      }
+      const textarea = document.getElementById("v3IntelCalibrationBriefContent");
+      if (textarea instanceof HTMLTextAreaElement) {
+        textarea.value = String(result?.brief?.content || latestBriefContentForKind(kind) || "");
+      }
+      calibrationActionStatus = `${intelBriefKindLabel(kind)} brief generated.`;
+    });
+  }
+
+  const copyBtn = document.getElementById("v3BtnIntelCalibrationCopy");
+  if (copyBtn instanceof HTMLButtonElement) {
+    copyBtn.addEventListener("click", async () => {
+      const kind = selectedBriefKind();
+      const content = readInputValueById("v3IntelCalibrationBriefContent") || latestBriefContentForKind(kind);
+      if (!content) {
+        calibrationActionStatus = `No ${intelBriefKindLabel(kind).toLowerCase()} brief to copy yet.`;
+        return;
+      }
+      try {
+        if (navigator?.clipboard?.writeText) {
+          await navigator.clipboard.writeText(content);
+          calibrationActionStatus = `${intelBriefKindLabel(kind)} brief copied to clipboard.`;
+        } else {
+          throw new Error("Clipboard API unavailable");
+        }
+      } catch {
+        calibrationActionStatus = "Clipboard blocked. Copy text manually from the brief box.";
+      }
+    });
+  }
+
+  const addCorrBtn = document.getElementById("v3BtnIntelAddDefaultCorrelation");
+  if (addCorrBtn instanceof HTMLButtonElement) {
+    addCorrBtn.addEventListener("click", () => {
+      const result = addDefaultCorrelationViaScenarioApi();
+      if (!result?.ok) {
+        correlationActionStatus = String(result?.error || "Failed to add default correlation model.");
+        return;
+      }
+      correlationActionStatus = result.mode === "created"
+        ? "Default correlation model added."
+        : "Default correlation model updated.";
+    });
+  }
+
+  const importCorrBtn = document.getElementById("v3BtnIntelImportCorrelationJson");
+  if (importCorrBtn instanceof HTMLButtonElement) {
+    importCorrBtn.addEventListener("click", () => {
+      const result = importCorrelationModelsViaScenarioApi(readInputValueById("v3IntelCorrelationJson"));
+      if (!result?.ok) {
+        correlationActionStatus = String(result?.error || "Correlation model import failed.");
+        return;
+      }
+      correlationActionStatus = `Imported correlation models: ${Number(result.created || 0)} created, ${Number(result.updated || 0)} updated.`;
+    });
+  }
+
+  const addShockBtn = document.getElementById("v3BtnIntelAddDefaultShock");
+  if (addShockBtn instanceof HTMLButtonElement) {
+    addShockBtn.addEventListener("click", () => {
+      const result = addDefaultShockViaScenarioApi();
+      if (!result?.ok) {
+        shockActionStatus = String(result?.error || "Failed to add default shock scenario.");
+        return;
+      }
+      shockActionStatus = result.mode === "created"
+        ? "Default shock scenario added."
+        : "Default shock scenario updated.";
+    });
+  }
+
+  const importShockBtn = document.getElementById("v3BtnIntelImportShockJson");
+  if (importShockBtn instanceof HTMLButtonElement) {
+    importShockBtn.addEventListener("click", () => {
+      const result = importShockScenariosViaScenarioApi(readInputValueById("v3IntelShockJson"));
+      if (!result?.ok) {
+        shockActionStatus = String(result?.error || "Shock scenario import failed.");
+        return;
+      }
+      shockActionStatus = `Imported shock scenarios: ${Number(result.created || 0)} created, ${Number(result.updated || 0)} updated.`;
+    });
+  }
 }
 
 function syncControlsCalibrationBridge() {
+  if (hasCalibrationScenarioApi()) {
+    ensureBriefKindOptions();
+  }
+
   syncSelectValue("v3IntelBriefKind", "intelBriefKind");
   syncSelectValue("v3IntelMcDistribution", "intelMcDistribution");
   syncCheckboxValue("v3IntelCorrelatedShocks", "intelCorrelatedShocks");
@@ -1005,7 +1108,13 @@ function syncControlsCalibrationBridge() {
   syncFieldValue("v3IntelCorrelationJson", "intelCorrelationJson");
   syncCheckboxValue("v3IntelShockScenariosEnabled", "intelShockScenariosEnabled");
   syncFieldValue("v3IntelShockJson", "intelShockJson");
-  syncFieldValue("v3IntelCalibrationBriefContent", "intelCalibrationBriefContent");
+  if (!hasCalibrationScenarioApi()) {
+    syncFieldValue("v3IntelCalibrationBriefContent", "intelCalibrationBriefContent");
+  } else {
+    const selectedKind = selectedBriefKind();
+    const content = latestBriefContentForKind(selectedKind) || latestBriefContentForKind("calibrationSources");
+    setTextareaValue("v3IntelCalibrationBriefContent", content);
+  }
   syncControlsDisabled([
     ["v3IntelBriefKind", "intelBriefKind"],
     ["v3IntelMcDistribution", "intelMcDistribution"],
@@ -1023,17 +1132,34 @@ function syncControlsCalibrationBridge() {
 
   setText("v3IntelCorrelationDisabledHint", buildCorrelationDisabledHint());
   setText("v3IntelDecayStatus", buildDecayStatus());
-  setText("v3IntelCorrelationStatus", buildCorrelationStatus());
+  setText("v3IntelCorrelationStatus", correlationActionStatus || buildCorrelationStatus());
   setText("v3IntelShockScenarioCount", buildShockScenarioCount());
-  setText("v3IntelShockStatus", buildShockStatus());
-  setText("v3IntelCalibrationStatus", buildCalibrationStatus());
+  setText("v3IntelShockStatus", shockActionStatus || buildShockStatus());
+  setText("v3IntelCalibrationStatus", calibrationActionStatus || buildCalibrationStatus());
 
-  syncButtonDisabled("v3BtnIntelCalibrationGenerate", "btnIntelCalibrationGenerate");
-  syncButtonDisabled("v3BtnIntelCalibrationCopy", "btnIntelCalibrationCopy");
-  syncButtonDisabled("v3BtnIntelAddDefaultCorrelation", "btnIntelAddDefaultCorrelation");
-  syncButtonDisabled("v3BtnIntelImportCorrelationJson", "btnIntelImportCorrelationJson");
-  syncButtonDisabled("v3BtnIntelAddDefaultShock", "btnIntelAddDefaultShock");
-  syncButtonDisabled("v3BtnIntelImportShockJson", "btnIntelImportShockJson");
+  if (!hasCalibrationScenarioApi()) {
+    syncButtonDisabled("v3BtnIntelCalibrationGenerate", "btnIntelCalibrationGenerate");
+    syncButtonDisabled("v3BtnIntelCalibrationCopy", "btnIntelCalibrationCopy");
+    syncButtonDisabled("v3BtnIntelAddDefaultCorrelation", "btnIntelAddDefaultCorrelation");
+    syncButtonDisabled("v3BtnIntelImportCorrelationJson", "btnIntelImportCorrelationJson");
+    syncButtonDisabled("v3BtnIntelAddDefaultShock", "btnIntelAddDefaultShock");
+    syncButtonDisabled("v3BtnIntelImportShockJson", "btnIntelImportShockJson");
+  } else {
+    const ids = [
+      "v3BtnIntelCalibrationGenerate",
+      "v3BtnIntelCalibrationCopy",
+      "v3BtnIntelAddDefaultCorrelation",
+      "v3BtnIntelImportCorrelationJson",
+      "v3BtnIntelAddDefaultShock",
+      "v3BtnIntelImportShockJson"
+    ];
+    ids.forEach((id) => {
+      const btn = document.getElementById(id);
+      if (btn instanceof HTMLButtonElement) {
+        btn.disabled = false;
+      }
+    });
+  }
 }
 
 function wireControlsFeedbackBridge() {
@@ -1107,9 +1233,33 @@ function hasEvidenceScenarioApi() {
     && typeof api.attachEvidence === "function";
 }
 
+function hasCalibrationScenarioApi() {
+  const api = getScenarioBridgeApi();
+  return !!api
+    && typeof api.getView === "function"
+    && typeof api.generateIntelBrief === "function"
+    && typeof api.addDefaultCorrelationModel === "function"
+    && typeof api.importCorrelationModels === "function"
+    && typeof api.addDefaultShockScenario === "function"
+    && typeof api.importShockScenarios === "function";
+}
+
 function getActiveScenarioInputsSnapshot() {
   const api = getScenarioBridgeApi();
-  if (!api || typeof api.getView !== "function") {
+  if (!api) {
+    return null;
+  }
+  if (typeof api.getLiveInputs === "function") {
+    try {
+      const live = api.getLiveInputs();
+      if (live && typeof live === "object") {
+        return live;
+      }
+    } catch {
+      // fall through to view snapshot
+    }
+  }
+  if (typeof api.getView !== "function") {
     return null;
   }
   const view = api.getView();
@@ -1210,6 +1360,81 @@ function attachEvidenceViaScenarioApi(payload) {
   }
 }
 
+function generateIntelBriefViaScenarioApi(kind) {
+  const api = getScenarioBridgeApi();
+  if (!api || typeof api.generateIntelBrief !== "function") {
+    return { ok: false, error: "Calibration brief API unavailable." };
+  }
+  try {
+    const result = api.generateIntelBrief(String(kind || "calibrationSources"));
+    return result && typeof result === "object"
+      ? result
+      : { ok: false, error: "Failed to generate brief." };
+  } catch {
+    return { ok: false, error: "Failed to generate brief." };
+  }
+}
+
+function addDefaultCorrelationViaScenarioApi() {
+  const api = getScenarioBridgeApi();
+  if (!api || typeof api.addDefaultCorrelationModel !== "function") {
+    return { ok: false, error: "Correlation API unavailable." };
+  }
+  try {
+    const result = api.addDefaultCorrelationModel();
+    return result && typeof result === "object"
+      ? result
+      : { ok: false, error: "Failed to add default correlation model." };
+  } catch {
+    return { ok: false, error: "Failed to add default correlation model." };
+  }
+}
+
+function importCorrelationModelsViaScenarioApi(jsonText) {
+  const api = getScenarioBridgeApi();
+  if (!api || typeof api.importCorrelationModels !== "function") {
+    return { ok: false, error: "Correlation import API unavailable." };
+  }
+  try {
+    const result = api.importCorrelationModels(String(jsonText || ""));
+    return result && typeof result === "object"
+      ? result
+      : { ok: false, error: "Failed to import correlation models." };
+  } catch {
+    return { ok: false, error: "Failed to import correlation models." };
+  }
+}
+
+function addDefaultShockViaScenarioApi() {
+  const api = getScenarioBridgeApi();
+  if (!api || typeof api.addDefaultShockScenario !== "function") {
+    return { ok: false, error: "Shock scenario API unavailable." };
+  }
+  try {
+    const result = api.addDefaultShockScenario();
+    return result && typeof result === "object"
+      ? result
+      : { ok: false, error: "Failed to add default shock scenario." };
+  } catch {
+    return { ok: false, error: "Failed to add default shock scenario." };
+  }
+}
+
+function importShockScenariosViaScenarioApi(jsonText) {
+  const api = getScenarioBridgeApi();
+  if (!api || typeof api.importShockScenarios !== "function") {
+    return { ok: false, error: "Shock import API unavailable." };
+  }
+  try {
+    const result = api.importShockScenarios(String(jsonText || ""));
+    return result && typeof result === "object"
+      ? result
+      : { ok: false, error: "Failed to import shock scenarios." };
+  } catch {
+    return { ok: false, error: "Failed to import shock scenarios." };
+  }
+}
+
 function ensureBenchmarkSelectOptions() {
   const refSelect = document.getElementById("v3IntelBenchmarkRef");
   if (refSelect instanceof HTMLSelectElement && refSelect.options.length === 0) {
@@ -1230,6 +1455,40 @@ function ensureBenchmarkSelectOptions() {
       raceTypeSelect.appendChild(opt);
     });
   }
+}
+
+function ensureBriefKindOptions() {
+  const select = document.getElementById("v3IntelBriefKind");
+  if (!(select instanceof HTMLSelectElement) || select.options.length > 0) {
+    return;
+  }
+  const kinds = listIntelBriefKinds();
+  kinds.forEach((kind) => {
+    const opt = document.createElement("option");
+    opt.value = kind;
+    opt.textContent = intelBriefKindLabel(kind);
+    select.appendChild(opt);
+  });
+  if (kinds.includes("calibrationSources")) {
+    select.value = "calibrationSources";
+  }
+}
+
+function selectedBriefKind() {
+  const raw = readInputValueById("v3IntelBriefKind");
+  const known = listIntelBriefKinds();
+  return known.includes(raw) ? raw : "calibrationSources";
+}
+
+function latestBriefContentForKind(kind) {
+  const intel = getActiveIntelStateSnapshot();
+  const rows = Array.isArray(intel?.briefs) ? intel.briefs.slice() : [];
+  const targetKind = String(kind || "").trim();
+  const candidates = rows
+    .filter((row) => String(row?.kind || "").trim() === targetKind)
+    .sort((a, b) => String(b?.createdAt || "").localeCompare(String(a?.createdAt || "")));
+  const latest = candidates[0] || null;
+  return String(latest?.content || "").trim();
 }
 
 function parseOptionalNumber(rawValue) {
@@ -1390,7 +1649,10 @@ function buildEvidenceStatus(evidenceRows, unresolved) {
 }
 
 function buildCorrelationDisabledHint() {
-  const count = Math.max(0, selectOptionCount("v3IntelCorrelationMatrixId") - 1);
+  const intel = getActiveIntelStateSnapshot();
+  const count = Array.isArray(intel?.correlationModels)
+    ? intel.correlationModels.length
+    : Math.max(0, selectOptionCount("v3IntelCorrelationMatrixId") - 1);
   return count > 0 ? "Correlation models available. Select a model to apply." : "No models yet.";
 }
 
@@ -1404,39 +1666,33 @@ function buildDecayStatus() {
 }
 
 function buildCorrelationStatus() {
-  const count = Math.max(0, selectOptionCount("v3IntelCorrelationMatrixId") - 1);
+  const intel = getActiveIntelStateSnapshot();
+  const count = Array.isArray(intel?.correlationModels)
+    ? intel.correlationModels.length
+    : Math.max(0, selectOptionCount("v3IntelCorrelationMatrixId") - 1);
   return count > 0 ? `${count} correlation model(s) configured.` : "No correlation models configured.";
 }
 
 function buildShockScenarioCount() {
-  const json = readInputValueById("v3IntelShockJson");
-  if (!json) {
-    return "0 scenarios configured.";
-  }
-  try {
-    const parsed = JSON.parse(json);
-    if (Array.isArray(parsed)) {
-      return `${parsed.length} scenarios configured.`;
-    }
-    if (parsed && Array.isArray(parsed.scenarios)) {
-      return `${parsed.scenarios.length} scenarios configured.`;
-    }
-  } catch {}
-  return "1 scenario payload loaded.";
+  const intel = getActiveIntelStateSnapshot();
+  const count = Array.isArray(intel?.shockScenarios) ? intel.shockScenarios.length : 0;
+  return `${count} scenario${count === 1 ? "" : "s"} configured.`;
 }
 
 function buildShockStatus() {
   const enabled = isCheckedById("v3IntelShockScenariosEnabled");
-  const json = readInputValueById("v3IntelShockJson");
+  const intel = getActiveIntelStateSnapshot();
+  const count = Array.isArray(intel?.shockScenarios) ? intel.shockScenarios.length : 0;
   if (!enabled) {
     return "Shock scenarios disabled.";
   }
-  return json ? "Shock scenarios enabled and ready." : "Shock scenarios enabled (no payload loaded).";
+  return count > 0 ? "Shock scenarios enabled and ready." : "Shock scenarios enabled (no scenario set loaded).";
 }
 
 function buildCalibrationStatus() {
-  const brief = readInputValueById("v3IntelCalibrationBriefContent");
-  return brief ? "Calibration brief generated." : "No calibration brief generated yet.";
+  const kind = selectedBriefKind();
+  const brief = latestBriefContentForKind(kind);
+  return brief ? `${intelBriefKindLabel(kind)} brief generated.` : "No calibration brief generated yet.";
 }
 
 function previewLineCount(id) {
