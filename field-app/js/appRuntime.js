@@ -198,7 +198,11 @@ import {
 import {
   computeIntelIntegrityScore,
   listMissingEvidenceAudit,
-  listMissingNoteAudit
+  listMissingNoteAudit,
+  upsertBenchmarkEntry,
+  removeBenchmarkEntry,
+  loadDefaultBenchmarksForRaceType,
+  attachEvidenceRecord
 } from "./app/intelControlsRuntime.js";
 import { renderIntelChecksModule } from "./app/renderIntelChecks.js";
 import { applyWeeklyLeverScenarioModule } from "./app/weeklyLeverScenarioAction.js";
@@ -2072,6 +2076,52 @@ function scenarioBridgeSetPendingCriticalNote(note){
   return { ok: true, view: scenarioBridgeStateView() };
 }
 
+function scenarioBridgeSaveBenchmark(payload){
+  const result = upsertBenchmarkEntry(state, payload || {});
+  if (!result?.ok){
+    return { ok: false, code: "save_failed", error: String(result?.error || "Benchmark save failed."), view: scenarioBridgeStateView() };
+  }
+  commitUIUpdate({ allowScenarioLockBypass: true });
+  return { ok: true, mode: result.mode || "updated", row: result.row || null, view: scenarioBridgeStateView() };
+}
+
+function scenarioBridgeLoadDefaultBenchmarks(raceType){
+  const result = loadDefaultBenchmarksForRaceType(state, raceType || "all");
+  if (!result?.ok){
+    return { ok: false, code: "load_defaults_failed", error: String(result?.error || "Failed to load defaults."), view: scenarioBridgeStateView() };
+  }
+  commitUIUpdate({ allowScenarioLockBypass: true });
+  return { ok: true, raceType: result.raceType || "all", created: result.created || 0, updated: result.updated || 0, view: scenarioBridgeStateView() };
+}
+
+function scenarioBridgeRemoveBenchmark(benchmarkId){
+  const result = removeBenchmarkEntry(state, benchmarkId);
+  if (!result?.ok){
+    return { ok: false, code: "remove_failed", error: String(result?.error || "Failed to remove benchmark."), view: scenarioBridgeStateView() };
+  }
+  commitUIUpdate({ allowScenarioLockBypass: true });
+  return { ok: true, view: scenarioBridgeStateView() };
+}
+
+function scenarioBridgeAttachEvidence(payload){
+  const result = attachEvidenceRecord(state, payload || {});
+  if (!result?.ok){
+    return {
+      ok: false,
+      code: "attach_evidence_failed",
+      error: String(result?.error || "Evidence attach failed."),
+      view: scenarioBridgeStateView()
+    };
+  }
+  commitUIUpdate({ allowScenarioLockBypass: true });
+  return {
+    ok: true,
+    evidence: result.evidence || null,
+    resolvedAuditId: result.resolvedAuditId || null,
+    view: scenarioBridgeStateView()
+  };
+}
+
 function installScenarioBridge(){
   window[SCENARIO_BRIDGE_KEY] = {
     getView: () => scenarioBridgeStateView(),
@@ -2083,7 +2133,11 @@ function installScenarioBridge(){
     returnBaseline: () => scenarioBridgeLoad(SCENARIO_BASELINE_ID),
     deleteSelected: () => scenarioBridgeDeleteSelected(),
     updateIntelWorkflow: (patch) => scenarioBridgeUpdateIntelWorkflow(patch),
-    setPendingCriticalNote: (note) => scenarioBridgeSetPendingCriticalNote(note)
+    setPendingCriticalNote: (note) => scenarioBridgeSetPendingCriticalNote(note),
+    saveBenchmark: (payload) => scenarioBridgeSaveBenchmark(payload),
+    loadDefaultBenchmarks: (raceType) => scenarioBridgeLoadDefaultBenchmarks(raceType),
+    removeBenchmark: (benchmarkId) => scenarioBridgeRemoveBenchmark(benchmarkId),
+    attachEvidence: (payload) => scenarioBridgeAttachEvidence(payload)
   };
 }
 
