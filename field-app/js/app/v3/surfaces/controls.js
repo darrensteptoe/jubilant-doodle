@@ -6,14 +6,8 @@ import {
   getCardBody
 } from "../componentFactory.js";
 import {
-  bindCheckboxProxy,
-  bindFieldProxy,
-  bindSelectProxy,
   syncControlDisabled,
   setText,
-  syncCheckboxValue,
-  syncFieldValue,
-  syncSelectValue
 } from "../surfaceUtils.js";
 import {
   benchmarkRefLabel,
@@ -957,20 +951,112 @@ function wireControlsCalibrationBridge() {
   }
   root.dataset.wired = "1";
 
-  bindSelectProxy("v3IntelBriefKind", "intelBriefKind");
-  bindSelectProxy("v3IntelMcDistribution", "intelMcDistribution");
-  bindCheckboxProxy("v3IntelCorrelatedShocks", "intelCorrelatedShocks");
-  bindSelectProxy("v3IntelCorrelationMatrixId", "intelCorrelationMatrixId");
-  bindCheckboxProxy("v3IntelCapacityDecayEnabled", "intelCapacityDecayEnabled");
-  bindSelectProxy("v3IntelDecayModelType", "intelDecayModelType");
-  bindFieldProxy("v3IntelDecayWeeklyPct", "intelDecayWeeklyPct");
-  bindFieldProxy("v3IntelDecayFloorPct", "intelDecayFloorPct");
-  bindFieldProxy("v3IntelCorrelationJson", "intelCorrelationJson");
-  bindCheckboxProxy("v3IntelShockScenariosEnabled", "intelShockScenariosEnabled");
-  bindFieldProxy("v3IntelShockJson", "intelShockJson");
-
   if (!hasCalibrationScenarioApi()) {
     return;
+  }
+
+  const applySimPatch = (patch) => {
+    const api = getScenarioBridgeApi();
+    if (!api || typeof api.updateIntelWorkflow !== "function") {
+      return false;
+    }
+    try {
+      api.updateIntelWorkflow({ simToggles: patch || {} });
+      return true;
+    } catch {
+      return false;
+    }
+  };
+  const applyExpertPatch = (patch) => {
+    const api = getScenarioBridgeApi();
+    if (!api || typeof api.updateIntelWorkflow !== "function") {
+      return false;
+    }
+    try {
+      api.updateIntelWorkflow({ expertToggles: patch || {} });
+      return true;
+    } catch {
+      return false;
+    }
+  };
+
+  const briefKindEl = document.getElementById("v3IntelBriefKind");
+  if (briefKindEl instanceof HTMLSelectElement) {
+    briefKindEl.addEventListener("change", () => {
+      const kind = selectedBriefKind();
+      const content = latestBriefContentForKind(kind) || latestBriefContentForKind("calibrationSources");
+      setTextareaValue("v3IntelCalibrationBriefContent", content);
+    });
+  }
+
+  const mcDistributionEl = document.getElementById("v3IntelMcDistribution");
+  if (mcDistributionEl instanceof HTMLSelectElement) {
+    mcDistributionEl.addEventListener("change", () => {
+      applySimPatch({ mcDistribution: String(mcDistributionEl.value || "triangular") });
+    });
+  }
+
+  const correlatedEl = document.getElementById("v3IntelCorrelatedShocks");
+  if (correlatedEl instanceof HTMLInputElement) {
+    correlatedEl.addEventListener("change", () => {
+      applySimPatch({ correlatedShocks: !!correlatedEl.checked });
+    });
+  }
+
+  const correlationIdEl = document.getElementById("v3IntelCorrelationMatrixId");
+  if (correlationIdEl instanceof HTMLSelectElement) {
+    correlationIdEl.addEventListener("change", () => {
+      const raw = String(correlationIdEl.value || "").trim();
+      applySimPatch({ correlationMatrixId: raw ? raw : null });
+    });
+  }
+
+  const decayEnabledEl = document.getElementById("v3IntelCapacityDecayEnabled");
+  if (decayEnabledEl instanceof HTMLInputElement) {
+    decayEnabledEl.addEventListener("change", () => {
+      applyExpertPatch({ capacityDecayEnabled: !!decayEnabledEl.checked });
+    });
+  }
+
+  const decayModelTypeEl = document.getElementById("v3IntelDecayModelType");
+  if (decayModelTypeEl instanceof HTMLSelectElement) {
+    decayModelTypeEl.addEventListener("change", () => {
+      const type = String(decayModelTypeEl.value || "linear");
+      applyExpertPatch({ decayModel: { type } });
+    });
+  }
+
+  const decayWeeklyPctEl = document.getElementById("v3IntelDecayWeeklyPct");
+  if (decayWeeklyPctEl instanceof HTMLInputElement) {
+    const push = () => {
+      const parsed = parseOptionalNumber(decayWeeklyPctEl.value);
+      if (!Number.isFinite(parsed)) {
+        return;
+      }
+      applyExpertPatch({ decayModel: { weeklyDecayPct: parsed / 100 } });
+    };
+    decayWeeklyPctEl.addEventListener("change", push);
+    decayWeeklyPctEl.addEventListener("blur", push);
+  }
+
+  const decayFloorPctEl = document.getElementById("v3IntelDecayFloorPct");
+  if (decayFloorPctEl instanceof HTMLInputElement) {
+    const push = () => {
+      const parsed = parseOptionalNumber(decayFloorPctEl.value);
+      if (!Number.isFinite(parsed)) {
+        return;
+      }
+      applyExpertPatch({ decayModel: { floorPctOfBaseline: parsed / 100 } });
+    };
+    decayFloorPctEl.addEventListener("change", push);
+    decayFloorPctEl.addEventListener("blur", push);
+  }
+
+  const shockEnabledEl = document.getElementById("v3IntelShockScenariosEnabled");
+  if (shockEnabledEl instanceof HTMLInputElement) {
+    shockEnabledEl.addEventListener("change", () => {
+      applySimPatch({ shockScenariosEnabled: !!shockEnabledEl.checked });
+    });
   }
 
   const generateBtn = document.getElementById("v3BtnIntelCalibrationGenerate");
@@ -1065,38 +1151,58 @@ function syncControlsCalibrationBridge() {
     ensureBriefKindOptions();
   }
 
-  syncSelectValue("v3IntelBriefKind", "intelBriefKind");
-  syncSelectValue("v3IntelMcDistribution", "intelMcDistribution");
-  syncCheckboxValue("v3IntelCorrelatedShocks", "intelCorrelatedShocks");
-  syncSelectValue("v3IntelCorrelationMatrixId", "intelCorrelationMatrixId");
-  syncCheckboxValue("v3IntelCapacityDecayEnabled", "intelCapacityDecayEnabled");
-  syncSelectValue("v3IntelDecayModelType", "intelDecayModelType");
-  syncFieldValue("v3IntelDecayWeeklyPct", "intelDecayWeeklyPct");
-  syncFieldValue("v3IntelDecayFloorPct", "intelDecayFloorPct");
-  syncFieldValue("v3IntelCorrelationJson", "intelCorrelationJson");
-  syncCheckboxValue("v3IntelShockScenariosEnabled", "intelShockScenariosEnabled");
-  syncFieldValue("v3IntelShockJson", "intelShockJson");
-  if (!hasApi) {
-    syncFieldValue("v3IntelCalibrationBriefContent", "intelCalibrationBriefContent");
-  } else {
-    const selectedKind = selectedBriefKind();
-    const content = latestBriefContentForKind(selectedKind) || latestBriefContentForKind("calibrationSources");
-    setTextareaValue("v3IntelCalibrationBriefContent", content);
+  const inputs = getActiveScenarioInputsSnapshot();
+  const intel = (inputs?.intelState && typeof inputs.intelState === "object") ? inputs.intelState : {};
+  const sim = (intel?.simToggles && typeof intel.simToggles === "object") ? intel.simToggles : {};
+  const expert = (intel?.expertToggles && typeof intel.expertToggles === "object") ? intel.expertToggles : {};
+  const decayModel = (expert?.decayModel && typeof expert.decayModel === "object") ? expert.decayModel : {};
+
+  const briefKindEl = document.getElementById("v3IntelBriefKind");
+  if (briefKindEl instanceof HTMLSelectElement && document.activeElement !== briefKindEl) {
+    const kind = selectedBriefKind();
+    if (kind) {
+      briefKindEl.value = kind;
+    }
   }
-  syncControlsDisabled([
-    ["v3IntelBriefKind", "intelBriefKind"],
-    ["v3IntelMcDistribution", "intelMcDistribution"],
-    ["v3IntelCorrelatedShocks", "intelCorrelatedShocks"],
-    ["v3IntelCorrelationMatrixId", "intelCorrelationMatrixId"],
-    ["v3IntelCapacityDecayEnabled", "intelCapacityDecayEnabled"],
-    ["v3IntelDecayModelType", "intelDecayModelType"],
-    ["v3IntelDecayWeeklyPct", "intelDecayWeeklyPct"],
-    ["v3IntelDecayFloorPct", "intelDecayFloorPct"],
-    ["v3IntelCorrelationJson", "intelCorrelationJson"],
-    ["v3IntelShockScenariosEnabled", "intelShockScenariosEnabled"],
-    ["v3IntelShockJson", "intelShockJson"],
-    ["v3IntelCalibrationBriefContent", "intelCalibrationBriefContent"]
-  ]);
+  const mcDistributionEl = document.getElementById("v3IntelMcDistribution");
+  if (mcDistributionEl instanceof HTMLSelectElement && document.activeElement !== mcDistributionEl) {
+    mcDistributionEl.value = String(sim.mcDistribution || "triangular");
+  }
+  const correlatedEl = document.getElementById("v3IntelCorrelatedShocks");
+  if (correlatedEl instanceof HTMLInputElement && document.activeElement !== correlatedEl) {
+    correlatedEl.checked = !!sim.correlatedShocks;
+  }
+  const correlationIdEl = document.getElementById("v3IntelCorrelationMatrixId");
+  if (correlationIdEl instanceof HTMLSelectElement && document.activeElement !== correlationIdEl) {
+    const current = String(sim.correlationMatrixId || "");
+    correlationIdEl.value = current;
+  }
+  const decayEnabledEl = document.getElementById("v3IntelCapacityDecayEnabled");
+  if (decayEnabledEl instanceof HTMLInputElement && document.activeElement !== decayEnabledEl) {
+    decayEnabledEl.checked = !!expert.capacityDecayEnabled;
+  }
+  const decayModelTypeEl = document.getElementById("v3IntelDecayModelType");
+  if (decayModelTypeEl instanceof HTMLSelectElement && document.activeElement !== decayModelTypeEl) {
+    decayModelTypeEl.value = String(decayModel.type || "linear");
+  }
+  const decayWeeklyPctEl = document.getElementById("v3IntelDecayWeeklyPct");
+  if (decayWeeklyPctEl instanceof HTMLInputElement && document.activeElement !== decayWeeklyPctEl) {
+    const weekly = Number(decayModel.weeklyDecayPct);
+    decayWeeklyPctEl.value = Number.isFinite(weekly) ? String((weekly * 100).toFixed(2).replace(/\.00$/, "")) : "";
+  }
+  const decayFloorPctEl = document.getElementById("v3IntelDecayFloorPct");
+  if (decayFloorPctEl instanceof HTMLInputElement && document.activeElement !== decayFloorPctEl) {
+    const floor = Number(decayModel.floorPctOfBaseline);
+    decayFloorPctEl.value = Number.isFinite(floor) ? String((floor * 100).toFixed(2).replace(/\.00$/, "")) : "";
+  }
+  const shockEnabledEl = document.getElementById("v3IntelShockScenariosEnabled");
+  if (shockEnabledEl instanceof HTMLInputElement && document.activeElement !== shockEnabledEl) {
+    shockEnabledEl.checked = sim.shockScenariosEnabled !== false;
+  }
+
+  const selectedKind = selectedBriefKind();
+  const content = latestBriefContentForKind(selectedKind) || latestBriefContentForKind("calibrationSources");
+  setTextareaValue("v3IntelCalibrationBriefContent", hasApi ? content : "");
 
   setText("v3IntelCorrelationDisabledHint", buildCorrelationDisabledHint());
   setText("v3IntelDecayStatus", buildDecayStatus());
