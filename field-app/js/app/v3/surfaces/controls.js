@@ -525,26 +525,102 @@ function wireControlsWorkflowBridge() {
   }
   root.dataset.wired = "1";
 
-  bindCheckboxProxy("v3IntelScenarioLocked", "intelScenarioLocked");
-  bindCheckboxProxy("v3IntelRequireCriticalNote", "intelRequireCriticalNote");
-  bindCheckboxProxy("v3IntelRequireCriticalEvidence", "intelRequireCriticalEvidence");
-  bindFieldProxy("v3IntelScenarioLockReason", "intelScenarioLockReason");
-  bindFieldProxy("v3IntelCriticalChangeNote", "intelCriticalChangeNote");
+  if (!hasWorkflowScenarioApi()) {
+    bindCheckboxProxy("v3IntelScenarioLocked", "intelScenarioLocked");
+    bindCheckboxProxy("v3IntelRequireCriticalNote", "intelRequireCriticalNote");
+    bindCheckboxProxy("v3IntelRequireCriticalEvidence", "intelRequireCriticalEvidence");
+    bindFieldProxy("v3IntelScenarioLockReason", "intelScenarioLockReason");
+    bindFieldProxy("v3IntelCriticalChangeNote", "intelCriticalChangeNote");
+    return;
+  }
+
+  const lockEl = document.getElementById("v3IntelScenarioLocked");
+  if (lockEl instanceof HTMLInputElement) {
+    lockEl.addEventListener("change", () => {
+      updateWorkflowViaScenarioApi({ scenarioLocked: !!lockEl.checked });
+    });
+  }
+
+  const requireNoteEl = document.getElementById("v3IntelRequireCriticalNote");
+  if (requireNoteEl instanceof HTMLInputElement) {
+    requireNoteEl.addEventListener("change", () => {
+      updateWorkflowViaScenarioApi({ requireCriticalNote: !!requireNoteEl.checked });
+    });
+  }
+
+  const requireEvidenceEl = document.getElementById("v3IntelRequireCriticalEvidence");
+  if (requireEvidenceEl instanceof HTMLInputElement) {
+    requireEvidenceEl.addEventListener("change", () => {
+      updateWorkflowViaScenarioApi({ requireCriticalEvidence: !!requireEvidenceEl.checked });
+    });
+  }
+
+  const lockReasonEl = document.getElementById("v3IntelScenarioLockReason");
+  if (lockReasonEl instanceof HTMLInputElement) {
+    const push = () => {
+      updateWorkflowViaScenarioApi({ lockReason: String(lockReasonEl.value || "").trim() });
+    };
+    lockReasonEl.addEventListener("change", push);
+    lockReasonEl.addEventListener("blur", push);
+  }
+
+  const criticalNoteEl = document.getElementById("v3IntelCriticalChangeNote");
+  if (criticalNoteEl instanceof HTMLTextAreaElement) {
+    const push = () => {
+      updatePendingNoteViaScenarioApi(String(criticalNoteEl.value || ""));
+    };
+    criticalNoteEl.addEventListener("change", push);
+    criticalNoteEl.addEventListener("blur", push);
+  }
 }
 
 function syncControlsWorkflowBridge() {
-  syncCheckboxValue("v3IntelScenarioLocked", "intelScenarioLocked");
-  syncCheckboxValue("v3IntelRequireCriticalNote", "intelRequireCriticalNote");
-  syncCheckboxValue("v3IntelRequireCriticalEvidence", "intelRequireCriticalEvidence");
-  syncFieldValue("v3IntelScenarioLockReason", "intelScenarioLockReason");
-  syncFieldValue("v3IntelCriticalChangeNote", "intelCriticalChangeNote");
-  syncControlsDisabled([
-    ["v3IntelScenarioLocked", "intelScenarioLocked"],
-    ["v3IntelRequireCriticalNote", "intelRequireCriticalNote"],
-    ["v3IntelRequireCriticalEvidence", "intelRequireCriticalEvidence"],
-    ["v3IntelScenarioLockReason", "intelScenarioLockReason"],
-    ["v3IntelCriticalChangeNote", "intelCriticalChangeNote"]
-  ]);
+  if (!hasWorkflowScenarioApi()) {
+    syncCheckboxValue("v3IntelScenarioLocked", "intelScenarioLocked");
+    syncCheckboxValue("v3IntelRequireCriticalNote", "intelRequireCriticalNote");
+    syncCheckboxValue("v3IntelRequireCriticalEvidence", "intelRequireCriticalEvidence");
+    syncFieldValue("v3IntelScenarioLockReason", "intelScenarioLockReason");
+    syncFieldValue("v3IntelCriticalChangeNote", "intelCriticalChangeNote");
+    syncControlsDisabled([
+      ["v3IntelScenarioLocked", "intelScenarioLocked"],
+      ["v3IntelRequireCriticalNote", "intelRequireCriticalNote"],
+      ["v3IntelRequireCriticalEvidence", "intelRequireCriticalEvidence"],
+      ["v3IntelScenarioLockReason", "intelScenarioLockReason"],
+      ["v3IntelCriticalChangeNote", "intelCriticalChangeNote"]
+    ]);
+  } else {
+    const inputs = getActiveScenarioInputsSnapshot();
+    const workflow = (inputs?.intelState && typeof inputs.intelState === "object" && inputs.intelState.workflow && typeof inputs.intelState.workflow === "object")
+      ? inputs.intelState.workflow
+      : {};
+    const pendingCriticalNote = String(inputs?.ui?.pendingCriticalNote || "");
+
+    const lockEl = document.getElementById("v3IntelScenarioLocked");
+    if (lockEl instanceof HTMLInputElement && document.activeElement !== lockEl) {
+      lockEl.checked = !!workflow.scenarioLocked;
+    }
+
+    const requireNoteEl = document.getElementById("v3IntelRequireCriticalNote");
+    if (requireNoteEl instanceof HTMLInputElement && document.activeElement !== requireNoteEl) {
+      requireNoteEl.checked = workflow.requireCriticalNote !== false;
+    }
+
+    const requireEvidenceEl = document.getElementById("v3IntelRequireCriticalEvidence");
+    if (requireEvidenceEl instanceof HTMLInputElement && document.activeElement !== requireEvidenceEl) {
+      requireEvidenceEl.checked = workflow.requireCriticalEvidence !== false;
+    }
+
+    const reasonEl = document.getElementById("v3IntelScenarioLockReason");
+    if (reasonEl instanceof HTMLInputElement && document.activeElement !== reasonEl) {
+      reasonEl.value = String(workflow.lockReason || "");
+    }
+
+    const noteEl = document.getElementById("v3IntelCriticalChangeNote");
+    if (noteEl instanceof HTMLTextAreaElement && document.activeElement !== noteEl) {
+      noteEl.value = pendingCriticalNote;
+    }
+  }
+
   setText("v3IntelScenarioLockStatus", buildScenarioLockStatus());
   setText("v3IntelWorkflowStatus", buildWorkflowStatus());
 }
@@ -864,6 +940,62 @@ function syncControlsDisabled(pairs) {
   });
 }
 
+function getScenarioBridgeApi() {
+  const api = window?.[SCENARIO_API_KEY];
+  return api && typeof api === "object" ? api : null;
+}
+
+function hasWorkflowScenarioApi() {
+  const api = getScenarioBridgeApi();
+  return !!api
+    && typeof api.getView === "function"
+    && typeof api.updateIntelWorkflow === "function"
+    && typeof api.setPendingCriticalNote === "function";
+}
+
+function getActiveScenarioInputsSnapshot() {
+  const api = getScenarioBridgeApi();
+  if (!api || typeof api.getView !== "function") {
+    return null;
+  }
+  const view = api.getView();
+  const activeInputs = view?.active?.inputs;
+  if (activeInputs && typeof activeInputs === "object") {
+    return activeInputs;
+  }
+  const baselineInputs = view?.baseline?.inputs;
+  if (baselineInputs && typeof baselineInputs === "object") {
+    return baselineInputs;
+  }
+  return null;
+}
+
+function updateWorkflowViaScenarioApi(patch) {
+  const api = getScenarioBridgeApi();
+  if (!api || typeof api.updateIntelWorkflow !== "function") {
+    return false;
+  }
+  try {
+    api.updateIntelWorkflow(patch || {});
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function updatePendingNoteViaScenarioApi(note) {
+  const api = getScenarioBridgeApi();
+  if (!api || typeof api.setPendingCriticalNote !== "function") {
+    return false;
+  }
+  try {
+    api.setPendingCriticalNote(String(note || ""));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 function readDomTextById(id) {
   const el = document.getElementById(id);
   return el ? (el.textContent || "").trim() : "";
@@ -1074,20 +1206,12 @@ function buildRecommendationPreviewFromIntel() {
 }
 
 function getActiveIntelStateSnapshot() {
-  const api = window?.[SCENARIO_API_KEY];
-  if (!api || typeof api.getView !== "function") {
+  const inputs = getActiveScenarioInputsSnapshot();
+  if (!inputs || typeof inputs !== "object") {
     return null;
   }
-  const view = api.getView();
-  const activeIntel = view?.active?.inputs?.intelState;
-  if (activeIntel && typeof activeIntel === "object") {
-    return activeIntel;
-  }
-  const baselineIntel = view?.baseline?.inputs?.intelState;
-  if (baselineIntel && typeof baselineIntel === "object") {
-    return baselineIntel;
-  }
-  return null;
+  const intel = inputs.intelState;
+  return intel && typeof intel === "object" ? intel : null;
 }
 
 function formatIsoDate(iso) {
