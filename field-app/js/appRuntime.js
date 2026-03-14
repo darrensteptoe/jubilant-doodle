@@ -537,15 +537,297 @@ const DECISION_BRIDGE_KEY = "__FPE_DECISION_API__";
 
 function dataBridgeBuildBackupOptions(){
   const selectEl = els?.restoreBackup;
-  if (!(selectEl instanceof HTMLSelectElement)) {
-    return [];
+  if (selectEl instanceof HTMLSelectElement) {
+    return Array.from(selectEl.options || [])
+      .filter((opt) => opt && String(opt.value || "").trim())
+      .map((opt) => ({
+        value: String(opt.value || ""),
+        label: String(opt.textContent || "").trim() || String(opt.value || "")
+      }));
   }
-  return Array.from(selectEl.options || [])
-    .filter((opt) => opt && String(opt.value || "").trim())
-    .map((opt) => ({
-      value: String(opt.value || ""),
-      label: String(opt.textContent || "").trim() || String(opt.value || "")
-    }));
+  const backups = readBackups();
+  return backups.map((entry, idx) => {
+    const when = entry?.ts ? String(entry.ts).replace("T", " ").replace("Z", "") : "";
+    const name = String(entry?.scenarioName || "").trim();
+    const label = `${when}${name ? ` — ${name}` : ""}`.trim() || `Backup ${idx + 1}`;
+    return { value: String(idx), label };
+  });
+}
+
+let dataBridgeSelectedBackup = "";
+let dataBridgeImportFileName = "";
+let dataBridgeHashBannerText = "";
+let dataBridgeWarnBannerText = "";
+let dataBridgeUsbStatusText = "";
+
+function dataBridgeHasFsSupport(){
+  return typeof window !== "undefined"
+    && !!window.isSecureContext
+    && typeof window.showDirectoryPicker === "function";
+}
+
+function dataBridgeNormalizeWarnings(list){
+  const arr = Array.isArray(list) ? list : [];
+  const benignUnknownFields = new Set(["buildId", "appVersion", "timestamp"]);
+  const seen = new Set();
+  const out = [];
+  for (const item of arr){
+    const text = String(item == null ? "" : item).trim();
+    if (!text) continue;
+    const m = text.match(/^Unknown field '([^']+)' ignored\.?$/i);
+    if (m && benignUnknownFields.has(String(m[1] || "").trim())) continue;
+    if (seen.has(text)) continue;
+    seen.add(text);
+    out.push(text);
+  }
+  return out;
+}
+
+function dataBridgeSetHashBannerText(text){
+  dataBridgeHashBannerText = String(text || "").trim();
+}
+
+function dataBridgeSetWarnBannerText(text){
+  dataBridgeWarnBannerText = String(text || "").trim();
+}
+
+function dataBridgeSetImportFileName(name){
+  dataBridgeImportFileName = String(name || "").trim();
+}
+
+function dataBridgeSetUsbStatusText(text){
+  dataBridgeUsbStatusText = String(text || "").trim();
+}
+
+function dataBridgeApplyUsbResultStatus(result){
+  const legacyText = String(els?.usbStorageStatus?.textContent || "").trim();
+  if (legacyText){
+    dataBridgeSetUsbStatusText(legacyText);
+    return;
+  }
+  if (result?.ok){
+    dataBridgeSetUsbStatusText("");
+    return;
+  }
+  if (result?.canceled){
+    dataBridgeSetUsbStatusText("Folder connect canceled.");
+    return;
+  }
+  const code = String(result?.error || "").trim();
+  switch (code){
+    case "unsupported":
+      dataBridgeSetUsbStatusText("External folder storage requires HTTPS and File System Access browser support.");
+      break;
+    case "permission_denied":
+      dataBridgeSetUsbStatusText("Folder permission denied.");
+      break;
+    case "not_connected":
+      dataBridgeSetUsbStatusText("Connect folder before running this action.");
+      break;
+    case "missing_state_file":
+      dataBridgeSetUsbStatusText("No state file found in connected folder.");
+      break;
+    case "load_failed":
+      dataBridgeSetUsbStatusText("USB load failed.");
+      break;
+    case "serialize_failed":
+    case "parse_failed":
+    case "write_failed":
+      dataBridgeSetUsbStatusText("USB save failed.");
+      break;
+    default:
+      dataBridgeSetUsbStatusText("Using browser storage only.");
+      break;
+  }
+}
+
+function dataBridgeApplyImportedScenario(nextScenario){
+  const normalized = normalizeLoadedScenarioRuntime(nextScenario);
+  state = normalized;
+  ensureScenarioRegistry();
+  ensureDecisionScaffold();
+  try{
+    const baseline = state?.ui?.scenarios?.[SCENARIO_BASELINE_ID];
+    if (baseline){
+      baseline.inputs = scenarioInputsFromState(state);
+      baseline.outputs = scenarioOutputsFromState(state);
+    }
+  } catch {}
+  applyStateToUI();
+  rebuildCandidateTable();
+  document.body.classList.toggle("training", !!state?.ui?.training);
+  applyThemeFromState();
+  if (els.explainCard) els.explainCard.hidden = !state?.ui?.training;
+  render();
+  safeCall(() => { renderDecisionSessionD1(); });
+  persist();
+}
+
+function dataBridgeRunSaveJson(){
+  const scenarioClone = structuredClone(state);
+  const snapshot = {
+    modelVersion: engine.snapshot.MODEL_VERSION,
+    schemaVersion: engine.snapshot.CURRENT_SCHEMA_VERSION,
+    scenarioState: scenarioClone,
+    appVersion: APP_VERSION,
+    buildId: BUILD_ID
+  };
+  snapshot.snapshotHash = engine.snapshot.computeSnapshotHash(snapshot);
+  lastExportHash = snapshot.snapshotHash;
+  const payload = engine.snapshot.makeScenarioExport(snapshot);
+  if (engine.snapshot.hasNonFiniteNumbers(payload)){
+    dataBridgeSetWarnBannerText("Export blocked: scenario contains NaN/Infinity.");
+    return { ok: false, code: "non_finite" };
+  }
+  const filename = engine.snapshot.makeTimestampedFilename("field-path-scenario", "json");
+  const text = engine.snapshot.deterministicStringify(payload, 2);
+  downloadText(text, filename, "application/json");
+  return { ok: true };
+}
+
+function dataBridgeRunExportCsv(){
+  if (!lastResultsSnapshot){
+    dataBridgeSetWarnBannerText("Nothing to export yet. Run a scenario first.");
+    return { ok: false, code: "missing_snapshot" };
+  }
+  const csv = engine.snapshot.planRowsToCsv(lastResultsSnapshot);
+  if (/NaN|Infinity/.test(csv)){
+    dataBridgeSetWarnBannerText("CSV export blocked: contains NaN/Infinity.");
+    return { ok: false, code: "non_finite" };
+  }
+  const filename = engine.snapshot.makeTimestampedFilename("field-path-plan", "csv");
+  downloadText(csv, filename, "text/csv");
+  return { ok: true };
+}
+
+async function dataBridgeRunCopySummary(){
+  if (!lastResultsSnapshot){
+    dataBridgeSetWarnBannerText("Nothing to copy yet. Run a scenario first.");
+    return { ok: false, code: "missing_snapshot" };
+  }
+  const text = engine.snapshot.formatSummaryText(lastResultsSnapshot);
+  const result = await engine.snapshot.copyTextToClipboard(text);
+  if (!result?.ok){
+    dataBridgeSetWarnBannerText(result?.reason || "Copy failed.");
+    return { ok: false, code: "copy_failed" };
+  }
+  return { ok: true };
+}
+
+function dataBridgePickJsonFile(){
+  return new Promise((resolve) => {
+    try{
+      const input = document.createElement("input");
+      input.type = "file";
+      input.accept = "application/json";
+      input.hidden = true;
+      input.addEventListener("change", () => {
+        const file = input.files?.[0] || null;
+        input.remove();
+        resolve(file);
+      }, { once: true });
+      document.body.appendChild(input);
+      input.click();
+    } catch {
+      resolve(null);
+    }
+  });
+}
+
+async function dataBridgeImportJsonFile(file){
+  const nextFile = file || null;
+  if (!nextFile){
+    return { ok: false, code: "missing_file" };
+  }
+  dataBridgeSetImportFileName(nextFile.name || "");
+  dataBridgeSetWarnBannerText("");
+  dataBridgeSetHashBannerText("");
+
+  const loaded = await readJsonFile(nextFile);
+  if (!loaded || typeof loaded !== "object"){
+    dataBridgeSetWarnBannerText("Import failed: invalid JSON.");
+    return { ok: false, code: "invalid_json" };
+  }
+
+  const prePolicy = engine.snapshot.checkStrictImportPolicy({
+    strictMode: !!state?.ui?.strictImport,
+    importedSchemaVersion: loaded.schemaVersion || null,
+    currentSchemaVersion: engine.snapshot.CURRENT_SCHEMA_VERSION,
+    hashMismatch: false
+  });
+  if (!prePolicy.ok){
+    dataBridgeSetWarnBannerText(prePolicy.issues.join(" "));
+    return { ok: false, code: "policy_blocked" };
+  }
+
+  const migrated = engine.snapshot.migrateSnapshot(loaded);
+  const warnings = [];
+  if (Array.isArray(migrated?.warnings)) warnings.push(...migrated.warnings);
+
+  const validated = engine.snapshot.validateScenarioExport(migrated?.snapshot, engine.snapshot.MODEL_VERSION);
+  if (!validated?.ok){
+    dataBridgeSetWarnBannerText(`Import failed: ${validated?.reason || "invalid snapshot"}.`);
+    return { ok: false, code: "validate_failed" };
+  }
+
+  const missing = requiredScenarioKeysMissing(validated.scenario);
+  if (missing.length){
+    dataBridgeSetWarnBannerText(`Import failed: missing fields: ${missing.join(", ")}`);
+    return { ok: false, code: "missing_fields" };
+  }
+
+  const quality = engine.snapshot.validateImportedScenarioData(validated.scenario);
+  if (!quality.ok){
+    const detail = Array.isArray(quality.errors) && quality.errors.length
+      ? ` ${quality.errors[0]}`
+      : "";
+    dataBridgeSetWarnBannerText(`Import failed: quality checks failed.${detail}`);
+    return { ok: false, code: "quality_failed" };
+  }
+  if (Array.isArray(quality?.warnings)) warnings.push(...quality.warnings);
+
+  const normalizedWarnings = dataBridgeNormalizeWarnings(warnings);
+  if (normalizedWarnings.length){
+    const shown = normalizedWarnings.slice(0, 3).join(" • ");
+    const extra = normalizedWarnings.length > 3 ? ` (+${normalizedWarnings.length - 3} more)` : "";
+    dataBridgeSetWarnBannerText(`${shown}${extra}`.trim());
+  } else {
+    dataBridgeSetWarnBannerText("");
+  }
+
+  try{
+    const exportedHash = (loaded && typeof loaded === "object") ? (loaded.snapshotHash || null) : null;
+    const recomputed = engine.snapshot.computeSnapshotHash({
+      modelVersion: validated.modelVersion,
+      scenarioState: validated.scenario
+    });
+    const hashMismatch = !!(exportedHash && exportedHash !== recomputed);
+    if (hashMismatch){
+      dataBridgeSetHashBannerText("Snapshot hash differs from exported hash.");
+      console.warn("Snapshot hash mismatch", { exportedHash, recomputed });
+    } else {
+      dataBridgeSetHashBannerText("");
+    }
+
+    const policy = engine.snapshot.checkStrictImportPolicy({
+      strictMode: !!state?.ui?.strictImport,
+      importedSchemaVersion: (migrated?.snapshot?.schemaVersion || loaded.schemaVersion || null),
+      currentSchemaVersion: engine.snapshot.CURRENT_SCHEMA_VERSION,
+      hashMismatch
+    });
+    if (!policy.ok){
+      dataBridgeSetWarnBannerText(policy.issues.join(" "));
+      return { ok: false, code: "policy_blocked" };
+    }
+  } catch {
+    if (state?.ui?.strictImport){
+      dataBridgeSetWarnBannerText("Import blocked: could not verify integrity hash in strict mode.");
+      return { ok: false, code: "hash_verify_failed" };
+    }
+  }
+
+  dataBridgeApplyImportedScenario(validated.scenario);
+  return { ok: true };
 }
 
 function dataBridgeStateView(){
@@ -558,61 +840,59 @@ function dataBridgeStateView(){
     strictToggle instanceof HTMLInputElement
       ? !!strictToggle.checked
       : !!state?.ui?.strictImport;
-  const importFileName =
-    loadJsonInput instanceof HTMLInputElement &&
-    loadJsonInput.files &&
-    loadJsonInput.files.length
+  const importFileName = dataBridgeImportFileName
+    || (loadJsonInput instanceof HTMLInputElement && loadJsonInput.files && loadJsonInput.files.length
       ? String(loadJsonInput.files[0]?.name || "")
-      : "";
-  const hashBannerText =
-    els?.importHashBanner instanceof HTMLElement && !els.importHashBanner.hidden
+      : "");
+  const hashBannerText = dataBridgeHashBannerText
+    || (els?.importHashBanner instanceof HTMLElement && !els.importHashBanner.hidden
       ? String(els.importHashBanner.textContent || "").trim()
-      : "";
-  const warnBannerText =
-    els?.importWarnBanner instanceof HTMLElement && !els.importWarnBanner.hidden
+      : "");
+  const warnBannerText = dataBridgeWarnBannerText
+    || (els?.importWarnBanner instanceof HTMLElement && !els.importWarnBanner.hidden
       ? String(els.importWarnBanner.textContent || "").trim()
-      : "";
-  const usbStatusText = String(els?.usbStorageStatus?.textContent || "").trim();
+      : "");
+  const usbStatusText = dataBridgeUsbStatusText || String(els?.usbStorageStatus?.textContent || "").trim();
+  const backupOptions = dataBridgeBuildBackupOptions();
+  const canFs = dataBridgeHasFsSupport();
+  const canUseSnapshot = !!lastResultsSnapshot;
 
   return {
     strictImport,
-    backupOptions: dataBridgeBuildBackupOptions(),
-    selectedBackup: restoreSelect instanceof HTMLSelectElement ? String(restoreSelect.value || "") : "",
+    backupOptions,
+    selectedBackup: dataBridgeSelectedBackup || (restoreSelect instanceof HTMLSelectElement ? String(restoreSelect.value || "") : ""),
     importFileName,
     hashBannerText,
     warnBannerText,
     usbConnected,
     usbStatus: usbStatusText || (usbConnected ? "External folder connected." : "Using browser storage only."),
     controls: {
-      strictToggleDisabled: strictToggle instanceof HTMLInputElement ? !!strictToggle.disabled : true,
-      restoreDisabled: restoreSelect instanceof HTMLSelectElement ? !!restoreSelect.disabled : true,
-      saveJsonDisabled: els?.btnSaveJson instanceof HTMLButtonElement ? !!els.btnSaveJson.disabled : true,
-      loadJsonDisabled: loadJsonInput instanceof HTMLInputElement ? !!loadJsonInput.disabled : true,
-      copySummaryDisabled: els?.btnCopySummary instanceof HTMLButtonElement ? !!els.btnCopySummary.disabled : true,
-      exportCsvDisabled: els?.btnExportCsv instanceof HTMLButtonElement ? !!els.btnExportCsv.disabled : true,
-      usbConnectDisabled: els?.btnUsbStorageConnect instanceof HTMLButtonElement ? !!els.btnUsbStorageConnect.disabled : true,
-      usbLoadDisabled: els?.btnUsbStorageLoad instanceof HTMLButtonElement ? !!els.btnUsbStorageLoad.disabled : true,
-      usbSaveDisabled: els?.btnUsbStorageSave instanceof HTMLButtonElement ? !!els.btnUsbStorageSave.disabled : true,
-      usbDisconnectDisabled: els?.btnUsbStorageDisconnect instanceof HTMLButtonElement ? !!els.btnUsbStorageDisconnect.disabled : true,
+      strictToggleDisabled: false,
+      restoreDisabled: !backupOptions.length,
+      saveJsonDisabled: false,
+      loadJsonDisabled: false,
+      copySummaryDisabled: !canUseSnapshot,
+      exportCsvDisabled: !canUseSnapshot,
+      usbConnectDisabled: !canFs,
+      usbLoadDisabled: !(canFs && usbConnected),
+      usbSaveDisabled: !(canFs && usbConnected),
+      usbDisconnectDisabled: !canFs,
     }
   };
 }
 
 function dataBridgeSetStrictImport(enabled){
   const next = !!enabled;
-  if (els?.toggleStrictImport instanceof HTMLInputElement){
-    els.toggleStrictImport.checked = next;
-    try{
-      document.body.classList.toggle("strict-import", next);
-    } catch {}
-    els.toggleStrictImport.dispatchEvent(new Event("input", { bubbles: true }));
-    els.toggleStrictImport.dispatchEvent(new Event("change", { bubbles: true }));
-    return { ok: true, view: dataBridgeStateView() };
-  }
   setState((s) => {
     if (!s.ui || typeof s.ui !== "object") s.ui = {};
     s.ui.strictImport = next;
   });
+  try{
+    document.body.classList.toggle("strict-import", next);
+  } catch {}
+  if (els?.toggleStrictImport instanceof HTMLInputElement){
+    els.toggleStrictImport.checked = next;
+  }
   return { ok: true, view: dataBridgeStateView() };
 }
 
@@ -621,7 +901,9 @@ function dataBridgeRestoreBackup(index){
   if (!value){
     return { ok: false, code: "missing_index", view: dataBridgeStateView() };
   }
+  dataBridgeSelectedBackup = value;
   restoreBackupByIndex(value);
+  dataBridgeSelectedBackup = "";
   if (els?.restoreBackup instanceof HTMLSelectElement){
     els.restoreBackup.value = "";
   }
@@ -630,22 +912,57 @@ function dataBridgeRestoreBackup(index){
 
 function dataBridgeTrigger(action){
   const key = String(action || "").trim();
-  const handlers = {
-    save_json: els?.btnSaveJson,
-    load_json: els?.loadJson,
-    copy_summary: els?.btnCopySummary,
-    export_csv: els?.btnExportCsv,
-    usb_connect: els?.btnUsbStorageConnect,
-    usb_load: els?.btnUsbStorageLoad,
-    usb_save: els?.btnUsbStorageSave,
-    usb_disconnect: els?.btnUsbStorageDisconnect,
-  };
-  const target = handlers[key];
-  if (!(target instanceof HTMLElement) || typeof target.click !== "function"){
-    return { ok: false, code: "not_available", view: dataBridgeStateView() };
+  switch (key){
+    case "save_json":
+      return { ...dataBridgeRunSaveJson(), view: dataBridgeStateView() };
+    case "export_csv":
+      return { ...dataBridgeRunExportCsv(), view: dataBridgeStateView() };
+    case "copy_summary":
+      return dataBridgeRunCopySummary()
+        .then((result) => ({ ...(result || { ok: false, code: "copy_failed" }), view: dataBridgeStateView() }))
+        .catch(() => ({ ok: false, code: "copy_failed", view: dataBridgeStateView() }));
+    case "load_json":
+      return dataBridgePickJsonFile()
+        .then((file) => dataBridgeImportJsonFile(file))
+        .then((result) => ({ ...(result || { ok: false, code: "import_failed" }), view: dataBridgeStateView() }))
+        .catch(() => {
+          dataBridgeSetWarnBannerText("Import failed.");
+          return { ok: false, code: "import_failed", view: dataBridgeStateView() };
+        });
+    case "usb_connect":
+      return getUsbStorageController().connect()
+        .then((result) => {
+          if (result?.ok){
+            dataBridgeSetWarnBannerText("");
+          }
+          dataBridgeApplyUsbResultStatus(result);
+          return { ...(result || { ok: false, code: "usb_connect_failed" }), view: dataBridgeStateView() };
+        })
+        .catch(() => ({ ok: false, code: "usb_connect_failed", view: dataBridgeStateView() }));
+    case "usb_load":
+      return getUsbStorageController().loadFromFolder()
+        .then((result) => {
+          dataBridgeApplyUsbResultStatus(result);
+          return { ...(result || { ok: false, code: "usb_load_failed" }), view: dataBridgeStateView() };
+        })
+        .catch(() => ({ ok: false, code: "usb_load_failed", view: dataBridgeStateView() }));
+    case "usb_save":
+      return getUsbStorageController().saveNow({ requestPermission: true })
+        .then((result) => {
+          dataBridgeApplyUsbResultStatus(result);
+          return { ...(result || { ok: false, code: "usb_save_failed" }), view: dataBridgeStateView() };
+        })
+        .catch(() => ({ ok: false, code: "usb_save_failed", view: dataBridgeStateView() }));
+    case "usb_disconnect":
+      return getUsbStorageController().disconnect()
+        .then((result) => {
+          dataBridgeApplyUsbResultStatus(result);
+          return { ...(result || { ok: false, code: "usb_disconnect_failed" }), view: dataBridgeStateView() };
+        })
+        .catch(() => ({ ok: false, code: "usb_disconnect_failed", view: dataBridgeStateView() }));
+    default:
+      return { ok: false, code: "not_available", view: dataBridgeStateView() };
   }
-  target.click();
-  return { ok: true, view: dataBridgeStateView() };
 }
 
 function installDataBridge(){
