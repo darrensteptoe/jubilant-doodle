@@ -222,6 +222,7 @@ Scope: UI architecture migration only (engine and right rail frozen)
 - Turnout bridge reduction: Turnout summary/votes/need readouts now resolve from Turnout runtime bridge summary (`view.summary`) backed by runtime cache (`state.ui.lastTurnout`) before any selector fallback.
 - Legacy flow retirement: removed legacy left-nav `integrity` entry and removed retired `stage-integrity` container from `index.html`.
 - Data bridge hardening: Data actions (`save/load/copy/export/USB/strict/restore`) now execute through runtime-native `__FPE_DATA_API__` handlers without legacy integrity control IDs.
+- District bridge reduction: Census status/meta lines in District v3 now resolve state-first from runtime Census/footprint/provenance/capacity state (with compatibility fallback), reducing direct coupling to legacy `#census*Status` text nodes.
 - Legacy flow retirement: legacy nav entries for `capacity`, `results`, `roi`, `gotv`, and `integrity` are removed from legacy shell user flow; corresponding retired stage stubs have been deleted from `index.html`.
 - Legacy flow retirement: legacy `checks` nav entry is removed and `stage-checks` is now hidden/retired in legacy flow while preserving compatibility IDs for District bridge work.
 - Legacy shell hardening: fixed missing `</section>` closure after structure stage to keep section tree balanced during further staged deletions.
@@ -264,6 +265,7 @@ Scope: UI architecture migration only (engine and right rail frozen)
 - District bridge reduction: v3 District Census aggregate/advisory/election preview tables now resolve from runtime District bridge payload (`view.census.aggregateRows/advisoryRows/electionPreviewRows`) with compatibility fallback, reducing direct v3 table mirrors from legacy `#census*Tbody`.
 - District bridge reduction: v3 District Census/Targeting status + table panels now render bridge-first with default empty-state fallback only, removing direct v3 fallback reads of legacy `#targeting*` and `#census*` status/tbody selectors.
 - District bridge reduction: v3 District targeting control-value sync now reads from District bridge config payload (`view.targeting.config`) with compatibility fallback; v3 smoke now asserts targeting-config presence.
+- Targeting UX hardening: selecting a target model now applies a full preset bundle (weights + thresholds + filters) via `applyTargetModelPreset`, so model changes visibly update Targeting Lab parameters before rerun.
 - District bridge reduction: District Census message-tone and map-shell state sync now read from v3 bridge-synced status text only (`#v3Census*`), removing direct fallback reads to legacy `#censusMapStatus/#censusAdvisoryStatus` in v3 behavior loops.
 - Legacy-shell hardening: setup-era/checks stages are now hidden-retired by default for v3 sessions and toggled visible only when explicit legacy mode is requested.
 - QA hardening: v3 smoke now asserts hidden-retired stage visibility in v3 mode (`legacy-setup-stage-hidden`, `legacy-universe-stage-hidden`, `legacy-ballot-stage-hidden`, `legacy-checks-stage-hidden`).
