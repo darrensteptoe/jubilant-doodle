@@ -546,6 +546,7 @@ const SCENARIO_BASELINE_ID = "baseline";
 const SCENARIO_MAX = 20;
 const DATA_BRIDGE_KEY = "__FPE_DATA_API__";
 const SCENARIO_BRIDGE_KEY = "__FPE_SCENARIO_API__";
+const DISTRICT_BRIDGE_KEY = "__FPE_DISTRICT_API__";
 const REACH_BRIDGE_KEY = "__FPE_REACH_API__";
 const TURNOUT_BRIDGE_KEY = "__FPE_TURNOUT_API__";
 const PLAN_BRIDGE_KEY = "__FPE_PLAN_API__";
@@ -2559,6 +2560,96 @@ function installScenarioBridge(){
     generateDriftRecommendations: () => scenarioBridgeGenerateDriftRecommendations(),
     parseWhatIf: (requestText) => scenarioBridgeParseWhatIf(requestText),
     applyTopRecommendation: () => scenarioBridgeApplyTopRecommendation()
+  };
+}
+
+function districtBridgeFmtPct(value, digits = 1){
+  const n = Number(value);
+  if (!Number.isFinite(n)) return "—";
+  return `${n.toFixed(digits)}%`;
+}
+
+function districtBridgeFmtInt(value){
+  const n = Number(value);
+  if (!Number.isFinite(n)) return "—";
+  return fmtInt(Math.round(n));
+}
+
+function districtBridgeSupportTotalFromState(currentState){
+  const candidates = Array.isArray(currentState?.candidates) ? currentState.candidates : [];
+  let total = 0;
+  for (const row of candidates){
+    const support = safeNum(row?.supportPct);
+    if (support != null) total += support;
+  }
+  const undecided = safeNum(currentState?.undecidedPct);
+  if (undecided != null) total += undecided;
+  return Number.isFinite(total) ? total : null;
+}
+
+function districtBridgeFallbackTurnout(currentState){
+  const turnoutA = safeNum(currentState?.turnoutA);
+  const turnoutB = safeNum(currentState?.turnoutB);
+  const bandWidth = safeNum(currentState?.bandWidth);
+  const universeSize = safeNum(currentState?.universeSize);
+  const expected = (turnoutA != null && turnoutB != null) ? (turnoutA + turnoutB) / 2 : null;
+  const best = (expected != null && bandWidth != null) ? Math.min(100, expected + bandWidth) : null;
+  const worst = (expected != null && bandWidth != null) ? Math.max(0, expected - bandWidth) : null;
+  const votesPer1pct = (universeSize != null) ? Math.max(0, Math.round(universeSize * 0.01)) : null;
+
+  return {
+    expectedText: expected == null ? "—" : districtBridgeFmtPct(expected, 1),
+    bandText: (best == null || worst == null)
+      ? "—"
+      : `${best.toFixed(1)}% / ${worst.toFixed(1)}%`,
+    votesPer1pctText: votesPer1pct == null ? "—" : districtBridgeFmtInt(votesPer1pct),
+  };
+}
+
+function districtBridgeStateView(){
+  const currentState = state || {};
+  const res = lastRenderCtx?.res || null;
+  const universeSize = safeNum(currentState?.universeSize);
+  const supportTotalFromState = districtBridgeSupportTotalFromState(currentState);
+  const turnoutFallback = districtBridgeFallbackTurnout(currentState);
+
+  const supportTotalPct = safeNum(res?.validation?.supportTotalPct);
+  const turnoutExpectedPct = safeNum(res?.turnout?.expectedPct);
+  const turnoutBestPct = safeNum(res?.turnout?.bestPct);
+  const turnoutWorstPct = safeNum(res?.turnout?.worstPct);
+  const votesPer1pct = safeNum(res?.turnout?.votesPer1pct);
+  const projectedVotes = safeNum(res?.expected?.yourVotes);
+  const persuasionNeed = safeNum(res?.expected?.persuasionNeed);
+
+  const summary = {
+    universeText: universeSize == null ? "—" : districtBridgeFmtInt(universeSize),
+    baselineSupportText: supportTotalPct == null
+      ? (supportTotalFromState == null ? "—" : districtBridgeFmtPct(supportTotalFromState, 1))
+      : districtBridgeFmtPct(supportTotalPct, 1),
+    turnoutExpectedText: turnoutExpectedPct == null
+      ? turnoutFallback.expectedText
+      : districtBridgeFmtPct(turnoutExpectedPct, 1),
+    turnoutBandText: (turnoutBestPct == null || turnoutWorstPct == null)
+      ? turnoutFallback.bandText
+      : `${turnoutBestPct.toFixed(1)}% / ${turnoutWorstPct.toFixed(1)}%`,
+    votesPer1pctText: votesPer1pct == null
+      ? turnoutFallback.votesPer1pctText
+      : districtBridgeFmtInt(votesPer1pct),
+    projectedVotesText: projectedVotes == null ? "—" : districtBridgeFmtInt(projectedVotes),
+    persuasionNeedText: persuasionNeed == null ? "—" : districtBridgeFmtInt(persuasionNeed),
+  };
+
+  return {
+    summary,
+    controls: {
+      locked: isScenarioLockedForEdits(currentState),
+    },
+  };
+}
+
+function installDistrictBridge(){
+  window[DISTRICT_BRIDGE_KEY] = {
+    getView: () => districtBridgeStateView(),
   };
 }
 
@@ -5847,6 +5938,7 @@ function init(){
   safeCall(() => { ensureScenarioRegistry(); }, { label: "init.ensureScenarioRegistry" });
   safeCall(() => { installDataBridge(); }, { label: "init.installDataBridge" });
   safeCall(() => { installScenarioBridge(); }, { label: "init.installScenarioBridge" });
+  safeCall(() => { installDistrictBridge(); }, { label: "init.installDistrictBridge" });
   safeCall(() => { installReachBridge(); }, { label: "init.installReachBridge" });
   safeCall(() => { installTurnoutBridge(); }, { label: "init.installTurnoutBridge" });
   safeCall(() => { installPlanBridge(); }, { label: "init.installPlanBridge" });
