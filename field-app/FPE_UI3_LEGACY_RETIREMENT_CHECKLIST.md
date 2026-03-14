@@ -135,7 +135,7 @@ Reference artifact:
 - Controls v3 calibration action set (`Generate brief`, `Copy brief`, `Add/Import correlation`, `Add/Import shock`) now runs API-first through `window.__FPE_SCENARIO_API__` with no v3 legacy proxy fallback to `btnIntelCalibration*`, `btnIntelAddDefault*`, or `btnIntelImport*`.
 - Controls v3 calibration field state (brief kind, MC distribution, correlated shocks, correlation model selection, capacity-decay toggles/inputs, shock enable) now syncs directly from scenario-bridge intel state with API patch updates, removing v3 legacy proxy fallback to `intel*` calibration IDs.
 - Data v3 controls now execute through runtime data API bridge (`window.__FPE_DATA_API__`) with zero direct legacy selector bindings in the Data surface.
-- Legacy Census bridge isolation added in `index.html`: `#censusPhase1Card` now moves into hidden `#legacyCensusBridgeHost` during v3 boot (and restores for explicit legacy mode), reducing structural coupling between District Census bridge and `stage-checks` container.
+- Legacy Census/Targeting bridge isolation added in `index.html`: `#censusPhase1Card` and `#targetingLabCard` now move into hidden `#legacyCensusBridgeHost` during v3 boot (and restore for explicit legacy mode), reducing structural coupling between District bridge controls and the `stage-checks` container.
 
 ## Stage dependency map (current)
 Counts below are unique legacy IDs referenced by each v3 surface.

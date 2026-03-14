@@ -1328,14 +1328,17 @@ function getLegacyCensusBridgeHost() {
   return host;
 }
 
-function moveLegacyCensusCardToBridgeHost() {
+function moveLegacyCardToBridgeHost(cardId) {
   try {
-    var card = document.getElementById('censusPhase1Card');
+    var id = String(cardId || '').trim();
+    if (!id) return;
+    var card = document.getElementById(id);
     var host = getLegacyCensusBridgeHost();
     if (!card || !host || card.parentElement === host) return;
 
-    if (!window.__FPE_CENSUS_ORIGIN__) {
-      window.__FPE_CENSUS_ORIGIN__ = {
+    window.__FPE_LEGACY_CARD_ORIGINS__ = window.__FPE_LEGACY_CARD_ORIGINS__ || {};
+    if (!window.__FPE_LEGACY_CARD_ORIGINS__[id]) {
+      window.__FPE_LEGACY_CARD_ORIGINS__[id] = {
         parent: card.parentElement,
         nextSibling: card.nextElementSibling
       };
@@ -1344,10 +1347,13 @@ function moveLegacyCensusCardToBridgeHost() {
   } catch (err) {}
 }
 
-function restoreLegacyCensusCardToOrigin() {
+function restoreLegacyCardToOrigin(cardId) {
   try {
-    var card = document.getElementById('censusPhase1Card');
-    var origin = window.__FPE_CENSUS_ORIGIN__;
+    var id = String(cardId || '').trim();
+    if (!id) return;
+    var card = document.getElementById(id);
+    var origins = window.__FPE_LEGACY_CARD_ORIGINS__ || {};
+    var origin = origins[id];
     if (!card || !origin || !origin.parent) return;
 
     var parent = origin.parent;
@@ -1423,7 +1429,8 @@ function initLegacyInlineShell() {
   if (host && host.dataset.legacyInlineInit === '1') return;
   if (host) host.dataset.legacyInlineInit = '1';
 
-  restoreLegacyCensusCardToOrigin();
+  restoreLegacyCardToOrigin('censusPhase1Card');
+  restoreLegacyCardToOrigin('targetingLabCard');
   normalizeStages();
   var btnOpen = document.getElementById('btnDiagnostics');
   if (btnOpen){
@@ -1441,7 +1448,8 @@ document.addEventListener('DOMContentLoaded', function(){
     return;
   }
 
-  moveLegacyCensusCardToBridgeHost();
+  moveLegacyCardToBridgeHost('censusPhase1Card');
+  moveLegacyCardToBridgeHost('targetingLabCard');
   window.setTimeout(function(){
     if (!isV3BridgeActive()) {
       initLegacyInlineShell();

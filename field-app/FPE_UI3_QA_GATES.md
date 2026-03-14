@@ -253,8 +253,8 @@ Scope: UI architecture migration only (engine and right rail frozen)
 - Controls feedback-loop action set (`Capture observed metrics`, `Generate drift recommendations`, `Apply top recommendation`, `Parse what-if request`) is now rendered as native v3 body actions instead of mounted legacy card header actions.
 - Controls census card no longer mounts the full legacy card wrapper; it now renders a v3 bridge shell with native top actions (`Load GEO list`, `Fetch ACS rows`) and targeted legacy sub-block mounts.
 - Controls census bridge now exposes native v3 body actions for GEO selection (`Apply GEOIDs`, `Select all`, `Clear selection`), aggregate exports (`Export CSV/JSON`), and election CSV workflow (`template downloads`, `dry-run`, `clear preview`) with proxy wiring to legacy handlers.
-- Legacy-shell hardening: added runtime Census bridge host isolation (`#legacyCensusBridgeHost`) so `#censusPhase1Card` is rehomed outside `stage-checks` during v3 boot and restored when explicit legacy mode is requested.
-- QA hardening: v3 smoke now asserts Census bridge-host presence/mount (`legacy-census-bridge-host`, `legacy-census-bridge-mounted`) to catch stage-checks coupling regressions early.
+- Legacy-shell hardening: added runtime Census bridge host isolation (`#legacyCensusBridgeHost`) so `#censusPhase1Card` and `#targetingLabCard` are rehomed outside `stage-checks` during v3 boot and restored when explicit legacy mode is requested.
+- QA hardening: v3 smoke now asserts Census/Targeting bridge-host mounts (`legacy-census-bridge-host`, `legacy-census-bridge-mounted`, `legacy-targeting-bridge-mounted`) to catch stage-checks coupling regressions early.
 - Resolved duplicate ID conflict in Decision Log (`v3DecisionObjective`) and added focused-field sync guards in Controls/Decision Log bridge loops to prevent input jitter during periodic refresh.
 - Static selector audits currently pass:
   - All legacy IDs referenced by v3 surface bridges are present in `index.html`.
