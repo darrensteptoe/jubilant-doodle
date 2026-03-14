@@ -2606,6 +2606,39 @@ function districtBridgeFallbackTurnout(currentState){
   };
 }
 
+function districtBridgeReadLegacyText(id, fallback = ""){
+  const text = String(document.getElementById(id)?.textContent || "").trim();
+  return text || String(fallback || "");
+}
+
+function districtBridgeReadLegacyTableRows(selector, expectedCols = 0){
+  const tbody = document.querySelector(selector);
+  if (!(tbody instanceof HTMLElement)) return [];
+  const rows = Array.from(tbody.querySelectorAll(":scope > tr"));
+  const out = [];
+  for (const row of rows){
+    if (!(row instanceof HTMLTableRowElement)) continue;
+    const cells = Array.from(row.children).filter((cell) => cell instanceof HTMLElement);
+    if (!cells.length) continue;
+    if (cells.length === 1 && expectedCols > 1) {
+      const cell = cells[0];
+      const span = Number(cell.getAttribute("colspan") || "1");
+      if (span >= expectedCols && cell.classList.contains("muted")) {
+        continue;
+      }
+    }
+    const cols = cells.map((cell) => String(cell.textContent || "").trim());
+    if (!cols.some(Boolean)) continue;
+    if (expectedCols > 0) {
+      while (cols.length < expectedCols) cols.push("");
+      out.push(cols.slice(0, expectedCols));
+    } else {
+      out.push(cols);
+    }
+  }
+  return out;
+}
+
 function districtBridgeStateView(){
   const currentState = state || {};
   const res = lastRenderCtx?.res || null;
@@ -2662,6 +2695,12 @@ function districtBridgeStateView(){
   const targetingMeta = (targetingState?.lastMeta && typeof targetingState.lastMeta === "object")
     ? targetingState.lastMeta
     : {};
+  const targetingWeights = (targetingState?.weights && typeof targetingState.weights === "object")
+    ? targetingState.weights
+    : {};
+  const targetingCriteria = (targetingState?.criteria && typeof targetingState.criteria === "object")
+    ? targetingState.criteria
+    : {};
   const targetingModel = String(targetingMeta?.modelLabel || targetingMeta?.modelId || targetingState?.modelId || "").trim();
   const targetingGeoLevel = String(targetingMeta?.geoLevel || targetingState?.geoLevel || "").trim();
   const targetingTopN = safeNum(targetingMeta?.topN) ?? safeNum(targetingState?.topN);
@@ -2675,6 +2714,45 @@ function districtBridgeStateView(){
     ? `Ranked ${districtBridgeFmtInt(targetingRows.length)} GEO rows.`
     : "Run targeting to generate ranked GEOs.";
   const targetingMetaText = targetingMetaBits.join(" · ") || "No targeting run yet.";
+  const targetingConfig = {
+    geoLevel: String(targetingState?.geoLevel || "block_group").trim() || "block_group",
+    modelId: String(targetingState?.modelId || "turnout_opportunity").trim() || "turnout_opportunity",
+    topN: safeNum(targetingState?.topN),
+    minHousingUnits: safeNum(targetingState?.minHousingUnits),
+    minPopulation: safeNum(targetingState?.minPopulation),
+    minScore: safeNum(targetingState?.minScore),
+    onlyRaceFootprint: targetingState?.onlyRaceFootprint == null ? true : !!targetingState.onlyRaceFootprint,
+    prioritizeYoung: !!targetingCriteria?.prioritizeYoung,
+    prioritizeRenters: !!targetingCriteria?.prioritizeRenters,
+    avoidHighMultiUnit: !!targetingCriteria?.avoidHighMultiUnit,
+    densityFloor: String(targetingCriteria?.densityFloor || "none").trim() || "none",
+    weightVotePotential: safeNum(targetingWeights?.votePotential),
+    weightTurnoutOpportunity: safeNum(targetingWeights?.turnoutOpportunity),
+    weightPersuasionIndex: safeNum(targetingWeights?.persuasionIndex),
+    weightFieldEfficiency: safeNum(targetingWeights?.fieldEfficiency),
+    controlsLocked: isScenarioLockedForEdits(currentState),
+  };
+  const census = {
+    contextHint: districtBridgeReadLegacyText("censusContextHint", "State-only context active for this resolution."),
+    selectionSetStatus: districtBridgeReadLegacyText("censusSelectionSetStatus", "No saved selection sets."),
+    statusText: districtBridgeReadLegacyText("censusStatus", "Ready."),
+    geoStatsText: districtBridgeReadLegacyText("censusGeoStats", "0 selected of 0 GEOs. 0 rows loaded."),
+    lastFetchText: districtBridgeReadLegacyText("censusLastFetch", "No fetch yet."),
+    selectionSummaryText: districtBridgeReadLegacyText("censusSelectionSummary", "No GEO selected."),
+    raceFootprintStatusText: districtBridgeReadLegacyText("censusRaceFootprintStatus", "Race footprint not set."),
+    assumptionProvenanceStatusText: districtBridgeReadLegacyText("censusAssumptionProvenanceStatus", "Assumption provenance not set."),
+    footprintCapacityStatusText: districtBridgeReadLegacyText("censusFootprintCapacityStatus", "Footprint capacity: not set."),
+    applyAdjustmentsStatusText: districtBridgeReadLegacyText("censusApplyAdjustmentsStatus", "Census-adjusted assumptions are OFF."),
+    advisoryStatusText: districtBridgeReadLegacyText("censusAdvisoryStatus", "Assumption advisory pending."),
+    electionCsvGuideStatusText: districtBridgeReadLegacyText("censusElectionCsvGuideStatus", "Election CSV schema guide loading."),
+    electionCsvDryRunStatusText: districtBridgeReadLegacyText("censusElectionCsvDryRunStatus", "No dry-run run yet."),
+    electionCsvPreviewMetaText: districtBridgeReadLegacyText("censusElectionCsvPreviewMeta", "No normalized preview rows."),
+    mapStatusText: districtBridgeReadLegacyText("censusMapStatus", "Map idle. Select GEO units and click Load boundaries."),
+    mapQaVtdZipStatusText: districtBridgeReadLegacyText("censusMapQaVtdZipStatus", "No VTD ZIP loaded."),
+    aggregateRows: districtBridgeReadLegacyTableRows("#censusAggregateTbody", 2),
+    advisoryRows: districtBridgeReadLegacyTableRows("#censusAdvisoryTbody", 2),
+    electionPreviewRows: districtBridgeReadLegacyTableRows("#censusElectionCsvPreviewTbody", 4),
+  };
 
   return {
     summary,
@@ -2682,7 +2760,9 @@ function districtBridgeStateView(){
       statusText: targetingStatusText,
       metaText: targetingMetaText,
       rows: targetingRows,
+      config: targetingConfig,
     },
+    census,
     controls: {
       locked: isScenarioLockedForEdits(currentState),
     },
