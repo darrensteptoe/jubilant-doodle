@@ -154,6 +154,11 @@ export function runV3QaSmoke({ restoreStage = true, logToConsole = true } = {}) 
   );
   recordCheck(
     checks,
+    "legacy-targeting-bridge-mounted",
+    isTruthy(document.querySelector("#legacyCensusBridgeHost #targetingLabCard"))
+  );
+  recordCheck(
+    checks,
     "legacy-right-rail-present",
     isTruthy(document.querySelector("#v3RightRailSlot .results-sidebar-new"))
   );
