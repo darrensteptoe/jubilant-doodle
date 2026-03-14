@@ -135,6 +135,7 @@ Reference artifact:
 - Controls v3 calibration action set (`Generate brief`, `Copy brief`, `Add/Import correlation`, `Add/Import shock`) now runs API-first through `window.__FPE_SCENARIO_API__` with no v3 legacy proxy fallback to `btnIntelCalibration*`, `btnIntelAddDefault*`, or `btnIntelImport*`.
 - Controls v3 calibration field state (brief kind, MC distribution, correlated shocks, correlation model selection, capacity-decay toggles/inputs, shock enable) now syncs directly from scenario-bridge intel state with API patch updates, removing v3 legacy proxy fallback to `intel*` calibration IDs.
 - Data v3 controls now execute through runtime data API bridge (`window.__FPE_DATA_API__`) with zero direct legacy selector bindings in the Data surface.
+- Legacy Census bridge isolation added in `index.html`: `#censusPhase1Card` now moves into hidden `#legacyCensusBridgeHost` during v3 boot (and restores for explicit legacy mode), reducing structural coupling between District Census bridge and `stage-checks` container.
 
 ## Stage dependency map (current)
 Counts below are unique legacy IDs referenced by each v3 surface.
@@ -172,7 +173,7 @@ Reason: v3 bridge dependencies reached zero and the legacy section is now an emp
 Reason: Plan bridge dependencies reached zero and runtime timeline/conversion guards were hardened; retired container removed from `index.html`.
 
 5. `stage-checks`
-Reason: now isolated to District Census/Targeting bridge after Controls migration to scenario API.
+Reason: now isolated to District Census/Targeting bridge after Controls migration to scenario API; Census block is runtime-rehomed to `#legacyCensusBridgeHost` for v3 sessions to reduce container coupling.
 
 6. `stage-integrity` (completed)
 Reason: Data handlers run through runtime-native bridge actions, so legacy integrity control ID dependency was removed and retired container removed from `index.html`.

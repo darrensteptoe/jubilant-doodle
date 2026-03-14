@@ -1159,6 +1159,7 @@
 <!-- ── STAGE: integrity (retired + removed) ── -->
 </main>
 <!-- /stage-main-new -->
+<div hidden="" id="legacyCensusBridgeHost"></div>
 <!-- RIGHT: Persistent results sidebar -->
 <aside aria-label="Win path results" class="results-sidebar-new">
 
@@ -1313,6 +1314,52 @@ function normalizeStages() {
   stages.forEach(function(sec){ host.appendChild(sec); });
 }
 
+function getLegacyCensusBridgeHost() {
+  var host = document.getElementById('legacyCensusBridgeHost');
+  if (host) return host;
+
+  var legacyShell = document.getElementById('app-shell-legacy');
+  if (!legacyShell) return null;
+
+  host = document.createElement('div');
+  host.id = 'legacyCensusBridgeHost';
+  host.hidden = true;
+  legacyShell.appendChild(host);
+  return host;
+}
+
+function moveLegacyCensusCardToBridgeHost() {
+  try {
+    var card = document.getElementById('censusPhase1Card');
+    var host = getLegacyCensusBridgeHost();
+    if (!card || !host || card.parentElement === host) return;
+
+    if (!window.__FPE_CENSUS_ORIGIN__) {
+      window.__FPE_CENSUS_ORIGIN__ = {
+        parent: card.parentElement,
+        nextSibling: card.nextElementSibling
+      };
+    }
+    host.appendChild(card);
+  } catch (err) {}
+}
+
+function restoreLegacyCensusCardToOrigin() {
+  try {
+    var card = document.getElementById('censusPhase1Card');
+    var origin = window.__FPE_CENSUS_ORIGIN__;
+    if (!card || !origin || !origin.parent) return;
+
+    var parent = origin.parent;
+    var sibling = origin.nextSibling;
+    if (sibling && sibling.parentElement === parent) {
+      parent.insertBefore(card, sibling);
+    } else {
+      parent.appendChild(card);
+    }
+  } catch (err) {}
+}
+
 function shouldUseLegacyShell() {
   try {
     var params = new URLSearchParams(window.location.search || '');
@@ -1376,6 +1423,7 @@ function initLegacyInlineShell() {
   if (host && host.dataset.legacyInlineInit === '1') return;
   if (host) host.dataset.legacyInlineInit = '1';
 
+  restoreLegacyCensusCardToOrigin();
   normalizeStages();
   var btnOpen = document.getElementById('btnDiagnostics');
   if (btnOpen){
@@ -1393,6 +1441,7 @@ document.addEventListener('DOMContentLoaded', function(){
     return;
   }
 
+  moveLegacyCensusCardToBridgeHost();
   window.setTimeout(function(){
     if (!isV3BridgeActive()) {
       initLegacyInlineShell();
