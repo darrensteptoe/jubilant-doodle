@@ -144,6 +144,7 @@ Reference artifact:
 - District targeting status/meta/results in v3 now resolve through runtime District API bridge payload (`window.__FPE_DISTRICT_API__.getView().targeting`) with compatibility fallback, reducing direct dependence on legacy `#targetingStatus/#targetingMeta/#targetingResultsTbody` mirrors.
 - District Census status/guide/map text rows in v3 now resolve through runtime District API bridge payload (`window.__FPE_DISTRICT_API__.getView().census`) with compatibility fallback, reducing direct dependence on legacy `#census*Status/#census*Meta` text mirrors in the v3 surface.
 - District Census aggregate/advisory/election preview tables in v3 now resolve through runtime District API bridge payload (`window.__FPE_DISTRICT_API__.getView().census.*Rows`) with compatibility fallback, reducing direct v3 table mirrors from legacy `#census*Tbody` nodes.
+- District v3 Census/Targeting status + table rendering now uses bridge-only payload/default fallbacks (no direct v3 fallback reads of legacy `#targetingStatus/#targetingMeta/#targetingResultsTbody` or `#census*Status/#census*Tbody` selectors).
 
 ## Stage dependency map (current)
 Counts below are unique legacy IDs referenced by each v3 surface.
