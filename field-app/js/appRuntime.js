@@ -2611,6 +2611,34 @@ function districtBridgeReadLegacyText(id, fallback = ""){
   return text || String(fallback || "");
 }
 
+function districtBridgeReadLegacyTableRows(selector, expectedCols = 0){
+  const tbody = document.querySelector(selector);
+  if (!(tbody instanceof HTMLElement)) return [];
+  const rows = Array.from(tbody.querySelectorAll(":scope > tr"));
+  const out = [];
+  for (const row of rows){
+    if (!(row instanceof HTMLTableRowElement)) continue;
+    const cells = Array.from(row.children).filter((cell) => cell instanceof HTMLElement);
+    if (!cells.length) continue;
+    if (cells.length === 1 && expectedCols > 1) {
+      const cell = cells[0];
+      const span = Number(cell.getAttribute("colspan") || "1");
+      if (span >= expectedCols && cell.classList.contains("muted")) {
+        continue;
+      }
+    }
+    const cols = cells.map((cell) => String(cell.textContent || "").trim());
+    if (!cols.some(Boolean)) continue;
+    if (expectedCols > 0) {
+      while (cols.length < expectedCols) cols.push("");
+      out.push(cols.slice(0, expectedCols));
+    } else {
+      out.push(cols);
+    }
+  }
+  return out;
+}
+
 function districtBridgeStateView(){
   const currentState = state || {};
   const res = lastRenderCtx?.res || null;
@@ -2697,6 +2725,9 @@ function districtBridgeStateView(){
     electionCsvPreviewMetaText: districtBridgeReadLegacyText("censusElectionCsvPreviewMeta", "No normalized preview rows."),
     mapStatusText: districtBridgeReadLegacyText("censusMapStatus", "Map idle. Select GEO units and click Load boundaries."),
     mapQaVtdZipStatusText: districtBridgeReadLegacyText("censusMapQaVtdZipStatus", "No VTD ZIP loaded."),
+    aggregateRows: districtBridgeReadLegacyTableRows("#censusAggregateTbody", 2),
+    advisoryRows: districtBridgeReadLegacyTableRows("#censusAdvisoryTbody", 2),
+    electionPreviewRows: districtBridgeReadLegacyTableRows("#censusElectionCsvPreviewTbody", 4),
   };
 
   return {
