@@ -783,6 +783,11 @@ function syncDistrictTargetingLab() {
     renderDistrictTargetingRows([]);
   }
 
+  // Keep select option lists hydrated from legacy controls, then apply bridge-selected value.
+  syncSelectValue("v3DistrictTargetingGeoLevel", "targetingGeoLevel");
+  syncSelectValue("v3DistrictTargetingModelId", "targetingModelId");
+  syncSelectValue("v3DistrictTargetingDensityFloor", "targetingDensityFloor");
+
   const targetingConfig = bridgeSnapshot?.config;
   if (targetingConfig && typeof targetingConfig === "object") {
     syncBridgeSelectValue("v3DistrictTargetingGeoLevel", targetingConfig.geoLevel);
@@ -801,8 +806,6 @@ function syncDistrictTargetingLab() {
     syncBridgeFieldValue("v3DistrictTargetingWeightPersuasionIndex", targetingConfig.weightPersuasionIndex);
     syncBridgeFieldValue("v3DistrictTargetingWeightFieldEfficiency", targetingConfig.weightFieldEfficiency);
   } else {
-    syncSelectValue("v3DistrictTargetingGeoLevel", "targetingGeoLevel");
-    syncSelectValue("v3DistrictTargetingModelId", "targetingModelId");
     syncFieldValue("v3DistrictTargetingTopN", "targetingTopN");
     syncFieldValue("v3DistrictTargetingMinHousingUnits", "targetingMinHousingUnits");
     syncFieldValue("v3DistrictTargetingMinPopulation", "targetingMinPopulation");
@@ -811,7 +814,6 @@ function syncDistrictTargetingLab() {
     syncCheckboxValue("v3DistrictTargetingPrioritizeYoung", "targetingPrioritizeYoung");
     syncCheckboxValue("v3DistrictTargetingPrioritizeRenters", "targetingPrioritizeRenters");
     syncCheckboxValue("v3DistrictTargetingAvoidHighMultiUnit", "targetingAvoidHighMultiUnit");
-    syncSelectValue("v3DistrictTargetingDensityFloor", "targetingDensityFloor");
     syncFieldValue("v3DistrictTargetingWeightVotePotential", "targetingWeightVotePotential");
     syncFieldValue("v3DistrictTargetingWeightTurnoutOpportunity", "targetingWeightTurnoutOpportunity");
     syncFieldValue("v3DistrictTargetingWeightPersuasionIndex", "targetingWeightPersuasionIndex");
