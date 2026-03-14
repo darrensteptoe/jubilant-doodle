@@ -136,6 +136,7 @@ Reference artifact:
 - Controls v3 feedback previews (what-if + recommendations) now render from scenario-bridge intel state and no longer mirror legacy preview textareas (`#intelWhatIfPreview/#intelRecommendationPreview`).
 - Controls v3 review-workflow actions (`Capture observed metrics`, `Generate drift recommendations`, `Parse what-if request`, `Apply top recommendation`) now run API-first through `window.__FPE_SCENARIO_API__` with no v3 legacy proxy fallback to `btnIntel*`/`intelWhatIfInput`.
 - Controls v3 benchmark + evidence form/actions now run API-first through `window.__FPE_SCENARIO_API__` with no v3 legacy proxy fallback to `intelBenchmark*`, `intelAuditSelect`, `intelEvidence*`, or `btnIntelBenchmark*/btnIntelEvidenceAttach`.
+- Controls v3 calibration action set (`Generate brief`, `Copy brief`, `Add/Import correlation`, `Add/Import shock`) now runs API-first through `window.__FPE_SCENARIO_API__` with no v3 legacy proxy fallback to `btnIntelCalibration*`, `btnIntelAddDefault*`, or `btnIntelImport*`.
 - Data v3 controls now execute through runtime data API bridge (`window.__FPE_DATA_API__`) with zero direct legacy selector bindings in the Data surface.
 
 ## Stage dependency map (current)
