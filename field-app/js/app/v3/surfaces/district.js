@@ -456,9 +456,9 @@ function refreshDistrictSummary() {
   setText("v3DistrictTurnout", snapshot.turnoutExpected);
   setText("v3DistrictProjected", snapshot.projectedVotes);
   setText("v3DistrictNeed", snapshot.persuasionNeed);
-  setText("v3DistrictTurnoutExpected", document.getElementById("turnoutExpected")?.textContent || "");
-  setText("v3DistrictTurnoutBand", document.getElementById("turnoutBand")?.textContent || "");
-  setText("v3DistrictVotesPer1pct", document.getElementById("votesPer1pct")?.textContent || "");
+  setText("v3DistrictTurnoutExpected", snapshot.turnoutExpected);
+  setText("v3DistrictTurnoutBand", snapshot.turnoutBand);
+  setText("v3DistrictVotesPer1pct", snapshot.votesPer1pct);
   syncSelectValue("v3DistrictYourCandidate", "yourCandidate");
   syncFieldValue("v3DistrictUndecidedPct", "undecidedPct");
   syncSelectValue("v3DistrictUndecidedMode", "undecidedMode");

@@ -1,3 +1,4 @@
+const DISTRICT_API_KEY = "__FPE_DISTRICT_API__";
 const TURNOUT_API_KEY = "__FPE_TURNOUT_API__";
 
 function readFromElement(el) {
@@ -85,19 +86,49 @@ function readExpectedTurnoutPct() {
   return "";
 }
 
+function readDistrictBridgeSummary() {
+  try {
+    const api = window[DISTRICT_API_KEY];
+    if (!api || typeof api.getView !== "function") {
+      return null;
+    }
+    const view = api.getView();
+    const summary = view?.summary;
+    if (!summary || typeof summary !== "object") {
+      return null;
+    }
+    return {
+      universe: String(summary.universeText || "").trim(),
+      baselineSupport: String(summary.baselineSupportText || "").trim(),
+      turnoutExpected: String(summary.turnoutExpectedText || "").trim(),
+      turnoutBand: String(summary.turnoutBandText || "").trim(),
+      votesPer1pct: String(summary.votesPer1pctText || "").trim(),
+      projectedVotes: String(summary.projectedVotesText || "").trim(),
+      persuasionNeed: String(summary.persuasionNeedText || "").trim(),
+    };
+  } catch {
+    return null;
+  }
+}
+
 export function readDistrictSnapshot() {
+  const bridgeSummary = readDistrictBridgeSummary();
   const universeRaw = readFirstNumber(["#v3DistrictUniverseSize", "#universeSize"]);
-  const baselineSupport = firstNonMissing(["#v3DistrictSupportTotal", "#supportTotal"]);
-  const turnoutExpected = readExpectedTurnoutPct();
-  const projectedVotes = firstNonEmpty(["#kpiYourVotes-sidebar"]);
-  const persuasionNeed = firstNonEmpty(["#kpiPersuasionNeed-sidebar"]);
+  const baselineSupportFallback = firstNonMissing(["#v3DistrictSupportTotal", "#supportTotal"]);
+  const turnoutExpectedFallback = readExpectedTurnoutPct();
+  const turnoutBandFallback = firstNonMissing(["#v3DistrictTurnoutBand", "#turnoutBand"]);
+  const votesPer1pctFallback = firstNonMissing(["#v3DistrictVotesPer1pct", "#votesPer1pct"]);
+  const projectedVotesFallback = firstNonEmpty(["#kpiYourVotes-sidebar"]);
+  const persuasionNeedFallback = firstNonEmpty(["#kpiPersuasionNeed-sidebar"]);
 
   return {
-    universe: formatInteger(universeRaw),
-    baselineSupport: baselineSupport || "-",
-    turnoutExpected: turnoutExpected || "-",
-    projectedVotes: projectedVotes || "-",
-    persuasionNeed: persuasionNeed || "-"
+    universe: !isMissingValue(bridgeSummary?.universe) ? bridgeSummary.universe : formatInteger(universeRaw),
+    baselineSupport: !isMissingValue(bridgeSummary?.baselineSupport) ? bridgeSummary.baselineSupport : (baselineSupportFallback || "-"),
+    turnoutExpected: !isMissingValue(bridgeSummary?.turnoutExpected) ? bridgeSummary.turnoutExpected : (turnoutExpectedFallback || "-"),
+    turnoutBand: !isMissingValue(bridgeSummary?.turnoutBand) ? bridgeSummary.turnoutBand : (turnoutBandFallback || "-"),
+    votesPer1pct: !isMissingValue(bridgeSummary?.votesPer1pct) ? bridgeSummary.votesPer1pct : (votesPer1pctFallback || "-"),
+    projectedVotes: !isMissingValue(bridgeSummary?.projectedVotes) ? bridgeSummary.projectedVotes : (projectedVotesFallback || "-"),
+    persuasionNeed: !isMissingValue(bridgeSummary?.persuasionNeed) ? bridgeSummary.persuasionNeed : (persuasionNeedFallback || "-")
   };
 }
 
