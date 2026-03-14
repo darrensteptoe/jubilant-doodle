@@ -211,7 +211,11 @@ import {
   addDefaultCorrelationModel,
   importCorrelationModelsJson,
   addDefaultShockScenario,
-  importShockScenariosJson
+  importShockScenariosJson,
+  captureObservedMetricsFromDrift,
+  refreshDriftRecommendationsFromDrift,
+  createWhatIfIntelRequest,
+  applyRecommendationDraftPatch
 } from "./app/intelControlsRuntime.js";
 import { renderIntelChecksModule } from "./app/renderIntelChecks.js";
 import { applyWeeklyLeverScenarioModule } from "./app/weeklyLeverScenarioAction.js";
@@ -2243,6 +2247,163 @@ function scenarioBridgeImportShockScenarios(jsonText){
   };
 }
 
+function scenarioBridgePatchValueMatches(a, b){
+  if (typeof a === "number" && typeof b === "number"){
+    return Math.abs(a - b) <= 1e-9;
+  }
+  return Object.is(a, b);
+}
+
+function scenarioBridgeCaptureObservedMetrics(){
+  const drift = computeRealityDrift();
+  const result = captureObservedMetricsFromDrift(state, drift, { source: "dailyLog.rolling7", maxEntries: 180 });
+  if (!result?.ok){
+    return {
+      ok: false,
+      code: "capture_observed_failed",
+      error: String(result?.error || "Observed metrics capture failed."),
+      view: scenarioBridgeStateView()
+    };
+  }
+  commitUIUpdate();
+  return {
+    ok: true,
+    created: Number(result.created || 0),
+    updated: Number(result.updated || 0),
+    total: Number(result.total || 0),
+    view: scenarioBridgeStateView()
+  };
+}
+
+function scenarioBridgeGenerateDriftRecommendations(){
+  const drift = computeRealityDrift();
+  const metricsResult = captureObservedMetricsFromDrift(state, drift, { source: "dailyLog.rolling7", maxEntries: 180 });
+  const result = refreshDriftRecommendationsFromDrift(state, drift, { maxEntries: 60 });
+  if (!result?.ok){
+    return {
+      ok: false,
+      code: "generate_recommendations_failed",
+      error: String(result?.error || "Recommendation generation failed."),
+      metricsOk: !!metricsResult?.ok,
+      metricsError: metricsResult?.ok ? "" : String(metricsResult?.error || ""),
+      view: scenarioBridgeStateView()
+    };
+  }
+  commitUIUpdate();
+  return {
+    ok: true,
+    autoTotal: Number(result.autoTotal || 0),
+    created: Number(result.created || 0),
+    updated: Number(result.updated || 0),
+    cleared: Number(result.cleared || 0),
+    metricsOk: !!metricsResult?.ok,
+    metricsCreated: Number(metricsResult?.created || 0),
+    metricsUpdated: Number(metricsResult?.updated || 0),
+    metricsError: metricsResult?.ok ? "" : String(metricsResult?.error || ""),
+    view: scenarioBridgeStateView()
+  };
+}
+
+function scenarioBridgeParseWhatIf(requestText){
+  const result = createWhatIfIntelRequest(state, String(requestText || ""), { source: "user.whatIf.v1", maxEntries: 120 });
+  if (!result?.ok){
+    return {
+      ok: false,
+      code: "parse_what_if_failed",
+      error: String(result?.error || "Failed to parse what-if request."),
+      view: scenarioBridgeStateView()
+    };
+  }
+  commitUIUpdate({ allowScenarioLockBypass: true });
+  return {
+    ok: true,
+    parsedTargets: Number(result.parsedTargets || 0),
+    unresolved: Number(result.unresolved || 0),
+    row: result.row || null,
+    view: scenarioBridgeStateView()
+  };
+}
+
+function scenarioBridgeApplyTopRecommendation(){
+  const recs = Array.isArray(state?.intelState?.recommendations)
+    ? state.intelState.recommendations
+        .filter((row) => String(row?.source || "").trim() === "auto.realityDrift.v1")
+        .slice()
+        .sort((a, b) => Number(a?.priority || 99) - Number(b?.priority || 99))
+    : [];
+  const top = recs[0] || null;
+  if (!top){
+    return {
+      ok: false,
+      code: "missing_recommendation",
+      error: "No active drift recommendation to apply.",
+      view: scenarioBridgeStateView()
+    };
+  }
+
+  const result = applyRecommendationDraftPatch(state, { recommendationId: String(top.id || "") });
+  if (!result?.ok){
+    return {
+      ok: false,
+      code: "apply_recommendation_failed",
+      error: String(result?.error || "Failed to apply recommendation patch."),
+      view: scenarioBridgeStateView()
+    };
+  }
+
+  markMcStale();
+  commitUIUpdate();
+
+  const linkedAuditIds = [];
+  const auditRows = Array.isArray(state?.intelState?.audit) ? state.intelState.audit.slice().reverse() : [];
+  if (result.noteMarker){
+    for (const row of auditRows){
+      if (!row || typeof row !== "object") continue;
+      if (!String(row.note || "").includes(result.noteMarker)) continue;
+      const id = String(row.id || "").trim();
+      if (id && !linkedAuditIds.includes(id)) linkedAuditIds.push(id);
+    }
+  }
+  if (!linkedAuditIds.length && Array.isArray(result.changes) && result.changes.length){
+    for (const change of result.changes){
+      const match = auditRows.find((row) =>
+        row &&
+        row.kind === "critical_ref_change" &&
+        String(row.source || "") === "ui" &&
+        String(row.key || "") === String(change?.key || "") &&
+        scenarioBridgePatchValueMatches(row.after, change?.after)
+      );
+      const id = String(match?.id || "").trim();
+      if (id && !linkedAuditIds.includes(id)) linkedAuditIds.push(id);
+    }
+  }
+
+  const recRow = Array.isArray(state?.intelState?.recommendations)
+    ? state.intelState.recommendations.find((row) => String(row?.id || "").trim() === String(result.recommendationId || "").trim())
+    : null;
+  let needsGovernance = false;
+  if (recRow){
+    recRow.appliedAuditIds = linkedAuditIds.slice();
+    recRow.updatedAt = new Date().toISOString();
+    const unresolved = (Array.isArray(state?.intelState?.audit) ? state.intelState.audit : [])
+      .filter((row) => recRow.appliedAuditIds.includes(String(row?.id || "")))
+      .filter((row) => String(row?.status || "").toLowerCase() !== "resolved");
+    needsGovernance = unresolved.length > 0;
+    recRow.status = needsGovernance ? "appliedNeedsGovernance" : (result.noop ? "alreadyApplied" : "applied");
+  }
+
+  commitUIUpdate({ allowScenarioLockBypass: true });
+  return {
+    ok: true,
+    recommendationId: String(result.recommendationId || ""),
+    recommendationTitle: String(result.recommendationTitle || ""),
+    changesCount: Array.isArray(result.changes) ? result.changes.length : 0,
+    noop: !!result.noop,
+    needsGovernance,
+    view: scenarioBridgeStateView()
+  };
+}
+
 function installScenarioBridge(){
   window[SCENARIO_BRIDGE_KEY] = {
     getView: () => scenarioBridgeStateView(),
@@ -2265,7 +2426,11 @@ function installScenarioBridge(){
     addDefaultCorrelationModel: () => scenarioBridgeAddDefaultCorrelation(),
     importCorrelationModels: (jsonText) => scenarioBridgeImportCorrelationModels(jsonText),
     addDefaultShockScenario: () => scenarioBridgeAddDefaultShock(),
-    importShockScenarios: (jsonText) => scenarioBridgeImportShockScenarios(jsonText)
+    importShockScenarios: (jsonText) => scenarioBridgeImportShockScenarios(jsonText),
+    captureObservedMetrics: () => scenarioBridgeCaptureObservedMetrics(),
+    generateDriftRecommendations: () => scenarioBridgeGenerateDriftRecommendations(),
+    parseWhatIf: (requestText) => scenarioBridgeParseWhatIf(requestText),
+    applyTopRecommendation: () => scenarioBridgeApplyTopRecommendation()
   };
 }
 
