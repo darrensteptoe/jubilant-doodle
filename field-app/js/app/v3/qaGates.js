@@ -292,6 +292,15 @@ export function runV3QaSmoke({ restoreStage = true, logToConsole = true } = {}) 
           && hasNonEmpty(census.selectionSummaryText)
         )
       );
+      recordCheck(
+        checks,
+        "district:bridge-census-tables",
+        isTruthy(
+          Array.isArray(census.aggregateRows)
+          && Array.isArray(census.advisoryRows)
+          && Array.isArray(census.electionPreviewRows)
+        )
+      );
     }
 
     if (pane instanceof HTMLElement) {

@@ -168,6 +168,18 @@ export function readDistrictCensusSnapshot() {
     return null;
   }
 
+  const normalizeRows = (rows, expectedCols) => {
+    const list = Array.isArray(rows) ? rows : [];
+    return list
+      .map((row) => {
+        const cells = Array.isArray(row) ? row : [];
+        const normalized = cells.map((cell) => String(cell == null ? "" : cell).trim());
+        while (normalized.length < expectedCols) normalized.push("");
+        return normalized.slice(0, expectedCols);
+      })
+      .filter((cells) => cells.some((cell) => cell));
+  };
+
   return {
     contextHint: String(census.contextHint || "").trim(),
     selectionSetStatus: String(census.selectionSetStatus || "").trim(),
@@ -185,6 +197,9 @@ export function readDistrictCensusSnapshot() {
     electionCsvPreviewMetaText: String(census.electionCsvPreviewMetaText || "").trim(),
     mapStatusText: String(census.mapStatusText || "").trim(),
     mapQaVtdZipStatusText: String(census.mapQaVtdZipStatusText || "").trim(),
+    aggregateRows: normalizeRows(census.aggregateRows, 2),
+    advisoryRows: normalizeRows(census.advisoryRows, 2),
+    electionPreviewRows: normalizeRows(census.electionPreviewRows, 4),
   };
 }
 

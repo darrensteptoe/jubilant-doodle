@@ -1402,27 +1402,56 @@ function syncDistrictCensusProxy() {
   syncButtonDisabled("v3BtnCensusClearMap", "btnCensusClearMap");
   syncButtonDisabled("v3BtnCensusMapQaVtdZipClear", "btnCensusMapQaVtdZipClear");
 
-  syncLegacyTableRows({
-    sourceSelector: "#censusAggregateTbody",
-    targetBodyId: "v3CensusAggregateTbody",
-    expectedCols: 2,
-    emptyLabel: "No ACS rows loaded.",
-    numericColumns: [1]
-  });
-  syncLegacyTableRows({
-    sourceSelector: "#censusAdvisoryTbody",
-    targetBodyId: "v3CensusAdvisoryTbody",
-    expectedCols: 2,
-    emptyLabel: "Load ACS rows for selected GEO units to compute advisory indices.",
-    numericColumns: [1]
-  });
-  syncLegacyTableRows({
-    sourceSelector: "#censusElectionCsvPreviewTbody",
-    targetBodyId: "v3CensusElectionCsvPreviewTbody",
-    expectedCols: 4,
-    emptyLabel: "No dry-run preview yet.",
-    numericColumns: [2, 3]
-  });
+  const hasBridgeRows =
+    !!bridgeSnapshot
+    && (Array.isArray(bridgeSnapshot.aggregateRows)
+      || Array.isArray(bridgeSnapshot.advisoryRows)
+      || Array.isArray(bridgeSnapshot.electionPreviewRows));
+  if (hasBridgeRows) {
+    renderDistrictCensusTableRows({
+      targetBodyId: "v3CensusAggregateTbody",
+      rows: bridgeSnapshot.aggregateRows,
+      expectedCols: 2,
+      emptyLabel: "No ACS rows loaded.",
+      numericColumns: [1]
+    });
+    renderDistrictCensusTableRows({
+      targetBodyId: "v3CensusAdvisoryTbody",
+      rows: bridgeSnapshot.advisoryRows,
+      expectedCols: 2,
+      emptyLabel: "Load ACS rows for selected GEO units to compute advisory indices.",
+      numericColumns: [1]
+    });
+    renderDistrictCensusTableRows({
+      targetBodyId: "v3CensusElectionCsvPreviewTbody",
+      rows: bridgeSnapshot.electionPreviewRows,
+      expectedCols: 4,
+      emptyLabel: "No dry-run preview yet.",
+      numericColumns: [2, 3]
+    });
+  } else {
+    syncLegacyTableRows({
+      sourceSelector: "#censusAggregateTbody",
+      targetBodyId: "v3CensusAggregateTbody",
+      expectedCols: 2,
+      emptyLabel: "No ACS rows loaded.",
+      numericColumns: [1]
+    });
+    syncLegacyTableRows({
+      sourceSelector: "#censusAdvisoryTbody",
+      targetBodyId: "v3CensusAdvisoryTbody",
+      expectedCols: 2,
+      emptyLabel: "Load ACS rows for selected GEO units to compute advisory indices.",
+      numericColumns: [1]
+    });
+    syncLegacyTableRows({
+      sourceSelector: "#censusElectionCsvPreviewTbody",
+      targetBodyId: "v3CensusElectionCsvPreviewTbody",
+      expectedCols: 4,
+      emptyLabel: "No dry-run preview yet.",
+      numericColumns: [2, 3]
+    });
+  }
 }
 
 function syncLegacyText(v3Id, legacyId, fallback = "—") {
@@ -1441,6 +1470,41 @@ function syncLegacyOrBridgeText({ v3Id, legacyId, bridgeText, fallback = "—" }
     return;
   }
   syncLegacyText(v3Id, legacyId, fallback);
+}
+
+function renderDistrictCensusTableRows({
+  targetBodyId,
+  rows,
+  expectedCols = 1,
+  emptyLabel = "No rows.",
+  numericColumns = []
+}) {
+  const tbody = document.getElementById(targetBodyId);
+  if (!(tbody instanceof HTMLElement)) {
+    return;
+  }
+  tbody.innerHTML = "";
+  const list = Array.isArray(rows) ? rows : [];
+  if (!list.length) {
+    const tr = document.createElement("tr");
+    tr.innerHTML = `<td class="muted" colspan="${expectedCols}">${escapeHtml(emptyLabel)}</td>`;
+    tbody.append(tr);
+    return;
+  }
+
+  for (const row of list) {
+    const tr = document.createElement("tr");
+    const cells = Array.isArray(row) ? row : [];
+    for (let i = 0; i < expectedCols; i += 1) {
+      const td = document.createElement("td");
+      if (numericColumns.includes(i)) {
+        td.className = "num";
+      }
+      td.innerHTML = escapeHtml(cells[i] ?? "");
+      tr.append(td);
+    }
+    tbody.append(tr);
+  }
 }
 
 function bindMultiSelectProxy(v3Id, legacyId) {
