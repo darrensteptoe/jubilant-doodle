@@ -179,6 +179,26 @@ export function runV3QaSmoke({ restoreStage = true, logToConsole = true } = {}) 
   );
   recordCheck(
     checks,
+    "legacy-setup-stage-hidden",
+    isTruthy(document.getElementById("stage-setup")?.hidden)
+  );
+  recordCheck(
+    checks,
+    "legacy-universe-stage-hidden",
+    isTruthy(document.getElementById("stage-universe")?.hidden)
+  );
+  recordCheck(
+    checks,
+    "legacy-ballot-stage-hidden",
+    isTruthy(document.getElementById("stage-ballot")?.hidden)
+  );
+  recordCheck(
+    checks,
+    "legacy-checks-stage-hidden",
+    isTruthy(document.getElementById("stage-checks")?.hidden)
+  );
+  recordCheck(
+    checks,
     "legacy-right-rail-present",
     isTruthy(document.querySelector("#v3RightRailSlot .results-sidebar-new"))
   );
