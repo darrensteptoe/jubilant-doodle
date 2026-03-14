@@ -125,7 +125,8 @@ Reference artifact:
 - DOM preflight now accepts legacy-or-v3 shell IDs for scenario/build/diagnostics/reset controls, reducing false boot failures during legacy shell retirement.
 - Removed stale duplicate v3 turnout surface file (`js/app/v3/turnout.js`); active Turnout surface remains `js/app/v3/surfaces/turnout.js`.
 - Legacy `integrity` nav entry has been removed from legacy left-rail user flow.
-- Legacy `stage-integrity` section is now collapsed to an empty retired stub; runtime integrity control IDs were moved into a hidden bridge host (`#legacy-integrity-bridge-host`) to preserve parity while v3 Data remains bridge-backed.
+- Legacy `stage-integrity` section is now collapsed to an empty retired stub.
+- Data v3 bridge actions are now runtime-native (no legacy integrity control IDs required).
 - Runtime apply-state helpers now guard writes for Reach assumptions (`persuasionPct`, `earlyVoteExp`) so boot/render stays stable after `stage-capacity` removal.
 - Runtime apply-state/bootstrap wiring now guards legacy-shell baseline inputs (`scenarioName`, race/setup controls, turnout band controls, undecided controls) so missing legacy nodes do not hard-fail boot.
 - Legacy left-rail entries for retired legacy stages (`capacity`, `results`, `roi`, `gotv`, `integrity`) are now removed from legacy user flow while stubs remain mounted for rollback safety.
@@ -174,7 +175,7 @@ Reason: currently retained for District coupling during migration; Plan bridge d
 Reason: shared by Controls and District Census/Targeting bridge.
 
 6. `stage-integrity` (completed: container retired)
-Reason: stage container is now retired to an empty stub; remaining blocker is bridge-host ID dependency for runtime data handlers (`#legacy-integrity-bridge-host`) until Data handlers are fully native in runtime.
+Reason: stage container retired and Data handlers now run through runtime-native bridge actions, so legacy integrity control ID dependency is removed.
 
 7. `stage-ballot`, `stage-universe`, `stage-structure`, `stage-setup`
 Reason: setup compose path and District bridge still rely on setup-era DOM.

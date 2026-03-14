@@ -220,7 +220,8 @@ Scope: UI architecture migration only (engine and right rail frozen)
 - Turnout bridge reduction: Turnout efficiency banner now reads from runtime Turnout bridge (`roiBannerText`) and no longer mirrors legacy `#roiBanner` note text nodes.
 - Turnout bridge reduction: Turnout summary/votes/need readouts now resolve from Turnout runtime bridge summary (`view.summary`) backed by runtime cache (`state.ui.lastTurnout`) before any selector fallback.
 - Legacy flow retirement: removed legacy left-nav `integrity` entry.
-- Legacy flow retirement: `stage-integrity` is now an empty retired stub; runtime integrity IDs are preserved in hidden bridge host `#legacy-integrity-bridge-host` for parity while Data bridge remains runtime-backed.
+- Legacy flow retirement: `stage-integrity` is now an empty retired stub.
+- Data bridge hardening: Data actions (`save/load/copy/export/USB/strict/restore`) now execute through runtime-native `__FPE_DATA_API__` handlers without legacy integrity control IDs.
 - Legacy flow retirement: legacy nav entries for `capacity`, `results`, `roi`, `gotv`, and `integrity` are removed from legacy shell user flow while DOM stubs remain for rollback.
 - Legacy shell hardening: fixed missing `</section>` closure after structure stage to keep section tree balanced during further staged deletions.
 - Legacy `stage-capacity` container has been removed from `index.html`; preflight no longer requires legacy Reach assumption IDs.
