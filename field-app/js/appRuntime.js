@@ -2003,6 +2003,75 @@ function scenarioBridgeDeleteSelected(){
   return { ok: true, view: scenarioBridgeStateView() };
 }
 
+function scenarioBridgeEnsureIntelWorkflow(targetState){
+  if (!targetState?.intelState || typeof targetState.intelState !== "object"){
+    targetState.intelState = { version: "1.0.0" };
+  }
+  if (!targetState.intelState.workflow || typeof targetState.intelState.workflow !== "object"){
+    targetState.intelState.workflow = {
+      scenarioLocked: false,
+      lockReason: "",
+      lockedAt: null,
+      lockedBy: "",
+      governanceBaselineAt: null,
+      requireCriticalNote: true,
+      requireCriticalEvidence: true
+    };
+  } else {
+    const workflow = targetState.intelState.workflow;
+    if (workflow.requireCriticalNote == null) workflow.requireCriticalNote = true;
+    if (workflow.requireCriticalEvidence == null) workflow.requireCriticalEvidence = true;
+    if (!("scenarioLocked" in workflow)) workflow.scenarioLocked = false;
+    if (!("lockReason" in workflow)) workflow.lockReason = "";
+    if (!("lockedAt" in workflow)) workflow.lockedAt = null;
+    if (!("lockedBy" in workflow)) workflow.lockedBy = "";
+    if (!("governanceBaselineAt" in workflow)) workflow.governanceBaselineAt = null;
+  }
+  return targetState.intelState.workflow;
+}
+
+function scenarioBridgeUpdateIntelWorkflow(patch){
+  const nextPatch = (patch && typeof patch === "object") ? patch : {};
+  const hasPatch = [
+    "scenarioLocked",
+    "lockReason",
+    "requireCriticalNote",
+    "requireCriticalEvidence"
+  ].some((key) => Object.prototype.hasOwnProperty.call(nextPatch, key));
+  if (!hasPatch){
+    return { ok: false, code: "empty_patch", view: scenarioBridgeStateView() };
+  }
+
+  const workflow = scenarioBridgeEnsureIntelWorkflow(state);
+  if (Object.prototype.hasOwnProperty.call(nextPatch, "scenarioLocked")){
+    const locked = !!nextPatch.scenarioLocked;
+    workflow.scenarioLocked = locked;
+    workflow.lockedAt = locked ? new Date().toISOString() : null;
+  }
+  if (Object.prototype.hasOwnProperty.call(nextPatch, "lockReason")){
+    workflow.lockReason = String(nextPatch.lockReason || "").trim();
+  }
+  if (Object.prototype.hasOwnProperty.call(nextPatch, "requireCriticalNote")){
+    workflow.requireCriticalNote = !!nextPatch.requireCriticalNote;
+  }
+  if (Object.prototype.hasOwnProperty.call(nextPatch, "requireCriticalEvidence")){
+    workflow.requireCriticalEvidence = !!nextPatch.requireCriticalEvidence;
+  }
+
+  commitUIUpdate({ allowScenarioLockBypass: true });
+  refreshLegacyScenarioManagerIfMounted();
+  return { ok: true, view: scenarioBridgeStateView() };
+}
+
+function scenarioBridgeSetPendingCriticalNote(note){
+  if (!state.ui || typeof state.ui !== "object"){
+    state.ui = {};
+  }
+  state.ui.pendingCriticalNote = String(note || "");
+  commitUIUpdate({ allowScenarioLockBypass: true });
+  return { ok: true, view: scenarioBridgeStateView() };
+}
+
 function installScenarioBridge(){
   window[SCENARIO_BRIDGE_KEY] = {
     getView: () => scenarioBridgeStateView(),
@@ -2012,7 +2081,9 @@ function installScenarioBridge(){
     loadScenario: (id) => scenarioBridgeLoad(id),
     loadSelected: () => scenarioBridgeLoad(state?.ui?.scenarioUiSelectedId),
     returnBaseline: () => scenarioBridgeLoad(SCENARIO_BASELINE_ID),
-    deleteSelected: () => scenarioBridgeDeleteSelected()
+    deleteSelected: () => scenarioBridgeDeleteSelected(),
+    updateIntelWorkflow: (patch) => scenarioBridgeUpdateIntelWorkflow(patch),
+    setPendingCriticalNote: (note) => scenarioBridgeSetPendingCriticalNote(note)
   };
 }
 
