@@ -142,6 +142,7 @@ Reference artifact:
 - Runtime init now gates setup-stage composition (`composeSetupStageModule`) behind legacy mode/visible setup-stage checks, reducing v3 boot-time dependence on legacy setup-stage reshaping.
 - District summary snapshot in v3 now resolves through runtime District API bridge (`window.__FPE_DISTRICT_API__.getView().summary`) with compatibility fallback, reducing direct dependence on legacy summary DOM text mirrors.
 - District targeting status/meta/results in v3 now resolve through runtime District API bridge payload (`window.__FPE_DISTRICT_API__.getView().targeting`) with compatibility fallback, reducing direct dependence on legacy `#targetingStatus/#targetingMeta/#targetingResultsTbody` mirrors.
+- District Census status/guide/map text rows in v3 now resolve through runtime District API bridge payload (`window.__FPE_DISTRICT_API__.getView().census`) with compatibility fallback, reducing direct dependence on legacy `#census*Status/#census*Meta` text mirrors in the v3 surface.
 
 ## Stage dependency map (current)
 Counts below are unique legacy IDs referenced by each v3 surface.
