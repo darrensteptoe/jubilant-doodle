@@ -155,7 +155,7 @@ Counts below are unique legacy IDs referenced by each v3 surface.
 | Turnout | `stage-roi` | 0 |
 | Plan | `stage-roi` | 0 |
 | Plan | `stage-gotv` | 0 |
-| Controls | `stage-checks` | 46 |
+| Controls | `stage-checks` | 0 |
 | Scenarios | retired (`stage-scenarios`) | 0 |
 | Decision Log | retired (`stage-decisions`) | 0 |
 | Data | runtime data API bridge (`window.__FPE_DATA_API__`) | 0 |
@@ -176,7 +176,7 @@ Reason: v3 bridge dependencies reached zero and the legacy section is now an emp
 Reason: currently retained for District coupling during migration; Plan bridge dependencies have been removed.
 
 5. `stage-checks`
-Reason: shared by Controls and District Census/Targeting bridge.
+Reason: now isolated to District Census/Targeting bridge after Controls migration to scenario API.
 
 6. `stage-integrity` (completed: container retired)
 Reason: stage container retired and Data handlers now run through runtime-native bridge actions, so legacy integrity control ID dependency is removed.
