@@ -134,6 +134,7 @@ Reference artifact:
 - Controls v3 evidence table now renders from scenario-bridge intel state (`window.__FPE_SCENARIO_API__`) instead of mirroring legacy `#intelEvidenceTbody`.
 - Controls v3 benchmark table now renders from scenario-bridge intel state (`window.__FPE_SCENARIO_API__`) and remove actions route by benchmark id, instead of mirroring legacy `#intelBenchmarkTbody`.
 - Controls v3 feedback previews (what-if + recommendations) now render from scenario-bridge intel state and no longer mirror legacy preview textareas (`#intelWhatIfPreview/#intelRecommendationPreview`).
+- Controls v3 review-workflow actions (`Capture observed metrics`, `Generate drift recommendations`, `Parse what-if request`, `Apply top recommendation`) now run API-first through `window.__FPE_SCENARIO_API__` with no v3 legacy proxy fallback to `btnIntel*`/`intelWhatIfInput`.
 - Data v3 controls now execute through runtime data API bridge (`window.__FPE_DATA_API__`) with zero direct legacy selector bindings in the Data surface.
 
 ## Stage dependency map (current)
