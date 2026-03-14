@@ -17,9 +17,36 @@ import {
   syncFieldValue,
   syncSelectValue
 } from "../surfaceUtils.js";
-import { benchmarkRefLabel, listIntelBenchmarks, listIntelEvidence } from "../../intelControlsRuntime.js";
+import {
+  benchmarkRefLabel,
+  listIntelBenchmarks,
+  listIntelEvidence,
+  listMissingEvidenceAudit,
+  listMissingNoteAudit
+} from "../../intelControlsRuntime.js";
 
 const SCENARIO_API_KEY = "__FPE_SCENARIO_API__";
+const BENCHMARK_REF_OPTIONS = [
+  "core.universeSize",
+  "core.persuasionUniversePct",
+  "core.supportRatePct",
+  "core.contactRatePct",
+  "core.turnoutCycleA",
+  "core.turnoutCycleB",
+  "core.turnoutBandWidth",
+  "core.turnoutBaselinePct",
+  "core.gotvLiftPP",
+  "core.gotvLiftCeilingPP",
+  "core.orgCount",
+  "core.orgHoursPerWeek",
+  "core.volunteerMultiplier",
+  "core.channelDoorPct",
+  "core.doorsPerHour",
+  "core.callsPerHour"
+];
+const BENCHMARK_RACE_TYPE_OPTIONS = ["all", "federal", "state_leg", "municipal", "county"];
+let benchmarkActionStatus = "";
+let evidenceActionStatus = "";
 
 export function renderControlsSurface(mount) {
   const frame = createSurfaceFrame("three-col");
@@ -632,18 +659,58 @@ function wireControlsBenchmarkBridge() {
   }
   root.dataset.wired = "1";
 
-  bindSelectProxy("v3IntelBenchmarkRef", "intelBenchmarkRef");
-  bindSelectProxy("v3IntelBenchmarkRaceType", "intelBenchmarkRaceType");
-  bindFieldProxy("v3IntelBenchmarkDefault", "intelBenchmarkDefault");
-  bindFieldProxy("v3IntelBenchmarkMin", "intelBenchmarkMin");
-  bindFieldProxy("v3IntelBenchmarkMax", "intelBenchmarkMax");
-  bindFieldProxy("v3IntelBenchmarkWarnAbove", "intelBenchmarkWarnAbove");
-  bindFieldProxy("v3IntelBenchmarkHardAbove", "intelBenchmarkHardAbove");
-  bindFieldProxy("v3IntelBenchmarkSourceTitle", "intelBenchmarkSourceTitle");
-  bindFieldProxy("v3IntelBenchmarkSourceNotes", "intelBenchmarkSourceNotes");
+  if (!hasBenchmarkScenarioApi()) {
+    bindSelectProxy("v3IntelBenchmarkRef", "intelBenchmarkRef");
+    bindSelectProxy("v3IntelBenchmarkRaceType", "intelBenchmarkRaceType");
+    bindFieldProxy("v3IntelBenchmarkDefault", "intelBenchmarkDefault");
+    bindFieldProxy("v3IntelBenchmarkMin", "intelBenchmarkMin");
+    bindFieldProxy("v3IntelBenchmarkMax", "intelBenchmarkMax");
+    bindFieldProxy("v3IntelBenchmarkWarnAbove", "intelBenchmarkWarnAbove");
+    bindFieldProxy("v3IntelBenchmarkHardAbove", "intelBenchmarkHardAbove");
+    bindFieldProxy("v3IntelBenchmarkSourceTitle", "intelBenchmarkSourceTitle");
+    bindFieldProxy("v3IntelBenchmarkSourceNotes", "intelBenchmarkSourceNotes");
 
-  bindClickProxy("v3BtnIntelBenchmarkLoadDefaults", "btnIntelBenchmarkLoadDefaults");
-  bindClickProxy("v3BtnIntelBenchmarkSave", "btnIntelBenchmarkSave");
+    bindClickProxy("v3BtnIntelBenchmarkLoadDefaults", "btnIntelBenchmarkLoadDefaults");
+    bindClickProxy("v3BtnIntelBenchmarkSave", "btnIntelBenchmarkSave");
+  } else {
+    const loadDefaultsBtn = document.getElementById("v3BtnIntelBenchmarkLoadDefaults");
+    if (loadDefaultsBtn instanceof HTMLButtonElement) {
+      loadDefaultsBtn.addEventListener("click", () => {
+        const raceType = readInputValueById("v3IntelBenchmarkRaceType") || "all";
+        const result = loadDefaultBenchmarksViaScenarioApi(raceType);
+        if (result?.ok) {
+          benchmarkActionStatus = `Loaded defaults for ${result.raceType || raceType}. Created ${Number(result.created || 0)}, updated ${Number(result.updated || 0)}.`;
+        } else {
+          benchmarkActionStatus = String(result?.error || "Failed to load default benchmarks.");
+        }
+      });
+    }
+
+    const saveBtn = document.getElementById("v3BtnIntelBenchmarkSave");
+    if (saveBtn instanceof HTMLButtonElement) {
+      saveBtn.addEventListener("click", () => {
+        const payload = {
+          ref: readInputValueById("v3IntelBenchmarkRef"),
+          raceType: readInputValueById("v3IntelBenchmarkRaceType") || "all",
+          defaultValue: parseOptionalNumber(readInputValueById("v3IntelBenchmarkDefault")),
+          min: parseOptionalNumber(readInputValueById("v3IntelBenchmarkMin")),
+          max: parseOptionalNumber(readInputValueById("v3IntelBenchmarkMax")),
+          warnAbove: parseOptionalNumber(readInputValueById("v3IntelBenchmarkWarnAbove")),
+          hardAbove: parseOptionalNumber(readInputValueById("v3IntelBenchmarkHardAbove")),
+          sourceTitle: readInputValueById("v3IntelBenchmarkSourceTitle"),
+          sourceNotes: readInputValueById("v3IntelBenchmarkSourceNotes")
+        };
+        const result = saveBenchmarkViaScenarioApi(payload);
+        if (result?.ok) {
+          benchmarkActionStatus = result.mode === "created"
+            ? "Benchmark created."
+            : "Benchmark updated.";
+        } else {
+          benchmarkActionStatus = String(result?.error || "Benchmark save failed.");
+        }
+      });
+    }
+  }
 
   const v3BenchmarkTbody = document.getElementById("v3IntelBenchmarkTbody");
   if (v3BenchmarkTbody) {
@@ -654,6 +721,14 @@ function wireControlsBenchmarkBridge() {
       if (!(removeBtn instanceof HTMLElement)) return;
       const removeId = String(removeBtn.getAttribute("data-bm-remove") || "").trim();
       if (!removeId) return;
+
+      if (hasBenchmarkScenarioApi()) {
+        const result = removeBenchmarkViaScenarioApi(removeId);
+        benchmarkActionStatus = result?.ok
+          ? "Benchmark removed."
+          : String(result?.error || "Failed to remove benchmark.");
+        return;
+      }
 
       const legacyButtons = Array.from(document.querySelectorAll("#app-shell-legacy [data-bm-remove]"));
       const legacyBtn = legacyButtons.find((btn) => {
@@ -668,32 +743,43 @@ function wireControlsBenchmarkBridge() {
 }
 
 function syncControlsBenchmarkBridge() {
-  syncSelectValue("v3IntelBenchmarkRef", "intelBenchmarkRef");
-  syncSelectValue("v3IntelBenchmarkRaceType", "intelBenchmarkRaceType");
-  syncFieldValue("v3IntelBenchmarkDefault", "intelBenchmarkDefault");
-  syncFieldValue("v3IntelBenchmarkMin", "intelBenchmarkMin");
-  syncFieldValue("v3IntelBenchmarkMax", "intelBenchmarkMax");
-  syncFieldValue("v3IntelBenchmarkWarnAbove", "intelBenchmarkWarnAbove");
-  syncFieldValue("v3IntelBenchmarkHardAbove", "intelBenchmarkHardAbove");
-  syncFieldValue("v3IntelBenchmarkSourceTitle", "intelBenchmarkSourceTitle");
-  syncFieldValue("v3IntelBenchmarkSourceNotes", "intelBenchmarkSourceNotes");
-  syncControlsDisabled([
-    ["v3IntelBenchmarkRef", "intelBenchmarkRef"],
-    ["v3IntelBenchmarkRaceType", "intelBenchmarkRaceType"],
-    ["v3IntelBenchmarkDefault", "intelBenchmarkDefault"],
-    ["v3IntelBenchmarkMin", "intelBenchmarkMin"],
-    ["v3IntelBenchmarkMax", "intelBenchmarkMax"],
-    ["v3IntelBenchmarkWarnAbove", "intelBenchmarkWarnAbove"],
-    ["v3IntelBenchmarkHardAbove", "intelBenchmarkHardAbove"],
-    ["v3IntelBenchmarkSourceTitle", "intelBenchmarkSourceTitle"],
-    ["v3IntelBenchmarkSourceNotes", "intelBenchmarkSourceNotes"]
-  ]);
+  if (!hasBenchmarkScenarioApi()) {
+    syncSelectValue("v3IntelBenchmarkRef", "intelBenchmarkRef");
+    syncSelectValue("v3IntelBenchmarkRaceType", "intelBenchmarkRaceType");
+    syncFieldValue("v3IntelBenchmarkDefault", "intelBenchmarkDefault");
+    syncFieldValue("v3IntelBenchmarkMin", "intelBenchmarkMin");
+    syncFieldValue("v3IntelBenchmarkMax", "intelBenchmarkMax");
+    syncFieldValue("v3IntelBenchmarkWarnAbove", "intelBenchmarkWarnAbove");
+    syncFieldValue("v3IntelBenchmarkHardAbove", "intelBenchmarkHardAbove");
+    syncFieldValue("v3IntelBenchmarkSourceTitle", "intelBenchmarkSourceTitle");
+    syncFieldValue("v3IntelBenchmarkSourceNotes", "intelBenchmarkSourceNotes");
+    syncControlsDisabled([
+      ["v3IntelBenchmarkRef", "intelBenchmarkRef"],
+      ["v3IntelBenchmarkRaceType", "intelBenchmarkRaceType"],
+      ["v3IntelBenchmarkDefault", "intelBenchmarkDefault"],
+      ["v3IntelBenchmarkMin", "intelBenchmarkMin"],
+      ["v3IntelBenchmarkMax", "intelBenchmarkMax"],
+      ["v3IntelBenchmarkWarnAbove", "intelBenchmarkWarnAbove"],
+      ["v3IntelBenchmarkHardAbove", "intelBenchmarkHardAbove"],
+      ["v3IntelBenchmarkSourceTitle", "intelBenchmarkSourceTitle"],
+      ["v3IntelBenchmarkSourceNotes", "intelBenchmarkSourceNotes"]
+    ]);
+  } else {
+    ensureBenchmarkSelectOptions();
+  }
   const benchmarkRows = syncBenchmarkRowsFromIntel();
   setText("v3IntelBenchmarkCount", formatRecordCount(benchmarkRows, "benchmark entry", "configured"));
-  setText("v3IntelBenchmarkStatus", buildBenchmarkStatus());
+  setText("v3IntelBenchmarkStatus", benchmarkActionStatus || buildBenchmarkStatus());
 
-  syncButtonDisabled("v3BtnIntelBenchmarkLoadDefaults", "btnIntelBenchmarkLoadDefaults");
-  syncButtonDisabled("v3BtnIntelBenchmarkSave", "btnIntelBenchmarkSave");
+  if (!hasBenchmarkScenarioApi()) {
+    syncButtonDisabled("v3BtnIntelBenchmarkLoadDefaults", "btnIntelBenchmarkLoadDefaults");
+    syncButtonDisabled("v3BtnIntelBenchmarkSave", "btnIntelBenchmarkSave");
+  } else {
+    const loadDefaultsBtn = document.getElementById("v3BtnIntelBenchmarkLoadDefaults");
+    if (loadDefaultsBtn instanceof HTMLButtonElement) loadDefaultsBtn.disabled = false;
+    const saveBtn = document.getElementById("v3BtnIntelBenchmarkSave");
+    if (saveBtn instanceof HTMLButtonElement) saveBtn.disabled = false;
+  }
 }
 
 function syncBenchmarkRowsFromIntel() {
@@ -749,34 +835,81 @@ function wireControlsEvidenceBridge() {
   }
   root.dataset.wired = "1";
 
-  bindSelectProxy("v3IntelAuditSelect", "intelAuditSelect");
-  bindFieldProxy("v3IntelEvidenceTitle", "intelEvidenceTitle");
-  bindFieldProxy("v3IntelEvidenceSource", "intelEvidenceSource");
-  bindFieldProxy("v3IntelEvidenceCapturedAt", "intelEvidenceCapturedAt");
-  bindFieldProxy("v3IntelEvidenceUrl", "intelEvidenceUrl");
-  bindFieldProxy("v3IntelEvidenceNotes", "intelEvidenceNotes");
+  if (!hasEvidenceScenarioApi()) {
+    bindSelectProxy("v3IntelAuditSelect", "intelAuditSelect");
+    bindFieldProxy("v3IntelEvidenceTitle", "intelEvidenceTitle");
+    bindFieldProxy("v3IntelEvidenceSource", "intelEvidenceSource");
+    bindFieldProxy("v3IntelEvidenceCapturedAt", "intelEvidenceCapturedAt");
+    bindFieldProxy("v3IntelEvidenceUrl", "intelEvidenceUrl");
+    bindFieldProxy("v3IntelEvidenceNotes", "intelEvidenceNotes");
 
-  bindClickProxy("v3BtnIntelEvidenceAttach", "btnIntelEvidenceAttach");
+    bindClickProxy("v3BtnIntelEvidenceAttach", "btnIntelEvidenceAttach");
+    return;
+  }
+
+  const attachBtn = document.getElementById("v3BtnIntelEvidenceAttach");
+  if (attachBtn instanceof HTMLButtonElement) {
+    attachBtn.addEventListener("click", () => {
+      const missingRows = listMissingEvidenceRowsFromIntel();
+      const selectedAuditId = readInputValueById("v3IntelAuditSelect");
+      const selectedAudit = missingRows.find((row) => String(row?.id || "").trim() === selectedAuditId) || null;
+      const draftNote = readInputValueById("v3IntelEvidenceNotes");
+      if (missingRows.length > 0 && !selectedAuditId) {
+        evidenceActionStatus = "Select a missing evidence audit item before attaching evidence.";
+        return;
+      }
+      if (selectedAudit && selectedAudit.requiresNote === true && !String(selectedAudit.note || "").trim() && !draftNote) {
+        evidenceActionStatus = "This audit item also requires a note. Add a short note before attaching evidence.";
+        return;
+      }
+      const payload = {
+        auditId: selectedAuditId,
+        title: readInputValueById("v3IntelEvidenceTitle"),
+        source: readInputValueById("v3IntelEvidenceSource"),
+        capturedAt: readInputValueById("v3IntelEvidenceCapturedAt"),
+        url: readInputValueById("v3IntelEvidenceUrl"),
+        notes: draftNote
+      };
+      const result = attachEvidenceViaScenarioApi(payload);
+      if (result?.ok) {
+        evidenceActionStatus = result.resolvedAuditId
+          ? "Evidence attached and audit item resolved."
+          : "Evidence attached.";
+        clearEvidenceDraftInputs();
+      } else {
+        evidenceActionStatus = String(result?.error || "Evidence attach failed.");
+      }
+    });
+  }
 }
 
 function syncControlsEvidenceBridge() {
-  syncSelectValue("v3IntelAuditSelect", "intelAuditSelect");
-  syncFieldValue("v3IntelEvidenceTitle", "intelEvidenceTitle");
-  syncFieldValue("v3IntelEvidenceSource", "intelEvidenceSource");
-  syncFieldValue("v3IntelEvidenceCapturedAt", "intelEvidenceCapturedAt");
-  syncFieldValue("v3IntelEvidenceUrl", "intelEvidenceUrl");
-  syncFieldValue("v3IntelEvidenceNotes", "intelEvidenceNotes");
-  syncControlsDisabled([
-    ["v3IntelAuditSelect", "intelAuditSelect"],
-    ["v3IntelEvidenceTitle", "intelEvidenceTitle"],
-    ["v3IntelEvidenceSource", "intelEvidenceSource"],
-    ["v3IntelEvidenceCapturedAt", "intelEvidenceCapturedAt"],
-    ["v3IntelEvidenceUrl", "intelEvidenceUrl"],
-    ["v3IntelEvidenceNotes", "intelEvidenceNotes"]
-  ]);
+  if (!hasEvidenceScenarioApi()) {
+    syncSelectValue("v3IntelAuditSelect", "intelAuditSelect");
+    syncFieldValue("v3IntelEvidenceTitle", "intelEvidenceTitle");
+    syncFieldValue("v3IntelEvidenceSource", "intelEvidenceSource");
+    syncFieldValue("v3IntelEvidenceCapturedAt", "intelEvidenceCapturedAt");
+    syncFieldValue("v3IntelEvidenceUrl", "intelEvidenceUrl");
+    syncFieldValue("v3IntelEvidenceNotes", "intelEvidenceNotes");
+    syncControlsDisabled([
+      ["v3IntelAuditSelect", "intelAuditSelect"],
+      ["v3IntelEvidenceTitle", "intelEvidenceTitle"],
+      ["v3IntelEvidenceSource", "intelEvidenceSource"],
+      ["v3IntelEvidenceCapturedAt", "intelEvidenceCapturedAt"],
+      ["v3IntelEvidenceUrl", "intelEvidenceUrl"],
+      ["v3IntelEvidenceNotes", "intelEvidenceNotes"]
+    ]);
+  } else {
+    syncEvidenceAuditSelectFromIntel();
+    const capturedEl = document.getElementById("v3IntelEvidenceCapturedAt");
+    if (capturedEl instanceof HTMLInputElement && !capturedEl.value) {
+      capturedEl.value = new Date().toISOString().slice(0, 10);
+    }
+  }
 
   const evidenceRows = syncEvidenceRowsFromIntel();
-  const unresolved = unresolvedAuditCount();
+  const unresolved = missingEvidenceCountFromIntel();
+  const missingNotes = missingNoteCountFromIntel();
   setText(
     "v3IntelMissingEvidenceCount",
     unresolved > 0
@@ -785,13 +918,18 @@ function syncControlsEvidenceBridge() {
   );
   setText(
     "v3IntelMissingNoteCount",
-    unresolved > 0
-      ? `${unresolved} critical assumption edit(s) missing note.`
+    missingNotes > 0
+      ? `${missingNotes} critical assumption edit(s) missing note.`
       : "0 critical assumption edit(s) missing note."
   );
-  setText("v3IntelEvidenceStatus", buildEvidenceStatus(evidenceRows, unresolved));
+  setText("v3IntelEvidenceStatus", evidenceActionStatus || buildEvidenceStatus(evidenceRows, unresolved));
 
-  syncButtonDisabled("v3BtnIntelEvidenceAttach", "btnIntelEvidenceAttach");
+  if (!hasEvidenceScenarioApi()) {
+    syncButtonDisabled("v3BtnIntelEvidenceAttach", "btnIntelEvidenceAttach");
+  } else {
+    const attachBtn = document.getElementById("v3BtnIntelEvidenceAttach");
+    if (attachBtn instanceof HTMLButtonElement) attachBtn.disabled = false;
+  }
 }
 
 function syncEvidenceRowsFromIntel() {
@@ -953,6 +1091,22 @@ function hasWorkflowScenarioApi() {
     && typeof api.setPendingCriticalNote === "function";
 }
 
+function hasBenchmarkScenarioApi() {
+  const api = getScenarioBridgeApi();
+  return !!api
+    && typeof api.getView === "function"
+    && typeof api.saveBenchmark === "function"
+    && typeof api.loadDefaultBenchmarks === "function"
+    && typeof api.removeBenchmark === "function";
+}
+
+function hasEvidenceScenarioApi() {
+  const api = getScenarioBridgeApi();
+  return !!api
+    && typeof api.getView === "function"
+    && typeof api.attachEvidence === "function";
+}
+
 function getActiveScenarioInputsSnapshot() {
   const api = getScenarioBridgeApi();
   if (!api || typeof api.getView !== "function") {
@@ -994,6 +1148,172 @@ function updatePendingNoteViaScenarioApi(note) {
   } catch {
     return false;
   }
+}
+
+function saveBenchmarkViaScenarioApi(payload) {
+  const api = getScenarioBridgeApi();
+  if (!api || typeof api.saveBenchmark !== "function") {
+    return { ok: false, error: "Benchmark API unavailable." };
+  }
+  try {
+    const result = api.saveBenchmark(payload || {});
+    return result && typeof result === "object"
+      ? result
+      : { ok: false, error: "Benchmark save failed." };
+  } catch {
+    return { ok: false, error: "Benchmark save failed." };
+  }
+}
+
+function loadDefaultBenchmarksViaScenarioApi(raceType) {
+  const api = getScenarioBridgeApi();
+  if (!api || typeof api.loadDefaultBenchmarks !== "function") {
+    return { ok: false, error: "Benchmark defaults API unavailable." };
+  }
+  try {
+    const result = api.loadDefaultBenchmarks(String(raceType || "all"));
+    return result && typeof result === "object"
+      ? result
+      : { ok: false, error: "Failed to load benchmark defaults." };
+  } catch {
+    return { ok: false, error: "Failed to load benchmark defaults." };
+  }
+}
+
+function removeBenchmarkViaScenarioApi(benchmarkId) {
+  const api = getScenarioBridgeApi();
+  if (!api || typeof api.removeBenchmark !== "function") {
+    return { ok: false, error: "Benchmark remove API unavailable." };
+  }
+  try {
+    const result = api.removeBenchmark(String(benchmarkId || ""));
+    return result && typeof result === "object"
+      ? result
+      : { ok: false, error: "Failed to remove benchmark." };
+  } catch {
+    return { ok: false, error: "Failed to remove benchmark." };
+  }
+}
+
+function attachEvidenceViaScenarioApi(payload) {
+  const api = getScenarioBridgeApi();
+  if (!api || typeof api.attachEvidence !== "function") {
+    return { ok: false, error: "Evidence API unavailable." };
+  }
+  try {
+    const result = api.attachEvidence(payload || {});
+    return result && typeof result === "object"
+      ? result
+      : { ok: false, error: "Evidence attach failed." };
+  } catch {
+    return { ok: false, error: "Evidence attach failed." };
+  }
+}
+
+function ensureBenchmarkSelectOptions() {
+  const refSelect = document.getElementById("v3IntelBenchmarkRef");
+  if (refSelect instanceof HTMLSelectElement && refSelect.options.length === 0) {
+    BENCHMARK_REF_OPTIONS.forEach((ref) => {
+      const opt = document.createElement("option");
+      opt.value = ref;
+      opt.textContent = benchmarkRefLabel(ref);
+      refSelect.appendChild(opt);
+    });
+  }
+
+  const raceTypeSelect = document.getElementById("v3IntelBenchmarkRaceType");
+  if (raceTypeSelect instanceof HTMLSelectElement && raceTypeSelect.options.length === 0) {
+    BENCHMARK_RACE_TYPE_OPTIONS.forEach((raceType) => {
+      const opt = document.createElement("option");
+      opt.value = raceType;
+      opt.textContent = raceType === "state_leg" ? "state legislative" : raceType;
+      raceTypeSelect.appendChild(opt);
+    });
+  }
+}
+
+function parseOptionalNumber(rawValue) {
+  const text = String(rawValue || "").trim();
+  if (!text) return null;
+  const n = Number(text);
+  return Number.isFinite(n) ? n : null;
+}
+
+function clearEvidenceDraftInputs() {
+  const titleEl = document.getElementById("v3IntelEvidenceTitle");
+  if (titleEl instanceof HTMLInputElement) titleEl.value = "";
+  const sourceEl = document.getElementById("v3IntelEvidenceSource");
+  if (sourceEl instanceof HTMLInputElement) sourceEl.value = "";
+  const urlEl = document.getElementById("v3IntelEvidenceUrl");
+  if (urlEl instanceof HTMLInputElement) urlEl.value = "";
+  const notesEl = document.getElementById("v3IntelEvidenceNotes");
+  if (notesEl instanceof HTMLTextAreaElement) notesEl.value = "";
+}
+
+function syncEvidenceAuditSelectFromIntel() {
+  const selectEl = document.getElementById("v3IntelAuditSelect");
+  if (!(selectEl instanceof HTMLSelectElement)) {
+    return 0;
+  }
+  const rows = listMissingEvidenceRowsFromIntel();
+  const previous = selectEl.value;
+  selectEl.innerHTML = "";
+  if (!rows.length) {
+    const opt = document.createElement("option");
+    opt.value = "";
+    opt.textContent = "No missing evidence items";
+    selectEl.appendChild(opt);
+    selectEl.disabled = true;
+    return 0;
+  }
+
+  selectEl.disabled = false;
+  const placeholder = document.createElement("option");
+  placeholder.value = "";
+  placeholder.textContent = "Select missing evidence item…";
+  selectEl.appendChild(placeholder);
+
+  rows.forEach((row) => {
+    const opt = document.createElement("option");
+    const ts = formatIsoDate(row?.ts || row?.updatedAt || row?.createdAt || "");
+    const ref = String(row?.label || row?.ref || row?.key || "critical assumption").trim();
+    opt.value = String(row?.id || "");
+    opt.textContent = `${ts} · ${ref}`;
+    selectEl.appendChild(opt);
+  });
+
+  const hasPrevious = rows.some((row) => String(row?.id || "") === previous);
+  if (hasPrevious) {
+    selectEl.value = previous;
+  } else {
+    const firstId = String(rows[0]?.id || "");
+    selectEl.value = firstId;
+  }
+  return rows.length;
+}
+
+function listMissingEvidenceRowsFromIntel() {
+  const scenarioState = getActiveScenarioStateSnapshot();
+  if (!scenarioState) return [];
+  return listMissingEvidenceAudit(scenarioState, { limit: 200 });
+}
+
+function missingEvidenceCountFromIntel() {
+  return listMissingEvidenceRowsFromIntel().length;
+}
+
+function missingNoteCountFromIntel() {
+  const scenarioState = getActiveScenarioStateSnapshot();
+  if (!scenarioState) return 0;
+  return listMissingNoteAudit(scenarioState, { limit: 200 }).length;
+}
+
+function getActiveScenarioStateSnapshot() {
+  const inputs = getActiveScenarioInputsSnapshot();
+  if (!inputs || typeof inputs !== "object") {
+    return null;
+  }
+  return inputs;
 }
 
 function readDomTextById(id) {
