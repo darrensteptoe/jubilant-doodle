@@ -561,11 +561,6 @@ function wireControlsWorkflowBridge() {
   root.dataset.wired = "1";
 
   if (!hasWorkflowScenarioApi()) {
-    bindCheckboxProxy("v3IntelScenarioLocked", "intelScenarioLocked");
-    bindCheckboxProxy("v3IntelRequireCriticalNote", "intelRequireCriticalNote");
-    bindCheckboxProxy("v3IntelRequireCriticalEvidence", "intelRequireCriticalEvidence");
-    bindFieldProxy("v3IntelScenarioLockReason", "intelScenarioLockReason");
-    bindFieldProxy("v3IntelCriticalChangeNote", "intelCriticalChangeNote");
     return;
   }
 
@@ -610,50 +605,49 @@ function wireControlsWorkflowBridge() {
 }
 
 function syncControlsWorkflowBridge() {
-  if (!hasWorkflowScenarioApi()) {
-    syncCheckboxValue("v3IntelScenarioLocked", "intelScenarioLocked");
-    syncCheckboxValue("v3IntelRequireCriticalNote", "intelRequireCriticalNote");
-    syncCheckboxValue("v3IntelRequireCriticalEvidence", "intelRequireCriticalEvidence");
-    syncFieldValue("v3IntelScenarioLockReason", "intelScenarioLockReason");
-    syncFieldValue("v3IntelCriticalChangeNote", "intelCriticalChangeNote");
-    syncControlsDisabled([
-      ["v3IntelScenarioLocked", "intelScenarioLocked"],
-      ["v3IntelRequireCriticalNote", "intelRequireCriticalNote"],
-      ["v3IntelRequireCriticalEvidence", "intelRequireCriticalEvidence"],
-      ["v3IntelScenarioLockReason", "intelScenarioLockReason"],
-      ["v3IntelCriticalChangeNote", "intelCriticalChangeNote"]
-    ]);
-  } else {
-    const inputs = getActiveScenarioInputsSnapshot();
-    const workflow = (inputs?.intelState && typeof inputs.intelState === "object" && inputs.intelState.workflow && typeof inputs.intelState.workflow === "object")
-      ? inputs.intelState.workflow
-      : {};
-    const pendingCriticalNote = String(inputs?.ui?.pendingCriticalNote || "");
+  const hasApi = hasWorkflowScenarioApi();
+  const lockEl = document.getElementById("v3IntelScenarioLocked");
+  const requireNoteEl = document.getElementById("v3IntelRequireCriticalNote");
+  const requireEvidenceEl = document.getElementById("v3IntelRequireCriticalEvidence");
+  const reasonEl = document.getElementById("v3IntelScenarioLockReason");
+  const noteEl = document.getElementById("v3IntelCriticalChangeNote");
 
-    const lockEl = document.getElementById("v3IntelScenarioLocked");
-    if (lockEl instanceof HTMLInputElement && document.activeElement !== lockEl) {
-      lockEl.checked = !!workflow.scenarioLocked;
-    }
+  if (lockEl instanceof HTMLInputElement) lockEl.disabled = !hasApi;
+  if (requireNoteEl instanceof HTMLInputElement) requireNoteEl.disabled = !hasApi;
+  if (requireEvidenceEl instanceof HTMLInputElement) requireEvidenceEl.disabled = !hasApi;
+  if (reasonEl instanceof HTMLInputElement) reasonEl.disabled = !hasApi;
+  if (noteEl instanceof HTMLTextAreaElement) noteEl.disabled = !hasApi;
 
-    const requireNoteEl = document.getElementById("v3IntelRequireCriticalNote");
-    if (requireNoteEl instanceof HTMLInputElement && document.activeElement !== requireNoteEl) {
-      requireNoteEl.checked = workflow.requireCriticalNote !== false;
-    }
+  if (!hasApi) {
+    setText("v3IntelScenarioLockStatus", "Scenario bridge unavailable.");
+    setText("v3IntelWorkflowStatus", "Scenario bridge unavailable.");
+    return;
+  }
 
-    const requireEvidenceEl = document.getElementById("v3IntelRequireCriticalEvidence");
-    if (requireEvidenceEl instanceof HTMLInputElement && document.activeElement !== requireEvidenceEl) {
-      requireEvidenceEl.checked = workflow.requireCriticalEvidence !== false;
-    }
+  const inputs = getActiveScenarioInputsSnapshot();
+  const workflow = (inputs?.intelState && typeof inputs.intelState === "object" && inputs.intelState.workflow && typeof inputs.intelState.workflow === "object")
+    ? inputs.intelState.workflow
+    : {};
+  const pendingCriticalNote = String(inputs?.ui?.pendingCriticalNote || "");
 
-    const reasonEl = document.getElementById("v3IntelScenarioLockReason");
-    if (reasonEl instanceof HTMLInputElement && document.activeElement !== reasonEl) {
-      reasonEl.value = String(workflow.lockReason || "");
-    }
+  if (lockEl instanceof HTMLInputElement && document.activeElement !== lockEl) {
+    lockEl.checked = !!workflow.scenarioLocked;
+  }
 
-    const noteEl = document.getElementById("v3IntelCriticalChangeNote");
-    if (noteEl instanceof HTMLTextAreaElement && document.activeElement !== noteEl) {
-      noteEl.value = pendingCriticalNote;
-    }
+  if (requireNoteEl instanceof HTMLInputElement && document.activeElement !== requireNoteEl) {
+    requireNoteEl.checked = workflow.requireCriticalNote !== false;
+  }
+
+  if (requireEvidenceEl instanceof HTMLInputElement && document.activeElement !== requireEvidenceEl) {
+    requireEvidenceEl.checked = workflow.requireCriticalEvidence !== false;
+  }
+
+  if (reasonEl instanceof HTMLInputElement && document.activeElement !== reasonEl) {
+    reasonEl.value = String(workflow.lockReason || "");
+  }
+
+  if (noteEl instanceof HTMLTextAreaElement && document.activeElement !== noteEl) {
+    noteEl.value = pendingCriticalNote;
   }
 
   setText("v3IntelScenarioLockStatus", buildScenarioLockStatus());
@@ -1173,11 +1167,6 @@ function wireControlsFeedbackBridge() {
   root.dataset.wired = "1";
 
   if (!hasFeedbackScenarioApi()) {
-    bindFieldProxy("v3IntelWhatIfInput", "intelWhatIfInput");
-    bindClickProxy("v3BtnIntelCaptureObserved", "btnIntelCaptureObserved");
-    bindClickProxy("v3BtnIntelGenerateRecommendations", "btnIntelGenerateRecommendations");
-    bindClickProxy("v3BtnIntelApplyTopRecommendation", "btnIntelApplyTopRecommendation");
-    bindClickProxy("v3BtnIntelParseWhatIf", "btnIntelParseWhatIf");
     return;
   }
 
@@ -1254,16 +1243,34 @@ function wireControlsFeedbackBridge() {
 }
 
 function syncControlsFeedbackBridge() {
-  if (!hasFeedbackScenarioApi()) {
-    syncFieldValue("v3IntelWhatIfInput", "intelWhatIfInput");
-    syncControlsDisabled([
-      ["v3IntelWhatIfInput", "intelWhatIfInput"]
-    ]);
-  } else {
-    const input = document.getElementById("v3IntelWhatIfInput");
-    if (input instanceof HTMLTextAreaElement) {
-      input.disabled = false;
+  const hasApi = hasFeedbackScenarioApi();
+  const input = document.getElementById("v3IntelWhatIfInput");
+  if (input instanceof HTMLTextAreaElement) {
+    input.disabled = !hasApi;
+  }
+
+  [
+    "v3BtnIntelCaptureObserved",
+    "v3BtnIntelGenerateRecommendations",
+    "v3BtnIntelApplyTopRecommendation",
+    "v3BtnIntelParseWhatIf"
+  ].forEach((id) => {
+    const btn = document.getElementById(id);
+    if (btn instanceof HTMLButtonElement) {
+      btn.disabled = !hasApi;
     }
+  });
+
+  if (!hasApi) {
+    setText("v3IntelObservedStatus", "Scenario bridge unavailable.");
+    setText("v3IntelRecommendationStatus", "Scenario bridge unavailable.");
+    setText("v3IntelWhatIfStatus", "Scenario bridge unavailable.");
+    setText("v3IntelObservedCount", "0 observed metric entries captured.");
+    setText("v3IntelRecommendationCount", "0 active drift recommendations.");
+    setText("v3IntelWhatIfCount", "0 what-if requests parsed.");
+    setTextareaValue("v3IntelWhatIfPreview", "");
+    setTextareaValue("v3IntelRecommendationPreview", "");
+    return;
   }
 
   setTextareaValue("v3IntelWhatIfPreview", buildWhatIfPreviewFromIntel());
@@ -1275,25 +1282,6 @@ function syncControlsFeedbackBridge() {
   setText("v3IntelRecommendationStatus", recommendationActionStatus || buildRecommendationStatus());
   setText("v3IntelWhatIfCount", buildWhatIfCount());
   setText("v3IntelWhatIfStatus", whatIfActionStatus || buildWhatIfStatus());
-
-  if (!hasFeedbackScenarioApi()) {
-    syncButtonDisabled("v3BtnIntelCaptureObserved", "btnIntelCaptureObserved");
-    syncButtonDisabled("v3BtnIntelGenerateRecommendations", "btnIntelGenerateRecommendations");
-    syncButtonDisabled("v3BtnIntelApplyTopRecommendation", "btnIntelApplyTopRecommendation");
-    syncButtonDisabled("v3BtnIntelParseWhatIf", "btnIntelParseWhatIf");
-  } else {
-    [
-      "v3BtnIntelCaptureObserved",
-      "v3BtnIntelGenerateRecommendations",
-      "v3BtnIntelApplyTopRecommendation",
-      "v3BtnIntelParseWhatIf"
-    ].forEach((id) => {
-      const btn = document.getElementById(id);
-      if (btn instanceof HTMLButtonElement) {
-        btn.disabled = false;
-      }
-    });
-  }
 }
 
 function syncControlsDisabled(pairs) {
