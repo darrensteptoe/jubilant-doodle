@@ -672,13 +672,12 @@ function dataBridgeRunSaveJson(){
     appVersion: APP_VERSION,
     buildId: BUILD_ID
   };
-  snapshot.snapshotHash = engine.snapshot.computeSnapshotHash(snapshot);
-  lastExportHash = snapshot.snapshotHash;
   const payload = engine.snapshot.makeScenarioExport(snapshot);
   if (engine.snapshot.hasNonFiniteNumbers(payload)){
     dataBridgeSetWarnBannerText("Export blocked: scenario contains NaN/Infinity.");
     return { ok: false, code: "non_finite" };
   }
+  lastExportHash = String(payload?.snapshotHash || "") || null;
   const filename = engine.snapshot.makeTimestampedFilename("field-path-scenario", "json");
   const text = engine.snapshot.deterministicStringify(payload, 2);
   downloadText(text, filename, "application/json");
