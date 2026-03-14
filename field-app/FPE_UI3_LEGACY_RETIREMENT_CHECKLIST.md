@@ -140,6 +140,8 @@ Reference artifact:
 - Legacy setup-era stage isolation added in `index.html`: `#stage-setup`, `#stage-universe`, `#stage-ballot`, and `#stage-structure` now move into hidden `#legacyCensusBridgeHost` during v3 boot (and restore for explicit legacy mode), reducing legacy stage-layout coupling while preserving ID compatibility.
 - Legacy setup-era and checks stages are now hidden/retired by default in non-legacy mode (`setLegacyStageVisibility(false)`) and only re-enabled for explicit legacy mode (`?ui=legacy`), reducing accidental legacy flow activation during v3 sessions.
 - Runtime init now gates setup-stage composition (`composeSetupStageModule`) behind legacy mode/visible setup-stage checks, reducing v3 boot-time dependence on legacy setup-stage reshaping.
+- District summary snapshot in v3 now resolves through runtime District API bridge (`window.__FPE_DISTRICT_API__.getView().summary`) with compatibility fallback, reducing direct dependence on legacy summary DOM text mirrors.
+- District targeting status/meta/results in v3 now resolve through runtime District API bridge payload (`window.__FPE_DISTRICT_API__.getView().targeting`) with compatibility fallback, reducing direct dependence on legacy `#targetingStatus/#targetingMeta/#targetingResultsTbody` mirrors.
 
 ## Stage dependency map (current)
 Counts below are unique legacy IDs referenced by each v3 surface.
