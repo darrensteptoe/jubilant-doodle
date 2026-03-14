@@ -146,6 +146,12 @@ export function runV3QaSmoke({ restoreStage = true, logToConsole = true } = {}) 
   recordCheck(checks, "v3-kpi-strip", isTruthy(document.getElementById("v3KpiStrip")));
   recordCheck(checks, "v3-right-rail-slot", isTruthy(document.getElementById("v3RightRailSlot")));
   recordCheck(checks, "legacy-shell-hidden", isTruthy(document.getElementById("app-shell-legacy")?.hidden));
+  recordCheck(checks, "legacy-census-bridge-host", isTruthy(document.getElementById("legacyCensusBridgeHost")));
+  recordCheck(
+    checks,
+    "legacy-census-bridge-mounted",
+    isTruthy(document.querySelector("#legacyCensusBridgeHost #censusPhase1Card"))
+  );
   recordCheck(
     checks,
     "legacy-right-rail-present",
