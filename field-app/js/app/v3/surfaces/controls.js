@@ -52,6 +52,9 @@ let evidenceActionStatus = "";
 let calibrationActionStatus = "";
 let correlationActionStatus = "";
 let shockActionStatus = "";
+let observedActionStatus = "";
+let recommendationActionStatus = "";
+let whatIfActionStatus = "";
 
 export function renderControlsSurface(mount) {
   const frame = createSurfaceFrame("three-col");
@@ -1169,33 +1172,128 @@ function wireControlsFeedbackBridge() {
   }
   root.dataset.wired = "1";
 
-  bindFieldProxy("v3IntelWhatIfInput", "intelWhatIfInput");
+  if (!hasFeedbackScenarioApi()) {
+    bindFieldProxy("v3IntelWhatIfInput", "intelWhatIfInput");
+    bindClickProxy("v3BtnIntelCaptureObserved", "btnIntelCaptureObserved");
+    bindClickProxy("v3BtnIntelGenerateRecommendations", "btnIntelGenerateRecommendations");
+    bindClickProxy("v3BtnIntelApplyTopRecommendation", "btnIntelApplyTopRecommendation");
+    bindClickProxy("v3BtnIntelParseWhatIf", "btnIntelParseWhatIf");
+    return;
+  }
 
-  bindClickProxy("v3BtnIntelCaptureObserved", "btnIntelCaptureObserved");
-  bindClickProxy("v3BtnIntelGenerateRecommendations", "btnIntelGenerateRecommendations");
-  bindClickProxy("v3BtnIntelApplyTopRecommendation", "btnIntelApplyTopRecommendation");
-  bindClickProxy("v3BtnIntelParseWhatIf", "btnIntelParseWhatIf");
+  const captureBtn = document.getElementById("v3BtnIntelCaptureObserved");
+  if (captureBtn instanceof HTMLButtonElement) {
+    captureBtn.addEventListener("click", () => {
+      const result = captureObservedMetricsViaScenarioApi();
+      if (!result?.ok) {
+        observedActionStatus = String(result?.error || "Observed metrics capture failed.");
+        return;
+      }
+      observedActionStatus = `Observed metrics captured (${Number(result.created || 0)} new, ${Number(result.updated || 0)} updated).`;
+    });
+  }
+
+  const generateBtn = document.getElementById("v3BtnIntelGenerateRecommendations");
+  if (generateBtn instanceof HTMLButtonElement) {
+    generateBtn.addEventListener("click", () => {
+      const result = generateDriftRecommendationsViaScenarioApi();
+      if (!result?.ok) {
+        recommendationActionStatus = String(result?.error || "Recommendation generation failed.");
+        if (result?.metricsError) {
+          observedActionStatus = String(result.metricsError);
+        }
+        return;
+      }
+      if (result.metricsOk) {
+        observedActionStatus = `Observed metrics captured (${Number(result.metricsCreated || 0)} new, ${Number(result.metricsUpdated || 0)} updated).`;
+      } else if (result.metricsError) {
+        observedActionStatus = String(result.metricsError);
+      }
+      const active = Number(result.autoTotal || 0);
+      recommendationActionStatus = active > 0
+        ? `Drift recommendations updated (${active} active).`
+        : "No active drift recommendations (rolling metrics are within tolerance).";
+    });
+  }
+
+  const parseBtn = document.getElementById("v3BtnIntelParseWhatIf");
+  if (parseBtn instanceof HTMLButtonElement) {
+    parseBtn.addEventListener("click", () => {
+      const result = parseWhatIfViaScenarioApi(readInputValueById("v3IntelWhatIfInput"));
+      if (!result?.ok) {
+        whatIfActionStatus = String(result?.error || "Failed to parse what-if request.");
+        return;
+      }
+      const unresolved = Number(result.unresolved || 0);
+      const parsedTargets = Number(result.parsedTargets || 0);
+      whatIfActionStatus = unresolved > 0
+        ? `Saved what-if request (${parsedTargets} parsed, ${unresolved} unresolved segment${unresolved === 1 ? "" : "s"}).`
+        : `Saved what-if request (${parsedTargets} parsed target${parsedTargets === 1 ? "" : "s"}).`;
+    });
+  }
+
+  const applyBtn = document.getElementById("v3BtnIntelApplyTopRecommendation");
+  if (applyBtn instanceof HTMLButtonElement) {
+    applyBtn.addEventListener("click", () => {
+      const result = applyTopRecommendationViaScenarioApi();
+      if (!result?.ok) {
+        recommendationActionStatus = String(result?.error || "Failed to apply recommendation patch.");
+        return;
+      }
+      const title = String(result.recommendationTitle || "recommendation");
+      const changes = Number(result.changesCount || 0);
+      if (result.noop) {
+        recommendationActionStatus = `${title} already matches current assumptions.`;
+        return;
+      }
+      recommendationActionStatus = result.needsGovernance
+        ? `Applied ${title} (${changes} change${changes === 1 ? "" : "s"}). Governance follow-up required.`
+        : `Applied ${title} (${changes} change${changes === 1 ? "" : "s"}).`;
+    });
+  }
 }
 
 function syncControlsFeedbackBridge() {
-  syncFieldValue("v3IntelWhatIfInput", "intelWhatIfInput");
+  if (!hasFeedbackScenarioApi()) {
+    syncFieldValue("v3IntelWhatIfInput", "intelWhatIfInput");
+    syncControlsDisabled([
+      ["v3IntelWhatIfInput", "intelWhatIfInput"]
+    ]);
+  } else {
+    const input = document.getElementById("v3IntelWhatIfInput");
+    if (input instanceof HTMLTextAreaElement) {
+      input.disabled = false;
+    }
+  }
+
   setTextareaValue("v3IntelWhatIfPreview", buildWhatIfPreviewFromIntel());
   setTextareaValue("v3IntelRecommendationPreview", buildRecommendationPreviewFromIntel());
-  syncControlsDisabled([
-    ["v3IntelWhatIfInput", "intelWhatIfInput"]
-  ]);
 
   setText("v3IntelObservedCount", buildObservedCount());
   setText("v3IntelRecommendationCount", buildRecommendationCount());
-  setText("v3IntelObservedStatus", buildObservedStatus());
-  setText("v3IntelRecommendationStatus", buildRecommendationStatus());
+  setText("v3IntelObservedStatus", observedActionStatus || buildObservedStatus());
+  setText("v3IntelRecommendationStatus", recommendationActionStatus || buildRecommendationStatus());
   setText("v3IntelWhatIfCount", buildWhatIfCount());
-  setText("v3IntelWhatIfStatus", buildWhatIfStatus());
+  setText("v3IntelWhatIfStatus", whatIfActionStatus || buildWhatIfStatus());
 
-  syncButtonDisabled("v3BtnIntelCaptureObserved", "btnIntelCaptureObserved");
-  syncButtonDisabled("v3BtnIntelGenerateRecommendations", "btnIntelGenerateRecommendations");
-  syncButtonDisabled("v3BtnIntelApplyTopRecommendation", "btnIntelApplyTopRecommendation");
-  syncButtonDisabled("v3BtnIntelParseWhatIf", "btnIntelParseWhatIf");
+  if (!hasFeedbackScenarioApi()) {
+    syncButtonDisabled("v3BtnIntelCaptureObserved", "btnIntelCaptureObserved");
+    syncButtonDisabled("v3BtnIntelGenerateRecommendations", "btnIntelGenerateRecommendations");
+    syncButtonDisabled("v3BtnIntelApplyTopRecommendation", "btnIntelApplyTopRecommendation");
+    syncButtonDisabled("v3BtnIntelParseWhatIf", "btnIntelParseWhatIf");
+  } else {
+    [
+      "v3BtnIntelCaptureObserved",
+      "v3BtnIntelGenerateRecommendations",
+      "v3BtnIntelApplyTopRecommendation",
+      "v3BtnIntelParseWhatIf"
+    ].forEach((id) => {
+      const btn = document.getElementById(id);
+      if (btn instanceof HTMLButtonElement) {
+        btn.disabled = false;
+      }
+    });
+  }
 }
 
 function syncControlsDisabled(pairs) {
@@ -1242,6 +1340,16 @@ function hasCalibrationScenarioApi() {
     && typeof api.importCorrelationModels === "function"
     && typeof api.addDefaultShockScenario === "function"
     && typeof api.importShockScenarios === "function";
+}
+
+function hasFeedbackScenarioApi() {
+  const api = getScenarioBridgeApi();
+  return !!api
+    && typeof api.getView === "function"
+    && typeof api.captureObservedMetrics === "function"
+    && typeof api.generateDriftRecommendations === "function"
+    && typeof api.parseWhatIf === "function"
+    && typeof api.applyTopRecommendation === "function";
 }
 
 function getActiveScenarioInputsSnapshot() {
@@ -1432,6 +1540,66 @@ function importShockScenariosViaScenarioApi(jsonText) {
       : { ok: false, error: "Failed to import shock scenarios." };
   } catch {
     return { ok: false, error: "Failed to import shock scenarios." };
+  }
+}
+
+function captureObservedMetricsViaScenarioApi() {
+  const api = getScenarioBridgeApi();
+  if (!api || typeof api.captureObservedMetrics !== "function") {
+    return { ok: false, error: "Observed metrics API unavailable." };
+  }
+  try {
+    const result = api.captureObservedMetrics();
+    return result && typeof result === "object"
+      ? result
+      : { ok: false, error: "Observed metrics capture failed." };
+  } catch {
+    return { ok: false, error: "Observed metrics capture failed." };
+  }
+}
+
+function generateDriftRecommendationsViaScenarioApi() {
+  const api = getScenarioBridgeApi();
+  if (!api || typeof api.generateDriftRecommendations !== "function") {
+    return { ok: false, error: "Recommendation API unavailable." };
+  }
+  try {
+    const result = api.generateDriftRecommendations();
+    return result && typeof result === "object"
+      ? result
+      : { ok: false, error: "Recommendation generation failed." };
+  } catch {
+    return { ok: false, error: "Recommendation generation failed." };
+  }
+}
+
+function parseWhatIfViaScenarioApi(requestText) {
+  const api = getScenarioBridgeApi();
+  if (!api || typeof api.parseWhatIf !== "function") {
+    return { ok: false, error: "What-if parser API unavailable." };
+  }
+  try {
+    const result = api.parseWhatIf(String(requestText || ""));
+    return result && typeof result === "object"
+      ? result
+      : { ok: false, error: "Failed to parse what-if request." };
+  } catch {
+    return { ok: false, error: "Failed to parse what-if request." };
+  }
+}
+
+function applyTopRecommendationViaScenarioApi() {
+  const api = getScenarioBridgeApi();
+  if (!api || typeof api.applyTopRecommendation !== "function") {
+    return { ok: false, error: "Recommendation apply API unavailable." };
+  }
+  try {
+    const result = api.applyTopRecommendation();
+    return result && typeof result === "object"
+      ? result
+      : { ok: false, error: "Failed to apply recommendation patch." };
+  } catch {
+    return { ok: false, error: "Failed to apply recommendation patch." };
   }
 }
 
