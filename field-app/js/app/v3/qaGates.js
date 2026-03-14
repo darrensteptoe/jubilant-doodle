@@ -154,6 +154,26 @@ export function runV3QaSmoke({ restoreStage = true, logToConsole = true } = {}) 
   );
   recordCheck(
     checks,
+    "legacy-setup-bridge-mounted",
+    isTruthy(document.querySelector("#legacyCensusBridgeHost #stage-setup"))
+  );
+  recordCheck(
+    checks,
+    "legacy-universe-bridge-mounted",
+    isTruthy(document.querySelector("#legacyCensusBridgeHost #stage-universe"))
+  );
+  recordCheck(
+    checks,
+    "legacy-ballot-bridge-mounted",
+    isTruthy(document.querySelector("#legacyCensusBridgeHost #stage-ballot"))
+  );
+  recordCheck(
+    checks,
+    "legacy-structure-bridge-mounted",
+    isTruthy(document.querySelector("#legacyCensusBridgeHost #stage-structure"))
+  );
+  recordCheck(
+    checks,
     "legacy-targeting-bridge-mounted",
     isTruthy(document.querySelector("#legacyCensusBridgeHost #targetingLabCard"))
   );
