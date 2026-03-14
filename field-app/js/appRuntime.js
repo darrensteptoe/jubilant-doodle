@@ -2695,6 +2695,29 @@ function districtBridgeStateView(){
   const targetingMeta = (targetingState?.lastMeta && typeof targetingState.lastMeta === "object")
     ? targetingState.lastMeta
     : {};
+  const targetingWeights = (targetingState?.weights && typeof targetingState.weights === "object")
+    ? targetingState.weights
+    : {};
+  const targetingCriteria = (targetingState?.criteria && typeof targetingState.criteria === "object")
+    ? targetingState.criteria
+    : {};
+  const targetingDefaults = {
+    geoLevel: "block_group",
+    modelId: "turnout_opportunity",
+    topN: 25,
+    minHousingUnits: 25,
+    minPopulation: 0,
+    minScore: 0,
+    onlyRaceFootprint: true,
+    prioritizeYoung: true,
+    prioritizeRenters: false,
+    avoidHighMultiUnit: false,
+    densityFloor: "none",
+    weightVotePotential: 0.35,
+    weightTurnoutOpportunity: 0.25,
+    weightPersuasionIndex: 0.20,
+    weightFieldEfficiency: 0.20,
+  };
   const targetingModel = String(targetingMeta?.modelLabel || targetingMeta?.modelId || targetingState?.modelId || "").trim();
   const targetingGeoLevel = String(targetingMeta?.geoLevel || targetingState?.geoLevel || "").trim();
   const targetingTopN = safeNum(targetingMeta?.topN) ?? safeNum(targetingState?.topN);
@@ -2708,6 +2731,32 @@ function districtBridgeStateView(){
     ? `Ranked ${districtBridgeFmtInt(targetingRows.length)} GEO rows.`
     : "Run targeting to generate ranked GEOs.";
   const targetingMetaText = targetingMetaBits.join(" · ") || "No targeting run yet.";
+  const targetingTopNConfig = safeNum(targetingState?.topN) ?? safeNum(targetingMeta?.topN) ?? targetingDefaults.topN;
+  const targetingMinHousingUnitsConfig = safeNum(targetingState?.minHousingUnits) ?? targetingDefaults.minHousingUnits;
+  const targetingMinPopulationConfig = safeNum(targetingState?.minPopulation) ?? targetingDefaults.minPopulation;
+  const targetingMinScoreConfig = safeNum(targetingState?.minScore) ?? targetingDefaults.minScore;
+  const targetingWeightVotePotential = safeNum(targetingWeights?.votePotential) ?? targetingDefaults.weightVotePotential;
+  const targetingWeightTurnoutOpportunity = safeNum(targetingWeights?.turnoutOpportunity) ?? targetingDefaults.weightTurnoutOpportunity;
+  const targetingWeightPersuasionIndex = safeNum(targetingWeights?.persuasionIndex) ?? targetingDefaults.weightPersuasionIndex;
+  const targetingWeightFieldEfficiency = safeNum(targetingWeights?.fieldEfficiency) ?? targetingDefaults.weightFieldEfficiency;
+  const targetingConfig = {
+    geoLevel: String(targetingState?.geoLevel || targetingMeta?.geoLevel || targetingDefaults.geoLevel).trim() || targetingDefaults.geoLevel,
+    modelId: String(targetingState?.modelId || targetingMeta?.modelId || targetingDefaults.modelId).trim() || targetingDefaults.modelId,
+    topN: targetingTopNConfig,
+    minHousingUnits: targetingMinHousingUnitsConfig,
+    minPopulation: targetingMinPopulationConfig,
+    minScore: targetingMinScoreConfig,
+    onlyRaceFootprint: targetingState?.onlyRaceFootprint == null ? targetingDefaults.onlyRaceFootprint : !!targetingState.onlyRaceFootprint,
+    prioritizeYoung: targetingCriteria?.prioritizeYoung == null ? targetingDefaults.prioritizeYoung : !!targetingCriteria.prioritizeYoung,
+    prioritizeRenters: targetingCriteria?.prioritizeRenters == null ? targetingDefaults.prioritizeRenters : !!targetingCriteria.prioritizeRenters,
+    avoidHighMultiUnit: targetingCriteria?.avoidHighMultiUnit == null ? targetingDefaults.avoidHighMultiUnit : !!targetingCriteria.avoidHighMultiUnit,
+    densityFloor: String(targetingCriteria?.densityFloor || targetingDefaults.densityFloor).trim() || targetingDefaults.densityFloor,
+    weightVotePotential: targetingWeightVotePotential,
+    weightTurnoutOpportunity: targetingWeightTurnoutOpportunity,
+    weightPersuasionIndex: targetingWeightPersuasionIndex,
+    weightFieldEfficiency: targetingWeightFieldEfficiency,
+    controlsLocked: isScenarioLockedForEdits(currentState),
+  };
   const census = {
     contextHint: districtBridgeReadLegacyText("censusContextHint", "State-only context active for this resolution."),
     selectionSetStatus: districtBridgeReadLegacyText("censusSelectionSetStatus", "No saved selection sets."),
@@ -2736,6 +2785,7 @@ function districtBridgeStateView(){
       statusText: targetingStatusText,
       metaText: targetingMetaText,
       rows: targetingRows,
+      config: targetingConfig,
     },
     census,
     controls: {
