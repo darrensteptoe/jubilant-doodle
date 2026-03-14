@@ -791,7 +791,7 @@ function syncDistrictTargetingLab() {
   const targetingConfig = bridgeSnapshot?.config;
   if (targetingConfig && typeof targetingConfig === "object") {
     syncBridgeSelectValue("v3DistrictTargetingGeoLevel", targetingConfig.geoLevel);
-    syncBridgeSelectValue("v3DistrictTargetingModelId", targetingConfig.modelId);
+    syncBridgeSelectValue("v3DistrictTargetingModelId", targetingConfig.presetId || targetingConfig.modelId);
     syncBridgeFieldValue("v3DistrictTargetingTopN", targetingConfig.topN);
     syncBridgeFieldValue("v3DistrictTargetingMinHousingUnits", targetingConfig.minHousingUnits);
     syncBridgeFieldValue("v3DistrictTargetingMinPopulation", targetingConfig.minPopulation);

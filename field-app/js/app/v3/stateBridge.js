@@ -160,6 +160,7 @@ export function readDistrictTargetingSnapshot() {
     metaText: String(targeting.metaText || "").trim(),
     rows,
     config: {
+      presetId: String(config.presetId || "").trim(),
       geoLevel: String(config.geoLevel || "").trim(),
       modelId: String(config.modelId || "").trim(),
       topN: Number.isFinite(Number(config.topN)) ? Number(config.topN) : null,
