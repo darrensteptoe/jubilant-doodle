@@ -282,6 +282,17 @@ export function runV3QaSmoke({ restoreStage = true, logToConsole = true } = {}) 
           && hasNonEmpty(summary.persuasionNeedText)
         )
       );
+      const targeting = districtView?.targeting || {};
+      const targetingConfig = targeting?.config || {};
+      recordCheck(
+        checks,
+        "district:bridge-targeting-config",
+        isTruthy(
+          hasNonEmpty(targetingConfig.modelId)
+          && hasNonEmpty(targetingConfig.geoLevel)
+          && Number.isFinite(Number(targetingConfig.topN))
+        )
+      );
       const census = districtView?.census || {};
       recordCheck(
         checks,

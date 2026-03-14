@@ -143,6 +143,7 @@ export function readDistrictTargetingSnapshot() {
   if (!targeting || typeof targeting !== "object") {
     return null;
   }
+  const config = targeting.config && typeof targeting.config === "object" ? targeting.config : {};
 
   const rowsRaw = Array.isArray(targeting.rows) ? targeting.rows : [];
   const rows = rowsRaw.map((row) => ({
@@ -158,6 +159,24 @@ export function readDistrictTargetingSnapshot() {
     statusText: String(targeting.statusText || "").trim(),
     metaText: String(targeting.metaText || "").trim(),
     rows,
+    config: {
+      geoLevel: String(config.geoLevel || "").trim(),
+      modelId: String(config.modelId || "").trim(),
+      topN: Number.isFinite(Number(config.topN)) ? Number(config.topN) : null,
+      minHousingUnits: Number.isFinite(Number(config.minHousingUnits)) ? Number(config.minHousingUnits) : null,
+      minPopulation: Number.isFinite(Number(config.minPopulation)) ? Number(config.minPopulation) : null,
+      minScore: Number.isFinite(Number(config.minScore)) ? Number(config.minScore) : null,
+      onlyRaceFootprint: !!config.onlyRaceFootprint,
+      prioritizeYoung: !!config.prioritizeYoung,
+      prioritizeRenters: !!config.prioritizeRenters,
+      avoidHighMultiUnit: !!config.avoidHighMultiUnit,
+      densityFloor: String(config.densityFloor || "").trim(),
+      weightVotePotential: Number.isFinite(Number(config.weightVotePotential)) ? Number(config.weightVotePotential) : null,
+      weightTurnoutOpportunity: Number.isFinite(Number(config.weightTurnoutOpportunity)) ? Number(config.weightTurnoutOpportunity) : null,
+      weightPersuasionIndex: Number.isFinite(Number(config.weightPersuasionIndex)) ? Number(config.weightPersuasionIndex) : null,
+      weightFieldEfficiency: Number.isFinite(Number(config.weightFieldEfficiency)) ? Number(config.weightFieldEfficiency) : null,
+      controlsLocked: !!config.controlsLocked,
+    },
   };
 }
 
