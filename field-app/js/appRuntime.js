@@ -2047,6 +2047,55 @@ function scenarioBridgeEnsureIntelWorkflow(targetState){
   return targetState.intelState.workflow;
 }
 
+function scenarioBridgeEnsureIntelToggles(targetState){
+  if (!targetState?.intelState || typeof targetState.intelState !== "object"){
+    targetState.intelState = { version: "1.0.0" };
+  }
+  const intel = targetState.intelState;
+  if (!intel.simToggles || typeof intel.simToggles !== "object"){
+    intel.simToggles = {
+      mcDistribution: "triangular",
+      correlatedShocks: false,
+      correlationMatrixId: null,
+      shockScenariosEnabled: true
+    };
+  } else {
+    if (!("mcDistribution" in intel.simToggles)) intel.simToggles.mcDistribution = "triangular";
+    if (!("correlatedShocks" in intel.simToggles)) intel.simToggles.correlatedShocks = false;
+    if (!("correlationMatrixId" in intel.simToggles)) intel.simToggles.correlationMatrixId = null;
+    if (!("shockScenariosEnabled" in intel.simToggles)) intel.simToggles.shockScenariosEnabled = true;
+  }
+
+  if (!intel.expertToggles || typeof intel.expertToggles !== "object"){
+    intel.expertToggles = {
+      capacityDecayEnabled: false,
+      decayModel: {
+        type: "linear",
+        weeklyDecayPct: 0.03,
+        floorPctOfBaseline: 0.70
+      }
+    };
+  } else {
+    if (!("capacityDecayEnabled" in intel.expertToggles)) intel.expertToggles.capacityDecayEnabled = false;
+    if (!intel.expertToggles.decayModel || typeof intel.expertToggles.decayModel !== "object"){
+      intel.expertToggles.decayModel = {
+        type: "linear",
+        weeklyDecayPct: 0.03,
+        floorPctOfBaseline: 0.70
+      };
+    } else {
+      const model = intel.expertToggles.decayModel;
+      if (!("type" in model)) model.type = "linear";
+      if (!("weeklyDecayPct" in model)) model.weeklyDecayPct = 0.03;
+      if (!("floorPctOfBaseline" in model)) model.floorPctOfBaseline = 0.70;
+    }
+  }
+  return {
+    simToggles: intel.simToggles,
+    expertToggles: intel.expertToggles
+  };
+}
+
 function scenarioBridgeUpdateIntelWorkflow(patch){
   const nextPatch = (patch && typeof patch === "object") ? patch : {};
   const hasPatch = [
@@ -2075,6 +2124,83 @@ function scenarioBridgeUpdateIntelWorkflow(patch){
     workflow.requireCriticalEvidence = !!nextPatch.requireCriticalEvidence;
   }
 
+  commitUIUpdate({ allowScenarioLockBypass: true });
+  refreshLegacyScenarioManagerIfMounted();
+  return { ok: true, view: scenarioBridgeStateView() };
+}
+
+function scenarioBridgeUpdateIntelSimToggles(patch){
+  const nextPatch = (patch && typeof patch === "object") ? patch : {};
+  const hasPatch = [
+    "mcDistribution",
+    "correlatedShocks",
+    "correlationMatrixId",
+    "shockScenariosEnabled"
+  ].some((key) => Object.prototype.hasOwnProperty.call(nextPatch, key));
+  if (!hasPatch){
+    return { ok: false, code: "empty_patch", view: scenarioBridgeStateView() };
+  }
+
+  const { simToggles } = scenarioBridgeEnsureIntelToggles(state);
+  if (Object.prototype.hasOwnProperty.call(nextPatch, "mcDistribution")){
+    const raw = String(nextPatch.mcDistribution || "").trim().toLowerCase();
+    const allowed = raw === "triangular" || raw === "uniform" || raw === "normal";
+    simToggles.mcDistribution = allowed ? raw : "triangular";
+  }
+  if (Object.prototype.hasOwnProperty.call(nextPatch, "correlatedShocks")){
+    simToggles.correlatedShocks = !!nextPatch.correlatedShocks;
+  }
+  if (Object.prototype.hasOwnProperty.call(nextPatch, "correlationMatrixId")){
+    const raw = String(nextPatch.correlationMatrixId || "").trim();
+    simToggles.correlationMatrixId = raw && raw.toLowerCase() !== "none" ? raw : null;
+  }
+  if (Object.prototype.hasOwnProperty.call(nextPatch, "shockScenariosEnabled")){
+    simToggles.shockScenariosEnabled = !!nextPatch.shockScenariosEnabled;
+  }
+
+  markMcStale();
+  commitUIUpdate({ allowScenarioLockBypass: true });
+  refreshLegacyScenarioManagerIfMounted();
+  return { ok: true, view: scenarioBridgeStateView() };
+}
+
+function scenarioBridgeUpdateIntelExpertToggles(patch){
+  const nextPatch = (patch && typeof patch === "object") ? patch : {};
+  const hasPatch = [
+    "capacityDecayEnabled",
+    "decayModel"
+  ].some((key) => Object.prototype.hasOwnProperty.call(nextPatch, key));
+  if (!hasPatch){
+    return { ok: false, code: "empty_patch", view: scenarioBridgeStateView() };
+  }
+
+  const { expertToggles } = scenarioBridgeEnsureIntelToggles(state);
+  if (Object.prototype.hasOwnProperty.call(nextPatch, "capacityDecayEnabled")){
+    expertToggles.capacityDecayEnabled = !!nextPatch.capacityDecayEnabled;
+  }
+
+  if (nextPatch.decayModel && typeof nextPatch.decayModel === "object"){
+    const decay = expertToggles.decayModel || {};
+    if (Object.prototype.hasOwnProperty.call(nextPatch.decayModel, "type")){
+      const rawType = String(nextPatch.decayModel.type || "").trim().toLowerCase();
+      decay.type = rawType === "linear" ? "linear" : "linear";
+    }
+    if (Object.prototype.hasOwnProperty.call(nextPatch.decayModel, "weeklyDecayPct")){
+      const n = Number(nextPatch.decayModel.weeklyDecayPct);
+      if (Number.isFinite(n)) {
+        decay.weeklyDecayPct = Math.min(1, Math.max(0, n));
+      }
+    }
+    if (Object.prototype.hasOwnProperty.call(nextPatch.decayModel, "floorPctOfBaseline")){
+      const n = Number(nextPatch.decayModel.floorPctOfBaseline);
+      if (Number.isFinite(n)) {
+        decay.floorPctOfBaseline = Math.min(1, Math.max(0, n));
+      }
+    }
+    expertToggles.decayModel = decay;
+  }
+
+  markMcStale();
   commitUIUpdate({ allowScenarioLockBypass: true });
   refreshLegacyScenarioManagerIfMounted();
   return { ok: true, view: scenarioBridgeStateView() };
@@ -2417,6 +2543,8 @@ function installScenarioBridge(){
     returnBaseline: () => scenarioBridgeLoad(SCENARIO_BASELINE_ID),
     deleteSelected: () => scenarioBridgeDeleteSelected(),
     updateIntelWorkflow: (patch) => scenarioBridgeUpdateIntelWorkflow(patch),
+    updateIntelSimToggles: (patch) => scenarioBridgeUpdateIntelSimToggles(patch),
+    updateIntelExpertToggles: (patch) => scenarioBridgeUpdateIntelExpertToggles(patch),
     setPendingCriticalNote: (note) => scenarioBridgeSetPendingCriticalNote(note),
     saveBenchmark: (payload) => scenarioBridgeSaveBenchmark(payload),
     loadDefaultBenchmarks: (raceType) => scenarioBridgeLoadDefaultBenchmarks(raceType),
