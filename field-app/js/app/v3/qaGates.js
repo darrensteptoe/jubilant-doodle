@@ -125,6 +125,7 @@ const STAGE_EXPECTATIONS = {
   ]
 };
 const STAGES_EXPECTING_NO_LEGACY_BRIDGE = new Set([
+  "controls",
   "reach",
   "outcome",
   "turnout",
