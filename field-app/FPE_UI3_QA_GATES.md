@@ -223,6 +223,7 @@ Scope: UI architecture migration only (engine and right rail frozen)
 - Legacy flow retirement: removed legacy left-nav `integrity` entry and removed retired `stage-integrity` container from `index.html`.
 - Data bridge hardening: Data actions (`save/load/copy/export/USB/strict/restore`) now execute through runtime-native `__FPE_DATA_API__` handlers without legacy integrity control IDs.
 - Legacy flow retirement: legacy nav entries for `capacity`, `results`, `roi`, `gotv`, and `integrity` are removed from legacy shell user flow; corresponding retired stage stubs have been deleted from `index.html`.
+- Legacy flow retirement: legacy `checks` nav entry is removed and `stage-checks` is now hidden/retired in legacy flow while preserving compatibility IDs for District bridge work.
 - Legacy shell hardening: fixed missing `</section>` closure after structure stage to keep section tree balanced during further staged deletions.
 - Legacy `stage-capacity` container has been removed from `index.html`; preflight no longer requires legacy Reach assumption IDs.
 - Added v3 stage persistence/cutover behavior (`js/app/v3/index.js`):
