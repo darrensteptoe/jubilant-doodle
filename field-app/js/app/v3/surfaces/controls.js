@@ -662,56 +662,45 @@ function wireControlsBenchmarkBridge() {
   root.dataset.wired = "1";
 
   if (!hasBenchmarkScenarioApi()) {
-    bindSelectProxy("v3IntelBenchmarkRef", "intelBenchmarkRef");
-    bindSelectProxy("v3IntelBenchmarkRaceType", "intelBenchmarkRaceType");
-    bindFieldProxy("v3IntelBenchmarkDefault", "intelBenchmarkDefault");
-    bindFieldProxy("v3IntelBenchmarkMin", "intelBenchmarkMin");
-    bindFieldProxy("v3IntelBenchmarkMax", "intelBenchmarkMax");
-    bindFieldProxy("v3IntelBenchmarkWarnAbove", "intelBenchmarkWarnAbove");
-    bindFieldProxy("v3IntelBenchmarkHardAbove", "intelBenchmarkHardAbove");
-    bindFieldProxy("v3IntelBenchmarkSourceTitle", "intelBenchmarkSourceTitle");
-    bindFieldProxy("v3IntelBenchmarkSourceNotes", "intelBenchmarkSourceNotes");
+    return;
+  }
 
-    bindClickProxy("v3BtnIntelBenchmarkLoadDefaults", "btnIntelBenchmarkLoadDefaults");
-    bindClickProxy("v3BtnIntelBenchmarkSave", "btnIntelBenchmarkSave");
-  } else {
-    const loadDefaultsBtn = document.getElementById("v3BtnIntelBenchmarkLoadDefaults");
-    if (loadDefaultsBtn instanceof HTMLButtonElement) {
-      loadDefaultsBtn.addEventListener("click", () => {
-        const raceType = readInputValueById("v3IntelBenchmarkRaceType") || "all";
-        const result = loadDefaultBenchmarksViaScenarioApi(raceType);
-        if (result?.ok) {
-          benchmarkActionStatus = `Loaded defaults for ${result.raceType || raceType}. Created ${Number(result.created || 0)}, updated ${Number(result.updated || 0)}.`;
-        } else {
-          benchmarkActionStatus = String(result?.error || "Failed to load default benchmarks.");
-        }
-      });
-    }
+  const loadDefaultsBtn = document.getElementById("v3BtnIntelBenchmarkLoadDefaults");
+  if (loadDefaultsBtn instanceof HTMLButtonElement) {
+    loadDefaultsBtn.addEventListener("click", () => {
+      const raceType = readInputValueById("v3IntelBenchmarkRaceType") || "all";
+      const result = loadDefaultBenchmarksViaScenarioApi(raceType);
+      if (result?.ok) {
+        benchmarkActionStatus = `Loaded defaults for ${result.raceType || raceType}. Created ${Number(result.created || 0)}, updated ${Number(result.updated || 0)}.`;
+      } else {
+        benchmarkActionStatus = String(result?.error || "Failed to load default benchmarks.");
+      }
+    });
+  }
 
-    const saveBtn = document.getElementById("v3BtnIntelBenchmarkSave");
-    if (saveBtn instanceof HTMLButtonElement) {
-      saveBtn.addEventListener("click", () => {
-        const payload = {
-          ref: readInputValueById("v3IntelBenchmarkRef"),
-          raceType: readInputValueById("v3IntelBenchmarkRaceType") || "all",
-          defaultValue: parseOptionalNumber(readInputValueById("v3IntelBenchmarkDefault")),
-          min: parseOptionalNumber(readInputValueById("v3IntelBenchmarkMin")),
-          max: parseOptionalNumber(readInputValueById("v3IntelBenchmarkMax")),
-          warnAbove: parseOptionalNumber(readInputValueById("v3IntelBenchmarkWarnAbove")),
-          hardAbove: parseOptionalNumber(readInputValueById("v3IntelBenchmarkHardAbove")),
-          sourceTitle: readInputValueById("v3IntelBenchmarkSourceTitle"),
-          sourceNotes: readInputValueById("v3IntelBenchmarkSourceNotes")
-        };
-        const result = saveBenchmarkViaScenarioApi(payload);
-        if (result?.ok) {
-          benchmarkActionStatus = result.mode === "created"
-            ? "Benchmark created."
-            : "Benchmark updated.";
-        } else {
-          benchmarkActionStatus = String(result?.error || "Benchmark save failed.");
-        }
-      });
-    }
+  const saveBtn = document.getElementById("v3BtnIntelBenchmarkSave");
+  if (saveBtn instanceof HTMLButtonElement) {
+    saveBtn.addEventListener("click", () => {
+      const payload = {
+        ref: readInputValueById("v3IntelBenchmarkRef"),
+        raceType: readInputValueById("v3IntelBenchmarkRaceType") || "all",
+        defaultValue: parseOptionalNumber(readInputValueById("v3IntelBenchmarkDefault")),
+        min: parseOptionalNumber(readInputValueById("v3IntelBenchmarkMin")),
+        max: parseOptionalNumber(readInputValueById("v3IntelBenchmarkMax")),
+        warnAbove: parseOptionalNumber(readInputValueById("v3IntelBenchmarkWarnAbove")),
+        hardAbove: parseOptionalNumber(readInputValueById("v3IntelBenchmarkHardAbove")),
+        sourceTitle: readInputValueById("v3IntelBenchmarkSourceTitle"),
+        sourceNotes: readInputValueById("v3IntelBenchmarkSourceNotes")
+      };
+      const result = saveBenchmarkViaScenarioApi(payload);
+      if (result?.ok) {
+        benchmarkActionStatus = result.mode === "created"
+          ? "Benchmark created."
+          : "Benchmark updated.";
+      } else {
+        benchmarkActionStatus = String(result?.error || "Benchmark save failed.");
+      }
+    });
   }
 
   const v3BenchmarkTbody = document.getElementById("v3IntelBenchmarkTbody");
@@ -724,64 +713,60 @@ function wireControlsBenchmarkBridge() {
       const removeId = String(removeBtn.getAttribute("data-bm-remove") || "").trim();
       if (!removeId) return;
 
-      if (hasBenchmarkScenarioApi()) {
-        const result = removeBenchmarkViaScenarioApi(removeId);
-        benchmarkActionStatus = result?.ok
-          ? "Benchmark removed."
-          : String(result?.error || "Failed to remove benchmark.");
+      if (!hasBenchmarkScenarioApi()) {
+        benchmarkActionStatus = "Scenario bridge unavailable.";
         return;
       }
 
-      const legacyButtons = Array.from(document.querySelectorAll("#app-shell-legacy [data-bm-remove]"));
-      const legacyBtn = legacyButtons.find((btn) => {
-        if (!(btn instanceof HTMLElement)) return false;
-        return String(btn.getAttribute("data-bm-remove") || "").trim() === removeId;
-      });
-      if (legacyBtn instanceof HTMLElement) {
-        legacyBtn.dispatchEvent(new MouseEvent("click", { bubbles: true }));
-      }
+      const result = removeBenchmarkViaScenarioApi(removeId);
+      benchmarkActionStatus = result?.ok
+        ? "Benchmark removed."
+        : String(result?.error || "Failed to remove benchmark.");
     });
   }
 }
 
 function syncControlsBenchmarkBridge() {
-  if (!hasBenchmarkScenarioApi()) {
-    syncSelectValue("v3IntelBenchmarkRef", "intelBenchmarkRef");
-    syncSelectValue("v3IntelBenchmarkRaceType", "intelBenchmarkRaceType");
-    syncFieldValue("v3IntelBenchmarkDefault", "intelBenchmarkDefault");
-    syncFieldValue("v3IntelBenchmarkMin", "intelBenchmarkMin");
-    syncFieldValue("v3IntelBenchmarkMax", "intelBenchmarkMax");
-    syncFieldValue("v3IntelBenchmarkWarnAbove", "intelBenchmarkWarnAbove");
-    syncFieldValue("v3IntelBenchmarkHardAbove", "intelBenchmarkHardAbove");
-    syncFieldValue("v3IntelBenchmarkSourceTitle", "intelBenchmarkSourceTitle");
-    syncFieldValue("v3IntelBenchmarkSourceNotes", "intelBenchmarkSourceNotes");
-    syncControlsDisabled([
-      ["v3IntelBenchmarkRef", "intelBenchmarkRef"],
-      ["v3IntelBenchmarkRaceType", "intelBenchmarkRaceType"],
-      ["v3IntelBenchmarkDefault", "intelBenchmarkDefault"],
-      ["v3IntelBenchmarkMin", "intelBenchmarkMin"],
-      ["v3IntelBenchmarkMax", "intelBenchmarkMax"],
-      ["v3IntelBenchmarkWarnAbove", "intelBenchmarkWarnAbove"],
-      ["v3IntelBenchmarkHardAbove", "intelBenchmarkHardAbove"],
-      ["v3IntelBenchmarkSourceTitle", "intelBenchmarkSourceTitle"],
-      ["v3IntelBenchmarkSourceNotes", "intelBenchmarkSourceNotes"]
-    ]);
-  } else {
-    ensureBenchmarkSelectOptions();
+  const hasApi = hasBenchmarkScenarioApi();
+  const controlIds = [
+    "v3IntelBenchmarkRef",
+    "v3IntelBenchmarkRaceType",
+    "v3IntelBenchmarkDefault",
+    "v3IntelBenchmarkMin",
+    "v3IntelBenchmarkMax",
+    "v3IntelBenchmarkWarnAbove",
+    "v3IntelBenchmarkHardAbove",
+    "v3IntelBenchmarkSourceTitle",
+    "v3IntelBenchmarkSourceNotes",
+    "v3BtnIntelBenchmarkLoadDefaults",
+    "v3BtnIntelBenchmarkSave"
+  ];
+  controlIds.forEach((id) => {
+    const el = document.getElementById(id);
+    if (
+      el instanceof HTMLInputElement
+      || el instanceof HTMLSelectElement
+      || el instanceof HTMLTextAreaElement
+      || el instanceof HTMLButtonElement
+    ) {
+      el.disabled = !hasApi;
+    }
+  });
+
+  if (!hasApi) {
+    setText("v3IntelBenchmarkCount", "0 benchmark entries configured.");
+    setText("v3IntelBenchmarkStatus", "Scenario bridge unavailable.");
+    const tbody = document.getElementById("v3IntelBenchmarkTbody");
+    if (tbody instanceof HTMLTableSectionElement) {
+      tbody.innerHTML = `<tr><td class="muted" colspan="6">Scenario bridge unavailable.</td></tr>`;
+    }
+    return;
   }
+
+  ensureBenchmarkSelectOptions();
   const benchmarkRows = syncBenchmarkRowsFromIntel();
   setText("v3IntelBenchmarkCount", formatRecordCount(benchmarkRows, "benchmark entry", "configured"));
   setText("v3IntelBenchmarkStatus", benchmarkActionStatus || buildBenchmarkStatus());
-
-  if (!hasBenchmarkScenarioApi()) {
-    syncButtonDisabled("v3BtnIntelBenchmarkLoadDefaults", "btnIntelBenchmarkLoadDefaults");
-    syncButtonDisabled("v3BtnIntelBenchmarkSave", "btnIntelBenchmarkSave");
-  } else {
-    const loadDefaultsBtn = document.getElementById("v3BtnIntelBenchmarkLoadDefaults");
-    if (loadDefaultsBtn instanceof HTMLButtonElement) loadDefaultsBtn.disabled = false;
-    const saveBtn = document.getElementById("v3BtnIntelBenchmarkSave");
-    if (saveBtn instanceof HTMLButtonElement) saveBtn.disabled = false;
-  }
 }
 
 function syncBenchmarkRowsFromIntel() {
@@ -838,14 +823,6 @@ function wireControlsEvidenceBridge() {
   root.dataset.wired = "1";
 
   if (!hasEvidenceScenarioApi()) {
-    bindSelectProxy("v3IntelAuditSelect", "intelAuditSelect");
-    bindFieldProxy("v3IntelEvidenceTitle", "intelEvidenceTitle");
-    bindFieldProxy("v3IntelEvidenceSource", "intelEvidenceSource");
-    bindFieldProxy("v3IntelEvidenceCapturedAt", "intelEvidenceCapturedAt");
-    bindFieldProxy("v3IntelEvidenceUrl", "intelEvidenceUrl");
-    bindFieldProxy("v3IntelEvidenceNotes", "intelEvidenceNotes");
-
-    bindClickProxy("v3BtnIntelEvidenceAttach", "btnIntelEvidenceAttach");
     return;
   }
 
@@ -886,27 +863,42 @@ function wireControlsEvidenceBridge() {
 }
 
 function syncControlsEvidenceBridge() {
-  if (!hasEvidenceScenarioApi()) {
-    syncSelectValue("v3IntelAuditSelect", "intelAuditSelect");
-    syncFieldValue("v3IntelEvidenceTitle", "intelEvidenceTitle");
-    syncFieldValue("v3IntelEvidenceSource", "intelEvidenceSource");
-    syncFieldValue("v3IntelEvidenceCapturedAt", "intelEvidenceCapturedAt");
-    syncFieldValue("v3IntelEvidenceUrl", "intelEvidenceUrl");
-    syncFieldValue("v3IntelEvidenceNotes", "intelEvidenceNotes");
-    syncControlsDisabled([
-      ["v3IntelAuditSelect", "intelAuditSelect"],
-      ["v3IntelEvidenceTitle", "intelEvidenceTitle"],
-      ["v3IntelEvidenceSource", "intelEvidenceSource"],
-      ["v3IntelEvidenceCapturedAt", "intelEvidenceCapturedAt"],
-      ["v3IntelEvidenceUrl", "intelEvidenceUrl"],
-      ["v3IntelEvidenceNotes", "intelEvidenceNotes"]
-    ]);
-  } else {
-    syncEvidenceAuditSelectFromIntel();
-    const capturedEl = document.getElementById("v3IntelEvidenceCapturedAt");
-    if (capturedEl instanceof HTMLInputElement && !capturedEl.value) {
-      capturedEl.value = new Date().toISOString().slice(0, 10);
+  const hasApi = hasEvidenceScenarioApi();
+  [
+    "v3IntelAuditSelect",
+    "v3IntelEvidenceTitle",
+    "v3IntelEvidenceSource",
+    "v3IntelEvidenceCapturedAt",
+    "v3IntelEvidenceUrl",
+    "v3IntelEvidenceNotes",
+    "v3BtnIntelEvidenceAttach"
+  ].forEach((id) => {
+    const el = document.getElementById(id);
+    if (
+      el instanceof HTMLInputElement
+      || el instanceof HTMLSelectElement
+      || el instanceof HTMLTextAreaElement
+      || el instanceof HTMLButtonElement
+    ) {
+      el.disabled = !hasApi;
     }
+  });
+
+  if (!hasApi) {
+    setText("v3IntelMissingEvidenceCount", "0 critical assumption edit(s) missing evidence.");
+    setText("v3IntelMissingNoteCount", "0 critical assumption edit(s) missing note.");
+    setText("v3IntelEvidenceStatus", "Scenario bridge unavailable.");
+    const tbody = document.getElementById("v3IntelEvidenceTbody");
+    if (tbody instanceof HTMLTableSectionElement) {
+      tbody.innerHTML = `<tr><td class="muted" colspan="5">Scenario bridge unavailable.</td></tr>`;
+    }
+    return;
+  }
+
+  syncEvidenceAuditSelectFromIntel();
+  const capturedEl = document.getElementById("v3IntelEvidenceCapturedAt");
+  if (capturedEl instanceof HTMLInputElement && !capturedEl.value) {
+    capturedEl.value = new Date().toISOString().slice(0, 10);
   }
 
   const evidenceRows = syncEvidenceRowsFromIntel();
@@ -925,13 +917,6 @@ function syncControlsEvidenceBridge() {
       : "0 critical assumption edit(s) missing note."
   );
   setText("v3IntelEvidenceStatus", evidenceActionStatus || buildEvidenceStatus(evidenceRows, unresolved));
-
-  if (!hasEvidenceScenarioApi()) {
-    syncButtonDisabled("v3BtnIntelEvidenceAttach", "btnIntelEvidenceAttach");
-  } else {
-    const attachBtn = document.getElementById("v3BtnIntelEvidenceAttach");
-    if (attachBtn instanceof HTMLButtonElement) attachBtn.disabled = false;
-  }
 }
 
 function syncEvidenceRowsFromIntel() {
