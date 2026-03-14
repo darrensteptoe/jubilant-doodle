@@ -2606,6 +2606,133 @@ function districtBridgeFallbackTurnout(currentState){
   };
 }
 
+function districtBridgeResolutionLabel(resolution){
+  const key = String(resolution || "").trim();
+  if (!key) return "—";
+  const labels = {
+    place: "Place",
+    tract: "Tract",
+    block_group: "Block group",
+    congressional_district: "Congressional district",
+    state_senate_district: "State senate district",
+    state_house_district: "State house district",
+  };
+  return labels[key] || key.replace(/_/g, " ");
+}
+
+function districtBridgeFmtTimestamp(ts){
+  const raw = String(ts || "").trim();
+  if (!raw) return "No fetch yet.";
+  try{
+    const d = new Date(raw);
+    if (!Number.isFinite(d.getTime())) return `Last fetch: ${raw}`;
+    return `Last fetch: ${d.toLocaleString()}`;
+  } catch {
+    return `Last fetch: ${raw}`;
+  }
+}
+
+function districtBridgeBuildContextHint(censusState){
+  const census = censusState && typeof censusState === "object" ? censusState : {};
+  const resolution = String(census.resolution || "").trim();
+  const stateFips = String(census.stateFips || "").trim();
+  const countyFips = String(census.countyFips || "").trim();
+  const placeFips = String(census.placeFips || "").trim();
+  if (!stateFips){
+    return "Set state and resolution to define Census context.";
+  }
+  const label = districtBridgeResolutionLabel(resolution);
+  if (resolution === "place"){
+    if (!placeFips){
+      return `${label} context: state ${stateFips}. Select place for bounded fetches.`;
+    }
+    return `${label} context: state ${stateFips}, place ${placeFips}.`;
+  }
+  if (resolution === "tract" || resolution === "block_group"){
+    if (!countyFips){
+      return `${label} context: state ${stateFips}. Select county for this resolution.`;
+    }
+    return `${label} context: state ${stateFips}, county ${countyFips}.`;
+  }
+  return `${label} context: state ${stateFips}.`;
+}
+
+function districtBridgeBuildSelectionSetStatus(censusState){
+  const census = censusState && typeof censusState === "object" ? censusState : {};
+  const sets = Array.isArray(census.selectionSets) ? census.selectionSets : [];
+  if (!sets.length){
+    return "No saved selection sets.";
+  }
+  const active = String(census.selectedSelectionSetKey || "").trim();
+  if (active){
+    return `Loaded selection set: ${active}.`;
+  }
+  return `${districtBridgeFmtInt(sets.length)} saved selection set(s).`;
+}
+
+function districtBridgeBuildGeoStatsText(censusState){
+  const census = censusState && typeof censusState === "object" ? censusState : {};
+  const selected = Array.isArray(census.selectedGeoids) ? census.selectedGeoids.length : 0;
+  const rows = Number.isFinite(Number(census.loadedRowCount)) ? Math.max(0, Math.floor(Number(census.loadedRowCount))) : 0;
+  return `${districtBridgeFmtInt(selected)} selected. ${districtBridgeFmtInt(rows)} rows loaded.`;
+}
+
+function districtBridgeBuildSelectionSummary(censusState){
+  const census = censusState && typeof censusState === "object" ? censusState : {};
+  const selected = Array.isArray(census.selectedGeoids)
+    ? census.selectedGeoids.map((id) => String(id || "").trim()).filter((id) => !!id)
+    : [];
+  if (!selected.length){
+    return "No GEO selected.";
+  }
+  const preview = selected.slice(0, 2).join(", ");
+  const extra = selected.length > 2 ? ` +${selected.length - 2} more` : "";
+  return `${preview}${extra}`;
+}
+
+function districtBridgeBuildRaceFootprintStatus(currentState){
+  const fp = currentState?.raceFootprint && typeof currentState.raceFootprint === "object"
+    ? currentState.raceFootprint
+    : null;
+  const count = Array.isArray(fp?.geoids) ? fp.geoids.length : 0;
+  if (!count){
+    return "Race footprint not set. Use Census card to set canonical race boundary.";
+  }
+  const label = districtBridgeResolutionLabel(String(fp?.resolution || "").trim());
+  return `Race footprint set: ${districtBridgeFmtInt(count)} GEO(s) (${label}).`;
+}
+
+function districtBridgeBuildAssumptionProvenanceStatus(currentState){
+  const prov = currentState?.assumptionsProvenance && typeof currentState.assumptionsProvenance === "object"
+    ? currentState.assumptionsProvenance
+    : null;
+  const generatedAt = String(prov?.generatedAt || "").trim();
+  if (!generatedAt){
+    return "Assumption provenance not set.";
+  }
+  const year = String(prov?.acsYear || "").trim() || "—";
+  const metricSet = String(prov?.metricSet || "").trim() || "—";
+  return `Assumption provenance set (${year}, ${metricSet}).`;
+}
+
+function districtBridgeBuildFootprintCapacityStatus(currentState){
+  const capacity = currentState?.footprintCapacity && typeof currentState.footprintCapacity === "object"
+    ? currentState.footprintCapacity
+    : null;
+  const population = safeNum(capacity?.population);
+  if (population == null || population <= 0){
+    return "Footprint capacity: not set.";
+  }
+  return `Footprint capacity: ${districtBridgeFmtInt(population)}.`;
+}
+
+function districtBridgeBuildApplyAdjustmentsStatus(censusState){
+  const census = censusState && typeof censusState === "object" ? censusState : {};
+  return census.applyAdjustedAssumptions
+    ? "Census-adjusted assumptions are ON."
+    : "Census-adjusted assumptions are OFF.";
+}
+
 function districtBridgeReadLegacyText(id, fallback = ""){
   const text = String(document.getElementById(id)?.textContent || "").trim();
   return text || String(fallback || "");
@@ -2642,6 +2769,9 @@ function districtBridgeReadLegacyTableRows(selector, expectedCols = 0){
 function districtBridgeStateView(){
   const currentState = state || {};
   const res = lastRenderCtx?.res || null;
+  const censusState = currentState?.census && typeof currentState.census === "object"
+    ? currentState.census
+    : {};
   const universeSize = safeNum(currentState?.universeSize);
   const supportTotalFromState = districtBridgeSupportTotalFromState(currentState);
   const turnoutFallback = districtBridgeFallbackTurnout(currentState);
@@ -2702,28 +2832,31 @@ function districtBridgeStateView(){
     ? targetingState.criteria
     : {};
   const targetingDefaults = {
+    presetId: "turnout_opportunity",
     geoLevel: "block_group",
     modelId: "turnout_opportunity",
-    topN: 25,
-    minHousingUnits: 25,
-    minPopulation: 0,
-    minScore: 0,
+    topN: 50,
+    minHousingUnits: 50,
+    minPopulation: 120,
+    minScore: 0.35,
     onlyRaceFootprint: true,
     prioritizeYoung: true,
-    prioritizeRenters: false,
+    prioritizeRenters: true,
     avoidHighMultiUnit: false,
-    densityFloor: "none",
-    weightVotePotential: 0.35,
-    weightTurnoutOpportunity: 0.25,
-    weightPersuasionIndex: 0.20,
-    weightFieldEfficiency: 0.20,
+    densityFloor: "medium",
+    weightVotePotential: 0.30,
+    weightTurnoutOpportunity: 0.50,
+    weightPersuasionIndex: 0.10,
+    weightFieldEfficiency: 0.10,
   };
+  const targetingPreset = String(targetingMeta?.presetLabel || targetingMeta?.presetId || targetingState?.presetId || "").trim();
   const targetingModel = String(targetingMeta?.modelLabel || targetingMeta?.modelId || targetingState?.modelId || "").trim();
   const targetingGeoLevel = String(targetingMeta?.geoLevel || targetingState?.geoLevel || "").trim();
   const targetingTopN = safeNum(targetingMeta?.topN) ?? safeNum(targetingState?.topN);
   const targetingRanAt = String(targetingMeta?.ranAt || targetingState?.lastRun || "").trim();
   const targetingMetaBits = [];
-  if (targetingModel) targetingMetaBits.push(targetingModel);
+  if (targetingPreset) targetingMetaBits.push(targetingPreset);
+  if (targetingModel && targetingModel !== targetingPreset) targetingMetaBits.push(`Base ${targetingModel}`);
   if (targetingGeoLevel) targetingMetaBits.push(targetingGeoLevel);
   if (targetingTopN != null) targetingMetaBits.push(`Top ${Math.max(1, Math.floor(targetingTopN))}`);
   if (targetingRanAt) targetingMetaBits.push(`Ran ${targetingRanAt}`);
@@ -2740,6 +2873,7 @@ function districtBridgeStateView(){
   const targetingWeightPersuasionIndex = safeNum(targetingWeights?.persuasionIndex) ?? targetingDefaults.weightPersuasionIndex;
   const targetingWeightFieldEfficiency = safeNum(targetingWeights?.fieldEfficiency) ?? targetingDefaults.weightFieldEfficiency;
   const targetingConfig = {
+    presetId: String(targetingState?.presetId || targetingMeta?.presetId || targetingDefaults.presetId).trim() || targetingDefaults.presetId,
     geoLevel: String(targetingState?.geoLevel || targetingMeta?.geoLevel || targetingDefaults.geoLevel).trim() || targetingDefaults.geoLevel,
     modelId: String(targetingState?.modelId || targetingMeta?.modelId || targetingDefaults.modelId).trim() || targetingDefaults.modelId,
     topN: targetingTopNConfig,
@@ -2758,16 +2892,16 @@ function districtBridgeStateView(){
     controlsLocked: isScenarioLockedForEdits(currentState),
   };
   const census = {
-    contextHint: districtBridgeReadLegacyText("censusContextHint", "State-only context active for this resolution."),
-    selectionSetStatus: districtBridgeReadLegacyText("censusSelectionSetStatus", "No saved selection sets."),
-    statusText: districtBridgeReadLegacyText("censusStatus", "Ready."),
-    geoStatsText: districtBridgeReadLegacyText("censusGeoStats", "0 selected of 0 GEOs. 0 rows loaded."),
-    lastFetchText: districtBridgeReadLegacyText("censusLastFetch", "No fetch yet."),
-    selectionSummaryText: districtBridgeReadLegacyText("censusSelectionSummary", "No GEO selected."),
-    raceFootprintStatusText: districtBridgeReadLegacyText("censusRaceFootprintStatus", "Race footprint not set."),
-    assumptionProvenanceStatusText: districtBridgeReadLegacyText("censusAssumptionProvenanceStatus", "Assumption provenance not set."),
-    footprintCapacityStatusText: districtBridgeReadLegacyText("censusFootprintCapacityStatus", "Footprint capacity: not set."),
-    applyAdjustmentsStatusText: districtBridgeReadLegacyText("censusApplyAdjustmentsStatus", "Census-adjusted assumptions are OFF."),
+    contextHint: districtBridgeBuildContextHint(censusState) || districtBridgeReadLegacyText("censusContextHint", "State-only context active for this resolution."),
+    selectionSetStatus: districtBridgeBuildSelectionSetStatus(censusState) || districtBridgeReadLegacyText("censusSelectionSetStatus", "No saved selection sets."),
+    statusText: String(censusState?.status || "").trim() || districtBridgeReadLegacyText("censusStatus", "Ready."),
+    geoStatsText: districtBridgeBuildGeoStatsText(censusState) || districtBridgeReadLegacyText("censusGeoStats", "0 selected of 0 GEOs. 0 rows loaded."),
+    lastFetchText: districtBridgeFmtTimestamp(censusState?.lastFetchAt) || districtBridgeReadLegacyText("censusLastFetch", "No fetch yet."),
+    selectionSummaryText: districtBridgeBuildSelectionSummary(censusState) || districtBridgeReadLegacyText("censusSelectionSummary", "No GEO selected."),
+    raceFootprintStatusText: districtBridgeBuildRaceFootprintStatus(currentState) || districtBridgeReadLegacyText("censusRaceFootprintStatus", "Race footprint not set."),
+    assumptionProvenanceStatusText: districtBridgeBuildAssumptionProvenanceStatus(currentState) || districtBridgeReadLegacyText("censusAssumptionProvenanceStatus", "Assumption provenance not set."),
+    footprintCapacityStatusText: districtBridgeBuildFootprintCapacityStatus(currentState) || districtBridgeReadLegacyText("censusFootprintCapacityStatus", "Footprint capacity: not set."),
+    applyAdjustmentsStatusText: districtBridgeBuildApplyAdjustmentsStatus(censusState) || districtBridgeReadLegacyText("censusApplyAdjustmentsStatus", "Census-adjusted assumptions are OFF."),
     advisoryStatusText: districtBridgeReadLegacyText("censusAdvisoryStatus", "Assumption advisory pending."),
     electionCsvGuideStatusText: districtBridgeReadLegacyText("censusElectionCsvGuideStatus", "Election CSV schema guide loading."),
     electionCsvDryRunStatusText: districtBridgeReadLegacyText("censusElectionCsvDryRunStatus", "No dry-run run yet."),
