@@ -5812,9 +5812,22 @@ function initDevTools(){
 function composeSetupStage(){
   composeSetupStageModule();
 }
+
+function shouldComposeLegacySetupStage(){
+  try{
+    const params = new URLSearchParams(window.location.search || "");
+    if (params.get("ui") === "legacy") return true;
+  } catch {}
+
+  const setupStage = document.getElementById("stage-setup");
+  return !!(setupStage && !setupStage.hidden);
+}
+
 function init(){
   try { normalizeStageLayoutModule(); } catch {}
-  try { composeSetupStage(); } catch {}
+  if (shouldComposeLegacySetupStage()){
+    try { composeSetupStage(); } catch {}
+  }
   installGlobalErrorCapture();
   safeCall(() => { preflightEls(); }, { label: "init.preflightEls" });
   safeCall(() => { wireUsbStorageEvents(); }, { label: "init.wireUsbStorageEvents" });
