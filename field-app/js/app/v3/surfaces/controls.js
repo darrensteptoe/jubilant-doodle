@@ -6,7 +6,6 @@ import {
   getCardBody
 } from "../componentFactory.js";
 import {
-  syncControlDisabled,
   setText,
 } from "../surfaceUtils.js";
 import {
@@ -39,6 +38,14 @@ const BENCHMARK_REF_OPTIONS = [
   "core.callsPerHour"
 ];
 const BENCHMARK_RACE_TYPE_OPTIONS = ["all", "federal", "state_leg", "municipal", "county"];
+const MC_DISTRIBUTION_OPTIONS = [
+  { value: "triangular", label: "Triangular" },
+  { value: "uniform", label: "Uniform" },
+  { value: "normal", label: "Normal" }
+];
+const DECAY_MODEL_OPTIONS = [
+  { value: "linear", label: "Linear" }
+];
 let benchmarkActionStatus = "";
 let evidenceActionStatus = "";
 let calibrationActionStatus = "";
@@ -956,28 +963,10 @@ function wireControlsCalibrationBridge() {
   }
 
   const applySimPatch = (patch) => {
-    const api = getScenarioBridgeApi();
-    if (!api || typeof api.updateIntelWorkflow !== "function") {
-      return false;
-    }
-    try {
-      api.updateIntelWorkflow({ simToggles: patch || {} });
-      return true;
-    } catch {
-      return false;
-    }
+    return updateSimTogglesViaScenarioApi(patch || {});
   };
   const applyExpertPatch = (patch) => {
-    const api = getScenarioBridgeApi();
-    if (!api || typeof api.updateIntelWorkflow !== "function") {
-      return false;
-    }
-    try {
-      api.updateIntelWorkflow({ expertToggles: patch || {} });
-      return true;
-    } catch {
-      return false;
-    }
+    return updateExpertTogglesViaScenarioApi(patch || {});
   };
 
   const briefKindEl = document.getElementById("v3IntelBriefKind");
@@ -1149,7 +1138,29 @@ function syncControlsCalibrationBridge() {
   const hasApi = hasCalibrationScenarioApi();
   if (hasApi) {
     ensureBriefKindOptions();
+    ensureCalibrationSelectOptions();
   }
+  [
+    "v3IntelBriefKind",
+    "v3IntelMcDistribution",
+    "v3IntelCorrelatedShocks",
+    "v3IntelCorrelationMatrixId",
+    "v3IntelCapacityDecayEnabled",
+    "v3IntelDecayModelType",
+    "v3IntelDecayWeeklyPct",
+    "v3IntelDecayFloorPct",
+    "v3IntelShockScenariosEnabled"
+  ].forEach((id) => {
+    const el = document.getElementById(id);
+    if (
+      el instanceof HTMLInputElement
+      || el instanceof HTMLSelectElement
+      || el instanceof HTMLTextAreaElement
+      || el instanceof HTMLButtonElement
+    ) {
+      el.disabled = !hasApi;
+    }
+  });
 
   const inputs = getActiveScenarioInputsSnapshot();
   const intel = (inputs?.intelState && typeof inputs.intelState === "object") ? inputs.intelState : {};
@@ -1377,12 +1388,6 @@ function syncControlsFeedbackBridge() {
   setText("v3IntelWhatIfStatus", whatIfActionStatus || buildWhatIfStatus());
 }
 
-function syncControlsDisabled(pairs) {
-  pairs.forEach(([v3Id, legacyId]) => {
-    syncControlDisabled(v3Id, legacyId);
-  });
-}
-
 function getScenarioBridgeApi() {
   const api = window?.[SCENARIO_API_KEY];
   return api && typeof api === "object" ? api : null;
@@ -1420,7 +1425,9 @@ function hasCalibrationScenarioApi() {
     && typeof api.addDefaultCorrelationModel === "function"
     && typeof api.importCorrelationModels === "function"
     && typeof api.addDefaultShockScenario === "function"
-    && typeof api.importShockScenarios === "function";
+    && typeof api.importShockScenarios === "function"
+    && typeof api.updateIntelSimToggles === "function"
+    && typeof api.updateIntelExpertToggles === "function";
 }
 
 function hasFeedbackScenarioApi() {
@@ -1484,6 +1491,32 @@ function updatePendingNoteViaScenarioApi(note) {
   try {
     api.setPendingCriticalNote(String(note || ""));
     return true;
+  } catch {
+    return false;
+  }
+}
+
+function updateSimTogglesViaScenarioApi(patch) {
+  const api = getScenarioBridgeApi();
+  if (!api || typeof api.updateIntelSimToggles !== "function") {
+    return false;
+  }
+  try {
+    const result = api.updateIntelSimToggles(patch || {});
+    return !!result?.ok;
+  } catch {
+    return false;
+  }
+}
+
+function updateExpertTogglesViaScenarioApi(patch) {
+  const api = getScenarioBridgeApi();
+  if (!api || typeof api.updateIntelExpertToggles !== "function") {
+    return false;
+  }
+  try {
+    const result = api.updateIntelExpertToggles(patch || {});
+    return !!result?.ok;
   } catch {
     return false;
   }
@@ -1721,6 +1754,56 @@ function ensureBriefKindOptions() {
   if (kinds.includes("calibrationSources")) {
     select.value = "calibrationSources";
   }
+}
+
+function ensureCalibrationSelectOptions() {
+  const distSelect = document.getElementById("v3IntelMcDistribution");
+  if (distSelect instanceof HTMLSelectElement && distSelect.options.length === 0) {
+    MC_DISTRIBUTION_OPTIONS.forEach(({ value, label }) => {
+      const opt = document.createElement("option");
+      opt.value = value;
+      opt.textContent = label;
+      distSelect.appendChild(opt);
+    });
+  }
+
+  const decaySelect = document.getElementById("v3IntelDecayModelType");
+  if (decaySelect instanceof HTMLSelectElement && decaySelect.options.length === 0) {
+    DECAY_MODEL_OPTIONS.forEach(({ value, label }) => {
+      const opt = document.createElement("option");
+      opt.value = value;
+      opt.textContent = label;
+      decaySelect.appendChild(opt);
+    });
+  }
+
+  const corrSelect = document.getElementById("v3IntelCorrelationMatrixId");
+  if (!(corrSelect instanceof HTMLSelectElement)) {
+    return;
+  }
+  const previous = String(corrSelect.value || "");
+  corrSelect.innerHTML = "";
+  const placeholder = document.createElement("option");
+  placeholder.value = "";
+  placeholder.textContent = "Select correlation model";
+  corrSelect.appendChild(placeholder);
+
+  const intel = getActiveIntelStateSnapshot();
+  const rows = Array.isArray(intel?.correlationModels) ? intel.correlationModels.slice() : [];
+  rows
+    .sort((a, b) => String(a?.label || a?.id || "").localeCompare(String(b?.label || b?.id || "")))
+    .forEach((row) => {
+      const id = String(row?.id || "").trim();
+      if (!id) return;
+      const opt = document.createElement("option");
+      opt.value = id;
+      const label = String(row?.label || "").trim();
+      opt.textContent = label ? `${label} (${id})` : id;
+      corrSelect.appendChild(opt);
+    });
+
+  const hasPrevious = rows.some((row) => String(row?.id || "").trim() === previous);
+  corrSelect.value = hasPrevious ? previous : "";
 }
 
 function selectedBriefKind() {
