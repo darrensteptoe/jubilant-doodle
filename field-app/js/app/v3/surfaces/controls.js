@@ -7,12 +7,10 @@ import {
 } from "../componentFactory.js";
 import {
   bindCheckboxProxy,
-  bindClickProxy,
   bindFieldProxy,
   bindSelectProxy,
   syncControlDisabled,
   setText,
-  syncButtonDisabled,
   syncCheckboxValue,
   syncFieldValue,
   syncSelectValue
@@ -973,12 +971,6 @@ function wireControlsCalibrationBridge() {
   bindFieldProxy("v3IntelShockJson", "intelShockJson");
 
   if (!hasCalibrationScenarioApi()) {
-    bindClickProxy("v3BtnIntelCalibrationGenerate", "btnIntelCalibrationGenerate");
-    bindClickProxy("v3BtnIntelCalibrationCopy", "btnIntelCalibrationCopy");
-    bindClickProxy("v3BtnIntelAddDefaultCorrelation", "btnIntelAddDefaultCorrelation");
-    bindClickProxy("v3BtnIntelImportCorrelationJson", "btnIntelImportCorrelationJson");
-    bindClickProxy("v3BtnIntelAddDefaultShock", "btnIntelAddDefaultShock");
-    bindClickProxy("v3BtnIntelImportShockJson", "btnIntelImportShockJson");
     return;
   }
 
@@ -1075,7 +1067,8 @@ function wireControlsCalibrationBridge() {
 }
 
 function syncControlsCalibrationBridge() {
-  if (hasCalibrationScenarioApi()) {
+  const hasApi = hasCalibrationScenarioApi();
+  if (hasApi) {
     ensureBriefKindOptions();
   }
 
@@ -1090,7 +1083,7 @@ function syncControlsCalibrationBridge() {
   syncFieldValue("v3IntelCorrelationJson", "intelCorrelationJson");
   syncCheckboxValue("v3IntelShockScenariosEnabled", "intelShockScenariosEnabled");
   syncFieldValue("v3IntelShockJson", "intelShockJson");
-  if (!hasCalibrationScenarioApi()) {
+  if (!hasApi) {
     syncFieldValue("v3IntelCalibrationBriefContent", "intelCalibrationBriefContent");
   } else {
     const selectedKind = selectedBriefKind();
@@ -1114,33 +1107,49 @@ function syncControlsCalibrationBridge() {
 
   setText("v3IntelCorrelationDisabledHint", buildCorrelationDisabledHint());
   setText("v3IntelDecayStatus", buildDecayStatus());
-  setText("v3IntelCorrelationStatus", correlationActionStatus || buildCorrelationStatus());
-  setText("v3IntelShockScenarioCount", buildShockScenarioCount());
-  setText("v3IntelShockStatus", shockActionStatus || buildShockStatus());
-  setText("v3IntelCalibrationStatus", calibrationActionStatus || buildCalibrationStatus());
-
-  if (!hasCalibrationScenarioApi()) {
-    syncButtonDisabled("v3BtnIntelCalibrationGenerate", "btnIntelCalibrationGenerate");
-    syncButtonDisabled("v3BtnIntelCalibrationCopy", "btnIntelCalibrationCopy");
-    syncButtonDisabled("v3BtnIntelAddDefaultCorrelation", "btnIntelAddDefaultCorrelation");
-    syncButtonDisabled("v3BtnIntelImportCorrelationJson", "btnIntelImportCorrelationJson");
-    syncButtonDisabled("v3BtnIntelAddDefaultShock", "btnIntelAddDefaultShock");
-    syncButtonDisabled("v3BtnIntelImportShockJson", "btnIntelImportShockJson");
+  if (!hasApi) {
+    setText("v3IntelCorrelationStatus", "Scenario bridge unavailable.");
+    setText("v3IntelShockScenarioCount", "0 scenarios configured.");
+    setText("v3IntelShockStatus", "Scenario bridge unavailable.");
+    setText("v3IntelCalibrationStatus", "Scenario bridge unavailable.");
   } else {
-    const ids = [
-      "v3BtnIntelCalibrationGenerate",
-      "v3BtnIntelCalibrationCopy",
-      "v3BtnIntelAddDefaultCorrelation",
-      "v3BtnIntelImportCorrelationJson",
-      "v3BtnIntelAddDefaultShock",
-      "v3BtnIntelImportShockJson"
-    ];
-    ids.forEach((id) => {
-      const btn = document.getElementById(id);
-      if (btn instanceof HTMLButtonElement) {
-        btn.disabled = false;
-      }
-    });
+    setText("v3IntelCorrelationStatus", correlationActionStatus || buildCorrelationStatus());
+    setText("v3IntelShockScenarioCount", buildShockScenarioCount());
+    setText("v3IntelShockStatus", shockActionStatus || buildShockStatus());
+    setText("v3IntelCalibrationStatus", calibrationActionStatus || buildCalibrationStatus());
+  }
+
+  const ids = [
+    "v3BtnIntelCalibrationGenerate",
+    "v3BtnIntelCalibrationCopy",
+    "v3BtnIntelAddDefaultCorrelation",
+    "v3BtnIntelImportCorrelationJson",
+    "v3BtnIntelAddDefaultShock",
+    "v3BtnIntelImportShockJson"
+  ];
+  ids.forEach((id) => {
+    const btn = document.getElementById(id);
+    if (btn instanceof HTMLButtonElement) {
+      btn.disabled = !hasApi;
+    }
+  });
+
+  const importAreas = [
+    "v3IntelCorrelationJson",
+    "v3IntelShockJson"
+  ];
+  importAreas.forEach((id) => {
+    const field = document.getElementById(id);
+    if (field instanceof HTMLTextAreaElement) {
+      field.disabled = !hasApi;
+    }
+  });
+
+  if (!hasApi) {
+    const brief = document.getElementById("v3IntelCalibrationBriefContent");
+    if (brief instanceof HTMLTextAreaElement) {
+      brief.value = "";
+    }
   }
 }
 
