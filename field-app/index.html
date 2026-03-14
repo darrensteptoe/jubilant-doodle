@@ -93,7 +93,7 @@
 </div>
 </section>
 <!-- ── STAGE: setup ── -->
-<section class="stage-new active-stage" id="stage-setup">
+<section class="stage-new active-stage" data-retired="true" hidden="" id="stage-setup">
 <div class="stage-header-new">
 <div class="stage-meta-new">
 <span class="stage-tag-new">Stage 1</span>
@@ -1311,6 +1311,26 @@ function normalizeStages() {
   stages.forEach(function(sec){ host.appendChild(sec); });
 }
 
+function setLegacyStageVisibility(enabled) {
+  var show = !!enabled;
+  var ids = ['stage-setup', 'stage-universe', 'stage-ballot', 'stage-checks'];
+  ids.forEach(function(id){
+    var el = document.getElementById(id);
+    if (!el) return;
+    if (show) {
+      el.hidden = false;
+      el.classList.remove('stage-shell');
+      el.classList.add('stage-new');
+      if (el.getAttribute('data-retired') === 'true') {
+        el.removeAttribute('data-retired');
+      }
+    } else {
+      el.hidden = true;
+      el.setAttribute('data-retired', 'true');
+    }
+  });
+}
+
 function getLegacyCensusBridgeHost() {
   var host = document.getElementById('legacyCensusBridgeHost');
   if (host) return host;
@@ -1426,6 +1446,7 @@ function initLegacyInlineShell() {
   if (host && host.dataset.legacyInlineInit === '1') return;
   if (host) host.dataset.legacyInlineInit = '1';
 
+  setLegacyStageVisibility(true);
   restoreLegacyCardToOrigin('stage-setup');
   restoreLegacyCardToOrigin('stage-universe');
   restoreLegacyCardToOrigin('stage-ballot');
@@ -1449,6 +1470,7 @@ document.addEventListener('DOMContentLoaded', function(){
     return;
   }
 
+  setLegacyStageVisibility(false);
   moveLegacyCardToBridgeHost('stage-setup');
   moveLegacyCardToBridgeHost('stage-universe');
   moveLegacyCardToBridgeHost('stage-ballot');

@@ -258,6 +258,8 @@ Scope: UI architecture migration only (engine and right rail frozen)
 - QA hardening: v3 smoke now asserts Census/Targeting bridge-host mounts (`legacy-census-bridge-host`, `legacy-census-bridge-mounted`, `legacy-targeting-bridge-mounted`) to catch stage-checks coupling regressions early.
 - Legacy-shell hardening: setup-era legacy stage sections (`#stage-setup`, `#stage-universe`, `#stage-ballot`, `#stage-structure`) are now rehomed into `#legacyCensusBridgeHost` during v3 boot and restored in explicit legacy mode.
 - QA hardening: v3 smoke now asserts setup-era bridge-host mounts (`legacy-setup-bridge-mounted`, `legacy-universe-bridge-mounted`, `legacy-ballot-bridge-mounted`, `legacy-structure-bridge-mounted`) to catch stage-layout coupling regressions.
+- Legacy-shell hardening: setup-era/checks stages are now hidden-retired by default for v3 sessions and toggled visible only when explicit legacy mode is requested.
+- QA hardening: v3 smoke now asserts hidden-retired stage visibility in v3 mode (`legacy-setup-stage-hidden`, `legacy-universe-stage-hidden`, `legacy-ballot-stage-hidden`, `legacy-checks-stage-hidden`).
 - Resolved duplicate ID conflict in Decision Log (`v3DecisionObjective`) and added focused-field sync guards in Controls/Decision Log bridge loops to prevent input jitter during periodic refresh.
 - Static selector audits currently pass:
   - All legacy IDs referenced by v3 surface bridges are present in `index.html`.
