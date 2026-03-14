@@ -267,7 +267,11 @@ function bindDataAction(v3Id, action) {
     if (!api || typeof api.trigger !== "function") {
       return;
     }
-    api.trigger(action);
+    const result = api.trigger(action);
+    if (result && typeof result.then === "function") {
+      result.finally(() => refreshDataSummary());
+      return;
+    }
     refreshDataSummary();
   });
 }
