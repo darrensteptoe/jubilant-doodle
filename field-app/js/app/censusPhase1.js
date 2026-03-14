@@ -3178,7 +3178,7 @@ export function wireCensusPhase1EventsModule(ctx){
           return;
         }
         const csv = buildTargetRankingCsv(rows);
-        const model = fileSlugPart(cleanText(targeting.modelId) || "model");
+        const model = fileSlugPart(cleanText(targeting.presetId) || cleanText(targeting.modelId) || "model");
         const file = `target-ranking-${model}-${fileStamp()}.csv`;
         const ok = downloadTextFile(csv, file, "text/csv");
         setStatus(s, ok ? "Target rankings CSV exported." : "Target rankings CSV export failed.", !ok);
@@ -3214,7 +3214,7 @@ export function wireCensusPhase1EventsModule(ctx){
           meta: targeting.lastMeta,
           config,
         });
-        const model = fileSlugPart(cleanText(targeting.modelId) || "model");
+        const model = fileSlugPart(cleanText(targeting.presetId) || cleanText(targeting.modelId) || "model");
         const file = `target-ranking-${model}-${fileStamp()}.json`;
         const ok = downloadTextFile(JSON.stringify(payload, null, 2), file, "application/json");
         setStatus(s, ok ? "Target rankings JSON exported." : "Target rankings JSON export failed.", !ok);
