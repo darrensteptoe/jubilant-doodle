@@ -182,6 +182,26 @@ export function runV3QaSmoke({ restoreStage = true, logToConsole = true } = {}) 
       );
     }
 
+    if (stage.id === "controls") {
+      recordCheck(
+        checks,
+        "controls:mc-distribution-options",
+        hasSelectOptionValue("v3IntelMcDistribution", "triangular")
+        && hasSelectOptionValue("v3IntelMcDistribution", "uniform")
+        && hasSelectOptionValue("v3IntelMcDistribution", "normal")
+      );
+      recordCheck(
+        checks,
+        "controls:decay-model-options",
+        hasSelectOptionValue("v3IntelDecayModelType", "linear")
+      );
+      recordCheck(
+        checks,
+        "controls:correlation-select-placeholder",
+        hasSelectOptionValue("v3IntelCorrelationMatrixId", "")
+      );
+    }
+
     if (pane instanceof HTMLElement) {
       const expectsNoLegacyBridge = STAGES_EXPECTING_NO_LEGACY_BRIDGE.has(stage.id);
       const bridgedControls = Array.from(pane.querySelectorAll("[data-v3-legacy-id]"));
@@ -259,6 +279,14 @@ function isSelectorInPane(pane, selector) {
 
   const el = pane.querySelector(selector);
   return !!el;
+}
+
+function hasSelectOptionValue(id, value) {
+  const el = document.getElementById(id);
+  if (!(el instanceof HTMLSelectElement)) {
+    return false;
+  }
+  return Array.from(el.options).some((opt) => String(opt.value) === String(value));
 }
 
 function logQaReport(report) {
