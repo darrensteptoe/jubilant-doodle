@@ -152,6 +152,8 @@ Reference artifact:
 - District Census static select controls (`ACS year`, `resolution`, `metric set`) now hydrate from Census module registries in v3 first, reducing silent option-list coupling to legacy select mirrors.
 - District bridge census payload now includes control-value config (`year/resolution/state/county/place/metric set/search/filters/toggles + controlsLocked`), and v3 applies bridge-first value sync so census field state does not rely solely on legacy control mirrors.
 - District bridge Census status lines (`context/selection/status/geo-stats/last-fetch/footprint/provenance/capacity/apply-adjustments`) now derive state-first from runtime Census + footprint state, reducing direct reliance on legacy `#census*Status` text mirrors.
+- District census runtime now caches bridge payload rows/status in state (`bridgeAggregateRows`, `bridgeAdvisoryRows`, `bridgeElectionPreviewRows`, and `bridge*StatusText` fields) during Census render, so District v3 can read bridge-safe values without direct legacy table/status scraping.
+- District bridge census payload in `appRuntime` now reads cached census bridge fields from state first (aggregate/advisory/election rows + advisory/election/map status text) and no longer queries legacy `#census*` table/status nodes directly.
 
 ## Stage dependency map (current)
 Counts below are unique legacy IDs referenced by each v3 surface.
