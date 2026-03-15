@@ -158,7 +158,9 @@ Reference artifact:
 - District bridge census option payload now prefers legacy-populated select option lists when available (`state/county/place/tract/saved sets`) with state-derived fallback, preventing v3 state-dropdown collapse during hydration.
 - District bridge census config now also carries bridge-safe field values (`apiKey`, `geoPaste`, `electionCsvPrecinctFilter`) so v3 census input hydration is bridge-first with legacy fallback only when bridge config is absent.
 - District bridge census config now carries a state-derived disabled map for v3 census controls/buttons; v3 applies this bridge map after legacy sync to reduce reliance on legacy disabled mirrors.
+- District lock hardening: v3 lock-fallback no longer force-disables Census map action buttons (`Load boundaries`, `Clear map`, `Clear VTD ZIP`) so map open/clear remains available in locked mode.
 - District v3 targeting controls now hydrate from bridge config/defaults first (no legacy value mirroring required for model/geo/density/weights/threshold defaults).
+- District v3 Targeting Lab writes now route through runtime District bridge actions (`setTargetingField`, `applyTargetingPreset`, `resetTargetingWeights`, `runTargeting`, `exportTargetingCsv`, `exportTargetingJson`) with legacy DOM fallback only if a bridge action is unavailable.
 
 ## Stage dependency map (current)
 Counts below are unique legacy IDs referenced by each v3 surface.
