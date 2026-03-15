@@ -29,6 +29,7 @@ import { listTargetGeoLevels, listTargetModelOptions } from "../../targetingRunt
 import { listAcsYears, listMetricSetOptions, listResolutionOptions } from "../../../core/censusModule.js";
 
 let districtLegacyCensusCard = null;
+let censusMapResizePulseHandle = 0;
 const TARGETING_DENSITY_OPTIONS = [
   { id: "none", label: "None" },
   { id: "medium", label: "Medium+" },
@@ -1759,9 +1760,6 @@ function syncDistrictCensusDisabledFallback(config) {
     "v3BtnCensusDownloadElectionCsvWideTemplate",
     "v3BtnCensusElectionCsvDryRun",
     "v3BtnCensusElectionCsvClear",
-    "v3BtnCensusLoadMap",
-    "v3BtnCensusClearMap",
-    "v3BtnCensusMapQaVtdZipClear",
   ].forEach((id) => {
     const el = document.getElementById(id);
     if (
@@ -1910,6 +1908,32 @@ function syncCensusMapShellState() {
       ? "Map idle. Select GEO units and click Load boundaries."
       : "Boundary map active.";
   }
+
+  if (!isIdle) {
+    scheduleCensusMapResizePulse();
+  }
+}
+
+function scheduleCensusMapResizePulse() {
+  if (typeof window === "undefined") {
+    return;
+  }
+  if (censusMapResizePulseHandle) {
+    window.clearTimeout(censusMapResizePulseHandle);
+  }
+  censusMapResizePulseHandle = window.setTimeout(() => {
+    censusMapResizePulseHandle = 0;
+    try {
+      window.dispatchEvent(new Event("resize"));
+    } catch {}
+    if (typeof window.requestAnimationFrame === "function") {
+      window.requestAnimationFrame(() => {
+        try {
+          window.dispatchEvent(new Event("resize"));
+        } catch {}
+      });
+    }
+  }, 32);
 }
 
 function syncDistrictCensusMessageTones() {

@@ -18,11 +18,19 @@ export function applyScenarioLockUiModule({ state, root } = {}){
 
   const locked = isScenarioLockedForEditsModule(state);
   root.classList.toggle("scenario-locked", locked);
+  const isLockExempt = (el) => {
+    if (!(el instanceof HTMLElement)) return false;
+    if (el.dataset.lockExempt === "1" || el.closest("#intelWorkflowCard")) {
+      return true;
+    }
+    const id = String(el.id || "").trim();
+    return id === "censusMapQaVtdToggle" || id === "censusMapQaVtdZip";
+  };
 
   const controls = root.querySelectorAll('input:not([type="hidden"]), select, textarea');
   for (const el of controls){
     if (!(el instanceof HTMLElement)) continue;
-    if (el.dataset.lockExempt === "1" || el.closest("#intelWorkflowCard")){
+    if (isLockExempt(el)){
       if (el.dataset.lockManaged === "1"){
         el.removeAttribute("disabled");
         delete el.dataset.lockManaged;
