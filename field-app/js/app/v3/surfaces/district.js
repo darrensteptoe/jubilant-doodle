@@ -8,11 +8,8 @@ import {
 } from "../componentFactory.js";
 import {
   readDistrictSnapshot,
-  readDistrictFormSnapshot,
   readDistrictTargetingSnapshot,
   readDistrictCensusSnapshot,
-  setDistrictFormField,
-  addDistrictCandidate,
   setDistrictTargetingField,
   applyDistrictTargetingPreset,
   resetDistrictTargetingWeights,
@@ -444,7 +441,26 @@ export function renderDistrictSurface(mount) {
   frame.append(main);
   mount.append(frame);
 
-  bindDistrictStandardBridge();
+  bindClickProxy("v3BtnAddCandidate", "btnAddCandidate");
+  bindSelectProxy("v3DistrictYourCandidate", "yourCandidate");
+  bindFieldProxy("v3DistrictUndecidedPct", "undecidedPct");
+  bindSelectProxy("v3DistrictUndecidedMode", "undecidedMode");
+  bindSelectProxy("v3DistrictRaceType", "raceType");
+  bindFieldProxy("v3DistrictElectionDate", "electionDate");
+  bindFieldProxy("v3DistrictWeeksRemaining", "weeksRemaining");
+  bindSelectProxy("v3DistrictMode", "mode");
+  bindFieldProxy("v3DistrictUniverseSize", "universeSize");
+  bindSelectProxy("v3DistrictUniverseBasis", "universeBasis");
+  bindFieldProxy("v3DistrictSourceNote", "sourceNote");
+  bindCheckboxProxy("v3DistrictElectorateWeightingToggle", "universe16Enabled");
+  bindFieldProxy("v3DistrictDemPct", "universe16DemPct");
+  bindFieldProxy("v3DistrictRepPct", "universe16RepPct");
+  bindFieldProxy("v3DistrictNpaPct", "universe16NpaPct");
+  bindFieldProxy("v3DistrictOtherPct", "universe16OtherPct");
+  bindFieldProxy("v3DistrictRetentionFactor", "retentionFactor");
+  bindFieldProxy("v3DistrictTurnoutA", "turnoutA");
+  bindFieldProxy("v3DistrictTurnoutB", "turnoutB");
+  bindFieldProxy("v3DistrictBandWidth", "bandWidth");
   bindDistrictTargetingBridge();
   bindDistrictCensusProxies();
   return refreshDistrictSummary;
@@ -460,213 +476,51 @@ function refreshDistrictSummary() {
   setText("v3DistrictTurnoutExpected", snapshot.turnoutExpected);
   setText("v3DistrictTurnoutBand", snapshot.turnoutBand);
   setText("v3DistrictVotesPer1pct", snapshot.votesPer1pct);
-  syncDistrictStandardForm();
+  syncSelectValue("v3DistrictYourCandidate", "yourCandidate");
+  syncFieldValue("v3DistrictUndecidedPct", "undecidedPct");
+  syncSelectValue("v3DistrictUndecidedMode", "undecidedMode");
+  syncControlDisabled("v3DistrictYourCandidate", "yourCandidate");
+  syncControlDisabled("v3DistrictUndecidedPct", "undecidedPct");
+  syncControlDisabled("v3DistrictUndecidedMode", "undecidedMode");
+  syncSelectValue("v3DistrictRaceType", "raceType");
+  syncFieldValue("v3DistrictElectionDate", "electionDate");
+  syncFieldValue("v3DistrictWeeksRemaining", "weeksRemaining");
+  syncSelectValue("v3DistrictMode", "mode");
+  syncFieldValue("v3DistrictUniverseSize", "universeSize");
+  syncSelectValue("v3DistrictUniverseBasis", "universeBasis");
+  syncFieldValue("v3DistrictSourceNote", "sourceNote");
+  syncControlDisabled("v3DistrictRaceType", "raceType");
+  syncControlDisabled("v3DistrictElectionDate", "electionDate");
+  syncControlDisabled("v3DistrictWeeksRemaining", "weeksRemaining");
+  syncControlDisabled("v3DistrictMode", "mode");
+  syncControlDisabled("v3DistrictUniverseSize", "universeSize");
+  syncControlDisabled("v3DistrictUniverseBasis", "universeBasis");
+  syncControlDisabled("v3DistrictSourceNote", "sourceNote");
+  syncButtonDisabled("v3BtnAddCandidate", "btnAddCandidate");
+  syncCheckboxValue("v3DistrictElectorateWeightingToggle", "universe16Enabled");
+  syncControlDisabled("v3DistrictElectorateWeightingToggle", "universe16Enabled");
+  syncFieldValue("v3DistrictTurnoutA", "turnoutA");
+  syncFieldValue("v3DistrictTurnoutB", "turnoutB");
+  syncFieldValue("v3DistrictBandWidth", "bandWidth");
+  syncControlDisabled("v3DistrictTurnoutA", "turnoutA");
+  syncControlDisabled("v3DistrictTurnoutB", "turnoutB");
+  syncControlDisabled("v3DistrictBandWidth", "bandWidth");
+  syncFieldValue("v3DistrictDemPct", "universe16DemPct");
+  syncFieldValue("v3DistrictRepPct", "universe16RepPct");
+  syncFieldValue("v3DistrictNpaPct", "universe16NpaPct");
+  syncFieldValue("v3DistrictOtherPct", "universe16OtherPct");
+  syncFieldValue("v3DistrictRetentionFactor", "retentionFactor");
+  syncControlDisabled("v3DistrictDemPct", "universe16DemPct");
+  syncControlDisabled("v3DistrictRepPct", "universe16RepPct");
+  syncControlDisabled("v3DistrictNpaPct", "universe16NpaPct");
+  syncControlDisabled("v3DistrictOtherPct", "universe16OtherPct");
+  syncControlDisabled("v3DistrictRetentionFactor", "retentionFactor");
   syncDistrictBallotBaseline();
   syncDistrictStructureDerived();
   syncDistrictTargetingLab();
   syncDistrictCensusProxy();
   syncDistrictCensusMessageTones();
   syncCensusMapShellState();
-}
-
-function syncDistrictStandardForm() {
-  const formSnapshot = readDistrictFormSnapshot();
-  if (!formSnapshot) {
-    syncSelectValue("v3DistrictYourCandidate", "yourCandidate");
-    syncFieldValue("v3DistrictUndecidedPct", "undecidedPct");
-    syncSelectValue("v3DistrictUndecidedMode", "undecidedMode");
-    syncControlDisabled("v3DistrictYourCandidate", "yourCandidate");
-    syncControlDisabled("v3DistrictUndecidedPct", "undecidedPct");
-    syncControlDisabled("v3DistrictUndecidedMode", "undecidedMode");
-    syncSelectValue("v3DistrictRaceType", "raceType");
-    syncFieldValue("v3DistrictElectionDate", "electionDate");
-    syncFieldValue("v3DistrictWeeksRemaining", "weeksRemaining");
-    syncSelectValue("v3DistrictMode", "mode");
-    syncFieldValue("v3DistrictUniverseSize", "universeSize");
-    syncSelectValue("v3DistrictUniverseBasis", "universeBasis");
-    syncFieldValue("v3DistrictSourceNote", "sourceNote");
-    syncControlDisabled("v3DistrictRaceType", "raceType");
-    syncControlDisabled("v3DistrictElectionDate", "electionDate");
-    syncControlDisabled("v3DistrictWeeksRemaining", "weeksRemaining");
-    syncControlDisabled("v3DistrictMode", "mode");
-    syncControlDisabled("v3DistrictUniverseSize", "universeSize");
-    syncControlDisabled("v3DistrictUniverseBasis", "universeBasis");
-    syncControlDisabled("v3DistrictSourceNote", "sourceNote");
-    syncButtonDisabled("v3BtnAddCandidate", "btnAddCandidate");
-    syncCheckboxValue("v3DistrictElectorateWeightingToggle", "universe16Enabled");
-    syncControlDisabled("v3DistrictElectorateWeightingToggle", "universe16Enabled");
-    syncFieldValue("v3DistrictTurnoutA", "turnoutA");
-    syncFieldValue("v3DistrictTurnoutB", "turnoutB");
-    syncFieldValue("v3DistrictBandWidth", "bandWidth");
-    syncControlDisabled("v3DistrictTurnoutA", "turnoutA");
-    syncControlDisabled("v3DistrictTurnoutB", "turnoutB");
-    syncControlDisabled("v3DistrictBandWidth", "bandWidth");
-    syncFieldValue("v3DistrictDemPct", "universe16DemPct");
-    syncFieldValue("v3DistrictRepPct", "universe16RepPct");
-    syncFieldValue("v3DistrictNpaPct", "universe16NpaPct");
-    syncFieldValue("v3DistrictOtherPct", "universe16OtherPct");
-    syncFieldValue("v3DistrictRetentionFactor", "retentionFactor");
-    syncControlDisabled("v3DistrictDemPct", "universe16DemPct");
-    syncControlDisabled("v3DistrictRepPct", "universe16RepPct");
-    syncControlDisabled("v3DistrictNpaPct", "universe16NpaPct");
-    syncControlDisabled("v3DistrictOtherPct", "universe16OtherPct");
-    syncControlDisabled("v3DistrictRetentionFactor", "retentionFactor");
-    return;
-  }
-
-  const values = formSnapshot.values || {};
-  const options = formSnapshot.options || {};
-  const disabledMap = formSnapshot.disabledMap || {};
-
-  hydrateSelectOptions("v3DistrictRaceType", options.raceTypeOptions, values.raceType);
-  hydrateSelectOptions("v3DistrictMode", options.modeOptions, values.mode);
-  hydrateSelectOptions("v3DistrictUniverseBasis", options.universeBasisOptions, values.universeBasis);
-  hydrateSelectOptions("v3DistrictUndecidedMode", options.undecidedModeOptions, values.undecidedMode);
-  hydrateSelectOptions("v3DistrictYourCandidate", options.yourCandidateOptions, values.yourCandidateId);
-
-  syncBridgeSelectValue("v3DistrictRaceType", values.raceType);
-  syncBridgeFieldValue("v3DistrictElectionDate", values.electionDate);
-  syncBridgeFieldValue("v3DistrictWeeksRemaining", values.weeksRemaining);
-  syncBridgeSelectValue("v3DistrictMode", values.mode);
-  syncBridgeFieldValue("v3DistrictUniverseSize", values.universeSize);
-  syncBridgeSelectValue("v3DistrictUniverseBasis", values.universeBasis);
-  syncBridgeFieldValue("v3DistrictSourceNote", values.sourceNote);
-  syncBridgeSelectValue("v3DistrictYourCandidate", values.yourCandidateId);
-  syncBridgeFieldValue("v3DistrictUndecidedPct", values.undecidedPct);
-  syncBridgeSelectValue("v3DistrictUndecidedMode", values.undecidedMode);
-  syncBridgeCheckboxValue("v3DistrictElectorateWeightingToggle", values.universeLayerEnabled);
-  syncBridgeFieldValue("v3DistrictTurnoutA", values.turnoutA);
-  syncBridgeFieldValue("v3DistrictTurnoutB", values.turnoutB);
-  syncBridgeFieldValue("v3DistrictBandWidth", values.bandWidth);
-  syncBridgeFieldValue("v3DistrictDemPct", values.universeDemPct);
-  syncBridgeFieldValue("v3DistrictRepPct", values.universeRepPct);
-  syncBridgeFieldValue("v3DistrictNpaPct", values.universeNpaPct);
-  syncBridgeFieldValue("v3DistrictOtherPct", values.universeOtherPct);
-  syncBridgeFieldValue("v3DistrictRetentionFactor", values.retentionFactor);
-
-  applyBridgeDisabledMap(disabledMap);
-}
-
-function bindDistrictStandardBridge() {
-  bindDistrictStandardAction("v3BtnAddCandidate", () => addDistrictCandidate(), "btnAddCandidate");
-  bindDistrictStandardSelect("v3DistrictYourCandidate", "yourCandidateId", "yourCandidate");
-  bindDistrictStandardField("v3DistrictUndecidedPct", "undecidedPct", "undecidedPct");
-  bindDistrictStandardSelect("v3DistrictUndecidedMode", "undecidedMode", "undecidedMode");
-  bindDistrictStandardSelect("v3DistrictRaceType", "raceType", "raceType");
-  bindDistrictStandardField("v3DistrictElectionDate", "electionDate", "electionDate");
-  bindDistrictStandardField("v3DistrictWeeksRemaining", "weeksRemaining", "weeksRemaining");
-  bindDistrictStandardSelect("v3DistrictMode", "mode", "mode");
-  bindDistrictStandardField("v3DistrictUniverseSize", "universeSize", "universeSize");
-  bindDistrictStandardSelect("v3DistrictUniverseBasis", "universeBasis", "universeBasis");
-  bindDistrictStandardField("v3DistrictSourceNote", "sourceNote", "sourceNote");
-  bindDistrictStandardCheckbox("v3DistrictElectorateWeightingToggle", "universeLayerEnabled", "universe16Enabled");
-  bindDistrictStandardField("v3DistrictDemPct", "universeDemPct", "universe16DemPct");
-  bindDistrictStandardField("v3DistrictRepPct", "universeRepPct", "universe16RepPct");
-  bindDistrictStandardField("v3DistrictNpaPct", "universeNpaPct", "universe16NpaPct");
-  bindDistrictStandardField("v3DistrictOtherPct", "universeOtherPct", "universe16OtherPct");
-  bindDistrictStandardField("v3DistrictRetentionFactor", "retentionFactor", "retentionFactor");
-  bindDistrictStandardField("v3DistrictTurnoutA", "turnoutA", "turnoutA");
-  bindDistrictStandardField("v3DistrictTurnoutB", "turnoutB", "turnoutB");
-  bindDistrictStandardField("v3DistrictBandWidth", "bandWidth", "bandWidth");
-}
-
-function bindDistrictStandardSelect(v3Id, field, legacyId = "") {
-  const control = document.getElementById(v3Id);
-  if (!(control instanceof HTMLSelectElement) || control.dataset.v3DistrictStandardBound === "1") {
-    return;
-  }
-  control.dataset.v3DistrictStandardBound = "1";
-  control.addEventListener("change", () => {
-    const result = setDistrictFormField(field, control.value);
-    if (legacyId && result == null) {
-      fallbackLegacySetValue(legacyId, control.value, "change");
-    }
-  });
-}
-
-function bindDistrictStandardField(v3Id, field, legacyId = "") {
-  const control = document.getElementById(v3Id);
-  if (
-    !(control instanceof HTMLInputElement || control instanceof HTMLTextAreaElement)
-    || control.dataset.v3DistrictStandardBound === "1"
-  ) {
-    return;
-  }
-  control.dataset.v3DistrictStandardBound = "1";
-  control.addEventListener("input", () => {
-    const result = setDistrictFormField(field, control.value);
-    if (legacyId && result == null) {
-      fallbackLegacySetValue(legacyId, control.value, "input");
-    }
-  });
-}
-
-function bindDistrictStandardCheckbox(v3Id, field, legacyId = "") {
-  const control = document.getElementById(v3Id);
-  if (!(control instanceof HTMLInputElement) || control.dataset.v3DistrictStandardBound === "1") {
-    return;
-  }
-  control.dataset.v3DistrictStandardBound = "1";
-  control.addEventListener("change", () => {
-    const result = setDistrictFormField(field, control.checked);
-    if (legacyId && result == null) {
-      fallbackLegacySetChecked(legacyId, control.checked);
-    }
-  });
-}
-
-function bindDistrictStandardAction(v3Id, action, legacyId = "") {
-  const button = document.getElementById(v3Id);
-  if (!(button instanceof HTMLButtonElement) || button.dataset.v3DistrictStandardBound === "1") {
-    return;
-  }
-  button.dataset.v3DistrictStandardBound = "1";
-  button.addEventListener("click", () => {
-    const result = typeof action === "function" ? action() : null;
-    if (legacyId && result == null) {
-      fallbackLegacyClick(legacyId);
-    }
-  });
-}
-
-function fallbackLegacySetValue(id, value, eventType = "input") {
-  const legacy = document.getElementById(id);
-  if (
-    !(legacy instanceof HTMLInputElement)
-    && !(legacy instanceof HTMLSelectElement)
-    && !(legacy instanceof HTMLTextAreaElement)
-  ) {
-    return;
-  }
-  legacy.value = String(value == null ? "" : value);
-  dispatchLegacyInput(legacy);
-  if (eventType === "change") {
-    legacy.dispatchEvent(new Event("change", { bubbles: true }));
-  }
-}
-
-function fallbackLegacySetChecked(id, checked) {
-  const legacy = document.getElementById(id);
-  if (!(legacy instanceof HTMLInputElement)) {
-    return;
-  }
-  legacy.checked = !!checked;
-  legacy.dispatchEvent(new Event("change", { bubbles: true }));
-}
-
-function applyBridgeDisabledMap(disabledMap) {
-  const rows = Object.entries(disabledMap && typeof disabledMap === "object" ? disabledMap : {});
-  rows.forEach(([id, disabled]) => {
-    const el = document.getElementById(id);
-    if (
-      el instanceof HTMLInputElement
-      || el instanceof HTMLSelectElement
-      || el instanceof HTMLTextAreaElement
-      || el instanceof HTMLButtonElement
-    ) {
-      el.disabled = !!disabled;
-    }
-  });
 }
 
 function syncDistrictBallotBaseline() {
