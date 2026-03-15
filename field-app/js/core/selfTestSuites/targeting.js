@@ -1,5 +1,8 @@
 import {
+  applyTargetModelPreset,
   buildTargetRankingCsv,
+  getTargetModelPreset,
+  listTargetModelOptions,
   makeDefaultTargetingState,
   normalizeTargetingState,
   runTargetRanking,
@@ -125,6 +128,26 @@ export function registerTargetingTests(ctx){
     assert(ids.has("field_efficiency"), "missing field_efficiency model");
     assert(ids.has("house_v1"), "missing house_v1 model");
     assert(models.length >= 4, "expected at least 4 target models");
+  });
+
+  test("Targeting: preset options include named campaign profiles and apply mapped defaults", () => {
+    const options = listTargetModelOptions();
+    const optionIds = new Set(options.map((row) => String(row?.id || "")));
+    assert(optionIds.has("obama_persuasion"), "missing obama_persuasion preset");
+    assert(optionIds.has("obama_turnout"), "missing obama_turnout preset");
+    assert(optionIds.has("biden_expansion"), "missing biden_expansion preset");
+    assert(optionIds.has("efficiency_sweep"), "missing efficiency_sweep preset");
+    assert(optionIds.has("hybrid_model"), "missing hybrid_model preset");
+
+    const target = makeDefaultTargetingState();
+    const applied = applyTargetModelPreset(target, "obama_persuasion");
+    assert(String(applied?.preset?.id || "") === "obama_persuasion", "preset apply did not resolve obama_persuasion");
+    assert(String(target.modelId || "") === "persuasion_first", "obama_persuasion should map to persuasion_first model");
+    assert(Number(target.topN) === 40, "obama_persuasion topN mismatch");
+    assert(Math.abs(Number(target.weights?.persuasionIndex) - 0.45) < 1e-9, "obama_persuasion persuasion weight mismatch");
+
+    const hybrid = getTargetModelPreset("hybrid_model");
+    assert(String(hybrid?.modelId || "") === "house_v1", "hybrid_model should map to house_v1");
   });
 
   test("Targeting: sparse row signal derivation remains finite", () => {
