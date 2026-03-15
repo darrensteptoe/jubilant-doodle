@@ -215,6 +215,31 @@ function cleanText(v){
   return String(v == null ? "" : v).trim();
 }
 
+function extractBridgeTableRows(tbody, expectedCols = 0){
+  if (!(tbody instanceof HTMLElement)) return [];
+  const rows = Array.from(tbody.querySelectorAll(":scope > tr"));
+  const out = [];
+  for (const row of rows){
+    if (!(row instanceof HTMLTableRowElement)) continue;
+    const cells = Array.from(row.children).filter((cell) => cell instanceof HTMLElement);
+    if (!cells.length) continue;
+    if (cells.length === 1 && expectedCols > 1) {
+      const cell = cells[0];
+      const span = Number(cell.getAttribute("colspan") || "1");
+      if (span >= expectedCols && cell.classList.contains("muted")) continue;
+    }
+    const cols = cells.map((cell) => cleanText(cell.textContent));
+    if (!cols.some(Boolean)) continue;
+    if (expectedCols > 0){
+      while (cols.length < expectedCols) cols.push("");
+      out.push(cols.slice(0, expectedCols));
+    } else {
+      out.push(cols);
+    }
+  }
+  return out;
+}
+
 function getStorage(){
   try{
     if (typeof window !== "undefined" && window.localStorage) return window.localStorage;
@@ -2035,6 +2060,36 @@ export function renderCensusPhase1Module({ els, state, res } = {}){
   if (els.censusMap && mapInstance && mapHost === els.censusMap && typeof mapInstance.invalidateSize === "function"){
     mapInstance.invalidateSize(false);
   }
+
+  const guide = getElectionCsvUploadGuide();
+  const guideFormatCount = Array.isArray(guide?.acceptedFormats) ? guide.acceptedFormats.length : 1;
+  const guideText = `Election CSV schema ${guide?.schemaVersion || "v1"}: ${guideFormatCount} supported format(s) (long and wide).`;
+
+  const dryRunStatusText = cleanText(electionCsvDryRun.statusText) || "No dry-run run yet.";
+  const mapStatusText = cleanText(els?.censusMapStatus?.textContent) || cleanText(mapRuntimeStatus.error || mapRuntimeStatus.text) || "Map idle. Select GEO units and click Load boundaries.";
+  const mapQaStatusText = cleanText(els?.censusMapQaVtdZipStatus?.textContent) || cleanText(mapQaVtdUpload.statusText) || "No VTD ZIP loaded. VTD QA overlay source is TIGERweb.";
+
+  const allRecordsForMeta = Array.isArray(electionCsvDryRun.records) ? electionCsvDryRun.records : [];
+  const filteredForMeta = filterElectionDryRunRecords(allRecordsForMeta, electionCsvDryRun.precinctFilter);
+  const formatLabel = cleanText(electionCsvDryRun.format) || "—";
+  const fileLabel = cleanText(electionCsvDryRun.fileName) || "none";
+  const parseCount = Number.isFinite(Number(electionCsvDryRun.parsedRows)) ? Math.max(0, Math.floor(Number(electionCsvDryRun.parsedRows))) : 0;
+  const normalizedCount = Number.isFinite(Number(electionCsvDryRun.normalizedRows)) ? Math.max(0, Math.floor(Number(electionCsvDryRun.normalizedRows))) : 0;
+  const errCount = Array.isArray(electionCsvDryRun.errors) ? electionCsvDryRun.errors.length : 0;
+  const warnCount = Array.isArray(electionCsvDryRun.warnings) ? electionCsvDryRun.warnings.length : 0;
+  const filterLabel = cleanText(electionCsvDryRun.precinctFilter);
+  const filterText = filterLabel ? ` · Precinct filter: ${filterLabel} (${filteredForMeta.rows.length.toLocaleString("en-US")} match)` : "";
+  const electionPreviewMetaText = `File: ${fileLabel} · Format: ${formatLabel} · Parsed rows: ${parseCount.toLocaleString("en-US")} · Normalized rows: ${normalizedCount.toLocaleString("en-US")} · Errors: ${errCount} · Warnings: ${warnCount}${filterText}`;
+
+  s.bridgeAggregateRows = tableRows.map((row) => [cleanText(row?.label), cleanText(row?.valueText)]);
+  s.bridgeAdvisoryRows = extractBridgeTableRows(els?.censusAdvisoryTbody, 2);
+  s.bridgeElectionPreviewRows = extractBridgeTableRows(els?.censusElectionCsvPreviewTbody, 4);
+  s.bridgeAdvisoryStatusText = cleanText(els?.censusAdvisoryStatus?.textContent) || "Assumption advisory pending: select GEO units and fetch ACS rows.";
+  s.bridgeElectionCsvGuideStatusText = guideText;
+  s.bridgeElectionCsvDryRunStatusText = dryRunStatusText;
+  s.bridgeElectionCsvPreviewMetaText = electionPreviewMetaText;
+  s.bridgeMapStatusText = mapStatusText;
+  s.bridgeMapQaVtdZipStatusText = mapQaStatusText;
 }
 
 async function loadStateScopedLists(s, key){
