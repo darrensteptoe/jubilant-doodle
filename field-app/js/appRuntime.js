@@ -2872,10 +2872,14 @@ function districtBridgeStateView(){
   const targetingWeightTurnoutOpportunity = safeNum(targetingWeights?.turnoutOpportunity) ?? targetingDefaults.weightTurnoutOpportunity;
   const targetingWeightPersuasionIndex = safeNum(targetingWeights?.persuasionIndex) ?? targetingDefaults.weightPersuasionIndex;
   const targetingWeightFieldEfficiency = safeNum(targetingWeights?.fieldEfficiency) ?? targetingDefaults.weightFieldEfficiency;
+  const targetingPresetId = String(targetingState?.presetId || targetingMeta?.presetId || targetingDefaults.presetId).trim() || targetingDefaults.presetId;
+  const targetingModelId = String(targetingState?.modelId || targetingMeta?.modelId || targetingDefaults.modelId).trim() || targetingDefaults.modelId;
+  const censusLoadedRowCount = safeNum(censusState?.loadedRowCount) ?? 0;
+  const houseModelActive = targetingPresetId === "house_v1" || targetingModelId === "house_v1";
   const targetingConfig = {
-    presetId: String(targetingState?.presetId || targetingMeta?.presetId || targetingDefaults.presetId).trim() || targetingDefaults.presetId,
+    presetId: targetingPresetId,
     geoLevel: String(targetingState?.geoLevel || targetingMeta?.geoLevel || targetingDefaults.geoLevel).trim() || targetingDefaults.geoLevel,
-    modelId: String(targetingState?.modelId || targetingMeta?.modelId || targetingDefaults.modelId).trim() || targetingDefaults.modelId,
+    modelId: targetingModelId,
     topN: targetingTopNConfig,
     minHousingUnits: targetingMinHousingUnitsConfig,
     minPopulation: targetingMinPopulationConfig,
@@ -2890,6 +2894,9 @@ function districtBridgeStateView(){
     weightPersuasionIndex: targetingWeightPersuasionIndex,
     weightFieldEfficiency: targetingWeightFieldEfficiency,
     controlsLocked: isScenarioLockedForEdits(currentState),
+    canRun: censusLoadedRowCount > 0,
+    canExport: targetingRows.length > 0,
+    canResetWeights: houseModelActive,
   };
   const census = {
     contextHint: districtBridgeBuildContextHint(censusState) || districtBridgeReadLegacyText("censusContextHint", "State-only context active for this resolution."),
