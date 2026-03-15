@@ -3157,10 +3157,7 @@ function districtBridgeStateView(){
 function installDistrictBridge(){
   window[DISTRICT_BRIDGE_KEY] = {
     getView: () => districtBridgeStateView(),
-    addCandidate: () => districtBridgeAddCandidate(),
-    setCandidateField: (candidateId, field, value) => districtBridgeSetCandidateField(candidateId, field, value),
-    removeCandidate: (candidateId) => districtBridgeRemoveCandidate(candidateId),
-    setUserSplitField: (candidateId, value) => districtBridgeSetUserSplitField(candidateId, value),
+    setFormField: (field, value) => districtBridgeSetFormField(field, value),
     setTargetingField: (field, value) => districtBridgeSetTargetingField(field, value),
     applyTargetingPreset: (modelId) => districtBridgeApplyTargetingPreset(modelId),
     resetTargetingWeights: () => districtBridgeResetTargetingWeights(),
@@ -3178,29 +3175,63 @@ function districtBridgeEnsureTargetingState(srcState = state){
   return srcState.targeting;
 }
 
-function districtBridgeNormalizeCandidates(srcState){
-  const list = Array.isArray(srcState?.candidates) ? srcState.candidates : [];
-  return list.map((row) => ({
-    id: String(row?.id || "").trim(),
-    name: String(row?.name || "").trim(),
-    supportPct: safeNum(row?.supportPct),
-  })).filter((row) => !!row.id);
-}
-
-function districtBridgeNormalizeUserSplit(srcState){
-  const src = srcState?.userSplit && typeof srcState.userSplit === "object"
-    ? srcState.userSplit
-    : {};
-  return { ...src };
-}
-
-function districtBridgeSyncLegacyBallotUi(){
-  try {
-    rebuildCandidateTable();
-    rebuildUserSplitInputs();
-  } catch {
-    // fail-soft: v3 reads can still proceed from state/bridge
+function districtBridgeSetFormField(field, rawValue){
+  if (isScenarioLockedForEdits(state)){
+    return { ok: false, code: "locked", view: districtBridgeStateView() };
   }
+  const key = cleanText(field);
+  if (!key){
+    return { ok: false, code: "missing_field", view: districtBridgeStateView() };
+  }
+
+  let applied = false;
+  setState((next) => {
+    if (key === "raceType"){
+      const value = cleanText(rawValue);
+      if (!value) return;
+      next.raceType = value;
+      applyTemplateDefaultsForRace(next, value, { force: true });
+      if (!next.ui || typeof next.ui !== "object") next.ui = {};
+      next.ui.assumptionsProfile = "template";
+      applied = true;
+      return;
+    }
+    if (key === "electionDate"){
+      next.electionDate = String(rawValue == null ? "" : rawValue);
+      applied = true;
+      return;
+    }
+    if (key === "weeksRemaining"){
+      next.weeksRemaining = String(rawValue == null ? "" : rawValue);
+      applied = true;
+      return;
+    }
+    if (key === "mode"){
+      const value = cleanText(rawValue);
+      if (!value) return;
+      next.mode = value;
+      applied = true;
+      return;
+    }
+    if (key === "universeSize"){
+      next.universeSize = safeNum(rawValue);
+      applied = true;
+      return;
+    }
+    if (key === "universeBasis"){
+      const value = cleanText(rawValue);
+      if (!value) return;
+      next.universeBasis = value;
+      applied = true;
+      return;
+    }
+    if (key === "sourceNote"){
+      next.sourceNote = String(rawValue == null ? "" : rawValue);
+      applied = true;
+    }
+  });
+
+  return { ok: applied, view: districtBridgeStateView() };
 }
 
 function districtBridgeDownloadTextFile(text, filename, mime){
@@ -3217,135 +3248,6 @@ function districtBridgeDownloadTextFile(text, filename, mime){
   link.remove();
   URL.revokeObjectURL(url);
   return true;
-}
-
-function districtBridgeAddCandidate(){
-  if (isScenarioLockedForEdits(state)){
-    return { ok: false, code: "locked", view: districtBridgeStateView() };
-  }
-
-  let added = false;
-  setState((next) => {
-    const candidates = districtBridgeNormalizeCandidates(next);
-    const userSplit = districtBridgeNormalizeUserSplit(next);
-    const labelIndex = candidates.length;
-    const nextName = `Candidate ${String.fromCharCode(65 + labelIndex)}`;
-    const nextId = uid();
-    candidates.push({ id: nextId, name: nextName, supportPct: 0 });
-    if (userSplit[nextId] == null) userSplit[nextId] = 0;
-    next.candidates = candidates;
-    next.userSplit = userSplit;
-    if (!String(next.yourCandidateId || "").trim()) {
-      next.yourCandidateId = candidates[0]?.id || null;
-    }
-    added = true;
-  });
-
-  if (added) {
-    districtBridgeSyncLegacyBallotUi();
-  }
-  return { ok: added, view: districtBridgeStateView() };
-}
-
-function districtBridgeSetCandidateField(candidateId, field, rawValue){
-  if (isScenarioLockedForEdits(state)){
-    return { ok: false, code: "locked", view: districtBridgeStateView() };
-  }
-  const id = cleanText(candidateId);
-  const key = cleanText(field);
-  if (!id || !key){
-    return { ok: false, code: "missing_field", view: districtBridgeStateView() };
-  }
-
-  let applied = false;
-  setState((next) => {
-    const candidates = districtBridgeNormalizeCandidates(next);
-    const idx = candidates.findIndex((row) => row.id === id);
-    if (idx < 0) return;
-    if (key === "name") {
-      candidates[idx] = {
-        ...candidates[idx],
-        name: String(rawValue == null ? "" : rawValue),
-      };
-      applied = true;
-    } else if (key === "supportPct") {
-      candidates[idx] = {
-        ...candidates[idx],
-        supportPct: safeNum(rawValue),
-      };
-      applied = true;
-    }
-    if (applied) {
-      next.candidates = candidates;
-    }
-  });
-
-  if (applied) {
-    districtBridgeSyncLegacyBallotUi();
-  }
-  return { ok: applied, view: districtBridgeStateView() };
-}
-
-function districtBridgeRemoveCandidate(candidateId){
-  if (isScenarioLockedForEdits(state)){
-    return { ok: false, code: "locked", view: districtBridgeStateView() };
-  }
-  const id = cleanText(candidateId);
-  if (!id){
-    return { ok: false, code: "missing_candidate", view: districtBridgeStateView() };
-  }
-
-  let removed = false;
-  setState((next) => {
-    const candidates = districtBridgeNormalizeCandidates(next);
-    if (candidates.length <= 2){
-      return;
-    }
-    const filtered = candidates.filter((row) => row.id !== id);
-    if (filtered.length === candidates.length){
-      return;
-    }
-    const userSplit = districtBridgeNormalizeUserSplit(next);
-    delete userSplit[id];
-    next.candidates = filtered;
-    next.userSplit = userSplit;
-    if (String(next.yourCandidateId || "").trim() === id) {
-      next.yourCandidateId = filtered[0]?.id || null;
-    }
-    removed = true;
-  });
-
-  if (removed) {
-    districtBridgeSyncLegacyBallotUi();
-  }
-  return { ok: removed, view: districtBridgeStateView() };
-}
-
-function districtBridgeSetUserSplitField(candidateId, rawValue){
-  if (isScenarioLockedForEdits(state)){
-    return { ok: false, code: "locked", view: districtBridgeStateView() };
-  }
-  const id = cleanText(candidateId);
-  if (!id){
-    return { ok: false, code: "missing_candidate", view: districtBridgeStateView() };
-  }
-
-  let applied = false;
-  setState((next) => {
-    const candidates = districtBridgeNormalizeCandidates(next);
-    if (!candidates.some((row) => row.id === id)){
-      return;
-    }
-    const userSplit = districtBridgeNormalizeUserSplit(next);
-    userSplit[id] = safeNum(rawValue);
-    next.userSplit = userSplit;
-    applied = true;
-  });
-
-  if (applied) {
-    districtBridgeSyncLegacyBallotUi();
-  }
-  return { ok: applied, view: districtBridgeStateView() };
 }
 
 function districtBridgeFileStamp(){
