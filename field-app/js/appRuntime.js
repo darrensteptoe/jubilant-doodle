@@ -2939,6 +2939,62 @@ function districtBridgeBuildCensusDisabledMap(currentState, censusState){
   return out;
 }
 
+function districtBridgeBuildDistrictFormOptions(currentState){
+  const src = currentState && typeof currentState === "object" ? currentState : {};
+  const candidates = Array.isArray(src.candidates) ? src.candidates : [];
+  return {
+    raceTypeOptions: districtBridgeBuildSelectOptions(
+      districtBridgeReadLegacySelectOptions("raceType"),
+      { selected: src.raceType },
+    ),
+    modeOptions: districtBridgeBuildSelectOptions(
+      districtBridgeReadLegacySelectOptions("mode"),
+      { selected: src.mode },
+    ),
+    universeBasisOptions: districtBridgeBuildSelectOptions(
+      districtBridgeReadLegacySelectOptions("universeBasis"),
+      { selected: src.universeBasis },
+    ),
+    undecidedModeOptions: districtBridgeBuildSelectOptions(
+      districtBridgeReadLegacySelectOptions("undecidedMode"),
+      { selected: src.undecidedMode },
+    ),
+    yourCandidateOptions: districtBridgeBuildSelectOptions(
+      candidates.map((cand) => ({
+        value: String(cand?.id || "").trim(),
+        label: String(cand?.name || "Candidate").trim() || "Candidate",
+      })),
+      { selected: src.yourCandidateId },
+    ),
+  };
+}
+
+function districtBridgeBuildDistrictFormDisabledMap(currentState){
+  const controlsLocked = isScenarioLockedForEdits(currentState);
+  return {
+    v3BtnAddCandidate: controlsLocked,
+    v3DistrictYourCandidate: controlsLocked,
+    v3DistrictUndecidedPct: controlsLocked,
+    v3DistrictUndecidedMode: controlsLocked,
+    v3DistrictRaceType: controlsLocked,
+    v3DistrictElectionDate: controlsLocked,
+    v3DistrictWeeksRemaining: controlsLocked,
+    v3DistrictMode: controlsLocked,
+    v3DistrictUniverseSize: controlsLocked,
+    v3DistrictUniverseBasis: controlsLocked,
+    v3DistrictSourceNote: controlsLocked,
+    v3DistrictElectorateWeightingToggle: controlsLocked,
+    v3DistrictDemPct: controlsLocked,
+    v3DistrictRepPct: controlsLocked,
+    v3DistrictNpaPct: controlsLocked,
+    v3DistrictOtherPct: controlsLocked,
+    v3DistrictRetentionFactor: controlsLocked,
+    v3DistrictTurnoutA: controlsLocked,
+    v3DistrictTurnoutB: controlsLocked,
+    v3DistrictBandWidth: controlsLocked,
+  };
+}
+
 function districtBridgeNormalizeRows(rows, expectedCols = 0){
   const list = Array.isArray(rows) ? rows : [];
   const out = [];
@@ -3088,6 +3144,8 @@ function districtBridgeStateView(){
     canExport: targetingRows.length > 0,
     canResetWeights: houseModelActive,
   };
+  const districtFormOptions = districtBridgeBuildDistrictFormOptions(currentState);
+  const districtFormDisabledMap = districtBridgeBuildDistrictFormDisabledMap(currentState);
   const bridgeAggregateRows = districtBridgeNormalizeRows(censusState?.bridgeAggregateRows, 2);
   const bridgeAdvisoryRows = districtBridgeNormalizeRows(censusState?.bridgeAdvisoryRows, 2);
   const bridgeElectionPreviewRows = districtBridgeNormalizeRows(censusState?.bridgeElectionPreviewRows, 4);
@@ -3139,9 +3197,37 @@ function districtBridgeStateView(){
       geoSelectOptions: censusConfigOptions.geoSelectOptions,
     },
   };
+  const form = {
+    values: {
+      raceType: String(currentState?.raceType || "").trim(),
+      electionDate: String(currentState?.electionDate || "").trim(),
+      weeksRemaining: String(currentState?.weeksRemaining ?? "").trim(),
+      mode: String(currentState?.mode || "").trim(),
+      universeSize: universeSize == null ? "" : String(universeSize),
+      universeBasis: String(currentState?.universeBasis || "").trim(),
+      sourceNote: String(currentState?.sourceNote || "").trim(),
+      yourCandidateId: String(currentState?.yourCandidateId || "").trim(),
+      undecidedPct: currentState?.undecidedPct == null ? "" : String(currentState.undecidedPct),
+      undecidedMode: String(currentState?.undecidedMode || "").trim(),
+      turnoutA: currentState?.turnoutA == null ? "" : String(currentState.turnoutA),
+      turnoutB: currentState?.turnoutB == null ? "" : String(currentState.turnoutB),
+      bandWidth: currentState?.bandWidth == null ? "" : String(currentState.bandWidth),
+      universeLayerEnabled: !!currentState?.universeLayerEnabled,
+      universeDemPct: currentState?.universeDemPct == null ? "" : String(currentState.universeDemPct),
+      universeRepPct: currentState?.universeRepPct == null ? "" : String(currentState.universeRepPct),
+      universeNpaPct: currentState?.universeNpaPct == null ? "" : String(currentState.universeNpaPct),
+      universeOtherPct: currentState?.universeOtherPct == null ? "" : String(currentState.universeOtherPct),
+      retentionFactor: currentState?.retentionFactor == null ? "" : String(currentState.retentionFactor),
+    },
+    options: districtFormOptions,
+    disabledMap: districtFormDisabledMap,
+    controlsLocked: isScenarioLockedForEdits(currentState),
+    candidateCount: Array.isArray(currentState?.candidates) ? currentState.candidates.length : 0,
+  };
 
   return {
     summary,
+    form,
     targeting: {
       statusText: targetingStatusText,
       metaText: targetingMetaText,
@@ -3158,6 +3244,8 @@ function districtBridgeStateView(){
 function installDistrictBridge(){
   window[DISTRICT_BRIDGE_KEY] = {
     getView: () => districtBridgeStateView(),
+    setFormField: (field, value) => districtBridgeSetFormField(field, value),
+    addCandidate: () => districtBridgeAddCandidate(),
     setTargetingField: (field, value) => districtBridgeSetTargetingField(field, value),
     applyTargetingPreset: (modelId) => districtBridgeApplyTargetingPreset(modelId),
     resetTargetingWeights: () => districtBridgeResetTargetingWeights(),
@@ -3425,6 +3513,146 @@ function districtBridgeExportTargetingJson(){
   const file = `target-ranking-${model}-${districtBridgeFileStamp()}.json`;
   const ok = districtBridgeDownloadTextFile(JSON.stringify(payload, null, 2), file, "application/json");
   return { ok, code: ok ? "exported" : "export_failed", view: districtBridgeStateView() };
+}
+
+function districtBridgeSetFormField(field, rawValue){
+  if (isScenarioLockedForEdits(state)){
+    return { ok: false, code: "locked", view: districtBridgeStateView() };
+  }
+  const key = cleanText(field);
+  if (!key){
+    return { ok: false, code: "missing_field", view: districtBridgeStateView() };
+  }
+
+  let applied = false;
+  let shouldApplyUi = false;
+  let shouldRefreshAssumptionsProfile = false;
+  let shouldMarkMcStale = false;
+  let shouldRebuildUserSplit = false;
+
+  if (key === "raceType"){
+    const value = cleanText(rawValue);
+    if (value){
+      state.raceType = value;
+      applyTemplateDefaultsForRace(state, state.raceType, { force: true });
+      if (!state.ui || typeof state.ui !== "object") state.ui = {};
+      state.ui.assumptionsProfile = "template";
+      shouldApplyUi = true;
+      applied = true;
+    }
+  } else if (key === "electionDate"){
+    state.electionDate = String(rawValue || "");
+    applied = true;
+  } else if (key === "weeksRemaining"){
+    state.weeksRemaining = String(rawValue || "");
+    applied = true;
+  } else if (key === "mode"){
+    const value = cleanText(rawValue);
+    if (value){
+      state.mode = value;
+      applied = true;
+    }
+  } else if (key === "universeSize"){
+    state.universeSize = safeNum(rawValue);
+    applied = true;
+  } else if (key === "universeBasis"){
+    const value = cleanText(rawValue);
+    if (value){
+      state.universeBasis = value;
+      applied = true;
+    }
+  } else if (key === "sourceNote"){
+    state.sourceNote = String(rawValue || "");
+    applied = true;
+  } else if (key === "yourCandidateId"){
+    const value = cleanText(rawValue);
+    if (value || !Array.isArray(state.candidates) || !state.candidates.length){
+      state.yourCandidateId = value || null;
+      applied = true;
+    }
+  } else if (key === "undecidedPct"){
+    state.undecidedPct = safeNum(rawValue);
+    applied = true;
+  } else if (key === "undecidedMode"){
+    const value = cleanText(rawValue);
+    if (value){
+      state.undecidedMode = value;
+      shouldRebuildUserSplit = true;
+      applied = true;
+    }
+  } else if (key === "turnoutA"){
+    state.turnoutA = safeNum(rawValue);
+    applied = true;
+  } else if (key === "turnoutB"){
+    state.turnoutB = safeNum(rawValue);
+    applied = true;
+  } else if (key === "bandWidth"){
+    state.bandWidth = safeNum(rawValue);
+    shouldRefreshAssumptionsProfile = true;
+    applied = true;
+  } else if (key === "universeLayerEnabled"){
+    state.universeLayerEnabled = !!rawValue;
+    shouldMarkMcStale = true;
+    applied = true;
+  } else if (key === "universeDemPct"){
+    state.universeDemPct = safeNum(rawValue);
+    shouldMarkMcStale = true;
+    applied = true;
+  } else if (key === "universeRepPct"){
+    state.universeRepPct = safeNum(rawValue);
+    shouldMarkMcStale = true;
+    applied = true;
+  } else if (key === "universeNpaPct"){
+    state.universeNpaPct = safeNum(rawValue);
+    shouldMarkMcStale = true;
+    applied = true;
+  } else if (key === "universeOtherPct"){
+    state.universeOtherPct = safeNum(rawValue);
+    shouldMarkMcStale = true;
+    applied = true;
+  } else if (key === "retentionFactor"){
+    state.retentionFactor = safeNum(rawValue);
+    shouldMarkMcStale = true;
+    applied = true;
+  }
+
+  if (!applied){
+    return { ok: false, code: "ignored", view: districtBridgeStateView() };
+  }
+
+  if (shouldRefreshAssumptionsProfile){
+    refreshAssumptionsProfile();
+  }
+  if (shouldMarkMcStale){
+    markMcStale();
+  }
+  if (shouldRebuildUserSplit){
+    rebuildUserSplitInputs();
+  }
+  if (shouldApplyUi){
+    applyStateToUI();
+  }
+
+  commitUIUpdate();
+  return { ok: true, view: districtBridgeStateView() };
+}
+
+function districtBridgeAddCandidate(){
+  if (isScenarioLockedForEdits(state)){
+    return { ok: false, code: "locked", view: districtBridgeStateView() };
+  }
+
+  if (!Array.isArray(state.candidates)){
+    state.candidates = [];
+  }
+  state.candidates.push({
+    id: uid(),
+    name: `Candidate ${String.fromCharCode(65 + state.candidates.length)}`,
+    supportPct: 0,
+  });
+  rebuildCandidateTable();
+  commitUIUpdate();
+  return { ok: true, view: districtBridgeStateView() };
 }
 
 const REACH_OVERRIDE_MODE_OPTIONS = [
