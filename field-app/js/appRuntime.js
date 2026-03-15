@@ -196,6 +196,13 @@ import {
   computeEvidenceWarnings
 } from "./app/intelAudit.js";
 import {
+  applyTargetModelPreset,
+  buildTargetRankingCsv,
+  buildTargetRankingPayload,
+  getTargetModelPreset,
+  normalizeTargetingState,
+} from "./app/targetingRuntime.js";
+import {
   computeIntelIntegrityScore,
   listMissingEvidenceAudit,
   listMissingNoteAudit,
@@ -3151,7 +3158,273 @@ function districtBridgeStateView(){
 function installDistrictBridge(){
   window[DISTRICT_BRIDGE_KEY] = {
     getView: () => districtBridgeStateView(),
+    setTargetingField: (field, value) => districtBridgeSetTargetingField(field, value),
+    applyTargetingPreset: (modelId) => districtBridgeApplyTargetingPreset(modelId),
+    resetTargetingWeights: () => districtBridgeResetTargetingWeights(),
+    runTargeting: () => districtBridgeRunTargeting(),
+    exportTargetingCsv: () => districtBridgeExportTargetingCsv(),
+    exportTargetingJson: () => districtBridgeExportTargetingJson(),
   };
+}
+
+function districtBridgeEnsureTargetingState(srcState = state){
+  if (!srcState || typeof srcState !== "object"){
+    return null;
+  }
+  srcState.targeting = normalizeTargetingState(srcState.targeting);
+  return srcState.targeting;
+}
+
+function districtBridgeDownloadTextFile(text, filename, mime){
+  if (typeof document === "undefined" || typeof URL === "undefined" || typeof Blob === "undefined"){
+    return false;
+  }
+  const blob = new Blob([String(text == null ? "" : text)], { type: mime || "text/plain" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename || "download.txt";
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+  return true;
+}
+
+function districtBridgeFileStamp(){
+  return new Date().toISOString().replace(/[:.]/g, "-");
+}
+
+function districtBridgeFileSlugPart(text){
+  return cleanText(text).replace(/[^a-z0-9_-]+/gi, "-").replace(/-+/g, "-").replace(/^-|-$/g, "").toLowerCase();
+}
+
+function districtBridgeSetTargetingField(field, rawValue){
+  if (isScenarioLockedForEdits(state)){
+    return { ok: false, code: "locked", view: districtBridgeStateView() };
+  }
+  const key = cleanText(field);
+  if (!key){
+    return { ok: false, code: "missing_field", view: districtBridgeStateView() };
+  }
+
+  let applied = false;
+  setState((next) => {
+    const targeting = districtBridgeEnsureTargetingState(next);
+    if (!targeting){
+      return;
+    }
+    targeting.criteria = targeting.criteria && typeof targeting.criteria === "object" ? targeting.criteria : {};
+    targeting.weights = targeting.weights && typeof targeting.weights === "object" ? targeting.weights : {};
+
+    if (key === "geoLevel"){
+      const value = cleanText(rawValue);
+      if (value){
+        targeting.geoLevel = value;
+        applied = true;
+      }
+      return;
+    }
+    if (key === "topN"){
+      const value = Number(rawValue);
+      if (Number.isFinite(value)){
+        targeting.topN = Math.max(1, Math.min(500, Math.floor(value)));
+        applied = true;
+      }
+      return;
+    }
+    if (key === "minHousingUnits"){
+      const value = Number(rawValue);
+      if (Number.isFinite(value)){
+        targeting.minHousingUnits = Math.max(0, Math.floor(value));
+        applied = true;
+      }
+      return;
+    }
+    if (key === "minPopulation"){
+      const value = Number(rawValue);
+      if (Number.isFinite(value)){
+        targeting.minPopulation = Math.max(0, Math.floor(value));
+        applied = true;
+      }
+      return;
+    }
+    if (key === "minScore"){
+      const value = Number(rawValue);
+      if (Number.isFinite(value)){
+        targeting.minScore = Math.max(0, value);
+        applied = true;
+      }
+      return;
+    }
+    if (key === "onlyRaceFootprint"){
+      targeting.onlyRaceFootprint = !!rawValue;
+      applied = true;
+      return;
+    }
+    if (key === "prioritizeYoung"){
+      targeting.criteria.prioritizeYoung = !!rawValue;
+      applied = true;
+      return;
+    }
+    if (key === "prioritizeRenters"){
+      targeting.criteria.prioritizeRenters = !!rawValue;
+      applied = true;
+      return;
+    }
+    if (key === "avoidHighMultiUnit"){
+      targeting.criteria.avoidHighMultiUnit = !!rawValue;
+      applied = true;
+      return;
+    }
+    if (key === "densityFloor"){
+      const value = cleanText(rawValue);
+      targeting.criteria.densityFloor = ["none", "medium", "high"].includes(value) ? value : "none";
+      applied = true;
+      return;
+    }
+    if (key === "weightVotePotential"){
+      const value = Number(rawValue);
+      if (Number.isFinite(value)){
+        targeting.weights.votePotential = Math.max(0, value);
+        applied = true;
+      }
+      return;
+    }
+    if (key === "weightTurnoutOpportunity"){
+      const value = Number(rawValue);
+      if (Number.isFinite(value)){
+        targeting.weights.turnoutOpportunity = Math.max(0, value);
+        applied = true;
+      }
+      return;
+    }
+    if (key === "weightPersuasionIndex"){
+      const value = Number(rawValue);
+      if (Number.isFinite(value)){
+        targeting.weights.persuasionIndex = Math.max(0, value);
+        applied = true;
+      }
+      return;
+    }
+    if (key === "weightFieldEfficiency"){
+      const value = Number(rawValue);
+      if (Number.isFinite(value)){
+        targeting.weights.fieldEfficiency = Math.max(0, value);
+        applied = true;
+      }
+    }
+  });
+
+  if (!applied){
+    return { ok: false, code: "ignored", view: districtBridgeStateView() };
+  }
+
+  commitUIUpdate({ persist: false });
+  return { ok: true, view: districtBridgeStateView() };
+}
+
+function districtBridgeApplyTargetingPreset(modelId){
+  if (isScenarioLockedForEdits(state)){
+    return { ok: false, code: "locked", view: districtBridgeStateView() };
+  }
+  const nextModelId = cleanText(modelId);
+  if (!nextModelId){
+    return { ok: false, code: "missing_model", view: districtBridgeStateView() };
+  }
+
+  setState((next) => {
+    const targeting = districtBridgeEnsureTargetingState(next);
+    if (!targeting){
+      return;
+    }
+    applyTargetModelPreset(targeting, nextModelId);
+  });
+  commitUIUpdate({ persist: false });
+  return { ok: true, view: districtBridgeStateView() };
+}
+
+function districtBridgeResetTargetingWeights(){
+  if (isScenarioLockedForEdits(state)){
+    return { ok: false, code: "locked", view: districtBridgeStateView() };
+  }
+
+  setState((next) => {
+    const targeting = districtBridgeEnsureTargetingState(next);
+    if (!targeting){
+      return;
+    }
+    const preset = getTargetModelPreset(cleanText(targeting.presetId) || cleanText(targeting.modelId));
+    targeting.weights = {
+      votePotential: Number(preset?.weights?.votePotential) || 0.35,
+      turnoutOpportunity: Number(preset?.weights?.turnoutOpportunity) || 0.25,
+      persuasionIndex: Number(preset?.weights?.persuasionIndex) || 0.20,
+      fieldEfficiency: Number(preset?.weights?.fieldEfficiency) || 0.20,
+    };
+  });
+  commitUIUpdate({ persist: false });
+  return { ok: true, view: districtBridgeStateView() };
+}
+
+function districtBridgeRunTargeting(){
+  if (isScenarioLockedForEdits(state)){
+    return { ok: false, code: "locked", view: districtBridgeStateView() };
+  }
+  const legacyButton = document.getElementById("btnRunTargeting");
+  if (!(legacyButton instanceof HTMLButtonElement) || legacyButton.disabled){
+    return { ok: false, code: "unavailable", view: districtBridgeStateView() };
+  }
+  legacyButton.click();
+  return { ok: true, view: districtBridgeStateView() };
+}
+
+function districtBridgeExportTargetingCsv(){
+  if (isScenarioLockedForEdits(state)){
+    return { ok: false, code: "locked", view: districtBridgeStateView() };
+  }
+  const targeting = districtBridgeEnsureTargetingState(state);
+  const rows = Array.isArray(targeting?.lastRows) ? targeting.lastRows : [];
+  if (!rows.length){
+    return { ok: false, code: "no_rows", view: districtBridgeStateView() };
+  }
+  const model = districtBridgeFileSlugPart(cleanText(targeting?.presetId) || cleanText(targeting?.modelId) || "model");
+  const file = `target-ranking-${model}-${districtBridgeFileStamp()}.csv`;
+  const csv = buildTargetRankingCsv(rows);
+  const ok = districtBridgeDownloadTextFile(csv, file, "text/csv");
+  return { ok, code: ok ? "exported" : "export_failed", view: districtBridgeStateView() };
+}
+
+function districtBridgeExportTargetingJson(){
+  if (isScenarioLockedForEdits(state)){
+    return { ok: false, code: "locked", view: districtBridgeStateView() };
+  }
+  const targeting = districtBridgeEnsureTargetingState(state);
+  const rows = Array.isArray(targeting?.lastRows) ? targeting.lastRows : [];
+  if (!rows.length){
+    return { ok: false, code: "no_rows", view: districtBridgeStateView() };
+  }
+  const payload = buildTargetRankingPayload({
+    rows,
+    meta: targeting?.lastMeta,
+    config: {
+      enabled: !!targeting?.enabled,
+      presetId: cleanText(targeting?.presetId),
+      geoLevel: cleanText(targeting?.geoLevel),
+      modelId: cleanText(targeting?.modelId),
+      topN: Number(targeting?.topN),
+      minHousingUnits: Number(targeting?.minHousingUnits),
+      minPopulation: Number(targeting?.minPopulation),
+      minScore: Number(targeting?.minScore),
+      excludeZeroHousing: !!targeting?.excludeZeroHousing,
+      onlyRaceFootprint: !!targeting?.onlyRaceFootprint,
+      weights: targeting?.weights && typeof targeting.weights === "object" ? { ...targeting.weights } : {},
+      criteria: targeting?.criteria && typeof targeting.criteria === "object" ? { ...targeting.criteria } : {},
+    },
+  });
+  const model = districtBridgeFileSlugPart(cleanText(targeting?.presetId) || cleanText(targeting?.modelId) || "model");
+  const file = `target-ranking-${model}-${districtBridgeFileStamp()}.json`;
+  const ok = districtBridgeDownloadTextFile(JSON.stringify(payload, null, 2), file, "application/json");
+  return { ok, code: ok ? "exported" : "export_failed", view: districtBridgeStateView() };
 }
 
 const REACH_OVERRIDE_MODE_OPTIONS = [
