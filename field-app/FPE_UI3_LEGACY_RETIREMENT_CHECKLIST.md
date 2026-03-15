@@ -161,8 +161,6 @@ Reference artifact:
 - District lock hardening: v3 lock-fallback no longer force-disables Census map action buttons (`Load boundaries`, `Clear map`, `Clear VTD ZIP`) so map open/clear remains available in locked mode.
 - District v3 targeting controls now hydrate from bridge config/defaults first (no legacy value mirroring required for model/geo/density/weights/threshold defaults).
 - District v3 Targeting Lab writes now route through runtime District bridge actions (`setTargetingField`, `applyTargetingPreset`, `resetTargetingWeights`, `runTargeting`, `exportTargetingCsv`, `exportTargetingJson`) with no per-control legacy proxy fallback in the v3 surface; only the runtime `runTargeting` action still forwards internally to legacy Census targeting execution until ACS row-cache state is bridge-accessible.
-- District bridge payload now includes a standard form/config snapshot (`view.form`) for setup/universe/ballot-topline/turnout/structure controls, including select options and disabled-state map.
-- District v3 standard control writes now route bridge-first through runtime District actions (`setFormField`, `addCandidate`) for race context, electorate, ballot topline, turnout baseline, and electorate-weighting fields; candidate-table rows and user-defined split rows still mirror the legacy ballot table for now.
 
 ## Stage dependency map (current)
 Counts below are unique legacy IDs referenced by each v3 surface.
