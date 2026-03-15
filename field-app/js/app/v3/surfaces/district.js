@@ -25,8 +25,14 @@ import {
   syncSelectValue
 } from "../surfaceUtils.js";
 import { computeUniverseAdjustedRates, normalizeUniversePercents } from "../../../core/universeLayer.js";
+import { listTargetGeoLevels, listTargetModelOptions } from "../../targetingRuntime.js";
 
 let districtLegacyCensusCard = null;
+const TARGETING_DENSITY_OPTIONS = [
+  { id: "none", label: "None" },
+  { id: "medium", label: "Medium+" },
+  { id: "high", label: "High" },
+];
 
 function resolveLegacyCensusCard() {
   if (districtLegacyCensusCard instanceof HTMLElement) {
@@ -773,6 +779,7 @@ function readRateDecimal(ids = []) {
 
 function syncDistrictTargetingLab() {
   const bridgeSnapshot = readDistrictTargetingSnapshot();
+  const targetingConfig = bridgeSnapshot?.config;
   if (bridgeSnapshot) {
     setText("v3DistrictTargetingStatus", bridgeSnapshot.statusText || "Run targeting to generate ranked GEOs.");
     setText("v3DistrictTargetingMeta", bridgeSnapshot.metaText || "No targeting run yet.");
@@ -783,12 +790,14 @@ function syncDistrictTargetingLab() {
     renderDistrictTargetingRows([]);
   }
 
-  // Keep select option lists hydrated from legacy controls, then apply bridge-selected value.
+  ensureDistrictTargetingOptionHydration(targetingConfig);
+
+  // Keep select option lists hydrated from legacy controls when available,
+  // then apply bridge-selected value to keep v3 state authoritative.
   syncSelectValue("v3DistrictTargetingGeoLevel", "targetingGeoLevel");
   syncSelectValue("v3DistrictTargetingModelId", "targetingModelId");
   syncSelectValue("v3DistrictTargetingDensityFloor", "targetingDensityFloor");
 
-  const targetingConfig = bridgeSnapshot?.config;
   if (targetingConfig && typeof targetingConfig === "object") {
     syncBridgeSelectValue("v3DistrictTargetingGeoLevel", targetingConfig.geoLevel);
     syncBridgeSelectValue("v3DistrictTargetingModelId", targetingConfig.presetId || targetingConfig.modelId);
@@ -839,6 +848,126 @@ function syncDistrictTargetingLab() {
   syncButtonDisabled("v3BtnDistrictRunTargeting", "btnRunTargeting");
   syncButtonDisabled("v3BtnDistrictExportTargetingCsv", "btnExportTargetingCsv");
   syncButtonDisabled("v3BtnDistrictExportTargetingJson", "btnExportTargetingJson");
+  syncDistrictTargetingDisabledFallback({
+    config: targetingConfig,
+    rowCount: Array.isArray(bridgeSnapshot?.rows) ? bridgeSnapshot.rows.length : 0,
+  });
+}
+
+function ensureDistrictTargetingOptionHydration(config) {
+  const geoOptions = listTargetGeoLevels().map((row) => ({
+    value: String(row?.id || "").trim(),
+    label: String(row?.label || "").trim(),
+  })).filter((row) => row.value);
+  const modelOptions = listTargetModelOptions().map((row) => ({
+    value: String(row?.id || "").trim(),
+    label: String(row?.label || "").trim(),
+  })).filter((row) => row.value);
+  const densityOptions = TARGETING_DENSITY_OPTIONS.map((row) => ({
+    value: String(row?.id || "").trim(),
+    label: String(row?.label || "").trim(),
+  })).filter((row) => row.value);
+
+  hydrateSelectOptions("v3DistrictTargetingGeoLevel", geoOptions, config?.geoLevel);
+  hydrateSelectOptions(
+    "v3DistrictTargetingModelId",
+    modelOptions,
+    config?.presetId || config?.modelId,
+  );
+  hydrateSelectOptions("v3DistrictTargetingDensityFloor", densityOptions, config?.densityFloor);
+}
+
+function hydrateSelectOptions(v3Id, options, preferredValue) {
+  const select = document.getElementById(v3Id);
+  if (!(select instanceof HTMLSelectElement)) {
+    return;
+  }
+
+  const normalized = Array.isArray(options)
+    ? options
+      .map((row) => ({
+        value: String(row?.value || "").trim(),
+        label: String(row?.label || "").trim() || String(row?.value || "").trim(),
+      }))
+      .filter((row) => !!row.value)
+    : [];
+
+  const nextPreferred = String(preferredValue == null ? "" : preferredValue).trim();
+  if (nextPreferred && !normalized.some((row) => row.value === nextPreferred)) {
+    normalized.push({ value: nextPreferred, label: nextPreferred });
+  }
+
+  const currentSignature = Array.from(select.options).map((opt) => `${opt.value}::${opt.textContent || ""}`);
+  const nextSignature = normalized.map((row) => `${row.value}::${row.label}`);
+  const needsRefresh = currentSignature.length !== nextSignature.length
+    || currentSignature.some((sig, idx) => sig !== nextSignature[idx]);
+
+  if (needsRefresh && document.activeElement !== select) {
+    const previousValue = String(select.value || "").trim();
+    select.innerHTML = "";
+    normalized.forEach((row) => {
+      const option = document.createElement("option");
+      option.value = row.value;
+      option.textContent = row.label;
+      select.appendChild(option);
+    });
+    const restoreValue = nextPreferred || previousValue;
+    if (restoreValue && Array.from(select.options).some((opt) => opt.value === restoreValue)) {
+      select.value = restoreValue;
+    }
+  }
+}
+
+function syncDistrictTargetingDisabledFallback({ config, rowCount }) {
+  const controlsLocked = !!config?.controlsLocked;
+  const canRun = config?.canRun == null ? true : !!config.canRun;
+  const canExport = config?.canExport == null ? Number(rowCount) > 0 : !!config.canExport;
+  const canResetWeights = config?.canResetWeights == null ? true : !!config.canResetWeights;
+
+  [
+    "v3DistrictTargetingGeoLevel",
+    "v3DistrictTargetingModelId",
+    "v3DistrictTargetingTopN",
+    "v3DistrictTargetingMinHousingUnits",
+    "v3DistrictTargetingMinPopulation",
+    "v3DistrictTargetingMinScore",
+    "v3DistrictTargetingOnlyRaceFootprint",
+    "v3DistrictTargetingPrioritizeYoung",
+    "v3DistrictTargetingPrioritizeRenters",
+    "v3DistrictTargetingAvoidHighMultiUnit",
+    "v3DistrictTargetingDensityFloor",
+    "v3DistrictTargetingWeightVotePotential",
+    "v3DistrictTargetingWeightTurnoutOpportunity",
+    "v3DistrictTargetingWeightPersuasionIndex",
+    "v3DistrictTargetingWeightFieldEfficiency",
+  ].forEach((id) => {
+    const el = document.getElementById(id);
+    if (
+      el instanceof HTMLInputElement
+      || el instanceof HTMLSelectElement
+      || el instanceof HTMLTextAreaElement
+      || el instanceof HTMLButtonElement
+    ) {
+      el.disabled = el.disabled || controlsLocked;
+    }
+  });
+
+  const resetBtn = document.getElementById("v3BtnDistrictTargetingResetWeights");
+  if (resetBtn instanceof HTMLButtonElement) {
+    resetBtn.disabled = resetBtn.disabled || controlsLocked || !canResetWeights;
+  }
+  const runBtn = document.getElementById("v3BtnDistrictRunTargeting");
+  if (runBtn instanceof HTMLButtonElement) {
+    runBtn.disabled = runBtn.disabled || controlsLocked || !canRun;
+  }
+  const csvBtn = document.getElementById("v3BtnDistrictExportTargetingCsv");
+  if (csvBtn instanceof HTMLButtonElement) {
+    csvBtn.disabled = csvBtn.disabled || !canExport;
+  }
+  const jsonBtn = document.getElementById("v3BtnDistrictExportTargetingJson");
+  if (jsonBtn instanceof HTMLButtonElement) {
+    jsonBtn.disabled = jsonBtn.disabled || !canExport;
+  }
 }
 
 function syncBridgeSelectValue(v3Id, value) {

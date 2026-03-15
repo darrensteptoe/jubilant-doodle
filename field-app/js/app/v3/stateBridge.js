@@ -177,6 +177,9 @@ export function readDistrictTargetingSnapshot() {
       weightPersuasionIndex: Number.isFinite(Number(config.weightPersuasionIndex)) ? Number(config.weightPersuasionIndex) : null,
       weightFieldEfficiency: Number.isFinite(Number(config.weightFieldEfficiency)) ? Number(config.weightFieldEfficiency) : null,
       controlsLocked: !!config.controlsLocked,
+      canRun: config.canRun == null ? null : !!config.canRun,
+      canExport: config.canExport == null ? null : !!config.canExport,
+      canResetWeights: config.canResetWeights == null ? null : !!config.canResetWeights,
     },
   };
 }
