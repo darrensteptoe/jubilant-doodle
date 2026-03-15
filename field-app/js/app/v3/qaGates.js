@@ -282,6 +282,19 @@ export function runV3QaSmoke({ restoreStage = true, logToConsole = true } = {}) 
           && hasNonEmpty(summary.persuasionNeedText)
         )
       );
+      const districtForm = districtView?.form || {};
+      const districtFormValues = districtForm?.values || {};
+      const districtFormOptions = districtForm?.options || {};
+      recordCheck(
+        checks,
+        "district:bridge-form-config",
+        isTruthy(
+          hasNonEmpty(districtFormValues.raceType)
+          && Object.prototype.hasOwnProperty.call(districtFormValues, "universeSize")
+          && Array.isArray(districtFormOptions.raceTypeOptions)
+          && Array.isArray(districtFormOptions.yourCandidateOptions)
+        )
+      );
       const targeting = districtView?.targeting || {};
       const targetingConfig = targeting?.config || {};
       recordCheck(
@@ -298,6 +311,8 @@ export function runV3QaSmoke({ restoreStage = true, logToConsole = true } = {}) 
         checks,
         "district:bridge-targeting-actions",
         isTruthy(
+          typeof districtApi.setFormField === "function"
+          && typeof districtApi.addCandidate === "function"
           typeof districtApi.setTargetingField === "function"
           && typeof districtApi.applyTargetingPreset === "function"
           && typeof districtApi.resetTargetingWeights === "function"

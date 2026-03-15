@@ -132,6 +132,14 @@ export function setDistrictTargetingField(field, value) {
   return callDistrictBridge("setTargetingField", field, value);
 }
 
+export function setDistrictFormField(field, value) {
+  return callDistrictBridge("setFormField", field, value);
+}
+
+export function addDistrictCandidate() {
+  return callDistrictBridge("addCandidate");
+}
+
 export function applyDistrictTargetingPreset(modelId) {
   return callDistrictBridge("applyTargetingPreset", modelId);
 }
@@ -170,6 +178,59 @@ export function readDistrictSnapshot() {
     votesPer1pct: !isMissingValue(bridgeSummary?.votesPer1pct) ? bridgeSummary.votesPer1pct : (votesPer1pctFallback || "-"),
     projectedVotes: !isMissingValue(bridgeSummary?.projectedVotes) ? bridgeSummary.projectedVotes : (projectedVotesFallback || "-"),
     persuasionNeed: !isMissingValue(bridgeSummary?.persuasionNeed) ? bridgeSummary.persuasionNeed : (persuasionNeedFallback || "-")
+  };
+}
+
+export function readDistrictFormSnapshot() {
+  const view = readDistrictBridgeView();
+  const form = view?.form;
+  if (!form || typeof form !== "object") {
+    return null;
+  }
+
+  const normalizeOptions = (rows = []) =>
+    (Array.isArray(rows) ? rows : [])
+      .map((row) => ({
+        value: String(row?.value || "").trim(),
+        label: String(row?.label || row?.value || "").trim(),
+      }))
+      .filter((row) => row.value || row.label);
+
+  return {
+    values: {
+      raceType: String(form?.values?.raceType || "").trim(),
+      electionDate: String(form?.values?.electionDate || "").trim(),
+      weeksRemaining: String(form?.values?.weeksRemaining ?? "").trim(),
+      mode: String(form?.values?.mode || "").trim(),
+      universeSize: String(form?.values?.universeSize ?? "").trim(),
+      universeBasis: String(form?.values?.universeBasis || "").trim(),
+      sourceNote: String(form?.values?.sourceNote || "").trim(),
+      yourCandidateId: String(form?.values?.yourCandidateId || "").trim(),
+      undecidedPct: String(form?.values?.undecidedPct ?? "").trim(),
+      undecidedMode: String(form?.values?.undecidedMode || "").trim(),
+      turnoutA: String(form?.values?.turnoutA ?? "").trim(),
+      turnoutB: String(form?.values?.turnoutB ?? "").trim(),
+      bandWidth: String(form?.values?.bandWidth ?? "").trim(),
+      universeLayerEnabled: !!form?.values?.universeLayerEnabled,
+      universeDemPct: String(form?.values?.universeDemPct ?? "").trim(),
+      universeRepPct: String(form?.values?.universeRepPct ?? "").trim(),
+      universeNpaPct: String(form?.values?.universeNpaPct ?? "").trim(),
+      universeOtherPct: String(form?.values?.universeOtherPct ?? "").trim(),
+      retentionFactor: String(form?.values?.retentionFactor ?? "").trim(),
+    },
+    options: {
+      raceTypeOptions: normalizeOptions(form?.options?.raceTypeOptions),
+      modeOptions: normalizeOptions(form?.options?.modeOptions),
+      universeBasisOptions: normalizeOptions(form?.options?.universeBasisOptions),
+      undecidedModeOptions: normalizeOptions(form?.options?.undecidedModeOptions),
+      yourCandidateOptions: normalizeOptions(form?.options?.yourCandidateOptions),
+    },
+    disabledMap: Object.fromEntries(
+      Object.entries(form?.disabledMap && typeof form.disabledMap === "object" ? form.disabledMap : {})
+        .filter(([, value]) => typeof value === "boolean"),
+    ),
+    controlsLocked: !!form?.controlsLocked,
+    candidateCount: Number.isFinite(Number(form?.candidateCount)) ? Number(form.candidateCount) : 0,
   };
 }
 
