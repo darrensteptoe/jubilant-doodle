@@ -2761,6 +2761,17 @@ function districtBridgeBuildSelectOptions(values, { selected = "", placeholder =
   return out;
 }
 
+function districtBridgeReadLegacySelectOptions(id){
+  const el = document.getElementById(id);
+  if (!(el instanceof HTMLSelectElement)) return [];
+  return Array.from(el.options || [])
+    .map((opt) => ({
+      value: String(opt?.value || "").trim(),
+      label: String(opt?.textContent || opt?.label || opt?.value || "").trim(),
+    }))
+    .filter((row) => !!row.value);
+}
+
 function districtBridgeBuildCensusConfigOptions(censusState){
   const census = censusState && typeof censusState === "object" ? censusState : {};
   const geoRowsRaw = Array.isArray(census.geoOptions) ? census.geoOptions : [];
@@ -2784,34 +2795,50 @@ function districtBridgeBuildCensusConfigOptions(censusState){
       .filter((id) => !!id),
   );
 
+  const legacyStateOptions = districtBridgeReadLegacySelectOptions("censusStateFips");
+  const legacyCountyOptions = districtBridgeReadLegacySelectOptions("censusCountyFips");
+  const legacyPlaceOptions = districtBridgeReadLegacySelectOptions("censusPlaceFips");
+  const legacyTractFilterOptions = districtBridgeReadLegacySelectOptions("censusTractFilter");
+  const legacySelectionSetOptions = districtBridgeReadLegacySelectOptions("censusSelectionSetSelect");
+
   const stateOptions = districtBridgeBuildSelectOptions(
-    geoRows.map((row) => ({
-      value: row.state,
-      label: row.state,
-    })),
+    legacyStateOptions.length
+      ? legacyStateOptions
+      : geoRows.map((row) => ({
+        value: row.state,
+        label: row.state,
+      })),
     { selected: census.stateFips, placeholder: "Select state" },
   );
   const countyOptions = districtBridgeBuildSelectOptions(
-    geoRows
-      .filter((row) => !census.stateFips || row.state === String(census.stateFips || "").trim())
-      .map((row) => ({ value: row.county, label: row.county })),
+    legacyCountyOptions.length
+      ? legacyCountyOptions
+      : geoRows
+        .filter((row) => !census.stateFips || row.state === String(census.stateFips || "").trim())
+        .map((row) => ({ value: row.county, label: row.county })),
     { selected: census.countyFips, placeholder: "Select county" },
   );
   const placeOptions = districtBridgeBuildSelectOptions(
-    geoRows
-      .filter((row) => !census.stateFips || row.state === String(census.stateFips || "").trim())
-      .map((row) => ({ value: row.place, label: row.place })),
+    legacyPlaceOptions.length
+      ? legacyPlaceOptions
+      : geoRows
+        .filter((row) => !census.stateFips || row.state === String(census.stateFips || "").trim())
+        .map((row) => ({ value: row.place, label: row.place })),
     { selected: census.placeFips, placeholder: "Select place" },
   );
   const tractFilterOptions = districtBridgeBuildSelectOptions(
-    geoRows.map((row) => ({ value: row.tract, label: row.tract })),
+    legacyTractFilterOptions.length
+      ? legacyTractFilterOptions
+      : geoRows.map((row) => ({ value: row.tract, label: row.tract })),
     { selected: census.tractFilter, placeholder: "All tracts" },
   );
   const selectionSetOptions = districtBridgeBuildSelectOptions(
-    (Array.isArray(census.selectionSets) ? census.selectionSets : []).map((row, idx) => ({
-      value: String(idx),
-      label: `${String(row?.name || "").trim()} · ${String(row?.resolution || "").trim()} · ${Array.isArray(row?.geoids) ? row.geoids.length : 0} GEO`,
-    })),
+    legacySelectionSetOptions.length
+      ? legacySelectionSetOptions
+      : (Array.isArray(census.selectionSets) ? census.selectionSets : []).map((row, idx) => ({
+        value: String(idx),
+        label: `${String(row?.name || "").trim()} · ${String(row?.resolution || "").trim()} · ${Array.isArray(row?.geoids) ? row.geoids.length : 0} GEO`,
+      })),
     { selected: census.selectedSelectionSetKey, placeholder: "Saved sets" },
   );
 
