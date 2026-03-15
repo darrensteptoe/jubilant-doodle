@@ -2918,6 +2918,21 @@ function districtBridgeStateView(){
     aggregateRows: districtBridgeReadLegacyTableRows("#censusAggregateTbody", 2),
     advisoryRows: districtBridgeReadLegacyTableRows("#censusAdvisoryTbody", 2),
     electionPreviewRows: districtBridgeReadLegacyTableRows("#censusElectionCsvPreviewTbody", 4),
+    config: {
+      year: String(censusState?.year || "").trim(),
+      resolution: String(censusState?.resolution || "").trim(),
+      stateFips: String(censusState?.stateFips || "").trim(),
+      countyFips: String(censusState?.countyFips || "").trim(),
+      placeFips: String(censusState?.placeFips || "").trim(),
+      metricSet: String(censusState?.metricSet || "").trim(),
+      geoSearch: String(censusState?.geoSearch || "").trim(),
+      tractFilter: String(censusState?.tractFilter || "").trim(),
+      selectionSetDraftName: String(censusState?.selectionSetDraftName || "").trim(),
+      selectedSelectionSetKey: String(censusState?.selectedSelectionSetKey || "").trim(),
+      applyAdjustedAssumptions: !!censusState?.applyAdjustedAssumptions,
+      mapQaVtdOverlay: !!censusState?.mapQaVtdOverlay,
+      controlsLocked: isScenarioLockedForEdits(currentState),
+    },
   };
 
   return {
