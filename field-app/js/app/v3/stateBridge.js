@@ -204,6 +204,21 @@ export function readDistrictCensusSnapshot() {
   };
 
   return {
+    config: {
+      year: String(census?.config?.year || "").trim(),
+      resolution: String(census?.config?.resolution || "").trim(),
+      stateFips: String(census?.config?.stateFips || "").trim(),
+      countyFips: String(census?.config?.countyFips || "").trim(),
+      placeFips: String(census?.config?.placeFips || "").trim(),
+      metricSet: String(census?.config?.metricSet || "").trim(),
+      geoSearch: String(census?.config?.geoSearch || "").trim(),
+      tractFilter: String(census?.config?.tractFilter || "").trim(),
+      selectionSetDraftName: String(census?.config?.selectionSetDraftName || "").trim(),
+      selectedSelectionSetKey: String(census?.config?.selectedSelectionSetKey || "").trim(),
+      applyAdjustedAssumptions: !!census?.config?.applyAdjustedAssumptions,
+      mapQaVtdOverlay: !!census?.config?.mapQaVtdOverlay,
+      controlsLocked: !!census?.config?.controlsLocked,
+    },
     contextHint: String(census.contextHint || "").trim(),
     selectionSetStatus: String(census.selectionSetStatus || "").trim(),
     statusText: String(census.statusText || "").trim(),

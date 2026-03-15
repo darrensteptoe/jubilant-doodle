@@ -26,6 +26,7 @@ import {
 } from "../surfaceUtils.js";
 import { computeUniverseAdjustedRates, normalizeUniversePercents } from "../../../core/universeLayer.js";
 import { listTargetGeoLevels, listTargetModelOptions } from "../../targetingRuntime.js";
+import { listAcsYears, listMetricSetOptions, listResolutionOptions } from "../../../core/censusModule.js";
 
 let districtLegacyCensusCard = null;
 const TARGETING_DENSITY_OPTIONS = [
@@ -1426,6 +1427,8 @@ function bindDistrictCensusProxies() {
 
 function syncDistrictCensusProxy() {
   const bridgeSnapshot = readDistrictCensusSnapshot();
+  const censusConfig = bridgeSnapshot?.config;
+  ensureDistrictCensusStaticOptionHydration();
   syncLegacyOrBridgeText({
     v3Id: "v3CensusContextHint",
     bridgeText: bridgeSnapshot?.contextHint,
@@ -1524,6 +1527,21 @@ function syncDistrictCensusProxy() {
   syncCheckboxValue("v3CensusMapQaVtdToggle", "censusMapQaVtdToggle");
   syncMultiSelectProxy("v3CensusGeoSelect", "censusGeoSelect");
 
+  if (censusConfig && typeof censusConfig === "object") {
+    syncBridgeSelectValue("v3CensusAcsYear", censusConfig.year);
+    syncBridgeSelectValue("v3CensusResolution", censusConfig.resolution);
+    syncBridgeSelectValue("v3CensusStateFips", censusConfig.stateFips);
+    syncBridgeSelectValue("v3CensusCountyFips", censusConfig.countyFips);
+    syncBridgeSelectValue("v3CensusPlaceFips", censusConfig.placeFips);
+    syncBridgeSelectValue("v3CensusMetricSet", censusConfig.metricSet);
+    syncBridgeSelectValue("v3CensusTractFilter", censusConfig.tractFilter);
+    syncBridgeSelectValue("v3CensusSelectionSetSelect", censusConfig.selectedSelectionSetKey);
+    syncBridgeFieldValue("v3CensusGeoSearch", censusConfig.geoSearch);
+    syncBridgeFieldValue("v3CensusSelectionSetName", censusConfig.selectionSetDraftName);
+    syncBridgeCheckboxValue("v3CensusApplyAdjustmentsToggle", censusConfig.applyAdjustedAssumptions);
+    syncBridgeCheckboxValue("v3CensusMapQaVtdToggle", censusConfig.mapQaVtdOverlay);
+  }
+
   syncControlDisabled("v3CensusApiKey", "censusApiKey");
   syncControlDisabled("v3CensusAcsYear", "censusAcsYear");
   syncControlDisabled("v3CensusResolution", "censusResolution");
@@ -1562,6 +1580,7 @@ function syncDistrictCensusProxy() {
   syncButtonDisabled("v3BtnCensusLoadMap", "btnCensusLoadMap");
   syncButtonDisabled("v3BtnCensusClearMap", "btnCensusClearMap");
   syncButtonDisabled("v3BtnCensusMapQaVtdZipClear", "btnCensusMapQaVtdZipClear");
+  syncDistrictCensusDisabledFallback(censusConfig);
 
   renderDistrictCensusTableRows({
     targetBodyId: "v3CensusAggregateTbody",
@@ -1583,6 +1602,80 @@ function syncDistrictCensusProxy() {
     expectedCols: 4,
     emptyLabel: "No dry-run preview yet.",
     numericColumns: [2, 3]
+  });
+}
+
+function ensureDistrictCensusStaticOptionHydration() {
+  const yearOptions = listAcsYears().map((year) => ({
+    value: String(year || "").trim(),
+    label: String(year || "").trim(),
+  })).filter((row) => row.value);
+  const resolutionOptions = listResolutionOptions().map((row) => ({
+    value: String(row?.id || "").trim(),
+    label: String(row?.label || row?.id || "").trim(),
+  })).filter((row) => row.value);
+  const metricSetOptions = listMetricSetOptions().map((row) => ({
+    value: String(row?.id || "").trim(),
+    label: String(row?.label || row?.id || "").trim(),
+  })).filter((row) => row.value);
+
+  hydrateSelectOptions("v3CensusAcsYear", yearOptions);
+  hydrateSelectOptions("v3CensusResolution", resolutionOptions);
+  hydrateSelectOptions("v3CensusMetricSet", metricSetOptions);
+}
+
+function syncDistrictCensusDisabledFallback(config) {
+  const controlsLocked = !!config?.controlsLocked;
+  if (!controlsLocked) {
+    return;
+  }
+  [
+    "v3CensusAcsYear",
+    "v3CensusResolution",
+    "v3CensusStateFips",
+    "v3CensusCountyFips",
+    "v3CensusPlaceFips",
+    "v3CensusMetricSet",
+    "v3CensusGeoSearch",
+    "v3CensusTractFilter",
+    "v3CensusGeoPaste",
+    "v3CensusSelectionSetName",
+    "v3CensusSelectionSetSelect",
+    "v3CensusApplyAdjustmentsToggle",
+    "v3CensusElectionCsvFile",
+    "v3CensusElectionCsvPrecinctFilter",
+    "v3CensusMapQaVtdToggle",
+    "v3CensusMapQaVtdZip",
+    "v3CensusGeoSelect",
+    "v3BtnCensusLoadGeo",
+    "v3BtnCensusFetchRows",
+    "v3BtnCensusApplyGeoPaste",
+    "v3BtnCensusSelectAll",
+    "v3BtnCensusClearSelection",
+    "v3BtnCensusSaveSelectionSet",
+    "v3BtnCensusLoadSelectionSet",
+    "v3BtnCensusDeleteSelectionSet",
+    "v3BtnCensusExportAggregateCsv",
+    "v3BtnCensusExportAggregateJson",
+    "v3BtnCensusSetRaceFootprint",
+    "v3BtnCensusClearRaceFootprint",
+    "v3BtnCensusDownloadElectionCsvTemplate",
+    "v3BtnCensusDownloadElectionCsvWideTemplate",
+    "v3BtnCensusElectionCsvDryRun",
+    "v3BtnCensusElectionCsvClear",
+    "v3BtnCensusLoadMap",
+    "v3BtnCensusClearMap",
+    "v3BtnCensusMapQaVtdZipClear",
+  ].forEach((id) => {
+    const el = document.getElementById(id);
+    if (
+      el instanceof HTMLInputElement
+      || el instanceof HTMLSelectElement
+      || el instanceof HTMLTextAreaElement
+      || el instanceof HTMLButtonElement
+    ) {
+      el.disabled = el.disabled || controlsLocked;
+    }
   });
 }
 
