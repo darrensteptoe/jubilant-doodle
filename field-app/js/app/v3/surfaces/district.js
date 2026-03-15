@@ -987,8 +987,8 @@ function bindDistrictTargetingBridge() {
   bindDistrictTargetingField("v3DistrictTargetingWeightFieldEfficiency", "weightFieldEfficiency");
   bindDistrictTargetingAction("v3BtnDistrictTargetingResetWeights", () => resetDistrictTargetingWeights());
   bindDistrictTargetingAction("v3BtnDistrictRunTargeting", () => runDistrictTargeting());
-  bindDistrictTargetingAction("v3BtnDistrictExportTargetingCsv", () => exportDistrictTargetingCsv());
-  bindDistrictTargetingAction("v3BtnDistrictExportTargetingJson", () => exportDistrictTargetingJson());
+  bindDistrictTargetingAction("v3BtnDistrictExportTargetingCsv", () => exportDistrictTargetingCsv(), "btnExportTargetingCsv");
+  bindDistrictTargetingAction("v3BtnDistrictExportTargetingJson", () => exportDistrictTargetingJson(), "btnExportTargetingJson");
 }
 
 function bindDistrictTargetingSelect(v3Id, field) {
@@ -1038,7 +1038,7 @@ function bindDistrictTargetingCheckbox(v3Id, field) {
   });
 }
 
-function bindDistrictTargetingAction(v3Id, action) {
+function bindDistrictTargetingAction(v3Id, action, legacyId = "") {
   const button = document.getElementById(v3Id);
   if (!(button instanceof HTMLButtonElement) || button.dataset.v3TargetingBound === "1") {
     return;
@@ -1046,9 +1046,19 @@ function bindDistrictTargetingAction(v3Id, action) {
   button.dataset.v3TargetingBound = "1";
   button.addEventListener("click", () => {
     if (typeof action === "function") {
-      action();
+      const result = action();
+      if (legacyId && (!result || result.ok === false)) {
+        fallbackLegacyClick(legacyId);
+      }
     }
   });
+}
+
+function fallbackLegacyClick(id) {
+  const legacy = document.getElementById(id);
+  if (legacy && typeof legacy.click === "function") {
+    legacy.click();
+  }
 }
 
 function syncBridgeSelectValue(v3Id, value) {
