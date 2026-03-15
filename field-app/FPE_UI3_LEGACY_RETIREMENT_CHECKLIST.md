@@ -147,6 +147,8 @@ Reference artifact:
 - District v3 Census/Targeting status + table rendering now uses bridge-only payload/default fallbacks (no direct v3 fallback reads of legacy `#targetingStatus/#targetingMeta/#targetingResultsTbody` or `#census*Status/#census*Tbody` selectors).
 - District targeting control value sync in v3 now resolves from runtime District bridge config (`window.__FPE_DISTRICT_API__.getView().targeting.config`) with compatibility fallback, reducing direct v3 reads of legacy `#targeting*` value selectors.
 - Targeting model behavior now uses preset bundles (`applyTargetModelPreset`) so model selection updates weights/thresholds/filters in state and v3 mirrors immediately (no longer model-label-only behavior).
+- District Targeting Lab select controls (`geo/model/density`) now hydrate from runtime targeting option lists in v3 first (legacy option mirrors optional), removing a silent dependency on legacy select-option population.
+- District targeting bridge config now includes `canRun/canExport/canResetWeights` guard flags so v3 button disable state remains correct even if legacy targeting control nodes are absent.
 - District bridge Census status lines (`context/selection/status/geo-stats/last-fetch/footprint/provenance/capacity/apply-adjustments`) now derive state-first from runtime Census + footprint state, reducing direct reliance on legacy `#census*Status` text mirrors.
 
 ## Stage dependency map (current)
