@@ -132,6 +132,22 @@ export function setDistrictTargetingField(field, value) {
   return callDistrictBridge("setTargetingField", field, value);
 }
 
+export function addDistrictCandidate() {
+  return callDistrictBridge("addCandidate");
+}
+
+export function setDistrictCandidateField(candidateId, field, value) {
+  return callDistrictBridge("setCandidateField", candidateId, field, value);
+}
+
+export function removeDistrictCandidate(candidateId) {
+  return callDistrictBridge("removeCandidate", candidateId);
+}
+
+export function setDistrictUserSplitField(candidateId, value) {
+  return callDistrictBridge("setUserSplitField", candidateId, value);
+}
+
 export function applyDistrictTargetingPreset(modelId) {
   return callDistrictBridge("applyTargetingPreset", modelId);
 }

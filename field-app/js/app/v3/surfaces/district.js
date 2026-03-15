@@ -10,6 +10,10 @@ import {
   readDistrictSnapshot,
   readDistrictTargetingSnapshot,
   readDistrictCensusSnapshot,
+  addDistrictCandidate,
+  setDistrictCandidateField,
+  removeDistrictCandidate,
+  setDistrictUserSplitField,
   setDistrictTargetingField,
   applyDistrictTargetingPreset,
   resetDistrictTargetingWeights,
@@ -441,7 +445,7 @@ export function renderDistrictSurface(mount) {
   frame.append(main);
   mount.append(frame);
 
-  bindClickProxy("v3BtnAddCandidate", "btnAddCandidate");
+  bindDistrictBallotAddCandidate("v3BtnAddCandidate");
   bindSelectProxy("v3DistrictYourCandidate", "yourCandidate");
   bindFieldProxy("v3DistrictUndecidedPct", "undecidedPct");
   bindSelectProxy("v3DistrictUndecidedMode", "undecidedMode");
@@ -562,6 +566,11 @@ function syncDistrictCandidateTable() {
     nameInput.disabled = nameSource instanceof HTMLInputElement ? !!nameSource.disabled : true;
     if (nameSource instanceof HTMLInputElement) {
       nameInput.addEventListener("input", () => {
+        const result = setDistrictCandidateField(resolveCandidateRowId(sourceRow), "name", nameInput.value);
+        if (result?.ok) {
+          syncDistrictBallotBaseline();
+          return;
+        }
         nameSource.value = nameInput.value;
         dispatchLegacyInput(nameSource);
       });
@@ -580,6 +589,11 @@ function syncDistrictCandidateTable() {
     pctInput.disabled = pctSource instanceof HTMLInputElement ? !!pctSource.disabled : true;
     if (pctSource instanceof HTMLInputElement) {
       pctInput.addEventListener("input", () => {
+        const result = setDistrictCandidateField(resolveCandidateRowId(sourceRow), "supportPct", pctInput.value);
+        if (result?.ok) {
+          syncDistrictBallotBaseline();
+          return;
+        }
         pctSource.value = pctInput.value;
         dispatchLegacyInput(pctSource);
       });
@@ -598,6 +612,11 @@ function syncDistrictCandidateTable() {
     removeBtn.disabled = !(removeSource instanceof HTMLButtonElement) || !!removeSource.disabled;
     if (removeSource instanceof HTMLButtonElement) {
       removeBtn.addEventListener("click", () => {
+        const result = removeDistrictCandidate(resolveCandidateRowId(sourceRow));
+        if (result?.ok) {
+          syncDistrictBallotBaseline();
+          return;
+        }
         removeSource.click();
       });
     }
@@ -672,6 +691,11 @@ function syncDistrictUserSplitTable() {
     input.value = inputSource.value || "";
     input.disabled = !!inputSource.disabled;
     input.addEventListener("input", () => {
+      const result = setDistrictUserSplitField(resolveUserSplitCandidateId(sourceRow), input.value);
+      if (result?.ok) {
+        syncDistrictBallotBaseline();
+        return;
+      }
       inputSource.value = input.value;
       dispatchLegacyInput(inputSource);
     });
@@ -700,6 +724,59 @@ function dispatchLegacyInput(node) {
   }
   node.dispatchEvent(new Event("input", { bubbles: true }));
   node.dispatchEvent(new Event("change", { bubbles: true }));
+}
+
+function bindDistrictBallotAddCandidate(v3Id) {
+  const button = document.getElementById(v3Id);
+  if (!(button instanceof HTMLButtonElement) || button.dataset.v3BallotBound === "1") {
+    return;
+  }
+  button.dataset.v3BallotBound = "1";
+  button.addEventListener("click", () => {
+    const result = addDistrictCandidate();
+    if (result?.ok) {
+      syncDistrictBallotBaseline();
+      return;
+    }
+    fallbackLegacyClick("btnAddCandidate");
+  });
+}
+
+function resolveCandidateRowId(sourceRow) {
+  if (!(sourceRow instanceof HTMLTableRowElement)) {
+    return "";
+  }
+  const rows = Array.from(sourceRow.parentElement?.querySelectorAll(":scope > tr") || []);
+  const rowIndex = rows.indexOf(sourceRow);
+  const legacyRows = Array.from(document.querySelectorAll("#candTbody > tr"));
+  const legacyRow = rowIndex >= 0 ? legacyRows[rowIndex] : null;
+  const yourCandidate = document.getElementById("yourCandidate");
+  if (yourCandidate instanceof HTMLSelectElement && rowIndex >= 0) {
+    const option = yourCandidate.options[rowIndex];
+    if (option?.value) {
+      return String(option.value).trim();
+    }
+  }
+  const removeBtn = legacyRow?.querySelector("td:nth-child(3) button");
+  const buttonOnclick = String(removeBtn?.getAttribute("onclick") || "");
+  const match = buttonOnclick.match(/['"]([^'"]+)['"]/);
+  return String(match?.[1] || "").trim();
+}
+
+function resolveUserSplitCandidateId(sourceRow) {
+  if (!(sourceRow instanceof HTMLElement)) {
+    return "";
+  }
+  const rows = Array.from(sourceRow.parentElement?.children || []);
+  const rowIndex = rows.indexOf(sourceRow);
+  const yourCandidate = document.getElementById("yourCandidate");
+  if (yourCandidate instanceof HTMLSelectElement && rowIndex >= 0) {
+    const option = yourCandidate.options[rowIndex];
+    if (option?.value) {
+      return String(option.value).trim();
+    }
+  }
+  return "";
 }
 
 function syncDistrictStructureDerived() {
@@ -985,7 +1062,9 @@ function bindDistrictTargetingBridge() {
   bindDistrictTargetingField("v3DistrictTargetingWeightTurnoutOpportunity", "weightTurnoutOpportunity");
   bindDistrictTargetingField("v3DistrictTargetingWeightPersuasionIndex", "weightPersuasionIndex");
   bindDistrictTargetingField("v3DistrictTargetingWeightFieldEfficiency", "weightFieldEfficiency");
-  bindDistrictTargetingAction("v3BtnDistrictTargetingResetWeights", () => resetDistrictTargetingWeights());
+  bindDistrictTargetingAction("v3BtnDistrictTargetingResetWeights", () => resetDistrictTargetingWeights(), "", {
+    syncTargeting: true,
+  });
   bindDistrictTargetingAction("v3BtnDistrictRunTargeting", () => runDistrictTargeting());
   bindDistrictTargetingAction("v3BtnDistrictExportTargetingCsv", () => exportDistrictTargetingCsv(), "btnExportTargetingCsv");
   bindDistrictTargetingAction("v3BtnDistrictExportTargetingJson", () => exportDistrictTargetingJson(), "btnExportTargetingJson");
@@ -1009,7 +1088,10 @@ function bindDistrictTargetingModelSelect(v3Id) {
   }
   control.dataset.v3TargetingBound = "1";
   control.addEventListener("change", () => {
-    applyDistrictTargetingPreset(control.value);
+    const result = applyDistrictTargetingPreset(control.value);
+    if (result?.ok) {
+      syncDistrictTargetingLab();
+    }
   });
 }
 
@@ -1038,7 +1120,7 @@ function bindDistrictTargetingCheckbox(v3Id, field) {
   });
 }
 
-function bindDistrictTargetingAction(v3Id, action, legacyId = "") {
+function bindDistrictTargetingAction(v3Id, action, legacyId = "", opts = {}) {
   const button = document.getElementById(v3Id);
   if (!(button instanceof HTMLButtonElement) || button.dataset.v3TargetingBound === "1") {
     return;
@@ -1047,6 +1129,9 @@ function bindDistrictTargetingAction(v3Id, action, legacyId = "") {
   button.addEventListener("click", () => {
     if (typeof action === "function") {
       const result = action();
+      if (opts?.syncTargeting && result?.ok) {
+        syncDistrictTargetingLab();
+      }
       if (legacyId && (!result || result.ok === false)) {
         fallbackLegacyClick(legacyId);
       }
