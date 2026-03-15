@@ -491,7 +491,14 @@ function syncTurnoutSelectOptions(id, options, selectedValue) {
   if (document.activeElement === select) {
     return;
   }
-  select.value = selectedValue == null ? "" : String(selectedValue);
+  const wanted = selectedValue == null ? "" : String(selectedValue);
+  if (wanted && !Array.from(select.options).some((option) => option.value === wanted)) {
+    const extra = document.createElement("option");
+    extra.value = wanted;
+    extra.textContent = wanted;
+    select.appendChild(extra);
+  }
+  select.value = wanted;
 }
 
 function setTurnoutControlDisabled(id, disabled) {

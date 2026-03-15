@@ -40,7 +40,7 @@ export function renderV3Shell(root) {
       <header class="fpe-topbar">
         <div class="fpe-topbar__brand">
           <span class="fpe-brand">Steptoe Strategic Media LLC Campaign Engine</span>
-          <span class="fpe-build">UI 3.0</span>
+          <span class="fpe-build" id="v3BuildStamp">UI 3.0</span>
         </div>
         <div class="fpe-topbar__actions">
           <button

@@ -619,6 +619,12 @@ function syncSelectOptions(id, options, selectedValue) {
   }
 
   const wanted = selectedValue == null ? "" : String(selectedValue);
+  if (wanted && !Array.from(el.options).some((opt) => opt.value === wanted)) {
+    const option = document.createElement("option");
+    option.value = wanted;
+    option.textContent = wanted;
+    el.appendChild(option);
+  }
   if (el.value !== wanted) {
     el.value = wanted;
   }

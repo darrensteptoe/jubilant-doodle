@@ -677,7 +677,14 @@ function syncSelect(id, rows, value, valueKey = "id", labelKey = "name") {
   }
 
   if (document.activeElement !== el) {
-    el.value = String(value ?? "");
+    const wanted = String(value ?? "");
+    if (wanted && !Array.from(el.options).some((opt) => opt.value === wanted)) {
+      const opt = document.createElement("option");
+      opt.value = wanted;
+      opt.textContent = wanted;
+      el.appendChild(opt);
+    }
+    el.value = wanted;
   }
 }
 

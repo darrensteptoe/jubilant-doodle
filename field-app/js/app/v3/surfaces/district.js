@@ -978,9 +978,20 @@ function syncBridgeSelectValue(v3Id, value) {
   }
   const next = String(value == null ? "" : value).trim();
   if (!next) {
+    const hasEmptyOption = Array.from(v3.options).some((option) => option.value === "");
+    if (hasEmptyOption) {
+      v3.value = "";
+    }
     return;
   }
-  const hasOption = Array.from(v3.options).some((option) => option.value === next);
+  let hasOption = Array.from(v3.options).some((option) => option.value === next);
+  if (!hasOption) {
+    const option = document.createElement("option");
+    option.value = next;
+    option.textContent = next;
+    v3.appendChild(option);
+    hasOption = true;
+  }
   if (hasOption) {
     v3.value = next;
   }
@@ -991,10 +1002,7 @@ function syncBridgeFieldValue(v3Id, value) {
   if (!(v3 instanceof HTMLInputElement || v3 instanceof HTMLTextAreaElement) || document.activeElement === v3) {
     return;
   }
-  if (value == null || value === "") {
-    return;
-  }
-  v3.value = String(value);
+  v3.value = String(value == null ? "" : value);
 }
 
 function syncBridgeCheckboxValue(v3Id, value) {
