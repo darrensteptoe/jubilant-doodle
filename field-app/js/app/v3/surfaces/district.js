@@ -834,25 +834,6 @@ function syncDistrictTargetingLab() {
     syncBridgeFieldValue("v3DistrictTargetingWeightFieldEfficiency", TARGETING_BRIDGE_DEFAULTS.weightFieldEfficiency);
   }
 
-  syncControlDisabled("v3DistrictTargetingGeoLevel", "targetingGeoLevel");
-  syncControlDisabled("v3DistrictTargetingModelId", "targetingModelId");
-  syncControlDisabled("v3DistrictTargetingTopN", "targetingTopN");
-  syncControlDisabled("v3DistrictTargetingMinHousingUnits", "targetingMinHousingUnits");
-  syncControlDisabled("v3DistrictTargetingMinPopulation", "targetingMinPopulation");
-  syncControlDisabled("v3DistrictTargetingMinScore", "targetingMinScore");
-  syncControlDisabled("v3DistrictTargetingOnlyRaceFootprint", "targetingOnlyRaceFootprint");
-  syncControlDisabled("v3DistrictTargetingPrioritizeYoung", "targetingPrioritizeYoung");
-  syncControlDisabled("v3DistrictTargetingPrioritizeRenters", "targetingPrioritizeRenters");
-  syncControlDisabled("v3DistrictTargetingAvoidHighMultiUnit", "targetingAvoidHighMultiUnit");
-  syncControlDisabled("v3DistrictTargetingDensityFloor", "targetingDensityFloor");
-  syncControlDisabled("v3DistrictTargetingWeightVotePotential", "targetingWeightVotePotential");
-  syncControlDisabled("v3DistrictTargetingWeightTurnoutOpportunity", "targetingWeightTurnoutOpportunity");
-  syncControlDisabled("v3DistrictTargetingWeightPersuasionIndex", "targetingWeightPersuasionIndex");
-  syncControlDisabled("v3DistrictTargetingWeightFieldEfficiency", "targetingWeightFieldEfficiency");
-  syncButtonDisabled("v3BtnDistrictTargetingResetWeights", "btnTargetingResetWeights");
-  syncButtonDisabled("v3BtnDistrictRunTargeting", "btnRunTargeting");
-  syncButtonDisabled("v3BtnDistrictExportTargetingCsv", "btnExportTargetingCsv");
-  syncButtonDisabled("v3BtnDistrictExportTargetingJson", "btnExportTargetingJson");
   syncDistrictTargetingDisabledFallback({
     config: targetingConfig,
     rowCount: Array.isArray(bridgeSnapshot?.rows) ? bridgeSnapshot.rows.length : 0,
@@ -928,6 +909,7 @@ function syncDistrictTargetingDisabledFallback({ config, rowCount }) {
   const canRun = config?.canRun == null ? true : !!config.canRun;
   const canExport = config?.canExport == null ? Number(rowCount) > 0 : !!config.canExport;
   const canResetWeights = config?.canResetWeights == null ? true : !!config.canResetWeights;
+  const weightsDisabled = controlsLocked || !canResetWeights;
 
   [
     "v3DistrictTargetingGeoLevel",
@@ -953,79 +935,85 @@ function syncDistrictTargetingDisabledFallback({ config, rowCount }) {
       || el instanceof HTMLTextAreaElement
       || el instanceof HTMLButtonElement
     ) {
-      el.disabled = el.disabled || controlsLocked;
+      el.disabled = controlsLocked;
+    }
+  });
+
+  [
+    "v3DistrictTargetingWeightVotePotential",
+    "v3DistrictTargetingWeightTurnoutOpportunity",
+    "v3DistrictTargetingWeightPersuasionIndex",
+    "v3DistrictTargetingWeightFieldEfficiency",
+  ].forEach((id) => {
+    const el = document.getElementById(id);
+    if (el instanceof HTMLInputElement) {
+      el.disabled = weightsDisabled;
     }
   });
 
   const resetBtn = document.getElementById("v3BtnDistrictTargetingResetWeights");
   if (resetBtn instanceof HTMLButtonElement) {
-    resetBtn.disabled = resetBtn.disabled || controlsLocked || !canResetWeights;
+    resetBtn.disabled = weightsDisabled;
   }
   const runBtn = document.getElementById("v3BtnDistrictRunTargeting");
   if (runBtn instanceof HTMLButtonElement) {
-    runBtn.disabled = runBtn.disabled || controlsLocked || !canRun;
+    runBtn.disabled = controlsLocked || !canRun;
   }
   const csvBtn = document.getElementById("v3BtnDistrictExportTargetingCsv");
   if (csvBtn instanceof HTMLButtonElement) {
-    csvBtn.disabled = csvBtn.disabled || !canExport;
+    csvBtn.disabled = controlsLocked || !canExport;
   }
   const jsonBtn = document.getElementById("v3BtnDistrictExportTargetingJson");
   if (jsonBtn instanceof HTMLButtonElement) {
-    jsonBtn.disabled = jsonBtn.disabled || !canExport;
+    jsonBtn.disabled = controlsLocked || !canExport;
   }
 }
 
 function bindDistrictTargetingBridge() {
-  bindDistrictTargetingSelect("v3DistrictTargetingGeoLevel", "geoLevel", "targetingGeoLevel");
-  bindDistrictTargetingModelSelect("v3DistrictTargetingModelId", "targetingModelId");
-  bindDistrictTargetingField("v3DistrictTargetingTopN", "topN", "targetingTopN");
-  bindDistrictTargetingField("v3DistrictTargetingMinHousingUnits", "minHousingUnits", "targetingMinHousingUnits");
-  bindDistrictTargetingField("v3DistrictTargetingMinPopulation", "minPopulation", "targetingMinPopulation");
-  bindDistrictTargetingField("v3DistrictTargetingMinScore", "minScore", "targetingMinScore");
-  bindDistrictTargetingCheckbox("v3DistrictTargetingOnlyRaceFootprint", "onlyRaceFootprint", "targetingOnlyRaceFootprint");
-  bindDistrictTargetingCheckbox("v3DistrictTargetingPrioritizeYoung", "prioritizeYoung", "targetingPrioritizeYoung");
-  bindDistrictTargetingCheckbox("v3DistrictTargetingPrioritizeRenters", "prioritizeRenters", "targetingPrioritizeRenters");
-  bindDistrictTargetingCheckbox("v3DistrictTargetingAvoidHighMultiUnit", "avoidHighMultiUnit", "targetingAvoidHighMultiUnit");
-  bindDistrictTargetingSelect("v3DistrictTargetingDensityFloor", "densityFloor", "targetingDensityFloor");
-  bindDistrictTargetingField("v3DistrictTargetingWeightVotePotential", "weightVotePotential", "targetingWeightVotePotential");
-  bindDistrictTargetingField("v3DistrictTargetingWeightTurnoutOpportunity", "weightTurnoutOpportunity", "targetingWeightTurnoutOpportunity");
-  bindDistrictTargetingField("v3DistrictTargetingWeightPersuasionIndex", "weightPersuasionIndex", "targetingWeightPersuasionIndex");
-  bindDistrictTargetingField("v3DistrictTargetingWeightFieldEfficiency", "weightFieldEfficiency", "targetingWeightFieldEfficiency");
-  bindDistrictTargetingAction("v3BtnDistrictTargetingResetWeights", () => resetDistrictTargetingWeights(), "btnTargetingResetWeights");
-  bindDistrictTargetingAction("v3BtnDistrictRunTargeting", () => runDistrictTargeting(), "btnRunTargeting");
-  bindDistrictTargetingAction("v3BtnDistrictExportTargetingCsv", () => exportDistrictTargetingCsv(), "btnExportTargetingCsv");
-  bindDistrictTargetingAction("v3BtnDistrictExportTargetingJson", () => exportDistrictTargetingJson(), "btnExportTargetingJson");
+  bindDistrictTargetingSelect("v3DistrictTargetingGeoLevel", "geoLevel");
+  bindDistrictTargetingModelSelect("v3DistrictTargetingModelId");
+  bindDistrictTargetingField("v3DistrictTargetingTopN", "topN");
+  bindDistrictTargetingField("v3DistrictTargetingMinHousingUnits", "minHousingUnits");
+  bindDistrictTargetingField("v3DistrictTargetingMinPopulation", "minPopulation");
+  bindDistrictTargetingField("v3DistrictTargetingMinScore", "minScore");
+  bindDistrictTargetingCheckbox("v3DistrictTargetingOnlyRaceFootprint", "onlyRaceFootprint");
+  bindDistrictTargetingCheckbox("v3DistrictTargetingPrioritizeYoung", "prioritizeYoung");
+  bindDistrictTargetingCheckbox("v3DistrictTargetingPrioritizeRenters", "prioritizeRenters");
+  bindDistrictTargetingCheckbox("v3DistrictTargetingAvoidHighMultiUnit", "avoidHighMultiUnit");
+  bindDistrictTargetingSelect("v3DistrictTargetingDensityFloor", "densityFloor");
+  bindDistrictTargetingField("v3DistrictTargetingWeightVotePotential", "weightVotePotential");
+  bindDistrictTargetingField("v3DistrictTargetingWeightTurnoutOpportunity", "weightTurnoutOpportunity");
+  bindDistrictTargetingField("v3DistrictTargetingWeightPersuasionIndex", "weightPersuasionIndex");
+  bindDistrictTargetingField("v3DistrictTargetingWeightFieldEfficiency", "weightFieldEfficiency");
+  bindDistrictTargetingAction("v3BtnDistrictTargetingResetWeights", () => resetDistrictTargetingWeights());
+  bindDistrictTargetingAction("v3BtnDistrictRunTargeting", () => runDistrictTargeting());
+  bindDistrictTargetingAction("v3BtnDistrictExportTargetingCsv", () => exportDistrictTargetingCsv());
+  bindDistrictTargetingAction("v3BtnDistrictExportTargetingJson", () => exportDistrictTargetingJson());
 }
 
-function bindDistrictTargetingSelect(v3Id, field, legacyId) {
+function bindDistrictTargetingSelect(v3Id, field) {
   const control = document.getElementById(v3Id);
   if (!(control instanceof HTMLSelectElement) || control.dataset.v3TargetingBound === "1") {
     return;
   }
   control.dataset.v3TargetingBound = "1";
   control.addEventListener("change", () => {
-    const result = setDistrictTargetingField(field, control.value);
-    if (result == null) {
-      fallbackLegacySelect(legacyId, control.value);
-    }
+    setDistrictTargetingField(field, control.value);
   });
 }
 
-function bindDistrictTargetingModelSelect(v3Id, legacyId) {
+function bindDistrictTargetingModelSelect(v3Id) {
   const control = document.getElementById(v3Id);
   if (!(control instanceof HTMLSelectElement) || control.dataset.v3TargetingBound === "1") {
     return;
   }
   control.dataset.v3TargetingBound = "1";
   control.addEventListener("change", () => {
-    const result = applyDistrictTargetingPreset(control.value);
-    if (result == null) {
-      fallbackLegacySelect(legacyId, control.value);
-    }
+    applyDistrictTargetingPreset(control.value);
   });
 }
 
-function bindDistrictTargetingField(v3Id, field, legacyId) {
+function bindDistrictTargetingField(v3Id, field) {
   const control = document.getElementById(v3Id);
   if (
     !(control instanceof HTMLInputElement || control instanceof HTMLTextAreaElement)
@@ -1035,73 +1023,32 @@ function bindDistrictTargetingField(v3Id, field, legacyId) {
   }
   control.dataset.v3TargetingBound = "1";
   control.addEventListener("input", () => {
-    const result = setDistrictTargetingField(field, control.value);
-    if (result == null) {
-      fallbackLegacyField(legacyId, control.value);
-    }
+    setDistrictTargetingField(field, control.value);
   });
 }
 
-function bindDistrictTargetingCheckbox(v3Id, field, legacyId) {
+function bindDistrictTargetingCheckbox(v3Id, field) {
   const control = document.getElementById(v3Id);
   if (!(control instanceof HTMLInputElement) || control.dataset.v3TargetingBound === "1") {
     return;
   }
   control.dataset.v3TargetingBound = "1";
   control.addEventListener("change", () => {
-    const result = setDistrictTargetingField(field, control.checked);
-    if (result == null) {
-      fallbackLegacyCheckbox(legacyId, control.checked);
-    }
+    setDistrictTargetingField(field, control.checked);
   });
 }
 
-function bindDistrictTargetingAction(v3Id, action, legacyId) {
+function bindDistrictTargetingAction(v3Id, action) {
   const button = document.getElementById(v3Id);
   if (!(button instanceof HTMLButtonElement) || button.dataset.v3TargetingBound === "1") {
     return;
   }
   button.dataset.v3TargetingBound = "1";
   button.addEventListener("click", () => {
-    const result = typeof action === "function" ? action() : null;
-    if (result == null) {
-      fallbackLegacyClick(legacyId);
+    if (typeof action === "function") {
+      action();
     }
   });
-}
-
-function fallbackLegacySelect(id, value) {
-  const legacy = document.getElementById(id);
-  if (!(legacy instanceof HTMLSelectElement)) {
-    return;
-  }
-  legacy.value = String(value == null ? "" : value);
-  legacy.dispatchEvent(new Event("change", { bubbles: true }));
-}
-
-function fallbackLegacyField(id, value) {
-  const legacy = document.getElementById(id);
-  if (!(legacy instanceof HTMLInputElement || legacy instanceof HTMLTextAreaElement)) {
-    return;
-  }
-  legacy.value = String(value == null ? "" : value);
-  dispatchLegacyInput(legacy);
-}
-
-function fallbackLegacyCheckbox(id, checked) {
-  const legacy = document.getElementById(id);
-  if (!(legacy instanceof HTMLInputElement)) {
-    return;
-  }
-  legacy.checked = !!checked;
-  dispatchLegacyInput(legacy);
-}
-
-function fallbackLegacyClick(id) {
-  const legacy = document.getElementById(id);
-  if (legacy && typeof legacy.click === "function") {
-    legacy.click();
-  }
 }
 
 function syncBridgeSelectValue(v3Id, value) {
