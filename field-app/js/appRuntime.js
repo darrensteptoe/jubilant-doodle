@@ -2733,30 +2733,14 @@ function districtBridgeBuildApplyAdjustmentsStatus(censusState){
     : "Census-adjusted assumptions are OFF.";
 }
 
-function districtBridgeReadLegacyText(id, fallback = ""){
-  const text = String(document.getElementById(id)?.textContent || "").trim();
-  return text || String(fallback || "");
-}
-
-function districtBridgeReadLegacyTableRows(selector, expectedCols = 0){
-  const tbody = document.querySelector(selector);
-  if (!(tbody instanceof HTMLElement)) return [];
-  const rows = Array.from(tbody.querySelectorAll(":scope > tr"));
+function districtBridgeNormalizeRows(rows, expectedCols = 0){
+  const list = Array.isArray(rows) ? rows : [];
   const out = [];
-  for (const row of rows){
-    if (!(row instanceof HTMLTableRowElement)) continue;
-    const cells = Array.from(row.children).filter((cell) => cell instanceof HTMLElement);
-    if (!cells.length) continue;
-    if (cells.length === 1 && expectedCols > 1) {
-      const cell = cells[0];
-      const span = Number(cell.getAttribute("colspan") || "1");
-      if (span >= expectedCols && cell.classList.contains("muted")) {
-        continue;
-      }
-    }
-    const cols = cells.map((cell) => String(cell.textContent || "").trim());
+  for (const row of list){
+    const cells = Array.isArray(row) ? row : [];
+    const cols = cells.map((cell) => String(cell == null ? "" : cell).trim());
     if (!cols.some(Boolean)) continue;
-    if (expectedCols > 0) {
+    if (expectedCols > 0){
       while (cols.length < expectedCols) cols.push("");
       out.push(cols.slice(0, expectedCols));
     } else {
@@ -2898,26 +2882,29 @@ function districtBridgeStateView(){
     canExport: targetingRows.length > 0,
     canResetWeights: houseModelActive,
   };
+  const bridgeAggregateRows = districtBridgeNormalizeRows(censusState?.bridgeAggregateRows, 2);
+  const bridgeAdvisoryRows = districtBridgeNormalizeRows(censusState?.bridgeAdvisoryRows, 2);
+  const bridgeElectionPreviewRows = districtBridgeNormalizeRows(censusState?.bridgeElectionPreviewRows, 4);
   const census = {
-    contextHint: districtBridgeBuildContextHint(censusState) || districtBridgeReadLegacyText("censusContextHint", "State-only context active for this resolution."),
-    selectionSetStatus: districtBridgeBuildSelectionSetStatus(censusState) || districtBridgeReadLegacyText("censusSelectionSetStatus", "No saved selection sets."),
-    statusText: String(censusState?.status || "").trim() || districtBridgeReadLegacyText("censusStatus", "Ready."),
-    geoStatsText: districtBridgeBuildGeoStatsText(censusState) || districtBridgeReadLegacyText("censusGeoStats", "0 selected of 0 GEOs. 0 rows loaded."),
-    lastFetchText: districtBridgeFmtTimestamp(censusState?.lastFetchAt) || districtBridgeReadLegacyText("censusLastFetch", "No fetch yet."),
-    selectionSummaryText: districtBridgeBuildSelectionSummary(censusState) || districtBridgeReadLegacyText("censusSelectionSummary", "No GEO selected."),
-    raceFootprintStatusText: districtBridgeBuildRaceFootprintStatus(currentState) || districtBridgeReadLegacyText("censusRaceFootprintStatus", "Race footprint not set."),
-    assumptionProvenanceStatusText: districtBridgeBuildAssumptionProvenanceStatus(currentState) || districtBridgeReadLegacyText("censusAssumptionProvenanceStatus", "Assumption provenance not set."),
-    footprintCapacityStatusText: districtBridgeBuildFootprintCapacityStatus(currentState) || districtBridgeReadLegacyText("censusFootprintCapacityStatus", "Footprint capacity: not set."),
-    applyAdjustmentsStatusText: districtBridgeBuildApplyAdjustmentsStatus(censusState) || districtBridgeReadLegacyText("censusApplyAdjustmentsStatus", "Census-adjusted assumptions are OFF."),
-    advisoryStatusText: districtBridgeReadLegacyText("censusAdvisoryStatus", "Assumption advisory pending."),
-    electionCsvGuideStatusText: districtBridgeReadLegacyText("censusElectionCsvGuideStatus", "Election CSV schema guide loading."),
-    electionCsvDryRunStatusText: districtBridgeReadLegacyText("censusElectionCsvDryRunStatus", "No dry-run run yet."),
-    electionCsvPreviewMetaText: districtBridgeReadLegacyText("censusElectionCsvPreviewMeta", "No normalized preview rows."),
-    mapStatusText: districtBridgeReadLegacyText("censusMapStatus", "Map idle. Select GEO units and click Load boundaries."),
-    mapQaVtdZipStatusText: districtBridgeReadLegacyText("censusMapQaVtdZipStatus", "No VTD ZIP loaded."),
-    aggregateRows: districtBridgeReadLegacyTableRows("#censusAggregateTbody", 2),
-    advisoryRows: districtBridgeReadLegacyTableRows("#censusAdvisoryTbody", 2),
-    electionPreviewRows: districtBridgeReadLegacyTableRows("#censusElectionCsvPreviewTbody", 4),
+    contextHint: districtBridgeBuildContextHint(censusState) || "State-only context active for this resolution.",
+    selectionSetStatus: districtBridgeBuildSelectionSetStatus(censusState) || "No saved selection sets.",
+    statusText: String(censusState?.status || "").trim() || "Ready.",
+    geoStatsText: districtBridgeBuildGeoStatsText(censusState) || "0 selected of 0 GEOs. 0 rows loaded.",
+    lastFetchText: districtBridgeFmtTimestamp(censusState?.lastFetchAt),
+    selectionSummaryText: districtBridgeBuildSelectionSummary(censusState) || "No GEO selected.",
+    raceFootprintStatusText: districtBridgeBuildRaceFootprintStatus(currentState) || "Race footprint not set.",
+    assumptionProvenanceStatusText: districtBridgeBuildAssumptionProvenanceStatus(currentState) || "Assumption provenance not set.",
+    footprintCapacityStatusText: districtBridgeBuildFootprintCapacityStatus(currentState) || "Footprint capacity: not set.",
+    applyAdjustmentsStatusText: districtBridgeBuildApplyAdjustmentsStatus(censusState) || "Census-adjusted assumptions are OFF.",
+    advisoryStatusText: String(censusState?.bridgeAdvisoryStatusText || "").trim() || "Assumption advisory pending.",
+    electionCsvGuideStatusText: String(censusState?.bridgeElectionCsvGuideStatusText || "").trim() || "Election CSV schema guide loading.",
+    electionCsvDryRunStatusText: String(censusState?.bridgeElectionCsvDryRunStatusText || "").trim() || "No dry-run run yet.",
+    electionCsvPreviewMetaText: String(censusState?.bridgeElectionCsvPreviewMetaText || "").trim() || "No normalized preview rows.",
+    mapStatusText: String(censusState?.bridgeMapStatusText || "").trim() || "Map idle. Select GEO units and click Load boundaries.",
+    mapQaVtdZipStatusText: String(censusState?.bridgeMapQaVtdZipStatusText || "").trim() || "No VTD ZIP loaded.",
+    aggregateRows: bridgeAggregateRows,
+    advisoryRows: bridgeAdvisoryRows,
+    electionPreviewRows: bridgeElectionPreviewRows,
     config: {
       year: String(censusState?.year || "").trim(),
       resolution: String(censusState?.resolution || "").trim(),
