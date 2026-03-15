@@ -294,6 +294,7 @@ export function runV3QaSmoke({ restoreStage = true, logToConsole = true } = {}) 
         )
       );
       const census = districtView?.census || {};
+      const censusConfig = census?.config || {};
       recordCheck(
         checks,
         "district:bridge-census-keys",
@@ -310,6 +311,26 @@ export function runV3QaSmoke({ restoreStage = true, logToConsole = true } = {}) 
           Array.isArray(census.aggregateRows)
           && Array.isArray(census.advisoryRows)
           && Array.isArray(census.electionPreviewRows)
+        )
+      );
+      recordCheck(
+        checks,
+        "district:bridge-census-config-inputs",
+        isTruthy(
+          censusConfig
+          && Object.prototype.hasOwnProperty.call(censusConfig, "apiKey")
+          && Object.prototype.hasOwnProperty.call(censusConfig, "geoPaste")
+          && Object.prototype.hasOwnProperty.call(censusConfig, "electionCsvPrecinctFilter")
+        )
+      );
+      recordCheck(
+        checks,
+        "district:bridge-census-disabled-map",
+        isTruthy(
+          censusConfig
+          && censusConfig.disabledMap
+          && typeof censusConfig.disabledMap === "object"
+          && Object.keys(censusConfig.disabledMap).length > 0
         )
       );
     }

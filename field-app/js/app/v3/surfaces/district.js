@@ -34,6 +34,24 @@ const TARGETING_DENSITY_OPTIONS = [
   { id: "medium", label: "Medium+" },
   { id: "high", label: "High" },
 ];
+const TARGETING_BRIDGE_DEFAULTS = {
+  presetId: "turnout_opportunity",
+  geoLevel: "block_group",
+  modelId: "turnout_opportunity",
+  topN: 50,
+  minHousingUnits: 50,
+  minPopulation: 120,
+  minScore: 0.35,
+  onlyRaceFootprint: true,
+  prioritizeYoung: true,
+  prioritizeRenters: true,
+  avoidHighMultiUnit: false,
+  densityFloor: "medium",
+  weightVotePotential: 0.30,
+  weightTurnoutOpportunity: 0.50,
+  weightPersuasionIndex: 0.10,
+  weightFieldEfficiency: 0.10,
+};
 
 function resolveLegacyCensusCard() {
   if (districtLegacyCensusCard instanceof HTMLElement) {
@@ -793,12 +811,6 @@ function syncDistrictTargetingLab() {
 
   ensureDistrictTargetingOptionHydration(targetingConfig);
 
-  // Keep select option lists hydrated from legacy controls when available,
-  // then apply bridge-selected value to keep v3 state authoritative.
-  syncSelectValue("v3DistrictTargetingGeoLevel", "targetingGeoLevel");
-  syncSelectValue("v3DistrictTargetingModelId", "targetingModelId");
-  syncSelectValue("v3DistrictTargetingDensityFloor", "targetingDensityFloor");
-
   if (targetingConfig && typeof targetingConfig === "object") {
     syncBridgeSelectValue("v3DistrictTargetingGeoLevel", targetingConfig.geoLevel);
     syncBridgeSelectValue("v3DistrictTargetingModelId", targetingConfig.presetId || targetingConfig.modelId);
@@ -816,18 +828,21 @@ function syncDistrictTargetingLab() {
     syncBridgeFieldValue("v3DistrictTargetingWeightPersuasionIndex", targetingConfig.weightPersuasionIndex);
     syncBridgeFieldValue("v3DistrictTargetingWeightFieldEfficiency", targetingConfig.weightFieldEfficiency);
   } else {
-    syncFieldValue("v3DistrictTargetingTopN", "targetingTopN");
-    syncFieldValue("v3DistrictTargetingMinHousingUnits", "targetingMinHousingUnits");
-    syncFieldValue("v3DistrictTargetingMinPopulation", "targetingMinPopulation");
-    syncFieldValue("v3DistrictTargetingMinScore", "targetingMinScore");
-    syncCheckboxValue("v3DistrictTargetingOnlyRaceFootprint", "targetingOnlyRaceFootprint");
-    syncCheckboxValue("v3DistrictTargetingPrioritizeYoung", "targetingPrioritizeYoung");
-    syncCheckboxValue("v3DistrictTargetingPrioritizeRenters", "targetingPrioritizeRenters");
-    syncCheckboxValue("v3DistrictTargetingAvoidHighMultiUnit", "targetingAvoidHighMultiUnit");
-    syncFieldValue("v3DistrictTargetingWeightVotePotential", "targetingWeightVotePotential");
-    syncFieldValue("v3DistrictTargetingWeightTurnoutOpportunity", "targetingWeightTurnoutOpportunity");
-    syncFieldValue("v3DistrictTargetingWeightPersuasionIndex", "targetingWeightPersuasionIndex");
-    syncFieldValue("v3DistrictTargetingWeightFieldEfficiency", "targetingWeightFieldEfficiency");
+    syncBridgeSelectValue("v3DistrictTargetingGeoLevel", TARGETING_BRIDGE_DEFAULTS.geoLevel);
+    syncBridgeSelectValue("v3DistrictTargetingModelId", TARGETING_BRIDGE_DEFAULTS.presetId);
+    syncBridgeFieldValue("v3DistrictTargetingTopN", TARGETING_BRIDGE_DEFAULTS.topN);
+    syncBridgeFieldValue("v3DistrictTargetingMinHousingUnits", TARGETING_BRIDGE_DEFAULTS.minHousingUnits);
+    syncBridgeFieldValue("v3DistrictTargetingMinPopulation", TARGETING_BRIDGE_DEFAULTS.minPopulation);
+    syncBridgeFieldValue("v3DistrictTargetingMinScore", TARGETING_BRIDGE_DEFAULTS.minScore);
+    syncBridgeCheckboxValue("v3DistrictTargetingOnlyRaceFootprint", TARGETING_BRIDGE_DEFAULTS.onlyRaceFootprint);
+    syncBridgeCheckboxValue("v3DistrictTargetingPrioritizeYoung", TARGETING_BRIDGE_DEFAULTS.prioritizeYoung);
+    syncBridgeCheckboxValue("v3DistrictTargetingPrioritizeRenters", TARGETING_BRIDGE_DEFAULTS.prioritizeRenters);
+    syncBridgeCheckboxValue("v3DistrictTargetingAvoidHighMultiUnit", TARGETING_BRIDGE_DEFAULTS.avoidHighMultiUnit);
+    syncBridgeSelectValue("v3DistrictTargetingDensityFloor", TARGETING_BRIDGE_DEFAULTS.densityFloor);
+    syncBridgeFieldValue("v3DistrictTargetingWeightVotePotential", TARGETING_BRIDGE_DEFAULTS.weightVotePotential);
+    syncBridgeFieldValue("v3DistrictTargetingWeightTurnoutOpportunity", TARGETING_BRIDGE_DEFAULTS.weightTurnoutOpportunity);
+    syncBridgeFieldValue("v3DistrictTargetingWeightPersuasionIndex", TARGETING_BRIDGE_DEFAULTS.weightPersuasionIndex);
+    syncBridgeFieldValue("v3DistrictTargetingWeightFieldEfficiency", TARGETING_BRIDGE_DEFAULTS.weightFieldEfficiency);
   }
 
   syncControlDisabled("v3DistrictTargetingGeoLevel", "targetingGeoLevel");
@@ -890,7 +905,7 @@ function hydrateSelectOptions(v3Id, options, preferredValue) {
         value: String(row?.value || "").trim(),
         label: String(row?.label || "").trim() || String(row?.value || "").trim(),
       }))
-      .filter((row) => !!row.value)
+      .filter((row) => !!row.value || !!row.label)
     : [];
 
   const nextPreferred = String(preferredValue == null ? "" : preferredValue).trim();
@@ -1011,6 +1026,39 @@ function syncBridgeCheckboxValue(v3Id, value) {
     return;
   }
   v3.checked = !!value;
+}
+
+function syncBridgeMultiSelectValue(v3Id, rows) {
+  const v3 = document.getElementById(v3Id);
+  if (!(v3 instanceof HTMLSelectElement) || document.activeElement === v3) {
+    return;
+  }
+  const normalized = (Array.isArray(rows) ? rows : [])
+    .map((row) => ({
+      value: String(row?.value || "").trim(),
+      label: String(row?.label || row?.value || "").trim(),
+      selected: !!row?.selected,
+    }))
+    .filter((row) => !!row.value);
+
+  const currentSignature = Array.from(v3.options)
+    .map((opt) => `${opt.value}::${opt.textContent || ""}::${opt.selected ? "1" : "0"}`)
+    .join("|");
+  const nextSignature = normalized
+    .map((row) => `${row.value}::${row.label || row.value}::${row.selected ? "1" : "0"}`)
+    .join("|");
+  if (currentSignature === nextSignature) {
+    return;
+  }
+
+  v3.innerHTML = "";
+  normalized.forEach((row) => {
+    const option = document.createElement("option");
+    option.value = row.value;
+    option.textContent = row.label || row.value;
+    option.selected = row.selected;
+    v3.appendChild(option);
+  });
 }
 
 function renderDistrictTargetingRows(rows) {
@@ -1436,7 +1484,7 @@ function bindDistrictCensusProxies() {
 function syncDistrictCensusProxy() {
   const bridgeSnapshot = readDistrictCensusSnapshot();
   const censusConfig = bridgeSnapshot?.config;
-  ensureDistrictCensusStaticOptionHydration();
+  ensureDistrictCensusStaticOptionHydration(censusConfig);
   syncLegacyOrBridgeText({
     v3Id: "v3CensusContextHint",
     bridgeText: bridgeSnapshot?.contextHint,
@@ -1518,24 +1566,8 @@ function syncDistrictCensusProxy() {
     fallback: "No VTD ZIP loaded."
   });
 
-  syncSelectValue("v3CensusAcsYear", "censusAcsYear");
-  syncSelectValue("v3CensusResolution", "censusResolution");
-  syncSelectValue("v3CensusStateFips", "censusStateFips");
-  syncSelectValue("v3CensusCountyFips", "censusCountyFips");
-  syncSelectValue("v3CensusPlaceFips", "censusPlaceFips");
-  syncSelectValue("v3CensusMetricSet", "censusMetricSet");
-  syncSelectValue("v3CensusTractFilter", "censusTractFilter");
-  syncSelectValue("v3CensusSelectionSetSelect", "censusSelectionSetSelect");
-  syncFieldValue("v3CensusApiKey", "censusApiKey");
-  syncFieldValue("v3CensusGeoSearch", "censusGeoSearch");
-  syncFieldValue("v3CensusGeoPaste", "censusGeoPaste");
-  syncFieldValue("v3CensusSelectionSetName", "censusSelectionSetName");
-  syncFieldValue("v3CensusElectionCsvPrecinctFilter", "censusElectionCsvPrecinctFilter");
-  syncCheckboxValue("v3CensusApplyAdjustmentsToggle", "censusApplyAdjustmentsToggle");
-  syncCheckboxValue("v3CensusMapQaVtdToggle", "censusMapQaVtdToggle");
-  syncMultiSelectProxy("v3CensusGeoSelect", "censusGeoSelect");
-
   if (censusConfig && typeof censusConfig === "object") {
+    syncBridgeFieldValue("v3CensusApiKey", censusConfig.apiKey);
     syncBridgeSelectValue("v3CensusAcsYear", censusConfig.year);
     syncBridgeSelectValue("v3CensusResolution", censusConfig.resolution);
     syncBridgeSelectValue("v3CensusStateFips", censusConfig.stateFips);
@@ -1545,9 +1577,29 @@ function syncDistrictCensusProxy() {
     syncBridgeSelectValue("v3CensusTractFilter", censusConfig.tractFilter);
     syncBridgeSelectValue("v3CensusSelectionSetSelect", censusConfig.selectedSelectionSetKey);
     syncBridgeFieldValue("v3CensusGeoSearch", censusConfig.geoSearch);
+    syncBridgeFieldValue("v3CensusGeoPaste", censusConfig.geoPaste);
     syncBridgeFieldValue("v3CensusSelectionSetName", censusConfig.selectionSetDraftName);
+    syncBridgeFieldValue("v3CensusElectionCsvPrecinctFilter", censusConfig.electionCsvPrecinctFilter);
     syncBridgeCheckboxValue("v3CensusApplyAdjustmentsToggle", censusConfig.applyAdjustedAssumptions);
     syncBridgeCheckboxValue("v3CensusMapQaVtdToggle", censusConfig.mapQaVtdOverlay);
+    syncBridgeMultiSelectValue("v3CensusGeoSelect", censusConfig.geoSelectOptions);
+  } else {
+    syncFieldValue("v3CensusApiKey", "censusApiKey");
+    syncSelectValue("v3CensusAcsYear", "censusAcsYear");
+    syncSelectValue("v3CensusResolution", "censusResolution");
+    syncSelectValue("v3CensusStateFips", "censusStateFips");
+    syncSelectValue("v3CensusCountyFips", "censusCountyFips");
+    syncSelectValue("v3CensusPlaceFips", "censusPlaceFips");
+    syncSelectValue("v3CensusMetricSet", "censusMetricSet");
+    syncSelectValue("v3CensusTractFilter", "censusTractFilter");
+    syncSelectValue("v3CensusSelectionSetSelect", "censusSelectionSetSelect");
+    syncFieldValue("v3CensusGeoSearch", "censusGeoSearch");
+    syncFieldValue("v3CensusGeoPaste", "censusGeoPaste");
+    syncFieldValue("v3CensusSelectionSetName", "censusSelectionSetName");
+    syncFieldValue("v3CensusElectionCsvPrecinctFilter", "censusElectionCsvPrecinctFilter");
+    syncCheckboxValue("v3CensusApplyAdjustmentsToggle", "censusApplyAdjustmentsToggle");
+    syncCheckboxValue("v3CensusMapQaVtdToggle", "censusMapQaVtdToggle");
+    syncMultiSelectProxy("v3CensusGeoSelect", "censusGeoSelect");
   }
 
   syncControlDisabled("v3CensusApiKey", "censusApiKey");
@@ -1588,6 +1640,7 @@ function syncDistrictCensusProxy() {
   syncButtonDisabled("v3BtnCensusLoadMap", "btnCensusLoadMap");
   syncButtonDisabled("v3BtnCensusClearMap", "btnCensusClearMap");
   syncButtonDisabled("v3BtnCensusMapQaVtdZipClear", "btnCensusMapQaVtdZipClear");
+  applyDistrictCensusBridgeDisabledMap(censusConfig?.disabledMap);
   syncDistrictCensusDisabledFallback(censusConfig);
 
   renderDistrictCensusTableRows({
@@ -1613,7 +1666,24 @@ function syncDistrictCensusProxy() {
   });
 }
 
-function ensureDistrictCensusStaticOptionHydration() {
+function applyDistrictCensusBridgeDisabledMap(disabledMap) {
+  const map = disabledMap && typeof disabledMap === "object" ? disabledMap : null;
+  if (!map) return;
+  for (const [id, value] of Object.entries(map)) {
+    if (typeof value !== "boolean") continue;
+    const el = document.getElementById(id);
+    if (
+      el instanceof HTMLInputElement
+      || el instanceof HTMLSelectElement
+      || el instanceof HTMLTextAreaElement
+      || el instanceof HTMLButtonElement
+    ) {
+      el.disabled = value;
+    }
+  }
+}
+
+function ensureDistrictCensusStaticOptionHydration(config) {
   const yearOptions = listAcsYears().map((year) => ({
     value: String(year || "").trim(),
     label: String(year || "").trim(),
@@ -1630,6 +1700,24 @@ function ensureDistrictCensusStaticOptionHydration() {
   hydrateSelectOptions("v3CensusAcsYear", yearOptions);
   hydrateSelectOptions("v3CensusResolution", resolutionOptions);
   hydrateSelectOptions("v3CensusMetricSet", metricSetOptions);
+  hydrateSelectOptions("v3CensusStateFips", normalizeBridgeOptions(config?.stateOptions), config?.stateFips);
+  hydrateSelectOptions("v3CensusCountyFips", normalizeBridgeOptions(config?.countyOptions), config?.countyFips);
+  hydrateSelectOptions("v3CensusPlaceFips", normalizeBridgeOptions(config?.placeOptions), config?.placeFips);
+  hydrateSelectOptions("v3CensusTractFilter", normalizeBridgeOptions(config?.tractFilterOptions), config?.tractFilter);
+  hydrateSelectOptions(
+    "v3CensusSelectionSetSelect",
+    normalizeBridgeOptions(config?.selectionSetOptions),
+    config?.selectedSelectionSetKey,
+  );
+}
+
+function normalizeBridgeOptions(rows) {
+  return (Array.isArray(rows) ? rows : [])
+    .map((row) => ({
+      value: String(row?.value || "").trim(),
+      label: String(row?.label || row?.value || "").trim(),
+    }))
+    .filter((row) => !!row.value || !!row.label);
 }
 
 function syncDistrictCensusDisabledFallback(config) {

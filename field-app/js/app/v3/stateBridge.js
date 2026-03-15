@@ -191,6 +191,22 @@ export function readDistrictCensusSnapshot() {
     return null;
   }
 
+  const normalizeOptions = (rows, { includeSelected = false } = {}) => {
+    const list = Array.isArray(rows) ? rows : [];
+    const out = [];
+    for (const row of list) {
+      const value = String(row?.value || "").trim();
+      const label = String(row?.label || value).trim() || value;
+      if (!value && !label) continue;
+      const item = { value, label };
+      if (includeSelected) {
+        item.selected = !!row?.selected;
+      }
+      out.push(item);
+    }
+    return out;
+  };
+
   const normalizeRows = (rows, expectedCols) => {
     const list = Array.isArray(rows) ? rows : [];
     return list
@@ -205,6 +221,7 @@ export function readDistrictCensusSnapshot() {
 
   return {
     config: {
+      apiKey: String(census?.config?.apiKey || "").trim(),
       year: String(census?.config?.year || "").trim(),
       resolution: String(census?.config?.resolution || "").trim(),
       stateFips: String(census?.config?.stateFips || "").trim(),
@@ -212,12 +229,26 @@ export function readDistrictCensusSnapshot() {
       placeFips: String(census?.config?.placeFips || "").trim(),
       metricSet: String(census?.config?.metricSet || "").trim(),
       geoSearch: String(census?.config?.geoSearch || "").trim(),
+      geoPaste: String(census?.config?.geoPaste || "").trim(),
       tractFilter: String(census?.config?.tractFilter || "").trim(),
       selectionSetDraftName: String(census?.config?.selectionSetDraftName || "").trim(),
       selectedSelectionSetKey: String(census?.config?.selectedSelectionSetKey || "").trim(),
+      electionCsvPrecinctFilter: String(census?.config?.electionCsvPrecinctFilter || "").trim(),
       applyAdjustedAssumptions: !!census?.config?.applyAdjustedAssumptions,
       mapQaVtdOverlay: !!census?.config?.mapQaVtdOverlay,
       controlsLocked: !!census?.config?.controlsLocked,
+      disabledMap: Object.fromEntries(
+        Object.entries(census?.config?.disabledMap && typeof census.config.disabledMap === "object"
+          ? census.config.disabledMap
+          : {})
+          .filter(([, value]) => typeof value === "boolean"),
+      ),
+      stateOptions: normalizeOptions(census?.config?.stateOptions),
+      countyOptions: normalizeOptions(census?.config?.countyOptions),
+      placeOptions: normalizeOptions(census?.config?.placeOptions),
+      tractFilterOptions: normalizeOptions(census?.config?.tractFilterOptions),
+      selectionSetOptions: normalizeOptions(census?.config?.selectionSetOptions),
+      geoSelectOptions: normalizeOptions(census?.config?.geoSelectOptions, { includeSelected: true }),
     },
     contextHint: String(census.contextHint || "").trim(),
     selectionSetStatus: String(census.selectionSetStatus || "").trim(),
