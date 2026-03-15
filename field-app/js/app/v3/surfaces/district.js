@@ -10,10 +10,7 @@ import {
   readDistrictSnapshot,
   readDistrictTargetingSnapshot,
   readDistrictCensusSnapshot,
-  addDistrictCandidate,
-  setDistrictCandidateField,
-  removeDistrictCandidate,
-  setDistrictUserSplitField,
+  setDistrictFormField,
   setDistrictTargetingField,
   applyDistrictTargetingPreset,
   resetDistrictTargetingWeights,
@@ -445,17 +442,17 @@ export function renderDistrictSurface(mount) {
   frame.append(main);
   mount.append(frame);
 
-  bindDistrictBallotAddCandidate("v3BtnAddCandidate");
+  bindClickProxy("v3BtnAddCandidate", "btnAddCandidate");
   bindSelectProxy("v3DistrictYourCandidate", "yourCandidate");
   bindFieldProxy("v3DistrictUndecidedPct", "undecidedPct");
   bindSelectProxy("v3DistrictUndecidedMode", "undecidedMode");
-  bindSelectProxy("v3DistrictRaceType", "raceType");
-  bindFieldProxy("v3DistrictElectionDate", "electionDate");
-  bindFieldProxy("v3DistrictWeeksRemaining", "weeksRemaining");
-  bindSelectProxy("v3DistrictMode", "mode");
-  bindFieldProxy("v3DistrictUniverseSize", "universeSize");
-  bindSelectProxy("v3DistrictUniverseBasis", "universeBasis");
-  bindFieldProxy("v3DistrictSourceNote", "sourceNote");
+  bindDistrictFormSelect("v3DistrictRaceType", "raceType");
+  bindDistrictFormField("v3DistrictElectionDate", "electionDate");
+  bindDistrictFormField("v3DistrictWeeksRemaining", "weeksRemaining");
+  bindDistrictFormSelect("v3DistrictMode", "mode");
+  bindDistrictFormField("v3DistrictUniverseSize", "universeSize");
+  bindDistrictFormSelect("v3DistrictUniverseBasis", "universeBasis");
+  bindDistrictFormField("v3DistrictSourceNote", "sourceNote");
   bindCheckboxProxy("v3DistrictElectorateWeightingToggle", "universe16Enabled");
   bindFieldProxy("v3DistrictDemPct", "universe16DemPct");
   bindFieldProxy("v3DistrictRepPct", "universe16RepPct");
@@ -566,11 +563,6 @@ function syncDistrictCandidateTable() {
     nameInput.disabled = nameSource instanceof HTMLInputElement ? !!nameSource.disabled : true;
     if (nameSource instanceof HTMLInputElement) {
       nameInput.addEventListener("input", () => {
-        const result = setDistrictCandidateField(resolveCandidateRowId(sourceRow), "name", nameInput.value);
-        if (result?.ok) {
-          syncDistrictBallotBaseline();
-          return;
-        }
         nameSource.value = nameInput.value;
         dispatchLegacyInput(nameSource);
       });
@@ -589,11 +581,6 @@ function syncDistrictCandidateTable() {
     pctInput.disabled = pctSource instanceof HTMLInputElement ? !!pctSource.disabled : true;
     if (pctSource instanceof HTMLInputElement) {
       pctInput.addEventListener("input", () => {
-        const result = setDistrictCandidateField(resolveCandidateRowId(sourceRow), "supportPct", pctInput.value);
-        if (result?.ok) {
-          syncDistrictBallotBaseline();
-          return;
-        }
         pctSource.value = pctInput.value;
         dispatchLegacyInput(pctSource);
       });
@@ -612,11 +599,6 @@ function syncDistrictCandidateTable() {
     removeBtn.disabled = !(removeSource instanceof HTMLButtonElement) || !!removeSource.disabled;
     if (removeSource instanceof HTMLButtonElement) {
       removeBtn.addEventListener("click", () => {
-        const result = removeDistrictCandidate(resolveCandidateRowId(sourceRow));
-        if (result?.ok) {
-          syncDistrictBallotBaseline();
-          return;
-        }
         removeSource.click();
       });
     }
@@ -691,11 +673,6 @@ function syncDistrictUserSplitTable() {
     input.value = inputSource.value || "";
     input.disabled = !!inputSource.disabled;
     input.addEventListener("input", () => {
-      const result = setDistrictUserSplitField(resolveUserSplitCandidateId(sourceRow), input.value);
-      if (result?.ok) {
-        syncDistrictBallotBaseline();
-        return;
-      }
       inputSource.value = input.value;
       dispatchLegacyInput(inputSource);
     });
@@ -726,57 +703,64 @@ function dispatchLegacyInput(node) {
   node.dispatchEvent(new Event("change", { bubbles: true }));
 }
 
-function bindDistrictBallotAddCandidate(v3Id) {
-  const button = document.getElementById(v3Id);
-  if (!(button instanceof HTMLButtonElement) || button.dataset.v3BallotBound === "1") {
+function bindDistrictFormSelect(v3Id, field) {
+  const control = document.getElementById(v3Id);
+  if (!(control instanceof HTMLSelectElement) || control.dataset.v3DistrictFormBound === "1") {
     return;
   }
-  button.dataset.v3BallotBound = "1";
-  button.addEventListener("click", () => {
-    const result = addDistrictCandidate();
-    if (result?.ok) {
-      syncDistrictBallotBaseline();
-      return;
+  control.dataset.v3DistrictFormBound = "1";
+  control.addEventListener("change", () => {
+    const result = setDistrictFormField(field, control.value);
+    if (!result?.ok) {
+      const legacyId = mapDistrictLegacyFieldId(field);
+      if (legacyId) {
+        fallbackLegacyValueDispatch(legacyId, control.value);
+      }
     }
-    fallbackLegacyClick("btnAddCandidate");
   });
 }
 
-function resolveCandidateRowId(sourceRow) {
-  if (!(sourceRow instanceof HTMLTableRowElement)) {
-    return "";
+function bindDistrictFormField(v3Id, field) {
+  const control = document.getElementById(v3Id);
+  if (
+    !(control instanceof HTMLInputElement || control instanceof HTMLTextAreaElement)
+    || control.dataset.v3DistrictFormBound === "1"
+  ) {
+    return;
   }
-  const rows = Array.from(sourceRow.parentElement?.querySelectorAll(":scope > tr") || []);
-  const rowIndex = rows.indexOf(sourceRow);
-  const legacyRows = Array.from(document.querySelectorAll("#candTbody > tr"));
-  const legacyRow = rowIndex >= 0 ? legacyRows[rowIndex] : null;
-  const yourCandidate = document.getElementById("yourCandidate");
-  if (yourCandidate instanceof HTMLSelectElement && rowIndex >= 0) {
-    const option = yourCandidate.options[rowIndex];
-    if (option?.value) {
-      return String(option.value).trim();
+  control.dataset.v3DistrictFormBound = "1";
+  control.addEventListener("input", () => {
+    const result = setDistrictFormField(field, control.value);
+    if (!result?.ok) {
+      const legacyId = mapDistrictLegacyFieldId(field);
+      if (legacyId) {
+        fallbackLegacyValueDispatch(legacyId, control.value);
+      }
     }
-  }
-  const removeBtn = legacyRow?.querySelector("td:nth-child(3) button");
-  const buttonOnclick = String(removeBtn?.getAttribute("onclick") || "");
-  const match = buttonOnclick.match(/['"]([^'"]+)['"]/);
-  return String(match?.[1] || "").trim();
+  });
 }
 
-function resolveUserSplitCandidateId(sourceRow) {
-  if (!(sourceRow instanceof HTMLElement)) {
-    return "";
+function mapDistrictLegacyFieldId(field) {
+  const key = String(field || "").trim();
+  const map = {
+    raceType: "raceType",
+    electionDate: "electionDate",
+    weeksRemaining: "weeksRemaining",
+    mode: "mode",
+    universeSize: "universeSize",
+    universeBasis: "universeBasis",
+    sourceNote: "sourceNote",
+  };
+  return map[key] || "";
+}
+
+function fallbackLegacyValueDispatch(id, value) {
+  const legacy = document.getElementById(id);
+  if (!(legacy instanceof HTMLInputElement || legacy instanceof HTMLSelectElement || legacy instanceof HTMLTextAreaElement)) {
+    return;
   }
-  const rows = Array.from(sourceRow.parentElement?.children || []);
-  const rowIndex = rows.indexOf(sourceRow);
-  const yourCandidate = document.getElementById("yourCandidate");
-  if (yourCandidate instanceof HTMLSelectElement && rowIndex >= 0) {
-    const option = yourCandidate.options[rowIndex];
-    if (option?.value) {
-      return String(option.value).trim();
-    }
-  }
-  return "";
+  legacy.value = String(value == null ? "" : value);
+  dispatchLegacyInput(legacy);
 }
 
 function syncDistrictStructureDerived() {
