@@ -2733,6 +2733,178 @@ function districtBridgeBuildApplyAdjustmentsStatus(censusState){
     : "Census-adjusted assumptions are OFF.";
 }
 
+function districtBridgeBuildSelectOptions(values, { selected = "", placeholder = "" } = {}){
+  const rows = Array.isArray(values) ? values : [];
+  const seen = new Set();
+  const out = [];
+  const selectedValue = String(selected || "").trim();
+
+  if (placeholder) {
+    out.push({ value: "", label: String(placeholder).trim() || "Select" });
+    seen.add("");
+  }
+
+  for (const row of rows){
+    const value = String(row?.value || "").trim();
+    if (!value || seen.has(value)) continue;
+    seen.add(value);
+    out.push({
+      value,
+      label: String(row?.label || value).trim() || value,
+    });
+  }
+
+  if (selectedValue && !seen.has(selectedValue)) {
+    out.push({ value: selectedValue, label: selectedValue });
+  }
+
+  return out;
+}
+
+function districtBridgeBuildCensusConfigOptions(censusState){
+  const census = censusState && typeof censusState === "object" ? censusState : {};
+  const geoRowsRaw = Array.isArray(census.geoOptions) ? census.geoOptions : [];
+  const geoRows = geoRowsRaw
+    .map((row) => {
+      const geoid = String(row?.geoid || "").trim();
+      return {
+        geoid,
+        label: String(row?.label || row?.name || geoid).trim() || geoid,
+        state: String(row?.state || "").trim(),
+        county: String(row?.county || "").trim(),
+        place: String(row?.place || "").trim(),
+        tract: String(row?.tract || "").trim(),
+      };
+    })
+    .filter((row) => !!row.geoid);
+
+  const selectedGeoids = new Set(
+    (Array.isArray(census.selectedGeoids) ? census.selectedGeoids : [])
+      .map((id) => String(id || "").trim())
+      .filter((id) => !!id),
+  );
+
+  const stateOptions = districtBridgeBuildSelectOptions(
+    geoRows.map((row) => ({
+      value: row.state,
+      label: row.state,
+    })),
+    { selected: census.stateFips, placeholder: "Select state" },
+  );
+  const countyOptions = districtBridgeBuildSelectOptions(
+    geoRows
+      .filter((row) => !census.stateFips || row.state === String(census.stateFips || "").trim())
+      .map((row) => ({ value: row.county, label: row.county })),
+    { selected: census.countyFips, placeholder: "Select county" },
+  );
+  const placeOptions = districtBridgeBuildSelectOptions(
+    geoRows
+      .filter((row) => !census.stateFips || row.state === String(census.stateFips || "").trim())
+      .map((row) => ({ value: row.place, label: row.place })),
+    { selected: census.placeFips, placeholder: "Select place" },
+  );
+  const tractFilterOptions = districtBridgeBuildSelectOptions(
+    geoRows.map((row) => ({ value: row.tract, label: row.tract })),
+    { selected: census.tractFilter, placeholder: "All tracts" },
+  );
+  const selectionSetOptions = districtBridgeBuildSelectOptions(
+    (Array.isArray(census.selectionSets) ? census.selectionSets : []).map((row, idx) => ({
+      value: String(idx),
+      label: `${String(row?.name || "").trim()} · ${String(row?.resolution || "").trim()} · ${Array.isArray(row?.geoids) ? row.geoids.length : 0} GEO`,
+    })),
+    { selected: census.selectedSelectionSetKey, placeholder: "Saved sets" },
+  );
+
+  const geoSelectOptions = geoRows.map((row) => ({
+    value: row.geoid,
+    label: row.label,
+    selected: selectedGeoids.has(row.geoid),
+  }));
+
+  for (const geoid of selectedGeoids) {
+    if (!geoSelectOptions.some((row) => row.value === geoid)) {
+      geoSelectOptions.push({ value: geoid, label: geoid, selected: true });
+    }
+  }
+
+  return {
+    stateOptions,
+    countyOptions,
+    placeOptions,
+    tractFilterOptions,
+    selectionSetOptions,
+    geoSelectOptions,
+  };
+}
+
+function districtBridgeBuildCensusDisabledMap(currentState, censusState){
+  const census = censusState && typeof censusState === "object" ? censusState : {};
+  const controlsLocked = isScenarioLockedForEdits(currentState);
+  const resolution = String(census?.resolution || "").trim();
+  const stateFips = String(census?.stateFips || "").trim();
+  const countyFips = String(census?.countyFips || "").trim();
+  const requiresCounty = resolution === "tract" || resolution === "block_group";
+  const contextReadyForGeo = !!stateFips && (!requiresCounty || !!countyFips);
+  const geoOptionsCount = Array.isArray(census?.geoOptions) ? census.geoOptions.length : 0;
+  const hasGeoOptions = geoOptionsCount > 0;
+  const selectedGeoCount = Array.isArray(census?.selectedGeoids) ? census.selectedGeoids.length : 0;
+  const loadedRowCount = Number.isFinite(Number(census?.loadedRowCount))
+    ? Math.max(0, Math.floor(Number(census.loadedRowCount)))
+    : 0;
+  const selectedSetKey = String(census?.selectedSelectionSetKey || "").trim();
+  const draftName = String(census?.selectionSetDraftName || "").trim();
+  const hasRaceFootprint = Array.isArray(currentState?.raceFootprint?.geoids)
+    ? currentState.raceFootprint.geoids.length > 0
+    : false;
+
+  const map = {
+    v3CensusCountyFips: controlsLocked || !stateFips || !requiresCounty,
+    v3CensusPlaceFips: controlsLocked || !stateFips,
+    v3CensusGeoSearch: controlsLocked || !hasGeoOptions,
+    v3CensusTractFilter: controlsLocked || resolution !== "block_group" || !hasGeoOptions,
+    v3BtnCensusLoadGeo: controlsLocked || !!census?.loadingGeo || !contextReadyForGeo,
+    v3BtnCensusFetchRows: controlsLocked || !!census?.loadingRows || !contextReadyForGeo,
+    v3BtnCensusSelectAll: controlsLocked || !hasGeoOptions,
+    v3BtnCensusClearSelection: controlsLocked || !selectedGeoCount,
+    v3BtnCensusApplyGeoPaste: controlsLocked || !hasGeoOptions,
+    v3BtnCensusSetRaceFootprint: controlsLocked || !selectedGeoCount || !loadedRowCount,
+    v3BtnCensusClearRaceFootprint: controlsLocked || !hasRaceFootprint,
+    v3BtnCensusSaveSelectionSet: controlsLocked || !selectedGeoCount || !draftName,
+    v3BtnCensusLoadSelectionSet: controlsLocked || !selectedSetKey || !hasGeoOptions,
+    v3BtnCensusDeleteSelectionSet: controlsLocked || !selectedSetKey,
+    v3BtnCensusExportAggregateCsv: controlsLocked || !loadedRowCount,
+    v3BtnCensusExportAggregateJson: controlsLocked || !loadedRowCount,
+    v3BtnCensusDownloadElectionCsvTemplate: controlsLocked || false,
+    v3BtnCensusDownloadElectionCsvWideTemplate: controlsLocked || false,
+    v3CensusApplyAdjustmentsToggle: controlsLocked || false,
+    v3CensusMapQaVtdToggle: controlsLocked ? true : null,
+    v3CensusMapQaVtdZip: controlsLocked ? true : null,
+    v3BtnCensusMapQaVtdZipClear: controlsLocked ? true : null,
+    v3BtnCensusLoadMap: controlsLocked ? true : null,
+    v3BtnCensusClearMap: controlsLocked ? true : null,
+    v3BtnCensusElectionCsvDryRun: controlsLocked ? true : null,
+    v3BtnCensusElectionCsvClear: controlsLocked ? true : null,
+    v3CensusElectionCsvFile: controlsLocked || false,
+    v3CensusElectionCsvPrecinctFilter: controlsLocked || false,
+    v3CensusApiKey: controlsLocked || false,
+    v3CensusAcsYear: controlsLocked || false,
+    v3CensusResolution: controlsLocked || false,
+    v3CensusStateFips: controlsLocked || false,
+    v3CensusMetricSet: controlsLocked || false,
+    v3CensusGeoPaste: controlsLocked || false,
+    v3CensusSelectionSetName: controlsLocked || false,
+    v3CensusSelectionSetSelect: controlsLocked || false,
+    v3CensusGeoSelect: controlsLocked || false,
+  };
+  const out = {};
+  for (const [id, value] of Object.entries(map)){
+    if (typeof value === "boolean"){
+      out[id] = value;
+    }
+  }
+  return out;
+}
+
 function districtBridgeNormalizeRows(rows, expectedCols = 0){
   const list = Array.isArray(rows) ? rows : [];
   const out = [];
@@ -2885,6 +3057,8 @@ function districtBridgeStateView(){
   const bridgeAggregateRows = districtBridgeNormalizeRows(censusState?.bridgeAggregateRows, 2);
   const bridgeAdvisoryRows = districtBridgeNormalizeRows(censusState?.bridgeAdvisoryRows, 2);
   const bridgeElectionPreviewRows = districtBridgeNormalizeRows(censusState?.bridgeElectionPreviewRows, 4);
+  const censusConfigOptions = districtBridgeBuildCensusConfigOptions(censusState);
+  const censusDisabledMap = districtBridgeBuildCensusDisabledMap(currentState, censusState);
   const census = {
     contextHint: districtBridgeBuildContextHint(censusState) || "State-only context active for this resolution.",
     selectionSetStatus: districtBridgeBuildSelectionSetStatus(censusState) || "No saved selection sets.",
@@ -2906,6 +3080,7 @@ function districtBridgeStateView(){
     advisoryRows: bridgeAdvisoryRows,
     electionPreviewRows: bridgeElectionPreviewRows,
     config: {
+      apiKey: String(document.getElementById("censusApiKey")?.value || "").trim(),
       year: String(censusState?.year || "").trim(),
       resolution: String(censusState?.resolution || "").trim(),
       stateFips: String(censusState?.stateFips || "").trim(),
@@ -2913,12 +3088,21 @@ function districtBridgeStateView(){
       placeFips: String(censusState?.placeFips || "").trim(),
       metricSet: String(censusState?.metricSet || "").trim(),
       geoSearch: String(censusState?.geoSearch || "").trim(),
+      geoPaste: String(document.getElementById("censusGeoPaste")?.value || "").trim(),
       tractFilter: String(censusState?.tractFilter || "").trim(),
       selectionSetDraftName: String(censusState?.selectionSetDraftName || "").trim(),
       selectedSelectionSetKey: String(censusState?.selectedSelectionSetKey || "").trim(),
+      electionCsvPrecinctFilter: String(document.getElementById("censusElectionCsvPrecinctFilter")?.value || "").trim(),
       applyAdjustedAssumptions: !!censusState?.applyAdjustedAssumptions,
       mapQaVtdOverlay: !!censusState?.mapQaVtdOverlay,
       controlsLocked: isScenarioLockedForEdits(currentState),
+      disabledMap: censusDisabledMap,
+      stateOptions: censusConfigOptions.stateOptions,
+      countyOptions: censusConfigOptions.countyOptions,
+      placeOptions: censusConfigOptions.placeOptions,
+      tractFilterOptions: censusConfigOptions.tractFilterOptions,
+      selectionSetOptions: censusConfigOptions.selectionSetOptions,
+      geoSelectOptions: censusConfigOptions.geoSelectOptions,
     },
   };
 
