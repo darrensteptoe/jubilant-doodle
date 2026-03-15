@@ -149,6 +149,8 @@ Reference artifact:
 - Targeting model behavior now uses preset bundles (`applyTargetModelPreset`) so model selection updates weights/thresholds/filters in state and v3 mirrors immediately (no longer model-label-only behavior).
 - District Targeting Lab select controls (`geo/model/density`) now hydrate from runtime targeting option lists in v3 first (legacy option mirrors optional), removing a silent dependency on legacy select-option population.
 - District targeting bridge config now includes `canRun/canExport/canResetWeights` guard flags so v3 button disable state remains correct even if legacy targeting control nodes are absent.
+- District Census static select controls (`ACS year`, `resolution`, `metric set`) now hydrate from Census module registries in v3 first, reducing silent option-list coupling to legacy select mirrors.
+- District bridge census payload now includes control-value config (`year/resolution/state/county/place/metric set/search/filters/toggles + controlsLocked`), and v3 applies bridge-first value sync so census field state does not rely solely on legacy control mirrors.
 - District bridge Census status lines (`context/selection/status/geo-stats/last-fetch/footprint/provenance/capacity/apply-adjustments`) now derive state-first from runtime Census + footprint state, reducing direct reliance on legacy `#census*Status` text mirrors.
 
 ## Stage dependency map (current)
