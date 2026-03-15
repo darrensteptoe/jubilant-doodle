@@ -116,6 +116,42 @@ function readDistrictBridgeView() {
   }
 }
 
+function callDistrictBridge(method, ...args) {
+  try {
+    const api = window[DISTRICT_API_KEY];
+    if (!api || typeof api[method] !== "function") {
+      return null;
+    }
+    return api[method](...args);
+  } catch {
+    return null;
+  }
+}
+
+export function setDistrictTargetingField(field, value) {
+  return callDistrictBridge("setTargetingField", field, value);
+}
+
+export function applyDistrictTargetingPreset(modelId) {
+  return callDistrictBridge("applyTargetingPreset", modelId);
+}
+
+export function resetDistrictTargetingWeights() {
+  return callDistrictBridge("resetTargetingWeights");
+}
+
+export function runDistrictTargeting() {
+  return callDistrictBridge("runTargeting");
+}
+
+export function exportDistrictTargetingCsv() {
+  return callDistrictBridge("exportTargetingCsv");
+}
+
+export function exportDistrictTargetingJson() {
+  return callDistrictBridge("exportTargetingJson");
+}
+
 export function readDistrictSnapshot() {
   const bridgeSummary = readDistrictBridgeSummary();
   const universeRaw = readFirstNumber(["#v3DistrictUniverseSize", "#universeSize"]);

@@ -293,6 +293,19 @@ export function runV3QaSmoke({ restoreStage = true, logToConsole = true } = {}) 
           && Number.isFinite(Number(targetingConfig.topN))
         )
       );
+      const districtApi = window.__FPE_DISTRICT_API__ || {};
+      recordCheck(
+        checks,
+        "district:bridge-targeting-actions",
+        isTruthy(
+          typeof districtApi.setTargetingField === "function"
+          && typeof districtApi.applyTargetingPreset === "function"
+          && typeof districtApi.resetTargetingWeights === "function"
+          && typeof districtApi.runTargeting === "function"
+          && typeof districtApi.exportTargetingCsv === "function"
+          && typeof districtApi.exportTargetingJson === "function"
+        )
+      );
       const census = districtView?.census || {};
       const censusConfig = census?.config || {};
       recordCheck(
