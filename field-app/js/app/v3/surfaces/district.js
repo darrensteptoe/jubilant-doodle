@@ -453,15 +453,15 @@ export function renderDistrictSurface(mount) {
   bindDistrictFormField("v3DistrictUniverseSize", "universeSize");
   bindDistrictFormSelect("v3DistrictUniverseBasis", "universeBasis");
   bindDistrictFormField("v3DistrictSourceNote", "sourceNote");
-  bindCheckboxProxy("v3DistrictElectorateWeightingToggle", "universe16Enabled");
-  bindFieldProxy("v3DistrictDemPct", "universe16DemPct");
-  bindFieldProxy("v3DistrictRepPct", "universe16RepPct");
-  bindFieldProxy("v3DistrictNpaPct", "universe16NpaPct");
-  bindFieldProxy("v3DistrictOtherPct", "universe16OtherPct");
-  bindFieldProxy("v3DistrictRetentionFactor", "retentionFactor");
-  bindFieldProxy("v3DistrictTurnoutA", "turnoutA");
-  bindFieldProxy("v3DistrictTurnoutB", "turnoutB");
-  bindFieldProxy("v3DistrictBandWidth", "bandWidth");
+  bindDistrictFormCheckbox("v3DistrictElectorateWeightingToggle", "universe16Enabled");
+  bindDistrictFormField("v3DistrictDemPct", "universe16DemPct");
+  bindDistrictFormField("v3DistrictRepPct", "universe16RepPct");
+  bindDistrictFormField("v3DistrictNpaPct", "universe16NpaPct");
+  bindDistrictFormField("v3DistrictOtherPct", "universe16OtherPct");
+  bindDistrictFormField("v3DistrictRetentionFactor", "retentionFactor");
+  bindDistrictFormField("v3DistrictTurnoutA", "turnoutA");
+  bindDistrictFormField("v3DistrictTurnoutB", "turnoutB");
+  bindDistrictFormField("v3DistrictBandWidth", "bandWidth");
   bindDistrictTargetingBridge();
   bindDistrictCensusProxies();
   return refreshDistrictSummary;
@@ -740,6 +740,23 @@ function bindDistrictFormField(v3Id, field) {
   });
 }
 
+function bindDistrictFormCheckbox(v3Id, field) {
+  const control = document.getElementById(v3Id);
+  if (!(control instanceof HTMLInputElement) || control.type !== "checkbox" || control.dataset.v3DistrictFormBound === "1") {
+    return;
+  }
+  control.dataset.v3DistrictFormBound = "1";
+  control.addEventListener("change", () => {
+    const result = setDistrictFormField(field, control.checked);
+    if (!result?.ok) {
+      const legacyId = mapDistrictLegacyFieldId(field);
+      if (legacyId) {
+        fallbackLegacyCheckboxDispatch(legacyId, control.checked);
+      }
+    }
+  });
+}
+
 function mapDistrictLegacyFieldId(field) {
   const key = String(field || "").trim();
   const map = {
@@ -750,6 +767,15 @@ function mapDistrictLegacyFieldId(field) {
     universeSize: "universeSize",
     universeBasis: "universeBasis",
     sourceNote: "sourceNote",
+    turnoutA: "turnoutA",
+    turnoutB: "turnoutB",
+    bandWidth: "bandWidth",
+    universe16Enabled: "universe16Enabled",
+    universe16DemPct: "universe16DemPct",
+    universe16RepPct: "universe16RepPct",
+    universe16NpaPct: "universe16NpaPct",
+    universe16OtherPct: "universe16OtherPct",
+    retentionFactor: "retentionFactor",
   };
   return map[key] || "";
 }
@@ -760,6 +786,15 @@ function fallbackLegacyValueDispatch(id, value) {
     return;
   }
   legacy.value = String(value == null ? "" : value);
+  dispatchLegacyInput(legacy);
+}
+
+function fallbackLegacyCheckboxDispatch(id, checked) {
+  const legacy = document.getElementById(id);
+  if (!(legacy instanceof HTMLInputElement) || legacy.type !== "checkbox") {
+    return;
+  }
+  legacy.checked = !!checked;
   dispatchLegacyInput(legacy);
 }
 
