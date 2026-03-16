@@ -9,14 +9,9 @@ import {
 import {
   readDistrictSnapshot,
   readDistrictControlSnapshot,
-  readDistrictBallotSnapshot,
   readDistrictTargetingSnapshot,
   readDistrictCensusSnapshot,
   setDistrictFormField,
-  addDistrictCandidate,
-  updateDistrictCandidate,
-  removeDistrictCandidate,
-  setDistrictUserSplit,
   setDistrictTargetingField,
   applyDistrictTargetingPreset,
   resetDistrictTargetingWeights,
@@ -448,7 +443,7 @@ export function renderDistrictSurface(mount) {
   frame.append(main);
   mount.append(frame);
 
-  bindDistrictAddCandidateButton();
+  bindClickProxy("v3BtnAddCandidate", "btnAddCandidate");
   bindDistrictFormSelect("v3DistrictYourCandidate", "yourCandidate");
   bindDistrictFormField("v3DistrictUndecidedPct", "undecidedPct");
   bindDistrictFormSelect("v3DistrictUndecidedMode", "undecidedMode");
@@ -476,7 +471,6 @@ export function renderDistrictSurface(mount) {
 function refreshDistrictSummary() {
   const snapshot = readDistrictSnapshot();
   const controlSnapshot = readDistrictControlSnapshot();
-  const ballotSnapshot = readDistrictBallotSnapshot();
   setText("v3DistrictUniverse", snapshot.universe);
   setText("v3DistrictSupport", snapshot.baselineSupport);
   setText("v3DistrictTurnout", snapshot.turnoutExpected);
@@ -485,13 +479,7 @@ function refreshDistrictSummary() {
   setText("v3DistrictTurnoutExpected", snapshot.turnoutExpected);
   setText("v3DistrictTurnoutBand", snapshot.turnoutBand);
   setText("v3DistrictVotesPer1pct", snapshot.votesPer1pct);
-  if (ballotSnapshot?.candidates?.length) {
-    syncDistrictBallotTopline(ballotSnapshot);
-  } else {
-    syncSelectValue("v3DistrictYourCandidate", "yourCandidate");
-    syncFieldValue("v3DistrictUndecidedPct", "undecidedPct");
-    syncSelectValue("v3DistrictUndecidedMode", "undecidedMode");
-  }
+  syncDistrictBallotTopline();
   syncControlDisabled("v3DistrictYourCandidate", "yourCandidate");
   syncControlDisabled("v3DistrictUndecidedPct", "undecidedPct");
   syncControlDisabled("v3DistrictUndecidedMode", "undecidedMode");
@@ -528,7 +516,7 @@ function refreshDistrictSummary() {
   syncControlDisabled("v3DistrictNpaPct", "universe16NpaPct");
   syncControlDisabled("v3DistrictOtherPct", "universe16OtherPct");
   syncControlDisabled("v3DistrictRetentionFactor", "retentionFactor");
-  syncDistrictBallotBaseline(ballotSnapshot, !!controlSnapshot?.locked);
+  syncDistrictBallotBaseline();
   if (controlSnapshot?.locked) {
     applyDistrictBallotDynamicLock();
   }
@@ -540,99 +528,24 @@ function refreshDistrictSummary() {
   applyDistrictBridgeDisabledMap(controlSnapshot?.disabledMap);
 }
 
-function syncDistrictBallotBaseline(ballotSnapshot, controlsLocked = false) {
-  syncDistrictCandidateTable(ballotSnapshot, controlsLocked);
-  syncDistrictUserSplitTable(ballotSnapshot, controlsLocked);
-  syncDistrictBallotWarning(ballotSnapshot);
-  if (ballotSnapshot) {
-    setText("v3DistrictSupportTotal", ballotSnapshot.supportTotalText || "");
-    return;
-  }
+function syncDistrictBallotBaseline() {
+  syncDistrictCandidateTable();
+  syncDistrictUserSplitTable();
+  syncDistrictBallotWarning();
   setText("v3DistrictSupportTotal", document.getElementById("supportTotal")?.textContent || "");
 }
 
-function syncDistrictBallotTopline(ballotSnapshot) {
-  if (!ballotSnapshot) {
-    return;
-  }
-  hydrateSelectOptions(
-    "v3DistrictYourCandidate",
-    ballotSnapshot.candidates.map((row) => ({ value: row.id, label: row.name || "Candidate" })),
-    ballotSnapshot.yourCandidateId,
-  );
-  hydrateLegacySelectOptions("v3DistrictUndecidedMode", "undecidedMode", ballotSnapshot.undecidedMode);
-  syncBridgeSelectValue("v3DistrictYourCandidate", ballotSnapshot.yourCandidateId);
-  syncBridgeFieldValue("v3DistrictUndecidedPct", ballotSnapshot.undecidedPct);
-  syncBridgeSelectValue("v3DistrictUndecidedMode", ballotSnapshot.undecidedMode);
+function syncDistrictBallotTopline() {
+  hydrateLegacySelectOptions("v3DistrictYourCandidate", "yourCandidate");
+  hydrateLegacySelectOptions("v3DistrictUndecidedMode", "undecidedMode");
+  syncSelectValue("v3DistrictYourCandidate", "yourCandidate");
+  syncFieldValue("v3DistrictUndecidedPct", "undecidedPct");
+  syncSelectValue("v3DistrictUndecidedMode", "undecidedMode");
 }
 
-function syncDistrictCandidateTable(ballotSnapshot, controlsLocked = false) {
+function syncDistrictCandidateTable() {
   const targetBody = document.getElementById("v3DistrictCandTbody");
   if (!(targetBody instanceof HTMLElement)) {
-    return;
-  }
-
-  if (ballotSnapshot?.candidates?.length) {
-    if (targetBody.contains(document.activeElement)) {
-      return;
-    }
-
-    targetBody.innerHTML = "";
-    ballotSnapshot.candidates.forEach((row) => {
-      const tr = document.createElement("tr");
-
-      const tdName = document.createElement("td");
-      const nameInput = document.createElement("input");
-      nameInput.className = "fpe-input";
-      nameInput.type = "text";
-      nameInput.value = row.name || "";
-      nameInput.disabled = controlsLocked;
-      nameInput.addEventListener("input", () => {
-        updateDistrictCandidate(row.id, "name", nameInput.value);
-      });
-      tdName.appendChild(nameInput);
-
-      const tdPct = document.createElement("td");
-      tdPct.className = "num";
-      const pctInput = document.createElement("input");
-      pctInput.className = "fpe-input";
-      pctInput.type = "number";
-      pctInput.min = "0";
-      pctInput.max = "100";
-      pctInput.step = "0.1";
-      pctInput.value = row.supportPct == null ? "" : String(row.supportPct);
-      pctInput.disabled = controlsLocked;
-      pctInput.addEventListener("input", () => {
-        updateDistrictCandidate(row.id, "supportPct", pctInput.value);
-      });
-      tdPct.appendChild(pctInput);
-
-      const tdAction = document.createElement("td");
-      tdAction.className = "num";
-      const removeBtn = document.createElement("button");
-      removeBtn.className = "fpe-btn fpe-btn--ghost";
-      removeBtn.type = "button";
-      removeBtn.textContent = "Remove";
-      removeBtn.disabled = controlsLocked || !row.canRemove;
-      removeBtn.addEventListener("click", () => {
-        removeDistrictCandidate(row.id);
-      });
-      tdAction.appendChild(removeBtn);
-
-      tr.append(tdName, tdPct, tdAction);
-      targetBody.appendChild(tr);
-    });
-
-    if (!targetBody.children.length) {
-      const tr = document.createElement("tr");
-      tr.className = "fpe-empty-row";
-      const td = document.createElement("td");
-      td.colSpan = 3;
-      td.className = "fpe-empty-state";
-      td.textContent = "No candidates available.";
-      tr.appendChild(td);
-      targetBody.appendChild(tr);
-    }
     return;
   }
 
@@ -723,48 +636,10 @@ function syncDistrictCandidateTable(ballotSnapshot, controlsLocked = false) {
   }
 }
 
-function syncDistrictUserSplitTable(ballotSnapshot, controlsLocked = false) {
+function syncDistrictUserSplitTable() {
   const targetWrap = document.getElementById("v3DistrictUserSplitWrap");
   const targetList = document.getElementById("v3DistrictUserSplitList");
   if (!(targetWrap instanceof HTMLElement) || !(targetList instanceof HTMLElement)) {
-    return;
-  }
-
-  if (ballotSnapshot?.candidates?.length) {
-    const visible = !!ballotSnapshot.userSplitVisible;
-    targetWrap.hidden = !visible;
-    if (!visible) {
-      return;
-    }
-
-    if (targetList.contains(document.activeElement)) {
-      return;
-    }
-
-    targetList.innerHTML = "";
-    ballotSnapshot.userSplitRows.forEach((row) => {
-      const field = document.createElement("div");
-      field.className = "field";
-
-      const label = document.createElement("label");
-      label.className = "fpe-control-label";
-      label.textContent = row.name || "Candidate";
-
-      const input = document.createElement("input");
-      input.className = "fpe-input";
-      input.type = "number";
-      input.min = "0";
-      input.max = "100";
-      input.step = "0.1";
-      input.value = row.value == null ? "" : String(row.value);
-      input.disabled = controlsLocked;
-      input.addEventListener("input", () => {
-        setDistrictUserSplit(row.id, input.value);
-      });
-
-      field.append(label, input);
-      targetList.appendChild(field);
-    });
     return;
   }
 
@@ -822,16 +697,9 @@ function syncDistrictUserSplitTable(ballotSnapshot, controlsLocked = false) {
   });
 }
 
-function syncDistrictBallotWarning(ballotSnapshot) {
+function syncDistrictBallotWarning() {
   const targetWarn = document.getElementById("v3DistrictCandWarn");
   if (!(targetWarn instanceof HTMLElement)) {
-    return;
-  }
-
-  if (ballotSnapshot) {
-    const text = String(ballotSnapshot.warningText || "").trim();
-    targetWarn.hidden = !text;
-    targetWarn.textContent = text;
     return;
   }
 
@@ -859,24 +727,6 @@ function dispatchLegacyInput(node) {
   }
   node.dispatchEvent(new Event("input", { bubbles: true }));
   node.dispatchEvent(new Event("change", { bubbles: true }));
-}
-
-function bindDistrictAddCandidateButton() {
-  const button = document.getElementById("v3BtnAddCandidate");
-  if (!(button instanceof HTMLButtonElement) || button.dataset.v3DistrictAddBound === "1") {
-    return;
-  }
-  button.dataset.v3DistrictAddBound = "1";
-  button.addEventListener("click", () => {
-    const result = addDistrictCandidate();
-    if (result?.ok) {
-      return;
-    }
-    const legacy = document.getElementById("btnAddCandidate");
-    if (legacy instanceof HTMLButtonElement) {
-      legacy.click();
-    }
-  });
 }
 
 function hydrateLegacySelectOptions(v3Id, legacyId, preferredValue) {

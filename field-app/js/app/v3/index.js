@@ -8,6 +8,7 @@ import { resolveV3StageId, V3_DEFAULT_STAGE } from "./stageRegistry.js";
 const STAGE_KEY = "fpe-ui-v3-stage";
 const STAGE_QUERY_PARAM = "stage";
 const NAV_BRIDGE_KEY = "__FPE_V3_NAV__";
+const SHELL_BRIDGE_KEY = "__FPE_SHELL_API__";
 let syncTimer = null;
 let popstateWired = false;
 
@@ -151,13 +152,20 @@ function wireTopbarBridge() {
       console.warn("[v3-shell] qa smoke failed", err);
     }
 
-    clickLegacy("btnDiagnostics");
+    if (!callShellBridge("openDiagnostics")) {
+      clickLegacy("btnDiagnostics");
+    }
   });
-  resetBtn?.addEventListener("click", () => clickLegacy("btnResetAll"));
+  resetBtn?.addEventListener("click", () => {
+    const result = callShellBridge("resetScenario");
+    if (!result) {
+      clickLegacy("btnResetAll");
+    }
+  });
 
   syncTrainingToggle();
   trainingBtn?.addEventListener("click", () => {
-    setLegacyTrainingState(!readLegacyTrainingState());
+    setShellTrainingState(!readShellTrainingState());
     syncTrainingToggle();
   });
   document.getElementById("toggleTraining")?.addEventListener("change", syncTrainingToggle);
@@ -175,23 +183,25 @@ function wireScenarioBridge() {
   const v3Input = document.getElementById("v3ScenarioName");
   const legacyInput = document.getElementById("scenarioName");
 
-  if (!v3Input || !legacyInput) {
+  if (!v3Input) {
     return;
   }
 
-  v3Input.value = legacyInput.value || "";
+  const shellView = readShellBridgeView();
+  v3Input.value = shellView?.scenarioName || legacyInput?.value || "";
 
   v3Input.addEventListener("input", () => {
-    if (legacyInput.value === v3Input.value) {
+    if (setShellScenarioName(v3Input.value)) {
       return;
     }
-
-    legacyInput.value = v3Input.value;
-    legacyInput.dispatchEvent(new Event("input", { bubbles: true }));
-    legacyInput.dispatchEvent(new Event("change", { bubbles: true }));
+    if (legacyInput && legacyInput.value !== v3Input.value) {
+      legacyInput.value = v3Input.value;
+      legacyInput.dispatchEvent(new Event("input", { bubbles: true }));
+      legacyInput.dispatchEvent(new Event("change", { bubbles: true }));
+    }
   });
 
-  legacyInput.addEventListener("input", () => {
+  legacyInput?.addEventListener("input", () => {
     if (v3Input.value !== legacyInput.value) {
       v3Input.value = legacyInput.value;
     }
@@ -202,6 +212,31 @@ function clickLegacy(id) {
   const el = document.getElementById(id);
   if (el && typeof el.click === "function") {
     el.click();
+  }
+}
+
+function readShellBridgeView() {
+  try {
+    const api = window[SHELL_BRIDGE_KEY];
+    if (!api || typeof api.getView !== "function") {
+      return null;
+    }
+    const view = api.getView();
+    return view && typeof view === "object" ? view : null;
+  } catch {
+    return null;
+  }
+}
+
+function callShellBridge(method, ...args) {
+  try {
+    const api = window[SHELL_BRIDGE_KEY];
+    if (!api || typeof api[method] !== "function") {
+      return null;
+    }
+    return api[method](...args);
+  } catch {
+    return null;
   }
 }
 
@@ -232,13 +267,35 @@ function setLegacyTrainingState(enabled) {
   legacyToggle.dispatchEvent(new Event("change", { bubbles: true }));
 }
 
+function readShellTrainingState() {
+  const shellView = readShellBridgeView();
+  if (shellView && typeof shellView.trainingEnabled === "boolean") {
+    return shellView.trainingEnabled;
+  }
+  return readLegacyTrainingState();
+}
+
+function setShellTrainingState(enabled) {
+  const result = callShellBridge("setTrainingEnabled", !!enabled);
+  if (result) {
+    return true;
+  }
+  setLegacyTrainingState(enabled);
+  return false;
+}
+
+function setShellScenarioName(value) {
+  const result = callShellBridge("setScenarioName", value);
+  return !!result;
+}
+
 function syncTrainingToggle() {
   const v3Btn = document.getElementById("v3BtnTraining");
   if (!(v3Btn instanceof HTMLButtonElement)) {
     return;
   }
 
-  const enabled = readLegacyTrainingState();
+  const enabled = readShellTrainingState();
   v3Btn.setAttribute("aria-pressed", enabled ? "true" : "false");
   v3Btn.classList.toggle("is-active", enabled);
 }
@@ -253,12 +310,14 @@ function syncAll() {
 function syncScenarioMirror() {
   const v3Input = document.getElementById("v3ScenarioName");
   const legacyInput = document.getElementById("scenarioName");
-  if (!v3Input || !legacyInput) {
+  if (!v3Input) {
     return;
   }
 
-  if (v3Input.value !== legacyInput.value) {
-    v3Input.value = legacyInput.value;
+  const shellView = readShellBridgeView();
+  const nextValue = shellView?.scenarioName ?? legacyInput?.value ?? "";
+  if (v3Input.value !== nextValue) {
+    v3Input.value = nextValue;
   }
 }
 
