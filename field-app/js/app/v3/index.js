@@ -13,15 +13,19 @@ let syncTimer = null;
 let popstateWired = false;
 
 function resolveUiMode() {
+  try {
+    const getMode = window.__FPE_GET_UI_MODE__;
+    if (typeof getMode === "function") {
+      const mode = getMode();
+      if (mode === "legacy" || mode === "v3") {
+        return mode;
+      }
+    }
+  } catch {}
+
   const params = new URLSearchParams(window.location.search);
-  const urlMode = params.get("ui");
-
-  if (urlMode === "legacy") {
+  if (params.get("ui") === "legacy") {
     return "legacy";
-  }
-
-  if (urlMode === "v3") {
-    return "v3";
   }
 
   return "v3";
