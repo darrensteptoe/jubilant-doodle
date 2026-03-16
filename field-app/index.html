@@ -1506,11 +1506,20 @@ window.__FPE_OPEN_EMERGENCY_DIAGNOSTICS__ = openEmergencyDiagnostics;
 window.__FPE_MOVE_LEGACY_RIGHT_RAIL_TO_HOST__ = moveLegacyRightRailToHost;
 window.__FPE_RESTORE_LEGACY_RIGHT_RAIL__ = restoreLegacyRightRailToOrigin;
 
-function initLegacyInlineShell() {
-  var host = document.querySelector('.stage-main-new');
-  if (host && host.dataset.legacyInlineInit === '1') return;
-  if (host) host.dataset.legacyInlineInit = '1';
+function prepareV3CompatHosts() {
+  setLegacyStageVisibility(false);
+  moveLegacyCardToBridgeHost('stage-setup');
+  moveLegacyCardToBridgeHost('stage-universe');
+  moveLegacyCardToBridgeHost('stage-ballot');
+  moveLegacyCardToBridgeHost('stage-checks');
+  moveLegacyCardToBridgeHost('stage-structure');
+  moveLegacyCardToBridgeHost('censusPhase1Card');
+  moveLegacyCardToBridgeHost('targetingLabCard');
+  moveLegacyActionToHost('toggleTraining');
+  moveLegacyRightRailToHost();
+}
 
+function restoreLegacyCompatHosts() {
   setLegacyStageVisibility(true);
   restoreLegacyCardToOrigin('stage-setup');
   restoreLegacyCardToOrigin('stage-universe');
@@ -1522,6 +1531,17 @@ function initLegacyInlineShell() {
   restoreLegacyCardToOrigin('toggleTraining');
   restoreLegacyRightRailToOrigin();
   normalizeStages();
+}
+
+window.__FPE_PREPARE_V3_COMPAT_HOSTS__ = prepareV3CompatHosts;
+window.__FPE_RESTORE_LEGACY_COMPAT_HOSTS__ = restoreLegacyCompatHosts;
+
+function initLegacyInlineShell() {
+  var host = document.querySelector('.stage-main-new');
+  if (host && host.dataset.legacyInlineInit === '1') return;
+  if (host) host.dataset.legacyInlineInit = '1';
+
+  restoreLegacyCompatHosts();
   var btnOpen = document.getElementById('btnDiagnostics');
   if (btnOpen){
     btnOpen.addEventListener('click', openEmergencyDiagnostics);
@@ -1538,16 +1558,7 @@ document.addEventListener('DOMContentLoaded', function(){
     return;
   }
 
-  setLegacyStageVisibility(false);
-  moveLegacyCardToBridgeHost('stage-setup');
-  moveLegacyCardToBridgeHost('stage-universe');
-  moveLegacyCardToBridgeHost('stage-ballot');
-  moveLegacyCardToBridgeHost('stage-checks');
-  moveLegacyCardToBridgeHost('stage-structure');
-  moveLegacyCardToBridgeHost('censusPhase1Card');
-  moveLegacyCardToBridgeHost('targetingLabCard');
-  moveLegacyActionToHost('toggleTraining');
-  moveLegacyRightRailToHost();
+  prepareV3CompatHosts();
   window.setTimeout(function(){
     if (!isV3BridgeActive()) {
       initLegacyInlineShell();
