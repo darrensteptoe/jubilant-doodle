@@ -68,6 +68,7 @@ let stateOptionsUsingFallback = false;
 const countyOptionsCache = new Map();
 const placeOptionsCache = new Map();
 const rowsCache = new Map();
+const CENSUS_RUNTIME_BRIDGE_KEY = "__FPE_CENSUS_RUNTIME_API__";
 const STATE_OPTIONS_FALLBACK = [
   { fips: "01", name: "Alabama" },
   { fips: "02", name: "Alaska" },
@@ -213,6 +214,12 @@ const RESOLUTION_LABEL_BY_ID = Object.fromEntries(
 
 function cleanText(v){
   return String(v == null ? "" : v).trim();
+}
+
+if (typeof window !== "undefined"){
+  window[CENSUS_RUNTIME_BRIDGE_KEY] = {
+    getRowsForState: (censusState) => getRowsForState(censusState),
+  };
 }
 
 function extractBridgeTableRows(tbody, expectedCols = 0){
