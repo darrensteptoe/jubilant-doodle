@@ -18,11 +18,13 @@ Reference artifact:
   - `#stage-ballot .phase-p3`
 - `js/appRuntime.js` still executes `composeSetupStageModule()` during boot.
 - `js/app/v3/stageMount.js` still mounts legacy right rail (`.results-sidebar-new`) into `#v3RightRailSlot`.
+- v3 `Training` toggle remains a tracked shell holdout; current shell/cutover work should continue, but Training still does not toggle correctly end-to-end and should be cleaned up before final shell retirement.
 - Most v3 surfaces are still bridge-driven from legacy IDs (by design for B->C migration), so legacy containers remain runtime dependencies.
 - Scenarios surface is now runtime-native in v3 (no direct legacy ID bridge targets).
 - Legacy scenario manager bindings now short-circuit when scenario DOM is absent, so `stage-scenarios` can be removed without requiring legacy scenario event wiring at boot.
 - Legacy decision-session bindings now short-circuit when decision DOM is absent, preventing boot-time coupling to removed Decision Log legacy markup.
 - Decision Log controls, summaries, and sensitivity snapshot execution now run through runtime decision API (`window.__FPE_DECISION_API__`) with a DOM-independent sensitivity compute path.
+- v3 boot no longer hard-requires `#app-shell-legacy` to exist just to mount v3; legacy wrapper is now optional during boot and only used when present for fallback visibility.
 
 ## Completed retirements
 - `stage-scenarios` removed from `index.html` (legacy nav item removed as part of the same pass).

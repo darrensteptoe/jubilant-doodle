@@ -196,6 +196,7 @@ Scope: UI architecture migration only (engine and right rail frozen)
 - Runtime hardening: appRuntime weekly undo and MC/GOTV mode sync helpers now use guarded refs (no direct `els.*` hard-return gates on `wkUndoActionBtn`, `mc*`, `gotv*` mode nodes).
 - Runtime hardening: DOM preflight now enforces Census/Targeting required IDs only when those feature anchors are present, reducing false missing-ID noise during staged retirement.
 - Runtime hardening: DOM preflight now accepts legacy-or-v3 shell IDs for scenario/build/diagnostics/reset controls to prevent false `dom-preflight` failures during shell cutover.
+- Known shell holdout: Training still does not toggle correctly end-to-end in v3; keep tracking it, but do not let it derail remaining shell/cutover seam work.
 - Runtime hardening: DOM preflight now accepts legacy-or-v3 District core controls (race/election/weeks/mode/universe/candidate/turnout fields) to prevent false boot failures while setup-era legacy markup is retired.
 - Runtime hardening: DOM preflight District/Reach core controls are now stage-aware (only enforced when District/Reach anchors are present), preventing false boot failures when those surfaces are not mounted.
 - Runtime hardening: DOM preflight now accepts legacy-or-v3 Census and Targeting IDs (card/control/table/status/map) so staged retirement does not trigger false missing-ID boot failures.
@@ -257,6 +258,8 @@ Scope: UI architecture migration only (engine and right rail frozen)
 - Controls census card no longer mounts the full legacy card wrapper; it now renders a v3 bridge shell with native top actions (`Load GEO list`, `Fetch ACS rows`) and targeted legacy sub-block mounts.
 - Controls census bridge now exposes native v3 body actions for GEO selection (`Apply GEOIDs`, `Select all`, `Clear selection`), aggregate exports (`Export CSV/JSON`), and election CSV workflow (`template downloads`, `dry-run`, `clear preview`) with proxy wiring to legacy handlers.
 - Legacy-shell hardening: added runtime Census bridge host isolation (`#legacyCensusBridgeHost`) so `#censusPhase1Card` and `#targetingLabCard` are rehomed outside `stage-checks` during v3 boot and restored when explicit legacy mode is requested.
+- Legacy-shell hardening: added runtime shell-action host isolation (`#legacyShellActionHost`) so legacy Training/Diagnostics/Reset fallback controls are rehomed outside `#app-shell-legacy` during v3 boot and restored in explicit legacy mode.
+- Legacy-shell hardening: v3 boot no longer hard-requires `#app-shell-legacy` to exist before mounting the v3 shell; the legacy wrapper is now optional and only used when present for fallback visibility.
 - QA hardening: v3 smoke now asserts Census/Targeting bridge-host mounts (`legacy-census-bridge-host`, `legacy-census-bridge-mounted`, `legacy-targeting-bridge-mounted`) to catch stage-checks coupling regressions early.
 - Legacy-shell hardening: setup-era legacy stage sections (`#stage-setup`, `#stage-universe`, `#stage-ballot`, `#stage-structure`) are now rehomed into `#legacyCensusBridgeHost` during v3 boot and restored in explicit legacy mode.
 - District bridge reduction: appRuntime District census bridge no longer scrapes legacy `#census*` status/table text fallbacks; v3 status/table rows now come from state-driven bridge payload/defaults only.
