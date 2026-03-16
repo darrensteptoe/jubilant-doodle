@@ -158,6 +158,11 @@ export function runV3QaSmoke({ restoreStage = true, logToConsole = true } = {}) 
   recordCheck(checks, "legacy-census-bridge-host", isTruthy(document.getElementById("legacyCensusBridgeHost")));
   recordCheck(
     checks,
+    "legacy-census-bridge-host-detached",
+    isTruthy(document.getElementById("legacyCensusBridgeHost")?.parentElement?.id !== "app-shell-legacy")
+  );
+  recordCheck(
+    checks,
     "legacy-census-bridge-mounted",
     isTruthy(document.querySelector("#legacyCensusBridgeHost #censusPhase1Card"))
   );

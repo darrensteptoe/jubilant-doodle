@@ -67,7 +67,8 @@ function resolveLegacyCensusCard() {
     return districtLegacyCensusCard;
   }
 
-  const preferred = document.querySelector("#app-shell-legacy #censusPhase1Card");
+  const preferred = document.querySelector("#legacyCensusBridgeHost #censusPhase1Card")
+    || document.getElementById("censusPhase1Card");
   if (!(preferred instanceof HTMLElement)) {
     return null;
   }
