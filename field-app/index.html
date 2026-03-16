@@ -1444,6 +1444,22 @@ function restoreLegacyRightRailToOrigin() {
   restoreLegacyCardToOrigin('legacyResultsSidebar');
 }
 
+function attachLegacyRightRailToSlot(slotId) {
+  try {
+    var targetId = String(slotId || '').trim();
+    if (!targetId) return false;
+    var slot = document.getElementById(targetId);
+    var rail = document.getElementById('legacyResultsSidebar');
+    if (!slot || !rail) return false;
+    if (rail.parentElement !== slot) {
+      slot.appendChild(rail);
+    }
+    return true;
+  } catch (err) {
+    return false;
+  }
+}
+
 function getUiModeFromLocation() {
   try {
     var params = new URLSearchParams(window.location.search || '');
@@ -1515,6 +1531,7 @@ function setLegacyShellVisible(visible) {
 window.__FPE_OPEN_EMERGENCY_DIAGNOSTICS__ = openEmergencyDiagnostics;
 window.__FPE_MOVE_LEGACY_RIGHT_RAIL_TO_HOST__ = moveLegacyRightRailToHost;
 window.__FPE_RESTORE_LEGACY_RIGHT_RAIL__ = restoreLegacyRightRailToOrigin;
+window.__FPE_ATTACH_LEGACY_RIGHT_RAIL_TO_SLOT__ = attachLegacyRightRailToSlot;
 window.__FPE_SET_LEGACY_SHELL_VISIBLE__ = setLegacyShellVisible;
 window.__FPE_GET_UI_MODE__ = getUiModeFromLocation;
 
