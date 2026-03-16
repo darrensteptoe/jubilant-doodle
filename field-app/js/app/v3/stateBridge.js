@@ -136,6 +136,22 @@ export function setDistrictFormField(field, value) {
   return callDistrictBridge("setFormField", field, value);
 }
 
+export function addDistrictCandidate() {
+  return callDistrictBridge("addCandidate");
+}
+
+export function updateDistrictCandidate(candidateId, field, value) {
+  return callDistrictBridge("updateCandidate", candidateId, field, value);
+}
+
+export function removeDistrictCandidate(candidateId) {
+  return callDistrictBridge("removeCandidate", candidateId);
+}
+
+export function setDistrictUserSplit(candidateId, value) {
+  return callDistrictBridge("setUserSplit", candidateId, value);
+}
+
 export function applyDistrictTargetingPreset(modelId) {
   return callDistrictBridge("applyTargetingPreset", modelId);
 }
@@ -189,6 +205,35 @@ export function readDistrictControlSnapshot() {
   return {
     locked: !!controls.locked,
     disabledMap: controls.disabledMap && typeof controls.disabledMap === "object" ? controls.disabledMap : {},
+  };
+}
+
+export function readDistrictBallotSnapshot() {
+  const view = readDistrictBridgeView();
+  const ballot = view?.ballot;
+  if (!ballot || typeof ballot !== "object") {
+    return null;
+  }
+  const candidatesRaw = Array.isArray(ballot.candidates) ? ballot.candidates : [];
+  const userSplitRaw = Array.isArray(ballot.userSplitRows) ? ballot.userSplitRows : [];
+  return {
+    yourCandidateId: String(ballot.yourCandidateId || "").trim(),
+    undecidedPct: Number.isFinite(Number(ballot.undecidedPct)) ? Number(ballot.undecidedPct) : null,
+    undecidedMode: String(ballot.undecidedMode || "").trim(),
+    supportTotalText: String(ballot.supportTotalText || "").trim(),
+    warningText: String(ballot.warningText || "").trim(),
+    userSplitVisible: !!ballot.userSplitVisible,
+    candidates: candidatesRaw.map((row) => ({
+      id: String(row?.id || "").trim(),
+      name: String(row?.name || "").trim(),
+      supportPct: Number.isFinite(Number(row?.supportPct)) ? Number(row.supportPct) : null,
+      canRemove: !!row?.canRemove,
+    })).filter((row) => row.id),
+    userSplitRows: userSplitRaw.map((row) => ({
+      id: String(row?.id || "").trim(),
+      name: String(row?.name || "").trim(),
+      value: Number.isFinite(Number(row?.value)) ? Number(row.value) : null,
+    })).filter((row) => row.id),
   };
 }
 
