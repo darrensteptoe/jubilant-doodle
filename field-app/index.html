@@ -1157,7 +1157,7 @@
 </main>
 <!-- /stage-main-new -->
 <!-- RIGHT: Persistent results sidebar -->
-<aside aria-label="Win path results" class="results-sidebar-new">
+<aside aria-label="Win path results" class="results-sidebar-new" id="legacyResultsSidebar">
 
   <!-- INPUT VALIDATION -->
   <div class="sidebar-section-new">
@@ -1282,6 +1282,7 @@
 <!-- /app-shell-legacy -->
 <div hidden="" id="legacyCensusBridgeHost"></div>
 <div hidden="" id="legacyShellActionHost"></div>
+<div hidden="" id="legacyRightRailHost"></div>
 <script src="./js/app.js?v=20260312-runtime-init-order-fix-1" type="module"></script>
 <script src="./js/app/v3/index.js?v=20260312-runtime-init-order-fix-1" type="module"></script>
 <script>
@@ -1354,6 +1355,17 @@ function getLegacyShellActionHost() {
   return host;
 }
 
+function getLegacyRightRailHost() {
+  var host = document.getElementById('legacyRightRailHost');
+  if (host) return host;
+
+  host = document.createElement('div');
+  host.id = 'legacyRightRailHost';
+  host.hidden = true;
+  document.body.appendChild(host);
+  return host;
+}
+
 function moveLegacyCardToBridgeHost(cardId) {
   try {
     var id = String(cardId || '').trim();
@@ -1392,6 +1404,23 @@ function moveLegacyActionToHost(nodeId) {
   } catch (err) {}
 }
 
+function moveLegacyRightRailToHost() {
+  try {
+    var rail = document.getElementById('legacyResultsSidebar');
+    var host = getLegacyRightRailHost();
+    if (!rail || !host || rail.parentElement === host) return;
+
+    window.__FPE_LEGACY_CARD_ORIGINS__ = window.__FPE_LEGACY_CARD_ORIGINS__ || {};
+    if (!window.__FPE_LEGACY_CARD_ORIGINS__.legacyResultsSidebar) {
+      window.__FPE_LEGACY_CARD_ORIGINS__.legacyResultsSidebar = {
+        parent: rail.parentElement,
+        nextSibling: rail.nextElementSibling
+      };
+    }
+    host.appendChild(rail);
+  } catch (err) {}
+}
+
 function restoreLegacyCardToOrigin(cardId) {
   try {
     var id = String(cardId || '').trim();
@@ -1409,6 +1438,10 @@ function restoreLegacyCardToOrigin(cardId) {
       parent.appendChild(card);
     }
   } catch (err) {}
+}
+
+function restoreLegacyRightRailToOrigin() {
+  restoreLegacyCardToOrigin('legacyResultsSidebar');
 }
 
 function shouldUseLegacyShell() {
@@ -1469,6 +1502,9 @@ function closeEmergencyDiagnostics(){
   if (modal) modal.hidden = true;
 }
 
+window.__FPE_MOVE_LEGACY_RIGHT_RAIL_TO_HOST__ = moveLegacyRightRailToHost;
+window.__FPE_RESTORE_LEGACY_RIGHT_RAIL__ = restoreLegacyRightRailToOrigin;
+
 function initLegacyInlineShell() {
   var host = document.querySelector('.stage-main-new');
   if (host && host.dataset.legacyInlineInit === '1') return;
@@ -1485,6 +1521,7 @@ function initLegacyInlineShell() {
   restoreLegacyCardToOrigin('toggleTraining');
   restoreLegacyCardToOrigin('btnDiagnostics');
   restoreLegacyCardToOrigin('btnResetAll');
+  restoreLegacyRightRailToOrigin();
   normalizeStages();
   var btnOpen = document.getElementById('btnDiagnostics');
   if (btnOpen){
@@ -1513,6 +1550,7 @@ document.addEventListener('DOMContentLoaded', function(){
   moveLegacyActionToHost('toggleTraining');
   moveLegacyActionToHost('btnDiagnostics');
   moveLegacyActionToHost('btnResetAll');
+  moveLegacyRightRailToHost();
   window.setTimeout(function(){
     if (!isV3BridgeActive()) {
       initLegacyInlineShell();

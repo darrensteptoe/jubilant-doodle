@@ -19,6 +19,7 @@ Reference artifact:
 - `js/appRuntime.js` still executes `composeSetupStageModule()` during boot.
 - `js/app/v3/stageMount.js` still mounts legacy right rail (`.results-sidebar-new`) into `#v3RightRailSlot`.
 - v3 `Training` toggle remains a tracked shell holdout; current shell/cutover work should continue, but Training still does not toggle correctly end-to-end and should be cleaned up before final shell retirement.
+- Legacy right rail still remains a runtime compatibility dependency, but it is now isolated from the legacy shell wrapper during v3 sessions via a dedicated host/restore path.
 - Most v3 surfaces are still bridge-driven from legacy IDs (by design for B->C migration), so legacy containers remain runtime dependencies.
 - Scenarios surface is now runtime-native in v3 (no direct legacy ID bridge targets).
 - Legacy scenario manager bindings now short-circuit when scenario DOM is absent, so `stage-scenarios` can be removed without requiring legacy scenario event wiring at boot.
