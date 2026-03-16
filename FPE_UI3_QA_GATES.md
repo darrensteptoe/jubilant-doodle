@@ -1,0 +1,297 @@
+# FPE UI 3.0 QA Gates
+
+Date: 2026-03-10
+Scope: UI architecture migration only (engine and right rail frozen)
+
+## Gate Template (Required Per Surface)
+
+### 1) Functional
+- Controls respond to input changes.
+- Outputs update after each control change.
+- Stage navigation works and preserves state.
+- No broken element IDs required by runtime bindings.
+- No JS errors in browser console.
+
+### 2) Visual
+- Uses v3 spacing tokens (no arbitrary margins).
+- No legacy shell styling leaks into v3 cards.
+- No overlaps or clipped controls.
+- Right rail fits and scrolls in slot.
+- Mobile/compact layout remains usable.
+
+### 3) Structural
+- Surface answers one clear operator question.
+- Primary controls are immediately visible.
+- Advanced/secondary controls are clearly separated.
+- Summary section reflects current assumptions.
+
+### 4) Regression
+- Same inputs produce same key outputs as legacy shell.
+- KPI strip values match right-rail/source values.
+- Scenario name edits sync between v3 and legacy model input.
+
+## Current Surface Status
+
+### District
+- Status: In progress (B -> C native structure pass started)
+- Current implementation: v3-native card structure with legacy field-level mounts.
+- Remaining checks:
+  - Manual browser regression against legacy values.
+  - Console error sweep after stage switching loops.
+
+### Reach
+- Status: In progress (B -> C native structure pass started)
+- Current implementation: v3-native card layout with targeted field/block mounts.
+- Remaining checks:
+  - Manual browser regression against legacy values for weekly outputs.
+  - Console error sweep after repeated stage switching.
+  - Visual pass for 3-column scanability at 1280 and 1024 widths.
+  - Confirm `window.__FPE_REACH_API__` availability on first paint (v3 no longer falls back to legacy stage-capacity DOM mirrors).
+
+### Outcome
+- Status: In progress (B -> C native structure pass started)
+- Current implementation: v3-native outcome cards with targeted simulation/output mounts.
+- Remaining checks:
+  - Monte Carlo run/re-run interactions from v3 shell.
+  - Risk framing consistency with right rail.
+  - Regression check for confidence-envelope and sensitivity values.
+
+### Turnout
+- Status: In progress (B -> C native structure pass started)
+- Current implementation: v3-native turnout layout with targeted ROI/turnout mounts.
+- Remaining checks:
+  - ROI table refresh behavior under control changes.
+  - Turnout summary consistency across mode toggles.
+  - Regression check for turnout banner and realized-vote readouts.
+
+### Plan
+- Status: In progress (B -> C native structure pass started)
+- Current implementation: v3-native plan layout with targeted workload/optimization/timeline mounts.
+- Remaining checks:
+  - Timeline-constrained optimization flow.
+  - Workload translator regression against legacy values.
+  - Decision-intelligence panel behavior and constraint summaries.
+
+### Controls
+- Status: In progress (B -> C native structure pass started)
+- Current implementation: v3-native controls layout; workflow, benchmark, evidence, calibration, and feedback cards are native-bridged to legacy `intel*` handlers. Status stack is now native v3, and census now uses a native bridge shell with legacy sub-block mounts for dense map/table workflows.
+- Remaining checks:
+  - Census flow parity (load GEOs, fetch rows, aggregate, map rendering) in v3 bridge-shell context.
+  - Calibration interactions and export/copy behavior under repeated edits.
+  - Feedback-loop interactions and console-error sweep.
+
+### Scenarios
+- Status: In progress (B -> C native structure pass started)
+- Current implementation: v3-native scenario workspace and comparison panel now run through the runtime scenario API bridge (`window.__FPE_SCENARIO_API__`) with no legacy ID-bound controls in the v3 pane.
+- Remaining checks:
+  - Save/load/clone/delete scenario actions from v3 workspace.
+  - Comparison grid visibility and diff counts under baseline/non-baseline states.
+  - Summary panel refresh during rapid scenario switching.
+
+### Decision Log
+- Status: In progress (B -> C native structure pass started)
+- Current implementation: v3-native session/assumptions/options/recommendation/diagnostics cards now run through the runtime decision API bridge (`window.__FPE_DECISION_API__`) without legacy ID-bound controls in the v3 pane; `Run snapshot` now uses the shared DOM-independent sensitivity compute path.
+- Remaining checks:
+  - Session/objective/options actions under repeated edits.
+  - Diagnostics panel updates (drift/risk/bottleneck/sensitivity/confidence) after reruns.
+  - Recommendation export buttons and summary preview behavior.
+
+### Data
+- Status: In progress (B -> C native bridge pass started)
+- Current implementation: v3-native data controls rendered in v3 markup and driven via runtime data API bridge (`window.__FPE_DATA_API__`) with no direct legacy selector proxies in the Data surface.
+- Remaining checks:
+  - Strict import toggle and restore-backup behavior.
+  - Import/export button flows (JSON/CSV/copy summary) and banner visibility.
+  - USB folder connect/load/save/disconnect behavior in v3 context.
+
+## Execution Notes
+- `js/core/*` remains unchanged for this phase.
+- Right rail remains legacy and is slotted into v3 shell.
+- Shared v3 utility helpers now centralize surface text/grid helper logic (`js/app/v3/surfaceUtils.js`) to reduce duplication before final native hardening.
+- Bridge helper primitives (`bindClickProxy`, `syncButtonDisabled`, `syncSelectOptions`) are centralized in `js/app/v3/surfaceUtils.js` and reused by native-bridge surfaces.
+- Bridge helper API expanded in `js/app/v3/surfaceUtils.js` with shared field/select/checkbox bind+sync utilities (`bindFieldProxy`, `bindSelectProxy`, `bindCheckboxProxy`, `syncFieldValue`, `syncSelectValue`, `syncCheckboxValue`).
+- Added v3 QA smoke harness (`js/app/v3/qaGates.js`):
+  - Runs automatically when clicking the v3 Diagnostics button (logs pass/fail table to console, then opens legacy diagnostics modal).
+  - Can be run manually in-browser with `window.runV3QaSmoke()`.
+  - Stage selector checks are now scoped to the active v3 pane (not global DOM), so hidden legacy IDs can no longer produce false passes.
+- Bridge hardening: removed fragile structural legacy selectors in migrated surfaces (`> .note`, `:last-of-type`, descendant class lookups) and switched to explicit legacy IDs for Reach/Outcome status-note sync paths.
+- Bridge hardening: v3 proxy bindings now stamp bridge metadata (`data-v3-legacy-id`, `data-v3-bridge-kind`) on bridged controls, and QA smoke now verifies per-stage bridge target existence (`bridge-control-count`, `bridge-targets-exist`) while allowing explicitly native stages (currently `scenarios` and `decision-log`) to run with zero legacy bridges.
+- Reach bridge fix: `Finish date` now correctly reads legacy `#wkFinishAttempts` (previous stale `#wkFinishDoors` reference removed), and label text now matches the underlying attempts metric.
+- Reach bridge hardening: removed v3 legacy DOM fallback reads for weekly/outlook/levers/actions; Reach v3 now uses runtime API bridge only (`window.__FPE_REACH_API__`), reducing dependency on `stage-capacity`.
+- Turnout bridge reduction: removed direct `#mcP50` read from v3 Turnout impact context; margin context now resolves from right-rail `#mcP50-sidebar`, eliminating Turnout's direct dependency on `stage-results`.
+- Outcome bridge reduction: v3 Outcome now sources core MC/risk display metrics directly from right-rail IDs (`#mcP10-sidebar/#mcP50-sidebar/#mcP90-sidebar`, freshness tags, risk band) instead of legacy `stage-results` IDs for those fields.
+- Outcome bridge reduction: v3 Outcome risk-grade/fragility/cliff readouts now resolve from right-rail risk context (`#riskBandTag-sidebar`, `#riskVolatility-sidebar`, `#riskPlainBanner-sidebar`) instead of legacy `#mcRiskGrade/#mcFragility/#mcCliff`.
+- Outcome bridge reduction: v3 Outcome forecast median/upside/downside now resolves from sidebar percentiles (`#mcP50-sidebar/#mcP90-sidebar/#mcP10-sidebar`) instead of legacy `#mcMedian/#mcP95/#mcP5`.
+- Outcome bridge reduction: v3 Outcome weekly capacity/gap context now resolves from weekly-ops IDs (`#wkCapacityPerWeek/#wkGapPerWeek/#wkConstraintNote` + `#timelineWeeksAuto/#weeksRemaining`) instead of legacy `#p3*` result IDs.
+- Outcome bridge reduction: v3 Outcome surface-status/summary/impact-note helper copy is now native in the v3 card body, removing direct reads from legacy `#surfaceStatus/#surfaceSummary/#impactTraceNote`.
+- Outcome bridge reduction: v3 Outcome confidence miss-risk label is now derived from `#opsMissProb` in v3 logic, removing direct dependency on legacy `#opsMissTag`.
+- Outcome bridge reduction: v3 Outcome shift-needed (P50/P10) values are now derived from sidebar margins, removing direct reads from legacy `#mcShiftP50/#mcShiftP10`.
+- Plan bridge reduction: v3 Plan workload/optimizer/timeline banners and decision-intel text summaries are now derived in v3 logic, removing direct reads from legacy banner/recommendation IDs (`#convFeasBanner/#optBanner/#tlBanner/#di*`).
+- Outcome bridge reduction: v3 Outcome now reads win probability from v3 KPI (`#v3KpiWinProb`) and derives weekly gap from note context, removing direct reads from `#mcWinProb-sidebar` and `#wkGapPerWeek`.
+- Turnout bridge reduction: v3 Turnout impact/status now uses turnout snapshot + v3 KPI, removing direct reads from sidebar/status IDs (`#kpiTurnoutVotes-sidebar/#kpiPersuasionNeed-sidebar/#mcWinProb-sidebar/#turnoutSummary/#roiBanner`).
+- Data bridge reduction: v3 Data status summary now derives from v3 bridge-state controls, removing direct reads from `#importHashBanner/#importWarnBanner/#usbStorageStatus`.
+- Controls bridge reduction: v3 Controls now derives governance/evidence/calibration/feedback status text from v3 bridge state (no direct `#intel*Status/#intel*Count` text reads).
+- Outcome bridge reduction: v3 Outcome confidence adjunct copy is now v3-derived (no direct reads from legacy `#opsAtt*`, `#opsCon*`, `#opsFinish*`, `#mcMoS/#mcDownside/#mcES10`, `#mcShift60/#mcShift70/#mcShift80`, `#mcShock10/#mcShock25/#mcShock50`, or `#impactTraceList`), and outcome capacity context no longer falls back to legacy `stage-capacity`/`stage-setup` IDs.
+- Turnout bridge reduction: v3 Turnout projected-margin context now reads from v3 KPI (`#v3KpiMargin`) rather than right-rail `#mcP50-sidebar`.
+- Plan bridge reduction: v3 Plan optimizer/timeline adjunct cards now derive totals and timeline diagnostics from v3-rendered state (`v3PlanOptAllocTbody` + synced timeline fields), removing direct reads of legacy `#optTotal*`, `#tlOpt*`, `#tlCompletionWeek`, and `#tlWeekList`.
+- Outcome bridge reduction: v3 Outcome risk/freshness/cliff status stack now derives from v3 confidence context (no direct reads from right-rail `#riskBandTag-sidebar/#riskVolatility-sidebar/#riskPlainBanner-sidebar/#mcFreshTag-sidebar/#mcLastRun-sidebar/#mcStale-sidebar`), and no longer reads `#timelineWeeksAuto` from legacy ROI stage.
+- Plan bridge reduction: v3 Plan Decision-Intel levers table no longer mirrors legacy `#diVolTbody/#diCostTbody/#diProbTbody`; rows now render natively from current v3 plan context.
+- Plan bridge reduction: v3 Plan now derives optimizer/timeline binding + shortfall status copy from v3 context (capacity/workload controls + v3 summaries), removing direct reads of legacy ROI status IDs (`#optBinding/#optGapContext/#tlPercent/#tlConstraint/#tlShortfallAttempts/#tlShortfallVotes`).
+- Controls bridge reduction: v3 Controls evidence table now renders directly from scenario-bridge intel state (`window.__FPE_SCENARIO_API__`) and no longer mirrors legacy `#intelEvidenceTbody`.
+- Controls bridge reduction: v3 Controls benchmark table now renders directly from scenario-bridge intel state and no longer mirrors legacy `#intelBenchmarkTbody`; remove actions dispatch by benchmark id to legacy handlers.
+- Controls bridge reduction: v3 Feedback what-if/recommendation preview panes now render directly from scenario-bridge intel state and no longer mirror legacy `#intelWhatIfPreview/#intelRecommendationPreview`.
+- Controls bridge reduction: v3 Review workflow actions now run API-first through `window.__FPE_SCENARIO_API__` with no fallback proxy bindings to legacy `btnIntel*` actions or `intelWhatIfInput`.
+- Controls bridge reduction: v3 Benchmark and Evidence form/actions now run API-first through `window.__FPE_SCENARIO_API__` (no fallback proxy bindings to legacy `intelBenchmark*`, `intelAuditSelect`, `intelEvidence*`, `btnIntelBenchmark*`, or `btnIntelEvidenceAttach`).
+- Controls bridge reduction: v3 Calibration action buttons now run API-first through `window.__FPE_SCENARIO_API__` (no fallback proxy bindings to legacy `btnIntelCalibration*`, `btnIntelAddDefault*`, or `btnIntelImport*` handlers).
+- Controls bridge reduction: v3 Calibration field sync now runs API-first from scenario-bridge intel state and patch updates (no fallback proxy bindings to legacy `intelBriefKind/intelMcDistribution/intelCorrelatedShocks/intelCorrelationMatrixId/intelCapacityDecayEnabled/intelDecayModelType/intelDecayWeeklyPct/intelDecayFloorPct/intelShockScenariosEnabled`).
+- QA hardening: v3 QA smoke now explicitly checks Controls calibration select options (`v3IntelMcDistribution` includes triangular/uniform/normal, `v3IntelDecayModelType` includes linear, and `v3IntelCorrelationMatrixId` includes placeholder option) to catch missing-option regressions.
+- QA hardening: Controls is now classified as a no-legacy-bridge stage in v3 QA smoke (`bridge-control-count` expects zero `data-v3-legacy-id` controls).
+- Data bridge reduction: v3 Data action + state wiring now runs through runtime data API bridge (`window.__FPE_DATA_API__`) with zero direct legacy ID proxies in `surfaces/data.js`.
+- Plan bridge reduction: v3 Plan workload row (`doors/shift`, `total shifts`, `shifts/week`, `volunteers needed`) now derives from v3 workload/timeline inputs, removing direct reads of legacy GOTV output IDs (`#outDoorsPerShift/#outTotalShifts/#outShiftsPerWeek/#outVolunteersNeeded`).
+- Plan bridge reduction: v3 Plan now resolves required conversations/doors via Reach runtime bridge (`__FPE_REACH_API__.getView().weekly`) instead of direct reads of legacy `#outConversationsNeeded/#outDoorsNeeded`.
+- Plan bridge reduction: v3 Plan workload `Doors per hour (source)` now mirrors from v3 timeline `timelineDoorsPerHour` control, removing direct legacy `#doorsPerHour` dependency.
+- Plan bridge reduction: v3 Plan workload input controls (`goalSupportIds`, `hoursPerShift`, `shiftsPerVolunteerPerWeek`) now bind via Reach runtime bridge (`__FPE_REACH_API__.setField/getView`) instead of direct legacy `stage-gotv` DOM proxies.
+- Plan bridge reduction: v3 Plan optimizer/timeline controls now bind via runtime Plan API bridge (`__FPE_PLAN_API__.setField/runOptimize/getView`) instead of direct legacy `stage-roi` control proxies.
+- Turnout bridge reduction: v3 Turnout assumptions/lift/ROI controls now bind via runtime Turnout API bridge (`__FPE_TURNOUT_API__.setField/refreshRoi/getView`) instead of direct legacy `stage-roi` control proxies.
+- Plan/Turnout bridge reduction: v3 allocation/ROI tables now render from runtime bridge view caches instead of mirroring legacy `#optTbody/#roiTbody`.
+- District bridge reduction: Targeting Lab control writes in the v3 surface no longer proxy-fallback to legacy `#targeting*` inputs/buttons; writes are bridge-only in `surfaces/district.js`, with only runtime `runTargeting` still internally delegating to legacy Census execution until row-cache state is surfaced.
+- Outcome bridge reduction: v3 Outcome percentile context now resolves from v3 KPI + right-rail percentiles (`#v3KpiMargin`, `#mcP10-sidebar/#mcP50-sidebar/#mcP90-sidebar`) instead of direct reads of legacy confidence-envelope IDs (`#mcP10/#mcP50/#mcP90`).
+- Outcome bridge reduction: v3 Outcome MC run-count display (`v3OutcomeMcRuns`) is now native fixed UI state and no longer mirrors legacy `#mcRuns`.
+- Outcome bridge reduction: v3 Outcome sensitivity + surface tables now render directly from runtime outcome bridge cache (`window.__FPE_OUTCOME_API__`) with no legacy table mirror fallback path.
+- Outcome bridge reduction: v3 Outcome forecast/confidence freshness values now read from runtime MC state via outcome bridge (`window.__FPE_OUTCOME_API__.getView().mc`), with sidebar/KPI fallback retained only as non-stage compatibility context.
+- Outcome bridge reduction: v3 Outcome controls/actions now bind exclusively via runtime Outcome API (`setField/runMc/rerunMc/computeSurface/getView`) with no legacy proxy fallback path.
+- Outcome bridge reduction: sensitivity-surface controls now resolve from runtime bridge state cache (`state.ui.outcomeSurfaceInputs`) and `computeSurface` executes from runtime engine path without requiring legacy `#surface*` nodes or `#btnComputeSurface`.
+- QA gate update: v3 smoke now treats Reach, Outcome, Turnout, Plan, Scenarios, Decision Log, and Data as no-legacy-bridge stages (`bridge-control-count` expects zero `data-v3-legacy-id` controls); District and Controls remain bridged during migration.
+- KPI bridge reduction: v3 KPI strip now uses runtime Outcome/Reach bridge views plus right-rail context for win probability, margin, and bottleneck status (no `stage-results` selector fallback on KPI win/margin fields).
+- Runtime hardening: MC render paths now render sidebar confidence/win metrics even when legacy primary result IDs are absent (no early return on missing `#mcWinProb`).
+- Runtime hardening: MC freshness/stale tags now update via sidebar-only targets even when legacy primary freshness nodes are absent.
+- Runtime hardening: risk-framing panel now updates via sidebar-only targets and no longer hard-requires legacy primary risk nodes.
+- Runtime hardening: D4 miss-risk computation/cache now runs without requiring legacy `opsMissProb/opsMissTag` DOM nodes.
+- Runtime hardening: D4 miss-risk UI now mirrors to right-rail IDs (`#opsMissProb-sidebar`, `#opsMissTag-sidebar`) so miss-risk status remains visible when legacy results-table nodes are absent.
+- Runtime hardening: D2/D3 envelope renderers now compute/cache-update even when legacy `opsAtt*` / `opsFinish*` table nodes are absent.
+- Runtime hardening: MC confidence adjunct metrics now mirror to right-rail `*-sidebar` IDs (hidden mirror targets), preserving updates when legacy adjunct table nodes are absent.
+- Runtime hardening: MC summary KPI metrics (`mcMedian`, `mcP95`, `mcP5`) now mirror to right-rail `*-sidebar` IDs (hidden mirror targets), preserving updates when legacy summary KPI nodes are absent.
+- Runtime hardening: MC sensitivity rows now mirror to hidden right-rail target (`#mcSensitivity-sidebar`), preserving updates when legacy sensitivity table node is absent.
+- Legacy flow retirement: removed legacy left-nav `results`, `roi`, and `gotv` entries.
+- Legacy flow retirement: retired containers `stage-results`, `stage-roi`, and `stage-gotv` are removed from `index.html` after bridge dependency reached zero.
+- Runtime hardening: timeline renderer now computes/cache-updates without hard requiring legacy timeline DOM gates (`timelineEnabled`, `tlPercent`, `tl*`), reducing coupling to `stage-gotv` markup.
+- Runtime hardening: phase3 renderer now computes/cache-updates and continues MC refresh/render even when legacy `p3*` output nodes are absent, reducing coupling to `stage-results` markup.
+- Runtime hardening: compatibility MC phase3 renderers (`js/app/render/monteCarlo.js`, `js/render/monteCarlo.js`) now compute/cache-update without hard requiring legacy `p3*` nodes.
+- Runtime hardening: conversion panel now computes and triggers phase3 refresh without hard requiring legacy `out*` output nodes or `convFeasBanner`.
+- Runtime hardening: ROI renderer now keeps cache/banner/summary updates active even when legacy `roiTbody` is absent (table render is conditional).
+- Runtime hardening: sensitivity snapshot render/run paths now no-op safely when legacy `sens*` DOM nodes are absent, while preserving cache compute/persist flow.
+- Runtime hardening: decision confidence/intelligence panels now render with guarded writes when legacy `conf*` / `di*` nodes are absent (no early-return hard gate on those legacy blocks).
+- Runtime hardening: weekly ops insights/freshness panels now render with guarded writes when legacy `wk*` nodes are partially absent (no hard all-node gate).
+- Runtime hardening: weekly ops summary module now continues rendering with guarded writes when `wkGoal` is absent (no hard return on that legacy summary node).
+- Runtime hardening: assumption drift panel now renders with guarded writes when `drift*` nodes are partially absent (no hard return on `driftStatusTag`).
+- Runtime hardening: scenario comparison panel now renders with guarded writes when `scm*` nodes are partially absent (no hard return on compare-wrap/tag IDs).
+- Runtime hardening: scenario comparison panel now guards `state.ui`/registry access for early-boot safety (no throw on missing `state.ui`).
+- Runtime hardening: stress summary panel now uses guarded target + resilient summary array handling (`res?.stressSummary`).
+- Runtime hardening: assumptions snapshot panel now renders with guarded writes when `assumptionsSnapshot` is absent (no hard return on assumption snapshot mount target).
+- Runtime hardening: guardrails panel now renders with guarded writes when `guardrails` target is absent (no hard return on guardrails mount target).
+- Runtime hardening: MC margin-chart renderers now use guarded writes for `svgMargin*` targets (app + compat panel paths), avoiding render short-circuit when partial chart nodes are absent.
+- Runtime hardening: backup-recovery dropdown refresh now uses guarded writes when `restoreBackup` is absent (no hard return on restore select target).
+- Runtime hardening: decision session/options renderers now avoid hard returns on select/label targets and continue guarded panel updates when those specific nodes are absent.
+- Runtime hardening: sensitivity surface defaults now use guarded lever/range refs for `surfaceLever/surfaceMin/surfaceMax`.
+- Runtime hardening: appRuntime weekly undo and MC/GOTV mode sync helpers now use guarded refs (no direct `els.*` hard-return gates on `wkUndoActionBtn`, `mc*`, `gotv*` mode nodes).
+- Runtime hardening: DOM preflight now enforces Census/Targeting required IDs only when those feature anchors are present, reducing false missing-ID noise during staged retirement.
+- Runtime hardening: DOM preflight now accepts legacy-or-v3 shell IDs for scenario/build/diagnostics/reset controls to prevent false `dom-preflight` failures during shell cutover.
+- Known shell holdout: Training still does not toggle correctly end-to-end in v3; keep tracking it, but do not let it derail remaining shell/cutover seam work.
+- Runtime hardening: DOM preflight now accepts legacy-or-v3 District core controls (race/election/weeks/mode/universe/candidate/turnout fields) to prevent false boot failures while setup-era legacy markup is retired.
+- Runtime hardening: DOM preflight District/Reach core controls are now stage-aware (only enforced when District/Reach anchors are present), preventing false boot failures when those surfaces are not mounted.
+- Runtime hardening: DOM preflight now accepts legacy-or-v3 Census and Targeting IDs (card/control/table/status/map) so staged retirement does not trigger false missing-ID boot failures.
+- Runtime hardening: apply-state/UI binding paths now guard Reach assumption control writes (`persuasionPct`, `earlyVoteExp`) so app boot/render remains stable after `stage-capacity` container removal.
+- Runtime hardening: apply-state/UI binding paths now guard baseline legacy-shell controls (`scenarioName`, race/setup controls, turnout band controls, undecided controls) so staged container retirement cannot trigger boot-time null writes.
+- QA hardening: UI smoke required-ID test now accepts v3 fallbacks for legacy-only capacity/results/scenario-compare cards (`operationsCapacityOutlookCard|v3ReachOutlookTbody`, `phase3Card|v3OutcomeForecastWinProb`, `scenarioCompareCard|v3ScenarioDiffOutputs`) to prevent false failures during staged legacy container retirement.
+- QA hardening: UI smoke now accepts v3 shell fallbacks for scenario/build/diagnostics/reset IDs and supports v3 scenario-save action ID (`v3BtnScenarioSaveNew`) as a valid control target.
+- QA hardening: UI smoke required-ID test now treats District/Reach core control IDs as optional stage-scoped checks (uniqueness enforced only when present), avoiding false failures when those surfaces are not mounted.
+- QA hardening: UI smoke Reach/Outcome/Scenario stage-card IDs (`operationsCapacityOutlookCard|v3ReachOutlookTbody`, `phase3Card|v3OutcomeForecastWinProb`, `scenarioCompareCard|v3ScenarioDiffOutputs`) are now optional stage-scoped checks (uniqueness enforced only when present).
+- QA hardening: UI smoke census + USB control checks now accept v3 fallback IDs (`v3DistrictCensusShell`, `v3Census*`, `v3DataBtnUsb*`, `v3DataUsbStatus`) to avoid false failures during stage-checks and stage-integrity retirement.
+- QA hardening: UI smoke census + USB checks are now stage-aware (run only when Census/Data anchors are present), avoiding false failures when those surfaces are not mounted.
+- District bridge reduction: electorate-structure derived text + normalization warning now render natively in v3 using core universe-layer math instead of legacy `#universe16Derived/#universe16Warn` mirrors.
+- Runtime hardening: weekly ops renderer now caches derived execution context in `state.ui.lastWeeklyOps`, so consumers can read the model without legacy `wk*` DOM nodes.
+- Runtime hardening: conversion renderer now caches workload/feasibility outputs in `state.ui.lastConversion` instead of relying only on legacy `out*` + banner nodes.
+- Runtime hardening: ROI renderer now updates turnout summary cache (`state.ui.lastTurnout`) even when legacy `turnoutSummary` DOM is absent; Plan optimizer early-return paths now clear/normalize plan caches (`state.ui.lastPlanRows/lastPlanMeta/lastSummary`) to avoid stale v3 summaries when legacy ROI markup is missing.
+- KPI bridge reduction: bottleneck inference now reads weekly gap from Reach runtime bridge (`__FPE_REACH_API__.getView()`); legacy `#wkGapPerWeek` fallback removed.
+- KPI bridge reduction: bottleneck label no longer falls back to legacy `#wkConstraint/#optBinding` text mirrors.
+- Turnout bridge reduction: Turnout helper copy no longer mounts from `#stage-roi .phase-p6 > .note`; v3 Turnout now uses native helper text.
+- Turnout bridge reduction: Turnout summary readout resolves from sidebar/bridge context (`#kpiTurnoutBand-sidebar`) instead of legacy ROI summary text nodes.
+- Turnout bridge reduction: v3 turnout snapshot now resolves summary text from bridge/sidebar only (`#kpiTurnoutBand-sidebar`), removing the last `#turnoutSummary` fallback dependency.
+- Turnout bridge reduction: v3 turnout snapshot votes/need now resolve from bridge/sidebar only (`#kpiTurnoutVotes-sidebar`, `#kpiPersuasionNeed-sidebar`) with no non-sidebar fallback selectors.
+- District bridge hardening: District summary expected-turnout readout now uses turnout baseline value or v3-derived average (`turnoutA/turnoutB`) instead of falling back to turnout-votes KPI text.
+- KPI bridge reduction: persuasion-need KPI now resolves from sidebar target only (`#kpiPersuasionNeed-sidebar`) with no legacy primary fallback selector.
+- Turnout bridge reduction: Turnout efficiency banner now reads from runtime Turnout bridge (`roiBannerText`) and no longer mirrors legacy `#roiBanner` note text nodes.
+- Turnout bridge reduction: Turnout summary/votes/need readouts now resolve from Turnout runtime bridge summary (`view.summary`) backed by runtime cache (`state.ui.lastTurnout`) before any selector fallback.
+- Legacy flow retirement: removed legacy left-nav `integrity` entry and removed retired `stage-integrity` container from `index.html`.
+- Data bridge hardening: Data actions (`save/load/copy/export/USB/strict/restore`) now execute through runtime-native `__FPE_DATA_API__` handlers without legacy integrity control IDs.
+- District bridge reduction: Census status/meta lines in District v3 now resolve state-first from runtime Census/footprint/provenance/capacity state (with compatibility fallback), reducing direct coupling to legacy `#census*Status` text nodes.
+- Legacy flow retirement: legacy nav entries for `capacity`, `results`, `roi`, `gotv`, and `integrity` are removed from legacy shell user flow; corresponding retired stage stubs have been deleted from `index.html`.
+- Legacy flow retirement: legacy `checks` nav entry is removed and `stage-checks` is now hidden/retired in legacy flow while preserving compatibility IDs for District bridge work.
+- Legacy shell hardening: fixed missing `</section>` closure after structure stage to keep section tree balanced during further staged deletions.
+- Legacy `stage-capacity` container has been removed from `index.html`; preflight no longer requires legacy Reach assumption IDs.
+- Added v3 stage persistence/cutover behavior (`js/app/v3/index.js`):
+  - Active stage persists to local storage.
+  - URL deep-link query (`?stage=<id>`) restores stage on reload.
+  - v3 is default; legacy shell opens only via explicit URL mode flag (`?ui=legacy`).
+- Phase 11 native bridge started on Data (`js/app/v3/surfaces/data.js`), replacing compatibility card mounts with native v3 controls wired to existing legacy handlers.
+- Phase 11 native bridge expanded on Scenarios workspace (`js/app/v3/surfaces/scenarios.js`) and now runs fully through the runtime scenario API bridge (no v3 legacy-control proxies required).
+- Phase 11 native bridge expanded on Decision Log (`js/app/v3/surfaces/decisionLog.js`) and now runs fully through the runtime decision API bridge (no v3 legacy-control proxies required).
+- Legacy scenario manager wiring now short-circuits when scenario DOM controls are absent (`js/app/scenarioManagerBindings.js`), enabling safe `stage-scenarios` retirement sequencing.
+- Legacy decision-session wiring now short-circuits when decision DOM controls are absent (`js/app/decisionSessionApp.js`), reducing hard boot coupling before `stage-decisions` retirement.
+- Legacy `stage-scenarios` container and nav entry have been retired from `index.html`; Scenarios now operates exclusively through v3 surface + runtime scenario API bridge.
+- Legacy `stage-decisions` container and nav entry have been retired from `index.html`; Decision Log now operates through v3 surface + runtime decision API bridge.
+- Phase 11 native bridge expanded on Controls (`js/app/v3/surfaces/controls.js`) for workflow, benchmark, evidence, and calibration cards.
+- Hardening refactor: Controls and Data use the shared bridge helper API (reducing per-surface custom wiring code and keeping bridge behavior consistent), while Scenarios and Decision Log now use dedicated runtime API bridges.
+- Legacy header actions migrated into native v3 card-body actions on primary modeling surfaces:
+  - District: `Add candidate`
+  - Outcome: `Compute Surface`
+  - Turnout: `Refresh` (ROI comparison)
+  - Plan: `Optimize`
+- Decision Log diagnostics now includes a native v3 `Run snapshot` action proxy, replacing reliance on the legacy inline sensitivity button in mounted diagnostics rows.
+- Sensitivity snapshot computation now has a DOM-independent runtime path (`computeSensitivitySnapshotCache`), so Decision Log snapshot runs no longer require legacy E4 DOM.
+- Module-level ON/OFF toggles now follow header placement convention (label-left, switch-right) on migrated cards: District electorate weighting, Turnout module, Plan timeline module, Controls census apply-adjustments, and Data strict import policy.
+- Surface action styling is normalized to compact neutral controls (`Add candidate` style) for all non-topbar buttons, including legacy `.btn` elements mounted inside v3 cards.
+- District surface is now a single-column wide workspace (`fpe-surface-frame--single`) and now hosts the Census assumptions surface (`#censusPhase1Card`) for maximum working room.
+- Controls surface no longer mounts Census assumptions UI blocks; governance cards remain scoped to workflow/evidence/benchmark/calibration/feedback.
+- Reach surface moved from strict 3-column to adaptive 2-row arrangement (two columns plus full-width results row) to reduce module scroll pressure.
+- Controls feedback-loop action set (`Capture observed metrics`, `Generate drift recommendations`, `Apply top recommendation`, `Parse what-if request`) is now rendered as native v3 body actions instead of mounted legacy card header actions.
+- Controls census card no longer mounts the full legacy card wrapper; it now renders a v3 bridge shell with native top actions (`Load GEO list`, `Fetch ACS rows`) and targeted legacy sub-block mounts.
+- Controls census bridge now exposes native v3 body actions for GEO selection (`Apply GEOIDs`, `Select all`, `Clear selection`), aggregate exports (`Export CSV/JSON`), and election CSV workflow (`template downloads`, `dry-run`, `clear preview`) with proxy wiring to legacy handlers.
+- Legacy-shell hardening: added runtime Census bridge host isolation (`#legacyCensusBridgeHost`) so `#censusPhase1Card` and `#targetingLabCard` are rehomed outside `stage-checks` during v3 boot and restored when explicit legacy mode is requested.
+- Legacy-shell hardening: added runtime shell-action host isolation (`#legacyShellActionHost`) so the remaining Training fallback control can be rehomed outside `#app-shell-legacy` during v3 boot and restored in explicit legacy mode.
+- Legacy-shell hardening: added runtime right-rail host isolation (`#legacyRightRailHost`) so the persistent results rail can be moved out of `#app-shell-legacy` during v3 boot and restored if legacy fallback mode is needed.
+- Legacy-shell hardening: compat-host prep/restore is now centralized behind global hooks (`__FPE_PREPARE_V3_COMPAT_HOSTS__`, `__FPE_RESTORE_LEGACY_COMPAT_HOSTS__`) so v3 boot and inline fallback use the same DOM rehoming path.
+- Legacy-shell hardening: v3 boot no longer hard-requires `#app-shell-legacy` to exist before mounting the v3 shell; the legacy wrapper is now optional and only used when present for fallback visibility.
+- Legacy-shell hardening: v3 Diagnostics fallback now opens the emergency diagnostics modal directly (via a global fallback hook) instead of depending on the hidden legacy Diagnostics button to exist in the wrapper.
+- Legacy-shell hardening: v3 Reset fallback now calls a runtime-installed global reset hook before trying the hidden legacy reset button, reducing dependence on `#btnResetAll` during cutover.
+- QA hardening: v3 smoke now asserts Census/Targeting bridge-host mounts (`legacy-census-bridge-host`, `legacy-census-bridge-mounted`, `legacy-targeting-bridge-mounted`) to catch stage-checks coupling regressions early.
+- Legacy-shell hardening: setup-era legacy stage sections (`#stage-setup`, `#stage-universe`, `#stage-ballot`, `#stage-structure`) are now rehomed into `#legacyCensusBridgeHost` during v3 boot and restored in explicit legacy mode.
+- District bridge reduction: appRuntime District census bridge no longer scrapes legacy `#census*` status/table text fallbacks; v3 status/table rows now come from state-driven bridge payload/defaults only.
+- District bridge reduction: District v3 census controls now hydrate dynamic option lists (`state/county/place/tract/saved set/GEO`) from bridge config payload, and Targeting v3 controls hydrate from bridge config/defaults first.
+- QA hardening: v3 smoke now asserts setup-era bridge-host mounts (`legacy-setup-bridge-mounted`, `legacy-universe-bridge-mounted`, `legacy-ballot-bridge-mounted`, `legacy-structure-bridge-mounted`) to catch stage-layout coupling regressions.
+- QA hardening: v3 smoke now asserts runtime bridge API presence for District/Reach/Outcome/Turnout/Plan/Controls(Scenario API)/Decision/Data and verifies District bridge summary payload keys, so bridge regressions fail fast before stage-level checks.
+- District bridge reduction: v3 District targeting status/meta/table now resolve from runtime District bridge payload (`view.targeting`) with compatibility fallback, reducing dependency on legacy targeting status/table mirrors inside the staged checks container.
+- District bridge reduction: v3 District Census status/guide/map text rows now resolve from runtime District bridge payload (`view.census`) with compatibility fallback, reducing direct v3 reads of legacy `#census*Status/#census*Meta` text nodes.
+- District bridge reduction: v3 District Census aggregate/advisory/election preview tables now resolve from runtime District bridge payload (`view.census.aggregateRows/advisoryRows/electionPreviewRows`) with compatibility fallback, reducing direct v3 table mirrors from legacy `#census*Tbody`.
+- District bridge reduction: v3 District Census/Targeting status + table panels now render bridge-first with default empty-state fallback only, removing direct v3 fallback reads of legacy `#targeting*` and `#census*` status/tbody selectors.
+- District bridge reduction: v3 District targeting control-value sync now reads from District bridge config payload (`view.targeting.config`) with compatibility fallback; v3 smoke now asserts targeting-config presence.
+- Targeting UX hardening: selecting a target model now applies a full preset bundle (weights + thresholds + filters) via `applyTargetModelPreset`, so model changes visibly update Targeting Lab parameters before rerun.
+- Targeting UX hardening: v3 District Targeting Lab now hydrates model/geo/density select options natively (via runtime targeting option lists) instead of depending on legacy select-option mirrors, preventing empty dropdowns when legacy controls drift.
+- Targeting bridge hardening: District bridge targeting config now exposes `canRun/canExport/canResetWeights`, and v3 controls apply bridge-first disabled fallback when legacy button/field disable mirrors are absent.
+- Census UX hardening: v3 District Census static selects (`ACS year`, `resolution`, `metric bundle`) now hydrate from Census module option registries before legacy sync, preventing blank dropdowns when legacy option mirrors lag.
+- Census bridge hardening: District bridge census option payload now prefers legacy-populated select options (`state/county/place/tract/saved sets`) when present, with state-derived fallback, preventing single-state option collapse in v3 hydration.
+- District bridge reduction: v3 District Census control values now apply bridge-first state sync (`year/resolution/state/county/place/metric set/search/filters/toggles`) after legacy sync, reducing dependence on legacy control-value mirrors.
+- District bridge reduction: v3 District Census `apiKey`, `geoPaste`, and `electionCsvPrecinctFilter` now sync from District bridge config first, with legacy value sync only as a no-bridge fallback.
+- District bridge hardening: District bridge census config now includes a state-derived `disabledMap`, and v3 applies this map after legacy sync so disabled-state behavior remains stable as legacy mirrors are retired.
+- District lock behavior hardening: Census map action buttons (`Load boundaries`, `Clear map`, `Clear VTD ZIP`) are no longer forced disabled by v3 lock-fallback logic, preserving map open/clear behavior in locked mode.
+- Census bridge hardening: District bridge census config now includes `controlsLocked`, and v3 applies a lock fallback for census controls/buttons when legacy disable mirrors are absent.
+- District bridge reduction: District Census message-tone and map-shell state sync now read from v3 bridge-synced status text only (`#v3Census*`), removing direct fallback reads to legacy `#censusMapStatus/#censusAdvisoryStatus` in v3 behavior loops.
+- District bridge reduction: Census runtime now writes bridge-safe status/table caches to `state.census` (`bridgeAggregateRows`, `bridgeAdvisoryRows`, `bridgeElectionPreviewRows`, and `bridge*StatusText`), and District bridge payload now consumes those fields instead of querying legacy `#census*` table/status nodes directly.
+- Legacy-shell hardening: setup-era/checks stages are now hidden-retired by default for v3 sessions and toggled visible only when explicit legacy mode is requested.
+- QA hardening: v3 smoke now asserts hidden-retired stage visibility in v3 mode (`legacy-setup-stage-hidden`, `legacy-universe-stage-hidden`, `legacy-ballot-stage-hidden`, `legacy-checks-stage-hidden`).
+- Runtime hardening: setup-stage composition (`composeSetupStageModule`) now runs only when legacy mode is active (or setup stage is explicitly visible), preventing unnecessary legacy stage reshaping during v3 boot.
+- Resolved duplicate ID conflict in Decision Log (`v3DecisionObjective`) and added focused-field sync guards in Controls/Decision Log bridge loops to prevent input jitter during periodic refresh.
+- Static selector audits currently pass:
+  - All legacy IDs referenced by v3 surface bridges are present in `index.html`.
+  - No duplicate v3 `id=` attributes detected across `js/app/v3/surfaces/*.js`.
+- Local environment currently lacks `node`, so automated JS build/typecheck was not executed here.
