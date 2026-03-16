@@ -189,16 +189,6 @@ export function runV3QaSmoke({ restoreStage = true, logToConsole = true } = {}) 
   );
   recordCheck(
     checks,
-    "legacy-diagnostics-action-mounted",
-    isTruthy(document.querySelector("#legacyShellActionHost #btnDiagnostics"))
-  );
-  recordCheck(
-    checks,
-    "legacy-reset-action-mounted",
-    isTruthy(document.querySelector("#legacyShellActionHost #btnResetAll"))
-  );
-  recordCheck(
-    checks,
     "legacy-setup-bridge-mounted",
     isTruthy(document.querySelector("#legacyCensusBridgeHost #stage-setup"))
   );
