@@ -182,6 +182,11 @@ export function runV3QaSmoke({ restoreStage = true, logToConsole = true } = {}) 
   );
   recordCheck(
     checks,
+    "legacy-checks-bridge-mounted",
+    isTruthy(document.querySelector("#legacyCensusBridgeHost #stage-checks"))
+  );
+  recordCheck(
+    checks,
     "legacy-targeting-bridge-mounted",
     isTruthy(document.querySelector("#legacyCensusBridgeHost #targetingLabCard"))
   );
