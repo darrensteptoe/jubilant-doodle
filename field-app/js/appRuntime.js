@@ -3228,8 +3228,69 @@ function districtBridgeSetFormField(field, rawValue){
     if (key === "sourceNote"){
       next.sourceNote = String(rawValue == null ? "" : rawValue);
       applied = true;
+      return;
+    }
+    if (key === "turnoutA"){
+      next.turnoutA = safeNum(rawValue);
+      applied = true;
+      return;
+    }
+    if (key === "turnoutB"){
+      next.turnoutB = safeNum(rawValue);
+      applied = true;
+      return;
+    }
+    if (key === "bandWidth"){
+      next.bandWidth = safeNum(rawValue);
+      applied = true;
+      return;
+    }
+    if (key === "universe16Enabled"){
+      next.universeLayerEnabled = !!rawValue;
+      applied = true;
+      return;
+    }
+    if (key === "universe16DemPct"){
+      next.universeDemPct = safeNum(rawValue);
+      applied = true;
+      return;
+    }
+    if (key === "universe16RepPct"){
+      next.universeRepPct = safeNum(rawValue);
+      applied = true;
+      return;
+    }
+    if (key === "universe16NpaPct"){
+      next.universeNpaPct = safeNum(rawValue);
+      applied = true;
+      return;
+    }
+    if (key === "universe16OtherPct"){
+      next.universeOtherPct = safeNum(rawValue);
+      applied = true;
+      return;
+    }
+    if (key === "retentionFactor"){
+      next.retentionFactor = safeNum(rawValue);
+      applied = true;
     }
   });
+
+  if (applied) {
+    if (key === "bandWidth") {
+      refreshAssumptionsProfile();
+    }
+    if (
+      key === "universe16Enabled"
+      || key === "universe16DemPct"
+      || key === "universe16RepPct"
+      || key === "universe16NpaPct"
+      || key === "universe16OtherPct"
+      || key === "retentionFactor"
+    ) {
+      markMcStale();
+    }
+  }
 
   return { ok: applied, view: districtBridgeStateView() };
 }
