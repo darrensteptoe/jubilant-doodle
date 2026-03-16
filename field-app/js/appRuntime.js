@@ -3093,6 +3093,7 @@ function districtBridgeStateView(){
   const bridgeElectionPreviewRows = districtBridgeNormalizeRows(censusState?.bridgeElectionPreviewRows, 4);
   const censusConfigOptions = districtBridgeBuildCensusConfigOptions(censusState);
   const censusDisabledMap = districtBridgeBuildCensusDisabledMap(currentState, censusState);
+  const districtDisabledMap = districtBridgeBuildDistrictDisabledMap(currentState);
   const census = {
     contextHint: districtBridgeBuildContextHint(censusState) || "State-only context active for this resolution.",
     selectionSetStatus: districtBridgeBuildSelectionSetStatus(censusState) || "No saved selection sets.",
@@ -3150,7 +3151,34 @@ function districtBridgeStateView(){
     census,
     controls: {
       locked: isScenarioLockedForEdits(currentState),
+      disabledMap: districtDisabledMap,
     },
+  };
+}
+
+function districtBridgeBuildDistrictDisabledMap(currentState){
+  const controlsLocked = isScenarioLockedForEdits(currentState);
+  return {
+    v3DistrictYourCandidate: controlsLocked,
+    v3DistrictUndecidedPct: controlsLocked,
+    v3DistrictUndecidedMode: controlsLocked,
+    v3BtnAddCandidate: controlsLocked,
+    v3DistrictRaceType: controlsLocked,
+    v3DistrictElectionDate: controlsLocked,
+    v3DistrictWeeksRemaining: controlsLocked,
+    v3DistrictMode: controlsLocked,
+    v3DistrictUniverseSize: controlsLocked,
+    v3DistrictUniverseBasis: controlsLocked,
+    v3DistrictSourceNote: controlsLocked,
+    v3DistrictElectorateWeightingToggle: controlsLocked,
+    v3DistrictTurnoutA: controlsLocked,
+    v3DistrictTurnoutB: controlsLocked,
+    v3DistrictBandWidth: controlsLocked,
+    v3DistrictDemPct: controlsLocked,
+    v3DistrictRepPct: controlsLocked,
+    v3DistrictNpaPct: controlsLocked,
+    v3DistrictOtherPct: controlsLocked,
+    v3DistrictRetentionFactor: controlsLocked,
   };
 }
 
