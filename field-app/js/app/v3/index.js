@@ -180,23 +180,17 @@ function wireTopbarBridge() {
 
 function wireScenarioBridge() {
   const v3Input = document.getElementById("v3ScenarioName");
-  const legacyInput = document.getElementById("scenarioName");
 
   if (!v3Input) {
     return;
   }
 
   const shellView = readShellBridgeView();
-  v3Input.value = shellView?.scenarioName || legacyInput?.value || "";
+  v3Input.value = shellView?.scenarioName || "";
 
   v3Input.addEventListener("input", () => {
     if (setShellScenarioName(v3Input.value)) {
       return;
-    }
-    if (legacyInput && legacyInput.value !== v3Input.value) {
-      legacyInput.value = v3Input.value;
-      legacyInput.dispatchEvent(new Event("input", { bubbles: true }));
-      legacyInput.dispatchEvent(new Event("change", { bubbles: true }));
     }
   });
 }
@@ -233,19 +227,6 @@ function callShellBridge(method, ...args) {
   }
 }
 
-function readLegacyTrainingState() {
-  const legacyToggle = document.getElementById("toggleTraining");
-  if (!legacyToggle) {
-    return document.body.classList.contains("training");
-  }
-
-  const enabled = !!legacyToggle.checked;
-  if (document.body.classList.contains("training") !== enabled) {
-    document.body.classList.toggle("training", enabled);
-  }
-  return enabled;
-}
-
 function setLegacyTrainingState(enabled) {
   const normalized = !!enabled;
   document.body.classList.toggle("training", normalized);
@@ -265,7 +246,7 @@ function readShellTrainingState() {
   if (shellView && typeof shellView.trainingEnabled === "boolean") {
     return shellView.trainingEnabled;
   }
-  return readLegacyTrainingState();
+  return document.body.classList.contains("training");
 }
 
 function setShellTrainingState(enabled) {
@@ -302,13 +283,12 @@ function syncAll() {
 
 function syncScenarioMirror() {
   const v3Input = document.getElementById("v3ScenarioName");
-  const legacyInput = document.getElementById("scenarioName");
   if (!v3Input) {
     return;
   }
 
   const shellView = readShellBridgeView();
-  const nextValue = shellView?.scenarioName ?? legacyInput?.value ?? "";
+  const nextValue = shellView?.scenarioName ?? "";
   if (v3Input.value !== nextValue) {
     v3Input.value = nextValue;
   }
