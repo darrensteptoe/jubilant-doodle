@@ -1156,7 +1156,6 @@
 <!-- ── STAGE: integrity (retired + removed) ── -->
 </main>
 <!-- /stage-main-new -->
-<div hidden="" id="legacyCensusBridgeHost"></div>
 <!-- RIGHT: Persistent results sidebar -->
 <aside aria-label="Win path results" class="results-sidebar-new">
 
@@ -1281,6 +1280,7 @@
 <!-- /app-shell -->
 </div>
 <!-- /app-shell-legacy -->
+<div hidden="" id="legacyCensusBridgeHost"></div>
 <script src="./js/app.js?v=20260312-runtime-init-order-fix-1" type="module"></script>
 <script src="./js/app/v3/index.js?v=20260312-runtime-init-order-fix-1" type="module"></script>
 <script>
@@ -1335,13 +1335,10 @@ function getLegacyCensusBridgeHost() {
   var host = document.getElementById('legacyCensusBridgeHost');
   if (host) return host;
 
-  var legacyShell = document.getElementById('app-shell-legacy');
-  if (!legacyShell) return null;
-
   host = document.createElement('div');
   host.id = 'legacyCensusBridgeHost';
   host.hidden = true;
-  legacyShell.appendChild(host);
+  document.body.appendChild(host);
   return host;
 }
 
