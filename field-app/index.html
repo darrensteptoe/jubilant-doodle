@@ -1554,6 +1554,12 @@ document.addEventListener('DOMContentLoaded', function(){
   window.setTimeout(function(){
     if (!isV3BridgeActive()) {
       initLegacyInlineShell();
+      return;
+    }
+    var rail = document.getElementById('legacyResultsSidebar');
+    var slot = document.getElementById('v3RightRailSlot');
+    if (rail && slot && rail.parentElement !== slot) {
+      slot.appendChild(rail);
     }
   }, 0);
 });
