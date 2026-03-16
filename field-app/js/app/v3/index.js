@@ -31,14 +31,16 @@ function bootV3() {
   const root = document.getElementById("app-shell-v3-root");
   const legacy = document.getElementById("app-shell-legacy");
 
-  if (!root || !legacy) {
+  if (!root) {
     return;
   }
 
   if (resolveUiMode() !== "v3") {
     uninstallNavigationBridge();
     root.hidden = true;
-    legacy.hidden = false;
+    if (legacy) {
+      legacy.hidden = false;
+    }
     return;
   }
 
@@ -46,7 +48,9 @@ function bootV3() {
     renderV3Shell(root);
 
     root.hidden = false;
-    legacy.hidden = true;
+    if (legacy) {
+      legacy.hidden = true;
+    }
 
     installNavigationBridge();
     wireV3Nav((stageId) => {
@@ -64,7 +68,9 @@ function bootV3() {
     console.error("[v3-shell] failed to boot, reverting to legacy shell", err);
     uninstallNavigationBridge();
     root.hidden = true;
-    legacy.hidden = false;
+    if (legacy) {
+      legacy.hidden = false;
+    }
   }
 }
 

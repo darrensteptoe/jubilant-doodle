@@ -156,6 +156,7 @@ export function runV3QaSmoke({ restoreStage = true, logToConsole = true } = {}) 
   recordCheck(checks, "decision-bridge-api", hasBridgeGetter("__FPE_DECISION_API__"));
   recordCheck(checks, "data-bridge-api", hasBridgeGetter("__FPE_DATA_API__"));
   recordCheck(checks, "legacy-census-bridge-host", isTruthy(document.getElementById("legacyCensusBridgeHost")));
+  recordCheck(checks, "legacy-shell-action-host", isTruthy(document.getElementById("legacyShellActionHost")));
   recordCheck(
     checks,
     "legacy-census-bridge-host-detached",
@@ -163,8 +164,28 @@ export function runV3QaSmoke({ restoreStage = true, logToConsole = true } = {}) 
   );
   recordCheck(
     checks,
+    "legacy-shell-action-host-detached",
+    isTruthy(document.getElementById("legacyShellActionHost")?.parentElement?.id !== "app-shell-legacy")
+  );
+  recordCheck(
+    checks,
     "legacy-census-bridge-mounted",
     isTruthy(document.querySelector("#legacyCensusBridgeHost #censusPhase1Card"))
+  );
+  recordCheck(
+    checks,
+    "legacy-training-toggle-mounted",
+    isTruthy(document.querySelector("#legacyShellActionHost #toggleTraining"))
+  );
+  recordCheck(
+    checks,
+    "legacy-diagnostics-action-mounted",
+    isTruthy(document.querySelector("#legacyShellActionHost #btnDiagnostics"))
+  );
+  recordCheck(
+    checks,
+    "legacy-reset-action-mounted",
+    isTruthy(document.querySelector("#legacyShellActionHost #btnResetAll"))
   );
   recordCheck(
     checks,
