@@ -1469,6 +1469,20 @@ function getUiModeFromLocation() {
   }
 }
 
+function setUiMode(mode) {
+  try {
+    var nextMode = String(mode || '').trim() === 'legacy' ? 'legacy' : 'v3';
+    var params = new URLSearchParams(window.location.search || '');
+    params.set('ui', nextMode);
+    var query = params.toString();
+    var nextUrl = query ? window.location.pathname + '?' + query : window.location.pathname;
+    window.location.assign(nextUrl);
+    return true;
+  } catch (err) {
+    return false;
+  }
+}
+
 function shouldUseLegacyShell() {
   return getUiModeFromLocation() === 'legacy';
 }
@@ -1534,6 +1548,7 @@ window.__FPE_RESTORE_LEGACY_RIGHT_RAIL__ = restoreLegacyRightRailToOrigin;
 window.__FPE_ATTACH_LEGACY_RIGHT_RAIL_TO_SLOT__ = attachLegacyRightRailToSlot;
 window.__FPE_SET_LEGACY_SHELL_VISIBLE__ = setLegacyShellVisible;
 window.__FPE_GET_UI_MODE__ = getUiModeFromLocation;
+window.__FPE_SET_UI_MODE__ = setUiMode;
 
 function prepareV3CompatHosts() {
   setLegacyStageVisibility(false);

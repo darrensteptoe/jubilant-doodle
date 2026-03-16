@@ -263,6 +263,7 @@ Scope: UI architecture migration only (engine and right rail frozen)
 - Legacy-shell hardening: compat-host prep/restore is now centralized behind global hooks (`__FPE_PREPARE_V3_COMPAT_HOSTS__`, `__FPE_RESTORE_LEGACY_COMPAT_HOSTS__`) so v3 boot and inline fallback use the same DOM rehoming path.
 - Legacy-shell hardening: v3 boot now uses a dedicated wrapper-visibility hook (`__FPE_SET_LEGACY_SHELL_VISIBLE__`) instead of manipulating `#app-shell-legacy.hidden` directly in multiple places.
 - Legacy-shell hardening: UI mode detection (`legacy` vs `v3`) is now exposed through a shared global hook (`__FPE_GET_UI_MODE__`) so inline shell logic, v3 boot, and runtime setup composition use the same source of truth.
+- Legacy-shell hardening: UI mode switching now routes through a shared global hook (`__FPE_SET_UI_MODE__`) so the v3 Legacy button and inline shell logic no longer hand-roll their own `?ui=` URL mutations.
 - Legacy-shell hardening: right-rail attachment is now exposed through a shared global hook (`__FPE_ATTACH_LEGACY_RIGHT_RAIL_TO_SLOT__`) so v3 stage mounting no longer needs to know the legacy rail host/layout details directly.
 - Legacy-shell hardening: v3 boot no longer hard-requires `#app-shell-legacy` to exist before mounting the v3 shell; the legacy wrapper is now optional and only used when present for fallback visibility.
 - Legacy-shell hardening: v3 Diagnostics fallback now opens the emergency diagnostics modal directly (via a global fallback hook) instead of depending on the hidden legacy Diagnostics button to exist in the wrapper.
