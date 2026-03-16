@@ -1444,13 +1444,17 @@ function restoreLegacyRightRailToOrigin() {
   restoreLegacyCardToOrigin('legacyResultsSidebar');
 }
 
-function shouldUseLegacyShell() {
+function getUiModeFromLocation() {
   try {
     var params = new URLSearchParams(window.location.search || '');
-    return params.get('ui') === 'legacy';
+    return params.get('ui') === 'legacy' ? 'legacy' : 'v3';
   } catch (err) {
-    return false;
+    return 'v3';
   }
+}
+
+function shouldUseLegacyShell() {
+  return getUiModeFromLocation() === 'legacy';
 }
 
 function isV3BridgeActive() {
@@ -1512,6 +1516,7 @@ window.__FPE_OPEN_EMERGENCY_DIAGNOSTICS__ = openEmergencyDiagnostics;
 window.__FPE_MOVE_LEGACY_RIGHT_RAIL_TO_HOST__ = moveLegacyRightRailToHost;
 window.__FPE_RESTORE_LEGACY_RIGHT_RAIL__ = restoreLegacyRightRailToOrigin;
 window.__FPE_SET_LEGACY_SHELL_VISIBLE__ = setLegacyShellVisible;
+window.__FPE_GET_UI_MODE__ = getUiModeFromLocation;
 
 function prepareV3CompatHosts() {
   setLegacyStageVisibility(false);
