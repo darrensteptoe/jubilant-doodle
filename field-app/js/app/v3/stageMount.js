@@ -95,6 +95,13 @@ function syncLegacyRightRail() {
     return;
   }
 
+  try {
+    const attach = window.__FPE_ATTACH_LEGACY_RIGHT_RAIL_TO_SLOT__;
+    if (typeof attach === "function" && attach("v3RightRailSlot")) {
+      return;
+    }
+  } catch {}
+
   const legacyRail =
     document.getElementById("legacyResultsSidebar") ||
     document.querySelector("#legacyRightRailHost .results-sidebar-new") ||
