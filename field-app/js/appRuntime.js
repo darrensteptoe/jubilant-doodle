@@ -555,6 +555,7 @@ const DATA_BRIDGE_KEY = "__FPE_DATA_API__";
 const SCENARIO_BRIDGE_KEY = "__FPE_SCENARIO_API__";
 const SHELL_BRIDGE_KEY = "__FPE_SHELL_API__";
 const DISTRICT_BRIDGE_KEY = "__FPE_DISTRICT_API__";
+const CENSUS_RUNTIME_BRIDGE_KEY = "__FPE_CENSUS_RUNTIME_API__";
 const REACH_BRIDGE_KEY = "__FPE_REACH_API__";
 const TURNOUT_BRIDGE_KEY = "__FPE_TURNOUT_API__";
 const PLAN_BRIDGE_KEY = "__FPE_PLAN_API__";
@@ -3732,11 +3733,66 @@ function districtBridgeRunTargeting(){
   if (isScenarioLockedForEdits(state)){
     return { ok: false, code: "locked", view: districtBridgeStateView() };
   }
-  const legacyButton = document.getElementById("btnRunTargeting");
-  if (!(legacyButton instanceof HTMLButtonElement) || legacyButton.disabled){
+  const censusBridge = window[CENSUS_RUNTIME_BRIDGE_KEY];
+  const getRows = censusBridge && typeof censusBridge.getRowsForState === "function"
+    ? censusBridge.getRowsForState
+    : null;
+  if (!getRows){
     return { ok: false, code: "unavailable", view: districtBridgeStateView() };
   }
-  legacyButton.click();
+
+  const runtimeRows = getRows(state?.census);
+  const loadedCount = Object.keys(runtimeRows && typeof runtimeRows === "object" ? runtimeRows : {}).length;
+  if (!loadedCount){
+    setState((next) => {
+      if (!next.census || typeof next.census !== "object") next.census = {};
+      next.census.status = "Load ACS rows before running targeting.";
+      next.census.error = next.census.status;
+    });
+    commitUIUpdate({ persist: false });
+    return { ok: false, code: "no_rows", view: districtBridgeStateView() };
+  }
+
+  let runResult = null;
+  let runError = null;
+  setState((next) => {
+    try {
+      const targeting = districtBridgeEnsureTargetingState(next);
+      if (!targeting){
+        return;
+      }
+      if (!next.census || typeof next.census !== "object") next.census = {};
+      runResult = runTargetRanking({
+        state: next,
+        censusState: next.census,
+        rowsByGeoid: runtimeRows,
+      });
+      targeting.lastRows = Array.isArray(runResult?.rows) ? runResult.rows : [];
+      targeting.lastMeta = runResult?.meta && typeof runResult.meta === "object"
+        ? runResult.meta
+        : null;
+      targeting.lastRun = cleanText(runResult?.meta?.ranAt) || new Date().toISOString();
+      if (!targeting.lastRows.length){
+        next.census.status = "Targeting run complete: no rows matched current filters. Relax thresholds and retry.";
+        next.census.error = "";
+        return;
+      }
+      const topCount = targeting.lastRows.filter((row) => !!row?.isTopTarget).length;
+      next.census.status =
+        `Targeting run complete: ${targeting.lastRows.length.toLocaleString("en-US")} rows ranked, ${topCount.toLocaleString("en-US")} top targets flagged.`;
+      next.census.error = "";
+    } catch (err) {
+      runError = err;
+      if (!next.census || typeof next.census !== "object") next.census = {};
+      next.census.status = cleanText(err?.message) || "Targeting run failed.";
+      next.census.error = next.census.status;
+    }
+  });
+
+  commitUIUpdate();
+  if (runError){
+    return { ok: false, code: "run_failed", view: districtBridgeStateView() };
+  }
   return { ok: true, view: districtBridgeStateView() };
 }
 
