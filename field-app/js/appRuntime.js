@@ -2994,6 +2994,38 @@ function districtBridgeStateView(){
     projectedVotesText: projectedVotes == null ? "—" : districtBridgeFmtInt(projectedVotes),
     persuasionNeedText: persuasionNeed == null ? "—" : districtBridgeFmtInt(persuasionNeed),
   };
+  const ballotCandidates = Array.isArray(currentState?.candidates) ? currentState.candidates : [];
+  const ballotUserSplit = currentState?.userSplit && typeof currentState.userSplit === "object"
+    ? currentState.userSplit
+    : {};
+  const ballotUndecidedMode = String(currentState?.undecidedMode || "proportional").trim() || "proportional";
+  const ballotSupportTotalText = supportTotalPct == null
+    ? (supportTotalFromState == null ? "—" : districtBridgeFmtPct(supportTotalFromState, 1))
+    : districtBridgeFmtPct(supportTotalPct, 1);
+  const ballotWarningText = !res?.validation?.candidateTableOk
+    ? String(res?.validation?.candidateTableMsg || "").trim()
+    : (ballotUndecidedMode === "user_defined" && !res?.validation?.userSplitOk
+      ? String(res?.validation?.userSplitMsg || "").trim()
+      : "");
+  const ballot = {
+    yourCandidateId: String(currentState?.yourCandidateId || "").trim(),
+    undecidedPct: safeNum(currentState?.undecidedPct),
+    undecidedMode: ballotUndecidedMode,
+    supportTotalText: ballotSupportTotalText,
+    warningText: ballotWarningText,
+    candidates: ballotCandidates.map((cand) => ({
+      id: String(cand?.id || "").trim(),
+      name: String(cand?.name || "Candidate").trim() || "Candidate",
+      supportPct: safeNum(cand?.supportPct),
+      canRemove: ballotCandidates.length > 2,
+    })).filter((cand) => cand.id),
+    userSplitVisible: ballotUndecidedMode === "user_defined",
+    userSplitRows: ballotCandidates.map((cand) => ({
+      id: String(cand?.id || "").trim(),
+      name: String(cand?.name || "Candidate").trim() || "Candidate",
+      value: safeNum(ballotUserSplit?.[cand?.id]),
+    })).filter((cand) => cand.id),
+  };
 
   const targetingRowsRaw = Array.isArray(targetingState?.lastRows) ? targetingState.lastRows : [];
   const targetingRows = targetingRowsRaw.map((row, idx) => {
@@ -3142,6 +3174,7 @@ function districtBridgeStateView(){
   };
   return {
     summary,
+    ballot,
     targeting: {
       statusText: targetingStatusText,
       metaText: targetingMetaText,
@@ -3186,6 +3219,10 @@ function installDistrictBridge(){
   window[DISTRICT_BRIDGE_KEY] = {
     getView: () => districtBridgeStateView(),
     setFormField: (field, value) => districtBridgeSetFormField(field, value),
+    addCandidate: () => districtBridgeAddCandidate(),
+    updateCandidate: (candidateId, field, value) => districtBridgeUpdateCandidate(candidateId, field, value),
+    removeCandidate: (candidateId) => districtBridgeRemoveCandidate(candidateId),
+    setUserSplit: (candidateId, value) => districtBridgeSetUserSplit(candidateId, value),
     setTargetingField: (field, value) => districtBridgeSetTargetingField(field, value),
     applyTargetingPreset: (modelId) => districtBridgeApplyTargetingPreset(modelId),
     resetTargetingWeights: () => districtBridgeResetTargetingWeights(),
@@ -3258,6 +3295,21 @@ function districtBridgeSetFormField(field, rawValue){
       applied = true;
       return;
     }
+    if (key === "yourCandidate"){
+      next.yourCandidateId = String(rawValue == null ? "" : rawValue);
+      applied = true;
+      return;
+    }
+    if (key === "undecidedPct"){
+      next.undecidedPct = safeNum(rawValue);
+      applied = true;
+      return;
+    }
+    if (key === "undecidedMode"){
+      next.undecidedMode = String(rawValue == null ? "" : rawValue) || "proportional";
+      applied = true;
+      return;
+    }
     if (key === "turnoutA"){
       next.turnoutA = safeNum(rawValue);
       applied = true;
@@ -3319,6 +3371,95 @@ function districtBridgeSetFormField(field, rawValue){
       markMcStale();
     }
   }
+
+  return { ok: applied, view: districtBridgeStateView() };
+}
+
+function districtBridgeAddCandidate(){
+  if (isScenarioLockedForEdits(state)){
+    return { ok: false, code: "locked", view: districtBridgeStateView() };
+  }
+  setState((next) => {
+    if (!Array.isArray(next.candidates)) next.candidates = [];
+    const labelChar = String.fromCharCode(65 + next.candidates.length);
+    next.candidates.push({ id: uid(), name: `Candidate ${labelChar}`, supportPct: 0 });
+  });
+  return { ok: true, view: districtBridgeStateView() };
+}
+
+function districtBridgeUpdateCandidate(candidateId, field, rawValue){
+  if (isScenarioLockedForEdits(state)){
+    return { ok: false, code: "locked", view: districtBridgeStateView() };
+  }
+  const id = cleanText(candidateId);
+  const key = cleanText(field);
+  if (!id || !key){
+    return { ok: false, code: "missing_candidate_field", view: districtBridgeStateView() };
+  }
+
+  let applied = false;
+  setState((next) => {
+    if (!Array.isArray(next.candidates)) return;
+    const candidate = next.candidates.find((row) => cleanText(row?.id) === id);
+    if (!candidate) return;
+    if (key === "name"){
+      candidate.name = String(rawValue == null ? "" : rawValue);
+      if (!next.userSplit || typeof next.userSplit !== "object") next.userSplit = {};
+      if (next.userSplit[candidate.id] == null) next.userSplit[candidate.id] = 0;
+      applied = true;
+      return;
+    }
+    if (key === "supportPct"){
+      candidate.supportPct = safeNum(rawValue);
+      applied = true;
+    }
+  });
+
+  return { ok: applied, view: districtBridgeStateView() };
+}
+
+function districtBridgeRemoveCandidate(candidateId){
+  if (isScenarioLockedForEdits(state)){
+    return { ok: false, code: "locked", view: districtBridgeStateView() };
+  }
+  const id = cleanText(candidateId);
+  if (!id){
+    return { ok: false, code: "missing_candidate", view: districtBridgeStateView() };
+  }
+
+  let applied = false;
+  setState((next) => {
+    if (!Array.isArray(next.candidates) || next.candidates.length <= 2) return;
+    const remaining = next.candidates.filter((row) => cleanText(row?.id) !== id);
+    if (remaining.length === next.candidates.length || remaining.length < 2) return;
+    next.candidates = remaining;
+    if (next.userSplit && typeof next.userSplit === "object") {
+      delete next.userSplit[id];
+    }
+    if (cleanText(next.yourCandidateId) === id){
+      next.yourCandidateId = next.candidates[0]?.id || null;
+    }
+    applied = true;
+  });
+
+  return { ok: applied, view: districtBridgeStateView() };
+}
+
+function districtBridgeSetUserSplit(candidateId, rawValue){
+  if (isScenarioLockedForEdits(state)){
+    return { ok: false, code: "locked", view: districtBridgeStateView() };
+  }
+  const id = cleanText(candidateId);
+  if (!id){
+    return { ok: false, code: "missing_candidate", view: districtBridgeStateView() };
+  }
+
+  let applied = false;
+  setState((next) => {
+    if (!next.userSplit || typeof next.userSplit !== "object") next.userSplit = {};
+    next.userSplit[id] = safeNum(rawValue);
+    applied = true;
+  });
 
   return { ok: applied, view: districtBridgeStateView() };
 }
