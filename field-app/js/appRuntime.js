@@ -553,6 +553,7 @@ const SCENARIO_BASELINE_ID = "baseline";
 const SCENARIO_MAX = 20;
 const DATA_BRIDGE_KEY = "__FPE_DATA_API__";
 const SCENARIO_BRIDGE_KEY = "__FPE_SCENARIO_API__";
+const SHELL_BRIDGE_KEY = "__FPE_SHELL_API__";
 const DISTRICT_BRIDGE_KEY = "__FPE_DISTRICT_API__";
 const REACH_BRIDGE_KEY = "__FPE_REACH_API__";
 const TURNOUT_BRIDGE_KEY = "__FPE_TURNOUT_API__";
@@ -584,6 +585,78 @@ let dataBridgeImportFileName = "";
 let dataBridgeHashBannerText = "";
 let dataBridgeWarnBannerText = "";
 let dataBridgeUsbStatusText = "";
+
+function shellBridgeStateView(){
+  return {
+    scenarioName: String(state?.scenarioName || ""),
+    trainingEnabled: !!state?.ui?.training,
+  };
+}
+
+function shellBridgeSetScenarioName(rawValue){
+  const nextValue = String(rawValue == null ? "" : rawValue);
+  state.scenarioName = nextValue;
+  if (els.scenarioName && els.scenarioName.value !== nextValue){
+    els.scenarioName.value = nextValue;
+  }
+  schedulePersist();
+  return { ok: true, view: shellBridgeStateView() };
+}
+
+function shellBridgeSetTrainingEnabled(enabled){
+  if (!state.ui || typeof state.ui !== "object") state.ui = {};
+  state.ui.training = !!enabled;
+  if (els.toggleTraining) els.toggleTraining.checked = !!state.ui.training;
+  document.body.classList.toggle("training", !!state.ui.training);
+  setText(els.snapshotHash, lastResultsSnapshot?.snapshotHash || "—");
+  setText(els.snapshotHashSidebar, lastResultsSnapshot?.snapshotHash || "—");
+  if (els.explainCard) els.explainCard.hidden = !state.ui.training;
+  persist();
+  return { ok: true, view: shellBridgeStateView() };
+}
+
+function shellBridgeOpenDiagnostics(){
+  openDiagnostics();
+  return { ok: true, view: shellBridgeStateView() };
+}
+
+function shellBridgeResetScenario(){
+  const ok = confirm("Reset all fields to defaults? This will clear the saved scenario in this browser.");
+  if (!ok){
+    return { ok: false, code: "canceled", view: shellBridgeStateView() };
+  }
+  state = makeDefaultState();
+  ensureScenarioRegistry();
+  ensureDecisionScaffold();
+  try{
+    const baseline = state?.ui?.scenarios?.[SCENARIO_BASELINE_ID];
+    if (baseline){
+      baseline.inputs = scenarioInputsFromState(state);
+      baseline.outputs = scenarioOutputsFromState(state);
+    }
+  } catch {}
+  clearState();
+  applyStateToUI();
+  rebuildCandidateTable();
+  document.body.classList.toggle("training", !!state?.ui?.training);
+  applyThemeFromState();
+  if (els.explainCard) els.explainCard.hidden = !state?.ui?.training;
+  render();
+  safeCall(() => { renderScenarioManagerC1(); });
+  safeCall(() => { renderDecisionSessionD1(); });
+  persist();
+  return { ok: true, view: shellBridgeStateView() };
+}
+
+function installShellBridge(){
+  window[SHELL_BRIDGE_KEY] = {
+    getView: () => shellBridgeStateView(),
+    setScenarioName: (value) => shellBridgeSetScenarioName(value),
+    setTrainingEnabled: (enabled) => shellBridgeSetTrainingEnabled(enabled),
+    openDiagnostics: () => shellBridgeOpenDiagnostics(),
+    resetScenario: () => shellBridgeResetScenario(),
+  };
+}
 
 function dataBridgeHasFsSupport(){
   return typeof window !== "undefined"
@@ -7001,6 +7074,7 @@ function init(){
   safeCall(() => { ensureScenarioRegistry(); }, { label: "init.ensureScenarioRegistry" });
   safeCall(() => { installDataBridge(); }, { label: "init.installDataBridge" });
   safeCall(() => { installScenarioBridge(); }, { label: "init.installScenarioBridge" });
+  safeCall(() => { installShellBridge(); }, { label: "init.installShellBridge" });
   safeCall(() => { installDistrictBridge(); }, { label: "init.installDistrictBridge" });
   safeCall(() => { installReachBridge(); }, { label: "init.installReachBridge" });
   safeCall(() => { installTurnoutBridge(); }, { label: "init.installTurnoutBridge" });
