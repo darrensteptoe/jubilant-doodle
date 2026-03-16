@@ -177,6 +177,21 @@ export function readDistrictSnapshot() {
   };
 }
 
+export function readDistrictControlSnapshot() {
+  const view = readDistrictBridgeView();
+  const controls = view?.controls;
+  if (!controls || typeof controls !== "object") {
+    return {
+      locked: false,
+      disabledMap: {},
+    };
+  }
+  return {
+    locked: !!controls.locked,
+    disabledMap: controls.disabledMap && typeof controls.disabledMap === "object" ? controls.disabledMap : {},
+  };
+}
+
 export function readDistrictTargetingSnapshot() {
   const view = readDistrictBridgeView();
   const targeting = view?.targeting;

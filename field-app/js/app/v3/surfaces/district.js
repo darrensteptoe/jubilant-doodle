@@ -8,6 +8,7 @@ import {
 } from "../componentFactory.js";
 import {
   readDistrictSnapshot,
+  readDistrictControlSnapshot,
   readDistrictTargetingSnapshot,
   readDistrictCensusSnapshot,
   setDistrictFormField,
@@ -469,6 +470,7 @@ export function renderDistrictSurface(mount) {
 
 function refreshDistrictSummary() {
   const snapshot = readDistrictSnapshot();
+  const controlSnapshot = readDistrictControlSnapshot();
   setText("v3DistrictUniverse", snapshot.universe);
   setText("v3DistrictSupport", snapshot.baselineSupport);
   setText("v3DistrictTurnout", snapshot.turnoutExpected);
@@ -522,6 +524,7 @@ function refreshDistrictSummary() {
   syncDistrictCensusProxy();
   syncDistrictCensusMessageTones();
   syncCensusMapShellState();
+  applyDistrictBridgeDisabledMap(controlSnapshot?.disabledMap);
 }
 
 function syncDistrictBallotBaseline() {
@@ -796,6 +799,23 @@ function fallbackLegacyCheckboxDispatch(id, checked) {
   }
   legacy.checked = !!checked;
   dispatchLegacyInput(legacy);
+}
+
+function applyDistrictBridgeDisabledMap(disabledMap) {
+  const map = disabledMap && typeof disabledMap === "object" ? disabledMap : null;
+  if (!map) return;
+  for (const [id, value] of Object.entries(map)) {
+    if (typeof value !== "boolean") continue;
+    const el = document.getElementById(id);
+    if (
+      el instanceof HTMLInputElement
+      || el instanceof HTMLSelectElement
+      || el instanceof HTMLTextAreaElement
+      || el instanceof HTMLButtonElement
+    ) {
+      el.disabled = value;
+    }
+  }
 }
 
 function syncDistrictStructureDerived() {
