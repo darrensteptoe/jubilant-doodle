@@ -37,7 +37,7 @@ function bootV3() {
 
   if (resolveUiMode() !== "v3") {
     uninstallNavigationBridge();
-    restoreLegacyRightRail();
+    restoreLegacyCompatHosts();
     root.hidden = true;
     if (legacy) {
       legacy.hidden = false;
@@ -46,7 +46,7 @@ function bootV3() {
   }
 
   try {
-    moveLegacyRightRailToHost();
+    prepareV3CompatHosts();
     renderV3Shell(root);
 
     root.hidden = false;
@@ -69,7 +69,7 @@ function bootV3() {
   } catch (err) {
     console.error("[v3-shell] failed to boot, reverting to legacy shell", err);
     uninstallNavigationBridge();
-    restoreLegacyRightRail();
+    restoreLegacyCompatHosts();
     root.hidden = true;
     if (legacy) {
       legacy.hidden = false;
@@ -249,6 +249,28 @@ function restoreLegacyRightRail() {
       restore();
     }
   } catch {}
+}
+
+function prepareV3CompatHosts() {
+  try {
+    const prepare = window.__FPE_PREPARE_V3_COMPAT_HOSTS__;
+    if (typeof prepare === "function") {
+      prepare();
+      return;
+    }
+  } catch {}
+  moveLegacyRightRailToHost();
+}
+
+function restoreLegacyCompatHosts() {
+  try {
+    const restore = window.__FPE_RESTORE_LEGACY_COMPAT_HOSTS__;
+    if (typeof restore === "function") {
+      restore();
+      return;
+    }
+  } catch {}
+  restoreLegacyRightRail();
 }
 
 function readShellBridgeView() {
