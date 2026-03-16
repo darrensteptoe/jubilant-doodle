@@ -176,6 +176,9 @@ function wireTopbarBridge() {
   });
 
   legacyBtn?.addEventListener("click", () => {
+    if (setUiMode("legacy")) {
+      return;
+    }
     const params = new URLSearchParams(window.location.search);
     params.set("ui", "legacy");
     const query = params.toString();
@@ -282,6 +285,16 @@ function setLegacyShellVisible(visible) {
   if (shell) {
     shell.hidden = !visible;
   }
+}
+
+function setUiMode(mode) {
+  try {
+    const setMode = window.__FPE_SET_UI_MODE__;
+    if (typeof setMode === "function") {
+      return !!setMode(mode);
+    }
+  } catch {}
+  return false;
 }
 
 function readShellBridgeView() {
