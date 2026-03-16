@@ -95,7 +95,10 @@ function syncLegacyRightRail() {
     return;
   }
 
-  const legacyRail = document.querySelector(".results-sidebar-new");
+  const legacyRail =
+    document.getElementById("legacyResultsSidebar") ||
+    document.querySelector("#legacyRightRailHost .results-sidebar-new") ||
+    document.querySelector(".results-sidebar-new");
   if (!legacyRail) {
     return;
   }
