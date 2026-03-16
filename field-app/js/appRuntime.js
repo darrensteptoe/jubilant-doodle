@@ -3015,14 +3015,14 @@ function districtBridgeStateView(){
     warningText: ballotWarningText,
     candidates: ballotCandidates.map((cand) => ({
       id: String(cand?.id || "").trim(),
-      name: String(cand?.name || "Candidate").trim() || "Candidate",
+      name: String(cand?.name ?? "").trim(),
       supportPct: safeNum(cand?.supportPct),
       canRemove: ballotCandidates.length > 2,
     })).filter((cand) => cand.id),
     userSplitVisible: ballotUndecidedMode === "user_defined",
     userSplitRows: ballotCandidates.map((cand) => ({
       id: String(cand?.id || "").trim(),
-      name: String(cand?.name || "Candidate").trim() || "Candidate",
+      name: String(cand?.name ?? "").trim(),
       value: safeNum(ballotUserSplit?.[cand?.id]),
     })).filter((cand) => cand.id),
   };
