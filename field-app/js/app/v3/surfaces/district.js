@@ -560,6 +560,7 @@ function syncDistrictBallotTopline(ballotSnapshot) {
     ballotSnapshot.candidates.map((row) => ({ value: row.id, label: row.name || "Candidate" })),
     ballotSnapshot.yourCandidateId,
   );
+  hydrateLegacySelectOptions("v3DistrictUndecidedMode", "undecidedMode", ballotSnapshot.undecidedMode);
   syncBridgeSelectValue("v3DistrictYourCandidate", ballotSnapshot.yourCandidateId);
   syncBridgeFieldValue("v3DistrictUndecidedPct", ballotSnapshot.undecidedPct);
   syncBridgeSelectValue("v3DistrictUndecidedMode", ballotSnapshot.undecidedMode);
@@ -588,9 +589,6 @@ function syncDistrictCandidateTable(ballotSnapshot, controlsLocked = false) {
       nameInput.disabled = controlsLocked;
       nameInput.addEventListener("input", () => {
         updateDistrictCandidate(row.id, "name", nameInput.value);
-        const nextBallot = readDistrictBallotSnapshot();
-        syncDistrictBallotTopline(nextBallot);
-        syncDistrictBallotBaseline(nextBallot, controlsLocked);
       });
       tdName.appendChild(nameInput);
 
@@ -606,7 +604,6 @@ function syncDistrictCandidateTable(ballotSnapshot, controlsLocked = false) {
       pctInput.disabled = controlsLocked;
       pctInput.addEventListener("input", () => {
         updateDistrictCandidate(row.id, "supportPct", pctInput.value);
-        syncDistrictBallotBaseline(readDistrictBallotSnapshot(), controlsLocked);
       });
       tdPct.appendChild(pctInput);
 
@@ -619,9 +616,6 @@ function syncDistrictCandidateTable(ballotSnapshot, controlsLocked = false) {
       removeBtn.disabled = controlsLocked || !row.canRemove;
       removeBtn.addEventListener("click", () => {
         removeDistrictCandidate(row.id);
-        const nextBallot = readDistrictBallotSnapshot();
-        syncDistrictBallotTopline(nextBallot);
-        syncDistrictBallotBaseline(nextBallot, controlsLocked);
       });
       tdAction.appendChild(removeBtn);
 
@@ -766,7 +760,6 @@ function syncDistrictUserSplitTable(ballotSnapshot, controlsLocked = false) {
       input.disabled = controlsLocked;
       input.addEventListener("input", () => {
         setDistrictUserSplit(row.id, input.value);
-        syncDistrictBallotBaseline(readDistrictBallotSnapshot(), controlsLocked);
       });
 
       field.append(label, input);
@@ -877,9 +870,6 @@ function bindDistrictAddCandidateButton() {
   button.addEventListener("click", () => {
     const result = addDistrictCandidate();
     if (result?.ok) {
-      const nextBallot = readDistrictBallotSnapshot();
-      syncDistrictBallotTopline(nextBallot);
-      syncDistrictBallotBaseline(nextBallot, !!readDistrictControlSnapshot()?.locked);
       return;
     }
     const legacy = document.getElementById("btnAddCandidate");
@@ -887,6 +877,18 @@ function bindDistrictAddCandidateButton() {
       legacy.click();
     }
   });
+}
+
+function hydrateLegacySelectOptions(v3Id, legacyId, preferredValue) {
+  const legacy = document.getElementById(legacyId);
+  if (!(legacy instanceof HTMLSelectElement)) {
+    return;
+  }
+  const options = Array.from(legacy.options).map((option) => ({
+    value: String(option.value || "").trim(),
+    label: String(option.textContent || option.value || "").trim(),
+  })).filter((row) => row.value || row.label);
+  hydrateSelectOptions(v3Id, options, preferredValue);
 }
 
 function bindDistrictFormSelect(v3Id, field) {
