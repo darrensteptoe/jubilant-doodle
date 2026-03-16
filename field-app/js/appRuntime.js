@@ -7099,6 +7099,11 @@ function composeSetupStage(){
 
 function shouldComposeLegacySetupStage(){
   try{
+    const getMode = window.__FPE_GET_UI_MODE__;
+    if (typeof getMode === "function" && getMode() === "legacy") return true;
+  } catch {}
+
+  try{
     const params = new URLSearchParams(window.location.search || "");
     if (params.get("ui") === "legacy") return true;
   } catch {}
