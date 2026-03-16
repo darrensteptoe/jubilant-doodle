@@ -29,7 +29,6 @@ function resolveUiMode() {
 
 function bootV3() {
   const root = document.getElementById("app-shell-v3-root");
-  const legacy = document.getElementById("app-shell-legacy");
 
   if (!root) {
     return;
@@ -39,9 +38,7 @@ function bootV3() {
     uninstallNavigationBridge();
     restoreLegacyCompatHosts();
     root.hidden = true;
-    if (legacy) {
-      legacy.hidden = false;
-    }
+    setLegacyShellVisible(true);
     return;
   }
 
@@ -50,9 +47,7 @@ function bootV3() {
     renderV3Shell(root);
 
     root.hidden = false;
-    if (legacy) {
-      legacy.hidden = true;
-    }
+    setLegacyShellVisible(false);
 
     installNavigationBridge();
     wireV3Nav((stageId) => {
@@ -71,9 +66,7 @@ function bootV3() {
     uninstallNavigationBridge();
     restoreLegacyCompatHosts();
     root.hidden = true;
-    if (legacy) {
-      legacy.hidden = false;
-    }
+    setLegacyShellVisible(true);
   }
 }
 
@@ -271,6 +264,20 @@ function restoreLegacyCompatHosts() {
     }
   } catch {}
   restoreLegacyRightRail();
+}
+
+function setLegacyShellVisible(visible) {
+  try {
+    const setVisible = window.__FPE_SET_LEGACY_SHELL_VISIBLE__;
+    if (typeof setVisible === "function") {
+      setVisible(!!visible);
+      return;
+    }
+  } catch {}
+  const shell = document.getElementById("app-shell-legacy");
+  if (shell) {
+    shell.hidden = !visible;
+  }
 }
 
 function readShellBridgeView() {
