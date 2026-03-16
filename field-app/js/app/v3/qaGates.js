@@ -157,6 +157,7 @@ export function runV3QaSmoke({ restoreStage = true, logToConsole = true } = {}) 
   recordCheck(checks, "data-bridge-api", hasBridgeGetter("__FPE_DATA_API__"));
   recordCheck(checks, "legacy-census-bridge-host", isTruthy(document.getElementById("legacyCensusBridgeHost")));
   recordCheck(checks, "legacy-shell-action-host", isTruthy(document.getElementById("legacyShellActionHost")));
+  recordCheck(checks, "legacy-right-rail-host", isTruthy(document.getElementById("legacyRightRailHost")));
   recordCheck(
     checks,
     "legacy-census-bridge-host-detached",
@@ -166,6 +167,11 @@ export function runV3QaSmoke({ restoreStage = true, logToConsole = true } = {}) 
     checks,
     "legacy-shell-action-host-detached",
     isTruthy(document.getElementById("legacyShellActionHost")?.parentElement?.id !== "app-shell-legacy")
+  );
+  recordCheck(
+    checks,
+    "legacy-right-rail-host-detached",
+    isTruthy(document.getElementById("legacyRightRailHost")?.parentElement?.id !== "app-shell-legacy")
   );
   recordCheck(
     checks,
