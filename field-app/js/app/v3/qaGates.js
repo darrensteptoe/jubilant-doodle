@@ -145,7 +145,11 @@ export function runV3QaSmoke({ restoreStage = true, logToConsole = true } = {}) 
   recordCheck(checks, "v3-surface-mount", isTruthy(document.getElementById("v3SurfaceMount")));
   recordCheck(checks, "v3-kpi-strip", isTruthy(document.getElementById("v3KpiStrip")));
   recordCheck(checks, "v3-right-rail-slot", isTruthy(document.getElementById("v3RightRailSlot")));
-  recordCheck(checks, "legacy-shell-hidden", isTruthy(document.getElementById("app-shell-legacy")?.hidden));
+  recordCheck(
+    checks,
+    "legacy-shell-absent-or-hidden",
+    isTruthy(!document.getElementById("app-shell-legacy") || document.getElementById("app-shell-legacy")?.hidden)
+  );
   recordCheck(checks, "shell-bridge-api", hasBridgeGetter("__FPE_SHELL_API__"));
   recordCheck(checks, "district-bridge-api", hasBridgeGetter("__FPE_DISTRICT_API__"));
   recordCheck(checks, "census-runtime-bridge-api", hasBridgeGetter("__FPE_CENSUS_RUNTIME_API__"));

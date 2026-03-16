@@ -162,7 +162,7 @@ function wireTopbarBridge() {
     }
 
     if (!callShellBridge("openDiagnostics")) {
-      clickLegacy("btnDiagnostics");
+      openDiagnosticsFallback();
     }
   });
   resetBtn?.addEventListener("click", () => {
@@ -209,6 +209,17 @@ function clickLegacy(id) {
   if (el && typeof el.click === "function") {
     el.click();
   }
+}
+
+function openDiagnosticsFallback() {
+  try {
+    const openEmergency = window.__FPE_OPEN_EMERGENCY_DIAGNOSTICS__;
+    if (typeof openEmergency === "function") {
+      openEmergency();
+      return;
+    }
+  } catch {}
+  clickLegacy("btnDiagnostics");
 }
 
 function moveLegacyRightRailToHost() {
