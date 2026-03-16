@@ -1520,8 +1520,6 @@ function initLegacyInlineShell() {
   restoreLegacyCardToOrigin('censusPhase1Card');
   restoreLegacyCardToOrigin('targetingLabCard');
   restoreLegacyCardToOrigin('toggleTraining');
-  restoreLegacyCardToOrigin('btnDiagnostics');
-  restoreLegacyCardToOrigin('btnResetAll');
   restoreLegacyRightRailToOrigin();
   normalizeStages();
   var btnOpen = document.getElementById('btnDiagnostics');
@@ -1549,8 +1547,6 @@ document.addEventListener('DOMContentLoaded', function(){
   moveLegacyCardToBridgeHost('censusPhase1Card');
   moveLegacyCardToBridgeHost('targetingLabCard');
   moveLegacyActionToHost('toggleTraining');
-  moveLegacyActionToHost('btnDiagnostics');
-  moveLegacyActionToHost('btnResetAll');
   moveLegacyRightRailToHost();
   window.setTimeout(function(){
     if (!isV3BridgeActive()) {
