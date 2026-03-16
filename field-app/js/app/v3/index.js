@@ -168,7 +168,7 @@ function wireTopbarBridge() {
   resetBtn?.addEventListener("click", () => {
     const result = callShellBridge("resetScenario");
     if (!result) {
-      clickLegacy("btnResetAll");
+      resetScenarioFallback();
     }
   });
 
@@ -220,6 +220,17 @@ function openDiagnosticsFallback() {
     }
   } catch {}
   clickLegacy("btnDiagnostics");
+}
+
+function resetScenarioFallback() {
+  try {
+    const reset = window.__FPE_RESET_SCENARIO__;
+    if (typeof reset === "function") {
+      reset();
+      return;
+    }
+  } catch {}
+  clickLegacy("btnResetAll");
 }
 
 function moveLegacyRightRailToHost() {
