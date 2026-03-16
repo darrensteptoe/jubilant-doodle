@@ -168,7 +168,6 @@ function wireTopbarBridge() {
     setShellTrainingState(!readShellTrainingState());
     syncTrainingToggle();
   });
-  document.getElementById("toggleTraining")?.addEventListener("change", syncTrainingToggle);
 
   legacyBtn?.addEventListener("click", () => {
     const params = new URLSearchParams(window.location.search);
@@ -198,12 +197,6 @@ function wireScenarioBridge() {
       legacyInput.value = v3Input.value;
       legacyInput.dispatchEvent(new Event("input", { bubbles: true }));
       legacyInput.dispatchEvent(new Event("change", { bubbles: true }));
-    }
-  });
-
-  legacyInput?.addEventListener("input", () => {
-    if (v3Input.value !== legacyInput.value) {
-      v3Input.value = legacyInput.value;
     }
   });
 }

@@ -76,6 +76,41 @@ function resolveLegacyCensusCard() {
   return districtLegacyCensusCard;
 }
 
+function buildDistrictTrainingPanels() {
+  const sourceIds = ["train-setup", "train-universe", "train-ballot", "train-checks"];
+  const host = document.createElement("div");
+  host.className = "fpe-district-training-stack";
+  let count = 0;
+
+  sourceIds.forEach((sourceId) => {
+    const source = document.getElementById(sourceId);
+    if (!(source instanceof HTMLElement)) {
+      return;
+    }
+    const clone = source.cloneNode(true);
+    const nextId = `v3-${sourceId}`;
+    clone.id = nextId;
+    clone.querySelectorAll("[id]").forEach((node) => {
+      if (!(node instanceof HTMLElement)) {
+        return;
+      }
+      const rawId = String(node.id || "").trim();
+      if (!rawId) {
+        return;
+      }
+      node.id = `v3-${rawId}`;
+    });
+    const header = clone.querySelector(".training-hd-new");
+    if (header instanceof HTMLElement) {
+      header.setAttribute("onclick", `toggleTrainPanel('${nextId}')`);
+    }
+    host.append(clone);
+    count += 1;
+  });
+
+  return count ? host : null;
+}
+
 export function renderDistrictSurface(mount) {
   const frame = createSurfaceFrame("two-col");
   frame.classList.add("fpe-surface-frame--single");
@@ -428,9 +463,11 @@ export function renderDistrictSurface(mount) {
   const topRow = document.createElement("div");
   topRow.className = "fpe-district-top-row";
   topRow.append(whyPanel, summaryCard);
+  const trainingPanels = buildDistrictTrainingPanels();
 
   main.append(
     topRow,
+    ...(trainingPanels ? [trainingPanels] : []),
     raceCard,
     electorateCard,
     baselineCard,
