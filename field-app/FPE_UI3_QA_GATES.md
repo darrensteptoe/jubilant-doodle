@@ -261,6 +261,7 @@ Scope: UI architecture migration only (engine and right rail frozen)
 - Legacy-shell hardening: added runtime shell-action host isolation (`#legacyShellActionHost`) so the remaining Training fallback control can be rehomed outside `#app-shell-legacy` during v3 boot and restored in explicit legacy mode.
 - Legacy-shell hardening: added runtime right-rail host isolation (`#legacyRightRailHost`) so the persistent results rail can be moved out of `#app-shell-legacy` during v3 boot and restored if legacy fallback mode is needed.
 - Legacy-shell hardening: compat-host prep/restore is now centralized behind global hooks (`__FPE_PREPARE_V3_COMPAT_HOSTS__`, `__FPE_RESTORE_LEGACY_COMPAT_HOSTS__`) so v3 boot and inline fallback use the same DOM rehoming path.
+- Legacy-shell hardening: v3 boot now uses a dedicated wrapper-visibility hook (`__FPE_SET_LEGACY_SHELL_VISIBLE__`) instead of manipulating `#app-shell-legacy.hidden` directly in multiple places.
 - Legacy-shell hardening: v3 boot no longer hard-requires `#app-shell-legacy` to exist before mounting the v3 shell; the legacy wrapper is now optional and only used when present for fallback visibility.
 - Legacy-shell hardening: v3 Diagnostics fallback now opens the emergency diagnostics modal directly (via a global fallback hook) instead of depending on the hidden legacy Diagnostics button to exist in the wrapper.
 - Legacy-shell hardening: v3 Reset fallback now calls a runtime-installed global reset hook before trying the hidden legacy reset button, reducing dependence on `#btnResetAll` during cutover.

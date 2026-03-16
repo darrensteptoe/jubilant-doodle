@@ -1502,9 +1502,16 @@ function closeEmergencyDiagnostics(){
   if (modal) modal.hidden = true;
 }
 
+function setLegacyShellVisible(visible) {
+  var shell = document.getElementById('app-shell-legacy');
+  if (!shell) return;
+  shell.hidden = !visible;
+}
+
 window.__FPE_OPEN_EMERGENCY_DIAGNOSTICS__ = openEmergencyDiagnostics;
 window.__FPE_MOVE_LEGACY_RIGHT_RAIL_TO_HOST__ = moveLegacyRightRailToHost;
 window.__FPE_RESTORE_LEGACY_RIGHT_RAIL__ = restoreLegacyRightRailToOrigin;
+window.__FPE_SET_LEGACY_SHELL_VISIBLE__ = setLegacyShellVisible;
 
 function prepareV3CompatHosts() {
   setLegacyStageVisibility(false);
@@ -1541,6 +1548,7 @@ function initLegacyInlineShell() {
   if (host && host.dataset.legacyInlineInit === '1') return;
   if (host) host.dataset.legacyInlineInit = '1';
 
+  setLegacyShellVisible(true);
   restoreLegacyCompatHosts();
   var btnOpen = document.getElementById('btnDiagnostics');
   if (btnOpen){
@@ -1558,6 +1566,7 @@ document.addEventListener('DOMContentLoaded', function(){
     return;
   }
 
+  setLegacyShellVisible(false);
   prepareV3CompatHosts();
   window.setTimeout(function(){
     if (!isV3BridgeActive()) {
