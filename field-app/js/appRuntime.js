@@ -657,6 +657,7 @@ function installShellBridge(){
     openDiagnostics: () => shellBridgeOpenDiagnostics(),
     resetScenario: () => shellBridgeResetScenario(),
   };
+  window.__FPE_RESET_SCENARIO__ = () => shellBridgeResetScenario();
 }
 
 function dataBridgeHasFsSupport(){
