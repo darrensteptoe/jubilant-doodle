@@ -50,7 +50,6 @@ function bootV3() {
     renderV3Shell(root);
 
     root.hidden = false;
-    setLegacyShellVisible(false);
 
     installNavigationBridge();
     wireV3Nav((stageId) => {
