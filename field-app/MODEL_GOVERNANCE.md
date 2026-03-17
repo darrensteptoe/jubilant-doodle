@@ -1,52 +1,26 @@
-# Model Governance
+# Model Governance (Workstream 4)
 
-This project uses a strict separation of concerns to prevent model drift.
+Canonical governance modules:
 
-## Non-negotiables
+- `js/core/assumptionBaselines.js`
+- `js/core/modelGovernance.js`
+- `js/core/confidence.js`
 
-1. Core deterministic math and Monte Carlo are the only numeric truth sources.
-2. UI modules must render snapshots and never recompute planning math.
-3. AI/intel features may annotate, explain, and recommend, but may not directly mutate core model inputs.
-4. Every recommendation and calibration change must be auditable (`who/what/when/why`).
-5. Import/export and migration must preserve reproducibility.
+## Principles
 
-## Source-of-truth boundaries
+- Forecast framing must include realism, data quality, and confidence context.
+- UI surfaces render governance output but do not compute governance math.
+- Baseline ranges and scoring rules live in core modules only.
 
-- Core model truth:
-  - `/Users/anakinskywalker/Downloads/field-app-40/js/core/model.js`
-  - `/Users/anakinskywalker/Downloads/field-app-40/js/core/winMath.js`
-  - `/Users/anakinskywalker/Downloads/field-app-40/js/core/monteCarlo.js`
-- Snapshot and integrity:
-  - `/Users/anakinskywalker/Downloads/field-app-40/js/core/migrate.js`
-  - `/Users/anakinskywalker/Downloads/field-app-40/js/export.js`
-  - `/Users/anakinskywalker/Downloads/field-app-40/js/core/hash.js`
-- Intel metadata layer (non-math):
-  - `/Users/anakinskywalker/Downloads/field-app-40/js/core/intelState.js`
+## Current outputs
 
-## AI write contract
+- Assumption realism score and flagged inputs.
+- Data quality score (benchmarks, evidence, rolling-drift signals).
+- Confidence score/band derived from realism, data quality, historical accuracy, and envelope stability.
+- Top sensitivity drivers (when snapshot data exists).
 
-AI-allowed targets:
-- `scenario.intelState.flags[]`
-- `scenario.intelState.briefs[]`
-- `scenario.intelState.recommendations[]`
-- `scenario.intelState.audit[]`
-- `scenario.intelState.observedMetrics[]`
+## Integration seam
 
-AI-forbidden targets:
-- Top-level numeric model inputs (turnout, persuasion, rates, capacity, budget, timeline, MC inputs)
-- Deterministic/MC outputs
-- Snapshot hash fields
-
-## Change controls
-
-1. If a recommendation proposes changing a core assumption, it must be a draft only.
-2. Core assumption updates require explicit user action.
-3. Applied updates must append an audit entry with evidence reference(s).
-
-## Verification gates
-
-Before release:
-1. Self-Test pass.
-2. Robust smoke pass.
-3. No new runtime errors in diagnostics.
-4. Export -> import -> export roundtrip remains stable.
+- Summary rendering computes governance once and passes it to validation and guardrail panels.
+- Validation panel displays governance framing and warnings.
+- Guardrails panel appends governance blocks alongside engine guardrails.

@@ -266,6 +266,9 @@ Scope: UI architecture migration only (engine and right rail frozen)
 - Legacy-shell hardening: UI mode switching now routes through a shared global hook (`__FPE_SET_UI_MODE__`) so the v3 Legacy button and inline shell logic no longer hand-roll their own `?ui=` URL mutations.
 - Legacy-shell hardening: right-rail attachment is now exposed through a shared global hook (`__FPE_ATTACH_LEGACY_RIGHT_RAIL_TO_SLOT__`) so v3 stage mounting no longer needs to know the legacy rail host/layout details directly.
 - Legacy-shell hardening: v3 boot no longer hard-requires `#app-shell-legacy` to exist before mounting the v3 shell; the legacy wrapper is now optional and only used when present for fallback visibility.
+- Legacy-shell hardening: legacy wrapper is now hidden by default in markup and only shown for explicit legacy mode or fallback recovery.
+- Legacy-shell hardening: normal v3 boot no longer actively hides the legacy wrapper; wrapper visibility is only mutated for explicit legacy mode or fallback recovery.
+- Legacy-shell hardening: explicit legacy mode is now owned by the inline legacy shell path; v3 boot only handles v3 mode and fallback recovery.
 - Legacy-shell hardening: legacy shell root reads now go through a shared inline hook (`__FPE_GET_LEGACY_SHELL_ROOT__`), reducing direct wrapper-id assumptions in v3 boot and QA smoke.
 - Legacy-shell hardening: v3 Diagnostics fallback now opens the emergency diagnostics modal directly (via a global fallback hook) instead of depending on the hidden legacy Diagnostics button to exist in the wrapper.
 - Legacy-shell hardening: v3 Reset fallback now calls a runtime-installed global reset hook before trying the hidden legacy reset button, reducing dependence on `#btnResetAll` during cutover.

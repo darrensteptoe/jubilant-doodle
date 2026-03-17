@@ -1681,9 +1681,124 @@ body.training #app-shell-v3-root .fpe-surface .help {
   height: 100%;
 }
 
+.fpe-surface-pane[data-v3-stage="district"] .fpe-district-brief {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: var(--fpe-space-3);
+  padding: 14px 16px;
+  border: 1px solid var(--fpe-rule);
+  border-radius: var(--fpe-radius-md);
+  background:
+    linear-gradient(180deg, rgba(255,255,255,0.04), rgba(255,255,255,0)),
+    var(--fpe-panel);
+}
+
+.fpe-surface-pane[data-v3-stage="district"] .fpe-district-brief__item {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding-right: 8px;
+}
+
+.fpe-surface-pane[data-v3-stage="district"] .fpe-district-brief__item:not(:last-child) {
+  border-right: 1px solid var(--fpe-rule);
+}
+
+.fpe-surface-pane[data-v3-stage="district"] .fpe-district-brief__label {
+  color: var(--fpe-muted);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.fpe-surface-pane[data-v3-stage="district"] .fpe-district-brief__value {
+  color: var(--fpe-text);
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.45;
+}
+
+.fpe-surface-pane[data-v3-stage="district"] .fpe-district-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--fpe-space-3);
+}
+
+.fpe-surface-pane[data-v3-stage="district"] .fpe-district-section__head {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.fpe-surface-pane[data-v3-stage="district"] .fpe-district-section__eyebrow {
+  color: var(--fpe-muted);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.fpe-surface-pane[data-v3-stage="district"] .fpe-district-section__title {
+  margin: 0;
+  color: var(--fpe-text);
+  font-size: 20px;
+  line-height: 1.2;
+}
+
+.fpe-surface-pane[data-v3-stage="district"] .fpe-district-section__desc {
+  margin: 0;
+  max-width: 80ch;
+  color: var(--fpe-muted);
+  line-height: 1.6;
+}
+
+.fpe-surface-pane[data-v3-stage="district"] .fpe-district-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--fpe-space-3);
+}
+
+.fpe-surface-pane[data-v3-stage="district"] .fpe-district-grid .fpe-card--district-wide {
+  grid-column: 1 / -1;
+}
+
+.fpe-surface-pane[data-v3-stage="district"] .fpe-district-analysis-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(320px, 1fr);
+  gap: var(--fpe-space-3);
+  align-items: start;
+}
+
 @media (max-width: 1100px) {
   .fpe-surface-pane[data-v3-stage="district"] .fpe-district-top-row {
     grid-template-columns: minmax(0, 1fr);
+  }
+
+  .fpe-surface-pane[data-v3-stage="district"] .fpe-district-brief {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .fpe-surface-pane[data-v3-stage="district"] .fpe-district-analysis-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 900px) {
+  .fpe-surface-pane[data-v3-stage="district"] .fpe-district-grid,
+  .fpe-surface-pane[data-v3-stage="district"] .fpe-district-brief {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .fpe-surface-pane[data-v3-stage="district"] .fpe-district-brief__item {
+    padding-right: 0;
+  }
+
+  .fpe-surface-pane[data-v3-stage="district"] .fpe-district-brief__item:not(:last-child) {
+    padding-bottom: 10px;
+    border-right: 0;
+    border-bottom: 1px solid var(--fpe-rule);
   }
 }
 

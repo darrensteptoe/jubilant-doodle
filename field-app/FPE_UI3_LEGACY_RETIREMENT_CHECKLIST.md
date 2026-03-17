@@ -6,6 +6,11 @@ Scope: Phase 12+ retirement planning for legacy stage containers and legacy shel
 Reference artifact:
 - `checkpoints/legacy_dependency_matrix.tsv` (generated 2026-03-11; per-surface legacy ID -> stage location map).
 
+## Current operating decision
+- Shell/cutover migration is frozen unless a named blocker appears.
+- Use `FPE_UI3_CLOSURE_STATUS.md` as the current stop/go reference for this phase.
+- Do not reopen shell micro-seams for cleanup value alone.
+
 ## Non-negotiable guardrails
 - Do not touch `js/core/*` math or engine formulas.
 - Keep right rail behavior/content frozen until final cutover.
@@ -26,6 +31,9 @@ Reference artifact:
 - Legacy decision-session bindings now short-circuit when decision DOM is absent, preventing boot-time coupling to removed Decision Log legacy markup.
 - Decision Log controls, summaries, and sensitivity snapshot execution now run through runtime decision API (`window.__FPE_DECISION_API__`) with a DOM-independent sensitivity compute path.
 - v3 boot no longer hard-requires `#app-shell-legacy` to exist just to mount v3; legacy wrapper is now optional during boot and only used when present for fallback visibility.
+- Legacy wrapper is now hidden by default in markup and is only shown for explicit legacy mode or fallback boot recovery.
+- Normal v3 boot no longer actively hides the legacy wrapper; wrapper visibility is now only touched for explicit legacy mode or fallback recovery.
+- Explicit legacy mode is now owned by the inline legacy shell path; v3 boot no longer tries to initialize legacy mode during normal mode selection.
 - Legacy shell root access is now behind a shared inline hook (`__FPE_GET_LEGACY_SHELL_ROOT__`), reducing direct `#app-shell-legacy` assumptions in v3 boot and QA.
 
 ## Completed retirements

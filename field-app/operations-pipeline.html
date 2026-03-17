@@ -27,7 +27,7 @@
     <div class="card card-section">
       <div class="card-head card-header">
         <h2 class="card-title">Lead / Stage Entry</h2>
-        <div class="help-text">Organizer-style form entry. One record per person with stage history timestamps.</div>
+        <div class="help-text">Organizer-style form entry with workforce role modeling. One record per person with stage history timestamps.</div>
       </div>
 
       <div class="grid3">
@@ -55,6 +55,46 @@
         <div class="field">
           <label class="label" for="leadStage">Current stage</label>
           <select class="select" id="leadStage"></select>
+        </div>
+
+        <div class="field">
+          <label class="label" for="leadRoleType">Role type</label>
+          <select class="select" id="leadRoleType">
+            <option value="canvasser">Canvasser</option>
+            <option value="field_organizer">Field organizer</option>
+            <option value="volunteer">Volunteer</option>
+            <option value="volunteer_lead">Volunteer lead</option>
+          </select>
+        </div>
+        <div class="field">
+          <label class="label" for="leadCompensationType">Compensation</label>
+          <select class="select" id="leadCompensationType">
+            <option value="paid">Paid</option>
+            <option value="volunteer">Volunteer</option>
+            <option value="stipend">Stipend</option>
+          </select>
+        </div>
+        <div class="field">
+          <label class="label" for="leadPayRate">Pay rate (optional)</label>
+          <input class="input num" id="leadPayRate" type="number" min="0" step="0.01" placeholder="0.00" />
+        </div>
+
+        <div class="field">
+          <label class="label" for="leadExpectedHoursPerWeek">Expected hours/week (optional)</label>
+          <input class="input num" id="leadExpectedHoursPerWeek" type="number" min="0" step="0.5" placeholder="0" />
+        </div>
+        <div class="field">
+          <label class="label" for="leadSupervisorId">Supervisor ID (optional)</label>
+          <input class="input" id="leadSupervisorId" type="text" placeholder="per_xxx" />
+        </div>
+        <div class="field">
+          <label class="label" for="leadActive">Active person record</label>
+          <div>
+            <label class="mini-s" style="display:flex; align-items:center; gap:8px;">
+              <input id="leadActive" type="checkbox" />
+              Mark person active even if current stage is not Active
+            </label>
+          </div>
         </div>
       </div>
 
@@ -84,6 +124,8 @@
               <th>Name</th>
               <th>Office</th>
               <th>Region</th>
+              <th>Role</th>
+              <th>Comp</th>
               <th>Recruiter</th>
               <th>Stage</th>
               <th class="num">Days in stage</th>
