@@ -28,7 +28,8 @@ export function renderDataSurface(mount) {
 
   const policyCard = createCard({
     title: "Policy & restore",
-    description: "Strict import mode, integrity warnings, and local backup restore controls."
+    description: "Strict import mode, integrity warnings, and local backup restore controls.",
+    status: "Restore ready"
   });
   const policyHeaderToggle = document.createElement("div");
   policyHeaderToggle.className = "fpe-header-switch";
@@ -43,18 +44,26 @@ export function renderDataSurface(mount) {
 
   const exchangeCard = createCard({
     title: "Import / export",
-    description: "JSON/CSV export and summary handoff controls."
+    description: "JSON/CSV export and summary handoff controls.",
+    status: "Ready"
   });
 
   const storageCard = createCard({
     title: "Backups & storage",
-    description: "Connect removable storage and manage manual sync operations."
+    description: "Connect removable storage and manage manual sync operations.",
+    status: "Browser storage"
   });
 
   const summaryCard = createCard({
     title: "Data summary",
-    description: "Current policy and storage posture."
+    description: "Current policy and storage posture.",
+    status: "Stable"
   });
+
+  assignCardStatusId(policyCard, "v3DataPolicyCardStatus");
+  assignCardStatusId(exchangeCard, "v3DataExchangeCardStatus");
+  assignCardStatusId(storageCard, "v3DataStorageCardStatus");
+  assignCardStatusId(summaryCard, "v3DataSummaryCardStatus");
 
   getCardBody(policyCard).innerHTML = `
     <div id="v3DataBridgeRoot">
@@ -210,6 +219,39 @@ function refreshDataSummary() {
     readSelectLabel(restoreSelect instanceof HTMLSelectElement ? restoreSelect : null) || "No backup selected."
   );
   setText("v3DataImportFileSummary", importFileStatus || "No import file selected.");
+
+  syncDataCardStatus(
+    "v3DataPolicyCardStatus",
+    deriveDataPolicyCardStatus(
+      strictToggle instanceof HTMLInputElement && strictToggle.checked,
+      hashBannerUi instanceof HTMLElement && !hashBannerUi.hidden
+        ? (hashBannerUi.textContent || "").trim()
+        : "",
+      warnBannerUi instanceof HTMLElement && !warnBannerUi.hidden
+        ? (warnBannerUi.textContent || "").trim()
+        : "",
+      restoreSelect instanceof HTMLSelectElement
+        ? Math.max(0, restoreSelect.options.length - 1)
+        : 0
+    )
+  );
+  syncDataCardStatus(
+    "v3DataExchangeCardStatus",
+    deriveDataExchangeCardStatus(importFileStatus)
+  );
+  syncDataCardStatus(
+    "v3DataStorageCardStatus",
+    deriveDataStorageCardStatus(usbStatusUi)
+  );
+  syncDataCardStatus(
+    "v3DataSummaryCardStatus",
+    deriveDataSummaryCardStatus(
+      strictToggle instanceof HTMLInputElement && strictToggle.checked,
+      hashBannerUi instanceof HTMLElement && !hashBannerUi.hidden,
+      warnBannerUi instanceof HTMLElement && !warnBannerUi.hidden,
+      usbStatusUi
+    )
+  );
 }
 
 function wireDataBridge() {
@@ -370,6 +412,93 @@ function readSelectLabel(selectEl) {
   }
   const option = selectEl.options[selectEl.selectedIndex];
   return option ? String(option.textContent || "").trim() : "";
+}
+
+function assignCardStatusId(card, id) {
+  if (!(card instanceof HTMLElement) || !id) {
+    return;
+  }
+  const badge = card.querySelector(".fpe-card__status");
+  if (badge instanceof HTMLElement) {
+    badge.id = id;
+  }
+}
+
+function syncDataCardStatus(id, value) {
+  const badge = document.getElementById(id);
+  if (!(badge instanceof HTMLElement)) {
+    return;
+  }
+  const text = String(value || "").trim() || "Awaiting storage";
+  badge.textContent = text;
+  badge.classList.add("fpe-status-pill");
+  badge.classList.remove(
+    "fpe-status-pill--ok",
+    "fpe-status-pill--warn",
+    "fpe-status-pill--bad",
+    "fpe-status-pill--neutral"
+  );
+  const tone = classifyDataStatusTone(text);
+  if (tone !== "neutral") {
+    badge.classList.add(`fpe-status-pill--${tone}`);
+  }
+}
+
+function deriveDataPolicyCardStatus(strictEnabled, hashBanner, warnBanner, backupCount) {
+  if (hashBanner || warnBanner) {
+    return "Check import";
+  }
+  if (strictEnabled) {
+    return "Strict mode";
+  }
+  return backupCount > 0 ? "Restore ready" : "No backups";
+}
+
+function deriveDataExchangeCardStatus(importFileStatus) {
+  const lower = String(importFileStatus || "").toLowerCase();
+  if (lower.includes("selected import:")) {
+    return "File staged";
+  }
+  return "Ready";
+}
+
+function deriveDataStorageCardStatus(usbStatus) {
+  const lower = String(usbStatus || "").toLowerCase();
+  if (lower.includes("browser storage")) {
+    return "Browser storage";
+  }
+  if (lower.includes("connect")) {
+    return "Awaiting folder";
+  }
+  return "Folder linked";
+}
+
+function deriveDataSummaryCardStatus(strictEnabled, hasHashBanner, hasWarnBanner, usbStatus) {
+  if (hasHashBanner || hasWarnBanner) {
+    return "Watch policy";
+  }
+  const lower = String(usbStatus || "").toLowerCase();
+  if (strictEnabled) {
+    return lower.includes("browser storage") ? "Strict local" : "Strict external";
+  }
+  return lower.includes("browser storage") ? "Stable" : "External ready";
+}
+
+function classifyDataStatusTone(text) {
+  const lower = String(text || "").trim().toLowerCase();
+  if (!lower) {
+    return "neutral";
+  }
+  if (/(restore ready|ready|browser storage|folder linked|stable|external ready)/.test(lower)) {
+    return "ok";
+  }
+  if (/(check import)/.test(lower)) {
+    return "bad";
+  }
+  if (/(strict|watch policy|file staged|awaiting folder|no backups)/.test(lower)) {
+    return "warn";
+  }
+  return "neutral";
 }
 
 function getDataApi() {
