@@ -54,6 +54,7 @@ import {
   buildTargetRankingCsv,
   buildTargetRankingPayload,
   computeTargetingContextKey,
+  getTargetingBridgeDefaults,
   getTargetModelPreset,
   listTargetGeoLevels,
   listTargetModelOptions,
@@ -61,13 +62,17 @@ import {
   normalizeTargetingState,
   runTargetRanking,
 } from "./targetingRuntime.js";
+import {
+  clearCensusRowsForKey,
+  getCensusRowsForState,
+  setCensusRowsForKey,
+} from "./censusRowsRuntimeStore.js";
 
 const variableCatalogCache = new Map();
 let stateOptionsCache = null;
 let stateOptionsUsingFallback = false;
 const countyOptionsCache = new Map();
 const placeOptionsCache = new Map();
-const rowsCache = new Map();
 const CENSUS_RUNTIME_BRIDGE_KEY = "__FPE_CENSUS_RUNTIME_API__";
 const STATE_OPTIONS_FALLBACK = [
   { fips: "01", name: "Alabama" },
@@ -836,6 +841,7 @@ async function onLoadMapBoundaries({ s, els, commitUIUpdate }){
 
 function resetGeoData(s){
   disableCensusApplyAdjustments(s);
+  clearCensusRowsForKey(s?.activeRowsKey);
   s.geoSearch = "";
   s.tractFilter = "";
   s.geoOptions = [];
@@ -939,10 +945,7 @@ function rowsKeyFromState(s){
 
 function getRowsForState(s){
   if (!cleanText(s?.stateFips)) return {};
-  const key = cleanText(s.activeRowsKey);
-  if (!key) return {};
-  const rows = rowsCache.get(key);
-  return rows && typeof rows === "object" ? rows : {};
+  return getCensusRowsForState(s);
 }
 
 function contextFingerprint(s){
@@ -2143,6 +2146,7 @@ async function onLoadGeo({ s, key, getState, commitUIUpdate }){
       current.selectedGeoids = options.slice(0, Math.min(options.length, 25)).map((row) => row.geoid);
     }
     current.rowsByGeoid = {};
+    clearCensusRowsForKey(current.activeRowsKey);
     current.activeRowsKey = "";
     current.loadedRowCount = 0;
     current.lastFetchAt = "";
@@ -2240,7 +2244,11 @@ async function onFetchRows({ s, key, getState, commitUIUpdate }){
     const current = ensureCensusStateModule(getState());
     if (!current || !shouldApplyRequestResult({ activeSeq: current.requestSeq, resultSeq: seq })) return;
     const rowsKey = rowsKeyFromState(current);
-    rowsCache.set(rowsKey, rowsByGeoid);
+    const previousRowsKey = cleanText(current.activeRowsKey);
+    if (previousRowsKey && previousRowsKey !== rowsKey){
+      clearCensusRowsForKey(previousRowsKey);
+    }
+    setCensusRowsForKey(rowsKey, rowsByGeoid);
     current.rowsByGeoid = {};
     current.activeRowsKey = rowsKey;
     current.loadedRowCount = Object.keys(rowsByGeoid).length;
@@ -2277,6 +2285,7 @@ async function onFetchRows({ s, key, getState, commitUIUpdate }){
     const msg = cleanText(err?.message) || "Failed to fetch ACS rows.";
     disableCensusApplyAdjustments(current);
     current.rowsByGeoid = {};
+    clearCensusRowsForKey(current.activeRowsKey);
     current.activeRowsKey = "";
     current.loadedRowCount = 0;
     current.lastFetchAt = "";
@@ -2357,6 +2366,7 @@ export function wireCensusPhase1EventsModule(ctx){
         const applyWasOn = disableCensusApplyAdjustments(s);
         s.year = cleanText(els.censusAcsYear.value);
         s.rowsByGeoid = {};
+        clearCensusRowsForKey(s.activeRowsKey);
         s.activeRowsKey = "";
         s.loadedRowCount = 0;
         s.lastFetchAt = "";
@@ -2375,6 +2385,7 @@ export function wireCensusPhase1EventsModule(ctx){
         const applyWasOn = disableCensusApplyAdjustments(s);
         s.metricSet = cleanText(els.censusMetricSet.value) || "core";
         s.rowsByGeoid = {};
+        clearCensusRowsForKey(s.activeRowsKey);
         s.activeRowsKey = "";
         s.loadedRowCount = 0;
         s.lastFetchAt = "";
@@ -3183,12 +3194,14 @@ export function wireCensusPhase1EventsModule(ctx){
   if (els.btnTargetingResetWeights){
     els.btnTargetingResetWeights.addEventListener("click", () => {
       withTargeting((_, s, targeting) => {
-        const preset = getTargetModelPreset(cleanText(targeting.presetId) || cleanText(targeting.modelId));
+        const presetId = cleanText(targeting.presetId) || cleanText(targeting.modelId) || "turnout_opportunity";
+        const preset = getTargetModelPreset(presetId);
+        const defaults = getTargetingBridgeDefaults(presetId);
         targeting.weights = {
-          votePotential: Number(preset?.weights?.votePotential) || 0.35,
-          turnoutOpportunity: Number(preset?.weights?.turnoutOpportunity) || 0.25,
-          persuasionIndex: Number(preset?.weights?.persuasionIndex) || 0.20,
-          fieldEfficiency: Number(preset?.weights?.fieldEfficiency) || 0.20,
+          votePotential: Number(defaults.weightVotePotential) || 0,
+          turnoutOpportunity: Number(defaults.weightTurnoutOpportunity) || 0,
+          persuasionIndex: Number(defaults.weightPersuasionIndex) || 0,
+          fieldEfficiency: Number(defaults.weightFieldEfficiency) || 0,
         };
         const presetLabel = cleanText(preset?.label) || "House model";
         setStatus(s, `${presetLabel} weights reset to preset defaults.`, false);

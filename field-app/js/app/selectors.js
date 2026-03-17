@@ -200,18 +200,15 @@ export function computeWeeklyOpsContextFromState(state, {
         const n = Number(v);
         return (Number.isFinite(n) && n >= 0) ? n : null;
       };
-      const doorsCap = asCap(tCaps.doors);
-      const phonesCap = asCap(tCaps.phones);
-      const textsCap = asCap(tCaps.texts);
-      const total = [doorsCap, phonesCap, textsCap].reduce((sum, v) => sum + ((v == null) ? 0 : v), 0);
+      const timelineCapsByTactic = {};
+      for (const [key, value] of Object.entries(tCaps)){
+        timelineCapsByTactic[key] = asCap(value);
+      }
+      const total = Object.values(timelineCapsByTactic).reduce((sum, v) => sum + ((v == null) ? 0 : v), 0);
       if (Number.isFinite(total) && total >= 0){
         capTotal = total;
         capSource = "timeline";
-        capByTactic = {
-          doors: doorsCap,
-          phones: phonesCap,
-          texts: textsCap,
-        };
+        capByTactic = { ...capByTactic, ...timelineCapsByTactic };
       }
     }
   }

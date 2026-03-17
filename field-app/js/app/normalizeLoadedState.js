@@ -9,6 +9,8 @@ import {
 import { syncFeatureFlagsFromState } from "./featureFlags.js";
 import { ensureBudgetShape } from "./state.js";
 import { normalizeTargetingState } from "./targetingRuntime.js";
+import { applyContextToState, resolveActiveContext } from "./activeContext.js";
+import { syncTemplateMetaFromState } from "./templateResolver.js";
 
 /**
  * @typedef {Record<string, any>} AnyState
@@ -19,6 +21,13 @@ import { normalizeTargetingState } from "./targetingRuntime.js";
  *   canonicalDoorsPerHourFromSnap: (state: AnyState) => number | null,
  *   setCanonicalDoorsPerHour: (state: AnyState, value: number | null) => void,
  *   deriveAssumptionsProfileFromState: (state: AnyState) => string,
+ *   activeContext?: {
+ *     campaignId?: string,
+ *     campaignName?: string,
+ *     officeId?: string,
+ *     scenarioId?: string,
+ *     search?: string,
+ *   },
  * }} NormalizeLoadedStateDeps
  */
 
@@ -48,6 +57,7 @@ export function normalizeLoadedStateModule(s, deps){
   out.raceFootprint = normalizeRaceFootprint(src.raceFootprint);
   out.assumptionsProvenance = normalizeAssumptionProvenance(src.assumptionsProvenance);
   out.footprintCapacity = normalizeFootprintCapacity(src.footprintCapacity);
+  out.templateMeta = src.templateMeta;
   out.ui = { ...base.ui, ...(src.ui || {}) };
 
   ensureBudgetShape(out);
@@ -67,6 +77,9 @@ export function normalizeLoadedStateModule(s, deps){
   setCanonicalDoorsPerHour(out, (canonDph != null && isFinite(canonDph)) ? canonDph : safeNum(base.doorsPerHour3));
 
   syncFeatureFlagsFromState(out, { preferFeatures: !!(src.features && typeof src.features === "object" && !Array.isArray(src.features)) });
+  syncTemplateMetaFromState(out);
+  const context = resolveActiveContext({ ...(deps?.activeContext || {}), fallback: out });
+  applyContextToState(out, context);
   out.ui.assumptionsProfile = deriveAssumptionsProfileFromState(out);
   out.ui.themeMode = "system";
   out.ui.dark = false;

@@ -2,8 +2,13 @@
 import {
   deriveTargetSignalsForRow,
   listTargetModels,
-  scoreTargetRow,
 } from "../core/targetModels.js";
+import { resolveCanonicalWeightProfile } from "../core/targetFeatureEngine.js";
+import { TARGET_FEATURE_KEYS } from "../core/targetFeatureRegistry.js";
+import {
+  TARGET_PRIORITY_MODEL_IDS,
+  scoreTargetRows,
+} from "../core/targetRankingEngine.js";
 
 const TARGET_GEO_LEVELS = Object.freeze([
   { id: "block_group", label: "Block group" },
@@ -255,23 +260,12 @@ function clamp(value, min, max){
   return n;
 }
 
-function normalizeWeights(input){
+function normalizeWeights(input, modelId = "house_v1"){
   const src = input && typeof input === "object" ? input : {};
-  const out = {
-    votePotential: Number.isFinite(Number(src.votePotential)) ? Math.max(0, Number(src.votePotential)) : 0.35,
-    turnoutOpportunity: Number.isFinite(Number(src.turnoutOpportunity)) ? Math.max(0, Number(src.turnoutOpportunity)) : 0.25,
-    persuasionIndex: Number.isFinite(Number(src.persuasionIndex)) ? Math.max(0, Number(src.persuasionIndex)) : 0.20,
-    fieldEfficiency: Number.isFinite(Number(src.fieldEfficiency)) ? Math.max(0, Number(src.fieldEfficiency)) : 0.20,
-  };
-  const total = out.votePotential + out.turnoutOpportunity + out.persuasionIndex + out.fieldEfficiency;
-  if (total <= 0){
-    return { votePotential: 0.35, turnoutOpportunity: 0.25, persuasionIndex: 0.20, fieldEfficiency: 0.20 };
-  }
-  out.votePotential /= total;
-  out.turnoutOpportunity /= total;
-  out.persuasionIndex /= total;
-  out.fieldEfficiency /= total;
-  return out;
+  return resolveCanonicalWeightProfile({
+    profileId: cleanText(modelId) || "house_v1",
+    customWeights: src,
+  });
 }
 
 function normalizeRows(input){
@@ -287,12 +281,22 @@ function normalizeRows(input){
       label: cleanText(row?.label),
       memberCount: Number.isFinite(Number(row?.memberCount)) ? Math.max(1, Math.floor(Number(row.memberCount))) : 1,
       score: Number.isFinite(Number(row?.score)) ? Number(row.score) : 0,
+      baseScore: Number.isFinite(Number(row?.baseScore)) ? Number(row.baseScore) : null,
+      targetScore: Number.isFinite(Number(row?.targetScore)) ? Number(row.targetScore) : null,
+      expectedNetVoteValue: Number.isFinite(Number(row?.expectedNetVoteValue)) ? Number(row.expectedNetVoteValue) : null,
+      upliftExpectedMarginalGain: Number.isFinite(Number(row?.upliftExpectedMarginalGain)) ? Number(row.upliftExpectedMarginalGain) : null,
+      upliftBestChannel: cleanText(row?.upliftBestChannel),
       isTopTarget: !!row?.isTopTarget,
       targetLabel: cleanText(row?.targetLabel),
       reasonText: cleanText(row?.reasonText),
       flagText: cleanText(row?.flagText),
       reasons,
       flags,
+      explainDrivers: Array.isArray(row?.explainDrivers) ? row.explainDrivers.map((item) => ({
+        key: cleanText(item?.key),
+        label: cleanText(item?.label),
+        text: cleanText(item?.text),
+      })) : [],
       rawSignals: row?.rawSignals && typeof row.rawSignals === "object" ? { ...row.rawSignals } : {},
       componentScores: row?.componentScores && typeof row.componentScores === "object" ? { ...row.componentScores } : {},
       scoreByModel: {
@@ -360,7 +364,7 @@ function normalizeTargetModelPreset(modelId, input){
     minScore: Number.isFinite(Number(src.minScore)) ? Math.max(0, Number(src.minScore)) : 0,
     excludeZeroHousing: src.excludeZeroHousing == null ? true : !!src.excludeZeroHousing,
     onlyRaceFootprint: src.onlyRaceFootprint == null ? true : !!src.onlyRaceFootprint,
-    weights: normalizeWeights(src.weights),
+    weights: normalizeWeights(src.weights, resolvedModelId),
     criteria: normalizeCriteria(src.criteria),
   };
 }
@@ -369,6 +373,34 @@ export function getTargetModelPreset(modelId){
   const id = cleanText(modelId);
   const key = Object.prototype.hasOwnProperty.call(TARGET_MODEL_PRESETS, id) ? id : "turnout_opportunity";
   return normalizeTargetModelPreset(key, TARGET_MODEL_PRESETS[key]);
+}
+
+export function getTargetingBridgeDefaults(presetId = "turnout_opportunity"){
+  const fallback = getTargetModelPreset("turnout_opportunity");
+  const preset = getTargetModelPreset(presetId);
+  const source = preset && typeof preset === "object" ? preset : fallback;
+  const criteria = source?.criteria && typeof source.criteria === "object" ? source.criteria : fallback.criteria;
+  const weights = source?.weights && typeof source.weights === "object" ? source.weights : fallback.weights;
+  return {
+    presetId: cleanText(source?.id) || cleanText(fallback?.id) || "turnout_opportunity",
+    geoLevel: cleanText(source?.geoLevel) || cleanText(fallback?.geoLevel) || "block_group",
+    modelId: cleanText(source?.modelId) || cleanText(fallback?.modelId) || "turnout_opportunity",
+    topN: Number.isFinite(Number(source?.topN)) ? Number(source.topN) : Number(fallback?.topN),
+    minHousingUnits: Number.isFinite(Number(source?.minHousingUnits)) ? Number(source.minHousingUnits) : Number(fallback?.minHousingUnits),
+    minPopulation: Number.isFinite(Number(source?.minPopulation)) ? Number(source.minPopulation) : Number(fallback?.minPopulation),
+    minScore: Number.isFinite(Number(source?.minScore)) ? Number(source.minScore) : Number(fallback?.minScore),
+    onlyRaceFootprint: source?.onlyRaceFootprint == null
+      ? (fallback?.onlyRaceFootprint == null ? true : !!fallback.onlyRaceFootprint)
+      : !!source.onlyRaceFootprint,
+    prioritizeYoung: criteria?.prioritizeYoung == null ? false : !!criteria.prioritizeYoung,
+    prioritizeRenters: criteria?.prioritizeRenters == null ? false : !!criteria.prioritizeRenters,
+    avoidHighMultiUnit: criteria?.avoidHighMultiUnit == null ? false : !!criteria.avoidHighMultiUnit,
+    densityFloor: cleanText(criteria?.densityFloor) || "none",
+    weightVotePotential: Number.isFinite(Number(weights?.votePotential)) ? Number(weights.votePotential) : 0,
+    weightTurnoutOpportunity: Number.isFinite(Number(weights?.turnoutOpportunity)) ? Number(weights.turnoutOpportunity) : 0,
+    weightPersuasionIndex: Number.isFinite(Number(weights?.persuasionIndex)) ? Number(weights.persuasionIndex) : 0,
+    weightFieldEfficiency: Number.isFinite(Number(weights?.fieldEfficiency)) ? Number(weights.fieldEfficiency) : 0,
+  };
 }
 
 export function applyTargetModelPreset(targetingState, modelId){
@@ -437,7 +469,7 @@ export function normalizeTargetingState(input){
   const hasOnlyRaceFootprint = src.onlyRaceFootprint != null;
   const hasWeights = !!(src.weights && typeof src.weights === "object" && Object.keys(src.weights).length);
   const hasCriteria = !!(src.criteria && typeof src.criteria === "object" && Object.keys(src.criteria).length);
-  const presetWeights = normalizeWeights(preset?.weights);
+  const presetWeights = normalizeWeights(preset?.weights, modelId);
   const presetCriteria = normalizeCriteria(preset?.criteria);
   return {
     ...base,
@@ -452,7 +484,7 @@ export function normalizeTargetingState(input){
     minScore: hasMinScore ? Math.max(0, Number(src.minScore)) : (preset?.minScore ?? base.minScore),
     excludeZeroHousing: hasExcludeZeroHousing ? !!src.excludeZeroHousing : (preset?.excludeZeroHousing ?? base.excludeZeroHousing),
     onlyRaceFootprint: hasOnlyRaceFootprint ? !!src.onlyRaceFootprint : (preset?.onlyRaceFootprint ?? base.onlyRaceFootprint),
-    weights: hasWeights ? normalizeWeights(src.weights) : presetWeights,
+    weights: hasWeights ? normalizeWeights(src.weights, modelId) : presetWeights,
     criteria: hasCriteria ? normalizeCriteria(src.criteria) : presetCriteria,
     lastRun: cleanText(src.lastRun),
     lastRows: normalizeRows(src.lastRows),
@@ -523,12 +555,10 @@ export function computeTargetingContextKey({ state, censusState, config } = {}){
   const prioritizeRenters = !!criteria.prioritizeRenters;
   const avoidHighMultiUnit = !!criteria.avoidHighMultiUnit;
   const weights = config?.weights && typeof config.weights === "object" ? config.weights : {};
-  const weightKey = [
-    Number.isFinite(Number(weights.votePotential)) ? Number(weights.votePotential).toFixed(6) : "",
-    Number.isFinite(Number(weights.turnoutOpportunity)) ? Number(weights.turnoutOpportunity).toFixed(6) : "",
-    Number.isFinite(Number(weights.persuasionIndex)) ? Number(weights.persuasionIndex).toFixed(6) : "",
-    Number.isFinite(Number(weights.fieldEfficiency)) ? Number(weights.fieldEfficiency).toFixed(6) : "",
-  ].join("/");
+  const canonicalWeights = resolveCanonicalWeightProfile({ profileId: modelId, customWeights: weights });
+  const weightKey = TARGET_FEATURE_KEYS
+    .map((key) => Number(canonicalWeights?.[key] ?? 0).toFixed(6))
+    .join("/");
   const s = censusState && typeof censusState === "object" ? censusState : {};
   const selectedGeoids = Array.isArray(s.selectedGeoids) ? s.selectedGeoids.map((id) => cleanText(id)).filter((id) => !!id).sort((a, b) => a.localeCompare(b)) : [];
   const raceFootprint = state?.raceFootprint && typeof state.raceFootprint === "object" ? state.raceFootprint : null;
@@ -604,24 +634,6 @@ function keepByDensityFloor(signal, densityFloor){
   return true;
 }
 
-function minMaxNormalize(values, fallback = 0){
-  const nums = values.map((value) => Number(value)).filter((value) => Number.isFinite(value));
-  if (!nums.length){
-    return values.map(() => fallback);
-  }
-  const min = Math.min(...nums);
-  const max = Math.max(...nums);
-  if (!Number.isFinite(min) || !Number.isFinite(max) || max <= min){
-    return values.map(() => 0.5);
-  }
-  const span = max - min;
-  return values.map((value) => {
-    const n = Number(value);
-    if (!Number.isFinite(n)) return fallback;
-    return clamp((n - min) / span, 0, 1);
-  });
-}
-
 function matchRaceFootprintFilter(row, state){
   const footprint = state?.raceFootprint && typeof state.raceFootprint === "object" ? state.raceFootprint : null;
   const geoids = Array.isArray(footprint?.geoids) ? footprint.geoids.map((id) => cleanText(id)).filter((id) => !!id) : [];
@@ -690,62 +702,13 @@ export function runTargetRanking({ state, censusState, rowsByGeoid } = {}){
     });
   }
 
-  const voteNorm = minMaxNormalize(extracted.map((row) => row.rawSignals.votePotentialRaw), 0);
-  const turnoutNorm = minMaxNormalize(extracted.map((row) => row.rawSignals.turnoutOpportunityRaw), 0);
-  const persuasionNorm = minMaxNormalize(extracted.map((row) => row.rawSignals.persuasionIndexRaw), 0);
-  const fieldNorm = minMaxNormalize(extracted.map((row) => row.rawSignals.fieldEfficiencyRaw), 0);
-  const coreModelIds = ["turnout_opportunity", "persuasion_first", "field_efficiency"];
-
-  const scored = extracted.map((row, idx) => {
-    const components = {
-      votePotential: voteNorm[idx],
-      turnoutOpportunity: turnoutNorm[idx],
-      persuasionIndex: persuasionNorm[idx],
-      fieldEfficiency: fieldNorm[idx],
-    };
-    const selected = scoreTargetRow({
-      modelId: cfg.modelId,
-      components,
-      rawSignals: row.rawSignals,
-      config: cfg,
-    });
-    const scoreByModel = {};
-    for (const modelId of coreModelIds){
-      const byModel = scoreTargetRow({
-        modelId,
-        components,
-        rawSignals: row.rawSignals,
-        config: cfg,
-      });
-      scoreByModel[modelId] = byModel.score;
-    }
-    return {
-      geoid: row.geoid,
-      label: row.label || row.geoid,
-      memberCount: Number.isFinite(Number(row.memberCount)) ? Number(row.memberCount) : 1,
-      sourceGeoids: Array.isArray(row.sourceGeoids) ? row.sourceGeoids.slice() : [row.geoid],
-      score: selected.score,
-      componentScores: selected.componentScores,
-      reasons: selected.reasons,
-      flags: selected.flags,
-      targetLabel: cleanText(selected.targetLabel),
-      reasonText: selected.reasons.join(" "),
-      flagText: selected.flags.join(" "),
-      rawSignals: row.rawSignals,
-      scoreByModel,
-      modelRanks: {
-        turnout_opportunity: null,
-        persuasion_first: null,
-        field_efficiency: null,
-      },
-      isTurnoutPriority: false,
-      isPersuasionPriority: false,
-      isEfficiencyPriority: false,
-      votesPerOrganizerHour: Number.isFinite(Number(row.rawSignals?.votesPerOrganizerHour))
-        ? Number(row.rawSignals.votesPerOrganizerHour)
-        : null,
-    };
-  }).filter((row) => row.score >= cfg.minScore);
+  const scored = scoreTargetRows({
+    rows: extracted,
+    modelId: cfg.modelId,
+    state,
+    config: cfg,
+    priorityModelIds: TARGET_PRIORITY_MODEL_IDS,
+  });
 
   scored.sort((a, b) => b.score - a.score);
   const topN = Math.max(1, Math.floor(cfg.topN));
@@ -756,7 +719,7 @@ export function runTargetRanking({ state, censusState, rowsByGeoid } = {}){
   }));
   const corePriorityN = 10;
   const rankByModel = {};
-  for (const modelId of coreModelIds){
+  for (const modelId of TARGET_PRIORITY_MODEL_IDS){
     const sorted = ranked.slice().sort((a, b) => {
       const aScore = Number(a?.scoreByModel?.[modelId]);
       const bScore = Number(b?.scoreByModel?.[modelId]);
@@ -820,6 +783,11 @@ export function buildTargetRankingCsv(rows){
     "label",
     "target_label",
     "score",
+    "base_score",
+    "target_score",
+    "expected_net_vote_value",
+    "uplift_expected_marginal_gain",
+    "uplift_best_channel",
     "votes_per_organizer_hour",
     "vote_potential",
     "turnout_opportunity",
@@ -857,6 +825,11 @@ export function buildTargetRankingCsv(rows){
       row.label,
       cleanText(row.targetLabel),
       Number.isFinite(Number(row.score)) ? Number(row.score).toFixed(3) : "",
+      Number.isFinite(Number(row.baseScore)) ? Number(row.baseScore).toFixed(3) : "",
+      Number.isFinite(Number(row.targetScore)) ? Number(row.targetScore).toFixed(3) : "",
+      Number.isFinite(Number(row.expectedNetVoteValue)) ? Number(row.expectedNetVoteValue).toFixed(3) : "",
+      Number.isFinite(Number(row.upliftExpectedMarginalGain)) ? Number(row.upliftExpectedMarginalGain).toFixed(4) : "",
+      cleanText(row.upliftBestChannel),
       Number.isFinite(Number(row.votesPerOrganizerHour)) ? Number(row.votesPerOrganizerHour).toFixed(3) : "",
       Number.isFinite(Number(row.componentScores?.votePotential)) ? Number(row.componentScores.votePotential).toFixed(4) : "",
       Number.isFinite(Number(row.componentScores?.turnoutOpportunity)) ? Number(row.componentScores.turnoutOpportunity).toFixed(4) : "",

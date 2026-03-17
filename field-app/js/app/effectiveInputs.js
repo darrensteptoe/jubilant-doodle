@@ -53,10 +53,25 @@ export function createEffectiveInputsController({
     const s = srcState || {};
     const eff = (s === baseState) ? getEffectiveBaseRates() : getEffectiveBaseRatesFromSnap(s);
 
+    const workforce = (s?.ui?.twCapOutlookLatest && typeof s.ui.twCapOutlookLatest === "object")
+      ? (s.ui.twCapOutlookLatest.workforce || {})
+      : {};
+    const workforceOrganizerCount = safeNum(workforce.organizerCount);
+    const paidCanvasserCount = safeNum(workforce.paidCanvasserCount);
+    const activeVolunteerCount = safeNum(workforce.activeVolunteerCount);
+    const activePaidHeadcount = safeNum(workforce.activePaidHeadcount);
+    const activeStipendHeadcount = safeNum(workforce.activeStipendHeadcount);
+    const activeVolunteerHeadcount = safeNum(workforce.activeVolunteerHeadcount);
+    const volunteerShowRate = safeNum(workforce.volunteerShowRate);
+    const organizerRecruitmentMultiplier = safeNum(workforce.organizerRecruitmentMultiplier);
+    const organizerSupervisionCapacity = safeNum(workforce.organizerSupervisionCapacity);
+    const paidCanvasserProductivity = safeNum(workforce.paidCanvasserProductivity);
+    const volunteerProductivity = safeNum(workforce.volunteerProductivity);
+
     let orgCount = safeNum(s.orgCount);
     const baseOrgHoursPerWeek = safeNum(s.orgHoursPerWeek);
     let orgHoursPerWeek = baseOrgHoursPerWeek;
-    const volunteerMult = safeNum(s.volunteerMultBase);
+    let volunteerMult = safeNum(s.volunteerMultBase);
     const doorSharePct = safeNum(s.channelDoorPct);
     const doorShare = (doorSharePct == null) ? null : clamp(doorSharePct, 0, 100) / 100;
     const doorsPerHour = canonicalDoorsPerHourFromSnap(s);
@@ -133,6 +148,12 @@ export function createEffectiveInputsController({
     const overrideMode = twCapOverrideModeFromState(s);
 
     if (overrideEnabled){
+      if (workforceOrganizerCount != null && workforceOrganizerCount >= 0){
+        orgCount = workforceOrganizerCount;
+      }
+      if (volunteerMult != null && volunteerProductivity != null && volunteerProductivity >= 0){
+        volunteerMult = volunteerMult * volunteerProductivity;
+      }
       if (overrideMode === "baseline"){
         source = "baseline-manual (override-baseline)";
       } else {
@@ -167,6 +188,17 @@ export function createEffectiveInputsController({
         orgCount,
         orgHoursPerWeek,
         volunteerMult,
+        organizerCount: workforceOrganizerCount,
+        paidCanvasserCount,
+        activeVolunteerCount,
+        activePaidHeadcount,
+        activeStipendHeadcount,
+        activeVolunteerHeadcount,
+        volunteerShowRate,
+        organizerRecruitmentMultiplier,
+        organizerSupervisionCapacity,
+        paidCanvasserProductivity,
+        volunteerProductivity,
         doorSharePct,
         doorShare,
         doorsPerHour: doorsPerHourAdjusted,
@@ -194,6 +226,17 @@ export function createEffectiveInputsController({
           orgCount: safeNum(s.orgCount),
           orgHoursPerWeek: baseOrgHoursPerWeek,
           volunteerMult: safeNum(s.volunteerMultBase),
+          organizerCount: workforceOrganizerCount,
+          paidCanvasserCount,
+          activeVolunteerCount,
+          activePaidHeadcount,
+          activeStipendHeadcount,
+          activeVolunteerHeadcount,
+          volunteerShowRate,
+          organizerRecruitmentMultiplier,
+          organizerSupervisionCapacity,
+          paidCanvasserProductivity,
+          volunteerProductivity,
           doorSharePct,
           doorShare,
           doorsPerHour: doorsPerHourAdjusted,

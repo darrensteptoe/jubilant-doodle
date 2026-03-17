@@ -122,8 +122,17 @@ export function createOperationsCapacityOutlookController(deps = {}){
 
     twCapText(els.twCapOutlookStatus, "Updating Operations outlook…");
 
-    const opsSnapshot = await getOperationsMetricsSnapshot();
+    const sourceState = (typeof getState === "function" ? getState() : null) || {};
+    const opsSnapshot = await getOperationsMetricsSnapshot({
+      context: {
+        campaignId: sourceState.campaignId,
+        campaignName: sourceState.campaignName,
+        officeId: sourceState.officeId,
+      },
+    });
     const stores = opsSnapshot?.stores || {};
+    const opsRollups = opsSnapshot?.rollups || {};
+    const workforce = opsRollups?.workforce || {};
     const pipelineRecords = Array.isArray(stores.pipelineRecords) ? stores.pipelineRecords : [];
     const shiftRecords = Array.isArray(stores.shiftRecords) ? stores.shiftRecords : [];
     const forecastConfigs = Array.isArray(stores.forecastConfigs) ? stores.forecastConfigs : [];
@@ -132,7 +141,7 @@ export function createOperationsCapacityOutlookController(deps = {}){
     const trainingRecords = Array.isArray(stores.trainingRecords) ? stores.trainingRecords : [];
     if (seq !== outlookSeq) return;
 
-    const state = (typeof getState === "function" ? getState() : null) || {};
+    const state = sourceState;
     const effective = compileEffectiveInputs(state);
     const baselineAttempts = twCapBaselineAttemptsPerWeek(effective);
     const perOrganizerAttempts = twCapPerOrganizerAttemptsPerWeek(effective);
@@ -305,6 +314,19 @@ export function createOperationsCapacityOutlookController(deps = {}){
         scheduled: twCapFmtInt(row.scheduled),
         delta: twCapFmtSigned(row.delta),
       })),
+      workforce: {
+        organizerCount: twCapNum(workforce.organizerCount, 0),
+        paidCanvasserCount: twCapNum(workforce.paidCanvasserCount, 0),
+        activeVolunteerCount: twCapNum(workforce.activeVolunteerCount, 0),
+        activePaidHeadcount: twCapNum(workforce.activePaidHeadcount, 0),
+        activeStipendHeadcount: twCapNum(workforce.activeStipendHeadcount, 0),
+        activeVolunteerHeadcount: twCapNum(workforce.activeVolunteerHeadcount, 0),
+        volunteerShowRate: twCapNum(workforce.volunteerShowRate, null),
+        organizerRecruitmentMultiplier: twCapNum(workforce.organizerRecruitmentMultiplier, 1),
+        organizerSupervisionCapacity: twCapNum(workforce.organizerSupervisionCapacity, 0),
+        paidCanvasserProductivity: twCapNum(workforce.paidCanvasserProductivity, 1),
+        volunteerProductivity: twCapNum(workforce.volunteerProductivity, 1),
+      },
       computedAt: new Date().toISOString(),
     });
 

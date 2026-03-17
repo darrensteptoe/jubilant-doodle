@@ -1,5 +1,14 @@
 // @ts-check
 import { resolveFeatureFlags } from "../core/featureFlags.js";
+import { getTimelineObjectiveMeta } from "../core/timelineOptimizer.js";
+import {
+  buildOptimizationUpliftSummaryText,
+  deriveOptimizationUpliftSignals,
+} from "../core/optimize.js";
+import {
+  getOptimizationObjectiveLabel,
+  normalizeOptimizationObjective,
+} from "../core/turnout.js";
 
 export function renderOptimizationModule(args){
   const {
@@ -22,12 +31,14 @@ export function renderOptimizationModule(args){
     state.ui.lastPlanRows = [];
     state.ui.lastPlanMeta = null;
     state.ui.lastSummary = {
-      objective: (state?.budget?.optimize?.objective || "net"),
+      objective: normalizeOptimizationObjective(state?.budget?.optimize?.objective, "net"),
+      objectiveValue: 0,
       netVotes: 0,
       cost: 0,
       feasible: null,
       primaryBottleneck: null,
-      topAllocations: []
+      topAllocations: [],
+      upliftSummary: null,
     };
   };
 
@@ -60,10 +71,13 @@ export function renderOptimizationModule(args){
 
   const overheadAmount = safeNum(budget.overheadAmount) ?? 0;
   const includeOverhead = !!budget.includeOverhead;
+  const workforce = state?.ui?.twCapOutlookLatest?.workforce || null;
 
   const tactics = engine.buildOptimizationTactics({
     baseRates: { cr, sr, tr },
-    tactics: tacticsRaw
+    tactics: tacticsRaw,
+    workforce,
+    state,
   });
 
   const bannerEl = els.optBanner;
@@ -109,7 +123,8 @@ export function renderOptimizationModule(args){
   }
 
   const step = safeNum(opt.step) ?? 25;
-  const objective = opt.objective || "net";
+  const objective = normalizeOptimizationObjective(opt.objective, "net");
+  const objectiveLabel = getOptimizationObjectiveLabel(objective);
   let result = null;
   let timelineCapsWrap = null;
   let timelineCapTotal = null;
@@ -142,8 +157,8 @@ export function renderOptimizationModule(args){
       ? timelineCapsWrap.maxAttemptsByTactic
       : null;
     if (caps){
-      const total = ["doors","phones","texts"].reduce((acc, k) => {
-        const v = Number(caps[k]);
+      const total = Object.values(caps).reduce((acc, value) => {
+        const v = Number(value);
         return acc + (Number.isFinite(v) && v >= 0 ? v : 0);
       }, 0);
       if (Number.isFinite(total) && total >= 0) timelineCapTotal = total;
@@ -155,7 +170,7 @@ export function renderOptimizationModule(args){
     const capUser = safeNum(opt.capacityAttempts);
     const cap = (capUser != null && capUser >= 0) ? capUser : (effectiveCapAttempts != null ? effectiveCapAttempts : 0);
 
-    result = engine.optimizeMixBudget({
+    result = engine.optimizeMixCapacity({
       capacity: cap,
       tactics,
       step,
@@ -164,7 +179,7 @@ export function renderOptimizationModule(args){
     });
 
     hideBanner();
-    showBanner("ok", "Optimization: Capacity-constrained plan (maximize expected net persuasion votes under attempt ceiling).");
+    showBanner("ok", `Optimization: Capacity-constrained plan (${objectiveLabel} under attempt ceiling).`);
   } else {
     const budgetIn = safeNum(opt.budgetAmount) ?? 0;
     const budgetAvail = Math.max(0, budgetIn - (includeOverhead ? overheadAmount : 0));
@@ -182,7 +197,7 @@ export function renderOptimizationModule(args){
     if (includeOverhead && overheadAmount > 0){
       showBanner("ok", `Optimization: Budget-constrained plan. Overhead ($${fmtInt(Math.round(overheadAmount))}) treated as fixed; remaining budget optimized.`);
     } else {
-      showBanner("ok", "Optimization: Budget-constrained plan (maximize expected net persuasion votes under fixed budget).");
+      showBanner("ok", `Optimization: Budget-constrained plan (${objectiveLabel} under fixed budget).`);
     }
   }
 
@@ -241,7 +256,7 @@ export function renderOptimizationModule(args){
       objective,
       maxAttemptsByTactic: (caps && caps.enabled) ? caps.maxAttemptsByTactic : null,
       tlObjectiveMode: tlObj,
-      goalNetVotes: needVotes
+      goalObjectiveValue: needVotes
     };
 
     const tlOut = engine.optimizeTimelineConstrained(tlInputs);
@@ -251,9 +266,16 @@ export function renderOptimizationModule(args){
     }
 
     const meta = tlOut?.meta || {};
+    const tlObjectiveMeta = getTimelineObjectiveMeta(meta);
     if (els.tlOptGoalFeasible) els.tlOptGoalFeasible.textContent = (meta.goalFeasible === true) ? "true" : (meta.goalFeasible === false ? "false" : "—");
-    if (els.tlOptMaxNetVotes) els.tlOptMaxNetVotes.textContent = fmtInt(Math.round(meta.maxAchievableNetVotes ?? 0));
-    if (els.tlOptRemainingGap) els.tlOptRemainingGap.textContent = fmtInt(Math.round(meta.remainingGapNetVotes ?? 0));
+    if (els.tlOptMaxNetVotes){
+      const maxAchievableValue = safeNum(tlObjectiveMeta.maxAchievableObjectiveValue) ?? 0;
+      els.tlOptMaxNetVotes.textContent = fmtInt(Math.round(maxAchievableValue));
+    }
+    if (els.tlOptRemainingGap){
+      const remainingGapValue = safeNum(tlObjectiveMeta.remainingGapObjectiveValue) ?? 0;
+      els.tlOptRemainingGap.textContent = fmtInt(Math.round(remainingGapValue));
+    }
     if (els.tlOptBinding){
       const b = meta.bindingObj || {};
       const parts = [];
@@ -289,7 +311,9 @@ export function renderOptimizationModule(args){
 
         const td1 = document.createElement("td");
         td1.className = "num";
-        const dv = (it && typeof it.deltaMaxNetVotes === "number") ? it.deltaMaxNetVotes : null;
+        const dv = (it && typeof it.deltaObjectiveValue === "number")
+          ? it.deltaObjectiveValue
+          : ((it && typeof it.deltaMaxNetVotes === "number") ? it.deltaMaxNetVotes : null);
         td1.textContent = (dv == null) ? "—" : fmtInt(Math.round(dv));
 
         const td2 = document.createElement("td");
@@ -322,31 +346,40 @@ export function renderOptimizationModule(args){
     objective
   };
 
+  const obj = normalizeOptimizationObjective(state.budget?.optimize?.objective, "net");
+  const executionSummary = engine.buildOptimizationExecutionSummary({
+    tactics,
+    allocation: result.allocation,
+    totals: result.totals,
+    objective: obj,
+    needObjectiveValue: needVotes,
+    includeOverhead,
+    overheadAmount,
+  });
+  const summaryRows = Array.isArray(executionSummary?.rows) ? executionSummary.rows : [];
+
   let any = false;
-  for (const t of tactics){
-    const a = result.allocation?.[t.id] ?? 0;
-    if (!a) continue;
+  for (const row of summaryRows){
+    if (!(Number(row?.attempts) > 0)) continue;
     any = true;
 
     if (optTbody){
       const trEl = document.createElement("tr");
 
       const td0 = document.createElement("td");
-      td0.textContent = t.label;
+      td0.textContent = String(row.tactic || "—");
 
       const td1 = document.createElement("td");
       td1.className = "num";
-      td1.textContent = fmtInt(Math.round(a));
+      td1.textContent = fmtInt(Math.round(Number(row.attempts) || 0));
 
       const td2 = document.createElement("td");
       td2.className = "num";
-      td2.textContent = `$${fmtInt(Math.round(a * t.costPerAttempt))}`;
+      td2.textContent = `$${fmtInt(Math.round(Number(row.cost) || 0))}`;
 
       const td3 = document.createElement("td");
       td3.className = "num";
-      const obj = (state.budget?.optimize?.objective || "net");
-      const vpa = (obj === "turnout") ? (t.turnoutAdjustedNetVotesPerAttempt ?? t.netVotesPerAttempt) : t.netVotesPerAttempt;
-      td3.textContent = fmtInt(Math.round(a * (Number.isFinite(vpa) ? vpa : 0)));
+      td3.textContent = fmtInt(Math.round(Number(row.expectedObjectiveValue) || 0));
 
       trEl.appendChild(td0);
       trEl.appendChild(td1);
@@ -358,44 +391,32 @@ export function renderOptimizationModule(args){
 
   if (!any) stubRow();
 
-  const totalAttempts = result.totals?.attempts ?? 0;
-  let totalCost = result.totals?.cost ?? 0;
-  if ((opt.mode || "budget") === "budget" && includeOverhead && overheadAmount > 0){
-    totalCost += overheadAmount;
-  }
-  const totalVotes = result.totals?.netVotes ?? 0;
+  const totalAttempts = Number(executionSummary?.totals?.attempts || 0);
+  const totalCost = Number(executionSummary?.totals?.cost || 0);
+  const totalObjectiveValue = Number(executionSummary?.totals?.objectiveValue || 0);
 
   setTotals({
     attempts: totalAttempts,
     cost: totalCost,
-    votes: totalVotes,
+    votes: totalObjectiveValue,
     binding: result.binding || "—"
   });
 
   try {
-    const obj = (state.budget?.optimize?.objective || "net");
-    const planRows = [];
-    const alloc = result.allocation || {};
-    for (const t of tactics){
-      const a = alloc?.[t.id] ?? 0;
-      if (!a) continue;
-      const attempts = Number(a) || 0;
-      const usedCr = (t.used && Number.isFinite(t.used.cr)) ? t.used.cr : 0;
-      const expectedContacts = attempts * usedCr;
-      const vpa = (obj === "turnout") ? (t.turnoutAdjustedNetVotesPerAttempt ?? t.netVotesPerAttempt) : t.netVotesPerAttempt;
-      const expectedNetVotes = attempts * (Number.isFinite(vpa) ? vpa : 0);
-      const cost = attempts * (Number.isFinite(t.costPerAttempt) ? t.costPerAttempt : 0);
-      const costPerNetVote = (expectedNetVotes > 0) ? (cost / expectedNetVotes) : null;
-
-      planRows.push({
-        tactic: t.label,
-        attempts: Math.round(attempts),
-        expectedContacts,
-        expectedNetVotes,
-        cost,
-        costPerNetVote
-      });
-    }
+    const planRows = summaryRows.map((row) => ({
+      id: String(row.id || ""),
+      tactic: String(row.tactic || ""),
+      attempts: Math.round(Number(row.attempts) || 0),
+      expectedContacts: Number(row.expectedContacts) || 0,
+      expectedNetVotes: Number(row.expectedNetVotes) || 0,
+      expectedObjectiveValue: Number(row.expectedObjectiveValue) || 0,
+      cost: Number(row.cost) || 0,
+      costPerNetVote: Number.isFinite(Number(row.costPerNetVote)) ? Number(row.costPerNetVote) : null,
+      upliftExpectedMarginalGain: Number.isFinite(Number(row.upliftExpectedMarginalGain)) ? Number(row.upliftExpectedMarginalGain) : null,
+      upliftLowMarginalGain: Number.isFinite(Number(row.upliftLowMarginalGain)) ? Number(row.upliftLowMarginalGain) : null,
+      upliftGainPerDollar: Number.isFinite(Number(row.upliftGainPerDollar)) ? Number(row.upliftGainPerDollar) : null,
+      saturationUtilization: Number.isFinite(Number(row.saturationUtilization)) ? Number(row.saturationUtilization) : null,
+    }));
 
     const weeksMeta = (weeks != null && Number.isFinite(weeks)) ? Math.max(0, Math.floor(weeks)) : null;
     const staffMeta = safeNum(state.timelineStaffCount) ?? null;
@@ -416,19 +437,35 @@ export function renderOptimizationModule(args){
       feasible
     };
 
-    const topAllocations = planRows
-      .slice()
-      .sort((a,b) => (b.attempts || 0) - (a.attempts || 0))
-      .slice(0, 3)
-      .map(r => `${r.tactic}: ${fmtInt(Math.round(r.attempts))} attempts`);
+    const topAllocations = Array.isArray(executionSummary?.topAllocations)
+      ? executionSummary.topAllocations.map((row) => `${row.tactic}: ${fmtInt(Math.round(Number(row.attempts) || 0))} attempts`)
+      : [];
+    const gapObjective = Number(executionSummary?.totals?.gapObjectiveValue);
+    const gapContext = (Number.isFinite(gapObjective))
+      ? (gapObjective <= 0
+        ? "Modeled allocation closes current gap."
+        : `${fmtInt(Math.round(gapObjective))} gap remains under current allocation.`)
+      : "Gap context unavailable.";
+    const modeLabel = ((opt.mode || "budget") === "capacity")
+      ? "Capacity-constrained"
+      : "Budget-constrained";
+    const upliftSummaryText = buildUpliftSummaryText(executionSummary?.uplift, fmtInt);
+    const banner = upliftSummaryText
+      ? `${modeLabel} allocation using ${objectiveLabel}. ${upliftSummaryText}`
+      : `${modeLabel} allocation using ${objectiveLabel}.`;
 
     state.ui.lastSummary = {
       objective: obj,
-      netVotes: Math.round(totalVotes || 0),
+      objectiveValue: Math.round(totalObjectiveValue || 0),
+      netVotes: Math.round(totalObjectiveValue || 0),
       cost: Math.round(totalCost || 0),
+      binding: result.binding || null,
+      gapContext,
+      banner,
       feasible,
       primaryBottleneck: state.ui?.lastDiagnostics?.primaryBottleneck || null,
-      topAllocations
+      topAllocations,
+      upliftSummary: executionSummary?.uplift || null,
     };
   } catch {}
 
@@ -445,4 +482,16 @@ export function renderOptimizationModule(args){
     tr.innerHTML = '<td class="muted">—</td><td class="num muted">—</td><td class="num muted">—</td><td class="num muted">—</td>';
     optTbody.appendChild(tr);
   }
+}
+
+function buildUpliftSummaryText(summary, fmtInt){
+  const uplift = deriveOptimizationUpliftSignals(summary);
+  if (!uplift.hasExpected && !uplift.bestChannel && !uplift.hasUncertainty && !uplift.hasSaturation){
+    return "";
+  }
+  return buildOptimizationUpliftSummaryText(summary, {
+    formatPercent: (value) => `${fmtInt(Math.round(Number(value) * 100))}%`,
+    rangeJoiner: "-",
+    saturationPrefix: "saturation",
+  });
 }

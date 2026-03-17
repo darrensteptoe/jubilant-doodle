@@ -90,8 +90,14 @@ export interface UiUpdateQueueCtx {
 }
 
 export interface DefaultStateCtx {
-  defaultsByTemplate: Record<string, any>;
   uid: AnyFn;
+  activeContext?: {
+    campaignId?: string;
+    campaignName?: string;
+    officeId?: string;
+    scenarioId?: string;
+    search?: string;
+  };
 }
 
 export interface RenderUniverse16CardCtx {

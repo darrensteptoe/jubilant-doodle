@@ -8,13 +8,20 @@ import {
 } from "../core/censusModule.js";
 import { makeDefaultFeatureFlags } from "./featureFlags.js";
 import { makeDefaultTargetingState } from "./targetingRuntime.js";
+import { resolveActiveContext } from "./activeContext.js";
+import { applyTemplateDefaultsToState } from "./templateResolver.js";
 
 /** @param {import("./types").DefaultStateCtx} ctx */
 export function makeDefaultStateModule(ctx){
-  const { defaultsByTemplate, uid } = ctx || {};
-  return {
+  const { uid, activeContext } = ctx || {};
+  const context = resolveActiveContext(activeContext || {});
+  const out = {
+    campaignId: context.campaignId,
+    campaignName: context.campaignName,
+    officeId: context.officeId,
     scenarioName: "",
     raceType: "state_leg",
+    templateMeta: null,
     electionDate: "",
     weeksRemaining: "",
     mode: "persuasion",
@@ -23,7 +30,7 @@ export function makeDefaultStateModule(ctx){
     sourceNote: "",
     turnoutA: "",
     turnoutB: "",
-    bandWidth: defaultsByTemplate["state_leg"].bandWidth,
+    bandWidth: "",
     candidates: [
       { id: uid(), name: "Candidate A", supportPct: 35 },
       { id: uid(), name: "Candidate B", supportPct: 35 },
@@ -32,12 +39,12 @@ export function makeDefaultStateModule(ctx){
     yourCandidateId: null,
     undecidedMode: "proportional",
     userSplit: {},
-    persuasionPct: defaultsByTemplate["state_leg"].persuasionPct,
-    earlyVoteExp: defaultsByTemplate["state_leg"].earlyVoteExp,
+    persuasionPct: "",
+    earlyVoteExp: "",
 
     goalSupportIds: "",
-    supportRatePct: 55,
-    contactRatePct: 22,
+    supportRatePct: "",
+    contactRatePct: "",
     doorsPerHour: 30,
     hoursPerShift: 3,
     shiftsPerVolunteerPerWeek: 2,
@@ -45,17 +52,17 @@ export function makeDefaultStateModule(ctx){
     orgCount: 2,
     orgHoursPerWeek: 40,
     volunteerMultBase: 1.0,
-    channelDoorPct: 70,
-    doorsPerHour3: 30,
-    callsPerHour3: 20,
-    turnoutReliabilityPct: 80,
+    channelDoorPct: "",
+    doorsPerHour3: "",
+    callsPerHour3: "",
+    turnoutReliabilityPct: "",
 
     turnoutEnabled: false,
     turnoutBaselinePct: 55,
     turnoutTargetOverridePct: "",
     gotvMode: "basic",
     gotvLiftPP: 1.0,
-    gotvMaxLiftPP: 10,
+    gotvMaxLiftPP: "",
     gotvDiminishing: false,
     gotvLiftMin: 0.5,
     gotvLiftMode: 1.0,
@@ -64,13 +71,13 @@ export function makeDefaultStateModule(ctx){
 
     timelineEnabled: false,
     timelineActiveWeeks: "",
-    timelineGotvWeeks: 2,
+    timelineGotvWeeks: "",
     timelineStaffCount: 0,
     timelineStaffHours: 40,
     timelineVolCount: 0,
     timelineVolHours: 4,
     timelineRampEnabled: false,
-    timelineRampMode: "linear",
+    timelineRampMode: "",
     timelineDoorsPerHour: 30,
     timelineCallsPerHour: 20,
     timelineTextsPerHour: 120,
@@ -92,6 +99,8 @@ export function makeDefaultStateModule(ctx){
         doors: { enabled: true, cpa: 0.18, kind: "persuasion" },
         phones: { enabled: true, cpa: 0.03, kind: "persuasion" },
         texts: { enabled: false, cpa: 0.02, kind: "persuasion" },
+        litDrop: { enabled: false, cpa: 0.11, kind: "persuasion" },
+        mail: { enabled: false, cpa: 0.65, kind: "persuasion" },
       },
       optimize: {
         mode: "budget",
@@ -141,6 +150,10 @@ export function makeDefaultStateModule(ctx){
       assumptionsProfile: "template",
       decision: { sessions: {}, activeSessionId: null },
       mcMeta: null,
+      modelAudit: null,
     }
   };
+
+  applyTemplateDefaultsToState(out, { raceType: out.raceType, mode: "all" });
+  return out;
 }

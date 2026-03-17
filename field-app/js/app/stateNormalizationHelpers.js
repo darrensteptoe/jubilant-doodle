@@ -33,6 +33,7 @@ export function setCanonicalDoorsPerHourModule(target, value, safeNum){
  */
 export function requiredScenarioKeysMissingModule(scen){
   const required = [
+    "campaignId","campaignName","officeId",
     "scenarioName","raceType","electionDate","weeksRemaining","mode",
     "universeBasis","universeSize","turnoutA","turnoutB","bandWidth",
     "candidates","undecidedPct","yourCandidateId","undecidedMode","persuasionPct",

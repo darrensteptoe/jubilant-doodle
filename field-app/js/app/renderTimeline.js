@@ -1,5 +1,6 @@
 // @ts-check
 import { resolveFeatureFlags } from "../core/featureFlags.js";
+import { getTimelineFeasibilityObjectiveMeta } from "../core/timeline.js";
 
 export function renderTimelineModule(args){
   const {
@@ -42,8 +43,10 @@ export function renderTimelineModule(args){
       percentPlanExecutable: null,
       projectedCompletionWeek: null,
       shortfallAttempts: null,
+      shortfallObjectiveValue: null,
       shortfallNetVotes: null,
-      constraintType: null
+      constraintType: null,
+      weeklyPlan: [],
     };
 
     if (tlPercentEl) tlPercentEl.textContent = "—";
@@ -62,9 +65,9 @@ export function renderTimelineModule(args){
 
   const totals = lastOpt?.totals || {};
   const attemptsTotal = safeNum(totals.attempts) ?? null;
-  const netVotesTotal = safeNum(totals.netVotes) ?? null;
-  const netVotesPerAttempt = (attemptsTotal != null && attemptsTotal > 0 && netVotesTotal != null)
-    ? (netVotesTotal / attemptsTotal)
+  const objectiveValueTotal = safeNum(totals.netVotes) ?? null;
+  const objectiveValuePerAttempt = (attemptsTotal != null && attemptsTotal > 0 && objectiveValueTotal != null)
+    ? (objectiveValueTotal / attemptsTotal)
     : null;
 
   const activeOverride = safeNum(state.timelineActiveWeeks);
@@ -93,17 +96,27 @@ export function renderTimelineModule(args){
     },
     required,
     tacticKinds,
-    netVotesPerAttempt,
+    objectiveValuePerAttempt,
+    netVotesPerAttempt: objectiveValuePerAttempt,
     bindingHint,
     ramp: { enabled: !!state.timelineRampEnabled, mode: state.timelineRampMode || "linear" }
   });
+  const tlObjectiveMeta = getTimelineFeasibilityObjectiveMeta(tl);
+  const weeklyPlan = Array.isArray(tl?.weekly)
+    ? tl.weekly.map((row) => ({
+      week: safeNum(row?.week) ?? null,
+      attempts: safeNum(row?.attempts) ?? null,
+    }))
+    : [];
 
   state.ui.lastTimeline = {
     percentPlanExecutable: tl.percentPlanExecutable ?? null,
     projectedCompletionWeek: tl.projectedCompletionWeek ?? null,
     shortfallAttempts: tl.shortfallAttempts ?? null,
-    shortfallNetVotes: tl.shortfallNetVotes ?? null,
-    constraintType: tl.constraintType || null
+    shortfallObjectiveValue: tlObjectiveMeta.shortfallObjectiveValue,
+    shortfallNetVotes: tlObjectiveMeta.shortfallObjectiveValue,
+    constraintType: tl.constraintType || null,
+    weeklyPlan,
   };
 
   const pct = Math.round((tl.percentPlanExecutable ?? 0) * 100);
@@ -117,14 +130,17 @@ export function renderTimelineModule(args){
   if (tlConstraintEl) tlConstraintEl.textContent = tl.constraintType || "—";
 
   if (tlShortfallVotesEl){
-    tlShortfallVotesEl.textContent = (tl.shortfallNetVotes == null) ? "—" : fmtInt(Math.round(tl.shortfallNetVotes));
+    const shortfallObjectiveValue = tlObjectiveMeta.shortfallObjectiveValue;
+    tlShortfallVotesEl.textContent = (shortfallObjectiveValue == null) ? "—" : fmtInt(Math.round(shortfallObjectiveValue));
   }
 
   if (tlWeekListEl){
-    if (!tl.weekly || !tl.weekly.length){
+    if (!weeklyPlan.length){
       tlWeekListEl.textContent = "—";
     } else {
-      tlWeekListEl.textContent = tl.weekly.map(w => `Week ${w.week}: ${fmtInt(Math.round(w.attempts || 0))} attempts`).join("\n");
+      tlWeekListEl.textContent = weeklyPlan
+        .map((row) => `Week ${row.week}: ${fmtInt(Math.round(row.attempts || 0))} attempts`)
+        .join("\n");
     }
   }
 

@@ -12,13 +12,13 @@ import {
 } from "../core/censusModule.js";
 import { makeDefaultFeatureFlags, syncFeatureFlagsFromState } from "./featureFlags.js";
 import { makeDefaultTargetingState, normalizeTargetingState } from "./targetingRuntime.js";
-
-export const DEFAULTS_BY_TEMPLATE = {
-  federal: { bandWidth: 4, persuasionPct: 28, earlyVoteExp: 45 },
-  state_leg: { bandWidth: 4, persuasionPct: 30, earlyVoteExp: 38 },
-  municipal: { bandWidth: 5, persuasionPct: 35, earlyVoteExp: 35 },
-  county: { bandWidth: 4, persuasionPct: 30, earlyVoteExp: 40 },
-};
+import { applyContextToState, resolveActiveContext } from "./activeContext.js";
+import { normalizeOptimizationObjective } from "../core/turnout.js";
+import {
+  applyTemplateDefaultsToState,
+  deriveAssumptionsProfileFromState as deriveTemplateAssumptionsProfile,
+  syncTemplateMetaFromState,
+} from "./templateResolver.js";
 
 function defaultCreateId(){
   return Math.random().toString(16).slice(2, 10);
@@ -26,17 +26,31 @@ function defaultCreateId(){
 
 /**
  * @typedef {Record<string, any>} AnyState
- * @typedef {{ createId?: (() => string) }} StateFactoryOptions
+ * @typedef {{
+ *   createId?: (() => string),
+ *   context?: {
+ *     campaignId?: string,
+ *     campaignName?: string,
+ *     officeId?: string,
+ *     scenarioId?: string,
+ *     search?: string,
+ *   },
+ * }} StateFactoryOptions
  */
 
 /**
  * @param {StateFactoryOptions=} options
  * @returns {AnyState}
  */
-export function makeDefaultState({ createId = defaultCreateId } = {}){
-  return {
+export function makeDefaultState({ createId = defaultCreateId, context: contextInput } = {}){
+  const context = resolveActiveContext(contextInput || {});
+  const out = {
+    campaignId: context.campaignId,
+    campaignName: context.campaignName,
+    officeId: context.officeId,
     scenarioName: "",
     raceType: "state_leg",
+    templateMeta: null,
     electionDate: "",
     weeksRemaining: "",
     mode: "persuasion",
@@ -45,7 +59,7 @@ export function makeDefaultState({ createId = defaultCreateId } = {}){
     sourceNote: "",
     turnoutA: "",
     turnoutB: "",
-    bandWidth: DEFAULTS_BY_TEMPLATE.state_leg.bandWidth,
+    bandWidth: "",
     candidates: [
       { id: createId(), name: "Candidate A", supportPct: 35 },
       { id: createId(), name: "Candidate B", supportPct: 35 },
@@ -54,12 +68,12 @@ export function makeDefaultState({ createId = defaultCreateId } = {}){
     yourCandidateId: null,
     undecidedMode: "proportional",
     userSplit: {},
-    persuasionPct: DEFAULTS_BY_TEMPLATE.state_leg.persuasionPct,
-    earlyVoteExp: DEFAULTS_BY_TEMPLATE.state_leg.earlyVoteExp,
+    persuasionPct: "",
+    earlyVoteExp: "",
 
     goalSupportIds: "",
-    supportRatePct: 55,
-    contactRatePct: 22,
+    supportRatePct: "",
+    contactRatePct: "",
     doorsPerHour: 30,
     hoursPerShift: 3,
     shiftsPerVolunteerPerWeek: 2,
@@ -67,17 +81,17 @@ export function makeDefaultState({ createId = defaultCreateId } = {}){
     orgCount: 2,
     orgHoursPerWeek: 40,
     volunteerMultBase: 1.0,
-    channelDoorPct: 70,
-    doorsPerHour3: 30,
-    callsPerHour3: 20,
-    turnoutReliabilityPct: 80,
+    channelDoorPct: "",
+    doorsPerHour3: "",
+    callsPerHour3: "",
+    turnoutReliabilityPct: "",
 
     turnoutEnabled: false,
     turnoutBaselinePct: 55,
     turnoutTargetOverridePct: "",
     gotvMode: "basic",
     gotvLiftPP: 1.0,
-    gotvMaxLiftPP: 10,
+    gotvMaxLiftPP: "",
     gotvDiminishing: false,
     gotvLiftMin: 0.5,
     gotvLiftMode: 1.0,
@@ -86,13 +100,13 @@ export function makeDefaultState({ createId = defaultCreateId } = {}){
 
     timelineEnabled: false,
     timelineActiveWeeks: "",
-    timelineGotvWeeks: 2,
+    timelineGotvWeeks: "",
     timelineStaffCount: 0,
     timelineStaffHours: 40,
     timelineVolCount: 0,
     timelineVolHours: 4,
     timelineRampEnabled: false,
-    timelineRampMode: "linear",
+    timelineRampMode: "",
     timelineDoorsPerHour: 30,
     timelineCallsPerHour: 20,
     timelineTextsPerHour: 120,
@@ -108,6 +122,8 @@ export function makeDefaultState({ createId = defaultCreateId } = {}){
         doors: { enabled: true, cpa: 0.18, kind: "persuasion" },
         phones: { enabled: true, cpa: 0.03, kind: "persuasion" },
         texts: { enabled: false, cpa: 0.02, kind: "persuasion" },
+        litDrop: { enabled: false, cpa: 0.11, kind: "persuasion" },
+        mail: { enabled: false, cpa: 0.65, kind: "persuasion" },
       },
       optimize: {
         mode: "budget",
@@ -154,10 +170,15 @@ export function makeDefaultState({ createId = defaultCreateId } = {}){
       dark: false,
       advDiag: false,
       activeTab: "win",
+      assumptionsProfile: "template",
       decision: { sessions: {}, activeSessionId: null },
       mcMeta: null,
+      modelAudit: null,
     },
   };
+  applyTemplateDefaultsToState(out, { raceType: out.raceType, mode: "all" });
+  applyContextToState(out, context);
+  return out;
 }
 
 /**
@@ -181,12 +202,15 @@ export function ensureBudgetShape(target, { createId = defaultCreateId } = {}){
       doors: { ...baseBudget.tactics.doors, ...(srcTactics.doors || {}) },
       phones: { ...baseBudget.tactics.phones, ...(srcTactics.phones || {}) },
       texts: { ...baseBudget.tactics.texts, ...(srcTactics.texts || {}) },
+      litDrop: { ...baseBudget.tactics.litDrop, ...(srcTactics.litDrop || {}) },
+      mail: { ...baseBudget.tactics.mail, ...(srcTactics.mail || {}) },
     },
     optimize: {
       ...baseBudget.optimize,
       ...srcOptimize,
     },
   };
+  target.budget.optimize.objective = normalizeOptimizationObjective(target?.budget?.optimize?.objective, "net");
   return target.budget;
 }
 
@@ -195,8 +219,8 @@ export function ensureBudgetShape(target, { createId = defaultCreateId } = {}){
  * @param {StateFactoryOptions=} options
  * @returns {AnyState}
  */
-export function normalizeLoadedState(s, { createId = defaultCreateId } = {}){
-  const base = makeDefaultState({ createId });
+export function normalizeLoadedState(s, { createId = defaultCreateId, context: contextInput } = {}){
+  const base = makeDefaultState({ createId, context: contextInput });
   const out = { ...base, ...s };
   const src = (s && typeof s === "object") ? s : {};
   out.candidates = Array.isArray(s?.candidates) ? s.candidates : base.candidates;
@@ -207,6 +231,7 @@ export function normalizeLoadedState(s, { createId = defaultCreateId } = {}){
   out.raceFootprint = normalizeRaceFootprint(s?.raceFootprint);
   out.assumptionsProvenance = normalizeAssumptionProvenance(s?.assumptionsProvenance);
   out.footprintCapacity = normalizeFootprintCapacity(s?.footprintCapacity);
+  out.templateMeta = s?.templateMeta;
   out.ui = { ...base.ui, ...(s?.ui || {}) };
 
   ensureBudgetShape(out, { createId });
@@ -217,6 +242,9 @@ export function normalizeLoadedState(s, { createId = defaultCreateId } = {}){
   }
   delete out.gotvDiminishing2;
   syncFeatureFlagsFromState(out, { preferFeatures: !!(src && typeof src.features === "object" && !Array.isArray(src.features)) });
+  syncTemplateMetaFromState(out);
+  applyContextToState(out, resolveActiveContext({ ...(contextInput || {}), fallback: out }));
+  out.ui.assumptionsProfile = deriveTemplateAssumptionsProfile(out);
   out.ui.themeMode = "system";
   out.ui.dark = false;
   return out;
@@ -228,6 +256,7 @@ export function normalizeLoadedState(s, { createId = defaultCreateId } = {}){
  */
 export function requiredScenarioKeysMissing(scen){
   const required = [
+    "campaignId", "campaignName", "officeId",
     "scenarioName", "raceType", "electionDate", "weeksRemaining", "mode",
     "universeBasis", "universeSize", "turnoutA", "turnoutB", "bandWidth",
     "candidates", "undecidedPct", "yourCandidateId", "undecidedMode", "persuasionPct",

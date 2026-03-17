@@ -25,6 +25,7 @@ import {
   upsertBenchmarkEntry,
 } from "./intelControlsRuntime.js";
 import { ensureBudgetShape } from "./state.js";
+import { normalizeOptimizationObjective } from "../core/turnout.js";
 
 let censusWireModulePromise = null;
 let censusWireModule = null;
@@ -128,7 +129,9 @@ export function wireBudgetTimelineEvents(ctx){
   };
 
   watchOpt(els.optMode, (state) => { state.budget.optimize.mode = els.optMode.value; }, "change");
-  watchOpt(els.optObjective, (state) => { state.budget.optimize.objective = els.optObjective.value; }, "change");
+  watchOpt(els.optObjective, (state) => {
+    state.budget.optimize.objective = normalizeOptimizationObjective(els.optObjective.value, "net");
+  }, "change");
   watchOpt(els.tlOptEnabled, (state) => { state.budget.optimize.tlConstrainedEnabled = !!els.tlOptEnabled.checked; }, "change");
   watchOpt(els.tlOptObjective, (state) => { state.budget.optimize.tlConstrainedObjective = els.tlOptObjective.value || "max_net"; }, "change");
   watchOpt(els.optBudget, (state) => { state.budget.optimize.budgetAmount = safeNum(els.optBudget.value) ?? 0; });
@@ -1107,7 +1110,7 @@ function sanitizeImportedScenarioData(scenario){
 
   const tactics = out?.budget?.tactics;
   if (tactics && typeof tactics === "object"){
-    for (const tk of ["doors", "phones", "texts"]){
+    for (const tk of ["doors", "phones", "texts", "litDrop", "mail"]){
       const t = tactics[tk];
       if (!t || typeof t !== "object") continue;
       for (const key of ["cpa", "crPct", "srPct"]){
@@ -1485,9 +1488,8 @@ export function wirePrimaryPlannerEvents(ctx){
     els.raceType.addEventListener("change", () => {
       withState((state) => {
         state.raceType = els.raceType.value;
-        applyTemplateDefaultsForRace(state, state.raceType, { force: true });
-        if (!state.ui) state.ui = {};
-        state.ui.assumptionsProfile = "template";
+        applyTemplateDefaultsForRace(state, state.raceType, { mode: "untouched" });
+        refreshAssumptionsProfile();
       });
       applyStateToUI();
       commitUIUpdate();
@@ -1543,8 +1545,18 @@ export function wirePrimaryPlannerEvents(ctx){
   });
 
   if (els.goalSupportIds) els.goalSupportIds.addEventListener("input", () => { withState((state) => { state.goalSupportIds = els.goalSupportIds.value; }); markMcStale(); commitUIUpdate(); });
-  if (els.supportRatePct) els.supportRatePct.addEventListener("input", () => { withState((state) => { state.supportRatePct = safeNum(els.supportRatePct.value); }); markMcStale(); commitUIUpdate(); });
-  if (els.contactRatePct) els.contactRatePct.addEventListener("input", () => { withState((state) => { state.contactRatePct = safeNum(els.contactRatePct.value); }); markMcStale(); commitUIUpdate(); });
+  if (els.supportRatePct) els.supportRatePct.addEventListener("input", () => {
+    withState((state) => { state.supportRatePct = safeNum(els.supportRatePct.value); });
+    refreshAssumptionsProfile();
+    markMcStale();
+    commitUIUpdate();
+  });
+  if (els.contactRatePct) els.contactRatePct.addEventListener("input", () => {
+    withState((state) => { state.contactRatePct = safeNum(els.contactRatePct.value); });
+    refreshAssumptionsProfile();
+    markMcStale();
+    commitUIUpdate();
+  });
   if (els.hoursPerShift) els.hoursPerShift.addEventListener("input", () => { withState((state) => { state.hoursPerShift = safeNum(els.hoursPerShift.value); }); commitUIUpdate(); });
   if (els.shiftsPerVolunteerPerWeek) els.shiftsPerVolunteerPerWeek.addEventListener("input", () => { withState((state) => { state.shiftsPerVolunteerPerWeek = safeNum(els.shiftsPerVolunteerPerWeek.value); }); commitUIUpdate(); });
   if (els.universe16Enabled) els.universe16Enabled.addEventListener("change", () => { withState((state) => { state.universeLayerEnabled = !!els.universe16Enabled.checked; }); markMcStale(); commitUIUpdate(); });
@@ -1557,17 +1569,33 @@ export function wirePrimaryPlannerEvents(ctx){
   if (els.orgCount) els.orgCount.addEventListener("input", () => { withState((state) => { state.orgCount = safeNum(els.orgCount.value); }); markMcStale(); commitUIUpdate(); });
   if (els.orgHoursPerWeek) els.orgHoursPerWeek.addEventListener("input", () => { withState((state) => { state.orgHoursPerWeek = safeNum(els.orgHoursPerWeek.value); }); markMcStale(); commitUIUpdate(); });
   if (els.volunteerMultBase) els.volunteerMultBase.addEventListener("input", () => { withState((state) => { state.volunteerMultBase = safeNum(els.volunteerMultBase.value); }); markMcStale(); commitUIUpdate(); });
-  if (els.channelDoorPct) els.channelDoorPct.addEventListener("input", () => { withState((state) => { state.channelDoorPct = safeNum(els.channelDoorPct.value); }); markMcStale(); commitUIUpdate(); });
+  if (els.channelDoorPct) els.channelDoorPct.addEventListener("input", () => {
+    withState((state) => { state.channelDoorPct = safeNum(els.channelDoorPct.value); });
+    refreshAssumptionsProfile();
+    markMcStale();
+    commitUIUpdate();
+  });
   if (els.doorsPerHour3) els.doorsPerHour3.addEventListener("input", () => {
     withState((state) => {
       setCanonicalDoorsPerHour(state, els.doorsPerHour3.value);
       if (els.doorsPerHour) els.doorsPerHour.value = canonicalDoorsPerHourFromSnap(state) ?? "";
     });
+    refreshAssumptionsProfile();
     markMcStale();
     commitUIUpdate();
   });
-  if (els.callsPerHour3) els.callsPerHour3.addEventListener("input", () => { withState((state) => { state.callsPerHour3 = safeNum(els.callsPerHour3.value); }); markMcStale(); commitUIUpdate(); });
-  if (els.turnoutReliabilityPct) els.turnoutReliabilityPct.addEventListener("input", () => { withState((state) => { state.turnoutReliabilityPct = safeNum(els.turnoutReliabilityPct.value); }); markMcStale(); commitUIUpdate(); });
+  if (els.callsPerHour3) els.callsPerHour3.addEventListener("input", () => {
+    withState((state) => { state.callsPerHour3 = safeNum(els.callsPerHour3.value); });
+    refreshAssumptionsProfile();
+    markMcStale();
+    commitUIUpdate();
+  });
+  if (els.turnoutReliabilityPct) els.turnoutReliabilityPct.addEventListener("input", () => {
+    withState((state) => { state.turnoutReliabilityPct = safeNum(els.turnoutReliabilityPct.value); });
+    refreshAssumptionsProfile();
+    markMcStale();
+    commitUIUpdate();
+  });
   if (els.twCapOverrideEnabled) els.twCapOverrideEnabled.addEventListener("change", () => { withState((state) => { state.twCapOverrideEnabled = !!els.twCapOverrideEnabled.checked; }); markMcStale(); commitUIUpdate(); });
   if (els.twCapOverrideMode) els.twCapOverrideMode.addEventListener("change", () => {
     withState((state) => {
@@ -1600,7 +1628,12 @@ export function wirePrimaryPlannerEvents(ctx){
   });
 
   if (els.gotvLiftPP) els.gotvLiftPP.addEventListener("input", () => { withState((state) => { state.gotvLiftPP = safeNum(els.gotvLiftPP.value); }); markMcStale(); commitUIUpdate(); });
-  if (els.gotvMaxLiftPP) els.gotvMaxLiftPP.addEventListener("input", () => { withState((state) => { state.gotvMaxLiftPP = safeNum(els.gotvMaxLiftPP.value); }); markMcStale(); commitUIUpdate(); });
+  if (els.gotvMaxLiftPP) els.gotvMaxLiftPP.addEventListener("input", () => {
+    withState((state) => { state.gotvMaxLiftPP = safeNum(els.gotvMaxLiftPP.value); });
+    refreshAssumptionsProfile();
+    markMcStale();
+    commitUIUpdate();
+  });
   if (els.gotvDiminishing) els.gotvDiminishing.addEventListener("change", () => {
     withState((state) => {
       state.gotvDiminishing = !!els.gotvDiminishing.checked;

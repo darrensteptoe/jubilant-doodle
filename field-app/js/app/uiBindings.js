@@ -1,4 +1,5 @@
 // @ts-check
+import { normalizeOptimizationObjective } from "../core/turnout.js";
 export function applyStateToUiBindings({
   els,
   state,
@@ -111,7 +112,7 @@ export function applyStateToUiBindings({
   if (els.roiIncludeOverhead) els.roiIncludeOverhead.checked = !!state.budget?.includeOverhead;
 
   if (els.optMode) els.optMode.value = state.budget?.optimize?.mode || "budget";
-  if (els.optObjective) els.optObjective.value = state.budget?.optimize?.objective || "net";
+  if (els.optObjective) els.optObjective.value = normalizeOptimizationObjective(state.budget?.optimize?.objective, "net");
   if (els.tlOptEnabled) els.tlOptEnabled.checked = !!state.budget?.optimize?.tlConstrainedEnabled;
   if (els.tlOptObjective) els.tlOptObjective.value = state.budget?.optimize?.tlConstrainedObjective || "max_net";
   if (els.optBudget) els.optBudget.value = state.budget?.optimize?.budgetAmount ?? "";

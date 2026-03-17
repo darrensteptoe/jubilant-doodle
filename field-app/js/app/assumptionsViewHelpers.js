@@ -1,4 +1,6 @@
 // @ts-check
+import { getTemplateLabelForRaceType } from "./templateResolver.js";
+
 /**
  * @param {string} title
  * @param {HTMLElement[]} kvs
@@ -42,10 +44,7 @@ export function kvModule(k, v){
  * @returns {string}
  */
 export function labelTemplateModule(v){
-  if (v === "federal") return "Federal (US House)";
-  if (v === "municipal") return "Municipal / ward";
-  if (v === "county") return "County / regional";
-  return "State legislative";
+  return getTemplateLabelForRaceType(v);
 }
 
 /**

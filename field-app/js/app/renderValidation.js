@@ -19,6 +19,7 @@ export function renderValidationModule(args){
     benchmarkWarnings = [],
     evidenceWarnings = [],
     driftSummary = null,
+    governance = null,
   } = args || {};
 
   const list = els?.validationList || els?.validationListSidebar;
@@ -244,6 +245,72 @@ export function renderValidationModule(args){
       items.push({
         kind: aphLow ? "warn" : "ok",
         text: `Rolling APH ${fNum(aphActual)} vs assumed ${fNum(aphAssumed)}.`,
+      });
+    }
+  }
+
+  if (governance && typeof governance === "object"){
+    const realismScore = Number(governance?.realism?.score);
+    const dataScore = Number(governance?.dataQuality?.score);
+    const confidenceScore = Number(governance?.confidence?.score);
+    const realismStatus = String(governance?.realism?.status || "ok");
+    const dataStatus = String(governance?.dataQuality?.status || "ok");
+    const executionScore = Number(governance?.execution?.score);
+    const executionStatus = String(governance?.execution?.status || "ok");
+    const executionTimelineExecutable = Number(governance?.execution?.timelineExecutablePct);
+    const executionUncertaintyBand = String(governance?.execution?.uplift?.uncertaintyBand || "");
+    const executionSaturationPressure = String(governance?.execution?.uplift?.saturationPressure || "");
+    const confidenceBand = String(governance?.confidence?.band || "low");
+
+    items.push({
+      kind: realismStatus === "bad" ? "bad" : (realismStatus === "warn" ? "warn" : "ok"),
+      text: `Governance realism: ${realismStatus.toUpperCase()} (${Number.isFinite(realismScore) ? realismScore.toFixed(0) : "—"}/100).`,
+    });
+    items.push({
+      kind: dataStatus === "bad" ? "bad" : (dataStatus === "warn" ? "warn" : "ok"),
+      text: `Governance data quality: ${dataStatus.toUpperCase()} (${Number.isFinite(dataScore) ? dataScore.toFixed(0) : "—"}/100).`,
+    });
+    items.push({
+      kind: confidenceBand === "low" ? "warn" : "ok",
+      text: `Governance confidence: ${confidenceBand.toUpperCase()} (${Number.isFinite(confidenceScore) ? confidenceScore.toFixed(1) : "—"}/100).`,
+    });
+    items.push({
+      kind: executionStatus === "bad" ? "bad" : (executionStatus === "warn" ? "warn" : "ok"),
+      text: `Governance execution realism: ${executionStatus.toUpperCase()} (${Number.isFinite(executionScore) ? executionScore.toFixed(0) : "—"}/100).`,
+    });
+    if (Number.isFinite(executionTimelineExecutable)){
+      items.push({
+        kind: executionTimelineExecutable < 0.95 ? "warn" : "ok",
+        text: `Timeline executable: ${(executionTimelineExecutable * 100).toFixed(0)}% (from canonical timeline snapshot).`,
+      });
+    }
+    if (executionUncertaintyBand){
+      items.push({
+        kind: executionUncertaintyBand === "high" ? "warn" : "ok",
+        text: `Uplift uncertainty band: ${executionUncertaintyBand.toUpperCase()} (canonical execution summary).`,
+      });
+    }
+    if (executionSaturationPressure){
+      items.push({
+        kind: executionSaturationPressure === "high" ? "warn" : "ok",
+        text: `Saturation pressure: ${executionSaturationPressure.toUpperCase()} (canonical execution summary).`,
+      });
+    }
+
+    const topDriver = Array.isArray(governance?.sensitivity?.topDrivers) ? governance.sensitivity.topDrivers[0] : null;
+    if (topDriver && Number.isFinite(Number(topDriver?.deltaWinPct))){
+      const delta = Number(topDriver.deltaWinPct);
+      items.push({
+        kind: "ok",
+        text: `Top sensitivity driver: ${String(topDriver.label || "Driver")} (${delta > 0 ? "+" : ""}${delta.toFixed(1)} pts win-prob delta).`,
+      });
+    }
+
+    const governanceWarnings = Array.isArray(governance?.warnings) ? governance.warnings : [];
+    for (const msg of governanceWarnings.slice(0, 3)){
+      items.push({
+        kind: "warn",
+        text: String(msg),
       });
     }
   }

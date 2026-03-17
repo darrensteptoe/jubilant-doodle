@@ -33,7 +33,14 @@ export function createDiagnosticsRuntimeController({
 
   async function getOperationsDiagnosticsSnapshot(){
     try{
-      const snapshot = await getOperationsMetricsSnapshot();
+      const state = (typeof getState === "function" ? getState() : null) || {};
+      const snapshot = await getOperationsMetricsSnapshot({
+        context: {
+          campaignId: state.campaignId,
+          campaignName: state.campaignName,
+          officeId: state.officeId,
+        },
+      });
       const counts = snapshot?.counts || {};
       const rollups = snapshot?.rollups || {};
 

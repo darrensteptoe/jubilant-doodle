@@ -5,6 +5,7 @@ export function createSummaryRenderController({
   engine,
   computeRealityDrift,
   computeEvidenceWarnings,
+  computeModelGovernance,
   renderStressModule,
   renderValidationModule,
   renderIntelChecksModule,
@@ -38,6 +39,8 @@ export function createSummaryRenderController({
     return getYourNameFromState(getState());
   }
 
+  let lastGovernance = null;
+
   function renderStress(res){
     renderStressModule({
       els,
@@ -52,6 +55,16 @@ export function createSummaryRenderController({
       : [];
     const driftSummary = computeRealityDrift();
     const evidenceWarnings = computeEvidenceWarnings(state, { limit: 2, staleDays: 30 });
+    const governance = (typeof computeModelGovernance === "function")
+      ? computeModelGovernance({
+          state,
+          res,
+          benchmarkWarnings,
+          evidenceWarnings,
+          driftSummary,
+        })
+      : null;
+    lastGovernance = governance;
     renderValidationModule({
       els,
       state,
@@ -60,6 +73,7 @@ export function createSummaryRenderController({
       benchmarkWarnings,
       evidenceWarnings,
       driftSummary,
+      governance,
     });
     renderIntelChecksModule({ els, state, engine, benchmarkWarnings, driftSummary });
   }
@@ -82,11 +96,13 @@ export function createSummaryRenderController({
   }
 
   function renderGuardrails(res){
+    const governance = lastGovernance;
     renderGuardrailsModule({
       els,
       res,
       block,
       kv,
+      governance,
     });
   }
 

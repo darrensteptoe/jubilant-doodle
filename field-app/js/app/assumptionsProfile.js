@@ -1,71 +1,44 @@
 // @ts-check
-/**
- * @param {number} a
- * @param {number} b
- * @param {number=} eps
- */
-export function approxEqModule(a, b, eps = 1e-6){
-  return Math.abs(a - b) <= eps;
-}
+import {
+  applyTemplateDefaultsToState,
+  deriveAssumptionsProfileFromState as deriveAssumptionsProfileFromTemplateState,
+  getTemplateLabelForRaceType,
+  getTemplateLabelForState,
+  listOverriddenTemplateFields,
+  normalizeTemplateApplyMode,
+  syncTemplateMetaFromState,
+} from "./templateResolver.js";
 
 /**
  * @param {Record<string, any>} targetState
  * @param {string} raceType
  * @param {{ force?: boolean }=} options
- * @param {Record<string, any>=} defaultsByTemplate
  */
 export function applyTemplateDefaultsForRaceModule(
   targetState,
   raceType,
-  { force = false } = {},
-  defaultsByTemplate = {}
+  options = {}
 ){
-  if (!targetState || typeof targetState !== "object") return;
-  const key = String(raceType || targetState.raceType || "state_leg");
-  const defs = defaultsByTemplate[key] || defaultsByTemplate.state_leg || {};
-
-  if (force || (targetState.bandWidth == null || targetState.bandWidth === "")){
-    targetState.bandWidth = defs.bandWidth;
-  }
-  if (force || (targetState.persuasionPct == null || targetState.persuasionPct === "")){
-    targetState.persuasionPct = defs.persuasionPct;
-  }
-  if (force || (targetState.earlyVoteExp == null || targetState.earlyVoteExp === "")){
-    targetState.earlyVoteExp = defs.earlyVoteExp;
-  }
+  if (!targetState || typeof targetState !== "object") return { ok: false, code: "invalid_state" };
+  return applyTemplateDefaultsToState(targetState, {
+    raceType,
+    templateId: options?.templateId,
+    officeLevel: options?.officeLevel,
+    electionType: options?.electionType,
+    seatContext: options?.seatContext,
+    partisanshipMode: options?.partisanshipMode,
+    salienceLevel: options?.salienceLevel,
+    mode: normalizeTemplateApplyMode(options?.mode, { force: !!options?.force }),
+  });
 }
 
 /**
  * @param {Record<string, any>} snap
- * @param {Record<string, any>=} defaultsByTemplate
- * @param {(v: any) => number | null} safeNum
- * @param {(a: number, b: number, eps?: number) => boolean=} approxEq
  */
 export function deriveAssumptionsProfileFromStateModule(
-  snap,
-  defaultsByTemplate = {},
-  safeNum,
-  approxEq = approxEqModule
+  snap
 ){
-  const s = snap || {};
-  const raceKey = String(s.raceType || "state_leg");
-  const defs = defaultsByTemplate[raceKey] || defaultsByTemplate.state_leg || {};
-  const bw = safeNum(s.bandWidth);
-  const pp = safeNum(s.persuasionPct);
-  const ev = safeNum(s.earlyVoteExp);
-
-  const isTemplateLike =
-    bw != null && pp != null && ev != null &&
-    approxEq(bw, defs.bandWidth) &&
-    approxEq(pp, defs.persuasionPct) &&
-    approxEq(ev, defs.earlyVoteExp);
-
-  const explicit = s?.ui?.assumptionsProfile;
-  if (explicit === "template" || explicit === "custom"){
-    if (explicit === "template" && !isTemplateLike) return "custom";
-    return explicit;
-  }
-  return isTemplateLike ? "template" : "custom";
+  return deriveAssumptionsProfileFromTemplateState(snap);
 }
 
 /**
@@ -74,6 +47,7 @@ export function deriveAssumptionsProfileFromStateModule(
  */
 export function refreshAssumptionsProfileModule(state, deriveAssumptionsProfileFromState){
   if (!state.ui) state.ui = {};
+  syncTemplateMetaFromState(state);
   state.ui.assumptionsProfile = deriveAssumptionsProfileFromState(state);
 }
 
@@ -83,9 +57,14 @@ export function refreshAssumptionsProfileModule(state, deriveAssumptionsProfileF
  */
 export function assumptionsProfileLabelModule(src, labelTemplate){
   const s = src || {};
-  const profile = (s?.ui?.assumptionsProfile === "template") ? "template" : "custom";
+  const profile = deriveAssumptionsProfileFromTemplateState(s);
   if (profile === "template"){
-    return `Template (${labelTemplate(s.raceType)})`;
+    const detailedLabel = getTemplateLabelForState(s, { detailed: true });
+    const fallback = (typeof labelTemplate === "function")
+      ? labelTemplate(s.raceType)
+      : getTemplateLabelForRaceType(s.raceType);
+    return `Template (${detailedLabel || fallback})`;
   }
-  return "Custom overrides";
+  const overrideCount = listOverriddenTemplateFields(s).length;
+  return overrideCount > 0 ? `Custom overrides (${overrideCount})` : "Custom overrides";
 }

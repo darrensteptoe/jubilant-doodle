@@ -72,6 +72,8 @@ export function renderRoiModule(args){
     doors: capBreakdown?.doors ?? null,
     phones: capBreakdown?.phones ?? null,
     texts: null,
+    litDrop: null,
+    mail: null,
   };
 
   if (timelineCapsOn){
@@ -102,24 +104,27 @@ export function renderRoiModule(args){
       ? capsWrap.maxAttemptsByTactic
       : null;
     if (tCaps){
-      const doorsCap = (Number.isFinite(Number(tCaps.doors)) && Number(tCaps.doors) >= 0) ? Number(tCaps.doors) : null;
-      const phonesCap = (Number.isFinite(Number(tCaps.phones)) && Number(tCaps.phones) >= 0) ? Number(tCaps.phones) : null;
-      const textsCap = (Number.isFinite(Number(tCaps.texts)) && Number(tCaps.texts) >= 0) ? Number(tCaps.texts) : null;
-      capByTactic = { doors: doorsCap, phones: phonesCap, texts: textsCap };
-      const total = [doorsCap, phonesCap, textsCap].reduce((sum, v) => sum + ((v == null) ? 0 : v), 0);
+      const timelineCapsByTactic = {};
+      for (const [key, value] of Object.entries(tCaps)){
+        const n = Number(value);
+        timelineCapsByTactic[key] = (Number.isFinite(n) && n >= 0) ? n : null;
+      }
+      capByTactic = { ...capByTactic, ...timelineCapsByTactic };
+      const total = Object.values(timelineCapsByTactic).reduce((sum, v) => sum + ((v == null) ? 0 : v), 0);
       capAttempts = (Number.isFinite(total) && total >= 0) ? total : baseCapAttempts;
     }
   }
 
   const { rows, banner } = engine.computeRoiRows({
-    goalNetVotes: needVotes,
+    goalObjectiveValue: needVotes,
     baseRates: { cr, sr, tr },
     tactics,
     overheadAmount,
     includeOverhead,
-    caps: { total: capAttempts, doors: capByTactic.doors, phones: capByTactic.phones, texts: capByTactic.texts },
+    caps: { total: capAttempts, ...capByTactic },
     mcLast,
     turnoutModel,
+    workforce: state?.ui?.twCapOutlookLatest?.workforce || null,
   });
 
   if (!state.ui || typeof state.ui !== "object") state.ui = {};
