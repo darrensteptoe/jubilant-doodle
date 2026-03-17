@@ -167,8 +167,9 @@ function wireTopbarBridge() {
 
   syncTrainingToggle();
   trainingBtn?.addEventListener("click", () => {
-    setShellTrainingState(!readShellTrainingState());
-    syncTrainingToggle();
+    const nextEnabled = !readShellTrainingState();
+    setShellTrainingState(nextEnabled);
+    syncAll();
   });
 
   legacyBtn?.addEventListener("click", () => {
