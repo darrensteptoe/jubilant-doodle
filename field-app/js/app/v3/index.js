@@ -40,7 +40,6 @@ function bootV3() {
 
   if (resolveUiMode() !== "v3") {
     uninstallNavigationBridge();
-    enterLegacyInlineShell();
     root.hidden = true;
     return;
   }
