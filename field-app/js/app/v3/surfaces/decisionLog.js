@@ -16,33 +16,46 @@ export function renderDecisionLogSurface(mount) {
 
   const sessionCard = createCard({
     title: "Recent decisions",
-    description: "Session selection, objective, scenario linkage, and working notes."
+    description: "Session selection, objective, scenario linkage, and working notes.",
+    status: "Awaiting session"
   });
 
   const assumptionsCard = createCard({
     title: "Decision detail",
-    description: "Budget, volunteer capacity, turf limits, blackout windows, and non-negotiables."
+    description: "Budget, volunteer capacity, turf limits, blackout windows, and non-negotiables.",
+    status: "Awaiting detail"
   });
 
   const optionsCard = createCard({
     title: "Linked scenario & options",
-    description: "Alternative paths, option linkage, and tactic tagging for each option."
+    description: "Alternative paths, option linkage, and tactic tagging for each option.",
+    status: "Awaiting option"
   });
 
   const diagnosticsCard = createCard({
     title: "Rationale diagnostics",
-    description: "Drift, risk, bottlenecks, sensitivity snapshot, and confidence framing."
+    description: "Drift, risk, bottlenecks, sensitivity snapshot, and confidence framing.",
+    status: "Awaiting diagnostics"
   });
 
   const recommendationCard = createCard({
     title: "Next action",
-    description: "Selected recommendation, required truths, and client-ready summary export."
+    description: "Selected recommendation, required truths, and client-ready summary export.",
+    status: "Awaiting recommendation"
   });
 
   const summaryCard = createCard({
     title: "Decision summary",
-    description: "Current decision posture at a glance."
+    description: "Current decision posture at a glance.",
+    status: "Awaiting session"
   });
+
+  assignCardStatusId(sessionCard, "v3DecisionSessionCardStatus");
+  assignCardStatusId(assumptionsCard, "v3DecisionDetailCardStatus");
+  assignCardStatusId(optionsCard, "v3DecisionOptionsCardStatus");
+  assignCardStatusId(diagnosticsCard, "v3DecisionDiagnosticsCardStatus");
+  assignCardStatusId(recommendationCard, "v3DecisionActionCardStatus");
+  assignCardStatusId(summaryCard, "v3DecisionSummaryCardStatus");
 
   getCardBody(sessionCard).innerHTML = `
     <div id="v3DecisionBridgeRoot">
@@ -545,6 +558,31 @@ function refreshDecisionSummary() {
   setText("v3DecisionConfTight", conf.tight || "—");
   setText("v3DecisionConfDiv", conf.divergence || "—");
   setText("v3DecisionConfBanner", conf.banner || "—");
+
+  syncDecisionCardStatus(
+    "v3DecisionSessionCardStatus",
+    deriveDecisionSessionCardStatus(view)
+  );
+  syncDecisionCardStatus(
+    "v3DecisionDetailCardStatus",
+    deriveDecisionDetailCardStatus(view)
+  );
+  syncDecisionCardStatus(
+    "v3DecisionOptionsCardStatus",
+    deriveDecisionOptionsCardStatus(view)
+  );
+  syncDecisionCardStatus(
+    "v3DecisionDiagnosticsCardStatus",
+    deriveDecisionDiagnosticsCardStatus(drift, risk, bneck, sens, conf)
+  );
+  syncDecisionCardStatus(
+    "v3DecisionActionCardStatus",
+    deriveDecisionActionCardStatus(view)
+  );
+  syncDecisionCardStatus(
+    "v3DecisionSummaryCardStatus",
+    deriveDecisionSummaryCardStatus(view, conf, risk, bneck)
+  );
 }
 
 function wireDecisionEvents() {
@@ -752,4 +790,153 @@ function renderUnavailable() {
   setText("v3DecisionActiveLabel", "Decision runtime bridge unavailable.");
   setText("v3DecisionActiveSession", "Decision runtime bridge unavailable.");
   setText("v3DecisionCopyStatus", "Decision runtime bridge unavailable.");
+  syncDecisionCardStatus("v3DecisionSessionCardStatus", "Unavailable");
+  syncDecisionCardStatus("v3DecisionDetailCardStatus", "Unavailable");
+  syncDecisionCardStatus("v3DecisionOptionsCardStatus", "Unavailable");
+  syncDecisionCardStatus("v3DecisionDiagnosticsCardStatus", "Unavailable");
+  syncDecisionCardStatus("v3DecisionActionCardStatus", "Unavailable");
+  syncDecisionCardStatus("v3DecisionSummaryCardStatus", "Unavailable");
+}
+
+function assignCardStatusId(card, id) {
+  if (!(card instanceof HTMLElement) || !id) {
+    return;
+  }
+  const badge = card.querySelector(".fpe-card__status");
+  if (badge instanceof HTMLElement) {
+    badge.id = id;
+  }
+}
+
+function syncDecisionCardStatus(id, value) {
+  const badge = document.getElementById(id);
+  if (!(badge instanceof HTMLElement)) {
+    return;
+  }
+  const text = String(value || "").trim() || "Awaiting decision";
+  badge.textContent = text;
+  badge.classList.add("fpe-status-pill");
+  badge.classList.remove(
+    "fpe-status-pill--ok",
+    "fpe-status-pill--warn",
+    "fpe-status-pill--bad",
+    "fpe-status-pill--neutral"
+  );
+  const tone = classifyDecisionStatusTone(text);
+  if (tone !== "neutral") {
+    badge.classList.add(`fpe-status-pill--${tone}`);
+  }
+}
+
+function deriveDecisionSessionCardStatus(view) {
+  if (!view || !view.session) {
+    return "Awaiting session";
+  }
+  const scenarioLabel = String(view.session?.scenarioLabel || "").trim();
+  if (scenarioLabel && scenarioLabel !== "—") {
+    return "Session linked";
+  }
+  return "Session active";
+}
+
+function deriveDecisionDetailCardStatus(view) {
+  if (!view || !view.session) {
+    return "Awaiting detail";
+  }
+  const budget = String(view.session?.constraints?.budget || "").trim();
+  const volunteerHrs = String(view.session?.constraints?.volunteerHrs || "").trim();
+  const nonNegotiables = String(view.session?.nonNegotiablesText || "").trim();
+  if (budget || volunteerHrs || nonNegotiables) {
+    return "Constraints set";
+  }
+  return "Awaiting detail";
+}
+
+function deriveDecisionOptionsCardStatus(view) {
+  if (!view || !view.session) {
+    return "Awaiting option";
+  }
+  const options = Array.isArray(view.options) ? view.options : [];
+  if (!options.length) {
+    return "Awaiting option";
+  }
+  const scenarioLabel = String(view.activeOption?.scenarioLabel || "").trim();
+  if (scenarioLabel && scenarioLabel !== "—") {
+    return "Option linked";
+  }
+  return "Options ready";
+}
+
+function deriveDecisionDiagnosticsCardStatus(drift, risk, bneck, sens, conf) {
+  const combined = [
+    drift?.banner,
+    risk?.banner,
+    bneck?.warn,
+    sens?.banner,
+    conf?.banner
+  ].join(" ").toLowerCase();
+  if (combined.includes("unavailable")) {
+    return "Unavailable";
+  }
+  if (combined.includes("run snapshot")) {
+    return "Run snapshot";
+  }
+  if (combined.includes("risk") || combined.includes("drift") || combined.includes("constraint")) {
+    return "Watch diagnostics";
+  }
+  if (combined.replace(/—/g, "").trim()) {
+    return "Diagnostics ready";
+  }
+  return "Awaiting diagnostics";
+}
+
+function deriveDecisionActionCardStatus(view) {
+  if (!view || !view.session) {
+    return "Awaiting recommendation";
+  }
+  const recommended = String(view.summary?.recommendedOptionLabel || "").trim();
+  const copyStatus = String(view.copyStatus || "").toLowerCase();
+  if (copyStatus.includes("copied") || copyStatus.includes("download")) {
+    return "Export ready";
+  }
+  if (recommended && recommended !== "—") {
+    return "Recommendation set";
+  }
+  return "Awaiting recommendation";
+}
+
+function deriveDecisionSummaryCardStatus(view, conf, risk, bneck) {
+  if (!view || !view.session) {
+    return "Awaiting session";
+  }
+  const confidence = String(conf?.tag || view.summary?.confidenceTag || "").trim();
+  const riskTag = String(risk?.tag || view.summary?.riskTag || "").trim();
+  const bottleneck = String(bneck?.tag || view.summary?.bottleneckTag || "").trim();
+  if (confidence && confidence !== "—") {
+    return confidence;
+  }
+  if (riskTag && riskTag !== "—") {
+    return riskTag;
+  }
+  if (bottleneck && bottleneck !== "—") {
+    return bottleneck;
+  }
+  return "Decision active";
+}
+
+function classifyDecisionStatusTone(text) {
+  const lower = String(text || "").trim().toLowerCase();
+  if (!lower) {
+    return "neutral";
+  }
+  if (/(session linked|constraints set|option linked|options ready|diagnostics ready|recommendation set|export ready|steady|high confidence|decision active)/.test(lower)) {
+    return "ok";
+  }
+  if (/(unavailable)/.test(lower)) {
+    return "bad";
+  }
+  if (/(awaiting|watch diagnostics|run snapshot|session active|fragile|risk|constraint|warning|competitive|at risk)/.test(lower)) {
+    return "warn";
+  }
+  return "neutral";
 }
