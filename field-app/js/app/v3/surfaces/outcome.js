@@ -20,38 +20,52 @@ export function renderOutcomeSurface(mount) {
 
   const controlsCard = createCard({
     title: "Drivers",
-    description: "Execution assumptions, uncertainty mode, and Monte Carlo controls that drive outcome behavior."
+    description: "Execution assumptions, uncertainty mode, and Monte Carlo controls that drive outcome behavior.",
+    status: "Model inputs"
   });
 
   const forecastCard = createCard({
     title: "Forecast",
-    description: "Win probability and projected margin under current assumptions."
+    description: "Win probability and projected margin under current assumptions.",
+    status: "Awaiting run"
   });
 
   const confidenceCard = createCard({
     title: "Confidence envelope",
-    description: "P10/P50/P90 spread and distribution shape."
+    description: "P10/P50/P90 spread and distribution shape.",
+    status: "Awaiting run"
   });
 
   const sensitivityCard = createCard({
     title: "Sensitivity & surface",
-    description: "Driver ranking and lever surface diagnostics."
+    description: "Driver ranking and lever surface diagnostics.",
+    status: "Awaiting sims"
   });
 
   const interpretationCard = createCard({
     title: "Interpretation",
-    description: "Risk framing and explanatory links between assumptions and outputs."
+    description: "Risk framing and explanatory links between assumptions and outputs.",
+    status: "Context"
   });
 
   const riskFlagsCard = createCard({
     title: "Risk flags",
-    description: "Current warning posture and freshness checks before trusting the forecast."
+    description: "Current warning posture and freshness checks before trusting the forecast.",
+    status: "Awaiting run"
   });
 
   const summaryCard = createCard({
     title: "Outcome summary",
-    description: "Current confidence posture and fragility at a glance."
+    description: "Current confidence posture and fragility at a glance.",
+    status: "Awaiting run"
   });
+
+  assignCardStatusId(forecastCard, "v3OutcomeForecastCardStatus");
+  assignCardStatusId(confidenceCard, "v3OutcomeConfidenceCardStatus");
+  assignCardStatusId(sensitivityCard, "v3OutcomeSensitivityCardStatus");
+  assignCardStatusId(interpretationCard, "v3OutcomeInterpretationCardStatus");
+  assignCardStatusId(riskFlagsCard, "v3OutcomeRiskFlagsCardStatus");
+  assignCardStatusId(summaryCard, "v3OutcomeSummaryCardStatus");
 
   const controlsBody = getCardBody(controlsCard);
   controlsBody.innerHTML = `
@@ -497,6 +511,10 @@ function refreshOutcomeSummary() {
   setText("v3OutcomeP90", outcomeP90);
   setText("v3OutcomeRiskGrade", outcomeRiskLabel);
   setText("v3OutcomeFragility", outcomeFragility);
+  syncOutcomeCardStatus("v3OutcomeForecastCardStatus", deriveOutcomeForecastCardStatus(outcomeWinProb, outcomeRiskLabel));
+  syncOutcomeCardStatus("v3OutcomeConfidenceCardStatus", deriveOutcomeConfidenceCardStatus(outcomeFragility, outcomeCliff));
+  syncOutcomeCardStatus("v3OutcomeRiskFlagsCardStatus", deriveOutcomeRiskFlagsCardStatus(mcStatus, outcomeRiskLabel));
+  syncOutcomeCardStatus("v3OutcomeSummaryCardStatus", deriveOutcomeSummaryCardStatus(outcomeRiskLabel, outcomeWinProb, outcomeFragility));
 
   setJoinedText("v3OutcomeConfMargins", [outcomeP10, outcomeP50, outcomeP90], " / ");
   setText("v3OutcomeConfAttempts", confidenceStats.attemptsBand);
@@ -527,6 +545,8 @@ function refreshOutcomeSummary() {
 
   const bridgedSurfaceRows = Array.isArray(outcomeView?.surfaceRows) ? outcomeView.surfaceRows : [];
   renderOutcomeSurfaceRows(bridgedSurfaceRows);
+  syncOutcomeCardStatus("v3OutcomeSensitivityCardStatus", deriveOutcomeSensitivityCardStatus(bridgedSensitivityRows, bridgedSurfaceStatus));
+  syncOutcomeCardStatus("v3OutcomeInterpretationCardStatus", deriveOutcomeInterpretationCardStatus(bridgedSensitivityRows, bridgedSurfaceRows));
   syncOutcomeImpactTraceFallback({
     targetId: "v3OutcomeImpactTraceList",
     outcomeGapNote,
@@ -1094,6 +1114,142 @@ function readOutcomeSidebarPercentile(id) {
   const idx = raw.indexOf(":");
   const value = idx >= 0 ? raw.slice(idx + 1).trim() : raw.trim();
   return value || "—";
+}
+
+function assignCardStatusId(card, id) {
+  if (!(card instanceof HTMLElement) || !id) {
+    return;
+  }
+  const badge = card.querySelector(".fpe-card__status");
+  if (badge instanceof HTMLElement) {
+    badge.id = id;
+  }
+}
+
+function syncOutcomeCardStatus(id, value) {
+  const badge = document.getElementById(id);
+  if (!(badge instanceof HTMLElement)) {
+    return;
+  }
+  const text = String(value || "").trim() || "Awaiting run";
+  badge.textContent = text;
+  badge.classList.add("fpe-status-pill");
+  badge.classList.remove(
+    "fpe-status-pill--ok",
+    "fpe-status-pill--warn",
+    "fpe-status-pill--bad",
+    "fpe-status-pill--neutral"
+  );
+  const tone = classifyOutcomeStatusTone(text);
+  if (tone !== "neutral") {
+    badge.classList.add(`fpe-status-pill--${tone}`);
+  }
+}
+
+function deriveOutcomeForecastCardStatus(winProb, riskLabel) {
+  const win = parsePercentNumber(winProb);
+  const risk = String(riskLabel || "").trim().toLowerCase();
+  if (!Number.isFinite(win)) {
+    return "Awaiting run";
+  }
+  if (risk.includes("high") || win < 45) {
+    return "At risk";
+  }
+  if (risk.includes("moderate") || risk.includes("watch") || win < 60) {
+    return "Competitive";
+  }
+  return "Favored";
+}
+
+function deriveOutcomeConfidenceCardStatus(fragility, cliff) {
+  const frag = String(fragility || "").trim().toLowerCase();
+  const cliffText = String(cliff || "").trim().toLowerCase();
+  if (!frag || frag === "pending") {
+    return "Awaiting run";
+  }
+  if (frag === "high" || cliffText.includes("active cliff")) {
+    return "Fragile";
+  }
+  if (frag === "moderate" || cliffText.includes("potential cliff")) {
+    return "Watch";
+  }
+  return "Stable";
+}
+
+function deriveOutcomeSensitivityCardStatus(sensitivityRows, surfaceStatus) {
+  const hasSensitivity = Array.isArray(sensitivityRows) && sensitivityRows.length > 0;
+  const surface = String(surfaceStatus || "").trim();
+  if (!hasSensitivity && (!surface || /run surface compute/i.test(surface))) {
+    return "Awaiting sims";
+  }
+  if (/safe zones|cliffs|diminishing returns/i.test(surface)) {
+    return "Surface ready";
+  }
+  if (hasSensitivity) {
+    return "Drivers ranked";
+  }
+  return "Awaiting sims";
+}
+
+function deriveOutcomeInterpretationCardStatus(sensitivityRows, surfaceRows) {
+  const hasSensitivity = Array.isArray(sensitivityRows) && sensitivityRows.length > 0;
+  const hasSurface = Array.isArray(surfaceRows) && surfaceRows.length > 0;
+  if (hasSensitivity || hasSurface) {
+    return "Explainable";
+  }
+  return "Context";
+}
+
+function deriveOutcomeRiskFlagsCardStatus(mcStatus, riskLabel) {
+  const stale = String(mcStatus?.staleTag || "").trim().toLowerCase();
+  const fresh = String(mcStatus?.freshTag || "").trim().toLowerCase();
+  const risk = String(riskLabel || "").trim().toLowerCase();
+  if (!fresh || fresh.includes("pending")) {
+    return "Awaiting run";
+  }
+  if (risk.includes("high")) {
+    return "High risk";
+  }
+  if (stale.includes("flat")) {
+    return "Check distribution";
+  }
+  if (risk.includes("moderate") || risk.includes("watch")) {
+    return "Watch";
+  }
+  return "Current";
+}
+
+function deriveOutcomeSummaryCardStatus(riskLabel, winProb, fragility) {
+  const risk = String(riskLabel || "").trim();
+  const win = parsePercentNumber(winProb);
+  const frag = String(fragility || "").trim().toLowerCase();
+  if (!Number.isFinite(win)) {
+    return "Awaiting run";
+  }
+  if (/high/i.test(risk) || frag === "high") {
+    return "Fragile";
+  }
+  if (/moderate|watch/i.test(risk) || frag === "moderate") {
+    return "Watch";
+  }
+  return "Stable";
+}
+
+function classifyOutcomeStatusTone(text) {
+  const lower = String(text || "").trim().toLowerCase();
+  if (!lower) {
+    return "neutral";
+  }
+  if (/(favored|stable|surface ready|drivers ranked|current|explainable|model inputs)/.test(lower)) {
+    return "ok";
+  }
+  if (/(at risk|fragile|high risk|unavailable|failed|broken)/.test(lower)) {
+    return "bad";
+  }
+  if (/(awaiting|competitive|watch|check distribution|context)/.test(lower)) {
+    return "warn";
+  }
+  return "neutral";
 }
 
 function deriveGapFromNote(noteText) {
