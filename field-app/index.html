@@ -1555,8 +1555,12 @@ function closeEmergencyDiagnostics(){
   if (modal) modal.hidden = true;
 }
 
+function getLegacyShellRoot() {
+  return document.getElementById('app-shell-legacy');
+}
+
 function setLegacyShellVisible(visible) {
-  var shell = document.getElementById('app-shell-legacy');
+  var shell = getLegacyShellRoot();
   if (!shell) return;
   shell.hidden = !visible;
 }
@@ -1567,6 +1571,7 @@ window.__FPE_RESTORE_LEGACY_RIGHT_RAIL__ = restoreLegacyRightRailToOrigin;
 window.__FPE_ATTACH_LEGACY_RIGHT_RAIL_TO_SLOT__ = attachLegacyRightRailToSlot;
 window.__FPE_GET_LEGACY_COMPAT_NODE__ = getLegacyCompatNode;
 window.__FPE_GET_LEGACY_RIGHT_RAIL__ = getLegacyRightRailNode;
+window.__FPE_GET_LEGACY_SHELL_ROOT__ = getLegacyShellRoot;
 window.__FPE_SET_LEGACY_SHELL_VISIBLE__ = setLegacyShellVisible;
 window.__FPE_GET_UI_MODE__ = getUiModeFromLocation;
 window.__FPE_SET_UI_MODE__ = setUiMode;
