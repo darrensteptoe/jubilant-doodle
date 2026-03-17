@@ -24,7 +24,13 @@ import { createScenarioManager } from "../scenarioManager.js";
 import { migrateSnapshot, CURRENT_SCHEMA_VERSION } from "./migrate.js";
 import { APP_VERSION, BUILD_ID } from "../build.js";
 import { SELFTEST_GATE, gateFromSelfTestResult } from "./selfTestGate.js";
-import { readBackups, writeBackupEntry, persistStateSnapshot } from "../storage.js";
+import {
+  readBackups,
+  writeBackupEntry,
+  persistStateSnapshot,
+  makeStateStorageKey,
+  makeBackupStorageKey,
+} from "../storage.js";
 import { checkStrictImportPolicy } from "./importPolicy.js";
 import { computeConfidenceEnvelope } from "./confidenceEnvelope.js";
 import { computeSensitivitySurface } from "./sensitivitySurface.js";
@@ -70,6 +76,8 @@ import { resolveFeatureFlags } from "./featureFlags.js";
 import { validateOperationsCapacityInput } from "../features/operations/io.js";
 import { registerPhase115ATests } from "./selfTestSuites/phase115A.js";
 import { registerCensusPhase1Tests } from "./selfTestSuites/censusPhase1.js";
+import { registerTargetingTests } from "./selfTestSuites/targeting.js";
+import { registerRebuildContractTests } from "./selfTestSuites/rebuildContracts.js";
 import {
   makeDefaultCensusState,
   makeDefaultRaceFootprint,
@@ -286,6 +294,16 @@ export function runSelfTests(engine){
   });
 
   registerCensusPhase1Tests({
+    test,
+    assert,
+  });
+
+  registerTargetingTests({
+    test,
+    assert,
+  });
+
+  registerRebuildContractTests({
     test,
     assert,
   });
@@ -643,10 +661,14 @@ export function runSelfTests(engine){
       tl.requiredAttemptsTotal,
       tl.executableAttemptsTotal,
       tl.percentPlanExecutable,
-      tl.shortfallAttempts
+      tl.shortfallAttempts,
+      tl.shortfallObjectiveValue,
     ];
     for (const v of scalars){
       assert(v == null || Number.isFinite(v), `Non-finite scalar: ${v}`);
+    }
+    if (tl.shortfallObjectiveValue != null && tl.shortfallNetVotes != null){
+      assert(approx(tl.shortfallObjectiveValue, tl.shortfallNetVotes, 1e-9), "Timeline shortfall objective/net alias mismatch");
     }
     if (Array.isArray(tl.weekly)){
       for (const w of tl.weekly){
@@ -1486,7 +1508,7 @@ export function runSelfTests(engine){
     });
     const result = persistStateSnapshot(state, storage);
     assert(result?.ok === true, "state persistence should succeed");
-    const raw = storage.getItem("dsc_field_engine_state_v1");
+    const raw = storage.getItem(makeStateStorageKey({ campaignId: "default" }));
     assert(typeof raw === "string" && raw.length > 0, "state key should be written");
     const saved = JSON.parse(raw);
     assert(Array.isArray(saved?.census?.geoOptions) && saved.census.geoOptions.length === 0, "census geoOptions should be compacted");
@@ -1500,20 +1522,22 @@ export function runSelfTests(engine){
   });
 
   test("Phase 11: storage persistence retries after backup key clear", () => {
+    const stateKey = makeStateStorageKey({ campaignId: "default" });
+    const backupKey = makeBackupStorageKey({ campaignId: "default" });
     const storage = {
       removed: false,
       payload: "",
       getItem(){ return null; },
       setItem(key, value){
-        if (key === "dsc_field_engine_state_v1" && !this.removed){
+        if (key === stateKey && !this.removed){
           throw new Error("quota");
         }
-        if (key === "dsc_field_engine_state_v1"){
+        if (key === stateKey){
           this.payload = String(value);
         }
       },
       removeItem(key){
-        if (key === "fpe_backups_v1"){
+        if (key === backupKey){
           this.removed = true;
         }
       },

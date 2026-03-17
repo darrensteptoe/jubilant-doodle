@@ -18,6 +18,9 @@ import {
 export const CURRENT_SCHEMA_VERSION = "1.6.0";
 
 const SCENARIO_DEFAULTS = {
+  campaignId: "default",
+  campaignName: "",
+  officeId: "",
   // Phase 16 — Universe composition + retention (aggregate)
   universeLayerEnabled: false,
   universeDemPct: 100,

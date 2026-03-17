@@ -5,6 +5,7 @@
 import { APP_VERSION, BUILD_ID } from "../../build.js";
 import { downloadJson } from "../../utils.js";
 import { OPERATIONS_SCHEMA_VERSION, OPERATIONS_STORES } from "./schema.js";
+import { toOperationsStoreOptions } from "./context.js";
 import {
   ensureOperationsDefaults,
   getAll,
@@ -15,14 +16,30 @@ import {
 } from "./store.js";
 
 const CSV_COLUMNS = {
-  persons: ["id", "name", "office", "region", "role", "active", "createdAt", "updatedAt"],
-  pipelineRecords: ["id", "personId", "recruiter", "sourceChannel", "office", "region", "stage", "dropoffReason", "createdAt", "updatedAt"],
-  interviews: ["id", "personId", "scheduledAt", "interviewer", "score", "outcome", "notes", "createdAt", "updatedAt"],
-  onboardingRecords: ["id", "personId", "docsSubmittedAt", "backgroundStatus", "onboardingStatus", "completedAt", "notes", "createdAt", "updatedAt"],
-  trainingRecords: ["id", "personId", "trainingTrack", "sessions", "completionStatus", "completedAt", "notes", "createdAt", "updatedAt"],
-  shiftRecords: ["id", "personId", "date", "mode", "startAt", "endAt", "checkInAt", "checkOutAt", "turfId", "attempts", "convos", "supportIds", "office", "createdAt", "updatedAt"],
-  turfEvents: ["id", "turfId", "precinct", "county", "date", "assignedTo", "mode", "shiftId", "attempts", "canvassed", "vbms", "createdAt", "updatedAt"],
-  forecastConfigs: ["id", "stageConversionDefaults", "stageDurationDefaultsDays", "productivityDefaults", "createdAt", "updatedAt"],
+  persons: [
+    "id",
+    "campaignId",
+    "officeId",
+    "name",
+    "office",
+    "region",
+    "roleType",
+    "compensationType",
+    "payRate",
+    "expectedHoursPerWeek",
+    "supervisorId",
+    "role",
+    "active",
+    "createdAt",
+    "updatedAt",
+  ],
+  pipelineRecords: ["id", "campaignId", "officeId", "personId", "recruiter", "sourceChannel", "office", "region", "stage", "dropoffReason", "createdAt", "updatedAt"],
+  interviews: ["id", "campaignId", "officeId", "personId", "scheduledAt", "interviewer", "score", "outcome", "notes", "createdAt", "updatedAt"],
+  onboardingRecords: ["id", "campaignId", "officeId", "personId", "docsSubmittedAt", "backgroundStatus", "onboardingStatus", "completedAt", "notes", "createdAt", "updatedAt"],
+  trainingRecords: ["id", "campaignId", "officeId", "personId", "trainingTrack", "sessions", "completionStatus", "completedAt", "notes", "createdAt", "updatedAt"],
+  shiftRecords: ["id", "campaignId", "officeId", "personId", "date", "mode", "startAt", "endAt", "checkInAt", "checkOutAt", "turfId", "attempts", "convos", "supportIds", "office", "createdAt", "updatedAt"],
+  turfEvents: ["id", "campaignId", "officeId", "turfId", "precinct", "county", "date", "assignedTo", "mode", "shiftId", "attempts", "canvassed", "vbms", "createdAt", "updatedAt"],
+  forecastConfigs: ["id", "baseId", "campaignId", "officeId", "stageConversionDefaults", "stageDurationDefaultsDays", "productivityDefaults", "createdAt", "updatedAt"],
   meta: ["key", "value"],
 };
 
@@ -135,6 +152,12 @@ export function validateOperationsSnapshot(snapshot){
  *   orgCount:number|null,
  *   orgHoursPerWeek:number|null,
  *   volunteerMult:number|null,
+ *   organizerCount?:number|null,
+ *   paidCanvasserCount?:number|null,
+ *   activeVolunteerCount?:number|null,
+ *   activePaidHeadcount?:number|null,
+ *   activeStipendHeadcount?:number|null,
+ *   activeVolunteerHeadcount?:number|null,
  *   doorSharePct:number|null,
  *   doorShare:number|null,
  *   doorsPerHour:number|null,
@@ -193,7 +216,19 @@ export function validateOperationsCapacityInput(input){
   if (!cap || typeof cap !== "object"){
     errors.push("capacity must be an object.");
   } else {
-    for (const key of ["orgCount", "orgHoursPerWeek", "volunteerMult", "doorsPerHour", "callsPerHour"]){
+    for (const key of [
+      "orgCount",
+      "orgHoursPerWeek",
+      "volunteerMult",
+      "doorsPerHour",
+      "callsPerHour",
+      "organizerCount",
+      "paidCanvasserCount",
+      "activeVolunteerCount",
+      "activePaidHeadcount",
+      "activeStipendHeadcount",
+      "activeVolunteerHeadcount",
+    ]){
       const v = cap[key];
       if (!isFiniteOrNull(v) || (v != null && v < 0)){
         errors.push(`capacity.${key} must be null or a number >= 0.`);
@@ -254,13 +289,14 @@ export function validateOperationsCapacityInput(input){
   return { ok: errors.length === 0, errors };
 }
 
-export async function exportOperationsSnapshot({ includeMeta = true } = {}){
-  await ensureOperationsDefaults();
+export async function exportOperationsSnapshot({ includeMeta = true, context = {} } = {}){
+  const storeScope = toOperationsStoreOptions(context);
+  await ensureOperationsDefaults(storeScope);
 
   const data = {};
   const stores = includeMeta ? OPERATIONS_STORES : OPERATIONS_STORES.filter((s) => s !== "meta");
   for (const storeName of stores){
-    data[storeName] = await getAll(storeName);
+    data[storeName] = await getAll(storeName, storeScope);
   }
 
   return {
@@ -273,23 +309,24 @@ export async function exportOperationsSnapshot({ includeMeta = true } = {}){
   };
 }
 
-export async function downloadOperationsSnapshot(filename = "operations-snapshot.json"){
-  const snap = await exportOperationsSnapshot({ includeMeta: true });
+export async function downloadOperationsSnapshot(filename = "operations-snapshot.json", { context = {} } = {}){
+  const snap = await exportOperationsSnapshot({ includeMeta: true, context });
   downloadJson(snap, filename);
   return { ok: true, filename };
 }
 
-export async function importOperationsSnapshot(snapshot, { mode = "replace" } = {}){
+export async function importOperationsSnapshot(snapshot, { mode = "replace", context = {} } = {}){
   const v = validateOperationsSnapshot(snapshot);
   if (!v.ok){
     throw new Error(v.errors.join(" "));
   }
 
   const payload = snapshot.data || {};
+  const storeScope = toOperationsStoreOptions(context);
   if (mode === "replace"){
-    await replaceAllStores(payload);
+    await replaceAllStores(payload, storeScope);
   } else {
-    await mergeAllStores(payload);
+    await mergeAllStores(payload, storeScope);
   }
 
   return { ok: true, mode };
@@ -317,13 +354,14 @@ export function recordsToCsv(storeName, records){
   return lines.join("\n");
 }
 
-export async function exportStoreCsv(storeName){
-  const rows = await getAll(storeName);
+export async function exportStoreCsv(storeName, { context = {} } = {}){
+  const storeScope = toOperationsStoreOptions(context);
+  const rows = await getAll(storeName, storeScope);
   return recordsToCsv(storeName, rows);
 }
 
-export async function downloadStoreCsv(storeName, filename){
-  const csv = await exportStoreCsv(storeName);
+export async function downloadStoreCsv(storeName, filename, { context = {} } = {}){
+  const csv = await exportStoreCsv(storeName, { context });
   const blob = new Blob([csv], { type: "text/csv" });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
@@ -361,12 +399,13 @@ export function csvToRecords(storeName, csvText){
   return out;
 }
 
-export async function importStoreCsv(storeName, csvText, { mode = "merge" } = {}){
+export async function importStoreCsv(storeName, csvText, { mode = "merge", context = {} } = {}){
+  const storeScope = toOperationsStoreOptions(context);
   const rows = csvToRecords(storeName, csvText);
   if (mode === "replace"){
-    await clear(storeName);
+    await clear(storeName, storeScope);
   }
-  await putMany(storeName, rows);
+  await putMany(storeName, rows, storeScope);
   return { ok: true, mode, count: rows.length };
 }
 

@@ -6,14 +6,23 @@ import {
   OPERATIONS_DB_NAME,
   OPERATIONS_DB_VERSION,
   OPERATIONS_STORES,
+  SCOPED_OPERATIONS_STORES,
   OPERATIONS_STORE_DEFS,
   PIPELINE_STAGES,
   DEFAULT_FORECAST_CONFIG,
 } from "./schema.js";
+import {
+  DEFAULT_CAMPAIGN_ID,
+  normalizeCampaignId,
+  normalizeOfficeId,
+  resolveActiveContext,
+} from "../../app/activeContext.js";
+import { normalizePersonWorkforceFields } from "./workforce.js";
 
 let dbPromise = null;
 const OPERATIONS_DATA_REV_KEY = "fpe_operations_data_rev_v1";
 let inMemoryRevision = 0;
+const SCOPED_STORES = new Set(SCOPED_OPERATIONS_STORES);
 
 function parseRevision(raw){
   const n = Number(raw);
@@ -124,7 +133,140 @@ export function makeOperationsId(prefix = "tw"){
   return `${prefix}_${stamp}_${rand}`;
 }
 
-function sanitizeRecord(storeName, input){
+function clean(value){
+  return String(value == null ? "" : value).trim();
+}
+
+function isObject(value){
+  return !!value && typeof value === "object" && !Array.isArray(value);
+}
+
+function isStoreScoped(storeName){
+  return SCOPED_STORES.has(storeName);
+}
+
+function normalizeStoreContext(context){
+  const src = isObject(context) ? context : {};
+  return resolveActiveContext({
+    campaignId: src.campaignId,
+    campaignName: src.campaignName,
+    officeId: src.officeId,
+    scenarioId: src.scenarioId,
+    search: src.search,
+    fallback: src.fallback,
+  });
+}
+
+function resolveStoreContext(options = {}, fallback = {}){
+  const src = isObject(options) ? options : {};
+  const fb = isObject(fallback) ? fallback : {};
+  return normalizeStoreContext({
+    campaignId: src.campaignId,
+    campaignName: src.campaignName,
+    officeId: src.officeId,
+    scenarioId: src.scenarioId,
+    search: src.search,
+    fallback: {
+      campaignId: src.campaignId || fb.campaignId,
+      campaignName: src.campaignName || fb.campaignName,
+      officeId: src.officeId || fb.officeId || fb.office,
+      scenarioId: src.scenarioId || fb.scenarioId,
+    },
+  });
+}
+
+function normalizeRecordCampaignId(record, context){
+  return normalizeCampaignId(record?.campaignId || record?.campaign || context?.campaignId, DEFAULT_CAMPAIGN_ID);
+}
+
+function normalizeRecordOfficeId(record, context){
+  return normalizeOfficeId(record?.officeId || record?.office || context?.officeId, "");
+}
+
+function toScopeToken(officeId){
+  return clean(officeId) || "all";
+}
+
+function forecastConfigScopedId(baseId, context){
+  const root = clean(baseId) || "default";
+  const campaignId = normalizeCampaignId(context?.campaignId, DEFAULT_CAMPAIGN_ID);
+  const officeId = normalizeOfficeId(context?.officeId, "");
+  return `${root}::${campaignId}::${toScopeToken(officeId)}`;
+}
+
+function forecastBaseId(value){
+  const raw = clean(value) || "default";
+  const cut = raw.indexOf("::");
+  if (cut < 0) return raw;
+  return clean(raw.slice(0, cut)) || "default";
+}
+
+function applyScopedFields(storeName, rec, context){
+  if (!isStoreScoped(storeName)) return rec;
+  const scoped = { ...rec };
+  scoped.campaignId = normalizeRecordCampaignId(scoped, context);
+  scoped.officeId = normalizeRecordOfficeId(scoped, context);
+  if (!clean(scoped.office) && clean(scoped.officeId)){
+    scoped.office = scoped.officeId;
+  }
+  if (storeName === "forecastConfigs"){
+    const baseId = forecastBaseId(scoped.baseId || scoped.id || "default");
+    scoped.baseId = baseId;
+    scoped.id = forecastConfigScopedId(baseId, scoped);
+  }
+  return scoped;
+}
+
+function isScopedMatch(storeName, record, context, { includeCampaignDefaults = false } = {}){
+  if (!isStoreScoped(storeName)) return true;
+  const cid = normalizeRecordCampaignId(record, context);
+  const contextCampaign = normalizeCampaignId(context?.campaignId, DEFAULT_CAMPAIGN_ID);
+  if (cid !== contextCampaign) return false;
+
+  const contextOffice = normalizeOfficeId(context?.officeId, "");
+  if (!contextOffice) return true;
+
+  const rid = normalizeRecordOfficeId(record, context);
+  if (rid === contextOffice) return true;
+  if (includeCampaignDefaults && !rid) return true;
+  return false;
+}
+
+function filterRowsByScope(storeName, rows, context){
+  const list = Array.isArray(rows) ? rows : [];
+  if (!isStoreScoped(storeName)) return list;
+  const includeCampaignDefaults = storeName === "forecastConfigs";
+  return list.filter((row) => isScopedMatch(storeName, row, context, { includeCampaignDefaults }));
+}
+
+async function getRowsForContext(store, storeName, context){
+  if (!isStoreScoped(storeName)) return requestToPromise(store.getAll());
+  try{
+    const idx = store.index("campaignId");
+    const rows = await requestToPromise(idx.getAll(normalizeCampaignId(context?.campaignId, DEFAULT_CAMPAIGN_ID)));
+    return filterRowsByScope(storeName, rows, context);
+  } catch {
+    const rows = await requestToPromise(store.getAll());
+    return filterRowsByScope(storeName, rows, context);
+  }
+}
+
+async function clearRowsForContext(store, storeName, context){
+  if (!isStoreScoped(storeName)){
+    if (storeName === "meta") return;
+    store.clear();
+    return;
+  }
+  const rows = await getRowsForContext(store, storeName, context);
+  const keyPath = store.keyPath;
+  for (const row of rows){
+    if (typeof keyPath === "string" && keyPath){
+      store.delete(row?.[keyPath]);
+    }
+  }
+}
+
+function sanitizeRecord(storeName, input, context){
   const rec = (input && typeof input === "object") ? { ...input } : {};
   const stamp = nowIso();
 
@@ -149,7 +291,14 @@ function sanitizeRecord(storeName, input){
   rec.updatedAt = stamp;
 
   if (storeName === "persons"){
-    rec.active = !!rec.active;
+    const normalized = normalizePersonWorkforceFields(rec);
+    rec.roleType = normalized.roleType;
+    rec.compensationType = normalized.compensationType;
+    rec.payRate = normalized.payRate;
+    rec.expectedHoursPerWeek = normalized.expectedHoursPerWeek;
+    rec.supervisorId = normalized.supervisorId;
+    rec.role = normalized.role;
+    rec.active = normalized.active;
   }
   if (storeName === "pipelineRecords"){
     if (!PIPELINE_STAGES.includes(rec.stage)){
@@ -169,7 +318,7 @@ function sanitizeRecord(storeName, input){
     rec.sessions = Number.isFinite(sessions) && sessions > 0 ? Math.round(sessions) : 0;
   }
 
-  return rec;
+  return applyScopedFields(storeName, rec, context || {});
 }
 
 export function openOperationsDb(){
@@ -214,12 +363,17 @@ export async function closeOperationsDb(){
   dbPromise = null;
 }
 
-export async function ensureOperationsDefaults(){
+export async function ensureOperationsDefaults(options = {}){
+  const context = resolveStoreContext(options);
+  const scopedDefaultId = forecastConfigScopedId(DEFAULT_FORECAST_CONFIG.baseId || DEFAULT_FORECAST_CONFIG.id || "default", context);
   const result = await runInTransaction(["forecastConfigs"], "readwrite", async (stores) => {
-    const existing = await requestToPromise(stores.forecastConfigs.get("default"));
+    let existing = await requestToPromise(stores.forecastConfigs.get(scopedDefaultId));
+    if (!existing && !context.officeId && context.campaignSource === "default"){
+      existing = await requestToPromise(stores.forecastConfigs.get("default"));
+    }
     let inserted = false;
     if (!existing){
-      stores.forecastConfigs.put(sanitizeRecord("forecastConfigs", DEFAULT_FORECAST_CONFIG));
+      stores.forecastConfigs.put(sanitizeRecord("forecastConfigs", DEFAULT_FORECAST_CONFIG, context));
       inserted = true;
     }
     return { inserted };
@@ -227,32 +381,62 @@ export async function ensureOperationsDefaults(){
   if (result?.inserted) bumpOperationsDataRevision();
 }
 
-export async function getAll(storeName){
+export async function getAll(storeName, options = {}){
   assertStoreName(storeName);
+  const scope = isObject(options) ? options : {};
+  if (scope.scope === "all"){
+    return runInTransaction([storeName], "readonly", async (stores) => requestToPromise(stores[storeName].getAll()));
+  }
+  const context = resolveStoreContext(scope);
   return runInTransaction([storeName], "readonly", async (stores) => {
-    return requestToPromise(stores[storeName].getAll());
+    return getRowsForContext(stores[storeName], storeName, context);
   });
 }
 
-export async function getById(storeName, id){
+export async function getById(storeName, id, options = {}){
   assertStoreName(storeName);
-  const key = id == null ? "" : id;
+  const scope = isObject(options) ? options : {};
+  const context = resolveStoreContext(scope);
+  const key = clean(id);
   return runInTransaction([storeName], "readonly", async (stores) => {
-    return requestToPromise(stores[storeName].get(key));
+    if (scope.scope === "all" || !isStoreScoped(storeName)){
+      return requestToPromise(stores[storeName].get(key));
+    }
+    if (storeName === "forecastConfigs"){
+      const baseId = key || "default";
+      const scopedId = forecastConfigScopedId(baseId, context);
+      let row = await requestToPromise(stores[storeName].get(scopedId));
+      if (!row && context.officeId){
+        const campaignDefaultId = forecastConfigScopedId(baseId, { ...context, officeId: "" });
+        row = await requestToPromise(stores[storeName].get(campaignDefaultId));
+      }
+      if (!row && !context.officeId && context.campaignSource === "default"){
+        row = await requestToPromise(stores[storeName].get(baseId));
+      }
+      return row || null;
+    }
+    const row = await requestToPromise(stores[storeName].get(key));
+    if (!row) return null;
+    return isScopedMatch(storeName, row, context) ? row : null;
   });
 }
 
-export async function getByIndex(storeName, indexName, key){
+export async function getByIndex(storeName, indexName, key, options = {}){
   assertStoreName(storeName);
+  const scope = isObject(options) ? options : {};
+  const context = resolveStoreContext(scope);
   return runInTransaction([storeName], "readonly", async (stores) => {
     const idx = stores[storeName].index(indexName);
-    return requestToPromise(idx.getAll(key));
+    const rows = await requestToPromise(idx.getAll(key));
+    if (scope.scope === "all" || !isStoreScoped(storeName)) return rows;
+    return filterRowsByScope(storeName, rows, context);
   });
 }
 
-export async function put(storeName, record){
+export async function put(storeName, record, options = {}){
   assertStoreName(storeName);
-  const next = sanitizeRecord(storeName, record);
+  const context = resolveStoreContext(options, record);
+  const next = sanitizeRecord(storeName, record, context);
   const out = await runInTransaction([storeName], "readwrite", async (stores) => {
     stores[storeName].put(next);
     return next;
@@ -261,10 +445,11 @@ export async function put(storeName, record){
   return out;
 }
 
-export async function putMany(storeName, records){
+export async function putMany(storeName, records, options = {}){
   assertStoreName(storeName);
+  const context = resolveStoreContext(options);
   const list = Array.isArray(records) ? records : [];
-  const next = list.map((r) => sanitizeRecord(storeName, r));
+  const next = list.map((r) => sanitizeRecord(storeName, r, context));
   const out = await runInTransaction([storeName], "readwrite", async (stores) => {
     for (const rec of next){
       stores[storeName].put(rec);
@@ -275,47 +460,61 @@ export async function putMany(storeName, records){
   return out;
 }
 
-export async function remove(storeName, id){
+export async function remove(storeName, id, options = {}){
   assertStoreName(storeName);
-  const key = id == null ? "" : id;
+  const scope = isObject(options) ? options : {};
+  const context = resolveStoreContext(scope);
+  const key = clean(id);
   const out = await runInTransaction([storeName], "readwrite", async (stores) => {
-    stores[storeName].delete(key);
+    if (scope.scope === "all" || !isStoreScoped(storeName)){
+      stores[storeName].delete(key);
+      return { ok: true };
+    }
+    if (storeName === "forecastConfigs"){
+      const scopedId = forecastConfigScopedId(key || "default", context);
+      stores[storeName].delete(scopedId);
+      if (context.officeId){
+        const campaignDefaultId = forecastConfigScopedId(key || "default", { ...context, officeId: "" });
+        stores[storeName].delete(campaignDefaultId);
+      }
+      return { ok: true };
+    }
+    const existing = await requestToPromise(stores[storeName].get(key));
+    if (existing && isScopedMatch(storeName, existing, context)){
+      stores[storeName].delete(key);
+    }
     return { ok: true };
   });
   bumpOperationsDataRevision();
   return out;
 }
 
-export async function clear(storeName){
+export async function clear(storeName, options = {}){
   assertStoreName(storeName);
+  const scope = isObject(options) ? options : {};
+  const context = resolveStoreContext(scope);
   const out = await runInTransaction([storeName], "readwrite", async (stores) => {
-    stores[storeName].clear();
+    if (scope.scope === "all"){
+      stores[storeName].clear();
+      return { ok: true };
+    }
+    await clearRowsForContext(stores[storeName], storeName, context);
     return { ok: true };
   });
   bumpOperationsDataRevision();
   return out;
 }
 
-export async function clearAllStores(){
+export async function clearAllStores(options = {}){
+  const scope = isObject(options) ? options : {};
+  const context = resolveStoreContext(scope);
   const clearable = OPERATIONS_STORES.slice();
   const out = await runInTransaction(clearable, "readwrite", async (stores) => {
     for (const name of clearable){
-      stores[name].clear();
-    }
-    return { ok: true };
-  });
-  bumpOperationsDataRevision();
-  return out;
-}
-
-export async function replaceAllStores(dataByStore){
-  const payload = (dataByStore && typeof dataByStore === "object") ? dataByStore : {};
-  const out = await runInTransaction(OPERATIONS_STORES, "readwrite", async (stores) => {
-    for (const name of OPERATIONS_STORES){
-      stores[name].clear();
-      const rows = Array.isArray(payload[name]) ? payload[name] : [];
-      for (const rec of rows){
-        stores[name].put(sanitizeRecord(name, rec));
+      if (scope.scope === "all"){
+        stores[name].clear();
+      } else {
+        await clearRowsForContext(stores[name], name, context);
       }
     }
     return { ok: true };
@@ -324,13 +523,20 @@ export async function replaceAllStores(dataByStore){
   return out;
 }
 
-export async function mergeAllStores(dataByStore){
+export async function replaceAllStores(dataByStore, options = {}){
+  const scope = isObject(options) ? options : {};
+  const context = resolveStoreContext(scope);
   const payload = (dataByStore && typeof dataByStore === "object") ? dataByStore : {};
   const out = await runInTransaction(OPERATIONS_STORES, "readwrite", async (stores) => {
     for (const name of OPERATIONS_STORES){
+      if (scope.scope === "all"){
+        stores[name].clear();
+      } else {
+        await clearRowsForContext(stores[name], name, context);
+      }
       const rows = Array.isArray(payload[name]) ? payload[name] : [];
       for (const rec of rows){
-        stores[name].put(sanitizeRecord(name, rec));
+        stores[name].put(sanitizeRecord(name, rec, context));
       }
     }
     return { ok: true };
@@ -339,10 +545,26 @@ export async function mergeAllStores(dataByStore){
   return out;
 }
 
-export async function getSummaryCounts(){
+export async function mergeAllStores(dataByStore, options = {}){
+  const context = resolveStoreContext(options);
+  const payload = (dataByStore && typeof dataByStore === "object") ? dataByStore : {};
+  const out = await runInTransaction(OPERATIONS_STORES, "readwrite", async (stores) => {
+    for (const name of OPERATIONS_STORES){
+      const rows = Array.isArray(payload[name]) ? payload[name] : [];
+      for (const rec of rows){
+        stores[name].put(sanitizeRecord(name, rec, context));
+      }
+    }
+    return { ok: true };
+  });
+  bumpOperationsDataRevision();
+  return out;
+}
+
+export async function getSummaryCounts(options = {}){
   const result = {};
   for (const name of OPERATIONS_STORES){
-    result[name] = (await getAll(name)).length;
+    result[name] = (await getAll(name, options)).length;
   }
   return result;
 }

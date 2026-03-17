@@ -2,10 +2,10 @@
 // js/features/operations/schema.js
 // Operations schema constants (static-host safe, local-first).
 
-export const OPERATIONS_SCHEMA_VERSION = "1.1.0";
+export const OPERATIONS_SCHEMA_VERSION = "1.3.0";
 
 export const OPERATIONS_DB_NAME = "fieldPathThirdWing";
-export const OPERATIONS_DB_VERSION = 2;
+export const OPERATIONS_DB_VERSION = 4;
 
 export const OPERATIONS_STORES = [
   "persons",
@@ -17,6 +17,17 @@ export const OPERATIONS_STORES = [
   "turfEvents",
   "forecastConfigs",
   "meta",
+];
+
+export const SCOPED_OPERATIONS_STORES = [
+  "persons",
+  "pipelineRecords",
+  "interviews",
+  "onboardingRecords",
+  "trainingRecords",
+  "shiftRecords",
+  "turfEvents",
+  "forecastConfigs",
 ];
 
 export const PIPELINE_STAGES = [
@@ -36,6 +47,11 @@ export const OPERATIONS_STORE_DEFS = {
   persons: {
     keyPath: "id",
     indexes: [
+      { name: "campaignId", keyPath: "campaignId", options: { unique: false } },
+      { name: "officeId", keyPath: "officeId", options: { unique: false } },
+      { name: "roleType", keyPath: "roleType", options: { unique: false } },
+      { name: "compensationType", keyPath: "compensationType", options: { unique: false } },
+      { name: "supervisorId", keyPath: "supervisorId", options: { unique: false } },
       { name: "office", keyPath: "office", options: { unique: false } },
       { name: "region", keyPath: "region", options: { unique: false } },
       { name: "active", keyPath: "active", options: { unique: false } },
@@ -45,6 +61,8 @@ export const OPERATIONS_STORE_DEFS = {
   pipelineRecords: {
     keyPath: "id",
     indexes: [
+      { name: "campaignId", keyPath: "campaignId", options: { unique: false } },
+      { name: "officeId", keyPath: "officeId", options: { unique: false } },
       { name: "personId", keyPath: "personId", options: { unique: false } },
       { name: "stage", keyPath: "stage", options: { unique: false } },
       { name: "recruiter", keyPath: "recruiter", options: { unique: false } },
@@ -55,6 +73,8 @@ export const OPERATIONS_STORE_DEFS = {
   interviews: {
     keyPath: "id",
     indexes: [
+      { name: "campaignId", keyPath: "campaignId", options: { unique: false } },
+      { name: "officeId", keyPath: "officeId", options: { unique: false } },
       { name: "personId", keyPath: "personId", options: { unique: false } },
       { name: "scheduledAt", keyPath: "scheduledAt", options: { unique: false } },
       { name: "outcome", keyPath: "outcome", options: { unique: false } },
@@ -65,6 +85,8 @@ export const OPERATIONS_STORE_DEFS = {
   onboardingRecords: {
     keyPath: "id",
     indexes: [
+      { name: "campaignId", keyPath: "campaignId", options: { unique: false } },
+      { name: "officeId", keyPath: "officeId", options: { unique: false } },
       { name: "personId", keyPath: "personId", options: { unique: false } },
       { name: "backgroundStatus", keyPath: "backgroundStatus", options: { unique: false } },
       { name: "onboardingStatus", keyPath: "onboardingStatus", options: { unique: false } },
@@ -74,6 +96,8 @@ export const OPERATIONS_STORE_DEFS = {
   trainingRecords: {
     keyPath: "id",
     indexes: [
+      { name: "campaignId", keyPath: "campaignId", options: { unique: false } },
+      { name: "officeId", keyPath: "officeId", options: { unique: false } },
       { name: "personId", keyPath: "personId", options: { unique: false } },
       { name: "trainingTrack", keyPath: "trainingTrack", options: { unique: false } },
       { name: "completionStatus", keyPath: "completionStatus", options: { unique: false } },
@@ -83,6 +107,8 @@ export const OPERATIONS_STORE_DEFS = {
   shiftRecords: {
     keyPath: "id",
     indexes: [
+      { name: "campaignId", keyPath: "campaignId", options: { unique: false } },
+      { name: "officeId", keyPath: "officeId", options: { unique: false } },
       { name: "personId", keyPath: "personId", options: { unique: false } },
       { name: "date", keyPath: "date", options: { unique: false } },
       { name: "mode", keyPath: "mode", options: { unique: false } },
@@ -93,6 +119,8 @@ export const OPERATIONS_STORE_DEFS = {
   turfEvents: {
     keyPath: "id",
     indexes: [
+      { name: "campaignId", keyPath: "campaignId", options: { unique: false } },
+      { name: "officeId", keyPath: "officeId", options: { unique: false } },
       { name: "turfId", keyPath: "turfId", options: { unique: false } },
       { name: "precinct", keyPath: "precinct", options: { unique: false } },
       { name: "county", keyPath: "county", options: { unique: false } },
@@ -103,6 +131,9 @@ export const OPERATIONS_STORE_DEFS = {
   forecastConfigs: {
     keyPath: "id",
     indexes: [
+      { name: "campaignId", keyPath: "campaignId", options: { unique: false } },
+      { name: "officeId", keyPath: "officeId", options: { unique: false } },
+      { name: "baseId", keyPath: "baseId", options: { unique: false } },
       { name: "updatedAt", keyPath: "updatedAt", options: { unique: false } },
     ],
   },
@@ -114,6 +145,9 @@ export const OPERATIONS_STORE_DEFS = {
 
 export const DEFAULT_FORECAST_CONFIG = {
   id: "default",
+  baseId: "default",
+  campaignId: "default",
+  officeId: "",
   stageConversionDefaults: {
     sourced_to_contacted: 0.7,
     contacted_to_phone_screen: 0.6,

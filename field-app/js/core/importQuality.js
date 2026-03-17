@@ -361,7 +361,7 @@ export function validateImportedScenarioData(scenario){
   // Budget tactics integrity
   const tactics = scenario?.budget?.tactics;
   if (isObject(tactics)){
-    for (const key of ["doors", "phones", "texts"]){
+    for (const key of ["doors", "phones", "texts", "litDrop", "mail"]){
       const t = tactics[key];
       if (!isObject(t)) continue;
       const cpa = num(t.cpa);

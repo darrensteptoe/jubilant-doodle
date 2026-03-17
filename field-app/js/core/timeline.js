@@ -25,6 +25,31 @@ function clamp0(v){
 }
 
 /**
+ * @param {Record<string, any> | null | undefined} args
+ * @returns {number}
+ */
+function resolveObjectiveValuePerAttempt(args){
+  return clamp0(num(args?.objectiveValuePerAttempt, num(args?.netVotesPerAttempt, 0)));
+}
+
+/**
+ * Resolve canonical timeline-feasibility objective fields with compatibility fallbacks.
+ *
+ * @param {Record<string, any> | null | undefined} timeline
+ * @returns {{
+ *   objectiveValuePerAttempt: number,
+ *   shortfallObjectiveValue: number | null,
+ * }}
+ */
+export function getTimelineFeasibilityObjectiveMeta(timeline){
+  const src = timeline && typeof timeline === "object" ? timeline : {};
+  return {
+    objectiveValuePerAttempt: resolveObjectiveValuePerAttempt(src),
+    shortfallObjectiveValue: num(src.shortfallObjectiveValue, num(src.shortfallNetVotes, null)),
+  };
+}
+
+/**
  * @param {{
  *   enabled?: boolean,
  *   requiredAttemptsTotal?: number,
@@ -33,13 +58,21 @@ function clamp0(v){
  */
 export function computeTimelineFeasibility(args){
   const enabled = !!args?.enabled;
+  const objectiveValuePerAttempt = resolveObjectiveValuePerAttempt(args);
   if (!enabled){
+    const requiredAttemptsTotal = clamp0(args?.requiredAttemptsTotal ?? 0);
+    const executableAttemptsTotal = requiredAttemptsTotal;
+    const shortfallAttempts = 0;
+    const shortfallObjectiveValue = 0;
     return {
       enabled: false,
-      requiredAttemptsTotal: clamp0(args?.requiredAttemptsTotal ?? 0),
-      executableAttemptsTotal: clamp0(args?.requiredAttemptsTotal ?? 0),
+      objectiveValuePerAttempt,
+      requiredAttemptsTotal,
+      executableAttemptsTotal,
       percentPlanExecutable: 1,
-      shortfallAttempts: 0,
+      shortfallAttempts,
+      shortfallObjectiveValue,
+      shortfallNetVotes: shortfallObjectiveValue,
       constraintType: null,
       weekly: []
     };
@@ -62,13 +95,17 @@ export function computeTimelineFeasibility(args){
 
   const percent = (requiredTotal <= 0) ? 1 : Math.max(0, Math.min(1, executableTotal / requiredTotal));
   const shortfall = Math.max(0, requiredTotal - executableTotal);
+  const shortfallObjectiveValue = shortfall * objectiveValuePerAttempt;
 
   return {
     enabled: true,
+    objectiveValuePerAttempt,
     requiredAttemptsTotal: requiredTotal,
     executableAttemptsTotal: executableTotal,
     percentPlanExecutable: percent,
     shortfallAttempts: shortfall,
+    shortfallObjectiveValue,
+    shortfallNetVotes: shortfallObjectiveValue,
     constraintType: shortfall > 0 ? "Timeline-limited" : null,
     weekly: [] // UI can build a detailed schedule later; R0/R1 don’t need it
   };

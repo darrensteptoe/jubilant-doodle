@@ -8,6 +8,73 @@
 
 import { clamp, safeNum } from "./utils.js";
 
+export const OPTIMIZATION_OBJECTIVES = Object.freeze([
+  Object.freeze({
+    value: "net",
+    label: "Net Votes",
+    description: "Maximize deterministic net vote yield per dollar or per attempt.",
+  }),
+  Object.freeze({
+    value: "turnout",
+    label: "Turnout-Adjusted Net Votes",
+    description: "Use turnout-adjusted net vote yield for tactic ranking.",
+  }),
+  Object.freeze({
+    value: "uplift",
+    label: "Uplift-Adjusted Net Votes",
+    description: "Use expected action-driven uplift multiplied by deterministic net votes.",
+  }),
+  Object.freeze({
+    value: "uplift_turnout",
+    label: "Uplift + Turnout Net Votes",
+    description: "Use uplift-adjusted turnout-aware net vote yield.",
+  }),
+  Object.freeze({
+    value: "uplift_robust",
+    label: "Uplift (Risk-Adjusted) Net Votes",
+    description: "Use uplift lower-bound estimates to avoid over-weighting uncertain channels.",
+  }),
+]);
+
+const OPTIMIZATION_OBJECTIVE_SET = new Set(OPTIMIZATION_OBJECTIVES.map((row) => String(row.value)));
+
+export function normalizeOptimizationObjective(value, fallback = "net"){
+  const key = String(value || "").trim();
+  if (OPTIMIZATION_OBJECTIVE_SET.has(key)) return key;
+  return String(fallback || "net");
+}
+
+export function getOptimizationObjectiveLabel(value){
+  const key = normalizeOptimizationObjective(value, "net");
+  return OPTIMIZATION_OBJECTIVES.find((row) => row.value === key)?.label || "Net Votes";
+}
+
+/**
+ * @param {string | null | undefined} value
+ * @param {string} [fallback]
+ * @returns {{
+ *   value: string,
+ *   label: string,
+ *   metricLabel: string,
+ *   shortfallLabel: string,
+ *   maxLabel: string,
+ *   remainingGapLabel: string,
+ * }}
+ */
+export function getOptimizationObjectiveCopy(value, fallback = "net"){
+  const normalized = normalizeOptimizationObjective(value, fallback);
+  const label = getOptimizationObjectiveLabel(normalized);
+  const lower = String(label || "Net Votes").toLowerCase();
+  return {
+    value: normalized,
+    label,
+    metricLabel: `Expected ${lower}`,
+    shortfallLabel: `Shortfall ${lower}`,
+    maxLabel: `Max achievable ${lower}`,
+    remainingGapLabel: `Remaining ${lower} gap`,
+  };
+}
+
 /**
  * @typedef {object} AvgLiftInput
  * @property {number} baselineTurnoutPct
@@ -138,17 +205,49 @@ export function computeTurnoutAdjustedNetVotes({
  * objective:
  * - "net" => netVotesPerAttempt (existing)
  * - "turnout" => turnoutAdjustedNetVotesPerAttempt (new)
+ * - "uplift" => upliftAdjustedNetVotesPerAttempt
+ * - "uplift_turnout" => upliftAdjustedTurnoutNetVotesPerAttempt
+ * - "uplift_robust" => upliftRiskAdjustedNetVotesPerAttempt
  */
 /**
- * @param {{ netVotesPerAttempt?: number, turnoutAdjustedNetVotesPerAttempt?: number } | null | undefined} tactic
- * @param {"net" | "turnout" | string} objective
+ * @param {{
+ *   netVotesPerAttempt?: number,
+ *   turnoutAdjustedNetVotesPerAttempt?: number,
+  *   upliftAdjustedNetVotesPerAttempt?: number,
+ *   upliftAdjustedTurnoutNetVotesPerAttempt?: number,
+ *   upliftRiskAdjustedNetVotesPerAttempt?: number
+ * } | null | undefined} tactic
+ * @param {"net" | "turnout" | "uplift" | "uplift_turnout" | "uplift_robust" | string} objective
  * @returns {number}
  */
 export function pickTacticValuePerAttempt(tactic, objective){
   if (!tactic) return 0;
-  if (objective === "turnout"){
+  const normalized = normalizeOptimizationObjective(objective, "net");
+  if (normalized === "turnout"){
     const v = safeNum(tactic.turnoutAdjustedNetVotesPerAttempt);
     return (v != null && isFinite(v)) ? v : 0;
+  }
+  if (normalized === "uplift"){
+    const v = safeNum(tactic.upliftAdjustedNetVotesPerAttempt);
+    if (v != null && isFinite(v)) return v;
+    const fallback = safeNum(tactic.netVotesPerAttempt);
+    return (fallback != null && isFinite(fallback)) ? fallback : 0;
+  }
+  if (normalized === "uplift_turnout"){
+    const v = safeNum(tactic.upliftAdjustedTurnoutNetVotesPerAttempt);
+    if (v != null && isFinite(v)) return v;
+    const fallbackTurnout = safeNum(tactic.turnoutAdjustedNetVotesPerAttempt);
+    if (fallbackTurnout != null && isFinite(fallbackTurnout)) return fallbackTurnout;
+    const fallback = safeNum(tactic.netVotesPerAttempt);
+    return (fallback != null && isFinite(fallback)) ? fallback : 0;
+  }
+  if (normalized === "uplift_robust"){
+    const v = safeNum(tactic.upliftRiskAdjustedNetVotesPerAttempt);
+    if (v != null && isFinite(v)) return v;
+    const fallbackUplift = safeNum(tactic.upliftAdjustedNetVotesPerAttempt);
+    if (fallbackUplift != null && isFinite(fallbackUplift)) return fallbackUplift;
+    const fallback = safeNum(tactic.netVotesPerAttempt);
+    return (fallback != null && isFinite(fallback)) ? fallback : 0;
   }
   const v = safeNum(tactic.netVotesPerAttempt);
   return (v != null && isFinite(v)) ? v : 0;

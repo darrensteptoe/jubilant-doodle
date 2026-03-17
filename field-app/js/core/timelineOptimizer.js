@@ -37,6 +37,25 @@ function min2(a, b){
 }
 
 /**
+ * Resolve canonical timeline objective meta with compatibility fallback aliases.
+ *
+ * @param {Record<string, any> | null | undefined} meta
+ * @returns {{
+ *   goalObjectiveValue: number | null,
+ *   maxAchievableObjectiveValue: number | null,
+ *   remainingGapObjectiveValue: number | null,
+ * }}
+ */
+export function getTimelineObjectiveMeta(meta){
+  const src = meta && typeof meta === "object" ? meta : {};
+  return {
+    goalObjectiveValue: num(src.goalObjectiveValue, num(src.goalNetVotes, null)),
+    maxAchievableObjectiveValue: num(src.maxAchievableObjectiveValue, num(src.maxAchievableNetVotes, null)),
+    remainingGapObjectiveValue: num(src.remainingGapObjectiveValue, num(src.remainingGapNetVotes, null)),
+  };
+}
+
+/**
  * @param {Record<string, any>=} args
  */
 export function computeMaxAttemptsByTactic(args){
@@ -108,12 +127,13 @@ export function optimizeTimelineConstrained(opts){
   //   tactics, step, useDecay, objective,
   //   maxAttemptsByTactic,
   //   tlObjectiveMode: "max_net" | "min_cost_goal",
+  //   goalObjectiveValue,
   //   goalNetVotes
   // }
 
   const mode = String(opts?.mode || "budget");
   const tlObjectiveMode = String(opts?.tlObjectiveMode || "max_net");
-  const goal = num(opts?.goalNetVotes, null);
+  const goal = num(opts?.goalObjectiveValue, num(opts?.goalNetVotes, null));
 
   const cappedTactics = applyCapsToTactics(opts?.tactics, opts?.maxAttemptsByTactic);
 
@@ -173,7 +193,13 @@ export function optimizeTimelineConstrained(opts){
 
   const maxAchievable = num(plan?.totals?.netVotes, 0) ?? 0;
   const goalFeasible = (goal == null) ? true : (maxAchievable + 1e-9 >= goal);
-  const remainingGapNetVotes = (goal == null) ? 0 : Math.max(0, goal - maxAchievable);
+  const remainingGapObjectiveValue = (goal == null) ? 0 : Math.max(0, goal - maxAchievable);
+
+  const objectiveMeta = getTimelineObjectiveMeta({
+    goalObjectiveValue: goal,
+    maxAchievableObjectiveValue: maxAchievable,
+    remainingGapObjectiveValue,
+  });
 
   return {
     plan,
@@ -181,10 +207,13 @@ export function optimizeTimelineConstrained(opts){
       mode,
       tlObjectiveMode,
       bindingObj,
-      goalNetVotes: goal,
+      goalObjectiveValue: objectiveMeta.goalObjectiveValue,
+      goalNetVotes: objectiveMeta.goalObjectiveValue,
       goalFeasible,
-      maxAchievableNetVotes: maxAchievable,
-      remainingGapNetVotes
+      maxAchievableObjectiveValue: objectiveMeta.maxAchievableObjectiveValue,
+      maxAchievableNetVotes: objectiveMeta.maxAchievableObjectiveValue,
+      remainingGapObjectiveValue: objectiveMeta.remainingGapObjectiveValue,
+      remainingGapNetVotes: objectiveMeta.remainingGapObjectiveValue
     }
   };
 }

@@ -2,6 +2,8 @@
 // js/features/operations/rollups.js
 // Deterministic rollups + overlap-safe totals for Operations.
 
+import { computeWorkforceOfficeMix, computeWorkforceRollups } from "./workforce.js";
+
 function num(v, fallback = 0){
   const n = Number(v);
   return Number.isFinite(n) ? n : fallback;
@@ -102,9 +104,10 @@ export function summarizeTurfCoverage(turfEvents){
 // - Production totals come from shifts.
 // - Turf attempts are coverage metrics and excluded from production totals by default.
 // - Dedupe counters are returned for transparency.
-export function computeOperationalRollups({ shiftRecords, turfEvents, options } = {}){
+export function computeOperationalRollups({ persons, shiftRecords, turfEvents, options } = {}){
   const opts = options || {};
   const allowTurfFallback = !!opts.allowTurfFallbackAttempts;
+  const people = Array.isArray(persons) ? persons : [];
   const shifts = Array.isArray(shiftRecords) ? shiftRecords : [];
   const turf = Array.isArray(turfEvents) ? turfEvents : [];
 
@@ -148,6 +151,16 @@ export function computeOperationalRollups({ shiftRecords, turfEvents, options } 
       source: (shift.shiftCount > 0) ? "shift" : (allowTurfFallback ? "turf_fallback" : "shift"),
     },
     coverage,
+    workforce: computeWorkforceRollups({
+      persons: people,
+      shiftRecords: shifts,
+      lookbackDays: Number.isFinite(Number(opts.workforceLookbackDays))
+        ? Math.max(1, Math.floor(Number(opts.workforceLookbackDays)))
+        : 14,
+    }),
+    officeMix: computeWorkforceOfficeMix({
+      persons: people,
+    }),
     dedupe: {
       rule: "shift_primary_turf_coverage",
       excludedTurfAttemptRecords,

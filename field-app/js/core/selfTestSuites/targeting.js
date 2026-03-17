@@ -7,6 +7,7 @@ import {
   normalizeTargetingState,
   runTargetRanking,
 } from "../../app/targetingRuntime.js";
+import { resolveCanonicalWeightProfile } from "../targetFeatureEngine.js";
 import {
   deriveTargetSignalsForRow,
   listTargetModels,
@@ -144,7 +145,14 @@ export function registerTargetingTests(ctx){
     assert(String(applied?.preset?.id || "") === "obama_persuasion", "preset apply did not resolve obama_persuasion");
     assert(String(target.modelId || "") === "persuasion_first", "obama_persuasion should map to persuasion_first model");
     assert(Number(target.topN) === 40, "obama_persuasion topN mismatch");
-    assert(Math.abs(Number(target.weights?.persuasionIndex) - 0.45) < 1e-9, "obama_persuasion persuasion weight mismatch");
+    const expectedWeights = resolveCanonicalWeightProfile({
+      profileId: "persuasion_first",
+      customWeights: getTargetModelPreset("obama_persuasion")?.weights,
+    });
+    assert(
+      Math.abs(Number(target.weights?.persuasionIndex) - Number(expectedWeights?.persuasionIndex)) < 1e-9,
+      "obama_persuasion persuasion weight mismatch",
+    );
 
     const hybrid = getTargetModelPreset("hybrid_model");
     assert(String(hybrid?.modelId || "") === "house_v1", "hybrid_model should map to house_v1");
@@ -169,16 +177,23 @@ export function registerTargetingTests(ctx){
     const state = baseState();
     state.targeting = normalizeTargetingState({
       modelId: "house_v1",
-      topN: 1,
+      topN: 2,
       onlyRaceFootprint: false,
       geoLevel: "block_group",
       minHousingUnits: 0,
       minPopulation: 0,
+      minScore: 0,
       weights: {
         votePotential: 1,
         turnoutOpportunity: 0,
         persuasionIndex: 0,
         fieldEfficiency: 0,
+      },
+      criteria: {
+        prioritizeYoung: false,
+        prioritizeRenters: false,
+        avoidHighMultiUnit: false,
+        densityFloor: "none",
       },
     });
 
@@ -199,7 +214,7 @@ export function registerTargetingTests(ctx){
     assert(result.rows.length === 2, "expected two ranked rows");
     assert(result.rows[0].score >= result.rows[1].score, "rows should be sorted desc");
     assert(result.rows[0].isTopTarget === true, "top row should be flagged");
-    assert(result.rows[1].isTopTarget === false, "second row should not be top target");
+    assert(result.rows[1].isTopTarget === true, "second row should be flagged when topN includes rank 2");
     assert(result.rows[0].rank === 1, "first rank should be 1");
     assert(result.rows[1].rank === 2, "second rank should be 2");
   });

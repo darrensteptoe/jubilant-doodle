@@ -1,5 +1,7 @@
 // @ts-check
 
+import { computeCanonicalTargetMetrics } from "./targetFeatureEngine.js";
+
 const AGE_18_24_VARS = [
   "B01001_007E", "B01001_008E", "B01001_009E", "B01001_010E",
   "B01001_031E", "B01001_032E", "B01001_033E", "B01001_034E",
@@ -86,25 +88,6 @@ function densityBandFromRatio(densityRatio){
     return { id: "medium_density", label: "Medium density", multiplier: 0.97, modifier: 0.05 };
   }
   return { id: "low_density", label: "Low density", multiplier: 0.88, modifier: -0.10 };
-}
-
-function normalizeWeightBag(input){
-  const src = input && typeof input === "object" ? input : {};
-  const out = {
-    votePotential: Number.isFinite(Number(src.votePotential)) ? Math.max(0, Number(src.votePotential)) : 0.35,
-    turnoutOpportunity: Number.isFinite(Number(src.turnoutOpportunity)) ? Math.max(0, Number(src.turnoutOpportunity)) : 0.25,
-    persuasionIndex: Number.isFinite(Number(src.persuasionIndex)) ? Math.max(0, Number(src.persuasionIndex)) : 0.20,
-    fieldEfficiency: Number.isFinite(Number(src.fieldEfficiency)) ? Math.max(0, Number(src.fieldEfficiency)) : 0.20,
-  };
-  const total = out.votePotential + out.turnoutOpportunity + out.persuasionIndex + out.fieldEfficiency;
-  if (total <= 0){
-    return { votePotential: 0.35, turnoutOpportunity: 0.25, persuasionIndex: 0.20, fieldEfficiency: 0.20 };
-  }
-  out.votePotential /= total;
-  out.turnoutOpportunity /= total;
-  out.persuasionIndex /= total;
-  out.fieldEfficiency /= total;
-  return out;
 }
 
 export function deriveTargetSignalsForRow(row, state, config = {}){
@@ -294,77 +277,26 @@ export function deriveTargetSignalsForRow(row, state, config = {}){
   };
 }
 
-function scoreProduct(components, exponents){
-  const epsilon = 0.02;
-  const vote = clamp(Number(components?.votePotential), 0, 1);
-  const turnout = clamp(Number(components?.turnoutOpportunity), 0, 1);
-  const persuasion = clamp(Number(components?.persuasionIndex), 0, 1);
-  const efficiency = clamp(Number(components?.fieldEfficiency), 0, 1);
-  return 100 * (
-    Math.pow(vote + epsilon, exponents.votePotential) *
-    Math.pow(turnout + epsilon, exponents.turnoutOpportunity) *
-    Math.pow(persuasion + epsilon, exponents.persuasionIndex) *
-    Math.pow(efficiency + epsilon, exponents.fieldEfficiency)
-  );
-}
-
 const TARGET_MODELS_INTERNAL = {
   turnout_opportunity: {
     id: "turnout_opportunity",
     label: "Turnout Opportunity",
     description: "Prioritize scalable turnout upside with feasible field contact.",
-    score(components){
-      return scoreProduct(components, {
-        votePotential: 0.95,
-        turnoutOpportunity: 1.45,
-        persuasionIndex: 0.80,
-        fieldEfficiency: 0.90,
-      });
-    },
   },
   persuasion_first: {
     id: "persuasion_first",
     label: "Persuasion First",
     description: "Prioritize soft-opinion turf with enough scale and contactability.",
-    score(components){
-      return scoreProduct(components, {
-        votePotential: 1.00,
-        turnoutOpportunity: 0.70,
-        persuasionIndex: 1.45,
-        fieldEfficiency: 0.95,
-      });
-    },
   },
   field_efficiency: {
     id: "field_efficiency",
     label: "Field Efficiency",
     description: "Prioritize votes per organizer hour and clean execution turf.",
-    score(components){
-      return scoreProduct(components, {
-        votePotential: 0.80,
-        turnoutOpportunity: 0.60,
-        persuasionIndex: 0.70,
-        fieldEfficiency: 1.65,
-      });
-    },
   },
   house_v1: {
     id: "house_v1",
     label: "House Model v1",
     description: "Transparent weighted composite for house-model iteration.",
-    score(components, config){
-      const w = normalizeWeightBag(config?.weights);
-      const vote = clamp(Number(components?.votePotential), 0, 1);
-      const turnout = clamp(Number(components?.turnoutOpportunity), 0, 1);
-      const persuasion = clamp(Number(components?.persuasionIndex), 0, 1);
-      const efficiency = clamp(Number(components?.fieldEfficiency), 0, 1);
-      return 100 * (
-        (w.votePotential * vote) +
-        (w.turnoutOpportunity * turnout) +
-        (w.persuasionIndex * persuasion) +
-        (w.fieldEfficiency * efficiency)
-      );
-    },
   },
 };
 
@@ -489,18 +421,45 @@ export function scoreTargetRow({
 } = {}){
   const id = String(modelId || "turnout_opportunity");
   const model = TARGET_MODELS_INTERNAL[id] || TARGET_MODELS_INTERNAL.turnout_opportunity;
-  const score = model.score(components || {}, config || {});
+  const canonical = computeCanonicalTargetMetrics({
+    components: components || {},
+    rawSignals: rawSignals || {},
+    state: config?.state || {},
+    profileId: model.id,
+    customWeights: config?.weights,
+    config: config || {},
+  });
+  const score = Number(canonical?.scores?.targetScore);
+  const baseScore = Number(canonical?.scores?.baseScore);
+  const expectedNetVoteValue = Number(canonical?.scores?.expectedNetVoteValue);
+  const featureScores = canonical?.featureScores || {};
+  const explainDrivers = Array.isArray(canonical?.explain?.topDrivers) ? canonical.explain.topDrivers : [];
+  const reasonSeed = buildReasons(components, rawSignals, model.id);
+  const reasons = [
+    ...explainDrivers.map((row) => String(row?.text || "").trim()).filter((text) => !!text),
+    ...reasonSeed,
+  ].slice(0, 3);
+
   return {
     score: Number.isFinite(score) ? score : 0,
+    baseScore: Number.isFinite(baseScore) ? baseScore : 0,
+    expectedNetVoteValue: Number.isFinite(expectedNetVoteValue) ? expectedNetVoteValue : 0,
     componentScores: {
-      votePotential: clamp(Number(components?.votePotential), 0, 1),
-      turnoutOpportunity: clamp(Number(components?.turnoutOpportunity), 0, 1),
-      persuasionIndex: clamp(Number(components?.persuasionIndex), 0, 1),
-      fieldEfficiency: clamp(Number(components?.fieldEfficiency), 0, 1),
+      votePotential: clamp(Number(featureScores?.votePotential ?? components?.votePotential), 0, 1),
+      turnoutOpportunity: clamp(Number(featureScores?.turnoutOpportunity ?? components?.turnoutOpportunity), 0, 1),
+      persuasionIndex: clamp(Number(featureScores?.persuasionIndex ?? components?.persuasionIndex), 0, 1),
+      adjustedPersuasion: clamp(Number(featureScores?.adjustedPersuasion), 0, 1),
+      fieldEfficiency: clamp(Number(featureScores?.fieldEfficiency ?? components?.fieldEfficiency), 0, 1),
+      networkValue: clamp(Number(featureScores?.networkValue), 0, 1),
+      contactProbability: clamp(Number(featureScores?.contactProbability), 0, 1),
+      geographicMultiplier: clamp(Number(canonical?.features?.geographicMultiplier), 0.75, 1.25),
+      saturationMultiplier: clamp(Number(canonical?.features?.saturationMultiplier), 0.5, 1.1),
     },
-    reasons: buildReasons(components, rawSignals, model.id),
+    reasons,
     flags: buildFlags(rawSignals),
     targetLabel: buildTargetLabel(rawSignals),
+    explainDrivers,
+    uplift: canonical?.uplift || null,
     model: {
       id: model.id,
       label: model.label,

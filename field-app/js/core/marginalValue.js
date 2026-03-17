@@ -8,7 +8,7 @@
    ✅ No global state / no side effects
 */
 
-import { computeMaxAttemptsByTactic, optimizeTimelineConstrained } from "./timelineOptimizer.js";
+import { computeMaxAttemptsByTactic, getTimelineObjectiveMeta, optimizeTimelineConstrained } from "./timelineOptimizer.js";
 
 /**
  * @param {unknown} v
@@ -208,7 +208,8 @@ export function computeMarginalValueDiagnostics({ baselineInputs, baselineResult
   const baselineGoalFeasible = baselineResult?.meta?.goalFeasible === true;
   const useMinCostFeasible = (tlMode === "min_cost_goal" && baselineGoalFeasible);
 
-  const baseMax = clampNumber(baselineResult?.meta?.maxAchievableNetVotes ?? 0, 0);
+  const baseObjectiveMeta = getTimelineObjectiveMeta(baselineResult?.meta);
+  const baseMax = clampNumber(baseObjectiveMeta.maxAchievableObjectiveValue ?? 0, 0);
   const baseCost = clampNumber(baselineResult?.plan?.totals?.cost ?? 0, 0);
 
   const baseActiveWeeks = clampNumber(baseCaps?.activeWeeks ?? timelineInputs.activeWeeksOverride ?? 0, 0);
@@ -233,22 +234,23 @@ export function computeMarginalValueDiagnostics({ baselineInputs, baselineResult
       maxAttemptsByTactic
     });
 
-    const newMax = clampNumber(out?.meta?.maxAchievableNetVotes ?? 0, 0);
+    const nextObjectiveMeta = getTimelineObjectiveMeta(out?.meta);
+    const newMax = clampNumber(nextObjectiveMeta.maxAchievableObjectiveValue ?? 0, 0);
     const newCost = clampNumber(out?.plan?.totals?.cost ?? 0, 0);
 
-    let deltaMaxNetVotes = null;
+    let deltaObjectiveValue = null;
     let deltaCost = null;
     if (useMinCostFeasible){
       // In min-cost feasible mode, we care about cost to meet the goal.
       deltaCost = newCost - baseCost;
-      deltaMaxNetVotes = 0; // goal is met; extra headroom not required
+      deltaObjectiveValue = 0; // goal is met; extra headroom not required
     } else {
-      deltaMaxNetVotes = newMax - baseMax;
+      deltaObjectiveValue = newMax - baseMax;
       deltaCost = null;
     }
 
     // Safety: keep stable primitives
-    if (deltaMaxNetVotes != null && !Number.isFinite(deltaMaxNetVotes)) deltaMaxNetVotes = 0;
+    if (deltaObjectiveValue != null && !Number.isFinite(deltaObjectiveValue)) deltaObjectiveValue = 0;
     if (deltaCost != null && !Number.isFinite(deltaCost)) deltaCost = null;
 
     const notes = computeInterventionNotes({
@@ -260,7 +262,8 @@ export function computeMarginalValueDiagnostics({ baselineInputs, baselineResult
 
     return {
       intervention: label,
-      deltaMaxNetVotes: safeNullNum(deltaMaxNetVotes),
+      deltaObjectiveValue: safeNullNum(deltaObjectiveValue),
+      deltaMaxNetVotes: safeNullNum(deltaObjectiveValue),
       deltaCost: (useMinCostFeasible ? safeNullNum(deltaCost) : null),
       notes: asText(notes)
     };

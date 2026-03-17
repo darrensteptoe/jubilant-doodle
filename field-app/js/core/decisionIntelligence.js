@@ -59,12 +59,12 @@ function buildTimelineCapsInputFromSnap({ snap, weeks, tactics }){
   };
 }
 
-function computeMinCostToCloseGap({ computeRoiRows, snap, baseRates, tactics, goalNetVotes, caps, mcLast, turnoutModel }){
+function computeMinCostToCloseGap({ computeRoiRows, snap, baseRates, tactics, goalObjectiveValue, caps, mcLast, turnoutModel }){
   try{
     const overheadAmount = safeNum(snap.budget?.overheadAmount) ?? 0;
     const includeOverhead = !!snap.budget?.includeOverhead;
     const out = computeRoiRows({
-      goalNetVotes,
+      goalObjectiveValue,
       baseRates,
       tactics,
       overheadAmount,
@@ -304,7 +304,11 @@ export function computeDecisionIntelligence({ engine, snap, baseline }){
 
       // ROI cost lens
       const baseRates = buildBaseRatesFromSnap(snap);
-      const tactics = engine.buildOptimizationTactics({ baseRates, tactics: snap.budget?.tactics || {} });
+      const tactics = engine.buildOptimizationTactics({
+        baseRates,
+        tactics: snap.budget?.tactics || {},
+        state: snap,
+      });
 
       // Timeline caps for feasibility (optional)
       const capsInput = buildTimelineCapsInputFromSnap({ snap, weeks, tactics });
@@ -317,7 +321,7 @@ export function computeDecisionIntelligence({ engine, snap, baseline }){
         snap,
         baseRates,
         tactics,
-        goalNetVotes: needVotes,
+        goalObjectiveValue: needVotes,
         caps: (caps && caps.enabled) ? caps : null,
         mcLast: sim,
         turnoutModel: null
@@ -363,7 +367,11 @@ export function computeDecisionIntelligence({ engine, snap, baseline }){
         const winProb = (!!workFeatures.turnoutModelingEnabled && Number.isFinite(s.winProbTurnoutAdjusted)) ? s.winProbTurnoutAdjusted : s.winProb;
 
         const baseRates = buildBaseRatesFromSnap(workSnap);
-        const tactics = engine.buildOptimizationTactics({ baseRates, tactics: workSnap.budget?.tactics || {} });
+        const tactics = engine.buildOptimizationTactics({
+          baseRates,
+          tactics: workSnap.budget?.tactics || {},
+          state: workSnap,
+        });
 
         const capsInput = buildTimelineCapsInputFromSnap({ snap: workSnap, weeks, tactics });
 
@@ -374,7 +382,7 @@ export function computeDecisionIntelligence({ engine, snap, baseline }){
           snap: workSnap,
           baseRates,
           tactics,
-          goalNetVotes: needVotes,
+          goalObjectiveValue: needVotes,
           caps: (caps && caps.enabled) ? caps : null,
           mcLast: sim,
           turnoutModel: null

@@ -6,6 +6,12 @@ import {
   pctOverrideToDecimal,
   resolveTurnoutContext,
 } from "./voteProduction.js";
+import {
+  CHANNEL_COST_ORDER,
+  computeChannelCostMetrics,
+  resolveChannelCostAssumption,
+} from "./channelCosts.js";
+import { computeOptimizationUpliftPlan } from "./upliftModel.js";
 
 /**
  * @typedef {object} ChannelTactic
@@ -21,10 +27,13 @@ import {
  * @property {ChannelTactic=} doors
  * @property {ChannelTactic=} phones
  * @property {ChannelTactic=} texts
+ * @property {ChannelTactic=} litDrop
+ * @property {ChannelTactic=} mail
  */
 
 /**
  * @typedef {object} RoiInput
+ * @property {number | null | undefined} goalObjectiveValue
  * @property {number | null | undefined} goalNetVotes
  * @property {{ cr?: number | null, sr?: number | null, tr?: number | null }=} baseRates
  * @property {BudgetTactics=} tactics
@@ -33,12 +42,14 @@ import {
  * @property {Record<string, number> | null=} caps
  * @property {{ median?: number | null, needVotes?: number | null } | null=} mcLast
  * @property {Record<string, any> | null=} turnoutModel
+ * @property {Record<string, any> | null=} workforce
  */
 
 /**
  * @param {RoiInput} input
  */
 export function computeRoiRows({
+  goalObjectiveValue,
   goalNetVotes,
   baseRates,
   tactics,
@@ -47,10 +58,14 @@ export function computeRoiRows({
   caps = null,
   mcLast = null,
   turnoutModel = null,
+  workforce = null,
 }){
   const rows = [];
 
-  const need = (goalNetVotes != null && isFinite(goalNetVotes)) ? Math.max(0, goalNetVotes) : null;
+  const goal = (goalObjectiveValue != null && isFinite(goalObjectiveValue))
+    ? goalObjectiveValue
+    : goalNetVotes;
+  const need = (goal != null && isFinite(goal)) ? Math.max(0, goal) : null;
 
   const baseCr = baseRates?.cr ?? null;
   const baseSr = baseRates?.sr ?? null;
@@ -62,11 +77,14 @@ export function computeRoiRows({
 
   const ratesOkBase = (need != null) && (need > 0) && (baseCr != null && baseCr > 0) && (baseSr != null && baseSr > 0) && (baseTr != null && baseTr > 0);
 
-  const addRow = (key, label) => {
+  const addRow = (key) => {
     const t = tactics?.[key];
     if (!t?.enabled) return;
 
-    const tCr = pctOverrideToDecimal(t?.crPct, baseCr);
+    const channelAssumption = resolveChannelCostAssumption(key, { tactic: t, workforce });
+    const label = String(channelAssumption?.label || key || "Channel");
+
+    const tCr = pctOverrideToDecimal(t?.crPct, (baseCr != null ? baseCr : channelAssumption.contactRate));
     const tSr = pctOverrideToDecimal(t?.srPct, baseSr);
     const tTr = baseTr;
 
@@ -104,8 +122,9 @@ export function computeRoiRows({
       ? (overheadAmount / requiredAttempts)
       : 0;
 
-    const baseCpa = (t.cpa != null && isFinite(t.cpa)) ? Math.max(0, t.cpa) : 0;
+    const baseCpa = Math.max(0, Number(channelAssumption?.costPerAttempt || 0));
     const cpa = baseCpa + overheadPerAttempt;
+    const assumptionWithOverhead = { ...channelAssumption, costPerAttempt: cpa };
 
     let costPerNetVote = null;
     let totalCost = null;
@@ -119,6 +138,13 @@ export function computeRoiRows({
     if (turnoutEnabled && cpa > 0 && requiredAttemptsTA != null && turnoutAdjustedNetVotesPerAttempt != null && turnoutAdjustedNetVotesPerAttempt > 0){
       costPerTurnoutAdjustedNetVote = cpa / turnoutAdjustedNetVotesPerAttempt;
     }
+
+    const costMetrics = computeChannelCostMetrics({
+      channelId: key,
+      assumption: assumptionWithOverhead,
+      netVotesPerAttempt: baseNetVotesPerAttempt,
+      turnoutAdjustedNetVotesPerAttempt,
+    });
 
     // Capacity feasibility: compare required attempts (to close gap) vs cap ceiling.
     let feasibilityText = "—";
@@ -138,11 +164,21 @@ export function computeRoiRows({
       key,
       label,
       cpa: (cpa > 0) ? cpa : null,
+      costPerAttempt: costMetrics.costPerAttempt,
+      costPerContact: costMetrics.costPerContact,
+      costPerExpectedVote: costMetrics.costPerExpectedVote,
+      costPerExpectedNetVote: costMetrics.costPerExpectedNetVote,
       costPerNetVote,
       totalCost,
       turnoutAdjustedNetVotesPerAttempt,
       costPerTurnoutAdjustedNetVote,
       feasibilityText,
+      channel: {
+        id: channelAssumption.channelId,
+        liftType: channelAssumption.expectedLiftType,
+        laborDependency: channelAssumption.laborDependency,
+        laborMultiplier: channelAssumption.laborMultiplier,
+      },
       // surface which rates were used (optional for future tooltips)
       used: { cr: tCr, sr: tSr, tr: tTr },
       production: {
@@ -168,9 +204,9 @@ export function computeRoiRows({
     });
   };
 
-  addRow("doors", "Doors");
-  addRow("phones", "Phones");
-  addRow("texts", "Texts");
+  for (const channelId of CHANNEL_COST_ORDER){
+    addRow(channelId);
+  }
 
   // Sort by cost per net vote (ascending), pushing nulls to bottom
   rows.sort((a,b) => {
@@ -236,10 +272,22 @@ function fmtSignedLocal(v){
  *   tactics?: BudgetTactics,
  *   turnoutModel?: Record<string, any> | null,
  *   universeSize?: number | null,
- *   targetUniversePct?: number | null
+ *   targetUniversePct?: number | null,
+ *   workforce?: Record<string, any> | null,
+ *   state?: Record<string, any> | null,
+ *   targetingRows?: Array<Record<string, any>> | null
  * }} input
  */
-export function buildOptimizationTactics({ baseRates, tactics, turnoutModel, universeSize, targetUniversePct }){
+export function buildOptimizationTactics({
+  baseRates,
+  tactics,
+  turnoutModel,
+  universeSize,
+  targetUniversePct,
+  workforce = null,
+  state = null,
+  targetingRows = null,
+}){
   const baseCr = baseRates?.cr ?? null;
   const baseSr = baseRates?.sr ?? null;
   const baseTr = baseRates?.tr ?? null;
@@ -251,14 +299,28 @@ export function buildOptimizationTactics({ baseRates, tactics, turnoutModel, uni
   const tuPct = (targetUniversePct != null && isFinite(targetUniversePct)) ? Math.max(0, Math.min(100, Number(targetUniversePct))) : null;
   const targetUniverseSize = (U != null && tuPct != null) ? Math.round(U * (tuPct / 100)) : null;
 
+  const upliftState = state && typeof state === "object" ? state : {};
+  const upliftPlan = computeOptimizationUpliftPlan({
+    state: upliftState,
+    baseRates: { cr: baseCr, sr: baseSr, tr: baseTr },
+    targetingRows: Array.isArray(targetingRows) ? targetingRows : null,
+    channels: CHANNEL_COST_ORDER,
+  });
+  const upliftByChannel = new Map(
+    (Array.isArray(upliftPlan?.channels) ? upliftPlan.channels : [])
+      .map((row) => [String(row?.channelId || ""), row]),
+  );
 
   const out = [];
 
-  const add = (key, label) => {
+  const add = (key) => {
     const t = tactics?.[key];
     if (!t?.enabled) return;
 
-    const cr = pctOverrideToDecimal(t?.crPct, baseCr);
+    const channelAssumption = resolveChannelCostAssumption(key, { tactic: t, workforce });
+    const label = String(channelAssumption?.label || key || "Channel");
+
+    const cr = pctOverrideToDecimal(t?.crPct, (baseCr != null ? baseCr : channelAssumption.contactRate));
     const sr = pctOverrideToDecimal(t?.srPct, baseSr);
     const tr = baseTr;
 
@@ -280,16 +342,52 @@ export function buildOptimizationTactics({ baseRates, tactics, turnoutModel, uni
     const maxAttempts = production.maxAttempts;
     const hybridEffectiveTr = production.hybridEffectiveTr;
 
-    const costPerAttempt = (t?.cpa != null && isFinite(t.cpa)) ? Math.max(0, Number(t.cpa)) : 0;
+    const costPerAttempt = Math.max(0, Number(channelAssumption?.costPerAttempt || 0));
+    const costMetrics = computeChannelCostMetrics({
+      channelId: key,
+      assumption: channelAssumption,
+      netVotesPerAttempt,
+      turnoutAdjustedNetVotesPerAttempt,
+    });
+    const upliftRow = upliftByChannel.get(key) || null;
+    const upliftExpectedMarginalGain = Math.max(0, Number(upliftRow?.expectedMarginalGain || 0));
+    const upliftLowMarginalGain = Math.max(
+      0,
+      Number(
+        upliftRow?.uncertaintyBand?.low != null
+          ? upliftRow.uncertaintyBand.low
+          : upliftExpectedMarginalGain,
+      ),
+    );
+    const upliftAdjustedNetVotesPerAttempt = upliftExpectedMarginalGain * (Number.isFinite(netVotesPerAttempt) ? netVotesPerAttempt : 0);
+    const upliftAdjustedTurnoutNetVotesPerAttempt =
+      upliftExpectedMarginalGain * (Number.isFinite(turnoutAdjustedNetVotesPerAttempt) ? turnoutAdjustedNetVotesPerAttempt : 0);
+    const upliftRiskAdjustedNetVotesPerAttempt =
+      upliftLowMarginalGain * (Number.isFinite(netVotesPerAttempt) ? netVotesPerAttempt : 0);
+    const upliftRiskAdjustedTurnoutNetVotesPerAttempt =
+      upliftLowMarginalGain * (Number.isFinite(turnoutAdjustedNetVotesPerAttempt) ? turnoutAdjustedNetVotesPerAttempt : 0);
 
     out.push({
       id: key,
       label,
       kind,
       costPerAttempt,
+      costPerContact: costMetrics.costPerContact,
+      costPerExpectedVote: costMetrics.costPerExpectedVote,
+      costPerExpectedNetVote: costMetrics.costPerExpectedNetVote,
       netVotesPerAttempt,
       turnoutAdjustedNetVotesPerAttempt,
+      upliftAdjustedNetVotesPerAttempt,
+      upliftAdjustedTurnoutNetVotesPerAttempt,
+      upliftRiskAdjustedNetVotesPerAttempt,
+      upliftRiskAdjustedTurnoutNetVotesPerAttempt,
       maxAttempts,
+      channel: {
+        id: channelAssumption.channelId,
+        liftType: channelAssumption.expectedLiftType,
+        laborDependency: channelAssumption.laborDependency,
+        laborMultiplier: channelAssumption.laborMultiplier,
+      },
       // keep debug parity with ROI layer
       used: { cr, sr, tr },
       production: {
@@ -308,17 +406,29 @@ export function buildOptimizationTactics({ baseRates, tactics, turnoutModel, uni
             hybridEffectiveTr,
             saturationCapAttempts: maxAttempts,
           },
+          uplift: {
+            source: upliftPlan?.source || "base_rates",
+            expectedMarginalGain: upliftExpectedMarginalGain,
+            lowMarginalGain: upliftLowMarginalGain,
+            uncertaintyBand: upliftRow?.uncertaintyBand || { low: 0, high: 0 },
+            gainPerDollar: Number.isFinite(Number(upliftRow?.gainPerDollar)) ? Number(upliftRow.gainPerDollar) : 0,
+            bestChannel: String(upliftPlan?.bestChannel || "") === key,
+          },
         },
         adjusted: {
           turnoutAdjustedNetVotesPerAttempt,
+          upliftAdjustedNetVotesPerAttempt,
+          upliftAdjustedTurnoutNetVotesPerAttempt,
+          upliftRiskAdjustedNetVotesPerAttempt,
+          upliftRiskAdjustedTurnoutNetVotesPerAttempt,
         },
       },
     });
   };
 
-  add("doors", "Doors");
-  add("phones", "Phones");
-  add("texts", "Texts");
+  for (const channelId of CHANNEL_COST_ORDER){
+    add(channelId);
+  }
 
   return out;
 }
