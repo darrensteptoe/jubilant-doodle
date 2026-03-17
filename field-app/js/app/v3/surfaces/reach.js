@@ -22,17 +22,20 @@ export function renderReachSurface(mount) {
 
   const leversCard = createCard({
     title: "Constraints & levers",
-    description: "What is binding now and which knobs move the weekly gap fastest."
+    description: "What is binding now and which knobs move the weekly gap fastest.",
+    status: "Awaiting inputs"
   });
 
   const weeklyCard = createCard({
     title: "Weekly production",
-    description: "Required vs achievable attempts, pace, and execution status."
+    description: "Required vs achievable attempts, pace, and execution status.",
+    status: "Awaiting inputs"
   });
 
   const outlookCard = createCard({
     title: "Capacity outlook",
-    description: "Baseline, ramp, and scheduled-attempt comparisons."
+    description: "Baseline, ramp, and scheduled-attempt comparisons.",
+    status: "Awaiting ops data"
   });
   const outlookHeaderToggle = document.createElement("div");
   outlookHeaderToggle.className = "fpe-header-switch";
@@ -47,12 +50,14 @@ export function renderReachSurface(mount) {
 
   const freshnessCard = createCard({
     title: "Data freshness",
-    description: "Rolling operational signals and calibration controls from organizer data."
+    description: "Rolling operational signals and calibration controls from organizer data.",
+    status: "Awaiting logs"
   });
 
   const actionsCard = createCard({
     title: "Recommended actions",
-    description: "Highest-value interventions under current constraints."
+    description: "Highest-value interventions under current constraints.",
+    status: "Model-based"
   });
 
   const conversionCard = createCard({
@@ -62,8 +67,16 @@ export function renderReachSurface(mount) {
 
   const summaryCard = createCard({
     title: "Reach summary",
-    description: "Current capacity posture and operating risk at a glance."
+    description: "Current capacity posture and operating risk at a glance.",
+    status: "Awaiting inputs"
   });
+
+  assignCardStatusId(outlookCard, "v3ReachOutlookCardStatus");
+  assignCardStatusId(freshnessCard, "v3ReachFreshnessCardStatus");
+  assignCardStatusId(summaryCard, "v3ReachSummaryCardStatus");
+  assignCardStatusId(weeklyCard, "v3ReachWeeklyCardStatus");
+  assignCardStatusId(leversCard, "v3ReachLeversCardStatus");
+  assignCardStatusId(actionsCard, "v3ReachActionsCardStatus");
 
   const universeBody = getCardBody(universeCard);
   universeBody.innerHTML = `
@@ -394,6 +407,8 @@ function applyReachView(view) {
   setText("v3ReachSummaryGap", summary.gap);
   setText("v3ReachSummaryConstraint", summary.constraint);
   setText("v3ReachSummaryPace", summary.pace);
+  syncReachCardStatus("v3ReachSummaryCardStatus", summary.pace || weekly.paceStatus || "Awaiting inputs");
+  syncReachCardStatus("v3ReachWeeklyCardStatus", deriveReachWeeklyCardStatus(weekly));
 
   setText("v3ReachOutlookStatus", outlook.status);
   setText("v3ReachOutlookSource", outlook.activeSource);
@@ -413,6 +428,7 @@ function applyReachView(view) {
   setText("v3ReachDiagHintNote", outlook.hintNote);
   setText("v3ReachOutlookBasis", outlook.basis);
   renderReachOutlookRows(outlook.rows || []);
+  syncReachCardStatus("v3ReachOutlookCardStatus", outlook.status || "Awaiting ops data");
 
   setText("v3ReachDailyLogImportMsg", freshness.dailyLogImportMsg);
   setText("v3ReachFreshLastUpdate", freshness.lastUpdate);
@@ -429,6 +445,7 @@ function applyReachView(view) {
   setText("v3ReachApplyRollingMsg", freshness.applyRollingMsg);
   setText("v3ReachUndoActionMsg", freshness.undoActionMsg);
   setText("v3ReachFreshRealityNote", weekly.actualConvosNote || "Reality check uses your daily log to estimate actual rates/capacity over the last 7 entries.");
+  syncReachCardStatus("v3ReachFreshnessCardStatus", freshness.status || "Awaiting logs");
 
   setText("v3ReachLeversIntro", levers.intro);
   setText("v3ReachBestMovesIntro", levers.bestMovesIntro);
@@ -439,6 +456,8 @@ function applyReachView(view) {
   renderReachBestMoves(levers.bestMoves || []);
   renderReachLeversRows(levers.rows || []);
   renderReachActions(actions.list || []);
+  syncReachCardStatus("v3ReachLeversCardStatus", deriveReachLeversCardStatus(levers, weekly));
+  syncReachCardStatus("v3ReachActionsCardStatus", deriveReachActionsCardStatus(actions));
 }
 
 function wireReachEvents() {
@@ -807,6 +826,12 @@ function renderReachUnavailable() {
   renderReachBestMoves([]);
   renderReachLeversRows([]);
   renderReachOutlookRows([]);
+  syncReachCardStatus("v3ReachSummaryCardStatus", "Unavailable");
+  syncReachCardStatus("v3ReachWeeklyCardStatus", "Unavailable");
+  syncReachCardStatus("v3ReachOutlookCardStatus", "Unavailable");
+  syncReachCardStatus("v3ReachFreshnessCardStatus", "Unavailable");
+  syncReachCardStatus("v3ReachLeversCardStatus", "Unavailable");
+  syncReachCardStatus("v3ReachActionsCardStatus", "Unavailable");
 }
 
 function escapeHtml(value) {
@@ -816,4 +841,97 @@ function escapeHtml(value) {
     .replaceAll(">", "&gt;")
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&#39;");
+}
+
+function assignCardStatusId(card, id) {
+  if (!(card instanceof HTMLElement) || !id) {
+    return;
+  }
+  const badge = card.querySelector(".fpe-card__status");
+  if (badge instanceof HTMLElement) {
+    badge.id = id;
+  }
+}
+
+function syncReachCardStatus(id, value) {
+  const badge = document.getElementById(id);
+  if (!(badge instanceof HTMLElement)) {
+    return;
+  }
+  const text = String(value || "").trim() || "Awaiting inputs";
+  badge.textContent = text;
+  badge.classList.add("fpe-status-pill");
+  badge.classList.remove(
+    "fpe-status-pill--ok",
+    "fpe-status-pill--warn",
+    "fpe-status-pill--bad",
+    "fpe-status-pill--neutral"
+  );
+  const tone = classifyReachStatusTone(text);
+  if (tone !== "neutral") {
+    badge.classList.add(`fpe-status-pill--${tone}`);
+  }
+}
+
+function deriveReachWeeklyCardStatus(weekly) {
+  const pace = String(weekly?.paceStatus || "").trim();
+  if (!pace || pace === "—" || /needs inputs/i.test(pace)) {
+    return "Awaiting inputs";
+  }
+  if (/behind/i.test(pace)) {
+    return "Gap open";
+  }
+  if (/pace|feasible/i.test(pace)) {
+    return "Feasible";
+  }
+  return pace;
+}
+
+function deriveReachLeversCardStatus(levers, weekly) {
+  const hasLevers = Array.isArray(levers?.rows) && levers.rows.length > 0;
+  if (!hasLevers) {
+    return "Awaiting inputs";
+  }
+  const pace = String(weekly?.paceStatus || "").trim();
+  if (/behind/i.test(pace)) {
+    return "Gap focus";
+  }
+  if (/pace|feasible/i.test(pace)) {
+    return "Buffer mode";
+  }
+  return "Active";
+}
+
+function deriveReachActionsCardStatus(actions) {
+  const note = String(actions?.note || "").trim();
+  const list = Array.isArray(actions?.list) ? actions.list : [];
+  if (!list.length) {
+    return "Awaiting inputs";
+  }
+  if (/drift-aware/i.test(note)) {
+    return "Drift-aware";
+  }
+  if (/model-based/i.test(note)) {
+    return "Model-based";
+  }
+  return "Active";
+}
+
+function classifyReachStatusTone(text) {
+  const lower = String(text || "").trim().toLowerCase();
+  if (!lower) {
+    return "neutral";
+  }
+  if (
+    /(on pace|feasible|buffer mode|ready|healthy|stable|complete|active|model-based)/.test(lower)
+  ) {
+    return "ok";
+  }
+  if (/(behind|gap open|unavailable|missing|incomplete|failed|broken)/.test(lower)) {
+    return "bad";
+  }
+  if (/(awaiting|drift|needs|warning|risk|pending|override|gap focus)/.test(lower)) {
+    return "warn";
+  }
+  return "neutral";
 }
