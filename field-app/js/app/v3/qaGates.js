@@ -140,6 +140,7 @@ export function runV3QaSmoke({ restoreStage = true, logToConsole = true } = {}) 
   const originalStage = getActiveStageId();
   const checks = [];
   let duplicateIds = [];
+  const legacyShellRoot = getLegacyShellRoot();
 
   recordCheck(checks, "v3-root-mounted", isTruthy(document.getElementById("app-shell-v3-root")));
   recordCheck(checks, "v3-surface-mount", isTruthy(document.getElementById("v3SurfaceMount")));
@@ -148,7 +149,7 @@ export function runV3QaSmoke({ restoreStage = true, logToConsole = true } = {}) 
   recordCheck(
     checks,
     "legacy-shell-absent-or-hidden",
-    isTruthy(!document.getElementById("app-shell-legacy") || document.getElementById("app-shell-legacy")?.hidden)
+    isTruthy(!legacyShellRoot || legacyShellRoot.hidden)
   );
   recordCheck(checks, "shell-bridge-api", hasBridgeGetter("__FPE_SHELL_API__"));
   recordCheck(checks, "district-bridge-api", hasBridgeGetter("__FPE_DISTRICT_API__"));
@@ -165,17 +166,17 @@ export function runV3QaSmoke({ restoreStage = true, logToConsole = true } = {}) 
   recordCheck(
     checks,
     "legacy-census-bridge-host-detached",
-    isTruthy(document.getElementById("legacyCensusBridgeHost")?.parentElement?.id !== "app-shell-legacy")
+    isTruthy(document.getElementById("legacyCensusBridgeHost")?.parentElement !== legacyShellRoot)
   );
   recordCheck(
     checks,
     "legacy-shell-action-host-detached",
-    isTruthy(document.getElementById("legacyShellActionHost")?.parentElement?.id !== "app-shell-legacy")
+    isTruthy(document.getElementById("legacyShellActionHost")?.parentElement !== legacyShellRoot)
   );
   recordCheck(
     checks,
     "legacy-right-rail-host-detached",
-    isTruthy(document.getElementById("legacyRightRailHost")?.parentElement?.id !== "app-shell-legacy")
+    isTruthy(document.getElementById("legacyRightRailHost")?.parentElement !== legacyShellRoot)
   );
   recordCheck(
     checks,
@@ -431,6 +432,16 @@ export function runV3QaSmoke({ restoreStage = true, logToConsole = true } = {}) 
   }
 
   return report;
+}
+
+function getLegacyShellRoot() {
+  try {
+    const getRoot = window.__FPE_GET_LEGACY_SHELL_ROOT__;
+    if (typeof getRoot === "function") {
+      return getRoot();
+    }
+  } catch {}
+  return document.getElementById("app-shell-legacy");
 }
 
 export function installV3QaSmokeBridge() {

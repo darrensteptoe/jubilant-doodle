@@ -279,7 +279,14 @@ function setLegacyShellVisible(visible) {
       return;
     }
   } catch {}
-  const shell = document.getElementById("app-shell-legacy");
+  let shell = null;
+  try {
+    const getRoot = window.__FPE_GET_LEGACY_SHELL_ROOT__;
+    if (typeof getRoot === "function") {
+      shell = getRoot();
+    }
+  } catch {}
+  shell ||= document.getElementById("app-shell-legacy");
   if (shell) {
     shell.hidden = !visible;
   }
