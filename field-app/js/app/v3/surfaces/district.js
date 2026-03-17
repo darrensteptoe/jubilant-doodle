@@ -10,6 +10,7 @@ import {
   readDistrictSnapshot,
   readDistrictControlSnapshot,
   readDistrictTargetingSnapshot,
+  normalizeDistrictTargetingSnapshotFromView,
   readDistrictCensusSnapshot,
   setDistrictFormField,
   setDistrictTargetingField,
@@ -983,8 +984,8 @@ function readRateDecimal(ids = []) {
   return null;
 }
 
-function syncDistrictTargetingLab() {
-  const bridgeSnapshot = readDistrictTargetingSnapshot();
+function syncDistrictTargetingLab(snapshotOverride = null) {
+  const bridgeSnapshot = snapshotOverride || readDistrictTargetingSnapshot();
   const targetingConfig = bridgeSnapshot?.config;
   if (bridgeSnapshot) {
     setText("v3DistrictTargetingStatus", bridgeSnapshot.statusText || "Run targeting to generate ranked GEOs.");
@@ -1186,7 +1187,9 @@ function bindDistrictTargetingBridge() {
   bindDistrictTargetingAction("v3BtnDistrictTargetingResetWeights", () => resetDistrictTargetingWeights(), "", {
     syncTargeting: true,
   });
-  bindDistrictTargetingAction("v3BtnDistrictRunTargeting", () => runDistrictTargeting());
+  bindDistrictTargetingAction("v3BtnDistrictRunTargeting", () => runDistrictTargeting(), "", {
+    syncTargeting: true,
+  });
   bindDistrictTargetingAction("v3BtnDistrictExportTargetingCsv", () => exportDistrictTargetingCsv(), "btnExportTargetingCsv");
   bindDistrictTargetingAction("v3BtnDistrictExportTargetingJson", () => exportDistrictTargetingJson(), "btnExportTargetingJson");
 }
@@ -1198,7 +1201,8 @@ function bindDistrictTargetingSelect(v3Id, field) {
   }
   control.dataset.v3TargetingBound = "1";
   control.addEventListener("change", () => {
-    setDistrictTargetingField(field, control.value);
+    const result = setDistrictTargetingField(field, control.value);
+    syncDistrictTargetingFromResult(result);
   });
 }
 
@@ -1210,9 +1214,7 @@ function bindDistrictTargetingModelSelect(v3Id) {
   control.dataset.v3TargetingBound = "1";
   control.addEventListener("change", () => {
     const result = applyDistrictTargetingPreset(control.value);
-    if (result?.ok) {
-      syncDistrictTargetingLab();
-    }
+    syncDistrictTargetingFromResult(result);
   });
 }
 
@@ -1226,7 +1228,8 @@ function bindDistrictTargetingField(v3Id, field) {
   }
   control.dataset.v3TargetingBound = "1";
   control.addEventListener("input", () => {
-    setDistrictTargetingField(field, control.value);
+    const result = setDistrictTargetingField(field, control.value);
+    syncDistrictTargetingFromResult(result);
   });
 }
 
@@ -1237,7 +1240,8 @@ function bindDistrictTargetingCheckbox(v3Id, field) {
   }
   control.dataset.v3TargetingBound = "1";
   control.addEventListener("change", () => {
-    setDistrictTargetingField(field, control.checked);
+    const result = setDistrictTargetingField(field, control.checked);
+    syncDistrictTargetingFromResult(result);
   });
 }
 
@@ -1250,14 +1254,27 @@ function bindDistrictTargetingAction(v3Id, action, legacyId = "", opts = {}) {
   button.addEventListener("click", () => {
     if (typeof action === "function") {
       const result = action();
-      if (opts?.syncTargeting && result?.ok) {
-        syncDistrictTargetingLab();
+      if (opts?.syncTargeting) {
+        syncDistrictTargetingFromResult(result);
       }
       if (legacyId && (!result || result.ok === false)) {
         fallbackLegacyClick(legacyId);
       }
     }
   });
+}
+
+function syncDistrictTargetingFromResult(result) {
+  const snapshot = normalizeDistrictTargetingSnapshotFromView(result?.view);
+  if (snapshot) {
+    syncDistrictTargetingLab(snapshot);
+    window.requestAnimationFrame(() => syncDistrictTargetingLab());
+    return;
+  }
+  if (result?.ok) {
+    syncDistrictTargetingLab();
+    window.requestAnimationFrame(() => syncDistrictTargetingLab());
+  }
 }
 
 function fallbackLegacyClick(id) {

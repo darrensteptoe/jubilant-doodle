@@ -237,8 +237,7 @@ export function readDistrictBallotSnapshot() {
   };
 }
 
-export function readDistrictTargetingSnapshot() {
-  const view = readDistrictBridgeView();
+export function normalizeDistrictTargetingSnapshotFromView(view) {
   const targeting = view?.targeting;
   if (!targeting || typeof targeting !== "object") {
     return null;
@@ -282,6 +281,10 @@ export function readDistrictTargetingSnapshot() {
       canResetWeights: config.canResetWeights == null ? null : !!config.canResetWeights,
     },
   };
+}
+
+export function readDistrictTargetingSnapshot() {
+  return normalizeDistrictTargetingSnapshotFromView(readDistrictBridgeView());
 }
 
 export function readDistrictCensusSnapshot() {
