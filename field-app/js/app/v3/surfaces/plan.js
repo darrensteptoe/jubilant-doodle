@@ -23,17 +23,20 @@ export function renderPlanSurface(mount) {
 
   const workloadCard = createCard({
     title: "Workload translator",
-    description: "Convert support goals into conversations, doors, shifts, and volunteer load."
+    description: "Convert support goals into conversations, doors, shifts, and volunteer load.",
+    status: "Awaiting setup"
   });
 
   const optimizerCard = createCard({
     title: "Weekly pacing & optimization",
-    description: "Budget, objective, and timeline-constrained allocation controls."
+    description: "Budget, objective, and timeline-constrained allocation controls.",
+    status: "Awaiting run"
   });
 
   const timelineCard = createCard({
     title: "Timeline & staffing",
-    description: "Timeline feasibility, staffing throughput, and weekly pacing diagnostics."
+    description: "Timeline feasibility, staffing throughput, and weekly pacing diagnostics.",
+    status: "Module off"
   });
   const timelineHeaderToggle = document.createElement("div");
   timelineHeaderToggle.className = "fpe-header-switch";
@@ -48,18 +51,28 @@ export function renderPlanSurface(mount) {
 
   const riskCard = createCard({
     title: "Execution risk",
-    description: "Constraint diagnostics and timeline shortfall posture."
+    description: "Constraint diagnostics and timeline shortfall posture.",
+    status: "Awaiting setup"
   });
 
   const actionsCard = createCard({
     title: "Recommended actions",
-    description: "Decision-intelligence recommendations to recover feasibility."
+    description: "Decision-intelligence recommendations to recover feasibility.",
+    status: "Guidance pending"
   });
 
   const summaryCard = createCard({
     title: "Plan summary",
-    description: "Current staffing burden, timeline feasibility, and constraint posture."
+    description: "Current staffing burden, timeline feasibility, and constraint posture.",
+    status: "Awaiting setup"
   });
+
+  assignCardStatusId(workloadCard, "v3PlanWorkloadCardStatus");
+  assignCardStatusId(optimizerCard, "v3PlanOptimizerCardStatus");
+  assignCardStatusId(timelineCard, "v3PlanTimelineCardStatus");
+  assignCardStatusId(riskCard, "v3PlanRiskCardStatus");
+  assignCardStatusId(actionsCard, "v3PlanActionsCardStatus");
+  assignCardStatusId(summaryCard, "v3PlanSummaryCardStatus");
 
   const workloadBody = getCardBody(workloadCard);
   workloadBody.innerHTML = `
@@ -452,13 +465,16 @@ function refreshPlanSummary() {
   setText("v3PlanOptTotalVotes", optTotals.votes);
   setText("v3PlanOptGapContext", optGapContext);
   setText("v3PlanBinding", optBinding);
-  setText("v3PlanWorkloadBanner", buildPlanWorkloadBanner(outShiftsPerWeek, outVolunteersNeeded));
-  setText("v3PlanOptBanner", buildPlanOptimizerBanner(optBinding, optGapContext));
+  const workloadBanner = buildPlanWorkloadBanner(outShiftsPerWeek, outVolunteersNeeded);
+  const optimizerBanner = buildPlanOptimizerBanner(optBinding, optGapContext);
+  setText("v3PlanWorkloadBanner", workloadBanner);
+  setText("v3PlanOptBanner", optimizerBanner);
   setText("v3PlanTlOptGoalFeasible", buildPlanTimelineGoalFeasible(tlPercent, tlShortfallVotes));
   setText("v3PlanTlOptMaxNetVotes", buildPlanTimelineMaxNetVotes(optTotals.votes, tlPercent));
   setText("v3PlanTlOptRemainingGap", buildPlanTimelineRemainingGap(tlShortfallVotes));
   setText("v3PlanTlOptBinding", buildPlanTimelineBinding(tlConstraint, optBinding));
-  setText("v3PlanTimelineBanner", buildPlanTimelineBanner(tlPercent, tlConstraint, tlShortfallAttempts, tlShortfallVotes));
+  const timelineBanner = buildPlanTimelineBanner(tlPercent, tlConstraint, tlShortfallAttempts, tlShortfallVotes);
+  setText("v3PlanTimelineBanner", timelineBanner);
   setText("v3PlanRiskExecutable", tlPercent);
   setText("v3PlanRiskConstraint", tlConstraint);
   setText("v3PlanRiskShortfallAttempts", tlShortfallAttempts);
@@ -477,6 +493,11 @@ function refreshPlanSummary() {
   setText("v3PlanSummaryConstraint", tlConstraint);
   setText("v3PlanSummaryBinding", optBinding);
   setText("v3PlanSummaryGapContext", optGapContext);
+  syncPlanCardStatus("v3PlanWorkloadCardStatus", derivePlanWorkloadCardStatus(workloadBanner));
+  syncPlanCardStatus("v3PlanOptimizerCardStatus", derivePlanOptimizerCardStatus(optTotals, optimizerBanner, optBinding));
+  syncPlanCardStatus("v3PlanTimelineCardStatus", derivePlanTimelineCardStatus(readPlanView(), tlPercent, tlConstraint));
+  syncPlanCardStatus("v3PlanRiskCardStatus", derivePlanRiskCardStatus(tlPercent, tlConstraint, tlShortfallVotes));
+  syncPlanCardStatus("v3PlanSummaryCardStatus", derivePlanSummaryCardStatus(tlPercent, tlConstraint, optBinding));
   syncPlanDecisionIntel({
     tlConstraint,
     optBinding,
@@ -523,6 +544,7 @@ function syncPlanDecisionIntel(planContext = null) {
   setText("v3PlanDiRecVol", buildPlanRecommendationVolunteers(tlConstraint, shortfallAttempts));
   setText("v3PlanDiRecCost", buildPlanRecommendationCost(optBinding));
   setText("v3PlanDiRecProb", buildPlanRecommendationProbability(tlConstraint, shortfallVotes));
+  syncPlanCardStatus("v3PlanActionsCardStatus", derivePlanActionsCardStatus(tlConstraint, optBinding, shortfallVotes));
 
   renderPlanDecisionRows("v3PlanDiVolTbody", buildPlanVolunteerLevers(tlConstraint, shortfallAttempts));
   renderPlanDecisionRows("v3PlanDiCostTbody", buildPlanCostLevers(optBinding, shortfallAttempts));
@@ -1341,4 +1363,139 @@ function escapePlanHtml(value) {
     .replace(/>/g, "&gt;")
     .replace(/\"/g, "&quot;")
     .replace(/'/g, "&#39;");
+}
+
+function assignCardStatusId(card, id) {
+  if (!(card instanceof HTMLElement) || !id) {
+    return;
+  }
+  const badge = card.querySelector(".fpe-card__status");
+  if (badge instanceof HTMLElement) {
+    badge.id = id;
+  }
+}
+
+function syncPlanCardStatus(id, value) {
+  const badge = document.getElementById(id);
+  if (!(badge instanceof HTMLElement)) {
+    return;
+  }
+  const text = String(value || "").trim() || "Awaiting setup";
+  badge.textContent = text;
+  badge.classList.add("fpe-status-pill");
+  badge.classList.remove(
+    "fpe-status-pill--ok",
+    "fpe-status-pill--warn",
+    "fpe-status-pill--bad",
+    "fpe-status-pill--neutral"
+  );
+  const tone = classifyPlanStatusTone(text);
+  if (tone !== "neutral") {
+    badge.classList.add(`fpe-status-pill--${tone}`);
+  }
+}
+
+function derivePlanWorkloadCardStatus(workloadBanner) {
+  const text = String(workloadBanner || "").trim().toLowerCase();
+  if (!text || text.includes("set support goal")) {
+    return "Awaiting setup";
+  }
+  return "Current";
+}
+
+function derivePlanOptimizerCardStatus(optTotals, optimizerBanner, optBinding) {
+  const attempts = parsePlanNumber(optTotals?.attempts);
+  const banner = String(optimizerBanner || "").trim().toLowerCase();
+  const binding = String(optBinding || "").trim().toLowerCase();
+  if (!Number.isFinite(attempts) || attempts <= 0) {
+    return "Awaiting run";
+  }
+  if (binding.includes("budget") || binding.includes("capacity") || banner.includes("binding")) {
+    return "Binding";
+  }
+  return "Allocated";
+}
+
+function derivePlanTimelineCardStatus(planView, executablePct, constraint) {
+  const enabled = !!planView?.inputs?.timelineEnabled;
+  const pct = parsePlanPercent(executablePct);
+  const binding = String(constraint || "").trim().toLowerCase();
+  if (!enabled) {
+    return "Module off";
+  }
+  if (!Number.isFinite(pct)) {
+    return "Awaiting setup";
+  }
+  if (pct >= 100 && (binding.includes("no timeline constraint") || binding.includes("no constraint"))) {
+    return "Feasible";
+  }
+  if (pct >= 100) {
+    return "Tight";
+  }
+  return "Constrained";
+}
+
+function derivePlanRiskCardStatus(executablePct, constraint, shortfallVotes) {
+  const pct = parsePlanPercent(executablePct);
+  const binding = String(constraint || "").trim().toLowerCase();
+  const gap = parsePlanNumber(shortfallVotes);
+  if (!Number.isFinite(pct) && !binding) {
+    return "Awaiting setup";
+  }
+  if ((Number.isFinite(pct) && pct < 100) || (Number.isFinite(gap) && gap > 0)) {
+    return "Elevated";
+  }
+  if (binding.includes("staff") || binding.includes("capacity") || binding.includes("timeline")) {
+    return "Watch";
+  }
+  return "Contained";
+}
+
+function derivePlanActionsCardStatus(tlConstraint, optBinding, shortfallVotes) {
+  const constraint = String(tlConstraint || "").trim().toLowerCase();
+  const binding = String(optBinding || "").trim().toLowerCase();
+  const gap = parsePlanNumber(shortfallVotes);
+  if (!constraint && !binding && !Number.isFinite(gap)) {
+    return "Guidance pending";
+  }
+  if (Number.isFinite(gap) && gap > 0) {
+    return "Recovery plan";
+  }
+  if (constraint || binding) {
+    return "Guidance ready";
+  }
+  return "Current";
+}
+
+function derivePlanSummaryCardStatus(executablePct, tlConstraint, optBinding) {
+  const pct = parsePlanPercent(executablePct);
+  const constraint = String(tlConstraint || "").trim().toLowerCase();
+  const binding = String(optBinding || "").trim().toLowerCase();
+  if (!Number.isFinite(pct)) {
+    return "Awaiting setup";
+  }
+  if (pct >= 100 && (constraint.includes("no timeline constraint") || binding.includes("no binding"))) {
+    return "Feasible";
+  }
+  if (pct >= 100) {
+    return "Tight";
+  }
+  return "Constrained";
+}
+
+function classifyPlanStatusTone(text) {
+  const lower = String(text || "").trim().toLowerCase();
+  if (!lower) {
+    return "neutral";
+  }
+  if (/(current|allocated|feasible|contained|guidance ready)/.test(lower)) {
+    return "ok";
+  }
+  if (/(elevated|constrained|binding|recovery plan|unavailable|failed|broken)/.test(lower)) {
+    return "bad";
+  }
+  if (/(awaiting|module off|tight|watch|pending)/.test(lower)) {
+    return "warn";
+  }
+  return "neutral";
 }
