@@ -439,9 +439,7 @@ function syncDataCardStatus(id, value) {
     "fpe-status-pill--neutral"
   );
   const tone = classifyDataStatusTone(text);
-  if (tone !== "neutral") {
-    badge.classList.add(`fpe-status-pill--${tone}`);
-  }
+  badge.classList.add(`fpe-status-pill--${tone}`);
 }
 
 function deriveDataPolicyCardStatus(strictEnabled, hashBanner, warnBanner, backupCount) {

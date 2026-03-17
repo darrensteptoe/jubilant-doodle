@@ -1390,9 +1390,7 @@ function syncPlanCardStatus(id, value) {
     "fpe-status-pill--neutral"
   );
   const tone = classifyPlanStatusTone(text);
-  if (tone !== "neutral") {
-    badge.classList.add(`fpe-status-pill--${tone}`);
-  }
+  badge.classList.add(`fpe-status-pill--${tone}`);
 }
 
 function derivePlanWorkloadCardStatus(workloadBanner) {

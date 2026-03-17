@@ -747,9 +747,7 @@ function syncTurnoutCardStatus(id, value) {
     "fpe-status-pill--neutral"
   );
   const tone = classifyTurnoutStatusTone(text);
-  if (tone !== "neutral") {
-    badge.classList.add(`fpe-status-pill--${tone}`);
-  }
+  badge.classList.add(`fpe-status-pill--${tone}`);
 }
 
 function deriveTurnoutAssumptionsCardStatus(view) {

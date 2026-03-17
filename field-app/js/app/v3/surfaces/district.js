@@ -126,28 +126,33 @@ export function renderDistrictSurface(mount) {
 
   const raceCard = createCard({
     title: "Race context",
-    description: "Race template, election date, weeks remaining, and operating mode."
+    description: "Race template, election date, weeks remaining, and operating mode.",
+    status: "Awaiting context"
   });
 
   const electorateCard = createCard({
     title: "Electorate",
-    description: "Universe definition, basis, and source provenance."
+    description: "Universe definition, basis, and source provenance.",
+    status: "Awaiting universe"
   });
 
   const baselineCard = createCard({
     title: "Ballot baseline",
-    description: "Candidate support, undecided handling, and persuasion anchor."
+    description: "Candidate support, undecided handling, and persuasion anchor.",
+    status: "Awaiting ballot"
   });
 
   const turnoutCard = createCard({
     title: "Turnout baseline",
-    description: "Comparable-cycle turnout assumptions and uncertainty band."
+    description: "Comparable-cycle turnout assumptions and uncertainty band.",
+    status: "Awaiting turnout"
   });
 
   const structureCard = createCard({
     title: "Electorate structure",
     description:
-      "This layer weights persuasion and turnout reliability by party composition and applies a single retention factor. It is aggregate-only (not a CRM)."
+      "This layer weights persuasion and turnout reliability by party composition and applies a single retention factor. It is aggregate-only (not a CRM).",
+    status: "Weighting off"
   });
   const structureHeaderToggle = document.createElement("div");
   structureHeaderToggle.className = "fpe-header-switch";
@@ -162,18 +167,30 @@ export function renderDistrictSurface(mount) {
 
   const summaryCard = createCard({
     title: "District summary",
-    description: "The baseline state that all downstream surfaces inherit."
+    description: "The baseline state that all downstream surfaces inherit.",
+    status: "Awaiting baseline"
   });
 
   const censusCard = createCard({
     title: "Census assumptions",
-    description: "Geography context, ACS rows, aggregate demographics, and election CSV dry-run workflow."
+    description: "Geography context, ACS rows, aggregate demographics, and election CSV dry-run workflow.",
+    status: "Ready"
   });
 
   const targetingCard = createCard({
     title: "Targeting lab",
-    description: "Model-driven target ranking layer. Derived analysis only; does not mutate core scenario math."
+    description: "Model-driven target ranking layer. Derived analysis only; does not mutate core scenario math.",
+    status: "Run targeting"
   });
+
+  assignCardStatusId(raceCard, "v3DistrictRaceCardStatus");
+  assignCardStatusId(electorateCard, "v3DistrictElectorateCardStatus");
+  assignCardStatusId(baselineCard, "v3DistrictBaselineCardStatus");
+  assignCardStatusId(turnoutCard, "v3DistrictTurnoutCardStatus");
+  assignCardStatusId(structureCard, "v3DistrictStructureCardStatus");
+  assignCardStatusId(summaryCard, "v3DistrictSummaryCardStatus");
+  assignCardStatusId(censusCard, "v3DistrictCensusCardStatus");
+  assignCardStatusId(targetingCard, "v3DistrictTargetingCardStatus");
 
   const raceGrid = createFieldGrid("fpe-field-grid--2");
   const raceBody = getCardBody(raceCard);
@@ -570,6 +587,14 @@ function refreshDistrictSummary() {
   syncDistrictCensusProxy();
   syncDistrictCensusMessageTones();
   syncCensusMapShellState();
+  syncDistrictCardStatus("v3DistrictRaceCardStatus", deriveDistrictRaceCardStatus());
+  syncDistrictCardStatus("v3DistrictElectorateCardStatus", deriveDistrictElectorateCardStatus());
+  syncDistrictCardStatus("v3DistrictBaselineCardStatus", deriveDistrictBaselineCardStatus());
+  syncDistrictCardStatus("v3DistrictTurnoutCardStatus", deriveDistrictTurnoutCardStatus());
+  syncDistrictCardStatus("v3DistrictStructureCardStatus", deriveDistrictStructureCardStatus());
+  syncDistrictCardStatus("v3DistrictSummaryCardStatus", deriveDistrictSummaryCardStatus(snapshot));
+  syncDistrictCardStatus("v3DistrictCensusCardStatus", deriveDistrictCensusCardStatus());
+  syncDistrictCardStatus("v3DistrictTargetingCardStatus", deriveDistrictTargetingCardStatus());
   applyDistrictBridgeDisabledMap(controlSnapshot?.disabledMap);
 }
 
@@ -2293,4 +2318,195 @@ function isCensusMapIdle(statusText) {
     value.includes("select geo units") ||
     value.includes("no boundary overlay")
   );
+}
+
+function assignCardStatusId(card, id) {
+  if (!(card instanceof HTMLElement) || !id) {
+    return;
+  }
+  const badge = card.querySelector(".fpe-card__status");
+  if (badge instanceof HTMLElement) {
+    badge.id = id;
+  }
+}
+
+function syncDistrictCardStatus(id, value) {
+  const badge = document.getElementById(id);
+  if (!(badge instanceof HTMLElement)) {
+    return;
+  }
+  const text = String(value || "").trim() || "Awaiting inputs";
+  badge.textContent = text;
+  badge.classList.add("fpe-status-pill");
+  badge.classList.remove(
+    "fpe-status-pill--ok",
+    "fpe-status-pill--warn",
+    "fpe-status-pill--bad",
+    "fpe-status-pill--neutral"
+  );
+  const tone = classifyDistrictStatusTone(text);
+  badge.classList.add(`fpe-status-pill--${tone}`);
+}
+
+function deriveDistrictRaceCardStatus() {
+  const raceType = readSelectTextById("v3DistrictRaceType");
+  const electionDate = readValueTextById("v3DistrictElectionDate");
+  const mode = readSelectTextById("v3DistrictMode");
+  if (raceType && electionDate && mode) {
+    return "Configured";
+  }
+  if (raceType || electionDate || mode) {
+    return "Needs date";
+  }
+  return "Awaiting context";
+}
+
+function deriveDistrictElectorateCardStatus() {
+  const universe = readValueTextById("v3DistrictUniverseSize");
+  const basis = readSelectTextById("v3DistrictUniverseBasis");
+  const sourceNote = readValueTextById("v3DistrictSourceNote");
+  if (universe && basis) {
+    return sourceNote ? "Sourced" : "Universe set";
+  }
+  return "Awaiting universe";
+}
+
+function deriveDistrictBaselineCardStatus() {
+  const warning = readTextById("v3DistrictCandWarn");
+  const supportTotal = readTextById("v3DistrictSupportTotal");
+  if (warning) {
+    return "Check totals";
+  }
+  if (supportTotal === "100.0%" || supportTotal === "100%" || supportTotal === "100.00%") {
+    return "Balanced";
+  }
+  if (supportTotal && supportTotal !== "—" && supportTotal !== "-") {
+    return "Ballot set";
+  }
+  return "Awaiting ballot";
+}
+
+function deriveDistrictTurnoutCardStatus() {
+  const turnoutExpected = readTextById("v3DistrictTurnoutExpected");
+  const turnoutA = readValueTextById("v3DistrictTurnoutA");
+  const turnoutB = readValueTextById("v3DistrictTurnoutB");
+  if (turnoutA && turnoutB && turnoutExpected && turnoutExpected !== "—") {
+    return "2 cycles set";
+  }
+  if (turnoutA || turnoutB) {
+    return "Incomplete";
+  }
+  return "Awaiting turnout";
+}
+
+function deriveDistrictStructureCardStatus() {
+  const enabled = readCheckboxChecked("v3DistrictElectorateWeightingToggle");
+  const warning = readTextById("v3DistrictStructureWarn");
+  if (!enabled) {
+    return "Weighting off";
+  }
+  if (warning) {
+    return "Check shares";
+  }
+  return "Weighted";
+}
+
+function deriveDistrictSummaryCardStatus(snapshot) {
+  const need = String(snapshot?.persuasionNeed || "").trim();
+  const projected = String(snapshot?.projectedVotes || "").trim();
+  const universe = String(snapshot?.universe || "").trim();
+  if (!universe || universe === "—") {
+    return "Awaiting baseline";
+  }
+  if (need && need !== "0" && need !== "—") {
+    return "Need path";
+  }
+  if (projected && projected !== "—") {
+    return "Baseline ready";
+  }
+  return "Awaiting baseline";
+}
+
+function deriveDistrictCensusCardStatus() {
+  const status = readTextById("v3CensusStatus").toLowerCase();
+  const geoStats = readTextById("v3CensusGeoStats").toLowerCase();
+  if (status.includes("error") || status.includes("failed")) {
+    return "Attention";
+  }
+  if (geoStats.includes("rows loaded") && !geoStats.includes("0 rows loaded")) {
+    return "Rows loaded";
+  }
+  if (status.includes("ready")) {
+    return "Ready";
+  }
+  if (status || geoStats) {
+    return "In progress";
+  }
+  return "Awaiting GEOs";
+}
+
+function deriveDistrictTargetingCardStatus() {
+  const status = readTextById("v3DistrictTargetingStatus").toLowerCase();
+  const rowCount = countBodyRows("v3DistrictTargetingResultsTbody");
+  if (rowCount > 0) {
+    return "Ranks ready";
+  }
+  if (status.includes("run targeting")) {
+    return "Run targeting";
+  }
+  if (status.includes("unavailable") || status.includes("failed")) {
+    return "Unavailable";
+  }
+  if (status) {
+    return "Awaiting run";
+  }
+  return "Run targeting";
+}
+
+function classifyDistrictStatusTone(text) {
+  const lower = String(text || "").trim().toLowerCase();
+  if (!lower) {
+    return "neutral";
+  }
+  if (/(configured|sourced|universe set|balanced|2 cycles set|weighted|baseline ready|rows loaded|ready|ranks ready)/.test(lower)) {
+    return "ok";
+  }
+  if (/(attention|unavailable|failed|check totals|check shares)/.test(lower)) {
+    return "bad";
+  }
+  if (/(awaiting|needs date|incomplete|weighting off|need path|in progress|run targeting|awaiting run)/.test(lower)) {
+    return "warn";
+  }
+  return "neutral";
+}
+
+function readTextById(id) {
+  const node = document.getElementById(id);
+  return node ? String(node.textContent || "").trim() : "";
+}
+
+function readValueTextById(id) {
+  const node = document.getElementById(id);
+  if (!(node instanceof HTMLInputElement || node instanceof HTMLTextAreaElement || node instanceof HTMLSelectElement)) {
+    return "";
+  }
+  return String(node.value || "").trim();
+}
+
+function readSelectTextById(id) {
+  const node = document.getElementById(id);
+  if (!(node instanceof HTMLSelectElement)) {
+    return "";
+  }
+  const option = node.selectedOptions && node.selectedOptions.length ? node.selectedOptions[0] : null;
+  return option ? String(option.textContent || "").trim() : "";
+}
+
+function countBodyRows(id) {
+  const tbody = document.getElementById(id);
+  if (!(tbody instanceof HTMLElement)) {
+    return 0;
+  }
+  const rows = Array.from(tbody.querySelectorAll(":scope > tr"));
+  return rows.filter((row) => !row.querySelector(".muted")).length;
 }

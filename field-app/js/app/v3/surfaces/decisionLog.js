@@ -823,9 +823,7 @@ function syncDecisionCardStatus(id, value) {
     "fpe-status-pill--neutral"
   );
   const tone = classifyDecisionStatusTone(text);
-  if (tone !== "neutral") {
-    badge.classList.add(`fpe-status-pill--${tone}`);
-  }
+  badge.classList.add(`fpe-status-pill--${tone}`);
 }
 
 function deriveDecisionSessionCardStatus(view) {

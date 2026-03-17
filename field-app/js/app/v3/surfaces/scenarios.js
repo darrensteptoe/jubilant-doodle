@@ -635,9 +635,7 @@ function syncScenarioCardStatus(id, value) {
     "fpe-status-pill--neutral"
   );
   const tone = classifyScenarioStatusTone(text);
-  if (tone !== "neutral") {
-    badge.classList.add(`fpe-status-pill--${tone}`);
-  }
+  badge.classList.add(`fpe-status-pill--${tone}`);
 }
 
 function deriveScenarioWorkspaceCardStatus(view) {
