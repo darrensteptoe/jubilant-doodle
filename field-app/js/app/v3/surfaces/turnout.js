@@ -22,22 +22,26 @@ export function renderTurnoutSurface(mount) {
 
   const assumptionsCard = createCard({
     title: "Turnout assumptions",
-    description: "Baseline turnout, target override, and module activation for realized-vote modeling."
+    description: "Baseline turnout, target override, and module activation for realized-vote modeling.",
+    status: "Module off"
   });
 
   const liftCard = createCard({
     title: "Lift controls",
-    description: "Diminishing-return behavior and lift parameters used to estimate turnout response."
+    description: "Diminishing-return behavior and lift parameters used to estimate turnout response.",
+    status: "Awaiting setup"
   });
 
   const costInputsCard = createCard({
     title: "Efficiency inputs",
-    description: "Per-attempt tactic settings and overhead assumptions for ROI comparison."
+    description: "Per-attempt tactic settings and overhead assumptions for ROI comparison.",
+    status: "Awaiting setup"
   });
 
   const efficiencyCard = createCard({
     title: "Efficiency comparison",
-    description: "Cost-per-net-vote and tactic comparison under current turnout assumptions."
+    description: "Cost-per-net-vote and tactic comparison under current turnout assumptions.",
+    status: "Awaiting refresh"
   });
 
   const assumptionsHeaderToggle = document.createElement("div");
@@ -53,13 +57,22 @@ export function renderTurnoutSurface(mount) {
 
   const impactCard = createCard({
     title: "Realized vote impact",
-    description: "Turnout contribution against persuasion vote requirements and forecast posture."
+    description: "Turnout contribution against persuasion vote requirements and forecast posture.",
+    status: "Awaiting setup"
   });
 
   const summaryCard = createCard({
     title: "Turnout summary",
-    description: "Current turnout context and vote-impact readout."
+    description: "Current turnout context and vote-impact readout.",
+    status: "Awaiting setup"
   });
+
+  assignCardStatusId(assumptionsCard, "v3TurnoutAssumptionsCardStatus");
+  assignCardStatusId(liftCard, "v3TurnoutLiftCardStatus");
+  assignCardStatusId(costInputsCard, "v3TurnoutCostCardStatus");
+  assignCardStatusId(efficiencyCard, "v3TurnoutEfficiencyCardStatus");
+  assignCardStatusId(impactCard, "v3TurnoutImpactCardStatus");
+  assignCardStatusId(summaryCard, "v3TurnoutSummaryCardStatus");
 
   const assumptionsBody = getCardBody(assumptionsCard);
   assumptionsBody.innerHTML = `
@@ -363,10 +376,19 @@ function refreshTurnoutSummary() {
   setText("v3TurnoutImpactVotes", turnoutVotes || "-");
   setText("v3TurnoutImpactNeed", needVotes || "-");
   setText("v3TurnoutImpactMargin", readTurnoutMarginContext());
-  setText("v3TurnoutImpactWinProb", readV3WinProbability());
-  setText("v3TurnoutStatusBanner", buildTurnoutStatusBanner(turnoutSummary, turnoutVotes, needVotes));
+  const turnoutWinProb = readV3WinProbability();
+  const turnoutStatusBanner = buildTurnoutStatusBanner(turnoutSummary, turnoutVotes, needVotes);
+  setText("v3TurnoutImpactWinProb", turnoutWinProb);
+  setText("v3TurnoutStatusBanner", turnoutStatusBanner);
   applyTurnoutView(turnoutView);
-  setText("v3TurnoutRoiBanner", buildRoiStatusBanner(turnoutView));
+  const roiBanner = buildRoiStatusBanner(turnoutView);
+  setText("v3TurnoutRoiBanner", roiBanner);
+  syncTurnoutCardStatus("v3TurnoutAssumptionsCardStatus", deriveTurnoutAssumptionsCardStatus(turnoutView));
+  syncTurnoutCardStatus("v3TurnoutLiftCardStatus", deriveTurnoutLiftCardStatus(turnoutView));
+  syncTurnoutCardStatus("v3TurnoutCostCardStatus", deriveTurnoutCostCardStatus(turnoutView));
+  syncTurnoutCardStatus("v3TurnoutEfficiencyCardStatus", deriveTurnoutEfficiencyCardStatus(turnoutView, roiBanner));
+  syncTurnoutCardStatus("v3TurnoutImpactCardStatus", deriveTurnoutImpactCardStatus(turnoutStatusBanner, turnoutWinProb));
+  syncTurnoutCardStatus("v3TurnoutSummaryCardStatus", deriveTurnoutSummaryCardStatus(turnoutSummary, turnoutVotes, needVotes));
 }
 
 function bindTurnoutField(id, field) {
@@ -698,4 +720,128 @@ function buildRoiStatusBanner(view) {
     return "Refresh ROI to compute efficiency comparison.";
   }
   return "ROI comparison reflects current tactic settings.";
+}
+
+function assignCardStatusId(card, id) {
+  if (!(card instanceof HTMLElement) || !id) {
+    return;
+  }
+  const badge = card.querySelector(".fpe-card__status");
+  if (badge instanceof HTMLElement) {
+    badge.id = id;
+  }
+}
+
+function syncTurnoutCardStatus(id, value) {
+  const badge = document.getElementById(id);
+  if (!(badge instanceof HTMLElement)) {
+    return;
+  }
+  const text = String(value || "").trim() || "Awaiting setup";
+  badge.textContent = text;
+  badge.classList.add("fpe-status-pill");
+  badge.classList.remove(
+    "fpe-status-pill--ok",
+    "fpe-status-pill--warn",
+    "fpe-status-pill--bad",
+    "fpe-status-pill--neutral"
+  );
+  const tone = classifyTurnoutStatusTone(text);
+  if (tone !== "neutral") {
+    badge.classList.add(`fpe-status-pill--${tone}`);
+  }
+}
+
+function deriveTurnoutAssumptionsCardStatus(view) {
+  const enabled = !!view?.inputs?.turnoutEnabled;
+  if (!enabled) {
+    return "Module off";
+  }
+  const baseline = Number(view?.inputs?.turnoutBaselinePct);
+  if (!Number.isFinite(baseline)) {
+    return "Awaiting setup";
+  }
+  return "Active";
+}
+
+function deriveTurnoutLiftCardStatus(view) {
+  const enabled = !!view?.inputs?.turnoutEnabled;
+  if (!enabled) {
+    return "Module off";
+  }
+  if (!Number.isFinite(Number(view?.inputs?.gotvLiftPP))) {
+    return "Awaiting setup";
+  }
+  return view?.inputs?.gotvDiminishing ? "Diminishing on" : "Linear";
+}
+
+function deriveTurnoutCostCardStatus(view) {
+  const inputs = view?.inputs || {};
+  const enabledCount = [
+    inputs.roiDoorsEnabled,
+    inputs.roiPhonesEnabled,
+    inputs.roiTextsEnabled,
+  ].filter(Boolean).length;
+  if (!enabledCount) {
+    return "No tactics";
+  }
+  if (enabledCount === 1) {
+    return "1 tactic";
+  }
+  return `${enabledCount} tactics`;
+}
+
+function deriveTurnoutEfficiencyCardStatus(view, roiBanner) {
+  const rows = Array.isArray(view?.roiRows) ? view.roiRows : [];
+  const banner = String(roiBanner || "").trim().toLowerCase();
+  if (!rows.length) {
+    return "Awaiting refresh";
+  }
+  if (banner.includes("feasible") || banner.includes("best")) {
+    return "Compared";
+  }
+  return "Current";
+}
+
+function deriveTurnoutImpactCardStatus(statusBanner, winProb) {
+  const banner = String(statusBanner || "").trim().toLowerCase();
+  const win = String(winProb || "").trim();
+  if (!banner || banner.includes("set turnout assumptions")) {
+    return "Awaiting setup";
+  }
+  if (banner.includes("exceeds") || banner.includes("covers")) {
+    return "Helpful";
+  }
+  if (win && win !== "—") {
+    return "In context";
+  }
+  return "Current";
+}
+
+function deriveTurnoutSummaryCardStatus(summary, turnoutVotes, needVotes) {
+  const text = String(summary || "").trim();
+  if (text) {
+    return text.length > 22 ? "Current" : text;
+  }
+  if (turnoutVotes || needVotes) {
+    return "Current";
+  }
+  return "Awaiting setup";
+}
+
+function classifyTurnoutStatusTone(text) {
+  const lower = String(text || "").trim().toLowerCase();
+  if (!lower) {
+    return "neutral";
+  }
+  if (/(active|helpful|current|compared|in context|linear|diminishing on|1 tactic|2 tactics|3 tactics)/.test(lower)) {
+    return "ok";
+  }
+  if (/(off|no tactics|missing|failed|broken|unavailable)/.test(lower)) {
+    return "bad";
+  }
+  if (/(awaiting|module off|watch|pending)/.test(lower)) {
+    return "warn";
+  }
+  return "neutral";
 }
