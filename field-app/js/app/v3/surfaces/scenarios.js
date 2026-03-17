@@ -19,23 +19,32 @@ export function renderScenariosSurface(mount) {
 
   const workspaceCard = createCard({
     title: "Scenario list & actions",
-    description: "Create, clone, load, return, and delete scenarios."
+    description: "Create, clone, load, return, and delete scenarios.",
+    status: "Baseline ready"
   });
 
   const compareCard = createCard({
     title: "Compare actions & differences",
-    description: "Baseline versus active scenario differences in inputs and outputs."
+    description: "Baseline versus active scenario differences in inputs and outputs.",
+    status: "No compare"
   });
 
   const guidanceCard = createCard({
     title: "Scenario notes",
-    description: "Operational guidance and dynamic warnings for scenario management."
+    description: "Operational guidance and dynamic warnings for scenario management.",
+    status: "Storage ready"
   });
 
   const summaryCard = createCard({
     title: "Current scenario detail",
-    description: "Quick readout of active scenario state and diff volume."
+    description: "Quick readout of active scenario state and diff volume.",
+    status: "Baseline"
   });
+
+  assignCardStatusId(workspaceCard, "v3ScenarioWorkspaceCardStatus");
+  assignCardStatusId(compareCard, "v3ScenarioCompareCardStatus");
+  assignCardStatusId(guidanceCard, "v3ScenarioNotesCardStatus");
+  assignCardStatusId(summaryCard, "v3ScenarioSummaryCardStatus");
 
   getCardBody(workspaceCard).innerHTML = `
     <div id="v3ScenarioBridgeRoot">
@@ -226,6 +235,23 @@ function refreshScenariosSummary() {
   setText("v3ScenarioStorageStatus", storage);
   setText("v3ScenarioLegacyWarn", warning);
   setText("v3ScenarioLegacyStorageNote", storage);
+
+  syncScenarioCardStatus(
+    "v3ScenarioWorkspaceCardStatus",
+    deriveScenarioWorkspaceCardStatus(view)
+  );
+  syncScenarioCardStatus(
+    "v3ScenarioCompareCardStatus",
+    deriveScenarioCompareCardStatus(comparison)
+  );
+  syncScenarioCardStatus(
+    "v3ScenarioNotesCardStatus",
+    deriveScenarioNotesCardStatus(warning, storage)
+  );
+  syncScenarioCardStatus(
+    "v3ScenarioSummaryCardStatus",
+    deriveScenarioSummaryCardStatus(view, comparison)
+  );
 }
 
 function wireScenariosEvents() {
@@ -578,4 +604,106 @@ function renderScenariosUnavailable() {
   setText("v3ScenarioLegacyWarn", "Scenario runtime bridge unavailable.");
   setText("v3ScenarioStorageStatus", "Scenario storage unavailable.");
   setText("v3ScenarioLegacyStorageNote", "Scenario storage unavailable.");
+  syncScenarioCardStatus("v3ScenarioWorkspaceCardStatus", "Unavailable");
+  syncScenarioCardStatus("v3ScenarioCompareCardStatus", "Unavailable");
+  syncScenarioCardStatus("v3ScenarioNotesCardStatus", "Unavailable");
+  syncScenarioCardStatus("v3ScenarioSummaryCardStatus", "Unavailable");
+}
+
+function assignCardStatusId(card, id) {
+  if (!(card instanceof HTMLElement) || !id) {
+    return;
+  }
+  const badge = card.querySelector(".fpe-card__status");
+  if (badge instanceof HTMLElement) {
+    badge.id = id;
+  }
+}
+
+function syncScenarioCardStatus(id, value) {
+  const badge = document.getElementById(id);
+  if (!(badge instanceof HTMLElement)) {
+    return;
+  }
+  const text = String(value || "").trim() || "Awaiting scenario";
+  badge.textContent = text;
+  badge.classList.add("fpe-status-pill");
+  badge.classList.remove(
+    "fpe-status-pill--ok",
+    "fpe-status-pill--warn",
+    "fpe-status-pill--bad",
+    "fpe-status-pill--neutral"
+  );
+  const tone = classifyScenarioStatusTone(text);
+  if (tone !== "neutral") {
+    badge.classList.add(`fpe-status-pill--${tone}`);
+  }
+}
+
+function deriveScenarioWorkspaceCardStatus(view) {
+  const scenarios = Array.isArray(view?.scenarios) ? view.scenarios : [];
+  const activeId = String(view?.activeScenarioId || view?.baselineId || "");
+  const baselineId = String(view?.baselineId || "baseline");
+  if (!scenarios.length) {
+    return "Unavailable";
+  }
+  if (activeId && activeId !== baselineId) {
+    return "Scenario active";
+  }
+  return "Baseline ready";
+}
+
+function deriveScenarioCompareCardStatus(comparison) {
+  const count = Number(comparison?.outputDiffCount || 0);
+  if (!comparison || comparison.modeText === "Select a non-baseline active scenario to view differences.") {
+    return "No compare";
+  }
+  if (count > 0) {
+    return "Diffs ready";
+  }
+  return "Compared";
+}
+
+function deriveScenarioNotesCardStatus(warning, storage) {
+  const warningText = String(warning || "").toLowerCase();
+  const storageText = String(storage || "").toLowerCase();
+  if (warningText.includes("unavailable") || storageText.includes("unavailable")) {
+    return "Unavailable";
+  }
+  if (!warningText || warningText === "no warnings.") {
+    return "Storage ready";
+  }
+  if (warningText.includes("warning") || warningText.includes("diff") || warningText.includes("delete")) {
+    return "Watchlist";
+  }
+  return "Storage ready";
+}
+
+function deriveScenarioSummaryCardStatus(view, comparison) {
+  const activeId = String(view?.activeScenarioId || view?.baselineId || "");
+  const baselineId = String(view?.baselineId || "baseline");
+  if (!view) {
+    return "Unavailable";
+  }
+  if (activeId && activeId !== baselineId) {
+    return Number(comparison?.inputDiffCount || 0) > 0 ? "Delta tracked" : "Scenario active";
+  }
+  return "Baseline";
+}
+
+function classifyScenarioStatusTone(text) {
+  const lower = String(text || "").trim().toLowerCase();
+  if (!lower) {
+    return "neutral";
+  }
+  if (/(baseline ready|storage ready|compared|baseline)/.test(lower)) {
+    return "ok";
+  }
+  if (/(unavailable)/.test(lower)) {
+    return "bad";
+  }
+  if (/(scenario active|diffs ready|watchlist|delta tracked|no compare|awaiting)/.test(lower)) {
+    return "warn";
+  }
+  return "neutral";
 }
