@@ -1,0 +1,165 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Steptoe Strategic Media LLC Campaign Engine — Operations Pipeline</title>
+  <script type="module" crossorigin src="/assets/operationsPipeline-VavYpivX.js"></script>
+  <link rel="modulepreload" crossorigin href="/assets/context-CY_AWMI7.js">
+  <link rel="modulepreload" crossorigin href="/assets/build-D_SXLPw5.js">
+  <link rel="modulepreload" crossorigin href="/assets/store-DfsLZLbh.js">
+  <link rel="modulepreload" crossorigin href="/assets/io-B5VVTQXr.js">
+  <link rel="stylesheet" crossorigin href="/assets/styles-3U8WXcS7.css">
+</head>
+<body class="page-generic">
+  <a class="skip-link" href="#main">Skip to content</a>
+
+  <main class="wrap" id="main">
+    <header class="header">
+      <h1 class="title"><a href="index.html">Steptoe Strategic Media LLC Campaign Engine</a></h1>
+      <p class="sub">Operations: Talent Pipeline Input</p>
+    </header>
+
+    <div class="note" style="display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin-bottom:10px;">
+      <a class="btn btn-sm btn-ghost" href="operations.html">Operations Hub</a>
+      <a class="btn btn-sm" href="operations-pipeline.html">Pipeline</a>
+      <a class="btn btn-sm btn-ghost" href="operations-shifts.html">Shifts</a>
+      <a class="btn btn-sm btn-ghost" href="operations-turf.html">Turf</a>
+      <a class="btn btn-sm btn-ghost" href="operations-ramp.html">Ramp</a>
+      <span class="mini-s">Use pipeline for hiring stages, shifts for production, turf for coverage history.</span>
+    </div>
+
+    <div class="card card-section">
+      <div class="card-head card-header">
+        <h2 class="card-title">Lead / Stage Entry</h2>
+        <div class="help-text">Organizer-style form entry with workforce role modeling. One record per person with stage history timestamps.</div>
+      </div>
+
+      <div class="grid3">
+        <div class="field">
+          <label class="label" for="leadName">Name</label>
+          <input class="input" id="leadName" type="text" placeholder="Canvasser name" />
+        </div>
+        <div class="field">
+          <label class="label" for="leadOffice">Office</label>
+          <input class="input" id="leadOffice" type="text" placeholder="Office / team" />
+        </div>
+        <div class="field">
+          <label class="label" for="leadRegion">Region</label>
+          <input class="input" id="leadRegion" type="text" placeholder="Region / county" />
+        </div>
+
+        <div class="field">
+          <label class="label" for="leadRecruiter">Recruiter</label>
+          <input class="input" id="leadRecruiter" type="text" placeholder="Owner recruiter" />
+        </div>
+        <div class="field">
+          <label class="label" for="leadSourceChannel">Source channel</label>
+          <input class="input" id="leadSourceChannel" type="text" placeholder="Form, referral, event..." />
+        </div>
+        <div class="field">
+          <label class="label" for="leadStage">Current stage</label>
+          <select class="select" id="leadStage"></select>
+        </div>
+
+        <div class="field">
+          <label class="label" for="leadRoleType">Role type</label>
+          <select class="select" id="leadRoleType">
+            <option value="canvasser">Canvasser</option>
+            <option value="field_organizer">Field organizer</option>
+            <option value="volunteer">Volunteer</option>
+            <option value="volunteer_lead">Volunteer lead</option>
+          </select>
+        </div>
+        <div class="field">
+          <label class="label" for="leadCompensationType">Compensation</label>
+          <select class="select" id="leadCompensationType">
+            <option value="paid">Paid</option>
+            <option value="volunteer">Volunteer</option>
+            <option value="stipend">Stipend</option>
+          </select>
+        </div>
+        <div class="field">
+          <label class="label" for="leadPayRate">Pay rate (optional)</label>
+          <input class="input num" id="leadPayRate" type="number" min="0" step="0.01" placeholder="0.00" />
+        </div>
+
+        <div class="field">
+          <label class="label" for="leadExpectedHoursPerWeek">Expected hours/week (optional)</label>
+          <input class="input num" id="leadExpectedHoursPerWeek" type="number" min="0" step="0.5" placeholder="0" />
+        </div>
+        <div class="field">
+          <label class="label" for="leadSupervisorId">Supervisor ID (optional)</label>
+          <input class="input" id="leadSupervisorId" type="text" placeholder="per_xxx" />
+        </div>
+        <div class="field">
+          <label class="label" for="leadActive">Active person record</label>
+          <div>
+            <label class="mini-s" style="display:flex; align-items:center; gap:8px;">
+              <input id="leadActive" type="checkbox" />
+              Mark person active even if current stage is not Active
+            </label>
+          </div>
+        </div>
+      </div>
+
+      <div class="card-footer" style="display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
+        <button class="btn" id="btnSaveLead" type="button">Save / Update</button>
+        <button class="btn btn-ghost" id="btnClearLead" type="button">Clear</button>
+        <div class="mini-s" id="leadMsg" aria-live="polite"></div>
+      </div>
+    </div>
+
+    <div class="card card-section">
+      <div class="card-head card-header">
+        <h2 class="card-title">Pipeline Readout</h2>
+        <div class="help-text">Where recruits are now, plus days in current stage and total days in pipeline.</div>
+      </div>
+
+      <div class="note" style="display:flex; gap:10px; flex-wrap:wrap; align-items:center; justify-content:space-between;">
+        <div><span class="mini-k">People:</span> <span class="mini-v" id="countPersons">0</span></div>
+        <div><span class="mini-k">Pipeline records:</span> <span class="mini-v" id="countPipeline">0</span></div>
+        <div><span class="mini-k">Active stage:</span> <span class="mini-v" id="countActiveStage">0</span></div>
+      </div>
+
+      <div class="tableWrap" style="margin-top:10px;">
+        <table class="table">
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th>Office</th>
+              <th>Region</th>
+              <th>Role</th>
+              <th>Comp</th>
+              <th>Recruiter</th>
+              <th>Stage</th>
+              <th class="num">Days in stage</th>
+              <th class="num">Total days</th>
+              <th style="width:220px;">Actions</th>
+            </tr>
+          </thead>
+          <tbody id="pipelineTbody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="card card-section">
+      <div class="card-head card-header">
+        <h2 class="card-title">Data I/O</h2>
+        <div class="help-text">Static-safe portability for Operations records.</div>
+      </div>
+
+      <div style="display:flex; gap:8px; flex-wrap:wrap;">
+        <button class="btn btn-sm" id="btnExportJson" type="button">Export Operations JSON</button>
+        <button class="btn btn-sm" id="btnImportJson" type="button">Import Operations JSON</button>
+        <button class="btn btn-sm" id="btnExportCsv" type="button">Export Pipeline CSV</button>
+        <button class="btn btn-sm" id="btnImportCsv" type="button">Import Pipeline CSV</button>
+      </div>
+      <input id="importJsonFile" type="file" accept=".json,application/json" hidden />
+      <input id="importCsvFile" type="file" accept=".csv,text/csv" hidden />
+      <div class="mini-s" id="ioMsg" aria-live="polite" style="margin-top:8px;"></div>
+    </div>
+  </main>
+
+</body>
+</html>

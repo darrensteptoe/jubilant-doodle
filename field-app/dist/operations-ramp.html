@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Steptoe Strategic Media LLC Campaign Engine — Operations Ramp Forecast</title>
+  <script type="module" crossorigin src="/assets/operationsRamp-Ch9IYVkU.js"></script>
+  <link rel="modulepreload" crossorigin href="/assets/context-CY_AWMI7.js">
+  <link rel="modulepreload" crossorigin href="/assets/store-DfsLZLbh.js">
+  <link rel="stylesheet" crossorigin href="/assets/styles-3U8WXcS7.css">
+</head>
+<body class="page-generic">
+  <a class="skip-link" href="#main">Skip to content</a>
+
+  <main class="wrap" id="main">
+    <header class="header">
+      <h1 class="title"><a href="index.html">Steptoe Strategic Media LLC Campaign Engine</a></h1>
+      <p class="sub">Operations: Ramp Forecast v1 (standalone)</p>
+    </header>
+
+    <div class="note" style="display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin-bottom:10px;">
+      <a class="btn btn-sm btn-ghost" href="operations.html">Operations Hub</a>
+      <a class="btn btn-sm btn-ghost" href="operations-pipeline.html">Pipeline</a>
+      <a class="btn btn-sm btn-ghost" href="operations-shifts.html">Shifts</a>
+      <a class="btn btn-sm btn-ghost" href="operations-turf.html">Turf</a>
+      <a class="btn btn-sm" href="operations-ramp.html">Ramp</a>
+      <span class="mini-s">Forecast-only page. No FPE capacity override in this step.</span>
+    </div>
+
+    <div class="card card-section">
+      <div class="card-head card-header">
+        <h2 class="card-title">Forecast Controls</h2>
+        <div class="help-text">Deterministic stage-conversion and stage-duration model.</div>
+      </div>
+
+      <div class="grid3">
+        <div class="field">
+          <label class="label" for="asOfDate">As-of date</label>
+          <input class="input" id="asOfDate" type="date" />
+        </div>
+        <div class="field">
+          <label class="label" for="horizonWeeks">Horizon weeks</label>
+          <input class="input num" id="horizonWeeks" type="number" min="1" max="104" step="1" value="16" />
+        </div>
+      </div>
+
+      <div class="card-footer" style="display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
+        <button class="btn" id="btnRecompute" type="button">Recompute Forecast</button>
+        <button class="btn btn-ghost" id="btnSaveAssumptions" type="button">Save Assumptions</button>
+        <button class="btn btn-ghost" id="btnResetAssumptions" type="button">Reset Defaults</button>
+        <div class="mini-s" id="forecastMsg" aria-live="polite"></div>
+      </div>
+    </div>
+
+    <div class="card card-section">
+      <div class="card-head card-header">
+        <h2 class="card-title">Stage Assumptions</h2>
+        <div class="help-text">Editable per-transition conversion and expected duration.</div>
+      </div>
+
+      <div class="tableWrap">
+        <table class="table">
+          <thead>
+            <tr>
+              <th>Transition</th>
+              <th class="num">Conversion %</th>
+              <th class="num">Duration (days)</th>
+            </tr>
+          </thead>
+          <tbody id="assumptionTbody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="card card-section">
+      <div class="card-head card-header">
+        <h2 class="card-title">Ramp Summary</h2>
+        <div class="help-text">Projected activations by week from current pipeline state.</div>
+      </div>
+
+      <div class="note" style="display:flex; gap:10px; flex-wrap:wrap; align-items:center; justify-content:space-between;">
+        <div><span class="mini-k">Baseline active:</span> <span class="mini-v" id="baselineActive">0</span></div>
+        <div><span class="mini-k">Open pipeline:</span> <span class="mini-v" id="openPipeline">0</span></div>
+        <div><span class="mini-k">Expected in horizon:</span> <span class="mini-v" id="expectedHorizon">0.00</span></div>
+        <div><span class="mini-k">Expected beyond horizon:</span> <span class="mini-v" id="expectedBeyond">0.00</span></div>
+      </div>
+
+      <div class="tableWrap" style="margin-top:10px;">
+        <table class="table">
+          <thead>
+            <tr>
+              <th>Week Starting</th>
+              <th class="num">Expected New Active (FTE)</th>
+              <th class="num">Recruits Landing</th>
+              <th class="num">Cumulative Expected Active</th>
+            </tr>
+          </thead>
+          <tbody id="weeklyTbody"></tbody>
+        </table>
+      </div>
+
+      <div style="display:flex; gap:8px; flex-wrap:wrap; margin-top:10px;">
+        <button class="btn btn-sm" id="btnExportWeeklyCsv" type="button">Export Weekly CSV</button>
+        <button class="btn btn-sm" id="btnExportPersonCsv" type="button">Export Detail CSV</button>
+      </div>
+    </div>
+
+    <div class="card card-section">
+      <div class="card-head card-header">
+        <h2 class="card-title">Person-Level Forecast Detail</h2>
+        <div class="help-text">Each row is a pipeline record projected to Active based on current stage.</div>
+      </div>
+
+      <div class="tableWrap">
+        <table class="table">
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th>Current stage</th>
+              <th class="num">P(active)</th>
+              <th class="num">Days to active</th>
+              <th>Projected active date</th>
+            </tr>
+          </thead>
+          <tbody id="personTbody"></tbody>
+        </table>
+      </div>
+    </div>
+  </main>
+
+</body>
+</html>
