@@ -1,5 +1,7 @@
 // @ts-check
 import { resolveFeatureFlags } from "../../core/featureFlags.js";
+import { getTimelineObjectiveMeta } from "../../core/timelineOptimizer.js";
+import { normalizeOptimizationObjective } from "../../core/turnout.js";
 
 export function renderBottleneckAttributionPanel({
   els,
@@ -108,7 +110,11 @@ export function renderBottleneckAttributionPanel({
 
   const opt = state.budget?.optimize || {};
   const budget = state.budget || {};
-  const tactics = engine.buildOptimizationTactics({ baseRates: { cr, sr, tr }, tactics: budget.tactics || {} });
+  const tactics = engine.buildOptimizationTactics({
+    baseRates: { cr, sr, tr },
+    tactics: budget.tactics || {},
+    state,
+  });
 
   const overheadAmount = safeNum(budget.overheadAmount) ?? 0;
   const includeOverhead = !!budget.includeOverhead;
@@ -149,7 +155,7 @@ export function renderBottleneckAttributionPanel({
 
     const tlObj = opt.tlConstrainedObjective || "max_net";
     const step = safeNum(opt.step) ?? 100;
-    const objective = opt.objective || "net";
+    const objective = normalizeOptimizationObjective(opt.objective, "net");
 
     const inputs = {
       mode: (opt.mode || "budget"),
@@ -162,15 +168,17 @@ export function renderBottleneckAttributionPanel({
       objective,
       maxAttemptsByTactic,
       tlObjectiveMode: tlObj,
-      goalNetVotes: needVotes
+      goalObjectiveValue: needVotes
     };
     return { out: engine.optimizeTimelineConstrained(inputs), maxAttemptsByTactic };
   };
+  const readTimelineObjectiveMeta = (meta) => getTimelineObjectiveMeta(meta);
 
   const baseBudget = safeNum(opt.budgetAmount) ?? 0;
   const base = computeTl({ tacticsIn: tactics, capsIn: capsInputBase, budgetLimitIn: baseBudget });
   const baseMeta = base.out?.meta || {};
-  const baseMax = safeNum(baseMeta.maxAchievableNetVotes) ?? null;
+  const baseObjectiveMeta = readTimelineObjectiveMeta(baseMeta);
+  const baseMax = safeNum(baseObjectiveMeta.maxAchievableObjectiveValue) ?? null;
 
   const ps = computePrimarySecondary({ maxAttemptsByTactic: base.maxAttemptsByTactic || null });
   if (bneckPrimaryEl) bneckPrimaryEl.textContent = ps.primary;
@@ -203,7 +211,8 @@ export function renderBottleneckAttributionPanel({
     const cur = safeNum(c.staffing?.staffHours) ?? 0;
     c.staffing.staffHours = cur * 1.10;
     const out = computeTl({ tacticsIn: tactics, capsIn: c, budgetLimitIn: baseBudget });
-    const m = safeNum(out.out?.meta?.maxAchievableNetVotes) ?? null;
+    const outObjectiveMeta = readTimelineObjectiveMeta(out.out?.meta || null);
+    const m = safeNum(outObjectiveMeta.maxAchievableObjectiveValue) ?? null;
     return { delta: (m != null && baseMax != null) ? (m - baseMax) : null, notes: "timeline capacity (staff hours/week)" };
   })();
 
@@ -212,14 +221,16 @@ export function renderBottleneckAttributionPanel({
     const cur = safeNum(c.staffing?.volunteerHours) ?? 0;
     c.staffing.volunteerHours = cur * 1.10;
     const out = computeTl({ tacticsIn: tactics, capsIn: c, budgetLimitIn: baseBudget });
-    const m = safeNum(out.out?.meta?.maxAchievableNetVotes) ?? null;
+    const outObjectiveMeta = readTimelineObjectiveMeta(out.out?.meta || null);
+    const m = safeNum(outObjectiveMeta.maxAchievableObjectiveValue) ?? null;
     return { delta: (m != null && baseMax != null) ? (m - baseMax) : null, notes: "volunteer hours/week" };
   })();
 
   const budget10 = (() => {
     if ((opt.mode || "budget") === "capacity") return { delta: null, notes: "budget not active (capacity mode)" };
     const out = computeTl({ tacticsIn: tactics, capsIn: capsInputBase, budgetLimitIn: baseBudget * 1.10 });
-    const m = safeNum(out.out?.meta?.maxAchievableNetVotes) ?? null;
+    const outObjectiveMeta = readTimelineObjectiveMeta(out.out?.meta || null);
+    const m = safeNum(outObjectiveMeta.maxAchievableObjectiveValue) ?? null;
     return { delta: (m != null && baseMax != null) ? (m - baseMax) : null, notes: "budget ceiling" };
   })();
 
@@ -227,9 +238,14 @@ export function renderBottleneckAttributionPanel({
     const curPct = safeNum(state.contactRatePct);
     if (curPct == null) return { delta: null, notes: "contact rate missing" };
     const nextPct = clamp(curPct * 1.10, 0, 100);
-    const t2 = engine.buildOptimizationTactics({ baseRates: { cr: clamp(nextPct,0,100)/100, sr, tr }, tactics: budget.tactics || {} });
+    const t2 = engine.buildOptimizationTactics({
+      baseRates: { cr: clamp(nextPct,0,100)/100, sr, tr },
+      tactics: budget.tactics || {},
+      state,
+    });
     const out = computeTl({ tacticsIn: t2, capsIn: capsInputBase, budgetLimitIn: baseBudget });
-    const m = safeNum(out.out?.meta?.maxAchievableNetVotes) ?? null;
+    const outObjectiveMeta = readTimelineObjectiveMeta(out.out?.meta || null);
+    const m = safeNum(outObjectiveMeta.maxAchievableObjectiveValue) ?? null;
     return { delta: (m != null && baseMax != null) ? (m - baseMax) : null, notes: `contact rate ${curPct.toFixed(1)}% → ${nextPct.toFixed(1)}%` };
   })();
 
@@ -330,6 +346,7 @@ export function renderConversionPanel({
 
   if (!state.ui || typeof state.ui !== "object") state.ui = {};
   state.ui.lastConversion = {
+    goalObjectiveValue: goal,
     goalNetVotes: goal,
     conversationsNeeded: convosNeeded,
     doorsNeeded,

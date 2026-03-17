@@ -136,6 +136,10 @@ export function setDistrictFormField(field, value) {
   return callDistrictBridge("setFormField", field, value);
 }
 
+export function applyDistrictTemplateDefaults(mode = "all") {
+  return callDistrictBridge("applyTemplateDefaults", mode);
+}
+
 export function addDistrictCandidate() {
   return callDistrictBridge("addCandidate");
 }
@@ -205,6 +209,29 @@ export function readDistrictControlSnapshot() {
   return {
     locked: !!controls.locked,
     disabledMap: controls.disabledMap && typeof controls.disabledMap === "object" ? controls.disabledMap : {},
+  };
+}
+
+export function readDistrictTemplateSnapshot() {
+  const view = readDistrictBridgeView();
+  const template = view?.template;
+  if (!template || typeof template !== "object") {
+    return null;
+  }
+  const overridden = Array.isArray(template.overriddenFields)
+    ? template.overriddenFields.map((field) => String(field || "").trim()).filter(Boolean)
+    : [];
+  return {
+    raceType: String(template.raceType || "").trim(),
+    officeLevel: String(template.officeLevel || "").trim(),
+    electionType: String(template.electionType || "").trim(),
+    seatContext: String(template.seatContext || "").trim(),
+    partisanshipMode: String(template.partisanshipMode || "").trim(),
+    salienceLevel: String(template.salienceLevel || "").trim(),
+    appliedTemplateId: String(template.appliedTemplateId || "").trim(),
+    appliedVersion: String(template.appliedVersion || "").trim(),
+    assumptionsProfile: String(template.assumptionsProfile || "").trim(),
+    overriddenFields: overridden,
   };
 }
 

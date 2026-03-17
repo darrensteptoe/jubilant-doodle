@@ -10,6 +10,29 @@ import {
   readText,
   setText,
 } from "../surfaceUtils.js";
+import { getOptimizationObjectiveCopy } from "../../../core/turnout.js";
+import {
+  PLAN_OPTIMIZER_STATUS_FALLBACK,
+  PLAN_TIMELINE_STATUS_FALLBACK,
+  PLAN_WEEK_PREVIEW_FALLBACK,
+  buildPlanCostLevers,
+  buildPlanDecisionWarning,
+  buildPlanOptimizerBanner,
+  buildPlanProbabilityLevers,
+  buildPlanRecommendationCost,
+  buildPlanRecommendationProbability,
+  buildPlanRecommendationVolunteers,
+  buildPlanTimelineBanner,
+  buildPlanVolunteerLevers,
+  buildPlanWorkloadBanner,
+  classifyPlanStatusTone,
+  derivePlanActionsCardStatus,
+  derivePlanOptimizerCardStatus,
+  derivePlanRiskCardStatus,
+  derivePlanSummaryCardStatus,
+  derivePlanTimelineCardStatus,
+  derivePlanWorkloadCardStatus,
+} from "../../../core/planView.js";
 
 const REACH_API_KEY = "__FPE_REACH_API__";
 const PLAN_API_KEY = "__FPE_PLAN_API__";
@@ -156,7 +179,7 @@ export function renderPlanSurface(mount) {
     <div class="fpe-summary-grid">
       <div class="fpe-summary-row"><span>Total attempts</span><strong id="v3PlanOptTotalAttempts">-</strong></div>
       <div class="fpe-summary-row"><span>Total cost</span><strong id="v3PlanOptTotalCost">-</strong></div>
-      <div class="fpe-summary-row"><span>Expected net votes</span><strong id="v3PlanOptTotalVotes">-</strong></div>
+      <div class="fpe-summary-row"><span id="v3PlanOptObjectiveMetricLabel">Expected net votes</span><strong id="v3PlanOptTotalVotes">-</strong></div>
       <div class="fpe-summary-row"><span>Gap context</span><strong id="v3PlanOptGapContext">-</strong></div>
       <div class="fpe-summary-row"><span>Binding constraint</span><strong id="v3PlanBinding">-</strong></div>
     </div>
@@ -171,11 +194,11 @@ export function renderPlanSurface(mount) {
         <div class="fpe-help fpe-help--flush" id="v3PlanTlOptGoalFeasible">-</div>
       </div>
       <div class="fpe-contained-block fpe-contained-block--status">
-        <div class="fpe-control-label">Max achievable net votes</div>
+        <div class="fpe-control-label" id="v3PlanTlOptMaxLabel">Max achievable net votes</div>
         <div class="fpe-help fpe-help--flush" id="v3PlanTlOptMaxNetVotes">-</div>
       </div>
       <div class="fpe-contained-block fpe-contained-block--status">
-        <div class="fpe-control-label">Remaining gap net votes</div>
+        <div class="fpe-control-label" id="v3PlanTlOptRemainingLabel">Remaining gap net votes</div>
         <div class="fpe-help fpe-help--flush" id="v3PlanTlOptRemainingGap">-</div>
       </div>
       <div class="fpe-contained-block fpe-contained-block--status">
@@ -191,7 +214,7 @@ export function renderPlanSurface(mount) {
             <th>Tactic</th>
             <th class="num">Attempts</th>
             <th class="num">Cost</th>
-            <th class="num">Expected net votes</th>
+            <th class="num" id="v3PlanOptAllocValueHeader">Expected net votes</th>
           </tr>
         </thead>
         <tbody id="v3PlanOptAllocTbody">
@@ -272,7 +295,7 @@ export function renderPlanSurface(mount) {
       <div class="fpe-summary-row"><span>Projected completion week</span><strong id="v3PlanCompletionWeek">-</strong></div>
       <div class="fpe-summary-row"><span>Shortfall attempts</span><strong id="v3PlanShortfallAttempts">-</strong></div>
       <div class="fpe-summary-row"><span>Constraint type</span><strong id="v3PlanConstraint">-</strong></div>
-      <div class="fpe-summary-row"><span>Shortfall net votes</span><strong id="v3PlanShortfallVotes">-</strong></div>
+      <div class="fpe-summary-row"><span id="v3PlanShortfallValueLabel">Shortfall net votes</span><strong id="v3PlanShortfallVotes">-</strong></div>
     </div>
 
     <div class="fpe-contained-block">
@@ -291,7 +314,7 @@ export function renderPlanSurface(mount) {
       <div class="fpe-summary-row"><span>% plan executable</span><strong id="v3PlanRiskExecutable">-</strong></div>
       <div class="fpe-summary-row"><span>Constraint type</span><strong id="v3PlanRiskConstraint">-</strong></div>
       <div class="fpe-summary-row"><span>Shortfall attempts</span><strong id="v3PlanRiskShortfallAttempts">-</strong></div>
-      <div class="fpe-summary-row"><span>Shortfall net votes</span><strong id="v3PlanRiskShortfallVotes">-</strong></div>
+      <div class="fpe-summary-row"><span id="v3PlanRiskShortfallValueLabel">Shortfall net votes</span><strong id="v3PlanRiskShortfallVotes">-</strong></div>
     </div>
   `;
 
@@ -434,58 +457,90 @@ function wirePlanControlProxies() {
 }
 
 function refreshPlanSummary() {
+  const planView = readPlanView();
+  const planSummary = planView?.summary && typeof planView.summary === "object" ? planView.summary : {};
+  const objectiveSummary = planSummary?.objective && typeof planSummary.objective === "object" ? planSummary.objective : {};
+  const objectiveCopy = getOptimizationObjectiveCopy(
+    objectiveSummary?.value ?? planView?.inputs?.optObjective,
+    "net"
+  );
+  const objectiveLabel = String(objectiveSummary?.label || objectiveCopy.label).trim() || objectiveCopy.label;
+  const objectiveMetricLabel = String(objectiveSummary?.metricLabel || objectiveCopy.metricLabel).trim() || objectiveCopy.metricLabel;
+  const objectiveMaxLabel = String(objectiveSummary?.maxLabel || objectiveCopy.maxLabel).trim() || objectiveCopy.maxLabel;
+  const objectiveRemainingGapLabel = String(objectiveSummary?.remainingGapLabel || objectiveCopy.remainingGapLabel).trim() || objectiveCopy.remainingGapLabel;
+  const objectiveShortfallLabel = String(objectiveSummary?.shortfallLabel || objectiveCopy.shortfallLabel).trim() || objectiveCopy.shortfallLabel;
   const reachView = readReachView();
   const reachWeekly = readReachWeeklySnapshot();
-  const outConversationsNeeded = String(reachWeekly.requiredConvos || "").trim();
-  const outDoorsNeeded = String(reachWeekly.requiredDoors || "").trim();
-  const workload = buildPlanWorkloadOutputs({ outDoorsNeeded });
-  const outShiftsPerWeek = workload.shiftsPerWeek;
-  const outVolunteersNeeded = workload.volunteersNeeded;
-  const derived = buildPlanDerivedStatus({
-    outShiftsPerWeek,
-    outVolunteersNeeded
-  });
-  const optGapContext = derived.gapContext;
-  const optBinding = derived.binding;
-  const tlPercent = derived.executablePct;
-  const tlConstraint = derived.constraint;
-  const tlShortfallAttempts = derived.shortfallAttempts;
-  const tlShortfallVotes = derived.shortfallVotes;
+  const workloadSummary = planSummary?.workload && typeof planSummary.workload === "object" ? planSummary.workload : {};
+  const optimizerSummary = planSummary?.optimizer && typeof planSummary.optimizer === "object" ? planSummary.optimizer : {};
+  const timelineSummary = planSummary?.timeline && typeof planSummary.timeline === "object" ? planSummary.timeline : {};
+
+  const outConversationsNeeded = String(workloadSummary?.conversationsNeeded || reachWeekly.requiredConvos || "").trim() || "—";
+  const outDoorsNeeded = String(workloadSummary?.doorsNeeded || reachWeekly.requiredDoors || "").trim() || "—";
+  const doorsPerShift = String(workloadSummary?.doorsPerShift || "").trim() || "—";
+  const totalShifts = String(workloadSummary?.totalShifts || "").trim() || "—";
+  const outShiftsPerWeek = String(workloadSummary?.shiftsPerWeek || "").trim() || "—";
+  const outVolunteersNeeded = String(workloadSummary?.volunteersNeeded || "").trim() || "—";
+
+  const optGapContext = String(optimizerSummary?.gapContext || "").trim() || PLAN_OPTIMIZER_STATUS_FALLBACK;
+  const optBinding = String(optimizerSummary?.binding || "").trim() || "—";
+  const tlPercent = String(timelineSummary?.executablePct || "").trim() || "—";
+  const tlConstraint = String(timelineSummary?.constraintType || "").trim() || "—";
+  const tlShortfallAttempts = String(timelineSummary?.shortfallAttempts || "").trim() || "—";
+  const tlShortfallVotes = String(timelineSummary?.shortfallValue || "").trim() || "—";
 
   setText("v3PlanConversationsNeeded", outConversationsNeeded || "—");
   setText("v3PlanDoorsNeeded", outDoorsNeeded || "—");
-  setText("v3PlanDoorsPerShift", workload.doorsPerShift);
-  setText("v3PlanTotalShifts", workload.totalShifts);
+  setText("v3PlanDoorsPerShift", doorsPerShift);
+  setText("v3PlanTotalShifts", totalShifts);
   setText("v3PlanShiftsPerWeek", outShiftsPerWeek);
   setText("v3PlanVolunteersNeeded", outVolunteersNeeded);
 
-  const optTotals = readPlanOptimizerTotals();
+  const optTotals = {
+    attempts: String(optimizerSummary?.totalAttempts || "").trim() || "—",
+    cost: String(optimizerSummary?.totalCost || "").trim() || "—",
+    votes: String(optimizerSummary?.totalValue || "").trim() || "—",
+  };
   setText("v3PlanOptTotalAttempts", optTotals.attempts);
   setText("v3PlanOptTotalCost", optTotals.cost);
   setText("v3PlanOptTotalVotes", optTotals.votes);
+  setText("v3PlanOptObjectiveMetricLabel", objectiveMetricLabel);
+  setText("v3PlanOptAllocValueHeader", objectiveMetricLabel);
   setText("v3PlanOptGapContext", optGapContext);
   setText("v3PlanBinding", optBinding);
-  const workloadBanner = buildPlanWorkloadBanner(outShiftsPerWeek, outVolunteersNeeded);
-  const optimizerBanner = buildPlanOptimizerBanner(optBinding, optGapContext);
+  const workloadBanner = String(workloadSummary?.statusText || "").trim() || buildPlanWorkloadBanner(outShiftsPerWeek, outVolunteersNeeded);
+  const optimizerBanner = String(optimizerSummary?.statusText || "").trim() || buildPlanOptimizerBanner(optBinding, optGapContext);
+  const optimizerInterpretation = String(optimizerSummary?.interpretationText || "").trim()
+    || "Interpretation: If diminishing returns is OFF and there are no caps, allocation can concentrate in the strongest marginal tactic.";
   setText("v3PlanWorkloadBanner", workloadBanner);
   setText("v3PlanOptBanner", optimizerBanner);
-  setText("v3PlanTlOptGoalFeasible", buildPlanTimelineGoalFeasible(tlPercent, tlShortfallVotes));
-  setText("v3PlanTlOptMaxNetVotes", buildPlanTimelineMaxNetVotes(optTotals.votes, tlPercent));
-  setText("v3PlanTlOptRemainingGap", buildPlanTimelineRemainingGap(tlShortfallVotes));
-  setText("v3PlanTlOptBinding", buildPlanTimelineBinding(tlConstraint, optBinding));
-  const timelineBanner = buildPlanTimelineBanner(tlPercent, tlConstraint, tlShortfallAttempts, tlShortfallVotes);
+  setText("v3PlanOptInterpretation", optimizerInterpretation);
+  setText("v3PlanTlOptGoalFeasible", String(timelineSummary?.goalFeasible || "").trim() || "—");
+  setText("v3PlanTlOptMaxLabel", objectiveMaxLabel);
+  setText("v3PlanTlOptMaxNetVotes", String(timelineSummary?.maxAchievableValue || "").trim() || "—");
+  setText("v3PlanTlOptRemainingLabel", objectiveRemainingGapLabel);
+  setText("v3PlanTlOptRemainingGap", String(timelineSummary?.remainingGapValue || "").trim() || "—");
+  setText("v3PlanTlOptBinding", String(timelineSummary?.binding || "").trim() || optBinding || "—");
+  const timelineBanner = String(timelineSummary?.statusText || "").trim()
+    || buildPlanTimelineBanner(tlPercent, tlConstraint, tlShortfallAttempts, tlShortfallVotes)
+    || PLAN_TIMELINE_STATUS_FALLBACK;
   setText("v3PlanTimelineBanner", timelineBanner);
   setText("v3PlanRiskExecutable", tlPercent);
   setText("v3PlanRiskConstraint", tlConstraint);
   setText("v3PlanRiskShortfallAttempts", tlShortfallAttempts);
+  setText("v3PlanRiskShortfallValueLabel", objectiveShortfallLabel);
   setText("v3PlanRiskShortfallVotes", tlShortfallVotes);
 
   setText("v3PlanExecutable", tlPercent);
-  setText("v3PlanCompletionWeek", buildPlanCompletionWeek(tlPercent));
+  setText("v3PlanCompletionWeek", String(timelineSummary?.projectedCompletionWeek || "").trim() || "Pending");
   setText("v3PlanShortfallAttempts", tlShortfallAttempts);
   setText("v3PlanConstraint", tlConstraint);
+  setText("v3PlanShortfallValueLabel", objectiveShortfallLabel);
   setText("v3PlanShortfallVotes", tlShortfallVotes);
-  setText("v3PlanWeekList", buildPlanWeekPreview(tlPercent));
+  setText(
+    "v3PlanWeekList",
+    String(timelineSummary?.weekPreviewText || "").trim() || PLAN_WEEK_PREVIEW_FALLBACK
+  );
 
   setText("v3PlanSummaryShiftsPerWeek", outShiftsPerWeek);
   setText("v3PlanSummaryVolunteersNeeded", outVolunteersNeeded);
@@ -502,7 +557,8 @@ function refreshPlanSummary() {
     tlConstraint,
     optBinding,
     tlShortfallAttempts,
-    tlShortfallVotes
+    tlShortfallVotes,
+    objectiveLabel,
   });
 
   syncPlanReachField("v3PlanGoalSupportIds", reachView?.inputs?.goalSupportIds, !!reachView?.controls?.locked);
@@ -513,7 +569,7 @@ function refreshPlanSummary() {
     !!reachView?.controls?.locked
   );
 
-  applyPlanView(readPlanView());
+  applyPlanView(planView);
   syncPlanTimelineWeeksAuto("v3PlanTimelineWeeksAuto");
   syncPlanFieldMirror("v3PlanDoorsPerHour", "v3PlanTimelineDoorsPerHour");
   syncPlanAutoFieldDisabled("v3PlanTimelineWeeksAuto");
@@ -525,10 +581,11 @@ function syncPlanDecisionIntel(planContext = null) {
   const optBinding = String(context.optBinding || "").trim();
   const shortfallAttempts = String(context.tlShortfallAttempts || "").trim();
   const shortfallVotes = String(context.tlShortfallVotes || "").trim();
+  const objectiveLabel = String(context.objectiveLabel || "net votes").trim();
 
   const warnTarget = document.getElementById("v3PlanDiWarn");
   if (warnTarget instanceof HTMLElement) {
-    const contextText = buildPlanDecisionWarning(tlConstraint, shortfallVotes);
+    const contextText = buildPlanDecisionWarning(tlConstraint, shortfallVotes, objectiveLabel);
     const text = contextText;
     const show = Boolean(text);
     warnTarget.hidden = !show;
@@ -542,7 +599,7 @@ function syncPlanDecisionIntel(planContext = null) {
   );
   setText("v3PlanDiNotBinding", "See optimizer allocation rows for non-binding levers.");
   setText("v3PlanDiRecVol", buildPlanRecommendationVolunteers(tlConstraint, shortfallAttempts));
-  setText("v3PlanDiRecCost", buildPlanRecommendationCost(optBinding));
+  setText("v3PlanDiRecCost", buildPlanRecommendationCost(optBinding, objectiveLabel));
   setText("v3PlanDiRecProb", buildPlanRecommendationProbability(tlConstraint, shortfallVotes));
   syncPlanCardStatus("v3PlanActionsCardStatus", derivePlanActionsCardStatus(tlConstraint, optBinding, shortfallVotes));
 
@@ -563,80 +620,6 @@ function syncPlanFieldMirror(targetId, sourceId) {
   target.disabled = true;
 }
 
-function buildPlanWorkloadBanner(shiftsPerWeek, volunteersNeeded) {
-  if (!shiftsPerWeek && !volunteersNeeded) {
-    return "Set support goal and pacing assumptions to generate workload requirements.";
-  }
-  return `Workload target: ${shiftsPerWeek || "—"} shifts/week and ${volunteersNeeded || "—"} volunteers needed.`;
-}
-
-function buildPlanOptimizerBanner(optBinding, optGapContext) {
-  const binding = String(optBinding || "").trim();
-  const gap = String(optGapContext || "").trim();
-  if (!binding && !gap) {
-    return "Run optimization to generate allocation and binding-constraint posture.";
-  }
-  if (binding && gap) {
-    return `${binding} is currently binding. ${gap}`;
-  }
-  return binding || gap;
-}
-
-function buildPlanTimelineBanner(executablePct, constraint, shortfallAttempts, shortfallVotes) {
-  const pct = String(executablePct || "").trim();
-  const binding = String(constraint || "").trim();
-  const attempts = String(shortfallAttempts || "").trim();
-  const votes = String(shortfallVotes || "").trim();
-
-  if (!pct && !binding && !attempts && !votes) {
-    return "Timeline diagnostics update as staffing and pace assumptions change.";
-  }
-  return `Executable: ${pct || "—"}; Constraint: ${binding || "—"}; Shortfall attempts: ${attempts || "—"}; Shortfall votes: ${votes || "—"}.`;
-}
-
-function buildPlanDecisionWarning(constraint, shortfallVotes) {
-  const c = String(constraint || "").toLowerCase();
-  const votesText = String(shortfallVotes || "").trim();
-  const votesNum = Number(votesText.replace(/[^\d.-]/g, ""));
-  if (c && (c.includes("timeline") || c.includes("capacity") || c.includes("staff"))) {
-    return "Execution risk is elevated under current timeline/staffing assumptions.";
-  }
-  if (Number.isFinite(votesNum) && votesNum > 0) {
-    return `Remaining timeline shortfall detected: ${votesText} net votes.`;
-  }
-  return "";
-}
-
-function buildPlanRecommendationVolunteers(constraint, shortfallAttempts) {
-  const c = String(constraint || "").toLowerCase();
-  if (c.includes("staff") || c.includes("capacity")) {
-    return "Increase organizer or volunteer weekly hours to close the capacity bottleneck.";
-  }
-  if (String(shortfallAttempts || "").trim()) {
-    return "Reduce attempts shortfall by increasing weekly shift coverage or narrowing target scope.";
-  }
-  return "Volunteer load is currently within modeled bounds.";
-}
-
-function buildPlanRecommendationCost(optBinding) {
-  const binding = String(optBinding || "").toLowerCase();
-  if (binding.includes("budget") || binding.includes("cost")) {
-    return "Reallocate toward lower-cost channels before adding new spend.";
-  }
-  return "Keep budget allocation aligned to channels with highest marginal net votes.";
-}
-
-function buildPlanRecommendationProbability(constraint, shortfallVotes) {
-  const c = String(constraint || "").toLowerCase();
-  const votesNum = Number(String(shortfallVotes || "").replace(/[^\d.-]/g, ""));
-  if (c.includes("timeline") || c.includes("week")) {
-    return "Improve probability posture by de-risking timeline: pull effort earlier in the schedule.";
-  }
-  if (Number.isFinite(votesNum) && votesNum > 0) {
-    return "Close remaining vote shortfall to improve modeled win confidence.";
-  }
-  return "Probability posture is stable under current assumptions.";
-}
 
 function wirePlanReachField(id, field) {
   const input = document.getElementById(id);
@@ -998,290 +981,6 @@ function readReachWeeklySnapshot() {
   return view.weekly;
 }
 
-function buildPlanDerivedStatus({ outShiftsPerWeek, outVolunteersNeeded }) {
-  const requiredShifts = parsePlanNumber(outShiftsPerWeek);
-  const volunteersNeeded = parsePlanNumber(outVolunteersNeeded);
-  const doorsPerShift = parsePlanNumber(readSummaryText("v3PlanDoorsPerShift"));
-  const hoursPerShift = parsePlanNumber(readInputValue("v3PlanHoursPerShift"));
-  const shiftsPerVolunteer = parsePlanNumber(readInputValue("v3PlanShiftsPerVolunteer"));
-  const timelineEnabled = readCheckboxState("v3PlanTimelineEnabledToggle");
-  const staffCount = parsePlanNumber(readInputValue("v3PlanTimelineStaffCount"));
-  const staffHours = parsePlanNumber(readInputValue("v3PlanTimelineStaffHours"));
-  const volunteerCount = parsePlanNumber(readInputValue("v3PlanTimelineVolCount"));
-
-  const staffShiftCapacity = Number.isFinite(staffCount) && Number.isFinite(staffHours) && Number.isFinite(hoursPerShift) && hoursPerShift > 0
-    ? (staffCount * staffHours) / hoursPerShift
-    : NaN;
-  const volunteerShiftCapacity = Number.isFinite(volunteerCount) && Number.isFinite(shiftsPerVolunteer) && shiftsPerVolunteer > 0
-    ? volunteerCount * shiftsPerVolunteer
-    : NaN;
-  const capacityShifts = sumFinite(staffShiftCapacity, volunteerShiftCapacity);
-
-  const executablePctNum = Number.isFinite(requiredShifts) && requiredShifts > 0 && Number.isFinite(capacityShifts)
-    ? (capacityShifts / requiredShifts) * 100
-    : NaN;
-  const executablePct = Number.isFinite(executablePctNum)
-    ? `${Math.max(0, Math.min(100, Math.round(executablePctNum)))}%`
-    : "Pending";
-
-  const shortfallShifts = Number.isFinite(requiredShifts) && Number.isFinite(capacityShifts)
-    ? Math.max(0, requiredShifts - capacityShifts)
-    : NaN;
-  const shortfallAttemptsNum = Number.isFinite(shortfallShifts) && Number.isFinite(doorsPerShift)
-    ? Math.max(0, shortfallShifts * doorsPerShift)
-    : NaN;
-  const shortfallAttempts = Number.isFinite(shortfallAttemptsNum)
-    ? formatPlanWhole(shortfallAttemptsNum)
-    : "—";
-
-  const shortfallVotesNum = Number.isFinite(shortfallShifts) && Number.isFinite(volunteersNeeded) && Number.isFinite(requiredShifts) && requiredShifts > 0
-    ? Math.max(0, (shortfallShifts / requiredShifts) * volunteersNeeded)
-    : NaN;
-  const shortfallVotes = Number.isFinite(shortfallVotesNum)
-    ? formatPlanWhole(shortfallVotesNum)
-    : "—";
-
-  let constraint = "Pending timeline inputs";
-  if (!timelineEnabled) {
-    constraint = "Timeline module disabled";
-  } else if (Number.isFinite(shortfallShifts)) {
-    if (shortfallShifts > 0) {
-      constraint = "Staffing capacity";
-    } else {
-      constraint = "No timeline constraint";
-    }
-  }
-
-  const binding = constraint.includes("capacity")
-    ? "Staffing capacity"
-    : constraint.includes("disabled")
-      ? "Timeline disabled"
-      : "No binding optimizer constraint";
-
-  const gapContext = Number.isFinite(shortfallAttemptsNum) && shortfallAttemptsNum > 0
-    ? `${formatPlanWhole(shortfallAttemptsNum)} attempts shortfall vs schedule`
-    : "No attempt shortfall at current pace";
-
-  return {
-    executablePct,
-    constraint,
-    shortfallAttempts,
-    shortfallVotes,
-    binding,
-    gapContext
-  };
-}
-
-function buildPlanWorkloadOutputs({ outDoorsNeeded }) {
-  const doorsNeededNum = parsePlanNumber(outDoorsNeeded);
-  const doorsPerHour = parsePlanNumber(readInputValue("v3PlanDoorsPerHour"));
-  const hoursPerShift = parsePlanNumber(readInputValue("v3PlanHoursPerShift"));
-  const shiftsPerVolunteer = parsePlanNumber(readInputValue("v3PlanShiftsPerVolunteer"));
-  const timelineWeeksAuto = parsePlanNumber(readInputValue("v3PlanTimelineWeeksAuto"));
-  const activeWeeks = parsePlanNumber(readInputValue("v3PlanTimelineActiveWeeks"));
-  const weeks = Number.isFinite(activeWeeks) && activeWeeks > 0
-    ? activeWeeks
-    : Number.isFinite(timelineWeeksAuto) && timelineWeeksAuto > 0
-      ? timelineWeeksAuto
-      : NaN;
-
-  const doorsPerShiftNum = Number.isFinite(doorsPerHour) && Number.isFinite(hoursPerShift)
-    ? doorsPerHour * hoursPerShift
-    : NaN;
-  const totalShiftsNum = Number.isFinite(doorsNeededNum) && Number.isFinite(doorsPerShiftNum) && doorsPerShiftNum > 0
-    ? doorsNeededNum / doorsPerShiftNum
-    : NaN;
-  const shiftsPerWeekNum = Number.isFinite(totalShiftsNum) && Number.isFinite(weeks) && weeks > 0
-    ? totalShiftsNum / weeks
-    : NaN;
-  const volunteersNeededNum = Number.isFinite(shiftsPerWeekNum) && Number.isFinite(shiftsPerVolunteer) && shiftsPerVolunteer > 0
-    ? shiftsPerWeekNum / shiftsPerVolunteer
-    : NaN;
-
-  return {
-    doorsPerShift: Number.isFinite(doorsPerShiftNum) ? formatPlanWhole(doorsPerShiftNum) : "—",
-    totalShifts: Number.isFinite(totalShiftsNum) ? formatPlanWhole(totalShiftsNum) : "—",
-    shiftsPerWeek: Number.isFinite(shiftsPerWeekNum) ? formatPlanWhole(shiftsPerWeekNum) : "—",
-    volunteersNeeded: Number.isFinite(volunteersNeededNum) ? formatPlanWhole(volunteersNeededNum) : "—"
-  };
-}
-
-function readPlanOptimizerTotals() {
-  const tableBody = document.getElementById("v3PlanOptAllocTbody");
-  if (!(tableBody instanceof HTMLTableSectionElement)) {
-    return { attempts: "—", cost: "—", votes: "—" };
-  }
-
-  let attempts = 0;
-  let cost = 0;
-  let votes = 0;
-  let countedRows = 0;
-  tableBody.querySelectorAll("tr").forEach((row) => {
-    const cells = row.querySelectorAll("td");
-    if (cells.length < 4) {
-      return;
-    }
-    const a = parsePlanNumber(cells[1]?.textContent);
-    const c = parsePlanNumber(cells[2]?.textContent);
-    const v = parsePlanNumber(cells[3]?.textContent);
-    const hasAny = Number.isFinite(a) || Number.isFinite(c) || Number.isFinite(v);
-    if (!hasAny) {
-      return;
-    }
-    countedRows += 1;
-    attempts += Number.isFinite(a) ? a : 0;
-    cost += Number.isFinite(c) ? c : 0;
-    votes += Number.isFinite(v) ? v : 0;
-  });
-
-  if (!countedRows) {
-    return { attempts: "—", cost: "—", votes: "—" };
-  }
-  return {
-    attempts: formatPlanWhole(attempts),
-    cost: formatPlanCurrency(cost),
-    votes: formatPlanWhole(votes)
-  };
-}
-
-function buildPlanTimelineGoalFeasible(tlPercent, tlShortfallVotes) {
-  const pct = parsePlanPercent(tlPercent);
-  if (Number.isFinite(pct)) {
-    return pct >= 100 ? "Yes" : "No";
-  }
-  const shortfallVotes = parsePlanNumber(tlShortfallVotes);
-  if (Number.isFinite(shortfallVotes)) {
-    return shortfallVotes <= 0 ? "Yes" : "No";
-  }
-  return "Pending";
-}
-
-function buildPlanTimelineMaxNetVotes(optTotalVotes, tlPercent) {
-  const votes = parsePlanNumber(optTotalVotes);
-  const pct = parsePlanPercent(tlPercent);
-  if (Number.isFinite(votes) && Number.isFinite(pct) && pct > 0 && pct < 100) {
-    return formatPlanWhole(votes * (100 / pct));
-  }
-  if (Number.isFinite(votes)) {
-    return formatPlanWhole(votes);
-  }
-  return "—";
-}
-
-function buildPlanTimelineRemainingGap(tlShortfallVotes) {
-  const gap = parsePlanNumber(tlShortfallVotes);
-  if (!Number.isFinite(gap)) {
-    return "—";
-  }
-  if (gap <= 0) {
-    return "0";
-  }
-  return formatPlanWhole(gap);
-}
-
-function buildPlanTimelineBinding(tlConstraint, optBinding) {
-  const tl = String(tlConstraint || "").trim();
-  const opt = String(optBinding || "").trim();
-  if (tl && opt && tl !== opt) {
-    return `${tl}; optimizer: ${opt}`;
-  }
-  return tl || opt || "Not binding";
-}
-
-function buildPlanCompletionWeek(tlPercent) {
-  const pct = parsePlanPercent(tlPercent);
-  const autoWeeks = parsePlanNumber(readInputValue("v3PlanTimelineWeeksAuto"));
-  const activeWeeks = parsePlanNumber(readInputValue("v3PlanTimelineActiveWeeks"));
-  const baseline = Number.isFinite(activeWeeks) && activeWeeks > 0
-    ? activeWeeks
-    : Number.isFinite(autoWeeks) && autoWeeks > 0
-      ? autoWeeks
-      : NaN;
-
-  if (!Number.isFinite(pct) || !Number.isFinite(baseline)) {
-    return "Pending";
-  }
-  if (pct >= 100) {
-    return `Week ${Math.max(1, Math.round(baseline))}`;
-  }
-  const projected = Math.ceil((baseline * 100) / Math.max(1, pct));
-  return `Week ${Math.max(1, projected)}`;
-}
-
-function buildPlanWeekPreview(tlPercent) {
-  const pct = parsePlanPercent(tlPercent);
-  const activeWeeks = parsePlanNumber(readInputValue("v3PlanTimelineActiveWeeks"));
-  const gotvWeeks = parsePlanNumber(readInputValue("v3PlanTimelineGotvWeeks"));
-
-  if (!Number.isFinite(activeWeeks) || activeWeeks <= 0) {
-    return "Set Active production weeks to render pacing preview.";
-  }
-
-  const total = Math.max(1, Math.round(activeWeeks));
-  const gotv = Number.isFinite(gotvWeeks) && gotvWeeks > 0 ? Math.min(total, Math.round(gotvWeeks)) : 0;
-  const regular = Math.max(0, total - gotv);
-  const completionTag = Number.isFinite(pct) ? `${Math.round(pct)}% executable` : "executable % pending";
-
-  const lines = [
-    `Regular weeks: ${regular}`,
-    `GOTV weeks: ${gotv}`,
-    `Status: ${completionTag}`
-  ];
-  return lines.join("\n");
-}
-
-function readInputValue(id) {
-  const el = document.getElementById(id);
-  if (!(el instanceof HTMLInputElement)) {
-    return "";
-  }
-  return String(el.value || "").trim();
-}
-
-function readCheckboxState(id) {
-  const el = document.getElementById(id);
-  if (!(el instanceof HTMLInputElement)) {
-    return false;
-  }
-  return !!el.checked;
-}
-
-function readSummaryText(id) {
-  const el = document.getElementById(id);
-  if (!(el instanceof HTMLElement)) {
-    return "";
-  }
-  return String(el.textContent || "").trim();
-}
-
-function sumFinite(...values) {
-  const nums = values.filter((v) => Number.isFinite(v));
-  if (!nums.length) {
-    return NaN;
-  }
-  return nums.reduce((acc, value) => acc + value, 0);
-}
-
-function parsePlanNumber(rawValue) {
-  const text = String(rawValue || "").trim();
-  if (!text || text === "-" || text === "—") {
-    return NaN;
-  }
-  const cleaned = text.replace(/,/g, "").replace(/[^\d.+-]/g, "");
-  const num = Number(cleaned);
-  return Number.isFinite(num) ? num : NaN;
-}
-
-function parsePlanPercent(rawValue) {
-  const text = String(rawValue || "").trim();
-  if (!text || text === "-" || text === "—") {
-    return NaN;
-  }
-  const cleaned = text.replace(/,/g, "").replace(/[^\d.+-]/g, "");
-  const num = Number(cleaned);
-  return Number.isFinite(num) ? num : NaN;
-}
-
 function formatPlanWhole(value) {
   if (!Number.isFinite(value)) {
     return "—";
@@ -1311,50 +1010,6 @@ function renderPlanDecisionRows(targetBodyId, rows) {
     .join("");
 }
 
-function buildPlanVolunteerLevers(constraint, shortfallAttempts) {
-  const c = String(constraint || "").toLowerCase();
-  const attempts = parsePlanNumber(shortfallAttempts);
-  if (Number.isFinite(attempts) && attempts > 0) {
-    return [
-      ["Add organizer shift coverage", `+${formatPlanWhole(Math.ceil(attempts / 250))}`],
-      ["Increase volunteer hours / week", `+${formatPlanWhole(Math.ceil(attempts / 400))}`]
-    ];
-  }
-  if (c.includes("staff") || c.includes("capacity")) {
-    return [["Increase active volunteer pool", "Priority"]];
-  }
-  return [["Volunteer load within range", "—"]];
-}
-
-function buildPlanCostLevers(optBinding, shortfallAttempts) {
-  const binding = String(optBinding || "").toLowerCase();
-  const attempts = parsePlanNumber(shortfallAttempts);
-  if (binding.includes("budget") || binding.includes("cost")) {
-    return [
-      ["Shift effort to lower-cost channels", "High"],
-      ["Reduce low-yield tactic share", "Medium"]
-    ];
-  }
-  if (Number.isFinite(attempts) && attempts > 0) {
-    return [["Phase spend earlier in cycle", "Medium"]];
-  }
-  return [["Cost posture stable", "—"]];
-}
-
-function buildPlanProbabilityLevers(constraint, shortfallVotes) {
-  const c = String(constraint || "").toLowerCase();
-  const votes = parsePlanNumber(shortfallVotes);
-  if (Number.isFinite(votes) && votes > 0) {
-    return [
-      ["Close remaining net-vote gap", `${formatPlanWhole(votes)}`],
-      ["Advance execution to earlier weeks", "Medium"]
-    ];
-  }
-  if (c.includes("timeline") || c.includes("week")) {
-    return [["De-risk timeline concentration", "High"]];
-  }
-  return [["Probability posture stable", "—"]];
-}
 
 function escapePlanHtml(value) {
   return String(value || "")
@@ -1391,109 +1046,4 @@ function syncPlanCardStatus(id, value) {
   );
   const tone = classifyPlanStatusTone(text);
   badge.classList.add(`fpe-status-pill--${tone}`);
-}
-
-function derivePlanWorkloadCardStatus(workloadBanner) {
-  const text = String(workloadBanner || "").trim().toLowerCase();
-  if (!text || text.includes("set support goal")) {
-    return "Awaiting setup";
-  }
-  return "Current";
-}
-
-function derivePlanOptimizerCardStatus(optTotals, optimizerBanner, optBinding) {
-  const attempts = parsePlanNumber(optTotals?.attempts);
-  const banner = String(optimizerBanner || "").trim().toLowerCase();
-  const binding = String(optBinding || "").trim().toLowerCase();
-  if (!Number.isFinite(attempts) || attempts <= 0) {
-    return "Awaiting run";
-  }
-  if (binding.includes("budget") || binding.includes("capacity") || banner.includes("binding")) {
-    return "Binding";
-  }
-  return "Allocated";
-}
-
-function derivePlanTimelineCardStatus(planView, executablePct, constraint) {
-  const enabled = !!planView?.inputs?.timelineEnabled;
-  const pct = parsePlanPercent(executablePct);
-  const binding = String(constraint || "").trim().toLowerCase();
-  if (!enabled) {
-    return "Module off";
-  }
-  if (!Number.isFinite(pct)) {
-    return "Awaiting setup";
-  }
-  if (pct >= 100 && (binding.includes("no timeline constraint") || binding.includes("no constraint"))) {
-    return "Feasible";
-  }
-  if (pct >= 100) {
-    return "Tight";
-  }
-  return "Constrained";
-}
-
-function derivePlanRiskCardStatus(executablePct, constraint, shortfallVotes) {
-  const pct = parsePlanPercent(executablePct);
-  const binding = String(constraint || "").trim().toLowerCase();
-  const gap = parsePlanNumber(shortfallVotes);
-  if (!Number.isFinite(pct) && !binding) {
-    return "Awaiting setup";
-  }
-  if ((Number.isFinite(pct) && pct < 100) || (Number.isFinite(gap) && gap > 0)) {
-    return "Elevated";
-  }
-  if (binding.includes("staff") || binding.includes("capacity") || binding.includes("timeline")) {
-    return "Watch";
-  }
-  return "Contained";
-}
-
-function derivePlanActionsCardStatus(tlConstraint, optBinding, shortfallVotes) {
-  const constraint = String(tlConstraint || "").trim().toLowerCase();
-  const binding = String(optBinding || "").trim().toLowerCase();
-  const gap = parsePlanNumber(shortfallVotes);
-  if (!constraint && !binding && !Number.isFinite(gap)) {
-    return "Guidance pending";
-  }
-  if (Number.isFinite(gap) && gap > 0) {
-    return "Recovery plan";
-  }
-  if (constraint || binding) {
-    return "Guidance ready";
-  }
-  return "Current";
-}
-
-function derivePlanSummaryCardStatus(executablePct, tlConstraint, optBinding) {
-  const pct = parsePlanPercent(executablePct);
-  const constraint = String(tlConstraint || "").trim().toLowerCase();
-  const binding = String(optBinding || "").trim().toLowerCase();
-  if (!Number.isFinite(pct)) {
-    return "Awaiting setup";
-  }
-  if (pct >= 100 && (constraint.includes("no timeline constraint") || binding.includes("no binding"))) {
-    return "Feasible";
-  }
-  if (pct >= 100) {
-    return "Tight";
-  }
-  return "Constrained";
-}
-
-function classifyPlanStatusTone(text) {
-  const lower = String(text || "").trim().toLowerCase();
-  if (!lower) {
-    return "neutral";
-  }
-  if (/(current|allocated|feasible|contained|guidance ready)/.test(lower)) {
-    return "ok";
-  }
-  if (/(elevated|constrained|binding|recovery plan|unavailable|failed|broken)/.test(lower)) {
-    return "bad";
-  }
-  if (/(awaiting|module off|tight|watch|pending)/.test(lower)) {
-    return "warn";
-  }
-  return "neutral";
 }

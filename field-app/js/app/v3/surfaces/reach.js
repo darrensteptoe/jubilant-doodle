@@ -7,6 +7,15 @@ import {
   setCardHeaderControl
 } from "../componentFactory.js";
 import { setText } from "../surfaceUtils.js";
+import {
+  REACH_REALITY_NOTE_FALLBACK,
+  REACH_STATUS_AWAITING_INPUTS,
+  REACH_STATUS_UNAVAILABLE,
+  classifyReachStatusTone,
+  deriveReachActionsCardStatus,
+  deriveReachLeversCardStatus,
+  deriveReachWeeklyCardStatus,
+} from "../../../core/reachView.js";
 
 const REACH_API_KEY = "__FPE_REACH_API__";
 
@@ -23,13 +32,13 @@ export function renderReachSurface(mount) {
   const leversCard = createCard({
     title: "Constraints & levers",
     description: "What is binding now and which knobs move the weekly gap fastest.",
-    status: "Awaiting inputs"
+    status: REACH_STATUS_AWAITING_INPUTS
   });
 
   const weeklyCard = createCard({
     title: "Weekly production",
     description: "Required vs achievable attempts, pace, and execution status.",
-    status: "Awaiting inputs"
+    status: REACH_STATUS_AWAITING_INPUTS
   });
 
   const outlookCard = createCard({
@@ -68,7 +77,7 @@ export function renderReachSurface(mount) {
   const summaryCard = createCard({
     title: "Reach summary",
     description: "Current capacity posture and operating risk at a glance.",
-    status: "Awaiting inputs"
+    status: REACH_STATUS_AWAITING_INPUTS
   });
 
   assignCardStatusId(outlookCard, "v3ReachOutlookCardStatus");
@@ -260,7 +269,7 @@ export function renderReachSurface(mount) {
 
     <div class="fpe-contained-block fpe-contained-block--instruction">
       <div class="fpe-help fpe-help--flush" id="v3ReachFreshRealityNote">
-        Reality check uses your daily log to estimate actual rates/capacity over the last 7 entries.
+        ${REACH_REALITY_NOTE_FALLBACK}
       </div>
     </div>
   `;
@@ -407,7 +416,7 @@ function applyReachView(view) {
   setText("v3ReachSummaryGap", summary.gap);
   setText("v3ReachSummaryConstraint", summary.constraint);
   setText("v3ReachSummaryPace", summary.pace);
-  syncReachCardStatus("v3ReachSummaryCardStatus", summary.pace || weekly.paceStatus || "Awaiting inputs");
+  syncReachCardStatus("v3ReachSummaryCardStatus", summary.pace || weekly.paceStatus || REACH_STATUS_AWAITING_INPUTS);
   syncReachCardStatus("v3ReachWeeklyCardStatus", deriveReachWeeklyCardStatus(weekly));
 
   setText("v3ReachOutlookStatus", outlook.status);
@@ -444,7 +453,7 @@ function applyReachView(view) {
   setText("v3ReachFreshRollingAPHNote", freshness.rollingAPHNote);
   setText("v3ReachApplyRollingMsg", freshness.applyRollingMsg);
   setText("v3ReachUndoActionMsg", freshness.undoActionMsg);
-  setText("v3ReachFreshRealityNote", weekly.actualConvosNote || "Reality check uses your daily log to estimate actual rates/capacity over the last 7 entries.");
+  setText("v3ReachFreshRealityNote", weekly.actualConvosNote || REACH_REALITY_NOTE_FALLBACK);
   syncReachCardStatus("v3ReachFreshnessCardStatus", freshness.status || "Awaiting logs");
 
   setText("v3ReachLeversIntro", levers.intro);
@@ -826,12 +835,12 @@ function renderReachUnavailable() {
   renderReachBestMoves([]);
   renderReachLeversRows([]);
   renderReachOutlookRows([]);
-  syncReachCardStatus("v3ReachSummaryCardStatus", "Unavailable");
-  syncReachCardStatus("v3ReachWeeklyCardStatus", "Unavailable");
-  syncReachCardStatus("v3ReachOutlookCardStatus", "Unavailable");
-  syncReachCardStatus("v3ReachFreshnessCardStatus", "Unavailable");
-  syncReachCardStatus("v3ReachLeversCardStatus", "Unavailable");
-  syncReachCardStatus("v3ReachActionsCardStatus", "Unavailable");
+  syncReachCardStatus("v3ReachSummaryCardStatus", REACH_STATUS_UNAVAILABLE);
+  syncReachCardStatus("v3ReachWeeklyCardStatus", REACH_STATUS_UNAVAILABLE);
+  syncReachCardStatus("v3ReachOutlookCardStatus", REACH_STATUS_UNAVAILABLE);
+  syncReachCardStatus("v3ReachFreshnessCardStatus", REACH_STATUS_UNAVAILABLE);
+  syncReachCardStatus("v3ReachLeversCardStatus", REACH_STATUS_UNAVAILABLE);
+  syncReachCardStatus("v3ReachActionsCardStatus", REACH_STATUS_UNAVAILABLE);
 }
 
 function escapeHtml(value) {
@@ -858,7 +867,7 @@ function syncReachCardStatus(id, value) {
   if (!(badge instanceof HTMLElement)) {
     return;
   }
-  const text = String(value || "").trim() || "Awaiting inputs";
+  const text = String(value || "").trim() || REACH_STATUS_AWAITING_INPUTS;
   badge.textContent = text;
   badge.classList.add("fpe-status-pill");
   badge.classList.remove(
@@ -869,67 +878,4 @@ function syncReachCardStatus(id, value) {
   );
   const tone = classifyReachStatusTone(text);
   badge.classList.add(`fpe-status-pill--${tone}`);
-}
-
-function deriveReachWeeklyCardStatus(weekly) {
-  const pace = String(weekly?.paceStatus || "").trim();
-  if (!pace || pace === "—" || /needs inputs/i.test(pace)) {
-    return "Awaiting inputs";
-  }
-  if (/behind/i.test(pace)) {
-    return "Gap open";
-  }
-  if (/pace|feasible/i.test(pace)) {
-    return "Feasible";
-  }
-  return pace;
-}
-
-function deriveReachLeversCardStatus(levers, weekly) {
-  const hasLevers = Array.isArray(levers?.rows) && levers.rows.length > 0;
-  if (!hasLevers) {
-    return "Awaiting inputs";
-  }
-  const pace = String(weekly?.paceStatus || "").trim();
-  if (/behind/i.test(pace)) {
-    return "Gap focus";
-  }
-  if (/pace|feasible/i.test(pace)) {
-    return "Buffer mode";
-  }
-  return "Active";
-}
-
-function deriveReachActionsCardStatus(actions) {
-  const note = String(actions?.note || "").trim();
-  const list = Array.isArray(actions?.list) ? actions.list : [];
-  if (!list.length) {
-    return "Awaiting inputs";
-  }
-  if (/drift-aware/i.test(note)) {
-    return "Drift-aware";
-  }
-  if (/model-based/i.test(note)) {
-    return "Model-based";
-  }
-  return "Active";
-}
-
-function classifyReachStatusTone(text) {
-  const lower = String(text || "").trim().toLowerCase();
-  if (!lower) {
-    return "neutral";
-  }
-  if (
-    /(on pace|feasible|buffer mode|ready|healthy|stable|complete|active|model-based)/.test(lower)
-  ) {
-    return "ok";
-  }
-  if (/(behind|gap open|unavailable|missing|incomplete|failed|broken)/.test(lower)) {
-    return "bad";
-  }
-  if (/(awaiting|drift|needs|warning|risk|pending|override|gap focus)/.test(lower)) {
-    return "warn";
-  }
-  return "neutral";
 }

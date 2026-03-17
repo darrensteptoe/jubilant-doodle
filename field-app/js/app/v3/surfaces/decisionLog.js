@@ -5,6 +5,17 @@ import {
   createWhyPanel,
   getCardBody
 } from "../componentFactory.js";
+import {
+  DECISION_STATUS_AWAITING_DECISION,
+  DECISION_STATUS_UNAVAILABLE,
+  classifyDecisionStatusTone,
+  deriveDecisionActionCardStatus,
+  deriveDecisionDetailCardStatus,
+  deriveDecisionDiagnosticsCardStatus,
+  deriveDecisionOptionsCardStatus,
+  deriveDecisionSessionCardStatus,
+  deriveDecisionSummaryCardStatus,
+} from "../../../core/decisionView.js";
 
 const DECISION_API_KEY = "__FPE_DECISION_API__";
 
@@ -790,12 +801,12 @@ function renderUnavailable() {
   setText("v3DecisionActiveLabel", "Decision runtime bridge unavailable.");
   setText("v3DecisionActiveSession", "Decision runtime bridge unavailable.");
   setText("v3DecisionCopyStatus", "Decision runtime bridge unavailable.");
-  syncDecisionCardStatus("v3DecisionSessionCardStatus", "Unavailable");
-  syncDecisionCardStatus("v3DecisionDetailCardStatus", "Unavailable");
-  syncDecisionCardStatus("v3DecisionOptionsCardStatus", "Unavailable");
-  syncDecisionCardStatus("v3DecisionDiagnosticsCardStatus", "Unavailable");
-  syncDecisionCardStatus("v3DecisionActionCardStatus", "Unavailable");
-  syncDecisionCardStatus("v3DecisionSummaryCardStatus", "Unavailable");
+  syncDecisionCardStatus("v3DecisionSessionCardStatus", DECISION_STATUS_UNAVAILABLE);
+  syncDecisionCardStatus("v3DecisionDetailCardStatus", DECISION_STATUS_UNAVAILABLE);
+  syncDecisionCardStatus("v3DecisionOptionsCardStatus", DECISION_STATUS_UNAVAILABLE);
+  syncDecisionCardStatus("v3DecisionDiagnosticsCardStatus", DECISION_STATUS_UNAVAILABLE);
+  syncDecisionCardStatus("v3DecisionActionCardStatus", DECISION_STATUS_UNAVAILABLE);
+  syncDecisionCardStatus("v3DecisionSummaryCardStatus", DECISION_STATUS_UNAVAILABLE);
 }
 
 function assignCardStatusId(card, id) {
@@ -813,7 +824,7 @@ function syncDecisionCardStatus(id, value) {
   if (!(badge instanceof HTMLElement)) {
     return;
   }
-  const text = String(value || "").trim() || "Awaiting decision";
+  const text = String(value || "").trim() || DECISION_STATUS_AWAITING_DECISION;
   badge.textContent = text;
   badge.classList.add("fpe-status-pill");
   badge.classList.remove(
@@ -824,117 +835,4 @@ function syncDecisionCardStatus(id, value) {
   );
   const tone = classifyDecisionStatusTone(text);
   badge.classList.add(`fpe-status-pill--${tone}`);
-}
-
-function deriveDecisionSessionCardStatus(view) {
-  if (!view || !view.session) {
-    return "Awaiting session";
-  }
-  const scenarioLabel = String(view.session?.scenarioLabel || "").trim();
-  if (scenarioLabel && scenarioLabel !== "—") {
-    return "Session linked";
-  }
-  return "Session active";
-}
-
-function deriveDecisionDetailCardStatus(view) {
-  if (!view || !view.session) {
-    return "Awaiting detail";
-  }
-  const budget = String(view.session?.constraints?.budget || "").trim();
-  const volunteerHrs = String(view.session?.constraints?.volunteerHrs || "").trim();
-  const nonNegotiables = String(view.session?.nonNegotiablesText || "").trim();
-  if (budget || volunteerHrs || nonNegotiables) {
-    return "Constraints set";
-  }
-  return "Awaiting detail";
-}
-
-function deriveDecisionOptionsCardStatus(view) {
-  if (!view || !view.session) {
-    return "Awaiting option";
-  }
-  const options = Array.isArray(view.options) ? view.options : [];
-  if (!options.length) {
-    return "Awaiting option";
-  }
-  const scenarioLabel = String(view.activeOption?.scenarioLabel || "").trim();
-  if (scenarioLabel && scenarioLabel !== "—") {
-    return "Option linked";
-  }
-  return "Options ready";
-}
-
-function deriveDecisionDiagnosticsCardStatus(drift, risk, bneck, sens, conf) {
-  const combined = [
-    drift?.banner,
-    risk?.banner,
-    bneck?.warn,
-    sens?.banner,
-    conf?.banner
-  ].join(" ").toLowerCase();
-  if (combined.includes("unavailable")) {
-    return "Unavailable";
-  }
-  if (combined.includes("run snapshot")) {
-    return "Run snapshot";
-  }
-  if (combined.includes("risk") || combined.includes("drift") || combined.includes("constraint")) {
-    return "Watch diagnostics";
-  }
-  if (combined.replace(/—/g, "").trim()) {
-    return "Diagnostics ready";
-  }
-  return "Awaiting diagnostics";
-}
-
-function deriveDecisionActionCardStatus(view) {
-  if (!view || !view.session) {
-    return "Awaiting recommendation";
-  }
-  const recommended = String(view.summary?.recommendedOptionLabel || "").trim();
-  const copyStatus = String(view.copyStatus || "").toLowerCase();
-  if (copyStatus.includes("copied") || copyStatus.includes("download")) {
-    return "Export ready";
-  }
-  if (recommended && recommended !== "—") {
-    return "Recommendation set";
-  }
-  return "Awaiting recommendation";
-}
-
-function deriveDecisionSummaryCardStatus(view, conf, risk, bneck) {
-  if (!view || !view.session) {
-    return "Awaiting session";
-  }
-  const confidence = String(conf?.tag || view.summary?.confidenceTag || "").trim();
-  const riskTag = String(risk?.tag || view.summary?.riskTag || "").trim();
-  const bottleneck = String(bneck?.tag || view.summary?.bottleneckTag || "").trim();
-  if (confidence && confidence !== "—") {
-    return confidence;
-  }
-  if (riskTag && riskTag !== "—") {
-    return riskTag;
-  }
-  if (bottleneck && bottleneck !== "—") {
-    return bottleneck;
-  }
-  return "Decision active";
-}
-
-function classifyDecisionStatusTone(text) {
-  const lower = String(text || "").trim().toLowerCase();
-  if (!lower) {
-    return "neutral";
-  }
-  if (/(session linked|constraints set|option linked|options ready|diagnostics ready|recommendation set|export ready|steady|high confidence|decision active)/.test(lower)) {
-    return "ok";
-  }
-  if (/(unavailable)/.test(lower)) {
-    return "bad";
-  }
-  if (/(awaiting|watch diagnostics|run snapshot|session active|fragile|risk|constraint|warning|competitive|at risk)/.test(lower)) {
-    return "warn";
-  }
-  return "neutral";
 }

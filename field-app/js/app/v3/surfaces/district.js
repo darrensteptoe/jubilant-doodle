@@ -9,9 +9,11 @@ import {
 import {
   readDistrictSnapshot,
   readDistrictControlSnapshot,
+  readDistrictTemplateSnapshot,
   readDistrictTargetingSnapshot,
   normalizeDistrictTargetingSnapshotFromView,
   readDistrictCensusSnapshot,
+  applyDistrictTemplateDefaults,
   setDistrictFormField,
   setDistrictTargetingField,
   applyDistrictTargetingPreset,
@@ -34,7 +36,24 @@ import {
   syncSelectValue
 } from "../surfaceUtils.js";
 import { computeUniverseAdjustedRates, normalizeUniversePercents } from "../../../core/universeLayer.js";
-import { listTargetGeoLevels, listTargetModelOptions } from "../../targetingRuntime.js";
+import {
+  DISTRICT_STATUS_AWAITING_INPUTS,
+  classifyDistrictStatusTone as classifyDistrictStatusToneCore,
+  deriveDistrictBaselineCardStatus as deriveDistrictBaselineCardStatusCore,
+  deriveDistrictCensusCardStatus as deriveDistrictCensusCardStatusCore,
+  deriveDistrictElectorateCardStatus as deriveDistrictElectorateCardStatusCore,
+  deriveDistrictRaceCardStatus as deriveDistrictRaceCardStatusCore,
+  deriveDistrictStructureCardStatus as deriveDistrictStructureCardStatusCore,
+  deriveDistrictSummaryCardStatus as deriveDistrictSummaryCardStatusCore,
+  deriveDistrictTargetingCardStatus as deriveDistrictTargetingCardStatusCore,
+  deriveDistrictTurnoutCardStatus as deriveDistrictTurnoutCardStatusCore,
+} from "../../../core/districtView.js";
+import {
+  getTargetingBridgeDefaults,
+  listTargetGeoLevels,
+  listTargetModelOptions,
+} from "../../targetingRuntime.js";
+import { listTemplateDimensionOptions } from "../../templateRegistry.js";
 import { listAcsYears, listMetricSetOptions, listResolutionOptions } from "../../../core/censusModule.js";
 
 let districtLegacyCensusCard = null;
@@ -44,24 +63,15 @@ const TARGETING_DENSITY_OPTIONS = [
   { id: "medium", label: "Medium+" },
   { id: "high", label: "High" },
 ];
-const TARGETING_BRIDGE_DEFAULTS = {
-  presetId: "turnout_opportunity",
-  geoLevel: "block_group",
-  modelId: "turnout_opportunity",
-  topN: 50,
-  minHousingUnits: 50,
-  minPopulation: 120,
-  minScore: 0.35,
-  onlyRaceFootprint: true,
-  prioritizeYoung: true,
-  prioritizeRenters: true,
-  avoidHighMultiUnit: false,
-  densityFloor: "medium",
-  weightVotePotential: 0.30,
-  weightTurnoutOpportunity: 0.50,
-  weightPersuasionIndex: 0.10,
-  weightFieldEfficiency: 0.10,
-};
+const TARGETING_BRIDGE_DEFAULTS = Object.freeze(getTargetingBridgeDefaults("turnout_opportunity"));
+
+const TEMPLATE_DIMENSION_SELECTS = [
+  { id: "v3DistrictOfficeLevel", field: "officeLevel", label: "Office level" },
+  { id: "v3DistrictElectionType", field: "electionType", label: "Election type" },
+  { id: "v3DistrictSeatContext", field: "seatContext", label: "Seat context" },
+  { id: "v3DistrictPartisanshipMode", field: "partisanshipMode", label: "Partisanship mode" },
+  { id: "v3DistrictSalienceLevel", field: "salienceLevel", label: "Salience level" },
+];
 
 function resolveLegacyCensusCard() {
   if (districtLegacyCensusCard instanceof HTMLElement) {
@@ -117,6 +127,58 @@ function buildDistrictTrainingPanels() {
   });
 
   return count ? host : null;
+}
+
+function createDistrictSection({ eyebrow = "", title = "", description = "" }) {
+  const section = document.createElement("section");
+  section.className = "fpe-district-section";
+
+  const head = document.createElement("div");
+  head.className = "fpe-district-section__head";
+  head.innerHTML = `
+    ${eyebrow ? `<div class="fpe-district-section__eyebrow">${eyebrow}</div>` : ""}
+    ${title ? `<h2 class="fpe-district-section__title">${title}</h2>` : ""}
+    ${description ? `<p class="fpe-district-section__desc">${description}</p>` : ""}
+  `;
+
+  const body = document.createElement("div");
+  body.className = "fpe-district-section__body";
+
+  section.append(head, body);
+  return { section, body };
+}
+
+function createDistrictBriefBand() {
+  const band = document.createElement("section");
+  band.className = "fpe-district-brief";
+  band.setAttribute("aria-label", "District brief");
+  band.innerHTML = `
+    <div class="fpe-district-brief__item">
+      <div class="fpe-district-brief__label">Template</div>
+      <div class="fpe-district-brief__value" id="v3DistrictBriefTemplate">-</div>
+    </div>
+    <div class="fpe-district-brief__item">
+      <div class="fpe-district-brief__label">Mode</div>
+      <div class="fpe-district-brief__value" id="v3DistrictBriefMode">-</div>
+    </div>
+    <div class="fpe-district-brief__item">
+      <div class="fpe-district-brief__label">Timeline</div>
+      <div class="fpe-district-brief__value" id="v3DistrictBriefTimeline">-</div>
+    </div>
+    <div class="fpe-district-brief__item">
+      <div class="fpe-district-brief__label">Universe basis</div>
+      <div class="fpe-district-brief__value" id="v3DistrictBriefUniverseBasis">-</div>
+    </div>
+    <div class="fpe-district-brief__item">
+      <div class="fpe-district-brief__label">Weighting</div>
+      <div class="fpe-district-brief__value" id="v3DistrictBriefWeighting">-</div>
+    </div>
+    <div class="fpe-district-brief__item">
+      <div class="fpe-district-brief__label">ACS context</div>
+      <div class="fpe-district-brief__value" id="v3DistrictBriefCensus">-</div>
+    </div>
+  `;
+  return band;
 }
 
 export function renderDistrictSurface(mount) {
@@ -212,7 +274,36 @@ export function renderDistrictSurface(mount) {
       <select class="fpe-input" id="v3DistrictMode"></select>
     </div>
   `;
-  raceBody.append(raceGrid);
+  const raceTemplateGrid = createFieldGrid("fpe-field-grid--4");
+  raceTemplateGrid.innerHTML = `
+    <div class="field">
+      <label class="fpe-control-label" for="v3DistrictOfficeLevel">Office level</label>
+      <select class="fpe-input" id="v3DistrictOfficeLevel"></select>
+    </div>
+    <div class="field">
+      <label class="fpe-control-label" for="v3DistrictElectionType">Election type</label>
+      <select class="fpe-input" id="v3DistrictElectionType"></select>
+    </div>
+    <div class="field">
+      <label class="fpe-control-label" for="v3DistrictSeatContext">Seat context</label>
+      <select class="fpe-input" id="v3DistrictSeatContext"></select>
+    </div>
+    <div class="field">
+      <label class="fpe-control-label" for="v3DistrictPartisanshipMode">Partisanship mode</label>
+      <select class="fpe-input" id="v3DistrictPartisanshipMode"></select>
+    </div>
+    <div class="field">
+      <label class="fpe-control-label" for="v3DistrictSalienceLevel">Salience level</label>
+      <select class="fpe-input" id="v3DistrictSalienceLevel"></select>
+    </div>
+  `;
+  const raceTemplateActions = document.createElement("div");
+  raceTemplateActions.className = "fpe-action-row";
+  raceTemplateActions.innerHTML = `
+    <button class="fpe-btn fpe-btn--ghost" id="v3BtnDistrictApplyTemplateDefaults" type="button">Apply template defaults</button>
+    <span class="fpe-help fpe-help--flush" id="v3DistrictTemplateMeta">Template profile unavailable.</span>
+  `;
+  raceBody.append(raceGrid, raceTemplateGrid, raceTemplateActions);
 
   const electorateGrid = createFieldGrid("fpe-field-grid--2");
   const electorateBody = getCardBody(electorateCard);
@@ -488,18 +579,49 @@ export function renderDistrictSurface(mount) {
   const topRow = document.createElement("div");
   topRow.className = "fpe-district-top-row";
   topRow.append(whyPanel, summaryCard);
+  const briefBand = createDistrictBriefBand();
   const trainingPanels = buildDistrictTrainingPanels();
+
+  const baselineSection = createDistrictSection({
+    eyebrow: "Baseline",
+    title: "Race and electorate setup",
+    description: "Set the race context, universe, ballot baseline, and turnout assumptions that drive every downstream surface."
+  });
+  const baselineGrid = document.createElement("div");
+  baselineGrid.className = "fpe-district-grid";
+  baselineGrid.append(raceCard, electorateCard, baselineCard, turnoutCard);
+  baselineSection.body.append(baselineGrid);
+
+  const compositionSection = createDistrictSection({
+    eyebrow: "Composition",
+    title: "Electorate weighting",
+    description: "Optional electorate weighting changes how persuasion and turnout reliability are interpreted from the same baseline assumptions."
+  });
+  const compositionGrid = document.createElement("div");
+  compositionGrid.className = "fpe-district-grid";
+  structureCard.classList.add("fpe-card--district-wide");
+  compositionGrid.append(structureCard);
+  compositionSection.body.append(compositionGrid);
+
+  const analysisSection = createDistrictSection({
+    eyebrow: "Geography",
+    title: "Census and targeting workspace",
+    description: "Use Census to set geographic assumptions and then test the derived targeting workflow from the same district baseline."
+  });
+  const analysisGrid = document.createElement("div");
+  analysisGrid.className = "fpe-district-analysis-grid";
+  censusCard.classList.add("fpe-card--district-census");
+  targetingCard.classList.add("fpe-card--district-targeting");
+  analysisGrid.append(censusCard, targetingCard);
+  analysisSection.body.append(analysisGrid);
 
   main.append(
     topRow,
+    briefBand,
     ...(trainingPanels ? [trainingPanels] : []),
-    raceCard,
-    electorateCard,
-    baselineCard,
-    turnoutCard,
-    structureCard,
-    censusCard,
-    targetingCard
+    baselineSection.section,
+    compositionSection.section,
+    analysisSection.section
   );
 
   frame.append(main);
@@ -510,6 +632,11 @@ export function renderDistrictSurface(mount) {
   bindDistrictFormField("v3DistrictUndecidedPct", "undecidedPct");
   bindDistrictFormSelect("v3DistrictUndecidedMode", "undecidedMode");
   bindDistrictFormSelect("v3DistrictRaceType", "raceType");
+  bindDistrictFormSelect("v3DistrictOfficeLevel", "officeLevel");
+  bindDistrictFormSelect("v3DistrictElectionType", "electionType");
+  bindDistrictFormSelect("v3DistrictSeatContext", "seatContext");
+  bindDistrictFormSelect("v3DistrictPartisanshipMode", "partisanshipMode");
+  bindDistrictFormSelect("v3DistrictSalienceLevel", "salienceLevel");
   bindDistrictFormField("v3DistrictElectionDate", "electionDate");
   bindDistrictFormField("v3DistrictWeeksRemaining", "weeksRemaining");
   bindDistrictFormSelect("v3DistrictMode", "mode");
@@ -525,14 +652,24 @@ export function renderDistrictSurface(mount) {
   bindDistrictFormField("v3DistrictTurnoutA", "turnoutA");
   bindDistrictFormField("v3DistrictTurnoutB", "turnoutB");
   bindDistrictFormField("v3DistrictBandWidth", "bandWidth");
+  const applyTemplateDefaultsBtn = document.getElementById("v3BtnDistrictApplyTemplateDefaults");
+  if (applyTemplateDefaultsBtn instanceof HTMLButtonElement) {
+    applyTemplateDefaultsBtn.addEventListener("click", () => {
+      applyDistrictTemplateDefaults("all");
+      refreshDistrictSummary();
+    });
+  }
   bindDistrictTargetingBridge();
   bindDistrictCensusProxies();
+  hydrateTemplateDimensionOptions();
   return refreshDistrictSummary;
 }
 
 function refreshDistrictSummary() {
   const snapshot = readDistrictSnapshot();
   const controlSnapshot = readDistrictControlSnapshot();
+  const templateSnapshot = readDistrictTemplateSnapshot();
+  const censusSnapshot = readDistrictCensusSnapshot();
   setText("v3DistrictUniverse", snapshot.universe);
   setText("v3DistrictSupport", snapshot.baselineSupport);
   setText("v3DistrictTurnout", snapshot.turnoutExpected);
@@ -546,6 +683,11 @@ function refreshDistrictSummary() {
   syncControlDisabled("v3DistrictUndecidedPct", "undecidedPct");
   syncControlDisabled("v3DistrictUndecidedMode", "undecidedMode");
   syncSelectValue("v3DistrictRaceType", "raceType");
+  syncSelectValueFromRaw("v3DistrictOfficeLevel", templateSnapshot?.officeLevel);
+  syncSelectValueFromRaw("v3DistrictElectionType", templateSnapshot?.electionType);
+  syncSelectValueFromRaw("v3DistrictSeatContext", templateSnapshot?.seatContext);
+  syncSelectValueFromRaw("v3DistrictPartisanshipMode", templateSnapshot?.partisanshipMode);
+  syncSelectValueFromRaw("v3DistrictSalienceLevel", templateSnapshot?.salienceLevel);
   syncFieldValue("v3DistrictElectionDate", "electionDate");
   syncFieldValue("v3DistrictWeeksRemaining", "weeksRemaining");
   syncSelectValue("v3DistrictMode", "mode");
@@ -553,6 +695,11 @@ function refreshDistrictSummary() {
   syncSelectValue("v3DistrictUniverseBasis", "universeBasis");
   syncFieldValue("v3DistrictSourceNote", "sourceNote");
   syncControlDisabled("v3DistrictRaceType", "raceType");
+  syncControlDisabled("v3DistrictOfficeLevel", "officeLevel");
+  syncControlDisabled("v3DistrictElectionType", "electionType");
+  syncControlDisabled("v3DistrictSeatContext", "seatContext");
+  syncControlDisabled("v3DistrictPartisanshipMode", "partisanshipMode");
+  syncControlDisabled("v3DistrictSalienceLevel", "salienceLevel");
   syncControlDisabled("v3DistrictElectionDate", "electionDate");
   syncControlDisabled("v3DistrictWeeksRemaining", "weeksRemaining");
   syncControlDisabled("v3DistrictMode", "mode");
@@ -584,9 +731,11 @@ function refreshDistrictSummary() {
   }
   syncDistrictStructureDerived();
   syncDistrictTargetingLab();
-  syncDistrictCensusProxy();
+  syncDistrictCensusProxy(censusSnapshot);
+  syncDistrictTemplateProfile(templateSnapshot);
   syncDistrictCensusMessageTones();
   syncCensusMapShellState();
+  syncDistrictBrief(snapshot, censusSnapshot, templateSnapshot);
   syncDistrictCardStatus("v3DistrictRaceCardStatus", deriveDistrictRaceCardStatus());
   syncDistrictCardStatus("v3DistrictElectorateCardStatus", deriveDistrictElectorateCardStatus());
   syncDistrictCardStatus("v3DistrictBaselineCardStatus", deriveDistrictBaselineCardStatus());
@@ -596,6 +745,64 @@ function refreshDistrictSummary() {
   syncDistrictCardStatus("v3DistrictCensusCardStatus", deriveDistrictCensusCardStatus());
   syncDistrictCardStatus("v3DistrictTargetingCardStatus", deriveDistrictTargetingCardStatus());
   applyDistrictBridgeDisabledMap(controlSnapshot?.disabledMap);
+}
+
+function syncDistrictBrief(snapshot, censusSnapshot, templateSnapshot) {
+  const raceTemplateText = readSelectedLabel("v3DistrictRaceType") || "Unset";
+  const appliedTemplateId = String(templateSnapshot?.appliedTemplateId || "").trim();
+  const overrides = Array.isArray(templateSnapshot?.overriddenFields) ? templateSnapshot.overriddenFields.length : 0;
+  const templateText = appliedTemplateId
+    ? `${raceTemplateText} (${appliedTemplateId}${overrides > 0 ? ` · ${overrides} overrides` : ""})`
+    : raceTemplateText;
+  const modeText = readSelectedLabel("v3DistrictMode") || "Unset";
+  const electionDate = readInputValue("v3DistrictElectionDate");
+  const weeksRemaining = readInputValue("v3DistrictWeeksRemaining");
+  const universeBasisText = readSelectedLabel("v3DistrictUniverseBasis") || "Unset";
+  const weightingEnabled = readCheckboxChecked("v3DistrictElectorateWeightingToggle");
+  const structureWarning = String(document.getElementById("v3DistrictStructureWarn")?.textContent || "").trim();
+  const censusText =
+    censusSnapshot?.geoStatsText
+    || censusSnapshot?.selectionSummaryText
+    || censusSnapshot?.statusText
+    || "No ACS rows";
+
+  let timelineText = "Unset";
+  if (electionDate && weeksRemaining) {
+    timelineText = `${electionDate} · ${weeksRemaining} weeks`;
+  } else if (electionDate) {
+    timelineText = electionDate;
+  } else if (weeksRemaining) {
+    timelineText = `${weeksRemaining} weeks`;
+  }
+
+  let weightingText = weightingEnabled ? "Weighted" : "Baseline only";
+  if (weightingEnabled && structureWarning) {
+    weightingText = "Weighted · normalize inputs";
+  }
+
+  setText("v3DistrictBriefTemplate", templateText);
+  setText("v3DistrictBriefMode", modeText);
+  setText("v3DistrictBriefTimeline", timelineText);
+  setText("v3DistrictBriefUniverseBasis", universeBasisText);
+  setText("v3DistrictBriefWeighting", weightingText);
+  setText("v3DistrictBriefCensus", censusText);
+}
+
+function readSelectedLabel(id) {
+  const el = document.getElementById(id);
+  if (!(el instanceof HTMLSelectElement)) {
+    return "";
+  }
+  const option = el.selectedOptions?.[0];
+  return String(option?.textContent || "").trim();
+}
+
+function readInputValue(id) {
+  const el = document.getElementById(id);
+  if (!(el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement)) {
+    return "";
+  }
+  return String(el.value || "").trim();
 }
 
 function syncDistrictBallotBaseline() {
@@ -809,6 +1016,50 @@ function hydrateLegacySelectOptions(v3Id, legacyId, preferredValue) {
     label: String(option.textContent || option.value || "").trim(),
   })).filter((row) => row.value || row.label);
   hydrateSelectOptions(v3Id, options, preferredValue);
+}
+
+function hydrateTemplateDimensionOptions() {
+  TEMPLATE_DIMENSION_SELECTS.forEach(({ id, field, label }) => {
+    const options = listTemplateDimensionOptions(field);
+    const withPlaceholder = [{ value: "", label: `Select ${label.toLowerCase()}` }, ...options];
+    hydrateSelectOptions(id, withPlaceholder);
+  });
+}
+
+function syncSelectValueFromRaw(id, rawValue) {
+  const select = document.getElementById(id);
+  if (!(select instanceof HTMLSelectElement)) {
+    return;
+  }
+  const value = String(rawValue || "").trim();
+  if (!value) {
+    return;
+  }
+  const hasOption = Array.from(select.options).some((option) => String(option.value || "").trim() === value);
+  if (hasOption) {
+    select.value = value;
+  }
+}
+
+function syncDistrictTemplateProfile(templateSnapshot) {
+  const target = document.getElementById("v3DistrictTemplateMeta");
+  if (!(target instanceof HTMLElement)) {
+    return;
+  }
+  const snapshot = templateSnapshot && typeof templateSnapshot === "object" ? templateSnapshot : null;
+  if (!snapshot) {
+    target.textContent = "Template profile unavailable.";
+    return;
+  }
+  const templateId = String(snapshot.appliedTemplateId || "").trim() || "unresolved";
+  const version = String(snapshot.appliedVersion || "").trim();
+  const overrides = Array.isArray(snapshot.overriddenFields) ? snapshot.overriddenFields.length : 0;
+  const profile = String(snapshot.assumptionsProfile || "").trim() || (overrides > 0 ? "custom" : "template");
+  const parts = [`Template: ${templateId}`];
+  if (version) parts.push(`v${version}`);
+  parts.push(`Profile: ${profile}`);
+  parts.push(`Overrides: ${overrides}`);
+  target.textContent = parts.join(" · ");
 }
 
 function bindDistrictFormSelect(v3Id, field) {
@@ -1209,14 +1460,14 @@ function bindDistrictTargetingBridge() {
   bindDistrictTargetingField("v3DistrictTargetingWeightTurnoutOpportunity", "weightTurnoutOpportunity");
   bindDistrictTargetingField("v3DistrictTargetingWeightPersuasionIndex", "weightPersuasionIndex");
   bindDistrictTargetingField("v3DistrictTargetingWeightFieldEfficiency", "weightFieldEfficiency");
-  bindDistrictTargetingAction("v3BtnDistrictTargetingResetWeights", () => resetDistrictTargetingWeights(), "", {
+  bindDistrictTargetingAction("v3BtnDistrictTargetingResetWeights", () => resetDistrictTargetingWeights(), {
     syncTargeting: true,
   });
-  bindDistrictTargetingAction("v3BtnDistrictRunTargeting", () => runDistrictTargeting(), "", {
+  bindDistrictTargetingAction("v3BtnDistrictRunTargeting", () => runDistrictTargeting(), {
     syncTargeting: true,
   });
-  bindDistrictTargetingAction("v3BtnDistrictExportTargetingCsv", () => exportDistrictTargetingCsv(), "btnExportTargetingCsv");
-  bindDistrictTargetingAction("v3BtnDistrictExportTargetingJson", () => exportDistrictTargetingJson(), "btnExportTargetingJson");
+  bindDistrictTargetingAction("v3BtnDistrictExportTargetingCsv", () => exportDistrictTargetingCsv());
+  bindDistrictTargetingAction("v3BtnDistrictExportTargetingJson", () => exportDistrictTargetingJson());
 }
 
 function bindDistrictTargetingSelect(v3Id, field) {
@@ -1270,7 +1521,7 @@ function bindDistrictTargetingCheckbox(v3Id, field) {
   });
 }
 
-function bindDistrictTargetingAction(v3Id, action, legacyId = "", opts = {}) {
+function bindDistrictTargetingAction(v3Id, action, opts = {}) {
   const button = document.getElementById(v3Id);
   if (!(button instanceof HTMLButtonElement) || button.dataset.v3TargetingBound === "1") {
     return;
@@ -1281,9 +1532,6 @@ function bindDistrictTargetingAction(v3Id, action, legacyId = "", opts = {}) {
       const result = action();
       if (opts?.syncTargeting) {
         syncDistrictTargetingFromResult(result);
-      }
-      if (legacyId && (!result || result.ok === false)) {
-        fallbackLegacyClick(legacyId);
       }
     }
   });
@@ -1299,13 +1547,6 @@ function syncDistrictTargetingFromResult(result) {
   if (result?.ok) {
     syncDistrictTargetingLab();
     window.requestAnimationFrame(() => syncDistrictTargetingLab());
-  }
-}
-
-function fallbackLegacyClick(id) {
-  const legacy = document.getElementById(id);
-  if (legacy && typeof legacy.click === "function") {
-    legacy.click();
   }
 }
 
@@ -2335,7 +2576,7 @@ function syncDistrictCardStatus(id, value) {
   if (!(badge instanceof HTMLElement)) {
     return;
   }
-  const text = String(value || "").trim() || "Awaiting inputs";
+  const text = String(value || "").trim() || DISTRICT_STATUS_AWAITING_INPUTS;
   badge.textContent = text;
   badge.classList.add("fpe-status-pill");
   badge.classList.remove(
@@ -2349,135 +2590,63 @@ function syncDistrictCardStatus(id, value) {
 }
 
 function deriveDistrictRaceCardStatus() {
-  const raceType = readSelectTextById("v3DistrictRaceType");
-  const electionDate = readValueTextById("v3DistrictElectionDate");
-  const mode = readSelectTextById("v3DistrictMode");
-  if (raceType && electionDate && mode) {
-    return "Configured";
-  }
-  if (raceType || electionDate || mode) {
-    return "Needs date";
-  }
-  return "Awaiting context";
+  return deriveDistrictRaceCardStatusCore({
+    raceType: readSelectTextById("v3DistrictRaceType"),
+    electionDate: readValueTextById("v3DistrictElectionDate"),
+    mode: readSelectTextById("v3DistrictMode"),
+  });
 }
 
 function deriveDistrictElectorateCardStatus() {
-  const universe = readValueTextById("v3DistrictUniverseSize");
-  const basis = readSelectTextById("v3DistrictUniverseBasis");
-  const sourceNote = readValueTextById("v3DistrictSourceNote");
-  if (universe && basis) {
-    return sourceNote ? "Sourced" : "Universe set";
-  }
-  return "Awaiting universe";
+  return deriveDistrictElectorateCardStatusCore({
+    universe: readValueTextById("v3DistrictUniverseSize"),
+    basis: readSelectTextById("v3DistrictUniverseBasis"),
+    sourceNote: readValueTextById("v3DistrictSourceNote"),
+  });
 }
 
 function deriveDistrictBaselineCardStatus() {
-  const warning = readTextById("v3DistrictCandWarn");
-  const supportTotal = readTextById("v3DistrictSupportTotal");
-  if (warning) {
-    return "Check totals";
-  }
-  if (supportTotal === "100.0%" || supportTotal === "100%" || supportTotal === "100.00%") {
-    return "Balanced";
-  }
-  if (supportTotal && supportTotal !== "—" && supportTotal !== "-") {
-    return "Ballot set";
-  }
-  return "Awaiting ballot";
+  return deriveDistrictBaselineCardStatusCore({
+    warning: readTextById("v3DistrictCandWarn"),
+    supportTotal: readTextById("v3DistrictSupportTotal"),
+  });
 }
 
 function deriveDistrictTurnoutCardStatus() {
-  const turnoutExpected = readTextById("v3DistrictTurnoutExpected");
-  const turnoutA = readValueTextById("v3DistrictTurnoutA");
-  const turnoutB = readValueTextById("v3DistrictTurnoutB");
-  if (turnoutA && turnoutB && turnoutExpected && turnoutExpected !== "—") {
-    return "2 cycles set";
-  }
-  if (turnoutA || turnoutB) {
-    return "Incomplete";
-  }
-  return "Awaiting turnout";
+  return deriveDistrictTurnoutCardStatusCore({
+    turnoutExpected: readTextById("v3DistrictTurnoutExpected"),
+    turnoutA: readValueTextById("v3DistrictTurnoutA"),
+    turnoutB: readValueTextById("v3DistrictTurnoutB"),
+  });
 }
 
 function deriveDistrictStructureCardStatus() {
-  const enabled = readCheckboxChecked("v3DistrictElectorateWeightingToggle");
-  const warning = readTextById("v3DistrictStructureWarn");
-  if (!enabled) {
-    return "Weighting off";
-  }
-  if (warning) {
-    return "Check shares";
-  }
-  return "Weighted";
+  return deriveDistrictStructureCardStatusCore({
+    enabled: readCheckboxChecked("v3DistrictElectorateWeightingToggle"),
+    warning: readTextById("v3DistrictStructureWarn"),
+  });
 }
 
 function deriveDistrictSummaryCardStatus(snapshot) {
-  const need = String(snapshot?.persuasionNeed || "").trim();
-  const projected = String(snapshot?.projectedVotes || "").trim();
-  const universe = String(snapshot?.universe || "").trim();
-  if (!universe || universe === "—") {
-    return "Awaiting baseline";
-  }
-  if (need && need !== "0" && need !== "—") {
-    return "Need path";
-  }
-  if (projected && projected !== "—") {
-    return "Baseline ready";
-  }
-  return "Awaiting baseline";
+  return deriveDistrictSummaryCardStatusCore(snapshot || {});
 }
 
 function deriveDistrictCensusCardStatus() {
-  const status = readTextById("v3CensusStatus").toLowerCase();
-  const geoStats = readTextById("v3CensusGeoStats").toLowerCase();
-  if (status.includes("error") || status.includes("failed")) {
-    return "Attention";
-  }
-  if (geoStats.includes("rows loaded") && !geoStats.includes("0 rows loaded")) {
-    return "Rows loaded";
-  }
-  if (status.includes("ready")) {
-    return "Ready";
-  }
-  if (status || geoStats) {
-    return "In progress";
-  }
-  return "Awaiting GEOs";
+  return deriveDistrictCensusCardStatusCore({
+    status: readTextById("v3CensusStatus"),
+    geoStats: readTextById("v3CensusGeoStats"),
+  });
 }
 
 function deriveDistrictTargetingCardStatus() {
-  const status = readTextById("v3DistrictTargetingStatus").toLowerCase();
-  const rowCount = countBodyRows("v3DistrictTargetingResultsTbody");
-  if (rowCount > 0) {
-    return "Ranks ready";
-  }
-  if (status.includes("run targeting")) {
-    return "Run targeting";
-  }
-  if (status.includes("unavailable") || status.includes("failed")) {
-    return "Unavailable";
-  }
-  if (status) {
-    return "Awaiting run";
-  }
-  return "Run targeting";
+  return deriveDistrictTargetingCardStatusCore({
+    status: readTextById("v3DistrictTargetingStatus"),
+    rowCount: countBodyRows("v3DistrictTargetingResultsTbody"),
+  });
 }
 
 function classifyDistrictStatusTone(text) {
-  const lower = String(text || "").trim().toLowerCase();
-  if (!lower) {
-    return "neutral";
-  }
-  if (/(configured|sourced|universe set|balanced|2 cycles set|weighted|baseline ready|rows loaded|ready|ranks ready)/.test(lower)) {
-    return "ok";
-  }
-  if (/(attention|unavailable|failed|check totals|check shares)/.test(lower)) {
-    return "bad";
-  }
-  if (/(awaiting|needs date|incomplete|weighting off|need path|in progress|run targeting|awaiting run)/.test(lower)) {
-    return "warn";
-  }
-  return "neutral";
+  return classifyDistrictStatusToneCore(text);
 }
 
 function readTextById(id) {

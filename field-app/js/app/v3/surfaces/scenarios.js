@@ -6,6 +6,15 @@ import {
   getCardBody
 } from "../componentFactory.js";
 import { setText } from "../surfaceUtils.js";
+import {
+  SCENARIO_STATUS_AWAITING_SCENARIO,
+  SCENARIO_STATUS_UNAVAILABLE,
+  classifyScenarioStatusTone,
+  deriveScenarioCompareCardStatus,
+  deriveScenarioNotesCardStatus,
+  deriveScenarioSummaryCardStatus,
+  deriveScenarioWorkspaceCardStatus,
+} from "../../../core/scenarioView.js";
 
 const SCENARIO_API_KEY = "__FPE_SCENARIO_API__";
 const OUTPUT_DIFF_LIMIT = 24;
@@ -604,10 +613,10 @@ function renderScenariosUnavailable() {
   setText("v3ScenarioLegacyWarn", "Scenario runtime bridge unavailable.");
   setText("v3ScenarioStorageStatus", "Scenario storage unavailable.");
   setText("v3ScenarioLegacyStorageNote", "Scenario storage unavailable.");
-  syncScenarioCardStatus("v3ScenarioWorkspaceCardStatus", "Unavailable");
-  syncScenarioCardStatus("v3ScenarioCompareCardStatus", "Unavailable");
-  syncScenarioCardStatus("v3ScenarioNotesCardStatus", "Unavailable");
-  syncScenarioCardStatus("v3ScenarioSummaryCardStatus", "Unavailable");
+  syncScenarioCardStatus("v3ScenarioWorkspaceCardStatus", SCENARIO_STATUS_UNAVAILABLE);
+  syncScenarioCardStatus("v3ScenarioCompareCardStatus", SCENARIO_STATUS_UNAVAILABLE);
+  syncScenarioCardStatus("v3ScenarioNotesCardStatus", SCENARIO_STATUS_UNAVAILABLE);
+  syncScenarioCardStatus("v3ScenarioSummaryCardStatus", SCENARIO_STATUS_UNAVAILABLE);
 }
 
 function assignCardStatusId(card, id) {
@@ -625,7 +634,7 @@ function syncScenarioCardStatus(id, value) {
   if (!(badge instanceof HTMLElement)) {
     return;
   }
-  const text = String(value || "").trim() || "Awaiting scenario";
+  const text = String(value || "").trim() || SCENARIO_STATUS_AWAITING_SCENARIO;
   badge.textContent = text;
   badge.classList.add("fpe-status-pill");
   badge.classList.remove(
@@ -636,72 +645,4 @@ function syncScenarioCardStatus(id, value) {
   );
   const tone = classifyScenarioStatusTone(text);
   badge.classList.add(`fpe-status-pill--${tone}`);
-}
-
-function deriveScenarioWorkspaceCardStatus(view) {
-  const scenarios = Array.isArray(view?.scenarios) ? view.scenarios : [];
-  const activeId = String(view?.activeScenarioId || view?.baselineId || "");
-  const baselineId = String(view?.baselineId || "baseline");
-  if (!scenarios.length) {
-    return "Unavailable";
-  }
-  if (activeId && activeId !== baselineId) {
-    return "Scenario active";
-  }
-  return "Baseline ready";
-}
-
-function deriveScenarioCompareCardStatus(comparison) {
-  const count = Number(comparison?.outputDiffCount || 0);
-  if (!comparison || comparison.modeText === "Select a non-baseline active scenario to view differences.") {
-    return "No compare";
-  }
-  if (count > 0) {
-    return "Diffs ready";
-  }
-  return "Compared";
-}
-
-function deriveScenarioNotesCardStatus(warning, storage) {
-  const warningText = String(warning || "").toLowerCase();
-  const storageText = String(storage || "").toLowerCase();
-  if (warningText.includes("unavailable") || storageText.includes("unavailable")) {
-    return "Unavailable";
-  }
-  if (!warningText || warningText === "no warnings.") {
-    return "Storage ready";
-  }
-  if (warningText.includes("warning") || warningText.includes("diff") || warningText.includes("delete")) {
-    return "Watchlist";
-  }
-  return "Storage ready";
-}
-
-function deriveScenarioSummaryCardStatus(view, comparison) {
-  const activeId = String(view?.activeScenarioId || view?.baselineId || "");
-  const baselineId = String(view?.baselineId || "baseline");
-  if (!view) {
-    return "Unavailable";
-  }
-  if (activeId && activeId !== baselineId) {
-    return Number(comparison?.inputDiffCount || 0) > 0 ? "Delta tracked" : "Scenario active";
-  }
-  return "Baseline";
-}
-
-function classifyScenarioStatusTone(text) {
-  const lower = String(text || "").trim().toLowerCase();
-  if (!lower) {
-    return "neutral";
-  }
-  if (/(baseline ready|storage ready|compared|baseline)/.test(lower)) {
-    return "ok";
-  }
-  if (/(unavailable)/.test(lower)) {
-    return "bad";
-  }
-  if (/(scenario active|diffs ready|watchlist|delta tracked|no compare|awaiting)/.test(lower)) {
-    return "warn";
-  }
-  return "neutral";
 }

@@ -7,6 +7,15 @@ import {
   setCardHeaderControl
 } from "../componentFactory.js";
 import { setText } from "../surfaceUtils.js";
+import {
+  DATA_STATUS_AWAITING_STORAGE,
+  classifyDataStatusTone,
+  deriveDataAuditCardStatus,
+  deriveDataExchangeCardStatus,
+  deriveDataPolicyCardStatus,
+  deriveDataStorageCardStatus,
+  deriveDataSummaryCardStatus,
+} from "../../../core/dataView.js";
 
 const DATA_API_KEY = "__FPE_DATA_API__";
 const DATA_ACTIONS = {
@@ -59,10 +68,16 @@ export function renderDataSurface(mount) {
     description: "Current policy and storage posture.",
     status: "Stable"
   });
+  const auditCard = createCard({
+    title: "Forecast learning",
+    description: "Archive forecasts, record actual outcomes, and track model error posture.",
+    status: "Awaiting archive"
+  });
 
   assignCardStatusId(policyCard, "v3DataPolicyCardStatus");
   assignCardStatusId(exchangeCard, "v3DataExchangeCardStatus");
   assignCardStatusId(storageCard, "v3DataStorageCardStatus");
+  assignCardStatusId(auditCard, "v3DataAuditCardStatus");
   assignCardStatusId(summaryCard, "v3DataSummaryCardStatus");
 
   getCardBody(policyCard).innerHTML = `
@@ -125,6 +140,100 @@ export function renderDataSurface(mount) {
     </div>
   `;
 
+  getCardBody(auditCard).innerHTML = `
+    <div class="fpe-contained-block">
+      <ul class="bullets">
+        <li>Select an archived forecast, then record certified actuals for model learning.</li>
+        <li>Model audit metrics update from campaign-scoped archive records.</li>
+      </ul>
+    </div>
+    <div class="fpe-field-grid fpe-field-grid--2">
+      <div class="field">
+        <label class="fpe-control-label" for="v3DataArchiveSelect">Archived forecast</label>
+        <select class="fpe-input" id="v3DataArchiveSelect">
+          <option value="">No archived forecasts</option>
+        </select>
+      </div>
+      <div class="field">
+        <label class="fpe-control-label" for="v3DataArchiveActualMargin">Actual margin</label>
+        <input class="fpe-input" id="v3DataArchiveActualMargin" type="number" step="0.01" placeholder="e.g. 1.2"/>
+      </div>
+      <div class="field">
+        <label class="fpe-control-label" for="v3DataArchiveActualYourVotes">Actual your votes</label>
+        <input class="fpe-input" id="v3DataArchiveActualYourVotes" type="number" step="1" placeholder="e.g. 6320"/>
+      </div>
+      <div class="field">
+        <label class="fpe-control-label" for="v3DataArchiveActualWinThreshold">Actual win threshold</label>
+        <input class="fpe-input" id="v3DataArchiveActualWinThreshold" type="number" step="1" placeholder="e.g. 6200"/>
+      </div>
+      <div class="field">
+        <label class="fpe-control-label" for="v3DataArchiveActualWinner">Winner</label>
+        <input class="fpe-input" id="v3DataArchiveActualWinner" type="text" placeholder="Candidate name"/>
+      </div>
+      <div class="field">
+        <label class="fpe-control-label" for="v3DataArchiveActualDate">Result date</label>
+        <input class="fpe-input" id="v3DataArchiveActualDate" type="date"/>
+      </div>
+    </div>
+    <div class="fpe-field-grid fpe-field-grid--1">
+      <div class="field">
+        <label class="fpe-control-label" for="v3DataArchiveActualNotes">Audit notes</label>
+        <textarea class="fpe-input" id="v3DataArchiveActualNotes" rows="2" placeholder="Certification notes, anomalies, recount details..."></textarea>
+      </div>
+    </div>
+    <div class="fpe-action-row">
+      <button class="fpe-btn" id="v3DataArchiveSaveActual" type="button">Save Actual Outcome</button>
+      <button class="fpe-btn fpe-btn--ghost" id="v3DataArchiveRefresh" type="button">Refresh Archive</button>
+    </div>
+    <div class="fpe-status-strip fpe-status-strip--3">
+      <div class="fpe-contained-block fpe-contained-block--status">
+        <div class="fpe-control-label">Audit samples</div>
+        <div class="fpe-help fpe-help--flush" id="v3DataAuditSampleSize">-</div>
+      </div>
+      <div class="fpe-contained-block fpe-contained-block--status">
+        <div class="fpe-control-label">Within 1 pt</div>
+        <div class="fpe-help fpe-help--flush" id="v3DataAuditWithin1">-</div>
+      </div>
+      <div class="fpe-contained-block fpe-contained-block--status">
+        <div class="fpe-control-label">Within 2 pts</div>
+        <div class="fpe-help fpe-help--flush" id="v3DataAuditWithin2">-</div>
+      </div>
+    </div>
+    <div class="fpe-status-strip fpe-status-strip--3">
+      <div class="fpe-contained-block fpe-contained-block--status">
+        <div class="fpe-control-label">Mean error</div>
+        <div class="fpe-help fpe-help--flush" id="v3DataAuditMeanError">-</div>
+      </div>
+      <div class="fpe-contained-block fpe-contained-block--status">
+        <div class="fpe-control-label">Mean abs error</div>
+        <div class="fpe-help fpe-help--flush" id="v3DataAuditMae">-</div>
+      </div>
+      <div class="fpe-contained-block fpe-contained-block--status">
+        <div class="fpe-control-label">Bias direction</div>
+        <div class="fpe-help fpe-help--flush" id="v3DataAuditBias">-</div>
+      </div>
+    </div>
+    <div class="fpe-contained-block">
+      <div class="fpe-control-label">Recent forecast archive</div>
+      <div class="fpe-help fpe-help--flush" id="v3DataArchiveTableSummary">No archive records yet.</div>
+    </div>
+    <div class="fpe-table-wrap">
+      <table class="fpe-table fpe-table--compact">
+        <thead>
+          <tr>
+            <th scope="col">Recorded</th>
+            <th scope="col">Scenario</th>
+            <th scope="col">Forecast margin</th>
+            <th scope="col">Actual margin</th>
+          </tr>
+        </thead>
+        <tbody id="v3DataArchiveRows">
+          <tr><td colspan="4">No archive records.</td></tr>
+        </tbody>
+      </table>
+    </div>
+  `;
+
   getCardBody(summaryCard).innerHTML = `
     <div class="fpe-status-strip fpe-status-strip--2">
       <div class="fpe-contained-block fpe-contained-block--status">
@@ -164,7 +273,7 @@ export function renderDataSurface(mount) {
 
   policyCol.append(policyCard);
   exchangeCol.append(exchangeCard);
-  infraCol.append(storageCard, summaryCard);
+  infraCol.append(storageCard, auditCard, summaryCard);
 
   frame.append(policyCol, exchangeCol, infraCol);
   mount.append(frame);
@@ -190,6 +299,9 @@ function refreshDataSummary() {
   const warnBannerUi = document.getElementById("v3DataWarnBannerUi");
   const usbStatusUi = readElText("v3DataUsbStatusUi");
   const importFileStatus = readElText("v3DataImportFileStatus");
+  const auditSampleSize = readElText("v3DataAuditSampleSize");
+  const auditBias = readElText("v3DataAuditBias");
+  const archiveSummary = readElText("v3DataArchiveTableSummary");
 
   setText(
     "v3DataStrictImport",
@@ -244,6 +356,10 @@ function refreshDataSummary() {
     deriveDataStorageCardStatus(usbStatusUi)
   );
   syncDataCardStatus(
+    "v3DataAuditCardStatus",
+    deriveDataAuditCardStatus(auditSampleSize, auditBias, archiveSummary)
+  );
+  syncDataCardStatus(
     "v3DataSummaryCardStatus",
     deriveDataSummaryCardStatus(
       strictToggle instanceof HTMLInputElement && strictToggle.checked,
@@ -286,6 +402,62 @@ function wireDataBridge() {
       }
       api.restoreBackup(value);
       refreshDataSummary();
+    });
+  }
+
+  const archiveSelect = document.getElementById("v3DataArchiveSelect");
+  if (archiveSelect instanceof HTMLSelectElement) {
+    archiveSelect.addEventListener("change", () => {
+      const value = String(archiveSelect.value || "").trim();
+      const api = getDataApi();
+      if (!api || typeof api.setArchiveSelection !== "function") {
+        return;
+      }
+      api.setArchiveSelection(value);
+      refreshDataSummary();
+    });
+  }
+
+  const archiveSaveBtn = document.getElementById("v3DataArchiveSaveActual");
+  if (archiveSaveBtn instanceof HTMLButtonElement) {
+    archiveSaveBtn.addEventListener("click", () => {
+      const api = getDataApi();
+      if (!api || typeof api.saveArchiveActual !== "function") {
+        return;
+      }
+      const payload = {
+        snapshotHash: readInputValue("v3DataArchiveSelect"),
+        actual: {
+          margin: parseNumericInput("v3DataArchiveActualMargin"),
+          yourVotes: parseNumericInput("v3DataArchiveActualYourVotes"),
+          winThreshold: parseNumericInput("v3DataArchiveActualWinThreshold"),
+          winner: readInputValue("v3DataArchiveActualWinner"),
+          resultDate: readInputValue("v3DataArchiveActualDate"),
+        },
+        notes: readInputValue("v3DataArchiveActualNotes"),
+      };
+      const result = api.saveArchiveActual(payload);
+      if (result && typeof result.then === "function") {
+        result.finally(() => refreshDataSummary());
+      } else {
+        refreshDataSummary();
+      }
+    });
+  }
+
+  const archiveRefreshBtn = document.getElementById("v3DataArchiveRefresh");
+  if (archiveRefreshBtn instanceof HTMLButtonElement) {
+    archiveRefreshBtn.addEventListener("click", () => {
+      const api = getDataApi();
+      if (!api || typeof api.refreshArchive !== "function") {
+        return;
+      }
+      const result = api.refreshArchive();
+      if (result && typeof result.then === "function") {
+        result.finally(() => refreshDataSummary());
+      } else {
+        refreshDataSummary();
+      }
     });
   }
 
@@ -367,6 +539,60 @@ function syncDataBridgeUi() {
   syncButtonDisabledLocal("v3DataBtnUsbLoad", !!view?.controls?.usbLoadDisabled);
   syncButtonDisabledLocal("v3DataBtnUsbSave", !!view?.controls?.usbSaveDisabled);
   syncButtonDisabledLocal("v3DataBtnUsbDisconnect", !!view?.controls?.usbDisconnectDisabled);
+
+  const archiveView = view?.forecastArchive && typeof view.forecastArchive === "object" ? view.forecastArchive : {};
+  const archiveSelect = document.getElementById("v3DataArchiveSelect");
+  if (archiveSelect instanceof HTMLSelectElement) {
+    syncArchiveSelect(
+      archiveSelect,
+      Array.isArray(archiveView.options) ? archiveView.options : [],
+      archiveView.selectedHash
+    );
+    archiveSelect.disabled = !!view?.controls?.archiveSelectionDisabled;
+  }
+  const selectedEntry = archiveView?.selectedEntry && typeof archiveView.selectedEntry === "object"
+    ? archiveView.selectedEntry
+    : {};
+  const selectedActual = selectedEntry?.actual && typeof selectedEntry.actual === "object"
+    ? selectedEntry.actual
+    : {};
+  syncInputValue("v3DataArchiveActualMargin", selectedActual.margin);
+  syncInputValue("v3DataArchiveActualYourVotes", selectedActual.yourVotes);
+  syncInputValue("v3DataArchiveActualWinThreshold", selectedActual.winThreshold);
+  syncInputValue("v3DataArchiveActualWinner", selectedActual.winner);
+  syncInputValue("v3DataArchiveActualDate", selectedActual.resultDate);
+  syncInputValue("v3DataArchiveActualNotes", selectedEntry.notes);
+
+  const audit = archiveView?.modelAudit && typeof archiveView.modelAudit === "object"
+    ? archiveView.modelAudit
+    : {};
+  setText("v3DataAuditSampleSize", formatSampleCount(audit.sampleSize));
+  setText("v3DataAuditWithin1", formatPercent(audit.within1ptPct));
+  setText("v3DataAuditWithin2", formatPercent(audit.within2ptPct));
+  setText("v3DataAuditMeanError", formatSignedNumber(audit.meanErrorMargin, 2));
+  setText("v3DataAuditMae", formatNumber(audit.meanAbsErrorMargin, 2));
+  setText("v3DataAuditBias", String(audit.biasDirection || "none"));
+
+  const archiveRows = Array.isArray(archiveView.rows) ? archiveView.rows : [];
+  const archiveSummary = archiveView?.summary && typeof archiveView.summary === "object"
+    ? archiveView.summary
+    : {};
+  const totalArchiveCount = Number.isFinite(Number(archiveSummary?.totalEntries))
+    ? Math.max(0, Math.floor(Number(archiveSummary.totalEntries)))
+    : archiveRows.length;
+  const withActualArchiveCount = Number.isFinite(Number(archiveSummary?.withActualEntries))
+    ? Math.max(0, Math.floor(Number(archiveSummary.withActualEntries)))
+    : archiveRows.filter((row) => row?.actualMargin != null).length;
+  const pendingArchiveCount = Math.max(0, totalArchiveCount - withActualArchiveCount);
+  syncArchiveRows(archiveRows);
+  setText(
+    "v3DataArchiveTableSummary",
+    totalArchiveCount
+      ? `Showing ${totalArchiveCount.toLocaleString("en-US")} archived forecasts (${withActualArchiveCount.toLocaleString("en-US")} with actuals, ${pendingArchiveCount.toLocaleString("en-US")} pending).`
+      : "No archive records yet."
+  );
+  syncButtonDisabledLocal("v3DataArchiveSaveActual", !!view?.controls?.archiveSaveDisabled);
+  syncButtonDisabledLocal("v3DataArchiveRefresh", !!view?.controls?.archiveRefreshDisabled);
 }
 
 function syncBackupSelect(selectEl, options, selectedValue) {
@@ -392,6 +618,124 @@ function syncBackupSelect(selectEl, options, selectedValue) {
   if (document.activeElement !== selectEl) {
     selectEl.value = selected;
   }
+}
+
+function syncArchiveSelect(selectEl, options, selectedValue) {
+  const selected = String(selectedValue || "");
+  const nextValues = options.map((opt) => `${String(opt.value || "")}::${String(opt.label || "")}`);
+  const currentValues = Array.from(selectEl.options)
+    .slice(1)
+    .map((opt) => `${String(opt.value || "")}::${String(opt.textContent || "")}`);
+  const matches = nextValues.length === currentValues.length && nextValues.every((v, i) => v === currentValues[i]);
+  if (!matches) {
+    selectEl.innerHTML = "";
+    const base = document.createElement("option");
+    base.value = "";
+    base.textContent = "Select archived forecast…";
+    selectEl.appendChild(base);
+    options.forEach((opt) => {
+      const item = document.createElement("option");
+      item.value = String(opt.value || "");
+      item.textContent = String(opt.label || opt.value || "");
+      selectEl.appendChild(item);
+    });
+  }
+  if (document.activeElement !== selectEl) {
+    selectEl.value = selected;
+  }
+}
+
+function syncInputValue(id, value) {
+  const el = document.getElementById(id);
+  if (!(el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement)) {
+    return;
+  }
+  if (document.activeElement === el) {
+    return;
+  }
+  const next = value == null ? "" : String(value);
+  el.value = next;
+}
+
+function readInputValue(id) {
+  const el = document.getElementById(id);
+  if (!(el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement)) {
+    return "";
+  }
+  return String(el.value || "").trim();
+}
+
+function parseNumericInput(id) {
+  const text = readInputValue(id);
+  if (!text) return null;
+  const n = Number(text);
+  return Number.isFinite(n) ? n : null;
+}
+
+function formatSampleCount(value) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return "0";
+  return `${Math.max(0, Math.floor(n)).toLocaleString("en-US")}`;
+}
+
+function formatPercent(value) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return "—";
+  return `${n.toFixed(1)}%`;
+}
+
+function formatNumber(value, digits = 2) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return "—";
+  return n.toFixed(digits);
+}
+
+function formatSignedNumber(value, digits = 2) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return "—";
+  const out = n.toFixed(digits);
+  return n > 0 ? `+${out}` : out;
+}
+
+function formatRecordedAt(value) {
+  const raw = String(value || "").trim();
+  if (!raw) return "—";
+  return raw.replace("T", " ").replace("Z", "");
+}
+
+function syncArchiveRows(rows) {
+  const body = document.getElementById("v3DataArchiveRows");
+  if (!(body instanceof HTMLTableSectionElement)) {
+    return;
+  }
+  const list = Array.isArray(rows) ? rows : [];
+  body.innerHTML = "";
+  if (!list.length) {
+    const tr = document.createElement("tr");
+    tr.innerHTML = `<td colspan="4">No archive records.</td>`;
+    body.appendChild(tr);
+    return;
+  }
+  list.forEach((row) => {
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td>${escapeHtml(formatRecordedAt(row?.recordedAt))}</td>
+      <td>${escapeHtml(String(row?.scenarioName || "—"))}</td>
+      <td>${escapeHtml(formatSignedNumber(row?.forecastMargin, 2))}</td>
+      <td>${escapeHtml(row?.actualMargin == null ? "—" : formatSignedNumber(row.actualMargin, 2))}</td>
+    `;
+    body.appendChild(tr);
+  });
+}
+
+function escapeHtml(value) {
+  const text = String(value == null ? "" : value);
+  return text
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
 }
 
 function syncButtonDisabledLocal(id, disabled) {
@@ -429,7 +773,7 @@ function syncDataCardStatus(id, value) {
   if (!(badge instanceof HTMLElement)) {
     return;
   }
-  const text = String(value || "").trim() || "Awaiting storage";
+  const text = String(value || "").trim() || DATA_STATUS_AWAITING_STORAGE;
   badge.textContent = text;
   badge.classList.add("fpe-status-pill");
   badge.classList.remove(
@@ -440,63 +784,6 @@ function syncDataCardStatus(id, value) {
   );
   const tone = classifyDataStatusTone(text);
   badge.classList.add(`fpe-status-pill--${tone}`);
-}
-
-function deriveDataPolicyCardStatus(strictEnabled, hashBanner, warnBanner, backupCount) {
-  if (hashBanner || warnBanner) {
-    return "Check import";
-  }
-  if (strictEnabled) {
-    return "Strict mode";
-  }
-  return backupCount > 0 ? "Restore ready" : "No backups";
-}
-
-function deriveDataExchangeCardStatus(importFileStatus) {
-  const lower = String(importFileStatus || "").toLowerCase();
-  if (lower.includes("selected import:")) {
-    return "File staged";
-  }
-  return "Ready";
-}
-
-function deriveDataStorageCardStatus(usbStatus) {
-  const lower = String(usbStatus || "").toLowerCase();
-  if (lower.includes("browser storage")) {
-    return "Browser storage";
-  }
-  if (lower.includes("connect")) {
-    return "Awaiting folder";
-  }
-  return "Folder linked";
-}
-
-function deriveDataSummaryCardStatus(strictEnabled, hasHashBanner, hasWarnBanner, usbStatus) {
-  if (hasHashBanner || hasWarnBanner) {
-    return "Watch policy";
-  }
-  const lower = String(usbStatus || "").toLowerCase();
-  if (strictEnabled) {
-    return lower.includes("browser storage") ? "Strict local" : "Strict external";
-  }
-  return lower.includes("browser storage") ? "Stable" : "External ready";
-}
-
-function classifyDataStatusTone(text) {
-  const lower = String(text || "").trim().toLowerCase();
-  if (!lower) {
-    return "neutral";
-  }
-  if (/(restore ready|ready|browser storage|folder linked|stable|external ready)/.test(lower)) {
-    return "ok";
-  }
-  if (/(check import)/.test(lower)) {
-    return "bad";
-  }
-  if (/(strict|watch policy|file staged|awaiting folder|no backups)/.test(lower)) {
-    return "warn";
-  }
-  return "neutral";
 }
 
 function getDataApi() {

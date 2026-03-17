@@ -17,6 +17,24 @@ import {
   listMissingEvidenceAudit,
   listMissingNoteAudit
 } from "../../intelControlsRuntime.js";
+import {
+  buildObservedCountText,
+  buildObservedStatusText,
+  buildRecommendationCountText,
+  buildRecommendationPreviewTextFromIntel,
+  buildRecommendationStatusText,
+  buildWhatIfCountText,
+  buildWhatIfPreviewTextFromIntel,
+  buildWhatIfStatusText,
+  CONTROLS_STATUS_AWAITING_REVIEW,
+  classifyControlsStatusTone,
+  deriveControlsBenchmarkCardStatus,
+  deriveControlsEvidenceCardStatus,
+  deriveControlsIntegrityCardStatus,
+  deriveControlsReviewCardStatus,
+  deriveControlsWarningsCardStatus,
+  deriveControlsWorkflowCardStatus,
+} from "../../../core/controlsView.js";
 
 const SCENARIO_API_KEY = "__FPE_SCENARIO_API__";
 const BENCHMARK_REF_OPTIONS = [
@@ -1440,15 +1458,16 @@ function syncControlsFeedbackBridge() {
     return;
   }
 
-  setTextareaValue("v3IntelWhatIfPreview", buildWhatIfPreviewFromIntel());
-  setTextareaValue("v3IntelRecommendationPreview", buildRecommendationPreviewFromIntel());
+  const intel = getActiveIntelStateSnapshot();
+  setTextareaValue("v3IntelWhatIfPreview", buildWhatIfPreviewTextFromIntel(intel));
+  setTextareaValue("v3IntelRecommendationPreview", buildRecommendationPreviewTextFromIntel(intel));
 
-  setText("v3IntelObservedCount", buildObservedCount());
-  setText("v3IntelRecommendationCount", buildRecommendationCount());
-  setText("v3IntelObservedStatus", observedActionStatus || buildObservedStatus());
-  setText("v3IntelRecommendationStatus", recommendationActionStatus || buildRecommendationStatus());
-  setText("v3IntelWhatIfCount", buildWhatIfCount());
-  setText("v3IntelWhatIfStatus", whatIfActionStatus || buildWhatIfStatus());
+  setText("v3IntelObservedCount", buildObservedCountText(intel));
+  setText("v3IntelRecommendationCount", buildRecommendationCountText(intel));
+  setText("v3IntelObservedStatus", observedActionStatus || buildObservedStatusText(intel));
+  setText("v3IntelRecommendationStatus", recommendationActionStatus || buildRecommendationStatusText(intel));
+  setText("v3IntelWhatIfCount", buildWhatIfCountText(intel));
+  setText("v3IntelWhatIfStatus", whatIfActionStatus || buildWhatIfStatusText(intel));
 }
 
 function getScenarioBridgeApi() {
@@ -1990,7 +2009,7 @@ function syncControlsCardStatus(id, value) {
   if (!(badge instanceof HTMLElement)) {
     return;
   }
-  const text = String(value || "").trim() || "Awaiting review";
+  const text = String(value || "").trim() || CONTROLS_STATUS_AWAITING_REVIEW;
   badge.textContent = text;
   badge.classList.add("fpe-status-pill");
   badge.classList.remove(
@@ -2033,134 +2052,6 @@ function formatRecordCount(count, noun, suffix) {
   const n = Number.isFinite(Number(count)) ? Number(count) : 0;
   const label = n === 1 ? noun : `${noun}s`;
   return `${n} ${label} ${suffix}.`;
-}
-
-function parseLeadingCount(text) {
-  const match = String(text || "").match(/-?\d+/);
-  return match ? Number(match[0]) : 0;
-}
-
-function deriveControlsWorkflowCardStatus(lockStatus, workflowStatus) {
-  const combined = `${lockStatus} ${workflowStatus}`.toLowerCase();
-  if (combined.includes("unavailable")) {
-    return "Unavailable";
-  }
-  if (combined.includes("lock on")) {
-    return "Locked";
-  }
-  if (combined.includes("active")) {
-    return "Guarded";
-  }
-  if (combined.includes("healthy")) {
-    return "Healthy";
-  }
-  return "Awaiting review";
-}
-
-function deriveControlsEvidenceCardStatus(missingEvidenceText, missingNoteText, evidenceStatus) {
-  const missingEvidence = parseLeadingCount(missingEvidenceText);
-  const missingNote = parseLeadingCount(missingNoteText);
-  const status = String(evidenceStatus || "").toLowerCase();
-  if (status.includes("unavailable")) {
-    return "Unavailable";
-  }
-  if (missingEvidence > 0 || missingNote > 0) {
-    return "Needs evidence";
-  }
-  if (status.includes("ready to attach")) {
-    return "Ready to attach";
-  }
-  if (status.includes("resolved") || status.includes("no unresolved")) {
-    return "Audit clear";
-  }
-  return "Awaiting audit";
-}
-
-function deriveControlsBenchmarkCardStatus(countText, benchmarkStatus) {
-  const count = parseLeadingCount(countText);
-  const status = String(benchmarkStatus || "").toLowerCase();
-  if (status.includes("unavailable")) {
-    return "Unavailable";
-  }
-  if (count > 0) {
-    return "Benchmarks set";
-  }
-  if (status.includes("ready")) {
-    return "Ready";
-  }
-  return "Catalog empty";
-}
-
-function deriveControlsReviewCardStatus(observedCountText, recommendationCountText, recommendationStatus, whatIfCountText) {
-  const observedCount = parseLeadingCount(observedCountText);
-  const recommendationCount = parseLeadingCount(recommendationCountText);
-  const whatIfCount = parseLeadingCount(whatIfCountText);
-  const recommendation = String(recommendationStatus || "").toLowerCase();
-  if (recommendation.includes("unavailable")) {
-    return "Unavailable";
-  }
-  if (recommendationCount > 0) {
-    return "Review ready";
-  }
-  if (observedCount > 0) {
-    return "Observed captured";
-  }
-  if (whatIfCount > 0) {
-    return "Parser active";
-  }
-  return "Awaiting feedback";
-}
-
-function deriveControlsIntegrityCardStatus(calibrationStatus, correlationStatus, shockStatus, decayStatus) {
-  const calibration = String(calibrationStatus || "").toLowerCase();
-  const correlation = String(correlationStatus || "").toLowerCase();
-  const shock = String(shockStatus || "").toLowerCase();
-  const decay = String(decayStatus || "").toLowerCase();
-  const combined = `${calibration} ${correlation} ${shock} ${decay}`;
-  if (combined.includes("unavailable")) {
-    return "Unavailable";
-  }
-  if (calibration.includes("generated")) {
-    return "Brief ready";
-  }
-  if (correlation.includes(" on") || shock.includes("enabled") || decay.includes(" on")) {
-    return "Sim ready";
-  }
-  return "Needs brief";
-}
-
-function deriveControlsWarningsCardStatus(missingEvidenceText, missingNoteText, recommendationCountText, workflowStatus) {
-  const missingEvidence = parseLeadingCount(missingEvidenceText);
-  const missingNote = parseLeadingCount(missingNoteText);
-  const recommendationCount = parseLeadingCount(recommendationCountText);
-  const workflow = String(workflowStatus || "").toLowerCase();
-  if (workflow.includes("unavailable")) {
-    return "Unavailable";
-  }
-  if (missingEvidence > 0 || missingNote > 0) {
-    return "Action needed";
-  }
-  if (recommendationCount > 0 || workflow.includes("active")) {
-    return "Watchlist";
-  }
-  return "Quiet";
-}
-
-function classifyControlsStatusTone(text) {
-  const lower = String(text || "").trim().toLowerCase();
-  if (!lower) {
-    return "neutral";
-  }
-  if (/(healthy|audit clear|benchmarks set|review ready|brief ready|sim ready|quiet|ready$)/.test(lower)) {
-    return "ok";
-  }
-  if (/(unavailable|needs evidence|action needed|failed|broken)/.test(lower)) {
-    return "bad";
-  }
-  if (/(locked|guarded|watchlist|awaiting|needs brief|catalog empty|parser active|observed captured|ready to attach)/.test(lower)) {
-    return "warn";
-  }
-  return "neutral";
 }
 
 function buildScenarioLockStatus() {
@@ -2272,92 +2163,6 @@ function buildCalibrationStatus() {
   const kind = selectedBriefKind();
   const brief = latestBriefContentForKind(kind);
   return brief ? `${intelBriefKindLabel(kind)} brief generated.` : "No calibration brief generated yet.";
-}
-
-function previewLineCount(id) {
-  const intel = getActiveIntelStateSnapshot();
-  if (!intel || typeof intel !== "object") {
-    return 0;
-  }
-  const whatIfRows = Array.isArray(intel.intelRequests) ? intel.intelRequests.length : 0;
-  const recommendationRows = Array.isArray(intel.recommendations) ? intel.recommendations.length : 0;
-  const observedRows = Array.isArray(intel.observedMetrics) ? intel.observedMetrics.length : 0;
-  if (id === "v3IntelObserved") {
-    return observedRows;
-  }
-  if (id === "v3IntelWhatIfPreview") {
-    return whatIfRows;
-  }
-  if (id === "v3IntelRecommendationPreview") {
-    return recommendationRows;
-  }
-  return 0;
-}
-
-function buildObservedCount() {
-  const lines = previewLineCount("v3IntelObserved");
-  return lines > 0 ? `${lines} observed metric entries captured.` : "0 observed metric entries captured.";
-}
-
-function buildRecommendationCount() {
-  const lines = previewLineCount("v3IntelRecommendationPreview");
-  return lines > 0 ? `${lines} active drift recommendations.` : "0 active drift recommendations.";
-}
-
-function buildObservedStatus() {
-  const lines = previewLineCount("v3IntelObserved");
-  return lines > 0 ? "Observed metrics captured." : "No observed metrics captured yet.";
-}
-
-function buildRecommendationStatus() {
-  const lines = previewLineCount("v3IntelRecommendationPreview");
-  return lines > 0 ? "Drift recommendations ready for review." : "No drift recommendations generated yet.";
-}
-
-function buildWhatIfCount() {
-  const lines = previewLineCount("v3IntelWhatIfPreview");
-  return lines > 0 ? `${lines} what-if request(s) parsed.` : "0 what-if requests parsed.";
-}
-
-function buildWhatIfStatus() {
-  const lines = previewLineCount("v3IntelWhatIfPreview");
-  return lines > 0 ? "What-if request parsed." : "No what-if requests parsed yet.";
-}
-
-function buildWhatIfPreviewFromIntel() {
-  const intel = getActiveIntelStateSnapshot();
-  const rows = Array.isArray(intel?.intelRequests) ? intel.intelRequests.slice() : [];
-  if (!rows.length) {
-    return "";
-  }
-  rows.sort((a, b) => String(b?.createdAt || "").localeCompare(String(a?.createdAt || "")));
-  const latest = rows[0] || {};
-  const summary = String(latest?.summary || "").trim();
-  const prompt = String(latest?.prompt || "").trim();
-  const status = String(latest?.status || "").trim() || "parsed";
-  const lines = [];
-  lines.push(`Status: ${status}`);
-  if (summary) lines.push(`Summary: ${summary}`);
-  if (prompt) lines.push(`Prompt: ${prompt}`);
-  return lines.join("\n");
-}
-
-function buildRecommendationPreviewFromIntel() {
-  const intel = getActiveIntelStateSnapshot();
-  const rows = Array.isArray(intel?.recommendations) ? intel.recommendations.slice() : [];
-  if (!rows.length) {
-    return "";
-  }
-  rows.sort((a, b) => Number(a?.priority ?? 999) - Number(b?.priority ?? 999));
-  return rows
-    .slice(0, 8)
-    .map((row, idx) => {
-      const priority = Number.isFinite(Number(row?.priority)) ? `P${Number(row.priority)}` : "P?";
-      const title = String(row?.title || `Recommendation ${idx + 1}`).trim();
-      const detail = String(row?.detail || "").trim();
-      return detail ? `[${priority}] ${title}: ${detail}` : `[${priority}] ${title}`;
-    })
-    .join("\n");
 }
 
 function getActiveIntelStateSnapshot() {
