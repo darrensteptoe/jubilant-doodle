@@ -102,10 +102,14 @@ function syncLegacyRightRail() {
     }
   } catch {}
 
-  const legacyRail =
-    document.getElementById("legacyResultsSidebar") ||
-    document.querySelector("#legacyRightRailHost .results-sidebar-new") ||
-    document.querySelector(".results-sidebar-new");
+  let legacyRail = null;
+  try {
+    const getRail = window.__FPE_GET_LEGACY_RIGHT_RAIL__;
+    if (typeof getRail === "function") {
+      legacyRail = getRail();
+    }
+  } catch {}
+  legacyRail ||= document.getElementById("legacyResultsSidebar") || document.querySelector(".results-sidebar-new");
   if (!legacyRail) {
     return;
   }

@@ -40,9 +40,8 @@ function bootV3() {
 
   if (resolveUiMode() !== "v3") {
     uninstallNavigationBridge();
-    restoreLegacyCompatHosts();
+    enterLegacyInlineShell();
     root.hidden = true;
-    setLegacyShellVisible(true);
     return;
   }
 
@@ -68,9 +67,8 @@ function bootV3() {
   } catch (err) {
     console.error("[v3-shell] failed to boot, reverting to legacy shell", err);
     uninstallNavigationBridge();
-    restoreLegacyCompatHosts();
+    enterLegacyInlineShell();
     root.hidden = true;
-    setLegacyShellVisible(true);
   }
 }
 
@@ -295,6 +293,18 @@ function setUiMode(mode) {
     }
   } catch {}
   return false;
+}
+
+function enterLegacyInlineShell() {
+  try {
+    const initLegacy = window.__FPE_INIT_LEGACY_INLINE_SHELL__;
+    if (typeof initLegacy === "function") {
+      initLegacy();
+      return;
+    }
+  } catch {}
+  restoreLegacyCompatHosts();
+  setLegacyShellVisible(true);
 }
 
 function readShellBridgeView() {

@@ -67,8 +67,14 @@ function resolveLegacyCensusCard() {
     return districtLegacyCensusCard;
   }
 
-  const preferred = document.querySelector("#legacyCensusBridgeHost #censusPhase1Card")
-    || document.getElementById("censusPhase1Card");
+  let preferred = null;
+  try {
+    const getCompatNode = window.__FPE_GET_LEGACY_COMPAT_NODE__;
+    if (typeof getCompatNode === "function") {
+      preferred = getCompatNode("censusPhase1Card");
+    }
+  } catch {}
+  preferred ||= document.getElementById("censusPhase1Card");
   if (!(preferred instanceof HTMLElement)) {
     return null;
   }
