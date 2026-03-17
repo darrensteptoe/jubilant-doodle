@@ -593,6 +593,12 @@ body.dark #app-shell-v3-root {
   background: color-mix(in srgb, var(--fpe-danger) 12%, transparent);
 }
 
+#app-shell-v3-root .fpe-surface .fpe-status-pill--neutral {
+  border-color: color-mix(in srgb, var(--fpe-rule) 92%, transparent);
+  color: color-mix(in srgb, var(--fpe-muted) 88%, var(--fpe-text));
+  background: color-mix(in srgb, var(--fpe-rule) 10%, transparent);
+}
+
 .fpe-card__desc {
   margin: 7px 0 0;
   color: var(--fpe-muted);
