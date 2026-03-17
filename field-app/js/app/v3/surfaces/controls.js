@@ -62,33 +62,46 @@ export function renderControlsSurface(mount) {
 
   const workflowCard = createCard({
     title: "Guardrails",
-    description: "Scenario lock and critical-change documentation requirements."
+    description: "Scenario lock and critical-change documentation requirements.",
+    status: "Healthy"
   });
 
   const evidenceCard = createCard({
     title: "Evidence workflow",
-    description: "Attach references to missing audit items before decisions are logged."
+    description: "Attach references to missing audit items before decisions are logged.",
+    status: "Awaiting audit"
   });
 
   const benchmarkCard = createCard({
     title: "Benchmark catalog",
-    description: "Empirical ranges for critical assumptions, used for warnings only."
+    description: "Empirical ranges for critical assumptions, used for warnings only.",
+    status: "Catalog empty"
   });
 
   const feedbackCard = createCard({
     title: "Review workflow",
-    description: "Capture observed metrics and generate metadata-only drift recommendations."
+    description: "Capture observed metrics and generate metadata-only drift recommendations.",
+    status: "Awaiting feedback"
   });
 
   const calibrationCard = createCard({
     title: "Integrity summary",
-    description: "Calibration narrative, expert toggles, and stochastic model controls."
+    description: "Calibration narrative, expert toggles, and stochastic model controls.",
+    status: "Needs brief"
   });
 
   const summaryCard = createCard({
     title: "Current warnings",
-    description: "Live governance warning posture across evidence, calibration, and recommendation workflows."
+    description: "Live governance warning posture across evidence, calibration, and recommendation workflows.",
+    status: "Watchlist"
   });
+
+  assignCardStatusId(workflowCard, "v3ControlsWorkflowCardStatus");
+  assignCardStatusId(evidenceCard, "v3ControlsEvidenceCardStatus");
+  assignCardStatusId(benchmarkCard, "v3ControlsBenchmarkCardStatus");
+  assignCardStatusId(feedbackCard, "v3ControlsReviewCardStatus");
+  assignCardStatusId(calibrationCard, "v3ControlsIntegrityCardStatus");
+  assignCardStatusId(summaryCard, "v3ControlsWarningsCardStatus");
 
   getCardBody(workflowCard).innerHTML = `
     <div id="v3ControlsWorkflowBridgeRoot">
@@ -549,6 +562,56 @@ function refreshControlsSummary() {
   setText("v3ControlsMissingEvidence", readDomTextById("v3IntelMissingEvidenceCount") || "0 critical assumption edit(s) missing evidence.");
   setText("v3ControlsCalibrationStatus", readDomTextById("v3IntelCalibrationStatus") || "No calibration brief generated yet.");
   setText("v3ControlsRecommendationCount", readDomTextById("v3IntelRecommendationCount") || "0 active drift recommendations.");
+
+  syncControlsCardStatus(
+    "v3ControlsWorkflowCardStatus",
+    deriveControlsWorkflowCardStatus(
+      readDomTextById("v3IntelScenarioLockStatus"),
+      readDomTextById("v3IntelWorkflowStatus")
+    )
+  );
+  syncControlsCardStatus(
+    "v3ControlsEvidenceCardStatus",
+    deriveControlsEvidenceCardStatus(
+      readDomTextById("v3IntelMissingEvidenceCount"),
+      readDomTextById("v3IntelMissingNoteCount"),
+      readDomTextById("v3IntelEvidenceStatus")
+    )
+  );
+  syncControlsCardStatus(
+    "v3ControlsBenchmarkCardStatus",
+    deriveControlsBenchmarkCardStatus(
+      readDomTextById("v3IntelBenchmarkCount"),
+      readDomTextById("v3IntelBenchmarkStatus")
+    )
+  );
+  syncControlsCardStatus(
+    "v3ControlsReviewCardStatus",
+    deriveControlsReviewCardStatus(
+      readDomTextById("v3IntelObservedCount"),
+      readDomTextById("v3IntelRecommendationCount"),
+      readDomTextById("v3IntelRecommendationStatus"),
+      readDomTextById("v3IntelWhatIfCount")
+    )
+  );
+  syncControlsCardStatus(
+    "v3ControlsIntegrityCardStatus",
+    deriveControlsIntegrityCardStatus(
+      readDomTextById("v3IntelCalibrationStatus"),
+      readDomTextById("v3IntelCorrelationStatus"),
+      readDomTextById("v3IntelShockStatus"),
+      readDomTextById("v3IntelDecayStatus")
+    )
+  );
+  syncControlsCardStatus(
+    "v3ControlsWarningsCardStatus",
+    deriveControlsWarningsCardStatus(
+      readDomTextById("v3IntelMissingEvidenceCount"),
+      readDomTextById("v3IntelMissingNoteCount"),
+      readDomTextById("v3IntelRecommendationCount"),
+      readDomTextById("v3IntelWorkflowStatus")
+    )
+  );
 }
 
 function wireControlsWorkflowBridge() {
@@ -1912,6 +1975,36 @@ function readDomTextById(id) {
   return el ? (el.textContent || "").trim() : "";
 }
 
+function assignCardStatusId(card, id) {
+  if (!(card instanceof HTMLElement) || !id) {
+    return;
+  }
+  const badge = card.querySelector(".fpe-card__status");
+  if (badge instanceof HTMLElement) {
+    badge.id = id;
+  }
+}
+
+function syncControlsCardStatus(id, value) {
+  const badge = document.getElementById(id);
+  if (!(badge instanceof HTMLElement)) {
+    return;
+  }
+  const text = String(value || "").trim() || "Awaiting review";
+  badge.textContent = text;
+  badge.classList.add("fpe-status-pill");
+  badge.classList.remove(
+    "fpe-status-pill--ok",
+    "fpe-status-pill--warn",
+    "fpe-status-pill--bad",
+    "fpe-status-pill--neutral"
+  );
+  const tone = classifyControlsStatusTone(text);
+  if (tone !== "neutral") {
+    badge.classList.add(`fpe-status-pill--${tone}`);
+  }
+}
+
 function readInputValueById(id) {
   const el = document.getElementById(id);
   if (!(el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement || el instanceof HTMLSelectElement)) {
@@ -1942,6 +2035,134 @@ function formatRecordCount(count, noun, suffix) {
   const n = Number.isFinite(Number(count)) ? Number(count) : 0;
   const label = n === 1 ? noun : `${noun}s`;
   return `${n} ${label} ${suffix}.`;
+}
+
+function parseLeadingCount(text) {
+  const match = String(text || "").match(/-?\d+/);
+  return match ? Number(match[0]) : 0;
+}
+
+function deriveControlsWorkflowCardStatus(lockStatus, workflowStatus) {
+  const combined = `${lockStatus} ${workflowStatus}`.toLowerCase();
+  if (combined.includes("unavailable")) {
+    return "Unavailable";
+  }
+  if (combined.includes("lock on")) {
+    return "Locked";
+  }
+  if (combined.includes("active")) {
+    return "Guarded";
+  }
+  if (combined.includes("healthy")) {
+    return "Healthy";
+  }
+  return "Awaiting review";
+}
+
+function deriveControlsEvidenceCardStatus(missingEvidenceText, missingNoteText, evidenceStatus) {
+  const missingEvidence = parseLeadingCount(missingEvidenceText);
+  const missingNote = parseLeadingCount(missingNoteText);
+  const status = String(evidenceStatus || "").toLowerCase();
+  if (status.includes("unavailable")) {
+    return "Unavailable";
+  }
+  if (missingEvidence > 0 || missingNote > 0) {
+    return "Needs evidence";
+  }
+  if (status.includes("ready to attach")) {
+    return "Ready to attach";
+  }
+  if (status.includes("resolved") || status.includes("no unresolved")) {
+    return "Audit clear";
+  }
+  return "Awaiting audit";
+}
+
+function deriveControlsBenchmarkCardStatus(countText, benchmarkStatus) {
+  const count = parseLeadingCount(countText);
+  const status = String(benchmarkStatus || "").toLowerCase();
+  if (status.includes("unavailable")) {
+    return "Unavailable";
+  }
+  if (count > 0) {
+    return "Benchmarks set";
+  }
+  if (status.includes("ready")) {
+    return "Ready";
+  }
+  return "Catalog empty";
+}
+
+function deriveControlsReviewCardStatus(observedCountText, recommendationCountText, recommendationStatus, whatIfCountText) {
+  const observedCount = parseLeadingCount(observedCountText);
+  const recommendationCount = parseLeadingCount(recommendationCountText);
+  const whatIfCount = parseLeadingCount(whatIfCountText);
+  const recommendation = String(recommendationStatus || "").toLowerCase();
+  if (recommendation.includes("unavailable")) {
+    return "Unavailable";
+  }
+  if (recommendationCount > 0) {
+    return "Review ready";
+  }
+  if (observedCount > 0) {
+    return "Observed captured";
+  }
+  if (whatIfCount > 0) {
+    return "Parser active";
+  }
+  return "Awaiting feedback";
+}
+
+function deriveControlsIntegrityCardStatus(calibrationStatus, correlationStatus, shockStatus, decayStatus) {
+  const calibration = String(calibrationStatus || "").toLowerCase();
+  const correlation = String(correlationStatus || "").toLowerCase();
+  const shock = String(shockStatus || "").toLowerCase();
+  const decay = String(decayStatus || "").toLowerCase();
+  const combined = `${calibration} ${correlation} ${shock} ${decay}`;
+  if (combined.includes("unavailable")) {
+    return "Unavailable";
+  }
+  if (calibration.includes("generated")) {
+    return "Brief ready";
+  }
+  if (correlation.includes(" on") || shock.includes("enabled") || decay.includes(" on")) {
+    return "Sim ready";
+  }
+  return "Needs brief";
+}
+
+function deriveControlsWarningsCardStatus(missingEvidenceText, missingNoteText, recommendationCountText, workflowStatus) {
+  const missingEvidence = parseLeadingCount(missingEvidenceText);
+  const missingNote = parseLeadingCount(missingNoteText);
+  const recommendationCount = parseLeadingCount(recommendationCountText);
+  const workflow = String(workflowStatus || "").toLowerCase();
+  if (workflow.includes("unavailable")) {
+    return "Unavailable";
+  }
+  if (missingEvidence > 0 || missingNote > 0) {
+    return "Action needed";
+  }
+  if (recommendationCount > 0 || workflow.includes("active")) {
+    return "Watchlist";
+  }
+  return "Quiet";
+}
+
+function classifyControlsStatusTone(text) {
+  const lower = String(text || "").trim().toLowerCase();
+  if (!lower) {
+    return "neutral";
+  }
+  if (/(healthy|audit clear|benchmarks set|review ready|brief ready|sim ready|quiet|ready$)/.test(lower)) {
+    return "ok";
+  }
+  if (/(unavailable|needs evidence|action needed|failed|broken)/.test(lower)) {
+    return "bad";
+  }
+  if (/(locked|guarded|watchlist|awaiting|needs brief|catalog empty|parser active|observed captured|ready to attach)/.test(lower)) {
+    return "warn";
+  }
+  return "neutral";
 }
 
 function buildScenarioLockStatus() {
