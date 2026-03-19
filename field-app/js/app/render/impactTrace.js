@@ -26,7 +26,7 @@ export function renderImpactTracePanel({
     state: state || {},
     res: res || {},
     weeks: Number.isFinite(Number(weeks)) ? Number(weeks) : 0,
-    fmtInt,
+    formatInt: fmtInt,
     weeklyContext,
     executionSnapshot,
   });
