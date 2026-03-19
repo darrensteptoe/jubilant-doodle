@@ -2,6 +2,23 @@
 import { readJsonFile } from "./utils.js";
 import { ensureOperationsDefaults, getAll, put, remove, makeOperationsId } from "./features/operations/store.js";
 import { downloadOperationsSnapshot, importOperationsSnapshot, downloadStoreCsv, importStoreCsv } from "./features/operations/io.js";
+import {
+  operationsCombineDateAndTimeIso,
+  operationsLocalTimeFromIso,
+  operationsNonNegativeInt,
+  operationsNowIso,
+  operationsShiftHours,
+  operationsTodayIso,
+} from "./features/operations/time.js";
+import {
+  applyOperationsContextToLinks,
+  resolveOperationsOfficeField,
+  resolveOperationsContext,
+  shouldLockOperationsOfficeField,
+  summarizeOperationsContext,
+  toOperationsStoreOptions,
+} from "./features/operations/context.js";
+import { formatOperationsFixed, formatOperationsWhole } from "./features/operations/view.js";
 
 const els = {
   shiftDate: document.getElementById("shiftDate"),
@@ -32,58 +49,28 @@ const els = {
   ioMsg: document.getElementById("ioMsg"),
 };
 
+const operationsContext = resolveOperationsContext();
+const storeScope = toOperationsStoreOptions(operationsContext);
+const officeFieldLocked = shouldLockOperationsOfficeField(operationsContext);
+
 let editingShiftId = "";
-
-function nowIso(){
-  return new Date().toISOString();
-}
-
-function todayIso(){
-  return nowIso().slice(0, 10);
-}
 
 function clean(v){
   return String(v || "").trim();
-}
-
-function asInt(v){
-  const n = Number(v);
-  if (!Number.isFinite(n)) return 0;
-  return Math.max(0, Math.floor(n));
 }
 
 function setMsg(el, text){
   if (el) el.textContent = text || "";
 }
 
-function combineDateAndTime(dateIso, hhmm){
-  const d = clean(dateIso);
-  const t = clean(hhmm);
-  if (!d || !t) return "";
-  const dt = new Date(`${d}T${t}`);
-  if (!Number.isFinite(dt.getTime())) return "";
-  return dt.toISOString();
-}
-
-function localTimeFromIso(iso){
-  const dt = new Date(String(iso || ""));
-  if (!Number.isFinite(dt.getTime())) return "";
-  const hh = String(dt.getHours()).padStart(2, "0");
-  const mm = String(dt.getMinutes()).padStart(2, "0");
-  return `${hh}:${mm}`;
-}
-
-function hoursForShift(rec){
-  const start = Date.parse(clean(rec?.checkInAt) || clean(rec?.startAt));
-  const end = Date.parse(clean(rec?.checkOutAt) || clean(rec?.endAt));
-  if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start) return 0;
-  return (end - start) / 3600000;
+function contextSummaryText(){
+  return summarizeOperationsContext(operationsContext);
 }
 
 async function loadData(){
   const [persons, shifts] = await Promise.all([
-    getAll("persons"),
-    getAll("shiftRecords"),
+    getAll("persons", storeScope),
+    getAll("shiftRecords", storeScope),
   ]);
   return {
     persons: Array.isArray(persons) ? persons : [],
@@ -122,9 +109,12 @@ function fillPersonSelect(persons){
 
 function clearForm(){
   editingShiftId = "";
-  if (els.shiftDate) els.shiftDate.value = todayIso();
+  if (els.shiftDate) els.shiftDate.value = operationsTodayIso();
   if (els.shiftPersonId) els.shiftPersonId.value = "";
-  if (els.shiftOffice) els.shiftOffice.value = "";
+  if (els.shiftOffice){
+    els.shiftOffice.value = resolveOperationsOfficeField(operationsContext, "");
+    els.shiftOffice.disabled = officeFieldLocked;
+  }
   if (els.shiftMode) els.shiftMode.value = "doors";
   if (els.shiftTurfId) els.shiftTurfId.value = "";
   if (els.shiftAttempts) els.shiftAttempts.value = "";
@@ -139,11 +129,11 @@ function clearForm(){
 }
 
 async function saveShift(){
-  const date = clean(els.shiftDate?.value) || todayIso();
+  const date = clean(els.shiftDate?.value) || operationsTodayIso();
   const personId = clean(els.shiftPersonId?.value);
-  const attempts = asInt(els.shiftAttempts?.value);
-  const convos = asInt(els.shiftConvos?.value);
-  const supportIds = asInt(els.shiftSupportIds?.value);
+  const attempts = operationsNonNegativeInt(els.shiftAttempts?.value);
+  const convos = operationsNonNegativeInt(els.shiftConvos?.value);
+  const supportIds = operationsNonNegativeInt(els.shiftSupportIds?.value);
 
   if (convos > attempts){
     setMsg(els.shiftMsg, "Conversations cannot exceed attempts.");
@@ -156,52 +146,52 @@ async function saveShift(){
 
   const { persons, shifts } = await loadData();
   const person = persons.find((p) => clean(p?.id) === personId) || null;
-  const stamp = nowIso();
+  const stamp = operationsNowIso();
 
   const rec = {
     id: editingShiftId || makeOperationsId("shift"),
     personId,
     date,
     mode: clean(els.shiftMode?.value) || "doors",
-    startAt: combineDateAndTime(date, clean(els.shiftStartTime?.value)),
-    endAt: combineDateAndTime(date, clean(els.shiftEndTime?.value)),
-    checkInAt: combineDateAndTime(date, clean(els.shiftCheckInTime?.value)),
-    checkOutAt: combineDateAndTime(date, clean(els.shiftCheckOutTime?.value)),
+    startAt: operationsCombineDateAndTimeIso(date, clean(els.shiftStartTime?.value)),
+    endAt: operationsCombineDateAndTimeIso(date, clean(els.shiftEndTime?.value)),
+    checkInAt: operationsCombineDateAndTimeIso(date, clean(els.shiftCheckInTime?.value)),
+    checkOutAt: operationsCombineDateAndTimeIso(date, clean(els.shiftCheckOutTime?.value)),
     turfId: clean(els.shiftTurfId?.value),
     attempts,
     convos,
     supportIds,
-    office: clean(els.shiftOffice?.value) || clean(person?.office),
+    office: resolveOperationsOfficeField(operationsContext, clean(els.shiftOffice?.value), clean(person?.office)),
     updatedAt: stamp,
   };
 
   const existing = shifts.find((s) => clean(s?.id) === clean(rec.id));
   rec.createdAt = clean(existing?.createdAt) || stamp;
 
-  await put("shiftRecords", rec);
+  await put("shiftRecords", rec, storeScope);
   setMsg(els.shiftMsg, existing ? "Shift updated." : "Shift saved.");
   clearForm();
   await renderShifts();
 }
 
 function formatNum(n){
-  return String(Number.isFinite(n) ? n : 0);
+  return formatOperationsWhole(n, { fallback: "0" });
 }
 
 function buildRow(rec, personMap){
   const tr = document.createElement("tr");
   const person = personMap.get(clean(rec?.personId));
-  const hours = hoursForShift(rec);
+  const hours = operationsShiftHours(rec);
 
   tr.innerHTML = `
     <td>${clean(rec?.date) || "-"}</td>
     <td>${clean(person?.name) || "Unassigned"}</td>
     <td>${clean(rec?.mode) || "-"}</td>
     <td>${clean(rec?.turfId) || "-"}</td>
-    <td class="num">${formatNum(asInt(rec?.attempts))}</td>
-    <td class="num">${formatNum(asInt(rec?.convos))}</td>
-    <td class="num">${formatNum(asInt(rec?.supportIds))}</td>
-    <td class="num">${hours.toFixed(2)}</td>
+    <td class="num">${formatNum(operationsNonNegativeInt(rec?.attempts))}</td>
+    <td class="num">${formatNum(operationsNonNegativeInt(rec?.convos))}</td>
+    <td class="num">${formatNum(operationsNonNegativeInt(rec?.supportIds))}</td>
+    <td class="num">${formatOperationsFixed(hours, { digits: 2, fallback: "0.00" })}</td>
     <td>
       <button class="btn btn-sm btn-ghost" data-action="edit" data-id="${clean(rec?.id)}" type="button">Edit</button>
       <button class="btn btn-sm btn-ghost" data-action="delete" data-id="${clean(rec?.id)}" type="button">Delete</button>
@@ -212,18 +202,24 @@ function buildRow(rec, personMap){
 
 function populateFormFromRecord(rec, personMap){
   editingShiftId = clean(rec?.id);
-  if (els.shiftDate) els.shiftDate.value = clean(rec?.date) || todayIso();
+  if (els.shiftDate) els.shiftDate.value = clean(rec?.date) || operationsTodayIso();
   if (els.shiftPersonId) els.shiftPersonId.value = clean(rec?.personId);
-  if (els.shiftOffice) els.shiftOffice.value = clean(rec?.office) || clean(personMap.get(clean(rec?.personId))?.office);
+  if (els.shiftOffice){
+    els.shiftOffice.value = resolveOperationsOfficeField(
+      operationsContext,
+      clean(rec?.office),
+      clean(personMap.get(clean(rec?.personId))?.office),
+    );
+  }
   if (els.shiftMode) els.shiftMode.value = clean(rec?.mode) || "doors";
   if (els.shiftTurfId) els.shiftTurfId.value = clean(rec?.turfId);
-  if (els.shiftAttempts) els.shiftAttempts.value = formatNum(asInt(rec?.attempts));
-  if (els.shiftConvos) els.shiftConvos.value = formatNum(asInt(rec?.convos));
-  if (els.shiftSupportIds) els.shiftSupportIds.value = formatNum(asInt(rec?.supportIds));
-  if (els.shiftStartTime) els.shiftStartTime.value = localTimeFromIso(rec?.startAt);
-  if (els.shiftEndTime) els.shiftEndTime.value = localTimeFromIso(rec?.endAt);
-  if (els.shiftCheckInTime) els.shiftCheckInTime.value = localTimeFromIso(rec?.checkInAt);
-  if (els.shiftCheckOutTime) els.shiftCheckOutTime.value = localTimeFromIso(rec?.checkOutAt);
+  if (els.shiftAttempts) els.shiftAttempts.value = formatNum(operationsNonNegativeInt(rec?.attempts));
+  if (els.shiftConvos) els.shiftConvos.value = formatNum(operationsNonNegativeInt(rec?.convos));
+  if (els.shiftSupportIds) els.shiftSupportIds.value = formatNum(operationsNonNegativeInt(rec?.supportIds));
+  if (els.shiftStartTime) els.shiftStartTime.value = operationsLocalTimeFromIso(rec?.startAt);
+  if (els.shiftEndTime) els.shiftEndTime.value = operationsLocalTimeFromIso(rec?.endAt);
+  if (els.shiftCheckInTime) els.shiftCheckInTime.value = operationsLocalTimeFromIso(rec?.checkInAt);
+  if (els.shiftCheckOutTime) els.shiftCheckOutTime.value = operationsLocalTimeFromIso(rec?.checkOutAt);
   if (els.btnSaveShift) els.btnSaveShift.textContent = "Update shift";
   setMsg(els.shiftMsg, `Editing ${clean(rec?.date)} ${clean(personMap.get(clean(rec?.personId))?.name) || "Unassigned"}`);
 }
@@ -242,13 +238,13 @@ async function renderShifts(){
   let totalAttempts = 0;
   let totalHours = 0;
   for (const rec of rows){
-    totalAttempts += asInt(rec?.attempts);
-    totalHours += hoursForShift(rec);
+    totalAttempts += operationsNonNegativeInt(rec?.attempts);
+    totalHours += operationsShiftHours(rec);
   }
 
   if (els.countShifts) els.countShifts.textContent = String(rows.length);
   if (els.sumAttempts) els.sumAttempts.textContent = String(totalAttempts);
-  if (els.sumHours) els.sumHours.textContent = totalHours.toFixed(1);
+  if (els.sumHours) els.sumHours.textContent = formatOperationsFixed(totalHours, { digits: 1, fallback: "0.0" });
 
   if (!els.shiftTbody) return;
   els.shiftTbody.innerHTML = "";
@@ -283,12 +279,17 @@ function wireInputActions(){
   if (els.shiftPersonId && els.shiftOffice){
     els.shiftPersonId.addEventListener("change", async () => {
       const personId = clean(els.shiftPersonId.value);
-      if (!personId) return;
-      const persons = await getAll("persons");
-      const person = (Array.isArray(persons) ? persons : []).find((p) => clean(p?.id) === personId);
-      if (person && !clean(els.shiftOffice.value)){
-        els.shiftOffice.value = clean(person.office);
+      if (!personId){
+        els.shiftOffice.value = resolveOperationsOfficeField(operationsContext, clean(els.shiftOffice.value));
+        return;
       }
+      const persons = await getAll("persons", storeScope);
+      const person = (Array.isArray(persons) ? persons : []).find((p) => clean(p?.id) === personId);
+      els.shiftOffice.value = resolveOperationsOfficeField(
+        operationsContext,
+        clean(els.shiftOffice.value),
+        clean(person?.office),
+      );
     });
   }
 }
@@ -308,7 +309,7 @@ function wireTableActions(){
     if (!rec) return;
 
     if (action === "delete"){
-      await remove("shiftRecords", id);
+      await remove("shiftRecords", id, storeScope);
       setMsg(els.shiftMsg, "Shift deleted.");
       if (editingShiftId === id) clearForm();
       await renderShifts();
@@ -326,7 +327,7 @@ function wireIoActions(){
   if (els.btnExportJson){
     els.btnExportJson.addEventListener("click", async () => {
       try{
-        await downloadOperationsSnapshot("operations-snapshot.json");
+        await downloadOperationsSnapshot("operations-snapshot.json", { context: storeScope });
         setMsg(els.ioMsg, "Operations JSON exported.");
       } catch (e){
         setMsg(els.ioMsg, e?.message ? String(e.message) : "Export failed.");
@@ -341,7 +342,7 @@ function wireIoActions(){
         const file = els.importJsonFile.files?.[0];
         if (!file) return;
         const payload = await readJsonFile(file);
-        await importOperationsSnapshot(payload, { mode: "merge" });
+        await importOperationsSnapshot(payload, { mode: "merge", context: storeScope });
         setMsg(els.ioMsg, "Operations JSON imported (merge).");
         await renderShifts();
       } catch (e){
@@ -355,7 +356,7 @@ function wireIoActions(){
   if (els.btnExportCsv){
     els.btnExportCsv.addEventListener("click", async () => {
       try{
-        await downloadStoreCsv("shiftRecords", "shift-records.csv");
+        await downloadStoreCsv("shiftRecords", "shift-records.csv", { context: storeScope });
         setMsg(els.ioMsg, "Shifts CSV exported.");
       } catch (e){
         setMsg(els.ioMsg, e?.message ? String(e.message) : "CSV export failed.");
@@ -370,7 +371,7 @@ function wireIoActions(){
         const file = els.importCsvFile.files?.[0];
         if (!file) return;
         const text = await file.text();
-        await importStoreCsv("shiftRecords", text, { mode: "merge" });
+        await importStoreCsv("shiftRecords", text, { mode: "merge", context: storeScope });
         setMsg(els.ioMsg, "Shifts CSV imported (merge).");
         await renderShifts();
       } catch (e){
@@ -383,12 +384,14 @@ function wireIoActions(){
 }
 
 async function init(){
-  await ensureOperationsDefaults();
+  applyOperationsContextToLinks(operationsContext, ".note a[href]");
+  await ensureOperationsDefaults(storeScope);
   clearForm();
   await renderShifts();
   wireInputActions();
   wireTableActions();
   wireIoActions();
+  setMsg(els.ioMsg, contextSummaryText());
 }
 
 init().catch((e) => {

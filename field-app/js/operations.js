@@ -1,5 +1,5 @@
 // @ts-check
-import { readJsonFile } from "./utils.js";
+import { readJsonFile, roundWholeNumberByMode } from "./utils.js";
 import { PIPELINE_STAGES } from "./features/operations/schema.js";
 import {
   ensureOperationsDefaults,
@@ -10,11 +10,32 @@ import {
 } from "./features/operations/store.js";
 import { computeOperationalRollups } from "./features/operations/rollups.js";
 import {
+  formatOperationsDateTime,
+  formatOperationsOneDecimal,
+  formatOperationsPercentFromUnit,
+  formatOperationsWhole,
+} from "./features/operations/view.js";
+import {
   downloadOperationsSnapshot,
   importOperationsSnapshot,
   downloadStoreCsv,
   importStoreCsv,
 } from "./features/operations/io.js";
+import {
+  applyOperationsContextToLinks,
+  resolveOperationsContext,
+  summarizeOperationsContext,
+  toOperationsStoreOptions,
+} from "./features/operations/context.js";
+import {
+  twCapBuildReadinessStatsModule,
+  twCapCleanModule,
+  twCapLatestRecordByPersonModule,
+  twCapMedianModule,
+  twCapParseDateModule,
+  twCapRatioTextModule,
+} from "./app/twCapHelpers.js";
+import { operationsDaysSince } from "./features/operations/time.js";
 
 const MODULE_IDS = [
   "overview",
@@ -28,6 +49,9 @@ const MODULE_IDS = [
   "forecast",
   "io",
 ];
+
+const operationsContext = resolveOperationsContext();
+const storeScope = toOperationsStoreOptions(operationsContext);
 
 const els = {
   navButtons: Array.from(document.querySelectorAll(".operations-nav-btn[data-module]")),
@@ -99,121 +123,46 @@ function setMsg(el, text){
   if (el) el.textContent = text || "";
 }
 
+function contextSummaryText(){
+  return summarizeOperationsContext(operationsContext);
+}
+
 function fmtInt(value){
-  const n = Number(value);
-  if (!Number.isFinite(n)) return "0";
-  return Math.round(n).toLocaleString();
+  return formatOperationsWhole(value, { fallback: "0" });
 }
 
 function fmt1(value){
-  const n = Number(value);
-  if (!Number.isFinite(n)) return "0.0";
-  return n.toFixed(1);
+  return formatOperationsOneDecimal(value, { digits: 1, fallback: "0.0" });
+}
+
+function fmtPct01(value){
+  return formatOperationsPercentFromUnit(value, { digits: 1, fallback: "—" });
 }
 
 function fmtDate(value){
-  const ts = Date.parse(clean(value));
-  if (!Number.isFinite(ts)) return "—";
-  return new Date(ts).toLocaleString();
+  return formatOperationsDateTime(clean(value), { fallback: "—" });
 }
 
 function ratioText(numerator, denominator){
-  const den = Number(denominator);
-  const num = Number(numerator);
-  if (!Number.isFinite(den) || den <= 0 || !Number.isFinite(num)) return "—";
-  return `${(100 * num / den).toFixed(1)}%`;
-}
-
-function parseDayTs(value){
-  const v = clean(value);
-  if (!v) return NaN;
-  const ts = Date.parse(v.length <= 10 ? `${v}T00:00:00` : v);
-  return Number.isFinite(ts) ? ts : NaN;
-}
-
-function median(values){
-  const list = (Array.isArray(values) ? values : [])
-    .map((v) => Number(v))
-    .filter((v) => Number.isFinite(v))
-    .sort((a, b) => a - b);
-  if (!list.length) return null;
-  const mid = Math.floor(list.length / 2);
-  if (list.length % 2 === 1) return list[mid];
-  return (list[mid - 1] + list[mid]) / 2;
+  return twCapRatioTextModule(numerator, denominator);
 }
 
 function buildReadinessStats(onboardingRecords, trainingRecords){
-  const onboardingByPerson = new Map();
-  for (const rec of (Array.isArray(onboardingRecords) ? onboardingRecords : [])){
-    const personId = clean(rec?.personId);
-    if (!personId) continue;
-    const ts = parseDayTs(rec?.updatedAt);
-    const prev = onboardingByPerson.get(personId);
-    if (!prev || ts > parseDayTs(prev?.updatedAt)) onboardingByPerson.set(personId, rec);
-  }
-
-  const trainingByPerson = new Map();
-  for (const rec of (Array.isArray(trainingRecords) ? trainingRecords : [])){
-    const personId = clean(rec?.personId);
-    if (!personId) continue;
-    const ts = parseDayTs(rec?.updatedAt);
-    const prev = trainingByPerson.get(personId);
-    if (!prev || ts > parseDayTs(prev?.updatedAt)) trainingByPerson.set(personId, rec);
-  }
-
-  const personIds = new Set([...onboardingByPerson.keys(), ...trainingByPerson.keys()]);
-  const now = Date.now();
-  const twoWeeksMs = 14 * 86400000;
-  let readyNow = 0;
-  let recentReadyCount = 0;
-  const cycleDays = [];
-
-  for (const personId of personIds){
-    const onb = onboardingByPerson.get(personId);
-    const trn = trainingByPerson.get(personId);
-    const onbDone = clean(onb?.onboardingStatus) === "completed";
-    const trnDone = clean(trn?.completionStatus) === "completed";
-    if (!(onbDone && trnDone)) continue;
-
-    readyNow += 1;
-    const onbDoneTs = parseDayTs(onb?.completedAt);
-    const trnDoneTs = parseDayTs(trn?.completedAt);
-    const readyCandidates = [onbDoneTs, trnDoneTs].filter((v) => Number.isFinite(v));
-    const readyTs = readyCandidates.length ? Math.max(...readyCandidates) : NaN;
-
-    if (Number.isFinite(readyTs) && readyTs >= (now - twoWeeksMs)){
-      recentReadyCount += 1;
-    }
-
-    const docsTs = parseDayTs(onb?.docsSubmittedAt);
-    if (Number.isFinite(docsTs) && Number.isFinite(readyTs) && readyTs >= docsTs){
-      cycleDays.push((readyTs - docsTs) / 86400000);
-    }
-  }
-
-  const recentReadyPerWeek = recentReadyCount / 2;
-  const projectedReady14d = readyNow + recentReadyPerWeek * 2;
-
-  return {
-    readyNow,
-    recentReadyPerWeek,
-    projectedReady14d,
-    medianCycleDays: median(cycleDays),
-  };
+  return twCapBuildReadinessStatsModule(onboardingRecords, trainingRecords, {
+    twCapLatestRecordByPerson: (rows) => twCapLatestRecordByPersonModule(rows, {
+      twCapClean: twCapCleanModule,
+      twCapParseDate: twCapParseDateModule,
+    }),
+    twCapClean: twCapCleanModule,
+    twCapParseDate: twCapParseDateModule,
+    twCapMedian: twCapMedianModule,
+  });
 }
 
 function stageEnteredAt(rec){
   const stage = clean(rec?.stage);
   const byStage = rec?.stageDates?.[stage];
   return clean(byStage) || clean(rec?.updatedAt) || clean(rec?.createdAt);
-}
-
-function daysSince(dateLike){
-  const ts = Date.parse(clean(dateLike));
-  if (!Number.isFinite(ts)) return null;
-  const delta = Date.now() - ts;
-  if (!Number.isFinite(delta) || delta < 0) return 0;
-  return delta / 86400000;
 }
 
 function countByStage(pipelineRecords){
@@ -242,6 +191,21 @@ function uniqueCount(rows, key){
 
 function personNameMap(persons){
   return new Map((Array.isArray(persons) ? persons : []).map((p) => [String(p.id), clean(p.name) || String(p.id)]));
+}
+
+function officeMixSummaryText(officeMix){
+  const rows = Array.isArray(officeMix) ? officeMix : [];
+  if (!rows.length) return "Office staffing mix unavailable.";
+  return rows
+    .slice(0, 4)
+    .map((row) => {
+      const office = clean(row?.officeId) || "unassigned";
+      const organizers = fmtInt(row?.organizerCount || 0);
+      const paidCanvassers = fmtInt(row?.paidCanvasserCount || 0);
+      const volunteers = fmtInt(row?.activeVolunteerCount || 0);
+      return `${office}: org ${organizers} | paid canv ${paidCanvassers} | vol ${volunteers}`;
+    })
+    .join(" · ");
 }
 
 function fillPersonSelect(selectEl, persons){
@@ -412,7 +376,7 @@ function renderTrainingTable(trainingRecords, peopleById){
 }
 
 async function refreshDashboard(){
-  await ensureOperationsDefaults();
+  await ensureOperationsDefaults(storeScope);
 
   const [
     persons,
@@ -425,15 +389,15 @@ async function refreshDashboard(){
     forecastConfigs,
     counts,
   ] = await Promise.all([
-    getAll("persons"),
-    getAll("pipelineRecords"),
-    getAll("interviews"),
-    getAll("onboardingRecords"),
-    getAll("trainingRecords"),
-    getAll("shiftRecords"),
-    getAll("turfEvents"),
-    getAll("forecastConfigs"),
-    getSummaryCounts(),
+    getAll("persons", storeScope),
+    getAll("pipelineRecords", storeScope),
+    getAll("interviews", storeScope),
+    getAll("onboardingRecords", storeScope),
+    getAll("trainingRecords", storeScope),
+    getAll("shiftRecords", storeScope),
+    getAll("turfEvents", storeScope),
+    getAll("forecastConfigs", storeScope),
+    getSummaryCounts(storeScope),
   ]);
 
   const peopleById = personNameMap(persons);
@@ -451,16 +415,23 @@ async function refreshDashboard(){
   let stageDaysTotal = 0;
   let stageDaysCount = 0;
   for (const rec of pipelineRecords){
-    const d = daysSince(stageEnteredAt(rec));
+    const d = operationsDaysSince(stageEnteredAt(rec), { floor: false });
     if (!Number.isFinite(d)) continue;
     stageDaysTotal += d;
     stageDaysCount += 1;
   }
   const avgDaysInStage = stageDaysCount > 0 ? (stageDaysTotal / stageDaysCount) : 0;
 
-  const rollups = computeOperationalRollups({ shiftRecords, turfEvents, options: { allowTurfFallbackAttempts: false } });
+  const rollups = computeOperationalRollups({
+    persons,
+    shiftRecords,
+    turfEvents,
+    options: { allowTurfFallbackAttempts: false },
+  });
   const coverage = rollups.coverage || {};
   const prod = rollups.production || {};
+  const workforce = rollups.workforce || {};
+  const officeMix = Array.isArray(rollups.officeMix) ? rollups.officeMix : [];
   const dedupe = rollups.dedupe || {};
 
   setText("ovPersons", fmtInt(persons.length));
@@ -469,7 +440,13 @@ async function refreshDashboard(){
   setText("ovTurf", fmtInt(turfEvents.length));
   setText("ovForecastConfigs", fmtInt(forecastConfigs.length));
   setText("ovActiveStage", fmtInt(activeStage));
+  setText("ovOrganizerCount", fmtInt(workforce.organizerCount || 0));
+  setText("ovPaidCanvasserCount", fmtInt(workforce.paidCanvasserCount || 0));
+  setText("ovActiveVolunteerCount", fmtInt(workforce.activeVolunteerCount || 0));
+  setText("ovVolunteerShowRate", fmtPct01(workforce.volunteerShowRate));
+  setText("ovOrganizerSupervisionCapacity", fmtInt(workforce.organizerSupervisionCapacity || 0));
   setText("ovNote", `Production source: ${prod.source || "shift"} | Dedupe rule: ${dedupe.rule || "shift_primary_turf_coverage"}`);
+  setText("ovOfficeMix", officeMixSummaryText(officeMix));
 
   setText("recSourced", fmtInt(stageCounts.get("Sourced") || 0));
   setText("recContacted", fmtInt(stageCounts.get("Contacted") || 0));
@@ -497,10 +474,11 @@ async function refreshDashboard(){
   const trainingInProgress = trainingRecords.filter((r) => clean(r?.completionStatus) === "in_progress").length;
   const trainingTotal = trainingRecords.length;
   const readyRatio = trainingTotal > 0 ? (100 * trainingCompleted / trainingTotal) : 0;
+  const readyRatioText = `${formatOperationsOneDecimal(readyRatio, { digits: 1, fallback: "0.0" })}%`;
   setText("trRecordCount", fmtInt(trainingTotal));
   setText("trTrainingComplete", fmtInt(trainingCompleted));
   setText("trActive", fmtInt(trainingInProgress));
-  setText("trReadyRatio", `${readyRatio.toFixed(1)}%`);
+  setText("trReadyRatio", readyRatioText);
 
   const interviewPassCount = interviews.filter((r) => clean(r?.outcome) === "pass").length;
   const interviewCompleteCount = interviews.filter((r) => {
@@ -518,16 +496,17 @@ async function refreshDashboard(){
   const compositeRampSignal = rampSignals.length > 0
     ? rampSignals.reduce((sum, v) => sum + v, 0) / rampSignals.length
     : null;
+  const compositeRampSignalText = formatOperationsPercentFromUnit(compositeRampSignal, { digits: 1, fallback: "—" });
 
   setText("fcInterviewPassRate", ratioText(interviewPassCount, interviewCompleteCount));
   setText("fcOfferAcceptRate", ratioText(offerAcceptedCount, offerExtendedCount));
   setText("fcOnboardingCompletionRate", ratioText(onboardingCompleted, onboardingRecords.length));
   setText("fcTrainingCompletionRate", ratioText(trainingCompleted, trainingTotal));
-  setText("fcCompositeRampSignal", Number.isFinite(compositeRampSignal) ? `${(compositeRampSignal * 100).toFixed(1)}%` : "—");
+  setText("fcCompositeRampSignal", compositeRampSignalText);
   setText(
     "fcHintNote",
     Number.isFinite(compositeRampSignal)
-      ? `Display-only diagnostics. Composite ramp signal: ${(compositeRampSignal * 100).toFixed(1)}% (avg of interview/offer/onboarding/training conversion hints).`
+      ? `Display-only diagnostics. Composite ramp signal: ${compositeRampSignalText} (avg of interview/offer/onboarding/training conversion hints).`
       : "Display-only diagnostics. Add interview/onboarding/training records to unlock conversion hints."
   );
 
@@ -556,7 +535,7 @@ async function refreshDashboard(){
   setText("agReadyNow", fmtInt(readiness.readyNow));
   setText("agRecentReadyPerWeek", fmt1(readiness.recentReadyPerWeek));
   setText("agReadyIn14d", fmt1(readiness.projectedReady14d));
-  setText("agMedianReadyDays", Number.isFinite(readiness.medianCycleDays) ? fmt1(readiness.medianCycleDays) : "—");
+  setText("agMedianReadyDays", Number.isFinite(readiness.medianReadyDays) ? fmt1(readiness.medianReadyDays) : "—");
 
   setText("fcBaselineActive", fmtInt(activeStage));
   setText("fcOpenPipeline", fmtInt(Math.max(0, pipelineRecords.length - activeStage)));
@@ -580,11 +559,36 @@ async function refreshDashboard(){
           excludedTurfAttempts: Number(dedupe.excludedTurfAttempts || 0),
           includedFallbackAttempts: Number(dedupe.includedFallbackAttempts || 0),
         },
+        workforce: {
+          organizerCount: Number(workforce.organizerCount || 0),
+          paidCanvasserCount: Number(workforce.paidCanvasserCount || 0),
+          activeVolunteerCount: Number(workforce.activeVolunteerCount || 0),
+          activePaidHeadcount: Number(workforce.activePaidHeadcount || 0),
+          activeStipendHeadcount: Number(workforce.activeStipendHeadcount || 0),
+          activeVolunteerHeadcount: Number(workforce.activeVolunteerHeadcount || 0),
+          volunteerShowRate: Number.isFinite(workforce.volunteerShowRate) ? Number(workforce.volunteerShowRate) : null,
+          organizerRecruitmentMultiplier: Number.isFinite(workforce.organizerRecruitmentMultiplier) ? Number(workforce.organizerRecruitmentMultiplier) : null,
+          organizerSupervisionCapacity: Number.isFinite(workforce.organizerSupervisionCapacity) ? Number(workforce.organizerSupervisionCapacity) : null,
+          paidCanvasserProductivity: Number.isFinite(workforce.paidCanvasserProductivity) ? Number(workforce.paidCanvasserProductivity) : null,
+          volunteerProductivity: Number.isFinite(workforce.volunteerProductivity) ? Number(workforce.volunteerProductivity) : null,
+        },
+        officeMix: officeMix.map((row) => ({
+          officeId: clean(row?.officeId) || "unassigned",
+          headcount: Number(row?.headcount || 0),
+          activeHeadcount: Number(row?.activeHeadcount || 0),
+          organizerCount: Number(row?.organizerCount || 0),
+          paidCanvasserCount: Number(row?.paidCanvasserCount || 0),
+          activeVolunteerCount: Number(row?.activeVolunteerCount || 0),
+          volunteerLeadCount: Number(row?.volunteerLeadCount || 0),
+          paidHeadcount: Number(row?.paidHeadcount || 0),
+          stipendHeadcount: Number(row?.stipendHeadcount || 0),
+          volunteerHeadcount: Number(row?.volunteerHeadcount || 0),
+        })),
         readiness: {
           readyNow: Number(readiness.readyNow || 0),
           recentReadyPerWeek: Number(readiness.recentReadyPerWeek || 0),
           projectedReady14d: Number(readiness.projectedReady14d || 0),
-          medianReadyDays: Number.isFinite(readiness.medianCycleDays) ? Number(readiness.medianCycleDays) : null,
+          medianReadyDays: Number.isFinite(readiness.medianReadyDays) ? Number(readiness.medianReadyDays) : null,
         },
         rampHints: {
           interviewPassRate: Number.isFinite(interviewPassRate) ? Number(interviewPassRate) : null,
@@ -614,7 +618,7 @@ async function saveInterview(){
     score: Number.isFinite(scoreNum) ? scoreNum : "",
     outcome: clean(els.intOutcome?.value) || "pending",
     notes: clean(els.intNotes?.value),
-  });
+  }, storeScope);
 
   setMsg(els.intMsg, "Interview record saved.");
   clearInterviewForm();
@@ -635,7 +639,7 @@ async function saveOnboarding(){
     onboardingStatus: clean(els.onOnboardingStatus?.value) || "in_progress",
     completedAt: clean(els.onCompletedAt?.value),
     notes: clean(els.onNotes?.value),
-  });
+  }, storeScope);
 
   setMsg(els.onMsg, "Onboarding record saved.");
   clearOnboardingForm();
@@ -653,11 +657,13 @@ async function saveTraining(){
   await put("trainingRecords", {
     personId,
     trainingTrack: clean(els.trTrack?.value),
-    sessions: Number.isFinite(sessions) ? Math.max(0, Math.round(sessions)) : 0,
+    sessions: Number.isFinite(sessions)
+      ? Math.max(0, roundWholeNumberByMode(sessions, { mode: "round", fallback: 0 }) || 0)
+      : 0,
     completionStatus: clean(els.trCompletionStatus?.value) || "not_started",
     completedAt: clean(els.trCompletedAt?.value),
     notes: clean(els.trNotes?.value),
-  });
+  }, storeScope);
 
   setMsg(els.trMsg, "Training record saved.");
   clearTrainingForm();
@@ -698,7 +704,7 @@ function wireCrudActions(){
       if (!btn) return;
       const id = clean(btn.getAttribute("data-id"));
       if (!id) return;
-      await remove("interviews", id);
+      await remove("interviews", id, storeScope);
       await refreshDashboard();
     });
   }
@@ -709,7 +715,7 @@ function wireCrudActions(){
       if (!btn) return;
       const id = clean(btn.getAttribute("data-id"));
       if (!id) return;
-      await remove("onboardingRecords", id);
+      await remove("onboardingRecords", id, storeScope);
       await refreshDashboard();
     });
   }
@@ -720,7 +726,7 @@ function wireCrudActions(){
       if (!btn) return;
       const id = clean(btn.getAttribute("data-id"));
       if (!id) return;
-      await remove("trainingRecords", id);
+      await remove("trainingRecords", id, storeScope);
       await refreshDashboard();
     });
   }
@@ -740,7 +746,7 @@ function wireIoActions(){
   if (els.btnTwExportJson){
     els.btnTwExportJson.addEventListener("click", async () => {
       try {
-        await downloadOperationsSnapshot("operations-snapshot.json");
+        await downloadOperationsSnapshot("operations-snapshot.json", { context: storeScope });
         setStatus("Exported Operations JSON snapshot.");
       } catch (err) {
         setStatus(err?.message ? String(err.message) : "Export failed.");
@@ -762,7 +768,7 @@ function wireIoActions(){
         }
 
         const mode = clean(els.twImportMode?.value) === "replace" ? "replace" : "merge";
-        await importOperationsSnapshot(payload, { mode });
+        await importOperationsSnapshot(payload, { mode, context: storeScope });
         setStatus(`Imported Operations JSON (${mode}).`);
         await refreshDashboard();
       } catch (err) {
@@ -776,7 +782,7 @@ function wireIoActions(){
   if (els.btnCsvExportInterviews){
     els.btnCsvExportInterviews.addEventListener("click", async () => {
       try {
-        await downloadStoreCsv("interviews", "operations-interviews.csv");
+        await downloadStoreCsv("interviews", "operations-interviews.csv", { context: storeScope });
         setStatus("Exported Interviews CSV.");
       } catch (err) {
         setStatus(err?.message ? String(err.message) : "Interviews CSV export failed.");
@@ -786,7 +792,7 @@ function wireIoActions(){
   if (els.btnCsvExportOnboarding){
     els.btnCsvExportOnboarding.addEventListener("click", async () => {
       try {
-        await downloadStoreCsv("onboardingRecords", "operations-onboarding.csv");
+        await downloadStoreCsv("onboardingRecords", "operations-onboarding.csv", { context: storeScope });
         setStatus("Exported Onboarding CSV.");
       } catch (err) {
         setStatus(err?.message ? String(err.message) : "Onboarding CSV export failed.");
@@ -796,7 +802,7 @@ function wireIoActions(){
   if (els.btnCsvExportTraining){
     els.btnCsvExportTraining.addEventListener("click", async () => {
       try {
-        await downloadStoreCsv("trainingRecords", "operations-training.csv");
+        await downloadStoreCsv("trainingRecords", "operations-training.csv", { context: storeScope });
         setStatus("Exported Training CSV.");
       } catch (err) {
         setStatus(err?.message ? String(err.message) : "Training CSV export failed.");
@@ -831,7 +837,7 @@ function wireIoActions(){
         if (!file || !storeName) return;
         const mode = clean(els.twImportMode?.value) === "replace" ? "replace" : "merge";
         const text = await file.text();
-        const result = await importStoreCsv(storeName, text, { mode });
+        const result = await importStoreCsv(storeName, text, { mode, context: storeScope });
         setStatus(`Imported ${storeName} CSV (${mode}, ${fmtInt(result?.count || 0)} rows).`);
         await refreshDashboard();
       } catch (err) {
@@ -856,6 +862,7 @@ function wireIoActions(){
 }
 
 async function init(){
+  applyOperationsContextToLinks(operationsContext, ".note a[href], .toolbar a[href]");
   activateModule(moduleFromHash());
   wireModuleNav();
   wireCrudActions();
@@ -864,7 +871,7 @@ async function init(){
   clearOnboardingForm();
   clearTrainingForm();
   await refreshDashboard();
-  setStatus("Ready.");
+  setStatus(`Ready. ${contextSummaryText()}`);
 }
 
 init().catch((err) => {

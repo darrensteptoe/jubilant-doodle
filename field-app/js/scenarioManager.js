@@ -12,24 +12,15 @@ import { computeDecisionIntelligence } from "./core/decisionIntelligence.js";
 import { computeRoiRows, buildOptimizationTactics } from "./core/budget.js";
 import { deriveNeedVotes as coreDeriveNeedVotes } from "./core/model.js";
 import { computeVolunteerNeedFromGoal } from "./core/executionPlanner.js";
+import { NULL_BASE_RATE_DEFAULTS, resolveStateBaseRates } from "./core/baseRates.js";
+import { coerceFiniteNumber } from "./core/utils.js";
+import { buildTurnoutModelFromState } from "./core/voteProduction.js";
 
 const DEFAULT_MAX = 5;
 const MC_RUNS = 10000;
 const SCENARIO_FALLBACK_SEED = "__scenario_compare_seed__";
+const safeNum = coerceFiniteNumber;
 
-function safeNum(v){
-  const n = Number(v);
-  return Number.isFinite(n) ? n : null;
-}
-function clamp(v, lo, hi){
-  if (!Number.isFinite(v)) return lo;
-  return Math.min(hi, Math.max(lo, v));
-}
-function pctToUnit(pct, fallback){
-  const n = safeNum(pct);
-  if (n == null) return fallback;
-  return clamp(n, 0, 100) / 100;
-}
 function deepClone(obj){
   try{
     if (typeof structuredClone === "function") return structuredClone(obj);
@@ -43,9 +34,12 @@ function deepClone(obj){
 
 function computeMinCostToCloseGap({ snap, needVotes }){
   try{
-    const cr = pctToUnit(snap.contactRatePct, null);
-    const sr = pctToUnit(snap.supportRatePct, null);
-    const tr = pctToUnit(snap.turnoutReliabilityPct, null);
+    const baseRates = resolveStateBaseRates(snap, {
+      defaults: NULL_BASE_RATE_DEFAULTS,
+      clampMin: 0,
+      clampMax: 1,
+    });
+    const { cr, sr, tr } = baseRates;
 
     const budget = snap.budget || {};
     const tacticsRaw = budget.tactics || {};
@@ -60,21 +54,7 @@ function computeMinCostToCloseGap({ snap, needVotes }){
       targetUniversePct: safeNum(snap.targetUniversePct),
     });
 
-    let turnoutModel = null;
-    if (snap.turnoutEnabled){
-      const basePct = safeNum(snap.turnoutBaselinePct);
-      const maxLift = safeNum(snap.gotvMaxLiftPP2 ?? snap.gotvMaxLiftPP);
-      const useDim = !!snap.gotvDiminishing;
-      // We'll compute lift per contact as the average of the configured lift distribution, reusing the pure helper.
-      const liftPerContactPP = safeNum(snap.gotvLiftPP);
-      turnoutModel = {
-        enabled: true,
-        baselineTurnoutPct: basePct,
-        liftPerContactPP: liftPerContactPP,
-        maxLiftPP: maxLift,
-        useDiminishing: useDim,
-      };
-    }
+    const turnoutModel = buildTurnoutModelFromState(snap);
 
     const out = computeRoiRows({
       goalNetVotes: needVotes,

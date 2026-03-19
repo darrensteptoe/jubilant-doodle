@@ -2,6 +2,13 @@
 import { readJsonFile } from "./utils.js";
 import { ensureOperationsDefaults, getAll, put, remove, makeOperationsId } from "./features/operations/store.js";
 import { downloadOperationsSnapshot, importOperationsSnapshot, downloadStoreCsv, importStoreCsv } from "./features/operations/io.js";
+import { operationsNonNegativeInt, operationsNowIso, operationsTodayIso } from "./features/operations/time.js";
+import {
+  applyOperationsContextToLinks,
+  resolveOperationsContext,
+  summarizeOperationsContext,
+  toOperationsStoreOptions,
+} from "./features/operations/context.js";
 
 const els = {
   turfDate: document.getElementById("turfDate"),
@@ -31,34 +38,27 @@ const els = {
   ioMsg: document.getElementById("ioMsg"),
 };
 
+const operationsContext = resolveOperationsContext();
+const storeScope = toOperationsStoreOptions(operationsContext);
+
 let editingTurfId = "";
-
-function nowIso(){
-  return new Date().toISOString();
-}
-
-function todayIso(){
-  return nowIso().slice(0, 10);
-}
 
 function clean(v){
   return String(v || "").trim();
-}
-
-function asInt(v){
-  const n = Number(v);
-  if (!Number.isFinite(n)) return 0;
-  return Math.max(0, Math.floor(n));
 }
 
 function setMsg(el, text){
   if (el) el.textContent = text || "";
 }
 
+function contextSummaryText(){
+  return summarizeOperationsContext(operationsContext);
+}
+
 async function loadData(){
   const [persons, events] = await Promise.all([
-    getAll("persons"),
-    getAll("turfEvents"),
+    getAll("persons", storeScope),
+    getAll("turfEvents", storeScope),
   ]);
   return {
     persons: Array.isArray(persons) ? persons : [],
@@ -97,7 +97,7 @@ function fillPersonSelect(persons){
 
 function clearForm(){
   editingTurfId = "";
-  if (els.turfDate) els.turfDate.value = todayIso();
+  if (els.turfDate) els.turfDate.value = operationsTodayIso();
   if (els.turfTurfId) els.turfTurfId.value = "";
   if (els.turfPrecinct) els.turfPrecinct.value = "";
   if (els.turfCounty) els.turfCounty.value = "";
@@ -112,16 +112,16 @@ function clearForm(){
 }
 
 async function saveEvent(){
-  const date = clean(els.turfDate?.value) || todayIso();
+  const date = clean(els.turfDate?.value) || operationsTodayIso();
   const turfId = clean(els.turfTurfId?.value);
   const precinct = clean(els.turfPrecinct?.value);
   const county = clean(els.turfCounty?.value);
   const assignedTo = clean(els.turfAssignedTo?.value);
   const mode = clean(els.turfMode?.value) || "doors";
   const shiftId = clean(els.turfShiftId?.value);
-  const attempts = asInt(els.turfAttempts?.value);
-  const canvassed = asInt(els.turfCanvassed?.value);
-  const vbms = asInt(els.turfVbms?.value);
+  const attempts = operationsNonNegativeInt(els.turfAttempts?.value);
+  const canvassed = operationsNonNegativeInt(els.turfCanvassed?.value);
+  const vbms = operationsNonNegativeInt(els.turfVbms?.value);
 
   if (!turfId && !precinct){
     setMsg(els.turfMsg, "Provide Turf ID or Precinct.");
@@ -133,7 +133,7 @@ async function saveEvent(){
   }
 
   const { events } = await loadData();
-  const stamp = nowIso();
+  const stamp = operationsNowIso();
   const rec = {
     id: editingTurfId || makeOperationsId("turf"),
     turfId,
@@ -152,7 +152,7 @@ async function saveEvent(){
   const existing = events.find((e) => clean(e?.id) === clean(rec.id));
   rec.createdAt = clean(existing?.createdAt) || stamp;
 
-  await put("turfEvents", rec);
+  await put("turfEvents", rec, storeScope);
   setMsg(els.turfMsg, existing ? "Turf event updated." : "Turf event saved.");
   clearForm();
   await renderEvents();
@@ -167,9 +167,9 @@ function buildRow(rec, personMap){
     <td>${clean(rec?.precinct) || "-"}</td>
     <td>${clean(person?.name) || "Unassigned"}</td>
     <td>${clean(rec?.mode) || "-"}</td>
-    <td class="num">${asInt(rec?.attempts)}</td>
-    <td class="num">${asInt(rec?.canvassed)}</td>
-    <td class="num">${asInt(rec?.vbms)}</td>
+    <td class="num">${operationsNonNegativeInt(rec?.attempts)}</td>
+    <td class="num">${operationsNonNegativeInt(rec?.canvassed)}</td>
+    <td class="num">${operationsNonNegativeInt(rec?.vbms)}</td>
     <td>
       <button class="btn btn-sm btn-ghost" data-action="edit" data-id="${clean(rec?.id)}" type="button">Edit</button>
       <button class="btn btn-sm btn-ghost" data-action="delete" data-id="${clean(rec?.id)}" type="button">Delete</button>
@@ -180,16 +180,16 @@ function buildRow(rec, personMap){
 
 function populateForm(rec){
   editingTurfId = clean(rec?.id);
-  if (els.turfDate) els.turfDate.value = clean(rec?.date) || todayIso();
+  if (els.turfDate) els.turfDate.value = clean(rec?.date) || operationsTodayIso();
   if (els.turfTurfId) els.turfTurfId.value = clean(rec?.turfId);
   if (els.turfPrecinct) els.turfPrecinct.value = clean(rec?.precinct);
   if (els.turfCounty) els.turfCounty.value = clean(rec?.county);
   if (els.turfAssignedTo) els.turfAssignedTo.value = clean(rec?.assignedTo);
   if (els.turfMode) els.turfMode.value = clean(rec?.mode) || "doors";
   if (els.turfShiftId) els.turfShiftId.value = clean(rec?.shiftId);
-  if (els.turfAttempts) els.turfAttempts.value = String(asInt(rec?.attempts));
-  if (els.turfCanvassed) els.turfCanvassed.value = String(asInt(rec?.canvassed));
-  if (els.turfVbms) els.turfVbms.value = String(asInt(rec?.vbms));
+  if (els.turfAttempts) els.turfAttempts.value = String(operationsNonNegativeInt(rec?.attempts));
+  if (els.turfCanvassed) els.turfCanvassed.value = String(operationsNonNegativeInt(rec?.canvassed));
+  if (els.turfVbms) els.turfVbms.value = String(operationsNonNegativeInt(rec?.vbms));
   if (els.btnSaveTurf) els.btnSaveTurf.textContent = "Update turf event";
   setMsg(els.turfMsg, `Editing ${clean(rec?.date)} ${clean(rec?.turfId) || clean(rec?.precinct) || "turf event"}`);
 }
@@ -214,7 +214,7 @@ async function renderEvents(){
     const t = clean(rec?.turfId);
     if (p) uniquePrecincts.add(p);
     if (t) uniqueTurfs.add(t);
-    totalAttempts += asInt(rec?.attempts);
+    totalAttempts += operationsNonNegativeInt(rec?.attempts);
   }
 
   if (els.countEvents) els.countEvents.textContent = String(rows.length);
@@ -268,7 +268,7 @@ function wireTableActions(){
     if (!rec) return;
 
     if (action === "delete"){
-      await remove("turfEvents", id);
+      await remove("turfEvents", id, storeScope);
       setMsg(els.turfMsg, "Turf event deleted.");
       if (editingTurfId === id) clearForm();
       await renderEvents();
@@ -285,7 +285,7 @@ function wireIoActions(){
   if (els.btnExportJson){
     els.btnExportJson.addEventListener("click", async () => {
       try{
-        await downloadOperationsSnapshot("operations-snapshot.json");
+        await downloadOperationsSnapshot("operations-snapshot.json", { context: storeScope });
         setMsg(els.ioMsg, "Operations JSON exported.");
       } catch (e){
         setMsg(els.ioMsg, e?.message ? String(e.message) : "Export failed.");
@@ -300,7 +300,7 @@ function wireIoActions(){
         const file = els.importJsonFile.files?.[0];
         if (!file) return;
         const payload = await readJsonFile(file);
-        await importOperationsSnapshot(payload, { mode: "merge" });
+        await importOperationsSnapshot(payload, { mode: "merge", context: storeScope });
         setMsg(els.ioMsg, "Operations JSON imported (merge).");
         await renderEvents();
       } catch (e){
@@ -314,7 +314,7 @@ function wireIoActions(){
   if (els.btnExportCsv){
     els.btnExportCsv.addEventListener("click", async () => {
       try{
-        await downloadStoreCsv("turfEvents", "turf-events.csv");
+        await downloadStoreCsv("turfEvents", "turf-events.csv", { context: storeScope });
         setMsg(els.ioMsg, "Turf CSV exported.");
       } catch (e){
         setMsg(els.ioMsg, e?.message ? String(e.message) : "CSV export failed.");
@@ -329,7 +329,7 @@ function wireIoActions(){
         const file = els.importCsvFile.files?.[0];
         if (!file) return;
         const text = await file.text();
-        await importStoreCsv("turfEvents", text, { mode: "merge" });
+        await importStoreCsv("turfEvents", text, { mode: "merge", context: storeScope });
         setMsg(els.ioMsg, "Turf CSV imported (merge).");
         await renderEvents();
       } catch (e){
@@ -342,12 +342,14 @@ function wireIoActions(){
 }
 
 async function init(){
-  await ensureOperationsDefaults();
+  applyOperationsContextToLinks(operationsContext, ".note a[href]");
+  await ensureOperationsDefaults(storeScope);
   clearForm();
   await renderEvents();
   wireInputActions();
   wireTableActions();
   wireIoActions();
+  setMsg(els.ioMsg, contextSummaryText());
 }
 
 init().catch((e) => {

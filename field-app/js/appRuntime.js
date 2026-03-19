@@ -7,10 +7,70 @@ import {
   deriveWeeksRemainingCeil as coreDeriveWeeksRemainingCeil
 } from "./core/model.js";
 import { UNIVERSE_DEFAULTS, computeUniverseAdjustedRates } from "./core/universeLayer.js";
-import { computeAvgLiftPP } from "./core/turnout.js";
+import {
+  computeAvgLiftPP,
+  getOptimizationObjectiveCopy,
+  normalizeOptimizationObjective,
+  OPTIMIZATION_OBJECTIVES,
+} from "./core/turnout.js";
 import { computeElectionSnapshot } from "./core/electionSnapshot.js";
 import { computeExecutionSnapshot } from "./core/executionSnapshot.js";
-import { fmtInt, clamp, safeNum, readJsonFile } from "./utils.js";
+import { getTimelineFeasibilityObjectiveMeta } from "./core/timeline.js";
+import { getTimelineObjectiveMeta } from "./core/timelineOptimizer.js";
+import {
+  buildPlanSummaryView as buildCanonicalPlanSummaryView,
+  formatPlanCurrency,
+  formatPlanPercentUnit,
+  formatPlanWhole,
+  normalizePlanOptimizerRows,
+} from "./core/planView.js";
+import { buildReachFreshnessView, buildReachLeversAndActionsView, buildReachWeeklyConstraintView, buildReachWeeklyExecutionView } from "./core/reachView.js";
+import { buildGovernanceSnapshotView, computeModelGovernance } from "./core/modelGovernance.js";
+import {
+  appendForecastArchiveEntry,
+  buildForecastArchiveOptions,
+  buildForecastArchiveContext,
+  buildForecastArchiveEntry,
+  resolveForecastArchiveSelectedHash,
+  buildForecastArchiveSelectedEntryView,
+  buildForecastArchiveTableRows,
+  normalizeForecastArchiveActual,
+  readForecastArchive,
+  summarizeForecastArchive,
+  updateForecastArchiveActual,
+} from "./core/forecastArchive.js";
+import { buildModelLearningFromArchive } from "./core/modelAudit.js";
+import {
+  buildDecisionDiagnosticsSnapshotView,
+  computeDecisionSensitivityMiniSurfaceCache,
+  DECISION_DIVERGENCE_KEY_ORDER,
+} from "./core/decisionView.js";
+import { buildOutcomeSurfaceSummaryText } from "./core/outcomeView.js";
+import { buildScenarioWorkspaceSummaryView } from "./core/scenarioView.js";
+import {
+  buildDistrictApplyAdjustmentsStatus,
+  buildDistrictAssumptionProvenanceStatus,
+  buildDistrictCensusContextHint,
+  buildDistrictFootprintCapacityStatus,
+  buildDistrictGeoStatsText,
+  buildDistrictLastFetchText,
+  buildDistrictRaceFootprintStatus,
+  buildDistrictSelectionSetStatus,
+  buildDistrictSelectionSummaryText,
+  buildDistrictTurnoutFallbackView,
+  computeDistrictSupportTotalPctFromState,
+} from "./core/districtView.js";
+import {
+  clamp,
+  fmtInt,
+  formatFixedNumber,
+  formatPercentFromPct,
+  formatPercentFromUnit,
+  formatWholeNumberByMode,
+  readJsonFile,
+  roundWholeNumberByMode,
+  safeNum,
+} from "./utils.js";
 import {
   loadState,
   clearState,
@@ -96,12 +156,17 @@ import {
   renderSurfaceResultCore,
 } from "./app/sensitivitySurfaceUi.js";
 import { createSensitivitySurfaceController } from "./app/sensitivitySurfaceController.js";
-import { composeSetupStageModule } from "./app/composeSetupStage.js";
 import { normalizeStageLayoutModule } from "./app/normalizeStageLayout.js";
 import { runInitPostBootModule } from "./app/initPostBoot.js";
 import { runInitScenarioDecisionWiringModule } from "./app/initScenarioDecisionWiring.js";
 import { preflightElsModule } from "./app/preflightEls.js";
 import { initTabsModule, initExplainCardModule, isDevModeModule } from "./app/initUiStateHelpers.js";
+import {
+  bootProbeError,
+  bootProbeMark,
+  bootProbeSetStatus,
+  getBootProbeStatus,
+} from "./app/bootProbe.js";
 import { createUiUpdateQueue } from "./app/uiUpdateQueue.js";
 import { isScenarioLockedForEditsModule, applyScenarioLockUiModule } from "./app/scenarioLockUi.js";
 import { setText, setHidden, setTextPair } from "./app/uiText.js";
@@ -128,7 +193,9 @@ import {
   getYourNameFromStateModule
 } from "./app/assumptionsViewHelpers.js";
 import {
+  canonicalCallsPerHourFromSnapModule,
   canonicalDoorsPerHourFromSnapModule,
+  setCanonicalCallsPerHourModule,
   setCanonicalDoorsPerHourModule,
   requiredScenarioKeysMissingModule
 } from "./app/stateNormalizationHelpers.js";
@@ -139,6 +206,7 @@ import {
   twCapNumModule,
   twCapFmtIntModule,
   twCapFmt1Module,
+  twCapFmt2Module,
   twCapFmtSignedModule,
   twCapRatioTextModule,
   twCapFmtPct01Module,
@@ -154,6 +222,13 @@ import {
   twCapPerOrganizerAttemptsPerWeekModule,
   twCapBaselineAttemptsPerWeekModule,
 } from "./app/twCapHelpers.js";
+import {
+  buildVoterImportOutcomeView,
+  buildVoterLayerStatusSnapshot,
+  normalizeVoterDataState,
+  normalizeVoterRows,
+  parseVoterRowsInput,
+} from "./core/voterDataLayer.js";
 import { createOperationsCapacityOutlookController } from "./app/operationsCapacityOutlook.js";
 import { createEffectiveInputsController } from "./app/effectiveInputs.js";
 import { createMcStateController } from "./app/mcState.js";
@@ -169,7 +244,6 @@ import {
   clearPersistenceFailureModule
 } from "./app/persistenceStatus.js";
 import {
-  approxEqModule,
   applyTemplateDefaultsForRaceModule,
   deriveAssumptionsProfileFromStateModule,
   refreshAssumptionsProfileModule,
@@ -196,14 +270,20 @@ import {
   computeEvidenceWarnings
 } from "./app/intelAudit.js";
 import {
+  applyTargetingRunResult,
   applyTargetModelPreset,
+  applyTargetingFieldPatch,
+  buildTargetRankingPayloadConfig,
+  buildTargetRankingExportFilename,
   buildTargetRankingCsv,
   buildTargetRankingPayload,
-  getTargetModelPreset,
   normalizeTargetingState,
+  resetTargetingWeightsToPreset,
+  TARGETING_STATUS_LOAD_ROWS_FIRST,
 } from "./app/targetingRuntime.js";
 import {
   computeIntelIntegrityScore,
+  ensureIntelCollections,
   listMissingEvidenceAudit,
   listMissingNoteAudit,
   upsertBenchmarkEntry,
@@ -220,9 +300,9 @@ import {
   addDefaultShockScenario,
   importShockScenariosJson,
   captureObservedMetricsFromDrift,
-  refreshDriftRecommendationsFromDrift,
+  captureObservedAndRefreshDriftRecommendations,
   createWhatIfIntelRequest,
-  applyRecommendationDraftPatch
+  applyTopDriftRecommendation,
 } from "./app/intelControlsRuntime.js";
 import { renderIntelChecksModule } from "./app/renderIntelChecks.js";
 import { applyWeeklyLeverScenarioModule } from "./app/weeklyLeverScenarioAction.js";
@@ -234,6 +314,8 @@ import {
   wireTabAndExportEvents,
   wireResetImportAndUiToggles
 } from "./app/wireEventsRuntime.js";
+import { applyActiveContextToLinks, resolveActiveContext } from "./app/activeContext.js";
+import { getCensusRowsForState } from "./app/censusRowsRuntimeStore.js";
 import { wireEventsOrchestratorModule } from "./app/wireEventsOrchestrator.js";
 import { createCandidateUiController } from "./app/candidateUi.js";
 import { createUsbStorageController } from "./app/usbStorage.js";
@@ -254,8 +336,6 @@ const renderSensitivitySnapshotPanel =
   executionAnalysisModule?.renderSensitivitySnapshotPanel || (() => {});
 const runSensitivitySnapshotPanel =
   executionAnalysisModule?.runSensitivitySnapshotPanel || (async () => ({ ok: false, code: "missing_module" }));
-const computeSensitivitySnapshotCache =
-  executionAnalysisModule?.computeSensitivitySnapshotCache || (() => ({ ok: false, code: "missing_module" }));
 
 const copyDebugBundleModule =
   debugBundleModule?.copyDebugBundleModule || (async () => null);
@@ -364,6 +444,7 @@ const TW_CAP_ADAPTERS = {
   twCapNum: twCapNumModule,
   twCapFmtInt: (v) => twCapFmtIntModule(v, { fmtInt }),
   twCapFmt1: twCapFmt1Module,
+  twCapFmt2: twCapFmt2Module,
   twCapFmtSigned: (v) => twCapFmtSignedModule(v, { fmtInt }),
   twCapRatioText: twCapRatioTextModule,
   twCapFmtPct01: twCapFmtPct01Module,
@@ -555,12 +636,26 @@ const DATA_BRIDGE_KEY = "__FPE_DATA_API__";
 const SCENARIO_BRIDGE_KEY = "__FPE_SCENARIO_API__";
 const SHELL_BRIDGE_KEY = "__FPE_SHELL_API__";
 const DISTRICT_BRIDGE_KEY = "__FPE_DISTRICT_API__";
-const CENSUS_RUNTIME_BRIDGE_KEY = "__FPE_CENSUS_RUNTIME_API__";
 const REACH_BRIDGE_KEY = "__FPE_REACH_API__";
 const TURNOUT_BRIDGE_KEY = "__FPE_TURNOUT_API__";
 const PLAN_BRIDGE_KEY = "__FPE_PLAN_API__";
 const OUTCOME_BRIDGE_KEY = "__FPE_OUTCOME_API__";
 const DECISION_BRIDGE_KEY = "__FPE_DECISION_API__";
+
+function forecastArchiveContextFromState(){
+  return buildForecastArchiveContext(state, {
+    scenarioId: state?.ui?.activeScenarioId,
+  });
+}
+
+function forecastArchiveScopeKey(context = null){
+  const ctx = context && typeof context === "object"
+    ? context
+    : forecastArchiveContextFromState();
+  const campaignId = String(ctx?.campaignId || "").trim();
+  const officeId = String(ctx?.officeId || "").trim() || "all";
+  return `${campaignId}::${officeId}`;
+}
 
 function dataBridgeBuildBackupOptions(){
   const selectEl = els?.restoreBackup;
@@ -581,11 +676,22 @@ function dataBridgeBuildBackupOptions(){
   });
 }
 
+function dataBridgeBuildArchiveRows(){
+  const entries = readForecastArchive(forecastArchiveContextFromState());
+  return Array.isArray(entries) ? entries : [];
+}
+
+function dataBridgeBuildArchiveOptions(entries = []){
+  return buildForecastArchiveOptions(entries);
+}
+
 let dataBridgeSelectedBackup = "";
 let dataBridgeImportFileName = "";
 let dataBridgeHashBannerText = "";
 let dataBridgeWarnBannerText = "";
 let dataBridgeUsbStatusText = "";
+let dataBridgeSelectedArchiveHash = "";
+let dataBridgeVoterImportStatusText = "";
 
 function shellBridgeStateView(){
   return {
@@ -627,6 +733,7 @@ function shellBridgeResetScenario(){
     return { ok: false, code: "canceled", view: shellBridgeStateView() };
   }
   state = makeDefaultState();
+  refreshModelAuditFromArchive();
   ensureScenarioRegistry();
   ensureDecisionScaffold();
   try{
@@ -699,6 +806,10 @@ function dataBridgeSetUsbStatusText(text){
   dataBridgeUsbStatusText = String(text || "").trim();
 }
 
+function dataBridgeSetVoterImportStatusText(text){
+  dataBridgeVoterImportStatusText = String(text || "").trim();
+}
+
 function dataBridgeApplyUsbResultStatus(result){
   const legacyText = String(els?.usbStorageStatus?.textContent || "").trim();
   if (legacyText){
@@ -744,6 +855,7 @@ function dataBridgeApplyUsbResultStatus(result){
 function dataBridgeApplyImportedScenario(nextScenario){
   const normalized = normalizeLoadedScenarioRuntime(nextScenario);
   state = normalized;
+  refreshModelAuditFromArchive();
   ensureScenarioRegistry();
   ensureDecisionScaffold();
   try{
@@ -955,16 +1067,55 @@ function dataBridgeStateView(){
   const backupOptions = dataBridgeBuildBackupOptions();
   const canFs = dataBridgeHasFsSupport();
   const canUseSnapshot = !!lastResultsSnapshot;
+  const archiveRows = dataBridgeBuildArchiveRows();
+  const archiveSummary = summarizeForecastArchive(archiveRows);
+  const archiveContext = forecastArchiveContextFromState();
+  const activeContext = resolveActiveContext({ fallback: archiveContext });
+  const archiveOptions = dataBridgeBuildArchiveOptions(archiveRows);
+  const archiveLookup = new Map(archiveRows.map((row) => [String(row?.snapshotHash || "").trim(), row]));
+  const selectedArchiveHash = resolveForecastArchiveSelectedHash({
+    preferredHash: dataBridgeSelectedArchiveHash,
+    options: archiveOptions,
+    lookup: archiveLookup,
+  });
+  dataBridgeSelectedArchiveHash = selectedArchiveHash;
+  const selectedArchive = archiveLookup.get(selectedArchiveHash) || null;
+  const selectedEntryView = buildForecastArchiveSelectedEntryView(selectedArchive);
+  const archiveLearning = buildModelLearningFromArchive(archiveRows);
+  const modelAuditSummary = archiveLearning.modelAudit;
+  const learningSummary = archiveLearning.learning;
+  const archiveTableRows = buildForecastArchiveTableRows(archiveRows, { limit: 40 });
+  const voterLayer = buildVoterLayerStatusSnapshot(state?.voterData);
 
   return {
+    context: {
+      campaignId: String(activeContext?.campaignId || "").trim(),
+      campaignName: String(activeContext?.campaignName || archiveContext?.campaignName || "").trim(),
+      officeId: String(activeContext?.officeId || "").trim(),
+      scenarioId: String(activeContext?.scenarioId || archiveContext?.scenarioId || "").trim(),
+      isCampaignLocked: !!activeContext?.isCampaignLocked,
+      isOfficeLocked: !!activeContext?.isOfficeLocked,
+      isScenarioLocked: !!activeContext?.isScenarioLocked,
+    },
     strictImport,
     backupOptions,
     selectedBackup: dataBridgeSelectedBackup || (restoreSelect instanceof HTMLSelectElement ? String(restoreSelect.value || "") : ""),
     importFileName,
+    voterImportStatus: dataBridgeVoterImportStatusText,
     hashBannerText,
     warnBannerText,
     usbConnected,
     usbStatus: usbStatusText || (usbConnected ? "External folder connected." : "Using browser storage only."),
+    forecastArchive: {
+      summary: archiveSummary,
+      options: archiveOptions,
+      selectedHash: selectedArchiveHash,
+      selectedEntry: selectedEntryView,
+      rows: archiveTableRows,
+      modelAudit: modelAuditSummary,
+      learning: learningSummary,
+    },
+    voterLayer,
     controls: {
       strictToggleDisabled: false,
       restoreDisabled: !backupOptions.length,
@@ -976,6 +1127,10 @@ function dataBridgeStateView(){
       usbLoadDisabled: !(canFs && usbConnected),
       usbSaveDisabled: !(canFs && usbConnected),
       usbDisconnectDisabled: !canFs,
+      voterImportDisabled: false,
+      archiveSelectionDisabled: !archiveOptions.length,
+      archiveSaveDisabled: !selectedArchiveHash,
+      archiveRefreshDisabled: false,
     }
   };
 }
@@ -1002,11 +1157,99 @@ function dataBridgeRestoreBackup(index){
   }
   dataBridgeSelectedBackup = value;
   restoreBackupByIndex(value);
+  refreshModelAuditFromArchive();
   dataBridgeSelectedBackup = "";
   if (els?.restoreBackup instanceof HTMLSelectElement){
     els.restoreBackup.value = "";
   }
   return { ok: true, view: dataBridgeStateView() };
+}
+
+function dataBridgeSetArchiveSelection(snapshotHash){
+  const hash = String(snapshotHash || "").trim();
+  dataBridgeSelectedArchiveHash = hash;
+  return { ok: true, view: dataBridgeStateView() };
+}
+
+function dataBridgeSaveArchiveActual(payload = {}){
+  const src = payload && typeof payload === "object" ? payload : {};
+  const snapshotHash = String(src.snapshotHash || dataBridgeSelectedArchiveHash || "").trim();
+  if (!snapshotHash){
+    return { ok: false, code: "missing_snapshot_hash", view: dataBridgeStateView() };
+  }
+  const actual = normalizeForecastArchiveActual(src.actual);
+  const notes = String(src.notes || "").trim();
+  const result = updateForecastArchiveActual({
+    snapshotHash,
+    actual,
+    notes,
+  }, forecastArchiveContextFromState());
+  if (!result?.ok){
+    return { ok: false, code: String(result?.error || "archive_update_failed"), view: dataBridgeStateView() };
+  }
+  refreshModelAuditFromArchive();
+  schedulePersist();
+  return { ok: true, view: dataBridgeStateView() };
+}
+
+function dataBridgeRefreshArchive(){
+  refreshModelAuditFromArchive();
+  return { ok: true, view: dataBridgeStateView() };
+}
+
+function dataBridgeImportVoterRows(payload = {}){
+  const src = payload && typeof payload === "object" ? payload : {};
+  const parsed = parseVoterRowsInput(src.rows ?? src.text ?? src.input, {
+    format: src.format,
+    maxRows: src.maxRows,
+  });
+  if (!parsed.ok){
+    const msg = parsed.errors[0] || "Voter import failed.";
+    dataBridgeSetVoterImportStatusText(msg);
+    dataBridgeSetWarnBannerText(msg);
+    return { ok: false, code: "voter_import_invalid", errors: parsed.errors, view: dataBridgeStateView() };
+  }
+
+  const activeContext = resolveActiveContext({ fallback: forecastArchiveContextFromState() });
+  const campaignId = String(
+    activeContext?.isCampaignLocked
+      ? (activeContext?.campaignId || "")
+      : (src.campaignId || activeContext?.campaignId || "")
+  ).trim();
+  const officeId = String(
+    activeContext?.isOfficeLocked
+      ? (activeContext?.officeId || "")
+      : (src.officeId || activeContext?.officeId || "")
+  ).trim();
+  const adapterId = String(src.adapterId || "").trim();
+  const sourceId = String(src.sourceId || src.fileName || "").trim() || `voter_import_${new Date().toISOString()}`;
+  const normalizedRows = normalizeVoterRows(parsed.rows, {
+    adapterId,
+    campaignId,
+    officeId,
+    sourceId,
+    headerMap: src.headerMap,
+    manifest: src.manifest,
+  });
+  const nextVoterData = normalizeVoterDataState({
+    manifest: normalizedRows.manifest,
+    rows: normalizedRows.rows,
+  });
+  setState((s) => {
+    s.voterData = nextVoterData;
+  });
+  const importOutcome = buildVoterImportOutcomeView({
+    voterDataState: nextVoterData,
+    warnings: parsed.warnings,
+  });
+  dataBridgeSetVoterImportStatusText(importOutcome.statusText);
+  if (importOutcome.warningText){
+    dataBridgeSetWarnBannerText(importOutcome.warningText);
+  } else {
+    dataBridgeSetWarnBannerText("");
+  }
+  schedulePersist();
+  return { ok: true, importedRows: importOutcome.rowCount, warnings: parsed.warnings, view: dataBridgeStateView() };
 }
 
 function dataBridgeTrigger(action){
@@ -1069,6 +1312,10 @@ function installDataBridge(){
     getView: () => dataBridgeStateView(),
     setStrictImport: (enabled) => dataBridgeSetStrictImport(enabled),
     restoreBackup: (index) => dataBridgeRestoreBackup(index),
+    setArchiveSelection: (snapshotHash) => dataBridgeSetArchiveSelection(snapshotHash),
+    saveArchiveActual: (payload) => dataBridgeSaveArchiveActual(payload),
+    refreshArchive: () => dataBridgeRefreshArchive(),
+    importVoterRows: (payload) => dataBridgeImportVoterRows(payload),
     trigger: (action) => dataBridgeTrigger(action),
   };
 }
@@ -1078,24 +1325,12 @@ function preflightEls(){
   preflightElsModule({ els, recordError });
 }
 
-
-const DEFAULTS_BY_TEMPLATE = {
-  federal: { bandWidth: 4, persuasionPct: 28, earlyVoteExp: 45 },
-  state_leg: { bandWidth: 4, persuasionPct: 30, earlyVoteExp: 38 },
-  municipal: { bandWidth: 5, persuasionPct: 35, earlyVoteExp: 35 },
-  county: { bandWidth: 4, persuasionPct: 30, earlyVoteExp: 40 },
-};
-
-function approxEq(a, b, eps = 1e-6){
-  return approxEqModule(a, b, eps);
-}
-
-function applyTemplateDefaultsForRace(targetState, raceType, { force = false } = {}){
-  applyTemplateDefaultsForRaceModule(targetState, raceType, { force }, DEFAULTS_BY_TEMPLATE);
+function applyTemplateDefaultsForRace(targetState, raceType, options = {}){
+  return applyTemplateDefaultsForRaceModule(targetState, raceType, options);
 }
 
 function deriveAssumptionsProfileFromState(snap){
-  return deriveAssumptionsProfileFromStateModule(snap, DEFAULTS_BY_TEMPLATE, safeNum, approxEq);
+  return deriveAssumptionsProfileFromStateModule(snap);
 }
 
 function refreshAssumptionsProfile(){
@@ -1109,6 +1344,13 @@ function assumptionsProfileLabel(src = state){
 const initialStoredState = loadState();
 let state = normalizeLoadedScenarioRuntime(initialStoredState || makeDefaultState());
 const bootHadLocalState = !!initialStoredState;
+bootProbeMark("appRuntime.state.ready", {
+  bootHadLocalState,
+  campaignId: String(state?.campaignId || ""),
+  officeId: String(state?.officeId || ""),
+});
+let lastModelAuditScopeKey = forecastArchiveScopeKey();
+refreshModelAuditFromArchive();
 let lastCriticalAuditSnapshot = buildCriticalAuditSnapshot(state);
 
 // setState(patchFn) — controlled state mutation for UI-only writes.
@@ -1154,12 +1396,52 @@ function initThemeSystemListener(){
 
 // Phase 9A — export snapshot cache (pure read by export.js)
 let lastResultsSnapshot = null;
+let lastArchivedForecastKey = "";
 
 // Phase 11 — session-only safety rails
 let selfTestGateStatus = engine.selfTest.SELFTEST_GATE.UNVERIFIED;
 let lastExportHash = null;
 
 let lastAppliedWeeklyAction = null;
+
+function archiveForecastSnapshot(snapshot){
+  const hash = String(snapshot?.snapshotHash || "").trim();
+  const archiveContext = forecastArchiveContextFromState();
+  const archiveKey = `${forecastArchiveScopeKey(archiveContext)}::${String(archiveContext?.scenarioId || "")}::${hash}`;
+  if (!hash || archiveKey === lastArchivedForecastKey) return;
+  const entry = buildForecastArchiveEntry({
+    state,
+    renderCtx: lastRenderCtx,
+    snapshot,
+  });
+  if (!entry) return;
+  const result = appendForecastArchiveEntry(entry, {
+    ...archiveContext,
+  });
+  if (result?.ok){
+    lastArchivedForecastKey = archiveKey;
+    refreshModelAuditFromArchive();
+  }
+}
+
+function refreshModelAuditFromArchive(){
+  const context = forecastArchiveContextFromState();
+  lastModelAuditScopeKey = forecastArchiveScopeKey(context);
+  const rows = readForecastArchive(context);
+  const archiveLearning = buildModelLearningFromArchive(rows);
+  if (!state.ui || typeof state.ui !== "object"){
+    state.ui = {};
+  }
+  state.ui.modelAudit = archiveLearning.modelAudit;
+  state.ui.learningLoop = archiveLearning.learning;
+  return archiveLearning.modelAudit;
+}
+
+function ensureModelAuditCampaignSync(){
+  const currentScopeKey = forecastArchiveScopeKey();
+  if (currentScopeKey === lastModelAuditScopeKey) return;
+  refreshModelAuditFromArchive();
+}
 
 function syncWeeklyUndoUI(){
   const wkUndoActionBtnEl = els?.wkUndoActionBtn || null;
@@ -1289,9 +1571,10 @@ function commitUIUpdate({
 
 
 function makeDefaultState(){
+  const activeContext = resolveActiveContext();
   return makeDefaultStateModule({
-    defaultsByTemplate: DEFAULTS_BY_TEMPLATE,
     uid,
+    activeContext,
   });
 }
 
@@ -1404,6 +1687,7 @@ function wireEvents(){
 }
 
 function normalizeLoadedScenarioRuntime(s){
+  const activeContext = resolveActiveContext();
   return normalizeLoadedStateModule(s, {
     makeDefaultState,
     safeNum,
@@ -1411,6 +1695,7 @@ function normalizeLoadedScenarioRuntime(s){
     canonicalDoorsPerHourFromSnap,
     setCanonicalDoorsPerHour,
     deriveAssumptionsProfileFromState,
+    activeContext,
   });
 }
 
@@ -1420,6 +1705,14 @@ function canonicalDoorsPerHourFromSnap(snap){
 
 function setCanonicalDoorsPerHour(target, value){
   setCanonicalDoorsPerHourModule(target, value, safeNum);
+}
+
+function canonicalCallsPerHourFromSnap(snap){
+  return canonicalCallsPerHourFromSnapModule(snap, safeNum);
+}
+
+function setCanonicalCallsPerHour(target, value){
+  setCanonicalCallsPerHourModule(target, value, safeNum);
 }
 
 function requiredScenarioKeysMissing(scen){
@@ -1519,6 +1812,7 @@ function persist(){
 }
 
 function render(){
+  ensureModelAuditCampaignSync();
   renderMain({
     state,
     els,
@@ -1530,7 +1824,10 @@ function render(){
     computeExecutionSnapshot,
     computeWeeklyOpsContext,
     setLastRenderCtx: (next) => { lastRenderCtx = next; },
-    setLastResultsSnapshot: (next) => { lastResultsSnapshot = next; },
+    setLastResultsSnapshot: (next) => {
+      lastResultsSnapshot = next;
+      archiveForecastSnapshot(next);
+    },
     fmtInt,
     setText,
     safeCall,
@@ -1766,6 +2063,7 @@ function getSummaryRenderController(){
     engine,
     computeRealityDrift,
     computeEvidenceWarnings,
+    computeModelGovernance,
     renderStressModule,
     renderValidationModule,
     renderIntelChecksModule,
@@ -1963,6 +2261,12 @@ function scenarioBridgeStateView(){
     createdAt: rec?.createdAt || ""
   }));
   const count = Object.keys(reg).length;
+  const summary = buildScenarioWorkspaceSummaryView({
+    activeScenario: active,
+    activeScenarioId: activeId,
+    count,
+    max: SCENARIO_MAX,
+  });
 
   return {
     baselineId: SCENARIO_BASELINE_ID,
@@ -1970,13 +2274,9 @@ function scenarioBridgeStateView(){
     count,
     activeScenarioId: activeId,
     selectedScenarioId: selectedId,
-    activeLabel: active ? `Active Scenario: ${active.name || active.id}` : "Active Scenario: —",
-    warning:
-      count > SCENARIO_MAX
-        ? `Scenario limit exceeded (${count}/${SCENARIO_MAX}). Delete scenarios to stay under the cap.`
-        : "",
-    storageStatus:
-      "Scenario records are session-only (in-memory) and capped to keep comparisons fast and deterministic.",
+    activeLabel: summary.activeLabel,
+    warning: summary.warning,
+    storageStatus: summary.storageStatus,
     scenarios: records,
     baseline: baseline
       ? {
@@ -2104,11 +2404,9 @@ function scenarioBridgeDeleteSelected(){
 }
 
 function scenarioBridgeEnsureIntelWorkflow(targetState){
-  if (!targetState?.intelState || typeof targetState.intelState !== "object"){
-    targetState.intelState = { version: "1.0.0" };
-  }
-  if (!targetState.intelState.workflow || typeof targetState.intelState.workflow !== "object"){
-    targetState.intelState.workflow = {
+  const intel = ensureIntelCollections(targetState);
+  if (!intel?.workflow || typeof intel.workflow !== "object"){
+    return {
       scenarioLocked: false,
       lockReason: "",
       lockedAt: null,
@@ -2117,65 +2415,27 @@ function scenarioBridgeEnsureIntelWorkflow(targetState){
       requireCriticalNote: true,
       requireCriticalEvidence: true
     };
-  } else {
-    const workflow = targetState.intelState.workflow;
-    if (workflow.requireCriticalNote == null) workflow.requireCriticalNote = true;
-    if (workflow.requireCriticalEvidence == null) workflow.requireCriticalEvidence = true;
-    if (!("scenarioLocked" in workflow)) workflow.scenarioLocked = false;
-    if (!("lockReason" in workflow)) workflow.lockReason = "";
-    if (!("lockedAt" in workflow)) workflow.lockedAt = null;
-    if (!("lockedBy" in workflow)) workflow.lockedBy = "";
-    if (!("governanceBaselineAt" in workflow)) workflow.governanceBaselineAt = null;
   }
-  return targetState.intelState.workflow;
+  return intel.workflow;
 }
 
 function scenarioBridgeEnsureIntelToggles(targetState){
-  if (!targetState?.intelState || typeof targetState.intelState !== "object"){
-    targetState.intelState = { version: "1.0.0" };
-  }
-  const intel = targetState.intelState;
-  if (!intel.simToggles || typeof intel.simToggles !== "object"){
-    intel.simToggles = {
+  const intel = ensureIntelCollections(targetState);
+  return {
+    simToggles: (intel && typeof intel.simToggles === "object") ? intel.simToggles : {
       mcDistribution: "triangular",
       correlatedShocks: false,
       correlationMatrixId: null,
       shockScenariosEnabled: true
-    };
-  } else {
-    if (!("mcDistribution" in intel.simToggles)) intel.simToggles.mcDistribution = "triangular";
-    if (!("correlatedShocks" in intel.simToggles)) intel.simToggles.correlatedShocks = false;
-    if (!("correlationMatrixId" in intel.simToggles)) intel.simToggles.correlationMatrixId = null;
-    if (!("shockScenariosEnabled" in intel.simToggles)) intel.simToggles.shockScenariosEnabled = true;
-  }
-
-  if (!intel.expertToggles || typeof intel.expertToggles !== "object"){
-    intel.expertToggles = {
+    },
+    expertToggles: (intel && typeof intel.expertToggles === "object") ? intel.expertToggles : {
       capacityDecayEnabled: false,
       decayModel: {
         type: "linear",
         weeklyDecayPct: 0.03,
         floorPctOfBaseline: 0.70
       }
-    };
-  } else {
-    if (!("capacityDecayEnabled" in intel.expertToggles)) intel.expertToggles.capacityDecayEnabled = false;
-    if (!intel.expertToggles.decayModel || typeof intel.expertToggles.decayModel !== "object"){
-      intel.expertToggles.decayModel = {
-        type: "linear",
-        weeklyDecayPct: 0.03,
-        floorPctOfBaseline: 0.70
-      };
-    } else {
-      const model = intel.expertToggles.decayModel;
-      if (!("type" in model)) model.type = "linear";
-      if (!("weeklyDecayPct" in model)) model.weeklyDecayPct = 0.03;
-      if (!("floorPctOfBaseline" in model)) model.floorPctOfBaseline = 0.70;
     }
-  }
-  return {
-    simToggles: intel.simToggles,
-    expertToggles: intel.expertToggles
   };
 }
 
@@ -2307,13 +2567,20 @@ function scenarioBridgeSaveBenchmark(payload){
   return { ok: true, mode: result.mode || "updated", row: result.row || null, view: scenarioBridgeStateView() };
 }
 
-function scenarioBridgeLoadDefaultBenchmarks(raceType){
-  const result = loadDefaultBenchmarksForRaceType(state, raceType || "all");
+function scenarioBridgeLoadDefaultBenchmarks(scopeInput){
+  const result = loadDefaultBenchmarksForRaceType(state, scopeInput || "default");
   if (!result?.ok){
     return { ok: false, code: "load_defaults_failed", error: String(result?.error || "Failed to load defaults."), view: scenarioBridgeStateView() };
   }
   commitUIUpdate({ allowScenarioLockBypass: true });
-  return { ok: true, raceType: result.raceType || "all", created: result.created || 0, updated: result.updated || 0, view: scenarioBridgeStateView() };
+  return {
+    ok: true,
+    raceType: result.raceType || "all",
+    benchmarkKey: result.benchmarkKey || "default",
+    created: result.created || 0,
+    updated: result.updated || 0,
+    view: scenarioBridgeStateView(),
+  };
 }
 
 function scenarioBridgeRemoveBenchmark(benchmarkId){
@@ -2456,16 +2723,9 @@ function scenarioBridgeImportShockScenarios(jsonText){
   };
 }
 
-function scenarioBridgePatchValueMatches(a, b){
-  if (typeof a === "number" && typeof b === "number"){
-    return Math.abs(a - b) <= 1e-9;
-  }
-  return Object.is(a, b);
-}
-
 function scenarioBridgeCaptureObservedMetrics(){
   const drift = computeRealityDrift();
-  const result = captureObservedMetricsFromDrift(state, drift, { source: "dailyLog.rolling7", maxEntries: 180 });
+  const result = captureObservedMetricsFromDrift(state, drift);
   if (!result?.ok){
     return {
       ok: false,
@@ -2486,8 +2746,9 @@ function scenarioBridgeCaptureObservedMetrics(){
 
 function scenarioBridgeGenerateDriftRecommendations(){
   const drift = computeRealityDrift();
-  const metricsResult = captureObservedMetricsFromDrift(state, drift, { source: "dailyLog.rolling7", maxEntries: 180 });
-  const result = refreshDriftRecommendationsFromDrift(state, drift, { maxEntries: 60 });
+  const refresh = captureObservedAndRefreshDriftRecommendations(state, { drift });
+  const metricsResult = refresh.metricsResult;
+  const result = refresh.recommendationResult;
   if (!result?.ok){
     return {
       ok: false,
@@ -2534,27 +2795,11 @@ function scenarioBridgeParseWhatIf(requestText){
 }
 
 function scenarioBridgeApplyTopRecommendation(){
-  const recs = Array.isArray(state?.intelState?.recommendations)
-    ? state.intelState.recommendations
-        .filter((row) => String(row?.source || "").trim() === "auto.realityDrift.v1")
-        .slice()
-        .sort((a, b) => Number(a?.priority || 99) - Number(b?.priority || 99))
-    : [];
-  const top = recs[0] || null;
-  if (!top){
-    return {
-      ok: false,
-      code: "missing_recommendation",
-      error: "No active drift recommendation to apply.",
-      view: scenarioBridgeStateView()
-    };
-  }
-
-  const result = applyRecommendationDraftPatch(state, { recommendationId: String(top.id || "") });
+  const result = applyTopDriftRecommendation(state);
   if (!result?.ok){
     return {
       ok: false,
-      code: "apply_recommendation_failed",
+      code: String(result?.code || "apply_recommendation_failed"),
       error: String(result?.error || "Failed to apply recommendation patch."),
       view: scenarioBridgeStateView()
     };
@@ -2563,52 +2808,14 @@ function scenarioBridgeApplyTopRecommendation(){
   markMcStale();
   commitUIUpdate();
 
-  const linkedAuditIds = [];
-  const auditRows = Array.isArray(state?.intelState?.audit) ? state.intelState.audit.slice().reverse() : [];
-  if (result.noteMarker){
-    for (const row of auditRows){
-      if (!row || typeof row !== "object") continue;
-      if (!String(row.note || "").includes(result.noteMarker)) continue;
-      const id = String(row.id || "").trim();
-      if (id && !linkedAuditIds.includes(id)) linkedAuditIds.push(id);
-    }
-  }
-  if (!linkedAuditIds.length && Array.isArray(result.changes) && result.changes.length){
-    for (const change of result.changes){
-      const match = auditRows.find((row) =>
-        row &&
-        row.kind === "critical_ref_change" &&
-        String(row.source || "") === "ui" &&
-        String(row.key || "") === String(change?.key || "") &&
-        scenarioBridgePatchValueMatches(row.after, change?.after)
-      );
-      const id = String(match?.id || "").trim();
-      if (id && !linkedAuditIds.includes(id)) linkedAuditIds.push(id);
-    }
-  }
-
-  const recRow = Array.isArray(state?.intelState?.recommendations)
-    ? state.intelState.recommendations.find((row) => String(row?.id || "").trim() === String(result.recommendationId || "").trim())
-    : null;
-  let needsGovernance = false;
-  if (recRow){
-    recRow.appliedAuditIds = linkedAuditIds.slice();
-    recRow.updatedAt = new Date().toISOString();
-    const unresolved = (Array.isArray(state?.intelState?.audit) ? state.intelState.audit : [])
-      .filter((row) => recRow.appliedAuditIds.includes(String(row?.id || "")))
-      .filter((row) => String(row?.status || "").toLowerCase() !== "resolved");
-    needsGovernance = unresolved.length > 0;
-    recRow.status = needsGovernance ? "appliedNeedsGovernance" : (result.noop ? "alreadyApplied" : "applied");
-  }
-
   commitUIUpdate({ allowScenarioLockBypass: true });
   return {
     ok: true,
     recommendationId: String(result.recommendationId || ""),
     recommendationTitle: String(result.recommendationTitle || ""),
-    changesCount: Array.isArray(result.changes) ? result.changes.length : 0,
+    changesCount: Number(result.changesCount || 0),
     noop: !!result.noop,
-    needsGovernance,
+    needsGovernance: !!result.needsGovernance,
     view: scenarioBridgeStateView()
   };
 }
@@ -2630,7 +2837,7 @@ function installScenarioBridge(){
     updateIntelExpertToggles: (patch) => scenarioBridgeUpdateIntelExpertToggles(patch),
     setPendingCriticalNote: (note) => scenarioBridgeSetPendingCriticalNote(note),
     saveBenchmark: (payload) => scenarioBridgeSaveBenchmark(payload),
-    loadDefaultBenchmarks: (raceType) => scenarioBridgeLoadDefaultBenchmarks(raceType),
+    loadDefaultBenchmarks: (scopeInput) => scenarioBridgeLoadDefaultBenchmarks(scopeInput),
     removeBenchmark: (benchmarkId) => scenarioBridgeRemoveBenchmark(benchmarkId),
     attachEvidence: (payload) => scenarioBridgeAttachEvidence(payload),
     generateIntelBrief: (kind) => scenarioBridgeGenerateIntelBrief(kind),
@@ -2648,171 +2855,68 @@ function installScenarioBridge(){
 function districtBridgeFmtPct(value, digits = 1){
   const n = Number(value);
   if (!Number.isFinite(n)) return "—";
-  return `${n.toFixed(digits)}%`;
+  return formatPercentFromPct(n, digits, "—");
 }
 
 function districtBridgeFmtInt(value){
   const n = Number(value);
   if (!Number.isFinite(n)) return "—";
-  return fmtInt(Math.round(n));
+  return formatWholeNumberByMode(n, { mode: "round", fallback: "—" });
 }
 
 function districtBridgeSupportTotalFromState(currentState){
-  const candidates = Array.isArray(currentState?.candidates) ? currentState.candidates : [];
-  let total = 0;
-  for (const row of candidates){
-    const support = safeNum(row?.supportPct);
-    if (support != null) total += support;
-  }
-  const undecided = safeNum(currentState?.undecidedPct);
-  if (undecided != null) total += undecided;
-  return Number.isFinite(total) ? total : null;
+  return computeDistrictSupportTotalPctFromState(currentState);
 }
 
 function districtBridgeFallbackTurnout(currentState){
-  const turnoutA = safeNum(currentState?.turnoutA);
-  const turnoutB = safeNum(currentState?.turnoutB);
-  const bandWidth = safeNum(currentState?.bandWidth);
-  const universeSize = safeNum(currentState?.universeSize);
-  const expected = (turnoutA != null && turnoutB != null) ? (turnoutA + turnoutB) / 2 : null;
-  const best = (expected != null && bandWidth != null) ? Math.min(100, expected + bandWidth) : null;
-  const worst = (expected != null && bandWidth != null) ? Math.max(0, expected - bandWidth) : null;
-  const votesPer1pct = (universeSize != null) ? Math.max(0, Math.round(universeSize * 0.01)) : null;
-
-  return {
-    expectedText: expected == null ? "—" : districtBridgeFmtPct(expected, 1),
-    bandText: (best == null || worst == null)
-      ? "—"
-      : `${best.toFixed(1)}% / ${worst.toFixed(1)}%`,
-    votesPer1pctText: votesPer1pct == null ? "—" : districtBridgeFmtInt(votesPer1pct),
-  };
-}
-
-function districtBridgeResolutionLabel(resolution){
-  const key = String(resolution || "").trim();
-  if (!key) return "—";
-  const labels = {
-    place: "Place",
-    tract: "Tract",
-    block_group: "Block group",
-    congressional_district: "Congressional district",
-    state_senate_district: "State senate district",
-    state_house_district: "State house district",
-  };
-  return labels[key] || key.replace(/_/g, " ");
+  return buildDistrictTurnoutFallbackView(currentState, {
+    formatPercent: (value, digits = 1) => districtBridgeFmtPct(value, digits),
+    formatInt: (value) => districtBridgeFmtInt(value),
+  });
 }
 
 function districtBridgeFmtTimestamp(ts){
-  const raw = String(ts || "").trim();
-  if (!raw) return "No fetch yet.";
-  try{
-    const d = new Date(raw);
-    if (!Number.isFinite(d.getTime())) return `Last fetch: ${raw}`;
-    return `Last fetch: ${d.toLocaleString()}`;
-  } catch {
-    return `Last fetch: ${raw}`;
-  }
+  return buildDistrictLastFetchText(ts);
 }
 
 function districtBridgeBuildContextHint(censusState){
-  const census = censusState && typeof censusState === "object" ? censusState : {};
-  const resolution = String(census.resolution || "").trim();
-  const stateFips = String(census.stateFips || "").trim();
-  const countyFips = String(census.countyFips || "").trim();
-  const placeFips = String(census.placeFips || "").trim();
-  if (!stateFips){
-    return "Set state and resolution to define Census context.";
-  }
-  const label = districtBridgeResolutionLabel(resolution);
-  if (resolution === "place"){
-    if (!placeFips){
-      return `${label} context: state ${stateFips}. Select place for bounded fetches.`;
-    }
-    return `${label} context: state ${stateFips}, place ${placeFips}.`;
-  }
-  if (resolution === "tract" || resolution === "block_group"){
-    if (!countyFips){
-      return `${label} context: state ${stateFips}. Select county for this resolution.`;
-    }
-    return `${label} context: state ${stateFips}, county ${countyFips}.`;
-  }
-  return `${label} context: state ${stateFips}.`;
+  return buildDistrictCensusContextHint(censusState);
 }
 
 function districtBridgeBuildSelectionSetStatus(censusState){
-  const census = censusState && typeof censusState === "object" ? censusState : {};
-  const sets = Array.isArray(census.selectionSets) ? census.selectionSets : [];
-  if (!sets.length){
-    return "No saved selection sets.";
-  }
-  const active = String(census.selectedSelectionSetKey || "").trim();
-  if (active){
-    return `Loaded selection set: ${active}.`;
-  }
-  return `${districtBridgeFmtInt(sets.length)} saved selection set(s).`;
+  return buildDistrictSelectionSetStatus(censusState, {
+    formatInt: (value) => districtBridgeFmtInt(value),
+  });
 }
 
 function districtBridgeBuildGeoStatsText(censusState){
-  const census = censusState && typeof censusState === "object" ? censusState : {};
-  const selected = Array.isArray(census.selectedGeoids) ? census.selectedGeoids.length : 0;
-  const rows = Number.isFinite(Number(census.loadedRowCount)) ? Math.max(0, Math.floor(Number(census.loadedRowCount))) : 0;
-  return `${districtBridgeFmtInt(selected)} selected. ${districtBridgeFmtInt(rows)} rows loaded.`;
+  return buildDistrictGeoStatsText(censusState, {
+    formatInt: (value) => districtBridgeFmtInt(value),
+  });
 }
 
 function districtBridgeBuildSelectionSummary(censusState){
-  const census = censusState && typeof censusState === "object" ? censusState : {};
-  const selected = Array.isArray(census.selectedGeoids)
-    ? census.selectedGeoids.map((id) => String(id || "").trim()).filter((id) => !!id)
-    : [];
-  if (!selected.length){
-    return "No GEO selected.";
-  }
-  const preview = selected.slice(0, 2).join(", ");
-  const extra = selected.length > 2 ? ` +${selected.length - 2} more` : "";
-  return `${preview}${extra}`;
+  return buildDistrictSelectionSummaryText(censusState);
 }
 
 function districtBridgeBuildRaceFootprintStatus(currentState){
-  const fp = currentState?.raceFootprint && typeof currentState.raceFootprint === "object"
-    ? currentState.raceFootprint
-    : null;
-  const count = Array.isArray(fp?.geoids) ? fp.geoids.length : 0;
-  if (!count){
-    return "Race footprint not set. Use Census card to set canonical race boundary.";
-  }
-  const label = districtBridgeResolutionLabel(String(fp?.resolution || "").trim());
-  return `Race footprint set: ${districtBridgeFmtInt(count)} GEO(s) (${label}).`;
+  return buildDistrictRaceFootprintStatus(currentState, {
+    formatInt: (value) => districtBridgeFmtInt(value),
+  });
 }
 
 function districtBridgeBuildAssumptionProvenanceStatus(currentState){
-  const prov = currentState?.assumptionsProvenance && typeof currentState.assumptionsProvenance === "object"
-    ? currentState.assumptionsProvenance
-    : null;
-  const generatedAt = String(prov?.generatedAt || "").trim();
-  if (!generatedAt){
-    return "Assumption provenance not set.";
-  }
-  const year = String(prov?.acsYear || "").trim() || "—";
-  const metricSet = String(prov?.metricSet || "").trim() || "—";
-  return `Assumption provenance set (${year}, ${metricSet}).`;
+  return buildDistrictAssumptionProvenanceStatus(currentState);
 }
 
 function districtBridgeBuildFootprintCapacityStatus(currentState){
-  const capacity = currentState?.footprintCapacity && typeof currentState.footprintCapacity === "object"
-    ? currentState.footprintCapacity
-    : null;
-  const population = safeNum(capacity?.population);
-  if (population == null || population <= 0){
-    return "Footprint capacity: not set.";
-  }
-  return `Footprint capacity: ${districtBridgeFmtInt(population)}.`;
+  return buildDistrictFootprintCapacityStatus(currentState, {
+    formatInt: (value) => districtBridgeFmtInt(value),
+  });
 }
 
 function districtBridgeBuildApplyAdjustmentsStatus(censusState){
-  const census = censusState && typeof censusState === "object" ? censusState : {};
-  return census.applyAdjustedAssumptions
-    ? "Census-adjusted assumptions are ON."
-    : "Census-adjusted assumptions are OFF.";
+  return buildDistrictApplyAdjustmentsStatus(censusState);
 }
 
 function districtBridgeBuildSelectOptions(values, { selected = "", placeholder = "" } = {}){
@@ -2843,17 +2947,6 @@ function districtBridgeBuildSelectOptions(values, { selected = "", placeholder =
   return out;
 }
 
-function districtBridgeReadLegacySelectOptions(id){
-  const el = document.getElementById(id);
-  if (!(el instanceof HTMLSelectElement)) return [];
-  return Array.from(el.options || [])
-    .map((opt) => ({
-      value: String(opt?.value || "").trim(),
-      label: String(opt?.textContent || opt?.label || opt?.value || "").trim(),
-    }))
-    .filter((row) => !!row.value);
-}
-
 function districtBridgeBuildCensusConfigOptions(censusState){
   const census = censusState && typeof censusState === "object" ? censusState : {};
   const geoRowsRaw = Array.isArray(census.geoOptions) ? census.geoOptions : [];
@@ -2877,15 +2970,16 @@ function districtBridgeBuildCensusConfigOptions(censusState){
       .filter((id) => !!id),
   );
 
-  const legacyStateOptions = districtBridgeReadLegacySelectOptions("censusStateFips");
-  const legacyCountyOptions = districtBridgeReadLegacySelectOptions("censusCountyFips");
-  const legacyPlaceOptions = districtBridgeReadLegacySelectOptions("censusPlaceFips");
-  const legacyTractFilterOptions = districtBridgeReadLegacySelectOptions("censusTractFilter");
-  const legacySelectionSetOptions = districtBridgeReadLegacySelectOptions("censusSelectionSetSelect");
+  const bridgeStateOptions = Array.isArray(census.bridgeStateOptions) ? census.bridgeStateOptions : [];
+  const bridgeCountyOptions = Array.isArray(census.bridgeCountyOptions) ? census.bridgeCountyOptions : [];
+  const bridgePlaceOptions = Array.isArray(census.bridgePlaceOptions) ? census.bridgePlaceOptions : [];
+  const bridgeTractFilterOptions = Array.isArray(census.bridgeTractFilterOptions) ? census.bridgeTractFilterOptions : [];
+  const bridgeSelectionSetOptions = Array.isArray(census.bridgeSelectionSetOptions) ? census.bridgeSelectionSetOptions : [];
+  const bridgeGeoSelectOptions = Array.isArray(census.bridgeGeoSelectOptions) ? census.bridgeGeoSelectOptions : [];
 
   const stateOptions = districtBridgeBuildSelectOptions(
-    legacyStateOptions.length
-      ? legacyStateOptions
+    bridgeStateOptions.length
+      ? bridgeStateOptions
       : geoRows.map((row) => ({
         value: row.state,
         label: row.state,
@@ -2893,30 +2987,30 @@ function districtBridgeBuildCensusConfigOptions(censusState){
     { selected: census.stateFips, placeholder: "Select state" },
   );
   const countyOptions = districtBridgeBuildSelectOptions(
-    legacyCountyOptions.length
-      ? legacyCountyOptions
+    bridgeCountyOptions.length
+      ? bridgeCountyOptions
       : geoRows
         .filter((row) => !census.stateFips || row.state === String(census.stateFips || "").trim())
         .map((row) => ({ value: row.county, label: row.county })),
     { selected: census.countyFips, placeholder: "Select county" },
   );
   const placeOptions = districtBridgeBuildSelectOptions(
-    legacyPlaceOptions.length
-      ? legacyPlaceOptions
+    bridgePlaceOptions.length
+      ? bridgePlaceOptions
       : geoRows
         .filter((row) => !census.stateFips || row.state === String(census.stateFips || "").trim())
         .map((row) => ({ value: row.place, label: row.place })),
     { selected: census.placeFips, placeholder: "Select place" },
   );
   const tractFilterOptions = districtBridgeBuildSelectOptions(
-    legacyTractFilterOptions.length
-      ? legacyTractFilterOptions
+    bridgeTractFilterOptions.length
+      ? bridgeTractFilterOptions
       : geoRows.map((row) => ({ value: row.tract, label: row.tract })),
     { selected: census.tractFilter, placeholder: "All tracts" },
   );
   const selectionSetOptions = districtBridgeBuildSelectOptions(
-    legacySelectionSetOptions.length
-      ? legacySelectionSetOptions
+    bridgeSelectionSetOptions.length
+      ? bridgeSelectionSetOptions
       : (Array.isArray(census.selectionSets) ? census.selectionSets : []).map((row, idx) => ({
         value: String(idx),
         label: `${String(row?.name || "").trim()} · ${String(row?.resolution || "").trim()} · ${Array.isArray(row?.geoids) ? row.geoids.length : 0} GEO`,
@@ -2924,11 +3018,18 @@ function districtBridgeBuildCensusConfigOptions(censusState){
     { selected: census.selectedSelectionSetKey, placeholder: "Saved sets" },
   );
 
-  const geoSelectOptions = geoRows.map((row) => ({
-    value: row.geoid,
-    label: row.label,
-    selected: selectedGeoids.has(row.geoid),
-  }));
+  const geoSelectOptions = (bridgeGeoSelectOptions.length
+    ? bridgeGeoSelectOptions.map((row) => ({
+      value: String(row?.value || "").trim(),
+      label: String(row?.label || row?.value || "").trim(),
+      selected: !!row?.selected,
+    }))
+    : geoRows.map((row) => ({
+      value: row.geoid,
+      label: row.label,
+      selected: selectedGeoids.has(row.geoid),
+    })))
+    .filter((row) => !!row.value);
 
   for (const geoid of selectedGeoids) {
     if (!geoSelectOptions.some((row) => row.value === geoid)) {
@@ -2958,7 +3059,7 @@ function districtBridgeBuildCensusDisabledMap(currentState, censusState){
   const hasGeoOptions = geoOptionsCount > 0;
   const selectedGeoCount = Array.isArray(census?.selectedGeoids) ? census.selectedGeoids.length : 0;
   const loadedRowCount = Number.isFinite(Number(census?.loadedRowCount))
-    ? Math.max(0, Math.floor(Number(census.loadedRowCount)))
+    ? Math.max(0, roundWholeNumberByMode(Number(census.loadedRowCount), { mode: "floor", fallback: 0 }) || 0)
     : 0;
   const selectedSetKey = String(census?.selectedSelectionSetKey || "").trim();
   const draftName = String(census?.selectionSetDraftName || "").trim();
@@ -3040,9 +3141,7 @@ function districtBridgeStateView(){
   const universeSize = safeNum(currentState?.universeSize);
   const supportTotalFromState = districtBridgeSupportTotalFromState(currentState);
   const turnoutFallback = districtBridgeFallbackTurnout(currentState);
-  const targetingState = (currentState?.targeting && typeof currentState.targeting === "object")
-    ? currentState.targeting
-    : {};
+  const targetingState = normalizeTargetingState(currentState?.targeting);
 
   const supportTotalPct = safeNum(res?.validation?.supportTotalPct);
   const turnoutExpectedPct = safeNum(res?.turnout?.expectedPct);
@@ -3062,7 +3161,7 @@ function districtBridgeStateView(){
       : districtBridgeFmtPct(turnoutExpectedPct, 1),
     turnoutBandText: (turnoutBestPct == null || turnoutWorstPct == null)
       ? turnoutFallback.bandText
-      : `${turnoutBestPct.toFixed(1)}% / ${turnoutWorstPct.toFixed(1)}%`,
+      : `${formatPercentFromPct(turnoutBestPct, 1, "0.0%")} / ${formatPercentFromPct(turnoutWorstPct, 1, "0.0%")}`,
     votesPer1pctText: votesPer1pct == null
       ? turnoutFallback.votesPer1pctText
       : districtBridgeFmtInt(votesPer1pct),
@@ -3111,10 +3210,12 @@ function districtBridgeStateView(){
     const flags = String(row?.flagText || (Array.isArray(row?.flags) ? row.flags.join("; ") : "") || "").trim();
     const geoLabel = String(row?.label || row?.geoid || "").trim();
     return {
-      rankText: rankValue == null ? String(idx + 1) : String(Math.max(1, Math.floor(rankValue))),
+      rankText: rankValue == null
+        ? String(idx + 1)
+        : String(Math.max(1, roundWholeNumberByMode(rankValue, { mode: "floor", fallback: 1 }) || 1)),
       geoText: geoLabel || "—",
-      scoreText: scoreValue == null ? "—" : scoreValue.toFixed(3),
-      votesPerHourText: vphValue == null ? "—" : vphValue.toFixed(2),
+      scoreText: scoreValue == null ? "—" : formatFixedNumber(scoreValue, 3, "—"),
+      votesPerHourText: vphValue == null ? "—" : formatFixedNumber(vphValue, 2, "—"),
       reasonText: reason || "—",
       flagsText: flags || "—",
     };
@@ -3122,30 +3223,6 @@ function districtBridgeStateView(){
   const targetingMeta = (targetingState?.lastMeta && typeof targetingState.lastMeta === "object")
     ? targetingState.lastMeta
     : {};
-  const targetingWeights = (targetingState?.weights && typeof targetingState.weights === "object")
-    ? targetingState.weights
-    : {};
-  const targetingCriteria = (targetingState?.criteria && typeof targetingState.criteria === "object")
-    ? targetingState.criteria
-    : {};
-  const targetingDefaults = {
-    presetId: "turnout_opportunity",
-    geoLevel: "block_group",
-    modelId: "turnout_opportunity",
-    topN: 50,
-    minHousingUnits: 50,
-    minPopulation: 120,
-    minScore: 0.35,
-    onlyRaceFootprint: true,
-    prioritizeYoung: true,
-    prioritizeRenters: true,
-    avoidHighMultiUnit: false,
-    densityFloor: "medium",
-    weightVotePotential: 0.30,
-    weightTurnoutOpportunity: 0.50,
-    weightPersuasionIndex: 0.10,
-    weightFieldEfficiency: 0.10,
-  };
   const targetingPreset = String(targetingMeta?.presetLabel || targetingMeta?.presetId || targetingState?.presetId || "").trim();
   const targetingModel = String(targetingMeta?.modelLabel || targetingMeta?.modelId || targetingState?.modelId || "").trim();
   const targetingGeoLevel = String(targetingMeta?.geoLevel || targetingState?.geoLevel || "").trim();
@@ -3155,37 +3232,39 @@ function districtBridgeStateView(){
   if (targetingPreset) targetingMetaBits.push(targetingPreset);
   if (targetingModel && targetingModel !== targetingPreset) targetingMetaBits.push(`Base ${targetingModel}`);
   if (targetingGeoLevel) targetingMetaBits.push(targetingGeoLevel);
-  if (targetingTopN != null) targetingMetaBits.push(`Top ${Math.max(1, Math.floor(targetingTopN))}`);
+  if (targetingTopN != null){
+    targetingMetaBits.push(`Top ${Math.max(1, roundWholeNumberByMode(targetingTopN, { mode: "floor", fallback: 1 }) || 1)}`);
+  }
   if (targetingRanAt) targetingMetaBits.push(`Ran ${targetingRanAt}`);
   const targetingStatusText = targetingRows.length
     ? `Ranked ${districtBridgeFmtInt(targetingRows.length)} GEO rows.`
     : "Run targeting to generate ranked GEOs.";
   const targetingMetaText = targetingMetaBits.join(" · ") || "No targeting run yet.";
-  const targetingTopNConfig = safeNum(targetingState?.topN) ?? safeNum(targetingMeta?.topN) ?? targetingDefaults.topN;
-  const targetingMinHousingUnitsConfig = safeNum(targetingState?.minHousingUnits) ?? targetingDefaults.minHousingUnits;
-  const targetingMinPopulationConfig = safeNum(targetingState?.minPopulation) ?? targetingDefaults.minPopulation;
-  const targetingMinScoreConfig = safeNum(targetingState?.minScore) ?? targetingDefaults.minScore;
-  const targetingWeightVotePotential = safeNum(targetingWeights?.votePotential) ?? targetingDefaults.weightVotePotential;
-  const targetingWeightTurnoutOpportunity = safeNum(targetingWeights?.turnoutOpportunity) ?? targetingDefaults.weightTurnoutOpportunity;
-  const targetingWeightPersuasionIndex = safeNum(targetingWeights?.persuasionIndex) ?? targetingDefaults.weightPersuasionIndex;
-  const targetingWeightFieldEfficiency = safeNum(targetingWeights?.fieldEfficiency) ?? targetingDefaults.weightFieldEfficiency;
-  const targetingPresetId = String(targetingState?.presetId || targetingMeta?.presetId || targetingDefaults.presetId).trim() || targetingDefaults.presetId;
-  const targetingModelId = String(targetingState?.modelId || targetingMeta?.modelId || targetingDefaults.modelId).trim() || targetingDefaults.modelId;
+  const targetingTopNConfig = safeNum(targetingState?.topN);
+  const targetingMinHousingUnitsConfig = safeNum(targetingState?.minHousingUnits);
+  const targetingMinPopulationConfig = safeNum(targetingState?.minPopulation);
+  const targetingMinScoreConfig = safeNum(targetingState?.minScore);
+  const targetingWeightVotePotential = safeNum(targetingState?.weights?.votePotential);
+  const targetingWeightTurnoutOpportunity = safeNum(targetingState?.weights?.turnoutOpportunity);
+  const targetingWeightPersuasionIndex = safeNum(targetingState?.weights?.persuasionIndex);
+  const targetingWeightFieldEfficiency = safeNum(targetingState?.weights?.fieldEfficiency);
+  const targetingPresetId = String(targetingState?.presetId || "").trim();
+  const targetingModelId = String(targetingState?.modelId || "").trim();
   const censusLoadedRowCount = safeNum(censusState?.loadedRowCount) ?? 0;
   const houseModelActive = targetingPresetId === "house_v1" || targetingModelId === "house_v1";
   const targetingConfig = {
     presetId: targetingPresetId,
-    geoLevel: String(targetingState?.geoLevel || targetingMeta?.geoLevel || targetingDefaults.geoLevel).trim() || targetingDefaults.geoLevel,
+    geoLevel: String(targetingState?.geoLevel || "").trim(),
     modelId: targetingModelId,
     topN: targetingTopNConfig,
     minHousingUnits: targetingMinHousingUnitsConfig,
     minPopulation: targetingMinPopulationConfig,
     minScore: targetingMinScoreConfig,
-    onlyRaceFootprint: targetingState?.onlyRaceFootprint == null ? targetingDefaults.onlyRaceFootprint : !!targetingState.onlyRaceFootprint,
-    prioritizeYoung: targetingCriteria?.prioritizeYoung == null ? targetingDefaults.prioritizeYoung : !!targetingCriteria.prioritizeYoung,
-    prioritizeRenters: targetingCriteria?.prioritizeRenters == null ? targetingDefaults.prioritizeRenters : !!targetingCriteria.prioritizeRenters,
-    avoidHighMultiUnit: targetingCriteria?.avoidHighMultiUnit == null ? targetingDefaults.avoidHighMultiUnit : !!targetingCriteria.avoidHighMultiUnit,
-    densityFloor: String(targetingCriteria?.densityFloor || targetingDefaults.densityFloor).trim() || targetingDefaults.densityFloor,
+    onlyRaceFootprint: !!targetingState?.onlyRaceFootprint,
+    prioritizeYoung: !!targetingState?.criteria?.prioritizeYoung,
+    prioritizeRenters: !!targetingState?.criteria?.prioritizeRenters,
+    avoidHighMultiUnit: !!targetingState?.criteria?.avoidHighMultiUnit,
+    densityFloor: String(targetingState?.criteria?.densityFloor || "none").trim() || "none",
     weightVotePotential: targetingWeightVotePotential,
     weightTurnoutOpportunity: targetingWeightTurnoutOpportunity,
     weightPersuasionIndex: targetingWeightPersuasionIndex,
@@ -3194,6 +3273,42 @@ function districtBridgeStateView(){
     canRun: censusLoadedRowCount > 0,
     canExport: targetingRows.length > 0,
     canResetWeights: houseModelActive,
+  };
+  const templateMeta = currentState?.templateMeta && typeof currentState.templateMeta === "object"
+    ? currentState.templateMeta
+    : {};
+  const template = {
+    raceType: String(currentState?.raceType || "").trim(),
+    officeLevel: String(templateMeta?.officeLevel || "").trim(),
+    electionType: String(templateMeta?.electionType || "").trim(),
+    seatContext: String(templateMeta?.seatContext || "").trim(),
+    partisanshipMode: String(templateMeta?.partisanshipMode || "").trim(),
+    salienceLevel: String(templateMeta?.salienceLevel || "").trim(),
+    appliedTemplateId: String(templateMeta?.appliedTemplateId || "").trim(),
+    appliedVersion: String(templateMeta?.appliedVersion || "").trim(),
+    benchmarkKey: String(templateMeta?.benchmarkKey || "").trim(),
+    overriddenFields: Array.isArray(templateMeta?.overriddenFields)
+      ? templateMeta.overriddenFields.map((field) => String(field || "").trim()).filter(Boolean)
+      : [],
+    assumptionsProfile: String(currentState?.ui?.assumptionsProfile || "").trim(),
+  };
+  const form = {
+    raceType: String(currentState?.raceType || "").trim(),
+    electionDate: String(currentState?.electionDate || "").trim(),
+    weeksRemaining: String(currentState?.weeksRemaining ?? "").trim(),
+    mode: String(currentState?.mode || "").trim(),
+    universeSize: safeNum(currentState?.universeSize),
+    universeBasis: String(currentState?.universeBasis || "").trim(),
+    sourceNote: String(currentState?.sourceNote || "").trim(),
+    turnoutA: safeNum(currentState?.turnoutA),
+    turnoutB: safeNum(currentState?.turnoutB),
+    bandWidth: safeNum(currentState?.bandWidth),
+    universe16Enabled: !!currentState?.universeLayerEnabled,
+    universe16DemPct: safeNum(currentState?.universeDemPct),
+    universe16RepPct: safeNum(currentState?.universeRepPct),
+    universe16NpaPct: safeNum(currentState?.universeNpaPct),
+    universe16OtherPct: safeNum(currentState?.universeOtherPct),
+    retentionFactor: safeNum(currentState?.retentionFactor),
   };
   const bridgeAggregateRows = districtBridgeNormalizeRows(censusState?.bridgeAggregateRows, 2);
   const bridgeAdvisoryRows = districtBridgeNormalizeRows(censusState?.bridgeAdvisoryRows, 2);
@@ -3222,7 +3337,7 @@ function districtBridgeStateView(){
     advisoryRows: bridgeAdvisoryRows,
     electionPreviewRows: bridgeElectionPreviewRows,
     config: {
-      apiKey: String(document.getElementById("censusApiKey")?.value || "").trim(),
+      apiKey: String(censusState?.bridgeApiKey || "").trim(),
       year: String(censusState?.year || "").trim(),
       resolution: String(censusState?.resolution || "").trim(),
       stateFips: String(censusState?.stateFips || "").trim(),
@@ -3230,11 +3345,11 @@ function districtBridgeStateView(){
       placeFips: String(censusState?.placeFips || "").trim(),
       metricSet: String(censusState?.metricSet || "").trim(),
       geoSearch: String(censusState?.geoSearch || "").trim(),
-      geoPaste: String(document.getElementById("censusGeoPaste")?.value || "").trim(),
+      geoPaste: String(censusState?.bridgeGeoPaste || "").trim(),
       tractFilter: String(censusState?.tractFilter || "").trim(),
       selectionSetDraftName: String(censusState?.selectionSetDraftName || "").trim(),
       selectedSelectionSetKey: String(censusState?.selectedSelectionSetKey || "").trim(),
-      electionCsvPrecinctFilter: String(document.getElementById("censusElectionCsvPrecinctFilter")?.value || "").trim(),
+      electionCsvPrecinctFilter: String(censusState?.bridgeElectionCsvPrecinctFilter || "").trim(),
       applyAdjustedAssumptions: !!censusState?.applyAdjustedAssumptions,
       mapQaVtdOverlay: !!censusState?.mapQaVtdOverlay,
       controlsLocked: isScenarioLockedForEdits(currentState),
@@ -3249,6 +3364,8 @@ function districtBridgeStateView(){
   };
   return {
     summary,
+    template,
+    form,
     ballot,
     targeting: {
       statusText: targetingStatusText,
@@ -3272,6 +3389,12 @@ function districtBridgeBuildDistrictDisabledMap(currentState){
     v3DistrictUndecidedMode: controlsLocked,
     v3BtnAddCandidate: controlsLocked,
     v3DistrictRaceType: controlsLocked,
+    v3DistrictOfficeLevel: controlsLocked,
+    v3DistrictElectionType: controlsLocked,
+    v3DistrictSeatContext: controlsLocked,
+    v3DistrictPartisanshipMode: controlsLocked,
+    v3DistrictSalienceLevel: controlsLocked,
+    v3BtnDistrictApplyTemplateDefaults: controlsLocked,
     v3DistrictElectionDate: controlsLocked,
     v3DistrictWeeksRemaining: controlsLocked,
     v3DistrictMode: controlsLocked,
@@ -3290,10 +3413,77 @@ function districtBridgeBuildDistrictDisabledMap(currentState){
   };
 }
 
+function districtBridgeGetCensusRuntimeApi(){
+  try {
+    const api = window.__FPE_CENSUS_RUNTIME_API__;
+    return (api && typeof api === "object") ? api : null;
+  } catch {
+    return null;
+  }
+}
+
+function districtBridgeCallCensusRuntime(method, ...args){
+  const api = districtBridgeGetCensusRuntimeApi();
+  if (!api || typeof api[method] !== "function"){
+    return null;
+  }
+  try {
+    return api[method](...args);
+  } catch {
+    return null;
+  }
+}
+
+function districtBridgePatchCensusBridgeField(field, rawValue){
+  const key = cleanText(field);
+  if (!key) return false;
+  let applied = false;
+  setState((next) => {
+    if (!next.census || typeof next.census !== "object") next.census = {};
+    if (key === "apiKey"){
+      next.census.bridgeApiKey = cleanText(rawValue);
+      applied = true;
+      return;
+    }
+    if (key === "geoPaste"){
+      next.census.bridgeGeoPaste = String(rawValue == null ? "" : rawValue);
+      applied = true;
+      return;
+    }
+    if (key === "electionCsvPrecinctFilter"){
+      next.census.bridgeElectionCsvPrecinctFilter = String(rawValue == null ? "" : rawValue);
+      applied = true;
+    }
+  });
+  if (applied) {
+    commitUIUpdate({ persist: false });
+  }
+  return applied;
+}
+
+function districtBridgePatchCensusGeoSelection(values){
+  const nextValues = Array.from(new Set(
+    (Array.isArray(values) ? values : [])
+      .map((value) => String(value == null ? "" : value).trim())
+      .filter(Boolean),
+  ));
+  let applied = false;
+  setState((next) => {
+    if (!next.census || typeof next.census !== "object") next.census = {};
+    next.census.selectedGeoids = nextValues;
+    applied = true;
+  });
+  if (applied) {
+    commitUIUpdate({ persist: false });
+  }
+  return applied;
+}
+
 function installDistrictBridge(){
   window[DISTRICT_BRIDGE_KEY] = {
     getView: () => districtBridgeStateView(),
     setFormField: (field, value) => districtBridgeSetFormField(field, value),
+    applyTemplateDefaults: (mode) => districtBridgeApplyTemplateDefaults(mode),
     addCandidate: () => districtBridgeAddCandidate(),
     updateCandidate: (candidateId, field, value) => districtBridgeUpdateCandidate(candidateId, field, value),
     removeCandidate: (candidateId) => districtBridgeRemoveCandidate(candidateId),
@@ -3304,6 +3494,10 @@ function installDistrictBridge(){
     runTargeting: () => districtBridgeRunTargeting(),
     exportTargetingCsv: () => districtBridgeExportTargetingCsv(),
     exportTargetingJson: () => districtBridgeExportTargetingJson(),
+    setCensusField: (field, value) => districtBridgeSetCensusField(field, value),
+    setCensusGeoSelection: (values) => districtBridgeSetCensusGeoSelection(values),
+    setCensusFile: (field, files) => districtBridgeSetCensusFile(field, files),
+    triggerCensusAction: (action) => districtBridgeTriggerCensusAction(action),
   };
 }
 
@@ -3313,6 +3507,55 @@ function districtBridgeEnsureTargetingState(srcState = state){
   }
   srcState.targeting = normalizeTargetingState(srcState.targeting);
   return srcState.targeting;
+}
+
+function districtBridgeTemplateDimensionsFromState(srcState, overrides = {}){
+  const meta = srcState?.templateMeta && typeof srcState.templateMeta === "object" ? srcState.templateMeta : {};
+  const officeLevel = cleanText(overrides.officeLevel ?? meta.officeLevel);
+  const electionType = cleanText(overrides.electionType ?? meta.electionType);
+  const seatContext = cleanText(overrides.seatContext ?? meta.seatContext);
+  const partisanshipMode = cleanText(overrides.partisanshipMode ?? meta.partisanshipMode);
+  const salienceLevel = cleanText(overrides.salienceLevel ?? meta.salienceLevel);
+  return {
+    officeLevel,
+    electionType,
+    seatContext,
+    partisanshipMode,
+    salienceLevel,
+  };
+}
+
+function districtBridgeApplyTemplateDefaults(mode = "all"){
+  if (isScenarioLockedForEdits(state)){
+    return { ok: false, code: "locked", view: districtBridgeStateView() };
+  }
+  const requestedMode = cleanText(mode);
+  let applyResult = { ok: false, code: "unknown" };
+  setState((next) => {
+    const dims = districtBridgeTemplateDimensionsFromState(next);
+    applyResult = applyTemplateDefaultsForRace(next, next.raceType, {
+      mode: requestedMode || "all",
+      ...dims,
+    });
+    if (!next.ui || typeof next.ui !== "object") next.ui = {};
+    next.ui.assumptionsProfile = deriveAssumptionsProfileFromState(next);
+  });
+  if (!applyResult || applyResult.ok !== true){
+    return {
+      ok: false,
+      code: String(applyResult?.code || "apply_failed"),
+      view: districtBridgeStateView(),
+    };
+  }
+  return {
+    ok: true,
+    code: "applied",
+    mode: String(applyResult.mode || requestedMode || "untouched"),
+    updatedFields: Array.isArray(applyResult.updatedFields) ? applyResult.updatedFields.slice() : [],
+    skippedFields: Array.isArray(applyResult.skippedFields) ? applyResult.skippedFields.slice() : [],
+    templateId: String(applyResult.templateId || "").trim(),
+    view: districtBridgeStateView(),
+  };
 }
 
 function districtBridgeSetFormField(field, rawValue){
@@ -3326,13 +3569,59 @@ function districtBridgeSetFormField(field, rawValue){
 
   let applied = false;
   setState((next) => {
+    const templateDims = districtBridgeTemplateDimensionsFromState(next);
+    const applyTemplateDimension = (overrides = {}) => {
+      applyTemplateDefaultsForRace(next, next.raceType, {
+        mode: "untouched",
+        ...templateDims,
+        ...overrides,
+      });
+      if (!next.ui || typeof next.ui !== "object") next.ui = {};
+      next.ui.assumptionsProfile = deriveAssumptionsProfileFromState(next);
+    };
+
     if (key === "raceType"){
       const value = cleanText(rawValue);
       if (!value) return;
       next.raceType = value;
-      applyTemplateDefaultsForRace(next, value, { force: true });
+      applyTemplateDefaultsForRace(next, value, { mode: "untouched" });
       if (!next.ui || typeof next.ui !== "object") next.ui = {};
-      next.ui.assumptionsProfile = "template";
+      next.ui.assumptionsProfile = deriveAssumptionsProfileFromState(next);
+      applied = true;
+      return;
+    }
+    if (key === "officeLevel"){
+      const value = cleanText(rawValue);
+      if (!value) return;
+      applyTemplateDimension({ officeLevel: value });
+      applied = true;
+      return;
+    }
+    if (key === "electionType"){
+      const value = cleanText(rawValue);
+      if (!value) return;
+      applyTemplateDimension({ electionType: value });
+      applied = true;
+      return;
+    }
+    if (key === "seatContext"){
+      const value = cleanText(rawValue);
+      if (!value) return;
+      applyTemplateDimension({ seatContext: value });
+      applied = true;
+      return;
+    }
+    if (key === "partisanshipMode"){
+      const value = cleanText(rawValue);
+      if (!value) return;
+      applyTemplateDimension({ partisanshipMode: value });
+      applied = true;
+      return;
+    }
+    if (key === "salienceLevel"){
+      const value = cleanText(rawValue);
+      if (!value) return;
+      applyTemplateDimension({ salienceLevel: value });
       applied = true;
       return;
     }
@@ -3555,14 +3844,6 @@ function districtBridgeDownloadTextFile(text, filename, mime){
   return true;
 }
 
-function districtBridgeFileStamp(){
-  return new Date().toISOString().replace(/[:.]/g, "-");
-}
-
-function districtBridgeFileSlugPart(text){
-  return cleanText(text).replace(/[^a-z0-9_-]+/gi, "-").replace(/-+/g, "-").replace(/^-|-$/g, "").toLowerCase();
-}
-
 function districtBridgeSetTargetingField(field, rawValue){
   if (isScenarioLockedForEdits(state)){
     return { ok: false, code: "locked", view: districtBridgeStateView() };
@@ -3578,106 +3859,7 @@ function districtBridgeSetTargetingField(field, rawValue){
     if (!targeting){
       return;
     }
-    targeting.criteria = targeting.criteria && typeof targeting.criteria === "object" ? targeting.criteria : {};
-    targeting.weights = targeting.weights && typeof targeting.weights === "object" ? targeting.weights : {};
-
-    if (key === "geoLevel"){
-      const value = cleanText(rawValue);
-      if (value){
-        targeting.geoLevel = value;
-        applied = true;
-      }
-      return;
-    }
-    if (key === "topN"){
-      const value = Number(rawValue);
-      if (Number.isFinite(value)){
-        targeting.topN = Math.max(1, Math.min(500, Math.floor(value)));
-        applied = true;
-      }
-      return;
-    }
-    if (key === "minHousingUnits"){
-      const value = Number(rawValue);
-      if (Number.isFinite(value)){
-        targeting.minHousingUnits = Math.max(0, Math.floor(value));
-        applied = true;
-      }
-      return;
-    }
-    if (key === "minPopulation"){
-      const value = Number(rawValue);
-      if (Number.isFinite(value)){
-        targeting.minPopulation = Math.max(0, Math.floor(value));
-        applied = true;
-      }
-      return;
-    }
-    if (key === "minScore"){
-      const value = Number(rawValue);
-      if (Number.isFinite(value)){
-        targeting.minScore = Math.max(0, value);
-        applied = true;
-      }
-      return;
-    }
-    if (key === "onlyRaceFootprint"){
-      targeting.onlyRaceFootprint = !!rawValue;
-      applied = true;
-      return;
-    }
-    if (key === "prioritizeYoung"){
-      targeting.criteria.prioritizeYoung = !!rawValue;
-      applied = true;
-      return;
-    }
-    if (key === "prioritizeRenters"){
-      targeting.criteria.prioritizeRenters = !!rawValue;
-      applied = true;
-      return;
-    }
-    if (key === "avoidHighMultiUnit"){
-      targeting.criteria.avoidHighMultiUnit = !!rawValue;
-      applied = true;
-      return;
-    }
-    if (key === "densityFloor"){
-      const value = cleanText(rawValue);
-      targeting.criteria.densityFloor = ["none", "medium", "high"].includes(value) ? value : "none";
-      applied = true;
-      return;
-    }
-    if (key === "weightVotePotential"){
-      const value = Number(rawValue);
-      if (Number.isFinite(value)){
-        targeting.weights.votePotential = Math.max(0, value);
-        applied = true;
-      }
-      return;
-    }
-    if (key === "weightTurnoutOpportunity"){
-      const value = Number(rawValue);
-      if (Number.isFinite(value)){
-        targeting.weights.turnoutOpportunity = Math.max(0, value);
-        applied = true;
-      }
-      return;
-    }
-    if (key === "weightPersuasionIndex"){
-      const value = Number(rawValue);
-      if (Number.isFinite(value)){
-        targeting.weights.persuasionIndex = Math.max(0, value);
-        applied = true;
-      }
-      return;
-    }
-    if (key === "weightFieldEfficiency"){
-      const value = Number(rawValue);
-      if (Number.isFinite(value)){
-        targeting.weights.fieldEfficiency = Math.max(0, value);
-        applied = true;
-      }
-    }
+    applied = applyTargetingFieldPatch(targeting, key, rawValue) || applied;
   });
 
   if (!applied){
@@ -3718,13 +3900,7 @@ function districtBridgeResetTargetingWeights(){
     if (!targeting){
       return;
     }
-    const preset = getTargetModelPreset(cleanText(targeting.presetId) || cleanText(targeting.modelId));
-    targeting.weights = {
-      votePotential: Number(preset?.weights?.votePotential) || 0.35,
-      turnoutOpportunity: Number(preset?.weights?.turnoutOpportunity) || 0.25,
-      persuasionIndex: Number(preset?.weights?.persuasionIndex) || 0.20,
-      fieldEfficiency: Number(preset?.weights?.fieldEfficiency) || 0.20,
-    };
+    resetTargetingWeightsToPreset(targeting, cleanText(targeting.presetId) || cleanText(targeting.modelId));
   });
   commitUIUpdate({ persist: false });
   return { ok: true, view: districtBridgeStateView() };
@@ -3734,20 +3910,12 @@ function districtBridgeRunTargeting(){
   if (isScenarioLockedForEdits(state)){
     return { ok: false, code: "locked", view: districtBridgeStateView() };
   }
-  const censusBridge = window[CENSUS_RUNTIME_BRIDGE_KEY];
-  const getRows = censusBridge && typeof censusBridge.getRowsForState === "function"
-    ? censusBridge.getRowsForState
-    : null;
-  if (!getRows){
-    return { ok: false, code: "unavailable", view: districtBridgeStateView() };
-  }
-
-  const runtimeRows = getRows(state?.census);
+  const runtimeRows = getCensusRowsForState(state?.census);
   const loadedCount = Object.keys(runtimeRows && typeof runtimeRows === "object" ? runtimeRows : {}).length;
   if (!loadedCount){
     setState((next) => {
       if (!next.census || typeof next.census !== "object") next.census = {};
-      next.census.status = "Load ACS rows before running targeting.";
+      next.census.status = TARGETING_STATUS_LOAD_ROWS_FIRST;
       next.census.error = next.census.status;
     });
     commitUIUpdate({ persist: false });
@@ -3768,19 +3936,13 @@ function districtBridgeRunTargeting(){
         censusState: next.census,
         rowsByGeoid: runtimeRows,
       });
-      targeting.lastRows = Array.isArray(runResult?.rows) ? runResult.rows : [];
-      targeting.lastMeta = runResult?.meta && typeof runResult.meta === "object"
-        ? runResult.meta
-        : null;
-      targeting.lastRun = cleanText(runResult?.meta?.ranAt) || new Date().toISOString();
-      if (!targeting.lastRows.length){
-        next.census.status = "Targeting run complete: no rows matched current filters. Relax thresholds and retry.";
+      const applied = applyTargetingRunResult(targeting, runResult, { locale: "en-US" });
+      if (!applied.hasRows){
+        next.census.status = applied.statusText;
         next.census.error = "";
         return;
       }
-      const topCount = targeting.lastRows.filter((row) => !!row?.isTopTarget).length;
-      next.census.status =
-        `Targeting run complete: ${targeting.lastRows.length.toLocaleString("en-US")} rows ranked, ${topCount.toLocaleString("en-US")} top targets flagged.`;
+      next.census.status = applied.statusText;
       next.census.error = "";
     } catch (err) {
       runError = err;
@@ -3806,8 +3968,11 @@ function districtBridgeExportTargetingCsv(){
   if (!rows.length){
     return { ok: false, code: "no_rows", view: districtBridgeStateView() };
   }
-  const model = districtBridgeFileSlugPart(cleanText(targeting?.presetId) || cleanText(targeting?.modelId) || "model");
-  const file = `target-ranking-${model}-${districtBridgeFileStamp()}.csv`;
+  const file = buildTargetRankingExportFilename({
+    presetId: cleanText(targeting?.presetId),
+    modelId: cleanText(targeting?.modelId),
+    extension: "csv",
+  });
   const csv = buildTargetRankingCsv(rows);
   const ok = districtBridgeDownloadTextFile(csv, file, "text/csv");
   return { ok, code: ok ? "exported" : "export_failed", view: districtBridgeStateView() };
@@ -3825,25 +3990,91 @@ function districtBridgeExportTargetingJson(){
   const payload = buildTargetRankingPayload({
     rows,
     meta: targeting?.lastMeta,
-    config: {
-      enabled: !!targeting?.enabled,
-      presetId: cleanText(targeting?.presetId),
-      geoLevel: cleanText(targeting?.geoLevel),
-      modelId: cleanText(targeting?.modelId),
-      topN: Number(targeting?.topN),
-      minHousingUnits: Number(targeting?.minHousingUnits),
-      minPopulation: Number(targeting?.minPopulation),
-      minScore: Number(targeting?.minScore),
-      excludeZeroHousing: !!targeting?.excludeZeroHousing,
-      onlyRaceFootprint: !!targeting?.onlyRaceFootprint,
-      weights: targeting?.weights && typeof targeting.weights === "object" ? { ...targeting.weights } : {},
-      criteria: targeting?.criteria && typeof targeting.criteria === "object" ? { ...targeting.criteria } : {},
-    },
+    config: buildTargetRankingPayloadConfig(targeting),
   });
-  const model = districtBridgeFileSlugPart(cleanText(targeting?.presetId) || cleanText(targeting?.modelId) || "model");
-  const file = `target-ranking-${model}-${districtBridgeFileStamp()}.json`;
+  const file = buildTargetRankingExportFilename({
+    presetId: cleanText(targeting?.presetId),
+    modelId: cleanText(targeting?.modelId),
+    extension: "json",
+  });
   const ok = districtBridgeDownloadTextFile(JSON.stringify(payload, null, 2), file, "application/json");
   return { ok, code: ok ? "exported" : "export_failed", view: districtBridgeStateView() };
+}
+
+function districtBridgeSetCensusField(field, rawValue){
+  const key = cleanText(field);
+  if (!key){
+    return { ok: false, code: "missing_field", view: districtBridgeStateView() };
+  }
+  const runtimeResult = districtBridgeCallCensusRuntime("setField", key, rawValue);
+  if (runtimeResult && typeof runtimeResult === "object"){
+    if (runtimeResult.ok === true){
+      return { ok: true, code: "updated_runtime", view: districtBridgeStateView() };
+    }
+    return {
+      ok: false,
+      code: cleanText(runtimeResult.code) || "runtime_unavailable",
+      view: districtBridgeStateView(),
+    };
+  }
+  const bridgePatched = districtBridgePatchCensusBridgeField(key, rawValue);
+  if (bridgePatched){
+    return { ok: true, code: "updated_bridge_state", view: districtBridgeStateView() };
+  }
+  return { ok: false, code: "runtime_unavailable", view: districtBridgeStateView() };
+}
+
+function districtBridgeSetCensusGeoSelection(values){
+  const runtimeResult = districtBridgeCallCensusRuntime("setGeoSelection", values);
+  if (runtimeResult && typeof runtimeResult === "object"){
+    if (runtimeResult.ok === true){
+      return { ok: true, code: "updated_runtime", view: districtBridgeStateView() };
+    }
+    return {
+      ok: false,
+      code: cleanText(runtimeResult.code) || "runtime_unavailable",
+      view: districtBridgeStateView(),
+    };
+  }
+  const patched = districtBridgePatchCensusGeoSelection(values);
+  if (patched){
+    return { ok: true, code: "updated_bridge_state", view: districtBridgeStateView() };
+  }
+  return { ok: false, code: "runtime_unavailable", view: districtBridgeStateView() };
+}
+
+function districtBridgeSetCensusFile(field, filesLike){
+  const key = cleanText(field);
+  if (!key){
+    return { ok: false, code: "missing_field", view: districtBridgeStateView() };
+  }
+  const runtimeResult = districtBridgeCallCensusRuntime("setFile", key, filesLike);
+  if (runtimeResult && typeof runtimeResult === "object"){
+    if (runtimeResult.ok === true){
+      return { ok: true, code: "updated_runtime", view: districtBridgeStateView() };
+    }
+    return {
+      ok: false,
+      code: cleanText(runtimeResult.code) || "runtime_unavailable",
+      view: districtBridgeStateView(),
+    };
+  }
+  return { ok: false, code: "runtime_unavailable", view: districtBridgeStateView() };
+}
+
+function districtBridgeTriggerCensusAction(action){
+  const runtimeResult = districtBridgeCallCensusRuntime("triggerAction", action);
+  if (runtimeResult && typeof runtimeResult === "object"){
+    if (runtimeResult.ok === true){
+      return { ok: true, code: "triggered_runtime", view: districtBridgeStateView() };
+    }
+    return {
+      ok: false,
+      code: cleanText(runtimeResult.code) || "runtime_unavailable",
+      view: districtBridgeStateView(),
+    };
+  }
+  return { ok: false, code: "runtime_unavailable", view: districtBridgeStateView() };
 }
 
 const REACH_OVERRIDE_MODE_OPTIONS = [
@@ -3870,13 +4101,13 @@ let reachBridgeCachedContext = null;
 function reachBridgeFmtInt(value, { ceil = false } = {}){
   const n = Number(value);
   if (!Number.isFinite(n)) return "—";
-  return fmtInt(ceil ? Math.ceil(n) : Math.round(n));
+  return formatWholeNumberByMode(n, { mode: ceil ? "ceil" : "round", fallback: "—" });
 }
 
 function reachBridgeFmtSignedInt(value){
   const n = Number(value);
   if (!Number.isFinite(n)) return "—";
-  const rounded = Math.round(n);
+  const rounded = roundWholeNumberByMode(n, { mode: "round", fallback: 0 }) || 0;
   if (rounded > 0) return `+${fmtInt(rounded)}`;
   return `${fmtInt(rounded)}`;
 }
@@ -3884,13 +4115,13 @@ function reachBridgeFmtSignedInt(value){
 function reachBridgeFmtPctFromRatio(value, digits = 1){
   const n = Number(value);
   if (!Number.isFinite(n)) return "—";
-  return `${(n * 100).toFixed(digits)}%`;
+  return formatPercentFromUnit(n, digits, "—");
 }
 
 function reachBridgeFmtNum1(value){
   const n = Number(value);
   if (!Number.isFinite(n)) return "—";
-  return n.toFixed(1);
+  return formatFixedNumber(n, 1, "—");
 }
 
 function reachBridgeFmtISODate(raw){
@@ -3915,7 +4146,8 @@ function reachBridgeClampNumber(raw, { min = null, max = null, step = null } = {
   if (min != null) out = Math.max(min, out);
   if (max != null) out = Math.min(max, out);
   if (step != null && Number.isFinite(step) && step > 0){
-    out = Math.round(out / step) * step;
+    const stepRounded = roundWholeNumberByMode(out / step, { mode: "round", fallback: 0 }) || 0;
+    out = stepRounded * step;
   }
   return out;
 }
@@ -3963,606 +4195,77 @@ function reachBridgeResolveContext(){
 
 function reachBridgeComputeWeeklyView(weeklyContext, executionSnapshot){
   const ctx = weeklyContext || {};
-  const reqConvos = ctx?.convosPerWeek;
-  const reqAttempts = ctx?.attemptsPerWeek;
-
-  let constraint = "—";
-  let constraintNote = "—";
-  let wkBannerText = "";
-  let wkBannerKind = "warn";
-  let wkBannerShow = false;
-
-  if ((ctx?.goal ?? 0) <= 0){
-    constraint = "None";
-    constraintNote = "Goal is 0 under current inputs.";
-  } else if (ctx?.weeks == null || ctx.weeks <= 0){
-    constraint = "Timeline";
-    constraintNote = "Set election date or weeks remaining.";
-    wkBannerText = "This week plan needs weeks remaining. Set an election date or enter weeks remaining to compute per-week targets.";
-    wkBannerShow = true;
-  } else if (ctx?.sr == null || ctx.sr <= 0 || ctx?.cr == null || ctx.cr <= 0){
-    constraint = "Rates";
-    constraintNote = "Enter support rate + contact rate.";
-    wkBannerText = "This week plan needs Support rate and Contact rate.";
-    wkBannerShow = true;
-  } else if (ctx?.capTotal == null){
-    constraint = "Capacity";
-    constraintNote = "Enter organizers/hours + speeds.";
-    wkBannerText = "Capacity/week is missing. Fill execution inputs (organizers, hours/week, doors/hr, calls/hr, channel split).";
-    wkBannerShow = true;
-  } else if (ctx?.gap != null && ctx.gap <= 0){
-    constraint = "Feasible";
-    constraintNote = "Capacity covers required attempts/week.";
-    wkBannerText = "Feasible: capacity covers the per-week requirement under current rates.";
-    wkBannerKind = "ok";
-    wkBannerShow = true;
-  } else if (ctx?.gap != null){
-    const g = Math.ceil(ctx.gap);
-    constraint = "Capacity";
-    constraintNote = `Short by ~${reachBridgeFmtInt(g)} attempts/week.`;
-    wkBannerText = `Gap: you are short by ~${reachBridgeFmtInt(g)} attempts per week. Options: increase organizers/hours, improve speeds, shift channel mix, or raise rates.`;
-    wkBannerKind = (g <= 500) ? "warn" : "bad";
-    wkBannerShow = true;
-  }
-
-  const log = executionSnapshot?.log || null;
-  const hasLog = !!log?.hasLog;
-  const actualConvos = hasLog ? Number(log.sumConvosWindow || 0) : null;
-  const actualAttempts = hasLog ? Number(log.sumAttemptsWindow || 0) : null;
-  const logEntries = hasLog ? Number(log.entries || 0) : 0;
-  const logDays = hasLog ? Number(log.days || 0) : 0;
-  const logLast = hasLog ? (log.lastDate || null) : null;
-  const rollingCR = executionSnapshot?.rolling?.cr;
-
-  const paceKind = (req, actual) => {
-    if (req == null || !Number.isFinite(req) || req <= 0) return { kind: null, label: "—", gap: null };
-    if (actual == null || !Number.isFinite(actual)) return { kind: null, label: "—", gap: null };
-    const gap = actual - req;
-    if (actual >= req) return { kind: "ok", label: "On pace", gap };
-    if (actual >= req * 0.9) return { kind: "warn", label: "Within 10%", gap };
-    return { kind: "bad", label: "Behind", gap };
+  const formatInt = (value, options = {}) => {
+    if (!Number.isFinite(Number(value))) return "—";
+    const mode = options?.ceil ? "ceil" : (options?.floor ? "floor" : "round");
+    const n = roundWholeNumberByMode(Number(value), { mode, fallback: 0 }) || 0;
+    return reachBridgeFmtInt(n);
   };
-
-  let finishConvos = "—";
-  let finishAttempts = "—";
-  let paceStatus = "—";
-  let paceNote = "Insufficient field data.";
-  let wkExecBannerShow = false;
-  let wkExecBannerKind = "warn";
-  let wkExecBannerText = "";
-
-  if (hasLog){
-    const convosPace = paceKind(reqConvos, actualConvos);
-    const attemptsPace = paceKind(reqAttempts, actualAttempts);
-    const rank = { ok: 3, warn: 2, bad: 1, null: 0, undefined: 0 };
-    const bannerKind = (rank[convosPace.kind] <= rank[attemptsPace.kind]) ? convosPace.kind : attemptsPace.kind;
-
-    const finishFrom = (total, pacePerDay) => {
-      if (total == null || !Number.isFinite(total) || total <= 0) return { date: null, note: "No target" };
-      if (pacePerDay == null || !Number.isFinite(pacePerDay) || pacePerDay <= 0) return { date: null, note: "No measurable pace" };
-      const daysNeeded = Math.ceil(total / pacePerDay);
-      const d = new Date();
-      d.setHours(12, 0, 0, 0);
-      d.setDate(d.getDate() + daysNeeded);
-      return { date: d, note: `~${reachBridgeFmtInt(daysNeeded)} day(s) at current pace` };
-    };
-
-    const paceAttemptsPerDay = (logDays && logDays > 0 && Number.isFinite(actualAttempts)) ? (actualAttempts / logDays) : null;
-    const paceConvosPerDay = (logDays && logDays > 0 && Number.isFinite(actualConvos)) ? (actualConvos / logDays) : null;
-    const convFinish = finishFrom(ctx?.convosNeeded ?? (reqConvos != null && ctx?.weeks != null ? reqConvos * ctx.weeks : null), paceConvosPerDay);
-    const attFinish = finishFrom(ctx?.attemptsNeeded ?? (reqAttempts != null && ctx?.weeks != null ? reqAttempts * ctx.weeks : null), paceAttemptsPerDay);
-    finishConvos = convFinish.date ? reachBridgeFmtISODate(convFinish.date) : (convFinish.note || "—");
-    finishAttempts = attFinish.date ? reachBridgeFmtISODate(attFinish.date) : (attFinish.note || "—");
-
-    if (bannerKind === "ok"){
-      paceStatus = "On pace";
-      paceNote = "Last 7-entry pace meets or exceeds weekly requirement.";
-    } else if (bannerKind === "warn"){
-      paceStatus = "Tight";
-      paceNote = "Within 10% of weekly requirement. Any slip risks missing timeline.";
-    } else if (bannerKind === "bad"){
-      paceStatus = "Behind";
-      paceNote = "Behind weekly requirement by more than 10%.";
-    } else {
-      paceStatus = "—";
-      paceNote = "Set goal + weeks remaining to compute requirement.";
-    }
-
-    wkExecBannerShow = (bannerKind === "ok" || bannerKind === "warn" || bannerKind === "bad");
-    wkExecBannerKind = bannerKind || "warn";
-    wkExecBannerText = wkExecBannerShow
-      ? `Last 7: ${reachBridgeFmtInt(actualConvos)} convos / ${reachBridgeFmtInt(actualAttempts)} attempts vs required ${reachBridgeFmtInt(reqConvos, { ceil: true })} convos / ${reachBridgeFmtInt(reqAttempts, { ceil: true })} attempts per week.`
-      : "";
-  }
-
-  const reqDoorAttempts = (
-    reqAttempts != null &&
-    Number.isFinite(reqAttempts) &&
-    ctx?.doorShare != null &&
-    Number.isFinite(ctx.doorShare)
-  )
-    ? (reqAttempts * clamp(ctx.doorShare, 0, 1))
-    : null;
-  const reqCallAttempts = (
-    reqAttempts != null &&
-    Number.isFinite(reqAttempts) &&
-    ctx?.doorShare != null &&
-    Number.isFinite(ctx.doorShare)
-  )
-    ? (reqAttempts * (1 - clamp(ctx.doorShare, 0, 1)))
-    : null;
-
-  const impliedConvos = (
-    rollingCR != null &&
-    Number.isFinite(rollingCR) &&
-    reqAttempts != null &&
-    Number.isFinite(reqAttempts)
-  )
-    ? (reqAttempts * rollingCR)
-    : null;
-
-  const gapText = (ctx?.gap == null || !Number.isFinite(ctx.gap))
-    ? "—"
-    : (ctx.gap <= 0 ? "0" : reachBridgeFmtInt(ctx.gap, { ceil: true }));
-
-  const actualConvosNote = hasLog ? `${reachBridgeFmtInt(logEntries)} entries over ~${reachBridgeFmtInt(logDays)} day(s) · last: ${logLast || "—"}` : "Insufficient field data.";
-  const impliedConvosNote = Number.isFinite(rollingCR) ? `Uses rolling 7-entry contact rate (${(rollingCR * 100).toFixed(1)}%)` : "Insufficient field data.";
+  const constraintView = buildReachWeeklyConstraintView(ctx, { formatInt });
+  const weeklyExecution = buildReachWeeklyExecutionView({
+    ctx,
+    logSummary: executionSnapshot?.log || null,
+    rollingCR: executionSnapshot?.rolling?.cr,
+    formatInt,
+    formatDate: reachBridgeFmtISODate,
+    clampFn: clamp,
+    hideChannelBreakdownWithoutLog: false,
+  });
 
   return {
     goal: reachBridgeFmtInt(ctx?.goal ?? null),
-    requiredAttempts: reachBridgeFmtInt(reqAttempts, { ceil: true }),
-    requiredConvos: reachBridgeFmtInt(reqConvos, { ceil: true }),
-    requiredDoors: reachBridgeFmtInt(reqDoorAttempts, { ceil: true }),
-    requiredCalls: reachBridgeFmtInt(reqCallAttempts, { ceil: true }),
-    impliedConvos: reachBridgeFmtInt(impliedConvos),
-    impliedConvosNote,
+    requiredAttempts: weeklyExecution.requiredAttemptsText,
+    requiredConvos: weeklyExecution.requiredConvosText,
+    requiredDoors: weeklyExecution.requiredDoorAttemptsText,
+    requiredCalls: weeklyExecution.requiredCallAttemptsText,
+    impliedConvos: weeklyExecution.impliedConvosText,
+    impliedConvosNote: weeklyExecution.impliedConvosNote,
     capacity: reachBridgeFmtInt(ctx?.capTotal, { ceil: true }),
-    gap: gapText,
-    constraint,
-    constraintNote,
-    paceStatus,
-    paceNote,
-    finishConvos,
-    finishAttempts,
-    actualConvosNote,
-    wkBanner: {
-      show: wkBannerShow,
-      kind: wkBannerKind,
-      text: wkBannerText
-    },
-    wkExecBanner: {
-      show: wkExecBannerShow,
-      kind: wkExecBannerKind,
-      text: wkExecBannerText
-    }
+    gap: constraintView.gapText,
+    constraint: constraintView.constraint,
+    constraintNote: constraintView.constraintNote,
+    paceStatus: weeklyExecution.paceStatus,
+    paceNote: weeklyExecution.paceNote,
+    finishConvos: weeklyExecution.finishConvosText,
+    finishAttempts: weeklyExecution.finishAttemptsText,
+    actualConvosNote: weeklyExecution.actualConvosNote,
+    wkBanner: constraintView.wkBanner,
+    wkExecBanner: weeklyExecution.wkExecBanner,
   };
 }
 
 function reachBridgeComputeFreshnessView(currentState, weeklyContext, executionSnapshot){
-  const snap = executionSnapshot || null;
-  const log = Array.isArray(currentState?.ui?.dailyLog) ? currentState.ui.dailyLog : [];
-  const hasLog = snap ? !!snap?.log?.hasLog : !!log.length;
-  const empty = {
-    lastUpdate: "—",
-    freshNote: "No daily log configured yet",
-    rollingAttempts: "—",
-    rollingNote: "Add entries in organizer.html to activate reality checks",
-    rollingCR: "—",
-    rollingCRNote: "—",
-    rollingSR: "—",
-    rollingSRNote: "—",
-    rollingAPH: "—",
-    rollingAPHNote: "—",
-    status: "Not tracking",
-  };
-  if (!hasLog){
-    return empty;
-  }
-
-  const sorted = snap?.log?.sorted || [...log].filter((x) => x && x.date).sort((a, b) => String(a.date).localeCompare(String(b.date)));
-  const last = sorted[sorted.length - 1];
-
-  const sumAttempts = Number(snap?.log?.sumAttemptsWindow ?? 0);
-  const sumConvos = Number(snap?.log?.sumConvosWindow ?? 0);
-  const sumSupportIds = Number(snap?.log?.sumSupportIdsWindow ?? 0);
-  const sumOrgHours = Number(snap?.log?.sumOrgHoursWindow ?? 0);
-
-  const actualCR = snap?.rolling?.cr ?? (sumAttempts > 0 ? (sumConvos / sumAttempts) : null);
-  const actualSR = snap?.rolling?.sr ?? (sumConvos > 0 ? (sumSupportIds / sumConvos) : null);
-  const actualAPH = snap?.rolling?.aph ?? (sumOrgHours > 0 ? (sumAttempts / sumOrgHours) : null);
-
-  const assumedCR = snap?.assumptions?.cr ?? (
-    currentState?.contactRatePct != null && currentState.contactRatePct !== ""
-      ? (safeNum(currentState.contactRatePct) || 0) / 100
-      : null
-  );
-  const assumedSR = snap?.assumptions?.sr ?? (
-    currentState?.supportRatePct != null && currentState.supportRatePct !== ""
-      ? (safeNum(currentState.supportRatePct) || 0) / 100
-      : null
-  );
-  const expectedAPH = snap?.assumptions?.aph ?? (() => {
-    const mixDoor = (currentState?.channelDoorPct != null && currentState.channelDoorPct !== "")
-      ? (safeNum(currentState.channelDoorPct) || 0) / 100
-      : null;
-    const doorsHr = (currentState?.doorsPerHour3 != null && currentState.doorsPerHour3 !== "")
-      ? (safeNum(currentState.doorsPerHour3) || 0)
-      : null;
-    const callsHr = (currentState?.callsPerHour3 != null && currentState.callsPerHour3 !== "")
-      ? (safeNum(currentState.callsPerHour3) || 0)
-      : null;
-    return (mixDoor != null && doorsHr != null && callsHr != null)
-      ? (mixDoor * doorsHr + (1 - mixDoor) * callsHr)
-      : null;
-  })();
-
-  const req = snap?.pace?.requiredAttemptsPerWeek ?? weeklyContext?.attemptsPerWeek ?? null;
-  let ratio = snap?.pace?.ratio ?? null;
-  if ((ratio == null || !Number.isFinite(ratio)) && req != null && Number.isFinite(req) && req > 0){
-    ratio = sumAttempts / req;
-  }
-
-  const flags = [];
-  const tol = 0.90;
-  if (assumedCR != null && Number.isFinite(actualCR) && actualCR < assumedCR * tol) flags.push("contact rate below assumed");
-  if (assumedSR != null && Number.isFinite(actualSR) && actualSR < assumedSR * tol) flags.push("support rate below assumed");
-  if (expectedAPH != null && Number.isFinite(actualAPH) && actualAPH < expectedAPH * tol) flags.push("productivity below assumed");
-
-  let status = "Needs inputs";
-  if (ratio == null || !Number.isFinite(ratio)){
-    status = flags.length ? "Assumptions drifting" : "Needs inputs";
-  } else if (ratio >= 1.0 && flags.length === 0){
-    status = "On pace";
-  } else if (ratio >= 1.0 && flags.length){
-    status = "On pace (assumptions off)";
-  } else if (ratio >= 0.85 && flags.length === 0){
-    status = "Slightly behind";
-  } else if (ratio >= 0.85 && flags.length){
-    status = "Behind (rates/capacity off)";
-  } else {
-    status = "Behind";
-  }
-
-  return {
-    lastUpdate: last?.date || "—",
-    freshNote: flags.length ? `Reality check: ${flags.join(", ")}` : "Using state.ui.dailyLog",
-    rollingAttempts: reachBridgeFmtInt(sumAttempts),
-    rollingNote: (req == null || !Number.isFinite(req))
-      ? "Required attempts/week unavailable under current inputs"
-      : `Required ≈ ${reachBridgeFmtInt(req, { ceil: true })} attempts/week`,
-    rollingCR: reachBridgeFmtPctFromRatio(actualCR),
-    rollingCRNote: (assumedCR == null) ? "Assumed: —" : `Assumed: ${reachBridgeFmtPctFromRatio(assumedCR)}`,
-    rollingSR: reachBridgeFmtPctFromRatio(actualSR),
-    rollingSRNote: (assumedSR == null) ? "Assumed: —" : `Assumed: ${reachBridgeFmtPctFromRatio(assumedSR)}`,
-    rollingAPH: reachBridgeFmtNum1(actualAPH),
-    rollingAPHNote: (expectedAPH == null) ? "Expected: —" : `Expected: ${reachBridgeFmtNum1(expectedAPH)} / hr`,
-    status,
-  };
+  return buildReachFreshnessView({
+    state: currentState,
+    weeklyContext,
+    executionSnapshot,
+    safeNumFn: safeNum,
+    formatInt: (value, options = {}) => {
+      if (!Number.isFinite(Number(value))) return "—";
+      const mode = options?.ceil ? "ceil" : (options?.floor ? "floor" : "round");
+      const n = roundWholeNumberByMode(Number(value), { mode, fallback: 0 }) || 0;
+      return reachBridgeFmtInt(n);
+    },
+    formatPct: (value) => reachBridgeFmtPctFromRatio(value),
+    formatNum1: (value) => reachBridgeFmtNum1(value),
+  });
 }
 
 function reachBridgeBuildLeversAndActions(weeklyContext, executionSnapshot){
-  const opsCtx = weeklyContext || {};
-  const fmtCeil = (v) => reachBridgeFmtInt(v, { ceil: true });
-  const fmtNum1 = (v) => reachBridgeFmtNum1(v);
-  const base = {
-    intro: "",
-    foot: "",
-    bestMovesIntro: "Best 3 moves — impact per unit:",
-    showBestMoves: true,
-    bestMoves: [],
-    rows: [],
-    actions: [],
-    actionsNote: "Recommendations are based on current model inputs.",
-  };
-
-  if ((opsCtx.goal ?? 0) <= 0){
-    return {
-      ...base,
-      intro: "No operational gap to analyze (goal is 0 under current inputs).",
-      showBestMoves: false,
-      actions: ["Set a goal (Support IDs needed) or adjust win path assumptions to generate a real plan."],
-      foot: ""
-    };
-  }
-  if (opsCtx.weeks == null || opsCtx.weeks <= 0){
-    return {
-      ...base,
-      intro: "Timeline is missing. Set election date or weeks remaining to compute weekly pressure.",
-      showBestMoves: false,
-      actions: ["Enter an election date (or weeks remaining) so the plan can compute per-week targets."],
-      foot: ""
-    };
-  }
-  if (opsCtx.sr == null || opsCtx.sr <= 0 || opsCtx.cr == null || opsCtx.cr <= 0){
-    return {
-      ...base,
-      intro: "Rates are missing. Enter Support rate and Contact rate to estimate workload.",
-      showBestMoves: false,
-      actions: ["Fill Support rate (%) and Contact rate (%) to compute realistic workload."],
-      foot: ""
-    };
-  }
-  if (opsCtx.capTotal == null || !Number.isFinite(opsCtx.capTotal)){
-    return {
-      ...base,
-      intro: "Capacity inputs are incomplete. Fill execution inputs to compute what is executable.",
-      showBestMoves: false,
-      actions: ["Enter organizers, hours/week, doors/hr, calls/hr, and channel split."],
-      foot: ""
-    };
-  }
-
-  const baseReq = opsCtx.attemptsPerWeek;
-  const baseCap = opsCtx.capTotal;
-  const gap = (baseReq != null && baseCap != null) ? Math.max(0, baseReq - baseCap) : null;
-  const isGap = (gap != null && gap > 0);
-  const intro = isGap
-    ? `You are short by ~${fmtCeil(gap)} attempts/week. These levers estimate attempts/week relief in consistent units.`
-    : "You are currently feasible (capacity covers attempts/week). These levers estimate buffer gained per unit.";
-
-  const capTotal = (p) => {
-    const out = coreComputeCapacityBreakdown(p);
-    return out?.total;
-  };
-
-  const levers = [];
-  const pushLever = (x) => {
-    if (!x) return;
-    if (x.impact == null || !Number.isFinite(x.impact) || x.impact <= 0) return;
-    const impactUse = isGap ? Math.min(x.impact, gap) : x.impact;
-    const eff = (x.costScalar != null && Number.isFinite(x.costScalar) && x.costScalar > 0) ? (impactUse / x.costScalar) : null;
-    levers.push({ ...x, impactUse, eff });
-  };
-
-  const baseCapParams = {
-    weeks: 1,
-    orgCount: opsCtx.orgCount,
-    orgHoursPerWeek: opsCtx.orgHoursPerWeek,
-    volunteerMult: opsCtx.volunteerMult,
-    doorShare: opsCtx.doorShare,
-    doorsPerHour: opsCtx.doorsPerHour,
-    callsPerHour: opsCtx.callsPerHour,
-    capacityDecay: opsCtx.capacityDecay,
-  };
-
-  if (opsCtx.orgCount != null && opsCtx.orgHoursPerWeek != null && opsCtx.volunteerMult != null){
-    const plusOrg = capTotal({ ...baseCapParams, orgCount: opsCtx.orgCount + 1 });
-    if (plusOrg != null && baseCap != null){
-      pushLever({
-        kind: "capacity",
-        key: "org",
-        label: "+1 organizer",
-        impact: plusOrg - baseCap,
-        costLabel: "1 organizer",
-        costScalar: 1,
-        effUnit: "per organizer",
-      });
-    }
-
-    const plusHr = capTotal({ ...baseCapParams, orgHoursPerWeek: opsCtx.orgHoursPerWeek + 1 });
-    if (plusHr != null && baseCap != null){
-      const addedHours = Math.max(1, opsCtx.orgCount || 1);
-      pushLever({
-        kind: "capacity",
-        key: "orgHr",
-        label: "+1 hour/week per organizer",
-        impact: plusHr - baseCap,
-        costLabel: `+1 hr/org (= ${fmtCeil(addedHours)} org-hrs/wk)`,
-        costScalar: addedHours,
-        effUnit: "per org-hour",
-      });
-    }
-
-    const plusVol = capTotal({ ...baseCapParams, volunteerMult: opsCtx.volunteerMult + 0.10 });
-    if (plusVol != null && baseCap != null){
-      pushLever({
-        kind: "capacity",
-        key: "volMult",
-        label: "+10% volunteer multiplier",
-        impact: plusVol - baseCap,
-        costLabel: "+10% volunteer mult",
-        costScalar: 0.10,
-        effUnit: "per +10% mult",
-      });
-    }
-  }
-
-  if (opsCtx.doorsPerHour != null){
-    const plusDoorHr = capTotal({ ...baseCapParams, doorsPerHour: opsCtx.doorsPerHour + 1 });
-    if (plusDoorHr != null && baseCap != null){
-      pushLever({
-        kind: "capacity",
-        key: "dph",
-        label: "+1 door/hr",
-        impact: plusDoorHr - baseCap,
-        costLabel: "+1 door/hr",
-        costScalar: 1,
-        effUnit: "per +1 door/hr",
-      });
-    }
-  }
-
-  if (opsCtx.callsPerHour != null){
-    const plusCallHr = capTotal({ ...baseCapParams, callsPerHour: opsCtx.callsPerHour + 1 });
-    if (plusCallHr != null && baseCap != null){
-      pushLever({
-        kind: "capacity",
-        key: "cph",
-        label: "+1 call/hr",
-        impact: plusCallHr - baseCap,
-        costLabel: "+1 call/hr",
-        costScalar: 1,
-        effUnit: "per +1 call/hr",
-      });
-    }
-  }
-
-  if (opsCtx.doorShare != null && opsCtx.doorsPerHour != null && opsCtx.callsPerHour != null){
-    const doorIsFaster = opsCtx.doorsPerHour >= opsCtx.callsPerHour;
-    const shift = 0.10;
-    const newShare = clamp(opsCtx.doorShare + (doorIsFaster ? shift : -shift), 0, 1);
-    const capShift = capTotal({ ...baseCapParams, doorShare: newShare });
-    if (capShift != null && baseCap != null){
-      pushLever({
-        kind: "capacity",
-        key: "mix",
-        label: `Shift mix +10 pts toward ${doorIsFaster ? "doors" : "calls"}`,
-        impact: capShift - baseCap,
-        costLabel: "10 pts mix shift",
-        costScalar: 10,
-        effUnit: "per 1 pt",
-      });
-    }
-  }
-
-  const pp = 0.01;
-  if (baseReq != null && Number.isFinite(baseReq)){
-    const srPlus = Math.min(0.99, opsCtx.sr + pp);
-    const crPlus = Math.min(0.99, opsCtx.cr + pp);
-
-    const reqSrPlus = (opsCtx.goal > 0 && srPlus > 0 && opsCtx.cr > 0 && opsCtx.weeks > 0)
-      ? (opsCtx.goal / srPlus / opsCtx.cr / opsCtx.weeks)
-      : null;
-    if (reqSrPlus != null){
-      pushLever({
-        kind: "rates",
-        key: "sr",
-        label: "+1 pp support rate",
-        impact: baseReq - reqSrPlus,
-        costLabel: "+1 pp SR",
-        costScalar: 1,
-        effUnit: "per +1pp",
-      });
-    }
-
-    const reqCrPlus = (opsCtx.goal > 0 && crPlus > 0 && opsCtx.sr > 0 && opsCtx.weeks > 0)
-      ? (opsCtx.goal / opsCtx.sr / crPlus / opsCtx.weeks)
-      : null;
-    if (reqCrPlus != null){
-      pushLever({
-        kind: "rates",
-        key: "cr",
-        label: "+1 pp contact rate",
-        impact: baseReq - reqCrPlus,
-        costLabel: "+1 pp CR",
-        costScalar: 1,
-        effUnit: "per +1pp",
-      });
-    }
-
-    const wPlus = opsCtx.weeks + 1;
-    const reqWPlus = (opsCtx.goal > 0 && opsCtx.sr > 0 && opsCtx.cr > 0 && wPlus > 0)
-      ? (opsCtx.goal / opsCtx.sr / opsCtx.cr / wPlus)
-      : null;
-    if (reqWPlus != null){
-      pushLever({
-        kind: "timeline",
-        key: "weeks",
-        label: "+1 week timeline",
-        impact: baseReq - reqWPlus,
-        costLabel: "+1 week",
-        costScalar: 1,
-        effUnit: "per week",
-      });
-    }
-  }
-
-  const usable = levers
-    .filter((x) => x.impactUse != null && Number.isFinite(x.impactUse) && x.impactUse > 0)
-    .sort((a, b) => (b.impactUse - a.impactUse));
-
-  if (!usable.length){
-    return {
-      ...base,
-      intro,
-      showBestMoves: false,
-      actions: ["No lever estimates available under current inputs."],
-      foot: "",
-    };
-  }
-
-  const bestByEff = [...usable]
-    .filter((x) => x.eff != null && Number.isFinite(x.eff))
-    .sort((a, b) => (b.eff - a.eff) || (b.impactUse - a.impactUse))
-    .slice(0, 3);
-
-  const rows = usable.slice(0, 10);
-  const bestCap = usable.filter((x) => x.kind === "capacity").sort((a, b) => (b.impactUse - a.impactUse))[0] || null;
-  const bestRate = usable.filter((x) => x.kind === "rates").sort((a, b) => (b.impactUse - a.impactUse))[0] || null;
-  const bestCr = usable.find((x) => x.kind === "rates" && x.key === "cr") || null;
-  const bestSr = usable.find((x) => x.kind === "rates" && x.key === "sr") || null;
-
-  const drift = executionSnapshot
-    ? {
-        hasLog: !!executionSnapshot?.log?.hasLog,
-        flags: Array.isArray(executionSnapshot?.drift?.flags) ? executionSnapshot.drift.flags : [],
-        primary: executionSnapshot?.drift?.primary || null,
-      }
-    : computeRealityDrift();
-  const hasDrift = !!(drift?.hasLog && drift?.flags?.length);
-  const primary = drift?.primary || null;
-
-  const actions = [];
-  if (isGap){
-    if (hasDrift){
-      if (primary === "productivity"){
-        if (bestCap) actions.push(`Reality check shows productivity below assumed. Close the gap by raising execution capacity first: ${bestCap.label} (≈ ${fmtCeil(bestCap.impactUse)} attempts/week relief).`);
-        if (bestCr) actions.push(`Then reduce workload by improving contact rate: ${bestCr.label} (≈ ${fmtCeil(bestCr.impactUse)} attempts/week relief).`);
-        else if (bestRate) actions.push(`Then reduce workload by improving rates: ${bestRate.label} (≈ ${fmtCeil(bestRate.impactUse)} attempts/week relief).`);
-      } else if (primary === "contact"){
-        if (bestCr) actions.push(`Reality check shows contact rate below assumed. Prioritize: ${bestCr.label} (≈ ${fmtCeil(bestCr.impactUse)} attempts/week relief).`);
-        if (bestCap) actions.push(`If rate lift is slow, backstop with more capacity: ${bestCap.label} (≈ ${fmtCeil(bestCap.impactUse)} attempts/week relief).`);
-      } else if (primary === "support"){
-        if (bestSr) actions.push(`Reality check shows support rate below assumed. Prioritize: ${bestSr.label} (≈ ${fmtCeil(bestSr.impactUse)} attempts/week relief).`);
-        if (bestCap) actions.push(`If persuasion lift is slow, backstop with more capacity: ${bestCap.label} (≈ ${fmtCeil(bestCap.impactUse)} attempts/week relief).`);
-      } else {
-        if (bestCap) actions.push(`Close the gap by increasing execution capacity: start with ${bestCap.label} (≈ ${fmtCeil(bestCap.impactUse)} attempts/week relief).`);
-        if (bestRate) actions.push(`Reduce workload by improving rates: ${bestRate.label} (≈ ${fmtCeil(bestRate.impactUse)} attempts/week relief).`);
-      }
-      actions.push("If actual performance stays below assumptions, either align assumptions to reality (and re-plan) or change inputs to close the gap (capacity, speeds, mix, training).");
-    } else {
-      if (bestCap) actions.push(`Close the gap by increasing execution capacity: start with ${bestCap.label} (≈ ${fmtCeil(bestCap.impactUse)} attempts/week relief).`);
-      if (bestRate) actions.push(`Reduce workload by improving rates: ${bestRate.label} (≈ ${fmtCeil(bestRate.impactUse)} attempts/week relief).`);
-      actions.push("If neither is realistic, reduce weekly pressure by extending timeline assumptions (more weeks) or revising the goal (Support IDs needed).");
-    }
-  } else {
-    if (hasDrift){
-      if (primary === "productivity" && bestCap) actions.push(`You are feasible, but productivity is below assumed. Add buffer with ${bestCap.label} (≈ ${fmtCeil(bestCap.impactUse)} attempts/week).`);
-      if (primary === "contact" && bestCr) actions.push(`You are feasible, but contact rate is below assumed. Improve efficiency with ${bestCr.label} (≈ ${fmtCeil(bestCr.impactUse)} attempts/week).`);
-      if (primary === "support" && bestSr) actions.push(`You are feasible, but support rate is below assumed. Improve efficiency with ${bestSr.label} (≈ ${fmtCeil(bestSr.impactUse)} attempts/week).`);
-      if (!actions.length && bestRate) actions.push(`You are feasible, but assumptions are drifting. Consider ${bestRate.label} (≈ ${fmtCeil(bestRate.impactUse)} attempts/week).`);
-      actions.push("Use buffer to absorb volatility, and align assumptions to observed daily log so planning stays honest.");
-    } else {
-      if (bestCap) actions.push(`Build buffer: ${bestCap.label} adds ≈ ${fmtCeil(bestCap.impactUse)} attempts/week of slack.`);
-      if (bestRate) actions.push(`Improve efficiency: ${bestRate.label} reduces required attempts by ≈ ${fmtCeil(bestRate.impactUse)} attempts/week.`);
-      actions.push("Use the buffer to absorb volatility (bad weeks, weather, volunteer drop-off) or to front-load early vote chasing.");
-    }
-  }
-
-  return {
-    ...base,
-    intro,
-    foot: isGap
-      ? "Impact estimates are local and directional; apply changes one at a time and verify updated weekly gap."
-      : "Use this as a buffer-building guide; apply changes one at a time and keep assumptions auditable.",
-    bestMoves: bestByEff.map((lever) => ({
-      id: `${lever.kind}:${lever.key}`,
-      text: `${lever.label}: ~${fmtCeil(lever.impactUse)} attempts/week (${fmtNum1(lever.eff)} ${lever.effUnit})`,
-      lever,
-    })),
-    rows: rows.map((lever) => ({
-      id: `${lever.kind}:${lever.key}`,
-      label: lever.label,
-      impact: `~${fmtCeil(lever.impactUse)}`,
-      costUnit: lever.costLabel || "—",
-      efficiency: (lever.eff == null || !Number.isFinite(lever.eff)) ? "—" : fmtNum1(lever.eff),
-      lever,
-    })),
-    actions: actions.slice(0, 4),
-    actionsNote: hasDrift
-      ? "Recommendations include reality-drift signals from recent organizer logs."
-      : "Recommendations are model-based. Add organizer logs to activate drift-aware recommendations.",
-  };
+  return buildReachLeversAndActionsView({
+    weeklyContext: weeklyContext || {},
+    executionSnapshot,
+    computeCapacityBreakdownFn: (payload) => coreComputeCapacityBreakdown(payload),
+    clampFn: clamp,
+    computeRealityDriftFn: () => computeRealityDrift(),
+    formatInt: (value, options = {}) => {
+      if (!Number.isFinite(Number(value))) return "—";
+      const mode = options?.ceil ? "ceil" : (options?.floor ? "floor" : "round");
+      const n = roundWholeNumberByMode(Number(value), { mode, fallback: 0 }) || 0;
+      return reachBridgeFmtInt(n);
+    },
+    formatNum1: (value) => reachBridgeFmtNum1(value),
+  });
 }
 
 function reachBridgeStateView(){
@@ -5165,10 +4868,10 @@ const PLAN_SELECT_OPTIONS = {
     { value: "budget", label: "Budget-constrained" },
     { value: "capacity", label: "Capacity-constrained" },
   ],
-  optObjective: [
-    { value: "net", label: "Net Votes" },
-    { value: "turnout", label: "Turnout-Adjusted Net Votes" },
-  ],
+  optObjective: OPTIMIZATION_OBJECTIVES.map((row) => ({
+    value: String(row.value),
+    label: String(row.label),
+  })),
   tlOptObjective: [
     { value: "max_net", label: "Maximize net votes by deadline" },
     { value: "min_cost_goal", label: "Minimize cost while meeting goal (if feasible)" },
@@ -5221,7 +4924,7 @@ function ensurePlanBridgeShape(target){
   }
   const optimize = target.budget.optimize;
   if (!optimize.mode) optimize.mode = "budget";
-  if (!optimize.objective) optimize.objective = "net";
+  optimize.objective = normalizeOptimizationObjective(optimize.objective, "net");
   if (typeof optimize.tlConstrainedEnabled !== "boolean") optimize.tlConstrainedEnabled = false;
   if (!optimize.tlConstrainedObjective) optimize.tlConstrainedObjective = "max_net";
   if (!Number.isFinite(Number(optimize.budgetAmount))) optimize.budgetAmount = 10000;
@@ -5241,21 +4944,63 @@ function ensurePlanBridgeShape(target){
   if (!Number.isFinite(Number(target.timelineTextsPerHour))) target.timelineTextsPerHour = 120;
 }
 
+function planBridgeBuildSummaryView(){
+  const objectiveCopy = getOptimizationObjectiveCopy(state?.budget?.optimize?.objective, "net");
+  const conversion = state?.ui?.lastConversion && typeof state.ui.lastConversion === "object"
+    ? state.ui.lastConversion
+    : {};
+  const timeline = state?.ui?.lastTimeline && typeof state.ui.lastTimeline === "object"
+    ? state.ui.lastTimeline
+    : {};
+  const timelineObjectiveMeta = getTimelineFeasibilityObjectiveMeta(timeline);
+  const tlMeta = state?.ui?.lastTlMeta && typeof state.ui.lastTlMeta === "object"
+    ? state.ui.lastTlMeta
+    : {};
+  const tlObjectiveMeta = getTimelineObjectiveMeta(tlMeta);
+  const lastSummary = state?.ui?.lastSummary && typeof state.ui.lastSummary === "object"
+    ? state.ui.lastSummary
+    : {};
+  const upliftSummary = lastSummary?.upliftSummary && typeof lastSummary.upliftSummary === "object"
+    ? lastSummary.upliftSummary
+    : {};
+  const lastOptTotals = state?.ui?.lastOpt?.totals && typeof state.ui.lastOpt.totals === "object"
+    ? state.ui.lastOpt.totals
+    : {};
+  const lastOpt = state?.ui?.lastOpt && typeof state.ui.lastOpt === "object"
+    ? state.ui.lastOpt
+    : {};
+  const diagnostics = state?.ui?.lastDiagnostics && typeof state.ui.lastDiagnostics === "object"
+    ? state.ui.lastDiagnostics
+    : {};
+  return buildCanonicalPlanSummaryView({
+    objectiveCopy,
+    conversion,
+    timeline,
+    timelineObjectiveMeta,
+    tlMeta,
+    tlObjectiveMeta,
+    lastSummary,
+    upliftSummary,
+    lastOptTotals,
+    lastOpt,
+    diagnostics,
+    formatInt: (value) => formatWholeNumberByMode(value, { mode: "round", fallback: "—" }),
+    formatWhole: formatPlanWhole,
+    formatCurrency: formatPlanCurrency,
+    formatPercentUnit: formatPlanPercentUnit,
+  });
+}
+
 function planBridgeStateView(){
   ensurePlanBridgeShape(state);
   const optimize = state?.budget?.optimize || {};
   const optimizerRowsRaw = Array.isArray(state?.ui?.lastPlanRows) ? state.ui.lastPlanRows : [];
-  const optimizerRows = optimizerRowsRaw.map((row) => ({
-    tactic: String(row?.tactic || ""),
-    attempts: safeNum(row?.attempts),
-    cost: safeNum(row?.cost),
-    expectedNetVotes: safeNum(row?.expectedNetVotes),
-  }));
+  const optimizerRows = normalizePlanOptimizerRows(optimizerRowsRaw);
   const locked = isScenarioLockedForEdits(state);
   return {
     inputs: {
       optMode: optimize.mode || "budget",
-      optObjective: optimize.objective || "net",
+      optObjective: normalizeOptimizationObjective(optimize.objective, "net"),
       tlOptEnabled: !!optimize.tlConstrainedEnabled,
       tlOptObjective: optimize.tlConstrainedObjective || "max_net",
       optBudget: optimize.budgetAmount ?? "",
@@ -5280,6 +5025,7 @@ function planBridgeStateView(){
     },
     options: PLAN_SELECT_OPTIONS,
     optimizerRows,
+    summary: planBridgeBuildSummaryView(),
   };
 }
 
@@ -5612,7 +5358,7 @@ function outcomeBridgeResolvedSurfaceInputs(){
     : (defaultMax === "" ? "" : String(defaultMax));
 
   const rawSteps = storedInputs.surfaceSteps ?? outcomeBridgeReadLegacyControlValue("surfaceSteps");
-  const stepsNum = Math.floor(Number(rawSteps));
+  const stepsNum = roundWholeNumberByMode(Number(rawSteps), { mode: "floor", fallback: null });
   const surfaceSteps = Number.isFinite(stepsNum)
     ? String(Math.max(5, Math.min(51, stepsNum)))
     : String(OUTCOME_SURFACE_DEFAULTS.surfaceSteps);
@@ -5620,7 +5366,7 @@ function outcomeBridgeResolvedSurfaceInputs(){
   const rawTarget = storedInputs.surfaceTarget ?? outcomeBridgeReadLegacyControlValue("surfaceTarget");
   const targetNum = Number(rawTarget);
   const surfaceTarget = Number.isFinite(targetNum)
-    ? String(Math.max(50, Math.min(99, Math.round(targetNum))))
+    ? String(Math.max(50, Math.min(99, roundWholeNumberByMode(targetNum, { mode: "round", fallback: 0 }) || 0)))
     : String(OUTCOME_SURFACE_DEFAULTS.surfaceTarget);
 
   return {
@@ -5773,6 +5519,33 @@ function outcomeBridgeStateView(){
   const mcMeta = (state?.ui && typeof state.ui === "object" && state.ui.mcMeta && typeof state.ui.mcMeta === "object")
     ? state.ui.mcMeta
     : null;
+  let governance = (state?.ui && typeof state.ui === "object" && state.ui.lastGovernanceSnapshot && typeof state.ui.lastGovernanceSnapshot === "object")
+    ? { ...state.ui.lastGovernanceSnapshot }
+    : null;
+  try{
+    const benchmarkWarnings = (engine?.snapshot?.computeAssumptionBenchmarkWarnings)
+      ? engine.snapshot.computeAssumptionBenchmarkWarnings(state, "Benchmark")
+      : [];
+    const driftSummary = computeRealityDrift();
+    const evidenceWarnings = computeEvidenceWarnings(state, { limit: 3, staleDays: 30 });
+    const full = computeModelGovernance({
+      state,
+      res: lastRenderCtx?.res || {},
+      benchmarkWarnings,
+      evidenceWarnings,
+      driftSummary,
+    });
+    if (full && typeof full === "object"){
+      governance = buildGovernanceSnapshotView(full);
+      if (!state.ui || typeof state.ui !== "object"){
+        state.ui = {};
+      }
+      state.ui.lastGovernance = full;
+      state.ui.lastGovernanceSnapshot = { ...governance };
+    }
+  } catch {
+    governance = null;
+  }
 
   let mcLastRun = "";
   if (mcMeta?.lastRunAt){
@@ -5825,7 +5598,7 @@ function outcomeBridgeStateView(){
       volunteerMultBase: state.volunteerMultBase ?? "",
       channelDoorPct: state.channelDoorPct ?? "",
       doorsPerHour3: canonicalDoorsPerHourFromSnap(state) ?? "",
-      callsPerHour3: state.callsPerHour3 ?? "",
+      callsPerHour3: canonicalCallsPerHourFromSnap(state) ?? "",
       mcMode: state.mcMode || "basic",
       mcSeed: state.mcSeed || "",
       mcVolatility: state.mcVolatility || "med",
@@ -5873,13 +5646,27 @@ function outcomeBridgeStateView(){
       p10: safeNum(percentiles?.p10),
       p50: safeNum(percentiles?.p50),
       p90: safeNum(percentiles?.p90),
+      riskLabel: String(mc?.riskLabel || "").trim(),
       riskGrade: String(advisor?.grade || "").trim(),
+      missRiskLabel: String(mc?.riskLabel || advisor?.grade || "").trim(),
+      marginOfSafety: safeNum(risk?.marginOfSafety),
+      downsideRiskMass: safeNum(risk?.downsideRiskMass),
+      expectedShortfall10: safeNum(risk?.expectedShortfall10),
+      requiredShiftP50: safeNum(risk?.breakEven?.requiredShiftP50),
+      requiredShiftP10: safeNum(risk?.breakEven?.requiredShiftP10),
+      shiftWin60: safeNum(risk?.targets?.shiftWin60),
+      shiftWin70: safeNum(risk?.targets?.shiftWin70),
+      shiftWin80: safeNum(risk?.targets?.shiftWin80),
+      shockLoss10: safeNum(risk?.shocks?.lossProb10),
+      shockLoss25: safeNum(risk?.shocks?.lossProb25),
+      shockLoss50: safeNum(risk?.shocks?.lossProb50),
       fragilityIndex: safeNum(fragility?.fragilityIndex),
       cliffRisk: safeNum(fragility?.cliffRisk),
       freshTag: mcFreshTag,
       lastRun: mcLastRun,
       staleTag: mcStaleTag,
     },
+    governance,
     sensitivityRows,
     surfaceRows,
     surfaceStatusText,
@@ -5888,18 +5675,11 @@ function outcomeBridgeStateView(){
 }
 
 function outcomeBridgeBuildSurfaceSummaryText({ spec, result, targetPercent } = {}){
-  const summarySink = { textContent: "" };
-  renderSurfaceResultCore({
-    els: {
-      surfaceSummary: summarySink,
-      surfaceTarget: { value: String(targetPercent ?? 70) },
-      surfaceTbody: null,
-    },
+  return buildOutcomeSurfaceSummaryText({
     spec,
     result,
-    fmtSigned,
+    targetPercent,
   });
-  return String(summarySink.textContent || "").trim();
 }
 
 function outcomeBridgeSetField(field, rawValue){
@@ -5967,7 +5747,7 @@ function outcomeBridgeSetField(field, rawValue){
     } else if (key === "doorsPerHour3"){
       setCanonicalDoorsPerHour(next, value);
     } else if (key === "callsPerHour3"){
-      next.callsPerHour3 = safeNum(value);
+      setCanonicalCallsPerHour(next, value);
     } else if (key === "turnoutReliabilityPct"){
       next.turnoutReliabilityPct = safeNum(value);
     } else if (key === "mcContactMin"){
@@ -6048,7 +5828,7 @@ function outcomeBridgeComputeSurface(){
   const maxV = surfaceClamp(surfaceInputs.surfaceMax, spec.clampLo, spec.clampHi);
   const lo = Math.min(minV, maxV);
   const hi = Math.max(minV, maxV);
-  const steps = Math.max(5, Math.floor(Number(surfaceInputs.surfaceSteps) || 21));
+  const steps = Math.max(5, roundWholeNumberByMode(Number(surfaceInputs.surfaceSteps) || 21, { mode: "floor", fallback: 21 }) || 21);
   const runs = surfaceInputs.surfaceMode === "full" ? 10000 : 2000;
   const targetPercent = Number(surfaceInputs.surfaceTarget);
   const targetWinProb = Number.isFinite(targetPercent)
@@ -6061,7 +5841,7 @@ function outcomeBridgeComputeSurface(){
       surfaceMin: String(lo),
       surfaceMax: String(hi),
       surfaceSteps: String(steps),
-      surfaceTarget: String(Math.round(targetWinProb * 100)),
+      surfaceTarget: String(roundWholeNumberByMode(targetWinProb * 100, { mode: "round", fallback: 70 }) || 70),
     });
     outcomeBridgeSetSurfaceComputing(next, true);
     outcomeBridgeWriteSurfaceCache(next, {
@@ -6075,7 +5855,7 @@ function outcomeBridgeComputeSurface(){
   outcomeBridgeSyncLegacyControl("surfaceMin", String(lo));
   outcomeBridgeSyncLegacyControl("surfaceMax", String(hi));
   outcomeBridgeSyncLegacyControl("surfaceSteps", String(steps));
-  outcomeBridgeSyncLegacyControl("surfaceTarget", String(Math.round(targetWinProb * 100)));
+  outcomeBridgeSyncLegacyControl("surfaceTarget", String(roundWholeNumberByMode(targetWinProb * 100, { mode: "round", fallback: 70 }) || 70));
 
   try{
     const snap = getStateSnapshot();
@@ -6107,7 +5887,7 @@ function outcomeBridgeComputeSurface(){
     const summaryText = outcomeBridgeBuildSurfaceSummaryText({
       spec,
       result,
-      targetPercent: Math.round(targetWinProb * 100),
+      targetPercent: roundWholeNumberByMode(targetWinProb * 100, { mode: "round", fallback: 70 }) || 70,
     });
 
     setState((next) => {
@@ -6168,32 +5948,6 @@ function refreshLegacyDecisionManagerIfMounted(){
   }
   safeCall(() => { renderDecisionSessionD1(); });
   safeCall(() => { renderDecisionSummaryD4(); });
-}
-
-function decisionBridgeFmtInt(value){
-  const n = Number(value);
-  if (!Number.isFinite(n)) return "—";
-  return fmtInt(Math.round(n));
-}
-
-function decisionBridgeFmtPct(value, digits = 1){
-  const n = Number(value);
-  if (!Number.isFinite(n)) return "—";
-  return `${(n * 100).toFixed(digits)}%`;
-}
-
-function decisionBridgeFmtSignedPct(value, digits = 1){
-  const n = Number(value);
-  if (!Number.isFinite(n)) return "—";
-  const sign = n > 0 ? "+" : "";
-  return `${sign}${(n * 100).toFixed(digits)}%`;
-}
-
-function decisionBridgeFmtSignedNum(value, digits = 1){
-  const n = Number(value);
-  if (!Number.isFinite(n)) return "—";
-  const sign = n > 0 ? "+" : "";
-  return `${sign}${n.toFixed(digits)}`;
 }
 
 function decisionBridgeParseMaybeNumber(raw){
@@ -6276,202 +6030,26 @@ function decisionBridgeCurrentSnapshot(){
 }
 
 function decisionBridgeDiagnosticsSnapshot(){
-  const exec = decisionBridgeDriftSnapshot();
-  const risk = decisionBridgeRiskSnapshot();
-  const bottleneck = decisionBridgeBottleneckSnapshot();
-  const sensitivity = decisionBridgeSensitivitySnapshot();
-  const confidence = decisionBridgeConfidenceSnapshot({ exec, risk, bottleneck });
-  return { exec, risk, bottleneck, sensitivity, confidence };
-}
-
-function decisionBridgeDriftSnapshot(){
-  const executionSnapshot = lastRenderCtx?.executionSnapshot || null;
-  const weeklyContext = lastRenderCtx?.weeklyContext || null;
-  const req = executionSnapshot?.pace?.requiredAttemptsPerWeek ?? weeklyContext?.attemptsPerWeek ?? null;
-  const hasLog = executionSnapshot ? !!executionSnapshot?.log?.hasLog : false;
-  const actual = hasLog ? executionSnapshot?.log?.sumAttemptsWindow ?? null : null;
-  let delta = executionSnapshot?.pace?.ratio;
-  if (delta != null && Number.isFinite(delta)) {
-    delta = delta - 1;
-  } else if (Number.isFinite(req) && req > 0 && Number.isFinite(actual)) {
-    delta = (actual - req) / req;
-  } else {
-    delta = null;
-  }
-
-  const abs = Number.isFinite(delta) ? Math.abs(delta) : null;
-  const cls = abs == null ? "" : abs <= 0.05 ? "ok" : abs <= 0.15 ? "warn" : "bad";
-  const tag = abs == null ? "Not tracking" : cls === "ok" ? "Green" : cls === "warn" ? "Yellow" : "Red";
-  const slipDays = Number.isFinite(executionSnapshot?.pace?.projectedSlipDays)
-    ? Math.max(0, Math.round(executionSnapshot.pace.projectedSlipDays))
-    : null;
-  const banner = !hasLog
-    ? "Add daily log entries in organizer.html to activate drift detection."
-    : slipDays == null
-      ? "At current pace, projected slip unavailable under current inputs."
-      : slipDays === 0
-        ? "At current pace, target completion stays on schedule."
-        : `At current pace, target completion shifts by +${decisionBridgeFmtInt(slipDays)} days.`;
-
-  return {
-    tag,
-    cls,
-    reqText: Number.isFinite(req) ? decisionBridgeFmtInt(req) : "—",
-    actualText: Number.isFinite(actual) ? decisionBridgeFmtInt(actual) : "—",
-    deltaText: Number.isFinite(delta) ? decisionBridgeFmtSignedPct(delta, 1) : "—",
-    banner,
-  };
-}
-
-function decisionBridgeRiskSnapshot(){
-  const mc = state?.mcLast || null;
-  if (!mc){
-    return {
-      tag: "—",
-      cls: "",
-      winProbText: "—",
-      marginBandText: "—",
-      volatilityText: "—",
-      banner: "Run Monte Carlo to enable risk framing.",
-    };
-  }
-
-  const winProb = Number(mc.winProb);
-  const pct = Number.isFinite(winProb) ? clamp(winProb, 0, 1) : null;
-  const envelope = mc?.confidenceEnvelope?.percentiles || null;
-  const low = Number.isFinite(Number(envelope?.p10)) ? Number(envelope.p10)
-    : Number.isFinite(Number(envelope?.p5)) ? Number(envelope.p5)
-    : null;
-  const high = Number.isFinite(Number(envelope?.p90)) ? Number(envelope.p90)
-    : Number.isFinite(Number(envelope?.p95)) ? Number(envelope.p95)
-    : null;
-  const width = Number.isFinite(low) && Number.isFinite(high) ? (high - low) : null;
-  const bandText = (Number.isFinite(low) && Number.isFinite(high))
-    ? `${low.toFixed(1)} to ${high.toFixed(1)}`
-    : "—";
-
-  let tag = "Volatile";
-  let cls = "bad";
-  if (pct == null){
-    tag = "—";
-    cls = "";
-  } else if (pct >= 0.70 && (!Number.isFinite(width) || width <= 8)){
-    tag = "High confidence";
-    cls = "ok";
-  } else if (pct >= 0.55 && (!Number.isFinite(width) || width <= 14)){
-    tag = "Lean";
-    cls = "warn";
-  }
-
-  const banner = pct == null
-    ? "Risk framing unavailable."
-    : tag === "High confidence"
-      ? "Model indicates a durable advantage under current assumptions."
-      : tag === "Lean"
-        ? "Outcome is favorable but still sensitive to execution drift."
-        : "Outcome is fragile; small assumption shifts can change the forecast.";
-
-  return {
-    tag,
-    cls,
-    winProbText: pct == null ? "—" : decisionBridgeFmtPct(pct, 1),
-    marginBandText: bandText,
-    volatilityText: Number.isFinite(width) ? width.toFixed(1) : "—",
-    banner,
-  };
-}
-
-function decisionBridgeBottleneckSnapshot(){
-  const bindingObj = state?.ui?.lastTlMeta?.bindingObj || {};
-  const timeline = Array.isArray(bindingObj?.timeline) ? bindingObj.timeline : [];
-  const hasBinding = !!bindingObj?.budget || !!bindingObj?.capacity || timeline.length > 0;
-  const primary = state?.ui?.lastDiagnostics?.primaryBottleneck
-    || (timeline[0] ? `timeline: ${timeline[0]}` : "none/unknown");
-  const secondary = state?.ui?.lastDiagnostics?.secondaryNotes
-    || (timeline[1] ? `timeline: ${timeline[1]}` : "—");
-
-  return {
-    tag: hasBinding ? "Binding" : "Clear",
-    cls: hasBinding ? "warn" : "ok",
-    primary,
-    secondary,
-    warn: hasBinding
-      ? "Constraint stack is binding at current optimization settings."
-      : "No active bottleneck constraints under current optimization settings.",
-    rows: [],
-  };
-}
-
-function decisionBridgeSensitivitySnapshot(){
-  const cache = state?.ui?.e4Sensitivity || null;
-  if (!cache || !Array.isArray(cache.rows) || !cache.rows.length){
-    return {
-      tag: "—",
-      cls: "",
-      banner: "No sensitivity rows. Run snapshot.",
-      rows: [],
-    };
-  }
-  return {
-    tag: cache.tag || "Snapshot",
-    cls: cache.cls || "",
-    banner: cache.banner || "Sensitivity snapshot available.",
-    rows: cache.rows.map((row) => ({
-      perturbation: row?.label || "—",
-      dWin: row?.dWin || "—",
-      dP50: row?.dP50 || "—",
-      notes: row?.note || "",
-    })),
-  };
-}
-
-function decisionBridgeConfidenceSnapshot({ exec, risk, bottleneck }){
-  const scoreExec = exec?.cls === "ok" ? 25 : exec?.cls === "warn" ? 15 : exec?.cls === "bad" ? 5 : 10;
-  const scoreRisk = risk?.cls === "ok" ? 25 : risk?.cls === "warn" ? 15 : risk?.cls === "bad" ? 5 : 10;
-  const scoreBneck = bottleneck?.cls === "ok" ? 25 : 10;
-
   ensureScenarioRegistry();
   const reg = state?.ui?.scenarios || {};
   const activeId = state?.ui?.activeScenarioId || SCENARIO_BASELINE_ID;
-  const base = reg?.[SCENARIO_BASELINE_ID] || null;
-  const active = reg?.[activeId] || null;
-  let divergenceCount = 0;
-  if (base && active && activeId !== SCENARIO_BASELINE_ID){
-    const keyOrder = [
-      "raceType","mode","electionDate","weeksRemaining",
-      "universeBasis","universeSize","goalSupportIds",
-      "supportRatePct","contactRatePct","turnoutReliabilityPct",
-      "orgCount","orgHoursPerWeek","volunteerMultBase"
-    ];
-    const before = base.inputs || {};
-    const after = active.inputs || {};
-    keyOrder.forEach((key) => {
-      const a = before?.[key];
-      const b = after?.[key];
-      const same = (a === b) || (String(a ?? "") === String(b ?? ""));
-      if (!same) divergenceCount += 1;
-    });
-  }
-  const divergenceLabel = divergenceCount <= 3 ? "Low" : divergenceCount <= 8 ? "Moderate" : "High";
-  const scoreDiv = divergenceLabel === "Low" ? 25 : divergenceLabel === "Moderate" ? 15 : 5;
-
-  const score = scoreExec + scoreRisk + scoreBneck + scoreDiv;
-  const rating = score >= 80 ? "Strong" : score >= 50 ? "Moderate" : "Low";
-  const cls = rating === "Strong" ? "ok" : rating === "Moderate" ? "warn" : "bad";
-
-  return {
-    tag: rating,
-    cls,
-    exec: exec?.cls === "ok" ? "On pace" : exec?.cls === "warn" ? "Drifting" : exec?.cls === "bad" ? "Off pace" : "—",
-    risk: risk?.tag || "—",
-    tight: bottleneck?.cls === "ok" ? "Clear" : "Binding",
-    divergence: divergenceLabel,
-    banner: rating === "Strong"
-      ? "Confidence is strong across pace, risk, and constraint posture."
-      : rating === "Moderate"
-        ? "Confidence is moderate; review drift and risk before commitment."
-        : "Confidence is low; assumptions and constraints need remediation before commitment.",
-  };
+  const baseInputs = reg?.[SCENARIO_BASELINE_ID]?.inputs || null;
+  const activeInputs = reg?.[activeId]?.inputs || null;
+  return buildDecisionDiagnosticsSnapshotView({
+    executionSnapshot: lastRenderCtx?.executionSnapshot || null,
+    weeklyContext: lastRenderCtx?.weeklyContext || null,
+    mcResult: state?.mcLast || null,
+    clampFn: clamp,
+    bindingObj: state?.ui?.lastTlMeta?.bindingObj || null,
+    primaryBottleneck: state?.ui?.lastDiagnostics?.primaryBottleneck || null,
+    secondaryNotes: state?.ui?.lastDiagnostics?.secondaryNotes || null,
+    sensitivityCache: state?.ui?.e4Sensitivity || null,
+    baselineInputs,
+    activeInputs,
+    divergenceKeyOrder: DECISION_DIVERGENCE_KEY_ORDER,
+    formatInt: (value) => fmtInt(value),
+    weeksRemaining: lastRenderCtx?.weeks ?? null,
+  });
 }
 
 function decisionBridgeStateView(){
@@ -6871,11 +6449,15 @@ async function decisionBridgeRunSensitivitySnapshot(){
     };
   }
 
-  const computed = computeSensitivitySnapshotCache({
+  const computed = computeDecisionSensitivityMiniSurfaceCache({
     state,
     lastRenderCtx,
-    clamp,
+    clampFn: clamp,
     runMonteCarloSim,
+    resolveCanonicalDoorsPerHourFn: canonicalDoorsPerHourFromSnap,
+    resolveCanonicalCallsPerHourFn: canonicalCallsPerHourFromSnap,
+    setCanonicalDoorsPerHourFn: (target, value, options = {}) => setCanonicalDoorsPerHour(target, value, options),
+    setCanonicalCallsPerHourFn: (target, value, options = {}) => setCanonicalCallsPerHour(target, value, options),
   });
   if (!computed.ok || !computed.cache){
     return { ok: false, code: computed.code || "failed", view: decisionBridgeStateView() };
@@ -7077,9 +6659,6 @@ function isDevMode(){
 }
 
 function initDevTools(){
-  const loadSelfTestsModule = () =>
-    import("./selfTest.js")
-      .catch(() => import("./core/selfTest.js"));
   initDevToolsModule({
     isDevMode,
     getState: () => state,
@@ -7090,61 +6669,74 @@ function initDevTools(){
     getSelfTestAccessors,
     setSelfTestGateStatus: (next) => { selfTestGateStatus = next; },
     updateSelfTestGateBadge,
-    loadSelfTests: loadSelfTestsModule,
   });
 }
-function composeSetupStage(){
-  composeSetupStageModule();
-}
-
-function shouldComposeLegacySetupStage(){
-  try{
-    const getMode = window.__FPE_GET_UI_MODE__;
-    if (typeof getMode === "function" && getMode() === "legacy") return true;
-  } catch {}
-
-  try{
-    const params = new URLSearchParams(window.location.search || "");
-    if (params.get("ui") === "legacy") return true;
-  } catch {}
-
-  const setupStage = document.getElementById("stage-setup");
-  return !!(setupStage && !setupStage.hidden);
-}
-
 function init(){
-  try { normalizeStageLayoutModule(); } catch {}
-  if (shouldComposeLegacySetupStage()){
-    try { composeSetupStage(); } catch {}
+  bootProbeSetStatus("booting", { source: "appRuntime.init" });
+
+  const runInitStep = (label, fn) => {
+    bootProbeMark(label, { phase: "start" });
+    safeCall(() => {
+      const result = fn();
+      bootProbeMark(label, { phase: "ok" });
+      return result;
+    }, { label });
+  };
+
+  try {
+    bootProbeMark("init.normalizeStageLayout", { phase: "start" });
+    normalizeStageLayoutModule();
+    bootProbeMark("init.normalizeStageLayout", { phase: "ok" });
+  } catch (err){
+    bootProbeError("init.normalizeStageLayout", err);
   }
-  installGlobalErrorCapture();
-  safeCall(() => { preflightEls(); }, { label: "init.preflightEls" });
-  safeCall(() => { wireUsbStorageEvents(); }, { label: "init.wireUsbStorageEvents" });
-  safeCall(() => {
-    const controller = getUsbStorageController();
-    Promise.resolve(controller.init()).then(() => {
-      if (controller.isConnected()){
-        clearPersistenceFailure("state");
-        clearPersistenceFailure("backup");
-        if (!bootHadLocalState){
-          return controller.loadFromFolder({ suppressMissingStatus: true });
-        }
-      }
-      return null;
-    }).catch(() => {});
+
+  runInitStep("init.applyActiveContextToLegacyNavLinks", () => {
+    applyActiveContextToLinks(resolveActiveContext({ fallback: state }), ".nav-item-new[href]");
   });
-  safeCall(() => { ensureScenarioRegistry(); }, { label: "init.ensureScenarioRegistry" });
-  safeCall(() => { installDataBridge(); }, { label: "init.installDataBridge" });
-  safeCall(() => { installScenarioBridge(); }, { label: "init.installScenarioBridge" });
-  safeCall(() => { installShellBridge(); }, { label: "init.installShellBridge" });
-  safeCall(() => { installDistrictBridge(); }, { label: "init.installDistrictBridge" });
-  safeCall(() => { installReachBridge(); }, { label: "init.installReachBridge" });
-  safeCall(() => { installTurnoutBridge(); }, { label: "init.installTurnoutBridge" });
-  safeCall(() => { installPlanBridge(); }, { label: "init.installPlanBridge" });
-  safeCall(() => { installOutcomeBridge(); }, { label: "init.installOutcomeBridge" });
-  safeCall(() => { ensureDecisionScaffold(); }, { label: "init.ensureDecisionScaffold" });
-  safeCall(() => { installDecisionBridge(); }, { label: "init.installDecisionBridge" });
-  safeCall(() => {
+  runInitStep("init.installGlobalErrorCapture", () => { installGlobalErrorCapture(); });
+  runInitStep("init.preflightEls", () => { preflightEls(); });
+  runInitStep("init.wireUsbStorageEvents", () => { wireUsbStorageEvents(); });
+  runInitStep("init.usbStorageInit", () => {
+    const controller = getUsbStorageController();
+    bootProbeMark("init.usbStorageInit.controller", { phase: "ok" });
+    Promise.resolve(controller.init())
+      .then(() => {
+        bootProbeMark("init.usbStorageInit.controllerInit", {
+          phase: "ok",
+          connected: controller.isConnected(),
+        });
+        if (controller.isConnected()){
+          clearPersistenceFailure("state");
+          clearPersistenceFailure("backup");
+          if (!bootHadLocalState){
+            return controller.loadFromFolder({ suppressMissingStatus: true });
+          }
+        }
+        return null;
+      })
+      .then((loaded) => {
+        if (loaded){
+          bootProbeMark("init.usbStorageInit.loadFromFolder", { phase: "ok" });
+        }
+      })
+      .catch((err) => {
+        bootProbeError("init.usbStorageInit.async", err);
+        recordError("init-usb-storage", err?.message ? String(err.message) : String(err || "USB storage init failed"));
+      });
+  });
+  runInitStep("init.ensureScenarioRegistry", () => { ensureScenarioRegistry(); });
+  runInitStep("init.installDataBridge", () => { installDataBridge(); });
+  runInitStep("init.installScenarioBridge", () => { installScenarioBridge(); });
+  runInitStep("init.installShellBridge", () => { installShellBridge(); });
+  runInitStep("init.installDistrictBridge", () => { installDistrictBridge(); });
+  runInitStep("init.installReachBridge", () => { installReachBridge(); });
+  runInitStep("init.installTurnoutBridge", () => { installTurnoutBridge(); });
+  runInitStep("init.installPlanBridge", () => { installPlanBridge(); });
+  runInitStep("init.installOutcomeBridge", () => { installOutcomeBridge(); });
+  runInitStep("init.ensureDecisionScaffold", () => { ensureDecisionScaffold(); });
+  runInitStep("init.installDecisionBridge", () => { installDecisionBridge(); });
+  runInitStep("init.runInitScenarioDecisionWiring", () => {
     runInitScenarioDecisionWiringModule({
       els,
       getState: () => state,
@@ -7184,8 +6776,8 @@ function init(){
       downloadJsonObject,
       runSensitivitySnapshotE4,
     });
-  }, { label: "init.runInitScenarioDecisionWiring" });
-  safeCall(() => {
+  });
+  runInitStep("init.runInitPostBoot", () => {
     runInitPostBootModule({
       updateBuildStamp,
       updateSelfTestGateBadge,
@@ -7207,7 +6799,19 @@ function init(){
       renderScenarioManagerC1,
       persist,
     });
-  }, { label: "init.runInitPostBoot" });
+    bootProbeSetStatus("ready", { source: "appRuntime.init" });
+  });
+
+  try{
+    window.setTimeout(() => {
+      const status = getBootProbeStatus();
+      if (String(status?.status || "") === "ready") return;
+      bootProbeMark("init.readyTimeout", { status: String(status?.status || "unknown") });
+      recordError("boot-probe", "Startup did not reach ready state within 6000ms.", {
+        status: String(status?.status || "unknown"),
+      });
+    }, 6000);
+  } catch {}
 }
 
 

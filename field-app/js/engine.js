@@ -5,10 +5,10 @@
 
 import { computeDeterministic as computeAll } from "./core/model.js";
 import { runMonteCarloSim } from "./core/monteCarlo.js";
-import { optimizeMixBudget, optimizeMixCapacity } from "./core/optimize.js";
+import { optimizeMixBudget, optimizeMixCapacity, optimizeMixByOffice, buildOptimizationExecutionSummary } from "./core/optimize.js";
 import { computeRoiRows, buildOptimizationTactics } from "./core/budget.js";
 import { computeTimelineFeasibility } from "./core/timeline.js";
-import { computeMaxAttemptsByTactic, optimizeTimelineConstrained } from "./core/timelineOptimizer.js";
+import { computeMaxAttemptsByTactic, optimizeTimelineConstrained, getTimelineObjectiveMeta } from "./core/timelineOptimizer.js";
 import { computeMarginalValueDiagnostics } from "./core/marginalValue.js";
 import { computeDecisionIntelligence } from "./core/decisionIntelligence.js";
 import { computeSensitivitySurface as _computeSensitivitySurface } from "./core/sensitivitySurface.js";
@@ -65,6 +65,8 @@ function buildAccessors(){
     runMonteCarloSim: (...args) => runMonteCarloSim(...args),
     optimizeMixBudget: (inputs, options) => optimizeMixBudget(inputs, options),
     optimizeMixCapacity: (inputs, options) => optimizeMixCapacity(inputs, options),
+    optimizeMixByOffice: (inputs, options) => optimizeMixByOffice(inputs, options),
+    buildOptimizationExecutionSummary: (inputs) => buildOptimizationExecutionSummary(inputs),
     buildOptimizationTactics: (...args) => buildOptimizationTactics(...args),
     computeRoiRows: (...args) => computeRoiRows(...args),
     computeCapacityBreakdown: (args) => computeCapacityBreakdown(args),
@@ -81,10 +83,13 @@ export const engine = {
 
   optimizeMixBudget: (inputs, options) => optimizeMixBudget(inputs, options),
   optimizeMixCapacity: (inputs, options) => optimizeMixCapacity(inputs, options),
+  optimizeMixByOffice: (inputs, options) => optimizeMixByOffice(inputs, options),
+  buildOptimizationExecutionSummary: (inputs, options) => buildOptimizationExecutionSummary(inputs, options),
   optimizeTimelineConstrained: (inputs, options) => optimizeTimelineConstrained(inputs, options),
 
   computeTimelineFeasibility: (inputs, options) => computeTimelineFeasibility(inputs, options),
   computeMaxAttemptsByTactic: (inputs, options) => computeMaxAttemptsByTactic(inputs, options),
+  getTimelineObjectiveMeta: (meta) => getTimelineObjectiveMeta(meta),
 
   computeRoiRows: (...args) => computeRoiRows(...args),
   buildOptimizationTactics: (...args) => buildOptimizationTactics(...args),

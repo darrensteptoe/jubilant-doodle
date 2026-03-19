@@ -1,7 +1,17 @@
 // @ts-check
-import { safeNum } from "./utils.js";
+import { roundWholeNumberByMode, safeNum } from "./utils.js";
 import { loadState, saveState } from "./storage.js";
 import { APP_VERSION, BUILD_ID } from "./build.js";
+import { toOperationsStoreOptionsFromState } from "./features/operations/context.js";
+import { applyActiveContextToLinks, contextFromState } from "./app/activeContext.js";
+import {
+  operationsAddDaysUTC,
+  operationsParseDate,
+  operationsParseIsoDateInput,
+  operationsShiftHours,
+  operationsToIsoDateUTC,
+} from "./features/operations/time.js";
+import { formatOperationsFixed, formatOperationsWhole } from "./features/operations/view.js";
 
 const els = {
   logDate: document.getElementById("logDate"),
@@ -45,7 +55,7 @@ function isISODate(s){
 function asNonNegInt(v){
   const n = safeNum(v);
   if (!Number.isFinite(n)) return 0;
-  return Math.max(0, Math.floor(n));
+  return Math.max(0, roundWholeNumberByMode(n, { mode: "floor", fallback: 0 }) || 0);
 }
 
 function asNonNegNum(v){
@@ -64,26 +74,17 @@ function todayISO(){
 
 function isoToDate(iso){
   if (!isISODate(iso)) return null;
-  const [y,m,d] = iso.split("-").map(x => Number(x));
-  if (!y || !m || !d) return null;
-  const dt = new Date(Date.UTC(y, m - 1, d));
-  if (!Number.isFinite(dt.getTime())) return null;
-  return dt;
+  return operationsParseIsoDateInput(iso);
 }
 
 function dateToISO(dt){
-  if (!(dt instanceof Date) || !Number.isFinite(dt.getTime())) return "";
-  const y = dt.getUTCFullYear();
-  const m = String(dt.getUTCMonth() + 1).padStart(2, "0");
-  const d = String(dt.getUTCDate()).padStart(2, "0");
-  return `${y}-${m}-${d}`;
+  return operationsToIsoDateUTC(dt);
 }
 
 function addDaysISO(iso, delta){
   const dt = isoToDate(iso);
   if (!dt) return "";
-  dt.setUTCDate(dt.getUTCDate() + (Number(delta) || 0));
-  return dateToISO(dt);
+  return dateToISO(operationsAddDaysUTC(dt, Number(delta) || 0));
 }
 
 function clean(v){
@@ -94,9 +95,9 @@ function isoFromAnyDate(raw){
   const s = clean(raw);
   if (!s) return "";
   if (isISODate(s)) return s.slice(0, 10);
-  const ts = Date.parse(s);
-  if (!Number.isFinite(ts)) return "";
-  return dateToISO(new Date(ts));
+  const dt = operationsParseDate(s);
+  if (!(dt instanceof Date)) return "";
+  return dateToISO(dt);
 }
 
 function shiftModeBucket(mode){
@@ -107,10 +108,7 @@ function shiftModeBucket(mode){
 }
 
 function shiftHours(raw){
-  const start = Date.parse(clean(raw?.checkInAt) || clean(raw?.startAt));
-  const end = Date.parse(clean(raw?.checkOutAt) || clean(raw?.endAt));
-  if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start) return 0;
-  return (end - start) / 3600000;
+  return operationsShiftHours(raw);
 }
 
 function stripSyncNote(notes){
@@ -256,7 +254,7 @@ function aggregateShiftRecordsByDate(shiftRecords){
         attempts,
         convos,
         supportIds,
-        orgHours: Number(asNonNegNum(day.orgHours).toFixed(2)),
+        orgHours: asNonNegNum(day.orgHours),
         shiftCount: asNonNegInt(day.shiftCount),
       };
     });
@@ -372,7 +370,10 @@ async function previewShiftSync(){
     return null;
   }
 
-  const shifts = await api.getAll("shiftRecords");
+  const storeScope = toOperationsStoreOptionsFromState(state);
+  const shifts = await api.getAll("shiftRecords", {
+    ...storeScope,
+  });
   const agg = aggregateShiftRecordsByDate(shifts);
   shiftSyncPlan = buildShiftSyncPlan(agg, {
     overwrite: Boolean(els.shiftSyncOverwrite?.checked),
@@ -486,11 +487,11 @@ function renderTable(){
       const tr = document.createElement("tr");
       tr.innerHTML = `
         <td><button class="link" data-edit="1" data-date="${e.date}">${e.date}</button></td>
-        <td>${Math.round(e.attempts || 0)}</td>
-        <td>${Math.round(e.convos || 0)}</td>
-        <td>${Math.round(e.supportIds || 0)}</td>
-        <td>${e.orgHours ? e.orgHours : 0}</td>
-        <td>${Math.round(e.volsActive || 0)}</td>
+        <td>${formatOperationsWhole(e.attempts || 0, { fallback: "0" })}</td>
+        <td>${formatOperationsWhole(e.convos || 0, { fallback: "0" })}</td>
+        <td>${formatOperationsWhole(e.supportIds || 0, { fallback: "0" })}</td>
+        <td>${formatOperationsFixed(e.orgHours || 0, { digits: 2, fallback: "0.00" })}</td>
+        <td>${formatOperationsWhole(e.volsActive || 0, { fallback: "0" })}</td>
         <td>
           <button class="btn btn-sm btn-ghost" data-del="1" data-date="${e.date}">Delete</button>
         </td>
@@ -639,6 +640,8 @@ async function copyJson(payload){
 }
 
 function wire(){
+  applyActiveContextToLinks(contextFromState(state), "a[href]");
+
   if (els.logDate && !els.logDate.value) els.logDate.value = todayISO();
 
   if (els.btnSaveEntry) els.btnSaveEntry.addEventListener("click", () => {

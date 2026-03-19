@@ -3,6 +3,20 @@ import { readJsonFile } from "./utils.js";
 import { PIPELINE_STAGES } from "./features/operations/schema.js";
 import { ensureOperationsDefaults, getAll, put, makeOperationsId } from "./features/operations/store.js";
 import { downloadOperationsSnapshot, importOperationsSnapshot, downloadStoreCsv, importStoreCsv } from "./features/operations/io.js";
+import { operationsDaysSince, operationsNowIso } from "./features/operations/time.js";
+import {
+  normalizeCompensationType,
+  normalizePersonWorkforceFields,
+  normalizeRoleType,
+} from "./features/operations/workforce.js";
+import {
+  applyOperationsContextToLinks,
+  resolveOperationsOfficeField,
+  resolveOperationsContext,
+  shouldLockOperationsOfficeField,
+  summarizeOperationsContext,
+  toOperationsStoreOptions,
+} from "./features/operations/context.js";
 
 const els = {
   leadName: document.getElementById("leadName"),
@@ -11,6 +25,12 @@ const els = {
   leadRecruiter: document.getElementById("leadRecruiter"),
   leadSourceChannel: document.getElementById("leadSourceChannel"),
   leadStage: document.getElementById("leadStage"),
+  leadRoleType: document.getElementById("leadRoleType"),
+  leadCompensationType: document.getElementById("leadCompensationType"),
+  leadPayRate: document.getElementById("leadPayRate"),
+  leadExpectedHoursPerWeek: document.getElementById("leadExpectedHoursPerWeek"),
+  leadSupervisorId: document.getElementById("leadSupervisorId"),
+  leadActive: document.getElementById("leadActive"),
   btnSaveLead: document.getElementById("btnSaveLead"),
   btnClearLead: document.getElementById("btnClearLead"),
   leadMsg: document.getElementById("leadMsg"),
@@ -27,9 +47,9 @@ const els = {
   ioMsg: document.getElementById("ioMsg"),
 };
 
-function nowIso(){
-  return new Date().toISOString();
-}
+const operationsContext = resolveOperationsContext();
+const storeScope = toOperationsStoreOptions(operationsContext);
+const officeFieldLocked = shouldLockOperationsOfficeField(operationsContext);
 
 function clean(v){
   return String(v || "").trim();
@@ -39,16 +59,12 @@ function norm(v){
   return clean(v).toLowerCase();
 }
 
-function daysSince(iso){
-  const ts = Date.parse(String(iso || ""));
-  if (!Number.isFinite(ts)) return null;
-  const delta = Date.now() - ts;
-  if (!Number.isFinite(delta) || delta < 0) return 0;
-  return Math.floor(delta / 86400000);
-}
-
 function setMsg(el, text){
   if (el) el.textContent = text || "";
+}
+
+function contextSummaryText(){
+  return summarizeOperationsContext(operationsContext);
 }
 
 function fillStages(selectEl){
@@ -64,18 +80,34 @@ function fillStages(selectEl){
 
 function clearForm(){
   if (els.leadName) els.leadName.value = "";
-  if (els.leadOffice) els.leadOffice.value = "";
+  if (els.leadOffice){
+    els.leadOffice.value = resolveOperationsOfficeField(operationsContext, "");
+    els.leadOffice.disabled = officeFieldLocked;
+  }
   if (els.leadRegion) els.leadRegion.value = "";
   if (els.leadRecruiter) els.leadRecruiter.value = "";
   if (els.leadSourceChannel) els.leadSourceChannel.value = "";
   if (els.leadStage) els.leadStage.value = PIPELINE_STAGES[0];
+  if (els.leadRoleType) els.leadRoleType.value = "canvasser";
+  if (els.leadCompensationType) els.leadCompensationType.value = "paid";
+  if (els.leadPayRate) els.leadPayRate.value = "";
+  if (els.leadExpectedHoursPerWeek) els.leadExpectedHoursPerWeek.value = "";
+  if (els.leadSupervisorId) els.leadSupervisorId.value = "";
+  if (els.leadActive) els.leadActive.checked = false;
   setMsg(els.leadMsg, "");
+}
+
+function syncCompensationToRole(){
+  const roleType = normalizeRoleType(clean(els.leadRoleType?.value) || "canvasser");
+  if (els.leadRoleType) els.leadRoleType.value = roleType;
+  if (!els.leadCompensationType) return;
+  els.leadCompensationType.value = normalizeCompensationType(clean(els.leadCompensationType.value), roleType);
 }
 
 async function loadData(){
   const [persons, pipelineRecords] = await Promise.all([
-    getAll("persons"),
-    getAll("pipelineRecords"),
+    getAll("persons", storeScope),
+    getAll("pipelineRecords", storeScope),
   ]);
   return {
     persons: Array.isArray(persons) ? persons : [],
@@ -106,36 +138,40 @@ async function saveLead(){
     return;
   }
 
-  const office = clean(els.leadOffice?.value);
+  const office = resolveOperationsOfficeField(operationsContext, clean(els.leadOffice?.value));
   const region = clean(els.leadRegion?.value);
   const recruiter = clean(els.leadRecruiter?.value);
   const sourceChannel = clean(els.leadSourceChannel?.value);
   const stage = clean(els.leadStage?.value) || PIPELINE_STAGES[0];
-  const stamp = nowIso();
+  const roleType = normalizeRoleType(clean(els.leadRoleType?.value) || "canvasser");
+  const compensationType = normalizeCompensationType(clean(els.leadCompensationType?.value), roleType);
+  const payRateRaw = Number(els.leadPayRate?.value);
+  const expectedHoursPerWeekRaw = Number(els.leadExpectedHoursPerWeek?.value);
+  const supervisorId = clean(els.leadSupervisorId?.value);
+  const forceActive = !!els.leadActive?.checked;
+  const stamp = operationsNowIso();
 
   const { persons, pipelineRecords } = await loadData();
-  let person = findPersonMatch(persons, { name, office, region });
-  if (!person){
-    person = {
-      id: makeOperationsId("per"),
-      name,
-      office,
-      region,
-      role: "canvasser",
-      active: stage === "Active",
-      createdAt: stamp,
-      updatedAt: stamp,
-    };
-  } else {
-    person = {
-      ...person,
-      name,
-      office,
-      region,
-      active: stage === "Active" ? true : !!person.active,
-      updatedAt: stamp,
-    };
-  }
+  const existingPerson = findPersonMatch(persons, { name, office, region });
+  const personDraft = {
+    ...(existingPerson || {}),
+    id: clean(existingPerson?.id) || makeOperationsId("per"),
+    name,
+    office,
+    region,
+    roleType,
+    compensationType,
+    role: roleType,
+    payRate: Number.isFinite(payRateRaw) && payRateRaw >= 0 ? payRateRaw : null,
+    expectedHoursPerWeek: Number.isFinite(expectedHoursPerWeekRaw) && expectedHoursPerWeekRaw >= 0 ? expectedHoursPerWeekRaw : null,
+    supervisorId,
+    active: (stage === "Active") || forceActive || !!existingPerson?.active,
+    createdAt: clean(existingPerson?.createdAt) || stamp,
+    updatedAt: stamp,
+  };
+  const person = normalizePersonWorkforceFields(personDraft, { roleType, compensationType });
+  if (els.leadRoleType) els.leadRoleType.value = person.roleType;
+  if (els.leadCompensationType) els.leadCompensationType.value = person.compensationType;
 
   const existing = pipelineRecords.find((r) => String(r?.personId) === String(person.id));
   const stageDates = { ...(existing?.stageDates || {}) };
@@ -155,9 +191,9 @@ async function saveLead(){
     updatedAt: stamp,
   };
 
-  await put("persons", person);
-  await put("pipelineRecords", record);
-  setMsg(els.leadMsg, existing ? "Updated existing pipeline record." : "Created pipeline record.");
+  await put("persons", person, storeScope);
+  await put("pipelineRecords", record, storeScope);
+  setMsg(els.leadMsg, existingPerson ? "Updated existing pipeline record." : "Created pipeline record.");
   await renderPipeline();
 }
 
@@ -165,15 +201,15 @@ async function updateStage(recordId, stage){
   const { pipelineRecords, persons } = await loadData();
   const rec = pipelineRecords.find((r) => String(r?.id) === String(recordId));
   if (!rec) return;
-  const stamp = nowIso();
+  const stamp = operationsNowIso();
   const stageDates = { ...(rec.stageDates || {}) };
   if (!stageDates[stage]) stageDates[stage] = stamp;
   const next = { ...rec, stage, stageDates, updatedAt: stamp };
-  await put("pipelineRecords", next);
+  await put("pipelineRecords", next, storeScope);
 
   const person = persons.find((p) => String(p?.id) === String(rec.personId));
   if (person && stage === "Active"){
-    await put("persons", { ...person, active: true, updatedAt: stamp });
+    await put("persons", { ...person, active: true, updatedAt: stamp }, storeScope);
   }
 }
 
@@ -189,14 +225,16 @@ function buildRow({ rec, person }){
     <td>${clean(person?.name) || "—"}</td>
     <td>${clean(rec?.office || person?.office) || "—"}</td>
     <td>${clean(rec?.region || person?.region) || "—"}</td>
+    <td>${clean(person?.roleType || person?.role) || "—"}</td>
+    <td>${clean(person?.compensationType) || "—"}</td>
     <td>${clean(rec?.recruiter) || "—"}</td>
     <td>
       <select class="select input-sm" id="${stageSelectId}">
         ${PIPELINE_STAGES.map((s) => `<option value="${s}" ${s === stage ? "selected" : ""}>${s}</option>`).join("")}
       </select>
     </td>
-    <td class="num">${daysSince(entered) == null ? "—" : String(daysSince(entered))}</td>
-    <td class="num">${daysSince(totalSince) == null ? "—" : String(daysSince(totalSince))}</td>
+    <td class="num">${operationsDaysSince(entered) == null ? "—" : String(operationsDaysSince(entered))}</td>
+    <td class="num">${operationsDaysSince(totalSince) == null ? "—" : String(operationsDaysSince(totalSince))}</td>
     <td>
       <button class="btn btn-sm btn-ghost" data-action="advance" data-id="${rec.id}" type="button">Advance</button>
       <button class="btn btn-sm btn-ghost" data-action="save-stage" data-id="${rec.id}" data-select="${stageSelectId}" type="button">Save</button>
@@ -220,7 +258,7 @@ async function renderPipeline(){
   els.pipelineTbody.innerHTML = "";
   if (!rows.length){
     const tr = document.createElement("tr");
-    tr.innerHTML = '<td class="muted" colspan="8">No pipeline records yet.</td>';
+    tr.innerHTML = '<td class="muted" colspan="10">No pipeline records yet.</td>';
     els.pipelineTbody.appendChild(tr);
     return;
   }
@@ -263,7 +301,7 @@ function wireIoActions(){
   if (els.btnExportJson){
     els.btnExportJson.addEventListener("click", async () => {
       try{
-        await downloadOperationsSnapshot("operations-snapshot.json");
+        await downloadOperationsSnapshot("operations-snapshot.json", { context: storeScope });
         setMsg(els.ioMsg, "Operations JSON exported.");
       } catch (e){
         setMsg(els.ioMsg, e?.message ? String(e.message) : "Export failed.");
@@ -278,7 +316,7 @@ function wireIoActions(){
         const file = els.importJsonFile.files?.[0];
         if (!file) return;
         const payload = await readJsonFile(file);
-        await importOperationsSnapshot(payload, { mode: "merge" });
+        await importOperationsSnapshot(payload, { mode: "merge", context: storeScope });
         setMsg(els.ioMsg, "Operations JSON imported (merge).");
         await renderPipeline();
       } catch (e){
@@ -292,7 +330,7 @@ function wireIoActions(){
   if (els.btnExportCsv){
     els.btnExportCsv.addEventListener("click", async () => {
       try{
-        await downloadStoreCsv("pipelineRecords", "pipeline-records.csv");
+        await downloadStoreCsv("pipelineRecords", "pipeline-records.csv", { context: storeScope });
         setMsg(els.ioMsg, "Pipeline CSV exported.");
       } catch (e){
         setMsg(els.ioMsg, e?.message ? String(e.message) : "CSV export failed.");
@@ -307,7 +345,7 @@ function wireIoActions(){
         const file = els.importCsvFile.files?.[0];
         if (!file) return;
         const text = await file.text();
-        await importStoreCsv("pipelineRecords", text, { mode: "merge" });
+        await importStoreCsv("pipelineRecords", text, { mode: "merge", context: storeScope });
         setMsg(els.ioMsg, "Pipeline CSV imported (merge).");
         await renderPipeline();
       } catch (e){
@@ -320,10 +358,12 @@ function wireIoActions(){
 }
 
 async function init(){
+  applyOperationsContextToLinks(operationsContext, ".note a[href]");
   fillStages(els.leadStage);
   clearForm();
-  await ensureOperationsDefaults();
+  await ensureOperationsDefaults(storeScope);
   await renderPipeline();
+  setMsg(els.ioMsg, contextSummaryText());
 
   if (els.btnSaveLead){
     els.btnSaveLead.addEventListener("click", async () => {
@@ -337,6 +377,12 @@ async function init(){
   if (els.btnClearLead){
     els.btnClearLead.addEventListener("click", clearForm);
   }
+  if (els.leadRoleType){
+    els.leadRoleType.addEventListener("change", syncCompensationToRole);
+  }
+  if (els.leadCompensationType){
+    els.leadCompensationType.addEventListener("change", syncCompensationToRole);
+  }
 
   wireTableActions();
   wireIoActions();
@@ -345,4 +391,3 @@ async function init(){
 init().catch((e) => {
   setMsg(els.leadMsg, e?.message ? String(e.message) : "Initialization failed.");
 });
-

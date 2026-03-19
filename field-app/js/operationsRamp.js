@@ -1,6 +1,30 @@
 // @ts-check
 import { PIPELINE_STAGES, DEFAULT_FORECAST_CONFIG } from "./features/operations/schema.js";
 import { ensureOperationsDefaults, getAll, getById, put } from "./features/operations/store.js";
+import {
+  operationsAddDaysUTC,
+  operationsClampNumber,
+  operationsFiniteNumber,
+  operationsNonNegativeInt,
+  operationsNonNegativeNumber,
+  operationsParseDate,
+  operationsParseIsoDateInput,
+  operationsStartOfWeekUTC,
+  operationsTodayIso,
+  operationsTransitionKey,
+  operationsToIsoDateUTC,
+} from "./features/operations/time.js";
+import {
+  applyOperationsContextToLinks,
+  resolveOperationsContext,
+  summarizeOperationsContext,
+  toOperationsStoreOptions,
+} from "./features/operations/context.js";
+import {
+  formatOperationsFixed,
+  formatOperationsPercentFromUnit,
+  formatOperationsPercentInputValue,
+} from "./features/operations/view.js";
 
 const els = {
   asOfDate: document.getElementById("asOfDate"),
@@ -29,79 +53,24 @@ const state = {
   personRows: [],
 };
 
+const operationsContext = resolveOperationsContext();
+const storeScope = toOperationsStoreOptions(operationsContext);
+
 const TRANSITIONS = PIPELINE_STAGES.slice(0, -1).map((from, idx) => {
   const to = PIPELINE_STAGES[idx + 1];
-  return { from, to, key: transitionKey(from, to) };
+  return { from, to, key: operationsTransitionKey(from, to) };
 });
 
 function clean(v){
   return String(v == null ? "" : v).trim();
 }
 
-function asNum(v, fallback = 0){
-  const n = Number(v);
-  return Number.isFinite(n) ? n : fallback;
-}
-
-function asInt(v, fallback = 0){
-  return Math.max(0, Math.floor(asNum(v, fallback)));
-}
-
-function clamp(v, min, max){
-  return Math.max(min, Math.min(max, v));
-}
-
-function todayIso(){
-  return new Date().toISOString().slice(0, 10);
-}
-
-function transitionKey(from, to){
-  return `${slug(from)}_to_${slug(to)}`;
-}
-
-function slug(s){
-  return clean(s).toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "");
-}
-
-function parseIsoDateInput(value){
-  const s = clean(value);
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(s)) return null;
-  const [y, m, d] = s.split("-").map((x) => Number(x));
-  if (!y || !m || !d) return null;
-  const dt = new Date(Date.UTC(y, m - 1, d));
-  return Number.isFinite(dt.getTime()) ? dt : null;
-}
-
-function parseAnyDate(value){
-  const s = clean(value);
-  if (!s) return null;
-  const iso = parseIsoDateInput(s);
-  if (iso) return iso;
-  const dt = new Date(s);
-  return Number.isFinite(dt.getTime()) ? dt : null;
-}
-
-function toIsoDateUTC(dt){
-  if (!(dt instanceof Date) || !Number.isFinite(dt.getTime())) return "";
-  const y = dt.getUTCFullYear();
-  const m = String(dt.getUTCMonth() + 1).padStart(2, "0");
-  const d = String(dt.getUTCDate()).padStart(2, "0");
-  return `${y}-${m}-${d}`;
-}
-
-function startOfWeekUTC(dt){
-  const base = new Date(Date.UTC(dt.getUTCFullYear(), dt.getUTCMonth(), dt.getUTCDate()));
-  const day = (base.getUTCDay() + 6) % 7;
-  base.setUTCDate(base.getUTCDate() - day);
-  return base;
-}
-
-function addDaysUTC(dt, days){
-  return new Date(dt.getTime() + (asNum(days, 0) * DAY_MS));
-}
-
 function setMsg(text){
   if (els.forecastMsg) els.forecastMsg.textContent = text || "";
+}
+
+function contextSummaryText(){
+  return summarizeOperationsContext(operationsContext);
 }
 
 function normalizeConfig(raw){
@@ -110,10 +79,17 @@ function normalizeConfig(raw){
   const stageDurationDefaultsDays = { ...(source.stageDurationDefaultsDays || {}) };
 
   for (const t of TRANSITIONS){
-    const defaultConv = asNum(DEFAULT_FORECAST_CONFIG.stageConversionDefaults?.[t.key], 1);
-    const defaultDays = asNum(DEFAULT_FORECAST_CONFIG.stageDurationDefaultsDays?.[t.key], 0);
-    stageConversionDefaults[t.key] = clamp(asNum(stageConversionDefaults[t.key], defaultConv), 0, 1);
-    stageDurationDefaultsDays[t.key] = Math.max(0, asNum(stageDurationDefaultsDays[t.key], defaultDays));
+    const defaultConv = operationsFiniteNumber(DEFAULT_FORECAST_CONFIG.stageConversionDefaults?.[t.key], 1);
+    const defaultDays = operationsFiniteNumber(DEFAULT_FORECAST_CONFIG.stageDurationDefaultsDays?.[t.key], 0);
+    stageConversionDefaults[t.key] = operationsClampNumber(
+      operationsFiniteNumber(stageConversionDefaults[t.key], defaultConv),
+      0,
+      1,
+    );
+    stageDurationDefaultsDays[t.key] = operationsNonNegativeNumber(
+      stageDurationDefaultsDays[t.key],
+      defaultDays,
+    );
   }
 
   return {
@@ -132,13 +108,13 @@ function renderAssumptionTable(config){
   els.assumptionTbody.innerHTML = "";
 
   for (const t of TRANSITIONS){
-    const conv = clamp(asNum(config.stageConversionDefaults?.[t.key], 0), 0, 1);
-    const days = Math.max(0, asNum(config.stageDurationDefaultsDays?.[t.key], 0));
+    const conv = operationsClampNumber(operationsFiniteNumber(config.stageConversionDefaults?.[t.key], 0), 0, 1);
+    const days = operationsNonNegativeNumber(config.stageDurationDefaultsDays?.[t.key], 0);
     const tr = document.createElement("tr");
     tr.innerHTML = `
       <td>${t.from} -> ${t.to}</td>
-      <td class="num"><input class="input num" id="conv_${t.key}" type="number" min="0" max="100" step="0.1" value="${(conv * 100).toFixed(1)}" /></td>
-      <td class="num"><input class="input num" id="days_${t.key}" type="number" min="0" max="180" step="0.5" value="${days.toFixed(1)}" /></td>
+      <td class="num"><input class="input num" id="conv_${t.key}" type="number" min="0" max="100" step="0.1" value="${formatOperationsPercentInputValue(conv, { digits: 1, fallback: "0.0" })}" /></td>
+      <td class="num"><input class="input num" id="days_${t.key}" type="number" min="0" max="180" step="0.5" value="${formatOperationsFixed(days, { digits: 1, fallback: "0.0" })}" /></td>
     `;
     els.assumptionTbody.appendChild(tr);
   }
@@ -149,8 +125,12 @@ function readAssumptionsFromUi(baseConfig){
   for (const t of TRANSITIONS){
     const convInput = document.getElementById(`conv_${t.key}`);
     const daysInput = document.getElementById(`days_${t.key}`);
-    const convPct = clamp(asNum(convInput?.value, next.stageConversionDefaults[t.key] * 100), 0, 100);
-    const days = Math.max(0, asNum(daysInput?.value, next.stageDurationDefaultsDays[t.key]));
+    const convPct = operationsClampNumber(
+      operationsFiniteNumber(convInput?.value, next.stageConversionDefaults[t.key] * 100),
+      0,
+      100,
+    );
+    const days = operationsNonNegativeNumber(daysInput?.value, next.stageDurationDefaultsDays[t.key]);
     next.stageConversionDefaults[t.key] = convPct / 100;
     next.stageDurationDefaultsDays[t.key] = days;
   }
@@ -165,19 +145,19 @@ function projectRecord(rec, config, asOfDate){
   if (clean(rec?.dropoffReason)) return { skip: "dropoff" };
 
   const stageDate = rec?.stageDates?.[stage];
-  const baseDate = parseAnyDate(stageDate) || parseAnyDate(rec?.updatedAt) || parseAnyDate(rec?.createdAt) || asOfDate;
+  const baseDate = operationsParseDate(stageDate) || operationsParseDate(rec?.updatedAt) || operationsParseDate(rec?.createdAt) || asOfDate;
 
   let probability = 1;
   let daysToActive = 0;
   for (let i = idx; i < PIPELINE_STAGES.length - 1; i++){
-    const key = transitionKey(PIPELINE_STAGES[i], PIPELINE_STAGES[i + 1]);
-    const conv = clamp(asNum(config.stageConversionDefaults?.[key], 1), 0, 1);
-    const days = Math.max(0, asNum(config.stageDurationDefaultsDays?.[key], 0));
+    const key = operationsTransitionKey(PIPELINE_STAGES[i], PIPELINE_STAGES[i + 1]);
+    const conv = operationsClampNumber(operationsFiniteNumber(config.stageConversionDefaults?.[key], 1), 0, 1);
+    const days = operationsNonNegativeNumber(config.stageDurationDefaultsDays?.[key], 0);
     probability *= conv;
     daysToActive += days;
   }
 
-  const projectedDate = addDaysUTC(baseDate, daysToActive);
+  const projectedDate = operationsAddDaysUTC(baseDate, daysToActive);
   return {
     id: clean(rec?.id),
     personId: clean(rec?.personId),
@@ -197,11 +177,11 @@ function computeRampForecast({ persons, pipelineRecords, config, asOfDate, horiz
     if (clean(rec?.stage) === "Active") baselineActive += 1;
   }
 
-  const week0 = startOfWeekUTC(asOfDate);
+  const week0 = operationsStartOfWeekUTC(asOfDate);
   const weeklyRows = [];
   for (let i = 0; i < horizonWeeks; i++){
     weeklyRows.push({
-      weekStarting: toIsoDateUTC(addDaysUTC(week0, i * 7)),
+      weekStarting: operationsToIsoDateUTC(operationsAddDaysUTC(week0, i * 7)),
       expectedNewActive: 0,
       recruitCount: 0,
       cumulativeExpectedActive: 0,
@@ -227,13 +207,11 @@ function computeRampForecast({ persons, pipelineRecords, config, asOfDate, horiz
       currentStage: projection.currentStage,
       probability: projection.probability,
       daysToActive: projection.daysToActive,
-      projectedActiveDate: toIsoDateUTC(projection.projectedDate),
+      projectedActiveDate: operationsToIsoDateUTC(projection.projectedDate),
     });
 
-    const weekStart = startOfWeekUTC(projection.projectedDate);
-    let weekIdx = Math.floor((weekStart.getTime() - week0.getTime()) / WEEK_MS);
-    if (!Number.isFinite(weekIdx)) weekIdx = -1;
-    if (weekIdx < 0) weekIdx = 0;
+    const weekStart = operationsStartOfWeekUTC(projection.projectedDate);
+    const weekIdx = operationsNonNegativeInt((weekStart.getTime() - week0.getTime()) / WEEK_MS, 0);
 
     if (weekIdx >= horizonWeeks){
       expectedBeyond += projection.probability;
@@ -280,8 +258,8 @@ function computeRampForecast({ persons, pipelineRecords, config, asOfDate, horiz
 function renderForecast(result){
   if (els.baselineActive) els.baselineActive.textContent = String(result.baselineActive);
   if (els.openPipeline) els.openPipeline.textContent = String(result.openPipeline);
-  if (els.expectedHorizon) els.expectedHorizon.textContent = result.expectedHorizon.toFixed(2);
-  if (els.expectedBeyond) els.expectedBeyond.textContent = result.expectedBeyond.toFixed(2);
+  if (els.expectedHorizon) els.expectedHorizon.textContent = formatOperationsFixed(result.expectedHorizon, { digits: 2, fallback: "0.00" });
+  if (els.expectedBeyond) els.expectedBeyond.textContent = formatOperationsFixed(result.expectedBeyond, { digits: 2, fallback: "0.00" });
 
   if (els.weeklyTbody){
     els.weeklyTbody.innerHTML = "";
@@ -294,9 +272,9 @@ function renderForecast(result){
         const tr = document.createElement("tr");
         tr.innerHTML = `
           <td>${row.weekStarting}</td>
-          <td class="num">${row.expectedNewActive.toFixed(2)}</td>
+          <td class="num">${formatOperationsFixed(row.expectedNewActive, { digits: 2, fallback: "0.00" })}</td>
           <td class="num">${row.recruitCount}</td>
-          <td class="num">${row.cumulativeExpectedActive.toFixed(2)}</td>
+          <td class="num">${formatOperationsFixed(row.cumulativeExpectedActive, { digits: 2, fallback: "0.00" })}</td>
         `;
         els.weeklyTbody.appendChild(tr);
       }
@@ -315,8 +293,8 @@ function renderForecast(result){
         tr.innerHTML = `
           <td>${row.name}</td>
           <td>${row.currentStage}</td>
-          <td class="num">${(row.probability * 100).toFixed(1)}%</td>
-          <td class="num">${row.daysToActive.toFixed(1)}</td>
+          <td class="num">${formatOperationsPercentFromUnit(row.probability, { digits: 1, fallback: "—" })}</td>
+          <td class="num">${formatOperationsFixed(row.daysToActive, { digits: 1, fallback: "0.0" })}</td>
           <td>${row.projectedActiveDate}</td>
         `;
         els.personTbody.appendChild(tr);
@@ -351,16 +329,16 @@ function downloadText(filename, text, contentType){
 }
 
 async function recomputeForecast(originLabel){
-  const asOfDate = parseIsoDateInput(els.asOfDate?.value) || parseIsoDateInput(todayIso()) || new Date();
-  const horizonWeeks = clamp(asInt(els.horizonWeeks?.value, 16), 1, 104);
+  const asOfDate = operationsParseIsoDateInput(els.asOfDate?.value) || operationsParseIsoDateInput(operationsTodayIso()) || new Date();
+  const horizonWeeks = operationsClampNumber(operationsNonNegativeInt(els.horizonWeeks?.value, 16), 1, 104);
   if (els.horizonWeeks) els.horizonWeeks.value = String(horizonWeeks);
 
   const config = readAssumptionsFromUi(state.config || DEFAULT_FORECAST_CONFIG);
   state.config = config;
 
   const [persons, pipelineRecords] = await Promise.all([
-    getAll("persons"),
-    getAll("pipelineRecords"),
+    getAll("persons", storeScope),
+    getAll("pipelineRecords", storeScope),
   ]);
 
   const result = computeRampForecast({
@@ -385,7 +363,7 @@ async function saveAssumptions(){
     stageConversionDefaults: config.stageConversionDefaults,
     stageDurationDefaultsDays: config.stageDurationDefaultsDays,
     productivityDefaults: config.productivityDefaults,
-  });
+  }, storeScope);
   state.config = normalizeConfig(saved || config);
   renderAssumptionTable(state.config);
   await recomputeForecast("Save assumptions");
@@ -398,7 +376,7 @@ async function resetDefaults(){
     stageConversionDefaults: reset.stageConversionDefaults,
     stageDurationDefaultsDays: reset.stageDurationDefaultsDays,
     productivityDefaults: reset.productivityDefaults,
-  });
+  }, storeScope);
   state.config = normalizeConfig(saved || reset);
   renderAssumptionTable(state.config);
   await recomputeForecast("Reset defaults");
@@ -407,9 +385,9 @@ async function resetDefaults(){
 function exportWeeklyCsv(){
   const rows = (state.weeklyRows || []).map((r) => [
     r.weekStarting,
-    r.expectedNewActive.toFixed(4),
+    formatOperationsFixed(r.expectedNewActive, { digits: 4, fallback: "0.0000" }),
     String(r.recruitCount),
-    r.cumulativeExpectedActive.toFixed(4),
+    formatOperationsFixed(r.cumulativeExpectedActive, { digits: 4, fallback: "0.0000" }),
   ]);
   const csv = rowsToCsv([
     "week_starting",
@@ -424,8 +402,8 @@ function exportPersonCsv(){
   const rows = (state.personRows || []).map((r) => [
     r.name,
     r.currentStage,
-    (r.probability * 100).toFixed(2),
-    r.daysToActive.toFixed(2),
+    formatOperationsPercentInputValue(r.probability, { digits: 2, fallback: "0.00" }),
+    formatOperationsFixed(r.daysToActive, { digits: 2, fallback: "0.00" }),
     r.projectedActiveDate,
   ]);
   const csv = rowsToCsv([
@@ -481,17 +459,19 @@ function wire(){
 }
 
 async function init(){
-  await ensureOperationsDefaults();
+  applyOperationsContextToLinks(operationsContext, ".note a[href]");
+  await ensureOperationsDefaults(storeScope);
   if (els.asOfDate && !clean(els.asOfDate.value)){
-    els.asOfDate.value = todayIso();
+    els.asOfDate.value = operationsTodayIso();
   }
 
-  const stored = await getById("forecastConfigs", "default");
+  const stored = await getById("forecastConfigs", "default", storeScope);
   state.config = normalizeConfig(stored || DEFAULT_FORECAST_CONFIG);
   renderAssumptionTable(state.config);
 
   wire();
   await recomputeForecast("Init");
+  setMsg(`Ready. ${contextSummaryText()}`);
 }
 
 init().catch((e) => {
