@@ -5,6 +5,7 @@ import {
   buildTimelineConstrainedOptimizationInput,
   buildOfficeOptimizationSummary,
   buildOptimizationExecutionView,
+  buildOptimizationExecutionSummary as buildCanonicalOptimizationExecutionSummary,
   buildOptimizationLastSummarySnapshot,
   resolveOptimizationBudgetAvailable,
   resolveOptimizationCapacityLimit,
@@ -328,7 +329,10 @@ export function renderOptimizationModule(args){
   };
 
   const obj = normalizeOptimizationObjective(state.budget?.optimize?.objective, "net");
-  const executionSummary = engine.buildOptimizationExecutionSummary({
+  const buildExecutionSummary = (typeof engine?.buildOptimizationExecutionSummary === "function")
+    ? (input) => engine.buildOptimizationExecutionSummary(input)
+    : (input) => buildCanonicalOptimizationExecutionSummary(input);
+  const executionSummary = buildExecutionSummary({
     tactics,
     allocation: result.allocation,
     totals: result.totals,
