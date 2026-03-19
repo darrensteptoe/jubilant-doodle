@@ -80,6 +80,27 @@ function toStringOrNull(v){
 }
 
 /**
+ * @param {unknown} value
+ * @param {boolean} fallback
+ * @returns {boolean}
+ */
+function toBooleanLoose(value, fallback){
+  if (typeof value === "boolean") return value;
+  if (typeof value === "number"){
+    if (!Number.isFinite(value)) return fallback;
+    return value !== 0;
+  }
+  if (typeof value === "string"){
+    const text = value.trim().toLowerCase();
+    if (!text) return fallback;
+    if (text === "true" || text === "1" || text === "yes" || text === "y" || text === "on") return true;
+    if (text === "false" || text === "0" || text === "no" || text === "n" || text === "off") return false;
+    return fallback;
+  }
+  return fallback;
+}
+
+/**
  * @param {unknown} v
  * @returns {any[]}
  */
@@ -248,13 +269,13 @@ export function normalizeIntelState(raw){
   out.workflow = {
     ...base.workflow,
     ...wfIn,
-    scenarioLocked: !!wfIn.scenarioLocked,
+    scenarioLocked: toBooleanLoose(wfIn.scenarioLocked, base.workflow.scenarioLocked),
     lockReason: String(wfIn.lockReason || ""),
     lockedAt: toStringOrNull(wfIn.lockedAt),
     lockedBy: String(wfIn.lockedBy || ""),
     governanceBaselineAt: baselineRaw || legacyBaseline,
-    requireCriticalNote: (wfIn.requireCriticalNote == null) ? base.workflow.requireCriticalNote : !!wfIn.requireCriticalNote,
-    requireCriticalEvidence: (wfIn.requireCriticalEvidence == null) ? base.workflow.requireCriticalEvidence : !!wfIn.requireCriticalEvidence,
+    requireCriticalNote: toBooleanLoose(wfIn.requireCriticalNote, base.workflow.requireCriticalNote),
+    requireCriticalEvidence: toBooleanLoose(wfIn.requireCriticalEvidence, base.workflow.requireCriticalEvidence),
   };
   const shockRows = toArray(raw.shockScenarios);
   const normalizedShock = [];
