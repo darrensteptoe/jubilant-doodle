@@ -1,7 +1,7 @@
 // @ts-check
 // Canonical Operations page context helpers (campaign/office scoped).
 
-import { resolveActiveContext } from "../../app/activeContext.js";
+import { applyActiveContextToLinks, resolveActiveContext } from "../../app/activeContext.js";
 
 function clean(value){
   return String(value == null ? "" : value).trim();
@@ -13,22 +13,32 @@ function isObject(value){
 
 function coerceContext(input = {}){
   const src = isObject(input) ? input : {};
+  const fallback = isObject(src.fallback) ? src.fallback : {};
   const resolved = resolveActiveContext({
     campaignId: src.campaignId,
     campaignName: src.campaignName,
     officeId: src.officeId,
     scenarioId: src.scenarioId,
     search: src.search,
-    fallback: src.fallback,
+    fallback,
   });
+  const campaignLocked = (src.isCampaignLocked != null)
+    ? !!src.isCampaignLocked
+    : ((fallback.isCampaignLocked != null) ? !!fallback.isCampaignLocked : !!resolved.isCampaignLocked);
+  const officeLocked = (src.isOfficeLocked != null)
+    ? !!src.isOfficeLocked
+    : ((fallback.isOfficeLocked != null) ? !!fallback.isOfficeLocked : !!resolved.isOfficeLocked);
+  const scenarioLocked = (src.isScenarioLocked != null)
+    ? !!src.isScenarioLocked
+    : ((fallback.isScenarioLocked != null) ? !!fallback.isScenarioLocked : !!resolved.isScenarioLocked);
   return {
     campaignId: clean(resolved.campaignId),
     campaignName: clean(resolved.campaignName),
     officeId: clean(resolved.officeId),
     scenarioId: clean(resolved.scenarioId),
-    isCampaignLocked: !!resolved.isCampaignLocked,
-    isOfficeLocked: !!resolved.isOfficeLocked,
-    isScenarioLocked: !!resolved.isScenarioLocked,
+    isCampaignLocked: campaignLocked,
+    isOfficeLocked: officeLocked,
+    isScenarioLocked: scenarioLocked,
   };
 }
 
@@ -66,7 +76,7 @@ export function resolveOperationsContextFromState(stateLike = {}, options = {}){
  * @param {any=} overrides
  */
 export function toOperationsStoreOptions(context = {}, overrides = {}){
-  const ctx = coerceContext({ fallback: context });
+  const ctx = coerceContext(context);
   const ext = isObject(overrides) ? overrides : {};
   return {
     ...ext,
@@ -92,7 +102,7 @@ export function toOperationsStoreOptionsFromState(stateLike = {}, overrides = {}
  * @param {any=} context
  */
 export function makeOperationsContextKey(context = {}){
-  const ctx = coerceContext({ fallback: context });
+  const ctx = coerceContext(context);
   return `${ctx.campaignId || "default"}::${ctx.officeId || "all"}`;
 }
 
@@ -101,27 +111,35 @@ export function makeOperationsContextKey(context = {}){
  * @param {any=} context
  */
 export function summarizeOperationsContext(context = {}){
-  const ctx = coerceContext({ fallback: context });
+  const ctx = coerceContext(context);
   const campaignLabel = ctx.campaignName || ctx.campaignId || "default";
   const officeLabel = ctx.officeId || "all";
   const locked = (ctx.isCampaignLocked || ctx.isOfficeLocked) ? " (locked)" : "";
   return `Campaign ${campaignLabel} | Office ${officeLabel}${locked}`;
 }
 
-function localHtmlUrlFromHref(rawHref){
-  if (typeof window === "undefined") return null;
-  const href = clean(rawHref);
-  if (!href) return null;
-  if (href.startsWith("#")) return null;
-  if (/^(mailto:|tel:|javascript:)/i.test(href)) return null;
-  try{
-    const url = new URL(href, window.location.href);
-    if (url.origin !== window.location.origin) return null;
-    if (!/\.html$/i.test(url.pathname)) return null;
-    return url;
-  } catch {
-    return null;
-  }
+/**
+ * Whether office entry should be locked in team-entry mode.
+ * Locking behavior is driven by URL office param presence.
+ * @param {any=} context
+ */
+export function shouldLockOperationsOfficeField(context = {}){
+  const ctx = coerceContext(context);
+  return !!ctx.isOfficeLocked;
+}
+
+/**
+ * Resolve canonical office label for Operations records/forms.
+ * URL/context office always wins to prevent cross-office drift.
+ * @param {any=} context
+ * @param {string=} explicitOffice
+ * @param {string=} fallbackOffice
+ */
+export function resolveOperationsOfficeField(context = {}, explicitOffice = "", fallbackOffice = ""){
+  const ctx = coerceContext(context);
+  const scopedOffice = clean(ctx.officeId);
+  if (scopedOffice) return scopedOffice;
+  return clean(explicitOffice) || clean(fallbackOffice);
 }
 
 /**
@@ -131,21 +149,6 @@ function localHtmlUrlFromHref(rawHref){
  * @param {string=} selector
  */
 export function applyOperationsContextToLinks(context = {}, selector = "a[href]"){
-  if (typeof document === "undefined") return;
-  const ctx = coerceContext({ fallback: context });
-  const anchors = Array.from(document.querySelectorAll(selector));
-  for (const anchor of anchors){
-    const url = localHtmlUrlFromHref(anchor.getAttribute("href"));
-    if (!url) continue;
-    if (!url.searchParams.has("campaign") && ctx.campaignId){
-      url.searchParams.set("campaign", ctx.campaignId);
-    }
-    if (!url.searchParams.has("office") && ctx.officeId){
-      url.searchParams.set("office", ctx.officeId);
-    }
-    if (!url.searchParams.has("campaignName") && ctx.campaignName){
-      url.searchParams.set("campaignName", ctx.campaignName);
-    }
-    anchor.setAttribute("href", `${url.pathname}${url.search}${url.hash}`);
-  }
+  const ctx = coerceContext(context);
+  applyActiveContextToLinks(ctx, selector, { includeScenario: false });
 }

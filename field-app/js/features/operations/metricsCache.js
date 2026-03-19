@@ -10,6 +10,7 @@ import {
 } from "./context.js";
 import { getAll, getOperationsDataRevision } from "./store.js";
 import { computeOperationalRollups } from "./rollups.js";
+import { operationsNowIso } from "./time.js";
 
 const SNAPSHOT_STORES = OPERATIONS_STORES.slice();
 
@@ -50,7 +51,7 @@ async function loadFreshSnapshot(revision, storeScope, contextKey){
   return {
     revision,
     contextKey,
-    loadedAt: new Date().toISOString(),
+    loadedAt: operationsNowIso(),
     stores,
     counts,
     rollups,

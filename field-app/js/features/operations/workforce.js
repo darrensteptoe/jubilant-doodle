@@ -1,5 +1,11 @@
 // @ts-check
 // Canonical workforce role modeling + staffing rollups.
+import {
+  operationsClampNumber,
+  operationsFiniteNumber,
+  operationsShiftHours,
+} from "./time.js";
+import { roundWholeNumberByMode } from "../../core/utils.js";
 
 export const WORKFORCE_ROLE_TYPES = [
   "field_organizer",
@@ -22,15 +28,8 @@ function clean(value){
   return String(value == null ? "" : value).trim();
 }
 
-function num(value, fallback = null){
-  const n = Number(value);
-  return Number.isFinite(n) ? n : fallback;
-}
-
-function clamp(value, lo, hi){
-  if (!Number.isFinite(value)) return lo;
-  return Math.max(lo, Math.min(hi, value));
-}
+const num = operationsFiniteNumber;
+const clamp = operationsClampNumber;
 
 function hasValue(value){
   return clean(value) !== "";
@@ -105,13 +104,6 @@ function parseTs(value){
   if (!raw) return NaN;
   const ts = Date.parse(raw.length <= 10 ? `${raw}T00:00:00` : raw);
   return Number.isFinite(ts) ? ts : NaN;
-}
-
-function shiftHours(rec){
-  const start = parseTs(rec?.checkInAt || rec?.startAt);
-  const end = parseTs(rec?.checkOutAt || rec?.endAt);
-  if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start) return 0;
-  return (end - start) / 3600000;
 }
 
 function shiftAttempts(rec){
@@ -194,7 +186,7 @@ export function computeWorkforceRollups({ persons, shiftRecords, lookbackDays = 
     const person = personById.get(personId);
     if (!person) continue;
     const attempts = shiftAttempts(rec);
-    const hours = shiftHours(rec);
+    const hours = operationsShiftHours(rec);
 
     if (person.roleType === "canvasser" && isPaidComp(person.compensationType)){
       paidAttempts += attempts;
@@ -247,7 +239,7 @@ export function computeWorkforceRollups({ persons, shiftRecords, lookbackDays = 
     paidAttemptsPerHour,
     volunteerAttemptsPerHour,
     overallAttemptsPerHour,
-    lookbackDays: Math.max(1, Math.round(num(lookbackDays, 14) || 14)),
+    lookbackDays: Math.max(1, roundWholeNumberByMode(num(lookbackDays, 14) || 14, { mode: "round", fallback: 14 }) || 14),
   };
 }
 

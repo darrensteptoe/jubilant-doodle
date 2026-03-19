@@ -6,6 +6,7 @@ import { APP_VERSION, BUILD_ID } from "../../build.js";
 import { downloadJson } from "../../utils.js";
 import { OPERATIONS_SCHEMA_VERSION, OPERATIONS_STORES } from "./schema.js";
 import { toOperationsStoreOptions } from "./context.js";
+import { operationsNowIso } from "./time.js";
 import {
   ensureOperationsDefaults,
   getAll,
@@ -304,7 +305,7 @@ export async function exportOperationsSnapshot({ includeMeta = true, context = {
     schemaVersion: OPERATIONS_SCHEMA_VERSION,
     appVersion: APP_VERSION,
     buildId: BUILD_ID,
-    exportedAt: new Date().toISOString(),
+    exportedAt: operationsNowIso(),
     data,
   };
 }

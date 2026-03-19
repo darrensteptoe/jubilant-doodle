@@ -3,6 +3,8 @@
 // Deterministic rollups + overlap-safe totals for Operations.
 
 import { computeWorkforceOfficeMix, computeWorkforceRollups } from "./workforce.js";
+import { operationsShiftHours } from "./time.js";
+import { roundWholeNumberByMode } from "../../core/utils.js";
 
 function num(v, fallback = 0){
   const n = Number(v);
@@ -49,12 +51,7 @@ export function summarizeShiftProduction(shiftRecords){
     attempts += Math.max(0, num(rec?.attempts, 0));
     convos += Math.max(0, num(rec?.convos, 0));
     supportIds += Math.max(0, num(rec?.supportIds, 0));
-
-    const start = Date.parse(str(rec?.checkInAt) || str(rec?.startAt));
-    const end = Date.parse(str(rec?.checkOutAt) || str(rec?.endAt));
-    if (Number.isFinite(start) && Number.isFinite(end) && end > start){
-      hours += (end - start) / 3600000;
-    }
+    hours += operationsShiftHours(rec);
 
     const fp = shiftFingerprint(rec);
     if (fp) seenFingerprints.add(fp);
@@ -155,7 +152,7 @@ export function computeOperationalRollups({ persons, shiftRecords, turfEvents, o
       persons: people,
       shiftRecords: shifts,
       lookbackDays: Number.isFinite(Number(opts.workforceLookbackDays))
-        ? Math.max(1, Math.floor(Number(opts.workforceLookbackDays)))
+        ? Math.max(1, roundWholeNumberByMode(Number(opts.workforceLookbackDays), { mode: "floor", fallback: 1 }) || 1)
         : 14,
     }),
     officeMix: computeWorkforceOfficeMix({

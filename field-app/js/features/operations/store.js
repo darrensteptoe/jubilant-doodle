@@ -18,6 +18,8 @@ import {
   resolveActiveContext,
 } from "../../app/activeContext.js";
 import { normalizePersonWorkforceFields } from "./workforce.js";
+import { operationsNonNegativeInt, operationsNowIso } from "./time.js";
+import { roundWholeNumberByMode } from "../../core/utils.js";
 
 let dbPromise = null;
 const OPERATIONS_DATA_REV_KEY = "fpe_operations_data_rev_v1";
@@ -25,9 +27,7 @@ let inMemoryRevision = 0;
 const SCOPED_STORES = new Set(SCOPED_OPERATIONS_STORES);
 
 function parseRevision(raw){
-  const n = Number(raw);
-  if (!Number.isFinite(n) || n < 0) return 0;
-  return Math.floor(n);
+  return operationsNonNegativeInt(raw, 0);
 }
 
 function readRevision(){
@@ -118,10 +118,6 @@ function assertStoreName(storeName){
   if (!OPERATIONS_STORES.includes(storeName)){
     throw new Error(`Unknown Operations store: ${String(storeName)}`);
   }
-}
-
-function nowIso(){
-  return new Date().toISOString();
 }
 
 export function makeOperationsId(prefix = "tw"){
@@ -268,7 +264,7 @@ async function clearRowsForContext(store, storeName, context){
 
 function sanitizeRecord(storeName, input, context){
   const rec = (input && typeof input === "object") ? { ...input } : {};
-  const stamp = nowIso();
+  const stamp = operationsNowIso();
 
   if (storeName === "meta"){
     if (!rec.key) rec.key = makeOperationsId("meta");
@@ -315,7 +311,9 @@ function sanitizeRecord(storeName, input, context){
   if (storeName === "trainingRecords"){
     if (!rec.completionStatus) rec.completionStatus = "not_started";
     const sessions = Number(rec.sessions);
-    rec.sessions = Number.isFinite(sessions) && sessions > 0 ? Math.round(sessions) : 0;
+    rec.sessions = (Number.isFinite(sessions) && sessions > 0)
+      ? (roundWholeNumberByMode(sessions, { mode: "round", fallback: 0 }) || 0)
+      : 0;
   }
 
   return applyScopedFields(storeName, rec, context || {});
