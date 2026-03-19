@@ -1,4 +1,6 @@
 // @ts-check
+import { operationsTransitionKey } from "../features/operations/time.js";
+import { formatFixedNumber, formatPercentFromUnit, roundWholeNumberByMode } from "../core/utils.js";
 export function twCapTextModule(el, text){
   if (el) el.textContent = String(text ?? "");
 }
@@ -9,17 +11,21 @@ export function twCapNumModule(v, fallback = 0){
 }
 
 export function twCapFmtIntModule(v, { fmtInt } = {}){
-  return (v == null || !Number.isFinite(v)) ? "—" : fmtInt(Math.round(v));
+  const n = roundWholeNumberByMode(v, { mode: "round", fallback: null });
+  return n == null ? "—" : fmtInt(n);
 }
 
 export function twCapFmt1Module(v){
-  const n = Number(v);
-  return Number.isFinite(n) ? n.toFixed(1) : "—";
+  return formatFixedNumber(v, 1);
+}
+
+export function twCapFmt2Module(v){
+  return formatFixedNumber(v, 2);
 }
 
 export function twCapFmtSignedModule(v, { fmtInt } = {}){
-  if (v == null || !Number.isFinite(v)) return "—";
-  const n = Math.round(v);
+  const n = roundWholeNumberByMode(v, { mode: "round", fallback: null });
+  if (n == null) return "—";
   if (n > 0) return `+${fmtInt(n)}`;
   if (n < 0) return `−${fmtInt(Math.abs(n))}`;
   return "0";
@@ -29,13 +35,11 @@ export function twCapRatioTextModule(numerator, denominator){
   const num = Number(numerator);
   const den = Number(denominator);
   if (!Number.isFinite(num) || !Number.isFinite(den) || den <= 0) return "—";
-  return `${(100 * num / den).toFixed(1)}%`;
+  return formatPercentFromUnit(num / den, 1);
 }
 
 export function twCapFmtPct01Module(v){
-  const n = Number(v);
-  if (!Number.isFinite(n)) return "—";
-  return `${(100 * n).toFixed(1)}%`;
+  return formatPercentFromUnit(v, 1);
 }
 
 export function twCapMedianModule(values){
@@ -44,7 +48,7 @@ export function twCapMedianModule(values){
     .filter((v) => Number.isFinite(v))
     .sort((a, b) => a - b);
   if (!list.length) return null;
-  const mid = Math.floor(list.length / 2);
+  const mid = roundWholeNumberByMode(list.length / 2, { mode: "floor", fallback: 0 }) ?? 0;
   if (list.length % 2 === 1) return list[mid];
   return (list[mid - 1] + list[mid]) / 2;
 }
@@ -54,8 +58,7 @@ export function twCapCleanModule(v){
 }
 
 export function twCapTransitionKeyModule(from, to){
-  const slug = (s) => twCapCleanModule(s).toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "");
-  return `${slug(from)}_to_${slug(to)}`;
+  return operationsTransitionKey(from, to);
 }
 
 export function twCapParseDateModule(value){

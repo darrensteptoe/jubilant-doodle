@@ -1,4 +1,6 @@
 // @ts-check
+import { computeFinishDateFromDailyPace } from "../core/executionPlanner.js";
+import { roundWholeNumberByMode } from "../core/utils.js";
 /**
  * @param {Record<string, any>} snap
  * @param {number | null | undefined} weeks
@@ -11,7 +13,7 @@ export function targetFinishDateFromSnapCore(snap, weeks){
     if (isFinite(dt)) return dt;
   }
   if (weeks != null && isFinite(weeks) && weeks > 0){
-    const days = Math.ceil(weeks * 7);
+    const days = roundWholeNumberByMode(weeks * 7, { mode: "ceil", fallback: 0 }) ?? 0;
     const dt = new Date();
     dt.setHours(12, 0, 0, 0);
     dt.setDate(dt.getDate() + days);
@@ -26,11 +28,8 @@ export function targetFinishDateFromSnapCore(snap, weeks){
  * @returns {Date | null}
  */
 export function paceFinishDateCore(total, pacePerDay){
-  if (total == null || !isFinite(total) || total <= 0) return null;
-  if (pacePerDay == null || !isFinite(pacePerDay) || pacePerDay <= 0) return null;
-  const daysNeeded = Math.ceil(total / pacePerDay);
-  const dt = new Date();
-  dt.setHours(12, 0, 0, 0);
-  dt.setDate(dt.getDate() + daysNeeded);
-  return dt;
+  return computeFinishDateFromDailyPace({
+    totalAttempts: total,
+    attemptsPerDay: pacePerDay,
+  });
 }

@@ -5,6 +5,7 @@ import {
   listMissingNoteAudit,
 } from "./intelControlsRuntime.js";
 import { resolveFeatureFlags } from "../core/featureFlags.js";
+import { formatFixedNumber, formatPercentFromUnit, formatWholeNumber } from "../core/utils.js";
 
 /**
  * @param {string[]} lines
@@ -23,12 +24,14 @@ export function appendOperationsDiagnosticsCore(lines, tw){
   const c = tw.counts || {};
   const p = tw.rollups?.production || {};
   const d = tw.rollups?.dedupe || {};
+  const whole = (value) => formatWholeNumber(value, "0");
+  const fixed2 = (value) => formatFixedNumber(value, 2, "0.00");
 
-  out.push(`records: persons=${Number(c.persons || 0)} pipeline=${Number(c.pipelineRecords || 0)} shifts=${Number(c.shiftRecords || 0)} turf=${Number(c.turfEvents || 0)}`);
+  out.push(`records: persons=${whole(c.persons || 0)} pipeline=${whole(c.pipelineRecords || 0)} shifts=${whole(c.shiftRecords || 0)} turf=${whole(c.turfEvents || 0)}`);
   out.push(`productionSource: ${p.source || "—"}`);
-  out.push(`productionTotals: attempts=${Math.round(Number(p.attempts || 0))} convos=${Math.round(Number(p.convos || 0))} supportIds=${Math.round(Number(p.supportIds || 0))} hours=${Number(p.hours || 0).toFixed(2)}`);
+  out.push(`productionTotals: attempts=${whole(p.attempts || 0)} convos=${whole(p.convos || 0)} supportIds=${whole(p.supportIds || 0)} hours=${fixed2(p.hours || 0)}`);
   out.push(`dedupeRule: ${d.rule || "—"}`);
-  out.push(`dedupe: excludedTurfRecords=${Math.round(Number(d.excludedTurfAttemptRecords || 0))} excludedTurfAttempts=${Math.round(Number(d.excludedTurfAttempts || 0))} fallbackIncluded=${Math.round(Number(d.includedFallbackAttempts || 0))}`);
+  out.push(`dedupe: excludedTurfRecords=${whole(d.excludedTurfAttemptRecords || 0)} excludedTurfAttempts=${whole(d.excludedTurfAttempts || 0)} fallbackIncluded=${whole(d.includedFallbackAttempts || 0)}`);
   return out;
 }
 
@@ -38,6 +41,8 @@ export function appendOperationsDiagnosticsCore(lines, tw){
  *   engine: Record<string, any>,
  *   state: Record<string, any>,
  *   computeRealityDrift: () => Record<string, any>,
+ *   bootStatus?: Record<string, any> | null,
+ *   bootTrace?: Array<Record<string, any>>,
  * }} args
  * @returns {string[]}
  */
@@ -45,9 +50,11 @@ export function appendModelDiagnosticsCore(lines, {
   engine,
   state,
   computeRealityDrift,
+  bootStatus = null,
+  bootTrace = [],
 }){
   const out = Array.isArray(lines) ? lines.slice() : [];
-  const fPct = (v) => (v == null || !isFinite(v)) ? "—" : `${(v * 100).toFixed(1)}%`;
+  const fPct = (v) => formatPercentFromUnit(v, 1);
 
   out.push("");
   out.push("[model diagnostics]");
@@ -81,6 +88,30 @@ export function appendModelDiagnosticsCore(lines, {
   out.push(`featuresResolved: turnout=${features.turnoutModelingEnabled ? "on" : "off"} timeline=${features.timelineEnabled ? "on" : "off"} universe=${features.universeWeightingEnabled ? "on" : "off"} mcDist=${features.mcDistribution} corr=${features.correlatedShocks ? "on" : "off"} shock=${features.shockScenariosEnabled ? "on" : "off"} decay=${features.capacityDecayEnabled ? "on" : "off"}`);
   out.push(`intelIntegrityScore: ${integrity.score} (${integrity.grade})`);
   out.push(`intelIntegrityPenalties: evidence=${integrity.penalties.missingEvidence} note=${integrity.penalties.missingNote} benchmark=${integrity.penalties.benchmarkWarnings} stale=${integrity.penalties.staleEvidence} drift=${integrity.penalties.driftFlags}`);
+
+  const bootState = bootStatus && typeof bootStatus === "object" ? bootStatus : null;
+  if (bootState){
+    out.push(`bootStatus: ${String(bootState.status || "unknown")}`);
+    const bootSource = String(bootState.source || "").trim();
+    const bootWhen = String(bootState.t || "").trim();
+    if (bootSource || bootWhen){
+      out.push(`bootMeta: source=${bootSource || "—"} when=${bootWhen || "—"}`);
+    }
+  }
+  const traceRows = Array.isArray(bootTrace) ? bootTrace.slice(0, 6) : [];
+  if (traceRows.length){
+    out.push("bootTraceRecent:");
+    for (const row of traceRows){
+      const when = String(row?.t || "").trim() || "—";
+      const step = String(row?.step || "").trim() || "unknown";
+      const phase = String(row?.phase || "").trim();
+      const level = String(row?.level || "").trim();
+      const message = String(row?.message || "").trim();
+      const suffix = [phase, level, message].filter(Boolean).join(" ");
+      out.push(`- ${when} ${step}${suffix ? ` (${suffix})` : ""}`);
+    }
+  }
+
   if (!drift?.hasLog){
     out.push("realityDrift: no daily log data");
     return out;
@@ -88,7 +119,7 @@ export function appendModelDiagnosticsCore(lines, {
 
   out.push(`rollingCR: actual=${fPct(drift.actualCR)} assumed=${fPct(drift.assumedCR)}`);
   out.push(`rollingSR: actual=${fPct(drift.actualSR)} assumed=${fPct(drift.assumedSR)}`);
-  out.push(`rollingAPH: actual=${(drift.actualAPH == null || !isFinite(drift.actualAPH)) ? "—" : drift.actualAPH.toFixed(2)} assumed=${(drift.expectedAPH == null || !isFinite(drift.expectedAPH)) ? "—" : drift.expectedAPH.toFixed(2)}`);
+  out.push(`rollingAPH: actual=${formatFixedNumber(drift.actualAPH, 2)} assumed=${formatFixedNumber(drift.expectedAPH, 2)}`);
   out.push(`driftFlags: ${drift.flags.length ? drift.flags.join(", ") : "none"}`);
   out.push(`primaryDrift: ${drift.primary || "none"}`);
 

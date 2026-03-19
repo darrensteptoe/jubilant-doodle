@@ -2,6 +2,25 @@
 // js/app/intelControls.js
 // Intel helpers for metadata, governance, and controlled recommendation application.
 import { resolveAuditRequirementStatus } from "./intelAudit.js";
+import { resolveTemplateRecord } from "./templateResolver.js";
+import {
+  benchmarkScopeLabel,
+  benchmarkProfileKeyFromRaceType,
+  getBenchmarkProfilePreset,
+  normalizeKnownBenchmarkProfileKey,
+} from "../core/benchmarkProfiles.js";
+import { buildScenarioInputChangeRows } from "../core/scenarioView.js";
+import { valuesEqualWithTolerance } from "../core/valueCompare.js";
+import {
+  clampFiniteNumber,
+  coerceFiniteNumber,
+  formatFixedNumber,
+  formatPercentFromPct,
+  formatPercentFromUnit,
+  roundToDigits,
+  roundWholeNumberByMode,
+  safeNum,
+} from "../core/utils.js";
 
 const REF_LABELS = {
   "core.universeSize": "Universe size",
@@ -31,6 +50,8 @@ const BRIEF_KIND_LABELS = {
 };
 
 const BRIEF_KIND_LIST = Object.keys(BRIEF_KIND_LABELS);
+const AUTO_DRIFT_RECOMMENDATION_SOURCE = "auto.realityDrift.v1";
+const DEFAULT_RECOMMENDATION_PRIORITY = 99;
 
 function isObject(v){
   return !!v && typeof v === "object" && !Array.isArray(v);
@@ -42,14 +63,30 @@ function cleanString(v){
 }
 
 function toNumOrNull(v){
-  if (v == null || v === "") return null;
-  const n = Number(v);
-  return Number.isFinite(n) ? n : null;
+  return safeNum(v);
 }
 
 function normalizeRaceType(v){
   const s = cleanString(v).toLowerCase();
   return s || "all";
+}
+
+function recommendationPriorityValue(row){
+  const n = Number(row?.priority);
+  return Number.isFinite(n) ? n : DEFAULT_RECOMMENDATION_PRIORITY;
+}
+
+function listAutoDriftRecommendationsFromIntel(intel, { limit = Infinity } = {}){
+  const rows = ensureArray(intel, "recommendations")
+    .filter((row) => cleanString(row?.source) === AUTO_DRIFT_RECOMMENDATION_SOURCE)
+    .slice()
+    .sort((a, b) => recommendationPriorityValue(a) - recommendationPriorityValue(b));
+  const cap = Number(limit);
+  if (Number.isFinite(cap) && cap > 0){
+    const normalizedCap = roundWholeNumberByMode(cap, { mode: "floor", fallback: 0 }) ?? 0;
+    return rows.slice(0, normalizedCap);
+  }
+  return rows;
 }
 
 function nowIso(){
@@ -136,6 +173,10 @@ export function benchmarkRefLabel(ref){
   return REF_LABELS[cleanString(ref)] || cleanString(ref) || "Unknown ref";
 }
 
+export function listBenchmarkRefs(){
+  return Object.keys(REF_LABELS);
+}
+
 export function listIntelBriefKinds(){
   return BRIEF_KIND_LIST.slice();
 }
@@ -183,8 +224,43 @@ export function ensureIntelCollections(state){
   if (!cleanString(intel.workflow.governanceBaselineAt) && !hasGovernanceTrackedRows && intel.audit.length){
     intel.workflow.governanceBaselineAt = deriveLegacyGovernanceBaselineIso(intel.audit);
   }
-  if (!isObject(intel.simToggles)) intel.simToggles = {};
-  if (!isObject(intel.expertToggles)) intel.expertToggles = {};
+  if (!isObject(intel.simToggles)){
+    intel.simToggles = {
+      mcDistribution: "triangular",
+      correlatedShocks: false,
+      correlationMatrixId: null,
+      shockScenariosEnabled: true,
+    };
+  } else {
+    if (!("mcDistribution" in intel.simToggles)) intel.simToggles.mcDistribution = "triangular";
+    if (!("correlatedShocks" in intel.simToggles)) intel.simToggles.correlatedShocks = false;
+    if (!("correlationMatrixId" in intel.simToggles)) intel.simToggles.correlationMatrixId = null;
+    if (!("shockScenariosEnabled" in intel.simToggles)) intel.simToggles.shockScenariosEnabled = true;
+  }
+
+  if (!isObject(intel.expertToggles)){
+    intel.expertToggles = {
+      capacityDecayEnabled: false,
+      decayModel: {
+        type: "linear",
+        weeklyDecayPct: 0.03,
+        floorPctOfBaseline: 0.70,
+      },
+    };
+  } else {
+    if (!("capacityDecayEnabled" in intel.expertToggles)) intel.expertToggles.capacityDecayEnabled = false;
+    if (!isObject(intel.expertToggles.decayModel)){
+      intel.expertToggles.decayModel = {
+        type: "linear",
+        weeklyDecayPct: 0.03,
+        floorPctOfBaseline: 0.70,
+      };
+    } else {
+      if (!("type" in intel.expertToggles.decayModel)) intel.expertToggles.decayModel.type = "linear";
+      if (!("weeklyDecayPct" in intel.expertToggles.decayModel)) intel.expertToggles.decayModel.weeklyDecayPct = 0.03;
+      if (!("floorPctOfBaseline" in intel.expertToggles.decayModel)) intel.expertToggles.decayModel.floorPctOfBaseline = 0.70;
+    }
+  }
   return intel;
 }
 
@@ -192,6 +268,12 @@ export function listIntelBenchmarks(state){
   const intel = ensureIntelCollections(state);
   if (!intel) return [];
   return intel.benchmarks.slice();
+}
+
+export function listAutoDriftRecommendations(state, { limit = Infinity } = {}){
+  const intel = ensureIntelCollections(state);
+  if (!intel) return [];
+  return listAutoDriftRecommendationsFromIntel(intel, { limit });
 }
 
 export function listMissingEvidenceAudit(state, { limit = 200 } = {}){
@@ -281,7 +363,8 @@ export function computeIntelIntegrityScore(state, {
     driftFlags: Math.min(12, driftFlagCount * 3),
   };
   const totalPenalty = Object.values(penalties).reduce((sum, v) => sum + Number(v || 0), 0);
-  const score = Math.max(0, Math.min(100, Math.round(100 - totalPenalty)));
+  const roundedScore = roundWholeNumberByMode(100 - totalPenalty, { mode: "round", fallback: 0 }) ?? 0;
+  const score = Math.max(0, Math.min(100, roundedScore));
 
   return {
     score,
@@ -336,7 +419,12 @@ export function upsertBenchmarkEntry(state, payload = {}){
   const ref = cleanString(payload.ref);
   if (!ref) return { ok: false, error: "Reference is required." };
 
-  const raceType = normalizeRaceType(payload.raceType);
+  const scope = resolveBenchmarkScope(state, {
+    raceTypeInput: payload.raceType,
+    benchmarkKeyInput: payload.benchmarkKey || payload.templateBenchmarkKey,
+  });
+  const raceType = scope.raceType;
+  const benchmarkKey = scope.benchmarkKey;
   const min = toNumOrNull(payload.min);
   const max = toNumOrNull(payload.max);
   if (min == null || max == null){
@@ -357,8 +445,9 @@ export function upsertBenchmarkEntry(state, payload = {}){
   const sourceNotes = cleanString(payload.sourceNotes);
 
   const now = nowIso();
+  const scopeToken = benchmarkScopeToken({ raceType, benchmarkKey });
   const findIndex = intel.benchmarks.findIndex((x) =>
-    cleanString(x?.ref) === ref && normalizeRaceType(x?.raceType) === raceType
+    cleanString(x?.ref) === ref && benchmarkScopeToken(x) === scopeToken
   );
 
   const existing = findIndex >= 0 ? intel.benchmarks[findIndex] : null;
@@ -366,6 +455,7 @@ export function upsertBenchmarkEntry(state, payload = {}){
     id: cleanString(existing?.id) || makeId("bm"),
     ref,
     raceType,
+    benchmarkKey,
     range: {
       min,
       max,
@@ -406,22 +496,89 @@ export function upsertBenchmarkEntry(state, payload = {}){
   return { ok: true, mode: "created", row };
 }
 
-const BENCHMARK_PRESET_BY_RACE = {
-  federal: { contactMin: 8, contactMax: 45, supportMin: 25, supportMax: 80, turnoutMin: 30, turnoutMax: 80, persuasionMin: 8, persuasionMax: 55 },
-  state_leg: { contactMin: 5, contactMax: 50, supportMin: 20, supportMax: 85, turnoutMin: 20, turnoutMax: 85, persuasionMin: 5, persuasionMax: 65 },
-  municipal: { contactMin: 6, contactMax: 55, supportMin: 20, supportMax: 85, turnoutMin: 10, turnoutMax: 70, persuasionMin: 8, persuasionMax: 70 },
-  county: { contactMin: 6, contactMax: 50, supportMin: 20, supportMax: 85, turnoutMin: 20, turnoutMax: 80, persuasionMin: 6, persuasionMax: 65 },
-  all: { contactMin: 5, contactMax: 60, supportMin: 20, supportMax: 85, turnoutMin: 20, turnoutMax: 90, persuasionMin: 5, persuasionMax: 70 },
-};
+function benchmarkScopeToken(scopeLike){
+  const benchmarkKey = normalizeKnownBenchmarkProfileKey(scopeLike?.benchmarkKey || scopeLike?.templateBenchmarkKey);
+  if (benchmarkKey) return `key:${benchmarkKey}`;
+  return `key:${benchmarkProfileKeyFromRaceType(scopeLike?.raceType)}`;
+}
+
+function resolveBenchmarkScope(state, { raceTypeInput = "all", benchmarkKeyInput = "" } = {}){
+  const explicitBenchmarkKey = normalizeKnownBenchmarkProfileKey(benchmarkKeyInput);
+  if (explicitBenchmarkKey){
+    return {
+      raceType: normalizeRaceType(raceTypeInput),
+      benchmarkKey: explicitBenchmarkKey,
+    };
+  }
+
+  const raceType = normalizeRaceType(raceTypeInput);
+  const raceBenchmarkKey = normalizeKnownBenchmarkProfileKey(raceType);
+  if (raceBenchmarkKey){
+    return {
+      raceType,
+      benchmarkKey: raceBenchmarkKey,
+    };
+  }
+  if (raceType !== "all"){
+    return {
+      raceType,
+      benchmarkKey: benchmarkProfileKeyFromRaceType(raceType),
+    };
+  }
+
+  const stateObj = isObject(state) ? state : {};
+  const metaBenchmarkKey = normalizeKnownBenchmarkProfileKey(stateObj?.templateMeta?.benchmarkKey);
+  if (metaBenchmarkKey){
+    return {
+      raceType,
+      benchmarkKey: metaBenchmarkKey,
+    };
+  }
+
+  try{
+    const resolved = resolveTemplateRecord(stateObj);
+    const templateBenchmarkKey = normalizeKnownBenchmarkProfileKey(resolved?.template?.benchmarkKey);
+    if (templateBenchmarkKey){
+      return {
+        raceType,
+        benchmarkKey: templateBenchmarkKey,
+      };
+    }
+  } catch {
+    // fall through to legacy race fallback.
+  }
+
+  return {
+    raceType,
+    benchmarkKey: benchmarkProfileKeyFromRaceType(stateObj?.raceType),
+  };
+}
 
 function mid(min, max){
   if (!Number.isFinite(min) || !Number.isFinite(max)) return null;
-  return Math.round(((min + max) / 2) * 10) / 10;
+  return roundToDigits((min + max) / 2, 1, null);
 }
 
-export function loadDefaultBenchmarksForRaceType(state, raceTypeInput = "all"){
-  const raceType = normalizeRaceType(raceTypeInput);
-  const preset = BENCHMARK_PRESET_BY_RACE[raceType] || BENCHMARK_PRESET_BY_RACE.all;
+function normalizeBenchmarkScopeInput(scopeInput = "all"){
+  if (isObject(scopeInput)){
+    const scopeValue = cleanString(scopeInput.scope || scopeInput.value);
+    return {
+      raceTypeInput: cleanString(scopeInput.raceType || scopeValue || "all"),
+      benchmarkKeyInput: cleanString(scopeInput.benchmarkKey || scopeInput.templateBenchmarkKey || scopeValue),
+    };
+  }
+  const value = cleanString(scopeInput || "all");
+  return {
+    raceTypeInput: value || "all",
+    benchmarkKeyInput: value,
+  };
+}
+
+export function loadDefaultBenchmarksForRaceType(state, scopeInput = "all"){
+  const scope = resolveBenchmarkScope(state, normalizeBenchmarkScopeInput(scopeInput));
+  const raceType = scope.raceType;
+  const benchmarkKey = scope.benchmarkKey;
+  const preset = getBenchmarkProfilePreset(benchmarkKey);
   if (!preset) return { ok: false, error: "No benchmark preset available." };
 
   const rows = [
@@ -438,8 +595,9 @@ export function loadDefaultBenchmarksForRaceType(state, raceTypeInput = "all"){
     const res = upsertBenchmarkEntry(state, {
       ...row,
       raceType,
+      benchmarkKey,
       sourceTitle: "Built-in benchmark preset",
-      sourceNotes: `Preset loaded for race type '${raceType}'.`,
+      sourceNotes: `Preset loaded for benchmark scope '${benchmarkKey}' (legacy race scope '${raceType}').`,
     });
     if (!res.ok){
       return { ok: false, error: res.error || `Failed to load benchmark for ${row.ref}.`, created, updated };
@@ -447,7 +605,7 @@ export function loadDefaultBenchmarksForRaceType(state, raceTypeInput = "all"){
     if (res.mode === "created") created += 1;
     else updated += 1;
   }
-  return { ok: true, raceType, created, updated, totalApplied: rows.length };
+  return { ok: true, raceType, benchmarkKey, created, updated, totalApplied: rows.length };
 }
 
 export function attachEvidenceRecord(state, payload = {}){
@@ -508,39 +666,29 @@ export function attachEvidenceRecord(state, payload = {}){
 }
 
 function fmtPct(value){
-  const n = Number(value);
-  if (!Number.isFinite(n)) return "—";
-  return `${n.toFixed(1)}%`;
+  return formatPercentFromPct(value, 1);
 }
 
 function fmtNum(value){
   const n = Number(value);
   if (!Number.isFinite(n)) return "—";
-  return Number.isInteger(n) ? String(n) : n.toFixed(2);
+  return Number.isInteger(n) ? String(n) : formatFixedNumber(n, 2);
 }
 
 function fmtRatioPct(value){
-  const n = Number(value);
-  if (!Number.isFinite(n)) return "—";
-  return `${(n * 100).toFixed(1)}%`;
-}
-
-function clamp01(value){
-  const n = Number(value);
-  if (!Number.isFinite(n)) return 0;
-  return Math.min(1, Math.max(0, n));
+  return formatPercentFromUnit(value, 1);
 }
 
 function pct1(value){
-  const n = Number(value);
-  if (!Number.isFinite(n)) return null;
-  return Math.round(n * 1000) / 10;
+  const n = coerceFiniteNumber(value);
+  if (n == null) return null;
+  return roundToDigits(n * 100, 1, null);
 }
 
 function num1(value){
-  const n = Number(value);
-  if (!Number.isFinite(n)) return null;
-  return Math.round(n * 10) / 10;
+  const n = coerceFiniteNumber(value);
+  if (n == null) return null;
+  return roundToDigits(n, 1, null);
 }
 
 function approxEq(a, b, eps = 1e-9){
@@ -622,11 +770,8 @@ function normalizePatchValue(raw){
   return s === "" ? null : s;
 }
 
-function patchValuesEqual(a, b){
-  if (typeof a === "number" && typeof b === "number"){
-    return approxEq(a, b, 1e-9);
-  }
-  return Object.is(a, b);
+export function patchValuesEqual(a, b){
+  return valuesEqualWithTolerance(a, b, 1e-9);
 }
 
 function collectDraftPatchTargets(draftPatch){
@@ -660,10 +805,13 @@ function pickRecommendationRow(intel, recommendationId = ""){
   if (wanted){
     return rows.find((row) => cleanString(row?.id) === wanted) || null;
   }
-  return rows
-    .filter((row) => cleanString(row?.source) === "auto.realityDrift.v1")
-    .slice()
-    .sort((a, b) => Number(a?.priority || 99) - Number(b?.priority || 99))[0] || null;
+  return listAutoDriftRecommendationsFromIntel(intel, { limit: 1 })[0] || null;
+}
+
+export function resolveRecommendationForApply(state, recommendationId = ""){
+  const intel = ensureIntelCollections(state);
+  if (!intel) return null;
+  return pickRecommendationRow(intel, recommendationId);
 }
 
 export function applyRecommendationDraftPatch(state, {
@@ -747,6 +895,82 @@ export function applyRecommendationDraftPatch(state, {
     changes,
     unknownKeys,
     noteMarker,
+  };
+}
+
+function recommendationAuditRowMatchesChange(row, change){
+  return (
+    row &&
+    row.kind === "critical_ref_change" &&
+    cleanString(row.source) === "ui" &&
+    cleanString(row.key) === cleanString(change?.key) &&
+    patchValuesEqual(row.after, change?.after)
+  );
+}
+
+export function applyTopDriftRecommendation(state){
+  const top = resolveRecommendationForApply(state, "");
+  if (!top){
+    return {
+      ok: false,
+      code: "missing_recommendation",
+      error: "No active drift recommendation to apply.",
+    };
+  }
+
+  const result = applyRecommendationDraftPatch(state, { recommendationId: cleanString(top.id) });
+  if (!result?.ok){
+    return {
+      ok: false,
+      code: "apply_recommendation_failed",
+      error: String(result?.error || "Failed to apply recommendation patch."),
+    };
+  }
+
+  const linkedAuditIds = [];
+  const auditRows = Array.isArray(state?.intelState?.audit) ? state.intelState.audit.slice().reverse() : [];
+  if (result.noteMarker){
+    for (const row of auditRows){
+      if (!row || typeof row !== "object") continue;
+      if (!cleanString(row.note).includes(result.noteMarker)) continue;
+      const id = cleanString(row.id);
+      if (id && !linkedAuditIds.includes(id)) linkedAuditIds.push(id);
+    }
+  }
+  if (!linkedAuditIds.length && Array.isArray(result.changes) && result.changes.length){
+    for (const change of result.changes){
+      const match = auditRows.find((row) => recommendationAuditRowMatchesChange(row, change));
+      const id = cleanString(match?.id);
+      if (id && !linkedAuditIds.includes(id)) linkedAuditIds.push(id);
+    }
+  }
+
+  const recommendationId = cleanString(result.recommendationId);
+  const recRow = Array.isArray(state?.intelState?.recommendations)
+    ? state.intelState.recommendations.find((row) => cleanString(row?.id) === recommendationId)
+    : null;
+  let needsGovernance = false;
+  if (recRow){
+    recRow.appliedAuditIds = linkedAuditIds.slice();
+    recRow.updatedAt = nowIso();
+    const unresolved = (Array.isArray(state?.intelState?.audit) ? state.intelState.audit : [])
+      .filter((row) => recRow.appliedAuditIds.includes(cleanString(row?.id)))
+      .filter((row) => cleanString(row?.status).toLowerCase() !== "resolved");
+    needsGovernance = unresolved.length > 0;
+    recRow.status = needsGovernance ? "appliedNeedsGovernance" : (result.noop ? "alreadyApplied" : "applied");
+  }
+
+  const changes = Array.isArray(result.changes) ? result.changes.slice() : [];
+  return {
+    ok: true,
+    recommendationId,
+    recommendationTitle: cleanString(result.recommendationTitle),
+    changes,
+    changesCount: changes.length,
+    noop: !!result.noop,
+    needsGovernance,
+    linkedAuditIds,
+    noteMarker: cleanString(result.noteMarker),
   };
 }
 
@@ -944,7 +1168,7 @@ function pushBriefRow(intel, { kind, content, promptId = "", model = "manual" } 
 function fmtSignedNum(value, digits = 0){
   const n = Number(value);
   if (!Number.isFinite(n)) return "—";
-  const abs = Math.abs(n).toFixed(Math.max(0, digits | 0));
+  const abs = formatFixedNumber(Math.abs(n), Math.max(0, digits | 0), "0");
   const compact = abs.replace(/\.0+$/, "").replace(/(\.\d*?)0+$/, "$1");
   return `${n >= 0 ? "+" : "-"}${compact}`;
 }
@@ -1003,7 +1227,7 @@ export function captureObservedMetricsFromDrift(state, drift = null, { source = 
   const end = isoDateOnly(drift?.windowEnd || drift?.lastDate) || start;
   const stamp = `${end}T00:00:00.000Z`;
   const entries = Math.max(0, Number(drift?.windowEntries) || 0);
-  const confidence = clamp01(entries / 10);
+  const confidence = clampFiniteNumber(entries / 10, 0, 1);
 
   const rows = [
     {
@@ -1095,7 +1319,7 @@ export function refreshDriftRecommendationsFromDrift(state, drift = null, { maxE
   if (!intel) return { ok: false, error: "Intel state unavailable." };
 
   const now = nowIso();
-  const source = "auto.realityDrift.v1";
+  const source = AUTO_DRIFT_RECOMMENDATION_SOURCE;
   const manualRecs = ensureArray(intel, "recommendations").filter((x) => cleanString(x?.source) !== source);
   const existingAutoRec = ensureArray(intel, "recommendations").filter((x) => cleanString(x?.source) === source);
   const manualFlags = ensureArray(intel, "flags").filter((x) => cleanString(x?.source) !== source);
@@ -1174,7 +1398,7 @@ export function refreshDriftRecommendationsFromDrift(state, drift = null, { maxE
     if (def.actual == null || def.assumed == null || def.assumed <= 0) continue;
     const ratio = def.actual / def.assumed;
     if (!(ratio < 0.90)) continue;
-    const severityRatio = clamp01((def.assumed - def.actual) / def.assumed);
+    const severityRatio = clampFiniteNumber((def.assumed - def.actual) / def.assumed, 0, 1);
     const severity = severityRatio >= 0.25 ? "bad" : "warn";
     const priority = severityRatio >= 0.30 ? 1 : (severityRatio >= 0.15 ? 2 : 3);
     const id = `rec_drift_${def.key}`;
@@ -1240,12 +1464,33 @@ export function refreshDriftRecommendationsFromDrift(state, drift = null, { maxE
   };
 }
 
+export function captureObservedAndRefreshDriftRecommendations(state, {
+  drift = null,
+  observedSource = "dailyLog.rolling7",
+  observedMaxEntries = 180,
+  recommendationMaxEntries = 60,
+} = {}){
+  const metricsResult = captureObservedMetricsFromDrift(state, drift, {
+    source: observedSource,
+    maxEntries: observedMaxEntries,
+  });
+  const recommendationResult = refreshDriftRecommendationsFromDrift(state, drift, {
+    maxEntries: recommendationMaxEntries,
+  });
+  return {
+    ok: !!recommendationResult?.ok,
+    metricsResult,
+    recommendationResult,
+  };
+}
+
 export function generateCalibrationSourceBrief(state){
   const intel = ensureIntelCollections(state);
   if (!intel) return { ok: false, error: "Intel state unavailable." };
 
   const now = nowIso();
   const raceType = cleanString(state?.raceType) || "unknown";
+  const benchmarkScope = resolveBenchmarkScope(state, { raceTypeInput: "all" });
   const scenarioName = cleanString(state?.scenarioName) || "Unnamed scenario";
   const benchmarks = listIntelBenchmarks(state);
   const missingEvidence = listMissingEvidenceAudit(state, { limit: 500 }).length;
@@ -1255,13 +1500,14 @@ export function generateCalibrationSourceBrief(state){
   const benchmarkLines = benchmarks.length
     ? benchmarks.slice(0, 12).map((b) => {
       const ref = benchmarkRefLabel(b?.ref);
-      const scope = cleanString(b?.raceType) || "all";
+      const scope = cleanString(b?.benchmarkKey || b?.templateBenchmarkKey || b?.raceType) || "all";
+      const scopeLabel = benchmarkScopeLabel(scope);
       const min = fmtNum(b?.range?.min);
       const max = fmtNum(b?.range?.max);
       const warn = fmtNum(b?.severityBands?.warnAbove);
       const hard = fmtNum(b?.severityBands?.hardAbove);
       const source = cleanString(b?.source?.title) || cleanString(b?.source?.type) || "manual";
-      return `- ${ref} [${scope}] range ${min}..${max}; warn/hard ${warn}/${hard}; source: ${source}`;
+      return `- ${ref} [${scopeLabel}] range ${min}..${max}; warn/hard ${warn}/${hard}; source: ${source}`;
     }).join("\n")
     : "- No benchmark entries configured.";
 
@@ -1271,6 +1517,7 @@ export function generateCalibrationSourceBrief(state){
     `Generated: ${now}`,
     `Scenario: ${scenarioName}`,
     `Race type: ${raceType}`,
+    `Template benchmark scope: ${cleanString(benchmarkScope?.benchmarkKey) || "default"}`,
     ``,
     `## Benchmark catalog`,
     benchmarkLines,
@@ -1289,8 +1536,8 @@ export function generateCalibrationSourceBrief(state){
     `## Capacity realism`,
     `- Capacity decay enabled: ${intel?.expertToggles?.capacityDecayEnabled ? "ON" : "OFF"}`,
     `- Decay model: ${cleanString(intel?.expertToggles?.decayModel?.type) || "linear"}`,
-    `- Weekly decay %: ${fmtPct(Number(intel?.expertToggles?.decayModel?.weeklyDecayPct) * 100)}`,
-    `- Floor % of baseline: ${fmtPct(Number(intel?.expertToggles?.decayModel?.floorPctOfBaseline) * 100)}`,
+    `- Weekly decay %: ${fmtRatioPct(intel?.expertToggles?.decayModel?.weeklyDecayPct)}`,
+    `- Floor % of baseline: ${fmtRatioPct(intel?.expertToggles?.decayModel?.floorPctOfBaseline)}`,
     ``,
     `## Current planner assumptions (selected)`,
     `- Support rate: ${fmtPct(state?.supportRatePct)}`,
@@ -1319,6 +1566,7 @@ export function generateScenarioSummaryBrief(state){
   const rec = currentScenarioRecord(state);
   const scenarioId = cleanString(state?.ui?.activeScenarioId) || cleanString(rec?.id) || "baseline";
   const scenarioName = cleanString(rec?.name) || cleanString(state?.scenarioName) || scenarioId;
+  const benchmarkScope = resolveBenchmarkScope(state, { raceTypeInput: "all" });
   const summary = summarizeScenarioOutputs(rec, state?.ui?.lastSummary);
   const mc = state?.mcLast;
   const missingEvidence = listMissingEvidenceAudit(state, { limit: 500 }).length;
@@ -1332,6 +1580,7 @@ export function generateScenarioSummaryBrief(state){
     `Generated: ${nowIso()}`,
     `Scenario: ${scenarioName} (${scenarioId})`,
     `Race type: ${cleanString(state?.raceType) || "—"}`,
+    `Template benchmark scope: ${cleanString(benchmarkScope?.benchmarkKey) || "default"}`,
     `Mode: ${cleanString(state?.mode) || "—"}`,
     `Election date: ${cleanString(state?.electionDate) || "—"}`,
     ``,
@@ -1354,7 +1603,7 @@ export function generateScenarioSummaryBrief(state){
     ``,
     `## Monte Carlo snapshot`,
     `- Runs: ${fmtNum(mc?.runs)}`,
-    `- Win probability: ${mc?.winProb == null ? "—" : `${(Number(mc.winProb) * 100).toFixed(1)}%`}`,
+    `- Win probability: ${fmtRatioPct(mc?.winProb)}`,
     `- Median margin: ${fmtSignedNum(mc?.median, 0)}`,
     `- P10 / P90: ${fmtSignedNum(mc?.p10, 0)} / ${fmtSignedNum(mc?.p90, 0)}`,
     ``,
@@ -1409,23 +1658,12 @@ export function generateScenarioDiffBrief(state, { baselineId = "baseline" } = {
     doorsPerHour3: "Doors/hour",
     callsPerHour3: "Calls/hour",
   };
-
-  const keys = new Set([...Object.keys(baseInputs), ...Object.keys(activeInputs)]);
-  const changed = [];
-  for (const key of keys){
-    if (key === "ui" || key === "mcLast" || key === "mcLastHash") continue;
-    const a = baseInputs[key];
-    const b = activeInputs[key];
-    const same = (a === b) || (String(a ?? "") === String(b ?? ""));
-    if (same) continue;
-    changed.push({
-      key,
-      label: labels[key] || key,
-      base: a,
-      active: b,
-    });
-  }
-  changed.sort((x, y) => String(x.label).localeCompare(String(y.label)));
+  const changed = buildScenarioInputChangeRows({
+    baselineInputs: baseInputs,
+    activeInputs,
+    labels,
+    ignoreKeys: ["ui", "mcLast", "mcLastHash"],
+  });
 
   const baseSummary = summarizeScenarioOutputs(baseRec);
   const activeSummary = summarizeScenarioOutputs(activeRec, state?.ui?.lastSummary);
@@ -1478,9 +1716,7 @@ export function generateDriftExplanationBrief(state, { drift = null } = {}){
     return { ok: false, error: "No daily log data available for drift explanation." };
   }
 
-  const autoRecs = ensureArray(intel, "recommendations")
-    .filter((x) => cleanString(x?.source) === "auto.realityDrift.v1")
-    .sort((a, b) => Number(a?.priority || 99) - Number(b?.priority || 99));
+  const autoRecs = listAutoDriftRecommendationsFromIntel(intel);
 
   const lines = [
     `# Drift explanation`,
@@ -1532,7 +1768,7 @@ export function generateSensitivityInterpretationBrief(state){
     ``,
     `Generated: ${nowIso()}`,
     `Monte Carlo runs: ${fmtNum(mc?.runs)}`,
-    `Win probability: ${mc?.winProb == null ? "—" : `${(Number(mc.winProb) * 100).toFixed(1)}%`}`,
+    `Win probability: ${fmtRatioPct(mc?.winProb)}`,
     `Median margin: ${fmtSignedNum(mc?.median, 0)}`,
     `P10 / P50 / P90 margin: ${fmtSignedNum(ce?.percentiles?.p10, 0)} / ${fmtSignedNum(ce?.percentiles?.p50, 0)} / ${fmtSignedNum(ce?.percentiles?.p90, 0)}`,
     ``,

@@ -1,4 +1,5 @@
 // @ts-check
+import { roundWholeNumberByMode } from "../core/utils.js";
 export function createOperationsCapacityOutlookController(deps = {}){
   const {
     els,
@@ -15,6 +16,7 @@ export function createOperationsCapacityOutlookController(deps = {}){
     twCapNum,
     twCapFmtInt,
     twCapFmt1,
+    twCapFmt2 = twCapFmt1,
     twCapFmtSigned,
     twCapRatioText,
     twCapFmtPct01,
@@ -91,6 +93,7 @@ export function createOperationsCapacityOutlookController(deps = {}){
       hintNote: "Display-only diagnostics. Add interview/onboarding/training records to unlock hints.",
       basis: "Override is OFF by default. When enabled, FPE capacity uses selected Operations source with automatic fallback to baseline if data is unavailable.",
       rows: [],
+      officeMix: [],
       computedAt: new Date().toISOString(),
     });
     if (els?.twCapOutlookTbody){
@@ -133,6 +136,7 @@ export function createOperationsCapacityOutlookController(deps = {}){
     const stores = opsSnapshot?.stores || {};
     const opsRollups = opsSnapshot?.rollups || {};
     const workforce = opsRollups?.workforce || {};
+    const officeMix = Array.isArray(opsRollups?.officeMix) ? opsRollups.officeMix : [];
     const pipelineRecords = Array.isArray(stores.pipelineRecords) ? stores.pipelineRecords : [];
     const shiftRecords = Array.isArray(stores.shiftRecords) ? stores.shiftRecords : [];
     const forecastConfigs = Array.isArray(stores.forecastConfigs) ? stores.forecastConfigs : [];
@@ -177,7 +181,7 @@ export function createOperationsCapacityOutlookController(deps = {}){
       const baseDate = twCapParseDate(rec?.stageDates?.[stage]) || twCapParseDate(rec?.updatedAt) || twCapParseDate(rec?.createdAt) || new Date();
       const projected = new Date(baseDate.getTime() + (daysToActive * twCapDayMs));
       const weekStart = twCapWeekStart(projected);
-      let idx = Math.floor((weekStart.getTime() - week0.getTime()) / twCapWeekMs);
+      let idx = roundWholeNumberByMode((weekStart.getTime() - week0.getTime()) / twCapWeekMs, { mode: "floor", fallback: NaN });
       if (!Number.isFinite(idx)) continue;
       if (idx < 0) idx = 0;
 
@@ -192,7 +196,7 @@ export function createOperationsCapacityOutlookController(deps = {}){
       const dt = twCapParseDate(rec?.date) || twCapParseDate(rec?.checkInAt) || twCapParseDate(rec?.startAt);
       if (!dt) continue;
       const weekStart = twCapWeekStart(dt);
-      const idx = Math.floor((weekStart.getTime() - week0.getTime()) / twCapWeekMs);
+      const idx = roundWholeNumberByMode((weekStart.getTime() - week0.getTime()) / twCapWeekMs, { mode: "floor", fallback: NaN });
       if (!Number.isFinite(idx) || idx < 0 || idx >= rows.length) continue;
       rows[idx].scheduled += Math.max(0, twCapNum(rec?.attempts, 0));
     }
@@ -257,17 +261,20 @@ export function createOperationsCapacityOutlookController(deps = {}){
     const activeSourceLabel = state?.twCapOverrideEnabled
       ? `Override ON · source: ${activeMode}`
       : "Override OFF";
+    const expectedAddedText = twCapFmt2(expectedAddedFte);
+    const beyondHorizonText = twCapFmt2(beyondHorizonAdds);
+    const compositeSignalText = twCapFmtPct01(compositeRampSignal);
 
     twCapText(els.twCapOutlookActiveSource, activeSourceLabel);
     twCapText(els.twCapOutlookBaseline, twCapFmtInt(baselineAttempts));
     twCapText(els.twCapOutlookRampTotal, twCapFmtInt(expectedByEnd));
     twCapText(els.twCapOutlookScheduledTotal, twCapFmtInt(scheduledTotal));
-    twCapText(els.twCapOutlookHorizon, `${rows.length} weeks · +${expectedAddedFte.toFixed(2)} expected active`);
+    twCapText(els.twCapOutlookHorizon, `${rows.length} weeks · +${expectedAddedText} expected active`);
     twCapText(els.twDiagInterviewPass, twCapRatioText(interviewPassCount, interviewCompleteCount));
     twCapText(els.twDiagOfferAccept, twCapRatioText(offerAcceptedCount, offerExtendedCount));
     twCapText(els.twDiagOnboardingCompletion, twCapRatioText(onboardingCompleted, onboardingRows.length));
     twCapText(els.twDiagTrainingCompletion, twCapRatioText(trainingCompleted, trainingRows.length));
-    twCapText(els.twDiagCompositeSignal, twCapFmtPct01(compositeRampSignal));
+    twCapText(els.twDiagCompositeSignal, compositeSignalText);
     twCapText(els.twDiagReadyNow, twCapFmtInt(readiness.readyNow));
     twCapText(els.twDiagReadyPerWeek, twCapFmt1(readiness.recentReadyPerWeek));
     twCapText(els.twDiagReadyIn14d, twCapFmt1(readiness.projectedReady14d));
@@ -275,12 +282,12 @@ export function createOperationsCapacityOutlookController(deps = {}){
     twCapText(
       els.twDiagHintNote,
       Number.isFinite(compositeRampSignal)
-        ? `Display-only diagnostics. Composite ramp signal ${(100 * compositeRampSignal).toFixed(1)}% (no engine mutation).`
+        ? `Display-only diagnostics. Composite ramp signal ${compositeSignalText} (no engine mutation).`
         : "Display-only diagnostics. Add interview/onboarding/training records to unlock hints."
     );
     twCapText(
       els.twCapOutlookStatus,
-      `Source: baseline + pipeline + shifts · pipeline open ${openPipeline}/${pipelineCount} · shifts ${shiftCount} · beyond horizon +${beyondHorizonAdds.toFixed(2)} expected active`
+      `Source: baseline + pipeline + shifts · pipeline open ${openPipeline}/${pipelineCount} · shifts ${shiftCount} · beyond horizon +${beyondHorizonText} expected active`
     );
     twCapText(
       els.twCapOutlookBasis,
@@ -288,23 +295,23 @@ export function createOperationsCapacityOutlookController(deps = {}){
     );
 
     writeOutlookSnapshot(state, {
-      status: `Source: baseline + pipeline + shifts · pipeline open ${openPipeline}/${pipelineCount} · shifts ${shiftCount} · beyond horizon +${beyondHorizonAdds.toFixed(2)} expected active`,
+      status: `Source: baseline + pipeline + shifts · pipeline open ${openPipeline}/${pipelineCount} · shifts ${shiftCount} · beyond horizon +${beyondHorizonText} expected active`,
       activeSource: activeSourceLabel,
       baseline: twCapFmtInt(baselineAttempts),
       rampTotal: twCapFmtInt(expectedByEnd),
       scheduledTotal: twCapFmtInt(scheduledTotal),
-      horizon: `${rows.length} weeks · +${expectedAddedFte.toFixed(2)} expected active`,
+      horizon: `${rows.length} weeks · +${expectedAddedText} expected active`,
       interviewPass: twCapRatioText(interviewPassCount, interviewCompleteCount),
       offerAccept: twCapRatioText(offerAcceptedCount, offerExtendedCount),
       onboardingCompletion: twCapRatioText(onboardingCompleted, onboardingRows.length),
       trainingCompletion: twCapRatioText(trainingCompleted, trainingRows.length),
-      compositeSignal: twCapFmtPct01(compositeRampSignal),
+      compositeSignal: compositeSignalText,
       readyNow: twCapFmtInt(readiness.readyNow),
       readyPerWeek: twCapFmt1(readiness.recentReadyPerWeek),
       readyIn14d: twCapFmt1(readiness.projectedReady14d),
       medianReadyDays: Number.isFinite(readiness.medianReadyDays) ? twCapFmt1(readiness.medianReadyDays) : "—",
       hintNote: Number.isFinite(compositeRampSignal)
-        ? `Display-only diagnostics. Composite ramp signal ${(100 * compositeRampSignal).toFixed(1)}% (no engine mutation).`
+        ? `Display-only diagnostics. Composite ramp signal ${compositeSignalText} (no engine mutation).`
         : "Display-only diagnostics. Add interview/onboarding/training records to unlock hints.",
       basis: "Override is OFF by default. When enabled, FPE capacity uses selected Operations source with automatic fallback to baseline if data is unavailable.",
       rows: rows.map((row) => ({
@@ -327,6 +334,18 @@ export function createOperationsCapacityOutlookController(deps = {}){
         paidCanvasserProductivity: twCapNum(workforce.paidCanvasserProductivity, 1),
         volunteerProductivity: twCapNum(workforce.volunteerProductivity, 1),
       },
+      officeMix: officeMix.map((row) => ({
+        officeId: twCapClean(row?.officeId) || "unassigned",
+        headcount: twCapNum(row?.headcount, 0),
+        activeHeadcount: twCapNum(row?.activeHeadcount, 0),
+        organizerCount: twCapNum(row?.organizerCount, 0),
+        paidCanvasserCount: twCapNum(row?.paidCanvasserCount, 0),
+        activeVolunteerCount: twCapNum(row?.activeVolunteerCount, 0),
+        volunteerLeadCount: twCapNum(row?.volunteerLeadCount, 0),
+        paidHeadcount: twCapNum(row?.paidHeadcount, 0),
+        stipendHeadcount: twCapNum(row?.stipendHeadcount, 0),
+        volunteerHeadcount: twCapNum(row?.volunteerHeadcount, 0),
+      })),
       computedAt: new Date().toISOString(),
     });
 
@@ -372,7 +391,8 @@ export function createOperationsCapacityOutlookController(deps = {}){
     const w = (weeks != null && Number.isFinite(Number(weeks))) ? Number(weeks) : 12;
     const explicitHorizon = safeNum(state?.twCapOverrideHorizonWeeks);
     const rawHorizon = (explicitHorizon != null && Number.isFinite(explicitHorizon)) ? explicitHorizon : (w || 12);
-    const horizonWeeks = Math.max(4, Math.min(52, Math.floor(rawHorizon)));
+    const horizonWeeksRaw = roundWholeNumberByMode(rawHorizon, { mode: "floor", fallback: 12 }) ?? 12;
+    const horizonWeeks = Math.max(4, Math.min(52, horizonWeeksRaw));
     const nowMs = Date.now();
     const throttleMs = Math.max(0, 700 - (nowMs - outlookLastRunMs));
     const delayMs = Math.max(180, throttleMs);

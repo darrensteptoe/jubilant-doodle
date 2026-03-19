@@ -6,6 +6,7 @@ import {
   clampCensusApplyMultipliers,
   evaluateCensusApplyMode,
 } from "../core/censusModule.js";
+import { resolveCanonicalCallsPerHour, resolveDoorShareUnitFromPct } from "../core/throughput.js";
 
 /**
  * @typedef {Record<string, any>} AnyState
@@ -73,9 +74,9 @@ export function createEffectiveInputsController({
     let orgHoursPerWeek = baseOrgHoursPerWeek;
     let volunteerMult = safeNum(s.volunteerMultBase);
     const doorSharePct = safeNum(s.channelDoorPct);
-    const doorShare = (doorSharePct == null) ? null : clamp(doorSharePct, 0, 100) / 100;
+    const doorShare = resolveDoorShareUnitFromPct(doorSharePct);
     const doorsPerHour = canonicalDoorsPerHourFromSnap(s);
-    const callsPerHour = safeNum(s.callsPerHour3);
+    const callsPerHour = resolveCanonicalCallsPerHour(s, { toNumber: safeNum });
     let doorsPerHourAdjusted = doorsPerHour;
     let callsPerHourAdjusted = callsPerHour;
     const baseCr = eff.cr;

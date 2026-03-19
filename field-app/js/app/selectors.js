@@ -2,6 +2,17 @@
 import { safeNum, clamp } from "../utils.js";
 import { normalizeUniversePercents, UNIVERSE_DEFAULTS } from "../core/universeLayer.js";
 import { resolveFeatureFlags } from "../core/featureFlags.js";
+import { NULL_BASE_RATE_DEFAULTS, resolveStateBaseRates } from "../core/baseRates.js";
+import { computeGoalPaceRequirements } from "../core/executionPlanner.js";
+import {
+  buildTimelineTacticKindsMapFromState,
+  computeTimelineCapsSummaryFromState,
+} from "../core/timelineCapsInput.js";
+import {
+  resolveCanonicalCallsPerHour,
+  resolveCanonicalDoorsPerHour,
+  resolveDoorShareUnitFromPct,
+} from "../core/throughput.js";
 import {
   deriveNeedVotesOrZero as coreDeriveNeedVotesOrZero,
   deriveWeeksRemainingCeil as coreDeriveWeeksRemainingCeil
@@ -51,9 +62,14 @@ export function getUniverseLayerConfig(state){
  * @param {{ computeUniverseAdjustedRates: (args: Record<string, any>) => Record<string, any> }=} deps
  */
 export function getEffectiveBaseRates(state, { computeUniverseAdjustedRates } = {}){
-  const cr = (safeNum(state?.contactRatePct) != null) ? clamp(safeNum(state.contactRatePct), 0, 100) / 100 : null;
-  const sr = (safeNum(state?.supportRatePct) != null) ? clamp(safeNum(state.supportRatePct), 0, 100) / 100 : null;
-  const tr = (safeNum(state?.turnoutReliabilityPct) != null) ? clamp(safeNum(state.turnoutReliabilityPct), 0, 100) / 100 : null;
+  const baseRates = resolveStateBaseRates(state, {
+    defaults: NULL_BASE_RATE_DEFAULTS,
+    clampMin: 0,
+    clampMax: 1,
+  });
+  const cr = baseRates.cr;
+  const sr = baseRates.sr;
+  const tr = baseRates.tr;
 
   const cfg = getUniverseLayerConfig(state);
   const adj = computeUniverseAdjustedRates({
@@ -111,8 +127,8 @@ export function computeWeeklyOpsContextFromState(state, {
   let orgHoursPerWeek = safeNum(state?.orgHoursPerWeek);
   let volunteerMult = safeNum(state?.volunteerMultBase);
   let doorSharePct = safeNum(state?.channelDoorPct);
-  let doorsPerHour = safeNum(state?.doorsPerHour3);
-  let callsPerHour = safeNum(state?.callsPerHour3);
+  let doorsPerHour = resolveCanonicalDoorsPerHour(state, { toNumber: safeNum });
+  let callsPerHour = resolveCanonicalCallsPerHour(state, { toNumber: safeNum });
   let capacityDecay = {
     enabled: !!features.capacityDecayEnabled,
     type: String(state?.intelState?.expertToggles?.decayModel?.type || "linear"),
@@ -139,14 +155,18 @@ export function computeWeeklyOpsContextFromState(state, {
     if (capIn.capacityDecay) capacityDecay = capIn.capacityDecay;
   }
 
-  if (goal > 0 && sr && sr > 0) convosNeeded = goal / sr;
-  if (convosNeeded != null && cr && cr > 0) attemptsNeeded = convosNeeded / cr;
-  if (weeks != null && weeks > 0){
-    if (convosNeeded != null) convosPerWeek = convosNeeded / weeks;
-    if (attemptsNeeded != null) attemptsPerWeek = attemptsNeeded / weeks;
-  }
+  const paceReq = computeGoalPaceRequirements({
+    goalVotes: goal,
+    supportRate: sr,
+    contactRate: cr,
+    weeks,
+  });
+  convosNeeded = paceReq.convosNeeded;
+  attemptsNeeded = paceReq.attemptsNeeded;
+  convosPerWeek = paceReq.convosPerWeek;
+  attemptsPerWeek = paceReq.attemptsPerWeek;
 
-  const doorShare = (doorSharePct == null) ? null : clamp(doorSharePct / 100, 0, 1);
+  const doorShare = resolveDoorShareUnitFromPct(doorSharePct);
 
   const cap = computeCapacityBreakdown({
     weeks: 1,
@@ -169,44 +189,17 @@ export function computeWeeklyOpsContextFromState(state, {
   const tlConstrainedOn = !!state?.budget?.optimize?.tlConstrainedEnabled;
   const timelineEnabled = !!features.timelineEnabled;
   if (tlConstrainedOn && timelineEnabled && typeof computeMaxAttemptsByTactic === "function"){
-    const capsInput = {
-      enabled: true,
+    const capsSummary = computeTimelineCapsSummaryFromState({
+      state,
       weeksRemaining: weeks ?? 0,
-      activeWeeksOverride: safeNum(state?.timelineActiveWeeks),
-      gotvWindowWeeks: safeNum(state?.timelineGotvWeeks),
-      staffing: {
-        staff: safeNum(state?.timelineStaffCount) ?? 0,
-        volunteers: safeNum(state?.timelineVolCount) ?? 0,
-        staffHours: safeNum(state?.timelineStaffHours) ?? 0,
-        volunteerHours: safeNum(state?.timelineVolHours) ?? 0,
-      },
-      throughput: {
-        doors: safeNum(state?.timelineDoorsPerHour) ?? 0,
-        phones: safeNum(state?.timelineCallsPerHour) ?? 0,
-        texts: safeNum(state?.timelineTextsPerHour) ?? 0,
-      },
-      tacticKinds: {
-        doors: state?.budget?.tactics?.doors?.kind || "persuasion",
-        phones: state?.budget?.tactics?.phones?.kind || "persuasion",
-        texts: state?.budget?.tactics?.texts?.kind || "persuasion",
-      }
-    };
-    const capsWrap = computeMaxAttemptsByTactic(capsInput);
-    const tCaps = (capsWrap && capsWrap.enabled && capsWrap.maxAttemptsByTactic && typeof capsWrap.maxAttemptsByTactic === "object")
-      ? capsWrap.maxAttemptsByTactic
-      : null;
-    if (tCaps){
-      const asCap = (v) => {
-        const n = Number(v);
-        return (Number.isFinite(n) && n >= 0) ? n : null;
-      };
-      const timelineCapsByTactic = {};
-      for (const [key, value] of Object.entries(tCaps)){
-        timelineCapsByTactic[key] = asCap(value);
-      }
-      const total = Object.values(timelineCapsByTactic).reduce((sum, v) => sum + ((v == null) ? 0 : v), 0);
-      if (Number.isFinite(total) && total >= 0){
-        capTotal = total;
+      enabled: true,
+      tacticKinds: buildTimelineTacticKindsMapFromState(state),
+      computeMaxAttemptsByTactic,
+    });
+    if (capsSummary.maxAttemptsByTactic){
+      const timelineCapsByTactic = capsSummary.capsByTactic || {};
+      if (capsSummary.totalAttempts != null){
+        capTotal = capsSummary.totalAttempts;
         capSource = "timeline";
         capByTactic = { ...capByTactic, ...timelineCapsByTactic };
       }

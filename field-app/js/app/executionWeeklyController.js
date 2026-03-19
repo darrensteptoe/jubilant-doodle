@@ -1,4 +1,5 @@
 // @ts-check
+import { summarizeExecutionDailyLog } from "../core/executionSnapshot.js";
 export function createExecutionWeeklyController({
   els,
   getState,
@@ -16,13 +17,13 @@ export function createExecutionWeeklyController({
   function computeLastNLogSums(n){
     const state = getState();
     const logs = Array.isArray(state?.ui?.dailyLog) ? state.ui.dailyLog : [];
-    const lastN = logs
-      .filter((x) => x && x.date)
-      .slice()
-      .sort((a, b) => String(a.date).localeCompare(String(b.date)))
-      .slice(-Math.max(1, n | 0));
+    const summary = summarizeExecutionDailyLog({
+      dailyLog: logs,
+      windowN: Math.max(1, n | 0),
+      safeNumFn: safeNum,
+    });
 
-    if (!lastN.length){
+    if (!summary?.hasLog){
       return {
         hasLog: false,
         n: 0,
@@ -33,31 +34,18 @@ export function createExecutionWeeklyController({
       };
     }
 
-    let sumAttempts = 0;
-    let sumConvos = 0;
-
-    for (const x of lastN){
-      const doors = safeNum(x?.doors) || 0;
-      const calls = safeNum(x?.calls) || 0;
-      const attempts = (x?.attempts != null && x.attempts !== "") ? (safeNum(x.attempts) || 0) : (doors + calls);
-      const convos = safeNum(x?.convos) || 0;
-      sumAttempts += attempts;
-      sumConvos += convos;
-    }
-
-    const firstDate = lastN[0]?.date ? new Date(String(lastN[0].date)) : null;
-    const lastDate = lastN[lastN.length - 1]?.date ? new Date(String(lastN[lastN.length - 1].date)) : null;
-    const days = (firstDate && lastDate && isFinite(firstDate) && isFinite(lastDate))
-      ? Math.max(1, Math.round((lastDate - firstDate) / (24 * 3600 * 1000)) + 1)
-      : lastN.length;
+    const days = (summary.days != null && Number.isFinite(summary.days) && summary.days > 0)
+      ? summary.days
+      : summary.entries;
+    const lastDateRaw = summary.window[summary.window.length - 1]?.date;
 
     return {
       hasLog: true,
-      n: lastN.length,
+      n: summary.entries,
       days,
-      sumAttempts,
-      sumConvos,
-      lastDate: lastN[lastN.length - 1]?.date || null
+      sumAttempts: summary.sumAttemptsWindow,
+      sumConvos: summary.sumConvosWindow,
+      lastDate: lastDateRaw || null
     };
   }
 

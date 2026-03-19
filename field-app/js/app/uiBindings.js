@@ -1,4 +1,5 @@
 // @ts-check
+import { resolveCanonicalCallsPerHour, resolveCanonicalDoorsPerHour } from "../core/throughput.js";
 import { normalizeOptimizationObjective } from "../core/turnout.js";
 export function applyStateToUiBindings({
   els,
@@ -35,7 +36,9 @@ export function applyStateToUiBindings({
   if (els.goalSupportIds) els.goalSupportIds.value = state.goalSupportIds ?? "";
   if (els.supportRatePct) els.supportRatePct.value = state.supportRatePct ?? "";
   if (els.contactRatePct) els.contactRatePct.value = state.contactRatePct ?? "";
-  if (els.doorsPerHour) els.doorsPerHour.value = state.doorsPerHour ?? "";
+  const canonicalDph = resolveCanonicalDoorsPerHour(state);
+  const canonicalCph = resolveCanonicalCallsPerHour(state);
+  if (els.doorsPerHour) els.doorsPerHour.value = canonicalDph ?? "";
   if (els.hoursPerShift) els.hoursPerShift.value = state.hoursPerShift ?? "";
   if (els.shiftsPerVolunteerPerWeek) els.shiftsPerVolunteerPerWeek.value = state.shiftsPerVolunteerPerWeek ?? "";
 
@@ -50,8 +53,8 @@ export function applyStateToUiBindings({
   if (els.orgHoursPerWeek) els.orgHoursPerWeek.value = state.orgHoursPerWeek ?? "";
   if (els.volunteerMultBase) els.volunteerMultBase.value = state.volunteerMultBase ?? "";
   if (els.channelDoorPct) els.channelDoorPct.value = state.channelDoorPct ?? "";
-  if (els.doorsPerHour3) els.doorsPerHour3.value = state.doorsPerHour3 ?? "";
-  if (els.callsPerHour3) els.callsPerHour3.value = state.callsPerHour3 ?? "";
+  if (els.doorsPerHour3) els.doorsPerHour3.value = canonicalDph ?? "";
+  if (els.callsPerHour3) els.callsPerHour3.value = canonicalCph ?? "";
   if (els.turnoutReliabilityPct) els.turnoutReliabilityPct.value = state.turnoutReliabilityPct ?? "";
 
   if (els.turnoutEnabled) els.turnoutEnabled.checked = !!state.turnoutEnabled;

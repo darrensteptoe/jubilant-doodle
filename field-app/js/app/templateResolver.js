@@ -7,6 +7,7 @@ import {
   TEMPLATE_REGISTRY,
   TEMPLATE_REGISTRY_VERSION,
 } from "./templateRegistry.js";
+import { safeNum } from "../core/utils.js";
 
 const EPSILON = 1e-6;
 
@@ -14,11 +15,7 @@ function cleanString(value){
   return String(value == null ? "" : value).trim();
 }
 
-function toFiniteNumber(value){
-  if (value == null || value === "") return null;
-  const n = Number(value);
-  return Number.isFinite(n) ? n : null;
-}
+const toFiniteNumber = safeNum;
 
 function approxEq(a, b, eps = EPSILON){
   return Math.abs(a - b) <= eps;
@@ -138,6 +135,7 @@ export function makeDefaultTemplateMeta(input = {}){
     salienceLevel: resolved.dimensions.salienceLevel,
     appliedTemplateId: resolved.id,
     appliedVersion: cleanString(resolved.template?.version) || TEMPLATE_REGISTRY_VERSION,
+    benchmarkKey: cleanString(resolved.template?.benchmarkKey),
     overriddenFields: [],
   };
 }
@@ -167,6 +165,7 @@ export function normalizeTemplateMeta(metaInput, { raceType = "state_leg", templ
     salienceLevel: cleanString(meta.salienceLevel) || resolved.dimensions.salienceLevel,
     appliedTemplateId: cleanString(meta.appliedTemplateId) || resolved.id,
     appliedVersion: cleanString(meta.appliedVersion) || cleanString(resolved.template?.version) || TEMPLATE_REGISTRY_VERSION,
+    benchmarkKey: cleanString(meta.benchmarkKey) || cleanString(resolved.template?.benchmarkKey),
     overriddenFields: overrides,
   };
 }
@@ -213,6 +212,7 @@ export function syncTemplateMetaFromState(stateLike, options = {}){
     salienceLevel: resolved.dimensions.salienceLevel,
     appliedTemplateId: resolved.id,
     appliedVersion: cleanString(resolved.template?.version) || normalized.appliedVersion || TEMPLATE_REGISTRY_VERSION,
+    benchmarkKey: cleanString(resolved.template?.benchmarkKey) || normalized.benchmarkKey,
     overriddenFields: overridden,
   };
   return stateLike.templateMeta;
@@ -279,6 +279,7 @@ export function applyTemplateDefaultsToState(stateLike, options = {}){
     salienceLevel: nextResolved.dimensions.salienceLevel,
     appliedTemplateId: nextResolved.id,
     appliedVersion: cleanString(nextResolved.template?.version) || TEMPLATE_REGISTRY_VERSION,
+    benchmarkKey: cleanString(nextResolved.template?.benchmarkKey),
     overriddenFields: overridden,
   };
 

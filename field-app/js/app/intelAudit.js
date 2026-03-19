@@ -2,6 +2,7 @@
 // js/app/intelAudit.js
 // Phase 3 scaffolding: audit trail for critical assumption edits.
 // This module is metadata-only and must not affect deterministic/MC math.
+import { valuesEqualWithTolerance } from "../core/valueCompare.js";
 
 const CRITICAL_REF_SPECS = [
   { key: "universeSize", ref: "core.universeSize", label: "Universe size" },
@@ -39,10 +40,7 @@ function normalizeValue(v){
 }
 
 function valuesEqual(a, b){
-  if (typeof a === "number" && typeof b === "number"){
-    return Math.abs(a - b) < 1e-9;
-  }
-  return Object.is(a, b);
+  return valuesEqualWithTolerance(a, b, 1e-9);
 }
 
 function ensureIntelAuditArray(state){

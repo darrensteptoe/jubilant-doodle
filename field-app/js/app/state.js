@@ -10,6 +10,7 @@ import {
   makeDefaultFootprintCapacity,
   normalizeFootprintCapacity,
 } from "../core/censusModule.js";
+import { makeDefaultVoterDataState, normalizeVoterDataState } from "../core/voterDataLayer.js";
 import { makeDefaultFeatureFlags, syncFeatureFlagsFromState } from "./featureFlags.js";
 import { makeDefaultTargetingState, normalizeTargetingState } from "./targetingRuntime.js";
 import { applyContextToState, resolveActiveContext } from "./activeContext.js";
@@ -159,6 +160,7 @@ export function makeDefaultState({ createId = defaultCreateId, context: contextI
     mcLast: null,
     mcLastHash: "",
     census: makeDefaultCensusState(),
+    voterData: makeDefaultVoterDataState(),
     targeting: makeDefaultTargetingState(),
     raceFootprint: makeDefaultRaceFootprint(),
     assumptionsProvenance: makeDefaultAssumptionProvenance(),
@@ -227,6 +229,7 @@ export function normalizeLoadedState(s, { createId = defaultCreateId, context: c
   out.userSplit = (s?.userSplit && typeof s.userSplit === "object") ? s.userSplit : {};
   out.intelState = normalizeIntelState(s?.intelState);
   out.census = normalizeCensusState(s?.census, { resetRuntime: true });
+  out.voterData = normalizeVoterDataState(s?.voterData);
   out.targeting = normalizeTargetingState(s?.targeting);
   out.raceFootprint = normalizeRaceFootprint(s?.raceFootprint);
   out.assumptionsProvenance = normalizeAssumptionProvenance(s?.assumptionsProvenance);
@@ -262,7 +265,7 @@ export function requiredScenarioKeysMissing(scen){
     "candidates", "undecidedPct", "yourCandidateId", "undecidedMode", "persuasionPct",
     "earlyVoteExp", "supportRatePct", "contactRatePct", "turnoutReliabilityPct",
     "universeLayerEnabled", "universeDemPct", "universeRepPct", "universeNpaPct", "universeOtherPct", "retentionFactor",
-    "mcMode", "mcVolatility", "mcSeed", "budget", "timelineEnabled", "census", "raceFootprint", "assumptionsProvenance", "footprintCapacity", "ui",
+    "mcMode", "mcVolatility", "mcSeed", "budget", "timelineEnabled", "census", "voterData", "raceFootprint", "assumptionsProvenance", "footprintCapacity", "ui",
   ];
   const missing = [];
   if (!scen || typeof scen !== "object") return required.slice();

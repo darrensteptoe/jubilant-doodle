@@ -1,5 +1,6 @@
 import { buildAreaResolverCacheKey } from "../core/areaResolver.js";
 import { buildGeoEvidenceMapLayer } from "../core/districtEvidence.js";
+import { formatPercentFromUnit, formatWholeNumberByMode } from "../core/utils.js";
 import { renderIntelGeoMap, resetIntelGeoBoundaryCache } from "./intelGeoMap.js";
 
 const STATE_LABEL_BY_FIPS = {
@@ -86,19 +87,17 @@ function num(v){
 function fmtInt(v){
   const n = Number(v);
   if (!Number.isFinite(n)) return "—";
-  return Math.round(n).toLocaleString();
+  return formatWholeNumberByMode(n, { mode: "round", fallback: "—" });
 }
 
 function fmtPctFromRatio(v, digitsCount = 1){
-  const n = Number(v);
-  if (!Number.isFinite(n)) return "—";
-  return `${(n * 100).toFixed(Math.max(0, digitsCount | 0))}%`;
+  return formatPercentFromUnit(v, Math.max(0, digitsCount | 0));
 }
 
 function fmtCurrency(v){
   const n = Number(v);
   if (!Number.isFinite(n)) return "—";
-  return `$${Math.round(n).toLocaleString()}`;
+  return `$${formatWholeNumberByMode(n, { mode: "round", fallback: "0" })}`;
 }
 
 function normalizeAreaTypeInput(v){

@@ -6,6 +6,7 @@ import {
   makeDefaultAssumptionProvenance,
   makeDefaultFootprintCapacity,
 } from "../core/censusModule.js";
+import { makeDefaultVoterDataState } from "../core/voterDataLayer.js";
 import { makeDefaultFeatureFlags } from "./featureFlags.js";
 import { makeDefaultTargetingState } from "./targetingRuntime.js";
 import { resolveActiveContext } from "./activeContext.js";
@@ -136,6 +137,7 @@ export function makeDefaultStateModule(ctx){
     mcLast: null,
     mcLastHash: "",
     census: makeDefaultCensusState(),
+    voterData: makeDefaultVoterDataState(),
     targeting: makeDefaultTargetingState(),
     raceFootprint: makeDefaultRaceFootprint(),
     assumptionsProvenance: makeDefaultAssumptionProvenance(),

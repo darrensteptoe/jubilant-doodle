@@ -1,5 +1,22 @@
 // @ts-check
 import { resolveFeatureFlags } from "../core/featureFlags.js";
+import {
+  buildTimelineTacticKindsMapFromState,
+  computeTimelineCapsSummaryFromState,
+} from "../core/timelineCapsInput.js";
+import { resolveCanonicalCallsPerHour, resolveCanonicalDoorShareUnit } from "../core/throughput.js";
+import {
+  buildTurnoutModelFromState,
+  computeGotvAddedVotes,
+  computeTargetUniverseSize,
+} from "../core/voteProduction.js";
+import {
+  buildRoiTableRowsView,
+  buildRoiTurnoutDisabledSummary,
+  buildRoiTurnoutSummary,
+  computeRoiContactsAtCapacity,
+  formatRoiNeedVotesText,
+} from "../core/roiView.js";
 
 export function renderRoiModule(args){
   const {
@@ -11,7 +28,6 @@ export function renderRoiModule(args){
     getEffectiveBaseRates,
     computeCapacityBreakdown,
     safeNum,
-    clamp,
     canonicalDoorsPerHourFromSnap,
     engine,
     computeAvgLiftPP,
@@ -38,12 +54,9 @@ export function renderRoiModule(args){
     orgCount: safeNum(state.orgCount),
     orgHoursPerWeek: safeNum(state.orgHoursPerWeek),
     volunteerMult: safeNum(state.volunteerMultBase),
-    doorShare: (() => {
-      const v = safeNum(state.channelDoorPct);
-      return (v != null) ? clamp(v, 0, 100) / 100 : null;
-    })(),
+    doorShare: resolveCanonicalDoorShareUnit(state),
     doorsPerHour: canonicalDoorsPerHourFromSnap(state),
-    callsPerHour: safeNum(state.callsPerHour3),
+    callsPerHour: resolveCanonicalCallsPerHour(state, { toNumber: safeNum }),
     capacityDecay,
   });
   const baseCapAttempts = capBreakdown?.total ?? null;
@@ -56,12 +69,15 @@ export function renderRoiModule(args){
 
   const mcLast = state.mcLast || null;
 
-  const turnoutModel = {
+  const turnoutModel = buildTurnoutModelFromState(state, {
     enabled: !!features.turnoutModelingEnabled,
-    baselineTurnoutPct: (safeNum(state.turnoutTargetOverridePct) != null) ? safeNum(state.turnoutTargetOverridePct) : safeNum(state.turnoutBaselinePct),
-    liftPerContactPP: (state.gotvMode === "advanced") ? safeNum(state.gotvLiftMode) : safeNum(state.gotvLiftPP),
-    maxLiftPP: (state.gotvMode === "advanced") ? safeNum(state.gotvMaxLiftPP2) : safeNum(state.gotvMaxLiftPP),
-    useDiminishing: !!state.gotvDiminishing,
+    includeDisabled: true,
+  }) || {
+    enabled: false,
+    baselineTurnoutPct: null,
+    liftPerContactPP: null,
+    maxLiftPP: null,
+    useDiminishing: false,
   };
 
   const tlConstrainedOn = !!opt.tlConstrainedEnabled;
@@ -77,41 +93,17 @@ export function renderRoiModule(args){
   };
 
   if (timelineCapsOn){
-    const capsInput = {
-      enabled: true,
+    const capsSummary = computeTimelineCapsSummaryFromState({
+      state,
       weeksRemaining: weeks ?? 0,
-      activeWeeksOverride: safeNum(state.timelineActiveWeeks),
-      gotvWindowWeeks: safeNum(state.timelineGotvWeeks),
-      staffing: {
-        staff: safeNum(state.timelineStaffCount) ?? 0,
-        volunteers: safeNum(state.timelineVolCount) ?? 0,
-        staffHours: safeNum(state.timelineStaffHours) ?? 0,
-        volunteerHours: safeNum(state.timelineVolHours) ?? 0,
-      },
-      throughput: {
-        doors: safeNum(state.timelineDoorsPerHour) ?? 0,
-        phones: safeNum(state.timelineCallsPerHour) ?? 0,
-        texts: safeNum(state.timelineTextsPerHour) ?? 0,
-      },
-      tacticKinds: {
-        doors: tactics?.doors?.kind || "persuasion",
-        phones: tactics?.phones?.kind || "persuasion",
-        texts: tactics?.texts?.kind || "persuasion",
-      }
-    };
-    const capsWrap = engine.computeMaxAttemptsByTactic(capsInput);
-    const tCaps = (capsWrap && capsWrap.enabled && capsWrap.maxAttemptsByTactic && typeof capsWrap.maxAttemptsByTactic === "object")
-      ? capsWrap.maxAttemptsByTactic
-      : null;
-    if (tCaps){
-      const timelineCapsByTactic = {};
-      for (const [key, value] of Object.entries(tCaps)){
-        const n = Number(value);
-        timelineCapsByTactic[key] = (Number.isFinite(n) && n >= 0) ? n : null;
-      }
+      enabled: true,
+      tacticKinds: buildTimelineTacticKindsMapFromState(state),
+      computeMaxAttemptsByTactic: (capsInput) => engine.computeMaxAttemptsByTactic(capsInput),
+    });
+    if (capsSummary.maxAttemptsByTactic){
+      const timelineCapsByTactic = capsSummary.capsByTactic || {};
       capByTactic = { ...capByTactic, ...timelineCapsByTactic };
-      const total = Object.values(timelineCapsByTactic).reduce((sum, v) => sum + ((v == null) ? 0 : v), 0);
-      capAttempts = (Number.isFinite(total) && total >= 0) ? total : baseCapAttempts;
+      capAttempts = (capsSummary.totalAttempts != null) ? capsSummary.totalAttempts : baseCapAttempts;
     }
   }
 
@@ -143,12 +135,15 @@ export function renderRoiModule(args){
     }
   }
 
-  const needVotesText = needVotes == null ? "—" : fmtInt(Math.round(needVotes));
+  const needVotesText = formatRoiNeedVotesText(needVotes, {
+    formatInt: fmtInt,
+  });
   if (turnoutModel.enabled){
-    const U = safeNum(state.universeSize);
-    const tuPct = safeNum(state.persuasionPct);
-    const targetUniverseSize = (U != null && tuPct != null) ? Math.round(U * (clamp(tuPct, 0, 100) / 100)) : null;
-    const contacts = (capAttempts != null && cr != null) ? Math.max(0, capAttempts * cr) : 0;
+    const targetUniverseSize = computeTargetUniverseSize({
+      universeSize: safeNum(state.universeSize),
+      targetUniversePct: safeNum(state.persuasionPct),
+    });
+    const contacts = computeRoiContactsAtCapacity(capAttempts, cr);
 
     const avgLiftPP = computeAvgLiftPP({
       baselineTurnoutPct: turnoutModel.baselineTurnoutPct,
@@ -159,27 +154,27 @@ export function renderRoiModule(args){
       useDiminishing: turnoutModel.useDiminishing,
     });
 
-    const gotvAddedVotes = (targetUniverseSize != null) ? Math.round(targetUniverseSize * (avgLiftPP / 100)) : 0;
-    const baseTxt = (turnoutModel.baselineTurnoutPct != null && isFinite(turnoutModel.baselineTurnoutPct)) ? `${Number(turnoutModel.baselineTurnoutPct).toFixed(1)}%` : "—";
-    const summaryText = `Turnout enabled: baseline ${baseTxt} · modeled avg lift ${avgLiftPP.toFixed(1)}pp · implied +${fmtInt(gotvAddedVotes)} votes (at capacity ceiling).`;
-
-    state.ui.lastTurnout = {
-      summaryText,
-      turnoutVotesText: fmtInt(gotvAddedVotes),
+    const gotvAddedVotes = computeGotvAddedVotes({
+      targetUniverseSize,
+      avgLiftPP,
+    }) ?? 0;
+    const turnoutSummary = buildRoiTurnoutSummary({
+      baselineTurnoutPct: turnoutModel.baselineTurnoutPct,
+      avgLiftPP,
+      gotvAddedVotes,
       needVotesText,
-    };
+      formatInt: fmtInt,
+    });
+
+    state.ui.lastTurnout = turnoutSummary;
 
     if (els.turnoutSummary){
       els.turnoutSummary.hidden = false;
       els.turnoutSummary.className = "banner ok";
-      els.turnoutSummary.textContent = summaryText;
+      els.turnoutSummary.textContent = turnoutSummary.summaryText;
     }
   } else {
-    state.ui.lastTurnout = {
-      summaryText: "Turnout module disabled.",
-      turnoutVotesText: "—",
-      needVotesText,
-    };
+    state.ui.lastTurnout = buildRoiTurnoutDisabledSummary(needVotesText);
 
     if (els.turnoutSummary){
       els.turnoutSummary.hidden = true;
@@ -189,37 +184,41 @@ export function renderRoiModule(args){
   const roiTbody = els?.roiTbody;
   if (roiTbody instanceof HTMLElement) {
     roiTbody.innerHTML = "";
-    if (!rows.length){
+    const roiRowsView = buildRoiTableRowsView(rows, {
+      turnoutEnabled: turnoutModel.enabled,
+      formatInt: fmtInt,
+    });
+    if (!roiRowsView.length){
       const trEl = document.createElement("tr");
       trEl.innerHTML = '<td class="muted">—</td><td class="num muted">—</td><td class="num muted">—</td><td class="num muted">—</td><td class="muted">—</td>';
       roiTbody.appendChild(trEl);
       return;
     }
 
-    for (const r of rows){
+    for (const rowView of roiRowsView){
       const trEl = document.createElement("tr");
 
       const td0 = document.createElement("td");
-      td0.textContent = r.label;
+      td0.textContent = rowView.label;
 
       const td1 = document.createElement("td");
       td1.className = "num";
-      td1.textContent = r.cpa == null ? "—" : `$${r.cpa.toFixed(2)}`;
+      td1.textContent = rowView.cpaText;
 
       const td2 = document.createElement("td");
       td2.className = "num";
-      td2.textContent = r.costPerNetVote == null ? "—" : `$${r.costPerNetVote.toFixed(2)}`;
+      td2.textContent = rowView.costPerNetVoteText;
 
       const td2b = document.createElement("td");
       td2b.className = "num";
-      td2b.textContent = (!turnoutModel.enabled || r.costPerTurnoutAdjustedNetVote == null) ? "—" : `$${r.costPerTurnoutAdjustedNetVote.toFixed(2)}`;
+      td2b.textContent = rowView.costPerTurnoutAdjustedNetVoteText;
 
       const td3 = document.createElement("td");
       td3.className = "num";
-      td3.textContent = r.totalCost == null ? "—" : `$${fmtInt(Math.round(r.totalCost))}`;
+      td3.textContent = rowView.totalCostText;
 
       const td4 = document.createElement("td");
-      td4.textContent = r.feasibilityText || "—";
+      td4.textContent = rowView.feasibilityText;
 
       trEl.appendChild(td0);
       trEl.appendChild(td1);

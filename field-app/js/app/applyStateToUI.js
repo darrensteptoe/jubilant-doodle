@@ -1,4 +1,5 @@
 // @ts-check
+import { resolveCanonicalCallsPerHour } from "../core/throughput.js";
 import { normalizeOptimizationObjective } from "../core/turnout.js";
 /** @param {import("./types").ApplyStateToUIViewCtx} ctx */
 export function applyStateToUIView(ctx){
@@ -62,7 +63,7 @@ export function applyStateToUIView(ctx){
   if (els.volunteerMultBase) els.volunteerMultBase.value = state.volunteerMultBase ?? "";
   if (els.channelDoorPct) els.channelDoorPct.value = state.channelDoorPct ?? "";
   if (els.doorsPerHour3) els.doorsPerHour3.value = canonicalDph ?? "";
-  if (els.callsPerHour3) els.callsPerHour3.value = state.callsPerHour3 ?? "";
+  if (els.callsPerHour3) els.callsPerHour3.value = resolveCanonicalCallsPerHour(state) ?? "";
   if (els.turnoutReliabilityPct) els.turnoutReliabilityPct.value = state.turnoutReliabilityPct ?? "";
   if (els.twCapOverrideEnabled) els.twCapOverrideEnabled.checked = !!state.twCapOverrideEnabled;
   if (els.twCapOverrideMode) els.twCapOverrideMode.value = state.twCapOverrideMode || "baseline";

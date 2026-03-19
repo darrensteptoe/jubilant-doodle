@@ -1,4 +1,12 @@
 // @ts-check
+import {
+  resolveCanonicalCallsPerHour,
+  resolveCanonicalDoorsPerHour,
+  setCanonicalCallsPerHour,
+  setCanonicalDoorsPerHour,
+} from "../core/throughput.js";
+import { roundToDigits, roundWholeNumberByMode } from "../core/utils.js";
+
 export function applyWeeklyLeverScenarioModule({
   lever,
   ctx,
@@ -27,31 +35,32 @@ export function applyWeeklyLeverScenarioModule({
     next.orgHoursPerWeek = v + 1;
   } else if (lever.key === "volMult"){
     const v = asNum(next.volunteerMultBase) ?? 0;
-    next.volunteerMultBase = Math.round((v + 0.10) * 100) / 100;
+    next.volunteerMultBase = roundToDigits(v + 0.10, 2, v + 0.10);
   } else if (lever.key === "dph"){
-    const v = asNum(next.doorsPerHour3) ?? 0;
-    next.doorsPerHour3 = v + 1;
+    const v = resolveCanonicalDoorsPerHour(next, { toNumber: asNum }) ?? 0;
+    setCanonicalDoorsPerHour(next, v + 1, { toNumber: asNum });
   } else if (lever.key === "cph"){
-    const v = asNum(next.callsPerHour3) ?? 0;
-    next.callsPerHour3 = v + 1;
+    const v = resolveCanonicalCallsPerHour(next, { toNumber: asNum }) ?? 0;
+    setCanonicalCallsPerHour(next, v + 1, { toNumber: asNum });
   } else if (lever.key === "mix"){
     const d = asNum(next.channelDoorPct);
     const cur = d == null ? (ctx?.doorShare != null ? ctx.doorShare * 100 : 50) : d;
     const doorIsFaster = (ctx?.doorsPerHour != null && ctx?.callsPerHour != null) ? (ctx.doorsPerHour >= ctx.callsPerHour) : true;
     const nextPct = clamp(cur + (doorIsFaster ? 10 : -10), 0, 100);
-    next.channelDoorPct = Math.round(nextPct);
+    next.channelDoorPct = roundWholeNumberByMode(nextPct, { mode: "round", fallback: nextPct }) ?? nextPct;
   } else if (lever.key === "sr"){
     const v = asNum(next.supportRatePct) ?? 0;
-    next.supportRatePct = Math.round((v + 1) * 10) / 10;
+    next.supportRatePct = roundToDigits(v + 1, 1, v + 1);
   } else if (lever.key === "cr"){
     const v = asNum(next.contactRatePct) ?? 0;
-    next.contactRatePct = Math.round((v + 1) * 10) / 10;
+    next.contactRatePct = roundToDigits(v + 1, 1, v + 1);
   } else if (lever.key === "weeks"){
     const v = asNum(next.weeksRemaining);
     if (v != null){
-      next.weeksRemaining = Math.round((v + 1) * 10) / 10;
+      next.weeksRemaining = roundToDigits(v + 1, 1, v + 1);
     } else if (ctx?.weeks != null){
-      next.weeksRemaining = Math.round((ctx.weeks + 1) * 10) / 10;
+      const nextWeeks = Number(ctx.weeks) + 1;
+      next.weeksRemaining = roundToDigits(nextWeeks, 1, nextWeeks);
     } else {
       next.weeksRemaining = 1;
     }

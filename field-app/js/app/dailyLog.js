@@ -1,4 +1,5 @@
 // @ts-check
+import { deriveExecutionAttemptsFromLogEntry } from "../core/executionSnapshot.js";
 /**
  * @typedef {Record<string, any>} AnyRecord
  */
@@ -19,7 +20,7 @@ export function normalizeDailyLogEntryCore(raw, { safeNum }){
   const supportIds = safeNum(raw.supportIds) || 0;
   const orgHours = safeNum(raw.orgHours) || 0;
   const volsActive = safeNum(raw.volsActive) || 0;
-  const attempts = (raw.attempts != null && raw.attempts !== "") ? (safeNum(raw.attempts) || 0) : (doors + calls);
+  const attempts = deriveExecutionAttemptsFromLogEntry(raw, safeNum);
   const notes = (raw.notes == null) ? "" : String(raw.notes);
   const updatedAt = Number(raw.updatedAt || 0) || 0;
 

@@ -1,5 +1,7 @@
 // @ts-check
 // Canonical decision-session app module (Phase 11 consolidation).
+import { computeBlendedAttemptsPerHourFromState } from "../core/throughput.js";
+import { roundWholeNumberByMode } from "../core/utils.js";
 
 export const OBJECTIVE_TEMPLATES = [
   { key: "win_prob", label: "Maximize win probability" },
@@ -807,9 +809,20 @@ export function buildDecisionSummaryTextCore(session, deps = {}){
     const baseOut = computeDecisionKeyOutCore(baseInputs, coreDeps);
     const optOut = computeDecisionKeyOutCore(optInputs, coreDeps);
 
-    const fmtNum = (v) => (v == null || !isFinite(v)) ? "—" : fmtInt(Math.ceil(v));
+    const fmtNum = (v) => {
+      const whole = roundWholeNumberByMode(v, { mode: "ceil", fallback: null });
+      return whole == null ? "—" : fmtInt(whole);
+    };
     const fmtDate = (d) => d ? fmtISODate(d) : "—";
     const deltaNum = (a, b) => (a == null || b == null || !isFinite(a) || !isFinite(b)) ? null : (b - a);
+    const fmtRound = (v) => {
+      const whole = roundWholeNumberByMode(v, { mode: "round", fallback: null });
+      return whole == null ? "—" : fmtInt(whole);
+    };
+    const fmtCeil = (v) => {
+      const whole = roundWholeNumberByMode(v, { mode: "ceil", fallback: null });
+      return whole == null ? "—" : fmtInt(whole);
+    };
 
     const bCtx = baseOut.ctx || {};
     const oCtx = optOut.ctx || {};
@@ -822,13 +835,9 @@ export function buildDecisionSummaryTextCore(session, deps = {}){
     const gap = oCtx.gap;
     const gapLine = (gap == null || !isFinite(gap))
       ? "—"
-      : (gap <= 0 ? "Executable at current capacity" : `Shortfall: ${fmtInt(Math.ceil(gap))} attempts/week`);
+      : (gap <= 0 ? "Executable at current capacity" : `Shortfall: ${fmtCeil(gap)} attempts/week`);
 
-    const doorSharePct = safeNum(optInputs?.channelDoorPct);
-    const doorShare = (doorSharePct == null) ? null : clamp(doorSharePct / 100, 0, 1);
-    const doorsHr = safeNum(optInputs?.doorsPerHour3);
-    const callsHr = safeNum(optInputs?.callsPerHour3);
-    const aph = (doorShare != null && doorsHr != null && callsHr != null) ? (doorShare * doorsHr + (1 - doorShare) * callsHr) : null;
+    const aph = computeBlendedAttemptsPerHourFromState(optInputs, { toNumber: safeNum });
 
     const attemptsPerDay = (attemptsWOpt != null && isFinite(attemptsWOpt)) ? (attemptsWOpt / 7) : null;
     const doorsPerDay = (attemptsPerDay != null && doorShare != null) ? (attemptsPerDay * doorShare) : null;
@@ -844,13 +853,13 @@ export function buildDecisionSummaryTextCore(session, deps = {}){
     const autoWhatTrue = [];
     if (!explicitWhatTrue.length){
       if (attemptsWOpt != null && isFinite(attemptsWOpt)){
-        autoWhatTrue.push(`Hold execution at ~${fmtInt(Math.ceil(attemptsWOpt))} attempts/week (~${fmtInt(Math.ceil(attemptsWOpt / 7))}/day).`);
+        autoWhatTrue.push(`Hold execution at ~${fmtCeil(attemptsWOpt)} attempts/week (~${fmtCeil(attemptsWOpt / 7)}/day).`);
       }
       if (gap != null && isFinite(gap)){
         if (gap <= 0){
           autoWhatTrue.push("Keep weekly capacity at or above required attempts.");
         } else {
-          autoWhatTrue.push(`Close shortfall of ~${fmtInt(Math.ceil(gap))} attempts/week before committing this option.`);
+          autoWhatTrue.push(`Close shortfall of ~${fmtCeil(gap)} attempts/week before committing this option.`);
         }
       }
       if (tactics.length){
@@ -858,11 +867,11 @@ export function buildDecisionSummaryTextCore(session, deps = {}){
       }
       const budgetCap = safeNum(s?.constraints?.budget);
       if (budgetCap != null && budgetCap > 0){
-        autoWhatTrue.push(`Stay within budget cap: $${fmtInt(Math.ceil(budgetCap))}.`);
+        autoWhatTrue.push(`Stay within budget cap: $${fmtCeil(budgetCap)}.`);
       }
       const volunteerCap = safeNum(s?.constraints?.volunteerHrs);
       if (volunteerCap != null && volunteerCap > 0 && hrsPerWeek != null && isFinite(hrsPerWeek) && hrsPerWeek > volunteerCap){
-        autoWhatTrue.push(`Resolve volunteer-hours constraint (needed ~${fmtInt(Math.ceil(hrsPerWeek))} hrs/week vs cap ${fmtInt(Math.ceil(volunteerCap))}).`);
+        autoWhatTrue.push(`Resolve volunteer-hours constraint (needed ~${fmtCeil(hrsPerWeek)} hrs/week vs cap ${fmtCeil(volunteerCap)}).`);
       }
     }
     const whatTrue = explicitWhatTrue.length ? explicitWhatTrue : autoWhatTrue;
@@ -881,8 +890,8 @@ export function buildDecisionSummaryTextCore(session, deps = {}){
     lines.push(`Tactics tags: ${tacticsLine}`);
     lines.push("");
     lines.push("## Baseline vs Option (key deltas)");
-    lines.push(`Attempts/week: ${fmtNum(attemptsWBase)} → ${fmtNum(attemptsWOpt)}${(deltaNum(attemptsWBase, attemptsWOpt) == null || deltaNum(attemptsWBase, attemptsWOpt) === 0) ? "" : ` (${(deltaNum(attemptsWBase, attemptsWOpt) > 0 ? "+" : "")}${fmtInt(Math.round(deltaNum(attemptsWBase, attemptsWOpt)))})`}`);
-    lines.push(`Convos/week: ${fmtNum(convosWBase)} → ${fmtNum(convosWOpt)}${(deltaNum(convosWBase, convosWOpt) == null || deltaNum(convosWBase, convosWOpt) === 0) ? "" : ` (${(deltaNum(convosWBase, convosWOpt) > 0 ? "+" : "")}${fmtInt(Math.round(deltaNum(convosWBase, convosWOpt)))})`}`);
+    lines.push(`Attempts/week: ${fmtNum(attemptsWBase)} → ${fmtNum(attemptsWOpt)}${(deltaNum(attemptsWBase, attemptsWOpt) == null || deltaNum(attemptsWBase, attemptsWOpt) === 0) ? "" : ` (${(deltaNum(attemptsWBase, attemptsWOpt) > 0 ? "+" : "")}${fmtRound(deltaNum(attemptsWBase, attemptsWOpt))})`}`);
+    lines.push(`Convos/week: ${fmtNum(convosWBase)} → ${fmtNum(convosWOpt)}${(deltaNum(convosWBase, convosWOpt) == null || deltaNum(convosWBase, convosWOpt) === 0) ? "" : ` (${(deltaNum(convosWBase, convosWOpt) > 0 ? "+" : "")}${fmtRound(deltaNum(convosWBase, convosWOpt))})`}`);
     lines.push(`Finish date (target): ${fmtDate(baseOut.finish)} → ${fmtDate(optOut.finish)}`);
     lines.push(`Execution status (this week): ${gapLine}`);
     lines.push("");
@@ -893,15 +902,15 @@ export function buildDecisionSummaryTextCore(session, deps = {}){
     if (attemptsWOpt == null || !isFinite(attemptsWOpt)){
       lines.push("- Attempts/week: —");
     } else {
-      lines.push(`- Attempts/week: ${fmtInt(Math.ceil(attemptsWOpt))} (~${fmtInt(Math.ceil(attemptsWOpt / 7))}/day)`);
+      lines.push(`- Attempts/week: ${fmtCeil(attemptsWOpt)} (~${fmtCeil(attemptsWOpt / 7)}/day)`);
     }
     if (doorsPerDay != null && callsPerDay != null){
-      lines.push(`- Daily targets: ${fmtInt(Math.ceil(doorsPerDay))} doors/day · ${fmtInt(Math.ceil(callsPerDay))} calls/day`);
+      lines.push(`- Daily targets: ${fmtCeil(doorsPerDay)} doors/day · ${fmtCeil(callsPerDay)} calls/day`);
     } else {
       lines.push("- Daily targets: —");
     }
     if (hrsPerWeek != null && isFinite(hrsPerWeek)){
-      lines.push(`- Estimated hours/week required: ${fmtInt(Math.ceil(hrsPerWeek))} hrs`);
+      lines.push(`- Estimated hours/week required: ${fmtCeil(hrsPerWeek)} hrs`);
     } else {
       lines.push("- Estimated hours/week required: —");
     }

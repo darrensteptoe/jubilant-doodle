@@ -31,12 +31,12 @@ import {
   normalizeFootprintCapacity,
   buildRaceFootprintFromCensusSelection,
   assessRaceFootprintAlignment,
+  buildCensusPaceFeasibilitySnapshot,
   clampCensusApplyMultipliers,
   evaluateCensusApplyMode,
   evaluateFootprintFeasibility,
   summarizeFootprintFeasibilityIssues,
   buildCensusAssumptionAdvisory,
-  evaluateCensusPaceAgainstAdvisory,
   evaluateQaOverlayNonBlocking,
   buildElectionCsvTemplate,
   buildElectionCsvWideTemplate,
@@ -50,18 +50,29 @@ import {
   resolutionSupportsBoundaryOverlay,
 } from "../core/censusModule.js";
 import {
+  resolveCanonicalCallsPerHour,
+  resolveCanonicalDoorShareUnit,
+  resolveCanonicalDoorsPerHour,
+} from "../core/throughput.js";
+import { formatFixedNumber, formatPercentFromUnit, formatWholeNumber, roundWholeNumberByMode } from "../core/utils.js";
+import {
+  applyTargetingRunResult,
+  applyTargetingFieldPatch,
   applyTargetModelPreset,
+  buildTargetRankingPayloadConfig,
+  buildTargetRankingExportFilename,
   buildTargetRankingCsv,
   buildTargetRankingPayload,
   computeTargetingContextKey,
-  getTargetingBridgeDefaults,
-  getTargetModelPreset,
   listTargetGeoLevels,
   listTargetModelOptions,
   makeDefaultTargetingState,
   normalizeTargetingState,
+  resetTargetingWeightsToPreset,
   runTargetRanking,
+  TARGETING_STATUS_LOAD_ROWS_FIRST,
 } from "./targetingRuntime.js";
+import { summarizeTargetingRows } from "../core/targetingRows.js";
 import {
   clearCensusRowsForKey,
   getCensusRowsForState,
@@ -74,6 +85,10 @@ let stateOptionsUsingFallback = false;
 const countyOptionsCache = new Map();
 const placeOptionsCache = new Map();
 const CENSUS_RUNTIME_BRIDGE_KEY = "__FPE_CENSUS_RUNTIME_API__";
+let censusRuntimeBridgeGetState = null;
+let censusRuntimeBridgeCommitUIUpdate = null;
+let censusRuntimeBridgeEls = null;
+let censusRuntimeBridgeRunAction = null;
 const STATE_OPTIONS_FALLBACK = [
   { fips: "01", name: "Alabama" },
   { fips: "02", name: "Alaska" },
@@ -182,6 +197,10 @@ const electionCsvDryRun = {
   warnings: [],
   records: [],
 };
+const censusRuntimeFileCache = {
+  electionCsvFile: null,
+  mapQaVtdZip: null,
+};
 const RESOLUTION_OPTIONS_SOURCE = listResolutionOptions()
   .map((row) => ({ id: cleanText(row?.id), label: cleanText(row?.label) }))
   .filter((row) => !!row.id);
@@ -221,35 +240,421 @@ function cleanText(v){
   return String(v == null ? "" : v).trim();
 }
 
-if (typeof window !== "undefined"){
-  window[CENSUS_RUNTIME_BRIDGE_KEY] = {
-    getRowsForState: (censusState) => getRowsForState(censusState),
+function formatCensusFixed(value, digits = 1, fallback = "—"){
+  return formatFixedNumber(value, digits, fallback);
+}
+
+function formatCensusWhole(value, fallback = "—"){
+  return formatWholeNumber(value, fallback);
+}
+
+function formatCensusApplyMultiplierSummary(multipliers){
+  return `DPH ${formatCensusFixed(multipliers?.doorsPerHour, 2)}x, contact ${formatCensusFixed(multipliers?.contactRate, 2)}x, persuasion ${formatCensusFixed(multipliers?.persuasion, 2)}x, turnout ${formatCensusFixed(multipliers?.turnoutLift, 2)}x, organizer load ${formatCensusFixed(multipliers?.organizerLoad, 2)}x`;
+}
+
+function formatCensusFileSizeKb(fileSize){
+  return `${formatCensusWhole(Number(fileSize) / 1024, "0")} KB`;
+}
+
+function floorCensusInt(value, fallback = 0){
+  const rounded = roundWholeNumberByMode(value, { mode: "floor", fallback: null });
+  return rounded == null ? fallback : rounded;
+}
+
+function censusRuntimeReadState(){
+  if (typeof censusRuntimeBridgeGetState !== "function") return null;
+  try {
+    const state = censusRuntimeBridgeGetState();
+    return (state && typeof state === "object") ? state : null;
+  } catch {
+    return null;
+  }
+}
+
+function censusRuntimeCommit(options = { persist: false }){
+  if (typeof censusRuntimeBridgeCommitUIUpdate !== "function") return;
+  try {
+    censusRuntimeBridgeCommitUIUpdate(options);
+  } catch {}
+}
+
+function censusRuntimeSetBridgeFieldFallback(key, rawValue){
+  const state = censusRuntimeReadState();
+  if (!state) return false;
+  const s = ensureCensusStateModule(state);
+  if (!s) return false;
+  const field = cleanText(key);
+  if (!field) return false;
+
+  if (field === "apiKey"){
+    const value = cleanText(rawValue);
+    writeCensusApiKeyModule(value);
+    s.bridgeApiKey = value;
+    setStatus(s, "Census API key saved. Loading geography lookups...", false);
+    const keyForLookup = value || readCensusApiKeyModule();
+    if (keyForLookup){
+      void (async () => {
+        try{
+          await ensureStateOptions(keyForLookup);
+          const latest = ensureCensusStateModule(censusRuntimeReadState());
+          if (!latest) return;
+          if (latest.stateFips){
+            await loadStateScopedLists(latest, keyForLookup);
+          }
+          const final = ensureCensusStateModule(censusRuntimeReadState());
+          if (!final) return;
+          if (final.stateFips){
+            setStatus(final, "Census module ready.", false);
+          } else {
+            setStatus(
+              final,
+              stateOptionsUsingFallback
+                ? "State list loaded (fallback). Select state and geography, then load GEO list."
+                : "State list loaded. Select state and geography, then load GEO list.",
+              false,
+            );
+          }
+        } catch (err){
+          const latest = ensureCensusStateModule(censusRuntimeReadState());
+          if (!latest) return;
+          setStatus(latest, cleanText(err?.message) || "Failed to load geography lookups.", true);
+        }
+        censusRuntimeCommit({ persist: false });
+      })();
+    }
+    return true;
+  }
+  if (field === "geoPaste"){
+    s.bridgeGeoPaste = String(rawValue == null ? "" : rawValue);
+    return true;
+  }
+  if (field === "electionCsvPrecinctFilter"){
+    const value = cleanText(rawValue);
+    electionCsvDryRun.precinctFilter = value;
+    s.bridgeElectionCsvPrecinctFilter = value;
+    return true;
+  }
+  if (field === "applyAdjustedAssumptions"){
+    const wantsOn = !!rawValue;
+    if (!wantsOn){
+      s.applyAdjustedAssumptions = false;
+      setStatus(s, "Census-adjusted assumptions turned OFF.", false);
+      return true;
+    }
+    const { runtimeRows, aggregate } = aggregateSnapshot(s);
+    const canonicalDoorShare = resolveCanonicalDoorShareUnit(state, { fallback: 0.5 }) ?? 0.5;
+    const advisory = buildCensusAssumptionAdvisory({
+      aggregate,
+      doorShare: canonicalDoorShare,
+      doorsPerHour: resolveCanonicalDoorsPerHour(state),
+      callsPerHour: resolveCanonicalCallsPerHour(state),
+      rowsByGeoid: runtimeRows,
+      selectedGeoids: s.selectedGeoids,
+    });
+    const applyGate = evaluateCensusApplyMode({
+      applyRequested: true,
+      censusState: s,
+      raceFootprint: state.raceFootprint,
+      assumptionsProvenance: state.assumptionsProvenance,
+      advisoryReady: !!advisory.ready,
+      hasRows: !!Object.keys(runtimeRows).length && !!cleanText(s.activeRowsKey),
+    });
+    if (!applyGate.ready){
+      s.applyAdjustedAssumptions = false;
+      setStatus(s, applyModeReasonText(applyGate.reason), true);
+      return true;
+    }
+    const multipliers = clampCensusApplyMultipliers(advisory.multipliers);
+    s.applyAdjustedAssumptions = true;
+    setStatus(
+      s,
+      `Census-adjusted assumptions ON (${formatCensusApplyMultiplierSummary(multipliers)}).`,
+      false,
+    );
+    return true;
+  }
+  if (field === "mapQaVtdOverlay"){
+    s.mapQaVtdOverlay = !!rawValue;
+    if (!s.mapQaVtdOverlay){
+      clearMapQaOverlay();
+    } else {
+      mapRuntimeStatus.qaText = "VTD QA overlay enabled. Reload boundaries to apply.";
+    }
+    setStatus(
+      s,
+      s.mapQaVtdOverlay
+        ? "VTD QA overlay enabled (visual only). Reload boundaries."
+        : "VTD QA overlay disabled.",
+      false,
+    );
+    return true;
+  }
+  if (field === "selectedSelectionSetKey"){
+    s.selectedSelectionSetKey = cleanText(rawValue);
+    return true;
+  }
+  if (field === "selectionSetDraftName"){
+    s.selectionSetDraftName = cleanText(rawValue);
+    return true;
+  }
+  if (field === "geoSearch"){
+    s.geoSearch = cleanText(rawValue);
+    setStatus(s, "Search filter updated.", false);
+    return true;
+  }
+  if (field === "tractFilter"){
+    s.tractFilter = cleanText(rawValue);
+    setStatus(s, s.tractFilter ? `Tract filter set to ${s.tractFilter}.` : "Tract filter cleared.", false);
+    return true;
+  }
+  if (field === "year"){
+    const applyWasOn = disableCensusApplyAdjustments(s);
+    s.year = cleanText(rawValue);
+    s.rowsByGeoid = {};
+    clearCensusRowsForKey(s.activeRowsKey);
+    s.activeRowsKey = "";
+    s.loadedRowCount = 0;
+    s.lastFetchAt = "";
+    s.variableCatalogYear = "";
+    s.variableCatalogCount = 0;
+    const suffix = applyWasOn ? " Census-adjusted assumptions turned OFF." : "";
+    setStatus(s, `ACS year set to ${s.year}. Cached rows cleared; footprint/provenance now stale until refetch.${suffix}`, false);
+    return true;
+  }
+  if (field === "resolution"){
+    const requestedResolution = cleanText(rawValue) || "tract";
+    s.resolution = requestedResolution;
+    if (!resolutionNeedsCounty(s.resolution)){
+      s.countyFips = "";
+    }
+    if (s.resolution !== "block_group"){
+      s.tractFilter = "";
+    }
+    resetGeoData(s);
+    const label = RESOLUTION_LABEL_BY_ID[cleanText(s.resolution)] || cleanText(s.resolution);
+    setStatus(s, `Resolution set to ${label || s.resolution}. Load GEO list next.`, false);
+    return true;
+  }
+  if (field === "stateFips"){
+    const keyForLookup = cleanText(s.bridgeApiKey) || readCensusApiKeyModule();
+    s.stateFips = cleanText(rawValue);
+    s.countyFips = "";
+    s.placeFips = "";
+    resetGeoData(s);
+    setStatus(s, s.stateFips ? "Loading lookup lists..." : "Select a state to continue.", false);
+    if (s.stateFips && keyForLookup){
+      void (async () => {
+        try{
+          await ensureStateOptions(keyForLookup);
+          const latest = ensureCensusStateModule(censusRuntimeReadState());
+          if (!latest || !latest.stateFips) return;
+          await loadStateScopedLists(latest, keyForLookup);
+          const final = ensureCensusStateModule(censusRuntimeReadState());
+          if (!final || !final.stateFips) return;
+          setStatus(final, "Lookup lists loaded. Choose geography context and load GEO list.", false);
+        } catch (err){
+          const latest = ensureCensusStateModule(censusRuntimeReadState());
+          if (!latest) return;
+          setStatus(latest, cleanText(err?.message) || "Failed to load lookup lists.", true);
+        }
+        censusRuntimeCommit({ persist: false });
+      })();
+    }
+    return true;
+  }
+  if (field === "countyFips"){
+    s.countyFips = cleanText(rawValue);
+    resetGeoData(s);
+    setStatus(s, s.countyFips ? "County set. Load GEO list next." : "Select county to continue.", false);
+    return true;
+  }
+  if (field === "placeFips"){
+    disableCensusApplyAdjustments(s);
+    s.placeFips = cleanText(rawValue);
+    if (s.resolution === "place" && s.geoOptions.length){
+      const selected = placeGeoid(s.stateFips, s.placeFips);
+      s.selectedGeoids = selected ? [selected] : [];
+      setStatus(s, s.placeFips ? "Place set. Selection updated." : "Select place to continue.", false);
+    } else if (s.resolution === "place"){
+      resetGeoData(s);
+      setStatus(s, s.placeFips ? "Place set. Load GEO list next." : "Select place to continue.", false);
+    } else {
+      setStatus(s, s.placeFips ? "Place selected. Current resolution does not use place filter." : "Place cleared.", false);
+    }
+    return true;
+  }
+  if (field === "metricSet"){
+    const applyWasOn = disableCensusApplyAdjustments(s);
+    s.metricSet = cleanText(rawValue) || "core";
+    s.rowsByGeoid = {};
+    clearCensusRowsForKey(s.activeRowsKey);
+    s.activeRowsKey = "";
+    s.loadedRowCount = 0;
+    s.lastFetchAt = "";
+    s.variableCatalogYear = "";
+    s.variableCatalogCount = 0;
+    const suffix = applyWasOn ? " Census-adjusted assumptions turned OFF." : "";
+    setStatus(s, `Bundle changed. Cached rows cleared; footprint/provenance now stale until refetch.${suffix}`, false);
+    return true;
+  }
+  return false;
+}
+
+function censusRuntimeSetField(field, rawValue){
+  const key = cleanText(field);
+  if (!key){
+    return { ok: false, code: "missing_field" };
+  }
+
+  const patched = censusRuntimeSetBridgeFieldFallback(key, rawValue);
+  if (patched) {
+    censusRuntimeCommit({ persist: false });
+    return { ok: true, code: "updated_bridge_state" };
+  }
+  return { ok: false, code: "unavailable" };
+}
+
+function censusRuntimeSetGeoSelection(values){
+  const state = censusRuntimeReadState();
+  if (state){
+    const s = ensureCensusStateModule(state);
+    if (s){
+      disableCensusApplyAdjustments(s);
+      s.selectedGeoids = Array.from(new Set(
+        (Array.isArray(values) ? values : [])
+          .map((value) => cleanText(value))
+          .filter(Boolean),
+      ));
+      setStatus(s, "Selection updated.", false);
+      censusRuntimeCommit({ persist: false });
+      return { ok: true, code: "updated_bridge_state" };
+    }
+  }
+  return { ok: false, code: "unavailable" };
+}
+
+function censusRuntimeSetFile(field, filesLike){
+  const key = cleanText(field);
+  if (!key){
+    return { ok: false, code: "missing_field" };
+  }
+  const file = Array.from(filesLike || []).find((row) => row instanceof File) || null;
+  if (key === "electionCsvFile"){
+    censusRuntimeFileCache.electionCsvFile = file;
+  } else if (key === "mapQaVtdZip"){
+    censusRuntimeFileCache.mapQaVtdZip = file;
+  }
+
+  const state = censusRuntimeReadState();
+  const s = ensureCensusStateModule(state);
+  if (!s){
+    return { ok: false, code: "unavailable" };
+  }
+
+  if (key === "electionCsvFile"){
+    if (!file){
+      resetElectionCsvDryRunRuntime();
+      censusRuntimeCommit({ persist: false });
+      return { ok: true, code: "updated_bridge_state" };
+    }
+    electionCsvDryRun.fileName = cleanText(file.name);
+    electionCsvDryRun.fileSize = Number.isFinite(Number(file.size)) ? Math.max(0, Number(file.size)) : 0;
+    electionCsvDryRun.fileUpdatedAt = new Date().toISOString();
+    electionCsvDryRun.format = "";
+    electionCsvDryRun.parsedRows = 0;
+    electionCsvDryRun.normalizedRows = 0;
+    electionCsvDryRun.errors = [];
+    electionCsvDryRun.warnings = [];
+    electionCsvDryRun.records = [];
+    setElectionCsvDryRunStatus(`Selected file ${electionCsvDryRun.fileName} (${formatCensusFileSizeKb(electionCsvDryRun.fileSize)}).`, "muted");
+    censusRuntimeCommit({ persist: false });
+    return { ok: true, code: "updated_bridge_state" };
+  }
+
+  if (key === "mapQaVtdZip"){
+    if (!file){
+      mapQaVtdUploadSeq += 1;
+      clearMapQaVtdUploadRuntime();
+      if (s.mapQaVtdOverlay){
+        clearMapQaOverlay("VTD ZIP cleared. Reload boundaries to draw TIGERweb QA overlay.");
+        setStatus(s, "VTD ZIP cleared. Reload boundaries to use TIGERweb QA source.", false);
+      } else {
+        setStatus(s, "VTD ZIP cleared.", false);
+      }
+      censusRuntimeCommit({ persist: false });
+      return { ok: true, code: "updated_bridge_state" };
+    }
+    void (async () => {
+      const ok = await loadMapQaVtdZipFile(file);
+      const latest = ensureCensusStateModule(censusRuntimeReadState());
+      if (!latest){
+        censusRuntimeCommit({ persist: false });
+        return;
+      }
+      if (!ok){
+        if (latest.mapQaVtdOverlay){
+          clearMapQaOverlay();
+        }
+        setStatus(latest, cleanText(mapQaVtdUpload.statusText) || "VTD ZIP load failed.", true);
+        censusRuntimeCommit({ persist: false });
+        return;
+      }
+      setStatus(latest, "VTD ZIP loaded. QA overlay will use ZIP polygons for matching state/county context.", false);
+      censusRuntimeCommit({ persist: false });
+      if (latest.mapQaVtdOverlay && mapRuntimeStatus.featureCount > 0){
+        await onLoadMapBoundaries({ s: latest, els: censusRuntimeBridgeEls || {}, commitUIUpdate: censusRuntimeCommit });
+      }
+    })();
+    censusRuntimeCommit({ persist: false });
+    return { ok: true, code: "dispatched" };
+  }
+  return { ok: false, code: "unavailable" };
+}
+
+function censusRuntimeTriggerAction(action){
+  const key = cleanText(action);
+  if (!key){
+    return { ok: false, code: "missing_action" };
+  }
+  if (typeof censusRuntimeBridgeRunAction === "function"){
+    try {
+      const handled = censusRuntimeBridgeRunAction(key);
+      if (handled && typeof handled === "object" && handled.handled){
+        return {
+          ok: handled.ok !== false,
+          code: cleanText(handled.code) || (handled.ok === false ? "failed" : "triggered"),
+        };
+      }
+    } catch {}
+  }
+  return { ok: false, code: "unavailable" };
+}
+
+function censusRuntimeGetView(){
+  const state = censusRuntimeReadState();
+  const s = ensureCensusStateModule(state);
+  return {
+    statusText: cleanText(s?.status) || "Ready.",
+    errorText: cleanText(s?.error),
+    resolution: cleanText(s?.resolution),
+    stateFips: cleanText(s?.stateFips),
+    countyFips: cleanText(s?.countyFips),
+    placeFips: cleanText(s?.placeFips),
+    loadedRowCount: Number.isFinite(Number(s?.loadedRowCount)) ? Math.max(0, floorCensusInt(s.loadedRowCount, 0)) : 0,
+    selectedGeoCount: Array.isArray(s?.selectedGeoids) ? s.selectedGeoids.length : 0,
+    activeRowsKey: cleanText(s?.activeRowsKey),
   };
 }
 
-function extractBridgeTableRows(tbody, expectedCols = 0){
-  if (!(tbody instanceof HTMLElement)) return [];
-  const rows = Array.from(tbody.querySelectorAll(":scope > tr"));
-  const out = [];
-  for (const row of rows){
-    if (!(row instanceof HTMLTableRowElement)) continue;
-    const cells = Array.from(row.children).filter((cell) => cell instanceof HTMLElement);
-    if (!cells.length) continue;
-    if (cells.length === 1 && expectedCols > 1) {
-      const cell = cells[0];
-      const span = Number(cell.getAttribute("colspan") || "1");
-      if (span >= expectedCols && cell.classList.contains("muted")) continue;
-    }
-    const cols = cells.map((cell) => cleanText(cell.textContent));
-    if (!cols.some(Boolean)) continue;
-    if (expectedCols > 0){
-      while (cols.length < expectedCols) cols.push("");
-      out.push(cols.slice(0, expectedCols));
-    } else {
-      out.push(cols);
-    }
-  }
-  return out;
+if (typeof window !== "undefined"){
+  window[CENSUS_RUNTIME_BRIDGE_KEY] = {
+    getView: () => censusRuntimeGetView(),
+    getRowsForState: (censusState) => getRowsForState(censusState),
+    setField: (field, value) => censusRuntimeSetField(field, value),
+    setGeoSelection: (values) => censusRuntimeSetGeoSelection(values),
+    setFile: (field, files) => censusRuntimeSetFile(field, files),
+    triggerAction: (action) => censusRuntimeTriggerAction(action),
+  };
 }
 
 function getStorage(){
@@ -388,6 +793,93 @@ function mapSelectionKey(s){
 function setMapRuntimeStatus(text, isError = false){
   mapRuntimeStatus.text = cleanText(text) || "Map idle.";
   mapRuntimeStatus.error = isError ? mapRuntimeStatus.text : "";
+}
+
+function buildCensusAdvisoryStatusView({ advisory, advisoryPace, applyForPace }){
+  const pendingSelectionText = "Assumption advisory pending: select GEO units and fetch ACS rows.";
+  const pendingSignalText = "Assumption advisory pending: ACS signal metrics are unavailable.";
+  if (!advisory || !advisory.ready){
+    return {
+      level: "muted",
+      text: advisory && advisory.reason === "selection_missing" ? pendingSelectionText : pendingSignalText,
+    };
+  }
+  const coverage = advisory && advisory.coverage && typeof advisory.coverage === "object" ? advisory.coverage : {};
+  const coverageText = `${Number.isFinite(Number(coverage.availableSignals)) ? Number(coverage.availableSignals) : 0}/${Number.isFinite(Number(coverage.totalSignals)) ? Number(coverage.totalSignals) : 0}`;
+  const aph = advisory && advisory.aph && typeof advisory.aph === "object" ? advisory.aph : {};
+  const hasAph = Number.isFinite(Number(aph.base)) && Number.isFinite(Number(aph.adjusted));
+  const deltaAbs = Math.abs(Number(aph.deltaPct));
+  let level = "ok";
+  if (advisoryPace && advisoryPace.ready && advisoryPace.severity === "bad"){
+    level = "bad";
+  } else if (advisoryPace && advisoryPace.ready && advisoryPace.severity === "warn"){
+    level = "warn";
+  } else if (!hasAph){
+    level = "muted";
+  } else if (Number.isFinite(deltaAbs) && deltaAbs >= 0.15){
+    level = "warn";
+  }
+  if (advisoryPace && advisoryPace.ready){
+    const req = formatCensusFixed(advisoryPace.requiredAph, 1);
+    const adj = formatCensusFixed(advisoryPace.availableAph, 1);
+    const gap = formatPercentFromUnit(advisoryPace.gapPct, 1);
+    const buffer = formatPercentFromUnit(Math.abs(Number(advisoryPace.gapPct)), 1);
+    const sourceTag = applyForPace ? " Census-adjusted assumptions ON." : "";
+    const band = advisoryPace.availableAphRange;
+    if (band){
+      const low = formatCensusFixed(band.low, 1);
+      const mid = formatCensusFixed(band.mid, 1);
+      const high = formatCensusFixed(band.high, 1);
+      const text = advisoryPace.feasible
+        ? (advisoryPace.severity === "warn"
+          ? `Assumption advisory ready. Signal coverage ${coverageText}. Required APH ${req} vs achievable band ${low}/${mid}/${high} (near top, ${buffer} headroom).${sourceTag}`
+          : `Assumption advisory ready. Signal coverage ${coverageText}. Required APH ${req} vs achievable band ${low}/${mid}/${high} (${buffer} headroom).${sourceTag}`)
+        : `Assumption advisory ready. Signal coverage ${coverageText}. Required APH ${req} vs achievable band ${low}/${mid}/${high} (${gap} above plausible range).${sourceTag}`;
+      return { level, text };
+    }
+    const text = advisoryPace.feasible
+      ? `Assumption advisory ready. Signal coverage ${coverageText}. Required APH ${req} vs adjusted APH ${adj} (${buffer} buffer).${sourceTag}`
+      : `Assumption advisory ready. Signal coverage ${coverageText}. Required APH ${req} vs adjusted APH ${adj} (${gap} shortfall).${sourceTag}`;
+    return { level, text };
+  }
+  if (hasAph){
+    const pct = formatPercentFromUnit(aph.deltaPct, 1);
+    return {
+      level,
+      text: `Assumption advisory ready. Signal coverage ${coverageText}. Environment-adjusted APH delta ${pct}.`,
+    };
+  }
+  return {
+    level,
+    text: `Assumption advisory ready. Signal coverage ${coverageText}. APH advisory unavailable until doors/hour and calls/hour are set.`,
+  };
+}
+
+function buildCensusMapStatusView(s){
+  const boundarySupported = resolutionSupportsBoundaryOverlay(s?.resolution);
+  let level = "muted";
+  if (boundarySupported && mapRuntimeStatus.error){
+    level = "bad";
+  } else if (boundarySupported && (mapRuntimeStatus.loading || mapRuntimeStatus.qaLoading)){
+    level = "warn";
+  } else if (boundarySupported && cleanText(mapRuntimeStatus.qaText).toLowerCase().includes("unavailable")){
+    level = "warn";
+  }
+  const qaText = cleanText(mapRuntimeStatus.qaText);
+  if (!boundarySupported){
+    const label = RESOLUTION_LABEL_BY_ID[cleanText(s?.resolution)] || cleanText(s?.resolution) || "selected resolution";
+    return {
+      level,
+      text: `Boundary overlay unavailable for ${label}. Use place, tract, or block group for map overlays.`,
+    };
+  }
+  const selectedKey = mapSelectionKey(s);
+  if (!mapRuntimeStatus.loading && mapLoadedSelectionKey && selectedKey !== mapLoadedSelectionKey && !mapRuntimeStatus.error){
+    const base = "Selection changed. Reload boundaries to refresh map.";
+    return { level, text: qaText ? `${base} ${qaText}` : base };
+  }
+  const base = cleanText(mapRuntimeStatus.error || mapRuntimeStatus.text) || "Map idle. Select GEO units and click Load boundaries.";
+  return { level, text: qaText ? `${base} ${qaText}` : base };
 }
 
 function cleanFips(v, len){
@@ -738,8 +1230,28 @@ function mapQaCountyContext(s){
   return { stateFips, countyFips };
 }
 
+function resolveCensusMapContainer(els){
+  if (els?.censusMap instanceof HTMLElement){
+    return els.censusMap;
+  }
+  if (censusRuntimeBridgeEls?.censusMap instanceof HTMLElement){
+    return censusRuntimeBridgeEls.censusMap;
+  }
+  if (typeof document === "undefined") return null;
+  const v3Host = document.getElementById("v3CensusMapHost");
+  if (v3Host instanceof HTMLElement){
+    return v3Host;
+  }
+  const legacyHost = document.getElementById("censusMap");
+  if (legacyHost instanceof HTMLElement){
+    return legacyHost;
+  }
+  return null;
+}
+
 async function onLoadMapBoundaries({ s, els, commitUIUpdate }){
-  if (!s || !els || !els.censusMap){
+  const mapContainer = resolveCensusMapContainer(els);
+  if (!s || !mapContainer){
     setMapRuntimeStatus("Map container unavailable.", true);
     commitUIUpdate({ persist: false });
     return;
@@ -765,7 +1277,7 @@ async function onLoadMapBoundaries({ s, els, commitUIUpdate }){
   commitUIUpdate({ persist: false });
   try{
     await ensureLeaflet();
-    const map = ensureMapMounted(els.censusMap);
+    const map = ensureMapMounted(mapContainer);
     if (!map){
       throw new Error("Could not initialize map.");
     }
@@ -806,7 +1318,7 @@ async function onLoadMapBoundaries({ s, els, commitUIUpdate }){
         });
         if (seq !== mapRequestSeq) return;
         applyMapQaOverlay(qaResult.featureCollection);
-        mapRuntimeStatus.qaFeatureCount = Number.isFinite(Number(qaResult.featureCount)) ? Math.max(0, Math.floor(Number(qaResult.featureCount))) : 0;
+        mapRuntimeStatus.qaFeatureCount = Number.isFinite(Number(qaResult.featureCount)) ? Math.max(0, floorCensusInt(qaResult.featureCount, 0)) : 0;
         mapRuntimeStatus.qaText = mapRuntimeStatus.qaFeatureCount > 0
           ? `VTD QA overlay loaded (${mapRuntimeStatus.qaFeatureCount.toLocaleString("en-US")} polygons). Hover/click polygons for precinct labels.`
           : "VTD QA overlay returned no polygons.";
@@ -1340,62 +1852,149 @@ export function renderCensusPhase1Module({ els, state, res } = {}){
   }
 
   const { runtimeRows, aggregate, tableRows } = aggregateSnapshot(s);
-  const canonicalDoorShare = (() => {
-    const rawPct = Number(state?.channelDoorPct);
-    if (Number.isFinite(rawPct)){
-      const pct = Math.min(100, Math.max(0, rawPct));
-      return pct / 100;
-    }
-    return 0.5;
-  })();
-  const advisory = buildCensusAssumptionAdvisory({
-    aggregate,
-    doorShare: canonicalDoorShare,
-    doorsPerHour: Number(state?.doorsPerHour3 ?? state?.doorsPerHour),
-    callsPerHour: Number(state?.callsPerHour3),
+  const canonicalDoorShare = resolveCanonicalDoorShareUnit(state, { fallback: 0.5 }) ?? 0.5;
+  const resolvedDoorsPerHour = resolveCanonicalDoorsPerHour(state);
+  const resolvedCallsPerHour = resolveCanonicalCallsPerHour(state);
+  let censusPaceSnapshot = buildCensusPaceFeasibilitySnapshot({
+    state,
+    needVotes: res?.expected?.persuasionNeed,
+    weeks: state?.weeksRemaining,
     rowsByGeoid: runtimeRows,
     selectedGeoids: s.selectedGeoids,
+    doorShare: canonicalDoorShare,
+    doorsPerHour: resolvedDoorsPerHour,
+    callsPerHour: resolvedCallsPerHour,
   });
-  let applyGate = evaluateCensusApplyMode({
-    applyRequested: !!s.applyAdjustedAssumptions,
-    censusState: s,
-    raceFootprint: state.raceFootprint,
-    assumptionsProvenance: state.assumptionsProvenance,
-    advisoryReady: !!advisory.ready,
-    hasRows: !!Object.keys(runtimeRows).length && !!cleanText(s.activeRowsKey),
-  });
-  if (applyGate.requested && !applyGate.ready){
-    s.applyAdjustedAssumptions = false;
-    applyGate = evaluateCensusApplyMode({
-      applyRequested: false,
-      censusState: s,
-      raceFootprint: state.raceFootprint,
-      assumptionsProvenance: state.assumptionsProvenance,
-      advisoryReady: !!advisory.ready,
-      hasRows: !!Object.keys(runtimeRows).length && !!cleanText(s.activeRowsKey),
+  let advisory = censusPaceSnapshot.advisory;
+  if (!advisory){
+    advisory = buildCensusAssumptionAdvisory({
+      aggregate,
+      doorShare: canonicalDoorShare,
+      doorsPerHour: resolvedDoorsPerHour,
+      callsPerHour: resolvedCallsPerHour,
+      rowsByGeoid: runtimeRows,
+      selectedGeoids: s.selectedGeoids,
     });
   }
+  let applyGate = censusPaceSnapshot.applyGate;
+  if (applyGate.requested && !applyGate.ready){
+    s.applyAdjustedAssumptions = false;
+    censusPaceSnapshot = buildCensusPaceFeasibilitySnapshot({
+      state,
+      needVotes: res?.expected?.persuasionNeed,
+      weeks: state?.weeksRemaining,
+      rowsByGeoid: runtimeRows,
+      selectedGeoids: s.selectedGeoids,
+      doorShare: canonicalDoorShare,
+      doorsPerHour: resolvedDoorsPerHour,
+      callsPerHour: resolvedCallsPerHour,
+    });
+    advisory = censusPaceSnapshot.advisory || advisory;
+    applyGate = censusPaceSnapshot.applyGate;
+  }
   const applyMultipliers = clampCensusApplyMultipliers(advisory?.multipliers || {});
-  const applyForPace = applyGate.ready && !!s.applyAdjustedAssumptions;
-  const advisoryPace = evaluateCensusPaceAgainstAdvisory({
-    advisory,
-    needVotes: Number(res?.expected?.persuasionNeed),
-    weeks: Number(state?.weeksRemaining),
-    contactRatePct: applyForPace
-      ? (Number(state?.contactRatePct) * applyMultipliers.contactRate)
-      : Number(state?.contactRatePct),
-    supportRatePct: applyForPace
-      ? (Number(state?.supportRatePct) * applyMultipliers.persuasion)
-      : Number(state?.supportRatePct),
-    turnoutReliabilityPct: applyForPace
-      ? (Number(state?.turnoutReliabilityPct) * applyMultipliers.turnoutLift)
-      : Number(state?.turnoutReliabilityPct),
-    orgCount: Number(state?.orgCount),
-    orgHoursPerWeek: applyForPace
-      ? (Number(state?.orgHoursPerWeek) / applyMultipliers.organizerLoad)
-      : Number(state?.orgHoursPerWeek),
-    volunteerMult: Number(state?.volunteerMultBase),
-  });
+  const applyForPace = !!censusPaceSnapshot.applyMultipliers && !!s.applyAdjustedAssumptions;
+  const advisoryPace = censusPaceSnapshot.pace || {
+    ready: false,
+    reason: "rows_not_ready",
+    availableAph: null,
+    availableAphRange: null,
+    requiredAph: null,
+    gapPct: null,
+    ratio: null,
+    feasible: null,
+    severity: "muted",
+    nearTop: null,
+    requiredAttemptsPerWeek: null,
+    capacityHoursPerWeek: null,
+  };
+  const advisoryFmtIndex = (value) => {
+    return formatCensusFixed(value, 2);
+  };
+  const advisoryFmtPercent = (value) => formatPercentFromUnit(value, 1);
+  const advisoryFmtNumber = (value) => {
+    return formatCensusFixed(value, 1);
+  };
+  const advisoryFmtBand = (band) => {
+    const low = Number(band?.low);
+    const mid = Number(band?.mid);
+    const high = Number(band?.high);
+    if (!Number.isFinite(low) || !Number.isFinite(mid) || !Number.isFinite(high)) return "—";
+    return `${advisoryFmtNumber(low)} / ${advisoryFmtNumber(mid)} / ${advisoryFmtNumber(high)}`;
+  };
+  const advisoryFmtAgeMix = (ageDistribution) => {
+    const age = ageDistribution && typeof ageDistribution === "object" ? ageDistribution : {};
+    return [
+      `18-24 ${advisoryFmtPercent(age.age18to24)}`,
+      `25-34 ${advisoryFmtPercent(age.age25to34)}`,
+      `35-44 ${advisoryFmtPercent(age.age35to44)}`,
+      `45-64 ${advisoryFmtPercent(age.age45to64)}`,
+      `65+ ${advisoryFmtPercent(age.age65Plus)}`,
+    ].join(" | ");
+  };
+  const advisoryRows = advisory.ready
+    ? [
+        { label: "Field speed index", value: `${advisoryFmtIndex(advisory.indices.fieldSpeed)} (${advisory.bands.fieldSpeed})` },
+        { label: "Persuasion environment", value: `${advisoryFmtIndex(advisory.indices.persuasionEnvironment)} (${advisory.bands.persuasionEnvironment})` },
+        { label: "Turnout elasticity", value: `${advisoryFmtIndex(advisory.indices.turnoutElasticity)} (${advisory.bands.turnoutElasticity})` },
+        { label: "Turnout potential index", value: `${advisoryFmtIndex(advisory.indices.turnoutPotential)} (${advisory.bands.turnoutPotential})` },
+        { label: "Field difficulty", value: `${advisoryFmtIndex(advisory.indices.fieldDifficulty)} (${advisory.bands.fieldDifficulty})` },
+        {
+          label: "Housing density ratio (units / resident)",
+          value: `${advisoryFmtIndex(advisory.indices.densityRatio)} (${advisory.indices?.densityBand?.label || "—"})`,
+        },
+        {
+          label: "Vehicle availability / no-vehicle HH",
+          value: `${advisoryFmtPercent(advisory.indices.vehicleAvailability)} / ${advisoryFmtPercent(advisory.indices.noVehicleShare)}`,
+        },
+        {
+          label: "Long / super commute share",
+          value: `${advisoryFmtPercent(advisory.indices.longCommuteShare)} / ${advisoryFmtPercent(advisory.indices.superCommuteShare)}`,
+        },
+        {
+          label: "No-internet share",
+          value: advisoryFmtPercent(advisory.indices.noInternetShare),
+        },
+        {
+          label: "Poverty share",
+          value: advisoryFmtPercent(advisory.indices.povertyShare),
+        },
+        { label: "Walkability factor", value: `${advisoryFmtIndex(advisory.indices.walkability)}x` },
+        { label: "Contact probability modifier", value: `${advisoryFmtIndex(advisory.multipliers.contactRate)}x` },
+        { label: "Estimated doors/hour factor", value: `${advisoryFmtIndex(advisory.indices.estimatedDoorsPerHourFactor)}x` },
+        { label: "Age distribution", value: advisoryFmtAgeMix(advisory.indices.ageDistribution) },
+        { label: "Advisory doors/hour multiplier", value: `${advisoryFmtIndex(advisory.multipliers.doorsPerHour)} (${advisoryFmtPercent(advisory.aph.deltaPct)})` },
+        { label: "Current blended APH", value: advisoryFmtNumber(advisory.aph.base) },
+        { label: "Achievable APH band (p25/p50/p75)", value: advisoryFmtBand(advisory.aph.range) },
+        { label: "Environment-adjusted APH (p50)", value: advisoryFmtNumber(advisory.aph.adjusted) },
+        { label: "Required APH to hit goal", value: advisoryPace.ready ? advisoryFmtNumber(advisoryPace.requiredAph) : "—" },
+        {
+          label: "APH feasibility check",
+          value: (() => {
+            if (!advisoryPace.ready) return "—";
+            const req = advisoryFmtNumber(advisoryPace.requiredAph);
+            const band = advisoryPace.availableAphRange;
+            if (band){
+              const low = advisoryFmtNumber(band.low);
+              const high = advisoryFmtNumber(band.high);
+              if (!advisoryPace.feasible){
+                return `Required ${req} > high ${high} (${advisoryFmtPercent(advisoryPace.gapPct)})`;
+              }
+              if (advisoryPace.severity === "warn"){
+                return `Required ${req} near high ${high} (${advisoryFmtPercent(advisoryPace.gapPct)})`;
+              }
+              return `Required ${req} inside ${low}-${high} (${advisoryFmtPercent(advisoryPace.gapPct)})`;
+            }
+            if (!advisoryPace.feasible){
+              return `Required ${req} above adjusted ${advisoryFmtNumber(advisoryPace.availableAph)} (${advisoryFmtPercent(advisoryPace.gapPct)})`;
+            }
+            return advisoryPace.severity === "warn"
+              ? `Required ${req} near adjusted ${advisoryFmtNumber(advisoryPace.availableAph)} (${advisoryFmtPercent(advisoryPace.gapPct)})`
+              : `Required ${req} within adjusted ${advisoryFmtNumber(advisoryPace.availableAph)} (${advisoryFmtPercent(advisoryPace.gapPct)})`;
+          })(),
+        },
+      ]
+    : [];
   const applyToggleEnabled = alignment.readyForAssumptions
     && advisory.ready
     && !!Object.keys(runtimeRows).length
@@ -1439,105 +2038,13 @@ export function renderCensusPhase1Module({ els, state, res } = {}){
     typeof document !== "undefined" &&
     typeof document.createElement === "function"
   ){
-    const fIdx = (v) => {
-      const n = Number(v);
-      return Number.isFinite(n) ? n.toFixed(2) : "—";
-    };
-    const fPct = (v) => {
-      const n = Number(v);
-      return Number.isFinite(n) ? `${(n * 100).toFixed(1)}%` : "—";
-    };
-    const fNum = (v) => {
-      const n = Number(v);
-      return Number.isFinite(n) ? n.toFixed(1) : "—";
-    };
-    const fBand = (band) => {
-      const low = Number(band?.low);
-      const mid = Number(band?.mid);
-      const high = Number(band?.high);
-      if (!Number.isFinite(low) || !Number.isFinite(mid) || !Number.isFinite(high)) return "—";
-      return `${fNum(low)} / ${fNum(mid)} / ${fNum(high)}`;
-    };
-    const fAgeMix = (ageDistribution) => {
-      const age = ageDistribution && typeof ageDistribution === "object" ? ageDistribution : {};
-      return [
-        `18-24 ${fPct(age.age18to24)}`,
-        `25-34 ${fPct(age.age25to34)}`,
-        `35-44 ${fPct(age.age35to44)}`,
-        `45-64 ${fPct(age.age45to64)}`,
-        `65+ ${fPct(age.age65Plus)}`,
-      ].join(" | ");
-    };
-    const rows = advisory.ready
-      ? [
-          { label: "Field speed index", value: `${fIdx(advisory.indices.fieldSpeed)} (${advisory.bands.fieldSpeed})` },
-          { label: "Persuasion environment", value: `${fIdx(advisory.indices.persuasionEnvironment)} (${advisory.bands.persuasionEnvironment})` },
-          { label: "Turnout elasticity", value: `${fIdx(advisory.indices.turnoutElasticity)} (${advisory.bands.turnoutElasticity})` },
-          { label: "Turnout potential index", value: `${fIdx(advisory.indices.turnoutPotential)} (${advisory.bands.turnoutPotential})` },
-          { label: "Field difficulty", value: `${fIdx(advisory.indices.fieldDifficulty)} (${advisory.bands.fieldDifficulty})` },
-          {
-            label: "Housing density ratio (units / resident)",
-            value: `${fIdx(advisory.indices.densityRatio)} (${advisory.indices?.densityBand?.label || "—"})`,
-          },
-          {
-            label: "Vehicle availability / no-vehicle HH",
-            value: `${fPct(advisory.indices.vehicleAvailability)} / ${fPct(advisory.indices.noVehicleShare)}`,
-          },
-          {
-            label: "Long / super commute share",
-            value: `${fPct(advisory.indices.longCommuteShare)} / ${fPct(advisory.indices.superCommuteShare)}`,
-          },
-          {
-            label: "No-internet share",
-            value: fPct(advisory.indices.noInternetShare),
-          },
-          {
-            label: "Poverty share",
-            value: fPct(advisory.indices.povertyShare),
-          },
-          { label: "Walkability factor", value: `${fIdx(advisory.indices.walkability)}x` },
-          { label: "Contact probability modifier", value: `${fIdx(advisory.multipliers.contactRate)}x` },
-          { label: "Estimated doors/hour factor", value: `${fIdx(advisory.indices.estimatedDoorsPerHourFactor)}x` },
-          { label: "Age distribution", value: fAgeMix(advisory.indices.ageDistribution) },
-          { label: "Advisory doors/hour multiplier", value: `${fIdx(advisory.multipliers.doorsPerHour)} (${fPct(advisory.aph.deltaPct)})` },
-          { label: "Current blended APH", value: fNum(advisory.aph.base) },
-          { label: "Achievable APH band (p25/p50/p75)", value: fBand(advisory.aph.range) },
-          { label: "Environment-adjusted APH (p50)", value: fNum(advisory.aph.adjusted) },
-          { label: "Required APH to hit goal", value: advisoryPace.ready ? fNum(advisoryPace.requiredAph) : "—" },
-          {
-            label: "APH feasibility check",
-            value: (() => {
-              if (!advisoryPace.ready) return "—";
-              const req = fNum(advisoryPace.requiredAph);
-              const band = advisoryPace.availableAphRange;
-              if (band){
-                const low = fNum(band.low);
-                const high = fNum(band.high);
-                if (!advisoryPace.feasible){
-                  return `Required ${req} > high ${high} (${fPct(advisoryPace.gapPct)})`;
-                }
-                if (advisoryPace.severity === "warn"){
-                  return `Required ${req} near high ${high} (${fPct(advisoryPace.gapPct)})`;
-                }
-                return `Required ${req} inside ${low}-${high} (${fPct(advisoryPace.gapPct)})`;
-              }
-              if (!advisoryPace.feasible){
-                return `Required ${req} above adjusted ${fNum(advisoryPace.availableAph)} (${fPct(advisoryPace.gapPct)})`;
-              }
-              return advisoryPace.severity === "warn"
-                ? `Required ${req} near adjusted ${fNum(advisoryPace.availableAph)} (${fPct(advisoryPace.gapPct)})`
-                : `Required ${req} within adjusted ${fNum(advisoryPace.availableAph)} (${fPct(advisoryPace.gapPct)})`;
-            })(),
-          },
-        ]
-      : [];
     els.censusAdvisoryTbody.innerHTML = "";
-    if (!rows.length){
+    if (!advisoryRows.length){
       const tr = document.createElement("tr");
       tr.innerHTML = '<td class="muted" colspan="2">Load ACS rows for selected GEO units to compute advisory indices.</td>';
       els.censusAdvisoryTbody.appendChild(tr);
     } else {
-      for (const row of rows){
+      for (const row of advisoryRows){
         const tr = document.createElement("tr");
         tr.innerHTML = `<td>${row.label}</td><td class="num">${row.value}</td>`;
         els.censusAdvisoryTbody.appendChild(tr);
@@ -1547,6 +2054,7 @@ export function renderCensusPhase1Module({ els, state, res } = {}){
 
   const targeting = ensureTargetingState(state);
   const targetingRows = Array.isArray(targeting?.lastRows) ? targeting.lastRows : [];
+  const targetingSummary = summarizeTargetingRows(targetingRows, { topListLimit: 0 });
   const targetingMeta = targeting?.lastMeta && typeof targeting.lastMeta === "object" ? targeting.lastMeta : null;
   const targetingRowsLoaded = rowsCount(runtimeRows) > 0;
   const sampleRow = Object.values(runtimeRows || {})[0];
@@ -1621,19 +2129,19 @@ export function renderCensusPhase1Module({ els, state, res } = {}){
   const houseModelActive = cleanText(targeting.modelId) === "house_v1";
   if (els.targetingWeightVotePotential && document.activeElement !== els.targetingWeightVotePotential){
     const value = Number(targeting.weights?.votePotential);
-    els.targetingWeightVotePotential.value = Number.isFinite(value) ? value.toFixed(2) : "0.35";
+    els.targetingWeightVotePotential.value = Number.isFinite(value) ? formatCensusFixed(value, 2, "0.35") : "0.35";
   }
   if (els.targetingWeightTurnoutOpportunity && document.activeElement !== els.targetingWeightTurnoutOpportunity){
     const value = Number(targeting.weights?.turnoutOpportunity);
-    els.targetingWeightTurnoutOpportunity.value = Number.isFinite(value) ? value.toFixed(2) : "0.25";
+    els.targetingWeightTurnoutOpportunity.value = Number.isFinite(value) ? formatCensusFixed(value, 2, "0.25") : "0.25";
   }
   if (els.targetingWeightPersuasionIndex && document.activeElement !== els.targetingWeightPersuasionIndex){
     const value = Number(targeting.weights?.persuasionIndex);
-    els.targetingWeightPersuasionIndex.value = Number.isFinite(value) ? value.toFixed(2) : "0.20";
+    els.targetingWeightPersuasionIndex.value = Number.isFinite(value) ? formatCensusFixed(value, 2, "0.20") : "0.20";
   }
   if (els.targetingWeightFieldEfficiency && document.activeElement !== els.targetingWeightFieldEfficiency){
     const value = Number(targeting.weights?.fieldEfficiency);
-    els.targetingWeightFieldEfficiency.value = Number.isFinite(value) ? value.toFixed(2) : "0.20";
+    els.targetingWeightFieldEfficiency.value = Number.isFinite(value) ? formatCensusFixed(value, 2, "0.20") : "0.20";
   }
   if (els.targetingWeightVotePotential){
     els.targetingWeightVotePotential.disabled = !houseModelActive;
@@ -1674,10 +2182,10 @@ export function renderCensusPhase1Module({ els, state, res } = {}){
       els.targetingStatus.classList.add("warn");
       els.targetingStatus.textContent = "Targeting settings or selection changed. Re-run targeting to refresh rankings.";
     } else {
-      const topCount = targetingRows.filter((row) => !!row?.isTopTarget).length;
-      const turnoutCount = targetingRows.filter((row) => !!row?.isTurnoutPriority).length;
-      const persuasionCount = targetingRows.filter((row) => !!row?.isPersuasionPriority).length;
-      const efficiencyCount = targetingRows.filter((row) => !!row?.isEfficiencyPriority).length;
+      const topCount = targetingSummary.topTargetCount;
+      const turnoutCount = targetingSummary.turnoutPriorityCount;
+      const persuasionCount = targetingSummary.persuasionPriorityCount;
+      const efficiencyCount = targetingSummary.efficiencyPriorityCount;
       els.targetingStatus.classList.add("ok");
       els.targetingStatus.textContent = `Targeting ready. ${topCount} top targets under ${activeModelLabel}; core priorities flagged (T/P/E): ${turnoutCount}/${persuasionCount}/${efficiencyCount}.`;
     }
@@ -1692,16 +2200,16 @@ export function renderCensusPhase1Module({ els, state, res } = {}){
         ? fmtTs(targetingMeta.ranAt).replace("Last fetch: ", "")
         : "not recorded";
       const totalRows = Number.isFinite(Number(targetingMeta.totalRows))
-        ? Math.max(0, Math.floor(Number(targetingMeta.totalRows)))
+        ? Math.max(0, floorCensusInt(targetingMeta.totalRows, 0))
         : targetingRows.length;
       const topN = Number.isFinite(Number(targetingMeta.topN))
-        ? Math.max(1, Math.floor(Number(targetingMeta.topN)))
-        : Math.max(1, Math.floor(Number(targeting.topN || 25)));
-      const turnoutCount = targetingRows.filter((row) => !!row?.isTurnoutPriority).length;
-      const persuasionCount = targetingRows.filter((row) => !!row?.isPersuasionPriority).length;
-      const efficiencyCount = targetingRows.filter((row) => !!row?.isEfficiencyPriority).length;
+        ? Math.max(1, floorCensusInt(targetingMeta.topN, 25))
+        : Math.max(1, floorCensusInt(targeting.topN || 25, 25));
+      const turnoutCount = targetingSummary.turnoutPriorityCount;
+      const persuasionCount = targetingSummary.persuasionPriorityCount;
+      const efficiencyCount = targetingSummary.efficiencyPriorityCount;
       const weightNote = houseModelActive
-        ? ` House weights: VP ${Number(targeting.weights?.votePotential || 0).toFixed(2)} · TO ${Number(targeting.weights?.turnoutOpportunity || 0).toFixed(2)} · PI ${Number(targeting.weights?.persuasionIndex || 0).toFixed(2)} · FE ${Number(targeting.weights?.fieldEfficiency || 0).toFixed(2)}.`
+        ? ` House weights: VP ${formatCensusFixed(targeting.weights?.votePotential || 0, 2, "0.00")} · TO ${formatCensusFixed(targeting.weights?.turnoutOpportunity || 0, 2, "0.00")} · PI ${formatCensusFixed(targeting.weights?.persuasionIndex || 0, 2, "0.00")} · FE ${formatCensusFixed(targeting.weights?.fieldEfficiency || 0, 2, "0.00")}.`
         : "";
       els.targetingMeta.textContent = `${levelLabel} ranking · ${totalRows.toLocaleString("en-US")} rows · Top ${topN.toLocaleString("en-US")} flagged · Core top-10 flags (T/P/E): ${turnoutCount}/${persuasionCount}/${efficiencyCount} · Last run ${ranText}.${weightNote}`;
     }
@@ -1723,11 +2231,10 @@ export function renderCensusPhase1Module({ els, state, res } = {}){
       tr.innerHTML = '<td class="muted" colspan="6">No ranked GEOs yet. Run targeting to generate results.</td>';
       els.targetingResultsTbody.appendChild(tr);
     } else {
-      const cap = Math.max(25, Math.min(300, Math.floor(Number(targeting.topN || 25) * 4)));
+      const cap = Math.max(25, Math.min(300, floorCensusInt(Number(targeting.topN || 25) * 4, 100)));
       const displayRows = targetingRows.slice(0, cap);
       const formatNum = (value, digits = 1) => {
-        const n = Number(value);
-        return Number.isFinite(n) ? n.toFixed(digits) : "—";
+        return formatCensusFixed(value, digits);
       };
       for (const row of displayRows){
         const tr = document.createElement("tr");
@@ -1736,7 +2243,7 @@ export function renderCensusPhase1Module({ els, state, res } = {}){
         const geoTd = document.createElement("td");
         const geoid = cleanText(row.geoid);
         const label = cleanText(row.label);
-        const memberCount = Number.isFinite(Number(row.memberCount)) ? Math.max(1, Math.floor(Number(row.memberCount))) : 1;
+        const memberCount = Number.isFinite(Number(row.memberCount)) ? Math.max(1, floorCensusInt(row.memberCount, 1)) : 1;
         geoTd.textContent = memberCount > 1
           ? `${label || geoid} (${memberCount} block groups)`
           : (label || geoid || "—");
@@ -1862,10 +2369,10 @@ export function renderCensusPhase1Module({ els, state, res } = {}){
       );
       if (stale){
         tone = "warn";
-        text = `Footprint capacity population: ${Math.round(Number(footprintCapacity.population)).toLocaleString("en-US")} (ACS ${footprintCapacity.year || "—"}, bundle ${footprintCapacity.metricSet || "—"}, stale).`;
+        text = `Footprint capacity population: ${formatCensusWhole(footprintCapacity.population)} (ACS ${footprintCapacity.year || "—"}, bundle ${footprintCapacity.metricSet || "—"}, stale).`;
       } else {
         tone = "ok";
-        text = `Footprint capacity population: ${Math.round(Number(footprintCapacity.population)).toLocaleString("en-US")} (ACS ${footprintCapacity.year || "—"}, bundle ${footprintCapacity.metricSet || "—"}).`;
+        text = `Footprint capacity population: ${formatCensusWhole(footprintCapacity.population)} (ACS ${footprintCapacity.year || "—"}, bundle ${footprintCapacity.metricSet || "—"}).`;
       }
     }
     if (feasibilitySummary.level === "bad"){
@@ -1895,7 +2402,7 @@ export function renderCensusPhase1Module({ els, state, res } = {}){
     let text = applyModeReasonText(applyGate.reason);
     if (applyGate.ready && s.applyAdjustedAssumptions){
       tone = "ok";
-      text = `Census-adjusted assumptions are ON. DPH ${applyMultipliers.doorsPerHour.toFixed(2)}x, contact ${applyMultipliers.contactRate.toFixed(2)}x, persuasion ${applyMultipliers.persuasion.toFixed(2)}x, turnout ${applyMultipliers.turnoutLift.toFixed(2)}x, organizer load ${applyMultipliers.organizerLoad.toFixed(2)}x.`;
+      text = `Census-adjusted assumptions are ON. ${formatCensusApplyMultiplierSummary(applyMultipliers)}.`;
     } else if (applyGate.reason === "toggle_off"){
       tone = applyToggleEnabled ? "muted" : "warn";
       if (applyToggleEnabled){
@@ -1922,14 +2429,27 @@ export function renderCensusPhase1Module({ els, state, res } = {}){
     els.censusElectionCsvDryRunStatus.textContent = electionCsvDryRun.statusText || "No dry-run run yet.";
   }
 
+  const allElectionRecords = Array.isArray(electionCsvDryRun.records) ? electionCsvDryRun.records : [];
+  const filteredElection = filterElectionDryRunRecords(allElectionRecords, electionCsvDryRun.precinctFilter);
+  const electionPreviewRows = filteredElection.rows.slice(0, 50).map((row) => {
+    const precinct = cleanText(row?.precinct_id) || "—";
+    const candidate = cleanText(row?.candidate) || "—";
+    const votesText = formatCensusWhole(row?.votes);
+    const totalText = formatCensusWhole(row?.total_votes_precinct);
+    return {
+      precinct,
+      candidate,
+      votesText,
+      totalText,
+    };
+  });
+
   if (els.censusElectionCsvPreviewMeta){
-    const allRecords = Array.isArray(electionCsvDryRun.records) ? electionCsvDryRun.records : [];
-    const filtered = filterElectionDryRunRecords(allRecords, electionCsvDryRun.precinctFilter);
-    const filteredCount = filtered.rows.length;
+    const filteredCount = filteredElection.rows.length;
     const formatLabel = cleanText(electionCsvDryRun.format) || "—";
     const fileLabel = cleanText(electionCsvDryRun.fileName) || "none";
-    const parseCount = Number.isFinite(Number(electionCsvDryRun.parsedRows)) ? Math.max(0, Math.floor(Number(electionCsvDryRun.parsedRows))) : 0;
-    const normalizedCount = Number.isFinite(Number(electionCsvDryRun.normalizedRows)) ? Math.max(0, Math.floor(Number(electionCsvDryRun.normalizedRows))) : 0;
+    const parseCount = Number.isFinite(Number(electionCsvDryRun.parsedRows)) ? Math.max(0, floorCensusInt(electionCsvDryRun.parsedRows, 0)) : 0;
+    const normalizedCount = Number.isFinite(Number(electionCsvDryRun.normalizedRows)) ? Math.max(0, floorCensusInt(electionCsvDryRun.normalizedRows, 0)) : 0;
     const errCount = Array.isArray(electionCsvDryRun.errors) ? electionCsvDryRun.errors.length : 0;
     const warnCount = Array.isArray(electionCsvDryRun.warnings) ? electionCsvDryRun.warnings.length : 0;
     const filterLabel = cleanText(electionCsvDryRun.precinctFilter);
@@ -1944,24 +2464,17 @@ export function renderCensusPhase1Module({ els, state, res } = {}){
     typeof document !== "undefined" &&
     typeof document.createElement === "function"
   ){
-    const allRecords = Array.isArray(electionCsvDryRun.records) ? electionCsvDryRun.records : [];
-    const filtered = filterElectionDryRunRecords(allRecords, electionCsvDryRun.precinctFilter);
-    const previewRows = filtered.rows.slice(0, 50);
     els.censusElectionCsvPreviewTbody.innerHTML = "";
-    if (!previewRows.length){
+    if (!electionPreviewRows.length){
       const tr = document.createElement("tr");
-      tr.innerHTML = filtered.tokens.length
+      tr.innerHTML = filteredElection.tokens.length
         ? '<td class="muted" colspan="4">No rows match the current precinct filter.</td>'
         : '<td class="muted" colspan="4">No dry-run preview yet.</td>';
       els.censusElectionCsvPreviewTbody.appendChild(tr);
     } else {
-      for (const row of previewRows){
+      for (const row of electionPreviewRows){
         const tr = document.createElement("tr");
-        const precinct = cleanText(row?.precinct_id) || "—";
-        const candidate = cleanText(row?.candidate) || "—";
-        const votes = Number.isFinite(Number(row?.votes)) ? Math.round(Number(row.votes)).toLocaleString("en-US") : "—";
-        const total = Number.isFinite(Number(row?.total_votes_precinct)) ? Math.round(Number(row.total_votes_precinct)).toLocaleString("en-US") : "—";
-        tr.innerHTML = `<td>${precinct}</td><td>${candidate}</td><td class="num">${votes}</td><td class="num">${total}</td>`;
+        tr.innerHTML = `<td>${row.precinct}</td><td>${row.candidate}</td><td class="num">${row.votesText}</td><td class="num">${row.totalText}</td>`;
         els.censusElectionCsvPreviewTbody.appendChild(tr);
       }
     }
@@ -1981,84 +2494,18 @@ export function renderCensusPhase1Module({ els, state, res } = {}){
     els.censusLastFetch.textContent = fmtTs(s.lastFetchAt);
   }
 
+  const advisoryStatusView = buildCensusAdvisoryStatusView({ advisory, advisoryPace, applyForPace });
   if (els.censusAdvisoryStatus){
     els.censusAdvisoryStatus.classList.remove("ok", "warn", "bad", "muted");
-    if (!advisory.ready){
-      els.censusAdvisoryStatus.classList.add("muted");
-      els.censusAdvisoryStatus.textContent = advisory.reason === "selection_missing"
-        ? "Assumption advisory pending: select GEO units and fetch ACS rows."
-        : "Assumption advisory pending: ACS signal metrics are unavailable.";
-    } else {
-      const coverageText = `${advisory.coverage.availableSignals}/${advisory.coverage.totalSignals}`;
-      const hasAph = Number.isFinite(Number(advisory.aph.base)) && Number.isFinite(Number(advisory.aph.adjusted));
-      const deltaAbs = Math.abs(Number(advisory.aph.deltaPct));
-      if (advisoryPace.ready && advisoryPace.severity === "bad"){
-        els.censusAdvisoryStatus.classList.add("bad");
-      } else if (advisoryPace.ready && advisoryPace.severity === "warn"){
-        els.censusAdvisoryStatus.classList.add("warn");
-      } else if (!hasAph){
-        els.censusAdvisoryStatus.classList.add("muted");
-      } else if (Number.isFinite(deltaAbs) && deltaAbs >= 0.15){
-        els.censusAdvisoryStatus.classList.add("warn");
-      } else {
-        els.censusAdvisoryStatus.classList.add("ok");
-      }
-      if (advisoryPace.ready){
-        const req = Number(advisoryPace.requiredAph).toFixed(1);
-        const adj = Number(advisoryPace.availableAph).toFixed(1);
-        const gap = `${(Number(advisoryPace.gapPct) * 100).toFixed(1)}%`;
-        const buffer = `${Math.abs(Number(advisoryPace.gapPct) * 100).toFixed(1)}%`;
-        const sourceTag = applyForPace ? " Census-adjusted assumptions ON." : "";
-        const band = advisoryPace.availableAphRange;
-        if (band){
-          const low = Number(band.low).toFixed(1);
-          const mid = Number(band.mid).toFixed(1);
-          const high = Number(band.high).toFixed(1);
-          els.censusAdvisoryStatus.textContent = advisoryPace.feasible
-            ? (advisoryPace.severity === "warn"
-              ? `Assumption advisory ready. Signal coverage ${coverageText}. Required APH ${req} vs achievable band ${low}/${mid}/${high} (near top, ${buffer} headroom).${sourceTag}`
-              : `Assumption advisory ready. Signal coverage ${coverageText}. Required APH ${req} vs achievable band ${low}/${mid}/${high} (${buffer} headroom).${sourceTag}`)
-            : `Assumption advisory ready. Signal coverage ${coverageText}. Required APH ${req} vs achievable band ${low}/${mid}/${high} (${gap} above plausible range).${sourceTag}`;
-        } else {
-          els.censusAdvisoryStatus.textContent = advisoryPace.feasible
-            ? `Assumption advisory ready. Signal coverage ${coverageText}. Required APH ${req} vs adjusted APH ${adj} (${buffer} buffer).${sourceTag}`
-            : `Assumption advisory ready. Signal coverage ${coverageText}. Required APH ${req} vs adjusted APH ${adj} (${gap} shortfall).${sourceTag}`;
-        }
-      } else if (hasAph){
-        const pct = `${(Number(advisory.aph.deltaPct) * 100).toFixed(1)}%`;
-        els.censusAdvisoryStatus.textContent = `Assumption advisory ready. Signal coverage ${coverageText}. Environment-adjusted APH delta ${pct}.`;
-      } else {
-        els.censusAdvisoryStatus.textContent = `Assumption advisory ready. Signal coverage ${coverageText}. APH advisory unavailable until doors/hour and calls/hour are set.`;
-      }
-    }
+    els.censusAdvisoryStatus.classList.add(advisoryStatusView.level);
+    els.censusAdvisoryStatus.textContent = advisoryStatusView.text;
   }
 
+  const mapStatusView = buildCensusMapStatusView(s);
   if (els.censusMapStatus){
-    const boundarySupported = resolutionSupportsBoundaryOverlay(s.resolution);
     els.censusMapStatus.classList.remove("ok", "warn", "bad", "muted");
-    if (!boundarySupported){
-      els.censusMapStatus.classList.add("muted");
-    } else if (mapRuntimeStatus.error){
-      els.censusMapStatus.classList.add("bad");
-    } else if (mapRuntimeStatus.loading || mapRuntimeStatus.qaLoading){
-      els.censusMapStatus.classList.add("warn");
-    } else if (cleanText(mapRuntimeStatus.qaText).toLowerCase().includes("unavailable")){
-      els.censusMapStatus.classList.add("warn");
-    } else {
-      els.censusMapStatus.classList.add("muted");
-    }
-    const selectedKey = mapSelectionKey(s);
-    const qaText = cleanText(mapRuntimeStatus.qaText);
-    if (!boundarySupported){
-      const label = RESOLUTION_LABEL_BY_ID[cleanText(s.resolution)] || cleanText(s.resolution) || "selected resolution";
-      els.censusMapStatus.textContent = `Boundary overlay unavailable for ${label}. Use place, tract, or block group for map overlays.`;
-    } else if (!mapRuntimeStatus.loading && mapLoadedSelectionKey && selectedKey !== mapLoadedSelectionKey && !mapRuntimeStatus.error){
-      const base = "Selection changed. Reload boundaries to refresh map.";
-      els.censusMapStatus.textContent = qaText ? `${base} ${qaText}` : base;
-    } else {
-      const base = mapRuntimeStatus.error || mapRuntimeStatus.text;
-      els.censusMapStatus.textContent = qaText ? `${base} ${qaText}` : base;
-    }
+    els.censusMapStatus.classList.add(mapStatusView.level);
+    els.censusMapStatus.textContent = mapStatusView.text;
   }
 
   if (els.censusMapQaVtdZipStatus){
@@ -2067,7 +2514,8 @@ export function renderCensusPhase1Module({ els, state, res } = {}){
     els.censusMapQaVtdZipStatus.textContent = mapQaVtdUpload.statusText || "No VTD ZIP loaded. VTD QA overlay source is TIGERweb.";
   }
 
-  if (els.censusMap && mapInstance && mapHost === els.censusMap && typeof mapInstance.invalidateSize === "function"){
+  const mapContainer = resolveCensusMapContainer(els);
+  if (mapContainer && mapInstance && mapHost === mapContainer && typeof mapInstance.invalidateSize === "function"){
     mapInstance.invalidateSize(false);
   }
 
@@ -2076,25 +2524,61 @@ export function renderCensusPhase1Module({ els, state, res } = {}){
   const guideText = `Election CSV schema ${guide?.schemaVersion || "v1"}: ${guideFormatCount} supported format(s) (long and wide).`;
 
   const dryRunStatusText = cleanText(electionCsvDryRun.statusText) || "No dry-run run yet.";
-  const mapStatusText = cleanText(els?.censusMapStatus?.textContent) || cleanText(mapRuntimeStatus.error || mapRuntimeStatus.text) || "Map idle. Select GEO units and click Load boundaries.";
-  const mapQaStatusText = cleanText(els?.censusMapQaVtdZipStatus?.textContent) || cleanText(mapQaVtdUpload.statusText) || "No VTD ZIP loaded. VTD QA overlay source is TIGERweb.";
+  const mapStatusText = mapStatusView.text;
+  const mapQaStatusText = cleanText(mapQaVtdUpload.statusText) || "No VTD ZIP loaded. VTD QA overlay source is TIGERweb.";
 
   const allRecordsForMeta = Array.isArray(electionCsvDryRun.records) ? electionCsvDryRun.records : [];
   const filteredForMeta = filterElectionDryRunRecords(allRecordsForMeta, electionCsvDryRun.precinctFilter);
   const formatLabel = cleanText(electionCsvDryRun.format) || "—";
   const fileLabel = cleanText(electionCsvDryRun.fileName) || "none";
-  const parseCount = Number.isFinite(Number(electionCsvDryRun.parsedRows)) ? Math.max(0, Math.floor(Number(electionCsvDryRun.parsedRows))) : 0;
-  const normalizedCount = Number.isFinite(Number(electionCsvDryRun.normalizedRows)) ? Math.max(0, Math.floor(Number(electionCsvDryRun.normalizedRows))) : 0;
+  const parseCount = Number.isFinite(Number(electionCsvDryRun.parsedRows)) ? Math.max(0, floorCensusInt(electionCsvDryRun.parsedRows, 0)) : 0;
+  const normalizedCount = Number.isFinite(Number(electionCsvDryRun.normalizedRows)) ? Math.max(0, floorCensusInt(electionCsvDryRun.normalizedRows, 0)) : 0;
   const errCount = Array.isArray(electionCsvDryRun.errors) ? electionCsvDryRun.errors.length : 0;
   const warnCount = Array.isArray(electionCsvDryRun.warnings) ? electionCsvDryRun.warnings.length : 0;
   const filterLabel = cleanText(electionCsvDryRun.precinctFilter);
   const filterText = filterLabel ? ` · Precinct filter: ${filterLabel} (${filteredForMeta.rows.length.toLocaleString("en-US")} match)` : "";
   const electionPreviewMetaText = `File: ${fileLabel} · Format: ${formatLabel} · Parsed rows: ${parseCount.toLocaleString("en-US")} · Normalized rows: ${normalizedCount.toLocaleString("en-US")} · Errors: ${errCount} · Warnings: ${warnCount}${filterText}`;
 
+  s.bridgeApiKey = cleanText(s.bridgeApiKey) || cleanText(storedKey);
+  s.bridgeGeoPaste = cleanText(s.bridgeGeoPaste || els?.censusGeoPaste?.value);
+  s.bridgeElectionCsvPrecinctFilter = cleanText(electionCsvDryRun.precinctFilter);
+  s.bridgeStateOptions = buildStateRows(stateRows).map((row) => ({
+    value: cleanText(row?.value),
+    label: cleanText(row?.label || row?.value),
+  }));
+  s.bridgeCountyOptions = buildSubRows(countyRows).map((row) => ({
+    value: cleanText(row?.value),
+    label: cleanText(row?.label || row?.value),
+  }));
+  s.bridgePlaceOptions = buildSubRows(placeRows).map((row) => ({
+    value: cleanText(row?.value),
+    label: cleanText(row?.label || row?.value),
+  }));
+  s.bridgeTractFilterOptions = tractRows.map((row) => ({
+    value: cleanText(row?.value),
+    label: cleanText(row?.label || row?.value),
+  }));
+  s.bridgeSelectionSetOptions = setRows.map((row) => ({
+    value: cleanText(row?.value),
+    label: cleanText(row?.label || row?.value),
+  }));
+  s.bridgeGeoSelectOptions = filteredGeoOptions.map((row) => {
+    const geoid = cleanText(row?.geoid);
+    return {
+      value: geoid,
+      label: cleanText(row?.label || row?.name || geoid),
+      selected: s.selectedGeoids.includes(geoid),
+    };
+  });
   s.bridgeAggregateRows = tableRows.map((row) => [cleanText(row?.label), cleanText(row?.valueText)]);
-  s.bridgeAdvisoryRows = extractBridgeTableRows(els?.censusAdvisoryTbody, 2);
-  s.bridgeElectionPreviewRows = extractBridgeTableRows(els?.censusElectionCsvPreviewTbody, 4);
-  s.bridgeAdvisoryStatusText = cleanText(els?.censusAdvisoryStatus?.textContent) || "Assumption advisory pending: select GEO units and fetch ACS rows.";
+  s.bridgeAdvisoryRows = advisoryRows.map((row) => [cleanText(row?.label), cleanText(row?.value)]);
+  s.bridgeElectionPreviewRows = electionPreviewRows.map((row) => [
+    cleanText(row?.precinct),
+    cleanText(row?.candidate),
+    cleanText(row?.votesText),
+    cleanText(row?.totalText),
+  ]);
+  s.bridgeAdvisoryStatusText = advisoryStatusView.text;
   s.bridgeElectionCsvGuideStatusText = guideText;
   s.bridgeElectionCsvDryRunStatusText = dryRunStatusText;
   s.bridgeElectionCsvPreviewMetaText = electionPreviewMetaText;
@@ -2270,7 +2754,7 @@ async function onFetchRows({ s, key, getState, commitUIUpdate }){
       const preview = missing.slice(0, 8).join(", ");
       const extra = missing.length > 8 ? ` +${missing.length - 8} more` : "";
       const coveragePct = Number(variableResolution.coveragePct);
-      const coverageText = Number.isFinite(coveragePct) ? `${(coveragePct * 100).toFixed(0)}%` : "partial";
+      const coverageText = formatPercentFromUnit(coveragePct, 0, "partial");
       setStatus(
         current,
         `Loaded ${current.loadedRowCount} ACS rows for ${currentResolutionLabel} using bundle ${activeMetricSet}. Bundle fallback active (${coverageText} vars present); missing: ${preview}${extra}.${auditSummaryText}`,
@@ -2307,7 +2791,13 @@ export function wireCensusPhase1EventsModule(ctx){
     }
     return (initialState && typeof initialState === "object") ? initialState : null;
   };
-  if (!els || !currentState() || typeof commitUIUpdate !== "function") return;
+  if (!els || !currentState() || typeof commitUIUpdate !== "function"){
+    censusRuntimeBridgeRunAction = null;
+    return;
+  }
+  censusRuntimeBridgeEls = els;
+  censusRuntimeBridgeGetState = currentState;
+  censusRuntimeBridgeCommitUIUpdate = commitUIUpdate;
 
   const withState = (fn) => {
     const state = currentState();
@@ -2321,6 +2811,470 @@ export function wireCensusPhase1EventsModule(ctx){
       const targeting = ensureTargetingState(state);
       fn(state, s, targeting);
     });
+  };
+  const getCensusApiKeyForActions = () => {
+    const s = ensureCensusStateModule(currentState());
+    return cleanText(s?.bridgeApiKey) || cleanText(els.censusApiKey?.value) || readCensusApiKeyModule();
+  };
+
+  const runCensusLoadGeoAction = async () => {
+    const key = getCensusApiKeyForActions();
+    if (!key){
+      withState((_, s) => {
+        setStatus(s, "Enter Census API key first.", true);
+      });
+      commitUIUpdate();
+      return false;
+    }
+    let s = ensureCensusStateModule(currentState());
+    if (!s) return false;
+    try{
+      await ensureStateOptions(key);
+      await loadStateScopedLists(s, key);
+    } catch (err){
+      s = ensureCensusStateModule(currentState());
+      if (s){
+        setStatus(s, cleanText(err?.message) || "Failed to refresh state lookups.", true);
+        commitUIUpdate();
+      }
+      return false;
+    }
+    s = ensureCensusStateModule(currentState());
+    if (!s) return false;
+    await onLoadGeo({ s, key, getState: currentState, commitUIUpdate });
+    return true;
+  };
+
+  const runCensusFetchRowsAction = async () => {
+    const key = getCensusApiKeyForActions();
+    if (!key){
+      withState((_, s) => {
+        setStatus(s, "Enter Census API key first.", true);
+      });
+      commitUIUpdate();
+      return false;
+    }
+    const s = ensureCensusStateModule(currentState());
+    if (!s) return false;
+    await onFetchRows({ s, key, getState: currentState, commitUIUpdate });
+    return true;
+  };
+
+  const runCensusSelectAllAction = () => {
+    withState((_, s) => {
+      disableCensusApplyAdjustments(s);
+      const filteredGeoOptions = filterGeoOptions(s.geoOptions, {
+        search: s.geoSearch,
+        tractFilter: s.tractFilter,
+      });
+      s.selectedGeoids = filteredGeoOptions.map((row) => cleanText(row.geoid));
+      setStatus(s, `Selected ${s.selectedGeoids.length} GEO units.`, false);
+    });
+    commitUIUpdate();
+    return true;
+  };
+
+  const runCensusClearSelectionAction = () => {
+    withState((_, s) => {
+      disableCensusApplyAdjustments(s);
+      s.selectedGeoids = [];
+      setStatus(s, "Selection cleared.", false);
+    });
+    commitUIUpdate();
+    return true;
+  };
+
+  const runCensusSetRaceFootprintAction = () => {
+    withState((state, s) => {
+      const footprint = liveRaceFootprintFromCensusState(s, { updatedAt: new Date().toISOString() });
+      if (!footprint.geoids.length){
+        setStatus(s, "Select one or more GEO units before setting race footprint.", true);
+        return;
+      }
+      if (!footprint.rowCount || !footprint.rowsKey){
+        setStatus(s, "Fetch ACS rows before setting race footprint.", true);
+        return;
+      }
+      state.raceFootprint = footprint;
+      const runtimeRows = getRowsForState(s);
+      const population = selectedPopulationFromRows(runtimeRows, footprint.geoids);
+      state.footprintCapacity = normalizeFootprintCapacity({
+        source: "census_phase1",
+        population,
+        year: cleanText(s.year),
+        metricSet: cleanText(s.metricSet),
+        raceFootprintFingerprint: footprint.fingerprint,
+        censusRowsKey: footprint.rowsKey,
+        updatedAt: new Date().toISOString(),
+      });
+      const provenance = ensureAssumptionProvenance(state);
+      provenance.source = "census_phase1";
+      provenance.raceFootprintFingerprint = footprint.fingerprint;
+      provenance.censusRowsKey = footprint.rowsKey;
+      provenance.acsYear = cleanText(s.year);
+      provenance.metricSet = cleanText(s.metricSet);
+      provenance.generatedAt = "";
+      if (Number.isFinite(Number(population))){
+        setStatus(s, `Race footprint set (${footprint.geoids.length} GEOs, pop ${formatCensusWhole(population)}).`, false);
+      } else {
+        setStatus(s, `Race footprint set (${footprint.geoids.length} GEOs). Population unavailable for current ACS rows.`, false);
+      }
+    });
+    commitUIUpdate();
+    return true;
+  };
+
+  const runCensusClearRaceFootprintAction = () => {
+    withState((state, s) => {
+      disableCensusApplyAdjustments(s);
+      state.raceFootprint = makeDefaultRaceFootprint();
+      state.assumptionsProvenance = makeDefaultAssumptionProvenance();
+      state.footprintCapacity = makeDefaultFootprintCapacity();
+      setStatus(s, "Race footprint cleared.", false);
+    });
+    commitUIUpdate();
+    return true;
+  };
+
+  const runCensusDownloadElectionCsvTemplateAction = () => {
+    withState((_, s) => {
+      const csv = buildElectionCsvTemplate();
+      const ok = downloadTextFile(csv, `election-results-template-${fileStamp()}.csv`, "text/csv");
+      setStatus(s, ok ? "Election CSV template downloaded." : "Election CSV template download failed.", !ok);
+    });
+    commitUIUpdate({ persist: false });
+    return true;
+  };
+
+  const runCensusDownloadElectionCsvWideTemplateAction = () => {
+    withState((_, s) => {
+      const csv = buildElectionCsvWideTemplate();
+      const ok = downloadTextFile(csv, `election-results-wide-template-${fileStamp()}.csv`, "text/csv");
+      setStatus(s, ok ? "Election wide-format CSV template downloaded." : "Election wide-format CSV template download failed.", !ok);
+    });
+    commitUIUpdate({ persist: false });
+    return true;
+  };
+
+  const runCensusElectionDryRunAction = async () => {
+    const seq = ++electionCsvRequestSeq;
+    const file = els.censusElectionCsvFile?.files?.[0] || censusRuntimeFileCache.electionCsvFile;
+    const state = currentState();
+    const s = ensureCensusStateModule(state);
+    if (!file || !s){
+      setElectionCsvDryRunStatus("Select an election CSV file first.", "warn");
+      commitUIUpdate({ persist: false });
+      return false;
+    }
+    setElectionCsvDryRunStatus(`Running dry-run parse for ${cleanText(file.name)}...`, "warn");
+    commitUIUpdate({ persist: false });
+    try{
+      const text = await readTextFile(file);
+      if (seq !== electionCsvRequestSeq) return false;
+      const parsed = parseCsvText(text, { maxRows: 500000 });
+      electionCsvDryRun.fileName = cleanText(file.name);
+      electionCsvDryRun.fileSize = Number.isFinite(Number(file.size)) ? Math.max(0, Number(file.size)) : 0;
+      electionCsvDryRun.fileUpdatedAt = new Date().toISOString();
+      electionCsvDryRun.parsedRows = Array.isArray(parsed.rows) ? parsed.rows.length : 0;
+      if (!parsed.ok){
+        electionCsvDryRun.format = "";
+        electionCsvDryRun.normalizedRows = 0;
+        electionCsvDryRun.records = [];
+        electionCsvDryRun.errors = Array.isArray(parsed.errors) ? parsed.errors.slice(0, 200) : [];
+        electionCsvDryRun.warnings = Array.isArray(parsed.warnings) ? parsed.warnings.slice(0, 200) : [];
+        const first = cleanText(electionCsvDryRun.errors[0]) || "parse failed.";
+        setElectionCsvDryRunStatus(`Dry-run failed: ${first}`, "bad");
+        commitUIUpdate({ persist: false });
+        return false;
+      }
+      const normalized = normalizeElectionCsvRows(parsed.rows, {
+        headers: parsed.headers,
+        context: {
+          state_fips: cleanText(s.stateFips),
+          county_fips: cleanText(s.countyFips),
+          election_date: cleanText(state?.electionDate),
+        },
+      });
+      if (seq !== electionCsvRequestSeq) return false;
+      electionCsvDryRun.format = cleanText(normalized.format) || "invalid";
+      electionCsvDryRun.records = Array.isArray(normalized.records) ? normalized.records.slice() : [];
+      electionCsvDryRun.normalizedRows = electionCsvDryRun.records.length;
+      electionCsvDryRun.errors = Array.isArray(normalized.errors) ? normalized.errors.slice(0, 200) : [];
+      electionCsvDryRun.warnings = Array.isArray(normalized.warnings) ? normalized.warnings.slice(0, 200) : [];
+      if (!normalized.ok){
+        const first = cleanText(electionCsvDryRun.errors[0]) || "validation failed.";
+        setElectionCsvDryRunStatus(`Dry-run failed (${electionCsvDryRun.format || "invalid"}): ${first}`, "bad");
+        commitUIUpdate({ persist: false });
+        return false;
+      }
+      if (electionCsvDryRun.warnings.length){
+        setElectionCsvDryRunStatus(`Dry-run parsed ${electionCsvDryRun.normalizedRows.toLocaleString("en-US")} normalized candidate rows (${electionCsvDryRun.format} format) with ${electionCsvDryRun.warnings.length} warning(s).`, "warn");
+      } else {
+        setElectionCsvDryRunStatus(`Dry-run parsed ${electionCsvDryRun.normalizedRows.toLocaleString("en-US")} normalized candidate rows (${electionCsvDryRun.format} format).`, "ok");
+      }
+    } catch (err){
+      if (seq !== electionCsvRequestSeq) return false;
+      electionCsvDryRun.records = [];
+      electionCsvDryRun.normalizedRows = 0;
+      electionCsvDryRun.errors = [cleanText(err?.message) || "Dry-run failed."];
+      setElectionCsvDryRunStatus(electionCsvDryRun.errors[0], "bad");
+    }
+    commitUIUpdate({ persist: false });
+    return true;
+  };
+
+  const runCensusElectionClearAction = () => {
+    resetElectionCsvDryRunRuntime();
+    censusRuntimeFileCache.electionCsvFile = null;
+    if (els.censusElectionCsvFile) els.censusElectionCsvFile.value = "";
+    commitUIUpdate({ persist: false });
+    return true;
+  };
+
+  const runCensusApplyGeoPasteAction = () => {
+    withState((_, s) => {
+      disableCensusApplyAdjustments(s);
+      const pasteText = cleanText(s.bridgeGeoPaste || els.censusGeoPaste?.value);
+      const parsed = parseGeoidInput(pasteText, s.resolution);
+      if (!parsed.length){
+        setStatus(s, "No valid GEOIDs detected in paste input.", true);
+        return;
+      }
+      const available = new Set((s.geoOptions || []).map((row) => cleanText(row.geoid)));
+      const matched = parsed.filter((id) => available.has(id));
+      if (!matched.length){
+        setStatus(s, "Pasted GEOIDs did not match loaded GEO list.", true);
+        return;
+      }
+      s.selectedGeoids = matched;
+      const unmatched = parsed.length - matched.length;
+      setStatus(s, unmatched > 0
+        ? `Applied GEOIDs: ${matched.length} matched, ${unmatched} unmatched.`
+        : `Applied GEOIDs: ${matched.length} matched.`, false);
+    });
+    commitUIUpdate();
+    return true;
+  };
+
+  const runCensusSaveSelectionSetAction = () => {
+    withState((_, s) => {
+      const name = cleanText(s.selectionSetDraftName || els.censusSelectionSetName?.value);
+      const geoids = uniqueGeoids(s.selectedGeoids);
+      if (!name){
+        setStatus(s, "Enter a set name before saving.", true);
+        return;
+      }
+      if (!geoids.length){
+        setStatus(s, "Select GEO units before saving a set.", true);
+        return;
+      }
+      const rows = Array.isArray(s.selectionSets) ? s.selectionSets.slice() : [];
+      const context = contextFingerprint(s);
+      const existingIdx = rows.findIndex((row) => cleanText(row?.name).toLowerCase() === name.toLowerCase() && setRowContextFingerprint(row) === context);
+      const record = {
+        name,
+        resolution: cleanText(s.resolution),
+        stateFips: cleanText(s.stateFips),
+        countyFips: cleanText(s.countyFips),
+        placeFips: cleanText(s.placeFips),
+        geoids,
+        updatedAt: new Date().toISOString(),
+      };
+      if (existingIdx >= 0){
+        rows[existingIdx] = record;
+        s.selectedSelectionSetKey = String(existingIdx);
+      } else {
+        rows.unshift(record);
+        if (rows.length > 50) rows.length = 50;
+        s.selectedSelectionSetKey = "0";
+      }
+      s.selectionSets = rows;
+      s.selectionSetDraftName = name;
+      setStatus(s, `Saved set "${name}" with ${geoids.length} GEO units.`, false);
+    });
+    commitUIUpdate();
+    return true;
+  };
+
+  const runCensusLoadSelectionSetAction = () => {
+    withState((_, s) => {
+      disableCensusApplyAdjustments(s);
+      const row = getSelectionSetByKey(s.selectionSets, s.selectedSelectionSetKey);
+      if (!row){
+        setStatus(s, "Select a saved set to load.", true);
+        return;
+      }
+      const available = new Set((s.geoOptions || []).map((opt) => cleanText(opt.geoid)));
+      const matched = uniqueGeoids(row.geoids).filter((id) => available.has(id));
+      if (!matched.length){
+        setStatus(s, "Saved set has no GEOIDs in current loaded list. Load matching GEO list first.", true);
+        return;
+      }
+      s.selectedGeoids = matched;
+      s.selectionSetDraftName = cleanText(row.name);
+      const missing = uniqueGeoids(row.geoids).length - matched.length;
+      setStatus(s, missing > 0
+        ? `Loaded set "${row.name}": ${matched.length} matched, ${missing} unavailable in current list.`
+        : `Loaded set "${row.name}" with ${matched.length} GEO units.`, false);
+    });
+    commitUIUpdate();
+    return true;
+  };
+
+  const runCensusDeleteSelectionSetAction = () => {
+    withState((_, s) => {
+      const idx = Number(s.selectedSelectionSetKey);
+      if (!Number.isInteger(idx) || idx < 0 || idx >= (s.selectionSets || []).length){
+        setStatus(s, "Select a saved set to delete.", true);
+        return;
+      }
+      const rows = s.selectionSets.slice();
+      const removed = rows.splice(idx, 1)[0];
+      s.selectionSets = rows;
+      s.selectedSelectionSetKey = "";
+      setStatus(s, `Deleted set "${cleanText(removed?.name) || "Unnamed"}".`, false);
+    });
+    commitUIUpdate();
+    return true;
+  };
+
+  const runCensusExportAggregateCsvAction = () => {
+    withState((_, s) => {
+      const { tableRows } = aggregateSnapshot(s);
+      if (!tableRows.length || !s.selectedGeoids.length){
+        setStatus(s, "No aggregate available to export.", true);
+        return;
+      }
+      const headers = ["metric_id", "metric_label", "value", "value_text", "format", "year", "resolution", "state_fips", "county_fips", "place_fips", "selected_geo_count"];
+      const lines = [headers.map(csvEscape).join(",")];
+      for (const row of tableRows){
+        const values = [
+          row.id,
+          row.label,
+          row.value,
+          row.valueText,
+          row.format,
+          s.year,
+          s.resolution,
+          s.stateFips,
+          s.countyFips,
+          s.placeFips,
+          s.selectedGeoids.length,
+        ];
+        lines.push(values.map(csvEscape).join(","));
+      }
+      const ok = downloadTextFile(lines.join("\n"), `${exportBaseName(s)}.csv`, "text/csv");
+      setStatus(s, ok ? "Aggregate CSV exported." : "CSV export failed.", !ok);
+    });
+    commitUIUpdate({ persist: false });
+    return true;
+  };
+
+  const runCensusExportAggregateJsonAction = () => {
+    withState((_, s) => {
+      const { tableRows } = aggregateSnapshot(s);
+      if (!tableRows.length || !s.selectedGeoids.length){
+        setStatus(s, "No aggregate available to export.", true);
+        return;
+      }
+      const payload = {
+        exportedAt: new Date().toISOString(),
+        context: {
+          year: s.year,
+          resolution: s.resolution,
+          metricSet: s.metricSet,
+          stateFips: s.stateFips,
+          countyFips: s.countyFips,
+          placeFips: s.placeFips,
+        },
+        selectedGeoids: s.selectedGeoids.slice(),
+        selectedGeoCount: s.selectedGeoids.length,
+        rowsLoaded: s.loadedRowCount,
+        metrics: tableRows.map((row) => ({
+          id: row.id,
+          label: row.label,
+          value: row.value,
+          valueText: row.valueText,
+          format: row.format,
+        })),
+      };
+      const ok = downloadTextFile(JSON.stringify(payload, null, 2), `${exportBaseName(s)}.json`, "application/json");
+      setStatus(s, ok ? "Aggregate JSON exported." : "JSON export failed.", !ok);
+    });
+    commitUIUpdate({ persist: false });
+    return true;
+  };
+
+  const runCensusLoadMapAction = async () => {
+    const s = ensureCensusStateModule(currentState());
+    if (!s) return false;
+    await onLoadMapBoundaries({ s, els, commitUIUpdate });
+    return true;
+  };
+
+  const runCensusClearMapAction = () => {
+    clearMapOverlay("Map overlay cleared.");
+    commitUIUpdate({ persist: false });
+    return true;
+  };
+
+  const runCensusClearVtdZipAction = async () => {
+    mapQaVtdUploadSeq += 1;
+    censusRuntimeFileCache.mapQaVtdZip = null;
+    clearMapQaVtdUploadRuntime();
+    if (els.censusMapQaVtdZip){
+      els.censusMapQaVtdZip.value = "";
+    }
+    const s = ensureCensusStateModule(currentState());
+    if (!s){
+      commitUIUpdate({ persist: false });
+      return false;
+    }
+    if (s.mapQaVtdOverlay && mapRuntimeStatus.featureCount > 0){
+      setStatus(s, "VTD ZIP cleared. Reloading QA overlay from TIGERweb...", false);
+      commitUIUpdate({ persist: false });
+      await onLoadMapBoundaries({ s, els, commitUIUpdate });
+      return true;
+    }
+    if (s.mapQaVtdOverlay){
+      clearMapQaOverlay("VTD ZIP cleared. Reload boundaries to draw TIGERweb QA overlay.");
+      setStatus(s, "VTD ZIP cleared. Reload boundaries to use TIGERweb QA source.", false);
+    } else {
+      setStatus(s, "VTD ZIP cleared.", false);
+    }
+    commitUIUpdate({ persist: false });
+    return true;
+  };
+
+  const censusRuntimeActionHandlers = Object.freeze({
+    loadGeo: () => { void runCensusLoadGeoAction(); return { handled: true, ok: true, code: "dispatched" }; },
+    fetchRows: () => { void runCensusFetchRowsAction(); return { handled: true, ok: true, code: "dispatched" }; },
+    applyGeoPaste: () => ({ handled: true, ok: runCensusApplyGeoPasteAction(), code: "triggered" }),
+    selectAll: () => ({ handled: true, ok: runCensusSelectAllAction(), code: "triggered" }),
+    clearSelection: () => ({ handled: true, ok: runCensusClearSelectionAction(), code: "triggered" }),
+    saveSelectionSet: () => ({ handled: true, ok: runCensusSaveSelectionSetAction(), code: "triggered" }),
+    loadSelectionSet: () => ({ handled: true, ok: runCensusLoadSelectionSetAction(), code: "triggered" }),
+    deleteSelectionSet: () => ({ handled: true, ok: runCensusDeleteSelectionSetAction(), code: "triggered" }),
+    exportAggregateCsv: () => ({ handled: true, ok: runCensusExportAggregateCsvAction(), code: "triggered" }),
+    exportAggregateJson: () => ({ handled: true, ok: runCensusExportAggregateJsonAction(), code: "triggered" }),
+    setRaceFootprint: () => ({ handled: true, ok: runCensusSetRaceFootprintAction(), code: "triggered" }),
+    clearRaceFootprint: () => ({ handled: true, ok: runCensusClearRaceFootprintAction(), code: "triggered" }),
+    downloadElectionTemplate: () => ({ handled: true, ok: runCensusDownloadElectionCsvTemplateAction(), code: "triggered" }),
+    downloadElectionWideTemplate: () => ({ handled: true, ok: runCensusDownloadElectionCsvWideTemplateAction(), code: "triggered" }),
+    electionDryRun: () => { void runCensusElectionDryRunAction(); return { handled: true, ok: true, code: "dispatched" }; },
+    electionClear: () => ({ handled: true, ok: runCensusElectionClearAction(), code: "triggered" }),
+    loadMap: () => { void runCensusLoadMapAction(); return { handled: true, ok: true, code: "dispatched" }; },
+    clearMap: () => ({ handled: true, ok: runCensusClearMapAction(), code: "triggered" }),
+    clearVtdZip: () => { void runCensusClearVtdZipAction(); return { handled: true, ok: true, code: "dispatched" }; },
+  });
+
+  censusRuntimeBridgeRunAction = (action) => {
+    const key = cleanText(action);
+    const handler = censusRuntimeActionHandlers[key];
+    if (typeof handler !== "function"){
+      return { handled: false };
+    }
+    return handler();
   };
 
   if (els.censusApiKey){
@@ -2493,6 +3447,15 @@ export function wireCensusPhase1EventsModule(ctx){
     });
   }
 
+  if (els.censusGeoPaste){
+    els.censusGeoPaste.addEventListener("input", () => {
+      withState((_, s) => {
+        s.bridgeGeoPaste = cleanText(els.censusGeoPaste.value);
+      });
+      commitUIUpdate({ persist: false });
+    });
+  }
+
   if (els.censusTractFilter){
     els.censusTractFilter.addEventListener("change", () => {
       withState((_, s) => {
@@ -2522,47 +3485,14 @@ export function wireCensusPhase1EventsModule(ctx){
   }
 
   if (els.btnCensusLoadGeo){
-    els.btnCensusLoadGeo.addEventListener("click", async () => {
-      const key = cleanText(els.censusApiKey?.value) || readCensusApiKeyModule();
-      if (!key){
-        withState((_, s) => {
-          setStatus(s, "Enter Census API key first.", true);
-        });
-        commitUIUpdate();
-        return;
-      }
-      let s = ensureCensusStateModule(currentState());
-      if (!s) return;
-      try{
-        await ensureStateOptions(key);
-        await loadStateScopedLists(s, key);
-      } catch (err){
-        s = ensureCensusStateModule(currentState());
-        if (s){
-          setStatus(s, cleanText(err?.message) || "Failed to refresh state lookups.", true);
-          commitUIUpdate();
-        }
-        return;
-      }
-      s = ensureCensusStateModule(currentState());
-      if (!s) return;
-      await onLoadGeo({ s, key, getState: currentState, commitUIUpdate });
+    els.btnCensusLoadGeo.addEventListener("click", () => {
+      void runCensusLoadGeoAction();
     });
   }
 
   if (els.btnCensusFetchRows){
-    els.btnCensusFetchRows.addEventListener("click", async () => {
-      const key = cleanText(els.censusApiKey?.value) || readCensusApiKeyModule();
-      if (!key){
-        withState((_, s) => {
-          setStatus(s, "Enter Census API key first.", true);
-        });
-        commitUIUpdate();
-        return;
-      }
-      const s = ensureCensusStateModule(currentState());
-      if (!s) return;
-      await onFetchRows({ s, key, getState: currentState, commitUIUpdate });
+    els.btnCensusFetchRows.addEventListener("click", () => {
+      void runCensusFetchRowsAction();
     });
   }
 
@@ -2579,81 +3509,25 @@ export function wireCensusPhase1EventsModule(ctx){
 
   if (els.btnCensusSelectAll){
     els.btnCensusSelectAll.addEventListener("click", () => {
-      withState((_, s) => {
-        disableCensusApplyAdjustments(s);
-        const filteredGeoOptions = filterGeoOptions(s.geoOptions, {
-          search: s.geoSearch,
-          tractFilter: s.tractFilter,
-        });
-        s.selectedGeoids = filteredGeoOptions.map((row) => cleanText(row.geoid));
-        setStatus(s, `Selected ${s.selectedGeoids.length} GEO units.`, false);
-      });
-      commitUIUpdate();
+      runCensusSelectAllAction();
     });
   }
 
   if (els.btnCensusClearSelection){
     els.btnCensusClearSelection.addEventListener("click", () => {
-      withState((_, s) => {
-        disableCensusApplyAdjustments(s);
-        s.selectedGeoids = [];
-        setStatus(s, "Selection cleared.", false);
-      });
-      commitUIUpdate();
+      runCensusClearSelectionAction();
     });
   }
 
   if (els.btnCensusSetRaceFootprint){
     els.btnCensusSetRaceFootprint.addEventListener("click", () => {
-      withState((state, s) => {
-        const footprint = liveRaceFootprintFromCensusState(s, { updatedAt: new Date().toISOString() });
-        if (!footprint.geoids.length){
-          setStatus(s, "Select one or more GEO units before setting race footprint.", true);
-          return;
-        }
-        if (!footprint.rowCount || !footprint.rowsKey){
-          setStatus(s, "Fetch ACS rows before setting race footprint.", true);
-          return;
-        }
-        state.raceFootprint = footprint;
-        const runtimeRows = getRowsForState(s);
-        const population = selectedPopulationFromRows(runtimeRows, footprint.geoids);
-        state.footprintCapacity = normalizeFootprintCapacity({
-          source: "census_phase1",
-          population,
-          year: cleanText(s.year),
-          metricSet: cleanText(s.metricSet),
-          raceFootprintFingerprint: footprint.fingerprint,
-          censusRowsKey: footprint.rowsKey,
-          updatedAt: new Date().toISOString(),
-        });
-        const provenance = ensureAssumptionProvenance(state);
-        provenance.source = "census_phase1";
-        provenance.raceFootprintFingerprint = footprint.fingerprint;
-        provenance.censusRowsKey = footprint.rowsKey;
-        provenance.acsYear = cleanText(s.year);
-        provenance.metricSet = cleanText(s.metricSet);
-        provenance.generatedAt = "";
-        if (Number.isFinite(Number(population))){
-          setStatus(s, `Race footprint set (${footprint.geoids.length} GEOs, pop ${Math.round(Number(population)).toLocaleString("en-US")}).`, false);
-        } else {
-          setStatus(s, `Race footprint set (${footprint.geoids.length} GEOs). Population unavailable for current ACS rows.`, false);
-        }
-      });
-      commitUIUpdate();
+      runCensusSetRaceFootprintAction();
     });
   }
 
   if (els.btnCensusClearRaceFootprint){
     els.btnCensusClearRaceFootprint.addEventListener("click", () => {
-      withState((state, s) => {
-        disableCensusApplyAdjustments(s);
-        state.raceFootprint = makeDefaultRaceFootprint();
-        state.assumptionsProvenance = makeDefaultAssumptionProvenance();
-        state.footprintCapacity = makeDefaultFootprintCapacity();
-        setStatus(s, "Race footprint cleared.", false);
-      });
-      commitUIUpdate();
+      runCensusClearRaceFootprintAction();
     });
   }
 
@@ -2667,19 +3541,12 @@ export function wireCensusPhase1EventsModule(ctx){
           return;
         }
         const { runtimeRows, aggregate } = aggregateSnapshot(s);
-        const canonicalDoorShare = (() => {
-          const rawPct = Number(state?.channelDoorPct);
-          if (Number.isFinite(rawPct)){
-            const pct = Math.min(100, Math.max(0, rawPct));
-            return pct / 100;
-          }
-          return 0.5;
-        })();
+        const canonicalDoorShare = resolveCanonicalDoorShareUnit(state, { fallback: 0.5 }) ?? 0.5;
         const advisory = buildCensusAssumptionAdvisory({
           aggregate,
           doorShare: canonicalDoorShare,
-          doorsPerHour: Number(state?.doorsPerHour3 ?? state?.doorsPerHour),
-          callsPerHour: Number(state?.callsPerHour3),
+          doorsPerHour: resolveCanonicalDoorsPerHour(state),
+          callsPerHour: resolveCanonicalCallsPerHour(state),
           rowsByGeoid: runtimeRows,
           selectedGeoids: s.selectedGeoids,
         });
@@ -2700,7 +3567,7 @@ export function wireCensusPhase1EventsModule(ctx){
         s.applyAdjustedAssumptions = true;
         setStatus(
           s,
-          `Census-adjusted assumptions ON (DPH ${multipliers.doorsPerHour.toFixed(2)}x, contact ${multipliers.contactRate.toFixed(2)}x, persuasion ${multipliers.persuasion.toFixed(2)}x, turnout ${multipliers.turnoutLift.toFixed(2)}x, organizer load ${multipliers.organizerLoad.toFixed(2)}x).`,
+          `Census-adjusted assumptions ON (${formatCensusApplyMultiplierSummary(multipliers)}).`,
           false,
         );
       });
@@ -2710,29 +3577,20 @@ export function wireCensusPhase1EventsModule(ctx){
 
   if (els.btnCensusDownloadElectionCsvTemplate){
     els.btnCensusDownloadElectionCsvTemplate.addEventListener("click", () => {
-      withState((_, s) => {
-        const csv = buildElectionCsvTemplate();
-        const ok = downloadTextFile(csv, `election-results-template-${fileStamp()}.csv`, "text/csv");
-        setStatus(s, ok ? "Election CSV template downloaded." : "Election CSV template download failed.", !ok);
-      });
-      commitUIUpdate({ persist: false });
+      runCensusDownloadElectionCsvTemplateAction();
     });
   }
 
   if (els.btnCensusDownloadElectionCsvWideTemplate){
     els.btnCensusDownloadElectionCsvWideTemplate.addEventListener("click", () => {
-      withState((_, s) => {
-        const csv = buildElectionCsvWideTemplate();
-        const ok = downloadTextFile(csv, `election-results-wide-template-${fileStamp()}.csv`, "text/csv");
-        setStatus(s, ok ? "Election wide-format CSV template downloaded." : "Election wide-format CSV template download failed.", !ok);
-      });
-      commitUIUpdate({ persist: false });
+      runCensusDownloadElectionCsvWideTemplateAction();
     });
   }
 
   if (els.censusElectionCsvFile){
     els.censusElectionCsvFile.addEventListener("change", () => {
       const file = els.censusElectionCsvFile?.files?.[0];
+      censusRuntimeFileCache.electionCsvFile = file || null;
       if (!file){
         resetElectionCsvDryRunRuntime();
         commitUIUpdate({ persist: false });
@@ -2747,7 +3605,7 @@ export function wireCensusPhase1EventsModule(ctx){
       electionCsvDryRun.errors = [];
       electionCsvDryRun.warnings = [];
       electionCsvDryRun.records = [];
-      setElectionCsvDryRunStatus(`Selected file ${electionCsvDryRun.fileName} (${Math.round(electionCsvDryRun.fileSize / 1024).toLocaleString("en-US")} KB).`, "muted");
+      setElectionCsvDryRunStatus(`Selected file ${electionCsvDryRun.fileName} (${formatCensusFileSizeKb(electionCsvDryRun.fileSize)}).`, "muted");
       commitUIUpdate({ persist: false });
     });
   }
@@ -2760,264 +3618,57 @@ export function wireCensusPhase1EventsModule(ctx){
   }
 
   if (els.btnCensusElectionCsvDryRun){
-    els.btnCensusElectionCsvDryRun.addEventListener("click", async () => {
-      const seq = ++electionCsvRequestSeq;
-      const file = els.censusElectionCsvFile?.files?.[0];
-      const state = currentState();
-      const s = ensureCensusStateModule(state);
-      if (!file || !s){
-        setElectionCsvDryRunStatus("Select an election CSV file first.", "warn");
-        commitUIUpdate({ persist: false });
-        return;
-      }
-      setElectionCsvDryRunStatus(`Running dry-run parse for ${cleanText(file.name)}...`, "warn");
-      commitUIUpdate({ persist: false });
-      try{
-        const text = await readTextFile(file);
-        if (seq !== electionCsvRequestSeq) return;
-        const parsed = parseCsvText(text, { maxRows: 500000 });
-        electionCsvDryRun.fileName = cleanText(file.name);
-        electionCsvDryRun.fileSize = Number.isFinite(Number(file.size)) ? Math.max(0, Number(file.size)) : 0;
-        electionCsvDryRun.fileUpdatedAt = new Date().toISOString();
-        electionCsvDryRun.parsedRows = Array.isArray(parsed.rows) ? parsed.rows.length : 0;
-        if (!parsed.ok){
-          electionCsvDryRun.format = "";
-          electionCsvDryRun.normalizedRows = 0;
-          electionCsvDryRun.records = [];
-          electionCsvDryRun.errors = Array.isArray(parsed.errors) ? parsed.errors.slice(0, 200) : [];
-          electionCsvDryRun.warnings = Array.isArray(parsed.warnings) ? parsed.warnings.slice(0, 200) : [];
-          const first = cleanText(electionCsvDryRun.errors[0]) || "parse failed.";
-          setElectionCsvDryRunStatus(`Dry-run failed: ${first}`, "bad");
-          commitUIUpdate({ persist: false });
-          return;
-        }
-        const normalized = normalizeElectionCsvRows(parsed.rows, {
-          headers: parsed.headers,
-          context: {
-            state_fips: cleanText(s.stateFips),
-            county_fips: cleanText(s.countyFips),
-            election_date: cleanText(state?.electionDate),
-          },
-        });
-        if (seq !== electionCsvRequestSeq) return;
-        electionCsvDryRun.format = cleanText(normalized.format) || "invalid";
-        electionCsvDryRun.records = Array.isArray(normalized.records) ? normalized.records.slice() : [];
-        electionCsvDryRun.normalizedRows = electionCsvDryRun.records.length;
-        electionCsvDryRun.errors = Array.isArray(normalized.errors) ? normalized.errors.slice(0, 200) : [];
-        electionCsvDryRun.warnings = Array.isArray(normalized.warnings) ? normalized.warnings.slice(0, 200) : [];
-        if (!normalized.ok){
-          const first = cleanText(electionCsvDryRun.errors[0]) || "validation failed.";
-          setElectionCsvDryRunStatus(`Dry-run failed (${electionCsvDryRun.format || "invalid"}): ${first}`, "bad");
-          commitUIUpdate({ persist: false });
-          return;
-        }
-        if (electionCsvDryRun.warnings.length){
-          setElectionCsvDryRunStatus(`Dry-run parsed ${electionCsvDryRun.normalizedRows.toLocaleString("en-US")} normalized candidate rows (${electionCsvDryRun.format} format) with ${electionCsvDryRun.warnings.length} warning(s).`, "warn");
-        } else {
-          setElectionCsvDryRunStatus(`Dry-run parsed ${electionCsvDryRun.normalizedRows.toLocaleString("en-US")} normalized candidate rows (${electionCsvDryRun.format} format).`, "ok");
-        }
-      } catch (err){
-        if (seq !== electionCsvRequestSeq) return;
-        electionCsvDryRun.records = [];
-        electionCsvDryRun.normalizedRows = 0;
-        electionCsvDryRun.errors = [cleanText(err?.message) || "Dry-run failed."];
-        setElectionCsvDryRunStatus(electionCsvDryRun.errors[0], "bad");
-      }
-      commitUIUpdate({ persist: false });
+    els.btnCensusElectionCsvDryRun.addEventListener("click", () => {
+      void runCensusElectionDryRunAction();
     });
   }
 
   if (els.btnCensusElectionCsvClear){
     els.btnCensusElectionCsvClear.addEventListener("click", () => {
-      resetElectionCsvDryRunRuntime();
-      if (els.censusElectionCsvFile) els.censusElectionCsvFile.value = "";
-      commitUIUpdate({ persist: false });
+      runCensusElectionClearAction();
     });
   }
 
   if (els.btnCensusApplyGeoPaste){
     els.btnCensusApplyGeoPaste.addEventListener("click", () => {
-      withState((_, s) => {
-        disableCensusApplyAdjustments(s);
-        const parsed = parseGeoidInput(els.censusGeoPaste?.value, s.resolution);
-        if (!parsed.length){
-          setStatus(s, "No valid GEOIDs detected in paste input.", true);
-          return;
-        }
-        const available = new Set((s.geoOptions || []).map((row) => cleanText(row.geoid)));
-        const matched = parsed.filter((id) => available.has(id));
-        if (!matched.length){
-          setStatus(s, "Pasted GEOIDs did not match loaded GEO list.", true);
-          return;
-        }
-        s.selectedGeoids = matched;
-        const unmatched = parsed.length - matched.length;
-        setStatus(s, unmatched > 0
-          ? `Applied GEOIDs: ${matched.length} matched, ${unmatched} unmatched.`
-          : `Applied GEOIDs: ${matched.length} matched.`, false);
-      });
-      commitUIUpdate();
+      runCensusApplyGeoPasteAction();
     });
   }
 
   if (els.btnCensusSaveSelectionSet){
     els.btnCensusSaveSelectionSet.addEventListener("click", () => {
-      withState((_, s) => {
-        const name = cleanText(s.selectionSetDraftName || els.censusSelectionSetName?.value);
-        const geoids = uniqueGeoids(s.selectedGeoids);
-        if (!name){
-          setStatus(s, "Enter a set name before saving.", true);
-          return;
-        }
-        if (!geoids.length){
-          setStatus(s, "Select GEO units before saving a set.", true);
-          return;
-        }
-        const rows = Array.isArray(s.selectionSets) ? s.selectionSets.slice() : [];
-        const context = contextFingerprint(s);
-        const existingIdx = rows.findIndex((row) => cleanText(row?.name).toLowerCase() === name.toLowerCase() && setRowContextFingerprint(row) === context);
-        const record = {
-          name,
-          resolution: cleanText(s.resolution),
-          stateFips: cleanText(s.stateFips),
-          countyFips: cleanText(s.countyFips),
-          placeFips: cleanText(s.placeFips),
-          geoids,
-          updatedAt: new Date().toISOString(),
-        };
-        if (existingIdx >= 0){
-          rows[existingIdx] = record;
-          s.selectedSelectionSetKey = String(existingIdx);
-        } else {
-          rows.unshift(record);
-          if (rows.length > 50) rows.length = 50;
-          s.selectedSelectionSetKey = "0";
-        }
-        s.selectionSets = rows;
-        s.selectionSetDraftName = name;
-        setStatus(s, `Saved set "${name}" with ${geoids.length} GEO units.`, false);
-      });
-      commitUIUpdate();
+      runCensusSaveSelectionSetAction();
     });
   }
 
   if (els.btnCensusLoadSelectionSet){
     els.btnCensusLoadSelectionSet.addEventListener("click", () => {
-      withState((_, s) => {
-        disableCensusApplyAdjustments(s);
-        const row = getSelectionSetByKey(s.selectionSets, s.selectedSelectionSetKey);
-        if (!row){
-          setStatus(s, "Select a saved set to load.", true);
-          return;
-        }
-        const available = new Set((s.geoOptions || []).map((opt) => cleanText(opt.geoid)));
-        const matched = uniqueGeoids(row.geoids).filter((id) => available.has(id));
-        if (!matched.length){
-          setStatus(s, "Saved set has no GEOIDs in current loaded list. Load matching GEO list first.", true);
-          return;
-        }
-        s.selectedGeoids = matched;
-        s.selectionSetDraftName = cleanText(row.name);
-        const missing = uniqueGeoids(row.geoids).length - matched.length;
-        setStatus(s, missing > 0
-          ? `Loaded set "${row.name}": ${matched.length} matched, ${missing} unavailable in current list.`
-          : `Loaded set "${row.name}" with ${matched.length} GEO units.`, false);
-      });
-      commitUIUpdate();
+      runCensusLoadSelectionSetAction();
     });
   }
 
   if (els.btnCensusDeleteSelectionSet){
     els.btnCensusDeleteSelectionSet.addEventListener("click", () => {
-      withState((_, s) => {
-        const idx = Number(s.selectedSelectionSetKey);
-        if (!Number.isInteger(idx) || idx < 0 || idx >= (s.selectionSets || []).length){
-          setStatus(s, "Select a saved set to delete.", true);
-          return;
-        }
-        const rows = s.selectionSets.slice();
-        const removed = rows.splice(idx, 1)[0];
-        s.selectionSets = rows;
-        s.selectedSelectionSetKey = "";
-        setStatus(s, `Deleted set "${cleanText(removed?.name) || "Unnamed"}".`, false);
-      });
-      commitUIUpdate();
+      runCensusDeleteSelectionSetAction();
     });
   }
 
   if (els.btnCensusExportAggregateCsv){
     els.btnCensusExportAggregateCsv.addEventListener("click", () => {
-      withState((_, s) => {
-        const { tableRows } = aggregateSnapshot(s);
-        if (!tableRows.length || !s.selectedGeoids.length){
-          setStatus(s, "No aggregate available to export.", true);
-          return;
-        }
-        const headers = ["metric_id", "metric_label", "value", "value_text", "format", "year", "resolution", "state_fips", "county_fips", "place_fips", "selected_geo_count"];
-        const lines = [headers.map(csvEscape).join(",")];
-        for (const row of tableRows){
-          const values = [
-            row.id,
-            row.label,
-            row.value,
-            row.valueText,
-            row.format,
-            s.year,
-            s.resolution,
-            s.stateFips,
-            s.countyFips,
-            s.placeFips,
-            s.selectedGeoids.length,
-          ];
-          lines.push(values.map(csvEscape).join(","));
-        }
-        const ok = downloadTextFile(lines.join("\n"), `${exportBaseName(s)}.csv`, "text/csv");
-        setStatus(s, ok ? "Aggregate CSV exported." : "CSV export failed.", !ok);
-      });
-      commitUIUpdate({ persist: false });
+      runCensusExportAggregateCsvAction();
     });
   }
 
   if (els.btnCensusExportAggregateJson){
     els.btnCensusExportAggregateJson.addEventListener("click", () => {
-      withState((_, s) => {
-        const { tableRows } = aggregateSnapshot(s);
-        if (!tableRows.length || !s.selectedGeoids.length){
-          setStatus(s, "No aggregate available to export.", true);
-          return;
-        }
-        const payload = {
-          exportedAt: new Date().toISOString(),
-          context: {
-            year: s.year,
-            resolution: s.resolution,
-            metricSet: s.metricSet,
-            stateFips: s.stateFips,
-            countyFips: s.countyFips,
-            placeFips: s.placeFips,
-          },
-          selectedGeoids: s.selectedGeoids.slice(),
-          selectedGeoCount: s.selectedGeoids.length,
-          rowsLoaded: s.loadedRowCount,
-          metrics: tableRows.map((row) => ({
-            id: row.id,
-            label: row.label,
-            value: row.value,
-            valueText: row.valueText,
-            format: row.format,
-          })),
-        };
-        const ok = downloadTextFile(JSON.stringify(payload, null, 2), `${exportBaseName(s)}.json`, "application/json");
-        setStatus(s, ok ? "Aggregate JSON exported." : "JSON export failed.", !ok);
-      });
-      commitUIUpdate({ persist: false });
+      runCensusExportAggregateJsonAction();
     });
   }
 
   if (els.targetingGeoLevel){
     els.targetingGeoLevel.addEventListener("change", () => {
       withTargeting((_, s, targeting) => {
-        targeting.geoLevel = cleanText(els.targetingGeoLevel.value) || targeting.geoLevel;
+        applyTargetingFieldPatch(targeting, "geoLevel", els.targetingGeoLevel.value);
         setStatus(s, "Targeting geography level updated. Re-run targeting to refresh rankings.", false);
       });
       commitUIUpdate({ persist: false });
@@ -3039,10 +3690,7 @@ export function wireCensusPhase1EventsModule(ctx){
   if (els.targetingTopN){
     els.targetingTopN.addEventListener("input", () => {
       withTargeting((_, __, targeting) => {
-        const n = Number(els.targetingTopN.value);
-        if (Number.isFinite(n)){
-          targeting.topN = Math.max(1, Math.min(500, Math.floor(n)));
-        }
+        applyTargetingFieldPatch(targeting, "topN", els.targetingTopN.value);
       });
       commitUIUpdate({ persist: false });
     });
@@ -3051,10 +3699,7 @@ export function wireCensusPhase1EventsModule(ctx){
   if (els.targetingMinHousingUnits){
     els.targetingMinHousingUnits.addEventListener("input", () => {
       withTargeting((_, __, targeting) => {
-        const n = Number(els.targetingMinHousingUnits.value);
-        if (Number.isFinite(n)){
-          targeting.minHousingUnits = Math.max(0, Math.floor(n));
-        }
+        applyTargetingFieldPatch(targeting, "minHousingUnits", els.targetingMinHousingUnits.value);
       });
       commitUIUpdate({ persist: false });
     });
@@ -3063,10 +3708,7 @@ export function wireCensusPhase1EventsModule(ctx){
   if (els.targetingMinPopulation){
     els.targetingMinPopulation.addEventListener("input", () => {
       withTargeting((_, __, targeting) => {
-        const n = Number(els.targetingMinPopulation.value);
-        if (Number.isFinite(n)){
-          targeting.minPopulation = Math.max(0, Math.floor(n));
-        }
+        applyTargetingFieldPatch(targeting, "minPopulation", els.targetingMinPopulation.value);
       });
       commitUIUpdate({ persist: false });
     });
@@ -3075,10 +3717,7 @@ export function wireCensusPhase1EventsModule(ctx){
   if (els.targetingMinScore){
     els.targetingMinScore.addEventListener("input", () => {
       withTargeting((_, __, targeting) => {
-        const n = Number(els.targetingMinScore.value);
-        if (Number.isFinite(n)){
-          targeting.minScore = Math.max(0, n);
-        }
+        applyTargetingFieldPatch(targeting, "minScore", els.targetingMinScore.value);
       });
       commitUIUpdate({ persist: false });
     });
@@ -3087,7 +3726,7 @@ export function wireCensusPhase1EventsModule(ctx){
   if (els.targetingOnlyRaceFootprint){
     els.targetingOnlyRaceFootprint.addEventListener("change", () => {
       withTargeting((_, s, targeting) => {
-        targeting.onlyRaceFootprint = !!els.targetingOnlyRaceFootprint.checked;
+        applyTargetingFieldPatch(targeting, "onlyRaceFootprint", !!els.targetingOnlyRaceFootprint.checked);
         setStatus(s, "Targeting footprint filter updated. Re-run targeting to refresh rankings.", false);
       });
       commitUIUpdate({ persist: false });
@@ -3097,8 +3736,7 @@ export function wireCensusPhase1EventsModule(ctx){
   if (els.targetingPrioritizeYoung){
     els.targetingPrioritizeYoung.addEventListener("change", () => {
       withTargeting((_, s, targeting) => {
-        targeting.criteria = targeting.criteria || {};
-        targeting.criteria.prioritizeYoung = !!els.targetingPrioritizeYoung.checked;
+        applyTargetingFieldPatch(targeting, "prioritizeYoung", !!els.targetingPrioritizeYoung.checked);
         setStatus(s, "Targeting age-priority rule updated. Re-run targeting to refresh rankings.", false);
       });
       commitUIUpdate({ persist: false });
@@ -3108,8 +3746,7 @@ export function wireCensusPhase1EventsModule(ctx){
   if (els.targetingPrioritizeRenters){
     els.targetingPrioritizeRenters.addEventListener("change", () => {
       withTargeting((_, s, targeting) => {
-        targeting.criteria = targeting.criteria || {};
-        targeting.criteria.prioritizeRenters = !!els.targetingPrioritizeRenters.checked;
+        applyTargetingFieldPatch(targeting, "prioritizeRenters", !!els.targetingPrioritizeRenters.checked);
         setStatus(s, "Targeting renter-priority rule updated. Re-run targeting to refresh rankings.", false);
       });
       commitUIUpdate({ persist: false });
@@ -3119,8 +3756,7 @@ export function wireCensusPhase1EventsModule(ctx){
   if (els.targetingAvoidHighMultiUnit){
     els.targetingAvoidHighMultiUnit.addEventListener("change", () => {
       withTargeting((_, s, targeting) => {
-        targeting.criteria = targeting.criteria || {};
-        targeting.criteria.avoidHighMultiUnit = !!els.targetingAvoidHighMultiUnit.checked;
+        applyTargetingFieldPatch(targeting, "avoidHighMultiUnit", !!els.targetingAvoidHighMultiUnit.checked);
         setStatus(s, "Targeting multi-unit filter updated. Re-run targeting to refresh rankings.", false);
       });
       commitUIUpdate({ persist: false });
@@ -3130,9 +3766,7 @@ export function wireCensusPhase1EventsModule(ctx){
   if (els.targetingDensityFloor){
     els.targetingDensityFloor.addEventListener("change", () => {
       withTargeting((_, s, targeting) => {
-        targeting.criteria = targeting.criteria || {};
-        const floor = cleanText(els.targetingDensityFloor.value);
-        targeting.criteria.densityFloor = ["none", "medium", "high"].includes(floor) ? floor : "none";
+        applyTargetingFieldPatch(targeting, "densityFloor", els.targetingDensityFloor.value);
         setStatus(s, "Targeting density floor updated. Re-run targeting to refresh rankings.", false);
       });
       commitUIUpdate({ persist: false });
@@ -3142,11 +3776,7 @@ export function wireCensusPhase1EventsModule(ctx){
   if (els.targetingWeightVotePotential){
     els.targetingWeightVotePotential.addEventListener("input", () => {
       withTargeting((_, __, targeting) => {
-        targeting.weights = targeting.weights || {};
-        const n = Number(els.targetingWeightVotePotential.value);
-        if (Number.isFinite(n)){
-          targeting.weights.votePotential = Math.max(0, n);
-        }
+        applyTargetingFieldPatch(targeting, "weightVotePotential", els.targetingWeightVotePotential.value);
       });
       commitUIUpdate({ persist: false });
     });
@@ -3155,11 +3785,7 @@ export function wireCensusPhase1EventsModule(ctx){
   if (els.targetingWeightTurnoutOpportunity){
     els.targetingWeightTurnoutOpportunity.addEventListener("input", () => {
       withTargeting((_, __, targeting) => {
-        targeting.weights = targeting.weights || {};
-        const n = Number(els.targetingWeightTurnoutOpportunity.value);
-        if (Number.isFinite(n)){
-          targeting.weights.turnoutOpportunity = Math.max(0, n);
-        }
+        applyTargetingFieldPatch(targeting, "weightTurnoutOpportunity", els.targetingWeightTurnoutOpportunity.value);
       });
       commitUIUpdate({ persist: false });
     });
@@ -3168,11 +3794,7 @@ export function wireCensusPhase1EventsModule(ctx){
   if (els.targetingWeightPersuasionIndex){
     els.targetingWeightPersuasionIndex.addEventListener("input", () => {
       withTargeting((_, __, targeting) => {
-        targeting.weights = targeting.weights || {};
-        const n = Number(els.targetingWeightPersuasionIndex.value);
-        if (Number.isFinite(n)){
-          targeting.weights.persuasionIndex = Math.max(0, n);
-        }
+        applyTargetingFieldPatch(targeting, "weightPersuasionIndex", els.targetingWeightPersuasionIndex.value);
       });
       commitUIUpdate({ persist: false });
     });
@@ -3181,11 +3803,7 @@ export function wireCensusPhase1EventsModule(ctx){
   if (els.targetingWeightFieldEfficiency){
     els.targetingWeightFieldEfficiency.addEventListener("input", () => {
       withTargeting((_, __, targeting) => {
-        targeting.weights = targeting.weights || {};
-        const n = Number(els.targetingWeightFieldEfficiency.value);
-        if (Number.isFinite(n)){
-          targeting.weights.fieldEfficiency = Math.max(0, n);
-        }
+        applyTargetingFieldPatch(targeting, "weightFieldEfficiency", els.targetingWeightFieldEfficiency.value);
       });
       commitUIUpdate({ persist: false });
     });
@@ -3195,15 +3813,8 @@ export function wireCensusPhase1EventsModule(ctx){
     els.btnTargetingResetWeights.addEventListener("click", () => {
       withTargeting((_, s, targeting) => {
         const presetId = cleanText(targeting.presetId) || cleanText(targeting.modelId) || "turnout_opportunity";
-        const preset = getTargetModelPreset(presetId);
-        const defaults = getTargetingBridgeDefaults(presetId);
-        targeting.weights = {
-          votePotential: Number(defaults.weightVotePotential) || 0,
-          turnoutOpportunity: Number(defaults.weightTurnoutOpportunity) || 0,
-          persuasionIndex: Number(defaults.weightPersuasionIndex) || 0,
-          fieldEfficiency: Number(defaults.weightFieldEfficiency) || 0,
-        };
-        const presetLabel = cleanText(preset?.label) || "House model";
+        const reset = resetTargetingWeightsToPreset(targeting, presetId);
+        const presetLabel = cleanText(reset?.preset?.label) || "House model";
         setStatus(s, `${presetLabel} weights reset to preset defaults.`, false);
       });
       commitUIUpdate({ persist: false });
@@ -3216,7 +3827,7 @@ export function wireCensusPhase1EventsModule(ctx){
         const runtimeRows = getRowsForState(s);
         const loadedCount = rowsCount(runtimeRows);
         if (!loadedCount){
-          setStatus(s, "Load ACS rows before running targeting.", true);
+          setStatus(s, TARGETING_STATUS_LOAD_ROWS_FIRST, true);
           return;
         }
         const result = runTargetRanking({
@@ -3224,21 +3835,12 @@ export function wireCensusPhase1EventsModule(ctx){
           censusState: s,
           rowsByGeoid: runtimeRows,
         });
-        targeting.lastRows = Array.isArray(result?.rows) ? result.rows : [];
-        targeting.lastMeta = result?.meta && typeof result.meta === "object"
-          ? result.meta
-          : null;
-        targeting.lastRun = cleanText(result?.meta?.ranAt) || new Date().toISOString();
-        if (!targeting.lastRows.length){
-          setStatus(s, "Targeting run complete: no rows matched current filters. Relax thresholds and retry.", false);
+        const applied = applyTargetingRunResult(targeting, result, { locale: "en-US" });
+        if (!applied.hasRows){
+          setStatus(s, applied.statusText, false);
           return;
         }
-        const topCount = targeting.lastRows.filter((row) => !!row?.isTopTarget).length;
-        setStatus(
-          s,
-          `Targeting run complete: ${targeting.lastRows.length.toLocaleString("en-US")} rows ranked, ${topCount.toLocaleString("en-US")} top targets flagged.`,
-          false,
-        );
+        setStatus(s, applied.statusText, false);
       });
       commitUIUpdate();
     });
@@ -3253,8 +3855,12 @@ export function wireCensusPhase1EventsModule(ctx){
           return;
         }
         const csv = buildTargetRankingCsv(rows);
-        const model = fileSlugPart(cleanText(targeting.presetId) || cleanText(targeting.modelId) || "model");
-        const file = `target-ranking-${model}-${fileStamp()}.csv`;
+        const file = buildTargetRankingExportFilename({
+          presetId: cleanText(targeting.presetId),
+          modelId: cleanText(targeting.modelId),
+          extension: "csv",
+          stamp: fileStamp(),
+        });
         const ok = downloadTextFile(csv, file, "text/csv");
         setStatus(s, ok ? "Target rankings CSV exported." : "Target rankings CSV export failed.", !ok);
       });
@@ -3270,27 +3876,17 @@ export function wireCensusPhase1EventsModule(ctx){
           setStatus(s, "Run targeting before exporting JSON.", true);
           return;
         }
-        const config = {
-          enabled: !!targeting.enabled,
-          presetId: cleanText(targeting.presetId),
-          geoLevel: cleanText(targeting.geoLevel),
-          modelId: cleanText(targeting.modelId),
-          topN: Number(targeting.topN),
-          minHousingUnits: Number(targeting.minHousingUnits),
-          minPopulation: Number(targeting.minPopulation),
-          minScore: Number(targeting.minScore),
-          excludeZeroHousing: !!targeting.excludeZeroHousing,
-          onlyRaceFootprint: !!targeting.onlyRaceFootprint,
-          weights: targeting.weights && typeof targeting.weights === "object" ? { ...targeting.weights } : {},
-          criteria: targeting.criteria && typeof targeting.criteria === "object" ? { ...targeting.criteria } : {},
-        };
         const payload = buildTargetRankingPayload({
           rows,
           meta: targeting.lastMeta,
-          config,
+          config: buildTargetRankingPayloadConfig(targeting),
         });
-        const model = fileSlugPart(cleanText(targeting.presetId) || cleanText(targeting.modelId) || "model");
-        const file = `target-ranking-${model}-${fileStamp()}.json`;
+        const file = buildTargetRankingExportFilename({
+          presetId: cleanText(targeting.presetId),
+          modelId: cleanText(targeting.modelId),
+          extension: "json",
+          stamp: fileStamp(),
+        });
         const ok = downloadTextFile(JSON.stringify(payload, null, 2), file, "application/json");
         setStatus(s, ok ? "Target rankings JSON exported." : "Target rankings JSON export failed.", !ok);
       });
@@ -3318,6 +3914,7 @@ export function wireCensusPhase1EventsModule(ctx){
   if (els.censusMapQaVtdZip){
     els.censusMapQaVtdZip.addEventListener("change", async () => {
       const file = els.censusMapQaVtdZip?.files?.[0];
+      censusRuntimeFileCache.mapQaVtdZip = file || null;
       if (!file){
         mapQaVtdUploadSeq += 1;
         clearMapQaVtdUploadRuntime();
@@ -3356,45 +3953,20 @@ export function wireCensusPhase1EventsModule(ctx){
   }
 
   if (els.btnCensusMapQaVtdZipClear){
-    els.btnCensusMapQaVtdZipClear.addEventListener("click", async () => {
-      mapQaVtdUploadSeq += 1;
-      clearMapQaVtdUploadRuntime();
-      if (els.censusMapQaVtdZip){
-        els.censusMapQaVtdZip.value = "";
-      }
-      const s = ensureCensusStateModule(currentState());
-      if (!s){
-        commitUIUpdate({ persist: false });
-        return;
-      }
-      if (s.mapQaVtdOverlay && mapRuntimeStatus.featureCount > 0){
-        setStatus(s, "VTD ZIP cleared. Reloading QA overlay from TIGERweb...", false);
-        commitUIUpdate({ persist: false });
-        await onLoadMapBoundaries({ s, els, commitUIUpdate });
-        return;
-      }
-      if (s.mapQaVtdOverlay){
-        clearMapQaOverlay("VTD ZIP cleared. Reload boundaries to draw TIGERweb QA overlay.");
-        setStatus(s, "VTD ZIP cleared. Reload boundaries to use TIGERweb QA source.", false);
-      } else {
-        setStatus(s, "VTD ZIP cleared.", false);
-      }
-      commitUIUpdate({ persist: false });
+    els.btnCensusMapQaVtdZipClear.addEventListener("click", () => {
+      void runCensusClearVtdZipAction();
     });
   }
 
   if (els.btnCensusLoadMap){
-    els.btnCensusLoadMap.addEventListener("click", async () => {
-      const s = ensureCensusStateModule(currentState());
-      if (!s) return;
-      await onLoadMapBoundaries({ s, els, commitUIUpdate });
+    els.btnCensusLoadMap.addEventListener("click", () => {
+      void runCensusLoadMapAction();
     });
   }
 
   if (els.btnCensusClearMap){
     els.btnCensusClearMap.addEventListener("click", () => {
-      clearMapOverlay("Map overlay cleared.");
-      commitUIUpdate({ persist: false });
+      runCensusClearMapAction();
     });
   }
 

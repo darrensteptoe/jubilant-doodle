@@ -1,4 +1,11 @@
 // @ts-check
+import {
+  clampFiniteNumber,
+  coerceFiniteNumber,
+  formatFixedNumber,
+  formatPercentFromPct,
+  formatWholeNumber,
+} from "../core/utils.js";
 
 const TILE_URL = "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png";
 const TILE_ATTR = "&copy; OpenStreetMap contributors";
@@ -21,15 +28,8 @@ function str(v){
   return String(v == null ? "" : v).trim();
 }
 
-function num(v){
-  const n = Number(v);
-  return Number.isFinite(n) ? n : null;
-}
-
-function clamp(n, min, max){
-  if (!Number.isFinite(n)) return min;
-  return Math.max(min, Math.min(max, n));
-}
+const num = coerceFiniteNumber;
+const clamp = clampFiniteNumber;
 
 function asObject(v){
   return !!v && typeof v === "object" && !Array.isArray(v);
@@ -297,7 +297,7 @@ function convexHull(points){
   const unique = [];
   const seen = new Set();
   for (const p of points){
-    const key = `${p.lat.toFixed(8)}|${p.lon.toFixed(8)}`;
+    const key = `${formatFixedNumber(p.lat, 8, "")}|${formatFixedNumber(p.lon, 8, "")}`;
     if (seen.has(key)) continue;
     seen.add(key);
     unique.push({ lat: p.lat, lon: p.lon });
@@ -615,13 +615,13 @@ function renderMapNow(host, statusEl, args){
         fillColor: candidateColor(row.leaderCandidateId),
         fillOpacity: selected ? 0.95 : 0.8,
       });
-      const marginText = row.marginPct == null ? "—" : `${row.marginPct.toFixed(1)}%`;
-      const popText = row.population == null ? "—" : String(Math.round(row.population));
-      const housingText = row.housingUnits == null ? "—" : String(Math.round(row.housingUnits));
+      const marginText = formatPercentFromPct(row.marginPct, 1);
+      const popText = formatWholeNumber(row.population);
+      const housingText = formatWholeNumber(row.housingUnits);
       const volumeLabel = row.hasElection ? "votes" : "pop";
       const volumeValue = row.hasElection
-        ? Math.round(row.totalVotes)
-        : (row.population == null ? Math.round(row.totalVotes) : Math.round(row.population));
+        ? formatWholeNumber(row.totalVotes)
+        : (row.population == null ? formatWholeNumber(row.totalVotes) : formatWholeNumber(row.population));
       marker.bindTooltip(
         `${row.geoid || "—"} | ${volumeLabel} ${volumeValue} | top ${row.leaderCandidateId || "—"} | margin ${marginText} | pop ${popText} | housing ${housingText}`,
         { direction: "top", offset: [0, -4] }

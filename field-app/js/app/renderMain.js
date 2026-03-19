@@ -1,5 +1,12 @@
 // @ts-check
 import { buildModelInputFromState } from "./modelInput.js";
+import { computeExpectedAphFromWeeklyContext } from "../core/executionSnapshot.js";
+import {
+  buildOutcomeExpectedVoteTexts,
+  buildOutcomeSupportTotalText,
+  buildOutcomeTurnoutBandText,
+  buildOutcomeTurnoutExpectedText,
+} from "../core/outcomeView.js";
 
 let censusRenderModulePromise = null;
 let censusRenderModule = null;
@@ -115,13 +122,7 @@ export function renderMain(ctx){
   const weeklyContext = (typeof computeWeeklyOpsContext === "function")
     ? (computeWeeklyOpsContext(res, weeks) || null)
     : null;
-  const expectedAPH = (
-    weeklyContext?.doorShare != null &&
-    weeklyContext?.doorsPerHour != null &&
-    weeklyContext?.callsPerHour != null
-  )
-    ? (weeklyContext.doorShare * weeklyContext.doorsPerHour + (1 - weeklyContext.doorShare) * weeklyContext.callsPerHour)
-    : null;
+  const expectedAPH = computeExpectedAphFromWeeklyContext(weeklyContext);
 
   let executionSnapshot = null;
   try{
@@ -151,35 +152,34 @@ export function renderMain(ctx){
     executionSnapshot,
   });
 
-  setText(els.turnoutExpected, res.turnout.expectedPct == null ? "—" : `${res.turnout.expectedPct.toFixed(1)}%`);
-  setText(
-    els.turnoutBand,
-    res.turnout.bestPct == null ? "—" : `${res.turnout.bestPct.toFixed(1)}% / ${res.turnout.worstPct.toFixed(1)}%`
-  );
-  setText(els.votesPer1pct, (res.turnout.votesPer1pct == null) ? "—" : fmtInt(res.turnout.votesPer1pct));
+  setText(els.turnoutExpected, buildOutcomeTurnoutExpectedText(res.turnout.expectedPct));
+  setText(els.turnoutBand, buildOutcomeTurnoutBandText(res.turnout.bestPct, res.turnout.worstPct));
+  setText(els.votesPer1pct, fmtInt(res.turnout.votesPer1pct));
 
-  setText(els.supportTotal, res.validation.supportTotalPct == null ? "—" : `${res.validation.supportTotalPct.toFixed(1)}%`);
+  setText(els.supportTotal, buildOutcomeSupportTotalText(res.validation.supportTotalPct));
 
   if (els.candWarn){
     els.candWarn.hidden = !!res.validation.candidateTableOk;
     els.candWarn.textContent = res.validation.candidateTableOk ? "" : (res.validation.candidateTableMsg || "");
   }
 
-  setText(els.kpiTurnoutVotesSidebar, res.expected.turnoutVotes == null ? "—" : fmtInt(res.expected.turnoutVotes));
+  const expectedVoteTexts = buildOutcomeExpectedVoteTexts(res.expected, { formatInt: fmtInt });
+
+  setText(els.kpiTurnoutVotesSidebar, expectedVoteTexts.turnoutVotesText);
   setText(els.kpiTurnoutBandSidebar, res.turnout.bandVotesText || "—");
 
-  setText(els.kpiWinThresholdSidebar, res.expected.winThreshold == null ? "—" : fmtInt(res.expected.winThreshold));
-  setText(els.kpiYourVotesSidebar, res.expected.yourVotes == null ? "—" : fmtInt(res.expected.yourVotes));
+  setText(els.kpiWinThresholdSidebar, expectedVoteTexts.winThresholdText);
+  setText(els.kpiYourVotesSidebar, expectedVoteTexts.yourVotesText);
   setText(els.kpiYourVotesShareSidebar, res.expected.yourShareText || "—");
 
-  setText(els.kpiPersuasionNeedSidebar, res.expected.persuasionNeed == null ? "—" : fmtInt(res.expected.persuasionNeed));
+  setText(els.kpiPersuasionNeedSidebar, expectedVoteTexts.persuasionNeedText);
   setText(els.kpiPersuasionStatusSidebar, res.expected.persuasionStatus || "—");
 
-  setText(els.miniEarlyVotesSidebar, res.expected.earlyVotes == null ? "—" : fmtInt(res.expected.earlyVotes));
-  setText(els.miniEDVotesSidebar, res.expected.edVotes == null ? "—" : fmtInt(res.expected.edVotes));
+  setText(els.miniEarlyVotesSidebar, expectedVoteTexts.earlyVotesText);
+  setText(els.miniEDVotesSidebar, expectedVoteTexts.edVotesText);
   setText(els.miniEarlyNoteSidebar, res.expected.earlyNote || "—");
 
-  setText(els.miniPersUniverseSidebar, res.expected.persuasionUniverse == null ? "—" : fmtInt(res.expected.persuasionUniverse));
+  setText(els.miniPersUniverseSidebar, expectedVoteTexts.persuasionUniverseText);
   setText(els.miniPersCheckSidebar, res.expected.persuasionUniverseCheck || "—");
   setText(els.metaUniverseBasis, state.universeBasis || "—");
   setText(els.metaSourceNote, state.sourceNote || "—");

@@ -1,16 +1,17 @@
 // @ts-check
+import {
+  resolveCanonicalCallsPerHour,
+  resolveCanonicalDoorsPerHour,
+  setCanonicalCallsPerHour,
+  setCanonicalDoorsPerHour,
+} from "../core/throughput.js";
 /**
  * @param {Record<string, any>} snap
  * @param {(v: any) => number | null} safeNum
  * @returns {number | null}
  */
 export function canonicalDoorsPerHourFromSnapModule(snap, safeNum){
-  const s = snap || {};
-  const canonical = safeNum(s.doorsPerHour3);
-  if (canonical != null && isFinite(canonical)) return canonical;
-  const legacy = safeNum(s.doorsPerHour);
-  if (legacy != null && isFinite(legacy)) return legacy;
-  return null;
+  return resolveCanonicalDoorsPerHour(snap || {}, { toNumber: safeNum });
 }
 
 /**
@@ -20,11 +21,32 @@ export function canonicalDoorsPerHourFromSnapModule(snap, safeNum){
  * @returns {void}
  */
 export function setCanonicalDoorsPerHourModule(target, value, safeNum){
-  if (!target || typeof target !== "object") return;
-  const n = safeNum(value);
-  const next = (n != null && isFinite(n)) ? n : "";
-  target.doorsPerHour3 = next;
-  target.doorsPerHour = next;
+  setCanonicalDoorsPerHour(target, value, {
+    toNumber: safeNum,
+    emptyValue: "",
+  });
+}
+
+/**
+ * @param {Record<string, any>} snap
+ * @param {(v: any) => number | null} safeNum
+ * @returns {number | null}
+ */
+export function canonicalCallsPerHourFromSnapModule(snap, safeNum){
+  return resolveCanonicalCallsPerHour(snap || {}, { toNumber: safeNum });
+}
+
+/**
+ * @param {Record<string, any>} target
+ * @param {any} value
+ * @param {(v: any) => number | null} safeNum
+ * @returns {void}
+ */
+export function setCanonicalCallsPerHourModule(target, value, safeNum){
+  setCanonicalCallsPerHour(target, value, {
+    toNumber: safeNum,
+    emptyValue: "",
+  });
 }
 
 /**
@@ -34,7 +56,7 @@ export function setCanonicalDoorsPerHourModule(target, value, safeNum){
 export function requiredScenarioKeysMissingModule(scen){
   const required = [
     "campaignId","campaignName","officeId",
-    "scenarioName","raceType","electionDate","weeksRemaining","mode",
+    "scenarioName","raceType","templateMeta","electionDate","weeksRemaining","mode",
     "universeBasis","universeSize","turnoutA","turnoutB","bandWidth",
     "candidates","undecidedPct","yourCandidateId","undecidedMode","persuasionPct",
     "earlyVoteExp","supportRatePct","contactRatePct","turnoutReliabilityPct",

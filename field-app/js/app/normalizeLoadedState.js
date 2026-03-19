@@ -6,11 +6,13 @@ import {
   normalizeAssumptionProvenance,
   normalizeFootprintCapacity,
 } from "../core/censusModule.js";
+import { normalizeVoterDataState } from "../core/voterDataLayer.js";
 import { syncFeatureFlagsFromState } from "./featureFlags.js";
 import { ensureBudgetShape } from "./state.js";
 import { normalizeTargetingState } from "./targetingRuntime.js";
 import { applyContextToState, resolveActiveContext } from "./activeContext.js";
 import { syncTemplateMetaFromState } from "./templateResolver.js";
+import { resolveCanonicalCallsPerHour, setCanonicalCallsPerHour } from "../core/throughput.js";
 
 /**
  * @typedef {Record<string, any>} AnyState
@@ -53,6 +55,7 @@ export function normalizeLoadedStateModule(s, deps){
   out.userSplit = (src.userSplit && typeof src.userSplit === "object") ? src.userSplit : {};
   out.intelState = normalizeIntelState(src.intelState);
   out.census = normalizeCensusState(src.census, { resetRuntime: true });
+  out.voterData = normalizeVoterDataState(src.voterData);
   out.targeting = normalizeTargetingState(src.targeting);
   out.raceFootprint = normalizeRaceFootprint(src.raceFootprint);
   out.assumptionsProvenance = normalizeAssumptionProvenance(src.assumptionsProvenance);
@@ -75,6 +78,11 @@ export function normalizeLoadedStateModule(s, deps){
 
   const canonDph = canonicalDoorsPerHourFromSnap(out);
   setCanonicalDoorsPerHour(out, (canonDph != null && isFinite(canonDph)) ? canonDph : safeNum(base.doorsPerHour3));
+  const canonCph = resolveCanonicalCallsPerHour(out, { toNumber: safeNum });
+  setCanonicalCallsPerHour(out, (canonCph != null && isFinite(canonCph)) ? canonCph : safeNum(base.callsPerHour3), {
+    toNumber: safeNum,
+    emptyValue: "",
+  });
 
   syncFeatureFlagsFromState(out, { preferFeatures: !!(src.features && typeof src.features === "object" && !Array.isArray(src.features)) });
   syncTemplateMetaFromState(out);

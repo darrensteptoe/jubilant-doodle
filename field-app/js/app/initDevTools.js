@@ -1,5 +1,7 @@
 // @ts-check
 import { buildModelInputFromState } from "./modelInput.js";
+import { formatFixedNumber, formatPercentFromUnit } from "../core/utils.js";
+import * as selfTestsModule from "../selfTest.js";
 
 /** @param {import("./types").InitDevToolsCtx} ctx */
 export function initDevToolsModule(ctx){
@@ -218,7 +220,7 @@ export function initDevToolsModule(ctx){
     try{
       const mod = (typeof loadSelfTests === "function")
         ? await loadSelfTests()
-        : await import("../selfTest.js");
+        : selfTestsModule;
       const runSelfTests = mod?.runSelfTests;
       if (typeof runSelfTests !== "function"){
         renderResult({ total: 1, passed: 0, failed: 1, failures: [{ name: "Loader", message: "runSelfTests() not found" }] });
@@ -247,8 +249,8 @@ export function initDevToolsModule(ctx){
       const cvar10 = engine.risk.conditionalValueAtRisk(margins, 0.10);
       const var10 = engine.risk.valueAtRisk(margins, 0.10);
 
-      const fmt = (x) => (typeof x === "number" && Number.isFinite(x)) ? x.toFixed(2) : "—";
-      const pct = (x) => (typeof x === "number" && Number.isFinite(x)) ? `${(100 * x).toFixed(1)}%` : "—";
+      const fmt = (x) => formatFixedNumber(x, 2);
+      const pct = (x) => formatPercentFromUnit(x, 1);
 
       renderRisk("Risk: margins (MC)", [
         `runs: ${s.runs}`,

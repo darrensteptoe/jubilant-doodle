@@ -1,6 +1,17 @@
 // @ts-check
 import { resolveFeatureFlags } from "../core/featureFlags.js";
-import { getTimelineFeasibilityObjectiveMeta } from "../core/timeline.js";
+import {
+  buildTimelineFeasibilityDisplayView,
+  buildTimelineStateSnapshot,
+  getTimelineFeasibilityObjectiveMeta,
+  resolveTimelineObjectiveValuePerAttemptFromTotals,
+} from "../core/timeline.js";
+import { buildPlanNumberFormatters, buildPlanWeekPreviewText } from "../core/planView.js";
+import {
+  buildTimelineCapsInputFromState,
+  buildTimelineTacticKindsMapFromState,
+} from "../core/timelineCapsInput.js";
+import { formatPercentFromUnit, roundWholeNumberByMode } from "../core/utils.js";
 
 export function renderTimelineModule(args){
   const {
@@ -18,9 +29,11 @@ export function renderTimelineModule(args){
   const tlShortfallVotesEl = els?.tlShortfallVotes;
   const tlWeekListEl = els?.tlWeekList;
   const features = resolveFeatureFlags(state || {});
+  const planNumber = buildPlanNumberFormatters(fmtInt);
 
   if (els?.timelineWeeksAuto) {
-    els.timelineWeeksAuto.value = (weeks == null) ? "" : String(Math.max(0, Math.floor(weeks)));
+    const normalizedWeeks = roundWholeNumberByMode(weeks, { mode: "floor", fallback: null });
+    els.timelineWeeksAuto.value = (normalizedWeeks == null) ? "" : String(Math.max(0, normalizedWeeks));
   }
 
   const enabled = !!features.timelineEnabled;
@@ -64,36 +77,21 @@ export function renderTimelineModule(args){
   const bindingHint = lastOpt?.binding || "caps";
 
   const totals = lastOpt?.totals || {};
-  const attemptsTotal = safeNum(totals.attempts) ?? null;
-  const objectiveValueTotal = safeNum(totals.netVotes) ?? null;
-  const objectiveValuePerAttempt = (attemptsTotal != null && attemptsTotal > 0 && objectiveValueTotal != null)
-    ? (objectiveValueTotal / attemptsTotal)
-    : null;
+  const objectiveValuePerAttempt = resolveTimelineObjectiveValuePerAttemptFromTotals({
+    attempts: safeNum(totals.attempts),
+    netVotes: safeNum(totals.netVotes),
+  });
 
-  const activeOverride = safeNum(state.timelineActiveWeeks);
-
-  const tacticKinds = {
-    doors: state.budget?.tactics?.doors?.kind || "persuasion",
-    phones: state.budget?.tactics?.phones?.kind || "persuasion",
-    texts: state.budget?.tactics?.texts?.kind || "persuasion",
-  };
+  const tacticKinds = buildTimelineTacticKindsMapFromState(state);
+  const timelineCapsInput = buildTimelineCapsInputFromState({
+    state,
+    weeksRemaining: weeks ?? 0,
+    enabled: true,
+    tacticKinds,
+  });
 
   const tl = engine.computeTimelineFeasibility({
-    enabled: true,
-    weeksRemaining: weeks ?? 0,
-    activeWeeksOverride: (activeOverride == null ? null : activeOverride),
-    gotvWindowWeeks: safeNum(state.timelineGotvWeeks),
-    staffing: {
-      staff: safeNum(state.timelineStaffCount) ?? 0,
-      volunteers: safeNum(state.timelineVolCount) ?? 0,
-      staffHours: safeNum(state.timelineStaffHours) ?? 0,
-      volunteerHours: safeNum(state.timelineVolHours) ?? 0,
-    },
-    throughput: {
-      doors: safeNum(state.timelineDoorsPerHour) ?? 0,
-      phones: safeNum(state.timelineCallsPerHour) ?? 0,
-      texts: safeNum(state.timelineTextsPerHour) ?? 0,
-    },
+    ...timelineCapsInput,
     required,
     tacticKinds,
     objectiveValuePerAttempt,
@@ -108,44 +106,33 @@ export function renderTimelineModule(args){
       attempts: safeNum(row?.attempts) ?? null,
     }))
     : [];
-
-  state.ui.lastTimeline = {
-    percentPlanExecutable: tl.percentPlanExecutable ?? null,
-    projectedCompletionWeek: tl.projectedCompletionWeek ?? null,
-    shortfallAttempts: tl.shortfallAttempts ?? null,
-    shortfallObjectiveValue: tlObjectiveMeta.shortfallObjectiveValue,
-    shortfallNetVotes: tlObjectiveMeta.shortfallObjectiveValue,
-    constraintType: tl.constraintType || null,
+  state.ui.lastTimeline = buildTimelineStateSnapshot({
+    timelineResult: tl,
+    objectiveMeta: tlObjectiveMeta,
     weeklyPlan,
-  };
+  });
 
-  const pct = Math.round((tl.percentPlanExecutable ?? 0) * 100);
-  if (tlPercentEl) tlPercentEl.textContent = `${pct}%`;
-  if (tlCompletionWeekEl) {
-    tlCompletionWeekEl.textContent = (tl.projectedCompletionWeek == null) ? "—" : String(tl.projectedCompletionWeek);
-  }
-  if (tlShortfallAttemptsEl) {
-    tlShortfallAttemptsEl.textContent = fmtInt(Math.round(tl.shortfallAttempts ?? 0));
-  }
-  if (tlConstraintEl) tlConstraintEl.textContent = tl.constraintType || "—";
+  const displayView = buildTimelineFeasibilityDisplayView({
+    timelineResult: tl,
+    objectiveMeta: tlObjectiveMeta,
+    weeklyPlan,
+    formatWhole: planNumber.formatWhole,
+    formatPercent: (value) => formatPercentFromUnit(value, 0),
+    buildWeekPreviewText: (rows) => buildPlanWeekPreviewText(rows, {
+      formatInt: planNumber.formatIntRound,
+      fallbackText: "—",
+    }),
+  });
 
-  if (tlShortfallVotesEl){
-    const shortfallObjectiveValue = tlObjectiveMeta.shortfallObjectiveValue;
-    tlShortfallVotesEl.textContent = (shortfallObjectiveValue == null) ? "—" : fmtInt(Math.round(shortfallObjectiveValue));
-  }
+  if (tlPercentEl) tlPercentEl.textContent = displayView.executableText;
+  if (tlCompletionWeekEl) tlCompletionWeekEl.textContent = displayView.projectedCompletionWeekText;
+  if (tlShortfallAttemptsEl) tlShortfallAttemptsEl.textContent = displayView.shortfallAttemptsText;
+  if (tlConstraintEl) tlConstraintEl.textContent = displayView.constraintText;
+  if (tlShortfallVotesEl) tlShortfallVotesEl.textContent = displayView.shortfallObjectiveText;
+  if (tlWeekListEl) tlWeekListEl.textContent = displayView.weekPreviewText;
 
-  if (tlWeekListEl){
-    if (!weeklyPlan.length){
-      tlWeekListEl.textContent = "—";
-    } else {
-      tlWeekListEl.textContent = weeklyPlan
-        .map((row) => `Week ${row.week}: ${fmtInt(Math.round(row.attempts || 0))} attempts`)
-        .join("\n");
-    }
-  }
-
-  if (tl.percentPlanExecutable < 1){
-    setBanner("warn", `Timeline feasibility: ${pct}% executable · shortfall ${fmtInt(Math.round(tl.shortfallAttempts || 0))} attempts.`);
+  if (displayView.bannerText){
+    setBanner(displayView.bannerKind || "warn", displayView.bannerText);
   } else {
     hideBanner();
   }

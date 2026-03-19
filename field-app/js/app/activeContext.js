@@ -67,6 +67,22 @@ function hasParam(params, keys){
   return false;
 }
 
+function localHtmlUrlFromHref(rawHref){
+  if (typeof window === "undefined") return null;
+  const href = clean(rawHref);
+  if (!href) return null;
+  if (href.startsWith("#")) return null;
+  if (/^(mailto:|tel:|javascript:)/i.test(href)) return null;
+  try{
+    const url = new URL(href, window.location.href);
+    if (url.origin !== window.location.origin) return null;
+    if (!/\.html$/i.test(url.pathname)) return null;
+    return url;
+  } catch {
+    return null;
+  }
+}
+
 export function normalizeCampaignId(value, fallback = DEFAULT_CAMPAIGN_ID){
   return normalizeSlug(value, normalizeSlug(fallback, DEFAULT_CAMPAIGN_ID));
 }
@@ -177,4 +193,36 @@ export function contextFromState(state, options = {}){
     ...(isObject(options) ? options : {}),
     fallback: state || {},
   });
+}
+
+/**
+ * Preserve campaign/office context across local HTML navigation links.
+ * Adds params only when missing; explicit params on links always win.
+ * @param {any=} context
+ * @param {string=} selector
+ * @param {{ includeScenario?: boolean }=} options
+ */
+export function applyActiveContextToLinks(context = {}, selector = "a[href]", options = {}){
+  if (typeof document === "undefined") return;
+  const ctx = resolveActiveContext({ fallback: context });
+  const opts = isObject(options) ? options : {};
+  const includeScenario = !!opts.includeScenario;
+  const anchors = Array.from(document.querySelectorAll(selector));
+  for (const anchor of anchors){
+    const url = localHtmlUrlFromHref(anchor.getAttribute("href"));
+    if (!url) continue;
+    if (!url.searchParams.has("campaign") && ctx.campaignId){
+      url.searchParams.set("campaign", ctx.campaignId);
+    }
+    if (!url.searchParams.has("office") && ctx.officeId){
+      url.searchParams.set("office", ctx.officeId);
+    }
+    if (!url.searchParams.has("campaignName") && ctx.campaignName){
+      url.searchParams.set("campaignName", ctx.campaignName);
+    }
+    if (includeScenario && !url.searchParams.has("scenario") && ctx.scenarioId){
+      url.searchParams.set("scenario", ctx.scenarioId);
+    }
+    anchor.setAttribute("href", `${url.pathname}${url.search}${url.hash}`);
+  }
 }

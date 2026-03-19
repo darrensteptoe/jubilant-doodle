@@ -1,4 +1,7 @@
 // @ts-check
+import { pctOverrideToDecimal } from "../core/voteProduction.js";
+import { roundWholeNumberByMode } from "../core/utils.js";
+
 export function createSensitivitySurfaceController({
   els,
   getState,
@@ -76,13 +79,19 @@ export function createSensitivitySurfaceController({
 
         const minV = surfaceClamp(els.surfaceMin?.value, spec.clampLo, spec.clampHi);
         const maxV = surfaceClamp(els.surfaceMax?.value, spec.clampLo, spec.clampHi);
-        const steps = Math.max(5, Math.floor(Number(els.surfaceSteps?.value) || 21));
+        const steps = Math.max(
+          5,
+          roundWholeNumberByMode(Number(els.surfaceSteps?.value) || 21, { mode: "floor", fallback: 21 }) ?? 21
+        );
 
         const mode = els.surfaceMode?.value || "fast";
         const runs = (mode === "full") ? 10000 : 2000;
 
         const tPct = Number(els.surfaceTarget?.value);
-        const targetWinProb = Number.isFinite(tPct) ? surfaceClamp(tPct, 50, 99) / 100 : 0.70;
+        const targetWinProb = pctOverrideToDecimal(
+          Number.isFinite(tPct) ? surfaceClamp(tPct, 50, 99) : null,
+          0.70,
+        ) ?? 0.70;
 
         const snap = getStateSnapshot();
         let planningSnapshot = null;

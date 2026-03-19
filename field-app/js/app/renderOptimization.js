@@ -2,13 +2,32 @@
 import { resolveFeatureFlags } from "../core/featureFlags.js";
 import { getTimelineObjectiveMeta } from "../core/timelineOptimizer.js";
 import {
-  buildOptimizationUpliftSummaryText,
-  deriveOptimizationUpliftSignals,
+  buildTimelineConstrainedOptimizationInput,
+  buildOfficeOptimizationSummary,
+  buildOptimizationExecutionView,
+  buildOptimizationLastSummarySnapshot,
+  resolveOptimizationBudgetAvailable,
+  resolveOptimizationCapacityLimit,
+  resolveOptimizationFeasible,
 } from "../core/optimize.js";
 import {
   getOptimizationObjectiveLabel,
   normalizeOptimizationObjective,
 } from "../core/turnout.js";
+import {
+  buildTimelineTacticKindsMapFromState,
+  computeTimelineCapsSummaryFromState,
+} from "../core/timelineCapsInput.js";
+import {
+  buildPlanNumberFormatters,
+  buildPlanMarginalDiagnosticsRowsView,
+  buildPlanOptimizerAllocationRowsView,
+  buildPlanOptimizerTotalsView,
+  derivePlanBindingText,
+  formatPlanGoalFeasible,
+  normalizePlanOptimizerRows,
+} from "../core/planView.js";
+import { roundWholeNumberByMode } from "../core/utils.js";
 
 export function renderOptimizationModule(args){
   const {
@@ -41,9 +60,10 @@ export function renderOptimizationModule(args){
       upliftSummary: null,
     };
   };
+  const planNumber = buildPlanNumberFormatters(fmtInt);
 
   const needVotes = deriveNeedVotes(res);
-  if (els.optGapContext) els.optGapContext.textContent = (needVotes == null) ? "—" : fmtInt(Math.round(needVotes));
+  if (els.optGapContext) els.optGapContext.textContent = planNumber.formatWhole(needVotes);
 
   const effective = compileEffectiveInputs(state);
   const cr = effective.rates.cr;
@@ -126,49 +146,26 @@ export function renderOptimizationModule(args){
   const objective = normalizeOptimizationObjective(opt.objective, "net");
   const objectiveLabel = getOptimizationObjectiveLabel(objective);
   let result = null;
-  let timelineCapsWrap = null;
+  let timelineCapsSummary = null;
   let timelineCapTotal = null;
 
   if (tlConstrainedOn && timelineEnabled){
-    const capsInput = {
-      enabled: true,
+    timelineCapsSummary = computeTimelineCapsSummaryFromState({
+      state,
       weeksRemaining: weeks ?? 0,
-      activeWeeksOverride: safeNum(state.timelineActiveWeeks),
-      gotvWindowWeeks: safeNum(state.timelineGotvWeeks),
-      staffing: {
-        staff: safeNum(state.timelineStaffCount) ?? 0,
-        volunteers: safeNum(state.timelineVolCount) ?? 0,
-        staffHours: safeNum(state.timelineStaffHours) ?? 0,
-        volunteerHours: safeNum(state.timelineVolHours) ?? 0,
-      },
-      throughput: {
-        doors: safeNum(state.timelineDoorsPerHour) ?? 0,
-        phones: safeNum(state.timelineCallsPerHour) ?? 0,
-        texts: safeNum(state.timelineTextsPerHour) ?? 0,
-      },
-      tacticKinds: {
-        doors: state.budget?.tactics?.doors?.kind || "persuasion",
-        phones: state.budget?.tactics?.phones?.kind || "persuasion",
-        texts: state.budget?.tactics?.texts?.kind || "persuasion",
-      }
-    };
-    timelineCapsWrap = engine.computeMaxAttemptsByTactic(capsInput);
-    const caps = (timelineCapsWrap && timelineCapsWrap.enabled && timelineCapsWrap.maxAttemptsByTactic && typeof timelineCapsWrap.maxAttemptsByTactic === "object")
-      ? timelineCapsWrap.maxAttemptsByTactic
-      : null;
-    if (caps){
-      const total = Object.values(caps).reduce((acc, value) => {
-        const v = Number(value);
-        return acc + (Number.isFinite(v) && v >= 0 ? v : 0);
-      }, 0);
-      if (Number.isFinite(total) && total >= 0) timelineCapTotal = total;
-    }
+      enabled: true,
+      tacticKinds: buildTimelineTacticKindsMapFromState(state),
+      computeMaxAttemptsByTactic: (capsInput) => engine.computeMaxAttemptsByTactic(capsInput),
+    });
+    if (timelineCapsSummary.totalAttempts != null) timelineCapTotal = timelineCapsSummary.totalAttempts;
   }
   const effectiveCapAttempts = (timelineCapTotal != null) ? timelineCapTotal : capAttempts;
 
   if ((opt.mode || "budget") === "capacity"){
-    const capUser = safeNum(opt.capacityAttempts);
-    const cap = (capUser != null && capUser >= 0) ? capUser : (effectiveCapAttempts != null ? effectiveCapAttempts : 0);
+    const cap = resolveOptimizationCapacityLimit({
+      capacityAttempts: safeNum(opt.capacityAttempts),
+      fallbackCapacity: effectiveCapAttempts,
+    }) ?? 0;
 
     result = engine.optimizeMixCapacity({
       capacity: cap,
@@ -181,8 +178,11 @@ export function renderOptimizationModule(args){
     hideBanner();
     showBanner("ok", `Optimization: Capacity-constrained plan (${objectiveLabel} under attempt ceiling).`);
   } else {
-    const budgetIn = safeNum(opt.budgetAmount) ?? 0;
-    const budgetAvail = Math.max(0, budgetIn - (includeOverhead ? overheadAmount : 0));
+    const budgetAvail = resolveOptimizationBudgetAvailable({
+      budgetAmount: safeNum(opt.budgetAmount) ?? 0,
+      includeOverhead,
+      overheadAmount,
+    });
 
     result = engine.optimizeMixBudget({
       budget: budgetAvail,
@@ -195,7 +195,7 @@ export function renderOptimizationModule(args){
 
     hideBanner();
     if (includeOverhead && overheadAmount > 0){
-      showBanner("ok", `Optimization: Budget-constrained plan. Overhead ($${fmtInt(Math.round(overheadAmount))}) treated as fixed; remaining budget optimized.`);
+      showBanner("ok", `Optimization: Budget-constrained plan. Overhead (${planNumber.formatCurrency(overheadAmount)}) treated as fixed; remaining budget optimized.`);
     } else {
       showBanner("ok", `Optimization: Budget-constrained plan (${objectiveLabel} under fixed budget).`);
     }
@@ -211,53 +211,33 @@ export function renderOptimizationModule(args){
   if (els.tlOptResults) els.tlOptResults.hidden = !tlConstrainedOn;
 
   if (tlConstrainedOn){
-    const tacticKinds = {
-      doors: state.budget?.tactics?.doors?.kind || "persuasion",
-      phones: state.budget?.tactics?.phones?.kind || "persuasion",
-      texts: state.budget?.tactics?.texts?.kind || "persuasion",
-    };
-
-    const capsInput = {
-      enabled: !!features.timelineEnabled,
+    const capsSummary = timelineCapsSummary || computeTimelineCapsSummaryFromState({
+      state,
       weeksRemaining: weeks ?? 0,
-      activeWeeksOverride: safeNum(state.timelineActiveWeeks),
-      gotvWindowWeeks: safeNum(state.timelineGotvWeeks),
-      staffing: {
-        staff: safeNum(state.timelineStaffCount) ?? 0,
-        volunteers: safeNum(state.timelineVolCount) ?? 0,
-        staffHours: safeNum(state.timelineStaffHours) ?? 0,
-        volunteerHours: safeNum(state.timelineVolHours) ?? 0,
-      },
-      throughput: {
-        doors: safeNum(state.timelineDoorsPerHour) ?? 0,
-        phones: safeNum(state.timelineCallsPerHour) ?? 0,
-        texts: safeNum(state.timelineTextsPerHour) ?? 0,
-      },
-      tacticKinds
-    };
-
-    const caps = timelineCapsWrap || engine.computeMaxAttemptsByTactic(capsInput);
-
-    const budgetIn = safeNum(opt.budgetAmount) ?? 0;
-    const budgetAvail = Math.max(0, budgetIn - (includeOverhead ? overheadAmount : 0));
-
-    const capUser = safeNum(opt.capacityAttempts);
-    const capLimit = (capUser != null && capUser >= 0) ? capUser : (effectiveCapAttempts != null ? effectiveCapAttempts : 0);
+      enabled: !!features.timelineEnabled,
+      tacticKinds: buildTimelineTacticKindsMapFromState(state),
+      computeMaxAttemptsByTactic: (capsInput) => engine.computeMaxAttemptsByTactic(capsInput),
+    });
+    const rawMaxAttemptsByTactic = capsSummary.maxAttemptsByTactic;
+    const normalizedCaps = capsSummary.capsByTactic;
+    const capsInput = capsSummary.capsInput || {};
 
     const tlObj = opt.tlConstrainedObjective || "max_net";
-    const tlInputs = {
-      mode: (opt.mode || "budget"),
-      budgetLimit: (opt.mode === "capacity") ? null : budgetAvail,
-      capacityLimit: (opt.mode === "capacity") ? capLimit : null,
-      capacityCeiling: (opt.mode === "capacity") ? null : effectiveCapAttempts,
+    const tlInputs = buildTimelineConstrainedOptimizationInput({
+      mode: opt.mode || "budget",
+      budgetAmount: safeNum(opt.budgetAmount) ?? 0,
+      includeOverhead,
+      overheadAmount,
+      capacityAttempts: safeNum(opt.capacityAttempts),
+      capacityCeiling: effectiveCapAttempts,
       tactics,
       step,
       useDecay: !!opt.useDecay,
       objective,
-      maxAttemptsByTactic: (caps && caps.enabled) ? caps.maxAttemptsByTactic : null,
+      maxAttemptsByTactic: rawMaxAttemptsByTactic ? (normalizedCaps || rawMaxAttemptsByTactic) : null,
       tlObjectiveMode: tlObj,
-      goalObjectiveValue: needVotes
-    };
+      goalObjectiveValue: needVotes,
+    });
 
     const tlOut = engine.optimizeTimelineConstrained(tlInputs);
 
@@ -267,22 +247,24 @@ export function renderOptimizationModule(args){
 
     const meta = tlOut?.meta || {};
     const tlObjectiveMeta = getTimelineObjectiveMeta(meta);
-    if (els.tlOptGoalFeasible) els.tlOptGoalFeasible.textContent = (meta.goalFeasible === true) ? "true" : (meta.goalFeasible === false ? "false" : "—");
+    if (els.tlOptGoalFeasible){
+      els.tlOptGoalFeasible.textContent = formatPlanGoalFeasible(meta.goalFeasible, {
+        trueLabel: "true",
+        falseLabel: "false",
+        unknownLabel: "—",
+      });
+    }
     if (els.tlOptMaxNetVotes){
       const maxAchievableValue = safeNum(tlObjectiveMeta.maxAchievableObjectiveValue) ?? 0;
-      els.tlOptMaxNetVotes.textContent = fmtInt(Math.round(maxAchievableValue));
+      els.tlOptMaxNetVotes.textContent = planNumber.formatWhole(maxAchievableValue);
     }
     if (els.tlOptRemainingGap){
       const remainingGapValue = safeNum(tlObjectiveMeta.remainingGapObjectiveValue) ?? 0;
-      els.tlOptRemainingGap.textContent = fmtInt(Math.round(remainingGapValue));
+      els.tlOptRemainingGap.textContent = planNumber.formatWhole(remainingGapValue);
     }
     if (els.tlOptBinding){
-      const b = meta.bindingObj || {};
-      const parts = [];
-      if (Array.isArray(b.timeline) && b.timeline.length) parts.push("timeline");
-      if (b.budget) parts.push("budget");
-      if (b.capacity) parts.push("capacity");
-      els.tlOptBinding.textContent = parts.length ? parts.join(" / ") : "none";
+      const bindingText = derivePlanBindingText(meta.bindingObj || {});
+      els.tlOptBinding.textContent = (bindingText && bindingText !== "—") ? bindingText : "none";
     }
 
     state.ui.lastTlMeta = structuredClone(meta);
@@ -303,7 +285,10 @@ export function renderOptimizationModule(args){
 
     if (els.tlMvTbody){
       els.tlMvTbody.innerHTML = "";
-      const rows = Array.isArray(mv?.interventions) ? mv.interventions : [];
+      const rows = buildPlanMarginalDiagnosticsRowsView(Array.isArray(mv?.interventions) ? mv.interventions : [], {
+        formatWhole: planNumber.formatWhole,
+        formatCurrency: planNumber.formatCurrency,
+      });
       for (const it of rows){
         const trEl = document.createElement("tr");
         const td0 = document.createElement("td");
@@ -311,15 +296,11 @@ export function renderOptimizationModule(args){
 
         const td1 = document.createElement("td");
         td1.className = "num";
-        const dv = (it && typeof it.deltaObjectiveValue === "number")
-          ? it.deltaObjectiveValue
-          : ((it && typeof it.deltaMaxNetVotes === "number") ? it.deltaMaxNetVotes : null);
-        td1.textContent = (dv == null) ? "—" : fmtInt(Math.round(dv));
+        td1.textContent = it?.deltaObjectiveValue || "—";
 
         const td2 = document.createElement("td");
         td2.className = "num";
-        const dc = (it && typeof it.deltaCost === "number") ? it.deltaCost : null;
-        td2.textContent = (dc == null) ? "—" : `$${fmtInt(Math.round(dc))}`;
+        td2.textContent = it?.deltaCost || "—";
 
         const td3 = document.createElement("td");
         td3.className = "muted";
@@ -357,11 +338,34 @@ export function renderOptimizationModule(args){
     overheadAmount,
   });
   const summaryRows = Array.isArray(executionSummary?.rows) ? executionSummary.rows : [];
+  const officePathSummary = buildOfficeOptimizationSummary({
+    officeMixRows: state?.ui?.twCapOutlookLatest?.officeMix,
+    mode: opt.mode || "budget",
+    objective: obj,
+    step,
+    useDecay: !!opt.useDecay,
+    budgetAmount: safeNum(opt.budgetAmount) ?? 0,
+    includeOverhead,
+    overheadAmount,
+    capacityLimit: resolveOptimizationCapacityLimit({
+      capacityAttempts: safeNum(opt.capacityAttempts),
+      fallbackCapacity: effectiveCapAttempts,
+    }) ?? 0,
+    baseRates: { cr, sr, tr },
+    tacticsRaw,
+    state,
+    workforce,
+    organizerHoursPerWeek: effective.capacity.orgHoursPerWeek,
+    weeksRemaining: weeks,
+    buildOptimizationTactics: (input) => engine.buildOptimizationTactics(input),
+    runOfficeOptimizer: (input) => engine.optimizeMixByOffice(input),
+  });
 
-  let any = false;
-  for (const row of summaryRows){
-    if (!(Number(row?.attempts) > 0)) continue;
-    any = true;
+  const allocationRows = buildPlanOptimizerAllocationRowsView(summaryRows, {
+    formatWhole: planNumber.formatWhole,
+    formatCurrency: planNumber.formatCurrency,
+  });
+  for (const row of allocationRows){
 
     if (optTbody){
       const trEl = document.createElement("tr");
@@ -371,15 +375,15 @@ export function renderOptimizationModule(args){
 
       const td1 = document.createElement("td");
       td1.className = "num";
-      td1.textContent = fmtInt(Math.round(Number(row.attempts) || 0));
+      td1.textContent = row.attempts || "—";
 
       const td2 = document.createElement("td");
       td2.className = "num";
-      td2.textContent = `$${fmtInt(Math.round(Number(row.cost) || 0))}`;
+      td2.textContent = row.cost || "—";
 
       const td3 = document.createElement("td");
       td3.className = "num";
-      td3.textContent = fmtInt(Math.round(Number(row.expectedObjectiveValue) || 0));
+      td3.textContent = row.expectedObjectiveValue || "—";
 
       trEl.appendChild(td0);
       trEl.appendChild(td1);
@@ -389,7 +393,7 @@ export function renderOptimizationModule(args){
     }
   }
 
-  if (!any) stubRow();
+  if (!allocationRows.length) stubRow();
 
   const totalAttempts = Number(executionSummary?.totals?.attempts || 0);
   const totalCost = Number(executionSummary?.totals?.cost || 0);
@@ -398,35 +402,25 @@ export function renderOptimizationModule(args){
   setTotals({
     attempts: totalAttempts,
     cost: totalCost,
-    votes: totalObjectiveValue,
+    objectiveValue: totalObjectiveValue,
     binding: result.binding || "—"
   });
 
   try {
-    const planRows = summaryRows.map((row) => ({
-      id: String(row.id || ""),
-      tactic: String(row.tactic || ""),
-      attempts: Math.round(Number(row.attempts) || 0),
-      expectedContacts: Number(row.expectedContacts) || 0,
-      expectedNetVotes: Number(row.expectedNetVotes) || 0,
-      expectedObjectiveValue: Number(row.expectedObjectiveValue) || 0,
-      cost: Number(row.cost) || 0,
-      costPerNetVote: Number.isFinite(Number(row.costPerNetVote)) ? Number(row.costPerNetVote) : null,
-      upliftExpectedMarginalGain: Number.isFinite(Number(row.upliftExpectedMarginalGain)) ? Number(row.upliftExpectedMarginalGain) : null,
-      upliftLowMarginalGain: Number.isFinite(Number(row.upliftLowMarginalGain)) ? Number(row.upliftLowMarginalGain) : null,
-      upliftGainPerDollar: Number.isFinite(Number(row.upliftGainPerDollar)) ? Number(row.upliftGainPerDollar) : null,
-      saturationUtilization: Number.isFinite(Number(row.saturationUtilization)) ? Number(row.saturationUtilization) : null,
-    }));
+    const planRows = normalizePlanOptimizerRows(summaryRows);
 
-    const weeksMeta = (weeks != null && Number.isFinite(weeks)) ? Math.max(0, Math.floor(weeks)) : null;
+    const weeksRounded = roundWholeNumberByMode(weeks, { mode: "floor", fallback: null });
+    const weeksMeta = (weeksRounded != null) ? Math.max(0, weeksRounded) : null;
     const staffMeta = safeNum(state.timelineStaffCount) ?? null;
     const volMeta = safeNum(state.timelineVolCount) ?? null;
 
-    const tlPct = state.ui?.lastTimeline?.percentPlanExecutable;
-    const tlGoalFeasible = state.ui?.lastTlMeta?.goalFeasible;
-    const feasible = (tlConstrainedOn && timelineEnabled)
-      ? (tlGoalFeasible === true ? true : (tlGoalFeasible === false ? false : (tlPct != null ? tlPct >= 0.999 : null)))
-      : true;
+    const feasible = resolveOptimizationFeasible({
+      timelineConstrainedEnabled: tlConstrainedOn,
+      timelineEnabled,
+      timelineGoalFeasible: state.ui?.lastTlMeta?.goalFeasible,
+      timelineExecutablePct: state.ui?.lastTimeline?.percentPlanExecutable,
+      executableThreshold: 0.999,
+    });
 
     state.ui.lastPlanRows = structuredClone(planRows);
     state.ui.lastPlanMeta = {
@@ -437,43 +431,33 @@ export function renderOptimizationModule(args){
       feasible
     };
 
-    const topAllocations = Array.isArray(executionSummary?.topAllocations)
-      ? executionSummary.topAllocations.map((row) => `${row.tactic}: ${fmtInt(Math.round(Number(row.attempts) || 0))} attempts`)
-      : [];
-    const gapObjective = Number(executionSummary?.totals?.gapObjectiveValue);
-    const gapContext = (Number.isFinite(gapObjective))
-      ? (gapObjective <= 0
-        ? "Modeled allocation closes current gap."
-        : `${fmtInt(Math.round(gapObjective))} gap remains under current allocation.`)
-      : "Gap context unavailable.";
-    const modeLabel = ((opt.mode || "budget") === "capacity")
-      ? "Capacity-constrained"
-      : "Budget-constrained";
-    const upliftSummaryText = buildUpliftSummaryText(executionSummary?.uplift, fmtInt);
-    const banner = upliftSummaryText
-      ? `${modeLabel} allocation using ${objectiveLabel}. ${upliftSummaryText}`
-      : `${modeLabel} allocation using ${objectiveLabel}.`;
-
-    state.ui.lastSummary = {
+    const executionView = buildOptimizationExecutionView({
+      executionSummary,
+      mode: opt.mode || "budget",
+      objectiveLabel,
+      formatInt: planNumber.formatIntRound,
+    });
+    state.ui.lastSummary = buildOptimizationLastSummarySnapshot({
       objective: obj,
-      objectiveValue: Math.round(totalObjectiveValue || 0),
-      netVotes: Math.round(totalObjectiveValue || 0),
-      cost: Math.round(totalCost || 0),
+      executionSummary,
+      executionView,
       binding: result.binding || null,
-      gapContext,
-      banner,
       feasible,
       primaryBottleneck: state.ui?.lastDiagnostics?.primaryBottleneck || null,
-      topAllocations,
-      upliftSummary: executionSummary?.uplift || null,
-    };
+      officePaths: officePathSummary,
+      roundWhole: planNumber.roundWhole,
+    });
   } catch {}
 
   function setTotals(t){
-    if (els.optTotalAttempts) els.optTotalAttempts.textContent = t ? fmtInt(Math.round(t.attempts)) : "—";
-    if (els.optTotalCost) els.optTotalCost.textContent = t ? `$${fmtInt(Math.round(t.cost))}` : "—";
-    if (els.optTotalVotes) els.optTotalVotes.textContent = t ? fmtInt(Math.round(t.votes)) : "—";
-    if (els.optBinding) els.optBinding.textContent = t ? (t.binding || "—") : "—";
+    const totalsView = buildPlanOptimizerTotalsView(t, {
+      formatWhole: planNumber.formatWhole,
+      formatCurrency: planNumber.formatCurrency,
+    });
+    if (els.optTotalAttempts) els.optTotalAttempts.textContent = totalsView.attempts;
+    if (els.optTotalCost) els.optTotalCost.textContent = totalsView.cost;
+    if (els.optTotalVotes) els.optTotalVotes.textContent = totalsView.objectiveValue;
+    if (els.optBinding) els.optBinding.textContent = totalsView.binding;
   }
 
   function stubRow(){
@@ -482,16 +466,4 @@ export function renderOptimizationModule(args){
     tr.innerHTML = '<td class="muted">—</td><td class="num muted">—</td><td class="num muted">—</td><td class="num muted">—</td>';
     optTbody.appendChild(tr);
   }
-}
-
-function buildUpliftSummaryText(summary, fmtInt){
-  const uplift = deriveOptimizationUpliftSignals(summary);
-  if (!uplift.hasExpected && !uplift.bestChannel && !uplift.hasUncertainty && !uplift.hasSaturation){
-    return "";
-  }
-  return buildOptimizationUpliftSummaryText(summary, {
-    formatPercent: (value) => `${fmtInt(Math.round(Number(value) * 100))}%`,
-    rangeJoiner: "-",
-    saturationPrefix: "saturation",
-  });
 }

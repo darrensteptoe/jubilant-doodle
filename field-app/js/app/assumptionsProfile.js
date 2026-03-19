@@ -61,7 +61,7 @@ export function assumptionsProfileLabelModule(src, labelTemplate){
   if (profile === "template"){
     const detailedLabel = getTemplateLabelForState(s, { detailed: true });
     const fallback = (typeof labelTemplate === "function")
-      ? labelTemplate(s.raceType)
+      ? labelTemplate(s)
       : getTemplateLabelForRaceType(s.raceType);
     return `Template (${detailedLabel || fallback})`;
   }

@@ -1,3 +1,5 @@
+import { buildGovernanceSnapshotView } from "../core/modelGovernance.js";
+
 // @ts-check
 export function createSummaryRenderController({
   els,
@@ -64,6 +66,11 @@ export function createSummaryRenderController({
           driftSummary,
         })
       : null;
+    if (!state.ui || typeof state.ui !== "object"){
+      state.ui = {};
+    }
+    state.ui.lastGovernance = governance && typeof governance === "object" ? governance : null;
+    state.ui.lastGovernanceSnapshot = buildGovernanceSnapshotView(governance);
     lastGovernance = governance;
     renderValidationModule({
       els,

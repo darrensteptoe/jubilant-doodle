@@ -1,8 +1,10 @@
 // @ts-check
 import {
+  benchmarkRefLabel,
   addDefaultShockScenario,
   addDefaultCorrelationModel,
   attachEvidenceRecord,
+  captureObservedAndRefreshDriftRecommendations,
   captureObservedMetricsFromDrift,
   createWhatIfIntelRequest,
   generateCalibrationSourceBrief,
@@ -16,16 +18,29 @@ import {
   importCorrelationModelsJson,
   importShockScenariosJson,
   loadDefaultBenchmarksForRaceType,
+  listBenchmarkRefs,
   listShockScenarios,
   getIntelWorkflow,
   listMissingEvidenceAudit,
-  applyRecommendationDraftPatch,
-  refreshDriftRecommendationsFromDrift,
+  applyTopDriftRecommendation,
   removeBenchmarkEntry,
   upsertBenchmarkEntry,
 } from "./intelControlsRuntime.js";
 import { ensureBudgetShape } from "./state.js";
 import { normalizeOptimizationObjective } from "../core/turnout.js";
+import { pctOverrideToDecimal } from "../core/voteProduction.js";
+import {
+  buildControlsNoActiveRecommendationStatus,
+  buildControlsObservedCaptureStatus,
+  buildControlsRecommendationRefreshStatus,
+  buildControlsWhatIfSavedStatus,
+} from "../core/controlsView.js";
+import {
+  benchmarkScopeToBenchmarkKey,
+  benchmarkScopeToRaceType,
+  listBenchmarkScopeOptions,
+} from "../core/benchmarkProfiles.js";
+import { setCanonicalCallsPerHour } from "../core/throughput.js";
 
 let censusWireModulePromise = null;
 let censusWireModule = null;
@@ -197,6 +212,38 @@ export function wireIntelChecksEvents(ctx){
     return wf;
   };
 
+  if (els.intelBenchmarkRef instanceof HTMLSelectElement){
+    const refs = listBenchmarkRefs();
+    if (refs.length){
+      const current = String(els.intelBenchmarkRef.value || "").trim();
+      els.intelBenchmarkRef.innerHTML = "";
+      for (const ref of refs){
+        const opt = document.createElement("option");
+        opt.value = ref;
+        opt.textContent = benchmarkRefLabel(ref);
+        els.intelBenchmarkRef.appendChild(opt);
+      }
+      els.intelBenchmarkRef.value = refs.includes(current) ? current : refs[0];
+    }
+  }
+
+  if (els.intelBenchmarkRaceType instanceof HTMLSelectElement){
+    const scopes = listBenchmarkScopeOptions();
+    if (scopes.length){
+      const current = String(els.intelBenchmarkRaceType.value || "").trim();
+      const currentKey = benchmarkScopeToBenchmarkKey(current);
+      els.intelBenchmarkRaceType.innerHTML = "";
+      for (const scope of scopes){
+        const opt = document.createElement("option");
+        opt.value = String(scope?.value || "default");
+        opt.textContent = String(scope?.label || scope?.value || "default");
+        els.intelBenchmarkRaceType.appendChild(opt);
+      }
+      const optionsByValue = new Set(scopes.map((scope) => String(scope?.value || "")));
+      els.intelBenchmarkRaceType.value = optionsByValue.has(currentKey) ? currentKey : "default";
+    }
+  }
+
   if (els.intelScenarioLocked){
     els.intelScenarioLocked.addEventListener("change", () => {
       const s = currentState();
@@ -268,9 +315,11 @@ export function wireIntelChecksEvents(ctx){
     els.btnIntelBenchmarkSave.addEventListener("click", () => {
       const s = currentState();
       if (!s) return;
+      const selectedScope = String(els.intelBenchmarkRaceType?.value || "default").trim() || "default";
       const result = upsertBenchmarkEntry(s, {
         ref: els.intelBenchmarkRef?.value,
-        raceType: els.intelBenchmarkRaceType?.value,
+        raceType: benchmarkScopeToRaceType(selectedScope),
+        benchmarkKey: benchmarkScopeToBenchmarkKey(selectedScope),
         defaultValue: safeNum(els.intelBenchmarkDefault?.value),
         min: safeNum(els.intelBenchmarkMin?.value),
         max: safeNum(els.intelBenchmarkMax?.value),
@@ -292,14 +341,17 @@ export function wireIntelChecksEvents(ctx){
     els.btnIntelBenchmarkLoadDefaults.addEventListener("click", () => {
       const s = currentState();
       if (!s) return;
-      const raceType = String(els.intelBenchmarkRaceType?.value || s?.raceType || "all").trim();
-      const result = loadDefaultBenchmarksForRaceType(s, raceType);
+      const selectedScope = String(els.intelBenchmarkRaceType?.value || s?.templateMeta?.benchmarkKey || s?.raceType || "default").trim();
+      const result = loadDefaultBenchmarksForRaceType(s, {
+        raceType: benchmarkScopeToRaceType(selectedScope),
+        benchmarkKey: benchmarkScopeToBenchmarkKey(selectedScope),
+      });
       if (!result.ok){
         setBenchmarkStatus(result.error || "Failed to load benchmark defaults.", "warn");
         return;
       }
       setBenchmarkStatus(
-        `Loaded defaults for '${result.raceType}' (${result.created} new, ${result.updated} updated).`,
+        `Loaded defaults for '${result.benchmarkKey || result.raceType}' (${result.created} new, ${result.updated} updated).`,
         "ok"
       );
       commitUIUpdate();
@@ -389,12 +441,6 @@ export function wireIntelChecksEvents(ctx){
   };
   const setWhatIfStatus = (msg, kind = "muted") => {
     setStatus(els.intelWhatIfStatus || els.intelCalibrationStatus, msg, kind);
-  };
-  const patchValueMatches = (a, b) => {
-    if (typeof a === "number" && typeof b === "number"){
-      return Math.abs(a - b) <= 1e-9;
-    }
-    return Object.is(a, b);
   };
   const setDecayStatus = (msg, kind = "muted") => {
     setStatus(els.intelDecayStatus || els.intelCalibrationStatus, msg, kind);
@@ -527,7 +573,7 @@ export function wireIntelChecksEvents(ctx){
         setDecayStatus("Weekly decay % must be numeric.", "warn");
         return;
       }
-      model.weeklyDecayPct = pct / 100;
+      model.weeklyDecayPct = pctOverrideToDecimal(pct, model.weeklyDecayPct) ?? model.weeklyDecayPct;
       if (typeof markMcStale === "function") markMcStale();
       setDecayStatus("Weekly decay updated. Re-run Monte Carlo to apply.", "ok");
       commitUIUpdate();
@@ -544,7 +590,7 @@ export function wireIntelChecksEvents(ctx){
         setDecayStatus("Floor % must be numeric.", "warn");
         return;
       }
-      model.floorPctOfBaseline = pct / 100;
+      model.floorPctOfBaseline = pctOverrideToDecimal(pct, model.floorPctOfBaseline) ?? model.floorPctOfBaseline;
       if (typeof markMcStale === "function") markMcStale();
       setDecayStatus("Decay floor updated. Re-run Monte Carlo to apply.", "ok");
       commitUIUpdate();
@@ -718,13 +764,13 @@ export function wireIntelChecksEvents(ctx){
       const s = currentState();
       if (!s) return;
       const drift = (typeof computeRealityDrift === "function") ? computeRealityDrift() : null;
-      const result = captureObservedMetricsFromDrift(s, drift, { source: "dailyLog.rolling7", maxEntries: 180 });
+      const result = captureObservedMetricsFromDrift(s, drift);
       if (!result.ok){
         setObservedStatus(result.error || "Observed metrics capture failed.", "warn");
         return;
       }
       setObservedStatus(
-        `Observed metrics captured (${result.created} new, ${result.updated} updated).`,
+        buildControlsObservedCaptureStatus(result.created, result.updated),
         "ok"
       );
       commitUIUpdate();
@@ -736,22 +782,21 @@ export function wireIntelChecksEvents(ctx){
       const s = currentState();
       if (!s) return;
       const drift = (typeof computeRealityDrift === "function") ? computeRealityDrift() : null;
-      const metricsResult = captureObservedMetricsFromDrift(s, drift, { source: "dailyLog.rolling7", maxEntries: 180 });
+      const refresh = captureObservedAndRefreshDriftRecommendations(s, { drift });
+      const metricsResult = refresh.metricsResult;
       if (!metricsResult.ok && drift?.hasLog){
         setObservedStatus(metricsResult.error || "Observed metrics capture failed.", "warn");
       }
-      const result = refreshDriftRecommendationsFromDrift(s, drift, { maxEntries: 60 });
+      const result = refresh.recommendationResult;
       if (!result.ok){
         setRecommendationStatus(result.error || "Recommendation generation failed.", "warn");
         return;
       }
-      const summary = (result.autoTotal > 0)
-        ? `Drift recommendations updated (${result.autoTotal} active).`
-        : "No active drift recommendations (rolling metrics are within tolerance).";
+      const summary = buildControlsRecommendationRefreshStatus(result.autoTotal);
       setRecommendationStatus(summary, result.autoTotal > 0 ? "ok" : "muted");
       if (metricsResult.ok){
         setObservedStatus(
-          `Observed metrics captured (${metricsResult.created} new, ${metricsResult.updated} updated).`,
+          buildControlsObservedCaptureStatus(metricsResult.created, metricsResult.updated),
           "ok"
         );
       }
@@ -770,14 +815,10 @@ export function wireIntelChecksEvents(ctx){
         return;
       }
       const unresolved = Number(result.unresolved || 0);
-      if (unresolved > 0){
-        setWhatIfStatus(
-          `Saved what-if request (${result.parsedTargets} parsed, ${unresolved} unresolved segment${unresolved === 1 ? "" : "s"}).`,
-          "warn"
-        );
-      } else {
-        setWhatIfStatus(`Saved what-if request (${result.parsedTargets} parsed target${result.parsedTargets === 1 ? "" : "s"}).`, "ok");
-      }
+      setWhatIfStatus(
+        buildControlsWhatIfSavedStatus(Number(result.parsedTargets || 0), unresolved),
+        unresolved > 0 ? "warn" : "ok"
+      );
       commitUIUpdate({ allowScenarioLockBypass: true });
     });
   }
@@ -786,61 +827,17 @@ export function wireIntelChecksEvents(ctx){
     els.btnIntelApplyTopRecommendation.addEventListener("click", () => {
       const s = currentState();
       if (!s) return;
-      const recs = Array.isArray(s?.intelState?.recommendations)
-        ? s.intelState.recommendations
-            .filter((row) => String(row?.source || "").trim() === "auto.realityDrift.v1")
-            .slice()
-            .sort((a, b) => Number(a?.priority || 99) - Number(b?.priority || 99))
-        : [];
-      const top = recs[0] || null;
-      if (!top){
-        setRecommendationStatus("No active drift recommendation to apply.", "warn");
-        return;
-      }
-
-      const result = applyRecommendationDraftPatch(s, { recommendationId: String(top.id || "") });
+      const result = applyTopDriftRecommendation(s);
       if (!result.ok){
-        setRecommendationStatus(result.error || "Failed to apply recommendation patch.", "warn");
+        const missingTop = String(result.code || "") === "missing_recommendation";
+        setRecommendationStatus(
+          missingTop ? buildControlsNoActiveRecommendationStatus() : (result.error || "Failed to apply recommendation patch."),
+          "warn"
+        );
         return;
       }
       if (typeof markMcStale === "function") markMcStale();
       commitUIUpdate();
-
-      const linkedAuditIds = [];
-      const auditRows = Array.isArray(s?.intelState?.audit) ? s.intelState.audit.slice().reverse() : [];
-      if (result.noteMarker){
-        for (const row of auditRows){
-          if (!row || typeof row !== "object") continue;
-          if (!String(row.note || "").includes(result.noteMarker)) continue;
-          const id = String(row.id || "").trim();
-          if (id && !linkedAuditIds.includes(id)) linkedAuditIds.push(id);
-        }
-      }
-      if (!linkedAuditIds.length && Array.isArray(result.changes) && result.changes.length){
-        for (const change of result.changes){
-          const match = auditRows.find((row) =>
-            row &&
-            row.kind === "critical_ref_change" &&
-            String(row.source || "") === "ui" &&
-            String(row.key || "") === String(change?.key || "") &&
-            patchValueMatches(row.after, change?.after)
-          );
-          const id = String(match?.id || "").trim();
-          if (id && !linkedAuditIds.includes(id)) linkedAuditIds.push(id);
-        }
-      }
-
-      const recRow = Array.isArray(s?.intelState?.recommendations)
-        ? s.intelState.recommendations.find((row) => String(row?.id || "").trim() === String(result.recommendationId || "").trim())
-        : null;
-      if (recRow){
-        recRow.appliedAuditIds = linkedAuditIds.slice();
-        recRow.updatedAt = new Date().toISOString();
-        const unresolved = (Array.isArray(s?.intelState?.audit) ? s.intelState.audit : [])
-          .filter((row) => recRow.appliedAuditIds.includes(String(row?.id || "")))
-          .filter((row) => String(row?.status || "").toLowerCase() !== "resolved");
-        recRow.status = unresolved.length ? "appliedNeedsGovernance" : (result.noop ? "alreadyApplied" : "applied");
-      }
 
       commitUIUpdate({ allowScenarioLockBypass: true });
       if (result.noop){
@@ -850,15 +847,15 @@ export function wireIntelChecksEvents(ctx){
         );
         return;
       }
-      if (recRow?.status === "appliedNeedsGovernance"){
+      if (result.needsGovernance){
         setRecommendationStatus(
-          `Applied ${result.recommendationTitle || "recommendation"} (${result.changes.length} change${result.changes.length === 1 ? "" : "s"}). Governance follow-up required.`,
+          `Applied ${result.recommendationTitle || "recommendation"} (${result.changesCount} change${result.changesCount === 1 ? "" : "s"}). Governance follow-up required.`,
           "warn"
         );
         return;
       }
       setRecommendationStatus(
-        `Applied ${result.recommendationTitle || "recommendation"} (${result.changes.length} change${result.changes.length === 1 ? "" : "s"}).`,
+        `Applied ${result.recommendationTitle || "recommendation"} (${result.changesCount} change${result.changesCount === 1 ? "" : "s"}).`,
         "ok"
       );
     });
@@ -1585,7 +1582,9 @@ export function wirePrimaryPlannerEvents(ctx){
     commitUIUpdate();
   });
   if (els.callsPerHour3) els.callsPerHour3.addEventListener("input", () => {
-    withState((state) => { state.callsPerHour3 = safeNum(els.callsPerHour3.value); });
+    withState((state) => {
+      setCanonicalCallsPerHour(state, els.callsPerHour3.value, { toNumber: safeNum, emptyValue: "" });
+    });
     refreshAssumptionsProfile();
     markMcStale();
     commitUIUpdate();

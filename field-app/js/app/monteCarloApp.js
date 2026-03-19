@@ -1,5 +1,18 @@
 // @ts-check
 // Canonical Monte Carlo app module (Phase 11 consolidation).
+import {
+  computeGoalPaceRequirements,
+  computeRemainingAttempts,
+  computeWeeksToFinishAtPace,
+} from "../core/executionPlanner.js";
+import { computeExpectedAphFromWeeklyContext, summarizeExecutionDailyLog } from "../core/executionSnapshot.js";
+import {
+  resolveBaseCallsPerHour,
+  resolveBaseDoorsPerHour,
+  resolveCanonicalCallsPerHour,
+} from "../core/throughput.js";
+import { formatPercentFromUnit, roundWholeNumberByMode } from "../core/utils.js";
+import { pctOverrideToDecimal } from "../core/voteProduction.js";
 
 export function formatMcTimestampModule(ts){
   if (!ts) return "—";
@@ -159,7 +172,7 @@ export function hashMcInputsModule(args){
     volunteerMultBase: safeNum(state.volunteerMultBase),
     channelDoorPct: safeNum(state.channelDoorPct),
     doorsPerHour3: canonicalDoorsPerHourFromSnap(state),
-    callsPerHour3: safeNum(state.callsPerHour3),
+    callsPerHour3: resolveCanonicalCallsPerHour(state, { toNumber: safeNum }),
     // Base rates (Phase 2 + p3)
     contactRatePct: safeNum(state.contactRatePct),
     supportRatePct: safeNum(state.supportRatePct),
@@ -283,7 +296,8 @@ export function getMcStaleness(args){
 
 export function fmtSignedModule(v, fmtInt){
   if (v == null || !isFinite(v)) return "—";
-  const n = Math.round(v);
+  const n = roundWholeNumberByMode(v, { mode: "round", fallback: null });
+  if (n == null) return "—";
   const sign = n >= 0 ? "+" : "−";
   return `${sign}${fmtInt(Math.abs(n))}`;
 }
@@ -379,8 +393,8 @@ export function computeOpsEnvelopeD2Module(args){
   if (!(baseCr > 0) || !(baseSr > 0)) return null;
 
   const baseRr = (eff.tr != null && isFinite(eff.tr) && eff.tr > 0) ? eff.tr : 0.75;
-  const baseDph = (safeNum(state.doorsPerHour3) != null && safeNum(state.doorsPerHour3) > 0) ? safeNum(state.doorsPerHour3) : 30;
-  const baseCph = (safeNum(state.callsPerHour3) != null && safeNum(state.callsPerHour3) > 0) ? safeNum(state.callsPerHour3) : 25;
+  const baseDph = resolveBaseDoorsPerHour(state, { toNumber: safeNum, fallback: 30 }) ?? 30;
+  const baseCph = resolveBaseCallsPerHour(state, { toNumber: safeNum, fallback: 25 }) ?? 25;
   const baseVol = (safeNum(state.volunteerMultBase) != null && safeNum(state.volunteerMultBase) > 0) ? safeNum(state.volunteerMultBase) : 1;
 
   const volBoost = safeNum(eff.volatilityBoost) || 0;
@@ -399,8 +413,14 @@ export function computeOpsEnvelopeD2Module(args){
     const cr = clamp(triSample(specs.contactRate.min, specs.contactRate.mode, specs.contactRate.max, rng), 0.0001, 1);
     const sr = clamp(triSample(specs.persuasionRate.min, specs.persuasionRate.mode, specs.persuasionRate.max, rng), 0.0001, 1);
 
-    const convosPerWeek = (ctx.goal / sr) / w;
-    const attemptsPerWeek = convosPerWeek / cr;
+    const pace = computeGoalPaceRequirements({
+      goalVotes: ctx.goal,
+      supportRate: sr,
+      contactRate: cr,
+      weeks: w,
+    });
+    const convosPerWeek = pace.convosPerWeek;
+    const attemptsPerWeek = pace.attemptsPerWeek;
 
     if (isFinite(convosPerWeek) && convosPerWeek > 0) convos.push(convosPerWeek);
     if (isFinite(attemptsPerWeek) && attemptsPerWeek > 0) attempts.push(attemptsPerWeek);
@@ -472,7 +492,10 @@ export function renderOpsEnvelopeD2Module(args){
     persist();
   }
 
-  const fmt = (v) => (v == null || !isFinite(v)) ? "—" : fmtInt(Math.round(v));
+  const fmt = (v) => {
+    const n = roundWholeNumberByMode(v, { mode: "round", fallback: null });
+    return n == null ? "—" : fmtInt(n);
+  };
 
   if (opsAttP10El) opsAttP10El.textContent = fmt(env.attempts.p10);
   if (opsAttP50El) opsAttP50El.textContent = fmt(env.attempts.p50);
@@ -547,14 +570,12 @@ export function computeFinishEnvelopeD3Module(args){
   if (!(paceAttemptsWeek > 0)) return null;
 
   if (!(doneAttempts >= 0)){
-    doneAttempts = 0;
-    for (const x of (log || [])){
-      if (!x || !x.date) continue;
-      const doors = safeNum(x?.doors) || 0;
-      const calls = safeNum(x?.calls) || 0;
-      const attempts = (x?.attempts != null && x.attempts !== "") ? (safeNum(x.attempts) || 0) : (doors + calls);
-      doneAttempts += attempts;
-    }
+    const summary = summarizeExecutionDailyLog({
+      dailyLog: log || [],
+      windowN: 7,
+      safeNumFn: safeNum,
+    });
+    doneAttempts = Number.isFinite(summary?.sumAttemptsAll) ? summary.sumAttemptsAll : 0;
   }
 
   const eff = getEffectiveBaseRates();
@@ -563,8 +584,8 @@ export function computeFinishEnvelopeD3Module(args){
   if (!(baseCr > 0) || !(baseSr > 0)) return null;
 
   const baseRr = (eff.tr != null && isFinite(eff.tr) && eff.tr > 0) ? eff.tr : 0.75;
-  const baseDph = (safeNum(state.doorsPerHour3) != null && safeNum(state.doorsPerHour3) > 0) ? safeNum(state.doorsPerHour3) : 30;
-  const baseCph = (safeNum(state.callsPerHour3) != null && safeNum(state.callsPerHour3) > 0) ? safeNum(state.callsPerHour3) : 25;
+  const baseDph = resolveBaseDoorsPerHour(state, { toNumber: safeNum, fallback: 30 }) ?? 30;
+  const baseCph = resolveBaseCallsPerHour(state, { toNumber: safeNum, fallback: 25 }) ?? 25;
   const baseVol = (safeNum(state.volunteerMultBase) != null && safeNum(state.volunteerMultBase) > 0) ? safeNum(state.volunteerMultBase) : 1;
   const volBoost = safeNum(eff.volatilityBoost) || 0;
 
@@ -581,11 +602,21 @@ export function computeFinishEnvelopeD3Module(args){
     const cr = clamp(triSample(specs.contactRate.min, specs.contactRate.mode, specs.contactRate.max, rng), 0.0001, 1);
     const sr = clamp(triSample(specs.persuasionRate.min, specs.persuasionRate.mode, specs.persuasionRate.max, rng), 0.0001, 1);
 
-    const convosNeeded = ctx.goal / sr;
-    const attemptsNeeded = convosNeeded / cr;
-    const remaining = Math.max(0, attemptsNeeded - doneAttempts);
-    const weeksToFinish = remaining / paceAttemptsWeek;
-    const daysToFinish = weeksToFinish * 7;
+    const attemptsNeeded = computeGoalPaceRequirements({
+      goalVotes: ctx.goal,
+      supportRate: sr,
+      contactRate: cr,
+      weeks: null,
+    }).attemptsNeeded;
+    const remaining = computeRemainingAttempts({
+      attemptsNeeded,
+      attemptsCompleted: doneAttempts,
+    });
+    const weeksToFinish = computeWeeksToFinishAtPace({
+      remainingAttempts: remaining,
+      attemptsPerWeek: paceAttemptsWeek,
+    });
+    const daysToFinish = (weeksToFinish == null) ? null : (weeksToFinish * 7);
     if (isFinite(daysToFinish) && daysToFinish >= 0) dayOffsets.push(daysToFinish);
   }
 
@@ -645,7 +676,9 @@ export function renderFinishEnvelopeD3Module(args){
   const base = new Date();
   const fmt = (days) => {
     if (days == null || !isFinite(days)) return "—";
-    const dt = new Date(base.getTime() + Math.round(days) * 24 * 3600 * 1000);
+    const roundedDays = roundWholeNumberByMode(days, { mode: "round", fallback: null });
+    if (roundedDays == null) return "—";
+    const dt = new Date(base.getTime() + roundedDays * 24 * 3600 * 1000);
     return fmtISODate(dt);
   };
 
@@ -712,8 +745,8 @@ export function computeMissRiskD4Module(args){
   if (!(baseCr > 0) || !(baseSr > 0)) return null;
 
   const baseRr = (eff.tr != null && isFinite(eff.tr) && eff.tr > 0) ? eff.tr : 0.75;
-  const baseDph = (safeNum(state.doorsPerHour3) != null && safeNum(state.doorsPerHour3) > 0) ? safeNum(state.doorsPerHour3) : 30;
-  const baseCph = (safeNum(state.callsPerHour3) != null && safeNum(state.callsPerHour3) > 0) ? safeNum(state.callsPerHour3) : 25;
+  const baseDph = resolveBaseDoorsPerHour(state, { toNumber: safeNum, fallback: 30 }) ?? 30;
+  const baseCph = resolveBaseCallsPerHour(state, { toNumber: safeNum, fallback: 25 }) ?? 25;
   const baseVol = (safeNum(state.volunteerMultBase) != null && safeNum(state.volunteerMultBase) > 0) ? safeNum(state.volunteerMultBase) : 1;
   const volBoost = safeNum(eff.volatilityBoost) || 0;
 
@@ -732,8 +765,12 @@ export function computeMissRiskD4Module(args){
     const cr = clamp(triSample(specs.contactRate.min, specs.contactRate.mode, specs.contactRate.max, rng), 0.0001, 1);
     const sr = clamp(triSample(specs.persuasionRate.min, specs.persuasionRate.mode, specs.persuasionRate.max, rng), 0.0001, 1);
 
-    const convosPerWeek = (ctx.goal / sr) / w;
-    const attemptsPerWeek = convosPerWeek / cr;
+    const attemptsPerWeek = computeGoalPaceRequirements({
+      goalVotes: ctx.goal,
+      supportRate: sr,
+      contactRate: cr,
+      weeks: w,
+    }).attemptsPerWeek;
 
     if (!isFinite(attemptsPerWeek) || !(attemptsPerWeek > 0)) continue;
     n++;
@@ -797,7 +834,7 @@ export function renderMissRiskD4Module(args){
   }
 
   const prob = env.prob;
-  const pct = (prob == null || !isFinite(prob)) ? "—" : `${(prob * 100).toFixed(1)}%`;
+  const pct = formatPercentFromUnit(prob, 1);
 
   if (missProbEl) missProbEl.textContent = pct;
   if (missProbSidebarEl) missProbSidebarEl.textContent = pct;
@@ -827,7 +864,7 @@ export function renderMissRiskD4Module(args){
 export function quantileSortedModule(sorted, q){
   if (!sorted.length) return 0;
   const pos = (sorted.length - 1) * q;
-  const base = Math.floor(pos);
+  const base = roundWholeNumberByMode(pos, { mode: "floor", fallback: 0 }) || 0;
   const rest = pos - base;
   if (sorted[base + 1] == null) return sorted[base];
   return sorted[base] + rest * (sorted[base + 1] - sorted[base]);
@@ -860,9 +897,9 @@ function triFromPctInputs(minIn, modeIn, maxIn, baseUnit, { safeNum, clamp }){
   const modeV = safeNum(modeIn);
   const maxV = safeNum(maxIn);
 
-  const mode = (modeV != null) ? clamp(modeV, 0, 100) / 100 : fallbackMode;
-  const min = (minV != null) ? clamp(minV, 0, 100) / 100 : clamp(mode * 0.8, 0, 1);
-  const max = (maxV != null) ? clamp(maxV, 0, 100) / 100 : clamp(mode * 1.2, 0, 1);
+  const mode = pctOverrideToDecimal(modeV, fallbackMode) ?? fallbackMode;
+  const min = pctOverrideToDecimal(minV, clamp(mode * 0.8, 0, 1)) ?? clamp(mode * 0.8, 0, 1);
+  const max = pctOverrideToDecimal(maxV, clamp(mode * 1.2, 0, 1)) ?? clamp(mode * 1.2, 0, 1);
 
   return normalizeTri({ min, mode, max }, { clamp });
 }
@@ -997,13 +1034,7 @@ export function runMonteCarloNowModule(args){
   const weeklyContext = (typeof computeWeeklyOpsContext === "function")
     ? (computeWeeklyOpsContext(res, w) || null)
     : null;
-  const expectedAPH = (
-    weeklyContext?.doorShare != null &&
-    weeklyContext?.doorsPerHour != null &&
-    weeklyContext?.callsPerHour != null
-  )
-    ? (weeklyContext.doorShare * weeklyContext.doorsPerHour + (1 - weeklyContext.doorShare) * weeklyContext.callsPerHour)
-    : null;
+  const expectedAPH = computeExpectedAphFromWeeklyContext(weeklyContext);
   let executionSnapshot = null;
   try{
     executionSnapshot = (typeof computeExecutionSnapshot === "function")

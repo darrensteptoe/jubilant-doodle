@@ -77,6 +77,8 @@ export function createDiagnosticsRuntimeController({
       engine,
       state: getState(),
       computeRealityDrift,
+      bootStatus: globalThis?.__FPE_BOOT_STATUS__ || null,
+      bootTrace: Array.isArray(globalThis?.__FPE_BOOT_TRACE__) ? globalThis.__FPE_BOOT_TRACE__ : [],
     });
   }
 
