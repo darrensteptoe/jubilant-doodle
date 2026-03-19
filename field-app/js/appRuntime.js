@@ -6044,7 +6044,7 @@ function decisionBridgeDiagnosticsSnapshot(){
     primaryBottleneck: state?.ui?.lastDiagnostics?.primaryBottleneck || null,
     secondaryNotes: state?.ui?.lastDiagnostics?.secondaryNotes || null,
     sensitivityCache: state?.ui?.e4Sensitivity || null,
-    baselineInputs,
+    baselineInputs: baseInputs,
     activeInputs,
     divergenceKeyOrder: DECISION_DIVERGENCE_KEY_ORDER,
     formatInt: (value) => fmtInt(value),
