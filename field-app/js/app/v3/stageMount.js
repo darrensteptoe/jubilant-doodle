@@ -95,21 +95,7 @@ function syncLegacyRightRail() {
     return;
   }
 
-  try {
-    const attach = window.__FPE_ATTACH_LEGACY_RIGHT_RAIL_TO_SLOT__;
-    if (typeof attach === "function" && attach("v3RightRailSlot")) {
-      return;
-    }
-  } catch {}
-
-  let legacyRail = null;
-  try {
-    const getRail = window.__FPE_GET_LEGACY_RIGHT_RAIL__;
-    if (typeof getRail === "function") {
-      legacyRail = getRail();
-    }
-  } catch {}
-  legacyRail ||= document.getElementById("legacyResultsSidebar") || document.querySelector(".results-sidebar-new");
+  const legacyRail = document.getElementById("legacyResultsSidebar");
   if (!legacyRail) {
     return;
   }

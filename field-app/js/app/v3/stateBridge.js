@@ -1,51 +1,15 @@
+import { readText as readSurfaceText } from "./surfaceUtils.js";
+
 const DISTRICT_API_KEY = "__FPE_DISTRICT_API__";
 const TURNOUT_API_KEY = "__FPE_TURNOUT_API__";
 
-function readFromElement(el) {
-  if (!el) {
-    return "";
-  }
-
-  if ("value" in el && typeof el.value === "string") {
-    return el.value.trim();
-  }
-
-  return (el.textContent || "").trim();
-}
-
 export function readText(selector) {
-  return readFromElement(document.querySelector(selector));
-}
-
-export function firstNonEmpty(selectors = []) {
-  const list = Array.isArray(selectors) ? selectors : [selectors];
-  for (const selector of list) {
-    const value = readText(selector);
-    if (value) {
-      return value;
-    }
-  }
-  return "";
-}
-
-export function readNumber(selector) {
-  return parseNumber(readText(selector));
+  return readSurfaceText(selector);
 }
 
 export function isMissingValue(value) {
   const normalized = String(value == null ? "" : value).trim();
   return !normalized || normalized === "-" || normalized === "—";
-}
-
-export function readFirstNumber(selectors = []) {
-  const list = Array.isArray(selectors) ? selectors : [selectors];
-  for (const selector of list) {
-    const value = readNumber(selector);
-    if (Number.isFinite(value)) {
-      return value;
-    }
-  }
-  return NaN;
 }
 
 export function firstNonMissing(selectors = []) {
@@ -55,33 +19,6 @@ export function firstNonMissing(selectors = []) {
     if (!isMissingValue(value)) {
       return value;
     }
-  }
-  return "";
-}
-
-export function parseNumber(value) {
-  const numeric = String(value || "").replace(/[^\d.-]/g, "");
-  const num = Number(numeric);
-  return Number.isFinite(num) ? num : NaN;
-}
-
-export function formatInteger(value) {
-  if (!Number.isFinite(value)) {
-    return "-";
-  }
-  return Math.round(value).toLocaleString();
-}
-
-function readExpectedTurnoutPct() {
-  const direct = firstNonMissing(["#v3DistrictTurnoutExpected", "#turnoutExpected"]);
-  if (!isMissingValue(direct)) {
-    return direct;
-  }
-
-  const turnoutA = readFirstNumber(["#v3DistrictTurnoutA", "#turnoutA"]);
-  const turnoutB = readFirstNumber(["#v3DistrictTurnoutB", "#turnoutB"]);
-  if (Number.isFinite(turnoutA) && Number.isFinite(turnoutB)) {
-    return `${((turnoutA + turnoutB) / 2).toFixed(1)}%`;
   }
   return "";
 }
@@ -176,24 +113,32 @@ export function exportDistrictTargetingJson() {
   return callDistrictBridge("exportTargetingJson");
 }
 
+export function setDistrictCensusField(field, value) {
+  return callDistrictBridge("setCensusField", field, value);
+}
+
+export function setDistrictCensusGeoSelection(values) {
+  return callDistrictBridge("setCensusGeoSelection", values);
+}
+
+export function setDistrictCensusFile(field, files) {
+  return callDistrictBridge("setCensusFile", field, files);
+}
+
+export function triggerDistrictCensusAction(action) {
+  return callDistrictBridge("triggerCensusAction", action);
+}
+
 export function readDistrictSnapshot() {
   const bridgeSummary = readDistrictBridgeSummary();
-  const universeRaw = readFirstNumber(["#v3DistrictUniverseSize", "#universeSize"]);
-  const baselineSupportFallback = firstNonMissing(["#v3DistrictSupportTotal", "#supportTotal"]);
-  const turnoutExpectedFallback = readExpectedTurnoutPct();
-  const turnoutBandFallback = firstNonMissing(["#v3DistrictTurnoutBand", "#turnoutBand"]);
-  const votesPer1pctFallback = firstNonMissing(["#v3DistrictVotesPer1pct", "#votesPer1pct"]);
-  const projectedVotesFallback = firstNonEmpty(["#kpiYourVotes-sidebar"]);
-  const persuasionNeedFallback = firstNonEmpty(["#kpiPersuasionNeed-sidebar"]);
-
   return {
-    universe: !isMissingValue(bridgeSummary?.universe) ? bridgeSummary.universe : formatInteger(universeRaw),
-    baselineSupport: !isMissingValue(bridgeSummary?.baselineSupport) ? bridgeSummary.baselineSupport : (baselineSupportFallback || "-"),
-    turnoutExpected: !isMissingValue(bridgeSummary?.turnoutExpected) ? bridgeSummary.turnoutExpected : (turnoutExpectedFallback || "-"),
-    turnoutBand: !isMissingValue(bridgeSummary?.turnoutBand) ? bridgeSummary.turnoutBand : (turnoutBandFallback || "-"),
-    votesPer1pct: !isMissingValue(bridgeSummary?.votesPer1pct) ? bridgeSummary.votesPer1pct : (votesPer1pctFallback || "-"),
-    projectedVotes: !isMissingValue(bridgeSummary?.projectedVotes) ? bridgeSummary.projectedVotes : (projectedVotesFallback || "-"),
-    persuasionNeed: !isMissingValue(bridgeSummary?.persuasionNeed) ? bridgeSummary.persuasionNeed : (persuasionNeedFallback || "-")
+    universe: !isMissingValue(bridgeSummary?.universe) ? String(bridgeSummary.universe) : "-",
+    baselineSupport: !isMissingValue(bridgeSummary?.baselineSupport) ? String(bridgeSummary.baselineSupport) : "-",
+    turnoutExpected: !isMissingValue(bridgeSummary?.turnoutExpected) ? String(bridgeSummary.turnoutExpected) : "-",
+    turnoutBand: !isMissingValue(bridgeSummary?.turnoutBand) ? String(bridgeSummary.turnoutBand) : "-",
+    votesPer1pct: !isMissingValue(bridgeSummary?.votesPer1pct) ? String(bridgeSummary.votesPer1pct) : "-",
+    projectedVotes: !isMissingValue(bridgeSummary?.projectedVotes) ? String(bridgeSummary.projectedVotes) : "-",
+    persuasionNeed: !isMissingValue(bridgeSummary?.persuasionNeed) ? String(bridgeSummary.persuasionNeed) : "-",
   };
 }
 
@@ -230,8 +175,35 @@ export function readDistrictTemplateSnapshot() {
     salienceLevel: String(template.salienceLevel || "").trim(),
     appliedTemplateId: String(template.appliedTemplateId || "").trim(),
     appliedVersion: String(template.appliedVersion || "").trim(),
+    benchmarkKey: String(template.benchmarkKey || "").trim(),
     assumptionsProfile: String(template.assumptionsProfile || "").trim(),
     overriddenFields: overridden,
+  };
+}
+
+export function readDistrictFormSnapshot() {
+  const view = readDistrictBridgeView();
+  const form = view?.form;
+  if (!form || typeof form !== "object") {
+    return null;
+  }
+  return {
+    raceType: String(form.raceType || "").trim(),
+    electionDate: String(form.electionDate || "").trim(),
+    weeksRemaining: String(form.weeksRemaining ?? "").trim(),
+    mode: String(form.mode || "").trim(),
+    universeSize: Number.isFinite(Number(form.universeSize)) ? Number(form.universeSize) : null,
+    universeBasis: String(form.universeBasis || "").trim(),
+    sourceNote: String(form.sourceNote || "").trim(),
+    turnoutA: Number.isFinite(Number(form.turnoutA)) ? Number(form.turnoutA) : null,
+    turnoutB: Number.isFinite(Number(form.turnoutB)) ? Number(form.turnoutB) : null,
+    bandWidth: Number.isFinite(Number(form.bandWidth)) ? Number(form.bandWidth) : null,
+    universe16Enabled: !!form.universe16Enabled,
+    universe16DemPct: Number.isFinite(Number(form.universe16DemPct)) ? Number(form.universe16DemPct) : null,
+    universe16RepPct: Number.isFinite(Number(form.universe16RepPct)) ? Number(form.universe16RepPct) : null,
+    universe16NpaPct: Number.isFinite(Number(form.universe16NpaPct)) ? Number(form.universe16NpaPct) : null,
+    universe16OtherPct: Number.isFinite(Number(form.universe16OtherPct)) ? Number(form.universe16OtherPct) : null,
+    retentionFactor: Number.isFinite(Number(form.retentionFactor)) ? Number(form.retentionFactor) : null,
   };
 }
 
@@ -405,9 +377,9 @@ export function readDistrictCensusSnapshot() {
 export function readTurnoutSnapshot() {
   const bridgeSummary = readTurnoutBridgeSummary();
   return {
-    turnoutSummary: bridgeSummary?.turnoutSummary || firstNonEmpty(["#kpiTurnoutBand-sidebar"]),
-    turnoutVotes: bridgeSummary?.turnoutVotes || firstNonEmpty(["#kpiTurnoutVotes-sidebar"]),
-    needVotes: bridgeSummary?.needVotes || firstNonEmpty(["#kpiPersuasionNeed-sidebar"])
+    turnoutSummary: String(bridgeSummary?.turnoutSummary || "").trim() || "—",
+    turnoutVotes: String(bridgeSummary?.turnoutVotes || "").trim() || "—",
+    needVotes: String(bridgeSummary?.needVotes || "").trim() || "—",
   };
 }
 

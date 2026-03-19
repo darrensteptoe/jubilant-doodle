@@ -1,4 +1,6 @@
 import { syncKpis } from "./kpiBridge.js";
+import { applyActiveContextToLinks, resolveActiveContext } from "../activeContext.js";
+import { bootProbeError, bootProbeMark } from "../bootProbe.js";
 import { wireV3Nav } from "./nav.js";
 import { installV3QaSmokeBridge, runV3QaSmoke } from "./qaGates.js";
 import { renderV3Shell } from "./shell.js";
@@ -17,36 +19,34 @@ function resolveUiMode() {
     const getMode = window.__FPE_GET_UI_MODE__;
     if (typeof getMode === "function") {
       const mode = getMode();
-      if (mode === "legacy" || mode === "v3") {
+      if (mode === "v3") {
         return mode;
       }
     }
   } catch {}
 
-  const params = new URLSearchParams(window.location.search);
-  if (params.get("ui") === "legacy") {
-    return "legacy";
-  }
-
   return "v3";
 }
 
 function bootV3() {
+  bootProbeMark("v3.boot", { phase: "start" });
   const root = document.getElementById("app-shell-v3-root");
 
   if (!root) {
+    bootProbeMark("v3.boot", { phase: "skipped", reason: "missing-root" });
     return;
   }
 
   if (resolveUiMode() !== "v3") {
     uninstallNavigationBridge();
     root.hidden = true;
+    bootProbeMark("v3.boot", { phase: "skipped", reason: "ui-mode-not-v3" });
     return;
   }
 
   try {
-    prepareV3CompatHosts();
     renderV3Shell(root);
+    applyActiveContextToLinks(resolveActiveContext(), ".fpe-nav__item[href]");
 
     root.hidden = false;
 
@@ -62,11 +62,18 @@ function bootV3() {
 
     navigateStage(resolveInitialStage(), { persist: true });
     startSyncLoop();
+    bootProbeMark("v3.boot", { phase: "ok" });
   } catch (err) {
-    console.error("[v3-shell] failed to boot, reverting to legacy shell", err);
+    bootProbeError("v3.boot", err);
+    console.error("[v3-shell] failed to boot", err);
     uninstallNavigationBridge();
-    enterLegacyInlineShell();
-    root.hidden = true;
+    root.hidden = false;
+    try {
+      const openEmergency = window.__FPE_OPEN_EMERGENCY_DIAGNOSTICS__;
+      if (typeof openEmergency === "function") {
+        openEmergency();
+      }
+    } catch {}
   }
 }
 
@@ -145,7 +152,6 @@ function wireTopbarBridge() {
   const diagnosticsBtn = document.getElementById("v3BtnDiagnostics");
   const resetBtn = document.getElementById("v3BtnReset");
   const trainingBtn = document.getElementById("v3BtnTraining");
-  const legacyBtn = document.getElementById("v3SwitchLegacy");
 
   diagnosticsBtn?.addEventListener("click", () => {
     try {
@@ -170,17 +176,6 @@ function wireTopbarBridge() {
     const nextEnabled = !readShellTrainingState();
     setShellTrainingState(nextEnabled);
     syncAll();
-  });
-
-  legacyBtn?.addEventListener("click", () => {
-    if (setUiMode("legacy")) {
-      return;
-    }
-    const params = new URLSearchParams(window.location.search);
-    params.set("ui", "legacy");
-    const query = params.toString();
-    const nextUrl = query ? `${window.location.pathname}?${query}` : window.location.pathname;
-    window.location.assign(nextUrl);
   });
 }
 
@@ -228,89 +223,6 @@ function resetScenarioFallback() {
     }
   } catch {}
   clickLegacy("btnResetAll");
-}
-
-function moveLegacyRightRailToHost() {
-  try {
-    const move = window.__FPE_MOVE_LEGACY_RIGHT_RAIL_TO_HOST__;
-    if (typeof move === "function") {
-      move();
-    }
-  } catch {}
-}
-
-function restoreLegacyRightRail() {
-  try {
-    const restore = window.__FPE_RESTORE_LEGACY_RIGHT_RAIL__;
-    if (typeof restore === "function") {
-      restore();
-    }
-  } catch {}
-}
-
-function prepareV3CompatHosts() {
-  try {
-    const prepare = window.__FPE_PREPARE_V3_COMPAT_HOSTS__;
-    if (typeof prepare === "function") {
-      prepare();
-      return;
-    }
-  } catch {}
-  moveLegacyRightRailToHost();
-}
-
-function restoreLegacyCompatHosts() {
-  try {
-    const restore = window.__FPE_RESTORE_LEGACY_COMPAT_HOSTS__;
-    if (typeof restore === "function") {
-      restore();
-      return;
-    }
-  } catch {}
-  restoreLegacyRightRail();
-}
-
-function setLegacyShellVisible(visible) {
-  try {
-    const setVisible = window.__FPE_SET_LEGACY_SHELL_VISIBLE__;
-    if (typeof setVisible === "function") {
-      setVisible(!!visible);
-      return;
-    }
-  } catch {}
-  let shell = null;
-  try {
-    const getRoot = window.__FPE_GET_LEGACY_SHELL_ROOT__;
-    if (typeof getRoot === "function") {
-      shell = getRoot();
-    }
-  } catch {}
-  shell ||= document.getElementById("app-shell-legacy");
-  if (shell) {
-    shell.hidden = !visible;
-  }
-}
-
-function setUiMode(mode) {
-  try {
-    const setMode = window.__FPE_SET_UI_MODE__;
-    if (typeof setMode === "function") {
-      return !!setMode(mode);
-    }
-  } catch {}
-  return false;
-}
-
-function enterLegacyInlineShell() {
-  try {
-    const initLegacy = window.__FPE_INIT_LEGACY_INLINE_SHELL__;
-    if (typeof initLegacy === "function") {
-      initLegacy();
-      return;
-    }
-  } catch {}
-  restoreLegacyCompatHosts();
-  setLegacyShellVisible(true);
 }
 
 function readShellBridgeView() {

@@ -6,11 +6,13 @@ import {
   getCardBody
 } from "../componentFactory.js";
 import {
+  countSelectOptions,
   setText,
 } from "../surfaceUtils.js";
 import {
   benchmarkRefLabel,
   intelBriefKindLabel,
+  listBenchmarkRefs,
   listIntelBenchmarks,
   listIntelBriefKinds,
   listIntelEvidence,
@@ -18,11 +20,24 @@ import {
   listMissingNoteAudit
 } from "../../intelControlsRuntime.js";
 import {
+  buildControlsBenchmarkDraftStatus,
+  buildControlsCalibrationStatus,
+  buildControlsCorrelationDisabledHint,
+  buildControlsCorrelationStatus,
+  buildControlsDecayStatus,
+  buildControlsEvidenceAttachStatus,
+  buildControlsObservedCaptureStatus,
+  buildControlsRecommendationRefreshStatus,
   buildObservedCountText,
   buildObservedStatusText,
   buildRecommendationCountText,
   buildRecommendationPreviewTextFromIntel,
   buildRecommendationStatusText,
+  buildControlsScenarioLockStatus,
+  buildControlsShockScenarioCountText,
+  buildControlsShockStatus,
+  buildControlsWhatIfSavedStatus,
+  buildControlsWorkflowStatus,
   buildWhatIfCountText,
   buildWhatIfPreviewTextFromIntel,
   buildWhatIfStatusText,
@@ -34,28 +49,23 @@ import {
   deriveControlsReviewCardStatus,
   deriveControlsWarningsCardStatus,
   deriveControlsWorkflowCardStatus,
+  formatControlsIsoDate,
+  formatControlsNumber,
+  formatControlsRecordCount,
+  parseControlsOptionalNumber,
 } from "../../../core/controlsView.js";
+import {
+  benchmarkScopeLabel,
+  benchmarkScopeToBenchmarkKey,
+  benchmarkScopeToRaceType,
+  listBenchmarkScopeOptions,
+} from "../../../core/benchmarkProfiles.js";
+import { formatPercentFromUnit } from "../../../core/utils.js";
+import { pctOverrideToDecimal } from "../../../core/voteProduction.js";
 
 const SCENARIO_API_KEY = "__FPE_SCENARIO_API__";
-const BENCHMARK_REF_OPTIONS = [
-  "core.universeSize",
-  "core.persuasionUniversePct",
-  "core.supportRatePct",
-  "core.contactRatePct",
-  "core.turnoutCycleA",
-  "core.turnoutCycleB",
-  "core.turnoutBandWidth",
-  "core.turnoutBaselinePct",
-  "core.gotvLiftPP",
-  "core.gotvLiftCeilingPP",
-  "core.orgCount",
-  "core.orgHoursPerWeek",
-  "core.volunteerMultiplier",
-  "core.channelDoorPct",
-  "core.doorsPerHour",
-  "core.callsPerHour"
-];
-const BENCHMARK_RACE_TYPE_OPTIONS = ["all", "federal", "state_leg", "municipal", "county"];
+const BENCHMARK_REF_OPTIONS = listBenchmarkRefs();
+const BENCHMARK_SCOPE_OPTIONS = listBenchmarkScopeOptions();
 const MC_DISTRIBUTION_OPTIONS = [
   { value: "triangular", label: "Triangular" },
   { value: "uniform", label: "Uniform" },
@@ -254,7 +264,7 @@ export function renderControlsSurface(mount) {
       <div class="fpe-contained-block">
         <ul class="bullets">
           <li>Ranges are governance signals only and do not alter deterministic or Monte Carlo math.</li>
-          <li>Use race-type scope to keep warning thresholds context-aware.</li>
+          <li>Use benchmark scope to keep warning thresholds context-aware.</li>
           <li>Keep source title and notes current for review traceability.</li>
         </ul>
       </div>
@@ -264,7 +274,7 @@ export function renderControlsSurface(mount) {
           <select class="fpe-input" id="v3IntelBenchmarkRef"></select>
         </div>
         <div class="field">
-          <label class="fpe-control-label" for="v3IntelBenchmarkRaceType">Race type scope</label>
+          <label class="fpe-control-label" for="v3IntelBenchmarkRaceType">Benchmark scope</label>
           <select class="fpe-input" id="v3IntelBenchmarkRaceType"></select>
         </div>
         <div class="field">
@@ -319,7 +329,7 @@ export function renderControlsSurface(mount) {
           <thead>
             <tr>
               <th>Reference</th>
-              <th>Race type</th>
+              <th>Scope</th>
               <th class="num">Range</th>
               <th class="num">Warn/Hard</th>
               <th>Source</th>
@@ -729,8 +739,21 @@ function syncControlsWorkflowBridge() {
     noteEl.value = pendingCriticalNote;
   }
 
-  setText("v3IntelScenarioLockStatus", buildScenarioLockStatus());
-  setText("v3IntelWorkflowStatus", buildWorkflowStatus());
+  setText(
+    "v3IntelScenarioLockStatus",
+    buildControlsScenarioLockStatus({
+      locked: isCheckedById("v3IntelScenarioLocked"),
+      lockReason: readInputValueById("v3IntelScenarioLockReason"),
+    })
+  );
+  setText(
+    "v3IntelWorkflowStatus",
+    buildControlsWorkflowStatus({
+      scenarioLocked: isCheckedById("v3IntelScenarioLocked"),
+      requireCriticalNote: isCheckedById("v3IntelRequireCriticalNote"),
+      requireCriticalEvidence: isCheckedById("v3IntelRequireCriticalEvidence"),
+    })
+  );
 }
 
 function wireControlsBenchmarkBridge() {
@@ -747,10 +770,13 @@ function wireControlsBenchmarkBridge() {
   const loadDefaultsBtn = document.getElementById("v3BtnIntelBenchmarkLoadDefaults");
   if (loadDefaultsBtn instanceof HTMLButtonElement) {
     loadDefaultsBtn.addEventListener("click", () => {
-      const raceType = readInputValueById("v3IntelBenchmarkRaceType") || "all";
-      const result = loadDefaultBenchmarksViaScenarioApi(raceType);
+      const selectedScope = readInputValueById("v3IntelBenchmarkRaceType") || "default";
+      const result = loadDefaultBenchmarksViaScenarioApi({
+        raceType: benchmarkScopeToRaceType(selectedScope),
+        benchmarkKey: benchmarkScopeToBenchmarkKey(selectedScope),
+      });
       if (result?.ok) {
-        benchmarkActionStatus = `Loaded defaults for ${result.raceType || raceType}. Created ${Number(result.created || 0)}, updated ${Number(result.updated || 0)}.`;
+        benchmarkActionStatus = `Loaded defaults for ${result.benchmarkKey || result.raceType || selectedScope}. Created ${Number(result.created || 0)}, updated ${Number(result.updated || 0)}.`;
       } else {
         benchmarkActionStatus = String(result?.error || "Failed to load default benchmarks.");
       }
@@ -760,14 +786,16 @@ function wireControlsBenchmarkBridge() {
   const saveBtn = document.getElementById("v3BtnIntelBenchmarkSave");
   if (saveBtn instanceof HTMLButtonElement) {
     saveBtn.addEventListener("click", () => {
+      const selectedScope = readInputValueById("v3IntelBenchmarkRaceType") || "default";
       const payload = {
         ref: readInputValueById("v3IntelBenchmarkRef"),
-        raceType: readInputValueById("v3IntelBenchmarkRaceType") || "all",
-        defaultValue: parseOptionalNumber(readInputValueById("v3IntelBenchmarkDefault")),
-        min: parseOptionalNumber(readInputValueById("v3IntelBenchmarkMin")),
-        max: parseOptionalNumber(readInputValueById("v3IntelBenchmarkMax")),
-        warnAbove: parseOptionalNumber(readInputValueById("v3IntelBenchmarkWarnAbove")),
-        hardAbove: parseOptionalNumber(readInputValueById("v3IntelBenchmarkHardAbove")),
+        raceType: benchmarkScopeToRaceType(selectedScope),
+        benchmarkKey: benchmarkScopeToBenchmarkKey(selectedScope),
+        defaultValue: parseControlsOptionalNumber(readInputValueById("v3IntelBenchmarkDefault")),
+        min: parseControlsOptionalNumber(readInputValueById("v3IntelBenchmarkMin")),
+        max: parseControlsOptionalNumber(readInputValueById("v3IntelBenchmarkMax")),
+        warnAbove: parseControlsOptionalNumber(readInputValueById("v3IntelBenchmarkWarnAbove")),
+        hardAbove: parseControlsOptionalNumber(readInputValueById("v3IntelBenchmarkHardAbove")),
         sourceTitle: readInputValueById("v3IntelBenchmarkSourceTitle"),
         sourceNotes: readInputValueById("v3IntelBenchmarkSourceNotes")
       };
@@ -844,8 +872,13 @@ function syncControlsBenchmarkBridge() {
 
   ensureBenchmarkSelectOptions();
   const benchmarkRows = syncBenchmarkRowsFromIntel();
-  setText("v3IntelBenchmarkCount", formatRecordCount(benchmarkRows, "benchmark entry", "configured"));
-  setText("v3IntelBenchmarkStatus", benchmarkActionStatus || buildBenchmarkStatus());
+  setText("v3IntelBenchmarkCount", formatControlsRecordCount(benchmarkRows, "benchmark entry", "configured"));
+  setText(
+    "v3IntelBenchmarkStatus",
+    benchmarkActionStatus || buildControlsBenchmarkDraftStatus({
+      reference: readInputValueById("v3IntelBenchmarkRef"),
+    })
+  );
 }
 
 function syncBenchmarkRowsFromIntel() {
@@ -877,13 +910,19 @@ function syncBenchmarkRowsFromIntel() {
 
   rows.forEach((row) => {
     const tr = document.createElement("tr");
-    const range = `${fmtNum(row?.range?.min)} .. ${fmtNum(row?.range?.max)}`;
-    const severity = `${fmtNum(row?.severityBands?.warnAbove)} / ${fmtNum(row?.severityBands?.hardAbove)}`;
+    const range = `${formatControlsNumber(row?.range?.min)} .. ${formatControlsNumber(row?.range?.max)}`;
+    const severity = `${formatControlsNumber(row?.severityBands?.warnAbove)} / ${formatControlsNumber(row?.severityBands?.hardAbove)}`;
     const source = row?.source?.title || row?.source?.type || "—";
     const removeId = String(row?.id || "");
 
     appendCell(tr, benchmarkRefLabel(row?.ref), { subtext: row?.ref || "—" });
-    appendCell(tr, row?.raceType || "all");
+    appendCell(
+      tr,
+      benchmarkScopeLabel(row?.benchmarkKey || row?.templateBenchmarkKey || row?.raceType || "all"),
+      {
+        subtext: row?.benchmarkKey ? `race: ${row?.raceType || "all"}` : "",
+      },
+    );
     appendCell(tr, range, { numeric: true });
     appendCell(tr, severity, { numeric: true });
     appendCell(tr, source);
@@ -995,7 +1034,15 @@ function syncControlsEvidenceBridge() {
       ? `${missingNotes} critical assumption edit(s) missing note.`
       : "0 critical assumption edit(s) missing note."
   );
-  setText("v3IntelEvidenceStatus", evidenceActionStatus || buildEvidenceStatus(evidenceRows, unresolved));
+  setText(
+    "v3IntelEvidenceStatus",
+    evidenceActionStatus || buildControlsEvidenceAttachStatus({
+      evidenceRowCount: evidenceRows,
+      unresolvedAuditCount: unresolved,
+      evidenceTitle: readInputValueById("v3IntelEvidenceTitle"),
+      evidenceSource: readInputValueById("v3IntelEvidenceSource"),
+    })
+  );
 }
 
 function syncEvidenceRowsFromIntel() {
@@ -1023,7 +1070,7 @@ function syncEvidenceRowsFromIntel() {
     const tr = document.createElement("tr");
     appendCell(tr, row?.title || "—");
     appendCell(tr, row?.source || "—");
-    appendCell(tr, formatIsoDate(row?.capturedAt));
+    appendCell(tr, formatControlsIsoDate(row?.capturedAt));
     appendCell(tr, row?.ref || "—");
     appendCell(tr, row?.id || "—");
     tbody.appendChild(tr);
@@ -1099,11 +1146,11 @@ function wireControlsCalibrationBridge() {
   const decayWeeklyPctEl = document.getElementById("v3IntelDecayWeeklyPct");
   if (decayWeeklyPctEl instanceof HTMLInputElement) {
     const push = () => {
-      const parsed = parseOptionalNumber(decayWeeklyPctEl.value);
-      if (!Number.isFinite(parsed)) {
+      const parsed = pctOverrideToDecimal(decayWeeklyPctEl.value, null);
+      if (parsed == null) {
         return;
       }
-      applyExpertPatch({ decayModel: { weeklyDecayPct: parsed / 100 } });
+      applyExpertPatch({ decayModel: { weeklyDecayPct: parsed } });
     };
     decayWeeklyPctEl.addEventListener("change", push);
     decayWeeklyPctEl.addEventListener("blur", push);
@@ -1112,11 +1159,11 @@ function wireControlsCalibrationBridge() {
   const decayFloorPctEl = document.getElementById("v3IntelDecayFloorPct");
   if (decayFloorPctEl instanceof HTMLInputElement) {
     const push = () => {
-      const parsed = parseOptionalNumber(decayFloorPctEl.value);
-      if (!Number.isFinite(parsed)) {
+      const parsed = pctOverrideToDecimal(decayFloorPctEl.value, null);
+      if (parsed == null) {
         return;
       }
-      applyExpertPatch({ decayModel: { floorPctOfBaseline: parsed / 100 } });
+      applyExpertPatch({ decayModel: { floorPctOfBaseline: parsed } });
     };
     decayFloorPctEl.addEventListener("change", push);
     decayFloorPctEl.addEventListener("blur", push);
@@ -1280,12 +1327,14 @@ function syncControlsCalibrationBridge() {
   const decayWeeklyPctEl = document.getElementById("v3IntelDecayWeeklyPct");
   if (decayWeeklyPctEl instanceof HTMLInputElement && document.activeElement !== decayWeeklyPctEl) {
     const weekly = Number(decayModel.weeklyDecayPct);
-    decayWeeklyPctEl.value = Number.isFinite(weekly) ? String((weekly * 100).toFixed(2).replace(/\.00$/, "")) : "";
+    const weeklyText = formatPercentFromUnit(weekly, 2, "");
+    decayWeeklyPctEl.value = weeklyText ? weeklyText.replace("%", "").replace(/\.00$/, "") : "";
   }
   const decayFloorPctEl = document.getElementById("v3IntelDecayFloorPct");
   if (decayFloorPctEl instanceof HTMLInputElement && document.activeElement !== decayFloorPctEl) {
     const floor = Number(decayModel.floorPctOfBaseline);
-    decayFloorPctEl.value = Number.isFinite(floor) ? String((floor * 100).toFixed(2).replace(/\.00$/, "")) : "";
+    const floorText = formatPercentFromUnit(floor, 2, "");
+    decayFloorPctEl.value = floorText ? floorText.replace("%", "").replace(/\.00$/, "") : "";
   }
   const shockEnabledEl = document.getElementById("v3IntelShockScenariosEnabled");
   if (shockEnabledEl instanceof HTMLInputElement && document.activeElement !== shockEnabledEl) {
@@ -1293,21 +1342,50 @@ function syncControlsCalibrationBridge() {
   }
 
   const selectedKind = selectedBriefKind();
-  const content = latestBriefContentForKind(selectedKind) || latestBriefContentForKind("calibrationSources");
+  const selectedKindContent = latestBriefContentForKind(selectedKind);
+  const content = selectedKindContent || latestBriefContentForKind("calibrationSources");
+  const correlationModelCount = countCorrelationModelsFromIntel();
+  const shockScenarioCount = countShockScenariosFromIntel();
   setTextareaValue("v3IntelCalibrationBriefContent", hasApi ? content : "");
 
-  setText("v3IntelCorrelationDisabledHint", buildCorrelationDisabledHint());
-  setText("v3IntelDecayStatus", buildDecayStatus());
+  setText("v3IntelCorrelationDisabledHint", buildControlsCorrelationDisabledHint(correlationModelCount));
+  setText(
+    "v3IntelDecayStatus",
+    buildControlsDecayStatus({
+      enabled: isCheckedById("v3IntelCapacityDecayEnabled"),
+      weeklyPct: readInputValueById("v3IntelDecayWeeklyPct"),
+    })
+  );
   if (!hasApi) {
     setText("v3IntelCorrelationStatus", "Scenario bridge unavailable.");
     setText("v3IntelShockScenarioCount", "0 scenarios configured.");
     setText("v3IntelShockStatus", "Scenario bridge unavailable.");
     setText("v3IntelCalibrationStatus", "Scenario bridge unavailable.");
   } else {
-    setText("v3IntelCorrelationStatus", buildCorrelationStatus());
-    setText("v3IntelShockScenarioCount", buildShockScenarioCount());
-    setText("v3IntelShockStatus", shockActionStatus || buildShockStatus());
-    setText("v3IntelCalibrationStatus", calibrationActionStatus || buildCalibrationStatus());
+    setText(
+      "v3IntelCorrelationStatus",
+      buildControlsCorrelationStatus({
+        enabled: isCheckedById("v3IntelCorrelatedShocks"),
+        modelCount: correlationModelCount,
+        selectedModelId: readInputValueById("v3IntelCorrelationMatrixId"),
+        selectedModelLabel: readSelectedOptionLabelById("v3IntelCorrelationMatrixId"),
+      })
+    );
+    setText("v3IntelShockScenarioCount", buildControlsShockScenarioCountText(shockScenarioCount));
+    setText(
+      "v3IntelShockStatus",
+      shockActionStatus || buildControlsShockStatus({
+        enabled: isCheckedById("v3IntelShockScenariosEnabled"),
+        scenarioCount: shockScenarioCount,
+      })
+    );
+    setText(
+      "v3IntelCalibrationStatus",
+      calibrationActionStatus || buildControlsCalibrationStatus({
+        briefKindLabel: intelBriefKindLabel(selectedKind),
+        hasBrief: Boolean(selectedKindContent),
+      })
+    );
   }
 
   const ids = [
@@ -1363,7 +1441,10 @@ function wireControlsFeedbackBridge() {
         observedActionStatus = String(result?.error || "Observed metrics capture failed.");
         return;
       }
-      observedActionStatus = `Observed metrics captured (${Number(result.created || 0)} new, ${Number(result.updated || 0)} updated).`;
+      observedActionStatus = buildControlsObservedCaptureStatus(
+        Number(result.created || 0),
+        Number(result.updated || 0),
+      );
     });
   }
 
@@ -1379,14 +1460,14 @@ function wireControlsFeedbackBridge() {
         return;
       }
       if (result.metricsOk) {
-        observedActionStatus = `Observed metrics captured (${Number(result.metricsCreated || 0)} new, ${Number(result.metricsUpdated || 0)} updated).`;
+        observedActionStatus = buildControlsObservedCaptureStatus(
+          Number(result.metricsCreated || 0),
+          Number(result.metricsUpdated || 0),
+        );
       } else if (result.metricsError) {
         observedActionStatus = String(result.metricsError);
       }
-      const active = Number(result.autoTotal || 0);
-      recommendationActionStatus = active > 0
-        ? `Drift recommendations updated (${active} active).`
-        : "No active drift recommendations (rolling metrics are within tolerance).";
+      recommendationActionStatus = buildControlsRecommendationRefreshStatus(Number(result.autoTotal || 0));
     });
   }
 
@@ -1398,11 +1479,10 @@ function wireControlsFeedbackBridge() {
         whatIfActionStatus = String(result?.error || "Failed to parse what-if request.");
         return;
       }
-      const unresolved = Number(result.unresolved || 0);
-      const parsedTargets = Number(result.parsedTargets || 0);
-      whatIfActionStatus = unresolved > 0
-        ? `Saved what-if request (${parsedTargets} parsed, ${unresolved} unresolved segment${unresolved === 1 ? "" : "s"}).`
-        : `Saved what-if request (${parsedTargets} parsed target${parsedTargets === 1 ? "" : "s"}).`;
+      whatIfActionStatus = buildControlsWhatIfSavedStatus(
+        Number(result.parsedTargets || 0),
+        Number(result.unresolved || 0),
+      );
     });
   }
 
@@ -1619,13 +1699,16 @@ function saveBenchmarkViaScenarioApi(payload) {
   }
 }
 
-function loadDefaultBenchmarksViaScenarioApi(raceType) {
+function loadDefaultBenchmarksViaScenarioApi(scopeInput) {
   const api = getScenarioBridgeApi();
   if (!api || typeof api.loadDefaultBenchmarks !== "function") {
     return { ok: false, error: "Benchmark defaults API unavailable." };
   }
   try {
-    const result = api.loadDefaultBenchmarks(String(raceType || "all"));
+    const payload = scopeInput && typeof scopeInput === "object"
+      ? scopeInput
+      : String(scopeInput || "default");
+    const result = api.loadDefaultBenchmarks(payload);
     return result && typeof result === "object"
       ? result
       : { ok: false, error: "Failed to load benchmark defaults." };
@@ -1812,10 +1895,10 @@ function ensureBenchmarkSelectOptions() {
 
   const raceTypeSelect = document.getElementById("v3IntelBenchmarkRaceType");
   if (raceTypeSelect instanceof HTMLSelectElement && raceTypeSelect.options.length === 0) {
-    BENCHMARK_RACE_TYPE_OPTIONS.forEach((raceType) => {
+    BENCHMARK_SCOPE_OPTIONS.forEach((scope) => {
       const opt = document.createElement("option");
-      opt.value = raceType;
-      opt.textContent = raceType === "state_leg" ? "state legislative" : raceType;
+      opt.value = String(scope?.value || "default");
+      opt.textContent = String(scope?.label || scope?.value || "default");
       raceTypeSelect.appendChild(opt);
     });
   }
@@ -1905,13 +1988,6 @@ function latestBriefContentForKind(kind) {
   return String(latest?.content || "").trim();
 }
 
-function parseOptionalNumber(rawValue) {
-  const text = String(rawValue || "").trim();
-  if (!text) return null;
-  const n = Number(text);
-  return Number.isFinite(n) ? n : null;
-}
-
 function clearEvidenceDraftInputs() {
   const titleEl = document.getElementById("v3IntelEvidenceTitle");
   if (titleEl instanceof HTMLInputElement) titleEl.value = "";
@@ -1948,7 +2024,7 @@ function syncEvidenceAuditSelectFromIntel() {
 
   rows.forEach((row) => {
     const opt = document.createElement("option");
-    const ts = formatIsoDate(row?.ts || row?.updatedAt || row?.createdAt || "");
+    const ts = formatControlsIsoDate(row?.ts || row?.updatedAt || row?.createdAt || "");
     const ref = String(row?.label || row?.ref || row?.key || "critical assumption").trim();
     opt.value = String(row?.id || "");
     opt.textContent = `${ts} · ${ref}`;
@@ -2035,103 +2111,16 @@ function isCheckedById(id) {
   return el instanceof HTMLInputElement ? Boolean(el.checked) : false;
 }
 
-function selectOptionCount(id) {
-  const el = document.getElementById(id);
-  if (!(el instanceof HTMLSelectElement)) {
-    return 0;
-  }
-  return Math.max(0, el.options.length);
-}
-
-function unresolvedAuditCount() {
-  const options = selectOptionCount("v3IntelAuditSelect");
-  return Math.max(0, options - 1);
-}
-
-function formatRecordCount(count, noun, suffix) {
-  const n = Number.isFinite(Number(count)) ? Number(count) : 0;
-  const label = n === 1 ? noun : `${noun}s`;
-  return `${n} ${label} ${suffix}.`;
-}
-
-function buildScenarioLockStatus() {
-  const locked = isCheckedById("v3IntelScenarioLocked");
-  const reason = readInputValueById("v3IntelScenarioLockReason");
-  if (!locked) {
-    return "Scenario lock OFF.";
-  }
-  return reason ? `Scenario lock ON (${reason}).` : "Scenario lock ON.";
-}
-
-function buildWorkflowStatus() {
-  const requireNote = isCheckedById("v3IntelRequireCriticalNote");
-  const requireEvidence = isCheckedById("v3IntelRequireCriticalEvidence");
-  const lock = isCheckedById("v3IntelScenarioLocked");
-  if (lock || requireNote || requireEvidence) {
-    return "Governance controls active.";
-  }
-  return "Governance controls healthy.";
-}
-
-function buildBenchmarkStatus() {
-  const ref = readInputValueById("v3IntelBenchmarkRef");
-  return ref ? "Benchmark ready to save." : "Select reference and race type, then save benchmark.";
-}
-
-function buildEvidenceStatus(evidenceRows, unresolved) {
-  const title = readInputValueById("v3IntelEvidenceTitle");
-  const source = readInputValueById("v3IntelEvidenceSource");
-  if (unresolved === 0) {
-    return evidenceRows > 0 ? "All critical edits resolved with evidence." : "No unresolved critical edits.";
-  }
-  if (title && source) {
-    return "Ready to attach evidence.";
-  }
-  return "Select an audit item, then attach evidence.";
-}
-
-function buildCorrelationDisabledHint() {
+function countCorrelationModelsFromIntel() {
   const intel = getActiveIntelStateSnapshot();
-  const count = Array.isArray(intel?.correlationModels)
+  return Array.isArray(intel?.correlationModels)
     ? intel.correlationModels.length
-    : Math.max(0, selectOptionCount("v3IntelCorrelationMatrixId") - 1);
-  return count > 0 ? "Correlation models available. Select a model to apply." : "No models yet.";
+    : countSelectOptions("v3IntelCorrelationMatrixId", { excludeFirst: true });
 }
 
-function buildDecayStatus() {
-  const enabled = isCheckedById("v3IntelCapacityDecayEnabled");
-  const weeklyPct = readInputValueById("v3IntelDecayWeeklyPct");
-  if (!enabled) {
-    return "Capacity decay OFF.";
-  }
-  return weeklyPct ? `Capacity decay ON at ${weeklyPct}% weekly.` : "Capacity decay ON.";
-}
-
-function buildCorrelationStatus() {
-  const enabled = isCheckedById("v3IntelCorrelatedShocks");
-  const selectedModelId = readInputValueById("v3IntelCorrelationMatrixId");
-  const selectedModelLabel = readSelectedOptionLabelById("v3IntelCorrelationMatrixId");
+function countShockScenariosFromIntel() {
   const intel = getActiveIntelStateSnapshot();
-  const count = Array.isArray(intel?.correlationModels)
-    ? intel.correlationModels.length
-    : Math.max(0, selectOptionCount("v3IntelCorrelationMatrixId") - 1);
-
-  if (!enabled) {
-    return count > 0
-      ? `Correlation model OFF (${count} model${count === 1 ? "" : "s"} available).`
-      : "Correlation model OFF (no models configured).";
-  }
-
-  if (count <= 0) {
-    return "Correlation model ON, but no models are configured.";
-  }
-
-  const hasSelection = selectedModelId && selectedModelId.toLowerCase() !== "none";
-  if (!hasSelection) {
-    return `Correlation model ON (${count} model${count === 1 ? "" : "s"} available, select one).`;
-  }
-
-  return `Correlation model ON (${selectedModelLabel || selectedModelId}).`;
+  return Array.isArray(intel?.shockScenarios) ? intel.shockScenarios.length : 0;
 }
 
 function readSelectedOptionLabelById(id) {
@@ -2143,28 +2132,6 @@ function readSelectedOptionLabelById(id) {
   return option ? String(option.textContent || "").trim() : "";
 }
 
-function buildShockScenarioCount() {
-  const intel = getActiveIntelStateSnapshot();
-  const count = Array.isArray(intel?.shockScenarios) ? intel.shockScenarios.length : 0;
-  return `${count} scenario${count === 1 ? "" : "s"} configured.`;
-}
-
-function buildShockStatus() {
-  const enabled = isCheckedById("v3IntelShockScenariosEnabled");
-  const intel = getActiveIntelStateSnapshot();
-  const count = Array.isArray(intel?.shockScenarios) ? intel.shockScenarios.length : 0;
-  if (!enabled) {
-    return "Shock scenarios disabled.";
-  }
-  return count > 0 ? "Shock scenarios enabled and ready." : "Shock scenarios enabled (no scenario set loaded).";
-}
-
-function buildCalibrationStatus() {
-  const kind = selectedBriefKind();
-  const brief = latestBriefContentForKind(kind);
-  return brief ? `${intelBriefKindLabel(kind)} brief generated.` : "No calibration brief generated yet.";
-}
-
 function getActiveIntelStateSnapshot() {
   const inputs = getActiveScenarioInputsSnapshot();
   if (!inputs || typeof inputs !== "object") {
@@ -2172,11 +2139,6 @@ function getActiveIntelStateSnapshot() {
   }
   const intel = inputs.intelState;
   return intel && typeof intel === "object" ? intel : null;
-}
-
-function formatIsoDate(iso) {
-  const text = String(iso || "").trim();
-  return text ? text.slice(0, 10) : "—";
 }
 
 function appendCell(row, value, options = null) {
@@ -2205,14 +2167,6 @@ function appendCell(row, value, options = null) {
     td.appendChild(sub);
   }
   row.appendChild(td);
-}
-
-function fmtNum(value) {
-  const n = Number(value);
-  if (!Number.isFinite(n)) {
-    return "—";
-  }
-  return Number.isInteger(n) ? String(n) : n.toFixed(2);
 }
 
 function setTextareaValue(id, value) {

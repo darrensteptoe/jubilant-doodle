@@ -1,21 +1,20 @@
 // @ts-check
+import {
+  buildDecisionDiagnosticsSnapshotView,
+  buildDecisionIntelligencePanelView,
+  DECISION_DIVERGENCE_KEY_ORDER,
+} from "../../core/decisionView.js";
+
 export function renderDecisionConfidencePanel({
   els,
   state,
-  res,
   weeks,
   weeklyContext,
   executionSnapshot,
-  deriveNeedVotes,
-  normalizeDailyLogEntry,
-  safeNum,
-  getEffectiveBaseRates,
   clamp,
   ensureScenarioRegistry,
   SCENARIO_BASELINE_ID,
-  scenarioClone,
-  scenarioInputsFromState,
-  fmtInt
+  fmtInt,
 }){
   const confTagEl = els?.confTag;
   const confExecEl = els?.confExec;
@@ -37,206 +36,34 @@ export function renderDecisionConfidencePanel({
     confBannerEl.textContent = text || "—";
   };
 
-  const computeExec = () => {
-    if (executionSnapshot?.pace){
-      const req7 = executionSnapshot?.pace?.requiredAttemptsPerWeek;
-      const actual7 = executionSnapshot?.log?.sumAttemptsWindow;
-      const pct = (req7 != null && isFinite(req7) && req7 > 0 && actual7 != null && isFinite(actual7))
-        ? ((actual7 - req7) / req7)
-        : null;
-      const absPct = (pct != null) ? Math.abs(pct) : null;
-      let status = "unknown";
-      if (absPct != null){
-        if (absPct <= 0.05) status = "green";
-        else if (absPct <= 0.15) status = "yellow";
-        else status = "red";
-      }
-      return { status, pct, req: req7, actual7 };
-    }
+  ensureScenarioRegistry();
+  const reg = state?.ui?.scenarios || {};
+  const activeId = state?.ui?.activeScenarioId || SCENARIO_BASELINE_ID;
+  const diagnostics = buildDecisionDiagnosticsSnapshotView({
+    executionSnapshot: executionSnapshot || null,
+    weeklyContext: weeklyContext || null,
+    mcResult: state?.mcLast || null,
+    clampFn: clamp,
+    bindingObj: state?.ui?.lastTlMeta?.bindingObj || null,
+    primaryBottleneck: state?.ui?.lastDiagnostics?.primaryBottleneck || null,
+    secondaryNotes: state?.ui?.lastDiagnostics?.secondaryNotes || null,
+    sensitivityCache: state?.ui?.e4Sensitivity || null,
+    baselineInputs: reg?.[SCENARIO_BASELINE_ID]?.inputs || null,
+    activeInputs: reg?.[activeId]?.inputs || null,
+    divergenceKeyOrder: DECISION_DIVERGENCE_KEY_ORDER,
+    formatInt: fmtInt,
+    weeksRemaining: weeks,
+  });
+  const drift = diagnostics.exec || {};
+  const risk = diagnostics.risk || {};
+  const confidence = diagnostics.confidence || {};
 
-    const log = Array.isArray(state.ui?.dailyLog) ? state.ui.dailyLog : [];
-    const sorted = [...log].map(normalizeDailyLogEntry).filter(Boolean).sort((a,b)=>String(a.date).localeCompare(String(b.date)));
-    const last7 = sorted.slice(-7);
-    const actual7 = last7.reduce((s,e)=> s + (safeNum(e.attempts) ?? 0), 0);
-
-    const fallbackCtx = weeklyContext || null;
-    let attemptsPerWeekReq = fallbackCtx?.attemptsPerWeek ?? null;
-    if (!(attemptsPerWeekReq != null && isFinite(attemptsPerWeekReq))){
-      const needVotes = (typeof deriveNeedVotes === "function")
-        ? deriveNeedVotes(res, state?.goalSupportIds)
-        : null;
-      const goal = (needVotes != null && needVotes > 0) ? needVotes : 0;
-      const eff = getEffectiveBaseRates();
-      const sr = eff.sr;
-      const cr = eff.cr;
-      if (goal > 0 && sr && sr > 0 && cr && cr > 0 && weeks != null && weeks > 0){
-        const convosNeeded = goal / sr;
-        const attemptsNeeded = convosNeeded / cr;
-        attemptsPerWeekReq = attemptsNeeded / weeks;
-      }
-    }
-
-    const req7 = (attemptsPerWeekReq != null) ? (attemptsPerWeekReq) : null;
-    const pct = (req7 != null && req7 > 0) ? ((actual7 - req7) / req7) : null;
-    const absPct = (pct != null) ? Math.abs(pct) : null;
-
-    let status = "unknown";
-    if (absPct != null){
-      if (absPct <= 0.05) status = "green";
-      else if (absPct <= 0.15) status = "yellow";
-      else status = "red";
-    }
-    return { status, pct, req: req7, actual7 };
-  };
-
-  const computeRisk = () => {
-    const mc = state.mcLast;
-    if (!mc) return { band: "unknown", vol: null, winProb: null };
-    const p = (mc.winProb != null) ? clamp(Number(mc.winProb), 0, 1) : null;
-
-    const env = mc.confidenceEnvelope?.percentiles || null;
-    const lo = (env?.p10 != null) ? Number(env.p10)
-      : (env?.p5 != null) ? Number(env.p5)
-      : null;
-    const hi = (env?.p90 != null) ? Number(env.p90)
-      : (env?.p95 != null) ? Number(env.p95)
-      : null;
-    const width = (lo != null && hi != null && isFinite(lo) && isFinite(hi)) ? (hi - lo) : null;
-
-    const band = (() => {
-      if (p == null) return "unknown";
-      if (p >= 0.70 && (width == null || width <= 8)) return "high";
-      if (p >= 0.55 && (width == null || width <= 14)) return "lean";
-      return "volatile";
-    })();
-
-    return { band, vol: width, winProb: p };
-  };
-
-  const computeTightness = () => {
-    const bindingObj = state.ui?.lastTlMeta?.bindingObj || null;
-    if (!bindingObj || typeof bindingObj !== "object") return { cls: "", label: "—" };
-    const b = [];
-    if (bindingObj.budget) b.push("budget");
-    if (bindingObj.capacity) b.push("capacity");
-    if (Array.isArray(bindingObj.timeline) && bindingObj.timeline.length) b.push("timeline");
-    if (!b.length) return { cls: "ok", label: "Clear" };
-    if (b.length === 1) return { cls: "warn", label: "Binding" };
-    return { cls: "bad", label: "Severe" };
-  };
-
-  const computeDivergence = () => {
-    ensureScenarioRegistry();
-    const reg = state.ui.scenarios;
-    const activeId = state.ui.activeScenarioId;
-    if (!activeId || activeId === SCENARIO_BASELINE_ID) return { cls: "ok", label: "Low" };
-
-    const baseRec = reg?.[SCENARIO_BASELINE_ID] || null;
-    if (!baseRec) return { cls: "", label: "—" };
-
-    const baseInputs = scenarioClone(baseRec.inputs || {});
-    const actInputs = scenarioInputsFromState(state);
-
-    const keyOrder = [
-      "raceType","mode","electionDate","weeksRemaining",
-      "universeBasis","universeSize",
-      "goalSupportIds","supportRatePct","contactRatePct","turnoutReliabilityPct",
-      "universeLayerEnabled","universeDemPct","universeRepPct","universeNpaPct","universeOtherPct","retentionFactor",
-      "orgCount","orgHoursPerWeek","volunteerMultBase","channelDoorPct","doorsPerHour3","callsPerHour3",
-      "timelineEnabled","timelineStaffCount","timelineVolCount","timelineStaffHours","timelineVolHours","timelineDoorsPerHour","timelineCallsPerHour","timelineTextsPerHour","timelineDoorSharePct","timelineActiveWeeks","timelineGotvWeeks"
-    ];
-
-    let diff = 0;
-    for (const k of keyOrder){
-      const a = baseInputs?.[k];
-      const b = actInputs?.[k];
-      const same = (a === b) || (String(a ?? "") === String(b ?? ""));
-      if (!same) diff++;
-    }
-
-    if (diff <= 3) return { cls: "ok", label: "Low" };
-    if (diff <= 8) return { cls: "warn", label: "Moderate" };
-    return { cls: "bad", label: "High" };
-  };
-
-  const exec = computeExec();
-  const risk = computeRisk();
-  const tight = computeTightness();
-  const div = computeDivergence();
-
-  const execLabel = exec.status === "green" ? "On pace" : exec.status === "yellow" ? "Drifting" : exec.status === "red" ? "Off pace" : "—";
-  if (confExecEl) confExecEl.textContent = execLabel;
-
-  const riskLabel = risk.band === "high" ? "High confidence" : risk.band === "lean" ? "Lean" : risk.band === "volatile" ? "Volatile" : "—";
-  if (confRiskEl) confRiskEl.textContent = riskLabel;
-
-  if (confTightEl) confTightEl.textContent = tight.label || "—";
-  if (confDivEl) confDivEl.textContent = div.label || "—";
-
-  const scorePiece = (kind) => {
-    if (kind === "exec"){
-      if (exec.status === "green") return 25;
-      if (exec.status === "yellow") return 15;
-      if (exec.status === "red") return 5;
-      return 10;
-    }
-    if (kind === "risk"){
-      if (risk.band === "high") return 25;
-      if (risk.band === "lean") return 15;
-      if (risk.band === "volatile") return 5;
-      return 10;
-    }
-    if (kind === "tight"){
-      if (tight.label === "Clear") return 25;
-      if (tight.label === "Binding") return 15;
-      if (tight.label === "Severe") return 5;
-      return 10;
-    }
-    if (kind === "div"){
-      if (div.label === "Low") return 25;
-      if (div.label === "Moderate") return 15;
-      if (div.label === "High") return 5;
-      return 10;
-    }
-    return 0;
-  };
-
-  const score = scorePiece("exec") + scorePiece("risk") + scorePiece("tight") + scorePiece("div");
-  const rating = (score >= 80) ? "Strong" : (score >= 50) ? "Moderate" : "Low";
-  const cls = (rating === "Strong") ? "ok" : (rating === "Moderate") ? "warn" : "bad";
-
-  setTag(cls, `${rating}`);
-
-  const slips = (() => {
-    if (exec.pct == null || exec.req == null || exec.req <= 0) return null;
-    const perWeekActual = exec.actual7;
-    const perWeekReq = exec.req;
-    if (!isFinite(perWeekActual) || !isFinite(perWeekReq) || perWeekActual <= 0) return null;
-    const factor = perWeekReq / perWeekActual;
-    const extraWeeks = (factor - 1) * (weeks ?? 0);
-    if (!isFinite(extraWeeks)) return null;
-    const days = Math.max(0, Math.round(extraWeeks * 7));
-    return days;
-  })();
-
-  const driverLines = [];
-  if (exec.status === "red") driverLines.push("Execution pace is off required weekly pace.");
-  else if (exec.status === "yellow") driverLines.push("Execution pace is drifting from required weekly pace.");
-
-  if (risk.band === "volatile") driverLines.push("Monte Carlo outputs are volatile.");
-  else if (risk.band === "lean") driverLines.push("Win probability is lean rather than secure.");
-
-  if (tight.label === "Severe") driverLines.push("Multiple constraints are binding simultaneously.");
-  else if (tight.label === "Binding") driverLines.push("At least one constraint is binding.");
-
-  if (div.label === "High") driverLines.push("Active scenario diverges meaningfully from baseline.");
-  else if (div.label === "Moderate") driverLines.push("Active scenario differs from baseline in several assumptions.");
-
-  const slipText = (slips != null && slips > 0) ? `If pace holds, target slips by ~${fmtInt(slips)} days.` : null;
-  if (slipText) driverLines.unshift(slipText);
-
-  const banner = driverLines.length ? driverLines.slice(0, 3).join(" ") : "Confidence combines pace, risk, constraints, and scenario divergence.";
-  setBanner(cls, banner);
+  if (confExecEl) confExecEl.textContent = drift.paceLabel || confidence.exec || "—";
+  if (confRiskEl) confRiskEl.textContent = risk.tag || confidence.risk || "—";
+  if (confTightEl) confTightEl.textContent = confidence.tight || diagnostics.bottleneck?.tag || "—";
+  if (confDivEl) confDivEl.textContent = confidence.divergence || "—";
+  setTag(confidence.cls || "", String(confidence.tag || "—"));
+  setBanner(confidence.cls || "", confidence.banner || "—");
 }
 
 export function renderDecisionIntelligencePanelView({
@@ -302,18 +129,18 @@ export function renderDecisionIntelligencePanelView({
 
     const di = engine.computeDecisionIntelligence({ engine: accessors, snap, baseline: { res, weeks } });
 
-    setWarn(di?.warning || null);
+    const panelView = buildDecisionIntelligencePanelView(di, {
+      formatInt: fmtInt,
+    });
+    setWarn(panelView.warning || null);
 
-    if (diPrimaryEl) diPrimaryEl.textContent = di?.bottlenecks?.primary || "—";
-    if (diSecondaryEl) diSecondaryEl.textContent = di?.bottlenecks?.secondary || "—";
-    if (diNotBindingEl){
-      const nb = Array.isArray(di?.bottlenecks?.notBinding) ? di.bottlenecks.notBinding : [];
-      diNotBindingEl.textContent = nb.length ? nb.join(", ") : "—";
-    }
+    if (diPrimaryEl) diPrimaryEl.textContent = panelView.primary;
+    if (diSecondaryEl) diSecondaryEl.textContent = panelView.secondary;
+    if (diNotBindingEl) diNotBindingEl.textContent = panelView.notBinding;
 
-    if (diRecVolEl) diRecVolEl.textContent = di?.recs?.volunteers || "—";
-    if (diRecCostEl) diRecCostEl.textContent = di?.recs?.cost || "—";
-    if (diRecProbEl) diRecProbEl.textContent = di?.recs?.probability || "—";
+    if (diRecVolEl) diRecVolEl.textContent = panelView.recommendations.volunteers;
+    if (diRecCostEl) diRecCostEl.textContent = panelView.recommendations.cost;
+    if (diRecProbEl) diRecProbEl.textContent = panelView.recommendations.probability;
 
     const fill = (tbody, rows, fmt) => {
       clearTable(tbody);
@@ -325,24 +152,15 @@ export function renderDecisionIntelligencePanelView({
         td0.textContent = r?.lever || "—";
         const td1 = document.createElement("td");
         td1.className = "num";
-        td1.textContent = fmt(r?.value);
+        td1.textContent = fmt(r?.valueText);
         tr.appendChild(td0); tr.appendChild(td1);
         tbody.appendChild(tr);
       }
     };
 
-    const fmtSigned = (v, kind) => {
-      if (v == null || !Number.isFinite(v)) return "—";
-      const sign = (v > 0) ? "+" : "";
-      if (kind === "vol") return sign + v.toFixed(2);
-      if (kind === "cost") return sign + "$" + fmtInt(Math.round(v));
-      if (kind === "prob") return sign + (v*100).toFixed(2) + " pp";
-      return sign + String(v);
-    };
-
-    fill(diVolTbodyEl, di?.rankings?.volunteers, (v)=>fmtSigned(v, "vol"));
-    fill(diCostTbodyEl, di?.rankings?.cost, (v)=>fmtSigned(v, "cost"));
-    fill(diProbTbodyEl, di?.rankings?.probability, (v)=>fmtSigned(v, "prob"));
+    fill(diVolTbodyEl, panelView.rankings.volunteers, (valueText)=>valueText);
+    fill(diCostTbodyEl, panelView.rankings.cost, (valueText)=>valueText);
+    fill(diProbTbodyEl, panelView.rankings.probability, (valueText)=>valueText);
 
   } catch {
     setWarn("Decision Intelligence failed (panel render error).");

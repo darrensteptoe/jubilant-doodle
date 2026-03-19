@@ -7,7 +7,11 @@ import {
 } from "../componentFactory.js";
 import { setText } from "../surfaceUtils.js";
 import {
+  SCENARIO_ACTIVE_LABEL_FALLBACK,
+  buildScenarioComparisonView,
   SCENARIO_STATUS_AWAITING_SCENARIO,
+  SCENARIO_COMPARE_MODE_DISABLED_TEXT,
+  SCENARIO_STORAGE_STATUS_SESSION_ONLY,
   SCENARIO_STATUS_UNAVAILABLE,
   classifyScenarioStatusTone,
   deriveScenarioCompareCardStatus,
@@ -17,9 +21,6 @@ import {
 } from "../../../core/scenarioView.js";
 
 const SCENARIO_API_KEY = "__FPE_SCENARIO_API__";
-const OUTPUT_DIFF_LIMIT = 24;
-const INPUT_DIFF_LIMIT = 12;
-const FLATTEN_LIMIT = 1200;
 
 export function renderScenariosSurface(mount) {
   const frame = createSurfaceFrame("two-col");
@@ -87,7 +88,7 @@ export function renderScenariosSurface(mount) {
     <div class="fpe-contained-block">
       <div class="fpe-control-label">Scenario comparison</div>
       <div class="fpe-help fpe-help--flush" id="v3ScenarioCompareModeText">
-        Select a non-baseline active scenario to view differences.
+        ${SCENARIO_COMPARE_MODE_DISABLED_TEXT}
       </div>
     </div>
     <div class="fpe-status-strip fpe-status-strip--2">
@@ -223,12 +224,12 @@ function refreshScenariosSummary() {
   syncScenarioSelect(view);
   syncActionStates(view);
 
-  const comparison = buildScenarioComparison(view);
+  const comparison = buildScenarioComparisonView(view);
   renderScenarioDiffInputs(comparison.inputDiffs);
   renderScenarioDiffOutputs(comparison.outputDiffs);
 
-  setText("v3ScenarioActiveLabel", view.activeLabel || "Active Scenario: —");
-  setText("v3ScenarioActive", view.activeLabel || "Active Scenario: —");
+  setText("v3ScenarioActiveLabel", view.activeLabel || SCENARIO_ACTIVE_LABEL_FALLBACK);
+  setText("v3ScenarioActive", view.activeLabel || SCENARIO_ACTIVE_LABEL_FALLBACK);
   setText("v3ScenarioCompareMode", comparison.modeText);
   setText("v3ScenarioCompareModeText", comparison.modeText);
   setText("v3ScenarioCompareTag", comparison.tag);
@@ -239,7 +240,7 @@ function refreshScenariosSummary() {
   setText("v3ScenarioDiffInputsFoot", comparison.inputDiffFoot);
 
   const warning = view.warning || "No warnings.";
-  const storage = view.storageStatus || "Scenario storage ready.";
+  const storage = view.storageStatus || SCENARIO_STORAGE_STATUS_SESSION_ONLY;
   setText("v3ScenarioWarningStatus", warning);
   setText("v3ScenarioStorageStatus", storage);
   setText("v3ScenarioLegacyWarn", warning);
@@ -393,164 +394,6 @@ function syncActionStates(view) {
   if (retBtn instanceof HTMLButtonElement) {
     retBtn.disabled = activeId === baselineId;
   }
-}
-
-function buildScenarioComparison(view) {
-  const baseline = view?.baseline || null;
-  const active = view?.active || null;
-  const baselineId = String(view?.baselineId || "baseline");
-  const compareEnabled = !!baseline && !!active && String(active.id || "") !== baselineId;
-
-  if (!compareEnabled) {
-    return {
-      modeText: "Select a non-baseline active scenario to view differences.",
-      tag: "—",
-      inputDiffCount: 0,
-      outputDiffCount: 0,
-      inputDiffs: [],
-      outputDiffs: [],
-      inputDiffFoot: ""
-    };
-  }
-
-  const inputDiffs = computeFlatDiffRows(baseline.inputs, active.inputs);
-  const outputDiffs = computeFlatDiffRows(baseline.outputs, active.outputs);
-  const outputRows = outputDiffs
-    .sort((a, b) => b.sortScore - a.sortScore)
-    .slice(0, OUTPUT_DIFF_LIMIT)
-    .map((row) => ({
-      metric: row.metric,
-      baseline: row.beforeText,
-      scenario: row.afterText,
-      delta: row.deltaText
-    }));
-
-  return {
-    modeText: "Comparing active scenario",
-    tag: `${baseline.name || baseline.id} vs ${active.name || active.id}`,
-    inputDiffCount: inputDiffs.length,
-    outputDiffCount: outputRows.length,
-    inputDiffs: inputDiffs.slice(0, INPUT_DIFF_LIMIT).map((row) => row.text),
-    outputDiffs: outputRows,
-    inputDiffFoot:
-      inputDiffs.length > INPUT_DIFF_LIMIT
-        ? `${inputDiffs.length} fields differ (${INPUT_DIFF_LIMIT} shown).`
-        : `${inputDiffs.length} fields differ.`
-  };
-}
-
-function computeFlatDiffRows(beforeObj, afterObj) {
-  const before = flattenObject(beforeObj);
-  const after = flattenObject(afterObj);
-  const keys = Array.from(new Set([...Object.keys(before), ...Object.keys(after)])).sort();
-  const rows = [];
-
-  keys.forEach((key) => {
-    const a = before[key];
-    const b = after[key];
-    if (areValuesEqual(a, b)) {
-      return;
-    }
-
-    const beforeText = formatValue(a);
-    const afterText = formatValue(b);
-    const delta = typeof a === "number" && typeof b === "number" ? b - a : NaN;
-    const deltaText = Number.isFinite(delta) ? formatDelta(delta) : "—";
-
-    rows.push({
-      metric: formatMetricKey(key),
-      text: `${formatMetricKey(key)}: ${beforeText} -> ${afterText}`,
-      beforeText,
-      afterText,
-      deltaText,
-      sortScore: Number.isFinite(delta) ? Math.abs(delta) : 0
-    });
-  });
-
-  return rows;
-}
-
-function flattenObject(value, prefix = "", out = {}, count = { n: 0 }) {
-  if (count.n > FLATTEN_LIMIT) {
-    return out;
-  }
-
-  const pushLeaf = (leaf) => {
-    out[prefix || "(root)"] = leaf;
-    count.n += 1;
-  };
-
-  if (value === null || value === undefined) {
-    pushLeaf(value);
-    return out;
-  }
-
-  if (typeof value === "number" || typeof value === "string" || typeof value === "boolean") {
-    pushLeaf(value);
-    return out;
-  }
-
-  if (Array.isArray(value)) {
-    pushLeaf(`[${value.length} items]`);
-    return out;
-  }
-
-  if (typeof value === "object") {
-    const keys = Object.keys(value).sort();
-    if (!keys.length) {
-      pushLeaf("{}");
-      return out;
-    }
-
-    keys.forEach((key) => {
-      if (count.n > FLATTEN_LIMIT) {
-        return;
-      }
-      const nextPrefix = prefix ? `${prefix}.${key}` : key;
-      flattenObject(value[key], nextPrefix, out, count);
-    });
-    return out;
-  }
-
-  pushLeaf(String(value));
-  return out;
-}
-
-function areValuesEqual(a, b) {
-  return JSON.stringify(a) === JSON.stringify(b);
-}
-
-function formatMetricKey(key) {
-  return String(key || "metric")
-    .replaceAll(".", " / ")
-    .replaceAll("_", " ");
-}
-
-function formatValue(value) {
-  if (value === null || value === undefined || value === "") {
-    return "—";
-  }
-  if (typeof value === "number") {
-    if (!Number.isFinite(value)) {
-      return "—";
-    }
-    if (Math.abs(value) >= 1000) {
-      return value.toLocaleString(undefined, { maximumFractionDigits: 2 });
-    }
-    return value.toLocaleString(undefined, { maximumFractionDigits: 3 });
-  }
-  return String(value);
-}
-
-function formatDelta(delta) {
-  if (!Number.isFinite(delta)) {
-    return "—";
-  }
-  const sign = delta > 0 ? "+" : "";
-  if (Math.abs(delta) >= 1000) {
-    return `${sign}${delta.toLocaleString(undefined, { maximumFractionDigits: 2 })}`;
-  }
-  return `${sign}${delta.toLocaleString(undefined, { maximumFractionDigits: 3 })}`;
 }
 
 function renderScenarioDiffInputs(items) {

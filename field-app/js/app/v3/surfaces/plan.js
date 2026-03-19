@@ -12,12 +12,16 @@ import {
 } from "../surfaceUtils.js";
 import { getOptimizationObjectiveCopy } from "../../../core/turnout.js";
 import {
+  buildPlanOfficePathTableRowsView,
+  buildPlanOfficeBestText,
   PLAN_OPTIMIZER_STATUS_FALLBACK,
+  PLAN_OFFICE_PATH_TABLE_EMPTY,
   PLAN_TIMELINE_STATUS_FALLBACK,
   PLAN_WEEK_PREVIEW_FALLBACK,
   buildPlanCostLevers,
   buildPlanDecisionWarning,
   buildPlanOptimizerBanner,
+  buildPlanOptimizerAllocationRowsView,
   buildPlanProbabilityLevers,
   buildPlanRecommendationCost,
   buildPlanRecommendationProbability,
@@ -32,6 +36,9 @@ import {
   derivePlanSummaryCardStatus,
   derivePlanTimelineCardStatus,
   derivePlanWorkloadCardStatus,
+  formatPlanAutoWeeksInputValue,
+  formatPlanCurrency,
+  formatPlanWhole,
 } from "../../../core/planView.js";
 
 const REACH_API_KEY = "__FPE_REACH_API__";
@@ -408,6 +415,65 @@ export function renderPlanSurface(mount) {
         <div class="fpe-help fpe-help--flush" id="v3PlanSummaryGapContext">-</div>
       </div>
     </div>
+    <div class="fpe-status-strip fpe-status-strip--3">
+      <div class="fpe-contained-block fpe-contained-block--status">
+        <div class="fpe-control-label">Uplift expected</div>
+        <div class="fpe-help fpe-help--flush" id="v3PlanSummaryUpliftExpected">-</div>
+      </div>
+      <div class="fpe-contained-block fpe-contained-block--status">
+        <div class="fpe-control-label">Uplift low-bound</div>
+        <div class="fpe-help fpe-help--flush" id="v3PlanSummaryUpliftLow">-</div>
+      </div>
+      <div class="fpe-contained-block fpe-contained-block--status">
+        <div class="fpe-control-label">Best uplift channel</div>
+        <div class="fpe-help fpe-help--flush" id="v3PlanSummaryUpliftBestChannel">-</div>
+      </div>
+    </div>
+    <div class="fpe-status-strip fpe-status-strip--3">
+      <div class="fpe-contained-block fpe-contained-block--status">
+        <div class="fpe-control-label">Uplift source</div>
+        <div class="fpe-help fpe-help--flush" id="v3PlanSummaryUpliftSource">-</div>
+      </div>
+      <div class="fpe-contained-block fpe-contained-block--status">
+        <div class="fpe-control-label">Uplift uncertainty</div>
+        <div class="fpe-help fpe-help--flush" id="v3PlanSummaryUpliftUncertaintyBand">-</div>
+      </div>
+      <div class="fpe-contained-block fpe-contained-block--status">
+        <div class="fpe-control-label">Saturation pressure</div>
+        <div class="fpe-help fpe-help--flush" id="v3PlanSummaryUpliftSaturationPressure">-</div>
+      </div>
+    </div>
+    <div class="fpe-status-strip fpe-status-strip--2">
+      <div class="fpe-contained-block fpe-contained-block--status">
+        <div class="fpe-control-label">Best office / dollar</div>
+        <div class="fpe-help fpe-help--flush" id="v3PlanOfficeBestDollar">-</div>
+      </div>
+      <div class="fpe-contained-block fpe-contained-block--status">
+        <div class="fpe-control-label">Best office / organizer hour</div>
+        <div class="fpe-help fpe-help--flush" id="v3PlanOfficeBestOrganizerHour">-</div>
+      </div>
+    </div>
+    <div class="fpe-help fpe-help--flush" id="v3PlanOfficePathStatus">-</div>
+    <div class="table-wrap">
+      <table class="table" aria-label="Office path rankings">
+        <thead>
+          <tr>
+            <th>Office</th>
+            <th class="num">Expected value</th>
+            <th class="num">Value / $</th>
+            <th class="num">Value / org hour</th>
+            <th class="num">Uplift expected</th>
+            <th class="num">Uplift source</th>
+            <th class="num">Top channel</th>
+          </tr>
+        </thead>
+        <tbody id="v3PlanOfficePathTbody">
+          <tr>
+            <td class="muted" colspan="7">${PLAN_OFFICE_PATH_TABLE_EMPTY}</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
   `;
 
   workloadCol.append(workloadCard, optimizerCard);
@@ -474,6 +540,9 @@ function refreshPlanSummary() {
   const workloadSummary = planSummary?.workload && typeof planSummary.workload === "object" ? planSummary.workload : {};
   const optimizerSummary = planSummary?.optimizer && typeof planSummary.optimizer === "object" ? planSummary.optimizer : {};
   const timelineSummary = planSummary?.timeline && typeof planSummary.timeline === "object" ? planSummary.timeline : {};
+  const officePathsSummary = optimizerSummary?.officePaths && typeof optimizerSummary.officePaths === "object"
+    ? optimizerSummary.officePaths
+    : {};
 
   const outConversationsNeeded = String(workloadSummary?.conversationsNeeded || reachWeekly.requiredConvos || "").trim() || "—";
   const outDoorsNeeded = String(workloadSummary?.doorsNeeded || reachWeekly.requiredDoors || "").trim() || "—";
@@ -548,6 +617,16 @@ function refreshPlanSummary() {
   setText("v3PlanSummaryConstraint", tlConstraint);
   setText("v3PlanSummaryBinding", optBinding);
   setText("v3PlanSummaryGapContext", optGapContext);
+  setText("v3PlanSummaryUpliftExpected", String(optimizerSummary?.upliftExpectedMarginalGain || "—").trim() || "—");
+  setText("v3PlanSummaryUpliftLow", String(optimizerSummary?.upliftLowMarginalGain || "—").trim() || "—");
+  setText("v3PlanSummaryUpliftBestChannel", String(optimizerSummary?.upliftBestChannel || "—").trim() || "—");
+  setText("v3PlanSummaryUpliftSource", String(optimizerSummary?.upliftSource || "—").trim() || "—");
+  setText("v3PlanSummaryUpliftUncertaintyBand", String(optimizerSummary?.upliftUncertaintyBand || "unknown").trim() || "unknown");
+  setText("v3PlanSummaryUpliftSaturationPressure", String(optimizerSummary?.upliftSaturationPressure || "unknown").trim() || "unknown");
+  setText("v3PlanOfficeBestDollar", buildPlanOfficeBestText(officePathsSummary?.bestByDollar));
+  setText("v3PlanOfficeBestOrganizerHour", buildPlanOfficeBestText(officePathsSummary?.bestByOrganizerHour));
+  setText("v3PlanOfficePathStatus", String(officePathsSummary?.statusText || "").trim() || PLAN_OFFICE_PATH_TABLE_EMPTY);
+  renderPlanOfficePathRows(officePathsSummary?.rows);
   syncPlanCardStatus("v3PlanWorkloadCardStatus", derivePlanWorkloadCardStatus(workloadBanner));
   syncPlanCardStatus("v3PlanOptimizerCardStatus", derivePlanOptimizerCardStatus(optTotals, optimizerBanner, optBinding));
   syncPlanCardStatus("v3PlanTimelineCardStatus", derivePlanTimelineCardStatus(readPlanView(), tlPercent, tlConstraint));
@@ -573,6 +652,46 @@ function refreshPlanSummary() {
   syncPlanTimelineWeeksAuto("v3PlanTimelineWeeksAuto");
   syncPlanFieldMirror("v3PlanDoorsPerHour", "v3PlanTimelineDoorsPerHour");
   syncPlanAutoFieldDisabled("v3PlanTimelineWeeksAuto");
+}
+
+function renderPlanOfficePathRows(rows){
+  const tbody = document.getElementById("v3PlanOfficePathTbody");
+  if (!(tbody instanceof HTMLElement)) {
+    return;
+  }
+  const list = buildPlanOfficePathTableRowsView(rows);
+  tbody.innerHTML = "";
+  if (!list.length) {
+    const tr = document.createElement("tr");
+    tr.innerHTML = `<td class="muted" colspan="7">${PLAN_OFFICE_PATH_TABLE_EMPTY}</td>`;
+    tbody.appendChild(tr);
+    return;
+  }
+  list.forEach((row) => {
+    const tr = document.createElement("tr");
+    const td0 = document.createElement("td");
+    td0.textContent = String(row?.officeName || "—");
+    const td1 = document.createElement("td");
+    td1.className = "num";
+    td1.textContent = String(row?.objectiveValue || "—");
+    const td2 = document.createElement("td");
+    td2.className = "num";
+    td2.textContent = String(row?.objectivePerDollar || "—");
+    const td3 = document.createElement("td");
+    td3.className = "num";
+    td3.textContent = String(row?.objectivePerOrganizerHour || "—");
+    const td4 = document.createElement("td");
+    td4.className = "num";
+    td4.textContent = String(row?.upliftExpectedMarginalGain || "—");
+    const td5 = document.createElement("td");
+    td5.className = "num";
+    td5.textContent = String(row?.upliftSource || "—");
+    const td6 = document.createElement("td");
+    td6.className = "num";
+    td6.textContent = String(row?.topChannel || "—");
+    tr.append(td0, td1, td2, td3, td4, td5, td6);
+    tbody.appendChild(tr);
+  });
 }
 
 function syncPlanDecisionIntel(planContext = null) {
@@ -858,7 +977,11 @@ function renderPlanAllocationRows(rows) {
   if (!(tbody instanceof HTMLElement)) {
     return;
   }
-  const list = Array.isArray(rows) ? rows : [];
+  const list = buildPlanOptimizerAllocationRowsView(rows, {
+    includeZeroAttempts: true,
+    formatWhole: formatPlanWhole,
+    formatCurrency: formatPlanCurrency,
+  });
   tbody.innerHTML = "";
 
   if (!list.length) {
@@ -875,15 +998,15 @@ function renderPlanAllocationRows(rows) {
 
     const td1 = document.createElement("td");
     td1.className = "num";
-    td1.textContent = formatPlanWhole(row?.attempts);
+    td1.textContent = String(row?.attempts || "—");
 
     const td2 = document.createElement("td");
     td2.className = "num";
-    td2.textContent = formatPlanCurrency(row?.cost);
+    td2.textContent = String(row?.cost || "—");
 
     const td3 = document.createElement("td");
     td3.className = "num";
-    td3.textContent = formatPlanWhole(row?.expectedNetVotes);
+    td3.textContent = String(row?.expectedObjectiveValue || "—");
 
     tr.append(td0, td1, td2, td3);
     tbody.appendChild(tr);
@@ -897,7 +1020,7 @@ function syncPlanTimelineWeeksAuto(id) {
   }
   const weeks = readScenarioWeeksRemaining();
   if (document.activeElement !== input) {
-    input.value = Number.isFinite(weeks) ? String(Math.max(0, Math.round(weeks))) : "";
+    input.value = formatPlanAutoWeeksInputValue(weeks);
   }
 }
 
@@ -979,20 +1102,6 @@ function readReachWeeklySnapshot() {
     return {};
   }
   return view.weekly;
-}
-
-function formatPlanWhole(value) {
-  if (!Number.isFinite(value)) {
-    return "—";
-  }
-  return `${Math.round(value).toLocaleString()}`;
-}
-
-function formatPlanCurrency(value) {
-  if (!Number.isFinite(value)) {
-    return "—";
-  }
-  return `$${Math.round(value).toLocaleString()}`;
 }
 
 function renderPlanDecisionRows(targetBodyId, rows) {

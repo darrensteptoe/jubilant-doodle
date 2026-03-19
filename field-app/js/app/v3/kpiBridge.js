@@ -1,5 +1,6 @@
 import { createKpiCard } from "./componentFactory.js";
 import { firstNonMissing, isMissingValue, readText } from "./stateBridge.js";
+import { formatPercentFromUnit, roundWholeNumberByMode } from "../../core/utils.js";
 
 const OUTCOME_API_KEY = "__FPE_OUTCOME_API__";
 const REACH_API_KEY = "__FPE_REACH_API__";
@@ -127,7 +128,7 @@ function formatBridgeWinProb(value) {
   if (!Number.isFinite(n)) {
     return "";
   }
-  return `${(n * 100).toFixed(1)}%`;
+  return formatPercentFromUnit(n, 1, "");
 }
 
 function formatBridgeMargin(value) {
@@ -135,7 +136,8 @@ function formatBridgeMargin(value) {
   if (!Number.isFinite(n)) {
     return "";
   }
-  const rounded = Math.round(n);
+  const rounded = roundWholeNumberByMode(n, { mode: "round", fallback: null });
+  if (rounded == null) return "";
   return `${rounded > 0 ? "+" : ""}${rounded}`;
 }
 

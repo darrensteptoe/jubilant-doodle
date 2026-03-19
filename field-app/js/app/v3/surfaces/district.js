@@ -10,30 +10,31 @@ import {
   readDistrictSnapshot,
   readDistrictControlSnapshot,
   readDistrictTemplateSnapshot,
+  readDistrictFormSnapshot,
+  readDistrictBallotSnapshot,
   readDistrictTargetingSnapshot,
   normalizeDistrictTargetingSnapshotFromView,
   readDistrictCensusSnapshot,
   applyDistrictTemplateDefaults,
   setDistrictFormField,
+  addDistrictCandidate,
+  updateDistrictCandidate,
+  removeDistrictCandidate,
+  setDistrictUserSplit,
   setDistrictTargetingField,
   applyDistrictTargetingPreset,
   resetDistrictTargetingWeights,
   runDistrictTargeting,
   exportDistrictTargetingCsv,
   exportDistrictTargetingJson,
+  setDistrictCensusField,
+  setDistrictCensusGeoSelection,
+  setDistrictCensusFile,
+  triggerDistrictCensusAction,
 } from "../stateBridge.js";
 import {
-  bindCheckboxProxy,
-  bindFieldProxy,
-  bindSelectProxy,
-  bindClickProxy,
   createFieldGrid,
   setText,
-  syncButtonDisabled,
-  syncCheckboxValue,
-  syncControlDisabled,
-  syncFieldValue,
-  syncSelectValue
 } from "../surfaceUtils.js";
 import { computeUniverseAdjustedRates, normalizeUniversePercents } from "../../../core/universeLayer.js";
 import {
@@ -44,6 +45,7 @@ import {
   deriveDistrictElectorateCardStatus as deriveDistrictElectorateCardStatusCore,
   deriveDistrictRaceCardStatus as deriveDistrictRaceCardStatusCore,
   deriveDistrictStructureCardStatus as deriveDistrictStructureCardStatusCore,
+  buildDistrictStructureDerivedText as buildDistrictStructureDerivedTextCore,
   deriveDistrictSummaryCardStatus as deriveDistrictSummaryCardStatusCore,
   deriveDistrictTargetingCardStatus as deriveDistrictTargetingCardStatusCore,
   deriveDistrictTurnoutCardStatus as deriveDistrictTurnoutCardStatusCore,
@@ -55,8 +57,8 @@ import {
 } from "../../targetingRuntime.js";
 import { listTemplateDimensionOptions } from "../../templateRegistry.js";
 import { listAcsYears, listMetricSetOptions, listResolutionOptions } from "../../../core/censusModule.js";
+import { pctOverrideToDecimal } from "../../../core/voteProduction.js";
 
-let districtLegacyCensusCard = null;
 let censusMapResizePulseHandle = 0;
 const TARGETING_DENSITY_OPTIONS = [
   { id: "none", label: "None" },
@@ -73,60 +75,126 @@ const TEMPLATE_DIMENSION_SELECTS = [
   { id: "v3DistrictSalienceLevel", field: "salienceLevel", label: "Salience level" },
 ];
 
-function resolveLegacyCensusCard() {
-  if (districtLegacyCensusCard instanceof HTMLElement) {
-    return districtLegacyCensusCard;
+const DISTRICT_TRAINING_PANELS = Object.freeze([
+  {
+    id: "train-setup",
+    title: "Training — Set up",
+    leftTitle: "What this stage models",
+    leftText:
+      "Sets the planning context. Race type loads sensible defaults, and election date drives timeline feasibility in later stages.",
+    leftRule:
+      "Scenario name → saved with export<br/>Race type → default band widths<br/>Election date → weeks remaining auto-calc<br/>Mode → persuasion vs turnout emphasis",
+    rightTitle: "Common mistakes",
+    rightBullets: [
+      "Using Federal template for a state leg race where band widths should be wider.",
+      "Leaving election date blank and forgetting to set weeks remaining manually.",
+      "Setting mode to late-start before capacity constraints are known.",
+    ],
+    rightCaution:
+      "A plan is only meaningful relative to time constraints. Set election date first.",
+  },
+  {
+    id: "train-universe",
+    title: "Training — Universe",
+    leftTitle: "What this stage models",
+    leftText:
+      "Universe is the denominator for everything. Turnout votes and persuasion workload both scale directly from it.",
+    leftRule:
+      "Registered: most defensible, largest number<br/>Active (voted 1+ recent): smaller, higher quality<br/>Likely voters: smallest, most predictive",
+    rightTitle: "Realistic ranges (state leg)",
+    rightBullets: [
+      "Rural district: 12,000–25,000 registered.",
+      "Suburban district: 30,000–60,000 registered.",
+      "Urban district: 40,000–80,000 registered.",
+    ],
+    rightCaution:
+      "Always note your source so this assumption stays auditable across scenario revisions.",
+  },
+  {
+    id: "train-ballot",
+    title: "Training — Ballot & Persuasion Baseline",
+    leftTitle: "What this stage models",
+    leftText:
+      "The ballot test sets your starting position. Candidate shares plus undecided must sum to 100%.",
+    leftRule:
+      "Proportional: undecided breaks like committed voters<br/>Conservative against you: undecided breaks toward opponents<br/>User-defined: you set the split explicitly",
+    rightTitle: "Common mistakes",
+    rightBullets: [
+      "Using unweighted internal polling as baseline support.",
+      "Setting undecided too low for competitive races.",
+      "Assuming proportional undecided break in a race with strong structural bias.",
+    ],
+    rightCaution:
+      "Undecided allocation is a primary volatility driver. Stress-test conservative and proportional paths.",
+  },
+  {
+    id: "train-checks",
+    title: "Training — Data Checks & Guardrails",
+    leftTitle: "What this stage does",
+    leftText:
+      "Guardrails catch invalid states and plausibility drift before sharing plans externally.",
+    rightTitle: "When to use it",
+    rightBullets: [
+      "Before every client presentation.",
+      "When outputs look unexpectedly strong.",
+      "After importing scenario data from another session.",
+    ],
+  },
+]);
+
+function createDistrictTrainingPanel(definition) {
+  const panelId = `v3-${definition.id}`;
+  const panel = document.createElement("div");
+  panel.className = "training-panel-new";
+  panel.id = panelId;
+
+  const header = document.createElement("div");
+  header.className = "training-hd-new";
+  header.setAttribute("onclick", `toggleTrainPanel('${panelId}')`);
+  header.innerHTML = `<span>🎓</span><span class="training-title-new">${definition.title}</span><span class="training-chev-new">▾</span>`;
+
+  const body = document.createElement("div");
+  body.className = "training-bd-new";
+
+  const leftCol = document.createElement("div");
+  leftCol.className = "training-col-new";
+  leftCol.innerHTML = `
+    <div class="training-sec-title-new">${definition.leftTitle}</div>
+    <p>${definition.leftText}</p>
+    ${definition.leftRule ? `<div class="training-rule-new">${definition.leftRule}</div>` : ""}
+  `;
+
+  const rightCol = document.createElement("div");
+  rightCol.className = "training-col-new";
+  rightCol.innerHTML = `<div class="training-sec-title-new">${definition.rightTitle}</div>`;
+  if (Array.isArray(definition.rightBullets) && definition.rightBullets.length) {
+    const list = document.createElement("ul");
+    definition.rightBullets.forEach((text) => {
+      const item = document.createElement("li");
+      item.textContent = text;
+      list.append(item);
+    });
+    rightCol.append(list);
+  }
+  if (definition.rightCaution) {
+    const caution = document.createElement("div");
+    caution.className = "training-caution-new";
+    caution.textContent = definition.rightCaution;
+    rightCol.append(caution);
   }
 
-  let preferred = null;
-  try {
-    const getCompatNode = window.__FPE_GET_LEGACY_COMPAT_NODE__;
-    if (typeof getCompatNode === "function") {
-      preferred = getCompatNode("censusPhase1Card");
-    }
-  } catch {}
-  preferred ||= document.getElementById("censusPhase1Card");
-  if (!(preferred instanceof HTMLElement)) {
-    return null;
-  }
-
-  districtLegacyCensusCard = preferred;
-  return districtLegacyCensusCard;
+  body.append(leftCol, rightCol);
+  panel.append(header, body);
+  return panel;
 }
 
 function buildDistrictTrainingPanels() {
-  const sourceIds = ["train-setup", "train-universe", "train-ballot", "train-checks"];
   const host = document.createElement("div");
   host.className = "fpe-district-training-stack";
-  let count = 0;
-
-  sourceIds.forEach((sourceId) => {
-    const source = document.getElementById(sourceId);
-    if (!(source instanceof HTMLElement)) {
-      return;
-    }
-    const clone = source.cloneNode(true);
-    const nextId = `v3-${sourceId}`;
-    clone.id = nextId;
-    clone.querySelectorAll("[id]").forEach((node) => {
-      if (!(node instanceof HTMLElement)) {
-        return;
-      }
-      const rawId = String(node.id || "").trim();
-      if (!rawId) {
-        return;
-      }
-      node.id = `v3-${rawId}`;
-    });
-    const header = clone.querySelector(".training-hd-new");
-    if (header instanceof HTMLElement) {
-      header.setAttribute("onclick", `toggleTrainPanel('${nextId}')`);
-    }
-    host.append(clone);
-    count += 1;
+  DISTRICT_TRAINING_PANELS.forEach((definition) => {
+    host.append(createDistrictTrainingPanel(definition));
   });
-
-  return count ? host : null;
+  return host;
 }
 
 function createDistrictSection({ eyebrow = "", title = "", description = "" }) {
@@ -444,13 +512,9 @@ export function renderDistrictSurface(mount) {
   );
 
   const censusBody = getCardBody(censusCard);
-  const censusLegacyCard = resolveLegacyCensusCard();
-  if (censusLegacyCard instanceof HTMLElement) {
-    renderDistrictCensusProxyShell({
-      legacyCard: censusLegacyCard,
-      target: censusBody
-    });
-  }
+  renderDistrictCensusProxyShell({
+    target: censusBody
+  });
 
   const targetingBody = getCardBody(targetingCard);
   targetingBody.innerHTML = `
@@ -627,7 +691,13 @@ export function renderDistrictSurface(mount) {
   frame.append(main);
   mount.append(frame);
 
-  bindClickProxy("v3BtnAddCandidate", "btnAddCandidate");
+  const addCandidateBtn = document.getElementById("v3BtnAddCandidate");
+  if (addCandidateBtn instanceof HTMLButtonElement && addCandidateBtn.dataset.v3BallotAddBound !== "1") {
+    addCandidateBtn.dataset.v3BallotAddBound = "1";
+    addCandidateBtn.addEventListener("click", () => {
+      addDistrictCandidate();
+    });
+  }
   bindDistrictFormSelect("v3DistrictYourCandidate", "yourCandidate");
   bindDistrictFormField("v3DistrictUndecidedPct", "undecidedPct");
   bindDistrictFormSelect("v3DistrictUndecidedMode", "undecidedMode");
@@ -669,6 +739,8 @@ function refreshDistrictSummary() {
   const snapshot = readDistrictSnapshot();
   const controlSnapshot = readDistrictControlSnapshot();
   const templateSnapshot = readDistrictTemplateSnapshot();
+  const formSnapshot = readDistrictFormSnapshot();
+  const ballotSnapshot = readDistrictBallotSnapshot();
   const censusSnapshot = readDistrictCensusSnapshot();
   setText("v3DistrictUniverse", snapshot.universe);
   setText("v3DistrictSupport", snapshot.baselineSupport);
@@ -678,54 +750,29 @@ function refreshDistrictSummary() {
   setText("v3DistrictTurnoutExpected", snapshot.turnoutExpected);
   setText("v3DistrictTurnoutBand", snapshot.turnoutBand);
   setText("v3DistrictVotesPer1pct", snapshot.votesPer1pct);
-  syncDistrictBallotTopline();
-  syncControlDisabled("v3DistrictYourCandidate", "yourCandidate");
-  syncControlDisabled("v3DistrictUndecidedPct", "undecidedPct");
-  syncControlDisabled("v3DistrictUndecidedMode", "undecidedMode");
-  syncSelectValue("v3DistrictRaceType", "raceType");
+  syncDistrictBallotTopline(ballotSnapshot);
+  syncSelectValueFromRaw("v3DistrictRaceType", formSnapshot?.raceType);
   syncSelectValueFromRaw("v3DistrictOfficeLevel", templateSnapshot?.officeLevel);
   syncSelectValueFromRaw("v3DistrictElectionType", templateSnapshot?.electionType);
   syncSelectValueFromRaw("v3DistrictSeatContext", templateSnapshot?.seatContext);
   syncSelectValueFromRaw("v3DistrictPartisanshipMode", templateSnapshot?.partisanshipMode);
   syncSelectValueFromRaw("v3DistrictSalienceLevel", templateSnapshot?.salienceLevel);
-  syncFieldValue("v3DistrictElectionDate", "electionDate");
-  syncFieldValue("v3DistrictWeeksRemaining", "weeksRemaining");
-  syncSelectValue("v3DistrictMode", "mode");
-  syncFieldValue("v3DistrictUniverseSize", "universeSize");
-  syncSelectValue("v3DistrictUniverseBasis", "universeBasis");
-  syncFieldValue("v3DistrictSourceNote", "sourceNote");
-  syncControlDisabled("v3DistrictRaceType", "raceType");
-  syncControlDisabled("v3DistrictOfficeLevel", "officeLevel");
-  syncControlDisabled("v3DistrictElectionType", "electionType");
-  syncControlDisabled("v3DistrictSeatContext", "seatContext");
-  syncControlDisabled("v3DistrictPartisanshipMode", "partisanshipMode");
-  syncControlDisabled("v3DistrictSalienceLevel", "salienceLevel");
-  syncControlDisabled("v3DistrictElectionDate", "electionDate");
-  syncControlDisabled("v3DistrictWeeksRemaining", "weeksRemaining");
-  syncControlDisabled("v3DistrictMode", "mode");
-  syncControlDisabled("v3DistrictUniverseSize", "universeSize");
-  syncControlDisabled("v3DistrictUniverseBasis", "universeBasis");
-  syncControlDisabled("v3DistrictSourceNote", "sourceNote");
-  syncButtonDisabled("v3BtnAddCandidate", "btnAddCandidate");
-  syncCheckboxValue("v3DistrictElectorateWeightingToggle", "universe16Enabled");
-  syncControlDisabled("v3DistrictElectorateWeightingToggle", "universe16Enabled");
-  syncFieldValue("v3DistrictTurnoutA", "turnoutA");
-  syncFieldValue("v3DistrictTurnoutB", "turnoutB");
-  syncFieldValue("v3DistrictBandWidth", "bandWidth");
-  syncControlDisabled("v3DistrictTurnoutA", "turnoutA");
-  syncControlDisabled("v3DistrictTurnoutB", "turnoutB");
-  syncControlDisabled("v3DistrictBandWidth", "bandWidth");
-  syncFieldValue("v3DistrictDemPct", "universe16DemPct");
-  syncFieldValue("v3DistrictRepPct", "universe16RepPct");
-  syncFieldValue("v3DistrictNpaPct", "universe16NpaPct");
-  syncFieldValue("v3DistrictOtherPct", "universe16OtherPct");
-  syncFieldValue("v3DistrictRetentionFactor", "retentionFactor");
-  syncControlDisabled("v3DistrictDemPct", "universe16DemPct");
-  syncControlDisabled("v3DistrictRepPct", "universe16RepPct");
-  syncControlDisabled("v3DistrictNpaPct", "universe16NpaPct");
-  syncControlDisabled("v3DistrictOtherPct", "universe16OtherPct");
-  syncControlDisabled("v3DistrictRetentionFactor", "retentionFactor");
-  syncDistrictBallotBaseline();
+  syncInputValueFromRaw("v3DistrictElectionDate", formSnapshot?.electionDate);
+  syncInputValueFromRaw("v3DistrictWeeksRemaining", formSnapshot?.weeksRemaining);
+  syncSelectValueFromRaw("v3DistrictMode", formSnapshot?.mode);
+  syncInputValueFromRaw("v3DistrictUniverseSize", formSnapshot?.universeSize);
+  syncSelectValueFromRaw("v3DistrictUniverseBasis", formSnapshot?.universeBasis);
+  syncInputValueFromRaw("v3DistrictSourceNote", formSnapshot?.sourceNote);
+  syncCheckboxCheckedFromRaw("v3DistrictElectorateWeightingToggle", formSnapshot?.universe16Enabled);
+  syncInputValueFromRaw("v3DistrictTurnoutA", formSnapshot?.turnoutA);
+  syncInputValueFromRaw("v3DistrictTurnoutB", formSnapshot?.turnoutB);
+  syncInputValueFromRaw("v3DistrictBandWidth", formSnapshot?.bandWidth);
+  syncInputValueFromRaw("v3DistrictDemPct", formSnapshot?.universe16DemPct);
+  syncInputValueFromRaw("v3DistrictRepPct", formSnapshot?.universe16RepPct);
+  syncInputValueFromRaw("v3DistrictNpaPct", formSnapshot?.universe16NpaPct);
+  syncInputValueFromRaw("v3DistrictOtherPct", formSnapshot?.universe16OtherPct);
+  syncInputValueFromRaw("v3DistrictRetentionFactor", formSnapshot?.retentionFactor);
+  syncDistrictBallotBaseline(ballotSnapshot, controlSnapshot);
   if (controlSnapshot?.locked) {
     applyDistrictBallotDynamicLock();
   }
@@ -805,29 +852,34 @@ function readInputValue(id) {
   return String(el.value || "").trim();
 }
 
-function syncDistrictBallotBaseline() {
-  syncDistrictCandidateTable();
-  syncDistrictUserSplitTable();
-  syncDistrictBallotWarning();
-  setText("v3DistrictSupportTotal", document.getElementById("supportTotal")?.textContent || "");
+function syncDistrictBallotBaseline(ballotSnapshot, controlSnapshot) {
+  const snapshot = ballotSnapshot && typeof ballotSnapshot === "object" ? ballotSnapshot : null;
+  syncDistrictCandidateTable(snapshot, controlSnapshot);
+  syncDistrictUserSplitTable(snapshot, controlSnapshot);
+  syncDistrictBallotWarning(snapshot);
+  const supportText = String(snapshot?.supportTotalText || "").trim();
+  setText("v3DistrictSupportTotal", supportText || "—");
 }
 
-function syncDistrictBallotTopline() {
-  hydrateLegacySelectOptions("v3DistrictYourCandidate", "yourCandidate");
-  hydrateLegacySelectOptions("v3DistrictUndecidedMode", "undecidedMode");
-  syncSelectValue("v3DistrictYourCandidate", "yourCandidate");
-  syncFieldValue("v3DistrictUndecidedPct", "undecidedPct");
-  syncSelectValue("v3DistrictUndecidedMode", "undecidedMode");
+function syncDistrictBallotTopline(ballotSnapshot) {
+  const snapshot = ballotSnapshot && typeof ballotSnapshot === "object" ? ballotSnapshot : null;
+  const candidateOptions = Array.isArray(snapshot?.candidates)
+    ? snapshot.candidates
+      .map((row) => ({
+        value: String(row?.id || "").trim(),
+        label: String(row?.name || row?.id || "").trim(),
+      }))
+      .filter((row) => !!row.value)
+    : [];
+  hydrateSelectOptions("v3DistrictYourCandidate", candidateOptions, snapshot?.yourCandidateId);
+  syncSelectValueFromRaw("v3DistrictYourCandidate", snapshot?.yourCandidateId);
+  syncInputValueFromRaw("v3DistrictUndecidedPct", snapshot?.undecidedPct);
+  syncSelectValueFromRaw("v3DistrictUndecidedMode", snapshot?.undecidedMode);
 }
 
-function syncDistrictCandidateTable() {
+function syncDistrictCandidateTable(ballotSnapshot, controlSnapshot) {
   const targetBody = document.getElementById("v3DistrictCandTbody");
   if (!(targetBody instanceof HTMLElement)) {
-    return;
-  }
-
-  const sourceBody = document.getElementById("candTbody");
-  if (!(sourceBody instanceof HTMLElement)) {
     return;
   }
 
@@ -835,16 +887,15 @@ function syncDistrictCandidateTable() {
     return;
   }
 
+  const rows = Array.isArray(ballotSnapshot?.candidates) ? ballotSnapshot.candidates : [];
+  const controlsLocked = !!controlSnapshot?.locked;
   targetBody.innerHTML = "";
-  const rows = Array.from(sourceBody.querySelectorAll(":scope > tr"));
   rows.forEach((sourceRow) => {
-    if (!(sourceRow instanceof HTMLTableRowElement)) {
-      return;
-    }
-
-    const nameSource = sourceRow.querySelector("td:nth-child(1) input");
-    const pctSource = sourceRow.querySelector("td:nth-child(2) input");
-    const removeSource = sourceRow.querySelector("td:nth-child(3) button");
+    const candidateId = String(sourceRow?.id || "").trim();
+    if (!candidateId) return;
+    const candidateName = String(sourceRow?.name || "").trim();
+    const supportPct = Number.isFinite(Number(sourceRow?.supportPct)) ? String(Number(sourceRow.supportPct)) : "";
+    const canRemove = !controlsLocked && !!sourceRow?.canRemove;
 
     const tr = document.createElement("tr");
 
@@ -852,14 +903,11 @@ function syncDistrictCandidateTable() {
     const nameInput = document.createElement("input");
     nameInput.className = "fpe-input";
     nameInput.type = "text";
-    nameInput.value = nameSource instanceof HTMLInputElement ? nameSource.value : "";
-    nameInput.disabled = nameSource instanceof HTMLInputElement ? !!nameSource.disabled : true;
-    if (nameSource instanceof HTMLInputElement) {
-      nameInput.addEventListener("input", () => {
-        nameSource.value = nameInput.value;
-        dispatchLegacyInput(nameSource);
-      });
-    }
+    nameInput.value = candidateName;
+    nameInput.disabled = controlsLocked;
+    nameInput.addEventListener("input", () => {
+      updateDistrictCandidate(candidateId, "name", nameInput.value);
+    });
     tdName.appendChild(nameInput);
 
     const tdPct = document.createElement("td");
@@ -870,14 +918,11 @@ function syncDistrictCandidateTable() {
     pctInput.min = "0";
     pctInput.max = "100";
     pctInput.step = "0.1";
-    pctInput.value = pctSource instanceof HTMLInputElement ? pctSource.value : "";
-    pctInput.disabled = pctSource instanceof HTMLInputElement ? !!pctSource.disabled : true;
-    if (pctSource instanceof HTMLInputElement) {
-      pctInput.addEventListener("input", () => {
-        pctSource.value = pctInput.value;
-        dispatchLegacyInput(pctSource);
-      });
-    }
+    pctInput.value = supportPct;
+    pctInput.disabled = controlsLocked;
+    pctInput.addEventListener("input", () => {
+      updateDistrictCandidate(candidateId, "supportPct", pctInput.value);
+    });
     tdPct.appendChild(pctInput);
 
     const tdAction = document.createElement("td");
@@ -885,16 +930,11 @@ function syncDistrictCandidateTable() {
     const removeBtn = document.createElement("button");
     removeBtn.className = "fpe-btn fpe-btn--ghost";
     removeBtn.type = "button";
-    removeBtn.textContent =
-      removeSource instanceof HTMLButtonElement && removeSource.textContent
-        ? removeSource.textContent.trim() || "Remove"
-        : "Remove";
-    removeBtn.disabled = !(removeSource instanceof HTMLButtonElement) || !!removeSource.disabled;
-    if (removeSource instanceof HTMLButtonElement) {
-      removeBtn.addEventListener("click", () => {
-        removeSource.click();
-      });
-    }
+    removeBtn.textContent = "Remove";
+    removeBtn.disabled = !canRemove;
+    removeBtn.addEventListener("click", () => {
+      removeDistrictCandidate(candidateId);
+    });
     tdAction.appendChild(removeBtn);
 
     tr.append(tdName, tdPct, tdAction);
@@ -913,20 +953,14 @@ function syncDistrictCandidateTable() {
   }
 }
 
-function syncDistrictUserSplitTable() {
+function syncDistrictUserSplitTable(ballotSnapshot, controlSnapshot) {
   const targetWrap = document.getElementById("v3DistrictUserSplitWrap");
   const targetList = document.getElementById("v3DistrictUserSplitList");
   if (!(targetWrap instanceof HTMLElement) || !(targetList instanceof HTMLElement)) {
     return;
   }
 
-  const sourceWrap = document.getElementById("userSplitWrap");
-  const sourceList = document.getElementById("userSplitList");
-  if (!(sourceWrap instanceof HTMLElement) || !(sourceList instanceof HTMLElement)) {
-    return;
-  }
-
-  const visible = !sourceWrap.hidden;
+  const visible = !!ballotSnapshot?.userSplitVisible;
   targetWrap.hidden = !visible;
   if (!visible) {
     return;
@@ -936,25 +970,20 @@ function syncDistrictUserSplitTable() {
     return;
   }
 
+  const rows = Array.isArray(ballotSnapshot?.userSplitRows) ? ballotSnapshot.userSplitRows : [];
+  const controlsLocked = !!controlSnapshot?.locked;
   targetList.innerHTML = "";
-  const rows = Array.from(sourceList.children);
   rows.forEach((sourceRow) => {
-    if (!(sourceRow instanceof HTMLElement)) {
-      return;
-    }
-
-    const nameEl = sourceRow.querySelector(":scope > .label");
-    const inputSource = sourceRow.querySelector(":scope input");
-    if (!(inputSource instanceof HTMLInputElement)) {
-      return;
-    }
+    const candidateId = String(sourceRow?.id || "").trim();
+    if (!candidateId) return;
+    const rowLabel = String(sourceRow?.name || "Candidate").trim() || "Candidate";
 
     const field = document.createElement("div");
     field.className = "field";
 
     const label = document.createElement("label");
     label.className = "fpe-control-label";
-    label.textContent = (nameEl?.textContent || "Candidate").trim();
+    label.textContent = rowLabel;
 
     const input = document.createElement("input");
     input.className = "fpe-input";
@@ -962,11 +991,10 @@ function syncDistrictUserSplitTable() {
     input.min = "0";
     input.max = "100";
     input.step = "0.1";
-    input.value = inputSource.value || "";
-    input.disabled = !!inputSource.disabled;
+    input.value = Number.isFinite(Number(sourceRow?.value)) ? String(Number(sourceRow.value)) : "";
+    input.disabled = controlsLocked;
     input.addEventListener("input", () => {
-      inputSource.value = input.value;
-      dispatchLegacyInput(inputSource);
+      setDistrictUserSplit(candidateId, input.value);
     });
 
     field.append(label, input);
@@ -974,16 +1002,14 @@ function syncDistrictUserSplitTable() {
   });
 }
 
-function syncDistrictBallotWarning() {
+function syncDistrictBallotWarning(ballotSnapshot) {
   const targetWarn = document.getElementById("v3DistrictCandWarn");
   if (!(targetWarn instanceof HTMLElement)) {
     return;
   }
 
-  const sourceWarn = document.getElementById("candWarn");
-
-  const text = (sourceWarn?.textContent || "").trim();
-  const showWarn = Boolean(text) && !sourceWarn?.hidden;
+  const text = String(ballotSnapshot?.warningText || "").trim();
+  const showWarn = !!text;
   targetWarn.hidden = !showWarn;
   targetWarn.textContent = showWarn ? text : "";
 }
@@ -996,26 +1022,6 @@ function applyDistrictBallotDynamicLock() {
       el.disabled = true;
     }
   });
-}
-
-function dispatchLegacyInput(node) {
-  if (!(node instanceof HTMLElement)) {
-    return;
-  }
-  node.dispatchEvent(new Event("input", { bubbles: true }));
-  node.dispatchEvent(new Event("change", { bubbles: true }));
-}
-
-function hydrateLegacySelectOptions(v3Id, legacyId, preferredValue) {
-  const legacy = document.getElementById(legacyId);
-  if (!(legacy instanceof HTMLSelectElement)) {
-    return;
-  }
-  const options = Array.from(legacy.options).map((option) => ({
-    value: String(option.value || "").trim(),
-    label: String(option.textContent || option.value || "").trim(),
-  })).filter((row) => row.value || row.label);
-  hydrateSelectOptions(v3Id, options, preferredValue);
 }
 
 function hydrateTemplateDimensionOptions() {
@@ -1041,6 +1047,31 @@ function syncSelectValueFromRaw(id, rawValue) {
   }
 }
 
+function syncInputValueFromRaw(id, rawValue) {
+  const input = document.getElementById(id);
+  if (!(input instanceof HTMLInputElement || input instanceof HTMLTextAreaElement)) {
+    return;
+  }
+  if (document.activeElement === input) {
+    return;
+  }
+  const value = (rawValue == null || rawValue === "") ? "" : String(rawValue);
+  if (input.value !== value) {
+    input.value = value;
+  }
+}
+
+function syncCheckboxCheckedFromRaw(id, rawValue) {
+  const input = document.getElementById(id);
+  if (!(input instanceof HTMLInputElement) || input.type !== "checkbox") {
+    return;
+  }
+  if (document.activeElement === input) {
+    return;
+  }
+  input.checked = !!rawValue;
+}
+
 function syncDistrictTemplateProfile(templateSnapshot) {
   const target = document.getElementById("v3DistrictTemplateMeta");
   if (!(target instanceof HTMLElement)) {
@@ -1053,10 +1084,12 @@ function syncDistrictTemplateProfile(templateSnapshot) {
   }
   const templateId = String(snapshot.appliedTemplateId || "").trim() || "unresolved";
   const version = String(snapshot.appliedVersion || "").trim();
+  const benchmarkKey = String(snapshot.benchmarkKey || "").trim();
   const overrides = Array.isArray(snapshot.overriddenFields) ? snapshot.overriddenFields.length : 0;
   const profile = String(snapshot.assumptionsProfile || "").trim() || (overrides > 0 ? "custom" : "template");
   const parts = [`Template: ${templateId}`];
   if (version) parts.push(`v${version}`);
+  if (benchmarkKey) parts.push(`Benchmark: ${benchmarkKey}`);
   parts.push(`Profile: ${profile}`);
   parts.push(`Overrides: ${overrides}`);
   target.textContent = parts.join(" · ");
@@ -1069,13 +1102,7 @@ function bindDistrictFormSelect(v3Id, field) {
   }
   control.dataset.v3DistrictFormBound = "1";
   control.addEventListener("change", () => {
-    const result = setDistrictFormField(field, control.value);
-    if (!result?.ok) {
-      const legacyId = mapDistrictLegacyFieldId(field);
-      if (legacyId) {
-        fallbackLegacyValueDispatch(legacyId, control.value);
-      }
-    }
+    setDistrictFormField(field, control.value);
   });
 }
 
@@ -1089,13 +1116,7 @@ function bindDistrictFormField(v3Id, field) {
   }
   control.dataset.v3DistrictFormBound = "1";
   control.addEventListener("input", () => {
-    const result = setDistrictFormField(field, control.value);
-    if (!result?.ok) {
-      const legacyId = mapDistrictLegacyFieldId(field);
-      if (legacyId) {
-        fallbackLegacyValueDispatch(legacyId, control.value);
-      }
-    }
+    setDistrictFormField(field, control.value);
   });
 }
 
@@ -1106,58 +1127,8 @@ function bindDistrictFormCheckbox(v3Id, field) {
   }
   control.dataset.v3DistrictFormBound = "1";
   control.addEventListener("change", () => {
-    const result = setDistrictFormField(field, control.checked);
-    if (!result?.ok) {
-      const legacyId = mapDistrictLegacyFieldId(field);
-      if (legacyId) {
-        fallbackLegacyCheckboxDispatch(legacyId, control.checked);
-      }
-    }
+    setDistrictFormField(field, control.checked);
   });
-}
-
-function mapDistrictLegacyFieldId(field) {
-  const key = String(field || "").trim();
-  const map = {
-    raceType: "raceType",
-    electionDate: "electionDate",
-    weeksRemaining: "weeksRemaining",
-    mode: "mode",
-    universeSize: "universeSize",
-    universeBasis: "universeBasis",
-    sourceNote: "sourceNote",
-    yourCandidate: "yourCandidate",
-    undecidedPct: "undecidedPct",
-    undecidedMode: "undecidedMode",
-    turnoutA: "turnoutA",
-    turnoutB: "turnoutB",
-    bandWidth: "bandWidth",
-    universe16Enabled: "universe16Enabled",
-    universe16DemPct: "universe16DemPct",
-    universe16RepPct: "universe16RepPct",
-    universe16NpaPct: "universe16NpaPct",
-    universe16OtherPct: "universe16OtherPct",
-    retentionFactor: "retentionFactor",
-  };
-  return map[key] || "";
-}
-
-function fallbackLegacyValueDispatch(id, value) {
-  const legacy = document.getElementById(id);
-  if (!(legacy instanceof HTMLInputElement || legacy instanceof HTMLSelectElement || legacy instanceof HTMLTextAreaElement)) {
-    return;
-  }
-  legacy.value = String(value == null ? "" : value);
-  dispatchLegacyInput(legacy);
-}
-
-function fallbackLegacyCheckboxDispatch(id, checked) {
-  const legacy = document.getElementById(id);
-  if (!(legacy instanceof HTMLInputElement) || legacy.type !== "checkbox") {
-    return;
-  }
-  legacy.checked = !!checked;
-  dispatchLegacyInput(legacy);
 }
 
 function applyDistrictBridgeDisabledMap(disabledMap) {
@@ -1202,22 +1173,7 @@ function syncDistrictStructureDerived() {
   });
 
   if (derived instanceof HTMLElement) {
-    if (!enabled) {
-      derived.textContent = "Disabled (baseline behavior).";
-    } else {
-      const parts = [];
-      const pMult = Number(adjusted?.meta?.persuasionMultiplier);
-      const tMult = Number(adjusted?.meta?.turnoutMultiplier);
-      const turnoutBoost = Number(adjusted?.meta?.turnoutBoostApplied);
-      const srAdj = Number(adjusted?.srAdj);
-      const trAdj = Number(adjusted?.trAdj);
-      parts.push(`Persuasion multiplier: ${Number.isFinite(pMult) ? pMult.toFixed(2) : "—"}`);
-      parts.push(`Turnout multiplier: ${Number.isFinite(tMult) ? tMult.toFixed(2) : "—"}`);
-      parts.push(`Turnout boost: ${Number.isFinite(turnoutBoost) ? `${(turnoutBoost * 100).toFixed(1)}%` : "—"}`);
-      parts.push(`Effective support rate: ${Number.isFinite(srAdj) ? `${(srAdj * 100).toFixed(1)}%` : "—"}`);
-      parts.push(`Effective turnout reliability: ${Number.isFinite(trAdj) ? `${(trAdj * 100).toFixed(1)}%` : "—"}`);
-      derived.textContent = parts.join(" · ");
-    }
+    derived.textContent = buildDistrictStructureDerivedTextCore({ enabled, adjusted });
   }
 
   const v3Warn = document.getElementById("v3DistrictStructureWarn");
@@ -1252,9 +1208,9 @@ function readRateDecimal(ids = []) {
     if (!(node instanceof HTMLInputElement)) {
       continue;
     }
-    const value = Number(node.value);
-    if (Number.isFinite(value)) {
-      return Math.max(0, Math.min(100, value)) / 100;
+    const value = pctOverrideToDecimal(node.value, null);
+    if (value != null) {
+      return value;
     }
   }
   return null;
@@ -1662,8 +1618,8 @@ function escapeHtml(value) {
     .replace(/'/g, "&#39;");
 }
 
-function renderDistrictCensusProxyShell({ legacyCard, target }) {
-  if (!(target instanceof HTMLElement) || !(legacyCard instanceof HTMLElement)) {
+function renderDistrictCensusProxyShell({ target }) {
+  if (!(target instanceof HTMLElement)) {
     return;
   }
 
@@ -1989,12 +1945,6 @@ function renderDistrictCensusProxyShell({ legacyCard, target }) {
   `;
 
   target.appendChild(shell);
-
-  const mapHost = shell.querySelector("#v3CensusMapHost");
-  const legacyMap = legacyCard.querySelector("#censusMap") || document.getElementById("censusMap");
-  if (mapHost instanceof HTMLElement && legacyMap instanceof HTMLElement) {
-    mapHost.replaceChildren(legacyMap);
-  }
 }
 
 function bindDistrictCensusProxies() {
@@ -2004,208 +1954,150 @@ function bindDistrictCensusProxies() {
   }
   shell.dataset.v3Bound = "1";
 
-  bindFieldProxy("v3CensusApiKey", "censusApiKey");
-  bindSelectProxy("v3CensusAcsYear", "censusAcsYear");
-  bindSelectProxy("v3CensusResolution", "censusResolution");
-  bindSelectProxy("v3CensusStateFips", "censusStateFips");
-  bindSelectProxy("v3CensusCountyFips", "censusCountyFips");
-  bindSelectProxy("v3CensusPlaceFips", "censusPlaceFips");
-  bindSelectProxy("v3CensusMetricSet", "censusMetricSet");
-  bindFieldProxy("v3CensusGeoSearch", "censusGeoSearch");
-  bindSelectProxy("v3CensusTractFilter", "censusTractFilter");
-  bindFieldProxy("v3CensusGeoPaste", "censusGeoPaste");
-  bindFieldProxy("v3CensusSelectionSetName", "censusSelectionSetName");
-  bindSelectProxy("v3CensusSelectionSetSelect", "censusSelectionSetSelect");
-  bindCheckboxProxy("v3CensusApplyAdjustmentsToggle", "censusApplyAdjustmentsToggle");
-  bindFileProxy("v3CensusElectionCsvFile", "censusElectionCsvFile");
-  bindFieldProxy("v3CensusElectionCsvPrecinctFilter", "censusElectionCsvPrecinctFilter");
-  bindCheckboxProxy("v3CensusMapQaVtdToggle", "censusMapQaVtdToggle");
-  bindFileProxy("v3CensusMapQaVtdZip", "censusMapQaVtdZip");
+  bindDistrictCensusField("v3CensusApiKey", "apiKey", "input");
+  bindDistrictCensusField("v3CensusAcsYear", "year", "change");
+  bindDistrictCensusField("v3CensusResolution", "resolution", "change");
+  bindDistrictCensusField("v3CensusStateFips", "stateFips", "change");
+  bindDistrictCensusField("v3CensusCountyFips", "countyFips", "change");
+  bindDistrictCensusField("v3CensusPlaceFips", "placeFips", "change");
+  bindDistrictCensusField("v3CensusMetricSet", "metricSet", "change");
+  bindDistrictCensusField("v3CensusGeoSearch", "geoSearch", "input");
+  bindDistrictCensusField("v3CensusTractFilter", "tractFilter", "change");
+  bindDistrictCensusField("v3CensusGeoPaste", "geoPaste", "input");
+  bindDistrictCensusField("v3CensusSelectionSetName", "selectionSetDraftName", "input");
+  bindDistrictCensusField("v3CensusSelectionSetSelect", "selectedSelectionSetKey", "change");
+  bindDistrictCensusCheckbox("v3CensusApplyAdjustmentsToggle", "applyAdjustedAssumptions");
+  bindDistrictCensusField("v3CensusElectionCsvPrecinctFilter", "electionCsvPrecinctFilter", "input");
+  bindDistrictCensusCheckbox("v3CensusMapQaVtdToggle", "mapQaVtdOverlay");
+  bindDistrictCensusFile("v3CensusElectionCsvFile", "electionCsvFile");
+  bindDistrictCensusFile("v3CensusMapQaVtdZip", "mapQaVtdZip");
+  bindDistrictCensusGeoSelection("v3CensusGeoSelect");
 
-  bindClickProxy("v3BtnCensusLoadGeo", "btnCensusLoadGeo");
-  bindClickProxy("v3BtnCensusFetchRows", "btnCensusFetchRows");
-  bindClickProxy("v3BtnCensusApplyGeoPaste", "btnCensusApplyGeoPaste");
-  bindClickProxy("v3BtnCensusSelectAll", "btnCensusSelectAll");
-  bindClickProxy("v3BtnCensusClearSelection", "btnCensusClearSelection");
-  bindClickProxy("v3BtnCensusSaveSelectionSet", "btnCensusSaveSelectionSet");
-  bindClickProxy("v3BtnCensusLoadSelectionSet", "btnCensusLoadSelectionSet");
-  bindClickProxy("v3BtnCensusDeleteSelectionSet", "btnCensusDeleteSelectionSet");
-  bindClickProxy("v3BtnCensusExportAggregateCsv", "btnCensusExportAggregateCsv");
-  bindClickProxy("v3BtnCensusExportAggregateJson", "btnCensusExportAggregateJson");
-  bindClickProxy("v3BtnCensusSetRaceFootprint", "btnCensusSetRaceFootprint");
-  bindClickProxy("v3BtnCensusClearRaceFootprint", "btnCensusClearRaceFootprint");
-  bindClickProxy("v3BtnCensusDownloadElectionCsvTemplate", "btnCensusDownloadElectionCsvTemplate");
-  bindClickProxy("v3BtnCensusDownloadElectionCsvWideTemplate", "btnCensusDownloadElectionCsvWideTemplate");
-  bindClickProxy("v3BtnCensusElectionCsvDryRun", "btnCensusElectionCsvDryRun");
-  bindClickProxy("v3BtnCensusElectionCsvClear", "btnCensusElectionCsvClear");
-  bindClickProxy("v3BtnCensusLoadMap", "btnCensusLoadMap");
-  bindClickProxy("v3BtnCensusClearMap", "btnCensusClearMap");
-  bindClickProxy("v3BtnCensusMapQaVtdZipClear", "btnCensusMapQaVtdZipClear");
-
-  bindMultiSelectProxy("v3CensusGeoSelect", "censusGeoSelect");
+  bindDistrictCensusAction("v3BtnCensusLoadGeo", "loadGeo");
+  bindDistrictCensusAction("v3BtnCensusFetchRows", "fetchRows");
+  bindDistrictCensusAction("v3BtnCensusApplyGeoPaste", "applyGeoPaste");
+  bindDistrictCensusAction("v3BtnCensusSelectAll", "selectAll");
+  bindDistrictCensusAction("v3BtnCensusClearSelection", "clearSelection");
+  bindDistrictCensusAction("v3BtnCensusSaveSelectionSet", "saveSelectionSet");
+  bindDistrictCensusAction("v3BtnCensusLoadSelectionSet", "loadSelectionSet");
+  bindDistrictCensusAction("v3BtnCensusDeleteSelectionSet", "deleteSelectionSet");
+  bindDistrictCensusAction("v3BtnCensusExportAggregateCsv", "exportAggregateCsv");
+  bindDistrictCensusAction("v3BtnCensusExportAggregateJson", "exportAggregateJson");
+  bindDistrictCensusAction("v3BtnCensusSetRaceFootprint", "setRaceFootprint");
+  bindDistrictCensusAction("v3BtnCensusClearRaceFootprint", "clearRaceFootprint");
+  bindDistrictCensusAction("v3BtnCensusDownloadElectionCsvTemplate", "downloadElectionTemplate");
+  bindDistrictCensusAction("v3BtnCensusDownloadElectionCsvWideTemplate", "downloadElectionWideTemplate");
+  bindDistrictCensusAction("v3BtnCensusElectionCsvDryRun", "electionDryRun");
+  bindDistrictCensusAction("v3BtnCensusElectionCsvClear", "electionClear");
+  bindDistrictCensusAction("v3BtnCensusLoadMap", "loadMap");
+  bindDistrictCensusAction("v3BtnCensusClearMap", "clearMap");
+  bindDistrictCensusAction("v3BtnCensusMapQaVtdZipClear", "clearVtdZip");
 }
 
 function syncDistrictCensusProxy() {
   const bridgeSnapshot = readDistrictCensusSnapshot();
   const censusConfig = bridgeSnapshot?.config;
   ensureDistrictCensusStaticOptionHydration(censusConfig);
-  syncLegacyOrBridgeText({
+  syncBridgeText({
     v3Id: "v3CensusContextHint",
     bridgeText: bridgeSnapshot?.contextHint,
     fallback: "State-only context active for this resolution."
   });
-  syncLegacyOrBridgeText({
+  syncBridgeText({
     v3Id: "v3CensusSelectionSetStatus",
     bridgeText: bridgeSnapshot?.selectionSetStatus,
     fallback: "No saved selection sets."
   });
-  syncLegacyOrBridgeText({
+  syncBridgeText({
     v3Id: "v3CensusStatus",
     bridgeText: bridgeSnapshot?.statusText,
     fallback: "Ready."
   });
-  syncLegacyOrBridgeText({
+  syncBridgeText({
     v3Id: "v3CensusGeoStats",
     bridgeText: bridgeSnapshot?.geoStatsText,
     fallback: "0 selected of 0 GEOs. 0 rows loaded."
   });
-  syncLegacyOrBridgeText({
+  syncBridgeText({
     v3Id: "v3CensusLastFetch",
     bridgeText: bridgeSnapshot?.lastFetchText,
     fallback: "No fetch yet."
   });
-  syncLegacyOrBridgeText({
+  syncBridgeText({
     v3Id: "v3CensusSelectionSummary",
     bridgeText: bridgeSnapshot?.selectionSummaryText,
     fallback: "No GEO selected."
   });
-  syncLegacyOrBridgeText({
+  syncBridgeText({
     v3Id: "v3CensusRaceFootprintStatus",
     bridgeText: bridgeSnapshot?.raceFootprintStatusText,
     fallback: "Race footprint not set."
   });
-  syncLegacyOrBridgeText({
+  syncBridgeText({
     v3Id: "v3CensusAssumptionProvenanceStatus",
     bridgeText: bridgeSnapshot?.assumptionProvenanceStatusText,
     fallback: "Assumption provenance not set."
   });
-  syncLegacyOrBridgeText({
+  syncBridgeText({
     v3Id: "v3CensusFootprintCapacityStatus",
     bridgeText: bridgeSnapshot?.footprintCapacityStatusText,
     fallback: "Footprint capacity: not set."
   });
-  syncLegacyOrBridgeText({
+  syncBridgeText({
     v3Id: "v3CensusApplyAdjustmentsStatus",
     bridgeText: bridgeSnapshot?.applyAdjustmentsStatusText,
     fallback: "Census-adjusted assumptions are OFF."
   });
-  syncLegacyOrBridgeText({
+  syncBridgeText({
     v3Id: "v3CensusAdvisoryStatus",
     bridgeText: bridgeSnapshot?.advisoryStatusText,
     fallback: "Assumption advisory pending."
   });
-  syncLegacyOrBridgeText({
+  syncBridgeText({
     v3Id: "v3CensusElectionCsvGuideStatus",
     bridgeText: bridgeSnapshot?.electionCsvGuideStatusText,
     fallback: "Election CSV schema guide loading."
   });
-  syncLegacyOrBridgeText({
+  syncBridgeText({
     v3Id: "v3CensusElectionCsvDryRunStatus",
     bridgeText: bridgeSnapshot?.electionCsvDryRunStatusText,
     fallback: "No dry-run run yet."
   });
-  syncLegacyOrBridgeText({
+  syncBridgeText({
     v3Id: "v3CensusElectionCsvPreviewMeta",
     bridgeText: bridgeSnapshot?.electionCsvPreviewMetaText,
     fallback: "No normalized preview rows."
   });
-  syncLegacyOrBridgeText({
+  syncBridgeText({
     v3Id: "v3CensusMapStatus",
     bridgeText: bridgeSnapshot?.mapStatusText,
     fallback: "Map idle. Select GEO units and click Load boundaries."
   });
-  syncLegacyOrBridgeText({
+  syncBridgeText({
     v3Id: "v3CensusMapQaVtdZipStatus",
     bridgeText: bridgeSnapshot?.mapQaVtdZipStatusText,
     fallback: "No VTD ZIP loaded."
   });
 
-  if (censusConfig && typeof censusConfig === "object") {
-    syncBridgeFieldValue("v3CensusApiKey", censusConfig.apiKey);
-    syncBridgeSelectValue("v3CensusAcsYear", censusConfig.year);
-    syncBridgeSelectValue("v3CensusResolution", censusConfig.resolution);
-    syncBridgeSelectValue("v3CensusStateFips", censusConfig.stateFips);
-    syncBridgeSelectValue("v3CensusCountyFips", censusConfig.countyFips);
-    syncBridgeSelectValue("v3CensusPlaceFips", censusConfig.placeFips);
-    syncBridgeSelectValue("v3CensusMetricSet", censusConfig.metricSet);
-    syncBridgeSelectValue("v3CensusTractFilter", censusConfig.tractFilter);
-    syncBridgeSelectValue("v3CensusSelectionSetSelect", censusConfig.selectedSelectionSetKey);
-    syncBridgeFieldValue("v3CensusGeoSearch", censusConfig.geoSearch);
-    syncBridgeFieldValue("v3CensusGeoPaste", censusConfig.geoPaste);
-    syncBridgeFieldValue("v3CensusSelectionSetName", censusConfig.selectionSetDraftName);
-    syncBridgeFieldValue("v3CensusElectionCsvPrecinctFilter", censusConfig.electionCsvPrecinctFilter);
-    syncBridgeCheckboxValue("v3CensusApplyAdjustmentsToggle", censusConfig.applyAdjustedAssumptions);
-    syncBridgeCheckboxValue("v3CensusMapQaVtdToggle", censusConfig.mapQaVtdOverlay);
-    syncBridgeMultiSelectValue("v3CensusGeoSelect", censusConfig.geoSelectOptions);
-  } else {
-    syncFieldValue("v3CensusApiKey", "censusApiKey");
-    syncSelectValue("v3CensusAcsYear", "censusAcsYear");
-    syncSelectValue("v3CensusResolution", "censusResolution");
-    syncSelectValue("v3CensusStateFips", "censusStateFips");
-    syncSelectValue("v3CensusCountyFips", "censusCountyFips");
-    syncSelectValue("v3CensusPlaceFips", "censusPlaceFips");
-    syncSelectValue("v3CensusMetricSet", "censusMetricSet");
-    syncSelectValue("v3CensusTractFilter", "censusTractFilter");
-    syncSelectValue("v3CensusSelectionSetSelect", "censusSelectionSetSelect");
-    syncFieldValue("v3CensusGeoSearch", "censusGeoSearch");
-    syncFieldValue("v3CensusGeoPaste", "censusGeoPaste");
-    syncFieldValue("v3CensusSelectionSetName", "censusSelectionSetName");
-    syncFieldValue("v3CensusElectionCsvPrecinctFilter", "censusElectionCsvPrecinctFilter");
-    syncCheckboxValue("v3CensusApplyAdjustmentsToggle", "censusApplyAdjustmentsToggle");
-    syncCheckboxValue("v3CensusMapQaVtdToggle", "censusMapQaVtdToggle");
-    syncMultiSelectProxy("v3CensusGeoSelect", "censusGeoSelect");
-  }
-
-  syncControlDisabled("v3CensusApiKey", "censusApiKey");
-  syncControlDisabled("v3CensusAcsYear", "censusAcsYear");
-  syncControlDisabled("v3CensusResolution", "censusResolution");
-  syncControlDisabled("v3CensusStateFips", "censusStateFips");
-  syncControlDisabled("v3CensusCountyFips", "censusCountyFips");
-  syncControlDisabled("v3CensusPlaceFips", "censusPlaceFips");
-  syncControlDisabled("v3CensusMetricSet", "censusMetricSet");
-  syncControlDisabled("v3CensusGeoSearch", "censusGeoSearch");
-  syncControlDisabled("v3CensusTractFilter", "censusTractFilter");
-  syncControlDisabled("v3CensusGeoPaste", "censusGeoPaste");
-  syncControlDisabled("v3CensusSelectionSetName", "censusSelectionSetName");
-  syncControlDisabled("v3CensusSelectionSetSelect", "censusSelectionSetSelect");
-  syncControlDisabled("v3CensusApplyAdjustmentsToggle", "censusApplyAdjustmentsToggle");
-  syncControlDisabled("v3CensusElectionCsvFile", "censusElectionCsvFile");
-  syncControlDisabled("v3CensusElectionCsvPrecinctFilter", "censusElectionCsvPrecinctFilter");
-  syncControlDisabled("v3CensusMapQaVtdToggle", "censusMapQaVtdToggle");
-  syncControlDisabled("v3CensusMapQaVtdZip", "censusMapQaVtdZip");
-  syncControlDisabled("v3CensusGeoSelect", "censusGeoSelect");
-
-  syncButtonDisabled("v3BtnCensusLoadGeo", "btnCensusLoadGeo");
-  syncButtonDisabled("v3BtnCensusFetchRows", "btnCensusFetchRows");
-  syncButtonDisabled("v3BtnCensusApplyGeoPaste", "btnCensusApplyGeoPaste");
-  syncButtonDisabled("v3BtnCensusSelectAll", "btnCensusSelectAll");
-  syncButtonDisabled("v3BtnCensusClearSelection", "btnCensusClearSelection");
-  syncButtonDisabled("v3BtnCensusSaveSelectionSet", "btnCensusSaveSelectionSet");
-  syncButtonDisabled("v3BtnCensusLoadSelectionSet", "btnCensusLoadSelectionSet");
-  syncButtonDisabled("v3BtnCensusDeleteSelectionSet", "btnCensusDeleteSelectionSet");
-  syncButtonDisabled("v3BtnCensusExportAggregateCsv", "btnCensusExportAggregateCsv");
-  syncButtonDisabled("v3BtnCensusExportAggregateJson", "btnCensusExportAggregateJson");
-  syncButtonDisabled("v3BtnCensusSetRaceFootprint", "btnCensusSetRaceFootprint");
-  syncButtonDisabled("v3BtnCensusClearRaceFootprint", "btnCensusClearRaceFootprint");
-  syncButtonDisabled("v3BtnCensusDownloadElectionCsvTemplate", "btnCensusDownloadElectionCsvTemplate");
-  syncButtonDisabled("v3BtnCensusDownloadElectionCsvWideTemplate", "btnCensusDownloadElectionCsvWideTemplate");
-  syncButtonDisabled("v3BtnCensusElectionCsvDryRun", "btnCensusElectionCsvDryRun");
-  syncButtonDisabled("v3BtnCensusElectionCsvClear", "btnCensusElectionCsvClear");
-  syncButtonDisabled("v3BtnCensusLoadMap", "btnCensusLoadMap");
-  syncButtonDisabled("v3BtnCensusClearMap", "btnCensusClearMap");
-  syncButtonDisabled("v3BtnCensusMapQaVtdZipClear", "btnCensusMapQaVtdZipClear");
-  applyDistrictCensusBridgeDisabledMap(censusConfig?.disabledMap);
-  syncDistrictCensusDisabledFallback(censusConfig);
+  const config = (censusConfig && typeof censusConfig === "object") ? censusConfig : {};
+  syncBridgeFieldValue("v3CensusApiKey", config.apiKey);
+  syncBridgeSelectValue("v3CensusAcsYear", config.year);
+  syncBridgeSelectValue("v3CensusResolution", config.resolution);
+  syncBridgeSelectValue("v3CensusStateFips", config.stateFips);
+  syncBridgeSelectValue("v3CensusCountyFips", config.countyFips);
+  syncBridgeSelectValue("v3CensusPlaceFips", config.placeFips);
+  syncBridgeSelectValue("v3CensusMetricSet", config.metricSet);
+  syncBridgeSelectValue("v3CensusTractFilter", config.tractFilter);
+  syncBridgeSelectValue("v3CensusSelectionSetSelect", config.selectedSelectionSetKey);
+  syncBridgeFieldValue("v3CensusGeoSearch", config.geoSearch);
+  syncBridgeFieldValue("v3CensusGeoPaste", config.geoPaste);
+  syncBridgeFieldValue("v3CensusSelectionSetName", config.selectionSetDraftName);
+  syncBridgeFieldValue("v3CensusElectionCsvPrecinctFilter", config.electionCsvPrecinctFilter);
+  syncBridgeCheckboxValue("v3CensusApplyAdjustmentsToggle", config.applyAdjustedAssumptions);
+  syncBridgeCheckboxValue("v3CensusMapQaVtdToggle", config.mapQaVtdOverlay);
+  syncBridgeMultiSelectValue("v3CensusGeoSelect", config.geoSelectOptions);
+  applyDistrictCensusBridgeDisabledMap(config.disabledMap);
+  syncDistrictCensusDisabledFallback(config);
 
   renderDistrictCensusTableRows({
     targetBodyId: "v3CensusAggregateTbody",
@@ -2336,7 +2228,7 @@ function syncDistrictCensusDisabledFallback(config) {
   });
 }
 
-function syncLegacyOrBridgeText({ v3Id, bridgeText, fallback = "—" }) {
+function syncBridgeText({ v3Id, bridgeText, fallback = "—" }) {
   const text = String(bridgeText || "").trim();
   if (text) {
     setText(v3Id, text);
@@ -2380,77 +2272,76 @@ function renderDistrictCensusTableRows({
   }
 }
 
-function bindMultiSelectProxy(v3Id, legacyId) {
-  const v3 = document.getElementById(v3Id);
-  if (!(v3 instanceof HTMLSelectElement)) {
-    return;
-  }
-
-  v3.addEventListener("change", () => {
-    const legacy = document.getElementById(legacyId);
-    if (!(legacy instanceof HTMLSelectElement)) {
-      return;
-    }
-    const selected = new Set(Array.from(v3.selectedOptions).map((opt) => opt.value));
-    Array.from(legacy.options).forEach((option) => {
-      option.selected = selected.has(option.value);
-    });
-    legacy.dispatchEvent(new Event("input", { bubbles: true }));
-    legacy.dispatchEvent(new Event("change", { bubbles: true }));
+function queueDistrictCensusSync() {
+  syncDistrictCensusProxy();
+  window.requestAnimationFrame(() => {
+    syncDistrictCensusProxy();
   });
 }
 
-function syncMultiSelectProxy(v3Id, legacyId) {
-  const v3 = document.getElementById(v3Id);
-  const legacy = document.getElementById(legacyId);
-  if (!(v3 instanceof HTMLSelectElement) || !(legacy instanceof HTMLSelectElement)) {
+function bindDistrictCensusField(v3Id, field, eventName = "input") {
+  const control = document.getElementById(v3Id);
+  if (
+    !(control instanceof HTMLInputElement
+      || control instanceof HTMLSelectElement
+      || control instanceof HTMLTextAreaElement)
+    || control.dataset.v3DistrictCensusBound === "1"
+  ) {
     return;
   }
-
-  if (document.activeElement !== v3) {
-    const legacySignature = Array.from(legacy.options)
-      .map((opt) => `${opt.value}::${opt.text}::${opt.selected ? "1" : "0"}`)
-      .join("|");
-    const v3Signature = Array.from(v3.options)
-      .map((opt) => `${opt.value}::${opt.text}::${opt.selected ? "1" : "0"}`)
-      .join("|");
-    if (legacySignature !== v3Signature) {
-      v3.innerHTML = "";
-      Array.from(legacy.options).forEach((opt) => {
-        const next = document.createElement("option");
-        next.value = opt.value;
-        next.textContent = opt.textContent || "";
-        next.selected = opt.selected;
-        v3.appendChild(next);
-      });
-    }
-  }
-
-  v3.disabled = legacy.disabled;
+  control.dataset.v3DistrictCensusBound = "1";
+  control.addEventListener(eventName, () => {
+    setDistrictCensusField(field, control.value);
+    queueDistrictCensusSync();
+  });
 }
 
-function bindFileProxy(v3Id, legacyId) {
-  const v3 = document.getElementById(v3Id);
-  if (!(v3 instanceof HTMLInputElement) || v3.type !== "file") {
+function bindDistrictCensusCheckbox(v3Id, field) {
+  const control = document.getElementById(v3Id);
+  if (!(control instanceof HTMLInputElement) || control.type !== "checkbox" || control.dataset.v3DistrictCensusBound === "1") {
     return;
   }
+  control.dataset.v3DistrictCensusBound = "1";
+  control.addEventListener("change", () => {
+    setDistrictCensusField(field, control.checked);
+    queueDistrictCensusSync();
+  });
+}
 
-  v3.addEventListener("change", () => {
-    const legacy = document.getElementById(legacyId);
-    if (!(legacy instanceof HTMLInputElement) || legacy.type !== "file") {
-      return;
-    }
+function bindDistrictCensusGeoSelection(v3Id) {
+  const control = document.getElementById(v3Id);
+  if (!(control instanceof HTMLSelectElement) || control.dataset.v3DistrictCensusBound === "1") {
+    return;
+  }
+  control.dataset.v3DistrictCensusBound = "1";
+  control.addEventListener("change", () => {
+    const selected = Array.from(control.selectedOptions).map((option) => option.value);
+    setDistrictCensusGeoSelection(selected);
+    queueDistrictCensusSync();
+  });
+}
 
-    try {
-      const transfer = new DataTransfer();
-      Array.from(v3.files || []).forEach((file) => transfer.items.add(file));
-      legacy.files = transfer.files;
-    } catch {
-      // best effort: some browsers restrict files assignment
-    }
+function bindDistrictCensusFile(v3Id, field) {
+  const control = document.getElementById(v3Id);
+  if (!(control instanceof HTMLInputElement) || control.type !== "file" || control.dataset.v3DistrictCensusBound === "1") {
+    return;
+  }
+  control.dataset.v3DistrictCensusBound = "1";
+  control.addEventListener("change", () => {
+    setDistrictCensusFile(field, control.files);
+    queueDistrictCensusSync();
+  });
+}
 
-    legacy.dispatchEvent(new Event("input", { bubbles: true }));
-    legacy.dispatchEvent(new Event("change", { bubbles: true }));
+function bindDistrictCensusAction(v3Id, action) {
+  const button = document.getElementById(v3Id);
+  if (!(button instanceof HTMLButtonElement) || button.dataset.v3DistrictCensusBound === "1") {
+    return;
+  }
+  button.dataset.v3DistrictCensusBound = "1";
+  button.addEventListener("click", () => {
+    triggerDistrictCensusAction(action);
+    queueDistrictCensusSync();
   });
 }
 

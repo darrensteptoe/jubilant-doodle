@@ -27,8 +27,15 @@ import {
   deriveShiftFromMargin,
   OUTCOME_STATUS_AWAITING_RUN,
   classifyOutcomeStatusTone,
+  formatOutcomeBridgeDecimal,
+  formatOutcomeBridgeMargin,
+  formatOutcomeBridgePercent,
+  formatOutcomeBridgeWhole,
+  formatOutcomeBridgeWinProb,
+  formatOutcomeSensitivityImpact,
   formatSignedWhole,
 } from "../../../core/outcomeView.js";
+import { formatPercentFromUnit } from "../../../core/utils.js";
 
 const OUTCOME_API_KEY = "__FPE_OUTCOME_API__";
 
@@ -483,21 +490,21 @@ function refreshOutcomeSummary() {
 
   const bridgeMc = outcomeView?.mc || null;
   const outcomeWinProb =
-    formatBridgeWinProb(bridgeMc?.winProb) ||
+    formatOutcomeBridgeWinProb(bridgeMc?.winProb) ||
     readOutcomeWinProbability();
   setText("v3OutcomeForecastWinProb", outcomeWinProb);
   const outcomeP10 =
-    formatBridgeMargin(bridgeMc?.p10) ||
+    formatOutcomeBridgeMargin(bridgeMc?.p10) ||
     readOutcomeSidebarPercentile("mcP10-sidebar");
   const outcomeP50 =
-    formatBridgeMargin(bridgeMc?.p50) ||
+    formatOutcomeBridgeMargin(bridgeMc?.p50) ||
     readText("#v3KpiMargin .fpe-kpi__value") ||
     readOutcomeSidebarPercentile("mcP50-sidebar");
   const outcomeP90 =
-    formatBridgeMargin(bridgeMc?.p90) ||
+    formatOutcomeBridgeMargin(bridgeMc?.p90) ||
     readOutcomeSidebarPercentile("mcP90-sidebar");
-  const outcomeShiftP50 = formatBridgeWhole(bridgeMc?.requiredShiftP50) || deriveShiftFromMargin(outcomeP50);
-  const outcomeShiftP10 = formatBridgeWhole(bridgeMc?.requiredShiftP10) || deriveShiftFromMargin(outcomeP10);
+  const outcomeShiftP50 = formatOutcomeBridgeWhole(bridgeMc?.requiredShiftP50) || deriveShiftFromMargin(outcomeP50);
+  const outcomeShiftP10 = formatOutcomeBridgeWhole(bridgeMc?.requiredShiftP10) || deriveShiftFromMargin(outcomeP10);
   const confidenceStats = buildConfidenceStats(outcomeP10, outcomeP50, outcomeP90, outcomeWinProb);
   const bridgeRiskGrade = String(bridgeMc?.riskGrade || "").trim();
   const bridgeRiskLabel = String(bridgeMc?.riskLabel || "").trim();
@@ -508,23 +515,23 @@ function refreshOutcomeSummary() {
     winProb: outcomeWinProb
   });
   const outcomeFragility = buildOutcomeFragility(outcomeP10, outcomeP90);
-  const outcomeFragilityIndex = formatBridgeDecimal(bridgeMc?.fragilityIndex, 3) || outcomeFragility;
+  const outcomeFragilityIndex = formatOutcomeBridgeDecimal(bridgeMc?.fragilityIndex, 3) || outcomeFragility;
   const outcomeCliff = buildOutcomeCliff(outcomeP10, outcomeP50);
-  const outcomeCliffText = formatBridgePercent(bridgeMc?.cliffRisk) || outcomeCliff;
+  const outcomeCliffText = formatOutcomeBridgePercent(bridgeMc?.cliffRisk) || outcomeCliff;
   const confMissRiskText = String(bridgeMc?.missRiskLabel || "").trim() || buildMissRiskSummary({
     outcomeP10,
     outcomeWinProb,
     outcomeRiskLabel
   });
-  const confMarginOfSafety = formatBridgeMargin(bridgeMc?.marginOfSafety) || confidenceStats.marginOfSafety;
-  const confDownside = formatBridgePercent(bridgeMc?.downsideRiskMass) || confidenceStats.downside;
-  const confExpectedShortfall = formatBridgeMargin(bridgeMc?.expectedShortfall10) || confidenceStats.es10;
-  const confShift60 = formatBridgeWhole(bridgeMc?.shiftWin60) || confidenceStats.shiftTo60;
-  const confShift70 = formatBridgeWhole(bridgeMc?.shiftWin70) || confidenceStats.shiftTo70;
-  const confShift80 = formatBridgeWhole(bridgeMc?.shiftWin80) || confidenceStats.shiftTo80;
-  const confShock10 = formatBridgePercent(bridgeMc?.shockLoss10) || confidenceStats.shock10;
-  const confShock25 = formatBridgePercent(bridgeMc?.shockLoss25) || confidenceStats.shock25;
-  const confShock50 = formatBridgePercent(bridgeMc?.shockLoss50) || confidenceStats.shock50;
+  const confMarginOfSafety = formatOutcomeBridgeMargin(bridgeMc?.marginOfSafety) || confidenceStats.marginOfSafety;
+  const confDownside = formatOutcomeBridgePercent(bridgeMc?.downsideRiskMass) || confidenceStats.downside;
+  const confExpectedShortfall = formatOutcomeBridgeMargin(bridgeMc?.expectedShortfall10) || confidenceStats.es10;
+  const confShift60 = formatOutcomeBridgeWhole(bridgeMc?.shiftWin60) || confidenceStats.shiftTo60;
+  const confShift70 = formatOutcomeBridgeWhole(bridgeMc?.shiftWin70) || confidenceStats.shiftTo70;
+  const confShift80 = formatOutcomeBridgeWhole(bridgeMc?.shiftWin80) || confidenceStats.shiftTo80;
+  const confShock10 = formatOutcomeBridgePercent(bridgeMc?.shockLoss10) || confidenceStats.shock10;
+  const confShock25 = formatOutcomeBridgePercent(bridgeMc?.shockLoss25) || confidenceStats.shock25;
+  const confShock50 = formatOutcomeBridgePercent(bridgeMc?.shockLoss50) || confidenceStats.shock50;
   const derivedMcStatus = buildOutcomeMcStatus(outcomeWinProb, outcomeP10, outcomeP90);
   const mcStatus = {
     freshTag: String(bridgeMc?.freshTag || derivedMcStatus.freshTag || "—"),
@@ -844,8 +851,7 @@ function renderOutcomeSensitivityRows(rows) {
     td0.textContent = String(row?.label || "—");
     const td1 = document.createElement("td");
     td1.className = "num";
-    const impact = Number(row?.impact);
-    td1.textContent = Number.isFinite(impact) ? impact.toFixed(2) : "—";
+    td1.textContent = formatOutcomeSensitivityImpact(row?.impact, 2);
     tr.append(td0, td1);
     tbody.appendChild(tr);
   }
@@ -878,7 +884,7 @@ function renderOutcomeSurfaceRows(rows) {
     const td1 = document.createElement("td");
     td1.className = "num";
     const winProb = Number(row?.winProb);
-    td1.textContent = Number.isFinite(winProb) ? `${(winProb * 100).toFixed(1)}%` : "—";
+    td1.textContent = formatPercentFromUnit(winProb, 1);
 
     const td2 = document.createElement("td");
     td2.className = "num";
@@ -910,47 +916,6 @@ function syncOutcomeImpactTraceFallback({ targetId, outcomeGapNote, outcomeRiskL
   target.innerHTML = rows.map((row) => `<li>${escapeHtml(row)}</li>`).join("");
 }
 
-
-function formatBridgeWinProb(value) {
-  const n = Number(value);
-  if (!Number.isFinite(n)) {
-    return "";
-  }
-  return `${(n * 100).toFixed(1)}%`;
-}
-
-function formatBridgePercent(value) {
-  const n = Number(value);
-  if (!Number.isFinite(n)) {
-    return "";
-  }
-  const pct = (Math.abs(n) <= 1) ? (n * 100) : n;
-  return `${pct.toFixed(1)}%`;
-}
-
-function formatBridgeWhole(value) {
-  const n = Number(value);
-  if (!Number.isFinite(n)) {
-    return "";
-  }
-  return String(Math.max(0, Math.round(n)));
-}
-
-function formatBridgeDecimal(value, digits = 3) {
-  const n = Number(value);
-  if (!Number.isFinite(n)) {
-    return "";
-  }
-  return n.toFixed(digits);
-}
-
-function formatBridgeMargin(value) {
-  const n = Number(value);
-  if (!Number.isFinite(n)) {
-    return "";
-  }
-  return formatSignedWhole(n);
-}
 
 function escapeHtml(value) {
   return String(value || "")

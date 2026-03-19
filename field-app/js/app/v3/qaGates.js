@@ -124,17 +124,6 @@ const STAGE_EXPECTATIONS = {
     "#v3DataHashBanner"
   ]
 };
-const STAGES_EXPECTING_NO_LEGACY_BRIDGE = new Set([
-  "controls",
-  "reach",
-  "outcome",
-  "turnout",
-  "plan",
-  "scenarios",
-  "decision-log",
-  "data"
-]);
-
 export function runV3QaSmoke({ restoreStage = true, logToConsole = true } = {}) {
   const startedAt = Date.now();
   const originalStage = getActiveStageId();
@@ -146,97 +135,237 @@ export function runV3QaSmoke({ restoreStage = true, logToConsole = true } = {}) 
   recordCheck(checks, "v3-surface-mount", isTruthy(document.getElementById("v3SurfaceMount")));
   recordCheck(checks, "v3-kpi-strip", isTruthy(document.getElementById("v3KpiStrip")));
   recordCheck(checks, "v3-right-rail-slot", isTruthy(document.getElementById("v3RightRailSlot")));
+  recordCheck(checks, "legacy-shell-wrapper-retired", isTruthy(!document.getElementById("legacyShellRoot")));
+  recordCheck(checks, "legacy-dom-pool-present", isTruthy(document.getElementById("legacyDomPool")));
+  recordCheck(checks, "legacy-switch-button-retired", isTruthy(!document.getElementById("v3SwitchLegacy")));
   recordCheck(
     checks,
     "legacy-shell-absent-or-hidden",
     isTruthy(!legacyShellRoot || legacyShellRoot.hidden)
   );
+  let uiMode = "unknown";
+  try {
+    const getMode = window.__FPE_GET_UI_MODE__;
+    if (typeof getMode === "function") {
+      uiMode = String(getMode() || "");
+    }
+  } catch {}
+  recordCheck(checks, "legacy-ui-mode-retired", isTruthy(uiMode === "v3"));
+  recordCheck(
+    checks,
+    "legacy-inline-shell-hook-retired",
+    isTruthy(typeof window.__FPE_INIT_LEGACY_INLINE_SHELL__ !== "function")
+  );
+  recordCheck(
+    checks,
+    "legacy-right-rail-hooks-retired",
+    isTruthy(
+      typeof window.__FPE_MOVE_LEGACY_RIGHT_RAIL_TO_HOST__ !== "function"
+      && typeof window.__FPE_ATTACH_LEGACY_RIGHT_RAIL_TO_SLOT__ !== "function"
+      && typeof window.__FPE_GET_LEGACY_RIGHT_RAIL__ !== "function"
+    )
+  );
+  recordCheck(
+    checks,
+    "legacy-compat-node-hook-retired",
+    isTruthy(typeof window.__FPE_GET_LEGACY_COMPAT_NODE__ !== "function")
+  );
+  recordCheck(
+    checks,
+    "legacy-shell-action-host-retired",
+    isTruthy(!document.getElementById("legacyShellActionHost"))
+  );
   recordCheck(checks, "shell-bridge-api", hasBridgeGetter("__FPE_SHELL_API__"));
+  recordCheck(checks, "training-toggle-roundtrip", isTruthy(verifyTrainingToggleRoundTrip()));
   recordCheck(checks, "district-bridge-api", hasBridgeGetter("__FPE_DISTRICT_API__"));
   recordCheck(checks, "census-runtime-bridge-api", hasBridgeGetter("__FPE_CENSUS_RUNTIME_API__"));
+  const censusRuntimeApi = window.__FPE_CENSUS_RUNTIME_API__ || {};
+  recordCheck(
+    checks,
+    "census-runtime-bridge-actions",
+    isTruthy(
+      typeof censusRuntimeApi.setField === "function"
+      && typeof censusRuntimeApi.setGeoSelection === "function"
+      && typeof censusRuntimeApi.setFile === "function"
+      && typeof censusRuntimeApi.triggerAction === "function"
+    )
+  );
   recordCheck(checks, "reach-bridge-api", hasBridgeGetter("__FPE_REACH_API__"));
   recordCheck(checks, "turnout-bridge-api", hasBridgeGetter("__FPE_TURNOUT_API__"));
   recordCheck(checks, "plan-bridge-api", hasBridgeGetter("__FPE_PLAN_API__"));
   recordCheck(checks, "outcome-bridge-api", hasBridgeGetter("__FPE_OUTCOME_API__"));
   recordCheck(checks, "decision-bridge-api", hasBridgeGetter("__FPE_DECISION_API__"));
   recordCheck(checks, "data-bridge-api", hasBridgeGetter("__FPE_DATA_API__"));
-  recordCheck(checks, "legacy-census-bridge-host", isTruthy(document.getElementById("legacyCensusBridgeHost")));
-  recordCheck(checks, "legacy-shell-action-host", isTruthy(document.getElementById("legacyShellActionHost")));
-  recordCheck(checks, "legacy-right-rail-host", isTruthy(document.getElementById("legacyRightRailHost")));
+  recordCheck(checks, "legacy-census-card-node", isTruthy(document.getElementById("censusPhase1Card")));
+  recordCheck(checks, "legacy-training-toggle-node", isTruthy(document.getElementById("toggleTraining")));
+  recordCheck(checks, "legacy-right-rail-node", isTruthy(document.getElementById("legacyResultsSidebar")));
+  recordCheck(checks, "legacy-setup-seed-present", isTruthy(document.getElementById("legacySetupSourceSeed")));
+  recordCheck(checks, "legacy-checks-seed-present", isTruthy(document.getElementById("legacyChecksSourceSeed")));
   recordCheck(
     checks,
-    "legacy-census-bridge-host-detached",
-    isTruthy(document.getElementById("legacyCensusBridgeHost")?.parentElement !== legacyShellRoot)
+    "legacy-setup-compose-hook-retired",
+    isTruthy(typeof window.__FPE_COMPOSE_LEGACY_SETUP_STAGE__ !== "function")
   );
   recordCheck(
     checks,
-    "legacy-shell-action-host-detached",
-    isTruthy(document.getElementById("legacyShellActionHost")?.parentElement !== legacyShellRoot)
+    "legacy-census-card-detached",
+    isTruthy(document.getElementById("censusPhase1Card")?.parentElement !== legacyShellRoot)
   );
   recordCheck(
     checks,
-    "legacy-right-rail-host-detached",
-    isTruthy(document.getElementById("legacyRightRailHost")?.parentElement !== legacyShellRoot)
+    "legacy-training-toggle-detached",
+    isTruthy(document.getElementById("toggleTraining")?.parentElement !== legacyShellRoot)
   );
   recordCheck(
     checks,
-    "legacy-census-bridge-mounted",
-    isTruthy(document.querySelector("#legacyCensusBridgeHost #censusPhase1Card"))
+    "legacy-right-rail-detached",
+    isTruthy(document.getElementById("legacyResultsSidebar")?.parentElement !== legacyShellRoot)
   );
   recordCheck(
     checks,
-    "legacy-training-toggle-mounted",
-    isTruthy(document.querySelector("#legacyShellActionHost #toggleTraining"))
+    "legacy-setup-seed-detached",
+    isTruthy(document.getElementById("legacySetupSourceSeed")?.parentElement !== legacyShellRoot)
   );
   recordCheck(
     checks,
-    "legacy-setup-bridge-mounted",
-    isTruthy(document.querySelector("#legacyCensusBridgeHost #stage-setup"))
+    "legacy-checks-seed-detached",
+    isTruthy(document.getElementById("legacyChecksSourceSeed")?.parentElement !== legacyShellRoot)
   );
   recordCheck(
     checks,
-    "legacy-universe-bridge-mounted",
-    isTruthy(document.querySelector("#legacyCensusBridgeHost #stage-universe"))
+    "legacy-universe-source-mounted",
+    isTruthy(document.querySelector("#legacySetupSourceSeed #universeCard"))
   );
   recordCheck(
     checks,
-    "legacy-ballot-bridge-mounted",
-    isTruthy(document.querySelector("#legacyCensusBridgeHost #stage-ballot"))
+    "legacy-ballot-source-mounted",
+    isTruthy(document.querySelector("#legacySetupSourceSeed #ballotBaselineCard"))
   );
   recordCheck(
     checks,
-    "legacy-structure-bridge-mounted",
-    isTruthy(document.querySelector("#legacyCensusBridgeHost #stage-structure"))
+    "legacy-turnout-source-mounted",
+    isTruthy(document.querySelector("#legacySetupSourceSeed #turnoutBaselineCard"))
   );
   recordCheck(
     checks,
-    "legacy-checks-bridge-mounted",
-    isTruthy(document.querySelector("#legacyCensusBridgeHost #stage-checks"))
+    "legacy-census-card-present",
+    isTruthy(document.getElementById("censusPhase1Card"))
+  );
+  recordCheck(
+    checks,
+    "legacy-training-toggle-present",
+    isTruthy(document.getElementById("toggleTraining"))
+  );
+  recordCheck(
+    checks,
+    "legacy-setup-bridge-unmounted",
+    isTruthy(!document.getElementById("stage-setup"))
+  );
+  recordCheck(
+    checks,
+    "legacy-universe-bridge-unmounted",
+    isTruthy(!document.getElementById("stage-universe"))
+  );
+  recordCheck(
+    checks,
+    "legacy-ballot-bridge-unmounted",
+    isTruthy(!document.getElementById("stage-ballot"))
+  );
+  recordCheck(
+    checks,
+    "legacy-structure-bridge-unmounted",
+    isTruthy(!document.getElementById("stage-structure"))
+  );
+  recordCheck(
+    checks,
+    "legacy-structure-stage-absent-or-retired",
+    isTruthy(
+      !document.getElementById("stage-structure")
+      || document.getElementById("stage-structure")?.hidden
+      || document.getElementById("stage-structure")?.getAttribute("data-retired") === "true"
+    )
+  );
+  recordCheck(
+    checks,
+    "legacy-checks-bridge-unmounted",
+    isTruthy(!document.getElementById("stage-checks"))
   );
   recordCheck(
     checks,
     "legacy-targeting-bridge-mounted",
-    isTruthy(document.querySelector("#legacyCensusBridgeHost #targetingLabCard"))
+    isTruthy(document.getElementById("targetingLabCard"))
   );
   recordCheck(
     checks,
-    "legacy-setup-stage-hidden",
-    isTruthy(document.getElementById("stage-setup")?.hidden)
+    "legacy-setup-stage-absent-or-retired",
+    isTruthy(
+      !document.getElementById("stage-setup")
+      || document.getElementById("stage-setup")?.hidden
+      || document.getElementById("stage-setup")?.getAttribute("data-retired") === "true"
+    )
   );
   recordCheck(
     checks,
-    "legacy-universe-stage-hidden",
-    isTruthy(document.getElementById("stage-universe")?.hidden)
+    "legacy-setup-stage-pruned",
+    isTruthy(!document.getElementById("stage-setup"))
   );
   recordCheck(
     checks,
-    "legacy-ballot-stage-hidden",
-    isTruthy(document.getElementById("stage-ballot")?.hidden)
+    "legacy-universe-stage-absent-or-retired",
+    isTruthy(
+      !document.getElementById("stage-universe")
+      || document.getElementById("stage-universe")?.hidden
+      || document.getElementById("stage-universe")?.getAttribute("data-retired") === "true"
+    )
   );
   recordCheck(
     checks,
-    "legacy-checks-stage-hidden",
-    isTruthy(document.getElementById("stage-checks")?.hidden)
+    "legacy-ballot-stage-absent-or-retired",
+    isTruthy(
+      !document.getElementById("stage-ballot")
+      || document.getElementById("stage-ballot")?.hidden
+      || document.getElementById("stage-ballot")?.getAttribute("data-retired") === "true"
+    )
+  );
+  recordCheck(
+    checks,
+    "legacy-universe-stage-pruned",
+    isTruthy(!document.getElementById("stage-universe"))
+  );
+  recordCheck(
+    checks,
+    "legacy-ballot-stage-pruned",
+    isTruthy(!document.getElementById("stage-ballot"))
+  );
+  recordCheck(
+    checks,
+    "legacy-universe-stage-no-controls",
+    isTruthy(
+      !document.getElementById("stage-universe")
+      || !document.getElementById("stage-universe")?.querySelector("input, select, textarea, table, button")
+    )
+  );
+  recordCheck(
+    checks,
+    "legacy-ballot-stage-no-controls",
+    isTruthy(
+      !document.getElementById("stage-ballot")
+      || !document.getElementById("stage-ballot")?.querySelector("input, select, textarea, table, button")
+    )
+  );
+  recordCheck(
+    checks,
+    "legacy-checks-stage-absent-or-retired",
+    isTruthy(
+      !document.getElementById("stage-checks")
+      || document.getElementById("stage-checks")?.hidden
+      || document.getElementById("stage-checks")?.getAttribute("data-retired") === "true"
+    )
+  );
+  recordCheck(
+    checks,
+    "legacy-checks-stage-pruned",
+    isTruthy(!document.getElementById("stage-checks"))
   );
   recordCheck(
     checks,
@@ -297,6 +426,17 @@ export function runV3QaSmoke({ restoreStage = true, logToConsole = true } = {}) 
 
     if (stage.id === "district") {
       const districtView = readBridgeView("__FPE_DISTRICT_API__");
+      const districtTrainingIds = [
+        "#v3-train-setup",
+        "#v3-train-universe",
+        "#v3-train-ballot",
+        "#v3-train-checks",
+      ];
+      recordCheck(
+        checks,
+        "district:training-panels-native",
+        districtTrainingIds.every((selector) => isSelectorInPane(pane, selector))
+      );
       recordCheck(
         checks,
         "district:bridge-view-summary",
@@ -383,27 +523,11 @@ export function runV3QaSmoke({ restoreStage = true, logToConsole = true } = {}) 
     }
 
     if (pane instanceof HTMLElement) {
-      const expectsNoLegacyBridge = STAGES_EXPECTING_NO_LEGACY_BRIDGE.has(stage.id);
       const bridgedControls = Array.from(pane.querySelectorAll("[data-v3-legacy-id]"));
       recordCheck(
         checks,
         `${stage.id}:bridge-control-count`,
-        expectsNoLegacyBridge ? bridgedControls.length === 0 : bridgedControls.length > 0
-      );
-      const missingBridgeTargets = bridgedControls.filter((el) => {
-        if (!(el instanceof HTMLElement)) {
-          return false;
-        }
-        const legacyId = el.dataset.v3LegacyId;
-        if (!legacyId) {
-          return false;
-        }
-        return !document.getElementById(legacyId);
-      });
-      recordCheck(
-        checks,
-        `${stage.id}:bridge-targets-exist`,
-        expectsNoLegacyBridge ? true : missingBridgeTargets.length === 0
+        bridgedControls.length === 0
       );
     }
   }
@@ -435,13 +559,7 @@ export function runV3QaSmoke({ restoreStage = true, logToConsole = true } = {}) 
 }
 
 function getLegacyShellRoot() {
-  try {
-    const getRoot = window.__FPE_GET_LEGACY_SHELL_ROOT__;
-    if (typeof getRoot === "function") {
-      return getRoot();
-    }
-  } catch {}
-  return document.getElementById("app-shell-legacy");
+  return document.querySelector('[data-legacy-shell-root="true"]');
 }
 
 export function installV3QaSmokeBridge() {
@@ -464,6 +582,39 @@ function hasNonEmpty(value) {
 function hasBridgeGetter(key) {
   const bridge = window?.[key];
   return !!bridge && typeof bridge.getView === "function";
+}
+
+function verifyTrainingToggleRoundTrip() {
+  try {
+    const shell = window?.__FPE_SHELL_API__;
+    if (!shell || typeof shell.getView !== "function" || typeof shell.setTrainingEnabled !== "function") {
+      return false;
+    }
+    const toggle = document.getElementById("toggleTraining");
+    const originalEnabled = !!shell.getView()?.trainingEnabled;
+    const nextEnabled = !originalEnabled;
+
+    shell.setTrainingEnabled(nextEnabled);
+    const toggledEnabled = !!shell.getView()?.trainingEnabled;
+    const toggledBodyClass = document.body.classList.contains("training") === nextEnabled;
+    const toggledInput = toggle instanceof HTMLInputElement ? toggle.checked === nextEnabled : true;
+
+    shell.setTrainingEnabled(originalEnabled);
+    const restoredEnabled = !!shell.getView()?.trainingEnabled;
+    const restoredBodyClass = document.body.classList.contains("training") === originalEnabled;
+    const restoredInput = toggle instanceof HTMLInputElement ? toggle.checked === originalEnabled : true;
+
+    return (
+      toggledEnabled === nextEnabled
+      && toggledBodyClass
+      && toggledInput
+      && restoredEnabled === originalEnabled
+      && restoredBodyClass
+      && restoredInput
+    );
+  } catch {
+    return false;
+  }
 }
 
 function readBridgeView(key) {

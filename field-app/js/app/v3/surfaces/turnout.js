@@ -22,6 +22,7 @@ import {
   deriveTurnoutImpactCardStatus,
   deriveTurnoutLiftCardStatus,
   deriveTurnoutSummaryCardStatus,
+  formatTurnoutCurrency,
 } from "../../../core/turnoutView.js";
 
 const TURNOUT_API_KEY = "__FPE_TURNOUT_API__";
@@ -665,17 +666,6 @@ function renderTurnoutRoiRows(rows) {
     tr.append(td0, td1, td2, td3, td4, td5);
     tbody.appendChild(tr);
   });
-}
-
-function formatTurnoutCurrency(value, decimals = 0) {
-  const num = Number(value);
-  if (!Number.isFinite(num)) {
-    return "—";
-  }
-  return `$${num.toLocaleString(undefined, {
-    minimumFractionDigits: decimals,
-    maximumFractionDigits: decimals
-  })}`;
 }
 
 function getTurnoutApi() {

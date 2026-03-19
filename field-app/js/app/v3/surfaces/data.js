@@ -8,13 +8,35 @@ import {
 } from "../componentFactory.js";
 import { setText } from "../surfaceUtils.js";
 import {
+  buildDataArchiveTableSummaryText,
+  buildDataArchiveLearningView,
+  buildDataArchiveLearningSignalsView,
+  buildDataArchiveSelectedSnapshotView,
+  buildDataImportFileStatus,
+  buildDataSurfaceSummaryView,
+  buildDataVoterSchemaGuideView,
+  buildDataVoterLayerSnapshotView,
+  DATA_ARCHIVE_DETAIL_FALLBACK,
+  DATA_BACKUP_SELECTION_FALLBACK,
+  DATA_IMPORT_FILE_STATUS_FALLBACK,
+  DATA_LEARNING_LABEL_FALLBACK,
+  DATA_LEARNING_RECOMMENDATION_FALLBACK,
   DATA_STATUS_AWAITING_STORAGE,
+  DATA_VOTER_IMPORT_STATUS_FALLBACK,
   classifyDataStatusTone,
-  deriveDataAuditCardStatus,
-  deriveDataExchangeCardStatus,
-  deriveDataPolicyCardStatus,
-  deriveDataStorageCardStatus,
-  deriveDataSummaryCardStatus,
+  formatDataScopeCampaign,
+  formatDataScopeLocks,
+  formatDataScopeOffice,
+  formatDataArchiveRecordedAt,
+  formatDataArchiveCount,
+  formatDataPercentFromPct,
+  formatDataSampleCount,
+  formatDataSignedDecimal,
+  normalizeDataArchiveSummary,
+  parseDataOptionalNumber,
+  formatDataArchiveDecimal,
+  inferDataVoterInputFormat,
+  listDataVoterAdapterOptions,
 } from "../../../core/dataView.js";
 
 const DATA_API_KEY = "__FPE_DATA_API__";
@@ -119,6 +141,29 @@ export function renderDataSurface(mount) {
       <div class="fpe-control-label">Import file status</div>
       <div class="fpe-help fpe-help--flush" id="v3DataImportFileStatus">No import file selected.</div>
     </div>
+    <div class="fpe-field-grid fpe-field-grid--2">
+      <div class="field">
+        <label class="fpe-control-label" for="v3DataVoterFile">Voter file (CSV/JSON)</label>
+        <input class="fpe-input" id="v3DataVoterFile" type="file" accept=".csv,text/csv,.json,application/json"/>
+      </div>
+      <div class="field">
+        <label class="fpe-control-label" for="v3DataVoterAdapter">Voter adapter</label>
+        <select class="fpe-input" id="v3DataVoterAdapter">
+          <option value="canonical">Canonical v1</option>
+        </select>
+      </div>
+      <div class="field">
+        <label class="fpe-control-label" for="v3DataVoterSourceId">Voter source ID</label>
+        <input class="fpe-input" id="v3DataVoterSourceId" type="text" placeholder="optional source tag"/>
+      </div>
+    </div>
+    <div class="fpe-action-row">
+      <button class="fpe-btn fpe-btn--ghost" id="v3DataBtnImportVoter" type="button">Import Voter File</button>
+    </div>
+    <div class="fpe-contained-block">
+      <div class="fpe-control-label">Voter import status</div>
+      <div class="fpe-help fpe-help--flush" id="v3DataVoterImportStatus">${DATA_VOTER_IMPORT_STATUS_FALLBACK}</div>
+    </div>
   `;
 
   getCardBody(storageCard).innerHTML = `
@@ -144,7 +189,7 @@ export function renderDataSurface(mount) {
     <div class="fpe-contained-block">
       <ul class="bullets">
         <li>Select an archived forecast, then record certified actuals for model learning.</li>
-        <li>Model audit metrics update from campaign-scoped archive records.</li>
+        <li>Model audit metrics update from campaign+office scoped archive records.</li>
       </ul>
     </div>
     <div class="fpe-field-grid fpe-field-grid--2">
@@ -213,6 +258,170 @@ export function renderDataSurface(mount) {
         <div class="fpe-help fpe-help--flush" id="v3DataAuditBias">-</div>
       </div>
     </div>
+    <div class="fpe-contained-block fpe-contained-block--status">
+      <div class="fpe-control-label">Learning guidance</div>
+      <div class="fpe-help fpe-help--flush" id="v3DataAuditLearningLabel">-</div>
+    </div>
+    <div class="fpe-contained-block fpe-contained-block--status">
+      <div class="fpe-control-label">Recommended calibration action</div>
+      <div class="fpe-help fpe-help--flush" id="v3DataAuditLearningRecommendation">-</div>
+    </div>
+    <div class="fpe-status-strip fpe-status-strip--3">
+      <div class="fpe-contained-block fpe-contained-block--status">
+        <div class="fpe-control-label">Learning voter rows</div>
+        <div class="fpe-help fpe-help--flush" id="v3DataAuditLearningVoterRows">-</div>
+      </div>
+      <div class="fpe-contained-block fpe-contained-block--status">
+        <div class="fpe-control-label">Learning geo coverage</div>
+        <div class="fpe-help fpe-help--flush" id="v3DataAuditLearningGeoCoverage">-</div>
+      </div>
+      <div class="fpe-contained-block fpe-contained-block--status">
+        <div class="fpe-control-label">Learning contactable rate</div>
+        <div class="fpe-help fpe-help--flush" id="v3DataAuditLearningContactableRate">-</div>
+      </div>
+    </div>
+    <div class="fpe-status-strip fpe-status-strip--3">
+      <div class="fpe-contained-block fpe-contained-block--status">
+        <div class="fpe-control-label">Target rows</div>
+        <div class="fpe-help fpe-help--flush" id="v3DataArchiveTargetRows">-</div>
+      </div>
+      <div class="fpe-contained-block fpe-contained-block--status">
+        <div class="fpe-control-label">Top targets</div>
+        <div class="fpe-help fpe-help--flush" id="v3DataArchiveTargetTop">-</div>
+      </div>
+      <div class="fpe-contained-block fpe-contained-block--status">
+        <div class="fpe-control-label">Target value total</div>
+        <div class="fpe-help fpe-help--flush" id="v3DataArchiveTargetValueTotal">-</div>
+      </div>
+    </div>
+    <div class="fpe-status-strip fpe-status-strip--3">
+      <div class="fpe-contained-block fpe-contained-block--status">
+        <div class="fpe-control-label">Office paths</div>
+        <div class="fpe-help fpe-help--flush" id="v3DataArchiveOfficePathRows">-</div>
+      </div>
+      <div class="fpe-contained-block fpe-contained-block--status">
+        <div class="fpe-control-label">Best office / dollar</div>
+        <div class="fpe-help fpe-help--flush" id="v3DataArchiveOfficeBestDollar">-</div>
+      </div>
+      <div class="fpe-contained-block fpe-contained-block--status">
+        <div class="fpe-control-label">Best office / org hour</div>
+        <div class="fpe-help fpe-help--flush" id="v3DataArchiveOfficeBestOrganizerHour">-</div>
+      </div>
+    </div>
+    <div class="fpe-contained-block fpe-contained-block--status">
+      <div class="fpe-control-label">Office path status</div>
+      <div class="fpe-help fpe-help--flush" id="v3DataArchiveOfficePathStatus">-</div>
+    </div>
+    <div class="fpe-status-strip fpe-status-strip--2">
+      <div class="fpe-contained-block fpe-contained-block--status">
+        <div class="fpe-control-label">Best office / dollar uplift</div>
+        <div class="fpe-help fpe-help--flush" id="v3DataArchiveOfficeBestDollarUpliftExpected">-</div>
+      </div>
+      <div class="fpe-contained-block fpe-contained-block--status">
+        <div class="fpe-control-label">Best office / dollar source</div>
+        <div class="fpe-help fpe-help--flush" id="v3DataArchiveOfficeBestDollarUpliftSource">-</div>
+      </div>
+    </div>
+    <div class="fpe-status-strip fpe-status-strip--2">
+      <div class="fpe-contained-block fpe-contained-block--status">
+        <div class="fpe-control-label">Best office / org-hour uplift</div>
+        <div class="fpe-help fpe-help--flush" id="v3DataArchiveOfficeBestOrganizerHourUpliftExpected">-</div>
+      </div>
+      <div class="fpe-contained-block fpe-contained-block--status">
+        <div class="fpe-control-label">Best office / org-hour source</div>
+        <div class="fpe-help fpe-help--flush" id="v3DataArchiveOfficeBestOrganizerHourUpliftSource">-</div>
+      </div>
+    </div>
+    <div class="fpe-status-strip fpe-status-strip--3">
+      <div class="fpe-contained-block fpe-contained-block--status">
+        <div class="fpe-control-label">Uplift expected</div>
+        <div class="fpe-help fpe-help--flush" id="v3DataArchiveUpliftExpected">-</div>
+      </div>
+      <div class="fpe-contained-block fpe-contained-block--status">
+        <div class="fpe-control-label">Uplift low-bound</div>
+        <div class="fpe-help fpe-help--flush" id="v3DataArchiveUpliftLow">-</div>
+      </div>
+      <div class="fpe-contained-block fpe-contained-block--status">
+        <div class="fpe-control-label">Uplift best channel</div>
+        <div class="fpe-help fpe-help--flush" id="v3DataArchiveUpliftBestChannel">-</div>
+      </div>
+    </div>
+    <div class="fpe-status-strip fpe-status-strip--3">
+      <div class="fpe-contained-block fpe-contained-block--status">
+        <div class="fpe-control-label">Uplift source</div>
+        <div class="fpe-help fpe-help--flush" id="v3DataArchiveUpliftSource">-</div>
+      </div>
+      <div class="fpe-contained-block fpe-contained-block--status">
+        <div class="fpe-control-label">Uplift uncertainty</div>
+        <div class="fpe-help fpe-help--flush" id="v3DataArchiveUpliftUncertaintyBand">-</div>
+      </div>
+      <div class="fpe-contained-block fpe-contained-block--status">
+        <div class="fpe-control-label">Saturation pressure</div>
+        <div class="fpe-help fpe-help--flush" id="v3DataArchiveUpliftSaturationPressure">-</div>
+      </div>
+    </div>
+    <div class="fpe-status-strip fpe-status-strip--3">
+      <div class="fpe-contained-block fpe-contained-block--status">
+        <div class="fpe-control-label">Template</div>
+        <div class="fpe-help fpe-help--flush" id="v3DataArchiveTemplateSummary">-</div>
+      </div>
+      <div class="fpe-contained-block fpe-contained-block--status">
+        <div class="fpe-control-label">Workforce mix</div>
+        <div class="fpe-help fpe-help--flush" id="v3DataArchiveWorkforceSummary">-</div>
+      </div>
+      <div class="fpe-contained-block fpe-contained-block--status">
+        <div class="fpe-control-label">Budget posture</div>
+        <div class="fpe-help fpe-help--flush" id="v3DataArchiveBudgetSummary">-</div>
+      </div>
+    </div>
+    <div class="fpe-status-strip fpe-status-strip--3">
+      <div class="fpe-contained-block fpe-contained-block--status">
+        <div class="fpe-control-label">Voter rows</div>
+        <div class="fpe-help fpe-help--flush" id="v3DataArchiveVoterRows">-</div>
+      </div>
+      <div class="fpe-contained-block fpe-contained-block--status">
+        <div class="fpe-control-label">Voter scoping rule</div>
+        <div class="fpe-help fpe-help--flush" id="v3DataArchiveVoterScopingRule">-</div>
+      </div>
+      <div class="fpe-contained-block fpe-contained-block--status">
+        <div class="fpe-control-label">Voter source</div>
+        <div class="fpe-help fpe-help--flush" id="v3DataArchiveVoterSource">-</div>
+      </div>
+      <div class="fpe-contained-block fpe-contained-block--status">
+        <div class="fpe-control-label">Voter geo coverage</div>
+        <div class="fpe-help fpe-help--flush" id="v3DataArchiveVoterGeoCoverage">-</div>
+      </div>
+      <div class="fpe-contained-block fpe-contained-block--status">
+        <div class="fpe-control-label">Voter contactable rate</div>
+        <div class="fpe-help fpe-help--flush" id="v3DataArchiveVoterContactableRate">-</div>
+      </div>
+    </div>
+    <div class="fpe-status-strip fpe-status-strip--3">
+      <div class="fpe-contained-block fpe-contained-block--status">
+        <div class="fpe-control-label">Governance confidence</div>
+        <div class="fpe-help fpe-help--flush" id="v3DataArchiveGovernanceConfidence">-</div>
+      </div>
+      <div class="fpe-contained-block fpe-contained-block--status">
+        <div class="fpe-control-label">Governance execution</div>
+        <div class="fpe-help fpe-help--flush" id="v3DataArchiveGovernanceExecution">-</div>
+      </div>
+      <div class="fpe-contained-block fpe-contained-block--status">
+        <div class="fpe-control-label">Governance uplift source</div>
+        <div class="fpe-help fpe-help--flush" id="v3DataArchiveGovernanceUpliftSource">-</div>
+      </div>
+    </div>
+    <div class="fpe-contained-block fpe-contained-block--status">
+      <div class="fpe-control-label">Governance top warning</div>
+      <div class="fpe-help fpe-help--flush" id="v3DataArchiveGovernanceWarning">-</div>
+    </div>
+    <div class="fpe-contained-block fpe-contained-block--status">
+      <div class="fpe-control-label">Governance learning</div>
+      <div class="fpe-help fpe-help--flush" id="v3DataArchiveGovernanceLearning">-</div>
+    </div>
+    <div class="fpe-contained-block fpe-contained-block--status">
+      <div class="fpe-control-label">Governance recommendation</div>
+      <div class="fpe-help fpe-help--flush" id="v3DataArchiveGovernanceRecommendation">-</div>
+    </div>
     <div class="fpe-contained-block">
       <div class="fpe-control-label">Recent forecast archive</div>
       <div class="fpe-help fpe-help--flush" id="v3DataArchiveTableSummary">No archive records yet.</div>
@@ -225,16 +434,32 @@ export function renderDataSurface(mount) {
             <th scope="col">Scenario</th>
             <th scope="col">Forecast margin</th>
             <th scope="col">Actual margin</th>
+            <th scope="col">Target rows</th>
+            <th scope="col">Office paths</th>
           </tr>
         </thead>
         <tbody id="v3DataArchiveRows">
-          <tr><td colspan="4">No archive records.</td></tr>
+          <tr><td colspan="6">No archive records.</td></tr>
         </tbody>
       </table>
     </div>
   `;
 
   getCardBody(summaryCard).innerHTML = `
+    <div class="fpe-status-strip fpe-status-strip--3">
+      <div class="fpe-contained-block fpe-contained-block--status">
+        <div class="fpe-control-label">Campaign scope</div>
+        <div class="fpe-help fpe-help--flush" id="v3DataScopeCampaign">-</div>
+      </div>
+      <div class="fpe-contained-block fpe-contained-block--status">
+        <div class="fpe-control-label">Office scope</div>
+        <div class="fpe-help fpe-help--flush" id="v3DataScopeOffice">-</div>
+      </div>
+      <div class="fpe-contained-block fpe-contained-block--status">
+        <div class="fpe-control-label">Context locks</div>
+        <div class="fpe-help fpe-help--flush" id="v3DataScopeLocks">-</div>
+      </div>
+    </div>
     <div class="fpe-status-strip fpe-status-strip--2">
       <div class="fpe-contained-block fpe-contained-block--status">
         <div class="fpe-control-label">Strict import</div>
@@ -269,6 +494,64 @@ export function renderDataSurface(mount) {
         <div class="fpe-help fpe-help--flush" id="v3DataImportFileSummary">-</div>
       </div>
     </div>
+    <div class="fpe-status-strip fpe-status-strip--3">
+      <div class="fpe-contained-block fpe-contained-block--status">
+        <div class="fpe-control-label">Voter scoping rule</div>
+        <div class="fpe-help fpe-help--flush" id="v3DataVoterScopingRule">-</div>
+      </div>
+      <div class="fpe-contained-block fpe-contained-block--status">
+        <div class="fpe-control-label">Voter source</div>
+        <div class="fpe-help fpe-help--flush" id="v3DataVoterSource">-</div>
+      </div>
+      <div class="fpe-contained-block fpe-contained-block--status">
+        <div class="fpe-control-label">Voter rows</div>
+        <div class="fpe-help fpe-help--flush" id="v3DataVoterRows">-</div>
+      </div>
+      <div class="fpe-contained-block fpe-contained-block--status">
+        <div class="fpe-control-label">Last voter import</div>
+        <div class="fpe-help fpe-help--flush" id="v3DataVoterImportedAt">-</div>
+      </div>
+    </div>
+    <div class="fpe-status-strip fpe-status-strip--3">
+      <div class="fpe-contained-block fpe-contained-block--status">
+        <div class="fpe-control-label">Mapped canonical fields</div>
+        <div class="fpe-help fpe-help--flush" id="v3DataVoterMappedFields">-</div>
+      </div>
+      <div class="fpe-contained-block fpe-contained-block--status">
+        <div class="fpe-control-label">Ignored headers</div>
+        <div class="fpe-help fpe-help--flush" id="v3DataVoterIgnoredHeaders">-</div>
+      </div>
+      <div class="fpe-contained-block fpe-contained-block--status">
+        <div class="fpe-control-label">Geo coverage</div>
+        <div class="fpe-help fpe-help--flush" id="v3DataVoterGeoCoverage">-</div>
+      </div>
+    </div>
+    <div class="fpe-status-strip fpe-status-strip--3">
+      <div class="fpe-contained-block fpe-contained-block--status">
+        <div class="fpe-control-label">Contactable rate</div>
+        <div class="fpe-help fpe-help--flush" id="v3DataVoterContactableRate">-</div>
+      </div>
+      <div class="fpe-contained-block fpe-contained-block--status">
+        <div class="fpe-control-label">Recent contact rate</div>
+        <div class="fpe-help fpe-help--flush" id="v3DataVoterRecentContactRate">-</div>
+      </div>
+      <div class="fpe-contained-block fpe-contained-block--status">
+        <div class="fpe-control-label">Conversation rate</div>
+        <div class="fpe-help fpe-help--flush" id="v3DataVoterConversationRate">-</div>
+      </div>
+    </div>
+    <div class="fpe-status-strip fpe-status-strip--2">
+      <div class="fpe-contained-block fpe-contained-block--status">
+        <div class="fpe-control-label">Required canonical fields</div>
+        <div class="fpe-help fpe-help--flush" id="v3DataVoterRequiredFieldsCount">-</div>
+        <div class="fpe-help fpe-help--flush" id="v3DataVoterRequiredFields">-</div>
+      </div>
+      <div class="fpe-contained-block fpe-contained-block--status">
+        <div class="fpe-control-label">Recommended canonical fields</div>
+        <div class="fpe-help fpe-help--flush" id="v3DataVoterRecommendedFieldsCount">-</div>
+        <div class="fpe-help fpe-help--flush" id="v3DataVoterRecommendedFields">-</div>
+      </div>
+    </div>
   `;
 
   policyCol.append(policyCard);
@@ -291,82 +574,40 @@ export function renderDataSurface(mount) {
 }
 
 function refreshDataSummary() {
-  syncDataBridgeUi();
+  const dataViewState = syncDataBridgeUi();
+  const dataViewApi = getDataApi();
+  const dataView = dataViewState && typeof dataViewState === "object"
+    ? dataViewState
+    : dataViewApi?.getView?.();
+  const summary = buildDataSurfaceSummaryView(dataView);
 
-  const strictToggle = document.getElementById("v3DataStrictToggle");
-  const restoreSelect = document.getElementById("v3DataRestoreBackup");
-  const hashBannerUi = document.getElementById("v3DataHashBannerUi");
-  const warnBannerUi = document.getElementById("v3DataWarnBannerUi");
-  const usbStatusUi = readElText("v3DataUsbStatusUi");
-  const importFileStatus = readElText("v3DataImportFileStatus");
-  const auditSampleSize = readElText("v3DataAuditSampleSize");
-  const auditBias = readElText("v3DataAuditBias");
-  const archiveSummary = readElText("v3DataArchiveTableSummary");
-
-  setText(
-    "v3DataStrictImport",
-    strictToggle instanceof HTMLInputElement && strictToggle.checked ? "ON" : "OFF"
-  );
-  setText(
-    "v3DataBackupCount",
-    restoreSelect instanceof HTMLSelectElement
-      ? String(Math.max(0, restoreSelect.options.length - 1))
-      : "0"
-  );
-  setText(
-    "v3DataHashBanner",
-    hashBannerUi instanceof HTMLElement && !hashBannerUi.hidden
-      ? (hashBannerUi.textContent || "").trim() || "Visible"
-      : "Hidden"
-  );
-  setText(
-    "v3DataWarnBanner",
-    warnBannerUi instanceof HTMLElement && !warnBannerUi.hidden
-      ? (warnBannerUi.textContent || "").trim() || "Visible"
-      : "Hidden"
-  );
-  setText("v3DataUsbStatus", usbStatusUi || "Using browser storage only.");
-  setText(
-    "v3DataRestoreSelection",
-    readSelectLabel(restoreSelect instanceof HTMLSelectElement ? restoreSelect : null) || "No backup selected."
-  );
-  setText("v3DataImportFileSummary", importFileStatus || "No import file selected.");
+  setText("v3DataStrictImport", summary.strictImportText);
+  setText("v3DataBackupCount", summary.backupCountText);
+  setText("v3DataHashBanner", summary.hashBannerSummary);
+  setText("v3DataWarnBanner", summary.warnBannerSummary);
+  setText("v3DataUsbStatus", summary.usbStatusSummary);
+  setText("v3DataRestoreSelection", summary.restoreSelection || DATA_BACKUP_SELECTION_FALLBACK);
+  setText("v3DataImportFileSummary", summary.importFileSummary || DATA_IMPORT_FILE_STATUS_FALLBACK);
 
   syncDataCardStatus(
     "v3DataPolicyCardStatus",
-    deriveDataPolicyCardStatus(
-      strictToggle instanceof HTMLInputElement && strictToggle.checked,
-      hashBannerUi instanceof HTMLElement && !hashBannerUi.hidden
-        ? (hashBannerUi.textContent || "").trim()
-        : "",
-      warnBannerUi instanceof HTMLElement && !warnBannerUi.hidden
-        ? (warnBannerUi.textContent || "").trim()
-        : "",
-      restoreSelect instanceof HTMLSelectElement
-        ? Math.max(0, restoreSelect.options.length - 1)
-        : 0
-    )
+    summary.policyCardStatus
   );
   syncDataCardStatus(
     "v3DataExchangeCardStatus",
-    deriveDataExchangeCardStatus(importFileStatus)
+    summary.exchangeCardStatus
   );
   syncDataCardStatus(
     "v3DataStorageCardStatus",
-    deriveDataStorageCardStatus(usbStatusUi)
+    summary.storageCardStatus
   );
   syncDataCardStatus(
     "v3DataAuditCardStatus",
-    deriveDataAuditCardStatus(auditSampleSize, auditBias, archiveSummary)
+    summary.auditCardStatus
   );
   syncDataCardStatus(
     "v3DataSummaryCardStatus",
-    deriveDataSummaryCardStatus(
-      strictToggle instanceof HTMLInputElement && strictToggle.checked,
-      hashBannerUi instanceof HTMLElement && !hashBannerUi.hidden,
-      warnBannerUi instanceof HTMLElement && !warnBannerUi.hidden,
-      usbStatusUi
-    )
+    summary.summaryCardStatus
   );
 }
 
@@ -428,9 +669,9 @@ function wireDataBridge() {
       const payload = {
         snapshotHash: readInputValue("v3DataArchiveSelect"),
         actual: {
-          margin: parseNumericInput("v3DataArchiveActualMargin"),
-          yourVotes: parseNumericInput("v3DataArchiveActualYourVotes"),
-          winThreshold: parseNumericInput("v3DataArchiveActualWinThreshold"),
+          margin: parseDataOptionalNumber(readInputValue("v3DataArchiveActualMargin")),
+          yourVotes: parseDataOptionalNumber(readInputValue("v3DataArchiveActualYourVotes")),
+          winThreshold: parseDataOptionalNumber(readInputValue("v3DataArchiveActualWinThreshold")),
           winner: readInputValue("v3DataArchiveActualWinner"),
           resultDate: readInputValue("v3DataArchiveActualDate"),
         },
@@ -457,6 +698,44 @@ function wireDataBridge() {
         result.finally(() => refreshDataSummary());
       } else {
         refreshDataSummary();
+      }
+    });
+  }
+
+  const voterImportBtn = document.getElementById("v3DataBtnImportVoter");
+  if (voterImportBtn instanceof HTMLButtonElement) {
+    voterImportBtn.addEventListener("click", async () => {
+      const api = getDataApi();
+      if (!api || typeof api.importVoterRows !== "function") {
+        return;
+      }
+      const fileInput = document.getElementById("v3DataVoterFile");
+      const adapterSelect = document.getElementById("v3DataVoterAdapter");
+      const sourceInput = document.getElementById("v3DataVoterSourceId");
+      if (!(fileInput instanceof HTMLInputElement) || !fileInput.files || !fileInput.files.length) {
+        setText("v3DataVoterImportStatus", "Select a voter CSV/JSON file first.");
+        return;
+      }
+      const file = fileInput.files[0];
+      const adapterId = adapterSelect instanceof HTMLSelectElement ? String(adapterSelect.value || "").trim() : "";
+      const sourceId = sourceInput instanceof HTMLInputElement ? String(sourceInput.value || "").trim() : "";
+      const inferredFormat = inferDataVoterInputFormat(file?.name);
+      try{
+        const text = await file.text();
+        const result = api.importVoterRows({
+          text,
+          adapterId,
+          sourceId,
+          fileName: String(file?.name || "").trim(),
+          format: inferredFormat,
+        });
+        if (result && typeof result.then === "function") {
+          result.finally(() => refreshDataSummary());
+        } else {
+          refreshDataSummary();
+        }
+      } catch {
+        setText("v3DataVoterImportStatus", "Voter import failed: could not read file.");
       }
     });
   }
@@ -494,8 +773,33 @@ function syncDataBridgeUi() {
   const api = getDataApi();
   const view = api?.getView?.();
   if (!view || typeof view !== "object") {
-    return;
+    return null;
   }
+  const summary = buildDataSurfaceSummaryView(view);
+  const scope = view?.context && typeof view.context === "object" ? view.context : {};
+  setText("v3DataScopeCampaign", formatDataScopeCampaign(scope));
+  setText("v3DataScopeOffice", formatDataScopeOffice(scope));
+  setText("v3DataScopeLocks", formatDataScopeLocks(scope));
+  const voterAdapterSelect = document.getElementById("v3DataVoterAdapter");
+  if (voterAdapterSelect instanceof HTMLSelectElement) {
+    syncVoterAdapterSelect(voterAdapterSelect);
+  }
+  const voterLayerView = buildDataVoterLayerSnapshotView(view?.voterLayer);
+  const voterSchemaGuide = buildDataVoterSchemaGuideView();
+  setText("v3DataVoterScopingRule", voterLayerView.scopingRule);
+  setText("v3DataVoterSource", voterLayerView.source);
+  setText("v3DataVoterRows", voterLayerView.rowCount);
+  setText("v3DataVoterImportedAt", voterLayerView.importedAt);
+  setText("v3DataVoterMappedFields", voterLayerView.mappedCanonicalFields);
+  setText("v3DataVoterIgnoredHeaders", voterLayerView.ignoredHeaders);
+  setText("v3DataVoterGeoCoverage", voterLayerView.geoCoverage);
+  setText("v3DataVoterContactableRate", voterLayerView.contactableRate);
+  setText("v3DataVoterRecentContactRate", voterLayerView.recentContactRate);
+  setText("v3DataVoterConversationRate", voterLayerView.conversationRate);
+  setText("v3DataVoterRequiredFieldsCount", voterSchemaGuide.requiredCount);
+  setText("v3DataVoterRequiredFields", voterSchemaGuide.requiredFields);
+  setText("v3DataVoterRecommendedFieldsCount", voterSchemaGuide.recommendedCount);
+  setText("v3DataVoterRecommendedFields", voterSchemaGuide.recommendedFields);
 
   const strictToggle = document.getElementById("v3DataStrictToggle");
   if (strictToggle instanceof HTMLInputElement) {
@@ -525,16 +829,18 @@ function syncDataBridgeUi() {
     warnBannerUi.textContent = text || "No import warnings.";
   }
 
-  setText("v3DataUsbStatusUi", String(view.usbStatus || "Using browser storage only."));
+  setText("v3DataUsbStatusUi", summary.usbStatusSummary);
+  setText("v3DataImportFileStatus", buildDataImportFileStatus(view?.importFileName));
   setText(
-    "v3DataImportFileStatus",
-    view.importFileName ? `Selected import: ${view.importFileName}` : "No import file selected."
+    "v3DataVoterImportStatus",
+    String(view?.voterImportStatus || "").trim() || DATA_VOTER_IMPORT_STATUS_FALLBACK
   );
 
   syncButtonDisabledLocal("v3DataBtnSaveJson", !!view?.controls?.saveJsonDisabled);
   syncButtonDisabledLocal("v3DataBtnLoadJson", !!view?.controls?.loadJsonDisabled);
   syncButtonDisabledLocal("v3DataBtnCopySummary", !!view?.controls?.copySummaryDisabled);
   syncButtonDisabledLocal("v3DataBtnExportCsv", !!view?.controls?.exportCsvDisabled);
+  syncButtonDisabledLocal("v3DataBtnImportVoter", !!view?.controls?.voterImportDisabled);
   syncButtonDisabledLocal("v3DataBtnUsbConnect", !!view?.controls?.usbConnectDisabled);
   syncButtonDisabledLocal("v3DataBtnUsbLoad", !!view?.controls?.usbLoadDisabled);
   syncButtonDisabledLocal("v3DataBtnUsbSave", !!view?.controls?.usbSaveDisabled);
@@ -556,43 +862,78 @@ function syncDataBridgeUi() {
   const selectedActual = selectedEntry?.actual && typeof selectedEntry.actual === "object"
     ? selectedEntry.actual
     : {};
+  const archiveDetail = buildDataArchiveSelectedSnapshotView(selectedEntry);
   syncInputValue("v3DataArchiveActualMargin", selectedActual.margin);
   syncInputValue("v3DataArchiveActualYourVotes", selectedActual.yourVotes);
   syncInputValue("v3DataArchiveActualWinThreshold", selectedActual.winThreshold);
   syncInputValue("v3DataArchiveActualWinner", selectedActual.winner);
   syncInputValue("v3DataArchiveActualDate", selectedActual.resultDate);
   syncInputValue("v3DataArchiveActualNotes", selectedEntry.notes);
+  setText("v3DataArchiveTargetRows", archiveDetail.targetRows);
+  setText("v3DataArchiveTargetTop", archiveDetail.topTargets);
+  setText("v3DataArchiveTargetValueTotal", archiveDetail.targetValueTotal);
+  setText("v3DataArchiveOfficePathRows", archiveDetail.officePathRows);
+  setText("v3DataArchiveOfficeBestDollar", archiveDetail.officeBestByDollar);
+  setText("v3DataArchiveOfficeBestOrganizerHour", archiveDetail.officeBestByOrganizerHour);
+  setText("v3DataArchiveOfficeBestDollarUpliftExpected", archiveDetail.officeBestByDollarUpliftExpected);
+  setText("v3DataArchiveOfficeBestDollarUpliftSource", archiveDetail.officeBestByDollarUpliftSource);
+  setText("v3DataArchiveOfficeBestOrganizerHourUpliftExpected", archiveDetail.officeBestByOrganizerHourUpliftExpected);
+  setText("v3DataArchiveOfficeBestOrganizerHourUpliftSource", archiveDetail.officeBestByOrganizerHourUpliftSource);
+  setText("v3DataArchiveOfficePathStatus", archiveDetail.officePathStatus || DATA_ARCHIVE_DETAIL_FALLBACK);
+  setText("v3DataArchiveUpliftExpected", archiveDetail.upliftExpected);
+  setText("v3DataArchiveUpliftLow", archiveDetail.upliftLow);
+  setText("v3DataArchiveUpliftBestChannel", archiveDetail.upliftBestChannel);
+  setText("v3DataArchiveUpliftSource", archiveDetail.upliftSource);
+  setText("v3DataArchiveUpliftUncertaintyBand", archiveDetail.upliftUncertaintyBand);
+  setText("v3DataArchiveUpliftSaturationPressure", archiveDetail.upliftSaturationPressure);
+  setText("v3DataArchiveTemplateSummary", archiveDetail.templateSummary);
+  setText("v3DataArchiveWorkforceSummary", archiveDetail.workforceSummary);
+  setText("v3DataArchiveBudgetSummary", archiveDetail.budgetSummary);
+  setText("v3DataArchiveVoterRows", archiveDetail.voterRows);
+  setText("v3DataArchiveVoterScopingRule", archiveDetail.voterScopingRule);
+  setText("v3DataArchiveVoterSource", archiveDetail.voterSource);
+  setText("v3DataArchiveVoterGeoCoverage", archiveDetail.voterGeoCoverage);
+  setText("v3DataArchiveVoterContactableRate", archiveDetail.voterContactableRate);
+  setText("v3DataArchiveGovernanceConfidence", archiveDetail.governanceConfidence);
+  setText("v3DataArchiveGovernanceExecution", archiveDetail.governanceExecution);
+  setText("v3DataArchiveGovernanceUpliftSource", archiveDetail.governanceUpliftSource);
+  setText("v3DataArchiveGovernanceWarning", archiveDetail.governanceTopWarning);
+  setText("v3DataArchiveGovernanceLearning", archiveDetail.governanceLearning);
+  setText("v3DataArchiveGovernanceRecommendation", archiveDetail.governanceRecommendation);
 
   const audit = archiveView?.modelAudit && typeof archiveView.modelAudit === "object"
     ? archiveView.modelAudit
     : {};
-  setText("v3DataAuditSampleSize", formatSampleCount(audit.sampleSize));
-  setText("v3DataAuditWithin1", formatPercent(audit.within1ptPct));
-  setText("v3DataAuditWithin2", formatPercent(audit.within2ptPct));
-  setText("v3DataAuditMeanError", formatSignedNumber(audit.meanErrorMargin, 2));
-  setText("v3DataAuditMae", formatNumber(audit.meanAbsErrorMargin, 2));
+  const learning = archiveView?.learning && typeof archiveView.learning === "object"
+    ? archiveView.learning
+    : {};
+  const learningView = buildDataArchiveLearningView(learning);
+  const learningSignals = buildDataArchiveLearningSignalsView(learning);
+  setText("v3DataAuditSampleSize", formatDataSampleCount(audit.sampleSize));
+  setText("v3DataAuditWithin1", formatDataPercentFromPct(audit.within1ptPct, 1));
+  setText("v3DataAuditWithin2", formatDataPercentFromPct(audit.within2ptPct, 1));
+  setText("v3DataAuditMeanError", formatDataSignedDecimal(audit.meanErrorMargin, 2));
+  setText("v3DataAuditMae", formatDataArchiveDecimal(audit.meanAbsErrorMargin, 2));
   setText("v3DataAuditBias", String(audit.biasDirection || "none"));
+  setText("v3DataAuditLearningLabel", learningView.label || DATA_LEARNING_LABEL_FALLBACK);
+  setText("v3DataAuditLearningRecommendation", learningView.recommendation || DATA_LEARNING_RECOMMENDATION_FALLBACK);
+  setText("v3DataAuditLearningVoterRows", learningSignals.voterRows);
+  setText("v3DataAuditLearningGeoCoverage", learningSignals.voterGeoCoverage);
+  setText("v3DataAuditLearningContactableRate", learningSignals.voterContactableRate);
 
   const archiveRows = Array.isArray(archiveView.rows) ? archiveView.rows : [];
   const archiveSummary = archiveView?.summary && typeof archiveView.summary === "object"
     ? archiveView.summary
     : {};
-  const totalArchiveCount = Number.isFinite(Number(archiveSummary?.totalEntries))
-    ? Math.max(0, Math.floor(Number(archiveSummary.totalEntries)))
-    : archiveRows.length;
-  const withActualArchiveCount = Number.isFinite(Number(archiveSummary?.withActualEntries))
-    ? Math.max(0, Math.floor(Number(archiveSummary.withActualEntries)))
-    : archiveRows.filter((row) => row?.actualMargin != null).length;
-  const pendingArchiveCount = Math.max(0, totalArchiveCount - withActualArchiveCount);
+  const normalizedArchiveSummary = normalizeDataArchiveSummary(archiveSummary, archiveRows);
   syncArchiveRows(archiveRows);
   setText(
     "v3DataArchiveTableSummary",
-    totalArchiveCount
-      ? `Showing ${totalArchiveCount.toLocaleString("en-US")} archived forecasts (${withActualArchiveCount.toLocaleString("en-US")} with actuals, ${pendingArchiveCount.toLocaleString("en-US")} pending).`
-      : "No archive records yet."
+    buildDataArchiveTableSummaryText(normalizedArchiveSummary, archiveRows)
   );
   syncButtonDisabledLocal("v3DataArchiveSaveActual", !!view?.controls?.archiveSaveDisabled);
   syncButtonDisabledLocal("v3DataArchiveRefresh", !!view?.controls?.archiveRefreshDisabled);
+  return view;
 }
 
 function syncBackupSelect(selectEl, options, selectedValue) {
@@ -617,6 +958,28 @@ function syncBackupSelect(selectEl, options, selectedValue) {
   }
   if (document.activeElement !== selectEl) {
     selectEl.value = selected;
+  }
+}
+
+function syncVoterAdapterSelect(selectEl) {
+  const options = listDataVoterAdapterOptions();
+  const selected = String(selectEl.value || "").trim() || String(options[0]?.id || "canonical");
+  const nextValues = options.map((opt) => `${String(opt.id || "")}::${String(opt.label || "")}`);
+  const currentValues = Array.from(selectEl.options)
+    .map((opt) => `${String(opt.value || "")}::${String(opt.textContent || "")}`);
+  const matches = nextValues.length === currentValues.length && nextValues.every((v, i) => v === currentValues[i]);
+  if (!matches) {
+    selectEl.innerHTML = "";
+    options.forEach((opt) => {
+      const item = document.createElement("option");
+      item.value = String(opt.id || "");
+      item.textContent = String(opt.label || opt.id || "");
+      selectEl.appendChild(item);
+    });
+  }
+  if (document.activeElement !== selectEl) {
+    const allowed = options.some((opt) => String(opt.id || "") === selected);
+    selectEl.value = allowed ? selected : String(options[0]?.id || "canonical");
   }
 }
 
@@ -665,44 +1028,6 @@ function readInputValue(id) {
   return String(el.value || "").trim();
 }
 
-function parseNumericInput(id) {
-  const text = readInputValue(id);
-  if (!text) return null;
-  const n = Number(text);
-  return Number.isFinite(n) ? n : null;
-}
-
-function formatSampleCount(value) {
-  const n = Number(value);
-  if (!Number.isFinite(n)) return "0";
-  return `${Math.max(0, Math.floor(n)).toLocaleString("en-US")}`;
-}
-
-function formatPercent(value) {
-  const n = Number(value);
-  if (!Number.isFinite(n)) return "—";
-  return `${n.toFixed(1)}%`;
-}
-
-function formatNumber(value, digits = 2) {
-  const n = Number(value);
-  if (!Number.isFinite(n)) return "—";
-  return n.toFixed(digits);
-}
-
-function formatSignedNumber(value, digits = 2) {
-  const n = Number(value);
-  if (!Number.isFinite(n)) return "—";
-  const out = n.toFixed(digits);
-  return n > 0 ? `+${out}` : out;
-}
-
-function formatRecordedAt(value) {
-  const raw = String(value || "").trim();
-  if (!raw) return "—";
-  return raw.replace("T", " ").replace("Z", "");
-}
-
 function syncArchiveRows(rows) {
   const body = document.getElementById("v3DataArchiveRows");
   if (!(body instanceof HTMLTableSectionElement)) {
@@ -712,17 +1037,19 @@ function syncArchiveRows(rows) {
   body.innerHTML = "";
   if (!list.length) {
     const tr = document.createElement("tr");
-    tr.innerHTML = `<td colspan="4">No archive records.</td>`;
+    tr.innerHTML = `<td colspan="6">No archive records.</td>`;
     body.appendChild(tr);
     return;
   }
   list.forEach((row) => {
     const tr = document.createElement("tr");
     tr.innerHTML = `
-      <td>${escapeHtml(formatRecordedAt(row?.recordedAt))}</td>
+      <td>${escapeHtml(formatDataArchiveRecordedAt(row?.recordedAt))}</td>
       <td>${escapeHtml(String(row?.scenarioName || "—"))}</td>
-      <td>${escapeHtml(formatSignedNumber(row?.forecastMargin, 2))}</td>
-      <td>${escapeHtml(row?.actualMargin == null ? "—" : formatSignedNumber(row.actualMargin, 2))}</td>
+      <td>${escapeHtml(formatDataSignedDecimal(row?.forecastMargin, 2))}</td>
+      <td>${escapeHtml(row?.actualMargin == null ? "—" : formatDataSignedDecimal(row.actualMargin, 2))}</td>
+      <td>${escapeHtml(formatDataArchiveCount(row?.targetingRowCount))}</td>
+      <td>${escapeHtml(formatDataArchiveCount(row?.officePathRowCount))}</td>
     `;
     body.appendChild(tr);
   });
@@ -743,19 +1070,6 @@ function syncButtonDisabledLocal(id, disabled) {
   if (btn instanceof HTMLButtonElement) {
     btn.disabled = !!disabled;
   }
-}
-
-function readElText(id) {
-  const el = document.getElementById(id);
-  return el ? String(el.textContent || "").trim() : "";
-}
-
-function readSelectLabel(selectEl) {
-  if (!(selectEl instanceof HTMLSelectElement)) {
-    return "";
-  }
-  const option = selectEl.options[selectEl.selectedIndex];
-  return option ? String(option.textContent || "").trim() : "";
 }
 
 function assignCardStatusId(card, id) {

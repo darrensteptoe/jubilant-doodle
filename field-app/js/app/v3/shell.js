@@ -54,7 +54,6 @@ export function renderV3Shell(root) {
           </button>
           <button class="fpe-btn fpe-btn--ghost" id="v3BtnDiagnostics" type="button">Diagnostics</button>
           <button class="fpe-btn fpe-btn--danger" id="v3BtnReset" type="button">Reset scenario</button>
-          <button class="fpe-btn fpe-btn--ghost" id="v3SwitchLegacy" type="button">Legacy shell</button>
         </div>
       </header>
 
