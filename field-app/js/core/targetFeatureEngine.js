@@ -5,18 +5,45 @@ import {
 } from "./targetFeatureRegistry.js";
 import { buildUpliftFeatures } from "./upliftFeatures.js";
 import { computeUpliftPlan } from "./upliftModel.js";
+import { BASE_RATE_DEFAULTS, resolveStateBaseRates } from "./baseRates.js";
+import { deriveVoterModelSignals } from "./voterDataLayer.js";
+import { clampFiniteNumber, coerceFiniteNumber, formatFixedNumber } from "./utils.js";
 
-function safeNum(value){
-  const n = Number(value);
-  return Number.isFinite(n) ? n : null;
+const safeNum = coerceFiniteNumber;
+const clamp = clampFiniteNumber;
+
+function minMaxNormalizeSeries(values, fallback = 0){
+  const nums = values
+    .map((value) => Number(value))
+    .filter((value) => Number.isFinite(value));
+  if (!nums.length){
+    return values.map(() => fallback);
+  }
+  const min = Math.min(...nums);
+  const max = Math.max(...nums);
+  if (!Number.isFinite(min) || !Number.isFinite(max) || max <= min){
+    return values.map(() => 0.5);
+  }
+  const span = max - min;
+  return values.map((value) => {
+    const n = Number(value);
+    if (!Number.isFinite(n)) return fallback;
+    return clamp((n - min) / span, 0, 1);
+  });
 }
 
-function clamp(value, min, max){
-  const n = Number(value);
-  if (!Number.isFinite(n)) return min;
-  if (n < min) return min;
-  if (n > max) return max;
-  return n;
+export function buildNormalizedTargetComponents(rows){
+  const list = Array.isArray(rows) ? rows : [];
+  const voteNorm = minMaxNormalizeSeries(list.map((row) => row?.rawSignals?.votePotentialRaw), 0);
+  const turnoutNorm = minMaxNormalizeSeries(list.map((row) => row?.rawSignals?.turnoutOpportunityRaw), 0);
+  const persuasionNorm = minMaxNormalizeSeries(list.map((row) => row?.rawSignals?.persuasionIndexRaw), 0);
+  const fieldNorm = minMaxNormalizeSeries(list.map((row) => row?.rawSignals?.fieldEfficiencyRaw), 0);
+  return list.map((_, idx) => ({
+    votePotential: voteNorm[idx],
+    turnoutOpportunity: turnoutNorm[idx],
+    persuasionIndex: persuasionNorm[idx],
+    fieldEfficiency: fieldNorm[idx],
+  }));
 }
 
 const LEGACY_WEIGHT_KEYS = Object.freeze([
@@ -93,10 +120,14 @@ function normalizeGeoMultiplier(value){
   return clamp(n == null ? 1 : n, 0.75, 1.25);
 }
 
-function normalizeSaturationMultiplier(value, fallbackContactProbability){
+function normalizeSaturationMultiplier(value, fallbackContactProbability, voterDefault){
   const explicit = safeNum(value);
   if (explicit != null){
     return clamp(explicit, 0.5, 1.1);
+  }
+  const voter = safeNum(voterDefault);
+  if (voter != null){
+    return clamp(voter, 0.5, 1.1);
   }
   const contact = clamp(Number(fallbackContactProbability ?? 0), 0, 1);
   const inferred = 1 - Math.max(0, contact - 0.55) * 0.55;
@@ -121,6 +152,7 @@ export function buildCanonicalTargetFeatures({
   state = {},
   config = {},
 } = {}){
+  const voterSignals = deriveVoterModelSignals(state?.voterData);
   const votePotential = clamp(Number(components?.votePotential), 0, 1);
   const turnoutOpportunity = clamp(Number(components?.turnoutOpportunity), 0, 1);
   const persuasionIndex = clamp(Number(components?.persuasionIndex), 0, 1);
@@ -130,18 +162,41 @@ export function buildCanonicalTargetFeatures({
   const reliabilityPenalty = clamp(1 - Math.max(0, turnoutReliabilityRaw - 0.8) * 0.35, 0.7, 1.05);
   const adjustedPersuasion = clamp(persuasionIndex * reliabilityPenalty, 0, 1);
 
-  const networkValue = clamp(Number(rawSignals?.networkValue ?? config?.networkValueDefault ?? 0), 0, 1);
-  const baseContactRate = clamp((safeNum(state?.contactRatePct) ?? 22) / 100, 0.01, 1);
+  const networkValueSeed = safeNum(rawSignals?.networkValue);
+  const networkValue = clamp(
+    networkValueSeed
+      ?? safeNum(config?.networkValueDefault)
+      ?? safeNum(voterSignals?.targeting?.networkValueDefault)
+      ?? 0,
+    0,
+    1,
+  );
+  const baseRates = resolveStateBaseRates(state, {
+    defaults: BASE_RATE_DEFAULTS,
+    clampMin: 0.01,
+    clampMax: 1,
+  });
+  const baseContactRate = clamp(Number(baseRates?.cr ?? BASE_RATE_DEFAULTS.cr), 0.01, 1);
+  const voterContactMultiplier = clamp(
+    Number(voterSignals?.targeting?.contactProbabilityMultiplier ?? 1),
+    0.65,
+    1.25,
+  );
   const contactProbability = clamp(
     baseContactRate *
       clamp(Number(rawSignals?.contactRateModifier ?? 1), 0.65, 1.25) *
+      voterContactMultiplier *
       clamp(Number(rawSignals?.availabilityModifier ?? 1), 0.65, 1.2),
     0,
     1,
   );
 
   const geographicMultiplier = normalizeGeoMultiplier(rawSignals?.densityBand?.multiplier);
-  const saturationMultiplier = normalizeSaturationMultiplier(config?.saturationMultiplier, contactProbability);
+  const saturationMultiplier = normalizeSaturationMultiplier(
+    config?.saturationMultiplier,
+    contactProbability,
+    voterSignals?.targeting?.saturationMultiplierDefault,
+  );
 
   return {
     votePotential,
@@ -176,8 +231,13 @@ export function scoreCanonicalTarget({
   const sat = clamp(Number(features?.saturationMultiplier ?? 1), 0.5, 1.1);
   const targetScore = baseScore * geo * sat;
 
-  const supportRate = clamp((safeNum(state?.supportRatePct) ?? 55) / 100, 0.01, 1);
-  const turnoutReliability = clamp((safeNum(state?.turnoutReliabilityPct) ?? 80) / 100, 0.01, 1);
+  const baseRates = resolveStateBaseRates(state, {
+    defaults: BASE_RATE_DEFAULTS,
+    clampMin: 0.01,
+    clampMax: 1,
+  });
+  const supportRate = clamp(Number(baseRates?.sr ?? BASE_RATE_DEFAULTS.sr), 0.01, 1);
+  const turnoutReliability = clamp(Number(baseRates?.tr ?? BASE_RATE_DEFAULTS.tr), 0.01, 1);
   const expectedNetVoteValue = targetScore * clamp(Number(features?.contactProbability ?? 0), 0, 1) * supportRate * turnoutReliability;
 
   const driverRows = TARGET_FEATURE_KEYS.map((key) => ({
@@ -203,7 +263,7 @@ export function scoreCanonicalTarget({
       topDrivers: driverRows.map((row) => ({
         key: row.key,
         label: row.label,
-        text: `${row.label} contributes ${Math.round(row.contribution * 100)} bp.`,
+        text: `${row.label} contributes ${formatFixedNumber(row.contribution * 100, 0)} bp.`,
       })),
       driverRows,
     },

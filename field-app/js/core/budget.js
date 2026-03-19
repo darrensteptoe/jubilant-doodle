@@ -2,6 +2,7 @@
 // Phase 4 — Budget + ROI (deterministic cost layer)
 // Design rule: this module NEVER mutates Phase 1–3 outcomes. It only computes cost lenses.
 import {
+  computeTargetUniverseSize,
   computeTacticVoteProduction,
   pctOverrideToDecimal,
   resolveTurnoutContext,
@@ -12,6 +13,8 @@ import {
   resolveChannelCostAssumption,
 } from "./channelCosts.js";
 import { computeOptimizationUpliftPlan } from "./upliftModel.js";
+import { normalizeUpliftSource, UPLIFT_SOURCE_BASE_RATES } from "./upliftSource.js";
+import { roundWholeNumberByMode } from "./utils.js";
 
 /**
  * @typedef {object} ChannelTactic
@@ -46,6 +49,26 @@ import { computeOptimizationUpliftPlan } from "./upliftModel.js";
  */
 
 /**
+ * @param {{
+ *   tactic?: ChannelTactic | null,
+ *   baseRates?: { cr?: number | null, sr?: number | null, tr?: number | null } | null,
+ *   fallbackContactRate?: number | null,
+ * }} args
+ * @returns {{ cr: number|null, sr: number|null, tr: number|null }}
+ */
+function resolveTacticBaseRates({ tactic = null, baseRates = null, fallbackContactRate = null } = {}){
+  const baseCr = baseRates?.cr ?? null;
+  const baseSr = baseRates?.sr ?? null;
+  const baseTr = baseRates?.tr ?? null;
+  const crFallback = (baseCr != null) ? baseCr : fallbackContactRate;
+  return {
+    cr: pctOverrideToDecimal(tactic?.crPct, crFallback),
+    sr: pctOverrideToDecimal(tactic?.srPct, baseSr),
+    tr: baseTr,
+  };
+}
+
+/**
  * @param {RoiInput} input
  */
 export function computeRoiRows({
@@ -67,9 +90,14 @@ export function computeRoiRows({
     : goalNetVotes;
   const need = (goal != null && isFinite(goal)) ? Math.max(0, goal) : null;
 
-  const baseCr = baseRates?.cr ?? null;
-  const baseSr = baseRates?.sr ?? null;
-  const baseTr = baseRates?.tr ?? null;
+  const resolvedBaseRates = {
+    cr: baseRates?.cr ?? null,
+    sr: baseRates?.sr ?? null,
+    tr: baseRates?.tr ?? null,
+  };
+  const baseCr = resolvedBaseRates.cr;
+  const baseSr = resolvedBaseRates.sr;
+  const baseTr = resolvedBaseRates.tr;
 
   const turnoutCtx = resolveTurnoutContext(turnoutModel);
   const turnoutEnabled = turnoutCtx.enabled;
@@ -84,9 +112,14 @@ export function computeRoiRows({
     const channelAssumption = resolveChannelCostAssumption(key, { tactic: t, workforce });
     const label = String(channelAssumption?.label || key || "Channel");
 
-    const tCr = pctOverrideToDecimal(t?.crPct, (baseCr != null ? baseCr : channelAssumption.contactRate));
-    const tSr = pctOverrideToDecimal(t?.srPct, baseSr);
-    const tTr = baseTr;
+    const tacticRates = resolveTacticBaseRates({
+      tactic: t,
+      baseRates: resolvedBaseRates,
+      fallbackContactRate: channelAssumption.contactRate,
+    });
+    const tCr = tacticRates.cr;
+    const tSr = tacticRates.sr;
+    const tTr = tacticRates.tr;
 
     const ratesOk = (need != null) && (need > 0) && (tCr != null && tCr > 0) && (tSr != null && tSr > 0) && (tTr != null && tTr > 0);
 
@@ -126,25 +159,22 @@ export function computeRoiRows({
     const cpa = baseCpa + overheadPerAttempt;
     const assumptionWithOverhead = { ...channelAssumption, costPerAttempt: cpa };
 
-    let costPerNetVote = null;
-    let totalCost = null;
-    let costPerTurnoutAdjustedNetVote = null;
-
-    if (ratesOk && cpa > 0 && requiredAttempts != null && isFinite(baseNetVotesPerAttempt) && baseNetVotesPerAttempt > 0){
-      costPerNetVote = cpa / baseNetVotesPerAttempt;
-      totalCost = requiredAttempts * cpa;
-    }
-
-    if (turnoutEnabled && cpa > 0 && requiredAttemptsTA != null && turnoutAdjustedNetVotesPerAttempt != null && turnoutAdjustedNetVotesPerAttempt > 0){
-      costPerTurnoutAdjustedNetVote = cpa / turnoutAdjustedNetVotesPerAttempt;
-    }
-
     const costMetrics = computeChannelCostMetrics({
       channelId: key,
       assumption: assumptionWithOverhead,
       netVotesPerAttempt: baseNetVotesPerAttempt,
       turnoutAdjustedNetVotesPerAttempt,
     });
+
+    const costPerNetVote = (ratesOk && cpa > 0 && requiredAttempts != null)
+      ? (Number.isFinite(Number(costMetrics?.costPerExpectedVote)) ? Number(costMetrics.costPerExpectedVote) : null)
+      : null;
+    const costPerTurnoutAdjustedNetVote = (turnoutEnabled && cpa > 0 && requiredAttemptsTA != null)
+      ? (Number.isFinite(Number(costMetrics?.costPerExpectedNetVote)) ? Number(costMetrics.costPerExpectedNetVote) : null)
+      : null;
+    const totalCost = (ratesOk && cpa > 0 && requiredAttempts != null)
+      ? (requiredAttempts * cpa)
+      : null;
 
     // Capacity feasibility: compare required attempts (to close gap) vs cap ceiling.
     let feasibilityText = "—";
@@ -257,7 +287,7 @@ function buildBanner({ need, ratesOkBase, overheadAmount, includeOverhead, mcLas
  */
 function fmtSignedLocal(v){
   if (v == null || !isFinite(v)) return "—";
-  const n = Math.round(v);
+  const n = roundWholeNumberByMode(v, { mode: "round", fallback: 0 }) ?? 0;
   if (n === 0) return "0";
   return (n > 0 ? "+" : "−") + Math.abs(n).toLocaleString();
 }
@@ -288,16 +318,22 @@ export function buildOptimizationTactics({
   state = null,
   targetingRows = null,
 }){
-  const baseCr = baseRates?.cr ?? null;
-  const baseSr = baseRates?.sr ?? null;
-  const baseTr = baseRates?.tr ?? null;
+  const resolvedBaseRates = {
+    cr: baseRates?.cr ?? null,
+    sr: baseRates?.sr ?? null,
+    tr: baseRates?.tr ?? null,
+  };
+  const baseCr = resolvedBaseRates.cr;
+  const baseSr = resolvedBaseRates.sr;
+  const baseTr = resolvedBaseRates.tr;
 
   const turnoutCtx = resolveTurnoutContext(turnoutModel);
   const turnoutEnabled = turnoutCtx.enabled;
 
-  const U = (universeSize != null && isFinite(universeSize) && universeSize > 0) ? Number(universeSize) : null;
-  const tuPct = (targetUniversePct != null && isFinite(targetUniversePct)) ? Math.max(0, Math.min(100, Number(targetUniversePct))) : null;
-  const targetUniverseSize = (U != null && tuPct != null) ? Math.round(U * (tuPct / 100)) : null;
+  const targetUniverseSize = computeTargetUniverseSize({
+    universeSize,
+    targetUniversePct,
+  });
 
   const upliftState = state && typeof state === "object" ? state : {};
   const upliftPlan = computeOptimizationUpliftPlan({
@@ -320,9 +356,11 @@ export function buildOptimizationTactics({
     const channelAssumption = resolveChannelCostAssumption(key, { tactic: t, workforce });
     const label = String(channelAssumption?.label || key || "Channel");
 
-    const cr = pctOverrideToDecimal(t?.crPct, (baseCr != null ? baseCr : channelAssumption.contactRate));
-    const sr = pctOverrideToDecimal(t?.srPct, baseSr);
-    const tr = baseTr;
+    const { cr, sr, tr } = resolveTacticBaseRates({
+      tactic: t,
+      baseRates: resolvedBaseRates,
+      fallbackContactRate: channelAssumption.contactRate,
+    });
 
     const production = computeTacticVoteProduction({
       cr,
@@ -407,7 +445,7 @@ export function buildOptimizationTactics({
             saturationCapAttempts: maxAttempts,
           },
           uplift: {
-            source: upliftPlan?.source || "base_rates",
+            source: normalizeUpliftSource(upliftPlan?.source || UPLIFT_SOURCE_BASE_RATES),
             expectedMarginalGain: upliftExpectedMarginalGain,
             lowMarginalGain: upliftLowMarginalGain,
             uncertaintyBand: upliftRow?.uncertaintyBand || { low: 0, high: 0 },

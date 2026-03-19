@@ -1,3 +1,24 @@
+import { NULL_BASE_RATE_DEFAULTS, resolveStateBaseRates } from "./baseRates.js";
+import { computeNeedVotePaceRequirements } from "./executionPlanner.js";
+import { computeBlendedAttemptsPerHour } from "./model.js";
+import {
+  pctOverrideToDecimal,
+  rateOverrideToDecimal,
+  scaleAssumptionByDivisor,
+  scalePercentAssumption,
+} from "./voteProduction.js";
+import {
+  resolveCanonicalCallsPerHour,
+  resolveCanonicalDoorShareUnit,
+  resolveCanonicalDoorsPerHour,
+} from "./throughput.js";
+import {
+  clampFiniteNumber,
+  formatPercentFromUnit,
+  formatWholeNumber,
+  roundWholeNumberByMode,
+} from "./utils.js";
+
 export const CENSUS_LOCAL_KEY = "fpe.census.apiKey";
 export const CENSUS_DEFAULT_API_KEY = "a59d216d186bced9d252633906350432d2805c74";
 
@@ -556,7 +577,8 @@ export function formatRaceFootprintScope(input, maxPreview = 3){
     ).sort((a, b) => a.localeCompare(b));
     if (!districtIds.length) return `state ${footprint.stateFips}`;
     const limitRaw = Number(maxPreview);
-    const limit = Number.isFinite(limitRaw) && limitRaw > 0 ? Math.floor(limitRaw) : 3;
+    const limitFloor = roundWholeNumberByMode(limitRaw, { mode: "floor", fallback: null });
+    const limit = (limitFloor != null && limitFloor > 0) ? limitFloor : 3;
     const preview = districtIds.slice(0, limit).join(", ");
     const extra = districtIds.length > limit ? ` +${districtIds.length - limit} more` : "";
     return `state ${footprint.stateFips}: ${preview}${extra}`;
@@ -741,7 +763,9 @@ export function normalizeRaceFootprint(input){
   out.geoids = out.resolution
     ? normalizeGeoidsForResolutionInternal(out.geoids, out.resolution).sort((a, b) => a.localeCompare(b))
     : [];
-  out.rowCount = Number.isFinite(Number(out.rowCount)) ? Math.max(0, Math.floor(Number(out.rowCount))) : 0;
+  out.rowCount = Number.isFinite(Number(out.rowCount))
+    ? Math.max(0, roundWholeNumberByMode(Number(out.rowCount), { mode: "floor", fallback: 0 }) || 0)
+    : 0;
   out.rowsKey = cleanText(out.rowsKey);
   out.fingerprint = cleanText(out.fingerprint);
   out.updatedAt = cleanText(out.updatedAt);
@@ -922,6 +946,7 @@ export function evaluateFootprintFeasibility({ state, res } = {}){
   }
   const pop = Number(capacity.population);
   const hasPopulation = Number.isFinite(pop) && pop > 0;
+  const popText = formatWholeNumber(pop, "0");
   const capacityStale = (
     (capacity.raceFootprintFingerprint && capacity.raceFootprintFingerprint !== alignment.stored.fingerprint) ||
     (capacity.censusRowsKey && capacity.censusRowsKey !== cleanText(state?.census?.activeRowsKey)) ||
@@ -937,19 +962,19 @@ export function evaluateFootprintFeasibility({ state, res } = {}){
   }
   const universe = Number(res?.raw?.universeSize);
   if (Number.isFinite(universe) && universe > pop){
-    out.push({ kind: "bad", code: "universe_exceeds_population", text: `Universe size (${Math.round(universe).toLocaleString("en-US")}) exceeds footprint population (${Math.round(pop).toLocaleString("en-US")}).` });
+    out.push({ kind: "bad", code: "universe_exceeds_population", text: `Universe size (${formatWholeNumber(universe, "0")}) exceeds footprint population (${popText}).` });
   }
   const turnoutVotes = Number(res?.expected?.turnoutVotes);
   if (Number.isFinite(turnoutVotes) && turnoutVotes > pop){
-    out.push({ kind: "bad", code: "turnout_exceeds_population", text: `Turnout votes (${Math.round(turnoutVotes).toLocaleString("en-US")}) exceed footprint population (${Math.round(pop).toLocaleString("en-US")}).` });
+    out.push({ kind: "bad", code: "turnout_exceeds_population", text: `Turnout votes (${formatWholeNumber(turnoutVotes, "0")}) exceed footprint population (${popText}).` });
   }
   const winThreshold = Number(res?.expected?.winThreshold);
   if (Number.isFinite(winThreshold) && winThreshold > pop){
-    out.push({ kind: "bad", code: "threshold_exceeds_population", text: `Win threshold (${Math.round(winThreshold).toLocaleString("en-US")}) exceeds footprint population (${Math.round(pop).toLocaleString("en-US")}).` });
+    out.push({ kind: "bad", code: "threshold_exceeds_population", text: `Win threshold (${formatWholeNumber(winThreshold, "0")}) exceeds footprint population (${popText}).` });
   }
   const needVotes = Number(res?.expected?.persuasionNeed);
   if (Number.isFinite(needVotes) && needVotes > pop){
-    out.push({ kind: "bad", code: "need_exceeds_population", text: `Persuasion need (${Math.round(needVotes).toLocaleString("en-US")}) exceeds footprint population (${Math.round(pop).toLocaleString("en-US")}).` });
+    out.push({ kind: "bad", code: "need_exceeds_population", text: `Persuasion need (${formatWholeNumber(needVotes, "0")}) exceeds footprint population (${popText}).` });
   }
   return { alignment, capacity, issues: out };
 }
@@ -1092,7 +1117,8 @@ export function parseCsvText(text, { maxRows = 250000 } = {}){
       row.push(field);
       rows.push(row);
       if (rows.length > maxRows){
-        errors.push(`CSV exceeds max row limit (${Math.floor(Number(maxRows))}).`);
+        const maxRowsFloor = roundWholeNumberByMode(maxRows, { mode: "floor", fallback: 0 }) || 0;
+        errors.push(`CSV exceeds max row limit (${maxRowsFloor}).`);
         break;
       }
       row = [];
@@ -1497,7 +1523,9 @@ export function normalizeCensusState(input, { resetRuntime = false } = {}){
   out.activeRowsKey = resetRuntime ? "" : cleanText(out.activeRowsKey);
   out.loadedRowCount = resetRuntime
     ? 0
-    : (Number.isFinite(Number(out.loadedRowCount)) ? Math.max(0, Math.floor(Number(out.loadedRowCount))) : 0);
+    : (Number.isFinite(Number(out.loadedRowCount))
+      ? Math.max(0, roundWholeNumberByMode(Number(out.loadedRowCount), { mode: "floor", fallback: 0 }) || 0)
+      : 0);
   out.loadingGeo = !!out.loadingGeo;
   out.loadingRows = !!out.loadingRows;
   out.status = cleanText(out.status) || "Ready.";
@@ -1556,7 +1584,8 @@ export function evaluateResolutionContract({ options, normalizeState } = {}){
 
 function normalizeSeq(v){
   const n = Number(v);
-  return Number.isFinite(n) && n > 0 ? Math.floor(n) : 0;
+  if (!Number.isFinite(n) || n <= 0) return 0;
+  return roundWholeNumberByMode(n, { mode: "floor", fallback: 0 }) || 0;
 }
 
 export function shouldApplyRequestResult({ activeSeq, resultSeq } = {}){
@@ -2047,7 +2076,9 @@ export async function fetchVariableCatalog({ year, key, fetchImpl } = {}){
 function geoidLengthForResolution(resolution){
   const key = cleanText(resolution);
   const configured = Number(RESOLUTION_CONFIG[key]?.geoidLength);
-  if (Number.isFinite(configured) && configured > 0) return Math.floor(configured);
+  if (Number.isFinite(configured) && configured > 0){
+    return roundWholeNumberByMode(configured, { mode: "floor", fallback: RESOLUTION_CONFIG.block_group.geoidLength }) || RESOLUTION_CONFIG.block_group.geoidLength;
+  }
   return RESOLUTION_CONFIG.block_group.geoidLength;
 }
 
@@ -2142,7 +2173,8 @@ function pickFieldName(fields, aliases){
 
 function safeLayerId(layer){
   const n = Number(layer?.id);
-  return Number.isFinite(n) ? Math.floor(n) : null;
+  if (!Number.isFinite(n)) return null;
+  return roundWholeNumberByMode(n, { mode: "floor", fallback: null });
 }
 
 function scoreVtdLayerCandidate(layer){
@@ -2234,7 +2266,9 @@ export function buildTigerVtdBoundaryQueryUrl({ layerConfig, stateFips, countyFi
   const cfg = layerConfig && typeof layerConfig === "object" ? layerConfig : {};
   const serviceName = cleanText(cfg.serviceName);
   const layerIdRaw = Number(cfg.layerId);
-  const layerId = Number.isFinite(layerIdRaw) ? Math.floor(layerIdRaw) : null;
+  const layerId = Number.isFinite(layerIdRaw)
+    ? (roundWholeNumberByMode(layerIdRaw, { mode: "floor", fallback: null }))
+    : null;
   const state = fips(stateFips, 2);
   const county = fips(countyFips, 3);
   if (!serviceName || layerId == null || !state || !county) return "";
@@ -2349,7 +2383,9 @@ export async function fetchTigerVtdBoundaryGeojson({ stateFips, countyFips, fetc
   return {
     featureCollection: { type: "FeatureCollection", features },
     serviceName: cleanText(layerConfig.serviceName),
-    layerId: Number.isFinite(Number(layerConfig.layerId)) ? Math.floor(Number(layerConfig.layerId)) : null,
+    layerId: Number.isFinite(Number(layerConfig.layerId))
+      ? (roundWholeNumberByMode(Number(layerConfig.layerId), { mode: "floor", fallback: null }))
+      : null,
     stateFips: state,
     countyFips: county,
     featureCount: features.length,
@@ -2467,21 +2503,19 @@ function formatInt(value){
   if (value == null || value === "") return "-";
   const n = Number(value);
   if (!Number.isFinite(n)) return "-";
-  return Math.round(n).toLocaleString("en-US");
+  return formatWholeNumber(n, "-");
 }
 
 function formatPct1(value){
   if (value == null || value === "") return "-";
-  const n = Number(value);
-  if (!Number.isFinite(n)) return "-";
-  return `${(n * 100).toFixed(1)}%`;
+  return formatPercentFromUnit(value, 1, "-");
 }
 
 function formatCurrency0(value){
   if (value == null || value === "") return "-";
   const n = Number(value);
   if (!Number.isFinite(n)) return "-";
-  return `$${Math.round(n).toLocaleString("en-US")}`;
+  return `$${formatWholeNumber(n, "0")}`;
 }
 
 export function formatMetricValue(value, format){
@@ -2506,11 +2540,7 @@ export function buildAggregateTableRows(aggregate, metricSet){
 }
 
 function clampRange(value, min, max){
-  const n = Number(value);
-  if (!Number.isFinite(n)) return min;
-  if (n < min) return min;
-  if (n > max) return max;
-  return n;
+  return clampFiniteNumber(value, min, max);
 }
 
 function metricNum(metrics, id){
@@ -2869,7 +2899,7 @@ export function buildCensusAssumptionAdvisory({ aggregate, doorShare, doorsPerHo
   const selectedGeoCount = selectedIds.length > 0
     ? selectedIds.length
     : (Number.isFinite(Number(aggregate?.selectedGeoCount))
-      ? Math.max(0, Math.floor(Number(aggregate.selectedGeoCount)))
+      ? Math.max(0, roundWholeNumberByMode(Number(aggregate.selectedGeoCount), { mode: "floor", fallback: 0 }) || 0)
       : 0);
   const metrics = aggregate?.metrics && typeof aggregate.metrics === "object" ? aggregate.metrics : {};
 
@@ -2877,8 +2907,9 @@ export function buildCensusAssumptionAdvisory({ aggregate, doorShare, doorsPerHo
   const totalSignals = 12;
   const pickShare = (id, fallback) => {
     const value = metricNum(metrics, id);
-    if (value == null) return { value: fallback, available: false };
-    return { value: clampRange(value, 0, 1), available: true };
+    const normalized = rateOverrideToDecimal(value, null);
+    if (normalized == null) return { value: fallback, available: false };
+    return { value: clampRange(normalized, 0, 1), available: true };
   };
   const pickMetric = (id, fallback) => {
     const value = metricNum(metrics, id);
@@ -2973,12 +3004,12 @@ export function buildCensusAssumptionAdvisory({ aggregate, doorShare, doorsPerHo
   const estimatedDoorsPerHourFactor = indices.estimatedDoorsPerHourFactor;
   const doorsPerHourMultiplier = indices.doorsPerHourMultiplier;
 
-  const shareRaw = Number(doorShare);
-  const share = Number.isFinite(shareRaw) ? clampRange(shareRaw, 0, 1) : 0.5;
-  const dph = Number(doorsPerHour);
-  const cph = Number(callsPerHour);
-  const hasBaseAph = Number.isFinite(dph) && dph > 0 && Number.isFinite(cph) && cph > 0;
-  const baseAph = hasBaseAph ? (share * dph) + ((1 - share) * cph) : null;
+  const baseAph = computeBlendedAttemptsPerHour({
+    doorShare,
+    doorsPerHour,
+    callsPerHour,
+  });
+  const hasBaseAph = baseAph != null && Number.isFinite(baseAph) && baseAph > 0;
   const doorsMultiplier = clampRange(doorsPerHourMultiplier, 0.70, 1.30);
   const multiplierBand = advisoryMultiplierBand({
     rowsByGeoid,
@@ -3079,13 +3110,6 @@ export function buildCensusAssumptionAdvisory({ aggregate, doorShare, doorsPerHo
   };
 }
 
-function pctToUnitOrNull(value){
-  const raw = Number(value);
-  if (!Number.isFinite(raw)) return null;
-  const bounded = clampRange(raw, 0, 100);
-  return bounded / 100;
-}
-
 export function evaluateCensusPaceAgainstAdvisory({
   advisory,
   needVotes,
@@ -3111,9 +3135,18 @@ export function evaluateCensusPaceAgainstAdvisory({
   const hasGoal = Number.isFinite(goalRaw) && goalRaw >= 0;
   const weeksRaw = Number(weeks);
   const hasWeeks = Number.isFinite(weeksRaw) && weeksRaw > 0;
-  const cr = pctToUnitOrNull(contactRatePct);
-  const sr = pctToUnitOrNull(supportRatePct);
-  const tr = pctToUnitOrNull(turnoutReliabilityPct);
+  const baseRates = resolveStateBaseRates({
+    contactRatePct,
+    supportRatePct,
+    turnoutReliabilityPct,
+  }, {
+    defaults: NULL_BASE_RATE_DEFAULTS,
+    clampMin: 0,
+    clampMax: 1,
+  });
+  const cr = baseRates.cr;
+  const sr = baseRates.sr;
+  const tr = baseRates.tr;
   const hasRates = cr != null && cr > 0 && sr != null && sr > 0 && tr != null && tr > 0;
   const orgs = Number(orgCount);
   const hours = Number(orgHoursPerWeek);
@@ -3155,8 +3188,30 @@ export function evaluateCensusPaceAgainstAdvisory({
   }
 
   const safeGoal = Math.max(0, goalRaw);
-  const requiredAttemptsTotal = safeGoal > 0 ? (safeGoal / (cr * sr * tr)) : 0;
-  const requiredAttemptsPerWeek = requiredAttemptsTotal / weeksRaw;
+  const pace = computeNeedVotePaceRequirements({
+    goalVotes: safeGoal,
+    turnoutReliability: tr,
+    supportRate: sr,
+    contactRate: cr,
+    weeks: weeksRaw,
+  });
+  const requiredAttemptsPerWeek = pace.attemptsPerWeek;
+  if (requiredAttemptsPerWeek == null || !Number.isFinite(requiredAttemptsPerWeek)){
+    return {
+      ready: false,
+      reason: "rates_missing",
+      availableAph: hasAdjustedAph ? availableAph : null,
+      availableAphRange: hasRange ? { low: rangeLow, mid: rangeMid, high: rangeHigh } : null,
+      requiredAph: null,
+      gapPct: null,
+      ratio: null,
+      feasible: null,
+      severity: "muted",
+      nearTop: null,
+      requiredAttemptsPerWeek: null,
+      capacityHoursPerWeek,
+    };
+  }
   const requiredAph = requiredAttemptsPerWeek / capacityHoursPerWeek;
   const comparisonAph = hasRange ? rangeHigh : availableAph;
   const ratio = requiredAph / comparisonAph;
@@ -3282,6 +3337,160 @@ export function evaluateCensusApplyMode({
     alignment,
     rowsReady,
     signalsReady,
+  };
+}
+
+/**
+ * Build canonical Census-adjusted APH feasibility snapshot for render/runtime modules.
+ * Keeps advisory/apply/pace composition out of UI layers.
+ *
+ * @param {{
+ *   state?: Record<string, any>,
+  *   needVotes?: unknown,
+  *   weeks?: unknown,
+ *   rowsByGeoid?: Record<string, any> | null,
+ *   selectedGeoids?: string[] | null,
+ *   doorShare?: unknown,
+ *   doorsPerHour?: unknown,
+ *   callsPerHour?: unknown,
+ * }} input
+ * @returns {{
+ *   censusState: Record<string, any> | null,
+ *   rowsByGeoid: Record<string, any>,
+ *   selectedGeoids: string[],
+ *   hasRows: boolean,
+ *   activeRowsReady: boolean,
+ *   aggregate: Record<string, any> | null,
+ *   advisory: Record<string, any> | null,
+ *   applyGate: ReturnType<typeof evaluateCensusApplyMode>,
+ *   applyMultipliers: ReturnType<typeof clampCensusApplyMultipliers> | null,
+ *   adjusted: {
+ *     supportRatePct: number | null,
+ *     contactRatePct: number | null,
+ *     turnoutReliabilityPct: number | null,
+ *     orgHoursPerWeek: number | null,
+ *   },
+ *   pace: ReturnType<typeof evaluateCensusPaceAgainstAdvisory> | null,
+ * }}
+ */
+export function buildCensusPaceFeasibilitySnapshot({
+  state = {},
+  needVotes = null,
+  weeks = null,
+  rowsByGeoid = null,
+  selectedGeoids = null,
+  doorShare = null,
+  doorsPerHour = null,
+  callsPerHour = null,
+} = {}){
+  const sourceState = state && typeof state === "object" ? state : {};
+  const censusState = sourceState?.census && typeof sourceState.census === "object"
+    ? sourceState.census
+    : null;
+  const scopedRowsByGeoid = rowsByGeoid && typeof rowsByGeoid === "object"
+    ? rowsByGeoid
+    : (censusState?.rowsByGeoid && typeof censusState.rowsByGeoid === "object"
+    ? censusState.rowsByGeoid
+    : {});
+  const scopedSelectedGeoids = Array.isArray(selectedGeoids)
+    ? selectedGeoids
+    : (Array.isArray(censusState?.selectedGeoids)
+    ? censusState.selectedGeoids
+    : []);
+  const hasRows = scopedSelectedGeoids.length > 0 && Object.keys(scopedRowsByGeoid).length > 0;
+  const activeRowsReady = hasRows && !!cleanText(censusState?.activeRowsKey);
+
+  const resolvedDoorShare = Number.isFinite(Number(doorShare))
+    ? Number(doorShare)
+    : (resolveCanonicalDoorShareUnit(sourceState, { fallback: 0.5 }) ?? 0.5);
+  const resolvedDoorsPerHour = Number.isFinite(Number(doorsPerHour))
+    ? Number(doorsPerHour)
+    : resolveCanonicalDoorsPerHour(sourceState);
+  const resolvedCallsPerHour = Number.isFinite(Number(callsPerHour))
+    ? Number(callsPerHour)
+    : resolveCanonicalCallsPerHour(sourceState);
+
+  const aggregate = hasRows
+    ? aggregateRowsForSelection({
+      rowsByGeoid: scopedRowsByGeoid,
+      selectedGeoids: scopedSelectedGeoids,
+      metricSet: censusState?.metricSet,
+    })
+    : null;
+  const advisory = hasRows
+    ? buildCensusAssumptionAdvisory({
+      aggregate,
+      doorShare: resolvedDoorShare,
+      doorsPerHour: resolvedDoorsPerHour,
+      callsPerHour: resolvedCallsPerHour,
+      rowsByGeoid: scopedRowsByGeoid,
+      selectedGeoids: scopedSelectedGeoids,
+    })
+    : null;
+  const applyGate = evaluateCensusApplyMode({
+    applyRequested: !!censusState?.applyAdjustedAssumptions,
+    censusState,
+    raceFootprint: sourceState?.raceFootprint,
+    assumptionsProvenance: sourceState?.assumptionsProvenance,
+    advisoryReady: !!advisory?.ready,
+    hasRows: activeRowsReady,
+  });
+  const applyMultipliers = (applyGate.ready && applyGate.requested)
+    ? clampCensusApplyMultipliers(advisory?.multipliers || {})
+    : null;
+
+  const adjusted = {
+    supportRatePct: scalePercentAssumption(
+      sourceState?.supportRatePct,
+      applyMultipliers?.persuasion ?? 1,
+      Number(sourceState?.supportRatePct),
+    ),
+    contactRatePct: scalePercentAssumption(
+      sourceState?.contactRatePct,
+      applyMultipliers?.contactRate ?? 1,
+      Number(sourceState?.contactRatePct),
+    ),
+    turnoutReliabilityPct: scalePercentAssumption(
+      sourceState?.turnoutReliabilityPct,
+      applyMultipliers?.turnoutLift ?? 1,
+      Number(sourceState?.turnoutReliabilityPct),
+    ),
+    orgHoursPerWeek: scaleAssumptionByDivisor(
+      sourceState?.orgHoursPerWeek,
+      applyMultipliers?.organizerLoad ?? 1,
+      Number(sourceState?.orgHoursPerWeek),
+    ),
+  };
+
+  const effectiveWeeks = (weeks != null && weeks !== "")
+    ? Number(weeks)
+    : Number(sourceState?.weeksRemaining);
+  const pace = hasRows
+    ? evaluateCensusPaceAgainstAdvisory({
+      advisory,
+      needVotes: Number(needVotes),
+      weeks: effectiveWeeks,
+      contactRatePct: adjusted.contactRatePct,
+      supportRatePct: adjusted.supportRatePct,
+      turnoutReliabilityPct: adjusted.turnoutReliabilityPct,
+      orgCount: Number(sourceState?.orgCount),
+      orgHoursPerWeek: adjusted.orgHoursPerWeek,
+      volunteerMult: Number(sourceState?.volunteerMultBase),
+    })
+    : null;
+
+  return {
+    censusState,
+    rowsByGeoid: scopedRowsByGeoid,
+    selectedGeoids: scopedSelectedGeoids,
+    hasRows,
+    activeRowsReady,
+    aggregate,
+    advisory,
+    applyGate,
+    applyMultipliers,
+    adjusted,
+    pace,
   };
 }
 

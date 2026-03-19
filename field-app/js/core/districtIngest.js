@@ -1,6 +1,7 @@
 // @ts-check
 // MIT precinct + Census ingest scaffolding (contract + normalization only).
 // This module does not fetch network data and does not mutate planning math.
+import { safeNum } from "./utils.js";
 
 /**
  * @param {unknown} v
@@ -31,11 +32,7 @@ function strOrNull(v){
  * @param {unknown} v
  * @returns {number | null}
  */
-function numOrNull(v){
-  if (v == null || v === "") return null;
-  const n = Number(v);
-  return Number.isFinite(n) ? n : null;
-}
+const numOrNull = safeNum;
 
 /**
  * @param {unknown} v

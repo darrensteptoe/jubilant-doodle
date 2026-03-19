@@ -1,6 +1,13 @@
 // @ts-check
 // js/core/importQuality.js
 // Import data-quality guardrails (pure). Runs after migration/shape validation.
+import { resolveTemplateRecord } from "../app/templateResolver.js";
+import {
+  benchmarkProfileKeyFromRaceType,
+  getAssumptionRangeProfileByKey,
+  isBenchmarkProfileKey,
+} from "./benchmarkProfiles.js";
+import { formatFixedNumber } from "./utils.js";
 
 /**
  * @param {unknown} v
@@ -46,43 +53,31 @@ function pushRangeIssue(list, kind, key, value, min, max){
   }
 }
 
-const BENCHMARK_RANGES_BY_RACE = {
-  federal: {
-    contactRatePct: [8, 45],
-    supportRatePct: [25, 80],
-    turnoutA: [30, 80],
-    turnoutB: [30, 80],
-    persuasionPct: [8, 55],
-  },
-  state_leg: {
-    contactRatePct: [5, 50],
-    supportRatePct: [20, 85],
-    turnoutA: [20, 85],
-    turnoutB: [20, 85],
-    persuasionPct: [5, 65],
-  },
-  municipal: {
-    contactRatePct: [6, 55],
-    supportRatePct: [20, 85],
-    turnoutA: [10, 70],
-    turnoutB: [10, 70],
-    persuasionPct: [8, 70],
-  },
-  county: {
-    contactRatePct: [6, 50],
-    supportRatePct: [20, 85],
-    turnoutA: [20, 80],
-    turnoutB: [20, 80],
-    persuasionPct: [6, 65],
-  },
-  default: {
-    contactRatePct: [5, 60],
-    supportRatePct: [20, 85],
-    turnoutA: [20, 90],
-    turnoutB: [20, 90],
-    persuasionPct: [5, 70],
-  },
-};
+function resolveScenarioBenchmarkProfileKey(scenario){
+  const src = isObject(scenario) ? scenario : {};
+  try{
+    const resolved = resolveTemplateRecord(src);
+    const fromTemplate = normalizeString(resolved?.template?.benchmarkKey || "").toLowerCase();
+    if (isBenchmarkProfileKey(fromTemplate)){
+      return fromTemplate;
+    }
+  } catch {
+    // Template resolver may not be available in minimal builds; fallback below.
+  }
+
+  const fromMeta = normalizeString(src?.templateMeta?.benchmarkKey || "").toLowerCase();
+  if (isBenchmarkProfileKey(fromMeta)){
+    return fromMeta;
+  }
+
+  const raceType = normalizeString(src?.raceType || "").toLowerCase();
+  const mapped = benchmarkProfileKeyFromRaceType(raceType);
+  if (isBenchmarkProfileKey(mapped)){
+    return mapped;
+  }
+
+  return "default";
+}
 
 /**
  * @param {unknown} v
@@ -151,11 +146,17 @@ function appendIntelBenchmarkWarnings(out, scenario, prefix){
     : [];
   if (!rows.length) return;
   const scenarioRace = normalizeString(scenario?.raceType || "default").toLowerCase();
+  const scenarioBenchmarkKey = resolveScenarioBenchmarkProfileKey(scenario);
 
   for (const row of rows){
     if (!isObject(row)) continue;
-    const rowRace = normalizeString(row.raceType || "all").toLowerCase();
-    if (rowRace && rowRace !== "all" && rowRace !== scenarioRace) continue;
+    const rowBenchmarkKey = normalizeString(row.benchmarkKey || row.templateBenchmarkKey || "").toLowerCase();
+    if (rowBenchmarkKey){
+      if (rowBenchmarkKey !== "all" && rowBenchmarkKey !== scenarioBenchmarkKey) continue;
+    } else {
+      const rowRace = normalizeString(row.raceType || "all").toLowerCase();
+      if (rowRace && rowRace !== "all" && rowRace !== scenarioRace) continue;
+    }
     const ref = normalizeString(row.ref || row.key || "");
     if (!ref) continue;
 
@@ -332,7 +333,7 @@ export function validateImportedScenarioData(scenario){
         if (s != null) total += s;
       }
       if (Math.abs(total - 100) > 0.25){
-        warnings.push(`Candidate support + undecided totals ${total.toFixed(2)} (expected ~100).`);
+        warnings.push(`Candidate support + undecided totals ${formatFixedNumber(total, 2, "—")} (expected ~100).`);
       }
     }
   }
@@ -345,7 +346,7 @@ export function validateImportedScenarioData(scenario){
     const other = num(scenario.universeOtherPct) || 0;
     const sum = dem + rep + npa + other;
     if (Math.abs(sum - 100) > 0.25){
-      warnings.push(`Universe composition totals ${sum.toFixed(2)} (expected ~100). Auto-normalize may adjust on edit.`);
+      warnings.push(`Universe composition totals ${formatFixedNumber(sum, 2, "—")} (expected ~100). Auto-normalize may adjust on edit.`);
     }
   }
 
@@ -388,8 +389,8 @@ export function computeAssumptionBenchmarkWarnings(scenario, prefix = "Benchmark
   const out = [];
   if (!isObject(scenario)) return out;
 
-  const raceType = normalizeString(scenario.raceType || "default");
-  const profile = BENCHMARK_RANGES_BY_RACE[raceType] || BENCHMARK_RANGES_BY_RACE.default;
+  const benchmarkProfileKey = resolveScenarioBenchmarkProfileKey(scenario);
+  const profile = getAssumptionRangeProfileByKey(benchmarkProfileKey);
   for (const key of Object.keys(profile)){
     const [min, max] = profile[key];
     pushRangeIssue(out, prefix, key, scenario[key], min, max);

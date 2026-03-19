@@ -2,21 +2,36 @@
 import { CHANNEL_COST_ORDER, resolveChannelCostAssumption } from "./channelCosts.js";
 import { computeChannelUplift } from "./upliftScoring.js";
 import { buildUpliftFeatures } from "./upliftFeatures.js";
+import { BASE_RATE_DEFAULTS, resolveBaseRatesWithStateFallback } from "./baseRates.js";
+import { clampFiniteNumber, coerceFiniteNumber } from "./utils.js";
+import { deriveVoterModelSignals } from "./voterDataLayer.js";
+import { UPLIFT_SOURCE_BASE_RATES, UPLIFT_SOURCE_TARGETING_ROWS } from "./upliftSource.js";
+import { selectTopTargetingRows, targetRowScoreValue } from "./targetingRows.js";
 
-function safeNum(value){
-  const n = Number(value);
-  return Number.isFinite(n) ? n : null;
-}
-
-function clamp(value, min, max){
-  const n = Number(value);
-  if (!Number.isFinite(n)) return min;
-  if (n < min) return min;
-  if (n > max) return max;
-  return n;
-}
+const safeNum = coerceFiniteNumber;
+const clamp = clampFiniteNumber;
 
 const DEFAULT_CHANNELS = Object.freeze(CHANNEL_COST_ORDER.slice());
+
+function resolveVoterUpliftDefaults(voterSignals){
+  return {
+    contactProbabilityMultiplier: clamp(
+      Number(voterSignals?.targeting?.contactProbabilityMultiplier ?? 1),
+      0.5,
+      1.5,
+    ),
+    saturationMultiplier: clamp(
+      Number(voterSignals?.targeting?.saturationMultiplierDefault ?? 1),
+      0.5,
+      1.1,
+    ),
+    geoCoverageRate: clamp(
+      Number(voterSignals?.coverage?.geoCoverageRate ?? 0),
+      0,
+      1,
+    ),
+  };
+}
 
 function safeWeight(value, fallback = 0){
   const n = Number(value);
@@ -40,28 +55,12 @@ function weightedAverage(rows, pickValue, pickWeight){
 
 function rowWeight(row){
   const memberCount = safeWeight(row?.memberCount, 1);
-  const score = clamp(Number(row?.targetScore ?? row?.score ?? 0), 0, 200);
+  const score = clamp(Number(targetRowScoreValue(row) ?? 0), 0, 200);
   return memberCount * (1 + (score / 100));
 }
 
-function topTargetingRows(rows, topN){
-  const list = (Array.isArray(rows) ? rows : [])
-    .filter((row) => row && typeof row === "object")
-    .slice()
-    .sort((a, b) => {
-      const ar = safeNum(a?.rank);
-      const br = safeNum(b?.rank);
-      if (ar != null && br != null) return ar - br;
-      const as = safeNum(a?.targetScore ?? a?.score) ?? -Infinity;
-      const bs = safeNum(b?.targetScore ?? b?.score) ?? -Infinity;
-      return bs - as;
-    });
-  const limit = Math.max(1, Math.floor(safeNum(topN) ?? 25));
-  return list.slice(0, limit);
-}
-
 function buildOptimizationFeaturesFromTargetingRows({ rows, state }){
-  const selected = topTargetingRows(rows, state?.targeting?.topN);
+  const selected = selectTopTargetingRows(rows, state?.targeting?.topN, { fallbackTopN: 25 });
   if (!selected.length) return null;
 
   const canonicalFeatures = {
@@ -116,10 +115,28 @@ function buildOptimizationFeaturesFromTargetingRows({ rows, state }){
   });
 }
 
-function buildOptimizationFeaturesFromBaseRates({ baseRates, state }){
-  const sr = clamp(safeNum(baseRates?.sr) ?? ((safeNum(state?.supportRatePct) ?? 55) / 100), 0, 1);
-  const tr = clamp(safeNum(baseRates?.tr) ?? ((safeNum(state?.turnoutReliabilityPct) ?? 80) / 100), 0, 1);
-  const cr = clamp(safeNum(baseRates?.cr) ?? ((safeNum(state?.contactRatePct) ?? 22) / 100), 0, 1);
+function buildOptimizationFeaturesFromBaseRates({ baseRates, state, voterSignals = null }){
+  const resolvedBaseRates = resolveBaseRatesWithStateFallback({
+    baseRates,
+    state,
+    defaults: BASE_RATE_DEFAULTS,
+    clampMin: 0,
+    clampMax: 1,
+  });
+  const sr = clamp(Number(resolvedBaseRates?.sr ?? BASE_RATE_DEFAULTS.sr), 0, 1);
+  const tr = clamp(Number(resolvedBaseRates?.tr ?? BASE_RATE_DEFAULTS.tr), 0, 1);
+  const cr = clamp(Number(resolvedBaseRates?.cr ?? BASE_RATE_DEFAULTS.cr), 0, 1);
+  const voterDefaults = resolveVoterUpliftDefaults(voterSignals);
+  const contactProbability = clamp(
+    cr * voterDefaults.contactProbabilityMultiplier * voterDefaults.saturationMultiplier,
+    0,
+    1,
+  );
+  const geographicMultiplier = clamp(
+    0.75 + (voterDefaults.geoCoverageRate * 0.5),
+    0.75,
+    1.25,
+  );
 
   return buildUpliftFeatures({
     rawSignals: {
@@ -131,8 +148,8 @@ function buildOptimizationFeaturesFromBaseRates({ baseRates, state }){
     canonicalFeatures: {
       adjustedPersuasion: sr,
       turnoutOpportunity: clamp(1 - tr, 0, 1),
-      contactProbability: cr,
-      geographicMultiplier: 1,
+      contactProbability,
+      geographicMultiplier,
     },
   });
 }
@@ -179,12 +196,13 @@ export function computeOptimizationUpliftPlan({
   targetingRows = null,
   channels = DEFAULT_CHANNELS,
 } = {}){
+  const voterSignals = deriveVoterModelSignals(state?.voterData);
   const rows = Array.isArray(targetingRows)
     ? targetingRows
     : (Array.isArray(state?.targeting?.lastRows) ? state.targeting.lastRows : []);
   const featuresFromRows = buildOptimizationFeaturesFromTargetingRows({ rows, state });
-  const source = featuresFromRows ? "targeting_rows" : "base_rates";
-  const features = featuresFromRows || buildOptimizationFeaturesFromBaseRates({ baseRates, state });
+  const source = featuresFromRows ? UPLIFT_SOURCE_TARGETING_ROWS : UPLIFT_SOURCE_BASE_RATES;
+  const features = featuresFromRows || buildOptimizationFeaturesFromBaseRates({ baseRates, state, voterSignals });
   const plan = computeUpliftPlan({
     features,
     state,

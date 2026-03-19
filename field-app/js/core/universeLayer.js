@@ -2,6 +2,8 @@
 // js/universeLayer.js
 // Phase 16 — Universe Composition + Retention Layer
 // Pure module: no DOM, no mutation.
+import { clampFiniteNumber, coerceFiniteNumber, formatFixedNumber } from "./utils.js";
+import { pctOverrideToDecimal } from "./voteProduction.js";
 
 /**
  * @typedef {object} UniversePercents
@@ -20,26 +22,8 @@
  * @property {number=} turnoutReliability
  */
 
-/**
- * @param {unknown} v
- * @returns {number | null}
- */
-function safeNum(v){
-  const n = Number(v);
-  return Number.isFinite(n) ? n : null;
-}
-
-/**
- * @param {unknown} v
- * @param {number} lo
- * @param {number} hi
- * @returns {number}
- */
-function clamp(v, lo, hi){
-  const n = safeNum(v);
-  if (n == null) return lo;
-  return Math.min(hi, Math.max(lo, n));
-}
+const safeNum = coerceFiniteNumber;
+const clamp = clampFiniteNumber;
 
 /**
  * @param {unknown} x
@@ -48,7 +32,7 @@ function clamp(v, lo, hi){
 function clamp01(x){
   const n = safeNum(x);
   if (n == null) return null;
-  return Math.min(1, Math.max(0, n));
+  return clampFiniteNumber(n, 0, 1);
 }
 
 export const UNIVERSE_DEFAULTS = {
@@ -103,10 +87,17 @@ export function normalizeUniversePercents({ demPct, repPct, npaPct, otherPct } =
 
   return {
     percents: { demPct: nd, repPct: nr, npaPct: nn, otherPct: no },
-    shares: { dem: nd / 100, rep: nr / 100, npa: nn / 100, other: no / 100 },
+    shares: {
+      dem: pctOverrideToDecimal(nd, 0) ?? 0,
+      rep: pctOverrideToDecimal(nr, 0) ?? 0,
+      npa: pctOverrideToDecimal(nn, 0) ?? 0,
+      other: pctOverrideToDecimal(no, 0) ?? 0,
+    },
     sum,
     normalized: Math.abs(sum - 100) > 0.05,
-    warning: Math.abs(sum - 100) > 0.05 ? `Universe composition normalized from ${sum.toFixed(1)}% to 100%.` : "",
+    warning: Math.abs(sum - 100) > 0.05
+      ? `Universe composition normalized from ${formatFixedNumber(sum, 1, "—")}% to 100%.`
+      : "",
   };
 }
 

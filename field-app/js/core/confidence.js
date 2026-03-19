@@ -1,20 +1,10 @@
 // @ts-check
+import { clampFiniteNumber, roundToDigits, safeNum } from "./utils.js";
 
 export const CONFIDENCE_VERSION = "1.0.0";
 
-function toFiniteNumber(value){
-  if (value == null || value === "") return null;
-  const n = Number(value);
-  return Number.isFinite(n) ? n : null;
-}
-
-function clamp(value, lo, hi){
-  const n = Number(value);
-  if (!Number.isFinite(n)) return lo;
-  if (n < lo) return lo;
-  if (n > hi) return hi;
-  return n;
-}
+const toFiniteNumber = safeNum;
+const clamp = clampFiniteNumber;
 
 function scoreBand(score){
   if (score >= 75) return "high";
@@ -57,7 +47,7 @@ export function computeConfidenceProfile({
       (0.10 * stabilityScore) +
       (0.10 * clamp(execution, 0, 100))
     );
-  const score = Math.round(clamp(scoreRaw, 0, 100) * 10) / 10;
+  const score = roundToDigits(clamp(scoreRaw, 0, 100), 1, 0) ?? 0;
 
   return {
     version: CONFIDENCE_VERSION,

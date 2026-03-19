@@ -45,9 +45,11 @@ import {
   computeTacticVoteProduction,
 } from "./voteProduction.js";
 import { buildModelInputFromSnapshot } from "./modelInput.js";
+import { NULL_BASE_RATE_DEFAULTS, resolveStateBaseRates } from "./baseRates.js";
 import { makeDefaultIntelState, validateAiIntelWritePayload } from "./intelState.js";
 import { computeElectionSnapshot } from "./electionSnapshot.js";
-import { computeExecutionSnapshot } from "./executionSnapshot.js";
+import { computeExecutionSnapshot, computeExpectedAphFromWeeklyContext } from "./executionSnapshot.js";
+import { resolveCanonicalCallsPerHour, resolveCanonicalDoorsPerHour } from "./throughput.js";
 import { safeNum } from "./utils.js";
 import { renderMain } from "../app/renderMain.js";
 import { renderImpactTracePanel } from "../app/render/impactTrace.js";
@@ -78,6 +80,7 @@ import { registerPhase115ATests } from "./selfTestSuites/phase115A.js";
 import { registerCensusPhase1Tests } from "./selfTestSuites/censusPhase1.js";
 import { registerTargetingTests } from "./selfTestSuites/targeting.js";
 import { registerRebuildContractTests } from "./selfTestSuites/rebuildContracts.js";
+import { registerVoterDataLayerTests } from "./selfTestSuites/voterDataLayer.js";
 import {
   makeDefaultCensusState,
   makeDefaultRaceFootprint,
@@ -85,6 +88,7 @@ import {
   makeDefaultFootprintCapacity,
   buildRaceFootprintFromCensusSelection,
 } from "./censusModule.js";
+import { makeDefaultVoterDataState } from "./voterDataLayer.js";
 
 function withUniverseDefaults(s){
   // Phase 16 fields are now required for stable hashing/export roundtrips.
@@ -98,6 +102,7 @@ function withUniverseDefaults(s){
   if (out.retentionFactor == null) out.retentionFactor = UNIVERSE_DEFAULTS.retentionFactor;
   if (out.intelState == null) out.intelState = makeDefaultIntelState();
   if (out.census == null) out.census = makeDefaultCensusState();
+  if (out.voterData == null) out.voterData = makeDefaultVoterDataState();
   if (out.raceFootprint == null) out.raceFootprint = makeDefaultRaceFootprint();
   if (out.assumptionsProvenance == null) out.assumptionsProvenance = makeDefaultAssumptionProvenance();
   if (out.footprintCapacity == null) out.footprintCapacity = makeDefaultFootprintCapacity();
@@ -131,16 +136,12 @@ function getMcSummary(sim){
   return sim;
 }
 
-function clamp01(v){
-  if (v == null || !isFinite(v)) return null;
-  if (v < 0) return 0;
-  if (v > 1) return 1;
-  return v;
+function pctToUnitFromPct(pct){
+  return pctOverrideToDecimal(pct, null);
 }
 
-function pctToUnitFromPct(pct){
-  if (pct == null || !isFinite(pct)) return null;
-  return clamp01(Number(pct) / 100);
+function resolveSnapshotBaseRates(snapshot, defaults = NULL_BASE_RATE_DEFAULTS){
+  return resolveStateBaseRates(snapshot, { defaults });
 }
 
 function normalizeDailyLogEntryE11(e){
@@ -308,6 +309,11 @@ export function runSelfTests(engine){
     assert,
   });
 
+  registerVoterDataLayerTests({
+    test,
+    assert,
+  });
+
   // --- C) Phase 8B — Marginal value diagnostics (pure) ---
   test("Phase 8B: non-binding timeline caps => deltas ~0 and no NaN", () => {
     const tactics = [
@@ -440,9 +446,7 @@ export function runSelfTests(engine){
     assert(snap, "State snapshot unavailable (getStateSnapshot missing?)");
     assert(baseline.res, "Baseline computeAll result missing");
 
-    const cr = pctToUnitFromPct(snap.contactRatePct);
-    const sr = pctToUnitFromPct(snap.supportRatePct);
-    const tr = pctToUnitFromPct(snap.turnoutReliabilityPct);
+    const { cr, sr, tr } = resolveSnapshotBaseRates(snap);
 
     const weeks = baseline.weeks;
     const cap = engine.computeCapacityBreakdown({
@@ -451,8 +455,8 @@ export function runSelfTests(engine){
       orgHoursPerWeek: (snap.orgHoursPerWeek != null) ? Number(snap.orgHoursPerWeek) : null,
       volunteerMult: (snap.volunteerMultBase != null) ? Number(snap.volunteerMultBase) : null,
       doorShare: pctToUnitFromPct(snap.channelDoorPct),
-      doorsPerHour: (snap.doorsPerHour3 != null) ? Number(snap.doorsPerHour3) : (snap.doorsPerHour != null ? Number(snap.doorsPerHour) : null),
-      callsPerHour: (snap.callsPerHour3 != null) ? Number(snap.callsPerHour3) : null,
+      doorsPerHour: resolveCanonicalDoorsPerHour(snap, { toNumber: safeNum }),
+      callsPerHour: resolveCanonicalCallsPerHour(snap, { toNumber: safeNum }),
     });
 
     const budget = snap.budget || {};
@@ -477,9 +481,7 @@ export function runSelfTests(engine){
 
   test("Optimization: zero budget => zero allocation", () => {
     assert(snap, "State snapshot unavailable");
-    const cr = pctToUnitFromPct(snap.contactRatePct);
-    const sr = pctToUnitFromPct(snap.supportRatePct);
-    const tr = pctToUnitFromPct(snap.turnoutReliabilityPct);
+    const { cr, sr, tr } = resolveSnapshotBaseRates(snap);
 
     const budget = snap.budget || {};
     const tacticsRaw = budget.tactics || {};
@@ -501,9 +503,7 @@ export function runSelfTests(engine){
 
   test("Optimization: zero capacity => zero allocation", () => {
     assert(snap, "State snapshot unavailable");
-    const cr = pctToUnitFromPct(snap.contactRatePct);
-    const sr = pctToUnitFromPct(snap.supportRatePct);
-    const tr = pctToUnitFromPct(snap.turnoutReliabilityPct);
+    const { cr, sr, tr } = resolveSnapshotBaseRates(snap);
 
     const budget = snap.budget || {};
     const tacticsRaw = budget.tactics || {};
@@ -762,8 +762,8 @@ export function runSelfTests(engine){
     const orgHrs = (snap.orgHoursPerWeek != null) ? Number(snap.orgHoursPerWeek) : null;
     const vm = (snap.volunteerMultBase != null) ? Number(snap.volunteerMultBase) : null;
     const doorShare = pctToUnitFromPct(snap.channelDoorPct);
-    const dph = (snap.doorsPerHour3 != null) ? Number(snap.doorsPerHour3) : (snap.doorsPerHour != null ? Number(snap.doorsPerHour) : null);
-    const cph = (snap.callsPerHour3 != null) ? Number(snap.callsPerHour3) : null;
+    const dph = resolveCanonicalDoorsPerHour(snap, { toNumber: safeNum });
+    const cph = resolveCanonicalCallsPerHour(snap, { toNumber: safeNum });
 
     const features = resolveFeatureFlags(snap || {});
     const decayModel = snap?.intelState?.expertToggles?.decayModel || {};
@@ -937,9 +937,7 @@ export function runSelfTests(engine){
       assert(typeof engine.withPatchedState === "function", "Missing withPatchedState()");
       const out = engine.withPatchedState({ turnoutEnabled: false }, () => {
         const s = engine.getStateSnapshot();
-        const cr = (s?.contactRatePct != null) ? Number(s.contactRatePct)/100 : 0.15;
-        const sr = (s?.supportRatePct != null) ? Number(s.supportRatePct)/100 : 0.10;
-        const tr = (s?.turnoutReliabilityPct != null) ? Number(s.turnoutReliabilityPct)/100 : 0.80;
+        const { cr, sr, tr } = resolveSnapshotBaseRates(s, { cr: 0.15, sr: 0.10, tr: 0.80 });
         return engine.buildOptimizationTactics({
           baseRates: { cr, sr, tr },
           tactics: s?.budget?.tactics || {},
@@ -1010,9 +1008,7 @@ export function runSelfTests(engine){
     test("Phase 6: No NaN/Infinity in turnout-adjusted ROI fields", () => {
       assert(typeof engine.withPatchedState === "function", "Missing withPatchedState()");
       const s = engine.getStateSnapshot();
-      const cr = (s?.contactRatePct != null) ? clamp(Number(s.contactRatePct), 0, 100)/100 : 0.15;
-      const sr = (s?.supportRatePct != null) ? clamp(Number(s.supportRatePct), 0, 100)/100 : 0.10;
-      const tr = (s?.turnoutReliabilityPct != null) ? clamp(Number(s.turnoutReliabilityPct), 0, 100)/100 : 0.80;
+      const { cr, sr, tr } = resolveSnapshotBaseRates(s, { cr: 0.15, sr: 0.10, tr: 0.80 });
 
       const rows = engine.withPatchedState({
         turnoutEnabled: true,
@@ -2426,13 +2422,7 @@ export function runSelfTests(engine){
     assert(weekly && typeof weekly === "object", "Weekly ops context missing");
     assert(approx(weekly.goal, planningNeedVotes, 1e-9), "Weekly ops goal does not match planning needVotes");
 
-    const expectedAPH = (
-      weekly?.doorShare != null &&
-      weekly?.doorsPerHour != null &&
-      weekly?.callsPerHour != null
-    )
-      ? (weekly.doorShare * weekly.doorsPerHour + (1 - weekly.doorShare) * weekly.callsPerHour)
-      : null;
+    const expectedAPH = computeExpectedAphFromWeeklyContext(weekly);
 
     const execution = computeExecutionSnapshot({
       planningSnapshot: {
@@ -3252,11 +3242,7 @@ export function runSelfTests(engine){
     const snap = engine.getStateSnapshot();
     assert(snap && typeof snap === "object", "State snapshot unavailable");
 
-    const baseRates = {
-      cr: pctToUnitFromPct(snap.contactRatePct) ?? 0.33,
-      sr: pctToUnitFromPct(snap.supportRatePct) ?? 0.3,
-      tr: pctToUnitFromPct(snap.turnoutReliabilityPct) ?? 0.85,
-    };
+    const baseRates = resolveSnapshotBaseRates(snap, { cr: 0.33, sr: 0.3, tr: 0.85 });
     const tactics = {
       doors: { enabled: true, cpa: 0.18, kind: "persuasion" },
       phones: { enabled: true, cpa: 0.03, kind: "hybrid", crPct: 22 },

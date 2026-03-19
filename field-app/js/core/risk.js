@@ -2,6 +2,7 @@
 // js/core/risk.js
 // Phase R2 — Risk framing helpers (pure, additive).
 // Operates on Monte Carlo margin arrays (net votes above/below needVotes).
+import { roundWholeNumberByMode } from "./utils.js";
 
 /**
  * @param {unknown} x
@@ -49,8 +50,8 @@ function quantileSorted(sorted, q){
   if (q <= 0) return sorted[0];
   if (q >= 1) return sorted[n - 1];
   const i = q * (n - 1);
-  const lo = Math.floor(i);
-  const hi = Math.ceil(i);
+  const lo = roundWholeNumberByMode(i, { mode: "floor", fallback: 0 }) || 0;
+  const hi = roundWholeNumberByMode(i, { mode: "ceil", fallback: n - 1 }) || (n - 1);
   if (lo === hi) return sorted[lo];
   const t = i - lo;
   return sorted[lo] + t * (sorted[hi] - sorted[lo]);

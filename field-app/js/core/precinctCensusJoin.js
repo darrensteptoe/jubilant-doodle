@@ -1,6 +1,7 @@
 // @ts-check
 // Precinct -> Census weighted allocation utilities (pure).
 // This is the deterministic join layer used by MIT precinct + Census integration.
+import { safeNum } from "./utils.js";
 
 /**
  * @param {unknown} v
@@ -22,11 +23,7 @@ function str(v){
  * @param {unknown} v
  * @returns {number | null}
  */
-function numOrNull(v){
-  if (v == null || v === "") return null;
-  const n = Number(v);
-  return Number.isFinite(n) ? n : null;
-}
+const numOrNull = safeNum;
 
 /**
  * @param {unknown[]} rows

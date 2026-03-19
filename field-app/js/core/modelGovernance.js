@@ -2,22 +2,23 @@
 import { evaluateAssumptionRealism } from "./assumptionBaselines.js";
 import { computeConfidenceProfile } from "./confidence.js";
 import { computeLearningLoop } from "./learningLoop.js";
+import { deriveOptimizationUpliftSignals } from "./optimize.js";
+import { deriveUpliftSourceGovernanceSignal, formatUpliftSourceLabel, normalizeUpliftSource } from "./upliftSource.js";
+import { deriveVoterModelSignals } from "./voterDataLayer.js";
+import {
+  clampFiniteNumber,
+  formatFixedNumber,
+  formatPercentFromUnit,
+  formatStatusWithScoreOutOfHundred,
+  roundToDigits,
+  roundWholeNumberByMode,
+  safeNum,
+} from "./utils.js";
 
 export const MODEL_GOVERNANCE_VERSION = "1.0.0";
 
-function toFiniteNumber(value){
-  if (value == null || value === "") return null;
-  const n = Number(value);
-  return Number.isFinite(n) ? n : null;
-}
-
-function clamp(value, lo, hi){
-  const n = Number(value);
-  if (!Number.isFinite(n)) return lo;
-  if (n < lo) return lo;
-  if (n > hi) return hi;
-  return n;
-}
+const toFiniteNumber = safeNum;
+const clamp = clampFiniteNumber;
 
 function parseDeltaWinPct(text){
   const raw = String(text == null ? "" : text).trim();
@@ -44,7 +45,7 @@ function deriveSensitivityDrivers(state){
   return parsed;
 }
 
-function deriveDataQuality({ benchmarkWarnings = [], evidenceWarnings = [], driftSummary = null } = {}){
+function deriveDataQuality({ benchmarkWarnings = [], evidenceWarnings = [], driftSummary = null, voterSignals = null } = {}){
   const benchmarkCount = Array.isArray(benchmarkWarnings) ? benchmarkWarnings.length : 0;
   const evidenceCount = Array.isArray(evidenceWarnings) ? evidenceWarnings.length : 0;
   const issues = [];
@@ -75,6 +76,31 @@ function deriveDataQuality({ benchmarkWarnings = [], evidenceWarnings = [], drif
     }
   }
 
+  const hasVoterRows = !!voterSignals?.hasRows;
+  const voterRows = Math.max(0, toFiniteNumber(voterSignals?.totalRows) ?? 0);
+  const voterGeoCoverage = clamp(toFiniteNumber(voterSignals?.coverage?.geoCoverageRate) ?? 0, 0, 1);
+  const voterContactableRate = clamp(toFiniteNumber(voterSignals?.coverage?.contactableRate) ?? 0, 0, 1);
+
+  if (!hasVoterRows){
+    penalty += 18;
+    issues.push("no canonical voter intelligence rows imported");
+  } else {
+    if (voterGeoCoverage < 0.5){
+      penalty += 14;
+      issues.push(`voter geography linkage coverage at ${formatPercentFromUnit(voterGeoCoverage, 0)}`);
+    } else if (voterGeoCoverage < 0.7){
+      penalty += 8;
+      issues.push(`voter geography linkage coverage at ${formatPercentFromUnit(voterGeoCoverage, 0)}`);
+    }
+    if (voterContactableRate < 0.45){
+      penalty += 12;
+      issues.push(`contactable voter coverage at ${formatPercentFromUnit(voterContactableRate, 0)}`);
+    } else if (voterContactableRate < 0.6){
+      penalty += 6;
+      issues.push(`contactable voter coverage at ${formatPercentFromUnit(voterContactableRate, 0)}`);
+    }
+  }
+
   const score = clamp(100 - penalty, 0, 100);
   const status = score < 55 ? "bad" : (score < 75 ? "warn" : "ok");
   return {
@@ -83,6 +109,9 @@ function deriveDataQuality({ benchmarkWarnings = [], evidenceWarnings = [], drif
     issues,
     benchmarkCount,
     evidenceCount,
+    voterRows,
+    voterGeoCoverage,
+    voterContactableRate,
   };
 }
 
@@ -94,7 +123,7 @@ function deriveHistoricalAccuracyScore(state){
   const s1 = within1 == null ? null : clamp(within1, 0, 100);
   const s2 = within2 == null ? null : clamp(within2, 0, 100);
   if (s1 != null && s2 != null){
-    return Math.round((0.6 * s1 + 0.4 * s2) * 10) / 10;
+    return roundToDigits((0.6 * s1 + 0.4 * s2), 1, 60);
   }
   return s1 != null ? s1 : s2;
 }
@@ -106,16 +135,18 @@ function deriveExecutionReadiness(state){
   const uplift = state?.ui?.lastSummary?.upliftSummary && typeof state.ui.lastSummary.upliftSummary === "object"
     ? state.ui.lastSummary.upliftSummary
     : {};
+  const upliftSignals = deriveOptimizationUpliftSignals(uplift);
 
   const timelineExecutablePctRaw = toFiniteNumber(timeline?.percentPlanExecutable);
   const timelineExecutablePct = timelineExecutablePctRaw == null
     ? null
     : clamp(timelineExecutablePctRaw, 0, 1);
   const shortfallAttempts = Math.max(0, toFiniteNumber(timeline?.shortfallAttempts) ?? 0);
-  const uncertaintyBand = String(uplift?.uncertaintyBand || "").trim().toLowerCase();
-  const saturationPressure = String(uplift?.saturationPressure || "").trim().toLowerCase();
-  const expectedMarginalGain = toFiniteNumber(uplift?.weightedExpectedMarginalGain);
-  const lowMarginalGain = toFiniteNumber(uplift?.weightedLowMarginalGain);
+  const uncertaintyBand = String(upliftSignals?.uncertaintyBand || "").trim().toLowerCase();
+  const saturationPressure = String(upliftSignals?.saturationPressure || "").trim().toLowerCase();
+  const upliftSourceSignal = deriveUpliftSourceGovernanceSignal(upliftSignals?.source);
+  const expectedMarginalGain = toFiniteNumber(upliftSignals?.expectedMarginalGain);
+  const lowMarginalGain = toFiniteNumber(upliftSignals?.lowMarginalGain);
 
   const issues = [];
   let penalty = 0;
@@ -124,7 +155,7 @@ function deriveExecutionReadiness(state){
     if (timelineExecutablePct < 0.95){
       const pctShortfall = 1 - timelineExecutablePct;
       penalty += Math.min(44, pctShortfall * 50);
-      issues.push(`timeline executable at ${(timelineExecutablePct * 100).toFixed(0)}%`);
+      issues.push(`timeline executable at ${formatPercentFromUnit(timelineExecutablePct, 0)}`);
     }
   } else {
     penalty += 6;
@@ -132,10 +163,11 @@ function deriveExecutionReadiness(state){
   }
 
   if (shortfallAttempts > 0){
+    const roundedShortfall = roundWholeNumberByMode(shortfallAttempts, { mode: "round", fallback: 0 }) ?? 0;
     if (shortfallAttempts >= 1000) penalty += 20;
     else if (shortfallAttempts >= 250) penalty += 14;
     else penalty += 8;
-    issues.push(`${Math.round(shortfallAttempts)} attempt shortfall`);
+    issues.push(`${roundedShortfall} attempt shortfall`);
   }
 
   if (uncertaintyBand === "high"){
@@ -162,6 +194,13 @@ function deriveExecutionReadiness(state){
     penalty += 4;
   }
 
+  if (upliftSourceSignal.penalty > 0){
+    penalty += upliftSourceSignal.penalty;
+    if (upliftSourceSignal.issue){
+      issues.push(upliftSourceSignal.issue);
+    }
+  }
+
   const score = clamp(100 - penalty, 0, 100);
   const status = score < 55 ? "bad" : (score < 75 ? "warn" : "ok");
   return {
@@ -170,6 +209,7 @@ function deriveExecutionReadiness(state){
     timelineExecutablePct,
     shortfallAttempts,
     uplift: {
+      source: upliftSourceSignal.source,
       uncertaintyBand: uncertaintyBand || "unknown",
       saturationPressure: saturationPressure || "unknown",
       expectedMarginalGain,
@@ -179,6 +219,196 @@ function deriveExecutionReadiness(state){
   };
 }
 
+/**
+ * Canonical compact governance projection for runtime bridges and archive snapshots.
+ * Keeps governance field-shaping out of UI modules.
+ *
+ * @param {unknown} governance
+ * @returns {{
+ *   realismStatus: string,
+ *   realismScore: number | null,
+ *   dataQualityStatus: string,
+ *   dataQualityScore: number | null,
+ *   executionStatus: string,
+ *   executionScore: number | null,
+ *   executionTimelineExecutablePct: number | null,
+ *   executionShortfallAttempts: number | null,
+ *   executionUpliftUncertaintyBand: string,
+ *   executionSaturationPressure: string,
+ *   executionUpliftSource: string,
+ *   executionTopIssue: string,
+ *   confidenceBand: string,
+ *   confidenceScore: number | null,
+ *   topWarning: string,
+ *   topSensitivityDriver: string,
+ *   topSensitivityDeltaWinPct: number | null,
+ *   learningSampleSize: number | null,
+ *   learningTopSuggestion: string,
+ *   learningRecommendation: string,
+ * }}
+ */
+export function buildGovernanceSnapshotView(governance){
+  const full = governance && typeof governance === "object" ? governance : {};
+  const topDriver = Array.isArray(full?.sensitivity?.topDrivers) ? full.sensitivity.topDrivers[0] : null;
+  return {
+    realismStatus: String(full?.realism?.status || "").trim(),
+    realismScore: toFiniteNumber(full?.realism?.score),
+    dataQualityStatus: String(full?.dataQuality?.status || "").trim(),
+    dataQualityScore: toFiniteNumber(full?.dataQuality?.score),
+    executionStatus: String(full?.execution?.status || "").trim(),
+    executionScore: toFiniteNumber(full?.execution?.score),
+    executionTimelineExecutablePct: toFiniteNumber(full?.execution?.timelineExecutablePct),
+    executionShortfallAttempts: toFiniteNumber(full?.execution?.shortfallAttempts),
+    executionUpliftSource: normalizeUpliftSource(full?.execution?.uplift?.source),
+    executionUpliftUncertaintyBand: String(full?.execution?.uplift?.uncertaintyBand || "").trim(),
+    executionSaturationPressure: String(full?.execution?.uplift?.saturationPressure || "").trim(),
+    executionTopIssue: Array.isArray(full?.execution?.issues) ? String(full.execution.issues[0] || "").trim() : "",
+    confidenceBand: String(full?.confidence?.band || "").trim(),
+    confidenceScore: toFiniteNumber(full?.confidence?.score),
+    topWarning: Array.isArray(full?.warnings) ? String(full.warnings[0] || "").trim() : "",
+    topSensitivityDriver: String(topDriver?.label || "").trim(),
+    topSensitivityDeltaWinPct: toFiniteNumber(topDriver?.deltaWinPct),
+    learningSampleSize: toFiniteNumber(full?.learning?.sampleSize),
+    learningTopSuggestion: String(full?.learning?.topSuggestion?.label || "").trim(),
+    learningRecommendation: String(full?.learning?.topSuggestion?.recommendation || "").trim(),
+  };
+}
+
+function governanceStatusToKind(status, { warn = "warn", bad = "bad" } = {}){
+  const normalized = String(status || "").trim().toLowerCase();
+  if (normalized === bad) return "bad";
+  if (normalized === warn) return "warn";
+  return "ok";
+}
+
+/**
+ * Canonical governance checklist rows for validation surfaces.
+ * Keeps governance interpretation logic out of render-layer modules.
+ *
+ * @param {unknown} governance
+ * @returns {Array<{ kind: "ok" | "warn" | "bad", text: string }>}
+ */
+export function buildGovernanceValidationChecklist(governance){
+  const snapshot = buildGovernanceSnapshotView(governance);
+  const list = [];
+  const realismStatus = String(snapshot?.realismStatus || "ok");
+  const dataStatus = String(snapshot?.dataQualityStatus || "ok");
+  const confidenceBand = String(snapshot?.confidenceBand || "low");
+  const executionStatus = String(snapshot?.executionStatus || "ok");
+  const executionTimelineExecutable = toFiniteNumber(snapshot?.executionTimelineExecutablePct);
+  const executionUncertaintyBand = String(snapshot?.executionUpliftUncertaintyBand || "").trim();
+  const executionSaturationPressure = String(snapshot?.executionSaturationPressure || "").trim();
+  const topDriverLabel = String(snapshot?.topSensitivityDriver || "").trim();
+  const topDriverDelta = toFiniteNumber(snapshot?.topSensitivityDeltaWinPct);
+
+  list.push({
+    kind: governanceStatusToKind(realismStatus),
+    text: `Governance realism: ${formatStatusWithScoreOutOfHundred(realismStatus, snapshot?.realismScore, 0)}.`,
+  });
+  list.push({
+    kind: governanceStatusToKind(dataStatus),
+    text: `Governance data quality: ${formatStatusWithScoreOutOfHundred(dataStatus, snapshot?.dataQualityScore, 0)}.`,
+  });
+  list.push({
+    kind: confidenceBand === "low" ? "warn" : "ok",
+    text: `Governance confidence: ${formatStatusWithScoreOutOfHundred(confidenceBand, snapshot?.confidenceScore, 1)}.`,
+  });
+  list.push({
+    kind: governanceStatusToKind(executionStatus),
+    text: `Governance execution realism: ${formatStatusWithScoreOutOfHundred(executionStatus, snapshot?.executionScore, 0)}.`,
+  });
+  if (Number.isFinite(executionTimelineExecutable)){
+    list.push({
+      kind: executionTimelineExecutable < 0.95 ? "warn" : "ok",
+      text: `Timeline executable: ${formatPercentFromUnit(executionTimelineExecutable, 0)} (from canonical timeline snapshot).`,
+    });
+  }
+  if (executionUncertaintyBand){
+    const uncertainty = executionUncertaintyBand.toLowerCase();
+    list.push({
+      kind: uncertainty === "high" ? "warn" : "ok",
+      text: `Uplift uncertainty band: ${executionUncertaintyBand.toUpperCase()} (canonical execution summary).`,
+    });
+  }
+  if (executionSaturationPressure){
+    const saturation = executionSaturationPressure.toLowerCase();
+    list.push({
+      kind: saturation === "high" ? "warn" : "ok",
+      text: `Saturation pressure: ${executionSaturationPressure.toUpperCase()} (canonical execution summary).`,
+    });
+  }
+  if (topDriverLabel && Number.isFinite(topDriverDelta)){
+    const deltaText = formatFixedNumber(topDriverDelta, 1, "0.0");
+    list.push({
+      kind: "ok",
+      text: `Top sensitivity driver: ${topDriverLabel} (${topDriverDelta > 0 ? "+" : ""}${deltaText} pts win-prob delta).`,
+    });
+  }
+
+  const warnings = Array.isArray(governance?.warnings) ? governance.warnings : [];
+  for (const msg of warnings.slice(0, 3)){
+    const text = String(msg || "").trim();
+    if (!text) continue;
+    list.push({
+      kind: "warn",
+      text,
+    });
+  }
+  return list;
+}
+
+/**
+ * Canonical drift checklist rows for validation surfaces.
+ * Keeps rolling-vs-assumed threshold logic out of UI modules.
+ *
+ * @param {unknown} driftSummary
+ * @param {{ toleranceRatio?: number }} options
+ * @returns {Array<{ kind: "ok" | "warn", text: string }>}
+ */
+export function buildDriftValidationChecklist(driftSummary, options = {}){
+  const summary = driftSummary && typeof driftSummary === "object" ? driftSummary : null;
+  if (!summary?.hasLog){
+    return [];
+  }
+  const toleranceRatioRaw = Number(options?.toleranceRatio);
+  const toleranceRatio = Number.isFinite(toleranceRatioRaw)
+    ? Math.min(0.95, Math.max(0, toleranceRatioRaw))
+    : 0.1;
+
+  const checks = [
+    {
+      key: "CR",
+      actual: toFiniteNumber(summary.actualCR),
+      assumed: toFiniteNumber(summary.assumedCR),
+      format: (value) => formatPercentFromUnit(value, 1),
+    },
+    {
+      key: "SR",
+      actual: toFiniteNumber(summary.actualSR),
+      assumed: toFiniteNumber(summary.assumedSR),
+      format: (value) => formatPercentFromUnit(value, 1),
+    },
+    {
+      key: "APH",
+      actual: toFiniteNumber(summary.actualAPH),
+      assumed: toFiniteNumber(summary.expectedAPH),
+      format: (value) => formatFixedNumber(value, 1, "—"),
+    },
+  ];
+
+  const rows = [];
+  for (const check of checks){
+    if (check.actual == null) continue;
+    const assumed = check.assumed;
+    const low = assumed != null && assumed > 0 && check.actual < (assumed * (1 - toleranceRatio));
+    rows.push({
+      kind: low ? "warn" : "ok",
+      text: `Rolling ${check.key} ${check.format(check.actual)} vs assumed ${check.format(assumed)}.`,
+    });
+  }
+  return rows;
+}
+
 export function computeModelGovernance({
   state = {},
   res = {},
@@ -186,8 +416,14 @@ export function computeModelGovernance({
   evidenceWarnings = [],
   driftSummary = null,
 } = {}){
+  const voterSignals = deriveVoterModelSignals(state?.voterData);
   const realism = evaluateAssumptionRealism(state);
-  const dataQuality = deriveDataQuality({ benchmarkWarnings, evidenceWarnings, driftSummary });
+  const dataQuality = deriveDataQuality({
+    benchmarkWarnings,
+    evidenceWarnings,
+    driftSummary,
+    voterSignals,
+  });
   const historicalAccuracyScore = deriveHistoricalAccuracyScore(state);
   const execution = deriveExecutionReadiness(state);
   const p10 = state?.mcLast?.confidenceEnvelope?.percentiles?.p10;
@@ -205,12 +441,20 @@ export function computeModelGovernance({
   });
   const learning = computeLearningLoop({
     modelAudit: state?.ui?.modelAudit || null,
+    signals: {
+      voterRows: dataQuality?.voterRows,
+      voterGeoCoverageRate: dataQuality?.voterGeoCoverage,
+      voterContactableRate: dataQuality?.voterContactableRate,
+      governanceConfidenceScore: confidence?.score,
+      governanceDataQualityScore: dataQuality?.score,
+      governanceExecutionScore: execution?.score,
+    },
   });
 
   const sensitivityDrivers = deriveSensitivityDrivers(state);
   const warnings = [];
   for (const flag of realism.flags.slice(0, 4)){
-    warnings.push(`${flag.label}: ${flag.value.toFixed(1)} outside ${flag.severity === "bad" ? "hard" : "typical"} range.`);
+    warnings.push(`${flag.label}: ${formatFixedNumber(flag.value, 1, "—")} outside ${flag.severity === "bad" ? "hard" : "typical"} range.`);
   }
   for (const issue of dataQuality.issues.slice(0, 4)){
     warnings.push(`Data quality: ${issue}.`);
@@ -240,9 +484,9 @@ export function computeModelGovernance({
       {
         title: "Model governance",
         lines: [
-          { k: "Realism", v: `${realism.status.toUpperCase()} (${realism.score.toFixed(0)}/100)` },
-          { k: "Data quality", v: `${dataQuality.status.toUpperCase()} (${dataQuality.score.toFixed(0)}/100)` },
-          { k: "Confidence", v: `${confidence.band.toUpperCase()} (${confidence.score.toFixed(1)}/100)` },
+          { k: "Realism", v: formatStatusWithScoreOutOfHundred(realism.status, realism.score, 0) },
+          { k: "Data quality", v: formatStatusWithScoreOutOfHundred(dataQuality.status, dataQuality.score, 0) },
+          { k: "Confidence", v: formatStatusWithScoreOutOfHundred(confidence.band, confidence.score, 1) },
         ],
       },
       {
@@ -250,7 +494,7 @@ export function computeModelGovernance({
         lines: sensitivityDrivers.length
           ? sensitivityDrivers.map((row) => ({
               k: row.label,
-              v: `${row.deltaWinPct > 0 ? "+" : ""}${Number(row.deltaWinPct).toFixed(1)} pts`,
+              v: `${row.deltaWinPct > 0 ? "+" : ""}${formatFixedNumber(row.deltaWinPct, 1, "0.0")} pts`,
             }))
           : [{ k: "Snapshot", v: "Run sensitivity snapshot to populate driver ranking." }],
       },
@@ -265,10 +509,10 @@ export function computeModelGovernance({
       {
         title: "Execution realism",
         lines: [
-          { k: "Execution", v: `${execution.status.toUpperCase()} (${execution.score.toFixed(0)}/100)` },
+          { k: "Execution", v: formatStatusWithScoreOutOfHundred(execution.status, execution.score, 0) },
           {
             k: "Timeline executable",
-            v: execution.timelineExecutablePct == null ? "—" : `${Math.round(execution.timelineExecutablePct * 100)}%`,
+            v: execution.timelineExecutablePct == null ? "—" : formatPercentFromUnit(execution.timelineExecutablePct, 0),
           },
           {
             k: "Uplift uncertainty",
@@ -278,12 +522,19 @@ export function computeModelGovernance({
             k: "Saturation pressure",
             v: String(execution?.uplift?.saturationPressure || "unknown").toUpperCase(),
           },
+          {
+            k: "Uplift source",
+            v: formatUpliftSourceLabel(execution?.uplift?.source, { unknownLabel: "Unknown" }),
+          },
         ],
       },
     ],
     diagnostics: {
       benchmarkWarningCount: Array.isArray(benchmarkWarnings) ? benchmarkWarnings.length : 0,
       evidenceWarningCount: Array.isArray(evidenceWarnings) ? evidenceWarnings.length : 0,
+      voterRows: Math.max(0, toFiniteNumber(voterSignals?.totalRows) ?? 0),
+      voterGeoCoverage: clamp(toFiniteNumber(voterSignals?.coverage?.geoCoverageRate) ?? 0, 0, 1),
+      voterContactableRate: clamp(toFiniteNumber(voterSignals?.coverage?.contactableRate) ?? 0, 0, 1),
       turnoutExpectedPct: toFiniteNumber(res?.turnout?.expectedPct),
       winProb: toFiniteNumber(state?.mcLast?.winProb),
     },

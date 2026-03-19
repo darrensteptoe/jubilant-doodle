@@ -9,6 +9,11 @@
 */
 
 import { computeMaxAttemptsByTactic, getTimelineObjectiveMeta, optimizeTimelineConstrained } from "./timelineOptimizer.js";
+import {
+  computeTimelineCapsSummary,
+  extractTimelineActiveWeeks,
+} from "./timelineCapsInput.js";
+import { coerceFiniteNumber } from "./utils.js";
 
 /**
  * @param {unknown} v
@@ -16,8 +21,8 @@ import { computeMaxAttemptsByTactic, getTimelineObjectiveMeta, optimizeTimelineC
  * @returns {number}
  */
 function clampNumber(v, lo = 0){
-  const n = Number(v);
-  if (!Number.isFinite(n)) return lo;
+  const n = coerceFiniteNumber(v);
+  if (n == null) return lo;
   return n < lo ? lo : n;
 }
 
@@ -26,8 +31,7 @@ function clampNumber(v, lo = 0){
  * @returns {number | null}
  */
 function safeNullNum(v){
-  const n = Number(v);
-  return Number.isFinite(n) ? n : null;
+  return coerceFiniteNumber(v);
 }
 
 /**
@@ -188,7 +192,7 @@ export function computeMarginalValueDiagnostics({ baselineInputs, baselineResult
 
   if (!baselineInputs || !baselineResult || !timelineInputs) return stub;
 
-  const baseCaps = computeMaxAttemptsByTactic({
+  const baseCapsInput = {
     enabled: !!timelineInputs.enabled,
     weeksRemaining: timelineInputs.weeksRemaining,
     activeWeeksOverride: timelineInputs.activeWeeksOverride,
@@ -196,11 +200,13 @@ export function computeMarginalValueDiagnostics({ baselineInputs, baselineResult
     staffing: timelineInputs.staffing,
     throughput: timelineInputs.throughput,
     tacticKinds: timelineInputs.tacticKinds
+  };
+  const baseCapsSummary = computeTimelineCapsSummary({
+    capsInput: baseCapsInput,
+    computeMaxAttemptsByTactic,
   });
 
-  const baselineMaxAttempts = (baseCaps && baseCaps.enabled)
-    ? baseCaps.maxAttemptsByTactic
-    : (baselineInputs.maxAttemptsByTactic || null);
+  const baselineMaxAttempts = baseCapsSummary.maxAttemptsByTactic || baselineInputs.maxAttemptsByTactic || null;
 
   const { primaryBottleneck, secondaryNotes } = detectPrimaryBottleneck({ baselineResult, maxAttemptsByTactic: baselineMaxAttempts });
 
@@ -212,7 +218,10 @@ export function computeMarginalValueDiagnostics({ baselineInputs, baselineResult
   const baseMax = clampNumber(baseObjectiveMeta.maxAchievableObjectiveValue ?? 0, 0);
   const baseCost = clampNumber(baselineResult?.plan?.totals?.cost ?? 0, 0);
 
-  const baseActiveWeeks = clampNumber(baseCaps?.activeWeeks ?? timelineInputs.activeWeeksOverride ?? 0, 0);
+  const baseActiveWeeks = clampNumber(
+    extractTimelineActiveWeeks(baseCapsSummary.capsWrap, timelineInputs.activeWeeksOverride ?? 0),
+    0
+  );
 
   const buildPerturbed = (label, patchTimeline) => {
     const tIn = {
@@ -226,8 +235,11 @@ export function computeMarginalValueDiagnostics({ baselineInputs, baselineResult
     };
     if (patchTimeline) patchTimeline(tIn);
 
-    const caps = computeMaxAttemptsByTactic(tIn);
-    const maxAttemptsByTactic = (caps && caps.enabled) ? caps.maxAttemptsByTactic : null;
+    const capsSummary = computeTimelineCapsSummary({
+      capsInput: tIn,
+      computeMaxAttemptsByTactic,
+    });
+    const maxAttemptsByTactic = capsSummary.maxAttemptsByTactic;
 
     const out = optimizeTimelineConstrained({
       ...baselineInputs,

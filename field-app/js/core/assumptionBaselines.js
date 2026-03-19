@@ -1,4 +1,5 @@
 // @ts-check
+import { clampFiniteNumber, safeNum } from "./utils.js";
 
 export const ASSUMPTION_BASELINES_VERSION = "1.0.0";
 
@@ -40,19 +41,8 @@ export const ASSUMPTION_BASELINES = Object.freeze({
   }),
 });
 
-function toFiniteNumber(value){
-  if (value == null || value === "") return null;
-  const n = Number(value);
-  return Number.isFinite(n) ? n : null;
-}
-
-function clamp(value, lo, hi){
-  const n = Number(value);
-  if (!Number.isFinite(n)) return lo;
-  if (n < lo) return lo;
-  if (n > hi) return hi;
-  return n;
-}
+const toFiniteNumber = safeNum;
+const clamp = clampFiniteNumber;
 
 function scoreSeverity(flags){
   let penalty = 0;
@@ -128,4 +118,3 @@ export function evaluateAssumptionRealism(state, baselines = ASSUMPTION_BASELINE
     flags,
   };
 }
-

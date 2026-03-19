@@ -2,6 +2,7 @@
 // Scenario-scoped district intelligence data contract.
 // This layer is metadata/input plumbing only; it must not run planning math.
 import { deriveAreaResolverContext } from "./areaResolver.js";
+import { clampFiniteNumber, formatFixedNumber, roundWholeNumberByMode, safeNum } from "./utils.js";
 
 export const DISTRICT_DATA_VERSION = "0.1.0";
 
@@ -39,11 +40,7 @@ function toIdOrNull(v){
  * @param {unknown} v
  * @returns {number | null}
  */
-function toFiniteOrNull(v){
-  if (v == null || v === "") return null;
-  const n = Number(v);
-  return Number.isFinite(n) ? n : null;
-}
+const toFiniteOrNull = safeNum;
 
 /**
  * @param {unknown} v
@@ -81,10 +78,7 @@ function toIsoOrNull(v){
  * @param {number} max
  * @returns {number}
  */
-function clamp(n, min, max){
-  if (!Number.isFinite(n)) return min;
-  return Math.max(min, Math.min(max, n));
-}
+const clamp = clampFiniteNumber;
 
 /**
  * @param {unknown} v
@@ -157,7 +151,12 @@ export function normalizeDataRefs(raw){
     boundarySetId: toIdOrNull(raw.boundarySetId),
     crosswalkVersionId: toIdOrNull(raw.crosswalkVersionId),
     electionStrictSimilarity: !!raw.electionStrictSimilarity,
-    electionMaxYearDelta: maxYearDeltaRaw == null ? null : clamp(Math.round(maxYearDeltaRaw), 0, 30),
+    electionMaxYearDelta: maxYearDeltaRaw == null
+      ? null
+      : (() => {
+          const rounded = roundWholeNumberByMode(maxYearDeltaRaw, { mode: "round", fallback: null });
+          return rounded == null ? null : clamp(rounded, 0, 30);
+        })(),
     electionMinCoveragePct: minCoverageRaw == null ? null : clamp(minCoverageRaw, 0, 100),
     pinnedAt: toIsoOrNull(raw.pinnedAt),
     lastCheckedAt: toIsoOrNull(raw.lastCheckedAt),
@@ -819,7 +818,7 @@ export function validateDistrictDataContract(scenario){
     if (sum <= 0){
       errors.push("geoPack.units contains no positive weights.");
     } else if (Math.abs(sum - 1) > 0.05){
-      warnings.push(`geoPack.units weights sum to ${sum.toFixed(4)} (expected near 1.0).`);
+      warnings.push(`geoPack.units weights sum to ${formatFixedNumber(sum, 4, "—")} (expected near 1.0).`);
     }
   }
 

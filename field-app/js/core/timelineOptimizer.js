@@ -4,6 +4,7 @@
 // Pure core module: no DOM, deterministic.
 
 import { optimizeMixBudget, optimizeMixCapacity } from "./optimize.js";
+import { clampFiniteNumber, safeNum } from "./utils.js";
 
 /**
  * @param {unknown} v
@@ -11,18 +12,8 @@ import { optimizeMixBudget, optimizeMixCapacity } from "./optimize.js";
  * @returns {number | null}
  */
 function num(v, fb = null){
-  if (v === null || v === undefined || v === "") return fb;
-  const n = Number(v);
-  return Number.isFinite(n) ? n : fb;
-}
-
-/**
- * @param {unknown} v
- * @returns {number}
- */
-function clamp0(v){
-  const n = num(v, 0);
-  return n < 0 ? 0 : n;
+  const n = safeNum(v);
+  return n == null ? fb : n;
 }
 
 /**
@@ -69,14 +60,14 @@ export function computeMaxAttemptsByTactic(args){
     return { maxAttemptsByTactic: {}, meta: { enabled:false, weeksRemaining: 0, activeWeeks: 0, totalHours: 0, rampFactor: 1 } };
   }
 
-  const weeksRemaining = clamp0(args?.weeksRemaining);
+  const weeksRemaining = clampFiniteNumber(args?.weeksRemaining, 0, Number.POSITIVE_INFINITY);
   const activeWeeksOverride = num(args?.activeWeeksOverride, null);
-  const activeWeeks = clamp0(activeWeeksOverride == null ? weeksRemaining : activeWeeksOverride);
+  const activeWeeks = clampFiniteNumber(activeWeeksOverride == null ? weeksRemaining : activeWeeksOverride, 0, Number.POSITIVE_INFINITY);
 
-  const staff = clamp0(args?.staffing?.staff);
-  const volunteers = clamp0(args?.staffing?.volunteers);
-  const staffHours = clamp0(args?.staffing?.staffHours);
-  const volunteerHours = clamp0(args?.staffing?.volunteerHours);
+  const staff = clampFiniteNumber(args?.staffing?.staff, 0, Number.POSITIVE_INFINITY);
+  const volunteers = clampFiniteNumber(args?.staffing?.volunteers, 0, Number.POSITIVE_INFINITY);
+  const staffHours = clampFiniteNumber(args?.staffing?.staffHours, 0, Number.POSITIVE_INFINITY);
+  const volunteerHours = clampFiniteNumber(args?.staffing?.volunteerHours, 0, Number.POSITIVE_INFINITY);
 
   const hoursPerWeek = (staff * staffHours) + (volunteers * volunteerHours);
   const totalHours = hoursPerWeek * activeWeeks;
@@ -93,7 +84,7 @@ export function computeMaxAttemptsByTactic(args){
   const tp = args?.throughput || {};
   const maxAttemptsByTactic = {};
   for (const k of Object.keys(tp)){
-    const perHour = clamp0(tp[k]);
+    const perHour = clampFiniteNumber(tp[k], 0, Number.POSITIVE_INFINITY);
     maxAttemptsByTactic[k] = totalHours * perHour * rampFactor;
   }
 

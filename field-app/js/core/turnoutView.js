@@ -1,8 +1,27 @@
 // @ts-check
+import { roundWholeNumberByMode, safeNum, formatWholeNumberByMode } from "./utils.js";
 
 export const TURNOUT_STATUS_AWAITING_SETUP = "Awaiting setup";
 export const TURNOUT_STATUS_BANNER_FALLBACK = "Set turnout assumptions and refresh ROI to evaluate realized-vote impact.";
 export const TURNOUT_ROI_BANNER_FALLBACK = "Refresh ROI to compute efficiency comparison.";
+
+/**
+ * @param {unknown} value
+ * @param {number=} decimals
+ * @returns {string}
+ */
+export function formatTurnoutCurrency(value, decimals = 0){
+  const num = Number(value);
+  if (!Number.isFinite(num)) {
+    return "—";
+  }
+  const digitsRaw = roundWholeNumberByMode(decimals, { mode: "floor", fallback: 0 }) ?? 0;
+  const digits = Math.max(0, digitsRaw);
+  return `$${num.toLocaleString(undefined, {
+    minimumFractionDigits: digits,
+    maximumFractionDigits: digits,
+  })}`;
+}
 
 /**
  * @param {unknown} value
@@ -13,8 +32,8 @@ function toFiniteNumberOrNaN(value){
   if (!text){
     return NaN;
   }
-  const n = Number(text);
-  return Number.isFinite(n) ? n : NaN;
+  const n = safeNum(text);
+  return n == null ? NaN : n;
 }
 
 /**
@@ -152,6 +171,52 @@ export function deriveTurnoutSummaryCardStatus(summary, turnoutVotes, needVotes)
     return "Current";
   }
   return TURNOUT_STATUS_AWAITING_SETUP;
+}
+
+/**
+ * @param {{
+ *   capContacts?: unknown,
+ *   requiredContacts?: unknown,
+ *   formatInt?: ((value: number) => string) | null,
+ * }} input
+ * @returns {{
+ *   capContactsText: string,
+ *   gapContactsText: string,
+ *   gapNoteText: string,
+ * }}
+ */
+export function buildTurnoutPhase3CapacityGapView(input = {}){
+  const capContacts = Number(input?.capContacts);
+  const requiredContacts = Number(input?.requiredContacts);
+  const formatInt = typeof input?.formatInt === "function"
+    ? input.formatInt
+    : (value) => formatWholeNumberByMode(value, { mode: "round", fallback: "0" });
+  const toText = (value, mode) => {
+    const rounded = roundWholeNumberByMode(value, { mode, fallback: 0 }) ?? 0;
+    return String(formatInt(rounded));
+  };
+
+  const capContactsText = Number.isFinite(capContacts)
+    ? toText(capContacts, "floor")
+    : "—";
+
+  if (!Number.isFinite(capContacts) || !Number.isFinite(requiredContacts)){
+    return {
+      capContactsText,
+      gapContactsText: "—",
+      gapNoteText: "Enter Phase 2 rates + Phase 3 capacity to compute.",
+    };
+  }
+
+  const gap = capContacts - requiredContacts;
+  const sign = gap >= 0 ? "+" : "−";
+  return {
+    capContactsText,
+    gapContactsText: `${sign}${toText(Math.abs(gap), "ceil")}`,
+    gapNoteText: gap >= 0
+      ? "Capacity ≥ requirement (base rates)."
+      : "Shortfall vs requirement (base rates).",
+  };
 }
 
 /**

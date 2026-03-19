@@ -7,6 +7,7 @@ import {
   normalizeCrosswalkRows,
   normalizePrecinctResults,
 } from "./precinctCensusJoin.js";
+import { clampFiniteNumber, formatFixedNumber, roundWholeNumberByMode, safeNum } from "./utils.js";
 
 /**
  * @param {unknown} v
@@ -28,11 +29,7 @@ function str(v){
  * @param {unknown} v
  * @returns {number | null}
  */
-function numOrNull(v){
-  if (v == null || v === "") return null;
-  const n = Number(v);
-  return Number.isFinite(n) ? n : null;
-}
+const numOrNull = safeNum;
 
 /**
  * @param {number} n
@@ -40,10 +37,7 @@ function numOrNull(v){
  * @param {number} max
  * @returns {number}
  */
-function clamp(n, min, max){
-  if (!Number.isFinite(n)) return min;
-  return Math.max(min, Math.min(max, n));
-}
+const clamp = clampFiniteNumber;
 
 /**
  * @param {unknown[]} rows
@@ -191,7 +185,7 @@ export function derivePersuasionSignalFromElection(args){
  */
 export function summarizeGeoEvidenceLayers(args){
   const rows = Array.isArray(args?.geoRows) ? args.geoRows : [];
-  const maxRowsRaw = Math.floor(numOrNull(args?.maxRows) ?? 20);
+  const maxRowsRaw = roundWholeNumberByMode(numOrNull(args?.maxRows) ?? 20, { mode: "floor", fallback: 20 }) ?? 20;
   const maxRows = clamp(maxRowsRaw, 1, 500);
   const out = [];
   for (const row of rows){
@@ -199,7 +193,10 @@ export function summarizeGeoEvidenceLayers(args){
     const geoid = str(row.geoid);
     if (!geoid) continue;
     const totalVotes = Math.max(0, numOrNull(row.totalVotes) ?? 0);
-    const sourcePrecincts = Math.max(0, Math.floor(numOrNull(row.sourcePrecincts) ?? 0));
+    const sourcePrecincts = Math.max(
+      0,
+      roundWholeNumberByMode(numOrNull(row.sourcePrecincts) ?? 0, { mode: "floor", fallback: 0 }) ?? 0
+    );
     const hasElection = !!row.hasElection;
     const hasCensus = !!row.hasCensus;
     const candidateVotesIn = isObject(row.candidateVotes) ? row.candidateVotes : {};
@@ -269,7 +266,7 @@ export function summarizeGeoEvidenceLayers(args){
  */
 export function summarizeGeoOpportunityLayers(args){
   const rows = Array.isArray(args?.geoRows) ? args.geoRows : [];
-  const maxRowsRaw = Math.floor(numOrNull(args?.maxRows) ?? 20);
+  const maxRowsRaw = roundWholeNumberByMode(numOrNull(args?.maxRows) ?? 20, { mode: "floor", fallback: 20 }) ?? 20;
   const maxRows = clamp(maxRowsRaw, 1, 500);
   const normalized = [];
 
@@ -278,7 +275,10 @@ export function summarizeGeoOpportunityLayers(args){
     const geoid = str(row.geoid);
     if (!geoid) continue;
     const totalVotes = Math.max(0, numOrNull(row.totalVotes) ?? 0);
-    const sourcePrecincts = Math.max(0, Math.floor(numOrNull(row.sourcePrecincts) ?? 0));
+    const sourcePrecincts = Math.max(
+      0,
+      roundWholeNumberByMode(numOrNull(row.sourcePrecincts) ?? 0, { mode: "floor", fallback: 0 }) ?? 0
+    );
     const hasElection = !!row.hasElection;
     const hasCensus = !!row.hasCensus;
     const census = isObject(row.census) ? row.census : {};
@@ -447,7 +447,7 @@ export function extractGeoEvidenceCentroid(row){
  */
 export function buildGeoEvidenceMapLayer(args){
   const rows = Array.isArray(args?.geoRows) ? args.geoRows : [];
-  const maxPointsRaw = Math.floor(numOrNull(args?.maxPoints) ?? 300);
+  const maxPointsRaw = roundWholeNumberByMode(numOrNull(args?.maxPoints) ?? 300, { mode: "floor", fallback: 300 }) ?? 300;
   const maxPoints = clamp(maxPointsRaw, 1, 2000);
   const points = [];
 
@@ -458,7 +458,10 @@ export function buildGeoEvidenceMapLayer(args){
     const centroid = extractGeoEvidenceCentroid(row);
     if (!centroid) continue;
     const totalVotes = Math.max(0, numOrNull(row.totalVotes) ?? 0);
-    const sourcePrecincts = Math.max(0, Math.floor(numOrNull(row.sourcePrecincts) ?? 0));
+    const sourcePrecincts = Math.max(
+      0,
+      roundWholeNumberByMode(numOrNull(row.sourcePrecincts) ?? 0, { mode: "floor", fallback: 0 }) ?? 0
+    );
     const hasElection = !!row.hasElection;
     const hasCensus = !!row.hasCensus;
     const candidateVotesIn = isObject(row.candidateVotes) ? row.candidateVotes : {};
@@ -551,7 +554,7 @@ export function summarizePrecinctEvidenceLayers(args){
   const crosswalkRows = normalizeCrosswalkRows(args?.crosswalkRows || []);
   const geoUnits = normalizeGeoUnitsForEvidence(args?.geoUnits || []);
   const hasGeoUnits = geoUnits.length > 0;
-  const maxRowsRaw = Math.floor(numOrNull(args?.maxRows) ?? 20);
+  const maxRowsRaw = roundWholeNumberByMode(numOrNull(args?.maxRows) ?? 20, { mode: "floor", fallback: 20 }) ?? 20;
   const maxRows = clamp(maxRowsRaw, 1, 2000);
 
   const unitMap = new Map(geoUnits.map((row) => [row.geoid, row.w]));
@@ -797,7 +800,7 @@ export function compileDistrictEvidence(args){
       warnings.push(`Selected geo units without census rows: ${missingCensusForSelected}.`);
     }
     if (districtWeightSum > 0 && Math.abs(districtWeightSum - 1) > 0.01){
-      warnings.push(`Geo unit weights sum to ${districtWeightSum.toFixed(4)} (expected near 1.0).`);
+      warnings.push(`Geo unit weights sum to ${formatFixedNumber(districtWeightSum, 4, "—")} (expected near 1.0).`);
     }
     if (geoRows.length === 0 && (censusRows.length > 0 || (Array.isArray(join.perGeo) && join.perGeo.length > 0))){
       warnings.push("Selected geo units do not overlap imported GEO evidence rows.");

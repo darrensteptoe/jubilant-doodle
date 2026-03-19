@@ -9,27 +9,10 @@
 // - Lightweight analysis: cliffs, diminishing returns, safe zone, fragility points
 //
 // Export: computeSensitivitySurface({ engine, baseline, sweep, options })
+import { clampFiniteNumber, coerceFiniteNumber, roundWholeNumberByMode } from "./utils.js";
 
-/**
- * @param {unknown} v
- * @returns {number | null}
- */
-function safeNum(v){
-  const n = Number(v);
-  return Number.isFinite(n) ? n : null;
-}
-
-/**
- * @param {unknown} v
- * @param {number} lo
- * @param {number} hi
- * @returns {number}
- */
-function clamp(v, lo, hi){
-  const n = safeNum(v);
-  if (n == null) return lo;
-  return Math.min(hi, Math.max(lo, n));
-}
+const safeNum = coerceFiniteNumber;
+const clamp = clampFiniteNumber;
 
 /**
  * @param {Array<number | null | undefined>} arr
@@ -39,7 +22,7 @@ function median(arr){
   const xs = (arr || []).filter(x => Number.isFinite(x)).slice().sort((a,b)=>a-b);
   const n = xs.length;
   if (!n) return null;
-  const mid = Math.floor(n/2);
+  const mid = roundWholeNumberByMode(n / 2, { mode: "floor", fallback: 0 }) ?? 0;
   return (n % 2) ? xs[mid] : (xs[mid-1] + xs[mid]) / 2;
 }
 
@@ -92,7 +75,7 @@ function largestRange(ranges){
 function generateSweepPoints(minValue, maxValue, steps){
   const lo = Number(minValue);
   const hi = Number(maxValue);
-  const n = Math.max(2, Math.floor(Number(steps) || 21));
+  const n = Math.max(2, roundWholeNumberByMode(Number(steps) || 21, { mode: "floor", fallback: 21 }) ?? 21);
   if (!Number.isFinite(lo) || !Number.isFinite(hi)) return [];
   if (n === 1) return [lo];
   if (hi === lo) return Array.from({ length: n }, () => lo);
@@ -220,7 +203,7 @@ export function computeSensitivitySurface({ engine, baseline, sweep, options }){
 
   const minValueRaw = safeNum(sweep?.minValue);
   const maxValueRaw = safeNum(sweep?.maxValue);
-  const steps = Math.max(5, Math.floor(safeNum(sweep?.steps) ?? 21));
+  const steps = Math.max(5, roundWholeNumberByMode(safeNum(sweep?.steps) ?? 21, { mode: "floor", fallback: 21 }) ?? 21);
 
   if (minValueRaw == null || maxValueRaw == null){
     return { points: [], analysis: null, warning: "Missing sweep bounds" };
@@ -234,7 +217,7 @@ export function computeSensitivitySurface({ engine, baseline, sweep, options }){
     return { points: [], analysis: null, warning: "No sweep points" };
   }
 
-  const runs = Math.max(200, Math.floor(safeNum(options?.runs) ?? 2000));
+  const runs = Math.max(200, roundWholeNumberByMode(safeNum(options?.runs) ?? 2000, { mode: "floor", fallback: 2000 }) ?? 2000);
   const seed = (options?.seed != null) ? String(options.seed) : "";
 
   const out = [];

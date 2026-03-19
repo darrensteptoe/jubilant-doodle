@@ -1,19 +1,12 @@
 // @ts-check
 
+import { clampFiniteNumber, coerceFiniteNumber } from "./utils.js";
+import { pctOverrideToDecimal } from "./voteProduction.js";
+
 const EPS = 1e-9;
 
-function safeNum(value){
-  const n = Number(value);
-  return Number.isFinite(n) ? n : null;
-}
-
-function clamp(value, min, max){
-  const n = Number(value);
-  if (!Number.isFinite(n)) return min;
-  if (n < min) return min;
-  if (n > max) return max;
-  return n;
-}
+const safeNum = coerceFiniteNumber;
+const clamp = clampFiniteNumber;
 
 export const CHANNEL_COST_REGISTRY = Object.freeze({
   doors: Object.freeze({
@@ -102,10 +95,11 @@ export function resolveChannelCostAssumption(channelId, { tactic = {}, workforce
   const explicitCost = safeNum(tactic?.cpa);
   const defaultCost = safeNum(registry.defaultCostPerAttempt) ?? 0;
   const costPerAttempt = Math.max(0, (explicitCost != null ? explicitCost : defaultCost) / Math.max(EPS, laborMultiplier));
-  const explicitCr = safeNum(tactic?.crPct);
-  const contactRate = (explicitCr != null)
-    ? clamp(explicitCr / 100, 0, 1)
-    : clamp(safeNum(registry.defaultContactRate) ?? 0, 0, 1);
+  const contactRate = clamp(
+    pctOverrideToDecimal(tactic?.crPct, safeNum(registry.defaultContactRate) ?? 0) ?? 0,
+    0,
+    1,
+  );
   const costPerContact = contactRate > EPS ? (costPerAttempt / contactRate) : null;
 
   return {

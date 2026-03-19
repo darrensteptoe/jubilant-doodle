@@ -10,23 +10,17 @@ import {
   deriveWeeksRemainingCeil,
   computeCapacityBreakdown,
 } from "./model.js";
-import { clamp } from "./utils.js";
+import {
+  resolveCanonicalCallsPerHour,
+  resolveCanonicalDoorShareUnit,
+  resolveCanonicalDoorsPerHour,
+} from "./throughput.js";
 import { buildDeterministicExplainMap } from "./explainMap.js";
 import { resolveFeatureFlags } from "./featureFlags.js";
 
 function toNumDefault(v){
   const n = Number(v);
   return Number.isFinite(n) ? n : null;
-}
-
-/**
- * @param {unknown} doorSharePct
- * @returns {number|null}
- */
-function toDoorShareUnit(doorSharePct){
-  const n = Number(doorSharePct);
-  if (!Number.isFinite(n)) return null;
-  return clamp(n, 0, 100) / 100;
 }
 
 /**
@@ -110,9 +104,9 @@ export function computeElectionSnapshot({
     orgCount: toNum(snap.orgCount),
     orgHoursPerWeek: toNum(snap.orgHoursPerWeek),
     volunteerMult: toNum(snap.volunteerMultBase),
-    doorShare: toDoorShareUnit(snap.channelDoorPct),
-    doorsPerHour: toNum(snap.doorsPerHour3 ?? snap.doorsPerHour),
-    callsPerHour: toNum(snap.callsPerHour3),
+    doorShare: resolveCanonicalDoorShareUnit(snap),
+    doorsPerHour: toNum(resolveCanonicalDoorsPerHour(snap, { toNumber: toNum })),
+    callsPerHour: toNum(resolveCanonicalCallsPerHour(snap, { toNumber: toNum })),
     capacityDecay,
   });
 

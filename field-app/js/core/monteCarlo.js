@@ -25,6 +25,8 @@ import { computeUniverseAdjustedRates, normalizeUniversePercents } from "./unive
 import { computeCapacityContacts } from "./model.js";
 import { computeConfidenceEnvelope } from "./confidenceEnvelope.js";
 import { resolveFeatureFlags } from "./featureFlags.js";
+import { resolveBaseCallsPerHour, resolveBaseDoorsPerHour } from "./throughput.js";
+import { buildTurnoutModelFromState } from "./voteProduction.js";
 
 // --- helpers (verbatim logic from prior app.js) ---
 function pctToUnit(v, fallback){
@@ -538,8 +540,8 @@ export function runMonteCarloSim(argsOrScenario, legacyRes, legacyWeeks, legacyN
   const orgCount = safeNum(sc.orgCount) ?? 2;
   const orgHrs = safeNum(sc.orgHoursPerWeek) ?? 40;
   const doorShare = pctToUnit(safeNum(sc.channelDoorPct), 0.70);
-  const baseDph = safeNum(sc.doorsPerHour3) ?? safeNum(sc.doorsPerHour) ?? 30;
-  const baseCph = safeNum(sc.callsPerHour3) ?? 20;
+  const baseDph = resolveBaseDoorsPerHour(sc, { toNumber: safeNum, fallback: 30 }) ?? 30;
+  const baseCph = resolveBaseCallsPerHour(sc, { toNumber: safeNum, fallback: 20 }) ?? 20;
   const baseVol = safeNum(sc.volunteerMultBase) ?? 1.0;
 
   const rng = makeRng(seed);
@@ -562,9 +564,13 @@ export function runMonteCarloSim(argsOrScenario, legacyRes, legacyWeeks, legacyN
   };
 
   const turnoutEnabled = !!resolvedFeatures?.turnoutModelingEnabled;
-  const baseTurnoutPct = (safeNum(sc.turnoutTargetOverridePct) != null) ? safeNum(sc.turnoutTargetOverridePct) : safeNum(sc.turnoutBaselinePct);
-  const gotvMaxLiftPP = (sc.gotvMode === "advanced") ? safeNum(sc.gotvMaxLiftPP2) : safeNum(sc.gotvMaxLiftPP);
-  const useDim = !!sc.gotvDiminishing;
+  const turnoutModel = buildTurnoutModelFromState(sc, {
+    enabled: turnoutEnabled,
+    includeDisabled: true,
+  }) || { enabled: false, baselineTurnoutPct: null, maxLiftPP: null, useDiminishing: false };
+  const baseTurnoutPct = safeNum(turnoutModel.baselineTurnoutPct);
+  const gotvMaxLiftPP = safeNum(turnoutModel.maxLiftPP);
+  const useDim = !!turnoutModel.useDiminishing;
 
   const U = safeNum(sc.universeSize);
   const tuPct = safeNum(sc.persuasionPct);

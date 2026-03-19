@@ -36,6 +36,7 @@ import {
   buildElectionCsvTemplate,
   buildElectionCsvWideTemplate,
   buildCensusAssumptionAdvisory,
+  buildCensusPaceFeasibilitySnapshot,
   evaluateCensusPaceAgainstAdvisory,
   evaluateQaOverlayNonBlocking,
   clampCensusApplyMultipliers,
@@ -851,6 +852,166 @@ export function registerCensusPhase1Tests(ctx){
     assert(multipliers.persuasion === 0.9, "persuasion multiplier lower bound mismatch");
     assert(multipliers.turnoutLift === 1.1, "turnout multiplier upper bound mismatch");
     assert(multipliers.organizerLoad === 0.85, "organizer-load multiplier lower bound mismatch");
+  });
+
+  test("Census Phase1: canonical pace-feasibility snapshot composes advisory/apply/pace in one source", () => {
+    const censusState = {
+      year: "2024",
+      resolution: "tract",
+      metricSet: "core",
+      stateFips: "17",
+      countyFips: "031",
+      selectedGeoids: ["17031010100", "17031010200"],
+      loadedRowCount: 2,
+      activeRowsKey: "2024|tract|17|031|core",
+      applyAdjustedAssumptions: true,
+      rowsByGeoid: {
+        "17031010100": {
+          values: {
+            B01003_001E: 1200,
+            B25001_001E: 500,
+            B25003_003E: 280,
+            B25003_001E: 460,
+            B25024_003E: 140,
+            B25024_004E: 100,
+            B25024_001E: 360,
+            C16002_004E: 18,
+            C16002_007E: 14,
+            C16002_010E: 8,
+            C16002_013E: 5,
+            C16002_001E: 900,
+            B15003_022E: 120,
+            B15003_023E: 75,
+            B15003_024E: 40,
+            B15003_025E: 22,
+            B15003_001E: 760,
+            B19013_001E: 61000,
+          },
+        },
+        "17031010200": {
+          values: {
+            B01003_001E: 1800,
+            B25001_001E: 760,
+            B25003_003E: 320,
+            B25003_001E: 700,
+            B25024_003E: 110,
+            B25024_004E: 70,
+            B25024_001E: 650,
+            C16002_004E: 24,
+            C16002_007E: 16,
+            C16002_010E: 10,
+            C16002_013E: 6,
+            C16002_001E: 1500,
+            B15003_022E: 210,
+            B15003_023E: 150,
+            B15003_024E: 80,
+            B15003_025E: 35,
+            B15003_001E: 1300,
+            B19013_001E: 74000,
+          },
+        },
+      },
+    };
+    const live = buildRaceFootprintFromCensusSelection(censusState);
+    const state = {
+      census: censusState,
+      raceFootprint: { ...live, fingerprint: live.fingerprint },
+      assumptionsProvenance: {
+        source: "census_phase1",
+        raceFootprintFingerprint: live.fingerprint,
+        censusRowsKey: live.rowsKey,
+        acsYear: "2024",
+        metricSet: "core",
+      },
+      supportRatePct: 55,
+      contactRatePct: 24,
+      turnoutReliabilityPct: 80,
+      orgCount: 3,
+      orgHoursPerWeek: 14,
+      volunteerMultBase: 1.1,
+      weeksRemaining: 10,
+      doorKnockShare: 0.6,
+      doorsPerHour3: 24,
+      callsPerHour3: 18,
+    };
+    const snapshot = buildCensusPaceFeasibilitySnapshot({
+      state,
+      needVotes: 900,
+    });
+    assert(snapshot.hasRows === true, "pace-feasibility snapshot should detect row availability");
+    assert(snapshot.activeRowsReady === true, "pace-feasibility snapshot should detect active rows key");
+    assert(snapshot.advisory?.ready === true, "pace-feasibility snapshot should expose ready advisory");
+    assert(snapshot.applyGate?.ready === true, "pace-feasibility snapshot should expose ready apply gate");
+    assert(snapshot.applyMultipliers != null, "pace-feasibility snapshot should expose apply multipliers when gate is ready");
+    assert(Number.isFinite(Number(snapshot.adjusted?.contactRatePct)), "pace-feasibility snapshot should expose adjusted contact-rate assumption");
+    assert(snapshot.pace?.ready === true, "pace-feasibility snapshot should expose ready pace projection");
+    assert(Number.isFinite(Number(snapshot.pace?.requiredAph)), "pace-feasibility snapshot should expose required APH");
+  });
+
+  test("Census Phase1: pace-feasibility snapshot preserves row data while blocking apply without active rows key", () => {
+    const censusState = {
+      year: "2024",
+      resolution: "tract",
+      metricSet: "core",
+      stateFips: "17",
+      countyFips: "031",
+      selectedGeoids: ["17031010100"],
+      loadedRowCount: 1,
+      activeRowsKey: "",
+      applyAdjustedAssumptions: true,
+      rowsByGeoid: {
+        "17031010100": {
+          values: {
+            B01003_001E: 900,
+            B25001_001E: 380,
+            B25003_003E: 210,
+            B25003_001E: 340,
+            B25024_003E: 90,
+            B25024_004E: 65,
+            B25024_001E: 280,
+            C16002_004E: 12,
+            C16002_007E: 9,
+            C16002_010E: 6,
+            C16002_013E: 4,
+            C16002_001E: 680,
+            B15003_022E: 85,
+            B15003_023E: 55,
+            B15003_024E: 30,
+            B15003_025E: 16,
+            B15003_001E: 560,
+            B19013_001E: 56000,
+          },
+        },
+      },
+    };
+    const live = buildRaceFootprintFromCensusSelection({ ...censusState, activeRowsKey: "2024|tract|17|031|core" });
+    const snapshot = buildCensusPaceFeasibilitySnapshot({
+      state: {
+        census: censusState,
+        raceFootprint: { ...live, fingerprint: live.fingerprint },
+        assumptionsProvenance: {
+          source: "census_phase1",
+          raceFootprintFingerprint: live.fingerprint,
+          censusRowsKey: live.rowsKey,
+          acsYear: "2024",
+          metricSet: "core",
+        },
+        supportRatePct: 54,
+        contactRatePct: 23,
+        turnoutReliabilityPct: 79,
+        orgCount: 2,
+        orgHoursPerWeek: 12,
+        volunteerMultBase: 1,
+      },
+      needVotes: 600,
+      weeks: 9,
+    });
+    assert(snapshot.hasRows === true, "pace-feasibility snapshot should preserve row-data detection");
+    assert(snapshot.activeRowsReady === false, "pace-feasibility snapshot should flag missing active rows key");
+    assert(snapshot.applyGate?.ready === false, "pace-feasibility snapshot should block apply gate when rows key is missing");
+    assert(snapshot.applyGate?.reason === "rows_not_ready", "pace-feasibility snapshot should use rows_not_ready gate reason without active rows key");
+    assert(snapshot.applyMultipliers == null, "pace-feasibility snapshot should not expose multipliers when apply gate is blocked");
+    assert(snapshot.pace?.ready === true, "pace-feasibility snapshot should still expose pace projection from row data");
   });
 
   test("Census Phase1: alignment tolerates runtime rows key reset when footprint/provenance match", () => {

@@ -2,6 +2,7 @@
 // js/core/intelState.js
 // Scenario-scoped Intel metadata.
 // This layer must not alter deterministic math or MC outputs.
+import { clampFiniteNumber, safeNum } from "./utils.js";
 
 export const INTEL_STATE_VERSION = "1.0.0";
 
@@ -57,10 +58,7 @@ function deepClone(v){
  * @param {number} max
  * @returns {number}
  */
-function clamp(n, min, max){
-  if (!Number.isFinite(n)) return min;
-  return Math.min(max, Math.max(min, n));
-}
+const clamp = clampFiniteNumber;
 
 /**
  * @param {unknown} v
@@ -68,8 +66,8 @@ function clamp(n, min, max){
  * @returns {number | null}
  */
 function toFiniteNumber(v, fallback){
-  const n = Number(v);
-  return Number.isFinite(n) ? n : fallback;
+  const n = safeNum(v);
+  return n == null ? fallback : n;
 }
 
 /**

@@ -3,7 +3,9 @@
 // Consumes planning snapshot + observed logs to produce pace and drift context.
 // @ts-check
 
-import { safeNum } from "./utils.js";
+import { roundWholeNumberByMode, safeNum } from "./utils.js";
+import { computeProjectedSlipDays } from "./executionPlanner.js";
+import { computeBlendedAttemptsPerHour } from "./model.js";
 
 /**
  * @param {unknown} v
@@ -28,6 +30,17 @@ function attemptsFromLogEntry(entry, safeNumFn){
     return toNum(explicit, safeNumFn);
   }
   return doors + calls;
+}
+
+/**
+ * Canonical attempts resolver for daily-log rows.
+ * @param {Record<string, any> | null | undefined} entry
+ * @param {(v: unknown) => number|null} [safeNumFn]
+ * @returns {number}
+ */
+export function deriveExecutionAttemptsFromLogEntry(entry, safeNumFn = safeNum){
+  const row = entry && typeof entry === "object" ? entry : {};
+  return attemptsFromLogEntry(row, safeNumFn);
 }
 
 /**
@@ -139,7 +152,8 @@ function summarizeDailyLog({ dailyLog, windowN = 7, safeNumFn = safeNum } = {}){
   let days = null;
   if (firstDate && lastDate){
     const ms = lastDate.getTime() - firstDate.getTime();
-    days = Math.max(1, Math.ceil(ms / 86400000) + 1);
+    const daySpan = roundWholeNumberByMode(ms / 86400000, { mode: "ceil", fallback: 0 }) ?? 0;
+    days = Math.max(1, daySpan + 1);
   }
 
   return {
@@ -157,6 +171,73 @@ function summarizeDailyLog({ dailyLog, windowN = 7, safeNumFn = safeNum } = {}){
     sumOrgHoursWindow,
     sumAttemptsAll,
   };
+}
+
+/**
+ * @param {{
+ *   dailyLog?: Array<Record<string, any>>,
+ *   windowN?: number,
+ *   safeNumFn?: (v: unknown) => number|null
+ * }} args
+ * @returns {{
+ *   hasLog:boolean,
+ *   sorted:Array<Record<string, any>>,
+ *   window:Array<Record<string, any>>,
+ *   windowN:number,
+ *   entries:number,
+ *   firstDate:Date|null,
+ *   lastDate:Date|null,
+ *   days:number|null,
+ *   sumAttemptsWindow:number,
+ *   sumConvosWindow:number,
+ *   sumSupportIdsWindow:number,
+ *   sumOrgHoursWindow:number,
+ *   sumAttemptsAll:number
+ * }}
+ */
+export function summarizeExecutionDailyLog(args = {}){
+  return summarizeDailyLog(args);
+}
+
+/**
+ * @param {{
+ *   sumAttempts?: unknown,
+ *   sumConvos?: unknown,
+ *   sumSupportIds?: unknown,
+ *   sumOrgHours?: unknown,
+ *   safeNumFn?: (v: unknown) => number|null
+ * }} args
+ * @returns {{ cr:number|null, sr:number|null, aph:number|null }}
+ */
+export function computeRollingExecutionRates({
+  sumAttempts = 0,
+  sumConvos = 0,
+  sumSupportIds = 0,
+  sumOrgHours = 0,
+  safeNumFn = safeNum,
+} = {}){
+  const attempts = toNum(sumAttempts, safeNumFn);
+  const convos = toNum(sumConvos, safeNumFn);
+  const supportIds = toNum(sumSupportIds, safeNumFn);
+  const orgHours = toNum(sumOrgHours, safeNumFn);
+  return {
+    cr: attempts > 0 ? (convos / attempts) : null,
+    sr: convos > 0 ? (supportIds / convos) : null,
+    aph: orgHours > 0 ? (attempts / orgHours) : null,
+  };
+}
+
+/**
+ * @param {Record<string, any> | null | undefined} weeklyContext
+ * @returns {number | null}
+ */
+export function computeExpectedAphFromWeeklyContext(weeklyContext){
+  const ctx = weeklyContext && typeof weeklyContext === "object" ? weeklyContext : {};
+  return computeBlendedAttemptsPerHour({
+    doorShare: ctx?.doorShare,
+    doorsPerHour: ctx?.doorsPerHour,
+    callsPerHour: ctx?.callsPerHour,
+  });
 }
 
 /**
@@ -183,10 +264,16 @@ export function computeExecutionSnapshot({
   safeNumFn = safeNum,
 } = {}){
   const log = summarizeDailyLog({ dailyLog, windowN, safeNumFn });
-
-  const rollingCR = log.sumAttemptsWindow > 0 ? (log.sumConvosWindow / log.sumAttemptsWindow) : null;
-  const rollingSR = log.sumConvosWindow > 0 ? (log.sumSupportIdsWindow / log.sumConvosWindow) : null;
-  const rollingAPH = log.sumOrgHoursWindow > 0 ? (log.sumAttemptsWindow / log.sumOrgHoursWindow) : null;
+  const rolling = computeRollingExecutionRates({
+    sumAttempts: log.sumAttemptsWindow,
+    sumConvos: log.sumConvosWindow,
+    sumSupportIds: log.sumSupportIdsWindow,
+    sumOrgHours: log.sumOrgHoursWindow,
+    safeNumFn,
+  });
+  const rollingCR = rolling.cr;
+  const rollingSR = rolling.sr;
+  const rollingAPH = rolling.aph;
 
   const requiredAttemptsPerWeek = weeklyContext?.attemptsPerWeek ?? null;
   const capacityAttemptsPerWeek = weeklyContext?.capTotal ?? null;
@@ -234,15 +321,12 @@ export function computeExecutionSnapshot({
     status = "Behind";
   }
 
-  let projectedSlipDays = null;
-  if (attemptsNeeded != null && Number.isFinite(attemptsNeeded) && attemptsNeeded > 0 && log.sumAttemptsWindow > 0){
-    const remaining = Math.max(0, attemptsNeeded - log.sumAttemptsAll);
-    const weeksRemaining = planningSnapshot?.weeks;
-    if (weeksRemaining != null && Number.isFinite(weeksRemaining) && weeksRemaining > 0){
-      const projectedWeeks = remaining / log.sumAttemptsWindow;
-      projectedSlipDays = Math.max(0, Math.round((projectedWeeks - weeksRemaining) * 7));
-    }
-  }
+  const projectedSlipDays = computeProjectedSlipDays({
+    attemptsNeeded,
+    attemptsCompleted: log.sumAttemptsAll,
+    attemptsPerWeek: log.sumAttemptsWindow,
+    weeksRemaining: planningSnapshot?.weeks,
+  });
 
   return {
     weeklyContext,

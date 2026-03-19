@@ -14,6 +14,7 @@ import {
   makeDefaultFootprintCapacity,
   normalizeFootprintCapacity,
 } from "./censusModule.js";
+import { makeDefaultVoterDataState, normalizeVoterDataState } from "./voterDataLayer.js";
 
 export const CURRENT_SCHEMA_VERSION = "1.6.0";
 
@@ -31,6 +32,7 @@ const SCENARIO_DEFAULTS = {
   // Phase 17 — Intel metadata and governance state (non-math annotations only)
   intelState: makeDefaultIntelState(),
   census: makeDefaultCensusState(),
+  voterData: makeDefaultVoterDataState(),
   raceFootprint: makeDefaultRaceFootprint(),
   assumptionsProvenance: makeDefaultAssumptionProvenance(),
   footprintCapacity: makeDefaultFootprintCapacity(),
@@ -50,6 +52,7 @@ function applyScenarioDefaults(scen){
   }
   scen.intelState = normalizeIntelState(scen.intelState);
   scen.census = normalizeCensusState(scen.census, { resetRuntime: true });
+  scen.voterData = normalizeVoterDataState(scen.voterData);
   scen.raceFootprint = normalizeRaceFootprint(scen.raceFootprint);
   scen.assumptionsProvenance = normalizeAssumptionProvenance(scen.assumptionsProvenance);
   scen.footprintCapacity = normalizeFootprintCapacity(scen.footprintCapacity);

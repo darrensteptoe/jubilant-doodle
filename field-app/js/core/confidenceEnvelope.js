@@ -3,6 +3,7 @@
 // Phase 14 — Confidence Envelope (Risk Framing Layer)
 // Pure post-processing of Monte Carlo margin outcomes.
 // NOTE: Must not mutate inputs.
+import { roundWholeNumberByMode } from "./utils.js";
 
 /**
  * @typedef {object} ConfidenceEnvelopeInput
@@ -58,8 +59,8 @@ function quantileSorted(sorted, q){
   if (q <= 0) return sorted[0];
   if (q >= 1) return sorted[n-1];
   const i = q * (n - 1);
-  const lo = Math.floor(i);
-  const hi = Math.ceil(i);
+  const lo = roundWholeNumberByMode(i, { mode: "floor", fallback: 0 }) ?? 0;
+  const hi = roundWholeNumberByMode(i, { mode: "ceil", fallback: 0 }) ?? 0;
   if (lo === hi) return sorted[lo];
   const t = i - lo;
   return sorted[lo] + t * (sorted[hi] - sorted[lo]);
@@ -153,7 +154,7 @@ export function computeConfidenceEnvelope({ margins, sortedMargins, winProb, win
   out.risk.marginOfSafety = p10;
 
   // Expected shortfall (bottom 10%)
-  const k = Math.max(1, Math.ceil(0.10 * n));
+  const k = Math.max(1, roundWholeNumberByMode(0.10 * n, { mode: "ceil", fallback: 1 }) ?? 1);
   let s = 0;
   for (let i=0;i<k;i++) s += sorted[i];
   out.risk.expectedShortfall10 = s / k;
@@ -195,21 +196,24 @@ export function computeConfidenceEnvelope({ margins, sortedMargins, winProb, win
 
 
   // Phase 14.1 — Advisor grade + narrative (deterministic)
-  const tol = Math.max(10, Math.round(0.10 * (out.diagnostics.stdev || 0)));
+  const tol = Math.max(10, roundWholeNumberByMode(0.10 * (out.diagnostics.stdev || 0), { mode: "round", fallback: 0 }) ?? 0);
   let grade = "";
   let narrative = "";
+  const p10Rounded = roundWholeNumberByMode(p10, { mode: "round", fallback: 0 }) ?? 0;
+  const p50Rounded = roundWholeNumberByMode(p50, { mode: "round", fallback: 0 }) ?? 0;
+  const requiredLiftRounded = roundWholeNumberByMode(Math.max(0, -p50), { mode: "round", fallback: 0 }) ?? 0;
   if (p10 >= 0){
     grade = "Safe";
-    narrative = `Safe: even the 10th percentile outcome is ${p10 >= 0 ? "+" : ""}${Math.round(p10)}.`;
+    narrative = `Safe: even the 10th percentile outcome is ${p10 >= 0 ? "+" : ""}${p10Rounded}.`;
   } else if (p50 >= 0){
     grade = "Favored, tail risk";
-    narrative = `Favored, but tail risk: median is ${p50 >= 0 ? "+" : ""}${Math.round(p50)}, while P10 is ${Math.round(p10)}.`;
+    narrative = `Favored, but tail risk: median is ${p50 >= 0 ? "+" : ""}${p50Rounded}, while P10 is ${p10Rounded}.`;
   } else if (Math.abs(p50) <= tol){
     grade = "Toss-up";
-    narrative = `Knife-edge: median is within ±${tol} of break-even (${Math.round(p50)}).`;
+    narrative = `Knife-edge: median is within ±${tol} of break-even (${p50Rounded}).`;
   } else {
     grade = "Unfavored";
-    narrative = `Unfavored: median outcome is ${Math.round(p50)}. Required lift (P50→0): ${Math.round(Math.max(0, -p50))}.`;
+    narrative = `Unfavored: median outcome is ${p50Rounded}. Required lift (P50→0): ${requiredLiftRounded}.`;
   }
   out.risk.advisor.grade = grade;
   out.risk.advisor.narrative = narrative;
@@ -221,7 +225,7 @@ export function computeConfidenceEnvelope({ margins, sortedMargins, winProb, win
 
   // Fragility
   const sd = out.diagnostics.stdev;
-  const eps = Math.max(1, Math.round(0.01 * (sd || 0)));
+  const eps = Math.max(1, roundWholeNumberByMode(0.01 * (sd || 0), { mode: "round", fallback: 0 }) ?? 0);
   let winsMinus = 0;
   for (let i=0;i<n;i++){
     const m = arr[i];
@@ -234,7 +238,10 @@ export function computeConfidenceEnvelope({ margins, sortedMargins, winProb, win
   out.risk.fragility.slopeAtBreakeven = slope;
   out.risk.fragility.fragilityIndex = slope * 100;
 
-  const w = Math.max(1, Math.round(Math.min(25, 0.5 * (sd || 0))));
+  const w = Math.max(
+    1,
+    roundWholeNumberByMode(Math.min(25, 0.5 * (sd || 0)), { mode: "round", fallback: 0 }) ?? 0
+  );
   let near = 0;
   for (let i=0;i<n;i++){
     const m = arr[i];

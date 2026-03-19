@@ -10,53 +10,48 @@
 import { computeVolunteerNeedFromGoal } from "./executionPlanner.js";
 import { buildModelInputFromSnapshot } from "./modelInput.js";
 import { resolveFeatureFlags } from "./featureFlags.js";
+import { ZERO_BASE_RATE_DEFAULTS, resolveStateBaseRates } from "./baseRates.js";
+import { deriveOptimizationBindingSummary } from "./optimize.js";
+import { resolveCanonicalDoorsPerHour } from "./throughput.js";
+import {
+  buildTimelineCapsInputFromState,
+  buildTimelineTacticKindsMapFromState,
+  computeTimelineCapsSummary,
+} from "./timelineCapsInput.js";
+import { coerceFiniteNumber } from "./utils.js";
 
-function safeNum(v){
-  const n = Number(v);
-  return Number.isFinite(n) ? n : null;
-}
-
-function clamp(v, lo, hi){
-  if (!Number.isFinite(v)) return lo;
-  return Math.min(hi, Math.max(lo, v));
-}
-
-function pctToUnit(pct, fallback){
-  const n = safeNum(pct);
-  if (n == null) return fallback;
-  return clamp(n, 0, 100) / 100;
-}
+const safeNum = coerceFiniteNumber;
 
 function buildBaseRatesFromSnap(snap){
-  const s = snap || {};
-  return {
-    cr: pctToUnit(s.contactRatePct, 0),
-    sr: pctToUnit(s.supportRatePct, 0),
-    tr: pctToUnit(s.turnoutReliabilityPct, 0),
-  };
+  return resolveStateBaseRates(snap, {
+    defaults: ZERO_BASE_RATE_DEFAULTS,
+    clampMin: 0,
+    clampMax: 1,
+  });
 }
 
 function buildTimelineCapsInputFromSnap({ snap, weeks, tactics }){
   const s = snap || {};
   const features = resolveFeatureFlags(s);
-  return {
-    enabled: !!features.timelineEnabled,
+  const fallbackKinds = tactics?.reduce((acc, t) => {
+    const id = String(t?.id || "").trim();
+    if (!id) return acc;
+    acc[id] = String(t?.kind || "persuasion");
+    return acc;
+  }, {}) || {};
+  const tacticKinds = Object.keys(fallbackKinds).length
+    ? fallbackKinds
+    : buildTimelineTacticKindsMapFromState(s);
+  const out = buildTimelineCapsInputFromState({
+    state: s,
     weeksRemaining: weeks,
-    activeWeeksOverride: safeNum(s.timelineActiveWeeks),
-    gotvWindowWeeks: safeNum(s.timelineGotvWeeks) ?? 2,
-    staffing: {
-      staff: safeNum(s.timelineStaffCount) ?? 0,
-      staffHours: safeNum(s.timelineStaffHours) ?? 40,
-      volunteers: safeNum(s.timelineVolCount) ?? 0,
-      volunteerHours: safeNum(s.timelineVolHours) ?? 4,
-    },
-    throughput: {
-      doors: safeNum(s.timelineDoorsPerHour) ?? 0,
-      phones: safeNum(s.timelineCallsPerHour) ?? 0,
-      texts: safeNum(s.timelineTextsPerHour) ?? 0,
-    },
-    tacticKinds: tactics?.map(t => ({ id: t.id, kind: t.kind })) || []
-  };
+    enabled: !!features.timelineEnabled,
+    tacticKinds,
+  });
+  if (safeNum(s.timelineStaffHours) == null) out.staffing.staffHours = 40;
+  if (safeNum(s.timelineVolHours) == null) out.staffing.volunteerHours = 4;
+  if (out.gotvWindowWeeks == null) out.gotvWindowWeeks = 2;
+  return out;
 }
 
 function computeMinCostToCloseGap({ computeRoiRows, snap, baseRates, tactics, goalObjectiveValue, caps, mcLast, turnoutModel }){
@@ -98,57 +93,11 @@ function stableSort(items, key, dir = 1){
 }
 
 function detectBottlenecks({ snap, maxAttemptsByTactic }){
-  const bindingObj = snap?.ui?.lastTlMeta?.bindingObj || {};
-  const alloc = snap?.ui?.lastOpt?.allocation || {};
-
-  // Collect binding candidates
-  const bindingTimeline = Array.isArray(bindingObj?.timeline) ? bindingObj.timeline : [];
-  const bindingBudget = !!bindingObj?.budget;
-  const bindingCapacity = !!bindingObj?.capacity;
-
-  // Timeline saturation ranking (if available)
-  const sat = [];
-  for (const t of bindingTimeline){
-    const cap = safeNum(maxAttemptsByTactic?.[t]);
-    const a = safeNum(alloc?.[t]);
-    const s = (cap != null && cap > 0 && a != null) ? (a / cap) : null;
-    if (s != null) sat.push({ t, s });
-  }
-  sat.sort((a,b) => b.s - a.s || String(a.t).localeCompare(String(b.t)));
-
-  let primary = null;
-  let secondary = null;
-
-  if (sat.length){
-    primary = `timeline: ${sat[0].t}`;
-    if (sat.length > 1) secondary = `timeline: ${sat[1].t}`;
-  } else if (bindingTimeline.length){
-    primary = `timeline: ${bindingTimeline[0]}`;
-    if (bindingTimeline.length > 1) secondary = `timeline: ${bindingTimeline[1]}`;
-  }
-
-  // If no timeline binding, consider budget/capacity as primary/secondary.
-  const others = [];
-  if (bindingBudget) others.push("budget");
-  if (bindingCapacity) others.push("capacity");
-
-  if (!primary && others.length){
-    primary = others[0];
-    secondary = others[1] || null;
-  } else if (primary && !secondary && others.length){
-    secondary = others[0];
-  }
-
-  const notBinding = [];
-  if (!bindingTimeline.length) notBinding.push("timeline");
-  if (!bindingBudget) notBinding.push("budget");
-  if (!bindingCapacity) notBinding.push("capacity");
-
-  return {
-    primary: primary || "none/unknown",
-    secondary: secondary || "—",
-    notBinding
-  };
+  return deriveOptimizationBindingSummary({
+    bindingObj: snap?.ui?.lastTlMeta?.bindingObj || {},
+    allocation: snap?.ui?.lastOpt?.allocation || {},
+    maxAttemptsByTactic,
+  });
 }
 
 function buildLevers({ snap }){
@@ -167,11 +116,12 @@ function buildLevers({ snap }){
   });
 
   // +1 throughput
+  const baseDoorsPerHour = resolveCanonicalDoorsPerHour(snap) ?? 0;
   levers.push({
     lever: "Doors per hour (+1)",
     patch: {
-      doorsPerHour: (safeNum(snap.doorsPerHour3) ?? safeNum(snap.doorsPerHour) ?? 0) + 1,
-      doorsPerHour3: (safeNum(snap.doorsPerHour3) ?? safeNum(snap.doorsPerHour) ?? 0) + 1,
+      doorsPerHour: baseDoorsPerHour + 1,
+      doorsPerHour3: baseDoorsPerHour + 1,
     }
   });
 
@@ -288,15 +238,15 @@ export function computeDecisionIntelligence({ engine, snap, baseline }){
       const weeks = baseline?.weeks ?? plan?.weeks ?? null;
       const res = baseline?.res ?? plan?.res ?? null;
       const needVotes = baseline?.needVotes ?? plan?.needVotes ?? (res ? engine.deriveNeedVotes(res, snap?.goalSupportIds) : null);
-      const volsNeeded = baseline?.volsNeeded ?? computeVolunteerNeedFromGoal({
-        goalVotes: needVotes,
-        supportRatePct: snap.supportRatePct,
-        contactRatePct: snap.contactRatePct,
-        doorsPerHour: (safeNum(snap.doorsPerHour3) ?? safeNum(snap.doorsPerHour)),
-        hoursPerShift: snap.hoursPerShift,
-        shiftsPerVolunteerPerWeek: snap.shiftsPerVolunteerPerWeek,
-        weeks
-      });
+        const volsNeeded = baseline?.volsNeeded ?? computeVolunteerNeedFromGoal({
+          goalVotes: needVotes,
+          supportRatePct: snap.supportRatePct,
+          contactRatePct: snap.contactRatePct,
+          doorsPerHour: resolveCanonicalDoorsPerHour(snap),
+          hoursPerShift: snap.hoursPerShift,
+          shiftsPerVolunteerPerWeek: snap.shiftsPerVolunteerPerWeek,
+          weeks
+        });
       const seed = (snap.mcSeed != null && String(snap.mcSeed).trim() !== "") ? String(snap.mcSeed) : DI_FALLBACK_SEED;
       const sim = engine.runMonteCarloSim({ res, weeks, needVotes, runs: 10000, seed });
       const s = sim?.summary || sim || {};
@@ -313,8 +263,11 @@ export function computeDecisionIntelligence({ engine, snap, baseline }){
       // Timeline caps for feasibility (optional)
       const capsInput = buildTimelineCapsInputFromSnap({ snap, weeks, tactics });
 
-      const caps = engine.computeMaxAttemptsByTactic(capsInput);
-      const maxAttemptsByTactic = (caps && caps.enabled) ? caps.maxAttemptsByTactic : null;
+      const capsSummary = computeTimelineCapsSummary({
+        capsInput,
+        computeMaxAttemptsByTactic: (input) => engine.computeMaxAttemptsByTactic(input),
+      });
+      const maxAttemptsByTactic = capsSummary.maxAttemptsByTactic;
 
       const minCostToCloseGap = computeMinCostToCloseGap({
         computeRoiRows: engine.computeRoiRows,
@@ -322,7 +275,7 @@ export function computeDecisionIntelligence({ engine, snap, baseline }){
         baseRates,
         tactics,
         goalObjectiveValue: needVotes,
-        caps: (caps && caps.enabled) ? caps : null,
+        caps: maxAttemptsByTactic ? capsSummary.capsWrap : null,
         mcLast: sim,
         turnoutModel: null
       });
@@ -355,7 +308,7 @@ export function computeDecisionIntelligence({ engine, snap, baseline }){
           goalVotes: needVotes,
           supportRatePct: workSnap.supportRatePct,
           contactRatePct: workSnap.contactRatePct,
-          doorsPerHour: (safeNum(workSnap.doorsPerHour3) ?? safeNum(workSnap.doorsPerHour)),
+          doorsPerHour: resolveCanonicalDoorsPerHour(workSnap),
           hoursPerShift: workSnap.hoursPerShift,
           shiftsPerVolunteerPerWeek: workSnap.shiftsPerVolunteerPerWeek,
           weeks
@@ -375,7 +328,11 @@ export function computeDecisionIntelligence({ engine, snap, baseline }){
 
         const capsInput = buildTimelineCapsInputFromSnap({ snap: workSnap, weeks, tactics });
 
-        const caps = engine.computeMaxAttemptsByTactic(capsInput);
+        const capsSummary = computeTimelineCapsSummary({
+          capsInput,
+          computeMaxAttemptsByTactic: (input) => engine.computeMaxAttemptsByTactic(input),
+        });
+        const maxAttemptsByTactic = capsSummary.maxAttemptsByTactic;
 
         const minCostToCloseGap = computeMinCostToCloseGap({
           computeRoiRows: engine.computeRoiRows,
@@ -383,7 +340,7 @@ export function computeDecisionIntelligence({ engine, snap, baseline }){
           baseRates,
           tactics,
           goalObjectiveValue: needVotes,
-          caps: (caps && caps.enabled) ? caps : null,
+          caps: maxAttemptsByTactic ? capsSummary.capsWrap : null,
           mcLast: sim,
           turnoutModel: null
         });

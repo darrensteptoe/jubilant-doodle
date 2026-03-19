@@ -1,6 +1,10 @@
 // @ts-check
 
 import { computeCanonicalTargetMetrics } from "./targetFeatureEngine.js";
+import { BASE_RATE_DEFAULTS, resolveStateBaseRates } from "./baseRates.js";
+import { resolveCanonicalDoorsPerHour } from "./throughput.js";
+import { clampFiniteNumber, coerceFiniteNumber, formatFixedNumber } from "./utils.js";
+import { pctOverrideToDecimal } from "./voteProduction.js";
 
 const AGE_18_24_VARS = [
   "B01001_007E", "B01001_008E", "B01001_009E", "B01001_010E",
@@ -26,18 +30,8 @@ const MULTI_UNIT_VARS = [
 ];
 const LIMITED_ENGLISH_VARS = ["C16002_004E", "C16002_007E", "C16002_010E", "C16002_013E"];
 
-function safeNum(value){
-  const n = Number(value);
-  return Number.isFinite(n) ? n : null;
-}
-
-function clamp(value, min, max){
-  const n = Number(value);
-  if (!Number.isFinite(n)) return min;
-  if (n < min) return min;
-  if (n > max) return max;
-  return n;
-}
+const safeNum = coerceFiniteNumber;
+const clamp = clampFiniteNumber;
 
 function sumVars(values, variableIds){
   let total = 0;
@@ -62,17 +56,17 @@ function turnoutExpectedFromState(state){
   const a = safeNum(state?.turnoutA);
   const b = safeNum(state?.turnoutB);
   if (a != null && b != null){
-    return clamp(((a + b) / 2) / 100, 0.2, 0.95);
+    return clamp(pctOverrideToDecimal((a + b) / 2, 0.55) ?? 0.55, 0.2, 0.95);
   }
-  const baseline = safeNum(state?.turnoutBaselinePct);
+  const baseline = pctOverrideToDecimal(state?.turnoutBaselinePct, null);
   if (baseline != null){
-    return clamp(baseline / 100, 0.2, 0.95);
+    return clamp(baseline, 0.2, 0.95);
   }
   return 0.55;
 }
 
 function baseDoorsPerHour(state){
-  const dph = safeNum(state?.doorsPerHour3 ?? state?.doorsPerHour);
+  const dph = resolveCanonicalDoorsPerHour(state, { toNumber: safeNum });
   return dph != null ? clamp(dph, 5, 80) : 30;
 }
 
@@ -178,9 +172,14 @@ export function deriveTargetSignalsForRow(row, state, config = {}){
   );
   const estimatedDoorsPerHour = baseDoorsPerHour(state) * estimatedDoorsPerHourFactor;
 
-  const baseContactRate = clamp((safeNum(state?.contactRatePct) ?? 22) / 100, 0.01, 1);
-  const baseSupportRate = clamp((safeNum(state?.supportRatePct) ?? 55) / 100, 0.01, 1);
-  const baseTurnoutReliability = clamp((safeNum(state?.turnoutReliabilityPct) ?? 80) / 100, 0.01, 1);
+  const baseRates = resolveStateBaseRates(state, {
+    defaults: BASE_RATE_DEFAULTS,
+    clampMin: 0.01,
+    clampMax: 1,
+  });
+  const baseContactRate = clamp(Number(baseRates?.cr ?? BASE_RATE_DEFAULTS.cr), 0.01, 1);
+  const baseSupportRate = clamp(Number(baseRates?.sr ?? BASE_RATE_DEFAULTS.sr), 0.01, 1);
+  const baseTurnoutReliability = clamp(Number(baseRates?.tr ?? BASE_RATE_DEFAULTS.tr), 0.01, 1);
   const votesPerOrganizerHour =
     estimatedDoorsPerHour *
     baseContactRate *
@@ -347,7 +346,7 @@ function buildReasons(components, rawSignals, modelId){
     reasons.push("Balanced composite profile across turnout, persuasion, and field feasibility.");
   }
   if (modelId === "field_efficiency" && Number.isFinite(Number(rawSignals?.votesPerOrganizerHour))){
-    reasons.push(`Estimated votes per organizer hour: ${Number(rawSignals.votesPerOrganizerHour).toFixed(2)}.`);
+    reasons.push(`Estimated votes per organizer hour: ${formatFixedNumber(rawSignals.votesPerOrganizerHour, 2, "—")}.`);
   }
   return reasons.slice(0, 3);
 }

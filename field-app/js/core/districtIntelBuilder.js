@@ -4,6 +4,8 @@
 
 import { normalizeDistrictIntelPack } from "./districtData.js";
 import { deriveAreaResolverContext } from "./areaResolver.js";
+import { clampFiniteNumber, safeNum } from "./utils.js";
+import { rateOverrideToDecimal } from "./voteProduction.js";
 
 /**
  * @param {unknown} v
@@ -25,11 +27,7 @@ function str(v){
  * @param {unknown} v
  * @returns {number | null}
  */
-function numOrNull(v){
-  if (v == null || v === "") return null;
-  const n = Number(v);
-  return Number.isFinite(n) ? n : null;
-}
+const numOrNull = safeNum;
 
 /**
  * @param {number} n
@@ -37,10 +35,7 @@ function numOrNull(v){
  * @param {number} max
  * @returns {number}
  */
-function clamp(n, min, max){
-  if (!Number.isFinite(n)) return min;
-  return Math.max(min, Math.min(max, n));
-}
+const clamp = clampFiniteNumber;
 
 /**
  * @param {Record<string, any>} totals
@@ -62,10 +57,7 @@ function pickNum(totals, keys){
  */
 function pickShare(totals, keys){
   const raw = pickNum(totals, keys);
-  if (raw == null) return null;
-  if (raw >= 0 && raw <= 1) return raw;
-  if (raw > 1 && raw <= 100) return raw / 100;
-  return null;
+  return rateOverrideToDecimal(raw, null);
 }
 
 /**
@@ -103,11 +95,7 @@ function ratioFromTotals(totals, numKeys, denKeys){
  * @returns {number | null}
  */
 function toUnitRate(v){
-  const n = numOrNull(v);
-  if (n == null) return null;
-  if (n >= 0 && n <= 1) return n;
-  if (n > 1 && n <= 100) return n / 100;
-  return null;
+  return rateOverrideToDecimal(v, null);
 }
 
 /**

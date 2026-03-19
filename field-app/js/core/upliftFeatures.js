@@ -1,17 +1,9 @@
 // @ts-check
 
-function safeNum(value){
-  const n = Number(value);
-  return Number.isFinite(n) ? n : null;
-}
+import { clampFiniteNumber, coerceFiniteNumber } from "./utils.js";
 
-function clamp(value, min, max){
-  const n = Number(value);
-  if (!Number.isFinite(n)) return min;
-  if (n < min) return min;
-  if (n > max) return max;
-  return n;
-}
+const safeNum = coerceFiniteNumber;
+const clamp = clampFiniteNumber;
 
 export function buildUpliftFeatures({
   rawSignals = {},
@@ -49,4 +41,3 @@ export function buildUpliftFeatures({
     uncertainty,
   };
 }
-

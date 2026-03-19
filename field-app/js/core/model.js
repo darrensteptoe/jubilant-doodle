@@ -133,6 +133,25 @@ function capacityDecayMultiplier(weeks, decay){
   return (weighted > 0) ? (weighted / w) : 0;
 }
 
+/**
+ * @param {{
+ *   doorShare?: unknown,
+ *   doorsPerHour?: unknown,
+ *   callsPerHour?: unknown
+ * }} args
+ * @returns {number|null}
+ */
+export function computeBlendedAttemptsPerHour({ doorShare, doorsPerHour, callsPerHour } = {}){
+  const dsRaw = safeNum(doorShare);
+  const dph = safeNum(doorsPerHour);
+  const cph = safeNum(callsPerHour);
+  if (dsRaw == null || dph == null || cph == null) return null;
+  if (dph < 0 || cph < 0) return null;
+  const ds = clamp(dsRaw, 0, 1);
+  const blended = (ds * dph) + ((1 - ds) * cph);
+  return (isFinite(blended) && blended >= 0) ? blended : null;
+}
+
 // Capacity ceiling in attempt units (doors knocked + calls dialed)
 /**
  * @param {{
@@ -157,12 +176,16 @@ export function computeCapacityContacts({ weeks, orgCount, orgHoursPerWeek, volu
 
   const vm = (volunteerMult == null || volunteerMult <= 0) ? 1 : volunteerMult;
   const ds = (doorShare == null) ? 0.5 : clamp(doorShare, 0, 1);
+  const blendedAttemptsPerHour = computeBlendedAttemptsPerHour({
+    doorShare: ds,
+    doorsPerHour,
+    callsPerHour,
+  });
+  if (blendedAttemptsPerHour == null) return null;
   const decay = resolveCapacityDecayConfig(capacityDecay);
   const decayMult = capacityDecayMultiplier(w, decay);
 
-  const totalDoor = w * orgCount * orgHoursPerWeek * doorsPerHour * vm * ds * decayMult;
-  const totalPhone = w * orgCount * orgHoursPerWeek * callsPerHour * vm * (1 - ds) * decayMult;
-  const total = totalDoor + totalPhone;
+  const total = w * orgCount * orgHoursPerWeek * blendedAttemptsPerHour * vm * decayMult;
 
   return (isFinite(total) && total >= 0) ? total : null;
 }

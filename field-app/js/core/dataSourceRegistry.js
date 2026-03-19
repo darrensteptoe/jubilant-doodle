@@ -3,6 +3,7 @@
 // Purpose: normalize catalog records and resolve latest/verified selections deterministically.
 
 import { normalizeDataCatalog, normalizeDataRefs } from "./districtData.js";
+import { clampFiniteNumber, formatFixedNumber, roundWholeNumberByMode, safeNum } from "./utils.js";
 
 /**
  * @param {unknown} v
@@ -33,11 +34,7 @@ function strOrNull(v){
  * @param {unknown} v
  * @returns {number | null}
  */
-function numOrNull(v){
-  if (v == null || v === "") return null;
-  const n = Number(v);
-  return Number.isFinite(n) ? n : null;
-}
+const numOrNull = safeNum;
 
 /**
  * @param {unknown} v
@@ -79,10 +76,7 @@ function vintageRank(v){
  * @param {number} max
  * @returns {number}
  */
-function clamp(n, min, max){
-  if (!Number.isFinite(n)) return min;
-  return Math.max(min, Math.min(max, n));
-}
+const clamp = clampFiniteNumber;
 
 /**
  * @param {unknown} v
@@ -231,9 +225,15 @@ function normalizeElectionCompatibilityFilters(args){
   const maxYearRaw = numOrNull(explicit.maxYearDelta);
   const maxYearFromRefs = numOrNull(refs.electionMaxYearDelta);
   const maxYearDelta = maxYearRaw != null
-    ? clamp(Math.round(maxYearRaw), 0, 30)
+    ? (() => {
+        const rounded = roundWholeNumberByMode(maxYearRaw, { mode: "round", fallback: null });
+        return rounded == null ? null : clamp(rounded, 0, 30);
+      })()
     : maxYearFromRefs != null
-      ? clamp(Math.round(maxYearFromRefs), 0, 30)
+      ? (() => {
+          const rounded = roundWholeNumberByMode(maxYearFromRefs, { mode: "round", fallback: null });
+          return rounded == null ? null : clamp(rounded, 0, 30);
+        })()
       : null;
 
   const minCovRaw = numOrNull(explicit.minCoveragePct);
@@ -905,7 +905,7 @@ export function resolveDataRefsByPolicy(args){
     if (picked){
       if (selected.electionDatasetId !== picked.id){
         const scoreNote = Number.isFinite(ranked[0]?.score)
-          ? ` (compatibility score ${Number(ranked[0].score).toFixed(2)})`
+          ? ` (compatibility score ${formatFixedNumber(ranked[0].score, 2, "0.00")})`
           : "";
         notes.push(`electionDatasetId resolved to latest verified '${picked.id}'${scoreNote}.`);
         usedFallbacks = true;
@@ -1066,8 +1066,9 @@ export function diagnoseDataRefAlignment(args){
     if (!row) return { id: null, vintage: null, refreshedAt: null, isLatest: false, isVerified: false, ageDays: null };
     const refreshedAt = strOrNull(row.refreshedAt);
     const refreshedMs = dateRank(refreshedAt);
+    const ageDaysRaw = (nowMs - refreshedMs) / 86400000;
     const ageDays = (refreshedMs >= 0 && nowMs >= 0)
-      ? Math.max(0, Math.floor((nowMs - refreshedMs) / 86400000))
+      ? Math.max(0, roundWholeNumberByMode(ageDaysRaw, { mode: "floor", fallback: 0 }) ?? 0)
       : null;
     return {
       id: strOrNull(row.id),
@@ -1134,7 +1135,8 @@ export function diagnoseDataRefAlignment(args){
   const electionYearGap = (targetYear != null && electionYear != null) ? Math.abs(targetYear - electionYear) : null;
   const maxYearGap = numOrNull(refs.electionMaxYearDelta);
   if (maxYearGap != null && electionYearGap != null && electionYearGap > maxYearGap){
-    warnings.push(`Election cycle gap ${electionYearGap} exceeds filter ${Math.round(maxYearGap)}.`);
+    const roundedMaxGap = roundWholeNumberByMode(maxYearGap, { mode: "round", fallback: 0 }) ?? 0;
+    warnings.push(`Election cycle gap ${electionYearGap} exceeds filter ${roundedMaxGap}.`);
   }
 
   const crosswalkCoveragePct = numOrNull(crosswalk?.coveragePct);
@@ -1142,16 +1144,16 @@ export function diagnoseDataRefAlignment(args){
   const electionCoveragePct = numOrNull(election?.coveragePct);
   const minCoverage = numOrNull(refs.electionMinCoveragePct);
   if (minCoverage != null && electionCoveragePct != null && electionCoveragePct < minCoverage){
-    warnings.push(`Election coverage ${electionCoveragePct.toFixed(1)}% is below filter ${minCoverage.toFixed(1)}%.`);
+    warnings.push(`Election coverage ${formatFixedNumber(electionCoveragePct, 1, "—")}% is below filter ${formatFixedNumber(minCoverage, 1, "—")}%.`);
   }
   if (crosswalkCoveragePct != null && crosswalkCoveragePct < 95){
-    warnings.push(`Crosswalk coverage is low (${crosswalkCoveragePct.toFixed(1)}%).`);
+    warnings.push(`Crosswalk coverage is low (${formatFixedNumber(crosswalkCoveragePct, 1, "—")}%).`);
   }
   if (censusCoveragePct != null && censusCoveragePct < 95){
-    warnings.push(`Census coverage is low (${censusCoveragePct.toFixed(1)}%).`);
+    warnings.push(`Census coverage is low (${formatFixedNumber(censusCoveragePct, 1, "—")}%).`);
   }
   if (electionCoveragePct != null && electionCoveragePct < 95){
-    warnings.push(`Election coverage is low (${electionCoveragePct.toFixed(1)}%).`);
+    warnings.push(`Election coverage is low (${formatFixedNumber(electionCoveragePct, 1, "—")}%).`);
   }
 
   let status = "ok";
@@ -1168,7 +1170,10 @@ export function diagnoseDataRefAlignment(args){
   if (selected.censusDatasetId) summaryParts.push(`Census ${selected.censusDatasetId}`);
   if (selected.electionDatasetId) summaryParts.push(`Election ${selected.electionDatasetId}`);
   if (electionYearGap != null) summaryParts.push(`Year gap ${electionYearGap}`);
-  if (Number.isFinite(electionMeta.ageDays)) summaryParts.push(`Election age ${Math.round(Number(electionMeta.ageDays))}d`);
+  if (Number.isFinite(electionMeta.ageDays)){
+    const roundedAgeDays = roundWholeNumberByMode(electionMeta.ageDays, { mode: "round", fallback: 0 }) ?? 0;
+    summaryParts.push(`Election age ${roundedAgeDays}d`);
+  }
   const summary = summaryParts.join(" · ") || "No active data refs selected.";
   const fingerprintPayload = [
     `mode=${resolution.mode}`,
