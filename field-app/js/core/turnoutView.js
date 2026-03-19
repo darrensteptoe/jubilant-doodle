@@ -186,8 +186,8 @@ export function deriveTurnoutSummaryCardStatus(summary, turnoutVotes, needVotes)
  * }}
  */
 export function buildTurnoutPhase3CapacityGapView(input = {}){
-  const capContacts = Number(input?.capContacts);
-  const requiredContacts = Number(input?.requiredContacts);
+  const capContacts = safeNum(input?.capContacts);
+  const requiredContacts = safeNum(input?.requiredContacts);
   const formatInt = typeof input?.formatInt === "function"
     ? input.formatInt
     : (value) => formatWholeNumberByMode(value, { mode: "round", fallback: "0" });

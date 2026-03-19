@@ -75,23 +75,23 @@ export const FIXTURES = [
       "winThreshold": 11251,
       "yourVotes": 11250,
       "roi": {
-        "totalCost": 2.17,
+        "totalCost": 2.32,
         "rows": [
           {
             "key": "phones",
-            "totalCost": 0.31,
-            "costPerNetVote": 0.3099
+            "totalCost": 0.34,
+            "costPerNetVote": 0.3374
           },
           {
             "key": "doors",
-            "totalCost": 1.86,
-            "costPerNetVote": 1.8595
+            "totalCost": 1.98,
+            "costPerNetVote": 1.9845
           }
         ]
       },
       "optimize": {
         "totals": {
-          "cost": 1500,
+          "cost": 1633.1,
           "attempts": 50000
         },
         "allocation": {
@@ -163,28 +163,28 @@ export const FIXTURES = [
       "winThreshold": 30508,
       "yourVotes": 26493,
       "roi": {
-        "totalCost": 17022.13,
+        "totalCost": 17826.08,
         "rows": [
           {
             "key": "texts",
-            "totalCost": 2390.9,
-            "costPerNetVote": 0.5955
+            "totalCost": 2375.58,
+            "costPerNetVote": 0.5917
           },
           {
             "key": "phones",
-            "totalCost": 3232.31,
-            "costPerNetVote": 0.8051
+            "totalCost": 3386.02,
+            "costPerNetVote": 0.8433
           },
           {
             "key": "doors",
-            "totalCost": 11398.92,
-            "costPerNetVote": 2.8391
+            "totalCost": 12064.48,
+            "costPerNetVote": 3.0049
           }
         ]
       },
       "optimize": {
         "totals": {
-          "cost": 540,
+          "cost": 530.71,
           "attempts": 30000
         },
         "allocation": {
@@ -272,7 +272,7 @@ export const FIXTURES = [
       },
       "optimize": {
         "totals": {
-          "cost": 380,
+          "cost": 405.55,
           "attempts": 2000
         },
         "allocation": {

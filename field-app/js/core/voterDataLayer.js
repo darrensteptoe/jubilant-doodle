@@ -729,8 +729,10 @@ function resolveFieldValue(row, canonicalField, headerMap, adapter){
 
   const aliasList = Array.isArray(adapter?.aliases?.[canonicalField]) ? adapter.aliases[canonicalField] : [];
   const wanted = new Set(aliasList.map((token) => canonicalToken(token)));
+  // Always include canonical field-token fallback so canonical row keys remain valid
+  // even when adapter aliases are vendor-specific (e.g., VAN/L2 imports).
+  wanted.add(canonicalToken(canonicalField));
   if (preferred) wanted.add(canonicalToken(preferred));
-  if (wanted.size === 0) wanted.add(canonicalToken(canonicalField));
 
   for (const [key, value] of Object.entries(row)){
     const normalizedKey = canonicalToken(key);
@@ -855,14 +857,14 @@ export function normalizeVoterRows(rows, options = {}){
     .sort((a, b) => String(a.voterId).localeCompare(String(b.voterId)));
   const adapter = VOTER_ADAPTER_PRESETS[manifest.adapterId];
   const sourceHeaders = collectSourceHeaders(list);
-  const mappedCanonicalFields = [];
+  const mappedCanonicalFieldsDerived = [];
   const matchedHeaderTokens = new Set();
   for (const field of CANONICAL_VOTER_FIELDS){
     if (NON_ROW_CONTEXT_FIELDS.has(field)) continue;
     const tokens = resolveFieldLookupTokens(field, manifest.headerMap, adapter);
     const hasMatch = sourceHeaders.some((header) => tokens.has(header.token));
     if (!hasMatch) continue;
-    mappedCanonicalFields.push(field);
+    mappedCanonicalFieldsDerived.push(field);
     for (const token of tokens){
       if (!token) continue;
       matchedHeaderTokens.add(token);
@@ -871,13 +873,25 @@ export function normalizeVoterRows(rows, options = {}){
   const ignoredHeaders = sourceHeaders
     .filter((row) => !matchedHeaderTokens.has(row.token))
     .map((row) => row.name);
+  const mappedCanonicalFieldsExisting = normalizeStringArray(manifest.mappedCanonicalFields)
+    .filter((field) => CANONICAL_VOTER_FIELDS.includes(field));
+  const mappedCanonicalFields = mappedCanonicalFieldsExisting.length
+    ? mappedCanonicalFieldsExisting
+    : mappedCanonicalFieldsDerived;
+  const ignoredHeaderCountExisting = safeNum(manifest.ignoredHeaderCount);
+  const ignoredHeadersSampleExisting = normalizeStringArray(manifest.ignoredHeadersSample).slice(0, TRACEABILITY_HEADER_SAMPLE_LIMIT);
+
   const nextManifest = {
     ...manifest,
     importedAt: manifest.importedAt || new Date().toISOString(),
     rowCount: normalizedRows.length,
     mappedCanonicalFields,
-    ignoredHeaderCount: ignoredHeaders.length,
-    ignoredHeadersSample: ignoredHeaders.slice(0, TRACEABILITY_HEADER_SAMPLE_LIMIT),
+    ignoredHeaderCount: (ignoredHeaderCountExisting != null && ignoredHeaderCountExisting >= 0)
+      ? Math.max(0, Math.trunc(ignoredHeaderCountExisting))
+      : ignoredHeaders.length,
+    ignoredHeadersSample: ignoredHeadersSampleExisting.length
+      ? ignoredHeadersSampleExisting
+      : ignoredHeaders.slice(0, TRACEABILITY_HEADER_SAMPLE_LIMIT),
   };
 
   const warnings = [];
@@ -1039,7 +1053,9 @@ export function buildVoterContactHistoryLedger(rows, options = {}){
     if (!contactIso) continue;
     withContactTimestamp += 1;
     const contactMs = new Date(contactIso).getTime();
-    if (Number.isFinite(contactMs) && (nowMs - contactMs) <= recentMs){
+    const hasRecentConversation = Math.min(conversations, attempts) > 0;
+    const hasRecentResult = resultText.length > 0;
+    if (Number.isFinite(contactMs) && (nowMs - contactMs) <= recentMs && (hasRecentConversation || hasRecentResult)){
       recentlyContacted += 1;
     }
     const date = contactIso.slice(0, 10);

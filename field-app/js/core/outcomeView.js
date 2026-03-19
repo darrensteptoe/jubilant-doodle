@@ -51,10 +51,15 @@ export function formatOutcomeBridgeWinProb(value){
 
 export function formatOutcomeBridgePercent(value){
   const unit = rateOverrideToDecimal(value, null);
-  if (unit == null) {
+  if (unit != null){
+    return formatPercentFromUnit(unit, 1, "");
+  }
+  // Mixed-input fallback (e.g., "42.5%") should still normalize canonically.
+  const pct = parsePercentNumber(value);
+  if (!Number.isFinite(pct)){
     return "";
   }
-  return formatPercentFromUnit(unit, 1, "");
+  return formatPercentFromPctCanonical(pct, 1, "");
 }
 
 /**

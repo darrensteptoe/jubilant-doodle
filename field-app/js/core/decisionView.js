@@ -1101,6 +1101,12 @@ export function buildDecisionDiagnosticsSnapshotView({
 }
 
 function formatDecisionIntelValue(value, kind, formatInt){
+  if (value == null){
+    return "—";
+  }
+  if (typeof value === "string" && String(value).trim() === ""){
+    return "—";
+  }
   const n = toFiniteNumber(value);
   if (n == null){
     return "—";

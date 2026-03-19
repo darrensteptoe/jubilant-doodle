@@ -3992,6 +3992,9 @@ export function registerRebuildContractTests(ctx){
         unresolvedSegments: [{ segment: "and add more volunteers", reason: "unknown metric" }],
       },
     };
+    const intelWhatIfView = {
+      intelRequests: [latestWhatIfRequest],
+    };
     assert(
       buildControlsWhatIfDetailedPreviewText(latestWhatIfRequest).includes("Parsed targets: 1"),
       "controls detailed what-if preview helper should summarize parsed targets",

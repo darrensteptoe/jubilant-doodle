@@ -47,9 +47,9 @@ export function sortTargetingRowsByPriority(rows){
   return normalizeRowList(rows).slice().sort((a, b) => {
     const ar = targetRowRankValue(a);
     const br = targetRowRankValue(b);
-    if (ar != null && br != null){
-      return ar - br;
-    }
+    if (ar != null && br != null) return ar - br;
+    if (ar != null && br == null) return -1;
+    if (ar == null && br != null) return 1;
     const as = targetRowScoreValue(a);
     const bs = targetRowScoreValue(b);
     if (as == null && bs == null) return 0;

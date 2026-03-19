@@ -175,7 +175,10 @@ export function formatDataSignedDecimal(value, digits = 2, fallback = "—"){
 export function formatDataArchiveRecordedAt(value, fallback = "—"){
   const raw = cleanText(value);
   if (!raw) return fallback;
-  return raw.replace("T", " ").replace("Z", "");
+  return raw
+    .replace(/\.\d+(?=Z?$)/, "")
+    .replace("T", " ")
+    .replace("Z", "");
 }
 
 /**

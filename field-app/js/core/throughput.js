@@ -110,7 +110,29 @@ export function resolveDoorShareUnitFromPct(doorSharePct, options = {}){
  */
 export function resolveCanonicalDoorShareUnit(state, options = {}){
   const src = state && typeof state === "object" ? state : {};
-  return resolveDoorShareUnitFromPct(src?.channelDoorPct, options);
+  const toUnit = typeof options?.toUnit === "function" ? options.toUnit : pctOverrideToDecimal;
+  const canonical = resolveDoorShareUnitFromPct(src?.channelDoorPct, {
+    toUnit,
+    fallback: null,
+  });
+  if (canonical != null && Number.isFinite(canonical)){
+    return canonical;
+  }
+  // Legacy fallback for snapshots/tests that still populate doorKnockShare
+  // as a unit ratio (0..1) instead of percentage points.
+  const legacyRaw = safeNum(src?.doorKnockShare);
+  if (legacyRaw != null && legacyRaw >= 0 && legacyRaw <= 1){
+    return legacyRaw;
+  }
+  const legacyPct = resolveDoorShareUnitFromPct(src?.doorKnockShare, {
+    toUnit,
+    fallback: null,
+  });
+  if (legacyPct != null && Number.isFinite(legacyPct)){
+    return legacyPct;
+  }
+  const hasFallback = Object.prototype.hasOwnProperty.call(options || {}, "fallback");
+  return hasFallback ? options.fallback ?? null : null;
 }
 
 /**

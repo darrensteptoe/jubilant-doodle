@@ -371,6 +371,8 @@ export function formatDistrictMultiplier(value, digits = 2, fallback = "—"){
 }
 
 function formatDistrictInputValue(value, digits = 1, fallback = ""){
+  if (value == null) return fallback;
+  if (typeof value === "string" && String(value).trim() === "") return fallback;
   const n = toFiniteNumber(value);
   if (n == null){
     return fallback;

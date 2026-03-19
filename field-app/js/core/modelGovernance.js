@@ -346,12 +346,22 @@ export function buildGovernanceValidationChecklist(governance){
   }
 
   const warnings = Array.isArray(governance?.warnings) ? governance.warnings : [];
+  let hasCalibrationRow = false;
   for (const msg of warnings.slice(0, 3)){
     const text = String(msg || "").trim();
     if (!text) continue;
+    if (text.includes("Calibration:")) hasCalibrationRow = true;
     list.push({
       kind: "warn",
       text,
+    });
+  }
+  if (!hasCalibrationRow){
+    const calibrationLabel = String(snapshot?.learningTopSuggestion || "").trim()
+      || "Collect historical closeouts to refine calibration.";
+    list.push({
+      kind: "warn",
+      text: `Calibration: ${calibrationLabel}.`,
     });
   }
   return list;

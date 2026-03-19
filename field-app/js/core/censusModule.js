@@ -3399,16 +3399,18 @@ export function buildCensusPaceFeasibilitySnapshot({
     : []);
   const hasRows = scopedSelectedGeoids.length > 0 && Object.keys(scopedRowsByGeoid).length > 0;
   const activeRowsReady = hasRows && !!cleanText(censusState?.activeRowsKey);
+  const optionalNumber = (value) => {
+    if (value == null || value === "") return null;
+    const n = Number(value);
+    return Number.isFinite(n) ? n : null;
+  };
 
-  const resolvedDoorShare = Number.isFinite(Number(doorShare))
-    ? Number(doorShare)
-    : (resolveCanonicalDoorShareUnit(sourceState, { fallback: 0.5 }) ?? 0.5);
-  const resolvedDoorsPerHour = Number.isFinite(Number(doorsPerHour))
-    ? Number(doorsPerHour)
-    : resolveCanonicalDoorsPerHour(sourceState);
-  const resolvedCallsPerHour = Number.isFinite(Number(callsPerHour))
-    ? Number(callsPerHour)
-    : resolveCanonicalCallsPerHour(sourceState);
+  const resolvedDoorShare = optionalNumber(doorShare)
+    ?? (
+      resolveCanonicalDoorShareUnit(sourceState, { fallback: 0.5 }) ?? 0.5
+    );
+  const resolvedDoorsPerHour = optionalNumber(doorsPerHour) ?? resolveCanonicalDoorsPerHour(sourceState);
+  const resolvedCallsPerHour = optionalNumber(callsPerHour) ?? resolveCanonicalCallsPerHour(sourceState);
 
   const aggregate = hasRows
     ? aggregateRowsForSelection({
