@@ -14,18 +14,19 @@
 <link href="https://fonts.googleapis.com" rel="preconnect"/>
 <link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&amp;family=IBM+Plex+Sans:wght@300;400;500;600&amp;display=swap" rel="stylesheet"/>
-  <script type="module" crossorigin src="/assets/index-D9vB7f0d.js"></script>
-  <link rel="modulepreload" crossorigin href="/assets/context-CY_AWMI7.js">
-  <link rel="modulepreload" crossorigin href="/assets/storage-BkbiidM1.js">
-  <link rel="modulepreload" crossorigin href="/assets/build-D_SXLPw5.js">
-  <link rel="modulepreload" crossorigin href="/assets/store-DfsLZLbh.js">
-  <link rel="modulepreload" crossorigin href="/assets/io-B5VVTQXr.js">
-  <link rel="modulepreload" crossorigin href="/assets/rollups-Bejk6bwY.js">
-  <link rel="stylesheet" crossorigin href="/assets/index-CIUVpx3w.css">
+  <script type="module" crossorigin src="/assets/index-jJoz5PLc.js"></script>
+  <link rel="modulepreload" crossorigin href="/assets/time-CTuZ7Uda.js">
+  <link rel="modulepreload" crossorigin href="/assets/build-DvTtUqhn.js">
+  <link rel="modulepreload" crossorigin href="/assets/preload-helper-DXz_QhCo.js">
+  <link rel="modulepreload" crossorigin href="/assets/store-vD_MEQRW.js">
+  <link rel="modulepreload" crossorigin href="/assets/io-CuCiBO8R.js">
+  <link rel="modulepreload" crossorigin href="/assets/view-yrPFNnD_.js">
+  <link rel="modulepreload" crossorigin href="/assets/twCapHelpers-CKTAgiUD.js">
+  <link rel="stylesheet" crossorigin href="/assets/index-tH_NhQdL.css">
 </head>
 <body>
 <div hidden="" id="app-shell-v3-root"></div>
-<div hidden="" id="app-shell-legacy">
+<div data-legacy-shell-root="true" hidden="" id="legacyShellRoot">
 <!-- ── TOPBAR ───────────────────────────────────────────── -->
 <header class="topbar-new">
 <div class="brand-new">
@@ -54,7 +55,7 @@
 <!-- ── APP SHELL ─────────────────────────────────────────── -->
 <div class="app-shell">
 <!-- LEFT: Stage navigation rail -->
-<nav aria-label="Planning stages" class="stage-nav-new"><div class="nav-group-label-new">Planning</div><button class="nav-item-new active" data-stage="setup" onclick="switchStage(this, 'setup')">
+<nav aria-label="Planning stages" class="stage-nav-new"><div class="nav-group-label-new">Planning</div><button class="nav-item-new active" data-stage="setup" type="button">
 <span class="nav-num-new" data-num="1">1</span>
 <span class="nav-label-new">Set up</span>
 </button><div class="nav-group-label-new">Field Execution</div><a class="nav-item-new" href="organizer.html">
@@ -98,7 +99,7 @@
 </div>
 </section>
 <!-- ── STAGE: setup ── -->
-<section class="stage-new active-stage" data-retired="true" hidden="" id="stage-setup">
+<div hidden="" id="legacySetupSourceSeedWrapper">
 <div class="stage-header-new">
 <div class="stage-meta-new">
 <span class="stage-tag-new">Stage 1</span>
@@ -175,39 +176,8 @@
 </div>
 </div>
 </div>
-</div></section>
-
-<!-- ── STAGE: universe ── -->
-<section class="stage-shell" hidden="" id="stage-universe">
-<div class="stage-header-new">
-<div class="stage-meta-new">
-<span class="stage-tag-new">Stage 2</span>
-<span class="stage-title-new">Universe</span>
-</div>
-<p class="stage-sub-new">Define the size of the electorate you’re modeling (registration or expected voters). Every vote count, cost per vote, and plan size depends on this number.</p>
-<div class="training-panel-new" id="train-universe">
-<div class="training-hd-new" onclick="toggleTrainPanel('train-universe')">
-<span>🎓</span><span class="training-title-new">Training — Universe</span><span class="training-chev-new">▾</span>
-</div>
-<div class="training-bd-new">
-<div class="training-col-new">
-<div class="training-sec-title-new">What this stage models</div>
-<p>Universe is the denominator for everything. Turnout votes = Universe × turnout %. Persuasion universe = Universe × persuasion %. Being off by 20% changes plan size by 20%.</p>
-<div class="training-rule-new">Registered: most defensible, largest number<br/>Active (voted 1+ recent): smaller, higher quality<br/>Likely voters: smallest, most predictive</div>
-</div>
-<div class="training-col-new">
-<div class="training-sec-title-new">Realistic ranges (state leg)</div>
-<ul>
-<li><strong>Rural district:</strong> 12,000–25,000 registered</li>
-<li><strong>Suburban district:</strong> 30,000–60,000 registered</li>
-<li><strong>Urban district:</strong> 40,000–80,000 registered</li>
-</ul>
-<div class="training-caution-new">Always note your source. If you revisit in 6 weeks you need to know whether this came from the voter file, SOS, or a guess.</div>
-</div>
-</div>
-</div>
-</div>
-<div class="stage-body-new">
+<!-- Setup source pool: canonical controls retained for compose/runtime binding -->
+<div hidden="" id="legacySetupSourceSeed">
 <div class="card card-section" id="universeCard">
 <div class="card-head card-header">
 <h2 class="card-title">Universe</h2>
@@ -242,39 +212,6 @@
 </div>
 </div>
 </div>
-</div>
-</section>
-<!-- ── STAGE: ballot ── -->
-<section class="stage-shell" hidden="" id="stage-ballot">
-<div class="stage-header-new">
-<div class="stage-meta-new">
-<span class="stage-tag-new">Stage 3</span>
-<span class="stage-title-new">Ballot &amp; persuasion baseline</span>
-</div>
-<p class="stage-sub-new">Establish baseline support and undecided distribution. Persuasion math has no anchor without this.</p>
-<div class="training-panel-new" id="train-ballot">
-<div class="training-hd-new" onclick="toggleTrainPanel('train-ballot')">
-<span>🎓</span><span class="training-title-new">Training — Ballot &amp; Persuasion Baseline</span><span class="training-chev-new">▾</span>
-</div>
-<div class="training-bd-new">
-<div class="training-col-new">
-<div class="training-sec-title-new">What this stage models</div>
-<p>The ballot test sets your starting position. Candidate shares + undecided must sum to 100%. Undecided handling is one of the biggest hidden assumptions in field planning — it determines how "movable" voters are allocated.</p>
-<div class="training-rule-new">Proportional: undecided breaks like committed voters<br/>Conservative against you: undecided breaks toward opponents<br/>User-defined: you set the split explicitly</div>
-</div>
-<div class="training-col-new">
-<div class="training-sec-title-new">Common mistakes</div>
-<ul>
-<li>Using internal polling without weighting — internal polls skew toward your supporters</li>
-<li>Setting undecided too low (real undecideds are usually 15–30% in competitive races)</li>
-<li>Choosing "proportional" when the race has a strong incumbent — undecideds usually break against incumbents</li>
-</ul>
-<div class="training-caution-new">Undecided allocation is a primary source of volatility in multi-candidate races. Run both conservative and proportional to see the range.</div>
-</div>
-</div>
-</div>
-</div>
-<div class="stage-body-new">
 <div class="card card-section" id="ballotBaselineCard">
 <div class="card-head card-header">
 <h2 class="card-title">Ballot &amp; persuasion baseline</h2>
@@ -332,7 +269,7 @@
 </div>
 <div class="banner warn module-feedback" hidden="" id="candWarn"></div>
 </div>
-<div class="card card-section phase-p3">
+<div class="card card-section phase-p3" id="turnoutBaselineCard">
 <div class="card-head card-header">
 <h2 class="card-title">Turnout baseline (recent comparable cycles)</h2>
 <div class="help-text">Use two recent comparable cycles to set a baseline and uncertainty band. This drives volatility in simulation.</div></div>
@@ -374,10 +311,11 @@
 </div>
 </div>
 </div>
-</section>
+</div>
+</div>
 <!-- ── STAGE: capacity/results/roi/gotv (retired + removed) ── -->
-<!-- ── STAGE: checks (retired in legacy flow; IDs retained for compatibility) ── -->
-<section class="stage-new" data-retired="true" hidden="" id="stage-checks">
+<!-- ── CHECKS SOURCE POOL (stage wrapper retired; source IDs retained for compatibility) ── -->
+<div hidden="" id="legacyChecksSourceSeed">
 <div class="stage-header-new">
 <div class="stage-meta-new">
 <span class="stage-tag-new">Stage 9</span>
@@ -839,7 +777,7 @@
 <div class="card-head card-header">
 <h2 class="card-title">Benchmark catalog</h2>
 </div>
-<div class="help-text">Define empirical ranges for critical inputs by race type. These ranges only generate warnings; they never alter deterministic or Monte Carlo outputs.</div>
+<div class="help-text">Define empirical ranges for critical inputs by benchmark scope. These ranges only generate warnings; they never alter deterministic or Monte Carlo outputs.</div>
 <div class="grid3" style="margin-top:10px;">
 <div class="field">
 <label class="label" for="intelBenchmarkRef">Reference</label>
@@ -863,13 +801,14 @@
 </select>
 </div>
 <div class="field">
-<label class="label" for="intelBenchmarkRaceType">Race type scope</label>
+<label class="label" for="intelBenchmarkRaceType">Benchmark scope</label>
 <select class="select" id="intelBenchmarkRaceType">
-<option value="all">All race types</option>
-<option value="federal">Federal</option>
-<option value="state_leg">State legislative</option>
-<option value="county">County / regional</option>
-<option value="municipal">Municipal / local</option>
+<option value="default">Template/default scope</option>
+<option value="federal_general">Federal general</option>
+<option value="state_house_general">State house general</option>
+<option value="county_general">County general</option>
+<option value="municipal_nonpartisan">Municipal nonpartisan</option>
+<option value="special_low_turnout">Special / low turnout</option>
 </select>
 </div>
 <div class="field">
@@ -920,7 +859,7 @@
 <thead>
 <tr>
 <th>Reference</th>
-<th>Race type</th>
+<th>Scope</th>
 <th class="num">Range</th>
 <th class="num">Warn/Hard</th>
 <th>Source</th>
@@ -1157,7 +1096,7 @@
 </div>
 <div class="note">This removes duplicate dynamic outputs in center panels so one number has one canonical place. It improves auditability and prevents contradictory status reads.</div>
 </div>
-</div></section>
+</div></div>
 <!-- ── STAGE: integrity (retired + removed) ── -->
 </main>
 <!-- /stage-main-new -->
@@ -1284,10 +1223,8 @@
 </div>
 <!-- /app-shell -->
 </div>
-<!-- /app-shell-legacy -->
-<div hidden="" id="legacyCensusBridgeHost"></div>
-<div hidden="" id="legacyShellActionHost"></div>
-<div hidden="" id="legacyRightRailHost"></div>
+<!-- /legacyShellRoot -->
+<div hidden="" id="legacyDomPool"></div>
 <script>
 // ── Stage navigation ───────────────────────────────────────────
 window.__FPE_BOOT_ERRORS = Array.isArray(window.__FPE_BOOT_ERRORS) ? window.__FPE_BOOT_ERRORS : [];
@@ -1309,204 +1246,8 @@ window.addEventListener('unhandledrejection', function(evt){
   } catch {}
 });
 
-function normalizeStages() {
-  var host = document.querySelector('.stage-main-new');
-  if (!host) return;
-  var stages = Array.from(document.querySelectorAll('.stage-new'));
-  stages.forEach(function(sec){ host.appendChild(sec); });
-}
-
-function setLegacyStageVisibility(enabled) {
-  var show = !!enabled;
-  var ids = ['stage-setup', 'stage-universe', 'stage-ballot', 'stage-checks'];
-  ids.forEach(function(id){
-    var el = document.getElementById(id);
-    if (!el) return;
-    if (show) {
-      el.hidden = false;
-      el.classList.remove('stage-shell');
-      el.classList.add('stage-new');
-      if (el.getAttribute('data-retired') === 'true') {
-        el.removeAttribute('data-retired');
-      }
-    } else {
-      el.hidden = true;
-      el.setAttribute('data-retired', 'true');
-    }
-  });
-}
-
-function getLegacyCensusBridgeHost() {
-  var host = document.getElementById('legacyCensusBridgeHost');
-  if (host) return host;
-
-  host = document.createElement('div');
-  host.id = 'legacyCensusBridgeHost';
-  host.hidden = true;
-  document.body.appendChild(host);
-  return host;
-}
-
-function getLegacyShellActionHost() {
-  var host = document.getElementById('legacyShellActionHost');
-  if (host) return host;
-
-  host = document.createElement('div');
-  host.id = 'legacyShellActionHost';
-  host.hidden = true;
-  document.body.appendChild(host);
-  return host;
-}
-
-function getLegacyRightRailHost() {
-  var host = document.getElementById('legacyRightRailHost');
-  if (host) return host;
-
-  host = document.createElement('div');
-  host.id = 'legacyRightRailHost';
-  host.hidden = true;
-  document.body.appendChild(host);
-  return host;
-}
-
-function moveLegacyCardToBridgeHost(cardId) {
-  try {
-    var id = String(cardId || '').trim();
-    if (!id) return;
-    var card = document.getElementById(id);
-    var host = getLegacyCensusBridgeHost();
-    if (!card || !host || card.parentElement === host) return;
-
-    window.__FPE_LEGACY_CARD_ORIGINS__ = window.__FPE_LEGACY_CARD_ORIGINS__ || {};
-    if (!window.__FPE_LEGACY_CARD_ORIGINS__[id]) {
-      window.__FPE_LEGACY_CARD_ORIGINS__[id] = {
-        parent: card.parentElement,
-        nextSibling: card.nextElementSibling
-      };
-    }
-    host.appendChild(card);
-  } catch (err) {}
-}
-
-function moveLegacyActionToHost(nodeId) {
-  try {
-    var id = String(nodeId || '').trim();
-    if (!id) return;
-    var node = document.getElementById(id);
-    var host = getLegacyShellActionHost();
-    if (!node || !host || node.parentElement === host) return;
-
-    window.__FPE_LEGACY_CARD_ORIGINS__ = window.__FPE_LEGACY_CARD_ORIGINS__ || {};
-    if (!window.__FPE_LEGACY_CARD_ORIGINS__[id]) {
-      window.__FPE_LEGACY_CARD_ORIGINS__[id] = {
-        parent: node.parentElement,
-        nextSibling: node.nextElementSibling
-      };
-    }
-    host.appendChild(node);
-  } catch (err) {}
-}
-
-function moveLegacyRightRailToHost() {
-  try {
-    var rail = document.getElementById('legacyResultsSidebar');
-    var host = getLegacyRightRailHost();
-    if (!rail || !host || rail.parentElement === host) return;
-
-    window.__FPE_LEGACY_CARD_ORIGINS__ = window.__FPE_LEGACY_CARD_ORIGINS__ || {};
-    if (!window.__FPE_LEGACY_CARD_ORIGINS__.legacyResultsSidebar) {
-      window.__FPE_LEGACY_CARD_ORIGINS__.legacyResultsSidebar = {
-        parent: rail.parentElement,
-        nextSibling: rail.nextElementSibling
-      };
-    }
-    host.appendChild(rail);
-  } catch (err) {}
-}
-
-function restoreLegacyCardToOrigin(cardId) {
-  try {
-    var id = String(cardId || '').trim();
-    if (!id) return;
-    var card = document.getElementById(id);
-    var origins = window.__FPE_LEGACY_CARD_ORIGINS__ || {};
-    var origin = origins[id];
-    if (!card || !origin || !origin.parent) return;
-
-    var parent = origin.parent;
-    var sibling = origin.nextSibling;
-    if (sibling && sibling.parentElement === parent) {
-      parent.insertBefore(card, sibling);
-    } else {
-      parent.appendChild(card);
-    }
-  } catch (err) {}
-}
-
-function restoreLegacyRightRailToOrigin() {
-  restoreLegacyCardToOrigin('legacyResultsSidebar');
-}
-
-function getLegacyCompatNode(nodeId) {
-  try {
-    var id = String(nodeId || '').trim();
-    if (!id) return null;
-    return document.querySelector('#legacyCensusBridgeHost #' + CSS.escape(id))
-      || document.getElementById(id)
-      || null;
-  } catch (err) {
-    return document.getElementById(String(nodeId || '').trim()) || null;
-  }
-}
-
-function getLegacyRightRailNode() {
-  return document.getElementById('legacyResultsSidebar')
-    || document.querySelector('#legacyRightRailHost .results-sidebar-new')
-    || document.querySelector('.results-sidebar-new')
-    || null;
-}
-
-function attachLegacyRightRailToSlot(slotId) {
-  try {
-    var targetId = String(slotId || '').trim();
-    if (!targetId) return false;
-    var slot = document.getElementById(targetId);
-    var rail = getLegacyRightRailNode();
-    if (!slot || !rail) return false;
-    if (rail.parentElement !== slot) {
-      slot.appendChild(rail);
-    }
-    return true;
-  } catch (err) {
-    return false;
-  }
-}
-
 function getUiModeFromLocation() {
-  try {
-    var params = new URLSearchParams(window.location.search || '');
-    return params.get('ui') === 'legacy' ? 'legacy' : 'v3';
-  } catch (err) {
-    return 'v3';
-  }
-}
-
-function setUiMode(mode) {
-  try {
-    var nextMode = String(mode || '').trim() === 'legacy' ? 'legacy' : 'v3';
-    var params = new URLSearchParams(window.location.search || '');
-    params.set('ui', nextMode);
-    var query = params.toString();
-    var nextUrl = query ? window.location.pathname + '?' + query : window.location.pathname;
-    window.location.assign(nextUrl);
-    return true;
-  } catch (err) {
-    return false;
-  }
-}
-
-function shouldUseLegacyShell() {
-  return getUiModeFromLocation() === 'legacy';
+  return 'v3';
 }
 
 function isV3BridgeActive() {
@@ -1515,21 +1256,13 @@ function isV3BridgeActive() {
 }
 
 function switchStage(btn, stageId) {
+  void btn;
   if (isV3BridgeActive()) {
     try {
       window.__FPE_V3_NAV__.navigateStage(stageId, { persist: true });
       return;
     } catch (err) {}
   }
-
-  // Nav items
-  document.querySelectorAll('.nav-item-new').forEach(el => el.classList.remove('active'));
-  if (btn) btn.classList.add('active');
-
-  // Stage panels
-  document.querySelectorAll('.stage-new').forEach(el => el.classList.remove('active-stage'));
-  var target = document.getElementById('stage-' + stageId);
-  if (target) target.classList.add('active-stage');
 }
 
 // ── Training panel collapse/expand ─────────────────────────────
@@ -1543,12 +1276,41 @@ function openEmergencyDiagnostics(){
   var errors = document.getElementById('diagErrors');
   if (!modal) return;
   if (errors){
+    var status = window.__FPE_BOOT_STATUS__;
+    var trace = Array.isArray(window.__FPE_BOOT_TRACE__) ? window.__FPE_BOOT_TRACE__ : [];
     var rows = Array.isArray(window.__FPE_BOOT_ERRORS) ? window.__FPE_BOOT_ERRORS : [];
-    if (!rows.length){
-      errors.textContent = 'No captured boot errors.';
-    } else {
-      errors.textContent = rows.join('\n');
+    var lines = [];
+    if (status && typeof status === 'object'){
+      var bootState = status.status ? String(status.status) : 'unknown';
+      var bootSource = status.source ? String(status.source) : '—';
+      var bootWhen = status.t ? String(status.t) : '—';
+      lines.push('[boot status]');
+      lines.push('status: ' + bootState);
+      lines.push('source: ' + bootSource);
+      lines.push('when: ' + bootWhen);
     }
+    if (trace.length){
+      lines.push('');
+      lines.push('[boot trace]');
+      trace.slice(0, 14).forEach(function(row){
+        var t = row && row.t ? String(row.t) : '—';
+        var step = row && row.step ? String(row.step) : 'unknown';
+        var phase = row && row.phase ? String(row.phase) : '';
+        var level = row && row.level ? String(row.level) : '';
+        var msg = row && row.message ? String(row.message) : '';
+        var suffix = [phase, level, msg].filter(Boolean).join(' ');
+        lines.push(t + ' ' + step + (suffix ? ' (' + suffix + ')' : ''));
+      });
+    }
+    if (rows.length){
+      lines.push('');
+      lines.push('[boot errors]');
+      lines.push.apply(lines, rows);
+    }
+    if (!lines.length){
+      lines.push('No captured boot diagnostics yet.');
+    }
+    errors.textContent = lines.join('\n');
   }
   modal.hidden = false;
 }
@@ -1559,85 +1321,40 @@ function closeEmergencyDiagnostics(){
 }
 
 function getLegacyShellRoot() {
-  return document.getElementById('app-shell-legacy');
+  return document.querySelector('[data-legacy-shell-root="true"]');
 }
 
-function setLegacyShellVisible(visible) {
-  var shell = getLegacyShellRoot();
-  if (!shell) return;
-  shell.hidden = !visible;
+function getLegacyDomPool() {
+  var pool = document.getElementById('legacyDomPool');
+  if (pool) return pool;
+  pool = document.createElement('div');
+  pool.hidden = true;
+  pool.id = 'legacyDomPool';
+  document.body.appendChild(pool);
+  return pool;
+}
+
+function retireLegacyShellRootWrapper() {
+  var root = getLegacyShellRoot();
+  if (!root) return;
+  var pool = getLegacyDomPool();
+  if (!pool) return;
+  while (root.firstChild) {
+    pool.appendChild(root.firstChild);
+  }
+  if (root.parentElement) {
+    root.parentElement.removeChild(root);
+  }
 }
 
 window.__FPE_OPEN_EMERGENCY_DIAGNOSTICS__ = openEmergencyDiagnostics;
-window.__FPE_MOVE_LEGACY_RIGHT_RAIL_TO_HOST__ = moveLegacyRightRailToHost;
-window.__FPE_RESTORE_LEGACY_RIGHT_RAIL__ = restoreLegacyRightRailToOrigin;
-window.__FPE_ATTACH_LEGACY_RIGHT_RAIL_TO_SLOT__ = attachLegacyRightRailToSlot;
-window.__FPE_GET_LEGACY_COMPAT_NODE__ = getLegacyCompatNode;
-window.__FPE_GET_LEGACY_RIGHT_RAIL__ = getLegacyRightRailNode;
-window.__FPE_GET_LEGACY_SHELL_ROOT__ = getLegacyShellRoot;
-window.__FPE_SET_LEGACY_SHELL_VISIBLE__ = setLegacyShellVisible;
 window.__FPE_GET_UI_MODE__ = getUiModeFromLocation;
-window.__FPE_SET_UI_MODE__ = setUiMode;
-
-function prepareV3CompatHosts() {
-  setLegacyStageVisibility(false);
-  moveLegacyCardToBridgeHost('stage-setup');
-  moveLegacyCardToBridgeHost('stage-universe');
-  moveLegacyCardToBridgeHost('stage-ballot');
-  moveLegacyCardToBridgeHost('stage-checks');
-  moveLegacyCardToBridgeHost('stage-structure');
-  moveLegacyCardToBridgeHost('censusPhase1Card');
-  moveLegacyCardToBridgeHost('targetingLabCard');
-  moveLegacyActionToHost('toggleTraining');
-  moveLegacyRightRailToHost();
-}
-
-function restoreLegacyCompatHosts() {
-  setLegacyStageVisibility(true);
-  restoreLegacyCardToOrigin('stage-setup');
-  restoreLegacyCardToOrigin('stage-universe');
-  restoreLegacyCardToOrigin('stage-ballot');
-  restoreLegacyCardToOrigin('stage-checks');
-  restoreLegacyCardToOrigin('stage-structure');
-  restoreLegacyCardToOrigin('censusPhase1Card');
-  restoreLegacyCardToOrigin('targetingLabCard');
-  restoreLegacyCardToOrigin('toggleTraining');
-  restoreLegacyRightRailToOrigin();
-  normalizeStages();
-}
-
-window.__FPE_PREPARE_V3_COMPAT_HOSTS__ = prepareV3CompatHosts;
-window.__FPE_RESTORE_LEGACY_COMPAT_HOSTS__ = restoreLegacyCompatHosts;
-
-function initLegacyInlineShell() {
-  var host = document.querySelector('.stage-main-new');
-  if (host && host.dataset.legacyInlineInit === '1') return;
-  if (host) host.dataset.legacyInlineInit = '1';
-
-  setLegacyShellVisible(true);
-  restoreLegacyCompatHosts();
-  var btnOpen = document.getElementById('btnDiagnostics');
-  if (btnOpen){
-    btnOpen.addEventListener('click', openEmergencyDiagnostics);
-  }
-  var btnClose = document.getElementById('btnDiagClose');
-  if (btnClose){
-    btnClose.addEventListener('click', closeEmergencyDiagnostics);
-  }
-}
-
-window.__FPE_INIT_LEGACY_INLINE_SHELL__ = initLegacyInlineShell;
 
 document.addEventListener('DOMContentLoaded', function(){
-  if (shouldUseLegacyShell()) {
-    initLegacyInlineShell();
-    return;
-  }
-
-  prepareV3CompatHosts();
+  retireLegacyShellRootWrapper();
   window.setTimeout(function(){
     if (!isV3BridgeActive()) {
-      initLegacyInlineShell();
+      openEmergencyDiagnostics();
       return;
     }
     var rail = document.getElementById('legacyResultsSidebar');
