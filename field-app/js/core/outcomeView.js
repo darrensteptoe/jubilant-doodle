@@ -134,6 +134,8 @@ export function buildOutcomeExpectedVoteTexts(expected, options = {}){
     ? options.formatInt
     : (value) => formatWholeNumberByMode(value, { mode: "round", fallback: "—" });
   const toWholeText = (value) => {
+    if (value == null) return "—";
+    if (typeof value === "string" && String(value).trim() === "") return "—";
     const n = Number(value);
     if (!Number.isFinite(n)){
       return "—";

@@ -104,6 +104,12 @@ export function buildImpactTraceItemsView(args = {}){
   const weeklyContext = (args?.weeklyContext && typeof args.weeklyContext === "object") ? args.weeklyContext : null;
   const executionSnapshot = (args?.executionSnapshot && typeof args.executionSnapshot === "object") ? args.executionSnapshot : null;
   const explain = (res?.explain && typeof res.explain === "object") ? res.explain : null;
+  const toOptionalNumber = (value) => {
+    if (value == null) return null;
+    if (typeof value === "string" && String(value).trim() === "") return null;
+    const n = Number(value);
+    return Number.isFinite(n) ? n : null;
+  };
 
   const persuasionNeed = toNumber(res?.expected?.persuasionNeed);
   const manualGoal = toNumber(state?.goalSupportIds);
@@ -144,9 +150,9 @@ export function buildImpactTraceItemsView(args = {}){
     callsPerHour,
   });
 
-  const reqAttemptsWeekFromCtx = toNumber(executionSnapshot?.pace?.requiredAttemptsPerWeek) ?? toNumber(weeklyContext?.attemptsPerWeek);
-  const capacityPerWeekFromCtx = toNumber(executionSnapshot?.pace?.capacityAttemptsPerWeek) ?? toNumber(weeklyContext?.capTotal);
-  const gapPerWeekFromCtx = toNumber(executionSnapshot?.pace?.gapAttemptsPerWeek) ?? toNumber(weeklyContext?.gap);
+  const reqAttemptsWeekFromCtx = toOptionalNumber(executionSnapshot?.pace?.requiredAttemptsPerWeek) ?? toOptionalNumber(weeklyContext?.attemptsPerWeek);
+  const capacityPerWeekFromCtx = toOptionalNumber(executionSnapshot?.pace?.capacityAttemptsPerWeek) ?? toOptionalNumber(weeklyContext?.capTotal);
+  const gapPerWeekFromCtx = toOptionalNumber(executionSnapshot?.pace?.gapAttemptsPerWeek) ?? toOptionalNumber(weeklyContext?.gap);
 
   const reqAttemptsWeek = (reqAttemptsWeekFromCtx != null) ? reqAttemptsWeekFromCtx : reqAttemptsWeekDerived;
   const capacityPerWeek = (capacityPerWeekFromCtx != null) ? capacityPerWeekFromCtx : capacityPerWeekDerived;

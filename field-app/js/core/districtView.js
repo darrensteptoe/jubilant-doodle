@@ -381,6 +381,13 @@ function formatDistrictInputValue(value, digits = 1, fallback = ""){
   return formatFixedNumber(n, places, fallback);
 }
 
+function toOptionalFiniteNumber(value){
+  if (value == null) return null;
+  if (typeof value === "string" && String(value).trim() === "") return null;
+  const n = toFiniteNumber(value);
+  return n == null ? null : n;
+}
+
 /**
  * Canonical view projection for district structure/universe input fields.
  * Keeps one-decimal share formatting and two-decimal retention formatting
@@ -408,8 +415,8 @@ function formatDistrictInputValue(value, digits = 1, fallback = ""){
 export function buildDistrictStructureInputView(config, options = {}){
   const src = config && typeof config === "object" ? config : {};
   const percents = src?.percents && typeof src.percents === "object" ? src.percents : {};
-  const defaultRetention = toFiniteNumber(options?.defaultRetentionFactor);
-  const retention = toFiniteNumber(src?.retentionFactor);
+  const defaultRetention = toOptionalFiniteNumber(options?.defaultRetentionFactor);
+  const retention = toOptionalFiniteNumber(src?.retentionFactor);
   const resolvedRetention = retention == null ? defaultRetention : retention;
   const enabled = !!src?.enabled;
   const warningText = (enabled && src?.wasNormalized) ? String(src?.warning || "").trim() : "";

@@ -898,7 +898,7 @@ export function normalizeVoterRows(rows, options = {}){
 
   const nextManifest = {
     ...manifest,
-    importedAt: manifest.importedAt || new Date().toISOString(),
+    importedAt: manifest.importedAt || (normalizedRows.length > 0 ? new Date().toISOString() : null),
     rowCount: normalizedRows.length,
     mappedCanonicalFields,
     ignoredHeaderCount: Math.max(
