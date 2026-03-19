@@ -3,6 +3,9 @@
 
 This app is intentionally structured so the **math core** can remain stable, testable, and portable.
 
+Core boundary contract:
+- See `CORE_SAFE_BOUNDARY.md` for sacred vs rebuildable module boundaries and release test gates.
+
 ## High-level layers
 
 1. **UI / DOM layer**
@@ -44,6 +47,20 @@ This app is intentionally structured so the **math core** can remain stable, tes
 6. **Self-test / golden fixtures**
    - `js/selfTest.js` — invariant tests + regression protection
    - Goal: detect drift early, before a user trusts bad numbers.
+
+7. **Voter intelligence layer (foundational)**
+   - `js/core/voterDataLayer.js` — canonical voter schema normalization, adapter mapping, and deterministic voter summaries.
+   - `js/core/selfTestSuites/voterDataLayer.js` — adapter/schema/summary regression tests.
+   - Rule: this is a lean campaign intelligence layer, not a full voter warehouse.
+   - Scoping principle: import broad, persist narrow.
+   - Canonical persistence should include only fields that materially improve universe creation, targeting, geography linkage, contact history linkage, optimizer/reporting inputs, and audit traceability.
+   - Downstream integration: canonical voter signals feed targeting defaults, governance data-quality framing, and uplift/optimizer fallback features.
+
+## Canonical source-of-truth rule
+
+- New calculations must live in a canonical module, not in render-layer glue.
+- Formulas must not be duplicated across files.
+- If a value already exists in canonical state/module output, reference it instead of recreating it.
 
 ## “System-only” theme design
 

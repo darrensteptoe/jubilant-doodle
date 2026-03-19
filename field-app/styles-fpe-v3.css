@@ -932,6 +932,16 @@ body.training #app-shell-v3-root .fpe-surface .help {
   display: block;
 }
 
+#app-shell-v3-root .fpe-surface .training-panel-new,
+#app-shell-v3-root .fpe-surface .fpe-why {
+  display: none;
+}
+
+body.training #app-shell-v3-root .fpe-surface .training-panel-new,
+body.training #app-shell-v3-root .fpe-surface .fpe-why {
+  display: block;
+}
+
 #app-shell-v3-root .fpe-surface .help .help-title {
   color: var(--fpe-muted);
 }

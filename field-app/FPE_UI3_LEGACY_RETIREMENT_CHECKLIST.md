@@ -18,23 +18,23 @@ Reference artifact:
 - Keep each retirement step reversible (one PR/checkpoint per stage cluster).
 
 ## Current blocker inventory (must clear before deleting legacy shell)
-- `js/app/composeSetupStage.js` still composes and re-parents legacy setup content using:
-  - `#stage-setup`
-  - `#stage-ballot .phase-p3`
-- `js/appRuntime.js` still executes `composeSetupStageModule()` during boot.
-- `js/app/v3/stageMount.js` still mounts legacy right rail (`.results-sidebar-new`) into `#v3RightRailSlot`.
-- v3 `Training` toggle remains a tracked shell holdout; current shell/cutover work should continue, but Training still does not toggle correctly end-to-end and should be cleaned up before final shell retirement.
-- Legacy right rail still remains a runtime compatibility dependency, but it is now isolated from the legacy shell wrapper during v3 sessions via a dedicated host/restore path.
+- Legacy setup compose fallback shell is retired; setup compose hook/module has been removed from runtime boot and legacy inline init paths.
+- `js/app/v3/stageMount.js` still mounts legacy right rail (`#legacyResultsSidebar`) into `#v3RightRailSlot`.
+- v3 `Training` toggle parity is now QA-gated end-to-end (`training-toggle-roundtrip`) and no longer tracked as an open shell holdout.
+- Legacy right rail still remains a runtime compatibility dependency, but it now follows a direct canonical attach path (`#legacyResultsSidebar` -> `#v3RightRailSlot`) with no dedicated right-rail host shim.
 - Most v3 surfaces are still bridge-driven from legacy IDs (by design for B->C migration), so legacy containers remain runtime dependencies.
 - Scenarios surface is now runtime-native in v3 (no direct legacy ID bridge targets).
 - Legacy scenario manager bindings now short-circuit when scenario DOM is absent, so `stage-scenarios` can be removed without requiring legacy scenario event wiring at boot.
 - Legacy decision-session bindings now short-circuit when decision DOM is absent, preventing boot-time coupling to removed Decision Log legacy markup.
 - Decision Log controls, summaries, and sensitivity snapshot execution now run through runtime decision API (`window.__FPE_DECISION_API__`) with a DOM-independent sensitivity compute path.
-- v3 boot no longer hard-requires `#app-shell-legacy` to exist just to mount v3; legacy wrapper is now optional during boot and only used when present for fallback visibility.
-- Legacy wrapper is now hidden by default in markup and is only shown for explicit legacy mode or fallback boot recovery.
-- Normal v3 boot no longer actively hides the legacy wrapper; wrapper visibility is now only touched for explicit legacy mode or fallback recovery.
-- Explicit legacy mode is now owned by the inline legacy shell path; v3 boot no longer tries to initialize legacy mode during normal mode selection.
-- Legacy shell root access is now behind a shared inline hook (`__FPE_GET_LEGACY_SHELL_ROOT__`), reducing direct `#app-shell-legacy` assumptions in v3 boot and QA.
+- v3 boot no longer hard-requires the legacy shell root wrapper to exist just to mount v3; legacy wrapper is now optional during boot and only used when present for fallback visibility.
+- Legacy wrapper remains hidden by default in markup during v3 sessions.
+- Explicit legacy mode (`?ui=legacy`) is retired; runtime no longer initializes inline legacy shell mode.
+- Boot fallback now opens emergency diagnostics instead of switching into legacy inline shell mode.
+- Legacy shell root hook is retired; wrapper retirement state is now validated through DOM marker checks in QA.
+- Wrapper-scaffold cleanup: right-rail host/hooks are retired; v3 now attaches canonical `#legacyResultsSidebar` directly into `#v3RightRailSlot`.
+- Wrapper-scaffold cleanup: shell-action host is retired; training fallback now uses canonical `#toggleTraining` directly.
+- Wrapper-scaffold cleanup: compat-node global hook is retired; legacy compatibility lookups no longer depend on `__FPE_GET_LEGACY_COMPAT_NODE__`.
 
 ## Completed retirements
 - `stage-scenarios` removed from `index.html` (legacy nav item removed as part of the same pass).
@@ -147,11 +147,11 @@ Reference artifact:
 - Controls v3 calibration action set (`Generate brief`, `Copy brief`, `Add/Import correlation`, `Add/Import shock`) now runs API-first through `window.__FPE_SCENARIO_API__` with no v3 legacy proxy fallback to `btnIntelCalibration*`, `btnIntelAddDefault*`, or `btnIntelImport*`.
 - Controls v3 calibration field state (brief kind, MC distribution, correlated shocks, correlation model selection, capacity-decay toggles/inputs, shock enable) now syncs directly from scenario-bridge intel state with API patch updates, removing v3 legacy proxy fallback to `intel*` calibration IDs.
 - Data v3 controls now execute through runtime data API bridge (`window.__FPE_DATA_API__`) with zero direct legacy selector bindings in the Data surface.
-- Legacy Census/Targeting bridge isolation added in `index.html`: `#censusPhase1Card` and `#targetingLabCard` now move into hidden `#legacyCensusBridgeHost` during v3 boot (and restore for explicit legacy mode), reducing structural coupling between District bridge controls and the `stage-checks` container.
-- Legacy `checks` nav entry has been removed from legacy user flow, and `stage-checks` is now hidden/retired in legacy flow while retaining internal IDs for compatibility during District bridge reduction.
-- Legacy setup-era stage isolation added in `index.html`: `#stage-setup`, `#stage-universe`, `#stage-ballot`, and `#stage-structure` now move into hidden `#legacyCensusBridgeHost` during v3 boot (and restore for explicit legacy mode), reducing legacy stage-layout coupling while preserving ID compatibility.
-- Legacy setup-era and checks stages are now hidden/retired by default in non-legacy mode (`setLegacyStageVisibility(false)`) and only re-enabled for explicit legacy mode (`?ui=legacy`), reducing accidental legacy flow activation during v3 sessions.
-- Runtime init now gates setup-stage composition (`composeSetupStageModule`) behind legacy mode/visible setup-stage checks, reducing v3 boot-time dependence on legacy setup-stage reshaping.
+- Legacy Census/Targeting bridge isolation updated in `index.html`: v3 now mounts canonical `#censusPhase1Card` and `#targetingLabCard` nodes directly (no dedicated bridge-host container), reducing structural coupling between District bridge controls and the `stage-checks` container.
+- Legacy `checks` nav entry has been removed from legacy user flow, and the `stage-checks` wrapper has been retired from static markup while preserving checks-source compatibility IDs.
+- Legacy setup-era stage isolation hardening in `index.html`: setup source wrappers (`#stage-universe`, `#stage-ballot`) are removed from static markup; canonical setup source cards (`#universeCard`, `#ballotBaselineCard`, `#turnoutBaselineCard`) live in hidden `#legacySetupSourceSeed` during v3 boot.
+- Legacy stage visibility hardening: setup/checks wrappers are retired from static markup; explicit legacy mode now relies on runtime setup-shell composition plus hidden compatibility source pools.
+- Runtime setup composition hooks are retired; normal v3 boot and legacy inline init no longer invoke setup compose fallback paths.
 - District summary snapshot in v3 now resolves through runtime District API bridge (`window.__FPE_DISTRICT_API__.getView().summary`) with compatibility fallback, reducing direct dependence on legacy summary DOM text mirrors.
 - District targeting status/meta/results in v3 now resolve through runtime District API bridge payload (`window.__FPE_DISTRICT_API__.getView().targeting`) with compatibility fallback, reducing direct dependence on legacy `#targetingStatus/#targetingMeta/#targetingResultsTbody` mirrors.
 - District Census status/guide/map text rows in v3 now resolve through runtime District API bridge payload (`window.__FPE_DISTRICT_API__.getView().census`) with compatibility fallback, reducing direct dependence on legacy `#census*Status/#census*Meta` text mirrors in the v3 surface.
@@ -167,29 +167,55 @@ Reference artifact:
 - District census runtime now caches bridge payload rows/status in state (`bridgeAggregateRows`, `bridgeAdvisoryRows`, `bridgeElectionPreviewRows`, and `bridge*StatusText` fields) during Census render, so District v3 can read bridge-safe values without direct legacy table/status scraping.
 - District bridge census payload in `appRuntime` now reads cached census bridge fields from state first (aggregate/advisory/election rows + advisory/election/map status text) and no longer queries legacy `#census*` table/status nodes directly.
 - District bridge census config now carries state-driven option payloads (`state/county/place/tract/saved-set/GEO` option lists) so v3 District census controls hydrate from bridge state rather than legacy select scraping.
-- District bridge census option payload now prefers legacy-populated select option lists when available (`state/county/place/tract/saved sets`) with state-derived fallback, preventing v3 state-dropdown collapse during hydration.
-- District bridge census config now also carries bridge-safe field values (`apiKey`, `geoPaste`, `electionCsvPrecinctFilter`) so v3 census input hydration is bridge-first with legacy fallback only when bridge config is absent.
+- District bridge census option payload now resolves from canonical census bridge caches in state (`bridgeStateOptions`, `bridgeCountyOptions`, `bridgePlaceOptions`, `bridgeTractFilterOptions`, `bridgeSelectionSetOptions`, `bridgeGeoSelectOptions`) with state-derived fallback only, removing legacy select scraping from `appRuntime`.
+- District bridge census config now sources bridge-safe field values (`apiKey`, `geoPaste`, `electionCsvPrecinctFilter`) from canonical census bridge state (`bridgeApiKey`, `bridgeGeoPaste`, `bridgeElectionCsvPrecinctFilter`) and no longer reads legacy field DOM directly in `appRuntime`.
+- District census bridge write/actions now call runtime Census API methods (`__FPE_CENSUS_RUNTIME_API__.setField/setGeoSelection/setFile/triggerAction`) as the primary District execution path; appRuntime no longer issues direct legacy control-id dispatch for Census writes/actions.
+- District census shell mount no longer hard-requires legacy `#censusPhase1Card` presence; v3 census surface renders independently with a native v3 map host (`#v3CensusMapHost`).
+- District census bridge advisory/election preview row caches now persist from canonical computed row payloads in `censusPhase1` (no `censusAdvisoryTbody` / `censusElectionCsvPreviewTbody` DOM re-scrape for bridge rows).
+- District census bridge status caches (`bridgeAdvisoryStatusText`, `bridgeMapStatusText`, `bridgeMapQaVtdZipStatusText`) now persist from canonical computed status views in `censusPhase1` (no DOM text readback from `#censusAdvisoryStatus/#censusMapStatus/#censusMapQaVtdZipStatus`).
 - District bridge census config now carries a state-derived disabled map for v3 census controls/buttons; v3 applies this bridge map after legacy sync to reduce reliance on legacy disabled mirrors.
+- District census runtime action bridge now routes through shared canonical action handlers in `censusPhase1` (used by both event listeners and runtime bridge dispatch) with no button-click fallback dependency.
+- District census runtime field writes (`__FPE_CENSUS_RUNTIME_API__.setField` / `setGeoSelection`) now apply state-first canonical side effects in `censusPhase1` (lookup refresh, row-cache invalidation, apply-toggle gating, map QA toggle/status) with no input/select dispatch fallback dependency.
+- District census runtime file writes (`__FPE_CENSUS_RUNTIME_API__.setFile`) now run through state-first file-cache handling for election dry-run and VTD ZIP QA flows with no file-input dispatch fallback dependency.
+- District census `Apply GEOIDs` action now resolves paste input from canonical census bridge state (`bridgeGeoPaste`) instead of requiring legacy textarea DOM presence.
+- District census load/fetch actions now resolve Census API key from canonical bridge state (`bridgeApiKey`) first, then local storage fallback, instead of depending on legacy field reads.
+- District census bridge cache persistence is now state-first for `bridgeApiKey`/`bridgeGeoPaste` during render, preventing DOM-missing sessions from wiping canonical bridge values.
+- District census map runtime now resolves map host from runtime/v3 containers (`#v3CensusMapHost` fallback) and no longer hard-requires legacy `els.censusMap` presence to load/resize boundary overlays.
+- District bridge Census write paths in `appRuntime` now treat runtime Census API responses as authoritative when available (including explicit runtime `code` failures) and no longer dispatch legacy Census controls directly.
 - District lock hardening: v3 lock-fallback no longer force-disables Census map action buttons (`Load boundaries`, `Clear map`, `Clear VTD ZIP`) so map open/clear remains available in locked mode.
 - District v3 targeting controls now hydrate from bridge config/defaults first (no legacy value mirroring required for model/geo/density/weights/threshold defaults).
-- District v3 Targeting Lab writes now route through runtime District bridge actions (`setTargetingField`, `applyTargetingPreset`, `resetTargetingWeights`, `runTargeting`, `exportTargetingCsv`, `exportTargetingJson`) with no per-control legacy proxy fallback in the v3 surface; only the runtime `runTargeting` action still forwards internally to legacy Census targeting execution until ACS row-cache state is bridge-accessible.
+- District v3 Targeting Lab writes now route through runtime District bridge actions (`setTargetingField`, `applyTargetingPreset`, `resetTargetingWeights`, `runTargeting`, `exportTargetingCsv`, `exportTargetingJson`) with no per-control legacy proxy fallback in the v3 surface; `runTargeting` executes from canonical runtime census-row cache (`getCensusRowsForState`) via `runTargetRanking`/`applyTargetingRunResult`.
+- District v3 surface now has zero legacy control-proxy bindings (`data-v3-legacy-id`), and QA gate `bridge-control-count` now enforces District as a no-legacy-control stage while legacy compatibility containers remain isolated outside the v3 pane.
+- Stage-checks retirement gate hardening: `#stage-checks` wrapper is removed from static markup; checks source content now lives under hidden `#legacyChecksSourceSeed` while Census/Targeting cards continue to bridge independently.
+- QA retirement gate hardening: v3 smoke now enforces `legacy-checks-bridge-unmounted`, `legacy-checks-stage-absent-or-retired`, and `legacy-checks-stage-pruned`, so checks-wrapper regressions fail fast before setup-shell retirement work.
+- Setup-era gate hardening: compat-host prep no longer attempts to move missing `#stage-structure`, and v3 smoke now enforces structure-stage unmounted/absent-or-retired expectations (`legacy-structure-bridge-unmounted`, `legacy-structure-stage-absent-or-retired`).
+- Setup-era gate hardening: v3 smoke now enforces setup/checks/universe/ballot absent-or-retired semantics plus explicit wrapper-prune checks (`legacy-setup-stage-pruned`, `legacy-checks-stage-pruned`, `legacy-universe-stage-pruned`, `legacy-ballot-stage-pruned`).
+- Setup-era gate hardening: v3 smoke now enforces setup/universe/ballot stage shells as bridge-unmounted (`legacy-setup-bridge-unmounted`, `legacy-universe-bridge-unmounted`, `legacy-ballot-bridge-unmounted`) while Census/Targeting cards remain bridge-mounted.
+- District setup-era hardening: v3 District training stack is now native-defined in `surfaces/district.js` and no longer clones legacy `#train-setup/#train-universe/#train-ballot/#train-checks` panels.
+- Legacy mode retirement hardening: `setLegacyStageVisibility` helper has been removed; retired wrappers are no longer toggled at runtime.
+- Setup compose extraction: `composeSetupStage` no longer hard-selects turnout source from `#stage-ballot`; turnout module source now resolves via canonical turnout field IDs (`turnoutA/turnoutB/bandWidth`) so compose is field-driven rather than stage-container driven.
+- Setup compose extraction: universe/persuadable/electorate/ballot/turnout modules now compose into dedicated `setup*Module` cards instead of reusing source card wrappers from hidden shells, reducing wrapper-coupling before final source-shell retirement.
+- Setup compose hardening: module append now requires real interactive/body content (not header-only wrappers), preventing empty setup module shells from being promoted during partial source-shell retirement.
+- Runtime hardening: setup compose fallback hook and module are retired; setup fallback composition no longer runs in `appRuntime` or inline legacy init.
+- Setup compose fallback hardening: composer now bootstraps a minimal `stage-setup` shell/body when missing, so legacy setup compose can still mount during future static-wrapper retirement.
+- Setup source-pool hardening: setup source cards (`#universeCard`, `#ballotBaselineCard`, `#turnoutBaselineCard`) remain on hidden `#legacySetupSourceSeed` during v3 boot, keeping canonical IDs without host indirection.
+- Setup wrapper retirement hardening: static `#stage-setup` wrapper is removed from markup; setup source content now resides in hidden source seeds and setup shell renders through runtime compose fallback when legacy mode is active.
+- Legacy shell-root hardening: shell-root lookup and visibility now resolve from a root marker (`[data-legacy-shell-root="true"]`) instead of hardcoded `#app-shell-legacy` fallback selectors in runtime and QA.
+- Setup wrapper retirement gate hardening: v3 smoke now enforces that retired setup-era wrappers carry no interactive controls (`legacy-universe-stage-no-controls`, `legacy-ballot-stage-no-controls`) after source-card extraction.
+- Setup wrapper retirement gate hardening: v3 smoke now enforces runtime wrapper-prune checks (`legacy-universe-stage-pruned`, `legacy-ballot-stage-pruned`) so setup-era wrapper reintroduction fails fast.
 
 ## Stage dependency map (current)
 Counts below are unique legacy IDs referenced by each v3 surface.
 
 | V3 Surface | Legacy Container(s) | Legacy ID Count |
 | --- | --- | --- |
-| District | `stage-ballot` | 7 |
-| District | `stage-checks` | 60 |
-| District | `stage-setup` | 4 |
-| District | `stage-structure` | 6 |
-| District | `stage-universe` | 3 |
+| District | runtime District bridge payload (no direct legacy ID bindings in v3 surface) | 0 |
 | Reach | retired (`stage-capacity` removed) | 0 |
 | Outcome | removed (`stage-results`) | 0 |
 | Turnout | removed (`stage-roi`) | 0 |
 | Plan | removed (`stage-roi`) | 0 |
 | Plan | removed (`stage-gotv`) | 0 |
-| Controls | `stage-checks` | 0 |
+| Controls | retired wrapper (`legacyChecksSourceSeed`) | 0 |
 | Scenarios | retired (`stage-scenarios`) | 0 |
 | Decision Log | retired (`stage-decisions`) | 0 |
 | Data | runtime data API bridge (`window.__FPE_DATA_API__`) | 0 |
@@ -209,17 +235,23 @@ Reason: v3 bridge dependencies reached zero and the legacy section is now an emp
 4. `stage-gotv` (completed)
 Reason: Plan bridge dependencies reached zero and runtime timeline/conversion guards were hardened; retired container removed from `index.html`.
 
-5. `stage-checks`
-Reason: now isolated to District Census/Targeting bridge after Controls migration to scenario API; Census block is runtime-rehomed to `#legacyCensusBridgeHost` for v3 sessions to reduce container coupling.
+5. `stage-checks` (completed)
+Reason: wrapper removed from static markup; checks source content moved to hidden source seed and retirement gates now enforce absent-or-retired + pruned behavior in v3 mode.
 
 6. `stage-integrity` (completed)
 Reason: Data handlers run through runtime-native bridge actions, so legacy integrity control ID dependency was removed and retired container removed from `index.html`.
 
-7. `stage-ballot`, `stage-universe`, `stage-structure`, `stage-setup`
-Reason: setup compose path and District bridge still rely on setup-era DOM.
+7. runtime `stage-setup` fallback shell (completed)
+Reason: setup compose module/hook is removed, so runtime setup fallback shell no longer boots in v3 or inline legacy init paths.
 
-8. `#app-shell-legacy` wrapper and legacy nav/stage switching
-Reason: final removal only after all stage containers above are retired and right rail is migrated or intentionally preserved.
+8. setup source-card pool extraction from legacy wrapper (completed)
+Reason: runtime now extracts `#legacySetupSourceSeed` out of `legacyShellRoot` before compat-host moves, and QA gates enforce setup-seed presence + detachment checks.
+
+9. checks/source pool extraction from legacy wrapper (completed)
+Reason: runtime now extracts `#legacyChecksSourceSeed` out of `legacyShellRoot` before bridge-host moves, and QA gates enforce checks-seed presence + detachment checks.
+
+10. legacy shell root wrapper and legacy nav/stage switching (completed)
+Reason: runtime now retires `legacyShellRoot` into hidden `legacyDomPool`, and legacy nav/stage switching + explicit legacy mode are removed.
 
 ## Per-stage retirement gate (must pass)
 For each container before deletion:
@@ -248,5 +280,5 @@ For each container before deletion:
 - [ ] Create checkpoint note and proceed to next container.
 
 ## Immediate next target
-Recommended next retirement target: `stage-checks` runtime read-path reduction pass.  
-Current blocker is District Census/Targeting bridge on `stage-checks` plus District setup-era containers (`stage-setup`, `stage-universe`, `stage-structure`, `stage-ballot`).
+Recommended next retirement target: right-rail compatibility decoupling and wrapper-scaffold cleanup.  
+Current blocker is preserving runtime right-rail parity while removing remaining wrapper-era helper hooks.

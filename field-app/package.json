@@ -2,11 +2,19 @@
   "name": "field-app-40",
   "version": "1.0.0",
   "private": true,
+  "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "check:canonical-math": "node scripts/check-canonical-math.mjs",
+    "gate:rebuild": "node scripts/gate-rebuild.mjs",
+    "gate:release": "npm run gate:rebuild && node js/core/selfTestSuites/releaseHardening.js",
+    "qa:new-parity-log": "node scripts/new-manual-parity-log.mjs",
+    "status:rebuild": "node scripts/rebuild-status.mjs",
+    "status:manual-parity": "node scripts/manual-parity-status.mjs",
+    "gate:manual-parity": "node scripts/manual-parity-status.mjs --strict"
   },
   "devDependencies": {
     "typescript": "^5.9.2",

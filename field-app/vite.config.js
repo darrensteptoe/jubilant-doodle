@@ -1,8 +1,13 @@
-const { defineConfig } = require("vite");
-const path = require("node:path");
+import { defineConfig } from "vite";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 
-module.exports = defineConfig({
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+export default defineConfig({
   build: {
+    chunkSizeWarningLimit: 1800,
     rollupOptions: {
       input: {
         index: path.resolve(__dirname, "index.html"),

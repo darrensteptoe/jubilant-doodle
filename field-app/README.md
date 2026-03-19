@@ -36,6 +36,17 @@ If you want local hot-reload and static build output:
 3. Build static assets: `npm run build`
 4. Preview built output: `npm run preview`
 5. Run JS type-checking (no emit): `npm run typecheck`
+6. Run full rebuild gate suite: `npm run gate:rebuild`
+
+### Rebuild gates (canonical path)
+
+- `npm run check:canonical-math` — enforces no duplicate/local formula math in non-canonical glue layers
+- `npm run gate:rebuild` — strict gate: runs canonical-math check, rebuild contract suites, core self-test, and production build (fails on warning-pattern regressions)
+- `npm run gate:release` — runs full rebuild gate + release hardening suite
+- `npm run qa:new-parity-log` — creates a dated manual parity sign-off file from template
+- `npm run status:rebuild` — prints current workstream completion summary from milestone checkpoint
+- `npm run status:manual-parity` — prints pass/fail/pending stage status and sign-off readiness from today’s manual parity file
+- `npm run gate:manual-parity` — strict manual parity gate (non-zero exit until all stages pass and QA/Product are YES)
 
 ## What this app does (and does not) do
 
@@ -47,9 +58,10 @@ If you want local hot-reload and static build output:
 - Stress-test outcomes via **Monte Carlo** (seeded)
 - Enforce **schema versioning** + deterministic export/import
 - Verify exports via **snapshot hash** (integrity verification)
+- Normalize voter-file inputs through a canonical voter data layer (adapter-based, import broad/persist narrow)
 
 ### It does *not*
-- Automatically know district-level voter file characteristics
+- Operate as a full voter-file warehouse with maximal field retention
 - Replace real field metrics (it requires reasonable inputs)
 - Provide legal/finance compliance guidance
 
@@ -71,4 +83,5 @@ For details, see:
 - `BOX_BY_BOX_GUIDE.md`
 - `MODEL_THEORY.md`
 - `ARCHITECTURE.md`
+- `CORE_SAFE_BOUNDARY.md`
 - `TROUBLESHOOTING.md`

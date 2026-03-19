@@ -13,8 +13,8 @@ Date: 2026-03-16
 - Right rail renders in v3.
 - Diagnostics opens.
 - Reset scenario works.
-- Explicit legacy mode still loads with `?ui=legacy`.
-- Legacy wrapper is hidden by default and only used for explicit legacy mode or fallback recovery.
+- Explicit legacy mode (`?ui=legacy`) is retired; v3 mode is enforced.
+- Legacy shell wrapper is runtime-retired into hidden `legacyDomPool` and is no longer used as a fallback surface.
 - Local production build passes with `npm run build` on this checkpoint.
 
 ## Migration Rule From Here
@@ -31,7 +31,7 @@ Date: 2026-03-16
 - `npm run typecheck` is still not a release gate for this repo because of a large pre-existing legacy TypeScript error baseline outside the current migration sweep.
 
 ## Deferred Holdouts
-- Training toggle does not work correctly end-to-end in v3.
+- Training toggle end-to-end behavior is now covered by v3 QA smoke (`training-toggle-roundtrip`); treat regressions as blockers.
 - District ballot editor remains a compatibility island.
 - District Targeting Lab behavior still needs product cleanup.
 - District Targeting Lab remains a deferred overhaul item; current model preset sync and run/export behavior should not be polished further in compatibility mode.
@@ -49,5 +49,5 @@ Date: 2026-03-16
 3. Return to deferred holdouts only when they are the active product priority.
 
 ## Definition Of Done For This Phase
-- Shell migration is considered complete enough when v3 is the default usable shell and legacy remains a working fallback.
+- Shell migration is considered complete enough when v3 is the default usable shell and fallback behavior is limited to diagnostics recovery (not legacy mode re-entry).
 - This repo has reached that threshold.
