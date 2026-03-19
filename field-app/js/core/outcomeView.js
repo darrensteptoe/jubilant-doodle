@@ -86,6 +86,11 @@ export function buildOutcomeTurnoutExpectedText(value){
  * @returns {string}
  */
 export function buildOutcomeTurnoutBandText(bestPct, worstPct){
+  const missingBest = bestPct == null || (typeof bestPct === "string" && String(bestPct).trim() === "");
+  const missingWorst = worstPct == null || (typeof worstPct === "string" && String(worstPct).trim() === "");
+  if (missingBest || missingWorst){
+    return "—";
+  }
   const bestText = formatOutcomePercentFromPct(bestPct, 1, "");
   const worstText = formatOutcomePercentFromPct(worstPct, 1, "");
   if (!bestText || !worstText){

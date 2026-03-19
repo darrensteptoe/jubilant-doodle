@@ -8,6 +8,8 @@ import {
   scalePercentAssumption,
 } from "./voteProduction.js";
 import {
+  resolveBaseCallsPerHour,
+  resolveBaseDoorsPerHour,
   resolveCanonicalCallsPerHour,
   resolveCanonicalDoorShareUnit,
   resolveCanonicalDoorsPerHour,
@@ -3409,8 +3411,12 @@ export function buildCensusPaceFeasibilitySnapshot({
     ?? (
       resolveCanonicalDoorShareUnit(sourceState, { fallback: 0.5 }) ?? 0.5
     );
-  const resolvedDoorsPerHour = optionalNumber(doorsPerHour) ?? resolveCanonicalDoorsPerHour(sourceState);
-  const resolvedCallsPerHour = optionalNumber(callsPerHour) ?? resolveCanonicalCallsPerHour(sourceState);
+  const resolvedDoorsPerHour = optionalNumber(doorsPerHour)
+    ?? resolveCanonicalDoorsPerHour(sourceState)
+    ?? resolveBaseDoorsPerHour(sourceState, { fallback: 30 });
+  const resolvedCallsPerHour = optionalNumber(callsPerHour)
+    ?? resolveCanonicalCallsPerHour(sourceState)
+    ?? resolveBaseCallsPerHour(sourceState, { fallback: 25 });
 
   const aggregate = hasRows
     ? aggregateRowsForSelection({

@@ -451,14 +451,29 @@ export function parseVoterRowsInput(input, options = {}){
  */
 export function buildVoterImportOutcomeView(payload = {}){
   const src = payload && typeof payload === "object" ? payload : {};
-  const normalized = normalizeVoterDataState(src.voterDataState);
+  const stateLike = src.voterDataState && typeof src.voterDataState === "object"
+    ? src.voterDataState
+    : null;
+  const snapshotLike = stateLike && !Array.isArray(stateLike)
+    && Object.prototype.hasOwnProperty.call(stateLike, "rowCount")
+    && Object.prototype.hasOwnProperty.call(stateLike, "adapterId")
+    && !Object.prototype.hasOwnProperty.call(stateLike, "rows")
+    ? stateLike
+    : null;
+  const normalized = snapshotLike
+    ? null
+    : normalizeVoterDataState(src.voterDataState);
+  const rowCount = snapshotLike
+    ? Math.max(0, Math.trunc(safeNum(snapshotLike?.rowCount) ?? 0))
+    : (Array.isArray(normalized?.rows) ? normalized.rows.length : 0);
+  const adapterId = snapshotLike ? snapshotLike?.adapterId : normalized?.manifest?.adapterId;
+  const sourceId = snapshotLike ? snapshotLike?.sourceId : normalized?.manifest?.sourceId;
   const warnings = Array.isArray(src.warnings)
     ? src.warnings.map((value) => cleanText(value)).filter(Boolean)
     : [];
-  const rowCount = Array.isArray(normalized?.rows) ? normalized.rows.length : 0;
   const sourceRef = formatVoterSourceRef(
-    normalized?.manifest?.adapterId,
-    normalized?.manifest?.sourceId,
+    adapterId,
+    sourceId,
     { fallback: "canonical" },
   );
   const statusText = rowCount > 0
@@ -886,9 +901,12 @@ export function normalizeVoterRows(rows, options = {}){
     importedAt: manifest.importedAt || new Date().toISOString(),
     rowCount: normalizedRows.length,
     mappedCanonicalFields,
-    ignoredHeaderCount: (ignoredHeaderCountExisting != null && ignoredHeaderCountExisting >= 0)
-      ? Math.max(0, Math.trunc(ignoredHeaderCountExisting))
-      : ignoredHeaders.length,
+    ignoredHeaderCount: Math.max(
+      ignoredHeaders.length,
+      (ignoredHeaderCountExisting != null && ignoredHeaderCountExisting >= 0)
+        ? Math.max(0, Math.trunc(ignoredHeaderCountExisting))
+        : 0,
+    ),
     ignoredHeadersSample: ignoredHeadersSampleExisting.length
       ? ignoredHeadersSampleExisting
       : ignoredHeaders.slice(0, TRACEABILITY_HEADER_SAMPLE_LIMIT),
