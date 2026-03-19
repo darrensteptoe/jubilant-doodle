@@ -4,7 +4,17 @@
  */
 export function isScenarioLockedForEditsModule(srcState){
   try{
-    return !!srcState?.intelState?.workflow?.scenarioLocked;
+    const raw = srcState?.intelState?.workflow?.scenarioLocked;
+    if (typeof raw === "boolean") return raw;
+    if (typeof raw === "number") return Number.isFinite(raw) ? raw !== 0 : false;
+    if (typeof raw === "string"){
+      const text = raw.trim().toLowerCase();
+      if (!text) return false;
+      if (text === "false" || text === "0" || text === "no" || text === "off" || text === "n") return false;
+      if (text === "true" || text === "1" || text === "yes" || text === "on" || text === "y") return true;
+      return false;
+    }
+    return !!raw;
   } catch {
     return false;
   }

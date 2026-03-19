@@ -13,6 +13,10 @@ const NAV_BRIDGE_KEY = "__FPE_V3_NAV__";
 const SHELL_BRIDGE_KEY = "__FPE_SHELL_API__";
 let syncTimer = null;
 let popstateWired = false;
+let editTrackerWired = false;
+let lastUserEditAt = 0;
+
+const ACTIVE_EDIT_SYNC_HOLD_MS = 900;
 
 function resolveUiMode() {
   try {
@@ -59,6 +63,7 @@ function bootV3() {
     installV3QaSmokeBridge();
     wireTopbarBridge();
     wireScenarioBridge();
+    wireEditTracker(root);
 
     navigateStage(resolveInitialStage(), { persist: true });
     startSyncLoop();
@@ -299,7 +304,9 @@ function syncTrainingToggle() {
 
 function syncAll() {
   syncKpis();
-  refreshActiveStage();
+  if (canRefreshActiveStage()) {
+    refreshActiveStage();
+  }
   syncScenarioMirror();
   syncTrainingToggle();
 }
@@ -307,6 +314,10 @@ function syncAll() {
 function syncScenarioMirror() {
   const v3Input = document.getElementById("v3ScenarioName");
   if (!v3Input) {
+    return;
+  }
+
+  if (document.activeElement === v3Input) {
     return;
   }
 
@@ -323,6 +334,61 @@ function startSyncLoop() {
   }
 
   syncTimer = window.setInterval(syncAll, 1000);
+}
+
+function wireEditTracker(root) {
+  if (editTrackerWired || !(root instanceof HTMLElement)) {
+    return;
+  }
+  editTrackerWired = true;
+
+  const markEdited = () => {
+    lastUserEditAt = Date.now();
+  };
+
+  const onEvent = (event) => {
+    const target = event?.target;
+    if (
+      !(target instanceof HTMLInputElement)
+      && !(target instanceof HTMLSelectElement)
+      && !(target instanceof HTMLTextAreaElement)
+    ) {
+      return;
+    }
+    if (!root.contains(target)) {
+      return;
+    }
+    markEdited();
+  };
+
+  root.addEventListener("input", onEvent, true);
+  root.addEventListener("change", onEvent, true);
+}
+
+function isActiveElementEditableInV3() {
+  const active = document.activeElement;
+  if (
+    !(active instanceof HTMLInputElement)
+    && !(active instanceof HTMLSelectElement)
+    && !(active instanceof HTMLTextAreaElement)
+  ) {
+    return false;
+  }
+  const root = document.getElementById("app-shell-v3-root");
+  if (!(root instanceof HTMLElement) || !root.contains(active)) {
+    return false;
+  }
+  return !active.disabled && !active.readOnly;
+}
+
+function canRefreshActiveStage() {
+  if (isActiveElementEditableInV3()) {
+    return false;
+  }
+  if (!lastUserEditAt) {
+    return true;
+  }
+  return (Date.now() - lastUserEditAt) > ACTIVE_EDIT_SYNC_HOLD_MS;
 }
 
 if (document.readyState === "loading") {
