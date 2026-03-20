@@ -69,6 +69,7 @@ import { listAcsYears, listMetricSetOptions, listResolutionOptions } from "../..
 import { pctOverrideToDecimal } from "../../../core/voteProduction.js";
 
 let censusMapResizePulseHandle = 0;
+let districtCensusSyncRafHandle = 0;
 const TARGETING_DENSITY_OPTIONS = [
   { id: "none", label: "None" },
   { id: "medium", label: "Medium+" },
@@ -2288,6 +2289,13 @@ function bindDistrictCensusProxies() {
 
 function syncDistrictCensusProxy() {
   const bridgeSnapshot = readDistrictCensusSnapshot();
+  if (!bridgeSnapshot || typeof bridgeSnapshot !== "object") {
+    // Keep canonical static options available, but do not clobber dynamic
+    // control values when bridge view is temporarily unavailable.
+    ensureDistrictCensusStaticOptionHydration(null);
+    syncCensusMapShellState();
+    return;
+  }
   const censusConfig = bridgeSnapshot?.config;
   ensureDistrictCensusStaticOptionHydration(censusConfig);
   syncBridgeText({
@@ -2448,6 +2456,9 @@ function ensureDistrictCensusStaticOptionHydration(config) {
   hydrateSelectOptions("v3CensusAcsYear", yearOptions);
   hydrateSelectOptions("v3CensusResolution", resolutionOptions);
   hydrateSelectOptions("v3CensusMetricSet", metricSetOptions);
+  if (!config || typeof config !== "object") {
+    return;
+  }
   hydrateSelectOptions("v3CensusStateFips", normalizeBridgeOptions(config?.stateOptions), config?.stateFips);
   hydrateSelectOptions("v3CensusCountyFips", normalizeBridgeOptions(config?.countyOptions), config?.countyFips);
   hydrateSelectOptions("v3CensusPlaceFips", normalizeBridgeOptions(config?.placeOptions), config?.placeFips);
@@ -2565,8 +2576,11 @@ function renderDistrictCensusTableRows({
 }
 
 function queueDistrictCensusSync() {
-  syncDistrictCensusProxy();
-  window.requestAnimationFrame(() => {
+  if (districtCensusSyncRafHandle) {
+    return;
+  }
+  districtCensusSyncRafHandle = window.requestAnimationFrame(() => {
+    districtCensusSyncRafHandle = 0;
     syncDistrictCensusProxy();
   });
 }

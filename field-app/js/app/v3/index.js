@@ -341,17 +341,22 @@ function callShellBridge(method, ...args) {
 
 function readShellTrainingState() {
   const shellView = readShellBridgeView();
+  if (shellView && typeof shellView.playbookEnabled === "boolean") {
+    return shellView.playbookEnabled;
+  }
   if (shellView && typeof shellView.trainingEnabled === "boolean") {
     return shellView.trainingEnabled;
   }
-  return document.body.classList.contains("training");
+  return document.body.classList.contains("playbook") || document.body.classList.contains("training");
 }
 
 function setShellTrainingState(enabled) {
-  const result = callShellBridge("setTrainingEnabled", !!enabled);
+  const result = callShellBridge("setPlaybookEnabled", !!enabled)
+    || callShellBridge("setTrainingEnabled", !!enabled);
   if (result) {
     return true;
   }
+  document.body.classList.toggle("playbook", !!enabled);
   document.body.classList.toggle("training", !!enabled);
   return false;
 }
