@@ -508,7 +508,7 @@ function censusRuntimeSetField(field, rawValue){
 
   const patched = censusRuntimeSetBridgeFieldFallback(key, rawValue);
   if (patched) {
-    censusRuntimeCommit({ persist: false });
+    censusRuntimeCommit({ persist: true });
     return { ok: true, code: "updated_bridge_state" };
   }
   return { ok: false, code: "unavailable" };
@@ -526,7 +526,7 @@ function censusRuntimeSetGeoSelection(values){
           .filter(Boolean),
       ));
       setStatus(s, "Selection updated.", false);
-      censusRuntimeCommit({ persist: false });
+      censusRuntimeCommit({ persist: true });
       return { ok: true, code: "updated_bridge_state" };
     }
   }

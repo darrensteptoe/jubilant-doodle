@@ -34,6 +34,20 @@ export function ensureDecisionOptionShapeCore(o){
   if (t.digital === undefined) t.digital = false;
 }
 
+export function ensureWarRoomDecisionLogEntryShapeCore(entry){
+  if (!entry || typeof entry !== "object") return;
+  if (!entry.id) entry.id = "";
+  if (!entry.recordedAt) entry.recordedAt = "";
+  if (!entry.classification) entry.classification = "noise";
+  if (!entry.significance) entry.significance = "low";
+  if (!entry.actionability) entry.actionability = "watch";
+  if (!entry.owner) entry.owner = "";
+  if (!entry.followUpDate) entry.followUpDate = "";
+  if (!entry.summary) entry.summary = "";
+  if (!entry.status) entry.status = "open";
+  if (!Array.isArray(entry.topDrivers)) entry.topDrivers = [];
+}
+
 export function ensureDecisionSessionShapeCore(s){
   if (!s || typeof s !== "object") return;
 
@@ -54,6 +68,19 @@ export function ensureDecisionSessionShapeCore(s){
     ensureDecisionOptionShapeCore(s.options[k]);
   }
   if (s.activeOptionId && !s.options[s.activeOptionId]) s.activeOptionId = null;
+
+  if (!s.warRoom || typeof s.warRoom !== "object") s.warRoom = {};
+  const w = s.warRoom;
+  if (!Array.isArray(w.watchItems)) w.watchItems = [];
+  if (!Array.isArray(w.decisionItems)) w.decisionItems = [];
+  if (w.owner === undefined) w.owner = "";
+  if (w.followUpDate === undefined) w.followUpDate = "";
+  if (w.decisionSummary === undefined) w.decisionSummary = "";
+  if (w.lastReview === undefined) w.lastReview = null;
+  if (!Array.isArray(w.decisionLog)) w.decisionLog = [];
+  for (const row of w.decisionLog){
+    ensureWarRoomDecisionLogEntryShapeCore(row);
+  }
 }
 
 export function ensureDecisionScaffoldCore(state, {
@@ -92,6 +119,15 @@ export function ensureDecisionScaffoldCore(state, {
       recommendedOptionId: null,
       options: {},
       activeOptionId: null,
+      warRoom: {
+        watchItems: [],
+        decisionItems: [],
+        owner: "",
+        followUpDate: "",
+        decisionSummary: "",
+        lastReview: null,
+        decisionLog: [],
+      },
     };
     state.ui.decision.activeSessionId = id;
     return;
@@ -161,8 +197,19 @@ export function createDecisionSessionActions(ctx){
       constraints: { budget: null, volunteerHrs: null, turfAccess: "", blackoutDates: "" },
       riskPosture: "balanced",
       nonNegotiables: [],
+      whatNeedsTrue: [],
+      recommendedOptionId: null,
       options: {},
       activeOptionId: null,
+      warRoom: {
+        watchItems: [],
+        decisionItems: [],
+        owner: "",
+        followUpDate: "",
+        decisionSummary: "",
+        lastReview: null,
+        decisionLog: [],
+      },
     };
     s.ui.decision.activeSessionId = id;
     persist();

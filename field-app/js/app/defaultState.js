@@ -7,8 +7,11 @@ import {
   makeDefaultFootprintCapacity,
 } from "../core/censusModule.js";
 import { makeDefaultVoterDataState } from "../core/voterDataLayer.js";
+import { normalizeCandidateHistoryRecords } from "../core/candidateHistoryBaseline.js";
 import { makeDefaultFeatureFlags } from "./featureFlags.js";
 import { makeDefaultTargetingState } from "./targetingRuntime.js";
+import { makeDefaultWarRoomState } from "./warRoomWeather.js";
+import { makeDefaultEventCalendarState } from "./eventCalendarState.js";
 import { resolveActiveContext } from "./activeContext.js";
 import { applyTemplateDefaultsToState } from "./templateResolver.js";
 
@@ -40,6 +43,7 @@ export function makeDefaultStateModule(ctx){
     yourCandidateId: null,
     undecidedMode: "proportional",
     userSplit: {},
+    candidateHistory: normalizeCandidateHistoryRecords([]),
     persuasionPct: "",
     earlyVoteExp: "",
 
@@ -144,6 +148,10 @@ export function makeDefaultStateModule(ctx){
     footprintCapacity: makeDefaultFootprintCapacity(),
     intelState: makeDefaultIntelState(),
     features: makeDefaultFeatureFlags(),
+    warRoom: {
+      ...makeDefaultWarRoomState(),
+      eventCalendar: makeDefaultEventCalendarState(),
+    },
     ui: {
       training: false,
       dark: false,

@@ -7,9 +7,12 @@ import {
   normalizeFootprintCapacity,
 } from "../core/censusModule.js";
 import { normalizeVoterDataState } from "../core/voterDataLayer.js";
+import { normalizeCandidateHistoryRecords } from "../core/candidateHistoryBaseline.js";
 import { syncFeatureFlagsFromState } from "./featureFlags.js";
 import { ensureBudgetShape } from "./state.js";
 import { normalizeTargetingState } from "./targetingRuntime.js";
+import { ensureWarRoomStateShape } from "./warRoomWeather.js";
+import { ensureEventCalendarStateShape } from "./eventCalendarState.js";
 import { applyContextToState, resolveActiveContext } from "./activeContext.js";
 import { syncTemplateMetaFromState } from "./templateResolver.js";
 import { resolveCanonicalCallsPerHour, setCanonicalCallsPerHour } from "../core/throughput.js";
@@ -53,6 +56,7 @@ export function normalizeLoadedStateModule(s, deps){
   const out = { ...base, ...src };
   out.candidates = Array.isArray(src.candidates) ? src.candidates : base.candidates;
   out.userSplit = (src.userSplit && typeof src.userSplit === "object") ? src.userSplit : {};
+  out.candidateHistory = normalizeCandidateHistoryRecords(src.candidateHistory);
   out.intelState = normalizeIntelState(src.intelState);
   out.census = normalizeCensusState(src.census, { resetRuntime: true });
   out.voterData = normalizeVoterDataState(src.voterData);
@@ -88,6 +92,8 @@ export function normalizeLoadedStateModule(s, deps){
   syncTemplateMetaFromState(out);
   const context = resolveActiveContext({ ...(deps?.activeContext || {}), fallback: out });
   applyContextToState(out, context);
+  ensureWarRoomStateShape(out);
+  ensureEventCalendarStateShape(out);
   out.ui.assumptionsProfile = deriveAssumptionsProfileFromState(out);
   out.ui.themeMode = "system";
   out.ui.dark = false;

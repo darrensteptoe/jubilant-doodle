@@ -1,0 +1,118 @@
+// @ts-check
+
+export const REALISM_BANDS_VERSION = "12.5.0";
+
+/**
+ * Canonical plausibility bands (percent fields are in pct points, not unit ratios).
+ * These bands only classify assumptions; they never mutate state.
+ */
+export const REALISM_BANDS = Object.freeze({
+  persuasionPct: Object.freeze({
+    label: "Persuasion share of universe (%)",
+    path: "state.persuasionPct",
+    min: 0,
+    typicalLow: 10,
+    typicalHigh: 45,
+    max: 65,
+    extreme: 80,
+  }),
+  supportRatePct: Object.freeze({
+    label: "Support rate (%)",
+    path: "state.supportRatePct",
+    min: 20,
+    typicalLow: 40,
+    typicalHigh: 70,
+    max: 90,
+    extreme: 95,
+  }),
+  contactRatePct: Object.freeze({
+    label: "Contact rate (%)",
+    path: "state.contactRatePct",
+    min: 5,
+    typicalLow: 12,
+    typicalHigh: 40,
+    max: 55,
+    extreme: 65,
+  }),
+  turnoutReliabilityPct: Object.freeze({
+    label: "Turnout reliability (%)",
+    path: "state.turnoutReliabilityPct",
+    min: 35,
+    typicalLow: 55,
+    typicalHigh: 90,
+    max: 98,
+    extreme: 99,
+  }),
+  turnoutBaselinePct: Object.freeze({
+    label: "Turnout baseline (%)",
+    path: "state.turnoutBaselinePct",
+    min: 20,
+    typicalLow: 35,
+    typicalHigh: 75,
+    max: 90,
+    extreme: 98,
+  }),
+  turnoutTargetOverridePct: Object.freeze({
+    label: "Turnout target override (%)",
+    path: "state.turnoutTargetOverridePct",
+    min: 20,
+    typicalLow: 35,
+    typicalHigh: 80,
+    max: 95,
+    extreme: 99,
+  }),
+  gotvLiftPP: Object.freeze({
+    label: "GOTV lift (pp)",
+    path: "state.gotvLiftPP",
+    min: 0,
+    typicalLow: 0.5,
+    typicalHigh: 5,
+    max: 12,
+    extreme: 20,
+  }),
+  gotvMaxLiftPP: Object.freeze({
+    label: "GOTV max lift cap (pp)",
+    path: "state.gotvMaxLiftPP",
+    min: 0,
+    typicalLow: 2,
+    typicalHigh: 12,
+    max: 20,
+    extreme: 30,
+  }),
+  doorsPerHour: Object.freeze({
+    label: "Doors per hour",
+    path: "state.doorsPerHour3",
+    min: 8,
+    typicalLow: 18,
+    typicalHigh: 45,
+    max: 65,
+    extreme: 80,
+  }),
+  callsPerHour: Object.freeze({
+    label: "Calls per hour",
+    path: "state.callsPerHour3",
+    min: 4,
+    typicalLow: 10,
+    typicalHigh: 35,
+    max: 55,
+    extreme: 70,
+  }),
+  volunteerMultiplier: Object.freeze({
+    label: "Volunteer productivity multiplier",
+    path: "state.volunteerMultBase",
+    min: 0.3,
+    typicalLow: 0.8,
+    typicalHigh: 2.5,
+    max: 4,
+    extreme: 6,
+  }),
+  organizerCount: Object.freeze({
+    label: "Organizer count",
+    path: "state.orgCount",
+    min: 0,
+    typicalLow: 1,
+    typicalHigh: 50,
+    max: 150,
+    extreme: 300,
+  }),
+});

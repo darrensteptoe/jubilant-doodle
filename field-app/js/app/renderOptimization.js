@@ -100,6 +100,17 @@ export function renderOptimizationModule(args){
     workforce,
     state,
   });
+  const realismSnapshot = (state?.ui?.lastRealismSnapshot && typeof state.ui.lastRealismSnapshot === "object")
+    ? state.ui.lastRealismSnapshot
+    : null;
+  const budgetRealismFlags = Array.isArray(realismSnapshot?.flaggedAssumptions)
+    ? realismSnapshot.flaggedAssumptions.filter((row) => String(row?.type || "").trim() === "budget")
+    : [];
+  const severeBudgetRealismFlags = budgetRealismFlags.filter((row) => String(row?.severity || "").trim() === "bad");
+  const warningBudgetRealismFlags = budgetRealismFlags.filter((row) => String(row?.severity || "").trim() === "warn");
+  const budgetRealismWarningText = warningBudgetRealismFlags.length
+    ? String(warningBudgetRealismFlags[0]?.message || "One or more channel costs are outside realistic floors/ceilings.")
+    : "";
 
   const bannerEl = els.optBanner;
   const showBanner = (kind, text) => {
@@ -142,7 +153,15 @@ export function renderOptimizationModule(args){
     stubRow();
     return;
   }
-
+  if (severeBudgetRealismFlags.length){
+    const detail = String(severeBudgetRealismFlags[0]?.message || "Channel costs exceed extreme realism bounds.");
+    clearPlanCaches();
+    hideBanner();
+    showBanner("bad", `Optimization blocked by budget realism. ${detail}`);
+    setTotals(null);
+    stubRow();
+    return;
+  }
   const step = safeNum(opt.step) ?? 25;
   const objective = normalizeOptimizationObjective(opt.objective, "net");
   const objectiveLabel = getOptimizationObjectiveLabel(objective);
@@ -177,7 +196,12 @@ export function renderOptimizationModule(args){
     });
 
     hideBanner();
-    showBanner("ok", `Optimization: Capacity-constrained plan (${objectiveLabel} under attempt ceiling).`);
+    showBanner(
+      budgetRealismWarningText ? "warn" : "ok",
+      budgetRealismWarningText
+        ? `Capacity plan with budget realism warning. ${budgetRealismWarningText}`
+        : `Optimization: Capacity-constrained plan (${objectiveLabel} under attempt ceiling).`
+    );
   } else {
     const budgetAvail = resolveOptimizationBudgetAvailable({
       budgetAmount: safeNum(opt.budgetAmount) ?? 0,
@@ -196,9 +220,19 @@ export function renderOptimizationModule(args){
 
     hideBanner();
     if (includeOverhead && overheadAmount > 0){
-      showBanner("ok", `Optimization: Budget-constrained plan. Overhead (${planNumber.formatCurrency(overheadAmount)}) treated as fixed; remaining budget optimized.`);
+      showBanner(
+        budgetRealismWarningText ? "warn" : "ok",
+        budgetRealismWarningText
+          ? `Budget plan with budget realism warning. ${budgetRealismWarningText}`
+          : `Optimization: Budget-constrained plan. Overhead (${planNumber.formatCurrency(overheadAmount)}) treated as fixed; remaining budget optimized.`
+      );
     } else {
-      showBanner("ok", `Optimization: Budget-constrained plan (${objectiveLabel} under fixed budget).`);
+      showBanner(
+        budgetRealismWarningText ? "warn" : "ok",
+        budgetRealismWarningText
+          ? `Budget plan with budget realism warning. ${budgetRealismWarningText}`
+          : `Optimization: Budget-constrained plan (${objectiveLabel} under fixed budget).`
+      );
     }
   }
 

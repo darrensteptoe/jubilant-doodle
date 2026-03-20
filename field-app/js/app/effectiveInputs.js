@@ -7,6 +7,8 @@ import {
   evaluateCensusApplyMode,
 } from "../core/censusModule.js";
 import { resolveCanonicalCallsPerHour, resolveDoorShareUnitFromPct } from "../core/throughput.js";
+import { deriveEventCapacityAdjustmentForState } from "./eventImpactRules.js";
+import { isTodayOnlyAdjustmentActive } from "./weatherRiskRules.js";
 
 /**
  * @typedef {Record<string, any>} AnyState
@@ -60,6 +62,9 @@ export function createEffectiveInputsController({
     const workforceOrganizerCount = safeNum(workforce.organizerCount);
     const paidCanvasserCount = safeNum(workforce.paidCanvasserCount);
     const activeVolunteerCount = safeNum(workforce.activeVolunteerCount);
+    const activeHeadcount = safeNum(workforce.activeHeadcount);
+    const missingRoleTypedCount = safeNum(workforce.missingRoleTypedCount);
+    const roleTypingCoveragePct = safeNum(workforce.roleTypingCoveragePct);
     const activePaidHeadcount = safeNum(workforce.activePaidHeadcount);
     const activeStipendHeadcount = safeNum(workforce.activeStipendHeadcount);
     const activeVolunteerHeadcount = safeNum(workforce.activeVolunteerHeadcount);
@@ -68,6 +73,9 @@ export function createEffectiveInputsController({
     const organizerSupervisionCapacity = safeNum(workforce.organizerSupervisionCapacity);
     const paidCanvasserProductivity = safeNum(workforce.paidCanvasserProductivity);
     const volunteerProductivity = safeNum(workforce.volunteerProductivity);
+    const paidRoleMultiplier = safeNum(workforce.paidRoleMultiplier);
+    const volunteerRoleMultiplier = safeNum(workforce.volunteerRoleMultiplier);
+    const roleCapacityMultiplier = safeNum(workforce.roleCapacityMultiplier);
 
     let orgCount = safeNum(s.orgCount);
     const baseOrgHoursPerWeek = safeNum(s.orgHoursPerWeek);
@@ -147,13 +155,79 @@ export function createEffectiveInputsController({
     let overrideTargetAttemptsPerWeek = null;
     const overrideEnabled = !!s.twCapOverrideEnabled;
     const overrideMode = twCapOverrideModeFromState(s);
+    const todayIso = new Date().toISOString().slice(0, 10);
+
+    const weatherAdjustmentState = (s?.warRoom?.weatherAdjustment && typeof s.warRoom.weatherAdjustment === "object")
+      ? s.warRoom.weatherAdjustment
+      : null;
+    const weatherAdjustmentActive = isTodayOnlyAdjustmentActive(weatherAdjustmentState, new Date());
+    const weatherModifiers = weatherAdjustmentActive
+      ? (weatherAdjustmentState?.modifiers && typeof weatherAdjustmentState.modifiers === "object"
+        ? weatherAdjustmentState.modifiers
+        : null)
+      : null;
+    if (weatherModifiers){
+      const doorEfficiencyMultiplier = safeNum(weatherModifiers.doorEfficiencyMultiplier);
+      const volunteerShowRateMultiplier = safeNum(weatherModifiers.volunteerShowRateMultiplier);
+      const electionDayTurnoutRiskBump = safeNum(weatherModifiers.electionDayTurnoutRiskBump);
+      if (doorsPerHourAdjusted != null && doorEfficiencyMultiplier != null && doorEfficiencyMultiplier > 0){
+        doorsPerHourAdjusted = doorsPerHourAdjusted * doorEfficiencyMultiplier;
+      }
+      if (callsPerHourAdjusted != null && doorEfficiencyMultiplier != null && doorEfficiencyMultiplier > 0){
+        callsPerHourAdjusted = callsPerHourAdjusted * doorEfficiencyMultiplier;
+      }
+      if (volunteerMult != null && volunteerShowRateMultiplier != null && volunteerShowRateMultiplier > 0){
+        volunteerMult = volunteerMult * volunteerShowRateMultiplier;
+      }
+      if (trAdjusted != null && electionDayTurnoutRiskBump != null && electionDayTurnoutRiskBump > 0){
+        trAdjusted = clamp(trAdjusted - electionDayTurnoutRiskBump, 0, 1);
+      }
+    }
+
+    const eventCapacityAdjustment = deriveEventCapacityAdjustmentForState(s, {
+      date: todayIso,
+      scenarioId: s?.ui?.activeScenarioId || "",
+    });
+    if (eventCapacityAdjustment?.enabled){
+      const volunteerMultiplier = safeNum(eventCapacityAdjustment.volunteerMultiplier);
+      const doorsPerHourMultiplier = safeNum(eventCapacityAdjustment.doorsPerHourMultiplier);
+      const callsPerHourMultiplier = safeNum(eventCapacityAdjustment.callsPerHourMultiplier);
+      const shiftHoursMultiplier = safeNum(eventCapacityAdjustment.shiftHoursMultiplier);
+      if (volunteerMult != null && volunteerMultiplier != null && volunteerMultiplier > 0){
+        volunteerMult = volunteerMult * volunteerMultiplier;
+      }
+      if (doorsPerHourAdjusted != null && doorsPerHourMultiplier != null && doorsPerHourMultiplier > 0){
+        doorsPerHourAdjusted = doorsPerHourAdjusted * doorsPerHourMultiplier;
+      }
+      if (callsPerHourAdjusted != null && callsPerHourMultiplier != null && callsPerHourMultiplier > 0){
+        callsPerHourAdjusted = callsPerHourAdjusted * callsPerHourMultiplier;
+      }
+      if (orgHoursPerWeek != null && shiftHoursMultiplier != null && shiftHoursMultiplier > 0){
+        orgHoursPerWeek = orgHoursPerWeek * shiftHoursMultiplier;
+      }
+    }
 
     if (overrideEnabled){
       if (workforceOrganizerCount != null && workforceOrganizerCount >= 0){
         orgCount = workforceOrganizerCount;
       }
-      if (volunteerMult != null && volunteerProductivity != null && volunteerProductivity >= 0){
+      if (orgCount != null && roleCapacityMultiplier != null && roleCapacityMultiplier > 0){
+        orgCount = orgCount * roleCapacityMultiplier;
+      }
+      if (volunteerMult != null && volunteerRoleMultiplier != null && volunteerRoleMultiplier >= 0){
+        volunteerMult = volunteerMult * volunteerRoleMultiplier;
+      } else if (volunteerMult != null && volunteerProductivity != null && volunteerProductivity >= 0){
         volunteerMult = volunteerMult * volunteerProductivity;
+      }
+      if (doorsPerHourAdjusted != null && paidRoleMultiplier != null && paidRoleMultiplier > 0){
+        doorsPerHourAdjusted = doorsPerHourAdjusted * paidRoleMultiplier;
+      } else if (doorsPerHourAdjusted != null && paidCanvasserProductivity != null && paidCanvasserProductivity > 0){
+        doorsPerHourAdjusted = doorsPerHourAdjusted * paidCanvasserProductivity;
+      }
+      if (callsPerHourAdjusted != null && paidRoleMultiplier != null && paidRoleMultiplier > 0){
+        callsPerHourAdjusted = callsPerHourAdjusted * paidRoleMultiplier;
+      } else if (callsPerHourAdjusted != null && paidCanvasserProductivity != null && paidCanvasserProductivity > 0){
+        callsPerHourAdjusted = callsPerHourAdjusted * paidCanvasserProductivity;
       }
       if (overrideMode === "baseline"){
         source = "baseline-manual (override-baseline)";
@@ -192,6 +266,9 @@ export function createEffectiveInputsController({
         organizerCount: workforceOrganizerCount,
         paidCanvasserCount,
         activeVolunteerCount,
+        activeHeadcount,
+        missingRoleTypedCount,
+        roleTypingCoveragePct,
         activePaidHeadcount,
         activeStipendHeadcount,
         activeVolunteerHeadcount,
@@ -200,6 +277,9 @@ export function createEffectiveInputsController({
         organizerSupervisionCapacity,
         paidCanvasserProductivity,
         volunteerProductivity,
+        paidRoleMultiplier,
+        volunteerRoleMultiplier,
+        roleCapacityMultiplier,
         doorSharePct,
         doorShare,
         doorsPerHour: doorsPerHourAdjusted,
@@ -212,6 +292,24 @@ export function createEffectiveInputsController({
         twCapOverrideMode: overrideMode,
         twCapOverrideTargetAttemptsPerWeek: overrideTargetAttemptsPerWeek,
         censusApply,
+        weatherAdjustment: {
+          enabled: !!weatherAdjustmentActive,
+          date: weatherAdjustmentActive ? todayIso : "",
+          mode: weatherAdjustmentActive ? String(weatherAdjustmentState?.mode || "today_only") : "observe_only",
+          modifiers: weatherModifiers || null,
+        },
+        eventCapacityAdjustment: {
+          enabled: !!eventCapacityAdjustment?.enabled,
+          date: String(eventCapacityAdjustment?.date || todayIso),
+          eventCount: Number(eventCapacityAdjustment?.eventCount || 0) || 0,
+          appliedEventIds: Array.isArray(eventCapacityAdjustment?.appliedEventIds)
+            ? eventCapacityAdjustment.appliedEventIds.slice()
+            : [],
+          volunteerMultiplier: safeNum(eventCapacityAdjustment?.volunteerMultiplier) ?? 1,
+          doorsPerHourMultiplier: safeNum(eventCapacityAdjustment?.doorsPerHourMultiplier) ?? 1,
+          callsPerHourMultiplier: safeNum(eventCapacityAdjustment?.callsPerHourMultiplier) ?? 1,
+          shiftHoursMultiplier: safeNum(eventCapacityAdjustment?.shiftHoursMultiplier) ?? 1,
+        },
       }
     };
 
@@ -230,6 +328,9 @@ export function createEffectiveInputsController({
           organizerCount: workforceOrganizerCount,
           paidCanvasserCount,
           activeVolunteerCount,
+          activeHeadcount,
+          missingRoleTypedCount,
+          roleTypingCoveragePct,
           activePaidHeadcount,
           activeStipendHeadcount,
           activeVolunteerHeadcount,
@@ -238,6 +339,9 @@ export function createEffectiveInputsController({
           organizerSupervisionCapacity,
           paidCanvasserProductivity,
           volunteerProductivity,
+          paidRoleMultiplier,
+          volunteerRoleMultiplier,
+          roleCapacityMultiplier,
           doorSharePct,
           doorShare,
           doorsPerHour: doorsPerHourAdjusted,
@@ -253,6 +357,24 @@ export function createEffectiveInputsController({
             ...censusApply,
             applied: false,
             reason: "seam_fallback",
+          },
+          weatherAdjustment: {
+            enabled: !!weatherAdjustmentActive,
+            date: weatherAdjustmentActive ? todayIso : "",
+            mode: weatherAdjustmentActive ? String(weatherAdjustmentState?.mode || "today_only") : "observe_only",
+            modifiers: weatherModifiers || null,
+          },
+          eventCapacityAdjustment: {
+            enabled: !!eventCapacityAdjustment?.enabled,
+            date: String(eventCapacityAdjustment?.date || todayIso),
+            eventCount: Number(eventCapacityAdjustment?.eventCount || 0) || 0,
+            appliedEventIds: Array.isArray(eventCapacityAdjustment?.appliedEventIds)
+              ? eventCapacityAdjustment.appliedEventIds.slice()
+              : [],
+            volunteerMultiplier: safeNum(eventCapacityAdjustment?.volunteerMultiplier) ?? 1,
+            doorsPerHourMultiplier: safeNum(eventCapacityAdjustment?.doorsPerHourMultiplier) ?? 1,
+            callsPerHourMultiplier: safeNum(eventCapacityAdjustment?.callsPerHourMultiplier) ?? 1,
+            shiftHoursMultiplier: safeNum(eventCapacityAdjustment?.shiftHoursMultiplier) ?? 1,
           },
         }
       };
