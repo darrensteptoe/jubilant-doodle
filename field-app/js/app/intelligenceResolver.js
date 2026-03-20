@@ -2,6 +2,12 @@
 import { getDefaultModelForStage, getDefaultModuleForStage, getIntelligenceEntity } from "./intelligenceRegistry.js";
 import { searchIntelligence } from "./intelligenceSearch.js";
 import { getDefaultPlaybookForStage } from "./playbookRegistry.js";
+import {
+  evaluatePlaybookTrigger,
+  formatPlaybookTriggerSummary,
+  normalizePlaybookSignals,
+  resolvePlaybookIdForSignals,
+} from "./playbookResolver.js";
 
 const MODE_MODULE = "module";
 const MODE_MODEL = "model";
@@ -44,6 +50,10 @@ function normalizeContext(raw = {}){
     scenarioId: clean(src.scenarioId) || "baseline",
     stageId: clean(src.stageId) || "district",
     today: clean(src.today) || new Date().toISOString().slice(0, 10),
+    playbookSignals: normalizePlaybookSignals({
+      ...(src.playbookSignals && typeof src.playbookSignals === "object" ? src.playbookSignals : {}),
+      stageId: clean(src.stageId) || "district",
+    }),
   };
 }
 
@@ -60,6 +70,14 @@ function injectLiveValues(text, context){
 
 function toList(value){
   return Array.isArray(value) ? value.map((v) => clean(v)).filter(Boolean) : [];
+}
+
+function formatActionList(value, context){
+  const rows = toList(value);
+  if (!rows.length){
+    return "";
+  }
+  return injectLiveValues(rows.join(" | "), context);
 }
 
 function buildModuleSections(entry, context){
@@ -93,7 +111,12 @@ function buildModuleSections(entry, context){
 }
 
 function relatedLinks(entry){
-  const modules = toList(entry?.relatedModules).map((id) => {
+  const moduleIds = [
+    ...toList(entry?.relatedModules),
+    ...toList(entry?.relatedDoctrinePages),
+  ];
+  const dedupModuleIds = Array.from(new Set(moduleIds.map((id) => clean(id)).filter(Boolean)));
+  const modules = dedupModuleIds.map((id) => {
     const resolved = getIntelligenceEntity(MODE_MODULE, id);
     const resolvedId = clean(resolved?.id) || clean(id);
     const label = clean(resolved?.title) || clean(id);
@@ -291,7 +314,8 @@ function resolveMessageMode(input, context){
 
 function resolvePlaybookMode(input, context){
   const fallbackId = getDefaultPlaybookForStage(context.stageId);
-  const playbookId = clean(input.playbookId) || fallbackId;
+  const playbookId = clean(input.playbookId)
+    || resolvePlaybookIdForSignals(context.playbookSignals, { fallbackId });
   const entry = getIntelligenceEntity(MODE_PLAYBOOK, playbookId);
   if (!entry){
     return {
@@ -302,16 +326,50 @@ function resolvePlaybookMode(input, context){
       links: [],
     };
   }
+  const triggerResult = evaluatePlaybookTrigger(entry, context.playbookSignals);
+  const triggerSummary = formatPlaybookTriggerSummary(triggerResult);
+  const triggerRules = Array.isArray(entry?.triggerRules) ? entry.triggerRules : [];
+  const triggerRuleText = triggerRules
+    .map((rule) => clean(rule?.label) || clean(rule?.signal))
+    .filter(Boolean)
+    .join(" | ");
   return {
     mode: MODE_PLAYBOOK,
     id: entry.id,
     title: entry.title,
     subtitle: injectLiveValues(entry.summary || "", context),
     sections: [
-      { id: "situation", label: "Situation", body: injectLiveValues(entry.situation || "", context) },
-      { id: "response", label: "Disciplined Response", body: injectLiveValues(entry.disciplinedResponse || "", context) },
-      { id: "traps", label: "Common Traps", body: injectLiveValues(entry.commonTraps || "", context) },
-      { id: "signals", label: "Watch Signals", body: injectLiveValues(entry.watchSignals || "", context) },
+      {
+        id: "triggerCondition",
+        label: "Trigger Condition",
+        body: injectLiveValues(entry.triggerCondition || entry.situation || "", context),
+      },
+      {
+        id: "triggerSignals",
+        label: "Signal Pattern",
+        body: injectLiveValues(triggerRuleText || entry.watchSignals || "", context),
+      },
+      {
+        id: "triggerMatch",
+        label: "Current-State Match",
+        body: injectLiveValues(
+          triggerSummary || "No current-state trigger match detected. Manual selection still allowed.",
+          context,
+        ),
+      },
+      {
+        id: "patternMeans",
+        label: "What This Pattern Means",
+        body: injectLiveValues(entry.whatPatternMeans || "", context),
+      },
+      {
+        id: "whyMatters",
+        label: "Why It Matters",
+        body: injectLiveValues(entry.whyItMatters || "", context),
+      },
+      { id: "doNow", label: "What To Do", body: formatActionList(entry.whatToDo, context) || injectLiveValues(entry.disciplinedResponse || "", context) },
+      { id: "dontDo", label: "What Not To Do", body: formatActionList(entry.whatNotToDo, context) },
+      { id: "trap", label: "Common Trap", body: injectLiveValues(entry.commonTrap || entry.commonTraps || "", context) },
     ].filter((row) => clean(row.body)),
     links: relatedLinks(entry),
   };
@@ -323,7 +381,7 @@ function resolveSearchMode(input){
   return {
     mode: MODE_SEARCH,
     title: "Search",
-    subtitle: query ? `Results for "${query}"` : "Search doctrine, models, glossary, and message definitions.",
+    subtitle: query ? `Results for "${query}"` : "Search doctrine, models, playbook, glossary, and message definitions.",
     query,
     results: rows.map((row) => ({
       type: row.type,
@@ -346,6 +404,7 @@ function resolveSearchMode(input){
  *   messageId?: string,
  *   query?: string,
  *   context?: any,
+ *   playbookSignals?: any,
  * }=} input
  */
 export function resolveIntelligencePayload(input = {}){

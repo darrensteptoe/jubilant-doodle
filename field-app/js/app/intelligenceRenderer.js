@@ -46,6 +46,9 @@ function readLiveContext(state){
     scenarioId: clean(shell?.scenarioId) || "baseline",
     stageId: clean(state?.stageId) || "district",
     today: new Date().toISOString().slice(0, 10),
+    playbookSignals: (shell?.playbookSignals && typeof shell.playbookSignals === "object")
+      ? shell.playbookSignals
+      : {},
   };
 }
 

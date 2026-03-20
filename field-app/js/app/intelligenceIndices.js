@@ -90,9 +90,12 @@ export function buildIntelligenceSearchIndex(){
       text: [
         clean(entry?.title),
         clean(entry?.summary),
-        clean(entry?.situation),
-        clean(entry?.disciplinedResponse),
-        clean(entry?.commonTraps),
+        clean(entry?.triggerCondition || entry?.situation),
+        clean(entry?.whatPatternMeans),
+        clean(entry?.whyItMatters),
+        Array.isArray(entry?.whatToDo) ? entry.whatToDo.map((row) => clean(row)).join(" ") : clean(entry?.whatToDo),
+        Array.isArray(entry?.whatNotToDo) ? entry.whatNotToDo.map((row) => clean(row)).join(" ") : clean(entry?.whatNotToDo),
+        clean(entry?.commonTrap || entry?.commonTraps),
         clean(entry?.watchSignals),
       ].join(" ").trim(),
     });

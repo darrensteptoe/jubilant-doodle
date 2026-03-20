@@ -14,7 +14,10 @@ export function initTabsModule(ctx){
 export function initExplainCardModule(ctx){
   const { els, state } = ctx || {};
   if (!els?.explainCard) return;
-  els.explainCard.hidden = !state?.ui?.training;
+  const playbookEnabled = (state?.ui && typeof state.ui === "object" && Object.prototype.hasOwnProperty.call(state.ui, "playbook"))
+    ? !!state.ui.playbook
+    : !!state?.ui?.training;
+  els.explainCard.hidden = !playbookEnabled;
 }
 
 export function isDevModeModule(){

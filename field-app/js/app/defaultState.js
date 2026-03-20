@@ -153,6 +153,7 @@ export function makeDefaultStateModule(ctx){
       eventCalendar: makeDefaultEventCalendarState(),
     },
     ui: {
+      playbook: false,
       training: false,
       dark: false,
       advDiag: false,

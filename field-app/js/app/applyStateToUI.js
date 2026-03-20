@@ -150,8 +150,12 @@ export function applyStateToUIView(ctx){
 
   if (els.toggleAdvDiag) els.toggleAdvDiag.checked = !!state.ui?.advDiag;
   if (els.advDiagBox) els.advDiagBox.hidden = !state.ui?.advDiag;
-  if (els.toggleTraining) els.toggleTraining.checked = !!state.ui?.training;
+  const playbookEnabled = (state?.ui && typeof state.ui === "object" && Object.prototype.hasOwnProperty.call(state.ui, "playbook"))
+    ? !!state.ui.playbook
+    : !!state.ui?.training;
+  if (els.toggleTraining) els.toggleTraining.checked = playbookEnabled;
 
-  document.body.classList.toggle("training", !!state.ui?.training);
+  document.body.classList.toggle("training", playbookEnabled);
+  document.body.classList.toggle("playbook", playbookEnabled);
   applyThemeFromState();
 }
