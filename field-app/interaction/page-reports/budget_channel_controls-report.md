@@ -1,6 +1,6 @@
 # Budget / Channel Controls Interaction Integrity Report
 
-Generated: 2026-03-20T05:52:11.107Z
+Generated: 2026-03-20T06:09:49.776Z
 Tier: tier2
 Surface key: budget_channel_controls
 
