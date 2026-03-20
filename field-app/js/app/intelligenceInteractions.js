@@ -47,6 +47,14 @@ function normalizeToken(value){
   return clean(value).toLowerCase();
 }
 
+function isSummaryInteractiveElement(el){
+  if (!(el instanceof Element)) return false;
+  if (typeof HTMLSummaryElement !== "undefined"){
+    return el instanceof HTMLSummaryElement;
+  }
+  return String(el.tagName || "").toLowerCase() === "summary";
+}
+
 function isNativeInteractive(el){
   return (
     el instanceof HTMLButtonElement
@@ -54,7 +62,7 @@ function isNativeInteractive(el){
     || el instanceof HTMLInputElement
     || el instanceof HTMLSelectElement
     || el instanceof HTMLTextAreaElement
-    || el instanceof HTMLSummaryElement
+    || isSummaryInteractiveElement(el)
   );
 }
 
