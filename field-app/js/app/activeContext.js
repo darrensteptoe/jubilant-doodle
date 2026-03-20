@@ -2,7 +2,7 @@
 
 export const DEFAULT_CAMPAIGN_ID = "default";
 export const DEFAULT_CAMPAIGN_NAME = "";
-export const DEFAULT_OFFICE_ID = "";
+export const DEFAULT_OFFICE_ID = "all";
 export const DEFAULT_SCENARIO_ID = "";
 
 const CAMPAIGN_PARAM_KEYS = ["campaign", "campaignId"];
