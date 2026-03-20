@@ -30,10 +30,10 @@
 </div>
 
 <div class="topbar-right">
-<label class="toggle-pill" title="Show training explanations for each section">
+<label class="toggle-pill" title="Show playbook guidance for each section">
 <input hidden="" id="toggleTraining" type="checkbox"/>
 <span class="toggle-dot-new"></span>
-      Training
+      Playbook
     </label>
 <div class="divider-new"></div>
 <span class="chip-new chip-persist" hidden="" id="persistenceStatus">Save issue</span>
@@ -102,7 +102,7 @@
 <p class="stage-sub-new">Set race context, timing, and operating mode. This frame drives all downstream vote, production, and risk calculations.</p>
 <div class="training-panel-new" id="train-setup">
 <div class="training-hd-new" onclick="toggleTrainPanel('train-setup')">
-<span>🎓</span><span class="training-title-new">Training — Set up</span><span class="training-chev-new">▾</span>
+<span>🎓</span><span class="training-title-new">Playbook — Set up</span><span class="training-chev-new">▾</span>
 </div>
 <div class="training-bd-new">
 <div class="training-col-new">
@@ -318,7 +318,7 @@
 <p class="stage-sub-new">Validate inputs, inspect assumptions snapshot, and review guardrails. The most dangerous failures are silent ones.</p>
 <div class="training-panel-new" id="train-checks">
 <div class="training-hd-new" onclick="toggleTrainPanel('train-checks')">
-<span>🎓</span><span class="training-title-new">Training — Data Checks &amp; Guardrails</span><span class="training-chev-new">▾</span>
+<span>🎓</span><span class="training-title-new">Playbook — Data Checks &amp; Guardrails</span><span class="training-chev-new">▾</span>
 </div>
 <div class="training-bd-new">
 <div class="training-col-new">
@@ -1301,7 +1301,7 @@ function switchStage(btn, stageId) {
   }
 }
 
-// ── Training panel collapse/expand ─────────────────────────────
+// ── Playbook panel collapse/expand ─────────────────────────────
 function toggleTrainPanel(id) {
   var el = document.getElementById(id);
   if (el) el.classList.toggle('collapsed');
