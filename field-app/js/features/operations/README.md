@@ -7,7 +7,7 @@ Files:
 - `store.js`: IndexedDB CRUD + merge/replace helpers
 - `io.js`: JSON snapshot import/export + CSV store import/export
 - `rollups.js`: overlap-safe production/coverage rollups + dedupe counters
-- `workforce.js`: canonical role/compensation normalization + staffing rollups
+- `workforce.js`: canonical role (`workforceRole`) + legacy role/compensation normalization + staffing rollups
 - `context.js`: campaign/office scope helpers for Operations pages + link propagation
 
 Current canonical stores:
@@ -26,7 +26,7 @@ Design goals:
 - No dependency on engine compute paths
 - Explicit import/export portability
 - Display-only diagnostics for ramp/readiness (no engine mutation)
-- Canonical workforce model (`roleType`, `compensationType`) with one rollup path
+- Canonical workforce model (`workforceRole`, `roleType`, `compensationType`) with one rollup path
 - Office staffing-mix rollups are derived only in `workforce.js` and consumed by reporting surfaces
 - Explicit campaign/office scoping for all team-facing reads and writes
 

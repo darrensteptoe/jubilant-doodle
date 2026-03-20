@@ -25,6 +25,8 @@ const CSV_COLUMNS = {
     "office",
     "region",
     "roleType",
+    "workforceRole",
+    "canonicalRole",
     "compensationType",
     "payRate",
     "expectedHoursPerWeek",
@@ -156,9 +158,15 @@ export function validateOperationsSnapshot(snapshot){
  *   organizerCount?:number|null,
  *   paidCanvasserCount?:number|null,
  *   activeVolunteerCount?:number|null,
+ *   activeHeadcount?:number|null,
+ *   missingRoleTypedCount?:number|null,
+ *   roleTypingCoveragePct?:number|null,
  *   activePaidHeadcount?:number|null,
  *   activeStipendHeadcount?:number|null,
  *   activeVolunteerHeadcount?:number|null,
+ *   paidRoleMultiplier?:number|null,
+ *   volunteerRoleMultiplier?:number|null,
+ *   roleCapacityMultiplier?:number|null,
  *   doorSharePct:number|null,
  *   doorShare:number|null,
  *   doorsPerHour:number|null,
@@ -226,9 +234,14 @@ export function validateOperationsCapacityInput(input){
       "organizerCount",
       "paidCanvasserCount",
       "activeVolunteerCount",
+      "activeHeadcount",
+      "missingRoleTypedCount",
       "activePaidHeadcount",
       "activeStipendHeadcount",
       "activeVolunteerHeadcount",
+      "paidRoleMultiplier",
+      "volunteerRoleMultiplier",
+      "roleCapacityMultiplier",
     ]){
       const v = cap[key];
       if (!isFiniteOrNull(v) || (v != null && v < 0)){
@@ -240,6 +253,9 @@ export function validateOperationsCapacityInput(input){
     }
     if (!isFiniteOrNull(cap.doorShare) || (cap.doorShare != null && !inRange(cap.doorShare, 0, 1))){
       errors.push("capacity.doorShare must be null or a number in [0,1].");
+    }
+    if (!isFiniteOrNull(cap.roleTypingCoveragePct) || (cap.roleTypingCoveragePct != null && !inRange(cap.roleTypingCoveragePct, 0, 1))){
+      errors.push("capacity.roleTypingCoveragePct must be null or a number in [0,1].");
     }
     if (isFiniteNum(cap.doorSharePct) && isFiniteNum(cap.doorShare)){
       const expectedPct = cap.doorShare * 100;

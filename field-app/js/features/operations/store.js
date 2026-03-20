@@ -289,6 +289,8 @@ function sanitizeRecord(storeName, input, context){
   if (storeName === "persons"){
     const normalized = normalizePersonWorkforceFields(rec);
     rec.roleType = normalized.roleType;
+    rec.workforceRole = normalized.workforceRole;
+    rec.canonicalRole = normalized.canonicalRole;
     rec.compensationType = normalized.compensationType;
     rec.payRate = normalized.payRate;
     rec.expectedHoursPerWeek = normalized.expectedHoursPerWeek;

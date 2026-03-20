@@ -14,6 +14,12 @@ export const WORKFORCE_ROLE_TYPES = [
   "volunteer_lead",
 ];
 
+export const WORKFORCE_CANONICAL_ROLES = [
+  "organizer",
+  "volunteer",
+  "paid_canvasser",
+];
+
 export const WORKFORCE_COMPENSATION_TYPES = [
   "paid",
   "volunteer",
@@ -54,6 +60,15 @@ function compensationFromLegacy(value){
   return "";
 }
 
+function canonicalRoleFromLegacy(value){
+  const raw = clean(value).toLowerCase();
+  if (!raw) return "";
+  if (raw === "organizer" || raw === "field organizer" || raw === "field_organizer") return "organizer";
+  if (raw === "volunteer" || raw === "volunteer lead" || raw === "volunteer_lead") return "volunteer";
+  if (raw === "canvasser" || raw === "paid canvasser" || raw === "paid_canvasser") return "paid_canvasser";
+  return "";
+}
+
 function isVolunteerRole(roleType){
   return roleType === "volunteer" || roleType === "volunteer_lead";
 }
@@ -75,15 +90,46 @@ export function normalizeCompensationType(value, roleType = "canvasser"){
   return "paid";
 }
 
+export function resolveCanonicalWorkforceRole({ workforceRole = "", roleType = "", compensationType = "" } = {}){
+  const explicit = canonicalRoleFromLegacy(workforceRole);
+  if (WORKFORCE_CANONICAL_ROLES.includes(explicit)) return explicit;
+
+  const normalizedRoleType = normalizeRoleType(roleType || "canvasser");
+  const normalizedCompensation = normalizeCompensationType(compensationType, normalizedRoleType);
+  if (normalizedRoleType === "field_organizer") return "organizer";
+  if (normalizedRoleType === "canvasser" && isPaidComp(normalizedCompensation)) return "paid_canvasser";
+  if (isVolunteerRole(normalizedRoleType) || normalizedCompensation === "volunteer") return "volunteer";
+  return "paid_canvasser";
+}
+
 export function normalizePersonWorkforceFields(person, defaults = {}){
   const src = (person && typeof person === "object") ? person : {};
-  const roleType = normalizeRoleType(src.roleType || src.role || defaults.roleType || "canvasser");
-  const compensationType = normalizeCompensationType(src.compensationType || defaults.compensationType, roleType);
+  let roleType = normalizeRoleType(
+    src.roleType || src.role || src.workforceRole || src.canonicalRole || defaults.roleType || "canvasser"
+  );
+  let compensationType = normalizeCompensationType(src.compensationType || defaults.compensationType, roleType);
+  const workforceRole = resolveCanonicalWorkforceRole({
+    workforceRole: src.workforceRole || src.canonicalRole,
+    roleType,
+    compensationType,
+  });
+  if (workforceRole === "organizer"){
+    roleType = "field_organizer";
+    compensationType = (compensationType === "volunteer") ? "paid" : compensationType;
+  } else if (workforceRole === "paid_canvasser"){
+    roleType = "canvasser";
+    compensationType = isPaidComp(compensationType) ? compensationType : "paid";
+  } else {
+    roleType = isVolunteerRole(roleType) ? roleType : "volunteer";
+    compensationType = "volunteer";
+  }
   const payRate = num(src.payRate, null);
   const expectedHoursPerWeek = num(src.expectedHoursPerWeek, null);
   return {
     ...src,
     roleType,
+    workforceRole,
+    canonicalRole: workforceRole,
     compensationType,
     payRate: (payRate != null && payRate >= 0) ? payRate : null,
     expectedHoursPerWeek: (expectedHoursPerWeek != null && expectedHoursPerWeek >= 0) ? expectedHoursPerWeek : null,
@@ -127,12 +173,13 @@ function activeByRole(rows, roleType){
   return rows.filter((p) => p.roleType === roleType && !!p.active).length;
 }
 
-function activePaidCanvassers(rows){
-  return rows.filter((p) => p.roleType === "canvasser" && !!p.active && isPaidComp(p.compensationType)).length;
+function activeByWorkforceRole(rows, workforceRole){
+  return rows.filter((p) => p.workforceRole === workforceRole && !!p.active).length;
 }
 
-function activeVolunteers(rows){
-  return rows.filter((p) => !!p.active && (isVolunteerRole(p.roleType) || p.compensationType === "volunteer")).length;
+function roleShare(count, total){
+  if (!Number.isFinite(total) || total <= 0) return 0;
+  return clamp((Number(count) || 0) / total, 0, 1);
 }
 
 function officeBucketId(person){
@@ -161,12 +208,18 @@ export function computeWorkforceRollups({ persons, shiftRecords, lookbackDays = 
   const personById = buildPersonMap(personRows);
   const shiftRows = Array.isArray(shiftRecords) ? shiftRecords : [];
 
-  const organizerCount = activeByRole(personRows, "field_organizer");
-  const paidCanvasserCount = activePaidCanvassers(personRows);
-  const activeVolunteerCount = activeVolunteers(personRows);
+  const organizerCount = activeByWorkforceRole(personRows, "organizer");
+  const paidCanvasserCount = activeByWorkforceRole(personRows, "paid_canvasser");
+  const activeVolunteerCount = activeByWorkforceRole(personRows, "volunteer");
   const activePaidHeadcount = personRows.filter((p) => !!p.active && p.compensationType === "paid").length;
   const activeStipendHeadcount = personRows.filter((p) => !!p.active && p.compensationType === "stipend").length;
   const activeVolunteerHeadcount = personRows.filter((p) => !!p.active && p.compensationType === "volunteer").length;
+  const activeHeadcount = personRows.filter((p) => !!p.active).length;
+  const activeRoleTypedCount = personRows.filter((p) => !!p.active && WORKFORCE_CANONICAL_ROLES.includes(String(p?.workforceRole || ""))).length;
+  const missingRoleTypedCount = Math.max(0, activeHeadcount - activeRoleTypedCount);
+  const roleTypingCoveragePct = activeHeadcount > 0
+    ? clamp(activeRoleTypedCount / activeHeadcount, 0, 1)
+    : 1;
   const organizerSupervisionCapacity = organizerCount * ORGANIZER_SUPERVISION_SPAN;
   const organizerRecruitmentMultiplier = clamp(1 + (organizerCount * ORGANIZER_RECRUITMENT_STEP), 1, ORGANIZER_RECRUITMENT_CAP);
 
@@ -188,12 +241,12 @@ export function computeWorkforceRollups({ persons, shiftRecords, lookbackDays = 
     const attempts = shiftAttempts(rec);
     const hours = operationsShiftHours(rec);
 
-    if (person.roleType === "canvasser" && isPaidComp(person.compensationType)){
+    if (person.workforceRole === "paid_canvasser"){
       paidAttempts += attempts;
       paidHours += hours;
       continue;
     }
-    if (isVolunteerRole(person.roleType) || person.compensationType === "volunteer"){
+    if (person.workforceRole === "volunteer"){
       volunteerAttempts += attempts;
       volunteerHours += hours;
       const dayTs = parseTs(isoDay(rec?.date || rec?.checkInAt || rec?.startAt || rec?.updatedAt));
@@ -224,18 +277,60 @@ export function computeWorkforceRollups({ persons, shiftRecords, lookbackDays = 
     ? clamp(volunteersWithShift.size / activeVolunteerCount, 0, 1)
     : null;
 
+  const totalRoleCount = organizerCount + paidCanvasserCount + activeVolunteerCount;
+  const organizerShare = roleShare(organizerCount, totalRoleCount);
+  const paidCanvasserShare = roleShare(paidCanvasserCount, totalRoleCount);
+  const volunteerShare = roleShare(activeVolunteerCount, totalRoleCount);
+
+  const supervisionCoverage = activeVolunteerCount > 0
+    ? clamp(organizerSupervisionCapacity / Math.max(1, activeVolunteerCount), 0.55, 1.20)
+    : 1;
+  const volunteerEngagementMultiplier = (volunteerShowRate == null)
+    ? 1
+    : clamp(0.55 + (0.45 * volunteerShowRate), 0.55, 1);
+  const organizerRoleMultiplier = clamp(1 + (organizerCount * ORGANIZER_RECRUITMENT_STEP * 0.5), 1, 1.25);
+  const paidRoleMultiplier = clamp(paidCanvasserProductivity, 0.65, 1.35);
+  const volunteerRoleMultiplier = clamp(volunteerProductivity * supervisionCoverage * volunteerEngagementMultiplier, 0.45, 1.35);
+  const roleCapacityMultiplier = (totalRoleCount > 0)
+    ? clamp(
+      (organizerShare * organizerRoleMultiplier) +
+      (paidCanvasserShare * paidRoleMultiplier) +
+      (volunteerShare * volunteerRoleMultiplier),
+      0.6,
+      1.35
+    )
+    : 1;
+
   return {
     organizerCount,
     paidCanvasserCount,
     activeVolunteerCount,
+    activeHeadcount,
     activePaidHeadcount,
     activeStipendHeadcount,
     activeVolunteerHeadcount,
+    activeRoleTypedCount,
+    missingRoleTypedCount,
+    roleTypingCoveragePct,
+    workforceRoleCounts: {
+      organizer: organizerCount,
+      paid_canvasser: paidCanvasserCount,
+      volunteer: activeVolunteerCount,
+    },
+    workforceRoleShares: {
+      organizer: organizerShare,
+      paid_canvasser: paidCanvasserShare,
+      volunteer: volunteerShare,
+    },
     volunteerShowRate,
     organizerRecruitmentMultiplier,
     organizerSupervisionCapacity,
     paidCanvasserProductivity,
     volunteerProductivity,
+    organizerRoleMultiplier,
+    paidRoleMultiplier,
+    volunteerRoleMultiplier,
+    roleCapacityMultiplier,
     paidAttemptsPerHour,
     volunteerAttemptsPerHour,
     overallAttemptsPerHour,
@@ -274,9 +369,9 @@ export function computeWorkforceOfficeMix({ persons } = {}){
     if (!person.active) continue;
 
     row.activeHeadcount += 1;
-    if (person.roleType === "field_organizer") row.organizerCount += 1;
-    if (person.roleType === "canvasser" && isPaidComp(person.compensationType)) row.paidCanvasserCount += 1;
-    if (isVolunteerRole(person.roleType) || person.compensationType === "volunteer") row.activeVolunteerCount += 1;
+    if (person.workforceRole === "organizer") row.organizerCount += 1;
+    if (person.workforceRole === "paid_canvasser") row.paidCanvasserCount += 1;
+    if (person.workforceRole === "volunteer") row.activeVolunteerCount += 1;
     if (person.roleType === "volunteer_lead") row.volunteerLeadCount += 1;
     if (person.compensationType === "paid") row.paidHeadcount += 1;
     if (person.compensationType === "stipend") row.stipendHeadcount += 1;
