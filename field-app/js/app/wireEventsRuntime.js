@@ -1228,9 +1228,13 @@ export function wireResetImportAndUiToggles(ctx){
       const state = getState();
       applyStateToUI();
       rebuildCandidateTable();
-      document.body.classList.toggle("training", !!state?.ui?.training);
+      const playbookEnabled = (state?.ui && typeof state.ui === "object" && Object.prototype.hasOwnProperty.call(state.ui, "playbook"))
+        ? !!state.ui.playbook
+        : !!state?.ui?.training;
+      document.body.classList.toggle("training", playbookEnabled);
+      document.body.classList.toggle("playbook", playbookEnabled);
       applyThemeFromState();
-      if (els.explainCard) els.explainCard.hidden = !state?.ui?.training;
+      if (els.explainCard) els.explainCard.hidden = !playbookEnabled;
       render();
       safeCall(() => { renderScenarioManagerC1(); });
       safeCall(() => { renderDecisionSessionD1(); });
@@ -1368,9 +1372,13 @@ export function wireResetImportAndUiToggles(ctx){
       const state = getState();
       applyStateToUI();
       rebuildCandidateTable();
-      document.body.classList.toggle("training", !!state?.ui?.training);
+      const playbookEnabled = (state?.ui && typeof state.ui === "object" && Object.prototype.hasOwnProperty.call(state.ui, "playbook"))
+        ? !!state.ui.playbook
+        : !!state?.ui?.training;
+      document.body.classList.toggle("training", playbookEnabled);
+      document.body.classList.toggle("playbook", playbookEnabled);
       applyThemeFromState();
-      if (els.explainCard) els.explainCard.hidden = !state?.ui?.training;
+      if (els.explainCard) els.explainCard.hidden = !playbookEnabled;
       render();
       safeCall(() => { renderDecisionSessionD1(); });
       persist();
@@ -1382,12 +1390,14 @@ export function wireResetImportAndUiToggles(ctx){
     els.toggleTraining.addEventListener("change", () => {
       const state = getState();
       if (!state?.ui) return;
+      state.ui.playbook = els.toggleTraining.checked;
       state.ui.training = els.toggleTraining.checked;
-      document.body.classList.toggle("training", !!state.ui.training);
+      document.body.classList.toggle("training", !!state.ui.playbook);
+      document.body.classList.toggle("playbook", !!state.ui.playbook);
       const snap = (typeof getLastResultsSnapshot === "function") ? getLastResultsSnapshot() : null;
       setText(els.snapshotHash, snap?.snapshotHash || "—");
       setText(els.snapshotHashSidebar, snap?.snapshotHash || "—");
-      if (els.explainCard) els.explainCard.hidden = !state.ui.training;
+      if (els.explainCard) els.explainCard.hidden = !state.ui.playbook;
       persist();
     });
   }

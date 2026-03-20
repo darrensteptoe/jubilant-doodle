@@ -168,6 +168,7 @@ export function makeDefaultState({ createId = defaultCreateId, context: contextI
     intelState: makeDefaultIntelState(),
     features: makeDefaultFeatureFlags(),
     ui: {
+      playbook: false,
       training: false,
       dark: false,
       advDiag: false,

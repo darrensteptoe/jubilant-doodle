@@ -307,9 +307,13 @@ export function createUsbStorageController(deps = {}){
     const state = getState();
     applyStateToUI();
     rebuildCandidateTable();
-    document.body.classList.toggle("training", !!state?.ui?.training);
+    const playbookEnabled = (state?.ui && typeof state.ui === "object" && Object.prototype.hasOwnProperty.call(state.ui, "playbook"))
+      ? !!state.ui.playbook
+      : !!state?.ui?.training;
+    document.body.classList.toggle("training", playbookEnabled);
+    document.body.classList.toggle("playbook", playbookEnabled);
     applyThemeFromState();
-    if (els?.explainCard) els.explainCard.hidden = !state?.ui?.training;
+    if (els?.explainCard) els.explainCard.hidden = !playbookEnabled;
     render();
     safeCall(() => { renderScenarioManagerC1(); });
     safeCall(() => { renderDecisionSessionD1(); });

@@ -138,8 +138,12 @@ export function applyStateToUiBindings({
 
   setChecked(els.toggleAdvDiag, !!state.ui?.advDiag);
   if (els.advDiagBox) els.advDiagBox.hidden = !state.ui?.advDiag;
-  setChecked(els.toggleTraining, !!state.ui?.training);
+  const playbookEnabled = (state?.ui && typeof state.ui === "object" && Object.prototype.hasOwnProperty.call(state.ui, "playbook"))
+    ? !!state.ui.playbook
+    : !!state.ui?.training;
+  setChecked(els.toggleTraining, playbookEnabled);
 
-  document.body.classList.toggle("training", !!state.ui?.training);
+  document.body.classList.toggle("training", playbookEnabled);
+  document.body.classList.toggle("playbook", playbookEnabled);
   applyThemeFromState();
 }
