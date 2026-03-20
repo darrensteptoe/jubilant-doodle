@@ -1607,7 +1607,7 @@ function hydrateSelectOptions(v3Id, options, preferredValue) {
   const needsRefresh = currentSignature.length !== nextSignature.length
     || currentSignature.some((sig, idx) => sig !== nextSignature[idx]);
 
-  if (needsRefresh && document.activeElement !== select) {
+  if (needsRefresh) {
     const previousValue = String(select.value || "").trim();
     select.innerHTML = "";
     normalized.forEach((row) => {
@@ -1619,6 +1619,8 @@ function hydrateSelectOptions(v3Id, options, preferredValue) {
     const restoreValue = nextPreferred || previousValue;
     if (restoreValue && Array.from(select.options).some((opt) => opt.value === restoreValue)) {
       select.value = restoreValue;
+    } else if (Array.from(select.options).some((opt) => opt.value === "")) {
+      select.value = "";
     }
   }
 }
