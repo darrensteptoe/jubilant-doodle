@@ -1,7 +1,7 @@
 import { syncKpis } from "./kpiBridge.js";
 import { applyActiveContextToLinks, resolveActiveContext } from "../activeContext.js";
 import { bootProbeError, bootProbeMark } from "../bootProbe.js";
-import { refreshIntelligenceInteractions } from "../intelligenceInteractions.js";
+import { refreshIntelligenceInteractions } from "../intelligenceInteractions.js?v=20260320-intel-runtime-compat-1";
 import { wireV3Nav } from "./nav.js";
 import { installV3QaSmokeBridge, runV3QaSmoke } from "./qaGates.js";
 import { renderV3Shell } from "./shell.js";

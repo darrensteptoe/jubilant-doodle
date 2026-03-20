@@ -9,7 +9,7 @@ import { renderReachSurface } from "./surfaces/reach.js";
 import { renderScenariosSurface } from "./surfaces/scenarios.js";
 import { renderTurnoutSurface } from "./surfaces/turnout.js";
 import { mountIntelligencePanel, refreshIntelligencePanel, setIntelligencePanelStage } from "../intelligenceRenderer.js";
-import { installIntelligenceInteractions, refreshIntelligenceInteractions } from "../intelligenceInteractions.js";
+import { installIntelligenceInteractions, refreshIntelligenceInteractions } from "../intelligenceInteractions.js?v=20260320-intel-runtime-compat-1";
 import {
   normalizeSurfaceActionRows,
   normalizeSurfaceBlocks,

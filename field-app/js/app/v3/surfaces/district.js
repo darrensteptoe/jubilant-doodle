@@ -69,7 +69,7 @@ import { listAcsYears, listMetricSetOptions, listResolutionOptions } from "../..
 import { pctOverrideToDecimal } from "../../../core/voteProduction.js";
 
 let censusMapResizePulseHandle = 0;
-let districtCensusSyncRafHandle = 0;
+let districtSurfaceRefreshRafHandle = 0;
 const TARGETING_DENSITY_OPTIONS = [
   { id: "none", label: "None" },
   { id: "medium", label: "Medium+" },
@@ -704,6 +704,10 @@ export function renderDistrictSurface(mount) {
   const topRow = document.createElement("div");
   topRow.className = "fpe-district-top-row";
   topRow.append(whyPanel, summaryCard);
+  const bridgeStatus = document.createElement("div");
+  bridgeStatus.id = "v3DistrictBridgeStatus";
+  bridgeStatus.className = "fpe-alert fpe-alert--warn";
+  bridgeStatus.hidden = true;
   const briefBand = createDistrictBriefBand();
 
   const baselineSection = createDistrictSection({
@@ -740,6 +744,7 @@ export function renderDistrictSurface(mount) {
   analysisSection.body.append(analysisGrid);
 
   main.append(
+    bridgeStatus,
     topRow,
     briefBand,
     baselineSection.section,
@@ -754,14 +759,16 @@ export function renderDistrictSurface(mount) {
   if (addCandidateBtn instanceof HTMLButtonElement && addCandidateBtn.dataset.v3BallotAddBound !== "1") {
     addCandidateBtn.dataset.v3BallotAddBound = "1";
     addCandidateBtn.addEventListener("click", () => {
-      addDistrictCandidate();
+      const result = addDistrictCandidate();
+      handleDistrictMutationResult(result, { source: "addCandidate" });
     });
   }
   const addCandidateHistoryBtn = document.getElementById("v3BtnAddCandidateHistory");
   if (addCandidateHistoryBtn instanceof HTMLButtonElement && addCandidateHistoryBtn.dataset.v3BallotAddBound !== "1") {
     addCandidateHistoryBtn.dataset.v3BallotAddBound = "1";
     addCandidateHistoryBtn.addEventListener("click", () => {
-      addDistrictCandidateHistory();
+      const result = addDistrictCandidateHistory();
+      handleDistrictMutationResult(result, { source: "addCandidateHistory" });
     });
   }
   bindDistrictFormSelect("v3DistrictYourCandidate", "yourCandidate");
@@ -791,8 +798,8 @@ export function renderDistrictSurface(mount) {
   const applyTemplateDefaultsBtn = document.getElementById("v3BtnDistrictApplyTemplateDefaults");
   if (applyTemplateDefaultsBtn instanceof HTMLButtonElement) {
     applyTemplateDefaultsBtn.addEventListener("click", () => {
-      applyDistrictTemplateDefaults("all");
-      refreshDistrictSummary();
+      const result = applyDistrictTemplateDefaults("all");
+      handleDistrictMutationResult(result, { source: "applyTemplateDefaults" });
     });
   }
   bindDistrictTargetingBridge();
@@ -803,13 +810,100 @@ export function renderDistrictSurface(mount) {
   return refreshDistrictSummary;
 }
 
+function queueDistrictSurfaceRefresh() {
+  if (districtSurfaceRefreshRafHandle) {
+    return;
+  }
+  districtSurfaceRefreshRafHandle = window.requestAnimationFrame(() => {
+    districtSurfaceRefreshRafHandle = 0;
+    refreshDistrictSummary();
+  });
+}
+
+function handleDistrictMutationResult(result, { source = "" } = {}) {
+  const hasResult = !!result && typeof result === "object";
+  const hasView = hasResult && !!result.view && typeof result.view === "object";
+  const ok = hasResult ? result.ok !== false : false;
+  const code = hasResult ? String(result.code || "").trim() : "";
+
+  if (!hasResult) {
+    if (source) {
+      console.warn(`[district] canonical write unavailable (${source})`, result);
+    }
+    return false;
+  }
+
+  if (!ok && source) {
+    console.warn(
+      `[district] canonical write rejected (${source}${code ? `:${code}` : ""})`,
+      result,
+    );
+  }
+
+  // Do not force an immediate local refresh here. Canonical bridge sync after
+  // render is the source-of-truth refresh trigger and prevents blur-time snapback
+  // when a stale pre-render snapshot briefly races user input.
+  if (ok && !hasView) {
+    queueDistrictSurfaceRefresh();
+  }
+  return ok;
+}
+
+function syncDistrictBridgeAvailability(hasBridgeView) {
+  const bridgeReady = !!hasBridgeView;
+  const banner = document.getElementById("v3DistrictBridgeStatus");
+  if (banner instanceof HTMLElement) {
+    banner.hidden = bridgeReady;
+    banner.textContent = bridgeReady
+      ? ""
+      : "District runtime bridge is unavailable. Inputs are locked until canonical runtime is ready.";
+  }
+
+  const root = banner?.closest(".fpe-surface-pane");
+  if (!(root instanceof HTMLElement)) {
+    return;
+  }
+
+  root.querySelectorAll("input, select, textarea, button").forEach((node) => {
+    const control = node;
+    if (
+      !(control instanceof HTMLInputElement)
+      && !(control instanceof HTMLSelectElement)
+      && !(control instanceof HTMLTextAreaElement)
+      && !(control instanceof HTMLButtonElement)
+    ) {
+      return;
+    }
+
+    if (!bridgeReady) {
+      if (!Object.prototype.hasOwnProperty.call(control.dataset, "v3BridgeDisabledPrev")) {
+        control.dataset.v3BridgeDisabledPrev = control.disabled ? "1" : "0";
+      }
+      control.disabled = true;
+      return;
+    }
+
+    if (Object.prototype.hasOwnProperty.call(control.dataset, "v3BridgeDisabledPrev")) {
+      control.disabled = control.dataset.v3BridgeDisabledPrev === "1";
+      delete control.dataset.v3BridgeDisabledPrev;
+    }
+  });
+}
+
 function refreshDistrictSummary() {
   const snapshot = readDistrictSnapshot();
   const controlSnapshot = readDistrictControlSnapshot();
   const templateSnapshot = readDistrictTemplateSnapshot();
   const formSnapshot = readDistrictFormSnapshot();
   const ballotSnapshot = readDistrictBallotSnapshot();
+  const targetingSnapshot = readDistrictTargetingSnapshot();
   const censusSnapshot = readDistrictCensusSnapshot();
+  const hasBridgeView = !!(formSnapshot || templateSnapshot || ballotSnapshot || targetingSnapshot || censusSnapshot);
+  syncDistrictBridgeAvailability(hasBridgeView);
+  if (!hasBridgeView) {
+    return;
+  }
+
   setText("v3DistrictUniverse", snapshot.universe);
   setText("v3DistrictSupport", snapshot.baselineSupport);
   setText("v3DistrictTurnout", snapshot.turnoutExpected);
@@ -818,36 +912,48 @@ function refreshDistrictSummary() {
   setText("v3DistrictTurnoutExpected", snapshot.turnoutExpected);
   setText("v3DistrictTurnoutBand", snapshot.turnoutBand);
   setText("v3DistrictVotesPer1pct", snapshot.votesPer1pct);
-  syncDistrictBallotTopline(ballotSnapshot);
-  syncSelectValueFromRaw("v3DistrictRaceType", formSnapshot?.raceType);
-  syncSelectValueFromRaw("v3DistrictOfficeLevel", templateSnapshot?.officeLevel);
-  syncSelectValueFromRaw("v3DistrictElectionType", templateSnapshot?.electionType);
-  syncSelectValueFromRaw("v3DistrictSeatContext", templateSnapshot?.seatContext);
-  syncSelectValueFromRaw("v3DistrictPartisanshipMode", templateSnapshot?.partisanshipMode);
-  syncSelectValueFromRaw("v3DistrictSalienceLevel", templateSnapshot?.salienceLevel);
-  syncInputValueFromRaw("v3DistrictElectionDate", formSnapshot?.electionDate);
-  syncInputValueFromRaw("v3DistrictWeeksRemaining", formSnapshot?.weeksRemaining);
-  syncSelectValueFromRaw("v3DistrictMode", formSnapshot?.mode);
-  syncInputValueFromRaw("v3DistrictUniverseSize", formSnapshot?.universeSize);
-  syncSelectValueFromRaw("v3DistrictUniverseBasis", formSnapshot?.universeBasis);
-  syncInputValueFromRaw("v3DistrictSourceNote", formSnapshot?.sourceNote);
-  syncCheckboxCheckedFromRaw("v3DistrictElectorateWeightingToggle", formSnapshot?.universe16Enabled);
-  syncInputValueFromRaw("v3DistrictTurnoutA", formSnapshot?.turnoutA);
-  syncInputValueFromRaw("v3DistrictTurnoutB", formSnapshot?.turnoutB);
-  syncInputValueFromRaw("v3DistrictBandWidth", formSnapshot?.bandWidth);
-  syncInputValueFromRaw("v3DistrictDemPct", formSnapshot?.universe16DemPct);
-  syncInputValueFromRaw("v3DistrictRepPct", formSnapshot?.universe16RepPct);
-  syncInputValueFromRaw("v3DistrictNpaPct", formSnapshot?.universe16NpaPct);
-  syncInputValueFromRaw("v3DistrictOtherPct", formSnapshot?.universe16OtherPct);
-  syncInputValueFromRaw("v3DistrictRetentionFactor", formSnapshot?.retentionFactor);
-  syncDistrictBallotBaseline(ballotSnapshot, controlSnapshot);
-  if (controlSnapshot?.locked) {
-    applyDistrictBallotDynamicLock();
+
+  if (ballotSnapshot) {
+    syncDistrictBallotTopline(ballotSnapshot);
+    syncDistrictBallotBaseline(ballotSnapshot, controlSnapshot);
+    if (controlSnapshot?.locked) {
+      applyDistrictBallotDynamicLock();
+    }
   }
+  if (templateSnapshot) {
+    syncSelectValueFromRaw("v3DistrictOfficeLevel", templateSnapshot?.officeLevel);
+    syncSelectValueFromRaw("v3DistrictElectionType", templateSnapshot?.electionType);
+    syncSelectValueFromRaw("v3DistrictSeatContext", templateSnapshot?.seatContext);
+    syncSelectValueFromRaw("v3DistrictPartisanshipMode", templateSnapshot?.partisanshipMode);
+    syncSelectValueFromRaw("v3DistrictSalienceLevel", templateSnapshot?.salienceLevel);
+    syncDistrictTemplateProfile(templateSnapshot);
+  }
+  if (formSnapshot) {
+    syncSelectValueFromRaw("v3DistrictRaceType", formSnapshot?.raceType);
+    syncInputValueFromRaw("v3DistrictElectionDate", formSnapshot?.electionDate);
+    syncInputValueFromRaw("v3DistrictWeeksRemaining", formSnapshot?.weeksRemaining);
+    syncSelectValueFromRaw("v3DistrictMode", formSnapshot?.mode);
+    syncInputValueFromRaw("v3DistrictUniverseSize", formSnapshot?.universeSize);
+    syncSelectValueFromRaw("v3DistrictUniverseBasis", formSnapshot?.universeBasis);
+    syncInputValueFromRaw("v3DistrictSourceNote", formSnapshot?.sourceNote);
+    syncCheckboxCheckedFromRaw("v3DistrictElectorateWeightingToggle", formSnapshot?.universe16Enabled);
+    syncInputValueFromRaw("v3DistrictTurnoutA", formSnapshot?.turnoutA);
+    syncInputValueFromRaw("v3DistrictTurnoutB", formSnapshot?.turnoutB);
+    syncInputValueFromRaw("v3DistrictBandWidth", formSnapshot?.bandWidth);
+    syncInputValueFromRaw("v3DistrictDemPct", formSnapshot?.universe16DemPct);
+    syncInputValueFromRaw("v3DistrictRepPct", formSnapshot?.universe16RepPct);
+    syncInputValueFromRaw("v3DistrictNpaPct", formSnapshot?.universe16NpaPct);
+    syncInputValueFromRaw("v3DistrictOtherPct", formSnapshot?.universe16OtherPct);
+    syncInputValueFromRaw("v3DistrictRetentionFactor", formSnapshot?.retentionFactor);
+  }
+
   syncDistrictStructureDerived();
-  syncDistrictTargetingLab();
-  syncDistrictCensusProxy(censusSnapshot);
-  syncDistrictTemplateProfile(templateSnapshot);
+  if (targetingSnapshot) {
+    syncDistrictTargetingLab(targetingSnapshot);
+  }
+  if (censusSnapshot) {
+    syncDistrictCensusProxy(censusSnapshot);
+  }
   syncDistrictCensusMessageTones();
   syncCensusMapShellState();
   syncDistrictBrief(snapshot, censusSnapshot, templateSnapshot);
@@ -975,7 +1081,8 @@ function syncDistrictCandidateTable(ballotSnapshot, controlSnapshot) {
     nameInput.value = candidateName;
     nameInput.disabled = controlsLocked;
     nameInput.addEventListener("input", () => {
-      updateDistrictCandidate(candidateId, "name", nameInput.value);
+      const result = updateDistrictCandidate(candidateId, "name", nameInput.value);
+      handleDistrictMutationResult(result, { source: "updateCandidate:name" });
     });
     tdName.appendChild(nameInput);
 
@@ -990,7 +1097,8 @@ function syncDistrictCandidateTable(ballotSnapshot, controlSnapshot) {
     pctInput.value = supportPct;
     pctInput.disabled = controlsLocked;
     pctInput.addEventListener("input", () => {
-      updateDistrictCandidate(candidateId, "supportPct", pctInput.value);
+      const result = updateDistrictCandidate(candidateId, "supportPct", pctInput.value);
+      handleDistrictMutationResult(result, { source: "updateCandidate:supportPct" });
     });
     tdPct.appendChild(pctInput);
 
@@ -1002,7 +1110,8 @@ function syncDistrictCandidateTable(ballotSnapshot, controlSnapshot) {
     removeBtn.textContent = "Remove";
     removeBtn.disabled = !canRemove;
     removeBtn.addEventListener("click", () => {
-      removeDistrictCandidate(candidateId);
+      const result = removeDistrictCandidate(candidateId);
+      handleDistrictMutationResult(result, { source: "removeCandidate" });
     });
     tdAction.appendChild(removeBtn);
 
@@ -1063,7 +1172,8 @@ function syncDistrictUserSplitTable(ballotSnapshot, controlSnapshot) {
     input.value = Number.isFinite(Number(sourceRow?.value)) ? String(Number(sourceRow.value)) : "";
     input.disabled = controlsLocked;
     input.addEventListener("input", () => {
-      setDistrictUserSplit(candidateId, input.value);
+      const result = setDistrictUserSplit(candidateId, input.value);
+      handleDistrictMutationResult(result, { source: "setUserSplit" });
     });
 
     field.append(label, input);
@@ -1107,6 +1217,14 @@ function syncDistrictCandidateHistoryTable(ballotSnapshot, controlSnapshot) {
   rows.forEach((record) => {
     const recordId = String(record?.recordId || "").trim();
     if (!recordId) return;
+    const applyHistoryMutation = (field, value) => {
+      const result = updateDistrictCandidateHistory(recordId, field, value);
+      handleDistrictMutationResult(result, { source: `updateCandidateHistory:${field}` });
+    };
+    const removeHistoryRecord = () => {
+      const result = removeDistrictCandidateHistory(recordId);
+      handleDistrictMutationResult(result, { source: "removeCandidateHistory" });
+    };
     const tr = document.createElement("tr");
 
     const makeInputCell = ({ type = "text", value = "", min = "", max = "", step = "", onInput = null } = {}) => {
@@ -1158,7 +1276,7 @@ function syncDistrictCandidateHistoryTable(ballotSnapshot, controlSnapshot) {
     const officeTd = makeInputCell({
       type: "text",
       value: record?.office || "",
-      onInput: (value) => updateDistrictCandidateHistory(recordId, "office", value),
+      onInput: (value) => applyHistoryMutation("office", value),
     });
     const cycleTd = makeInputCell({
       type: "number",
@@ -1166,27 +1284,27 @@ function syncDistrictCandidateHistoryTable(ballotSnapshot, controlSnapshot) {
       min: 1900,
       max: 2100,
       step: 1,
-      onInput: (value) => updateDistrictCandidateHistory(recordId, "cycleYear", value),
+      onInput: (value) => applyHistoryMutation("cycleYear", value),
     });
     const electionTd = makeSelectCell({
       rowsList: electionTypeOptions,
       value: record?.electionType || "",
-      onChange: (value) => updateDistrictCandidateHistory(recordId, "electionType", value),
+      onChange: (value) => applyHistoryMutation("electionType", value),
     });
     const candidateTd = makeInputCell({
       type: "text",
       value: record?.candidateName || "",
-      onInput: (value) => updateDistrictCandidateHistory(recordId, "candidateName", value),
+      onInput: (value) => applyHistoryMutation("candidateName", value),
     });
     const partyTd = makeInputCell({
       type: "text",
       value: record?.party || "",
-      onInput: (value) => updateDistrictCandidateHistory(recordId, "party", value),
+      onInput: (value) => applyHistoryMutation("party", value),
     });
     const incumbencyTd = makeSelectCell({
       rowsList: incumbencyOptions,
       value: record?.incumbencyStatus || "",
-      onChange: (value) => updateDistrictCandidateHistory(recordId, "incumbencyStatus", value),
+      onChange: (value) => applyHistoryMutation("incumbencyStatus", value),
     });
     const voteTd = makeInputCell({
       type: "number",
@@ -1194,7 +1312,7 @@ function syncDistrictCandidateHistoryTable(ballotSnapshot, controlSnapshot) {
       min: 0,
       max: 100,
       step: 0.1,
-      onInput: (value) => updateDistrictCandidateHistory(recordId, "voteShare", value),
+      onInput: (value) => applyHistoryMutation("voteShare", value),
     });
     const marginTd = makeInputCell({
       type: "number",
@@ -1202,7 +1320,7 @@ function syncDistrictCandidateHistoryTable(ballotSnapshot, controlSnapshot) {
       min: -100,
       max: 100,
       step: 0.1,
-      onInput: (value) => updateDistrictCandidateHistory(recordId, "margin", value),
+      onInput: (value) => applyHistoryMutation("margin", value),
     });
     const turnoutTd = makeInputCell({
       type: "number",
@@ -1210,7 +1328,7 @@ function syncDistrictCandidateHistoryTable(ballotSnapshot, controlSnapshot) {
       min: 0,
       max: 100,
       step: 0.1,
-      onInput: (value) => updateDistrictCandidateHistory(recordId, "turnoutContext", value),
+      onInput: (value) => applyHistoryMutation("turnoutContext", value),
     });
 
     const repeatTd = document.createElement("td");
@@ -1219,7 +1337,7 @@ function syncDistrictCandidateHistoryTable(ballotSnapshot, controlSnapshot) {
     repeatToggle.checked = !!record?.repeatCandidate;
     repeatToggle.disabled = controlsLocked;
     repeatToggle.addEventListener("change", () => {
-      updateDistrictCandidateHistory(recordId, "repeatCandidate", repeatToggle.checked);
+      applyHistoryMutation("repeatCandidate", repeatToggle.checked);
     });
     repeatTd.appendChild(repeatToggle);
 
@@ -1229,7 +1347,7 @@ function syncDistrictCandidateHistoryTable(ballotSnapshot, controlSnapshot) {
       min: -40,
       max: 40,
       step: 0.1,
-      onInput: (value) => updateDistrictCandidateHistory(recordId, "overUnderPerformancePct", value),
+      onInput: (value) => applyHistoryMutation("overUnderPerformancePct", value),
     });
 
     const actionTd = document.createElement("td");
@@ -1240,7 +1358,7 @@ function syncDistrictCandidateHistoryTable(ballotSnapshot, controlSnapshot) {
     removeBtn.textContent = "Remove";
     removeBtn.disabled = controlsLocked;
     removeBtn.addEventListener("click", () => {
-      removeDistrictCandidateHistory(recordId);
+      removeHistoryRecord();
     });
     actionTd.appendChild(removeBtn);
 
@@ -1410,7 +1528,8 @@ function bindDistrictFormSelect(v3Id, field) {
   }
   control.dataset.v3DistrictFormBound = "1";
   control.addEventListener("change", () => {
-    setDistrictFormField(field, control.value);
+    const result = setDistrictFormField(field, control.value);
+    handleDistrictMutationResult(result, { source: `setFormField:${field}` });
   });
 }
 
@@ -1424,7 +1543,8 @@ function bindDistrictFormField(v3Id, field) {
   }
   control.dataset.v3DistrictFormBound = "1";
   control.addEventListener("input", () => {
-    setDistrictFormField(field, control.value);
+    const result = setDistrictFormField(field, control.value);
+    handleDistrictMutationResult(result, { source: `setFormField:${field}` });
   });
 }
 
@@ -1435,7 +1555,8 @@ function bindDistrictFormCheckbox(v3Id, field) {
   }
   control.dataset.v3DistrictFormBound = "1";
   control.addEventListener("change", () => {
-    setDistrictFormField(field, control.checked);
+    const result = setDistrictFormField(field, control.checked);
+    handleDistrictMutationResult(result, { source: `setFormField:${field}` });
   });
 }
 
@@ -1526,16 +1647,13 @@ function readRateDecimal(ids = []) {
 
 function syncDistrictTargetingLab(snapshotOverride = null) {
   const bridgeSnapshot = snapshotOverride || readDistrictTargetingSnapshot();
-  const targetingConfig = bridgeSnapshot?.config;
-  if (bridgeSnapshot) {
-    setText("v3DistrictTargetingStatus", bridgeSnapshot.statusText || "Run targeting to generate ranked GEOs.");
-    setText("v3DistrictTargetingMeta", bridgeSnapshot.metaText || "No targeting run yet.");
-    renderDistrictTargetingRows(bridgeSnapshot.rows || []);
-  } else {
-    setText("v3DistrictTargetingStatus", "Run targeting to generate ranked GEOs.");
-    setText("v3DistrictTargetingMeta", "No targeting run yet.");
-    renderDistrictTargetingRows([]);
+  if (!bridgeSnapshot || typeof bridgeSnapshot !== "object") {
+    return;
   }
+  const targetingConfig = bridgeSnapshot?.config;
+  setText("v3DistrictTargetingStatus", bridgeSnapshot.statusText || "Run targeting to generate ranked GEOs.");
+  setText("v3DistrictTargetingMeta", bridgeSnapshot.metaText || "No targeting run yet.");
+  renderDistrictTargetingRows(bridgeSnapshot.rows || []);
 
   ensureDistrictTargetingOptionHydration(targetingConfig);
 
@@ -1804,15 +1922,24 @@ function bindDistrictTargetingAction(v3Id, action, opts = {}) {
 }
 
 function syncDistrictTargetingFromResult(result) {
+  if (!result || typeof result !== "object") {
+    console.warn("[district] targeting mutation unavailable", result);
+    return;
+  }
   const snapshot = normalizeDistrictTargetingSnapshotFromView(result?.view);
   if (snapshot) {
     syncDistrictTargetingLab(snapshot);
-    window.requestAnimationFrame(() => syncDistrictTargetingLab());
     return;
   }
-  if (result?.ok) {
-    syncDistrictTargetingLab();
-    window.requestAnimationFrame(() => syncDistrictTargetingLab());
+  if (result.ok) {
+    queueDistrictSurfaceRefresh();
+    return;
+  }
+  const code = String(result.code || "").trim();
+  if (code) {
+    console.warn(`[district] targeting mutation rejected:${code}`, result);
+  } else {
+    console.warn("[district] targeting mutation rejected", result);
   }
 }
 
@@ -2306,8 +2433,8 @@ function bindDistrictCensusProxies() {
   bindDistrictCensusAction("v3BtnCensusMapQaVtdZipClear", "clearVtdZip");
 }
 
-function syncDistrictCensusProxy() {
-  const bridgeSnapshot = readDistrictCensusSnapshot();
+function syncDistrictCensusProxy(snapshotOverride = null) {
+  const bridgeSnapshot = snapshotOverride || readDistrictCensusSnapshot();
   if (!bridgeSnapshot || typeof bridgeSnapshot !== "object") {
     // Keep canonical static options available, but do not clobber dynamic
     // control values when bridge view is temporarily unavailable.
@@ -2594,16 +2721,6 @@ function renderDistrictCensusTableRows({
   }
 }
 
-function queueDistrictCensusSync() {
-  if (districtCensusSyncRafHandle) {
-    return;
-  }
-  districtCensusSyncRafHandle = window.requestAnimationFrame(() => {
-    districtCensusSyncRafHandle = 0;
-    syncDistrictCensusProxy();
-  });
-}
-
 function bindDistrictCensusField(v3Id, field, eventName = "input") {
   const control = document.getElementById(v3Id);
   if (
@@ -2616,8 +2733,8 @@ function bindDistrictCensusField(v3Id, field, eventName = "input") {
   }
   control.dataset.v3DistrictCensusBound = "1";
   control.addEventListener(eventName, () => {
-    setDistrictCensusField(field, control.value);
-    queueDistrictCensusSync();
+    const result = setDistrictCensusField(field, control.value);
+    handleDistrictMutationResult(result, { source: `setCensusField:${field}` });
   });
 }
 
@@ -2628,8 +2745,8 @@ function bindDistrictCensusCheckbox(v3Id, field) {
   }
   control.dataset.v3DistrictCensusBound = "1";
   control.addEventListener("change", () => {
-    setDistrictCensusField(field, control.checked);
-    queueDistrictCensusSync();
+    const result = setDistrictCensusField(field, control.checked);
+    handleDistrictMutationResult(result, { source: `setCensusField:${field}` });
   });
 }
 
@@ -2641,8 +2758,8 @@ function bindDistrictCensusGeoSelection(v3Id) {
   control.dataset.v3DistrictCensusBound = "1";
   control.addEventListener("change", () => {
     const selected = Array.from(control.selectedOptions).map((option) => option.value);
-    setDistrictCensusGeoSelection(selected);
-    queueDistrictCensusSync();
+    const result = setDistrictCensusGeoSelection(selected);
+    handleDistrictMutationResult(result, { source: "setCensusGeoSelection" });
   });
 }
 
@@ -2653,8 +2770,8 @@ function bindDistrictCensusFile(v3Id, field) {
   }
   control.dataset.v3DistrictCensusBound = "1";
   control.addEventListener("change", () => {
-    setDistrictCensusFile(field, control.files);
-    queueDistrictCensusSync();
+    const result = setDistrictCensusFile(field, control.files);
+    handleDistrictMutationResult(result, { source: `setCensusFile:${field}` });
   });
 }
 
@@ -2665,8 +2782,8 @@ function bindDistrictCensusAction(v3Id, action) {
   }
   button.dataset.v3DistrictCensusBound = "1";
   button.addEventListener("click", () => {
-    triggerDistrictCensusAction(action);
-    queueDistrictCensusSync();
+    const result = triggerDistrictCensusAction(action);
+    handleDistrictMutationResult(result, { source: `censusAction:${action}` });
   });
 }
 
