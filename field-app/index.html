@@ -1354,6 +1354,18 @@ function openEmergencyDiagnostics(meta){
         lines.push('bridge-active: ' + (info.bridgeActive ? 'yes' : 'no'));
       }
     }
+    var v3ModuleLoadedAt = window.__FPE_V3_MODULE_LOADED_AT__;
+    var v3BootReady = window.__FPE_V3_BOOT_READY__;
+    var v3BootReadyAt = window.__FPE_V3_BOOT_READY_AT__;
+    var v3NavReadyAt = window.__FPE_V3_NAV_READY_AT__;
+    if (v3ModuleLoadedAt || typeof v3BootReady === 'boolean' || v3BootReadyAt || v3NavReadyAt){
+      lines.push('');
+      lines.push('[v3 markers]');
+      lines.push('module-loaded-at: ' + String(v3ModuleLoadedAt || '—'));
+      lines.push('boot-ready: ' + (v3BootReady === true ? 'yes' : (v3BootReady === false ? 'no' : 'unknown')));
+      lines.push('boot-ready-at: ' + String(v3BootReadyAt || '—'));
+      lines.push('nav-ready-at: ' + String(v3NavReadyAt || '—'));
+    }
     if (!lines.length || (lines.length === 1 && lines[0] === '')){
       lines.push('Boot diagnostics are not available yet. Waiting for runtime signal.');
     }
@@ -1400,8 +1412,11 @@ window.__FPE_GET_UI_MODE__ = getUiModeFromLocation;
 document.addEventListener('DOMContentLoaded', function(){
   retireLegacyShellRootWrapper();
   var startedAt = Date.now();
-  var maxWaitMs = 2200;
+  var maxWaitMs = 12000;
+  var maxRecoveryMs = 30000;
   var pollMs = 80;
+  var recoveryPollMs = 400;
+  var fallbackOpened = false;
   var settle = function(){
     var rail = document.getElementById('legacyResultsSidebar');
     var pool = getLegacyDomPool();
@@ -1413,14 +1428,24 @@ document.addEventListener('DOMContentLoaded', function(){
   var waitForBridge = function(){
     if (isV3BridgeActive()){
       settle();
+      if (fallbackOpened){
+        closeEmergencyDiagnostics();
+      }
       return;
     }
     var elapsed = Date.now() - startedAt;
     if (elapsed >= maxWaitMs){
-      openEmergencyDiagnostics({
-        waitedMs: elapsed,
-        bridgeActive: false
-      });
+      if (!fallbackOpened){
+        fallbackOpened = true;
+        openEmergencyDiagnostics({
+          waitedMs: elapsed,
+          bridgeActive: false
+        });
+      }
+      if (elapsed >= maxRecoveryMs){
+        return;
+      }
+      window.setTimeout(waitForBridge, recoveryPollMs);
       return;
     }
     window.setTimeout(waitForBridge, pollMs);
