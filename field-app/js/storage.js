@@ -6,11 +6,18 @@ import {
   normalizeScenarioId,
   resolveActiveContext,
 } from "./app/activeContext.js";
+import {
+  CONTEXT_STORAGE_ROOT,
+  makeCampaignStoragePath,
+} from "./core/campaignContextManager.js";
 
-const KEY_BASE = "dsc_field_engine_state_v1";
+const KEY_BASE = "dsc_field_engine_state_v1"; // legacy compatibility only
 const KEY_LEGACY = "dsc_field_engine_state_v1";
-const BACKUP_KEY_BASE = "fpe_backups_v1";
+const BACKUP_KEY_BASE = "fpe_backups_v1"; // legacy compatibility only
 const BACKUP_KEY_LEGACY = "fpe_backups_v1";
+const STATE_MODULE = "state";
+const STATE_KEY = "snapshot-v1";
+const BACKUP_KEY = "backups-v1";
 const MAX_BACKUPS = 5;
 
 function isStorageLike(value){
@@ -79,12 +86,24 @@ function getDefaultStorage(){
 
 function scopedKey(base, context = {}){
   const src = (context && typeof context === "object") ? context : {};
-  const cid = normalizeCampaignId(src.campaignId, DEFAULT_CAMPAIGN_ID);
-  const oid = normalizeOfficeId(src.officeId, "");
-  const officeToken = oid || "all";
+  const includeScenario = base === STATE_KEY;
+  return makeCampaignStoragePath(src, {
+    module: STATE_MODULE,
+    key: base,
+    includeScenario,
+  });
+}
+
+function priorModernCompatibilityKeys(base, context = {}){
+  if (base !== STATE_KEY) return [];
+  const src = (context && typeof context === "object") ? context : {};
   const sid = normalizeScenarioId(src.scenarioId, "");
-  if (sid) return `${base}::${cid}::${officeToken}::${sid}`;
-  return `${base}::${cid}::${officeToken}`;
+  if (!sid) return [];
+  return [makeCampaignStoragePath({ ...src, scenarioId: "" }, {
+    module: STATE_MODULE,
+    key: STATE_KEY,
+    includeScenario: false,
+  })];
 }
 
 function priorScopedCompatibilityKeys(base, context = {}){
@@ -104,14 +123,127 @@ function listScopedCampaignKeys(storage, base, context = {}){
     return [];
   }
   const cid = normalizeCampaignId(context?.campaignId, DEFAULT_CAMPAIGN_ID);
-  const prefix = `${base}::${cid}::`;
+  const legacyPrefix = `${base}::${cid}::`;
+  const modernPrefix = `${CONTEXT_STORAGE_ROOT}/${cid}/`;
+  const modernSuffix = base === BACKUP_KEY_BASE
+    ? `/${STATE_MODULE}/${BACKUP_KEY}`
+    : `/${STATE_MODULE}/${STATE_KEY}`;
   const out = [];
   for (let i = 0; i < storage.length; i += 1){
     const key = String(storage.key(i) || "");
-    if (!key.startsWith(prefix)) continue;
-    out.push(key);
+    if (key.startsWith(legacyPrefix)){
+      out.push(key);
+      continue;
+    }
+    if (key.startsWith(modernPrefix) && key.endsWith(modernSuffix)){
+      out.push(key);
+      continue;
+    }
   }
   return out;
+}
+
+function modernCampaignFallbackKeys(context = {}){
+  const cid = normalizeCampaignId(context?.campaignId, DEFAULT_CAMPAIGN_ID);
+  const out = [];
+  out.push(makeCampaignStoragePath({
+    campaignId: cid,
+    officeId: "",
+  }, {
+    module: STATE_MODULE,
+    key: STATE_KEY,
+    includeScenario: false,
+  }));
+  const sid = normalizeScenarioId(context?.scenarioId, "");
+  if (sid){
+    out.push(makeCampaignStoragePath({
+      campaignId: cid,
+      officeId: "",
+      scenarioId: sid,
+    }, {
+      module: STATE_MODULE,
+      key: STATE_KEY,
+      includeScenario: true,
+    }));
+  }
+  return out;
+}
+
+function modernBackupCampaignFallbackKeys(context = {}){
+  const cid = normalizeCampaignId(context?.campaignId, DEFAULT_CAMPAIGN_ID);
+  return [
+    makeCampaignStoragePath({
+      campaignId: cid,
+      officeId: "",
+    }, {
+      module: STATE_MODULE,
+      key: BACKUP_KEY,
+      includeScenario: false,
+    }),
+  ];
+}
+
+function listScopedCampaignKeysLegacyAndModern(storage, base, context = {}){
+  const keys = listScopedCampaignKeys(storage, base, context);
+  const unique = [];
+  const seen = new Set();
+  for (const key of keys){
+    if (!key || seen.has(key)) continue;
+    seen.add(key);
+    unique.push(key);
+  }
+  return unique;
+}
+
+function listModernAndLegacyStateFallbackKeys(context = {}){
+  const out = [];
+  const seen = new Set();
+  const pushKey = (key) => {
+    const token = String(key || "");
+    if (!token || seen.has(token)) return;
+    seen.add(token);
+    out.push(key);
+  };
+  pushKey(makeStateStorageKey(context));
+  for (const key of priorModernCompatibilityKeys(STATE_KEY, context)) pushKey(key);
+  for (const key of modernCampaignFallbackKeys(context)) pushKey(key);
+  for (const key of priorScopedCompatibilityKeys(KEY_BASE, context)) pushKey(key);
+  return out;
+}
+
+function listModernAndLegacyBackupFallbackKeys(context = {}){
+  const out = [];
+  const seen = new Set();
+  const pushKey = (key) => {
+    const token = String(key || "");
+    if (!token || seen.has(token)) return;
+    seen.add(token);
+    out.push(key);
+  };
+  pushKey(makeBackupStorageKey(context));
+  for (const key of modernBackupCampaignFallbackKeys(context)) pushKey(key);
+  for (const key of priorScopedCompatibilityKeys(BACKUP_KEY_BASE, context)) pushKey(key);
+  return out;
+}
+
+function listAllOfficeStateKeysForCampaign(storage, context = {}){
+  return listScopedCampaignKeysLegacyAndModern(storage, KEY_BASE, context)
+    .filter((key) => key.endsWith(`/${STATE_MODULE}/${STATE_KEY}`) || key.includes(`${KEY_BASE}::`));
+}
+
+function listAllOfficeBackupKeysForCampaign(storage, context = {}){
+  return listScopedCampaignKeysLegacyAndModern(storage, BACKUP_KEY_BASE, context)
+    .filter((key) => key.endsWith(`/${STATE_MODULE}/${BACKUP_KEY}`) || key.includes(`${BACKUP_KEY_BASE}::`));
+}
+
+function removeKeys(storage, keys = []){
+  const seen = new Set();
+  for (const key of keys){
+    const token = String(key || "");
+    if (!token || seen.has(token)) continue;
+    seen.add(token);
+    safeRemove(storage, token);
+  }
 }
 
 function isObject(value){
@@ -141,11 +273,11 @@ function withDefaultContextFields(stateLike, context = {}){
 }
 
 export function makeStateStorageKey(context = {}){
-  return scopedKey(KEY_BASE, context);
+  return scopedKey(STATE_KEY, context);
 }
 
 export function makeBackupStorageKey(context = {}){
-  return scopedKey(BACKUP_KEY_BASE, context);
+  return scopedKey(BACKUP_KEY, context);
 }
 
 /**
@@ -160,15 +292,8 @@ export function makeBackupStorageKey(context = {}){
  */
 export function loadState(options = {}){
   const { store, context } = resolveStorageAndContext(options);
-  const primaryKey = makeStateStorageKey(context);
   try{
-    const raw = safeGet(store, primaryKey);
-    if (raw){
-      const loaded = JSON.parse(raw);
-      return withDefaultContextFields(loaded, context);
-    }
-
-    for (const compatKey of priorScopedCompatibilityKeys(KEY_BASE, context)){
+    for (const compatKey of listModernAndLegacyStateFallbackKeys(context)){
       const compatRaw = safeGet(store, compatKey);
       if (!compatRaw) continue;
       const compatLoaded = JSON.parse(compatRaw);
@@ -287,17 +412,11 @@ export function saveState(state, storageOverride, options){
 
 export function clearState(options = {}){
   const { store, context } = resolveStorageAndContext(options);
-  const key = makeStateStorageKey(context);
-  const backupKey = makeBackupStorageKey(context);
-  safeRemove(store, key);
-  safeRemove(store, backupKey);
+  removeKeys(store, listModernAndLegacyStateFallbackKeys(context));
+  removeKeys(store, listModernAndLegacyBackupFallbackKeys(context));
   if (!normalizeOfficeId(context.officeId, "")){
-    for (const compatKey of priorScopedCompatibilityKeys(KEY_BASE, context)){
-      safeRemove(store, compatKey);
-    }
-    for (const compatBackupKey of priorScopedCompatibilityKeys(BACKUP_KEY_BASE, context)){
-      safeRemove(store, compatBackupKey);
-    }
+    removeKeys(store, listAllOfficeStateKeysForCampaign(store, context));
+    removeKeys(store, listAllOfficeBackupKeysForCampaign(store, context));
   }
   if (context.campaignSource === "default"){
     safeRemove(store, KEY_LEGACY);
@@ -356,29 +475,24 @@ export function readBackups(storageOverride, options){
     hasLegacyStorageArg ? storageOverride : storageOverride || {},
     hasLegacyStorageArg ? options : undefined
   );
-  const backupKey = makeBackupStorageKey(hasLegacyStorageArg ? context : { ...context, ...(options || {}) });
+  const backupReadContext = hasLegacyStorageArg ? context : { ...context, ...(options || {}) };
+  const backupKey = makeBackupStorageKey(backupReadContext);
   try{
     const collected = [];
-    const scopedRaw = safeGet(store, backupKey);
-    if (scopedRaw){
+    for (const key of listModernAndLegacyBackupFallbackKeys(backupReadContext)){
+      const scopedRaw = safeGet(store, key);
+      if (!scopedRaw) continue;
       const parsed = JSON.parse(scopedRaw);
       if (Array.isArray(parsed)) collected.push(...parsed);
     }
 
     if (!normalizeOfficeId(context?.officeId, "")){
-      const campaignScopedKeys = listScopedCampaignKeys(store, BACKUP_KEY_BASE, context);
+      const campaignScopedKeys = listAllOfficeBackupKeysForCampaign(store, context);
       for (const campaignKey of campaignScopedKeys){
         if (campaignKey === backupKey) continue;
         const parsed = JSON.parse(safeGet(store, campaignKey) || "null");
         if (Array.isArray(parsed)) collected.push(...parsed);
       }
-    }
-
-    for (const compatKey of priorScopedCompatibilityKeys(BACKUP_KEY_BASE, context)){
-      const compatRaw = safeGet(store, compatKey);
-      if (!compatRaw) continue;
-      const parsed = JSON.parse(compatRaw);
-      if (Array.isArray(parsed)) collected.push(...parsed);
     }
 
     const legacyRaw = safeGet(store, BACKUP_KEY_LEGACY);

@@ -8,6 +8,7 @@ import {
   normalizeCompensationType,
   normalizePersonWorkforceFields,
   normalizeRoleType,
+  resolveCanonicalWorkforceRole,
 } from "./features/operations/workforce.js";
 import {
   applyOperationsContextToLinks,
@@ -63,6 +64,13 @@ function setMsg(el, text){
   if (el) el.textContent = text || "";
 }
 
+function workforceRoleLabel(value){
+  const role = resolveCanonicalWorkforceRole({ workforceRole: value });
+  if (role === "organizer") return "Field organizer";
+  if (role === "volunteer") return "Volunteer";
+  return "Paid canvasser";
+}
+
 function contextSummaryText(){
   return summarizeOperationsContext(operationsContext);
 }
@@ -88,7 +96,7 @@ function clearForm(){
   if (els.leadRecruiter) els.leadRecruiter.value = "";
   if (els.leadSourceChannel) els.leadSourceChannel.value = "";
   if (els.leadStage) els.leadStage.value = PIPELINE_STAGES[0];
-  if (els.leadRoleType) els.leadRoleType.value = "canvasser";
+  if (els.leadRoleType) els.leadRoleType.value = "paid_canvasser";
   if (els.leadCompensationType) els.leadCompensationType.value = "paid";
   if (els.leadPayRate) els.leadPayRate.value = "";
   if (els.leadExpectedHoursPerWeek) els.leadExpectedHoursPerWeek.value = "";
@@ -98,8 +106,11 @@ function clearForm(){
 }
 
 function syncCompensationToRole(){
-  const roleType = normalizeRoleType(clean(els.leadRoleType?.value) || "canvasser");
-  if (els.leadRoleType) els.leadRoleType.value = roleType;
+  const workforceRole = resolveCanonicalWorkforceRole({
+    workforceRole: clean(els.leadRoleType?.value) || "paid_canvasser",
+  });
+  if (els.leadRoleType) els.leadRoleType.value = workforceRole;
+  const roleType = normalizeRoleType(workforceRole || "paid_canvasser");
   if (!els.leadCompensationType) return;
   els.leadCompensationType.value = normalizeCompensationType(clean(els.leadCompensationType.value), roleType);
 }
@@ -143,7 +154,10 @@ async function saveLead(){
   const recruiter = clean(els.leadRecruiter?.value);
   const sourceChannel = clean(els.leadSourceChannel?.value);
   const stage = clean(els.leadStage?.value) || PIPELINE_STAGES[0];
-  const roleType = normalizeRoleType(clean(els.leadRoleType?.value) || "canvasser");
+  const workforceRole = resolveCanonicalWorkforceRole({
+    workforceRole: clean(els.leadRoleType?.value) || "paid_canvasser",
+  });
+  const roleType = normalizeRoleType(workforceRole || "paid_canvasser");
   const compensationType = normalizeCompensationType(clean(els.leadCompensationType?.value), roleType);
   const payRateRaw = Number(els.leadPayRate?.value);
   const expectedHoursPerWeekRaw = Number(els.leadExpectedHoursPerWeek?.value);
@@ -160,8 +174,10 @@ async function saveLead(){
     office,
     region,
     roleType,
+    workforceRole,
+    canonicalRole: workforceRole,
     compensationType,
-    role: roleType,
+    role: workforceRole,
     payRate: Number.isFinite(payRateRaw) && payRateRaw >= 0 ? payRateRaw : null,
     expectedHoursPerWeek: Number.isFinite(expectedHoursPerWeekRaw) && expectedHoursPerWeekRaw >= 0 ? expectedHoursPerWeekRaw : null,
     supervisorId,
@@ -170,7 +186,7 @@ async function saveLead(){
     updatedAt: stamp,
   };
   const person = normalizePersonWorkforceFields(personDraft, { roleType, compensationType });
-  if (els.leadRoleType) els.leadRoleType.value = person.roleType;
+  if (els.leadRoleType) els.leadRoleType.value = person.workforceRole || workforceRole;
   if (els.leadCompensationType) els.leadCompensationType.value = person.compensationType;
 
   const existing = pipelineRecords.find((r) => String(r?.personId) === String(person.id));
@@ -225,7 +241,7 @@ function buildRow({ rec, person }){
     <td>${clean(person?.name) || "—"}</td>
     <td>${clean(rec?.office || person?.office) || "—"}</td>
     <td>${clean(rec?.region || person?.region) || "—"}</td>
-    <td>${clean(person?.roleType || person?.role) || "—"}</td>
+    <td>${workforceRoleLabel(person?.workforceRole || person?.canonicalRole || person?.roleType || person?.role)}</td>
     <td>${clean(person?.compensationType) || "—"}</td>
     <td>${clean(rec?.recruiter) || "—"}</td>
     <td>
