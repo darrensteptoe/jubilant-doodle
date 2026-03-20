@@ -23,6 +23,7 @@ import {
   isMaterialCanonicalVoterField,
   normalizeVoterAdapterId,
   parseVoterRowsInput,
+  listCanonicalVoterFieldTiers,
   normalizeVoterDataState,
   normalizeVoterRows,
 } from "../voterDataLayer.js";
@@ -2868,6 +2869,7 @@ export function registerRebuildContractTests(ctx){
     }, { nowIso: "2026-03-18T00:00:00Z", recentWindowDays: 14 });
     const voterLayerView = buildDataVoterLayerSnapshotView(voterLayerSnapshot);
     const voterSchemaGuide = buildDataVoterSchemaGuideView();
+    const canonicalVoterFieldTiers = listCanonicalVoterFieldTiers();
     const voterSourceLabel = buildDataVoterSourceLabel("van", "van_sync_20260318");
     const voterSourceFallback = buildDataVoterSourceLabel("", "");
     const voterSourceRef = formatVoterSourceRef("van", "van_sync_20260318");
@@ -3043,7 +3045,10 @@ export function registerRebuildContractTests(ctx){
     assert(voterLayerView.recentContactRate === "50%", "data voter-layer view should format recent-contact percent");
     assert(voterLayerView.conversationRate === "33%", "data voter-layer view should format conversation percent");
     assert(voterSchemaGuide.requiredCount === "1", "data voter-schema guide should preserve required field count");
-    assert(voterSchemaGuide.recommendedCount === "5", "data voter-schema guide should preserve recommended field count");
+    assert(
+      voterSchemaGuide.recommendedCount === String(canonicalVoterFieldTiers.recommended.length),
+      "data voter-schema guide should preserve recommended field count",
+    );
     assert(voterSchemaGuide.requiredFields === "voterId", "data voter-schema guide should preserve required field labels");
     assert(voterSchemaGuide.recommendedFields.includes("precinctId"), "data voter-schema guide should preserve recommended field labels");
     assert(voterSourceRef === "van:van_sync_20260318", "voter source-ref helper should preserve adapter+source contract");
