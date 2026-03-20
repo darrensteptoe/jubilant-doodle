@@ -1,0 +1,198 @@
+{
+  "generatedAt": "2026-03-20T05:52:13.794Z",
+  "pass": true,
+  "gauntlets": [
+    {
+      "id": "RG-01",
+      "title": "Master Everything",
+      "pass": true,
+      "assertions": [
+        {
+          "kind": "event",
+          "pass": true,
+          "detail": "interaction integrity check"
+        },
+        {
+          "kind": "state",
+          "pass": true,
+          "detail": "page-tier interaction stability check"
+        },
+        {
+          "kind": "compute",
+          "pass": true,
+          "detail": "canonical math check"
+        },
+        {
+          "kind": "render",
+          "pass": true,
+          "detail": "production build render pass"
+        },
+        {
+          "kind": "output",
+          "pass": true,
+          "detail": "contracts/diagnostics check"
+        }
+      ]
+    },
+    {
+      "id": "RG-02",
+      "title": "Edge Abuse",
+      "pass": true,
+      "assertions": [
+        {
+          "kind": "event",
+          "pass": true,
+          "detail": "contract engine records edge abuse findings"
+        },
+        {
+          "kind": "state",
+          "pass": true,
+          "detail": "state contract violations surfaced"
+        },
+        {
+          "kind": "compute",
+          "pass": true,
+          "detail": "flow contract warnings/violations surfaced"
+        },
+        {
+          "kind": "render",
+          "pass": true,
+          "detail": "render assertion covered in RG-01 build check"
+        },
+        {
+          "kind": "output",
+          "pass": true,
+          "detail": "output assertion covered in RG-04 report consistency"
+        }
+      ]
+    },
+    {
+      "id": "RG-03",
+      "title": "Transition Persistence",
+      "pass": true,
+      "assertions": [
+        {
+          "kind": "event",
+          "pass": true,
+          "detail": "transition event sequencing delegated to contracts/diagnostics engine"
+        },
+        {
+          "kind": "state",
+          "pass": true,
+          "detail": "campaign context validation requires scoped ids"
+        },
+        {
+          "kind": "compute",
+          "pass": true,
+          "detail": "scope key includes campaign/office/scenario"
+        },
+        {
+          "kind": "render",
+          "pass": true,
+          "detail": "context storage path uses canonical namespace root"
+        },
+        {
+          "kind": "output",
+          "pass": true,
+          "detail": "storage path remains deterministic/scoped"
+        }
+      ]
+    },
+    {
+      "id": "RG-04",
+      "title": "Export Consistency",
+      "pass": true,
+      "assertions": [
+        {
+          "kind": "event",
+          "pass": true,
+          "detail": "report compose event emitted by runtime contracts hook"
+        },
+        {
+          "kind": "state",
+          "pass": true,
+          "detail": "report campaign scope matches canonical state"
+        },
+        {
+          "kind": "compute",
+          "pass": true,
+          "detail": "report type normalization preserved"
+        },
+        {
+          "kind": "render",
+          "pass": true,
+          "detail": "report sections rendered as canonical structured output"
+        },
+        {
+          "kind": "output",
+          "pass": true,
+          "detail": "report payload includes canonical selector snapshot"
+        }
+      ]
+    },
+    {
+      "id": "RG-05",
+      "title": "Invalid Input Defense",
+      "pass": true,
+      "assertions": [
+        {
+          "kind": "event",
+          "pass": true,
+          "detail": "invalid-input defense event path handled through validation engine"
+        },
+        {
+          "kind": "state",
+          "pass": true,
+          "detail": "validation blocks missing required office scope"
+        },
+        {
+          "kind": "compute",
+          "pass": true,
+          "detail": "validation emits issues for invalid input"
+        },
+        {
+          "kind": "render",
+          "pass": true,
+          "detail": "render warning surfacing delegated to canonical diagnostics/message layer"
+        },
+        {
+          "kind": "output",
+          "pass": true,
+          "detail": "readiness output remains bounded under invalid input"
+        }
+      ]
+    },
+    {
+      "id": "RG-06",
+      "title": "Legacy Shell Disconnect",
+      "pass": true,
+      "assertions": [
+        {
+          "kind": "event",
+          "pass": true,
+          "detail": "legacy stage alias map removed"
+        },
+        {
+          "kind": "state",
+          "pass": true,
+          "detail": "legacy stage resolver removed"
+        },
+        {
+          "kind": "compute",
+          "pass": true,
+          "detail": "legacy hook references isolated"
+        },
+        {
+          "kind": "render",
+          "pass": true,
+          "detail": "compat facades removed"
+        },
+        {
+          "kind": "output",
+          "pass": true,
+          "detail": "stable vs transitional qa split present"
+        }
+      ]
+    }
+  ]
+}

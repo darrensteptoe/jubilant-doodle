@@ -1,0 +1,145 @@
+{
+  "generatedAt": "2026-03-20T05:52:13.801Z",
+  "pass": true,
+  "checks": [
+    {
+      "id": "file:prune/relevance-matrix.csv",
+      "description": "Phase 23 relevance matrix exists",
+      "pass": true
+    },
+    {
+      "id": "file:prune/prune-decisions.md",
+      "description": "Phase 23 prune decisions exist",
+      "pass": true
+    },
+    {
+      "id": "file:contracts/flowContracts.js",
+      "description": "Flow contracts module exists",
+      "pass": true
+    },
+    {
+      "id": "file:contracts/stateContracts.js",
+      "description": "State contracts module exists",
+      "pass": true
+    },
+    {
+      "id": "file:contracts/outputContracts.js",
+      "description": "Output contracts module exists",
+      "pass": true
+    },
+    {
+      "id": "file:contracts/boundaryContracts.js",
+      "description": "Boundary contracts module exists",
+      "pass": true
+    },
+    {
+      "id": "file:diagnostics/diagnosticStore.js",
+      "description": "Diagnostic store module exists",
+      "pass": true
+    },
+    {
+      "id": "file:diagnostics/diagnosticEngine.js",
+      "description": "Diagnostic engine module exists",
+      "pass": true
+    },
+    {
+      "id": "file:diagnostics/diagnosticPanel.js",
+      "description": "Diagnostic panel module exists",
+      "pass": true
+    },
+    {
+      "id": "file:audit/audit-matrix.md",
+      "description": "Audit matrix exists",
+      "pass": true
+    },
+    {
+      "id": "file:audit/controls.csv",
+      "description": "Audit controls exists",
+      "pass": true
+    },
+    {
+      "id": "file:audit/state-lineage.csv",
+      "description": "Audit state lineage exists",
+      "pass": true
+    },
+    {
+      "id": "file:audit/formulas.csv",
+      "description": "Audit formulas exists",
+      "pass": true
+    },
+    {
+      "id": "file:audit/renders.csv",
+      "description": "Audit renders exists",
+      "pass": true
+    },
+    {
+      "id": "file:audit/exports.csv",
+      "description": "Audit exports exists",
+      "pass": true
+    },
+    {
+      "id": "cmd:check-contracts",
+      "description": "Contracts/diagnostics check passes",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "id": "cmd:gate-rebuild",
+      "description": "Strict rebuild gate passes",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "id": "cmd:gate-gauntlet",
+      "description": "Release gauntlet suite passes",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "id": "gauntlet:json-pass",
+      "description": "Gauntlet JSON result is pass=true",
+      "pass": true
+    },
+    {
+      "id": "gauntlet:RG-01",
+      "description": "RG-01 passes",
+      "pass": true
+    },
+    {
+      "id": "gauntlet:RG-02",
+      "description": "RG-02 passes",
+      "pass": true
+    },
+    {
+      "id": "gauntlet:RG-03",
+      "description": "RG-03 passes",
+      "pass": true
+    },
+    {
+      "id": "gauntlet:RG-04",
+      "description": "RG-04 passes",
+      "pass": true
+    },
+    {
+      "id": "gauntlet:RG-05",
+      "description": "RG-05 passes",
+      "pass": true
+    },
+    {
+      "id": "gauntlet:RG-06",
+      "description": "RG-06 passes",
+      "pass": true
+    },
+    {
+      "id": "legacy:stage-alias",
+      "description": "stage registry has no legacy alias fallback",
+      "pass": true
+    },
+    {
+      "id": "legacy:compat-facades",
+      "description": "compatibility facade files removed",
+      "pass": true,
+      "detail": []
+    }
+  ]
+}

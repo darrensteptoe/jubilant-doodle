@@ -1,0 +1,13 @@
+concept,canonical_owner,mutation_path,recompute_path,render_consumers,export_consumers,context_scope,status
+campaign_context,state.campaignId/state.officeId,shellBridgeSetContext,commitUIUpdate+render,v3 shell context mirrors,reportComposer+archive,required(campaign+office),CANONICAL
+scenario_context,state.ui.activeScenarioId,scenario bridge handlers,commitUIUpdate+render,scenario stage surfaces,reportComposer+forecast archive,required(campaign+office+scenario),CANONICAL
+district_inputs,state.* district fields,district bridge handlers -> setState,commitUIUpdate+render,district/reach/outcome surfaces,scenario export+reports,required(campaign+office+scenario),CANONICAL
+turnout_inputs,state.turnout*/state.gotv*,turnout bridge handlers,commitUIUpdate+render,turnout/outcome/plan surfaces,summary export+reports,required(campaign+office+scenario),CANONICAL
+optimizer_inputs,state.budget.optimize.*,plan bridge handlers,commitUIUpdate+render,plan/outcome surfaces,summary export+reports,required(campaign+office+scenario),CANONICAL
+workforce_inputs,operations stores (indexeddb),operations feature store APIs,operations rollups + render sync,operations and plan surfaces,internal/client reports,required(campaign+office),CANONICAL
+weather_adjustment,state.warRoom.weatherAdjustment,war room weather handlers,decision recompute + render,war room weather card+decision view,war room/report sections,required(campaign+office),CANONICAL
+event_calendar,state.warRoom.eventCalendar,event calendar store handlers,event impact recompute + render,war room calendar+impact summary,report event summaries,required(campaign+office+optional scenario),CANONICAL
+validation_snapshot,state.ui.lastValidationSnapshot,runValidationEngine caller path,consumed read-only in render/report,validation cards+diagnostics,client/internal report readiness framing,required(campaign+office+scenario),CANONICAL_DERIVED
+realism_snapshot,state.ui.lastRealismSnapshot,runRealismEngine caller path,consumed read-only in render/report,realism cards+war room warnings,client/internal report realism framing,required(campaign+office+scenario),CANONICAL_DERIVED
+governance_snapshot,state.ui.lastGovernanceSnapshot,computeModelGovernance caller path,consumed read-only in render/report,controls/governance cards,report trust framing,required(campaign+office+scenario),CANONICAL_DERIVED
+reporting_state,state.ui.reporting.*,dataBridgeSetReportType/dataBridgeComposeReport,composeReportPayload on change,data surface reporting controls,pdf export+report preview,required(campaign+office+scenario),CANONICAL

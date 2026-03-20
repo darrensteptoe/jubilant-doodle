@@ -1,0 +1,11 @@
+model_id,canonical_module,canonical_function,input_owner,output_name,used_by,status,notes
+masterTargetingEquation,js/core/targetFeatureEngine.js,computeTargetFeatureScore,state.targeting+voter aggregates,targetScore+expectedNetVoteValue,targetingLab+optimizer+reports,LOCKED,Phase 21 canonical targeting law
+supportTurnoutMatrix,js/core/targetModels.js,buildSupportTurnoutMatrix,voter aggregates+baseline assumptions,support/turnout segmentation,targeting+universe summaries+reports,IMPLEMENTED,Mapped in model registry
+expectedVoteGain,js/core/targetFeatureEngine.js,computeExpectedVoteGain,targetScore+expectedVotesReachable,expectedVoteGain,targeting+forecast+reports,IMPLEMENTED,No duplicate math in report layer
+contactSaturation,js/core/targetFeatureEngine.js,computeSaturationMultiplier,contact history assumptions,saturationMultiplier,targeting+turnout realism+reports,IMPLEMENTED,Linked to realism/validation
+volunteerProduction,js/core/model.js,computeCapacityBreakdown,workforce role typing+capacity assumptions,attempt capacity,reach+plan+operations+reports,IMPLEMENTED,Role typing integrated
+turnoutElasticity,js/core/turnout.js,computeAvgLiftPP,turnout assumptions+contact effort,turnout lift and effective turnout,outcome+turnout+reports,IMPLEMENTED,Consumed through canonical model pipeline
+persuasionCost,js/core/channelCosts.js,computeChannelCostMetrics,channel cpa assumptions,cost per contact metrics,optimizer+budget realism+reports,IMPLEMENTED,Budget realism warnings tied here
+validationReadiness,js/app/modelReadiness.js,computeModelReadiness,validation issues,readiness score/band,validation UI+reports+contracts,IMPLEMENTED,Validation separate from realism
+realismScoring,js/app/realismEngine.js,runRealismEngine,state assumptions + capacity constraints,realism score/classification,realism UI+war room+reports+contracts,IMPLEMENTED,No silent clamping
+monteCarloOutcome,js/core/monteCarlo.js,runMonteCarlo,outcome assumptions+rng seed,win probability/confidence,outcome stage+reports,IMPLEMENTED,Outcome controls canonicalized

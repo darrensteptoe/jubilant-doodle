@@ -1,0 +1,8 @@
+export_id,owner_module,canonical_input_path,serializer_or_exporter,scope_guard,output_contract_guard,status
+scenario_json_export,js/appRuntime.js,state snapshot + engine.snapshot.makeScenarioExport,dataBridgeRunSaveJson,campaign/office/scenario scope from state,report_context_scope_mismatch(not_applicable),ACTIVE
+plan_csv_export,js/appRuntime.js,lastResultsSnapshot + planRowsToCsv,dataBridgeRunExportCsv,campaign/office scope from archive context,bridge_sync_before_render_completion(flow visibility),ACTIVE
+summary_copy_export,js/appRuntime.js,lastResultsSnapshot + export.formatSummaryText,dataBridgeRunCopySummary,active context snapshot,flow/state diagnostics visibility,ACTIVE
+archive_actual_export,js/appRuntime.js,forecast archive selected hash + actual payload,dataBridgeSaveArchiveActual,forecastArchiveContext scoped keys,boundary context checks,ACTIVE
+internal_report_payload,js/app/reportComposer.js,state+renderCtx+resultsSnapshot,composeReportPayload,selector snapshot context owner,report_missing_canonical_results_snapshot,ACTIVE
+client_report_payload,js/app/reportComposer.js,state+renderCtx+resultsSnapshot,composeReportPayload,selector snapshot context owner,report_missing_validation_or_realism_link,ACTIVE
+pdf_export,js/app/pdfExport.js,composed report payload,exportReportPdf,dataBridgeExportReportPdf context scope,report_context_scope_mismatch,ACTIVE

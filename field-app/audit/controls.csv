@@ -1,0 +1,16 @@
+control_id,control_type,owner_module,approved_mutation_path,contract_owner,assertion_model,status,notes
+campaign_context_selector,flow+boundary,js/appRuntime.js,shellBridgeSetContext -> normalizeLoadedScenarioRuntime -> render,contracts/boundaryContracts.js,event+state,ACTIVE,Context update requires campaignId and officeId
+office_context_selector,flow+boundary,js/appRuntime.js,shellBridgeSetContext -> normalizeLoadedScenarioRuntime -> render,contracts/boundaryContracts.js,event+state,ACTIVE,Office scope validated before context-dependent execution
+scenario_selector,flow,js/appRuntime.js,scenario bridge handlers -> commitUIUpdate -> render,contracts/flowContracts.js,event+render,ACTIVE,Scenario mutations tracked via bridge sync and render completion
+district_control_setstate,state,js/appRuntime.js,setState -> commitUIUpdate,contracts/stateContracts.js,state,ACTIVE,setState restricted to state.ui writes
+commit_ui_update,flow,js/appRuntime.js,commitUIUpdate -> uiUpdateQueue,contracts/flowContracts.js,flow,ACTIVE,Recompute omission is elevated
+render_cycle,render,js/appRuntime.js,render -> renderMain -> applyScenarioLockUi,contracts/outputContracts.js,render,ACTIVE,Stale render lifecycle elevated
+bridge_sync_dispatch,boundary,js/appRuntime.js,notifyBridgeSync,contracts/boundaryContracts.js,event,ACTIVE,Unknown bridge source warning path
+report_type_selector,output,js/appRuntime.js,dataBridgeSetReportType -> dataBridgeComposeReport,contracts/outputContracts.js,output,ACTIVE,Report context mismatch contract enabled
+report_compose,formula+output,js/app/reportComposer.js,composeReportPayload,contracts/outputContracts.js,compute+output,ACTIVE,Missing canonical snapshot/validation links elevated
+report_pdf_export,output,js/app/pdfExport.js,dataBridgeExportReportPdf -> exportReportPdf,contracts/outputContracts.js,output,ACTIVE,Export scope and readiness links checked
+weather_mode_toggle,boundary,js/app/warRoomWeather.js,war room weather handlers -> commitUIUpdate,contracts/boundaryContracts.js,event+state,ACTIVE,Today-only modifier remains bounded and visible
+event_apply_toggle,boundary,js/app/eventCalendarStore.js,event calendar apply-to-model handlers,contracts/boundaryContracts.js,state+output,ACTIVE,Capacity-only behavior enforced via canonical event impact path
+validation_engine_gate,flow,js/app/validationEngine.js,runValidationEngine,contracts/flowContracts.js,compute,ACTIVE,Critical action validation bypass hook
+realism_engine,output,js/app/realismEngine.js,runRealismEngine,contracts/outputContracts.js,compute+output,ACTIVE,Report links warn when realism anchor absent
+legacy_disconnect_static,boundary,scripts/release-gauntlet.mjs,RG-06 static disconnect checks,contracts/boundaryContracts.js,event+state+render+output,ACTIVE,Legacy hook references isolated to transitional QA suite

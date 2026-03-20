@@ -1,0 +1,11 @@
+surface_id,renderer_module,primary_state_inputs,recompute_trigger,render_contract_guard,diagnostic_signal,status
+district_surface,js/app/v3/surfaces/district.js,state district fields+targeting+census,commitUIUpdate(render=true),stale_render_after_pending_state_write,bridge_sync_before_render_completion,ACTIVE
+reach_surface,js/app/v3/surfaces/reach.js,state capacity/workforce fields,commitUIUpdate(render=true),stale_render_after_pending_state_write,flow contract warnings,ACTIVE
+outcome_surface,js/app/v3/surfaces/outcome.js,state mc/outcome assumptions,commitUIUpdate + outcome run,recompute_missing_after_state_change,diagnostics modal contract summary,ACTIVE
+turnout_surface,js/app/v3/surfaces/turnout.js,state turnout/gotv fields,commitUIUpdate(render=true),stale_render_after_pending_state_write,flow+state contract findings,ACTIVE
+plan_surface,js/app/v3/surfaces/plan.js,state optimizer/timeline fields,commitUIUpdate(render=true),recompute_missing_after_state_change,interaction integrity + diagnostics,ACTIVE
+scenarios_surface,js/app/v3/surfaces/scenarios.js,state.ui.scenarios + activeScenarioId,scenario actions + commitUIUpdate,state_rehydration_scope_change_without_context_action,boundary findings,ACTIVE
+controls_surface,js/app/v3/surfaces/controls.js,intel/governance snapshots,commitUIUpdate(render=true),set_state_outside_ui_scope,state contract findings,ACTIVE
+data_surface,js/app/v3/surfaces/data.js,state.ui.reporting + import/export status,data bridge handlers + commitUIUpdate,report_context_scope_mismatch,output contract findings,ACTIVE
+war_room_surface,js/app/v3/surfaces/decisionLog.js,state.warRoom + event calendar + weather,decision/event/weather handlers + commitUIUpdate,context_update_missing_required_scope,boundary+output findings,ACTIVE
+diagnostics_modal,js/app/diagnosticsRuntime.js,recent errors + contract diagnostics panel,open diagnostics / runtime updates,n/a,contract diagnostics summary + findings list,ACTIVE

@@ -14,15 +14,15 @@
 <link href="https://fonts.googleapis.com" rel="preconnect"/>
 <link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&amp;family=IBM+Plex+Sans:wght@300;400;500;600&amp;display=swap" rel="stylesheet"/>
-  <script type="module" crossorigin src="/assets/index-DrpD-d1Z.js"></script>
-  <link rel="modulepreload" crossorigin href="/assets/time-DK9hurUB.js">
+  <script type="module" crossorigin src="/assets/index-BLwq-fzV.js"></script>
+  <link rel="modulepreload" crossorigin href="/assets/time-DUI7NMuO.js">
   <link rel="modulepreload" crossorigin href="/assets/build-DvTtUqhn.js">
-  <link rel="modulepreload" crossorigin href="/assets/preload-helper-B0p9r94Q.js">
-  <link rel="modulepreload" crossorigin href="/assets/store-QTT469Bo.js">
-  <link rel="modulepreload" crossorigin href="/assets/io-B0WpEP5y.js">
-  <link rel="modulepreload" crossorigin href="/assets/view-DqN8HhCV.js">
-  <link rel="modulepreload" crossorigin href="/assets/twCapHelpers-C-0_QIda.js">
-  <link rel="stylesheet" crossorigin href="/assets/index-tH_NhQdL.css">
+  <link rel="modulepreload" crossorigin href="/assets/preload-helper-Dav_FLH3.js">
+  <link rel="modulepreload" crossorigin href="/assets/store-BdbFX2dC.js">
+  <link rel="modulepreload" crossorigin href="/assets/io-ssMocNZ3.js">
+  <link rel="modulepreload" crossorigin href="/assets/view-IXr4e1yC.js">
+  <link rel="modulepreload" crossorigin href="/assets/twCapHelpers-Dz9ZLj_3.js">
+  <link rel="stylesheet" crossorigin href="/assets/index-CIB-nppR.css">
 </head>
 <body>
 <div hidden="" id="app-shell-v3-root"></div>
@@ -1358,10 +1358,11 @@ document.addEventListener('DOMContentLoaded', function(){
       return;
     }
     var rail = document.getElementById('legacyResultsSidebar');
-    var slot = document.getElementById('v3RightRailSlot');
-    if (rail && slot && rail.parentElement !== slot) {
-      slot.appendChild(rail);
+    var pool = getLegacyDomPool();
+    if (rail && pool && rail.parentElement !== pool) {
+      pool.appendChild(rail);
     }
+    if (rail) rail.hidden = true;
   }, 0);
 });
 </script>
