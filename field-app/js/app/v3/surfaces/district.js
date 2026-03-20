@@ -85,126 +85,146 @@ const TEMPLATE_DIMENSION_SELECTS = [
   { id: "v3DistrictSalienceLevel", field: "salienceLevel", label: "Salience level" },
 ];
 
-const DISTRICT_PLAYBOOK_PANELS = Object.freeze([
-  {
-    id: "train-setup",
-    title: "Playbook — Set up",
-    leftTitle: "What this stage models",
-    leftText:
-      "Sets the planning context. Race type loads sensible defaults, and election date drives timeline feasibility in later stages.",
-    leftRule:
-      "Scenario name → saved with export<br/>Race type → default band widths<br/>Election date → weeks remaining auto-calc<br/>Mode → persuasion vs turnout emphasis",
-    rightTitle: "Common mistakes",
-    rightBullets: [
-      "Using Federal template for a state leg race where band widths should be wider.",
-      "Leaving election date blank and forgetting to set weeks remaining manually.",
-      "Setting mode to late-start before capacity constraints are known.",
-    ],
-    rightCaution:
-      "A plan is only meaningful relative to time constraints. Set election date first.",
-  },
-  {
-    id: "train-universe",
-    title: "Playbook — Universe",
-    leftTitle: "What this stage models",
-    leftText:
-      "Universe is the denominator for everything. Turnout votes and persuasion workload both scale directly from it.",
-    leftRule:
-      "Registered: most defensible, largest number<br/>Active (voted 1+ recent): smaller, higher quality<br/>Likely voters: smallest, most predictive",
-    rightTitle: "Realistic ranges (state leg)",
-    rightBullets: [
-      "Rural district: 12,000–25,000 registered.",
-      "Suburban district: 30,000–60,000 registered.",
-      "Urban district: 40,000–80,000 registered.",
-    ],
-    rightCaution:
-      "Always note your source so this assumption stays auditable across scenario revisions.",
-  },
-  {
-    id: "train-ballot",
-    title: "Playbook — Ballot & Persuasion Baseline",
-    leftTitle: "What this stage models",
-    leftText:
-      "The ballot test sets your starting position. Candidate shares plus undecided must sum to 100%.",
-    leftRule:
-      "Proportional: undecided breaks like committed voters<br/>Conservative against you: undecided breaks toward opponents<br/>User-defined: you set the split explicitly",
-    rightTitle: "Common mistakes",
-    rightBullets: [
-      "Using unweighted internal polling as baseline support.",
-      "Setting undecided too low for competitive races.",
-      "Assuming proportional undecided break in a race with strong structural bias.",
-    ],
-    rightCaution:
-      "Undecided allocation is a primary volatility driver. Stress-test conservative and proportional paths.",
-  },
-  {
-    id: "train-checks",
-    title: "Playbook — Data Checks & Guardrails",
-    leftTitle: "What this stage does",
-    leftText:
-      "Guardrails catch invalid states and plausibility drift before sharing plans externally.",
-    rightTitle: "When to use it",
-    rightBullets: [
-      "Before every client presentation.",
-      "When outputs look unexpectedly strong.",
-      "After importing scenario data from another session.",
-    ],
-  },
+const DISTRICT_INPUT_EXPLAINERS = Object.freeze([
+  Object.freeze({
+    controlId: "v3DistrictRaceType",
+    text: "Template sets a starting profile. Treat it as a baseline to calibrate, not a permanent truth.",
+    links: Object.freeze([
+      Object.freeze({ type: "module", id: "templateArchetype", label: "Template doctrine" }),
+      Object.freeze({ type: "module", id: "campaignDataRequirements", label: "Required inputs" }),
+    ]),
+  }),
+  Object.freeze({
+    controlId: "v3DistrictUniverseSize",
+    text: "Universe is your denominator. Source it from observed voter data and keep the source note current.",
+    links: Object.freeze([
+      Object.freeze({ type: "module", id: "targetUniverseMatrix", label: "Universe doctrine" }),
+      Object.freeze({ type: "glossary", id: "readiness", label: "Readiness" }),
+    ]),
+  }),
+  Object.freeze({
+    controlId: "v3DistrictUndecidedPct",
+    text: "Use 0-100. Run multiple undecided modes before decision commitments to avoid false certainty.",
+    links: Object.freeze([
+      Object.freeze({ type: "message", id: "undecidedModeProportional", label: "Undecided mode context" }),
+      Object.freeze({ type: "message", id: "ballotBaselineConflict", label: "Baseline warning" }),
+    ]),
+  }),
+  Object.freeze({
+    controlId: "v3DistrictTurnoutA",
+    text: "Comparable turnout input (0-100). Prefer cycle evidence over optimistic assumptions.",
+    links: Object.freeze([
+      Object.freeze({ type: "module", id: "forecastOutcome", label: "Forecast doctrine" }),
+      Object.freeze({ type: "glossary", id: "variance", label: "Variance" }),
+    ]),
+  }),
+  Object.freeze({
+    controlId: "v3DistrictTurnoutB",
+    text: "Second comparable turnout anchor (0-100). Keep cycle basis consistent with Turnout A.",
+    links: Object.freeze([
+      Object.freeze({ type: "module", id: "forecastOutcome", label: "Forecast doctrine" }),
+      Object.freeze({ type: "glossary", id: "calibration", label: "Calibration" }),
+    ]),
+  }),
+  Object.freeze({
+    controlId: "v3DistrictBandWidth",
+    text: "Uncertainty band in percentage points. Wider bands are safer when evidence quality is low.",
+    links: Object.freeze([
+      Object.freeze({ type: "module", id: "governanceConfidence", label: "Confidence doctrine" }),
+      Object.freeze({ type: "glossary", id: "confidence", label: "Confidence" }),
+    ]),
+  }),
+  Object.freeze({
+    controlId: "v3DistrictRetentionFactor",
+    text: "Retention should usually sit in realistic bounds; extreme values need documented rationale.",
+    links: Object.freeze([
+      Object.freeze({ type: "message", id: "electorateStructureNormalization", label: "Normalization warning" }),
+      Object.freeze({ type: "glossary", id: "realism", label: "Realism" }),
+    ]),
+  }),
+  Object.freeze({
+    controlId: "v3DistrictTargetingTopN",
+    text: "Top N should match executable capacity, not vanity list size.",
+    links: Object.freeze([
+      Object.freeze({ type: "module", id: "targetingLab", label: "Targeting doctrine" }),
+      Object.freeze({ type: "module", id: "operationsWorkforce", label: "Capacity doctrine" }),
+    ]),
+  }),
+  Object.freeze({
+    controlId: "v3DistrictTargetingMinScore",
+    text: "Higher threshold narrows scope and can improve operational focus under constraints.",
+    links: Object.freeze([
+      Object.freeze({ type: "module", id: "targetingLab", label: "Targeting doctrine" }),
+      Object.freeze({ type: "playbook", id: "persuasionUniverseTooBroad", label: "Related playbook" }),
+    ]),
+  }),
+  Object.freeze({
+    controlId: "v3CensusStateFips",
+    text: "State sets canonical geography scope. If scope changes, downstream GEO options should refresh cleanly.",
+    links: Object.freeze([
+      Object.freeze({ type: "module", id: "campaignDataRequirements", label: "Data discipline" }),
+      Object.freeze({ type: "module", id: "targetUniverseMatrix", label: "Segmentation doctrine" }),
+    ]),
+  }),
+  Object.freeze({
+    controlId: "v3CensusCountyFips",
+    text: "County is required for tract/block-group resolution. Missing county should block context-dependent pulls.",
+    links: Object.freeze([
+      Object.freeze({ type: "message", id: "contextMissing", label: "Context warning" }),
+      Object.freeze({ type: "module", id: "campaignDataRequirements", label: "Input requirements" }),
+    ]),
+  }),
 ]);
 
-function createDistrictTrainingPanel(definition) {
-  const panelId = `v3-${definition.id}`;
-  const panel = document.createElement("div");
-  panel.className = "training-panel-new";
-  panel.id = panelId;
+const DISTRICT_INTEL_ANCHOR_TYPES = new Set(["module", "glossary", "message", "playbook", "model"]);
 
-  const header = document.createElement("div");
-  header.className = "training-hd-new";
-  header.setAttribute("onclick", `toggleTrainPanel('${panelId}')`);
-  header.innerHTML = `<span>🎓</span><span class="training-title-new">${definition.title}</span><span class="training-chev-new">▾</span>`;
-
-  const body = document.createElement("div");
-  body.className = "training-bd-new";
-
-  const leftCol = document.createElement("div");
-  leftCol.className = "training-col-new";
-  leftCol.innerHTML = `
-    <div class="training-sec-title-new">${definition.leftTitle}</div>
-    <p>${definition.leftText}</p>
-    ${definition.leftRule ? `<div class="training-rule-new">${definition.leftRule}</div>` : ""}
-  `;
-
-  const rightCol = document.createElement("div");
-  rightCol.className = "training-col-new";
-  rightCol.innerHTML = `<div class="training-sec-title-new">${definition.rightTitle}</div>`;
-  if (Array.isArray(definition.rightBullets) && definition.rightBullets.length) {
-    const list = document.createElement("ul");
-    definition.rightBullets.forEach((text) => {
-      const item = document.createElement("li");
-      item.textContent = text;
-      list.append(item);
-    });
-    rightCol.append(list);
+function buildDistrictExplainerIntelLink(link) {
+  const type = String(link?.type || "").trim().toLowerCase();
+  if (!DISTRICT_INTEL_ANCHOR_TYPES.has(type)) {
+    return "";
   }
-  if (definition.rightCaution) {
-    const caution = document.createElement("div");
-    caution.className = "training-caution-new";
-    caution.textContent = definition.rightCaution;
-    rightCol.append(caution);
+  const id = String(link?.id || "").trim();
+  if (!id) {
+    return "";
   }
-
-  body.append(leftCol, rightCol);
-  panel.append(header, body);
-  return panel;
+  const label = String(link?.label || id).trim() || id;
+  return `<button class="fpe-inline-intel-link" type="button" data-intel-${type}="${escapeHtml(id)}">${escapeHtml(label)}</button>`;
 }
 
-function buildDistrictTrainingPanels() {
-  const host = document.createElement("div");
-  host.className = "fpe-district-training-stack";
-  DISTRICT_PLAYBOOK_PANELS.forEach((definition) => {
-    host.append(createDistrictTrainingPanel(definition));
+function buildDistrictExplainerLinks(links) {
+  const items = (Array.isArray(links) ? links : [])
+    .map((row) => buildDistrictExplainerIntelLink(row))
+    .filter(Boolean);
+  if (!items.length) {
+    return "";
+  }
+  return `<span class="fpe-help-links">${items.join('<span class="fpe-help-links__sep"> · </span>')}</span>`;
+}
+
+function mountDistrictInputExplainers() {
+  DISTRICT_INPUT_EXPLAINERS.forEach((entry) => {
+    const controlId = String(entry?.controlId || "").trim();
+    if (!controlId) {
+      return;
+    }
+    const control = document.getElementById(controlId);
+    if (!(control instanceof HTMLElement)) {
+      return;
+    }
+    const host = control.closest(".field") || control.parentElement;
+    if (!(host instanceof HTMLElement)) {
+      return;
+    }
+    let note = host.querySelector(`[data-district-explainer="${controlId}"]`);
+    if (!(note instanceof HTMLElement)) {
+      note = document.createElement("div");
+      note.className = "fpe-help fpe-help--flush fpe-help--explainer";
+      note.setAttribute("data-district-explainer", controlId);
+      host.append(note);
+    }
+    const text = String(entry?.text || "").trim();
+    note.innerHTML = `${escapeHtml(text)}${buildDistrictExplainerLinks(entry?.links)}`;
   });
-  return host;
 }
 
 function createDistrictSection({ eyebrow = "", title = "", description = "" }) {
@@ -685,7 +705,6 @@ export function renderDistrictSurface(mount) {
   topRow.className = "fpe-district-top-row";
   topRow.append(whyPanel, summaryCard);
   const briefBand = createDistrictBriefBand();
-  const trainingPanels = buildDistrictTrainingPanels();
 
   const baselineSection = createDistrictSection({
     eyebrow: "Baseline",
@@ -723,7 +742,6 @@ export function renderDistrictSurface(mount) {
   main.append(
     topRow,
     briefBand,
-    ...(trainingPanels ? [trainingPanels] : []),
     baselineSection.section,
     compositionSection.section,
     analysisSection.section
@@ -781,6 +799,7 @@ export function renderDistrictSurface(mount) {
   bindDistrictCensusProxies();
   hydrateDistrictSetupOptions();
   hydrateTemplateDimensionOptions();
+  mountDistrictInputExplainers();
   return refreshDistrictSummary;
 }
 

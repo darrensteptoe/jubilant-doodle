@@ -430,16 +430,28 @@ export function runV3QaSmoke({
 
     if (stage.id === "district") {
       const districtView = readBridgeView("__FPE_DISTRICT_API__");
-      const districtPlaybookIds = [
-        "#v3-train-setup",
-        "#v3-train-universe",
-        "#v3-train-ballot",
-        "#v3-train-checks",
+      const districtExplainerSelectors = [
+        '[data-district-explainer="v3DistrictRaceType"]',
+        '[data-district-explainer="v3DistrictUniverseSize"]',
+        '[data-district-explainer="v3DistrictUndecidedPct"]',
+        '[data-district-explainer="v3DistrictTurnoutA"]',
+        '[data-district-explainer="v3DistrictTurnoutB"]',
+        '[data-district-explainer="v3DistrictBandWidth"]',
+        '[data-district-explainer="v3DistrictRetentionFactor"]',
+        '[data-district-explainer="v3DistrictTargetingTopN"]',
+        '[data-district-explainer="v3DistrictTargetingMinScore"]',
+        '[data-district-explainer="v3CensusStateFips"]',
+        '[data-district-explainer="v3CensusCountyFips"]',
       ];
       recordCheck(
         checks,
-        "district:playbook-panels-native",
-        districtPlaybookIds.every((selector) => isSelectorInPane(pane, selector))
+        "district:legacy-training-panels-retired",
+        isTruthy(!isSelectorInPane(pane, ".training-panel-new"))
+      );
+      recordCheck(
+        checks,
+        "district:input-explainers-present",
+        districtExplainerSelectors.every((selector) => isSelectorInPane(pane, selector))
       );
       recordCheck(
         checks,
