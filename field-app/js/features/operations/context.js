@@ -138,7 +138,12 @@ export function shouldLockOperationsOfficeField(context = {}){
 export function resolveOperationsOfficeField(context = {}, explicitOffice = "", fallbackOffice = ""){
   const ctx = coerceContext(context);
   const scopedOffice = clean(ctx.officeId);
-  if (scopedOffice) return scopedOffice;
+  if (ctx.isOfficeLocked && scopedOffice){
+    return scopedOffice;
+  }
+  if (scopedOffice && scopedOffice !== "all"){
+    return scopedOffice;
+  }
   return clean(explicitOffice) || clean(fallbackOffice);
 }
 
