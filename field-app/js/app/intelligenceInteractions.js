@@ -47,24 +47,34 @@ function normalizeToken(value){
   return clean(value).toLowerCase();
 }
 
+function resolveDomCtor(name){
+  if (!name) return null;
+  const root = typeof globalThis === "object" && globalThis ? globalThis : null;
+  if (!root) return null;
+  const ctor = root[name];
+  return typeof ctor === "function" ? ctor : null;
+}
+
+function isDomInstance(el, ctorName){
+  const ctor = resolveDomCtor(ctorName);
+  return !!ctor && el instanceof ctor;
+}
+
 function isSummaryInteractiveElement(el){
-  if (!(el instanceof Element)) return false;
-  const summaryCtor = typeof globalThis === "object" && globalThis
-    ? globalThis.HTMLSummaryElement
-    : null;
-  if (typeof summaryCtor === "function"){
-    return el instanceof summaryCtor;
+  if (!isDomInstance(el, "Element")) return false;
+  if (isDomInstance(el, "HTMLSummaryElement")){
+    return true;
   }
   return String(el.tagName || "").toLowerCase() === "summary";
 }
 
 function isNativeInteractive(el){
   return (
-    el instanceof HTMLButtonElement
-    || el instanceof HTMLAnchorElement
-    || el instanceof HTMLInputElement
-    || el instanceof HTMLSelectElement
-    || el instanceof HTMLTextAreaElement
+    isDomInstance(el, "HTMLButtonElement")
+    || isDomInstance(el, "HTMLAnchorElement")
+    || isDomInstance(el, "HTMLInputElement")
+    || isDomInstance(el, "HTMLSelectElement")
+    || isDomInstance(el, "HTMLTextAreaElement")
     || isSummaryInteractiveElement(el)
   );
 }

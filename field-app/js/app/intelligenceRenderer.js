@@ -283,11 +283,9 @@ function ensurePanel(slot){
     panel.innerHTML = panelMarkup();
     panel = panel.firstElementChild;
     if (!(panel instanceof HTMLElement)) return null;
-    slot.insertBefore(panel, slot.firstChild || null);
+    slot.appendChild(panel);
     panel.addEventListener("click", onPanelClick);
     panel.addEventListener("keydown", onPanelKeydown);
-  } else if (slot.firstElementChild !== panel){
-    slot.insertBefore(panel, slot.firstChild || null);
   }
   return panel;
 }
