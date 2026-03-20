@@ -93,6 +93,18 @@ export function setDistrictUserSplit(candidateId, value) {
   return callDistrictBridge("setUserSplit", candidateId, value);
 }
 
+export function addDistrictCandidateHistory() {
+  return callDistrictBridge("addCandidateHistory");
+}
+
+export function updateDistrictCandidateHistory(recordId, field, value) {
+  return callDistrictBridge("updateCandidateHistory", recordId, field, value);
+}
+
+export function removeDistrictCandidateHistory(recordId) {
+  return callDistrictBridge("removeCandidateHistory", recordId);
+}
+
 export function applyDistrictTargetingPreset(modelId) {
   return callDistrictBridge("applyTargetingPreset", modelId);
 }
@@ -177,6 +189,11 @@ export function readDistrictTemplateSnapshot() {
     appliedVersion: String(template.appliedVersion || "").trim(),
     benchmarkKey: String(template.benchmarkKey || "").trim(),
     assumptionsProfile: String(template.assumptionsProfile || "").trim(),
+    candidateHistoryCoverageBand: String(template.candidateHistoryCoverageBand || "").trim(),
+    candidateHistoryConfidenceBand: String(template.candidateHistoryConfidenceBand || "").trim(),
+    candidateHistoryRecordCount: Number.isFinite(Number(template.candidateHistoryRecordCount))
+      ? Number(template.candidateHistoryRecordCount)
+      : 0,
     overriddenFields: overridden,
   };
 }
@@ -215,6 +232,16 @@ export function readDistrictBallotSnapshot() {
   }
   const candidatesRaw = Array.isArray(ballot.candidates) ? ballot.candidates : [];
   const userSplitRaw = Array.isArray(ballot.userSplitRows) ? ballot.userSplitRows : [];
+  const historyRaw = Array.isArray(ballot.candidateHistoryRecords) ? ballot.candidateHistoryRecords : [];
+  const historyOptions = ballot.candidateHistoryOptions && typeof ballot.candidateHistoryOptions === "object"
+    ? ballot.candidateHistoryOptions
+    : {};
+  const normalizeOptionRows = (rows) => (Array.isArray(rows) ? rows : [])
+    .map((row) => ({
+      value: String(row?.value || "").trim(),
+      label: String(row?.label || row?.value || "").trim(),
+    }))
+    .filter((row) => row.value || row.label);
   return {
     yourCandidateId: String(ballot.yourCandidateId || "").trim(),
     undecidedPct: Number.isFinite(Number(ballot.undecidedPct)) ? Number(ballot.undecidedPct) : null,
@@ -233,6 +260,26 @@ export function readDistrictBallotSnapshot() {
       name: String(row?.name || "").trim(),
       value: Number.isFinite(Number(row?.value)) ? Number(row.value) : null,
     })).filter((row) => row.id),
+    candidateHistorySummaryText: String(ballot.candidateHistorySummaryText || "").trim(),
+    candidateHistoryWarningText: String(ballot.candidateHistoryWarningText || "").trim(),
+    candidateHistoryOptions: {
+      electionType: normalizeOptionRows(historyOptions.electionType),
+      incumbencyStatus: normalizeOptionRows(historyOptions.incumbencyStatus),
+    },
+    candidateHistoryRecords: historyRaw.map((row) => ({
+      recordId: String(row?.recordId || "").trim(),
+      office: String(row?.office || "").trim(),
+      cycleYear: Number.isFinite(Number(row?.cycleYear)) ? Number(row.cycleYear) : null,
+      electionType: String(row?.electionType || "").trim(),
+      candidateName: String(row?.candidateName || "").trim(),
+      party: String(row?.party || "").trim(),
+      incumbencyStatus: String(row?.incumbencyStatus || "").trim(),
+      voteShare: Number.isFinite(Number(row?.voteShare)) ? Number(row.voteShare) : null,
+      margin: Number.isFinite(Number(row?.margin)) ? Number(row.margin) : null,
+      turnoutContext: Number.isFinite(Number(row?.turnoutContext)) ? Number(row.turnoutContext) : null,
+      repeatCandidate: !!row?.repeatCandidate,
+      overUnderPerformancePct: Number.isFinite(Number(row?.overUnderPerformancePct)) ? Number(row.overUnderPerformancePct) : null,
+    })).filter((row) => row.recordId),
   };
 }
 

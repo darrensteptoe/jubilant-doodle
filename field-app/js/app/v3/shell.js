@@ -63,9 +63,43 @@ export function renderV3Shell(root) {
         </aside>
 
         <main class="fpe-main">
-          <section class="fpe-context" aria-label="Scenario context">
-            <div class="fpe-context__label">Active scenario</div>
-            <input class="fpe-context__input" id="v3ScenarioName" placeholder="Scenario name..." type="text" />
+          <section class="fpe-context" aria-label="Campaign context">
+            <div class="fpe-context__grid">
+              <div>
+                <div class="fpe-context__label">Campaign ID</div>
+                <input class="fpe-context__input" id="v3CampaignId" placeholder="e.g., il-hd-21" type="text" />
+              </div>
+              <div>
+                <div class="fpe-context__label">Campaign name</div>
+                <input class="fpe-context__input" id="v3CampaignName" placeholder="Campaign label" type="text" />
+              </div>
+              <div>
+                <div class="fpe-context__label">Office ID</div>
+                <input class="fpe-context__input" id="v3OfficeId" placeholder="e.g., west-field" type="text" />
+              </div>
+              <div>
+                <div class="fpe-context__label">Active scenario</div>
+                <input class="fpe-context__input" id="v3ScenarioName" placeholder="Scenario name..." type="text" />
+              </div>
+            </div>
+            <div class="fpe-context__status" id="v3ContextStatus"></div>
+            <div class="fpe-context__intel">
+              <div class="fpe-context__label">Glossary shortcuts</div>
+              <div class="fpe-context__chips" aria-label="Glossary shortcuts">
+                <button class="fpe-intel-chip" data-intel-glossary="variance" type="button">Variance</button>
+                <button class="fpe-intel-chip" data-intel-glossary="lift" type="button">Lift</button>
+                <button class="fpe-intel-chip" data-intel-glossary="persuasion" type="button">Persuasion</button>
+                <button class="fpe-intel-chip" data-intel-glossary="turnoutOpportunity" type="button">Turnout opportunity</button>
+                <button class="fpe-intel-chip" data-intel-glossary="contactProbability" type="button">Contact probability</button>
+                <button class="fpe-intel-chip" data-intel-glossary="saturation" type="button">Saturation</button>
+                <button class="fpe-intel-chip" data-intel-glossary="confidence" type="button">Confidence</button>
+                <button class="fpe-intel-chip" data-intel-glossary="realism" type="button">Realism</button>
+                <button class="fpe-intel-chip" data-intel-glossary="signal" type="button">Signal</button>
+                <button class="fpe-intel-chip" data-intel-glossary="noise" type="button">Noise</button>
+                <button class="fpe-intel-chip" data-intel-glossary="ageCohort" type="button">Age cohort</button>
+                <button class="fpe-intel-chip" data-intel-glossary="ballotBaseline" type="button">Ballot baseline</button>
+              </div>
+            </div>
           </section>
 
           <section class="fpe-page-head" aria-label="Page heading">

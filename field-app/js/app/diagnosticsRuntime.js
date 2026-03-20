@@ -4,6 +4,8 @@ import {
   appendOperationsDiagnosticsCore,
   appendModelDiagnosticsCore,
 } from "./diagnosticsBuilders.js";
+import { getDiagnosticEngine } from "../../diagnostics/diagnosticEngine.js";
+import { appendDiagnosticPanelLines } from "../../diagnostics/diagnosticPanel.js";
 
 /**
  * @typedef {{
@@ -97,7 +99,11 @@ export function createDiagnosticsRuntimeController({
           if (seq !== diagRenderSeq) return;
           const withOps = appendOperationsDiagnostics(lines, tw);
           const merged = appendModelDiagnostics(withOps);
-          if (els?.diagErrors) els.diagErrors.textContent = merged.join("\n");
+          const withContractDiagnostics = appendDiagnosticPanelLines(merged, {
+            engine: getDiagnosticEngine(),
+            maxEntries: 14,
+          });
+          if (els?.diagErrors) els.diagErrors.textContent = withContractDiagnostics.join("\n");
         })
         .catch(() => { /* ignore */ });
     } catch { /* ignore */ }

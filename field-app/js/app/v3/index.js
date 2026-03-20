@@ -1,6 +1,7 @@
 import { syncKpis } from "./kpiBridge.js";
 import { applyActiveContextToLinks, resolveActiveContext } from "../activeContext.js";
 import { bootProbeError, bootProbeMark } from "../bootProbe.js";
+import { refreshIntelligenceInteractions } from "../intelligenceInteractions.js";
 import { wireV3Nav } from "./nav.js";
 import { installV3QaSmokeBridge, runV3QaSmoke } from "./qaGates.js";
 import { renderV3Shell } from "./shell.js";
@@ -11,12 +12,32 @@ const STAGE_KEY = "fpe-ui-v3-stage";
 const STAGE_QUERY_PARAM = "stage";
 const NAV_BRIDGE_KEY = "__FPE_V3_NAV__";
 const SHELL_BRIDGE_KEY = "__FPE_SHELL_API__";
+const BRIDGE_SYNC_EVENT = "fpe:bridge-sync";
 let syncTimer = null;
+let syncRafToken = 0;
+let pendingForceStageRefresh = false;
+let lastBridgeSyncRevision = 0;
 let popstateWired = false;
+let bridgeSyncWired = false;
 let editTrackerWired = false;
 let lastUserEditAt = 0;
 
 const ACTIVE_EDIT_SYNC_HOLD_MS = 900;
+
+function stageScopeToken() {
+  const shellView = readShellBridgeView();
+  const campaignId = String(shellView?.campaignId || "").trim();
+  const officeId = String(shellView?.officeId || "").trim();
+  if (campaignId) {
+    return `${campaignId}::${officeId || "all"}`;
+  }
+  const ctx = resolveActiveContext();
+  return `${String(ctx?.campaignId || "default").trim() || "default"}::${String(ctx?.officeId || "").trim() || "all"}`;
+}
+
+function stageStorageKey() {
+  return `${STAGE_KEY}::${stageScopeToken()}`;
+}
 
 function resolveUiMode() {
   try {
@@ -59,14 +80,16 @@ function bootV3() {
       navigateStage(stageId, { persist: true });
     });
     wirePopstateBridge();
+    wireBridgeSync();
 
     installV3QaSmokeBridge();
     wireTopbarBridge();
-    wireScenarioBridge();
+    wireContextBridge();
     wireEditTracker(root);
 
     navigateStage(resolveInitialStage(), { persist: true });
     startSyncLoop();
+    queueSyncAll({ forceStageRefresh: true });
     bootProbeMark("v3.boot", { phase: "ok" });
   } catch (err) {
     bootProbeError("v3.boot", err);
@@ -89,7 +112,7 @@ function resolveInitialStage() {
     return resolveV3StageId(rawUrlStage);
   }
 
-  const rawStoredStage = localStorage.getItem(STAGE_KEY);
+  const rawStoredStage = localStorage.getItem(stageStorageKey()) || localStorage.getItem(STAGE_KEY);
   if (rawStoredStage) {
     return resolveV3StageId(rawStoredStage);
   }
@@ -105,11 +128,11 @@ function navigateStage(stageId, { persist = true } = {}) {
     persistStage(resolved);
   }
 
-  syncAll();
+  syncAll({ forceStageRefresh: true });
 }
 
 function persistStage(stageId) {
-  localStorage.setItem(STAGE_KEY, stageId);
+  localStorage.setItem(stageStorageKey(), stageId);
   const params = new URLSearchParams(window.location.search);
   params.set(STAGE_QUERY_PARAM, stageId);
   const query = params.toString();
@@ -180,25 +203,72 @@ function wireTopbarBridge() {
   trainingBtn?.addEventListener("click", () => {
     const nextEnabled = !readShellTrainingState();
     setShellTrainingState(nextEnabled);
-    syncAll();
+    queueSyncAll({ forceStageRefresh: true });
   });
 }
 
-function wireScenarioBridge() {
-  const v3Input = document.getElementById("v3ScenarioName");
+function wireBridgeSync() {
+  if (bridgeSyncWired) {
+    return;
+  }
+  window.addEventListener(BRIDGE_SYNC_EVENT, onBridgeSyncEvent);
+  bridgeSyncWired = true;
+}
 
-  if (!v3Input) {
+function onBridgeSyncEvent(event) {
+  if (resolveUiMode() !== "v3") {
+    return;
+  }
+  const revision = Number(event?.detail?.revision);
+  if (Number.isFinite(revision) && revision <= lastBridgeSyncRevision) {
+    return;
+  }
+  if (Number.isFinite(revision)) {
+    lastBridgeSyncRevision = revision;
+  }
+  queueSyncAll({ forceStageRefresh: true });
+}
+
+function wireContextBridge() {
+  const scenarioInput = document.getElementById("v3ScenarioName");
+  const campaignInput = document.getElementById("v3CampaignId");
+  const campaignNameInput = document.getElementById("v3CampaignName");
+  const officeInput = document.getElementById("v3OfficeId");
+
+  if (
+    !(scenarioInput instanceof HTMLInputElement)
+    || !(campaignInput instanceof HTMLInputElement)
+    || !(campaignNameInput instanceof HTMLInputElement)
+    || !(officeInput instanceof HTMLInputElement)
+  ) {
     return;
   }
 
-  const shellView = readShellBridgeView();
-  v3Input.value = shellView?.scenarioName || "";
+  syncContextMirror();
 
-  v3Input.addEventListener("input", () => {
-    if (setShellScenarioName(v3Input.value)) {
-      return;
-    }
+  scenarioInput.addEventListener("input", () => {
+    setShellScenarioName(scenarioInput.value);
   });
+
+  const submitScopePatch = () => {
+    setShellContextPatch({
+      campaignId: campaignInput.value,
+      campaignName: campaignNameInput.value,
+      officeId: officeInput.value,
+    });
+    syncContextMirror();
+  };
+
+  for (const el of [campaignInput, campaignNameInput, officeInput]) {
+    el.addEventListener("change", submitScopePatch);
+    el.addEventListener("blur", submitScopePatch);
+    el.addEventListener("keydown", (event) => {
+      if (event.key === "Enter") {
+        event.preventDefault();
+        submitScopePatch();
+      }
+    });
+  }
 }
 
 function clickLegacy(id) {
@@ -255,20 +325,6 @@ function callShellBridge(method, ...args) {
   }
 }
 
-function setLegacyTrainingState(enabled) {
-  const normalized = !!enabled;
-  document.body.classList.toggle("training", normalized);
-
-  const legacyToggle = document.getElementById("toggleTraining");
-  if (!legacyToggle) {
-    return;
-  }
-
-  legacyToggle.checked = normalized;
-  legacyToggle.dispatchEvent(new Event("input", { bubbles: true }));
-  legacyToggle.dispatchEvent(new Event("change", { bubbles: true }));
-}
-
 function readShellTrainingState() {
   const shellView = readShellBridgeView();
   if (shellView && typeof shellView.trainingEnabled === "boolean") {
@@ -282,12 +338,17 @@ function setShellTrainingState(enabled) {
   if (result) {
     return true;
   }
-  setLegacyTrainingState(enabled);
+  document.body.classList.toggle("training", !!enabled);
   return false;
 }
 
 function setShellScenarioName(value) {
   const result = callShellBridge("setScenarioName", value);
+  return !!result;
+}
+
+function setShellContextPatch(patch) {
+  const result = callShellBridge("setContext", patch || {});
   return !!result;
 }
 
@@ -302,30 +363,114 @@ function syncTrainingToggle() {
   v3Btn.classList.toggle("is-active", enabled);
 }
 
-function syncAll() {
+function syncAll({ forceStageRefresh = false } = {}) {
   syncKpis();
-  if (canRefreshActiveStage()) {
+  if (forceStageRefresh || canRefreshActiveStage()) {
     refreshActiveStage();
   }
-  syncScenarioMirror();
+  syncContextMirror();
   syncTrainingToggle();
 }
 
-function syncScenarioMirror() {
-  const v3Input = document.getElementById("v3ScenarioName");
-  if (!v3Input) {
+function queueSyncAll({ forceStageRefresh = false } = {}) {
+  if (forceStageRefresh) {
+    pendingForceStageRefresh = true;
+  }
+  if (syncRafToken) {
     return;
   }
+  const run = () => {
+    syncRafToken = 0;
+    const shouldForce = pendingForceStageRefresh;
+    pendingForceStageRefresh = false;
+    syncAll({ forceStageRefresh: shouldForce });
+  };
+  if (typeof window.requestAnimationFrame === "function") {
+    syncRafToken = window.requestAnimationFrame(run);
+    return;
+  }
+  syncRafToken = window.setTimeout(run, 0);
+}
 
-  if (document.activeElement === v3Input) {
+function syncContextMirror() {
+  const scenarioInput = document.getElementById("v3ScenarioName");
+  const campaignInput = document.getElementById("v3CampaignId");
+  const campaignNameInput = document.getElementById("v3CampaignName");
+  const officeInput = document.getElementById("v3OfficeId");
+  const statusEl = document.getElementById("v3ContextStatus");
+  if (
+    !(scenarioInput instanceof HTMLInputElement)
+    || !(campaignInput instanceof HTMLInputElement)
+    || !(campaignNameInput instanceof HTMLInputElement)
+    || !(officeInput instanceof HTMLInputElement)
+  ) {
     return;
   }
 
   const shellView = readShellBridgeView();
-  const nextValue = shellView?.scenarioName ?? "";
-  if (v3Input.value !== nextValue) {
-    v3Input.value = nextValue;
+  if (!shellView || typeof shellView !== "object") {
+    return;
   }
+  const active = document.activeElement;
+  const activeIs = (el) => active instanceof HTMLElement && active === el;
+
+  const nextScenario = String(shellView?.scenarioName ?? "");
+  const nextCampaign = String(shellView?.campaignId ?? "");
+  const nextCampaignName = String(shellView?.campaignName ?? "");
+  const nextOffice = String(shellView?.officeId ?? "");
+  const campaignLocked = !!shellView?.isCampaignLocked;
+  const officeLocked = !!shellView?.isOfficeLocked;
+
+  if (!activeIs(scenarioInput) && scenarioInput.value !== nextScenario) {
+    scenarioInput.value = nextScenario;
+  }
+  if (!activeIs(campaignInput) && campaignInput.value !== nextCampaign) {
+    campaignInput.value = nextCampaign;
+  }
+  if (!activeIs(campaignNameInput) && campaignNameInput.value !== nextCampaignName) {
+    campaignNameInput.value = nextCampaignName;
+  }
+  if (!activeIs(officeInput) && officeInput.value !== nextOffice) {
+    officeInput.value = nextOffice;
+  }
+
+  campaignInput.disabled = campaignLocked;
+  campaignNameInput.disabled = campaignLocked;
+  officeInput.disabled = officeLocked;
+
+  const missing = Array.isArray(shellView?.contextMissing) ? shellView.contextMissing : [];
+  let statusText = "";
+  let statusMessageId = "";
+  if (missing.length){
+    statusText = `Context missing: ${missing.join(", ")}.`;
+    statusMessageId = "contextMissing";
+  } else if (campaignLocked || officeLocked){
+    const locked = [];
+    if (campaignLocked) locked.push("campaign");
+    if (officeLocked) locked.push("office");
+    statusText = `Context locked by URL: ${locked.join(" + ")}.`;
+    statusMessageId = campaignLocked && officeLocked
+      ? "contextLocked"
+      : (campaignLocked ? "campaignLocked" : "officeLocked");
+  } else {
+    statusText = "Campaign and office scope controls isolate local state across teams.";
+  }
+  if (statusEl){
+    if (statusEl.textContent !== statusText){
+      statusEl.textContent = statusText;
+    }
+    if (statusMessageId){
+      statusEl.setAttribute("data-intel-message", statusMessageId);
+    } else {
+      statusEl.removeAttribute("data-intel-message");
+      statusEl.classList.remove("fpe-intel-anchor");
+      if (statusEl.getAttribute("role") === "button"){
+        statusEl.removeAttribute("role");
+      }
+      statusEl.removeAttribute("tabindex");
+    }
+  }
+  refreshIntelligenceInteractions();
 }
 
 function startSyncLoop() {
@@ -333,7 +478,9 @@ function startSyncLoop() {
     window.clearInterval(syncTimer);
   }
 
-  syncTimer = window.setInterval(syncAll, 1000);
+  syncTimer = window.setInterval(() => {
+    queueSyncAll();
+  }, 2500);
 }
 
 function wireEditTracker(root) {

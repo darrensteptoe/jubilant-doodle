@@ -124,7 +124,11 @@ const STAGE_EXPECTATIONS = {
     "#v3DataHashBanner"
   ]
 };
-export function runV3QaSmoke({ restoreStage = true, logToConsole = true } = {}) {
+export function runV3QaSmoke({
+  restoreStage = true,
+  logToConsole = true,
+  includeLegacyRetirement = false
+} = {}) {
   const startedAt = Date.now();
   const originalStage = getActiveStageId();
   const checks = [];
@@ -540,12 +544,31 @@ export function runV3QaSmoke({ restoreStage = true, logToConsole = true } = {}) 
     recordCheck(checks, "restore-stage", getActiveStageId() === originalStage);
   }
 
-  const failed = checks.filter((check) => !check.pass);
+  const stableChecks = checks.filter((check) => !isLegacyRetirementCheckName(check.name));
+  const legacyChecks = checks.filter((check) => isLegacyRetirementCheckName(check.name));
+  const effectiveChecks = includeLegacyRetirement ? checks : stableChecks;
+  const failed = effectiveChecks.filter((check) => !check.pass);
+  const stableFailed = stableChecks.filter((check) => !check.pass);
+  const legacyFailed = legacyChecks.filter((check) => !check.pass);
   const report = {
     pass: failed.length === 0,
     failedCount: failed.length,
-    totalChecks: checks.length,
-    checks,
+    totalChecks: effectiveChecks.length,
+    checks: effectiveChecks,
+    sections: {
+      stable: {
+        pass: stableFailed.length === 0,
+        failedCount: stableFailed.length,
+        totalChecks: stableChecks.length,
+      },
+      legacyRetirement: {
+        included: includeLegacyRetirement,
+        pass: legacyFailed.length === 0,
+        failedCount: legacyFailed.length,
+        totalChecks: legacyChecks.length,
+      }
+    },
+    skippedLegacyChecks: includeLegacyRetirement ? [] : legacyChecks.map((check) => check.name),
     duplicateIds,
     startedAt: new Date(startedAt).toISOString(),
     durationMs: Date.now() - startedAt
@@ -558,12 +581,17 @@ export function runV3QaSmoke({ restoreStage = true, logToConsole = true } = {}) 
   return report;
 }
 
+export function runV3LegacyRetirementSmoke(options = {}) {
+  return runV3QaSmoke({ ...options, includeLegacyRetirement: true });
+}
+
 function getLegacyShellRoot() {
   return document.querySelector('[data-legacy-shell-root="true"]');
 }
 
 export function installV3QaSmokeBridge() {
   window.runV3QaSmoke = (options) => runV3QaSmoke(options);
+  window.runV3LegacyRetirementSmoke = (options) => runV3LegacyRetirementSmoke(options);
 }
 
 function recordCheck(checks, name, pass) {
@@ -652,6 +680,10 @@ function hasSelectOptionValue(id, value) {
   return Array.from(el.options).some((opt) => String(opt.value) === String(value));
 }
 
+function isLegacyRetirementCheckName(name) {
+  return String(name || "").startsWith("legacy-");
+}
+
 function logQaReport(report) {
   const label = `[v3-qa] ${report.pass ? "PASS" : "FAIL"} (${report.totalChecks - report.failedCount}/${report.totalChecks}) in ${report.durationMs}ms`;
   if (report.pass) {
@@ -671,6 +703,13 @@ function logQaReport(report) {
 
   if (report.duplicateIds.length) {
     console.warn("[v3-qa] duplicate IDs detected:", report.duplicateIds);
+  }
+
+  const legacySummary = report?.sections?.legacyRetirement;
+  if (legacySummary && legacySummary.included === false && legacySummary.totalChecks > 0) {
+    console.info(
+      `[v3-qa] legacy-retirement checks skipped (run runV3LegacyRetirementSmoke for ${legacySummary.totalChecks} transitional checks)`
+    );
   }
 }
 

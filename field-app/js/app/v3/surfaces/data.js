@@ -164,6 +164,34 @@ export function renderDataSurface(mount) {
       <div class="fpe-control-label">Voter import status</div>
       <div class="fpe-help fpe-help--flush" id="v3DataVoterImportStatus">${DATA_VOTER_IMPORT_STATUS_FALLBACK}</div>
     </div>
+    <div class="fpe-contained-block">
+      <div class="fpe-control-label">Client intelligence reports</div>
+      <div class="fpe-help fpe-help--flush">Compose canonical internal/client summaries and export with print-to-PDF flow.</div>
+    </div>
+    <div class="fpe-field-grid fpe-field-grid--2">
+      <div class="field">
+        <label class="fpe-control-label" for="v3DataReportType">Report type</label>
+        <select class="fpe-input" id="v3DataReportType">
+          <option value="internal">Internal Report</option>
+          <option value="client">Client Report</option>
+        </select>
+      </div>
+      <div class="field">
+        <label class="fpe-control-label">Report actions</label>
+        <div class="fpe-action-row">
+          <button class="fpe-btn" id="v3DataBtnComposeReport" type="button">Compose Report</button>
+          <button class="fpe-btn fpe-btn--ghost" id="v3DataBtnExportReportPdf" type="button">Export PDF</button>
+        </div>
+      </div>
+    </div>
+    <div class="fpe-contained-block">
+      <div class="fpe-control-label">Report status</div>
+      <div class="fpe-help fpe-help--flush" id="v3DataReportStatus">Choose report type and compose.</div>
+    </div>
+    <div class="fpe-contained-block">
+      <div class="fpe-control-label">Report preview</div>
+      <textarea class="fpe-input" id="v3DataReportPreview" rows="9" readonly></textarea>
+    </div>
   `;
 
   getCardBody(storageCard).innerHTML = `
@@ -702,6 +730,56 @@ function wireDataBridge() {
     });
   }
 
+  const reportTypeSelect = document.getElementById("v3DataReportType");
+  if (reportTypeSelect instanceof HTMLSelectElement) {
+    reportTypeSelect.addEventListener("change", () => {
+      const api = getDataApi();
+      if (!api || typeof api.setReportType !== "function") {
+        return;
+      }
+      const result = api.setReportType(reportTypeSelect.value);
+      if (result && typeof result.then === "function") {
+        result.finally(() => refreshDataSummary());
+      } else {
+        refreshDataSummary();
+      }
+    });
+  }
+
+  const composeReportBtn = document.getElementById("v3DataBtnComposeReport");
+  if (composeReportBtn instanceof HTMLButtonElement) {
+    composeReportBtn.addEventListener("click", () => {
+      const api = getDataApi();
+      if (!api || typeof api.composeReport !== "function") {
+        return;
+      }
+      const reportType = readSelectValue("v3DataReportType");
+      const result = api.composeReport({ reportType });
+      if (result && typeof result.then === "function") {
+        result.finally(() => refreshDataSummary());
+      } else {
+        refreshDataSummary();
+      }
+    });
+  }
+
+  const exportReportBtn = document.getElementById("v3DataBtnExportReportPdf");
+  if (exportReportBtn instanceof HTMLButtonElement) {
+    exportReportBtn.addEventListener("click", () => {
+      const api = getDataApi();
+      if (!api || typeof api.exportReportPdf !== "function") {
+        return;
+      }
+      const reportType = readSelectValue("v3DataReportType");
+      const result = api.exportReportPdf({ reportType });
+      if (result && typeof result.then === "function") {
+        result.finally(() => refreshDataSummary());
+      } else {
+        refreshDataSummary();
+      }
+    });
+  }
+
   const voterImportBtn = document.getElementById("v3DataBtnImportVoter");
   if (voterImportBtn instanceof HTMLButtonElement) {
     voterImportBtn.addEventListener("click", async () => {
@@ -933,6 +1011,24 @@ function syncDataBridgeUi() {
   );
   syncButtonDisabledLocal("v3DataArchiveSaveActual", !!view?.controls?.archiveSaveDisabled);
   syncButtonDisabledLocal("v3DataArchiveRefresh", !!view?.controls?.archiveRefreshDisabled);
+
+  const reportingView = view?.reporting && typeof view.reporting === "object" ? view.reporting : {};
+  const reportTypeSelect = document.getElementById("v3DataReportType");
+  if (reportTypeSelect instanceof HTMLSelectElement) {
+    syncReportTypeSelect(
+      reportTypeSelect,
+      Array.isArray(reportingView.options) ? reportingView.options : [],
+      reportingView.selectedType
+    );
+    reportTypeSelect.disabled = !!view?.controls?.reportTypeDisabled;
+  }
+  setText(
+    "v3DataReportStatus",
+    String(reportingView.status || "").trim() || "Choose report type and compose."
+  );
+  syncInputValue("v3DataReportPreview", reportingView.previewText);
+  syncButtonDisabledLocal("v3DataBtnComposeReport", !!view?.controls?.reportComposeDisabled);
+  syncButtonDisabledLocal("v3DataBtnExportReportPdf", !!view?.controls?.reportExportPdfDisabled);
   return view;
 }
 
@@ -1008,6 +1104,28 @@ function syncArchiveSelect(selectEl, options, selectedValue) {
   }
 }
 
+function syncReportTypeSelect(selectEl, options, selectedValue) {
+  const list = Array.isArray(options) ? options : [];
+  const selected = String(selectedValue || "").trim();
+  const nextValues = list.map((opt) => `${String(opt.value || "")}::${String(opt.label || "")}`);
+  const currentValues = Array.from(selectEl.options)
+    .map((opt) => `${String(opt.value || "")}::${String(opt.textContent || "")}`);
+  const matches = nextValues.length === currentValues.length && nextValues.every((v, i) => v === currentValues[i]);
+  if (!matches) {
+    selectEl.innerHTML = "";
+    list.forEach((opt) => {
+      const item = document.createElement("option");
+      item.value = String(opt.value || "");
+      item.textContent = String(opt.label || opt.value || "");
+      selectEl.appendChild(item);
+    });
+  }
+  if (document.activeElement !== selectEl) {
+    const allowed = list.some((opt) => String(opt.value || "") === selected);
+    selectEl.value = allowed ? selected : String(list[0]?.value || "internal");
+  }
+}
+
 function syncInputValue(id, value) {
   const el = document.getElementById(id);
   if (!(el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement)) {
@@ -1023,6 +1141,14 @@ function syncInputValue(id, value) {
 function readInputValue(id) {
   const el = document.getElementById(id);
   if (!(el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement)) {
+    return "";
+  }
+  return String(el.value || "").trim();
+}
+
+function readSelectValue(id) {
+  const el = document.getElementById(id);
+  if (!(el instanceof HTMLSelectElement)) {
     return "";
   }
   return String(el.value || "").trim();

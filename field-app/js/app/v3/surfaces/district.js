@@ -21,6 +21,9 @@ import {
   updateDistrictCandidate,
   removeDistrictCandidate,
   setDistrictUserSplit,
+  addDistrictCandidateHistory,
+  updateDistrictCandidateHistory,
+  removeDistrictCandidateHistory,
   setDistrictTargetingField,
   applyDistrictTargetingPreset,
   resetDistrictTargetingWeights,
@@ -55,6 +58,12 @@ import {
   listTargetGeoLevels,
   listTargetModelOptions,
 } from "../../targetingRuntime.js";
+import {
+  listDistrictModeOptions,
+  listDistrictRaceTypeOptions,
+  listDistrictUndecidedModeOptions,
+  listDistrictUniverseBasisOptions,
+} from "../../districtOptionRegistry.js";
 import { listTemplateDimensionOptions } from "../../templateRegistry.js";
 import { listAcsYears, listMetricSetOptions, listResolutionOptions } from "../../../core/censusModule.js";
 import { pctOverrideToDecimal } from "../../../core/voteProduction.js";
@@ -442,6 +451,37 @@ export function renderDistrictSurface(mount) {
         <div class="fpe-help fpe-help--flush">Must sum to 100% across candidates.</div>
       </div>
       <div class="fpe-alert fpe-alert--warn" id="v3DistrictCandWarn" hidden></div>
+      <div class="fpe-contained-block">
+        <div class="fpe-action-row">
+          <div class="fpe-help fpe-help--flush">
+            Candidate history baseline (office/cycle-level records that influence forecast baseline and confidence).
+          </div>
+          <button class="fpe-btn fpe-btn--ghost" id="v3BtnAddCandidateHistory" type="button">Add history row</button>
+        </div>
+        <div class="fpe-help fpe-help--flush" id="v3DistrictCandidateHistorySummary">No candidate history rows.</div>
+        <div class="table-wrap fpe-ballot-table">
+          <table class="table" aria-label="Candidate history baseline table (v3)">
+            <thead>
+              <tr>
+                <th>Office</th>
+                <th class="num">Cycle</th>
+                <th>Election</th>
+                <th>Candidate</th>
+                <th>Party</th>
+                <th>Incumbency</th>
+                <th class="num">Vote %</th>
+                <th class="num">Margin</th>
+                <th class="num">Turnout %</th>
+                <th>Repeat</th>
+                <th class="num">Over/Under %</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="v3DistrictCandidateHistoryTbody"></tbody>
+          </table>
+        </div>
+        <div class="fpe-alert fpe-alert--warn" id="v3DistrictCandidateHistoryWarn" hidden></div>
+      </div>
     `
   );
 
@@ -698,6 +738,13 @@ export function renderDistrictSurface(mount) {
       addDistrictCandidate();
     });
   }
+  const addCandidateHistoryBtn = document.getElementById("v3BtnAddCandidateHistory");
+  if (addCandidateHistoryBtn instanceof HTMLButtonElement && addCandidateHistoryBtn.dataset.v3BallotAddBound !== "1") {
+    addCandidateHistoryBtn.dataset.v3BallotAddBound = "1";
+    addCandidateHistoryBtn.addEventListener("click", () => {
+      addDistrictCandidateHistory();
+    });
+  }
   bindDistrictFormSelect("v3DistrictYourCandidate", "yourCandidate");
   bindDistrictFormField("v3DistrictUndecidedPct", "undecidedPct");
   bindDistrictFormSelect("v3DistrictUndecidedMode", "undecidedMode");
@@ -731,6 +778,7 @@ export function renderDistrictSurface(mount) {
   }
   bindDistrictTargetingBridge();
   bindDistrictCensusProxies();
+  hydrateDistrictSetupOptions();
   hydrateTemplateDimensionOptions();
   return refreshDistrictSummary;
 }
@@ -856,6 +904,7 @@ function syncDistrictBallotBaseline(ballotSnapshot, controlSnapshot) {
   const snapshot = ballotSnapshot && typeof ballotSnapshot === "object" ? ballotSnapshot : null;
   syncDistrictCandidateTable(snapshot, controlSnapshot);
   syncDistrictUserSplitTable(snapshot, controlSnapshot);
+  syncDistrictCandidateHistoryTable(snapshot, controlSnapshot);
   syncDistrictBallotWarning(snapshot);
   const supportText = String(snapshot?.supportTotalText || "").trim();
   setText("v3DistrictSupportTotal", supportText || "—");
@@ -1002,6 +1051,208 @@ function syncDistrictUserSplitTable(ballotSnapshot, controlSnapshot) {
   });
 }
 
+function syncDistrictCandidateHistoryTable(ballotSnapshot, controlSnapshot) {
+  const summaryEl = document.getElementById("v3DistrictCandidateHistorySummary");
+  const warnEl = document.getElementById("v3DistrictCandidateHistoryWarn");
+  const targetBody = document.getElementById("v3DistrictCandidateHistoryTbody");
+  const summaryText = String(ballotSnapshot?.candidateHistorySummaryText || "").trim();
+  const warningText = String(ballotSnapshot?.candidateHistoryWarningText || "").trim();
+
+  if (summaryEl instanceof HTMLElement) {
+    summaryEl.textContent = summaryText || "No candidate history rows.";
+  }
+  if (warnEl instanceof HTMLElement) {
+    warnEl.hidden = !warningText;
+    warnEl.textContent = warningText;
+  }
+  if (!(targetBody instanceof HTMLElement)) {
+    return;
+  }
+
+  if (targetBody.contains(document.activeElement)) {
+    return;
+  }
+
+  const rows = Array.isArray(ballotSnapshot?.candidateHistoryRecords)
+    ? ballotSnapshot.candidateHistoryRecords
+    : [];
+  const options = ballotSnapshot?.candidateHistoryOptions && typeof ballotSnapshot.candidateHistoryOptions === "object"
+    ? ballotSnapshot.candidateHistoryOptions
+    : {};
+  const electionTypeOptions = Array.isArray(options.electionType) ? options.electionType : [];
+  const incumbencyOptions = Array.isArray(options.incumbencyStatus) ? options.incumbencyStatus : [];
+  const controlsLocked = !!controlSnapshot?.locked;
+  targetBody.innerHTML = "";
+
+  rows.forEach((record) => {
+    const recordId = String(record?.recordId || "").trim();
+    if (!recordId) return;
+    const tr = document.createElement("tr");
+
+    const makeInputCell = ({ type = "text", value = "", min = "", max = "", step = "", onInput = null } = {}) => {
+      const td = document.createElement("td");
+      if (type === "number") td.className = "num";
+      const input = document.createElement("input");
+      input.className = "fpe-input";
+      input.type = type;
+      if (min !== "") input.min = String(min);
+      if (max !== "") input.max = String(max);
+      if (step !== "") input.step = String(step);
+      input.value = String(value == null ? "" : value);
+      input.disabled = controlsLocked;
+      if (typeof onInput === "function") {
+        input.addEventListener("input", () => onInput(input.value));
+      }
+      td.appendChild(input);
+      return td;
+    };
+
+    const makeSelectCell = ({ rowsList = [], value = "", onChange = null } = {}) => {
+      const td = document.createElement("td");
+      const select = document.createElement("select");
+      select.className = "fpe-input";
+      const placeholder = document.createElement("option");
+      placeholder.value = "";
+      placeholder.textContent = "Select";
+      select.appendChild(placeholder);
+      const normalizedRows = Array.isArray(rowsList) ? rowsList.slice() : [];
+      const selectedValue = String(value == null ? "" : value).trim();
+      if (selectedValue && !normalizedRows.some((row) => String(row?.value || "").trim() === selectedValue)) {
+        normalizedRows.push({ value: selectedValue, label: selectedValue });
+      }
+      normalizedRows.forEach((row) => {
+        const option = document.createElement("option");
+        option.value = String(row?.value || "");
+        option.textContent = String(row?.label || row?.value || "");
+        select.appendChild(option);
+      });
+      select.value = selectedValue;
+      select.disabled = controlsLocked;
+      if (typeof onChange === "function") {
+        select.addEventListener("change", () => onChange(select.value));
+      }
+      td.appendChild(select);
+      return td;
+    };
+
+    const officeTd = makeInputCell({
+      type: "text",
+      value: record?.office || "",
+      onInput: (value) => updateDistrictCandidateHistory(recordId, "office", value),
+    });
+    const cycleTd = makeInputCell({
+      type: "number",
+      value: Number.isFinite(Number(record?.cycleYear)) ? Number(record.cycleYear) : "",
+      min: 1900,
+      max: 2100,
+      step: 1,
+      onInput: (value) => updateDistrictCandidateHistory(recordId, "cycleYear", value),
+    });
+    const electionTd = makeSelectCell({
+      rowsList: electionTypeOptions,
+      value: record?.electionType || "",
+      onChange: (value) => updateDistrictCandidateHistory(recordId, "electionType", value),
+    });
+    const candidateTd = makeInputCell({
+      type: "text",
+      value: record?.candidateName || "",
+      onInput: (value) => updateDistrictCandidateHistory(recordId, "candidateName", value),
+    });
+    const partyTd = makeInputCell({
+      type: "text",
+      value: record?.party || "",
+      onInput: (value) => updateDistrictCandidateHistory(recordId, "party", value),
+    });
+    const incumbencyTd = makeSelectCell({
+      rowsList: incumbencyOptions,
+      value: record?.incumbencyStatus || "",
+      onChange: (value) => updateDistrictCandidateHistory(recordId, "incumbencyStatus", value),
+    });
+    const voteTd = makeInputCell({
+      type: "number",
+      value: Number.isFinite(Number(record?.voteShare)) ? Number(record.voteShare) : "",
+      min: 0,
+      max: 100,
+      step: 0.1,
+      onInput: (value) => updateDistrictCandidateHistory(recordId, "voteShare", value),
+    });
+    const marginTd = makeInputCell({
+      type: "number",
+      value: Number.isFinite(Number(record?.margin)) ? Number(record.margin) : "",
+      min: -100,
+      max: 100,
+      step: 0.1,
+      onInput: (value) => updateDistrictCandidateHistory(recordId, "margin", value),
+    });
+    const turnoutTd = makeInputCell({
+      type: "number",
+      value: Number.isFinite(Number(record?.turnoutContext)) ? Number(record.turnoutContext) : "",
+      min: 0,
+      max: 100,
+      step: 0.1,
+      onInput: (value) => updateDistrictCandidateHistory(recordId, "turnoutContext", value),
+    });
+
+    const repeatTd = document.createElement("td");
+    const repeatToggle = document.createElement("input");
+    repeatToggle.type = "checkbox";
+    repeatToggle.checked = !!record?.repeatCandidate;
+    repeatToggle.disabled = controlsLocked;
+    repeatToggle.addEventListener("change", () => {
+      updateDistrictCandidateHistory(recordId, "repeatCandidate", repeatToggle.checked);
+    });
+    repeatTd.appendChild(repeatToggle);
+
+    const overUnderTd = makeInputCell({
+      type: "number",
+      value: Number.isFinite(Number(record?.overUnderPerformancePct)) ? Number(record.overUnderPerformancePct) : "",
+      min: -40,
+      max: 40,
+      step: 0.1,
+      onInput: (value) => updateDistrictCandidateHistory(recordId, "overUnderPerformancePct", value),
+    });
+
+    const actionTd = document.createElement("td");
+    actionTd.className = "num";
+    const removeBtn = document.createElement("button");
+    removeBtn.className = "fpe-btn fpe-btn--ghost";
+    removeBtn.type = "button";
+    removeBtn.textContent = "Remove";
+    removeBtn.disabled = controlsLocked;
+    removeBtn.addEventListener("click", () => {
+      removeDistrictCandidateHistory(recordId);
+    });
+    actionTd.appendChild(removeBtn);
+
+    tr.append(
+      officeTd,
+      cycleTd,
+      electionTd,
+      candidateTd,
+      partyTd,
+      incumbencyTd,
+      voteTd,
+      marginTd,
+      turnoutTd,
+      repeatTd,
+      overUnderTd,
+      actionTd,
+    );
+    targetBody.appendChild(tr);
+  });
+
+  if (!targetBody.children.length) {
+    const tr = document.createElement("tr");
+    tr.className = "fpe-empty-row";
+    const td = document.createElement("td");
+    td.colSpan = 12;
+    td.className = "fpe-empty-state";
+    td.textContent = "No candidate history rows yet.";
+    tr.appendChild(td);
+    targetBody.appendChild(tr);
+  }
+}
+
 function syncDistrictBallotWarning(ballotSnapshot) {
   const targetWarn = document.getElementById("v3DistrictCandWarn");
   if (!(targetWarn instanceof HTMLElement)) {
@@ -1016,9 +1267,13 @@ function syncDistrictBallotWarning(ballotSnapshot) {
 
 function applyDistrictBallotDynamicLock() {
   document.querySelectorAll(
-    "#v3DistrictCandTbody input, #v3DistrictCandTbody button, #v3DistrictUserSplitList input",
+    "#v3DistrictCandTbody input, #v3DistrictCandTbody button, #v3DistrictUserSplitList input, #v3DistrictCandidateHistoryTbody input, #v3DistrictCandidateHistoryTbody select, #v3DistrictCandidateHistoryTbody button, #v3BtnAddCandidateHistory",
   ).forEach((el) => {
     if (el instanceof HTMLInputElement || el instanceof HTMLButtonElement) {
+      el.disabled = true;
+      return;
+    }
+    if (el instanceof HTMLSelectElement) {
       el.disabled = true;
     }
   });
@@ -1032,16 +1287,39 @@ function hydrateTemplateDimensionOptions() {
   });
 }
 
+function hydrateDistrictSetupOptions() {
+  hydrateSelectOptions("v3DistrictRaceType", listDistrictRaceTypeOptions());
+  hydrateSelectOptions("v3DistrictMode", listDistrictModeOptions());
+  hydrateSelectOptions("v3DistrictUniverseBasis", listDistrictUniverseBasisOptions());
+  hydrateSelectOptions("v3DistrictUndecidedMode", listDistrictUndecidedModeOptions());
+}
+
 function syncSelectValueFromRaw(id, rawValue) {
   const select = document.getElementById(id);
   if (!(select instanceof HTMLSelectElement)) {
     return;
   }
-  const value = String(rawValue || "").trim();
-  if (!value) {
+  if (document.activeElement === select) {
     return;
   }
-  const hasOption = Array.from(select.options).some((option) => String(option.value || "").trim() === value);
+  const value = String(rawValue == null ? "" : rawValue).trim();
+  if (!value) {
+    const hasEmptyOption = Array.from(select.options).some((option) => String(option.value || "").trim() === "");
+    if (hasEmptyOption) {
+      select.value = "";
+    } else {
+      select.selectedIndex = -1;
+    }
+    return;
+  }
+  let hasOption = Array.from(select.options).some((option) => String(option.value || "").trim() === value);
+  if (!hasOption) {
+    const option = document.createElement("option");
+    option.value = value;
+    option.textContent = value;
+    select.appendChild(option);
+    hasOption = true;
+  }
   if (hasOption) {
     select.value = value;
   }
@@ -1087,11 +1365,21 @@ function syncDistrictTemplateProfile(templateSnapshot) {
   const benchmarkKey = String(snapshot.benchmarkKey || "").trim();
   const overrides = Array.isArray(snapshot.overriddenFields) ? snapshot.overriddenFields.length : 0;
   const profile = String(snapshot.assumptionsProfile || "").trim() || (overrides > 0 ? "custom" : "template");
+  const candidateHistoryCoverageBand = String(snapshot.candidateHistoryCoverageBand || "").trim();
+  const candidateHistoryConfidenceBand = String(snapshot.candidateHistoryConfidenceBand || "").trim();
+  const candidateHistoryRecordCount = Number.isFinite(Number(snapshot.candidateHistoryRecordCount))
+    ? Number(snapshot.candidateHistoryRecordCount)
+    : 0;
   const parts = [`Template: ${templateId}`];
   if (version) parts.push(`v${version}`);
   if (benchmarkKey) parts.push(`Benchmark: ${benchmarkKey}`);
   parts.push(`Profile: ${profile}`);
   parts.push(`Overrides: ${overrides}`);
+  if (candidateHistoryRecordCount > 0){
+    parts.push(`History: ${candidateHistoryRecordCount} row(s), ${candidateHistoryCoverageBand || "none"} coverage, ${candidateHistoryConfidenceBand || "missing"} confidence`);
+  } else {
+    parts.push("History: none");
+  }
   target.textContent = parts.join(" · ");
 }
 
@@ -1516,6 +1804,8 @@ function syncBridgeSelectValue(v3Id, value) {
     const hasEmptyOption = Array.from(v3.options).some((option) => option.value === "");
     if (hasEmptyOption) {
       v3.value = "";
+    } else {
+      v3.selectedIndex = -1;
     }
     return;
   }

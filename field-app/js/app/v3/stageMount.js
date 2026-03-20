@@ -8,6 +8,8 @@ import { renderPlanSurface } from "./surfaces/plan.js";
 import { renderReachSurface } from "./surfaces/reach.js";
 import { renderScenariosSurface } from "./surfaces/scenarios.js";
 import { renderTurnoutSurface } from "./surfaces/turnout.js";
+import { mountIntelligencePanel, refreshIntelligencePanel, setIntelligencePanelStage } from "../intelligenceRenderer.js";
+import { installIntelligenceInteractions, refreshIntelligenceInteractions } from "../intelligenceInteractions.js";
 import {
   normalizeSurfaceActionRows,
   normalizeSurfaceBlocks,
@@ -74,7 +76,7 @@ export function mountStage(stageId) {
   activeSurfaceRefresh = surfaceState ? surfaceState.refresh : null;
   activeSurfacePane = surfaceState ? surfaceState.pane : null;
 
-  syncLegacyRightRail();
+  syncRightRail();
   refreshActiveStage();
 }
 
@@ -82,27 +84,40 @@ export function refreshActiveStage() {
   if (typeof activeSurfaceRefresh === "function") {
     activeSurfaceRefresh();
   }
+  refreshIntelligencePanel();
   normalizeSurfacePane(activeSurfacePane);
+  refreshIntelligenceInteractions();
 }
 
 export function getActiveStageId() {
   return activeStageId;
 }
 
-function syncLegacyRightRail() {
+function syncRightRail() {
   const slot = document.getElementById("v3RightRailSlot");
   if (!slot) {
     return;
   }
 
+  // Canonical v3 ownership: legacy right-rail markup is parked in the
+  // compatibility pool and no longer mounted as the live right rail.
+  parkLegacyRightRailInPool();
+
+  mountIntelligencePanel({ slot, stageId: activeStageId });
+  setIntelligencePanelStage(activeStageId);
+  installIntelligenceInteractions();
+}
+
+function parkLegacyRightRailInPool() {
   const legacyRail = document.getElementById("legacyResultsSidebar");
   if (!legacyRail) {
     return;
   }
-
-  if (legacyRail.parentElement !== slot) {
-    slot.appendChild(legacyRail);
+  const pool = document.getElementById("legacyDomPool");
+  if (pool instanceof HTMLElement && legacyRail.parentElement !== pool) {
+    pool.appendChild(legacyRail);
   }
+  legacyRail.hidden = true;
 }
 
 function ensureSurfaceState(stage, mount) {
