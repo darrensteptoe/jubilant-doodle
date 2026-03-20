@@ -43,6 +43,7 @@ const VOTER_ADAPTER_PRESETS = Object.freeze({
       contactEmail: ["email", "email_address"],
       preferredLanguage: ["language", "preferred_language"],
       age: ["age"],
+      dateOfBirth: ["date_of_birth", "dob", "birth_date", "birthdate"],
       party: ["party", "party_code"],
       registrationStatus: ["registration_status", "reg_status", "status"],
       isAbsenteePermanent: ["is_absentee_permanent", "permanent_absentee", "absentee_permanent"],
@@ -50,6 +51,10 @@ const VOTER_ADAPTER_PRESETS = Object.freeze({
       lastContactResult: ["last_contact_result", "contact_result"],
       contactAttempts: ["contact_attempts", "attempts", "attempt_count"],
       contactConversations: ["contact_conversations", "conversations", "conversation_count", "convos"],
+      voteHistoryGeneralCount: ["vote_history_general_count", "general_vote_count", "voted_generals"],
+      voteHistoryPrimaryCount: ["vote_history_primary_count", "primary_vote_count", "voted_primaries"],
+      voteHistoryTotalCount: ["vote_history_total_count", "vote_history_count", "votes_cast_count"],
+      electionsEligibleCount: ["elections_eligible_count", "eligible_election_count", "eligible_count"],
       supportLevel: ["support_level", "support_code"],
       universeTags: ["universe_tags", "tags", "segments"],
     },
@@ -76,6 +81,7 @@ const VOTER_ADAPTER_PRESETS = Object.freeze({
       contactEmail: ["email", "emailaddress"],
       preferredLanguage: ["preferredlanguage", "language"],
       age: ["age"],
+      dateOfBirth: ["dateofbirth", "dob", "birthdate"],
       party: ["party", "partyname"],
       registrationStatus: ["voterstatus", "registration_status"],
       isAbsenteePermanent: ["permanentabsentee", "is_absentee_permanent"],
@@ -83,6 +89,10 @@ const VOTER_ADAPTER_PRESETS = Object.freeze({
       lastContactResult: ["lastcontactresult", "last_contact_result"],
       contactAttempts: ["attempts", "contact_attempts"],
       contactConversations: ["conversations", "contact_conversations"],
+      voteHistoryGeneralCount: ["votedgeneralcount", "generalvotecount"],
+      voteHistoryPrimaryCount: ["votedprimarycount", "primaryvotecount"],
+      voteHistoryTotalCount: ["votedtotalcount", "votehistorycount"],
+      electionsEligibleCount: ["electionseligiblecount", "eligibleelectioncount"],
       supportLevel: ["supportlevel", "support_level"],
       universeTags: ["mycampaignuniverses", "universes", "tags"],
     },
@@ -109,6 +119,7 @@ const VOTER_ADAPTER_PRESETS = Object.freeze({
       contactEmail: ["email"],
       preferredLanguage: ["language"],
       age: ["age"],
+      dateOfBirth: ["date_of_birth", "dob", "birth_date"],
       party: ["party"],
       registrationStatus: ["registration_status"],
       isAbsenteePermanent: ["is_absentee_permanent"],
@@ -116,6 +127,10 @@ const VOTER_ADAPTER_PRESETS = Object.freeze({
       lastContactResult: ["last_contact_result"],
       contactAttempts: ["contact_attempts"],
       contactConversations: ["contact_conversations"],
+      voteHistoryGeneralCount: ["vote_history_general_count", "general_vote_count"],
+      voteHistoryPrimaryCount: ["vote_history_primary_count", "primary_vote_count"],
+      voteHistoryTotalCount: ["vote_history_total_count", "vote_history_count"],
+      electionsEligibleCount: ["elections_eligible_count", "eligible_election_count"],
       supportLevel: ["support_level"],
       universeTags: ["universe_tags", "tags"],
     },
@@ -142,6 +157,7 @@ const VOTER_ADAPTER_PRESETS = Object.freeze({
       contactEmail: ["email"],
       preferredLanguage: ["language"],
       age: ["age"],
+      dateOfBirth: ["date_of_birth", "dob", "birth_date"],
       party: ["party"],
       registrationStatus: ["registration_status"],
       isAbsenteePermanent: ["permanent_absentee", "is_absentee_permanent"],
@@ -149,6 +165,10 @@ const VOTER_ADAPTER_PRESETS = Object.freeze({
       lastContactResult: ["last_contact_result"],
       contactAttempts: ["contact_attempts", "attempts"],
       contactConversations: ["contact_conversations", "conversations"],
+      voteHistoryGeneralCount: ["vote_history_general_count", "general_vote_count"],
+      voteHistoryPrimaryCount: ["vote_history_primary_count", "primary_vote_count"],
+      voteHistoryTotalCount: ["vote_history_total_count", "vote_history_count"],
+      electionsEligibleCount: ["elections_eligible_count", "eligible_election_count"],
       supportLevel: ["support_level"],
       universeTags: ["universe_tags", "tags", "segments"],
     },
@@ -182,6 +202,7 @@ const CANONICAL_VOTER_FIELDS = Object.freeze([
   "contactEmail",
   "preferredLanguage",
   "age",
+  "dateOfBirth",
   "party",
   "registrationStatus",
   "isAbsenteePermanent",
@@ -189,6 +210,10 @@ const CANONICAL_VOTER_FIELDS = Object.freeze([
   "lastContactResult",
   "contactAttempts",
   "contactConversations",
+  "voteHistoryGeneralCount",
+  "voteHistoryPrimaryCount",
+  "voteHistoryTotalCount",
+  "electionsEligibleCount",
   "supportLevel",
   "universeTags",
   "campaignId",
@@ -204,10 +229,51 @@ const RECOMMENDED_CANONICAL_FIELDS = Object.freeze([
   "tractGeoid",
   "supportScore",
   "turnoutScore",
+  "dateOfBirth",
+  "voteHistoryTotalCount",
+  "electionsEligibleCount",
   "lastContactAt",
 ]);
 
 const NON_ROW_CONTEXT_FIELDS = new Set(["campaignId", "officeId", "sourceId", "sourceRowIndex"]);
+
+export const VOTER_AGE_BUCKETS = Object.freeze([
+  Object.freeze({ id: "age_18_24", label: "18-24", minAge: 18, maxAge: 24 }),
+  Object.freeze({ id: "age_25_34", label: "25-34", minAge: 25, maxAge: 34 }),
+  Object.freeze({ id: "age_35_44", label: "35-44", minAge: 35, maxAge: 44 }),
+  Object.freeze({ id: "age_45_54", label: "45-54", minAge: 45, maxAge: 54 }),
+  Object.freeze({ id: "age_55_64", label: "55-64", minAge: 55, maxAge: 64 }),
+  Object.freeze({ id: "age_65_plus", label: "65+", minAge: 65, maxAge: null }),
+]);
+
+export const VOTER_FREQUENCY_SEGMENTS = Object.freeze([
+  "superVoters",
+  "highFrequencyVoters",
+  "mediumFrequencyVoters",
+  "lowFrequencyVoters",
+  "dropoffVoters",
+]);
+
+const SUPPORT_BANDS = Object.freeze([
+  "base",
+  "persuasion",
+  "opposition",
+  "unknown",
+]);
+
+const TURNOUT_BANDS = Object.freeze([
+  "high",
+  "medium",
+  "low",
+  "unknown",
+]);
+
+const VOTER_UNIVERSE_KEYS = Object.freeze([
+  "persuasionUniverse",
+  "mobilizationUniverse",
+  "baseUniverse",
+  "ignoreUniverse",
+]);
 
 /**
  * @param {unknown} value
@@ -288,6 +354,64 @@ function parseZip5(value){
   const digits = cleanText(value).replace(/\D+/g, "");
   if (!digits) return null;
   return digits.slice(0, 5).padStart(5, "0");
+}
+
+/**
+ * @param {unknown} value
+ * @returns {string | null}
+ */
+function parseDateOnly(value){
+  const raw = cleanText(value);
+  if (!raw) return null;
+  const match = raw.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (match){
+    return `${match[1]}-${match[2]}-${match[3]}`;
+  }
+  const d = new Date(raw);
+  if (!Number.isFinite(d.getTime())) return null;
+  const y = String(d.getUTCFullYear()).padStart(4, "0");
+  const m = String(d.getUTCMonth() + 1).padStart(2, "0");
+  const day = String(d.getUTCDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
+/**
+ * @param {string | null} dob
+ * @param {Date=} nowDate
+ * @returns {number | null}
+ */
+function deriveAgeFromDateOfBirth(dob, nowDate = new Date()){
+  const parsed = parseDateOnly(dob);
+  if (!parsed) return null;
+  const [yy, mm, dd] = parsed.split("-").map((part) => Number(part));
+  if (!Number.isFinite(yy) || !Number.isFinite(mm) || !Number.isFinite(dd)) return null;
+  const now = nowDate instanceof Date ? nowDate : new Date();
+  if (!Number.isFinite(now.getTime())) return null;
+  let age = now.getUTCFullYear() - yy;
+  const month = now.getUTCMonth() + 1;
+  const day = now.getUTCDate();
+  if (month < mm || (month === mm && day < dd)){
+    age -= 1;
+  }
+  if (!Number.isFinite(age) || age < 0 || age > 120) return null;
+  return Math.trunc(age);
+}
+
+/**
+ * @param {number | null} age
+ * @returns {(typeof VOTER_AGE_BUCKETS)[number] | null}
+ */
+function classifyAgeBucket(age){
+  if (age == null || !Number.isFinite(age)) return null;
+  for (const bucket of VOTER_AGE_BUCKETS){
+    const minAge = Number(bucket.minAge);
+    const maxAge = bucket.maxAge == null ? null : Number(bucket.maxAge);
+    if (!Number.isFinite(minAge)) continue;
+    if (age < minAge) continue;
+    if (maxAge != null && age > maxAge) continue;
+    return bucket;
+  }
+  return null;
 }
 
 /**
@@ -781,6 +905,9 @@ export function normalizeVoterRecord(row, options = {}){
   if (!voterIdRaw) return null;
   const tractGeoid = parseGeoid(resolve("tractGeoid"), 11);
   const blockGroupGeoid = parseGeoid(resolve("blockGroupGeoid"), 12);
+  const dateOfBirth = parseDateOnly(resolve("dateOfBirth"));
+  const ageFromRow = nonNegativeIntOrNull(resolve("age"));
+  const age = ageFromRow ?? deriveAgeFromDateOfBirth(dateOfBirth);
 
   return {
     voterId: voterIdRaw,
@@ -800,7 +927,8 @@ export function normalizeVoterRecord(row, options = {}){
     contactPhone: cleanText(resolve("contactPhone")),
     contactEmail: cleanText(resolve("contactEmail")).toLowerCase(),
     preferredLanguage: cleanText(resolve("preferredLanguage")),
-    age: nonNegativeIntOrNull(resolve("age")),
+    age,
+    dateOfBirth,
     party: cleanText(resolve("party")),
     registrationStatus: cleanText(resolve("registrationStatus")),
     isAbsenteePermanent: boolValue(resolve("isAbsenteePermanent")),
@@ -808,6 +936,10 @@ export function normalizeVoterRecord(row, options = {}){
     lastContactResult: cleanText(resolve("lastContactResult")),
     contactAttempts: nonNegativeIntOrNull(resolve("contactAttempts")) ?? 0,
     contactConversations: nonNegativeIntOrNull(resolve("contactConversations")) ?? 0,
+    voteHistoryGeneralCount: nonNegativeIntOrNull(resolve("voteHistoryGeneralCount")),
+    voteHistoryPrimaryCount: nonNegativeIntOrNull(resolve("voteHistoryPrimaryCount")),
+    voteHistoryTotalCount: nonNegativeIntOrNull(resolve("voteHistoryTotalCount")),
+    electionsEligibleCount: nonNegativeIntOrNull(resolve("electionsEligibleCount")),
     supportLevel: cleanText(resolve("supportLevel")),
     universeTags: parseUniverseTags(resolve("universeTags")),
     campaignId: cleanText(options.campaignId) || "default",
@@ -1095,12 +1227,556 @@ export function buildVoterContactHistoryLedger(rows, options = {}){
   };
 }
 
+function buildCountRecord(keys){
+  const out = {};
+  for (const key of keys){
+    out[key] = 0;
+  }
+  return out;
+}
+
+function countPercentMap(countMap, total){
+  const den = Math.max(0, safeNum(total) ?? 0);
+  const out = {};
+  for (const [key, value] of Object.entries(countMap || {})){
+    out[key] = den > 0 ? clampFiniteNumber((safeNum(value) ?? 0) / den, 0, 1) : 0;
+  }
+  return out;
+}
+
+function toUnitShare(value){
+  const n = safeNum(value);
+  if (n == null) return null;
+  const unit = n > 1 ? (n / 100) : n;
+  return clampFiniteNumber(unit, 0, 1);
+}
+
+function resolveVoteHistoryTotalCount(row){
+  const explicit = nonNegativeIntOrNull(row?.voteHistoryTotalCount);
+  if (explicit != null) return explicit;
+  const general = nonNegativeIntOrNull(row?.voteHistoryGeneralCount) ?? 0;
+  const primary = nonNegativeIntOrNull(row?.voteHistoryPrimaryCount) ?? 0;
+  const total = general + primary;
+  return total > 0 ? total : null;
+}
+
+function resolveVoteHistoryRatio(row){
+  const totalCount = resolveVoteHistoryTotalCount(row);
+  const eligibleCount = nonNegativeIntOrNull(row?.electionsEligibleCount);
+  if (totalCount != null && eligibleCount != null && eligibleCount > 0){
+    return clampFiniteNumber(totalCount / eligibleCount, 0, 1);
+  }
+  const turnout = unitScoreOrNull(row?.turnoutScore);
+  if (turnout != null){
+    return clampFiniteNumber(turnout, 0, 1);
+  }
+  if (totalCount != null){
+    if (totalCount >= 8) return 0.92;
+    if (totalCount >= 5) return 0.78;
+    if (totalCount >= 3) return 0.58;
+    if (totalCount >= 1) return 0.35;
+  }
+  return null;
+}
+
+function classifyFrequencySegment(row){
+  const ratio = resolveVoteHistoryRatio(row);
+  const totalCount = resolveVoteHistoryTotalCount(row) ?? 0;
+  if (ratio == null){
+    return totalCount > 0 ? "lowFrequencyVoters" : "dropoffVoters";
+  }
+  if (ratio >= 0.88 || totalCount >= 8){
+    return "superVoters";
+  }
+  if (ratio >= 0.7 || totalCount >= 5){
+    return "highFrequencyVoters";
+  }
+  if (ratio >= 0.48 || totalCount >= 3){
+    return "mediumFrequencyVoters";
+  }
+  if (ratio >= 0.22 || totalCount >= 1){
+    return "lowFrequencyVoters";
+  }
+  return "dropoffVoters";
+}
+
+function classifySupportBand(support){
+  if (support == null) return "unknown";
+  if (support >= 0.65) return "base";
+  if (support <= 0.35) return "opposition";
+  return "persuasion";
+}
+
+function classifyTurnoutBand(turnout){
+  if (turnout == null) return "unknown";
+  if (turnout >= 0.75) return "high";
+  if (turnout >= 0.5) return "medium";
+  return "low";
+}
+
+function classifyUniverseSegment(support, turnout){
+  if (support == null){
+    return "ignoreUniverse";
+  }
+  if (support > 0.35 && support < 0.65){
+    return "persuasionUniverse";
+  }
+  if (support >= 0.55 && (turnout == null || turnout < 0.7)){
+    return "mobilizationUniverse";
+  }
+  if (support >= 0.65){
+    return "baseUniverse";
+  }
+  return "ignoreUniverse";
+}
+
+function resolveGeographySegmentKey(row){
+  const precinctId = cleanText(row?.precinctId);
+  if (precinctId) return `precinct:${precinctId}`;
+  const tract = cleanText(row?.tractGeoid);
+  if (tract) return `tract:${tract}`;
+  const block = cleanText(row?.blockGroupGeoid);
+  if (block) return `block_group:${block}`;
+  return "unknown";
+}
+
+function createAgeBucketCountMap(){
+  const out = {};
+  for (const bucket of VOTER_AGE_BUCKETS){
+    out[bucket.id] = 0;
+  }
+  return out;
+}
+
+function extractAgeFromRecord(row){
+  const ageFromRow = nonNegativeIntOrNull(row?.age);
+  if (ageFromRow != null) return ageFromRow;
+  return deriveAgeFromDateOfBirth(parseDateOnly(row?.dateOfBirth));
+}
+
+/**
+ * @param {unknown} raw
+ * @returns {Record<string, number> | null}
+ */
+export function normalizeCensusAgeDistribution(raw){
+  const src = raw && typeof raw === "object" && !Array.isArray(raw)
+    ? /** @type {Record<string, any>} */ (raw)
+    : null;
+  if (!src) return null;
+
+  const keyMap = {
+    age_18_24: ["age_18_24", "age18to24", "age18to24share", "age18to24pct", "18_24", "18to24"],
+    age_25_34: ["age_25_34", "age25to34", "age25to34share", "age25to34pct", "25_34", "25to34"],
+    age_35_44: ["age_35_44", "age35to44", "age35to44share", "age35to44pct", "35_44", "35to44"],
+    age_45_54: ["age_45_54", "age45to54", "age45to54share", "age45to54pct", "45_54", "45to54"],
+    age_55_64: ["age_55_64", "age55to64", "age55to64share", "age55to64pct", "55_64", "55to64"],
+    age_65_plus: ["age_65_plus", "age65plus", "age65plusshare", "age65pluspct", "65_plus", "65plus", "65"],
+  };
+
+  const tokenized = {};
+  for (const [key, value] of Object.entries(src)){
+    tokenized[canonicalToken(key)] = value;
+  }
+
+  const out = createAgeBucketCountMap();
+  // Populate 18-24, 25-34, 35-44 from direct fields when present.
+  for (const bucket of ["age_18_24", "age_25_34", "age_35_44"]){
+    const aliases = keyMap[bucket];
+    let resolved = null;
+    for (const alias of aliases){
+      const value = toUnitShare(tokenized[canonicalToken(alias)]);
+      if (value == null) continue;
+      resolved = value;
+      break;
+    }
+    if (resolved != null){
+      out[bucket] = resolved;
+    }
+  }
+
+  const age45to64Aliases = ["age_45_64", "age45to64", "age45to64share", "age45to64pct", "45_64", "45to64"];
+  let age45to64 = null;
+  for (const alias of age45to64Aliases){
+    const value = toUnitShare(tokenized[canonicalToken(alias)]);
+    if (value == null) continue;
+    age45to64 = value;
+    break;
+  }
+  const age45to54 = (() => {
+    for (const alias of keyMap.age_45_54){
+      const value = toUnitShare(tokenized[canonicalToken(alias)]);
+      if (value == null) continue;
+      return value;
+    }
+    return null;
+  })();
+  const age55to64 = (() => {
+    for (const alias of keyMap.age_55_64){
+      const value = toUnitShare(tokenized[canonicalToken(alias)]);
+      if (value == null) continue;
+      return value;
+    }
+    return null;
+  })();
+
+  if (age45to54 != null || age55to64 != null){
+    out.age_45_54 = age45to54 ?? Math.max(0, Number(age45to64 ?? 0) * 0.5);
+    out.age_55_64 = age55to64 ?? Math.max(0, Number(age45to64 ?? 0) - Number(out.age_45_54));
+  } else if (age45to64 != null){
+    out.age_45_54 = age45to64 * 0.52;
+    out.age_55_64 = age45to64 * 0.48;
+  }
+
+  for (const alias of keyMap.age_65_plus){
+    const value = toUnitShare(tokenized[canonicalToken(alias)]);
+    if (value == null) continue;
+    out.age_65_plus = value;
+    break;
+  }
+
+  const total = Object.values(out).reduce((sum, value) => sum + Number(value || 0), 0);
+  if (!(total > 0)){
+    return null;
+  }
+  const normalized = {};
+  for (const bucket of VOTER_AGE_BUCKETS){
+    normalized[bucket.id] = clampFiniteNumber(Number(out[bucket.id] || 0) / total, 0, 1);
+  }
+  return normalized;
+}
+
+function parseAgeDistributionText(text){
+  const raw = cleanText(text);
+  if (!raw) return null;
+  const patterns = [
+    { id: "age_18_24", regex: /18\s*[-to]+\s*24[^0-9]*([0-9]+(?:\.[0-9]+)?)\s*%?/i },
+    { id: "age_25_34", regex: /25\s*[-to]+\s*34[^0-9]*([0-9]+(?:\.[0-9]+)?)\s*%?/i },
+    { id: "age_35_44", regex: /35\s*[-to]+\s*44[^0-9]*([0-9]+(?:\.[0-9]+)?)\s*%?/i },
+    { id: "age_45_64", regex: /45\s*[-to]+\s*64[^0-9]*([0-9]+(?:\.[0-9]+)?)\s*%?/i },
+    { id: "age_65_plus", regex: /65\s*\+[^0-9]*([0-9]+(?:\.[0-9]+)?)\s*%?/i },
+  ];
+  const parsed = {};
+  for (const row of patterns){
+    const match = raw.match(row.regex);
+    if (!match) continue;
+    const value = toUnitShare(Number(match[1]));
+    if (value == null) continue;
+    parsed[row.id] = value;
+  }
+  if (!Object.keys(parsed).length){
+    return null;
+  }
+  return normalizeCensusAgeDistribution(parsed);
+}
+
+/**
+ * @param {unknown} censusState
+ * @returns {Record<string, number> | null}
+ */
+export function extractCensusAgeDistribution(censusState){
+  const census = censusState && typeof censusState === "object" && !Array.isArray(censusState)
+    ? /** @type {Record<string, any>} */ (censusState)
+    : {};
+  const direct = normalizeCensusAgeDistribution(
+    census?.assumptionAdvisory?.indices?.ageDistribution
+      || census?.advisory?.indices?.ageDistribution
+      || census?.ageDistribution
+      || null,
+  );
+  if (direct) return direct;
+
+  const advisoryRows = Array.isArray(census?.bridgeAdvisoryRows) ? census.bridgeAdvisoryRows : [];
+  for (const row of advisoryRows){
+    if (!Array.isArray(row)) continue;
+    const label = cleanText(row[0]).toLowerCase();
+    if (!label.includes("age distribution")) continue;
+    const parsed = parseAgeDistributionText(row[1]);
+    if (parsed) return parsed;
+  }
+  return null;
+}
+
+function allocateCountsByDistribution(totalCount, distribution){
+  const total = Math.max(0, Math.trunc(Number(totalCount) || 0));
+  const dist = normalizeCensusAgeDistribution(distribution);
+  const out = createAgeBucketCountMap();
+  if (!total || !dist){
+    return out;
+  }
+  const rows = VOTER_AGE_BUCKETS.map((bucket) => {
+    const ratio = clampFiniteNumber(Number(dist[bucket.id] || 0), 0, 1);
+    const exact = ratio * total;
+    const base = Math.floor(exact);
+    return { id: bucket.id, exact, base, frac: exact - base };
+  });
+  let assigned = rows.reduce((sum, row) => sum + row.base, 0);
+  rows.sort((a, b) => Number(b.frac) - Number(a.frac));
+  for (let i = 0; assigned < total && i < rows.length; i += 1){
+    rows[i].base += 1;
+    assigned += 1;
+  }
+  for (const row of rows){
+    out[row.id] = row.base;
+  }
+  return out;
+}
+
+/**
+ * @param {unknown} rows
+ * @param {{ censusAgeDistribution?: unknown, universeSize?: unknown }=} options
+ * @returns {{
+ *   totalRows: number,
+ *   superVotersCount: number,
+ *   highFrequencyVotersCount: number,
+ *   mediumFrequencyVotersCount: number,
+ *   lowFrequencyVotersCount: number,
+ *   dropoffVotersCount: number,
+ *   persuasionUniverseCount: number,
+ *   mobilizationUniverseCount: number,
+ *   baseCount: number,
+ *   ignoreCount: number,
+ *   supportTurnoutSegmentationPercentages: {
+ *     supportBands: Record<string, number>,
+ *     turnoutBands: Record<string, number>,
+ *   },
+ *   supportTurnoutCrossTabs: Array<{ supportBand: string, turnoutBand: string, count: number, pct: number }>,
+ *   geographySegmentCounts: Array<{
+ *     geography: string,
+ *     total: number,
+ *     superVoters: number,
+ *     highFrequencyVoters: number,
+ *     mediumFrequencyVoters: number,
+ *     lowFrequencyVoters: number,
+ *     dropoffVoters: number,
+ *     persuasionUniverse: number,
+ *     mobilizationUniverse: number,
+ *     baseUniverse: number,
+ *     ignoreUniverse: number,
+ *   }>,
+ *   ageBucketCounts: Record<string, number>,
+ *   ageBucketPercents: Record<string, number>,
+ *   age: {
+ *     source: string,
+ *     knownAgeCount: number,
+ *     knownAgeCoverageRate: number,
+ *     opportunityBucketId: string,
+ *     opportunityBucketLabel: string,
+ *     turnoutRiskBucketId: string,
+ *     turnoutRiskBucketLabel: string,
+ *     opportunityScore: number,
+ *     turnoutRiskScore: number,
+ *   },
+ *   frequencySegments: Record<string, number>,
+ *   universeSegments: Record<string, number>,
+ * }}
+ */
+export function buildVoterHistoryIntelligenceSummary(rows, options = {}){
+  const list = Array.isArray(rows) ? rows : [];
+  const totalRows = list.length;
+  const universeSize = Math.max(0, Math.trunc(safeNum(options?.universeSize) ?? 0));
+  const frequencySegments = buildCountRecord(VOTER_FREQUENCY_SEGMENTS);
+  const universeSegments = buildCountRecord(VOTER_UNIVERSE_KEYS);
+  const supportBandCounts = buildCountRecord(SUPPORT_BANDS);
+  const turnoutBandCounts = buildCountRecord(TURNOUT_BANDS);
+  const crossCounts = {};
+  const geographyMap = new Map();
+  const ageBucketCounts = createAgeBucketCountMap();
+  const ageOpportunityPoints = createAgeBucketCountMap();
+  const ageRiskPoints = createAgeBucketCountMap();
+  let knownAgeCount = 0;
+
+  for (const supportBand of SUPPORT_BANDS){
+    for (const turnoutBand of TURNOUT_BANDS){
+      crossCounts[`${supportBand}::${turnoutBand}`] = 0;
+    }
+  }
+
+  for (const row of list){
+    const support = unitScoreOrNull(row?.supportScore);
+    const turnout = unitScoreOrNull(row?.turnoutScore);
+    const frequencySegment = classifyFrequencySegment(row);
+    const universeSegment = classifyUniverseSegment(support, turnout);
+    const supportBand = classifySupportBand(support);
+    const turnoutBand = classifyTurnoutBand(turnout);
+    const crossKey = `${supportBand}::${turnoutBand}`;
+    const geography = resolveGeographySegmentKey(row);
+
+    frequencySegments[frequencySegment] += 1;
+    universeSegments[universeSegment] += 1;
+    supportBandCounts[supportBand] += 1;
+    turnoutBandCounts[turnoutBand] += 1;
+    crossCounts[crossKey] += 1;
+
+    if (!geographyMap.has(geography)){
+      geographyMap.set(geography, {
+        geography,
+        total: 0,
+        superVoters: 0,
+        highFrequencyVoters: 0,
+        mediumFrequencyVoters: 0,
+        lowFrequencyVoters: 0,
+        dropoffVoters: 0,
+        persuasionUniverse: 0,
+        mobilizationUniverse: 0,
+        baseUniverse: 0,
+        ignoreUniverse: 0,
+      });
+    }
+    const geoRow = geographyMap.get(geography);
+    geoRow.total += 1;
+    geoRow[frequencySegment] += 1;
+    geoRow[universeSegment] += 1;
+
+    const age = extractAgeFromRecord(row);
+    const ageBucket = classifyAgeBucket(age);
+    if (!ageBucket) continue;
+    knownAgeCount += 1;
+    ageBucketCounts[ageBucket.id] += 1;
+    if (universeSegment === "persuasionUniverse" || universeSegment === "mobilizationUniverse"){
+      ageOpportunityPoints[ageBucket.id] += 1;
+    }
+    if (
+      turnoutBand === "low"
+      || frequencySegment === "dropoffVoters"
+      || frequencySegment === "lowFrequencyVoters"
+    ){
+      ageRiskPoints[ageBucket.id] += 1;
+    }
+  }
+
+  const censusAgeDistribution = normalizeCensusAgeDistribution(options?.censusAgeDistribution);
+  const unknownAgeCount = Math.max(0, totalRows - knownAgeCount);
+  let ageSource = knownAgeCount > 0 ? "rows" : "unknown";
+  if (censusAgeDistribution && (unknownAgeCount > 0 || (knownAgeCount === 0 && universeSize > 0))){
+    const allocateCount = totalRows > 0 ? unknownAgeCount : universeSize;
+    const allocated = allocateCountsByDistribution(allocateCount, censusAgeDistribution);
+    for (const bucket of VOTER_AGE_BUCKETS){
+      ageBucketCounts[bucket.id] += Number(allocated[bucket.id] || 0);
+    }
+    ageSource = knownAgeCount > 0 ? "hybrid" : "census_only";
+  }
+
+  const ageDenominator = totalRows > 0
+    ? totalRows
+    : Math.max(
+      universeSize,
+      Object.values(ageBucketCounts).reduce((sum, value) => sum + Number(value || 0), 0),
+    );
+  const ageBucketPercents = countPercentMap(ageBucketCounts, ageDenominator);
+
+  const supportTurnoutCrossTabs = [];
+  for (const supportBand of SUPPORT_BANDS){
+    for (const turnoutBand of TURNOUT_BANDS){
+      const count = Number(crossCounts[`${supportBand}::${turnoutBand}`] || 0);
+      supportTurnoutCrossTabs.push({
+        supportBand,
+        turnoutBand,
+        count,
+        pct: totalRows > 0 ? clampFiniteNumber(count / totalRows, 0, 1) : 0,
+      });
+    }
+  }
+
+  const geographySegmentCounts = Array.from(geographyMap.values())
+    .sort((a, b) => Number(b.total) - Number(a.total))
+    .slice(0, 80);
+
+  const heuristicAgeOpportunity = {
+    age_18_24: 0.9,
+    age_25_34: 0.8,
+    age_35_44: 0.62,
+    age_45_54: 0.4,
+    age_55_64: 0.25,
+    age_65_plus: 0.18,
+  };
+  const heuristicAgeRisk = {
+    age_18_24: 0.82,
+    age_25_34: 0.68,
+    age_35_44: 0.52,
+    age_45_54: 0.38,
+    age_55_64: 0.3,
+    age_65_plus: 0.22,
+  };
+
+  let opportunityBucketId = "";
+  let opportunityBucketLabel = "";
+  let opportunityScore = 0;
+  let turnoutRiskBucketId = "";
+  let turnoutRiskBucketLabel = "";
+  let turnoutRiskScore = 0;
+  for (const bucket of VOTER_AGE_BUCKETS){
+    const bucketId = bucket.id;
+    const bucketCount = Number(ageBucketCounts[bucketId] || 0);
+    const bucketPct = Number(ageBucketPercents[bucketId] || 0);
+    const observedOpportunityRate = bucketCount > 0
+      ? clampFiniteNumber(Number(ageOpportunityPoints[bucketId] || 0) / bucketCount, 0, 1)
+      : 0;
+    const observedRiskRate = bucketCount > 0
+      ? clampFiniteNumber(Number(ageRiskPoints[bucketId] || 0) / bucketCount, 0, 1)
+      : 0;
+    const computedOpportunityScore = bucketPct * (
+      knownAgeCount > 0
+        ? observedOpportunityRate
+        : Number(heuristicAgeOpportunity[bucketId] || 0)
+    );
+    const computedRiskScore = bucketPct * (
+      knownAgeCount > 0
+        ? observedRiskRate
+        : Number(heuristicAgeRisk[bucketId] || 0)
+    );
+    if (computedOpportunityScore > opportunityScore){
+      opportunityScore = computedOpportunityScore;
+      opportunityBucketId = bucketId;
+      opportunityBucketLabel = bucket.label;
+    }
+    if (computedRiskScore > turnoutRiskScore){
+      turnoutRiskScore = computedRiskScore;
+      turnoutRiskBucketId = bucketId;
+      turnoutRiskBucketLabel = bucket.label;
+    }
+  }
+
+  return {
+    totalRows,
+    superVotersCount: Number(frequencySegments.superVoters || 0),
+    highFrequencyVotersCount: Number(frequencySegments.highFrequencyVoters || 0),
+    mediumFrequencyVotersCount: Number(frequencySegments.mediumFrequencyVoters || 0),
+    lowFrequencyVotersCount: Number(frequencySegments.lowFrequencyVoters || 0),
+    dropoffVotersCount: Number(frequencySegments.dropoffVoters || 0),
+    persuasionUniverseCount: Number(universeSegments.persuasionUniverse || 0),
+    mobilizationUniverseCount: Number(universeSegments.mobilizationUniverse || 0),
+    baseCount: Number(universeSegments.baseUniverse || 0),
+    ignoreCount: Number(universeSegments.ignoreUniverse || 0),
+    supportTurnoutSegmentationPercentages: {
+      supportBands: countPercentMap(supportBandCounts, totalRows),
+      turnoutBands: countPercentMap(turnoutBandCounts, totalRows),
+    },
+    supportTurnoutCrossTabs,
+    geographySegmentCounts,
+    ageBucketCounts,
+    ageBucketPercents,
+    age: {
+      source: ageSource,
+      knownAgeCount,
+      knownAgeCoverageRate: totalRows > 0 ? clampFiniteNumber(knownAgeCount / totalRows, 0, 1) : 0,
+      opportunityBucketId,
+      opportunityBucketLabel,
+      turnoutRiskBucketId,
+      turnoutRiskBucketLabel,
+      opportunityScore: clampFiniteNumber(opportunityScore, 0, 1),
+      turnoutRiskScore: clampFiniteNumber(turnoutRiskScore, 0, 1),
+    },
+    frequencySegments,
+    universeSegments,
+  };
+}
+
 /**
  * Derive canonical voter-data signals for downstream model modules.
  * Keeps voter import logic lean while exposing deterministic scoring inputs.
  *
  * @param {unknown} voterDataState
- * @param {{ nowIso?: unknown, recentWindowDays?: unknown }} options
+ * @param {{ nowIso?: unknown, recentWindowDays?: unknown, censusAgeDistribution?: unknown, universeSize?: unknown }} options
  * @returns {{
  *   hasRows: boolean,
  *   totalRows: number,
@@ -1120,7 +1796,25 @@ export function buildVoterContactHistoryLedger(rows, options = {}){
  *     networkValueDefault: number,
  *     contactProbabilityMultiplier: number,
  *     saturationMultiplierDefault: number,
+ *     turnoutOpportunityMultiplier: number,
+ *     persuasionIndexMultiplier: number,
+ *     ageContactProbabilityMultiplier: number,
+ *     ageOpportunityScore: number,
+ *     ageTurnoutRiskScore: number,
  *   },
+ *   ageSegmentation: {
+ *     source: string,
+ *     knownAgeCoverageRate: number,
+ *     opportunityBucketId: string,
+ *     opportunityBucketLabel: string,
+ *     turnoutRiskBucketId: string,
+ *     turnoutRiskBucketLabel: string,
+ *     opportunityScore: number,
+ *     turnoutRiskScore: number,
+ *     bucketCounts: Record<string, number>,
+ *     bucketPercents: Record<string, number>,
+ *   },
+ *   historyIntelligence: ReturnType<typeof buildVoterHistoryIntelligenceSummary>,
  * }}
  */
 export function deriveVoterModelSignals(voterDataState, options = {}){
@@ -1134,6 +1828,24 @@ export function deriveVoterModelSignals(voterDataState, options = {}){
   const ledger = (state.latestContactLedger && typeof state.latestContactLedger === "object")
     ? state.latestContactLedger
     : buildVoterContactHistoryLedger(rows, options);
+  const censusAgeDistribution = normalizeCensusAgeDistribution(options?.censusAgeDistribution);
+  let historyIntelligence = (state.latestHistoryIntelligence && typeof state.latestHistoryIntelligence === "object")
+    ? state.latestHistoryIntelligence
+    : null;
+  if (!historyIntelligence){
+    historyIntelligence = buildVoterHistoryIntelligenceSummary(rows, {
+      censusAgeDistribution,
+      universeSize: options?.universeSize,
+    });
+  } else if (
+    censusAgeDistribution
+    && String(historyIntelligence?.age?.source || "unknown") === "unknown"
+  ){
+    historyIntelligence = buildVoterHistoryIntelligenceSummary(rows, {
+      censusAgeDistribution,
+      universeSize: options?.universeSize,
+    });
+  }
 
   const totalRows = Math.max(
     0,
@@ -1169,6 +1881,48 @@ export function deriveVoterModelSignals(voterDataState, options = {}){
     0.55,
     1.05,
   );
+  const frequency = historyIntelligence?.frequencySegments || {};
+  const age = historyIntelligence?.age || {};
+  const agePercents = historyIntelligence?.ageBucketPercents || {};
+  const lowPlusDropoffShare = unitRatio(
+    (safeNum(frequency?.lowFrequencyVoters) ?? 0) + (safeNum(frequency?.dropoffVoters) ?? 0),
+    totalRows,
+  );
+  const highPlusSuperShare = unitRatio(
+    (safeNum(frequency?.highFrequencyVoters) ?? 0) + (safeNum(frequency?.superVoters) ?? 0),
+    totalRows,
+  );
+  const dropoffShare = unitRatio(safeNum(frequency?.dropoffVoters), totalRows);
+  const age18to34Share = clampFiniteNumber(
+    (safeNum(agePercents?.age_18_24) ?? 0) + (safeNum(agePercents?.age_25_34) ?? 0),
+    0,
+    1,
+  );
+  const age35to44Share = clampFiniteNumber(safeNum(agePercents?.age_35_44) ?? 0, 0, 1);
+  const age65PlusShare = clampFiniteNumber(safeNum(agePercents?.age_65_plus) ?? 0, 0, 1);
+  const ageCoverage = clampFiniteNumber(safeNum(age?.knownAgeCoverageRate) ?? 0, 0, 1);
+  const shouldApplyAgeMultipliers = ageCoverage >= 0.35 || String(age?.source || "") === "census_only";
+  const turnoutOpportunityMultiplier = shouldApplyAgeMultipliers
+    ? clampFiniteNumber(
+      1 + (age18to34Share * 0.18) + (lowPlusDropoffShare * 0.14) - (highPlusSuperShare * 0.08),
+      0.82,
+      1.25,
+    )
+    : 1;
+  const persuasionIndexMultiplier = shouldApplyAgeMultipliers
+    ? clampFiniteNumber(
+      1 + (age18to34Share * 0.12) + (age35to44Share * 0.04) - (age65PlusShare * 0.08),
+      0.85,
+      1.18,
+    )
+    : 1;
+  const ageContactProbabilityMultiplier = shouldApplyAgeMultipliers
+    ? clampFiniteNumber(
+      1 - (age18to34Share * 0.10) + (highPlusSuperShare * 0.05) - (dropoffShare * 0.04),
+      0.85,
+      1.1,
+    )
+    : 1;
 
   return {
     hasRows,
@@ -1189,7 +1943,29 @@ export function deriveVoterModelSignals(voterDataState, options = {}){
       networkValueDefault,
       contactProbabilityMultiplier,
       saturationMultiplierDefault,
+      turnoutOpportunityMultiplier,
+      persuasionIndexMultiplier,
+      ageContactProbabilityMultiplier,
+      ageOpportunityScore: clampFiniteNumber(safeNum(age?.opportunityScore) ?? 0, 0, 1),
+      ageTurnoutRiskScore: clampFiniteNumber(safeNum(age?.turnoutRiskScore) ?? 0, 0, 1),
     },
+    ageSegmentation: {
+      source: String(age?.source || "unknown"),
+      knownAgeCoverageRate: ageCoverage,
+      opportunityBucketId: String(age?.opportunityBucketId || ""),
+      opportunityBucketLabel: String(age?.opportunityBucketLabel || ""),
+      turnoutRiskBucketId: String(age?.turnoutRiskBucketId || ""),
+      turnoutRiskBucketLabel: String(age?.turnoutRiskBucketLabel || ""),
+      opportunityScore: clampFiniteNumber(safeNum(age?.opportunityScore) ?? 0, 0, 1),
+      turnoutRiskScore: clampFiniteNumber(safeNum(age?.turnoutRiskScore) ?? 0, 0, 1),
+      bucketCounts: historyIntelligence?.ageBucketCounts && typeof historyIntelligence.ageBucketCounts === "object"
+        ? { ...historyIntelligence.ageBucketCounts }
+        : createAgeBucketCountMap(),
+      bucketPercents: historyIntelligence?.ageBucketPercents && typeof historyIntelligence.ageBucketPercents === "object"
+        ? { ...historyIntelligence.ageBucketPercents }
+        : createAgeBucketCountMap(),
+    },
+    historyIntelligence,
   };
 }
 
@@ -1198,7 +1974,7 @@ export function deriveVoterModelSignals(voterDataState, options = {}){
  * Keeps voter-status shaping out of UI/runtime glue code.
  *
  * @param {unknown} voterDataState
- * @param {{ nowIso?: unknown, recentWindowDays?: unknown }=} options
+ * @param {{ nowIso?: unknown, recentWindowDays?: unknown, censusAgeDistribution?: unknown, universeSize?: unknown }=} options
  * @returns {{
  *   scopingRule: string,
  *   hasRows: boolean,
@@ -1212,6 +1988,10 @@ export function deriveVoterModelSignals(voterDataState, options = {}){
  *   contactableRate: number,
  *   recentContactRate: number,
  *   conversationRate: number,
+ *   ageCoverageRate: number,
+ *   ageSource: string,
+ *   ageOpportunityBucket: string,
+ *   ageTurnoutRiskBucket: string,
  * }}
  */
 export function buildVoterLayerStatusSnapshot(voterDataState, options = {}){
@@ -1235,6 +2015,10 @@ export function buildVoterLayerStatusSnapshot(voterDataState, options = {}){
     contactableRate: clampFiniteNumber(safeNum(signals?.coverage?.contactableRate) ?? 0, 0, 1),
     recentContactRate: clampFiniteNumber(safeNum(signals?.history?.recentContactRate) ?? 0, 0, 1),
     conversationRate: clampFiniteNumber(safeNum(signals?.history?.conversationRate) ?? 0, 0, 1),
+    ageCoverageRate: clampFiniteNumber(safeNum(signals?.ageSegmentation?.knownAgeCoverageRate) ?? 0, 0, 1),
+    ageSource: String(signals?.ageSegmentation?.source || "unknown"),
+    ageOpportunityBucket: String(signals?.ageSegmentation?.opportunityBucketLabel || ""),
+    ageTurnoutRiskBucket: String(signals?.ageSegmentation?.turnoutRiskBucketLabel || ""),
   };
 }
 
@@ -1245,6 +2029,7 @@ export function buildVoterLayerStatusSnapshot(voterDataState, options = {}){
  *   rows: Array<Record<string, any>>,
  *   latestUniverseSummary: ReturnType<typeof buildVoterUniverseSummary> | null,
  *   latestContactLedger: ReturnType<typeof buildVoterContactHistoryLedger> | null,
+ *   latestHistoryIntelligence: ReturnType<typeof buildVoterHistoryIntelligenceSummary> | null,
  * }}
  */
 export function makeDefaultVoterDataState(){
@@ -1254,6 +2039,7 @@ export function makeDefaultVoterDataState(){
     rows: [],
     latestUniverseSummary: null,
     latestContactLedger: null,
+    latestHistoryIntelligence: null,
   };
 }
 
@@ -1275,6 +2061,7 @@ export function normalizeVoterDataState(raw){
   });
   const latestUniverseSummary = buildVoterUniverseSummary(normalizedRows.rows);
   const latestContactLedger = buildVoterContactHistoryLedger(normalizedRows.rows);
+  const latestHistoryIntelligence = buildVoterHistoryIntelligenceSummary(normalizedRows.rows);
   return {
     ...base,
     ...src,
@@ -1283,5 +2070,6 @@ export function normalizeVoterDataState(raw){
     rows: normalizedRows.rows,
     latestUniverseSummary,
     latestContactLedger,
+    latestHistoryIntelligence,
   };
 }

@@ -1,5 +1,10 @@
 // @ts-check
 import { clamp, safeNum, fmtInt } from "./utils.js";
+import {
+  applyCandidateHistorySupportAdjustments,
+  deriveCandidateHistoryBaseline,
+  normalizeCandidateHistoryRecords,
+} from "./candidateHistoryBaseline.js";
 
 /**
  * @typedef {object} WinMathInputCandidate
@@ -15,6 +20,9 @@ import { clamp, safeNum, fmtInt } from "./utils.js";
  * @property {number | null | undefined} turnoutB
  * @property {number | null | undefined} bandWidth
  * @property {WinMathInputCandidate[]} candidates
+ * @property {string=} office
+ * @property {string=} electionType
+ * @property {Array<Record<string, any>>=} candidateHistory
  * @property {number | null | undefined} undecidedPct
  * @property {string=} yourCandidateId
  * @property {string=} undecidedMode
@@ -28,11 +36,14 @@ import { clamp, safeNum, fmtInt } from "./utils.js";
  */
 export function computeAll(input){
   const raw = {
+    office: String(input.office || "").trim(),
+    electionType: String(input.electionType || "").trim().toLowerCase(),
     universeSize: safeNum(input.universeSize),
     turnoutA: safeNum(input.turnoutA),
     turnoutB: safeNum(input.turnoutB),
     bandWidth: safeNum(input.bandWidth),
     candidates: Array.isArray(input.candidates) ? input.candidates : [],
+    candidateHistory: normalizeCandidateHistoryRecords(input.candidateHistory),
     undecidedPct: safeNum(input.undecidedPct),
     yourCandidateId: input.yourCandidateId,
     undecidedMode: input.undecidedMode || "proportional",
@@ -42,8 +53,29 @@ export function computeAll(input){
   };
 
   const validation = validateInputs(raw);
+  const candidateHistory = deriveCandidateHistoryBaseline({
+    records: raw.candidateHistory,
+    candidates: validation.candidates,
+    yourCandidateId: raw.yourCandidateId,
+    office: raw.office,
+    electionType: raw.electionType,
+  });
+  validation.candidateHistory = {
+    recordCount: candidateHistory.recordCount,
+    filteredRecordCount: candidateHistory.filteredRecordCount,
+    matchedRecordCount: candidateHistory.matchedRecordCount,
+    missingFieldCount: candidateHistory.missingFieldCount,
+    incompleteRecordCount: candidateHistory.incompleteRecordCount,
+    coverageScore: candidateHistory.coverageScore,
+    coverageBand: candidateHistory.coverageBand,
+    confidenceBand: candidateHistory.confidenceBand,
+    incumbentEffectPresent: candidateHistory.incumbentEffectPresent,
+    repeatEffectPresent: candidateHistory.repeatEffectPresent,
+    deviationPresent: candidateHistory.deviationPresent,
+    notes: Array.isArray(candidateHistory.notes) ? candidateHistory.notes.slice() : [],
+  };
   const turnout = computeTurnout(raw);
-  const expected = computeExpected(raw, turnout, validation);
+  const expected = computeExpected(raw, turnout, validation, candidateHistory);
 
   const stressSummary = computeStressSummary(raw, turnout, expected, validation);
   const guardrails = computeGuardrails(raw, turnout, expected, validation);
@@ -136,7 +168,7 @@ function computeTurnout(raw){
   };
 }
 
-function computeExpected(raw, turnout, validation){
+function computeExpected(raw, turnout, validation, candidateHistory){
   const out = {
     turnoutVotes: null,
     earlyVotes: null,
@@ -151,6 +183,17 @@ function computeExpected(raw, turnout, validation){
 
     persuasionUniverse: null,
     persuasionUniverseCheck: null,
+    candidateHistoryImpact: {
+      enabled: false,
+      recordCount: 0,
+      filteredRecordCount: 0,
+      matchedRecordCount: 0,
+      coverageBand: "none",
+      confidenceBand: "missing",
+      yourSupportDeltaPct: 0,
+      yourVotesDelta: 0,
+      notes: [],
+    },
   };
 
   if (!validation.universeOk || turnout.expectedPct == null) return out;
@@ -171,13 +214,20 @@ function computeExpected(raw, turnout, validation){
   else if (earlyPct >= 40) out.earlyNote = "Moderate early vote share; front-load persuasion where possible.";
   else out.earlyNote = "Early vote share within typical range (monitor).";
 
-  const alloc = allocateUndecided(raw, validation.candidates);
-
-  const adjustedVotes = validation.candidates.map(c => {
-    const baseVotes = Math.round(turnoutVotes * ((c.supportPct ?? 0) / 100));
-    const addVotes = Math.round(turnoutVotes * ((raw.undecidedPct ?? 0) / 100) * (alloc[c.id] / 100));
-    return { id: c.id, name: c.name, votes: baseVotes + addVotes };
-  });
+  const candidateHistoryInfo = candidateHistory && typeof candidateHistory === "object" ? candidateHistory : null;
+  const historyRecords = Number(candidateHistoryInfo?.recordCount || 0);
+  const baselineVotes = computeCandidateVotes(raw, turnoutVotes, validation.candidates);
+  let adjustedCandidates = validation.candidates;
+  if (candidateHistoryInfo && historyRecords > 0){
+    const adjusted = applyCandidateHistorySupportAdjustments(
+      validation.candidates,
+      candidateHistoryInfo.adjustmentsByCandidateId,
+    );
+    adjustedCandidates = Array.isArray(adjusted?.adjustedCandidates)
+      ? adjusted.adjustedCandidates
+      : validation.candidates;
+  }
+  const adjustedVotes = computeCandidateVotes(raw, turnoutVotes, adjustedCandidates);
 
   const your = adjustedVotes.find(v => v.id === raw.yourCandidateId) || adjustedVotes[0];
   out.yourVotes = your?.votes ?? null;
@@ -198,6 +248,27 @@ function computeExpected(raw, turnout, validation){
     out.persuasionStatus = "Net votes required above current projection (under expected assumptions).";
   }
 
+  if (candidateHistoryInfo){
+    const baselineYour = baselineVotes.find((row) => row.id === your?.id) || baselineVotes[0] || null;
+    const yourVotesDelta = (
+      your && baselineYour
+        ? ((Number(your.votes) || 0) - (Number(baselineYour.votes) || 0))
+        : 0
+    );
+    const yourDeltaSupport = Number(candidateHistoryInfo?.yourCandidateDeltaSupportPct || 0);
+    out.candidateHistoryImpact = {
+      enabled: historyRecords > 0,
+      recordCount: historyRecords,
+      filteredRecordCount: Number(candidateHistoryInfo?.filteredRecordCount || 0),
+      matchedRecordCount: Number(candidateHistoryInfo?.matchedRecordCount || 0),
+      coverageBand: String(candidateHistoryInfo?.coverageBand || "none"),
+      confidenceBand: String(candidateHistoryInfo?.confidenceBand || "missing"),
+      yourSupportDeltaPct: yourDeltaSupport,
+      yourVotesDelta,
+      notes: Array.isArray(candidateHistoryInfo?.notes) ? candidateHistoryInfo.notes.slice() : [],
+    };
+  }
+
   if (raw.persuasionPct != null && validation.universeOk){
     out.persuasionUniverse = Math.round(U * (clamp(raw.persuasionPct, 0, 100) / 100));
     if (need <= 0){
@@ -210,6 +281,20 @@ function computeExpected(raw, turnout, validation){
   }
 
   return out;
+}
+
+function computeCandidateVotes(raw, turnoutVotes, candidates){
+  const alloc = allocateUndecided(raw, candidates);
+  return candidates.map((candidate) => {
+    const supportPct = safeNum(candidate?.supportPct) ?? 0;
+    const baseVotes = Math.round(turnoutVotes * (supportPct / 100));
+    const addVotes = Math.round(turnoutVotes * ((raw.undecidedPct ?? 0) / 100) * ((alloc[candidate.id] ?? 0) / 100));
+    return {
+      id: candidate.id,
+      name: candidate.name,
+      votes: baseVotes + addVotes,
+    };
+  });
 }
 
 function allocateUndecided(raw, candidates){
@@ -298,6 +383,20 @@ function computeStressSummary(raw, turnout, expected, validation){
   else if (early >= 40) lines.push(`If early vote share increases, shift more persuasion earlier to avoid missing early voters.`);
   else lines.push(`If early vote share rises materially, expect earlier persuasion workload (monitor).`);
 
+  const historyImpact = expected?.candidateHistoryImpact && typeof expected.candidateHistoryImpact === "object"
+    ? expected.candidateHistoryImpact
+    : null;
+  if (historyImpact?.enabled){
+    const delta = Number(historyImpact?.yourVotesDelta || 0);
+    const confidenceBand = String(historyImpact?.confidenceBand || "missing");
+    const coverageBand = String(historyImpact?.coverageBand || "none");
+    if (delta !== 0){
+      lines.push(`Candidate-history baseline shifts your projected votes by ${delta > 0 ? "+" : ""}${fmtInt(delta)} (${coverageBand} coverage, ${confidenceBand} confidence).`);
+    } else {
+      lines.push(`Candidate-history baseline loaded (${coverageBand} coverage, ${confidenceBand} confidence) with no net vote shift.`);
+    }
+  }
+
   return lines.slice(0, 5);
 }
 
@@ -357,6 +456,32 @@ function computeGuardrails(raw, turnout, expected, validation){
         { k: "Fix", v: "Revisit assumptions (turnout, ballot test, contact math) or only expand persuadables if defensible" }
       ]
     });
+  }
+
+  const history = validation?.candidateHistory && typeof validation.candidateHistory === "object"
+    ? validation.candidateHistory
+    : null;
+  if (history){
+    const recordCount = Number(history.recordCount || 0);
+    const confidenceBand = String(history.confidenceBand || "missing");
+    const coverageBand = String(history.coverageBand || "none");
+    if (recordCount <= 0){
+      gs.push({
+        title: "Candidate history baseline",
+        lines: [
+          { k: "Issue", v: "No candidate history records; confidence degrades for ballot baseline realism." },
+          { k: "Fix", v: "Add prior candidate-cycle rows (office, year, election type, vote share, over/underperformance)." },
+        ],
+      });
+    } else if (confidenceBand === "low"){
+      gs.push({
+        title: "Candidate history baseline",
+        lines: [
+          { k: "Issue", v: `Candidate history coverage is ${coverageBand}; baseline adjustment confidence is low.` },
+          { k: "Fix", v: "Complete required fields on candidate history rows before trusting shifted baseline projections." },
+        ],
+      });
+    }
   }
 
   return gs;

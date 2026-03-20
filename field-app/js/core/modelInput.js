@@ -1,4 +1,5 @@
 // @ts-check
+import { normalizeCandidateHistoryRecords } from "./candidateHistoryBaseline.js";
 
 /**
  * @param {unknown} v
@@ -20,8 +21,16 @@ export function buildModelInputFromSnapshot(snapshot, toNumFn){
   const s = snapshot || {};
   const toNum = (typeof toNumFn === "function") ? toNumFn : defaultToNum;
   const candidates = Array.isArray(s.candidates) ? s.candidates : [];
+  const candidateHistory = normalizeCandidateHistoryRecords(s.candidateHistory);
+  const electionType = String(
+    s?.templateMeta?.electionType
+    || s?.electionType
+    || "",
+  ).trim().toLowerCase();
 
   return {
+    office: String(s.officeId || s.campaignName || s.raceType || "").trim(),
+    electionType,
     universeSize: toNum(s.universeSize),
     turnoutA: toNum(s.turnoutA),
     turnoutB: toNum(s.turnoutB),
@@ -35,6 +44,7 @@ export function buildModelInputFromSnapshot(snapshot, toNumFn){
     yourCandidateId: s.yourCandidateId,
     undecidedMode: s.undecidedMode,
     userSplit: s.userSplit,
+    candidateHistory,
     persuasionPct: toNum(s.persuasionPct),
     earlyVoteExp: toNum(s.earlyVoteExp),
   };

@@ -4,7 +4,7 @@ import { computeConfidenceProfile } from "./confidence.js";
 import { computeLearningLoop } from "./learningLoop.js";
 import { deriveOptimizationUpliftSignals } from "./optimize.js";
 import { deriveUpliftSourceGovernanceSignal, formatUpliftSourceLabel, normalizeUpliftSource } from "./upliftSource.js";
-import { deriveVoterModelSignals } from "./voterDataLayer.js";
+import { deriveVoterModelSignals, extractCensusAgeDistribution } from "./voterDataLayer.js";
 import {
   clampFiniteNumber,
   formatFixedNumber,
@@ -45,7 +45,13 @@ function deriveSensitivityDrivers(state){
   return parsed;
 }
 
-function deriveDataQuality({ benchmarkWarnings = [], evidenceWarnings = [], driftSummary = null, voterSignals = null } = {}){
+function deriveDataQuality({
+  benchmarkWarnings = [],
+  evidenceWarnings = [],
+  driftSummary = null,
+  voterSignals = null,
+  candidateHistory = null,
+} = {}){
   const benchmarkCount = Array.isArray(benchmarkWarnings) ? benchmarkWarnings.length : 0;
   const evidenceCount = Array.isArray(evidenceWarnings) ? evidenceWarnings.length : 0;
   const issues = [];
@@ -80,6 +86,8 @@ function deriveDataQuality({ benchmarkWarnings = [], evidenceWarnings = [], drif
   const voterRows = Math.max(0, toFiniteNumber(voterSignals?.totalRows) ?? 0);
   const voterGeoCoverage = clamp(toFiniteNumber(voterSignals?.coverage?.geoCoverageRate) ?? 0, 0, 1);
   const voterContactableRate = clamp(toFiniteNumber(voterSignals?.coverage?.contactableRate) ?? 0, 0, 1);
+  const voterAgeCoverage = clamp(toFiniteNumber(voterSignals?.ageSegmentation?.knownAgeCoverageRate) ?? 0, 0, 1);
+  const voterAgeSource = String(voterSignals?.ageSegmentation?.source || "unknown").trim().toLowerCase();
 
   if (!hasVoterRows){
     penalty += 18;
@@ -99,6 +107,39 @@ function deriveDataQuality({ benchmarkWarnings = [], evidenceWarnings = [], drif
       penalty += 6;
       issues.push(`contactable voter coverage at ${formatPercentFromUnit(voterContactableRate, 0)}`);
     }
+    if (voterAgeSource === "unknown"){
+      penalty += 10;
+      issues.push("age segmentation unavailable (no DOB/age rows and no census fallback)");
+    } else if (voterAgeCoverage < 0.45){
+      penalty += 8;
+      issues.push(`age cohort coverage at ${formatPercentFromUnit(voterAgeCoverage, 0)}`);
+    } else if (voterAgeCoverage < 0.65){
+      penalty += 4;
+      issues.push(`age cohort coverage at ${formatPercentFromUnit(voterAgeCoverage, 0)}`);
+    }
+  }
+
+  const history = candidateHistory && typeof candidateHistory === "object" ? candidateHistory : null;
+  const historyRecordCount = Math.max(0, toFiniteNumber(history?.recordCount) ?? 0);
+  const historyIncompleteCount = Math.max(0, toFiniteNumber(history?.incompleteRecordCount) ?? 0);
+  const historyCoverageBand = String(history?.coverageBand || "").trim().toLowerCase();
+  const historyConfidenceBand = String(history?.confidenceBand || "").trim().toLowerCase();
+
+  if (historyRecordCount <= 0){
+    penalty += 12;
+    issues.push("candidate history baseline missing");
+  } else {
+    if (historyConfidenceBand === "low"){
+      penalty += 10;
+      issues.push(`candidate history confidence is low (${historyCoverageBand || "unknown"} coverage)`);
+    } else if (historyConfidenceBand === "medium"){
+      penalty += 5;
+      issues.push(`candidate history confidence is medium (${historyCoverageBand || "unknown"} coverage)`);
+    }
+    if (historyIncompleteCount > 0){
+      penalty += Math.min(8, historyIncompleteCount * 2);
+      issues.push(`${historyIncompleteCount} candidate history row(s) incomplete`);
+    }
   }
 
   const score = clamp(100 - penalty, 0, 100);
@@ -112,6 +153,8 @@ function deriveDataQuality({ benchmarkWarnings = [], evidenceWarnings = [], drif
     voterRows,
     voterGeoCoverage,
     voterContactableRate,
+    voterAgeCoverage,
+    voterAgeSource,
   };
 }
 
@@ -425,14 +468,25 @@ export function computeModelGovernance({
   benchmarkWarnings = [],
   evidenceWarnings = [],
   driftSummary = null,
+  realism: realismInput = null,
 } = {}){
-  const voterSignals = deriveVoterModelSignals(state?.voterData);
-  const realism = evaluateAssumptionRealism(state);
+  const voterSignals = deriveVoterModelSignals(state?.voterData, {
+    censusAgeDistribution: extractCensusAgeDistribution(state?.census),
+    universeSize: toFiniteNumber(state?.universeSize),
+  });
+  const realism = (realismInput && typeof realismInput === "object")
+    ? realismInput
+    : (
+      state?.ui?.lastRealismSnapshot && typeof state.ui.lastRealismSnapshot === "object"
+        ? state.ui.lastRealismSnapshot
+        : evaluateAssumptionRealism(state)
+    );
   const dataQuality = deriveDataQuality({
     benchmarkWarnings,
     evidenceWarnings,
     driftSummary,
     voterSignals,
+    candidateHistory: res?.validation?.candidateHistory || null,
   });
   const historicalAccuracyScore = deriveHistoricalAccuracyScore(state);
   const execution = deriveExecutionReadiness(state);
@@ -455,6 +509,7 @@ export function computeModelGovernance({
       voterRows: dataQuality?.voterRows,
       voterGeoCoverageRate: dataQuality?.voterGeoCoverage,
       voterContactableRate: dataQuality?.voterContactableRate,
+      voterAgeCoverageRate: dataQuality?.voterAgeCoverage,
       governanceConfidenceScore: confidence?.score,
       governanceDataQualityScore: dataQuality?.score,
       governanceExecutionScore: execution?.score,
@@ -463,8 +518,12 @@ export function computeModelGovernance({
 
   const sensitivityDrivers = deriveSensitivityDrivers(state);
   const warnings = [];
-  for (const flag of realism.flags.slice(0, 4)){
-    warnings.push(`${flag.label}: ${formatFixedNumber(flag.value, 1, "—")} outside ${flag.severity === "bad" ? "hard" : "typical"} range.`);
+  const realismFlags = Array.isArray(realism?.flags) ? realism.flags : [];
+  for (const flag of realismFlags.slice(0, 4)){
+    const label = String(flag?.label || flag?.field || "Assumption").trim();
+    const value = toFiniteNumber(flag?.value);
+    const severity = String(flag?.severity || "").trim().toLowerCase() === "bad" ? "hard" : "typical";
+    warnings.push(`${label}: ${formatFixedNumber(value, 1, "—")} outside ${severity} range.`);
   }
   for (const issue of dataQuality.issues.slice(0, 4)){
     warnings.push(`Data quality: ${issue}.`);
@@ -475,6 +534,11 @@ export function computeModelGovernance({
   const topLearning = learning?.topSuggestion;
   if (topLearning?.label){
     warnings.push(`Calibration: ${String(topLearning.label)}.`);
+  }
+  const ageOpportunity = String(voterSignals?.ageSegmentation?.opportunityBucketLabel || "").trim();
+  const ageRisk = String(voterSignals?.ageSegmentation?.turnoutRiskBucketLabel || "").trim();
+  if (ageOpportunity || ageRisk){
+    warnings.push(`Age cohorts: opportunity ${ageOpportunity || "unknown"}; turnout risk ${ageRisk || "unknown"}.`);
   }
 
   return {
@@ -545,6 +609,10 @@ export function computeModelGovernance({
       voterRows: Math.max(0, toFiniteNumber(voterSignals?.totalRows) ?? 0),
       voterGeoCoverage: clamp(toFiniteNumber(voterSignals?.coverage?.geoCoverageRate) ?? 0, 0, 1),
       voterContactableRate: clamp(toFiniteNumber(voterSignals?.coverage?.contactableRate) ?? 0, 0, 1),
+      voterAgeCoverage: clamp(toFiniteNumber(voterSignals?.ageSegmentation?.knownAgeCoverageRate) ?? 0, 0, 1),
+      voterAgeSource: String(voterSignals?.ageSegmentation?.source || "unknown").trim(),
+      voterAgeOpportunityCohort: String(voterSignals?.ageSegmentation?.opportunityBucketLabel || "").trim(),
+      voterAgeTurnoutRiskCohort: String(voterSignals?.ageSegmentation?.turnoutRiskBucketLabel || "").trim(),
       turnoutExpectedPct: toFiniteNumber(res?.turnout?.expectedPct),
       winProb: toFiniteNumber(state?.mcLast?.winProb),
     },

@@ -342,6 +342,12 @@ function buildVoterArchiveSnapshot(stateLike = {}){
   const manifest = toObject(voterData?.manifest);
   const summary = toObject(voterData?.latestUniverseSummary);
   const ledger = toObject(voterData?.latestContactLedger);
+  const historyIntel = toObject(voterData?.latestHistoryIntelligence);
+  const frequencySegments = toObject(historyIntel?.frequencySegments);
+  const universes = toObject(historyIntel?.universes);
+  const ageSummary = toObject(historyIntel?.age);
+  const ageBucketCounts = toObject(historyIntel?.ageBucketCounts);
+  const ageBucketPercents = toObject(historyIntel?.ageBucketPercents);
   const rowCountFromSummary = safeNum(summary?.totalVoters);
   const rowCountFromLedger = safeNum(ledger?.totalRows);
   const rowCountFallback = Array.isArray(voterData?.rows) ? voterData.rows.length : 0;
@@ -371,6 +377,23 @@ function buildVoterArchiveSnapshot(stateLike = {}){
     recentContactRate: toUnitRatio(ledger?.recentlyContacted, rowCount),
     conversationRate: toUnitRatio(ledger?.totalConversations, ledger?.totalAttempts),
     supportIdentifiedRate: toUnitRatio(ledger?.supportIdentifiedCount, rowCount),
+    superVotersCount: safeNum(frequencySegments?.superVoters),
+    highFrequencyVotersCount: safeNum(frequencySegments?.highFrequencyVoters),
+    mediumFrequencyVotersCount: safeNum(frequencySegments?.mediumFrequencyVoters),
+    lowFrequencyVotersCount: safeNum(frequencySegments?.lowFrequencyVoters),
+    dropoffVotersCount: safeNum(frequencySegments?.dropoffVoters),
+    persuasionUniverseCount: safeNum(universes?.persuasionUniverse),
+    mobilizationUniverseCount: safeNum(universes?.mobilizationUniverse),
+    baseUniverseCount: safeNum(universes?.baseUniverse),
+    ignoreUniverseCount: safeNum(universes?.ignoreUniverse),
+    ageSource: cleanText(ageSummary?.source),
+    ageKnownCoverageRate: safeNum(ageSummary?.knownAgeCoverageRate),
+    ageOpportunityScore: safeNum(ageSummary?.opportunityScore),
+    ageTurnoutRiskScore: safeNum(ageSummary?.turnoutRiskScore),
+    ageOpportunityBucket: cleanText(ageSummary?.opportunityBucketLabel),
+    ageTurnoutRiskBucket: cleanText(ageSummary?.turnoutRiskBucketLabel),
+    ageBucketCounts: Object.keys(ageBucketCounts).length ? cloneArchivePayload(ageBucketCounts) : {},
+    ageBucketPercents: Object.keys(ageBucketPercents).length ? cloneArchivePayload(ageBucketPercents) : {},
   };
 }
 
@@ -822,6 +845,30 @@ export function buildForecastArchiveSelectedEntryView(entry){
       mappedToBlockGroup: safeNum(voter?.mappedToBlockGroup),
       geoCoverageRate: safeNum(voter?.geoCoverageRate),
       contactableRate: safeNum(voter?.contactableRate),
+      recentContactRate: safeNum(voter?.recentContactRate),
+      conversationRate: safeNum(voter?.conversationRate),
+      supportIdentifiedRate: safeNum(voter?.supportIdentifiedRate),
+      superVotersCount: safeNum(voter?.superVotersCount),
+      highFrequencyVotersCount: safeNum(voter?.highFrequencyVotersCount),
+      mediumFrequencyVotersCount: safeNum(voter?.mediumFrequencyVotersCount),
+      lowFrequencyVotersCount: safeNum(voter?.lowFrequencyVotersCount),
+      dropoffVotersCount: safeNum(voter?.dropoffVotersCount),
+      persuasionUniverseCount: safeNum(voter?.persuasionUniverseCount),
+      mobilizationUniverseCount: safeNum(voter?.mobilizationUniverseCount),
+      baseUniverseCount: safeNum(voter?.baseUniverseCount),
+      ignoreUniverseCount: safeNum(voter?.ignoreUniverseCount),
+      ageSource: cleanText(voter?.ageSource),
+      ageKnownCoverageRate: safeNum(voter?.ageKnownCoverageRate),
+      ageOpportunityScore: safeNum(voter?.ageOpportunityScore),
+      ageTurnoutRiskScore: safeNum(voter?.ageTurnoutRiskScore),
+      ageOpportunityBucket: cleanText(voter?.ageOpportunityBucket),
+      ageTurnoutRiskBucket: cleanText(voter?.ageTurnoutRiskBucket),
+      ageBucketCounts: voter?.ageBucketCounts && typeof voter.ageBucketCounts === "object"
+        ? cloneArchivePayload(voter.ageBucketCounts)
+        : {},
+      ageBucketPercents: voter?.ageBucketPercents && typeof voter.ageBucketPercents === "object"
+        ? cloneArchivePayload(voter.ageBucketPercents)
+        : {},
     },
     notes: cleanText(row?.notes),
   };
@@ -921,6 +968,12 @@ export function buildForecastArchiveEntry({ state = {}, renderCtx = null, snapsh
       contactRatePct: safeNum(s.contactRatePct),
       turnoutReliabilityPct: safeNum(s.turnoutReliabilityPct),
       bandWidth: safeNum(s.bandWidth),
+      ballotBaseline: {
+        candidateHistoryRecordCount: safeNum(res?.validation?.candidateHistory?.recordCount),
+        candidateHistoryCoverageBand: cleanText(res?.validation?.candidateHistory?.coverageBand),
+        candidateHistoryConfidenceBand: cleanText(res?.validation?.candidateHistory?.confidenceBand),
+        candidateHistoryYourVotesDelta: safeNum(res?.expected?.candidateHistoryImpact?.yourVotesDelta),
+      },
     },
     workforce: s?.ui?.twCapOutlookLatest?.workforce || {},
     governance: s?.ui?.lastGovernanceSnapshot && typeof s.ui.lastGovernanceSnapshot === "object"

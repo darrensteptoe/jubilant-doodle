@@ -1197,3 +1197,344 @@ export function buildDecisionIntelligencePanelView(rawDecisionIntel, options = {
     },
   };
 }
+
+function formatWarRoomIso(value){
+  if (!value){
+    return "—";
+  }
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())){
+    return "—";
+  }
+  return d.toISOString().replace("T", " ").replace(/\.\d{3}Z$/, "Z");
+}
+
+function toFiniteOrNull(value){
+  const n = Number(value);
+  return Number.isFinite(n) ? n : null;
+}
+
+/**
+ * Canonical review-baseline projection for War Room change tracking.
+ * Keeps baseline-shape and value extraction out of bridge/render layers.
+ * @param {{
+ *   diagnostics?: Record<string, any> | null,
+ *   voterSignals?: Record<string, any> | null,
+ *   recommendedOptionId?: string | null,
+ *   scenarioId?: string | null,
+ *   reviewedAt?: string | number | Date | null,
+ * }} input
+ */
+export function buildWarRoomReviewBaselineView({
+  diagnostics = null,
+  voterSignals = null,
+  recommendedOptionId = null,
+  scenarioId = null,
+  reviewedAt = null,
+} = {}){
+  const d = diagnostics && typeof diagnostics === "object" ? diagnostics : {};
+  const risk = d?.risk && typeof d.risk === "object" ? d.risk : {};
+  const bottleneck = d?.bottleneck && typeof d.bottleneck === "object" ? d.bottleneck : {};
+  const confidence = d?.confidence && typeof d.confidence === "object" ? d.confidence : {};
+  const exec = d?.exec && typeof d.exec === "object" ? d.exec : {};
+  const voter = voterSignals && typeof voterSignals === "object" ? voterSignals : {};
+  const age = voter?.ageSegmentation && typeof voter.ageSegmentation === "object" ? voter.ageSegmentation : {};
+
+  const reviewed = reviewedAt ? new Date(reviewedAt) : new Date();
+  const reviewedIso = Number.isNaN(reviewed.getTime()) ? new Date().toISOString() : reviewed.toISOString();
+
+  return {
+    reviewedAt: reviewedIso,
+    scenarioId: String(scenarioId || "").trim() || "",
+    recommendedOptionId: String(recommendedOptionId || "").trim() || "",
+    riskBand: String(risk?.band || "unknown").trim().toLowerCase() || "unknown",
+    riskTag: String(risk?.tag || "").trim() || "—",
+    bottleneckTag: String(bottleneck?.tag || "").trim() || "—",
+    confidenceTag: String(confidence?.tag || "").trim() || "—",
+    confidenceScore: toFiniteOrNull(confidence?.score),
+    winProb: toFiniteOrNull(risk?.winProb),
+    volatilityWidth: toFiniteOrNull(risk?.volatilityWidth),
+    paceStatus: String(exec?.paceStatus || "unknown").trim().toLowerCase() || "unknown",
+    slipDays: toFiniteOrNull(exec?.slipDays),
+    ageSource: String(age?.source || "unknown").trim().toLowerCase() || "unknown",
+    ageCoverageRate: toFiniteOrNull(age?.knownAgeCoverageRate),
+    ageOpportunityBucket: String(age?.opportunityBucketLabel || "unknown").trim().toLowerCase() || "unknown",
+    ageTurnoutRiskBucket: String(age?.turnoutRiskBucketLabel || "unknown").trim().toLowerCase() || "unknown",
+    ageOpportunityScore: toFiniteOrNull(age?.opportunityScore),
+    ageTurnoutRiskScore: toFiniteOrNull(age?.turnoutRiskScore),
+  };
+}
+
+/**
+ * Canonical War Room change classifier.
+ * Classifies deltas as noise / weak signal / strong signal / actionable shift.
+ * @param {{
+ *   previousBaseline?: Record<string, any> | null,
+ *   currentBaseline?: Record<string, any> | null,
+ * }} input
+ */
+export function buildWarRoomChangeClassificationView({
+  previousBaseline = null,
+  currentBaseline = null,
+} = {}){
+  const prev = previousBaseline && typeof previousBaseline === "object" ? previousBaseline : null;
+  const cur = currentBaseline && typeof currentBaseline === "object" ? currentBaseline : null;
+
+  if (!cur){
+    return {
+      classification: "noise",
+      significance: "low",
+      actionability: "watch",
+      score: 0,
+      changedSinceReview: false,
+      summary: "War Room baseline unavailable.",
+      topDrivers: Object.freeze(["Capture a review baseline to enable signal classification."]),
+      deltas: {
+        winProbPts: null,
+        winProbText: "—",
+        confidenceDelta: null,
+        confidenceDeltaText: "—",
+        volatilityDelta: null,
+        volatilityDeltaText: "—",
+        ageOpportunityDelta: null,
+        ageOpportunityDeltaText: "—",
+        ageTurnoutRiskDelta: null,
+        ageTurnoutRiskDeltaText: "—",
+        riskBandChanged: false,
+        bottleneckChanged: false,
+        paceChanged: false,
+        recommendationChanged: false,
+        ageOpportunityChanged: false,
+        ageTurnoutRiskChanged: false,
+      },
+    };
+  }
+
+  if (!prev){
+    return {
+      classification: "weak signal",
+      significance: "medium",
+      actionability: "capture-baseline",
+      score: 2,
+      changedSinceReview: false,
+      summary: "No prior review baseline. Capture this state as the first comparison point.",
+      topDrivers: Object.freeze([
+        "Initial War Room review has no prior checkpoint.",
+        "Capture baseline now, then classify future movement as signal or noise.",
+      ]),
+      deltas: {
+        winProbPts: null,
+        winProbText: "—",
+        confidenceDelta: null,
+        confidenceDeltaText: "—",
+        volatilityDelta: null,
+        volatilityDeltaText: "—",
+        ageOpportunityDelta: null,
+        ageOpportunityDeltaText: "—",
+        ageTurnoutRiskDelta: null,
+        ageTurnoutRiskDeltaText: "—",
+        riskBandChanged: false,
+        bottleneckChanged: false,
+        paceChanged: false,
+        recommendationChanged: false,
+        ageOpportunityChanged: false,
+        ageTurnoutRiskChanged: false,
+      },
+    };
+  }
+
+  const winProbPts = (
+    cur.winProb == null || prev.winProb == null
+      ? null
+      : ((Number(cur.winProb) - Number(prev.winProb)) * 100)
+  );
+  const confidenceDelta = (
+    cur.confidenceScore == null || prev.confidenceScore == null
+      ? null
+      : (Number(cur.confidenceScore) - Number(prev.confidenceScore))
+  );
+  const volatilityDelta = (
+    cur.volatilityWidth == null || prev.volatilityWidth == null
+      ? null
+      : (Number(cur.volatilityWidth) - Number(prev.volatilityWidth))
+  );
+  const ageOpportunityDelta = (
+    cur.ageOpportunityScore == null || prev.ageOpportunityScore == null
+      ? null
+      : (Number(cur.ageOpportunityScore) - Number(prev.ageOpportunityScore))
+  );
+  const ageTurnoutRiskDelta = (
+    cur.ageTurnoutRiskScore == null || prev.ageTurnoutRiskScore == null
+      ? null
+      : (Number(cur.ageTurnoutRiskScore) - Number(prev.ageTurnoutRiskScore))
+  );
+
+  const riskBandChanged = String(cur.riskBand || "") !== String(prev.riskBand || "");
+  const bottleneckChanged = String(cur.bottleneckTag || "") !== String(prev.bottleneckTag || "");
+  const paceChanged = String(cur.paceStatus || "") !== String(prev.paceStatus || "");
+  const recommendationChanged = String(cur.recommendedOptionId || "") !== String(prev.recommendedOptionId || "");
+  const ageOpportunityChanged = String(cur.ageOpportunityBucket || "") !== String(prev.ageOpportunityBucket || "");
+  const ageTurnoutRiskChanged = String(cur.ageTurnoutRiskBucket || "") !== String(prev.ageTurnoutRiskBucket || "");
+
+  const absWinProbPts = winProbPts == null ? 0 : Math.abs(winProbPts);
+  const absConfidenceDelta = confidenceDelta == null ? 0 : Math.abs(confidenceDelta);
+  const absVolatilityDelta = volatilityDelta == null ? 0 : Math.abs(volatilityDelta);
+  const absAgeOpportunityDelta = ageOpportunityDelta == null ? 0 : Math.abs(ageOpportunityDelta);
+  const absAgeTurnoutRiskDelta = ageTurnoutRiskDelta == null ? 0 : Math.abs(ageTurnoutRiskDelta);
+
+  let score = 0;
+  if (absWinProbPts >= 4) score += 3;
+  else if (absWinProbPts >= 2) score += 2;
+  else if (absWinProbPts >= 1) score += 1;
+
+  if (absConfidenceDelta >= 20) score += 3;
+  else if (absConfidenceDelta >= 10) score += 2;
+  else if (absConfidenceDelta >= 5) score += 1;
+
+  if (absVolatilityDelta >= 6) score += 2;
+  else if (absVolatilityDelta >= 3) score += 1;
+  if (absAgeOpportunityDelta >= 0.10) score += 2;
+  else if (absAgeOpportunityDelta >= 0.05) score += 1;
+  if (absAgeTurnoutRiskDelta >= 0.10) score += 2;
+  else if (absAgeTurnoutRiskDelta >= 0.05) score += 1;
+
+  if (riskBandChanged) score += 2;
+  if (bottleneckChanged) score += 2;
+  if (paceChanged) score += 1;
+  if (recommendationChanged) score += 1;
+  if (ageOpportunityChanged) score += 1;
+  if (ageTurnoutRiskChanged) score += 1;
+
+  const topDrivers = [];
+  if (absWinProbPts >= 1){
+    const signed = formatSignedPointsFromUnit((winProbPts || 0) / 100, 1);
+    topDrivers.push(`Win probability moved ${signed} since last review.`);
+  }
+  if (riskBandChanged){
+    topDrivers.push(`Risk band changed: ${prev.riskBand || "unknown"} -> ${cur.riskBand || "unknown"}.`);
+  }
+  if (bottleneckChanged){
+    topDrivers.push(`Primary constraint posture shifted: ${prev.bottleneckTag || "—"} -> ${cur.bottleneckTag || "—"}.`);
+  }
+  if (paceChanged){
+    topDrivers.push(`Execution pace class changed: ${prev.paceStatus || "unknown"} -> ${cur.paceStatus || "unknown"}.`);
+  }
+  if (absConfidenceDelta >= 5){
+    const sign = confidenceDelta > 0 ? "+" : "";
+    topDrivers.push(`Confidence score moved ${sign}${formatFixedNumber(confidenceDelta, 1)} points.`);
+  }
+  if (ageTurnoutRiskChanged){
+    topDrivers.push(`Age turnout-risk cohort changed: ${prev.ageTurnoutRiskBucket || "unknown"} -> ${cur.ageTurnoutRiskBucket || "unknown"}.`);
+  }
+  if (ageOpportunityChanged){
+    topDrivers.push(`Age opportunity cohort changed: ${prev.ageOpportunityBucket || "unknown"} -> ${cur.ageOpportunityBucket || "unknown"}.`);
+  }
+  if (absAgeTurnoutRiskDelta >= 0.05){
+    topDrivers.push(`Age turnout-risk score moved ${formatSignedPointsFromUnit(ageTurnoutRiskDelta || 0, 1)}.`);
+  }
+  if (absAgeOpportunityDelta >= 0.05){
+    topDrivers.push(`Age opportunity score moved ${formatSignedPointsFromUnit(ageOpportunityDelta || 0, 1)}.`);
+  }
+  if (recommendationChanged){
+    topDrivers.push("Recommended option changed since last review.");
+  }
+  if (!topDrivers.length){
+    topDrivers.push("No material driver movement since last review.");
+  }
+
+  let classification = "noise";
+  let significance = "low";
+  let actionability = "watch";
+  if (score <= 1){
+    classification = "noise";
+    significance = "low";
+    actionability = "watch";
+  } else if (score <= 3){
+    classification = "weak signal";
+    significance = "medium";
+    actionability = "watch";
+  } else if (score <= 6){
+    classification = "strong signal";
+    significance = "high";
+    actionability = "decide";
+  } else {
+    classification = "actionable shift";
+    significance = "critical";
+    actionability = "act-now";
+  }
+
+  const changedSinceReview = score > 0;
+  const summary = changedSinceReview
+    ? `Classified as ${classification}; significance ${significance}.`
+    : "No material change since last review (noise).";
+
+  const winProbText = winProbPts == null
+    ? "—"
+    : `${winProbPts > 0 ? "+" : ""}${formatFixedNumber(winProbPts, 1)} pts`;
+  const confidenceDeltaText = confidenceDelta == null
+    ? "—"
+    : `${confidenceDelta > 0 ? "+" : ""}${formatFixedNumber(confidenceDelta, 1)}`;
+  const volatilityDeltaText = volatilityDelta == null
+    ? "—"
+    : `${volatilityDelta > 0 ? "+" : ""}${formatFixedNumber(volatilityDelta, 1)} pts`;
+  const ageOpportunityDeltaText = ageOpportunityDelta == null
+    ? "—"
+    : formatSignedPointsFromUnit(ageOpportunityDelta, 1);
+  const ageTurnoutRiskDeltaText = ageTurnoutRiskDelta == null
+    ? "—"
+    : formatSignedPointsFromUnit(ageTurnoutRiskDelta, 1);
+
+  return {
+    classification,
+    significance,
+    actionability,
+    score,
+    changedSinceReview,
+    summary,
+    topDrivers: Object.freeze(topDrivers.slice(0, 6)),
+    deltas: {
+      winProbPts,
+      winProbText,
+      confidenceDelta,
+      confidenceDeltaText,
+      volatilityDelta,
+      volatilityDeltaText,
+      ageOpportunityDelta,
+      ageOpportunityDeltaText,
+      ageTurnoutRiskDelta,
+      ageTurnoutRiskDeltaText,
+      riskBandChanged,
+      bottleneckChanged,
+      paceChanged,
+      recommendationChanged,
+      ageOpportunityChanged,
+      ageTurnoutRiskChanged,
+    },
+  };
+}
+
+/**
+ * Canonical War Room decision-log row projection for render/export surfaces.
+ * @param {unknown[]} rows
+ */
+export function buildWarRoomDecisionLogRowsView(rows = []){
+  const list = Array.isArray(rows) ? rows : [];
+  return list.map((row) => {
+    const src = row && typeof row === "object" ? row : {};
+    return {
+      id: String(src?.id || "").trim(),
+      recordedAt: String(src?.recordedAt || "").trim(),
+      recordedAtText: formatWarRoomIso(src?.recordedAt),
+      classification: String(src?.classification || "").trim() || "—",
+      significance: String(src?.significance || "").trim() || "—",
+      actionability: String(src?.actionability || "").trim() || "—",
+      owner: String(src?.owner || "").trim() || "—",
+      followUpDate: String(src?.followUpDate || "").trim() || "—",
+      summary: String(src?.summary || "").trim() || "—",
+      status: String(src?.status || "").trim() || "open",
+      topDrivers: Array.isArray(src?.topDrivers)
+        ? src.topDrivers.map((value) => String(value || "").trim()).filter(Boolean)
+        : [],
+    };
+  });
+}

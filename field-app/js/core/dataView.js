@@ -331,6 +331,10 @@ export function buildDataArchiveSelectedSnapshotView(selectedEntry){
     voterSource,
     voterGeoCoverage: formatDataRatePercent(voter?.geoCoverageRate, { max: 1, digits: 0 }),
     voterContactableRate: formatDataRatePercent(voter?.contactableRate, { max: 1, digits: 0 }),
+    voterAgeCoverage: formatDataRatePercent(voter?.ageKnownCoverageRate, { max: 1, digits: 0 }),
+    voterAgeSource: cleanText(voter?.ageSource) || "unknown",
+    voterAgeOpportunity: cleanText(voter?.ageOpportunityBucket) || "unknown",
+    voterAgeTurnoutRisk: cleanText(voter?.ageTurnoutRiskBucket) || "unknown",
     governanceConfidence: formatStatusWithScoreOutOfHundred(governance?.confidenceBand, governance?.confidenceScore, 1),
     governanceExecution: formatStatusWithScoreOutOfHundred(governance?.executionStatus, governance?.executionScore, 0),
     governanceUpliftSource: formatUpliftSourceLabel(governance?.executionUpliftSource, { unknownLabel: "—" }),
@@ -354,6 +358,10 @@ export function buildDataArchiveSelectedSnapshotView(selectedEntry){
  *   contactableRate: string,
  *   recentContactRate: string,
  *   conversationRate: string,
+ *   ageCoverage: string,
+ *   ageSource: string,
+ *   ageOpportunity: string,
+ *   ageTurnoutRisk: string,
  * }}
  */
 export function buildDataVoterLayerSnapshotView(voterLayer){
@@ -369,6 +377,10 @@ export function buildDataVoterLayerSnapshotView(voterLayer){
     contactableRate: formatDataRatePercent(src?.contactableRate, { max: 1, digits: 0 }),
     recentContactRate: formatDataRatePercent(src?.recentContactRate, { max: 1, digits: 0 }),
     conversationRate: formatDataRatePercent(src?.conversationRate, { max: 1, digits: 0 }),
+    ageCoverage: formatDataRatePercent(src?.ageCoverageRate, { max: 1, digits: 0 }),
+    ageSource: cleanText(src?.ageSource) || "unknown",
+    ageOpportunity: cleanText(src?.ageOpportunityBucket) || "unknown",
+    ageTurnoutRisk: cleanText(src?.ageTurnoutRiskBucket) || "unknown",
   };
 }
 
@@ -443,6 +455,7 @@ export function buildDataArchiveLearningView(learningLoop){
  *   voterRows: string,
  *   voterGeoCoverage: string,
  *   voterContactableRate: string,
+ *   voterAgeCoverage: string,
  * }}
  */
 export function buildDataArchiveLearningSignalsView(learningLoop){
@@ -452,6 +465,7 @@ export function buildDataArchiveLearningSignalsView(learningLoop){
     voterRows: formatDataArchiveCount(signals?.voterRows),
     voterGeoCoverage: formatDataRatePercent(signals?.voterGeoCoverageRate, { max: 1, digits: 0 }),
     voterContactableRate: formatDataRatePercent(signals?.voterContactableRate, { max: 1, digits: 0 }),
+    voterAgeCoverage: formatDataRatePercent(signals?.voterAgeCoverageRate, { max: 1, digits: 0 }),
   };
 }
 

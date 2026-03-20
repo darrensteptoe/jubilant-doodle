@@ -39,7 +39,24 @@ export interface ModelInputCandidate {
   supportPct: NullableNumber;
 }
 
+export interface ModelInputCandidateHistoryRecord {
+  recordId: string;
+  office: string;
+  cycleYear: number | null;
+  electionType: string;
+  candidateName: string;
+  party: string;
+  incumbencyStatus: string;
+  voteShare: NullableNumber;
+  margin: NullableNumber;
+  turnoutContext: NullableNumber;
+  repeatCandidate: boolean;
+  overUnderPerformancePct: NullableNumber;
+}
+
 export interface ModelInput {
+  office?: string;
+  electionType?: string;
   universeSize: NullableNumber;
   turnoutA: NullableNumber;
   turnoutB: NullableNumber;
@@ -49,6 +66,7 @@ export interface ModelInput {
   yourCandidateId: string;
   undecidedMode: string;
   userSplit: Record<string, unknown>;
+  candidateHistory?: ModelInputCandidateHistoryRecord[];
   persuasionPct: NullableNumber;
   earlyVoteExp: NullableNumber;
 }

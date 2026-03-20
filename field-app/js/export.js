@@ -358,6 +358,23 @@ export function planRowsToCsv(snapshot){
 export function formatSummaryText(snapshot){
   const s = snapshot?.summary || {};
   const governance = snapshot?.governance || buildGovernanceSummary(snapshot?.scenarioState || snapshot?.scenario);
+  const candidateHistoryRows = Array.isArray(snapshot?.scenarioState?.candidateHistory)
+    ? snapshot.scenarioState.candidateHistory
+    : (Array.isArray(snapshot?.scenario?.candidateHistory) ? snapshot.scenario.candidateHistory : []);
+  const voterData = (snapshot?.scenarioState?.voterData && typeof snapshot.scenarioState.voterData === "object")
+    ? snapshot.scenarioState.voterData
+    : ((snapshot?.scenario?.voterData && typeof snapshot.scenario.voterData === "object") ? snapshot.scenario.voterData : {});
+  const historyIntel = (voterData?.latestHistoryIntelligence && typeof voterData.latestHistoryIntelligence === "object")
+    ? voterData.latestHistoryIntelligence
+    : {};
+  const age = (historyIntel?.age && typeof historyIntel.age === "object") ? historyIntel.age : {};
+  const frequency = (historyIntel?.frequencySegments && typeof historyIntel.frequencySegments === "object")
+    ? historyIntel.frequencySegments
+    : {};
+  const toFinite = (value) => {
+    const n = Number(value);
+    return Number.isFinite(n) ? n : null;
+  };
   const lines = [];
   if (snapshot?.schemaVersion){
     lines.push(`Schema version: ${snapshot.schemaVersion}`);
@@ -370,6 +387,25 @@ export function formatSummaryText(snapshot){
     lines.push(`Snapshot hash: ${snapshot.snapshotHash}`);
   }
   lines.push(`Primary bottleneck: ${s.primaryBottleneck ?? "—"}`);
+  if (candidateHistoryRows.length){
+    lines.push(`Ballot baseline candidate-history rows: ${candidateHistoryRows.length}`);
+  }
+  const ageSource = cleanString(age?.source || "unknown");
+  if (ageSource && ageSource !== "unknown"){
+    const ageCoverageRate = toFinite(age?.knownAgeCoverageRate);
+    const ageCoverageText = ageCoverageRate == null ? "—" : cleanString(age?.knownAgeCoverageRate);
+    lines.push(`Age segmentation source: ${ageSource} (coverage ${ageCoverageText})`);
+    lines.push(`Age opportunity/risk cohorts: ${cleanString(age?.opportunityBucketLabel || "unknown")} / ${cleanString(age?.turnoutRiskBucketLabel || "unknown")}`);
+  }
+  const superVoters = toFinite(frequency?.superVoters);
+  const highFrequencyVoters = toFinite(frequency?.highFrequencyVoters);
+  const lowFrequencyVoters = toFinite(frequency?.lowFrequencyVoters);
+  const dropoffVoters = toFinite(frequency?.dropoffVoters);
+  if ([superVoters, highFrequencyVoters, lowFrequencyVoters, dropoffVoters].some((value) => value != null)){
+    lines.push(
+      `Voter-history segments: super ${superVoters ?? "—"}, high ${highFrequencyVoters ?? "—"}, low ${lowFrequencyVoters ?? "—"}, dropoff ${dropoffVoters ?? "—"}.`
+    );
+  }
   if (governance?.available){
     lines.push(`Governance lock: ${governance?.workflow?.scenarioLocked ? "ON" : "OFF"}`);
     lines.push(`Governance missing evidence: ${governance?.missing?.evidence ?? 0}`);

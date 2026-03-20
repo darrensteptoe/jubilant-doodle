@@ -80,16 +80,41 @@ function workforceShares(workforce){
   };
 }
 
+function resolveRoleProductivity(workforce){
+  const w = workforce && typeof workforce === "object" ? workforce : {};
+  const paid = clamp(
+    safeNum(w.paidRoleMultiplier) ?? safeNum(w.paidCanvasserProductivity) ?? 1,
+    0.6,
+    1.4,
+  );
+  const volunteer = clamp(
+    safeNum(w.volunteerRoleMultiplier) ?? safeNum(w.volunteerProductivity) ?? 1,
+    0.45,
+    1.4,
+  );
+  const capacity = clamp(
+    safeNum(w.roleCapacityMultiplier) ?? 1,
+    0.6,
+    1.35,
+  );
+  return { paid, volunteer, capacity };
+}
+
 export function resolveChannelCostAssumption(channelId, { tactic = {}, workforce = null } = {}){
   const key = String(channelId || "").trim();
   const registry = CHANNEL_COST_REGISTRY[key] || CHANNEL_COST_REGISTRY.doors;
   const shares = workforceShares(workforce);
+  const roleProductivity = resolveRoleProductivity(workforce);
   const laborProductivity = registry.laborProductivity || { paid: 1, volunteer: 1 };
+  const paidLabor = (safeNum(laborProductivity.paid) ?? 1) * roleProductivity.paid;
+  const volunteerLabor = (safeNum(laborProductivity.volunteer) ?? 1) * roleProductivity.volunteer;
   const laborMultiplier = clamp(
-    (shares.paidShare * (safeNum(laborProductivity.paid) ?? 1)) +
-    (shares.volunteerShare * (safeNum(laborProductivity.volunteer) ?? 1)),
-    0.6,
-    1.2,
+    (
+      (shares.paidShare * paidLabor) +
+      (shares.volunteerShare * volunteerLabor)
+    ) * roleProductivity.capacity,
+    0.5,
+    1.35,
   );
 
   const explicitCost = safeNum(tactic?.cpa);
@@ -108,6 +133,11 @@ export function resolveChannelCostAssumption(channelId, { tactic = {}, workforce
     expectedLiftType: String(tactic?.kind || registry.expectedLiftType || "persuasion"),
     laborDependency: registry.laborDependency || "mixed",
     laborMultiplier,
+    roleProductivityApplied: {
+      paid: roleProductivity.paid,
+      volunteer: roleProductivity.volunteer,
+      capacity: roleProductivity.capacity,
+    },
     costPerAttempt,
     contactRate,
     costPerContact,

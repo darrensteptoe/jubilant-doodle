@@ -7,12 +7,30 @@ import {
   normalizeTargetingState,
   runTargetRanking,
 } from "../../app/targetingRuntime.js";
-import { resolveCanonicalWeightProfile } from "../targetFeatureEngine.js";
+import {
+  MASTER_TARGETING_LAW_VERSION,
+  buildCanonicalTargetFeatures,
+  computeMasterTargetingEquation,
+  resolveCanonicalWeightProfile,
+  scoreCanonicalTarget,
+} from "../targetFeatureEngine.js";
+import {
+  applyCandidateHistorySupportAdjustments,
+  deriveCandidateHistoryBaseline,
+} from "../candidateHistoryBaseline.js";
+import { buildModelInputFromSnapshot } from "../modelInput.js";
+import { computeDeterministic } from "../model.js";
 import {
   deriveTargetSignalsForRow,
   listTargetModels,
   scoreTargetRow,
 } from "../targetModels.js";
+import {
+  REQUIRED_MODEL_IDS,
+  getModelDefinition,
+  listModelDefinitions,
+  verifyModelCoverage,
+} from "../../app/modelRegistry.js";
 
 function baseState(){
   return {
@@ -129,6 +147,198 @@ export function registerTargetingTests(ctx){
     assert(ids.has("field_efficiency"), "missing field_efficiency model");
     assert(ids.has("house_v1"), "missing house_v1 model");
     assert(models.length >= 4, "expected at least 4 target models");
+  });
+
+  test("Phase 20: canonical model registry covers required model ids", () => {
+    const coverage = verifyModelCoverage();
+    assert(Array.isArray(coverage?.missingRequired), "coverage response missing required list");
+    assert(coverage.missingRequired.length === 0, `missing required model ids: ${coverage.missingRequired.join(", ")}`);
+    for (const id of REQUIRED_MODEL_IDS){
+      const row = getModelDefinition(id);
+      assert(!!row, `model registry missing ${id}`);
+    }
+  });
+
+  test("Phase 20: model registry entries map to canonical owner metadata", () => {
+    const models = listModelDefinitions();
+    const allowed = new Set(["implemented", "partiallyImplemented", "planned", "absorbed"]);
+    assert(models.length >= REQUIRED_MODEL_IDS.length, "registry row count should cover required model IDs");
+    for (const row of models){
+      const id = String(row?.id || "");
+      assert(id.length > 0, "registry row missing id");
+      assert(String(row?.displayName || "").length > 0, `registry row ${id} missing displayName`);
+      assert(String(row?.purpose || "").length > 0, `registry row ${id} missing purpose`);
+      assert(String(row?.formulaLabel || "").length > 0, `registry row ${id} missing formulaLabel`);
+      assert(allowed.has(String(row?.status || "")), `registry row ${id} has invalid status`);
+      if (String(row?.status) !== "planned"){
+        assert(String(row?.canonicalImplementation?.module || "").length > 0, `registry row ${id} missing canonical implementation module`);
+      }
+    }
+  });
+
+  test("Phase 21: canonical features use support-centered persuasion multiplier", () => {
+    const features = buildCanonicalTargetFeatures({
+      components: {
+        votePotential: 0.62,
+        turnoutOpportunity: 0.48,
+        persuasionIndex: 0.70,
+        fieldEfficiency: 0.51,
+      },
+      rawSignals: {},
+      state: {
+        supportRatePct: 80,
+        contactRatePct: 24,
+        turnoutReliabilityPct: 79,
+      },
+      config: {},
+    });
+    const expectedMultiplier = 1 - (2 * Math.abs(0.5 - 0.8));
+    const expectedAdjusted = 0.70 * expectedMultiplier;
+    assert(Math.abs(Number(features?.supportScore) - 0.8) < 1e-9, "supportScore should resolve from canonical support rate");
+    assert(Math.abs(Number(features?.persuasionMultiplier) - expectedMultiplier) < 1e-9, "persuasion multiplier should use canonical support-centered law");
+    assert(Math.abs(Number(features?.adjustedPersuasion) - expectedAdjusted) < 1e-9, "adjusted persuasion should multiply persuasion index by canonical multiplier");
+  });
+
+  test("Phase 21: master targeting equation computes canonical score stack", () => {
+    const weights = resolveCanonicalWeightProfile({
+      profileId: "house_v1",
+      customWeights: {
+        votePotential: 0.4,
+        turnoutOpportunity: 0.2,
+        persuasionIndex: 0.2,
+        fieldEfficiency: 0.1,
+        networkValue: 0.1,
+      },
+    });
+    const features = {
+      votePotential: 0.7,
+      turnoutOpportunity: 0.5,
+      adjustedPersuasion: 0.28,
+      fieldEfficiency: 0.6,
+      networkValue: 0.1,
+      contactProbability: 0.4,
+      geographicMultiplier: 1.1,
+      saturationMultiplier: 0.9,
+    };
+    const scored = computeMasterTargetingEquation({
+      features,
+      weightProfile: weights,
+      expectedVotesReachable: 0.5,
+      costPerContact: 2,
+    });
+
+    const expectedBase = ((0.7 * 0.4) + (0.5 * 0.2) + (0.28 * 0.2) + (0.6 * 0.1) + (0.1 * 0.1)) * 100;
+    const expectedTarget = expectedBase * 0.4 * 1.1 * 0.9;
+    const expectedNet = (expectedTarget * 0.5) / 2;
+
+    assert(Math.abs(Number(scored?.baseScore) - expectedBase) < 1e-9, "base score should follow locked canonical weighted terms");
+    assert(Math.abs(Number(scored?.targetScore) - expectedTarget) < 1e-9, "target score should multiply base by contact/geography/saturation");
+    assert(Math.abs(Number(scored?.expectedNetVoteValue) - expectedNet) < 1e-9, "expected net vote value should divide by cost per contact");
+  });
+
+  test("Phase 21: scoreCanonicalTarget reports locked targeting law version", () => {
+    const scored = scoreCanonicalTarget({
+      features: {
+        votePotential: 0.6,
+        turnoutOpportunity: 0.5,
+        adjustedPersuasion: 0.4,
+        fieldEfficiency: 0.55,
+        networkValue: 0.2,
+        contactProbability: 0.3,
+        geographicMultiplier: 1.0,
+        saturationMultiplier: 1.0,
+        expectedVotesReachable: 0.45,
+        costPerContact: 1.5,
+      },
+      state: {},
+      profileId: "house_v1",
+      customWeights: null,
+    });
+    assert(String(scored?.targetingLawVersion || "") === MASTER_TARGETING_LAW_VERSION, "target scoring should publish canonical law version");
+    assert(Number.isFinite(Number(scored?.scores?.expectedVotesReachable)), "target scoring should expose expectedVotesReachable");
+    assert(Number.isFinite(Number(scored?.scores?.costPerContact)), "target scoring should expose costPerContact");
+  });
+
+  test("Phase 21.25: candidate-history baseline derives deterministic support adjustments", () => {
+    const baseline = deriveCandidateHistoryBaseline({
+      records: [
+        {
+          recordId: "h1",
+          office: "IL-HD-10",
+          cycleYear: 2022,
+          electionType: "general",
+          candidateName: "Candidate A",
+          party: "DEM",
+          incumbencyStatus: "incumbent",
+          voteShare: 52.1,
+          margin: 4.2,
+          turnoutContext: 49.8,
+          repeatCandidate: true,
+          overUnderPerformancePct: 2.8,
+        },
+      ],
+      candidates: [
+        { id: "cand_a", name: "Candidate A", supportPct: 45 },
+        { id: "cand_b", name: "Candidate B", supportPct: 45 },
+      ],
+      yourCandidateId: "cand_a",
+      office: "IL-HD-10",
+      electionType: "general",
+      nowYear: 2026,
+    });
+    assert(Number(baseline.recordCount) === 1, "candidate-history baseline should keep record count");
+    assert(String(baseline.confidenceBand || "") === "medium", "single complete history row should provide medium confidence");
+    assert(Number(baseline?.adjustmentsByCandidateId?.cand_a || 0) > 0, "incumbent repeat row should apply positive support delta");
+
+    const adjusted = applyCandidateHistorySupportAdjustments([
+      { id: "cand_a", name: "Candidate A", supportPct: 45 },
+      { id: "cand_b", name: "Candidate B", supportPct: 45 },
+    ], baseline.adjustmentsByCandidateId);
+    const adjustedA = adjusted?.adjustedCandidates?.find((row) => String(row?.id || "") === "cand_a");
+    const adjustedB = adjusted?.adjustedCandidates?.find((row) => String(row?.id || "") === "cand_b");
+    assert(Number(adjustedA?.supportPct || 0) > Number(adjustedB?.supportPct || 0), "support shift should favor candidate with positive history");
+  });
+
+  test("Phase 21.25: deterministic forecast consumes candidate-history baseline without parallel engine", () => {
+    const snapshot = {
+      officeId: "IL-HD-10",
+      templateMeta: { electionType: "general" },
+      universeSize: 100000,
+      turnoutA: 50,
+      turnoutB: 50,
+      bandWidth: 4,
+      candidates: [
+        { id: "cand_a", name: "Candidate A", supportPct: 45 },
+        { id: "cand_b", name: "Candidate B", supportPct: 45 },
+      ],
+      undecidedPct: 10,
+      undecidedMode: "proportional",
+      yourCandidateId: "cand_a",
+      persuasionPct: 20,
+      candidateHistory: [
+        {
+          recordId: "h1",
+          office: "IL-HD-10",
+          cycleYear: 2022,
+          electionType: "general",
+          candidateName: "Candidate A",
+          party: "DEM",
+          incumbencyStatus: "incumbent",
+          voteShare: 52.1,
+          margin: 4.2,
+          turnoutContext: 49.8,
+          repeatCandidate: true,
+          overUnderPerformancePct: 2.8,
+        },
+      ],
+    };
+    const modelInput = buildModelInputFromSnapshot(snapshot);
+    const res = computeDeterministic(modelInput);
+    const impact = res?.expected?.candidateHistoryImpact || null;
+    assert(impact && typeof impact === "object", "expected candidateHistoryImpact payload missing");
+    assert(impact.enabled === true, "candidateHistoryImpact should be enabled when records exist");
+    assert(Number(impact.yourVotesDelta || 0) !== 0, "candidate history should shift projected votes when confidence permits");
+    assert(Number(res?.validation?.candidateHistory?.recordCount || 0) === 1, "validation should expose candidate-history record count");
   });
 
   test("Targeting: preset options include named campaign profiles and apply mapped defaults", () => {

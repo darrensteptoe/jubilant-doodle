@@ -97,6 +97,15 @@ import {
   toOperationsStoreOptionsFromState,
 } from "../../features/operations/context.js";
 import {
+  makeCampaignContextScopeKey,
+  makeCampaignStoragePath,
+  validateCampaignContext,
+} from "../campaignContextManager.js";
+import { resolveIntelligencePayload } from "../../app/intelligenceResolver.js";
+import { getGlossaryTerm, normalizeGlossaryTermId } from "../../app/glossaryRegistry.js";
+import { getMessageDefinition, normalizeMessageId } from "../../app/messageRegistry.js";
+import { INTEL_SELECT_OPTION_MESSAGE_MAP, INTEL_WARNING_MESSAGE_BY_ID } from "../../app/intelligenceInteractions.js";
+import {
   operationsAddDaysUTC,
   operationsClampNumber,
   operationsCombineDateAndTimeIso,
@@ -5365,6 +5374,117 @@ export function registerRebuildContractTests(ctx){
     return true;
   });
 
+  test("Rebuild contracts: campaign context manager emits canonical scope keys and storage paths", () => {
+    const context = {
+      campaignId: "IL HD 21",
+      officeId: "West Field",
+      scenarioId: "Baseline Plan",
+    };
+    const key = makeCampaignContextScopeKey(context, { includeScenario: true });
+    assert(key === "il-hd-21::west-field::baseline-plan", "campaign context key should normalize campaign/office/scenario");
+    const statePath = makeCampaignStoragePath(context, {
+      module: "state",
+      key: "snapshot-v1",
+      includeScenario: true,
+    });
+    assert(
+      statePath === "fpe/il-hd-21/west-field/state/scenario/baseline-plan/snapshot-v1",
+      "campaign storage path should follow canonical fpe/{campaign}/{office}/{module}/{key} pattern",
+    );
+    const validation = validateCampaignContext(context, { requireOffice: true, requireScenario: true });
+    assert(validation.ok === true, "context with campaign+office+scenario should validate");
+    return true;
+  });
+
+  test("Rebuild contracts: intelligence resolver supports module/glossary/message/search modes", () => {
+    const context = {
+      campaignId: "il-hd-21",
+      campaignName: "IL HD 21",
+      officeId: "west",
+      scenarioId: "baseline",
+      stageId: "district",
+    };
+
+    const modulePayload = resolveIntelligencePayload({
+      mode: "module",
+      moduleId: "targetingLab",
+      context,
+    });
+    assert(modulePayload.mode === "module", "module payload mode mismatch");
+    assert(modulePayload.title === "Targeting Lab", "module payload title mismatch");
+    assert(Array.isArray(modulePayload.sections) && modulePayload.sections.length > 0, "module payload should include doctrine sections");
+
+    const glossaryPayload = resolveIntelligencePayload({
+      mode: "glossary",
+      termId: "variance",
+      context,
+    });
+    assert(glossaryPayload.mode === "glossary", "glossary payload mode mismatch");
+    assert(glossaryPayload.title === "Variance", "glossary payload title mismatch");
+
+    const glossaryAliasPayload = resolveIntelligencePayload({
+      mode: "glossary",
+      termId: "contact probability",
+      context,
+    });
+    assert(glossaryAliasPayload.title === "Contact Probability", "glossary alias resolution should map canonical term labels");
+
+    const messagePayload = resolveIntelligencePayload({
+      mode: "message",
+      messageId: "contextMissing",
+      context,
+    });
+    assert(messagePayload.mode === "message", "message payload mode mismatch");
+    assert(/Context Missing/i.test(String(messagePayload.title || "")), "message payload title mismatch");
+
+    const messageAliasPayload = resolveIntelligencePayload({
+      mode: "message",
+      messageId: "strict import",
+      context,
+    });
+    assert(/Strict Import/i.test(String(messageAliasPayload.title || "")), "message alias resolution should map canonical message labels");
+
+    const searchPayload = resolveIntelligencePayload({
+      mode: "search",
+      query: "variance",
+      context,
+    });
+    assert(searchPayload.mode === "search", "search payload mode mismatch");
+    assert(Array.isArray(searchPayload.results) && searchPayload.results.length > 0, "search mode should return at least one match for variance");
+    return true;
+  });
+
+  test("Rebuild contracts: glossary/message registries normalize aliases deterministically", () => {
+    assert(
+      normalizeGlossaryTermId("contact probability") === "contactProbability",
+      "glossary alias should normalize to canonical id",
+    );
+    const lowProp = getGlossaryTerm("low-propensity voters");
+    assert(lowProp?.id === "lowPropensityVoters", "glossary hyphenated alias should resolve canonical term");
+    assert(normalizeMessageId("Undecided Mode: User Defined") === "undecidedModeUserDefined", "message title alias should normalize canonical id");
+    const overrideRamp = getMessageDefinition("override ramp");
+    assert(overrideRamp?.id === "capacityOverrideRamp", "message alias should resolve canonical option message");
+    return true;
+  });
+
+  test("Rebuild contracts: intelligence interaction maps cover dropdown and warning explanation hooks", () => {
+    const undecidedMap = INTEL_SELECT_OPTION_MESSAGE_MAP.v3DistrictUndecidedMode || {};
+    const turnoutMap = INTEL_SELECT_OPTION_MESSAGE_MAP.v3TurnoutMode || {};
+    const reachCapMap = INTEL_SELECT_OPTION_MESSAGE_MAP.v3ReachCapOverrideMode || {};
+    assert(undecidedMap.user_defined === "undecidedModeUserDefined", "undecided dropdown map should route user-defined option");
+    assert(turnoutMap.advanced === "gotvModeAdvanced", "turnout mode dropdown map should route advanced option");
+    assert(reachCapMap.scheduled === "capacityOverrideScheduled", "reach capacity dropdown map should route scheduled option");
+    assert(
+      INTEL_WARNING_MESSAGE_BY_ID.v3DataWarnBannerUi === "strictImportEnabled",
+      "data warning banner should map to strict import explanation message",
+    );
+    assert(
+      INTEL_WARNING_MESSAGE_BY_ID.v3DistrictCandWarn === "ballotBaselineConflict",
+      "district ballot warning should map to canonical warning explanation message",
+    );
+    return true;
+  });
+
   test("Rebuild contracts: engine state persistence keys are office-scoped with compatibility fallback", () => {
     const westContext = { campaignId: "IL HD 21", officeId: "west", scenarioId: "baseline" };
     const eastContext = { campaignId: "IL HD 21", officeId: "east", scenarioId: "baseline" };
@@ -5378,7 +5498,10 @@ export function registerRebuildContractTests(ctx){
       ui: {},
     }, mem, westContext);
     assert(write?.ok === true, "state persistence should succeed for scoped context");
-    assert(/::il-hd-21::west::baseline$/.test(makeStateStorageKey(westContext)), "state storage key should include campaign+office+scenario scope");
+    assert(
+      /^fpe\/il-hd-21\/west\/state\/scenario\/baseline\/snapshot-v1$/.test(makeStateStorageKey(westContext)),
+      "state storage key should include campaign+office+scenario scope",
+    );
 
     const westLoaded = loadState({ storageOverride: mem, ...westContext });
     const eastLoaded = loadState({ storageOverride: mem, ...eastContext });
@@ -5416,7 +5539,10 @@ export function registerRebuildContractTests(ctx){
       payload: { scenarioState: { campaignId: "il-hd-21", officeId: "east" } },
     }, mem, eastContext);
 
-    assert(/::il-hd-21::west$/.test(makeBackupStorageKey(westContext)), "backup key should include office scope");
+    assert(
+      /^fpe\/il-hd-21\/west\/state\/backups-v1$/.test(makeBackupStorageKey(westContext)),
+      "backup key should include office scope",
+    );
     const westRows = readBackups(mem, westContext);
     const eastRows = readBackups(mem, eastContext);
     const allRows = readBackups(mem, allContext);

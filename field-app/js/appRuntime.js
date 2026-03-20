@@ -42,6 +42,9 @@ import {
 import { buildModelLearningFromArchive } from "./core/modelAudit.js";
 import {
   buildDecisionDiagnosticsSnapshotView,
+  buildWarRoomChangeClassificationView,
+  buildWarRoomDecisionLogRowsView,
+  buildWarRoomReviewBaselineView,
   computeDecisionSensitivityMiniSurfaceCache,
   DECISION_DIVERGENCE_KEY_ORDER,
 } from "./core/decisionView.js";
@@ -60,6 +63,11 @@ import {
   buildDistrictTurnoutFallbackView,
   computeDistrictSupportTotalPctFromState,
 } from "./core/districtView.js";
+import {
+  CANDIDATE_HISTORY_ELECTION_TYPE_OPTIONS,
+  CANDIDATE_HISTORY_INCUMBENCY_OPTIONS,
+  normalizeCandidateHistoryRecords,
+} from "./core/candidateHistoryBaseline.js";
 import {
   clamp,
   fmtInt,
@@ -119,6 +127,31 @@ import {
   decisionSessionExportObjectCore,
   downloadJsonObjectCore,
 } from "./app/decisionSessionApp.js";
+import {
+  WEATHER_MODE_OBSERVE_ONLY,
+  WEATHER_MODE_TODAY_ONLY,
+  normalizeZip,
+  resolveSelectedZip,
+} from "./app/weatherRiskRules.js";
+import {
+  applyWeatherModeToState,
+  applyWeatherObservationToState,
+  buildWarRoomWeatherView,
+  ensureWarRoomStateShape,
+  fetchWarRoomWeatherByZip,
+} from "./app/warRoomWeather.js";
+import { ensureEventCalendarStateShape } from "./app/eventCalendarState.js";
+import {
+  clearEventDraft as clearEventCalendarDraft,
+  deleteEventRecord as deleteEventCalendarRecord,
+  loadEventIntoDraft as loadEventCalendarDraft,
+  saveEventDraftAsEvent as saveEventCalendarDraftAsEvent,
+  setEventDraftField as setEventCalendarDraftField,
+  setEventFilter as setEventCalendarFilter,
+  setEventStatus as setEventCalendarStatus,
+  updateEventApplyToModel as updateEventCalendarApplyToModel,
+} from "./app/eventCalendarStore.js";
+import { buildEventCalendarView } from "./app/eventCalendarRenderer.js";
 import { renderMain } from "./app/renderMain.js";
 import { initDevToolsModule } from "./app/initDevTools.js";
 import { buildModelInputFromState } from "./app/modelInput.js";
@@ -225,6 +258,8 @@ import {
 import {
   buildVoterImportOutcomeView,
   buildVoterLayerStatusSnapshot,
+  deriveVoterModelSignals,
+  extractCensusAgeDistribution,
   normalizeVoterDataState,
   normalizeVoterRows,
   parseVoterRowsInput,
@@ -264,6 +299,10 @@ import {
   applyRollingRateToAssumptionModule,
   applyAllRollingCalibrationsModule
 } from "./app/realityDriftCalibrations.js";
+import { runRealismEngine } from "./app/realismEngine.js";
+import { composeReportPayload, buildReportPlainText } from "./app/reportComposer.js";
+import { exportReportPdf } from "./app/pdfExport.js";
+import { listReportTypeOptions, normalizeReportType } from "./app/reportRegistry.js";
 import {
   buildCriticalAuditSnapshot,
   captureCriticalAssumptionAudit,
@@ -315,6 +354,8 @@ import {
   wireResetImportAndUiToggles
 } from "./app/wireEventsRuntime.js";
 import { applyActiveContextToLinks, resolveActiveContext } from "./app/activeContext.js";
+import { validateCampaignContext } from "./core/campaignContextManager.js";
+import { getDiagnosticEngine } from "../diagnostics/diagnosticEngine.js";
 import { getCensusRowsForState } from "./app/censusRowsRuntimeStore.js";
 import { wireEventsOrchestratorModule } from "./app/wireEventsOrchestrator.js";
 import { createCandidateUiController } from "./app/candidateUi.js";
@@ -641,6 +682,71 @@ const TURNOUT_BRIDGE_KEY = "__FPE_TURNOUT_API__";
 const PLAN_BRIDGE_KEY = "__FPE_PLAN_API__";
 const OUTCOME_BRIDGE_KEY = "__FPE_OUTCOME_API__";
 const DECISION_BRIDGE_KEY = "__FPE_DECISION_API__";
+const BRIDGE_SYNC_EVENT = "fpe:bridge-sync";
+let bridgeSyncRevision = 0;
+
+function normalizeBridgeSelectOptions(options){
+  const rows = Array.isArray(options) ? options : [];
+  /** @type {Array<{ value: string, label: string }>} */
+  const out = [];
+  const seen = new Set();
+  for (const row of rows){
+    const value = String(row?.value ?? "").trim();
+    const label = String(row?.label ?? value).trim() || value;
+    if (!value || seen.has(value)) continue;
+    seen.add(value);
+    out.push({ value, label });
+  }
+  return out;
+}
+
+function normalizeBridgeSelectValue(value, options, fallbackValue = ""){
+  const normalizedOptions = normalizeBridgeSelectOptions(options);
+  const fallback = String(fallbackValue ?? "").trim();
+  const raw = String(value ?? "").trim();
+  if (raw && normalizedOptions.some((row) => row.value === raw)){
+    return raw;
+  }
+  if (fallback && normalizedOptions.some((row) => row.value === fallback)){
+    return fallback;
+  }
+  return normalizedOptions[0]?.value || "";
+}
+
+function bridgeSelectOptionsWithSelected(options, selectedValue){
+  const normalized = normalizeBridgeSelectOptions(options);
+  const selected = String(selectedValue ?? "").trim();
+  if (selected && !normalized.some((row) => row.value === selected)){
+    normalized.push({ value: selected, label: selected });
+  }
+  return normalized;
+}
+
+function notifyBridgeSync({ source = "runtime", reason = "state_changed" } = {}){
+  bridgeSyncRevision += 1;
+  const payload = {
+    revision: bridgeSyncRevision,
+    source: String(source || "runtime"),
+    reason: String(reason || "state_changed"),
+    at: Date.now(),
+  };
+  try{
+    if (typeof window !== "undefined" && typeof window.dispatchEvent === "function" && typeof CustomEvent === "function"){
+      window.dispatchEvent(new CustomEvent(BRIDGE_SYNC_EVENT, { detail: payload }));
+    }
+  } catch {
+    // No-op if bridge sync events cannot be dispatched.
+  }
+  observeContractEvent({
+    type: "bridge_sync",
+    action_name: "notify_bridge_sync",
+    source: payload.source,
+    reason: payload.reason,
+    bridgeRevision: payload.revision,
+    observed_behavior: `bridge sync dispatched (${payload.source}/${payload.reason})`,
+  });
+  return payload;
+}
 
 function forecastArchiveContextFromState(){
   return buildForecastArchiveContext(state, {
@@ -693,10 +799,65 @@ let dataBridgeUsbStatusText = "";
 let dataBridgeSelectedArchiveHash = "";
 let dataBridgeVoterImportStatusText = "";
 
+function dataBridgeEnsureReportingState(){
+  if (!state.ui || typeof state.ui !== "object"){
+    state.ui = {};
+  }
+  if (!state.ui.reporting || typeof state.ui.reporting !== "object"){
+    state.ui.reporting = {};
+  }
+  const reporting = state.ui.reporting;
+  if (!reporting.request || typeof reporting.request !== "object"){
+    reporting.request = {};
+  }
+  reporting.request.type = normalizeReportType(reporting.request.type);
+  if (typeof reporting.previewText !== "string"){
+    reporting.previewText = "";
+  }
+  if (typeof reporting.lastStatus !== "string"){
+    reporting.lastStatus = "";
+  }
+  if (typeof reporting.lastGeneratedAt !== "string"){
+    reporting.lastGeneratedAt = "";
+  }
+  if (!reporting.lastPayload || typeof reporting.lastPayload !== "object"){
+    reporting.lastPayload = null;
+  }
+  return reporting;
+}
+
+function shellBridgeResolvedContext(){
+  return resolveActiveContext({
+    fallback: {
+      campaignId: state?.campaignId,
+      campaignName: state?.campaignName,
+      officeId: state?.officeId,
+      scenarioId: state?.ui?.activeScenarioId || state?.scenarioId,
+    },
+  });
+}
+
+function shellBridgeSyncContextLinks(){
+  const ctx = shellBridgeResolvedContext();
+  applyActiveContextToLinks(ctx, ".nav-item-new[href]");
+  applyActiveContextToLinks(ctx, ".fpe-nav__item[href]");
+}
+
 function shellBridgeStateView(){
+  const ctx = shellBridgeResolvedContext();
+  const contextValidation = validateCampaignContext(ctx, { requireOffice: false });
   return {
     scenarioName: String(state?.scenarioName || ""),
     trainingEnabled: !!state?.ui?.training,
+    campaignId: String(ctx?.campaignId || ""),
+    campaignName: String(state?.campaignName || ctx?.campaignName || ""),
+    officeId: String(ctx?.officeId || ""),
+    scenarioId: String(ctx?.scenarioId || ""),
+    isCampaignLocked: !!ctx?.isCampaignLocked,
+    isOfficeLocked: !!ctx?.isOfficeLocked,
+    isScenarioLocked: !!ctx?.isScenarioLocked,
+    contextReady: !!contextValidation?.ok,
+    contextMissing: Array.isArray(contextValidation?.missing) ? contextValidation.missing.slice() : [],
   };
 }
 
@@ -707,7 +868,127 @@ function shellBridgeSetScenarioName(rawValue){
     els.scenarioName.value = nextValue;
   }
   schedulePersist();
+  notifyBridgeSync({ source: "bridge.shell", reason: "scenario_name_changed" });
   return { ok: true, view: shellBridgeStateView() };
+}
+
+function shellBridgeSetContext(rawPatch){
+  const patch = (rawPatch && typeof rawPatch === "object") ? rawPatch : {};
+  const current = shellBridgeResolvedContext();
+  const requestedCampaignId = String(patch.campaignId == null ? "" : patch.campaignId).trim();
+  const requestedCampaignName = String(patch.campaignName == null ? "" : patch.campaignName).trim();
+  const requestedOfficeId = String(patch.officeId == null ? "" : patch.officeId).trim();
+  const requestedScenarioId = String(patch.scenarioId == null ? "" : patch.scenarioId).trim();
+
+  const next = resolveActiveContext({
+    campaignId: current.isCampaignLocked ? current.campaignId : requestedCampaignId,
+    campaignName: current.isCampaignLocked ? current.campaignName : requestedCampaignName,
+    officeId: current.isOfficeLocked ? current.officeId : requestedOfficeId,
+    scenarioId: current.isScenarioLocked ? current.scenarioId : requestedScenarioId,
+    fallback: {
+      campaignId: state?.campaignId || current.campaignId,
+      campaignName: state?.campaignName || current.campaignName,
+      officeId: state?.officeId || current.officeId,
+      scenarioId: state?.ui?.activeScenarioId || state?.scenarioId || current.scenarioId,
+    },
+  });
+  const nextContextValidation = validateCampaignContext(next, { requireOffice: false });
+  observeContractEvent({
+    type: "context_update",
+    action_name: "shellBridgeSetContext",
+    handler_name: "shellBridgeSetContext",
+    context: {
+      campaignId: next?.campaignId,
+      officeId: next?.officeId,
+      scenarioId: next?.scenarioId,
+    },
+    contextReady: !!nextContextValidation?.ok,
+    contextMissing: Array.isArray(nextContextValidation?.missing) ? nextContextValidation.missing.slice() : [],
+    observed_behavior: nextContextValidation?.ok
+      ? "context update resolved campaign/office scope"
+      : `context update missing: ${(nextContextValidation?.missing || []).join(", ")}`,
+  });
+
+  if (current.isCampaignLocked && requestedCampaignId && requestedCampaignId !== current.campaignId){
+    return { ok: false, code: "campaign_locked", view: shellBridgeStateView() };
+  }
+  if (current.isOfficeLocked && requestedOfficeId && requestedOfficeId !== current.officeId){
+    return { ok: false, code: "office_locked", view: shellBridgeStateView() };
+  }
+  if (current.isScenarioLocked && requestedScenarioId && requestedScenarioId !== current.scenarioId){
+    return { ok: false, code: "scenario_locked", view: shellBridgeStateView() };
+  }
+
+  const scopeChanged = (
+    String(current?.campaignId || "") !== String(next?.campaignId || "")
+    || String(current?.officeId || "") !== String(next?.officeId || "")
+  );
+
+  if (!scopeChanged){
+    state.campaignId = String(next?.campaignId || state?.campaignId || "");
+    state.officeId = String(next?.officeId || state?.officeId || "");
+    if (requestedCampaignName && !current.isCampaignLocked){
+      state.campaignName = requestedCampaignName;
+    } else if (!state.campaignName){
+      state.campaignName = String(next?.campaignName || "");
+    }
+    shellBridgeSyncContextLinks();
+    schedulePersist();
+    notifyBridgeSync({ source: "bridge.shell", reason: "context_updated" });
+    return { ok: true, changed: false, view: shellBridgeStateView() };
+  }
+
+  persist();
+  const loaded = loadState({
+    campaignId: next.campaignId,
+    campaignName: requestedCampaignName || next.campaignName,
+    officeId: next.officeId,
+    scenarioId: next.scenarioId,
+  });
+
+  state = normalizeLoadedScenarioRuntime(loaded || makeDefaultStateModule({
+    uid,
+    activeContext: {
+      campaignId: next.campaignId,
+      campaignName: requestedCampaignName || next.campaignName,
+      officeId: next.officeId,
+      scenarioId: next.scenarioId,
+    },
+  }));
+  observeContractEvent({
+    type: "state_rehydrated",
+    action_name: "shellBridgeSetContext.scope_change",
+    handler_name: "shellBridgeSetContext",
+    context: {
+      campaignId: state?.campaignId,
+      officeId: state?.officeId,
+      scenarioId: state?.ui?.activeScenarioId || state?.scenarioId,
+    },
+    observed_behavior: "state rehydrated for context scope change",
+  });
+  if (requestedCampaignName && !current.isCampaignLocked){
+    state.campaignName = requestedCampaignName;
+  }
+
+  refreshModelAuditFromArchive();
+  ensureScenarioRegistry();
+  ensureDecisionScaffold();
+  try{
+    const baseline = state?.ui?.scenarios?.[SCENARIO_BASELINE_ID];
+    if (baseline){
+      baseline.inputs = scenarioInputsFromState(state);
+      baseline.outputs = scenarioOutputsFromState(state);
+    }
+  } catch {}
+  applyStateToUI();
+  rebuildCandidateTable();
+  render();
+  safeCall(() => { renderScenarioManagerC1(); });
+  safeCall(() => { renderDecisionSessionD1(); });
+  shellBridgeSyncContextLinks();
+  persist();
+  notifyBridgeSync({ source: "bridge.shell", reason: "context_scope_changed" });
+  return { ok: true, changed: true, view: shellBridgeStateView() };
 }
 
 function shellBridgeSetTrainingEnabled(enabled){
@@ -719,6 +1000,7 @@ function shellBridgeSetTrainingEnabled(enabled){
   setText(els.snapshotHashSidebar, lastResultsSnapshot?.snapshotHash || "—");
   if (els.explainCard) els.explainCard.hidden = !state.ui.training;
   persist();
+  notifyBridgeSync({ source: "bridge.shell", reason: "training_toggled" });
   return { ok: true, view: shellBridgeStateView() };
 }
 
@@ -752,7 +1034,9 @@ function shellBridgeResetScenario(){
   render();
   safeCall(() => { renderScenarioManagerC1(); });
   safeCall(() => { renderDecisionSessionD1(); });
+  shellBridgeSyncContextLinks();
   persist();
+  notifyBridgeSync({ source: "bridge.shell", reason: "scenario_reset" });
   return { ok: true, view: shellBridgeStateView() };
 }
 
@@ -760,6 +1044,7 @@ function installShellBridge(){
   window[SHELL_BRIDGE_KEY] = {
     getView: () => shellBridgeStateView(),
     setScenarioName: (value) => shellBridgeSetScenarioName(value),
+    setContext: (patch) => shellBridgeSetContext(patch),
     setTrainingEnabled: (enabled) => shellBridgeSetTrainingEnabled(enabled),
     openDiagnostics: () => shellBridgeOpenDiagnostics(),
     resetScenario: () => shellBridgeResetScenario(),
@@ -811,11 +1096,6 @@ function dataBridgeSetVoterImportStatusText(text){
 }
 
 function dataBridgeApplyUsbResultStatus(result){
-  const legacyText = String(els?.usbStorageStatus?.textContent || "").trim();
-  if (legacyText){
-    dataBridgeSetUsbStatusText(legacyText);
-    return;
-  }
   if (result?.ok){
     dataBridgeSetUsbStatusText("");
     return;
@@ -855,6 +1135,13 @@ function dataBridgeApplyUsbResultStatus(result){
 function dataBridgeApplyImportedScenario(nextScenario){
   const normalized = normalizeLoadedScenarioRuntime(nextScenario);
   state = normalized;
+  observeContractEvent({
+    type: "state_rehydrated",
+    action_name: "dataBridgeApplyImportedScenario",
+    handler_name: "dataBridgeApplyImportedScenario",
+    context: diagnosticContextFromState(state),
+    observed_behavior: "state rehydrated from imported scenario snapshot",
+  });
   refreshModelAuditFromArchive();
   ensureScenarioRegistry();
   ensureDecisionScaffold();
@@ -873,6 +1160,7 @@ function dataBridgeApplyImportedScenario(nextScenario){
   render();
   safeCall(() => { renderDecisionSessionD1(); });
   persist();
+  notifyBridgeSync({ source: "bridge.data", reason: "scenario_imported" });
 }
 
 function dataBridgeRunSaveJson(){
@@ -1063,7 +1351,7 @@ function dataBridgeStateView(){
     || (els?.importWarnBanner instanceof HTMLElement && !els.importWarnBanner.hidden
       ? String(els.importWarnBanner.textContent || "").trim()
       : "");
-  const usbStatusText = dataBridgeUsbStatusText || String(els?.usbStorageStatus?.textContent || "").trim();
+  const usbStatusText = dataBridgeUsbStatusText;
   const backupOptions = dataBridgeBuildBackupOptions();
   const canFs = dataBridgeHasFsSupport();
   const canUseSnapshot = !!lastResultsSnapshot;
@@ -1086,6 +1374,26 @@ function dataBridgeStateView(){
   const learningSummary = archiveLearning.learning;
   const archiveTableRows = buildForecastArchiveTableRows(archiveRows, { limit: 40 });
   const voterLayer = buildVoterLayerStatusSnapshot(state?.voterData);
+  const reporting = dataBridgeEnsureReportingState();
+  const reportTypeOptions = listReportTypeOptions().map((row) => ({
+    value: String(row?.id || "").trim(),
+    label: String(row?.label || row?.id || "").trim() || String(row?.id || ""),
+  }));
+  const selectedReportType = normalizeBridgeSelectValue(
+    reporting?.request?.type,
+    reportTypeOptions,
+    "internal"
+  );
+  reporting.request.type = selectedReportType;
+  const hasReportPayload = !!(reporting?.lastPayload && typeof reporting.lastPayload === "object");
+  const previewText = String(
+    reporting?.previewText
+      || (hasReportPayload ? buildReportPlainText(reporting.lastPayload) : "")
+      || ""
+  );
+  reporting.previewText = previewText;
+  const reportStatus = String(reporting?.lastStatus || "").trim()
+    || (hasReportPayload ? "Report composed." : "Choose report type and compose.");
 
   return {
     context: {
@@ -1115,6 +1423,14 @@ function dataBridgeStateView(){
       modelAudit: modelAuditSummary,
       learning: learningSummary,
     },
+    reporting: {
+      options: reportTypeOptions,
+      selectedType: selectedReportType,
+      status: reportStatus,
+      previewText,
+      generatedAt: String(reporting?.lastGeneratedAt || "").trim(),
+      hasPayload: hasReportPayload,
+    },
     voterLayer,
     controls: {
       strictToggleDisabled: false,
@@ -1131,6 +1447,9 @@ function dataBridgeStateView(){
       archiveSelectionDisabled: !archiveOptions.length,
       archiveSaveDisabled: !selectedArchiveHash,
       archiveRefreshDisabled: false,
+      reportTypeDisabled: false,
+      reportComposeDisabled: false,
+      reportExportPdfDisabled: !hasReportPayload,
     }
   };
 }
@@ -1162,6 +1481,7 @@ function dataBridgeRestoreBackup(index){
   if (els?.restoreBackup instanceof HTMLSelectElement){
     els.restoreBackup.value = "";
   }
+  notifyBridgeSync({ source: "bridge.data", reason: "backup_restored" });
   return { ok: true, view: dataBridgeStateView() };
 }
 
@@ -1189,6 +1509,7 @@ function dataBridgeSaveArchiveActual(payload = {}){
   }
   refreshModelAuditFromArchive();
   schedulePersist();
+  notifyBridgeSync({ source: "bridge.data", reason: "archive_actual_saved" });
   return { ok: true, view: dataBridgeStateView() };
 }
 
@@ -1252,6 +1573,110 @@ function dataBridgeImportVoterRows(payload = {}){
   return { ok: true, importedRows: importOutcome.rowCount, warnings: parsed.warnings, view: dataBridgeStateView() };
 }
 
+function dataBridgeComposeReport(payload = {}){
+  const src = payload && typeof payload === "object" ? payload : {};
+  const reporting = dataBridgeEnsureReportingState();
+  const requestedType = normalizeReportType(src.reportType || reporting.request.type);
+  reporting.request.type = requestedType;
+  const report = composeReportPayload({
+    reportType: requestedType,
+    state,
+    renderCtx: lastRenderCtx,
+    resultsSnapshot: lastResultsSnapshot,
+    nowDate: new Date(),
+  });
+  reporting.lastPayload = report;
+  reporting.previewText = buildReportPlainText(report);
+  reporting.lastGeneratedAt = String(report?.generatedAt || new Date().toISOString());
+  reporting.lastStatus = `Composed ${String(report?.reportLabel || requestedType)} at ${reporting.lastGeneratedAt}.`;
+  const reportContext = report?.context && typeof report.context === "object" ? report.context : {};
+  observeContractEvent({
+    type: "report_composed",
+    action_name: "dataBridgeComposeReport",
+    handler_name: "dataBridgeComposeReport",
+    reportType: requestedType,
+    reportContext: {
+      campaignId: String(reportContext?.campaignId || "").trim(),
+      officeId: String(reportContext?.officeId || "").trim(),
+      scenarioId: String(reportContext?.scenarioId || "").trim(),
+    },
+    reportHasCanonicalSnapshot: !!lastResultsSnapshot,
+    reportHasValidation: !!state?.ui?.lastValidationSnapshot,
+    reportHasRealism: !!state?.ui?.lastRealismSnapshot,
+    reportHasGovernance: !!state?.ui?.lastGovernanceSnapshot,
+    requiresValidation: true,
+    validationReady: !!state?.ui?.lastValidationSnapshot,
+    observed_behavior: `report composed (${requestedType})`,
+  });
+  dataBridgeSetWarnBannerText("");
+  schedulePersist();
+  notifyBridgeSync({ source: "bridge.data", reason: "report_composed" });
+  return { ok: true, report, view: dataBridgeStateView() };
+}
+
+function dataBridgeSetReportType(reportType){
+  const reporting = dataBridgeEnsureReportingState();
+  const nextType = normalizeReportType(reportType || reporting.request.type);
+  reporting.request.type = nextType;
+  const composed = dataBridgeComposeReport({ reportType: nextType });
+  return {
+    ok: !!composed?.ok,
+    reportType: nextType,
+    view: composed?.view || dataBridgeStateView(),
+  };
+}
+
+function dataBridgeExportReportPdf(payload = {}){
+  const src = payload && typeof payload === "object" ? payload : {};
+  const reporting = dataBridgeEnsureReportingState();
+  const requestedType = normalizeReportType(src.reportType || reporting.request.type);
+  let report = reporting.lastPayload;
+  if (!report || normalizeReportType(report?.reportType) !== requestedType){
+    const composed = dataBridgeComposeReport({ reportType: requestedType });
+    if (!composed?.ok){
+      return { ok: false, code: "report_compose_failed", view: dataBridgeStateView() };
+    }
+    report = composed.report;
+  }
+  const context = report?.context && typeof report.context === "object" ? report.context : {};
+  const fileBase = [
+    normalizeReportType(report?.reportType || requestedType),
+    String(context?.campaignId || context?.campaignName || "campaign").trim(),
+    String(context?.officeId || "office").trim(),
+    String(context?.scenarioId || "scenario").trim(),
+  ].map((part) => String(part || "").replace(/\s+/g, "-")).filter(Boolean).join("-");
+  const result = exportReportPdf(report, { filenameBase: fileBase || "report" });
+  if (!result?.ok){
+    dataBridgeSetWarnBannerText("Report PDF export failed.");
+    return { ok: false, code: "report_export_failed", view: dataBridgeStateView() };
+  }
+  reporting.lastStatus = result.code === "print_dialog_opened"
+    ? "Print dialog opened. Choose Save as PDF to complete export."
+    : `Report exported via ${result.code}.`;
+  observeContractEvent({
+    type: "report_exported",
+    action_name: "dataBridgeExportReportPdf",
+    handler_name: "dataBridgeExportReportPdf",
+    reportType: requestedType,
+    reportContext: {
+      campaignId: String(context?.campaignId || "").trim(),
+      officeId: String(context?.officeId || "").trim(),
+      scenarioId: String(context?.scenarioId || "").trim(),
+    },
+    reportHasCanonicalSnapshot: !!lastResultsSnapshot,
+    reportHasValidation: !!state?.ui?.lastValidationSnapshot,
+    reportHasRealism: !!state?.ui?.lastRealismSnapshot,
+    reportHasGovernance: !!state?.ui?.lastGovernanceSnapshot,
+    requiresValidation: true,
+    validationReady: !!state?.ui?.lastValidationSnapshot,
+    observed_behavior: `report exported (${requestedType}) via ${String(result.code || "unknown")}`,
+  });
+  dataBridgeSetWarnBannerText("");
+  schedulePersist();
+  notifyBridgeSync({ source: "bridge.data", reason: "report_pdf_exported" });
+  return { ok: true, code: String(result.code || "ok"), view: dataBridgeStateView() };
+}
+
 function dataBridgeTrigger(action){
   const key = String(action || "").trim();
   switch (key){
@@ -1302,6 +1727,10 @@ function dataBridgeTrigger(action){
           return { ...(result || { ok: false, code: "usb_disconnect_failed" }), view: dataBridgeStateView() };
         })
         .catch(() => ({ ok: false, code: "usb_disconnect_failed", view: dataBridgeStateView() }));
+    case "compose_report":
+      return dataBridgeComposeReport();
+    case "export_report_pdf":
+      return dataBridgeExportReportPdf();
     default:
       return { ok: false, code: "not_available", view: dataBridgeStateView() };
   }
@@ -1313,6 +1742,9 @@ function installDataBridge(){
     setStrictImport: (enabled) => dataBridgeSetStrictImport(enabled),
     restoreBackup: (index) => dataBridgeRestoreBackup(index),
     setArchiveSelection: (snapshotHash) => dataBridgeSetArchiveSelection(snapshotHash),
+    setReportType: (reportType) => dataBridgeSetReportType(reportType),
+    composeReport: (payload) => dataBridgeComposeReport(payload),
+    exportReportPdf: (payload) => dataBridgeExportReportPdf(payload),
     saveArchiveActual: (payload) => dataBridgeSaveArchiveActual(payload),
     refreshArchive: () => dataBridgeRefreshArchive(),
     importVoterRows: (payload) => dataBridgeImportVoterRows(payload),
@@ -1352,15 +1784,67 @@ bootProbeMark("appRuntime.state.ready", {
 let lastModelAuditScopeKey = forecastArchiveScopeKey();
 refreshModelAuditFromArchive();
 let lastCriticalAuditSnapshot = buildCriticalAuditSnapshot(state);
+const contractDiagnosticEngine = getDiagnosticEngine();
+
+function diagnosticContextFromState(srcState = state){
+  const snap = srcState && typeof srcState === "object" ? srcState : {};
+  return {
+    campaignId: String(snap?.campaignId || "").trim(),
+    officeId: String(snap?.officeId || "").trim(),
+    scenarioId: String(snap?.ui?.activeScenarioId || snap?.scenarioId || "").trim(),
+  };
+}
+
+function observeContractEvent(rawEvent){
+  try{
+    const src = rawEvent && typeof rawEvent === "object" ? rawEvent : {};
+    const context = src.context && typeof src.context === "object"
+      ? src.context
+      : diagnosticContextFromState(state);
+    contractDiagnosticEngine.observe({
+      module: "appRuntime",
+      ...src,
+      context,
+    });
+  } catch (err){
+    const msg = err?.message ? String(err.message) : String(err || "contract-diagnostic-observe-failed");
+    console.warn("[contracts] observe failed:", msg);
+  }
+}
+
+function diffTopLevelStateKeys(prevState, nextState){
+  const prev = prevState && typeof prevState === "object" ? prevState : {};
+  const next = nextState && typeof nextState === "object" ? nextState : {};
+  const keys = new Set([...Object.keys(prev), ...Object.keys(next)]);
+  const changed = [];
+  for (const key of keys){
+    if (prev[key] !== next[key]){
+      changed.push(key);
+    }
+  }
+  return changed.sort();
+}
 
 // setState(patchFn) — controlled state mutation for UI-only writes.
 // Shallow-clones state, deep-clones only state.ui (where all setState writes live).
 // Engine/scenario fields are never mutated here so reference copies are safe.
 // Rendering/persistence are queued through commitUIUpdate to avoid input-event thrash.
 function setState(patchFn){
+  const prevState = state;
   const next = { ...state, ui: structuredClone(state.ui) };
   patchFn(next);
+  const changedTopLevel = diffTopLevelStateKeys(prevState, next);
   state = next;
+  observeContractEvent({
+    type: "state_write",
+    action_name: "setState",
+    handler_name: typeof patchFn === "function" && patchFn.name ? patchFn.name : "anonymous_patch",
+    changedTopLevel,
+    changedPaths: changedTopLevel.map((key) => `state.${key}`),
+    observed_behavior: changedTopLevel.length
+      ? `setState changed ${changedTopLevel.join(", ")}`
+      : "setState produced no top-level changes",
+  });
   commitUIUpdate();
 }
 
@@ -1529,6 +2013,15 @@ function commitUIUpdate({
   immediatePersist = false,
   allowScenarioLockBypass = false
 } = {}){
+  observeContractEvent({
+    type: "commit_ui_update",
+    action_name: "commitUIUpdate",
+    handler_name: "commitUIUpdate",
+    doRender,
+    doPersist,
+    immediatePersist,
+    observed_behavior: `commitUIUpdate render=${doRender ? "on" : "off"} persist=${doPersist ? "on" : "off"}`,
+  });
   try{
     syncFeatureFlagsFromState(state, { preferFeatures: false });
   } catch {
@@ -1567,6 +2060,10 @@ function commitUIUpdate({
     lastCriticalAuditSnapshot = buildCriticalAuditSnapshot(state);
   }
   uiUpdateQueue.commitUIUpdate({ render: doRender, persist: doPersist, immediatePersist });
+  notifyBridgeSync({
+    source: "runtime",
+    reason: doRender ? "commit_ui_update" : "state_updated",
+  });
 }
 
 
@@ -1854,6 +2351,12 @@ function render(){
     renderDecisionIntelligencePanel,
   });
   applyScenarioLockUi();
+  observeContractEvent({
+    type: "render_complete",
+    action_name: "render",
+    handler_name: "render",
+    observed_behavior: "render cycle completed",
+  });
 }
 
 function renderWeeklyOps(res, weeks, { weeklyContext = null, executionSnapshot = null } = {}){
@@ -2307,6 +2810,7 @@ function scenarioBridgeSelect(id){
 
   state.ui.scenarioUiSelectedId = nextId;
   persist();
+  notifyBridgeSync({ source: "bridge.scenario", reason: "scenario_selected" });
   refreshLegacyScenarioManagerIfMounted();
   return { ok: true, view: scenarioBridgeStateView() };
 }
@@ -2332,6 +2836,7 @@ function scenarioBridgeSaveNew(name){
   };
   state.ui.scenarioUiSelectedId = id;
   persist();
+  notifyBridgeSync({ source: "bridge.scenario", reason: "scenario_saved" });
   refreshLegacyScenarioManagerIfMounted();
   return { ok: true, view: scenarioBridgeStateView() };
 }
@@ -2358,6 +2863,7 @@ function scenarioBridgeCloneBaseline(name){
   };
   state.ui.scenarioUiSelectedId = id;
   persist();
+  notifyBridgeSync({ source: "bridge.scenario", reason: "scenario_cloned" });
   refreshLegacyScenarioManagerIfMounted();
   return { ok: true, view: scenarioBridgeStateView() };
 }
@@ -2384,6 +2890,7 @@ function scenarioBridgeLoad(id){
   applyStateToUI();
   persist();
   render();
+  notifyBridgeSync({ source: "bridge.scenario", reason: "scenario_loaded" });
   refreshLegacyScenarioManagerIfMounted();
   safeCall(() => { renderDecisionSessionD1(); });
   return { ok: true, view: scenarioBridgeStateView() };
@@ -2399,6 +2906,7 @@ function scenarioBridgeDeleteSelected(){
   delete state.ui.scenarios[selectedId];
   state.ui.scenarioUiSelectedId = SCENARIO_BASELINE_ID;
   persist();
+  notifyBridgeSync({ source: "bridge.scenario", reason: "scenario_deleted" });
   refreshLegacyScenarioManagerIfMounted();
   return { ok: true, view: scenarioBridgeStateView() };
 }
@@ -3181,6 +3689,24 @@ function districtBridgeStateView(){
     : (ballotUndecidedMode === "user_defined" && !res?.validation?.userSplitOk
       ? String(res?.validation?.userSplitMsg || "").trim()
       : "");
+  const historyRecords = normalizeCandidateHistoryRecords(currentState?.candidateHistory);
+  const historyValidation = res?.validation?.candidateHistory && typeof res.validation.candidateHistory === "object"
+    ? res.validation.candidateHistory
+    : {};
+  const historyImpact = res?.expected?.candidateHistoryImpact && typeof res.expected.candidateHistoryImpact === "object"
+    ? res.expected.candidateHistoryImpact
+    : {};
+  const historyRecordCount = Number(historyValidation.recordCount ?? historyImpact.recordCount ?? historyRecords.length ?? 0);
+  const historyMatched = Number(historyValidation.matchedRecordCount ?? historyImpact.matchedRecordCount ?? 0);
+  const historyCoverageBand = String(historyValidation.coverageBand || historyImpact.coverageBand || "none");
+  const historyConfidenceBand = String(historyValidation.confidenceBand || historyImpact.confidenceBand || "missing");
+  const historyVoteDelta = Number(historyImpact.yourVotesDelta || 0);
+  const historySummaryText = historyRecordCount <= 0
+    ? "No candidate history rows. Add candidate-cycle records to anchor ballot baseline realism."
+    : `History rows: ${districtBridgeFmtInt(historyRecordCount)} · matched: ${districtBridgeFmtInt(historyMatched)} · coverage: ${historyCoverageBand} · confidence: ${historyConfidenceBand}${historyVoteDelta ? ` · vote delta ${historyVoteDelta > 0 ? "+" : ""}${districtBridgeFmtInt(historyVoteDelta)}` : ""}`;
+  const historyWarningText = historyRecordCount > 0 && historyConfidenceBand === "low"
+    ? "Candidate history is incomplete; baseline confidence is downgraded until required fields are filled."
+    : "";
   const ballot = {
     yourCandidateId: String(currentState?.yourCandidateId || "").trim(),
     undecidedPct: safeNum(currentState?.undecidedPct),
@@ -3199,6 +3725,32 @@ function districtBridgeStateView(){
       name: String(cand?.name ?? "").trim(),
       value: safeNum(ballotUserSplit?.[cand?.id]),
     })).filter((cand) => cand.id),
+    candidateHistorySummaryText: historySummaryText,
+    candidateHistoryWarningText: historyWarningText,
+    candidateHistoryOptions: {
+      electionType: CANDIDATE_HISTORY_ELECTION_TYPE_OPTIONS.map((row) => ({
+        value: String(row?.value || "").trim(),
+        label: String(row?.label || row?.value || "").trim(),
+      })).filter((row) => row.value),
+      incumbencyStatus: CANDIDATE_HISTORY_INCUMBENCY_OPTIONS.map((row) => ({
+        value: String(row?.value || "").trim(),
+        label: String(row?.label || row?.value || "").trim(),
+      })).filter((row) => row.value),
+    },
+    candidateHistoryRecords: historyRecords.map((record) => ({
+      recordId: String(record?.recordId || "").trim(),
+      office: String(record?.office || "").trim(),
+      cycleYear: safeNum(record?.cycleYear),
+      electionType: String(record?.electionType || "").trim(),
+      candidateName: String(record?.candidateName || "").trim(),
+      party: String(record?.party || "").trim(),
+      incumbencyStatus: String(record?.incumbencyStatus || "").trim(),
+      voteShare: safeNum(record?.voteShare),
+      margin: safeNum(record?.margin),
+      turnoutContext: safeNum(record?.turnoutContext),
+      repeatCandidate: !!record?.repeatCandidate,
+      overUnderPerformancePct: safeNum(record?.overUnderPerformancePct),
+    })),
   };
 
   const targetingRowsRaw = Array.isArray(targetingState?.lastRows) ? targetingState.lastRows : [];
@@ -3291,6 +3843,9 @@ function districtBridgeStateView(){
       ? templateMeta.overriddenFields.map((field) => String(field || "").trim()).filter(Boolean)
       : [],
     assumptionsProfile: String(currentState?.ui?.assumptionsProfile || "").trim(),
+    candidateHistoryCoverageBand: String(res?.validation?.candidateHistory?.coverageBand || "none").trim(),
+    candidateHistoryConfidenceBand: String(res?.validation?.candidateHistory?.confidenceBand || "missing").trim(),
+    candidateHistoryRecordCount: safeNum(res?.validation?.candidateHistory?.recordCount) ?? 0,
   };
   const form = {
     raceType: String(currentState?.raceType || "").trim(),
@@ -3388,6 +3943,7 @@ function districtBridgeBuildDistrictDisabledMap(currentState){
     v3DistrictUndecidedPct: controlsLocked,
     v3DistrictUndecidedMode: controlsLocked,
     v3BtnAddCandidate: controlsLocked,
+    v3BtnAddCandidateHistory: controlsLocked,
     v3DistrictRaceType: controlsLocked,
     v3DistrictOfficeLevel: controlsLocked,
     v3DistrictElectionType: controlsLocked,
@@ -3455,9 +4011,6 @@ function districtBridgePatchCensusBridgeField(field, rawValue){
       applied = true;
     }
   });
-  if (applied) {
-    commitUIUpdate({ persist: false });
-  }
   return applied;
 }
 
@@ -3473,9 +4026,6 @@ function districtBridgePatchCensusGeoSelection(values){
     next.census.selectedGeoids = nextValues;
     applied = true;
   });
-  if (applied) {
-    commitUIUpdate({ persist: false });
-  }
   return applied;
 }
 
@@ -3488,6 +4038,9 @@ function installDistrictBridge(){
     updateCandidate: (candidateId, field, value) => districtBridgeUpdateCandidate(candidateId, field, value),
     removeCandidate: (candidateId) => districtBridgeRemoveCandidate(candidateId),
     setUserSplit: (candidateId, value) => districtBridgeSetUserSplit(candidateId, value),
+    addCandidateHistory: () => districtBridgeAddCandidateHistoryRecord(),
+    updateCandidateHistory: (recordId, field, value) => districtBridgeUpdateCandidateHistoryRecord(recordId, field, value),
+    removeCandidateHistory: (recordId) => districtBridgeRemoveCandidateHistoryRecord(recordId),
     setTargetingField: (field, value) => districtBridgeSetTargetingField(field, value),
     applyTargetingPreset: (modelId) => districtBridgeApplyTargetingPreset(modelId),
     resetTargetingWeights: () => districtBridgeResetTargetingWeights(),
@@ -3828,6 +4381,124 @@ function districtBridgeSetUserSplit(candidateId, rawValue){
   return { ok: applied, view: districtBridgeStateView() };
 }
 
+function districtBridgeCandidateHistoryRecordPatch(record, key, rawValue){
+  if (!record || typeof record !== "object") return false;
+  const field = cleanText(key);
+  if (!field) return false;
+  if (field === "office"){
+    record.office = String(rawValue == null ? "" : rawValue);
+    return true;
+  }
+  if (field === "cycleYear"){
+    record.cycleYear = safeNum(rawValue);
+    return true;
+  }
+  if (field === "electionType"){
+    record.electionType = cleanText(rawValue).toLowerCase();
+    return true;
+  }
+  if (field === "candidateName"){
+    record.candidateName = String(rawValue == null ? "" : rawValue);
+    return true;
+  }
+  if (field === "party"){
+    record.party = String(rawValue == null ? "" : rawValue);
+    return true;
+  }
+  if (field === "incumbencyStatus"){
+    record.incumbencyStatus = cleanText(rawValue).toLowerCase();
+    return true;
+  }
+  if (field === "voteShare"){
+    record.voteShare = safeNum(rawValue);
+    return true;
+  }
+  if (field === "margin"){
+    record.margin = safeNum(rawValue);
+    return true;
+  }
+  if (field === "turnoutContext"){
+    record.turnoutContext = safeNum(rawValue);
+    return true;
+  }
+  if (field === "repeatCandidate"){
+    record.repeatCandidate = !!rawValue;
+    return true;
+  }
+  if (field === "overUnderPerformancePct"){
+    record.overUnderPerformancePct = safeNum(rawValue);
+    return true;
+  }
+  return false;
+}
+
+function districtBridgeAddCandidateHistoryRecord(){
+  if (isScenarioLockedForEdits(state)){
+    return { ok: false, code: "locked", view: districtBridgeStateView() };
+  }
+
+  setState((next) => {
+    const current = normalizeCandidateHistoryRecords(next.candidateHistory, { uidFn: uid });
+    current.push({
+      recordId: `ch_${uid()}`,
+      office: String(next?.officeId || next?.campaignName || next?.raceType || "").trim(),
+      cycleYear: null,
+      electionType: String(next?.templateMeta?.electionType || "general").trim().toLowerCase() || "general",
+      candidateName: "",
+      party: "",
+      incumbencyStatus: "",
+      voteShare: null,
+      margin: null,
+      turnoutContext: null,
+      repeatCandidate: false,
+      overUnderPerformancePct: null,
+    });
+    next.candidateHistory = normalizeCandidateHistoryRecords(current, { uidFn: uid });
+  });
+  return { ok: true, view: districtBridgeStateView() };
+}
+
+function districtBridgeUpdateCandidateHistoryRecord(recordId, field, rawValue){
+  if (isScenarioLockedForEdits(state)){
+    return { ok: false, code: "locked", view: districtBridgeStateView() };
+  }
+  const id = cleanText(recordId);
+  const key = cleanText(field);
+  if (!id || !key){
+    return { ok: false, code: "missing_candidate_history_field", view: districtBridgeStateView() };
+  }
+
+  let applied = false;
+  setState((next) => {
+    const rows = normalizeCandidateHistoryRecords(next.candidateHistory, { uidFn: uid });
+    const target = rows.find((row) => cleanText(row?.recordId) === id);
+    if (!target) return;
+    applied = districtBridgeCandidateHistoryRecordPatch(target, key, rawValue) || applied;
+    next.candidateHistory = normalizeCandidateHistoryRecords(rows, { uidFn: uid });
+  });
+  return { ok: applied, view: districtBridgeStateView() };
+}
+
+function districtBridgeRemoveCandidateHistoryRecord(recordId){
+  if (isScenarioLockedForEdits(state)){
+    return { ok: false, code: "locked", view: districtBridgeStateView() };
+  }
+  const id = cleanText(recordId);
+  if (!id){
+    return { ok: false, code: "missing_candidate_history_id", view: districtBridgeStateView() };
+  }
+
+  let applied = false;
+  setState((next) => {
+    const rows = normalizeCandidateHistoryRecords(next.candidateHistory, { uidFn: uid });
+    const remaining = rows.filter((row) => cleanText(row?.recordId) !== id);
+    if (remaining.length === rows.length) return;
+    next.candidateHistory = normalizeCandidateHistoryRecords(remaining, { uidFn: uid });
+    applied = true;
+  });
+  return { ok: applied, view: districtBridgeStateView() };
+}
+
 function districtBridgeDownloadTextFile(text, filename, mime){
   if (typeof document === "undefined" || typeof URL === "undefined" || typeof Blob === "undefined"){
     return false;
@@ -3865,8 +4536,6 @@ function districtBridgeSetTargetingField(field, rawValue){
   if (!applied){
     return { ok: false, code: "ignored", view: districtBridgeStateView() };
   }
-
-  commitUIUpdate({ persist: false });
   return { ok: true, view: districtBridgeStateView() };
 }
 
@@ -3886,7 +4555,6 @@ function districtBridgeApplyTargetingPreset(modelId){
     }
     applyTargetModelPreset(targeting, nextModelId);
   });
-  commitUIUpdate({ persist: false });
   return { ok: true, view: districtBridgeStateView() };
 }
 
@@ -3902,7 +4570,6 @@ function districtBridgeResetTargetingWeights(){
     }
     resetTargetingWeightsToPreset(targeting, cleanText(targeting.presetId) || cleanText(targeting.modelId));
   });
-  commitUIUpdate({ persist: false });
   return { ok: true, view: districtBridgeStateView() };
 }
 
@@ -3918,7 +4585,6 @@ function districtBridgeRunTargeting(){
       next.census.status = TARGETING_STATUS_LOAD_ROWS_FIRST;
       next.census.error = next.census.status;
     });
-    commitUIUpdate({ persist: false });
     return { ok: false, code: "no_rows", view: districtBridgeStateView() };
   }
 
@@ -3952,7 +4618,6 @@ function districtBridgeRunTargeting(){
     }
   });
 
-  commitUIUpdate();
   if (runError){
     return { ok: false, code: "run_failed", view: districtBridgeStateView() };
   }
@@ -4638,6 +5303,10 @@ function ensureTurnoutBridgeShape(target){
   if (!Number.isFinite(Number(target.gotvMaxLiftPP2))) target.gotvMaxLiftPP2 = 10;
   if (typeof target.budget.includeOverhead !== "boolean") target.budget.includeOverhead = false;
   if (!Number.isFinite(Number(target.budget.overheadAmount))) target.budget.overheadAmount = 0;
+  target.gotvMode = normalizeBridgeSelectValue(target.gotvMode, TURNOUT_SELECT_OPTIONS.gotvMode, "basic");
+  tactics.doors.kind = normalizeBridgeSelectValue(tactics?.doors?.kind, TURNOUT_SELECT_OPTIONS.tacticKind, "persuasion");
+  tactics.phones.kind = normalizeBridgeSelectValue(tactics?.phones?.kind, TURNOUT_SELECT_OPTIONS.tacticKind, "persuasion");
+  tactics.texts.kind = normalizeBridgeSelectValue(tactics?.texts?.kind, TURNOUT_SELECT_OPTIONS.tacticKind, "persuasion");
 }
 
 function turnoutBridgeStateView(){
@@ -4660,12 +5329,18 @@ function turnoutBridgeStateView(){
     ? state.ui.lastTurnout
     : {};
   const locked = isScenarioLockedForEdits(state);
+  const gotvModeOptions = normalizeBridgeSelectOptions(TURNOUT_SELECT_OPTIONS.gotvMode);
+  const tacticKindOptions = normalizeBridgeSelectOptions(TURNOUT_SELECT_OPTIONS.tacticKind);
+  const gotvMode = normalizeBridgeSelectValue(state?.gotvMode, gotvModeOptions, "basic");
+  const roiDoorsKind = normalizeBridgeSelectValue(doors?.kind, tacticKindOptions, "persuasion");
+  const roiPhonesKind = normalizeBridgeSelectValue(phones?.kind, tacticKindOptions, "persuasion");
+  const roiTextsKind = normalizeBridgeSelectValue(texts?.kind, tacticKindOptions, "persuasion");
   return {
     inputs: {
       turnoutEnabled: !!state.turnoutEnabled,
       turnoutBaselinePct: state.turnoutBaselinePct ?? "",
       turnoutTargetOverridePct: state.turnoutTargetOverridePct ?? "",
-      gotvMode: state.gotvMode || "basic",
+      gotvMode,
       gotvDiminishing: !!state.gotvDiminishing,
       gotvLiftPP: state.gotvLiftPP ?? "",
       gotvMaxLiftPP: state.gotvMaxLiftPP ?? "",
@@ -4675,17 +5350,17 @@ function turnoutBridgeStateView(){
       gotvMaxLiftPP2: state.gotvMaxLiftPP2 ?? "",
       roiDoorsEnabled: !!doors.enabled,
       roiDoorsCpa: doors.cpa ?? "",
-      roiDoorsKind: doors.kind || "persuasion",
+      roiDoorsKind,
       roiDoorsCr: doors.crPct ?? "",
       roiDoorsSr: doors.srPct ?? "",
       roiPhonesEnabled: !!phones.enabled,
       roiPhonesCpa: phones.cpa ?? "",
-      roiPhonesKind: phones.kind || "persuasion",
+      roiPhonesKind,
       roiPhonesCr: phones.crPct ?? "",
       roiPhonesSr: phones.srPct ?? "",
       roiTextsEnabled: !!texts.enabled,
       roiTextsCpa: texts.cpa ?? "",
-      roiTextsKind: texts.kind || "persuasion",
+      roiTextsKind,
       roiTextsCr: texts.crPct ?? "",
       roiTextsSr: texts.srPct ?? "",
       roiOverheadAmount: state?.budget?.overheadAmount ?? "",
@@ -4695,7 +5370,10 @@ function turnoutBridgeStateView(){
       locked,
       refreshDisabled: false,
     },
-    options: TURNOUT_SELECT_OPTIONS,
+    options: {
+      gotvMode: bridgeSelectOptionsWithSelected(gotvModeOptions, gotvMode),
+      tacticKind: bridgeSelectOptionsWithSelected(tacticKindOptions, roiDoorsKind),
+    },
     roiRows,
     roiBannerText,
     summary: {
@@ -4923,10 +5601,18 @@ function ensurePlanBridgeShape(target){
     target.budget.optimize = {};
   }
   const optimize = target.budget.optimize;
-  if (!optimize.mode) optimize.mode = "budget";
-  optimize.objective = normalizeOptimizationObjective(optimize.objective, "net");
+  optimize.mode = normalizeBridgeSelectValue(optimize.mode, PLAN_SELECT_OPTIONS.optMode, "budget");
+  optimize.objective = normalizeBridgeSelectValue(
+    normalizeOptimizationObjective(optimize.objective, "net"),
+    PLAN_SELECT_OPTIONS.optObjective,
+    "net",
+  );
   if (typeof optimize.tlConstrainedEnabled !== "boolean") optimize.tlConstrainedEnabled = false;
-  if (!optimize.tlConstrainedObjective) optimize.tlConstrainedObjective = "max_net";
+  optimize.tlConstrainedObjective = normalizeBridgeSelectValue(
+    optimize.tlConstrainedObjective,
+    PLAN_SELECT_OPTIONS.tlOptObjective,
+    "max_net",
+  );
   if (!Number.isFinite(Number(optimize.budgetAmount))) optimize.budgetAmount = 10000;
   if (!Number.isFinite(Number(optimize.step))) optimize.step = 25;
   if (typeof optimize.useDecay !== "boolean") optimize.useDecay = false;
@@ -4938,7 +5624,7 @@ function ensurePlanBridgeShape(target){
   if (!Number.isFinite(Number(target.timelineVolCount))) target.timelineVolCount = 0;
   if (!Number.isFinite(Number(target.timelineVolHours))) target.timelineVolHours = 0;
   if (typeof target.timelineRampEnabled !== "boolean") target.timelineRampEnabled = false;
-  if (!target.timelineRampMode) target.timelineRampMode = "linear";
+  target.timelineRampMode = normalizeBridgeSelectValue(target.timelineRampMode, PLAN_SELECT_OPTIONS.timelineRampMode, "linear");
   if (!Number.isFinite(Number(target.timelineDoorsPerHour))) target.timelineDoorsPerHour = 30;
   if (!Number.isFinite(Number(target.timelineCallsPerHour))) target.timelineCallsPerHour = 20;
   if (!Number.isFinite(Number(target.timelineTextsPerHour))) target.timelineTextsPerHour = 120;
@@ -4997,12 +5683,20 @@ function planBridgeStateView(){
   const optimizerRowsRaw = Array.isArray(state?.ui?.lastPlanRows) ? state.ui.lastPlanRows : [];
   const optimizerRows = normalizePlanOptimizerRows(optimizerRowsRaw);
   const locked = isScenarioLockedForEdits(state);
+  const optModeOptions = normalizeBridgeSelectOptions(PLAN_SELECT_OPTIONS.optMode);
+  const optObjectiveOptions = normalizeBridgeSelectOptions(PLAN_SELECT_OPTIONS.optObjective);
+  const tlOptObjectiveOptions = normalizeBridgeSelectOptions(PLAN_SELECT_OPTIONS.tlOptObjective);
+  const timelineRampModeOptions = normalizeBridgeSelectOptions(PLAN_SELECT_OPTIONS.timelineRampMode);
+  const optMode = normalizeBridgeSelectValue(optimize?.mode, optModeOptions, "budget");
+  const optObjective = normalizeBridgeSelectValue(optimize?.objective, optObjectiveOptions, "net");
+  const tlOptObjective = normalizeBridgeSelectValue(optimize?.tlConstrainedObjective, tlOptObjectiveOptions, "max_net");
+  const timelineRampMode = normalizeBridgeSelectValue(state?.timelineRampMode, timelineRampModeOptions, "linear");
   return {
     inputs: {
-      optMode: optimize.mode || "budget",
-      optObjective: normalizeOptimizationObjective(optimize.objective, "net"),
+      optMode,
+      optObjective,
       tlOptEnabled: !!optimize.tlConstrainedEnabled,
-      tlOptObjective: optimize.tlConstrainedObjective || "max_net",
+      tlOptObjective,
       optBudget: optimize.budgetAmount ?? "",
       optStep: optimize.step ?? "",
       optUseDecay: !!optimize.useDecay,
@@ -5014,7 +5708,7 @@ function planBridgeStateView(){
       timelineVolCount: state.timelineVolCount ?? "",
       timelineVolHours: state.timelineVolHours ?? "",
       timelineRampEnabled: !!state.timelineRampEnabled,
-      timelineRampMode: state.timelineRampMode || "linear",
+      timelineRampMode,
       timelineDoorsPerHour: state.timelineDoorsPerHour ?? "",
       timelineCallsPerHour: state.timelineCallsPerHour ?? "",
       timelineTextsPerHour: state.timelineTextsPerHour ?? "",
@@ -5023,7 +5717,12 @@ function planBridgeStateView(){
       locked,
       runDisabled: locked,
     },
-    options: PLAN_SELECT_OPTIONS,
+    options: {
+      optMode: bridgeSelectOptionsWithSelected(optModeOptions, optMode),
+      optObjective: bridgeSelectOptionsWithSelected(optObjectiveOptions, optObjective),
+      tlOptObjective: bridgeSelectOptionsWithSelected(tlOptObjectiveOptions, tlOptObjective),
+      timelineRampMode: bridgeSelectOptionsWithSelected(timelineRampModeOptions, timelineRampMode),
+    },
     optimizerRows,
     summary: planBridgeBuildSummaryView(),
   };
@@ -5277,19 +5976,7 @@ function outcomeBridgeControlId(field){
 }
 
 function outcomeBridgeReadSelectOptions(field){
-  const selectId = outcomeBridgeSelectId(field);
-  const fallback = OUTCOME_SELECT_OPTIONS[field] || [];
-  const select = (selectId && els && els[selectId] instanceof HTMLSelectElement)
-    ? els[selectId]
-    : null;
-  if (!(select instanceof HTMLSelectElement)){
-    return fallback;
-  }
-  const rows = Array.from(select.options).map((opt) => ({
-    value: String(opt?.value ?? ""),
-    label: String(opt?.textContent ?? opt?.value ?? ""),
-  }));
-  return rows.length ? rows : fallback;
+  return normalizeBridgeSelectOptions(OUTCOME_SELECT_OPTIONS[field] || []);
 }
 
 function outcomeBridgeReadLegacyControlValue(field){
@@ -5324,7 +6011,6 @@ function outcomeBridgeResolvedSurfaceInputs(){
 
   const rawLever = String(
     storedInputs.surfaceLever ??
-    outcomeBridgeReadLegacyControlValue("surfaceLever") ??
     ""
   );
   const surfaceLever = outcomeBridgeDefaultSelectValue("surfaceLever", rawLever);
@@ -5332,7 +6018,6 @@ function outcomeBridgeResolvedSurfaceInputs(){
 
   const rawMode = String(
     storedInputs.surfaceMode ??
-    outcomeBridgeReadLegacyControlValue("surfaceMode") ??
     ""
   );
   const surfaceMode = outcomeBridgeDefaultSelectValue("surfaceMode", rawMode);
@@ -5345,25 +6030,25 @@ function outcomeBridgeResolvedSurfaceInputs(){
     ? surfaceClamp((base != null ? Number(base) * 1.2 : spec.clampHi), spec.clampLo, spec.clampHi)
     : "";
 
-  const rawMin = storedInputs.surfaceMin ?? outcomeBridgeReadLegacyControlValue("surfaceMin");
+  const rawMin = storedInputs.surfaceMin ?? "";
   const minNum = Number(rawMin);
   const surfaceMin = Number.isFinite(minNum) && spec
     ? String(surfaceClamp(minNum, spec.clampLo, spec.clampHi))
     : (defaultMin === "" ? "" : String(defaultMin));
 
-  const rawMax = storedInputs.surfaceMax ?? outcomeBridgeReadLegacyControlValue("surfaceMax");
+  const rawMax = storedInputs.surfaceMax ?? "";
   const maxNum = Number(rawMax);
   const surfaceMax = Number.isFinite(maxNum) && spec
     ? String(surfaceClamp(maxNum, spec.clampLo, spec.clampHi))
     : (defaultMax === "" ? "" : String(defaultMax));
 
-  const rawSteps = storedInputs.surfaceSteps ?? outcomeBridgeReadLegacyControlValue("surfaceSteps");
+  const rawSteps = storedInputs.surfaceSteps ?? "";
   const stepsNum = roundWholeNumberByMode(Number(rawSteps), { mode: "floor", fallback: null });
   const surfaceSteps = Number.isFinite(stepsNum)
     ? String(Math.max(5, Math.min(51, stepsNum)))
     : String(OUTCOME_SURFACE_DEFAULTS.surfaceSteps);
 
-  const rawTarget = storedInputs.surfaceTarget ?? outcomeBridgeReadLegacyControlValue("surfaceTarget");
+  const rawTarget = storedInputs.surfaceTarget ?? "";
   const targetNum = Number(rawTarget);
   const surfaceTarget = Number.isFinite(targetNum)
     ? String(Math.max(50, Math.min(99, roundWholeNumberByMode(targetNum, { mode: "round", fallback: 0 }) || 0)))
@@ -5527,6 +6212,12 @@ function outcomeBridgeStateView(){
       ? engine.snapshot.computeAssumptionBenchmarkWarnings(state, "Benchmark")
       : [];
     const driftSummary = computeRealityDrift();
+    const realism = runRealismEngine({
+      state,
+      res: lastRenderCtx?.res || {},
+      weeks: lastRenderCtx?.weeks,
+      driftSummary,
+    });
     const evidenceWarnings = computeEvidenceWarnings(state, { limit: 3, staleDays: 30 });
     const full = computeModelGovernance({
       state,
@@ -5534,12 +6225,14 @@ function outcomeBridgeStateView(){
       benchmarkWarnings,
       evidenceWarnings,
       driftSummary,
+      realism,
     });
     if (full && typeof full === "object"){
       governance = buildGovernanceSnapshotView(full);
       if (!state.ui || typeof state.ui !== "object"){
         state.ui = {};
       }
+      state.ui.lastRealismSnapshot = realism;
       state.ui.lastGovernance = full;
       state.ui.lastGovernanceSnapshot = { ...governance };
     }
@@ -5584,7 +6277,28 @@ function outcomeBridgeStateView(){
 
   const surfaceStatusText = String(state?.ui?.lastOutcomeSurfaceStatus || "").trim();
   const surfaceSummaryText = String(state?.ui?.lastOutcomeSurfaceSummary || "").trim();
-  const surfaceInputs = outcomeBridgeResolvedSurfaceInputs();
+  const mcModeOptions = outcomeBridgeReadSelectOptions("mcMode");
+  const mcVolatilityOptions = outcomeBridgeReadSelectOptions("mcVolatility");
+  const surfaceLeverOptions = outcomeBridgeReadSelectOptions("surfaceLever");
+  const surfaceModeOptions = outcomeBridgeReadSelectOptions("surfaceMode");
+  const mcMode = normalizeBridgeSelectValue(state?.mcMode, mcModeOptions, "basic");
+  const mcVolatility = normalizeBridgeSelectValue(state?.mcVolatility, mcVolatilityOptions, "med");
+  const surfaceInputsRaw = outcomeBridgeResolvedSurfaceInputs();
+  const surfaceLever = normalizeBridgeSelectValue(
+    surfaceInputsRaw?.surfaceLever,
+    surfaceLeverOptions,
+    OUTCOME_SURFACE_DEFAULTS.surfaceLever,
+  );
+  const surfaceMode = normalizeBridgeSelectValue(
+    surfaceInputsRaw?.surfaceMode,
+    surfaceModeOptions,
+    OUTCOME_SURFACE_DEFAULTS.surfaceMode,
+  );
+  const surfaceInputs = {
+    ...surfaceInputsRaw,
+    surfaceLever,
+    surfaceMode,
+  };
   const surfaceComputing = !!(state?.ui && state.ui.outcomeSurfaceComputing);
   const runButton = els?.mcRun instanceof HTMLButtonElement ? els.mcRun : null;
   const rerunButton = els?.mcRerun instanceof HTMLButtonElement ? els.mcRerun : null;
@@ -5599,9 +6313,9 @@ function outcomeBridgeStateView(){
       channelDoorPct: state.channelDoorPct ?? "",
       doorsPerHour3: canonicalDoorsPerHourFromSnap(state) ?? "",
       callsPerHour3: canonicalCallsPerHourFromSnap(state) ?? "",
-      mcMode: state.mcMode || "basic",
+      mcMode,
       mcSeed: state.mcSeed || "",
-      mcVolatility: state.mcVolatility || "med",
+      mcVolatility,
       turnoutReliabilityPct: state.turnoutReliabilityPct ?? "",
       mcRuns: 10000,
       mcContactMin: state.mcContactMin ?? "",
@@ -5630,10 +6344,10 @@ function outcomeBridgeStateView(){
       surfaceTarget: surfaceInputs.surfaceTarget,
     },
     options: {
-      mcMode: outcomeBridgeReadSelectOptions("mcMode"),
-      mcVolatility: outcomeBridgeReadSelectOptions("mcVolatility"),
-      surfaceLever: outcomeBridgeReadSelectOptions("surfaceLever"),
-      surfaceMode: outcomeBridgeReadSelectOptions("surfaceMode"),
+      mcMode: bridgeSelectOptionsWithSelected(mcModeOptions, mcMode),
+      mcVolatility: bridgeSelectOptionsWithSelected(mcVolatilityOptions, mcVolatility),
+      surfaceLever: bridgeSelectOptionsWithSelected(surfaceLeverOptions, surfaceLever),
+      surfaceMode: bridgeSelectOptionsWithSelected(surfaceModeOptions, surfaceMode),
     },
     controls: {
       locked,
@@ -5964,9 +6678,51 @@ function decisionBridgeLineList(raw){
     .filter(Boolean);
 }
 
+function decisionBridgeNormalizeWarRoomSession(session){
+  if (!session || typeof session !== "object"){
+    return null;
+  }
+  ensureDecisionSessionShape(session);
+  if (!session.warRoom || typeof session.warRoom !== "object"){
+    session.warRoom = {};
+  }
+  const warRoom = session.warRoom;
+  if (!Array.isArray(warRoom.watchItems)) warRoom.watchItems = [];
+  if (!Array.isArray(warRoom.decisionItems)) warRoom.decisionItems = [];
+  if (!Array.isArray(warRoom.decisionLog)) warRoom.decisionLog = [];
+  if (warRoom.owner == null) warRoom.owner = "";
+  if (warRoom.followUpDate == null) warRoom.followUpDate = "";
+  if (warRoom.decisionSummary == null) warRoom.decisionSummary = "";
+  if (warRoom.lastReview == null || typeof warRoom.lastReview !== "object"){
+    warRoom.lastReview = null;
+  }
+  return warRoom;
+}
+
+function decisionBridgeEnsureWarRoomState(){
+  ensureWarRoomStateShape(state, { nowDate: new Date() });
+  ensureEventCalendarStateShape(state, { nowDate: new Date() });
+  return state?.warRoom || null;
+}
+
+function decisionBridgeWarRoomCurrentBaseline(session, diagnostics){
+  const voterSignals = deriveVoterModelSignals(state?.voterData, {
+    censusAgeDistribution: extractCensusAgeDistribution(state?.census),
+    universeSize: safeNum(state?.universeSize),
+  });
+  return buildWarRoomReviewBaselineView({
+    diagnostics,
+    voterSignals,
+    recommendedOptionId: session?.recommendedOptionId || "",
+    scenarioId: state?.ui?.activeScenarioId || session?.scenarioId || SCENARIO_BASELINE_ID,
+    reviewedAt: new Date().toISOString(),
+  });
+}
+
 function decisionBridgeCurrentSnapshot(){
   ensureScenarioRegistry();
   ensureDecisionScaffold();
+  decisionBridgeEnsureWarRoomState();
 
   const sessions = listDecisionSessions();
   const sessionMap = state?.ui?.decision?.sessions || {};
@@ -6009,6 +6765,19 @@ function decisionBridgeCurrentSnapshot(){
   const summaryPreview = activeSession ? buildDecisionSummaryText(activeSession) : "";
 
   const diagnostics = decisionBridgeDiagnosticsSnapshot();
+  const warRoomSession = decisionBridgeNormalizeWarRoomSession(activeSession);
+  const warRoomCurrent = decisionBridgeWarRoomCurrentBaseline(activeSession, diagnostics);
+  const warRoomPrevious = warRoomSession?.lastReview || null;
+  const warRoomChange = buildWarRoomChangeClassificationView({
+    previousBaseline: warRoomPrevious,
+    currentBaseline: warRoomCurrent,
+  });
+  const warRoomDecisionLogRows = buildWarRoomDecisionLogRowsView(warRoomSession?.decisionLog || []);
+  const weather = buildWarRoomWeatherView(state, { nowDate: new Date() });
+  const eventCalendar = buildEventCalendarView(state, {
+    nowDate: new Date(),
+    scenarioId: state?.ui?.activeScenarioId || SCENARIO_BASELINE_ID,
+  });
 
   return {
     sessions,
@@ -6026,6 +6795,19 @@ function decisionBridgeCurrentSnapshot(){
     scenarioLabel,
     summaryPreview,
     diagnostics,
+    warRoom: {
+      current: warRoomCurrent,
+      previous: warRoomPrevious,
+      change: warRoomChange,
+      watchItems: Array.isArray(warRoomSession?.watchItems) ? warRoomSession.watchItems.slice() : [],
+      decisionItems: Array.isArray(warRoomSession?.decisionItems) ? warRoomSession.decisionItems.slice() : [],
+      owner: String(warRoomSession?.owner || ""),
+      followUpDate: String(warRoomSession?.followUpDate || ""),
+      decisionSummary: String(warRoomSession?.decisionSummary || ""),
+      decisionLogRows: warRoomDecisionLogRows,
+      weather,
+      eventCalendar,
+    },
   };
 }
 
@@ -6056,6 +6838,7 @@ function decisionBridgeStateView(){
   const snap = decisionBridgeCurrentSnapshot();
   const s = snap.activeSession || null;
   const activeOption = snap.activeOption || null;
+  const warRoom = snap.warRoom && typeof snap.warRoom === "object" ? snap.warRoom : {};
   const recommendedOptionId = s?.recommendedOptionId || "";
   const whatNeedsTrueText = Array.isArray(s?.whatNeedsTrue) ? s.whatNeedsTrue.join("\n") : "";
   const nonNegotiablesText = Array.isArray(s?.nonNegotiables) ? s.nonNegotiables.join("\n") : "";
@@ -6112,6 +6895,27 @@ function decisionBridgeStateView(){
     canDeleteSession,
     canDeleteOption,
     diagnostics: snap.diagnostics,
+    warRoom: {
+      classification: String(warRoom?.change?.classification || "noise"),
+      significance: String(warRoom?.change?.significance || "low"),
+      actionability: String(warRoom?.change?.actionability || "watch"),
+      score: Number.isFinite(Number(warRoom?.change?.score)) ? Number(warRoom.change.score) : 0,
+      changedSinceReview: !!warRoom?.change?.changedSinceReview,
+      summary: String(warRoom?.change?.summary || "—"),
+      topDrivers: Array.isArray(warRoom?.change?.topDrivers) ? warRoom.change.topDrivers.slice() : [],
+      deltas: warRoom?.change?.deltas || {},
+      lastReviewAt: String(warRoom?.previous?.reviewedAt || ""),
+      currentReviewAt: String(warRoom?.current?.reviewedAt || ""),
+      watchItemsText: Array.isArray(warRoom?.watchItems) ? warRoom.watchItems.join("\n") : "",
+      decisionItemsText: Array.isArray(warRoom?.decisionItems) ? warRoom.decisionItems.join("\n") : "",
+      owner: String(warRoom?.owner || ""),
+      followUpDate: String(warRoom?.followUpDate || ""),
+      decisionSummary: String(warRoom?.decisionSummary || ""),
+      recommendationLabel: snap.recommendedOptionLabel || "—",
+      decisionLogRows: Array.isArray(warRoom?.decisionLogRows) ? warRoom.decisionLogRows : [],
+      weather: warRoom?.weather || null,
+      eventCalendar: warRoom?.eventCalendar || null,
+    },
     summary: {
       objectiveLabel: snap.objectiveLabel || "—",
       selectedOptionLabel: snap.selectedOptionLabel || "—",
@@ -6157,6 +6961,15 @@ function decisionBridgeCreateSession(name){
     recommendedOptionId: null,
     options: {},
     activeOptionId: null,
+    warRoom: {
+      watchItems: [],
+      decisionItems: [],
+      owner: "",
+      followUpDate: "",
+      decisionSummary: "",
+      lastReview: null,
+      decisionLog: [],
+    },
   };
   state.ui.decision.activeSessionId = id;
   persist();
@@ -6216,6 +7029,7 @@ function decisionBridgeUpdateSessionField(field, value){
     return { ok: false, code: "no_session", view: decisionBridgeStateView() };
   }
   ensureDecisionSessionShape(s);
+  const warRoom = decisionBridgeNormalizeWarRoomSession(s);
   const key = String(field || "").trim();
   if (key === "objectiveKey"){
     s.objectiveKey = String(value || "").trim() || OBJECTIVE_TEMPLATES[0]?.key || "win_prob";
@@ -6233,6 +7047,16 @@ function decisionBridgeUpdateSessionField(field, value){
     s.riskPosture = String(value || "balanced");
   } else if (key === "nonNegotiables"){
     s.nonNegotiables = decisionBridgeLineList(value);
+  } else if (key === "warRoomWatchItems"){
+    warRoom.watchItems = decisionBridgeLineList(value);
+  } else if (key === "warRoomDecisionItems"){
+    warRoom.decisionItems = decisionBridgeLineList(value);
+  } else if (key === "warRoomOwner"){
+    warRoom.owner = String(value || "").trim();
+  } else if (key === "warRoomFollowUpDate"){
+    warRoom.followUpDate = String(value || "").trim();
+  } else if (key === "warRoomDecisionSummary"){
+    warRoom.decisionSummary = String(value || "");
   } else {
     return { ok: false, code: "unknown_field", view: decisionBridgeStateView() };
   }
@@ -6387,6 +7211,256 @@ function decisionBridgeSetWhatNeedsTrue(raw){
   return { ok: true, view: decisionBridgeStateView() };
 }
 
+function decisionBridgeCaptureReviewBaseline(){
+  const s = getActiveDecisionSession();
+  if (!s) {
+    return { ok: false, code: "no_session", view: decisionBridgeStateView() };
+  }
+  ensureDecisionSessionShape(s);
+  const warRoom = decisionBridgeNormalizeWarRoomSession(s);
+  const diagnostics = decisionBridgeDiagnosticsSnapshot();
+  warRoom.lastReview = decisionBridgeWarRoomCurrentBaseline(s, diagnostics);
+  persist();
+  refreshLegacyDecisionManagerIfMounted();
+  return { ok: true, view: decisionBridgeStateView() };
+}
+
+function decisionBridgeLogDecision(){
+  const s = getActiveDecisionSession();
+  if (!s) {
+    return { ok: false, code: "no_session", view: decisionBridgeStateView() };
+  }
+  ensureDecisionSessionShape(s);
+  const warRoom = decisionBridgeNormalizeWarRoomSession(s);
+  const snap = decisionBridgeCurrentSnapshot();
+  const change = snap?.warRoom?.change || buildWarRoomChangeClassificationView({
+    previousBaseline: warRoom.lastReview || null,
+    currentBaseline: decisionBridgeWarRoomCurrentBaseline(s, snap?.diagnostics || null),
+  });
+  const summary = String(warRoom.decisionSummary || "").trim()
+    || `Decision checkpoint: ${String(snap?.recommendedOptionLabel || "No recommendation")}`;
+
+  const row = {
+    id: `wr_${uid()}${Date.now().toString(16)}`,
+    recordedAt: new Date().toISOString(),
+    scenarioId: state?.ui?.activeScenarioId || s?.scenarioId || SCENARIO_BASELINE_ID,
+    classification: String(change?.classification || "noise"),
+    significance: String(change?.significance || "low"),
+    actionability: String(change?.actionability || "watch"),
+    owner: String(warRoom.owner || "").trim(),
+    followUpDate: String(warRoom.followUpDate || "").trim(),
+    summary,
+    status: "open",
+    recommendationLabel: String(snap?.recommendedOptionLabel || "—"),
+    topDrivers: Array.isArray(change?.topDrivers) ? change.topDrivers.slice(0, 6) : [],
+    watchItems: Array.isArray(warRoom.watchItems) ? warRoom.watchItems.slice(0, 20) : [],
+    decisionItems: Array.isArray(warRoom.decisionItems) ? warRoom.decisionItems.slice(0, 20) : [],
+  };
+
+  warRoom.decisionLog.unshift(row);
+  if (warRoom.decisionLog.length > 120){
+    warRoom.decisionLog.length = 120;
+  }
+  if (!warRoom.lastReview){
+    warRoom.lastReview = decisionBridgeWarRoomCurrentBaseline(s, snap?.diagnostics || null);
+  }
+
+  persist();
+  refreshLegacyDecisionManagerIfMounted();
+  return { ok: true, view: decisionBridgeStateView() };
+}
+
+function decisionBridgeSetDecisionLogStatus(id, status){
+  const s = getActiveDecisionSession();
+  if (!s) {
+    return { ok: false, code: "no_session", view: decisionBridgeStateView() };
+  }
+  ensureDecisionSessionShape(s);
+  const warRoom = decisionBridgeNormalizeWarRoomSession(s);
+  const rowId = String(id || "").trim();
+  const nextStatus = String(status || "").trim().toLowerCase();
+  const allowed = new Set(["open", "in_progress", "closed"]);
+  if (!rowId || !allowed.has(nextStatus)){
+    return { ok: false, code: "invalid_status_request", view: decisionBridgeStateView() };
+  }
+  const row = warRoom.decisionLog.find((entry) => String(entry?.id || "").trim() === rowId);
+  if (!row){
+    return { ok: false, code: "log_row_not_found", view: decisionBridgeStateView() };
+  }
+  row.status = nextStatus;
+  persist();
+  refreshLegacyDecisionManagerIfMounted();
+  return { ok: true, view: decisionBridgeStateView() };
+}
+
+function decisionBridgeSetWeatherField(field, value){
+  const warRoom = decisionBridgeEnsureWarRoomState();
+  const weather = warRoom?.weather || {};
+  const key = String(field || "").trim();
+  if (key === "officeZip"){
+    weather.officeZip = normalizeZip(value);
+  } else if (key === "overrideZip"){
+    weather.overrideZip = normalizeZip(value);
+  } else if (key === "useOverrideZip"){
+    weather.useOverrideZip = !!value;
+  } else {
+    return { ok: false, code: "unknown_weather_field", view: decisionBridgeStateView() };
+  }
+  weather.selectedZip = resolveSelectedZip(weather);
+  if (!weather.selectedZip){
+    weather.status = "idle";
+    weather.error = "Select an office ZIP or override ZIP for weather context.";
+  }
+  persist();
+  refreshLegacyDecisionManagerIfMounted();
+  return { ok: true, view: decisionBridgeStateView() };
+}
+
+function decisionBridgeSetWeatherMode(mode){
+  const warRoom = decisionBridgeEnsureWarRoomState();
+  const requestedMode = String(mode || "").trim().toLowerCase();
+  if (requestedMode === WEATHER_MODE_TODAY_ONLY){
+    const selectedZip = resolveSelectedZip(warRoom?.weather || {});
+    if (!selectedZip){
+      warRoom.weather.status = "error";
+      warRoom.weather.error = "Select a ZIP before enabling today-only weather adjustment.";
+      persist();
+      refreshLegacyDecisionManagerIfMounted();
+      return { ok: false, code: "missing_zip", view: decisionBridgeStateView() };
+    }
+  }
+  applyWeatherModeToState(state, mode, { nowDate: new Date() });
+  persist();
+  refreshLegacyDecisionManagerIfMounted();
+  return { ok: true, view: decisionBridgeStateView() };
+}
+
+async function decisionBridgeRefreshWeather(){
+  const warRoom = decisionBridgeEnsureWarRoomState();
+  const weather = warRoom?.weather || {};
+  const selectedZip = resolveSelectedZip(weather);
+  if (!selectedZip){
+    weather.status = "error";
+    weather.error = "Select a ZIP before refreshing weather.";
+    persist();
+    refreshLegacyDecisionManagerIfMounted();
+    return { ok: false, code: "missing_zip", view: decisionBridgeStateView() };
+  }
+
+  weather.status = "loading";
+  weather.error = "";
+  refreshLegacyDecisionManagerIfMounted();
+
+  try{
+    const payload = await fetchWarRoomWeatherByZip(selectedZip);
+    applyWeatherObservationToState(state, payload, { nowDate: new Date() });
+    const mode = state?.warRoom?.weatherAdjustment?.mode || WEATHER_MODE_OBSERVE_ONLY;
+    if (mode === WEATHER_MODE_TODAY_ONLY){
+      applyWeatherModeToState(state, WEATHER_MODE_TODAY_ONLY, { nowDate: new Date() });
+    }
+    persist();
+    refreshLegacyDecisionManagerIfMounted();
+    return { ok: !!payload?.ok, code: payload?.ok ? "ok" : (payload?.code || "weather_error"), view: decisionBridgeStateView() };
+  } catch (err){
+    weather.status = "error";
+    weather.error = err?.message ? String(err.message) : "Weather refresh failed.";
+    persist();
+    refreshLegacyDecisionManagerIfMounted();
+    return { ok: false, code: "weather_exception", view: decisionBridgeStateView() };
+  }
+}
+
+function decisionBridgeSetEventFilter(field, value){
+  decisionBridgeEnsureWarRoomState();
+  const out = setEventCalendarFilter(state, field, value, { nowDate: new Date() });
+  if (!out?.ok){
+    return { ok: false, code: out?.code || "event_filter_failed", view: decisionBridgeStateView() };
+  }
+  persist();
+  refreshLegacyDecisionManagerIfMounted();
+  return { ok: true, view: decisionBridgeStateView() };
+}
+
+function decisionBridgeSetEventDraftField(field, value){
+  decisionBridgeEnsureWarRoomState();
+  const out = setEventCalendarDraftField(state, field, value, { nowDate: new Date() });
+  if (!out?.ok){
+    return { ok: false, code: out?.code || "event_draft_field_failed", view: decisionBridgeStateView() };
+  }
+  persist();
+  refreshLegacyDecisionManagerIfMounted();
+  return { ok: true, view: decisionBridgeStateView() };
+}
+
+function decisionBridgeSaveEventDraft(){
+  decisionBridgeEnsureWarRoomState();
+  const out = saveEventCalendarDraftAsEvent(state, {
+    uidFn: uid,
+    nowDate: new Date(),
+  });
+  if (!out?.ok){
+    return { ok: false, code: out?.code || "event_save_failed", view: decisionBridgeStateView() };
+  }
+  persist();
+  refreshLegacyDecisionManagerIfMounted();
+  return { ok: true, view: decisionBridgeStateView() };
+}
+
+function decisionBridgeLoadEventDraft(eventId){
+  decisionBridgeEnsureWarRoomState();
+  const out = loadEventCalendarDraft(state, eventId, { nowDate: new Date() });
+  if (!out?.ok){
+    return { ok: false, code: out?.code || "event_load_failed", view: decisionBridgeStateView() };
+  }
+  persist();
+  refreshLegacyDecisionManagerIfMounted();
+  return { ok: true, view: decisionBridgeStateView() };
+}
+
+function decisionBridgeClearEventDraft(){
+  decisionBridgeEnsureWarRoomState();
+  const out = clearEventCalendarDraft(state, { nowDate: new Date() });
+  if (!out?.ok){
+    return { ok: false, code: out?.code || "event_clear_draft_failed", view: decisionBridgeStateView() };
+  }
+  persist();
+  refreshLegacyDecisionManagerIfMounted();
+  return { ok: true, view: decisionBridgeStateView() };
+}
+
+function decisionBridgeDeleteEvent(eventId){
+  decisionBridgeEnsureWarRoomState();
+  const out = deleteEventCalendarRecord(state, eventId, { nowDate: new Date() });
+  if (!out?.ok){
+    return { ok: false, code: out?.code || "event_delete_failed", view: decisionBridgeStateView() };
+  }
+  persist();
+  refreshLegacyDecisionManagerIfMounted();
+  return { ok: true, view: decisionBridgeStateView() };
+}
+
+function decisionBridgeSetEventApplyToModel(eventId, enabled){
+  decisionBridgeEnsureWarRoomState();
+  const out = updateEventCalendarApplyToModel(state, eventId, enabled, { nowDate: new Date() });
+  if (!out?.ok){
+    return { ok: false, code: out?.code || "event_apply_toggle_failed", view: decisionBridgeStateView() };
+  }
+  persist();
+  refreshLegacyDecisionManagerIfMounted();
+  return { ok: true, view: decisionBridgeStateView() };
+}
+
+function decisionBridgeSetEventStatus(eventId, status){
+  decisionBridgeEnsureWarRoomState();
+  const out = setEventCalendarStatus(state, eventId, status, { nowDate: new Date() });
+  if (!out?.ok){
+    return { ok: false, code: out?.code || "event_status_failed", view: decisionBridgeStateView() };
+  }
+  persist();
+  refreshLegacyDecisionManagerIfMounted();
+  return { ok: true, view: decisionBridgeStateView() };
+}
+
 async function decisionBridgeCopySummary(kind = "markdown"){
   const s = getActiveDecisionSession();
   if (!s) {
@@ -6491,6 +7565,20 @@ function installDecisionBridge(){
 
     setRecommendedOption: (id) => decisionBridgeSetRecommendedOption(id),
     setWhatNeedsTrue: (raw) => decisionBridgeSetWhatNeedsTrue(raw),
+    captureReviewBaseline: () => decisionBridgeCaptureReviewBaseline(),
+    logDecision: () => decisionBridgeLogDecision(),
+    setDecisionLogStatus: (id, status) => decisionBridgeSetDecisionLogStatus(id, status),
+    setWeatherField: (field, value) => decisionBridgeSetWeatherField(field, value),
+    setWeatherMode: (mode) => decisionBridgeSetWeatherMode(mode),
+    refreshWeather: () => decisionBridgeRefreshWeather(),
+    setEventFilter: (field, value) => decisionBridgeSetEventFilter(field, value),
+    setEventDraftField: (field, value) => decisionBridgeSetEventDraftField(field, value),
+    saveEventDraft: () => decisionBridgeSaveEventDraft(),
+    loadEventDraft: (eventId) => decisionBridgeLoadEventDraft(eventId),
+    clearEventDraft: () => decisionBridgeClearEventDraft(),
+    deleteEvent: (eventId) => decisionBridgeDeleteEvent(eventId),
+    setEventApplyToModel: (eventId, enabled) => decisionBridgeSetEventApplyToModel(eventId, enabled),
+    setEventStatus: (eventId, status) => decisionBridgeSetEventStatus(eventId, status),
     copySummary: (kind) => decisionBridgeCopySummary(kind),
     downloadSummaryJson: () => decisionBridgeDownloadSummaryJson(),
     runSensitivitySnapshot: () => decisionBridgeRunSensitivitySnapshot(),

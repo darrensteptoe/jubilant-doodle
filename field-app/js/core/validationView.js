@@ -82,6 +82,27 @@ export function buildValidationChecklistView(args = {}){
       : "Candidate + undecided totals must equal 100%.",
   });
 
+  const candidateHistory = validation?.candidateHistory && typeof validation.candidateHistory === "object"
+    ? validation.candidateHistory
+    : null;
+  if (candidateHistory){
+    const historyCount = Number(candidateHistory?.recordCount || 0);
+    const confidenceBand = String(candidateHistory?.confidenceBand || "missing").trim().toLowerCase();
+    const coverageBand = String(candidateHistory?.coverageBand || "none").trim().toLowerCase();
+    if (historyCount <= 0){
+      items.push({
+        kind: "warn",
+        text: "Candidate history baseline missing; forecast confidence is downgraded.",
+      });
+    } else {
+      const kind = confidenceBand === "low" ? "warn" : "ok";
+      items.push({
+        kind,
+        text: `Candidate history baseline: ${historyCount} row(s), coverage ${coverageBand || "none"}, confidence ${confidenceBand}.`,
+      });
+    }
+  }
+
   if (state?.undecidedMode === "user_defined"){
     const splitOk = !!validation.userSplitOk;
     items.push({
