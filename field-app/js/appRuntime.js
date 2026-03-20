@@ -64,6 +64,10 @@ import {
   computeDistrictSupportTotalPctFromState,
 } from "./core/districtView.js";
 import {
+  normalizeCensusState,
+  resolutionNeedsCounty,
+} from "./core/censusModule.js";
+import {
   CANDIDATE_HISTORY_ELECTION_TYPE_OPTIONS,
   CANDIDATE_HISTORY_INCUMBENCY_OPTIONS,
   normalizeCandidateHistoryRecords,
@@ -684,6 +688,7 @@ const OUTCOME_BRIDGE_KEY = "__FPE_OUTCOME_API__";
 const DECISION_BRIDGE_KEY = "__FPE_DECISION_API__";
 const BRIDGE_SYNC_EVENT = "fpe:bridge-sync";
 let bridgeSyncRevision = 0;
+let bridgeSyncAfterRenderPending = null;
 
 function normalizeBridgeSelectOptions(options){
   const rows = Array.isArray(options) ? options : [];
@@ -746,6 +751,25 @@ function notifyBridgeSync({ source = "runtime", reason = "state_changed" } = {})
     observed_behavior: `bridge sync dispatched (${payload.source}/${payload.reason})`,
   });
   return payload;
+}
+
+function queueBridgeSyncAfterRender({ source = "runtime", reason = "state_changed" } = {}){
+  bridgeSyncAfterRenderPending = {
+    source: String(source || "runtime"),
+    reason: String(reason || "state_changed"),
+  };
+}
+
+function flushQueuedBridgeSyncAfterRender(){
+  if (!bridgeSyncAfterRenderPending){
+    return;
+  }
+  const payload = bridgeSyncAfterRenderPending;
+  bridgeSyncAfterRenderPending = null;
+  notifyBridgeSync({
+    source: payload.source,
+    reason: payload.reason,
+  });
 }
 
 function forecastArchiveContextFromState(){
@@ -843,12 +867,199 @@ function shellBridgeSyncContextLinks(){
   applyActiveContextToLinks(ctx, ".fpe-nav__item[href]");
 }
 
+function shellBridgeClean(value){
+  return String(value == null ? "" : value).trim();
+}
+
+function shellBridgeToFiniteOrNull(value){
+  const n = Number(value);
+  return Number.isFinite(n) ? n : null;
+}
+
+function shellBridgeResolveDecisionSession(){
+  const decision = state?.ui?.decision;
+  const sessions = (decision?.sessions && typeof decision.sessions === "object")
+    ? decision.sessions
+    : {};
+  const activeId = shellBridgeClean(decision?.activeSessionId);
+  if (activeId && sessions[activeId] && typeof sessions[activeId] === "object"){
+    return sessions[activeId];
+  }
+  const ids = Object.keys(sessions);
+  if (!ids.length){
+    return null;
+  }
+  const first = sessions[ids[0]];
+  return first && typeof first === "object" ? first : null;
+}
+
+function shellBridgeBuildPlaybookSignals(){
+  const validation = state?.ui?.lastValidationSnapshot && typeof state.ui.lastValidationSnapshot === "object"
+    ? state.ui.lastValidationSnapshot
+    : {};
+  const validationReadiness = validation?.readiness && typeof validation.readiness === "object"
+    ? validation.readiness
+    : {};
+  const readinessBand = shellBridgeClean(validation?.readinessBand || validationReadiness?.band).toLowerCase();
+  const readinessScore = shellBridgeToFiniteOrNull(validation?.readinessScore ?? validationReadiness?.score);
+  const realism = state?.ui?.lastRealismSnapshot && typeof state.ui.lastRealismSnapshot === "object"
+    ? state.ui.lastRealismSnapshot
+    : {};
+  const realismClassification = shellBridgeClean(realism?.classification).toLowerCase();
+  const realismStatus = shellBridgeClean(realism?.status).toLowerCase();
+  const capacitySeverity = shellBridgeClean(realism?.capacity?.severity).toLowerCase();
+  const capacityRatioRequiredToAvailable = shellBridgeToFiniteOrNull(realism?.capacity?.ratioRequiredToAvailable);
+  const governance = state?.ui?.lastGovernanceSnapshot && typeof state.ui.lastGovernanceSnapshot === "object"
+    ? state.ui.lastGovernanceSnapshot
+    : {};
+  const governanceConfidenceBand = shellBridgeClean(governance?.confidenceBand).toLowerCase();
+  const saturationPressure = shellBridgeClean(governance?.executionSaturationPressure).toLowerCase();
+  const governanceTopWarning = shellBridgeClean(governance?.topWarning);
+  const learningTopSuggestion = shellBridgeClean(governance?.learningTopSuggestion);
+  const learningRecommendation = shellBridgeClean(governance?.learningRecommendation);
+  const assumptionDriftDetected = /assumption/i.test(governanceTopWarning)
+    || /assumption/i.test(learningTopSuggestion)
+    || /assumption/i.test(learningRecommendation);
+
+  const weather = state?.warRoom?.weather && typeof state.warRoom.weather === "object"
+    ? state.warRoom.weather
+    : {};
+  const weatherAdjustment = state?.warRoom?.weatherAdjustment && typeof state.warRoom.weatherAdjustment === "object"
+    ? state.warRoom.weatherAdjustment
+    : {};
+  const weatherFieldExecutionRisk = shellBridgeClean(weather?.fieldExecutionRisk).toLowerCase();
+  const weatherElectionDayTurnoutRisk = shellBridgeClean(weather?.electionDayTurnoutRisk).toLowerCase();
+  const weatherMode = weatherAdjustment?.enabled && shellBridgeClean(weatherAdjustment?.mode).toLowerCase() === "today_only"
+    ? "today_only"
+    : "observe_only";
+
+  const eventCalendar = state?.warRoom?.eventCalendar && typeof state.warRoom.eventCalendar === "object"
+    ? state.warRoom.eventCalendar
+    : {};
+  const events = Array.isArray(eventCalendar?.events) ? eventCalendar.events : [];
+  const todayIso = new Date().toISOString().slice(0, 10);
+  let appliedCampaignEvents = 0;
+  let todayCampaignEvents = 0;
+  let todayExpectedVolunteers = 0;
+  for (const eventRow of events){
+    if (shellBridgeClean(eventRow?.category).toLowerCase() !== "campaign") continue;
+    if (!eventRow?.applyToModel) continue;
+    appliedCampaignEvents += 1;
+    if (shellBridgeClean(eventRow?.date) === todayIso){
+      todayCampaignEvents += 1;
+      const expectedVolunteers = shellBridgeToFiniteOrNull(eventRow?.expectedVolunteers);
+      if (expectedVolunteers != null && expectedVolunteers > 0){
+        todayExpectedVolunteers += expectedVolunteers;
+      }
+    }
+  }
+
+  const decisionSession = shellBridgeResolveDecisionSession();
+  const decisionWarRoom = decisionSession?.warRoom && typeof decisionSession.warRoom === "object"
+    ? decisionSession.warRoom
+    : {};
+  const decisionItemsCount = Array.isArray(decisionWarRoom?.decisionItems) ? decisionWarRoom.decisionItems.length : 0;
+  const watchItemsCount = Array.isArray(decisionWarRoom?.watchItems) ? decisionWarRoom.watchItems.length : 0;
+  const decisionPressureLevel = decisionItemsCount >= 3
+    ? "high"
+    : (decisionItemsCount > 0 ? "medium" : "low");
+
+  const persuasionPct = shellBridgeToFiniteOrNull(state?.persuasionPct);
+  const workforceRoleTypingCoverage = shellBridgeToFiniteOrNull(state?.ui?.twCapOutlookLatest?.workforce?.roleTypingCoveragePct);
+  const volunteerScale = shellBridgeToFiniteOrNull(state?.volunteerMultBase);
+
+  const tacticRows = state?.budget?.tactics && typeof state.budget.tactics === "object"
+    ? Object.entries(state.budget.tactics)
+      .map(([id, tactic]) => ({
+        id: shellBridgeClean(id).toLowerCase(),
+        enabled: !!tactic?.enabled,
+        cpa: shellBridgeToFiniteOrNull(tactic?.cpa),
+      }))
+      .filter((row) => row.enabled && row.cpa != null && row.cpa > 0)
+    : [];
+  let optimizerCheapChannelRisk = false;
+  if (tacticRows.length >= 2){
+    const sortedByCpa = tacticRows.slice().sort((a, b) => Number(a.cpa) - Number(b.cpa));
+    const cheapest = shellBridgeToFiniteOrNull(sortedByCpa[0]?.cpa);
+    const second = shellBridgeToFiniteOrNull(sortedByCpa[1]?.cpa);
+    if (cheapest != null && second != null && cheapest > 0){
+      optimizerCheapChannelRisk = (second / cheapest) >= 2.2;
+    }
+  }
+
+  const planRows = Array.isArray(state?.ui?.lastPlanRows) ? state.ui.lastPlanRows : [];
+  let optimizerTopChannelShare = null;
+  if (planRows.length){
+    let totalAttempts = 0;
+    let topAttempts = 0;
+    for (const row of planRows){
+      const attempts = shellBridgeToFiniteOrNull(row?.attempts);
+      if (attempts == null || attempts <= 0) continue;
+      totalAttempts += attempts;
+      if (attempts > topAttempts){
+        topAttempts = attempts;
+      }
+    }
+    if (totalAttempts > 0){
+      optimizerTopChannelShare = topAttempts / totalAttempts;
+    }
+  }
+
+  return {
+    readinessBand,
+    readinessScore,
+    realismClassification,
+    realismStatus,
+    governanceConfidenceBand,
+    governanceTopWarning,
+    assumptionDriftDetected,
+    saturationPressure,
+    decisionPressureLevel,
+    decisionItemsCount,
+    watchItemsCount,
+    optimizerCheapChannelRisk,
+    optimizerTopChannelShare,
+    persuasionPct,
+    roleTypingCoveragePct: workforceRoleTypingCoverage,
+    volunteerScale,
+    capacitySeverity,
+    capacityRatioRequiredToAvailable,
+    weatherFieldExecutionRisk,
+    weatherElectionDayTurnoutRisk,
+    weatherMode,
+    appliedCampaignEvents,
+    todayCampaignEvents,
+    todayExpectedVolunteers,
+  };
+}
+
+function shellBridgeReadPlaybookEnabled(srcState = state){
+  const ui = (srcState?.ui && typeof srcState.ui === "object") ? srcState.ui : {};
+  if (Object.prototype.hasOwnProperty.call(ui, "playbook")){
+    return !!ui.playbook;
+  }
+  return !!ui.training;
+}
+
+function shellBridgeApplyPlaybookUiState(enabled){
+  const value = !!enabled;
+  if (!state.ui || typeof state.ui !== "object") state.ui = {};
+  state.ui.playbook = value;
+  state.ui.training = value;
+  if (els.toggleTraining) els.toggleTraining.checked = value;
+  document.body.classList.toggle("training", value);
+  document.body.classList.toggle("playbook", value);
+  if (els.explainCard) els.explainCard.hidden = !value;
+}
+
 function shellBridgeStateView(){
   const ctx = shellBridgeResolvedContext();
   const contextValidation = validateCampaignContext(ctx, { requireOffice: false });
+  const playbookEnabled = shellBridgeReadPlaybookEnabled();
   return {
     scenarioName: String(state?.scenarioName || ""),
-    trainingEnabled: !!state?.ui?.training,
+    playbookEnabled,
+    trainingEnabled: playbookEnabled,
     campaignId: String(ctx?.campaignId || ""),
     campaignName: String(state?.campaignName || ctx?.campaignName || ""),
     officeId: String(ctx?.officeId || ""),
@@ -858,6 +1069,7 @@ function shellBridgeStateView(){
     isScenarioLocked: !!ctx?.isScenarioLocked,
     contextReady: !!contextValidation?.ok,
     contextMissing: Array.isArray(contextValidation?.missing) ? contextValidation.missing.slice() : [],
+    playbookSignals: shellBridgeBuildPlaybookSignals(),
   };
 }
 
@@ -992,15 +1204,20 @@ function shellBridgeSetContext(rawPatch){
 }
 
 function shellBridgeSetTrainingEnabled(enabled){
-  if (!state.ui || typeof state.ui !== "object") state.ui = {};
-  state.ui.training = !!enabled;
-  if (els.toggleTraining) els.toggleTraining.checked = !!state.ui.training;
-  document.body.classList.toggle("training", !!state.ui.training);
+  shellBridgeApplyPlaybookUiState(enabled);
   setText(els.snapshotHash, lastResultsSnapshot?.snapshotHash || "—");
   setText(els.snapshotHashSidebar, lastResultsSnapshot?.snapshotHash || "—");
-  if (els.explainCard) els.explainCard.hidden = !state.ui.training;
   persist();
-  notifyBridgeSync({ source: "bridge.shell", reason: "training_toggled" });
+  notifyBridgeSync({ source: "bridge.shell", reason: "playbook_toggled" });
+  return { ok: true, view: shellBridgeStateView() };
+}
+
+function shellBridgeSetPlaybookEnabled(enabled){
+  return shellBridgeSetTrainingEnabled(enabled);
+}
+
+function shellBridgeSyncPlaybookUiState(){
+  shellBridgeApplyPlaybookUiState(shellBridgeReadPlaybookEnabled());
   return { ok: true, view: shellBridgeStateView() };
 }
 
@@ -1028,9 +1245,8 @@ function shellBridgeResetScenario(){
   clearState();
   applyStateToUI();
   rebuildCandidateTable();
-  document.body.classList.toggle("training", !!state?.ui?.training);
+  shellBridgeSyncPlaybookUiState();
   applyThemeFromState();
-  if (els.explainCard) els.explainCard.hidden = !state?.ui?.training;
   render();
   safeCall(() => { renderScenarioManagerC1(); });
   safeCall(() => { renderDecisionSessionD1(); });
@@ -1045,6 +1261,7 @@ function installShellBridge(){
     getView: () => shellBridgeStateView(),
     setScenarioName: (value) => shellBridgeSetScenarioName(value),
     setContext: (patch) => shellBridgeSetContext(patch),
+    setPlaybookEnabled: (enabled) => shellBridgeSetPlaybookEnabled(enabled),
     setTrainingEnabled: (enabled) => shellBridgeSetTrainingEnabled(enabled),
     openDiagnostics: () => shellBridgeOpenDiagnostics(),
     resetScenario: () => shellBridgeResetScenario(),
@@ -1154,9 +1371,8 @@ function dataBridgeApplyImportedScenario(nextScenario){
   } catch {}
   applyStateToUI();
   rebuildCandidateTable();
-  document.body.classList.toggle("training", !!state?.ui?.training);
+  shellBridgeSyncPlaybookUiState();
   applyThemeFromState();
-  if (els.explainCard) els.explainCard.hidden = !state?.ui?.training;
   render();
   safeCall(() => { renderDecisionSessionD1(); });
   persist();
@@ -1556,7 +1772,7 @@ function dataBridgeImportVoterRows(payload = {}){
     manifest: normalizedRows.manifest,
     rows: normalizedRows.rows,
   });
-  setState((s) => {
+  mutateState((s) => {
     s.voterData = nextVoterData;
   });
   const importOutcome = buildVoterImportOutcomeView({
@@ -1826,10 +2042,10 @@ function diffTopLevelStateKeys(prevState, nextState){
 }
 
 // setState(patchFn) — controlled state mutation for UI-only writes.
-// Shallow-clones state, deep-clones only state.ui (where all setState writes live).
+// Shallow-clones state, deep-clones only state.ui (where setState writes should live).
 // Engine/scenario fields are never mutated here so reference copies are safe.
 // Rendering/persistence are queued through commitUIUpdate to avoid input-event thrash.
-function setState(patchFn){
+function setState(patchFn, { actionName = "setState" } = {}){
   const prevState = state;
   const next = { ...state, ui: structuredClone(state.ui) };
   patchFn(next);
@@ -1837,15 +2053,19 @@ function setState(patchFn){
   state = next;
   observeContractEvent({
     type: "state_write",
-    action_name: "setState",
+    action_name: String(actionName || "setState"),
     handler_name: typeof patchFn === "function" && patchFn.name ? patchFn.name : "anonymous_patch",
     changedTopLevel,
     changedPaths: changedTopLevel.map((key) => `state.${key}`),
     observed_behavior: changedTopLevel.length
-      ? `setState changed ${changedTopLevel.join(", ")}`
-      : "setState produced no top-level changes",
+      ? `${String(actionName || "setState")} changed ${changedTopLevel.join(", ")}`
+      : `${String(actionName || "setState")} produced no top-level changes`,
   });
   commitUIUpdate();
+}
+
+function mutateState(patchFn){
+  setState(patchFn, { actionName: "mutateState" });
 }
 
 let lastRenderCtx = null;
@@ -2060,10 +2280,17 @@ function commitUIUpdate({
     lastCriticalAuditSnapshot = buildCriticalAuditSnapshot(state);
   }
   uiUpdateQueue.commitUIUpdate({ render: doRender, persist: doPersist, immediatePersist });
-  notifyBridgeSync({
-    source: "runtime",
-    reason: doRender ? "commit_ui_update" : "state_updated",
-  });
+  if (doRender){
+    queueBridgeSyncAfterRender({
+      source: "runtime",
+      reason: "commit_ui_update",
+    });
+  } else {
+    notifyBridgeSync({
+      source: "runtime",
+      reason: "state_updated",
+    });
+  }
 }
 
 
@@ -2357,6 +2584,7 @@ function render(){
     handler_name: "render",
     observed_behavior: "render cycle completed",
   });
+  flushQueuedBridgeSyncAfterRender();
 }
 
 function renderWeeklyOps(res, weeks, { weeklyContext = null, executionSnapshot = null } = {}){
@@ -3993,22 +4221,115 @@ function districtBridgeCallCensusRuntime(method, ...args){
 function districtBridgePatchCensusBridgeField(field, rawValue){
   const key = cleanText(field);
   if (!key) return false;
+  const resetGeoData = (census) => {
+    census.geoSearch = "";
+    census.tractFilter = "";
+    census.geoOptions = [];
+    census.selectedGeoids = [];
+    census.rowsByGeoid = {};
+    census.activeRowsKey = "";
+    census.loadedRowCount = 0;
+    census.loadingGeo = false;
+    census.loadingRows = false;
+    census.lastFetchAt = "";
+  };
+  const resetRowsOnly = (census) => {
+    census.rowsByGeoid = {};
+    census.activeRowsKey = "";
+    census.loadedRowCount = 0;
+    census.loadingRows = false;
+    census.lastFetchAt = "";
+  };
   let applied = false;
-  setState((next) => {
-    if (!next.census || typeof next.census !== "object") next.census = {};
+  mutateState((next) => {
+    next.census = normalizeCensusState(next.census);
+    const census = {
+      ...next.census,
+      geoOptions: Array.isArray(next.census?.geoOptions) ? next.census.geoOptions.slice() : [],
+      selectedGeoids: Array.isArray(next.census?.selectedGeoids) ? next.census.selectedGeoids.slice() : [],
+      rowsByGeoid: next.census?.rowsByGeoid && typeof next.census.rowsByGeoid === "object"
+        ? { ...next.census.rowsByGeoid }
+        : {},
+      selectionSets: Array.isArray(next.census?.selectionSets) ? next.census.selectionSets.slice() : [],
+      bridgeStateOptions: Array.isArray(next.census?.bridgeStateOptions) ? next.census.bridgeStateOptions.slice() : [],
+      bridgeCountyOptions: Array.isArray(next.census?.bridgeCountyOptions) ? next.census.bridgeCountyOptions.slice() : [],
+      bridgePlaceOptions: Array.isArray(next.census?.bridgePlaceOptions) ? next.census.bridgePlaceOptions.slice() : [],
+      bridgeTractFilterOptions: Array.isArray(next.census?.bridgeTractFilterOptions) ? next.census.bridgeTractFilterOptions.slice() : [],
+      bridgeSelectionSetOptions: Array.isArray(next.census?.bridgeSelectionSetOptions) ? next.census.bridgeSelectionSetOptions.slice() : [],
+      bridgeGeoSelectOptions: Array.isArray(next.census?.bridgeGeoSelectOptions) ? next.census.bridgeGeoSelectOptions.slice() : [],
+      bridgeAggregateRows: Array.isArray(next.census?.bridgeAggregateRows) ? next.census.bridgeAggregateRows.slice() : [],
+      bridgeAdvisoryRows: Array.isArray(next.census?.bridgeAdvisoryRows) ? next.census.bridgeAdvisoryRows.slice() : [],
+      bridgeElectionPreviewRows: Array.isArray(next.census?.bridgeElectionPreviewRows) ? next.census.bridgeElectionPreviewRows.slice() : [],
+    };
     if (key === "apiKey"){
-      next.census.bridgeApiKey = cleanText(rawValue);
+      census.bridgeApiKey = cleanText(rawValue);
       applied = true;
-      return;
+    } else if (key === "geoPaste"){
+      census.bridgeGeoPaste = String(rawValue == null ? "" : rawValue);
+      applied = true;
+    } else if (key === "electionCsvPrecinctFilter"){
+      census.bridgeElectionCsvPrecinctFilter = String(rawValue == null ? "" : rawValue);
+      applied = true;
+    } else if (key === "year"){
+      census.year = cleanText(rawValue);
+      resetRowsOnly(census);
+      applied = true;
+    } else if (key === "resolution"){
+      const resolution = cleanText(rawValue) || census.resolution;
+      census.resolution = resolution;
+      if (!resolutionNeedsCounty(resolution)){
+        census.countyFips = "";
+      }
+      if (resolution !== "block_group"){
+        census.tractFilter = "";
+      }
+      resetGeoData(census);
+      applied = true;
+    } else if (key === "stateFips"){
+      census.stateFips = cleanText(rawValue);
+      census.countyFips = "";
+      census.placeFips = "";
+      resetGeoData(census);
+      applied = true;
+    } else if (key === "countyFips"){
+      census.countyFips = cleanText(rawValue);
+      resetGeoData(census);
+      applied = true;
+    } else if (key === "placeFips"){
+      census.placeFips = cleanText(rawValue);
+      if (cleanText(census.resolution) === "place"){
+        resetGeoData(census);
+      }
+      applied = true;
+    } else if (key === "metricSet"){
+      census.metricSet = cleanText(rawValue) || census.metricSet;
+      resetRowsOnly(census);
+      applied = true;
+    } else if (key === "geoSearch"){
+      census.geoSearch = cleanText(rawValue);
+      applied = true;
+    } else if (key === "tractFilter"){
+      census.tractFilter = cleanText(rawValue);
+      applied = true;
+    } else if (key === "selectionSetDraftName"){
+      census.selectionSetDraftName = cleanText(rawValue);
+      applied = true;
+    } else if (key === "selectedSelectionSetKey"){
+      census.selectedSelectionSetKey = cleanText(rawValue);
+      applied = true;
+    } else if (key === "applyAdjustedAssumptions"){
+      census.applyAdjustedAssumptions = !!rawValue;
+      applied = true;
+    } else if (key === "mapQaVtdOverlay"){
+      census.mapQaVtdOverlay = !!rawValue;
+      applied = true;
     }
-    if (key === "geoPaste"){
-      next.census.bridgeGeoPaste = String(rawValue == null ? "" : rawValue);
-      applied = true;
-      return;
-    }
-    if (key === "electionCsvPrecinctFilter"){
-      next.census.bridgeElectionCsvPrecinctFilter = String(rawValue == null ? "" : rawValue);
-      applied = true;
+
+    if (applied){
+      next.census = normalizeCensusState(census);
+      const statusBase = cleanText(next.census.status) || "Ready.";
+      next.census.status = statusBase;
+      next.census.error = "";
     }
   });
   return applied;
@@ -4021,9 +4342,12 @@ function districtBridgePatchCensusGeoSelection(values){
       .filter(Boolean),
   ));
   let applied = false;
-  setState((next) => {
-    if (!next.census || typeof next.census !== "object") next.census = {};
-    next.census.selectedGeoids = nextValues;
+  mutateState((next) => {
+    next.census = normalizeCensusState(next.census);
+    next.census = {
+      ...next.census,
+      selectedGeoids: nextValues,
+    };
     applied = true;
   });
   return applied;
@@ -4084,7 +4408,7 @@ function districtBridgeApplyTemplateDefaults(mode = "all"){
   }
   const requestedMode = cleanText(mode);
   let applyResult = { ok: false, code: "unknown" };
-  setState((next) => {
+  mutateState((next) => {
     const dims = districtBridgeTemplateDimensionsFromState(next);
     applyResult = applyTemplateDefaultsForRace(next, next.raceType, {
       mode: requestedMode || "all",
@@ -4121,7 +4445,7 @@ function districtBridgeSetFormField(field, rawValue){
   }
 
   let applied = false;
-  setState((next) => {
+  mutateState((next) => {
     const templateDims = districtBridgeTemplateDimensionsFromState(next);
     const applyTemplateDimension = (overrides = {}) => {
       applyTemplateDefaultsForRace(next, next.raceType, {
@@ -4296,7 +4620,7 @@ function districtBridgeAddCandidate(){
   if (isScenarioLockedForEdits(state)){
     return { ok: false, code: "locked", view: districtBridgeStateView() };
   }
-  setState((next) => {
+  mutateState((next) => {
     if (!Array.isArray(next.candidates)) next.candidates = [];
     const labelChar = String.fromCharCode(65 + next.candidates.length);
     next.candidates.push({ id: uid(), name: `Candidate ${labelChar}`, supportPct: 0 });
@@ -4315,7 +4639,7 @@ function districtBridgeUpdateCandidate(candidateId, field, rawValue){
   }
 
   let applied = false;
-  setState((next) => {
+  mutateState((next) => {
     if (!Array.isArray(next.candidates)) return;
     const candidate = next.candidates.find((row) => cleanText(row?.id) === id);
     if (!candidate) return;
@@ -4345,7 +4669,7 @@ function districtBridgeRemoveCandidate(candidateId){
   }
 
   let applied = false;
-  setState((next) => {
+  mutateState((next) => {
     if (!Array.isArray(next.candidates) || next.candidates.length <= 2) return;
     const remaining = next.candidates.filter((row) => cleanText(row?.id) !== id);
     if (remaining.length === next.candidates.length || remaining.length < 2) return;
@@ -4372,7 +4696,7 @@ function districtBridgeSetUserSplit(candidateId, rawValue){
   }
 
   let applied = false;
-  setState((next) => {
+  mutateState((next) => {
     if (!next.userSplit || typeof next.userSplit !== "object") next.userSplit = {};
     next.userSplit[id] = safeNum(rawValue);
     applied = true;
@@ -4437,7 +4761,7 @@ function districtBridgeAddCandidateHistoryRecord(){
     return { ok: false, code: "locked", view: districtBridgeStateView() };
   }
 
-  setState((next) => {
+  mutateState((next) => {
     const current = normalizeCandidateHistoryRecords(next.candidateHistory, { uidFn: uid });
     current.push({
       recordId: `ch_${uid()}`,
@@ -4469,7 +4793,7 @@ function districtBridgeUpdateCandidateHistoryRecord(recordId, field, rawValue){
   }
 
   let applied = false;
-  setState((next) => {
+  mutateState((next) => {
     const rows = normalizeCandidateHistoryRecords(next.candidateHistory, { uidFn: uid });
     const target = rows.find((row) => cleanText(row?.recordId) === id);
     if (!target) return;
@@ -4489,7 +4813,7 @@ function districtBridgeRemoveCandidateHistoryRecord(recordId){
   }
 
   let applied = false;
-  setState((next) => {
+  mutateState((next) => {
     const rows = normalizeCandidateHistoryRecords(next.candidateHistory, { uidFn: uid });
     const remaining = rows.filter((row) => cleanText(row?.recordId) !== id);
     if (remaining.length === rows.length) return;
@@ -4525,7 +4849,7 @@ function districtBridgeSetTargetingField(field, rawValue){
   }
 
   let applied = false;
-  setState((next) => {
+  mutateState((next) => {
     const targeting = districtBridgeEnsureTargetingState(next);
     if (!targeting){
       return;
@@ -4548,7 +4872,7 @@ function districtBridgeApplyTargetingPreset(modelId){
     return { ok: false, code: "missing_model", view: districtBridgeStateView() };
   }
 
-  setState((next) => {
+  mutateState((next) => {
     const targeting = districtBridgeEnsureTargetingState(next);
     if (!targeting){
       return;
@@ -4563,7 +4887,7 @@ function districtBridgeResetTargetingWeights(){
     return { ok: false, code: "locked", view: districtBridgeStateView() };
   }
 
-  setState((next) => {
+  mutateState((next) => {
     const targeting = districtBridgeEnsureTargetingState(next);
     if (!targeting){
       return;
@@ -4580,7 +4904,7 @@ function districtBridgeRunTargeting(){
   const runtimeRows = getCensusRowsForState(state?.census);
   const loadedCount = Object.keys(runtimeRows && typeof runtimeRows === "object" ? runtimeRows : {}).length;
   if (!loadedCount){
-    setState((next) => {
+    mutateState((next) => {
       if (!next.census || typeof next.census !== "object") next.census = {};
       next.census.status = TARGETING_STATUS_LOAD_ROWS_FIRST;
       next.census.error = next.census.status;
@@ -4590,7 +4914,7 @@ function districtBridgeRunTargeting(){
 
   let runResult = null;
   let runError = null;
-  setState((next) => {
+  mutateState((next) => {
     try {
       const targeting = districtBridgeEnsureTargetingState(next);
       if (!targeting){
@@ -4676,6 +5000,14 @@ function districtBridgeSetCensusField(field, rawValue){
     if (runtimeResult.ok === true){
       return { ok: true, code: "updated_runtime", view: districtBridgeStateView() };
     }
+    const bridgePatched = districtBridgePatchCensusBridgeField(key, rawValue);
+    if (bridgePatched){
+      return {
+        ok: true,
+        code: cleanText(runtimeResult.code) || "runtime_unavailable_fallback",
+        view: districtBridgeStateView(),
+      };
+    }
     return {
       ok: false,
       code: cleanText(runtimeResult.code) || "runtime_unavailable",
@@ -4694,6 +5026,14 @@ function districtBridgeSetCensusGeoSelection(values){
   if (runtimeResult && typeof runtimeResult === "object"){
     if (runtimeResult.ok === true){
       return { ok: true, code: "updated_runtime", view: districtBridgeStateView() };
+    }
+    const patched = districtBridgePatchCensusGeoSelection(values);
+    if (patched){
+      return {
+        ok: true,
+        code: cleanText(runtimeResult.code) || "runtime_unavailable_fallback",
+        view: districtBridgeStateView(),
+      };
     }
     return {
       ok: false,
@@ -5058,7 +5398,7 @@ function reachBridgeSetField(field, rawValue){
     return { ok: false, code: "invalid_value", view: reachBridgeStateView() };
   }
 
-  setState((next) => {
+  mutateState((next) => {
     next[field] = parsed;
   });
   markMcStale();
@@ -5069,7 +5409,7 @@ function reachBridgeSetOverrideEnabled(enabled){
   if (isScenarioLockedForEdits(state)){
     return { ok: false, code: "locked", view: reachBridgeStateView() };
   }
-  setState((next) => {
+  mutateState((next) => {
     next.twCapOverrideEnabled = !!enabled;
   });
   markMcStale();
@@ -5084,7 +5424,7 @@ function reachBridgeSetOverrideMode(mode){
   if (isScenarioLockedForEdits(state)){
     return { ok: false, code: "locked", view: reachBridgeStateView() };
   }
-  setState((next) => {
+  mutateState((next) => {
     next.twCapOverrideMode = nextMode;
   });
   markMcStale();
@@ -5103,7 +5443,7 @@ function reachBridgeSetOverrideHorizon(rawValue){
   if (parsed === null){
     return { ok: false, code: "invalid_value", view: reachBridgeStateView() };
   }
-  setState((next) => {
+  mutateState((next) => {
     next.twCapOverrideHorizonWeeks = parsed;
   });
   return { ok: true, view: reachBridgeStateView() };
@@ -5438,7 +5778,7 @@ function turnoutBridgeSetField(field, rawValue){
     if (!normalized.ok){
       return { ok: false, code: normalized.code, view: turnoutBridgeStateView() };
     }
-    setState((next) => {
+    mutateState((next) => {
       ensureTurnoutBridgeShape(next);
       if (key === "gotvMode"){
         next.gotvMode = normalized.value;
@@ -5459,7 +5799,7 @@ function turnoutBridgeSetField(field, rawValue){
 
   if (mode === "boolean"){
     const checked = !!rawValue;
-    setState((next) => {
+    mutateState((next) => {
       ensureTurnoutBridgeShape(next);
       if (key === "turnoutEnabled"){
         next.turnoutEnabled = checked;
@@ -5483,7 +5823,7 @@ function turnoutBridgeSetField(field, rawValue){
   if (!normalized.ok){
     return { ok: false, code: normalized.code, view: turnoutBridgeStateView() };
   }
-  setState((next) => {
+  mutateState((next) => {
     ensureTurnoutBridgeShape(next);
     const value = normalized.value;
     if (key === "turnoutBaselinePct"){
@@ -5778,7 +6118,7 @@ function planBridgeSetField(field, rawValue){
     if (!normalized.ok){
       return { ok: false, code: normalized.code, view: planBridgeStateView() };
     }
-    setState((next) => {
+    mutateState((next) => {
       ensurePlanBridgeShape(next);
       if (key === "optMode"){
         next.budget.optimize.mode = normalized.value;
@@ -5795,7 +6135,7 @@ function planBridgeSetField(field, rawValue){
 
   if (mode === "boolean"){
     const checked = !!rawValue;
-    setState((next) => {
+    mutateState((next) => {
       ensurePlanBridgeShape(next);
       if (key === "tlOptEnabled"){
         next.budget.optimize.tlConstrainedEnabled = checked;
@@ -5814,7 +6154,7 @@ function planBridgeSetField(field, rawValue){
   if (!normalized.ok){
     return { ok: false, code: normalized.code, view: planBridgeStateView() };
   }
-  setState((next) => {
+  mutateState((next) => {
     ensurePlanBridgeShape(next);
     const value = normalized.value;
     if (key === "optBudget"){
@@ -6419,7 +6759,7 @@ function outcomeBridgeSetField(field, rawValue){
     if (!normalized.ok){
       return { ok: false, code: normalized.code, view: outcomeBridgeStateView() };
     }
-    setState((next) => {
+    mutateState((next) => {
       if (key === "mcMode"){
         next.mcMode = normalized.value;
       } else if (key === "mcVolatility"){
@@ -6435,7 +6775,7 @@ function outcomeBridgeSetField(field, rawValue){
 
   if (OUTCOME_TEXT_FIELDS.has(key)){
     const value = String(rawValue ?? "");
-    setState((next) => {
+    mutateState((next) => {
       if (key === "mcSeed"){
         next.mcSeed = value;
       }
@@ -6448,7 +6788,7 @@ function outcomeBridgeSetField(field, rawValue){
   if (!normalized.ok){
     return { ok: false, code: normalized.code, view: outcomeBridgeStateView() };
   }
-  setState((next) => {
+  mutateState((next) => {
     const value = normalized.value;
     if (key === "orgCount"){
       next.orgCount = safeNum(value);
