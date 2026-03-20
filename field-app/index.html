@@ -1224,6 +1224,24 @@
 <script>
 // ── Stage navigation ───────────────────────────────────────────
 window.__FPE_BOOT_ERRORS = Array.isArray(window.__FPE_BOOT_ERRORS) ? window.__FPE_BOOT_ERRORS : [];
+window.__FPE_BOOT_TRACE__ = Array.isArray(window.__FPE_BOOT_TRACE__) ? window.__FPE_BOOT_TRACE__ : [];
+if (!window.__FPE_BOOT_STATUS__ || typeof window.__FPE_BOOT_STATUS__ !== 'object'){
+  window.__FPE_BOOT_STATUS__ = {
+    t: new Date().toISOString(),
+    status: 'pre_runtime',
+    source: 'index.inline'
+  };
+}
+try{
+  window.__FPE_BOOT_TRACE__.unshift({
+    t: new Date().toISOString(),
+    step: 'index.inline.bootstrap',
+    phase: 'ok'
+  });
+  if (window.__FPE_BOOT_TRACE__.length > 120){
+    window.__FPE_BOOT_TRACE__ = window.__FPE_BOOT_TRACE__.slice(0, 120);
+  }
+} catch {}
 window.addEventListener('error', function(evt){
   try{
     var msg = (evt && evt.message) ? String(evt.message) : 'Unknown runtime error';
@@ -1231,6 +1249,17 @@ window.addEventListener('error', function(evt){
     var line = (evt && evt.lineno) ? String(evt.lineno) : '';
     window.__FPE_BOOT_ERRORS.unshift([msg, src, line].filter(Boolean).join(' @ '));
     window.__FPE_BOOT_ERRORS = window.__FPE_BOOT_ERRORS.slice(0, 20);
+    if (Array.isArray(window.__FPE_BOOT_TRACE__)){
+      window.__FPE_BOOT_TRACE__.unshift({
+        t: new Date().toISOString(),
+        step: 'window.error',
+        level: 'error',
+        message: msg
+      });
+      if (window.__FPE_BOOT_TRACE__.length > 120){
+        window.__FPE_BOOT_TRACE__ = window.__FPE_BOOT_TRACE__.slice(0, 120);
+      }
+    }
   } catch {}
 });
 window.addEventListener('unhandledrejection', function(evt){
@@ -1239,6 +1268,17 @@ window.addEventListener('unhandledrejection', function(evt){
     var msg = reason && reason.message ? String(reason.message) : String(reason || 'Unhandled rejection');
     window.__FPE_BOOT_ERRORS.unshift(msg);
     window.__FPE_BOOT_ERRORS = window.__FPE_BOOT_ERRORS.slice(0, 20);
+    if (Array.isArray(window.__FPE_BOOT_TRACE__)){
+      window.__FPE_BOOT_TRACE__.unshift({
+        t: new Date().toISOString(),
+        step: 'window.unhandledrejection',
+        level: 'error',
+        message: msg
+      });
+      if (window.__FPE_BOOT_TRACE__.length > 120){
+        window.__FPE_BOOT_TRACE__ = window.__FPE_BOOT_TRACE__.slice(0, 120);
+      }
+    }
   } catch {}
 });
 
@@ -1267,7 +1307,7 @@ function toggleTrainPanel(id) {
   if (el) el.classList.toggle('collapsed');
 }
 
-function openEmergencyDiagnostics(){
+function openEmergencyDiagnostics(meta){
   var modal = document.getElementById('diagModal');
   var errors = document.getElementById('diagErrors');
   if (!modal) return;
@@ -1303,8 +1343,19 @@ function openEmergencyDiagnostics(){
       lines.push('[boot errors]');
       lines.push.apply(lines, rows);
     }
-    if (!lines.length){
-      lines.push('No captured boot diagnostics yet.');
+    var info = meta && typeof meta === 'object' ? meta : null;
+    if (info){
+      lines.push('');
+      lines.push('[boot fallback]');
+      if (typeof info.waitedMs === 'number'){
+        lines.push('bridge-wait-ms: ' + String(info.waitedMs));
+      }
+      if (typeof info.bridgeActive === 'boolean'){
+        lines.push('bridge-active: ' + (info.bridgeActive ? 'yes' : 'no'));
+      }
+    }
+    if (!lines.length || (lines.length === 1 && lines[0] === '')){
+      lines.push('Boot diagnostics are not available yet. Waiting for runtime signal.');
     }
     errors.textContent = lines.join('\n');
   }
@@ -1348,18 +1399,33 @@ window.__FPE_GET_UI_MODE__ = getUiModeFromLocation;
 
 document.addEventListener('DOMContentLoaded', function(){
   retireLegacyShellRootWrapper();
-  window.setTimeout(function(){
-    if (!isV3BridgeActive()) {
-      openEmergencyDiagnostics();
-      return;
-    }
+  var startedAt = Date.now();
+  var maxWaitMs = 2200;
+  var pollMs = 80;
+  var settle = function(){
     var rail = document.getElementById('legacyResultsSidebar');
     var pool = getLegacyDomPool();
     if (rail && pool && rail.parentElement !== pool) {
       pool.appendChild(rail);
     }
     if (rail) rail.hidden = true;
-  }, 0);
+  };
+  var waitForBridge = function(){
+    if (isV3BridgeActive()){
+      settle();
+      return;
+    }
+    var elapsed = Date.now() - startedAt;
+    if (elapsed >= maxWaitMs){
+      openEmergencyDiagnostics({
+        waitedMs: elapsed,
+        bridgeActive: false
+      });
+      return;
+    }
+    window.setTimeout(waitForBridge, pollMs);
+  };
+  waitForBridge();
 });
 </script>
 <div class="modal" hidden="" id="diagModal">
