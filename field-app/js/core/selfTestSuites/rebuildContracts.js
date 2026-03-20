@@ -103,6 +103,7 @@ import {
   validateCampaignContext,
 } from "../campaignContextManager.js";
 import { resolveIntelligencePayload } from "../../app/intelligenceResolver.js";
+import { listPlaybookEntries } from "../../app/playbookRegistry.js";
 import { getGlossaryTerm, normalizeGlossaryTermId } from "../../app/glossaryRegistry.js";
 import { getMessageDefinition, normalizeMessageId } from "../../app/messageRegistry.js";
 import { INTEL_SELECT_OPTION_MESSAGE_MAP, INTEL_WARNING_MESSAGE_BY_ID } from "../../app/intelligenceInteractions.js";
@@ -5456,6 +5457,54 @@ export function registerRebuildContractTests(ctx){
     });
     assert(searchPayload.mode === "search", "search payload mode mismatch");
     assert(Array.isArray(searchPayload.results) && searchPayload.results.length > 0, "search mode should return at least one match for variance");
+    return true;
+  });
+
+  test("Rebuild contracts: playbook registry remains a structured strategic judgment layer", () => {
+    const entries = listPlaybookEntries();
+    assert(Array.isArray(entries) && entries.length >= 10, "playbook registry should include required strategic entries");
+    const requiredFields = ["id", "title", "triggerCondition", "whatPatternMeans", "whyItMatters", "commonTrap"];
+    for (const entry of entries){
+      for (const field of requiredFields){
+        assert(
+          String(entry?.[field] || "").trim().length > 0,
+          `playbook entry ${String(entry?.id || "unknown")} missing required field ${field}`,
+        );
+      }
+      assert(Array.isArray(entry?.whatToDo) && entry.whatToDo.length > 0, `playbook entry ${String(entry?.id || "unknown")} missing whatToDo actions`);
+      assert(Array.isArray(entry?.whatNotToDo) && entry.whatNotToDo.length > 0, `playbook entry ${String(entry?.id || "unknown")} missing whatNotToDo actions`);
+    }
+
+    const weatherTriggeredPayload = resolveIntelligencePayload({
+      mode: "playbook",
+      context: {
+        campaignId: "il-hd-21",
+        campaignName: "IL HD 21",
+        officeId: "west",
+        scenarioId: "baseline",
+        stageId: "war-room",
+        playbookSignals: {
+          weatherFieldExecutionRisk: "high",
+          weatherElectionDayTurnoutRisk: "medium",
+          stageId: "war-room",
+        },
+      },
+    });
+    assert(weatherTriggeredPayload.mode === "playbook", "playbook payload mode mismatch");
+    assert(weatherTriggeredPayload.id === "weatherThreatensElectionDayPlan", "playbook resolver should surface weather threat entry from signals");
+    assert(
+      Array.isArray(weatherTriggeredPayload.sections)
+      && weatherTriggeredPayload.sections.some((row) => String(row?.id || "") === "triggerCondition"),
+      "playbook payload should include trigger-condition section",
+    );
+    assert(
+      weatherTriggeredPayload.sections.some((row) => String(row?.id || "") === "doNow"),
+      "playbook payload should include what-to-do section",
+    );
+    assert(
+      weatherTriggeredPayload.sections.some((row) => String(row?.id || "") === "dontDo"),
+      "playbook payload should include what-not-to-do section",
+    );
     return true;
   });
 
