@@ -1,5 +1,9 @@
 # Rebuild Plan (Methodical + Safe)
 
+## Addendum Sequence Guard
+- Active addendum phase order is tracked in `/Users/anakinskywalker/Downloads/field-app-40/ADDENDUM_PHASE_SEQUENCE.md`.
+- Final hardening remains deferred until the explicit pre-hardening checkpoint (`Phase 22.5`) is complete and reviewed.
+
 ## Lockpoint (Do Not Delete)
 - Snapshot: `/Users/anakinskywalker/Downloads/field-app-40/recovery-snapshots/lock-20260224T043932Z`
 - Manifest: `/Users/anakinskywalker/Downloads/field-app-40/recovery-snapshots/lock-20260224T043932Z/SHA256SUMS.txt`

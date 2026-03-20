@@ -1354,10 +1354,11 @@ document.addEventListener('DOMContentLoaded', function(){
       return;
     }
     var rail = document.getElementById('legacyResultsSidebar');
-    var slot = document.getElementById('v3RightRailSlot');
-    if (rail && slot && rail.parentElement !== slot) {
-      slot.appendChild(rail);
+    var pool = getLegacyDomPool();
+    if (rail && pool && rail.parentElement !== pool) {
+      pool.appendChild(rail);
     }
+    if (rail) rail.hidden = true;
   }, 0);
 });
 </script>
