@@ -8,6 +8,10 @@ import { renderV3Shell } from "./shell.js";
 import { getActiveStageId, refreshActiveStage, mountStage } from "./stageMount.js";
 import { resolveV3StageId, V3_DEFAULT_STAGE } from "./stageRegistry.js";
 
+try {
+  window.__FPE_V3_MODULE_LOADED_AT__ = new Date().toISOString();
+} catch {}
+
 const STAGE_KEY = "fpe-ui-v3-stage";
 const STAGE_QUERY_PARAM = "stage";
 const NAV_BRIDGE_KEY = "__FPE_V3_NAV__";
@@ -55,6 +59,9 @@ function resolveUiMode() {
 
 function bootV3() {
   bootProbeMark("v3.boot", { phase: "start" });
+  try {
+    window.__FPE_V3_BOOT_READY__ = false;
+  } catch {}
   const root = document.getElementById("app-shell-v3-root");
 
   if (!root) {
@@ -91,6 +98,10 @@ function bootV3() {
     startSyncLoop();
     queueSyncAll({ forceStageRefresh: true });
     bootProbeMark("v3.boot", { phase: "ok" });
+    try {
+      window.__FPE_V3_BOOT_READY__ = true;
+      window.__FPE_V3_BOOT_READY_AT__ = new Date().toISOString();
+    } catch {}
   } catch (err) {
     bootProbeError("v3.boot", err);
     console.error("[v3-shell] failed to boot", err);
@@ -167,6 +178,9 @@ function installNavigationBridge() {
     resolveStageId: resolveV3StageId,
     getActiveStageId: () => getActiveStageId()
   };
+  try {
+    window.__FPE_V3_NAV_READY_AT__ = new Date().toISOString();
+  } catch {}
 }
 
 function uninstallNavigationBridge() {
