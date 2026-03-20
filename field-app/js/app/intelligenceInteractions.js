@@ -49,8 +49,11 @@ function normalizeToken(value){
 
 function isSummaryInteractiveElement(el){
   if (!(el instanceof Element)) return false;
-  if (typeof HTMLSummaryElement !== "undefined"){
-    return el instanceof HTMLSummaryElement;
+  const summaryCtor = typeof globalThis === "object" && globalThis
+    ? globalThis.HTMLSummaryElement
+    : null;
+  if (typeof summaryCtor === "function"){
+    return el instanceof summaryCtor;
   }
   return String(el.tagName || "").toLowerCase() === "summary";
 }

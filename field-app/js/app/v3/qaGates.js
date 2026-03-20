@@ -430,7 +430,7 @@ export function runV3QaSmoke({
 
     if (stage.id === "district") {
       const districtView = readBridgeView("__FPE_DISTRICT_API__");
-      const districtTrainingIds = [
+      const districtPlaybookIds = [
         "#v3-train-setup",
         "#v3-train-universe",
         "#v3-train-ballot",
@@ -438,8 +438,8 @@ export function runV3QaSmoke({
       ];
       recordCheck(
         checks,
-        "district:training-panels-native",
-        districtTrainingIds.every((selector) => isSelectorInPane(pane, selector))
+        "district:playbook-panels-native",
+        districtPlaybookIds.every((selector) => isSelectorInPane(pane, selector))
       );
       recordCheck(
         checks,

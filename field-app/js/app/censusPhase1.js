@@ -292,36 +292,34 @@ function censusRuntimeSetBridgeFieldFallback(key, rawValue){
     s.bridgeApiKey = value;
     setStatus(s, "Census API key saved. Loading geography lookups...", false);
     const keyForLookup = value || readCensusApiKeyModule();
-    if (keyForLookup){
-      void (async () => {
-        try{
-          await ensureStateOptions(keyForLookup);
-          const latest = ensureCensusStateModule(censusRuntimeReadState());
-          if (!latest) return;
-          if (latest.stateFips){
-            await loadStateScopedLists(latest, keyForLookup);
-          }
-          const final = ensureCensusStateModule(censusRuntimeReadState());
-          if (!final) return;
-          if (final.stateFips){
-            setStatus(final, "Census module ready.", false);
-          } else {
-            setStatus(
-              final,
-              stateOptionsUsingFallback
-                ? "State list loaded (fallback). Select state and geography, then load GEO list."
-                : "State list loaded. Select state and geography, then load GEO list.",
-              false,
-            );
-          }
-        } catch (err){
-          const latest = ensureCensusStateModule(censusRuntimeReadState());
-          if (!latest) return;
-          setStatus(latest, cleanText(err?.message) || "Failed to load geography lookups.", true);
+    void (async () => {
+      try{
+        await ensureStateOptions(keyForLookup);
+        const latest = ensureCensusStateModule(censusRuntimeReadState());
+        if (!latest) return;
+        if (latest.stateFips){
+          await loadStateScopedLists(latest, keyForLookup);
         }
-        censusRuntimeCommit({ persist: false });
-      })();
-    }
+        const final = ensureCensusStateModule(censusRuntimeReadState());
+        if (!final) return;
+        if (final.stateFips){
+          setStatus(final, "Census module ready.", false);
+        } else {
+          setStatus(
+            final,
+            stateOptionsUsingFallback
+              ? "State list loaded (fallback). Select state and geography, then load GEO list."
+              : "State list loaded. Select state and geography, then load GEO list.",
+            false,
+          );
+        }
+      } catch (err){
+        const latest = ensureCensusStateModule(censusRuntimeReadState());
+        if (!latest) return;
+        setStatus(latest, cleanText(err?.message) || "Failed to load geography lookups.", true);
+      }
+      censusRuntimeCommit({ persist: false });
+    })();
     return true;
   }
   if (field === "geoPaste"){
@@ -442,7 +440,7 @@ function censusRuntimeSetBridgeFieldFallback(key, rawValue){
     s.placeFips = "";
     resetGeoData(s);
     setStatus(s, s.stateFips ? "Loading lookup lists..." : "Select a state to continue.", false);
-    if (s.stateFips && keyForLookup){
+    if (s.stateFips){
       void (async () => {
         try{
           await ensureStateOptions(keyForLookup);

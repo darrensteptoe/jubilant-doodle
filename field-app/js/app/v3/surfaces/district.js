@@ -84,10 +84,10 @@ const TEMPLATE_DIMENSION_SELECTS = [
   { id: "v3DistrictSalienceLevel", field: "salienceLevel", label: "Salience level" },
 ];
 
-const DISTRICT_TRAINING_PANELS = Object.freeze([
+const DISTRICT_PLAYBOOK_PANELS = Object.freeze([
   {
     id: "train-setup",
-    title: "Training — Set up",
+    title: "Playbook — Set up",
     leftTitle: "What this stage models",
     leftText:
       "Sets the planning context. Race type loads sensible defaults, and election date drives timeline feasibility in later stages.",
@@ -104,7 +104,7 @@ const DISTRICT_TRAINING_PANELS = Object.freeze([
   },
   {
     id: "train-universe",
-    title: "Training — Universe",
+    title: "Playbook — Universe",
     leftTitle: "What this stage models",
     leftText:
       "Universe is the denominator for everything. Turnout votes and persuasion workload both scale directly from it.",
@@ -121,7 +121,7 @@ const DISTRICT_TRAINING_PANELS = Object.freeze([
   },
   {
     id: "train-ballot",
-    title: "Training — Ballot & Persuasion Baseline",
+    title: "Playbook — Ballot & Persuasion Baseline",
     leftTitle: "What this stage models",
     leftText:
       "The ballot test sets your starting position. Candidate shares plus undecided must sum to 100%.",
@@ -138,7 +138,7 @@ const DISTRICT_TRAINING_PANELS = Object.freeze([
   },
   {
     id: "train-checks",
-    title: "Training — Data Checks & Guardrails",
+    title: "Playbook — Data Checks & Guardrails",
     leftTitle: "What this stage does",
     leftText:
       "Guardrails catch invalid states and plausibility drift before sharing plans externally.",
@@ -200,7 +200,7 @@ function createDistrictTrainingPanel(definition) {
 function buildDistrictTrainingPanels() {
   const host = document.createElement("div");
   host.className = "fpe-district-training-stack";
-  DISTRICT_TRAINING_PANELS.forEach((definition) => {
+  DISTRICT_PLAYBOOK_PANELS.forEach((definition) => {
     host.append(createDistrictTrainingPanel(definition));
   });
   return host;

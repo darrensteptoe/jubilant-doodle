@@ -48,9 +48,9 @@ export function renderV3Shell(root) {
             id="v3BtnTraining"
             type="button"
             aria-pressed="false"
-            title="Show training explanations for each section"
+            title="Show playbook guidance for each section"
           >
-            Training
+            Playbook
           </button>
           <button class="fpe-btn fpe-btn--ghost" id="v3BtnDiagnostics" type="button">Diagnostics</button>
           <button class="fpe-btn fpe-btn--danger" id="v3BtnReset" type="button">Reset scenario</button>
