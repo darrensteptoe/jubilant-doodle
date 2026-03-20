@@ -193,7 +193,6 @@ function uninstallNavigationBridge() {
 function wireTopbarBridge() {
   const diagnosticsBtn = document.getElementById("v3BtnDiagnostics");
   const resetBtn = document.getElementById("v3BtnReset");
-  const trainingBtn = document.getElementById("v3BtnTraining");
 
   diagnosticsBtn?.addEventListener("click", () => {
     try {
@@ -211,13 +210,6 @@ function wireTopbarBridge() {
     if (!result) {
       resetScenarioFallback();
     }
-  });
-
-  syncTrainingToggle();
-  trainingBtn?.addEventListener("click", () => {
-    const nextEnabled = !readShellTrainingState();
-    setShellTrainingState(nextEnabled);
-    queueSyncAll({ forceStageRefresh: true });
   });
 }
 
@@ -339,28 +331,6 @@ function callShellBridge(method, ...args) {
   }
 }
 
-function readShellTrainingState() {
-  const shellView = readShellBridgeView();
-  if (shellView && typeof shellView.playbookEnabled === "boolean") {
-    return shellView.playbookEnabled;
-  }
-  if (shellView && typeof shellView.trainingEnabled === "boolean") {
-    return shellView.trainingEnabled;
-  }
-  return document.body.classList.contains("playbook") || document.body.classList.contains("training");
-}
-
-function setShellTrainingState(enabled) {
-  const result = callShellBridge("setPlaybookEnabled", !!enabled)
-    || callShellBridge("setTrainingEnabled", !!enabled);
-  if (result) {
-    return true;
-  }
-  document.body.classList.toggle("playbook", !!enabled);
-  document.body.classList.toggle("training", !!enabled);
-  return false;
-}
-
 function setShellScenarioName(value) {
   const result = callShellBridge("setScenarioName", value);
   return !!result;
@@ -371,24 +341,12 @@ function setShellContextPatch(patch) {
   return !!result;
 }
 
-function syncTrainingToggle() {
-  const v3Btn = document.getElementById("v3BtnTraining");
-  if (!(v3Btn instanceof HTMLButtonElement)) {
-    return;
-  }
-
-  const enabled = readShellTrainingState();
-  v3Btn.setAttribute("aria-pressed", enabled ? "true" : "false");
-  v3Btn.classList.toggle("is-active", enabled);
-}
-
 function syncAll({ forceStageRefresh = false } = {}) {
   syncKpis();
   if (forceStageRefresh || canRefreshActiveStage()) {
     refreshActiveStage();
   }
   syncContextMirror();
-  syncTrainingToggle();
 }
 
 function queueSyncAll({ forceStageRefresh = false } = {}) {

@@ -43,15 +43,6 @@ export function renderV3Shell(root) {
           <span class="fpe-build" id="v3BuildStamp">UI 3.0</span>
         </div>
         <div class="fpe-topbar__actions">
-          <button
-            class="fpe-btn fpe-btn--ghost fpe-btn--training"
-            id="v3BtnTraining"
-            type="button"
-            aria-pressed="false"
-            title="Show playbook guidance for each section"
-          >
-            Playbook
-          </button>
           <button class="fpe-btn fpe-btn--ghost" id="v3BtnDiagnostics" type="button">Diagnostics</button>
           <button class="fpe-btn fpe-btn--danger" id="v3BtnReset" type="button">Reset scenario</button>
         </div>

@@ -374,7 +374,15 @@ export function runV3QaSmoke({
   recordCheck(
     checks,
     "legacy-right-rail-present",
-    isTruthy(document.querySelector("#v3RightRailSlot .results-sidebar-new"))
+    isTruthy(
+      document.querySelector("#v3RightRailSlot .results-sidebar-new")
+      || document.querySelector("#v3RightRailSlot #v3IntelligencePanel")
+    )
+  );
+  recordCheck(
+    checks,
+    "right-rail-toggle-present",
+    isTruthy(document.getElementById("v3RightRailToggle"))
   );
 
   for (const stage of V3_STAGE_REGISTRY) {

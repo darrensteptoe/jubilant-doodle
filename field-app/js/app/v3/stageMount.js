@@ -35,6 +35,10 @@ let activeSurfaceRefresh = null;
 let activeSurfacePane = null;
 let activeStageId = V3_DEFAULT_STAGE;
 const STAGE_SURFACES = new Map();
+const RIGHT_RAIL_MODE_KEY = "fpe-v3-right-rail-mode";
+const RIGHT_RAIL_MODE_RESULTS = "results";
+const RIGHT_RAIL_MODE_MANUAL = "manual";
+let activeRightRailMode = readRightRailMode();
 
 export function mountStage(stageId) {
   const stage = getStageById(stageId) || getStageById(V3_DEFAULT_STAGE);
@@ -99,13 +103,18 @@ function syncRightRail() {
     return;
   }
 
-  // Canonical v3 ownership: legacy right-rail markup is parked in the
-  // compatibility pool and no longer mounted as the live right rail.
-  parkLegacyRightRailInPool();
+  const toggle = ensureRightRailToggle(slot);
+  updateRightRailToggle(toggle);
 
-  mountIntelligencePanel({ slot, stageId: activeStageId });
-  setIntelligencePanelStage(activeStageId);
-  installIntelligenceInteractions();
+  if (activeRightRailMode === RIGHT_RAIL_MODE_RESULTS) {
+    slot.classList.remove("fpe-right-rail-slot--intel");
+    hideIntelligenceRail(slot);
+    mountLegacyRightRailInSlot(slot, toggle);
+    return;
+  }
+
+  parkLegacyRightRailInPool();
+  mountIntelligenceRailInSlot(slot, toggle);
 }
 
 function parkLegacyRightRailInPool() {
@@ -118,6 +127,114 @@ function parkLegacyRightRailInPool() {
     pool.appendChild(legacyRail);
   }
   legacyRail.hidden = true;
+}
+
+function mountLegacyRightRailInSlot(slot, anchor) {
+  const legacyRail = document.getElementById("legacyResultsSidebar");
+  if (!(legacyRail instanceof HTMLElement) || !(slot instanceof HTMLElement)) {
+    return;
+  }
+  if (legacyRail.parentElement !== slot) {
+    slot.appendChild(legacyRail);
+  }
+  if (anchor instanceof HTMLElement && anchor.nextSibling !== legacyRail) {
+    slot.insertBefore(legacyRail, anchor.nextSibling);
+  }
+  legacyRail.hidden = false;
+}
+
+function hideIntelligenceRail(slot) {
+  const panel = slot?.querySelector?.("#v3IntelligencePanel");
+  if (panel instanceof HTMLElement) {
+    panel.hidden = true;
+  }
+}
+
+function mountIntelligenceRailInSlot(slot, anchor) {
+  mountIntelligencePanel({ slot, stageId: activeStageId });
+  setIntelligencePanelStage(activeStageId);
+  installIntelligenceInteractions();
+  const panel = slot.querySelector("#v3IntelligencePanel");
+  if (!(panel instanceof HTMLElement)) {
+    return;
+  }
+  panel.hidden = false;
+  if (anchor instanceof HTMLElement && anchor.nextSibling !== panel) {
+    slot.insertBefore(panel, anchor.nextSibling);
+  }
+}
+
+function normalizeRightRailMode(raw) {
+  const token = String(raw == null ? "" : raw).trim().toLowerCase();
+  return token === RIGHT_RAIL_MODE_MANUAL ? RIGHT_RAIL_MODE_MANUAL : RIGHT_RAIL_MODE_RESULTS;
+}
+
+function readRightRailMode() {
+  try {
+    return normalizeRightRailMode(window.localStorage.getItem(RIGHT_RAIL_MODE_KEY));
+  } catch {
+    return RIGHT_RAIL_MODE_RESULTS;
+  }
+}
+
+function persistRightRailMode(mode) {
+  try {
+    window.localStorage.setItem(RIGHT_RAIL_MODE_KEY, normalizeRightRailMode(mode));
+  } catch {}
+}
+
+function ensureRightRailToggle(slot) {
+  let toggle = slot.querySelector("#v3RightRailToggle");
+  if (!(toggle instanceof HTMLElement)) {
+    toggle = document.createElement("div");
+    toggle.id = "v3RightRailToggle";
+    toggle.className = "fpe-right-rail-toggle";
+    toggle.setAttribute("role", "tablist");
+    toggle.setAttribute("aria-label", "Right rail view");
+    toggle.innerHTML = `
+      <button class="fpe-right-rail-toggle__btn" data-v3-right-rail-mode="results" type="button">Results</button>
+      <button class="fpe-right-rail-toggle__btn" data-v3-right-rail-mode="manual" type="button">Manual</button>
+    `;
+    toggle.addEventListener("click", onRightRailToggleClick);
+    slot.insertBefore(toggle, slot.firstChild || null);
+  } else if (slot.firstElementChild !== toggle) {
+    slot.insertBefore(toggle, slot.firstChild || null);
+  }
+  return toggle;
+}
+
+function updateRightRailToggle(toggle) {
+  if (!(toggle instanceof HTMLElement)) {
+    return;
+  }
+  toggle.querySelectorAll("[data-v3-right-rail-mode]").forEach((node) => {
+    if (!(node instanceof HTMLButtonElement)) {
+      return;
+    }
+    const mode = normalizeRightRailMode(node.getAttribute("data-v3-right-rail-mode"));
+    const active = mode === activeRightRailMode;
+    node.classList.toggle("is-active", active);
+    node.setAttribute("aria-pressed", active ? "true" : "false");
+  });
+}
+
+function onRightRailToggleClick(event) {
+  const target = event?.target;
+  if (!(target instanceof HTMLElement)) {
+    return;
+  }
+  const button = target.closest("[data-v3-right-rail-mode]");
+  if (!(button instanceof HTMLButtonElement)) {
+    return;
+  }
+  const nextMode = normalizeRightRailMode(button.getAttribute("data-v3-right-rail-mode"));
+  if (nextMode === activeRightRailMode) {
+    return;
+  }
+  activeRightRailMode = nextMode;
+  persistRightRailMode(activeRightRailMode);
+  syncRightRail();
+  refreshActiveStage();
 }
 
 function ensureSurfaceState(stage, mount) {
