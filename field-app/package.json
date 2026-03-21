@@ -12,6 +12,7 @@
     "check:interaction-integrity": "node scripts/interaction-integrity.mjs",
     "check:interaction-integrity:strict": "node scripts/interaction-integrity.mjs --strict",
     "check:interaction-pages": "node scripts/interaction-page-reports.mjs",
+    "check:render-lifecycle-contract": "node --test js/app/v3/surfaces/district/renderLifecycle.contract.test.js",
     "check:contracts": "node scripts/check-contract-diagnostics.mjs",
     "check:golden-fixtures": "node --test js/core/state/goldenFullStateRegression.test.js",
     "check:complexity-guardrails": "node scripts/check-complexity-guardrails.mjs",
@@ -24,7 +25,8 @@
     "status:rebuild": "node scripts/rebuild-status.mjs",
     "status:manual-parity": "node scripts/manual-parity-status.mjs",
     "gate:manual-parity": "node scripts/manual-parity-status.mjs --strict",
-    "check:district-integrity": "node scripts/district-integrity.mjs"
+    "check:district-integrity": "node scripts/district-integrity.mjs",
+    "debug:runtime-parity": "node scripts/runtime-parity-audit.mjs"
   },
   "devDependencies": {
     "typescript": "^5.9.2",
