@@ -209,6 +209,8 @@ import { isScenarioLockedForEditsModule, applyScenarioLockUiModule } from "./app
 import { setText, setHidden, setTextPair } from "./app/uiText.js";
 import { makeDefaultStateModule } from "./app/defaultState.js";
 import { normalizeLoadedStateModule } from "./app/normalizeLoadedState.js";
+import { createElectionDataBridge } from "./app/v3/bridges/electionDataBridge.js";
+import { createMetricProvenanceTracker } from "./core/state/metricProvenance.js";
 import { renderUniverse16CardModule } from "./app/renderUniverse16Card.js";
 import { safeCallModule, switchToStageModule } from "./app/uiStageHelpers.js";
 import { renderWeeklyOpsModule, renderWeeklyExecutionStatusModule } from "./app/weeklyOpsPanels.js";
@@ -681,11 +683,13 @@ const DATA_BRIDGE_KEY = "__FPE_DATA_API__";
 const SCENARIO_BRIDGE_KEY = "__FPE_SCENARIO_API__";
 const SHELL_BRIDGE_KEY = "__FPE_SHELL_API__";
 const DISTRICT_BRIDGE_KEY = "__FPE_DISTRICT_API__";
+const ELECTION_DATA_BRIDGE_KEY = "__FPE_ELECTION_DATA_API__";
 const REACH_BRIDGE_KEY = "__FPE_REACH_API__";
 const TURNOUT_BRIDGE_KEY = "__FPE_TURNOUT_API__";
 const PLAN_BRIDGE_KEY = "__FPE_PLAN_API__";
 const OUTCOME_BRIDGE_KEY = "__FPE_OUTCOME_API__";
 const DECISION_BRIDGE_KEY = "__FPE_DECISION_API__";
+const METRIC_PROVENANCE_BRIDGE_KEY = "__FPE_METRIC_PROVENANCE_API__";
 const BRIDGE_SYNC_EVENT = "fpe:bridge-sync";
 let bridgeSyncRevision = 0;
 let bridgeSyncAfterRenderPending = null;
@@ -1968,6 +1972,20 @@ function installDataBridge(){
   };
 }
 
+function installMetricProvenanceBridge(){
+  window[METRIC_PROVENANCE_BRIDGE_KEY] = {
+    getView: () => metricProvenanceTracker.compute(state),
+    getMetrics: () => {
+      const view = metricProvenanceTracker.compute(state);
+      return view?.metrics || {};
+    },
+    reset: () => {
+      metricProvenanceTracker.reset();
+      return { ok: true };
+    },
+  };
+}
+
 // Phase 13 — DOM preflight (prevents silent boot failures)
 function preflightEls(){
   preflightElsModule({ els, recordError });
@@ -1992,6 +2010,7 @@ function assumptionsProfileLabel(src = state){
 const initialStoredState = loadState();
 let state = normalizeLoadedScenarioRuntime(initialStoredState || makeDefaultState());
 const bootHadLocalState = !!initialStoredState;
+const metricProvenanceTracker = createMetricProvenanceTracker();
 bootProbeMark("appRuntime.state.ready", {
   bootHadLocalState,
   campaignId: String(state?.campaignId || ""),
@@ -3895,6 +3914,22 @@ function districtBridgeCanonicalView(){
   const houseModelActive = targetingPresetId === "house_v1" || targetingModelId === "house_v1";
   const censusConfigOptions = districtBridgeBuildCensusConfigOptions(censusState);
   const censusDisabledMap = districtBridgeBuildCensusDisabledMap(currentState, censusState);
+  const electionDataState = currentState?.electionData && typeof currentState.electionData === "object"
+    ? currentState.electionData
+    : {};
+  const electionDataImport = electionDataState?.import && typeof electionDataState.import === "object"
+    ? electionDataState.import
+    : {};
+  const electionDataQuality = electionDataState?.quality && typeof electionDataState.quality === "object"
+    ? electionDataState.quality
+    : {};
+  const electionDataBenchmarks = electionDataState?.benchmarks && typeof electionDataState.benchmarks === "object"
+    ? electionDataState.benchmarks
+    : {};
+  const canonicalElectionRows = Array.isArray(electionDataState?.normalizedRows)
+    ? electionDataState.normalizedRows.length
+    : 0;
+  const censusPreviewRows = districtBridgeNormalizeRows(censusState?.bridgeElectionPreviewRows, 4).length;
 
   return {
     controls: {
@@ -4026,12 +4061,31 @@ function districtBridgeCanonicalView(){
         geoSelectOptions: censusConfigOptions.geoSelectOptions,
       },
     },
+    electionData: {
+      fileName: String(electionDataImport?.fileName || "").trim(),
+      importedAt: String(electionDataImport?.importedAt || "").trim(),
+      importStatus: String(electionDataImport?.status || "").trim(),
+      normalizedRowCount: canonicalElectionRows > 0 ? canonicalElectionRows : censusPreviewRows,
+      qualityScore: safeNum(electionDataQuality?.score),
+      confidenceBand: String(electionDataQuality?.confidenceBand || "").trim() || "unknown",
+      benchmarkSuggestionCount: Array.isArray(electionDataBenchmarks?.benchmarkSuggestions)
+        ? electionDataBenchmarks.benchmarkSuggestions.length
+        : 0,
+      downstreamReady: !!electionDataBenchmarks?.downstreamRecommendations,
+    },
   };
 }
 
 function districtBridgeDerivedView(){
   const currentState = state || {};
-  const res = lastRenderCtx?.res || null;
+  const planningSnapshot = computeElectionSnapshot({
+    state: currentState,
+    nowDate: new Date(),
+    toNum: safeNum,
+  });
+  const res = planningSnapshot?.res && typeof planningSnapshot.res === "object"
+    ? planningSnapshot.res
+    : null;
   const censusState = currentState?.census && typeof currentState.census === "object"
     ? currentState.census
     : {};
@@ -4059,6 +4113,26 @@ function districtBridgeDerivedView(){
   const historyCoverageBand = String(historyValidation.coverageBand || historyImpact.coverageBand || "none");
   const historyConfidenceBand = String(historyValidation.confidenceBand || historyImpact.confidenceBand || "missing");
   const historyVoteDelta = Number(historyImpact.yourVotesDelta || 0);
+  const electionDataState = currentState?.electionData && typeof currentState.electionData === "object"
+    ? currentState.electionData
+    : {};
+  const electionImport = electionDataState?.import && typeof electionDataState.import === "object"
+    ? electionDataState.import
+    : {};
+  const electionQuality = electionDataState?.quality && typeof electionDataState.quality === "object"
+    ? electionDataState.quality
+    : {};
+  const electionBenchmarks = electionDataState?.benchmarks && typeof electionDataState.benchmarks === "object"
+    ? electionDataState.benchmarks
+    : {};
+  const electionRowCount = Array.isArray(electionDataState?.normalizedRows)
+    ? electionDataState.normalizedRows.length
+    : districtBridgeNormalizeRows(censusState?.bridgeElectionPreviewRows, 4).length;
+  const electionQualityScore = safeNum(electionQuality?.score);
+  const electionConfidenceBand = String(electionQuality?.confidenceBand || "").trim() || "unknown";
+  const electionBenchmarkCount = Array.isArray(electionBenchmarks?.benchmarkSuggestions)
+    ? electionBenchmarks.benchmarkSuggestions.length
+    : 0;
 
   const targetingRowsRaw = Array.isArray(targetingState?.lastRows) ? targetingState.lastRows : [];
   const targetingRows = targetingRowsRaw.map((row, idx) => {
@@ -4163,6 +4237,18 @@ function districtBridgeDerivedView(){
       advisoryRows: districtBridgeNormalizeRows(censusState?.bridgeAdvisoryRows, 2),
       electionPreviewRows: districtBridgeNormalizeRows(censusState?.bridgeElectionPreviewRows, 4),
     },
+    electionData: {
+      statusText: electionRowCount > 0
+        ? `Normalized ${districtBridgeFmtInt(electionRowCount)} election rows.`
+        : "No election data normalized yet.",
+      qualityText: electionQualityScore == null
+        ? "Quality score unavailable."
+        : `Quality ${formatFixedNumber(electionQualityScore, 2, "0.00")} (${electionConfidenceBand}).`,
+      benchmarkText: electionBenchmarkCount > 0
+        ? `${districtBridgeFmtInt(electionBenchmarkCount)} benchmark suggestion(s) ready.`
+        : "No benchmark suggestions yet.",
+      importedAtText: String(electionImport?.importedAt || "").trim() || "Not imported",
+    },
   };
 }
 
@@ -4239,6 +4325,24 @@ function districtBridgeCombinedView(){
       config: canonical?.census?.config && typeof canonical.census.config === "object"
         ? canonical.census.config
         : {},
+    },
+    electionData: {
+      fileName: String(canonical?.electionData?.fileName || "").trim(),
+      importedAt: String(canonical?.electionData?.importedAt || "").trim(),
+      importStatus: String(canonical?.electionData?.importStatus || "").trim(),
+      normalizedRowCount: Number.isFinite(Number(canonical?.electionData?.normalizedRowCount))
+        ? Number(canonical.electionData.normalizedRowCount)
+        : 0,
+      qualityScore: safeNum(canonical?.electionData?.qualityScore),
+      confidenceBand: String(canonical?.electionData?.confidenceBand || "").trim(),
+      benchmarkSuggestionCount: Number.isFinite(Number(canonical?.electionData?.benchmarkSuggestionCount))
+        ? Number(canonical.electionData.benchmarkSuggestionCount)
+        : 0,
+      downstreamReady: !!canonical?.electionData?.downstreamReady,
+      statusText: String(derived?.electionData?.statusText || "").trim(),
+      qualityText: String(derived?.electionData?.qualityText || "").trim(),
+      benchmarkText: String(derived?.electionData?.benchmarkText || "").trim(),
+      importedAtText: String(derived?.electionData?.importedAtText || "").trim(),
     },
     controls: canonical?.controls && typeof canonical.controls === "object"
       ? canonical.controls
@@ -4462,6 +4566,14 @@ function installDistrictBridge(){
     setCensusFile: (field, files) => districtBridgeSetCensusFile(field, files),
     triggerCensusAction: (action) => districtBridgeTriggerCensusAction(action),
   };
+}
+
+function installElectionDataBridge(){
+  window[ELECTION_DATA_BRIDGE_KEY] = createElectionDataBridge({
+    getState: () => state,
+    mutateState: (patchFn) => mutateState(patchFn),
+    isScenarioLocked: () => isScenarioLockedForEdits(state),
+  });
 }
 
 function districtBridgeEnsureTargetingState(srcState = state){
@@ -8272,10 +8384,12 @@ function init(){
   runInitStep("init.installScenarioBridge", () => { installScenarioBridge(); });
   runInitStep("init.installShellBridge", () => { installShellBridge(); });
   runInitStep("init.installDistrictBridge", () => { installDistrictBridge(); });
+  runInitStep("init.installElectionDataBridge", () => { installElectionDataBridge(); });
   runInitStep("init.installReachBridge", () => { installReachBridge(); });
   runInitStep("init.installTurnoutBridge", () => { installTurnoutBridge(); });
   runInitStep("init.installPlanBridge", () => { installPlanBridge(); });
   runInitStep("init.installOutcomeBridge", () => { installOutcomeBridge(); });
+  runInitStep("init.installMetricProvenanceBridge", () => { installMetricProvenanceBridge(); });
   runInitStep("init.ensureDecisionScaffold", () => { ensureDecisionScaffold(); });
   runInitStep("init.installDecisionBridge", () => { installDecisionBridge(); });
   runInitStep("init.runInitScenarioDecisionWiring", () => {

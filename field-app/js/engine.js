@@ -1,6 +1,6 @@
 // @ts-check
 // js/engine.js
-// Steptoe Strategic Media LLC Campaign Engine 2.0 — Facade API over the sacred core engine.
+// Vector Intelligence Campaign Engine 2.0 — Facade API over the sacred core engine.
 // UI must call ONLY this module for computations/optimization/diagnostics/snapshot handling.
 
 import { computeDeterministic as computeAll } from "./core/model.js";
