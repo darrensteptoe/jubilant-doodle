@@ -70,6 +70,8 @@ import { pctOverrideToDecimal } from "../../../core/voteProduction.js";
 
 let censusMapResizePulseHandle = 0;
 let districtSurfaceRefreshRafHandle = 0;
+const DISTRICT_STALE_SYNC_HOLD_MS = 1600;
+const districtPendingWrites = new Map();
 const TARGETING_DENSITY_OPTIONS = [
   { id: "none", label: "None" },
   { id: "medium", label: "Medium+" },
@@ -177,6 +179,49 @@ const DISTRICT_INPUT_EXPLAINERS = Object.freeze([
 ]);
 
 const DISTRICT_INTEL_ANCHOR_TYPES = new Set(["module", "glossary", "message", "playbook", "model"]);
+
+function normalizeDistrictPendingValue(rawValue) {
+  if (typeof rawValue === "boolean") {
+    return rawValue ? "1" : "0";
+  }
+  if (rawValue == null) {
+    return "";
+  }
+  return String(rawValue).trim();
+}
+
+function markDistrictPendingWrite(controlId, rawValue) {
+  const id = String(controlId || "").trim();
+  if (!id) {
+    return;
+  }
+  districtPendingWrites.set(id, {
+    value: normalizeDistrictPendingValue(rawValue),
+    at: Date.now(),
+  });
+}
+
+function shouldHoldDistrictControlSync(controlId, canonicalRawValue) {
+  const id = String(controlId || "").trim();
+  if (!id) {
+    return false;
+  }
+  const pending = districtPendingWrites.get(id);
+  if (!pending || typeof pending !== "object") {
+    return false;
+  }
+  const ageMs = Date.now() - Number(pending.at || 0);
+  if (!Number.isFinite(ageMs) || ageMs > DISTRICT_STALE_SYNC_HOLD_MS) {
+    districtPendingWrites.delete(id);
+    return false;
+  }
+  const canonical = normalizeDistrictPendingValue(canonicalRawValue);
+  if (canonical === pending.value) {
+    districtPendingWrites.delete(id);
+    return false;
+  }
+  return true;
+}
 
 function buildDistrictExplainerIntelLink(link) {
   const type = String(link?.type || "").trim().toLowerCase();
@@ -822,7 +867,6 @@ function queueDistrictSurfaceRefresh() {
 
 function handleDistrictMutationResult(result, { source = "" } = {}) {
   const hasResult = !!result && typeof result === "object";
-  const hasView = hasResult && !!result.view && typeof result.view === "object";
   const ok = hasResult ? result.ok !== false : false;
   const code = hasResult ? String(result.code || "").trim() : "";
 
@@ -840,10 +884,9 @@ function handleDistrictMutationResult(result, { source = "" } = {}) {
     );
   }
 
-  // Do not force an immediate local refresh here. Canonical bridge sync after
-  // render is the source-of-truth refresh trigger and prevents blur-time snapback
-  // when a stale pre-render snapshot briefly races user input.
-  if (ok && !hasView) {
+  // Keep District reactive by refreshing immediately after accepted writes.
+  // Bridge-sync still replays canonical state after render.
+  if (ok) {
     queueDistrictSurfaceRefresh();
   }
   return ok;
@@ -1440,6 +1483,9 @@ function syncSelectValueFromRaw(id, rawValue) {
   if (document.activeElement === select) {
     return;
   }
+  if (shouldHoldDistrictControlSync(id, rawValue)) {
+    return;
+  }
   const value = String(rawValue == null ? "" : rawValue).trim();
   if (!value) {
     const hasEmptyOption = Array.from(select.options).some((option) => String(option.value || "").trim() === "");
@@ -1471,6 +1517,9 @@ function syncInputValueFromRaw(id, rawValue) {
   if (document.activeElement === input) {
     return;
   }
+  if (shouldHoldDistrictControlSync(id, rawValue)) {
+    return;
+  }
   const value = (rawValue == null || rawValue === "") ? "" : String(rawValue);
   if (input.value !== value) {
     input.value = value;
@@ -1483,6 +1532,9 @@ function syncCheckboxCheckedFromRaw(id, rawValue) {
     return;
   }
   if (document.activeElement === input) {
+    return;
+  }
+  if (shouldHoldDistrictControlSync(id, !!rawValue)) {
     return;
   }
   input.checked = !!rawValue;
@@ -1528,6 +1580,7 @@ function bindDistrictFormSelect(v3Id, field) {
   }
   control.dataset.v3DistrictFormBound = "1";
   control.addEventListener("change", () => {
+    markDistrictPendingWrite(v3Id, control.value);
     const result = setDistrictFormField(field, control.value);
     handleDistrictMutationResult(result, { source: `setFormField:${field}` });
   });
@@ -1543,6 +1596,7 @@ function bindDistrictFormField(v3Id, field) {
   }
   control.dataset.v3DistrictFormBound = "1";
   control.addEventListener("input", () => {
+    markDistrictPendingWrite(v3Id, control.value);
     const result = setDistrictFormField(field, control.value);
     handleDistrictMutationResult(result, { source: `setFormField:${field}` });
   });
@@ -1555,6 +1609,7 @@ function bindDistrictFormCheckbox(v3Id, field) {
   }
   control.dataset.v3DistrictFormBound = "1";
   control.addEventListener("change", () => {
+    markDistrictPendingWrite(v3Id, control.checked);
     const result = setDistrictFormField(field, control.checked);
     handleDistrictMutationResult(result, { source: `setFormField:${field}` });
   });
@@ -1736,8 +1791,12 @@ function hydrateSelectOptions(v3Id, options, preferredValue) {
     : [];
 
   const nextPreferred = String(preferredValue == null ? "" : preferredValue).trim();
+  const previousValue = String(select.value || "").trim();
   if (nextPreferred && !normalized.some((row) => row.value === nextPreferred)) {
     normalized.push({ value: nextPreferred, label: nextPreferred });
+  }
+  if (!nextPreferred && previousValue && !normalized.some((row) => row.value === previousValue)) {
+    normalized.push({ value: previousValue, label: previousValue });
   }
 
   const currentSignature = Array.from(select.options).map((opt) => `${opt.value}::${opt.textContent || ""}`);
@@ -1746,7 +1805,9 @@ function hydrateSelectOptions(v3Id, options, preferredValue) {
     || currentSignature.some((sig, idx) => sig !== nextSignature[idx]);
 
   if (needsRefresh) {
-    const previousValue = String(select.value || "").trim();
+    if (document.activeElement === select) {
+      return;
+    }
     select.innerHTML = "";
     normalized.forEach((row) => {
       const option = document.createElement("option");
@@ -1861,6 +1922,7 @@ function bindDistrictTargetingSelect(v3Id, field) {
   }
   control.dataset.v3TargetingBound = "1";
   control.addEventListener("change", () => {
+    markDistrictPendingWrite(v3Id, control.value);
     const result = setDistrictTargetingField(field, control.value);
     syncDistrictTargetingFromResult(result);
   });
@@ -1888,6 +1950,7 @@ function bindDistrictTargetingField(v3Id, field) {
   }
   control.dataset.v3TargetingBound = "1";
   control.addEventListener("input", () => {
+    markDistrictPendingWrite(v3Id, control.value);
     const result = setDistrictTargetingField(field, control.value);
     syncDistrictTargetingFromResult(result);
   });
@@ -1900,6 +1963,7 @@ function bindDistrictTargetingCheckbox(v3Id, field) {
   }
   control.dataset.v3TargetingBound = "1";
   control.addEventListener("change", () => {
+    markDistrictPendingWrite(v3Id, control.checked);
     const result = setDistrictTargetingField(field, control.checked);
     syncDistrictTargetingFromResult(result);
   });
@@ -1948,6 +2012,9 @@ function syncBridgeSelectValue(v3Id, value) {
   if (!(v3 instanceof HTMLSelectElement) || document.activeElement === v3) {
     return;
   }
+  if (shouldHoldDistrictControlSync(v3Id, value)) {
+    return;
+  }
   const next = String(value == null ? "" : value).trim();
   if (!next) {
     const hasEmptyOption = Array.from(v3.options).some((option) => option.value === "");
@@ -1976,6 +2043,9 @@ function syncBridgeFieldValue(v3Id, value) {
   if (!(v3 instanceof HTMLInputElement || v3 instanceof HTMLTextAreaElement) || document.activeElement === v3) {
     return;
   }
+  if (shouldHoldDistrictControlSync(v3Id, value)) {
+    return;
+  }
   v3.value = String(value == null ? "" : value);
 }
 
@@ -1984,12 +2054,23 @@ function syncBridgeCheckboxValue(v3Id, value) {
   if (!(v3 instanceof HTMLInputElement) || document.activeElement === v3) {
     return;
   }
+  if (shouldHoldDistrictControlSync(v3Id, !!value)) {
+    return;
+  }
   v3.checked = !!value;
 }
 
 function syncBridgeMultiSelectValue(v3Id, rows) {
   const v3 = document.getElementById(v3Id);
   if (!(v3 instanceof HTMLSelectElement) || document.activeElement === v3) {
+    return;
+  }
+  const canonicalSelected = (Array.isArray(rows) ? rows : [])
+    .filter((row) => !!row?.selected)
+    .map((row) => String(row?.value || "").trim())
+    .filter(Boolean)
+    .join(",");
+  if (shouldHoldDistrictControlSync(v3Id, canonicalSelected)) {
     return;
   }
   const normalized = (Array.isArray(rows) ? rows : [])
@@ -2733,6 +2814,7 @@ function bindDistrictCensusField(v3Id, field, eventName = "input") {
   }
   control.dataset.v3DistrictCensusBound = "1";
   control.addEventListener(eventName, () => {
+    markDistrictPendingWrite(v3Id, control.value);
     const result = setDistrictCensusField(field, control.value);
     handleDistrictMutationResult(result, { source: `setCensusField:${field}` });
   });
@@ -2745,6 +2827,7 @@ function bindDistrictCensusCheckbox(v3Id, field) {
   }
   control.dataset.v3DistrictCensusBound = "1";
   control.addEventListener("change", () => {
+    markDistrictPendingWrite(v3Id, control.checked);
     const result = setDistrictCensusField(field, control.checked);
     handleDistrictMutationResult(result, { source: `setCensusField:${field}` });
   });
@@ -2758,6 +2841,7 @@ function bindDistrictCensusGeoSelection(v3Id) {
   control.dataset.v3DistrictCensusBound = "1";
   control.addEventListener("change", () => {
     const selected = Array.from(control.selectedOptions).map((option) => option.value);
+    markDistrictPendingWrite(v3Id, selected.join(","));
     const result = setDistrictCensusGeoSelection(selected);
     handleDistrictMutationResult(result, { source: "setCensusGeoSelection" });
   });

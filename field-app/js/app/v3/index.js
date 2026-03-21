@@ -232,7 +232,15 @@ function onBridgeSyncEvent(event) {
   if (Number.isFinite(revision)) {
     lastBridgeSyncRevision = revision;
   }
-  queueSyncAll({ forceStageRefresh: true });
+  const source = String(event?.detail?.source || "").trim().toLowerCase();
+  const reason = String(event?.detail?.reason || "").trim().toLowerCase();
+  const isScopeCritical = source.startsWith("bridge.shell")
+    || source.startsWith("bridge.scenario")
+    || reason.includes("context")
+    || reason.includes("scope")
+    || reason.includes("scenario");
+  const forceStageRefresh = isScopeCritical || !isActiveElementEditableInV3();
+  queueSyncAll({ forceStageRefresh });
 }
 
 function wireContextBridge() {
