@@ -23,6 +23,12 @@ import {
   addCandidateHistoryRecord,
   updateCandidateHistoryRecord,
 } from "../actions/candidateHistory.js";
+import {
+  updateTargetingConfig,
+  updateTargetingCriteria,
+  updateTargetingWeights,
+} from "../actions/targeting.js";
+import { updateCensusConfig } from "../actions/census.js";
 import { selectDistrictCanonicalView } from "./districtCanonical.js";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -116,6 +122,95 @@ test("district_v2 Candidate History fields persist after reopen", () => {
   const reopenedCanonical = selectDistrictCanonicalView(JSON.parse(JSON.stringify(state)));
   assert.equal(reopenedCanonical.candidateHistory.records[0]?.recordId, "history_a");
   assert.equal(reopenedCanonical.candidateHistory.records[0]?.margin, 3.2);
+});
+
+test("district_v2 C2 ballot row edits persist with row-level isolation after reopen", () => {
+  let state = makeCanonicalState({ nowDate: new Date("2026-03-21T15:20:00.000Z") });
+  state = addBallotCandidate(state, { name: "Alex Rivera", supportPct: 14 }).state;
+  state = addBallotCandidate(state, { name: "Morgan Lee", supportPct: 9 }).state;
+  const ids = Array.isArray(state.domains?.ballot?.candidateRefs?.order)
+    ? state.domains.ballot.candidateRefs.order.slice()
+    : [];
+  assert.equal(ids.length >= 2, true, "expected two ballot candidate rows");
+  const [alexId, morganId] = ids;
+  const baselineMorganSupport = Number(
+    state.domains?.ballot?.candidateRefs?.byId?.[morganId]?.supportPct,
+  );
+  assert.equal(Number.isFinite(baselineMorganSupport), true, "expected baseline support for sibling row");
+
+  state = updateBallotCandidate(state, { candidateId: alexId, field: "supportPct", value: 28.5 }).state;
+  state = updateBallotUserSplit(state, { candidateId: alexId, value: 41 }).state;
+
+  const reopenedCanonical = selectDistrictCanonicalView(JSON.parse(JSON.stringify(state)));
+  assert.equal(reopenedCanonical.ballot.candidateRefs.byId[alexId]?.supportPct, 28.5);
+  assert.equal(reopenedCanonical.ballot.candidateRefs.byId[morganId]?.supportPct, baselineMorganSupport);
+  assert.equal(reopenedCanonical.ballot.userSplitByCandidateId[alexId], 41);
+});
+
+test("district_v2 C2 candidate-history row edits persist with row-level isolation after reopen", () => {
+  let state = makeCanonicalState({ nowDate: new Date("2026-03-21T15:25:00.000Z") });
+  state = addCandidateHistoryRecord(state, {
+    recordId: "history_a",
+    office: "City Council",
+    cycleYear: 2022,
+    electionType: "general",
+    candidateName: "Casey Park",
+    voteShare: 51.4,
+  }).state;
+  state = addCandidateHistoryRecord(state, {
+    recordId: "history_b",
+    office: "County Clerk",
+    cycleYear: 2020,
+    electionType: "general",
+    candidateName: "Jordan Hale",
+    voteShare: 47.1,
+  }).state;
+
+  state = updateCandidateHistoryRecord(state, {
+    recordId: "history_a",
+    field: "margin",
+    value: 4.8,
+  }).state;
+  state = updateCandidateHistoryRecord(state, {
+    recordId: "history_b",
+    field: "margin",
+    value: -1.2,
+  }).state;
+
+  const reopenedCanonical = selectDistrictCanonicalView(JSON.parse(JSON.stringify(state)));
+  const rows = Array.isArray(reopenedCanonical.candidateHistory.records)
+    ? reopenedCanonical.candidateHistory.records
+    : [];
+  const rowA = rows.find((row) => row?.recordId === "history_a");
+  const rowB = rows.find((row) => row?.recordId === "history_b");
+  assert.equal(rowA?.margin, 4.8);
+  assert.equal(rowB?.margin, -1.2);
+});
+
+test("district_v2 C3 targeting dropdown and numeric inputs persist after reopen", () => {
+  let state = makeCanonicalState({ nowDate: new Date("2026-03-21T15:28:00.000Z") });
+  state = updateTargetingConfig(state, { field: "geoLevel", value: "tract" }).state;
+  state = updateTargetingConfig(state, { field: "topN", value: 64 }).state;
+  state = updateTargetingCriteria(state, { field: "densityFloor", value: "high" }).state;
+  state = updateTargetingWeights(state, { field: "votePotential", value: 1.35 }).state;
+
+  const reopenedCanonical = selectDistrictCanonicalView(JSON.parse(JSON.stringify(state)));
+  assert.equal(reopenedCanonical.targetingConfig.geoLevel, "tract");
+  assert.equal(reopenedCanonical.targetingConfig.topN, 64);
+  assert.equal(state.domains.targeting.criteria.densityFloor, "high");
+  assert.equal(state.domains.targeting.weights.votePotential, 1.35);
+});
+
+test("district_v2 C3 census dropdown and text inputs persist after reopen", () => {
+  let state = makeCanonicalState({ nowDate: new Date("2026-03-21T15:29:00.000Z") });
+  state = updateCensusConfig(state, { field: "resolution", value: "tract" }).state;
+  state = updateCensusConfig(state, { field: "geoSearch", value: "48113" }).state;
+  state = updateCensusConfig(state, { field: "metricSet", value: "demographics" }).state;
+
+  const reopenedCanonical = selectDistrictCanonicalView(JSON.parse(JSON.stringify(state)));
+  assert.equal(reopenedCanonical.censusConfig.resolution, "tract");
+  assert.equal(reopenedCanonical.censusConfig.geoSearch, "48113");
+  assert.equal(reopenedCanonical.censusConfig.metricSet, "demographics");
 });
 
 test("district_v2 values survive navigation and refresh snapshots", () => {
