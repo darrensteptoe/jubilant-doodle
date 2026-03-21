@@ -2,7 +2,7 @@ import { V3_DEFAULT_STAGE, getStageById } from "./stageRegistry.js";
 import { renderControlsSurface } from "./surfaces/controls.js";
 import { renderDataSurface } from "./surfaces/data/index.js";
 import { renderWarRoomSurface as renderDecisionLogSurface } from "./surfaces/warRoom/index.js";
-import { renderDistrictSurface } from "./surfaces/district/index.js";
+import { renderDistrictV2Surface } from "./surfaces/districtV2/index.js";
 import { renderElectionDataSurface } from "./surfaces/electionData/index.js";
 import { renderOutcomeSurface } from "./surfaces/outcome/index.js";
 import { renderPlanSurface } from "./surfaces/plan.js";
@@ -24,7 +24,7 @@ const SURFACE_MAP = {
   controls: renderControlsSurface,
   data: renderDataSurface,
   decisionLog: renderDecisionLogSurface,
-  district: renderDistrictSurface,
+  districtV2: renderDistrictV2Surface,
   electionData: renderElectionDataSurface,
   outcome: renderOutcomeSurface,
   plan: renderPlanSurface,

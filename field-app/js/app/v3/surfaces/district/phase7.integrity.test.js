@@ -8,7 +8,7 @@ import { fileURLToPath } from "node:url";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const source = fs.readFileSync(path.join(__dirname, "index.js"), "utf8");
+const source = fs.readFileSync(path.join(__dirname, "../districtV2/index.js"), "utf8");
 
 function expect(pattern, message) {
   assert.match(source, pattern, message);
@@ -25,8 +25,7 @@ test("district phase7: census and targeting cards use full-width center module s
   expect(/createCenterStackFrame\(/, "district must use center stack frame");
   expect(/createCenterStackColumn\(/, "district must use center stack column");
   expect(/createCenterModuleCard\(\{\s*title:\s*"Census assumptions"/, "district must render census card as center module");
-  expect(/createCenterModuleCard\(\{\s*title:\s*"Targeting lab"/, "district must render targeting card as center module");
+  expect(/createCenterModuleCard\(\{\s*title:\s*"Targeting config"/, "district must render targeting card as center module");
   assert.doesNotMatch(source, /createSurfaceFrame\("two-col"\)/, "district must not use mixed two-col center layout");
   assert.doesNotMatch(source, /createSurfaceFrame\("three-col"\)/, "district must not use mixed three-col center layout");
 });
-

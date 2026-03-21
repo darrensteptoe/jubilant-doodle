@@ -8,46 +8,47 @@ import { fileURLToPath } from "node:url";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const source = fs.readFileSync(path.join(__dirname, "index.js"), "utf8");
-const ballotSource = fs.readFileSync(path.join(__dirname, "ballot.js"), "utf8");
+const districtV2Dir = path.join(__dirname, "../districtV2");
+const source = fs.readFileSync(path.join(districtV2Dir, "index.js"), "utf8");
 
 function expect(pattern, message) {
   assert.match(source, pattern, message);
 }
 
-test("district phase5: surface is decomposed into module files", () => {
-  expect(/from "\.\/raceSetup\.js"/, "district index must import raceSetup module");
-  expect(/from "\.\/ballot\.js"/, "district index must import ballot module");
-  assert.match(ballotSource, /from "\.\/candidateHistory\.js"/, "district ballot module must import candidateHistory module");
-  expect(/from "\.\/targetingConfig\.js"/, "district index must import targetingConfig module");
-  expect(/from "\.\/censusConfig\.js"/, "district index must import censusConfig module");
-  expect(/from "\.\/summary\.js"/, "district index must import summary module");
-  expect(/from "\.\/templateProfile\.js"/, "district index must import templateProfile module");
-  expect(/from "\.\/electionDataSummary\.js"/, "district index must import electionDataSummary module");
+test("district phase5: replacement surface is decomposed into districtV2 module files", () => {
+  expect(/from "\.\/raceContext\.js"/, "districtV2 index must import raceContext module");
+  expect(/from "\.\/electorate\.js"/, "districtV2 index must import electorate module");
+  expect(/from "\.\/ballot\.js"/, "districtV2 index must import ballot module");
+  expect(/from "\.\/candidateHistory\.js"/, "districtV2 index must import candidateHistory module");
+  expect(/from "\.\/targetingConfig\.js"/, "districtV2 index must import targetingConfig module");
+  expect(/from "\.\/censusConfig\.js"/, "districtV2 index must import censusConfig module");
+  expect(/from "\.\/summary\.js"/, "districtV2 index must import summary module");
+  expect(/from "\.\/electionDataSummary\.js"/, "districtV2 index must import electionDataSummary module");
 });
 
 test("district phase5: canonical and derived readers are lane-split", () => {
-  expect(/const formSnapshot = readDistrictFormSnapshot\(\);/, "district canonical lane must read form snapshot");
-  expect(/const targetingConfigSnapshot = readDistrictTargetingConfigSnapshot\(\);/, "district canonical lane must read targeting config snapshot");
-  expect(/const censusConfigSnapshot = readDistrictCensusConfigSnapshot\(\);/, "district canonical lane must read census config snapshot");
-  expect(/const snapshot = readDistrictSummarySnapshot\(\);/, "district derived lane must read summary snapshot");
-  expect(/const targetingResultsSnapshot = readDistrictTargetingResultsSnapshot\(\);/, "district derived lane must read targeting results snapshot");
-  expect(/const censusResultsSnapshot = readDistrictCensusResultsSnapshot\(\);/, "district derived lane must read census results snapshot");
-  expect(/const electionDataSummarySnapshot = readDistrictElectionDataSummarySnapshot\(\);/, "district derived lane must read election data summary snapshot");
+  expect(/const formSnapshot = readDistrictFormSnapshot\(\);/, "districtV2 canonical lane must read form snapshot");
+  expect(/const targetingConfigSnapshot = readDistrictTargetingConfigSnapshot\(\);/, "districtV2 canonical lane must read targeting config snapshot");
+  expect(/const censusConfigSnapshot = readDistrictCensusConfigSnapshot\(\);/, "districtV2 canonical lane must read census config snapshot");
+  expect(/const snapshot = readDistrictSummarySnapshot\(\);/, "districtV2 derived lane must read summary snapshot");
+  expect(/const targetingResultsSnapshot = readDistrictTargetingResultsSnapshot\(\);/, "districtV2 derived lane must read targeting results snapshot");
+  expect(/const censusResultsSnapshot = readDistrictCensusResultsSnapshot\(\);/, "districtV2 derived lane must read census results snapshot");
+  expect(/const electionDataSummarySnapshot = readDistrictElectionDataSummarySnapshot\(\);/, "districtV2 derived lane must read election data summary snapshot");
 });
 
-test("district phase5: table hydration preserves active row focus independently", () => {
-  expect(/captureActiveControlState\(targetBody, "candidateId"\)/, "candidate table must capture active candidate row state");
-  expect(/captureActiveControlState\(targetList, "candidateId"\)/, "user split must capture active candidate row state");
-  expect(/captureActiveControlState\(targetBody, "recordId"\)/, "candidate history must capture active record row state");
-  expect(/restoreActiveControlState\(targetBody, "candidateId", activeState\)/, "candidate table must restore row focus");
-  expect(/restoreActiveControlState\(targetList, "candidateId", activeState\)/, "user split must restore row focus");
-  expect(/restoreActiveControlState\(targetBody, "recordId", activeState\)/, "candidate history must restore row focus");
+test("district phase5: replacement handlers are delegated and hold-free", () => {
+  expect(/function bindDistrictV2BallotHandlers\(/, "districtV2 must define delegated ballot handlers");
+  expect(/candidateBody\.addEventListener\("change"/, "districtV2 ballot must use delegated change handler");
+  expect(/candidateBody\.addEventListener\("click"/, "districtV2 ballot must use delegated click handler");
+  expect(/historyBody\.addEventListener\("change"/, "districtV2 candidate history must use delegated change handler");
+  expect(/historyBody\.addEventListener\("click"/, "districtV2 candidate history must use delegated click handler");
+  assert.doesNotMatch(source, /markDistrictPendingWrite\(/, "districtV2 must not use pending-write hold path");
+  assert.doesNotMatch(source, /shouldHoldDistrictControlSync\(/, "districtV2 must not use hold-based control sync");
 });
 
 test("district phase5: election data summary card is present and full-width stack is used", () => {
-  expect(/title: "Election data summary"/, "district must render election data summary card");
-  expect(/createCenterStackFrame\(/, "district must use center stack frame");
-  expect(/createCenterStackColumn\(/, "district must use center stack column");
-  expect(/createCenterModuleCard\(/, "district must use center module cards");
+  expect(/title: "Election data summary"/, "districtV2 must render election data summary card");
+  expect(/createCenterStackFrame\(/, "districtV2 must use center stack frame");
+  expect(/createCenterStackColumn\(/, "districtV2 must use center stack column");
+  expect(/createCenterModuleCard\(/, "districtV2 must use center module cards");
 });

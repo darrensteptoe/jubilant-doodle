@@ -4,7 +4,7 @@ export const V3_STAGE_REGISTRY = [
     navLabel: "District",
     pageTitle: "District Reality",
     subtitle: "Race context, electorate shape, baseline support, and starting reality.",
-    surface: "district",
+    surface: "districtV2",
     group: "Model"
   },
   {
