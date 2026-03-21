@@ -240,8 +240,10 @@ function onBridgeSyncEvent(event) {
     || reason.includes("context")
     || reason.includes("scope")
     || reason.includes("scenario");
-  const isDistrictBridgeWrite = activeStageId === "district" && source.startsWith("bridge.district");
-  const forceStageRefresh = isScopeCritical || isDistrictBridgeWrite || !isActiveElementEditableInV3();
+  const isDistrictRuntimeCommit = activeStageId === "district"
+    && source === "runtime"
+    && reason === "commit_ui_update";
+  const forceStageRefresh = isScopeCritical || isDistrictRuntimeCommit || !isActiveElementEditableInV3();
   queueSyncAll({ forceStageRefresh });
 }
 
