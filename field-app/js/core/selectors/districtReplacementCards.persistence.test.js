@@ -62,6 +62,9 @@ test("district replacement form binders follow standard input+change commit patt
 
   const selectBody = extractFunctionBody(districtSource, "bindDistrictFormSelect", "bindDistrictFormField");
   assert.doesNotMatch(selectBody, /markDistrictPendingWrite\(/);
+
+  const syncInputBody = extractFunctionBody(districtSource, "syncInputValueFromRaw", "syncCheckboxCheckedFromRaw");
+  assert.doesNotMatch(syncInputBody, /shouldHoldDistrictControlSync\(/);
 });
 
 test("district replacement ballot + candidate history cards use delegated change/click handlers", () => {
@@ -206,3 +209,85 @@ test("replacement candidate history card: row add/edit persists through reopen",
   assert.equal(reopenedCanonical.candidateHistory.records[0].margin, 4.8);
 });
 
+test("race context select persists on blur without pending-write hold", () => {
+  const selectBody = extractFunctionBody(districtSource, "bindDistrictFormSelect", "bindDistrictFormField");
+  const syncInputBody = extractFunctionBody(districtSource, "syncInputValueFromRaw", "syncCheckboxCheckedFromRaw");
+  assert.doesNotMatch(selectBody, /markDistrictPendingWrite\(/);
+  assert.doesNotMatch(syncInputBody, /shouldHoldDistrictControlSync\(/);
+
+  let state = makeCanonicalState({ nowDate: new Date("2026-03-21T14:00:00.000Z") });
+  state = updateDistrictTemplateField(state, { field: "raceType", value: "county_commission" }).state;
+  state = updateDistrictTemplateField(state, { field: "officeLevel", value: "county" }).state;
+
+  const reopenedCanonical = selectDistrictCanonicalView(JSON.parse(JSON.stringify(state)));
+  assert.equal(reopenedCanonical.templateProfile.raceType, "county_commission");
+  assert.equal(reopenedCanonical.templateProfile.officeLevel, "county");
+});
+
+test("election date persists on blur without pending-write hold", () => {
+  const fieldBody = extractFunctionBody(districtSource, "bindDistrictFormField", "bindDistrictFormCheckbox");
+  const syncInputBody = extractFunctionBody(districtSource, "syncInputValueFromRaw", "syncCheckboxCheckedFromRaw");
+  assert.doesNotMatch(fieldBody, /markDistrictPendingWrite\(/);
+  assert.doesNotMatch(syncInputBody, /shouldHoldDistrictControlSync\(/);
+
+  let state = makeCanonicalState({ nowDate: new Date("2026-03-21T14:05:00.000Z") });
+  state = updateDistrictFormField(state, { field: "electionDate", value: "2026-11-03" }).state;
+
+  const reopenedCanonical = selectDistrictCanonicalView(JSON.parse(JSON.stringify(state)));
+  assert.equal(reopenedCanonical.form.electionDate, "2026-11-03");
+});
+
+test("universe size persists on blur without pending-write hold", () => {
+  const fieldBody = extractFunctionBody(districtSource, "bindDistrictFormField", "bindDistrictFormCheckbox");
+  const syncInputBody = extractFunctionBody(districtSource, "syncInputValueFromRaw", "syncCheckboxCheckedFromRaw");
+  assert.doesNotMatch(fieldBody, /markDistrictPendingWrite\(/);
+  assert.doesNotMatch(syncInputBody, /shouldHoldDistrictControlSync\(/);
+
+  let state = makeCanonicalState({ nowDate: new Date("2026-03-21T14:10:00.000Z") });
+  state = updateDistrictFormField(state, { field: "universeSize", value: 123456 }).state;
+
+  const reopenedCanonical = selectDistrictCanonicalView(JSON.parse(JSON.stringify(state)));
+  assert.equal(reopenedCanonical.form.universeSize, 123456);
+});
+
+test("ballot field persists on blur without pending-write hold", () => {
+  const fieldBody = extractFunctionBody(districtSource, "bindDistrictFormField", "bindDistrictFormCheckbox");
+  const syncInputBody = extractFunctionBody(districtSource, "syncInputValueFromRaw", "syncCheckboxCheckedFromRaw");
+  assert.doesNotMatch(fieldBody, /markDistrictPendingWrite\(/);
+  assert.doesNotMatch(syncInputBody, /shouldHoldDistrictControlSync\(/);
+
+  let state = makeCanonicalState({ nowDate: new Date("2026-03-21T14:15:00.000Z") });
+  state = setBallotUndecided(state, { undecidedPct: 12, undecidedMode: "proportional" }).state;
+
+  const reopenedCanonical = selectDistrictCanonicalView(JSON.parse(JSON.stringify(state)));
+  assert.equal(reopenedCanonical.ballot.undecidedPct, 12);
+  assert.equal(reopenedCanonical.ballot.undecidedMode, "proportional");
+});
+
+test("candidate history field persists on blur without pending-write hold", () => {
+  const historyHandlers = extractFunctionBody(
+    districtSource,
+    "bindDistrictCandidateHistoryReplacementHandlers",
+    "syncDistrictBallotBaseline",
+  );
+  assert.doesNotMatch(historyHandlers, /markDistrictPendingWrite\(/);
+  assert.doesNotMatch(historyHandlers, /shouldHoldDistrictControlSync\(/);
+
+  let state = makeCanonicalState({ nowDate: new Date("2026-03-21T14:20:00.000Z") });
+  state = addCandidateHistoryRecord(state, {
+    recordId: "history_a",
+    office: "City Council",
+    cycleYear: 2022,
+    electionType: "general",
+    candidateName: "Casey Park",
+    voteShare: 51.4,
+  }).state;
+  state = updateCandidateHistoryRecord(state, {
+    recordId: "history_a",
+    field: "margin",
+    value: 3.2,
+  }).state;
+
+  const reopenedCanonical = selectDistrictCanonicalView(JSON.parse(JSON.stringify(state)));
+  assert.equal(reopenedCanonical.candidateHistory.records[0]?.margin, 3.2);
+});

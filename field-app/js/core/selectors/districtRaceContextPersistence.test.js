@@ -66,7 +66,7 @@ test("district runtime bridge canonical lane is selector-driven and does not rea
   assert.ok(match, "districtBridgeCanonicalView segment missing");
   const segment = String(match[1] || "");
 
-  assert.match(segment, /selectDistrictCanonicalView\(currentState\)/, "canonical lane must call selectDistrictCanonicalView");
+  assert.match(segment, /selectDistrictCanonicalView\((currentState|runtimeState)\)/, "canonical lane must call selectDistrictCanonicalView");
   assert.doesNotMatch(segment, /currentState\?\.raceType/, "canonical lane must not read legacy currentState.raceType");
   assert.doesNotMatch(segment, /currentState\?\.electionDate/, "canonical lane must not read legacy currentState.electionDate");
   assert.doesNotMatch(segment, /currentState\?\.universeSize/, "canonical lane must not read legacy currentState.universeSize");
@@ -74,4 +74,3 @@ test("district runtime bridge canonical lane is selector-driven and does not rea
   assert.doesNotMatch(segment, /currentState\?\.candidates/, "canonical lane must not read legacy currentState.candidates");
   assert.doesNotMatch(segment, /currentState\?\.userSplit/, "canonical lane must not read legacy currentState.userSplit");
 });
-
