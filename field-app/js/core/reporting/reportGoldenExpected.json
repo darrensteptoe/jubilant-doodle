@@ -1,0 +1,687 @@
+{
+  "municipal_race::internal_full": {
+    "title": "Vector Intelligence Campaign Engine — Internal Full — Ward 12 Forward",
+    "reportLabel": "Internal Full",
+    "sectionIds": [
+      "situation_snapshot",
+      "operational_risk",
+      "election_benchmark_intelligence",
+      "recommended_actions",
+      "confidence_methodology"
+    ],
+    "blockTypeCounts": {
+      "headline": 1,
+      "metric_grid": 1,
+      "trend": 1,
+      "status": 2,
+      "risk": 3,
+      "benchmark": 3,
+      "recommendation": 2,
+      "action_owner": 2,
+      "confidence_methodology": 1,
+      "appendix": 1
+    },
+    "digest": "303f2d45e85838718717d569e7b8703d865cd0abae58e9c013b7483d638fb40b"
+  },
+  "municipal_race::client_standard": {
+    "title": "Vector Intelligence Campaign Engine — Client Standard — Ward 12 Forward",
+    "reportLabel": "Client Standard",
+    "sectionIds": [
+      "what_matters_now",
+      "strategic_position",
+      "top_recommendations",
+      "confidence_frame"
+    ],
+    "blockTypeCounts": {
+      "headline": 1,
+      "metric_grid": 1,
+      "trend": 1,
+      "benchmark": 2,
+      "recommendation": 2,
+      "confidence_methodology": 1
+    },
+    "digest": "aa765859497f1302d52fde81996ca50c66cd8ff082b64b7b29f641b14dde9584"
+  },
+  "municipal_race::war_room_brief": {
+    "title": "Vector Intelligence Campaign Engine — War Room Brief — Ward 12 Forward",
+    "reportLabel": "War Room Brief",
+    "sectionIds": [
+      "immediate_picture",
+      "risks_next_7_days",
+      "actions_owners",
+      "delta_since_prior"
+    ],
+    "blockTypeCounts": {
+      "headline": 1,
+      "metric_grid": 1,
+      "status": 1,
+      "risk": 2,
+      "recommendation": 1,
+      "action_owner": 2,
+      "trend": 1
+    },
+    "digest": "6acefe9ced90e475d9c6e748b20827c8b01b8f135274945012dc62628913056a"
+  },
+  "municipal_race::weekly_actions": {
+    "title": "Vector Intelligence Campaign Engine — Weekly Actions — Ward 12 Forward",
+    "reportLabel": "Weekly Actions",
+    "sectionIds": [
+      "weekly_delta_snapshot",
+      "priority_workplan",
+      "blockers_and_mitigations"
+    ],
+    "blockTypeCounts": {
+      "headline": 1,
+      "trend": 1,
+      "action_owner": 2,
+      "recommendation": 1,
+      "risk": 2
+    },
+    "digest": "fd856e95fba84a94f5ed6005c68bea585a6522393fb738324a9efe159b2f4406"
+  },
+  "municipal_race::readiness_audit": {
+    "title": "Vector Intelligence Campaign Engine — Readiness Audit — Ward 12 Forward",
+    "reportLabel": "Readiness Audit",
+    "sectionIds": [
+      "readiness_status",
+      "quality_gaps",
+      "corrective_actions",
+      "methodology"
+    ],
+    "blockTypeCounts": {
+      "headline": 1,
+      "metric_grid": 1,
+      "status": 1,
+      "risk": 3,
+      "recommendation": 1,
+      "action_owner": 2,
+      "confidence_methodology": 1
+    },
+    "digest": "a1ddaccd6192a33164f2c34b9cc7a2b107db27bfacaf1403629b33243fd83d5d"
+  },
+  "municipal_race::election_data_benchmark": {
+    "title": "Vector Intelligence Campaign Engine — Election Data Benchmark — Ward 12 Forward",
+    "reportLabel": "Election Data Benchmark",
+    "sectionIds": [
+      "election_intake_quality",
+      "comparable_turnout",
+      "downstream_impact",
+      "methodology"
+    ],
+    "blockTypeCounts": {
+      "headline": 1,
+      "benchmark": 5,
+      "trend": 1,
+      "recommendation": 2,
+      "risk": 1,
+      "confidence_methodology": 1
+    },
+    "digest": "7cf76d2177df328f7aa33db644c0cd22af3f3a2b49b9a99c5b27cad85211ea9c"
+  },
+  "municipal_race::post_election_learning": {
+    "title": "Vector Intelligence Campaign Engine — Post-Election Learning — Ward 12 Forward",
+    "reportLabel": "Post-Election Learning",
+    "sectionIds": [
+      "outcome_vs_forecast",
+      "learning_recommendations",
+      "archive_metadata"
+    ],
+    "blockTypeCounts": {
+      "headline": 1,
+      "trend": 1,
+      "status": 1,
+      "recommendation": 2,
+      "action_owner": 2,
+      "appendix": 1
+    },
+    "digest": "527dcfc61059bac0cc982998b1bfc25409d14f62c14566403e3ee9989c164859"
+  },
+  "multi_candidate_primary::internal_full": {
+    "title": "Vector Intelligence Campaign Engine — Internal Full — Primary Coalition 7",
+    "reportLabel": "Internal Full",
+    "sectionIds": [
+      "situation_snapshot",
+      "operational_risk",
+      "election_benchmark_intelligence",
+      "recommended_actions",
+      "confidence_methodology"
+    ],
+    "blockTypeCounts": {
+      "headline": 1,
+      "metric_grid": 1,
+      "trend": 1,
+      "status": 2,
+      "risk": 3,
+      "benchmark": 3,
+      "recommendation": 2,
+      "action_owner": 2,
+      "confidence_methodology": 1,
+      "appendix": 1
+    },
+    "digest": "a031fc998f125f70275c3b7d139417ca691e33fb33be13ed93c8e030de237a34"
+  },
+  "multi_candidate_primary::client_standard": {
+    "title": "Vector Intelligence Campaign Engine — Client Standard — Primary Coalition 7",
+    "reportLabel": "Client Standard",
+    "sectionIds": [
+      "what_matters_now",
+      "strategic_position",
+      "top_recommendations",
+      "confidence_frame"
+    ],
+    "blockTypeCounts": {
+      "headline": 1,
+      "metric_grid": 1,
+      "trend": 1,
+      "benchmark": 2,
+      "recommendation": 2,
+      "confidence_methodology": 1
+    },
+    "digest": "695e62a80425842e061eb3a41aa1c0b947f2bf5ce41fb8e2a8dec98a2d1ea8e5"
+  },
+  "multi_candidate_primary::war_room_brief": {
+    "title": "Vector Intelligence Campaign Engine — War Room Brief — Primary Coalition 7",
+    "reportLabel": "War Room Brief",
+    "sectionIds": [
+      "immediate_picture",
+      "risks_next_7_days",
+      "actions_owners",
+      "delta_since_prior"
+    ],
+    "blockTypeCounts": {
+      "headline": 1,
+      "metric_grid": 1,
+      "status": 1,
+      "risk": 2,
+      "recommendation": 1,
+      "action_owner": 2,
+      "trend": 1
+    },
+    "digest": "ae28db00e7be1c732f0e39c2cd16d02070638325e0474b55a5a365353bb0017a"
+  },
+  "multi_candidate_primary::weekly_actions": {
+    "title": "Vector Intelligence Campaign Engine — Weekly Actions — Primary Coalition 7",
+    "reportLabel": "Weekly Actions",
+    "sectionIds": [
+      "weekly_delta_snapshot",
+      "priority_workplan",
+      "blockers_and_mitigations"
+    ],
+    "blockTypeCounts": {
+      "headline": 1,
+      "trend": 1,
+      "action_owner": 2,
+      "recommendation": 1,
+      "risk": 2
+    },
+    "digest": "888c04aca291c9495bc5688f6a5731ae4919a38743095bcf2708d997d445d665"
+  },
+  "multi_candidate_primary::readiness_audit": {
+    "title": "Vector Intelligence Campaign Engine — Readiness Audit — Primary Coalition 7",
+    "reportLabel": "Readiness Audit",
+    "sectionIds": [
+      "readiness_status",
+      "quality_gaps",
+      "corrective_actions",
+      "methodology"
+    ],
+    "blockTypeCounts": {
+      "headline": 1,
+      "metric_grid": 1,
+      "status": 1,
+      "risk": 3,
+      "recommendation": 1,
+      "action_owner": 2,
+      "confidence_methodology": 1
+    },
+    "digest": "8bd89f6a46924e755ce2e0c9c9571673865139e36d8f9689c2926ad2d1f3b958"
+  },
+  "multi_candidate_primary::election_data_benchmark": {
+    "title": "Vector Intelligence Campaign Engine — Election Data Benchmark — Primary Coalition 7",
+    "reportLabel": "Election Data Benchmark",
+    "sectionIds": [
+      "election_intake_quality",
+      "comparable_turnout",
+      "downstream_impact",
+      "methodology"
+    ],
+    "blockTypeCounts": {
+      "headline": 1,
+      "benchmark": 5,
+      "trend": 1,
+      "recommendation": 2,
+      "risk": 1,
+      "confidence_methodology": 1
+    },
+    "digest": "c60844dc3c985ed7a7921da9d25afd3777e6a0accdb9ce8cdca2d42b4bc3f0d5"
+  },
+  "multi_candidate_primary::post_election_learning": {
+    "title": "Vector Intelligence Campaign Engine — Post-Election Learning — Primary Coalition 7",
+    "reportLabel": "Post-Election Learning",
+    "sectionIds": [
+      "outcome_vs_forecast",
+      "learning_recommendations",
+      "archive_metadata"
+    ],
+    "blockTypeCounts": {
+      "headline": 1,
+      "trend": 1,
+      "status": 1,
+      "recommendation": 2,
+      "action_owner": 2,
+      "appendix": 1
+    },
+    "digest": "449cb5c62a2d11639db6843c861e314f6c1657a9307277a5ced600c17c862a0a"
+  },
+  "low_data_race::internal_full": {
+    "title": "Vector Intelligence Campaign Engine — Internal Full — Rural Outreach 5",
+    "reportLabel": "Internal Full",
+    "sectionIds": [
+      "situation_snapshot",
+      "operational_risk",
+      "election_benchmark_intelligence",
+      "recommended_actions",
+      "confidence_methodology"
+    ],
+    "blockTypeCounts": {
+      "headline": 1,
+      "metric_grid": 1,
+      "trend": 1,
+      "status": 2,
+      "risk": 3,
+      "benchmark": 3,
+      "recommendation": 2,
+      "action_owner": 2,
+      "confidence_methodology": 1,
+      "appendix": 1
+    },
+    "digest": "c7d727dc7a19693ea0dd95d5e43f6ae0425505920f4a04c46c396d247f42066c"
+  },
+  "low_data_race::client_standard": {
+    "title": "Vector Intelligence Campaign Engine — Client Standard — Rural Outreach 5",
+    "reportLabel": "Client Standard",
+    "sectionIds": [
+      "what_matters_now",
+      "strategic_position",
+      "top_recommendations",
+      "confidence_frame"
+    ],
+    "blockTypeCounts": {
+      "headline": 1,
+      "metric_grid": 1,
+      "trend": 1,
+      "benchmark": 2,
+      "recommendation": 2,
+      "confidence_methodology": 1
+    },
+    "digest": "cbd175f49c0fb527755c49a18d8f35b7b093274dcf6c2fc8e12e731d85cf2ff2"
+  },
+  "low_data_race::war_room_brief": {
+    "title": "Vector Intelligence Campaign Engine — War Room Brief — Rural Outreach 5",
+    "reportLabel": "War Room Brief",
+    "sectionIds": [
+      "immediate_picture",
+      "risks_next_7_days",
+      "actions_owners",
+      "delta_since_prior"
+    ],
+    "blockTypeCounts": {
+      "headline": 1,
+      "metric_grid": 1,
+      "status": 1,
+      "risk": 2,
+      "recommendation": 1,
+      "action_owner": 2,
+      "trend": 1
+    },
+    "digest": "fdf859cc88c6384ee2374d9a63008ddc6fa675af0d08f51e81e6f407c2028801"
+  },
+  "low_data_race::weekly_actions": {
+    "title": "Vector Intelligence Campaign Engine — Weekly Actions — Rural Outreach 5",
+    "reportLabel": "Weekly Actions",
+    "sectionIds": [
+      "weekly_delta_snapshot",
+      "priority_workplan",
+      "blockers_and_mitigations"
+    ],
+    "blockTypeCounts": {
+      "headline": 1,
+      "trend": 1,
+      "action_owner": 2,
+      "recommendation": 1,
+      "risk": 2
+    },
+    "digest": "4a6c19de3bb3030bfd2d1a4a255c9843955467367cf6cb8ed7d1fd38a406a111"
+  },
+  "low_data_race::readiness_audit": {
+    "title": "Vector Intelligence Campaign Engine — Readiness Audit — Rural Outreach 5",
+    "reportLabel": "Readiness Audit",
+    "sectionIds": [
+      "readiness_status",
+      "quality_gaps",
+      "corrective_actions",
+      "methodology"
+    ],
+    "blockTypeCounts": {
+      "headline": 1,
+      "metric_grid": 1,
+      "status": 1,
+      "risk": 3,
+      "recommendation": 1,
+      "action_owner": 2,
+      "confidence_methodology": 1
+    },
+    "digest": "bb6cd548771ea5d3bfa74c612055984c53ac130b3d28399091df901d89fbff06"
+  },
+  "low_data_race::election_data_benchmark": {
+    "title": "Vector Intelligence Campaign Engine — Election Data Benchmark — Rural Outreach 5",
+    "reportLabel": "Election Data Benchmark",
+    "sectionIds": [
+      "election_intake_quality",
+      "comparable_turnout",
+      "downstream_impact",
+      "methodology"
+    ],
+    "blockTypeCounts": {
+      "headline": 1,
+      "benchmark": 5,
+      "trend": 1,
+      "recommendation": 2,
+      "risk": 1,
+      "confidence_methodology": 1
+    },
+    "digest": "39f66219f391bb0b2f6bf3f47e105defd03d942b09388ea52864f5d47d302451"
+  },
+  "low_data_race::post_election_learning": {
+    "title": "Vector Intelligence Campaign Engine — Post-Election Learning — Rural Outreach 5",
+    "reportLabel": "Post-Election Learning",
+    "sectionIds": [
+      "outcome_vs_forecast",
+      "learning_recommendations",
+      "archive_metadata"
+    ],
+    "blockTypeCounts": {
+      "headline": 1,
+      "trend": 1,
+      "status": 1,
+      "recommendation": 2,
+      "action_owner": 2,
+      "appendix": 1
+    },
+    "digest": "02f378233440c20169d5504d80e2f4bd2624821652144e988cf6bff71d68997f"
+  },
+  "election_data_imported::internal_full": {
+    "title": "Vector Intelligence Campaign Engine — Internal Full — House 44 Growth",
+    "reportLabel": "Internal Full",
+    "sectionIds": [
+      "situation_snapshot",
+      "operational_risk",
+      "election_benchmark_intelligence",
+      "recommended_actions",
+      "confidence_methodology"
+    ],
+    "blockTypeCounts": {
+      "headline": 1,
+      "metric_grid": 1,
+      "trend": 1,
+      "status": 2,
+      "risk": 3,
+      "benchmark": 3,
+      "recommendation": 2,
+      "action_owner": 2,
+      "confidence_methodology": 1,
+      "appendix": 1
+    },
+    "digest": "38892b5038aea08dafcb9c4198f310c6022ce5d41f368fa4aa700229f6a35c30"
+  },
+  "election_data_imported::client_standard": {
+    "title": "Vector Intelligence Campaign Engine — Client Standard — House 44 Growth",
+    "reportLabel": "Client Standard",
+    "sectionIds": [
+      "what_matters_now",
+      "strategic_position",
+      "top_recommendations",
+      "confidence_frame"
+    ],
+    "blockTypeCounts": {
+      "headline": 1,
+      "metric_grid": 1,
+      "trend": 1,
+      "benchmark": 2,
+      "recommendation": 2,
+      "confidence_methodology": 1
+    },
+    "digest": "89836731659d599ac6df09706bfd950a81911fd94e91b19e301133f50d85391b"
+  },
+  "election_data_imported::war_room_brief": {
+    "title": "Vector Intelligence Campaign Engine — War Room Brief — House 44 Growth",
+    "reportLabel": "War Room Brief",
+    "sectionIds": [
+      "immediate_picture",
+      "risks_next_7_days",
+      "actions_owners",
+      "delta_since_prior"
+    ],
+    "blockTypeCounts": {
+      "headline": 1,
+      "metric_grid": 1,
+      "status": 1,
+      "risk": 2,
+      "recommendation": 1,
+      "action_owner": 2,
+      "trend": 1
+    },
+    "digest": "a9a58b1c26e1243b280a4aa5dcf5d10ad5be6d3d2a5ead7c1d93ba64ccba5a5e"
+  },
+  "election_data_imported::weekly_actions": {
+    "title": "Vector Intelligence Campaign Engine — Weekly Actions — House 44 Growth",
+    "reportLabel": "Weekly Actions",
+    "sectionIds": [
+      "weekly_delta_snapshot",
+      "priority_workplan",
+      "blockers_and_mitigations"
+    ],
+    "blockTypeCounts": {
+      "headline": 1,
+      "trend": 1,
+      "action_owner": 2,
+      "recommendation": 1,
+      "risk": 2
+    },
+    "digest": "98b03c87d2899392378dadd4d8663543819d89179c0abf7feb44ef1b1f8ceff8"
+  },
+  "election_data_imported::readiness_audit": {
+    "title": "Vector Intelligence Campaign Engine — Readiness Audit — House 44 Growth",
+    "reportLabel": "Readiness Audit",
+    "sectionIds": [
+      "readiness_status",
+      "quality_gaps",
+      "corrective_actions",
+      "methodology"
+    ],
+    "blockTypeCounts": {
+      "headline": 1,
+      "metric_grid": 1,
+      "status": 1,
+      "risk": 3,
+      "recommendation": 1,
+      "action_owner": 2,
+      "confidence_methodology": 1
+    },
+    "digest": "96f38e1a6d5a6202bb6f896cf6d11210f76e6c4e664692d0504b6d3506ca47d8"
+  },
+  "election_data_imported::election_data_benchmark": {
+    "title": "Vector Intelligence Campaign Engine — Election Data Benchmark — House 44 Growth",
+    "reportLabel": "Election Data Benchmark",
+    "sectionIds": [
+      "election_intake_quality",
+      "comparable_turnout",
+      "downstream_impact",
+      "methodology"
+    ],
+    "blockTypeCounts": {
+      "headline": 1,
+      "benchmark": 5,
+      "trend": 1,
+      "recommendation": 2,
+      "risk": 1,
+      "confidence_methodology": 1
+    },
+    "digest": "1be414aa4afd2d50cf251d87efe749d2c11bf9372dbb4ddf666eb00c922b60cc"
+  },
+  "election_data_imported::post_election_learning": {
+    "title": "Vector Intelligence Campaign Engine — Post-Election Learning — House 44 Growth",
+    "reportLabel": "Post-Election Learning",
+    "sectionIds": [
+      "outcome_vs_forecast",
+      "learning_recommendations",
+      "archive_metadata"
+    ],
+    "blockTypeCounts": {
+      "headline": 1,
+      "trend": 1,
+      "status": 1,
+      "recommendation": 2,
+      "action_owner": 2,
+      "appendix": 1
+    },
+    "digest": "c74747905da9ae782dd6732a9ba44c5e07fb1460b6f6a4ea587e23ebfe46635d"
+  },
+  "war_room_active::internal_full": {
+    "title": "Vector Intelligence Campaign Engine — Internal Full — Citywide Ops",
+    "reportLabel": "Internal Full",
+    "sectionIds": [
+      "situation_snapshot",
+      "operational_risk",
+      "election_benchmark_intelligence",
+      "recommended_actions",
+      "confidence_methodology"
+    ],
+    "blockTypeCounts": {
+      "headline": 1,
+      "metric_grid": 1,
+      "trend": 1,
+      "status": 2,
+      "risk": 3,
+      "benchmark": 3,
+      "recommendation": 2,
+      "action_owner": 2,
+      "confidence_methodology": 1,
+      "appendix": 1
+    },
+    "digest": "57c958cc878f9114836d6770616058bbebe27107b0f8c78076d7b25b1d448fe7"
+  },
+  "war_room_active::client_standard": {
+    "title": "Vector Intelligence Campaign Engine — Client Standard — Citywide Ops",
+    "reportLabel": "Client Standard",
+    "sectionIds": [
+      "what_matters_now",
+      "strategic_position",
+      "top_recommendations",
+      "confidence_frame"
+    ],
+    "blockTypeCounts": {
+      "headline": 1,
+      "metric_grid": 1,
+      "trend": 1,
+      "benchmark": 2,
+      "recommendation": 2,
+      "confidence_methodology": 1
+    },
+    "digest": "0b234854d2f0c443844e6abe44d0a98c3b51b73adb278a5210db820441c93939"
+  },
+  "war_room_active::war_room_brief": {
+    "title": "Vector Intelligence Campaign Engine — War Room Brief — Citywide Ops",
+    "reportLabel": "War Room Brief",
+    "sectionIds": [
+      "immediate_picture",
+      "risks_next_7_days",
+      "actions_owners",
+      "delta_since_prior"
+    ],
+    "blockTypeCounts": {
+      "headline": 1,
+      "metric_grid": 1,
+      "status": 1,
+      "risk": 2,
+      "recommendation": 1,
+      "action_owner": 2,
+      "trend": 1
+    },
+    "digest": "0e1d0d6f9798de9bd60208ceb748c983e67b397b04b3759f0eb78ee3fce5d194"
+  },
+  "war_room_active::weekly_actions": {
+    "title": "Vector Intelligence Campaign Engine — Weekly Actions — Citywide Ops",
+    "reportLabel": "Weekly Actions",
+    "sectionIds": [
+      "weekly_delta_snapshot",
+      "priority_workplan",
+      "blockers_and_mitigations"
+    ],
+    "blockTypeCounts": {
+      "headline": 1,
+      "trend": 1,
+      "action_owner": 2,
+      "recommendation": 1,
+      "risk": 2
+    },
+    "digest": "2308d63a3c629859463bceb5e29cacbc66297fa6eab53d7202cf0b5101625ffd"
+  },
+  "war_room_active::readiness_audit": {
+    "title": "Vector Intelligence Campaign Engine — Readiness Audit — Citywide Ops",
+    "reportLabel": "Readiness Audit",
+    "sectionIds": [
+      "readiness_status",
+      "quality_gaps",
+      "corrective_actions",
+      "methodology"
+    ],
+    "blockTypeCounts": {
+      "headline": 1,
+      "metric_grid": 1,
+      "status": 1,
+      "risk": 3,
+      "recommendation": 1,
+      "action_owner": 2,
+      "confidence_methodology": 1
+    },
+    "digest": "17f471951578215606ce04232ddacbc5a7a4aa16c7790190f5fc53697f12e5ae"
+  },
+  "war_room_active::election_data_benchmark": {
+    "title": "Vector Intelligence Campaign Engine — Election Data Benchmark — Citywide Ops",
+    "reportLabel": "Election Data Benchmark",
+    "sectionIds": [
+      "election_intake_quality",
+      "comparable_turnout",
+      "downstream_impact",
+      "methodology"
+    ],
+    "blockTypeCounts": {
+      "headline": 1,
+      "benchmark": 5,
+      "trend": 1,
+      "recommendation": 2,
+      "risk": 1,
+      "confidence_methodology": 1
+    },
+    "digest": "24ff3c9817ee4051c30120c243c4047b448de7e839b13dfdfc94978f9fcf5fd7"
+  },
+  "war_room_active::post_election_learning": {
+    "title": "Vector Intelligence Campaign Engine — Post-Election Learning — Citywide Ops",
+    "reportLabel": "Post-Election Learning",
+    "sectionIds": [
+      "outcome_vs_forecast",
+      "learning_recommendations",
+      "archive_metadata"
+    ],
+    "blockTypeCounts": {
+      "headline": 1,
+      "trend": 1,
+      "status": 1,
+      "recommendation": 2,
+      "action_owner": 2,
+      "appendix": 1
+    },
+    "digest": "663e27ef1148835d0d6df75d0d34ce25f34b2bfc148355697e4684d8149c7bd9"
+  }
+}

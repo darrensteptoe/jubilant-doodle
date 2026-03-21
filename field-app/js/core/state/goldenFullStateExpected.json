@@ -1,0 +1,6346 @@
+{
+  "municipal_race": {
+    "fixtureId": "municipal_race",
+    "stateMeta": {
+      "revision": 101,
+      "updatedAt": "2026-03-20T12:00:00.000Z",
+      "domainRevisions": {
+        "district": 7,
+        "candidateHistory": 4,
+        "targeting": 6,
+        "census": 5,
+        "electionData": 0,
+        "outcome": 4,
+        "weatherRisk": 0,
+        "eventCalendar": 0
+      }
+    },
+    "selectors": {
+      "districtCanonical": {
+        "revision": 101,
+        "districtRevision": 7,
+        "templateProfile": {
+          "raceType": "municipal",
+          "officeLevel": "city",
+          "electionType": "general",
+          "seatContext": "ward",
+          "partisanshipMode": "nonpartisan",
+          "salienceLevel": "medium",
+          "appliedTemplateId": "",
+          "appliedVersion": "",
+          "benchmarkKey": "",
+          "overriddenFields": [],
+          "assumptionsProfile": "template"
+        },
+        "form": {
+          "electionDate": "2027-02-23",
+          "weeksRemaining": "18",
+          "mode": "turnout",
+          "universeBasis": "registered",
+          "universeSize": 28000,
+          "sourceNote": "",
+          "turnoutA": 33,
+          "turnoutB": 47,
+          "bandWidth": 6
+        },
+        "universeComposition": {
+          "enabled": false,
+          "demPct": null,
+          "repPct": null,
+          "npaPct": null,
+          "otherPct": null,
+          "retentionFactor": null
+        },
+        "ballot": {
+          "yourCandidateId": "cand_luna",
+          "undecidedPct": 9,
+          "undecidedMode": "proportional",
+          "candidateRefs": {
+            "byId": {
+              "cand_a": {
+                "id": "cand_a",
+                "name": "Candidate A",
+                "supportPct": 35
+              },
+              "cand_b": {
+                "id": "cand_b",
+                "name": "Candidate B",
+                "supportPct": 35
+              },
+              "cand_luna": {
+                "id": "cand_luna",
+                "name": "Luna Ortiz",
+                "supportPct": 48
+              },
+              "cand_gray": {
+                "id": "cand_gray",
+                "name": "Evan Gray",
+                "supportPct": 43
+              }
+            },
+            "order": [
+              "cand_luna",
+              "cand_gray"
+            ]
+          },
+          "userSplitByCandidateId": {
+            "cand_a": null,
+            "cand_b": null,
+            "cand_luna": 56,
+            "cand_gray": 44
+          }
+        },
+        "candidateHistory": {
+          "records": [
+            {
+              "recordId": "hist_muni_2023",
+              "office": "Alderman Ward 12",
+              "cycleYear": 2023,
+              "electionType": "general",
+              "candidateName": "Luna Ortiz",
+              "party": "NP",
+              "voteShare": 50.7,
+              "margin": 1.4,
+              "turnoutContext": 31.8,
+              "repeatCandidate": true,
+              "overUnderPerformancePct": 0.8
+            },
+            {
+              "recordId": "hist_muni_2019",
+              "office": "Alderman Ward 12",
+              "cycleYear": 2019,
+              "electionType": "general",
+              "candidateName": "Luna Ortiz",
+              "party": "NP",
+              "voteShare": 49.3,
+              "margin": -0.6,
+              "turnoutContext": 29.1,
+              "repeatCandidate": false,
+              "overUnderPerformancePct": -0.4
+            }
+          ],
+          "matchedRecordCount": 2
+        },
+        "targetingConfig": {
+          "presetId": "turnout_opportunity",
+          "geoLevel": "precinct",
+          "modelId": "municipal_turnout_v1",
+          "topN": 14,
+          "minHousingUnits": 50,
+          "minPopulation": 120,
+          "minScore": 0.42,
+          "onlyRaceFootprint": true,
+          "controlsLocked": false
+        },
+        "censusConfig": {
+          "year": "2024",
+          "resolution": "tract",
+          "metricSet": "core",
+          "stateFips": "17",
+          "countyFips": "031",
+          "placeFips": "14000",
+          "geoSearch": "",
+          "tractFilter": "",
+          "selectionSetDraftName": "",
+          "selectedSelectionSetKey": "",
+          "applyAdjustedAssumptions": true,
+          "mapQaVtdOverlay": false,
+          "apiKey": "",
+          "geoPaste": ""
+        },
+        "electionDataMeta": {
+          "importedAt": "",
+          "fileName": "",
+          "qualityScore": null,
+          "confidenceBand": "unknown",
+          "normalizedRowCount": 0
+        }
+      },
+      "districtDerived": {
+        "supportSnapshot": {
+          "candidateCount": 2,
+          "supportSumPct": 91,
+          "undecidedPct": 9,
+          "yourCandidateId": "cand_luna"
+        },
+        "turnoutSnapshot": {
+          "turnoutGap": 14,
+          "turnoutMean": 40,
+          "hasTurnoutAnchors": true,
+          "hasWeeksRemainingInput": true
+        },
+        "historySnapshot": {
+          "matchedRecordCount": 2,
+          "averageVoteSharePct": 50
+        },
+        "electionDataSummary": {
+          "imported": false,
+          "fileName": "",
+          "qualityScore": null,
+          "confidenceBand": "unknown",
+          "normalizedRowCount": 0
+        },
+        "targetingSummary": {
+          "modelId": "municipal_turnout_v1",
+          "geoLevel": "precinct",
+          "topN": 14,
+          "onlyRaceFootprint": true
+        },
+        "censusSummary": {
+          "year": "2024",
+          "resolution": "tract",
+          "metricSet": "core",
+          "hasGeographyScope": true
+        }
+      },
+      "electionDataCanonical": {
+        "revision": 0,
+        "import": {
+          "fileName": "",
+          "fileSize": 0,
+          "fileHash": "",
+          "importedAt": "",
+          "format": "",
+          "status": "idle",
+          "statusText": "",
+          "guideText": "",
+          "previewMetaText": "",
+          "precinctFilter": ""
+        },
+        "schemaMapping": {
+          "status": "unmapped",
+          "requiredColumns": [
+            "state_fips",
+            "county_fips",
+            "election_date",
+            "office",
+            "district_id",
+            "precinct_id",
+            "candidate",
+            "votes"
+          ],
+          "optionalColumns": [
+            "party",
+            "registered_voters",
+            "total_votes_precinct",
+            "write_ins",
+            "undervotes",
+            "overvotes",
+            "election_type",
+            "cycle_year",
+            "ward_id",
+            "jurisdiction_key",
+            "source",
+            "notes"
+          ],
+          "columnMap": {},
+          "mappedColumns": [],
+          "unmappedColumns": []
+        },
+        "rawRows": [],
+        "normalizedRows": [],
+        "jurisdictionKeys": [],
+        "raceMeta": {
+          "office": "",
+          "officeLevel": "",
+          "raceId": "",
+          "districtId": "",
+          "electionType": "",
+          "electionDate": "",
+          "cycleYear": null
+        },
+        "geographyRefs": {
+          "byId": {},
+          "order": []
+        },
+        "candidateRefs": {
+          "byId": {},
+          "order": []
+        },
+        "partyRefs": {
+          "byId": {},
+          "order": []
+        },
+        "turnoutTotals": {
+          "ballotsCast": null,
+          "registeredVoters": null,
+          "turnoutRate": null
+        },
+        "voteTotals": {
+          "totalVotes": null,
+          "validVotes": null,
+          "writeIns": null,
+          "undervotes": null,
+          "overvotes": null
+        },
+        "qa": {
+          "sourceWarnings": [],
+          "geographyWarnings": [],
+          "candidateWarnings": [],
+          "mappingWarnings": [],
+          "errors": []
+        },
+        "quality": {
+          "score": null,
+          "confidenceBand": "unknown",
+          "completenessRatio": 0,
+          "warningCount": 0,
+          "computedAt": "2026-03-20T12:00:00.000Z"
+        },
+        "benchmarks": {
+          "historicalRaceBenchmarks": [],
+          "turnoutBaselines": [],
+          "volatilityBands": [],
+          "partyBaselineContext": [],
+          "comparableRacePools": [],
+          "repeatCandidatePerformance": [],
+          "precinctPerformanceDistributions": [],
+          "geographyRollups": [],
+          "benchmarkSuggestions": [],
+          "downstreamRecommendations": {
+            "district": {},
+            "targeting": {},
+            "outcome": {}
+          }
+        }
+      },
+      "electionDataDerived": {
+        "importStatus": {
+          "status": "idle",
+          "statusText": "",
+          "importedAt": "",
+          "fileName": "",
+          "rowCount": 0
+        },
+        "coverage": {
+          "jurisdictionCount": 0,
+          "geographyCount": 0,
+          "candidateCount": 0,
+          "partyCount": 0,
+          "officeCount": 0,
+          "districtCount": 0
+        },
+        "totals": {
+          "ballotsCast": 0,
+          "registeredVoters": 0,
+          "turnoutRate": 0,
+          "validVotes": 0,
+          "writeIns": 0,
+          "undervotes": 0,
+          "overvotes": 0,
+          "voteCompleteness": null
+        },
+        "qualitySummary": {
+          "score": 0,
+          "confidenceBand": "unknown",
+          "completenessRatio": 0,
+          "warningCount": 0,
+          "sourceWarningCount": 0,
+          "mappingWarningCount": 0,
+          "errorCount": 0
+        },
+        "benchmarkSummary": {
+          "turnoutBaselineCount": 0,
+          "historicalBenchmarkCount": 0,
+          "comparablePoolCount": 0,
+          "volatilityBandCount": 0,
+          "recommendationTargets": {
+            "district": 0,
+            "targeting": 0,
+            "outcome": 0
+          }
+        }
+      },
+      "targetingCanonical": {
+        "revision": 6,
+        "config": {
+          "presetId": "turnout_opportunity",
+          "geoLevel": "precinct",
+          "modelId": "municipal_turnout_v1",
+          "topN": 14,
+          "minHousingUnits": 50,
+          "minPopulation": 120,
+          "minScore": 0.42,
+          "onlyRaceFootprint": true,
+          "controlsLocked": false
+        },
+        "criteria": {
+          "prioritizeYoung": true,
+          "prioritizeRenters": true,
+          "avoidHighMultiUnit": false,
+          "densityFloor": "medium"
+        },
+        "weights": {
+          "votePotential": 0.3,
+          "turnoutOpportunity": 0.5,
+          "persuasionIndex": 0.1,
+          "fieldEfficiency": 0.1
+        },
+        "upstreamInputs": {
+          "district": {
+            "raceType": "municipal",
+            "electionType": "general",
+            "mode": "turnout",
+            "weeksRemaining": "18",
+            "turnoutA": 33,
+            "turnoutB": 47,
+            "universeSize": 28000
+          },
+          "census": {
+            "year": "2024",
+            "resolution": "tract",
+            "metricSet": "core",
+            "stateFips": "17",
+            "countyFips": "031",
+            "placeFips": "14000",
+            "selectedGeoids": [
+              "17031012001",
+              "17031012002"
+            ],
+            "selectedGeoidCount": 2,
+            "loadedRowCount": 2,
+            "applyAdjustedAssumptions": true
+          },
+          "electionData": {
+            "normalizedRowCount": 0,
+            "qualityScore": 0,
+            "confidenceBand": "unknown",
+            "turnoutBoostGeoids": [],
+            "turnoutBoostGeoidCount": 0,
+            "benchmarkSuggestionCount": 0,
+            "baselineTurnoutRate": null,
+            "hasDownstreamRecommendations": false
+          }
+        }
+      },
+      "targetingDerived": {
+        "status": {
+          "statusText": "Municipal targeting ready.",
+          "lastRunAt": "2026-03-20T11:20:00.000Z",
+          "rowCount": 3,
+          "topTargetCount": 2,
+          "staleSinceUpstreamChange": true,
+          "upstreamRevisionToken": "7:5:0"
+        },
+        "performance": {
+          "bestScore": 0.78,
+          "averageScore": 0.616667,
+          "minScoreThreshold": 0.42,
+          "modelId": "municipal_turnout_v1",
+          "geoLevel": "precinct",
+          "recommendedMinScore": 0.45
+        },
+        "composition": {
+          "scoreAboveThresholdCount": 2,
+          "withReachEstimateCount": 3,
+          "withEfficiencyScoreCount": 3
+        },
+        "upstream": {
+          "districtInputReady": true,
+          "censusInputReady": true,
+          "electionInputReady": false,
+          "districtRevision": 7,
+          "censusRevision": 5,
+          "electionDataRevision": 0,
+          "selectedGeoidCount": 2,
+          "loadedRowCount": 2,
+          "electionNormalizedRowCount": 0,
+          "confidenceBand": "unknown",
+          "qualityScore": 0,
+          "confidenceWeight": 0.7
+        },
+        "electionInfluence": {
+          "turnoutBoostGeoidCount": 0,
+          "turnoutBoostCoverageCount": 0,
+          "turnoutBoostCoverageRatio": 0,
+          "explanationText": "Election priors unavailable | Census scope: 2 selected GEO(s), 2 loaded row(s) | Upstream inputs changed after last targeting revision"
+        }
+      },
+      "censusCanonical": {
+        "revision": 5,
+        "config": {
+          "year": "2024",
+          "resolution": "tract",
+          "metricSet": "core",
+          "stateFips": "17",
+          "countyFips": "031",
+          "placeFips": "14000",
+          "geoSearch": "",
+          "tractFilter": "",
+          "selectionSetDraftName": "",
+          "selectedSelectionSetKey": "",
+          "applyAdjustedAssumptions": true,
+          "mapQaVtdOverlay": false,
+          "apiKey": "",
+          "geoPaste": ""
+        },
+        "selection": {
+          "selectedGeoids": [
+            "17031012001",
+            "17031012002"
+          ],
+          "activeRowsKey": "",
+          "loadedRowCount": 2,
+          "selectionSetDraftName": "",
+          "selectedSelectionSetKey": ""
+        }
+      },
+      "censusDerived": {
+        "fetchStatus": {
+          "statusText": "Municipal census rows loaded.",
+          "errorText": "",
+          "lastFetchAt": ""
+        },
+        "coverage": {
+          "selectedGeoidCount": 2,
+          "loadedRowCount": 2,
+          "aggregateRowCount": 1,
+          "advisoryRowCount": 0
+        },
+        "mapStatus": {
+          "mapStatusText": "",
+          "mapQaVtdZipStatusText": "",
+          "hasOverlayWarnings": false
+        },
+        "aggregateSummary": {
+          "keys": [
+            "population"
+          ],
+          "warningCount": 0,
+          "badCount": 0
+        }
+      },
+      "weatherRiskCanonical": {
+        "revision": 0,
+        "officeZip": "",
+        "overrideZip": "",
+        "useOverrideZip": false,
+        "selectedZip": "",
+        "adjustment": {
+          "enabled": false,
+          "mode": "observe_only",
+          "date": "",
+          "zip": "",
+          "modifiers": {
+            "doorEfficiencyMultiplier": 1,
+            "volunteerShowRateMultiplier": 1,
+            "electionDayTurnoutRiskBump": 0
+          },
+          "appliedAt": "",
+          "log": []
+        }
+      },
+      "weatherRiskDerived": {
+        "status": {
+          "status": "idle",
+          "error": "",
+          "fetchedAt": "",
+          "selectedZip": ""
+        },
+        "riskSummary": {
+          "fieldExecutionRisk": "low",
+          "electionDayTurnoutRisk": "low",
+          "recommendedAction": "Set a ZIP to load weather context.",
+          "precipSignal": 0,
+          "maxPrecipProbability": null
+        },
+        "forecastSummary": {
+          "forecastDays": 0,
+          "hasCurrentObservation": false,
+          "adjustmentLogCount": 0,
+          "adjustmentMode": "observe_only",
+          "adjustmentEnabled": false
+        }
+      },
+      "eventCalendarCanonical": {
+        "revision": 0,
+        "version": "18.75.0",
+        "filters": {
+          "date": "",
+          "category": "all",
+          "includeInactive": false,
+          "appliedOnly": false
+        },
+        "draft": {
+          "eventId": "",
+          "eventType": "day_of_action",
+          "title": "",
+          "category": "campaign",
+          "date": "",
+          "startTime": "",
+          "endTime": "",
+          "notes": "",
+          "createdBy": "",
+          "createdAt": "",
+          "applyToModel": false,
+          "status": "scheduled",
+          "attendees": "",
+          "meetingType": "",
+          "followUpOwner": "",
+          "followUpDate": "",
+          "expectedVolunteers": 0,
+          "expectedPaidCanvassers": 0,
+          "expectedShiftHours": 0,
+          "officeLocation": "",
+          "fieldGoalNotes": "",
+          "channelFocus": ""
+        },
+        "events": []
+      },
+      "eventCalendarDerived": {
+        "summary": {
+          "totalEvents": 0,
+          "appliedEvents": 0,
+          "openFollowUps": 0,
+          "upcomingCount": 0
+        },
+        "upcomingEvents": [],
+        "filtersApplied": {
+          "category": "all",
+          "date": "",
+          "includeInactive": false,
+          "appliedOnly": false
+        }
+      },
+      "outcomeCanonical": {
+        "revision": 4,
+        "controls": {
+          "mcMode": "basic",
+          "mcVolatility": "med",
+          "mcSeed": "",
+          "turnoutReliabilityPct": null,
+          "mcContactMin": null,
+          "mcContactMode": null,
+          "mcContactMax": null,
+          "mcPersMin": null,
+          "mcPersMode": null,
+          "mcPersMax": null,
+          "mcReliMin": null,
+          "mcReliMode": null,
+          "mcReliMax": null,
+          "mcDphMin": null,
+          "mcDphMode": null,
+          "mcDphMax": null,
+          "mcCphMin": null,
+          "mcCphMode": null,
+          "mcCphMax": null,
+          "mcVolMin": null,
+          "mcVolMode": null,
+          "mcVolMax": null
+        },
+        "surfaceInputs": {
+          "surfaceLever": "volunteerMultiplier",
+          "surfaceMode": "fast",
+          "surfaceMin": "",
+          "surfaceMax": "",
+          "surfaceSteps": "21",
+          "surfaceTarget": "70"
+        }
+      },
+      "outcomeDerived": {
+        "mcSummary": {
+          "hash": "mc_municipal_01",
+          "winProb": 0.57,
+          "expectedMargin": 1.2,
+          "marginBandWidth": 5.3,
+          "hasRun": true
+        },
+        "sensitivitySummary": {
+          "rowCount": 1,
+          "topDriver": "Turnout reliability"
+        },
+        "surfaceSummary": {
+          "rowCount": 1,
+          "statusText": "Municipal surface ready.",
+          "summaryText": "Moderate turnout sensitivity.",
+          "hasSurfaceRows": true
+        }
+      }
+    },
+    "metrics": {
+      "version": "metric-provenance-v1",
+      "metricOrder": [
+        "baselineSupport",
+        "turnoutExpected",
+        "persuasionNeed",
+        "targetingScore",
+        "outcomeConfidence",
+        "electionBenchmarkQuality"
+      ],
+      "metrics": {
+        "baselineSupport": {
+          "value": 91,
+          "revisionToken": "district:7|ballot:0|candidateHistory:4|electionData:0|census:5",
+          "canonicalSlices": [
+            "domains.ballot.candidateRefs",
+            "domains.ballot.undecidedPct",
+            "domains.candidateHistory.records",
+            "domains.electionData.quality",
+            "domains.census.config"
+          ],
+          "selector": "selectDistrictDerivedView",
+          "influences": {
+            "electionData": false,
+            "census": true,
+            "candidateHistory": true
+          }
+        },
+        "turnoutExpected": {
+          "value": 40,
+          "revisionToken": "district:7|electionData:0|census:5",
+          "canonicalSlices": [
+            "domains.district.form.turnoutA",
+            "domains.district.form.turnoutB",
+            "domains.district.form.weeksRemaining",
+            "domains.electionData.benchmarks.turnoutBaselines"
+          ],
+          "selector": "selectDistrictDerivedView",
+          "influences": {
+            "electionData": true,
+            "census": true,
+            "candidateHistory": false
+          }
+        },
+        "persuasionNeed": {
+          "value": 0,
+          "revisionToken": "district:7|ballot:0|candidateHistory:4|electionData:0|census:5",
+          "canonicalSlices": [
+            "domains.district.form.turnoutA",
+            "domains.district.form.turnoutB",
+            "domains.ballot.candidateRefs",
+            "domains.candidateHistory.records",
+            "domains.electionData.quality",
+            "domains.census.config"
+          ],
+          "selector": "selectDistrictDerivedView + provenanceFormula.persuasionNeed",
+          "influences": {
+            "electionData": false,
+            "census": true,
+            "candidateHistory": true
+          }
+        },
+        "targetingScore": {
+          "value": 0.616667,
+          "revisionToken": "targeting:6|district:7|census:5|electionData:0",
+          "canonicalSlices": [
+            "domains.targeting.config",
+            "domains.targeting.runtime.rows",
+            "domains.district.form",
+            "domains.census.selection",
+            "domains.electionData.benchmarks.downstreamRecommendations.targeting"
+          ],
+          "selector": "selectTargetingDerivedView",
+          "influences": {
+            "electionData": false,
+            "census": true,
+            "candidateHistory": false
+          }
+        },
+        "outcomeConfidence": {
+          "value": 0.57,
+          "revisionToken": "outcome:4|electionData:0|census:5|candidateHistory:4",
+          "canonicalSlices": [
+            "domains.outcome.cache.mcLast",
+            "domains.outcome.cache.mcLastHash",
+            "domains.electionData.benchmarks.downstreamRecommendations.outcome",
+            "domains.census.selection",
+            "domains.candidateHistory.records"
+          ],
+          "selector": "selectOutcomeDerivedView",
+          "influences": {
+            "electionData": false,
+            "census": true,
+            "candidateHistory": true
+          }
+        },
+        "electionBenchmarkQuality": {
+          "value": 0,
+          "revisionToken": "electionData:0",
+          "canonicalSlices": [
+            "domains.electionData.quality",
+            "domains.electionData.qa",
+            "domains.electionData.benchmarks.historicalRaceBenchmarks",
+            "domains.electionData.benchmarks.turnoutBaselines",
+            "domains.electionData.normalizedRows"
+          ],
+          "selector": "selectElectionDataDerivedView",
+          "influences": {
+            "electionData": true,
+            "census": false,
+            "candidateHistory": false
+          }
+        }
+      }
+    },
+    "domainSnapshots": {
+      "forecastArchive": {
+        "selectedHash": "",
+        "entryCount": 0,
+        "summary": {
+          "total": 0,
+          "staleCount": 0,
+          "latestAt": ""
+        }
+      },
+      "recovery": {
+        "strictImport": false,
+        "usbConnected": false,
+        "lastBackupRestoreAt": "",
+        "lastImportFileName": "",
+        "lastWarning": "",
+        "lastHashBanner": ""
+      },
+      "governance": {
+        "confidenceBand": "",
+        "topWarning": "",
+        "learningRecommendation": "",
+        "hasSnapshot": false
+      },
+      "audit": {
+        "hasValidationSnapshot": false,
+        "hasRealismSnapshot": false,
+        "hasDiagnosticsSnapshot": false,
+        "contractFindingCount": 0
+      },
+      "scenarios": {
+        "activeScenarioId": "baseline",
+        "selectedScenarioId": "baseline",
+        "recordCount": 0,
+        "decisionSessionCount": 0
+      }
+    }
+  },
+  "county_race": {
+    "fixtureId": "county_race",
+    "stateMeta": {
+      "revision": 133,
+      "updatedAt": "2026-03-20T12:00:00.000Z",
+      "domainRevisions": {
+        "district": 9,
+        "candidateHistory": 5,
+        "targeting": 9,
+        "census": 7,
+        "electionData": 8,
+        "outcome": 5,
+        "weatherRisk": 0,
+        "eventCalendar": 0
+      }
+    },
+    "selectors": {
+      "districtCanonical": {
+        "revision": 133,
+        "districtRevision": 9,
+        "templateProfile": {
+          "raceType": "county",
+          "officeLevel": "county",
+          "electionType": "general",
+          "seatContext": "district",
+          "partisanshipMode": "competitive",
+          "salienceLevel": "medium",
+          "appliedTemplateId": "",
+          "appliedVersion": "",
+          "benchmarkKey": "",
+          "overriddenFields": [],
+          "assumptionsProfile": "template"
+        },
+        "form": {
+          "electionDate": "2026-11-03",
+          "weeksRemaining": "31",
+          "mode": "persuasion",
+          "universeBasis": "registered",
+          "universeSize": 96000,
+          "sourceNote": "",
+          "turnoutA": 41,
+          "turnoutB": 56,
+          "bandWidth": 5
+        },
+        "universeComposition": {
+          "enabled": false,
+          "demPct": null,
+          "repPct": null,
+          "npaPct": null,
+          "otherPct": null,
+          "retentionFactor": null
+        },
+        "ballot": {
+          "yourCandidateId": "cand_reyes",
+          "undecidedPct": 11,
+          "undecidedMode": "proportional",
+          "candidateRefs": {
+            "byId": {
+              "cand_a": {
+                "id": "cand_a",
+                "name": "Candidate A",
+                "supportPct": 35
+              },
+              "cand_b": {
+                "id": "cand_b",
+                "name": "Candidate B",
+                "supportPct": 35
+              },
+              "cand_reyes": {
+                "id": "cand_reyes",
+                "name": "Marisol Reyes",
+                "supportPct": 45
+              },
+              "cand_holt": {
+                "id": "cand_holt",
+                "name": "David Holt",
+                "supportPct": 44
+              }
+            },
+            "order": [
+              "cand_reyes",
+              "cand_holt"
+            ]
+          },
+          "userSplitByCandidateId": {
+            "cand_a": null,
+            "cand_b": null,
+            "cand_reyes": 52,
+            "cand_holt": 48
+          }
+        },
+        "candidateHistory": {
+          "records": [
+            {
+              "recordId": "hist_county_2022",
+              "office": "County Board District 2",
+              "cycleYear": 2022,
+              "electionType": "general",
+              "candidateName": "Marisol Reyes",
+              "party": "DEM",
+              "voteShare": 50.9,
+              "margin": 1.8,
+              "turnoutContext": 61.4,
+              "repeatCandidate": true,
+              "overUnderPerformancePct": 1.2
+            },
+            {
+              "recordId": "hist_county_2018",
+              "office": "County Board District 2",
+              "cycleYear": 2018,
+              "electionType": "general",
+              "candidateName": "David Holt",
+              "party": "REP",
+              "voteShare": 49.1,
+              "margin": -1.8,
+              "turnoutContext": 57.9,
+              "repeatCandidate": false,
+              "overUnderPerformancePct": -0.9
+            }
+          ],
+          "matchedRecordCount": 2
+        },
+        "targetingConfig": {
+          "presetId": "turnout_opportunity",
+          "geoLevel": "tract",
+          "modelId": "county_mix_v2",
+          "topN": 28,
+          "minHousingUnits": 50,
+          "minPopulation": 120,
+          "minScore": 0.44,
+          "onlyRaceFootprint": true,
+          "controlsLocked": false
+        },
+        "censusConfig": {
+          "year": "2024",
+          "resolution": "tract",
+          "metricSet": "expanded",
+          "stateFips": "17",
+          "countyFips": "043",
+          "placeFips": "",
+          "geoSearch": "",
+          "tractFilter": "",
+          "selectionSetDraftName": "",
+          "selectedSelectionSetKey": "",
+          "applyAdjustedAssumptions": true,
+          "mapQaVtdOverlay": false,
+          "apiKey": "",
+          "geoPaste": ""
+        },
+        "electionDataMeta": {
+          "importedAt": "2026-03-20T10:18:00.000Z",
+          "fileName": "dupage-2022-general.csv",
+          "qualityScore": 1,
+          "confidenceBand": "high",
+          "normalizedRowCount": 3
+        }
+      },
+      "districtDerived": {
+        "supportSnapshot": {
+          "candidateCount": 2,
+          "supportSumPct": 89,
+          "undecidedPct": 11,
+          "yourCandidateId": "cand_reyes"
+        },
+        "turnoutSnapshot": {
+          "turnoutGap": 15,
+          "turnoutMean": 48.5,
+          "hasTurnoutAnchors": true,
+          "hasWeeksRemainingInput": true
+        },
+        "historySnapshot": {
+          "matchedRecordCount": 2,
+          "averageVoteSharePct": 50
+        },
+        "electionDataSummary": {
+          "imported": true,
+          "fileName": "dupage-2022-general.csv",
+          "qualityScore": 1,
+          "confidenceBand": "high",
+          "normalizedRowCount": 3
+        },
+        "targetingSummary": {
+          "modelId": "county_mix_v2",
+          "geoLevel": "tract",
+          "topN": 28,
+          "onlyRaceFootprint": true
+        },
+        "censusSummary": {
+          "year": "2024",
+          "resolution": "tract",
+          "metricSet": "expanded",
+          "hasGeographyScope": true
+        }
+      },
+      "electionDataCanonical": {
+        "revision": 8,
+        "import": {
+          "fileName": "dupage-2022-general.csv",
+          "fileSize": 0,
+          "fileHash": "",
+          "importedAt": "2026-03-20T10:18:00.000Z",
+          "format": "",
+          "status": "imported",
+          "statusText": "Imported 3 rows.",
+          "guideText": "",
+          "previewMetaText": "",
+          "precinctFilter": ""
+        },
+        "schemaMapping": {
+          "status": "unmapped",
+          "requiredColumns": [
+            "state_fips",
+            "county_fips",
+            "election_date",
+            "office",
+            "district_id",
+            "precinct_id",
+            "candidate",
+            "votes"
+          ],
+          "optionalColumns": [
+            "party",
+            "registered_voters",
+            "total_votes_precinct",
+            "write_ins",
+            "undervotes",
+            "overvotes",
+            "election_type",
+            "cycle_year",
+            "ward_id",
+            "jurisdiction_key",
+            "source",
+            "notes"
+          ],
+          "columnMap": {},
+          "mappedColumns": [],
+          "unmappedColumns": []
+        },
+        "rawRows": [],
+        "normalizedRows": [
+          {
+            "rowId": "row_1",
+            "jurisdictionKey": "17|043|D2",
+            "geographyId": "043-002-001",
+            "stateFips": "17",
+            "countyFips": "043",
+            "districtId": "D2",
+            "precinctId": "043-002-001",
+            "wardId": "",
+            "office": "County Board",
+            "electionDate": "2022-11-08",
+            "electionType": "",
+            "cycleYear": 0,
+            "candidateId": "cand_reyes",
+            "candidateName": "Marisol Reyes",
+            "partyId": "dem",
+            "partyName": "DEM",
+            "registeredVoters": 8120,
+            "turnoutTotal": 5920,
+            "voteTotal": 3012,
+            "writeIns": 0,
+            "undervotes": 0,
+            "overvotes": 0,
+            "source": "",
+            "notes": "",
+            "sourceRowNumber": 0
+          },
+          {
+            "rowId": "row_2",
+            "jurisdictionKey": "17|043|D2",
+            "geographyId": "043-002-001",
+            "stateFips": "17",
+            "countyFips": "043",
+            "districtId": "D2",
+            "precinctId": "043-002-001",
+            "wardId": "",
+            "office": "County Board",
+            "electionDate": "2022-11-08",
+            "electionType": "",
+            "cycleYear": 0,
+            "candidateId": "cand_holt",
+            "candidateName": "David Holt",
+            "partyId": "rep",
+            "partyName": "REP",
+            "registeredVoters": 8120,
+            "turnoutTotal": 5920,
+            "voteTotal": 2908,
+            "writeIns": 0,
+            "undervotes": 0,
+            "overvotes": 0,
+            "source": "",
+            "notes": "",
+            "sourceRowNumber": 0
+          },
+          {
+            "rowId": "row_3",
+            "jurisdictionKey": "17|043|D2",
+            "geographyId": "043-002-002",
+            "stateFips": "17",
+            "countyFips": "043",
+            "districtId": "D2",
+            "precinctId": "043-002-002",
+            "wardId": "",
+            "office": "County Board",
+            "electionDate": "2020-11-03",
+            "electionType": "",
+            "cycleYear": 0,
+            "candidateId": "cand_reyes",
+            "candidateName": "Marisol Reyes",
+            "partyId": "dem",
+            "partyName": "DEM",
+            "registeredVoters": 7940,
+            "turnoutTotal": 5510,
+            "voteTotal": 2741,
+            "writeIns": 0,
+            "undervotes": 0,
+            "overvotes": 0,
+            "source": "",
+            "notes": "",
+            "sourceRowNumber": 0
+          }
+        ],
+        "jurisdictionKeys": [
+          "17|043|D2"
+        ],
+        "raceMeta": {
+          "office": "County Board",
+          "officeLevel": "",
+          "raceId": "",
+          "districtId": "D2",
+          "electionType": "",
+          "electionDate": "2022-11-08",
+          "cycleYear": 0
+        },
+        "geographyRefs": {
+          "byId": {
+            "043-002-001": {
+              "geographyId": "043-002-001",
+              "precinctId": "043-002-001",
+              "wardId": "",
+              "districtId": "D2",
+              "jurisdictionKey": "17|043|D2"
+            },
+            "043-002-002": {
+              "geographyId": "043-002-002",
+              "precinctId": "043-002-002",
+              "wardId": "",
+              "districtId": "D2",
+              "jurisdictionKey": "17|043|D2"
+            }
+          },
+          "order": [
+            "043-002-001",
+            "043-002-002"
+          ]
+        },
+        "candidateRefs": {
+          "byId": {
+            "cand_reyes": {
+              "candidateId": "cand_reyes",
+              "candidateName": "Marisol Reyes",
+              "partyId": "dem"
+            },
+            "cand_holt": {
+              "candidateId": "cand_holt",
+              "candidateName": "David Holt",
+              "partyId": "rep"
+            }
+          },
+          "order": [
+            "cand_reyes",
+            "cand_holt"
+          ]
+        },
+        "partyRefs": {
+          "byId": {
+            "dem": {
+              "partyId": "dem",
+              "partyName": "DEM"
+            },
+            "rep": {
+              "partyId": "rep",
+              "partyName": "REP"
+            }
+          },
+          "order": [
+            "dem",
+            "rep"
+          ]
+        },
+        "turnoutTotals": {
+          "ballotsCast": 5920,
+          "registeredVoters": 8120,
+          "turnoutRate": 0.729064039408867
+        },
+        "voteTotals": {
+          "totalVotes": 5920,
+          "validVotes": 8661,
+          "writeIns": null,
+          "undervotes": null,
+          "overvotes": null
+        },
+        "qa": {
+          "sourceWarnings": [],
+          "geographyWarnings": [],
+          "candidateWarnings": [],
+          "mappingWarnings": [],
+          "errors": []
+        },
+        "quality": {
+          "score": 1,
+          "confidenceBand": "high",
+          "completenessRatio": 1,
+          "warningCount": 0,
+          "computedAt": "2026-03-20T12:00:00.000Z"
+        },
+        "benchmarks": {
+          "historicalRaceBenchmarks": [
+            {
+              "cycleYear": 2022,
+              "margin": 1.8
+            }
+          ],
+          "turnoutBaselines": [
+            {
+              "cycleYear": 2022,
+              "turnoutRate": 0.729
+            }
+          ],
+          "volatilityBands": [],
+          "partyBaselineContext": [],
+          "comparableRacePools": [],
+          "repeatCandidatePerformance": [],
+          "precinctPerformanceDistributions": [],
+          "geographyRollups": [],
+          "benchmarkSuggestions": [
+            {
+              "type": "county_turnout_floor",
+              "value": 0.68
+            }
+          ],
+          "downstreamRecommendations": {
+            "district": {
+              "baselineSupportHint": 0.504
+            },
+            "targeting": {
+              "turnoutBoostGeoids": [
+                "043-002-001"
+              ]
+            },
+            "outcome": {
+              "confidenceFloor": 0.58
+            }
+          }
+        }
+      },
+      "electionDataDerived": {
+        "importStatus": {
+          "status": "imported",
+          "statusText": "Imported 3 rows.",
+          "importedAt": "2026-03-20T10:18:00.000Z",
+          "fileName": "dupage-2022-general.csv",
+          "rowCount": 3
+        },
+        "coverage": {
+          "jurisdictionCount": 1,
+          "geographyCount": 2,
+          "candidateCount": 2,
+          "partyCount": 2,
+          "officeCount": 1,
+          "districtCount": 1
+        },
+        "totals": {
+          "ballotsCast": 5920,
+          "registeredVoters": 8120,
+          "turnoutRate": 0.729064039408867,
+          "validVotes": 8661,
+          "writeIns": 0,
+          "undervotes": 0,
+          "overvotes": 0,
+          "voteCompleteness": 1.463
+        },
+        "qualitySummary": {
+          "score": 1,
+          "confidenceBand": "high",
+          "completenessRatio": 1,
+          "warningCount": 0,
+          "sourceWarningCount": 0,
+          "mappingWarningCount": 0,
+          "errorCount": 0
+        },
+        "benchmarkSummary": {
+          "turnoutBaselineCount": 1,
+          "historicalBenchmarkCount": 1,
+          "comparablePoolCount": 0,
+          "volatilityBandCount": 0,
+          "recommendationTargets": {
+            "district": 1,
+            "targeting": 1,
+            "outcome": 1
+          }
+        }
+      },
+      "targetingCanonical": {
+        "revision": 9,
+        "config": {
+          "presetId": "turnout_opportunity",
+          "geoLevel": "tract",
+          "modelId": "county_mix_v2",
+          "topN": 28,
+          "minHousingUnits": 50,
+          "minPopulation": 120,
+          "minScore": 0.44,
+          "onlyRaceFootprint": true,
+          "controlsLocked": false
+        },
+        "criteria": {
+          "prioritizeYoung": true,
+          "prioritizeRenters": true,
+          "avoidHighMultiUnit": false,
+          "densityFloor": "medium"
+        },
+        "weights": {
+          "votePotential": 0.3,
+          "turnoutOpportunity": 0.5,
+          "persuasionIndex": 0.1,
+          "fieldEfficiency": 0.1
+        },
+        "upstreamInputs": {
+          "district": {
+            "raceType": "county",
+            "electionType": "general",
+            "mode": "persuasion",
+            "weeksRemaining": "31",
+            "turnoutA": 41,
+            "turnoutB": 56,
+            "universeSize": 96000
+          },
+          "census": {
+            "year": "2024",
+            "resolution": "tract",
+            "metricSet": "expanded",
+            "stateFips": "17",
+            "countyFips": "043",
+            "placeFips": "",
+            "selectedGeoids": [
+              "17043840100",
+              "17043840200",
+              "17043840300"
+            ],
+            "selectedGeoidCount": 3,
+            "loadedRowCount": 3,
+            "applyAdjustedAssumptions": true
+          },
+          "electionData": {
+            "normalizedRowCount": 3,
+            "qualityScore": 1,
+            "confidenceBand": "high",
+            "turnoutBoostGeoids": [
+              "043-002-001"
+            ],
+            "turnoutBoostGeoidCount": 1,
+            "benchmarkSuggestionCount": 1,
+            "baselineTurnoutRate": 0.729,
+            "hasDownstreamRecommendations": true
+          }
+        }
+      },
+      "targetingDerived": {
+        "status": {
+          "statusText": "County targeting complete.",
+          "lastRunAt": "2026-03-20T11:12:00.000Z",
+          "rowCount": 3,
+          "topTargetCount": 2,
+          "staleSinceUpstreamChange": false,
+          "upstreamRevisionToken": "9:7:8"
+        },
+        "performance": {
+          "bestScore": 0.77,
+          "averageScore": 0.68,
+          "minScoreThreshold": 0.44,
+          "modelId": "county_mix_v2",
+          "geoLevel": "tract",
+          "recommendedMinScore": 0.41
+        },
+        "composition": {
+          "scoreAboveThresholdCount": 3,
+          "withReachEstimateCount": 3,
+          "withEfficiencyScoreCount": 3
+        },
+        "upstream": {
+          "districtInputReady": true,
+          "censusInputReady": true,
+          "electionInputReady": true,
+          "districtRevision": 9,
+          "censusRevision": 7,
+          "electionDataRevision": 8,
+          "selectedGeoidCount": 3,
+          "loadedRowCount": 3,
+          "electionNormalizedRowCount": 3,
+          "confidenceBand": "high",
+          "qualityScore": 1,
+          "confidenceWeight": 1
+        },
+        "electionInfluence": {
+          "turnoutBoostGeoidCount": 1,
+          "turnoutBoostCoverageCount": 0,
+          "turnoutBoostCoverageRatio": 0,
+          "explanationText": "Election priors: 3 normalized row(s), confidence HIGH | Census scope: 3 selected GEO(s), 3 loaded row(s) | Targeting revision is aligned with upstream inputs"
+        }
+      },
+      "censusCanonical": {
+        "revision": 7,
+        "config": {
+          "year": "2024",
+          "resolution": "tract",
+          "metricSet": "expanded",
+          "stateFips": "17",
+          "countyFips": "043",
+          "placeFips": "",
+          "geoSearch": "",
+          "tractFilter": "",
+          "selectionSetDraftName": "",
+          "selectedSelectionSetKey": "",
+          "applyAdjustedAssumptions": true,
+          "mapQaVtdOverlay": false,
+          "apiKey": "",
+          "geoPaste": ""
+        },
+        "selection": {
+          "selectedGeoids": [
+            "17043840100",
+            "17043840200",
+            "17043840300"
+          ],
+          "activeRowsKey": "",
+          "loadedRowCount": 3,
+          "selectionSetDraftName": "",
+          "selectedSelectionSetKey": ""
+        }
+      },
+      "censusDerived": {
+        "fetchStatus": {
+          "statusText": "County profile refreshed.",
+          "errorText": "",
+          "lastFetchAt": ""
+        },
+        "coverage": {
+          "selectedGeoidCount": 3,
+          "loadedRowCount": 3,
+          "aggregateRowCount": 2,
+          "advisoryRowCount": 1
+        },
+        "mapStatus": {
+          "mapStatusText": "",
+          "mapQaVtdZipStatusText": "",
+          "hasOverlayWarnings": false
+        },
+        "aggregateSummary": {
+          "keys": [
+            "population",
+            "renters_pct"
+          ],
+          "warningCount": 1,
+          "badCount": 0
+        }
+      },
+      "weatherRiskCanonical": {
+        "revision": 0,
+        "officeZip": "",
+        "overrideZip": "",
+        "useOverrideZip": false,
+        "selectedZip": "",
+        "adjustment": {
+          "enabled": false,
+          "mode": "observe_only",
+          "date": "",
+          "zip": "",
+          "modifiers": {
+            "doorEfficiencyMultiplier": 1,
+            "volunteerShowRateMultiplier": 1,
+            "electionDayTurnoutRiskBump": 0
+          },
+          "appliedAt": "",
+          "log": []
+        }
+      },
+      "weatherRiskDerived": {
+        "status": {
+          "status": "idle",
+          "error": "",
+          "fetchedAt": "",
+          "selectedZip": ""
+        },
+        "riskSummary": {
+          "fieldExecutionRisk": "low",
+          "electionDayTurnoutRisk": "low",
+          "recommendedAction": "Set a ZIP to load weather context.",
+          "precipSignal": 0,
+          "maxPrecipProbability": null
+        },
+        "forecastSummary": {
+          "forecastDays": 0,
+          "hasCurrentObservation": false,
+          "adjustmentLogCount": 0,
+          "adjustmentMode": "observe_only",
+          "adjustmentEnabled": false
+        }
+      },
+      "eventCalendarCanonical": {
+        "revision": 0,
+        "version": "18.75.0",
+        "filters": {
+          "date": "",
+          "category": "all",
+          "includeInactive": false,
+          "appliedOnly": false
+        },
+        "draft": {
+          "eventId": "",
+          "eventType": "day_of_action",
+          "title": "",
+          "category": "campaign",
+          "date": "",
+          "startTime": "",
+          "endTime": "",
+          "notes": "",
+          "createdBy": "",
+          "createdAt": "",
+          "applyToModel": false,
+          "status": "scheduled",
+          "attendees": "",
+          "meetingType": "",
+          "followUpOwner": "",
+          "followUpDate": "",
+          "expectedVolunteers": 0,
+          "expectedPaidCanvassers": 0,
+          "expectedShiftHours": 0,
+          "officeLocation": "",
+          "fieldGoalNotes": "",
+          "channelFocus": ""
+        },
+        "events": []
+      },
+      "eventCalendarDerived": {
+        "summary": {
+          "totalEvents": 0,
+          "appliedEvents": 0,
+          "openFollowUps": 0,
+          "upcomingCount": 0
+        },
+        "upcomingEvents": [],
+        "filtersApplied": {
+          "category": "all",
+          "date": "",
+          "includeInactive": false,
+          "appliedOnly": false
+        }
+      },
+      "outcomeCanonical": {
+        "revision": 5,
+        "controls": {
+          "mcMode": "advanced",
+          "mcVolatility": "med",
+          "mcSeed": "",
+          "turnoutReliabilityPct": null,
+          "mcContactMin": null,
+          "mcContactMode": null,
+          "mcContactMax": null,
+          "mcPersMin": null,
+          "mcPersMode": null,
+          "mcPersMax": null,
+          "mcReliMin": null,
+          "mcReliMode": null,
+          "mcReliMax": null,
+          "mcDphMin": null,
+          "mcDphMode": null,
+          "mcDphMax": null,
+          "mcCphMin": null,
+          "mcCphMode": null,
+          "mcCphMax": null,
+          "mcVolMin": null,
+          "mcVolMode": null,
+          "mcVolMax": null
+        },
+        "surfaceInputs": {
+          "surfaceLever": "volunteerMultiplier",
+          "surfaceMode": "fast",
+          "surfaceMin": "",
+          "surfaceMax": "",
+          "surfaceSteps": "21",
+          "surfaceTarget": "70"
+        }
+      },
+      "outcomeDerived": {
+        "mcSummary": {
+          "hash": "mc_county_01",
+          "winProb": 0.52,
+          "expectedMargin": 0.4,
+          "marginBandWidth": 6.300000000000001,
+          "hasRun": true
+        },
+        "sensitivitySummary": {
+          "rowCount": 1,
+          "topDriver": "Persuasion conversion"
+        },
+        "surfaceSummary": {
+          "rowCount": 1,
+          "statusText": "County surface ready.",
+          "summaryText": "Toss-up contour remains.",
+          "hasSurfaceRows": true
+        }
+      }
+    },
+    "metrics": {
+      "version": "metric-provenance-v1",
+      "metricOrder": [
+        "baselineSupport",
+        "turnoutExpected",
+        "persuasionNeed",
+        "targetingScore",
+        "outcomeConfidence",
+        "electionBenchmarkQuality"
+      ],
+      "metrics": {
+        "baselineSupport": {
+          "value": 89,
+          "revisionToken": "district:9|ballot:0|candidateHistory:5|electionData:8|census:7",
+          "canonicalSlices": [
+            "domains.ballot.candidateRefs",
+            "domains.ballot.undecidedPct",
+            "domains.candidateHistory.records",
+            "domains.electionData.quality",
+            "domains.census.config"
+          ],
+          "selector": "selectDistrictDerivedView",
+          "influences": {
+            "electionData": true,
+            "census": true,
+            "candidateHistory": true
+          }
+        },
+        "turnoutExpected": {
+          "value": 48.5,
+          "revisionToken": "district:9|electionData:8|census:7",
+          "canonicalSlices": [
+            "domains.district.form.turnoutA",
+            "domains.district.form.turnoutB",
+            "domains.district.form.weeksRemaining",
+            "domains.electionData.benchmarks.turnoutBaselines"
+          ],
+          "selector": "selectDistrictDerivedView",
+          "influences": {
+            "electionData": true,
+            "census": true,
+            "candidateHistory": false
+          }
+        },
+        "persuasionNeed": {
+          "value": 0,
+          "revisionToken": "district:9|ballot:0|candidateHistory:5|electionData:8|census:7",
+          "canonicalSlices": [
+            "domains.district.form.turnoutA",
+            "domains.district.form.turnoutB",
+            "domains.ballot.candidateRefs",
+            "domains.candidateHistory.records",
+            "domains.electionData.quality",
+            "domains.census.config"
+          ],
+          "selector": "selectDistrictDerivedView + provenanceFormula.persuasionNeed",
+          "influences": {
+            "electionData": true,
+            "census": true,
+            "candidateHistory": true
+          }
+        },
+        "targetingScore": {
+          "value": 0.68,
+          "revisionToken": "targeting:9|district:9|census:7|electionData:8",
+          "canonicalSlices": [
+            "domains.targeting.config",
+            "domains.targeting.runtime.rows",
+            "domains.district.form",
+            "domains.census.selection",
+            "domains.electionData.benchmarks.downstreamRecommendations.targeting"
+          ],
+          "selector": "selectTargetingDerivedView",
+          "influences": {
+            "electionData": true,
+            "census": true,
+            "candidateHistory": false
+          }
+        },
+        "outcomeConfidence": {
+          "value": 0.52,
+          "revisionToken": "outcome:5|electionData:8|census:7|candidateHistory:5",
+          "canonicalSlices": [
+            "domains.outcome.cache.mcLast",
+            "domains.outcome.cache.mcLastHash",
+            "domains.electionData.benchmarks.downstreamRecommendations.outcome",
+            "domains.census.selection",
+            "domains.candidateHistory.records"
+          ],
+          "selector": "selectOutcomeDerivedView",
+          "influences": {
+            "electionData": true,
+            "census": true,
+            "candidateHistory": true
+          }
+        },
+        "electionBenchmarkQuality": {
+          "value": 1,
+          "revisionToken": "electionData:8",
+          "canonicalSlices": [
+            "domains.electionData.quality",
+            "domains.electionData.qa",
+            "domains.electionData.benchmarks.historicalRaceBenchmarks",
+            "domains.electionData.benchmarks.turnoutBaselines",
+            "domains.electionData.normalizedRows"
+          ],
+          "selector": "selectElectionDataDerivedView",
+          "influences": {
+            "electionData": true,
+            "census": false,
+            "candidateHistory": false
+          }
+        }
+      }
+    },
+    "domainSnapshots": {
+      "forecastArchive": {
+        "selectedHash": "",
+        "entryCount": 0,
+        "summary": {
+          "total": 0,
+          "staleCount": 0,
+          "latestAt": ""
+        }
+      },
+      "recovery": {
+        "strictImport": false,
+        "usbConnected": false,
+        "lastBackupRestoreAt": "",
+        "lastImportFileName": "",
+        "lastWarning": "",
+        "lastHashBanner": ""
+      },
+      "governance": {
+        "confidenceBand": "",
+        "topWarning": "",
+        "learningRecommendation": "",
+        "hasSnapshot": false
+      },
+      "audit": {
+        "hasValidationSnapshot": false,
+        "hasRealismSnapshot": false,
+        "hasDiagnosticsSnapshot": false,
+        "contractFindingCount": 0
+      },
+      "scenarios": {
+        "activeScenarioId": "baseline",
+        "selectedScenarioId": "baseline",
+        "recordCount": 0,
+        "decisionSessionCount": 0
+      }
+    }
+  },
+  "multi_candidate_primary": {
+    "fixtureId": "multi_candidate_primary",
+    "stateMeta": {
+      "revision": 148,
+      "updatedAt": "2026-03-20T12:00:00.000Z",
+      "domainRevisions": {
+        "district": 11,
+        "candidateHistory": 7,
+        "targeting": 11,
+        "census": 9,
+        "electionData": 12,
+        "outcome": 8,
+        "weatherRisk": 0,
+        "eventCalendar": 0
+      }
+    },
+    "selectors": {
+      "districtCanonical": {
+        "revision": 148,
+        "districtRevision": 11,
+        "templateProfile": {
+          "raceType": "state_leg",
+          "officeLevel": "state",
+          "electionType": "primary",
+          "seatContext": "district",
+          "partisanshipMode": "same_party",
+          "salienceLevel": "high",
+          "appliedTemplateId": "",
+          "appliedVersion": "",
+          "benchmarkKey": "",
+          "overriddenFields": [],
+          "assumptionsProfile": "template"
+        },
+        "form": {
+          "electionDate": "2026-03-17",
+          "weeksRemaining": "7",
+          "mode": "persuasion",
+          "universeBasis": "registered",
+          "universeSize": 73000,
+          "sourceNote": "",
+          "turnoutA": 24,
+          "turnoutB": 36,
+          "bandWidth": 4
+        },
+        "universeComposition": {
+          "enabled": false,
+          "demPct": null,
+          "repPct": null,
+          "npaPct": null,
+          "otherPct": null,
+          "retentionFactor": null
+        },
+        "ballot": {
+          "yourCandidateId": "cand_chen",
+          "undecidedPct": 10,
+          "undecidedMode": "proportional",
+          "candidateRefs": {
+            "byId": {
+              "cand_a": {
+                "id": "cand_a",
+                "name": "Candidate A",
+                "supportPct": 35
+              },
+              "cand_b": {
+                "id": "cand_b",
+                "name": "Candidate B",
+                "supportPct": 35
+              },
+              "cand_chen": {
+                "id": "cand_chen",
+                "name": "Maya Chen",
+                "supportPct": 29
+              },
+              "cand_evans": {
+                "id": "cand_evans",
+                "name": "K. Evans",
+                "supportPct": 24
+              },
+              "cand_soto": {
+                "id": "cand_soto",
+                "name": "R. Soto",
+                "supportPct": 21
+              },
+              "cand_ellis": {
+                "id": "cand_ellis",
+                "name": "J. Ellis",
+                "supportPct": 16
+              }
+            },
+            "order": [
+              "cand_chen",
+              "cand_evans",
+              "cand_soto",
+              "cand_ellis"
+            ]
+          },
+          "userSplitByCandidateId": {
+            "cand_a": null,
+            "cand_b": null,
+            "cand_chen": 34,
+            "cand_evans": 26,
+            "cand_soto": 24,
+            "cand_ellis": 16
+          }
+        },
+        "candidateHistory": {
+          "records": [
+            {
+              "recordId": "hist_primary_2022",
+              "office": "State Senate 07",
+              "cycleYear": 2022,
+              "electionType": "primary",
+              "candidateName": "Maya Chen",
+              "party": "DEM",
+              "voteShare": 31.4,
+              "margin": 4.2,
+              "turnoutContext": 28.7,
+              "repeatCandidate": true,
+              "overUnderPerformancePct": 1.9
+            },
+            {
+              "recordId": "hist_primary_2020",
+              "office": "State Senate 07",
+              "cycleYear": 2020,
+              "electionType": "primary",
+              "candidateName": "K. Evans",
+              "party": "DEM",
+              "voteShare": 26.1,
+              "margin": -1.1,
+              "turnoutContext": 26.3,
+              "repeatCandidate": true,
+              "overUnderPerformancePct": -0.7
+            },
+            {
+              "recordId": "hist_primary_2018",
+              "office": "State Senate 07",
+              "cycleYear": 2018,
+              "electionType": "primary",
+              "candidateName": "R. Soto",
+              "party": "DEM",
+              "voteShare": 22.8,
+              "margin": -3.4,
+              "turnoutContext": 25,
+              "repeatCandidate": false,
+              "overUnderPerformancePct": -1.3
+            }
+          ],
+          "matchedRecordCount": 3
+        },
+        "targetingConfig": {
+          "presetId": "turnout_opportunity",
+          "geoLevel": "block_group",
+          "modelId": "primary_mix_v3",
+          "topN": 35,
+          "minHousingUnits": 50,
+          "minPopulation": 120,
+          "minScore": 0.39,
+          "onlyRaceFootprint": true,
+          "controlsLocked": false
+        },
+        "censusConfig": {
+          "year": "2024",
+          "resolution": "block_group",
+          "metricSet": "expanded",
+          "stateFips": "17",
+          "countyFips": "031",
+          "placeFips": "",
+          "geoSearch": "",
+          "tractFilter": "",
+          "selectionSetDraftName": "",
+          "selectedSelectionSetKey": "",
+          "applyAdjustedAssumptions": true,
+          "mapQaVtdOverlay": false,
+          "apiKey": "",
+          "geoPaste": ""
+        },
+        "electionDataMeta": {
+          "importedAt": "2026-03-20T09:40:00.000Z",
+          "fileName": "senate07-primary.csv",
+          "qualityScore": 0.96,
+          "confidenceBand": "high",
+          "normalizedRowCount": 4
+        }
+      },
+      "districtDerived": {
+        "supportSnapshot": {
+          "candidateCount": 4,
+          "supportSumPct": 90,
+          "undecidedPct": 10,
+          "yourCandidateId": "cand_chen"
+        },
+        "turnoutSnapshot": {
+          "turnoutGap": 12,
+          "turnoutMean": 30,
+          "hasTurnoutAnchors": true,
+          "hasWeeksRemainingInput": true
+        },
+        "historySnapshot": {
+          "matchedRecordCount": 3,
+          "averageVoteSharePct": 26.767
+        },
+        "electionDataSummary": {
+          "imported": true,
+          "fileName": "senate07-primary.csv",
+          "qualityScore": 0.96,
+          "confidenceBand": "high",
+          "normalizedRowCount": 4
+        },
+        "targetingSummary": {
+          "modelId": "primary_mix_v3",
+          "geoLevel": "block_group",
+          "topN": 35,
+          "onlyRaceFootprint": true
+        },
+        "censusSummary": {
+          "year": "2024",
+          "resolution": "block_group",
+          "metricSet": "expanded",
+          "hasGeographyScope": true
+        }
+      },
+      "electionDataCanonical": {
+        "revision": 12,
+        "import": {
+          "fileName": "senate07-primary.csv",
+          "fileSize": 0,
+          "fileHash": "",
+          "importedAt": "2026-03-20T09:40:00.000Z",
+          "format": "",
+          "status": "imported",
+          "statusText": "Imported 8 rows.",
+          "guideText": "",
+          "previewMetaText": "",
+          "precinctFilter": ""
+        },
+        "schemaMapping": {
+          "status": "unmapped",
+          "requiredColumns": [
+            "state_fips",
+            "county_fips",
+            "election_date",
+            "office",
+            "district_id",
+            "precinct_id",
+            "candidate",
+            "votes"
+          ],
+          "optionalColumns": [
+            "party",
+            "registered_voters",
+            "total_votes_precinct",
+            "write_ins",
+            "undervotes",
+            "overvotes",
+            "election_type",
+            "cycle_year",
+            "ward_id",
+            "jurisdiction_key",
+            "source",
+            "notes"
+          ],
+          "columnMap": {},
+          "mappedColumns": [],
+          "unmappedColumns": []
+        },
+        "rawRows": [],
+        "normalizedRows": [
+          {
+            "rowId": "row_1",
+            "jurisdictionKey": "17|031|07",
+            "geographyId": "031-07-001",
+            "stateFips": "17",
+            "countyFips": "031",
+            "districtId": "07",
+            "precinctId": "031-07-001",
+            "wardId": "",
+            "office": "State Senate",
+            "electionDate": "2022-06-28",
+            "electionType": "",
+            "cycleYear": 0,
+            "candidateId": "cand_chen",
+            "candidateName": "Maya Chen",
+            "partyId": "dem",
+            "partyName": "DEM",
+            "registeredVoters": 9210,
+            "turnoutTotal": 5120,
+            "voteTotal": 1430,
+            "writeIns": 0,
+            "undervotes": 0,
+            "overvotes": 0,
+            "source": "",
+            "notes": "",
+            "sourceRowNumber": 0
+          },
+          {
+            "rowId": "row_2",
+            "jurisdictionKey": "17|031|07",
+            "geographyId": "031-07-001",
+            "stateFips": "17",
+            "countyFips": "031",
+            "districtId": "07",
+            "precinctId": "031-07-001",
+            "wardId": "",
+            "office": "State Senate",
+            "electionDate": "2022-06-28",
+            "electionType": "",
+            "cycleYear": 0,
+            "candidateId": "cand_evans",
+            "candidateName": "K. Evans",
+            "partyId": "dem",
+            "partyName": "DEM",
+            "registeredVoters": 9210,
+            "turnoutTotal": 5120,
+            "voteTotal": 1260,
+            "writeIns": 0,
+            "undervotes": 0,
+            "overvotes": 0,
+            "source": "",
+            "notes": "",
+            "sourceRowNumber": 0
+          },
+          {
+            "rowId": "row_3",
+            "jurisdictionKey": "17|031|07",
+            "geographyId": "031-07-001",
+            "stateFips": "17",
+            "countyFips": "031",
+            "districtId": "07",
+            "precinctId": "031-07-001",
+            "wardId": "",
+            "office": "State Senate",
+            "electionDate": "2022-06-28",
+            "electionType": "",
+            "cycleYear": 0,
+            "candidateId": "cand_soto",
+            "candidateName": "R. Soto",
+            "partyId": "dem",
+            "partyName": "DEM",
+            "registeredVoters": 9210,
+            "turnoutTotal": 5120,
+            "voteTotal": 1110,
+            "writeIns": 0,
+            "undervotes": 0,
+            "overvotes": 0,
+            "source": "",
+            "notes": "",
+            "sourceRowNumber": 0
+          },
+          {
+            "rowId": "row_4",
+            "jurisdictionKey": "17|031|07",
+            "geographyId": "031-07-001",
+            "stateFips": "17",
+            "countyFips": "031",
+            "districtId": "07",
+            "precinctId": "031-07-001",
+            "wardId": "",
+            "office": "State Senate",
+            "electionDate": "2022-06-28",
+            "electionType": "",
+            "cycleYear": 0,
+            "candidateId": "cand_ellis",
+            "candidateName": "J. Ellis",
+            "partyId": "dem",
+            "partyName": "DEM",
+            "registeredVoters": 9210,
+            "turnoutTotal": 5120,
+            "voteTotal": 920,
+            "writeIns": 0,
+            "undervotes": 0,
+            "overvotes": 0,
+            "source": "",
+            "notes": "",
+            "sourceRowNumber": 0
+          }
+        ],
+        "jurisdictionKeys": [
+          "17|031|07"
+        ],
+        "raceMeta": {
+          "office": "State Senate",
+          "officeLevel": "",
+          "raceId": "",
+          "districtId": "07",
+          "electionType": "",
+          "electionDate": "2022-06-28",
+          "cycleYear": 0
+        },
+        "geographyRefs": {
+          "byId": {
+            "031-07-001": {
+              "geographyId": "031-07-001",
+              "precinctId": "031-07-001",
+              "wardId": "",
+              "districtId": "07",
+              "jurisdictionKey": "17|031|07"
+            }
+          },
+          "order": [
+            "031-07-001"
+          ]
+        },
+        "candidateRefs": {
+          "byId": {
+            "cand_chen": {
+              "candidateId": "cand_chen",
+              "candidateName": "Maya Chen",
+              "partyId": "dem"
+            },
+            "cand_evans": {
+              "candidateId": "cand_evans",
+              "candidateName": "K. Evans",
+              "partyId": "dem"
+            },
+            "cand_soto": {
+              "candidateId": "cand_soto",
+              "candidateName": "R. Soto",
+              "partyId": "dem"
+            },
+            "cand_ellis": {
+              "candidateId": "cand_ellis",
+              "candidateName": "J. Ellis",
+              "partyId": "dem"
+            }
+          },
+          "order": [
+            "cand_chen",
+            "cand_evans",
+            "cand_soto",
+            "cand_ellis"
+          ]
+        },
+        "partyRefs": {
+          "byId": {
+            "dem": {
+              "partyId": "dem",
+              "partyName": "DEM"
+            }
+          },
+          "order": [
+            "dem"
+          ]
+        },
+        "turnoutTotals": {
+          "ballotsCast": 5120,
+          "registeredVoters": 9210,
+          "turnoutRate": 0.5559174809989142
+        },
+        "voteTotals": {
+          "totalVotes": 5120,
+          "validVotes": 4720,
+          "writeIns": null,
+          "undervotes": null,
+          "overvotes": null
+        },
+        "qa": {
+          "sourceWarnings": [
+            "One precinct had partial absentee detail."
+          ],
+          "geographyWarnings": [],
+          "candidateWarnings": [],
+          "mappingWarnings": [],
+          "errors": []
+        },
+        "quality": {
+          "score": 0.96,
+          "confidenceBand": "high",
+          "completenessRatio": 1,
+          "warningCount": 1,
+          "computedAt": "2026-03-20T12:00:00.000Z"
+        },
+        "benchmarks": {
+          "historicalRaceBenchmarks": [
+            {
+              "cycleYear": 2022,
+              "margin": 3.3
+            }
+          ],
+          "turnoutBaselines": [
+            {
+              "cycleYear": 2022,
+              "turnoutRate": 0.556
+            }
+          ],
+          "volatilityBands": [],
+          "partyBaselineContext": [],
+          "comparableRacePools": [
+            {
+              "office": "State Senate",
+              "cycleYear": 2022,
+              "count": 17
+            }
+          ],
+          "repeatCandidatePerformance": [],
+          "precinctPerformanceDistributions": [],
+          "geographyRollups": [],
+          "benchmarkSuggestions": [
+            {
+              "type": "primary_turnout_floor",
+              "value": 0.31
+            }
+          ],
+          "downstreamRecommendations": {
+            "district": {
+              "baselineSupportHint": 0.287
+            },
+            "targeting": {
+              "turnoutBoostGeoids": [
+                "031-07-001"
+              ]
+            },
+            "outcome": {
+              "confidenceFloor": 0.46
+            }
+          }
+        }
+      },
+      "electionDataDerived": {
+        "importStatus": {
+          "status": "imported",
+          "statusText": "Imported 8 rows.",
+          "importedAt": "2026-03-20T09:40:00.000Z",
+          "fileName": "senate07-primary.csv",
+          "rowCount": 4
+        },
+        "coverage": {
+          "jurisdictionCount": 1,
+          "geographyCount": 1,
+          "candidateCount": 4,
+          "partyCount": 1,
+          "officeCount": 1,
+          "districtCount": 1
+        },
+        "totals": {
+          "ballotsCast": 5120,
+          "registeredVoters": 9210,
+          "turnoutRate": 0.5559174809989142,
+          "validVotes": 4720,
+          "writeIns": 0,
+          "undervotes": 0,
+          "overvotes": 0,
+          "voteCompleteness": 0.9219
+        },
+        "qualitySummary": {
+          "score": 0.96,
+          "confidenceBand": "high",
+          "completenessRatio": 1,
+          "warningCount": 1,
+          "sourceWarningCount": 1,
+          "mappingWarningCount": 0,
+          "errorCount": 0
+        },
+        "benchmarkSummary": {
+          "turnoutBaselineCount": 1,
+          "historicalBenchmarkCount": 1,
+          "comparablePoolCount": 1,
+          "volatilityBandCount": 0,
+          "recommendationTargets": {
+            "district": 1,
+            "targeting": 1,
+            "outcome": 1
+          }
+        }
+      },
+      "targetingCanonical": {
+        "revision": 11,
+        "config": {
+          "presetId": "turnout_opportunity",
+          "geoLevel": "block_group",
+          "modelId": "primary_mix_v3",
+          "topN": 35,
+          "minHousingUnits": 50,
+          "minPopulation": 120,
+          "minScore": 0.39,
+          "onlyRaceFootprint": true,
+          "controlsLocked": false
+        },
+        "criteria": {
+          "prioritizeYoung": true,
+          "prioritizeRenters": true,
+          "avoidHighMultiUnit": false,
+          "densityFloor": "medium"
+        },
+        "weights": {
+          "votePotential": 0.3,
+          "turnoutOpportunity": 0.5,
+          "persuasionIndex": 0.1,
+          "fieldEfficiency": 0.1
+        },
+        "upstreamInputs": {
+          "district": {
+            "raceType": "state_leg",
+            "electionType": "primary",
+            "mode": "persuasion",
+            "weeksRemaining": "7",
+            "turnoutA": 24,
+            "turnoutB": 36,
+            "universeSize": 73000
+          },
+          "census": {
+            "year": "2024",
+            "resolution": "block_group",
+            "metricSet": "expanded",
+            "stateFips": "17",
+            "countyFips": "031",
+            "placeFips": "",
+            "selectedGeoids": [
+              "170310501001",
+              "170310501002",
+              "170310501003",
+              "170310501004"
+            ],
+            "selectedGeoidCount": 4,
+            "loadedRowCount": 4,
+            "applyAdjustedAssumptions": true
+          },
+          "electionData": {
+            "normalizedRowCount": 4,
+            "qualityScore": 0.96,
+            "confidenceBand": "high",
+            "turnoutBoostGeoids": [
+              "031-07-001"
+            ],
+            "turnoutBoostGeoidCount": 1,
+            "benchmarkSuggestionCount": 1,
+            "baselineTurnoutRate": 0.556,
+            "hasDownstreamRecommendations": true
+          }
+        }
+      },
+      "targetingDerived": {
+        "status": {
+          "statusText": "Primary targeting complete.",
+          "lastRunAt": "2026-03-20T11:05:00.000Z",
+          "rowCount": 4,
+          "topTargetCount": 3,
+          "staleSinceUpstreamChange": true,
+          "upstreamRevisionToken": "11:9:12"
+        },
+        "performance": {
+          "bestScore": 0.83,
+          "averageScore": 0.665,
+          "minScoreThreshold": 0.39,
+          "modelId": "primary_mix_v3",
+          "geoLevel": "block_group",
+          "recommendedMinScore": 0.3624
+        },
+        "composition": {
+          "scoreAboveThresholdCount": 4,
+          "withReachEstimateCount": 4,
+          "withEfficiencyScoreCount": 4
+        },
+        "upstream": {
+          "districtInputReady": true,
+          "censusInputReady": true,
+          "electionInputReady": true,
+          "districtRevision": 11,
+          "censusRevision": 9,
+          "electionDataRevision": 12,
+          "selectedGeoidCount": 4,
+          "loadedRowCount": 4,
+          "electionNormalizedRowCount": 4,
+          "confidenceBand": "high",
+          "qualityScore": 0.96,
+          "confidenceWeight": 1
+        },
+        "electionInfluence": {
+          "turnoutBoostGeoidCount": 1,
+          "turnoutBoostCoverageCount": 0,
+          "turnoutBoostCoverageRatio": 0,
+          "explanationText": "Election priors: 4 normalized row(s), confidence HIGH | Census scope: 4 selected GEO(s), 4 loaded row(s) | Upstream inputs changed after last targeting revision"
+        }
+      },
+      "censusCanonical": {
+        "revision": 9,
+        "config": {
+          "year": "2024",
+          "resolution": "block_group",
+          "metricSet": "expanded",
+          "stateFips": "17",
+          "countyFips": "031",
+          "placeFips": "",
+          "geoSearch": "",
+          "tractFilter": "",
+          "selectionSetDraftName": "",
+          "selectedSelectionSetKey": "",
+          "applyAdjustedAssumptions": true,
+          "mapQaVtdOverlay": false,
+          "apiKey": "",
+          "geoPaste": ""
+        },
+        "selection": {
+          "selectedGeoids": [
+            "170310501001",
+            "170310501002",
+            "170310501003",
+            "170310501004"
+          ],
+          "activeRowsKey": "",
+          "loadedRowCount": 4,
+          "selectionSetDraftName": "",
+          "selectedSelectionSetKey": ""
+        }
+      },
+      "censusDerived": {
+        "fetchStatus": {
+          "statusText": "Primary footprint loaded.",
+          "errorText": "",
+          "lastFetchAt": ""
+        },
+        "coverage": {
+          "selectedGeoidCount": 4,
+          "loadedRowCount": 4,
+          "aggregateRowCount": 2,
+          "advisoryRowCount": 1
+        },
+        "mapStatus": {
+          "mapStatusText": "",
+          "mapQaVtdZipStatusText": "",
+          "hasOverlayWarnings": false
+        },
+        "aggregateSummary": {
+          "keys": [
+            "population",
+            "young_voters_pct"
+          ],
+          "warningCount": 1,
+          "badCount": 0
+        }
+      },
+      "weatherRiskCanonical": {
+        "revision": 0,
+        "officeZip": "",
+        "overrideZip": "",
+        "useOverrideZip": false,
+        "selectedZip": "",
+        "adjustment": {
+          "enabled": false,
+          "mode": "observe_only",
+          "date": "",
+          "zip": "",
+          "modifiers": {
+            "doorEfficiencyMultiplier": 1,
+            "volunteerShowRateMultiplier": 1,
+            "electionDayTurnoutRiskBump": 0
+          },
+          "appliedAt": "",
+          "log": []
+        }
+      },
+      "weatherRiskDerived": {
+        "status": {
+          "status": "idle",
+          "error": "",
+          "fetchedAt": "",
+          "selectedZip": ""
+        },
+        "riskSummary": {
+          "fieldExecutionRisk": "low",
+          "electionDayTurnoutRisk": "low",
+          "recommendedAction": "Set a ZIP to load weather context.",
+          "precipSignal": 0,
+          "maxPrecipProbability": null
+        },
+        "forecastSummary": {
+          "forecastDays": 0,
+          "hasCurrentObservation": false,
+          "adjustmentLogCount": 0,
+          "adjustmentMode": "observe_only",
+          "adjustmentEnabled": false
+        }
+      },
+      "eventCalendarCanonical": {
+        "revision": 0,
+        "version": "18.75.0",
+        "filters": {
+          "date": "",
+          "category": "all",
+          "includeInactive": false,
+          "appliedOnly": false
+        },
+        "draft": {
+          "eventId": "",
+          "eventType": "day_of_action",
+          "title": "",
+          "category": "campaign",
+          "date": "",
+          "startTime": "",
+          "endTime": "",
+          "notes": "",
+          "createdBy": "",
+          "createdAt": "",
+          "applyToModel": false,
+          "status": "scheduled",
+          "attendees": "",
+          "meetingType": "",
+          "followUpOwner": "",
+          "followUpDate": "",
+          "expectedVolunteers": 0,
+          "expectedPaidCanvassers": 0,
+          "expectedShiftHours": 0,
+          "officeLocation": "",
+          "fieldGoalNotes": "",
+          "channelFocus": ""
+        },
+        "events": []
+      },
+      "eventCalendarDerived": {
+        "summary": {
+          "totalEvents": 0,
+          "appliedEvents": 0,
+          "openFollowUps": 0,
+          "upcomingCount": 0
+        },
+        "upcomingEvents": [],
+        "filtersApplied": {
+          "category": "all",
+          "date": "",
+          "includeInactive": false,
+          "appliedOnly": false
+        }
+      },
+      "outcomeCanonical": {
+        "revision": 8,
+        "controls": {
+          "mcMode": "advanced",
+          "mcVolatility": "high",
+          "mcSeed": "",
+          "turnoutReliabilityPct": null,
+          "mcContactMin": null,
+          "mcContactMode": null,
+          "mcContactMax": null,
+          "mcPersMin": null,
+          "mcPersMode": null,
+          "mcPersMax": null,
+          "mcReliMin": null,
+          "mcReliMode": null,
+          "mcReliMax": null,
+          "mcDphMin": null,
+          "mcDphMode": null,
+          "mcDphMax": null,
+          "mcCphMin": null,
+          "mcCphMode": null,
+          "mcCphMax": null,
+          "mcVolMin": null,
+          "mcVolMode": null,
+          "mcVolMax": null
+        },
+        "surfaceInputs": {
+          "surfaceLever": "volunteerMultiplier",
+          "surfaceMode": "fast",
+          "surfaceMin": "",
+          "surfaceMax": "",
+          "surfaceSteps": "21",
+          "surfaceTarget": "70"
+        }
+      },
+      "outcomeDerived": {
+        "mcSummary": {
+          "hash": "mc_primary_01",
+          "winProb": 0.41,
+          "expectedMargin": -0.9,
+          "marginBandWidth": 6.6,
+          "hasRun": true
+        },
+        "sensitivitySummary": {
+          "rowCount": 2,
+          "topDriver": "Candidate consolidation"
+        },
+        "surfaceSummary": {
+          "rowCount": 1,
+          "statusText": "Primary surface ready.",
+          "summaryText": "Fragmented field volatility dominates.",
+          "hasSurfaceRows": true
+        }
+      }
+    },
+    "metrics": {
+      "version": "metric-provenance-v1",
+      "metricOrder": [
+        "baselineSupport",
+        "turnoutExpected",
+        "persuasionNeed",
+        "targetingScore",
+        "outcomeConfidence",
+        "electionBenchmarkQuality"
+      ],
+      "metrics": {
+        "baselineSupport": {
+          "value": 90,
+          "revisionToken": "district:11|ballot:0|candidateHistory:7|electionData:12|census:9",
+          "canonicalSlices": [
+            "domains.ballot.candidateRefs",
+            "domains.ballot.undecidedPct",
+            "domains.candidateHistory.records",
+            "domains.electionData.quality",
+            "domains.census.config"
+          ],
+          "selector": "selectDistrictDerivedView",
+          "influences": {
+            "electionData": true,
+            "census": true,
+            "candidateHistory": true
+          }
+        },
+        "turnoutExpected": {
+          "value": 30,
+          "revisionToken": "district:11|electionData:12|census:9",
+          "canonicalSlices": [
+            "domains.district.form.turnoutA",
+            "domains.district.form.turnoutB",
+            "domains.district.form.weeksRemaining",
+            "domains.electionData.benchmarks.turnoutBaselines"
+          ],
+          "selector": "selectDistrictDerivedView",
+          "influences": {
+            "electionData": true,
+            "census": true,
+            "candidateHistory": false
+          }
+        },
+        "persuasionNeed": {
+          "value": 0,
+          "revisionToken": "district:11|ballot:0|candidateHistory:7|electionData:12|census:9",
+          "canonicalSlices": [
+            "domains.district.form.turnoutA",
+            "domains.district.form.turnoutB",
+            "domains.ballot.candidateRefs",
+            "domains.candidateHistory.records",
+            "domains.electionData.quality",
+            "domains.census.config"
+          ],
+          "selector": "selectDistrictDerivedView + provenanceFormula.persuasionNeed",
+          "influences": {
+            "electionData": true,
+            "census": true,
+            "candidateHistory": true
+          }
+        },
+        "targetingScore": {
+          "value": 0.665,
+          "revisionToken": "targeting:11|district:11|census:9|electionData:12",
+          "canonicalSlices": [
+            "domains.targeting.config",
+            "domains.targeting.runtime.rows",
+            "domains.district.form",
+            "domains.census.selection",
+            "domains.electionData.benchmarks.downstreamRecommendations.targeting"
+          ],
+          "selector": "selectTargetingDerivedView",
+          "influences": {
+            "electionData": true,
+            "census": true,
+            "candidateHistory": false
+          }
+        },
+        "outcomeConfidence": {
+          "value": 0.41,
+          "revisionToken": "outcome:8|electionData:12|census:9|candidateHistory:7",
+          "canonicalSlices": [
+            "domains.outcome.cache.mcLast",
+            "domains.outcome.cache.mcLastHash",
+            "domains.electionData.benchmarks.downstreamRecommendations.outcome",
+            "domains.census.selection",
+            "domains.candidateHistory.records"
+          ],
+          "selector": "selectOutcomeDerivedView",
+          "influences": {
+            "electionData": true,
+            "census": true,
+            "candidateHistory": true
+          }
+        },
+        "electionBenchmarkQuality": {
+          "value": 0.96,
+          "revisionToken": "electionData:12",
+          "canonicalSlices": [
+            "domains.electionData.quality",
+            "domains.electionData.qa",
+            "domains.electionData.benchmarks.historicalRaceBenchmarks",
+            "domains.electionData.benchmarks.turnoutBaselines",
+            "domains.electionData.normalizedRows"
+          ],
+          "selector": "selectElectionDataDerivedView",
+          "influences": {
+            "electionData": true,
+            "census": false,
+            "candidateHistory": false
+          }
+        }
+      }
+    },
+    "domainSnapshots": {
+      "forecastArchive": {
+        "selectedHash": "",
+        "entryCount": 0,
+        "summary": {
+          "total": 0,
+          "staleCount": 0,
+          "latestAt": ""
+        }
+      },
+      "recovery": {
+        "strictImport": false,
+        "usbConnected": false,
+        "lastBackupRestoreAt": "",
+        "lastImportFileName": "",
+        "lastWarning": "",
+        "lastHashBanner": ""
+      },
+      "governance": {
+        "confidenceBand": "",
+        "topWarning": "",
+        "learningRecommendation": "",
+        "hasSnapshot": false
+      },
+      "audit": {
+        "hasValidationSnapshot": false,
+        "hasRealismSnapshot": false,
+        "hasDiagnosticsSnapshot": false,
+        "contractFindingCount": 0
+      },
+      "scenarios": {
+        "activeScenarioId": "baseline",
+        "selectedScenarioId": "baseline",
+        "recordCount": 0,
+        "decisionSessionCount": 0
+      }
+    }
+  },
+  "low_data_race": {
+    "fixtureId": "low_data_race",
+    "stateMeta": {
+      "revision": 62,
+      "updatedAt": "2026-03-20T12:00:00.000Z",
+      "domainRevisions": {
+        "district": 3,
+        "candidateHistory": 1,
+        "targeting": 2,
+        "census": 2,
+        "electionData": 2,
+        "outcome": 1,
+        "weatherRisk": 0,
+        "eventCalendar": 0
+      }
+    },
+    "selectors": {
+      "districtCanonical": {
+        "revision": 62,
+        "districtRevision": 3,
+        "templateProfile": {
+          "raceType": "county",
+          "officeLevel": "county",
+          "electionType": "general",
+          "seatContext": "district",
+          "partisanshipMode": "unknown",
+          "salienceLevel": "low",
+          "appliedTemplateId": "",
+          "appliedVersion": "",
+          "benchmarkKey": "",
+          "overriddenFields": [],
+          "assumptionsProfile": "template"
+        },
+        "form": {
+          "electionDate": "2026-11-03",
+          "weeksRemaining": "40",
+          "mode": "persuasion",
+          "universeBasis": "registered",
+          "universeSize": 22000,
+          "sourceNote": "",
+          "turnoutA": null,
+          "turnoutB": null,
+          "bandWidth": null
+        },
+        "universeComposition": {
+          "enabled": false,
+          "demPct": null,
+          "repPct": null,
+          "npaPct": null,
+          "otherPct": null,
+          "retentionFactor": null
+        },
+        "ballot": {
+          "yourCandidateId": "cand_a",
+          "undecidedPct": 30,
+          "undecidedMode": "proportional",
+          "candidateRefs": {
+            "byId": {
+              "cand_a": {
+                "id": "cand_a",
+                "name": "Candidate A",
+                "supportPct": 35
+              },
+              "cand_b": {
+                "id": "cand_b",
+                "name": "Candidate B",
+                "supportPct": 35
+              }
+            },
+            "order": [
+              "cand_a",
+              "cand_b"
+            ]
+          },
+          "userSplitByCandidateId": {
+            "cand_a": null,
+            "cand_b": null
+          }
+        },
+        "candidateHistory": {
+          "records": [],
+          "matchedRecordCount": 0
+        },
+        "targetingConfig": {
+          "presetId": "turnout_opportunity",
+          "geoLevel": "tract",
+          "modelId": "turnout_opportunity",
+          "topN": 20,
+          "minHousingUnits": 50,
+          "minPopulation": 120,
+          "minScore": 0.35,
+          "onlyRaceFootprint": true,
+          "controlsLocked": false
+        },
+        "censusConfig": {
+          "year": "2024",
+          "resolution": "tract",
+          "metricSet": "core",
+          "stateFips": "17",
+          "countyFips": "000",
+          "placeFips": "",
+          "geoSearch": "",
+          "tractFilter": "",
+          "selectionSetDraftName": "",
+          "selectedSelectionSetKey": "",
+          "applyAdjustedAssumptions": false,
+          "mapQaVtdOverlay": false,
+          "apiKey": "",
+          "geoPaste": ""
+        },
+        "electionDataMeta": {
+          "importedAt": "",
+          "fileName": "",
+          "qualityScore": null,
+          "confidenceBand": "unknown",
+          "normalizedRowCount": 0
+        }
+      },
+      "districtDerived": {
+        "supportSnapshot": {
+          "candidateCount": 2,
+          "supportSumPct": 70,
+          "undecidedPct": 30,
+          "yourCandidateId": "cand_a"
+        },
+        "turnoutSnapshot": {
+          "turnoutGap": 0,
+          "turnoutMean": 0,
+          "hasTurnoutAnchors": true,
+          "hasWeeksRemainingInput": true
+        },
+        "historySnapshot": {
+          "matchedRecordCount": 0,
+          "averageVoteSharePct": null
+        },
+        "electionDataSummary": {
+          "imported": false,
+          "fileName": "",
+          "qualityScore": null,
+          "confidenceBand": "unknown",
+          "normalizedRowCount": 0
+        },
+        "targetingSummary": {
+          "modelId": "turnout_opportunity",
+          "geoLevel": "tract",
+          "topN": 20,
+          "onlyRaceFootprint": true
+        },
+        "censusSummary": {
+          "year": "2024",
+          "resolution": "tract",
+          "metricSet": "core",
+          "hasGeographyScope": true
+        }
+      },
+      "electionDataCanonical": {
+        "revision": 2,
+        "import": {
+          "fileName": "",
+          "fileSize": 0,
+          "fileHash": "",
+          "importedAt": "",
+          "format": "",
+          "status": "error",
+          "statusText": "No valid election rows imported.",
+          "guideText": "",
+          "previewMetaText": "",
+          "precinctFilter": ""
+        },
+        "schemaMapping": {
+          "status": "unmapped",
+          "requiredColumns": [
+            "state_fips",
+            "county_fips",
+            "election_date",
+            "office",
+            "district_id",
+            "precinct_id",
+            "candidate",
+            "votes"
+          ],
+          "optionalColumns": [
+            "party",
+            "registered_voters",
+            "total_votes_precinct",
+            "write_ins",
+            "undervotes",
+            "overvotes",
+            "election_type",
+            "cycle_year",
+            "ward_id",
+            "jurisdiction_key",
+            "source",
+            "notes"
+          ],
+          "columnMap": {},
+          "mappedColumns": [],
+          "unmappedColumns": []
+        },
+        "rawRows": [],
+        "normalizedRows": [],
+        "jurisdictionKeys": [],
+        "raceMeta": {
+          "office": "",
+          "officeLevel": "",
+          "raceId": "",
+          "districtId": "",
+          "electionType": "",
+          "electionDate": "",
+          "cycleYear": null
+        },
+        "geographyRefs": {
+          "byId": {},
+          "order": []
+        },
+        "candidateRefs": {
+          "byId": {},
+          "order": []
+        },
+        "partyRefs": {
+          "byId": {},
+          "order": []
+        },
+        "turnoutTotals": {
+          "ballotsCast": null,
+          "registeredVoters": null,
+          "turnoutRate": null
+        },
+        "voteTotals": {
+          "totalVotes": null,
+          "validVotes": null,
+          "writeIns": null,
+          "undervotes": null,
+          "overvotes": null
+        },
+        "qa": {
+          "sourceWarnings": [],
+          "geographyWarnings": [],
+          "candidateWarnings": [],
+          "mappingWarnings": [],
+          "errors": [
+            "Missing required columns: precinct_id,votes"
+          ]
+        },
+        "quality": {
+          "score": null,
+          "confidenceBand": "unknown",
+          "completenessRatio": 0,
+          "warningCount": 0,
+          "computedAt": "2026-03-20T12:00:00.000Z"
+        },
+        "benchmarks": {
+          "historicalRaceBenchmarks": [],
+          "turnoutBaselines": [],
+          "volatilityBands": [],
+          "partyBaselineContext": [],
+          "comparableRacePools": [],
+          "repeatCandidatePerformance": [],
+          "precinctPerformanceDistributions": [],
+          "geographyRollups": [],
+          "benchmarkSuggestions": [],
+          "downstreamRecommendations": {
+            "district": {},
+            "targeting": {},
+            "outcome": {}
+          }
+        }
+      },
+      "electionDataDerived": {
+        "importStatus": {
+          "status": "error",
+          "statusText": "No valid election rows imported.",
+          "importedAt": "",
+          "fileName": "",
+          "rowCount": 0
+        },
+        "coverage": {
+          "jurisdictionCount": 0,
+          "geographyCount": 0,
+          "candidateCount": 0,
+          "partyCount": 0,
+          "officeCount": 0,
+          "districtCount": 0
+        },
+        "totals": {
+          "ballotsCast": 0,
+          "registeredVoters": 0,
+          "turnoutRate": 0,
+          "validVotes": 0,
+          "writeIns": 0,
+          "undervotes": 0,
+          "overvotes": 0,
+          "voteCompleteness": null
+        },
+        "qualitySummary": {
+          "score": 0,
+          "confidenceBand": "unknown",
+          "completenessRatio": 0,
+          "warningCount": 0,
+          "sourceWarningCount": 0,
+          "mappingWarningCount": 0,
+          "errorCount": 1
+        },
+        "benchmarkSummary": {
+          "turnoutBaselineCount": 0,
+          "historicalBenchmarkCount": 0,
+          "comparablePoolCount": 0,
+          "volatilityBandCount": 0,
+          "recommendationTargets": {
+            "district": 0,
+            "targeting": 0,
+            "outcome": 0
+          }
+        }
+      },
+      "targetingCanonical": {
+        "revision": 2,
+        "config": {
+          "presetId": "turnout_opportunity",
+          "geoLevel": "tract",
+          "modelId": "turnout_opportunity",
+          "topN": 20,
+          "minHousingUnits": 50,
+          "minPopulation": 120,
+          "minScore": 0.35,
+          "onlyRaceFootprint": true,
+          "controlsLocked": false
+        },
+        "criteria": {
+          "prioritizeYoung": true,
+          "prioritizeRenters": true,
+          "avoidHighMultiUnit": false,
+          "densityFloor": "medium"
+        },
+        "weights": {
+          "votePotential": 0.3,
+          "turnoutOpportunity": 0.5,
+          "persuasionIndex": 0.1,
+          "fieldEfficiency": 0.1
+        },
+        "upstreamInputs": {
+          "district": {
+            "raceType": "county",
+            "electionType": "general",
+            "mode": "persuasion",
+            "weeksRemaining": "40",
+            "turnoutA": 0,
+            "turnoutB": 0,
+            "universeSize": 22000
+          },
+          "census": {
+            "year": "2024",
+            "resolution": "tract",
+            "metricSet": "core",
+            "stateFips": "17",
+            "countyFips": "000",
+            "placeFips": "",
+            "selectedGeoids": [],
+            "selectedGeoidCount": 0,
+            "loadedRowCount": 0,
+            "applyAdjustedAssumptions": false
+          },
+          "electionData": {
+            "normalizedRowCount": 0,
+            "qualityScore": 0,
+            "confidenceBand": "unknown",
+            "turnoutBoostGeoids": [],
+            "turnoutBoostGeoidCount": 0,
+            "benchmarkSuggestionCount": 0,
+            "baselineTurnoutRate": null,
+            "hasDownstreamRecommendations": false
+          }
+        }
+      },
+      "targetingDerived": {
+        "status": {
+          "statusText": "Awaiting upstream data.",
+          "lastRunAt": "",
+          "rowCount": 0,
+          "topTargetCount": 0,
+          "staleSinceUpstreamChange": true,
+          "upstreamRevisionToken": "3:2:2"
+        },
+        "performance": {
+          "bestScore": null,
+          "averageScore": null,
+          "minScoreThreshold": 0.35,
+          "modelId": "turnout_opportunity",
+          "geoLevel": "tract",
+          "recommendedMinScore": 0.38
+        },
+        "composition": {
+          "scoreAboveThresholdCount": 0,
+          "withReachEstimateCount": 0,
+          "withEfficiencyScoreCount": 0
+        },
+        "upstream": {
+          "districtInputReady": true,
+          "censusInputReady": false,
+          "electionInputReady": false,
+          "districtRevision": 3,
+          "censusRevision": 2,
+          "electionDataRevision": 2,
+          "selectedGeoidCount": 0,
+          "loadedRowCount": 0,
+          "electionNormalizedRowCount": 0,
+          "confidenceBand": "unknown",
+          "qualityScore": 0,
+          "confidenceWeight": 0.7
+        },
+        "electionInfluence": {
+          "turnoutBoostGeoidCount": 0,
+          "turnoutBoostCoverageCount": 0,
+          "turnoutBoostCoverageRatio": null,
+          "explanationText": "Election priors unavailable | Census scope not loaded | Upstream inputs changed after last targeting revision"
+        }
+      },
+      "censusCanonical": {
+        "revision": 2,
+        "config": {
+          "year": "2024",
+          "resolution": "tract",
+          "metricSet": "core",
+          "stateFips": "17",
+          "countyFips": "000",
+          "placeFips": "",
+          "geoSearch": "",
+          "tractFilter": "",
+          "selectionSetDraftName": "",
+          "selectedSelectionSetKey": "",
+          "applyAdjustedAssumptions": false,
+          "mapQaVtdOverlay": false,
+          "apiKey": "",
+          "geoPaste": ""
+        },
+        "selection": {
+          "selectedGeoids": [],
+          "activeRowsKey": "",
+          "loadedRowCount": 0,
+          "selectionSetDraftName": "",
+          "selectedSelectionSetKey": ""
+        }
+      },
+      "censusDerived": {
+        "fetchStatus": {
+          "statusText": "Awaiting census import.",
+          "errorText": "",
+          "lastFetchAt": ""
+        },
+        "coverage": {
+          "selectedGeoidCount": 0,
+          "loadedRowCount": 0,
+          "aggregateRowCount": 0,
+          "advisoryRowCount": 1
+        },
+        "mapStatus": {
+          "mapStatusText": "",
+          "mapQaVtdZipStatusText": "",
+          "hasOverlayWarnings": false
+        },
+        "aggregateSummary": {
+          "keys": [],
+          "warningCount": 1,
+          "badCount": 0
+        }
+      },
+      "weatherRiskCanonical": {
+        "revision": 0,
+        "officeZip": "",
+        "overrideZip": "",
+        "useOverrideZip": false,
+        "selectedZip": "",
+        "adjustment": {
+          "enabled": false,
+          "mode": "observe_only",
+          "date": "",
+          "zip": "",
+          "modifiers": {
+            "doorEfficiencyMultiplier": 1,
+            "volunteerShowRateMultiplier": 1,
+            "electionDayTurnoutRiskBump": 0
+          },
+          "appliedAt": "",
+          "log": []
+        }
+      },
+      "weatherRiskDerived": {
+        "status": {
+          "status": "idle",
+          "error": "",
+          "fetchedAt": "",
+          "selectedZip": ""
+        },
+        "riskSummary": {
+          "fieldExecutionRisk": "low",
+          "electionDayTurnoutRisk": "low",
+          "recommendedAction": "Set a ZIP to load weather context.",
+          "precipSignal": 0,
+          "maxPrecipProbability": null
+        },
+        "forecastSummary": {
+          "forecastDays": 0,
+          "hasCurrentObservation": false,
+          "adjustmentLogCount": 0,
+          "adjustmentMode": "observe_only",
+          "adjustmentEnabled": false
+        }
+      },
+      "eventCalendarCanonical": {
+        "revision": 0,
+        "version": "18.75.0",
+        "filters": {
+          "date": "",
+          "category": "all",
+          "includeInactive": false,
+          "appliedOnly": false
+        },
+        "draft": {
+          "eventId": "",
+          "eventType": "day_of_action",
+          "title": "",
+          "category": "campaign",
+          "date": "",
+          "startTime": "",
+          "endTime": "",
+          "notes": "",
+          "createdBy": "",
+          "createdAt": "",
+          "applyToModel": false,
+          "status": "scheduled",
+          "attendees": "",
+          "meetingType": "",
+          "followUpOwner": "",
+          "followUpDate": "",
+          "expectedVolunteers": 0,
+          "expectedPaidCanvassers": 0,
+          "expectedShiftHours": 0,
+          "officeLocation": "",
+          "fieldGoalNotes": "",
+          "channelFocus": ""
+        },
+        "events": []
+      },
+      "eventCalendarDerived": {
+        "summary": {
+          "totalEvents": 0,
+          "appliedEvents": 0,
+          "openFollowUps": 0,
+          "upcomingCount": 0
+        },
+        "upcomingEvents": [],
+        "filtersApplied": {
+          "category": "all",
+          "date": "",
+          "includeInactive": false,
+          "appliedOnly": false
+        }
+      },
+      "outcomeCanonical": {
+        "revision": 1,
+        "controls": {
+          "mcMode": "basic",
+          "mcVolatility": "med",
+          "mcSeed": "",
+          "turnoutReliabilityPct": null,
+          "mcContactMin": null,
+          "mcContactMode": null,
+          "mcContactMax": null,
+          "mcPersMin": null,
+          "mcPersMode": null,
+          "mcPersMax": null,
+          "mcReliMin": null,
+          "mcReliMode": null,
+          "mcReliMax": null,
+          "mcDphMin": null,
+          "mcDphMode": null,
+          "mcDphMax": null,
+          "mcCphMin": null,
+          "mcCphMode": null,
+          "mcCphMax": null,
+          "mcVolMin": null,
+          "mcVolMode": null,
+          "mcVolMax": null
+        },
+        "surfaceInputs": {
+          "surfaceLever": "volunteerMultiplier",
+          "surfaceMode": "fast",
+          "surfaceMin": "",
+          "surfaceMax": "",
+          "surfaceSteps": "21",
+          "surfaceTarget": "70"
+        }
+      },
+      "outcomeDerived": {
+        "mcSummary": {
+          "hash": "",
+          "winProb": null,
+          "expectedMargin": null,
+          "marginBandWidth": null,
+          "hasRun": false
+        },
+        "sensitivitySummary": {
+          "rowCount": 0,
+          "topDriver": ""
+        },
+        "surfaceSummary": {
+          "rowCount": 0,
+          "statusText": "No outcome run yet.",
+          "summaryText": "Awaiting data.",
+          "hasSurfaceRows": false
+        }
+      }
+    },
+    "metrics": {
+      "version": "metric-provenance-v1",
+      "metricOrder": [
+        "baselineSupport",
+        "turnoutExpected",
+        "persuasionNeed",
+        "targetingScore",
+        "outcomeConfidence",
+        "electionBenchmarkQuality"
+      ],
+      "metrics": {
+        "baselineSupport": {
+          "value": 70,
+          "revisionToken": "district:3|ballot:0|candidateHistory:1|electionData:2|census:2",
+          "canonicalSlices": [
+            "domains.ballot.candidateRefs",
+            "domains.ballot.undecidedPct",
+            "domains.candidateHistory.records",
+            "domains.electionData.quality",
+            "domains.census.config"
+          ],
+          "selector": "selectDistrictDerivedView",
+          "influences": {
+            "electionData": false,
+            "census": true,
+            "candidateHistory": false
+          }
+        },
+        "turnoutExpected": {
+          "value": 0,
+          "revisionToken": "district:3|electionData:2|census:2",
+          "canonicalSlices": [
+            "domains.district.form.turnoutA",
+            "domains.district.form.turnoutB",
+            "domains.district.form.weeksRemaining",
+            "domains.electionData.benchmarks.turnoutBaselines"
+          ],
+          "selector": "selectDistrictDerivedView",
+          "influences": {
+            "electionData": true,
+            "census": true,
+            "candidateHistory": false
+          }
+        },
+        "persuasionNeed": {
+          "value": 0,
+          "revisionToken": "district:3|ballot:0|candidateHistory:1|electionData:2|census:2",
+          "canonicalSlices": [
+            "domains.district.form.turnoutA",
+            "domains.district.form.turnoutB",
+            "domains.ballot.candidateRefs",
+            "domains.candidateHistory.records",
+            "domains.electionData.quality",
+            "domains.census.config"
+          ],
+          "selector": "selectDistrictDerivedView + provenanceFormula.persuasionNeed",
+          "influences": {
+            "electionData": false,
+            "census": true,
+            "candidateHistory": false
+          }
+        },
+        "targetingScore": {
+          "value": 0,
+          "revisionToken": "targeting:2|district:3|census:2|electionData:2",
+          "canonicalSlices": [
+            "domains.targeting.config",
+            "domains.targeting.runtime.rows",
+            "domains.district.form",
+            "domains.census.selection",
+            "domains.electionData.benchmarks.downstreamRecommendations.targeting"
+          ],
+          "selector": "selectTargetingDerivedView",
+          "influences": {
+            "electionData": false,
+            "census": false,
+            "candidateHistory": false
+          }
+        },
+        "outcomeConfidence": {
+          "value": 0,
+          "revisionToken": "outcome:1|electionData:2|census:2|candidateHistory:1",
+          "canonicalSlices": [
+            "domains.outcome.cache.mcLast",
+            "domains.outcome.cache.mcLastHash",
+            "domains.electionData.benchmarks.downstreamRecommendations.outcome",
+            "domains.census.selection",
+            "domains.candidateHistory.records"
+          ],
+          "selector": "selectOutcomeDerivedView",
+          "influences": {
+            "electionData": false,
+            "census": false,
+            "candidateHistory": false
+          }
+        },
+        "electionBenchmarkQuality": {
+          "value": 0,
+          "revisionToken": "electionData:2",
+          "canonicalSlices": [
+            "domains.electionData.quality",
+            "domains.electionData.qa",
+            "domains.electionData.benchmarks.historicalRaceBenchmarks",
+            "domains.electionData.benchmarks.turnoutBaselines",
+            "domains.electionData.normalizedRows"
+          ],
+          "selector": "selectElectionDataDerivedView",
+          "influences": {
+            "electionData": true,
+            "census": false,
+            "candidateHistory": false
+          }
+        }
+      }
+    },
+    "domainSnapshots": {
+      "forecastArchive": {
+        "selectedHash": "",
+        "entryCount": 0,
+        "summary": {
+          "total": 0,
+          "staleCount": 0,
+          "latestAt": ""
+        }
+      },
+      "recovery": {
+        "strictImport": false,
+        "usbConnected": false,
+        "lastBackupRestoreAt": "",
+        "lastImportFileName": "",
+        "lastWarning": "",
+        "lastHashBanner": ""
+      },
+      "governance": {
+        "confidenceBand": "",
+        "topWarning": "",
+        "learningRecommendation": "",
+        "hasSnapshot": false
+      },
+      "audit": {
+        "hasValidationSnapshot": false,
+        "hasRealismSnapshot": false,
+        "hasDiagnosticsSnapshot": false,
+        "contractFindingCount": 0
+      },
+      "scenarios": {
+        "activeScenarioId": "baseline",
+        "selectedScenarioId": "baseline",
+        "recordCount": 0,
+        "decisionSessionCount": 0
+      }
+    }
+  },
+  "election_data_imported": {
+    "fixtureId": "election_data_imported",
+    "stateMeta": {
+      "revision": 174,
+      "updatedAt": "2026-03-20T12:00:00.000Z",
+      "domainRevisions": {
+        "district": 13,
+        "candidateHistory": 8,
+        "targeting": 14,
+        "census": 10,
+        "electionData": 15,
+        "outcome": 10,
+        "weatherRisk": 0,
+        "eventCalendar": 0
+      }
+    },
+    "selectors": {
+      "districtCanonical": {
+        "revision": 174,
+        "districtRevision": 13,
+        "templateProfile": {
+          "raceType": "state_leg",
+          "officeLevel": "state",
+          "electionType": "general",
+          "seatContext": "district",
+          "partisanshipMode": "swing",
+          "salienceLevel": "high",
+          "appliedTemplateId": "",
+          "appliedVersion": "",
+          "benchmarkKey": "",
+          "overriddenFields": [],
+          "assumptionsProfile": "template"
+        },
+        "form": {
+          "electionDate": "2026-11-03",
+          "weeksRemaining": "29",
+          "mode": "persuasion",
+          "universeBasis": "registered",
+          "universeSize": 118000,
+          "sourceNote": "",
+          "turnoutA": 43,
+          "turnoutB": 58,
+          "bandWidth": 5
+        },
+        "universeComposition": {
+          "enabled": false,
+          "demPct": null,
+          "repPct": null,
+          "npaPct": null,
+          "otherPct": null,
+          "retentionFactor": null
+        },
+        "ballot": {
+          "yourCandidateId": "cand_nguyen",
+          "undecidedPct": 8,
+          "undecidedMode": "proportional",
+          "candidateRefs": {
+            "byId": {
+              "cand_a": {
+                "id": "cand_a",
+                "name": "Candidate A",
+                "supportPct": 35
+              },
+              "cand_b": {
+                "id": "cand_b",
+                "name": "Candidate B",
+                "supportPct": 35
+              },
+              "cand_nguyen": {
+                "id": "cand_nguyen",
+                "name": "Linh Nguyen",
+                "supportPct": 49
+              },
+              "cand_miller": {
+                "id": "cand_miller",
+                "name": "Sam Miller",
+                "supportPct": 43
+              }
+            },
+            "order": [
+              "cand_nguyen",
+              "cand_miller"
+            ]
+          },
+          "userSplitByCandidateId": {
+            "cand_a": null,
+            "cand_b": null,
+            "cand_nguyen": 55,
+            "cand_miller": 45
+          }
+        },
+        "candidateHistory": {
+          "records": [
+            {
+              "recordId": "hist_hd44_2024",
+              "office": "State House 44",
+              "cycleYear": 2024,
+              "electionType": "general",
+              "candidateName": "Linh Nguyen",
+              "party": "DEM",
+              "voteShare": 51.8,
+              "margin": 3.7,
+              "turnoutContext": 63.1,
+              "repeatCandidate": true,
+              "overUnderPerformancePct": 1.6
+            },
+            {
+              "recordId": "hist_hd44_2022",
+              "office": "State House 44",
+              "cycleYear": 2022,
+              "electionType": "general",
+              "candidateName": "Sam Miller",
+              "party": "REP",
+              "voteShare": 48.2,
+              "margin": -3.7,
+              "turnoutContext": 58.4,
+              "repeatCandidate": false,
+              "overUnderPerformancePct": -1.2
+            }
+          ],
+          "matchedRecordCount": 3
+        },
+        "targetingConfig": {
+          "presetId": "turnout_opportunity",
+          "geoLevel": "tract",
+          "modelId": "house_general_v4",
+          "topN": 40,
+          "minHousingUnits": 50,
+          "minPopulation": 120,
+          "minScore": 0.41,
+          "onlyRaceFootprint": true,
+          "controlsLocked": false
+        },
+        "censusConfig": {
+          "year": "2024",
+          "resolution": "tract",
+          "metricSet": "expanded",
+          "stateFips": "17",
+          "countyFips": "111",
+          "placeFips": "",
+          "geoSearch": "",
+          "tractFilter": "",
+          "selectionSetDraftName": "",
+          "selectedSelectionSetKey": "",
+          "applyAdjustedAssumptions": true,
+          "mapQaVtdOverlay": false,
+          "apiKey": "",
+          "geoPaste": ""
+        },
+        "electionDataMeta": {
+          "importedAt": "2026-03-20T08:55:00.000Z",
+          "fileName": "hd44-history.csv",
+          "qualityScore": 1,
+          "confidenceBand": "high",
+          "normalizedRowCount": 4
+        }
+      },
+      "districtDerived": {
+        "supportSnapshot": {
+          "candidateCount": 2,
+          "supportSumPct": 92,
+          "undecidedPct": 8,
+          "yourCandidateId": "cand_nguyen"
+        },
+        "turnoutSnapshot": {
+          "turnoutGap": 15,
+          "turnoutMean": 50.5,
+          "hasTurnoutAnchors": true,
+          "hasWeeksRemainingInput": true
+        },
+        "historySnapshot": {
+          "matchedRecordCount": 2,
+          "averageVoteSharePct": 50
+        },
+        "electionDataSummary": {
+          "imported": true,
+          "fileName": "hd44-history.csv",
+          "qualityScore": 1,
+          "confidenceBand": "high",
+          "normalizedRowCount": 4
+        },
+        "targetingSummary": {
+          "modelId": "house_general_v4",
+          "geoLevel": "tract",
+          "topN": 40,
+          "onlyRaceFootprint": true
+        },
+        "censusSummary": {
+          "year": "2024",
+          "resolution": "tract",
+          "metricSet": "expanded",
+          "hasGeographyScope": true
+        }
+      },
+      "electionDataCanonical": {
+        "revision": 15,
+        "import": {
+          "fileName": "hd44-history.csv",
+          "fileSize": 0,
+          "fileHash": "",
+          "importedAt": "2026-03-20T08:55:00.000Z",
+          "format": "",
+          "status": "imported",
+          "statusText": "Imported 6 rows.",
+          "guideText": "",
+          "previewMetaText": "",
+          "precinctFilter": ""
+        },
+        "schemaMapping": {
+          "status": "unmapped",
+          "requiredColumns": [
+            "state_fips",
+            "county_fips",
+            "election_date",
+            "office",
+            "district_id",
+            "precinct_id",
+            "candidate",
+            "votes"
+          ],
+          "optionalColumns": [
+            "party",
+            "registered_voters",
+            "total_votes_precinct",
+            "write_ins",
+            "undervotes",
+            "overvotes",
+            "election_type",
+            "cycle_year",
+            "ward_id",
+            "jurisdiction_key",
+            "source",
+            "notes"
+          ],
+          "columnMap": {},
+          "mappedColumns": [],
+          "unmappedColumns": []
+        },
+        "rawRows": [],
+        "normalizedRows": [
+          {
+            "rowId": "row_1",
+            "jurisdictionKey": "17|111|44",
+            "geographyId": "111-044-001",
+            "stateFips": "17",
+            "countyFips": "111",
+            "districtId": "44",
+            "precinctId": "111-044-001",
+            "wardId": "",
+            "office": "State House",
+            "electionDate": "2024-11-05",
+            "electionType": "",
+            "cycleYear": 0,
+            "candidateId": "cand_nguyen",
+            "candidateName": "Linh Nguyen",
+            "partyId": "dem",
+            "partyName": "DEM",
+            "registeredVoters": 12400,
+            "turnoutTotal": 8420,
+            "voteTotal": 4320,
+            "writeIns": 0,
+            "undervotes": 0,
+            "overvotes": 0,
+            "source": "",
+            "notes": "",
+            "sourceRowNumber": 0
+          },
+          {
+            "rowId": "row_2",
+            "jurisdictionKey": "17|111|44",
+            "geographyId": "111-044-001",
+            "stateFips": "17",
+            "countyFips": "111",
+            "districtId": "44",
+            "precinctId": "111-044-001",
+            "wardId": "",
+            "office": "State House",
+            "electionDate": "2024-11-05",
+            "electionType": "",
+            "cycleYear": 0,
+            "candidateId": "cand_miller",
+            "candidateName": "Sam Miller",
+            "partyId": "rep",
+            "partyName": "REP",
+            "registeredVoters": 12400,
+            "turnoutTotal": 8420,
+            "voteTotal": 4100,
+            "writeIns": 0,
+            "undervotes": 0,
+            "overvotes": 0,
+            "source": "",
+            "notes": "",
+            "sourceRowNumber": 0
+          },
+          {
+            "rowId": "row_3",
+            "jurisdictionKey": "17|111|44",
+            "geographyId": "111-044-002",
+            "stateFips": "17",
+            "countyFips": "111",
+            "districtId": "44",
+            "precinctId": "111-044-002",
+            "wardId": "",
+            "office": "State House",
+            "electionDate": "2022-11-08",
+            "electionType": "",
+            "cycleYear": 0,
+            "candidateId": "cand_nguyen",
+            "candidateName": "Linh Nguyen",
+            "partyId": "dem",
+            "partyName": "DEM",
+            "registeredVoters": 11880,
+            "turnoutTotal": 7910,
+            "voteTotal": 3988,
+            "writeIns": 0,
+            "undervotes": 0,
+            "overvotes": 0,
+            "source": "",
+            "notes": "",
+            "sourceRowNumber": 0
+          },
+          {
+            "rowId": "row_4",
+            "jurisdictionKey": "17|111|44",
+            "geographyId": "111-044-002",
+            "stateFips": "17",
+            "countyFips": "111",
+            "districtId": "44",
+            "precinctId": "111-044-002",
+            "wardId": "",
+            "office": "State House",
+            "electionDate": "2022-11-08",
+            "electionType": "",
+            "cycleYear": 0,
+            "candidateId": "cand_miller",
+            "candidateName": "Sam Miller",
+            "partyId": "rep",
+            "partyName": "REP",
+            "registeredVoters": 11880,
+            "turnoutTotal": 7910,
+            "voteTotal": 3922,
+            "writeIns": 0,
+            "undervotes": 0,
+            "overvotes": 0,
+            "source": "",
+            "notes": "",
+            "sourceRowNumber": 0
+          }
+        ],
+        "jurisdictionKeys": [
+          "17|111|44"
+        ],
+        "raceMeta": {
+          "office": "State House",
+          "officeLevel": "",
+          "raceId": "",
+          "districtId": "44",
+          "electionType": "",
+          "electionDate": "2024-11-05",
+          "cycleYear": 0
+        },
+        "geographyRefs": {
+          "byId": {
+            "111-044-001": {
+              "geographyId": "111-044-001",
+              "precinctId": "111-044-001",
+              "wardId": "",
+              "districtId": "44",
+              "jurisdictionKey": "17|111|44"
+            },
+            "111-044-002": {
+              "geographyId": "111-044-002",
+              "precinctId": "111-044-002",
+              "wardId": "",
+              "districtId": "44",
+              "jurisdictionKey": "17|111|44"
+            }
+          },
+          "order": [
+            "111-044-001",
+            "111-044-002"
+          ]
+        },
+        "candidateRefs": {
+          "byId": {
+            "cand_nguyen": {
+              "candidateId": "cand_nguyen",
+              "candidateName": "Linh Nguyen",
+              "partyId": "dem"
+            },
+            "cand_miller": {
+              "candidateId": "cand_miller",
+              "candidateName": "Sam Miller",
+              "partyId": "rep"
+            }
+          },
+          "order": [
+            "cand_nguyen",
+            "cand_miller"
+          ]
+        },
+        "partyRefs": {
+          "byId": {
+            "dem": {
+              "partyId": "dem",
+              "partyName": "DEM"
+            },
+            "rep": {
+              "partyId": "rep",
+              "partyName": "REP"
+            }
+          },
+          "order": [
+            "dem",
+            "rep"
+          ]
+        },
+        "turnoutTotals": {
+          "ballotsCast": 8420,
+          "registeredVoters": 12400,
+          "turnoutRate": 0.6790322580645162
+        },
+        "voteTotals": {
+          "totalVotes": 8420,
+          "validVotes": 16330,
+          "writeIns": null,
+          "undervotes": null,
+          "overvotes": null
+        },
+        "qa": {
+          "sourceWarnings": [],
+          "geographyWarnings": [],
+          "candidateWarnings": [],
+          "mappingWarnings": [],
+          "errors": []
+        },
+        "quality": {
+          "score": 1,
+          "confidenceBand": "high",
+          "completenessRatio": 1,
+          "warningCount": 0,
+          "computedAt": "2026-03-20T12:00:00.000Z"
+        },
+        "benchmarks": {
+          "historicalRaceBenchmarks": [
+            {
+              "cycleYear": 2024,
+              "margin": 0.8
+            },
+            {
+              "cycleYear": 2022,
+              "margin": 0.4
+            }
+          ],
+          "turnoutBaselines": [
+            {
+              "cycleYear": 2024,
+              "turnoutRate": 0.679
+            }
+          ],
+          "volatilityBands": [
+            {
+              "metric": "margin",
+              "low": -1.2,
+              "high": 1.4
+            }
+          ],
+          "partyBaselineContext": [
+            {
+              "party": "DEM",
+              "avgShare": 0.506
+            }
+          ],
+          "comparableRacePools": [
+            {
+              "office": "State House",
+              "cycleYear": 2024,
+              "count": 29
+            }
+          ],
+          "repeatCandidatePerformance": [
+            {
+              "candidate": "Linh Nguyen",
+              "overUnderPerformancePct": 1.6
+            }
+          ],
+          "precinctPerformanceDistributions": [
+            {
+              "percentile": "p50",
+              "margin": 0.9
+            }
+          ],
+          "geographyRollups": [
+            {
+              "level": "district",
+              "margin": 0.8
+            }
+          ],
+          "benchmarkSuggestions": [
+            {
+              "type": "baseline_support",
+              "value": 0.507
+            },
+            {
+              "type": "turnout_floor",
+              "value": 0.66
+            }
+          ],
+          "downstreamRecommendations": {
+            "district": {
+              "baselineSupportHint": 0.507,
+              "turnoutCalibration": 0.66
+            },
+            "targeting": {
+              "turnoutBoostGeoids": [
+                "111-044-001",
+                "111-044-002"
+              ],
+              "minScoreHint": 0.41
+            },
+            "outcome": {
+              "confidenceFloor": 0.63,
+              "volatilityOverride": "medium"
+            }
+          }
+        }
+      },
+      "electionDataDerived": {
+        "importStatus": {
+          "status": "imported",
+          "statusText": "Imported 6 rows.",
+          "importedAt": "2026-03-20T08:55:00.000Z",
+          "fileName": "hd44-history.csv",
+          "rowCount": 4
+        },
+        "coverage": {
+          "jurisdictionCount": 1,
+          "geographyCount": 2,
+          "candidateCount": 2,
+          "partyCount": 2,
+          "officeCount": 1,
+          "districtCount": 1
+        },
+        "totals": {
+          "ballotsCast": 8420,
+          "registeredVoters": 12400,
+          "turnoutRate": 0.6790322580645162,
+          "validVotes": 16330,
+          "writeIns": 0,
+          "undervotes": 0,
+          "overvotes": 0,
+          "voteCompleteness": 1.9394
+        },
+        "qualitySummary": {
+          "score": 1,
+          "confidenceBand": "high",
+          "completenessRatio": 1,
+          "warningCount": 0,
+          "sourceWarningCount": 0,
+          "mappingWarningCount": 0,
+          "errorCount": 0
+        },
+        "benchmarkSummary": {
+          "turnoutBaselineCount": 1,
+          "historicalBenchmarkCount": 2,
+          "comparablePoolCount": 1,
+          "volatilityBandCount": 1,
+          "recommendationTargets": {
+            "district": 2,
+            "targeting": 2,
+            "outcome": 2
+          }
+        }
+      },
+      "targetingCanonical": {
+        "revision": 14,
+        "config": {
+          "presetId": "turnout_opportunity",
+          "geoLevel": "tract",
+          "modelId": "house_general_v4",
+          "topN": 40,
+          "minHousingUnits": 50,
+          "minPopulation": 120,
+          "minScore": 0.41,
+          "onlyRaceFootprint": true,
+          "controlsLocked": false
+        },
+        "criteria": {
+          "prioritizeYoung": true,
+          "prioritizeRenters": true,
+          "avoidHighMultiUnit": false,
+          "densityFloor": "medium"
+        },
+        "weights": {
+          "votePotential": 0.3,
+          "turnoutOpportunity": 0.5,
+          "persuasionIndex": 0.1,
+          "fieldEfficiency": 0.1
+        },
+        "upstreamInputs": {
+          "district": {
+            "raceType": "state_leg",
+            "electionType": "general",
+            "mode": "persuasion",
+            "weeksRemaining": "29",
+            "turnoutA": 43,
+            "turnoutB": 58,
+            "universeSize": 118000
+          },
+          "census": {
+            "year": "2024",
+            "resolution": "tract",
+            "metricSet": "expanded",
+            "stateFips": "17",
+            "countyFips": "111",
+            "placeFips": "",
+            "selectedGeoids": [
+              "17111010100",
+              "17111010200",
+              "17111010300"
+            ],
+            "selectedGeoidCount": 3,
+            "loadedRowCount": 3,
+            "applyAdjustedAssumptions": true
+          },
+          "electionData": {
+            "normalizedRowCount": 4,
+            "qualityScore": 1,
+            "confidenceBand": "high",
+            "turnoutBoostGeoids": [
+              "111-044-001",
+              "111-044-002"
+            ],
+            "turnoutBoostGeoidCount": 2,
+            "benchmarkSuggestionCount": 2,
+            "baselineTurnoutRate": 0.679,
+            "hasDownstreamRecommendations": true
+          }
+        }
+      },
+      "targetingDerived": {
+        "status": {
+          "statusText": "Targeting calibrated by election history.",
+          "lastRunAt": "2026-03-20T11:30:00.000Z",
+          "rowCount": 3,
+          "topTargetCount": 2,
+          "staleSinceUpstreamChange": true,
+          "upstreamRevisionToken": "13:10:15"
+        },
+        "performance": {
+          "bestScore": 0.82,
+          "averageScore": 0.733333,
+          "minScoreThreshold": 0.41,
+          "modelId": "house_general_v4",
+          "geoLevel": "tract",
+          "recommendedMinScore": 0.38
+        },
+        "composition": {
+          "scoreAboveThresholdCount": 3,
+          "withReachEstimateCount": 3,
+          "withEfficiencyScoreCount": 3
+        },
+        "upstream": {
+          "districtInputReady": true,
+          "censusInputReady": true,
+          "electionInputReady": true,
+          "districtRevision": 13,
+          "censusRevision": 10,
+          "electionDataRevision": 15,
+          "selectedGeoidCount": 3,
+          "loadedRowCount": 3,
+          "electionNormalizedRowCount": 4,
+          "confidenceBand": "high",
+          "qualityScore": 1,
+          "confidenceWeight": 1
+        },
+        "electionInfluence": {
+          "turnoutBoostGeoidCount": 2,
+          "turnoutBoostCoverageCount": 0,
+          "turnoutBoostCoverageRatio": 0,
+          "explanationText": "Election priors: 4 normalized row(s), confidence HIGH | Census scope: 3 selected GEO(s), 3 loaded row(s) | Upstream inputs changed after last targeting revision"
+        }
+      },
+      "censusCanonical": {
+        "revision": 10,
+        "config": {
+          "year": "2024",
+          "resolution": "tract",
+          "metricSet": "expanded",
+          "stateFips": "17",
+          "countyFips": "111",
+          "placeFips": "",
+          "geoSearch": "",
+          "tractFilter": "",
+          "selectionSetDraftName": "",
+          "selectedSelectionSetKey": "",
+          "applyAdjustedAssumptions": true,
+          "mapQaVtdOverlay": false,
+          "apiKey": "",
+          "geoPaste": ""
+        },
+        "selection": {
+          "selectedGeoids": [
+            "17111010100",
+            "17111010200",
+            "17111010300"
+          ],
+          "activeRowsKey": "",
+          "loadedRowCount": 3,
+          "selectionSetDraftName": "",
+          "selectedSelectionSetKey": ""
+        }
+      },
+      "censusDerived": {
+        "fetchStatus": {
+          "statusText": "Census profile ready.",
+          "errorText": "",
+          "lastFetchAt": ""
+        },
+        "coverage": {
+          "selectedGeoidCount": 3,
+          "loadedRowCount": 3,
+          "aggregateRowCount": 2,
+          "advisoryRowCount": 0
+        },
+        "mapStatus": {
+          "mapStatusText": "",
+          "mapQaVtdZipStatusText": "",
+          "hasOverlayWarnings": false
+        },
+        "aggregateSummary": {
+          "keys": [
+            "population",
+            "bachelor_pct"
+          ],
+          "warningCount": 0,
+          "badCount": 0
+        }
+      },
+      "weatherRiskCanonical": {
+        "revision": 0,
+        "officeZip": "",
+        "overrideZip": "",
+        "useOverrideZip": false,
+        "selectedZip": "",
+        "adjustment": {
+          "enabled": false,
+          "mode": "observe_only",
+          "date": "",
+          "zip": "",
+          "modifiers": {
+            "doorEfficiencyMultiplier": 1,
+            "volunteerShowRateMultiplier": 1,
+            "electionDayTurnoutRiskBump": 0
+          },
+          "appliedAt": "",
+          "log": []
+        }
+      },
+      "weatherRiskDerived": {
+        "status": {
+          "status": "idle",
+          "error": "",
+          "fetchedAt": "",
+          "selectedZip": ""
+        },
+        "riskSummary": {
+          "fieldExecutionRisk": "low",
+          "electionDayTurnoutRisk": "low",
+          "recommendedAction": "Set a ZIP to load weather context.",
+          "precipSignal": 0,
+          "maxPrecipProbability": null
+        },
+        "forecastSummary": {
+          "forecastDays": 0,
+          "hasCurrentObservation": false,
+          "adjustmentLogCount": 0,
+          "adjustmentMode": "observe_only",
+          "adjustmentEnabled": false
+        }
+      },
+      "eventCalendarCanonical": {
+        "revision": 0,
+        "version": "18.75.0",
+        "filters": {
+          "date": "",
+          "category": "all",
+          "includeInactive": false,
+          "appliedOnly": false
+        },
+        "draft": {
+          "eventId": "",
+          "eventType": "day_of_action",
+          "title": "",
+          "category": "campaign",
+          "date": "",
+          "startTime": "",
+          "endTime": "",
+          "notes": "",
+          "createdBy": "",
+          "createdAt": "",
+          "applyToModel": false,
+          "status": "scheduled",
+          "attendees": "",
+          "meetingType": "",
+          "followUpOwner": "",
+          "followUpDate": "",
+          "expectedVolunteers": 0,
+          "expectedPaidCanvassers": 0,
+          "expectedShiftHours": 0,
+          "officeLocation": "",
+          "fieldGoalNotes": "",
+          "channelFocus": ""
+        },
+        "events": []
+      },
+      "eventCalendarDerived": {
+        "summary": {
+          "totalEvents": 0,
+          "appliedEvents": 0,
+          "openFollowUps": 0,
+          "upcomingCount": 0
+        },
+        "upcomingEvents": [],
+        "filtersApplied": {
+          "category": "all",
+          "date": "",
+          "includeInactive": false,
+          "appliedOnly": false
+        }
+      },
+      "outcomeCanonical": {
+        "revision": 10,
+        "controls": {
+          "mcMode": "advanced",
+          "mcVolatility": "med",
+          "mcSeed": "",
+          "turnoutReliabilityPct": null,
+          "mcContactMin": null,
+          "mcContactMode": null,
+          "mcContactMax": null,
+          "mcPersMin": null,
+          "mcPersMode": null,
+          "mcPersMax": null,
+          "mcReliMin": null,
+          "mcReliMode": null,
+          "mcReliMax": null,
+          "mcDphMin": null,
+          "mcDphMode": null,
+          "mcDphMax": null,
+          "mcCphMin": null,
+          "mcCphMode": null,
+          "mcCphMax": null,
+          "mcVolMin": null,
+          "mcVolMode": null,
+          "mcVolMax": null
+        },
+        "surfaceInputs": {
+          "surfaceLever": "volunteerMultiplier",
+          "surfaceMode": "fast",
+          "surfaceMin": "",
+          "surfaceMax": "",
+          "surfaceSteps": "21",
+          "surfaceTarget": "70"
+        }
+      },
+      "outcomeDerived": {
+        "mcSummary": {
+          "hash": "mc_hd44_01",
+          "winProb": 0.61,
+          "expectedMargin": 1.9,
+          "marginBandWidth": 6,
+          "hasRun": true
+        },
+        "sensitivitySummary": {
+          "rowCount": 2,
+          "topDriver": "Turnout floor"
+        },
+        "surfaceSummary": {
+          "rowCount": 1,
+          "statusText": "Outcome surface ready.",
+          "summaryText": "Positive baseline with narrow risk band.",
+          "hasSurfaceRows": true
+        }
+      }
+    },
+    "metrics": {
+      "version": "metric-provenance-v1",
+      "metricOrder": [
+        "baselineSupport",
+        "turnoutExpected",
+        "persuasionNeed",
+        "targetingScore",
+        "outcomeConfidence",
+        "electionBenchmarkQuality"
+      ],
+      "metrics": {
+        "baselineSupport": {
+          "value": 92,
+          "revisionToken": "district:13|ballot:0|candidateHistory:8|electionData:15|census:10",
+          "canonicalSlices": [
+            "domains.ballot.candidateRefs",
+            "domains.ballot.undecidedPct",
+            "domains.candidateHistory.records",
+            "domains.electionData.quality",
+            "domains.census.config"
+          ],
+          "selector": "selectDistrictDerivedView",
+          "influences": {
+            "electionData": true,
+            "census": true,
+            "candidateHistory": true
+          }
+        },
+        "turnoutExpected": {
+          "value": 50.5,
+          "revisionToken": "district:13|electionData:15|census:10",
+          "canonicalSlices": [
+            "domains.district.form.turnoutA",
+            "domains.district.form.turnoutB",
+            "domains.district.form.weeksRemaining",
+            "domains.electionData.benchmarks.turnoutBaselines"
+          ],
+          "selector": "selectDistrictDerivedView",
+          "influences": {
+            "electionData": true,
+            "census": true,
+            "candidateHistory": false
+          }
+        },
+        "persuasionNeed": {
+          "value": 0,
+          "revisionToken": "district:13|ballot:0|candidateHistory:8|electionData:15|census:10",
+          "canonicalSlices": [
+            "domains.district.form.turnoutA",
+            "domains.district.form.turnoutB",
+            "domains.ballot.candidateRefs",
+            "domains.candidateHistory.records",
+            "domains.electionData.quality",
+            "domains.census.config"
+          ],
+          "selector": "selectDistrictDerivedView + provenanceFormula.persuasionNeed",
+          "influences": {
+            "electionData": true,
+            "census": true,
+            "candidateHistory": true
+          }
+        },
+        "targetingScore": {
+          "value": 0.733333,
+          "revisionToken": "targeting:14|district:13|census:10|electionData:15",
+          "canonicalSlices": [
+            "domains.targeting.config",
+            "domains.targeting.runtime.rows",
+            "domains.district.form",
+            "domains.census.selection",
+            "domains.electionData.benchmarks.downstreamRecommendations.targeting"
+          ],
+          "selector": "selectTargetingDerivedView",
+          "influences": {
+            "electionData": true,
+            "census": true,
+            "candidateHistory": false
+          }
+        },
+        "outcomeConfidence": {
+          "value": 0.61,
+          "revisionToken": "outcome:10|electionData:15|census:10|candidateHistory:8",
+          "canonicalSlices": [
+            "domains.outcome.cache.mcLast",
+            "domains.outcome.cache.mcLastHash",
+            "domains.electionData.benchmarks.downstreamRecommendations.outcome",
+            "domains.census.selection",
+            "domains.candidateHistory.records"
+          ],
+          "selector": "selectOutcomeDerivedView",
+          "influences": {
+            "electionData": true,
+            "census": true,
+            "candidateHistory": true
+          }
+        },
+        "electionBenchmarkQuality": {
+          "value": 1,
+          "revisionToken": "electionData:15",
+          "canonicalSlices": [
+            "domains.electionData.quality",
+            "domains.electionData.qa",
+            "domains.electionData.benchmarks.historicalRaceBenchmarks",
+            "domains.electionData.benchmarks.turnoutBaselines",
+            "domains.electionData.normalizedRows"
+          ],
+          "selector": "selectElectionDataDerivedView",
+          "influences": {
+            "electionData": true,
+            "census": false,
+            "candidateHistory": false
+          }
+        }
+      }
+    },
+    "domainSnapshots": {
+      "forecastArchive": {
+        "selectedHash": "",
+        "entryCount": 0,
+        "summary": {
+          "total": 0,
+          "staleCount": 0,
+          "latestAt": ""
+        }
+      },
+      "recovery": {
+        "strictImport": false,
+        "usbConnected": false,
+        "lastBackupRestoreAt": "",
+        "lastImportFileName": "",
+        "lastWarning": "",
+        "lastHashBanner": ""
+      },
+      "governance": {
+        "confidenceBand": "",
+        "topWarning": "",
+        "learningRecommendation": "",
+        "hasSnapshot": false
+      },
+      "audit": {
+        "hasValidationSnapshot": false,
+        "hasRealismSnapshot": false,
+        "hasDiagnosticsSnapshot": false,
+        "contractFindingCount": 0
+      },
+      "scenarios": {
+        "activeScenarioId": "baseline",
+        "selectedScenarioId": "baseline",
+        "recordCount": 0,
+        "decisionSessionCount": 0
+      }
+    }
+  },
+  "war_room_active": {
+    "fixtureId": "war_room_active",
+    "stateMeta": {
+      "revision": 189,
+      "updatedAt": "2026-03-20T12:00:00.000Z",
+      "domainRevisions": {
+        "district": 10,
+        "candidateHistory": 0,
+        "targeting": 10,
+        "census": 0,
+        "electionData": 0,
+        "outcome": 9,
+        "weatherRisk": 6,
+        "eventCalendar": 8
+      }
+    },
+    "selectors": {
+      "districtCanonical": {
+        "revision": 189,
+        "districtRevision": 10,
+        "templateProfile": {
+          "raceType": "municipal",
+          "officeLevel": "city",
+          "electionType": "general",
+          "seatContext": "citywide",
+          "partisanshipMode": "nonpartisan",
+          "salienceLevel": "high",
+          "appliedTemplateId": "",
+          "appliedVersion": "",
+          "benchmarkKey": "",
+          "overriddenFields": [],
+          "assumptionsProfile": "template"
+        },
+        "form": {
+          "electionDate": "2026-11-03",
+          "weeksRemaining": "20",
+          "mode": "turnout",
+          "universeBasis": "registered",
+          "universeSize": 240000,
+          "sourceNote": "",
+          "turnoutA": 37,
+          "turnoutB": 52,
+          "bandWidth": 5
+        },
+        "universeComposition": {
+          "enabled": false,
+          "demPct": null,
+          "repPct": null,
+          "npaPct": null,
+          "otherPct": null,
+          "retentionFactor": null
+        },
+        "ballot": {
+          "yourCandidateId": "cand_ada",
+          "undecidedPct": 10,
+          "undecidedMode": "proportional",
+          "candidateRefs": {
+            "byId": {
+              "cand_a": {
+                "id": "cand_a",
+                "name": "Candidate A",
+                "supportPct": 35
+              },
+              "cand_b": {
+                "id": "cand_b",
+                "name": "Candidate B",
+                "supportPct": 35
+              },
+              "cand_ada": {
+                "id": "cand_ada",
+                "name": "Ada Flores",
+                "supportPct": 46
+              },
+              "cand_brown": {
+                "id": "cand_brown",
+                "name": "T. Brown",
+                "supportPct": 44
+              }
+            },
+            "order": [
+              "cand_ada",
+              "cand_brown"
+            ]
+          },
+          "userSplitByCandidateId": {
+            "cand_a": null,
+            "cand_b": null,
+            "cand_ada": 54,
+            "cand_brown": 46
+          }
+        },
+        "candidateHistory": {
+          "records": [],
+          "matchedRecordCount": 0
+        },
+        "targetingConfig": {
+          "presetId": "turnout_opportunity",
+          "geoLevel": "block_group",
+          "modelId": "city_ops_v1",
+          "topN": 50,
+          "minHousingUnits": 50,
+          "minPopulation": 120,
+          "minScore": 0.43,
+          "onlyRaceFootprint": true,
+          "controlsLocked": false
+        },
+        "censusConfig": {
+          "year": "2024",
+          "resolution": "tract",
+          "metricSet": "core",
+          "stateFips": "",
+          "countyFips": "",
+          "placeFips": "",
+          "geoSearch": "",
+          "tractFilter": "",
+          "selectionSetDraftName": "",
+          "selectedSelectionSetKey": "",
+          "applyAdjustedAssumptions": false,
+          "mapQaVtdOverlay": false,
+          "apiKey": "",
+          "geoPaste": ""
+        },
+        "electionDataMeta": {
+          "importedAt": "",
+          "fileName": "",
+          "qualityScore": null,
+          "confidenceBand": "unknown",
+          "normalizedRowCount": 0
+        }
+      },
+      "districtDerived": {
+        "supportSnapshot": {
+          "candidateCount": 2,
+          "supportSumPct": 90,
+          "undecidedPct": 10,
+          "yourCandidateId": "cand_ada"
+        },
+        "turnoutSnapshot": {
+          "turnoutGap": 15,
+          "turnoutMean": 44.5,
+          "hasTurnoutAnchors": true,
+          "hasWeeksRemainingInput": true
+        },
+        "historySnapshot": {
+          "matchedRecordCount": 0,
+          "averageVoteSharePct": null
+        },
+        "electionDataSummary": {
+          "imported": false,
+          "fileName": "",
+          "qualityScore": null,
+          "confidenceBand": "unknown",
+          "normalizedRowCount": 0
+        },
+        "targetingSummary": {
+          "modelId": "city_ops_v1",
+          "geoLevel": "block_group",
+          "topN": 50,
+          "onlyRaceFootprint": true
+        },
+        "censusSummary": {
+          "year": "2024",
+          "resolution": "tract",
+          "metricSet": "core",
+          "hasGeographyScope": false
+        }
+      },
+      "electionDataCanonical": {
+        "revision": 0,
+        "import": {
+          "fileName": "",
+          "fileSize": 0,
+          "fileHash": "",
+          "importedAt": "",
+          "format": "",
+          "status": "idle",
+          "statusText": "",
+          "guideText": "",
+          "previewMetaText": "",
+          "precinctFilter": ""
+        },
+        "schemaMapping": {
+          "status": "unmapped",
+          "requiredColumns": [
+            "state_fips",
+            "county_fips",
+            "election_date",
+            "office",
+            "district_id",
+            "precinct_id",
+            "candidate",
+            "votes"
+          ],
+          "optionalColumns": [
+            "party",
+            "registered_voters",
+            "total_votes_precinct",
+            "write_ins",
+            "undervotes",
+            "overvotes",
+            "election_type",
+            "cycle_year",
+            "ward_id",
+            "jurisdiction_key",
+            "source",
+            "notes"
+          ],
+          "columnMap": {},
+          "mappedColumns": [],
+          "unmappedColumns": []
+        },
+        "rawRows": [],
+        "normalizedRows": [],
+        "jurisdictionKeys": [],
+        "raceMeta": {
+          "office": "",
+          "officeLevel": "",
+          "raceId": "",
+          "districtId": "",
+          "electionType": "",
+          "electionDate": "",
+          "cycleYear": null
+        },
+        "geographyRefs": {
+          "byId": {},
+          "order": []
+        },
+        "candidateRefs": {
+          "byId": {},
+          "order": []
+        },
+        "partyRefs": {
+          "byId": {},
+          "order": []
+        },
+        "turnoutTotals": {
+          "ballotsCast": null,
+          "registeredVoters": null,
+          "turnoutRate": null
+        },
+        "voteTotals": {
+          "totalVotes": null,
+          "validVotes": null,
+          "writeIns": null,
+          "undervotes": null,
+          "overvotes": null
+        },
+        "qa": {
+          "sourceWarnings": [],
+          "geographyWarnings": [],
+          "candidateWarnings": [],
+          "mappingWarnings": [],
+          "errors": []
+        },
+        "quality": {
+          "score": null,
+          "confidenceBand": "unknown",
+          "completenessRatio": 0,
+          "warningCount": 0,
+          "computedAt": "2026-03-20T12:00:00.000Z"
+        },
+        "benchmarks": {
+          "historicalRaceBenchmarks": [],
+          "turnoutBaselines": [],
+          "volatilityBands": [],
+          "partyBaselineContext": [],
+          "comparableRacePools": [],
+          "repeatCandidatePerformance": [],
+          "precinctPerformanceDistributions": [],
+          "geographyRollups": [],
+          "benchmarkSuggestions": [],
+          "downstreamRecommendations": {
+            "district": {},
+            "targeting": {},
+            "outcome": {}
+          }
+        }
+      },
+      "electionDataDerived": {
+        "importStatus": {
+          "status": "idle",
+          "statusText": "",
+          "importedAt": "",
+          "fileName": "",
+          "rowCount": 0
+        },
+        "coverage": {
+          "jurisdictionCount": 0,
+          "geographyCount": 0,
+          "candidateCount": 0,
+          "partyCount": 0,
+          "officeCount": 0,
+          "districtCount": 0
+        },
+        "totals": {
+          "ballotsCast": 0,
+          "registeredVoters": 0,
+          "turnoutRate": 0,
+          "validVotes": 0,
+          "writeIns": 0,
+          "undervotes": 0,
+          "overvotes": 0,
+          "voteCompleteness": null
+        },
+        "qualitySummary": {
+          "score": 0,
+          "confidenceBand": "unknown",
+          "completenessRatio": 0,
+          "warningCount": 0,
+          "sourceWarningCount": 0,
+          "mappingWarningCount": 0,
+          "errorCount": 0
+        },
+        "benchmarkSummary": {
+          "turnoutBaselineCount": 0,
+          "historicalBenchmarkCount": 0,
+          "comparablePoolCount": 0,
+          "volatilityBandCount": 0,
+          "recommendationTargets": {
+            "district": 0,
+            "targeting": 0,
+            "outcome": 0
+          }
+        }
+      },
+      "targetingCanonical": {
+        "revision": 10,
+        "config": {
+          "presetId": "turnout_opportunity",
+          "geoLevel": "block_group",
+          "modelId": "city_ops_v1",
+          "topN": 50,
+          "minHousingUnits": 50,
+          "minPopulation": 120,
+          "minScore": 0.43,
+          "onlyRaceFootprint": true,
+          "controlsLocked": false
+        },
+        "criteria": {
+          "prioritizeYoung": true,
+          "prioritizeRenters": true,
+          "avoidHighMultiUnit": false,
+          "densityFloor": "medium"
+        },
+        "weights": {
+          "votePotential": 0.3,
+          "turnoutOpportunity": 0.5,
+          "persuasionIndex": 0.1,
+          "fieldEfficiency": 0.1
+        },
+        "upstreamInputs": {
+          "district": {
+            "raceType": "municipal",
+            "electionType": "general",
+            "mode": "turnout",
+            "weeksRemaining": "20",
+            "turnoutA": 37,
+            "turnoutB": 52,
+            "universeSize": 240000
+          },
+          "census": {
+            "year": "2024",
+            "resolution": "tract",
+            "metricSet": "core",
+            "stateFips": "",
+            "countyFips": "",
+            "placeFips": "",
+            "selectedGeoids": [],
+            "selectedGeoidCount": 0,
+            "loadedRowCount": 0,
+            "applyAdjustedAssumptions": false
+          },
+          "electionData": {
+            "normalizedRowCount": 0,
+            "qualityScore": 0,
+            "confidenceBand": "unknown",
+            "turnoutBoostGeoids": [],
+            "turnoutBoostGeoidCount": 0,
+            "benchmarkSuggestionCount": 0,
+            "baselineTurnoutRate": null,
+            "hasDownstreamRecommendations": false
+          }
+        }
+      },
+      "targetingDerived": {
+        "status": {
+          "statusText": "Targeting refreshed with weather offsets.",
+          "lastRunAt": "2026-03-20T11:50:00.000Z",
+          "rowCount": 3,
+          "topTargetCount": 2,
+          "staleSinceUpstreamChange": false,
+          "upstreamRevisionToken": "10:0:0"
+        },
+        "performance": {
+          "bestScore": 0.81,
+          "averageScore": 0.696667,
+          "minScoreThreshold": 0.43,
+          "modelId": "city_ops_v1",
+          "geoLevel": "block_group",
+          "recommendedMinScore": 0.46
+        },
+        "composition": {
+          "scoreAboveThresholdCount": 3,
+          "withReachEstimateCount": 3,
+          "withEfficiencyScoreCount": 3
+        },
+        "upstream": {
+          "districtInputReady": true,
+          "censusInputReady": false,
+          "electionInputReady": false,
+          "districtRevision": 10,
+          "censusRevision": 0,
+          "electionDataRevision": 0,
+          "selectedGeoidCount": 0,
+          "loadedRowCount": 0,
+          "electionNormalizedRowCount": 0,
+          "confidenceBand": "unknown",
+          "qualityScore": 0,
+          "confidenceWeight": 0.7
+        },
+        "electionInfluence": {
+          "turnoutBoostGeoidCount": 0,
+          "turnoutBoostCoverageCount": 0,
+          "turnoutBoostCoverageRatio": 0,
+          "explanationText": "Election priors unavailable | Census scope not loaded | Targeting revision is aligned with upstream inputs"
+        }
+      },
+      "censusCanonical": {
+        "revision": 0,
+        "config": {
+          "year": "2024",
+          "resolution": "tract",
+          "metricSet": "core",
+          "stateFips": "",
+          "countyFips": "",
+          "placeFips": "",
+          "geoSearch": "",
+          "tractFilter": "",
+          "selectionSetDraftName": "",
+          "selectedSelectionSetKey": "",
+          "applyAdjustedAssumptions": false,
+          "mapQaVtdOverlay": false,
+          "apiKey": "",
+          "geoPaste": ""
+        },
+        "selection": {
+          "selectedGeoids": [],
+          "activeRowsKey": "",
+          "loadedRowCount": 0,
+          "selectionSetDraftName": "",
+          "selectedSelectionSetKey": ""
+        }
+      },
+      "censusDerived": {
+        "fetchStatus": {
+          "statusText": "Ready.",
+          "errorText": "",
+          "lastFetchAt": ""
+        },
+        "coverage": {
+          "selectedGeoidCount": 0,
+          "loadedRowCount": 0,
+          "aggregateRowCount": 0,
+          "advisoryRowCount": 0
+        },
+        "mapStatus": {
+          "mapStatusText": "",
+          "mapQaVtdZipStatusText": "",
+          "hasOverlayWarnings": false
+        },
+        "aggregateSummary": {
+          "keys": [],
+          "warningCount": 0,
+          "badCount": 0
+        }
+      },
+      "weatherRiskCanonical": {
+        "revision": 6,
+        "officeZip": "60602",
+        "overrideZip": "60610",
+        "useOverrideZip": true,
+        "selectedZip": "60610",
+        "adjustment": {
+          "enabled": true,
+          "mode": "observe_only",
+          "date": "2026-03-21",
+          "zip": "60610",
+          "modifiers": {
+            "doorEfficiencyMultiplier": 0.76,
+            "volunteerShowRateMultiplier": 0.84,
+            "electionDayTurnoutRiskBump": 0.09
+          },
+          "appliedAt": "2026-03-20T11:46:00.000Z",
+          "log": [
+            {
+              "at": "2026-03-20T11:45:00.000Z",
+              "type": "advisory",
+              "note": "Rain front approaching."
+            },
+            {
+              "at": "2026-03-20T11:46:00.000Z",
+              "type": "ops",
+              "note": "Rebalanced weekend shifts."
+            }
+          ]
+        }
+      },
+      "weatherRiskDerived": {
+        "status": {
+          "status": "ready",
+          "error": "",
+          "fetchedAt": "2026-03-20T11:44:00.000Z",
+          "selectedZip": "60610"
+        },
+        "riskSummary": {
+          "fieldExecutionRisk": "high",
+          "electionDayTurnoutRisk": "medium",
+          "recommendedAction": "Shift heavy turf to call/text coverage for 24h.",
+          "precipSignal": 0.67,
+          "maxPrecipProbability": 0.72
+        },
+        "forecastSummary": {
+          "forecastDays": 3,
+          "hasCurrentObservation": true,
+          "adjustmentLogCount": 2,
+          "adjustmentMode": "observe_only",
+          "adjustmentEnabled": true
+        }
+      },
+      "eventCalendarCanonical": {
+        "revision": 8,
+        "version": "18.75.0",
+        "filters": {
+          "date": "",
+          "category": "all",
+          "includeInactive": false,
+          "appliedOnly": false
+        },
+        "draft": {
+          "eventId": "",
+          "eventType": "day_of_action",
+          "title": "",
+          "category": "campaign",
+          "date": "",
+          "startTime": "",
+          "endTime": "",
+          "notes": "",
+          "createdBy": "",
+          "createdAt": "",
+          "applyToModel": false,
+          "status": "scheduled",
+          "attendees": "",
+          "meetingType": "",
+          "followUpOwner": "",
+          "followUpDate": "",
+          "expectedVolunteers": 0,
+          "expectedPaidCanvassers": 0,
+          "expectedShiftHours": 0,
+          "officeLocation": "",
+          "fieldGoalNotes": "",
+          "channelFocus": ""
+        },
+        "events": [
+          {
+            "eventId": "evt_1",
+            "title": "Weekend canvass launch",
+            "category": "field",
+            "date": "2026-03-21",
+            "status": "scheduled",
+            "applyToModel": true
+          },
+          {
+            "eventId": "evt_2",
+            "title": "Rapid weather standup",
+            "category": "ops",
+            "date": "2026-03-21",
+            "status": "scheduled",
+            "applyToModel": true
+          },
+          {
+            "eventId": "evt_3",
+            "title": "Volunteer SMS fallback push",
+            "category": "digital",
+            "date": "2026-03-22",
+            "status": "closed",
+            "applyToModel": false
+          }
+        ]
+      },
+      "eventCalendarDerived": {
+        "summary": {
+          "totalEvents": 3,
+          "appliedEvents": 2,
+          "openFollowUps": 2,
+          "upcomingCount": 3
+        },
+        "upcomingEvents": [
+          {
+            "eventId": "evt_1",
+            "title": "Weekend canvass launch",
+            "date": "2026-03-21",
+            "category": "field",
+            "status": "scheduled",
+            "applyToModel": true
+          },
+          {
+            "eventId": "evt_2",
+            "title": "Rapid weather standup",
+            "date": "2026-03-21",
+            "category": "ops",
+            "status": "scheduled",
+            "applyToModel": true
+          },
+          {
+            "eventId": "evt_3",
+            "title": "Volunteer SMS fallback push",
+            "date": "2026-03-22",
+            "category": "digital",
+            "status": "closed",
+            "applyToModel": false
+          }
+        ],
+        "filtersApplied": {
+          "category": "all",
+          "date": "",
+          "includeInactive": false,
+          "appliedOnly": false
+        }
+      },
+      "outcomeCanonical": {
+        "revision": 9,
+        "controls": {
+          "mcMode": "advanced",
+          "mcVolatility": "high",
+          "mcSeed": "",
+          "turnoutReliabilityPct": null,
+          "mcContactMin": null,
+          "mcContactMode": null,
+          "mcContactMax": null,
+          "mcPersMin": null,
+          "mcPersMode": null,
+          "mcPersMax": null,
+          "mcReliMin": null,
+          "mcReliMode": null,
+          "mcReliMax": null,
+          "mcDphMin": null,
+          "mcDphMode": null,
+          "mcDphMax": null,
+          "mcCphMin": null,
+          "mcCphMode": null,
+          "mcCphMax": null,
+          "mcVolMin": null,
+          "mcVolMode": null,
+          "mcVolMax": null
+        },
+        "surfaceInputs": {
+          "surfaceLever": "volunteerMultiplier",
+          "surfaceMode": "fast",
+          "surfaceMin": "",
+          "surfaceMax": "",
+          "surfaceSteps": "21",
+          "surfaceTarget": "70"
+        }
+      },
+      "outcomeDerived": {
+        "mcSummary": {
+          "hash": "mc_warroom_01",
+          "winProb": 0.54,
+          "expectedMargin": 0.8,
+          "marginBandWidth": 7,
+          "hasRun": true
+        },
+        "sensitivitySummary": {
+          "rowCount": 2,
+          "topDriver": "Weather-adjusted field efficiency"
+        },
+        "surfaceSummary": {
+          "rowCount": 1,
+          "statusText": "War room surface ready.",
+          "summaryText": "Weather exposure is principal risk.",
+          "hasSurfaceRows": true
+        }
+      }
+    },
+    "metrics": {
+      "version": "metric-provenance-v1",
+      "metricOrder": [
+        "baselineSupport",
+        "turnoutExpected",
+        "persuasionNeed",
+        "targetingScore",
+        "outcomeConfidence",
+        "electionBenchmarkQuality"
+      ],
+      "metrics": {
+        "baselineSupport": {
+          "value": 90,
+          "revisionToken": "district:10|ballot:0|candidateHistory:0|electionData:0|census:0",
+          "canonicalSlices": [
+            "domains.ballot.candidateRefs",
+            "domains.ballot.undecidedPct",
+            "domains.candidateHistory.records",
+            "domains.electionData.quality",
+            "domains.census.config"
+          ],
+          "selector": "selectDistrictDerivedView",
+          "influences": {
+            "electionData": false,
+            "census": false,
+            "candidateHistory": false
+          }
+        },
+        "turnoutExpected": {
+          "value": 44.5,
+          "revisionToken": "district:10|electionData:0|census:0",
+          "canonicalSlices": [
+            "domains.district.form.turnoutA",
+            "domains.district.form.turnoutB",
+            "domains.district.form.weeksRemaining",
+            "domains.electionData.benchmarks.turnoutBaselines"
+          ],
+          "selector": "selectDistrictDerivedView",
+          "influences": {
+            "electionData": true,
+            "census": false,
+            "candidateHistory": false
+          }
+        },
+        "persuasionNeed": {
+          "value": 0,
+          "revisionToken": "district:10|ballot:0|candidateHistory:0|electionData:0|census:0",
+          "canonicalSlices": [
+            "domains.district.form.turnoutA",
+            "domains.district.form.turnoutB",
+            "domains.ballot.candidateRefs",
+            "domains.candidateHistory.records",
+            "domains.electionData.quality",
+            "domains.census.config"
+          ],
+          "selector": "selectDistrictDerivedView + provenanceFormula.persuasionNeed",
+          "influences": {
+            "electionData": false,
+            "census": false,
+            "candidateHistory": false
+          }
+        },
+        "targetingScore": {
+          "value": 0.696667,
+          "revisionToken": "targeting:10|district:10|census:0|electionData:0",
+          "canonicalSlices": [
+            "domains.targeting.config",
+            "domains.targeting.runtime.rows",
+            "domains.district.form",
+            "domains.census.selection",
+            "domains.electionData.benchmarks.downstreamRecommendations.targeting"
+          ],
+          "selector": "selectTargetingDerivedView",
+          "influences": {
+            "electionData": false,
+            "census": false,
+            "candidateHistory": false
+          }
+        },
+        "outcomeConfidence": {
+          "value": 0.54,
+          "revisionToken": "outcome:9|electionData:0|census:0|candidateHistory:0",
+          "canonicalSlices": [
+            "domains.outcome.cache.mcLast",
+            "domains.outcome.cache.mcLastHash",
+            "domains.electionData.benchmarks.downstreamRecommendations.outcome",
+            "domains.census.selection",
+            "domains.candidateHistory.records"
+          ],
+          "selector": "selectOutcomeDerivedView",
+          "influences": {
+            "electionData": false,
+            "census": false,
+            "candidateHistory": false
+          }
+        },
+        "electionBenchmarkQuality": {
+          "value": 0,
+          "revisionToken": "electionData:0",
+          "canonicalSlices": [
+            "domains.electionData.quality",
+            "domains.electionData.qa",
+            "domains.electionData.benchmarks.historicalRaceBenchmarks",
+            "domains.electionData.benchmarks.turnoutBaselines",
+            "domains.electionData.normalizedRows"
+          ],
+          "selector": "selectElectionDataDerivedView",
+          "influences": {
+            "electionData": true,
+            "census": false,
+            "candidateHistory": false
+          }
+        }
+      }
+    },
+    "domainSnapshots": {
+      "forecastArchive": {
+        "selectedHash": "",
+        "entryCount": 0,
+        "summary": {
+          "total": 0,
+          "staleCount": 0,
+          "latestAt": ""
+        }
+      },
+      "recovery": {
+        "strictImport": false,
+        "usbConnected": false,
+        "lastBackupRestoreAt": "",
+        "lastImportFileName": "",
+        "lastWarning": "",
+        "lastHashBanner": ""
+      },
+      "governance": {
+        "confidenceBand": "",
+        "topWarning": "",
+        "learningRecommendation": "",
+        "hasSnapshot": false
+      },
+      "audit": {
+        "hasValidationSnapshot": false,
+        "hasRealismSnapshot": false,
+        "hasDiagnosticsSnapshot": false,
+        "contractFindingCount": 0
+      },
+      "scenarios": {
+        "activeScenarioId": "baseline",
+        "selectedScenarioId": "baseline",
+        "recordCount": 0,
+        "decisionSessionCount": 0
+      }
+    }
+  },
+  "archive_recovery_reporting_history": {
+    "fixtureId": "archive_recovery_reporting_history",
+    "stateMeta": {
+      "revision": 205,
+      "updatedAt": "2026-03-20T12:00:00.000Z",
+      "domainRevisions": {
+        "district": 8,
+        "candidateHistory": 0,
+        "targeting": 8,
+        "census": 0,
+        "electionData": 11,
+        "outcome": 8,
+        "weatherRisk": 0,
+        "eventCalendar": 0
+      }
+    },
+    "selectors": {
+      "districtCanonical": {
+        "revision": 205,
+        "districtRevision": 8,
+        "templateProfile": {
+          "raceType": "county",
+          "officeLevel": "county",
+          "electionType": "general",
+          "seatContext": "countywide",
+          "partisanshipMode": "swing",
+          "salienceLevel": "high",
+          "appliedTemplateId": "",
+          "appliedVersion": "",
+          "benchmarkKey": "",
+          "overriddenFields": [],
+          "assumptionsProfile": "template"
+        },
+        "form": {
+          "electionDate": "2026-11-03",
+          "weeksRemaining": "24",
+          "mode": "persuasion",
+          "universeBasis": "registered",
+          "universeSize": 182000,
+          "sourceNote": "",
+          "turnoutA": 40,
+          "turnoutB": 57,
+          "bandWidth": 6
+        },
+        "universeComposition": {
+          "enabled": false,
+          "demPct": null,
+          "repPct": null,
+          "npaPct": null,
+          "otherPct": null,
+          "retentionFactor": null
+        },
+        "ballot": {
+          "yourCandidateId": "cand_patel",
+          "undecidedPct": 9,
+          "undecidedMode": "proportional",
+          "candidateRefs": {
+            "byId": {
+              "cand_a": {
+                "id": "cand_a",
+                "name": "Candidate A",
+                "supportPct": 35
+              },
+              "cand_b": {
+                "id": "cand_b",
+                "name": "Candidate B",
+                "supportPct": 35
+              },
+              "cand_patel": {
+                "id": "cand_patel",
+                "name": "N. Patel",
+                "supportPct": 47
+              },
+              "cand_taylor": {
+                "id": "cand_taylor",
+                "name": "J. Taylor",
+                "supportPct": 44
+              }
+            },
+            "order": [
+              "cand_patel",
+              "cand_taylor"
+            ]
+          },
+          "userSplitByCandidateId": {
+            "cand_a": null,
+            "cand_b": null,
+            "cand_patel": 53,
+            "cand_taylor": 47
+          }
+        },
+        "candidateHistory": {
+          "records": [],
+          "matchedRecordCount": 0
+        },
+        "targetingConfig": {
+          "presetId": "turnout_opportunity",
+          "geoLevel": "tract",
+          "modelId": "county_exec_v2",
+          "topN": 45,
+          "minHousingUnits": 50,
+          "minPopulation": 120,
+          "minScore": 0.42,
+          "onlyRaceFootprint": true,
+          "controlsLocked": false
+        },
+        "censusConfig": {
+          "year": "2024",
+          "resolution": "tract",
+          "metricSet": "core",
+          "stateFips": "",
+          "countyFips": "",
+          "placeFips": "",
+          "geoSearch": "",
+          "tractFilter": "",
+          "selectionSetDraftName": "",
+          "selectedSelectionSetKey": "",
+          "applyAdjustedAssumptions": false,
+          "mapQaVtdOverlay": false,
+          "apiKey": "",
+          "geoPaste": ""
+        },
+        "electionDataMeta": {
+          "importedAt": "2026-03-19T15:30:00.000Z",
+          "fileName": "county_exec_history.csv",
+          "qualityScore": 1,
+          "confidenceBand": "high",
+          "normalizedRowCount": 2
+        }
+      },
+      "districtDerived": {
+        "supportSnapshot": {
+          "candidateCount": 2,
+          "supportSumPct": 91,
+          "undecidedPct": 9,
+          "yourCandidateId": "cand_patel"
+        },
+        "turnoutSnapshot": {
+          "turnoutGap": 17,
+          "turnoutMean": 48.5,
+          "hasTurnoutAnchors": true,
+          "hasWeeksRemainingInput": true
+        },
+        "historySnapshot": {
+          "matchedRecordCount": 0,
+          "averageVoteSharePct": null
+        },
+        "electionDataSummary": {
+          "imported": true,
+          "fileName": "county_exec_history.csv",
+          "qualityScore": 1,
+          "confidenceBand": "high",
+          "normalizedRowCount": 2
+        },
+        "targetingSummary": {
+          "modelId": "county_exec_v2",
+          "geoLevel": "tract",
+          "topN": 45,
+          "onlyRaceFootprint": true
+        },
+        "censusSummary": {
+          "year": "2024",
+          "resolution": "tract",
+          "metricSet": "core",
+          "hasGeographyScope": false
+        }
+      },
+      "electionDataCanonical": {
+        "revision": 11,
+        "import": {
+          "fileName": "county_exec_history.csv",
+          "fileSize": 0,
+          "fileHash": "",
+          "importedAt": "2026-03-19T15:30:00.000Z",
+          "format": "",
+          "status": "imported",
+          "statusText": "Imported 4 rows.",
+          "guideText": "",
+          "previewMetaText": "",
+          "precinctFilter": ""
+        },
+        "schemaMapping": {
+          "status": "unmapped",
+          "requiredColumns": [
+            "state_fips",
+            "county_fips",
+            "election_date",
+            "office",
+            "district_id",
+            "precinct_id",
+            "candidate",
+            "votes"
+          ],
+          "optionalColumns": [
+            "party",
+            "registered_voters",
+            "total_votes_precinct",
+            "write_ins",
+            "undervotes",
+            "overvotes",
+            "election_type",
+            "cycle_year",
+            "ward_id",
+            "jurisdiction_key",
+            "source",
+            "notes"
+          ],
+          "columnMap": {},
+          "mappedColumns": [],
+          "unmappedColumns": []
+        },
+        "rawRows": [],
+        "normalizedRows": [
+          {
+            "rowId": "row_1",
+            "jurisdictionKey": "17|197|countywide",
+            "geographyId": "197-000-001",
+            "stateFips": "17",
+            "countyFips": "197",
+            "districtId": "countywide",
+            "precinctId": "197-000-001",
+            "wardId": "",
+            "office": "County Executive",
+            "electionDate": "2024-11-05",
+            "electionType": "",
+            "cycleYear": 0,
+            "candidateId": "cand_patel",
+            "candidateName": "N. Patel",
+            "partyId": "dem",
+            "partyName": "DEM",
+            "registeredVoters": 51100,
+            "turnoutTotal": 37200,
+            "voteTotal": 18840,
+            "writeIns": 0,
+            "undervotes": 0,
+            "overvotes": 0,
+            "source": "",
+            "notes": "",
+            "sourceRowNumber": 0
+          },
+          {
+            "rowId": "row_2",
+            "jurisdictionKey": "17|197|countywide",
+            "geographyId": "197-000-001",
+            "stateFips": "17",
+            "countyFips": "197",
+            "districtId": "countywide",
+            "precinctId": "197-000-001",
+            "wardId": "",
+            "office": "County Executive",
+            "electionDate": "2024-11-05",
+            "electionType": "",
+            "cycleYear": 0,
+            "candidateId": "cand_taylor",
+            "candidateName": "J. Taylor",
+            "partyId": "rep",
+            "partyName": "REP",
+            "registeredVoters": 51100,
+            "turnoutTotal": 37200,
+            "voteTotal": 18360,
+            "writeIns": 0,
+            "undervotes": 0,
+            "overvotes": 0,
+            "source": "",
+            "notes": "",
+            "sourceRowNumber": 0
+          }
+        ],
+        "jurisdictionKeys": [
+          "17|197|countywide"
+        ],
+        "raceMeta": {
+          "office": "County Executive",
+          "officeLevel": "",
+          "raceId": "",
+          "districtId": "countywide",
+          "electionType": "",
+          "electionDate": "2024-11-05",
+          "cycleYear": 0
+        },
+        "geographyRefs": {
+          "byId": {
+            "197-000-001": {
+              "geographyId": "197-000-001",
+              "precinctId": "197-000-001",
+              "wardId": "",
+              "districtId": "countywide",
+              "jurisdictionKey": "17|197|countywide"
+            }
+          },
+          "order": [
+            "197-000-001"
+          ]
+        },
+        "candidateRefs": {
+          "byId": {
+            "cand_patel": {
+              "candidateId": "cand_patel",
+              "candidateName": "N. Patel",
+              "partyId": "dem"
+            },
+            "cand_taylor": {
+              "candidateId": "cand_taylor",
+              "candidateName": "J. Taylor",
+              "partyId": "rep"
+            }
+          },
+          "order": [
+            "cand_patel",
+            "cand_taylor"
+          ]
+        },
+        "partyRefs": {
+          "byId": {
+            "dem": {
+              "partyId": "dem",
+              "partyName": "DEM"
+            },
+            "rep": {
+              "partyId": "rep",
+              "partyName": "REP"
+            }
+          },
+          "order": [
+            "dem",
+            "rep"
+          ]
+        },
+        "turnoutTotals": {
+          "ballotsCast": 37200,
+          "registeredVoters": 51100,
+          "turnoutRate": 0.7279843444227005
+        },
+        "voteTotals": {
+          "totalVotes": 37200,
+          "validVotes": 37200,
+          "writeIns": null,
+          "undervotes": null,
+          "overvotes": null
+        },
+        "qa": {
+          "sourceWarnings": [],
+          "geographyWarnings": [],
+          "candidateWarnings": [],
+          "mappingWarnings": [],
+          "errors": []
+        },
+        "quality": {
+          "score": 1,
+          "confidenceBand": "high",
+          "completenessRatio": 1,
+          "warningCount": 0,
+          "computedAt": "2026-03-20T12:00:00.000Z"
+        },
+        "benchmarks": {
+          "historicalRaceBenchmarks": [
+            {
+              "cycleYear": 2024,
+              "margin": 0.6
+            }
+          ],
+          "turnoutBaselines": [
+            {
+              "cycleYear": 2024,
+              "turnoutRate": 0.728
+            }
+          ],
+          "volatilityBands": [],
+          "partyBaselineContext": [],
+          "comparableRacePools": [],
+          "repeatCandidatePerformance": [],
+          "precinctPerformanceDistributions": [],
+          "geographyRollups": [],
+          "benchmarkSuggestions": [
+            {
+              "type": "confidence_floor",
+              "value": 0.6
+            }
+          ],
+          "downstreamRecommendations": {
+            "district": {
+              "baselineSupportHint": 0.503
+            },
+            "targeting": {
+              "turnoutBoostGeoids": [
+                "197-000-001"
+              ]
+            },
+            "outcome": {
+              "confidenceFloor": 0.6
+            }
+          }
+        }
+      },
+      "electionDataDerived": {
+        "importStatus": {
+          "status": "imported",
+          "statusText": "Imported 4 rows.",
+          "importedAt": "2026-03-19T15:30:00.000Z",
+          "fileName": "county_exec_history.csv",
+          "rowCount": 2
+        },
+        "coverage": {
+          "jurisdictionCount": 1,
+          "geographyCount": 1,
+          "candidateCount": 2,
+          "partyCount": 2,
+          "officeCount": 1,
+          "districtCount": 1
+        },
+        "totals": {
+          "ballotsCast": 37200,
+          "registeredVoters": 51100,
+          "turnoutRate": 0.7279843444227005,
+          "validVotes": 37200,
+          "writeIns": 0,
+          "undervotes": 0,
+          "overvotes": 0,
+          "voteCompleteness": 1
+        },
+        "qualitySummary": {
+          "score": 1,
+          "confidenceBand": "high",
+          "completenessRatio": 1,
+          "warningCount": 0,
+          "sourceWarningCount": 0,
+          "mappingWarningCount": 0,
+          "errorCount": 0
+        },
+        "benchmarkSummary": {
+          "turnoutBaselineCount": 1,
+          "historicalBenchmarkCount": 1,
+          "comparablePoolCount": 0,
+          "volatilityBandCount": 0,
+          "recommendationTargets": {
+            "district": 1,
+            "targeting": 1,
+            "outcome": 1
+          }
+        }
+      },
+      "targetingCanonical": {
+        "revision": 8,
+        "config": {
+          "presetId": "turnout_opportunity",
+          "geoLevel": "tract",
+          "modelId": "county_exec_v2",
+          "topN": 45,
+          "minHousingUnits": 50,
+          "minPopulation": 120,
+          "minScore": 0.42,
+          "onlyRaceFootprint": true,
+          "controlsLocked": false
+        },
+        "criteria": {
+          "prioritizeYoung": true,
+          "prioritizeRenters": true,
+          "avoidHighMultiUnit": false,
+          "densityFloor": "medium"
+        },
+        "weights": {
+          "votePotential": 0.3,
+          "turnoutOpportunity": 0.5,
+          "persuasionIndex": 0.1,
+          "fieldEfficiency": 0.1
+        },
+        "upstreamInputs": {
+          "district": {
+            "raceType": "county",
+            "electionType": "general",
+            "mode": "persuasion",
+            "weeksRemaining": "24",
+            "turnoutA": 40,
+            "turnoutB": 57,
+            "universeSize": 182000
+          },
+          "census": {
+            "year": "2024",
+            "resolution": "tract",
+            "metricSet": "core",
+            "stateFips": "",
+            "countyFips": "",
+            "placeFips": "",
+            "selectedGeoids": [],
+            "selectedGeoidCount": 0,
+            "loadedRowCount": 0,
+            "applyAdjustedAssumptions": false
+          },
+          "electionData": {
+            "normalizedRowCount": 2,
+            "qualityScore": 1,
+            "confidenceBand": "high",
+            "turnoutBoostGeoids": [
+              "197-000-001"
+            ],
+            "turnoutBoostGeoidCount": 1,
+            "benchmarkSuggestionCount": 1,
+            "baselineTurnoutRate": 0.728,
+            "hasDownstreamRecommendations": true
+          }
+        }
+      },
+      "targetingDerived": {
+        "status": {
+          "statusText": "Targeting synced from archive context.",
+          "lastRunAt": "2026-03-20T09:15:00.000Z",
+          "rowCount": 3,
+          "topTargetCount": 2,
+          "staleSinceUpstreamChange": true,
+          "upstreamRevisionToken": "8:0:11"
+        },
+        "performance": {
+          "bestScore": 0.74,
+          "averageScore": 0.64,
+          "minScoreThreshold": 0.42,
+          "modelId": "county_exec_v2",
+          "geoLevel": "tract",
+          "recommendedMinScore": 0.39
+        },
+        "composition": {
+          "scoreAboveThresholdCount": 3,
+          "withReachEstimateCount": 3,
+          "withEfficiencyScoreCount": 3
+        },
+        "upstream": {
+          "districtInputReady": true,
+          "censusInputReady": false,
+          "electionInputReady": true,
+          "districtRevision": 8,
+          "censusRevision": 0,
+          "electionDataRevision": 11,
+          "selectedGeoidCount": 0,
+          "loadedRowCount": 0,
+          "electionNormalizedRowCount": 2,
+          "confidenceBand": "high",
+          "qualityScore": 1,
+          "confidenceWeight": 1
+        },
+        "electionInfluence": {
+          "turnoutBoostGeoidCount": 1,
+          "turnoutBoostCoverageCount": 0,
+          "turnoutBoostCoverageRatio": 0,
+          "explanationText": "Election priors: 2 normalized row(s), confidence HIGH | Census scope not loaded | Upstream inputs changed after last targeting revision"
+        }
+      },
+      "censusCanonical": {
+        "revision": 0,
+        "config": {
+          "year": "2024",
+          "resolution": "tract",
+          "metricSet": "core",
+          "stateFips": "",
+          "countyFips": "",
+          "placeFips": "",
+          "geoSearch": "",
+          "tractFilter": "",
+          "selectionSetDraftName": "",
+          "selectedSelectionSetKey": "",
+          "applyAdjustedAssumptions": false,
+          "mapQaVtdOverlay": false,
+          "apiKey": "",
+          "geoPaste": ""
+        },
+        "selection": {
+          "selectedGeoids": [],
+          "activeRowsKey": "",
+          "loadedRowCount": 0,
+          "selectionSetDraftName": "",
+          "selectedSelectionSetKey": ""
+        }
+      },
+      "censusDerived": {
+        "fetchStatus": {
+          "statusText": "Ready.",
+          "errorText": "",
+          "lastFetchAt": ""
+        },
+        "coverage": {
+          "selectedGeoidCount": 0,
+          "loadedRowCount": 0,
+          "aggregateRowCount": 0,
+          "advisoryRowCount": 0
+        },
+        "mapStatus": {
+          "mapStatusText": "",
+          "mapQaVtdZipStatusText": "",
+          "hasOverlayWarnings": false
+        },
+        "aggregateSummary": {
+          "keys": [],
+          "warningCount": 0,
+          "badCount": 0
+        }
+      },
+      "weatherRiskCanonical": {
+        "revision": 0,
+        "officeZip": "",
+        "overrideZip": "",
+        "useOverrideZip": false,
+        "selectedZip": "",
+        "adjustment": {
+          "enabled": false,
+          "mode": "observe_only",
+          "date": "",
+          "zip": "",
+          "modifiers": {
+            "doorEfficiencyMultiplier": 1,
+            "volunteerShowRateMultiplier": 1,
+            "electionDayTurnoutRiskBump": 0
+          },
+          "appliedAt": "",
+          "log": []
+        }
+      },
+      "weatherRiskDerived": {
+        "status": {
+          "status": "idle",
+          "error": "",
+          "fetchedAt": "",
+          "selectedZip": ""
+        },
+        "riskSummary": {
+          "fieldExecutionRisk": "low",
+          "electionDayTurnoutRisk": "low",
+          "recommendedAction": "Set a ZIP to load weather context.",
+          "precipSignal": 0,
+          "maxPrecipProbability": null
+        },
+        "forecastSummary": {
+          "forecastDays": 0,
+          "hasCurrentObservation": false,
+          "adjustmentLogCount": 0,
+          "adjustmentMode": "observe_only",
+          "adjustmentEnabled": false
+        }
+      },
+      "eventCalendarCanonical": {
+        "revision": 0,
+        "version": "18.75.0",
+        "filters": {
+          "date": "",
+          "category": "all",
+          "includeInactive": false,
+          "appliedOnly": false
+        },
+        "draft": {
+          "eventId": "",
+          "eventType": "day_of_action",
+          "title": "",
+          "category": "campaign",
+          "date": "",
+          "startTime": "",
+          "endTime": "",
+          "notes": "",
+          "createdBy": "",
+          "createdAt": "",
+          "applyToModel": false,
+          "status": "scheduled",
+          "attendees": "",
+          "meetingType": "",
+          "followUpOwner": "",
+          "followUpDate": "",
+          "expectedVolunteers": 0,
+          "expectedPaidCanvassers": 0,
+          "expectedShiftHours": 0,
+          "officeLocation": "",
+          "fieldGoalNotes": "",
+          "channelFocus": ""
+        },
+        "events": []
+      },
+      "eventCalendarDerived": {
+        "summary": {
+          "totalEvents": 0,
+          "appliedEvents": 0,
+          "openFollowUps": 0,
+          "upcomingCount": 0
+        },
+        "upcomingEvents": [],
+        "filtersApplied": {
+          "category": "all",
+          "date": "",
+          "includeInactive": false,
+          "appliedOnly": false
+        }
+      },
+      "outcomeCanonical": {
+        "revision": 8,
+        "controls": {
+          "mcMode": "advanced",
+          "mcVolatility": "med",
+          "mcSeed": "",
+          "turnoutReliabilityPct": null,
+          "mcContactMin": null,
+          "mcContactMode": null,
+          "mcContactMax": null,
+          "mcPersMin": null,
+          "mcPersMode": null,
+          "mcPersMax": null,
+          "mcReliMin": null,
+          "mcReliMode": null,
+          "mcReliMax": null,
+          "mcDphMin": null,
+          "mcDphMode": null,
+          "mcDphMax": null,
+          "mcCphMin": null,
+          "mcCphMode": null,
+          "mcCphMax": null,
+          "mcVolMin": null,
+          "mcVolMode": null,
+          "mcVolMax": null
+        },
+        "surfaceInputs": {
+          "surfaceLever": "volunteerMultiplier",
+          "surfaceMode": "fast",
+          "surfaceMin": "",
+          "surfaceMax": "",
+          "surfaceSteps": "21",
+          "surfaceTarget": "70"
+        }
+      },
+      "outcomeDerived": {
+        "mcSummary": {
+          "hash": "mc_archive_01",
+          "winProb": 0.55,
+          "expectedMargin": 1.1,
+          "marginBandWidth": 6.300000000000001,
+          "hasRun": true
+        },
+        "sensitivitySummary": {
+          "rowCount": 1,
+          "topDriver": "Archive-adjusted trendline"
+        },
+        "surfaceSummary": {
+          "rowCount": 1,
+          "statusText": "Archive surface ready.",
+          "summaryText": "Trendline stabilized by recent actuals.",
+          "hasSurfaceRows": true
+        }
+      }
+    },
+    "metrics": {
+      "version": "metric-provenance-v1",
+      "metricOrder": [
+        "baselineSupport",
+        "turnoutExpected",
+        "persuasionNeed",
+        "targetingScore",
+        "outcomeConfidence",
+        "electionBenchmarkQuality"
+      ],
+      "metrics": {
+        "baselineSupport": {
+          "value": 91,
+          "revisionToken": "district:8|ballot:0|candidateHistory:0|electionData:11|census:0",
+          "canonicalSlices": [
+            "domains.ballot.candidateRefs",
+            "domains.ballot.undecidedPct",
+            "domains.candidateHistory.records",
+            "domains.electionData.quality",
+            "domains.census.config"
+          ],
+          "selector": "selectDistrictDerivedView",
+          "influences": {
+            "electionData": true,
+            "census": false,
+            "candidateHistory": false
+          }
+        },
+        "turnoutExpected": {
+          "value": 48.5,
+          "revisionToken": "district:8|electionData:11|census:0",
+          "canonicalSlices": [
+            "domains.district.form.turnoutA",
+            "domains.district.form.turnoutB",
+            "domains.district.form.weeksRemaining",
+            "domains.electionData.benchmarks.turnoutBaselines"
+          ],
+          "selector": "selectDistrictDerivedView",
+          "influences": {
+            "electionData": true,
+            "census": false,
+            "candidateHistory": false
+          }
+        },
+        "persuasionNeed": {
+          "value": 0,
+          "revisionToken": "district:8|ballot:0|candidateHistory:0|electionData:11|census:0",
+          "canonicalSlices": [
+            "domains.district.form.turnoutA",
+            "domains.district.form.turnoutB",
+            "domains.ballot.candidateRefs",
+            "domains.candidateHistory.records",
+            "domains.electionData.quality",
+            "domains.census.config"
+          ],
+          "selector": "selectDistrictDerivedView + provenanceFormula.persuasionNeed",
+          "influences": {
+            "electionData": true,
+            "census": false,
+            "candidateHistory": false
+          }
+        },
+        "targetingScore": {
+          "value": 0.64,
+          "revisionToken": "targeting:8|district:8|census:0|electionData:11",
+          "canonicalSlices": [
+            "domains.targeting.config",
+            "domains.targeting.runtime.rows",
+            "domains.district.form",
+            "domains.census.selection",
+            "domains.electionData.benchmarks.downstreamRecommendations.targeting"
+          ],
+          "selector": "selectTargetingDerivedView",
+          "influences": {
+            "electionData": true,
+            "census": false,
+            "candidateHistory": false
+          }
+        },
+        "outcomeConfidence": {
+          "value": 0.55,
+          "revisionToken": "outcome:8|electionData:11|census:0|candidateHistory:0",
+          "canonicalSlices": [
+            "domains.outcome.cache.mcLast",
+            "domains.outcome.cache.mcLastHash",
+            "domains.electionData.benchmarks.downstreamRecommendations.outcome",
+            "domains.census.selection",
+            "domains.candidateHistory.records"
+          ],
+          "selector": "selectOutcomeDerivedView",
+          "influences": {
+            "electionData": true,
+            "census": false,
+            "candidateHistory": false
+          }
+        },
+        "electionBenchmarkQuality": {
+          "value": 1,
+          "revisionToken": "electionData:11",
+          "canonicalSlices": [
+            "domains.electionData.quality",
+            "domains.electionData.qa",
+            "domains.electionData.benchmarks.historicalRaceBenchmarks",
+            "domains.electionData.benchmarks.turnoutBaselines",
+            "domains.electionData.normalizedRows"
+          ],
+          "selector": "selectElectionDataDerivedView",
+          "influences": {
+            "electionData": true,
+            "census": false,
+            "candidateHistory": false
+          }
+        }
+      }
+    },
+    "domainSnapshots": {
+      "forecastArchive": {
+        "selectedHash": "snap_2026w11",
+        "entryCount": 2,
+        "summary": {
+          "total": 2,
+          "staleCount": 0,
+          "latestAt": "2026-03-18T22:10:00.000Z"
+        }
+      },
+      "recovery": {
+        "strictImport": true,
+        "usbConnected": true,
+        "lastBackupRestoreAt": "2026-03-19T07:32:00.000Z",
+        "lastImportFileName": "county_exec_recovery_20260319.json",
+        "lastWarning": "Recovered from local backup after export mismatch.",
+        "lastHashBanner": "hash:9bc88f"
+      },
+      "governance": {
+        "confidenceBand": "MEDIUM",
+        "topWarning": "Volunteer conversion is below plan.",
+        "learningRecommendation": "Increase call follow-up in low-response tracts.",
+        "hasSnapshot": true
+      },
+      "audit": {
+        "hasValidationSnapshot": true,
+        "hasRealismSnapshot": true,
+        "hasDiagnosticsSnapshot": true,
+        "contractFindingCount": 1
+      },
+      "scenarios": {
+        "activeScenarioId": "baseline",
+        "selectedScenarioId": "weekly_refresh",
+        "recordCount": 2,
+        "decisionSessionCount": 1
+      }
+    }
+  }
+}
