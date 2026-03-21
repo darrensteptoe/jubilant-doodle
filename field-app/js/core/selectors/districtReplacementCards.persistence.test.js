@@ -55,7 +55,7 @@ test("replacement reference architecture: outcome card binder pattern is present
 
 test("district replacement form binders follow standard input+change commit pattern without pending-write hydration hold", () => {
   const fieldBody = extractFunctionBody(districtSource, "bindDistrictV2FormField", "bindDistrictV2FormCheckbox");
-  assert.match(fieldBody, /const onCommit = \(\) => \{/);
+  assert.match(fieldBody, /const onCommit = \([^)]*\) => \{/);
   assert.match(fieldBody, /control\.addEventListener\("input", onCommit\);/);
   assert.match(fieldBody, /control\.addEventListener\("change", onCommit\);/);
   assert.doesNotMatch(fieldBody, /markDistrictPendingWrite\(/);

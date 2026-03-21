@@ -44,12 +44,12 @@ test("district_v2 replacement uses no legacy pending-write hold path", () => {
   assert.doesNotMatch(districtV2Source, /districtPendingWrites/);
 
   const formFieldBody = extractFunctionBody(districtV2Source, "bindDistrictV2FormField", "bindDistrictV2FormCheckbox");
-  assert.match(formFieldBody, /const onCommit = \(\) => \{/);
+  assert.match(formFieldBody, /const onCommit = \([^)]*\) => \{/);
   assert.match(formFieldBody, /control\.addEventListener\("input", onCommit\);/);
   assert.match(formFieldBody, /control\.addEventListener\("change", onCommit\);/);
 
-  const syncInputBody = extractFunctionBody(districtV2Source, "syncInputValueFromRaw", "syncCheckboxCheckedFromRaw");
-  assert.match(syncInputBody, /if \(document\.activeElement === input\) \{/);
+  const syncInputBody = extractFunctionBody(districtV2Source, "syncInputControlInPlace", "syncCheckboxControlInPlace");
+  assert.match(syncInputBody, /if \(document\.activeElement === control\) \{/);
 });
 
 test("district_v2 ballot and candidate-history handlers stay delegated and hold-free", () => {
