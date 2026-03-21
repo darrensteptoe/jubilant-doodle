@@ -3868,9 +3868,170 @@ function districtBridgeNormalizeRows(rows, expectedCols = 0){
   return out;
 }
 
-function districtBridgeStateView({ includeRenderDerived = true } = {}){
+function districtBridgeStateView(){
+  return districtBridgeCombinedView();
+}
+
+function districtBridgeCanonicalView(){
   const currentState = state || {};
-  const res = includeRenderDerived ? (lastRenderCtx?.res || null) : null;
+  const censusState = currentState?.census && typeof currentState.census === "object"
+    ? currentState.census
+    : {};
+  const targetingState = normalizeTargetingState(currentState?.targeting);
+  const controlsLocked = isScenarioLockedForEdits(currentState);
+  const templateMeta = currentState?.templateMeta && typeof currentState.templateMeta === "object"
+    ? currentState.templateMeta
+    : {};
+  const historyRecords = normalizeCandidateHistoryRecords(currentState?.candidateHistory);
+  const ballotCandidates = Array.isArray(currentState?.candidates) ? currentState.candidates : [];
+  const ballotUserSplit = currentState?.userSplit && typeof currentState.userSplit === "object"
+    ? currentState.userSplit
+    : {};
+  const ballotUndecidedMode = String(currentState?.undecidedMode || "proportional").trim() || "proportional";
+  const targetingPresetId = String(targetingState?.presetId || "").trim();
+  const targetingModelId = String(targetingState?.modelId || "").trim();
+  const censusLoadedRowCount = safeNum(censusState?.loadedRowCount) ?? 0;
+  const targetingRowsRaw = Array.isArray(targetingState?.lastRows) ? targetingState.lastRows : [];
+  const houseModelActive = targetingPresetId === "house_v1" || targetingModelId === "house_v1";
+  const censusConfigOptions = districtBridgeBuildCensusConfigOptions(censusState);
+  const censusDisabledMap = districtBridgeBuildCensusDisabledMap(currentState, censusState);
+
+  return {
+    controls: {
+      locked: controlsLocked,
+      disabledMap: districtBridgeBuildDistrictDisabledMap(currentState),
+    },
+    template: {
+      raceType: String(currentState?.raceType || "").trim(),
+      officeLevel: String(templateMeta?.officeLevel || "").trim(),
+      electionType: String(templateMeta?.electionType || "").trim(),
+      seatContext: String(templateMeta?.seatContext || "").trim(),
+      partisanshipMode: String(templateMeta?.partisanshipMode || "").trim(),
+      salienceLevel: String(templateMeta?.salienceLevel || "").trim(),
+      appliedTemplateId: String(templateMeta?.appliedTemplateId || "").trim(),
+      appliedVersion: String(templateMeta?.appliedVersion || "").trim(),
+      benchmarkKey: String(templateMeta?.benchmarkKey || "").trim(),
+      overriddenFields: Array.isArray(templateMeta?.overriddenFields)
+        ? templateMeta.overriddenFields.map((field) => String(field || "").trim()).filter(Boolean)
+        : [],
+      assumptionsProfile: String(currentState?.ui?.assumptionsProfile || "").trim(),
+    },
+    form: {
+      raceType: String(currentState?.raceType || "").trim(),
+      electionDate: String(currentState?.electionDate || "").trim(),
+      weeksRemaining: String(currentState?.weeksRemaining ?? "").trim(),
+      mode: String(currentState?.mode || "").trim(),
+      universeSize: safeNum(currentState?.universeSize),
+      universeBasis: String(currentState?.universeBasis || "").trim(),
+      sourceNote: String(currentState?.sourceNote || "").trim(),
+      turnoutA: safeNum(currentState?.turnoutA),
+      turnoutB: safeNum(currentState?.turnoutB),
+      bandWidth: safeNum(currentState?.bandWidth),
+      universe16Enabled: !!currentState?.universeLayerEnabled,
+      universe16DemPct: safeNum(currentState?.universeDemPct),
+      universe16RepPct: safeNum(currentState?.universeRepPct),
+      universe16NpaPct: safeNum(currentState?.universeNpaPct),
+      universe16OtherPct: safeNum(currentState?.universeOtherPct),
+      retentionFactor: safeNum(currentState?.retentionFactor),
+    },
+    ballot: {
+      yourCandidateId: String(currentState?.yourCandidateId || "").trim(),
+      undecidedPct: safeNum(currentState?.undecidedPct),
+      undecidedMode: ballotUndecidedMode,
+      userSplitVisible: ballotUndecidedMode === "user_defined",
+      candidates: ballotCandidates.map((cand) => ({
+        id: String(cand?.id || "").trim(),
+        name: String(cand?.name ?? "").trim(),
+        supportPct: safeNum(cand?.supportPct),
+        canRemove: ballotCandidates.length > 2,
+      })).filter((cand) => cand.id),
+      userSplitRows: ballotCandidates.map((cand) => ({
+        id: String(cand?.id || "").trim(),
+        name: String(cand?.name ?? "").trim(),
+        value: safeNum(ballotUserSplit?.[cand?.id]),
+      })).filter((cand) => cand.id),
+      candidateHistoryOptions: {
+        electionType: CANDIDATE_HISTORY_ELECTION_TYPE_OPTIONS.map((row) => ({
+          value: String(row?.value || "").trim(),
+          label: String(row?.label || row?.value || "").trim(),
+        })).filter((row) => row.value),
+        incumbencyStatus: CANDIDATE_HISTORY_INCUMBENCY_OPTIONS.map((row) => ({
+          value: String(row?.value || "").trim(),
+          label: String(row?.label || row?.value || "").trim(),
+        })).filter((row) => row.value),
+      },
+      candidateHistoryRecords: historyRecords.map((record) => ({
+        recordId: String(record?.recordId || "").trim(),
+        office: String(record?.office || "").trim(),
+        cycleYear: safeNum(record?.cycleYear),
+        electionType: String(record?.electionType || "").trim(),
+        candidateName: String(record?.candidateName || "").trim(),
+        party: String(record?.party || "").trim(),
+        incumbencyStatus: String(record?.incumbencyStatus || "").trim(),
+        voteShare: safeNum(record?.voteShare),
+        margin: safeNum(record?.margin),
+        turnoutContext: safeNum(record?.turnoutContext),
+        repeatCandidate: !!record?.repeatCandidate,
+        overUnderPerformancePct: safeNum(record?.overUnderPerformancePct),
+      })),
+    },
+    targeting: {
+      config: {
+        presetId: targetingPresetId,
+        geoLevel: String(targetingState?.geoLevel || "").trim(),
+        modelId: targetingModelId,
+        topN: safeNum(targetingState?.topN),
+        minHousingUnits: safeNum(targetingState?.minHousingUnits),
+        minPopulation: safeNum(targetingState?.minPopulation),
+        minScore: safeNum(targetingState?.minScore),
+        onlyRaceFootprint: !!targetingState?.onlyRaceFootprint,
+        prioritizeYoung: !!targetingState?.criteria?.prioritizeYoung,
+        prioritizeRenters: !!targetingState?.criteria?.prioritizeRenters,
+        avoidHighMultiUnit: !!targetingState?.criteria?.avoidHighMultiUnit,
+        densityFloor: String(targetingState?.criteria?.densityFloor || "none").trim() || "none",
+        weightVotePotential: safeNum(targetingState?.weights?.votePotential),
+        weightTurnoutOpportunity: safeNum(targetingState?.weights?.turnoutOpportunity),
+        weightPersuasionIndex: safeNum(targetingState?.weights?.persuasionIndex),
+        weightFieldEfficiency: safeNum(targetingState?.weights?.fieldEfficiency),
+        controlsLocked,
+        canRun: censusLoadedRowCount > 0,
+        canExport: targetingRowsRaw.length > 0,
+        canResetWeights: houseModelActive,
+      },
+    },
+    census: {
+      config: {
+        apiKey: String(censusState?.bridgeApiKey || "").trim(),
+        year: String(censusState?.year || "").trim(),
+        resolution: String(censusState?.resolution || "").trim(),
+        stateFips: String(censusState?.stateFips || "").trim(),
+        countyFips: String(censusState?.countyFips || "").trim(),
+        placeFips: String(censusState?.placeFips || "").trim(),
+        metricSet: String(censusState?.metricSet || "").trim(),
+        geoSearch: String(censusState?.geoSearch || "").trim(),
+        geoPaste: String(censusState?.bridgeGeoPaste || "").trim(),
+        tractFilter: String(censusState?.tractFilter || "").trim(),
+        selectionSetDraftName: String(censusState?.selectionSetDraftName || "").trim(),
+        selectedSelectionSetKey: String(censusState?.selectedSelectionSetKey || "").trim(),
+        electionCsvPrecinctFilter: String(censusState?.bridgeElectionCsvPrecinctFilter || "").trim(),
+        applyAdjustedAssumptions: !!censusState?.applyAdjustedAssumptions,
+        mapQaVtdOverlay: !!censusState?.mapQaVtdOverlay,
+        controlsLocked,
+        disabledMap: censusDisabledMap,
+        stateOptions: censusConfigOptions.stateOptions,
+        countyOptions: censusConfigOptions.countyOptions,
+        placeOptions: censusConfigOptions.placeOptions,
+        tractFilterOptions: censusConfigOptions.tractFilterOptions,
+        selectionSetOptions: censusConfigOptions.selectionSetOptions,
+        geoSelectOptions: censusConfigOptions.geoSelectOptions,
+      },
+    },
+  };
+}
+
+function districtBridgeDerivedView(){
+  const currentState = state || {};
+  const res = lastRenderCtx?.res || null;
   const censusState = currentState?.census && typeof currentState.census === "object"
     ? currentState.census
     : {};
@@ -3878,7 +4039,6 @@ function districtBridgeStateView({ includeRenderDerived = true } = {}){
   const supportTotalFromState = districtBridgeSupportTotalFromState(currentState);
   const turnoutFallback = districtBridgeFallbackTurnout(currentState);
   const targetingState = normalizeTargetingState(currentState?.targeting);
-
   const supportTotalPct = safeNum(res?.validation?.supportTotalPct);
   const turnoutExpectedPct = safeNum(res?.turnout?.expectedPct);
   const turnoutBestPct = safeNum(res?.turnout?.bestPct);
@@ -3886,37 +4046,7 @@ function districtBridgeStateView({ includeRenderDerived = true } = {}){
   const votesPer1pct = safeNum(res?.turnout?.votesPer1pct);
   const projectedVotes = safeNum(res?.expected?.yourVotes);
   const persuasionNeed = safeNum(res?.expected?.persuasionNeed);
-
-  const summary = {
-    universeText: universeSize == null ? "—" : districtBridgeFmtInt(universeSize),
-    baselineSupportText: supportTotalPct == null
-      ? (supportTotalFromState == null ? "—" : districtBridgeFmtPct(supportTotalFromState, 1))
-      : districtBridgeFmtPct(supportTotalPct, 1),
-    turnoutExpectedText: turnoutExpectedPct == null
-      ? turnoutFallback.expectedText
-      : districtBridgeFmtPct(turnoutExpectedPct, 1),
-    turnoutBandText: (turnoutBestPct == null || turnoutWorstPct == null)
-      ? turnoutFallback.bandText
-      : `${formatPercentFromPct(turnoutBestPct, 1, "0.0%")} / ${formatPercentFromPct(turnoutWorstPct, 1, "0.0%")}`,
-    votesPer1pctText: votesPer1pct == null
-      ? turnoutFallback.votesPer1pctText
-      : districtBridgeFmtInt(votesPer1pct),
-    projectedVotesText: projectedVotes == null ? "—" : districtBridgeFmtInt(projectedVotes),
-    persuasionNeedText: persuasionNeed == null ? "—" : districtBridgeFmtInt(persuasionNeed),
-  };
-  const ballotCandidates = Array.isArray(currentState?.candidates) ? currentState.candidates : [];
-  const ballotUserSplit = currentState?.userSplit && typeof currentState.userSplit === "object"
-    ? currentState.userSplit
-    : {};
   const ballotUndecidedMode = String(currentState?.undecidedMode || "proportional").trim() || "proportional";
-  const ballotSupportTotalText = supportTotalPct == null
-    ? (supportTotalFromState == null ? "—" : districtBridgeFmtPct(supportTotalFromState, 1))
-    : districtBridgeFmtPct(supportTotalPct, 1);
-  const ballotWarningText = !res?.validation?.candidateTableOk
-    ? String(res?.validation?.candidateTableMsg || "").trim()
-    : (ballotUndecidedMode === "user_defined" && !res?.validation?.userSplitOk
-      ? String(res?.validation?.userSplitMsg || "").trim()
-      : "");
   const historyRecords = normalizeCandidateHistoryRecords(currentState?.candidateHistory);
   const historyValidation = res?.validation?.candidateHistory && typeof res.validation.candidateHistory === "object"
     ? res.validation.candidateHistory
@@ -3929,57 +4059,6 @@ function districtBridgeStateView({ includeRenderDerived = true } = {}){
   const historyCoverageBand = String(historyValidation.coverageBand || historyImpact.coverageBand || "none");
   const historyConfidenceBand = String(historyValidation.confidenceBand || historyImpact.confidenceBand || "missing");
   const historyVoteDelta = Number(historyImpact.yourVotesDelta || 0);
-  const historySummaryText = historyRecordCount <= 0
-    ? "No candidate history rows. Add candidate-cycle records to anchor ballot baseline realism."
-    : `History rows: ${districtBridgeFmtInt(historyRecordCount)} · matched: ${districtBridgeFmtInt(historyMatched)} · coverage: ${historyCoverageBand} · confidence: ${historyConfidenceBand}${historyVoteDelta ? ` · vote delta ${historyVoteDelta > 0 ? "+" : ""}${districtBridgeFmtInt(historyVoteDelta)}` : ""}`;
-  const historyWarningText = historyRecordCount > 0 && historyConfidenceBand === "low"
-    ? "Candidate history is incomplete; baseline confidence is downgraded until required fields are filled."
-    : "";
-  const ballot = {
-    yourCandidateId: String(currentState?.yourCandidateId || "").trim(),
-    undecidedPct: safeNum(currentState?.undecidedPct),
-    undecidedMode: ballotUndecidedMode,
-    supportTotalText: ballotSupportTotalText,
-    warningText: ballotWarningText,
-    candidates: ballotCandidates.map((cand) => ({
-      id: String(cand?.id || "").trim(),
-      name: String(cand?.name ?? "").trim(),
-      supportPct: safeNum(cand?.supportPct),
-      canRemove: ballotCandidates.length > 2,
-    })).filter((cand) => cand.id),
-    userSplitVisible: ballotUndecidedMode === "user_defined",
-    userSplitRows: ballotCandidates.map((cand) => ({
-      id: String(cand?.id || "").trim(),
-      name: String(cand?.name ?? "").trim(),
-      value: safeNum(ballotUserSplit?.[cand?.id]),
-    })).filter((cand) => cand.id),
-    candidateHistorySummaryText: historySummaryText,
-    candidateHistoryWarningText: historyWarningText,
-    candidateHistoryOptions: {
-      electionType: CANDIDATE_HISTORY_ELECTION_TYPE_OPTIONS.map((row) => ({
-        value: String(row?.value || "").trim(),
-        label: String(row?.label || row?.value || "").trim(),
-      })).filter((row) => row.value),
-      incumbencyStatus: CANDIDATE_HISTORY_INCUMBENCY_OPTIONS.map((row) => ({
-        value: String(row?.value || "").trim(),
-        label: String(row?.label || row?.value || "").trim(),
-      })).filter((row) => row.value),
-    },
-    candidateHistoryRecords: historyRecords.map((record) => ({
-      recordId: String(record?.recordId || "").trim(),
-      office: String(record?.office || "").trim(),
-      cycleYear: safeNum(record?.cycleYear),
-      electionType: String(record?.electionType || "").trim(),
-      candidateName: String(record?.candidateName || "").trim(),
-      party: String(record?.party || "").trim(),
-      incumbencyStatus: String(record?.incumbencyStatus || "").trim(),
-      voteShare: safeNum(record?.voteShare),
-      margin: safeNum(record?.margin),
-      turnoutContext: safeNum(record?.turnoutContext),
-      repeatCandidate: !!record?.repeatCandidate,
-      overUnderPerformancePct: safeNum(record?.overUnderPerformancePct),
-    })),
-  };
 
   const targetingRowsRaw = Array.isArray(targetingState?.lastRows) ? targetingState.lastRows : [];
   const targetingRows = targetingRowsRaw.map((row, idx) => {
@@ -4016,167 +4095,154 @@ function districtBridgeStateView({ includeRenderDerived = true } = {}){
     targetingMetaBits.push(`Top ${Math.max(1, roundWholeNumberByMode(targetingTopN, { mode: "floor", fallback: 1 }) || 1)}`);
   }
   if (targetingRanAt) targetingMetaBits.push(`Ran ${targetingRanAt}`);
-  const targetingStatusText = targetingRows.length
-    ? `Ranked ${districtBridgeFmtInt(targetingRows.length)} GEO rows.`
-    : "Run targeting to generate ranked GEOs.";
-  const targetingMetaText = targetingMetaBits.join(" · ") || "No targeting run yet.";
-  const targetingTopNConfig = safeNum(targetingState?.topN);
-  const targetingMinHousingUnitsConfig = safeNum(targetingState?.minHousingUnits);
-  const targetingMinPopulationConfig = safeNum(targetingState?.minPopulation);
-  const targetingMinScoreConfig = safeNum(targetingState?.minScore);
-  const targetingWeightVotePotential = safeNum(targetingState?.weights?.votePotential);
-  const targetingWeightTurnoutOpportunity = safeNum(targetingState?.weights?.turnoutOpportunity);
-  const targetingWeightPersuasionIndex = safeNum(targetingState?.weights?.persuasionIndex);
-  const targetingWeightFieldEfficiency = safeNum(targetingState?.weights?.fieldEfficiency);
-  const targetingPresetId = String(targetingState?.presetId || "").trim();
-  const targetingModelId = String(targetingState?.modelId || "").trim();
-  const censusLoadedRowCount = safeNum(censusState?.loadedRowCount) ?? 0;
-  const houseModelActive = targetingPresetId === "house_v1" || targetingModelId === "house_v1";
-  const targetingConfig = {
-    presetId: targetingPresetId,
-    geoLevel: String(targetingState?.geoLevel || "").trim(),
-    modelId: targetingModelId,
-    topN: targetingTopNConfig,
-    minHousingUnits: targetingMinHousingUnitsConfig,
-    minPopulation: targetingMinPopulationConfig,
-    minScore: targetingMinScoreConfig,
-    onlyRaceFootprint: !!targetingState?.onlyRaceFootprint,
-    prioritizeYoung: !!targetingState?.criteria?.prioritizeYoung,
-    prioritizeRenters: !!targetingState?.criteria?.prioritizeRenters,
-    avoidHighMultiUnit: !!targetingState?.criteria?.avoidHighMultiUnit,
-    densityFloor: String(targetingState?.criteria?.densityFloor || "none").trim() || "none",
-    weightVotePotential: targetingWeightVotePotential,
-    weightTurnoutOpportunity: targetingWeightTurnoutOpportunity,
-    weightPersuasionIndex: targetingWeightPersuasionIndex,
-    weightFieldEfficiency: targetingWeightFieldEfficiency,
-    controlsLocked: isScenarioLockedForEdits(currentState),
-    canRun: censusLoadedRowCount > 0,
-    canExport: targetingRows.length > 0,
-    canResetWeights: houseModelActive,
-  };
-  const templateMeta = currentState?.templateMeta && typeof currentState.templateMeta === "object"
-    ? currentState.templateMeta
-    : {};
-  const template = {
-    raceType: String(currentState?.raceType || "").trim(),
-    officeLevel: String(templateMeta?.officeLevel || "").trim(),
-    electionType: String(templateMeta?.electionType || "").trim(),
-    seatContext: String(templateMeta?.seatContext || "").trim(),
-    partisanshipMode: String(templateMeta?.partisanshipMode || "").trim(),
-    salienceLevel: String(templateMeta?.salienceLevel || "").trim(),
-    appliedTemplateId: String(templateMeta?.appliedTemplateId || "").trim(),
-    appliedVersion: String(templateMeta?.appliedVersion || "").trim(),
-    benchmarkKey: String(templateMeta?.benchmarkKey || "").trim(),
-    overriddenFields: Array.isArray(templateMeta?.overriddenFields)
-      ? templateMeta.overriddenFields.map((field) => String(field || "").trim()).filter(Boolean)
-      : [],
-    assumptionsProfile: String(currentState?.ui?.assumptionsProfile || "").trim(),
-    candidateHistoryCoverageBand: String(res?.validation?.candidateHistory?.coverageBand || "none").trim(),
-    candidateHistoryConfidenceBand: String(res?.validation?.candidateHistory?.confidenceBand || "missing").trim(),
-    candidateHistoryRecordCount: safeNum(res?.validation?.candidateHistory?.recordCount) ?? 0,
-  };
-  const form = {
-    raceType: String(currentState?.raceType || "").trim(),
-    electionDate: String(currentState?.electionDate || "").trim(),
-    weeksRemaining: String(currentState?.weeksRemaining ?? "").trim(),
-    mode: String(currentState?.mode || "").trim(),
-    universeSize: safeNum(currentState?.universeSize),
-    universeBasis: String(currentState?.universeBasis || "").trim(),
-    sourceNote: String(currentState?.sourceNote || "").trim(),
-    turnoutA: safeNum(currentState?.turnoutA),
-    turnoutB: safeNum(currentState?.turnoutB),
-    bandWidth: safeNum(currentState?.bandWidth),
-    universe16Enabled: !!currentState?.universeLayerEnabled,
-    universe16DemPct: safeNum(currentState?.universeDemPct),
-    universe16RepPct: safeNum(currentState?.universeRepPct),
-    universe16NpaPct: safeNum(currentState?.universeNpaPct),
-    universe16OtherPct: safeNum(currentState?.universeOtherPct),
-    retentionFactor: safeNum(currentState?.retentionFactor),
-  };
-  const bridgeAggregateRows = districtBridgeNormalizeRows(censusState?.bridgeAggregateRows, 2);
-  const bridgeAdvisoryRows = districtBridgeNormalizeRows(censusState?.bridgeAdvisoryRows, 2);
-  const bridgeElectionPreviewRows = districtBridgeNormalizeRows(censusState?.bridgeElectionPreviewRows, 4);
-  const censusConfigOptions = districtBridgeBuildCensusConfigOptions(censusState);
-  const censusDisabledMap = districtBridgeBuildCensusDisabledMap(currentState, censusState);
-  const districtDisabledMap = districtBridgeBuildDistrictDisabledMap(currentState);
-  const census = {
-    contextHint: districtBridgeBuildContextHint(censusState) || "State-only context active for this resolution.",
-    selectionSetStatus: districtBridgeBuildSelectionSetStatus(censusState) || "No saved selection sets.",
-    statusText: String(censusState?.status || "").trim() || "Ready.",
-    geoStatsText: districtBridgeBuildGeoStatsText(censusState) || "0 selected of 0 GEOs. 0 rows loaded.",
-    lastFetchText: districtBridgeFmtTimestamp(censusState?.lastFetchAt),
-    selectionSummaryText: districtBridgeBuildSelectionSummary(censusState) || "No GEO selected.",
-    raceFootprintStatusText: districtBridgeBuildRaceFootprintStatus(currentState) || "Race footprint not set.",
-    assumptionProvenanceStatusText: districtBridgeBuildAssumptionProvenanceStatus(currentState) || "Assumption provenance not set.",
-    footprintCapacityStatusText: districtBridgeBuildFootprintCapacityStatus(currentState) || "Footprint capacity: not set.",
-    applyAdjustmentsStatusText: districtBridgeBuildApplyAdjustmentsStatus(censusState) || "Census-adjusted assumptions are OFF.",
-    advisoryStatusText: String(censusState?.bridgeAdvisoryStatusText || "").trim() || "Assumption advisory pending.",
-    electionCsvGuideStatusText: String(censusState?.bridgeElectionCsvGuideStatusText || "").trim() || "Election CSV schema guide loading.",
-    electionCsvDryRunStatusText: String(censusState?.bridgeElectionCsvDryRunStatusText || "").trim() || "No dry-run run yet.",
-    electionCsvPreviewMetaText: String(censusState?.bridgeElectionCsvPreviewMetaText || "").trim() || "No normalized preview rows.",
-    mapStatusText: String(censusState?.bridgeMapStatusText || "").trim() || "Map idle. Select GEO units and click Load boundaries.",
-    mapQaVtdZipStatusText: String(censusState?.bridgeMapQaVtdZipStatusText || "").trim() || "No VTD ZIP loaded.",
-    aggregateRows: bridgeAggregateRows,
-    advisoryRows: bridgeAdvisoryRows,
-    electionPreviewRows: bridgeElectionPreviewRows,
-    config: {
-      apiKey: String(censusState?.bridgeApiKey || "").trim(),
-      year: String(censusState?.year || "").trim(),
-      resolution: String(censusState?.resolution || "").trim(),
-      stateFips: String(censusState?.stateFips || "").trim(),
-      countyFips: String(censusState?.countyFips || "").trim(),
-      placeFips: String(censusState?.placeFips || "").trim(),
-      metricSet: String(censusState?.metricSet || "").trim(),
-      geoSearch: String(censusState?.geoSearch || "").trim(),
-      geoPaste: String(censusState?.bridgeGeoPaste || "").trim(),
-      tractFilter: String(censusState?.tractFilter || "").trim(),
-      selectionSetDraftName: String(censusState?.selectionSetDraftName || "").trim(),
-      selectedSelectionSetKey: String(censusState?.selectedSelectionSetKey || "").trim(),
-      electionCsvPrecinctFilter: String(censusState?.bridgeElectionCsvPrecinctFilter || "").trim(),
-      applyAdjustedAssumptions: !!censusState?.applyAdjustedAssumptions,
-      mapQaVtdOverlay: !!censusState?.mapQaVtdOverlay,
-      controlsLocked: isScenarioLockedForEdits(currentState),
-      disabledMap: censusDisabledMap,
-      stateOptions: censusConfigOptions.stateOptions,
-      countyOptions: censusConfigOptions.countyOptions,
-      placeOptions: censusConfigOptions.placeOptions,
-      tractFilterOptions: censusConfigOptions.tractFilterOptions,
-      selectionSetOptions: censusConfigOptions.selectionSetOptions,
-      geoSelectOptions: censusConfigOptions.geoSelectOptions,
-    },
-  };
+
   return {
-    summary,
-    template,
-    form,
-    ballot,
-    targeting: {
-      statusText: targetingStatusText,
-      metaText: targetingMetaText,
-      rows: targetingRows,
-      config: targetingConfig,
+    summary: {
+      universeText: universeSize == null ? "—" : districtBridgeFmtInt(universeSize),
+      baselineSupportText: supportTotalPct == null
+        ? (supportTotalFromState == null ? "—" : districtBridgeFmtPct(supportTotalFromState, 1))
+        : districtBridgeFmtPct(supportTotalPct, 1),
+      turnoutExpectedText: turnoutExpectedPct == null
+        ? turnoutFallback.expectedText
+        : districtBridgeFmtPct(turnoutExpectedPct, 1),
+      turnoutBandText: (turnoutBestPct == null || turnoutWorstPct == null)
+        ? turnoutFallback.bandText
+        : `${formatPercentFromPct(turnoutBestPct, 1, "0.0%")} / ${formatPercentFromPct(turnoutWorstPct, 1, "0.0%")}`,
+      votesPer1pctText: votesPer1pct == null
+        ? turnoutFallback.votesPer1pctText
+        : districtBridgeFmtInt(votesPer1pct),
+      projectedVotesText: projectedVotes == null ? "—" : districtBridgeFmtInt(projectedVotes),
+      persuasionNeedText: persuasionNeed == null ? "—" : districtBridgeFmtInt(persuasionNeed),
     },
-    census,
-    controls: {
-      locked: isScenarioLockedForEdits(currentState),
-      disabledMap: districtDisabledMap,
+    template: {
+      candidateHistoryCoverageBand: String(historyCoverageBand || "none").trim(),
+      candidateHistoryConfidenceBand: String(historyConfidenceBand || "missing").trim(),
+      candidateHistoryRecordCount: historyRecordCount,
+    },
+    ballot: {
+      supportTotalText: supportTotalPct == null
+        ? (supportTotalFromState == null ? "—" : districtBridgeFmtPct(supportTotalFromState, 1))
+        : districtBridgeFmtPct(supportTotalPct, 1),
+      warningText: !res?.validation?.candidateTableOk
+        ? String(res?.validation?.candidateTableMsg || "").trim()
+        : (ballotUndecidedMode === "user_defined" && !res?.validation?.userSplitOk
+          ? String(res?.validation?.userSplitMsg || "").trim()
+          : ""),
+      candidateHistorySummaryText: historyRecordCount <= 0
+        ? "No candidate history rows. Add candidate-cycle records to anchor ballot baseline realism."
+        : `History rows: ${districtBridgeFmtInt(historyRecordCount)} · matched: ${districtBridgeFmtInt(historyMatched)} · coverage: ${historyCoverageBand} · confidence: ${historyConfidenceBand}${historyVoteDelta ? ` · vote delta ${historyVoteDelta > 0 ? "+" : ""}${districtBridgeFmtInt(historyVoteDelta)}` : ""}`,
+      candidateHistoryWarningText: historyRecordCount > 0 && historyConfidenceBand === "low"
+        ? "Candidate history is incomplete; baseline confidence is downgraded until required fields are filled."
+        : "",
+    },
+    targeting: {
+      statusText: targetingRows.length
+        ? `Ranked ${districtBridgeFmtInt(targetingRows.length)} GEO rows.`
+        : "Run targeting to generate ranked GEOs.",
+      metaText: targetingMetaBits.join(" · ") || "No targeting run yet.",
+      rows: targetingRows,
+    },
+    census: {
+      contextHint: districtBridgeBuildContextHint(censusState) || "State-only context active for this resolution.",
+      selectionSetStatus: districtBridgeBuildSelectionSetStatus(censusState) || "No saved selection sets.",
+      statusText: String(censusState?.status || "").trim() || "Ready.",
+      geoStatsText: districtBridgeBuildGeoStatsText(censusState) || "0 selected of 0 GEOs. 0 rows loaded.",
+      lastFetchText: districtBridgeFmtTimestamp(censusState?.lastFetchAt),
+      selectionSummaryText: districtBridgeBuildSelectionSummary(censusState) || "No GEO selected.",
+      raceFootprintStatusText: districtBridgeBuildRaceFootprintStatus(currentState) || "Race footprint not set.",
+      assumptionProvenanceStatusText: districtBridgeBuildAssumptionProvenanceStatus(currentState) || "Assumption provenance not set.",
+      footprintCapacityStatusText: districtBridgeBuildFootprintCapacityStatus(currentState) || "Footprint capacity: not set.",
+      applyAdjustmentsStatusText: districtBridgeBuildApplyAdjustmentsStatus(censusState) || "Census-adjusted assumptions are OFF.",
+      advisoryStatusText: String(censusState?.bridgeAdvisoryStatusText || "").trim() || "Assumption advisory pending.",
+      electionCsvGuideStatusText: String(censusState?.bridgeElectionCsvGuideStatusText || "").trim() || "Election CSV schema guide loading.",
+      electionCsvDryRunStatusText: String(censusState?.bridgeElectionCsvDryRunStatusText || "").trim() || "No dry-run run yet.",
+      electionCsvPreviewMetaText: String(censusState?.bridgeElectionCsvPreviewMetaText || "").trim() || "No normalized preview rows.",
+      mapStatusText: String(censusState?.bridgeMapStatusText || "").trim() || "Map idle. Select GEO units and click Load boundaries.",
+      mapQaVtdZipStatusText: String(censusState?.bridgeMapQaVtdZipStatusText || "").trim() || "No VTD ZIP loaded.",
+      aggregateRows: districtBridgeNormalizeRows(censusState?.bridgeAggregateRows, 2),
+      advisoryRows: districtBridgeNormalizeRows(censusState?.bridgeAdvisoryRows, 2),
+      electionPreviewRows: districtBridgeNormalizeRows(censusState?.bridgeElectionPreviewRows, 4),
     },
   };
-}
-
-function districtBridgeCanonicalView(){
-  return districtBridgeStateView({ includeRenderDerived: false });
-}
-
-function districtBridgeDerivedView(){
-  return districtBridgeStateView({ includeRenderDerived: true });
 }
 
 function districtBridgeCombinedView(){
   const canonical = districtBridgeCanonicalView();
   const derived = districtBridgeDerivedView();
   return {
-    ...derived,
+    summary: derived?.summary && typeof derived.summary === "object" ? derived.summary : {},
+    template: {
+      raceType: String(canonical?.template?.raceType || "").trim(),
+      officeLevel: String(canonical?.template?.officeLevel || "").trim(),
+      electionType: String(canonical?.template?.electionType || "").trim(),
+      seatContext: String(canonical?.template?.seatContext || "").trim(),
+      partisanshipMode: String(canonical?.template?.partisanshipMode || "").trim(),
+      salienceLevel: String(canonical?.template?.salienceLevel || "").trim(),
+      appliedTemplateId: String(canonical?.template?.appliedTemplateId || "").trim(),
+      appliedVersion: String(canonical?.template?.appliedVersion || "").trim(),
+      benchmarkKey: String(canonical?.template?.benchmarkKey || "").trim(),
+      overriddenFields: Array.isArray(canonical?.template?.overriddenFields) ? canonical.template.overriddenFields.slice() : [],
+      assumptionsProfile: String(canonical?.template?.assumptionsProfile || "").trim(),
+      candidateHistoryCoverageBand: String(derived?.template?.candidateHistoryCoverageBand || "").trim(),
+      candidateHistoryConfidenceBand: String(derived?.template?.candidateHistoryConfidenceBand || "").trim(),
+      candidateHistoryRecordCount: Number.isFinite(Number(derived?.template?.candidateHistoryRecordCount))
+        ? Number(derived.template.candidateHistoryRecordCount)
+        : 0,
+    },
+    form: canonical?.form && typeof canonical.form === "object" ? canonical.form : {},
+    ballot: {
+      yourCandidateId: String(canonical?.ballot?.yourCandidateId || "").trim(),
+      undecidedPct: safeNum(canonical?.ballot?.undecidedPct),
+      undecidedMode: String(canonical?.ballot?.undecidedMode || "").trim(),
+      supportTotalText: String(derived?.ballot?.supportTotalText || "").trim(),
+      warningText: String(derived?.ballot?.warningText || "").trim(),
+      candidates: Array.isArray(canonical?.ballot?.candidates) ? canonical.ballot.candidates : [],
+      userSplitVisible: !!canonical?.ballot?.userSplitVisible,
+      userSplitRows: Array.isArray(canonical?.ballot?.userSplitRows) ? canonical.ballot.userSplitRows : [],
+      candidateHistorySummaryText: String(derived?.ballot?.candidateHistorySummaryText || "").trim(),
+      candidateHistoryWarningText: String(derived?.ballot?.candidateHistoryWarningText || "").trim(),
+      candidateHistoryOptions: canonical?.ballot?.candidateHistoryOptions && typeof canonical.ballot.candidateHistoryOptions === "object"
+        ? canonical.ballot.candidateHistoryOptions
+        : {},
+      candidateHistoryRecords: Array.isArray(canonical?.ballot?.candidateHistoryRecords)
+        ? canonical.ballot.candidateHistoryRecords
+        : [],
+    },
+    targeting: {
+      statusText: String(derived?.targeting?.statusText || "").trim(),
+      metaText: String(derived?.targeting?.metaText || "").trim(),
+      rows: Array.isArray(derived?.targeting?.rows) ? derived.targeting.rows : [],
+      config: canonical?.targeting?.config && typeof canonical.targeting.config === "object"
+        ? canonical.targeting.config
+        : {},
+    },
+    census: {
+      contextHint: String(derived?.census?.contextHint || "").trim(),
+      selectionSetStatus: String(derived?.census?.selectionSetStatus || "").trim(),
+      statusText: String(derived?.census?.statusText || "").trim(),
+      geoStatsText: String(derived?.census?.geoStatsText || "").trim(),
+      lastFetchText: String(derived?.census?.lastFetchText || "").trim(),
+      selectionSummaryText: String(derived?.census?.selectionSummaryText || "").trim(),
+      raceFootprintStatusText: String(derived?.census?.raceFootprintStatusText || "").trim(),
+      assumptionProvenanceStatusText: String(derived?.census?.assumptionProvenanceStatusText || "").trim(),
+      footprintCapacityStatusText: String(derived?.census?.footprintCapacityStatusText || "").trim(),
+      applyAdjustmentsStatusText: String(derived?.census?.applyAdjustmentsStatusText || "").trim(),
+      advisoryStatusText: String(derived?.census?.advisoryStatusText || "").trim(),
+      electionCsvGuideStatusText: String(derived?.census?.electionCsvGuideStatusText || "").trim(),
+      electionCsvDryRunStatusText: String(derived?.census?.electionCsvDryRunStatusText || "").trim(),
+      electionCsvPreviewMetaText: String(derived?.census?.electionCsvPreviewMetaText || "").trim(),
+      mapStatusText: String(derived?.census?.mapStatusText || "").trim(),
+      mapQaVtdZipStatusText: String(derived?.census?.mapQaVtdZipStatusText || "").trim(),
+      aggregateRows: Array.isArray(derived?.census?.aggregateRows) ? derived.census.aggregateRows : [],
+      advisoryRows: Array.isArray(derived?.census?.advisoryRows) ? derived.census.advisoryRows : [],
+      electionPreviewRows: Array.isArray(derived?.census?.electionPreviewRows) ? derived.census.electionPreviewRows : [],
+      config: canonical?.census?.config && typeof canonical.census.config === "object"
+        ? canonical.census.config
+        : {},
+    },
+    controls: canonical?.controls && typeof canonical.controls === "object"
+      ? canonical.controls
+      : { locked: false, disabledMap: {} },
     canonical,
     derived,
   };
@@ -4424,7 +4490,7 @@ function districtBridgeTemplateDimensionsFromState(srcState, overrides = {}){
 
 function districtBridgeApplyTemplateDefaults(mode = "all"){
   if (isScenarioLockedForEdits(state)){
-    return { ok: false, code: "locked", view: districtBridgeStateView() };
+    return { ok: false, code: "locked", view: districtBridgeCombinedView() };
   }
   const requestedMode = cleanText(mode);
   let applyResult = { ok: false, code: "unknown" };
@@ -4441,7 +4507,7 @@ function districtBridgeApplyTemplateDefaults(mode = "all"){
     return {
       ok: false,
       code: String(applyResult?.code || "apply_failed"),
-      view: districtBridgeStateView(),
+      view: districtBridgeCombinedView(),
     };
   }
   return {
@@ -4451,17 +4517,17 @@ function districtBridgeApplyTemplateDefaults(mode = "all"){
     updatedFields: Array.isArray(applyResult.updatedFields) ? applyResult.updatedFields.slice() : [],
     skippedFields: Array.isArray(applyResult.skippedFields) ? applyResult.skippedFields.slice() : [],
     templateId: String(applyResult.templateId || "").trim(),
-    view: districtBridgeStateView(),
+    view: districtBridgeCombinedView(),
   };
 }
 
 function districtBridgeSetFormField(field, rawValue){
   if (isScenarioLockedForEdits(state)){
-    return { ok: false, code: "locked", view: districtBridgeStateView() };
+    return { ok: false, code: "locked", view: districtBridgeCombinedView() };
   }
   const key = cleanText(field);
   if (!key){
-    return { ok: false, code: "missing_field", view: districtBridgeStateView() };
+    return { ok: false, code: "missing_field", view: districtBridgeCombinedView() };
   }
 
   let applied = false;
@@ -4633,29 +4699,29 @@ function districtBridgeSetFormField(field, rawValue){
     }
   }
 
-  return { ok: applied, view: districtBridgeStateView() };
+  return { ok: applied, view: districtBridgeCombinedView() };
 }
 
 function districtBridgeAddCandidate(){
   if (isScenarioLockedForEdits(state)){
-    return { ok: false, code: "locked", view: districtBridgeStateView() };
+    return { ok: false, code: "locked", view: districtBridgeCombinedView() };
   }
   mutateState((next) => {
     if (!Array.isArray(next.candidates)) next.candidates = [];
     const labelChar = String.fromCharCode(65 + next.candidates.length);
     next.candidates.push({ id: uid(), name: `Candidate ${labelChar}`, supportPct: 0 });
   });
-  return { ok: true, view: districtBridgeStateView() };
+  return { ok: true, view: districtBridgeCombinedView() };
 }
 
 function districtBridgeUpdateCandidate(candidateId, field, rawValue){
   if (isScenarioLockedForEdits(state)){
-    return { ok: false, code: "locked", view: districtBridgeStateView() };
+    return { ok: false, code: "locked", view: districtBridgeCombinedView() };
   }
   const id = cleanText(candidateId);
   const key = cleanText(field);
   if (!id || !key){
-    return { ok: false, code: "missing_candidate_field", view: districtBridgeStateView() };
+    return { ok: false, code: "missing_candidate_field", view: districtBridgeCombinedView() };
   }
 
   let applied = false;
@@ -4676,16 +4742,16 @@ function districtBridgeUpdateCandidate(candidateId, field, rawValue){
     }
   });
 
-  return { ok: applied, view: districtBridgeStateView() };
+  return { ok: applied, view: districtBridgeCombinedView() };
 }
 
 function districtBridgeRemoveCandidate(candidateId){
   if (isScenarioLockedForEdits(state)){
-    return { ok: false, code: "locked", view: districtBridgeStateView() };
+    return { ok: false, code: "locked", view: districtBridgeCombinedView() };
   }
   const id = cleanText(candidateId);
   if (!id){
-    return { ok: false, code: "missing_candidate", view: districtBridgeStateView() };
+    return { ok: false, code: "missing_candidate", view: districtBridgeCombinedView() };
   }
 
   let applied = false;
@@ -4703,16 +4769,16 @@ function districtBridgeRemoveCandidate(candidateId){
     applied = true;
   });
 
-  return { ok: applied, view: districtBridgeStateView() };
+  return { ok: applied, view: districtBridgeCombinedView() };
 }
 
 function districtBridgeSetUserSplit(candidateId, rawValue){
   if (isScenarioLockedForEdits(state)){
-    return { ok: false, code: "locked", view: districtBridgeStateView() };
+    return { ok: false, code: "locked", view: districtBridgeCombinedView() };
   }
   const id = cleanText(candidateId);
   if (!id){
-    return { ok: false, code: "missing_candidate", view: districtBridgeStateView() };
+    return { ok: false, code: "missing_candidate", view: districtBridgeCombinedView() };
   }
 
   let applied = false;
@@ -4722,7 +4788,7 @@ function districtBridgeSetUserSplit(candidateId, rawValue){
     applied = true;
   });
 
-  return { ok: applied, view: districtBridgeStateView() };
+  return { ok: applied, view: districtBridgeCombinedView() };
 }
 
 function districtBridgeCandidateHistoryRecordPatch(record, key, rawValue){
@@ -4778,7 +4844,7 @@ function districtBridgeCandidateHistoryRecordPatch(record, key, rawValue){
 
 function districtBridgeAddCandidateHistoryRecord(){
   if (isScenarioLockedForEdits(state)){
-    return { ok: false, code: "locked", view: districtBridgeStateView() };
+    return { ok: false, code: "locked", view: districtBridgeCombinedView() };
   }
 
   mutateState((next) => {
@@ -4799,17 +4865,17 @@ function districtBridgeAddCandidateHistoryRecord(){
     });
     next.candidateHistory = normalizeCandidateHistoryRecords(current, { uidFn: uid });
   });
-  return { ok: true, view: districtBridgeStateView() };
+  return { ok: true, view: districtBridgeCombinedView() };
 }
 
 function districtBridgeUpdateCandidateHistoryRecord(recordId, field, rawValue){
   if (isScenarioLockedForEdits(state)){
-    return { ok: false, code: "locked", view: districtBridgeStateView() };
+    return { ok: false, code: "locked", view: districtBridgeCombinedView() };
   }
   const id = cleanText(recordId);
   const key = cleanText(field);
   if (!id || !key){
-    return { ok: false, code: "missing_candidate_history_field", view: districtBridgeStateView() };
+    return { ok: false, code: "missing_candidate_history_field", view: districtBridgeCombinedView() };
   }
 
   let applied = false;
@@ -4820,16 +4886,16 @@ function districtBridgeUpdateCandidateHistoryRecord(recordId, field, rawValue){
     applied = districtBridgeCandidateHistoryRecordPatch(target, key, rawValue) || applied;
     next.candidateHistory = normalizeCandidateHistoryRecords(rows, { uidFn: uid });
   });
-  return { ok: applied, view: districtBridgeStateView() };
+  return { ok: applied, view: districtBridgeCombinedView() };
 }
 
 function districtBridgeRemoveCandidateHistoryRecord(recordId){
   if (isScenarioLockedForEdits(state)){
-    return { ok: false, code: "locked", view: districtBridgeStateView() };
+    return { ok: false, code: "locked", view: districtBridgeCombinedView() };
   }
   const id = cleanText(recordId);
   if (!id){
-    return { ok: false, code: "missing_candidate_history_id", view: districtBridgeStateView() };
+    return { ok: false, code: "missing_candidate_history_id", view: districtBridgeCombinedView() };
   }
 
   let applied = false;
@@ -4840,7 +4906,7 @@ function districtBridgeRemoveCandidateHistoryRecord(recordId){
     next.candidateHistory = normalizeCandidateHistoryRecords(remaining, { uidFn: uid });
     applied = true;
   });
-  return { ok: applied, view: districtBridgeStateView() };
+  return { ok: applied, view: districtBridgeCombinedView() };
 }
 
 function districtBridgeDownloadTextFile(text, filename, mime){
@@ -4861,11 +4927,11 @@ function districtBridgeDownloadTextFile(text, filename, mime){
 
 function districtBridgeSetTargetingField(field, rawValue){
   if (isScenarioLockedForEdits(state)){
-    return { ok: false, code: "locked", view: districtBridgeStateView() };
+    return { ok: false, code: "locked", view: districtBridgeCombinedView() };
   }
   const key = cleanText(field);
   if (!key){
-    return { ok: false, code: "missing_field", view: districtBridgeStateView() };
+    return { ok: false, code: "missing_field", view: districtBridgeCombinedView() };
   }
 
   let applied = false;
@@ -4878,18 +4944,18 @@ function districtBridgeSetTargetingField(field, rawValue){
   });
 
   if (!applied){
-    return { ok: false, code: "ignored", view: districtBridgeStateView() };
+    return { ok: false, code: "ignored", view: districtBridgeCombinedView() };
   }
-  return { ok: true, view: districtBridgeStateView() };
+  return { ok: true, view: districtBridgeCombinedView() };
 }
 
 function districtBridgeApplyTargetingPreset(modelId){
   if (isScenarioLockedForEdits(state)){
-    return { ok: false, code: "locked", view: districtBridgeStateView() };
+    return { ok: false, code: "locked", view: districtBridgeCombinedView() };
   }
   const nextModelId = cleanText(modelId);
   if (!nextModelId){
-    return { ok: false, code: "missing_model", view: districtBridgeStateView() };
+    return { ok: false, code: "missing_model", view: districtBridgeCombinedView() };
   }
 
   mutateState((next) => {
@@ -4899,12 +4965,12 @@ function districtBridgeApplyTargetingPreset(modelId){
     }
     applyTargetModelPreset(targeting, nextModelId);
   });
-  return { ok: true, view: districtBridgeStateView() };
+  return { ok: true, view: districtBridgeCombinedView() };
 }
 
 function districtBridgeResetTargetingWeights(){
   if (isScenarioLockedForEdits(state)){
-    return { ok: false, code: "locked", view: districtBridgeStateView() };
+    return { ok: false, code: "locked", view: districtBridgeCombinedView() };
   }
 
   mutateState((next) => {
@@ -4914,12 +4980,12 @@ function districtBridgeResetTargetingWeights(){
     }
     resetTargetingWeightsToPreset(targeting, cleanText(targeting.presetId) || cleanText(targeting.modelId));
   });
-  return { ok: true, view: districtBridgeStateView() };
+  return { ok: true, view: districtBridgeCombinedView() };
 }
 
 function districtBridgeRunTargeting(){
   if (isScenarioLockedForEdits(state)){
-    return { ok: false, code: "locked", view: districtBridgeStateView() };
+    return { ok: false, code: "locked", view: districtBridgeCombinedView() };
   }
   const runtimeRows = getCensusRowsForState(state?.census);
   const loadedCount = Object.keys(runtimeRows && typeof runtimeRows === "object" ? runtimeRows : {}).length;
@@ -4929,7 +4995,7 @@ function districtBridgeRunTargeting(){
       next.census.status = TARGETING_STATUS_LOAD_ROWS_FIRST;
       next.census.error = next.census.status;
     });
-    return { ok: false, code: "no_rows", view: districtBridgeStateView() };
+    return { ok: false, code: "no_rows", view: districtBridgeCombinedView() };
   }
 
   let runResult = null;
@@ -4963,19 +5029,19 @@ function districtBridgeRunTargeting(){
   });
 
   if (runError){
-    return { ok: false, code: "run_failed", view: districtBridgeStateView() };
+    return { ok: false, code: "run_failed", view: districtBridgeCombinedView() };
   }
-  return { ok: true, view: districtBridgeStateView() };
+  return { ok: true, view: districtBridgeCombinedView() };
 }
 
 function districtBridgeExportTargetingCsv(){
   if (isScenarioLockedForEdits(state)){
-    return { ok: false, code: "locked", view: districtBridgeStateView() };
+    return { ok: false, code: "locked", view: districtBridgeCombinedView() };
   }
   const targeting = districtBridgeEnsureTargetingState(state);
   const rows = Array.isArray(targeting?.lastRows) ? targeting.lastRows : [];
   if (!rows.length){
-    return { ok: false, code: "no_rows", view: districtBridgeStateView() };
+    return { ok: false, code: "no_rows", view: districtBridgeCombinedView() };
   }
   const file = buildTargetRankingExportFilename({
     presetId: cleanText(targeting?.presetId),
@@ -4984,17 +5050,17 @@ function districtBridgeExportTargetingCsv(){
   });
   const csv = buildTargetRankingCsv(rows);
   const ok = districtBridgeDownloadTextFile(csv, file, "text/csv");
-  return { ok, code: ok ? "exported" : "export_failed", view: districtBridgeStateView() };
+  return { ok, code: ok ? "exported" : "export_failed", view: districtBridgeCombinedView() };
 }
 
 function districtBridgeExportTargetingJson(){
   if (isScenarioLockedForEdits(state)){
-    return { ok: false, code: "locked", view: districtBridgeStateView() };
+    return { ok: false, code: "locked", view: districtBridgeCombinedView() };
   }
   const targeting = districtBridgeEnsureTargetingState(state);
   const rows = Array.isArray(targeting?.lastRows) ? targeting.lastRows : [];
   if (!rows.length){
-    return { ok: false, code: "no_rows", view: districtBridgeStateView() };
+    return { ok: false, code: "no_rows", view: districtBridgeCombinedView() };
   }
   const payload = buildTargetRankingPayload({
     rows,
@@ -5007,99 +5073,99 @@ function districtBridgeExportTargetingJson(){
     extension: "json",
   });
   const ok = districtBridgeDownloadTextFile(JSON.stringify(payload, null, 2), file, "application/json");
-  return { ok, code: ok ? "exported" : "export_failed", view: districtBridgeStateView() };
+  return { ok, code: ok ? "exported" : "export_failed", view: districtBridgeCombinedView() };
 }
 
 function districtBridgeSetCensusField(field, rawValue){
   const key = cleanText(field);
   if (!key){
-    return { ok: false, code: "missing_field", view: districtBridgeStateView() };
+    return { ok: false, code: "missing_field", view: districtBridgeCombinedView() };
   }
   const runtimeResult = districtBridgeCallCensusRuntime("setField", key, rawValue);
   if (runtimeResult && typeof runtimeResult === "object"){
     if (runtimeResult.ok === true){
-      return { ok: true, code: "updated_runtime", view: districtBridgeStateView() };
+      return { ok: true, code: "updated_runtime", view: districtBridgeCombinedView() };
     }
     const bridgePatched = districtBridgePatchCensusBridgeField(key, rawValue);
     if (bridgePatched){
       return {
         ok: true,
         code: cleanText(runtimeResult.code) || "runtime_unavailable_fallback",
-        view: districtBridgeStateView(),
+        view: districtBridgeCombinedView(),
       };
     }
     return {
       ok: false,
       code: cleanText(runtimeResult.code) || "runtime_unavailable",
-      view: districtBridgeStateView(),
+      view: districtBridgeCombinedView(),
     };
   }
   const bridgePatched = districtBridgePatchCensusBridgeField(key, rawValue);
   if (bridgePatched){
-    return { ok: true, code: "updated_bridge_state", view: districtBridgeStateView() };
+    return { ok: true, code: "updated_bridge_state", view: districtBridgeCombinedView() };
   }
-  return { ok: false, code: "runtime_unavailable", view: districtBridgeStateView() };
+  return { ok: false, code: "runtime_unavailable", view: districtBridgeCombinedView() };
 }
 
 function districtBridgeSetCensusGeoSelection(values){
   const runtimeResult = districtBridgeCallCensusRuntime("setGeoSelection", values);
   if (runtimeResult && typeof runtimeResult === "object"){
     if (runtimeResult.ok === true){
-      return { ok: true, code: "updated_runtime", view: districtBridgeStateView() };
+      return { ok: true, code: "updated_runtime", view: districtBridgeCombinedView() };
     }
     const patched = districtBridgePatchCensusGeoSelection(values);
     if (patched){
       return {
         ok: true,
         code: cleanText(runtimeResult.code) || "runtime_unavailable_fallback",
-        view: districtBridgeStateView(),
+        view: districtBridgeCombinedView(),
       };
     }
     return {
       ok: false,
       code: cleanText(runtimeResult.code) || "runtime_unavailable",
-      view: districtBridgeStateView(),
+      view: districtBridgeCombinedView(),
     };
   }
   const patched = districtBridgePatchCensusGeoSelection(values);
   if (patched){
-    return { ok: true, code: "updated_bridge_state", view: districtBridgeStateView() };
+    return { ok: true, code: "updated_bridge_state", view: districtBridgeCombinedView() };
   }
-  return { ok: false, code: "runtime_unavailable", view: districtBridgeStateView() };
+  return { ok: false, code: "runtime_unavailable", view: districtBridgeCombinedView() };
 }
 
 function districtBridgeSetCensusFile(field, filesLike){
   const key = cleanText(field);
   if (!key){
-    return { ok: false, code: "missing_field", view: districtBridgeStateView() };
+    return { ok: false, code: "missing_field", view: districtBridgeCombinedView() };
   }
   const runtimeResult = districtBridgeCallCensusRuntime("setFile", key, filesLike);
   if (runtimeResult && typeof runtimeResult === "object"){
     if (runtimeResult.ok === true){
-      return { ok: true, code: "updated_runtime", view: districtBridgeStateView() };
+      return { ok: true, code: "updated_runtime", view: districtBridgeCombinedView() };
     }
     return {
       ok: false,
       code: cleanText(runtimeResult.code) || "runtime_unavailable",
-      view: districtBridgeStateView(),
+      view: districtBridgeCombinedView(),
     };
   }
-  return { ok: false, code: "runtime_unavailable", view: districtBridgeStateView() };
+  return { ok: false, code: "runtime_unavailable", view: districtBridgeCombinedView() };
 }
 
 function districtBridgeTriggerCensusAction(action){
   const runtimeResult = districtBridgeCallCensusRuntime("triggerAction", action);
   if (runtimeResult && typeof runtimeResult === "object"){
     if (runtimeResult.ok === true){
-      return { ok: true, code: "triggered_runtime", view: districtBridgeStateView() };
+      return { ok: true, code: "triggered_runtime", view: districtBridgeCombinedView() };
     }
     return {
       ok: false,
       code: cleanText(runtimeResult.code) || "runtime_unavailable",
-      view: districtBridgeStateView(),
+      view: districtBridgeCombinedView(),
     };
   }
-  return { ok: false, code: "runtime_unavailable", view: districtBridgeStateView() };
+  return { ok: false, code: "runtime_unavailable", view: districtBridgeCombinedView() };
 }
 
 const REACH_OVERRIDE_MODE_OPTIONS = [
@@ -6517,7 +6583,7 @@ function outcomeBridgeApplySurfaceField(field, rawValue){
   if (OUTCOME_SURFACE_SELECT_FIELDS.has(field)){
     const normalized = outcomeBridgeNormalizeSelect(field, rawValue);
     if (!normalized.ok){
-      return { ok: false, code: normalized.code, view: outcomeBridgeStateView() };
+      return { ok: false, code: normalized.code, view: outcomeBridgeCombinedView() };
     }
     next[field] = normalized.value;
     if (field === "surfaceLever"){
@@ -6538,105 +6604,23 @@ function outcomeBridgeApplySurfaceField(field, rawValue){
       outcomeBridgeSyncLegacyControl("surfaceMin", next.surfaceMin);
       outcomeBridgeSyncLegacyControl("surfaceMax", next.surfaceMax);
     }
-    return { ok: true, view: outcomeBridgeStateView() };
+    return { ok: true, view: outcomeBridgeCombinedView() };
   }
 
   const normalized = outcomeBridgeNormalizeNumber(field, rawValue);
   if (!normalized.ok){
-    return { ok: false, code: normalized.code, view: outcomeBridgeStateView() };
+    return { ok: false, code: normalized.code, view: outcomeBridgeCombinedView() };
   }
   next[field] = normalized.value === "" ? "" : String(normalized.value);
   setState((target) => {
     outcomeBridgeWriteSurfaceInputs(target, next);
   });
   outcomeBridgeSyncLegacyControl(field, next[field]);
-  return { ok: true, view: outcomeBridgeStateView() };
+  return { ok: true, view: outcomeBridgeCombinedView() };
 }
 
-function outcomeBridgeStateView(){
+function outcomeBridgeCanonicalView(){
   const locked = isScenarioLockedForEdits(state);
-  const mc = state?.mcLast;
-  const ce = mc?.confidenceEnvelope || null;
-  const percentiles = ce?.percentiles || {};
-  const risk = ce?.risk || {};
-  const fragility = risk?.fragility || {};
-  const advisor = risk?.advisor || {};
-  const mcMeta = (state?.ui && typeof state.ui === "object" && state.ui.mcMeta && typeof state.ui.mcMeta === "object")
-    ? state.ui.mcMeta
-    : null;
-  let governance = (state?.ui && typeof state.ui === "object" && state.ui.lastGovernanceSnapshot && typeof state.ui.lastGovernanceSnapshot === "object")
-    ? { ...state.ui.lastGovernanceSnapshot }
-    : null;
-  try{
-    const benchmarkWarnings = (engine?.snapshot?.computeAssumptionBenchmarkWarnings)
-      ? engine.snapshot.computeAssumptionBenchmarkWarnings(state, "Benchmark")
-      : [];
-    const driftSummary = computeRealityDrift();
-    const realism = runRealismEngine({
-      state,
-      res: lastRenderCtx?.res || {},
-      weeks: lastRenderCtx?.weeks,
-      driftSummary,
-    });
-    const evidenceWarnings = computeEvidenceWarnings(state, { limit: 3, staleDays: 30 });
-    const full = computeModelGovernance({
-      state,
-      res: lastRenderCtx?.res || {},
-      benchmarkWarnings,
-      evidenceWarnings,
-      driftSummary,
-      realism,
-    });
-    if (full && typeof full === "object"){
-      governance = buildGovernanceSnapshotView(full);
-      if (!state.ui || typeof state.ui !== "object"){
-        state.ui = {};
-      }
-      state.ui.lastRealismSnapshot = realism;
-      state.ui.lastGovernance = full;
-      state.ui.lastGovernanceSnapshot = { ...governance };
-    }
-  } catch {
-    governance = null;
-  }
-
-  let mcLastRun = "";
-  if (mcMeta?.lastRunAt){
-    try{
-      mcLastRun = new Date(mcMeta.lastRunAt).toLocaleString();
-    } catch {
-      mcLastRun = String(mcMeta.lastRunAt || "");
-    }
-  }
-
-  const mcFreshTag = !mc
-    ? "MC pending"
-    : (mcMeta?.isStale ? "Stale" : "Fresh");
-  const mcStaleTag = !mc
-    ? "No run yet"
-    : (mcMeta?.isStale ? String(mcMeta.staleReason || "inputs changed") : "Current");
-
-  const sensitivityRowsRaw = Array.isArray(state?.ui?.lastOutcomeSensitivityRows)
-    ? state.ui.lastOutcomeSensitivityRows
-    : [];
-  const sensitivityRows = sensitivityRowsRaw.map((row) => ({
-    label: String(row?.label || ""),
-    impact: safeNum(row?.impact),
-  }));
-
-  const surfaceRowsRaw = Array.isArray(state?.ui?.lastOutcomeSurfaceRows)
-    ? state.ui.lastOutcomeSurfaceRows
-    : [];
-  const surfaceRows = surfaceRowsRaw.map((row) => ({
-    leverValue: row?.leverValue ?? "",
-    winProb: safeNum(row?.winProb),
-    p10: safeNum(row?.p10),
-    p50: safeNum(row?.p50),
-    p90: safeNum(row?.p90),
-  }));
-
-  const surfaceStatusText = String(state?.ui?.lastOutcomeSurfaceStatus || "").trim();
-  const surfaceSummaryText = String(state?.ui?.lastOutcomeSurfaceSummary || "").trim();
   const mcModeOptions = outcomeBridgeReadSelectOptions("mcMode");
   const mcVolatilityOptions = outcomeBridgeReadSelectOptions("mcVolatility");
   const surfaceLeverOptions = outcomeBridgeReadSelectOptions("surfaceLever");
@@ -6660,10 +6644,6 @@ function outcomeBridgeStateView(){
     surfaceMode,
   };
   const surfaceComputing = !!(state?.ui && state.ui.outcomeSurfaceComputing);
-  const runButton = els?.mcRun instanceof HTMLButtonElement ? els.mcRun : null;
-  const rerunButton = els?.mcRerun instanceof HTMLButtonElement ? els.mcRerun : null;
-  const surfaceButton = els?.btnComputeSurface instanceof HTMLButtonElement ? els.btnComputeSurface : null;
-  const surfaceDisabled = surfaceComputing || !!surfaceButton?.disabled;
 
   return {
     inputs: {
@@ -6711,10 +6691,98 @@ function outcomeBridgeStateView(){
     },
     controls: {
       locked,
-      runDisabled: !!(runButton?.disabled || locked),
-      rerunDisabled: !!(rerunButton?.disabled || locked),
-      surfaceDisabled,
+      runDisabled: locked,
+      rerunDisabled: locked,
+      surfaceDisabled: locked || surfaceComputing,
     },
+  };
+}
+
+function outcomeBridgeDerivedGovernanceView(){
+  const mc = state?.mcLast;
+  let governance = (state?.ui && typeof state.ui === "object" && state.ui.lastGovernanceSnapshot && typeof state.ui.lastGovernanceSnapshot === "object")
+    ? { ...state.ui.lastGovernanceSnapshot }
+    : null;
+  try{
+    const benchmarkWarnings = (engine?.snapshot?.computeAssumptionBenchmarkWarnings)
+      ? engine.snapshot.computeAssumptionBenchmarkWarnings(state, "Benchmark")
+      : [];
+    const driftSummary = computeRealityDrift();
+    const realism = runRealismEngine({
+      state,
+      res: lastRenderCtx?.res || {},
+      weeks: lastRenderCtx?.weeks,
+      driftSummary,
+    });
+    const evidenceWarnings = computeEvidenceWarnings(state, { limit: 3, staleDays: 30 });
+    const full = computeModelGovernance({
+      state,
+      res: lastRenderCtx?.res || {},
+      benchmarkWarnings,
+      evidenceWarnings,
+      driftSummary,
+      realism,
+    });
+    if (full && typeof full === "object"){
+      governance = buildGovernanceSnapshotView(full);
+    }
+  } catch {
+    governance = null;
+  }
+  return governance;
+}
+
+function outcomeBridgeDerivedView(){
+  const mc = state?.mcLast;
+  const ce = mc?.confidenceEnvelope || null;
+  const percentiles = ce?.percentiles || {};
+  const risk = ce?.risk || {};
+  const fragility = risk?.fragility || {};
+  const advisor = risk?.advisor || {};
+  const mcMeta = (state?.ui && typeof state.ui === "object" && state.ui.mcMeta && typeof state.ui.mcMeta === "object")
+    ? state.ui.mcMeta
+    : null;
+  const governance = outcomeBridgeDerivedGovernanceView();
+
+  let mcLastRun = "";
+  if (mcMeta?.lastRunAt){
+    try{
+      mcLastRun = new Date(mcMeta.lastRunAt).toLocaleString();
+    } catch {
+      mcLastRun = String(mcMeta.lastRunAt || "");
+    }
+  }
+
+  const mcFreshTag = !mc
+    ? "MC pending"
+    : (mcMeta?.isStale ? "Stale" : "Fresh");
+  const mcStaleTag = !mc
+    ? "No run yet"
+    : (mcMeta?.isStale ? String(mcMeta.staleReason || "inputs changed") : "Current");
+
+  const sensitivityRowsRaw = Array.isArray(state?.ui?.lastOutcomeSensitivityRows)
+    ? state.ui.lastOutcomeSensitivityRows
+    : [];
+  const sensitivityRows = sensitivityRowsRaw.map((row) => ({
+    label: String(row?.label || ""),
+    impact: safeNum(row?.impact),
+  }));
+
+  const surfaceRowsRaw = Array.isArray(state?.ui?.lastOutcomeSurfaceRows)
+    ? state.ui.lastOutcomeSurfaceRows
+    : [];
+  const surfaceRows = surfaceRowsRaw.map((row) => ({
+    leverValue: row?.leverValue ?? "",
+    winProb: safeNum(row?.winProb),
+    p10: safeNum(row?.p10),
+    p50: safeNum(row?.p50),
+    p90: safeNum(row?.p90),
+  }));
+
+  const surfaceStatusText = String(state?.ui?.lastOutcomeSurfaceStatus || "").trim();
+  const surfaceSummaryText = String(state?.ui?.lastOutcomeSurfaceSummary || "").trim();
+
+  return {
     mc: {
       winProb: safeNum(mc?.winProb),
       p10: safeNum(percentiles?.p10),
@@ -6748,6 +6816,30 @@ function outcomeBridgeStateView(){
   };
 }
 
+function outcomeBridgeCombinedView(){
+  const canonical = outcomeBridgeCanonicalView();
+  const derived = outcomeBridgeDerivedView();
+  return {
+    inputs: canonical?.inputs && typeof canonical.inputs === "object" ? canonical.inputs : {},
+    options: canonical?.options && typeof canonical.options === "object" ? canonical.options : {},
+    controls: canonical?.controls && typeof canonical.controls === "object"
+      ? canonical.controls
+      : { locked: false, runDisabled: false, rerunDisabled: false, surfaceDisabled: false },
+    mc: derived?.mc && typeof derived.mc === "object" ? derived.mc : {},
+    governance: derived?.governance && typeof derived.governance === "object" ? derived.governance : null,
+    sensitivityRows: Array.isArray(derived?.sensitivityRows) ? derived.sensitivityRows : [],
+    surfaceRows: Array.isArray(derived?.surfaceRows) ? derived.surfaceRows : [],
+    surfaceStatusText: String(derived?.surfaceStatusText || "").trim(),
+    surfaceSummaryText: String(derived?.surfaceSummaryText || "").trim(),
+    canonical,
+    derived,
+  };
+}
+
+function outcomeBridgeStateView(){
+  return outcomeBridgeCombinedView();
+}
+
 function outcomeBridgeBuildSurfaceSummaryText({ spec, result, targetPercent } = {}){
   return buildOutcomeSurfaceSummaryText({
     spec,
@@ -6759,7 +6851,7 @@ function outcomeBridgeBuildSurfaceSummaryText({ spec, result, targetPercent } = 
 function outcomeBridgeSetField(field, rawValue){
   const key = String(field || "").trim();
   if (!key){
-    return { ok: false, code: "invalid_field", view: outcomeBridgeStateView() };
+    return { ok: false, code: "invalid_field", view: outcomeBridgeCombinedView() };
   }
 
   if (OUTCOME_SURFACE_SELECT_FIELDS.has(key) || OUTCOME_SURFACE_NUMERIC_FIELDS.has(key)){
@@ -6767,17 +6859,17 @@ function outcomeBridgeSetField(field, rawValue){
   }
 
   if (!OUTCOME_MODEL_SELECT_FIELDS.has(key) && !OUTCOME_TEXT_FIELDS.has(key) && !OUTCOME_MODEL_NUMERIC_FIELDS.has(key)){
-    return { ok: false, code: "invalid_field", view: outcomeBridgeStateView() };
+    return { ok: false, code: "invalid_field", view: outcomeBridgeCombinedView() };
   }
 
   if (isScenarioLockedForEdits(state)){
-    return { ok: false, code: "locked", view: outcomeBridgeStateView() };
+    return { ok: false, code: "locked", view: outcomeBridgeCombinedView() };
   }
 
   if (OUTCOME_MODEL_SELECT_FIELDS.has(key)){
     const normalized = outcomeBridgeNormalizeSelect(key, rawValue);
     if (!normalized.ok){
-      return { ok: false, code: normalized.code, view: outcomeBridgeStateView() };
+      return { ok: false, code: normalized.code, view: outcomeBridgeCombinedView() };
     }
     mutateState((next) => {
       if (key === "mcMode"){
@@ -6790,7 +6882,7 @@ function outcomeBridgeSetField(field, rawValue){
       syncMcModeUI();
     }
     markMcStale();
-    return { ok: true, view: outcomeBridgeStateView() };
+    return { ok: true, view: outcomeBridgeCombinedView() };
   }
 
   if (OUTCOME_TEXT_FIELDS.has(key)){
@@ -6801,12 +6893,12 @@ function outcomeBridgeSetField(field, rawValue){
       }
     });
     markMcStale();
-    return { ok: true, view: outcomeBridgeStateView() };
+    return { ok: true, view: outcomeBridgeCombinedView() };
   }
 
   const normalized = outcomeBridgeNormalizeNumber(key, rawValue);
   if (!normalized.ok){
-    return { ok: false, code: normalized.code, view: outcomeBridgeStateView() };
+    return { ok: false, code: normalized.code, view: outcomeBridgeCombinedView() };
   }
   mutateState((next) => {
     const value = normalized.value;
@@ -6863,23 +6955,23 @@ function outcomeBridgeSetField(field, rawValue){
     }
   });
   markMcStale();
-  return { ok: true, view: outcomeBridgeStateView() };
+  return { ok: true, view: outcomeBridgeCombinedView() };
 }
 
 function outcomeBridgeRunMc(){
   if (isScenarioLockedForEdits(state)){
-    return { ok: false, code: "locked", view: outcomeBridgeStateView() };
+    return { ok: false, code: "locked", view: outcomeBridgeCombinedView() };
   }
   runMonteCarloNow();
-  return { ok: true, view: outcomeBridgeStateView() };
+  return { ok: true, view: outcomeBridgeCombinedView() };
 }
 
 function outcomeBridgeRerunMc(){
   if (isScenarioLockedForEdits(state)){
-    return { ok: false, code: "locked", view: outcomeBridgeStateView() };
+    return { ok: false, code: "locked", view: outcomeBridgeCombinedView() };
   }
   runMonteCarloNow();
-  return { ok: true, view: outcomeBridgeStateView() };
+  return { ok: true, view: outcomeBridgeCombinedView() };
 }
 
 function outcomeBridgeComputeSurface(){
@@ -6895,7 +6987,7 @@ function outcomeBridgeComputeSurface(){
         summaryText: String(next?.ui?.lastOutcomeSurfaceSummary || "").trim(),
       });
     });
-    return { ok: false, code: "invalid_value", view: outcomeBridgeStateView() };
+    return { ok: false, code: "invalid_value", view: outcomeBridgeCombinedView() };
   }
 
   const minV = surfaceClamp(surfaceInputs.surfaceMin, spec.clampLo, spec.clampHi);
@@ -6972,7 +7064,7 @@ function outcomeBridgeComputeSurface(){
         summaryText,
       });
     });
-    return { ok: true, view: outcomeBridgeStateView() };
+    return { ok: true, view: outcomeBridgeCombinedView() };
   } catch (err){
     const errText = err?.message ? err.message : String(err || "Error");
     setState((next) => {
@@ -6983,13 +7075,15 @@ function outcomeBridgeComputeSurface(){
         summaryText: String(next?.ui?.lastOutcomeSurfaceSummary || "").trim(),
       });
     });
-    return { ok: false, code: "runtime_error", view: outcomeBridgeStateView() };
+    return { ok: false, code: "runtime_error", view: outcomeBridgeCombinedView() };
   }
 }
 
 function installOutcomeBridge(){
   window[OUTCOME_BRIDGE_KEY] = {
-    getView: () => outcomeBridgeStateView(),
+    getCanonicalView: () => outcomeBridgeCanonicalView(),
+    getDerivedView: () => outcomeBridgeDerivedView(),
+    getView: () => outcomeBridgeCombinedView(),
     setField: (field, value) => outcomeBridgeSetField(field, value),
     runMc: () => outcomeBridgeRunMc(),
     rerunMc: () => outcomeBridgeRerunMc(),
