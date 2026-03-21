@@ -24,8 +24,11 @@ export function firstNonMissing(selectors = []) {
 }
 
 function readDistrictBridgeSummary() {
-  const view = readDistrictBridgeView();
-  const summary = view?.summary;
+  const derivedView = readDistrictDerivedBridgeView();
+  const canonicalView = readDistrictCanonicalBridgeView();
+  const summary = (derivedView?.summary && typeof derivedView.summary === "object")
+    ? derivedView.summary
+    : canonicalView?.summary;
   if (!summary || typeof summary !== "object") {
     return null;
   }
@@ -48,6 +51,52 @@ function readDistrictBridgeView() {
     }
     const view = api.getView();
     return view && typeof view === "object" ? view : null;
+  } catch {
+    return null;
+  }
+}
+
+function readDistrictCanonicalBridgeView() {
+  try {
+    const api = window[DISTRICT_API_KEY];
+    if (!api || typeof api !== "object") {
+      return null;
+    }
+    if (typeof api.getCanonicalView === "function") {
+      const view = api.getCanonicalView();
+      return view && typeof view === "object" ? view : null;
+    }
+    const view = readDistrictBridgeView();
+    if (!view || typeof view !== "object") {
+      return null;
+    }
+    if (view.canonical && typeof view.canonical === "object") {
+      return view.canonical;
+    }
+    return view;
+  } catch {
+    return null;
+  }
+}
+
+function readDistrictDerivedBridgeView() {
+  try {
+    const api = window[DISTRICT_API_KEY];
+    if (!api || typeof api !== "object") {
+      return null;
+    }
+    if (typeof api.getDerivedView === "function") {
+      const view = api.getDerivedView();
+      return view && typeof view === "object" ? view : null;
+    }
+    const view = readDistrictBridgeView();
+    if (!view || typeof view !== "object") {
+      return null;
+    }
+    if (view.derived && typeof view.derived === "object") {
+      return view.derived;
+    }
+    return view;
   } catch {
     return null;
   }
@@ -155,8 +204,8 @@ export function readDistrictSnapshot() {
 }
 
 export function readDistrictControlSnapshot() {
-  const view = readDistrictBridgeView();
-  const controls = view?.controls;
+  const canonicalView = readDistrictCanonicalBridgeView();
+  const controls = canonicalView?.controls;
   if (!controls || typeof controls !== "object") {
     return {
       locked: false,
@@ -170,9 +219,13 @@ export function readDistrictControlSnapshot() {
 }
 
 export function readDistrictTemplateSnapshot() {
-  const view = readDistrictBridgeView();
-  const template = view?.template;
-  if (!template || typeof template !== "object") {
+  const canonicalTemplate = readDistrictCanonicalBridgeView()?.template;
+  const derivedTemplate = readDistrictDerivedBridgeView()?.template;
+  const template = {
+    ...(derivedTemplate && typeof derivedTemplate === "object" ? derivedTemplate : {}),
+    ...(canonicalTemplate && typeof canonicalTemplate === "object" ? canonicalTemplate : {}),
+  };
+  if (!template || typeof template !== "object" || !Object.keys(template).length) {
     return null;
   }
   const overridden = Array.isArray(template.overriddenFields)
@@ -189,18 +242,28 @@ export function readDistrictTemplateSnapshot() {
     appliedVersion: String(template.appliedVersion || "").trim(),
     benchmarkKey: String(template.benchmarkKey || "").trim(),
     assumptionsProfile: String(template.assumptionsProfile || "").trim(),
-    candidateHistoryCoverageBand: String(template.candidateHistoryCoverageBand || "").trim(),
-    candidateHistoryConfidenceBand: String(template.candidateHistoryConfidenceBand || "").trim(),
-    candidateHistoryRecordCount: Number.isFinite(Number(template.candidateHistoryRecordCount))
-      ? Number(template.candidateHistoryRecordCount)
+    candidateHistoryCoverageBand: String(
+      derivedTemplate?.candidateHistoryCoverageBand
+      ?? template.candidateHistoryCoverageBand
+      ?? "",
+    ).trim(),
+    candidateHistoryConfidenceBand: String(
+      derivedTemplate?.candidateHistoryConfidenceBand
+      ?? template.candidateHistoryConfidenceBand
+      ?? "",
+    ).trim(),
+    candidateHistoryRecordCount: Number.isFinite(
+      Number(derivedTemplate?.candidateHistoryRecordCount ?? template.candidateHistoryRecordCount),
+    )
+      ? Number(derivedTemplate?.candidateHistoryRecordCount ?? template.candidateHistoryRecordCount)
       : 0,
     overriddenFields: overridden,
   };
 }
 
 export function readDistrictFormSnapshot() {
-  const view = readDistrictBridgeView();
-  const form = view?.form;
+  const canonicalView = readDistrictCanonicalBridgeView();
+  const form = canonicalView?.form;
   if (!form || typeof form !== "object") {
     return null;
   }
@@ -225,8 +288,20 @@ export function readDistrictFormSnapshot() {
 }
 
 export function readDistrictBallotSnapshot() {
-  const view = readDistrictBridgeView();
-  const ballot = view?.ballot;
+  const canonicalBallot = readDistrictCanonicalBridgeView()?.ballot;
+  const derivedBallot = readDistrictDerivedBridgeView()?.ballot;
+  const ballot = {
+    ...(derivedBallot && typeof derivedBallot === "object" ? derivedBallot : {}),
+    ...(canonicalBallot && typeof canonicalBallot === "object" ? canonicalBallot : {}),
+    candidateHistoryOptions: {
+      ...(derivedBallot?.candidateHistoryOptions && typeof derivedBallot.candidateHistoryOptions === "object"
+        ? derivedBallot.candidateHistoryOptions
+        : {}),
+      ...(canonicalBallot?.candidateHistoryOptions && typeof canonicalBallot.candidateHistoryOptions === "object"
+        ? canonicalBallot.candidateHistoryOptions
+        : {}),
+    },
+  };
   if (!ballot || typeof ballot !== "object") {
     return null;
   }
@@ -246,8 +321,8 @@ export function readDistrictBallotSnapshot() {
     yourCandidateId: String(ballot.yourCandidateId || "").trim(),
     undecidedPct: Number.isFinite(Number(ballot.undecidedPct)) ? Number(ballot.undecidedPct) : null,
     undecidedMode: String(ballot.undecidedMode || "").trim(),
-    supportTotalText: String(ballot.supportTotalText || "").trim(),
-    warningText: String(ballot.warningText || "").trim(),
+    supportTotalText: String(derivedBallot?.supportTotalText ?? ballot.supportTotalText ?? "").trim(),
+    warningText: String(derivedBallot?.warningText ?? ballot.warningText ?? "").trim(),
     userSplitVisible: !!ballot.userSplitVisible,
     candidates: candidatesRaw.map((row) => ({
       id: String(row?.id || "").trim(),
@@ -260,8 +335,12 @@ export function readDistrictBallotSnapshot() {
       name: String(row?.name || "").trim(),
       value: Number.isFinite(Number(row?.value)) ? Number(row.value) : null,
     })).filter((row) => row.id),
-    candidateHistorySummaryText: String(ballot.candidateHistorySummaryText || "").trim(),
-    candidateHistoryWarningText: String(ballot.candidateHistoryWarningText || "").trim(),
+    candidateHistorySummaryText: String(
+      derivedBallot?.candidateHistorySummaryText ?? ballot.candidateHistorySummaryText ?? "",
+    ).trim(),
+    candidateHistoryWarningText: String(
+      derivedBallot?.candidateHistoryWarningText ?? ballot.candidateHistoryWarningText ?? "",
+    ).trim(),
     candidateHistoryOptions: {
       electionType: normalizeOptionRows(historyOptions.electionType),
       incumbencyStatus: normalizeOptionRows(historyOptions.incumbencyStatus),
@@ -330,12 +409,30 @@ export function normalizeDistrictTargetingSnapshotFromView(view) {
 }
 
 export function readDistrictTargetingSnapshot() {
-  return normalizeDistrictTargetingSnapshotFromView(readDistrictBridgeView());
+  const canonicalTargeting = readDistrictCanonicalBridgeView()?.targeting;
+  const derivedTargeting = readDistrictDerivedBridgeView()?.targeting;
+  const targeting = {
+    ...(derivedTargeting && typeof derivedTargeting === "object" ? derivedTargeting : {}),
+    ...(canonicalTargeting && typeof canonicalTargeting === "object" ? canonicalTargeting : {}),
+    config: {
+      ...(derivedTargeting?.config && typeof derivedTargeting.config === "object" ? derivedTargeting.config : {}),
+      ...(canonicalTargeting?.config && typeof canonicalTargeting.config === "object" ? canonicalTargeting.config : {}),
+    },
+  };
+  return normalizeDistrictTargetingSnapshotFromView({ targeting });
 }
 
 export function readDistrictCensusSnapshot() {
-  const view = readDistrictBridgeView();
-  const census = view?.census;
+  const canonicalCensus = readDistrictCanonicalBridgeView()?.census;
+  const derivedCensus = readDistrictDerivedBridgeView()?.census;
+  const census = {
+    ...(derivedCensus && typeof derivedCensus === "object" ? derivedCensus : {}),
+    ...(canonicalCensus && typeof canonicalCensus === "object" ? canonicalCensus : {}),
+    config: {
+      ...(derivedCensus?.config && typeof derivedCensus.config === "object" ? derivedCensus.config : {}),
+      ...(canonicalCensus?.config && typeof canonicalCensus.config === "object" ? canonicalCensus.config : {}),
+    },
+  };
   if (!census || typeof census !== "object") {
     return null;
   }

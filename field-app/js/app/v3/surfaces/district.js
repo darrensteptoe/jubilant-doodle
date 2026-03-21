@@ -872,6 +872,10 @@ function handleDistrictMutationResult(result, { source = "" } = {}) {
     );
   }
 
+  if (ok) {
+    refreshDistrictCanonicalControls();
+  }
+
   return ok;
 }
 
@@ -916,8 +920,7 @@ function syncDistrictBridgeAvailability(hasBridgeView) {
   });
 }
 
-function refreshDistrictSummary() {
-  const snapshot = readDistrictSnapshot();
+function refreshDistrictCanonicalControls() {
   const controlSnapshot = readDistrictControlSnapshot();
   const templateSnapshot = readDistrictTemplateSnapshot();
   const formSnapshot = readDistrictFormSnapshot();
@@ -927,17 +930,8 @@ function refreshDistrictSummary() {
   const hasBridgeView = !!(formSnapshot || templateSnapshot || ballotSnapshot || targetingSnapshot || censusSnapshot);
   syncDistrictBridgeAvailability(hasBridgeView);
   if (!hasBridgeView) {
-    return;
+    return false;
   }
-
-  setText("v3DistrictUniverse", snapshot.universe);
-  setText("v3DistrictSupport", snapshot.baselineSupport);
-  setText("v3DistrictTurnout", snapshot.turnoutExpected);
-  setText("v3DistrictProjected", snapshot.projectedVotes);
-  setText("v3DistrictNeed", snapshot.persuasionNeed);
-  setText("v3DistrictTurnoutExpected", snapshot.turnoutExpected);
-  setText("v3DistrictTurnoutBand", snapshot.turnoutBand);
-  setText("v3DistrictVotesPer1pct", snapshot.votesPer1pct);
 
   if (ballotSnapshot) {
     syncDistrictBallotTopline(ballotSnapshot);
@@ -952,7 +946,6 @@ function refreshDistrictSummary() {
     syncSelectValueFromRaw("v3DistrictSeatContext", templateSnapshot?.seatContext);
     syncSelectValueFromRaw("v3DistrictPartisanshipMode", templateSnapshot?.partisanshipMode);
     syncSelectValueFromRaw("v3DistrictSalienceLevel", templateSnapshot?.salienceLevel);
-    syncDistrictTemplateProfile(templateSnapshot);
   }
   if (formSnapshot) {
     syncSelectValueFromRaw("v3DistrictRaceType", formSnapshot?.raceType);
@@ -974,14 +967,38 @@ function refreshDistrictSummary() {
   }
 
   syncDistrictStructureDerived();
+  syncDistrictTargetingControlState(targetingSnapshot);
+  syncDistrictCensusControlState(censusSnapshot);
+  syncDistrictCensusMessageTones();
+  syncCensusMapShellState();
+  applyDistrictBridgeDisabledMap(controlSnapshot?.disabledMap);
+  return true;
+}
+
+function refreshDistrictDerivedOutputs() {
+  const snapshot = readDistrictSnapshot();
+  const templateSnapshot = readDistrictTemplateSnapshot();
+  const targetingSnapshot = readDistrictTargetingSnapshot();
+  const censusSnapshot = readDistrictCensusSnapshot();
+
+  setText("v3DistrictUniverse", snapshot.universe);
+  setText("v3DistrictSupport", snapshot.baselineSupport);
+  setText("v3DistrictTurnout", snapshot.turnoutExpected);
+  setText("v3DistrictProjected", snapshot.projectedVotes);
+  setText("v3DistrictNeed", snapshot.persuasionNeed);
+  setText("v3DistrictTurnoutExpected", snapshot.turnoutExpected);
+  setText("v3DistrictTurnoutBand", snapshot.turnoutBand);
+  setText("v3DistrictVotesPer1pct", snapshot.votesPer1pct);
+
+  if (templateSnapshot) {
+    syncDistrictTemplateProfile(templateSnapshot);
+  }
   if (targetingSnapshot) {
     syncDistrictTargetingLab(targetingSnapshot);
   }
   if (censusSnapshot) {
     syncDistrictCensusProxy(censusSnapshot);
   }
-  syncDistrictCensusMessageTones();
-  syncCensusMapShellState();
   syncDistrictBrief(snapshot, censusSnapshot, templateSnapshot);
   syncDistrictCardStatus("v3DistrictRaceCardStatus", deriveDistrictRaceCardStatus());
   syncDistrictCardStatus("v3DistrictElectorateCardStatus", deriveDistrictElectorateCardStatus());
@@ -991,7 +1008,94 @@ function refreshDistrictSummary() {
   syncDistrictCardStatus("v3DistrictSummaryCardStatus", deriveDistrictSummaryCardStatus(snapshot));
   syncDistrictCardStatus("v3DistrictCensusCardStatus", deriveDistrictCensusCardStatus());
   syncDistrictCardStatus("v3DistrictTargetingCardStatus", deriveDistrictTargetingCardStatus());
-  applyDistrictBridgeDisabledMap(controlSnapshot?.disabledMap);
+}
+
+function refreshDistrictSummary() {
+  const hydrated = refreshDistrictCanonicalControls();
+  if (!hydrated) {
+    return;
+  }
+  refreshDistrictDerivedOutputs();
+}
+
+function syncDistrictTargetingControlState(snapshotOverride = null) {
+  const bridgeSnapshot = snapshotOverride || readDistrictTargetingSnapshot();
+  const targetingConfig = bridgeSnapshot?.config && typeof bridgeSnapshot.config === "object"
+    ? bridgeSnapshot.config
+    : null;
+
+  ensureDistrictTargetingOptionHydration(targetingConfig);
+
+  if (targetingConfig) {
+    syncBridgeSelectValue("v3DistrictTargetingGeoLevel", targetingConfig.geoLevel);
+    syncBridgeSelectValue("v3DistrictTargetingModelId", targetingConfig.presetId || targetingConfig.modelId);
+    syncBridgeFieldValue("v3DistrictTargetingTopN", targetingConfig.topN);
+    syncBridgeFieldValue("v3DistrictTargetingMinHousingUnits", targetingConfig.minHousingUnits);
+    syncBridgeFieldValue("v3DistrictTargetingMinPopulation", targetingConfig.minPopulation);
+    syncBridgeFieldValue("v3DistrictTargetingMinScore", targetingConfig.minScore);
+    syncBridgeCheckboxValue("v3DistrictTargetingOnlyRaceFootprint", targetingConfig.onlyRaceFootprint);
+    syncBridgeCheckboxValue("v3DistrictTargetingPrioritizeYoung", targetingConfig.prioritizeYoung);
+    syncBridgeCheckboxValue("v3DistrictTargetingPrioritizeRenters", targetingConfig.prioritizeRenters);
+    syncBridgeCheckboxValue("v3DistrictTargetingAvoidHighMultiUnit", targetingConfig.avoidHighMultiUnit);
+    syncBridgeSelectValue("v3DistrictTargetingDensityFloor", targetingConfig.densityFloor);
+    syncBridgeFieldValue("v3DistrictTargetingWeightVotePotential", targetingConfig.weightVotePotential);
+    syncBridgeFieldValue("v3DistrictTargetingWeightTurnoutOpportunity", targetingConfig.weightTurnoutOpportunity);
+    syncBridgeFieldValue("v3DistrictTargetingWeightPersuasionIndex", targetingConfig.weightPersuasionIndex);
+    syncBridgeFieldValue("v3DistrictTargetingWeightFieldEfficiency", targetingConfig.weightFieldEfficiency);
+  } else {
+    syncBridgeSelectValue("v3DistrictTargetingGeoLevel", TARGETING_BRIDGE_DEFAULTS.geoLevel);
+    syncBridgeSelectValue("v3DistrictTargetingModelId", TARGETING_BRIDGE_DEFAULTS.presetId);
+    syncBridgeFieldValue("v3DistrictTargetingTopN", TARGETING_BRIDGE_DEFAULTS.topN);
+    syncBridgeFieldValue("v3DistrictTargetingMinHousingUnits", TARGETING_BRIDGE_DEFAULTS.minHousingUnits);
+    syncBridgeFieldValue("v3DistrictTargetingMinPopulation", TARGETING_BRIDGE_DEFAULTS.minPopulation);
+    syncBridgeFieldValue("v3DistrictTargetingMinScore", TARGETING_BRIDGE_DEFAULTS.minScore);
+    syncBridgeCheckboxValue("v3DistrictTargetingOnlyRaceFootprint", TARGETING_BRIDGE_DEFAULTS.onlyRaceFootprint);
+    syncBridgeCheckboxValue("v3DistrictTargetingPrioritizeYoung", TARGETING_BRIDGE_DEFAULTS.prioritizeYoung);
+    syncBridgeCheckboxValue("v3DistrictTargetingPrioritizeRenters", TARGETING_BRIDGE_DEFAULTS.prioritizeRenters);
+    syncBridgeCheckboxValue("v3DistrictTargetingAvoidHighMultiUnit", TARGETING_BRIDGE_DEFAULTS.avoidHighMultiUnit);
+    syncBridgeSelectValue("v3DistrictTargetingDensityFloor", TARGETING_BRIDGE_DEFAULTS.densityFloor);
+    syncBridgeFieldValue("v3DistrictTargetingWeightVotePotential", TARGETING_BRIDGE_DEFAULTS.weightVotePotential);
+    syncBridgeFieldValue("v3DistrictTargetingWeightTurnoutOpportunity", TARGETING_BRIDGE_DEFAULTS.weightTurnoutOpportunity);
+    syncBridgeFieldValue("v3DistrictTargetingWeightPersuasionIndex", TARGETING_BRIDGE_DEFAULTS.weightPersuasionIndex);
+    syncBridgeFieldValue("v3DistrictTargetingWeightFieldEfficiency", TARGETING_BRIDGE_DEFAULTS.weightFieldEfficiency);
+  }
+
+  syncDistrictTargetingDisabledFallback({
+    config: targetingConfig,
+    rowCount: Array.isArray(bridgeSnapshot?.rows) ? bridgeSnapshot.rows.length : 0,
+  });
+}
+
+function syncDistrictCensusControlState(snapshotOverride = null) {
+  const bridgeSnapshot = snapshotOverride || readDistrictCensusSnapshot();
+  if (!bridgeSnapshot || typeof bridgeSnapshot !== "object") {
+    ensureDistrictCensusStaticOptionHydration(null);
+    return;
+  }
+
+  const config = (bridgeSnapshot.config && typeof bridgeSnapshot.config === "object")
+    ? bridgeSnapshot.config
+    : {};
+  ensureDistrictCensusStaticOptionHydration(config);
+
+  syncBridgeFieldValue("v3CensusApiKey", config.apiKey);
+  syncBridgeSelectValue("v3CensusAcsYear", config.year);
+  syncBridgeSelectValue("v3CensusResolution", config.resolution);
+  syncBridgeSelectValue("v3CensusStateFips", config.stateFips);
+  syncBridgeSelectValue("v3CensusCountyFips", config.countyFips);
+  syncBridgeSelectValue("v3CensusPlaceFips", config.placeFips);
+  syncBridgeSelectValue("v3CensusMetricSet", config.metricSet);
+  syncBridgeSelectValue("v3CensusTractFilter", config.tractFilter);
+  syncBridgeSelectValue("v3CensusSelectionSetSelect", config.selectedSelectionSetKey);
+  syncBridgeFieldValue("v3CensusGeoSearch", config.geoSearch);
+  syncBridgeFieldValue("v3CensusGeoPaste", config.geoPaste);
+  syncBridgeFieldValue("v3CensusSelectionSetName", config.selectionSetDraftName);
+  syncBridgeFieldValue("v3CensusElectionCsvPrecinctFilter", config.electionCsvPrecinctFilter);
+  syncBridgeCheckboxValue("v3CensusApplyAdjustmentsToggle", config.applyAdjustedAssumptions);
+  syncBridgeCheckboxValue("v3CensusMapQaVtdToggle", config.mapQaVtdOverlay);
+  syncBridgeMultiSelectValue("v3CensusGeoSelect", config.geoSelectOptions);
+  applyDistrictCensusBridgeDisabledMap(config.disabledMap);
+  syncDistrictCensusDisabledFallback(config);
 }
 
 function syncDistrictBrief(snapshot, censusSnapshot, templateSnapshot) {
@@ -1594,9 +1698,6 @@ function syncSelectValueFromRaw(id, rawValue) {
   if (document.activeElement === select) {
     return;
   }
-  if (shouldHoldDistrictControlSync(id, rawValue)) {
-    return;
-  }
   const value = String(rawValue == null ? "" : rawValue).trim();
   if (!value) {
     const hasEmptyOption = Array.from(select.options).some((option) => String(option.value || "").trim() === "");
@@ -1643,9 +1744,6 @@ function syncCheckboxCheckedFromRaw(id, rawValue) {
     return;
   }
   if (document.activeElement === input) {
-    return;
-  }
-  if (shouldHoldDistrictControlSync(id, !!rawValue)) {
     return;
   }
   input.checked = !!rawValue;
@@ -2103,6 +2201,7 @@ function syncDistrictTargetingFromResult(result) {
   }
 
   if (result.ok !== false) {
+    refreshDistrictCanonicalControls();
     return;
   }
 
@@ -2117,9 +2216,6 @@ function syncDistrictTargetingFromResult(result) {
 function syncBridgeSelectValue(v3Id, value) {
   const v3 = document.getElementById(v3Id);
   if (!(v3 instanceof HTMLSelectElement) || document.activeElement === v3) {
-    return;
-  }
-  if (shouldHoldDistrictControlSync(v3Id, value)) {
     return;
   }
   const next = String(value == null ? "" : value).trim();
@@ -2161,23 +2257,12 @@ function syncBridgeCheckboxValue(v3Id, value) {
   if (!(v3 instanceof HTMLInputElement) || document.activeElement === v3) {
     return;
   }
-  if (shouldHoldDistrictControlSync(v3Id, !!value)) {
-    return;
-  }
   v3.checked = !!value;
 }
 
 function syncBridgeMultiSelectValue(v3Id, rows) {
   const v3 = document.getElementById(v3Id);
   if (!(v3 instanceof HTMLSelectElement) || document.activeElement === v3) {
-    return;
-  }
-  const canonicalSelected = (Array.isArray(rows) ? rows : [])
-    .filter((row) => !!row?.selected)
-    .map((row) => String(row?.value || "").trim())
-    .filter(Boolean)
-    .join(",");
-  if (shouldHoldDistrictControlSync(v3Id, canonicalSelected)) {
     return;
   }
   const normalized = (Array.isArray(rows) ? rows : [])
