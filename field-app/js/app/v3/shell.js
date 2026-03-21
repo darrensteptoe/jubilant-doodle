@@ -54,6 +54,7 @@ export function renderV3Shell(root) {
           <button class="fpe-btn fpe-btn--danger" id="v3BtnReset" type="button">Reset scenario</button>
         </div>
       </header>
+      <div class="fpe-runtime-diag" id="v3RuntimeDiagnostics" aria-live="polite"></div>
 
       <div class="fpe-layout">
         <aside class="fpe-nav" aria-label="Primary navigation">

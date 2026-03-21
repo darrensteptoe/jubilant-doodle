@@ -23,6 +23,7 @@ import {
   readDistrictTargetingConfigSnapshot,
   readDistrictTargetingResultsSnapshot,
   readDistrictTemplateSnapshot,
+  readRuntimeDiagnosticsSnapshot,
   removeDistrictCandidate,
   removeDistrictCandidateHistory,
   resetDistrictTargetingWeights,
@@ -83,11 +84,40 @@ const TARGETING_DENSITY_OPTIONS = Object.freeze([
 ]);
 
 const DISTRICT_V2_BRIDGE_STATUS_ID = "v3DistrictV2BridgeStatus";
+const DISTRICT_V2_RUNTIME_DEBUG_ID = "v3DistrictV2RuntimeDebug";
+const DISTRICT_V2_RUNTIME_DEBUG_BODY_ID = "v3DistrictV2RuntimeDebugBody";
+const DISTRICT_V2_TRACE_PREFIX = "[district_v2_dom_trace]";
+const DISTRICT_V2_TRACE_FLAG_KEY = "__FPE_DISTRICT_V2_TRACE_ENABLED__";
+const DISTRICT_V2_BINDER_AUDIT_PREFIX = "[district_v2_binder_audit]";
+const DISTRICT_V2_BINDER_AUDIT_PARAM = "districtBinderAudit";
+const DISTRICT_V2_BINDER_AUDIT_TARGET_IDS = Object.freeze([
+  "v3DistrictV2RaceType",
+  "v3DistrictV2ElectionDate",
+  "v3DistrictV2UniverseSize",
+]);
+const DISTRICT_V2_TRACE_AUTO_MAX_ATTEMPTS = 12;
+const DISTRICT_V2_TRACE_AUTO_RETRY_MS = 60;
+const DISTRICT_V2_CARD_ID_BY_SCOPE = Object.freeze({
+  raceContext: "v3DistrictV2RaceCard",
+  electorate: "v3DistrictV2ElectorateCard",
+  ballot: "v3DistrictV2BallotCard",
+  candidateHistory: "v3DistrictV2CandidateHistoryCard",
+});
+let districtV2NodeSequence = 0;
+let districtV2TraceObservers = [];
+const districtV2NodeTokens = new WeakMap();
+let districtV2TraceInstalled = false;
+let districtV2TraceRaceRoot = null;
+let districtV2TraceElectorateRoot = null;
+let districtV2TraceAutoRan = false;
+let districtV2TraceAutoAttempts = 0;
+const districtV2BinderAttachCounts = new WeakMap();
 
 export function renderDistrictV2Surface(mount) {
   console.info("[district_v2] mounted");
 
   const frame = createCenterStackFrame();
+  frame.dataset.districtSurface = "district_v2";
   const center = createCenterStackColumn();
 
   const raceCard = createCenterModuleCard({
@@ -95,6 +125,7 @@ export function renderDistrictV2Surface(mount) {
     description: "Race template, election date, weeks remaining, and operating mode.",
     status: "Awaiting context",
   });
+  raceCard.id = DISTRICT_V2_CARD_ID_BY_SCOPE.raceContext;
   assignCardStatusId(raceCard, "v3DistrictV2RaceCardStatus");
 
   const electorateCard = createCenterModuleCard({
@@ -102,6 +133,7 @@ export function renderDistrictV2Surface(mount) {
     description: "Universe definition, basis, and weighted composition.",
     status: "Awaiting universe",
   });
+  electorateCard.id = DISTRICT_V2_CARD_ID_BY_SCOPE.electorate;
   assignCardStatusId(electorateCard, "v3DistrictV2ElectorateCardStatus");
 
   const ballotCard = createCenterModuleCard({
@@ -109,6 +141,7 @@ export function renderDistrictV2Surface(mount) {
     description: "Candidate support baseline, undecided handling, and user split.",
     status: "Awaiting ballot",
   });
+  ballotCard.id = DISTRICT_V2_CARD_ID_BY_SCOPE.ballot;
   assignCardStatusId(ballotCard, "v3DistrictV2BallotCardStatus");
 
   const candidateHistoryCard = createCenterModuleCard({
@@ -116,6 +149,7 @@ export function renderDistrictV2Surface(mount) {
     description: "Historical office-cycle records feeding baseline confidence.",
     status: "No rows",
   });
+  candidateHistoryCard.id = DISTRICT_V2_CARD_ID_BY_SCOPE.candidateHistory;
   assignCardStatusId(candidateHistoryCard, "v3DistrictV2CandidateHistoryCardStatus");
 
   const targetingCard = createCenterModuleCard({
@@ -151,6 +185,14 @@ export function renderDistrictV2Surface(mount) {
   bridgeStatus.className = "fpe-alert fpe-alert--warn";
   bridgeStatus.hidden = true;
 
+  const runtimeDebug = document.createElement("details");
+  runtimeDebug.id = DISTRICT_V2_RUNTIME_DEBUG_ID;
+  runtimeDebug.className = "fpe-runtime-debug-panel";
+  runtimeDebug.innerHTML = `
+    <summary>Runtime parity debug</summary>
+    <pre id="${DISTRICT_V2_RUNTIME_DEBUG_BODY_ID}">Waiting for District parity diagnostics.</pre>
+  `;
+
   renderDistrictV2RaceContextCard({ raceCard, createFieldGrid, getCardBody });
   renderDistrictV2ElectorateCard({ electorateCard, createFieldGrid, getCardBody });
   renderDistrictV2BallotCard({ ballotCard, createFieldGrid, getCardBody });
@@ -162,6 +204,7 @@ export function renderDistrictV2Surface(mount) {
 
   center.append(
     bridgeStatus,
+    runtimeDebug,
     createWhyPanel([
       "District V2 uses canonical snapshots for inputs and derived snapshots for outputs.",
       "All writes dispatch through bridge action methods; no District-only pending-write hold path is used.",
@@ -187,6 +230,21 @@ export function renderDistrictV2Surface(mount) {
   bindDistrictV2CandidateHistoryHandlers();
   bindDistrictV2TargetingHandlers();
   bindDistrictV2CensusHandlers();
+  try {
+    window.__FPE_DISTRICT_V2_TRACE__ = {
+      enable: () => {
+        window[DISTRICT_V2_TRACE_FLAG_KEY] = true;
+        installDistrictV2DomLifecycleTrace();
+      },
+      disable: () => {
+        window[DISTRICT_V2_TRACE_FLAG_KEY] = false;
+        installDistrictV2DomLifecycleTrace();
+      },
+      readControlSnapshot: (controlId) => readDistrictV2TraceSnapshot(controlId),
+    };
+  } catch {}
+  installDistrictV2DomLifecycleTrace();
+  runDistrictV2BinderAuditSnapshot();
 
   refreshDistrictV2Surface();
   return refreshDistrictV2Surface;
@@ -217,6 +275,7 @@ export function refreshDistrictV2Surface() {
   );
 
   syncDistrictV2BridgeAvailability(hasBridgeView);
+  installDistrictV2DomLifecycleTrace();
   if (!hasBridgeView) {
     return;
   }
@@ -229,6 +288,7 @@ export function refreshDistrictV2Surface() {
   syncDistrictV2Census(censusConfigSnapshot, censusResultsSnapshot);
   syncDistrictV2ElectionDataSummary(electionDataSummarySnapshot);
   syncDistrictV2Summary(snapshot);
+  syncDistrictV2RuntimeDebug(templateSnapshot, formSnapshot);
 
   syncDistrictV2CardStatus("v3DistrictV2RaceCardStatus", deriveDistrictRaceCardStatus({
     raceType: templateSnapshot?.raceType,
@@ -269,6 +329,7 @@ export function refreshDistrictV2Surface() {
   syncDistrictV2CardStatus("v3DistrictV2ElectionDataCardStatus", electionRows > 0 ? `${electionRows.toLocaleString("en-US")} rows` : "Awaiting import");
 
   syncDistrictV2CardStatus("v3DistrictV2SummaryCardStatus", deriveDistrictSummaryCardStatus(snapshot || {}));
+  runDistrictV2BinderAuditSnapshot();
 }
 
 function handleDistrictV2MutationResult(result, source) {
@@ -288,6 +349,493 @@ function syncDistrictV2BridgeAvailability(hasBridgeView) {
   status.textContent = hasBridgeView
     ? ""
     : "District bridge unavailable. District V2 controls are disabled until runtime bridge is ready.";
+}
+
+function isDistrictV2TraceEnabled() {
+  try {
+    const root = typeof window === "object" ? window : {};
+    if (root && root[DISTRICT_V2_TRACE_FLAG_KEY] === false) {
+      return false;
+    }
+    if (root && root[DISTRICT_V2_TRACE_FLAG_KEY] === true) {
+      return true;
+    }
+    const params = new URLSearchParams(window.location.search);
+    const token = String(params.get("districtDomTrace") || "").trim().toLowerCase();
+    if (token === "0" || token === "false" || token === "no") {
+      return false;
+    }
+    if (token === "1" || token === "true" || token === "yes") {
+      return true;
+    }
+    return true;
+  } catch {
+    return true;
+  }
+}
+
+function districtV2NodeToken(node) {
+  if (!(node instanceof HTMLElement)) {
+    return "(missing)";
+  }
+  const cached = districtV2NodeTokens.get(node);
+  if (typeof cached === "string" && cached.trim()) {
+    return cached.trim();
+  }
+  districtV2NodeSequence += 1;
+  const token = `node_${districtV2NodeSequence}`;
+  districtV2NodeTokens.set(node, token);
+  return token;
+}
+
+function readDistrictV2TraceSnapshot(controlId) {
+  const control = document.getElementById(controlId);
+  const templateSnapshot = readDistrictTemplateSnapshot();
+  const formSnapshot = readDistrictFormSnapshot();
+  const runtimeDiagnostics = readRuntimeDiagnosticsSnapshot();
+  const canonicalRace = String(templateSnapshot?.raceType || "").trim();
+  const canonicalElectionDate = String(formSnapshot?.electionDate || "").trim();
+  const canonicalUniverse = Number.isFinite(Number(formSnapshot?.universeSize))
+    ? Number(formSnapshot.universeSize)
+    : null;
+  return {
+    control,
+    controlId,
+    domValue: control instanceof HTMLInputElement || control instanceof HTMLSelectElement
+      ? String(control.value || "").trim()
+      : "",
+    canonicalValue:
+      controlId === "v3DistrictV2RaceType" ? canonicalRace
+      : controlId === "v3DistrictV2ElectionDate" ? canonicalElectionDate
+      : canonicalUniverse,
+    persistedValue:
+      controlId === "v3DistrictV2RaceType"
+        ? String(runtimeDiagnostics?.district?.persisted?.raceTemplate || "").trim()
+        : controlId === "v3DistrictV2UniverseSize"
+          ? runtimeDiagnostics?.district?.persisted?.universeSize
+          : null,
+  };
+}
+
+function emitDistrictV2Trace(level, payload) {
+  const row = payload && typeof payload === "object" ? payload : {};
+  const line = `${DISTRICT_V2_TRACE_PREFIX} ${JSON.stringify(row)}`;
+  if (level === "warn") {
+    console.warn(line);
+    return;
+  }
+  console.info(line);
+}
+
+function isDistrictV2TraceAutoProbeEnabled() {
+  try {
+    const params = new URLSearchParams(window.location.search);
+    const token = String(params.get("districtDomTraceAuto") || "").trim().toLowerCase();
+    return token === "1" || token === "true" || token === "yes";
+  } catch {
+    return false;
+  }
+}
+
+function isDistrictV2BinderAuditEnabled() {
+  try {
+    const params = new URLSearchParams(window.location.search);
+    const token = String(params.get(DISTRICT_V2_BINDER_AUDIT_PARAM) || "").trim().toLowerCase();
+    return token === "1" || token === "true" || token === "yes";
+  } catch {
+    return false;
+  }
+}
+
+function isDistrictV2BinderAuditTarget(controlId) {
+  return DISTRICT_V2_BINDER_AUDIT_TARGET_IDS.includes(String(controlId || "").trim());
+}
+
+function emitDistrictV2BinderAudit(payload) {
+  if (!isDistrictV2BinderAuditEnabled()) {
+    return;
+  }
+  const row = payload && typeof payload === "object" ? payload : {};
+  const line = `${DISTRICT_V2_BINDER_AUDIT_PREFIX} ${JSON.stringify(row)}`;
+  console.info(line);
+}
+
+function districtV2IdSelector(id) {
+  const value = String(id || "").trim();
+  if (!value) {
+    return "";
+  }
+  try {
+    if (typeof CSS !== "undefined" && typeof CSS.escape === "function") {
+      return `[id="${CSS.escape(value)}"]`;
+    }
+  } catch {}
+  return `[id="${value.replace(/"/g, "\\\"")}"]`;
+}
+
+function findDistrictV2NodesById(id) {
+  const selector = districtV2IdSelector(id);
+  if (!selector) {
+    return [];
+  }
+  try {
+    return Array.from(document.querySelectorAll(selector));
+  } catch {
+    return [];
+  }
+}
+
+function isDistrictV2NodeVisible(node) {
+  if (!(node instanceof HTMLElement)) {
+    return false;
+  }
+  if (node.hidden || node.getAttribute("aria-hidden") === "true") {
+    return false;
+  }
+  const hiddenAncestor = node.closest("[hidden],[aria-hidden='true']");
+  return !(hiddenAncestor instanceof HTMLElement);
+}
+
+function readDistrictV2BinderCanonicalSnapshot(controlId) {
+  const templateSnapshot = readDistrictTemplateSnapshot();
+  const formSnapshot = readDistrictFormSnapshot();
+  const canonicalRace = String(templateSnapshot?.raceType || "").trim();
+  const canonicalFormRace = String(formSnapshot?.raceType || "").trim();
+  if (controlId === "v3DistrictV2RaceType") {
+    return {
+      templateRaceType: canonicalRace,
+      formRaceType: canonicalFormRace,
+      effectiveRaceType: canonicalRace || canonicalFormRace,
+    };
+  }
+  if (controlId === "v3DistrictV2ElectionDate") {
+    return {
+      electionDate: String(formSnapshot?.electionDate || "").trim(),
+    };
+  }
+  if (controlId === "v3DistrictV2UniverseSize") {
+    return {
+      universeSize: Number.isFinite(Number(formSnapshot?.universeSize))
+        ? Number(formSnapshot.universeSize)
+        : null,
+    };
+  }
+  return {};
+}
+
+function emitDistrictV2BinderLookup(controlId, field, control, status) {
+  if (!isDistrictV2BinderAuditEnabled() || !isDistrictV2BinderAuditTarget(controlId)) {
+    return;
+  }
+  const matches = findDistrictV2NodesById(controlId);
+  const visibleMatches = matches.filter((node) => isDistrictV2NodeVisible(node));
+  const matchedNodeTokens = matches.slice(0, 6).map((node) => districtV2NodeToken(node));
+  const visibleNodeTokens = visibleMatches.slice(0, 6).map((node) => districtV2NodeToken(node));
+  const currentNode = control instanceof HTMLElement ? control : null;
+  const currentNodeIndex = currentNode ? matches.indexOf(currentNode) : -1;
+  const attachCount = currentNode ? Number(districtV2BinderAttachCounts.get(currentNode) || 0) : 0;
+  emitDistrictV2BinderAudit({
+    eventType: "binder.lookup",
+    status,
+    controlId,
+    field,
+    lookupCount: matches.length,
+    visibleCount: visibleMatches.length,
+    hasDuplicateId: matches.length > 1,
+    currentNodeToken: districtV2NodeToken(currentNode),
+    currentNodeIndex,
+    matchedNodeTokens,
+    visibleNodeTokens,
+    attachCount,
+  });
+}
+
+function runDistrictV2BinderAuditSnapshot() {
+  if (!isDistrictV2BinderAuditEnabled()) {
+    return;
+  }
+  DISTRICT_V2_BINDER_AUDIT_TARGET_IDS.forEach((controlId) => {
+    const control = document.getElementById(controlId);
+    const matches = findDistrictV2NodesById(controlId);
+    const visibleMatches = matches.filter((node) => isDistrictV2NodeVisible(node));
+    emitDistrictV2BinderAudit({
+      eventType: "binder.snapshot",
+      controlId,
+      getElementByIdToken: districtV2NodeToken(control),
+      lookupCount: matches.length,
+      visibleCount: visibleMatches.length,
+      hasDuplicateId: matches.length > 1,
+      canonical: readDistrictV2BinderCanonicalSnapshot(controlId),
+    });
+  });
+}
+
+function runDistrictV2TraceAutoProbe() {
+  if (!isDistrictV2TraceEnabled() || !isDistrictV2TraceAutoProbeEnabled()) {
+    return;
+  }
+  if (districtV2TraceAutoRan) {
+    return;
+  }
+  const controls = [
+    { id: "v3DistrictV2RaceType", type: "select" },
+    { id: "v3DistrictV2ElectionDate", type: "date" },
+    { id: "v3DistrictV2UniverseSize", type: "number" },
+  ];
+  const controlsReady = controls.every((entry) => {
+    const node = document.getElementById(entry.id);
+    if (!(node instanceof HTMLInputElement || node instanceof HTMLSelectElement)) {
+      return false;
+    }
+    if (entry.type === "select" && node instanceof HTMLSelectElement) {
+      return node.options.length > 1;
+    }
+    return true;
+  });
+  if (!controlsReady) {
+    if (districtV2TraceAutoAttempts >= DISTRICT_V2_TRACE_AUTO_MAX_ATTEMPTS) {
+      emitDistrictV2Trace("warn", {
+        eventType: "trace.auto.skipped",
+        reason: "controls-not-ready",
+        attempts: districtV2TraceAutoAttempts,
+      });
+      districtV2TraceAutoRan = true;
+      return;
+    }
+    districtV2TraceAutoAttempts += 1;
+    window.setTimeout(() => {
+      runDistrictV2TraceAutoProbe();
+    }, DISTRICT_V2_TRACE_AUTO_RETRY_MS);
+    return;
+  }
+  districtV2TraceAutoRan = true;
+  emitDistrictV2Trace("info", {
+    eventType: "trace.auto.start",
+    attempts: districtV2TraceAutoAttempts,
+  });
+  controls.forEach((entry) => {
+    const node = document.getElementById(entry.id);
+    if (!(node instanceof HTMLInputElement || node instanceof HTMLSelectElement)) {
+      return;
+    }
+    const beforeValue = String(node.value || "");
+    let probeValue = beforeValue;
+    if (entry.type === "select" && node instanceof HTMLSelectElement) {
+      const choices = Array.from(node.options)
+        .map((option) => String(option?.value || "").trim())
+        .filter((value) => value.length > 0);
+      const nextOption = choices.find((value) => value !== beforeValue) || beforeValue;
+      probeValue = nextOption;
+      node.value = probeValue;
+    } else if (entry.type === "date" && node instanceof HTMLInputElement) {
+      probeValue = beforeValue === "2030-11-05" ? "2032-11-02" : "2030-11-05";
+      node.value = probeValue;
+    } else if (entry.type === "number" && node instanceof HTMLInputElement) {
+      const baseline = Number(node.value || 0);
+      probeValue = String(Number.isFinite(baseline) ? baseline + 111 : 111);
+      node.value = probeValue;
+    }
+    emitDistrictV2Trace("info", {
+      eventType: "trace.auto.set",
+      controlId: entry.id,
+      beforeValue,
+      probeValue,
+    });
+    if (typeof node.focus === "function") {
+      node.focus();
+    } else {
+      node.dispatchEvent(new Event("focus", { bubbles: true }));
+    }
+    node.dispatchEvent(new Event("input", { bubbles: true }));
+    node.dispatchEvent(new Event("change", { bubbles: true }));
+    if (typeof node.blur === "function") {
+      node.blur();
+    } else {
+      node.dispatchEvent(new Event("blur", { bubbles: true }));
+    }
+    window.setTimeout(() => {
+      logDistrictV2ControlTrace("probe.post.120ms", entry.id, node);
+    }, 120);
+  });
+}
+
+function logDistrictV2ControlTrace(eventType, controlId, referenceNode = null) {
+  if (!isDistrictV2TraceEnabled()) {
+    return;
+  }
+  const snapshot = readDistrictV2TraceSnapshot(controlId);
+  const currentNode = snapshot.control;
+  const replaced = referenceNode instanceof HTMLElement
+    ? currentNode !== referenceNode
+    : false;
+  emitDistrictV2Trace("info", {
+    eventType,
+    controlId,
+    nodeToken: districtV2NodeToken(currentNode),
+    replacedSinceReference: replaced,
+    referenceNodeToken: referenceNode instanceof HTMLElement ? districtV2NodeToken(referenceNode) : "",
+    domValue: snapshot.domValue,
+    canonicalValue: snapshot.canonicalValue,
+    persistedValue: snapshot.persistedValue,
+  });
+}
+
+function bindDistrictV2ControlLifecycleTrace(controlId) {
+  const control = document.getElementById(controlId);
+  if (!(control instanceof HTMLInputElement || control instanceof HTMLSelectElement)) {
+    return;
+  }
+  if (control.dataset.v3DistrictV2DomTraceBound === "1") {
+    return;
+  }
+  control.dataset.v3DistrictV2DomTraceBound = "1";
+
+  control.addEventListener("focus", () => {
+    logDistrictV2ControlTrace("focus", controlId);
+  });
+  control.addEventListener("input", () => {
+    logDistrictV2ControlTrace("input", controlId);
+  });
+  control.addEventListener("change", () => {
+    logDistrictV2ControlTrace("change", controlId);
+  });
+  control.addEventListener("blur", (event) => {
+    const target = event?.target;
+    const beforeNode = target instanceof HTMLElement ? target : null;
+    logDistrictV2ControlTrace("blur.before", controlId, beforeNode);
+    queueMicrotask(() => {
+      logDistrictV2ControlTrace("blur.after.microtask", controlId, beforeNode);
+    });
+    if (typeof window.requestAnimationFrame === "function") {
+      window.requestAnimationFrame(() => {
+        logDistrictV2ControlTrace("blur.after.raf", controlId, beforeNode);
+      });
+    }
+  });
+}
+
+function clearDistrictV2TraceObservers() {
+  if (!districtV2TraceObservers.length) {
+    return;
+  }
+  districtV2TraceObservers.forEach((observer) => {
+    try {
+      observer.disconnect();
+    } catch {}
+  });
+  districtV2TraceObservers = [];
+}
+
+function installDistrictV2MutationTrace(scope, rootId) {
+  const root = document.getElementById(rootId);
+  if (!(root instanceof HTMLElement)) {
+    return;
+  }
+  const observer = new MutationObserver((mutations) => {
+    if (!isDistrictV2TraceEnabled()) {
+      return;
+    }
+    mutations.forEach((mutation) => {
+      const added = Array.from(mutation.addedNodes || [])
+        .filter((node) => node instanceof HTMLElement)
+        .map((node) => node.id || node.nodeName);
+      const removed = Array.from(mutation.removedNodes || [])
+        .filter((node) => node instanceof HTMLElement)
+        .map((node) => node.id || node.nodeName);
+      if (!added.length && !removed.length) {
+        return;
+      }
+      emitDistrictV2Trace("warn", {
+        eventType: "mutation",
+        scope,
+        rootId,
+        targetId: mutation.target instanceof HTMLElement ? mutation.target.id : "",
+        added,
+        removed,
+      });
+    });
+  });
+  observer.observe(root, {
+    childList: true,
+    subtree: true,
+  });
+  districtV2TraceObservers.push(observer);
+}
+
+function installDistrictV2DomLifecycleTrace() {
+  if (!isDistrictV2TraceEnabled()) {
+    clearDistrictV2TraceObservers();
+    districtV2TraceInstalled = false;
+    districtV2TraceRaceRoot = null;
+    districtV2TraceElectorateRoot = null;
+    return;
+  }
+  bindDistrictV2ControlLifecycleTrace("v3DistrictV2RaceType");
+  bindDistrictV2ControlLifecycleTrace("v3DistrictV2ElectionDate");
+  bindDistrictV2ControlLifecycleTrace("v3DistrictV2UniverseSize");
+  const raceRoot = document.getElementById(DISTRICT_V2_CARD_ID_BY_SCOPE.raceContext);
+  const electorateRoot = document.getElementById(DISTRICT_V2_CARD_ID_BY_SCOPE.electorate);
+  const shouldReinstallObservers = !districtV2TraceInstalled
+    || raceRoot !== districtV2TraceRaceRoot
+    || electorateRoot !== districtV2TraceElectorateRoot;
+  if (!shouldReinstallObservers) {
+    return;
+  }
+  clearDistrictV2TraceObservers();
+  installDistrictV2MutationTrace("raceContext", DISTRICT_V2_CARD_ID_BY_SCOPE.raceContext);
+  installDistrictV2MutationTrace("electorate", DISTRICT_V2_CARD_ID_BY_SCOPE.electorate);
+  districtV2TraceInstalled = true;
+  districtV2TraceRaceRoot = raceRoot instanceof HTMLElement ? raceRoot : null;
+  districtV2TraceElectorateRoot = electorateRoot instanceof HTMLElement ? electorateRoot : null;
+  logDistrictV2ControlTrace("trace.init", "v3DistrictV2RaceType");
+  logDistrictV2ControlTrace("trace.init", "v3DistrictV2ElectionDate");
+  logDistrictV2ControlTrace("trace.init", "v3DistrictV2UniverseSize");
+  runDistrictV2TraceAutoProbe();
+}
+
+function setInnerHtmlWithTrace(node, html, source) {
+  if (!(node instanceof HTMLElement)) {
+    return;
+  }
+  if (isDistrictV2TraceEnabled()) {
+    emitDistrictV2Trace("warn", {
+      eventType: "innerHTML.replace",
+      source,
+      targetId: node.id || "",
+      nodeToken: districtV2NodeToken(node),
+    });
+  }
+  node.innerHTML = html;
+}
+
+function syncDistrictV2RuntimeDebug(templateSnapshot, formSnapshot) {
+  const pre = document.getElementById(DISTRICT_V2_RUNTIME_DEBUG_BODY_ID);
+  if (!(pre instanceof HTMLElement)) {
+    return;
+  }
+  const raceDomControl = document.getElementById("v3DistrictV2RaceType");
+  const universeDomControl = document.getElementById("v3DistrictV2UniverseSize");
+  const raceDomValue = raceDomControl instanceof HTMLSelectElement || raceDomControl instanceof HTMLInputElement
+    ? String(raceDomControl.value || "").trim()
+    : "";
+  const universeDomValue = universeDomControl instanceof HTMLInputElement
+    ? String(universeDomControl.value || "").trim()
+    : "";
+  const runtimeDiagnostics = readRuntimeDiagnosticsSnapshot();
+  const persistedRaceTemplate = String(runtimeDiagnostics?.district?.persisted?.raceTemplate || "").trim();
+  const persistedUniverseSize = runtimeDiagnostics?.district?.persisted?.universeSize;
+  const persistedSchemaVersion = runtimeDiagnostics?.persisted?.schemaVersion;
+  const canonicalRaceTemplate = String(templateSnapshot?.raceType || "").trim();
+  const canonicalUniverseSize = Number.isFinite(Number(formSnapshot?.universeSize))
+    ? Number(formSnapshot.universeSize)
+    : null;
+  const lines = [
+    `raceTemplate dom=${raceDomValue || "(empty)"} canonical=${canonicalRaceTemplate || "(empty)"} persisted=${persistedRaceTemplate || "(empty)"}`,
+    `universeSize dom=${universeDomValue || "(empty)"} canonical=${canonicalUniverseSize == null ? "(empty)" : String(canonicalUniverseSize)} persisted=${persistedUniverseSize == null ? "(empty)" : String(persistedUniverseSize)}`,
+    `persistedSchemaVersion=${persistedSchemaVersion == null ? "(empty)" : String(persistedSchemaVersion)}`,
+    `runtimeBuild=${String(runtimeDiagnostics?.buildId || "").trim() || "unknown"}`,
+  ];
+  pre.textContent = lines.join("\n");
 }
 
 function syncDistrictV2RaceContext(templateSnapshot, formSnapshot, controlSnapshot) {
@@ -397,31 +945,94 @@ function syncDistrictV2CandidateTable(ballotSnapshot, controlSnapshot) {
 
   const candidates = Array.isArray(ballotSnapshot?.candidates) ? ballotSnapshot.candidates : [];
   const locked = !!controlSnapshot?.locked;
+  const structureSignature = candidates
+    .map((row) => String(row?.id || "").trim())
+    .filter(Boolean)
+    .join("|");
+  const previousSignature = String(tbody.dataset.v3d2StructureSignature || "");
 
   if (!candidates.length) {
-    tbody.innerHTML = `<tr><td class="muted" colspan="3">No candidates yet.</td></tr>`;
+    if (previousSignature !== "") {
+      setInnerHtmlWithTrace(tbody, `<tr><td class="muted" colspan="3">No candidates yet.</td></tr>`, "syncDistrictV2CandidateTable:empty");
+      tbody.dataset.v3d2StructureSignature = "";
+    }
     return;
   }
 
-  tbody.innerHTML = candidates.map((row) => {
-    const candidateId = escapeHtml(String(row?.id || ""));
-    const name = escapeHtml(String(row?.name || ""));
-    const support = row?.supportPct == null ? "" : escapeHtml(String(row.supportPct));
+  if (previousSignature !== structureSignature) {
+    // Structural rerender is allowed only when row membership changes.
+    setInnerHtmlWithTrace(tbody, candidates.map((row) => {
+      const candidateId = escapeHtml(String(row?.id || ""));
+      const name = escapeHtml(String(row?.name || ""));
+      const support = row?.supportPct == null ? "" : escapeHtml(String(row.supportPct));
+      const canRemove = !locked && !!row?.canRemove;
+      return `
+        <tr data-candidate-id="${candidateId}">
+          <td>
+            <input class="fpe-input" data-v3d2-candidate-id="${candidateId}" data-v3d2-candidate-field="name" type="text" value="${name}" ${locked ? "disabled" : ""}/>
+          </td>
+          <td class="num">
+            <input class="fpe-input" data-v3d2-candidate-id="${candidateId}" data-v3d2-candidate-field="supportPct" max="100" min="0" step="0.1" type="number" value="${support}" ${locked ? "disabled" : ""}/>
+          </td>
+          <td>
+            ${canRemove ? `<button class="fpe-btn fpe-btn--ghost" data-v3d2-remove-candidate="${candidateId}" type="button">Remove</button>` : ""}
+          </td>
+        </tr>
+      `;
+    }).join(""), "syncDistrictV2CandidateTable:rows");
+    tbody.dataset.v3d2StructureSignature = structureSignature;
+    return;
+  }
+
+  const rowMap = new Map();
+  Array.from(tbody.querySelectorAll("tr[data-candidate-id]")).forEach((row) => {
+    if (!(row instanceof HTMLTableRowElement)) {
+      return;
+    }
+    const candidateId = String(row.dataset.candidateId || "").trim();
+    if (!candidateId) {
+      return;
+    }
+    rowMap.set(candidateId, row);
+  });
+
+  candidates.forEach((row) => {
+    const candidateId = String(row?.id || "").trim();
+    if (!candidateId) {
+      return;
+    }
+    const tr = rowMap.get(candidateId);
+    if (!(tr instanceof HTMLTableRowElement)) {
+      return;
+    }
+    syncInputControlInPlace(tr.querySelector('input[data-v3d2-candidate-field="name"]'), row?.name);
+    syncInputControlInPlace(tr.querySelector('input[data-v3d2-candidate-field="supportPct"]'), row?.supportPct);
+    applyDisabledToControl(tr.querySelector('input[data-v3d2-candidate-field="name"]'), locked);
+    applyDisabledToControl(tr.querySelector('input[data-v3d2-candidate-field="supportPct"]'), locked);
+
+    const actionCell = tr.cells[2];
+    if (!(actionCell instanceof HTMLElement)) {
+      return;
+    }
     const canRemove = !locked && !!row?.canRemove;
-    return `
-      <tr data-candidate-id="${candidateId}">
-        <td>
-          <input class="fpe-input" data-v3d2-candidate-id="${candidateId}" data-v3d2-candidate-field="name" type="text" value="${name}" ${locked ? "disabled" : ""}/>
-        </td>
-        <td class="num">
-          <input class="fpe-input" data-v3d2-candidate-id="${candidateId}" data-v3d2-candidate-field="supportPct" max="100" min="0" step="0.1" type="number" value="${support}" ${locked ? "disabled" : ""}/>
-        </td>
-        <td>
-          ${canRemove ? `<button class="fpe-btn fpe-btn--ghost" data-v3d2-remove-candidate="${candidateId}" type="button">Remove</button>` : ""}
-        </td>
-      </tr>
-    `;
-  }).join("");
+    const existingButton = actionCell.querySelector("button[data-v3d2-remove-candidate]");
+    if (!canRemove) {
+      if (existingButton instanceof HTMLButtonElement) {
+        existingButton.remove();
+      }
+      return;
+    }
+    if (existingButton instanceof HTMLButtonElement) {
+      existingButton.disabled = false;
+      return;
+    }
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "fpe-btn fpe-btn--ghost";
+    button.dataset.v3d2RemoveCandidate = candidateId;
+    button.textContent = "Remove";
+    actionCell.append(button);
+  });
 }
 
 function syncDistrictV2UserSplitTable(ballotSnapshot, controlSnapshot) {
@@ -435,22 +1046,64 @@ function syncDistrictV2UserSplitTable(ballotSnapshot, controlSnapshot) {
   const visible = !!ballotSnapshot?.userSplitVisible;
   wrap.hidden = !visible;
   if (!visible) {
-    list.innerHTML = "";
+    if ((list.dataset.v3d2StructureSignature || "") !== "") {
+      setInnerHtmlWithTrace(list, "", "syncDistrictV2UserSplitTable:clear");
+      list.dataset.v3d2StructureSignature = "";
+    }
     return;
   }
 
+  const structureSignature = rows
+    .map((row) => String(row?.id || "").trim())
+    .filter(Boolean)
+    .join("|");
+  const previousSignature = String(list.dataset.v3d2StructureSignature || "");
   const locked = !!controlSnapshot?.locked;
-  list.innerHTML = rows.map((row) => {
-    const candidateId = escapeHtml(String(row?.id || ""));
-    const label = escapeHtml(String(row?.name || row?.id || ""));
-    const value = row?.value == null ? "" : escapeHtml(String(row.value));
-    return `
-      <div class="field">
-        <label class="fpe-control-label" for="v3DistrictV2UserSplit_${candidateId}">${label}</label>
-        <input class="fpe-input" data-v3d2-user-split-id="${candidateId}" id="v3DistrictV2UserSplit_${candidateId}" max="100" min="0" step="0.1" type="number" value="${value}" ${locked ? "disabled" : ""}/>
-      </div>
-    `;
-  }).join("");
+  if (previousSignature !== structureSignature) {
+    // Structural rerender is allowed only when row membership changes.
+    setInnerHtmlWithTrace(list, rows.map((row) => {
+      const candidateId = escapeHtml(String(row?.id || ""));
+      const label = escapeHtml(String(row?.name || row?.id || ""));
+      const value = row?.value == null ? "" : escapeHtml(String(row.value));
+      return `
+        <div class="field" data-v3d2-user-split-row="${candidateId}">
+          <label class="fpe-control-label" for="v3DistrictV2UserSplit_${candidateId}">${label}</label>
+          <input class="fpe-input" data-v3d2-user-split-id="${candidateId}" id="v3DistrictV2UserSplit_${candidateId}" max="100" min="0" step="0.1" type="number" value="${value}" ${locked ? "disabled" : ""}/>
+        </div>
+      `;
+    }).join(""), "syncDistrictV2UserSplitTable:rows");
+    list.dataset.v3d2StructureSignature = structureSignature;
+    return;
+  }
+
+  const rowMap = new Map();
+  Array.from(list.querySelectorAll("[data-v3d2-user-split-row]")).forEach((rowEl) => {
+    if (!(rowEl instanceof HTMLElement)) {
+      return;
+    }
+    const candidateId = String(rowEl.dataset.v3d2UserSplitRow || "").trim();
+    if (!candidateId) {
+      return;
+    }
+    rowMap.set(candidateId, rowEl);
+  });
+  rows.forEach((row) => {
+    const candidateId = String(row?.id || "").trim();
+    if (!candidateId) {
+      return;
+    }
+    const rowEl = rowMap.get(candidateId);
+    if (!(rowEl instanceof HTMLElement)) {
+      return;
+    }
+    const label = rowEl.querySelector("label");
+    if (label instanceof HTMLElement) {
+      label.textContent = String(row?.name || row?.id || "");
+    }
+    const input = rowEl.querySelector('input[data-v3d2-user-split-id]');
+    syncInputControlInPlace(input, row?.value);
+    applyDisabledToControl(input, locked);
+  });
 }
 
 function syncDistrictV2CandidateHistory(ballotSnapshot, controlSnapshot) {
@@ -468,29 +1121,116 @@ function syncDistrictV2CandidateHistory(ballotSnapshot, controlSnapshot) {
   const electionTypeOptions = normalizeSnapshotOptions(ballotSnapshot?.candidateHistoryOptions?.electionType);
   const incumbencyOptions = normalizeSnapshotOptions(ballotSnapshot?.candidateHistoryOptions?.incumbencyStatus);
   const locked = !!controlSnapshot?.locked;
+  const structureSignature = rows
+    .map((row) => String(row?.recordId || "").trim())
+    .filter(Boolean)
+    .join("|");
+  const previousSignature = String(tbody.dataset.v3d2StructureSignature || "");
 
   if (!rows.length) {
-    tbody.innerHTML = `<tr><td class="muted" colspan="12">No candidate history rows.</td></tr>`;
+    if (previousSignature !== "") {
+      setInnerHtmlWithTrace(tbody, `<tr><td class="muted" colspan="12">No candidate history rows.</td></tr>`, "syncDistrictV2CandidateHistory:empty");
+      tbody.dataset.v3d2StructureSignature = "";
+    }
   } else {
-    tbody.innerHTML = rows.map((row) => {
-      const recordId = escapeHtml(String(row?.recordId || ""));
-      return `
-        <tr data-record-id="${recordId}">
-          <td><input class="fpe-input" data-v3d2-history-id="${recordId}" data-v3d2-history-field="office" type="text" value="${escapeHtml(String(row?.office || ""))}" ${locked ? "disabled" : ""}/></td>
-          <td class="num"><input class="fpe-input" data-v3d2-history-id="${recordId}" data-v3d2-history-field="cycleYear" min="1900" step="1" type="number" value="${row?.cycleYear == null ? "" : escapeHtml(String(row.cycleYear))}" ${locked ? "disabled" : ""}/></td>
-          <td>${buildSelect("history-election", recordId, "electionType", electionTypeOptions, row?.electionType, locked)}</td>
-          <td><input class="fpe-input" data-v3d2-history-id="${recordId}" data-v3d2-history-field="candidateName" type="text" value="${escapeHtml(String(row?.candidateName || ""))}" ${locked ? "disabled" : ""}/></td>
-          <td><input class="fpe-input" data-v3d2-history-id="${recordId}" data-v3d2-history-field="party" type="text" value="${escapeHtml(String(row?.party || ""))}" ${locked ? "disabled" : ""}/></td>
-          <td>${buildSelect("history-incumbency", recordId, "incumbencyStatus", incumbencyOptions, row?.incumbencyStatus, locked)}</td>
-          <td class="num"><input class="fpe-input" data-v3d2-history-id="${recordId}" data-v3d2-history-field="voteShare" max="100" min="0" step="0.1" type="number" value="${row?.voteShare == null ? "" : escapeHtml(String(row.voteShare))}" ${locked ? "disabled" : ""}/></td>
-          <td class="num"><input class="fpe-input" data-v3d2-history-id="${recordId}" data-v3d2-history-field="margin" step="0.1" type="number" value="${row?.margin == null ? "" : escapeHtml(String(row.margin))}" ${locked ? "disabled" : ""}/></td>
-          <td class="num"><input class="fpe-input" data-v3d2-history-id="${recordId}" data-v3d2-history-field="turnoutContext" max="100" min="0" step="0.1" type="number" value="${row?.turnoutContext == null ? "" : escapeHtml(String(row.turnoutContext))}" ${locked ? "disabled" : ""}/></td>
-          <td class="num"><input data-v3d2-history-id="${recordId}" data-v3d2-history-field="repeatCandidate" type="checkbox" ${row?.repeatCandidate ? "checked" : ""} ${locked ? "disabled" : ""}/></td>
-          <td class="num"><input class="fpe-input" data-v3d2-history-id="${recordId}" data-v3d2-history-field="overUnderPerformancePct" step="0.1" type="number" value="${row?.overUnderPerformancePct == null ? "" : escapeHtml(String(row.overUnderPerformancePct))}" ${locked ? "disabled" : ""}/></td>
-          <td>${locked ? "" : `<button class="fpe-btn fpe-btn--ghost" data-v3d2-remove-history="${recordId}" type="button">Remove</button>`}</td>
-        </tr>
-      `;
-    }).join("");
+    if (previousSignature !== structureSignature) {
+      // Structural rerender is allowed only when row membership changes.
+      setInnerHtmlWithTrace(tbody, rows.map((row) => {
+        const recordId = escapeHtml(String(row?.recordId || ""));
+        return `
+          <tr data-record-id="${recordId}">
+            <td><input class="fpe-input" data-v3d2-history-id="${recordId}" data-v3d2-history-field="office" type="text" value="${escapeHtml(String(row?.office || ""))}" ${locked ? "disabled" : ""}/></td>
+            <td class="num"><input class="fpe-input" data-v3d2-history-id="${recordId}" data-v3d2-history-field="cycleYear" min="1900" step="1" type="number" value="${row?.cycleYear == null ? "" : escapeHtml(String(row.cycleYear))}" ${locked ? "disabled" : ""}/></td>
+            <td>${buildSelect("history-election", recordId, "electionType", electionTypeOptions, row?.electionType, locked)}</td>
+            <td><input class="fpe-input" data-v3d2-history-id="${recordId}" data-v3d2-history-field="candidateName" type="text" value="${escapeHtml(String(row?.candidateName || ""))}" ${locked ? "disabled" : ""}/></td>
+            <td><input class="fpe-input" data-v3d2-history-id="${recordId}" data-v3d2-history-field="party" type="text" value="${escapeHtml(String(row?.party || ""))}" ${locked ? "disabled" : ""}/></td>
+            <td>${buildSelect("history-incumbency", recordId, "incumbencyStatus", incumbencyOptions, row?.incumbencyStatus, locked)}</td>
+            <td class="num"><input class="fpe-input" data-v3d2-history-id="${recordId}" data-v3d2-history-field="voteShare" max="100" min="0" step="0.1" type="number" value="${row?.voteShare == null ? "" : escapeHtml(String(row.voteShare))}" ${locked ? "disabled" : ""}/></td>
+            <td class="num"><input class="fpe-input" data-v3d2-history-id="${recordId}" data-v3d2-history-field="margin" step="0.1" type="number" value="${row?.margin == null ? "" : escapeHtml(String(row.margin))}" ${locked ? "disabled" : ""}/></td>
+            <td class="num"><input class="fpe-input" data-v3d2-history-id="${recordId}" data-v3d2-history-field="turnoutContext" max="100" min="0" step="0.1" type="number" value="${row?.turnoutContext == null ? "" : escapeHtml(String(row.turnoutContext))}" ${locked ? "disabled" : ""}/></td>
+            <td class="num"><input data-v3d2-history-id="${recordId}" data-v3d2-history-field="repeatCandidate" type="checkbox" ${row?.repeatCandidate ? "checked" : ""} ${locked ? "disabled" : ""}/></td>
+            <td class="num"><input class="fpe-input" data-v3d2-history-id="${recordId}" data-v3d2-history-field="overUnderPerformancePct" step="0.1" type="number" value="${row?.overUnderPerformancePct == null ? "" : escapeHtml(String(row.overUnderPerformancePct))}" ${locked ? "disabled" : ""}/></td>
+            <td>${locked ? "" : `<button class="fpe-btn fpe-btn--ghost" data-v3d2-remove-history="${recordId}" type="button">Remove</button>`}</td>
+          </tr>
+        `;
+      }).join(""), "syncDistrictV2CandidateHistory:rows");
+      tbody.dataset.v3d2StructureSignature = structureSignature;
+    } else {
+      const rowMap = new Map();
+      Array.from(tbody.querySelectorAll("tr[data-record-id]")).forEach((tr) => {
+        if (!(tr instanceof HTMLTableRowElement)) {
+          return;
+        }
+        const recordId = String(tr.dataset.recordId || "").trim();
+        if (!recordId) {
+          return;
+        }
+        rowMap.set(recordId, tr);
+      });
+      rows.forEach((row) => {
+        const recordId = String(row?.recordId || "").trim();
+        if (!recordId) {
+          return;
+        }
+        const tr = rowMap.get(recordId);
+        if (!(tr instanceof HTMLTableRowElement)) {
+          return;
+        }
+        syncInputControlInPlace(tr.querySelector('input[data-v3d2-history-field="office"]'), row?.office);
+        syncInputControlInPlace(tr.querySelector('input[data-v3d2-history-field="cycleYear"]'), row?.cycleYear);
+        syncSelectControlInPlace(
+          tr.querySelector('select[data-v3d2-history-field="electionType"]'),
+          electionTypeOptions,
+          row?.electionType,
+        );
+        syncInputControlInPlace(tr.querySelector('input[data-v3d2-history-field="candidateName"]'), row?.candidateName);
+        syncInputControlInPlace(tr.querySelector('input[data-v3d2-history-field="party"]'), row?.party);
+        syncSelectControlInPlace(
+          tr.querySelector('select[data-v3d2-history-field="incumbencyStatus"]'),
+          incumbencyOptions,
+          row?.incumbencyStatus,
+        );
+        syncInputControlInPlace(tr.querySelector('input[data-v3d2-history-field="voteShare"]'), row?.voteShare);
+        syncInputControlInPlace(tr.querySelector('input[data-v3d2-history-field="margin"]'), row?.margin);
+        syncInputControlInPlace(tr.querySelector('input[data-v3d2-history-field="turnoutContext"]'), row?.turnoutContext);
+        syncCheckboxControlInPlace(tr.querySelector('input[data-v3d2-history-field="repeatCandidate"]'), row?.repeatCandidate);
+        syncInputControlInPlace(tr.querySelector('input[data-v3d2-history-field="overUnderPerformancePct"]'), row?.overUnderPerformancePct);
+
+        applyDisabledToControl(tr.querySelector('input[data-v3d2-history-field="office"]'), locked);
+        applyDisabledToControl(tr.querySelector('input[data-v3d2-history-field="cycleYear"]'), locked);
+        applyDisabledToControl(tr.querySelector('select[data-v3d2-history-field="electionType"]'), locked);
+        applyDisabledToControl(tr.querySelector('input[data-v3d2-history-field="candidateName"]'), locked);
+        applyDisabledToControl(tr.querySelector('input[data-v3d2-history-field="party"]'), locked);
+        applyDisabledToControl(tr.querySelector('select[data-v3d2-history-field="incumbencyStatus"]'), locked);
+        applyDisabledToControl(tr.querySelector('input[data-v3d2-history-field="voteShare"]'), locked);
+        applyDisabledToControl(tr.querySelector('input[data-v3d2-history-field="margin"]'), locked);
+        applyDisabledToControl(tr.querySelector('input[data-v3d2-history-field="turnoutContext"]'), locked);
+        applyDisabledToControl(tr.querySelector('input[data-v3d2-history-field="repeatCandidate"]'), locked);
+        applyDisabledToControl(tr.querySelector('input[data-v3d2-history-field="overUnderPerformancePct"]'), locked);
+
+        const actionCell = tr.cells[11];
+        if (!(actionCell instanceof HTMLElement)) {
+          return;
+        }
+        const existingButton = actionCell.querySelector("button[data-v3d2-remove-history]");
+        if (locked) {
+          if (existingButton instanceof HTMLButtonElement) {
+            existingButton.remove();
+          }
+          return;
+        }
+        if (existingButton instanceof HTMLButtonElement) {
+          existingButton.disabled = false;
+          return;
+        }
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = "fpe-btn fpe-btn--ghost";
+        button.dataset.v3d2RemoveHistory = recordId;
+        button.textContent = "Remove";
+        actionCell.append(button);
+      });
+    }
   }
 
   if (summary instanceof HTMLElement) {
@@ -609,10 +1349,10 @@ function renderDistrictV2TargetingRows(rows) {
   }
   const list = Array.isArray(rows) ? rows : [];
   if (!list.length) {
-    tbody.innerHTML = `<tr><td class="muted" colspan="6">Run targeting to generate ranked GEOs.</td></tr>`;
+    setInnerHtmlWithTrace(tbody, `<tr><td class="muted" colspan="6">Run targeting to generate ranked GEOs.</td></tr>`, "renderDistrictV2TargetingRows:empty");
     return;
   }
-  tbody.innerHTML = list.map((row) => `
+  setInnerHtmlWithTrace(tbody, list.map((row) => `
     <tr>
       <td>${escapeHtml(String(row?.rank || ""))}</td>
       <td>${escapeHtml(String(row?.geography || ""))}</td>
@@ -621,7 +1361,7 @@ function renderDistrictV2TargetingRows(rows) {
       <td>${escapeHtml(String(row?.reason || ""))}</td>
       <td>${escapeHtml(String(row?.flags || ""))}</td>
     </tr>
-  `).join("");
+  `).join(""), "renderDistrictV2TargetingRows:rows");
 }
 
 function renderDistrictV2CensusAggregateRows(rows) {
@@ -631,15 +1371,15 @@ function renderDistrictV2CensusAggregateRows(rows) {
   }
   const list = Array.isArray(rows) ? rows : [];
   if (!list.length) {
-    tbody.innerHTML = `<tr><td class="muted" colspan="2">No ACS rows loaded.</td></tr>`;
+    setInnerHtmlWithTrace(tbody, `<tr><td class="muted" colspan="2">No ACS rows loaded.</td></tr>`, "renderDistrictV2CensusAggregateRows:empty");
     return;
   }
-  tbody.innerHTML = list.map((row) => {
+  setInnerHtmlWithTrace(tbody, list.map((row) => {
     const cells = Array.isArray(row) ? row : [];
     const label = escapeHtml(String(cells[0] || ""));
     const value = escapeHtml(String(cells[1] || ""));
     return `<tr><td>${label}</td><td class="num">${value}</td></tr>`;
-  }).join("");
+  }).join(""), "renderDistrictV2CensusAggregateRows:rows");
 }
 
 function bindDistrictV2RaceContextHandlers() {
@@ -844,29 +1584,131 @@ function bindDistrictV2CensusHandlers() {
   bindDistrictV2CensusAction("v3BtnDistrictV2CensusFetchRows", "fetchRows");
 }
 
+function emitDistrictV2FormDispatchAudit(controlId, field, control, eventName, rawValue, normalizedValue, result, canonicalBefore, canonicalAfter) {
+  if (!isDistrictV2BinderAuditEnabled() || !isDistrictV2BinderAuditTarget(controlId)) {
+    return;
+  }
+  const bridgeApi = window?.__FPE_DISTRICT_API__;
+  emitDistrictV2BinderAudit({
+    eventType: "binder.dispatch",
+    controlId,
+    field,
+    eventName,
+    nodeToken: districtV2NodeToken(control),
+    rawValue,
+    normalizedValue,
+    resultType: result == null ? "nullish" : typeof result,
+    resultIsNull: result == null,
+    resultOk: !!result?.ok,
+    resultCode: String(result?.code || "").trim(),
+    bridgeHasSetFormField: !!(bridgeApi && typeof bridgeApi.setFormField === "function"),
+    canonicalBefore,
+    canonicalAfter,
+  });
+}
+
 function bindDistrictV2FormSelect(v3Id, field) {
   const control = document.getElementById(v3Id);
-  if (!(control instanceof HTMLSelectElement) || control.dataset.v3DistrictV2Bound === "1") {
+  emitDistrictV2BinderLookup(v3Id, field, control, "lookup");
+  if (!(control instanceof HTMLSelectElement)) {
+    emitDistrictV2BinderLookup(v3Id, field, control, "lookup.missing");
+    return;
+  }
+  if (control.dataset.v3DistrictV2Bound === "1") {
+    emitDistrictV2BinderLookup(v3Id, field, control, "attach.skip.alreadyBound");
     return;
   }
   control.dataset.v3DistrictV2Bound = "1";
-  control.addEventListener("change", () => {
-    const result = setDistrictFormField(field, control.value);
+  const nextAttachCount = Number(districtV2BinderAttachCounts.get(control) || 0) + 1;
+  districtV2BinderAttachCounts.set(control, nextAttachCount);
+  emitDistrictV2BinderLookup(v3Id, field, control, "attach");
+  emitDistrictV2BinderAudit({
+    eventType: "binder.attach",
+    controlId: v3Id,
+    field,
+    nodeToken: districtV2NodeToken(control),
+    attachCount: nextAttachCount,
+  });
+  control.addEventListener("change", (event) => {
+    const rawValue = control.value;
+    const normalizedValue = String(rawValue == null ? "" : rawValue).trim();
+    const canonicalBefore = readDistrictV2BinderCanonicalSnapshot(v3Id);
+    emitDistrictV2BinderAudit({
+      eventType: "binder.event",
+      controlId: v3Id,
+      field,
+      eventName: String(event?.type || "change"),
+      nodeToken: districtV2NodeToken(control),
+      domValue: String(control.value || ""),
+      canonicalBefore,
+    });
+    const result = setDistrictFormField(field, rawValue);
+    const canonicalAfter = readDistrictV2BinderCanonicalSnapshot(v3Id);
+    emitDistrictV2FormDispatchAudit(
+      v3Id,
+      field,
+      control,
+      String(event?.type || "change"),
+      rawValue,
+      normalizedValue,
+      result,
+      canonicalBefore,
+      canonicalAfter,
+    );
     handleDistrictV2MutationResult(result, `setFormField:${field}`);
   });
 }
 
 function bindDistrictV2FormField(v3Id, field) {
   const control = document.getElementById(v3Id);
+  emitDistrictV2BinderLookup(v3Id, field, control, "lookup");
   if (
     !(control instanceof HTMLInputElement || control instanceof HTMLTextAreaElement)
-    || control.dataset.v3DistrictV2Bound === "1"
   ) {
+    emitDistrictV2BinderLookup(v3Id, field, control, "lookup.missing");
+    return;
+  }
+  if (control.dataset.v3DistrictV2Bound === "1") {
+    emitDistrictV2BinderLookup(v3Id, field, control, "attach.skip.alreadyBound");
     return;
   }
   control.dataset.v3DistrictV2Bound = "1";
-  const onCommit = () => {
-    const result = setDistrictFormField(field, control.value);
+  const nextAttachCount = Number(districtV2BinderAttachCounts.get(control) || 0) + 1;
+  districtV2BinderAttachCounts.set(control, nextAttachCount);
+  emitDistrictV2BinderLookup(v3Id, field, control, "attach");
+  emitDistrictV2BinderAudit({
+    eventType: "binder.attach",
+    controlId: v3Id,
+    field,
+    nodeToken: districtV2NodeToken(control),
+    attachCount: nextAttachCount,
+  });
+  const onCommit = (event) => {
+    const rawValue = control.value;
+    const normalizedValue = String(rawValue == null ? "" : rawValue).trim();
+    const canonicalBefore = readDistrictV2BinderCanonicalSnapshot(v3Id);
+    emitDistrictV2BinderAudit({
+      eventType: "binder.event",
+      controlId: v3Id,
+      field,
+      eventName: String(event?.type || "input"),
+      nodeToken: districtV2NodeToken(control),
+      domValue: String(control.value || ""),
+      canonicalBefore,
+    });
+    const result = setDistrictFormField(field, rawValue);
+    const canonicalAfter = readDistrictV2BinderCanonicalSnapshot(v3Id);
+    emitDistrictV2FormDispatchAudit(
+      v3Id,
+      field,
+      control,
+      String(event?.type || "input"),
+      rawValue,
+      normalizedValue,
+      result,
+      canonicalBefore,
+      canonicalAfter,
+    );
     handleDistrictV2MutationResult(result, `setFormField:${field}`);
   };
   control.addEventListener("input", onCommit);
@@ -1032,38 +1874,7 @@ function syncSelectOptions(id, options, selectedValue, { placeholder = "" } = {}
   if (!(select instanceof HTMLSelectElement)) {
     return;
   }
-  const normalized = normalizeSnapshotOptions(options);
-  const wanted = String(selectedValue == null ? "" : selectedValue);
-
-  const nextOptions = [];
-  if (placeholder) {
-    nextOptions.push({ value: "", label: String(placeholder) });
-  }
-  nextOptions.push(...normalized);
-
-  const current = Array.from(select.options).map((option) => `${option.value}::${option.textContent || ""}`);
-  const next = nextOptions.map((option) => `${option.value}::${option.label}`);
-  const same = current.length === next.length && current.every((value, index) => value === next[index]);
-
-  if (!same) {
-    select.innerHTML = "";
-    nextOptions.forEach((option) => {
-      const node = document.createElement("option");
-      node.value = option.value;
-      node.textContent = option.label;
-      select.append(node);
-    });
-  }
-
-  if (document.activeElement !== select) {
-    if (wanted && !Array.from(select.options).some((row) => row.value === wanted)) {
-      const extra = document.createElement("option");
-      extra.value = wanted;
-      extra.textContent = wanted;
-      select.append(extra);
-    }
-    select.value = wanted;
-  }
+  syncSelectControlInPlace(select, options, selectedValue, { placeholder });
 }
 
 function syncMultiSelectOptions(id, options, selectedOptions) {
@@ -1071,7 +1882,42 @@ function syncMultiSelectOptions(id, options, selectedOptions) {
   if (!(select instanceof HTMLSelectElement)) {
     return;
   }
+  syncMultiSelectControlInPlace(select, options, selectedOptions);
+}
 
+function syncSelectControlInPlace(select, options, selectedValue, { placeholder = "" } = {}) {
+  if (!(select instanceof HTMLSelectElement)) {
+    return;
+  }
+  const normalized = normalizeSnapshotOptions(options);
+  const wanted = String(selectedValue == null ? "" : selectedValue);
+  const nextOptions = [];
+  if (placeholder) {
+    nextOptions.push({ value: "", label: String(placeholder) });
+  }
+  nextOptions.push(...normalized);
+  const signature = nextOptions.map((option) => `${option.value}::${option.label}`).join("||");
+  const previousSignature = String(select.dataset.v3d2OptionSignature || "");
+  if (signature !== previousSignature) {
+    replaceSelectOptionsInPlace(select, nextOptions);
+    select.dataset.v3d2OptionSignature = signature;
+  }
+  if (document.activeElement !== select) {
+    if (wanted && !Array.from(select.options).some((row) => row.value === wanted)) {
+      const extra = document.createElement("option");
+      extra.value = wanted;
+      extra.textContent = wanted;
+      select.append(extra);
+      select.dataset.v3d2OptionSignature = `${signature}||${wanted}::${wanted}`;
+    }
+    select.value = wanted;
+  }
+}
+
+function syncMultiSelectControlInPlace(select, options, selectedOptions) {
+  if (!(select instanceof HTMLSelectElement)) {
+    return;
+  }
   const normalized = normalizeSnapshotOptions(options);
   const selectedSet = new Set(
     (Array.isArray(selectedOptions) ? selectedOptions : [])
@@ -1079,27 +1925,15 @@ function syncMultiSelectOptions(id, options, selectedOptions) {
       .map((row) => String(row.value || "").trim())
       .filter(Boolean),
   );
-
-  const current = Array.from(select.options).map((option) => `${option.value}::${option.textContent || ""}`);
-  const next = normalized.map((option) => `${option.value}::${option.label}`);
-  const same = current.length === next.length && current.every((value, index) => value === next[index]);
-
-  if (!same) {
-    select.innerHTML = "";
-    normalized.forEach((option) => {
-      const node = document.createElement("option");
-      node.value = option.value;
-      node.textContent = option.label;
-      node.selected = selectedSet.has(option.value);
-      select.append(node);
-    });
-    return;
+  const signature = normalized.map((option) => `${option.value}::${option.label}`).join("||");
+  const previousSignature = String(select.dataset.v3d2OptionSignature || "");
+  if (signature !== previousSignature) {
+    replaceSelectOptionsInPlace(select, normalized);
+    select.dataset.v3d2OptionSignature = signature;
   }
-
   if (document.activeElement === select) {
     return;
   }
-
   Array.from(select.options).forEach((option) => {
     option.selected = selectedSet.has(option.value);
   });
@@ -1107,24 +1941,73 @@ function syncMultiSelectOptions(id, options, selectedOptions) {
 
 function syncInputValueFromRaw(id, rawValue) {
   const input = document.getElementById(id);
-  if (!(input instanceof HTMLInputElement || input instanceof HTMLTextAreaElement)) {
-    return;
-  }
-  if (document.activeElement === input) {
-    return;
-  }
-  input.value = rawValue == null ? "" : String(rawValue);
+  syncInputControlInPlace(input, rawValue);
 }
 
 function syncCheckboxCheckedFromRaw(id, rawValue) {
   const input = document.getElementById(id);
-  if (!(input instanceof HTMLInputElement)) {
+  syncCheckboxControlInPlace(input, rawValue);
+}
+
+function syncInputControlInPlace(control, rawValue) {
+  if (!(control instanceof HTMLInputElement || control instanceof HTMLTextAreaElement)) {
     return;
   }
-  if (document.activeElement === input) {
+  if (document.activeElement === control) {
     return;
   }
-  input.checked = !!rawValue;
+  const next = rawValue == null ? "" : String(rawValue);
+  if (control.value !== next) {
+    control.value = next;
+  }
+}
+
+function syncCheckboxControlInPlace(control, rawValue) {
+  if (!(control instanceof HTMLInputElement)) {
+    return;
+  }
+  if (document.activeElement === control) {
+    return;
+  }
+  const checked = !!rawValue;
+  if (control.checked !== checked) {
+    control.checked = checked;
+  }
+}
+
+function applyDisabledToControl(control, disabled) {
+  if (
+    !(control instanceof HTMLInputElement)
+    && !(control instanceof HTMLSelectElement)
+    && !(control instanceof HTMLTextAreaElement)
+    && !(control instanceof HTMLButtonElement)
+  ) {
+    return;
+  }
+  control.disabled = !!disabled;
+}
+
+function replaceSelectOptionsInPlace(select, nextOptions) {
+  const normalized = Array.isArray(nextOptions) ? nextOptions : [];
+  for (let index = 0; index < normalized.length; index += 1) {
+    const option = normalized[index];
+    let node = select.options[index];
+    if (!(node instanceof HTMLOptionElement)) {
+      node = document.createElement("option");
+      select.add(node);
+    }
+    const nextValue = String(option?.value ?? "");
+    const nextLabel = String(option?.label ?? nextValue);
+    if (node.value !== nextValue) {
+      node.value = nextValue;
+    }
+    if ((node.textContent || "") !== nextLabel) {
+      node.textContent = nextLabel;
+    }
+  }
+  while (select.options.length > normalized.length) {
+    select.remove(select.options.length - 1);
+  }
 }
 
 function applyDisabled(id, disabled) {

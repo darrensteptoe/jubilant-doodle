@@ -5,8 +5,10 @@ import { refreshIntelligenceInteractions } from "../intelligenceInteractions.js?
 import { wireV3Nav } from "./nav.js";
 import { installV3QaSmokeBridge, runV3QaSmoke } from "./qaGates.js";
 import { renderV3Shell } from "./shell.js";
-import { getActiveStageId, refreshActiveStage, mountStage } from "./stageMount.js";
+import { getActiveStageId, getActiveSurfaceId, refreshActiveStage, mountStage } from "./stageMount.js";
 import { resolveV3StageId, V3_DEFAULT_STAGE } from "./stageRegistry.js";
+import { APP_VERSION, BUILD_ID } from "../../build.js";
+import { CANONICAL_SCHEMA_VERSION } from "../../core/state/schema.js";
 
 try {
   window.__FPE_V3_MODULE_LOADED_AT__ = new Date().toISOString();
@@ -16,6 +18,7 @@ const STAGE_KEY = "fpe-ui-v3-stage";
 const STAGE_QUERY_PARAM = "stage";
 const NAV_BRIDGE_KEY = "__FPE_V3_NAV__";
 const SHELL_BRIDGE_KEY = "__FPE_SHELL_API__";
+const RUNTIME_DIAGNOSTICS_KEY = "__FPE_RUNTIME_DIAGNOSTICS__";
 const BRIDGE_SYNC_EVENT = "fpe:bridge-sync";
 let syncTimer = null;
 let syncRafToken = 0;
@@ -95,6 +98,7 @@ function bootV3() {
     wireEditTracker(root);
 
     navigateStage(resolveInitialStage(), { persist: true });
+    syncRuntimeDiagnostics({ logBoot: true });
     startSyncLoop();
     queueSyncAll({ forceStageRefresh: true });
     bootProbeMark("v3.boot", { phase: "ok" });
@@ -343,6 +347,176 @@ function callShellBridge(method, ...args) {
   }
 }
 
+function readShellRuntimeDiagnostics() {
+  const value = callShellBridge("getRuntimeDiagnostics");
+  return value && typeof value === "object" ? value : null;
+}
+
+function normalizePathTail(pathname) {
+  const parts = String(pathname || "")
+    .split("/")
+    .map((part) => String(part || "").trim())
+    .filter(Boolean);
+  return parts.length ? parts[parts.length - 1] : "";
+}
+
+function readBundleIdentifierFromModuleUrl(moduleUrl) {
+  const raw = String(moduleUrl || "").trim();
+  if (!raw) {
+    return "";
+  }
+  try {
+    const url = new URL(raw, window.location.href);
+    return normalizePathTail(url.pathname);
+  } catch {
+    return normalizePathTail(raw.split("?")[0]);
+  }
+}
+
+function readBundleIdentifierFromScripts() {
+  const scripts = Array.from(document.querySelectorAll("script[type='module'][src]"));
+  const preferred = scripts.find((script) => String(script.getAttribute("src") || "").includes("/assets/"));
+  const target = preferred || scripts[scripts.length - 1];
+  if (!(target instanceof HTMLScriptElement)) {
+    return "";
+  }
+  return readBundleIdentifierFromModuleUrl(target.getAttribute("src") || "");
+}
+
+function extractAssetHash(bundleIdentifier = "") {
+  const id = String(bundleIdentifier || "").trim();
+  if (!id) {
+    return "";
+  }
+  const match = id.match(/-([a-z0-9]{6,})\.js$/i);
+  if (match && match[1]) {
+    return String(match[1]).trim();
+  }
+  const queryMatch = id.match(/[?&](?:v|hash|build)=([^&]+)/i);
+  if (queryMatch && queryMatch[1]) {
+    return String(queryMatch[1]).trim();
+  }
+  return "";
+}
+
+function readStorageBackendsFromRuntime(runtimeDiagnostics) {
+  const fromBridge = runtimeDiagnostics?.storage?.backends;
+  const fallback = {
+    localStorage: false,
+    sessionStorage: false,
+    indexedDB: false,
+  };
+  if (fromBridge && typeof fromBridge === "object") {
+    return {
+      localStorage: !!fromBridge.localStorage,
+      sessionStorage: !!fromBridge.sessionStorage,
+      indexedDB: !!fromBridge.indexedDB,
+    };
+  }
+  try {
+    fallback.localStorage = typeof window.localStorage !== "undefined";
+  } catch {}
+  try {
+    fallback.sessionStorage = typeof window.sessionStorage !== "undefined";
+  } catch {}
+  try {
+    fallback.indexedDB = typeof window.indexedDB !== "undefined";
+  } catch {}
+  return fallback;
+}
+
+function buildRuntimeDiagnosticsSnapshot() {
+  const shellRuntime = readShellRuntimeDiagnostics();
+  const moduleBundleId = readBundleIdentifierFromModuleUrl(import.meta.url);
+  const scriptBundleId = readBundleIdentifierFromScripts();
+  const activeBundleId = scriptBundleId || moduleBundleId;
+  const activeAssetHash = extractAssetHash(activeBundleId) || extractAssetHash(moduleBundleId);
+  const activeStage = String(getActiveStageId() || "").trim() || resolveInitialStage();
+  const activeSurfaceId = String(getActiveSurfaceId() || "").trim();
+  const districtV2Mounted = !!document.querySelector("[data-district-surface='district_v2']");
+  const storageBackends = readStorageBackendsFromRuntime(shellRuntime);
+  const stageKeyScoped = stageStorageKey();
+  return {
+    generatedAt: new Date().toISOString(),
+    appVersion: String(shellRuntime?.appVersion || APP_VERSION || "").trim(),
+    buildId: String(shellRuntime?.buildId || BUILD_ID || "").trim(),
+    canonicalSchemaVersion: Number(CANONICAL_SCHEMA_VERSION || 0) || 0,
+    runtimeSchemaVersion: Number(shellRuntime?.runtimeSchemaVersion || 0) || 0,
+    activeStateSchemaVersion: Number.isFinite(Number(shellRuntime?.activeStateSchemaVersion))
+      ? Number(shellRuntime.activeStateSchemaVersion)
+      : null,
+    persistedSchemaVersion: Number.isFinite(Number(shellRuntime?.persisted?.schemaVersion))
+      ? Number(shellRuntime.persisted.schemaVersion)
+      : null,
+    moduleBundleId: moduleBundleId || "",
+    scriptBundleId: scriptBundleId || "",
+    activeBundleId: activeBundleId || "",
+    assetHash: activeAssetHash || "",
+    stageStorageKey: STAGE_KEY,
+    stageStorageKeyScoped: stageKeyScoped,
+    activeStage,
+    activeSurfaceId,
+    districtV2Mounted,
+    context: shellRuntime?.context && typeof shellRuntime.context === "object"
+      ? shellRuntime.context
+      : {},
+    storage: {
+      backends: storageBackends,
+      usage: shellRuntime?.storage?.usage && typeof shellRuntime.storage.usage === "object"
+        ? shellRuntime.storage.usage
+        : {},
+      stateStorageKey: String(shellRuntime?.storage?.stateStorageKey || "").trim(),
+      persistedRawBytes: Number(shellRuntime?.storage?.persistedRawBytes || 0) || 0,
+    },
+    district: shellRuntime?.district && typeof shellRuntime.district === "object"
+      ? shellRuntime.district
+      : {},
+  };
+}
+
+function renderRuntimeDiagnosticsLine(snapshot) {
+  const hashText = snapshot.assetHash || snapshot.buildId || "dev";
+  const schemaText = snapshot.persistedSchemaVersion == null
+    ? String(snapshot.activeStateSchemaVersion == null ? snapshot.runtimeSchemaVersion : snapshot.activeStateSchemaVersion)
+    : String(snapshot.persistedSchemaVersion);
+  const storageText = [
+    snapshot.storage?.backends?.localStorage ? "localStorage" : null,
+    snapshot.storage?.backends?.sessionStorage ? "sessionStorage" : null,
+    snapshot.storage?.backends?.indexedDB ? "indexedDB" : null,
+  ].filter(Boolean).join(", ") || "none";
+  return [
+    `build ${snapshot.buildId || "dev"}`,
+    `asset ${hashText}`,
+    `stage ${snapshot.activeStage || "unknown"}${snapshot.activeSurfaceId ? `/${snapshot.activeSurfaceId}` : ""}`,
+    `districtV2 ${snapshot.districtV2Mounted ? "mounted" : "not-mounted"}`,
+    `schema ${schemaText || "unknown"}`,
+    `storage ${storageText}`,
+  ].join(" | ");
+}
+
+function syncRuntimeDiagnostics({ logBoot = false } = {}) {
+  const snapshot = buildRuntimeDiagnosticsSnapshot();
+  try {
+    window[RUNTIME_DIAGNOSTICS_KEY] = {
+      getSnapshot: () => buildRuntimeDiagnosticsSnapshot(),
+      print: () => {
+        const next = buildRuntimeDiagnosticsSnapshot();
+        console.info("[runtime-parity]", next);
+        return next;
+      },
+    };
+  } catch {}
+  const host = document.getElementById("v3RuntimeDiagnostics");
+  const line = renderRuntimeDiagnosticsLine(snapshot);
+  if (host instanceof HTMLElement) {
+    host.textContent = line;
+    host.title = JSON.stringify(snapshot, null, 2);
+  }
+  if (logBoot) {
+    console.info("[runtime-parity]", snapshot);
+  }
+}
+
 function setShellScenarioName(value) {
   const result = callShellBridge("setScenarioName", value);
   return !!result;
@@ -359,6 +533,7 @@ function syncAll({ forceStageRefresh = false } = {}) {
     refreshActiveStage();
   }
   syncContextMirror();
+  syncRuntimeDiagnostics();
 }
 
 function queueSyncAll({ forceStageRefresh = false } = {}) {

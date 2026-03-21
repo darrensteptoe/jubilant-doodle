@@ -15,6 +15,24 @@ function asObject(value) {
   return value && typeof value === "object" ? value : null;
 }
 
+function isDistrictBridgeDebugEnabled() {
+  try {
+    const params = new URLSearchParams(window?.location?.search || "");
+    const traceToken = String(params.get("districtDomTrace") || "").trim().toLowerCase();
+    const binderToken = String(params.get("districtBinderAudit") || "").trim().toLowerCase();
+    return (
+      traceToken === "1"
+      || traceToken === "true"
+      || traceToken === "yes"
+      || binderToken === "1"
+      || binderToken === "true"
+      || binderToken === "yes"
+    );
+  } catch {
+    return false;
+  }
+}
+
 export function getDistrictBridgeApi() {
   const api = asObject(window?.[DISTRICT_API_KEY]);
   if (!api) {
@@ -69,11 +87,40 @@ export function readDistrictDerivedBridgeView() {
 export function callDistrictBridge(method, ...args) {
   const api = getDistrictBridgeApi();
   if (!api || typeof api[method] !== "function") {
+    if (isDistrictBridgeDebugEnabled()) {
+      const payload = {
+        eventType: "missing_method",
+        method,
+        hasApi: !!api,
+        availableMethods: api && typeof api === "object" ? Object.keys(api).slice(0, 24) : [],
+      };
+      console.warn("[district_bridge_call]", payload);
+      try {
+        console.warn(`[district_bridge_call] ${JSON.stringify(payload)}`);
+      } catch {
+        // no-op
+      }
+    }
     return null;
   }
   try {
     return api[method](...args);
-  } catch {
+  } catch (error) {
+    if (isDistrictBridgeDebugEnabled()) {
+      const payload = {
+        eventType: "method_throw",
+        method,
+        errorName: String(error?.name || ""),
+        message: String(error?.message || error || ""),
+        stack: String(error?.stack || ""),
+      };
+      console.error("[district_bridge_call]", payload);
+      try {
+        console.error(`[district_bridge_call] ${JSON.stringify(payload)}`);
+      } catch {
+        // no-op
+      }
+    }
     return null;
   }
 }

@@ -36,6 +36,7 @@ const SURFACE_MAP = {
 let activeSurfaceRefresh = null;
 let activeSurfacePane = null;
 let activeStageId = V3_DEFAULT_STAGE;
+let activeSurfaceId = "";
 const STAGE_SURFACES = new Map();
 const RIGHT_RAIL_MODE_KEY = "fpe-v3-right-rail-mode";
 const RIGHT_RAIL_MODE_RESULTS = "results";
@@ -49,6 +50,7 @@ export function mountStage(stageId) {
   }
 
   activeStageId = stage.id;
+  activeSurfaceId = String(stage.surface || "").trim();
 
   const eyebrow = document.getElementById("v3PageEyebrow");
   const title = document.getElementById("v3PageTitle");
@@ -97,6 +99,10 @@ export function refreshActiveStage() {
 
 export function getActiveStageId() {
   return activeStageId;
+}
+
+export function getActiveSurfaceId() {
+  return activeSurfaceId;
 }
 
 function syncRightRail() {

@@ -7,6 +7,7 @@ import {
 
 const TURNOUT_API_KEY = "__FPE_TURNOUT_API__";
 const ELECTION_DATA_API_KEY = "__FPE_ELECTION_DATA_API__";
+const SHELL_API_KEY = "__FPE_SHELL_API__";
 
 export function readText(selector) {
   return readSurfaceText(selector);
@@ -119,6 +120,19 @@ export function setDistrictCensusFile(field, files) {
 
 export function triggerDistrictCensusAction(action) {
   return callDistrictBridge("triggerCensusAction", action);
+}
+
+export function readRuntimeDiagnosticsSnapshot() {
+  const api = window?.[SHELL_API_KEY];
+  if (!api || typeof api !== "object" || typeof api.getRuntimeDiagnostics !== "function") {
+    return null;
+  }
+  try {
+    const snapshot = api.getRuntimeDiagnostics();
+    return snapshot && typeof snapshot === "object" ? snapshot : null;
+  } catch {
+    return null;
+  }
 }
 
 export function readDistrictSummarySnapshot() {
