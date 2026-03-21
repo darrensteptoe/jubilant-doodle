@@ -94,6 +94,8 @@ import { pctOverrideToDecimal } from "../../../../core/voteProduction.js";
 
 let censusMapResizePulseHandle = 0;
 const DISTRICT_STALE_SYNC_HOLD_MS = 1600;
+// Transitional hold map: still used by Targeting/Census binders only.
+// Replacement Race/Electorate/Ballot/Candidate History binders no longer use this lane.
 const districtPendingWrites = new Map();
 const TARGETING_DENSITY_OPTIONS = [
   { id: "none", label: "None" },
@@ -1329,9 +1331,6 @@ function syncInputValueFromRaw(id, rawValue) {
     return;
   }
   if (document.activeElement === input) {
-    return;
-  }
-  if (shouldHoldDistrictControlSync(id, rawValue)) {
     return;
   }
   const value = (rawValue == null || rawValue === "") ? "" : String(rawValue);
