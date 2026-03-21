@@ -29,7 +29,7 @@ import {
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const appRuntimePath = path.resolve(__dirname, "../../appRuntime.js");
-const districtSurfacePath = path.resolve(__dirname, "../../app/v3/surfaces/district/index.js");
+const districtSurfacePath = path.resolve(__dirname, "../../app/v3/surfaces/districtV2/index.js");
 
 const appRuntimeSource = fs.readFileSync(appRuntimePath, "utf8");
 const districtSurfaceSource = fs.readFileSync(districtSurfacePath, "utf8");
@@ -226,17 +226,17 @@ test("district compatibility guards: outcome planning outputs still respond to d
   assert.notEqual(after?.res?.expected?.yourVotes, before?.res?.expected?.yourVotes);
 });
 
-test("district pending-write hold scope: not used by replacement cards, still used by targeting/census", () => {
-  const bindFormSelectSeg = functionSegment(districtSurfaceSource, "bindDistrictFormSelect");
-  const bindFormFieldSeg = functionSegment(districtSurfaceSource, "bindDistrictFormField");
-  const bindFormCheckboxSeg = functionSegment(districtSurfaceSource, "bindDistrictFormCheckbox");
+test("district pending-write hold scope: removed from district_v2 binders", () => {
+  const bindFormSelectSeg = functionSegment(districtSurfaceSource, "bindDistrictV2FormSelect");
+  const bindFormFieldSeg = functionSegment(districtSurfaceSource, "bindDistrictV2FormField");
+  const bindFormCheckboxSeg = functionSegment(districtSurfaceSource, "bindDistrictV2FormCheckbox");
+  const bindTargetingFieldSeg = functionSegment(districtSurfaceSource, "bindDistrictV2TargetingField");
+  const bindCensusFieldSeg = functionSegment(districtSurfaceSource, "bindDistrictV2CensusField");
 
-  assert.doesNotMatch(bindFormSelectSeg, /markDistrictPendingWrite\(/, "replacement race/electorate/ballot form select binder must not use pending-write hold");
-  assert.doesNotMatch(bindFormFieldSeg, /markDistrictPendingWrite\(/, "replacement race/electorate/ballot form field binder must not use pending-write hold");
-  assert.doesNotMatch(bindFormCheckboxSeg, /markDistrictPendingWrite\(/, "replacement race/electorate/ballot form checkbox binder must not use pending-write hold");
-
-  const bindTargetingFieldSeg = functionSegment(districtSurfaceSource, "bindDistrictTargetingField");
-  const bindCensusFieldSeg = functionSegment(districtSurfaceSource, "bindDistrictCensusField");
-  assert.match(bindTargetingFieldSeg, /markDistrictPendingWrite\(/, "targeting binder still uses pending-write hold");
-  assert.match(bindCensusFieldSeg, /markDistrictPendingWrite\(/, "census binder still uses pending-write hold");
+  assert.doesNotMatch(bindFormSelectSeg, /markDistrictPendingWrite\(/, "district_v2 form select binder must not use pending-write hold");
+  assert.doesNotMatch(bindFormFieldSeg, /markDistrictPendingWrite\(/, "district_v2 form field binder must not use pending-write hold");
+  assert.doesNotMatch(bindFormCheckboxSeg, /markDistrictPendingWrite\(/, "district_v2 form checkbox binder must not use pending-write hold");
+  assert.doesNotMatch(bindTargetingFieldSeg, /markDistrictPendingWrite\(/, "district_v2 targeting binder must not use pending-write hold");
+  assert.doesNotMatch(bindCensusFieldSeg, /markDistrictPendingWrite\(/, "district_v2 census binder must not use pending-write hold");
+  assert.doesNotMatch(districtSurfaceSource, /shouldHoldDistrictControlSync\(/, "district_v2 must not use hold-based control sync");
 });

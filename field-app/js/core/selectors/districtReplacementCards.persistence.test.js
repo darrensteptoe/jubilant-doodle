@@ -32,7 +32,7 @@ import { selectDistrictCanonicalView } from "./districtCanonical.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const districtSurfacePath = path.resolve(__dirname, "../../app/v3/surfaces/district/index.js");
+const districtSurfacePath = path.resolve(__dirname, "../../app/v3/surfaces/districtV2/index.js");
 const outcomeSurfacePath = path.resolve(__dirname, "../../app/v3/surfaces/outcome/index.js");
 
 const districtSource = fs.readFileSync(districtSurfacePath, "utf8");
@@ -54,13 +54,13 @@ test("replacement reference architecture: outcome card binder pattern is present
 });
 
 test("district replacement form binders follow standard input+change commit pattern without pending-write hydration hold", () => {
-  const fieldBody = extractFunctionBody(districtSource, "bindDistrictFormField", "bindDistrictFormCheckbox");
+  const fieldBody = extractFunctionBody(districtSource, "bindDistrictV2FormField", "bindDistrictV2FormCheckbox");
   assert.match(fieldBody, /const onCommit = \(\) => \{/);
   assert.match(fieldBody, /control\.addEventListener\("input", onCommit\);/);
   assert.match(fieldBody, /control\.addEventListener\("change", onCommit\);/);
   assert.doesNotMatch(fieldBody, /markDistrictPendingWrite\(/);
 
-  const selectBody = extractFunctionBody(districtSource, "bindDistrictFormSelect", "bindDistrictFormField");
+  const selectBody = extractFunctionBody(districtSource, "bindDistrictV2FormSelect", "bindDistrictV2FormField");
   assert.doesNotMatch(selectBody, /markDistrictPendingWrite\(/);
 
   const syncInputBody = extractFunctionBody(districtSource, "syncInputValueFromRaw", "syncCheckboxCheckedFromRaw");
@@ -70,8 +70,8 @@ test("district replacement form binders follow standard input+change commit patt
 test("district replacement ballot + candidate history cards use delegated change/click handlers", () => {
   const ballotHandlerBody = extractFunctionBody(
     districtSource,
-    "bindDistrictBallotReplacementHandlers",
-    "bindDistrictCandidateHistoryReplacementHandlers",
+    "bindDistrictV2BallotHandlers",
+    "bindDistrictV2CandidateHistoryHandlers",
   );
   assert.match(ballotHandlerBody, /candidateBody\.addEventListener\("change"/);
   assert.match(ballotHandlerBody, /candidateBody\.addEventListener\("click"/);
@@ -79,15 +79,15 @@ test("district replacement ballot + candidate history cards use delegated change
 
   const historyHandlerBody = extractFunctionBody(
     districtSource,
-    "bindDistrictCandidateHistoryReplacementHandlers",
-    "syncDistrictBallotBaseline",
+    "bindDistrictV2CandidateHistoryHandlers",
+    "bindDistrictV2TargetingHandlers",
   );
   assert.match(historyHandlerBody, /historyBody\.addEventListener\("change"/);
   assert.match(historyHandlerBody, /historyBody\.addEventListener\("click"/);
 
-  const candidateTableBody = extractFunctionBody(districtSource, "syncDistrictCandidateTable", "syncDistrictUserSplitTable");
+  const candidateTableBody = extractFunctionBody(districtSource, "syncDistrictV2CandidateTable", "syncDistrictV2UserSplitTable");
   assert.doesNotMatch(candidateTableBody, /addEventListener\("input"/);
-  const historyTableBody = extractFunctionBody(districtSource, "syncDistrictCandidateHistoryTable", "syncDistrictBallotWarning");
+  const historyTableBody = extractFunctionBody(districtSource, "syncDistrictV2CandidateHistory", "syncDistrictV2Targeting");
   assert.doesNotMatch(historyTableBody, /addEventListener\("input"/);
 });
 
@@ -210,7 +210,7 @@ test("replacement candidate history card: row add/edit persists through reopen",
 });
 
 test("race context select persists on blur without pending-write hold", () => {
-  const selectBody = extractFunctionBody(districtSource, "bindDistrictFormSelect", "bindDistrictFormField");
+  const selectBody = extractFunctionBody(districtSource, "bindDistrictV2FormSelect", "bindDistrictV2FormField");
   const syncInputBody = extractFunctionBody(districtSource, "syncInputValueFromRaw", "syncCheckboxCheckedFromRaw");
   assert.doesNotMatch(selectBody, /markDistrictPendingWrite\(/);
   assert.doesNotMatch(syncInputBody, /shouldHoldDistrictControlSync\(/);
@@ -225,7 +225,7 @@ test("race context select persists on blur without pending-write hold", () => {
 });
 
 test("election date persists on blur without pending-write hold", () => {
-  const fieldBody = extractFunctionBody(districtSource, "bindDistrictFormField", "bindDistrictFormCheckbox");
+  const fieldBody = extractFunctionBody(districtSource, "bindDistrictV2FormField", "bindDistrictV2FormCheckbox");
   const syncInputBody = extractFunctionBody(districtSource, "syncInputValueFromRaw", "syncCheckboxCheckedFromRaw");
   assert.doesNotMatch(fieldBody, /markDistrictPendingWrite\(/);
   assert.doesNotMatch(syncInputBody, /shouldHoldDistrictControlSync\(/);
@@ -238,7 +238,7 @@ test("election date persists on blur without pending-write hold", () => {
 });
 
 test("universe size persists on blur without pending-write hold", () => {
-  const fieldBody = extractFunctionBody(districtSource, "bindDistrictFormField", "bindDistrictFormCheckbox");
+  const fieldBody = extractFunctionBody(districtSource, "bindDistrictV2FormField", "bindDistrictV2FormCheckbox");
   const syncInputBody = extractFunctionBody(districtSource, "syncInputValueFromRaw", "syncCheckboxCheckedFromRaw");
   assert.doesNotMatch(fieldBody, /markDistrictPendingWrite\(/);
   assert.doesNotMatch(syncInputBody, /shouldHoldDistrictControlSync\(/);
@@ -251,7 +251,7 @@ test("universe size persists on blur without pending-write hold", () => {
 });
 
 test("ballot field persists on blur without pending-write hold", () => {
-  const fieldBody = extractFunctionBody(districtSource, "bindDistrictFormField", "bindDistrictFormCheckbox");
+  const fieldBody = extractFunctionBody(districtSource, "bindDistrictV2FormField", "bindDistrictV2FormCheckbox");
   const syncInputBody = extractFunctionBody(districtSource, "syncInputValueFromRaw", "syncCheckboxCheckedFromRaw");
   assert.doesNotMatch(fieldBody, /markDistrictPendingWrite\(/);
   assert.doesNotMatch(syncInputBody, /shouldHoldDistrictControlSync\(/);
@@ -267,8 +267,8 @@ test("ballot field persists on blur without pending-write hold", () => {
 test("candidate history field persists on blur without pending-write hold", () => {
   const historyHandlers = extractFunctionBody(
     districtSource,
-    "bindDistrictCandidateHistoryReplacementHandlers",
-    "syncDistrictBallotBaseline",
+    "bindDistrictV2CandidateHistoryHandlers",
+    "bindDistrictV2TargetingHandlers",
   );
   assert.doesNotMatch(historyHandlers, /markDistrictPendingWrite\(/);
   assert.doesNotMatch(historyHandlers, /shouldHoldDistrictControlSync\(/);
