@@ -3868,9 +3868,9 @@ function districtBridgeNormalizeRows(rows, expectedCols = 0){
   return out;
 }
 
-function districtBridgeStateView(){
+function districtBridgeStateView({ includeRenderDerived = true } = {}){
   const currentState = state || {};
-  const res = lastRenderCtx?.res || null;
+  const res = includeRenderDerived ? (lastRenderCtx?.res || null) : null;
   const censusState = currentState?.census && typeof currentState.census === "object"
     ? currentState.census
     : {};
@@ -4164,6 +4164,24 @@ function districtBridgeStateView(){
   };
 }
 
+function districtBridgeCanonicalView(){
+  return districtBridgeStateView({ includeRenderDerived: false });
+}
+
+function districtBridgeDerivedView(){
+  return districtBridgeStateView({ includeRenderDerived: true });
+}
+
+function districtBridgeCombinedView(){
+  const canonical = districtBridgeCanonicalView();
+  const derived = districtBridgeDerivedView();
+  return {
+    ...derived,
+    canonical,
+    derived,
+  };
+}
+
 function districtBridgeBuildDistrictDisabledMap(currentState){
   const controlsLocked = isScenarioLockedForEdits(currentState);
   return {
@@ -4355,7 +4373,9 @@ function districtBridgePatchCensusGeoSelection(values){
 
 function installDistrictBridge(){
   window[DISTRICT_BRIDGE_KEY] = {
-    getView: () => districtBridgeStateView(),
+    getCanonicalView: () => districtBridgeCanonicalView(),
+    getDerivedView: () => districtBridgeDerivedView(),
+    getView: () => districtBridgeCombinedView(),
     setFormField: (field, value) => districtBridgeSetFormField(field, value),
     applyTemplateDefaults: (mode) => districtBridgeApplyTemplateDefaults(mode),
     addCandidate: () => districtBridgeAddCandidate(),
