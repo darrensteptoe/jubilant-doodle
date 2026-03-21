@@ -1,7 +1,7 @@
 # C1 Checkpoint — District Shell + Race Context + Electorate
 
 Date: 2026-03-21
-Status: **NOT FROZEN** (manual parity failure remains)
+Status: **FROZEN**
 
 ## Scope
 - District shell wrapper
@@ -35,16 +35,21 @@ Artifacts:
 - `checkpoints/render-cleanse-c1-district-dom-trace.log`
 - `checkpoints/render-cleanse-c1-district-dom-summary.json`
 
-Observed from live bundle `index-DYZ8lHTX.js`:
-1. Control node identity after blur remains stable for C1 controls:
+Observed from live bundles `index-DYZ8lHTX.js` (pre-fix) and `index-nMGkFB64.js` (post-fix):
+1. Control node identity after blur remains stable for C1 controls in both traces:
    - `v3DistrictV2RaceType`: `replacedSinceReference=false`
    - `v3DistrictV2ElectionDate`: `replacedSinceReference=false`
    - `v3DistrictV2UniverseSize`: `replacedSinceReference=false`
 2. Race/Electorate MutationObserver shows option-node churn but no removed control-node subtree replacement (`withRemovedNodes=0`).
-3. Persistence parity still fails in live trace auto-probe:
-   - attempted RaceType `federal` reverts to `state_leg`
-   - attempted ElectionDate `2030-11-05` reverts to empty
-   - attempted UniverseSize `111` reverts to `0`
+3. Root cause was confirmed and fixed:
+   - live District bridge path threw `ReferenceError: cleanText is not defined` on `setFormField`
+   - this prevented canonical updates and caused controls to re-sync to unchanged defaults
+   - this was **not** caused by DOM node replacement
+4. Post-fix trace parity is green:
+   - RaceType persists (`state_leg` → `federal`)
+   - ElectionDate persists (`""` → `2030-11-05`)
+   - UniverseSize persists (`0` → `111`)
+   - no C1 snap-back observed after blur in trace output
 
 ## C1 Scorecard
 
@@ -52,10 +57,9 @@ Observed from live bundle `index-DYZ8lHTX.js`:
 - in-place sync clean (ordinary edit path): **YES**
 - DOM identity preserved on blur: **YES**
 - structural rerender isolated in C1 controls: **YES**
-- value persistence parity in live browser path: **NO**
-- subsystem frozen: **NO**
+- value persistence parity in live browser path: **YES**
+- subsystem frozen: **YES**
 
 ## Next action before C2
 
-Keep C1 active and identify overwrite cause after action dispatch for Race Context/Electorate values (value overwrite without node replacement). Do not advance to C2 until C1 persistence parity is green.
-
+C1 is frozen. Proceed to C2 only (District Ballot + Candidate History) with the contained cleanse method.
