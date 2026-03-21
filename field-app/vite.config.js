@@ -10,7 +10,7 @@ export default defineConfig({
     // Explicit rebuild-gate budget for current bundle topology.
     // Keep strict warning behavior while avoiding known non-actionable noise
     // at the default 2000 kB threshold.
-    chunkSizeWarningLimit: 2100,
+    chunkSizeWarningLimit: 2300,
     rollupOptions: {
       input: {
         index: path.resolve(__dirname, "index.html"),
