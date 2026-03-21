@@ -19,17 +19,22 @@ export function evaluateOutputContracts(event, runtime = {}){
   const findings = [];
   const type = clean(event?.type);
 
-  if (type === "render_complete" && runtime?.pendingStateWrite){
-    findings.push({
-      severity: "VIOLATION",
-      classification: "warning",
-      contract_name: "stale_render_after_pending_state_write",
-      contract_type: "Render Contracts",
-      affected_path: "render",
-      expected_behavior: "Render completion should close the pending state write lifecycle cleanly.",
-      observed_behavior: "Render completion observed while pending write marker still exists.",
-      probable_cause: "Render lifecycle bookkeeping is out of order and can leave stale values in view consumers.",
-    });
+  if (type === "render_complete"){
+    const stateRevision = Number(runtime?.stateRevision || 0);
+    const renderRevision = Number(runtime?.renderRevision || 0);
+    const pending = runtime?.pendingStateWrite || null;
+    if (!pending && stateRevision > renderRevision){
+      findings.push({
+        severity: "VIOLATION",
+        classification: "warning",
+        contract_name: "stale_render_after_pending_state_write",
+        contract_type: "Render Contracts",
+        affected_path: "render",
+        expected_behavior: "Render completion should close the pending state write lifecycle cleanly.",
+        observed_behavior: "Render completed while revision bookkeeping still indicates a stale pending write lifecycle.",
+        probable_cause: "Render lifecycle bookkeeping is out of order and can leave stale values in view consumers.",
+      });
+    }
   }
 
   if (type !== "report_composed" && type !== "report_exported"){
@@ -80,4 +85,3 @@ export function evaluateOutputContracts(event, runtime = {}){
 
   return findings;
 }
-

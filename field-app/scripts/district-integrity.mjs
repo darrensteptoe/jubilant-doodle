@@ -7,7 +7,7 @@ const INVENTORY_PATH = path.join(ROOT, "interaction", "interaction-inventory.csv
 const RESULTS_PATH = path.join(ROOT, "interaction", "interaction-results.json");
 const RUNTIME_PATH = path.join(ROOT, "js", "appRuntime.js");
 const STATE_BRIDGE_PATH = path.join(ROOT, "js", "app", "v3", "stateBridge.js");
-const DISTRICT_SURFACE_PATH = path.join(ROOT, "js", "app", "v3", "surfaces", "district.js");
+const DISTRICT_SURFACE_PATH = path.join(ROOT, "js", "app", "v3", "surfaces", "district", "index.js");
 
 const REQUIRED_DISTRICT_INTERACTIONS = [
   "district_mode_selector",
@@ -126,6 +126,7 @@ function run() {
   assert(runtimeSrc.includes("getDerivedView: () => districtBridgeDerivedView()"), "district bridge API missing getDerivedView()", errors);
 
   for (const token of [
+    "readDistrictSummarySnapshot",
     "readDistrictTargetingConfigSnapshot",
     "readDistrictTargetingResultsSnapshot",
     "readDistrictCensusConfigSnapshot",
@@ -134,6 +135,11 @@ function run() {
     assert(stateBridgeSrc.includes(`export function ${token}`), `stateBridge missing ${token}()`, errors);
   }
 
+  assert(
+    districtSurfaceSrc.includes("const snapshot = readDistrictSummarySnapshot();"),
+    "district derived refresh is not using summary snapshot",
+    errors,
+  );
   assert(
     districtSurfaceSrc.includes("const targetingConfigSnapshot = readDistrictTargetingConfigSnapshot();"),
     "district canonical refresh is not using targeting config snapshot",
@@ -152,6 +158,11 @@ function run() {
   assert(
     districtSurfaceSrc.includes("const censusResultsSnapshot = readDistrictCensusResultsSnapshot();"),
     "district derived refresh is not using census results snapshot",
+    errors,
+  );
+  assert(
+    !districtSurfaceSrc.includes("readDistrictSnapshot("),
+    "district surface still references legacy readDistrictSnapshot()",
     errors,
   );
   assert(
