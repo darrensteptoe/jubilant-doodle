@@ -1,0 +1,26 @@
+{
+  "generatedAt": "2026-03-21T08:44:04.306Z",
+  "distIndex": "/Users/anakinskywalker/Downloads/field-app-40/dist/index.html",
+  "moduleScripts": [
+    "/assets/index-CUmAMQ2r.js"
+  ],
+  "assetScripts": [
+    "/assets/index-CUmAMQ2r.js"
+  ],
+  "selectedBundle": {
+    "ref": "/assets/index-CUmAMQ2r.js",
+    "hashToken": "CUmAMQ2r",
+    "path": "/Users/anakinskywalker/Downloads/field-app-40/dist/assets/index-CUmAMQ2r.js",
+    "exists": true,
+    "bytes": 2209500,
+    "sha256": "0ad5e1121d57083b8998e9f4676c2cece0f33cc91316022d67fcef71dc888aeb",
+    "containsDistrictV2MountMarker": true,
+    "containsRuntimeParityBridge": true,
+    "containsLegacyPendingWriteSymbol": false
+  },
+  "htmlChecks": {
+    "referencesAssetsBundle": true,
+    "referencesOnlyOneIndexBundle": true,
+    "containsLegacyQueryBundleRefs": false
+  }
+}

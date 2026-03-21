@@ -1,0 +1,27 @@
+{
+  "loadedBundle": "index-DYZ8lHTX.js",
+  "controlIdentity": {
+    "v3DistrictV2RaceType": {
+      "replacedSinceReference": false,
+      "domValue": "state_leg",
+      "canonicalValue": "state_leg",
+      "persistedValue": ""
+    },
+    "v3DistrictV2ElectionDate": {
+      "replacedSinceReference": false,
+      "domValue": "",
+      "canonicalValue": "",
+      "persistedValue": null
+    },
+    "v3DistrictV2UniverseSize": {
+      "replacedSinceReference": false,
+      "domValue": "0",
+      "canonicalValue": 0,
+      "persistedValue": null
+    }
+  },
+  "mutationSummary": {
+    "totalRaceElectorateMutations": 21,
+    "withRemovedNodes": 0
+  }
+}

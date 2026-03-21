@@ -1,0 +1,212 @@
+{
+  "generatedAt": "2026-03-21T08:22:24.175Z",
+  "traceMode": "store-runtime-simulation",
+  "raceTemplate": {
+    "field": "raceTemplate",
+    "domId": "v3DistrictV2RaceType",
+    "bridgeActionInput": {
+      "field": "raceType",
+      "rawValue": "county"
+    },
+    "domainActionPayload": {
+      "field": "raceType",
+      "value": "county"
+    },
+    "canonicalAfterAction": {
+      "templateRaceType": "county",
+      "mirrorTopLevelRaceType": "county"
+    },
+    "persistence": {
+      "result": {
+        "ok": true,
+        "bytes": 14367
+      },
+      "key": "fpe/trace-campaign/trace-office/state/scenario/baseline/snapshot-v1",
+      "persistedTemplateRaceType": "county",
+      "persistedTopLevelRaceType": "county"
+    },
+    "rehydrate": {
+      "loadedTopLevelRaceType": "county",
+      "normalizedTopLevelRaceType": "county",
+      "normalizedTemplateRaceType": "county"
+    },
+    "bridgeCanonicalAfterWrite": {
+      "template": {
+        "raceType": "county"
+      },
+      "form": {
+        "raceType": "county",
+        "universeSize": 0
+      }
+    },
+    "controlResync": {
+      "source": "syncSelectOptions(v3DistrictV2RaceType, ...)",
+      "value": "county"
+    },
+    "evaluation": {
+      "steps": [
+        {
+          "order": 1,
+          "step": "dom_change",
+          "value": "county",
+          "expected": "county",
+          "ok": true
+        },
+        {
+          "order": 2,
+          "step": "action_input",
+          "value": "county",
+          "expected": "county",
+          "ok": true
+        },
+        {
+          "order": 3,
+          "step": "canonical_after_action",
+          "value": "county",
+          "expected": "county",
+          "ok": true
+        },
+        {
+          "order": 4,
+          "step": "persisted_payload",
+          "value": "county",
+          "expected": "county",
+          "ok": true
+        },
+        {
+          "order": 5,
+          "step": "rehydrate_normalize_after_write",
+          "value": "county",
+          "expected": "county",
+          "ok": true
+        },
+        {
+          "order": 6,
+          "step": "bridge_canonical_after_write",
+          "value": "county",
+          "expected": "county",
+          "ok": true
+        },
+        {
+          "order": 7,
+          "step": "control_resync_blur_refresh",
+          "value": "county",
+          "expected": "county",
+          "ok": true
+        }
+      ],
+      "firstCorrect": {
+        "order": 1,
+        "step": "dom_change",
+        "value": "county",
+        "expected": "county",
+        "ok": true
+      },
+      "firstWrongAfterCorrect": null
+    }
+  },
+  "universeSize": {
+    "field": "universeSize",
+    "domId": "v3DistrictV2UniverseSize",
+    "bridgeActionInput": {
+      "field": "universeSize",
+      "rawValue": "123456"
+    },
+    "domainActionPayload": {
+      "field": "universeSize",
+      "value": 123456
+    },
+    "canonicalAfterAction": {
+      "formUniverseSize": 123456,
+      "mirrorTopLevelUniverseSize": 123456
+    },
+    "persistence": {
+      "result": {
+        "ok": true,
+        "bytes": 14414
+      },
+      "key": "fpe/trace-campaign/trace-office/state/scenario/baseline/snapshot-v1",
+      "persistedFormUniverseSize": 123456,
+      "persistedTopLevelUniverseSize": 123456
+    },
+    "rehydrate": {
+      "loadedTopLevelUniverseSize": 123456,
+      "normalizedTopLevelUniverseSize": 123456,
+      "normalizedFormUniverseSize": 123456
+    },
+    "bridgeCanonicalAfterWrite": {
+      "template": {
+        "raceType": "state_leg"
+      },
+      "form": {
+        "raceType": "state_leg",
+        "universeSize": 123456
+      }
+    },
+    "controlResync": {
+      "source": "syncInputValueFromRaw(v3DistrictV2UniverseSize, ...)",
+      "value": "123456"
+    },
+    "evaluation": {
+      "steps": [
+        {
+          "order": 1,
+          "step": "dom_change",
+          "value": "123456",
+          "expected": "123456",
+          "ok": true
+        },
+        {
+          "order": 2,
+          "step": "action_input",
+          "value": "123456",
+          "expected": "123456",
+          "ok": true
+        },
+        {
+          "order": 3,
+          "step": "canonical_after_action",
+          "value": 123456,
+          "expected": 123456,
+          "ok": true
+        },
+        {
+          "order": 4,
+          "step": "persisted_payload",
+          "value": 123456,
+          "expected": 123456,
+          "ok": true
+        },
+        {
+          "order": 5,
+          "step": "rehydrate_normalize_after_write",
+          "value": 123456,
+          "expected": 123456,
+          "ok": true
+        },
+        {
+          "order": 6,
+          "step": "bridge_canonical_after_write",
+          "value": 123456,
+          "expected": 123456,
+          "ok": true
+        },
+        {
+          "order": 7,
+          "step": "control_resync_blur_refresh",
+          "value": "123456",
+          "expected": "123456",
+          "ok": true
+        }
+      ],
+      "firstCorrect": {
+        "order": 1,
+        "step": "dom_change",
+        "value": "123456",
+        "expected": "123456",
+        "ok": true
+      },
+      "firstWrongAfterCorrect": null
+    }
+  }
+}
