@@ -1,8 +1,10 @@
 import { createKpiCard } from "./componentFactory.js";
 import { firstNonMissing, isMissingValue, readText } from "./stateBridge.js";
 import { formatPercentFromUnit, roundWholeNumberByMode } from "../../core/utils.js";
+import {
+  readOutcomeDerivedBridgeView,
+} from "./bridges/outcomeBridge.js";
 
-const OUTCOME_API_KEY = "__FPE_OUTCOME_API__";
 const REACH_API_KEY = "__FPE_REACH_API__";
 
 const KPI_SPECS = [
@@ -26,7 +28,7 @@ export function ensureKpiStrip() {
 export function syncKpis() {
   ensureKpiStrip();
 
-  const outcomeView = readOutcomeBridgeView();
+  const outcomeView = readOutcomeDerivedBridgeView();
   const winProb =
     formatBridgeWinProb(outcomeView?.mc?.winProb) ||
     firstNonMissing(["#mcWinProb-sidebar"]);
@@ -95,19 +97,6 @@ function inferBottleneck(outcomeView = null) {
   }
 
   return "Balanced";
-}
-
-function readOutcomeBridgeView() {
-  const api = window[OUTCOME_API_KEY];
-  if (!api || typeof api.getView !== "function") {
-    return null;
-  }
-  try {
-    const view = api.getView();
-    return view && typeof view === "object" ? view : null;
-  } catch {
-    return null;
-  }
 }
 
 function readReachBridgeView() {

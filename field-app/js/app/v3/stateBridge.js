@@ -1,7 +1,12 @@
 import { readText as readSurfaceText } from "./surfaceUtils.js";
+import {
+  callDistrictBridge,
+  readDistrictCanonicalBridgeView,
+  readDistrictDerivedBridgeView,
+} from "./bridges/districtBridge.js";
 
-const DISTRICT_API_KEY = "__FPE_DISTRICT_API__";
 const TURNOUT_API_KEY = "__FPE_TURNOUT_API__";
+const ELECTION_DATA_API_KEY = "__FPE_ELECTION_DATA_API__";
 
 export function readText(selector) {
   return readSurfaceText(selector);
@@ -23,12 +28,9 @@ export function firstNonMissing(selectors = []) {
   return "";
 }
 
-function readDistrictBridgeSummary() {
+function readDistrictDerivedSummary() {
   const derivedView = readDistrictDerivedBridgeView();
-  const canonicalView = readDistrictCanonicalBridgeView();
-  const summary = (derivedView?.summary && typeof derivedView.summary === "object")
-    ? derivedView.summary
-    : canonicalView?.summary;
+  const summary = derivedView?.summary;
   if (!summary || typeof summary !== "object") {
     return null;
   }
@@ -41,77 +43,6 @@ function readDistrictBridgeSummary() {
     projectedVotes: String(summary.projectedVotesText || "").trim(),
     persuasionNeed: String(summary.persuasionNeedText || "").trim(),
   };
-}
-
-function readDistrictBridgeView() {
-  try {
-    const api = window[DISTRICT_API_KEY];
-    if (!api || typeof api.getView !== "function") {
-      return null;
-    }
-    const view = api.getView();
-    return view && typeof view === "object" ? view : null;
-  } catch {
-    return null;
-  }
-}
-
-function readDistrictCanonicalBridgeView() {
-  try {
-    const api = window[DISTRICT_API_KEY];
-    if (!api || typeof api !== "object") {
-      return null;
-    }
-    if (typeof api.getCanonicalView === "function") {
-      const view = api.getCanonicalView();
-      return view && typeof view === "object" ? view : null;
-    }
-    const view = readDistrictBridgeView();
-    if (!view || typeof view !== "object") {
-      return null;
-    }
-    if (view.canonical && typeof view.canonical === "object") {
-      return view.canonical;
-    }
-    return view;
-  } catch {
-    return null;
-  }
-}
-
-function readDistrictDerivedBridgeView() {
-  try {
-    const api = window[DISTRICT_API_KEY];
-    if (!api || typeof api !== "object") {
-      return null;
-    }
-    if (typeof api.getDerivedView === "function") {
-      const view = api.getDerivedView();
-      return view && typeof view === "object" ? view : null;
-    }
-    const view = readDistrictBridgeView();
-    if (!view || typeof view !== "object") {
-      return null;
-    }
-    if (view.derived && typeof view.derived === "object") {
-      return view.derived;
-    }
-    return view;
-  } catch {
-    return null;
-  }
-}
-
-function callDistrictBridge(method, ...args) {
-  try {
-    const api = window[DISTRICT_API_KEY];
-    if (!api || typeof api[method] !== "function") {
-      return null;
-    }
-    return api[method](...args);
-  } catch {
-    return null;
-  }
 }
 
 export function setDistrictTargetingField(field, value) {
@@ -190,8 +121,8 @@ export function triggerDistrictCensusAction(action) {
   return callDistrictBridge("triggerCensusAction", action);
 }
 
-export function readDistrictSnapshot() {
-  const bridgeSummary = readDistrictBridgeSummary();
+export function readDistrictSummarySnapshot() {
+  const bridgeSummary = readDistrictDerivedSummary();
   return {
     universe: !isMissingValue(bridgeSummary?.universe) ? String(bridgeSummary.universe) : "-",
     baselineSupport: !isMissingValue(bridgeSummary?.baselineSupport) ? String(bridgeSummary.baselineSupport) : "-",
@@ -338,6 +269,34 @@ export function readDistrictBallotSnapshot() {
       repeatCandidate: !!row?.repeatCandidate,
       overUnderPerformancePct: Number.isFinite(Number(row?.overUnderPerformancePct)) ? Number(row.overUnderPerformancePct) : null,
     })).filter((row) => row.recordId),
+  };
+}
+
+export function readDistrictElectionDataSummarySnapshot() {
+  const canonical = readDistrictCanonicalBridgeView()?.electionData;
+  const derived = readDistrictDerivedBridgeView()?.electionData;
+  if ((!canonical || typeof canonical !== "object") && (!derived || typeof derived !== "object")) {
+    return null;
+  }
+  return {
+    fileName: String(canonical?.fileName || "").trim(),
+    importedAt: String(canonical?.importedAt || "").trim(),
+    importStatus: String(canonical?.importStatus || "").trim(),
+    normalizedRowCount: Number.isFinite(Number(canonical?.normalizedRowCount))
+      ? Number(canonical.normalizedRowCount)
+      : 0,
+    qualityScore: Number.isFinite(Number(canonical?.qualityScore))
+      ? Number(canonical.qualityScore)
+      : null,
+    confidenceBand: String(canonical?.confidenceBand || "").trim() || "unknown",
+    benchmarkSuggestionCount: Number.isFinite(Number(canonical?.benchmarkSuggestionCount))
+      ? Number(canonical.benchmarkSuggestionCount)
+      : 0,
+    downstreamReady: !!canonical?.downstreamReady,
+    statusText: String(derived?.statusText || "").trim(),
+    qualityText: String(derived?.qualityText || "").trim(),
+    benchmarkText: String(derived?.benchmarkText || "").trim(),
+    importedAtText: String(derived?.importedAtText || "").trim(),
   };
 }
 
@@ -573,6 +532,157 @@ export function readDistrictCensusSnapshot() {
     aggregateRows: Array.isArray(results?.aggregateRows) ? results.aggregateRows : [],
     advisoryRows: Array.isArray(results?.advisoryRows) ? results.advisoryRows : [],
     electionPreviewRows: Array.isArray(results?.electionPreviewRows) ? results.electionPreviewRows : [],
+  };
+}
+
+function readElectionDataBridgeView() {
+  try {
+    const api = window[ELECTION_DATA_API_KEY];
+    if (!api || typeof api.getView !== "function") {
+      return null;
+    }
+    const view = api.getView();
+    return view && typeof view === "object" ? view : null;
+  } catch {
+    return null;
+  }
+}
+
+function readElectionDataCanonicalBridgeView() {
+  try {
+    const api = window[ELECTION_DATA_API_KEY];
+    if (!api || typeof api !== "object") {
+      return null;
+    }
+    if (typeof api.getCanonicalView === "function") {
+      const view = api.getCanonicalView();
+      return view && typeof view === "object" ? view : null;
+    }
+    const view = readElectionDataBridgeView();
+    if (!view || typeof view !== "object") {
+      return null;
+    }
+    if (view.canonical && typeof view.canonical === "object") {
+      return view.canonical;
+    }
+    return view;
+  } catch {
+    return null;
+  }
+}
+
+function readElectionDataDerivedBridgeView() {
+  try {
+    const api = window[ELECTION_DATA_API_KEY];
+    if (!api || typeof api !== "object") {
+      return null;
+    }
+    if (typeof api.getDerivedView === "function") {
+      const view = api.getDerivedView();
+      return view && typeof view === "object" ? view : null;
+    }
+    const view = readElectionDataBridgeView();
+    if (!view || typeof view !== "object") {
+      return null;
+    }
+    if (view.derived && typeof view.derived === "object") {
+      return view.derived;
+    }
+    return view;
+  } catch {
+    return null;
+  }
+}
+
+function callElectionDataBridge(method, ...args) {
+  try {
+    const api = window[ELECTION_DATA_API_KEY];
+    if (!api || typeof api[method] !== "function") {
+      return null;
+    }
+    return api[method](...args);
+  } catch {
+    return null;
+  }
+}
+
+function cloneValue(value, fallback) {
+  const src = value == null ? fallback : value;
+  try {
+    return structuredClone(src);
+  } catch {
+    return JSON.parse(JSON.stringify(src));
+  }
+}
+
+function toSnapshotNumber(value, fallback = null) {
+  const num = Number(value);
+  return Number.isFinite(num) ? num : fallback;
+}
+
+export function importElectionDataFileBridge(payload) {
+  return callElectionDataBridge("importFile", payload);
+}
+
+export function mapElectionDataColumnsBridge(payload) {
+  return callElectionDataBridge("mapColumns", payload);
+}
+
+export function reconcileElectionDataCandidatesBridge(payload) {
+  return callElectionDataBridge("reconcileCandidates", payload);
+}
+
+export function reconcileElectionDataGeographiesBridge(payload) {
+  return callElectionDataBridge("reconcileGeographies", payload);
+}
+
+export function applyElectionDataBenchmarksBridge(payload) {
+  return callElectionDataBridge("applyBenchmarks", payload);
+}
+
+export function readElectionDataCanonicalSnapshot() {
+  const canonical = readElectionDataCanonicalBridgeView();
+  if (!canonical || typeof canonical !== "object") {
+    return null;
+  }
+  return {
+    revision: toSnapshotNumber(canonical.revision, 0) || 0,
+    import: cloneValue(canonical.import, {}),
+    schemaMapping: cloneValue(canonical.schemaMapping, {}),
+    rawRows: cloneValue(canonical.rawRows, []),
+    normalizedRows: cloneValue(canonical.normalizedRows, []),
+    jurisdictionKeys: cloneValue(canonical.jurisdictionKeys, []),
+    raceMeta: cloneValue(canonical.raceMeta, {}),
+    geographyRefs: cloneValue(canonical.geographyRefs, { byId: {}, order: [] }),
+    candidateRefs: cloneValue(canonical.candidateRefs, { byId: {}, order: [] }),
+    partyRefs: cloneValue(canonical.partyRefs, { byId: {}, order: [] }),
+    turnoutTotals: cloneValue(canonical.turnoutTotals, {}),
+    voteTotals: cloneValue(canonical.voteTotals, {}),
+    qa: cloneValue(canonical.qa, {}),
+    quality: cloneValue(canonical.quality, {}),
+    benchmarks: cloneValue(canonical.benchmarks, {}),
+  };
+}
+
+export function readElectionDataDerivedSnapshot() {
+  const derived = readElectionDataDerivedBridgeView();
+  if (!derived || typeof derived !== "object") {
+    return null;
+  }
+  return {
+    importStatus: cloneValue(derived.importStatus, {}),
+    coverage: cloneValue(derived.coverage, {}),
+    totals: cloneValue(derived.totals, {}),
+    qualitySummary: cloneValue(derived.qualitySummary, {}),
+    benchmarkSummary: cloneValue(derived.benchmarkSummary, {}),
+    statusText: String(derived.statusText || "").trim(),
+    qualityText: String(derived.qualityText || "").trim(),
+    benchmarkText: String(derived.benchmarkText || "").trim(),
+    mappingText: String(derived.mappingText || "").trim(),
+    candidateReconciliationText: String(derived.candidateReconciliationText || "").trim(),
+    geographyReconciliationText: String(derived.geographyReconciliationText || "").trim(),
+    downstreamStatusText: String(derived.downstreamStatusText || "").trim(),
+    normalizedPreviewRows: cloneValue(derived.normalizedPreviewRows, []),
   };
 }
 

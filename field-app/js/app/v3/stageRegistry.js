@@ -8,6 +8,14 @@ export const V3_STAGE_REGISTRY = [
     group: "Model"
   },
   {
+    id: "election-data",
+    navLabel: "Election Data",
+    pageTitle: "Election Data",
+    subtitle: "Import, map, reconcile, benchmark, and quality-grade historical election results.",
+    surface: "electionData",
+    group: "Model"
+  },
+  {
     id: "reach",
     navLabel: "Reach",
     pageTitle: "Capacity & Reach",

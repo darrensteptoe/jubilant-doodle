@@ -1,4 +1,9 @@
 import { V3_STAGE_REGISTRY } from "./stageRegistry.js";
+import {
+  PRODUCT_ABBREVIATION,
+  PRODUCT_NAME,
+  buildSidebarCopyrightText,
+} from "../brand.js";
 
 function renderNavGroups() {
   const groups = ["Model", "Operations", "Decisions", "System"];
@@ -35,11 +40,13 @@ function renderNavGroups() {
 }
 
 export function renderV3Shell(root) {
+  const currentYear = new Date().getFullYear();
   root.innerHTML = `
     <div class="fpe-shell">
       <header class="fpe-topbar">
         <div class="fpe-topbar__brand">
-          <span class="fpe-brand">Steptoe Strategic Media LLC Campaign Engine</span>
+          <span class="fpe-brand">${PRODUCT_NAME}</span>
+          <span class="fpe-brand-short">${PRODUCT_ABBREVIATION}</span>
           <span class="fpe-build" id="v3BuildStamp">UI 3.0</span>
         </div>
         <div class="fpe-topbar__actions">
@@ -50,7 +57,10 @@ export function renderV3Shell(root) {
 
       <div class="fpe-layout">
         <aside class="fpe-nav" aria-label="Primary navigation">
-          ${renderNavGroups()}
+          <div class="fpe-nav__scroll">
+            ${renderNavGroups()}
+          </div>
+          <footer class="fpe-nav__footer">${buildSidebarCopyrightText(currentYear)}</footer>
         </aside>
 
         <main class="fpe-main">

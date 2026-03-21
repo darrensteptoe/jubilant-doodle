@@ -4,9 +4,21 @@ export function createSurfaceFrame(layout = "three-col") {
   return frame;
 }
 
+export function createCenterStackFrame() {
+  const frame = createSurfaceFrame("center-stack");
+  frame.classList.add("fpe-center-stack");
+  return frame;
+}
+
 export function createColumn(name) {
   const col = document.createElement("div");
   col.className = `fpe-col fpe-col--${name}`;
+  return col;
+}
+
+export function createCenterStackColumn() {
+  const col = createColumn("center-stack");
+  col.classList.add("fpe-center-stack__column");
   return col;
 }
 
@@ -25,6 +37,12 @@ export function createCard({ title, description = "", status = "" }) {
     <div class="fpe-card__body"></div>
   `;
 
+  return card;
+}
+
+export function createCenterModuleCard(options = {}) {
+  const card = createCard(options);
+  card.classList.add("fpe-center-module");
   return card;
 }
 

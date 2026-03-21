@@ -17,6 +17,16 @@ const STAGE_EXPECTATIONS = {
     "#v3DistrictUniverseSize",
     "#v3DistrictTurnoutA"
   ],
+  "election-data": [
+    "#v3ElectionDataImportFile",
+    "#v3BtnElectionDataImport",
+    "#v3ElectionDataColumnMapJson",
+    "#v3BtnElectionDataApplyColumnMap",
+    "#v3ElectionDataPreviewTbody",
+    "#v3BtnElectionDataApplyCandidateMap",
+    "#v3BtnElectionDataApplyGeographyMap",
+    "#v3BtnElectionDataApplyBenchmarks"
+  ],
   reach: [
     "#v3ReachGoal",
     "#v3ReachPersuasionPct",
@@ -182,6 +192,7 @@ export function runV3QaSmoke({
   recordCheck(checks, "shell-bridge-api", hasBridgeGetter("__FPE_SHELL_API__"));
   recordCheck(checks, "training-toggle-roundtrip", isTruthy(verifyTrainingToggleRoundTrip()));
   recordCheck(checks, "district-bridge-api", hasBridgeGetter("__FPE_DISTRICT_API__"));
+  recordCheck(checks, "election-data-bridge-api", hasBridgeGetter("__FPE_ELECTION_DATA_API__"));
   recordCheck(checks, "census-runtime-bridge-api", hasBridgeGetter("__FPE_CENSUS_RUNTIME_API__"));
   const censusRuntimeApi = window.__FPE_CENSUS_RUNTIME_API__ || {};
   recordCheck(

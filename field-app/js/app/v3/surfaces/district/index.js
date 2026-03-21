@@ -1,0 +1,2840 @@
+import {
+  createCenterModuleCard,
+  createCenterStackColumn,
+  createCenterStackFrame,
+  setCardHeaderControl,
+  createWhyPanel,
+  getCardBody
+} from "../../componentFactory.js";
+import {
+  readDistrictSummarySnapshot,
+  readDistrictControlSnapshot,
+  readDistrictTemplateSnapshot,
+  readDistrictFormSnapshot,
+  readDistrictBallotSnapshot,
+  readDistrictElectionDataSummarySnapshot,
+  readDistrictTargetingConfigSnapshot,
+  readDistrictTargetingResultsSnapshot,
+  readDistrictCensusConfigSnapshot,
+  readDistrictCensusResultsSnapshot,
+  applyDistrictTemplateDefaults,
+  setDistrictFormField,
+  addDistrictCandidate,
+  updateDistrictCandidate,
+  removeDistrictCandidate,
+  setDistrictUserSplit,
+  addDistrictCandidateHistory,
+  updateDistrictCandidateHistory,
+  removeDistrictCandidateHistory,
+  setDistrictTargetingField,
+  applyDistrictTargetingPreset,
+  resetDistrictTargetingWeights,
+  runDistrictTargeting,
+  exportDistrictTargetingCsv,
+  exportDistrictTargetingJson,
+  setDistrictCensusField,
+  setDistrictCensusGeoSelection,
+  setDistrictCensusFile,
+  triggerDistrictCensusAction,
+} from "../../stateBridge.js";
+import {
+  createFieldGrid,
+  setText,
+} from "../../surfaceUtils.js";
+import {
+  renderDistrictRaceContextCard,
+  renderDistrictElectorateCard,
+  renderDistrictTurnoutCard,
+  renderDistrictStructureCard,
+} from "./raceSetup.js";
+import { renderDistrictBallotCard } from "./ballot.js";
+import { renderDistrictTargetingCard } from "./targetingConfig.js";
+import { renderDistrictCensusCard } from "./censusConfig.js";
+import {
+  createDistrictSection,
+  createDistrictBriefBand,
+  renderDistrictSummaryCard,
+} from "./summary.js";
+import {
+  renderDistrictElectionDataCard,
+  syncDistrictElectionDataSummary,
+} from "./electionDataSummary.js";
+import {
+  hydrateTemplateDimensionOptions,
+  syncDistrictTemplateProfile,
+} from "./templateProfile.js";
+import { computeUniverseAdjustedRates, normalizeUniversePercents } from "../../../../core/universeLayer.js";
+import {
+  DISTRICT_STATUS_AWAITING_INPUTS,
+  classifyDistrictStatusTone as classifyDistrictStatusToneCore,
+  deriveDistrictBaselineCardStatus as deriveDistrictBaselineCardStatusCore,
+  deriveDistrictCensusCardStatus as deriveDistrictCensusCardStatusCore,
+  deriveDistrictElectorateCardStatus as deriveDistrictElectorateCardStatusCore,
+  deriveDistrictRaceCardStatus as deriveDistrictRaceCardStatusCore,
+  deriveDistrictStructureCardStatus as deriveDistrictStructureCardStatusCore,
+  buildDistrictStructureDerivedText as buildDistrictStructureDerivedTextCore,
+  deriveDistrictSummaryCardStatus as deriveDistrictSummaryCardStatusCore,
+  deriveDistrictTargetingCardStatus as deriveDistrictTargetingCardStatusCore,
+  deriveDistrictTurnoutCardStatus as deriveDistrictTurnoutCardStatusCore,
+} from "../../../../core/districtView.js";
+import {
+  getTargetingBridgeDefaults,
+  listTargetGeoLevels,
+  listTargetModelOptions,
+} from "../../../targetingRuntime.js";
+import {
+  listDistrictModeOptions,
+  listDistrictRaceTypeOptions,
+  listDistrictUndecidedModeOptions,
+  listDistrictUniverseBasisOptions,
+} from "../../../districtOptionRegistry.js";
+import { listTemplateDimensionOptions } from "../../../templateRegistry.js";
+import { listAcsYears, listMetricSetOptions, listResolutionOptions } from "../../../../core/censusModule.js";
+import { pctOverrideToDecimal } from "../../../../core/voteProduction.js";
+
+let censusMapResizePulseHandle = 0;
+const DISTRICT_STALE_SYNC_HOLD_MS = 1600;
+const districtPendingWrites = new Map();
+const TARGETING_DENSITY_OPTIONS = [
+  { id: "none", label: "None" },
+  { id: "medium", label: "Medium+" },
+  { id: "high", label: "High" },
+];
+const TARGETING_BRIDGE_DEFAULTS = Object.freeze(getTargetingBridgeDefaults("turnout_opportunity"));
+
+const DISTRICT_INPUT_EXPLAINERS = Object.freeze([
+  Object.freeze({
+    controlId: "v3DistrictRaceType",
+    text: "Template sets a starting profile. Treat it as a baseline to calibrate, not a permanent truth.",
+    links: Object.freeze([
+      Object.freeze({ type: "module", id: "templateArchetype", label: "Template doctrine" }),
+      Object.freeze({ type: "module", id: "campaignDataRequirements", label: "Required inputs" }),
+    ]),
+  }),
+  Object.freeze({
+    controlId: "v3DistrictUniverseSize",
+    text: "Universe is your denominator. Source it from observed voter data and keep the source note current.",
+    links: Object.freeze([
+      Object.freeze({ type: "module", id: "targetUniverseMatrix", label: "Universe doctrine" }),
+      Object.freeze({ type: "glossary", id: "readiness", label: "Readiness" }),
+    ]),
+  }),
+  Object.freeze({
+    controlId: "v3DistrictUndecidedPct",
+    text: "Use 0-100. Run multiple undecided modes before decision commitments to avoid false certainty.",
+    links: Object.freeze([
+      Object.freeze({ type: "message", id: "undecidedModeProportional", label: "Undecided mode context" }),
+      Object.freeze({ type: "message", id: "ballotBaselineConflict", label: "Baseline warning" }),
+    ]),
+  }),
+  Object.freeze({
+    controlId: "v3DistrictTurnoutA",
+    text: "Comparable turnout input (0-100). Prefer cycle evidence over optimistic assumptions.",
+    links: Object.freeze([
+      Object.freeze({ type: "module", id: "forecastOutcome", label: "Forecast doctrine" }),
+      Object.freeze({ type: "glossary", id: "variance", label: "Variance" }),
+    ]),
+  }),
+  Object.freeze({
+    controlId: "v3DistrictTurnoutB",
+    text: "Second comparable turnout anchor (0-100). Keep cycle basis consistent with Turnout A.",
+    links: Object.freeze([
+      Object.freeze({ type: "module", id: "forecastOutcome", label: "Forecast doctrine" }),
+      Object.freeze({ type: "glossary", id: "calibration", label: "Calibration" }),
+    ]),
+  }),
+  Object.freeze({
+    controlId: "v3DistrictBandWidth",
+    text: "Uncertainty band in percentage points. Wider bands are safer when evidence quality is low.",
+    links: Object.freeze([
+      Object.freeze({ type: "module", id: "governanceConfidence", label: "Confidence doctrine" }),
+      Object.freeze({ type: "glossary", id: "confidence", label: "Confidence" }),
+    ]),
+  }),
+  Object.freeze({
+    controlId: "v3DistrictRetentionFactor",
+    text: "Retention should usually sit in realistic bounds; extreme values need documented rationale.",
+    links: Object.freeze([
+      Object.freeze({ type: "message", id: "electorateStructureNormalization", label: "Normalization warning" }),
+      Object.freeze({ type: "glossary", id: "realism", label: "Realism" }),
+    ]),
+  }),
+  Object.freeze({
+    controlId: "v3DistrictTargetingTopN",
+    text: "Top N should match executable capacity, not vanity list size.",
+    links: Object.freeze([
+      Object.freeze({ type: "module", id: "targetingLab", label: "Targeting doctrine" }),
+      Object.freeze({ type: "module", id: "operationsWorkforce", label: "Capacity doctrine" }),
+    ]),
+  }),
+  Object.freeze({
+    controlId: "v3DistrictTargetingMinScore",
+    text: "Higher threshold narrows scope and can improve operational focus under constraints.",
+    links: Object.freeze([
+      Object.freeze({ type: "module", id: "targetingLab", label: "Targeting doctrine" }),
+      Object.freeze({ type: "playbook", id: "persuasionUniverseTooBroad", label: "Related playbook" }),
+    ]),
+  }),
+  Object.freeze({
+    controlId: "v3CensusStateFips",
+    text: "State sets canonical geography scope. If scope changes, downstream GEO options should refresh cleanly.",
+    links: Object.freeze([
+      Object.freeze({ type: "module", id: "campaignDataRequirements", label: "Data discipline" }),
+      Object.freeze({ type: "module", id: "targetUniverseMatrix", label: "Segmentation doctrine" }),
+    ]),
+  }),
+  Object.freeze({
+    controlId: "v3CensusCountyFips",
+    text: "County is required for tract/block-group resolution. Missing county should block context-dependent pulls.",
+    links: Object.freeze([
+      Object.freeze({ type: "message", id: "contextMissing", label: "Context warning" }),
+      Object.freeze({ type: "module", id: "campaignDataRequirements", label: "Input requirements" }),
+    ]),
+  }),
+]);
+
+const DISTRICT_INTEL_ANCHOR_TYPES = new Set(["module", "glossary", "message", "playbook", "model"]);
+
+function normalizeDistrictPendingValue(rawValue) {
+  if (typeof rawValue === "boolean") {
+    return rawValue ? "1" : "0";
+  }
+  if (rawValue == null) {
+    return "";
+  }
+  return String(rawValue).trim();
+}
+
+function markDistrictPendingWrite(controlId, rawValue) {
+  const id = String(controlId || "").trim();
+  if (!id) {
+    return;
+  }
+  districtPendingWrites.set(id, {
+    value: normalizeDistrictPendingValue(rawValue),
+    at: Date.now(),
+  });
+}
+
+function shouldHoldDistrictControlSync(controlId, canonicalRawValue) {
+  const id = String(controlId || "").trim();
+  if (!id) {
+    return false;
+  }
+  const pending = districtPendingWrites.get(id);
+  if (!pending || typeof pending !== "object") {
+    return false;
+  }
+  const ageMs = Date.now() - Number(pending.at || 0);
+  if (!Number.isFinite(ageMs) || ageMs > DISTRICT_STALE_SYNC_HOLD_MS) {
+    districtPendingWrites.delete(id);
+    return false;
+  }
+  const canonical = normalizeDistrictPendingValue(canonicalRawValue);
+  if (canonical === pending.value) {
+    districtPendingWrites.delete(id);
+    return false;
+  }
+  return true;
+}
+
+function buildDistrictExplainerIntelLink(link) {
+  const type = String(link?.type || "").trim().toLowerCase();
+  if (!DISTRICT_INTEL_ANCHOR_TYPES.has(type)) {
+    return "";
+  }
+  const id = String(link?.id || "").trim();
+  if (!id) {
+    return "";
+  }
+  const label = String(link?.label || id).trim() || id;
+  return `<button class="fpe-inline-intel-link" type="button" data-intel-${type}="${escapeHtml(id)}">${escapeHtml(label)}</button>`;
+}
+
+function buildDistrictExplainerLinks(links) {
+  const items = (Array.isArray(links) ? links : [])
+    .map((row) => buildDistrictExplainerIntelLink(row))
+    .filter(Boolean);
+  if (!items.length) {
+    return "";
+  }
+  return `<span class="fpe-help-links">${items.join('<span class="fpe-help-links__sep"> · </span>')}</span>`;
+}
+
+function mountDistrictInputExplainers() {
+  DISTRICT_INPUT_EXPLAINERS.forEach((entry) => {
+    const controlId = String(entry?.controlId || "").trim();
+    if (!controlId) {
+      return;
+    }
+    const control = document.getElementById(controlId);
+    if (!(control instanceof HTMLElement)) {
+      return;
+    }
+    const host = control.closest(".field") || control.parentElement;
+    if (!(host instanceof HTMLElement)) {
+      return;
+    }
+    let note = host.querySelector(`[data-district-explainer="${controlId}"]`);
+    if (!(note instanceof HTMLElement)) {
+      note = document.createElement("div");
+      note.className = "fpe-help fpe-help--flush fpe-help--explainer";
+      note.setAttribute("data-district-explainer", controlId);
+      host.append(note);
+    }
+    const text = String(entry?.text || "").trim();
+    note.innerHTML = `${escapeHtml(text)}${buildDistrictExplainerLinks(entry?.links)}`;
+  });
+}
+
+export function renderDistrictSurface(mount) {
+  const frame = createCenterStackFrame();
+  const main = createCenterStackColumn();
+
+  const raceCard = createCenterModuleCard({
+    title: "Race context",
+    description: "Race template, election date, weeks remaining, and operating mode.",
+    status: "Awaiting context"
+  });
+
+  const electorateCard = createCenterModuleCard({
+    title: "Electorate",
+    description: "Universe definition, basis, and source provenance.",
+    status: "Awaiting universe"
+  });
+
+  const baselineCard = createCenterModuleCard({
+    title: "Ballot baseline",
+    description: "Candidate support, undecided handling, and persuasion anchor.",
+    status: "Awaiting ballot"
+  });
+
+  const turnoutCard = createCenterModuleCard({
+    title: "Turnout baseline",
+    description: "Comparable-cycle turnout assumptions and uncertainty band.",
+    status: "Awaiting turnout"
+  });
+
+  const structureCard = createCenterModuleCard({
+    title: "Electorate structure",
+    description:
+      "This layer weights persuasion and turnout reliability by party composition and applies a single retention factor. It is aggregate-only (not a CRM).",
+    status: "Weighting off"
+  });
+  const structureHeaderToggle = document.createElement("div");
+  structureHeaderToggle.className = "fpe-header-switch";
+  structureHeaderToggle.innerHTML = `
+    <span class="fpe-header-switch__label">Electorate weighting (enable to apply)</span>
+    <label class="fpe-switch">
+      <input id="v3DistrictElectorateWeightingToggle" type="checkbox"/>
+      <span>Enable</span>
+    </label>
+  `;
+  setCardHeaderControl(structureCard, structureHeaderToggle);
+
+  const summaryCard = createCenterModuleCard({
+    title: "District summary",
+    description: "The baseline state that all downstream surfaces inherit.",
+    status: "Awaiting baseline"
+  });
+
+  const electionDataCard = createCenterModuleCard({
+    title: "Election data summary",
+    description: "Canonical election data context feeding district baselines and downstream calibration.",
+    status: "No election data"
+  });
+
+  const censusCard = createCenterModuleCard({
+    title: "Census assumptions",
+    description: "Geography context, ACS rows, aggregate demographics, and election CSV dry-run workflow.",
+    status: "Ready"
+  });
+
+  const targetingCard = createCenterModuleCard({
+    title: "Targeting lab",
+    description: "Model-driven target ranking layer. Derived analysis only; does not mutate core scenario math.",
+    status: "Run targeting"
+  });
+
+  assignCardStatusId(raceCard, "v3DistrictRaceCardStatus");
+  assignCardStatusId(electorateCard, "v3DistrictElectorateCardStatus");
+  assignCardStatusId(baselineCard, "v3DistrictBaselineCardStatus");
+  assignCardStatusId(turnoutCard, "v3DistrictTurnoutCardStatus");
+  assignCardStatusId(structureCard, "v3DistrictStructureCardStatus");
+  assignCardStatusId(summaryCard, "v3DistrictSummaryCardStatus");
+  assignCardStatusId(electionDataCard, "v3DistrictElectionDataCardStatus");
+  assignCardStatusId(censusCard, "v3DistrictCensusCardStatus");
+  assignCardStatusId(targetingCard, "v3DistrictTargetingCardStatus");
+
+  renderDistrictRaceContextCard({ raceCard, createFieldGrid, getCardBody });
+  renderDistrictElectorateCard({ electorateCard, createFieldGrid, getCardBody });
+  renderDistrictBallotCard({ baselineCard, createFieldGrid, getCardBody });
+  renderDistrictTurnoutCard({ turnoutCard, createFieldGrid, getCardBody });
+  renderDistrictStructureCard({ structureCard, createFieldGrid, getCardBody });
+  renderDistrictCensusCard({ censusCard, getCardBody, renderDistrictCensusProxyShell });
+  renderDistrictTargetingCard({ targetingCard, getCardBody });
+  renderDistrictSummaryCard({ summaryCard, getCardBody });
+  renderDistrictElectionDataCard({ electionDataCard, getCardBody });
+
+  const whyPanel = createWhyPanel([
+    "District sets the denominators and assumptions every downstream result depends on.",
+    "If baseline support or universe definitions drift, all win-path outputs drift with them.",
+    "Use this page to verify race reality before operational planning."
+  ]);
+  const topRow = document.createElement("div");
+  topRow.className = "fpe-district-top-row";
+  topRow.append(whyPanel, summaryCard);
+  const bridgeStatus = document.createElement("div");
+  bridgeStatus.id = "v3DistrictBridgeStatus";
+  bridgeStatus.className = "fpe-alert fpe-alert--warn";
+  bridgeStatus.hidden = true;
+  const briefBand = createDistrictBriefBand();
+
+  const baselineSection = createDistrictSection({
+    eyebrow: "Baseline",
+    title: "Race and electorate setup",
+    description: "Set the race context, universe, ballot baseline, and turnout assumptions that drive every downstream surface."
+  });
+  const baselineGrid = document.createElement("div");
+  baselineGrid.className = "fpe-district-grid";
+  baselineGrid.append(raceCard, electorateCard, baselineCard, turnoutCard);
+  baselineSection.body.append(baselineGrid);
+
+  const compositionSection = createDistrictSection({
+    eyebrow: "Composition",
+    title: "Electorate weighting",
+    description: "Optional electorate weighting changes how persuasion and turnout reliability are interpreted from the same baseline assumptions."
+  });
+  const compositionGrid = document.createElement("div");
+  compositionGrid.className = "fpe-district-grid";
+  structureCard.classList.add("fpe-card--district-wide");
+  compositionGrid.append(structureCard);
+  compositionSection.body.append(compositionGrid);
+
+  const analysisSection = createDistrictSection({
+    eyebrow: "Geography",
+    title: "Census and targeting workspace",
+    description: "Use Census to set geographic assumptions and then test the derived targeting workflow from the same district baseline."
+  });
+  const analysisGrid = document.createElement("div");
+  analysisGrid.className = "fpe-district-analysis-grid";
+  electionDataCard.classList.add("fpe-card--district-election-data");
+  censusCard.classList.add("fpe-card--district-census");
+  targetingCard.classList.add("fpe-card--district-targeting");
+  analysisGrid.append(electionDataCard, censusCard, targetingCard);
+  analysisSection.body.append(analysisGrid);
+
+  main.append(
+    bridgeStatus,
+    topRow,
+    briefBand,
+    baselineSection.section,
+    compositionSection.section,
+    analysisSection.section
+  );
+
+  frame.append(main);
+  mount.append(frame);
+
+  const addCandidateBtn = document.getElementById("v3BtnAddCandidate");
+  if (addCandidateBtn instanceof HTMLButtonElement && addCandidateBtn.dataset.v3BallotAddBound !== "1") {
+    addCandidateBtn.dataset.v3BallotAddBound = "1";
+    addCandidateBtn.addEventListener("click", () => {
+      const result = addDistrictCandidate();
+      handleDistrictMutationResult(result, { source: "addCandidate" });
+    });
+  }
+  const addCandidateHistoryBtn = document.getElementById("v3BtnAddCandidateHistory");
+  if (addCandidateHistoryBtn instanceof HTMLButtonElement && addCandidateHistoryBtn.dataset.v3BallotAddBound !== "1") {
+    addCandidateHistoryBtn.dataset.v3BallotAddBound = "1";
+    addCandidateHistoryBtn.addEventListener("click", () => {
+      const result = addDistrictCandidateHistory();
+      handleDistrictMutationResult(result, { source: "addCandidateHistory" });
+    });
+  }
+  bindDistrictFormSelect("v3DistrictYourCandidate", "yourCandidate");
+  bindDistrictFormField("v3DistrictUndecidedPct", "undecidedPct");
+  bindDistrictFormSelect("v3DistrictUndecidedMode", "undecidedMode");
+  bindDistrictFormSelect("v3DistrictRaceType", "raceType");
+  bindDistrictFormSelect("v3DistrictOfficeLevel", "officeLevel");
+  bindDistrictFormSelect("v3DistrictElectionType", "electionType");
+  bindDistrictFormSelect("v3DistrictSeatContext", "seatContext");
+  bindDistrictFormSelect("v3DistrictPartisanshipMode", "partisanshipMode");
+  bindDistrictFormSelect("v3DistrictSalienceLevel", "salienceLevel");
+  bindDistrictFormField("v3DistrictElectionDate", "electionDate");
+  bindDistrictFormField("v3DistrictWeeksRemaining", "weeksRemaining");
+  bindDistrictFormSelect("v3DistrictMode", "mode");
+  bindDistrictFormField("v3DistrictUniverseSize", "universeSize");
+  bindDistrictFormSelect("v3DistrictUniverseBasis", "universeBasis");
+  bindDistrictFormField("v3DistrictSourceNote", "sourceNote");
+  bindDistrictFormCheckbox("v3DistrictElectorateWeightingToggle", "universe16Enabled");
+  bindDistrictFormField("v3DistrictDemPct", "universe16DemPct");
+  bindDistrictFormField("v3DistrictRepPct", "universe16RepPct");
+  bindDistrictFormField("v3DistrictNpaPct", "universe16NpaPct");
+  bindDistrictFormField("v3DistrictOtherPct", "universe16OtherPct");
+  bindDistrictFormField("v3DistrictRetentionFactor", "retentionFactor");
+  bindDistrictFormField("v3DistrictTurnoutA", "turnoutA");
+  bindDistrictFormField("v3DistrictTurnoutB", "turnoutB");
+  bindDistrictFormField("v3DistrictBandWidth", "bandWidth");
+  const applyTemplateDefaultsBtn = document.getElementById("v3BtnDistrictApplyTemplateDefaults");
+  if (applyTemplateDefaultsBtn instanceof HTMLButtonElement) {
+    applyTemplateDefaultsBtn.addEventListener("click", () => {
+      const result = applyDistrictTemplateDefaults("all");
+      handleDistrictMutationResult(result, { source: "applyTemplateDefaults" });
+    });
+  }
+  bindDistrictTargetingBridge();
+  bindDistrictCensusProxies();
+  hydrateDistrictSetupOptions();
+  hydrateTemplateDimensionOptions({ hydrateSelectOptions, listTemplateDimensionOptions });
+  mountDistrictInputExplainers();
+  return refreshDistrictSummary;
+}
+
+function handleDistrictMutationResult(result, { source = "" } = {}) {
+  const hasResult = !!result && typeof result === "object";
+  const ok = hasResult ? result.ok !== false : false;
+  const code = hasResult ? String(result.code || "").trim() : "";
+
+  if (!hasResult) {
+    if (source) {
+      console.warn(`[district] canonical write unavailable (${source})`, result);
+    }
+    return false;
+  }
+
+  if (!ok && source) {
+    console.warn(
+      `[district] canonical write rejected (${source}${code ? `:${code}` : ""})`,
+      result,
+    );
+  }
+
+  if (ok) {
+    refreshDistrictCanonicalControls();
+  }
+
+  return ok;
+}
+
+function syncDistrictBridgeAvailability(hasBridgeView) {
+  const bridgeReady = !!hasBridgeView;
+  const banner = document.getElementById("v3DistrictBridgeStatus");
+  if (banner instanceof HTMLElement) {
+    banner.hidden = bridgeReady;
+    banner.textContent = bridgeReady
+      ? ""
+      : "District runtime bridge is unavailable. Inputs are locked until canonical runtime is ready.";
+  }
+
+  const root = banner?.closest(".fpe-surface-pane");
+  if (!(root instanceof HTMLElement)) {
+    return;
+  }
+
+  root.querySelectorAll("input, select, textarea, button").forEach((node) => {
+    const control = node;
+    if (
+      !(control instanceof HTMLInputElement)
+      && !(control instanceof HTMLSelectElement)
+      && !(control instanceof HTMLTextAreaElement)
+      && !(control instanceof HTMLButtonElement)
+    ) {
+      return;
+    }
+
+    if (!bridgeReady) {
+      if (!Object.prototype.hasOwnProperty.call(control.dataset, "v3BridgeDisabledPrev")) {
+        control.dataset.v3BridgeDisabledPrev = control.disabled ? "1" : "0";
+      }
+      control.disabled = true;
+      return;
+    }
+
+    if (Object.prototype.hasOwnProperty.call(control.dataset, "v3BridgeDisabledPrev")) {
+      control.disabled = control.dataset.v3BridgeDisabledPrev === "1";
+      delete control.dataset.v3BridgeDisabledPrev;
+    }
+  });
+}
+
+function refreshDistrictCanonicalControls() {
+  const controlSnapshot = readDistrictControlSnapshot();
+  const templateSnapshot = readDistrictTemplateSnapshot();
+  const formSnapshot = readDistrictFormSnapshot();
+  const ballotSnapshot = readDistrictBallotSnapshot();
+  const targetingConfigSnapshot = readDistrictTargetingConfigSnapshot();
+  const censusConfigSnapshot = readDistrictCensusConfigSnapshot();
+  const hasBridgeView = !!(
+    formSnapshot
+    || templateSnapshot
+    || ballotSnapshot
+    || targetingConfigSnapshot
+    || censusConfigSnapshot
+  );
+  syncDistrictBridgeAvailability(hasBridgeView);
+  if (!hasBridgeView) {
+    return false;
+  }
+
+  if (ballotSnapshot) {
+    syncDistrictBallotTopline(ballotSnapshot);
+    syncDistrictBallotBaseline(ballotSnapshot, controlSnapshot);
+    if (controlSnapshot?.locked) {
+      applyDistrictBallotDynamicLock();
+    }
+  }
+  if (templateSnapshot) {
+    syncSelectValueFromRaw("v3DistrictOfficeLevel", templateSnapshot?.officeLevel);
+    syncSelectValueFromRaw("v3DistrictElectionType", templateSnapshot?.electionType);
+    syncSelectValueFromRaw("v3DistrictSeatContext", templateSnapshot?.seatContext);
+    syncSelectValueFromRaw("v3DistrictPartisanshipMode", templateSnapshot?.partisanshipMode);
+    syncSelectValueFromRaw("v3DistrictSalienceLevel", templateSnapshot?.salienceLevel);
+  }
+  if (formSnapshot) {
+    syncSelectValueFromRaw("v3DistrictRaceType", formSnapshot?.raceType);
+    syncInputValueFromRaw("v3DistrictElectionDate", formSnapshot?.electionDate);
+    syncInputValueFromRaw("v3DistrictWeeksRemaining", formSnapshot?.weeksRemaining);
+    syncSelectValueFromRaw("v3DistrictMode", formSnapshot?.mode);
+    syncInputValueFromRaw("v3DistrictUniverseSize", formSnapshot?.universeSize);
+    syncSelectValueFromRaw("v3DistrictUniverseBasis", formSnapshot?.universeBasis);
+    syncInputValueFromRaw("v3DistrictSourceNote", formSnapshot?.sourceNote);
+    syncCheckboxCheckedFromRaw("v3DistrictElectorateWeightingToggle", formSnapshot?.universe16Enabled);
+    syncInputValueFromRaw("v3DistrictTurnoutA", formSnapshot?.turnoutA);
+    syncInputValueFromRaw("v3DistrictTurnoutB", formSnapshot?.turnoutB);
+    syncInputValueFromRaw("v3DistrictBandWidth", formSnapshot?.bandWidth);
+    syncInputValueFromRaw("v3DistrictDemPct", formSnapshot?.universe16DemPct);
+    syncInputValueFromRaw("v3DistrictRepPct", formSnapshot?.universe16RepPct);
+    syncInputValueFromRaw("v3DistrictNpaPct", formSnapshot?.universe16NpaPct);
+    syncInputValueFromRaw("v3DistrictOtherPct", formSnapshot?.universe16OtherPct);
+    syncInputValueFromRaw("v3DistrictRetentionFactor", formSnapshot?.retentionFactor);
+  }
+
+  syncDistrictTargetingControlState(targetingConfigSnapshot);
+  syncDistrictCensusControlState(censusConfigSnapshot);
+  syncDistrictCensusMessageTones();
+  syncCensusMapShellState();
+  applyDistrictBridgeDisabledMap(controlSnapshot?.disabledMap);
+  return true;
+}
+
+function refreshDistrictDerivedOutputs() {
+  const snapshot = readDistrictSummarySnapshot();
+  const templateSnapshot = readDistrictTemplateSnapshot();
+  const electionDataSummarySnapshot = readDistrictElectionDataSummarySnapshot();
+  const targetingResultsSnapshot = readDistrictTargetingResultsSnapshot();
+  const censusResultsSnapshot = readDistrictCensusResultsSnapshot();
+
+  syncDistrictStructureDerived();
+  setText("v3DistrictUniverse", snapshot.universe);
+  setText("v3DistrictSupport", snapshot.baselineSupport);
+  setText("v3DistrictTurnout", snapshot.turnoutExpected);
+  setText("v3DistrictProjected", snapshot.projectedVotes);
+  setText("v3DistrictNeed", snapshot.persuasionNeed);
+  setText("v3DistrictTurnoutExpected", snapshot.turnoutExpected);
+  setText("v3DistrictTurnoutBand", snapshot.turnoutBand);
+  setText("v3DistrictVotesPer1pct", snapshot.votesPer1pct);
+
+  if (templateSnapshot) {
+    syncDistrictTemplateProfile(templateSnapshot);
+  }
+  syncDistrictElectionDataSummary(electionDataSummarySnapshot);
+  syncDistrictTargetingLab(targetingResultsSnapshot);
+  syncDistrictCensusProxy(censusResultsSnapshot);
+  syncDistrictBrief(snapshot, censusResultsSnapshot, templateSnapshot);
+  syncDistrictCardStatus("v3DistrictRaceCardStatus", deriveDistrictRaceCardStatus());
+  syncDistrictCardStatus("v3DistrictElectorateCardStatus", deriveDistrictElectorateCardStatus());
+  syncDistrictCardStatus("v3DistrictBaselineCardStatus", deriveDistrictBaselineCardStatus());
+  syncDistrictCardStatus("v3DistrictTurnoutCardStatus", deriveDistrictTurnoutCardStatus());
+  syncDistrictCardStatus("v3DistrictStructureCardStatus", deriveDistrictStructureCardStatus());
+  syncDistrictCardStatus("v3DistrictSummaryCardStatus", deriveDistrictSummaryCardStatus(snapshot));
+  syncDistrictCardStatus("v3DistrictElectionDataCardStatus", deriveDistrictElectionDataCardStatus());
+  syncDistrictCardStatus("v3DistrictCensusCardStatus", deriveDistrictCensusCardStatus());
+  syncDistrictCardStatus("v3DistrictTargetingCardStatus", deriveDistrictTargetingCardStatus());
+}
+
+function refreshDistrictSummary() {
+  const hydrated = refreshDistrictCanonicalControls();
+  if (!hydrated) {
+    return;
+  }
+  refreshDistrictDerivedOutputs();
+}
+
+function syncDistrictTargetingControlState(snapshotOverride = null) {
+  const targetingConfig = snapshotOverride && typeof snapshotOverride === "object"
+    ? snapshotOverride
+    : readDistrictTargetingConfigSnapshot();
+  const targetingResults = readDistrictTargetingResultsSnapshot();
+
+  ensureDistrictTargetingOptionHydration(targetingConfig);
+
+  if (targetingConfig) {
+    syncBridgeSelectValue("v3DistrictTargetingGeoLevel", targetingConfig.geoLevel);
+    syncBridgeSelectValue("v3DistrictTargetingModelId", targetingConfig.presetId || targetingConfig.modelId);
+    syncBridgeFieldValue("v3DistrictTargetingTopN", targetingConfig.topN);
+    syncBridgeFieldValue("v3DistrictTargetingMinHousingUnits", targetingConfig.minHousingUnits);
+    syncBridgeFieldValue("v3DistrictTargetingMinPopulation", targetingConfig.minPopulation);
+    syncBridgeFieldValue("v3DistrictTargetingMinScore", targetingConfig.minScore);
+    syncBridgeCheckboxValue("v3DistrictTargetingOnlyRaceFootprint", targetingConfig.onlyRaceFootprint);
+    syncBridgeCheckboxValue("v3DistrictTargetingPrioritizeYoung", targetingConfig.prioritizeYoung);
+    syncBridgeCheckboxValue("v3DistrictTargetingPrioritizeRenters", targetingConfig.prioritizeRenters);
+    syncBridgeCheckboxValue("v3DistrictTargetingAvoidHighMultiUnit", targetingConfig.avoidHighMultiUnit);
+    syncBridgeSelectValue("v3DistrictTargetingDensityFloor", targetingConfig.densityFloor);
+    syncBridgeFieldValue("v3DistrictTargetingWeightVotePotential", targetingConfig.weightVotePotential);
+    syncBridgeFieldValue("v3DistrictTargetingWeightTurnoutOpportunity", targetingConfig.weightTurnoutOpportunity);
+    syncBridgeFieldValue("v3DistrictTargetingWeightPersuasionIndex", targetingConfig.weightPersuasionIndex);
+    syncBridgeFieldValue("v3DistrictTargetingWeightFieldEfficiency", targetingConfig.weightFieldEfficiency);
+  } else {
+    syncBridgeSelectValue("v3DistrictTargetingGeoLevel", TARGETING_BRIDGE_DEFAULTS.geoLevel);
+    syncBridgeSelectValue("v3DistrictTargetingModelId", TARGETING_BRIDGE_DEFAULTS.presetId);
+    syncBridgeFieldValue("v3DistrictTargetingTopN", TARGETING_BRIDGE_DEFAULTS.topN);
+    syncBridgeFieldValue("v3DistrictTargetingMinHousingUnits", TARGETING_BRIDGE_DEFAULTS.minHousingUnits);
+    syncBridgeFieldValue("v3DistrictTargetingMinPopulation", TARGETING_BRIDGE_DEFAULTS.minPopulation);
+    syncBridgeFieldValue("v3DistrictTargetingMinScore", TARGETING_BRIDGE_DEFAULTS.minScore);
+    syncBridgeCheckboxValue("v3DistrictTargetingOnlyRaceFootprint", TARGETING_BRIDGE_DEFAULTS.onlyRaceFootprint);
+    syncBridgeCheckboxValue("v3DistrictTargetingPrioritizeYoung", TARGETING_BRIDGE_DEFAULTS.prioritizeYoung);
+    syncBridgeCheckboxValue("v3DistrictTargetingPrioritizeRenters", TARGETING_BRIDGE_DEFAULTS.prioritizeRenters);
+    syncBridgeCheckboxValue("v3DistrictTargetingAvoidHighMultiUnit", TARGETING_BRIDGE_DEFAULTS.avoidHighMultiUnit);
+    syncBridgeSelectValue("v3DistrictTargetingDensityFloor", TARGETING_BRIDGE_DEFAULTS.densityFloor);
+    syncBridgeFieldValue("v3DistrictTargetingWeightVotePotential", TARGETING_BRIDGE_DEFAULTS.weightVotePotential);
+    syncBridgeFieldValue("v3DistrictTargetingWeightTurnoutOpportunity", TARGETING_BRIDGE_DEFAULTS.weightTurnoutOpportunity);
+    syncBridgeFieldValue("v3DistrictTargetingWeightPersuasionIndex", TARGETING_BRIDGE_DEFAULTS.weightPersuasionIndex);
+    syncBridgeFieldValue("v3DistrictTargetingWeightFieldEfficiency", TARGETING_BRIDGE_DEFAULTS.weightFieldEfficiency);
+  }
+
+  syncDistrictTargetingDisabledFallback({
+    config: targetingConfig,
+    rowCount: Array.isArray(targetingResults?.rows) ? targetingResults.rows.length : 0,
+  });
+}
+
+function syncDistrictCensusControlState(snapshotOverride = null) {
+  const config = snapshotOverride && typeof snapshotOverride === "object"
+    ? snapshotOverride
+    : readDistrictCensusConfigSnapshot();
+  if (!config || typeof config !== "object") {
+    ensureDistrictCensusStaticOptionHydration(null);
+    return;
+  }
+  ensureDistrictCensusStaticOptionHydration(config);
+
+  syncBridgeFieldValue("v3CensusApiKey", config.apiKey);
+  syncBridgeSelectValue("v3CensusAcsYear", config.year);
+  syncBridgeSelectValue("v3CensusResolution", config.resolution);
+  syncBridgeSelectValue("v3CensusStateFips", config.stateFips);
+  syncBridgeSelectValue("v3CensusCountyFips", config.countyFips);
+  syncBridgeSelectValue("v3CensusPlaceFips", config.placeFips);
+  syncBridgeSelectValue("v3CensusMetricSet", config.metricSet);
+  syncBridgeSelectValue("v3CensusTractFilter", config.tractFilter);
+  syncBridgeSelectValue("v3CensusSelectionSetSelect", config.selectedSelectionSetKey);
+  syncBridgeFieldValue("v3CensusGeoSearch", config.geoSearch);
+  syncBridgeFieldValue("v3CensusGeoPaste", config.geoPaste);
+  syncBridgeFieldValue("v3CensusSelectionSetName", config.selectionSetDraftName);
+  syncBridgeFieldValue("v3CensusElectionCsvPrecinctFilter", config.electionCsvPrecinctFilter);
+  syncBridgeCheckboxValue("v3CensusApplyAdjustmentsToggle", config.applyAdjustedAssumptions);
+  syncBridgeCheckboxValue("v3CensusMapQaVtdToggle", config.mapQaVtdOverlay);
+  syncBridgeMultiSelectValue("v3CensusGeoSelect", config.geoSelectOptions);
+  applyDistrictCensusBridgeDisabledMap(config.disabledMap);
+  syncDistrictCensusDisabledFallback(config);
+}
+
+function syncDistrictBrief(snapshot, censusSnapshot, templateSnapshot) {
+  const raceTemplateText = readSelectedLabel("v3DistrictRaceType") || "Unset";
+  const appliedTemplateId = String(templateSnapshot?.appliedTemplateId || "").trim();
+  const overrides = Array.isArray(templateSnapshot?.overriddenFields) ? templateSnapshot.overriddenFields.length : 0;
+  const templateText = appliedTemplateId
+    ? `${raceTemplateText} (${appliedTemplateId}${overrides > 0 ? ` · ${overrides} overrides` : ""})`
+    : raceTemplateText;
+  const modeText = readSelectedLabel("v3DistrictMode") || "Unset";
+  const electionDate = readInputValue("v3DistrictElectionDate");
+  const weeksRemaining = readInputValue("v3DistrictWeeksRemaining");
+  const universeBasisText = readSelectedLabel("v3DistrictUniverseBasis") || "Unset";
+  const weightingEnabled = readCheckboxChecked("v3DistrictElectorateWeightingToggle");
+  const structureWarning = String(document.getElementById("v3DistrictStructureWarn")?.textContent || "").trim();
+  const censusText =
+    censusSnapshot?.geoStatsText
+    || censusSnapshot?.selectionSummaryText
+    || censusSnapshot?.statusText
+    || "No ACS rows";
+
+  let timelineText = "Unset";
+  if (electionDate && weeksRemaining) {
+    timelineText = `${electionDate} · ${weeksRemaining} weeks`;
+  } else if (electionDate) {
+    timelineText = electionDate;
+  } else if (weeksRemaining) {
+    timelineText = `${weeksRemaining} weeks`;
+  }
+
+  let weightingText = weightingEnabled ? "Weighted" : "Baseline only";
+  if (weightingEnabled && structureWarning) {
+    weightingText = "Weighted · normalize inputs";
+  }
+
+  setText("v3DistrictBriefTemplate", templateText);
+  setText("v3DistrictBriefMode", modeText);
+  setText("v3DistrictBriefTimeline", timelineText);
+  setText("v3DistrictBriefUniverseBasis", universeBasisText);
+  setText("v3DistrictBriefWeighting", weightingText);
+  setText("v3DistrictBriefCensus", censusText);
+}
+
+function readSelectedLabel(id) {
+  const el = document.getElementById(id);
+  if (!(el instanceof HTMLSelectElement)) {
+    return "";
+  }
+  const option = el.selectedOptions?.[0];
+  return String(option?.textContent || "").trim();
+}
+
+function readInputValue(id) {
+  const el = document.getElementById(id);
+  if (!(el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement)) {
+    return "";
+  }
+  return String(el.value || "").trim();
+}
+
+function dataKeyToSelectorFragment(dataKey) {
+  return String(dataKey || "")
+    .trim()
+    .replace(/[A-Z]/g, (ch) => `-${ch.toLowerCase()}`);
+}
+
+function captureActiveControlState(container, rowDataKey) {
+  if (!(container instanceof HTMLElement)) {
+    return null;
+  }
+  const active = document.activeElement;
+  if (
+    !(active instanceof HTMLInputElement)
+    && !(active instanceof HTMLSelectElement)
+    && !(active instanceof HTMLTextAreaElement)
+  ) {
+    return null;
+  }
+  if (!container.contains(active)) {
+    return null;
+  }
+  const field = String(active.dataset.syncField || "").trim();
+  if (!field) {
+    return null;
+  }
+  const key = String(rowDataKey || "").trim();
+  if (!key) {
+    return null;
+  }
+  const attr = dataKeyToSelectorFragment(key);
+  const row = active.closest(`[data-${attr}]`);
+  if (!(row instanceof HTMLElement)) {
+    return null;
+  }
+  const rowId = String(row.dataset[key] || "").trim();
+  if (!rowId) {
+    return null;
+  }
+  const state = {
+    rowId,
+    field,
+    isCheckbox: active instanceof HTMLInputElement && active.type === "checkbox",
+    checked: active instanceof HTMLInputElement && active.type === "checkbox" ? !!active.checked : false,
+    value: active instanceof HTMLInputElement || active instanceof HTMLTextAreaElement || active instanceof HTMLSelectElement
+      ? String(active.value || "")
+      : "",
+    selectionStart: null,
+    selectionEnd: null,
+  };
+  if (active instanceof HTMLInputElement || active instanceof HTMLTextAreaElement) {
+    const start = Number(active.selectionStart);
+    const end = Number(active.selectionEnd);
+    state.selectionStart = Number.isFinite(start) ? start : null;
+    state.selectionEnd = Number.isFinite(end) ? end : null;
+  }
+  return state;
+}
+
+function restoreActiveControlState(container, rowDataKey, activeState) {
+  if (!(container instanceof HTMLElement) || !activeState || typeof activeState !== "object") {
+    return;
+  }
+  const key = String(rowDataKey || "").trim();
+  if (!key) {
+    return;
+  }
+  const attr = dataKeyToSelectorFragment(key);
+  const controls = Array.from(container.querySelectorAll("[data-sync-field]"));
+  const target = controls.find((node) => {
+    if (
+      !(node instanceof HTMLInputElement)
+      && !(node instanceof HTMLSelectElement)
+      && !(node instanceof HTMLTextAreaElement)
+    ) {
+      return false;
+    }
+    if (String(node.dataset.syncField || "").trim() !== String(activeState.field || "").trim()) {
+      return false;
+    }
+    const row = node.closest(`[data-${attr}]`);
+    if (!(row instanceof HTMLElement)) {
+      return false;
+    }
+    return String(row.dataset[key] || "").trim() === String(activeState.rowId || "").trim();
+  });
+  if (
+    !(target instanceof HTMLInputElement)
+    && !(target instanceof HTMLSelectElement)
+    && !(target instanceof HTMLTextAreaElement)
+  ) {
+    return;
+  }
+  if (target instanceof HTMLInputElement && target.type === "checkbox") {
+    target.checked = !!activeState.checked;
+  } else {
+    target.value = String(activeState.value == null ? "" : activeState.value);
+  }
+  try {
+    target.focus();
+  } catch {}
+  if (
+    (target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement)
+    && Number.isFinite(Number(activeState.selectionStart))
+    && Number.isFinite(Number(activeState.selectionEnd))
+  ) {
+    try {
+      target.setSelectionRange(Number(activeState.selectionStart), Number(activeState.selectionEnd));
+    } catch {}
+  }
+}
+
+function syncDistrictBallotBaseline(ballotSnapshot, controlSnapshot) {
+  const snapshot = ballotSnapshot && typeof ballotSnapshot === "object" ? ballotSnapshot : null;
+  syncDistrictCandidateTable(snapshot, controlSnapshot);
+  syncDistrictUserSplitTable(snapshot, controlSnapshot);
+  syncDistrictCandidateHistoryTable(snapshot, controlSnapshot);
+  syncDistrictBallotWarning(snapshot);
+  const supportText = String(snapshot?.supportTotalText || "").trim();
+  setText("v3DistrictSupportTotal", supportText || "—");
+}
+
+function syncDistrictBallotTopline(ballotSnapshot) {
+  const snapshot = ballotSnapshot && typeof ballotSnapshot === "object" ? ballotSnapshot : null;
+  const candidateOptions = Array.isArray(snapshot?.candidates)
+    ? snapshot.candidates
+      .map((row) => ({
+        value: String(row?.id || "").trim(),
+        label: String(row?.name || row?.id || "").trim(),
+      }))
+      .filter((row) => !!row.value)
+    : [];
+  hydrateSelectOptions("v3DistrictYourCandidate", candidateOptions, snapshot?.yourCandidateId);
+  syncSelectValueFromRaw("v3DistrictYourCandidate", snapshot?.yourCandidateId);
+  syncInputValueFromRaw("v3DistrictUndecidedPct", snapshot?.undecidedPct);
+  syncSelectValueFromRaw("v3DistrictUndecidedMode", snapshot?.undecidedMode);
+}
+
+function syncDistrictCandidateTable(ballotSnapshot, controlSnapshot) {
+  const targetBody = document.getElementById("v3DistrictCandTbody");
+  if (!(targetBody instanceof HTMLElement)) {
+    return;
+  }
+  const activeState = captureActiveControlState(targetBody, "candidateId");
+
+  const rows = Array.isArray(ballotSnapshot?.candidates) ? ballotSnapshot.candidates : [];
+  const controlsLocked = !!controlSnapshot?.locked;
+  targetBody.innerHTML = "";
+  rows.forEach((sourceRow) => {
+    const candidateId = String(sourceRow?.id || "").trim();
+    if (!candidateId) return;
+    const candidateName = String(sourceRow?.name || "").trim();
+    const supportPct = Number.isFinite(Number(sourceRow?.supportPct)) ? String(Number(sourceRow.supportPct)) : "";
+    const canRemove = !controlsLocked && !!sourceRow?.canRemove;
+
+    const tr = document.createElement("tr");
+    tr.dataset.candidateId = candidateId;
+
+    const tdName = document.createElement("td");
+    const nameInput = document.createElement("input");
+    nameInput.className = "fpe-input";
+    nameInput.type = "text";
+    nameInput.dataset.syncField = "name";
+    nameInput.value = candidateName;
+    nameInput.disabled = controlsLocked;
+    nameInput.addEventListener("input", () => {
+      const result = updateDistrictCandidate(candidateId, "name", nameInput.value);
+      handleDistrictMutationResult(result, { source: "updateCandidate:name" });
+    });
+    tdName.appendChild(nameInput);
+
+    const tdPct = document.createElement("td");
+    tdPct.className = "num";
+    const pctInput = document.createElement("input");
+    pctInput.className = "fpe-input";
+    pctInput.type = "number";
+    pctInput.dataset.syncField = "supportPct";
+    pctInput.min = "0";
+    pctInput.max = "100";
+    pctInput.step = "0.1";
+    pctInput.value = supportPct;
+    pctInput.disabled = controlsLocked;
+    pctInput.addEventListener("input", () => {
+      const result = updateDistrictCandidate(candidateId, "supportPct", pctInput.value);
+      handleDistrictMutationResult(result, { source: "updateCandidate:supportPct" });
+    });
+    tdPct.appendChild(pctInput);
+
+    const tdAction = document.createElement("td");
+    tdAction.className = "num";
+    const removeBtn = document.createElement("button");
+    removeBtn.className = "fpe-btn fpe-btn--ghost";
+    removeBtn.type = "button";
+    removeBtn.textContent = "Remove";
+    removeBtn.disabled = !canRemove;
+    removeBtn.addEventListener("click", () => {
+      const result = removeDistrictCandidate(candidateId);
+      handleDistrictMutationResult(result, { source: "removeCandidate" });
+    });
+    tdAction.appendChild(removeBtn);
+
+    tr.append(tdName, tdPct, tdAction);
+    targetBody.appendChild(tr);
+  });
+
+  if (!targetBody.children.length) {
+    const tr = document.createElement("tr");
+    tr.className = "fpe-empty-row";
+    const td = document.createElement("td");
+    td.colSpan = 3;
+    td.className = "fpe-empty-state";
+    td.textContent = "No candidates available.";
+    tr.appendChild(td);
+    targetBody.appendChild(tr);
+  }
+  restoreActiveControlState(targetBody, "candidateId", activeState);
+}
+
+function syncDistrictUserSplitTable(ballotSnapshot, controlSnapshot) {
+  const targetWrap = document.getElementById("v3DistrictUserSplitWrap");
+  const targetList = document.getElementById("v3DistrictUserSplitList");
+  if (!(targetWrap instanceof HTMLElement) || !(targetList instanceof HTMLElement)) {
+    return;
+  }
+
+  const visible = !!ballotSnapshot?.userSplitVisible;
+  targetWrap.hidden = !visible;
+  if (!visible) {
+    return;
+  }
+  const activeState = captureActiveControlState(targetList, "candidateId");
+
+  const rows = Array.isArray(ballotSnapshot?.userSplitRows) ? ballotSnapshot.userSplitRows : [];
+  const controlsLocked = !!controlSnapshot?.locked;
+  targetList.innerHTML = "";
+  rows.forEach((sourceRow) => {
+    const candidateId = String(sourceRow?.id || "").trim();
+    if (!candidateId) return;
+    const rowLabel = String(sourceRow?.name || "Candidate").trim() || "Candidate";
+
+    const field = document.createElement("div");
+    field.className = "field";
+    field.dataset.candidateId = candidateId;
+
+    const label = document.createElement("label");
+    label.className = "fpe-control-label";
+    label.textContent = rowLabel;
+
+    const input = document.createElement("input");
+    input.className = "fpe-input";
+    input.type = "number";
+    input.dataset.syncField = "splitValue";
+    input.min = "0";
+    input.max = "100";
+    input.step = "0.1";
+    input.value = Number.isFinite(Number(sourceRow?.value)) ? String(Number(sourceRow.value)) : "";
+    input.disabled = controlsLocked;
+    input.addEventListener("input", () => {
+      const result = setDistrictUserSplit(candidateId, input.value);
+      handleDistrictMutationResult(result, { source: "setUserSplit" });
+    });
+
+    field.append(label, input);
+    targetList.appendChild(field);
+  });
+  restoreActiveControlState(targetList, "candidateId", activeState);
+}
+
+function syncDistrictCandidateHistoryTable(ballotSnapshot, controlSnapshot) {
+  const summaryEl = document.getElementById("v3DistrictCandidateHistorySummary");
+  const warnEl = document.getElementById("v3DistrictCandidateHistoryWarn");
+  const targetBody = document.getElementById("v3DistrictCandidateHistoryTbody");
+  const summaryText = String(ballotSnapshot?.candidateHistorySummaryText || "").trim();
+  const warningText = String(ballotSnapshot?.candidateHistoryWarningText || "").trim();
+
+  if (summaryEl instanceof HTMLElement) {
+    summaryEl.textContent = summaryText || "No candidate history rows.";
+  }
+  if (warnEl instanceof HTMLElement) {
+    warnEl.hidden = !warningText;
+    warnEl.textContent = warningText;
+  }
+  if (!(targetBody instanceof HTMLElement)) {
+    return;
+  }
+  const activeState = captureActiveControlState(targetBody, "recordId");
+
+  const rows = Array.isArray(ballotSnapshot?.candidateHistoryRecords)
+    ? ballotSnapshot.candidateHistoryRecords
+    : [];
+  const options = ballotSnapshot?.candidateHistoryOptions && typeof ballotSnapshot.candidateHistoryOptions === "object"
+    ? ballotSnapshot.candidateHistoryOptions
+    : {};
+  const electionTypeOptions = Array.isArray(options.electionType) ? options.electionType : [];
+  const incumbencyOptions = Array.isArray(options.incumbencyStatus) ? options.incumbencyStatus : [];
+  const controlsLocked = !!controlSnapshot?.locked;
+  targetBody.innerHTML = "";
+
+  rows.forEach((record) => {
+    const recordId = String(record?.recordId || "").trim();
+    if (!recordId) return;
+    const applyHistoryMutation = (field, value) => {
+      const result = updateDistrictCandidateHistory(recordId, field, value);
+      handleDistrictMutationResult(result, { source: `updateCandidateHistory:${field}` });
+    };
+    const removeHistoryRecord = () => {
+      const result = removeDistrictCandidateHistory(recordId);
+      handleDistrictMutationResult(result, { source: "removeCandidateHistory" });
+    };
+    const tr = document.createElement("tr");
+    tr.dataset.recordId = recordId;
+
+    const makeInputCell = ({ type = "text", value = "", min = "", max = "", step = "", fieldKey = "", onInput = null } = {}) => {
+      const td = document.createElement("td");
+      if (type === "number") td.className = "num";
+      const input = document.createElement("input");
+      input.className = "fpe-input";
+      input.type = type;
+      if (fieldKey) {
+        input.dataset.syncField = fieldKey;
+      }
+      if (min !== "") input.min = String(min);
+      if (max !== "") input.max = String(max);
+      if (step !== "") input.step = String(step);
+      input.value = String(value == null ? "" : value);
+      input.disabled = controlsLocked;
+      if (typeof onInput === "function") {
+        input.addEventListener("input", () => onInput(input.value));
+      }
+      td.appendChild(input);
+      return td;
+    };
+
+    const makeSelectCell = ({ rowsList = [], value = "", fieldKey = "", onChange = null } = {}) => {
+      const td = document.createElement("td");
+      const select = document.createElement("select");
+      select.className = "fpe-input";
+      if (fieldKey) {
+        select.dataset.syncField = fieldKey;
+      }
+      const placeholder = document.createElement("option");
+      placeholder.value = "";
+      placeholder.textContent = "Select";
+      select.appendChild(placeholder);
+      const normalizedRows = Array.isArray(rowsList) ? rowsList.slice() : [];
+      const selectedValue = String(value == null ? "" : value).trim();
+      if (selectedValue && !normalizedRows.some((row) => String(row?.value || "").trim() === selectedValue)) {
+        normalizedRows.push({ value: selectedValue, label: selectedValue });
+      }
+      normalizedRows.forEach((row) => {
+        const option = document.createElement("option");
+        option.value = String(row?.value || "");
+        option.textContent = String(row?.label || row?.value || "");
+        select.appendChild(option);
+      });
+      select.value = selectedValue;
+      select.disabled = controlsLocked;
+      if (typeof onChange === "function") {
+        select.addEventListener("change", () => onChange(select.value));
+      }
+      td.appendChild(select);
+      return td;
+    };
+
+    const officeTd = makeInputCell({
+      type: "text",
+      value: record?.office || "",
+      fieldKey: "office",
+      onInput: (value) => applyHistoryMutation("office", value),
+    });
+    const cycleTd = makeInputCell({
+      type: "number",
+      value: Number.isFinite(Number(record?.cycleYear)) ? Number(record.cycleYear) : "",
+      min: 1900,
+      max: 2100,
+      step: 1,
+      fieldKey: "cycleYear",
+      onInput: (value) => applyHistoryMutation("cycleYear", value),
+    });
+    const electionTd = makeSelectCell({
+      rowsList: electionTypeOptions,
+      value: record?.electionType || "",
+      fieldKey: "electionType",
+      onChange: (value) => applyHistoryMutation("electionType", value),
+    });
+    const candidateTd = makeInputCell({
+      type: "text",
+      value: record?.candidateName || "",
+      fieldKey: "candidateName",
+      onInput: (value) => applyHistoryMutation("candidateName", value),
+    });
+    const partyTd = makeInputCell({
+      type: "text",
+      value: record?.party || "",
+      fieldKey: "party",
+      onInput: (value) => applyHistoryMutation("party", value),
+    });
+    const incumbencyTd = makeSelectCell({
+      rowsList: incumbencyOptions,
+      value: record?.incumbencyStatus || "",
+      fieldKey: "incumbencyStatus",
+      onChange: (value) => applyHistoryMutation("incumbencyStatus", value),
+    });
+    const voteTd = makeInputCell({
+      type: "number",
+      value: Number.isFinite(Number(record?.voteShare)) ? Number(record.voteShare) : "",
+      min: 0,
+      max: 100,
+      step: 0.1,
+      fieldKey: "voteShare",
+      onInput: (value) => applyHistoryMutation("voteShare", value),
+    });
+    const marginTd = makeInputCell({
+      type: "number",
+      value: Number.isFinite(Number(record?.margin)) ? Number(record.margin) : "",
+      min: -100,
+      max: 100,
+      step: 0.1,
+      fieldKey: "margin",
+      onInput: (value) => applyHistoryMutation("margin", value),
+    });
+    const turnoutTd = makeInputCell({
+      type: "number",
+      value: Number.isFinite(Number(record?.turnoutContext)) ? Number(record.turnoutContext) : "",
+      min: 0,
+      max: 100,
+      step: 0.1,
+      fieldKey: "turnoutContext",
+      onInput: (value) => applyHistoryMutation("turnoutContext", value),
+    });
+
+    const repeatTd = document.createElement("td");
+    const repeatToggle = document.createElement("input");
+    repeatToggle.type = "checkbox";
+    repeatToggle.dataset.syncField = "repeatCandidate";
+    repeatToggle.checked = !!record?.repeatCandidate;
+    repeatToggle.disabled = controlsLocked;
+    repeatToggle.addEventListener("change", () => {
+      applyHistoryMutation("repeatCandidate", repeatToggle.checked);
+    });
+    repeatTd.appendChild(repeatToggle);
+
+    const overUnderTd = makeInputCell({
+      type: "number",
+      value: Number.isFinite(Number(record?.overUnderPerformancePct)) ? Number(record.overUnderPerformancePct) : "",
+      min: -40,
+      max: 40,
+      step: 0.1,
+      fieldKey: "overUnderPerformancePct",
+      onInput: (value) => applyHistoryMutation("overUnderPerformancePct", value),
+    });
+
+    const actionTd = document.createElement("td");
+    actionTd.className = "num";
+    const removeBtn = document.createElement("button");
+    removeBtn.className = "fpe-btn fpe-btn--ghost";
+    removeBtn.type = "button";
+    removeBtn.textContent = "Remove";
+    removeBtn.disabled = controlsLocked;
+    removeBtn.addEventListener("click", () => {
+      removeHistoryRecord();
+    });
+    actionTd.appendChild(removeBtn);
+
+    tr.append(
+      officeTd,
+      cycleTd,
+      electionTd,
+      candidateTd,
+      partyTd,
+      incumbencyTd,
+      voteTd,
+      marginTd,
+      turnoutTd,
+      repeatTd,
+      overUnderTd,
+      actionTd,
+    );
+    targetBody.appendChild(tr);
+  });
+
+  if (!targetBody.children.length) {
+    const tr = document.createElement("tr");
+    tr.className = "fpe-empty-row";
+    const td = document.createElement("td");
+    td.colSpan = 12;
+    td.className = "fpe-empty-state";
+    td.textContent = "No candidate history rows yet.";
+    tr.appendChild(td);
+    targetBody.appendChild(tr);
+  }
+  restoreActiveControlState(targetBody, "recordId", activeState);
+}
+
+function syncDistrictBallotWarning(ballotSnapshot) {
+  const targetWarn = document.getElementById("v3DistrictCandWarn");
+  if (!(targetWarn instanceof HTMLElement)) {
+    return;
+  }
+
+  const text = String(ballotSnapshot?.warningText || "").trim();
+  const showWarn = !!text;
+  targetWarn.hidden = !showWarn;
+  targetWarn.textContent = showWarn ? text : "";
+}
+
+function applyDistrictBallotDynamicLock() {
+  document.querySelectorAll(
+    "#v3DistrictCandTbody input, #v3DistrictCandTbody button, #v3DistrictUserSplitList input, #v3DistrictCandidateHistoryTbody input, #v3DistrictCandidateHistoryTbody select, #v3DistrictCandidateHistoryTbody button, #v3BtnAddCandidateHistory",
+  ).forEach((el) => {
+    if (el instanceof HTMLInputElement || el instanceof HTMLButtonElement) {
+      el.disabled = true;
+      return;
+    }
+    if (el instanceof HTMLSelectElement) {
+      el.disabled = true;
+    }
+  });
+}
+
+function hydrateDistrictSetupOptions() {
+  hydrateSelectOptions("v3DistrictRaceType", listDistrictRaceTypeOptions());
+  hydrateSelectOptions("v3DistrictMode", listDistrictModeOptions());
+  hydrateSelectOptions("v3DistrictUniverseBasis", listDistrictUniverseBasisOptions());
+  hydrateSelectOptions("v3DistrictUndecidedMode", listDistrictUndecidedModeOptions());
+}
+
+function syncSelectValueFromRaw(id, rawValue) {
+  const select = document.getElementById(id);
+  if (!(select instanceof HTMLSelectElement)) {
+    return;
+  }
+  if (document.activeElement === select) {
+    return;
+  }
+  const value = String(rawValue == null ? "" : rawValue).trim();
+  if (!value) {
+    const hasEmptyOption = Array.from(select.options).some((option) => String(option.value || "").trim() === "");
+    if (hasEmptyOption) {
+      select.value = "";
+    } else {
+      select.selectedIndex = -1;
+    }
+    return;
+  }
+  let hasOption = Array.from(select.options).some((option) => String(option.value || "").trim() === value);
+  if (!hasOption) {
+    const option = document.createElement("option");
+    option.value = value;
+    option.textContent = value;
+    select.appendChild(option);
+    hasOption = true;
+  }
+  if (hasOption) {
+    select.value = value;
+  }
+}
+
+function syncInputValueFromRaw(id, rawValue) {
+  const input = document.getElementById(id);
+  if (!(input instanceof HTMLInputElement || input instanceof HTMLTextAreaElement)) {
+    return;
+  }
+  if (document.activeElement === input) {
+    return;
+  }
+  if (shouldHoldDistrictControlSync(id, rawValue)) {
+    return;
+  }
+  const value = (rawValue == null || rawValue === "") ? "" : String(rawValue);
+  if (input.value !== value) {
+    input.value = value;
+  }
+}
+
+function syncCheckboxCheckedFromRaw(id, rawValue) {
+  const input = document.getElementById(id);
+  if (!(input instanceof HTMLInputElement) || input.type !== "checkbox") {
+    return;
+  }
+  if (document.activeElement === input) {
+    return;
+  }
+  input.checked = !!rawValue;
+}
+
+function bindDistrictFormSelect(v3Id, field) {
+  const control = document.getElementById(v3Id);
+  if (!(control instanceof HTMLSelectElement) || control.dataset.v3DistrictFormBound === "1") {
+    return;
+  }
+  control.dataset.v3DistrictFormBound = "1";
+  control.addEventListener("change", () => {
+    markDistrictPendingWrite(v3Id, control.value);
+    const result = setDistrictFormField(field, control.value);
+    handleDistrictMutationResult(result, { source: `setFormField:${field}` });
+  });
+}
+
+function bindDistrictFormField(v3Id, field) {
+  const control = document.getElementById(v3Id);
+  if (
+    !(control instanceof HTMLInputElement || control instanceof HTMLTextAreaElement)
+    || control.dataset.v3DistrictFormBound === "1"
+  ) {
+    return;
+  }
+  control.dataset.v3DistrictFormBound = "1";
+  control.addEventListener("input", () => {
+    markDistrictPendingWrite(v3Id, control.value);
+    const result = setDistrictFormField(field, control.value);
+    handleDistrictMutationResult(result, { source: `setFormField:${field}` });
+  });
+}
+
+function bindDistrictFormCheckbox(v3Id, field) {
+  const control = document.getElementById(v3Id);
+  if (!(control instanceof HTMLInputElement) || control.type !== "checkbox" || control.dataset.v3DistrictFormBound === "1") {
+    return;
+  }
+  control.dataset.v3DistrictFormBound = "1";
+  control.addEventListener("change", () => {
+    markDistrictPendingWrite(v3Id, control.checked);
+    const result = setDistrictFormField(field, control.checked);
+    handleDistrictMutationResult(result, { source: `setFormField:${field}` });
+  });
+}
+
+function applyDistrictBridgeDisabledMap(disabledMap) {
+  const map = disabledMap && typeof disabledMap === "object" ? disabledMap : null;
+  if (!map) return;
+  for (const [id, value] of Object.entries(map)) {
+    if (typeof value !== "boolean") continue;
+    const el = document.getElementById(id);
+    if (
+      el instanceof HTMLInputElement
+      || el instanceof HTMLSelectElement
+      || el instanceof HTMLTextAreaElement
+      || el instanceof HTMLButtonElement
+    ) {
+      el.disabled = value;
+    }
+  }
+}
+
+function syncDistrictStructureDerived() {
+  const derived = document.getElementById("v3DistrictDerived");
+  const enabled = readCheckboxChecked("v3DistrictElectorateWeightingToggle");
+  const demPct = readNumberField("v3DistrictDemPct");
+  const repPct = readNumberField("v3DistrictRepPct");
+  const npaPct = readNumberField("v3DistrictNpaPct");
+  const otherPct = readNumberField("v3DistrictOtherPct");
+  const retentionFactor = readNumberField("v3DistrictRetentionFactor");
+  const supportRate = readRateDecimal([
+    "v3ReachSupportRatePct",
+    "supportRatePct"
+  ]);
+  const turnoutReliability = readRateDecimal([
+    "v3OutcomeTurnoutReliabilityPct",
+    "turnoutReliabilityPct"
+  ]);
+  const adjusted = computeUniverseAdjustedRates({
+    enabled,
+    universePercents: { demPct, repPct, npaPct, otherPct },
+    retentionFactor,
+    supportRate,
+    turnoutReliability
+  });
+
+  if (derived instanceof HTMLElement) {
+    derived.textContent = buildDistrictStructureDerivedTextCore({ enabled, adjusted });
+  }
+
+  const v3Warn = document.getElementById("v3DistrictStructureWarn");
+  if (!(v3Warn instanceof HTMLElement)) {
+    return;
+  }
+
+  const normalized = normalizeUniversePercents({ demPct, repPct, npaPct, otherPct });
+  const text = enabled && normalized?.normalized ? String(normalized.warning || "").trim() : "";
+  const showWarn = Boolean(text);
+  v3Warn.hidden = !showWarn;
+  v3Warn.textContent = showWarn ? text : "";
+}
+
+function readNumberField(id) {
+  const node = document.getElementById(id);
+  if (!(node instanceof HTMLInputElement)) {
+    return null;
+  }
+  const value = Number(node.value);
+  return Number.isFinite(value) ? value : null;
+}
+
+function readCheckboxChecked(id) {
+  const node = document.getElementById(id);
+  return node instanceof HTMLInputElement ? !!node.checked : false;
+}
+
+function readRateDecimal(ids = []) {
+  for (const id of ids) {
+    const node = document.getElementById(id);
+    if (!(node instanceof HTMLInputElement)) {
+      continue;
+    }
+    const value = pctOverrideToDecimal(node.value, null);
+    if (value != null) {
+      return value;
+    }
+  }
+  return null;
+}
+
+function syncDistrictTargetingLab(snapshotOverride = null) {
+  const resultsSnapshot = snapshotOverride || readDistrictTargetingResultsSnapshot();
+  if (!resultsSnapshot || typeof resultsSnapshot !== "object") {
+    setText("v3DistrictTargetingStatus", "Run targeting to generate ranked GEOs.");
+    setText("v3DistrictTargetingMeta", "No targeting run yet.");
+    renderDistrictTargetingRows([]);
+    return;
+  }
+  setText("v3DistrictTargetingStatus", resultsSnapshot.statusText || "Run targeting to generate ranked GEOs.");
+  setText("v3DistrictTargetingMeta", resultsSnapshot.metaText || "No targeting run yet.");
+  renderDistrictTargetingRows(resultsSnapshot.rows || []);
+}
+
+function ensureDistrictTargetingOptionHydration(config) {
+  const geoOptions = listTargetGeoLevels().map((row) => ({
+    value: String(row?.id || "").trim(),
+    label: String(row?.label || "").trim(),
+  })).filter((row) => row.value);
+  const modelOptions = listTargetModelOptions().map((row) => ({
+    value: String(row?.id || "").trim(),
+    label: String(row?.label || "").trim(),
+  })).filter((row) => row.value);
+  const densityOptions = TARGETING_DENSITY_OPTIONS.map((row) => ({
+    value: String(row?.id || "").trim(),
+    label: String(row?.label || "").trim(),
+  })).filter((row) => row.value);
+
+  hydrateSelectOptions("v3DistrictTargetingGeoLevel", geoOptions, config?.geoLevel);
+  hydrateSelectOptions(
+    "v3DistrictTargetingModelId",
+    modelOptions,
+    config?.presetId || config?.modelId,
+  );
+  hydrateSelectOptions("v3DistrictTargetingDensityFloor", densityOptions, config?.densityFloor);
+}
+
+function hydrateSelectOptions(v3Id, options, preferredValue) {
+  const select = document.getElementById(v3Id);
+  if (!(select instanceof HTMLSelectElement)) {
+    return;
+  }
+
+  const normalized = Array.isArray(options)
+    ? options
+      .map((row) => ({
+        value: String(row?.value || "").trim(),
+        label: String(row?.label || "").trim() || String(row?.value || "").trim(),
+      }))
+      .filter((row) => !!row.value || !!row.label)
+    : [];
+
+  const nextPreferred = String(preferredValue == null ? "" : preferredValue).trim();
+  const previousValue = String(select.value || "").trim();
+  if (nextPreferred && !normalized.some((row) => row.value === nextPreferred)) {
+    normalized.push({ value: nextPreferred, label: nextPreferred });
+  }
+  if (!nextPreferred && previousValue && !normalized.some((row) => row.value === previousValue)) {
+    normalized.push({ value: previousValue, label: previousValue });
+  }
+
+  const currentSignature = Array.from(select.options).map((opt) => `${opt.value}::${opt.textContent || ""}`);
+  const nextSignature = normalized.map((row) => `${row.value}::${row.label}`);
+  const needsRefresh = currentSignature.length !== nextSignature.length
+    || currentSignature.some((sig, idx) => sig !== nextSignature[idx]);
+
+  if (needsRefresh) {
+    if (document.activeElement === select) {
+      return;
+    }
+    select.innerHTML = "";
+    normalized.forEach((row) => {
+      const option = document.createElement("option");
+      option.value = row.value;
+      option.textContent = row.label;
+      select.appendChild(option);
+    });
+    const restoreValue = nextPreferred || previousValue;
+    if (restoreValue && Array.from(select.options).some((opt) => opt.value === restoreValue)) {
+      select.value = restoreValue;
+    } else if (Array.from(select.options).some((opt) => opt.value === "")) {
+      select.value = "";
+    }
+  }
+}
+
+function syncDistrictTargetingDisabledFallback({ config, rowCount }) {
+  const controlsLocked = !!config?.controlsLocked;
+  const canRun = config?.canRun == null ? true : !!config.canRun;
+  const canExport = config?.canExport == null ? Number(rowCount) > 0 : !!config.canExport;
+  const canResetWeights = config?.canResetWeights == null ? true : !!config.canResetWeights;
+  const weightsDisabled = controlsLocked || !canResetWeights;
+
+  [
+    "v3DistrictTargetingGeoLevel",
+    "v3DistrictTargetingModelId",
+    "v3DistrictTargetingTopN",
+    "v3DistrictTargetingMinHousingUnits",
+    "v3DistrictTargetingMinPopulation",
+    "v3DistrictTargetingMinScore",
+    "v3DistrictTargetingOnlyRaceFootprint",
+    "v3DistrictTargetingPrioritizeYoung",
+    "v3DistrictTargetingPrioritizeRenters",
+    "v3DistrictTargetingAvoidHighMultiUnit",
+    "v3DistrictTargetingDensityFloor",
+    "v3DistrictTargetingWeightVotePotential",
+    "v3DistrictTargetingWeightTurnoutOpportunity",
+    "v3DistrictTargetingWeightPersuasionIndex",
+    "v3DistrictTargetingWeightFieldEfficiency",
+  ].forEach((id) => {
+    const el = document.getElementById(id);
+    if (
+      el instanceof HTMLInputElement
+      || el instanceof HTMLSelectElement
+      || el instanceof HTMLTextAreaElement
+      || el instanceof HTMLButtonElement
+    ) {
+      el.disabled = controlsLocked;
+    }
+  });
+
+  [
+    "v3DistrictTargetingWeightVotePotential",
+    "v3DistrictTargetingWeightTurnoutOpportunity",
+    "v3DistrictTargetingWeightPersuasionIndex",
+    "v3DistrictTargetingWeightFieldEfficiency",
+  ].forEach((id) => {
+    const el = document.getElementById(id);
+    if (el instanceof HTMLInputElement) {
+      el.disabled = weightsDisabled;
+    }
+  });
+
+  const resetBtn = document.getElementById("v3BtnDistrictTargetingResetWeights");
+  if (resetBtn instanceof HTMLButtonElement) {
+    resetBtn.disabled = weightsDisabled;
+  }
+  const runBtn = document.getElementById("v3BtnDistrictRunTargeting");
+  if (runBtn instanceof HTMLButtonElement) {
+    runBtn.disabled = controlsLocked || !canRun;
+  }
+  const csvBtn = document.getElementById("v3BtnDistrictExportTargetingCsv");
+  if (csvBtn instanceof HTMLButtonElement) {
+    csvBtn.disabled = controlsLocked || !canExport;
+  }
+  const jsonBtn = document.getElementById("v3BtnDistrictExportTargetingJson");
+  if (jsonBtn instanceof HTMLButtonElement) {
+    jsonBtn.disabled = controlsLocked || !canExport;
+  }
+}
+
+function bindDistrictTargetingBridge() {
+  bindDistrictTargetingSelect("v3DistrictTargetingGeoLevel", "geoLevel");
+  bindDistrictTargetingModelSelect("v3DistrictTargetingModelId");
+  bindDistrictTargetingField("v3DistrictTargetingTopN", "topN");
+  bindDistrictTargetingField("v3DistrictTargetingMinHousingUnits", "minHousingUnits");
+  bindDistrictTargetingField("v3DistrictTargetingMinPopulation", "minPopulation");
+  bindDistrictTargetingField("v3DistrictTargetingMinScore", "minScore");
+  bindDistrictTargetingCheckbox("v3DistrictTargetingOnlyRaceFootprint", "onlyRaceFootprint");
+  bindDistrictTargetingCheckbox("v3DistrictTargetingPrioritizeYoung", "prioritizeYoung");
+  bindDistrictTargetingCheckbox("v3DistrictTargetingPrioritizeRenters", "prioritizeRenters");
+  bindDistrictTargetingCheckbox("v3DistrictTargetingAvoidHighMultiUnit", "avoidHighMultiUnit");
+  bindDistrictTargetingSelect("v3DistrictTargetingDensityFloor", "densityFloor");
+  bindDistrictTargetingField("v3DistrictTargetingWeightVotePotential", "weightVotePotential");
+  bindDistrictTargetingField("v3DistrictTargetingWeightTurnoutOpportunity", "weightTurnoutOpportunity");
+  bindDistrictTargetingField("v3DistrictTargetingWeightPersuasionIndex", "weightPersuasionIndex");
+  bindDistrictTargetingField("v3DistrictTargetingWeightFieldEfficiency", "weightFieldEfficiency");
+  bindDistrictTargetingAction("v3BtnDistrictTargetingResetWeights", () => resetDistrictTargetingWeights(), {
+    syncTargeting: true,
+  });
+  bindDistrictTargetingAction("v3BtnDistrictRunTargeting", () => runDistrictTargeting(), {
+    syncTargeting: true,
+  });
+  bindDistrictTargetingAction("v3BtnDistrictExportTargetingCsv", () => exportDistrictTargetingCsv());
+  bindDistrictTargetingAction("v3BtnDistrictExportTargetingJson", () => exportDistrictTargetingJson());
+}
+
+function bindDistrictTargetingSelect(v3Id, field) {
+  const control = document.getElementById(v3Id);
+  if (!(control instanceof HTMLSelectElement) || control.dataset.v3TargetingBound === "1") {
+    return;
+  }
+  control.dataset.v3TargetingBound = "1";
+  control.addEventListener("change", () => {
+    markDistrictPendingWrite(v3Id, control.value);
+    const result = setDistrictTargetingField(field, control.value);
+    syncDistrictTargetingFromResult(result);
+  });
+}
+
+function bindDistrictTargetingModelSelect(v3Id) {
+  const control = document.getElementById(v3Id);
+  if (!(control instanceof HTMLSelectElement) || control.dataset.v3TargetingBound === "1") {
+    return;
+  }
+  control.dataset.v3TargetingBound = "1";
+  control.addEventListener("change", () => {
+    const result = applyDistrictTargetingPreset(control.value);
+    syncDistrictTargetingFromResult(result);
+  });
+}
+
+function bindDistrictTargetingField(v3Id, field) {
+  const control = document.getElementById(v3Id);
+  if (
+    !(control instanceof HTMLInputElement || control instanceof HTMLTextAreaElement)
+    || control.dataset.v3TargetingBound === "1"
+  ) {
+    return;
+  }
+  control.dataset.v3TargetingBound = "1";
+  control.addEventListener("input", () => {
+    markDistrictPendingWrite(v3Id, control.value);
+    const result = setDistrictTargetingField(field, control.value);
+    syncDistrictTargetingFromResult(result);
+  });
+}
+
+function bindDistrictTargetingCheckbox(v3Id, field) {
+  const control = document.getElementById(v3Id);
+  if (!(control instanceof HTMLInputElement) || control.dataset.v3TargetingBound === "1") {
+    return;
+  }
+  control.dataset.v3TargetingBound = "1";
+  control.addEventListener("change", () => {
+    markDistrictPendingWrite(v3Id, control.checked);
+    const result = setDistrictTargetingField(field, control.checked);
+    syncDistrictTargetingFromResult(result);
+  });
+}
+
+function bindDistrictTargetingAction(v3Id, action, opts = {}) {
+  const button = document.getElementById(v3Id);
+  if (!(button instanceof HTMLButtonElement) || button.dataset.v3TargetingBound === "1") {
+    return;
+  }
+  button.dataset.v3TargetingBound = "1";
+  button.addEventListener("click", () => {
+    if (typeof action === "function") {
+      const result = action();
+      if (opts?.syncTargeting) {
+        syncDistrictTargetingFromResult(result);
+      }
+    }
+  });
+}
+
+function syncDistrictTargetingFromResult(result) {
+  if (!result || typeof result !== "object") {
+    console.warn("[district] targeting mutation unavailable", result);
+    return;
+  }
+
+  if (result.ok !== false) {
+    refreshDistrictCanonicalControls();
+    return;
+  }
+
+  const code = String(result.code || "").trim();
+  if (code) {
+    console.warn(`[district] targeting mutation rejected:${code}`, result);
+  } else {
+    console.warn("[district] targeting mutation rejected", result);
+  }
+}
+
+function syncBridgeSelectValue(v3Id, value) {
+  const v3 = document.getElementById(v3Id);
+  if (!(v3 instanceof HTMLSelectElement) || document.activeElement === v3) {
+    return;
+  }
+  const next = String(value == null ? "" : value).trim();
+  if (!next) {
+    const hasEmptyOption = Array.from(v3.options).some((option) => option.value === "");
+    if (hasEmptyOption) {
+      v3.value = "";
+    } else {
+      v3.selectedIndex = -1;
+    }
+    return;
+  }
+  let hasOption = Array.from(v3.options).some((option) => option.value === next);
+  if (!hasOption) {
+    const option = document.createElement("option");
+    option.value = next;
+    option.textContent = next;
+    v3.appendChild(option);
+    hasOption = true;
+  }
+  if (hasOption) {
+    v3.value = next;
+  }
+}
+
+function syncBridgeFieldValue(v3Id, value) {
+  const v3 = document.getElementById(v3Id);
+  if (!(v3 instanceof HTMLInputElement || v3 instanceof HTMLTextAreaElement) || document.activeElement === v3) {
+    return;
+  }
+  if (shouldHoldDistrictControlSync(v3Id, value)) {
+    return;
+  }
+  v3.value = String(value == null ? "" : value);
+}
+
+function syncBridgeCheckboxValue(v3Id, value) {
+  const v3 = document.getElementById(v3Id);
+  if (!(v3 instanceof HTMLInputElement) || document.activeElement === v3) {
+    return;
+  }
+  v3.checked = !!value;
+}
+
+function syncBridgeMultiSelectValue(v3Id, rows) {
+  const v3 = document.getElementById(v3Id);
+  if (!(v3 instanceof HTMLSelectElement) || document.activeElement === v3) {
+    return;
+  }
+  const normalized = (Array.isArray(rows) ? rows : [])
+    .map((row) => ({
+      value: String(row?.value || "").trim(),
+      label: String(row?.label || row?.value || "").trim(),
+      selected: !!row?.selected,
+    }))
+    .filter((row) => !!row.value);
+
+  const currentSignature = Array.from(v3.options)
+    .map((opt) => `${opt.value}::${opt.textContent || ""}::${opt.selected ? "1" : "0"}`)
+    .join("|");
+  const nextSignature = normalized
+    .map((row) => `${row.value}::${row.label || row.value}::${row.selected ? "1" : "0"}`)
+    .join("|");
+  if (currentSignature === nextSignature) {
+    return;
+  }
+
+  v3.innerHTML = "";
+  normalized.forEach((row) => {
+    const option = document.createElement("option");
+    option.value = row.value;
+    option.textContent = row.label || row.value;
+    option.selected = row.selected;
+    v3.appendChild(option);
+  });
+}
+
+function renderDistrictTargetingRows(rows) {
+  const tbody = document.getElementById("v3DistrictTargetingResultsTbody");
+  if (!(tbody instanceof HTMLElement)) {
+    return;
+  }
+  tbody.innerHTML = "";
+  const list = Array.isArray(rows) ? rows : [];
+  if (!list.length) {
+    const tr = document.createElement("tr");
+    tr.innerHTML = '<td class="muted" colspan="6">Run targeting to generate ranked GEOs.</td>';
+    tbody.append(tr);
+    return;
+  }
+
+  for (const row of list) {
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td class="num">${escapeHtml(row.rank || "—")}</td>
+      <td>${escapeHtml(row.geography || "—")}</td>
+      <td class="num">${escapeHtml(row.score || "—")}</td>
+      <td class="num">${escapeHtml(row.votesPerHour || "—")}</td>
+      <td>${escapeHtml(row.reason || "—")}</td>
+      <td>${escapeHtml(row.flags || "—")}</td>
+    `;
+    tbody.append(tr);
+  }
+}
+
+function escapeHtml(value) {
+  return String(value == null ? "" : value)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+function renderDistrictCensusProxyShell({ target }) {
+  if (!(target instanceof HTMLElement)) {
+    return;
+  }
+
+  const shell = document.createElement("div");
+  shell.id = "v3DistrictCensusShell";
+  shell.className = "fpe-census-card";
+  shell.innerHTML = `
+    <div class="fpe-census-layout">
+      <section class="fpe-census-section">
+        <header class="fpe-census-section__head">
+          <div class="fpe-census-section__head-main">
+            <h3 class="fpe-census-section__title">GEO data workflow</h3>
+          </div>
+          <p class="fpe-census-section__desc">Run setup, select GEO units, and review aggregate outputs in one contained workflow.</p>
+        </header>
+        <div class="fpe-census-section__body">
+          <section class="fpe-census-subsection fpe-census-subsection--setup">
+            <h4 class="fpe-census-subsection__title">Setup</h4>
+            <p class="fpe-census-subsection__desc">Geography context and scope for Census data pulls.</p>
+            <div class="fpe-census-subsection__body">
+              <div class="fpe-field-grid fpe-field-grid--1">
+                <div class="field">
+                  <label class="fpe-control-label" for="v3CensusApiKey">Census API key</label>
+                  <input class="fpe-input" id="v3CensusApiKey" type="text" autocomplete="off"/>
+                </div>
+              </div>
+              <div class="fpe-field-grid fpe-field-grid--1">
+                <div class="field">
+                  <label class="fpe-control-label" for="v3CensusAcsYear">ACS 5-year</label>
+                  <select class="fpe-input" id="v3CensusAcsYear"></select>
+                </div>
+                <div class="field">
+                  <label class="fpe-control-label" for="v3CensusResolution">Resolution</label>
+                  <select class="fpe-input" id="v3CensusResolution"></select>
+                </div>
+              </div>
+              <div class="fpe-help fpe-help--flush" id="v3CensusContextHint">State-only context active for this resolution.</div>
+              <div class="fpe-field-grid fpe-field-grid--1">
+                <div class="field">
+                  <label class="fpe-control-label" for="v3CensusStateFips">State</label>
+                  <select class="fpe-input" id="v3CensusStateFips"></select>
+                </div>
+                <div class="field">
+                  <label class="fpe-control-label" for="v3CensusCountyFips">County</label>
+                  <select class="fpe-input" id="v3CensusCountyFips"></select>
+                </div>
+                <div class="field">
+                  <label class="fpe-control-label" for="v3CensusPlaceFips">Place</label>
+                  <select class="fpe-input" id="v3CensusPlaceFips"></select>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <section class="fpe-census-subsection">
+            <h4 class="fpe-census-subsection__title">Selection</h4>
+            <p class="fpe-census-subsection__desc">Search/paste/select GEO units and manage saved sets.</p>
+            <div class="fpe-census-subsection__body">
+              <div class="field">
+                <label class="fpe-control-label">Fetch actions</label>
+                <div class="fpe-action-row">
+                  <button class="fpe-btn fpe-btn--ghost" id="v3BtnCensusLoadGeo" type="button">Load GEO list</button>
+                </div>
+              </div>
+              <div class="field">
+                <label class="fpe-control-label" for="v3CensusGeoSearch">Search GEO name or GEOID</label>
+                <input class="fpe-input" id="v3CensusGeoSearch" type="text"/>
+              </div>
+              <div class="field">
+                <label class="fpe-control-label" for="v3CensusTractFilter">Tract filter</label>
+                <select class="fpe-input" id="v3CensusTractFilter"></select>
+              </div>
+              <div class="field">
+                <label class="fpe-control-label" for="v3CensusGeoPaste">Paste GEOIDs</label>
+                <textarea class="fpe-input" id="v3CensusGeoPaste" rows="2"></textarea>
+              </div>
+              <div class="fpe-action-row">
+                <button class="fpe-btn fpe-btn--ghost" id="v3BtnCensusApplyGeoPaste" type="button">Apply GEOIDs</button>
+              </div>
+              <div class="field">
+                <label class="fpe-control-label" for="v3CensusGeoSelect">GEO units</label>
+                <select class="fpe-input" id="v3CensusGeoSelect" multiple size="12"></select>
+              </div>
+              <div class="fpe-action-row">
+                <button class="fpe-btn fpe-btn--ghost" id="v3BtnCensusSelectAll" type="button">Select all</button>
+                <button class="fpe-btn fpe-btn--ghost" id="v3BtnCensusClearSelection" type="button">Clear</button>
+              </div>
+              <div class="fpe-field-grid fpe-field-grid--2">
+                <div class="field">
+                  <label class="fpe-control-label" for="v3CensusSelectionSetName">Save selection set</label>
+                  <div class="fpe-action-row">
+                    <input class="fpe-input" id="v3CensusSelectionSetName" type="text"/>
+                    <button class="fpe-btn fpe-btn--ghost" id="v3BtnCensusSaveSelectionSet" type="button">Save set</button>
+                  </div>
+                </div>
+                <div class="field">
+                  <label class="fpe-control-label" for="v3CensusSelectionSetSelect">Saved sets</label>
+                  <div class="fpe-action-row">
+                    <select class="fpe-input" id="v3CensusSelectionSetSelect"></select>
+                    <button class="fpe-btn fpe-btn--ghost" id="v3BtnCensusLoadSelectionSet" type="button">Load set</button>
+                    <button class="fpe-btn fpe-btn--ghost" id="v3BtnCensusDeleteSelectionSet" type="button">Delete</button>
+                  </div>
+                </div>
+              </div>
+              <div class="fpe-help fpe-help--flush" id="v3CensusSelectionSetStatus">No saved selection sets.</div>
+            </div>
+          </section>
+
+          <section class="fpe-census-subsection">
+            <h4 class="fpe-census-subsection__title">Workflow status</h4>
+            <p class="fpe-census-subsection__desc">Live runtime feedback for fetch and selection state.</p>
+            <div class="fpe-census-subsection__body">
+              <div class="fpe-census-status-strip">
+                <div class="fpe-census-status-chip"><div class="muted" id="v3CensusStatus">Ready.</div></div>
+                <div class="fpe-census-status-chip"><div class="muted" id="v3CensusGeoStats">0 selected of 0 GEOs. 0 rows loaded.</div></div>
+                <div class="fpe-census-status-chip"><div class="muted" id="v3CensusLastFetch">No fetch yet.</div></div>
+              </div>
+            </div>
+          </section>
+
+          <section class="fpe-census-subsection fpe-census-subsection--output">
+            <h4 class="fpe-census-subsection__title">Output</h4>
+            <p class="fpe-census-subsection__desc">Set data bundle, fetch ACS rows, and review aggregate metrics.</p>
+            <div class="fpe-census-subsection__body">
+              <div class="field">
+                <label class="fpe-control-label" for="v3CensusMetricSet">Data bundle</label>
+                <select class="fpe-input" id="v3CensusMetricSet"></select>
+              </div>
+              <div class="field">
+                <label class="fpe-control-label">Fetch actions</label>
+                <div class="fpe-action-row fpe-census-fetch-row">
+                  <button class="fpe-btn fpe-btn--ghost" id="v3BtnCensusFetchRows" type="button">Fetch ACS rows</button>
+                </div>
+              </div>
+              <div class="table-wrap">
+                <table class="table" aria-label="Census aggregate table (v3)">
+                  <thead>
+                    <tr><th>Metric</th><th class="num">Value</th></tr>
+                  </thead>
+                  <tbody id="v3CensusAggregateTbody">
+                    <tr><td class="muted" colspan="2">No ACS rows loaded.</td></tr>
+                  </tbody>
+                </table>
+              </div>
+              <div class="fpe-action-row fpe-census-aggregate-actions">
+                <button class="fpe-btn fpe-btn--ghost" id="v3BtnCensusExportAggregateCsv" type="button">Export CSV</button>
+                <button class="fpe-btn fpe-btn--ghost" id="v3BtnCensusExportAggregateJson" type="button">Export JSON</button>
+              </div>
+            </div>
+          </section>
+        </div>
+      </section>
+
+      <section class="fpe-census-section">
+        <header class="fpe-census-section__head">
+          <div class="fpe-census-section__head-main">
+            <h3 class="fpe-census-section__title">Race footprint and assumption apply</h3>
+            <div class="fpe-header-switch fpe-card__head-control">
+              <span class="fpe-header-switch__label">Census adjustments (enable to apply)</span>
+              <label class="fpe-switch">
+                <input id="v3CensusApplyAdjustmentsToggle" type="checkbox"/>
+                <span>Enable</span>
+              </label>
+            </div>
+          </div>
+          <p class="fpe-census-section__desc">Bind selected GEO units to race footprint and control adjusted-assumption application.</p>
+        </header>
+        <div class="fpe-census-section__body">
+          <div class="fpe-action-row">
+            <button class="fpe-btn fpe-btn--ghost" id="v3BtnCensusSetRaceFootprint" type="button">Set as race footprint</button>
+            <button class="fpe-btn fpe-btn--ghost" id="v3BtnCensusClearRaceFootprint" type="button">Clear race footprint</button>
+          </div>
+          <div class="fpe-message-window fpe-message-window--status" id="v3CensusFootprintStatusWindow">
+            <div class="fpe-message-window__head"><span class="fpe-message-window__tag">Current status</span></div>
+            <div class="fpe-message-window__body">
+              <ul class="fpe-census-status-list" id="v3CensusFootprintStatusList">
+                <li class="fpe-census-status-item"><span id="v3CensusSelectionSummary">No GEO selected.</span></li>
+                <li class="fpe-census-status-item"><span id="v3CensusRaceFootprintStatus">Race footprint not set.</span></li>
+                <li class="fpe-census-status-item"><span id="v3CensusAssumptionProvenanceStatus">Assumption provenance not set.</span></li>
+                <li class="fpe-census-status-item"><span id="v3CensusFootprintCapacityStatus">Footprint capacity: not set.</span></li>
+                <li class="fpe-census-status-item"><span id="v3CensusApplyAdjustmentsStatus">Census-adjusted assumptions are OFF.</span></li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="fpe-census-section">
+        <header class="fpe-census-section__head">
+          <div class="fpe-census-section__head-main">
+            <h3 class="fpe-census-section__title">Advisory signals</h3>
+          </div>
+          <p class="fpe-census-section__desc">Review computed signal levels and interpretation guidance for the selected footprint.</p>
+        </header>
+        <div class="fpe-census-section__body">
+          <details class="fpe-census-instruction-details fpe-census-election-details" id="v3CensusAdvisoryGuide">
+            <summary>Instructions</summary>
+            <div class="fpe-census-election-guide">
+              <div class="fpe-message-window fpe-message-window--tip">
+                <div class="fpe-message-window__head"><span class="fpe-message-window__tag">Instruction flow</span></div>
+                <div class="fpe-message-window__body">
+                  <ul class="fpe-census-instruction-list">
+                    <li class="fpe-census-instruction-item">Use this module to translate selected GEO demographics into practical operating constraints before finalizing plan assumptions.</li>
+                    <li class="fpe-census-instruction-item">Read the signal table first: values near 1.00 are baseline, values below 1.00 indicate lower capacity or tougher conditions, and values above 1.00 indicate stronger conditions.</li>
+                    <li class="fpe-census-instruction-item">Treat APH feasibility as the decision gate: if required APH is above the achievable band, adjust staffing, timeline, or expected vote need before locking assumptions.</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+          </details>
+          <div class="table-wrap">
+            <table class="table" aria-label="Census assumptions advisory (v3)">
+              <thead>
+                <tr><th>Advisory signal</th><th class="num">Value</th></tr>
+              </thead>
+              <tbody id="v3CensusAdvisoryTbody">
+                <tr><td class="muted" colspan="2">Load ACS rows for selected GEO units to compute advisory indices.</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="fpe-message-window fpe-message-window--status" id="v3CensusAdvisoryStatusWindow">
+            <div class="fpe-message-window__head"><span class="fpe-message-window__tag">Signal status</span></div>
+            <div class="fpe-message-window__body">
+              <div class="muted" id="v3CensusAdvisoryStatus">Assumption advisory pending.</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="fpe-census-section">
+        <header class="fpe-census-section__head">
+          <div class="fpe-census-section__head-main">
+            <h3 class="fpe-census-section__title">Election CSV intake</h3>
+          </div>
+          <p class="fpe-census-section__desc">Template download, dry-run validation, and preview before import.</p>
+        </header>
+        <div class="fpe-census-section__body">
+          <details class="fpe-census-instruction-details fpe-census-election-details" id="v3CensusElectionGuide">
+            <summary>Instructions</summary>
+            <div class="fpe-census-election-guide">
+              <div class="fpe-message-window fpe-message-window--tip">
+                <div class="fpe-message-window__head"><span class="fpe-message-window__tag">Instruction flow</span></div>
+                <div class="fpe-message-window__body">
+                  <div class="muted" id="v3CensusElectionCsvGuideStatus">Election CSV schema guide loading.</div>
+                </div>
+              </div>
+              <div class="fpe-action-row fpe-census-template-actions">
+                <button class="fpe-btn fpe-btn--ghost" id="v3BtnCensusDownloadElectionCsvTemplate" type="button">Download long-format CSV template</button>
+                <button class="fpe-btn fpe-btn--ghost" id="v3BtnCensusDownloadElectionCsvWideTemplate" type="button">Download wide-format CSV template</button>
+              </div>
+            </div>
+          </details>
+          <div class="fpe-field-grid fpe-field-grid--2">
+            <div class="field">
+              <label class="fpe-control-label" for="v3CensusElectionCsvFile">Election CSV file</label>
+              <input class="fpe-input" id="v3CensusElectionCsvFile" type="file" accept=".csv,text/csv"/>
+            </div>
+            <div class="field">
+              <label class="fpe-control-label">Dry-run</label>
+              <div class="fpe-action-row">
+                <button class="fpe-btn fpe-btn--ghost" id="v3BtnCensusElectionCsvDryRun" type="button">Run dry-run parse</button>
+                <button class="fpe-btn fpe-btn--ghost" id="v3BtnCensusElectionCsvClear" type="button">Clear preview</button>
+              </div>
+            </div>
+          </div>
+          <div class="field">
+            <label class="fpe-control-label" for="v3CensusElectionCsvPrecinctFilter">Preview precinct filter (optional)</label>
+            <input class="fpe-input" id="v3CensusElectionCsvPrecinctFilter" type="text"/>
+          </div>
+          <div class="fpe-census-election-status-strip">
+            <div class="fpe-census-status-chip"><div class="muted" id="v3CensusElectionCsvDryRunStatus">No dry-run run yet.</div></div>
+            <div class="fpe-census-status-chip"><div class="muted" id="v3CensusElectionCsvPreviewMeta">No normalized preview rows.</div></div>
+          </div>
+          <div class="table-wrap">
+            <table class="table" aria-label="Election CSV dry-run preview (v3)">
+              <thead>
+                <tr><th>Precinct</th><th>Candidate</th><th class="num">Votes</th><th class="num">Total precinct votes</th></tr>
+              </thead>
+              <tbody id="v3CensusElectionCsvPreviewTbody">
+                <tr><td class="muted" colspan="4">No dry-run preview yet.</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <section class="fpe-census-section">
+        <header class="fpe-census-section__head">
+          <div class="fpe-census-section__head-main">
+            <h3 class="fpe-census-section__title">Map and boundary QA</h3>
+          </div>
+          <p class="fpe-census-section__desc">Boundary overlay controls and QA source management for visual verification.</p>
+        </header>
+        <div class="fpe-census-section__body">
+          <div class="fpe-census-map-row">
+            <div class="muted" id="v3CensusMapStatus">Map idle. Select GEO units and click Load boundaries.</div>
+          </div>
+          <div class="fpe-census-map-row">
+            <label class="fpe-switch">
+              <input id="v3CensusMapQaVtdToggle" type="checkbox"/>
+              <span>Enable VTD overlay</span>
+            </label>
+            <div class="fpe-action-row">
+              <button class="fpe-btn fpe-btn--ghost" id="v3BtnCensusLoadMap" type="button">Load boundaries</button>
+              <button class="fpe-btn fpe-btn--ghost" id="v3BtnCensusClearMap" type="button">Clear map</button>
+            </div>
+          </div>
+          <div class="field">
+            <label class="fpe-control-label" for="v3CensusMapQaVtdZip">VTD ZIP overlay source (optional)</label>
+            <div class="fpe-action-row">
+              <input class="fpe-input" id="v3CensusMapQaVtdZip" type="file" accept=".zip,application/zip"/>
+              <button class="fpe-btn fpe-btn--ghost" id="v3BtnCensusMapQaVtdZipClear" type="button">Clear VTD ZIP</button>
+            </div>
+            <div class="fpe-help" id="v3CensusMapQaVtdZipStatus">No VTD ZIP loaded. VTD QA overlay source is TIGERweb.</div>
+          </div>
+          <div class="fpe-census-map-shell" id="v3CensusMapShell">
+            <div id="v3CensusMapHost"></div>
+            <div class="fpe-census-map-overlay">Map idle. Select GEO units and click Load boundaries.</div>
+          </div>
+        </div>
+      </section>
+    </div>
+  `;
+
+  target.appendChild(shell);
+}
+
+function bindDistrictCensusProxies() {
+  const shell = document.getElementById("v3DistrictCensusShell");
+  if (!(shell instanceof HTMLElement) || shell.dataset.v3Bound === "1") {
+    return;
+  }
+  shell.dataset.v3Bound = "1";
+
+  bindDistrictCensusField("v3CensusApiKey", "apiKey", "input");
+  bindDistrictCensusField("v3CensusAcsYear", "year", "change");
+  bindDistrictCensusField("v3CensusResolution", "resolution", "change");
+  bindDistrictCensusField("v3CensusStateFips", "stateFips", "change");
+  bindDistrictCensusField("v3CensusCountyFips", "countyFips", "change");
+  bindDistrictCensusField("v3CensusPlaceFips", "placeFips", "change");
+  bindDistrictCensusField("v3CensusMetricSet", "metricSet", "change");
+  bindDistrictCensusField("v3CensusGeoSearch", "geoSearch", "input");
+  bindDistrictCensusField("v3CensusTractFilter", "tractFilter", "change");
+  bindDistrictCensusField("v3CensusGeoPaste", "geoPaste", "input");
+  bindDistrictCensusField("v3CensusSelectionSetName", "selectionSetDraftName", "input");
+  bindDistrictCensusField("v3CensusSelectionSetSelect", "selectedSelectionSetKey", "change");
+  bindDistrictCensusCheckbox("v3CensusApplyAdjustmentsToggle", "applyAdjustedAssumptions");
+  bindDistrictCensusField("v3CensusElectionCsvPrecinctFilter", "electionCsvPrecinctFilter", "input");
+  bindDistrictCensusCheckbox("v3CensusMapQaVtdToggle", "mapQaVtdOverlay");
+  bindDistrictCensusFile("v3CensusElectionCsvFile", "electionCsvFile");
+  bindDistrictCensusFile("v3CensusMapQaVtdZip", "mapQaVtdZip");
+  bindDistrictCensusGeoSelection("v3CensusGeoSelect");
+
+  bindDistrictCensusAction("v3BtnCensusLoadGeo", "loadGeo");
+  bindDistrictCensusAction("v3BtnCensusFetchRows", "fetchRows");
+  bindDistrictCensusAction("v3BtnCensusApplyGeoPaste", "applyGeoPaste");
+  bindDistrictCensusAction("v3BtnCensusSelectAll", "selectAll");
+  bindDistrictCensusAction("v3BtnCensusClearSelection", "clearSelection");
+  bindDistrictCensusAction("v3BtnCensusSaveSelectionSet", "saveSelectionSet");
+  bindDistrictCensusAction("v3BtnCensusLoadSelectionSet", "loadSelectionSet");
+  bindDistrictCensusAction("v3BtnCensusDeleteSelectionSet", "deleteSelectionSet");
+  bindDistrictCensusAction("v3BtnCensusExportAggregateCsv", "exportAggregateCsv");
+  bindDistrictCensusAction("v3BtnCensusExportAggregateJson", "exportAggregateJson");
+  bindDistrictCensusAction("v3BtnCensusSetRaceFootprint", "setRaceFootprint");
+  bindDistrictCensusAction("v3BtnCensusClearRaceFootprint", "clearRaceFootprint");
+  bindDistrictCensusAction("v3BtnCensusDownloadElectionCsvTemplate", "downloadElectionTemplate");
+  bindDistrictCensusAction("v3BtnCensusDownloadElectionCsvWideTemplate", "downloadElectionWideTemplate");
+  bindDistrictCensusAction("v3BtnCensusElectionCsvDryRun", "electionDryRun");
+  bindDistrictCensusAction("v3BtnCensusElectionCsvClear", "electionClear");
+  bindDistrictCensusAction("v3BtnCensusLoadMap", "loadMap");
+  bindDistrictCensusAction("v3BtnCensusClearMap", "clearMap");
+  bindDistrictCensusAction("v3BtnCensusMapQaVtdZipClear", "clearVtdZip");
+}
+
+function syncDistrictCensusProxy(snapshotOverride = null) {
+  const bridgeSnapshot = snapshotOverride || readDistrictCensusResultsSnapshot();
+  if (!bridgeSnapshot || typeof bridgeSnapshot !== "object") {
+    syncCensusMapShellState();
+    return;
+  }
+  syncBridgeText({
+    v3Id: "v3CensusContextHint",
+    bridgeText: bridgeSnapshot?.contextHint,
+    fallback: "State-only context active for this resolution."
+  });
+  syncBridgeText({
+    v3Id: "v3CensusSelectionSetStatus",
+    bridgeText: bridgeSnapshot?.selectionSetStatus,
+    fallback: "No saved selection sets."
+  });
+  syncBridgeText({
+    v3Id: "v3CensusStatus",
+    bridgeText: bridgeSnapshot?.statusText,
+    fallback: "Ready."
+  });
+  syncBridgeText({
+    v3Id: "v3CensusGeoStats",
+    bridgeText: bridgeSnapshot?.geoStatsText,
+    fallback: "0 selected of 0 GEOs. 0 rows loaded."
+  });
+  syncBridgeText({
+    v3Id: "v3CensusLastFetch",
+    bridgeText: bridgeSnapshot?.lastFetchText,
+    fallback: "No fetch yet."
+  });
+  syncBridgeText({
+    v3Id: "v3CensusSelectionSummary",
+    bridgeText: bridgeSnapshot?.selectionSummaryText,
+    fallback: "No GEO selected."
+  });
+  syncBridgeText({
+    v3Id: "v3CensusRaceFootprintStatus",
+    bridgeText: bridgeSnapshot?.raceFootprintStatusText,
+    fallback: "Race footprint not set."
+  });
+  syncBridgeText({
+    v3Id: "v3CensusAssumptionProvenanceStatus",
+    bridgeText: bridgeSnapshot?.assumptionProvenanceStatusText,
+    fallback: "Assumption provenance not set."
+  });
+  syncBridgeText({
+    v3Id: "v3CensusFootprintCapacityStatus",
+    bridgeText: bridgeSnapshot?.footprintCapacityStatusText,
+    fallback: "Footprint capacity: not set."
+  });
+  syncBridgeText({
+    v3Id: "v3CensusApplyAdjustmentsStatus",
+    bridgeText: bridgeSnapshot?.applyAdjustmentsStatusText,
+    fallback: "Census-adjusted assumptions are OFF."
+  });
+  syncBridgeText({
+    v3Id: "v3CensusAdvisoryStatus",
+    bridgeText: bridgeSnapshot?.advisoryStatusText,
+    fallback: "Assumption advisory pending."
+  });
+  syncBridgeText({
+    v3Id: "v3CensusElectionCsvGuideStatus",
+    bridgeText: bridgeSnapshot?.electionCsvGuideStatusText,
+    fallback: "Election CSV schema guide loading."
+  });
+  syncBridgeText({
+    v3Id: "v3CensusElectionCsvDryRunStatus",
+    bridgeText: bridgeSnapshot?.electionCsvDryRunStatusText,
+    fallback: "No dry-run run yet."
+  });
+  syncBridgeText({
+    v3Id: "v3CensusElectionCsvPreviewMeta",
+    bridgeText: bridgeSnapshot?.electionCsvPreviewMetaText,
+    fallback: "No normalized preview rows."
+  });
+  syncBridgeText({
+    v3Id: "v3CensusMapStatus",
+    bridgeText: bridgeSnapshot?.mapStatusText,
+    fallback: "Map idle. Select GEO units and click Load boundaries."
+  });
+  syncBridgeText({
+    v3Id: "v3CensusMapQaVtdZipStatus",
+    bridgeText: bridgeSnapshot?.mapQaVtdZipStatusText,
+    fallback: "No VTD ZIP loaded."
+  });
+
+  renderDistrictCensusTableRows({
+    targetBodyId: "v3CensusAggregateTbody",
+    rows: bridgeSnapshot?.aggregateRows,
+    expectedCols: 2,
+    emptyLabel: "No ACS rows loaded.",
+    numericColumns: [1]
+  });
+  renderDistrictCensusTableRows({
+    targetBodyId: "v3CensusAdvisoryTbody",
+    rows: bridgeSnapshot?.advisoryRows,
+    expectedCols: 2,
+    emptyLabel: "Load ACS rows for selected GEO units to compute advisory indices.",
+    numericColumns: [1]
+  });
+  renderDistrictCensusTableRows({
+    targetBodyId: "v3CensusElectionCsvPreviewTbody",
+    rows: bridgeSnapshot?.electionPreviewRows,
+    expectedCols: 4,
+    emptyLabel: "No dry-run preview yet.",
+    numericColumns: [2, 3]
+  });
+}
+
+function applyDistrictCensusBridgeDisabledMap(disabledMap) {
+  const map = disabledMap && typeof disabledMap === "object" ? disabledMap : null;
+  if (!map) return;
+  for (const [id, value] of Object.entries(map)) {
+    if (typeof value !== "boolean") continue;
+    const el = document.getElementById(id);
+    if (
+      el instanceof HTMLInputElement
+      || el instanceof HTMLSelectElement
+      || el instanceof HTMLTextAreaElement
+      || el instanceof HTMLButtonElement
+    ) {
+      el.disabled = value;
+    }
+  }
+}
+
+function ensureDistrictCensusStaticOptionHydration(config) {
+  const yearOptions = listAcsYears().map((year) => ({
+    value: String(year || "").trim(),
+    label: String(year || "").trim(),
+  })).filter((row) => row.value);
+  const resolutionOptions = listResolutionOptions().map((row) => ({
+    value: String(row?.id || "").trim(),
+    label: String(row?.label || row?.id || "").trim(),
+  })).filter((row) => row.value);
+  const metricSetOptions = listMetricSetOptions().map((row) => ({
+    value: String(row?.id || "").trim(),
+    label: String(row?.label || row?.id || "").trim(),
+  })).filter((row) => row.value);
+
+  hydrateSelectOptions("v3CensusAcsYear", yearOptions);
+  hydrateSelectOptions("v3CensusResolution", resolutionOptions);
+  hydrateSelectOptions("v3CensusMetricSet", metricSetOptions);
+  if (!config || typeof config !== "object") {
+    return;
+  }
+  hydrateSelectOptions("v3CensusStateFips", normalizeBridgeOptions(config?.stateOptions), config?.stateFips);
+  hydrateSelectOptions("v3CensusCountyFips", normalizeBridgeOptions(config?.countyOptions), config?.countyFips);
+  hydrateSelectOptions("v3CensusPlaceFips", normalizeBridgeOptions(config?.placeOptions), config?.placeFips);
+  hydrateSelectOptions("v3CensusTractFilter", normalizeBridgeOptions(config?.tractFilterOptions), config?.tractFilter);
+  hydrateSelectOptions(
+    "v3CensusSelectionSetSelect",
+    normalizeBridgeOptions(config?.selectionSetOptions),
+    config?.selectedSelectionSetKey,
+  );
+}
+
+function normalizeBridgeOptions(rows) {
+  return (Array.isArray(rows) ? rows : [])
+    .map((row) => ({
+      value: String(row?.value || "").trim(),
+      label: String(row?.label || row?.value || "").trim(),
+    }))
+    .filter((row) => !!row.value || !!row.label);
+}
+
+function syncDistrictCensusDisabledFallback(config) {
+  const controlsLocked = !!config?.controlsLocked;
+  if (!controlsLocked) {
+    return;
+  }
+  [
+    "v3CensusAcsYear",
+    "v3CensusResolution",
+    "v3CensusStateFips",
+    "v3CensusCountyFips",
+    "v3CensusPlaceFips",
+    "v3CensusMetricSet",
+    "v3CensusGeoSearch",
+    "v3CensusTractFilter",
+    "v3CensusGeoPaste",
+    "v3CensusSelectionSetName",
+    "v3CensusSelectionSetSelect",
+    "v3CensusApplyAdjustmentsToggle",
+    "v3CensusElectionCsvFile",
+    "v3CensusElectionCsvPrecinctFilter",
+    "v3CensusMapQaVtdToggle",
+    "v3CensusMapQaVtdZip",
+    "v3CensusGeoSelect",
+    "v3BtnCensusLoadGeo",
+    "v3BtnCensusFetchRows",
+    "v3BtnCensusApplyGeoPaste",
+    "v3BtnCensusSelectAll",
+    "v3BtnCensusClearSelection",
+    "v3BtnCensusSaveSelectionSet",
+    "v3BtnCensusLoadSelectionSet",
+    "v3BtnCensusDeleteSelectionSet",
+    "v3BtnCensusExportAggregateCsv",
+    "v3BtnCensusExportAggregateJson",
+    "v3BtnCensusSetRaceFootprint",
+    "v3BtnCensusClearRaceFootprint",
+    "v3BtnCensusDownloadElectionCsvTemplate",
+    "v3BtnCensusDownloadElectionCsvWideTemplate",
+    "v3BtnCensusElectionCsvDryRun",
+    "v3BtnCensusElectionCsvClear",
+  ].forEach((id) => {
+    const el = document.getElementById(id);
+    if (
+      el instanceof HTMLInputElement
+      || el instanceof HTMLSelectElement
+      || el instanceof HTMLTextAreaElement
+      || el instanceof HTMLButtonElement
+    ) {
+      el.disabled = el.disabled || controlsLocked;
+    }
+  });
+}
+
+function syncBridgeText({ v3Id, bridgeText, fallback = "—" }) {
+  const text = String(bridgeText || "").trim();
+  if (text) {
+    setText(v3Id, text);
+    return;
+  }
+  setText(v3Id, fallback);
+}
+
+function renderDistrictCensusTableRows({
+  targetBodyId,
+  rows,
+  expectedCols = 1,
+  emptyLabel = "No rows.",
+  numericColumns = []
+}) {
+  const tbody = document.getElementById(targetBodyId);
+  if (!(tbody instanceof HTMLElement)) {
+    return;
+  }
+  tbody.innerHTML = "";
+  const list = Array.isArray(rows) ? rows : [];
+  if (!list.length) {
+    const tr = document.createElement("tr");
+    tr.innerHTML = `<td class="muted" colspan="${expectedCols}">${escapeHtml(emptyLabel)}</td>`;
+    tbody.append(tr);
+    return;
+  }
+
+  for (const row of list) {
+    const tr = document.createElement("tr");
+    const cells = Array.isArray(row) ? row : [];
+    for (let i = 0; i < expectedCols; i += 1) {
+      const td = document.createElement("td");
+      if (numericColumns.includes(i)) {
+        td.className = "num";
+      }
+      td.innerHTML = escapeHtml(cells[i] ?? "");
+      tr.append(td);
+    }
+    tbody.append(tr);
+  }
+}
+
+function bindDistrictCensusField(v3Id, field, eventName = "input") {
+  const control = document.getElementById(v3Id);
+  if (
+    !(control instanceof HTMLInputElement
+      || control instanceof HTMLSelectElement
+      || control instanceof HTMLTextAreaElement)
+    || control.dataset.v3DistrictCensusBound === "1"
+  ) {
+    return;
+  }
+  control.dataset.v3DistrictCensusBound = "1";
+  control.addEventListener(eventName, () => {
+    markDistrictPendingWrite(v3Id, control.value);
+    const result = setDistrictCensusField(field, control.value);
+    handleDistrictMutationResult(result, { source: `setCensusField:${field}` });
+  });
+}
+
+function bindDistrictCensusCheckbox(v3Id, field) {
+  const control = document.getElementById(v3Id);
+  if (!(control instanceof HTMLInputElement) || control.type !== "checkbox" || control.dataset.v3DistrictCensusBound === "1") {
+    return;
+  }
+  control.dataset.v3DistrictCensusBound = "1";
+  control.addEventListener("change", () => {
+    markDistrictPendingWrite(v3Id, control.checked);
+    const result = setDistrictCensusField(field, control.checked);
+    handleDistrictMutationResult(result, { source: `setCensusField:${field}` });
+  });
+}
+
+function bindDistrictCensusGeoSelection(v3Id) {
+  const control = document.getElementById(v3Id);
+  if (!(control instanceof HTMLSelectElement) || control.dataset.v3DistrictCensusBound === "1") {
+    return;
+  }
+  control.dataset.v3DistrictCensusBound = "1";
+  control.addEventListener("change", () => {
+    const selected = Array.from(control.selectedOptions).map((option) => option.value);
+    markDistrictPendingWrite(v3Id, selected.join(","));
+    const result = setDistrictCensusGeoSelection(selected);
+    handleDistrictMutationResult(result, { source: "setCensusGeoSelection" });
+  });
+}
+
+function bindDistrictCensusFile(v3Id, field) {
+  const control = document.getElementById(v3Id);
+  if (!(control instanceof HTMLInputElement) || control.type !== "file" || control.dataset.v3DistrictCensusBound === "1") {
+    return;
+  }
+  control.dataset.v3DistrictCensusBound = "1";
+  control.addEventListener("change", () => {
+    const result = setDistrictCensusFile(field, control.files);
+    handleDistrictMutationResult(result, { source: `setCensusFile:${field}` });
+  });
+}
+
+function bindDistrictCensusAction(v3Id, action) {
+  const button = document.getElementById(v3Id);
+  if (!(button instanceof HTMLButtonElement) || button.dataset.v3DistrictCensusBound === "1") {
+    return;
+  }
+  button.dataset.v3DistrictCensusBound = "1";
+  button.addEventListener("click", () => {
+    const result = triggerDistrictCensusAction(action);
+    handleDistrictMutationResult(result, { source: `censusAction:${action}` });
+  });
+}
+
+function syncCensusMapShellState() {
+  const shell = document.getElementById("v3CensusMapShell");
+  if (!(shell instanceof HTMLElement)) {
+    return;
+  }
+
+  const statusText = (document.getElementById("v3CensusMapStatus")?.textContent || "").trim();
+  const isIdle = isCensusMapIdle(statusText);
+  shell.classList.toggle("is-idle", isIdle);
+  shell.classList.toggle("is-active", !isIdle);
+
+  const overlay = shell.querySelector(".fpe-census-map-overlay");
+  if (overlay instanceof HTMLElement) {
+    overlay.textContent = isIdle
+      ? "Map idle. Select GEO units and click Load boundaries."
+      : "Boundary map active.";
+  }
+
+  if (!isIdle) {
+    scheduleCensusMapResizePulse();
+  }
+}
+
+function scheduleCensusMapResizePulse() {
+  if (typeof window === "undefined") {
+    return;
+  }
+  if (censusMapResizePulseHandle) {
+    window.clearTimeout(censusMapResizePulseHandle);
+  }
+  censusMapResizePulseHandle = window.setTimeout(() => {
+    censusMapResizePulseHandle = 0;
+    try {
+      window.dispatchEvent(new Event("resize"));
+    } catch {}
+    if (typeof window.requestAnimationFrame === "function") {
+      window.requestAnimationFrame(() => {
+        try {
+          window.dispatchEvent(new Event("resize"));
+        } catch {}
+      });
+    }
+  }, 32);
+}
+
+function syncDistrictCensusMessageTones() {
+  const advisoryText = (document.getElementById("v3CensusAdvisoryStatus")?.textContent || "").trim();
+  syncMessageToneByWindow("v3CensusAdvisoryStatusWindow", advisoryText, "Signal status");
+
+  const footprintText = [
+    "v3CensusSelectionSummary",
+    "v3CensusRaceFootprintStatus",
+    "v3CensusAssumptionProvenanceStatus",
+    "v3CensusFootprintCapacityStatus",
+    "v3CensusApplyAdjustmentsStatus"
+  ]
+    .map((id) => (document.getElementById(id)?.textContent || "").trim())
+    .filter(Boolean)
+    .join(" ");
+  syncMessageToneByWindow("v3CensusFootprintStatusWindow", footprintText, "Current status");
+}
+
+function syncMessageToneByWindow(windowId, text, defaultLabel) {
+  const windowEl = document.getElementById(windowId);
+  if (!(windowEl instanceof HTMLElement)) {
+    return;
+  }
+
+  const tone = detectMessageTone(text || "");
+  windowEl.classList.remove("fpe-message-window--warn", "fpe-message-window--status", "fpe-message-window--tip", "fpe-message-window--info");
+  windowEl.classList.add(`fpe-message-window--${tone}`);
+
+  const tag = windowEl.querySelector(".fpe-message-window__tag");
+  if (!(tag instanceof HTMLElement)) {
+    return;
+  }
+  tag.textContent = tone === "warn" ? "Warning" : defaultLabel;
+}
+
+function detectMessageTone(text) {
+  const value = String(text || "").toLowerCase();
+  if (
+    /warn|warning|invalid|missing|error|fail|incomplete|not set|stale|risk|shortfall|required|pending|off\b/.test(
+      value
+    )
+  ) {
+    return "warn";
+  }
+  if (/tip|guide|workflow|instructions|recommended/.test(value)) {
+    return "tip";
+  }
+  if (/status|ready|loaded|selected|last fetch|active|enabled|disabled|coverage|delta|using/.test(value)) {
+    return "status";
+  }
+  return "info";
+}
+
+function isCensusMapIdle(statusText) {
+  const value = String(statusText || "").toLowerCase();
+  return (
+    !value ||
+    value.includes("map idle") ||
+    value.includes("select geo units") ||
+    value.includes("no boundary overlay")
+  );
+}
+
+function assignCardStatusId(card, id) {
+  if (!(card instanceof HTMLElement) || !id) {
+    return;
+  }
+  const badge = card.querySelector(".fpe-card__status");
+  if (badge instanceof HTMLElement) {
+    badge.id = id;
+  }
+}
+
+function syncDistrictCardStatus(id, value) {
+  const badge = document.getElementById(id);
+  if (!(badge instanceof HTMLElement)) {
+    return;
+  }
+  const text = String(value || "").trim() || DISTRICT_STATUS_AWAITING_INPUTS;
+  badge.textContent = text;
+  badge.classList.add("fpe-status-pill");
+  badge.classList.remove(
+    "fpe-status-pill--ok",
+    "fpe-status-pill--warn",
+    "fpe-status-pill--bad",
+    "fpe-status-pill--neutral"
+  );
+  const tone = classifyDistrictStatusTone(text);
+  badge.classList.add(`fpe-status-pill--${tone}`);
+}
+
+function deriveDistrictRaceCardStatus() {
+  return deriveDistrictRaceCardStatusCore({
+    raceType: readSelectTextById("v3DistrictRaceType"),
+    electionDate: readValueTextById("v3DistrictElectionDate"),
+    mode: readSelectTextById("v3DistrictMode"),
+  });
+}
+
+function deriveDistrictElectorateCardStatus() {
+  return deriveDistrictElectorateCardStatusCore({
+    universe: readValueTextById("v3DistrictUniverseSize"),
+    basis: readSelectTextById("v3DistrictUniverseBasis"),
+    sourceNote: readValueTextById("v3DistrictSourceNote"),
+  });
+}
+
+function deriveDistrictBaselineCardStatus() {
+  return deriveDistrictBaselineCardStatusCore({
+    warning: readTextById("v3DistrictCandWarn"),
+    supportTotal: readTextById("v3DistrictSupportTotal"),
+  });
+}
+
+function deriveDistrictTurnoutCardStatus() {
+  return deriveDistrictTurnoutCardStatusCore({
+    turnoutExpected: readTextById("v3DistrictTurnoutExpected"),
+    turnoutA: readValueTextById("v3DistrictTurnoutA"),
+    turnoutB: readValueTextById("v3DistrictTurnoutB"),
+  });
+}
+
+function deriveDistrictStructureCardStatus() {
+  return deriveDistrictStructureCardStatusCore({
+    enabled: readCheckboxChecked("v3DistrictElectorateWeightingToggle"),
+    warning: readTextById("v3DistrictStructureWarn"),
+  });
+}
+
+function deriveDistrictSummaryCardStatus(snapshot) {
+  return deriveDistrictSummaryCardStatusCore(snapshot || {});
+}
+
+function deriveDistrictElectionDataCardStatus() {
+  const rowsValue = Number(readTextById("v3DistrictElectionDataRows"));
+  if (!Number.isFinite(rowsValue) || rowsValue <= 0) {
+    return "No election data";
+  }
+  const qualityRaw = readTextById("v3DistrictElectionDataQualityScore");
+  const qualityValue = Number(qualityRaw);
+  const confidenceBand = readTextById("v3DistrictElectionDataConfidenceBand").toLowerCase();
+  if ((Number.isFinite(qualityValue) && qualityValue < 0.5) || confidenceBand === "low" || confidenceBand === "unknown") {
+    return "Election data low confidence";
+  }
+  return "Election data ready";
+}
+
+function deriveDistrictCensusCardStatus() {
+  return deriveDistrictCensusCardStatusCore({
+    status: readTextById("v3CensusStatus"),
+    geoStats: readTextById("v3CensusGeoStats"),
+  });
+}
+
+function deriveDistrictTargetingCardStatus() {
+  return deriveDistrictTargetingCardStatusCore({
+    status: readTextById("v3DistrictTargetingStatus"),
+    rowCount: countBodyRows("v3DistrictTargetingResultsTbody"),
+  });
+}
+
+function classifyDistrictStatusTone(text) {
+  return classifyDistrictStatusToneCore(text);
+}
+
+function readTextById(id) {
+  const node = document.getElementById(id);
+  return node ? String(node.textContent || "").trim() : "";
+}
+
+function readValueTextById(id) {
+  const node = document.getElementById(id);
+  if (!(node instanceof HTMLInputElement || node instanceof HTMLTextAreaElement || node instanceof HTMLSelectElement)) {
+    return "";
+  }
+  return String(node.value || "").trim();
+}
+
+function readSelectTextById(id) {
+  const node = document.getElementById(id);
+  if (!(node instanceof HTMLSelectElement)) {
+    return "";
+  }
+  const option = node.selectedOptions && node.selectedOptions.length ? node.selectedOptions[0] : null;
+  return option ? String(option.textContent || "").trim() : "";
+}
+
+function countBodyRows(id) {
+  const tbody = document.getElementById(id);
+  if (!(tbody instanceof HTMLElement)) {
+    return 0;
+  }
+  const rows = Array.from(tbody.querySelectorAll(":scope > tr"));
+  return rows.filter((row) => !row.querySelector(".muted")).length;
+}
