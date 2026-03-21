@@ -39,6 +39,23 @@ import {
 } from "./actionLog.js";
 
 const DECISION_API_KEY = "__FPE_DECISION_API__";
+const WAR_ROOM_V3_TRACE_PREFIX = "[war_room_v3_dom_trace]";
+const WAR_ROOM_V3_TRACE_FLAG_KEY = "__FPE_WAR_ROOM_V3_TRACE_ENABLED__";
+const WAR_ROOM_V3_TRACE_AUTO_MAX_ATTEMPTS = 16;
+const WAR_ROOM_V3_TRACE_AUTO_RETRY_MS = 80;
+const WAR_ROOM_V3_TRACE_CONTROL_IDS = Object.freeze([
+  "v3DecisionBudget",
+  "v3DecisionWeatherOfficeZip",
+  "v3DecisionEventTitle",
+]);
+const WAR_ROOM_V3_DIAGNOSTICS_ACTION_ID = "v3BtnDecisionCaptureReview";
+let warRoomV3TraceInstalled = false;
+let warRoomV3TraceAutoRan = false;
+let warRoomV3TraceAutoAttempts = 0;
+let warRoomV3TraceAutoSessionKick = false;
+let warRoomV3TraceAutoInProgress = false;
+let warRoomV3NodeSequence = 0;
+const warRoomV3NodeTokens = new WeakMap();
 
 export function renderWarRoomSurface(mount) {
   const frame = createCenterStackFrame();
@@ -792,7 +809,365 @@ export function renderWarRoomSurface(mount) {
   );
 
   wireDecisionEvents();
+  installWarRoomV3DomLifecycleTrace();
+  runWarRoomV3TraceAutoProbe();
   return refreshDecisionSummary;
+}
+
+function emitWarRoomV3Trace(payload = {}) {
+  if (!isWarRoomV3TraceEnabled()) {
+    return;
+  }
+  try {
+    console.log(`${WAR_ROOM_V3_TRACE_PREFIX} ${JSON.stringify(payload)}`);
+  } catch {
+    // no-op trace fallback
+  }
+}
+
+function isWarRoomV3TraceEnabled() {
+  try {
+    if (window[WAR_ROOM_V3_TRACE_FLAG_KEY]) {
+      return true;
+    }
+    const query = new URLSearchParams(String(window.location?.search || ""));
+    const token = String(query.get("warRoomDomTrace") || "").trim();
+    return token === "1" || token.toLowerCase() === "true";
+  } catch {
+    return false;
+  }
+}
+
+function isWarRoomV3TraceAutoEnabled() {
+  try {
+    const query = new URLSearchParams(String(window.location?.search || ""));
+    const token = String(query.get("warRoomDomTraceAuto") || "").trim();
+    return token === "1" || token.toLowerCase() === "true";
+  } catch {
+    return false;
+  }
+}
+
+function warRoomV3NodeToken(node) {
+  if (!(node instanceof Element)) {
+    return "";
+  }
+  const existing = warRoomV3NodeTokens.get(node);
+  if (existing) {
+    return existing;
+  }
+  warRoomV3NodeSequence += 1;
+  const token = `war_room_node_${warRoomV3NodeSequence}`;
+  warRoomV3NodeTokens.set(node, token);
+  return token;
+}
+
+function readWarRoomCanonicalByControlId(controlId, view = null) {
+  const api = getDecisionApi();
+  const sourceView = view && typeof view === "object" ? view : (api?.getView?.() || null);
+  if (!sourceView || typeof sourceView !== "object") {
+    return "";
+  }
+  if (controlId === "v3DecisionBudget") {
+    return sourceView?.session?.constraints?.budget ?? "";
+  }
+  if (controlId === "v3DecisionWeatherOfficeZip") {
+    return sourceView?.warRoom?.weather?.officeZip ?? "";
+  }
+  if (controlId === "v3DecisionEventTitle") {
+    return sourceView?.warRoom?.eventCalendar?.draft?.title ?? "";
+  }
+  return "";
+}
+
+function readWarRoomControlValue(control) {
+  if (control instanceof HTMLInputElement || control instanceof HTMLTextAreaElement || control instanceof HTMLSelectElement) {
+    return control.value;
+  }
+  if (control instanceof HTMLButtonElement) {
+    return control.textContent || "";
+  }
+  return "";
+}
+
+function readWarRoomV3TraceSnapshot(controlId, view = null) {
+  const node = document.getElementById(controlId);
+  const control = (
+    node instanceof HTMLInputElement
+    || node instanceof HTMLTextAreaElement
+    || node instanceof HTMLSelectElement
+    || node instanceof HTMLButtonElement
+  ) ? node : null;
+  return {
+    control,
+    nodeToken: control ? warRoomV3NodeToken(control) : "",
+    domValue: control ? readWarRoomControlValue(control) : "",
+    canonicalValue: readWarRoomCanonicalByControlId(controlId, view),
+  };
+}
+
+function captureWarRoomV3TokenMap() {
+  /** @type {Record<string, string>} */
+  const tokens = {};
+  WAR_ROOM_V3_TRACE_CONTROL_IDS.forEach((controlId) => {
+    const node = document.getElementById(controlId);
+    const control = (
+      node instanceof HTMLInputElement
+      || node instanceof HTMLTextAreaElement
+      || node instanceof HTMLSelectElement
+      || node instanceof HTMLButtonElement
+    ) ? node : null;
+    tokens[controlId] = control ? warRoomV3NodeToken(control) : "";
+  });
+  return tokens;
+}
+
+function computeWarRoomV3SiblingReplacementMap(referenceControlId, referenceTokens = {}) {
+  /** @type {Record<string, boolean>} */
+  const status = {};
+  WAR_ROOM_V3_TRACE_CONTROL_IDS.forEach((controlId) => {
+    if (controlId === referenceControlId) {
+      return;
+    }
+    const nowToken = readWarRoomV3TraceSnapshot(controlId).nodeToken;
+    const beforeToken = String(referenceTokens?.[controlId] || "");
+    status[controlId] = !!beforeToken && !!nowToken && beforeToken !== nowToken;
+  });
+  return status;
+}
+
+function logWarRoomV3ControlTrace(controlId, eventType, extra = {}) {
+  const snap = readWarRoomV3TraceSnapshot(controlId);
+  emitWarRoomV3Trace({
+    eventType,
+    controlId,
+    nodeToken: snap.nodeToken,
+    domValue: snap.domValue,
+    canonicalValue: snap.canonicalValue,
+    ...extra,
+  });
+}
+
+function bindWarRoomV3ControlLifecycleTrace(controlId) {
+  const node = document.getElementById(controlId);
+  const control = (
+    node instanceof HTMLInputElement
+    || node instanceof HTMLTextAreaElement
+    || node instanceof HTMLSelectElement
+  ) ? node : null;
+  if (!control || control.dataset.v3WarRoomTraceBound === "1") {
+    return;
+  }
+  control.dataset.v3WarRoomTraceBound = "1";
+  control.addEventListener("focus", () => {
+    logWarRoomV3ControlTrace(controlId, "focus");
+  });
+  control.addEventListener("input", () => {
+    logWarRoomV3ControlTrace(controlId, "input");
+  });
+  control.addEventListener("change", () => {
+    logWarRoomV3ControlTrace(controlId, "change");
+  });
+  control.addEventListener("blur", () => {
+    const referenceTokens = captureWarRoomV3TokenMap();
+    const referenceNodeToken = String(referenceTokens?.[controlId] || "");
+    logWarRoomV3ControlTrace(controlId, "blur.before", {
+      referenceNodeToken,
+      replacedSinceReference: referenceNodeToken !== "" && referenceNodeToken !== readWarRoomV3TraceSnapshot(controlId).nodeToken,
+      siblingReplacementMap: computeWarRoomV3SiblingReplacementMap(controlId, referenceTokens),
+    });
+    queueMicrotask(() => {
+      const nextToken = readWarRoomV3TraceSnapshot(controlId).nodeToken;
+      logWarRoomV3ControlTrace(controlId, "blur.after.microtask", {
+        referenceNodeToken,
+        replacedSinceReference: referenceNodeToken !== "" && referenceNodeToken !== nextToken,
+        siblingReplacementMap: computeWarRoomV3SiblingReplacementMap(controlId, referenceTokens),
+      });
+    });
+    window.requestAnimationFrame(() => {
+      const nextToken = readWarRoomV3TraceSnapshot(controlId).nodeToken;
+      logWarRoomV3ControlTrace(controlId, "blur.after.raf", {
+        referenceNodeToken,
+        replacedSinceReference: referenceNodeToken !== "" && referenceNodeToken !== nextToken,
+        siblingReplacementMap: computeWarRoomV3SiblingReplacementMap(controlId, referenceTokens),
+      });
+    });
+  });
+}
+
+function resolveWarRoomV3ProbeValue(controlId, control) {
+  if (controlId === "v3DecisionBudget") {
+    return "1234";
+  }
+  if (controlId === "v3DecisionWeatherOfficeZip") {
+    return "60614";
+  }
+  if (controlId === "v3DecisionEventTitle") {
+    return "c5-event-probe";
+  }
+  return "";
+}
+
+function probeWarRoomV3Control(controlId) {
+  const node = document.getElementById(controlId);
+  const control = (
+    node instanceof HTMLInputElement
+    || node instanceof HTMLTextAreaElement
+    || node instanceof HTMLSelectElement
+  ) ? node : null;
+  if (!control || control.disabled) {
+    return false;
+  }
+  const referenceTokens = captureWarRoomV3TokenMap();
+  const referenceNodeToken = String(referenceTokens?.[controlId] || "");
+  const probeValue = resolveWarRoomV3ProbeValue(controlId, control);
+  const beforeDomValue = readWarRoomControlValue(control);
+  const canonicalBefore = readWarRoomCanonicalByControlId(controlId);
+  emitWarRoomV3Trace({
+    eventType: "trace.auto.c5.set",
+    controlId,
+    beforeDomValue,
+    probeValue,
+    canonicalBefore,
+  });
+  control.focus();
+  control.value = String(probeValue ?? "");
+  control.dispatchEvent(new Event("input", { bubbles: true }));
+  control.dispatchEvent(new Event("change", { bubbles: true }));
+  control.blur();
+  window.setTimeout(() => {
+    const post = readWarRoomV3TraceSnapshot(controlId);
+    emitWarRoomV3Trace({
+      eventType: "trace.auto.c5.post",
+      controlId,
+      referenceNodeToken,
+      nodeToken: post.nodeToken,
+      replacedSinceReference: referenceNodeToken !== "" && referenceNodeToken !== post.nodeToken,
+      siblingReplacementMap: computeWarRoomV3SiblingReplacementMap(controlId, referenceTokens),
+      domValue: post.domValue,
+      canonicalValue: post.canonicalValue,
+    });
+  }, 80);
+  return true;
+}
+
+function isWarRoomV3ControlWritable(controlId) {
+  const node = document.getElementById(controlId);
+  const control = (
+    node instanceof HTMLInputElement
+    || node instanceof HTMLTextAreaElement
+    || node instanceof HTMLSelectElement
+  ) ? node : null;
+  return !!control && !control.disabled;
+}
+
+function probeWarRoomV3DiagnosticsAction() {
+  const button = document.getElementById(WAR_ROOM_V3_DIAGNOSTICS_ACTION_ID);
+  if (!(button instanceof HTMLButtonElement)) {
+    emitWarRoomV3Trace({
+      eventType: "trace.auto.c5.diagnostics.not_applicable",
+      diagnosticsActionId: WAR_ROOM_V3_DIAGNOSTICS_ACTION_ID,
+      reason: "diagnostics_action_missing",
+    });
+    return;
+  }
+  if (button.disabled) {
+    emitWarRoomV3Trace({
+      eventType: "trace.auto.c5.diagnostics.not_applicable",
+      diagnosticsActionId: WAR_ROOM_V3_DIAGNOSTICS_ACTION_ID,
+      reason: "diagnostics_action_disabled",
+    });
+    return;
+  }
+  const referenceTokens = captureWarRoomV3TokenMap();
+  emitWarRoomV3Trace({
+    eventType: "trace.auto.c5.diagnostics.click",
+    diagnosticsActionId: WAR_ROOM_V3_DIAGNOSTICS_ACTION_ID,
+  });
+  button.click();
+  window.setTimeout(() => {
+    emitWarRoomV3Trace({
+      eventType: "trace.auto.c5.diagnostics.post",
+      diagnosticsActionId: WAR_ROOM_V3_DIAGNOSTICS_ACTION_ID,
+      siblingReplacementMap: computeWarRoomV3SiblingReplacementMap("", referenceTokens),
+      controls: WAR_ROOM_V3_TRACE_CONTROL_IDS.map((controlId) => {
+        const snap = readWarRoomV3TraceSnapshot(controlId);
+        return {
+          controlId,
+          nodeToken: snap.nodeToken,
+          domValue: snap.domValue,
+          canonicalValue: snap.canonicalValue,
+        };
+      }),
+    });
+  }, 120);
+}
+
+function installWarRoomV3DomLifecycleTrace() {
+  if (!isWarRoomV3TraceEnabled()) {
+    return;
+  }
+  WAR_ROOM_V3_TRACE_CONTROL_IDS.forEach((controlId) => {
+    bindWarRoomV3ControlLifecycleTrace(controlId);
+    logWarRoomV3ControlTrace(controlId, "trace.init");
+  });
+  if (!warRoomV3TraceInstalled) {
+    warRoomV3TraceInstalled = true;
+    emitWarRoomV3Trace({
+      eventType: "trace.init.meta",
+      controls: WAR_ROOM_V3_TRACE_CONTROL_IDS.slice(),
+      diagnosticsEditableFieldsPresent: false,
+      diagnosticsNote: "Diagnostics module exposes actions but no dedicated editable text/select controls.",
+    });
+  }
+}
+
+function runWarRoomV3TraceAutoProbe() {
+  if (
+    warRoomV3TraceAutoRan
+    || warRoomV3TraceAutoInProgress
+    || !isWarRoomV3TraceEnabled()
+    || !isWarRoomV3TraceAutoEnabled()
+  ) {
+    return;
+  }
+  const allPresent = WAR_ROOM_V3_TRACE_CONTROL_IDS.every((controlId) => {
+    const node = document.getElementById(controlId);
+    return node instanceof HTMLInputElement || node instanceof HTMLTextAreaElement || node instanceof HTMLSelectElement;
+  });
+  if (!allPresent) {
+    warRoomV3TraceAutoAttempts += 1;
+    if (warRoomV3TraceAutoAttempts <= WAR_ROOM_V3_TRACE_AUTO_MAX_ATTEMPTS) {
+      window.setTimeout(runWarRoomV3TraceAutoProbe, WAR_ROOM_V3_TRACE_AUTO_RETRY_MS);
+    }
+    return;
+  }
+  const allWritable = WAR_ROOM_V3_TRACE_CONTROL_IDS.every((controlId) => isWarRoomV3ControlWritable(controlId));
+  if (!allWritable) {
+    if (!warRoomV3TraceAutoSessionKick) {
+      const createSessionBtn = document.getElementById("v3BtnDecisionNew");
+      if (createSessionBtn instanceof HTMLButtonElement && !createSessionBtn.disabled) {
+        warRoomV3TraceAutoSessionKick = true;
+        createSessionBtn.click();
+        emitWarRoomV3Trace({
+          eventType: "trace.auto.c5.session.kick",
+          action: "click_new_session",
+        });
+      }
+    }
+    warRoomV3TraceAutoAttempts += 1;
+    if (warRoomV3TraceAutoAttempts <= WAR_ROOM_V3_TRACE_AUTO_MAX_ATTEMPTS) {
+      window.setTimeout(runWarRoomV3TraceAutoProbe, WAR_ROOM_V3_TRACE_AUTO_RETRY_MS);
+    }
+    return;
+  }
+  warRoomV3TraceAutoInProgress = true;
+  warRoomV3TraceAutoRan = true;
+  WAR_ROOM_V3_TRACE_CONTROL_IDS.forEach((controlId) => {
+    probeWarRoomV3Control(controlId);
+  });
+  probeWarRoomV3DiagnosticsAction();
+  warRoomV3TraceAutoInProgress = false;
 }
 
 function getDecisionApi() {
@@ -869,6 +1244,8 @@ function refreshDecisionSummary() {
     "v3DecisionSummaryCardStatus",
     deriveDecisionSummaryCardStatus(view, conf, risk, bneck)
   );
+  installWarRoomV3DomLifecycleTrace();
+  runWarRoomV3TraceAutoProbe();
 }
 
 function wireDecisionEvents() {
@@ -1229,13 +1606,7 @@ function syncSelect(id, rows, value, valueKey = "id", labelKey = "name") {
   const nextSig = nextRows.map((row) => `${String(row?.[valueKey] ?? "")}:${String(row?.[labelKey] ?? row?.[valueKey] ?? "")}`).join("|");
   const curSig = Array.from(el.options).map((opt) => `${opt.value}:${opt.textContent || ""}`).join("|");
   if (curSig !== nextSig) {
-    el.innerHTML = "";
-    nextRows.forEach((row) => {
-      const opt = document.createElement("option");
-      opt.value = String(row?.[valueKey] ?? "");
-      opt.textContent = String(row?.[labelKey] ?? row?.[valueKey] ?? "");
-      el.appendChild(opt);
-    });
+    replaceWarRoomSelectOptionsInPlace(el, nextRows, valueKey, labelKey);
   }
 
   if (document.activeElement !== el) {
@@ -1248,6 +1619,31 @@ function syncSelect(id, rows, value, valueKey = "id", labelKey = "name") {
     }
     el.value = wanted;
   }
+}
+
+function replaceWarRoomSelectOptionsInPlace(select, rows, valueKey = "id", labelKey = "name") {
+  if (!(select instanceof HTMLSelectElement)) {
+    return;
+  }
+  const list = Array.isArray(rows) ? rows : [];
+  while (select.options.length > list.length) {
+    select.remove(select.options.length - 1);
+  }
+  list.forEach((row, index) => {
+    const wantedValue = String(row?.[valueKey] ?? "");
+    const wantedLabel = String(row?.[labelKey] ?? row?.[valueKey] ?? "");
+    let option = select.options[index];
+    if (!(option instanceof HTMLOptionElement)) {
+      option = document.createElement("option");
+      select.add(option);
+    }
+    if (option.value !== wantedValue) {
+      option.value = wantedValue;
+    }
+    if ((option.textContent || "") !== wantedLabel) {
+      option.textContent = wantedLabel;
+    }
+  });
 }
 
 function syncSelectValue(id, value) {

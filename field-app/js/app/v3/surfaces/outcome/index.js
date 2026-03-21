@@ -56,6 +56,20 @@ import {
   setOutcomeBridgeField,
 } from "../../bridges/outcomeBridge.js";
 
+const OUTCOME_V3_TRACE_PREFIX = "[outcome_v3_dom_trace]";
+const OUTCOME_V3_TRACE_FLAG_KEY = "__FPE_OUTCOME_V3_TRACE_ENABLED__";
+const OUTCOME_V3_TRACE_AUTO_MAX_ATTEMPTS = 12;
+const OUTCOME_V3_TRACE_AUTO_RETRY_MS = 60;
+const OUTCOME_V3_CONTROL_IDS = Object.freeze([
+  "v3OutcomeMcMode",
+  "v3OutcomeOrgCount",
+]);
+let outcomeV3NodeSequence = 0;
+let outcomeV3TraceInstalled = false;
+let outcomeV3TraceAutoRan = false;
+let outcomeV3TraceAutoAttempts = 0;
+const outcomeV3NodeTokens = new WeakMap();
+
 export function renderOutcomeSurface(mount) {
   const frame = createCenterStackFrame();
   const centerCol = createCenterStackColumn();
@@ -65,6 +79,7 @@ export function renderOutcomeSurface(mount) {
     description: "Execution assumptions, uncertainty mode, and Monte Carlo controls that drive outcome behavior.",
     status: "Model inputs"
   });
+  controlsCard.id = "v3OutcomeControlsCard";
 
   const forecastCard = createCenterModuleCard({
     title: "Forecast",
@@ -421,6 +436,7 @@ export function renderOutcomeSurface(mount) {
   );
 
   wireOutcomeControlProxies();
+  installOutcomeV3DomLifecycleTrace();
   return refreshOutcomeSummary;
 }
 
@@ -432,7 +448,245 @@ function wireOutcomeControlProxies() {
   });
 }
 
+function emitOutcomeV3Trace(level, payload) {
+  const row = payload && typeof payload === "object" ? payload : {};
+  const line = `${OUTCOME_V3_TRACE_PREFIX} ${JSON.stringify(row)}`;
+  if (level === "warn") {
+    console.warn(line);
+    return;
+  }
+  console.info(line);
+}
+
+function isOutcomeV3TraceEnabled() {
+  try {
+    const root = typeof window === "object" ? window : {};
+    if (root && root[OUTCOME_V3_TRACE_FLAG_KEY] === false) {
+      return false;
+    }
+    if (root && root[OUTCOME_V3_TRACE_FLAG_KEY] === true) {
+      return true;
+    }
+    const params = new URLSearchParams(window.location.search);
+    const token = String(params.get("outcomeDomTrace") || "").trim().toLowerCase();
+    if (token === "1" || token === "true" || token === "yes") {
+      return true;
+    }
+    if (token === "0" || token === "false" || token === "no") {
+      return false;
+    }
+    return false;
+  } catch {
+    return false;
+  }
+}
+
+function isOutcomeV3TraceAutoEnabled() {
+  try {
+    const params = new URLSearchParams(window.location.search);
+    const token = String(params.get("outcomeDomTraceAuto") || "").trim().toLowerCase();
+    return token === "1" || token === "true" || token === "yes";
+  } catch {
+    return false;
+  }
+}
+
+function outcomeV3NodeToken(node) {
+  if (!(node instanceof HTMLElement)) {
+    return "(missing)";
+  }
+  const cached = outcomeV3NodeTokens.get(node);
+  if (typeof cached === "string" && cached) {
+    return cached;
+  }
+  outcomeV3NodeSequence += 1;
+  const token = `outcome_node_${outcomeV3NodeSequence}`;
+  outcomeV3NodeTokens.set(node, token);
+  return token;
+}
+
+function readOutcomeV3CanonicalByControlId(controlId) {
+  const id = String(controlId || "").trim();
+  const canonical = readOutcomeCanonicalBridgeView();
+  const inputs = canonical?.inputs && typeof canonical.inputs === "object"
+    ? canonical.inputs
+    : {};
+  if (id === "v3OutcomeMcMode") {
+    return String(inputs.mcMode || "").trim();
+  }
+  if (id === "v3OutcomeOrgCount") {
+    const numeric = Number(inputs.orgCount);
+    return Number.isFinite(numeric) ? numeric : null;
+  }
+  return null;
+}
+
+function readOutcomeV3TraceSnapshot(controlId) {
+  const control = document.getElementById(controlId);
+  const domValue = control instanceof HTMLInputElement || control instanceof HTMLSelectElement
+    ? String(control.value || "")
+    : "";
+  return {
+    control,
+    domValue,
+    canonicalValue: readOutcomeV3CanonicalByControlId(controlId),
+  };
+}
+
+function logOutcomeV3ControlTrace(eventType, controlId, referenceNode = null) {
+  if (!isOutcomeV3TraceEnabled()) {
+    return;
+  }
+  const snapshot = readOutcomeV3TraceSnapshot(controlId);
+  const currentNode = snapshot.control;
+  const replacedSinceReference = referenceNode instanceof HTMLElement
+    ? currentNode !== referenceNode
+    : false;
+  emitOutcomeV3Trace("info", {
+    eventType,
+    controlId,
+    nodeToken: outcomeV3NodeToken(currentNode),
+    referenceNodeToken: referenceNode instanceof HTMLElement ? outcomeV3NodeToken(referenceNode) : "",
+    replacedSinceReference,
+    domValue: snapshot.domValue,
+    canonicalValue: snapshot.canonicalValue,
+  });
+}
+
+function bindOutcomeV3ControlLifecycleTrace(controlId) {
+  const control = document.getElementById(controlId);
+  if (!(control instanceof HTMLInputElement || control instanceof HTMLSelectElement)) {
+    return;
+  }
+  if (control.dataset.v3OutcomeTraceBound === "1") {
+    return;
+  }
+  control.dataset.v3OutcomeTraceBound = "1";
+  control.addEventListener("focus", () => {
+    logOutcomeV3ControlTrace("focus", controlId);
+  });
+  control.addEventListener("input", () => {
+    logOutcomeV3ControlTrace("input", controlId);
+  });
+  control.addEventListener("change", () => {
+    logOutcomeV3ControlTrace("change", controlId);
+  });
+  control.addEventListener("blur", (event) => {
+    const target = event?.target;
+    const referenceNode = target instanceof HTMLElement ? target : null;
+    logOutcomeV3ControlTrace("blur.before", controlId, referenceNode);
+    queueMicrotask(() => {
+      logOutcomeV3ControlTrace("blur.after.microtask", controlId, referenceNode);
+    });
+    if (typeof window.requestAnimationFrame === "function") {
+      window.requestAnimationFrame(() => {
+        logOutcomeV3ControlTrace("blur.after.raf", controlId, referenceNode);
+      });
+    }
+  });
+}
+
+function probeOutcomeV3Control(controlId, kind) {
+  const node = document.getElementById(controlId);
+  if (!(node instanceof HTMLInputElement || node instanceof HTMLSelectElement)) {
+    return;
+  }
+  const beforeDomValue = String(node.value || "");
+  let probeValue = beforeDomValue;
+  if (kind === "select" && node instanceof HTMLSelectElement) {
+    const values = Array.from(node.options)
+      .map((option) => String(option?.value || "").trim())
+      .filter((value) => value.length > 0);
+    probeValue = values.find((value) => value !== beforeDomValue) || beforeDomValue;
+  } else if (kind === "number" && node instanceof HTMLInputElement) {
+    const baseline = Number(node.value || 0);
+    probeValue = String(Number.isFinite(baseline) ? baseline + 2 : 2);
+  }
+  const referenceNode = node;
+  emitOutcomeV3Trace("info", {
+    eventType: "trace.auto.c4.set",
+    controlId,
+    beforeDomValue,
+    probeValue,
+    canonicalBefore: readOutcomeV3CanonicalByControlId(controlId),
+  });
+  if (typeof node.focus === "function") {
+    node.focus();
+  }
+  node.value = probeValue;
+  node.dispatchEvent(new Event("input", { bubbles: true }));
+  node.dispatchEvent(new Event("change", { bubbles: true }));
+  if (typeof node.blur === "function") {
+    node.blur();
+  }
+  window.setTimeout(() => {
+    const currentNode = document.getElementById(controlId);
+    const currentControl = currentNode instanceof HTMLInputElement || currentNode instanceof HTMLSelectElement
+      ? currentNode
+      : null;
+    emitOutcomeV3Trace("info", {
+      eventType: "trace.auto.c4.post",
+      controlId,
+      referenceNodeToken: outcomeV3NodeToken(referenceNode),
+      nodeToken: outcomeV3NodeToken(currentControl),
+      replacedSinceReference: currentControl !== referenceNode,
+      domValue: currentControl ? String(currentControl.value || "") : "",
+      canonicalValue: readOutcomeV3CanonicalByControlId(controlId),
+    });
+  }, 140);
+}
+
+function runOutcomeV3TraceAutoProbe() {
+  if (!isOutcomeV3TraceEnabled() || !isOutcomeV3TraceAutoEnabled()) {
+    return;
+  }
+  if (outcomeV3TraceAutoRan) {
+    return;
+  }
+  const mcMode = document.getElementById("v3OutcomeMcMode");
+  const orgCount = document.getElementById("v3OutcomeOrgCount");
+  const ready = mcMode instanceof HTMLSelectElement
+    && orgCount instanceof HTMLInputElement
+    && Array.from(mcMode.options).some((option) => String(option?.value || "").trim());
+  if (!ready) {
+    if (outcomeV3TraceAutoAttempts >= OUTCOME_V3_TRACE_AUTO_MAX_ATTEMPTS) {
+      emitOutcomeV3Trace("warn", {
+        eventType: "trace.auto.c4.skipped",
+        reason: "controls-not-ready",
+        attempts: outcomeV3TraceAutoAttempts,
+      });
+      outcomeV3TraceAutoRan = true;
+      return;
+    }
+    outcomeV3TraceAutoAttempts += 1;
+    window.setTimeout(() => {
+      runOutcomeV3TraceAutoProbe();
+    }, OUTCOME_V3_TRACE_AUTO_RETRY_MS);
+    return;
+  }
+  outcomeV3TraceAutoRan = true;
+  probeOutcomeV3Control("v3OutcomeMcMode", "select");
+  probeOutcomeV3Control("v3OutcomeOrgCount", "number");
+}
+
+function installOutcomeV3DomLifecycleTrace() {
+  if (!isOutcomeV3TraceEnabled()) {
+    outcomeV3TraceInstalled = false;
+    return;
+  }
+  OUTCOME_V3_CONTROL_IDS.forEach((controlId) => {
+    bindOutcomeV3ControlLifecycleTrace(controlId);
+    logOutcomeV3ControlTrace("trace.init", controlId);
+  });
+  if (outcomeV3TraceInstalled) {
+    return;
+  }
+  outcomeV3TraceInstalled = true;
+  runOutcomeV3TraceAutoProbe();
+}
+
 function refreshOutcomeSummary() {
+  installOutcomeV3DomLifecycleTrace();
   const canonicalView = readOutcomeCanonicalBridgeView();
   const derivedView = readOutcomeDerivedBridgeView();
   const outcomeControlView = canonicalView;
@@ -683,13 +937,7 @@ function syncOutcomeSelectOptions(id, options, selectedValue) {
   const next = normalized.map((option) => `${option.value}::${option.label}`);
   const isSame = current.length === next.length && current.every((item, index) => item === next[index]);
   if (!isSame) {
-    select.innerHTML = "";
-    normalized.forEach((option) => {
-      const node = document.createElement("option");
-      node.value = option.value;
-      node.textContent = option.label;
-      select.appendChild(node);
-    });
+    replaceOutcomeSelectOptionsInPlace(select, normalized);
   }
   if (document.activeElement !== select) {
     const wanted = selectedValue == null ? "" : String(selectedValue);
@@ -701,6 +949,31 @@ function syncOutcomeSelectOptions(id, options, selectedValue) {
     }
     select.value = wanted;
   }
+}
+
+function replaceOutcomeSelectOptionsInPlace(select, options) {
+  if (!(select instanceof HTMLSelectElement)) {
+    return;
+  }
+  const rows = Array.isArray(options) ? options : [];
+  while (select.options.length > rows.length) {
+    select.remove(select.options.length - 1);
+  }
+  rows.forEach((row, index) => {
+    const wantedValue = String(row?.value ?? "");
+    const wantedLabel = String(row?.label ?? wantedValue);
+    let option = select.options[index];
+    if (!(option instanceof HTMLOptionElement)) {
+      option = document.createElement("option");
+      select.add(option);
+    }
+    if (option.value !== wantedValue) {
+      option.value = wantedValue;
+    }
+    if ((option.textContent || "") !== wantedLabel) {
+      option.textContent = wantedLabel;
+    }
+  });
 }
 
 function setOutcomeControlDisabled(id, disabled) {
