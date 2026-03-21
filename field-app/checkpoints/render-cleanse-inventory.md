@@ -111,14 +111,79 @@ Frozen (2026-03-21)
   - Targeting Top N numeric input updates canonical and keeps same node identity.
 - Observed structural updates remain limited to derived result tables (`TargetingResultsTbody`, `CensusAggregateTbody`).
 
-## C4-C6 Inventory Targets (next waves)
+## C4 Target (completed)
 
-### Outcome editable controls (C4)
-- `js/app/v3/surfaces/outcome/index.js`
+### Subsystem
+Outcome editable controls
 
-### War Room editable controls (C5)
-- `js/app/v3/surfaces/warRoom/index.js`
-- module splits under `js/app/v3/surfaces/warRoom/`
+### Status
+Frozen (2026-03-21)
+
+### Render owners
+- `renderOutcomeSurface`
+- `applyOutcomeControlView`
+
+### Binder owners
+- `bindOutcomeInputField`
+- `bindOutcomeSelectField`
+
+### Sync owners
+- `syncOutcomeInputValue`
+- `syncOutcomeSelectOptions`
+- `replaceOutcomeSelectOptionsInPlace`
+
+### C4 ordinary edit rerender/rebind audit
+- Binders are one-time (`data-v3OutcomeBound`) and hold-free.
+- Ordinary editable sync path does not replace control nodes.
+- `syncOutcomeSelectOptions` now uses in-place option mutation (`replaceOutcomeSelectOptionsInPlace`) instead of select `innerHTML` replacement.
+- No `markDistrictPendingWrite`, `shouldHoldDistrictControlSync`, or `districtPendingWrites` in Outcome editable paths.
+
+### C4 parity outcome
+- C4 trace auto-probe confirms:
+  - dropdown (`v3OutcomeMcMode`) updates canonical and keeps same node identity.
+  - numeric input (`v3OutcomeOrgCount`) updates canonical and keeps same node identity.
+- Refresh/reopen parity confirms persisted values remain after reload on same profile.
+- Stage-navigation parity confirms persisted values remain after opening another stage and returning to Outcome.
+
+## C5 Target (completed)
+
+### Subsystem
+War Room / Decision Sessions / Diagnostics / Weather Risk / Event Calendar editable controls
+
+### Status
+Frozen (2026-03-21)
+
+### Render owners
+- `renderWarRoomSurface`
+- `refreshDecisionSummary`
+
+### Binder owners
+- `bindWarRoomDecisionSessionEvents`
+- `bindWarRoomDiagnosticsEvents`
+- `bindWarRoomWeatherRiskEvents`
+- `bindWarRoomEventCalendarEvents`
+
+### Sync owners
+- `syncSelect`
+- `replaceWarRoomSelectOptionsInPlace`
+- `syncInput`
+- `setChecked`
+
+### C5 ordinary edit rerender/rebind audit
+- Decision session/weather/event editable controls are synced in place with active-element guards.
+- `syncSelect` now uses in-place option mutation (`replaceWarRoomSelectOptionsInPlace`) instead of select `innerHTML` replacement.
+- No District pending-write or stale-hold logic in C5 editable paths.
+
+### C5 parity outcome
+- War Room trace auto-probe confirms:
+  - decision budget (`v3DecisionBudget`) updates canonical and keeps same node identity.
+  - weather office ZIP (`v3DecisionWeatherOfficeZip`) updates canonical and keeps same node identity.
+  - event title (`v3DecisionEventTitle`) updates canonical and keeps same node identity.
+- Cross-module trace checks (`trace.auto.c5.post`, `trace.auto.c5.diagnostics.post`) show `siblingReplacementMap=false` across modules during ordinary edits/actions.
+- Diagnostics module has actions but no dedicated editable text/select field; action-path parity was captured via `v3BtnDecisionCaptureReview`.
+- Refresh/reopen and cross-stage navigation parity retained C5 values.
+
+### C6 Inventory Target (next wave)
 
 ### Data editable controls (C6)
 - `js/app/v3/surfaces/data/index.js`
