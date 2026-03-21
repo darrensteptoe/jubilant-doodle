@@ -102,6 +102,8 @@ const DISTRICT_V2_CARD_ID_BY_SCOPE = Object.freeze({
   electorate: "v3DistrictV2ElectorateCard",
   ballot: "v3DistrictV2BallotCard",
   candidateHistory: "v3DistrictV2CandidateHistoryCard",
+  targeting: "v3DistrictV2TargetingCard",
+  census: "v3DistrictV2CensusCard",
 });
 let districtV2NodeSequence = 0;
 let districtV2TraceObservers = [];
@@ -109,6 +111,10 @@ const districtV2NodeTokens = new WeakMap();
 let districtV2TraceInstalled = false;
 let districtV2TraceRaceRoot = null;
 let districtV2TraceElectorateRoot = null;
+let districtV2TraceBallotRoot = null;
+let districtV2TraceCandidateHistoryRoot = null;
+let districtV2TraceTargetingRoot = null;
+let districtV2TraceCensusRoot = null;
 let districtV2TraceAutoRan = false;
 let districtV2TraceAutoAttempts = 0;
 const districtV2BinderAttachCounts = new WeakMap();
@@ -157,6 +163,7 @@ export function renderDistrictV2Surface(mount) {
     description: "Canonical targeting filters, weights, and ranking output.",
     status: "Run targeting",
   });
+  targetingCard.id = DISTRICT_V2_CARD_ID_BY_SCOPE.targeting;
   assignCardStatusId(targetingCard, "v3DistrictV2TargetingCardStatus");
 
   const censusCard = createCenterModuleCard({
@@ -164,6 +171,7 @@ export function renderDistrictV2Surface(mount) {
     description: "Canonical Census inputs with derived GEO/row status.",
     status: "Awaiting GEOs",
   });
+  censusCard.id = DISTRICT_V2_CARD_ID_BY_SCOPE.census;
   assignCardStatusId(censusCard, "v3DistrictV2CensusCardStatus");
 
   const electionDataCard = createCenterModuleCard({
@@ -398,6 +406,7 @@ function readDistrictV2TraceSnapshot(controlId) {
   const canonicalUniverse = Number.isFinite(Number(formSnapshot?.universeSize))
     ? Number(formSnapshot.universeSize)
     : null;
+  const canonicalC3 = readDistrictV2C3CanonicalByControlId(controlId);
   return {
     control,
     controlId,
@@ -407,7 +416,8 @@ function readDistrictV2TraceSnapshot(controlId) {
     canonicalValue:
       controlId === "v3DistrictV2RaceType" ? canonicalRace
       : controlId === "v3DistrictV2ElectionDate" ? canonicalElectionDate
-      : canonicalUniverse,
+      : controlId === "v3DistrictV2UniverseSize" ? canonicalUniverse
+      : canonicalC3,
     persistedValue:
       controlId === "v3DistrictV2RaceType"
         ? String(runtimeDiagnostics?.district?.persisted?.raceTemplate || "").trim()
@@ -521,6 +531,89 @@ function readDistrictV2BinderCanonicalSnapshot(controlId) {
     };
   }
   return {};
+}
+
+function districtV2AttrSelector(attrName, attrValue) {
+  const key = String(attrName || "").trim();
+  const value = String(attrValue || "").trim();
+  if (!key || !value) {
+    return "";
+  }
+  try {
+    if (typeof CSS !== "undefined" && typeof CSS.escape === "function") {
+      return `[${key}="${CSS.escape(value)}"]`;
+    }
+  } catch {}
+  return `[${key}="${value.replace(/"/g, "\\\"")}"]`;
+}
+
+function readDistrictV2CandidateSupportCanonicalValue(candidateId) {
+  const id = String(candidateId || "").trim();
+  if (!id) {
+    return null;
+  }
+  const ballot = readDistrictBallotSnapshot();
+  const rows = Array.isArray(ballot?.candidates) ? ballot.candidates : [];
+  const target = rows.find((row) => String(row?.id || "").trim() === id);
+  return Number.isFinite(Number(target?.supportPct)) ? Number(target.supportPct) : null;
+}
+
+function readDistrictV2CandidateHistoryMarginCanonicalValue(recordId) {
+  const id = String(recordId || "").trim();
+  if (!id) {
+    return null;
+  }
+  const ballot = readDistrictBallotSnapshot();
+  const rows = Array.isArray(ballot?.candidateHistoryRecords) ? ballot.candidateHistoryRecords : [];
+  const target = rows.find((row) => String(row?.recordId || "").trim() === id);
+  return Number.isFinite(Number(target?.margin)) ? Number(target.margin) : null;
+}
+
+function readDistrictV2TargetingCanonicalValue(field) {
+  const key = String(field || "").trim();
+  if (!key) {
+    return null;
+  }
+  const snapshot = readDistrictTargetingConfigSnapshot();
+  if (!snapshot || typeof snapshot !== "object") {
+    return null;
+  }
+  if (key in snapshot) {
+    return snapshot[key];
+  }
+  return null;
+}
+
+function readDistrictV2CensusCanonicalValue(field) {
+  const key = String(field || "").trim();
+  if (!key) {
+    return null;
+  }
+  const snapshot = readDistrictCensusConfigSnapshot();
+  if (!snapshot || typeof snapshot !== "object") {
+    return null;
+  }
+  if (key in snapshot) {
+    return snapshot[key];
+  }
+  return null;
+}
+
+function readDistrictV2C3CanonicalByControlId(controlId) {
+  const key = String(controlId || "").trim();
+  if (key === "v3DistrictV2TargetingGeoLevel") {
+    return readDistrictV2TargetingCanonicalValue("geoLevel");
+  }
+  if (key === "v3DistrictV2TargetingTopN") {
+    return readDistrictV2TargetingCanonicalValue("topN");
+  }
+  if (key === "v3DistrictV2CensusResolution") {
+    return readDistrictV2CensusCanonicalValue("resolution");
+  }
+  if (key === "v3DistrictV2CensusGeoSearch") {
+    return readDistrictV2CensusCanonicalValue("geoSearch");
+  }
+  return null;
 }
 
 function emitDistrictV2BinderLookup(controlId, field, control, status) {
@@ -657,6 +750,270 @@ function runDistrictV2TraceAutoProbe() {
       logDistrictV2ControlTrace("probe.post.120ms", entry.id, node);
     }, 120);
   });
+  window.setTimeout(() => {
+    runDistrictV2TraceAutoProbeC2();
+  }, 80);
+}
+
+function runDistrictV2TraceAutoProbeC2(attempt = 0) {
+  if (!isDistrictV2TraceEnabled() || !isDistrictV2TraceAutoProbeEnabled()) {
+    return;
+  }
+  let candidateSupport = document.querySelector(
+    '#v3DistrictV2CandTbody input[data-v3d2-candidate-field="supportPct"]',
+  );
+  let historyMargin = document.querySelector(
+    '#v3DistrictV2CandidateHistoryTbody input[data-v3d2-history-field="margin"]',
+  );
+
+  if (!(candidateSupport instanceof HTMLInputElement)) {
+    const addCandidateBtn = document.getElementById("v3BtnDistrictV2AddCandidate");
+    if (
+      addCandidateBtn instanceof HTMLButtonElement
+      && !addCandidateBtn.disabled
+      && addCandidateBtn.dataset.v3d2AutoTraceClick !== "1"
+    ) {
+      addCandidateBtn.dataset.v3d2AutoTraceClick = "1";
+      addCandidateBtn.click();
+      emitDistrictV2Trace("info", {
+        eventType: "trace.auto.c2.add-candidate",
+      });
+      candidateSupport = document.querySelector(
+        '#v3DistrictV2CandTbody input[data-v3d2-candidate-field="supportPct"]',
+      );
+    }
+  }
+
+  if (!(historyMargin instanceof HTMLInputElement)) {
+    const addHistoryBtn = document.getElementById("v3BtnDistrictV2AddCandidateHistory");
+    if (
+      addHistoryBtn instanceof HTMLButtonElement
+      && !addHistoryBtn.disabled
+      && addHistoryBtn.dataset.v3d2AutoTraceClick !== "1"
+    ) {
+      addHistoryBtn.dataset.v3d2AutoTraceClick = "1";
+      addHistoryBtn.click();
+      emitDistrictV2Trace("info", {
+        eventType: "trace.auto.c2.add-history",
+      });
+      historyMargin = document.querySelector(
+        '#v3DistrictV2CandidateHistoryTbody input[data-v3d2-history-field="margin"]',
+      );
+    }
+  }
+
+  if (!(candidateSupport instanceof HTMLInputElement) || !(historyMargin instanceof HTMLInputElement)) {
+    if (attempt >= DISTRICT_V2_TRACE_AUTO_MAX_ATTEMPTS) {
+      emitDistrictV2Trace("warn", {
+        eventType: "trace.auto.c2.skipped",
+        reason: "controls-not-ready",
+        attempts: attempt,
+      });
+      return;
+    }
+    window.setTimeout(() => {
+      runDistrictV2TraceAutoProbeC2(attempt + 1);
+    }, DISTRICT_V2_TRACE_AUTO_RETRY_MS);
+    return;
+  }
+
+  probeDistrictV2CandidateSupportControl(candidateSupport);
+  probeDistrictV2CandidateHistoryMarginControl(historyMargin);
+  window.setTimeout(() => {
+    runDistrictV2TraceAutoProbeC3();
+  }, 80);
+}
+
+function runDistrictV2TraceAutoProbeC3(attempt = 0) {
+  if (!isDistrictV2TraceEnabled() || !isDistrictV2TraceAutoProbeEnabled()) {
+    return;
+  }
+  const controls = [
+    { id: "v3DistrictV2CensusResolution", type: "select" },
+    { id: "v3DistrictV2CensusGeoSearch", type: "text" },
+    { id: "v3DistrictV2TargetingGeoLevel", type: "select" },
+    { id: "v3DistrictV2TargetingTopN", type: "number" },
+  ];
+  const nodes = controls.map((entry) => {
+    const control = document.getElementById(entry.id);
+    return { ...entry, control };
+  });
+  const ready = nodes.every((entry) => {
+    if (!(entry.control instanceof HTMLInputElement || entry.control instanceof HTMLSelectElement)) {
+      return false;
+    }
+    if (entry.type !== "select" || !(entry.control instanceof HTMLSelectElement)) {
+      return true;
+    }
+    const selectable = Array.from(entry.control.options).some((option) => String(option?.value || "").trim());
+    return selectable;
+  });
+  if (!ready) {
+    if (attempt >= DISTRICT_V2_TRACE_AUTO_MAX_ATTEMPTS) {
+      emitDistrictV2Trace("warn", {
+        eventType: "trace.auto.c3.skipped",
+        reason: "controls-not-ready",
+        attempts: attempt,
+      });
+      return;
+    }
+    window.setTimeout(() => {
+      runDistrictV2TraceAutoProbeC3(attempt + 1);
+    }, DISTRICT_V2_TRACE_AUTO_RETRY_MS);
+    return;
+  }
+  nodes.forEach((entry) => {
+    probeDistrictV2C3Control(entry.id, entry.type, entry.control);
+  });
+}
+
+function probeDistrictV2C3Control(controlId, type, control) {
+  if (!(control instanceof HTMLInputElement || control instanceof HTMLSelectElement)) {
+    return;
+  }
+  const beforeDomValue = String(control.value || "");
+  let probeValue = beforeDomValue;
+  if (type === "select" && control instanceof HTMLSelectElement) {
+    const choices = Array.from(control.options)
+      .map((option) => String(option?.value || "").trim())
+      .filter((value) => value.length > 0);
+    probeValue = choices.find((value) => value !== beforeDomValue) || beforeDomValue;
+  } else if (type === "number" && control instanceof HTMLInputElement) {
+    const baseline = Number(control.value || 0);
+    const nextValue = Number.isFinite(baseline) ? baseline + 3 : 3;
+    probeValue = String(nextValue);
+  } else if (type === "text" && control instanceof HTMLInputElement) {
+    const baseText = String(control.value || "").trim();
+    probeValue = baseText ? `${baseText}-c3` : "c3-geo-probe";
+  }
+  const referenceNode = control;
+  emitDistrictV2Trace("info", {
+    eventType: "trace.auto.c3.set",
+    controlId,
+    beforeDomValue,
+    probeValue,
+    canonicalBefore: readDistrictV2C3CanonicalByControlId(controlId),
+  });
+  if (typeof control.focus === "function") {
+    control.focus();
+  }
+  control.value = probeValue;
+  control.dispatchEvent(new Event("input", { bubbles: true }));
+  control.dispatchEvent(new Event("change", { bubbles: true }));
+  if (typeof control.blur === "function") {
+    control.blur();
+  }
+  window.setTimeout(() => {
+    const currentNode = document.getElementById(controlId);
+    const currentControl = currentNode instanceof HTMLInputElement || currentNode instanceof HTMLSelectElement
+      ? currentNode
+      : null;
+    emitDistrictV2Trace("info", {
+      eventType: "trace.auto.c3.post",
+      controlId,
+      referenceNodeToken: districtV2NodeToken(referenceNode),
+      nodeToken: districtV2NodeToken(currentControl),
+      replacedSinceReference: currentControl !== referenceNode,
+      domValue: currentControl ? String(currentControl.value || "") : "",
+      canonicalValue: readDistrictV2C3CanonicalByControlId(controlId),
+    });
+  }, 140);
+}
+
+function probeDistrictV2CandidateSupportControl(control) {
+  if (!(control instanceof HTMLInputElement)) {
+    return;
+  }
+  const candidateId = String(control.dataset.v3d2CandidateId || "").trim();
+  if (!candidateId) {
+    return;
+  }
+  const baseline = Number(control.value || 0);
+  const probeValue = String(Number.isFinite(baseline) ? baseline + 7.5 : 7.5);
+  const referenceNode = control;
+  const beforeCanonical = readDistrictV2CandidateSupportCanonicalValue(candidateId);
+  emitDistrictV2Trace("info", {
+    eventType: "trace.auto.c2.set",
+    controlType: "ballot.supportPct",
+    candidateId,
+    beforeDomValue: String(control.value || ""),
+    probeValue,
+    beforeCanonical,
+  });
+  if (typeof control.focus === "function") {
+    control.focus();
+  }
+  control.value = probeValue;
+  control.dispatchEvent(new Event("input", { bubbles: true }));
+  control.dispatchEvent(new Event("change", { bubbles: true }));
+  if (typeof control.blur === "function") {
+    control.blur();
+  }
+  window.setTimeout(() => {
+    const selectorA = districtV2AttrSelector("data-v3d2-candidate-id", candidateId);
+    const selectorB = districtV2AttrSelector("data-v3d2-candidate-field", "supportPct");
+    const selector = selectorA && selectorB ? `#v3DistrictV2CandTbody input${selectorA}${selectorB}` : "";
+    const currentNode = selector ? document.querySelector(selector) : null;
+    const currentInput = currentNode instanceof HTMLInputElement ? currentNode : null;
+    emitDistrictV2Trace("info", {
+      eventType: "trace.auto.c2.post",
+      controlType: "ballot.supportPct",
+      candidateId,
+      referenceNodeToken: districtV2NodeToken(referenceNode),
+      nodeToken: districtV2NodeToken(currentInput),
+      replacedSinceReference: currentInput !== referenceNode,
+      domValue: currentInput ? String(currentInput.value || "") : "",
+      canonicalValue: readDistrictV2CandidateSupportCanonicalValue(candidateId),
+    });
+  }, 140);
+}
+
+function probeDistrictV2CandidateHistoryMarginControl(control) {
+  if (!(control instanceof HTMLInputElement)) {
+    return;
+  }
+  const recordId = String(control.dataset.v3d2HistoryId || "").trim();
+  if (!recordId) {
+    return;
+  }
+  const baseline = Number(control.value || 0);
+  const probeValue = String(Number.isFinite(baseline) ? baseline + 2.4 : 2.4);
+  const referenceNode = control;
+  const beforeCanonical = readDistrictV2CandidateHistoryMarginCanonicalValue(recordId);
+  emitDistrictV2Trace("info", {
+    eventType: "trace.auto.c2.set",
+    controlType: "candidateHistory.margin",
+    recordId,
+    beforeDomValue: String(control.value || ""),
+    probeValue,
+    beforeCanonical,
+  });
+  if (typeof control.focus === "function") {
+    control.focus();
+  }
+  control.value = probeValue;
+  control.dispatchEvent(new Event("input", { bubbles: true }));
+  control.dispatchEvent(new Event("change", { bubbles: true }));
+  if (typeof control.blur === "function") {
+    control.blur();
+  }
+  window.setTimeout(() => {
+    const selectorA = districtV2AttrSelector("data-v3d2-history-id", recordId);
+    const selectorB = districtV2AttrSelector("data-v3d2-history-field", "margin");
+    const selector = selectorA && selectorB ? `#v3DistrictV2CandidateHistoryTbody input${selectorA}${selectorB}` : "";
+    const currentNode = selector ? document.querySelector(selector) : null;
+    const currentInput = currentNode instanceof HTMLInputElement ? currentNode : null;
+    emitDistrictV2Trace("info", {
+      eventType: "trace.auto.c2.post",
+      controlType: "candidateHistory.margin",
+      recordId,
+      referenceNodeToken: districtV2NodeToken(referenceNode),
+      nodeToken: districtV2NodeToken(currentInput),
+      replacedSinceReference: currentInput !== referenceNode,
+      domValue: currentInput ? String(currentInput.value || "") : "",
+      canonicalValue: readDistrictV2CandidateHistoryMarginCanonicalValue(recordId),
+    });
+  }, 140);
 }
 
 function logDistrictV2ControlTrace(eventType, controlId, referenceNode = null) {
@@ -768,28 +1125,58 @@ function installDistrictV2DomLifecycleTrace() {
     districtV2TraceInstalled = false;
     districtV2TraceRaceRoot = null;
     districtV2TraceElectorateRoot = null;
+    districtV2TraceBallotRoot = null;
+    districtV2TraceCandidateHistoryRoot = null;
+    districtV2TraceTargetingRoot = null;
+    districtV2TraceCensusRoot = null;
     return;
   }
   bindDistrictV2ControlLifecycleTrace("v3DistrictV2RaceType");
   bindDistrictV2ControlLifecycleTrace("v3DistrictV2ElectionDate");
   bindDistrictV2ControlLifecycleTrace("v3DistrictV2UniverseSize");
+  bindDistrictV2ControlLifecycleTrace("v3DistrictV2UndecidedPct");
+  bindDistrictV2ControlLifecycleTrace("v3DistrictV2CensusResolution");
+  bindDistrictV2ControlLifecycleTrace("v3DistrictV2CensusGeoSearch");
+  bindDistrictV2ControlLifecycleTrace("v3DistrictV2TargetingGeoLevel");
+  bindDistrictV2ControlLifecycleTrace("v3DistrictV2TargetingTopN");
   const raceRoot = document.getElementById(DISTRICT_V2_CARD_ID_BY_SCOPE.raceContext);
   const electorateRoot = document.getElementById(DISTRICT_V2_CARD_ID_BY_SCOPE.electorate);
+  const ballotRoot = document.getElementById(DISTRICT_V2_CARD_ID_BY_SCOPE.ballot);
+  const candidateHistoryRoot = document.getElementById(DISTRICT_V2_CARD_ID_BY_SCOPE.candidateHistory);
+  const targetingRoot = document.getElementById(DISTRICT_V2_CARD_ID_BY_SCOPE.targeting);
+  const censusRoot = document.getElementById(DISTRICT_V2_CARD_ID_BY_SCOPE.census);
   const shouldReinstallObservers = !districtV2TraceInstalled
     || raceRoot !== districtV2TraceRaceRoot
-    || electorateRoot !== districtV2TraceElectorateRoot;
+    || electorateRoot !== districtV2TraceElectorateRoot
+    || ballotRoot !== districtV2TraceBallotRoot
+    || candidateHistoryRoot !== districtV2TraceCandidateHistoryRoot
+    || targetingRoot !== districtV2TraceTargetingRoot
+    || censusRoot !== districtV2TraceCensusRoot;
   if (!shouldReinstallObservers) {
     return;
   }
   clearDistrictV2TraceObservers();
   installDistrictV2MutationTrace("raceContext", DISTRICT_V2_CARD_ID_BY_SCOPE.raceContext);
   installDistrictV2MutationTrace("electorate", DISTRICT_V2_CARD_ID_BY_SCOPE.electorate);
+  installDistrictV2MutationTrace("ballot", DISTRICT_V2_CARD_ID_BY_SCOPE.ballot);
+  installDistrictV2MutationTrace("candidateHistory", DISTRICT_V2_CARD_ID_BY_SCOPE.candidateHistory);
+  installDistrictV2MutationTrace("targeting", DISTRICT_V2_CARD_ID_BY_SCOPE.targeting);
+  installDistrictV2MutationTrace("census", DISTRICT_V2_CARD_ID_BY_SCOPE.census);
   districtV2TraceInstalled = true;
   districtV2TraceRaceRoot = raceRoot instanceof HTMLElement ? raceRoot : null;
   districtV2TraceElectorateRoot = electorateRoot instanceof HTMLElement ? electorateRoot : null;
+  districtV2TraceBallotRoot = ballotRoot instanceof HTMLElement ? ballotRoot : null;
+  districtV2TraceCandidateHistoryRoot = candidateHistoryRoot instanceof HTMLElement ? candidateHistoryRoot : null;
+  districtV2TraceTargetingRoot = targetingRoot instanceof HTMLElement ? targetingRoot : null;
+  districtV2TraceCensusRoot = censusRoot instanceof HTMLElement ? censusRoot : null;
   logDistrictV2ControlTrace("trace.init", "v3DistrictV2RaceType");
   logDistrictV2ControlTrace("trace.init", "v3DistrictV2ElectionDate");
   logDistrictV2ControlTrace("trace.init", "v3DistrictV2UniverseSize");
+  logDistrictV2ControlTrace("trace.init", "v3DistrictV2UndecidedPct");
+  logDistrictV2ControlTrace("trace.init", "v3DistrictV2CensusResolution");
+  logDistrictV2ControlTrace("trace.init", "v3DistrictV2CensusGeoSearch");
+  logDistrictV2ControlTrace("trace.init", "v3DistrictV2TargetingGeoLevel");
+  logDistrictV2ControlTrace("trace.init", "v3DistrictV2TargetingTopN");
   runDistrictV2TraceAutoProbe();
 }
 

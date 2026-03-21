@@ -127,3 +127,94 @@ test("c1 contract: race and electorate controls bind once and include identity t
     "trace payload must include node identity replacement flag",
   );
 });
+
+test("c2 contract: ballot ordinary edits use in-place sync paths after structure gate", () => {
+  const candidateTableBody = extractFunctionBody("syncDistrictV2CandidateTable");
+  const userSplitBody = extractFunctionBody("syncDistrictV2UserSplitTable");
+
+  assert.match(
+    candidateTableBody,
+    /if \(previousSignature !== structureSignature\)[\s\S]*setInnerHtmlWithTrace\(/,
+    "candidate table must allow structural rerender only behind signature change",
+  );
+  const candidateInPlacePath = String(candidateTableBody.split("const rowMap = new Map();")[1] || "");
+  assert.ok(candidateInPlacePath, "candidate table in-place path must exist");
+  assert.match(candidateInPlacePath, /syncInputControlInPlace\(/, "candidate table in-place path must sync existing inputs");
+  assert.doesNotMatch(
+    candidateInPlacePath,
+    /setInnerHtmlWithTrace\(/,
+    "candidate table ordinary edit path must not structurally rerender rows",
+  );
+
+  assert.match(
+    userSplitBody,
+    /if \(previousSignature !== structureSignature\)[\s\S]*setInnerHtmlWithTrace\(/,
+    "user-split table must allow structural rerender only behind signature change",
+  );
+  const userSplitInPlacePath = String(userSplitBody.split("const rowMap = new Map();")[1] || "");
+  assert.ok(userSplitInPlacePath, "user-split in-place path must exist");
+  assert.match(userSplitInPlacePath, /syncInputControlInPlace\(/, "user-split in-place path must sync existing inputs");
+  assert.doesNotMatch(
+    userSplitInPlacePath,
+    /setInnerHtmlWithTrace\(/,
+    "user-split ordinary edit path must not structurally rerender rows",
+  );
+});
+
+test("c2 contract: candidate history ordinary edits use in-place sync path after structure gate", () => {
+  const historyBody = extractFunctionBody("syncDistrictV2CandidateHistory");
+  assert.match(
+    historyBody,
+    /if \(previousSignature !== structureSignature\)[\s\S]*setInnerHtmlWithTrace\(/,
+    "candidate-history table must allow structural rerender only behind signature change",
+  );
+  const historyInPlacePath = String(historyBody.split("const rowMap = new Map();")[1] || "");
+  assert.ok(historyInPlacePath, "candidate-history in-place path must exist");
+  assert.match(historyInPlacePath, /syncInputControlInPlace\(/, "candidate-history in-place path must sync existing inputs");
+  assert.match(historyInPlacePath, /syncSelectControlInPlace\(/, "candidate-history in-place path must sync existing selects");
+  assert.match(historyInPlacePath, /syncCheckboxControlInPlace\(/, "candidate-history in-place path must sync existing checkboxes");
+  assert.doesNotMatch(
+    historyInPlacePath,
+    /setInnerHtmlWithTrace\(/,
+    "candidate-history ordinary edit path must not structurally rerender rows",
+  );
+});
+
+test("c3 contract: targeting and census ordinary editable sync paths avoid structural rerender", () => {
+  const targetingBody = extractFunctionBody("syncDistrictV2Targeting");
+  const censusBody = extractFunctionBody("syncDistrictV2Census");
+
+  assert.match(targetingBody, /syncSelectOptions\(/, "targeting sync must use in-place select sync helpers");
+  assert.match(targetingBody, /syncInputValueFromRaw\(/, "targeting sync must use in-place input sync helpers");
+  assert.doesNotMatch(
+    targetingBody,
+    /setInnerHtmlWithTrace\(/,
+    "targeting ordinary edit controls must not structurally rerender module body",
+  );
+
+  assert.match(censusBody, /syncSelectOptions\(/, "census sync must use in-place select sync helpers");
+  assert.match(censusBody, /syncInputValueFromRaw\(/, "census sync must use in-place input sync helpers");
+  assert.match(censusBody, /syncMultiSelectOptions\(/, "census sync must use in-place multi-select sync helper");
+  assert.doesNotMatch(
+    censusBody,
+    /setInnerHtmlWithTrace\(/,
+    "census ordinary edit controls must not structurally rerender module body",
+  );
+});
+
+test("c3 contract: targeting and census binders are one-time and hold-free", () => {
+  const targetingSelectBody = extractFunctionBody("bindDistrictV2TargetingSelect");
+  const targetingFieldBody = extractFunctionBody("bindDistrictV2TargetingField");
+  const censusFieldBody = extractFunctionBody("bindDistrictV2CensusField");
+
+  assert.match(targetingSelectBody, /control\.dataset\.v3DistrictV2Bound === "1"/);
+  assert.match(targetingSelectBody, /control\.dataset\.v3DistrictV2Bound = "1";/);
+  assert.match(targetingFieldBody, /control\.dataset\.v3DistrictV2Bound === "1"/);
+  assert.match(targetingFieldBody, /control\.dataset\.v3DistrictV2Bound = "1";/);
+  assert.match(censusFieldBody, /control\.dataset\.v3DistrictV2Bound === "1"/);
+  assert.match(censusFieldBody, /control\.dataset\.v3DistrictV2Bound = "1";/);
+
+  assert.doesNotMatch(targetingSelectBody, /markDistrictPendingWrite|shouldHoldDistrictControlSync/);
+  assert.doesNotMatch(targetingFieldBody, /markDistrictPendingWrite|shouldHoldDistrictControlSync/);
+  assert.doesNotMatch(censusFieldBody, /markDistrictPendingWrite|shouldHoldDistrictControlSync/);
+});
