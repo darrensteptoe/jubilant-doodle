@@ -7,7 +7,7 @@ const INVENTORY_PATH = path.join(ROOT, "interaction", "interaction-inventory.csv
 const RESULTS_PATH = path.join(ROOT, "interaction", "interaction-results.json");
 const RUNTIME_PATH = path.join(ROOT, "js", "appRuntime.js");
 const STATE_BRIDGE_PATH = path.join(ROOT, "js", "app", "v3", "stateBridge.js");
-const DISTRICT_SURFACE_PATH = path.join(ROOT, "js", "app", "v3", "surfaces", "district", "index.js");
+const DISTRICT_SURFACE_PATH = path.join(ROOT, "js", "app", "v3", "surfaces", "districtV2", "index.js");
 
 const REQUIRED_DISTRICT_INTERACTIONS = [
   "district_mode_selector",
