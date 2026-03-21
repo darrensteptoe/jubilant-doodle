@@ -19,6 +19,7 @@ const STATE_MODULE = "state";
 const STATE_KEY = "snapshot-v1";
 const BACKUP_KEY = "backups-v1";
 const MAX_BACKUPS = 5;
+const STORAGE_DEBUG_KEY = "__FPE_STORAGE_DEBUG__";
 
 function isStorageLike(value){
   return !!value
@@ -26,6 +27,65 @@ function isStorageLike(value){
     && typeof value.getItem === "function"
     && typeof value.setItem === "function"
     && typeof value.removeItem === "function";
+}
+
+function getStorageDebugRoot(){
+  try {
+    const root = globalThis;
+    if (!root || typeof root !== "object"){
+      return null;
+    }
+    const existing = root[STORAGE_DEBUG_KEY];
+    if (existing && typeof existing === "object"){
+      return existing;
+    }
+    const initial = {
+      localStorage: { reads: 0, writes: 0, removes: 0, lastKey: "", lastAt: "", lastOk: null },
+      sessionStorage: { reads: 0, writes: 0, removes: 0, lastKey: "", lastAt: "", lastOk: null },
+      indexedDB: { reads: 0, writes: 0, removes: 0, lastKey: "", lastAt: "", lastOk: null },
+      memory: { reads: 0, writes: 0, removes: 0, lastKey: "", lastAt: "", lastOk: null },
+    };
+    root[STORAGE_DEBUG_KEY] = initial;
+    return initial;
+  } catch {
+    return null;
+  }
+}
+
+function resolveStorageBackendName(storage){
+  try {
+    if (typeof localStorage !== "undefined" && storage === localStorage){
+      return "localStorage";
+    }
+  } catch {}
+  try {
+    if (typeof sessionStorage !== "undefined" && storage === sessionStorage){
+      return "sessionStorage";
+    }
+  } catch {}
+  return "memory";
+}
+
+function markStorageAccess(storage, operation, key, ok){
+  const debugRoot = getStorageDebugRoot();
+  if (!debugRoot || typeof debugRoot !== "object"){
+    return;
+  }
+  const backend = resolveStorageBackendName(storage);
+  const bucket = debugRoot[backend] && typeof debugRoot[backend] === "object"
+    ? debugRoot[backend]
+    : (debugRoot.memory || (debugRoot.memory = { reads: 0, writes: 0, removes: 0, lastKey: "", lastAt: "", lastOk: null }));
+  const op = String(operation || "").trim().toLowerCase();
+  if (op === "read"){
+    bucket.reads = Number(bucket.reads || 0) + 1;
+  } else if (op === "write"){
+    bucket.writes = Number(bucket.writes || 0) + 1;
+  } else if (op === "remove"){
+    bucket.removes = Number(bucket.removes || 0) + 1;
+  }
+  bucket.lastKey = String(key || "");
+  bucket.lastAt = new Date().toISOString();
+  bucket.lastOk = ok === true;
 }
 
 function normalizeContextArg(input){
@@ -426,13 +486,34 @@ export function clearState(options = {}){
 
 
 function safeGet(storage, key){
-  try{ return storage.getItem(key); } catch { return null; }
+  try{
+    const value = storage.getItem(key);
+    markStorageAccess(storage, "read", key, true);
+    return value;
+  } catch {
+    markStorageAccess(storage, "read", key, false);
+    return null;
+  }
 }
 function safeSet(storage, key, value){
-  try{ storage.setItem(key, value); return true; } catch { return false; }
+  try{
+    storage.setItem(key, value);
+    markStorageAccess(storage, "write", key, true);
+    return true;
+  } catch {
+    markStorageAccess(storage, "write", key, false);
+    return false;
+  }
 }
 function safeRemove(storage, key){
-  try{ storage.removeItem(key); return true; } catch { return false; }
+  try{
+    storage.removeItem(key);
+    markStorageAccess(storage, "remove", key, true);
+    return true;
+  } catch {
+    markStorageAccess(storage, "remove", key, false);
+    return false;
+  }
 }
 
 function backupEntryScenarioState(entry){
