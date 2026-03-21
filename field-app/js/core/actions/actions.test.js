@@ -4,7 +4,13 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import { makeCanonicalState } from "../state/schema.js";
-import { addBallotCandidate, removeBallotCandidate, updateBallotCandidate, updateBallotUserSplit } from "./ballot.js";
+import {
+  addBallotCandidate,
+  removeBallotCandidate,
+  setBallotYourCandidate,
+  updateBallotCandidate,
+  updateBallotUserSplit,
+} from "./ballot.js";
 import { addCandidateHistoryRecord, removeCandidateHistoryRecord, updateCandidateHistoryRecord } from "./candidateHistory.js";
 import { updateCensusConfig } from "./census.js";
 import { applyDistrictTemplate, updateDistrictFormField } from "./district.js";
@@ -55,7 +61,18 @@ test("actions: ballot row add/edit/remove + user split update", () => {
   assert.equal(split.changed, true);
   assert.equal(split.state.domains.ballot.userSplitByCandidateId[newId], 38);
 
-  const removed = removeBallotCandidate(split.state, { candidateId: newId });
+  const fallbackId = split.state.domains.ballot.candidateRefs.order.find((id) => id !== newId);
+  assert.ok(fallbackId, "expected fallback candidate id");
+
+  const selectedFallback = setBallotYourCandidate(split.state, { candidateId: fallbackId });
+  assert.equal(selectedFallback.changed, true);
+  assert.equal(selectedFallback.state.domains.ballot.yourCandidateId, fallbackId);
+
+  const selected = setBallotYourCandidate(selectedFallback.state, { candidateId: newId });
+  assert.equal(selected.changed, true);
+  assert.equal(selected.state.domains.ballot.yourCandidateId, newId);
+
+  const removed = removeBallotCandidate(selected.state, { candidateId: newId });
   assert.equal(removed.changed, true);
   assert.equal(Boolean(removed.state.domains.ballot.candidateRefs.byId[newId]), false);
 });
@@ -247,4 +264,3 @@ test("actions: cross-domain action coverage for census/weather/event/archive/out
   assert.equal(mc.changed, true);
   assert.equal(mc.state.domains.outcome.cache.mcLastHash, "mc_hash_1");
 });
-

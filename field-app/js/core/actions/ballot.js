@@ -162,6 +162,27 @@ export function setBallotUndecided(state, payload, options = {}) {
   return makeActionResult(result);
 }
 
+export function setBallotYourCandidate(state, payload, options = {}) {
+  const candidateId = cleanText(payload?.candidateId);
+  if (!candidateId) {
+    return makeActionResult({ state, changed: false, blocked: true, reason: "invalid_payload" });
+  }
+
+  const result = mutateDomain(
+    state,
+    "ballot",
+    (draft) => {
+      ensureBallotRefs(draft);
+      if (!draft.candidateRefs.byId[candidateId]) return false;
+      if (draft.yourCandidateId === candidateId) return false;
+      draft.yourCandidateId = candidateId;
+      return true;
+    },
+    { ...options, revisionReason: "ballot.yourCandidateId" },
+  );
+  return makeActionResult(result, { candidateId });
+}
+
 export function replaceBallotCandidates(state, payload, options = {}) {
   const rows = Array.isArray(payload?.rows) ? payload.rows : [];
   const result = mutateDomain(
@@ -197,4 +218,3 @@ export function replaceBallotCandidates(state, payload, options = {}) {
   );
   return makeActionResult(result);
 }
-
