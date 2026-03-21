@@ -7,10 +7,82 @@ import {
   deriveWeeksRemainingCeil as coreDeriveWeeksRemainingCeil
 } from "./core/model.js";
 import { UNIVERSE_DEFAULTS, computeUniverseAdjustedRates } from "./core/universeLayer.js";
-import { computeAvgLiftPP } from "./core/turnout.js";
+import {
+  computeAvgLiftPP,
+  getOptimizationObjectiveCopy,
+  normalizeOptimizationObjective,
+  OPTIMIZATION_OBJECTIVES,
+} from "./core/turnout.js";
 import { computeElectionSnapshot } from "./core/electionSnapshot.js";
 import { computeExecutionSnapshot } from "./core/executionSnapshot.js";
-import { fmtInt, clamp, safeNum, readJsonFile } from "./utils.js";
+import { getTimelineFeasibilityObjectiveMeta } from "./core/timeline.js";
+import { getTimelineObjectiveMeta } from "./core/timelineOptimizer.js";
+import {
+  buildPlanSummaryView as buildCanonicalPlanSummaryView,
+  formatPlanCurrency,
+  formatPlanPercentUnit,
+  formatPlanWhole,
+  normalizePlanOptimizerRows,
+} from "./core/planView.js";
+import { buildReachFreshnessView, buildReachLeversAndActionsView, buildReachWeeklyConstraintView, buildReachWeeklyExecutionView } from "./core/reachView.js";
+import { buildGovernanceSnapshotView, computeModelGovernance } from "./core/modelGovernance.js";
+import {
+  appendForecastArchiveEntry,
+  buildForecastArchiveOptions,
+  buildForecastArchiveContext,
+  buildForecastArchiveEntry,
+  resolveForecastArchiveSelectedHash,
+  buildForecastArchiveSelectedEntryView,
+  buildForecastArchiveTableRows,
+  normalizeForecastArchiveActual,
+  readForecastArchive,
+  summarizeForecastArchive,
+  updateForecastArchiveActual,
+} from "./core/forecastArchive.js";
+import { buildModelLearningFromArchive } from "./core/modelAudit.js";
+import {
+  buildDecisionDiagnosticsSnapshotView,
+  buildWarRoomChangeClassificationView,
+  buildWarRoomDecisionLogRowsView,
+  buildWarRoomReviewBaselineView,
+  computeDecisionSensitivityMiniSurfaceCache,
+  DECISION_DIVERGENCE_KEY_ORDER,
+} from "./core/decisionView.js";
+import { buildOutcomeSurfaceSummaryText } from "./core/outcomeView.js";
+import { buildScenarioWorkspaceSummaryView } from "./core/scenarioView.js";
+import {
+  buildDistrictApplyAdjustmentsStatus,
+  buildDistrictAssumptionProvenanceStatus,
+  buildDistrictCensusContextHint,
+  buildDistrictFootprintCapacityStatus,
+  buildDistrictGeoStatsText,
+  buildDistrictLastFetchText,
+  buildDistrictRaceFootprintStatus,
+  buildDistrictSelectionSetStatus,
+  buildDistrictSelectionSummaryText,
+  buildDistrictTurnoutFallbackView,
+  computeDistrictSupportTotalPctFromState,
+} from "./core/districtView.js";
+import {
+  normalizeCensusState,
+  resolutionNeedsCounty,
+} from "./core/censusModule.js";
+import {
+  CANDIDATE_HISTORY_ELECTION_TYPE_OPTIONS,
+  CANDIDATE_HISTORY_INCUMBENCY_OPTIONS,
+  normalizeCandidateHistoryRecords,
+} from "./core/candidateHistoryBaseline.js";
+import {
+  clamp,
+  fmtInt,
+  formatFixedNumber,
+  formatPercentFromPct,
+  formatPercentFromUnit,
+  formatWholeNumberByMode,
+  readJsonFile,
+  roundWholeNumberByMode,
+  safeNum,
+} from "./utils.js";
 import {
   loadState,
   clearState,
@@ -59,6 +131,31 @@ import {
   decisionSessionExportObjectCore,
   downloadJsonObjectCore,
 } from "./app/decisionSessionApp.js";
+import {
+  WEATHER_MODE_OBSERVE_ONLY,
+  WEATHER_MODE_TODAY_ONLY,
+  normalizeZip,
+  resolveSelectedZip,
+} from "./app/weatherRiskRules.js";
+import {
+  applyWeatherModeToState,
+  applyWeatherObservationToState,
+  buildWarRoomWeatherView,
+  ensureWarRoomStateShape,
+  fetchWarRoomWeatherByZip,
+} from "./app/warRoomWeather.js";
+import { ensureEventCalendarStateShape } from "./app/eventCalendarState.js";
+import {
+  clearEventDraft as clearEventCalendarDraft,
+  deleteEventRecord as deleteEventCalendarRecord,
+  loadEventIntoDraft as loadEventCalendarDraft,
+  saveEventDraftAsEvent as saveEventCalendarDraftAsEvent,
+  setEventDraftField as setEventCalendarDraftField,
+  setEventFilter as setEventCalendarFilter,
+  setEventStatus as setEventCalendarStatus,
+  updateEventApplyToModel as updateEventCalendarApplyToModel,
+} from "./app/eventCalendarStore.js";
+import { buildEventCalendarView } from "./app/eventCalendarRenderer.js";
 import { renderMain } from "./app/renderMain.js";
 import { initDevToolsModule } from "./app/initDevTools.js";
 import { buildModelInputFromState } from "./app/modelInput.js";
@@ -96,17 +193,24 @@ import {
   renderSurfaceResultCore,
 } from "./app/sensitivitySurfaceUi.js";
 import { createSensitivitySurfaceController } from "./app/sensitivitySurfaceController.js";
-import { composeSetupStageModule } from "./app/composeSetupStage.js";
 import { normalizeStageLayoutModule } from "./app/normalizeStageLayout.js";
 import { runInitPostBootModule } from "./app/initPostBoot.js";
 import { runInitScenarioDecisionWiringModule } from "./app/initScenarioDecisionWiring.js";
 import { preflightElsModule } from "./app/preflightEls.js";
 import { initTabsModule, initExplainCardModule, isDevModeModule } from "./app/initUiStateHelpers.js";
+import {
+  bootProbeError,
+  bootProbeMark,
+  bootProbeSetStatus,
+  getBootProbeStatus,
+} from "./app/bootProbe.js";
 import { createUiUpdateQueue } from "./app/uiUpdateQueue.js";
 import { isScenarioLockedForEditsModule, applyScenarioLockUiModule } from "./app/scenarioLockUi.js";
 import { setText, setHidden, setTextPair } from "./app/uiText.js";
 import { makeDefaultStateModule } from "./app/defaultState.js";
 import { normalizeLoadedStateModule } from "./app/normalizeLoadedState.js";
+import { createElectionDataBridge } from "./app/v3/bridges/electionDataBridge.js";
+import { createMetricProvenanceTracker } from "./core/state/metricProvenance.js";
 import { renderUniverse16CardModule } from "./app/renderUniverse16Card.js";
 import { safeCallModule, switchToStageModule } from "./app/uiStageHelpers.js";
 import { renderWeeklyOpsModule, renderWeeklyExecutionStatusModule } from "./app/weeklyOpsPanels.js";
@@ -128,7 +232,9 @@ import {
   getYourNameFromStateModule
 } from "./app/assumptionsViewHelpers.js";
 import {
+  canonicalCallsPerHourFromSnapModule,
   canonicalDoorsPerHourFromSnapModule,
+  setCanonicalCallsPerHourModule,
   setCanonicalDoorsPerHourModule,
   requiredScenarioKeysMissingModule
 } from "./app/stateNormalizationHelpers.js";
@@ -139,6 +245,7 @@ import {
   twCapNumModule,
   twCapFmtIntModule,
   twCapFmt1Module,
+  twCapFmt2Module,
   twCapFmtSignedModule,
   twCapRatioTextModule,
   twCapFmtPct01Module,
@@ -154,6 +261,15 @@ import {
   twCapPerOrganizerAttemptsPerWeekModule,
   twCapBaselineAttemptsPerWeekModule,
 } from "./app/twCapHelpers.js";
+import {
+  buildVoterImportOutcomeView,
+  buildVoterLayerStatusSnapshot,
+  deriveVoterModelSignals,
+  extractCensusAgeDistribution,
+  normalizeVoterDataState,
+  normalizeVoterRows,
+  parseVoterRowsInput,
+} from "./core/voterDataLayer.js";
 import { createOperationsCapacityOutlookController } from "./app/operationsCapacityOutlook.js";
 import { createEffectiveInputsController } from "./app/effectiveInputs.js";
 import { createMcStateController } from "./app/mcState.js";
@@ -169,7 +285,6 @@ import {
   clearPersistenceFailureModule
 } from "./app/persistenceStatus.js";
 import {
-  approxEqModule,
   applyTemplateDefaultsForRaceModule,
   deriveAssumptionsProfileFromStateModule,
   refreshAssumptionsProfileModule,
@@ -190,13 +305,56 @@ import {
   applyRollingRateToAssumptionModule,
   applyAllRollingCalibrationsModule
 } from "./app/realityDriftCalibrations.js";
+import { runRealismEngine } from "./app/realismEngine.js";
+import { composeReportPayload, buildReportPlainText } from "./app/reportComposer.js";
+import { exportReportPdf } from "./app/pdfExport.js";
+import { listReportTypeOptions, normalizeReportType } from "./app/reportRegistry.js";
 import {
   buildCriticalAuditSnapshot,
   captureCriticalAssumptionAudit,
   computeEvidenceWarnings
 } from "./app/intelAudit.js";
 import {
+  applyTargetingRunResult,
+  applyTargetModelPreset,
+  applyTargetingFieldPatch,
+  buildTargetRankingPayloadConfig,
+  buildTargetRankingExportFilename,
+  buildTargetRankingCsv,
+  buildTargetRankingPayload,
+  normalizeTargetingState,
+  resetTargetingWeightsToPreset,
+  TARGETING_STATUS_LOAD_ROWS_FIRST,
+} from "./app/targetingRuntime.js";
+import {
+  updateDistrictFormField as updateDistrictFormFieldAction,
+  updateDistrictTemplateField as updateDistrictTemplateFieldAction,
+  updateDistrictUniverseField as updateDistrictUniverseFieldAction,
+} from "./core/actions/district.js";
+import {
+  addBallotCandidate as addBallotCandidateAction,
+  removeBallotCandidate as removeBallotCandidateAction,
+  setBallotUndecided as setBallotUndecidedAction,
+  setBallotYourCandidate as setBallotYourCandidateAction,
+  updateBallotCandidate as updateBallotCandidateAction,
+  updateBallotUserSplit as updateBallotUserSplitAction,
+} from "./core/actions/ballot.js";
+import {
+  addCandidateHistoryRecord as addCandidateHistoryRecordAction,
+  removeCandidateHistoryRecord as removeCandidateHistoryRecordAction,
+  updateCandidateHistoryRecord as updateCandidateHistoryRecordAction,
+} from "./core/actions/candidateHistory.js";
+import {
+  applyTargetingRunResult as applyTargetingRunResultAction,
+  updateTargetingConfig as updateTargetingConfigAction,
+  updateTargetingCriteria as updateTargetingCriteriaAction,
+  updateTargetingWeights as updateTargetingWeightsAction,
+} from "./core/actions/targeting.js";
+import { updateCensusConfig as updateCensusConfigAction } from "./core/actions/census.js";
+import { selectDistrictCanonicalView } from "./core/selectors/districtCanonical.js";
+import {
   computeIntelIntegrityScore,
+  ensureIntelCollections,
   listMissingEvidenceAudit,
   listMissingNoteAudit,
   upsertBenchmarkEntry,
@@ -213,9 +371,9 @@ import {
   addDefaultShockScenario,
   importShockScenariosJson,
   captureObservedMetricsFromDrift,
-  refreshDriftRecommendationsFromDrift,
+  captureObservedAndRefreshDriftRecommendations,
   createWhatIfIntelRequest,
-  applyRecommendationDraftPatch
+  applyTopDriftRecommendation,
 } from "./app/intelControlsRuntime.js";
 import { renderIntelChecksModule } from "./app/renderIntelChecks.js";
 import { applyWeeklyLeverScenarioModule } from "./app/weeklyLeverScenarioAction.js";
@@ -227,6 +385,10 @@ import {
   wireTabAndExportEvents,
   wireResetImportAndUiToggles
 } from "./app/wireEventsRuntime.js";
+import { applyActiveContextToLinks, resolveActiveContext } from "./app/activeContext.js";
+import { validateCampaignContext } from "./core/campaignContextManager.js";
+import { getDiagnosticEngine } from "../diagnostics/diagnosticEngine.js";
+import { getCensusRowsForState } from "./app/censusRowsRuntimeStore.js";
 import { wireEventsOrchestratorModule } from "./app/wireEventsOrchestrator.js";
 import { createCandidateUiController } from "./app/candidateUi.js";
 import { createUsbStorageController } from "./app/usbStorage.js";
@@ -247,8 +409,6 @@ const renderSensitivitySnapshotPanel =
   executionAnalysisModule?.renderSensitivitySnapshotPanel || (() => {});
 const runSensitivitySnapshotPanel =
   executionAnalysisModule?.runSensitivitySnapshotPanel || (async () => ({ ok: false, code: "missing_module" }));
-const computeSensitivitySnapshotCache =
-  executionAnalysisModule?.computeSensitivitySnapshotCache || (() => ({ ok: false, code: "missing_module" }));
 
 const copyDebugBundleModule =
   debugBundleModule?.copyDebugBundleModule || (async () => null);
@@ -357,6 +517,7 @@ const TW_CAP_ADAPTERS = {
   twCapNum: twCapNumModule,
   twCapFmtInt: (v) => twCapFmtIntModule(v, { fmtInt }),
   twCapFmt1: twCapFmt1Module,
+  twCapFmt2: twCapFmt2Module,
   twCapFmtSigned: (v) => twCapFmtSignedModule(v, { fmtInt }),
   twCapRatioText: twCapRatioTextModule,
   twCapFmtPct01: twCapFmtPct01Module,
@@ -546,12 +707,115 @@ const SCENARIO_BASELINE_ID = "baseline";
 const SCENARIO_MAX = 20;
 const DATA_BRIDGE_KEY = "__FPE_DATA_API__";
 const SCENARIO_BRIDGE_KEY = "__FPE_SCENARIO_API__";
+const SHELL_BRIDGE_KEY = "__FPE_SHELL_API__";
 const DISTRICT_BRIDGE_KEY = "__FPE_DISTRICT_API__";
+const ELECTION_DATA_BRIDGE_KEY = "__FPE_ELECTION_DATA_API__";
 const REACH_BRIDGE_KEY = "__FPE_REACH_API__";
 const TURNOUT_BRIDGE_KEY = "__FPE_TURNOUT_API__";
 const PLAN_BRIDGE_KEY = "__FPE_PLAN_API__";
 const OUTCOME_BRIDGE_KEY = "__FPE_OUTCOME_API__";
 const DECISION_BRIDGE_KEY = "__FPE_DECISION_API__";
+const METRIC_PROVENANCE_BRIDGE_KEY = "__FPE_METRIC_PROVENANCE_API__";
+const BRIDGE_SYNC_EVENT = "fpe:bridge-sync";
+let bridgeSyncRevision = 0;
+let bridgeSyncAfterRenderPending = null;
+
+function normalizeBridgeSelectOptions(options){
+  const rows = Array.isArray(options) ? options : [];
+  /** @type {Array<{ value: string, label: string }>} */
+  const out = [];
+  const seen = new Set();
+  for (const row of rows){
+    const value = String(row?.value ?? "").trim();
+    const label = String(row?.label ?? value).trim() || value;
+    if (!value || seen.has(value)) continue;
+    seen.add(value);
+    out.push({ value, label });
+  }
+  return out;
+}
+
+function normalizeBridgeSelectValue(value, options, fallbackValue = ""){
+  const normalizedOptions = normalizeBridgeSelectOptions(options);
+  const fallback = String(fallbackValue ?? "").trim();
+  const raw = String(value ?? "").trim();
+  if (raw && normalizedOptions.some((row) => row.value === raw)){
+    return raw;
+  }
+  if (fallback && normalizedOptions.some((row) => row.value === fallback)){
+    return fallback;
+  }
+  return normalizedOptions[0]?.value || "";
+}
+
+function bridgeSelectOptionsWithSelected(options, selectedValue){
+  const normalized = normalizeBridgeSelectOptions(options);
+  const selected = String(selectedValue ?? "").trim();
+  if (selected && !normalized.some((row) => row.value === selected)){
+    normalized.push({ value: selected, label: selected });
+  }
+  return normalized;
+}
+
+function notifyBridgeSync({ source = "runtime", reason = "state_changed" } = {}){
+  bridgeSyncRevision += 1;
+  const payload = {
+    revision: bridgeSyncRevision,
+    source: String(source || "runtime"),
+    reason: String(reason || "state_changed"),
+    at: Date.now(),
+  };
+  try{
+    if (typeof window !== "undefined" && typeof window.dispatchEvent === "function" && typeof CustomEvent === "function"){
+      window.dispatchEvent(new CustomEvent(BRIDGE_SYNC_EVENT, { detail: payload }));
+    }
+  } catch {
+    // No-op if bridge sync events cannot be dispatched.
+  }
+  observeContractEvent({
+    type: "bridge_sync",
+    action_name: "notify_bridge_sync",
+    source: payload.source,
+    reason: payload.reason,
+    bridgeRevision: payload.revision,
+    observed_behavior: `bridge sync dispatched (${payload.source}/${payload.reason})`,
+  });
+  return payload;
+}
+
+function queueBridgeSyncAfterRender({ source = "runtime", reason = "state_changed" } = {}){
+  bridgeSyncAfterRenderPending = {
+    source: String(source || "runtime"),
+    reason: String(reason || "state_changed"),
+  };
+}
+
+function flushQueuedBridgeSyncAfterRender(){
+  if (!bridgeSyncAfterRenderPending){
+    return;
+  }
+  const payload = bridgeSyncAfterRenderPending;
+  bridgeSyncAfterRenderPending = null;
+  notifyBridgeSync({
+    source: payload.source,
+    reason: payload.reason,
+  });
+}
+
+function forecastArchiveContextFromState(){
+  return buildForecastArchiveContext(state, {
+    scenarioId: state?.ui?.activeScenarioId,
+  });
+}
+
+function forecastArchiveScopeKey(context = null){
+  const ctx = context && typeof context === "object"
+    ? context
+    : forecastArchiveContextFromState();
+  const campaignId = String(ctx?.campaignId || "").trim();
+  const officeId = String(ctx?.officeId || "").trim() || "all";
+  return `${campaignId}::${officeId}`;
+}
 
 function dataBridgeBuildBackupOptions(){
   const selectEl = els?.restoreBackup;
@@ -572,11 +836,468 @@ function dataBridgeBuildBackupOptions(){
   });
 }
 
+function dataBridgeBuildArchiveRows(){
+  const entries = readForecastArchive(forecastArchiveContextFromState());
+  return Array.isArray(entries) ? entries : [];
+}
+
+function dataBridgeBuildArchiveOptions(entries = []){
+  return buildForecastArchiveOptions(entries);
+}
+
 let dataBridgeSelectedBackup = "";
 let dataBridgeImportFileName = "";
 let dataBridgeHashBannerText = "";
 let dataBridgeWarnBannerText = "";
 let dataBridgeUsbStatusText = "";
+let dataBridgeSelectedArchiveHash = "";
+let dataBridgeVoterImportStatusText = "";
+
+function dataBridgeEnsureReportingState(){
+  if (!state.ui || typeof state.ui !== "object"){
+    state.ui = {};
+  }
+  if (!state.ui.reporting || typeof state.ui.reporting !== "object"){
+    state.ui.reporting = {};
+  }
+  const reporting = state.ui.reporting;
+  if (!reporting.request || typeof reporting.request !== "object"){
+    reporting.request = {};
+  }
+  reporting.request.type = normalizeReportType(reporting.request.type);
+  if (typeof reporting.previewText !== "string"){
+    reporting.previewText = "";
+  }
+  if (typeof reporting.lastStatus !== "string"){
+    reporting.lastStatus = "";
+  }
+  if (typeof reporting.lastGeneratedAt !== "string"){
+    reporting.lastGeneratedAt = "";
+  }
+  if (!reporting.lastPayload || typeof reporting.lastPayload !== "object"){
+    reporting.lastPayload = null;
+  }
+  return reporting;
+}
+
+function shellBridgeResolvedContext(){
+  return resolveActiveContext({
+    fallback: {
+      campaignId: state?.campaignId,
+      campaignName: state?.campaignName,
+      officeId: state?.officeId,
+      scenarioId: state?.ui?.activeScenarioId || state?.scenarioId,
+    },
+  });
+}
+
+function shellBridgeSyncContextLinks(){
+  const ctx = shellBridgeResolvedContext();
+  applyActiveContextToLinks(ctx, ".nav-item-new[href]");
+  applyActiveContextToLinks(ctx, ".fpe-nav__item[href]");
+}
+
+function shellBridgeClean(value){
+  return String(value == null ? "" : value).trim();
+}
+
+function shellBridgeToFiniteOrNull(value){
+  const n = Number(value);
+  return Number.isFinite(n) ? n : null;
+}
+
+function shellBridgeResolveDecisionSession(){
+  const decision = state?.ui?.decision;
+  const sessions = (decision?.sessions && typeof decision.sessions === "object")
+    ? decision.sessions
+    : {};
+  const activeId = shellBridgeClean(decision?.activeSessionId);
+  if (activeId && sessions[activeId] && typeof sessions[activeId] === "object"){
+    return sessions[activeId];
+  }
+  const ids = Object.keys(sessions);
+  if (!ids.length){
+    return null;
+  }
+  const first = sessions[ids[0]];
+  return first && typeof first === "object" ? first : null;
+}
+
+function shellBridgeBuildPlaybookSignals(){
+  const validation = state?.ui?.lastValidationSnapshot && typeof state.ui.lastValidationSnapshot === "object"
+    ? state.ui.lastValidationSnapshot
+    : {};
+  const validationReadiness = validation?.readiness && typeof validation.readiness === "object"
+    ? validation.readiness
+    : {};
+  const readinessBand = shellBridgeClean(validation?.readinessBand || validationReadiness?.band).toLowerCase();
+  const readinessScore = shellBridgeToFiniteOrNull(validation?.readinessScore ?? validationReadiness?.score);
+  const realism = state?.ui?.lastRealismSnapshot && typeof state.ui.lastRealismSnapshot === "object"
+    ? state.ui.lastRealismSnapshot
+    : {};
+  const realismClassification = shellBridgeClean(realism?.classification).toLowerCase();
+  const realismStatus = shellBridgeClean(realism?.status).toLowerCase();
+  const capacitySeverity = shellBridgeClean(realism?.capacity?.severity).toLowerCase();
+  const capacityRatioRequiredToAvailable = shellBridgeToFiniteOrNull(realism?.capacity?.ratioRequiredToAvailable);
+  const governance = state?.ui?.lastGovernanceSnapshot && typeof state.ui.lastGovernanceSnapshot === "object"
+    ? state.ui.lastGovernanceSnapshot
+    : {};
+  const governanceConfidenceBand = shellBridgeClean(governance?.confidenceBand).toLowerCase();
+  const saturationPressure = shellBridgeClean(governance?.executionSaturationPressure).toLowerCase();
+  const governanceTopWarning = shellBridgeClean(governance?.topWarning);
+  const learningTopSuggestion = shellBridgeClean(governance?.learningTopSuggestion);
+  const learningRecommendation = shellBridgeClean(governance?.learningRecommendation);
+  const assumptionDriftDetected = /assumption/i.test(governanceTopWarning)
+    || /assumption/i.test(learningTopSuggestion)
+    || /assumption/i.test(learningRecommendation);
+
+  const weather = state?.warRoom?.weather && typeof state.warRoom.weather === "object"
+    ? state.warRoom.weather
+    : {};
+  const weatherAdjustment = state?.warRoom?.weatherAdjustment && typeof state.warRoom.weatherAdjustment === "object"
+    ? state.warRoom.weatherAdjustment
+    : {};
+  const weatherFieldExecutionRisk = shellBridgeClean(weather?.fieldExecutionRisk).toLowerCase();
+  const weatherElectionDayTurnoutRisk = shellBridgeClean(weather?.electionDayTurnoutRisk).toLowerCase();
+  const weatherMode = weatherAdjustment?.enabled && shellBridgeClean(weatherAdjustment?.mode).toLowerCase() === "today_only"
+    ? "today_only"
+    : "observe_only";
+
+  const eventCalendar = state?.warRoom?.eventCalendar && typeof state.warRoom.eventCalendar === "object"
+    ? state.warRoom.eventCalendar
+    : {};
+  const events = Array.isArray(eventCalendar?.events) ? eventCalendar.events : [];
+  const todayIso = new Date().toISOString().slice(0, 10);
+  let appliedCampaignEvents = 0;
+  let todayCampaignEvents = 0;
+  let todayExpectedVolunteers = 0;
+  for (const eventRow of events){
+    if (shellBridgeClean(eventRow?.category).toLowerCase() !== "campaign") continue;
+    if (!eventRow?.applyToModel) continue;
+    appliedCampaignEvents += 1;
+    if (shellBridgeClean(eventRow?.date) === todayIso){
+      todayCampaignEvents += 1;
+      const expectedVolunteers = shellBridgeToFiniteOrNull(eventRow?.expectedVolunteers);
+      if (expectedVolunteers != null && expectedVolunteers > 0){
+        todayExpectedVolunteers += expectedVolunteers;
+      }
+    }
+  }
+
+  const decisionSession = shellBridgeResolveDecisionSession();
+  const decisionWarRoom = decisionSession?.warRoom && typeof decisionSession.warRoom === "object"
+    ? decisionSession.warRoom
+    : {};
+  const decisionItemsCount = Array.isArray(decisionWarRoom?.decisionItems) ? decisionWarRoom.decisionItems.length : 0;
+  const watchItemsCount = Array.isArray(decisionWarRoom?.watchItems) ? decisionWarRoom.watchItems.length : 0;
+  const decisionPressureLevel = decisionItemsCount >= 3
+    ? "high"
+    : (decisionItemsCount > 0 ? "medium" : "low");
+
+  const persuasionPct = shellBridgeToFiniteOrNull(state?.persuasionPct);
+  const workforceRoleTypingCoverage = shellBridgeToFiniteOrNull(state?.ui?.twCapOutlookLatest?.workforce?.roleTypingCoveragePct);
+  const volunteerScale = shellBridgeToFiniteOrNull(state?.volunteerMultBase);
+
+  const tacticRows = state?.budget?.tactics && typeof state.budget.tactics === "object"
+    ? Object.entries(state.budget.tactics)
+      .map(([id, tactic]) => ({
+        id: shellBridgeClean(id).toLowerCase(),
+        enabled: !!tactic?.enabled,
+        cpa: shellBridgeToFiniteOrNull(tactic?.cpa),
+      }))
+      .filter((row) => row.enabled && row.cpa != null && row.cpa > 0)
+    : [];
+  let optimizerCheapChannelRisk = false;
+  if (tacticRows.length >= 2){
+    const sortedByCpa = tacticRows.slice().sort((a, b) => Number(a.cpa) - Number(b.cpa));
+    const cheapest = shellBridgeToFiniteOrNull(sortedByCpa[0]?.cpa);
+    const second = shellBridgeToFiniteOrNull(sortedByCpa[1]?.cpa);
+    if (cheapest != null && second != null && cheapest > 0){
+      optimizerCheapChannelRisk = (second / cheapest) >= 2.2;
+    }
+  }
+
+  const planRows = Array.isArray(state?.ui?.lastPlanRows) ? state.ui.lastPlanRows : [];
+  let optimizerTopChannelShare = null;
+  if (planRows.length){
+    let totalAttempts = 0;
+    let topAttempts = 0;
+    for (const row of planRows){
+      const attempts = shellBridgeToFiniteOrNull(row?.attempts);
+      if (attempts == null || attempts <= 0) continue;
+      totalAttempts += attempts;
+      if (attempts > topAttempts){
+        topAttempts = attempts;
+      }
+    }
+    if (totalAttempts > 0){
+      optimizerTopChannelShare = topAttempts / totalAttempts;
+    }
+  }
+
+  return {
+    readinessBand,
+    readinessScore,
+    realismClassification,
+    realismStatus,
+    governanceConfidenceBand,
+    governanceTopWarning,
+    assumptionDriftDetected,
+    saturationPressure,
+    decisionPressureLevel,
+    decisionItemsCount,
+    watchItemsCount,
+    optimizerCheapChannelRisk,
+    optimizerTopChannelShare,
+    persuasionPct,
+    roleTypingCoveragePct: workforceRoleTypingCoverage,
+    volunteerScale,
+    capacitySeverity,
+    capacityRatioRequiredToAvailable,
+    weatherFieldExecutionRisk,
+    weatherElectionDayTurnoutRisk,
+    weatherMode,
+    appliedCampaignEvents,
+    todayCampaignEvents,
+    todayExpectedVolunteers,
+  };
+}
+
+function shellBridgeReadPlaybookEnabled(srcState = state){
+  const ui = (srcState?.ui && typeof srcState.ui === "object") ? srcState.ui : {};
+  if (Object.prototype.hasOwnProperty.call(ui, "playbook")){
+    return !!ui.playbook;
+  }
+  return !!ui.training;
+}
+
+function shellBridgeApplyPlaybookUiState(enabled){
+  const value = !!enabled;
+  if (!state.ui || typeof state.ui !== "object") state.ui = {};
+  state.ui.playbook = value;
+  state.ui.training = value;
+  if (els.toggleTraining) els.toggleTraining.checked = value;
+  document.body.classList.toggle("training", value);
+  document.body.classList.toggle("playbook", value);
+  if (els.explainCard) els.explainCard.hidden = !value;
+}
+
+function shellBridgeStateView(){
+  const ctx = shellBridgeResolvedContext();
+  const contextValidation = validateCampaignContext(ctx, { requireOffice: false });
+  const playbookEnabled = shellBridgeReadPlaybookEnabled();
+  return {
+    scenarioName: String(state?.scenarioName || ""),
+    playbookEnabled,
+    trainingEnabled: playbookEnabled,
+    campaignId: String(ctx?.campaignId || ""),
+    campaignName: String(state?.campaignName || ctx?.campaignName || ""),
+    officeId: String(ctx?.officeId || ""),
+    scenarioId: String(ctx?.scenarioId || ""),
+    isCampaignLocked: !!ctx?.isCampaignLocked,
+    isOfficeLocked: !!ctx?.isOfficeLocked,
+    isScenarioLocked: !!ctx?.isScenarioLocked,
+    contextReady: !!contextValidation?.ok,
+    contextMissing: Array.isArray(contextValidation?.missing) ? contextValidation.missing.slice() : [],
+    playbookSignals: shellBridgeBuildPlaybookSignals(),
+  };
+}
+
+function shellBridgeSetScenarioName(rawValue){
+  const nextValue = String(rawValue == null ? "" : rawValue);
+  state.scenarioName = nextValue;
+  if (els.scenarioName && els.scenarioName.value !== nextValue){
+    els.scenarioName.value = nextValue;
+  }
+  schedulePersist();
+  notifyBridgeSync({ source: "bridge.shell", reason: "scenario_name_changed" });
+  return { ok: true, view: shellBridgeStateView() };
+}
+
+function shellBridgeSetContext(rawPatch){
+  const patch = (rawPatch && typeof rawPatch === "object") ? rawPatch : {};
+  const current = shellBridgeResolvedContext();
+  const requestedCampaignId = String(patch.campaignId == null ? "" : patch.campaignId).trim();
+  const requestedCampaignName = String(patch.campaignName == null ? "" : patch.campaignName).trim();
+  const requestedOfficeId = String(patch.officeId == null ? "" : patch.officeId).trim();
+  const requestedScenarioId = String(patch.scenarioId == null ? "" : patch.scenarioId).trim();
+
+  const next = resolveActiveContext({
+    campaignId: current.isCampaignLocked ? current.campaignId : requestedCampaignId,
+    campaignName: current.isCampaignLocked ? current.campaignName : requestedCampaignName,
+    officeId: current.isOfficeLocked ? current.officeId : requestedOfficeId,
+    scenarioId: current.isScenarioLocked ? current.scenarioId : requestedScenarioId,
+    fallback: {
+      campaignId: state?.campaignId || current.campaignId,
+      campaignName: state?.campaignName || current.campaignName,
+      officeId: state?.officeId || current.officeId,
+      scenarioId: state?.ui?.activeScenarioId || state?.scenarioId || current.scenarioId,
+    },
+  });
+  const nextContextValidation = validateCampaignContext(next, { requireOffice: false });
+  observeContractEvent({
+    type: "context_update",
+    action_name: "shellBridgeSetContext",
+    handler_name: "shellBridgeSetContext",
+    context: {
+      campaignId: next?.campaignId,
+      officeId: next?.officeId,
+      scenarioId: next?.scenarioId,
+    },
+    contextReady: !!nextContextValidation?.ok,
+    contextMissing: Array.isArray(nextContextValidation?.missing) ? nextContextValidation.missing.slice() : [],
+    observed_behavior: nextContextValidation?.ok
+      ? "context update resolved campaign/office scope"
+      : `context update missing: ${(nextContextValidation?.missing || []).join(", ")}`,
+  });
+
+  if (current.isCampaignLocked && requestedCampaignId && requestedCampaignId !== current.campaignId){
+    return { ok: false, code: "campaign_locked", view: shellBridgeStateView() };
+  }
+  if (current.isOfficeLocked && requestedOfficeId && requestedOfficeId !== current.officeId){
+    return { ok: false, code: "office_locked", view: shellBridgeStateView() };
+  }
+  if (current.isScenarioLocked && requestedScenarioId && requestedScenarioId !== current.scenarioId){
+    return { ok: false, code: "scenario_locked", view: shellBridgeStateView() };
+  }
+
+  const scopeChanged = (
+    String(current?.campaignId || "") !== String(next?.campaignId || "")
+    || String(current?.officeId || "") !== String(next?.officeId || "")
+  );
+
+  if (!scopeChanged){
+    state.campaignId = String(next?.campaignId || state?.campaignId || "");
+    state.officeId = String(next?.officeId || state?.officeId || "");
+    if (requestedCampaignName && !current.isCampaignLocked){
+      state.campaignName = requestedCampaignName;
+    } else if (!state.campaignName){
+      state.campaignName = String(next?.campaignName || "");
+    }
+    shellBridgeSyncContextLinks();
+    schedulePersist();
+    notifyBridgeSync({ source: "bridge.shell", reason: "context_updated" });
+    return { ok: true, changed: false, view: shellBridgeStateView() };
+  }
+
+  persist();
+  const loaded = loadState({
+    campaignId: next.campaignId,
+    campaignName: requestedCampaignName || next.campaignName,
+    officeId: next.officeId,
+    scenarioId: next.scenarioId,
+  });
+
+  state = normalizeLoadedScenarioRuntime(loaded || makeDefaultStateModule({
+    uid,
+    activeContext: {
+      campaignId: next.campaignId,
+      campaignName: requestedCampaignName || next.campaignName,
+      officeId: next.officeId,
+      scenarioId: next.scenarioId,
+    },
+  }));
+  observeContractEvent({
+    type: "state_rehydrated",
+    action_name: "shellBridgeSetContext.scope_change",
+    handler_name: "shellBridgeSetContext",
+    context: {
+      campaignId: state?.campaignId,
+      officeId: state?.officeId,
+      scenarioId: state?.ui?.activeScenarioId || state?.scenarioId,
+    },
+    observed_behavior: "state rehydrated for context scope change",
+  });
+  if (requestedCampaignName && !current.isCampaignLocked){
+    state.campaignName = requestedCampaignName;
+  }
+
+  refreshModelAuditFromArchive();
+  ensureScenarioRegistry();
+  ensureDecisionScaffold();
+  try{
+    const baseline = state?.ui?.scenarios?.[SCENARIO_BASELINE_ID];
+    if (baseline){
+      baseline.inputs = scenarioInputsFromState(state);
+      baseline.outputs = scenarioOutputsFromState(state);
+    }
+  } catch {}
+  applyStateToUI();
+  rebuildCandidateTable();
+  render();
+  safeCall(() => { renderScenarioManagerC1(); });
+  safeCall(() => { renderDecisionSessionD1(); });
+  shellBridgeSyncContextLinks();
+  persist();
+  notifyBridgeSync({ source: "bridge.shell", reason: "context_scope_changed" });
+  return { ok: true, changed: true, view: shellBridgeStateView() };
+}
+
+function shellBridgeSetTrainingEnabled(enabled){
+  shellBridgeApplyPlaybookUiState(enabled);
+  setText(els.snapshotHash, lastResultsSnapshot?.snapshotHash || "—");
+  setText(els.snapshotHashSidebar, lastResultsSnapshot?.snapshotHash || "—");
+  persist();
+  notifyBridgeSync({ source: "bridge.shell", reason: "playbook_toggled" });
+  return { ok: true, view: shellBridgeStateView() };
+}
+
+function shellBridgeSetPlaybookEnabled(enabled){
+  return shellBridgeSetTrainingEnabled(enabled);
+}
+
+function shellBridgeSyncPlaybookUiState(){
+  shellBridgeApplyPlaybookUiState(shellBridgeReadPlaybookEnabled());
+  return { ok: true, view: shellBridgeStateView() };
+}
+
+function shellBridgeOpenDiagnostics(){
+  openDiagnostics();
+  return { ok: true, view: shellBridgeStateView() };
+}
+
+function shellBridgeResetScenario(){
+  const ok = confirm("Reset all fields to defaults? This will clear the saved scenario in this browser.");
+  if (!ok){
+    return { ok: false, code: "canceled", view: shellBridgeStateView() };
+  }
+  state = makeDefaultState();
+  refreshModelAuditFromArchive();
+  ensureScenarioRegistry();
+  ensureDecisionScaffold();
+  try{
+    const baseline = state?.ui?.scenarios?.[SCENARIO_BASELINE_ID];
+    if (baseline){
+      baseline.inputs = scenarioInputsFromState(state);
+      baseline.outputs = scenarioOutputsFromState(state);
+    }
+  } catch {}
+  clearState();
+  applyStateToUI();
+  rebuildCandidateTable();
+  shellBridgeSyncPlaybookUiState();
+  applyThemeFromState();
+  render();
+  safeCall(() => { renderScenarioManagerC1(); });
+  safeCall(() => { renderDecisionSessionD1(); });
+  shellBridgeSyncContextLinks();
+  persist();
+  notifyBridgeSync({ source: "bridge.shell", reason: "scenario_reset" });
+  return { ok: true, view: shellBridgeStateView() };
+}
+
+function installShellBridge(){
+  window[SHELL_BRIDGE_KEY] = {
+    getView: () => shellBridgeStateView(),
+    setScenarioName: (value) => shellBridgeSetScenarioName(value),
+    setContext: (patch) => shellBridgeSetContext(patch),
+    setPlaybookEnabled: (enabled) => shellBridgeSetPlaybookEnabled(enabled),
+    setTrainingEnabled: (enabled) => shellBridgeSetTrainingEnabled(enabled),
+    openDiagnostics: () => shellBridgeOpenDiagnostics(),
+    resetScenario: () => shellBridgeResetScenario(),
+  };
+  window.__FPE_RESET_SCENARIO__ = () => shellBridgeResetScenario();
+}
 
 function dataBridgeHasFsSupport(){
   return typeof window !== "undefined"
@@ -617,12 +1338,11 @@ function dataBridgeSetUsbStatusText(text){
   dataBridgeUsbStatusText = String(text || "").trim();
 }
 
+function dataBridgeSetVoterImportStatusText(text){
+  dataBridgeVoterImportStatusText = String(text || "").trim();
+}
+
 function dataBridgeApplyUsbResultStatus(result){
-  const legacyText = String(els?.usbStorageStatus?.textContent || "").trim();
-  if (legacyText){
-    dataBridgeSetUsbStatusText(legacyText);
-    return;
-  }
   if (result?.ok){
     dataBridgeSetUsbStatusText("");
     return;
@@ -662,6 +1382,14 @@ function dataBridgeApplyUsbResultStatus(result){
 function dataBridgeApplyImportedScenario(nextScenario){
   const normalized = normalizeLoadedScenarioRuntime(nextScenario);
   state = normalized;
+  observeContractEvent({
+    type: "state_rehydrated",
+    action_name: "dataBridgeApplyImportedScenario",
+    handler_name: "dataBridgeApplyImportedScenario",
+    context: diagnosticContextFromState(state),
+    observed_behavior: "state rehydrated from imported scenario snapshot",
+  });
+  refreshModelAuditFromArchive();
   ensureScenarioRegistry();
   ensureDecisionScaffold();
   try{
@@ -673,12 +1401,12 @@ function dataBridgeApplyImportedScenario(nextScenario){
   } catch {}
   applyStateToUI();
   rebuildCandidateTable();
-  document.body.classList.toggle("training", !!state?.ui?.training);
+  shellBridgeSyncPlaybookUiState();
   applyThemeFromState();
-  if (els.explainCard) els.explainCard.hidden = !state?.ui?.training;
   render();
   safeCall(() => { renderDecisionSessionD1(); });
   persist();
+  notifyBridgeSync({ source: "bridge.data", reason: "scenario_imported" });
 }
 
 function dataBridgeRunSaveJson(){
@@ -869,20 +1597,87 @@ function dataBridgeStateView(){
     || (els?.importWarnBanner instanceof HTMLElement && !els.importWarnBanner.hidden
       ? String(els.importWarnBanner.textContent || "").trim()
       : "");
-  const usbStatusText = dataBridgeUsbStatusText || String(els?.usbStorageStatus?.textContent || "").trim();
+  const usbStatusText = dataBridgeUsbStatusText;
   const backupOptions = dataBridgeBuildBackupOptions();
   const canFs = dataBridgeHasFsSupport();
   const canUseSnapshot = !!lastResultsSnapshot;
+  const archiveRows = dataBridgeBuildArchiveRows();
+  const archiveSummary = summarizeForecastArchive(archiveRows);
+  const archiveContext = forecastArchiveContextFromState();
+  const activeContext = resolveActiveContext({ fallback: archiveContext });
+  const archiveOptions = dataBridgeBuildArchiveOptions(archiveRows);
+  const archiveLookup = new Map(archiveRows.map((row) => [String(row?.snapshotHash || "").trim(), row]));
+  const selectedArchiveHash = resolveForecastArchiveSelectedHash({
+    preferredHash: dataBridgeSelectedArchiveHash,
+    options: archiveOptions,
+    lookup: archiveLookup,
+  });
+  dataBridgeSelectedArchiveHash = selectedArchiveHash;
+  const selectedArchive = archiveLookup.get(selectedArchiveHash) || null;
+  const selectedEntryView = buildForecastArchiveSelectedEntryView(selectedArchive);
+  const archiveLearning = buildModelLearningFromArchive(archiveRows);
+  const modelAuditSummary = archiveLearning.modelAudit;
+  const learningSummary = archiveLearning.learning;
+  const archiveTableRows = buildForecastArchiveTableRows(archiveRows, { limit: 40 });
+  const voterLayer = buildVoterLayerStatusSnapshot(state?.voterData);
+  const reporting = dataBridgeEnsureReportingState();
+  const reportTypeOptions = listReportTypeOptions().map((row) => ({
+    value: String(row?.id || "").trim(),
+    label: String(row?.label || row?.id || "").trim() || String(row?.id || ""),
+  }));
+  const selectedReportType = normalizeBridgeSelectValue(
+    reporting?.request?.type,
+    reportTypeOptions,
+    "internal"
+  );
+  reporting.request.type = selectedReportType;
+  const hasReportPayload = !!(reporting?.lastPayload && typeof reporting.lastPayload === "object");
+  const previewText = String(
+    reporting?.previewText
+      || (hasReportPayload ? buildReportPlainText(reporting.lastPayload) : "")
+      || ""
+  );
+  reporting.previewText = previewText;
+  const reportStatus = String(reporting?.lastStatus || "").trim()
+    || (hasReportPayload ? "Report composed." : "Choose report type and compose.");
 
   return {
+    context: {
+      campaignId: String(activeContext?.campaignId || "").trim(),
+      campaignName: String(activeContext?.campaignName || archiveContext?.campaignName || "").trim(),
+      officeId: String(activeContext?.officeId || "").trim(),
+      scenarioId: String(activeContext?.scenarioId || archiveContext?.scenarioId || "").trim(),
+      isCampaignLocked: !!activeContext?.isCampaignLocked,
+      isOfficeLocked: !!activeContext?.isOfficeLocked,
+      isScenarioLocked: !!activeContext?.isScenarioLocked,
+    },
     strictImport,
     backupOptions,
     selectedBackup: dataBridgeSelectedBackup || (restoreSelect instanceof HTMLSelectElement ? String(restoreSelect.value || "") : ""),
     importFileName,
+    voterImportStatus: dataBridgeVoterImportStatusText,
     hashBannerText,
     warnBannerText,
     usbConnected,
     usbStatus: usbStatusText || (usbConnected ? "External folder connected." : "Using browser storage only."),
+    forecastArchive: {
+      summary: archiveSummary,
+      options: archiveOptions,
+      selectedHash: selectedArchiveHash,
+      selectedEntry: selectedEntryView,
+      rows: archiveTableRows,
+      modelAudit: modelAuditSummary,
+      learning: learningSummary,
+    },
+    reporting: {
+      options: reportTypeOptions,
+      selectedType: selectedReportType,
+      status: reportStatus,
+      previewText,
+      generatedAt: String(reporting?.lastGeneratedAt || "").trim(),
+      hasPayload: hasReportPayload,
+    },
+    voterLayer,
     controls: {
       strictToggleDisabled: false,
       restoreDisabled: !backupOptions.length,
@@ -894,6 +1689,13 @@ function dataBridgeStateView(){
       usbLoadDisabled: !(canFs && usbConnected),
       usbSaveDisabled: !(canFs && usbConnected),
       usbDisconnectDisabled: !canFs,
+      voterImportDisabled: false,
+      archiveSelectionDisabled: !archiveOptions.length,
+      archiveSaveDisabled: !selectedArchiveHash,
+      archiveRefreshDisabled: false,
+      reportTypeDisabled: false,
+      reportComposeDisabled: false,
+      reportExportPdfDisabled: !hasReportPayload,
     }
   };
 }
@@ -920,11 +1722,205 @@ function dataBridgeRestoreBackup(index){
   }
   dataBridgeSelectedBackup = value;
   restoreBackupByIndex(value);
+  refreshModelAuditFromArchive();
   dataBridgeSelectedBackup = "";
   if (els?.restoreBackup instanceof HTMLSelectElement){
     els.restoreBackup.value = "";
   }
+  notifyBridgeSync({ source: "bridge.data", reason: "backup_restored" });
   return { ok: true, view: dataBridgeStateView() };
+}
+
+function dataBridgeSetArchiveSelection(snapshotHash){
+  const hash = String(snapshotHash || "").trim();
+  dataBridgeSelectedArchiveHash = hash;
+  return { ok: true, view: dataBridgeStateView() };
+}
+
+function dataBridgeSaveArchiveActual(payload = {}){
+  const src = payload && typeof payload === "object" ? payload : {};
+  const snapshotHash = String(src.snapshotHash || dataBridgeSelectedArchiveHash || "").trim();
+  if (!snapshotHash){
+    return { ok: false, code: "missing_snapshot_hash", view: dataBridgeStateView() };
+  }
+  const actual = normalizeForecastArchiveActual(src.actual);
+  const notes = String(src.notes || "").trim();
+  const result = updateForecastArchiveActual({
+    snapshotHash,
+    actual,
+    notes,
+  }, forecastArchiveContextFromState());
+  if (!result?.ok){
+    return { ok: false, code: String(result?.error || "archive_update_failed"), view: dataBridgeStateView() };
+  }
+  refreshModelAuditFromArchive();
+  schedulePersist();
+  notifyBridgeSync({ source: "bridge.data", reason: "archive_actual_saved" });
+  return { ok: true, view: dataBridgeStateView() };
+}
+
+function dataBridgeRefreshArchive(){
+  refreshModelAuditFromArchive();
+  return { ok: true, view: dataBridgeStateView() };
+}
+
+function dataBridgeImportVoterRows(payload = {}){
+  const src = payload && typeof payload === "object" ? payload : {};
+  const parsed = parseVoterRowsInput(src.rows ?? src.text ?? src.input, {
+    format: src.format,
+    maxRows: src.maxRows,
+  });
+  if (!parsed.ok){
+    const msg = parsed.errors[0] || "Voter import failed.";
+    dataBridgeSetVoterImportStatusText(msg);
+    dataBridgeSetWarnBannerText(msg);
+    return { ok: false, code: "voter_import_invalid", errors: parsed.errors, view: dataBridgeStateView() };
+  }
+
+  const activeContext = resolveActiveContext({ fallback: forecastArchiveContextFromState() });
+  const campaignId = String(
+    activeContext?.isCampaignLocked
+      ? (activeContext?.campaignId || "")
+      : (src.campaignId || activeContext?.campaignId || "")
+  ).trim();
+  const officeId = String(
+    activeContext?.isOfficeLocked
+      ? (activeContext?.officeId || "")
+      : (src.officeId || activeContext?.officeId || "")
+  ).trim();
+  const adapterId = String(src.adapterId || "").trim();
+  const sourceId = String(src.sourceId || src.fileName || "").trim() || `voter_import_${new Date().toISOString()}`;
+  const normalizedRows = normalizeVoterRows(parsed.rows, {
+    adapterId,
+    campaignId,
+    officeId,
+    sourceId,
+    headerMap: src.headerMap,
+    manifest: src.manifest,
+  });
+  const nextVoterData = normalizeVoterDataState({
+    manifest: normalizedRows.manifest,
+    rows: normalizedRows.rows,
+  });
+  mutateState((s) => {
+    s.voterData = nextVoterData;
+  });
+  const importOutcome = buildVoterImportOutcomeView({
+    voterDataState: nextVoterData,
+    warnings: parsed.warnings,
+  });
+  dataBridgeSetVoterImportStatusText(importOutcome.statusText);
+  if (importOutcome.warningText){
+    dataBridgeSetWarnBannerText(importOutcome.warningText);
+  } else {
+    dataBridgeSetWarnBannerText("");
+  }
+  schedulePersist();
+  return { ok: true, importedRows: importOutcome.rowCount, warnings: parsed.warnings, view: dataBridgeStateView() };
+}
+
+function dataBridgeComposeReport(payload = {}){
+  const src = payload && typeof payload === "object" ? payload : {};
+  const reporting = dataBridgeEnsureReportingState();
+  const requestedType = normalizeReportType(src.reportType || reporting.request.type);
+  reporting.request.type = requestedType;
+  const report = composeReportPayload({
+    reportType: requestedType,
+    state,
+    renderCtx: lastRenderCtx,
+    resultsSnapshot: lastResultsSnapshot,
+    nowDate: new Date(),
+  });
+  reporting.lastPayload = report;
+  reporting.previewText = buildReportPlainText(report);
+  reporting.lastGeneratedAt = String(report?.generatedAt || new Date().toISOString());
+  reporting.lastStatus = `Composed ${String(report?.reportLabel || requestedType)} at ${reporting.lastGeneratedAt}.`;
+  const reportContext = report?.context && typeof report.context === "object" ? report.context : {};
+  observeContractEvent({
+    type: "report_composed",
+    action_name: "dataBridgeComposeReport",
+    handler_name: "dataBridgeComposeReport",
+    reportType: requestedType,
+    reportContext: {
+      campaignId: String(reportContext?.campaignId || "").trim(),
+      officeId: String(reportContext?.officeId || "").trim(),
+      scenarioId: String(reportContext?.scenarioId || "").trim(),
+    },
+    reportHasCanonicalSnapshot: !!lastResultsSnapshot,
+    reportHasValidation: !!state?.ui?.lastValidationSnapshot,
+    reportHasRealism: !!state?.ui?.lastRealismSnapshot,
+    reportHasGovernance: !!state?.ui?.lastGovernanceSnapshot,
+    requiresValidation: true,
+    validationReady: !!state?.ui?.lastValidationSnapshot,
+    observed_behavior: `report composed (${requestedType})`,
+  });
+  dataBridgeSetWarnBannerText("");
+  schedulePersist();
+  notifyBridgeSync({ source: "bridge.data", reason: "report_composed" });
+  return { ok: true, report, view: dataBridgeStateView() };
+}
+
+function dataBridgeSetReportType(reportType){
+  const reporting = dataBridgeEnsureReportingState();
+  const nextType = normalizeReportType(reportType || reporting.request.type);
+  reporting.request.type = nextType;
+  const composed = dataBridgeComposeReport({ reportType: nextType });
+  return {
+    ok: !!composed?.ok,
+    reportType: nextType,
+    view: composed?.view || dataBridgeStateView(),
+  };
+}
+
+function dataBridgeExportReportPdf(payload = {}){
+  const src = payload && typeof payload === "object" ? payload : {};
+  const reporting = dataBridgeEnsureReportingState();
+  const requestedType = normalizeReportType(src.reportType || reporting.request.type);
+  let report = reporting.lastPayload;
+  if (!report || normalizeReportType(report?.reportType) !== requestedType){
+    const composed = dataBridgeComposeReport({ reportType: requestedType });
+    if (!composed?.ok){
+      return { ok: false, code: "report_compose_failed", view: dataBridgeStateView() };
+    }
+    report = composed.report;
+  }
+  const context = report?.context && typeof report.context === "object" ? report.context : {};
+  const fileBase = [
+    normalizeReportType(report?.reportType || requestedType),
+    String(context?.campaignId || context?.campaignName || "campaign").trim(),
+    String(context?.officeId || "office").trim(),
+    String(context?.scenarioId || "scenario").trim(),
+  ].map((part) => String(part || "").replace(/\s+/g, "-")).filter(Boolean).join("-");
+  const result = exportReportPdf(report, { filenameBase: fileBase || "report" });
+  if (!result?.ok){
+    dataBridgeSetWarnBannerText("Report PDF export failed.");
+    return { ok: false, code: "report_export_failed", view: dataBridgeStateView() };
+  }
+  reporting.lastStatus = result.code === "print_dialog_opened"
+    ? "Print dialog opened. Choose Save as PDF to complete export."
+    : `Report exported via ${result.code}.`;
+  observeContractEvent({
+    type: "report_exported",
+    action_name: "dataBridgeExportReportPdf",
+    handler_name: "dataBridgeExportReportPdf",
+    reportType: requestedType,
+    reportContext: {
+      campaignId: String(context?.campaignId || "").trim(),
+      officeId: String(context?.officeId || "").trim(),
+      scenarioId: String(context?.scenarioId || "").trim(),
+    },
+    reportHasCanonicalSnapshot: !!lastResultsSnapshot,
+    reportHasValidation: !!state?.ui?.lastValidationSnapshot,
+    reportHasRealism: !!state?.ui?.lastRealismSnapshot,
+    reportHasGovernance: !!state?.ui?.lastGovernanceSnapshot,
+    requiresValidation: true,
+    validationReady: !!state?.ui?.lastValidationSnapshot,
+    observed_behavior: `report exported (${requestedType}) via ${String(result.code || "unknown")}`,
+  });
+  dataBridgeSetWarnBannerText("");
+  schedulePersist();
+  notifyBridgeSync({ source: "bridge.data", reason: "report_pdf_exported" });
+  return { ok: true, code: String(result.code || "ok"), view: dataBridgeStateView() };
 }
 
 function dataBridgeTrigger(action){
@@ -977,6 +1973,10 @@ function dataBridgeTrigger(action){
           return { ...(result || { ok: false, code: "usb_disconnect_failed" }), view: dataBridgeStateView() };
         })
         .catch(() => ({ ok: false, code: "usb_disconnect_failed", view: dataBridgeStateView() }));
+    case "compose_report":
+      return dataBridgeComposeReport();
+    case "export_report_pdf":
+      return dataBridgeExportReportPdf();
     default:
       return { ok: false, code: "not_available", view: dataBridgeStateView() };
   }
@@ -987,7 +1987,28 @@ function installDataBridge(){
     getView: () => dataBridgeStateView(),
     setStrictImport: (enabled) => dataBridgeSetStrictImport(enabled),
     restoreBackup: (index) => dataBridgeRestoreBackup(index),
+    setArchiveSelection: (snapshotHash) => dataBridgeSetArchiveSelection(snapshotHash),
+    setReportType: (reportType) => dataBridgeSetReportType(reportType),
+    composeReport: (payload) => dataBridgeComposeReport(payload),
+    exportReportPdf: (payload) => dataBridgeExportReportPdf(payload),
+    saveArchiveActual: (payload) => dataBridgeSaveArchiveActual(payload),
+    refreshArchive: () => dataBridgeRefreshArchive(),
+    importVoterRows: (payload) => dataBridgeImportVoterRows(payload),
     trigger: (action) => dataBridgeTrigger(action),
+  };
+}
+
+function installMetricProvenanceBridge(){
+  window[METRIC_PROVENANCE_BRIDGE_KEY] = {
+    getView: () => metricProvenanceTracker.compute(state),
+    getMetrics: () => {
+      const view = metricProvenanceTracker.compute(state);
+      return view?.metrics || {};
+    },
+    reset: () => {
+      metricProvenanceTracker.reset();
+      return { ok: true };
+    },
   };
 }
 
@@ -996,24 +2017,12 @@ function preflightEls(){
   preflightElsModule({ els, recordError });
 }
 
-
-const DEFAULTS_BY_TEMPLATE = {
-  federal: { bandWidth: 4, persuasionPct: 28, earlyVoteExp: 45 },
-  state_leg: { bandWidth: 4, persuasionPct: 30, earlyVoteExp: 38 },
-  municipal: { bandWidth: 5, persuasionPct: 35, earlyVoteExp: 35 },
-  county: { bandWidth: 4, persuasionPct: 30, earlyVoteExp: 40 },
-};
-
-function approxEq(a, b, eps = 1e-6){
-  return approxEqModule(a, b, eps);
-}
-
-function applyTemplateDefaultsForRace(targetState, raceType, { force = false } = {}){
-  applyTemplateDefaultsForRaceModule(targetState, raceType, { force }, DEFAULTS_BY_TEMPLATE);
+function applyTemplateDefaultsForRace(targetState, raceType, options = {}){
+  return applyTemplateDefaultsForRaceModule(targetState, raceType, options);
 }
 
 function deriveAssumptionsProfileFromState(snap){
-  return deriveAssumptionsProfileFromStateModule(snap, DEFAULTS_BY_TEMPLATE, safeNum, approxEq);
+  return deriveAssumptionsProfileFromStateModule(snap);
 }
 
 function refreshAssumptionsProfile(){
@@ -1027,17 +2036,81 @@ function assumptionsProfileLabel(src = state){
 const initialStoredState = loadState();
 let state = normalizeLoadedScenarioRuntime(initialStoredState || makeDefaultState());
 const bootHadLocalState = !!initialStoredState;
+const metricProvenanceTracker = createMetricProvenanceTracker();
+bootProbeMark("appRuntime.state.ready", {
+  bootHadLocalState,
+  campaignId: String(state?.campaignId || ""),
+  officeId: String(state?.officeId || ""),
+});
+let lastModelAuditScopeKey = forecastArchiveScopeKey();
+refreshModelAuditFromArchive();
 let lastCriticalAuditSnapshot = buildCriticalAuditSnapshot(state);
+const contractDiagnosticEngine = getDiagnosticEngine();
+
+function diagnosticContextFromState(srcState = state){
+  const snap = srcState && typeof srcState === "object" ? srcState : {};
+  return {
+    campaignId: String(snap?.campaignId || "").trim(),
+    officeId: String(snap?.officeId || "").trim(),
+    scenarioId: String(snap?.ui?.activeScenarioId || snap?.scenarioId || "").trim(),
+  };
+}
+
+function observeContractEvent(rawEvent){
+  try{
+    const src = rawEvent && typeof rawEvent === "object" ? rawEvent : {};
+    const context = src.context && typeof src.context === "object"
+      ? src.context
+      : diagnosticContextFromState(state);
+    contractDiagnosticEngine.observe({
+      module: "appRuntime",
+      ...src,
+      context,
+    });
+  } catch (err){
+    const msg = err?.message ? String(err.message) : String(err || "contract-diagnostic-observe-failed");
+    console.warn("[contracts] observe failed:", msg);
+  }
+}
+
+function diffTopLevelStateKeys(prevState, nextState){
+  const prev = prevState && typeof prevState === "object" ? prevState : {};
+  const next = nextState && typeof nextState === "object" ? nextState : {};
+  const keys = new Set([...Object.keys(prev), ...Object.keys(next)]);
+  const changed = [];
+  for (const key of keys){
+    if (prev[key] !== next[key]){
+      changed.push(key);
+    }
+  }
+  return changed.sort();
+}
 
 // setState(patchFn) — controlled state mutation for UI-only writes.
-// Shallow-clones state, deep-clones only state.ui (where all setState writes live).
+// Shallow-clones state, deep-clones only state.ui (where setState writes should live).
 // Engine/scenario fields are never mutated here so reference copies are safe.
 // Rendering/persistence are queued through commitUIUpdate to avoid input-event thrash.
-function setState(patchFn){
+function setState(patchFn, { actionName = "setState" } = {}){
+  const prevState = state;
   const next = { ...state, ui: structuredClone(state.ui) };
   patchFn(next);
+  const changedTopLevel = diffTopLevelStateKeys(prevState, next);
   state = next;
+  observeContractEvent({
+    type: "state_write",
+    action_name: String(actionName || "setState"),
+    handler_name: typeof patchFn === "function" && patchFn.name ? patchFn.name : "anonymous_patch",
+    changedTopLevel,
+    changedPaths: changedTopLevel.map((key) => `state.${key}`),
+    observed_behavior: changedTopLevel.length
+      ? `${String(actionName || "setState")} changed ${changedTopLevel.join(", ")}`
+      : `${String(actionName || "setState")} produced no top-level changes`,
+  });
   commitUIUpdate();
+}
+
+function mutateState(patchFn){
+  setState(patchFn, { actionName: "mutateState" });
 }
 
 let lastRenderCtx = null;
@@ -1072,12 +2145,52 @@ function initThemeSystemListener(){
 
 // Phase 9A — export snapshot cache (pure read by export.js)
 let lastResultsSnapshot = null;
+let lastArchivedForecastKey = "";
 
 // Phase 11 — session-only safety rails
 let selfTestGateStatus = engine.selfTest.SELFTEST_GATE.UNVERIFIED;
 let lastExportHash = null;
 
 let lastAppliedWeeklyAction = null;
+
+function archiveForecastSnapshot(snapshot){
+  const hash = String(snapshot?.snapshotHash || "").trim();
+  const archiveContext = forecastArchiveContextFromState();
+  const archiveKey = `${forecastArchiveScopeKey(archiveContext)}::${String(archiveContext?.scenarioId || "")}::${hash}`;
+  if (!hash || archiveKey === lastArchivedForecastKey) return;
+  const entry = buildForecastArchiveEntry({
+    state,
+    renderCtx: lastRenderCtx,
+    snapshot,
+  });
+  if (!entry) return;
+  const result = appendForecastArchiveEntry(entry, {
+    ...archiveContext,
+  });
+  if (result?.ok){
+    lastArchivedForecastKey = archiveKey;
+    refreshModelAuditFromArchive();
+  }
+}
+
+function refreshModelAuditFromArchive(){
+  const context = forecastArchiveContextFromState();
+  lastModelAuditScopeKey = forecastArchiveScopeKey(context);
+  const rows = readForecastArchive(context);
+  const archiveLearning = buildModelLearningFromArchive(rows);
+  if (!state.ui || typeof state.ui !== "object"){
+    state.ui = {};
+  }
+  state.ui.modelAudit = archiveLearning.modelAudit;
+  state.ui.learningLoop = archiveLearning.learning;
+  return archiveLearning.modelAudit;
+}
+
+function ensureModelAuditCampaignSync(){
+  const currentScopeKey = forecastArchiveScopeKey();
+  if (currentScopeKey === lastModelAuditScopeKey) return;
+  refreshModelAuditFromArchive();
+}
 
 function syncWeeklyUndoUI(){
   const wkUndoActionBtnEl = els?.wkUndoActionBtn || null;
@@ -1165,6 +2278,15 @@ function commitUIUpdate({
   immediatePersist = false,
   allowScenarioLockBypass = false
 } = {}){
+  observeContractEvent({
+    type: "commit_ui_update",
+    action_name: "commitUIUpdate",
+    handler_name: "commitUIUpdate",
+    doRender,
+    doPersist,
+    immediatePersist,
+    observed_behavior: `commitUIUpdate render=${doRender ? "on" : "off"} persist=${doPersist ? "on" : "off"}`,
+  });
   try{
     syncFeatureFlagsFromState(state, { preferFeatures: false });
   } catch {
@@ -1203,13 +2325,25 @@ function commitUIUpdate({
     lastCriticalAuditSnapshot = buildCriticalAuditSnapshot(state);
   }
   uiUpdateQueue.commitUIUpdate({ render: doRender, persist: doPersist, immediatePersist });
+  if (doRender){
+    queueBridgeSyncAfterRender({
+      source: "runtime",
+      reason: "commit_ui_update",
+    });
+  } else {
+    notifyBridgeSync({
+      source: "runtime",
+      reason: "state_updated",
+    });
+  }
 }
 
 
 function makeDefaultState(){
+  const activeContext = resolveActiveContext();
   return makeDefaultStateModule({
-    defaultsByTemplate: DEFAULTS_BY_TEMPLATE,
     uid,
+    activeContext,
   });
 }
 
@@ -1322,6 +2456,7 @@ function wireEvents(){
 }
 
 function normalizeLoadedScenarioRuntime(s){
+  const activeContext = resolveActiveContext();
   return normalizeLoadedStateModule(s, {
     makeDefaultState,
     safeNum,
@@ -1329,6 +2464,7 @@ function normalizeLoadedScenarioRuntime(s){
     canonicalDoorsPerHourFromSnap,
     setCanonicalDoorsPerHour,
     deriveAssumptionsProfileFromState,
+    activeContext,
   });
 }
 
@@ -1338,6 +2474,14 @@ function canonicalDoorsPerHourFromSnap(snap){
 
 function setCanonicalDoorsPerHour(target, value){
   setCanonicalDoorsPerHourModule(target, value, safeNum);
+}
+
+function canonicalCallsPerHourFromSnap(snap){
+  return canonicalCallsPerHourFromSnapModule(snap, safeNum);
+}
+
+function setCanonicalCallsPerHour(target, value){
+  setCanonicalCallsPerHourModule(target, value, safeNum);
 }
 
 function requiredScenarioKeysMissing(scen){
@@ -1437,6 +2581,7 @@ function persist(){
 }
 
 function render(){
+  ensureModelAuditCampaignSync();
   renderMain({
     state,
     els,
@@ -1448,7 +2593,10 @@ function render(){
     computeExecutionSnapshot,
     computeWeeklyOpsContext,
     setLastRenderCtx: (next) => { lastRenderCtx = next; },
-    setLastResultsSnapshot: (next) => { lastResultsSnapshot = next; },
+    setLastResultsSnapshot: (next) => {
+      lastResultsSnapshot = next;
+      archiveForecastSnapshot(next);
+    },
     fmtInt,
     setText,
     safeCall,
@@ -1475,6 +2623,13 @@ function render(){
     renderDecisionIntelligencePanel,
   });
   applyScenarioLockUi();
+  observeContractEvent({
+    type: "render_complete",
+    action_name: "render",
+    handler_name: "render",
+    observed_behavior: "render cycle completed",
+  });
+  flushQueuedBridgeSyncAfterRender();
 }
 
 function renderWeeklyOps(res, weeks, { weeklyContext = null, executionSnapshot = null } = {}){
@@ -1684,6 +2839,7 @@ function getSummaryRenderController(){
     engine,
     computeRealityDrift,
     computeEvidenceWarnings,
+    computeModelGovernance,
     renderStressModule,
     renderValidationModule,
     renderIntelChecksModule,
@@ -1881,6 +3037,12 @@ function scenarioBridgeStateView(){
     createdAt: rec?.createdAt || ""
   }));
   const count = Object.keys(reg).length;
+  const summary = buildScenarioWorkspaceSummaryView({
+    activeScenario: active,
+    activeScenarioId: activeId,
+    count,
+    max: SCENARIO_MAX,
+  });
 
   return {
     baselineId: SCENARIO_BASELINE_ID,
@@ -1888,13 +3050,9 @@ function scenarioBridgeStateView(){
     count,
     activeScenarioId: activeId,
     selectedScenarioId: selectedId,
-    activeLabel: active ? `Active Scenario: ${active.name || active.id}` : "Active Scenario: —",
-    warning:
-      count > SCENARIO_MAX
-        ? `Scenario limit exceeded (${count}/${SCENARIO_MAX}). Delete scenarios to stay under the cap.`
-        : "",
-    storageStatus:
-      "Scenario records are session-only (in-memory) and capped to keep comparisons fast and deterministic.",
+    activeLabel: summary.activeLabel,
+    warning: summary.warning,
+    storageStatus: summary.storageStatus,
     scenarios: records,
     baseline: baseline
       ? {
@@ -1925,6 +3083,7 @@ function scenarioBridgeSelect(id){
 
   state.ui.scenarioUiSelectedId = nextId;
   persist();
+  notifyBridgeSync({ source: "bridge.scenario", reason: "scenario_selected" });
   refreshLegacyScenarioManagerIfMounted();
   return { ok: true, view: scenarioBridgeStateView() };
 }
@@ -1950,6 +3109,7 @@ function scenarioBridgeSaveNew(name){
   };
   state.ui.scenarioUiSelectedId = id;
   persist();
+  notifyBridgeSync({ source: "bridge.scenario", reason: "scenario_saved" });
   refreshLegacyScenarioManagerIfMounted();
   return { ok: true, view: scenarioBridgeStateView() };
 }
@@ -1976,6 +3136,7 @@ function scenarioBridgeCloneBaseline(name){
   };
   state.ui.scenarioUiSelectedId = id;
   persist();
+  notifyBridgeSync({ source: "bridge.scenario", reason: "scenario_cloned" });
   refreshLegacyScenarioManagerIfMounted();
   return { ok: true, view: scenarioBridgeStateView() };
 }
@@ -2002,6 +3163,7 @@ function scenarioBridgeLoad(id){
   applyStateToUI();
   persist();
   render();
+  notifyBridgeSync({ source: "bridge.scenario", reason: "scenario_loaded" });
   refreshLegacyScenarioManagerIfMounted();
   safeCall(() => { renderDecisionSessionD1(); });
   return { ok: true, view: scenarioBridgeStateView() };
@@ -2017,16 +3179,15 @@ function scenarioBridgeDeleteSelected(){
   delete state.ui.scenarios[selectedId];
   state.ui.scenarioUiSelectedId = SCENARIO_BASELINE_ID;
   persist();
+  notifyBridgeSync({ source: "bridge.scenario", reason: "scenario_deleted" });
   refreshLegacyScenarioManagerIfMounted();
   return { ok: true, view: scenarioBridgeStateView() };
 }
 
 function scenarioBridgeEnsureIntelWorkflow(targetState){
-  if (!targetState?.intelState || typeof targetState.intelState !== "object"){
-    targetState.intelState = { version: "1.0.0" };
-  }
-  if (!targetState.intelState.workflow || typeof targetState.intelState.workflow !== "object"){
-    targetState.intelState.workflow = {
+  const intel = ensureIntelCollections(targetState);
+  if (!intel?.workflow || typeof intel.workflow !== "object"){
+    return {
       scenarioLocked: false,
       lockReason: "",
       lockedAt: null,
@@ -2035,65 +3196,27 @@ function scenarioBridgeEnsureIntelWorkflow(targetState){
       requireCriticalNote: true,
       requireCriticalEvidence: true
     };
-  } else {
-    const workflow = targetState.intelState.workflow;
-    if (workflow.requireCriticalNote == null) workflow.requireCriticalNote = true;
-    if (workflow.requireCriticalEvidence == null) workflow.requireCriticalEvidence = true;
-    if (!("scenarioLocked" in workflow)) workflow.scenarioLocked = false;
-    if (!("lockReason" in workflow)) workflow.lockReason = "";
-    if (!("lockedAt" in workflow)) workflow.lockedAt = null;
-    if (!("lockedBy" in workflow)) workflow.lockedBy = "";
-    if (!("governanceBaselineAt" in workflow)) workflow.governanceBaselineAt = null;
   }
-  return targetState.intelState.workflow;
+  return intel.workflow;
 }
 
 function scenarioBridgeEnsureIntelToggles(targetState){
-  if (!targetState?.intelState || typeof targetState.intelState !== "object"){
-    targetState.intelState = { version: "1.0.0" };
-  }
-  const intel = targetState.intelState;
-  if (!intel.simToggles || typeof intel.simToggles !== "object"){
-    intel.simToggles = {
+  const intel = ensureIntelCollections(targetState);
+  return {
+    simToggles: (intel && typeof intel.simToggles === "object") ? intel.simToggles : {
       mcDistribution: "triangular",
       correlatedShocks: false,
       correlationMatrixId: null,
       shockScenariosEnabled: true
-    };
-  } else {
-    if (!("mcDistribution" in intel.simToggles)) intel.simToggles.mcDistribution = "triangular";
-    if (!("correlatedShocks" in intel.simToggles)) intel.simToggles.correlatedShocks = false;
-    if (!("correlationMatrixId" in intel.simToggles)) intel.simToggles.correlationMatrixId = null;
-    if (!("shockScenariosEnabled" in intel.simToggles)) intel.simToggles.shockScenariosEnabled = true;
-  }
-
-  if (!intel.expertToggles || typeof intel.expertToggles !== "object"){
-    intel.expertToggles = {
+    },
+    expertToggles: (intel && typeof intel.expertToggles === "object") ? intel.expertToggles : {
       capacityDecayEnabled: false,
       decayModel: {
         type: "linear",
         weeklyDecayPct: 0.03,
         floorPctOfBaseline: 0.70
       }
-    };
-  } else {
-    if (!("capacityDecayEnabled" in intel.expertToggles)) intel.expertToggles.capacityDecayEnabled = false;
-    if (!intel.expertToggles.decayModel || typeof intel.expertToggles.decayModel !== "object"){
-      intel.expertToggles.decayModel = {
-        type: "linear",
-        weeklyDecayPct: 0.03,
-        floorPctOfBaseline: 0.70
-      };
-    } else {
-      const model = intel.expertToggles.decayModel;
-      if (!("type" in model)) model.type = "linear";
-      if (!("weeklyDecayPct" in model)) model.weeklyDecayPct = 0.03;
-      if (!("floorPctOfBaseline" in model)) model.floorPctOfBaseline = 0.70;
     }
-  }
-  return {
-    simToggles: intel.simToggles,
-    expertToggles: intel.expertToggles
   };
 }
 
@@ -2225,13 +3348,20 @@ function scenarioBridgeSaveBenchmark(payload){
   return { ok: true, mode: result.mode || "updated", row: result.row || null, view: scenarioBridgeStateView() };
 }
 
-function scenarioBridgeLoadDefaultBenchmarks(raceType){
-  const result = loadDefaultBenchmarksForRaceType(state, raceType || "all");
+function scenarioBridgeLoadDefaultBenchmarks(scopeInput){
+  const result = loadDefaultBenchmarksForRaceType(state, scopeInput || "default");
   if (!result?.ok){
     return { ok: false, code: "load_defaults_failed", error: String(result?.error || "Failed to load defaults."), view: scenarioBridgeStateView() };
   }
   commitUIUpdate({ allowScenarioLockBypass: true });
-  return { ok: true, raceType: result.raceType || "all", created: result.created || 0, updated: result.updated || 0, view: scenarioBridgeStateView() };
+  return {
+    ok: true,
+    raceType: result.raceType || "all",
+    benchmarkKey: result.benchmarkKey || "default",
+    created: result.created || 0,
+    updated: result.updated || 0,
+    view: scenarioBridgeStateView(),
+  };
 }
 
 function scenarioBridgeRemoveBenchmark(benchmarkId){
@@ -2374,16 +3504,9 @@ function scenarioBridgeImportShockScenarios(jsonText){
   };
 }
 
-function scenarioBridgePatchValueMatches(a, b){
-  if (typeof a === "number" && typeof b === "number"){
-    return Math.abs(a - b) <= 1e-9;
-  }
-  return Object.is(a, b);
-}
-
 function scenarioBridgeCaptureObservedMetrics(){
   const drift = computeRealityDrift();
-  const result = captureObservedMetricsFromDrift(state, drift, { source: "dailyLog.rolling7", maxEntries: 180 });
+  const result = captureObservedMetricsFromDrift(state, drift);
   if (!result?.ok){
     return {
       ok: false,
@@ -2404,8 +3527,9 @@ function scenarioBridgeCaptureObservedMetrics(){
 
 function scenarioBridgeGenerateDriftRecommendations(){
   const drift = computeRealityDrift();
-  const metricsResult = captureObservedMetricsFromDrift(state, drift, { source: "dailyLog.rolling7", maxEntries: 180 });
-  const result = refreshDriftRecommendationsFromDrift(state, drift, { maxEntries: 60 });
+  const refresh = captureObservedAndRefreshDriftRecommendations(state, { drift });
+  const metricsResult = refresh.metricsResult;
+  const result = refresh.recommendationResult;
   if (!result?.ok){
     return {
       ok: false,
@@ -2452,27 +3576,11 @@ function scenarioBridgeParseWhatIf(requestText){
 }
 
 function scenarioBridgeApplyTopRecommendation(){
-  const recs = Array.isArray(state?.intelState?.recommendations)
-    ? state.intelState.recommendations
-        .filter((row) => String(row?.source || "").trim() === "auto.realityDrift.v1")
-        .slice()
-        .sort((a, b) => Number(a?.priority || 99) - Number(b?.priority || 99))
-    : [];
-  const top = recs[0] || null;
-  if (!top){
-    return {
-      ok: false,
-      code: "missing_recommendation",
-      error: "No active drift recommendation to apply.",
-      view: scenarioBridgeStateView()
-    };
-  }
-
-  const result = applyRecommendationDraftPatch(state, { recommendationId: String(top.id || "") });
+  const result = applyTopDriftRecommendation(state);
   if (!result?.ok){
     return {
       ok: false,
-      code: "apply_recommendation_failed",
+      code: String(result?.code || "apply_recommendation_failed"),
       error: String(result?.error || "Failed to apply recommendation patch."),
       view: scenarioBridgeStateView()
     };
@@ -2481,52 +3589,14 @@ function scenarioBridgeApplyTopRecommendation(){
   markMcStale();
   commitUIUpdate();
 
-  const linkedAuditIds = [];
-  const auditRows = Array.isArray(state?.intelState?.audit) ? state.intelState.audit.slice().reverse() : [];
-  if (result.noteMarker){
-    for (const row of auditRows){
-      if (!row || typeof row !== "object") continue;
-      if (!String(row.note || "").includes(result.noteMarker)) continue;
-      const id = String(row.id || "").trim();
-      if (id && !linkedAuditIds.includes(id)) linkedAuditIds.push(id);
-    }
-  }
-  if (!linkedAuditIds.length && Array.isArray(result.changes) && result.changes.length){
-    for (const change of result.changes){
-      const match = auditRows.find((row) =>
-        row &&
-        row.kind === "critical_ref_change" &&
-        String(row.source || "") === "ui" &&
-        String(row.key || "") === String(change?.key || "") &&
-        scenarioBridgePatchValueMatches(row.after, change?.after)
-      );
-      const id = String(match?.id || "").trim();
-      if (id && !linkedAuditIds.includes(id)) linkedAuditIds.push(id);
-    }
-  }
-
-  const recRow = Array.isArray(state?.intelState?.recommendations)
-    ? state.intelState.recommendations.find((row) => String(row?.id || "").trim() === String(result.recommendationId || "").trim())
-    : null;
-  let needsGovernance = false;
-  if (recRow){
-    recRow.appliedAuditIds = linkedAuditIds.slice();
-    recRow.updatedAt = new Date().toISOString();
-    const unresolved = (Array.isArray(state?.intelState?.audit) ? state.intelState.audit : [])
-      .filter((row) => recRow.appliedAuditIds.includes(String(row?.id || "")))
-      .filter((row) => String(row?.status || "").toLowerCase() !== "resolved");
-    needsGovernance = unresolved.length > 0;
-    recRow.status = needsGovernance ? "appliedNeedsGovernance" : (result.noop ? "alreadyApplied" : "applied");
-  }
-
   commitUIUpdate({ allowScenarioLockBypass: true });
   return {
     ok: true,
     recommendationId: String(result.recommendationId || ""),
     recommendationTitle: String(result.recommendationTitle || ""),
-    changesCount: Array.isArray(result.changes) ? result.changes.length : 0,
+    changesCount: Number(result.changesCount || 0),
     noop: !!result.noop,
-    needsGovernance,
+    needsGovernance: !!result.needsGovernance,
     view: scenarioBridgeStateView()
   };
 }
@@ -2548,7 +3618,7 @@ function installScenarioBridge(){
     updateIntelExpertToggles: (patch) => scenarioBridgeUpdateIntelExpertToggles(patch),
     setPendingCriticalNote: (note) => scenarioBridgeSetPendingCriticalNote(note),
     saveBenchmark: (payload) => scenarioBridgeSaveBenchmark(payload),
-    loadDefaultBenchmarks: (raceType) => scenarioBridgeLoadDefaultBenchmarks(raceType),
+    loadDefaultBenchmarks: (scopeInput) => scenarioBridgeLoadDefaultBenchmarks(scopeInput),
     removeBenchmark: (benchmarkId) => scenarioBridgeRemoveBenchmark(benchmarkId),
     attachEvidence: (payload) => scenarioBridgeAttachEvidence(payload),
     generateIntelBrief: (kind) => scenarioBridgeGenerateIntelBrief(kind),
@@ -2566,70 +3636,274 @@ function installScenarioBridge(){
 function districtBridgeFmtPct(value, digits = 1){
   const n = Number(value);
   if (!Number.isFinite(n)) return "—";
-  return `${n.toFixed(digits)}%`;
+  return formatPercentFromPct(n, digits, "—");
 }
 
 function districtBridgeFmtInt(value){
   const n = Number(value);
   if (!Number.isFinite(n)) return "—";
-  return fmtInt(Math.round(n));
+  return formatWholeNumberByMode(n, { mode: "round", fallback: "—" });
 }
 
 function districtBridgeSupportTotalFromState(currentState){
-  const candidates = Array.isArray(currentState?.candidates) ? currentState.candidates : [];
-  let total = 0;
-  for (const row of candidates){
-    const support = safeNum(row?.supportPct);
-    if (support != null) total += support;
-  }
-  const undecided = safeNum(currentState?.undecidedPct);
-  if (undecided != null) total += undecided;
-  return Number.isFinite(total) ? total : null;
+  return computeDistrictSupportTotalPctFromState(currentState);
 }
 
 function districtBridgeFallbackTurnout(currentState){
-  const turnoutA = safeNum(currentState?.turnoutA);
-  const turnoutB = safeNum(currentState?.turnoutB);
-  const bandWidth = safeNum(currentState?.bandWidth);
-  const universeSize = safeNum(currentState?.universeSize);
-  const expected = (turnoutA != null && turnoutB != null) ? (turnoutA + turnoutB) / 2 : null;
-  const best = (expected != null && bandWidth != null) ? Math.min(100, expected + bandWidth) : null;
-  const worst = (expected != null && bandWidth != null) ? Math.max(0, expected - bandWidth) : null;
-  const votesPer1pct = (universeSize != null) ? Math.max(0, Math.round(universeSize * 0.01)) : null;
+  return buildDistrictTurnoutFallbackView(currentState, {
+    formatPercent: (value, digits = 1) => districtBridgeFmtPct(value, digits),
+    formatInt: (value) => districtBridgeFmtInt(value),
+  });
+}
+
+function districtBridgeFmtTimestamp(ts){
+  return buildDistrictLastFetchText(ts);
+}
+
+function districtBridgeBuildContextHint(censusState){
+  return buildDistrictCensusContextHint(censusState);
+}
+
+function districtBridgeBuildSelectionSetStatus(censusState){
+  return buildDistrictSelectionSetStatus(censusState, {
+    formatInt: (value) => districtBridgeFmtInt(value),
+  });
+}
+
+function districtBridgeBuildGeoStatsText(censusState){
+  return buildDistrictGeoStatsText(censusState, {
+    formatInt: (value) => districtBridgeFmtInt(value),
+  });
+}
+
+function districtBridgeBuildSelectionSummary(censusState){
+  return buildDistrictSelectionSummaryText(censusState);
+}
+
+function districtBridgeBuildRaceFootprintStatus(currentState){
+  return buildDistrictRaceFootprintStatus(currentState, {
+    formatInt: (value) => districtBridgeFmtInt(value),
+  });
+}
+
+function districtBridgeBuildAssumptionProvenanceStatus(currentState){
+  return buildDistrictAssumptionProvenanceStatus(currentState);
+}
+
+function districtBridgeBuildFootprintCapacityStatus(currentState){
+  return buildDistrictFootprintCapacityStatus(currentState, {
+    formatInt: (value) => districtBridgeFmtInt(value),
+  });
+}
+
+function districtBridgeBuildApplyAdjustmentsStatus(censusState){
+  return buildDistrictApplyAdjustmentsStatus(censusState);
+}
+
+function districtBridgeBuildSelectOptions(values, { selected = "", placeholder = "" } = {}){
+  const rows = Array.isArray(values) ? values : [];
+  const seen = new Set();
+  const out = [];
+  const selectedValue = String(selected || "").trim();
+
+  if (placeholder) {
+    out.push({ value: "", label: String(placeholder).trim() || "Select" });
+    seen.add("");
+  }
+
+  for (const row of rows){
+    const value = String(row?.value || "").trim();
+    if (!value || seen.has(value)) continue;
+    seen.add(value);
+    out.push({
+      value,
+      label: String(row?.label || value).trim() || value,
+    });
+  }
+
+  if (selectedValue && !seen.has(selectedValue)) {
+    out.push({ value: selectedValue, label: selectedValue });
+  }
+
+  return out;
+}
+
+function districtBridgeBuildCensusConfigOptions(censusState){
+  const census = censusState && typeof censusState === "object" ? censusState : {};
+  const geoRowsRaw = Array.isArray(census.geoOptions) ? census.geoOptions : [];
+  const geoRows = geoRowsRaw
+    .map((row) => {
+      const geoid = String(row?.geoid || "").trim();
+      return {
+        geoid,
+        label: String(row?.label || row?.name || geoid).trim() || geoid,
+        state: String(row?.state || "").trim(),
+        county: String(row?.county || "").trim(),
+        place: String(row?.place || "").trim(),
+        tract: String(row?.tract || "").trim(),
+      };
+    })
+    .filter((row) => !!row.geoid);
+
+  const selectedGeoids = new Set(
+    (Array.isArray(census.selectedGeoids) ? census.selectedGeoids : [])
+      .map((id) => String(id || "").trim())
+      .filter((id) => !!id),
+  );
+
+  const bridgeStateOptions = Array.isArray(census.bridgeStateOptions) ? census.bridgeStateOptions : [];
+  const bridgeCountyOptions = Array.isArray(census.bridgeCountyOptions) ? census.bridgeCountyOptions : [];
+  const bridgePlaceOptions = Array.isArray(census.bridgePlaceOptions) ? census.bridgePlaceOptions : [];
+  const bridgeTractFilterOptions = Array.isArray(census.bridgeTractFilterOptions) ? census.bridgeTractFilterOptions : [];
+  const bridgeSelectionSetOptions = Array.isArray(census.bridgeSelectionSetOptions) ? census.bridgeSelectionSetOptions : [];
+  const bridgeGeoSelectOptions = Array.isArray(census.bridgeGeoSelectOptions) ? census.bridgeGeoSelectOptions : [];
+
+  const stateOptions = districtBridgeBuildSelectOptions(
+    bridgeStateOptions.length
+      ? bridgeStateOptions
+      : geoRows.map((row) => ({
+        value: row.state,
+        label: row.state,
+      })),
+    { selected: census.stateFips, placeholder: "Select state" },
+  );
+  const countyOptions = districtBridgeBuildSelectOptions(
+    bridgeCountyOptions.length
+      ? bridgeCountyOptions
+      : geoRows
+        .filter((row) => !census.stateFips || row.state === String(census.stateFips || "").trim())
+        .map((row) => ({ value: row.county, label: row.county })),
+    { selected: census.countyFips, placeholder: "Select county" },
+  );
+  const placeOptions = districtBridgeBuildSelectOptions(
+    bridgePlaceOptions.length
+      ? bridgePlaceOptions
+      : geoRows
+        .filter((row) => !census.stateFips || row.state === String(census.stateFips || "").trim())
+        .map((row) => ({ value: row.place, label: row.place })),
+    { selected: census.placeFips, placeholder: "Select place" },
+  );
+  const tractFilterOptions = districtBridgeBuildSelectOptions(
+    bridgeTractFilterOptions.length
+      ? bridgeTractFilterOptions
+      : geoRows.map((row) => ({ value: row.tract, label: row.tract })),
+    { selected: census.tractFilter, placeholder: "All tracts" },
+  );
+  const selectionSetOptions = districtBridgeBuildSelectOptions(
+    bridgeSelectionSetOptions.length
+      ? bridgeSelectionSetOptions
+      : (Array.isArray(census.selectionSets) ? census.selectionSets : []).map((row, idx) => ({
+        value: String(idx),
+        label: `${String(row?.name || "").trim()} · ${String(row?.resolution || "").trim()} · ${Array.isArray(row?.geoids) ? row.geoids.length : 0} GEO`,
+      })),
+    { selected: census.selectedSelectionSetKey, placeholder: "Saved sets" },
+  );
+
+  const geoSelectOptions = (bridgeGeoSelectOptions.length
+    ? bridgeGeoSelectOptions.map((row) => ({
+      value: String(row?.value || "").trim(),
+      label: String(row?.label || row?.value || "").trim(),
+      selected: !!row?.selected,
+    }))
+    : geoRows.map((row) => ({
+      value: row.geoid,
+      label: row.label,
+      selected: selectedGeoids.has(row.geoid),
+    })))
+    .filter((row) => !!row.value);
+
+  for (const geoid of selectedGeoids) {
+    if (!geoSelectOptions.some((row) => row.value === geoid)) {
+      geoSelectOptions.push({ value: geoid, label: geoid, selected: true });
+    }
+  }
 
   return {
-    expectedText: expected == null ? "—" : districtBridgeFmtPct(expected, 1),
-    bandText: (best == null || worst == null)
-      ? "—"
-      : `${best.toFixed(1)}% / ${worst.toFixed(1)}%`,
-    votesPer1pctText: votesPer1pct == null ? "—" : districtBridgeFmtInt(votesPer1pct),
+    stateOptions,
+    countyOptions,
+    placeOptions,
+    tractFilterOptions,
+    selectionSetOptions,
+    geoSelectOptions,
   };
 }
 
-function districtBridgeReadLegacyText(id, fallback = ""){
-  const text = String(document.getElementById(id)?.textContent || "").trim();
-  return text || String(fallback || "");
+function districtBridgeBuildCensusDisabledMap(currentState, censusState){
+  const census = censusState && typeof censusState === "object" ? censusState : {};
+  const controlsLocked = isScenarioLockedForEdits(currentState);
+  const resolution = String(census?.resolution || "").trim();
+  const stateFips = String(census?.stateFips || "").trim();
+  const countyFips = String(census?.countyFips || "").trim();
+  const requiresCounty = resolution === "tract" || resolution === "block_group";
+  const contextReadyForGeo = !!stateFips && (!requiresCounty || !!countyFips);
+  const geoOptionsCount = Array.isArray(census?.geoOptions) ? census.geoOptions.length : 0;
+  const hasGeoOptions = geoOptionsCount > 0;
+  const selectedGeoCount = Array.isArray(census?.selectedGeoids) ? census.selectedGeoids.length : 0;
+  const loadedRowCount = Number.isFinite(Number(census?.loadedRowCount))
+    ? Math.max(0, roundWholeNumberByMode(Number(census.loadedRowCount), { mode: "floor", fallback: 0 }) || 0)
+    : 0;
+  const selectedSetKey = String(census?.selectedSelectionSetKey || "").trim();
+  const draftName = String(census?.selectionSetDraftName || "").trim();
+  const hasRaceFootprint = Array.isArray(currentState?.raceFootprint?.geoids)
+    ? currentState.raceFootprint.geoids.length > 0
+    : false;
+
+  const map = {
+    v3CensusCountyFips: controlsLocked || !stateFips || !requiresCounty,
+    v3CensusPlaceFips: controlsLocked || !stateFips,
+    v3CensusGeoSearch: controlsLocked || !hasGeoOptions,
+    v3CensusTractFilter: controlsLocked || resolution !== "block_group" || !hasGeoOptions,
+    v3BtnCensusLoadGeo: controlsLocked || !!census?.loadingGeo || !contextReadyForGeo,
+    v3BtnCensusFetchRows: controlsLocked || !!census?.loadingRows || !contextReadyForGeo,
+    v3BtnCensusSelectAll: controlsLocked || !hasGeoOptions,
+    v3BtnCensusClearSelection: controlsLocked || !selectedGeoCount,
+    v3BtnCensusApplyGeoPaste: controlsLocked || !hasGeoOptions,
+    v3BtnCensusSetRaceFootprint: controlsLocked || !selectedGeoCount || !loadedRowCount,
+    v3BtnCensusClearRaceFootprint: controlsLocked || !hasRaceFootprint,
+    v3BtnCensusSaveSelectionSet: controlsLocked || !selectedGeoCount || !draftName,
+    v3BtnCensusLoadSelectionSet: controlsLocked || !selectedSetKey || !hasGeoOptions,
+    v3BtnCensusDeleteSelectionSet: controlsLocked || !selectedSetKey,
+    v3BtnCensusExportAggregateCsv: controlsLocked || !loadedRowCount,
+    v3BtnCensusExportAggregateJson: controlsLocked || !loadedRowCount,
+    v3BtnCensusDownloadElectionCsvTemplate: controlsLocked || false,
+    v3BtnCensusDownloadElectionCsvWideTemplate: controlsLocked || false,
+    v3CensusApplyAdjustmentsToggle: controlsLocked || false,
+    v3CensusMapQaVtdToggle: null,
+    v3CensusMapQaVtdZip: null,
+    v3BtnCensusMapQaVtdZipClear: null,
+    v3BtnCensusLoadMap: null,
+    v3BtnCensusClearMap: null,
+    v3BtnCensusElectionCsvDryRun: controlsLocked ? true : null,
+    v3BtnCensusElectionCsvClear: controlsLocked ? true : null,
+    v3CensusElectionCsvFile: controlsLocked || false,
+    v3CensusElectionCsvPrecinctFilter: controlsLocked || false,
+    v3CensusApiKey: controlsLocked || false,
+    v3CensusAcsYear: controlsLocked || false,
+    v3CensusResolution: controlsLocked || false,
+    v3CensusStateFips: controlsLocked || false,
+    v3CensusMetricSet: controlsLocked || false,
+    v3CensusGeoPaste: controlsLocked || false,
+    v3CensusSelectionSetName: controlsLocked || false,
+    v3CensusSelectionSetSelect: controlsLocked || false,
+    v3CensusGeoSelect: controlsLocked || false,
+  };
+  const out = {};
+  for (const [id, value] of Object.entries(map)){
+    if (typeof value === "boolean"){
+      out[id] = value;
+    }
+  }
+  return out;
 }
 
-function districtBridgeReadLegacyTableRows(selector, expectedCols = 0){
-  const tbody = document.querySelector(selector);
-  if (!(tbody instanceof HTMLElement)) return [];
-  const rows = Array.from(tbody.querySelectorAll(":scope > tr"));
+function districtBridgeNormalizeRows(rows, expectedCols = 0){
+  const list = Array.isArray(rows) ? rows : [];
   const out = [];
-  for (const row of rows){
-    if (!(row instanceof HTMLTableRowElement)) continue;
-    const cells = Array.from(row.children).filter((cell) => cell instanceof HTMLElement);
-    if (!cells.length) continue;
-    if (cells.length === 1 && expectedCols > 1) {
-      const cell = cells[0];
-      const span = Number(cell.getAttribute("colspan") || "1");
-      if (span >= expectedCols && cell.classList.contains("muted")) {
-        continue;
-      }
-    }
-    const cols = cells.map((cell) => String(cell.textContent || "").trim());
+  for (const row of list){
+    const cells = Array.isArray(row) ? row : [];
+    const cols = cells.map((cell) => String(cell == null ? "" : cell).trim());
     if (!cols.some(Boolean)) continue;
-    if (expectedCols > 0) {
+    if (expectedCols > 0){
       while (cols.length < expectedCols) cols.push("");
       out.push(cols.slice(0, expectedCols));
     } else {
@@ -2639,16 +3913,407 @@ function districtBridgeReadLegacyTableRows(selector, expectedCols = 0){
   return out;
 }
 
+function districtBridgeApplyDomainAction(draft, actionFn, payload, actionName = "districtBridgeAction"){
+  if (!draft || typeof draft !== "object" || typeof actionFn !== "function"){
+    return null;
+  }
+  const outcome = actionFn(draft, payload, {
+    actionName,
+    sourceModule: "appRuntime.districtBridge",
+    sourceSurface: "district",
+  });
+  const canonical = outcome?.state && typeof outcome.state === "object" ? outcome.state : null;
+  if (canonical?.domains && typeof canonical.domains === "object"){
+    draft.schemaVersion = canonical.schemaVersion;
+    draft.revision = Number.isFinite(Number(canonical.revision))
+      ? Number(canonical.revision)
+      : Number.isFinite(Number(draft.revision))
+        ? Number(draft.revision)
+        : 0;
+    draft.updatedAt = String(canonical.updatedAt || draft.updatedAt || "");
+    draft.domains = canonical.domains;
+  }
+  return outcome;
+}
+
+function districtBridgeSyncTargetingCanonicalField(draft, key, targeting){
+  const field = String(key || "").trim();
+  if (!field || !targeting || typeof targeting !== "object"){
+    return false;
+  }
+  const configFields = new Set([
+    "presetId",
+    "geoLevel",
+    "modelId",
+    "topN",
+    "minHousingUnits",
+    "minPopulation",
+    "minScore",
+    "onlyRaceFootprint",
+    "controlsLocked",
+  ]);
+  const criteriaFields = new Set([
+    "prioritizeYoung",
+    "prioritizeRenters",
+    "avoidHighMultiUnit",
+    "densityFloor",
+  ]);
+  const weightFieldMap = {
+    weightVotePotential: "votePotential",
+    weightTurnoutOpportunity: "turnoutOpportunity",
+    weightPersuasionIndex: "persuasionIndex",
+    weightFieldEfficiency: "fieldEfficiency",
+  };
+
+  if (configFields.has(field)){
+    districtBridgeApplyDomainAction(
+      draft,
+      updateTargetingConfigAction,
+      { field, value: targeting[field] },
+      `districtBridge.targeting.config.${field}`,
+    );
+    return true;
+  }
+  if (criteriaFields.has(field)){
+    districtBridgeApplyDomainAction(
+      draft,
+      updateTargetingCriteriaAction,
+      { field, value: targeting?.criteria?.[field] },
+      `districtBridge.targeting.criteria.${field}`,
+    );
+    return true;
+  }
+  if (Object.prototype.hasOwnProperty.call(weightFieldMap, field)){
+    const canonicalField = weightFieldMap[field];
+    districtBridgeApplyDomainAction(
+      draft,
+      updateTargetingWeightsAction,
+      { field: canonicalField, value: targeting?.weights?.[canonicalField] },
+      `districtBridge.targeting.weights.${canonicalField}`,
+    );
+    return true;
+  }
+  return false;
+}
+
+function districtBridgeSyncTargetingCanonicalState(draft, targeting){
+  if (!targeting || typeof targeting !== "object"){
+    return;
+  }
+  [
+    "presetId",
+    "geoLevel",
+    "modelId",
+    "topN",
+    "minHousingUnits",
+    "minPopulation",
+    "minScore",
+    "onlyRaceFootprint",
+    "controlsLocked",
+  ].forEach((field) => {
+    districtBridgeSyncTargetingCanonicalField(draft, field, targeting);
+  });
+  [
+    "prioritizeYoung",
+    "prioritizeRenters",
+    "avoidHighMultiUnit",
+    "densityFloor",
+  ].forEach((field) => {
+    districtBridgeSyncTargetingCanonicalField(draft, field, targeting);
+  });
+  [
+    "weightVotePotential",
+    "weightTurnoutOpportunity",
+    "weightPersuasionIndex",
+    "weightFieldEfficiency",
+  ].forEach((field) => {
+    districtBridgeSyncTargetingCanonicalField(draft, field, targeting);
+  });
+}
+
+function districtBridgeSyncCensusCanonicalField(draft, field, value){
+  const key = String(field || "").trim();
+  if (!key){
+    return false;
+  }
+  const allowed = new Set([
+    "year",
+    "resolution",
+    "metricSet",
+    "stateFips",
+    "countyFips",
+    "placeFips",
+    "geoSearch",
+    "tractFilter",
+    "selectionSetDraftName",
+    "selectedSelectionSetKey",
+    "applyAdjustedAssumptions",
+    "mapQaVtdOverlay",
+    "apiKey",
+    "geoPaste",
+  ]);
+  if (!allowed.has(key)){
+    return false;
+  }
+  districtBridgeApplyDomainAction(
+    draft,
+    updateCensusConfigAction,
+    { field: key, value },
+    `districtBridge.census.config.${key}`,
+  );
+  return true;
+}
+
 function districtBridgeStateView(){
+  return districtBridgeCombinedView();
+}
+
+function districtBridgeCanonicalView(){
   const currentState = state || {};
-  const res = lastRenderCtx?.res || null;
+  const districtCanonical = selectDistrictCanonicalView(currentState);
+  const districtTemplate = districtCanonical?.templateProfile && typeof districtCanonical.templateProfile === "object"
+    ? districtCanonical.templateProfile
+    : {};
+  const districtForm = districtCanonical?.form && typeof districtCanonical.form === "object"
+    ? districtCanonical.form
+    : {};
+  const districtUniverse = districtCanonical?.universeComposition && typeof districtCanonical.universeComposition === "object"
+    ? districtCanonical.universeComposition
+    : {};
+  const districtBallot = districtCanonical?.ballot && typeof districtCanonical.ballot === "object"
+    ? districtCanonical.ballot
+    : {};
+  const ballotCandidateRefs = districtBallot?.candidateRefs && typeof districtBallot.candidateRefs === "object"
+    ? districtBallot.candidateRefs
+    : { byId: {}, order: [] };
+  const ballotById = ballotCandidateRefs?.byId && typeof ballotCandidateRefs.byId === "object"
+    ? ballotCandidateRefs.byId
+    : {};
+  const ballotOrder = Array.isArray(ballotCandidateRefs?.order) ? ballotCandidateRefs.order : [];
+  const ballotCandidates = ballotOrder
+    .map((candidateId) => ballotById[candidateId])
+    .filter((row) => row && typeof row === "object");
+  const ballotUserSplitById = districtBallot?.userSplitByCandidateId && typeof districtBallot.userSplitByCandidateId === "object"
+    ? districtBallot.userSplitByCandidateId
+    : {};
+  const historyRecords = Array.isArray(districtCanonical?.candidateHistory?.records)
+    ? districtCanonical.candidateHistory.records
+    : [];
+  const districtElectionDataMeta = districtCanonical?.electionDataMeta && typeof districtCanonical.electionDataMeta === "object"
+    ? districtCanonical.electionDataMeta
+    : {};
+  const controlsLocked = isScenarioLockedForEdits(currentState);
+
+  const censusState = currentState?.census && typeof currentState.census === "object"
+    ? currentState.census
+    : {};
+  const targetingState = normalizeTargetingState(currentState?.targeting);
+  const targetingConfigCanonical = districtCanonical?.targetingConfig && typeof districtCanonical.targetingConfig === "object"
+    ? districtCanonical.targetingConfig
+    : {};
+  const targetingDomain = currentState?.domains?.targeting && typeof currentState.domains.targeting === "object"
+    ? currentState.domains.targeting
+    : {};
+  const targetingCriteria = targetingDomain?.criteria && typeof targetingDomain.criteria === "object"
+    ? targetingDomain.criteria
+    : (targetingState?.criteria && typeof targetingState.criteria === "object" ? targetingState.criteria : {});
+  const targetingWeights = targetingDomain?.weights && typeof targetingDomain.weights === "object"
+    ? targetingDomain.weights
+    : (targetingState?.weights && typeof targetingState.weights === "object" ? targetingState.weights : {});
+  const targetingPresetId = String(targetingConfigCanonical?.presetId || targetingState?.presetId || "").trim();
+  const targetingModelId = String(targetingConfigCanonical?.modelId || targetingState?.modelId || "").trim();
+  const censusLoadedRowCount = safeNum(censusState?.loadedRowCount) ?? 0;
+  const targetingRowsRaw = Array.isArray(targetingState?.lastRows) ? targetingState.lastRows : [];
+  const houseModelActive = targetingPresetId === "house_v1" || targetingModelId === "house_v1";
+  const censusConfigOptions = districtBridgeBuildCensusConfigOptions(censusState);
+  const censusDisabledMap = districtBridgeBuildCensusDisabledMap(currentState, censusState);
+  const censusCanonicalConfig = districtCanonical?.censusConfig && typeof districtCanonical.censusConfig === "object"
+    ? districtCanonical.censusConfig
+    : {};
+
+  const electionDataDomain = currentState?.domains?.electionData && typeof currentState.domains.electionData === "object"
+    ? currentState.domains.electionData
+    : {};
+  const electionDataState = currentState?.electionData && typeof currentState.electionData === "object"
+    ? currentState.electionData
+    : {};
+  const electionDataImport = electionDataDomain?.import && typeof electionDataDomain.import === "object"
+    ? electionDataDomain.import
+    : (electionDataState?.import && typeof electionDataState.import === "object" ? electionDataState.import : {});
+  const electionDataQuality = electionDataDomain?.quality && typeof electionDataDomain.quality === "object"
+    ? electionDataDomain.quality
+    : (electionDataState?.quality && typeof electionDataState.quality === "object" ? electionDataState.quality : {});
+  const electionDataBenchmarks = electionDataDomain?.benchmarks && typeof electionDataDomain.benchmarks === "object"
+    ? electionDataDomain.benchmarks
+    : (electionDataState?.benchmarks && typeof electionDataState.benchmarks === "object" ? electionDataState.benchmarks : {});
+  const canonicalElectionRows = Number.isFinite(Number(districtElectionDataMeta?.normalizedRowCount))
+    ? Number(districtElectionDataMeta.normalizedRowCount)
+    : 0;
+  const censusPreviewRows = districtBridgeNormalizeRows(censusState?.bridgeElectionPreviewRows, 4).length;
+  const ballotUndecidedMode = String(districtBallot?.undecidedMode || "proportional").trim() || "proportional";
+
+  return {
+    controls: {
+      locked: controlsLocked,
+      disabledMap: districtBridgeBuildDistrictDisabledMap(currentState),
+    },
+    template: {
+      raceType: String(districtTemplate?.raceType || "").trim(),
+      officeLevel: String(districtTemplate?.officeLevel || "").trim(),
+      electionType: String(districtTemplate?.electionType || "").trim(),
+      seatContext: String(districtTemplate?.seatContext || "").trim(),
+      partisanshipMode: String(districtTemplate?.partisanshipMode || "").trim(),
+      salienceLevel: String(districtTemplate?.salienceLevel || "").trim(),
+      appliedTemplateId: String(districtTemplate?.appliedTemplateId || "").trim(),
+      appliedVersion: String(districtTemplate?.appliedVersion || "").trim(),
+      benchmarkKey: String(districtTemplate?.benchmarkKey || "").trim(),
+      overriddenFields: Array.isArray(districtTemplate?.overriddenFields)
+        ? districtTemplate.overriddenFields.map((field) => String(field || "").trim()).filter(Boolean)
+        : [],
+      assumptionsProfile: String(districtTemplate?.assumptionsProfile || currentState?.ui?.assumptionsProfile || "").trim(),
+    },
+    form: {
+      raceType: String(districtTemplate?.raceType || "").trim(),
+      electionDate: String(districtForm?.electionDate || "").trim(),
+      weeksRemaining: String(districtForm?.weeksRemaining ?? "").trim(),
+      mode: String(districtForm?.mode || "").trim(),
+      universeSize: safeNum(districtForm?.universeSize),
+      universeBasis: String(districtForm?.universeBasis || "").trim(),
+      sourceNote: String(districtForm?.sourceNote || "").trim(),
+      turnoutA: safeNum(districtForm?.turnoutA),
+      turnoutB: safeNum(districtForm?.turnoutB),
+      bandWidth: safeNum(districtForm?.bandWidth),
+      universe16Enabled: !!districtUniverse?.enabled,
+      universe16DemPct: safeNum(districtUniverse?.demPct),
+      universe16RepPct: safeNum(districtUniverse?.repPct),
+      universe16NpaPct: safeNum(districtUniverse?.npaPct),
+      universe16OtherPct: safeNum(districtUniverse?.otherPct),
+      retentionFactor: safeNum(districtUniverse?.retentionFactor),
+    },
+    ballot: {
+      yourCandidateId: String(districtBallot?.yourCandidateId || "").trim(),
+      undecidedPct: safeNum(districtBallot?.undecidedPct),
+      undecidedMode: ballotUndecidedMode,
+      userSplitVisible: ballotUndecidedMode === "user_defined",
+      candidates: ballotCandidates.map((cand) => ({
+        id: String(cand?.id || "").trim(),
+        name: String(cand?.name ?? "").trim(),
+        supportPct: safeNum(cand?.supportPct),
+        canRemove: ballotCandidates.length > 2,
+      })).filter((cand) => cand.id),
+      userSplitRows: ballotCandidates.map((cand) => ({
+        id: String(cand?.id || "").trim(),
+        name: String(cand?.name ?? "").trim(),
+        value: safeNum(ballotUserSplitById?.[cand?.id]),
+      })).filter((cand) => cand.id),
+      candidateHistoryOptions: {
+        electionType: CANDIDATE_HISTORY_ELECTION_TYPE_OPTIONS.map((row) => ({
+          value: String(row?.value || "").trim(),
+          label: String(row?.label || row?.value || "").trim(),
+        })).filter((row) => row.value),
+        incumbencyStatus: CANDIDATE_HISTORY_INCUMBENCY_OPTIONS.map((row) => ({
+          value: String(row?.value || "").trim(),
+          label: String(row?.label || row?.value || "").trim(),
+        })).filter((row) => row.value),
+      },
+      candidateHistoryRecords: historyRecords.map((record) => ({
+        recordId: String(record?.recordId || "").trim(),
+        office: String(record?.office || "").trim(),
+        cycleYear: safeNum(record?.cycleYear),
+        electionType: String(record?.electionType || "").trim(),
+        candidateName: String(record?.candidateName || "").trim(),
+        party: String(record?.party || "").trim(),
+        incumbencyStatus: String(record?.incumbencyStatus || "").trim(),
+        voteShare: safeNum(record?.voteShare),
+        margin: safeNum(record?.margin),
+        turnoutContext: safeNum(record?.turnoutContext),
+        repeatCandidate: !!record?.repeatCandidate,
+        overUnderPerformancePct: safeNum(record?.overUnderPerformancePct),
+      })),
+    },
+    targeting: {
+      config: {
+        presetId: targetingPresetId,
+        geoLevel: String(targetingConfigCanonical?.geoLevel || targetingState?.geoLevel || "").trim(),
+        modelId: targetingModelId,
+        topN: safeNum(targetingConfigCanonical?.topN ?? targetingState?.topN),
+        minHousingUnits: safeNum(targetingConfigCanonical?.minHousingUnits ?? targetingState?.minHousingUnits),
+        minPopulation: safeNum(targetingConfigCanonical?.minPopulation ?? targetingState?.minPopulation),
+        minScore: safeNum(targetingConfigCanonical?.minScore ?? targetingState?.minScore),
+        onlyRaceFootprint: !!(targetingConfigCanonical?.onlyRaceFootprint ?? targetingState?.onlyRaceFootprint),
+        prioritizeYoung: !!targetingCriteria?.prioritizeYoung,
+        prioritizeRenters: !!targetingCriteria?.prioritizeRenters,
+        avoidHighMultiUnit: !!targetingCriteria?.avoidHighMultiUnit,
+        densityFloor: String(targetingCriteria?.densityFloor || "none").trim() || "none",
+        weightVotePotential: safeNum(targetingWeights?.votePotential),
+        weightTurnoutOpportunity: safeNum(targetingWeights?.turnoutOpportunity),
+        weightPersuasionIndex: safeNum(targetingWeights?.persuasionIndex),
+        weightFieldEfficiency: safeNum(targetingWeights?.fieldEfficiency),
+        controlsLocked: !!(targetingConfigCanonical?.controlsLocked ?? targetingState?.controlsLocked),
+        canRun: censusLoadedRowCount > 0,
+        canExport: targetingRowsRaw.length > 0,
+        canResetWeights: houseModelActive,
+      },
+    },
+    census: {
+      config: {
+        apiKey: String(censusCanonicalConfig?.apiKey || censusState?.bridgeApiKey || "").trim(),
+        year: String(censusCanonicalConfig?.year || censusState?.year || "").trim(),
+        resolution: String(censusCanonicalConfig?.resolution || censusState?.resolution || "").trim(),
+        stateFips: String(censusCanonicalConfig?.stateFips || censusState?.stateFips || "").trim(),
+        countyFips: String(censusCanonicalConfig?.countyFips || censusState?.countyFips || "").trim(),
+        placeFips: String(censusCanonicalConfig?.placeFips || censusState?.placeFips || "").trim(),
+        metricSet: String(censusCanonicalConfig?.metricSet || censusState?.metricSet || "").trim(),
+        geoSearch: String(censusCanonicalConfig?.geoSearch || censusState?.geoSearch || "").trim(),
+        geoPaste: String(censusCanonicalConfig?.geoPaste || censusState?.bridgeGeoPaste || "").trim(),
+        tractFilter: String(censusCanonicalConfig?.tractFilter || censusState?.tractFilter || "").trim(),
+        selectionSetDraftName: String(censusCanonicalConfig?.selectionSetDraftName || censusState?.selectionSetDraftName || "").trim(),
+        selectedSelectionSetKey: String(censusCanonicalConfig?.selectedSelectionSetKey || censusState?.selectedSelectionSetKey || "").trim(),
+        electionCsvPrecinctFilter: String(censusState?.bridgeElectionCsvPrecinctFilter || "").trim(),
+        applyAdjustedAssumptions: !!(censusCanonicalConfig?.applyAdjustedAssumptions ?? censusState?.applyAdjustedAssumptions),
+        mapQaVtdOverlay: !!(censusCanonicalConfig?.mapQaVtdOverlay ?? censusState?.mapQaVtdOverlay),
+        controlsLocked,
+        disabledMap: censusDisabledMap,
+        stateOptions: censusConfigOptions.stateOptions,
+        countyOptions: censusConfigOptions.countyOptions,
+        placeOptions: censusConfigOptions.placeOptions,
+        tractFilterOptions: censusConfigOptions.tractFilterOptions,
+        selectionSetOptions: censusConfigOptions.selectionSetOptions,
+        geoSelectOptions: censusConfigOptions.geoSelectOptions,
+      },
+    },
+    electionData: {
+      fileName: String(districtElectionDataMeta?.fileName || electionDataImport?.fileName || "").trim(),
+      importedAt: String(districtElectionDataMeta?.importedAt || electionDataImport?.importedAt || "").trim(),
+      importStatus: String(electionDataImport?.status || "").trim(),
+      normalizedRowCount: canonicalElectionRows > 0 ? canonicalElectionRows : censusPreviewRows,
+      qualityScore: safeNum(districtElectionDataMeta?.qualityScore ?? electionDataQuality?.score),
+      confidenceBand: String(districtElectionDataMeta?.confidenceBand || electionDataQuality?.confidenceBand || "").trim() || "unknown",
+      benchmarkSuggestionCount: Array.isArray(electionDataBenchmarks?.benchmarkSuggestions)
+        ? electionDataBenchmarks.benchmarkSuggestions.length
+        : 0,
+      downstreamReady: !!electionDataBenchmarks?.downstreamRecommendations,
+    },
+  };
+}
+
+function districtBridgeDerivedView(){
+  const currentState = state || {};
+  const planningSnapshot = computeElectionSnapshot({
+    state: currentState,
+    nowDate: new Date(),
+    toNum: safeNum,
+  });
+  const res = planningSnapshot?.res && typeof planningSnapshot.res === "object"
+    ? planningSnapshot.res
+    : null;
+  const censusState = currentState?.census && typeof currentState.census === "object"
+    ? currentState.census
+    : {};
   const universeSize = safeNum(currentState?.universeSize);
   const supportTotalFromState = districtBridgeSupportTotalFromState(currentState);
   const turnoutFallback = districtBridgeFallbackTurnout(currentState);
-  const targetingState = (currentState?.targeting && typeof currentState.targeting === "object")
-    ? currentState.targeting
-    : {};
-
+  const targetingState = normalizeTargetingState(currentState?.targeting);
   const supportTotalPct = safeNum(res?.validation?.supportTotalPct);
   const turnoutExpectedPct = safeNum(res?.turnout?.expectedPct);
   const turnoutBestPct = safeNum(res?.turnout?.bestPct);
@@ -2656,24 +4321,39 @@ function districtBridgeStateView(){
   const votesPer1pct = safeNum(res?.turnout?.votesPer1pct);
   const projectedVotes = safeNum(res?.expected?.yourVotes);
   const persuasionNeed = safeNum(res?.expected?.persuasionNeed);
-
-  const summary = {
-    universeText: universeSize == null ? "—" : districtBridgeFmtInt(universeSize),
-    baselineSupportText: supportTotalPct == null
-      ? (supportTotalFromState == null ? "—" : districtBridgeFmtPct(supportTotalFromState, 1))
-      : districtBridgeFmtPct(supportTotalPct, 1),
-    turnoutExpectedText: turnoutExpectedPct == null
-      ? turnoutFallback.expectedText
-      : districtBridgeFmtPct(turnoutExpectedPct, 1),
-    turnoutBandText: (turnoutBestPct == null || turnoutWorstPct == null)
-      ? turnoutFallback.bandText
-      : `${turnoutBestPct.toFixed(1)}% / ${turnoutWorstPct.toFixed(1)}%`,
-    votesPer1pctText: votesPer1pct == null
-      ? turnoutFallback.votesPer1pctText
-      : districtBridgeFmtInt(votesPer1pct),
-    projectedVotesText: projectedVotes == null ? "—" : districtBridgeFmtInt(projectedVotes),
-    persuasionNeedText: persuasionNeed == null ? "—" : districtBridgeFmtInt(persuasionNeed),
-  };
+  const ballotUndecidedMode = String(currentState?.undecidedMode || "proportional").trim() || "proportional";
+  const historyRecords = normalizeCandidateHistoryRecords(currentState?.candidateHistory);
+  const historyValidation = res?.validation?.candidateHistory && typeof res.validation.candidateHistory === "object"
+    ? res.validation.candidateHistory
+    : {};
+  const historyImpact = res?.expected?.candidateHistoryImpact && typeof res.expected.candidateHistoryImpact === "object"
+    ? res.expected.candidateHistoryImpact
+    : {};
+  const historyRecordCount = Number(historyValidation.recordCount ?? historyImpact.recordCount ?? historyRecords.length ?? 0);
+  const historyMatched = Number(historyValidation.matchedRecordCount ?? historyImpact.matchedRecordCount ?? 0);
+  const historyCoverageBand = String(historyValidation.coverageBand || historyImpact.coverageBand || "none");
+  const historyConfidenceBand = String(historyValidation.confidenceBand || historyImpact.confidenceBand || "missing");
+  const historyVoteDelta = Number(historyImpact.yourVotesDelta || 0);
+  const electionDataState = currentState?.electionData && typeof currentState.electionData === "object"
+    ? currentState.electionData
+    : {};
+  const electionImport = electionDataState?.import && typeof electionDataState.import === "object"
+    ? electionDataState.import
+    : {};
+  const electionQuality = electionDataState?.quality && typeof electionDataState.quality === "object"
+    ? electionDataState.quality
+    : {};
+  const electionBenchmarks = electionDataState?.benchmarks && typeof electionDataState.benchmarks === "object"
+    ? electionDataState.benchmarks
+    : {};
+  const electionRowCount = Array.isArray(electionDataState?.normalizedRows)
+    ? electionDataState.normalizedRows.length
+    : districtBridgeNormalizeRows(censusState?.bridgeElectionPreviewRows, 4).length;
+  const electionQualityScore = safeNum(electionQuality?.score);
+  const electionConfidenceBand = String(electionQuality?.confidenceBand || "").trim() || "unknown";
+  const electionBenchmarkCount = Array.isArray(electionBenchmarks?.benchmarkSuggestions)
+    ? electionBenchmarks.benchmarkSuggestions.length
+    : 0;
 
   const targetingRowsRaw = Array.isArray(targetingState?.lastRows) ? targetingState.lastRows : [];
   const targetingRows = targetingRowsRaw.map((row, idx) => {
@@ -2684,10 +4364,12 @@ function districtBridgeStateView(){
     const flags = String(row?.flagText || (Array.isArray(row?.flags) ? row.flags.join("; ") : "") || "").trim();
     const geoLabel = String(row?.label || row?.geoid || "").trim();
     return {
-      rankText: rankValue == null ? String(idx + 1) : String(Math.max(1, Math.floor(rankValue))),
+      rankText: rankValue == null
+        ? String(idx + 1)
+        : String(Math.max(1, roundWholeNumberByMode(rankValue, { mode: "floor", fallback: 1 }) || 1)),
       geoText: geoLabel || "—",
-      scoreText: scoreValue == null ? "—" : scoreValue.toFixed(3),
-      votesPerHourText: vphValue == null ? "—" : vphValue.toFixed(2),
+      scoreText: scoreValue == null ? "—" : formatFixedNumber(scoreValue, 3, "—"),
+      votesPerHourText: vphValue == null ? "—" : formatFixedNumber(vphValue, 2, "—"),
       reasonText: reason || "—",
       flagsText: flags || "—",
     };
@@ -2695,30 +4377,6 @@ function districtBridgeStateView(){
   const targetingMeta = (targetingState?.lastMeta && typeof targetingState.lastMeta === "object")
     ? targetingState.lastMeta
     : {};
-  const targetingWeights = (targetingState?.weights && typeof targetingState.weights === "object")
-    ? targetingState.weights
-    : {};
-  const targetingCriteria = (targetingState?.criteria && typeof targetingState.criteria === "object")
-    ? targetingState.criteria
-    : {};
-  const targetingDefaults = {
-    presetId: "turnout_opportunity",
-    geoLevel: "block_group",
-    modelId: "turnout_opportunity",
-    topN: 50,
-    minHousingUnits: 50,
-    minPopulation: 120,
-    minScore: 0.35,
-    onlyRaceFootprint: true,
-    prioritizeYoung: true,
-    prioritizeRenters: true,
-    avoidHighMultiUnit: false,
-    densityFloor: "medium",
-    weightVotePotential: 0.30,
-    weightTurnoutOpportunity: 0.50,
-    weightPersuasionIndex: 0.10,
-    weightFieldEfficiency: 0.10,
-  };
   const targetingPreset = String(targetingMeta?.presetLabel || targetingMeta?.presetId || targetingState?.presetId || "").trim();
   const targetingModel = String(targetingMeta?.modelLabel || targetingMeta?.modelId || targetingState?.modelId || "").trim();
   const targetingGeoLevel = String(targetingMeta?.geoLevel || targetingState?.geoLevel || "").trim();
@@ -2728,80 +4386,1294 @@ function districtBridgeStateView(){
   if (targetingPreset) targetingMetaBits.push(targetingPreset);
   if (targetingModel && targetingModel !== targetingPreset) targetingMetaBits.push(`Base ${targetingModel}`);
   if (targetingGeoLevel) targetingMetaBits.push(targetingGeoLevel);
-  if (targetingTopN != null) targetingMetaBits.push(`Top ${Math.max(1, Math.floor(targetingTopN))}`);
+  if (targetingTopN != null){
+    targetingMetaBits.push(`Top ${Math.max(1, roundWholeNumberByMode(targetingTopN, { mode: "floor", fallback: 1 }) || 1)}`);
+  }
   if (targetingRanAt) targetingMetaBits.push(`Ran ${targetingRanAt}`);
-  const targetingStatusText = targetingRows.length
-    ? `Ranked ${districtBridgeFmtInt(targetingRows.length)} GEO rows.`
-    : "Run targeting to generate ranked GEOs.";
-  const targetingMetaText = targetingMetaBits.join(" · ") || "No targeting run yet.";
-  const targetingTopNConfig = safeNum(targetingState?.topN) ?? safeNum(targetingMeta?.topN) ?? targetingDefaults.topN;
-  const targetingMinHousingUnitsConfig = safeNum(targetingState?.minHousingUnits) ?? targetingDefaults.minHousingUnits;
-  const targetingMinPopulationConfig = safeNum(targetingState?.minPopulation) ?? targetingDefaults.minPopulation;
-  const targetingMinScoreConfig = safeNum(targetingState?.minScore) ?? targetingDefaults.minScore;
-  const targetingWeightVotePotential = safeNum(targetingWeights?.votePotential) ?? targetingDefaults.weightVotePotential;
-  const targetingWeightTurnoutOpportunity = safeNum(targetingWeights?.turnoutOpportunity) ?? targetingDefaults.weightTurnoutOpportunity;
-  const targetingWeightPersuasionIndex = safeNum(targetingWeights?.persuasionIndex) ?? targetingDefaults.weightPersuasionIndex;
-  const targetingWeightFieldEfficiency = safeNum(targetingWeights?.fieldEfficiency) ?? targetingDefaults.weightFieldEfficiency;
-  const targetingConfig = {
-    presetId: String(targetingState?.presetId || targetingMeta?.presetId || targetingDefaults.presetId).trim() || targetingDefaults.presetId,
-    geoLevel: String(targetingState?.geoLevel || targetingMeta?.geoLevel || targetingDefaults.geoLevel).trim() || targetingDefaults.geoLevel,
-    modelId: String(targetingState?.modelId || targetingMeta?.modelId || targetingDefaults.modelId).trim() || targetingDefaults.modelId,
-    topN: targetingTopNConfig,
-    minHousingUnits: targetingMinHousingUnitsConfig,
-    minPopulation: targetingMinPopulationConfig,
-    minScore: targetingMinScoreConfig,
-    onlyRaceFootprint: targetingState?.onlyRaceFootprint == null ? targetingDefaults.onlyRaceFootprint : !!targetingState.onlyRaceFootprint,
-    prioritizeYoung: targetingCriteria?.prioritizeYoung == null ? targetingDefaults.prioritizeYoung : !!targetingCriteria.prioritizeYoung,
-    prioritizeRenters: targetingCriteria?.prioritizeRenters == null ? targetingDefaults.prioritizeRenters : !!targetingCriteria.prioritizeRenters,
-    avoidHighMultiUnit: targetingCriteria?.avoidHighMultiUnit == null ? targetingDefaults.avoidHighMultiUnit : !!targetingCriteria.avoidHighMultiUnit,
-    densityFloor: String(targetingCriteria?.densityFloor || targetingDefaults.densityFloor).trim() || targetingDefaults.densityFloor,
-    weightVotePotential: targetingWeightVotePotential,
-    weightTurnoutOpportunity: targetingWeightTurnoutOpportunity,
-    weightPersuasionIndex: targetingWeightPersuasionIndex,
-    weightFieldEfficiency: targetingWeightFieldEfficiency,
-    controlsLocked: isScenarioLockedForEdits(currentState),
-  };
-  const census = {
-    contextHint: districtBridgeReadLegacyText("censusContextHint", "State-only context active for this resolution."),
-    selectionSetStatus: districtBridgeReadLegacyText("censusSelectionSetStatus", "No saved selection sets."),
-    statusText: districtBridgeReadLegacyText("censusStatus", "Ready."),
-    geoStatsText: districtBridgeReadLegacyText("censusGeoStats", "0 selected of 0 GEOs. 0 rows loaded."),
-    lastFetchText: districtBridgeReadLegacyText("censusLastFetch", "No fetch yet."),
-    selectionSummaryText: districtBridgeReadLegacyText("censusSelectionSummary", "No GEO selected."),
-    raceFootprintStatusText: districtBridgeReadLegacyText("censusRaceFootprintStatus", "Race footprint not set."),
-    assumptionProvenanceStatusText: districtBridgeReadLegacyText("censusAssumptionProvenanceStatus", "Assumption provenance not set."),
-    footprintCapacityStatusText: districtBridgeReadLegacyText("censusFootprintCapacityStatus", "Footprint capacity: not set."),
-    applyAdjustmentsStatusText: districtBridgeReadLegacyText("censusApplyAdjustmentsStatus", "Census-adjusted assumptions are OFF."),
-    advisoryStatusText: districtBridgeReadLegacyText("censusAdvisoryStatus", "Assumption advisory pending."),
-    electionCsvGuideStatusText: districtBridgeReadLegacyText("censusElectionCsvGuideStatus", "Election CSV schema guide loading."),
-    electionCsvDryRunStatusText: districtBridgeReadLegacyText("censusElectionCsvDryRunStatus", "No dry-run run yet."),
-    electionCsvPreviewMetaText: districtBridgeReadLegacyText("censusElectionCsvPreviewMeta", "No normalized preview rows."),
-    mapStatusText: districtBridgeReadLegacyText("censusMapStatus", "Map idle. Select GEO units and click Load boundaries."),
-    mapQaVtdZipStatusText: districtBridgeReadLegacyText("censusMapQaVtdZipStatus", "No VTD ZIP loaded."),
-    aggregateRows: districtBridgeReadLegacyTableRows("#censusAggregateTbody", 2),
-    advisoryRows: districtBridgeReadLegacyTableRows("#censusAdvisoryTbody", 2),
-    electionPreviewRows: districtBridgeReadLegacyTableRows("#censusElectionCsvPreviewTbody", 4),
-  };
 
   return {
-    summary,
-    targeting: {
-      statusText: targetingStatusText,
-      metaText: targetingMetaText,
-      rows: targetingRows,
-      config: targetingConfig,
+    summary: {
+      universeText: universeSize == null ? "—" : districtBridgeFmtInt(universeSize),
+      baselineSupportText: supportTotalPct == null
+        ? (supportTotalFromState == null ? "—" : districtBridgeFmtPct(supportTotalFromState, 1))
+        : districtBridgeFmtPct(supportTotalPct, 1),
+      turnoutExpectedText: turnoutExpectedPct == null
+        ? turnoutFallback.expectedText
+        : districtBridgeFmtPct(turnoutExpectedPct, 1),
+      turnoutBandText: (turnoutBestPct == null || turnoutWorstPct == null)
+        ? turnoutFallback.bandText
+        : `${formatPercentFromPct(turnoutBestPct, 1, "0.0%")} / ${formatPercentFromPct(turnoutWorstPct, 1, "0.0%")}`,
+      votesPer1pctText: votesPer1pct == null
+        ? turnoutFallback.votesPer1pctText
+        : districtBridgeFmtInt(votesPer1pct),
+      projectedVotesText: projectedVotes == null ? "—" : districtBridgeFmtInt(projectedVotes),
+      persuasionNeedText: persuasionNeed == null ? "—" : districtBridgeFmtInt(persuasionNeed),
     },
-    census,
-    controls: {
-      locked: isScenarioLockedForEdits(currentState),
+    template: {
+      candidateHistoryCoverageBand: String(historyCoverageBand || "none").trim(),
+      candidateHistoryConfidenceBand: String(historyConfidenceBand || "missing").trim(),
+      candidateHistoryRecordCount: historyRecordCount,
+    },
+    ballot: {
+      supportTotalText: supportTotalPct == null
+        ? (supportTotalFromState == null ? "—" : districtBridgeFmtPct(supportTotalFromState, 1))
+        : districtBridgeFmtPct(supportTotalPct, 1),
+      warningText: !res?.validation?.candidateTableOk
+        ? String(res?.validation?.candidateTableMsg || "").trim()
+        : (ballotUndecidedMode === "user_defined" && !res?.validation?.userSplitOk
+          ? String(res?.validation?.userSplitMsg || "").trim()
+          : ""),
+      candidateHistorySummaryText: historyRecordCount <= 0
+        ? "No candidate history rows. Add candidate-cycle records to anchor ballot baseline realism."
+        : `History rows: ${districtBridgeFmtInt(historyRecordCount)} · matched: ${districtBridgeFmtInt(historyMatched)} · coverage: ${historyCoverageBand} · confidence: ${historyConfidenceBand}${historyVoteDelta ? ` · vote delta ${historyVoteDelta > 0 ? "+" : ""}${districtBridgeFmtInt(historyVoteDelta)}` : ""}`,
+      candidateHistoryWarningText: historyRecordCount > 0 && historyConfidenceBand === "low"
+        ? "Candidate history is incomplete; baseline confidence is downgraded until required fields are filled."
+        : "",
+    },
+    targeting: {
+      statusText: targetingRows.length
+        ? `Ranked ${districtBridgeFmtInt(targetingRows.length)} GEO rows.`
+        : "Run targeting to generate ranked GEOs.",
+      metaText: targetingMetaBits.join(" · ") || "No targeting run yet.",
+      rows: targetingRows,
+    },
+    census: {
+      contextHint: districtBridgeBuildContextHint(censusState) || "State-only context active for this resolution.",
+      selectionSetStatus: districtBridgeBuildSelectionSetStatus(censusState) || "No saved selection sets.",
+      statusText: String(censusState?.status || "").trim() || "Ready.",
+      geoStatsText: districtBridgeBuildGeoStatsText(censusState) || "0 selected of 0 GEOs. 0 rows loaded.",
+      lastFetchText: districtBridgeFmtTimestamp(censusState?.lastFetchAt),
+      selectionSummaryText: districtBridgeBuildSelectionSummary(censusState) || "No GEO selected.",
+      raceFootprintStatusText: districtBridgeBuildRaceFootprintStatus(currentState) || "Race footprint not set.",
+      assumptionProvenanceStatusText: districtBridgeBuildAssumptionProvenanceStatus(currentState) || "Assumption provenance not set.",
+      footprintCapacityStatusText: districtBridgeBuildFootprintCapacityStatus(currentState) || "Footprint capacity: not set.",
+      applyAdjustmentsStatusText: districtBridgeBuildApplyAdjustmentsStatus(censusState) || "Census-adjusted assumptions are OFF.",
+      advisoryStatusText: String(censusState?.bridgeAdvisoryStatusText || "").trim() || "Assumption advisory pending.",
+      electionCsvGuideStatusText: String(censusState?.bridgeElectionCsvGuideStatusText || "").trim() || "Election CSV schema guide loading.",
+      electionCsvDryRunStatusText: String(censusState?.bridgeElectionCsvDryRunStatusText || "").trim() || "No dry-run run yet.",
+      electionCsvPreviewMetaText: String(censusState?.bridgeElectionCsvPreviewMetaText || "").trim() || "No normalized preview rows.",
+      mapStatusText: String(censusState?.bridgeMapStatusText || "").trim() || "Map idle. Select GEO units and click Load boundaries.",
+      mapQaVtdZipStatusText: String(censusState?.bridgeMapQaVtdZipStatusText || "").trim() || "No VTD ZIP loaded.",
+      aggregateRows: districtBridgeNormalizeRows(censusState?.bridgeAggregateRows, 2),
+      advisoryRows: districtBridgeNormalizeRows(censusState?.bridgeAdvisoryRows, 2),
+      electionPreviewRows: districtBridgeNormalizeRows(censusState?.bridgeElectionPreviewRows, 4),
+    },
+    electionData: {
+      statusText: electionRowCount > 0
+        ? `Normalized ${districtBridgeFmtInt(electionRowCount)} election rows.`
+        : "No election data normalized yet.",
+      qualityText: electionQualityScore == null
+        ? "Quality score unavailable."
+        : `Quality ${formatFixedNumber(electionQualityScore, 2, "0.00")} (${electionConfidenceBand}).`,
+      benchmarkText: electionBenchmarkCount > 0
+        ? `${districtBridgeFmtInt(electionBenchmarkCount)} benchmark suggestion(s) ready.`
+        : "No benchmark suggestions yet.",
+      importedAtText: String(electionImport?.importedAt || "").trim() || "Not imported",
     },
   };
 }
 
+function districtBridgeCombinedView(){
+  const canonical = districtBridgeCanonicalView();
+  const derived = districtBridgeDerivedView();
+  return {
+    summary: derived?.summary && typeof derived.summary === "object" ? derived.summary : {},
+    template: {
+      raceType: String(canonical?.template?.raceType || "").trim(),
+      officeLevel: String(canonical?.template?.officeLevel || "").trim(),
+      electionType: String(canonical?.template?.electionType || "").trim(),
+      seatContext: String(canonical?.template?.seatContext || "").trim(),
+      partisanshipMode: String(canonical?.template?.partisanshipMode || "").trim(),
+      salienceLevel: String(canonical?.template?.salienceLevel || "").trim(),
+      appliedTemplateId: String(canonical?.template?.appliedTemplateId || "").trim(),
+      appliedVersion: String(canonical?.template?.appliedVersion || "").trim(),
+      benchmarkKey: String(canonical?.template?.benchmarkKey || "").trim(),
+      overriddenFields: Array.isArray(canonical?.template?.overriddenFields) ? canonical.template.overriddenFields.slice() : [],
+      assumptionsProfile: String(canonical?.template?.assumptionsProfile || "").trim(),
+      candidateHistoryCoverageBand: String(derived?.template?.candidateHistoryCoverageBand || "").trim(),
+      candidateHistoryConfidenceBand: String(derived?.template?.candidateHistoryConfidenceBand || "").trim(),
+      candidateHistoryRecordCount: Number.isFinite(Number(derived?.template?.candidateHistoryRecordCount))
+        ? Number(derived.template.candidateHistoryRecordCount)
+        : 0,
+    },
+    form: canonical?.form && typeof canonical.form === "object" ? canonical.form : {},
+    ballot: {
+      yourCandidateId: String(canonical?.ballot?.yourCandidateId || "").trim(),
+      undecidedPct: safeNum(canonical?.ballot?.undecidedPct),
+      undecidedMode: String(canonical?.ballot?.undecidedMode || "").trim(),
+      supportTotalText: String(derived?.ballot?.supportTotalText || "").trim(),
+      warningText: String(derived?.ballot?.warningText || "").trim(),
+      candidates: Array.isArray(canonical?.ballot?.candidates) ? canonical.ballot.candidates : [],
+      userSplitVisible: !!canonical?.ballot?.userSplitVisible,
+      userSplitRows: Array.isArray(canonical?.ballot?.userSplitRows) ? canonical.ballot.userSplitRows : [],
+      candidateHistorySummaryText: String(derived?.ballot?.candidateHistorySummaryText || "").trim(),
+      candidateHistoryWarningText: String(derived?.ballot?.candidateHistoryWarningText || "").trim(),
+      candidateHistoryOptions: canonical?.ballot?.candidateHistoryOptions && typeof canonical.ballot.candidateHistoryOptions === "object"
+        ? canonical.ballot.candidateHistoryOptions
+        : {},
+      candidateHistoryRecords: Array.isArray(canonical?.ballot?.candidateHistoryRecords)
+        ? canonical.ballot.candidateHistoryRecords
+        : [],
+    },
+    targeting: {
+      statusText: String(derived?.targeting?.statusText || "").trim(),
+      metaText: String(derived?.targeting?.metaText || "").trim(),
+      rows: Array.isArray(derived?.targeting?.rows) ? derived.targeting.rows : [],
+      config: canonical?.targeting?.config && typeof canonical.targeting.config === "object"
+        ? canonical.targeting.config
+        : {},
+    },
+    census: {
+      contextHint: String(derived?.census?.contextHint || "").trim(),
+      selectionSetStatus: String(derived?.census?.selectionSetStatus || "").trim(),
+      statusText: String(derived?.census?.statusText || "").trim(),
+      geoStatsText: String(derived?.census?.geoStatsText || "").trim(),
+      lastFetchText: String(derived?.census?.lastFetchText || "").trim(),
+      selectionSummaryText: String(derived?.census?.selectionSummaryText || "").trim(),
+      raceFootprintStatusText: String(derived?.census?.raceFootprintStatusText || "").trim(),
+      assumptionProvenanceStatusText: String(derived?.census?.assumptionProvenanceStatusText || "").trim(),
+      footprintCapacityStatusText: String(derived?.census?.footprintCapacityStatusText || "").trim(),
+      applyAdjustmentsStatusText: String(derived?.census?.applyAdjustmentsStatusText || "").trim(),
+      advisoryStatusText: String(derived?.census?.advisoryStatusText || "").trim(),
+      electionCsvGuideStatusText: String(derived?.census?.electionCsvGuideStatusText || "").trim(),
+      electionCsvDryRunStatusText: String(derived?.census?.electionCsvDryRunStatusText || "").trim(),
+      electionCsvPreviewMetaText: String(derived?.census?.electionCsvPreviewMetaText || "").trim(),
+      mapStatusText: String(derived?.census?.mapStatusText || "").trim(),
+      mapQaVtdZipStatusText: String(derived?.census?.mapQaVtdZipStatusText || "").trim(),
+      aggregateRows: Array.isArray(derived?.census?.aggregateRows) ? derived.census.aggregateRows : [],
+      advisoryRows: Array.isArray(derived?.census?.advisoryRows) ? derived.census.advisoryRows : [],
+      electionPreviewRows: Array.isArray(derived?.census?.electionPreviewRows) ? derived.census.electionPreviewRows : [],
+      config: canonical?.census?.config && typeof canonical.census.config === "object"
+        ? canonical.census.config
+        : {},
+    },
+    electionData: {
+      fileName: String(canonical?.electionData?.fileName || "").trim(),
+      importedAt: String(canonical?.electionData?.importedAt || "").trim(),
+      importStatus: String(canonical?.electionData?.importStatus || "").trim(),
+      normalizedRowCount: Number.isFinite(Number(canonical?.electionData?.normalizedRowCount))
+        ? Number(canonical.electionData.normalizedRowCount)
+        : 0,
+      qualityScore: safeNum(canonical?.electionData?.qualityScore),
+      confidenceBand: String(canonical?.electionData?.confidenceBand || "").trim(),
+      benchmarkSuggestionCount: Number.isFinite(Number(canonical?.electionData?.benchmarkSuggestionCount))
+        ? Number(canonical.electionData.benchmarkSuggestionCount)
+        : 0,
+      downstreamReady: !!canonical?.electionData?.downstreamReady,
+      statusText: String(derived?.electionData?.statusText || "").trim(),
+      qualityText: String(derived?.electionData?.qualityText || "").trim(),
+      benchmarkText: String(derived?.electionData?.benchmarkText || "").trim(),
+      importedAtText: String(derived?.electionData?.importedAtText || "").trim(),
+    },
+    controls: canonical?.controls && typeof canonical.controls === "object"
+      ? canonical.controls
+      : { locked: false, disabledMap: {} },
+    canonical,
+    derived,
+  };
+}
+
+function districtBridgeBuildDistrictDisabledMap(currentState){
+  const controlsLocked = isScenarioLockedForEdits(currentState);
+  return {
+    v3DistrictYourCandidate: controlsLocked,
+    v3DistrictUndecidedPct: controlsLocked,
+    v3DistrictUndecidedMode: controlsLocked,
+    v3BtnAddCandidate: controlsLocked,
+    v3BtnAddCandidateHistory: controlsLocked,
+    v3DistrictRaceType: controlsLocked,
+    v3DistrictOfficeLevel: controlsLocked,
+    v3DistrictElectionType: controlsLocked,
+    v3DistrictSeatContext: controlsLocked,
+    v3DistrictPartisanshipMode: controlsLocked,
+    v3DistrictSalienceLevel: controlsLocked,
+    v3BtnDistrictApplyTemplateDefaults: controlsLocked,
+    v3DistrictElectionDate: controlsLocked,
+    v3DistrictWeeksRemaining: controlsLocked,
+    v3DistrictMode: controlsLocked,
+    v3DistrictUniverseSize: controlsLocked,
+    v3DistrictUniverseBasis: controlsLocked,
+    v3DistrictSourceNote: controlsLocked,
+    v3DistrictElectorateWeightingToggle: controlsLocked,
+    v3DistrictTurnoutA: controlsLocked,
+    v3DistrictTurnoutB: controlsLocked,
+    v3DistrictBandWidth: controlsLocked,
+    v3DistrictDemPct: controlsLocked,
+    v3DistrictRepPct: controlsLocked,
+    v3DistrictNpaPct: controlsLocked,
+    v3DistrictOtherPct: controlsLocked,
+    v3DistrictRetentionFactor: controlsLocked,
+  };
+}
+
+function districtBridgeGetCensusRuntimeApi(){
+  try {
+    const api = window.__FPE_CENSUS_RUNTIME_API__;
+    return (api && typeof api === "object") ? api : null;
+  } catch {
+    return null;
+  }
+}
+
+function districtBridgeCallCensusRuntime(method, ...args){
+  const api = districtBridgeGetCensusRuntimeApi();
+  if (!api || typeof api[method] !== "function"){
+    return null;
+  }
+  try {
+    return api[method](...args);
+  } catch {
+    return null;
+  }
+}
+
+function districtBridgePatchCensusBridgeField(field, rawValue){
+  const key = cleanText(field);
+  if (!key) return false;
+  const resetGeoData = (census) => {
+    census.geoSearch = "";
+    census.tractFilter = "";
+    census.geoOptions = [];
+    census.selectedGeoids = [];
+    census.rowsByGeoid = {};
+    census.activeRowsKey = "";
+    census.loadedRowCount = 0;
+    census.loadingGeo = false;
+    census.loadingRows = false;
+    census.lastFetchAt = "";
+  };
+  const resetRowsOnly = (census) => {
+    census.rowsByGeoid = {};
+    census.activeRowsKey = "";
+    census.loadedRowCount = 0;
+    census.loadingRows = false;
+    census.lastFetchAt = "";
+  };
+  let applied = false;
+  mutateState((next) => {
+    next.census = normalizeCensusState(next.census);
+    const census = {
+      ...next.census,
+      geoOptions: Array.isArray(next.census?.geoOptions) ? next.census.geoOptions.slice() : [],
+      selectedGeoids: Array.isArray(next.census?.selectedGeoids) ? next.census.selectedGeoids.slice() : [],
+      rowsByGeoid: next.census?.rowsByGeoid && typeof next.census.rowsByGeoid === "object"
+        ? { ...next.census.rowsByGeoid }
+        : {},
+      selectionSets: Array.isArray(next.census?.selectionSets) ? next.census.selectionSets.slice() : [],
+      bridgeStateOptions: Array.isArray(next.census?.bridgeStateOptions) ? next.census.bridgeStateOptions.slice() : [],
+      bridgeCountyOptions: Array.isArray(next.census?.bridgeCountyOptions) ? next.census.bridgeCountyOptions.slice() : [],
+      bridgePlaceOptions: Array.isArray(next.census?.bridgePlaceOptions) ? next.census.bridgePlaceOptions.slice() : [],
+      bridgeTractFilterOptions: Array.isArray(next.census?.bridgeTractFilterOptions) ? next.census.bridgeTractFilterOptions.slice() : [],
+      bridgeSelectionSetOptions: Array.isArray(next.census?.bridgeSelectionSetOptions) ? next.census.bridgeSelectionSetOptions.slice() : [],
+      bridgeGeoSelectOptions: Array.isArray(next.census?.bridgeGeoSelectOptions) ? next.census.bridgeGeoSelectOptions.slice() : [],
+      bridgeAggregateRows: Array.isArray(next.census?.bridgeAggregateRows) ? next.census.bridgeAggregateRows.slice() : [],
+      bridgeAdvisoryRows: Array.isArray(next.census?.bridgeAdvisoryRows) ? next.census.bridgeAdvisoryRows.slice() : [],
+      bridgeElectionPreviewRows: Array.isArray(next.census?.bridgeElectionPreviewRows) ? next.census.bridgeElectionPreviewRows.slice() : [],
+    };
+    if (key === "apiKey"){
+      census.bridgeApiKey = cleanText(rawValue);
+      applied = true;
+    } else if (key === "geoPaste"){
+      census.bridgeGeoPaste = String(rawValue == null ? "" : rawValue);
+      applied = true;
+    } else if (key === "electionCsvPrecinctFilter"){
+      census.bridgeElectionCsvPrecinctFilter = String(rawValue == null ? "" : rawValue);
+      applied = true;
+    } else if (key === "year"){
+      census.year = cleanText(rawValue);
+      resetRowsOnly(census);
+      applied = true;
+    } else if (key === "resolution"){
+      const resolution = cleanText(rawValue) || census.resolution;
+      census.resolution = resolution;
+      if (!resolutionNeedsCounty(resolution)){
+        census.countyFips = "";
+      }
+      if (resolution !== "block_group"){
+        census.tractFilter = "";
+      }
+      resetGeoData(census);
+      applied = true;
+    } else if (key === "stateFips"){
+      census.stateFips = cleanText(rawValue);
+      census.countyFips = "";
+      census.placeFips = "";
+      resetGeoData(census);
+      applied = true;
+    } else if (key === "countyFips"){
+      census.countyFips = cleanText(rawValue);
+      resetGeoData(census);
+      applied = true;
+    } else if (key === "placeFips"){
+      census.placeFips = cleanText(rawValue);
+      if (cleanText(census.resolution) === "place"){
+        resetGeoData(census);
+      }
+      applied = true;
+    } else if (key === "metricSet"){
+      census.metricSet = cleanText(rawValue) || census.metricSet;
+      resetRowsOnly(census);
+      applied = true;
+    } else if (key === "geoSearch"){
+      census.geoSearch = cleanText(rawValue);
+      applied = true;
+    } else if (key === "tractFilter"){
+      census.tractFilter = cleanText(rawValue);
+      applied = true;
+    } else if (key === "selectionSetDraftName"){
+      census.selectionSetDraftName = cleanText(rawValue);
+      applied = true;
+    } else if (key === "selectedSelectionSetKey"){
+      census.selectedSelectionSetKey = cleanText(rawValue);
+      applied = true;
+    } else if (key === "applyAdjustedAssumptions"){
+      census.applyAdjustedAssumptions = !!rawValue;
+      applied = true;
+    } else if (key === "mapQaVtdOverlay"){
+      census.mapQaVtdOverlay = !!rawValue;
+      applied = true;
+    }
+
+    if (applied){
+      next.census = normalizeCensusState(census);
+      const statusBase = cleanText(next.census.status) || "Ready.";
+      next.census.status = statusBase;
+      next.census.error = "";
+    }
+  });
+  return applied;
+}
+
+function districtBridgePatchCensusGeoSelection(values){
+  const nextValues = Array.from(new Set(
+    (Array.isArray(values) ? values : [])
+      .map((value) => String(value == null ? "" : value).trim())
+      .filter(Boolean),
+  ));
+  let applied = false;
+  mutateState((next) => {
+    next.census = normalizeCensusState(next.census);
+    next.census = {
+      ...next.census,
+      selectedGeoids: nextValues,
+    };
+    applied = true;
+  });
+  return applied;
+}
+
 function installDistrictBridge(){
   window[DISTRICT_BRIDGE_KEY] = {
-    getView: () => districtBridgeStateView(),
+    getCanonicalView: () => districtBridgeCanonicalView(),
+    getDerivedView: () => districtBridgeDerivedView(),
+    getView: () => districtBridgeCombinedView(),
+    setFormField: (field, value) => districtBridgeSetFormField(field, value),
+    applyTemplateDefaults: (mode) => districtBridgeApplyTemplateDefaults(mode),
+    addCandidate: () => districtBridgeAddCandidate(),
+    updateCandidate: (candidateId, field, value) => districtBridgeUpdateCandidate(candidateId, field, value),
+    removeCandidate: (candidateId) => districtBridgeRemoveCandidate(candidateId),
+    setUserSplit: (candidateId, value) => districtBridgeSetUserSplit(candidateId, value),
+    addCandidateHistory: () => districtBridgeAddCandidateHistoryRecord(),
+    updateCandidateHistory: (recordId, field, value) => districtBridgeUpdateCandidateHistoryRecord(recordId, field, value),
+    removeCandidateHistory: (recordId) => districtBridgeRemoveCandidateHistoryRecord(recordId),
+    setTargetingField: (field, value) => districtBridgeSetTargetingField(field, value),
+    applyTargetingPreset: (modelId) => districtBridgeApplyTargetingPreset(modelId),
+    resetTargetingWeights: () => districtBridgeResetTargetingWeights(),
+    runTargeting: () => districtBridgeRunTargeting(),
+    exportTargetingCsv: () => districtBridgeExportTargetingCsv(),
+    exportTargetingJson: () => districtBridgeExportTargetingJson(),
+    setCensusField: (field, value) => districtBridgeSetCensusField(field, value),
+    setCensusGeoSelection: (values) => districtBridgeSetCensusGeoSelection(values),
+    setCensusFile: (field, files) => districtBridgeSetCensusFile(field, files),
+    triggerCensusAction: (action) => districtBridgeTriggerCensusAction(action),
   };
+}
+
+function installElectionDataBridge(){
+  window[ELECTION_DATA_BRIDGE_KEY] = createElectionDataBridge({
+    getState: () => state,
+    mutateState: (patchFn) => mutateState(patchFn),
+    isScenarioLocked: () => isScenarioLockedForEdits(state),
+  });
+}
+
+function districtBridgeEnsureTargetingState(srcState = state){
+  if (!srcState || typeof srcState !== "object"){
+    return null;
+  }
+  srcState.targeting = normalizeTargetingState(srcState.targeting);
+  return srcState.targeting;
+}
+
+function districtBridgeTemplateDimensionsFromState(srcState, overrides = {}){
+  const meta = srcState?.templateMeta && typeof srcState.templateMeta === "object" ? srcState.templateMeta : {};
+  const officeLevel = cleanText(overrides.officeLevel ?? meta.officeLevel);
+  const electionType = cleanText(overrides.electionType ?? meta.electionType);
+  const seatContext = cleanText(overrides.seatContext ?? meta.seatContext);
+  const partisanshipMode = cleanText(overrides.partisanshipMode ?? meta.partisanshipMode);
+  const salienceLevel = cleanText(overrides.salienceLevel ?? meta.salienceLevel);
+  return {
+    officeLevel,
+    electionType,
+    seatContext,
+    partisanshipMode,
+    salienceLevel,
+  };
+}
+
+function districtBridgeApplyTemplateDefaults(mode = "all"){
+  if (isScenarioLockedForEdits(state)){
+    return { ok: false, code: "locked", view: districtBridgeCombinedView() };
+  }
+  const requestedMode = cleanText(mode);
+  let applyResult = { ok: false, code: "unknown" };
+  mutateState((next) => {
+    const syncAction = (actionFn, payload, actionName) => {
+      districtBridgeApplyDomainAction(next, actionFn, payload, actionName);
+    };
+    const dims = districtBridgeTemplateDimensionsFromState(next);
+    applyResult = applyTemplateDefaultsForRace(next, next.raceType, {
+      mode: requestedMode || "all",
+      ...dims,
+    });
+    if (!next.ui || typeof next.ui !== "object") next.ui = {};
+    next.ui.assumptionsProfile = deriveAssumptionsProfileFromState(next);
+    syncAction(updateDistrictTemplateFieldAction, { field: "raceType", value: next.raceType }, "districtBridge.template.raceType");
+    syncAction(updateDistrictTemplateFieldAction, { field: "officeLevel", value: dims.officeLevel }, "districtBridge.template.officeLevel");
+    syncAction(updateDistrictTemplateFieldAction, { field: "electionType", value: dims.electionType }, "districtBridge.template.electionType");
+    syncAction(updateDistrictTemplateFieldAction, { field: "seatContext", value: dims.seatContext }, "districtBridge.template.seatContext");
+    syncAction(updateDistrictTemplateFieldAction, { field: "partisanshipMode", value: dims.partisanshipMode }, "districtBridge.template.partisanshipMode");
+    syncAction(updateDistrictTemplateFieldAction, { field: "salienceLevel", value: dims.salienceLevel }, "districtBridge.template.salienceLevel");
+    syncAction(updateDistrictFormFieldAction, { field: "electionDate", value: next.electionDate }, "districtBridge.form.electionDate");
+    syncAction(updateDistrictFormFieldAction, { field: "weeksRemaining", value: next.weeksRemaining }, "districtBridge.form.weeksRemaining");
+    syncAction(updateDistrictFormFieldAction, { field: "mode", value: next.mode }, "districtBridge.form.mode");
+    syncAction(updateDistrictFormFieldAction, { field: "universeSize", value: next.universeSize }, "districtBridge.form.universeSize");
+    syncAction(updateDistrictFormFieldAction, { field: "universeBasis", value: next.universeBasis }, "districtBridge.form.universeBasis");
+    syncAction(updateDistrictFormFieldAction, { field: "sourceNote", value: next.sourceNote }, "districtBridge.form.sourceNote");
+    syncAction(updateDistrictFormFieldAction, { field: "turnoutA", value: next.turnoutA }, "districtBridge.form.turnoutA");
+    syncAction(updateDistrictFormFieldAction, { field: "turnoutB", value: next.turnoutB }, "districtBridge.form.turnoutB");
+    syncAction(updateDistrictFormFieldAction, { field: "bandWidth", value: next.bandWidth }, "districtBridge.form.bandWidth");
+    syncAction(updateDistrictUniverseFieldAction, { field: "enabled", value: !!next.universeLayerEnabled }, "districtBridge.universe.enabled");
+    syncAction(updateDistrictUniverseFieldAction, { field: "demPct", value: next.universeDemPct }, "districtBridge.universe.demPct");
+    syncAction(updateDistrictUniverseFieldAction, { field: "repPct", value: next.universeRepPct }, "districtBridge.universe.repPct");
+    syncAction(updateDistrictUniverseFieldAction, { field: "npaPct", value: next.universeNpaPct }, "districtBridge.universe.npaPct");
+    syncAction(updateDistrictUniverseFieldAction, { field: "otherPct", value: next.universeOtherPct }, "districtBridge.universe.otherPct");
+    syncAction(updateDistrictUniverseFieldAction, { field: "retentionFactor", value: next.retentionFactor }, "districtBridge.universe.retentionFactor");
+  });
+  if (!applyResult || applyResult.ok !== true){
+    return {
+      ok: false,
+      code: String(applyResult?.code || "apply_failed"),
+      view: districtBridgeCombinedView(),
+    };
+  }
+  return {
+    ok: true,
+    code: "applied",
+    mode: String(applyResult.mode || requestedMode || "untouched"),
+    updatedFields: Array.isArray(applyResult.updatedFields) ? applyResult.updatedFields.slice() : [],
+    skippedFields: Array.isArray(applyResult.skippedFields) ? applyResult.skippedFields.slice() : [],
+    templateId: String(applyResult.templateId || "").trim(),
+    view: districtBridgeCombinedView(),
+  };
+}
+
+function districtBridgeSetFormField(field, rawValue){
+  if (isScenarioLockedForEdits(state)){
+    return { ok: false, code: "locked", view: districtBridgeCombinedView() };
+  }
+  const key = cleanText(field);
+  if (!key){
+    return { ok: false, code: "missing_field", view: districtBridgeCombinedView() };
+  }
+
+  let applied = false;
+  mutateState((next) => {
+    const syncAction = (actionFn, payload, actionName) => {
+      districtBridgeApplyDomainAction(next, actionFn, payload, actionName);
+    };
+    const syncTemplateField = (templateField, value) => {
+      syncAction(
+        updateDistrictTemplateFieldAction,
+        { field: templateField, value },
+        `districtBridge.template.${templateField}`,
+      );
+    };
+    const syncFormField = (formField, value) => {
+      syncAction(
+        updateDistrictFormFieldAction,
+        { field: formField, value },
+        `districtBridge.form.${formField}`,
+      );
+    };
+    const syncUniverseField = (universeField, value) => {
+      syncAction(
+        updateDistrictUniverseFieldAction,
+        { field: universeField, value },
+        `districtBridge.universe.${universeField}`,
+      );
+    };
+    const syncUndecided = () => {
+      syncAction(
+        setBallotUndecidedAction,
+        {
+          undecidedPct: safeNum(next.undecidedPct),
+          undecidedMode: String(next.undecidedMode || "proportional").trim() || "proportional",
+        },
+        "districtBridge.ballot.undecided",
+      );
+    };
+    const templateDims = districtBridgeTemplateDimensionsFromState(next);
+    const applyTemplateDimension = (overrides = {}) => {
+      applyTemplateDefaultsForRace(next, next.raceType, {
+        mode: "untouched",
+        ...templateDims,
+        ...overrides,
+      });
+      if (!next.ui || typeof next.ui !== "object") next.ui = {};
+      next.ui.assumptionsProfile = deriveAssumptionsProfileFromState(next);
+      for (const [overrideKey, overrideValue] of Object.entries(overrides)){
+        const value = String(overrideValue == null ? "" : overrideValue).trim();
+        if (!value) continue;
+        syncTemplateField(overrideKey, value);
+      }
+    };
+
+    if (key === "raceType"){
+      const value = cleanText(rawValue);
+      if (!value) return;
+      next.raceType = value;
+      applyTemplateDefaultsForRace(next, value, { mode: "untouched" });
+      if (!next.ui || typeof next.ui !== "object") next.ui = {};
+      next.ui.assumptionsProfile = deriveAssumptionsProfileFromState(next);
+      syncTemplateField("raceType", value);
+      applied = true;
+      return;
+    }
+    if (key === "officeLevel"){
+      const value = cleanText(rawValue);
+      if (!value) return;
+      applyTemplateDimension({ officeLevel: value });
+      applied = true;
+      return;
+    }
+    if (key === "electionType"){
+      const value = cleanText(rawValue);
+      if (!value) return;
+      applyTemplateDimension({ electionType: value });
+      applied = true;
+      return;
+    }
+    if (key === "seatContext"){
+      const value = cleanText(rawValue);
+      if (!value) return;
+      applyTemplateDimension({ seatContext: value });
+      applied = true;
+      return;
+    }
+    if (key === "partisanshipMode"){
+      const value = cleanText(rawValue);
+      if (!value) return;
+      applyTemplateDimension({ partisanshipMode: value });
+      applied = true;
+      return;
+    }
+    if (key === "salienceLevel"){
+      const value = cleanText(rawValue);
+      if (!value) return;
+      applyTemplateDimension({ salienceLevel: value });
+      applied = true;
+      return;
+    }
+    if (key === "electionDate"){
+      next.electionDate = String(rawValue == null ? "" : rawValue);
+      syncFormField("electionDate", next.electionDate);
+      applied = true;
+      return;
+    }
+    if (key === "weeksRemaining"){
+      next.weeksRemaining = String(rawValue == null ? "" : rawValue);
+      syncFormField("weeksRemaining", next.weeksRemaining);
+      applied = true;
+      return;
+    }
+    if (key === "mode"){
+      const value = cleanText(rawValue);
+      if (!value) return;
+      next.mode = value;
+      syncFormField("mode", next.mode);
+      applied = true;
+      return;
+    }
+    if (key === "universeSize"){
+      next.universeSize = safeNum(rawValue);
+      syncFormField("universeSize", next.universeSize);
+      applied = true;
+      return;
+    }
+    if (key === "universeBasis"){
+      const value = cleanText(rawValue);
+      if (!value) return;
+      next.universeBasis = value;
+      syncFormField("universeBasis", next.universeBasis);
+      applied = true;
+      return;
+    }
+    if (key === "sourceNote"){
+      next.sourceNote = String(rawValue == null ? "" : rawValue);
+      syncFormField("sourceNote", next.sourceNote);
+      applied = true;
+      return;
+    }
+    if (key === "yourCandidate"){
+      next.yourCandidateId = String(rawValue == null ? "" : rawValue);
+      syncAction(
+        setBallotYourCandidateAction,
+        { candidateId: next.yourCandidateId },
+        "districtBridge.ballot.yourCandidateId",
+      );
+      applied = true;
+      return;
+    }
+    if (key === "undecidedPct"){
+      next.undecidedPct = safeNum(rawValue);
+      syncUndecided();
+      applied = true;
+      return;
+    }
+    if (key === "undecidedMode"){
+      next.undecidedMode = String(rawValue == null ? "" : rawValue) || "proportional";
+      syncUndecided();
+      applied = true;
+      return;
+    }
+    if (key === "turnoutA"){
+      next.turnoutA = safeNum(rawValue);
+      syncFormField("turnoutA", next.turnoutA);
+      applied = true;
+      return;
+    }
+    if (key === "turnoutB"){
+      next.turnoutB = safeNum(rawValue);
+      syncFormField("turnoutB", next.turnoutB);
+      applied = true;
+      return;
+    }
+    if (key === "bandWidth"){
+      next.bandWidth = safeNum(rawValue);
+      syncFormField("bandWidth", next.bandWidth);
+      applied = true;
+      return;
+    }
+    if (key === "universe16Enabled"){
+      next.universeLayerEnabled = !!rawValue;
+      syncUniverseField("enabled", next.universeLayerEnabled);
+      applied = true;
+      return;
+    }
+    if (key === "universe16DemPct"){
+      next.universeDemPct = safeNum(rawValue);
+      syncUniverseField("demPct", next.universeDemPct);
+      applied = true;
+      return;
+    }
+    if (key === "universe16RepPct"){
+      next.universeRepPct = safeNum(rawValue);
+      syncUniverseField("repPct", next.universeRepPct);
+      applied = true;
+      return;
+    }
+    if (key === "universe16NpaPct"){
+      next.universeNpaPct = safeNum(rawValue);
+      syncUniverseField("npaPct", next.universeNpaPct);
+      applied = true;
+      return;
+    }
+    if (key === "universe16OtherPct"){
+      next.universeOtherPct = safeNum(rawValue);
+      syncUniverseField("otherPct", next.universeOtherPct);
+      applied = true;
+      return;
+    }
+    if (key === "retentionFactor"){
+      next.retentionFactor = safeNum(rawValue);
+      syncUniverseField("retentionFactor", next.retentionFactor);
+      applied = true;
+    }
+  });
+
+  if (applied) {
+    if (key === "bandWidth") {
+      refreshAssumptionsProfile();
+    }
+    if (
+      key === "universe16Enabled"
+      || key === "universe16DemPct"
+      || key === "universe16RepPct"
+      || key === "universe16NpaPct"
+      || key === "universe16OtherPct"
+      || key === "retentionFactor"
+    ) {
+      markMcStale();
+    }
+  }
+
+  return { ok: applied, view: districtBridgeCombinedView() };
+}
+
+function districtBridgeAddCandidate(){
+  if (isScenarioLockedForEdits(state)){
+    return { ok: false, code: "locked", view: districtBridgeCombinedView() };
+  }
+  mutateState((next) => {
+    if (!Array.isArray(next.candidates)) next.candidates = [];
+    const labelChar = String.fromCharCode(65 + next.candidates.length);
+    const candidate = { id: uid(), name: `Candidate ${labelChar}`, supportPct: 0 };
+    next.candidates.push(candidate);
+    districtBridgeApplyDomainAction(
+      next,
+      addBallotCandidateAction,
+      {
+        candidateId: candidate.id,
+        name: candidate.name,
+        supportPct: candidate.supportPct,
+      },
+      "districtBridge.ballot.addCandidate",
+    );
+  });
+  return { ok: true, view: districtBridgeCombinedView() };
+}
+
+function districtBridgeUpdateCandidate(candidateId, field, rawValue){
+  if (isScenarioLockedForEdits(state)){
+    return { ok: false, code: "locked", view: districtBridgeCombinedView() };
+  }
+  const id = cleanText(candidateId);
+  const key = cleanText(field);
+  if (!id || !key){
+    return { ok: false, code: "missing_candidate_field", view: districtBridgeCombinedView() };
+  }
+
+  let applied = false;
+  mutateState((next) => {
+    if (!Array.isArray(next.candidates)) return;
+    const candidate = next.candidates.find((row) => cleanText(row?.id) === id);
+    if (!candidate) return;
+    if (key === "name"){
+      candidate.name = String(rawValue == null ? "" : rawValue);
+      if (!next.userSplit || typeof next.userSplit !== "object") next.userSplit = {};
+      if (next.userSplit[candidate.id] == null) next.userSplit[candidate.id] = 0;
+      districtBridgeApplyDomainAction(
+        next,
+        updateBallotCandidateAction,
+        { candidateId: id, field: "name", value: candidate.name },
+        "districtBridge.ballot.candidate.name",
+      );
+      districtBridgeApplyDomainAction(
+        next,
+        updateBallotUserSplitAction,
+        { candidateId: id, value: next.userSplit[candidate.id] },
+        "districtBridge.ballot.userSplit.ensure",
+      );
+      applied = true;
+      return;
+    }
+    if (key === "supportPct"){
+      candidate.supportPct = safeNum(rawValue);
+      districtBridgeApplyDomainAction(
+        next,
+        updateBallotCandidateAction,
+        { candidateId: id, field: "supportPct", value: candidate.supportPct },
+        "districtBridge.ballot.candidate.supportPct",
+      );
+      applied = true;
+    }
+  });
+
+  return { ok: applied, view: districtBridgeCombinedView() };
+}
+
+function districtBridgeRemoveCandidate(candidateId){
+  if (isScenarioLockedForEdits(state)){
+    return { ok: false, code: "locked", view: districtBridgeCombinedView() };
+  }
+  const id = cleanText(candidateId);
+  if (!id){
+    return { ok: false, code: "missing_candidate", view: districtBridgeCombinedView() };
+  }
+
+  let applied = false;
+  mutateState((next) => {
+    if (!Array.isArray(next.candidates) || next.candidates.length <= 2) return;
+    const remaining = next.candidates.filter((row) => cleanText(row?.id) !== id);
+    if (remaining.length === next.candidates.length || remaining.length < 2) return;
+    next.candidates = remaining;
+    if (next.userSplit && typeof next.userSplit === "object") {
+      delete next.userSplit[id];
+    }
+    if (cleanText(next.yourCandidateId) === id){
+      next.yourCandidateId = next.candidates[0]?.id || null;
+    }
+    districtBridgeApplyDomainAction(
+      next,
+      removeBallotCandidateAction,
+      { candidateId: id },
+      "districtBridge.ballot.removeCandidate",
+    );
+    applied = true;
+  });
+
+  return { ok: applied, view: districtBridgeCombinedView() };
+}
+
+function districtBridgeSetUserSplit(candidateId, rawValue){
+  if (isScenarioLockedForEdits(state)){
+    return { ok: false, code: "locked", view: districtBridgeCombinedView() };
+  }
+  const id = cleanText(candidateId);
+  if (!id){
+    return { ok: false, code: "missing_candidate", view: districtBridgeCombinedView() };
+  }
+
+  let applied = false;
+  mutateState((next) => {
+    if (!next.userSplit || typeof next.userSplit !== "object") next.userSplit = {};
+    next.userSplit[id] = safeNum(rawValue);
+    districtBridgeApplyDomainAction(
+      next,
+      updateBallotUserSplitAction,
+      { candidateId: id, value: next.userSplit[id] },
+      "districtBridge.ballot.userSplit",
+    );
+    applied = true;
+  });
+
+  return { ok: applied, view: districtBridgeCombinedView() };
+}
+
+function districtBridgeCandidateHistoryRecordPatch(record, key, rawValue){
+  if (!record || typeof record !== "object") return false;
+  const field = cleanText(key);
+  if (!field) return false;
+  if (field === "office"){
+    record.office = String(rawValue == null ? "" : rawValue);
+    return true;
+  }
+  if (field === "cycleYear"){
+    record.cycleYear = safeNum(rawValue);
+    return true;
+  }
+  if (field === "electionType"){
+    record.electionType = cleanText(rawValue).toLowerCase();
+    return true;
+  }
+  if (field === "candidateName"){
+    record.candidateName = String(rawValue == null ? "" : rawValue);
+    return true;
+  }
+  if (field === "party"){
+    record.party = String(rawValue == null ? "" : rawValue);
+    return true;
+  }
+  if (field === "incumbencyStatus"){
+    record.incumbencyStatus = cleanText(rawValue).toLowerCase();
+    return true;
+  }
+  if (field === "voteShare"){
+    record.voteShare = safeNum(rawValue);
+    return true;
+  }
+  if (field === "margin"){
+    record.margin = safeNum(rawValue);
+    return true;
+  }
+  if (field === "turnoutContext"){
+    record.turnoutContext = safeNum(rawValue);
+    return true;
+  }
+  if (field === "repeatCandidate"){
+    record.repeatCandidate = !!rawValue;
+    return true;
+  }
+  if (field === "overUnderPerformancePct"){
+    record.overUnderPerformancePct = safeNum(rawValue);
+    return true;
+  }
+  return false;
+}
+
+function districtBridgeAddCandidateHistoryRecord(){
+  if (isScenarioLockedForEdits(state)){
+    return { ok: false, code: "locked", view: districtBridgeCombinedView() };
+  }
+
+  mutateState((next) => {
+    const current = normalizeCandidateHistoryRecords(next.candidateHistory, { uidFn: uid });
+    const record = {
+      recordId: `ch_${uid()}`,
+      office: String(next?.officeId || next?.campaignName || next?.raceType || "").trim(),
+      cycleYear: null,
+      electionType: String(next?.templateMeta?.electionType || "general").trim().toLowerCase() || "general",
+      candidateName: "",
+      party: "",
+      incumbencyStatus: "",
+      voteShare: null,
+      margin: null,
+      turnoutContext: null,
+      repeatCandidate: false,
+      overUnderPerformancePct: null,
+    };
+    current.push(record);
+    next.candidateHistory = normalizeCandidateHistoryRecords(current, { uidFn: uid });
+    districtBridgeApplyDomainAction(
+      next,
+      addCandidateHistoryRecordAction,
+      record,
+      "districtBridge.candidateHistory.addRecord",
+    );
+  });
+  return { ok: true, view: districtBridgeCombinedView() };
+}
+
+function districtBridgeUpdateCandidateHistoryRecord(recordId, field, rawValue){
+  if (isScenarioLockedForEdits(state)){
+    return { ok: false, code: "locked", view: districtBridgeCombinedView() };
+  }
+  const id = cleanText(recordId);
+  const key = cleanText(field);
+  if (!id || !key){
+    return { ok: false, code: "missing_candidate_history_field", view: districtBridgeCombinedView() };
+  }
+
+  let applied = false;
+  mutateState((next) => {
+    const rows = normalizeCandidateHistoryRecords(next.candidateHistory, { uidFn: uid });
+    const target = rows.find((row) => cleanText(row?.recordId) === id);
+    if (!target) return;
+    applied = districtBridgeCandidateHistoryRecordPatch(target, key, rawValue) || applied;
+    if (applied){
+      districtBridgeApplyDomainAction(
+        next,
+        updateCandidateHistoryRecordAction,
+        { recordId: id, field: key, value: target[key] },
+        `districtBridge.candidateHistory.${key}`,
+      );
+    }
+    next.candidateHistory = normalizeCandidateHistoryRecords(rows, { uidFn: uid });
+  });
+  return { ok: applied, view: districtBridgeCombinedView() };
+}
+
+function districtBridgeRemoveCandidateHistoryRecord(recordId){
+  if (isScenarioLockedForEdits(state)){
+    return { ok: false, code: "locked", view: districtBridgeCombinedView() };
+  }
+  const id = cleanText(recordId);
+  if (!id){
+    return { ok: false, code: "missing_candidate_history_id", view: districtBridgeCombinedView() };
+  }
+
+  let applied = false;
+  mutateState((next) => {
+    const rows = normalizeCandidateHistoryRecords(next.candidateHistory, { uidFn: uid });
+    const remaining = rows.filter((row) => cleanText(row?.recordId) !== id);
+    if (remaining.length === rows.length) return;
+    next.candidateHistory = normalizeCandidateHistoryRecords(remaining, { uidFn: uid });
+    districtBridgeApplyDomainAction(
+      next,
+      removeCandidateHistoryRecordAction,
+      { recordId: id },
+      "districtBridge.candidateHistory.removeRecord",
+    );
+    applied = true;
+  });
+  return { ok: applied, view: districtBridgeCombinedView() };
+}
+
+function districtBridgeDownloadTextFile(text, filename, mime){
+  if (typeof document === "undefined" || typeof URL === "undefined" || typeof Blob === "undefined"){
+    return false;
+  }
+  const blob = new Blob([String(text == null ? "" : text)], { type: mime || "text/plain" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename || "download.txt";
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+  return true;
+}
+
+function districtBridgeSetTargetingField(field, rawValue){
+  if (isScenarioLockedForEdits(state)){
+    return { ok: false, code: "locked", view: districtBridgeCombinedView() };
+  }
+  const key = cleanText(field);
+  if (!key){
+    return { ok: false, code: "missing_field", view: districtBridgeCombinedView() };
+  }
+
+  let applied = false;
+  mutateState((next) => {
+    const targeting = districtBridgeEnsureTargetingState(next);
+    if (!targeting){
+      return;
+    }
+    const fieldApplied = applyTargetingFieldPatch(targeting, key, rawValue) || false;
+    if (fieldApplied){
+      districtBridgeSyncTargetingCanonicalField(next, key, targeting);
+      applied = true;
+    }
+  });
+
+  if (!applied){
+    return { ok: false, code: "ignored", view: districtBridgeCombinedView() };
+  }
+  return { ok: true, view: districtBridgeCombinedView() };
+}
+
+function districtBridgeApplyTargetingPreset(modelId){
+  if (isScenarioLockedForEdits(state)){
+    return { ok: false, code: "locked", view: districtBridgeCombinedView() };
+  }
+  const nextModelId = cleanText(modelId);
+  if (!nextModelId){
+    return { ok: false, code: "missing_model", view: districtBridgeCombinedView() };
+  }
+
+  mutateState((next) => {
+    const targeting = districtBridgeEnsureTargetingState(next);
+    if (!targeting){
+      return;
+    }
+    applyTargetModelPreset(targeting, nextModelId);
+    districtBridgeSyncTargetingCanonicalState(next, targeting);
+  });
+  return { ok: true, view: districtBridgeCombinedView() };
+}
+
+function districtBridgeResetTargetingWeights(){
+  if (isScenarioLockedForEdits(state)){
+    return { ok: false, code: "locked", view: districtBridgeCombinedView() };
+  }
+
+  mutateState((next) => {
+    const targeting = districtBridgeEnsureTargetingState(next);
+    if (!targeting){
+      return;
+    }
+    resetTargetingWeightsToPreset(targeting, cleanText(targeting.presetId) || cleanText(targeting.modelId));
+    districtBridgeSyncTargetingCanonicalState(next, targeting);
+  });
+  return { ok: true, view: districtBridgeCombinedView() };
+}
+
+function districtBridgeRunTargeting(){
+  if (isScenarioLockedForEdits(state)){
+    return { ok: false, code: "locked", view: districtBridgeCombinedView() };
+  }
+  const runtimeRows = getCensusRowsForState(state?.census);
+  const loadedCount = Object.keys(runtimeRows && typeof runtimeRows === "object" ? runtimeRows : {}).length;
+  if (!loadedCount){
+    mutateState((next) => {
+      if (!next.census || typeof next.census !== "object") next.census = {};
+      next.census.status = TARGETING_STATUS_LOAD_ROWS_FIRST;
+      next.census.error = next.census.status;
+    });
+    return { ok: false, code: "no_rows", view: districtBridgeCombinedView() };
+  }
+
+  let runResult = null;
+  let appliedRuntime = null;
+  let runError = null;
+  mutateState((next) => {
+    try {
+      const targeting = districtBridgeEnsureTargetingState(next);
+      if (!targeting){
+        return;
+      }
+      if (!next.census || typeof next.census !== "object") next.census = {};
+      runResult = runTargetRanking({
+        state: next,
+        censusState: next.census,
+        rowsByGeoid: runtimeRows,
+      });
+      appliedRuntime = applyTargetingRunResult(targeting, runResult, { locale: "en-US" });
+      if (!appliedRuntime.hasRows){
+        next.census.status = appliedRuntime.statusText;
+        next.census.error = "";
+        return;
+      }
+      next.census.status = appliedRuntime.statusText;
+      next.census.error = "";
+      districtBridgeSyncTargetingCanonicalState(next, targeting);
+      districtBridgeApplyDomainAction(
+        next,
+        applyTargetingRunResultAction,
+        {
+          rows: Array.isArray(targeting?.lastRows) ? targeting.lastRows : [],
+          statusText: String(appliedRuntime?.statusText || "").trim(),
+          meta: targeting?.lastMeta && typeof targeting.lastMeta === "object" ? targeting.lastMeta : {},
+          lastRunAt: String(targeting?.lastRun || "").trim(),
+        },
+        "districtBridge.targeting.runtime.applyResult",
+      );
+    } catch (err) {
+      runError = err;
+      if (!next.census || typeof next.census !== "object") next.census = {};
+      next.census.status = cleanText(err?.message) || "Targeting run failed.";
+      next.census.error = next.census.status;
+    }
+  });
+
+  if (runError){
+    return { ok: false, code: "run_failed", view: districtBridgeCombinedView() };
+  }
+  return { ok: true, view: districtBridgeCombinedView() };
+}
+
+function districtBridgeExportTargetingCsv(){
+  if (isScenarioLockedForEdits(state)){
+    return { ok: false, code: "locked", view: districtBridgeCombinedView() };
+  }
+  const targeting = districtBridgeEnsureTargetingState(state);
+  const rows = Array.isArray(targeting?.lastRows) ? targeting.lastRows : [];
+  if (!rows.length){
+    return { ok: false, code: "no_rows", view: districtBridgeCombinedView() };
+  }
+  const file = buildTargetRankingExportFilename({
+    presetId: cleanText(targeting?.presetId),
+    modelId: cleanText(targeting?.modelId),
+    extension: "csv",
+  });
+  const csv = buildTargetRankingCsv(rows);
+  const ok = districtBridgeDownloadTextFile(csv, file, "text/csv");
+  return { ok, code: ok ? "exported" : "export_failed", view: districtBridgeCombinedView() };
+}
+
+function districtBridgeExportTargetingJson(){
+  if (isScenarioLockedForEdits(state)){
+    return { ok: false, code: "locked", view: districtBridgeCombinedView() };
+  }
+  const targeting = districtBridgeEnsureTargetingState(state);
+  const rows = Array.isArray(targeting?.lastRows) ? targeting.lastRows : [];
+  if (!rows.length){
+    return { ok: false, code: "no_rows", view: districtBridgeCombinedView() };
+  }
+  const payload = buildTargetRankingPayload({
+    rows,
+    meta: targeting?.lastMeta,
+    config: buildTargetRankingPayloadConfig(targeting),
+  });
+  const file = buildTargetRankingExportFilename({
+    presetId: cleanText(targeting?.presetId),
+    modelId: cleanText(targeting?.modelId),
+    extension: "json",
+  });
+  const ok = districtBridgeDownloadTextFile(JSON.stringify(payload, null, 2), file, "application/json");
+  return { ok, code: ok ? "exported" : "export_failed", view: districtBridgeCombinedView() };
+}
+
+function districtBridgeSetCensusField(field, rawValue){
+  const key = cleanText(field);
+  if (!key){
+    return { ok: false, code: "missing_field", view: districtBridgeCombinedView() };
+  }
+  const syncCanonicalCensusField = (value) => {
+    mutateState((next) => {
+      districtBridgeSyncCensusCanonicalField(next, key, value);
+    });
+  };
+  const runtimeResult = districtBridgeCallCensusRuntime("setField", key, rawValue);
+  if (runtimeResult && typeof runtimeResult === "object"){
+    if (runtimeResult.ok === true){
+      syncCanonicalCensusField(rawValue);
+      return { ok: true, code: "updated_runtime", view: districtBridgeCombinedView() };
+    }
+    const bridgePatched = districtBridgePatchCensusBridgeField(key, rawValue);
+    if (bridgePatched){
+      syncCanonicalCensusField(rawValue);
+      return {
+        ok: true,
+        code: cleanText(runtimeResult.code) || "runtime_unavailable_fallback",
+        view: districtBridgeCombinedView(),
+      };
+    }
+    return {
+      ok: false,
+      code: cleanText(runtimeResult.code) || "runtime_unavailable",
+      view: districtBridgeCombinedView(),
+    };
+  }
+  const bridgePatched = districtBridgePatchCensusBridgeField(key, rawValue);
+  if (bridgePatched){
+    syncCanonicalCensusField(rawValue);
+    return { ok: true, code: "updated_bridge_state", view: districtBridgeCombinedView() };
+  }
+  return { ok: false, code: "runtime_unavailable", view: districtBridgeCombinedView() };
+}
+
+function districtBridgeSetCensusGeoSelection(values){
+  const runtimeResult = districtBridgeCallCensusRuntime("setGeoSelection", values);
+  if (runtimeResult && typeof runtimeResult === "object"){
+    if (runtimeResult.ok === true){
+      return { ok: true, code: "updated_runtime", view: districtBridgeCombinedView() };
+    }
+    const patched = districtBridgePatchCensusGeoSelection(values);
+    if (patched){
+      return {
+        ok: true,
+        code: cleanText(runtimeResult.code) || "runtime_unavailable_fallback",
+        view: districtBridgeCombinedView(),
+      };
+    }
+    return {
+      ok: false,
+      code: cleanText(runtimeResult.code) || "runtime_unavailable",
+      view: districtBridgeCombinedView(),
+    };
+  }
+  const patched = districtBridgePatchCensusGeoSelection(values);
+  if (patched){
+    return { ok: true, code: "updated_bridge_state", view: districtBridgeCombinedView() };
+  }
+  return { ok: false, code: "runtime_unavailable", view: districtBridgeCombinedView() };
+}
+
+function districtBridgeSetCensusFile(field, filesLike){
+  const key = cleanText(field);
+  if (!key){
+    return { ok: false, code: "missing_field", view: districtBridgeCombinedView() };
+  }
+  const runtimeResult = districtBridgeCallCensusRuntime("setFile", key, filesLike);
+  if (runtimeResult && typeof runtimeResult === "object"){
+    if (runtimeResult.ok === true){
+      return { ok: true, code: "updated_runtime", view: districtBridgeCombinedView() };
+    }
+    return {
+      ok: false,
+      code: cleanText(runtimeResult.code) || "runtime_unavailable",
+      view: districtBridgeCombinedView(),
+    };
+  }
+  return { ok: false, code: "runtime_unavailable", view: districtBridgeCombinedView() };
+}
+
+function districtBridgeTriggerCensusAction(action){
+  const runtimeResult = districtBridgeCallCensusRuntime("triggerAction", action);
+  if (runtimeResult && typeof runtimeResult === "object"){
+    if (runtimeResult.ok === true){
+      return { ok: true, code: "triggered_runtime", view: districtBridgeCombinedView() };
+    }
+    return {
+      ok: false,
+      code: cleanText(runtimeResult.code) || "runtime_unavailable",
+      view: districtBridgeCombinedView(),
+    };
+  }
+  return { ok: false, code: "runtime_unavailable", view: districtBridgeCombinedView() };
 }
 
 const REACH_OVERRIDE_MODE_OPTIONS = [
@@ -2828,13 +5700,13 @@ let reachBridgeCachedContext = null;
 function reachBridgeFmtInt(value, { ceil = false } = {}){
   const n = Number(value);
   if (!Number.isFinite(n)) return "—";
-  return fmtInt(ceil ? Math.ceil(n) : Math.round(n));
+  return formatWholeNumberByMode(n, { mode: ceil ? "ceil" : "round", fallback: "—" });
 }
 
 function reachBridgeFmtSignedInt(value){
   const n = Number(value);
   if (!Number.isFinite(n)) return "—";
-  const rounded = Math.round(n);
+  const rounded = roundWholeNumberByMode(n, { mode: "round", fallback: 0 }) || 0;
   if (rounded > 0) return `+${fmtInt(rounded)}`;
   return `${fmtInt(rounded)}`;
 }
@@ -2842,13 +5714,13 @@ function reachBridgeFmtSignedInt(value){
 function reachBridgeFmtPctFromRatio(value, digits = 1){
   const n = Number(value);
   if (!Number.isFinite(n)) return "—";
-  return `${(n * 100).toFixed(digits)}%`;
+  return formatPercentFromUnit(n, digits, "—");
 }
 
 function reachBridgeFmtNum1(value){
   const n = Number(value);
   if (!Number.isFinite(n)) return "—";
-  return n.toFixed(1);
+  return formatFixedNumber(n, 1, "—");
 }
 
 function reachBridgeFmtISODate(raw){
@@ -2873,7 +5745,8 @@ function reachBridgeClampNumber(raw, { min = null, max = null, step = null } = {
   if (min != null) out = Math.max(min, out);
   if (max != null) out = Math.min(max, out);
   if (step != null && Number.isFinite(step) && step > 0){
-    out = Math.round(out / step) * step;
+    const stepRounded = roundWholeNumberByMode(out / step, { mode: "round", fallback: 0 }) || 0;
+    out = stepRounded * step;
   }
   return out;
 }
@@ -2921,606 +5794,77 @@ function reachBridgeResolveContext(){
 
 function reachBridgeComputeWeeklyView(weeklyContext, executionSnapshot){
   const ctx = weeklyContext || {};
-  const reqConvos = ctx?.convosPerWeek;
-  const reqAttempts = ctx?.attemptsPerWeek;
-
-  let constraint = "—";
-  let constraintNote = "—";
-  let wkBannerText = "";
-  let wkBannerKind = "warn";
-  let wkBannerShow = false;
-
-  if ((ctx?.goal ?? 0) <= 0){
-    constraint = "None";
-    constraintNote = "Goal is 0 under current inputs.";
-  } else if (ctx?.weeks == null || ctx.weeks <= 0){
-    constraint = "Timeline";
-    constraintNote = "Set election date or weeks remaining.";
-    wkBannerText = "This week plan needs weeks remaining. Set an election date or enter weeks remaining to compute per-week targets.";
-    wkBannerShow = true;
-  } else if (ctx?.sr == null || ctx.sr <= 0 || ctx?.cr == null || ctx.cr <= 0){
-    constraint = "Rates";
-    constraintNote = "Enter support rate + contact rate.";
-    wkBannerText = "This week plan needs Support rate and Contact rate.";
-    wkBannerShow = true;
-  } else if (ctx?.capTotal == null){
-    constraint = "Capacity";
-    constraintNote = "Enter organizers/hours + speeds.";
-    wkBannerText = "Capacity/week is missing. Fill execution inputs (organizers, hours/week, doors/hr, calls/hr, channel split).";
-    wkBannerShow = true;
-  } else if (ctx?.gap != null && ctx.gap <= 0){
-    constraint = "Feasible";
-    constraintNote = "Capacity covers required attempts/week.";
-    wkBannerText = "Feasible: capacity covers the per-week requirement under current rates.";
-    wkBannerKind = "ok";
-    wkBannerShow = true;
-  } else if (ctx?.gap != null){
-    const g = Math.ceil(ctx.gap);
-    constraint = "Capacity";
-    constraintNote = `Short by ~${reachBridgeFmtInt(g)} attempts/week.`;
-    wkBannerText = `Gap: you are short by ~${reachBridgeFmtInt(g)} attempts per week. Options: increase organizers/hours, improve speeds, shift channel mix, or raise rates.`;
-    wkBannerKind = (g <= 500) ? "warn" : "bad";
-    wkBannerShow = true;
-  }
-
-  const log = executionSnapshot?.log || null;
-  const hasLog = !!log?.hasLog;
-  const actualConvos = hasLog ? Number(log.sumConvosWindow || 0) : null;
-  const actualAttempts = hasLog ? Number(log.sumAttemptsWindow || 0) : null;
-  const logEntries = hasLog ? Number(log.entries || 0) : 0;
-  const logDays = hasLog ? Number(log.days || 0) : 0;
-  const logLast = hasLog ? (log.lastDate || null) : null;
-  const rollingCR = executionSnapshot?.rolling?.cr;
-
-  const paceKind = (req, actual) => {
-    if (req == null || !Number.isFinite(req) || req <= 0) return { kind: null, label: "—", gap: null };
-    if (actual == null || !Number.isFinite(actual)) return { kind: null, label: "—", gap: null };
-    const gap = actual - req;
-    if (actual >= req) return { kind: "ok", label: "On pace", gap };
-    if (actual >= req * 0.9) return { kind: "warn", label: "Within 10%", gap };
-    return { kind: "bad", label: "Behind", gap };
+  const formatInt = (value, options = {}) => {
+    if (!Number.isFinite(Number(value))) return "—";
+    const mode = options?.ceil ? "ceil" : (options?.floor ? "floor" : "round");
+    const n = roundWholeNumberByMode(Number(value), { mode, fallback: 0 }) || 0;
+    return reachBridgeFmtInt(n);
   };
-
-  let finishConvos = "—";
-  let finishAttempts = "—";
-  let paceStatus = "—";
-  let paceNote = "Insufficient field data.";
-  let wkExecBannerShow = false;
-  let wkExecBannerKind = "warn";
-  let wkExecBannerText = "";
-
-  if (hasLog){
-    const convosPace = paceKind(reqConvos, actualConvos);
-    const attemptsPace = paceKind(reqAttempts, actualAttempts);
-    const rank = { ok: 3, warn: 2, bad: 1, null: 0, undefined: 0 };
-    const bannerKind = (rank[convosPace.kind] <= rank[attemptsPace.kind]) ? convosPace.kind : attemptsPace.kind;
-
-    const finishFrom = (total, pacePerDay) => {
-      if (total == null || !Number.isFinite(total) || total <= 0) return { date: null, note: "No target" };
-      if (pacePerDay == null || !Number.isFinite(pacePerDay) || pacePerDay <= 0) return { date: null, note: "No measurable pace" };
-      const daysNeeded = Math.ceil(total / pacePerDay);
-      const d = new Date();
-      d.setHours(12, 0, 0, 0);
-      d.setDate(d.getDate() + daysNeeded);
-      return { date: d, note: `~${reachBridgeFmtInt(daysNeeded)} day(s) at current pace` };
-    };
-
-    const paceAttemptsPerDay = (logDays && logDays > 0 && Number.isFinite(actualAttempts)) ? (actualAttempts / logDays) : null;
-    const paceConvosPerDay = (logDays && logDays > 0 && Number.isFinite(actualConvos)) ? (actualConvos / logDays) : null;
-    const convFinish = finishFrom(ctx?.convosNeeded ?? (reqConvos != null && ctx?.weeks != null ? reqConvos * ctx.weeks : null), paceConvosPerDay);
-    const attFinish = finishFrom(ctx?.attemptsNeeded ?? (reqAttempts != null && ctx?.weeks != null ? reqAttempts * ctx.weeks : null), paceAttemptsPerDay);
-    finishConvos = convFinish.date ? reachBridgeFmtISODate(convFinish.date) : (convFinish.note || "—");
-    finishAttempts = attFinish.date ? reachBridgeFmtISODate(attFinish.date) : (attFinish.note || "—");
-
-    if (bannerKind === "ok"){
-      paceStatus = "On pace";
-      paceNote = "Last 7-entry pace meets or exceeds weekly requirement.";
-    } else if (bannerKind === "warn"){
-      paceStatus = "Tight";
-      paceNote = "Within 10% of weekly requirement. Any slip risks missing timeline.";
-    } else if (bannerKind === "bad"){
-      paceStatus = "Behind";
-      paceNote = "Behind weekly requirement by more than 10%.";
-    } else {
-      paceStatus = "—";
-      paceNote = "Set goal + weeks remaining to compute requirement.";
-    }
-
-    wkExecBannerShow = (bannerKind === "ok" || bannerKind === "warn" || bannerKind === "bad");
-    wkExecBannerKind = bannerKind || "warn";
-    wkExecBannerText = wkExecBannerShow
-      ? `Last 7: ${reachBridgeFmtInt(actualConvos)} convos / ${reachBridgeFmtInt(actualAttempts)} attempts vs required ${reachBridgeFmtInt(reqConvos, { ceil: true })} convos / ${reachBridgeFmtInt(reqAttempts, { ceil: true })} attempts per week.`
-      : "";
-  }
-
-  const reqDoorAttempts = (
-    reqAttempts != null &&
-    Number.isFinite(reqAttempts) &&
-    ctx?.doorShare != null &&
-    Number.isFinite(ctx.doorShare)
-  )
-    ? (reqAttempts * clamp(ctx.doorShare, 0, 1))
-    : null;
-  const reqCallAttempts = (
-    reqAttempts != null &&
-    Number.isFinite(reqAttempts) &&
-    ctx?.doorShare != null &&
-    Number.isFinite(ctx.doorShare)
-  )
-    ? (reqAttempts * (1 - clamp(ctx.doorShare, 0, 1)))
-    : null;
-
-  const impliedConvos = (
-    rollingCR != null &&
-    Number.isFinite(rollingCR) &&
-    reqAttempts != null &&
-    Number.isFinite(reqAttempts)
-  )
-    ? (reqAttempts * rollingCR)
-    : null;
-
-  const gapText = (ctx?.gap == null || !Number.isFinite(ctx.gap))
-    ? "—"
-    : (ctx.gap <= 0 ? "0" : reachBridgeFmtInt(ctx.gap, { ceil: true }));
-
-  const actualConvosNote = hasLog ? `${reachBridgeFmtInt(logEntries)} entries over ~${reachBridgeFmtInt(logDays)} day(s) · last: ${logLast || "—"}` : "Insufficient field data.";
-  const impliedConvosNote = Number.isFinite(rollingCR) ? `Uses rolling 7-entry contact rate (${(rollingCR * 100).toFixed(1)}%)` : "Insufficient field data.";
+  const constraintView = buildReachWeeklyConstraintView(ctx, { formatInt });
+  const weeklyExecution = buildReachWeeklyExecutionView({
+    ctx,
+    logSummary: executionSnapshot?.log || null,
+    rollingCR: executionSnapshot?.rolling?.cr,
+    formatInt,
+    formatDate: reachBridgeFmtISODate,
+    clampFn: clamp,
+    hideChannelBreakdownWithoutLog: false,
+  });
 
   return {
     goal: reachBridgeFmtInt(ctx?.goal ?? null),
-    requiredAttempts: reachBridgeFmtInt(reqAttempts, { ceil: true }),
-    requiredConvos: reachBridgeFmtInt(reqConvos, { ceil: true }),
-    requiredDoors: reachBridgeFmtInt(reqDoorAttempts, { ceil: true }),
-    requiredCalls: reachBridgeFmtInt(reqCallAttempts, { ceil: true }),
-    impliedConvos: reachBridgeFmtInt(impliedConvos),
-    impliedConvosNote,
+    requiredAttempts: weeklyExecution.requiredAttemptsText,
+    requiredConvos: weeklyExecution.requiredConvosText,
+    requiredDoors: weeklyExecution.requiredDoorAttemptsText,
+    requiredCalls: weeklyExecution.requiredCallAttemptsText,
+    impliedConvos: weeklyExecution.impliedConvosText,
+    impliedConvosNote: weeklyExecution.impliedConvosNote,
     capacity: reachBridgeFmtInt(ctx?.capTotal, { ceil: true }),
-    gap: gapText,
-    constraint,
-    constraintNote,
-    paceStatus,
-    paceNote,
-    finishConvos,
-    finishAttempts,
-    actualConvosNote,
-    wkBanner: {
-      show: wkBannerShow,
-      kind: wkBannerKind,
-      text: wkBannerText
-    },
-    wkExecBanner: {
-      show: wkExecBannerShow,
-      kind: wkExecBannerKind,
-      text: wkExecBannerText
-    }
+    gap: constraintView.gapText,
+    constraint: constraintView.constraint,
+    constraintNote: constraintView.constraintNote,
+    paceStatus: weeklyExecution.paceStatus,
+    paceNote: weeklyExecution.paceNote,
+    finishConvos: weeklyExecution.finishConvosText,
+    finishAttempts: weeklyExecution.finishAttemptsText,
+    actualConvosNote: weeklyExecution.actualConvosNote,
+    wkBanner: constraintView.wkBanner,
+    wkExecBanner: weeklyExecution.wkExecBanner,
   };
 }
 
 function reachBridgeComputeFreshnessView(currentState, weeklyContext, executionSnapshot){
-  const snap = executionSnapshot || null;
-  const log = Array.isArray(currentState?.ui?.dailyLog) ? currentState.ui.dailyLog : [];
-  const hasLog = snap ? !!snap?.log?.hasLog : !!log.length;
-  const empty = {
-    lastUpdate: "—",
-    freshNote: "No daily log configured yet",
-    rollingAttempts: "—",
-    rollingNote: "Add entries in organizer.html to activate reality checks",
-    rollingCR: "—",
-    rollingCRNote: "—",
-    rollingSR: "—",
-    rollingSRNote: "—",
-    rollingAPH: "—",
-    rollingAPHNote: "—",
-    status: "Not tracking",
-  };
-  if (!hasLog){
-    return empty;
-  }
-
-  const sorted = snap?.log?.sorted || [...log].filter((x) => x && x.date).sort((a, b) => String(a.date).localeCompare(String(b.date)));
-  const last = sorted[sorted.length - 1];
-
-  const sumAttempts = Number(snap?.log?.sumAttemptsWindow ?? 0);
-  const sumConvos = Number(snap?.log?.sumConvosWindow ?? 0);
-  const sumSupportIds = Number(snap?.log?.sumSupportIdsWindow ?? 0);
-  const sumOrgHours = Number(snap?.log?.sumOrgHoursWindow ?? 0);
-
-  const actualCR = snap?.rolling?.cr ?? (sumAttempts > 0 ? (sumConvos / sumAttempts) : null);
-  const actualSR = snap?.rolling?.sr ?? (sumConvos > 0 ? (sumSupportIds / sumConvos) : null);
-  const actualAPH = snap?.rolling?.aph ?? (sumOrgHours > 0 ? (sumAttempts / sumOrgHours) : null);
-
-  const assumedCR = snap?.assumptions?.cr ?? (
-    currentState?.contactRatePct != null && currentState.contactRatePct !== ""
-      ? (safeNum(currentState.contactRatePct) || 0) / 100
-      : null
-  );
-  const assumedSR = snap?.assumptions?.sr ?? (
-    currentState?.supportRatePct != null && currentState.supportRatePct !== ""
-      ? (safeNum(currentState.supportRatePct) || 0) / 100
-      : null
-  );
-  const expectedAPH = snap?.assumptions?.aph ?? (() => {
-    const mixDoor = (currentState?.channelDoorPct != null && currentState.channelDoorPct !== "")
-      ? (safeNum(currentState.channelDoorPct) || 0) / 100
-      : null;
-    const doorsHr = (currentState?.doorsPerHour3 != null && currentState.doorsPerHour3 !== "")
-      ? (safeNum(currentState.doorsPerHour3) || 0)
-      : null;
-    const callsHr = (currentState?.callsPerHour3 != null && currentState.callsPerHour3 !== "")
-      ? (safeNum(currentState.callsPerHour3) || 0)
-      : null;
-    return (mixDoor != null && doorsHr != null && callsHr != null)
-      ? (mixDoor * doorsHr + (1 - mixDoor) * callsHr)
-      : null;
-  })();
-
-  const req = snap?.pace?.requiredAttemptsPerWeek ?? weeklyContext?.attemptsPerWeek ?? null;
-  let ratio = snap?.pace?.ratio ?? null;
-  if ((ratio == null || !Number.isFinite(ratio)) && req != null && Number.isFinite(req) && req > 0){
-    ratio = sumAttempts / req;
-  }
-
-  const flags = [];
-  const tol = 0.90;
-  if (assumedCR != null && Number.isFinite(actualCR) && actualCR < assumedCR * tol) flags.push("contact rate below assumed");
-  if (assumedSR != null && Number.isFinite(actualSR) && actualSR < assumedSR * tol) flags.push("support rate below assumed");
-  if (expectedAPH != null && Number.isFinite(actualAPH) && actualAPH < expectedAPH * tol) flags.push("productivity below assumed");
-
-  let status = "Needs inputs";
-  if (ratio == null || !Number.isFinite(ratio)){
-    status = flags.length ? "Assumptions drifting" : "Needs inputs";
-  } else if (ratio >= 1.0 && flags.length === 0){
-    status = "On pace";
-  } else if (ratio >= 1.0 && flags.length){
-    status = "On pace (assumptions off)";
-  } else if (ratio >= 0.85 && flags.length === 0){
-    status = "Slightly behind";
-  } else if (ratio >= 0.85 && flags.length){
-    status = "Behind (rates/capacity off)";
-  } else {
-    status = "Behind";
-  }
-
-  return {
-    lastUpdate: last?.date || "—",
-    freshNote: flags.length ? `Reality check: ${flags.join(", ")}` : "Using state.ui.dailyLog",
-    rollingAttempts: reachBridgeFmtInt(sumAttempts),
-    rollingNote: (req == null || !Number.isFinite(req))
-      ? "Required attempts/week unavailable under current inputs"
-      : `Required ≈ ${reachBridgeFmtInt(req, { ceil: true })} attempts/week`,
-    rollingCR: reachBridgeFmtPctFromRatio(actualCR),
-    rollingCRNote: (assumedCR == null) ? "Assumed: —" : `Assumed: ${reachBridgeFmtPctFromRatio(assumedCR)}`,
-    rollingSR: reachBridgeFmtPctFromRatio(actualSR),
-    rollingSRNote: (assumedSR == null) ? "Assumed: —" : `Assumed: ${reachBridgeFmtPctFromRatio(assumedSR)}`,
-    rollingAPH: reachBridgeFmtNum1(actualAPH),
-    rollingAPHNote: (expectedAPH == null) ? "Expected: —" : `Expected: ${reachBridgeFmtNum1(expectedAPH)} / hr`,
-    status,
-  };
+  return buildReachFreshnessView({
+    state: currentState,
+    weeklyContext,
+    executionSnapshot,
+    safeNumFn: safeNum,
+    formatInt: (value, options = {}) => {
+      if (!Number.isFinite(Number(value))) return "—";
+      const mode = options?.ceil ? "ceil" : (options?.floor ? "floor" : "round");
+      const n = roundWholeNumberByMode(Number(value), { mode, fallback: 0 }) || 0;
+      return reachBridgeFmtInt(n);
+    },
+    formatPct: (value) => reachBridgeFmtPctFromRatio(value),
+    formatNum1: (value) => reachBridgeFmtNum1(value),
+  });
 }
 
 function reachBridgeBuildLeversAndActions(weeklyContext, executionSnapshot){
-  const opsCtx = weeklyContext || {};
-  const fmtCeil = (v) => reachBridgeFmtInt(v, { ceil: true });
-  const fmtNum1 = (v) => reachBridgeFmtNum1(v);
-  const base = {
-    intro: "",
-    foot: "",
-    bestMovesIntro: "Best 3 moves — impact per unit:",
-    showBestMoves: true,
-    bestMoves: [],
-    rows: [],
-    actions: [],
-    actionsNote: "Recommendations are based on current model inputs.",
-  };
-
-  if ((opsCtx.goal ?? 0) <= 0){
-    return {
-      ...base,
-      intro: "No operational gap to analyze (goal is 0 under current inputs).",
-      showBestMoves: false,
-      actions: ["Set a goal (Support IDs needed) or adjust win path assumptions to generate a real plan."],
-      foot: ""
-    };
-  }
-  if (opsCtx.weeks == null || opsCtx.weeks <= 0){
-    return {
-      ...base,
-      intro: "Timeline is missing. Set election date or weeks remaining to compute weekly pressure.",
-      showBestMoves: false,
-      actions: ["Enter an election date (or weeks remaining) so the plan can compute per-week targets."],
-      foot: ""
-    };
-  }
-  if (opsCtx.sr == null || opsCtx.sr <= 0 || opsCtx.cr == null || opsCtx.cr <= 0){
-    return {
-      ...base,
-      intro: "Rates are missing. Enter Support rate and Contact rate to estimate workload.",
-      showBestMoves: false,
-      actions: ["Fill Support rate (%) and Contact rate (%) to compute realistic workload."],
-      foot: ""
-    };
-  }
-  if (opsCtx.capTotal == null || !Number.isFinite(opsCtx.capTotal)){
-    return {
-      ...base,
-      intro: "Capacity inputs are incomplete. Fill execution inputs to compute what is executable.",
-      showBestMoves: false,
-      actions: ["Enter organizers, hours/week, doors/hr, calls/hr, and channel split."],
-      foot: ""
-    };
-  }
-
-  const baseReq = opsCtx.attemptsPerWeek;
-  const baseCap = opsCtx.capTotal;
-  const gap = (baseReq != null && baseCap != null) ? Math.max(0, baseReq - baseCap) : null;
-  const isGap = (gap != null && gap > 0);
-  const intro = isGap
-    ? `You are short by ~${fmtCeil(gap)} attempts/week. These levers estimate attempts/week relief in consistent units.`
-    : "You are currently feasible (capacity covers attempts/week). These levers estimate buffer gained per unit.";
-
-  const capTotal = (p) => {
-    const out = coreComputeCapacityBreakdown(p);
-    return out?.total;
-  };
-
-  const levers = [];
-  const pushLever = (x) => {
-    if (!x) return;
-    if (x.impact == null || !Number.isFinite(x.impact) || x.impact <= 0) return;
-    const impactUse = isGap ? Math.min(x.impact, gap) : x.impact;
-    const eff = (x.costScalar != null && Number.isFinite(x.costScalar) && x.costScalar > 0) ? (impactUse / x.costScalar) : null;
-    levers.push({ ...x, impactUse, eff });
-  };
-
-  const baseCapParams = {
-    weeks: 1,
-    orgCount: opsCtx.orgCount,
-    orgHoursPerWeek: opsCtx.orgHoursPerWeek,
-    volunteerMult: opsCtx.volunteerMult,
-    doorShare: opsCtx.doorShare,
-    doorsPerHour: opsCtx.doorsPerHour,
-    callsPerHour: opsCtx.callsPerHour,
-    capacityDecay: opsCtx.capacityDecay,
-  };
-
-  if (opsCtx.orgCount != null && opsCtx.orgHoursPerWeek != null && opsCtx.volunteerMult != null){
-    const plusOrg = capTotal({ ...baseCapParams, orgCount: opsCtx.orgCount + 1 });
-    if (plusOrg != null && baseCap != null){
-      pushLever({
-        kind: "capacity",
-        key: "org",
-        label: "+1 organizer",
-        impact: plusOrg - baseCap,
-        costLabel: "1 organizer",
-        costScalar: 1,
-        effUnit: "per organizer",
-      });
-    }
-
-    const plusHr = capTotal({ ...baseCapParams, orgHoursPerWeek: opsCtx.orgHoursPerWeek + 1 });
-    if (plusHr != null && baseCap != null){
-      const addedHours = Math.max(1, opsCtx.orgCount || 1);
-      pushLever({
-        kind: "capacity",
-        key: "orgHr",
-        label: "+1 hour/week per organizer",
-        impact: plusHr - baseCap,
-        costLabel: `+1 hr/org (= ${fmtCeil(addedHours)} org-hrs/wk)`,
-        costScalar: addedHours,
-        effUnit: "per org-hour",
-      });
-    }
-
-    const plusVol = capTotal({ ...baseCapParams, volunteerMult: opsCtx.volunteerMult + 0.10 });
-    if (plusVol != null && baseCap != null){
-      pushLever({
-        kind: "capacity",
-        key: "volMult",
-        label: "+10% volunteer multiplier",
-        impact: plusVol - baseCap,
-        costLabel: "+10% volunteer mult",
-        costScalar: 0.10,
-        effUnit: "per +10% mult",
-      });
-    }
-  }
-
-  if (opsCtx.doorsPerHour != null){
-    const plusDoorHr = capTotal({ ...baseCapParams, doorsPerHour: opsCtx.doorsPerHour + 1 });
-    if (plusDoorHr != null && baseCap != null){
-      pushLever({
-        kind: "capacity",
-        key: "dph",
-        label: "+1 door/hr",
-        impact: plusDoorHr - baseCap,
-        costLabel: "+1 door/hr",
-        costScalar: 1,
-        effUnit: "per +1 door/hr",
-      });
-    }
-  }
-
-  if (opsCtx.callsPerHour != null){
-    const plusCallHr = capTotal({ ...baseCapParams, callsPerHour: opsCtx.callsPerHour + 1 });
-    if (plusCallHr != null && baseCap != null){
-      pushLever({
-        kind: "capacity",
-        key: "cph",
-        label: "+1 call/hr",
-        impact: plusCallHr - baseCap,
-        costLabel: "+1 call/hr",
-        costScalar: 1,
-        effUnit: "per +1 call/hr",
-      });
-    }
-  }
-
-  if (opsCtx.doorShare != null && opsCtx.doorsPerHour != null && opsCtx.callsPerHour != null){
-    const doorIsFaster = opsCtx.doorsPerHour >= opsCtx.callsPerHour;
-    const shift = 0.10;
-    const newShare = clamp(opsCtx.doorShare + (doorIsFaster ? shift : -shift), 0, 1);
-    const capShift = capTotal({ ...baseCapParams, doorShare: newShare });
-    if (capShift != null && baseCap != null){
-      pushLever({
-        kind: "capacity",
-        key: "mix",
-        label: `Shift mix +10 pts toward ${doorIsFaster ? "doors" : "calls"}`,
-        impact: capShift - baseCap,
-        costLabel: "10 pts mix shift",
-        costScalar: 10,
-        effUnit: "per 1 pt",
-      });
-    }
-  }
-
-  const pp = 0.01;
-  if (baseReq != null && Number.isFinite(baseReq)){
-    const srPlus = Math.min(0.99, opsCtx.sr + pp);
-    const crPlus = Math.min(0.99, opsCtx.cr + pp);
-
-    const reqSrPlus = (opsCtx.goal > 0 && srPlus > 0 && opsCtx.cr > 0 && opsCtx.weeks > 0)
-      ? (opsCtx.goal / srPlus / opsCtx.cr / opsCtx.weeks)
-      : null;
-    if (reqSrPlus != null){
-      pushLever({
-        kind: "rates",
-        key: "sr",
-        label: "+1 pp support rate",
-        impact: baseReq - reqSrPlus,
-        costLabel: "+1 pp SR",
-        costScalar: 1,
-        effUnit: "per +1pp",
-      });
-    }
-
-    const reqCrPlus = (opsCtx.goal > 0 && crPlus > 0 && opsCtx.sr > 0 && opsCtx.weeks > 0)
-      ? (opsCtx.goal / opsCtx.sr / crPlus / opsCtx.weeks)
-      : null;
-    if (reqCrPlus != null){
-      pushLever({
-        kind: "rates",
-        key: "cr",
-        label: "+1 pp contact rate",
-        impact: baseReq - reqCrPlus,
-        costLabel: "+1 pp CR",
-        costScalar: 1,
-        effUnit: "per +1pp",
-      });
-    }
-
-    const wPlus = opsCtx.weeks + 1;
-    const reqWPlus = (opsCtx.goal > 0 && opsCtx.sr > 0 && opsCtx.cr > 0 && wPlus > 0)
-      ? (opsCtx.goal / opsCtx.sr / opsCtx.cr / wPlus)
-      : null;
-    if (reqWPlus != null){
-      pushLever({
-        kind: "timeline",
-        key: "weeks",
-        label: "+1 week timeline",
-        impact: baseReq - reqWPlus,
-        costLabel: "+1 week",
-        costScalar: 1,
-        effUnit: "per week",
-      });
-    }
-  }
-
-  const usable = levers
-    .filter((x) => x.impactUse != null && Number.isFinite(x.impactUse) && x.impactUse > 0)
-    .sort((a, b) => (b.impactUse - a.impactUse));
-
-  if (!usable.length){
-    return {
-      ...base,
-      intro,
-      showBestMoves: false,
-      actions: ["No lever estimates available under current inputs."],
-      foot: "",
-    };
-  }
-
-  const bestByEff = [...usable]
-    .filter((x) => x.eff != null && Number.isFinite(x.eff))
-    .sort((a, b) => (b.eff - a.eff) || (b.impactUse - a.impactUse))
-    .slice(0, 3);
-
-  const rows = usable.slice(0, 10);
-  const bestCap = usable.filter((x) => x.kind === "capacity").sort((a, b) => (b.impactUse - a.impactUse))[0] || null;
-  const bestRate = usable.filter((x) => x.kind === "rates").sort((a, b) => (b.impactUse - a.impactUse))[0] || null;
-  const bestCr = usable.find((x) => x.kind === "rates" && x.key === "cr") || null;
-  const bestSr = usable.find((x) => x.kind === "rates" && x.key === "sr") || null;
-
-  const drift = executionSnapshot
-    ? {
-        hasLog: !!executionSnapshot?.log?.hasLog,
-        flags: Array.isArray(executionSnapshot?.drift?.flags) ? executionSnapshot.drift.flags : [],
-        primary: executionSnapshot?.drift?.primary || null,
-      }
-    : computeRealityDrift();
-  const hasDrift = !!(drift?.hasLog && drift?.flags?.length);
-  const primary = drift?.primary || null;
-
-  const actions = [];
-  if (isGap){
-    if (hasDrift){
-      if (primary === "productivity"){
-        if (bestCap) actions.push(`Reality check shows productivity below assumed. Close the gap by raising execution capacity first: ${bestCap.label} (≈ ${fmtCeil(bestCap.impactUse)} attempts/week relief).`);
-        if (bestCr) actions.push(`Then reduce workload by improving contact rate: ${bestCr.label} (≈ ${fmtCeil(bestCr.impactUse)} attempts/week relief).`);
-        else if (bestRate) actions.push(`Then reduce workload by improving rates: ${bestRate.label} (≈ ${fmtCeil(bestRate.impactUse)} attempts/week relief).`);
-      } else if (primary === "contact"){
-        if (bestCr) actions.push(`Reality check shows contact rate below assumed. Prioritize: ${bestCr.label} (≈ ${fmtCeil(bestCr.impactUse)} attempts/week relief).`);
-        if (bestCap) actions.push(`If rate lift is slow, backstop with more capacity: ${bestCap.label} (≈ ${fmtCeil(bestCap.impactUse)} attempts/week relief).`);
-      } else if (primary === "support"){
-        if (bestSr) actions.push(`Reality check shows support rate below assumed. Prioritize: ${bestSr.label} (≈ ${fmtCeil(bestSr.impactUse)} attempts/week relief).`);
-        if (bestCap) actions.push(`If persuasion lift is slow, backstop with more capacity: ${bestCap.label} (≈ ${fmtCeil(bestCap.impactUse)} attempts/week relief).`);
-      } else {
-        if (bestCap) actions.push(`Close the gap by increasing execution capacity: start with ${bestCap.label} (≈ ${fmtCeil(bestCap.impactUse)} attempts/week relief).`);
-        if (bestRate) actions.push(`Reduce workload by improving rates: ${bestRate.label} (≈ ${fmtCeil(bestRate.impactUse)} attempts/week relief).`);
-      }
-      actions.push("If actual performance stays below assumptions, either align assumptions to reality (and re-plan) or change inputs to close the gap (capacity, speeds, mix, training).");
-    } else {
-      if (bestCap) actions.push(`Close the gap by increasing execution capacity: start with ${bestCap.label} (≈ ${fmtCeil(bestCap.impactUse)} attempts/week relief).`);
-      if (bestRate) actions.push(`Reduce workload by improving rates: ${bestRate.label} (≈ ${fmtCeil(bestRate.impactUse)} attempts/week relief).`);
-      actions.push("If neither is realistic, reduce weekly pressure by extending timeline assumptions (more weeks) or revising the goal (Support IDs needed).");
-    }
-  } else {
-    if (hasDrift){
-      if (primary === "productivity" && bestCap) actions.push(`You are feasible, but productivity is below assumed. Add buffer with ${bestCap.label} (≈ ${fmtCeil(bestCap.impactUse)} attempts/week).`);
-      if (primary === "contact" && bestCr) actions.push(`You are feasible, but contact rate is below assumed. Improve efficiency with ${bestCr.label} (≈ ${fmtCeil(bestCr.impactUse)} attempts/week).`);
-      if (primary === "support" && bestSr) actions.push(`You are feasible, but support rate is below assumed. Improve efficiency with ${bestSr.label} (≈ ${fmtCeil(bestSr.impactUse)} attempts/week).`);
-      if (!actions.length && bestRate) actions.push(`You are feasible, but assumptions are drifting. Consider ${bestRate.label} (≈ ${fmtCeil(bestRate.impactUse)} attempts/week).`);
-      actions.push("Use buffer to absorb volatility, and align assumptions to observed daily log so planning stays honest.");
-    } else {
-      if (bestCap) actions.push(`Build buffer: ${bestCap.label} adds ≈ ${fmtCeil(bestCap.impactUse)} attempts/week of slack.`);
-      if (bestRate) actions.push(`Improve efficiency: ${bestRate.label} reduces required attempts by ≈ ${fmtCeil(bestRate.impactUse)} attempts/week.`);
-      actions.push("Use the buffer to absorb volatility (bad weeks, weather, volunteer drop-off) or to front-load early vote chasing.");
-    }
-  }
-
-  return {
-    ...base,
-    intro,
-    foot: isGap
-      ? "Impact estimates are local and directional; apply changes one at a time and verify updated weekly gap."
-      : "Use this as a buffer-building guide; apply changes one at a time and keep assumptions auditable.",
-    bestMoves: bestByEff.map((lever) => ({
-      id: `${lever.kind}:${lever.key}`,
-      text: `${lever.label}: ~${fmtCeil(lever.impactUse)} attempts/week (${fmtNum1(lever.eff)} ${lever.effUnit})`,
-      lever,
-    })),
-    rows: rows.map((lever) => ({
-      id: `${lever.kind}:${lever.key}`,
-      label: lever.label,
-      impact: `~${fmtCeil(lever.impactUse)}`,
-      costUnit: lever.costLabel || "—",
-      efficiency: (lever.eff == null || !Number.isFinite(lever.eff)) ? "—" : fmtNum1(lever.eff),
-      lever,
-    })),
-    actions: actions.slice(0, 4),
-    actionsNote: hasDrift
-      ? "Recommendations include reality-drift signals from recent organizer logs."
-      : "Recommendations are model-based. Add organizer logs to activate drift-aware recommendations.",
-  };
+  return buildReachLeversAndActionsView({
+    weeklyContext: weeklyContext || {},
+    executionSnapshot,
+    computeCapacityBreakdownFn: (payload) => coreComputeCapacityBreakdown(payload),
+    clampFn: clamp,
+    computeRealityDriftFn: () => computeRealityDrift(),
+    formatInt: (value, options = {}) => {
+      if (!Number.isFinite(Number(value))) return "—";
+      const mode = options?.ceil ? "ceil" : (options?.floor ? "floor" : "round");
+      const n = roundWholeNumberByMode(Number(value), { mode, fallback: 0 }) || 0;
+      return reachBridgeFmtInt(n);
+    },
+    formatNum1: (value) => reachBridgeFmtNum1(value),
+  });
 }
 
 function reachBridgeStateView(){
@@ -3648,7 +5992,7 @@ function reachBridgeSetField(field, rawValue){
     return { ok: false, code: "invalid_value", view: reachBridgeStateView() };
   }
 
-  setState((next) => {
+  mutateState((next) => {
     next[field] = parsed;
   });
   markMcStale();
@@ -3659,7 +6003,7 @@ function reachBridgeSetOverrideEnabled(enabled){
   if (isScenarioLockedForEdits(state)){
     return { ok: false, code: "locked", view: reachBridgeStateView() };
   }
-  setState((next) => {
+  mutateState((next) => {
     next.twCapOverrideEnabled = !!enabled;
   });
   markMcStale();
@@ -3674,7 +6018,7 @@ function reachBridgeSetOverrideMode(mode){
   if (isScenarioLockedForEdits(state)){
     return { ok: false, code: "locked", view: reachBridgeStateView() };
   }
-  setState((next) => {
+  mutateState((next) => {
     next.twCapOverrideMode = nextMode;
   });
   markMcStale();
@@ -3693,7 +6037,7 @@ function reachBridgeSetOverrideHorizon(rawValue){
   if (parsed === null){
     return { ok: false, code: "invalid_value", view: reachBridgeStateView() };
   }
-  setState((next) => {
+  mutateState((next) => {
     next.twCapOverrideHorizonWeeks = parsed;
   });
   return { ok: true, view: reachBridgeStateView() };
@@ -3893,6 +6237,10 @@ function ensureTurnoutBridgeShape(target){
   if (!Number.isFinite(Number(target.gotvMaxLiftPP2))) target.gotvMaxLiftPP2 = 10;
   if (typeof target.budget.includeOverhead !== "boolean") target.budget.includeOverhead = false;
   if (!Number.isFinite(Number(target.budget.overheadAmount))) target.budget.overheadAmount = 0;
+  target.gotvMode = normalizeBridgeSelectValue(target.gotvMode, TURNOUT_SELECT_OPTIONS.gotvMode, "basic");
+  tactics.doors.kind = normalizeBridgeSelectValue(tactics?.doors?.kind, TURNOUT_SELECT_OPTIONS.tacticKind, "persuasion");
+  tactics.phones.kind = normalizeBridgeSelectValue(tactics?.phones?.kind, TURNOUT_SELECT_OPTIONS.tacticKind, "persuasion");
+  tactics.texts.kind = normalizeBridgeSelectValue(tactics?.texts?.kind, TURNOUT_SELECT_OPTIONS.tacticKind, "persuasion");
 }
 
 function turnoutBridgeStateView(){
@@ -3915,12 +6263,18 @@ function turnoutBridgeStateView(){
     ? state.ui.lastTurnout
     : {};
   const locked = isScenarioLockedForEdits(state);
+  const gotvModeOptions = normalizeBridgeSelectOptions(TURNOUT_SELECT_OPTIONS.gotvMode);
+  const tacticKindOptions = normalizeBridgeSelectOptions(TURNOUT_SELECT_OPTIONS.tacticKind);
+  const gotvMode = normalizeBridgeSelectValue(state?.gotvMode, gotvModeOptions, "basic");
+  const roiDoorsKind = normalizeBridgeSelectValue(doors?.kind, tacticKindOptions, "persuasion");
+  const roiPhonesKind = normalizeBridgeSelectValue(phones?.kind, tacticKindOptions, "persuasion");
+  const roiTextsKind = normalizeBridgeSelectValue(texts?.kind, tacticKindOptions, "persuasion");
   return {
     inputs: {
       turnoutEnabled: !!state.turnoutEnabled,
       turnoutBaselinePct: state.turnoutBaselinePct ?? "",
       turnoutTargetOverridePct: state.turnoutTargetOverridePct ?? "",
-      gotvMode: state.gotvMode || "basic",
+      gotvMode,
       gotvDiminishing: !!state.gotvDiminishing,
       gotvLiftPP: state.gotvLiftPP ?? "",
       gotvMaxLiftPP: state.gotvMaxLiftPP ?? "",
@@ -3930,17 +6284,17 @@ function turnoutBridgeStateView(){
       gotvMaxLiftPP2: state.gotvMaxLiftPP2 ?? "",
       roiDoorsEnabled: !!doors.enabled,
       roiDoorsCpa: doors.cpa ?? "",
-      roiDoorsKind: doors.kind || "persuasion",
+      roiDoorsKind,
       roiDoorsCr: doors.crPct ?? "",
       roiDoorsSr: doors.srPct ?? "",
       roiPhonesEnabled: !!phones.enabled,
       roiPhonesCpa: phones.cpa ?? "",
-      roiPhonesKind: phones.kind || "persuasion",
+      roiPhonesKind,
       roiPhonesCr: phones.crPct ?? "",
       roiPhonesSr: phones.srPct ?? "",
       roiTextsEnabled: !!texts.enabled,
       roiTextsCpa: texts.cpa ?? "",
-      roiTextsKind: texts.kind || "persuasion",
+      roiTextsKind,
       roiTextsCr: texts.crPct ?? "",
       roiTextsSr: texts.srPct ?? "",
       roiOverheadAmount: state?.budget?.overheadAmount ?? "",
@@ -3950,7 +6304,10 @@ function turnoutBridgeStateView(){
       locked,
       refreshDisabled: false,
     },
-    options: TURNOUT_SELECT_OPTIONS,
+    options: {
+      gotvMode: bridgeSelectOptionsWithSelected(gotvModeOptions, gotvMode),
+      tacticKind: bridgeSelectOptionsWithSelected(tacticKindOptions, roiDoorsKind),
+    },
     roiRows,
     roiBannerText,
     summary: {
@@ -4015,7 +6372,7 @@ function turnoutBridgeSetField(field, rawValue){
     if (!normalized.ok){
       return { ok: false, code: normalized.code, view: turnoutBridgeStateView() };
     }
-    setState((next) => {
+    mutateState((next) => {
       ensureTurnoutBridgeShape(next);
       if (key === "gotvMode"){
         next.gotvMode = normalized.value;
@@ -4036,7 +6393,7 @@ function turnoutBridgeSetField(field, rawValue){
 
   if (mode === "boolean"){
     const checked = !!rawValue;
-    setState((next) => {
+    mutateState((next) => {
       ensureTurnoutBridgeShape(next);
       if (key === "turnoutEnabled"){
         next.turnoutEnabled = checked;
@@ -4060,7 +6417,7 @@ function turnoutBridgeSetField(field, rawValue){
   if (!normalized.ok){
     return { ok: false, code: normalized.code, view: turnoutBridgeStateView() };
   }
-  setState((next) => {
+  mutateState((next) => {
     ensureTurnoutBridgeShape(next);
     const value = normalized.value;
     if (key === "turnoutBaselinePct"){
@@ -4123,10 +6480,10 @@ const PLAN_SELECT_OPTIONS = {
     { value: "budget", label: "Budget-constrained" },
     { value: "capacity", label: "Capacity-constrained" },
   ],
-  optObjective: [
-    { value: "net", label: "Net Votes" },
-    { value: "turnout", label: "Turnout-Adjusted Net Votes" },
-  ],
+  optObjective: OPTIMIZATION_OBJECTIVES.map((row) => ({
+    value: String(row.value),
+    label: String(row.label),
+  })),
   tlOptObjective: [
     { value: "max_net", label: "Maximize net votes by deadline" },
     { value: "min_cost_goal", label: "Minimize cost while meeting goal (if feasible)" },
@@ -4178,10 +6535,18 @@ function ensurePlanBridgeShape(target){
     target.budget.optimize = {};
   }
   const optimize = target.budget.optimize;
-  if (!optimize.mode) optimize.mode = "budget";
-  if (!optimize.objective) optimize.objective = "net";
+  optimize.mode = normalizeBridgeSelectValue(optimize.mode, PLAN_SELECT_OPTIONS.optMode, "budget");
+  optimize.objective = normalizeBridgeSelectValue(
+    normalizeOptimizationObjective(optimize.objective, "net"),
+    PLAN_SELECT_OPTIONS.optObjective,
+    "net",
+  );
   if (typeof optimize.tlConstrainedEnabled !== "boolean") optimize.tlConstrainedEnabled = false;
-  if (!optimize.tlConstrainedObjective) optimize.tlConstrainedObjective = "max_net";
+  optimize.tlConstrainedObjective = normalizeBridgeSelectValue(
+    optimize.tlConstrainedObjective,
+    PLAN_SELECT_OPTIONS.tlOptObjective,
+    "max_net",
+  );
   if (!Number.isFinite(Number(optimize.budgetAmount))) optimize.budgetAmount = 10000;
   if (!Number.isFinite(Number(optimize.step))) optimize.step = 25;
   if (typeof optimize.useDecay !== "boolean") optimize.useDecay = false;
@@ -4193,29 +6558,79 @@ function ensurePlanBridgeShape(target){
   if (!Number.isFinite(Number(target.timelineVolCount))) target.timelineVolCount = 0;
   if (!Number.isFinite(Number(target.timelineVolHours))) target.timelineVolHours = 0;
   if (typeof target.timelineRampEnabled !== "boolean") target.timelineRampEnabled = false;
-  if (!target.timelineRampMode) target.timelineRampMode = "linear";
+  target.timelineRampMode = normalizeBridgeSelectValue(target.timelineRampMode, PLAN_SELECT_OPTIONS.timelineRampMode, "linear");
   if (!Number.isFinite(Number(target.timelineDoorsPerHour))) target.timelineDoorsPerHour = 30;
   if (!Number.isFinite(Number(target.timelineCallsPerHour))) target.timelineCallsPerHour = 20;
   if (!Number.isFinite(Number(target.timelineTextsPerHour))) target.timelineTextsPerHour = 120;
+}
+
+function planBridgeBuildSummaryView(){
+  const objectiveCopy = getOptimizationObjectiveCopy(state?.budget?.optimize?.objective, "net");
+  const conversion = state?.ui?.lastConversion && typeof state.ui.lastConversion === "object"
+    ? state.ui.lastConversion
+    : {};
+  const timeline = state?.ui?.lastTimeline && typeof state.ui.lastTimeline === "object"
+    ? state.ui.lastTimeline
+    : {};
+  const timelineObjectiveMeta = getTimelineFeasibilityObjectiveMeta(timeline);
+  const tlMeta = state?.ui?.lastTlMeta && typeof state.ui.lastTlMeta === "object"
+    ? state.ui.lastTlMeta
+    : {};
+  const tlObjectiveMeta = getTimelineObjectiveMeta(tlMeta);
+  const lastSummary = state?.ui?.lastSummary && typeof state.ui.lastSummary === "object"
+    ? state.ui.lastSummary
+    : {};
+  const upliftSummary = lastSummary?.upliftSummary && typeof lastSummary.upliftSummary === "object"
+    ? lastSummary.upliftSummary
+    : {};
+  const lastOptTotals = state?.ui?.lastOpt?.totals && typeof state.ui.lastOpt.totals === "object"
+    ? state.ui.lastOpt.totals
+    : {};
+  const lastOpt = state?.ui?.lastOpt && typeof state.ui.lastOpt === "object"
+    ? state.ui.lastOpt
+    : {};
+  const diagnostics = state?.ui?.lastDiagnostics && typeof state.ui.lastDiagnostics === "object"
+    ? state.ui.lastDiagnostics
+    : {};
+  return buildCanonicalPlanSummaryView({
+    objectiveCopy,
+    conversion,
+    timeline,
+    timelineObjectiveMeta,
+    tlMeta,
+    tlObjectiveMeta,
+    lastSummary,
+    upliftSummary,
+    lastOptTotals,
+    lastOpt,
+    diagnostics,
+    formatInt: (value) => formatWholeNumberByMode(value, { mode: "round", fallback: "—" }),
+    formatWhole: formatPlanWhole,
+    formatCurrency: formatPlanCurrency,
+    formatPercentUnit: formatPlanPercentUnit,
+  });
 }
 
 function planBridgeStateView(){
   ensurePlanBridgeShape(state);
   const optimize = state?.budget?.optimize || {};
   const optimizerRowsRaw = Array.isArray(state?.ui?.lastPlanRows) ? state.ui.lastPlanRows : [];
-  const optimizerRows = optimizerRowsRaw.map((row) => ({
-    tactic: String(row?.tactic || ""),
-    attempts: safeNum(row?.attempts),
-    cost: safeNum(row?.cost),
-    expectedNetVotes: safeNum(row?.expectedNetVotes),
-  }));
+  const optimizerRows = normalizePlanOptimizerRows(optimizerRowsRaw);
   const locked = isScenarioLockedForEdits(state);
+  const optModeOptions = normalizeBridgeSelectOptions(PLAN_SELECT_OPTIONS.optMode);
+  const optObjectiveOptions = normalizeBridgeSelectOptions(PLAN_SELECT_OPTIONS.optObjective);
+  const tlOptObjectiveOptions = normalizeBridgeSelectOptions(PLAN_SELECT_OPTIONS.tlOptObjective);
+  const timelineRampModeOptions = normalizeBridgeSelectOptions(PLAN_SELECT_OPTIONS.timelineRampMode);
+  const optMode = normalizeBridgeSelectValue(optimize?.mode, optModeOptions, "budget");
+  const optObjective = normalizeBridgeSelectValue(optimize?.objective, optObjectiveOptions, "net");
+  const tlOptObjective = normalizeBridgeSelectValue(optimize?.tlConstrainedObjective, tlOptObjectiveOptions, "max_net");
+  const timelineRampMode = normalizeBridgeSelectValue(state?.timelineRampMode, timelineRampModeOptions, "linear");
   return {
     inputs: {
-      optMode: optimize.mode || "budget",
-      optObjective: optimize.objective || "net",
+      optMode,
+      optObjective,
       tlOptEnabled: !!optimize.tlConstrainedEnabled,
-      tlOptObjective: optimize.tlConstrainedObjective || "max_net",
+      tlOptObjective,
       optBudget: optimize.budgetAmount ?? "",
       optStep: optimize.step ?? "",
       optUseDecay: !!optimize.useDecay,
@@ -4227,7 +6642,7 @@ function planBridgeStateView(){
       timelineVolCount: state.timelineVolCount ?? "",
       timelineVolHours: state.timelineVolHours ?? "",
       timelineRampEnabled: !!state.timelineRampEnabled,
-      timelineRampMode: state.timelineRampMode || "linear",
+      timelineRampMode,
       timelineDoorsPerHour: state.timelineDoorsPerHour ?? "",
       timelineCallsPerHour: state.timelineCallsPerHour ?? "",
       timelineTextsPerHour: state.timelineTextsPerHour ?? "",
@@ -4236,8 +6651,14 @@ function planBridgeStateView(){
       locked,
       runDisabled: locked,
     },
-    options: PLAN_SELECT_OPTIONS,
+    options: {
+      optMode: bridgeSelectOptionsWithSelected(optModeOptions, optMode),
+      optObjective: bridgeSelectOptionsWithSelected(optObjectiveOptions, optObjective),
+      tlOptObjective: bridgeSelectOptionsWithSelected(tlOptObjectiveOptions, tlOptObjective),
+      timelineRampMode: bridgeSelectOptionsWithSelected(timelineRampModeOptions, timelineRampMode),
+    },
     optimizerRows,
+    summary: planBridgeBuildSummaryView(),
   };
 }
 
@@ -4291,7 +6712,7 @@ function planBridgeSetField(field, rawValue){
     if (!normalized.ok){
       return { ok: false, code: normalized.code, view: planBridgeStateView() };
     }
-    setState((next) => {
+    mutateState((next) => {
       ensurePlanBridgeShape(next);
       if (key === "optMode"){
         next.budget.optimize.mode = normalized.value;
@@ -4308,7 +6729,7 @@ function planBridgeSetField(field, rawValue){
 
   if (mode === "boolean"){
     const checked = !!rawValue;
-    setState((next) => {
+    mutateState((next) => {
       ensurePlanBridgeShape(next);
       if (key === "tlOptEnabled"){
         next.budget.optimize.tlConstrainedEnabled = checked;
@@ -4327,7 +6748,7 @@ function planBridgeSetField(field, rawValue){
   if (!normalized.ok){
     return { ok: false, code: normalized.code, view: planBridgeStateView() };
   }
-  setState((next) => {
+  mutateState((next) => {
     ensurePlanBridgeShape(next);
     const value = normalized.value;
     if (key === "optBudget"){
@@ -4489,19 +6910,7 @@ function outcomeBridgeControlId(field){
 }
 
 function outcomeBridgeReadSelectOptions(field){
-  const selectId = outcomeBridgeSelectId(field);
-  const fallback = OUTCOME_SELECT_OPTIONS[field] || [];
-  const select = (selectId && els && els[selectId] instanceof HTMLSelectElement)
-    ? els[selectId]
-    : null;
-  if (!(select instanceof HTMLSelectElement)){
-    return fallback;
-  }
-  const rows = Array.from(select.options).map((opt) => ({
-    value: String(opt?.value ?? ""),
-    label: String(opt?.textContent ?? opt?.value ?? ""),
-  }));
-  return rows.length ? rows : fallback;
+  return normalizeBridgeSelectOptions(OUTCOME_SELECT_OPTIONS[field] || []);
 }
 
 function outcomeBridgeReadLegacyControlValue(field){
@@ -4536,7 +6945,6 @@ function outcomeBridgeResolvedSurfaceInputs(){
 
   const rawLever = String(
     storedInputs.surfaceLever ??
-    outcomeBridgeReadLegacyControlValue("surfaceLever") ??
     ""
   );
   const surfaceLever = outcomeBridgeDefaultSelectValue("surfaceLever", rawLever);
@@ -4544,7 +6952,6 @@ function outcomeBridgeResolvedSurfaceInputs(){
 
   const rawMode = String(
     storedInputs.surfaceMode ??
-    outcomeBridgeReadLegacyControlValue("surfaceMode") ??
     ""
   );
   const surfaceMode = outcomeBridgeDefaultSelectValue("surfaceMode", rawMode);
@@ -4557,28 +6964,28 @@ function outcomeBridgeResolvedSurfaceInputs(){
     ? surfaceClamp((base != null ? Number(base) * 1.2 : spec.clampHi), spec.clampLo, spec.clampHi)
     : "";
 
-  const rawMin = storedInputs.surfaceMin ?? outcomeBridgeReadLegacyControlValue("surfaceMin");
+  const rawMin = storedInputs.surfaceMin ?? "";
   const minNum = Number(rawMin);
   const surfaceMin = Number.isFinite(minNum) && spec
     ? String(surfaceClamp(minNum, spec.clampLo, spec.clampHi))
     : (defaultMin === "" ? "" : String(defaultMin));
 
-  const rawMax = storedInputs.surfaceMax ?? outcomeBridgeReadLegacyControlValue("surfaceMax");
+  const rawMax = storedInputs.surfaceMax ?? "";
   const maxNum = Number(rawMax);
   const surfaceMax = Number.isFinite(maxNum) && spec
     ? String(surfaceClamp(maxNum, spec.clampLo, spec.clampHi))
     : (defaultMax === "" ? "" : String(defaultMax));
 
-  const rawSteps = storedInputs.surfaceSteps ?? outcomeBridgeReadLegacyControlValue("surfaceSteps");
-  const stepsNum = Math.floor(Number(rawSteps));
+  const rawSteps = storedInputs.surfaceSteps ?? "";
+  const stepsNum = roundWholeNumberByMode(Number(rawSteps), { mode: "floor", fallback: null });
   const surfaceSteps = Number.isFinite(stepsNum)
     ? String(Math.max(5, Math.min(51, stepsNum)))
     : String(OUTCOME_SURFACE_DEFAULTS.surfaceSteps);
 
-  const rawTarget = storedInputs.surfaceTarget ?? outcomeBridgeReadLegacyControlValue("surfaceTarget");
+  const rawTarget = storedInputs.surfaceTarget ?? "";
   const targetNum = Number(rawTarget);
   const surfaceTarget = Number.isFinite(targetNum)
-    ? String(Math.max(50, Math.min(99, Math.round(targetNum))))
+    ? String(Math.max(50, Math.min(99, roundWholeNumberByMode(targetNum, { mode: "round", fallback: 0 }) || 0)))
     : String(OUTCOME_SURFACE_DEFAULTS.surfaceTarget);
 
   return {
@@ -4684,7 +7091,7 @@ function outcomeBridgeApplySurfaceField(field, rawValue){
   if (OUTCOME_SURFACE_SELECT_FIELDS.has(field)){
     const normalized = outcomeBridgeNormalizeSelect(field, rawValue);
     if (!normalized.ok){
-      return { ok: false, code: normalized.code, view: outcomeBridgeStateView() };
+      return { ok: false, code: normalized.code, view: outcomeBridgeCombinedView() };
     }
     next[field] = normalized.value;
     if (field === "surfaceLever"){
@@ -4705,23 +7112,135 @@ function outcomeBridgeApplySurfaceField(field, rawValue){
       outcomeBridgeSyncLegacyControl("surfaceMin", next.surfaceMin);
       outcomeBridgeSyncLegacyControl("surfaceMax", next.surfaceMax);
     }
-    return { ok: true, view: outcomeBridgeStateView() };
+    return { ok: true, view: outcomeBridgeCombinedView() };
   }
 
   const normalized = outcomeBridgeNormalizeNumber(field, rawValue);
   if (!normalized.ok){
-    return { ok: false, code: normalized.code, view: outcomeBridgeStateView() };
+    return { ok: false, code: normalized.code, view: outcomeBridgeCombinedView() };
   }
   next[field] = normalized.value === "" ? "" : String(normalized.value);
   setState((target) => {
     outcomeBridgeWriteSurfaceInputs(target, next);
   });
   outcomeBridgeSyncLegacyControl(field, next[field]);
-  return { ok: true, view: outcomeBridgeStateView() };
+  return { ok: true, view: outcomeBridgeCombinedView() };
 }
 
-function outcomeBridgeStateView(){
+function outcomeBridgeCanonicalView(){
   const locked = isScenarioLockedForEdits(state);
+  const mcModeOptions = outcomeBridgeReadSelectOptions("mcMode");
+  const mcVolatilityOptions = outcomeBridgeReadSelectOptions("mcVolatility");
+  const surfaceLeverOptions = outcomeBridgeReadSelectOptions("surfaceLever");
+  const surfaceModeOptions = outcomeBridgeReadSelectOptions("surfaceMode");
+  const mcMode = normalizeBridgeSelectValue(state?.mcMode, mcModeOptions, "basic");
+  const mcVolatility = normalizeBridgeSelectValue(state?.mcVolatility, mcVolatilityOptions, "med");
+  const surfaceInputsRaw = outcomeBridgeResolvedSurfaceInputs();
+  const surfaceLever = normalizeBridgeSelectValue(
+    surfaceInputsRaw?.surfaceLever,
+    surfaceLeverOptions,
+    OUTCOME_SURFACE_DEFAULTS.surfaceLever,
+  );
+  const surfaceMode = normalizeBridgeSelectValue(
+    surfaceInputsRaw?.surfaceMode,
+    surfaceModeOptions,
+    OUTCOME_SURFACE_DEFAULTS.surfaceMode,
+  );
+  const surfaceInputs = {
+    ...surfaceInputsRaw,
+    surfaceLever,
+    surfaceMode,
+  };
+  const surfaceComputing = !!(state?.ui && state.ui.outcomeSurfaceComputing);
+
+  return {
+    inputs: {
+      orgCount: state.orgCount ?? "",
+      orgHoursPerWeek: state.orgHoursPerWeek ?? "",
+      volunteerMultBase: state.volunteerMultBase ?? "",
+      channelDoorPct: state.channelDoorPct ?? "",
+      doorsPerHour3: canonicalDoorsPerHourFromSnap(state) ?? "",
+      callsPerHour3: canonicalCallsPerHourFromSnap(state) ?? "",
+      mcMode,
+      mcSeed: state.mcSeed || "",
+      mcVolatility,
+      turnoutReliabilityPct: state.turnoutReliabilityPct ?? "",
+      mcRuns: 10000,
+      mcContactMin: state.mcContactMin ?? "",
+      mcContactMode: state.mcContactMode ?? "",
+      mcContactMax: state.mcContactMax ?? "",
+      mcPersMin: state.mcPersMin ?? "",
+      mcPersMode: state.mcPersMode ?? "",
+      mcPersMax: state.mcPersMax ?? "",
+      mcReliMin: state.mcReliMin ?? "",
+      mcReliMode: state.mcReliMode ?? "",
+      mcReliMax: state.mcReliMax ?? "",
+      mcDphMin: state.mcDphMin ?? "",
+      mcDphMode: state.mcDphMode ?? "",
+      mcDphMax: state.mcDphMax ?? "",
+      mcCphMin: state.mcCphMin ?? "",
+      mcCphMode: state.mcCphMode ?? "",
+      mcCphMax: state.mcCphMax ?? "",
+      mcVolMin: state.mcVolMin ?? "",
+      mcVolMode: state.mcVolMode ?? "",
+      mcVolMax: state.mcVolMax ?? "",
+      surfaceLever: surfaceInputs.surfaceLever,
+      surfaceMode: surfaceInputs.surfaceMode,
+      surfaceMin: surfaceInputs.surfaceMin,
+      surfaceMax: surfaceInputs.surfaceMax,
+      surfaceSteps: surfaceInputs.surfaceSteps,
+      surfaceTarget: surfaceInputs.surfaceTarget,
+    },
+    options: {
+      mcMode: bridgeSelectOptionsWithSelected(mcModeOptions, mcMode),
+      mcVolatility: bridgeSelectOptionsWithSelected(mcVolatilityOptions, mcVolatility),
+      surfaceLever: bridgeSelectOptionsWithSelected(surfaceLeverOptions, surfaceLever),
+      surfaceMode: bridgeSelectOptionsWithSelected(surfaceModeOptions, surfaceMode),
+    },
+    controls: {
+      locked,
+      runDisabled: locked,
+      rerunDisabled: locked,
+      surfaceDisabled: locked || surfaceComputing,
+    },
+  };
+}
+
+function outcomeBridgeDerivedGovernanceView(){
+  const mc = state?.mcLast;
+  let governance = (state?.ui && typeof state.ui === "object" && state.ui.lastGovernanceSnapshot && typeof state.ui.lastGovernanceSnapshot === "object")
+    ? { ...state.ui.lastGovernanceSnapshot }
+    : null;
+  try{
+    const benchmarkWarnings = (engine?.snapshot?.computeAssumptionBenchmarkWarnings)
+      ? engine.snapshot.computeAssumptionBenchmarkWarnings(state, "Benchmark")
+      : [];
+    const driftSummary = computeRealityDrift();
+    const realism = runRealismEngine({
+      state,
+      res: lastRenderCtx?.res || {},
+      weeks: lastRenderCtx?.weeks,
+      driftSummary,
+    });
+    const evidenceWarnings = computeEvidenceWarnings(state, { limit: 3, staleDays: 30 });
+    const full = computeModelGovernance({
+      state,
+      res: lastRenderCtx?.res || {},
+      benchmarkWarnings,
+      evidenceWarnings,
+      driftSummary,
+      realism,
+    });
+    if (full && typeof full === "object"){
+      governance = buildGovernanceSnapshotView(full);
+    }
+  } catch {
+    governance = null;
+  }
+  return governance;
+}
+
+function outcomeBridgeDerivedView(){
   const mc = state?.mcLast;
   const ce = mc?.confidenceEnvelope || null;
   const percentiles = ce?.percentiles || {};
@@ -4731,6 +7250,7 @@ function outcomeBridgeStateView(){
   const mcMeta = (state?.ui && typeof state.ui === "object" && state.ui.mcMeta && typeof state.ui.mcMeta === "object")
     ? state.ui.mcMeta
     : null;
+  const governance = outcomeBridgeDerivedGovernanceView();
 
   let mcLastRun = "";
   if (mcMeta?.lastRunAt){
@@ -4769,75 +7289,34 @@ function outcomeBridgeStateView(){
 
   const surfaceStatusText = String(state?.ui?.lastOutcomeSurfaceStatus || "").trim();
   const surfaceSummaryText = String(state?.ui?.lastOutcomeSurfaceSummary || "").trim();
-  const surfaceInputs = outcomeBridgeResolvedSurfaceInputs();
-  const surfaceComputing = !!(state?.ui && state.ui.outcomeSurfaceComputing);
-  const runButton = els?.mcRun instanceof HTMLButtonElement ? els.mcRun : null;
-  const rerunButton = els?.mcRerun instanceof HTMLButtonElement ? els.mcRerun : null;
-  const surfaceButton = els?.btnComputeSurface instanceof HTMLButtonElement ? els.btnComputeSurface : null;
-  const surfaceDisabled = surfaceComputing || !!surfaceButton?.disabled;
 
   return {
-    inputs: {
-      orgCount: state.orgCount ?? "",
-      orgHoursPerWeek: state.orgHoursPerWeek ?? "",
-      volunteerMultBase: state.volunteerMultBase ?? "",
-      channelDoorPct: state.channelDoorPct ?? "",
-      doorsPerHour3: canonicalDoorsPerHourFromSnap(state) ?? "",
-      callsPerHour3: state.callsPerHour3 ?? "",
-      mcMode: state.mcMode || "basic",
-      mcSeed: state.mcSeed || "",
-      mcVolatility: state.mcVolatility || "med",
-      turnoutReliabilityPct: state.turnoutReliabilityPct ?? "",
-      mcRuns: 10000,
-      mcContactMin: state.mcContactMin ?? "",
-      mcContactMode: state.mcContactMode ?? "",
-      mcContactMax: state.mcContactMax ?? "",
-      mcPersMin: state.mcPersMin ?? "",
-      mcPersMode: state.mcPersMode ?? "",
-      mcPersMax: state.mcPersMax ?? "",
-      mcReliMin: state.mcReliMin ?? "",
-      mcReliMode: state.mcReliMode ?? "",
-      mcReliMax: state.mcReliMax ?? "",
-      mcDphMin: state.mcDphMin ?? "",
-      mcDphMode: state.mcDphMode ?? "",
-      mcDphMax: state.mcDphMax ?? "",
-      mcCphMin: state.mcCphMin ?? "",
-      mcCphMode: state.mcCphMode ?? "",
-      mcCphMax: state.mcCphMax ?? "",
-      mcVolMin: state.mcVolMin ?? "",
-      mcVolMode: state.mcVolMode ?? "",
-      mcVolMax: state.mcVolMax ?? "",
-      surfaceLever: surfaceInputs.surfaceLever,
-      surfaceMode: surfaceInputs.surfaceMode,
-      surfaceMin: surfaceInputs.surfaceMin,
-      surfaceMax: surfaceInputs.surfaceMax,
-      surfaceSteps: surfaceInputs.surfaceSteps,
-      surfaceTarget: surfaceInputs.surfaceTarget,
-    },
-    options: {
-      mcMode: outcomeBridgeReadSelectOptions("mcMode"),
-      mcVolatility: outcomeBridgeReadSelectOptions("mcVolatility"),
-      surfaceLever: outcomeBridgeReadSelectOptions("surfaceLever"),
-      surfaceMode: outcomeBridgeReadSelectOptions("surfaceMode"),
-    },
-    controls: {
-      locked,
-      runDisabled: !!(runButton?.disabled || locked),
-      rerunDisabled: !!(rerunButton?.disabled || locked),
-      surfaceDisabled,
-    },
     mc: {
       winProb: safeNum(mc?.winProb),
       p10: safeNum(percentiles?.p10),
       p50: safeNum(percentiles?.p50),
       p90: safeNum(percentiles?.p90),
+      riskLabel: String(mc?.riskLabel || "").trim(),
       riskGrade: String(advisor?.grade || "").trim(),
+      missRiskLabel: String(mc?.riskLabel || advisor?.grade || "").trim(),
+      marginOfSafety: safeNum(risk?.marginOfSafety),
+      downsideRiskMass: safeNum(risk?.downsideRiskMass),
+      expectedShortfall10: safeNum(risk?.expectedShortfall10),
+      requiredShiftP50: safeNum(risk?.breakEven?.requiredShiftP50),
+      requiredShiftP10: safeNum(risk?.breakEven?.requiredShiftP10),
+      shiftWin60: safeNum(risk?.targets?.shiftWin60),
+      shiftWin70: safeNum(risk?.targets?.shiftWin70),
+      shiftWin80: safeNum(risk?.targets?.shiftWin80),
+      shockLoss10: safeNum(risk?.shocks?.lossProb10),
+      shockLoss25: safeNum(risk?.shocks?.lossProb25),
+      shockLoss50: safeNum(risk?.shocks?.lossProb50),
       fragilityIndex: safeNum(fragility?.fragilityIndex),
       cliffRisk: safeNum(fragility?.cliffRisk),
       freshTag: mcFreshTag,
       lastRun: mcLastRun,
       staleTag: mcStaleTag,
     },
+    governance,
     sensitivityRows,
     surfaceRows,
     surfaceStatusText,
@@ -4845,25 +7324,42 @@ function outcomeBridgeStateView(){
   };
 }
 
+function outcomeBridgeCombinedView(){
+  const canonical = outcomeBridgeCanonicalView();
+  const derived = outcomeBridgeDerivedView();
+  return {
+    inputs: canonical?.inputs && typeof canonical.inputs === "object" ? canonical.inputs : {},
+    options: canonical?.options && typeof canonical.options === "object" ? canonical.options : {},
+    controls: canonical?.controls && typeof canonical.controls === "object"
+      ? canonical.controls
+      : { locked: false, runDisabled: false, rerunDisabled: false, surfaceDisabled: false },
+    mc: derived?.mc && typeof derived.mc === "object" ? derived.mc : {},
+    governance: derived?.governance && typeof derived.governance === "object" ? derived.governance : null,
+    sensitivityRows: Array.isArray(derived?.sensitivityRows) ? derived.sensitivityRows : [],
+    surfaceRows: Array.isArray(derived?.surfaceRows) ? derived.surfaceRows : [],
+    surfaceStatusText: String(derived?.surfaceStatusText || "").trim(),
+    surfaceSummaryText: String(derived?.surfaceSummaryText || "").trim(),
+    canonical,
+    derived,
+  };
+}
+
+function outcomeBridgeStateView(){
+  return outcomeBridgeCombinedView();
+}
+
 function outcomeBridgeBuildSurfaceSummaryText({ spec, result, targetPercent } = {}){
-  const summarySink = { textContent: "" };
-  renderSurfaceResultCore({
-    els: {
-      surfaceSummary: summarySink,
-      surfaceTarget: { value: String(targetPercent ?? 70) },
-      surfaceTbody: null,
-    },
+  return buildOutcomeSurfaceSummaryText({
     spec,
     result,
-    fmtSigned,
+    targetPercent,
   });
-  return String(summarySink.textContent || "").trim();
 }
 
 function outcomeBridgeSetField(field, rawValue){
   const key = String(field || "").trim();
   if (!key){
-    return { ok: false, code: "invalid_field", view: outcomeBridgeStateView() };
+    return { ok: false, code: "invalid_field", view: outcomeBridgeCombinedView() };
   }
 
   if (OUTCOME_SURFACE_SELECT_FIELDS.has(key) || OUTCOME_SURFACE_NUMERIC_FIELDS.has(key)){
@@ -4871,19 +7367,19 @@ function outcomeBridgeSetField(field, rawValue){
   }
 
   if (!OUTCOME_MODEL_SELECT_FIELDS.has(key) && !OUTCOME_TEXT_FIELDS.has(key) && !OUTCOME_MODEL_NUMERIC_FIELDS.has(key)){
-    return { ok: false, code: "invalid_field", view: outcomeBridgeStateView() };
+    return { ok: false, code: "invalid_field", view: outcomeBridgeCombinedView() };
   }
 
   if (isScenarioLockedForEdits(state)){
-    return { ok: false, code: "locked", view: outcomeBridgeStateView() };
+    return { ok: false, code: "locked", view: outcomeBridgeCombinedView() };
   }
 
   if (OUTCOME_MODEL_SELECT_FIELDS.has(key)){
     const normalized = outcomeBridgeNormalizeSelect(key, rawValue);
     if (!normalized.ok){
-      return { ok: false, code: normalized.code, view: outcomeBridgeStateView() };
+      return { ok: false, code: normalized.code, view: outcomeBridgeCombinedView() };
     }
-    setState((next) => {
+    mutateState((next) => {
       if (key === "mcMode"){
         next.mcMode = normalized.value;
       } else if (key === "mcVolatility"){
@@ -4894,25 +7390,25 @@ function outcomeBridgeSetField(field, rawValue){
       syncMcModeUI();
     }
     markMcStale();
-    return { ok: true, view: outcomeBridgeStateView() };
+    return { ok: true, view: outcomeBridgeCombinedView() };
   }
 
   if (OUTCOME_TEXT_FIELDS.has(key)){
     const value = String(rawValue ?? "");
-    setState((next) => {
+    mutateState((next) => {
       if (key === "mcSeed"){
         next.mcSeed = value;
       }
     });
     markMcStale();
-    return { ok: true, view: outcomeBridgeStateView() };
+    return { ok: true, view: outcomeBridgeCombinedView() };
   }
 
   const normalized = outcomeBridgeNormalizeNumber(key, rawValue);
   if (!normalized.ok){
-    return { ok: false, code: normalized.code, view: outcomeBridgeStateView() };
+    return { ok: false, code: normalized.code, view: outcomeBridgeCombinedView() };
   }
-  setState((next) => {
+  mutateState((next) => {
     const value = normalized.value;
     if (key === "orgCount"){
       next.orgCount = safeNum(value);
@@ -4925,7 +7421,7 @@ function outcomeBridgeSetField(field, rawValue){
     } else if (key === "doorsPerHour3"){
       setCanonicalDoorsPerHour(next, value);
     } else if (key === "callsPerHour3"){
-      next.callsPerHour3 = safeNum(value);
+      setCanonicalCallsPerHour(next, value);
     } else if (key === "turnoutReliabilityPct"){
       next.turnoutReliabilityPct = safeNum(value);
     } else if (key === "mcContactMin"){
@@ -4967,23 +7463,23 @@ function outcomeBridgeSetField(field, rawValue){
     }
   });
   markMcStale();
-  return { ok: true, view: outcomeBridgeStateView() };
+  return { ok: true, view: outcomeBridgeCombinedView() };
 }
 
 function outcomeBridgeRunMc(){
   if (isScenarioLockedForEdits(state)){
-    return { ok: false, code: "locked", view: outcomeBridgeStateView() };
+    return { ok: false, code: "locked", view: outcomeBridgeCombinedView() };
   }
   runMonteCarloNow();
-  return { ok: true, view: outcomeBridgeStateView() };
+  return { ok: true, view: outcomeBridgeCombinedView() };
 }
 
 function outcomeBridgeRerunMc(){
   if (isScenarioLockedForEdits(state)){
-    return { ok: false, code: "locked", view: outcomeBridgeStateView() };
+    return { ok: false, code: "locked", view: outcomeBridgeCombinedView() };
   }
   runMonteCarloNow();
-  return { ok: true, view: outcomeBridgeStateView() };
+  return { ok: true, view: outcomeBridgeCombinedView() };
 }
 
 function outcomeBridgeComputeSurface(){
@@ -4999,14 +7495,14 @@ function outcomeBridgeComputeSurface(){
         summaryText: String(next?.ui?.lastOutcomeSurfaceSummary || "").trim(),
       });
     });
-    return { ok: false, code: "invalid_value", view: outcomeBridgeStateView() };
+    return { ok: false, code: "invalid_value", view: outcomeBridgeCombinedView() };
   }
 
   const minV = surfaceClamp(surfaceInputs.surfaceMin, spec.clampLo, spec.clampHi);
   const maxV = surfaceClamp(surfaceInputs.surfaceMax, spec.clampLo, spec.clampHi);
   const lo = Math.min(minV, maxV);
   const hi = Math.max(minV, maxV);
-  const steps = Math.max(5, Math.floor(Number(surfaceInputs.surfaceSteps) || 21));
+  const steps = Math.max(5, roundWholeNumberByMode(Number(surfaceInputs.surfaceSteps) || 21, { mode: "floor", fallback: 21 }) || 21);
   const runs = surfaceInputs.surfaceMode === "full" ? 10000 : 2000;
   const targetPercent = Number(surfaceInputs.surfaceTarget);
   const targetWinProb = Number.isFinite(targetPercent)
@@ -5019,7 +7515,7 @@ function outcomeBridgeComputeSurface(){
       surfaceMin: String(lo),
       surfaceMax: String(hi),
       surfaceSteps: String(steps),
-      surfaceTarget: String(Math.round(targetWinProb * 100)),
+      surfaceTarget: String(roundWholeNumberByMode(targetWinProb * 100, { mode: "round", fallback: 70 }) || 70),
     });
     outcomeBridgeSetSurfaceComputing(next, true);
     outcomeBridgeWriteSurfaceCache(next, {
@@ -5033,7 +7529,7 @@ function outcomeBridgeComputeSurface(){
   outcomeBridgeSyncLegacyControl("surfaceMin", String(lo));
   outcomeBridgeSyncLegacyControl("surfaceMax", String(hi));
   outcomeBridgeSyncLegacyControl("surfaceSteps", String(steps));
-  outcomeBridgeSyncLegacyControl("surfaceTarget", String(Math.round(targetWinProb * 100)));
+  outcomeBridgeSyncLegacyControl("surfaceTarget", String(roundWholeNumberByMode(targetWinProb * 100, { mode: "round", fallback: 70 }) || 70));
 
   try{
     const snap = getStateSnapshot();
@@ -5065,7 +7561,7 @@ function outcomeBridgeComputeSurface(){
     const summaryText = outcomeBridgeBuildSurfaceSummaryText({
       spec,
       result,
-      targetPercent: Math.round(targetWinProb * 100),
+      targetPercent: roundWholeNumberByMode(targetWinProb * 100, { mode: "round", fallback: 70 }) || 70,
     });
 
     setState((next) => {
@@ -5076,7 +7572,7 @@ function outcomeBridgeComputeSurface(){
         summaryText,
       });
     });
-    return { ok: true, view: outcomeBridgeStateView() };
+    return { ok: true, view: outcomeBridgeCombinedView() };
   } catch (err){
     const errText = err?.message ? err.message : String(err || "Error");
     setState((next) => {
@@ -5087,13 +7583,15 @@ function outcomeBridgeComputeSurface(){
         summaryText: String(next?.ui?.lastOutcomeSurfaceSummary || "").trim(),
       });
     });
-    return { ok: false, code: "runtime_error", view: outcomeBridgeStateView() };
+    return { ok: false, code: "runtime_error", view: outcomeBridgeCombinedView() };
   }
 }
 
 function installOutcomeBridge(){
   window[OUTCOME_BRIDGE_KEY] = {
-    getView: () => outcomeBridgeStateView(),
+    getCanonicalView: () => outcomeBridgeCanonicalView(),
+    getDerivedView: () => outcomeBridgeDerivedView(),
+    getView: () => outcomeBridgeCombinedView(),
     setField: (field, value) => outcomeBridgeSetField(field, value),
     runMc: () => outcomeBridgeRunMc(),
     rerunMc: () => outcomeBridgeRerunMc(),
@@ -5128,32 +7626,6 @@ function refreshLegacyDecisionManagerIfMounted(){
   safeCall(() => { renderDecisionSummaryD4(); });
 }
 
-function decisionBridgeFmtInt(value){
-  const n = Number(value);
-  if (!Number.isFinite(n)) return "—";
-  return fmtInt(Math.round(n));
-}
-
-function decisionBridgeFmtPct(value, digits = 1){
-  const n = Number(value);
-  if (!Number.isFinite(n)) return "—";
-  return `${(n * 100).toFixed(digits)}%`;
-}
-
-function decisionBridgeFmtSignedPct(value, digits = 1){
-  const n = Number(value);
-  if (!Number.isFinite(n)) return "—";
-  const sign = n > 0 ? "+" : "";
-  return `${sign}${(n * 100).toFixed(digits)}%`;
-}
-
-function decisionBridgeFmtSignedNum(value, digits = 1){
-  const n = Number(value);
-  if (!Number.isFinite(n)) return "—";
-  const sign = n > 0 ? "+" : "";
-  return `${sign}${n.toFixed(digits)}`;
-}
-
 function decisionBridgeParseMaybeNumber(raw){
   const text = String(raw ?? "").trim();
   if (!text) return null;
@@ -5168,9 +7640,51 @@ function decisionBridgeLineList(raw){
     .filter(Boolean);
 }
 
+function decisionBridgeNormalizeWarRoomSession(session){
+  if (!session || typeof session !== "object"){
+    return null;
+  }
+  ensureDecisionSessionShape(session);
+  if (!session.warRoom || typeof session.warRoom !== "object"){
+    session.warRoom = {};
+  }
+  const warRoom = session.warRoom;
+  if (!Array.isArray(warRoom.watchItems)) warRoom.watchItems = [];
+  if (!Array.isArray(warRoom.decisionItems)) warRoom.decisionItems = [];
+  if (!Array.isArray(warRoom.decisionLog)) warRoom.decisionLog = [];
+  if (warRoom.owner == null) warRoom.owner = "";
+  if (warRoom.followUpDate == null) warRoom.followUpDate = "";
+  if (warRoom.decisionSummary == null) warRoom.decisionSummary = "";
+  if (warRoom.lastReview == null || typeof warRoom.lastReview !== "object"){
+    warRoom.lastReview = null;
+  }
+  return warRoom;
+}
+
+function decisionBridgeEnsureWarRoomState(){
+  ensureWarRoomStateShape(state, { nowDate: new Date() });
+  ensureEventCalendarStateShape(state, { nowDate: new Date() });
+  return state?.warRoom || null;
+}
+
+function decisionBridgeWarRoomCurrentBaseline(session, diagnostics){
+  const voterSignals = deriveVoterModelSignals(state?.voterData, {
+    censusAgeDistribution: extractCensusAgeDistribution(state?.census),
+    universeSize: safeNum(state?.universeSize),
+  });
+  return buildWarRoomReviewBaselineView({
+    diagnostics,
+    voterSignals,
+    recommendedOptionId: session?.recommendedOptionId || "",
+    scenarioId: state?.ui?.activeScenarioId || session?.scenarioId || SCENARIO_BASELINE_ID,
+    reviewedAt: new Date().toISOString(),
+  });
+}
+
 function decisionBridgeCurrentSnapshot(){
   ensureScenarioRegistry();
   ensureDecisionScaffold();
+  decisionBridgeEnsureWarRoomState();
 
   const sessions = listDecisionSessions();
   const sessionMap = state?.ui?.decision?.sessions || {};
@@ -5213,6 +7727,19 @@ function decisionBridgeCurrentSnapshot(){
   const summaryPreview = activeSession ? buildDecisionSummaryText(activeSession) : "";
 
   const diagnostics = decisionBridgeDiagnosticsSnapshot();
+  const warRoomSession = decisionBridgeNormalizeWarRoomSession(activeSession);
+  const warRoomCurrent = decisionBridgeWarRoomCurrentBaseline(activeSession, diagnostics);
+  const warRoomPrevious = warRoomSession?.lastReview || null;
+  const warRoomChange = buildWarRoomChangeClassificationView({
+    previousBaseline: warRoomPrevious,
+    currentBaseline: warRoomCurrent,
+  });
+  const warRoomDecisionLogRows = buildWarRoomDecisionLogRowsView(warRoomSession?.decisionLog || []);
+  const weather = buildWarRoomWeatherView(state, { nowDate: new Date() });
+  const eventCalendar = buildEventCalendarView(state, {
+    nowDate: new Date(),
+    scenarioId: state?.ui?.activeScenarioId || SCENARIO_BASELINE_ID,
+  });
 
   return {
     sessions,
@@ -5230,212 +7757,50 @@ function decisionBridgeCurrentSnapshot(){
     scenarioLabel,
     summaryPreview,
     diagnostics,
+    warRoom: {
+      current: warRoomCurrent,
+      previous: warRoomPrevious,
+      change: warRoomChange,
+      watchItems: Array.isArray(warRoomSession?.watchItems) ? warRoomSession.watchItems.slice() : [],
+      decisionItems: Array.isArray(warRoomSession?.decisionItems) ? warRoomSession.decisionItems.slice() : [],
+      owner: String(warRoomSession?.owner || ""),
+      followUpDate: String(warRoomSession?.followUpDate || ""),
+      decisionSummary: String(warRoomSession?.decisionSummary || ""),
+      decisionLogRows: warRoomDecisionLogRows,
+      weather,
+      eventCalendar,
+    },
   };
 }
 
 function decisionBridgeDiagnosticsSnapshot(){
-  const exec = decisionBridgeDriftSnapshot();
-  const risk = decisionBridgeRiskSnapshot();
-  const bottleneck = decisionBridgeBottleneckSnapshot();
-  const sensitivity = decisionBridgeSensitivitySnapshot();
-  const confidence = decisionBridgeConfidenceSnapshot({ exec, risk, bottleneck });
-  return { exec, risk, bottleneck, sensitivity, confidence };
-}
-
-function decisionBridgeDriftSnapshot(){
-  const executionSnapshot = lastRenderCtx?.executionSnapshot || null;
-  const weeklyContext = lastRenderCtx?.weeklyContext || null;
-  const req = executionSnapshot?.pace?.requiredAttemptsPerWeek ?? weeklyContext?.attemptsPerWeek ?? null;
-  const hasLog = executionSnapshot ? !!executionSnapshot?.log?.hasLog : false;
-  const actual = hasLog ? executionSnapshot?.log?.sumAttemptsWindow ?? null : null;
-  let delta = executionSnapshot?.pace?.ratio;
-  if (delta != null && Number.isFinite(delta)) {
-    delta = delta - 1;
-  } else if (Number.isFinite(req) && req > 0 && Number.isFinite(actual)) {
-    delta = (actual - req) / req;
-  } else {
-    delta = null;
-  }
-
-  const abs = Number.isFinite(delta) ? Math.abs(delta) : null;
-  const cls = abs == null ? "" : abs <= 0.05 ? "ok" : abs <= 0.15 ? "warn" : "bad";
-  const tag = abs == null ? "Not tracking" : cls === "ok" ? "Green" : cls === "warn" ? "Yellow" : "Red";
-  const slipDays = Number.isFinite(executionSnapshot?.pace?.projectedSlipDays)
-    ? Math.max(0, Math.round(executionSnapshot.pace.projectedSlipDays))
-    : null;
-  const banner = !hasLog
-    ? "Add daily log entries in organizer.html to activate drift detection."
-    : slipDays == null
-      ? "At current pace, projected slip unavailable under current inputs."
-      : slipDays === 0
-        ? "At current pace, target completion stays on schedule."
-        : `At current pace, target completion shifts by +${decisionBridgeFmtInt(slipDays)} days.`;
-
-  return {
-    tag,
-    cls,
-    reqText: Number.isFinite(req) ? decisionBridgeFmtInt(req) : "—",
-    actualText: Number.isFinite(actual) ? decisionBridgeFmtInt(actual) : "—",
-    deltaText: Number.isFinite(delta) ? decisionBridgeFmtSignedPct(delta, 1) : "—",
-    banner,
-  };
-}
-
-function decisionBridgeRiskSnapshot(){
-  const mc = state?.mcLast || null;
-  if (!mc){
-    return {
-      tag: "—",
-      cls: "",
-      winProbText: "—",
-      marginBandText: "—",
-      volatilityText: "—",
-      banner: "Run Monte Carlo to enable risk framing.",
-    };
-  }
-
-  const winProb = Number(mc.winProb);
-  const pct = Number.isFinite(winProb) ? clamp(winProb, 0, 1) : null;
-  const envelope = mc?.confidenceEnvelope?.percentiles || null;
-  const low = Number.isFinite(Number(envelope?.p10)) ? Number(envelope.p10)
-    : Number.isFinite(Number(envelope?.p5)) ? Number(envelope.p5)
-    : null;
-  const high = Number.isFinite(Number(envelope?.p90)) ? Number(envelope.p90)
-    : Number.isFinite(Number(envelope?.p95)) ? Number(envelope.p95)
-    : null;
-  const width = Number.isFinite(low) && Number.isFinite(high) ? (high - low) : null;
-  const bandText = (Number.isFinite(low) && Number.isFinite(high))
-    ? `${low.toFixed(1)} to ${high.toFixed(1)}`
-    : "—";
-
-  let tag = "Volatile";
-  let cls = "bad";
-  if (pct == null){
-    tag = "—";
-    cls = "";
-  } else if (pct >= 0.70 && (!Number.isFinite(width) || width <= 8)){
-    tag = "High confidence";
-    cls = "ok";
-  } else if (pct >= 0.55 && (!Number.isFinite(width) || width <= 14)){
-    tag = "Lean";
-    cls = "warn";
-  }
-
-  const banner = pct == null
-    ? "Risk framing unavailable."
-    : tag === "High confidence"
-      ? "Model indicates a durable advantage under current assumptions."
-      : tag === "Lean"
-        ? "Outcome is favorable but still sensitive to execution drift."
-        : "Outcome is fragile; small assumption shifts can change the forecast.";
-
-  return {
-    tag,
-    cls,
-    winProbText: pct == null ? "—" : decisionBridgeFmtPct(pct, 1),
-    marginBandText: bandText,
-    volatilityText: Number.isFinite(width) ? width.toFixed(1) : "—",
-    banner,
-  };
-}
-
-function decisionBridgeBottleneckSnapshot(){
-  const bindingObj = state?.ui?.lastTlMeta?.bindingObj || {};
-  const timeline = Array.isArray(bindingObj?.timeline) ? bindingObj.timeline : [];
-  const hasBinding = !!bindingObj?.budget || !!bindingObj?.capacity || timeline.length > 0;
-  const primary = state?.ui?.lastDiagnostics?.primaryBottleneck
-    || (timeline[0] ? `timeline: ${timeline[0]}` : "none/unknown");
-  const secondary = state?.ui?.lastDiagnostics?.secondaryNotes
-    || (timeline[1] ? `timeline: ${timeline[1]}` : "—");
-
-  return {
-    tag: hasBinding ? "Binding" : "Clear",
-    cls: hasBinding ? "warn" : "ok",
-    primary,
-    secondary,
-    warn: hasBinding
-      ? "Constraint stack is binding at current optimization settings."
-      : "No active bottleneck constraints under current optimization settings.",
-    rows: [],
-  };
-}
-
-function decisionBridgeSensitivitySnapshot(){
-  const cache = state?.ui?.e4Sensitivity || null;
-  if (!cache || !Array.isArray(cache.rows) || !cache.rows.length){
-    return {
-      tag: "—",
-      cls: "",
-      banner: "No sensitivity rows. Run snapshot.",
-      rows: [],
-    };
-  }
-  return {
-    tag: cache.tag || "Snapshot",
-    cls: cache.cls || "",
-    banner: cache.banner || "Sensitivity snapshot available.",
-    rows: cache.rows.map((row) => ({
-      perturbation: row?.label || "—",
-      dWin: row?.dWin || "—",
-      dP50: row?.dP50 || "—",
-      notes: row?.note || "",
-    })),
-  };
-}
-
-function decisionBridgeConfidenceSnapshot({ exec, risk, bottleneck }){
-  const scoreExec = exec?.cls === "ok" ? 25 : exec?.cls === "warn" ? 15 : exec?.cls === "bad" ? 5 : 10;
-  const scoreRisk = risk?.cls === "ok" ? 25 : risk?.cls === "warn" ? 15 : risk?.cls === "bad" ? 5 : 10;
-  const scoreBneck = bottleneck?.cls === "ok" ? 25 : 10;
-
   ensureScenarioRegistry();
   const reg = state?.ui?.scenarios || {};
   const activeId = state?.ui?.activeScenarioId || SCENARIO_BASELINE_ID;
-  const base = reg?.[SCENARIO_BASELINE_ID] || null;
-  const active = reg?.[activeId] || null;
-  let divergenceCount = 0;
-  if (base && active && activeId !== SCENARIO_BASELINE_ID){
-    const keyOrder = [
-      "raceType","mode","electionDate","weeksRemaining",
-      "universeBasis","universeSize","goalSupportIds",
-      "supportRatePct","contactRatePct","turnoutReliabilityPct",
-      "orgCount","orgHoursPerWeek","volunteerMultBase"
-    ];
-    const before = base.inputs || {};
-    const after = active.inputs || {};
-    keyOrder.forEach((key) => {
-      const a = before?.[key];
-      const b = after?.[key];
-      const same = (a === b) || (String(a ?? "") === String(b ?? ""));
-      if (!same) divergenceCount += 1;
-    });
-  }
-  const divergenceLabel = divergenceCount <= 3 ? "Low" : divergenceCount <= 8 ? "Moderate" : "High";
-  const scoreDiv = divergenceLabel === "Low" ? 25 : divergenceLabel === "Moderate" ? 15 : 5;
-
-  const score = scoreExec + scoreRisk + scoreBneck + scoreDiv;
-  const rating = score >= 80 ? "Strong" : score >= 50 ? "Moderate" : "Low";
-  const cls = rating === "Strong" ? "ok" : rating === "Moderate" ? "warn" : "bad";
-
-  return {
-    tag: rating,
-    cls,
-    exec: exec?.cls === "ok" ? "On pace" : exec?.cls === "warn" ? "Drifting" : exec?.cls === "bad" ? "Off pace" : "—",
-    risk: risk?.tag || "—",
-    tight: bottleneck?.cls === "ok" ? "Clear" : "Binding",
-    divergence: divergenceLabel,
-    banner: rating === "Strong"
-      ? "Confidence is strong across pace, risk, and constraint posture."
-      : rating === "Moderate"
-        ? "Confidence is moderate; review drift and risk before commitment."
-        : "Confidence is low; assumptions and constraints need remediation before commitment.",
-  };
+  const baseInputs = reg?.[SCENARIO_BASELINE_ID]?.inputs || null;
+  const activeInputs = reg?.[activeId]?.inputs || null;
+  return buildDecisionDiagnosticsSnapshotView({
+    executionSnapshot: lastRenderCtx?.executionSnapshot || null,
+    weeklyContext: lastRenderCtx?.weeklyContext || null,
+    mcResult: state?.mcLast || null,
+    clampFn: clamp,
+    bindingObj: state?.ui?.lastTlMeta?.bindingObj || null,
+    primaryBottleneck: state?.ui?.lastDiagnostics?.primaryBottleneck || null,
+    secondaryNotes: state?.ui?.lastDiagnostics?.secondaryNotes || null,
+    sensitivityCache: state?.ui?.e4Sensitivity || null,
+    baselineInputs: baseInputs,
+    activeInputs,
+    divergenceKeyOrder: DECISION_DIVERGENCE_KEY_ORDER,
+    formatInt: (value) => fmtInt(value),
+    weeksRemaining: lastRenderCtx?.weeks ?? null,
+  });
 }
 
 function decisionBridgeStateView(){
   const snap = decisionBridgeCurrentSnapshot();
   const s = snap.activeSession || null;
   const activeOption = snap.activeOption || null;
+  const warRoom = snap.warRoom && typeof snap.warRoom === "object" ? snap.warRoom : {};
   const recommendedOptionId = s?.recommendedOptionId || "";
   const whatNeedsTrueText = Array.isArray(s?.whatNeedsTrue) ? s.whatNeedsTrue.join("\n") : "";
   const nonNegotiablesText = Array.isArray(s?.nonNegotiables) ? s.nonNegotiables.join("\n") : "";
@@ -5492,6 +7857,27 @@ function decisionBridgeStateView(){
     canDeleteSession,
     canDeleteOption,
     diagnostics: snap.diagnostics,
+    warRoom: {
+      classification: String(warRoom?.change?.classification || "noise"),
+      significance: String(warRoom?.change?.significance || "low"),
+      actionability: String(warRoom?.change?.actionability || "watch"),
+      score: Number.isFinite(Number(warRoom?.change?.score)) ? Number(warRoom.change.score) : 0,
+      changedSinceReview: !!warRoom?.change?.changedSinceReview,
+      summary: String(warRoom?.change?.summary || "—"),
+      topDrivers: Array.isArray(warRoom?.change?.topDrivers) ? warRoom.change.topDrivers.slice() : [],
+      deltas: warRoom?.change?.deltas || {},
+      lastReviewAt: String(warRoom?.previous?.reviewedAt || ""),
+      currentReviewAt: String(warRoom?.current?.reviewedAt || ""),
+      watchItemsText: Array.isArray(warRoom?.watchItems) ? warRoom.watchItems.join("\n") : "",
+      decisionItemsText: Array.isArray(warRoom?.decisionItems) ? warRoom.decisionItems.join("\n") : "",
+      owner: String(warRoom?.owner || ""),
+      followUpDate: String(warRoom?.followUpDate || ""),
+      decisionSummary: String(warRoom?.decisionSummary || ""),
+      recommendationLabel: snap.recommendedOptionLabel || "—",
+      decisionLogRows: Array.isArray(warRoom?.decisionLogRows) ? warRoom.decisionLogRows : [],
+      weather: warRoom?.weather || null,
+      eventCalendar: warRoom?.eventCalendar || null,
+    },
     summary: {
       objectiveLabel: snap.objectiveLabel || "—",
       selectedOptionLabel: snap.selectedOptionLabel || "—",
@@ -5537,6 +7923,15 @@ function decisionBridgeCreateSession(name){
     recommendedOptionId: null,
     options: {},
     activeOptionId: null,
+    warRoom: {
+      watchItems: [],
+      decisionItems: [],
+      owner: "",
+      followUpDate: "",
+      decisionSummary: "",
+      lastReview: null,
+      decisionLog: [],
+    },
   };
   state.ui.decision.activeSessionId = id;
   persist();
@@ -5596,6 +7991,7 @@ function decisionBridgeUpdateSessionField(field, value){
     return { ok: false, code: "no_session", view: decisionBridgeStateView() };
   }
   ensureDecisionSessionShape(s);
+  const warRoom = decisionBridgeNormalizeWarRoomSession(s);
   const key = String(field || "").trim();
   if (key === "objectiveKey"){
     s.objectiveKey = String(value || "").trim() || OBJECTIVE_TEMPLATES[0]?.key || "win_prob";
@@ -5613,6 +8009,16 @@ function decisionBridgeUpdateSessionField(field, value){
     s.riskPosture = String(value || "balanced");
   } else if (key === "nonNegotiables"){
     s.nonNegotiables = decisionBridgeLineList(value);
+  } else if (key === "warRoomWatchItems"){
+    warRoom.watchItems = decisionBridgeLineList(value);
+  } else if (key === "warRoomDecisionItems"){
+    warRoom.decisionItems = decisionBridgeLineList(value);
+  } else if (key === "warRoomOwner"){
+    warRoom.owner = String(value || "").trim();
+  } else if (key === "warRoomFollowUpDate"){
+    warRoom.followUpDate = String(value || "").trim();
+  } else if (key === "warRoomDecisionSummary"){
+    warRoom.decisionSummary = String(value || "");
   } else {
     return { ok: false, code: "unknown_field", view: decisionBridgeStateView() };
   }
@@ -5767,6 +8173,256 @@ function decisionBridgeSetWhatNeedsTrue(raw){
   return { ok: true, view: decisionBridgeStateView() };
 }
 
+function decisionBridgeCaptureReviewBaseline(){
+  const s = getActiveDecisionSession();
+  if (!s) {
+    return { ok: false, code: "no_session", view: decisionBridgeStateView() };
+  }
+  ensureDecisionSessionShape(s);
+  const warRoom = decisionBridgeNormalizeWarRoomSession(s);
+  const diagnostics = decisionBridgeDiagnosticsSnapshot();
+  warRoom.lastReview = decisionBridgeWarRoomCurrentBaseline(s, diagnostics);
+  persist();
+  refreshLegacyDecisionManagerIfMounted();
+  return { ok: true, view: decisionBridgeStateView() };
+}
+
+function decisionBridgeLogDecision(){
+  const s = getActiveDecisionSession();
+  if (!s) {
+    return { ok: false, code: "no_session", view: decisionBridgeStateView() };
+  }
+  ensureDecisionSessionShape(s);
+  const warRoom = decisionBridgeNormalizeWarRoomSession(s);
+  const snap = decisionBridgeCurrentSnapshot();
+  const change = snap?.warRoom?.change || buildWarRoomChangeClassificationView({
+    previousBaseline: warRoom.lastReview || null,
+    currentBaseline: decisionBridgeWarRoomCurrentBaseline(s, snap?.diagnostics || null),
+  });
+  const summary = String(warRoom.decisionSummary || "").trim()
+    || `Decision checkpoint: ${String(snap?.recommendedOptionLabel || "No recommendation")}`;
+
+  const row = {
+    id: `wr_${uid()}${Date.now().toString(16)}`,
+    recordedAt: new Date().toISOString(),
+    scenarioId: state?.ui?.activeScenarioId || s?.scenarioId || SCENARIO_BASELINE_ID,
+    classification: String(change?.classification || "noise"),
+    significance: String(change?.significance || "low"),
+    actionability: String(change?.actionability || "watch"),
+    owner: String(warRoom.owner || "").trim(),
+    followUpDate: String(warRoom.followUpDate || "").trim(),
+    summary,
+    status: "open",
+    recommendationLabel: String(snap?.recommendedOptionLabel || "—"),
+    topDrivers: Array.isArray(change?.topDrivers) ? change.topDrivers.slice(0, 6) : [],
+    watchItems: Array.isArray(warRoom.watchItems) ? warRoom.watchItems.slice(0, 20) : [],
+    decisionItems: Array.isArray(warRoom.decisionItems) ? warRoom.decisionItems.slice(0, 20) : [],
+  };
+
+  warRoom.decisionLog.unshift(row);
+  if (warRoom.decisionLog.length > 120){
+    warRoom.decisionLog.length = 120;
+  }
+  if (!warRoom.lastReview){
+    warRoom.lastReview = decisionBridgeWarRoomCurrentBaseline(s, snap?.diagnostics || null);
+  }
+
+  persist();
+  refreshLegacyDecisionManagerIfMounted();
+  return { ok: true, view: decisionBridgeStateView() };
+}
+
+function decisionBridgeSetDecisionLogStatus(id, status){
+  const s = getActiveDecisionSession();
+  if (!s) {
+    return { ok: false, code: "no_session", view: decisionBridgeStateView() };
+  }
+  ensureDecisionSessionShape(s);
+  const warRoom = decisionBridgeNormalizeWarRoomSession(s);
+  const rowId = String(id || "").trim();
+  const nextStatus = String(status || "").trim().toLowerCase();
+  const allowed = new Set(["open", "in_progress", "closed"]);
+  if (!rowId || !allowed.has(nextStatus)){
+    return { ok: false, code: "invalid_status_request", view: decisionBridgeStateView() };
+  }
+  const row = warRoom.decisionLog.find((entry) => String(entry?.id || "").trim() === rowId);
+  if (!row){
+    return { ok: false, code: "log_row_not_found", view: decisionBridgeStateView() };
+  }
+  row.status = nextStatus;
+  persist();
+  refreshLegacyDecisionManagerIfMounted();
+  return { ok: true, view: decisionBridgeStateView() };
+}
+
+function decisionBridgeSetWeatherField(field, value){
+  const warRoom = decisionBridgeEnsureWarRoomState();
+  const weather = warRoom?.weather || {};
+  const key = String(field || "").trim();
+  if (key === "officeZip"){
+    weather.officeZip = normalizeZip(value);
+  } else if (key === "overrideZip"){
+    weather.overrideZip = normalizeZip(value);
+  } else if (key === "useOverrideZip"){
+    weather.useOverrideZip = !!value;
+  } else {
+    return { ok: false, code: "unknown_weather_field", view: decisionBridgeStateView() };
+  }
+  weather.selectedZip = resolveSelectedZip(weather);
+  if (!weather.selectedZip){
+    weather.status = "idle";
+    weather.error = "Select an office ZIP or override ZIP for weather context.";
+  }
+  persist();
+  refreshLegacyDecisionManagerIfMounted();
+  return { ok: true, view: decisionBridgeStateView() };
+}
+
+function decisionBridgeSetWeatherMode(mode){
+  const warRoom = decisionBridgeEnsureWarRoomState();
+  const requestedMode = String(mode || "").trim().toLowerCase();
+  if (requestedMode === WEATHER_MODE_TODAY_ONLY){
+    const selectedZip = resolveSelectedZip(warRoom?.weather || {});
+    if (!selectedZip){
+      warRoom.weather.status = "error";
+      warRoom.weather.error = "Select a ZIP before enabling today-only weather adjustment.";
+      persist();
+      refreshLegacyDecisionManagerIfMounted();
+      return { ok: false, code: "missing_zip", view: decisionBridgeStateView() };
+    }
+  }
+  applyWeatherModeToState(state, mode, { nowDate: new Date() });
+  persist();
+  refreshLegacyDecisionManagerIfMounted();
+  return { ok: true, view: decisionBridgeStateView() };
+}
+
+async function decisionBridgeRefreshWeather(){
+  const warRoom = decisionBridgeEnsureWarRoomState();
+  const weather = warRoom?.weather || {};
+  const selectedZip = resolveSelectedZip(weather);
+  if (!selectedZip){
+    weather.status = "error";
+    weather.error = "Select a ZIP before refreshing weather.";
+    persist();
+    refreshLegacyDecisionManagerIfMounted();
+    return { ok: false, code: "missing_zip", view: decisionBridgeStateView() };
+  }
+
+  weather.status = "loading";
+  weather.error = "";
+  refreshLegacyDecisionManagerIfMounted();
+
+  try{
+    const payload = await fetchWarRoomWeatherByZip(selectedZip);
+    applyWeatherObservationToState(state, payload, { nowDate: new Date() });
+    const mode = state?.warRoom?.weatherAdjustment?.mode || WEATHER_MODE_OBSERVE_ONLY;
+    if (mode === WEATHER_MODE_TODAY_ONLY){
+      applyWeatherModeToState(state, WEATHER_MODE_TODAY_ONLY, { nowDate: new Date() });
+    }
+    persist();
+    refreshLegacyDecisionManagerIfMounted();
+    return { ok: !!payload?.ok, code: payload?.ok ? "ok" : (payload?.code || "weather_error"), view: decisionBridgeStateView() };
+  } catch (err){
+    weather.status = "error";
+    weather.error = err?.message ? String(err.message) : "Weather refresh failed.";
+    persist();
+    refreshLegacyDecisionManagerIfMounted();
+    return { ok: false, code: "weather_exception", view: decisionBridgeStateView() };
+  }
+}
+
+function decisionBridgeSetEventFilter(field, value){
+  decisionBridgeEnsureWarRoomState();
+  const out = setEventCalendarFilter(state, field, value, { nowDate: new Date() });
+  if (!out?.ok){
+    return { ok: false, code: out?.code || "event_filter_failed", view: decisionBridgeStateView() };
+  }
+  persist();
+  refreshLegacyDecisionManagerIfMounted();
+  return { ok: true, view: decisionBridgeStateView() };
+}
+
+function decisionBridgeSetEventDraftField(field, value){
+  decisionBridgeEnsureWarRoomState();
+  const out = setEventCalendarDraftField(state, field, value, { nowDate: new Date() });
+  if (!out?.ok){
+    return { ok: false, code: out?.code || "event_draft_field_failed", view: decisionBridgeStateView() };
+  }
+  persist();
+  refreshLegacyDecisionManagerIfMounted();
+  return { ok: true, view: decisionBridgeStateView() };
+}
+
+function decisionBridgeSaveEventDraft(){
+  decisionBridgeEnsureWarRoomState();
+  const out = saveEventCalendarDraftAsEvent(state, {
+    uidFn: uid,
+    nowDate: new Date(),
+  });
+  if (!out?.ok){
+    return { ok: false, code: out?.code || "event_save_failed", view: decisionBridgeStateView() };
+  }
+  persist();
+  refreshLegacyDecisionManagerIfMounted();
+  return { ok: true, view: decisionBridgeStateView() };
+}
+
+function decisionBridgeLoadEventDraft(eventId){
+  decisionBridgeEnsureWarRoomState();
+  const out = loadEventCalendarDraft(state, eventId, { nowDate: new Date() });
+  if (!out?.ok){
+    return { ok: false, code: out?.code || "event_load_failed", view: decisionBridgeStateView() };
+  }
+  persist();
+  refreshLegacyDecisionManagerIfMounted();
+  return { ok: true, view: decisionBridgeStateView() };
+}
+
+function decisionBridgeClearEventDraft(){
+  decisionBridgeEnsureWarRoomState();
+  const out = clearEventCalendarDraft(state, { nowDate: new Date() });
+  if (!out?.ok){
+    return { ok: false, code: out?.code || "event_clear_draft_failed", view: decisionBridgeStateView() };
+  }
+  persist();
+  refreshLegacyDecisionManagerIfMounted();
+  return { ok: true, view: decisionBridgeStateView() };
+}
+
+function decisionBridgeDeleteEvent(eventId){
+  decisionBridgeEnsureWarRoomState();
+  const out = deleteEventCalendarRecord(state, eventId, { nowDate: new Date() });
+  if (!out?.ok){
+    return { ok: false, code: out?.code || "event_delete_failed", view: decisionBridgeStateView() };
+  }
+  persist();
+  refreshLegacyDecisionManagerIfMounted();
+  return { ok: true, view: decisionBridgeStateView() };
+}
+
+function decisionBridgeSetEventApplyToModel(eventId, enabled){
+  decisionBridgeEnsureWarRoomState();
+  const out = updateEventCalendarApplyToModel(state, eventId, enabled, { nowDate: new Date() });
+  if (!out?.ok){
+    return { ok: false, code: out?.code || "event_apply_toggle_failed", view: decisionBridgeStateView() };
+  }
+  persist();
+  refreshLegacyDecisionManagerIfMounted();
+  return { ok: true, view: decisionBridgeStateView() };
+}
+
+function decisionBridgeSetEventStatus(eventId, status){
+  decisionBridgeEnsureWarRoomState();
+  const out = setEventCalendarStatus(state, eventId, status, { nowDate: new Date() });
+  if (!out?.ok){
+    return { ok: false, code: out?.code || "event_status_failed", view: decisionBridgeStateView() };
+  }
+  persist();
+  refreshLegacyDecisionManagerIfMounted();
+  return { ok: true, view: decisionBridgeStateView() };
+}
+
 async function decisionBridgeCopySummary(kind = "markdown"){
   const s = getActiveDecisionSession();
   if (!s) {
@@ -5829,11 +8485,15 @@ async function decisionBridgeRunSensitivitySnapshot(){
     };
   }
 
-  const computed = computeSensitivitySnapshotCache({
+  const computed = computeDecisionSensitivityMiniSurfaceCache({
     state,
     lastRenderCtx,
-    clamp,
+    clampFn: clamp,
     runMonteCarloSim,
+    resolveCanonicalDoorsPerHourFn: canonicalDoorsPerHourFromSnap,
+    resolveCanonicalCallsPerHourFn: canonicalCallsPerHourFromSnap,
+    setCanonicalDoorsPerHourFn: (target, value, options = {}) => setCanonicalDoorsPerHour(target, value, options),
+    setCanonicalCallsPerHourFn: (target, value, options = {}) => setCanonicalCallsPerHour(target, value, options),
   });
   if (!computed.ok || !computed.cache){
     return { ok: false, code: computed.code || "failed", view: decisionBridgeStateView() };
@@ -5867,6 +8527,20 @@ function installDecisionBridge(){
 
     setRecommendedOption: (id) => decisionBridgeSetRecommendedOption(id),
     setWhatNeedsTrue: (raw) => decisionBridgeSetWhatNeedsTrue(raw),
+    captureReviewBaseline: () => decisionBridgeCaptureReviewBaseline(),
+    logDecision: () => decisionBridgeLogDecision(),
+    setDecisionLogStatus: (id, status) => decisionBridgeSetDecisionLogStatus(id, status),
+    setWeatherField: (field, value) => decisionBridgeSetWeatherField(field, value),
+    setWeatherMode: (mode) => decisionBridgeSetWeatherMode(mode),
+    refreshWeather: () => decisionBridgeRefreshWeather(),
+    setEventFilter: (field, value) => decisionBridgeSetEventFilter(field, value),
+    setEventDraftField: (field, value) => decisionBridgeSetEventDraftField(field, value),
+    saveEventDraft: () => decisionBridgeSaveEventDraft(),
+    loadEventDraft: (eventId) => decisionBridgeLoadEventDraft(eventId),
+    clearEventDraft: () => decisionBridgeClearEventDraft(),
+    deleteEvent: (eventId) => decisionBridgeDeleteEvent(eventId),
+    setEventApplyToModel: (eventId, enabled) => decisionBridgeSetEventApplyToModel(eventId, enabled),
+    setEventStatus: (eventId, status) => decisionBridgeSetEventStatus(eventId, status),
     copySummary: (kind) => decisionBridgeCopySummary(kind),
     downloadSummaryJson: () => decisionBridgeDownloadSummaryJson(),
     runSensitivitySnapshot: () => decisionBridgeRunSensitivitySnapshot(),
@@ -6035,9 +8709,6 @@ function isDevMode(){
 }
 
 function initDevTools(){
-  const loadSelfTestsModule = () =>
-    import("./selfTest.js")
-      .catch(() => import("./core/selfTest.js"));
   initDevToolsModule({
     isDevMode,
     getState: () => state,
@@ -6048,55 +8719,76 @@ function initDevTools(){
     getSelfTestAccessors,
     setSelfTestGateStatus: (next) => { selfTestGateStatus = next; },
     updateSelfTestGateBadge,
-    loadSelfTests: loadSelfTestsModule,
   });
 }
-function composeSetupStage(){
-  composeSetupStageModule();
-}
-
-function shouldComposeLegacySetupStage(){
-  try{
-    const params = new URLSearchParams(window.location.search || "");
-    if (params.get("ui") === "legacy") return true;
-  } catch {}
-
-  const setupStage = document.getElementById("stage-setup");
-  return !!(setupStage && !setupStage.hidden);
-}
-
 function init(){
-  try { normalizeStageLayoutModule(); } catch {}
-  if (shouldComposeLegacySetupStage()){
-    try { composeSetupStage(); } catch {}
+  bootProbeSetStatus("booting", { source: "appRuntime.init" });
+
+  const runInitStep = (label, fn) => {
+    bootProbeMark(label, { phase: "start" });
+    safeCall(() => {
+      const result = fn();
+      bootProbeMark(label, { phase: "ok" });
+      return result;
+    }, { label });
+  };
+
+  try {
+    bootProbeMark("init.normalizeStageLayout", { phase: "start" });
+    normalizeStageLayoutModule();
+    bootProbeMark("init.normalizeStageLayout", { phase: "ok" });
+  } catch (err){
+    bootProbeError("init.normalizeStageLayout", err);
   }
-  installGlobalErrorCapture();
-  safeCall(() => { preflightEls(); }, { label: "init.preflightEls" });
-  safeCall(() => { wireUsbStorageEvents(); }, { label: "init.wireUsbStorageEvents" });
-  safeCall(() => {
-    const controller = getUsbStorageController();
-    Promise.resolve(controller.init()).then(() => {
-      if (controller.isConnected()){
-        clearPersistenceFailure("state");
-        clearPersistenceFailure("backup");
-        if (!bootHadLocalState){
-          return controller.loadFromFolder({ suppressMissingStatus: true });
-        }
-      }
-      return null;
-    }).catch(() => {});
+
+  runInitStep("init.applyActiveContextToLegacyNavLinks", () => {
+    applyActiveContextToLinks(resolveActiveContext({ fallback: state }), ".nav-item-new[href]");
   });
-  safeCall(() => { ensureScenarioRegistry(); }, { label: "init.ensureScenarioRegistry" });
-  safeCall(() => { installDataBridge(); }, { label: "init.installDataBridge" });
-  safeCall(() => { installScenarioBridge(); }, { label: "init.installScenarioBridge" });
-  safeCall(() => { installDistrictBridge(); }, { label: "init.installDistrictBridge" });
-  safeCall(() => { installReachBridge(); }, { label: "init.installReachBridge" });
-  safeCall(() => { installTurnoutBridge(); }, { label: "init.installTurnoutBridge" });
-  safeCall(() => { installPlanBridge(); }, { label: "init.installPlanBridge" });
-  safeCall(() => { installOutcomeBridge(); }, { label: "init.installOutcomeBridge" });
-  safeCall(() => { ensureDecisionScaffold(); }, { label: "init.ensureDecisionScaffold" });
-  safeCall(() => { installDecisionBridge(); }, { label: "init.installDecisionBridge" });
-  safeCall(() => {
+  runInitStep("init.installGlobalErrorCapture", () => { installGlobalErrorCapture(); });
+  runInitStep("init.preflightEls", () => { preflightEls(); });
+  runInitStep("init.wireUsbStorageEvents", () => { wireUsbStorageEvents(); });
+  runInitStep("init.usbStorageInit", () => {
+    const controller = getUsbStorageController();
+    bootProbeMark("init.usbStorageInit.controller", { phase: "ok" });
+    Promise.resolve(controller.init())
+      .then(() => {
+        bootProbeMark("init.usbStorageInit.controllerInit", {
+          phase: "ok",
+          connected: controller.isConnected(),
+        });
+        if (controller.isConnected()){
+          clearPersistenceFailure("state");
+          clearPersistenceFailure("backup");
+          if (!bootHadLocalState){
+            return controller.loadFromFolder({ suppressMissingStatus: true });
+          }
+        }
+        return null;
+      })
+      .then((loaded) => {
+        if (loaded){
+          bootProbeMark("init.usbStorageInit.loadFromFolder", { phase: "ok" });
+        }
+      })
+      .catch((err) => {
+        bootProbeError("init.usbStorageInit.async", err);
+        recordError("init-usb-storage", err?.message ? String(err.message) : String(err || "USB storage init failed"));
+      });
+  });
+  runInitStep("init.ensureScenarioRegistry", () => { ensureScenarioRegistry(); });
+  runInitStep("init.installDataBridge", () => { installDataBridge(); });
+  runInitStep("init.installScenarioBridge", () => { installScenarioBridge(); });
+  runInitStep("init.installShellBridge", () => { installShellBridge(); });
+  runInitStep("init.installDistrictBridge", () => { installDistrictBridge(); });
+  runInitStep("init.installElectionDataBridge", () => { installElectionDataBridge(); });
+  runInitStep("init.installReachBridge", () => { installReachBridge(); });
+  runInitStep("init.installTurnoutBridge", () => { installTurnoutBridge(); });
+  runInitStep("init.installPlanBridge", () => { installPlanBridge(); });
+  runInitStep("init.installOutcomeBridge", () => { installOutcomeBridge(); });
+  runInitStep("init.installMetricProvenanceBridge", () => { installMetricProvenanceBridge(); });
+  runInitStep("init.ensureDecisionScaffold", () => { ensureDecisionScaffold(); });
+  runInitStep("init.installDecisionBridge", () => { installDecisionBridge(); });
+  runInitStep("init.runInitScenarioDecisionWiring", () => {
     runInitScenarioDecisionWiringModule({
       els,
       getState: () => state,
@@ -6136,8 +8828,8 @@ function init(){
       downloadJsonObject,
       runSensitivitySnapshotE4,
     });
-  }, { label: "init.runInitScenarioDecisionWiring" });
-  safeCall(() => {
+  });
+  runInitStep("init.runInitPostBoot", () => {
     runInitPostBootModule({
       updateBuildStamp,
       updateSelfTestGateBadge,
@@ -6159,7 +8851,19 @@ function init(){
       renderScenarioManagerC1,
       persist,
     });
-  }, { label: "init.runInitPostBoot" });
+    bootProbeSetStatus("ready", { source: "appRuntime.init" });
+  });
+
+  try{
+    window.setTimeout(() => {
+      const status = getBootProbeStatus();
+      if (String(status?.status || "") === "ready") return;
+      bootProbeMark("init.readyTimeout", { status: String(status?.status || "unknown") });
+      recordError("boot-probe", "Startup did not reach ready state within 6000ms.", {
+        status: String(status?.status || "unknown"),
+      });
+    }, 6000);
+  } catch {}
 }
 
 
