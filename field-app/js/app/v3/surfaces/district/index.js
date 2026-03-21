@@ -452,6 +452,8 @@ export function renderDistrictSurface(mount) {
       handleDistrictMutationResult(result, { source: "addCandidateHistory" });
     });
   }
+  bindDistrictBallotReplacementHandlers();
+  bindDistrictCandidateHistoryReplacementHandlers();
   bindDistrictFormSelect("v3DistrictYourCandidate", "yourCandidate");
   bindDistrictFormField("v3DistrictUndecidedPct", "undecidedPct");
   bindDistrictFormSelect("v3DistrictUndecidedMode", "undecidedMode");
@@ -797,115 +799,132 @@ function readInputValue(id) {
   return String(el.value || "").trim();
 }
 
-function dataKeyToSelectorFragment(dataKey) {
-  return String(dataKey || "")
-    .trim()
-    .replace(/[A-Z]/g, (ch) => `-${ch.toLowerCase()}`);
+function bindDistrictBallotReplacementHandlers() {
+  const candidateBody = document.getElementById("v3DistrictCandTbody");
+  if (candidateBody instanceof HTMLElement && candidateBody.dataset.v3BallotDelegatedBound !== "1") {
+    candidateBody.dataset.v3BallotDelegatedBound = "1";
+    candidateBody.addEventListener("change", (event) => {
+      const target = event.target;
+      if (
+        !(target instanceof HTMLInputElement)
+        && !(target instanceof HTMLSelectElement)
+        && !(target instanceof HTMLTextAreaElement)
+      ) {
+        return;
+      }
+      const row = target.closest("tr[data-candidate-id]");
+      if (!(row instanceof HTMLTableRowElement)) {
+        return;
+      }
+      const candidateId = String(row.dataset.candidateId || "").trim();
+      const field = String(target.dataset.syncField || "").trim();
+      if (!candidateId || !field) {
+        return;
+      }
+      if (field !== "name" && field !== "supportPct") {
+        return;
+      }
+      const result = updateDistrictCandidate(candidateId, field, target.value);
+      handleDistrictMutationResult(result, { source: `updateCandidate:${field}` });
+    });
+    candidateBody.addEventListener("click", (event) => {
+      const target = event.target;
+      if (!(target instanceof HTMLElement)) {
+        return;
+      }
+      const removeButton = target.closest("button[data-action='remove-candidate']");
+      if (!(removeButton instanceof HTMLButtonElement)) {
+        return;
+      }
+      const row = removeButton.closest("tr[data-candidate-id]");
+      if (!(row instanceof HTMLTableRowElement)) {
+        return;
+      }
+      const candidateId = String(row.dataset.candidateId || "").trim();
+      if (!candidateId) {
+        return;
+      }
+      const result = removeDistrictCandidate(candidateId);
+      handleDistrictMutationResult(result, { source: "removeCandidate" });
+    });
+  }
+
+  const userSplitList = document.getElementById("v3DistrictUserSplitList");
+  if (userSplitList instanceof HTMLElement && userSplitList.dataset.v3BallotDelegatedBound !== "1") {
+    userSplitList.dataset.v3BallotDelegatedBound = "1";
+    userSplitList.addEventListener("change", (event) => {
+      const target = event.target;
+      if (!(target instanceof HTMLInputElement)) {
+        return;
+      }
+      const field = String(target.dataset.syncField || "").trim();
+      if (field !== "splitValue") {
+        return;
+      }
+      const fieldWrap = target.closest("[data-candidate-id]");
+      if (!(fieldWrap instanceof HTMLElement)) {
+        return;
+      }
+      const candidateId = String(fieldWrap.dataset.candidateId || "").trim();
+      if (!candidateId) {
+        return;
+      }
+      const result = setDistrictUserSplit(candidateId, target.value);
+      handleDistrictMutationResult(result, { source: "setUserSplit" });
+    });
+  }
 }
 
-function captureActiveControlState(container, rowDataKey) {
-  if (!(container instanceof HTMLElement)) {
-    return null;
-  }
-  const active = document.activeElement;
-  if (
-    !(active instanceof HTMLInputElement)
-    && !(active instanceof HTMLSelectElement)
-    && !(active instanceof HTMLTextAreaElement)
-  ) {
-    return null;
-  }
-  if (!container.contains(active)) {
-    return null;
-  }
-  const field = String(active.dataset.syncField || "").trim();
-  if (!field) {
-    return null;
-  }
-  const key = String(rowDataKey || "").trim();
-  if (!key) {
-    return null;
-  }
-  const attr = dataKeyToSelectorFragment(key);
-  const row = active.closest(`[data-${attr}]`);
-  if (!(row instanceof HTMLElement)) {
-    return null;
-  }
-  const rowId = String(row.dataset[key] || "").trim();
-  if (!rowId) {
-    return null;
-  }
-  const state = {
-    rowId,
-    field,
-    isCheckbox: active instanceof HTMLInputElement && active.type === "checkbox",
-    checked: active instanceof HTMLInputElement && active.type === "checkbox" ? !!active.checked : false,
-    value: active instanceof HTMLInputElement || active instanceof HTMLTextAreaElement || active instanceof HTMLSelectElement
-      ? String(active.value || "")
-      : "",
-    selectionStart: null,
-    selectionEnd: null,
-  };
-  if (active instanceof HTMLInputElement || active instanceof HTMLTextAreaElement) {
-    const start = Number(active.selectionStart);
-    const end = Number(active.selectionEnd);
-    state.selectionStart = Number.isFinite(start) ? start : null;
-    state.selectionEnd = Number.isFinite(end) ? end : null;
-  }
-  return state;
-}
-
-function restoreActiveControlState(container, rowDataKey, activeState) {
-  if (!(container instanceof HTMLElement) || !activeState || typeof activeState !== "object") {
+function bindDistrictCandidateHistoryReplacementHandlers() {
+  const historyBody = document.getElementById("v3DistrictCandidateHistoryTbody");
+  if (!(historyBody instanceof HTMLElement) || historyBody.dataset.v3HistoryDelegatedBound === "1") {
     return;
   }
-  const key = String(rowDataKey || "").trim();
-  if (!key) {
-    return;
-  }
-  const attr = dataKeyToSelectorFragment(key);
-  const controls = Array.from(container.querySelectorAll("[data-sync-field]"));
-  const target = controls.find((node) => {
+  historyBody.dataset.v3HistoryDelegatedBound = "1";
+  historyBody.addEventListener("change", (event) => {
+    const target = event.target;
     if (
-      !(node instanceof HTMLInputElement)
-      && !(node instanceof HTMLSelectElement)
-      && !(node instanceof HTMLTextAreaElement)
+      !(target instanceof HTMLInputElement)
+      && !(target instanceof HTMLSelectElement)
+      && !(target instanceof HTMLTextAreaElement)
     ) {
-      return false;
+      return;
     }
-    if (String(node.dataset.syncField || "").trim() !== String(activeState.field || "").trim()) {
-      return false;
+    const row = target.closest("tr[data-record-id]");
+    if (!(row instanceof HTMLTableRowElement)) {
+      return;
     }
-    const row = node.closest(`[data-${attr}]`);
-    if (!(row instanceof HTMLElement)) {
-      return false;
+    const recordId = String(row.dataset.recordId || "").trim();
+    const field = String(target.dataset.syncField || "").trim();
+    if (!recordId || !field) {
+      return;
     }
-    return String(row.dataset[key] || "").trim() === String(activeState.rowId || "").trim();
+    const value = (target instanceof HTMLInputElement && target.type === "checkbox")
+      ? target.checked
+      : target.value;
+    const result = updateDistrictCandidateHistory(recordId, field, value);
+    handleDistrictMutationResult(result, { source: `updateCandidateHistory:${field}` });
   });
-  if (
-    !(target instanceof HTMLInputElement)
-    && !(target instanceof HTMLSelectElement)
-    && !(target instanceof HTMLTextAreaElement)
-  ) {
-    return;
-  }
-  if (target instanceof HTMLInputElement && target.type === "checkbox") {
-    target.checked = !!activeState.checked;
-  } else {
-    target.value = String(activeState.value == null ? "" : activeState.value);
-  }
-  try {
-    target.focus();
-  } catch {}
-  if (
-    (target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement)
-    && Number.isFinite(Number(activeState.selectionStart))
-    && Number.isFinite(Number(activeState.selectionEnd))
-  ) {
-    try {
-      target.setSelectionRange(Number(activeState.selectionStart), Number(activeState.selectionEnd));
-    } catch {}
-  }
+  historyBody.addEventListener("click", (event) => {
+    const target = event.target;
+    if (!(target instanceof HTMLElement)) {
+      return;
+    }
+    const removeButton = target.closest("button[data-action='remove-history']");
+    if (!(removeButton instanceof HTMLButtonElement)) {
+      return;
+    }
+    const row = removeButton.closest("tr[data-record-id]");
+    if (!(row instanceof HTMLTableRowElement)) {
+      return;
+    }
+    const recordId = String(row.dataset.recordId || "").trim();
+    if (!recordId) {
+      return;
+    }
+    const result = removeDistrictCandidateHistory(recordId);
+    handleDistrictMutationResult(result, { source: "removeCandidateHistory" });
+  });
 }
 
 function syncDistrictBallotBaseline(ballotSnapshot, controlSnapshot) {
@@ -939,7 +958,6 @@ function syncDistrictCandidateTable(ballotSnapshot, controlSnapshot) {
   if (!(targetBody instanceof HTMLElement)) {
     return;
   }
-  const activeState = captureActiveControlState(targetBody, "candidateId");
 
   const rows = Array.isArray(ballotSnapshot?.candidates) ? ballotSnapshot.candidates : [];
   const controlsLocked = !!controlSnapshot?.locked;
@@ -961,10 +979,6 @@ function syncDistrictCandidateTable(ballotSnapshot, controlSnapshot) {
     nameInput.dataset.syncField = "name";
     nameInput.value = candidateName;
     nameInput.disabled = controlsLocked;
-    nameInput.addEventListener("input", () => {
-      const result = updateDistrictCandidate(candidateId, "name", nameInput.value);
-      handleDistrictMutationResult(result, { source: "updateCandidate:name" });
-    });
     tdName.appendChild(nameInput);
 
     const tdPct = document.createElement("td");
@@ -978,10 +992,6 @@ function syncDistrictCandidateTable(ballotSnapshot, controlSnapshot) {
     pctInput.step = "0.1";
     pctInput.value = supportPct;
     pctInput.disabled = controlsLocked;
-    pctInput.addEventListener("input", () => {
-      const result = updateDistrictCandidate(candidateId, "supportPct", pctInput.value);
-      handleDistrictMutationResult(result, { source: "updateCandidate:supportPct" });
-    });
     tdPct.appendChild(pctInput);
 
     const tdAction = document.createElement("td");
@@ -991,10 +1001,7 @@ function syncDistrictCandidateTable(ballotSnapshot, controlSnapshot) {
     removeBtn.type = "button";
     removeBtn.textContent = "Remove";
     removeBtn.disabled = !canRemove;
-    removeBtn.addEventListener("click", () => {
-      const result = removeDistrictCandidate(candidateId);
-      handleDistrictMutationResult(result, { source: "removeCandidate" });
-    });
+    removeBtn.dataset.action = "remove-candidate";
     tdAction.appendChild(removeBtn);
 
     tr.append(tdName, tdPct, tdAction);
@@ -1011,7 +1018,6 @@ function syncDistrictCandidateTable(ballotSnapshot, controlSnapshot) {
     tr.appendChild(td);
     targetBody.appendChild(tr);
   }
-  restoreActiveControlState(targetBody, "candidateId", activeState);
 }
 
 function syncDistrictUserSplitTable(ballotSnapshot, controlSnapshot) {
@@ -1026,7 +1032,6 @@ function syncDistrictUserSplitTable(ballotSnapshot, controlSnapshot) {
   if (!visible) {
     return;
   }
-  const activeState = captureActiveControlState(targetList, "candidateId");
 
   const rows = Array.isArray(ballotSnapshot?.userSplitRows) ? ballotSnapshot.userSplitRows : [];
   const controlsLocked = !!controlSnapshot?.locked;
@@ -1053,15 +1058,10 @@ function syncDistrictUserSplitTable(ballotSnapshot, controlSnapshot) {
     input.step = "0.1";
     input.value = Number.isFinite(Number(sourceRow?.value)) ? String(Number(sourceRow.value)) : "";
     input.disabled = controlsLocked;
-    input.addEventListener("input", () => {
-      const result = setDistrictUserSplit(candidateId, input.value);
-      handleDistrictMutationResult(result, { source: "setUserSplit" });
-    });
 
     field.append(label, input);
     targetList.appendChild(field);
   });
-  restoreActiveControlState(targetList, "candidateId", activeState);
 }
 
 function syncDistrictCandidateHistoryTable(ballotSnapshot, controlSnapshot) {
@@ -1081,7 +1081,6 @@ function syncDistrictCandidateHistoryTable(ballotSnapshot, controlSnapshot) {
   if (!(targetBody instanceof HTMLElement)) {
     return;
   }
-  const activeState = captureActiveControlState(targetBody, "recordId");
 
   const rows = Array.isArray(ballotSnapshot?.candidateHistoryRecords)
     ? ballotSnapshot.candidateHistoryRecords
@@ -1097,18 +1096,10 @@ function syncDistrictCandidateHistoryTable(ballotSnapshot, controlSnapshot) {
   rows.forEach((record) => {
     const recordId = String(record?.recordId || "").trim();
     if (!recordId) return;
-    const applyHistoryMutation = (field, value) => {
-      const result = updateDistrictCandidateHistory(recordId, field, value);
-      handleDistrictMutationResult(result, { source: `updateCandidateHistory:${field}` });
-    };
-    const removeHistoryRecord = () => {
-      const result = removeDistrictCandidateHistory(recordId);
-      handleDistrictMutationResult(result, { source: "removeCandidateHistory" });
-    };
     const tr = document.createElement("tr");
     tr.dataset.recordId = recordId;
 
-    const makeInputCell = ({ type = "text", value = "", min = "", max = "", step = "", fieldKey = "", onInput = null } = {}) => {
+    const makeInputCell = ({ type = "text", value = "", min = "", max = "", step = "", fieldKey = "" } = {}) => {
       const td = document.createElement("td");
       if (type === "number") td.className = "num";
       const input = document.createElement("input");
@@ -1122,14 +1113,11 @@ function syncDistrictCandidateHistoryTable(ballotSnapshot, controlSnapshot) {
       if (step !== "") input.step = String(step);
       input.value = String(value == null ? "" : value);
       input.disabled = controlsLocked;
-      if (typeof onInput === "function") {
-        input.addEventListener("input", () => onInput(input.value));
-      }
       td.appendChild(input);
       return td;
     };
 
-    const makeSelectCell = ({ rowsList = [], value = "", fieldKey = "", onChange = null } = {}) => {
+    const makeSelectCell = ({ rowsList = [], value = "", fieldKey = "" } = {}) => {
       const td = document.createElement("td");
       const select = document.createElement("select");
       select.className = "fpe-input";
@@ -1153,9 +1141,6 @@ function syncDistrictCandidateHistoryTable(ballotSnapshot, controlSnapshot) {
       });
       select.value = selectedValue;
       select.disabled = controlsLocked;
-      if (typeof onChange === "function") {
-        select.addEventListener("change", () => onChange(select.value));
-      }
       td.appendChild(select);
       return td;
     };
@@ -1164,7 +1149,6 @@ function syncDistrictCandidateHistoryTable(ballotSnapshot, controlSnapshot) {
       type: "text",
       value: record?.office || "",
       fieldKey: "office",
-      onInput: (value) => applyHistoryMutation("office", value),
     });
     const cycleTd = makeInputCell({
       type: "number",
@@ -1173,31 +1157,26 @@ function syncDistrictCandidateHistoryTable(ballotSnapshot, controlSnapshot) {
       max: 2100,
       step: 1,
       fieldKey: "cycleYear",
-      onInput: (value) => applyHistoryMutation("cycleYear", value),
     });
     const electionTd = makeSelectCell({
       rowsList: electionTypeOptions,
       value: record?.electionType || "",
       fieldKey: "electionType",
-      onChange: (value) => applyHistoryMutation("electionType", value),
     });
     const candidateTd = makeInputCell({
       type: "text",
       value: record?.candidateName || "",
       fieldKey: "candidateName",
-      onInput: (value) => applyHistoryMutation("candidateName", value),
     });
     const partyTd = makeInputCell({
       type: "text",
       value: record?.party || "",
       fieldKey: "party",
-      onInput: (value) => applyHistoryMutation("party", value),
     });
     const incumbencyTd = makeSelectCell({
       rowsList: incumbencyOptions,
       value: record?.incumbencyStatus || "",
       fieldKey: "incumbencyStatus",
-      onChange: (value) => applyHistoryMutation("incumbencyStatus", value),
     });
     const voteTd = makeInputCell({
       type: "number",
@@ -1206,7 +1185,6 @@ function syncDistrictCandidateHistoryTable(ballotSnapshot, controlSnapshot) {
       max: 100,
       step: 0.1,
       fieldKey: "voteShare",
-      onInput: (value) => applyHistoryMutation("voteShare", value),
     });
     const marginTd = makeInputCell({
       type: "number",
@@ -1215,7 +1193,6 @@ function syncDistrictCandidateHistoryTable(ballotSnapshot, controlSnapshot) {
       max: 100,
       step: 0.1,
       fieldKey: "margin",
-      onInput: (value) => applyHistoryMutation("margin", value),
     });
     const turnoutTd = makeInputCell({
       type: "number",
@@ -1224,7 +1201,6 @@ function syncDistrictCandidateHistoryTable(ballotSnapshot, controlSnapshot) {
       max: 100,
       step: 0.1,
       fieldKey: "turnoutContext",
-      onInput: (value) => applyHistoryMutation("turnoutContext", value),
     });
 
     const repeatTd = document.createElement("td");
@@ -1233,9 +1209,6 @@ function syncDistrictCandidateHistoryTable(ballotSnapshot, controlSnapshot) {
     repeatToggle.dataset.syncField = "repeatCandidate";
     repeatToggle.checked = !!record?.repeatCandidate;
     repeatToggle.disabled = controlsLocked;
-    repeatToggle.addEventListener("change", () => {
-      applyHistoryMutation("repeatCandidate", repeatToggle.checked);
-    });
     repeatTd.appendChild(repeatToggle);
 
     const overUnderTd = makeInputCell({
@@ -1245,7 +1218,6 @@ function syncDistrictCandidateHistoryTable(ballotSnapshot, controlSnapshot) {
       max: 40,
       step: 0.1,
       fieldKey: "overUnderPerformancePct",
-      onInput: (value) => applyHistoryMutation("overUnderPerformancePct", value),
     });
 
     const actionTd = document.createElement("td");
@@ -1255,9 +1227,7 @@ function syncDistrictCandidateHistoryTable(ballotSnapshot, controlSnapshot) {
     removeBtn.type = "button";
     removeBtn.textContent = "Remove";
     removeBtn.disabled = controlsLocked;
-    removeBtn.addEventListener("click", () => {
-      removeHistoryRecord();
-    });
+    removeBtn.dataset.action = "remove-history";
     actionTd.appendChild(removeBtn);
 
     tr.append(
@@ -1287,7 +1257,6 @@ function syncDistrictCandidateHistoryTable(ballotSnapshot, controlSnapshot) {
     tr.appendChild(td);
     targetBody.appendChild(tr);
   }
-  restoreActiveControlState(targetBody, "recordId", activeState);
 }
 
 function syncDistrictBallotWarning(ballotSnapshot) {
@@ -1389,7 +1358,6 @@ function bindDistrictFormSelect(v3Id, field) {
   }
   control.dataset.v3DistrictFormBound = "1";
   control.addEventListener("change", () => {
-    markDistrictPendingWrite(v3Id, control.value);
     const result = setDistrictFormField(field, control.value);
     handleDistrictMutationResult(result, { source: `setFormField:${field}` });
   });
@@ -1404,11 +1372,12 @@ function bindDistrictFormField(v3Id, field) {
     return;
   }
   control.dataset.v3DistrictFormBound = "1";
-  control.addEventListener("input", () => {
-    markDistrictPendingWrite(v3Id, control.value);
+  const onCommit = () => {
     const result = setDistrictFormField(field, control.value);
     handleDistrictMutationResult(result, { source: `setFormField:${field}` });
-  });
+  };
+  control.addEventListener("input", onCommit);
+  control.addEventListener("change", onCommit);
 }
 
 function bindDistrictFormCheckbox(v3Id, field) {
@@ -1418,7 +1387,6 @@ function bindDistrictFormCheckbox(v3Id, field) {
   }
   control.dataset.v3DistrictFormBound = "1";
   control.addEventListener("change", () => {
-    markDistrictPendingWrite(v3Id, control.checked);
     const result = setDistrictFormField(field, control.checked);
     handleDistrictMutationResult(result, { source: `setFormField:${field}` });
   });
