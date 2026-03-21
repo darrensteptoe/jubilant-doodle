@@ -1,17 +1,9 @@
 // @ts-check
 import { buildReportPlainText } from "./reportComposer.js";
+import { renderReportPdfHtmlDocument } from "../core/reporting/renderers/pdf.js";
 
 function cleanText(value){
   return String(value == null ? "" : value).trim();
-}
-
-function escapeHtml(value){
-  return String(value == null ? "" : value)
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#39;");
 }
 
 function sanitizeFilePart(value){
@@ -29,50 +21,7 @@ function sanitizeFilePart(value){
  */
 export function buildReportHtml(reportPayload){
   const report = reportPayload && typeof reportPayload === "object" ? reportPayload : {};
-  const title = cleanText(report?.title || report?.reportLabel || "Report");
-  const generatedAt = cleanText(report?.generatedAt || "");
-  const sections = Array.isArray(report?.sections) ? report.sections : [];
-  const sectionHtml = sections.map((section) => {
-    const sectionTitle = cleanText(section?.title || section?.id || "Section");
-    const lines = Array.isArray(section?.lines) ? section.lines : [];
-    const rows = lines
-      .map((line) => cleanText(line))
-      .filter(Boolean)
-      .map((line) => `<li>${escapeHtml(line)}</li>`)
-      .join("");
-    return `
-      <section>
-        <h2>${escapeHtml(sectionTitle)}</h2>
-        <ul>${rows || "<li>—</li>"}</ul>
-      </section>
-    `;
-  }).join("\n");
-
-  return `
-<!doctype html>
-<html lang="en">
-  <head>
-    <meta charset="utf-8"/>
-    <title>${escapeHtml(title)}</title>
-    <style>
-      body { font-family: "Times New Roman", Georgia, serif; margin: 24px; color: #111; }
-      h1 { margin: 0 0 8px; font-size: 24px; }
-      .meta { margin: 0 0 20px; color: #555; font-size: 13px; }
-      h2 { margin: 20px 0 8px; font-size: 17px; }
-      ul { margin: 0 0 8px 20px; }
-      li { margin: 0 0 4px; line-height: 1.35; }
-      @media print {
-        body { margin: 12mm; }
-      }
-    </style>
-  </head>
-  <body>
-    <h1>${escapeHtml(title)}</h1>
-    <p class="meta">Generated: ${escapeHtml(generatedAt || "—")}</p>
-    ${sectionHtml}
-  </body>
-</html>
-  `.trim();
+  return renderReportPdfHtmlDocument(report, { includeStyles: true });
 }
 
 function downloadTextFile(text, filename, mimeType){
