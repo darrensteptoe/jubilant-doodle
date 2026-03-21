@@ -13,7 +13,6 @@ import {
   readDistrictFormSnapshot,
   readDistrictBallotSnapshot,
   readDistrictTargetingSnapshot,
-  normalizeDistrictTargetingSnapshotFromView,
   readDistrictCensusSnapshot,
   applyDistrictTemplateDefaults,
   setDistrictFormField,
@@ -69,7 +68,6 @@ import { listAcsYears, listMetricSetOptions, listResolutionOptions } from "../..
 import { pctOverrideToDecimal } from "../../../core/voteProduction.js";
 
 let censusMapResizePulseHandle = 0;
-let districtSurfaceRefreshRafHandle = 0;
 const DISTRICT_STALE_SYNC_HOLD_MS = 1600;
 const districtPendingWrites = new Map();
 const TARGETING_DENSITY_OPTIONS = [
@@ -855,16 +853,6 @@ export function renderDistrictSurface(mount) {
   return refreshDistrictSummary;
 }
 
-function queueDistrictSurfaceRefresh() {
-  if (districtSurfaceRefreshRafHandle) {
-    return;
-  }
-  districtSurfaceRefreshRafHandle = window.requestAnimationFrame(() => {
-    districtSurfaceRefreshRafHandle = 0;
-    refreshDistrictSummary();
-  });
-}
-
 function handleDistrictMutationResult(result, { source = "" } = {}) {
   const hasResult = !!result && typeof result === "object";
   const ok = hasResult ? result.ok !== false : false;
@@ -884,11 +872,6 @@ function handleDistrictMutationResult(result, { source = "" } = {}) {
     );
   }
 
-  // Keep District reactive by refreshing immediately after accepted writes.
-  // Bridge-sync still replays canonical state after render.
-  if (ok) {
-    queueDistrictSurfaceRefresh();
-  }
   return ok;
 }
 
@@ -1069,6 +1052,117 @@ function readInputValue(id) {
   return String(el.value || "").trim();
 }
 
+function dataKeyToSelectorFragment(dataKey) {
+  return String(dataKey || "")
+    .trim()
+    .replace(/[A-Z]/g, (ch) => `-${ch.toLowerCase()}`);
+}
+
+function captureActiveControlState(container, rowDataKey) {
+  if (!(container instanceof HTMLElement)) {
+    return null;
+  }
+  const active = document.activeElement;
+  if (
+    !(active instanceof HTMLInputElement)
+    && !(active instanceof HTMLSelectElement)
+    && !(active instanceof HTMLTextAreaElement)
+  ) {
+    return null;
+  }
+  if (!container.contains(active)) {
+    return null;
+  }
+  const field = String(active.dataset.syncField || "").trim();
+  if (!field) {
+    return null;
+  }
+  const key = String(rowDataKey || "").trim();
+  if (!key) {
+    return null;
+  }
+  const attr = dataKeyToSelectorFragment(key);
+  const row = active.closest(`[data-${attr}]`);
+  if (!(row instanceof HTMLElement)) {
+    return null;
+  }
+  const rowId = String(row.dataset[key] || "").trim();
+  if (!rowId) {
+    return null;
+  }
+  const state = {
+    rowId,
+    field,
+    isCheckbox: active instanceof HTMLInputElement && active.type === "checkbox",
+    checked: active instanceof HTMLInputElement && active.type === "checkbox" ? !!active.checked : false,
+    value: active instanceof HTMLInputElement || active instanceof HTMLTextAreaElement || active instanceof HTMLSelectElement
+      ? String(active.value || "")
+      : "",
+    selectionStart: null,
+    selectionEnd: null,
+  };
+  if (active instanceof HTMLInputElement || active instanceof HTMLTextAreaElement) {
+    const start = Number(active.selectionStart);
+    const end = Number(active.selectionEnd);
+    state.selectionStart = Number.isFinite(start) ? start : null;
+    state.selectionEnd = Number.isFinite(end) ? end : null;
+  }
+  return state;
+}
+
+function restoreActiveControlState(container, rowDataKey, activeState) {
+  if (!(container instanceof HTMLElement) || !activeState || typeof activeState !== "object") {
+    return;
+  }
+  const key = String(rowDataKey || "").trim();
+  if (!key) {
+    return;
+  }
+  const attr = dataKeyToSelectorFragment(key);
+  const controls = Array.from(container.querySelectorAll("[data-sync-field]"));
+  const target = controls.find((node) => {
+    if (
+      !(node instanceof HTMLInputElement)
+      && !(node instanceof HTMLSelectElement)
+      && !(node instanceof HTMLTextAreaElement)
+    ) {
+      return false;
+    }
+    if (String(node.dataset.syncField || "").trim() !== String(activeState.field || "").trim()) {
+      return false;
+    }
+    const row = node.closest(`[data-${attr}]`);
+    if (!(row instanceof HTMLElement)) {
+      return false;
+    }
+    return String(row.dataset[key] || "").trim() === String(activeState.rowId || "").trim();
+  });
+  if (
+    !(target instanceof HTMLInputElement)
+    && !(target instanceof HTMLSelectElement)
+    && !(target instanceof HTMLTextAreaElement)
+  ) {
+    return;
+  }
+  if (target instanceof HTMLInputElement && target.type === "checkbox") {
+    target.checked = !!activeState.checked;
+  } else {
+    target.value = String(activeState.value == null ? "" : activeState.value);
+  }
+  try {
+    target.focus();
+  } catch {}
+  if (
+    (target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement)
+    && Number.isFinite(Number(activeState.selectionStart))
+    && Number.isFinite(Number(activeState.selectionEnd))
+  ) {
+    try {
+      target.setSelectionRange(Number(activeState.selectionStart), Number(activeState.selectionEnd));
+    } catch {}
+  }
+}
+
 function syncDistrictBallotBaseline(ballotSnapshot, controlSnapshot) {
   const snapshot = ballotSnapshot && typeof ballotSnapshot === "object" ? ballotSnapshot : null;
   syncDistrictCandidateTable(snapshot, controlSnapshot);
@@ -1100,10 +1194,7 @@ function syncDistrictCandidateTable(ballotSnapshot, controlSnapshot) {
   if (!(targetBody instanceof HTMLElement)) {
     return;
   }
-
-  if (targetBody.contains(document.activeElement)) {
-    return;
-  }
+  const activeState = captureActiveControlState(targetBody, "candidateId");
 
   const rows = Array.isArray(ballotSnapshot?.candidates) ? ballotSnapshot.candidates : [];
   const controlsLocked = !!controlSnapshot?.locked;
@@ -1116,11 +1207,13 @@ function syncDistrictCandidateTable(ballotSnapshot, controlSnapshot) {
     const canRemove = !controlsLocked && !!sourceRow?.canRemove;
 
     const tr = document.createElement("tr");
+    tr.dataset.candidateId = candidateId;
 
     const tdName = document.createElement("td");
     const nameInput = document.createElement("input");
     nameInput.className = "fpe-input";
     nameInput.type = "text";
+    nameInput.dataset.syncField = "name";
     nameInput.value = candidateName;
     nameInput.disabled = controlsLocked;
     nameInput.addEventListener("input", () => {
@@ -1134,6 +1227,7 @@ function syncDistrictCandidateTable(ballotSnapshot, controlSnapshot) {
     const pctInput = document.createElement("input");
     pctInput.className = "fpe-input";
     pctInput.type = "number";
+    pctInput.dataset.syncField = "supportPct";
     pctInput.min = "0";
     pctInput.max = "100";
     pctInput.step = "0.1";
@@ -1172,6 +1266,7 @@ function syncDistrictCandidateTable(ballotSnapshot, controlSnapshot) {
     tr.appendChild(td);
     targetBody.appendChild(tr);
   }
+  restoreActiveControlState(targetBody, "candidateId", activeState);
 }
 
 function syncDistrictUserSplitTable(ballotSnapshot, controlSnapshot) {
@@ -1186,10 +1281,7 @@ function syncDistrictUserSplitTable(ballotSnapshot, controlSnapshot) {
   if (!visible) {
     return;
   }
-
-  if (targetList.contains(document.activeElement)) {
-    return;
-  }
+  const activeState = captureActiveControlState(targetList, "candidateId");
 
   const rows = Array.isArray(ballotSnapshot?.userSplitRows) ? ballotSnapshot.userSplitRows : [];
   const controlsLocked = !!controlSnapshot?.locked;
@@ -1201,6 +1293,7 @@ function syncDistrictUserSplitTable(ballotSnapshot, controlSnapshot) {
 
     const field = document.createElement("div");
     field.className = "field";
+    field.dataset.candidateId = candidateId;
 
     const label = document.createElement("label");
     label.className = "fpe-control-label";
@@ -1209,6 +1302,7 @@ function syncDistrictUserSplitTable(ballotSnapshot, controlSnapshot) {
     const input = document.createElement("input");
     input.className = "fpe-input";
     input.type = "number";
+    input.dataset.syncField = "splitValue";
     input.min = "0";
     input.max = "100";
     input.step = "0.1";
@@ -1222,6 +1316,7 @@ function syncDistrictUserSplitTable(ballotSnapshot, controlSnapshot) {
     field.append(label, input);
     targetList.appendChild(field);
   });
+  restoreActiveControlState(targetList, "candidateId", activeState);
 }
 
 function syncDistrictCandidateHistoryTable(ballotSnapshot, controlSnapshot) {
@@ -1241,10 +1336,7 @@ function syncDistrictCandidateHistoryTable(ballotSnapshot, controlSnapshot) {
   if (!(targetBody instanceof HTMLElement)) {
     return;
   }
-
-  if (targetBody.contains(document.activeElement)) {
-    return;
-  }
+  const activeState = captureActiveControlState(targetBody, "recordId");
 
   const rows = Array.isArray(ballotSnapshot?.candidateHistoryRecords)
     ? ballotSnapshot.candidateHistoryRecords
@@ -1269,13 +1361,17 @@ function syncDistrictCandidateHistoryTable(ballotSnapshot, controlSnapshot) {
       handleDistrictMutationResult(result, { source: "removeCandidateHistory" });
     };
     const tr = document.createElement("tr");
+    tr.dataset.recordId = recordId;
 
-    const makeInputCell = ({ type = "text", value = "", min = "", max = "", step = "", onInput = null } = {}) => {
+    const makeInputCell = ({ type = "text", value = "", min = "", max = "", step = "", fieldKey = "", onInput = null } = {}) => {
       const td = document.createElement("td");
       if (type === "number") td.className = "num";
       const input = document.createElement("input");
       input.className = "fpe-input";
       input.type = type;
+      if (fieldKey) {
+        input.dataset.syncField = fieldKey;
+      }
       if (min !== "") input.min = String(min);
       if (max !== "") input.max = String(max);
       if (step !== "") input.step = String(step);
@@ -1288,10 +1384,13 @@ function syncDistrictCandidateHistoryTable(ballotSnapshot, controlSnapshot) {
       return td;
     };
 
-    const makeSelectCell = ({ rowsList = [], value = "", onChange = null } = {}) => {
+    const makeSelectCell = ({ rowsList = [], value = "", fieldKey = "", onChange = null } = {}) => {
       const td = document.createElement("td");
       const select = document.createElement("select");
       select.className = "fpe-input";
+      if (fieldKey) {
+        select.dataset.syncField = fieldKey;
+      }
       const placeholder = document.createElement("option");
       placeholder.value = "";
       placeholder.textContent = "Select";
@@ -1319,6 +1418,7 @@ function syncDistrictCandidateHistoryTable(ballotSnapshot, controlSnapshot) {
     const officeTd = makeInputCell({
       type: "text",
       value: record?.office || "",
+      fieldKey: "office",
       onInput: (value) => applyHistoryMutation("office", value),
     });
     const cycleTd = makeInputCell({
@@ -1327,26 +1427,31 @@ function syncDistrictCandidateHistoryTable(ballotSnapshot, controlSnapshot) {
       min: 1900,
       max: 2100,
       step: 1,
+      fieldKey: "cycleYear",
       onInput: (value) => applyHistoryMutation("cycleYear", value),
     });
     const electionTd = makeSelectCell({
       rowsList: electionTypeOptions,
       value: record?.electionType || "",
+      fieldKey: "electionType",
       onChange: (value) => applyHistoryMutation("electionType", value),
     });
     const candidateTd = makeInputCell({
       type: "text",
       value: record?.candidateName || "",
+      fieldKey: "candidateName",
       onInput: (value) => applyHistoryMutation("candidateName", value),
     });
     const partyTd = makeInputCell({
       type: "text",
       value: record?.party || "",
+      fieldKey: "party",
       onInput: (value) => applyHistoryMutation("party", value),
     });
     const incumbencyTd = makeSelectCell({
       rowsList: incumbencyOptions,
       value: record?.incumbencyStatus || "",
+      fieldKey: "incumbencyStatus",
       onChange: (value) => applyHistoryMutation("incumbencyStatus", value),
     });
     const voteTd = makeInputCell({
@@ -1355,6 +1460,7 @@ function syncDistrictCandidateHistoryTable(ballotSnapshot, controlSnapshot) {
       min: 0,
       max: 100,
       step: 0.1,
+      fieldKey: "voteShare",
       onInput: (value) => applyHistoryMutation("voteShare", value),
     });
     const marginTd = makeInputCell({
@@ -1363,6 +1469,7 @@ function syncDistrictCandidateHistoryTable(ballotSnapshot, controlSnapshot) {
       min: -100,
       max: 100,
       step: 0.1,
+      fieldKey: "margin",
       onInput: (value) => applyHistoryMutation("margin", value),
     });
     const turnoutTd = makeInputCell({
@@ -1371,12 +1478,14 @@ function syncDistrictCandidateHistoryTable(ballotSnapshot, controlSnapshot) {
       min: 0,
       max: 100,
       step: 0.1,
+      fieldKey: "turnoutContext",
       onInput: (value) => applyHistoryMutation("turnoutContext", value),
     });
 
     const repeatTd = document.createElement("td");
     const repeatToggle = document.createElement("input");
     repeatToggle.type = "checkbox";
+    repeatToggle.dataset.syncField = "repeatCandidate";
     repeatToggle.checked = !!record?.repeatCandidate;
     repeatToggle.disabled = controlsLocked;
     repeatToggle.addEventListener("change", () => {
@@ -1390,6 +1499,7 @@ function syncDistrictCandidateHistoryTable(ballotSnapshot, controlSnapshot) {
       min: -40,
       max: 40,
       step: 0.1,
+      fieldKey: "overUnderPerformancePct",
       onInput: (value) => applyHistoryMutation("overUnderPerformancePct", value),
     });
 
@@ -1432,6 +1542,7 @@ function syncDistrictCandidateHistoryTable(ballotSnapshot, controlSnapshot) {
     tr.appendChild(td);
     targetBody.appendChild(tr);
   }
+  restoreActiveControlState(targetBody, "recordId", activeState);
 }
 
 function syncDistrictBallotWarning(ballotSnapshot) {
@@ -1990,15 +2101,11 @@ function syncDistrictTargetingFromResult(result) {
     console.warn("[district] targeting mutation unavailable", result);
     return;
   }
-  const snapshot = normalizeDistrictTargetingSnapshotFromView(result?.view);
-  if (snapshot) {
-    syncDistrictTargetingLab(snapshot);
+
+  if (result.ok !== false) {
     return;
   }
-  if (result.ok) {
-    queueDistrictSurfaceRefresh();
-    return;
-  }
+
   const code = String(result.code || "").trim();
   if (code) {
     console.warn(`[district] targeting mutation rejected:${code}`, result);
