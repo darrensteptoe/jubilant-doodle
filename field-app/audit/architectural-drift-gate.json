@@ -1,0 +1,68 @@
+{
+  "generatedAt": "2026-03-21T05:35:22.225Z",
+  "pass": true,
+  "summary": {
+    "total": 7,
+    "pass": 7,
+    "fail": 0
+  },
+  "checks": [
+    {
+      "id": "ownership-duplicate-canonical-field",
+      "description": "No canonical field has duplicate ownership.",
+      "pass": true,
+      "violations": [],
+      "notes": []
+    },
+    {
+      "id": "deprecated-wrapper-retirement",
+      "description": "Retired wrappers are not used past retirement deadline.",
+      "pass": true,
+      "violations": [],
+      "notes": [
+        "evaluated_at=2026-03-21"
+      ]
+    },
+    {
+      "id": "mixed-bridge-dependency",
+      "description": "Strict rebuilt modules do not depend on mixed aggregate bridge views.",
+      "pass": true,
+      "violations": [],
+      "notes": [
+        "js/app/v3/surfaces/warRoom/index.js:808 allowed until 2026-06-30 (War Room weather/event canonical split bridge remains in staged migration; tracked by wrapper retirement.)"
+      ]
+    },
+    {
+      "id": "control-hydration-lane",
+      "description": "Control hydration in strict rebuilt surfaces is canonical-only.",
+      "pass": true,
+      "violations": [],
+      "notes": []
+    },
+    {
+      "id": "write-path-actions-only",
+      "description": "Strict rebuilt modules write through action/bridge mutation paths only.",
+      "pass": true,
+      "violations": [],
+      "notes": []
+    },
+    {
+      "id": "selector-bypass-raw-cache",
+      "description": "Strict rebuilt modules do not read raw runtime cache/globals as truth.",
+      "pass": true,
+      "violations": [],
+      "notes": []
+    },
+    {
+      "id": "center-layout-full-width",
+      "description": "Strict rebuilt surfaces enforce full-width center module layout contract.",
+      "pass": true,
+      "violations": [],
+      "notes": []
+    }
+  ],
+  "artifacts": {
+    "json": "audit/architectural-drift-gate.json",
+    "markdown": "audit/architectural-drift-gate.md"
+  }
+}

@@ -1,0 +1,82 @@
+{
+  "freezeId": "post-rebuild-freeze-2026-03-21",
+  "capturedAt": "2026-03-21T00:04:50-0500",
+  "headCommit": "7a3cc8b547d0431571e302e7d565a4260cca3ab7",
+  "workspaceMode": "documented-freeze-manifest",
+  "cleanup": {
+    "removeNowQueue": [
+      "js/app/v3/stateBridge.js readDistrictSnapshot alias (retired)",
+      "js/app/v3/bridges/districtBridge.js aggregate wrapper (retired)",
+      "js/app/v3/bridges/outcomeBridge.js aggregate wrapper (retired)",
+      "js/app/v3/surfaces/* legacy wrapper files (retired)"
+    ],
+    "remainingRemoveLater": [
+      "js/app/v3/bridges/weatherRiskBridge.js decision getView wrapper",
+      "js/app/v3/bridges/eventCalendarBridge.js decision getView wrapper",
+      "js/app/v3/stageMount.js legacy right-rail shim",
+      "js/appRuntime.js residual orchestration concentration"
+    ]
+  },
+  "contracts": {
+    "bridgeContracts": [
+      "js/app/v3/bridges/districtBridge.js",
+      "js/app/v3/bridges/electionDataBridge.js",
+      "js/app/v3/bridges/outcomeBridge.js",
+      "js/app/v3/bridges/weatherRiskBridge.js",
+      "js/app/v3/bridges/eventCalendarBridge.js"
+    ],
+    "moduleBoundaryDocs": [
+      "checkpoints/post-rebuild-module-boundaries.md",
+      "js/core/actions/moduleBoundaries.test.js"
+    ],
+    "layoutStandardDocs": [
+      "checkpoints/full-rewire-layout-standard.md",
+      "js/app/v3/surfaces/layoutContract.test.js",
+      "js/app/v3/componentFactory.js"
+    ]
+  },
+  "diagnostics": {
+    "ownership": "checkpoints/post-rebuild-ownership-enforcement.md",
+    "writeTrace": "checkpoints/post-rebuild-write-trace.md",
+    "fallbackGuards": "checkpoints/post-rebuild-fallback-guards.md",
+    "driftGate": "checkpoints/post-rebuild-drift-gate.md",
+    "goldenFixtures": "checkpoints/post-rebuild-golden-fixtures.md"
+  },
+  "verification": [
+    {
+      "command": "npm run check:golden-fixtures",
+      "status": "PASS",
+      "details": "tests=3 pass=3 fail=0"
+    },
+    {
+      "command": "npm run check:contracts",
+      "status": "PASS",
+      "details": "entries=5 blockers=0 violations=3 warnings=2 info=0"
+    },
+    {
+      "command": "npm run check:interaction-integrity",
+      "status": "PASS",
+      "details": "total=113 pass=113 fail=0"
+    },
+    {
+      "command": "npm run gate:drift",
+      "status": "PASS",
+      "details": "total=7 pass=7 fail=0"
+    },
+    {
+      "command": "npm run gate:rebuild",
+      "status": "PASS",
+      "details": "strict-gate: PASS"
+    },
+    {
+      "command": "npm run gate:gauntlet",
+      "status": "PASS",
+      "details": "release-gauntlet: PASS"
+    },
+    {
+      "command": "npm run build",
+      "status": "PASS",
+      "details": "vite build completed"
+    }
+  ]
+}

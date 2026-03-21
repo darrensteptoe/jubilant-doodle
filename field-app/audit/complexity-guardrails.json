@@ -1,0 +1,624 @@
+{
+  "generatedAt": "2026-03-21T04:44:42.649Z",
+  "mode": "warn",
+  "thresholds": {
+    "fileLinesByCategory": {
+      "surface": 700,
+      "bridge": 160,
+      "selector": 140,
+      "runtime": 1200
+    },
+    "functionDecisionPointsWarn": 36,
+    "functionDecisionMinLines": 40,
+    "functionLinesWarn": 220
+  },
+  "scannedFileCount": 61,
+  "summary": {
+    "fileWarnings": 10,
+    "functionWarnings": 37,
+    "fileExceptions": 1,
+    "totalWarnings": 47
+  },
+  "fileWarnings": [
+    {
+      "category": "surface",
+      "relPath": "js/app/v3/surfaces/district/index.js",
+      "absPath": "/Users/anakinskywalker/Downloads/field-app-40/js/app/v3/surfaces/district/index.js",
+      "lineCount": 2841,
+      "maxLines": 700
+    },
+    {
+      "category": "surface",
+      "relPath": "js/app/v3/surfaces/controls.js",
+      "absPath": "/Users/anakinskywalker/Downloads/field-app-40/js/app/v3/surfaces/controls.js",
+      "lineCount": 2182,
+      "maxLines": 700
+    },
+    {
+      "category": "surface",
+      "relPath": "js/app/v3/surfaces/warRoom/index.js",
+      "absPath": "/Users/anakinskywalker/Downloads/field-app-40/js/app/v3/surfaces/warRoom/index.js",
+      "lineCount": 1380,
+      "maxLines": 700
+    },
+    {
+      "category": "surface",
+      "relPath": "js/app/v3/surfaces/plan.js",
+      "absPath": "/Users/anakinskywalker/Downloads/field-app-40/js/app/v3/surfaces/plan.js",
+      "lineCount": 1159,
+      "maxLines": 700
+    },
+    {
+      "category": "surface",
+      "relPath": "js/app/v3/surfaces/data/index.js",
+      "absPath": "/Users/anakinskywalker/Downloads/field-app-40/js/app/v3/surfaces/data/index.js",
+      "lineCount": 913,
+      "maxLines": 700
+    },
+    {
+      "category": "surface",
+      "relPath": "js/app/v3/surfaces/reach.js",
+      "absPath": "/Users/anakinskywalker/Downloads/field-app-40/js/app/v3/surfaces/reach.js",
+      "lineCount": 882,
+      "maxLines": 700
+    },
+    {
+      "category": "surface",
+      "relPath": "js/app/v3/surfaces/outcome/index.js",
+      "absPath": "/Users/anakinskywalker/Downloads/field-app-40/js/app/v3/surfaces/outcome/index.js",
+      "lineCount": 839,
+      "maxLines": 700
+    },
+    {
+      "category": "surface",
+      "relPath": "js/app/v3/surfaces/turnout.js",
+      "absPath": "/Users/anakinskywalker/Downloads/field-app-40/js/app/v3/surfaces/turnout.js",
+      "lineCount": 732,
+      "maxLines": 700
+    },
+    {
+      "category": "bridge",
+      "relPath": "js/app/v3/bridges/electionDataBridge.js",
+      "absPath": "/Users/anakinskywalker/Downloads/field-app-40/js/app/v3/bridges/electionDataBridge.js",
+      "lineCount": 220,
+      "maxLines": 160
+    },
+    {
+      "category": "selector",
+      "relPath": "js/core/selectors/targetingDerived.js",
+      "absPath": "/Users/anakinskywalker/Downloads/field-app-40/js/core/selectors/targetingDerived.js",
+      "lineCount": 157,
+      "maxLines": 140
+    }
+  ],
+  "functionWarnings": [
+    {
+      "category": "runtime",
+      "relPath": "js/appRuntime.js",
+      "absPath": "/Users/anakinskywalker/Downloads/field-app-40/js/appRuntime.js",
+      "functionName": "districtBridgeDerivedView",
+      "startLine": 4079,
+      "endLine": 4253,
+      "functionLines": 175,
+      "decisionPoints": 204,
+      "reasons": {
+        "lineCount": false,
+        "complexity": true
+      }
+    },
+    {
+      "category": "runtime",
+      "relPath": "js/appRuntime.js",
+      "absPath": "/Users/anakinskywalker/Downloads/field-app-40/js/appRuntime.js",
+      "functionName": "districtBridgeCanonicalView",
+      "startLine": 3894,
+      "endLine": 4077,
+      "functionLines": 184,
+      "decisionPoints": 202,
+      "reasons": {
+        "lineCount": false,
+        "complexity": true
+      }
+    },
+    {
+      "category": "runtime",
+      "relPath": "js/appRuntime.js",
+      "absPath": "/Users/anakinskywalker/Downloads/field-app-40/js/appRuntime.js",
+      "functionName": "districtBridgeCombinedView",
+      "startLine": 4255,
+      "endLine": 4353,
+      "functionLines": 99,
+      "decisionPoints": 194,
+      "reasons": {
+        "lineCount": false,
+        "complexity": true
+      }
+    },
+    {
+      "category": "surface",
+      "relPath": "js/app/v3/surfaces/plan.js",
+      "absPath": "/Users/anakinskywalker/Downloads/field-app-40/js/app/v3/surfaces/plan.js",
+      "functionName": "refreshPlanSummary",
+      "startLine": 525,
+      "endLine": 655,
+      "functionLines": 131,
+      "decisionPoints": 155,
+      "reasons": {
+        "lineCount": false,
+        "complexity": true
+      }
+    },
+    {
+      "category": "runtime",
+      "relPath": "js/appRuntime.js",
+      "absPath": "/Users/anakinskywalker/Downloads/field-app-40/js/appRuntime.js",
+      "functionName": "decisionBridgeStateView",
+      "startLine": 7403,
+      "endLine": 7495,
+      "functionLines": 93,
+      "decisionPoints": 111,
+      "reasons": {
+        "lineCount": false,
+        "complexity": true
+      }
+    },
+    {
+      "category": "runtime",
+      "relPath": "js/appRuntime.js",
+      "absPath": "/Users/anakinskywalker/Downloads/field-app-40/js/appRuntime.js",
+      "functionName": "shellBridgeBuildPlaybookSignals",
+      "startLine": 900,
+      "endLine": 1038,
+      "functionLines": 139,
+      "decisionPoints": 104,
+      "reasons": {
+        "lineCount": false,
+        "complexity": true
+      }
+    },
+    {
+      "category": "runtime",
+      "relPath": "js/appRuntime.js",
+      "absPath": "/Users/anakinskywalker/Downloads/field-app-40/js/appRuntime.js",
+      "functionName": "outcomeBridgeDerivedView",
+      "startLine": 6847,
+      "endLine": 6929,
+      "functionLines": 83,
+      "decisionPoints": 82,
+      "reasons": {
+        "lineCount": false,
+        "complexity": true
+      }
+    },
+    {
+      "category": "runtime",
+      "relPath": "js/appRuntime.js",
+      "absPath": "/Users/anakinskywalker/Downloads/field-app-40/js/appRuntime.js",
+      "functionName": "shellBridgeSetContext",
+      "startLine": 1091,
+      "endLine": 1208,
+      "functionLines": 118,
+      "decisionPoints": 80,
+      "reasons": {
+        "lineCount": false,
+        "complexity": true
+      }
+    },
+    {
+      "category": "runtime",
+      "relPath": "js/appRuntime.js",
+      "absPath": "/Users/anakinskywalker/Downloads/field-app-40/js/appRuntime.js",
+      "functionName": "reachBridgeStateView",
+      "startLine": 5474,
+      "endLine": 5583,
+      "functionLines": 110,
+      "decisionPoints": 79,
+      "reasons": {
+        "lineCount": false,
+        "complexity": true
+      }
+    },
+    {
+      "category": "surface",
+      "relPath": "js/app/v3/surfaces/outcome/index.js",
+      "absPath": "/Users/anakinskywalker/Downloads/field-app-40/js/app/v3/surfaces/outcome/index.js",
+      "functionName": "refreshOutcomeSummary",
+      "startLine": 435,
+      "endLine": 597,
+      "functionLines": 163,
+      "decisionPoints": 78,
+      "reasons": {
+        "lineCount": false,
+        "complexity": true
+      }
+    },
+    {
+      "category": "runtime",
+      "relPath": "js/appRuntime.js",
+      "absPath": "/Users/anakinskywalker/Downloads/field-app-40/js/appRuntime.js",
+      "functionName": "turnoutBridgeStateView",
+      "startLine": 5850,
+      "endLine": 5923,
+      "functionLines": 74,
+      "decisionPoints": 75,
+      "reasons": {
+        "lineCount": false,
+        "complexity": true
+      }
+    },
+    {
+      "category": "runtime",
+      "relPath": "js/appRuntime.js",
+      "absPath": "/Users/anakinskywalker/Downloads/field-app-40/js/appRuntime.js",
+      "functionName": "dataBridgeStateView",
+      "startLine": 1552,
+      "endLine": 1675,
+      "functionLines": 124,
+      "decisionPoints": 73,
+      "reasons": {
+        "lineCount": false,
+        "complexity": true
+      }
+    },
+    {
+      "category": "runtime",
+      "relPath": "js/appRuntime.js",
+      "absPath": "/Users/anakinskywalker/Downloads/field-app-40/js/appRuntime.js",
+      "functionName": "districtBridgeBuildCensusDisabledMap",
+      "startLine": 3805,
+      "endLine": 3871,
+      "functionLines": 67,
+      "decisionPoints": 68,
+      "reasons": {
+        "lineCount": false,
+        "complexity": true
+      }
+    },
+    {
+      "category": "runtime",
+      "relPath": "js/app/v3/stateBridge.js",
+      "absPath": "/Users/anakinskywalker/Downloads/field-app-40/js/app/v3/stateBridge.js",
+      "functionName": "readDistrictBallotSnapshot",
+      "startLine": 216,
+      "endLine": 273,
+      "functionLines": 58,
+      "decisionPoints": 64,
+      "reasons": {
+        "lineCount": false,
+        "complexity": true
+      }
+    },
+    {
+      "category": "surface",
+      "relPath": "js/app/v3/surfaces/district/index.js",
+      "absPath": "/Users/anakinskywalker/Downloads/field-app-40/js/app/v3/surfaces/district/index.js",
+      "functionName": "syncDistrictCandidateHistoryTable",
+      "startLine": 1067,
+      "endLine": 1291,
+      "functionLines": 225,
+      "decisionPoints": 62,
+      "reasons": {
+        "lineCount": true,
+        "complexity": true
+      }
+    },
+    {
+      "category": "runtime",
+      "relPath": "js/appRuntime.js",
+      "absPath": "/Users/anakinskywalker/Downloads/field-app-40/js/appRuntime.js",
+      "functionName": "outcomeBridgeCanonicalView",
+      "startLine": 6734,
+      "endLine": 6811,
+      "functionLines": 78,
+      "decisionPoints": 58,
+      "reasons": {
+        "lineCount": false,
+        "complexity": true
+      }
+    },
+    {
+      "category": "surface",
+      "relPath": "js/app/v3/surfaces/controls.js",
+      "absPath": "/Users/anakinskywalker/Downloads/field-app-40/js/app/v3/surfaces/controls.js",
+      "functionName": "wireControlsCalibrationBridge",
+      "startLine": 1082,
+      "endLine": 1263,
+      "functionLines": 182,
+      "decisionPoints": 57,
+      "reasons": {
+        "lineCount": false,
+        "complexity": true
+      }
+    },
+    {
+      "category": "runtime",
+      "relPath": "js/appRuntime.js",
+      "absPath": "/Users/anakinskywalker/Downloads/field-app-40/js/appRuntime.js",
+      "functionName": "districtBridgeSetFormField",
+      "startLine": 4636,
+      "endLine": 4815,
+      "functionLines": 180,
+      "decisionPoints": 52,
+      "reasons": {
+        "lineCount": false,
+        "complexity": true
+      }
+    },
+    {
+      "category": "runtime",
+      "relPath": "js/appRuntime.js",
+      "absPath": "/Users/anakinskywalker/Downloads/field-app-40/js/appRuntime.js",
+      "functionName": "districtBridgePatchCensusBridgeField",
+      "startLine": 4409,
+      "endLine": 4524,
+      "functionLines": 116,
+      "decisionPoints": 52,
+      "reasons": {
+        "lineCount": false,
+        "complexity": true
+      }
+    },
+    {
+      "category": "runtime",
+      "relPath": "js/appRuntime.js",
+      "absPath": "/Users/anakinskywalker/Downloads/field-app-40/js/appRuntime.js",
+      "functionName": "districtBridgeBuildCensusConfigOptions",
+      "startLine": 3705,
+      "endLine": 3803,
+      "functionLines": 99,
+      "decisionPoints": 52,
+      "reasons": {
+        "lineCount": false,
+        "complexity": true
+      }
+    },
+    {
+      "category": "surface",
+      "relPath": "js/app/v3/surfaces/warRoom/index.js",
+      "absPath": "/Users/anakinskywalker/Downloads/field-app-40/js/app/v3/surfaces/warRoom/index.js",
+      "functionName": "renderWarRoomSurface",
+      "startLine": 43,
+      "endLine": 796,
+      "functionLines": 754,
+      "decisionPoints": 50,
+      "reasons": {
+        "lineCount": true,
+        "complexity": true
+      }
+    },
+    {
+      "category": "surface",
+      "relPath": "js/app/v3/surfaces/controls.js",
+      "absPath": "/Users/anakinskywalker/Downloads/field-app-40/js/app/v3/surfaces/controls.js",
+      "functionName": "syncControlsCalibrationBridge",
+      "startLine": 1265,
+      "endLine": 1423,
+      "functionLines": 159,
+      "decisionPoints": 50,
+      "reasons": {
+        "lineCount": false,
+        "complexity": true
+      }
+    },
+    {
+      "category": "runtime",
+      "relPath": "js/appRuntime.js",
+      "absPath": "/Users/anakinskywalker/Downloads/field-app-40/js/appRuntime.js",
+      "functionName": "turnoutBridgeSetField",
+      "startLine": 5957,
+      "endLine": 6067,
+      "functionLines": 111,
+      "decisionPoints": 49,
+      "reasons": {
+        "lineCount": false,
+        "complexity": true
+      }
+    },
+    {
+      "category": "runtime",
+      "relPath": "js/appRuntime.js",
+      "absPath": "/Users/anakinskywalker/Downloads/field-app-40/js/appRuntime.js",
+      "functionName": "planBridgeSetField",
+      "startLine": 6297,
+      "endLine": 6383,
+      "functionLines": 87,
+      "decisionPoints": 49,
+      "reasons": {
+        "lineCount": false,
+        "complexity": true
+      }
+    },
+    {
+      "category": "surface",
+      "relPath": "js/app/v3/surfaces/controls.js",
+      "absPath": "/Users/anakinskywalker/Downloads/field-app-40/js/app/v3/surfaces/controls.js",
+      "functionName": "renderControlsSurface",
+      "startLine": 85,
+      "endLine": 579,
+      "functionLines": 495,
+      "decisionPoints": 47,
+      "reasons": {
+        "lineCount": true,
+        "complexity": true
+      }
+    },
+    {
+      "category": "surface",
+      "relPath": "js/app/v3/surfaces/scenarios.js",
+      "absPath": "/Users/anakinskywalker/Downloads/field-app-40/js/app/v3/surfaces/scenarios.js",
+      "functionName": "wireScenariosEvents",
+      "startLine": 267,
+      "endLine": 341,
+      "functionLines": 75,
+      "decisionPoints": 46,
+      "reasons": {
+        "lineCount": false,
+        "complexity": true
+      }
+    },
+    {
+      "category": "runtime",
+      "relPath": "js/appRuntime.js",
+      "absPath": "/Users/anakinskywalker/Downloads/field-app-40/js/appRuntime.js",
+      "functionName": "decisionBridgeCurrentSnapshot",
+      "startLine": 7288,
+      "endLine": 7378,
+      "functionLines": 91,
+      "decisionPoints": 44,
+      "reasons": {
+        "lineCount": false,
+        "complexity": true
+      }
+    },
+    {
+      "category": "runtime",
+      "relPath": "js/appRuntime.js",
+      "absPath": "/Users/anakinskywalker/Downloads/field-app-40/js/appRuntime.js",
+      "functionName": "outcomeBridgeSetField",
+      "startLine": 6963,
+      "endLine": 7071,
+      "functionLines": 109,
+      "decisionPoints": 43,
+      "reasons": {
+        "lineCount": false,
+        "complexity": true
+      }
+    },
+    {
+      "category": "runtime",
+      "relPath": "js/app/v3/index.js",
+      "absPath": "/Users/anakinskywalker/Downloads/field-app-40/js/app/v3/index.js",
+      "functionName": "syncContextMirror",
+      "startLine": 384,
+      "endLine": 463,
+      "functionLines": 80,
+      "decisionPoints": 43,
+      "reasons": {
+        "lineCount": false,
+        "complexity": true
+      }
+    },
+    {
+      "category": "surface",
+      "relPath": "js/app/v3/surfaces/controls.js",
+      "absPath": "/Users/anakinskywalker/Downloads/field-app-40/js/app/v3/surfaces/controls.js",
+      "functionName": "wireControlsFeedbackBridge",
+      "startLine": 1425,
+      "endLine": 1508,
+      "functionLines": 84,
+      "decisionPoints": 41,
+      "reasons": {
+        "lineCount": false,
+        "complexity": true
+      }
+    },
+    {
+      "category": "runtime",
+      "relPath": "js/appRuntime.js",
+      "absPath": "/Users/anakinskywalker/Downloads/field-app-40/js/appRuntime.js",
+      "functionName": "dataBridgeImportJsonFile",
+      "startLine": 1456,
+      "endLine": 1550,
+      "functionLines": 95,
+      "decisionPoints": 40,
+      "reasons": {
+        "lineCount": false,
+        "complexity": true
+      }
+    },
+    {
+      "category": "runtime",
+      "relPath": "js/app/v3/stateBridge.js",
+      "absPath": "/Users/anakinskywalker/Downloads/field-app-40/js/app/v3/stateBridge.js",
+      "functionName": "normalizeDistrictTargetingSnapshotFromView",
+      "startLine": 303,
+      "endLine": 347,
+      "functionLines": 45,
+      "decisionPoints": 40,
+      "reasons": {
+        "lineCount": false,
+        "complexity": true
+      }
+    },
+    {
+      "category": "surface",
+      "relPath": "js/app/v3/surfaces/turnout.js",
+      "absPath": "/Users/anakinskywalker/Downloads/field-app-40/js/app/v3/surfaces/turnout.js",
+      "functionName": "renderTurnoutSurface",
+      "startLine": 30,
+      "endLine": 336,
+      "functionLines": 307,
+      "decisionPoints": 24,
+      "reasons": {
+        "lineCount": true,
+        "complexity": false
+      }
+    },
+    {
+      "category": "surface",
+      "relPath": "js/app/v3/surfaces/plan.js",
+      "absPath": "/Users/anakinskywalker/Downloads/field-app-40/js/app/v3/surfaces/plan.js",
+      "functionName": "renderPlanSurface",
+      "startLine": 48,
+      "endLine": 495,
+      "functionLines": 448,
+      "decisionPoints": 21,
+      "reasons": {
+        "lineCount": true,
+        "complexity": false
+      }
+    },
+    {
+      "category": "surface",
+      "relPath": "js/app/v3/surfaces/outcome/index.js",
+      "absPath": "/Users/anakinskywalker/Downloads/field-app-40/js/app/v3/surfaces/outcome/index.js",
+      "functionName": "renderOutcomeSurface",
+      "startLine": 59,
+      "endLine": 425,
+      "functionLines": 367,
+      "decisionPoints": 18,
+      "reasons": {
+        "lineCount": true,
+        "complexity": false
+      }
+    },
+    {
+      "category": "surface",
+      "relPath": "js/app/v3/surfaces/data/index.js",
+      "absPath": "/Users/anakinskywalker/Downloads/field-app-40/js/app/v3/surfaces/data/index.js",
+      "functionName": "renderDataSurface",
+      "startLine": 73,
+      "endLine": 616,
+      "functionLines": 544,
+      "decisionPoints": 17,
+      "reasons": {
+        "lineCount": true,
+        "complexity": false
+      }
+    },
+    {
+      "category": "surface",
+      "relPath": "js/app/v3/surfaces/reach.js",
+      "absPath": "/Users/anakinskywalker/Downloads/field-app-40/js/app/v3/surfaces/reach.js",
+      "functionName": "renderReachSurface",
+      "startLine": 22,
+      "endLine": 333,
+      "functionLines": 312,
+      "decisionPoints": 10,
+      "reasons": {
+        "lineCount": true,
+        "complexity": false
+      }
+    }
+  ],
+  "fileExceptions": [
+    {
+      "category": "runtime",
+      "relPath": "js/appRuntime.js",
+      "absPath": "/Users/anakinskywalker/Downloads/field-app-40/js/appRuntime.js",
+      "lineCount": 8784,
+      "maxLines": 1200,
+      "reason": "Known orchestration hub in staged shrink path; tracked separately in pruning."
+    }
+  ]
+}
