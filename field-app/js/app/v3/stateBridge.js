@@ -221,11 +221,10 @@ export function readDistrictControlSnapshot() {
 export function readDistrictTemplateSnapshot() {
   const canonicalTemplate = readDistrictCanonicalBridgeView()?.template;
   const derivedTemplate = readDistrictDerivedBridgeView()?.template;
-  const template = {
-    ...(derivedTemplate && typeof derivedTemplate === "object" ? derivedTemplate : {}),
-    ...(canonicalTemplate && typeof canonicalTemplate === "object" ? canonicalTemplate : {}),
-  };
-  if (!template || typeof template !== "object" || !Object.keys(template).length) {
+  const template = canonicalTemplate && typeof canonicalTemplate === "object"
+    ? canonicalTemplate
+    : null;
+  if (!template) {
     return null;
   }
   const overridden = Array.isArray(template.overriddenFields)
@@ -243,19 +242,15 @@ export function readDistrictTemplateSnapshot() {
     benchmarkKey: String(template.benchmarkKey || "").trim(),
     assumptionsProfile: String(template.assumptionsProfile || "").trim(),
     candidateHistoryCoverageBand: String(
-      derivedTemplate?.candidateHistoryCoverageBand
-      ?? template.candidateHistoryCoverageBand
-      ?? "",
+      derivedTemplate?.candidateHistoryCoverageBand ?? "",
     ).trim(),
     candidateHistoryConfidenceBand: String(
-      derivedTemplate?.candidateHistoryConfidenceBand
-      ?? template.candidateHistoryConfidenceBand
-      ?? "",
+      derivedTemplate?.candidateHistoryConfidenceBand ?? "",
     ).trim(),
     candidateHistoryRecordCount: Number.isFinite(
-      Number(derivedTemplate?.candidateHistoryRecordCount ?? template.candidateHistoryRecordCount),
+      Number(derivedTemplate?.candidateHistoryRecordCount),
     )
-      ? Number(derivedTemplate?.candidateHistoryRecordCount ?? template.candidateHistoryRecordCount)
+      ? Number(derivedTemplate?.candidateHistoryRecordCount)
       : 0,
     overriddenFields: overridden,
   };
@@ -290,26 +285,14 @@ export function readDistrictFormSnapshot() {
 export function readDistrictBallotSnapshot() {
   const canonicalBallot = readDistrictCanonicalBridgeView()?.ballot;
   const derivedBallot = readDistrictDerivedBridgeView()?.ballot;
-  const ballot = {
-    ...(derivedBallot && typeof derivedBallot === "object" ? derivedBallot : {}),
-    ...(canonicalBallot && typeof canonicalBallot === "object" ? canonicalBallot : {}),
-    candidateHistoryOptions: {
-      ...(derivedBallot?.candidateHistoryOptions && typeof derivedBallot.candidateHistoryOptions === "object"
-        ? derivedBallot.candidateHistoryOptions
-        : {}),
-      ...(canonicalBallot?.candidateHistoryOptions && typeof canonicalBallot.candidateHistoryOptions === "object"
-        ? canonicalBallot.candidateHistoryOptions
-        : {}),
-    },
-  };
-  if (!ballot || typeof ballot !== "object") {
+  if (!canonicalBallot || typeof canonicalBallot !== "object") {
     return null;
   }
-  const candidatesRaw = Array.isArray(ballot.candidates) ? ballot.candidates : [];
-  const userSplitRaw = Array.isArray(ballot.userSplitRows) ? ballot.userSplitRows : [];
-  const historyRaw = Array.isArray(ballot.candidateHistoryRecords) ? ballot.candidateHistoryRecords : [];
-  const historyOptions = ballot.candidateHistoryOptions && typeof ballot.candidateHistoryOptions === "object"
-    ? ballot.candidateHistoryOptions
+  const candidatesRaw = Array.isArray(canonicalBallot.candidates) ? canonicalBallot.candidates : [];
+  const userSplitRaw = Array.isArray(canonicalBallot.userSplitRows) ? canonicalBallot.userSplitRows : [];
+  const historyRaw = Array.isArray(canonicalBallot.candidateHistoryRecords) ? canonicalBallot.candidateHistoryRecords : [];
+  const historyOptions = canonicalBallot.candidateHistoryOptions && typeof canonicalBallot.candidateHistoryOptions === "object"
+    ? canonicalBallot.candidateHistoryOptions
     : {};
   const normalizeOptionRows = (rows) => (Array.isArray(rows) ? rows : [])
     .map((row) => ({
@@ -318,12 +301,12 @@ export function readDistrictBallotSnapshot() {
     }))
     .filter((row) => row.value || row.label);
   return {
-    yourCandidateId: String(ballot.yourCandidateId || "").trim(),
-    undecidedPct: Number.isFinite(Number(ballot.undecidedPct)) ? Number(ballot.undecidedPct) : null,
-    undecidedMode: String(ballot.undecidedMode || "").trim(),
-    supportTotalText: String(derivedBallot?.supportTotalText ?? ballot.supportTotalText ?? "").trim(),
-    warningText: String(derivedBallot?.warningText ?? ballot.warningText ?? "").trim(),
-    userSplitVisible: !!ballot.userSplitVisible,
+    yourCandidateId: String(canonicalBallot.yourCandidateId || "").trim(),
+    undecidedPct: Number.isFinite(Number(canonicalBallot.undecidedPct)) ? Number(canonicalBallot.undecidedPct) : null,
+    undecidedMode: String(canonicalBallot.undecidedMode || "").trim(),
+    supportTotalText: String(derivedBallot?.supportTotalText || "").trim(),
+    warningText: String(derivedBallot?.warningText || "").trim(),
+    userSplitVisible: !!canonicalBallot.userSplitVisible,
     candidates: candidatesRaw.map((row) => ({
       id: String(row?.id || "").trim(),
       name: String(row?.name || "").trim(),
@@ -335,12 +318,8 @@ export function readDistrictBallotSnapshot() {
       name: String(row?.name || "").trim(),
       value: Number.isFinite(Number(row?.value)) ? Number(row.value) : null,
     })).filter((row) => row.id),
-    candidateHistorySummaryText: String(
-      derivedBallot?.candidateHistorySummaryText ?? ballot.candidateHistorySummaryText ?? "",
-    ).trim(),
-    candidateHistoryWarningText: String(
-      derivedBallot?.candidateHistoryWarningText ?? ballot.candidateHistoryWarningText ?? "",
-    ).trim(),
+    candidateHistorySummaryText: String(derivedBallot?.candidateHistorySummaryText || "").trim(),
+    candidateHistoryWarningText: String(derivedBallot?.candidateHistoryWarningText || "").trim(),
     candidateHistoryOptions: {
       electionType: normalizeOptionRows(historyOptions.electionType),
       incumbencyStatus: normalizeOptionRows(historyOptions.incumbencyStatus),
@@ -408,94 +387,143 @@ export function normalizeDistrictTargetingSnapshotFromView(view) {
   };
 }
 
-export function readDistrictTargetingSnapshot() {
-  const canonicalTargeting = readDistrictCanonicalBridgeView()?.targeting;
-  const derivedTargeting = readDistrictDerivedBridgeView()?.targeting;
-  const targeting = {
-    ...(derivedTargeting && typeof derivedTargeting === "object" ? derivedTargeting : {}),
-    ...(canonicalTargeting && typeof canonicalTargeting === "object" ? canonicalTargeting : {}),
-    config: {
-      ...(derivedTargeting?.config && typeof derivedTargeting.config === "object" ? derivedTargeting.config : {}),
-      ...(canonicalTargeting?.config && typeof canonicalTargeting.config === "object" ? canonicalTargeting.config : {}),
-    },
+export function readDistrictTargetingConfigSnapshot() {
+  const config = readDistrictCanonicalBridgeView()?.targeting?.config;
+  if (!config || typeof config !== "object") {
+    return null;
+  }
+  return {
+    presetId: String(config.presetId || "").trim(),
+    geoLevel: String(config.geoLevel || "").trim(),
+    modelId: String(config.modelId || "").trim(),
+    topN: Number.isFinite(Number(config.topN)) ? Number(config.topN) : null,
+    minHousingUnits: Number.isFinite(Number(config.minHousingUnits)) ? Number(config.minHousingUnits) : null,
+    minPopulation: Number.isFinite(Number(config.minPopulation)) ? Number(config.minPopulation) : null,
+    minScore: Number.isFinite(Number(config.minScore)) ? Number(config.minScore) : null,
+    onlyRaceFootprint: !!config.onlyRaceFootprint,
+    prioritizeYoung: !!config.prioritizeYoung,
+    prioritizeRenters: !!config.prioritizeRenters,
+    avoidHighMultiUnit: !!config.avoidHighMultiUnit,
+    densityFloor: String(config.densityFloor || "").trim(),
+    weightVotePotential: Number.isFinite(Number(config.weightVotePotential)) ? Number(config.weightVotePotential) : null,
+    weightTurnoutOpportunity: Number.isFinite(Number(config.weightTurnoutOpportunity)) ? Number(config.weightTurnoutOpportunity) : null,
+    weightPersuasionIndex: Number.isFinite(Number(config.weightPersuasionIndex)) ? Number(config.weightPersuasionIndex) : null,
+    weightFieldEfficiency: Number.isFinite(Number(config.weightFieldEfficiency)) ? Number(config.weightFieldEfficiency) : null,
+    controlsLocked: !!config.controlsLocked,
+    canRun: config.canRun == null ? null : !!config.canRun,
+    canExport: config.canExport == null ? null : !!config.canExport,
+    canResetWeights: config.canResetWeights == null ? null : !!config.canResetWeights,
   };
-  return normalizeDistrictTargetingSnapshotFromView({ targeting });
 }
 
-export function readDistrictCensusSnapshot() {
-  const canonicalCensus = readDistrictCanonicalBridgeView()?.census;
-  const derivedCensus = readDistrictDerivedBridgeView()?.census;
-  const census = {
-    ...(derivedCensus && typeof derivedCensus === "object" ? derivedCensus : {}),
-    ...(canonicalCensus && typeof canonicalCensus === "object" ? canonicalCensus : {}),
-    config: {
-      ...(derivedCensus?.config && typeof derivedCensus.config === "object" ? derivedCensus.config : {}),
-      ...(canonicalCensus?.config && typeof canonicalCensus.config === "object" ? canonicalCensus.config : {}),
-    },
+export function readDistrictTargetingResultsSnapshot() {
+  const targeting = readDistrictDerivedBridgeView()?.targeting;
+  if (!targeting || typeof targeting !== "object") {
+    return null;
+  }
+  const rowsRaw = Array.isArray(targeting.rows) ? targeting.rows : [];
+  const rows = rowsRaw.map((row) => ({
+    rank: String(row?.rankText || "").trim(),
+    geography: String(row?.geoText || "").trim(),
+    score: String(row?.scoreText || "").trim(),
+    votesPerHour: String(row?.votesPerHourText || "").trim(),
+    reason: String(row?.reasonText || "").trim(),
+    flags: String(row?.flagsText || "").trim(),
+  })).filter((row) => row.rank || row.geography || row.score || row.votesPerHour || row.reason || row.flags);
+  return {
+    statusText: String(targeting.statusText || "").trim(),
+    metaText: String(targeting.metaText || "").trim(),
+    rows,
   };
+}
+
+export function readDistrictTargetingSnapshot() {
+  const config = readDistrictTargetingConfigSnapshot();
+  const results = readDistrictTargetingResultsSnapshot();
+  if (!config && !results) {
+    return null;
+  }
+  return {
+    statusText: String(results?.statusText || "").trim(),
+    metaText: String(results?.metaText || "").trim(),
+    rows: Array.isArray(results?.rows) ? results.rows : [],
+    config: config || null,
+  };
+}
+
+function normalizeCensusOptionRows(rows, { includeSelected = false } = {}) {
+  const list = Array.isArray(rows) ? rows : [];
+  const out = [];
+  for (const row of list) {
+    const value = String(row?.value || "").trim();
+    const label = String(row?.label || value).trim() || value;
+    if (!value && !label) continue;
+    const item = { value, label };
+    if (includeSelected) {
+      item.selected = !!row?.selected;
+    }
+    out.push(item);
+  }
+  return out;
+}
+
+function normalizeCensusTableRows(rows, expectedCols) {
+  const list = Array.isArray(rows) ? rows : [];
+  return list
+    .map((row) => {
+      const cells = Array.isArray(row) ? row : [];
+      const normalized = cells.map((cell) => String(cell == null ? "" : cell).trim());
+      while (normalized.length < expectedCols) normalized.push("");
+      return normalized.slice(0, expectedCols);
+    })
+    .filter((cells) => cells.some((cell) => cell));
+}
+
+function normalizeBooleanMap(rawMap) {
+  return Object.fromEntries(
+    Object.entries(rawMap && typeof rawMap === "object" ? rawMap : {})
+      .filter(([, value]) => typeof value === "boolean"),
+  );
+}
+
+export function readDistrictCensusConfigSnapshot() {
+  const config = readDistrictCanonicalBridgeView()?.census?.config;
+  if (!config || typeof config !== "object") {
+    return null;
+  }
+  return {
+    apiKey: String(config.apiKey || "").trim(),
+    year: String(config.year || "").trim(),
+    resolution: String(config.resolution || "").trim(),
+    stateFips: String(config.stateFips || "").trim(),
+    countyFips: String(config.countyFips || "").trim(),
+    placeFips: String(config.placeFips || "").trim(),
+    metricSet: String(config.metricSet || "").trim(),
+    geoSearch: String(config.geoSearch || "").trim(),
+    geoPaste: String(config.geoPaste || "").trim(),
+    tractFilter: String(config.tractFilter || "").trim(),
+    selectionSetDraftName: String(config.selectionSetDraftName || "").trim(),
+    selectedSelectionSetKey: String(config.selectedSelectionSetKey || "").trim(),
+    electionCsvPrecinctFilter: String(config.electionCsvPrecinctFilter || "").trim(),
+    applyAdjustedAssumptions: !!config.applyAdjustedAssumptions,
+    mapQaVtdOverlay: !!config.mapQaVtdOverlay,
+    controlsLocked: !!config.controlsLocked,
+    disabledMap: normalizeBooleanMap(config.disabledMap),
+    stateOptions: normalizeCensusOptionRows(config.stateOptions),
+    countyOptions: normalizeCensusOptionRows(config.countyOptions),
+    placeOptions: normalizeCensusOptionRows(config.placeOptions),
+    tractFilterOptions: normalizeCensusOptionRows(config.tractFilterOptions),
+    selectionSetOptions: normalizeCensusOptionRows(config.selectionSetOptions),
+    geoSelectOptions: normalizeCensusOptionRows(config.geoSelectOptions, { includeSelected: true }),
+  };
+}
+
+export function readDistrictCensusResultsSnapshot() {
+  const census = readDistrictDerivedBridgeView()?.census;
   if (!census || typeof census !== "object") {
     return null;
   }
-
-  const normalizeOptions = (rows, { includeSelected = false } = {}) => {
-    const list = Array.isArray(rows) ? rows : [];
-    const out = [];
-    for (const row of list) {
-      const value = String(row?.value || "").trim();
-      const label = String(row?.label || value).trim() || value;
-      if (!value && !label) continue;
-      const item = { value, label };
-      if (includeSelected) {
-        item.selected = !!row?.selected;
-      }
-      out.push(item);
-    }
-    return out;
-  };
-
-  const normalizeRows = (rows, expectedCols) => {
-    const list = Array.isArray(rows) ? rows : [];
-    return list
-      .map((row) => {
-        const cells = Array.isArray(row) ? row : [];
-        const normalized = cells.map((cell) => String(cell == null ? "" : cell).trim());
-        while (normalized.length < expectedCols) normalized.push("");
-        return normalized.slice(0, expectedCols);
-      })
-      .filter((cells) => cells.some((cell) => cell));
-  };
-
   return {
-    config: {
-      apiKey: String(census?.config?.apiKey || "").trim(),
-      year: String(census?.config?.year || "").trim(),
-      resolution: String(census?.config?.resolution || "").trim(),
-      stateFips: String(census?.config?.stateFips || "").trim(),
-      countyFips: String(census?.config?.countyFips || "").trim(),
-      placeFips: String(census?.config?.placeFips || "").trim(),
-      metricSet: String(census?.config?.metricSet || "").trim(),
-      geoSearch: String(census?.config?.geoSearch || "").trim(),
-      geoPaste: String(census?.config?.geoPaste || "").trim(),
-      tractFilter: String(census?.config?.tractFilter || "").trim(),
-      selectionSetDraftName: String(census?.config?.selectionSetDraftName || "").trim(),
-      selectedSelectionSetKey: String(census?.config?.selectedSelectionSetKey || "").trim(),
-      electionCsvPrecinctFilter: String(census?.config?.electionCsvPrecinctFilter || "").trim(),
-      applyAdjustedAssumptions: !!census?.config?.applyAdjustedAssumptions,
-      mapQaVtdOverlay: !!census?.config?.mapQaVtdOverlay,
-      controlsLocked: !!census?.config?.controlsLocked,
-      disabledMap: Object.fromEntries(
-        Object.entries(census?.config?.disabledMap && typeof census.config.disabledMap === "object"
-          ? census.config.disabledMap
-          : {})
-          .filter(([, value]) => typeof value === "boolean"),
-      ),
-      stateOptions: normalizeOptions(census?.config?.stateOptions),
-      countyOptions: normalizeOptions(census?.config?.countyOptions),
-      placeOptions: normalizeOptions(census?.config?.placeOptions),
-      tractFilterOptions: normalizeOptions(census?.config?.tractFilterOptions),
-      selectionSetOptions: normalizeOptions(census?.config?.selectionSetOptions),
-      geoSelectOptions: normalizeOptions(census?.config?.geoSelectOptions, { includeSelected: true }),
-    },
     contextHint: String(census.contextHint || "").trim(),
     selectionSetStatus: String(census.selectionSetStatus || "").trim(),
     statusText: String(census.statusText || "").trim(),
@@ -512,9 +540,39 @@ export function readDistrictCensusSnapshot() {
     electionCsvPreviewMetaText: String(census.electionCsvPreviewMetaText || "").trim(),
     mapStatusText: String(census.mapStatusText || "").trim(),
     mapQaVtdZipStatusText: String(census.mapQaVtdZipStatusText || "").trim(),
-    aggregateRows: normalizeRows(census.aggregateRows, 2),
-    advisoryRows: normalizeRows(census.advisoryRows, 2),
-    electionPreviewRows: normalizeRows(census.electionPreviewRows, 4),
+    aggregateRows: normalizeCensusTableRows(census.aggregateRows, 2),
+    advisoryRows: normalizeCensusTableRows(census.advisoryRows, 2),
+    electionPreviewRows: normalizeCensusTableRows(census.electionPreviewRows, 4),
+  };
+}
+
+export function readDistrictCensusSnapshot() {
+  const config = readDistrictCensusConfigSnapshot();
+  const results = readDistrictCensusResultsSnapshot();
+  if (!config && !results) {
+    return null;
+  }
+  return {
+    config: config || null,
+    contextHint: String(results?.contextHint || "").trim(),
+    selectionSetStatus: String(results?.selectionSetStatus || "").trim(),
+    statusText: String(results?.statusText || "").trim(),
+    geoStatsText: String(results?.geoStatsText || "").trim(),
+    lastFetchText: String(results?.lastFetchText || "").trim(),
+    selectionSummaryText: String(results?.selectionSummaryText || "").trim(),
+    raceFootprintStatusText: String(results?.raceFootprintStatusText || "").trim(),
+    assumptionProvenanceStatusText: String(results?.assumptionProvenanceStatusText || "").trim(),
+    footprintCapacityStatusText: String(results?.footprintCapacityStatusText || "").trim(),
+    applyAdjustmentsStatusText: String(results?.applyAdjustmentsStatusText || "").trim(),
+    advisoryStatusText: String(results?.advisoryStatusText || "").trim(),
+    electionCsvGuideStatusText: String(results?.electionCsvGuideStatusText || "").trim(),
+    electionCsvDryRunStatusText: String(results?.electionCsvDryRunStatusText || "").trim(),
+    electionCsvPreviewMetaText: String(results?.electionCsvPreviewMetaText || "").trim(),
+    mapStatusText: String(results?.mapStatusText || "").trim(),
+    mapQaVtdZipStatusText: String(results?.mapQaVtdZipStatusText || "").trim(),
+    aggregateRows: Array.isArray(results?.aggregateRows) ? results.aggregateRows : [],
+    advisoryRows: Array.isArray(results?.advisoryRows) ? results.advisoryRows : [],
+    electionPreviewRows: Array.isArray(results?.electionPreviewRows) ? results.electionPreviewRows : [],
   };
 }
 

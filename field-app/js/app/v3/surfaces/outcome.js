@@ -448,18 +448,22 @@ function wireOutcomeControlProxies() {
 }
 
 function refreshOutcomeSummary() {
-  const outcomeView = readOutcomeBridgeView();
-  const hasBridgeInputs = !!(outcomeView?.inputs && typeof outcomeView.inputs === "object");
-  const hasBridgeControls = !!(outcomeView?.controls && typeof outcomeView.controls === "object");
+  const canonicalView = readOutcomeCanonicalBridgeView();
+  const derivedView = readOutcomeDerivedBridgeView();
+  const combinedView = readOutcomeBridgeView();
+  const outcomeControlView = canonicalView || combinedView;
+  const outcomeDerivedView = derivedView || combinedView;
+  const hasBridgeInputs = !!(outcomeControlView?.inputs && typeof outcomeControlView.inputs === "object");
+  const hasBridgeControls = !!(outcomeControlView?.controls && typeof outcomeControlView.controls === "object");
 
   if (hasBridgeInputs) {
-    applyOutcomeControlView(outcomeView);
+    applyOutcomeControlView(outcomeControlView);
   }
 
   const mcRunsInput = document.getElementById("v3OutcomeMcRuns");
   if (mcRunsInput instanceof HTMLInputElement) {
     if (document.activeElement !== mcRunsInput) {
-      const runsValue = hasBridgeInputs ? String(outcomeView?.inputs?.mcRuns ?? "10000") : "10000";
+      const runsValue = hasBridgeInputs ? String(outcomeControlView?.inputs?.mcRuns ?? "10000") : "10000";
       mcRunsInput.value = runsValue;
     }
     mcRunsInput.disabled = true;
@@ -479,8 +483,8 @@ function refreshOutcomeSummary() {
 
   const defaultSurfaceStatus = "Run surface compute to refresh win-band diagnostics.";
   const defaultSurfaceSummary = "Compute to see safe zones, cliffs, and diminishing returns.";
-  const bridgedSurfaceStatus = String(outcomeView?.surfaceStatusText || "").trim();
-  const bridgedSurfaceSummary = String(outcomeView?.surfaceSummaryText || "").trim();
+  const bridgedSurfaceStatus = String(outcomeDerivedView?.surfaceStatusText || "").trim();
+  const bridgedSurfaceSummary = String(outcomeDerivedView?.surfaceSummaryText || "").trim();
   setText("v3OutcomeSurfaceStatus", bridgedSurfaceStatus || defaultSurfaceStatus);
   setText("v3OutcomeSurfaceSummary", bridgedSurfaceSummary || defaultSurfaceSummary);
   setText(
@@ -488,7 +492,7 @@ function refreshOutcomeSummary() {
     "Live dependency map for key planning outputs. This is explanatory only; it does not change model math."
   );
 
-  const bridgeMc = outcomeView?.mc || null;
+  const bridgeMc = outcomeDerivedView?.mc || null;
   const outcomeWinProb =
     formatOutcomeBridgeWinProb(bridgeMc?.winProb) ||
     readOutcomeWinProbability();
@@ -538,8 +542,8 @@ function refreshOutcomeSummary() {
     lastRun: String(bridgeMc?.lastRun || derivedMcStatus.lastRun || "—"),
     staleTag: String(bridgeMc?.staleTag || derivedMcStatus.staleTag || "—"),
   };
-  const governanceView = outcomeView?.governance && typeof outcomeView.governance === "object"
-    ? outcomeView.governance
+  const governanceView = outcomeDerivedView?.governance && typeof outcomeDerivedView.governance === "object"
+    ? outcomeDerivedView.governance
     : null;
   const governanceRealism = formatOutcomeGovernanceSignal(governanceView?.realismStatus, governanceView?.realismScore);
   const governanceDataQuality = formatOutcomeGovernanceSignal(governanceView?.dataQualityStatus, governanceView?.dataQualityScore);
@@ -598,10 +602,10 @@ function refreshOutcomeSummary() {
   setText("v3OutcomeConfShock25", confShock25);
   setText("v3OutcomeConfShock50", confShock50);
 
-  const bridgedSensitivityRows = Array.isArray(outcomeView?.sensitivityRows) ? outcomeView.sensitivityRows : [];
+  const bridgedSensitivityRows = Array.isArray(outcomeDerivedView?.sensitivityRows) ? outcomeDerivedView.sensitivityRows : [];
   renderOutcomeSensitivityRows(bridgedSensitivityRows);
 
-  const bridgedSurfaceRows = Array.isArray(outcomeView?.surfaceRows) ? outcomeView.surfaceRows : [];
+  const bridgedSurfaceRows = Array.isArray(outcomeDerivedView?.surfaceRows) ? outcomeDerivedView.surfaceRows : [];
   renderOutcomeSurfaceRows(bridgedSurfaceRows);
   syncOutcomeCardStatus("v3OutcomeSensitivityCardStatus", deriveOutcomeSensitivityCardStatus(bridgedSensitivityRows, bridgedSurfaceStatus));
   syncOutcomeCardStatus("v3OutcomeInterpretationCardStatus", deriveOutcomeInterpretationCardStatus(bridgedSensitivityRows, bridgedSurfaceRows));
@@ -613,9 +617,9 @@ function refreshOutcomeSummary() {
   });
 
   if (hasBridgeControls) {
-    setOutcomeControlDisabled("v3BtnOutcomeRun", !!outcomeView?.controls?.runDisabled);
-    setOutcomeControlDisabled("v3BtnOutcomeRerun", !!outcomeView?.controls?.rerunDisabled);
-    setOutcomeControlDisabled("v3BtnComputeSurface", !!outcomeView?.controls?.surfaceDisabled);
+    setOutcomeControlDisabled("v3BtnOutcomeRun", !!outcomeControlView?.controls?.runDisabled);
+    setOutcomeControlDisabled("v3BtnOutcomeRerun", !!outcomeControlView?.controls?.rerunDisabled);
+    setOutcomeControlDisabled("v3BtnComputeSurface", !!outcomeControlView?.controls?.surfaceDisabled);
   }
 }
 
@@ -624,6 +628,58 @@ function setJoinedText(targetId, values, separator = " / ") {
     ? values.map((value) => String(value || "").trim()).filter((value) => !!value && value !== "—")
     : [];
   setText(targetId, parts.length ? parts.join(separator) : "—");
+}
+
+function readOutcomeCanonicalBridgeView() {
+  const api = window[OUTCOME_API_KEY];
+  if (!api || typeof api !== "object") {
+    return null;
+  }
+  try {
+    if (typeof api.getCanonicalView === "function") {
+      const view = api.getCanonicalView();
+      return view && typeof view === "object" ? view : null;
+    }
+    if (typeof api.getView !== "function") {
+      return null;
+    }
+    const view = api.getView();
+    if (!view || typeof view !== "object") {
+      return null;
+    }
+    if (view.canonical && typeof view.canonical === "object") {
+      return view.canonical;
+    }
+    return view;
+  } catch {
+    return null;
+  }
+}
+
+function readOutcomeDerivedBridgeView() {
+  const api = window[OUTCOME_API_KEY];
+  if (!api || typeof api !== "object") {
+    return null;
+  }
+  try {
+    if (typeof api.getDerivedView === "function") {
+      const view = api.getDerivedView();
+      return view && typeof view === "object" ? view : null;
+    }
+    if (typeof api.getView !== "function") {
+      return null;
+    }
+    const view = api.getView();
+    if (!view || typeof view !== "object") {
+      return null;
+    }
+    if (view.derived && typeof view.derived === "object") {
+      return view.derived;
+    }
+    return view;
+  } catch {
+    return null;
+  }
 }
 
 function readOutcomeBridgeView() {

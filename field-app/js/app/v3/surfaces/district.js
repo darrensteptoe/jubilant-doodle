@@ -12,8 +12,10 @@ import {
   readDistrictTemplateSnapshot,
   readDistrictFormSnapshot,
   readDistrictBallotSnapshot,
-  readDistrictTargetingSnapshot,
-  readDistrictCensusSnapshot,
+  readDistrictTargetingConfigSnapshot,
+  readDistrictTargetingResultsSnapshot,
+  readDistrictCensusConfigSnapshot,
+  readDistrictCensusResultsSnapshot,
   applyDistrictTemplateDefaults,
   setDistrictFormField,
   addDistrictCandidate,
@@ -925,9 +927,15 @@ function refreshDistrictCanonicalControls() {
   const templateSnapshot = readDistrictTemplateSnapshot();
   const formSnapshot = readDistrictFormSnapshot();
   const ballotSnapshot = readDistrictBallotSnapshot();
-  const targetingSnapshot = readDistrictTargetingSnapshot();
-  const censusSnapshot = readDistrictCensusSnapshot();
-  const hasBridgeView = !!(formSnapshot || templateSnapshot || ballotSnapshot || targetingSnapshot || censusSnapshot);
+  const targetingConfigSnapshot = readDistrictTargetingConfigSnapshot();
+  const censusConfigSnapshot = readDistrictCensusConfigSnapshot();
+  const hasBridgeView = !!(
+    formSnapshot
+    || templateSnapshot
+    || ballotSnapshot
+    || targetingConfigSnapshot
+    || censusConfigSnapshot
+  );
   syncDistrictBridgeAvailability(hasBridgeView);
   if (!hasBridgeView) {
     return false;
@@ -966,9 +974,8 @@ function refreshDistrictCanonicalControls() {
     syncInputValueFromRaw("v3DistrictRetentionFactor", formSnapshot?.retentionFactor);
   }
 
-  syncDistrictStructureDerived();
-  syncDistrictTargetingControlState(targetingSnapshot);
-  syncDistrictCensusControlState(censusSnapshot);
+  syncDistrictTargetingControlState(targetingConfigSnapshot);
+  syncDistrictCensusControlState(censusConfigSnapshot);
   syncDistrictCensusMessageTones();
   syncCensusMapShellState();
   applyDistrictBridgeDisabledMap(controlSnapshot?.disabledMap);
@@ -978,9 +985,10 @@ function refreshDistrictCanonicalControls() {
 function refreshDistrictDerivedOutputs() {
   const snapshot = readDistrictSnapshot();
   const templateSnapshot = readDistrictTemplateSnapshot();
-  const targetingSnapshot = readDistrictTargetingSnapshot();
-  const censusSnapshot = readDistrictCensusSnapshot();
+  const targetingResultsSnapshot = readDistrictTargetingResultsSnapshot();
+  const censusResultsSnapshot = readDistrictCensusResultsSnapshot();
 
+  syncDistrictStructureDerived();
   setText("v3DistrictUniverse", snapshot.universe);
   setText("v3DistrictSupport", snapshot.baselineSupport);
   setText("v3DistrictTurnout", snapshot.turnoutExpected);
@@ -993,13 +1001,9 @@ function refreshDistrictDerivedOutputs() {
   if (templateSnapshot) {
     syncDistrictTemplateProfile(templateSnapshot);
   }
-  if (targetingSnapshot) {
-    syncDistrictTargetingLab(targetingSnapshot);
-  }
-  if (censusSnapshot) {
-    syncDistrictCensusProxy(censusSnapshot);
-  }
-  syncDistrictBrief(snapshot, censusSnapshot, templateSnapshot);
+  syncDistrictTargetingLab(targetingResultsSnapshot);
+  syncDistrictCensusProxy(censusResultsSnapshot);
+  syncDistrictBrief(snapshot, censusResultsSnapshot, templateSnapshot);
   syncDistrictCardStatus("v3DistrictRaceCardStatus", deriveDistrictRaceCardStatus());
   syncDistrictCardStatus("v3DistrictElectorateCardStatus", deriveDistrictElectorateCardStatus());
   syncDistrictCardStatus("v3DistrictBaselineCardStatus", deriveDistrictBaselineCardStatus());
@@ -1019,10 +1023,10 @@ function refreshDistrictSummary() {
 }
 
 function syncDistrictTargetingControlState(snapshotOverride = null) {
-  const bridgeSnapshot = snapshotOverride || readDistrictTargetingSnapshot();
-  const targetingConfig = bridgeSnapshot?.config && typeof bridgeSnapshot.config === "object"
-    ? bridgeSnapshot.config
-    : null;
+  const targetingConfig = snapshotOverride && typeof snapshotOverride === "object"
+    ? snapshotOverride
+    : readDistrictTargetingConfigSnapshot();
+  const targetingResults = readDistrictTargetingResultsSnapshot();
 
   ensureDistrictTargetingOptionHydration(targetingConfig);
 
@@ -1062,20 +1066,18 @@ function syncDistrictTargetingControlState(snapshotOverride = null) {
 
   syncDistrictTargetingDisabledFallback({
     config: targetingConfig,
-    rowCount: Array.isArray(bridgeSnapshot?.rows) ? bridgeSnapshot.rows.length : 0,
+    rowCount: Array.isArray(targetingResults?.rows) ? targetingResults.rows.length : 0,
   });
 }
 
 function syncDistrictCensusControlState(snapshotOverride = null) {
-  const bridgeSnapshot = snapshotOverride || readDistrictCensusSnapshot();
-  if (!bridgeSnapshot || typeof bridgeSnapshot !== "object") {
+  const config = snapshotOverride && typeof snapshotOverride === "object"
+    ? snapshotOverride
+    : readDistrictCensusConfigSnapshot();
+  if (!config || typeof config !== "object") {
     ensureDistrictCensusStaticOptionHydration(null);
     return;
   }
-
-  const config = (bridgeSnapshot.config && typeof bridgeSnapshot.config === "object")
-    ? bridgeSnapshot.config
-    : {};
   ensureDistrictCensusStaticOptionHydration(config);
 
   syncBridgeFieldValue("v3CensusApiKey", config.apiKey);
@@ -1910,55 +1912,16 @@ function readRateDecimal(ids = []) {
 }
 
 function syncDistrictTargetingLab(snapshotOverride = null) {
-  const bridgeSnapshot = snapshotOverride || readDistrictTargetingSnapshot();
-  if (!bridgeSnapshot || typeof bridgeSnapshot !== "object") {
+  const resultsSnapshot = snapshotOverride || readDistrictTargetingResultsSnapshot();
+  if (!resultsSnapshot || typeof resultsSnapshot !== "object") {
+    setText("v3DistrictTargetingStatus", "Run targeting to generate ranked GEOs.");
+    setText("v3DistrictTargetingMeta", "No targeting run yet.");
+    renderDistrictTargetingRows([]);
     return;
   }
-  const targetingConfig = bridgeSnapshot?.config;
-  setText("v3DistrictTargetingStatus", bridgeSnapshot.statusText || "Run targeting to generate ranked GEOs.");
-  setText("v3DistrictTargetingMeta", bridgeSnapshot.metaText || "No targeting run yet.");
-  renderDistrictTargetingRows(bridgeSnapshot.rows || []);
-
-  ensureDistrictTargetingOptionHydration(targetingConfig);
-
-  if (targetingConfig && typeof targetingConfig === "object") {
-    syncBridgeSelectValue("v3DistrictTargetingGeoLevel", targetingConfig.geoLevel);
-    syncBridgeSelectValue("v3DistrictTargetingModelId", targetingConfig.presetId || targetingConfig.modelId);
-    syncBridgeFieldValue("v3DistrictTargetingTopN", targetingConfig.topN);
-    syncBridgeFieldValue("v3DistrictTargetingMinHousingUnits", targetingConfig.minHousingUnits);
-    syncBridgeFieldValue("v3DistrictTargetingMinPopulation", targetingConfig.minPopulation);
-    syncBridgeFieldValue("v3DistrictTargetingMinScore", targetingConfig.minScore);
-    syncBridgeCheckboxValue("v3DistrictTargetingOnlyRaceFootprint", targetingConfig.onlyRaceFootprint);
-    syncBridgeCheckboxValue("v3DistrictTargetingPrioritizeYoung", targetingConfig.prioritizeYoung);
-    syncBridgeCheckboxValue("v3DistrictTargetingPrioritizeRenters", targetingConfig.prioritizeRenters);
-    syncBridgeCheckboxValue("v3DistrictTargetingAvoidHighMultiUnit", targetingConfig.avoidHighMultiUnit);
-    syncBridgeSelectValue("v3DistrictTargetingDensityFloor", targetingConfig.densityFloor);
-    syncBridgeFieldValue("v3DistrictTargetingWeightVotePotential", targetingConfig.weightVotePotential);
-    syncBridgeFieldValue("v3DistrictTargetingWeightTurnoutOpportunity", targetingConfig.weightTurnoutOpportunity);
-    syncBridgeFieldValue("v3DistrictTargetingWeightPersuasionIndex", targetingConfig.weightPersuasionIndex);
-    syncBridgeFieldValue("v3DistrictTargetingWeightFieldEfficiency", targetingConfig.weightFieldEfficiency);
-  } else {
-    syncBridgeSelectValue("v3DistrictTargetingGeoLevel", TARGETING_BRIDGE_DEFAULTS.geoLevel);
-    syncBridgeSelectValue("v3DistrictTargetingModelId", TARGETING_BRIDGE_DEFAULTS.presetId);
-    syncBridgeFieldValue("v3DistrictTargetingTopN", TARGETING_BRIDGE_DEFAULTS.topN);
-    syncBridgeFieldValue("v3DistrictTargetingMinHousingUnits", TARGETING_BRIDGE_DEFAULTS.minHousingUnits);
-    syncBridgeFieldValue("v3DistrictTargetingMinPopulation", TARGETING_BRIDGE_DEFAULTS.minPopulation);
-    syncBridgeFieldValue("v3DistrictTargetingMinScore", TARGETING_BRIDGE_DEFAULTS.minScore);
-    syncBridgeCheckboxValue("v3DistrictTargetingOnlyRaceFootprint", TARGETING_BRIDGE_DEFAULTS.onlyRaceFootprint);
-    syncBridgeCheckboxValue("v3DistrictTargetingPrioritizeYoung", TARGETING_BRIDGE_DEFAULTS.prioritizeYoung);
-    syncBridgeCheckboxValue("v3DistrictTargetingPrioritizeRenters", TARGETING_BRIDGE_DEFAULTS.prioritizeRenters);
-    syncBridgeCheckboxValue("v3DistrictTargetingAvoidHighMultiUnit", TARGETING_BRIDGE_DEFAULTS.avoidHighMultiUnit);
-    syncBridgeSelectValue("v3DistrictTargetingDensityFloor", TARGETING_BRIDGE_DEFAULTS.densityFloor);
-    syncBridgeFieldValue("v3DistrictTargetingWeightVotePotential", TARGETING_BRIDGE_DEFAULTS.weightVotePotential);
-    syncBridgeFieldValue("v3DistrictTargetingWeightTurnoutOpportunity", TARGETING_BRIDGE_DEFAULTS.weightTurnoutOpportunity);
-    syncBridgeFieldValue("v3DistrictTargetingWeightPersuasionIndex", TARGETING_BRIDGE_DEFAULTS.weightPersuasionIndex);
-    syncBridgeFieldValue("v3DistrictTargetingWeightFieldEfficiency", TARGETING_BRIDGE_DEFAULTS.weightFieldEfficiency);
-  }
-
-  syncDistrictTargetingDisabledFallback({
-    config: targetingConfig,
-    rowCount: Array.isArray(bridgeSnapshot?.rows) ? bridgeSnapshot.rows.length : 0,
-  });
+  setText("v3DistrictTargetingStatus", resultsSnapshot.statusText || "Run targeting to generate ranked GEOs.");
+  setText("v3DistrictTargetingMeta", resultsSnapshot.metaText || "No targeting run yet.");
+  renderDistrictTargetingRows(resultsSnapshot.rows || []);
 }
 
 function ensureDistrictTargetingOptionHydration(config) {
@@ -2707,16 +2670,11 @@ function bindDistrictCensusProxies() {
 }
 
 function syncDistrictCensusProxy(snapshotOverride = null) {
-  const bridgeSnapshot = snapshotOverride || readDistrictCensusSnapshot();
+  const bridgeSnapshot = snapshotOverride || readDistrictCensusResultsSnapshot();
   if (!bridgeSnapshot || typeof bridgeSnapshot !== "object") {
-    // Keep canonical static options available, but do not clobber dynamic
-    // control values when bridge view is temporarily unavailable.
-    ensureDistrictCensusStaticOptionHydration(null);
     syncCensusMapShellState();
     return;
   }
-  const censusConfig = bridgeSnapshot?.config;
-  ensureDistrictCensusStaticOptionHydration(censusConfig);
   syncBridgeText({
     v3Id: "v3CensusContextHint",
     bridgeText: bridgeSnapshot?.contextHint,
@@ -2797,26 +2755,6 @@ function syncDistrictCensusProxy(snapshotOverride = null) {
     bridgeText: bridgeSnapshot?.mapQaVtdZipStatusText,
     fallback: "No VTD ZIP loaded."
   });
-
-  const config = (censusConfig && typeof censusConfig === "object") ? censusConfig : {};
-  syncBridgeFieldValue("v3CensusApiKey", config.apiKey);
-  syncBridgeSelectValue("v3CensusAcsYear", config.year);
-  syncBridgeSelectValue("v3CensusResolution", config.resolution);
-  syncBridgeSelectValue("v3CensusStateFips", config.stateFips);
-  syncBridgeSelectValue("v3CensusCountyFips", config.countyFips);
-  syncBridgeSelectValue("v3CensusPlaceFips", config.placeFips);
-  syncBridgeSelectValue("v3CensusMetricSet", config.metricSet);
-  syncBridgeSelectValue("v3CensusTractFilter", config.tractFilter);
-  syncBridgeSelectValue("v3CensusSelectionSetSelect", config.selectedSelectionSetKey);
-  syncBridgeFieldValue("v3CensusGeoSearch", config.geoSearch);
-  syncBridgeFieldValue("v3CensusGeoPaste", config.geoPaste);
-  syncBridgeFieldValue("v3CensusSelectionSetName", config.selectionSetDraftName);
-  syncBridgeFieldValue("v3CensusElectionCsvPrecinctFilter", config.electionCsvPrecinctFilter);
-  syncBridgeCheckboxValue("v3CensusApplyAdjustmentsToggle", config.applyAdjustedAssumptions);
-  syncBridgeCheckboxValue("v3CensusMapQaVtdToggle", config.mapQaVtdOverlay);
-  syncBridgeMultiSelectValue("v3CensusGeoSelect", config.geoSelectOptions);
-  applyDistrictCensusBridgeDisabledMap(config.disabledMap);
-  syncDistrictCensusDisabledFallback(config);
 
   renderDistrictCensusTableRows({
     targetBodyId: "v3CensusAggregateTbody",
