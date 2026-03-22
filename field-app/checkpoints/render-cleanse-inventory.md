@@ -309,7 +309,10 @@ Frozen (2026-03-21)
 - Checkpoint: `checkpoints/render-cleanse-c9.2-context-summary-placement.md`
 
 ### C9.3+
-- Not started in this pass.
+- C9.3 — District Census map restoration
+  - Frozen (2026-03-21)
+  - Checkpoint: `checkpoints/render-cleanse-c9.3-district-census-map-restoration.md`
+- C9.4+ not started in this pass.
 - Required missing/deferred items enumerated:
   - Turnout Baseline card controls
   - Census map shell + map status strip
