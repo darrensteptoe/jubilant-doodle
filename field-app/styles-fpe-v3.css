@@ -2297,6 +2297,19 @@ body.training #app-shell-v3-root .fpe-surface .fpe-why {
   width: 100%;
 }
 
+.fpe-right-rail-slot--intel .fpe-intel-section__title,
+.fpe-right-rail-slot--intel .fpe-intel-section__body,
+.fpe-right-rail-slot--intel .fpe-intel-mini-item,
+.fpe-right-rail-slot--intel .fpe-intel-links__title,
+.fpe-right-rail-slot--intel .fpe-intel-link__label,
+.fpe-right-rail-slot--intel .fpe-intel-result__title,
+.fpe-right-rail-slot--intel .fpe-intel-result__summary,
+.fpe-right-rail-slot--intel .fpe-intel-empty,
+.fpe-right-rail-slot--intel .fpe-intel-mode-status {
+  font-size: 11px;
+  line-height: 1.45;
+}
+
 .fpe-right-rail-slot .results-sidebar-new {
   --s-panel: var(--fpe-panel);
   --s-bg: var(--fpe-panel-muted);
