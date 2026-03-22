@@ -320,6 +320,14 @@ test("c9.4b targeting lab: run_failed bridge responses include error message det
   assert.match(runSeg, /message:\s*runErrorMessage \|\| "Targeting run failed\."/);
 });
 
+test("c9.4b targeting lab: runtime bridge imports runTargetRanking symbol", () => {
+  assert.match(
+    appRuntimeSource,
+    /import\s*\{[\s\S]*runTargetRanking[\s\S]*\}\s*from "\.\/app\/targetingRuntime\.js";/,
+    "appRuntime targeting import block must include runTargetRanking",
+  );
+});
+
 test("c10 census hierarchy: county is state-scoped and place is county-scoped when data exists", () => {
   const optionsSeg = functionSegment(appRuntimeSource, "districtBridgeBuildCensusConfigOptions");
   const disabledSeg = functionSegment(appRuntimeSource, "districtBridgeBuildCensusDisabledMap");
