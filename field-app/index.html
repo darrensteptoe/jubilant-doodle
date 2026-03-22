@@ -1101,25 +1101,7 @@
 <!-- RIGHT: Persistent results sidebar -->
 <aside aria-label="Win path results" class="results-sidebar-new" id="legacyResultsSidebar">
 
-  <!-- INPUT VALIDATION -->
-  <div class="sidebar-section-new">
-    <div class="sidebar-label-new">Input validation</div>
-    <ul class="validation" id="validationList"></ul>
-  </div>
-
-  <!-- KEY ASSUMPTIONS -->
-  <div class="sidebar-section-new">
-    <div class="sidebar-label-new">Key assumptions</div>
-    <div class="assumptions" id="assumptionsSnapshot"></div>
-  </div>
-
-  <!-- DATA CHECKS & GUARDRAILS -->
-  <div class="sidebar-section-new">
-    <div class="sidebar-label-new">Data checks &amp; guardrails</div>
-    <div class="guardrails" id="guardrails"></div>
-  </div>
-
-  <!-- WIN PATH KPIs -->
+  <!-- KEY RESULTS -->
   <div class="sidebar-section-new sidebar-win-expected">
     <div class="sidebar-label-new">Win path — expected</div>
     <div class="win-stat-new">
@@ -1143,7 +1125,7 @@
     </div>
   </div>
 
-  <!-- EARLY / ED SPLIT -->
+  <!-- SUPPORTING RESULTS -->
   <div class="sidebar-section-new sidebar-early-split">
     <div class="sidebar-label-new">Early &amp; election day split</div>
     <div class="kv-mini-new"><span>Early votes (expected)</span><span id="miniEarlyVotes-sidebar">—</span></div>
@@ -1153,15 +1135,23 @@
     <div class="kv-mini-new"><span>Universe check</span><span id="miniPersCheck-sidebar">—</span></div>
   </div>
 
-  <!-- STRESS TEST SUMMARY -->
+  <!-- REALISM / VALIDATION -->
   <div class="sidebar-section-new">
-    <div class="sidebar-label-new">Stress test summary</div>
-    <div class="stress" id="stressBox">
-      <div class="stress-item">—</div>
-    </div>
+    <div class="sidebar-label-new">Input validation</div>
+    <ul class="validation" id="validationList"></ul>
   </div>
 
-  <!-- MONTE CARLO WIN PROBABILITY -->
+  <div class="sidebar-section-new">
+    <div class="sidebar-label-new">Key assumptions</div>
+    <div class="assumptions" id="assumptionsSnapshot"></div>
+  </div>
+
+  <div class="sidebar-section-new">
+    <div class="sidebar-label-new">Data checks &amp; guardrails</div>
+    <div class="guardrails" id="guardrails"></div>
+  </div>
+
+  <!-- MONTE CARLO + RISK -->
   <div class="sidebar-section-new">
     <div class="sidebar-label-new">Monte Carlo win probability</div>
     <div class="mc-prob-row-new">
@@ -1188,7 +1178,6 @@
     </div>
   </div>
 
-  <!-- RISK FRAMING -->
   <div class="sidebar-section-new">
     <div class="sidebar-label-new">Risk framing</div>
     <div style="display:flex; align-items:center; gap:8px; margin-bottom:6px;">
@@ -1209,11 +1198,17 @@
     <div class="banner" hidden id="riskPlainBanner-sidebar"></div>
   </div>
 
-  <!-- METADATA (RIGHT RAIL ONLY) -->
+  <!-- STRESS TEST -->
+  <div class="sidebar-section-new">
+    <div class="sidebar-label-new">Stress test summary</div>
+    <div class="stress" id="stressBox">
+      <div class="stress-item">—</div>
+    </div>
+  </div>
+
+  <!-- METADATA -->
   <div class="sidebar-section-new" style="margin-top:auto; border-top: 1px solid var(--rule);">
     <div class="sidebar-label-new">Metadata</div>
-    <div class="kv-mini-new"><span>Universe basis</span><span id="metaUniverseBasis">—</span></div>
-    <div class="kv-mini-new"><span>Source note</span><span id="metaSourceNote">—</span></div>
     <div class="kv-mini-new dim-text"><span id="snapshotHash-sidebar">—</span></div>
   </div>
 

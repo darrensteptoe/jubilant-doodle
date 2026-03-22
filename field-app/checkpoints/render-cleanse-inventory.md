@@ -258,6 +258,45 @@ Frozen (2026-03-21)
 
 ### District completeness audit result
 - Captured in `checkpoints/district-v2-completeness-gaps.md`.
+
+## C9 Target (completed)
+
+### Subsystem
+Final visual/layout/rail/map polish on frozen C1-C8 architecture
+
+### Status
+Frozen (2026-03-21)
+
+### C9 scope completion
+- Shell cleanup:
+  - removed global top-strip glossary shortcuts from live chrome
+  - hid runtime diagnostics by default
+  - removed visible topbar build badge from normal UI
+- Right rail:
+  - default mode = Results
+  - manual intent triggers switch to Manual
+  - explicit user switch-back to Results preserved
+  - metadata block reduced to snapshot hash
+  - section order updated (validation/guardrails before MC+risk, stress below risk)
+- Page ordering/layout:
+  - District, Election Data, Outcome, Reach, Turnout, Plan, Scenarios, Controls, War Room, Data reordered per summary-first/density rules
+  - `two-col-balanced` layout introduced for Scenarios
+- District map lane polish:
+  - map status/shell/VTD ZIP lanes retained and polished
+  - map labels lane added and wired without legacy advisory preview restoration
+- Boundary preservation:
+  - Election Data summary moved to Election Data page
+  - District keeps compact election-data context only
+
+### C9 regression contract status
+- district/outcome/war-room/data render lifecycle contracts: pass
+- District replacement/persistence suites: pass
+- interaction integrity + interaction pages + district integrity: pass
+- build: pass
+- dedicated C9 shell/layout contract: pass
+
+### C9 checkpoint
+- `checkpoints/render-cleanse-c9-final-visual-layout-rail-map.md`
 - Required missing/deferred items enumerated:
   - Turnout Baseline card controls
   - Census map shell + map status strip
