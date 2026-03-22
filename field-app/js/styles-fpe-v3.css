@@ -178,17 +178,6 @@ body.dark #app-shell-v3-root {
   overflow: hidden;
 }
 
-.fpe-brand-flag {
-  width: 24px;
-  height: 16px;
-  border-radius: 2px;
-  border: 1px solid color-mix(in srgb, #000000 22%, transparent);
-  display: block;
-  object-fit: cover;
-  flex: 0 0 auto;
-  box-shadow: 0 1px 0 color-mix(in srgb, #000000 26%, transparent);
-}
-
 .fpe-brand {
   font-size: 13px;
   font-weight: 700;
@@ -420,7 +409,6 @@ body.dark #app-shell-v3-root {
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  background: var(--fpe-bg);
 }
 
 .fpe-context,
@@ -598,7 +586,6 @@ body.dark #app-shell-v3-root {
   padding-top: var(--fpe-space-5);
   padding-bottom: var(--fpe-space-8);
   min-width: 0;
-  background: var(--fpe-bg);
 }
 
 .fpe-surface-frame {
