@@ -1687,7 +1687,18 @@ body.training #app-shell-v3-root .fpe-surface .fpe-why {
   border-radius: 0;
 }
 
+.fpe-surface-pane[data-v3-stage="district"] .fpe-census-map-shell #v3CensusMapHost {
+  margin-top: 0;
+  height: 320px;
+  border: 0;
+  border-radius: 0;
+}
+
 .fpe-surface-pane[data-v3-stage="district"] .fpe-census-map-shell.is-idle #censusMap {
+  filter: grayscale(0.65) saturate(0.45);
+}
+
+.fpe-surface-pane[data-v3-stage="district"] .fpe-census-map-shell.is-idle #v3CensusMapHost {
   filter: grayscale(0.65) saturate(0.45);
 }
 
