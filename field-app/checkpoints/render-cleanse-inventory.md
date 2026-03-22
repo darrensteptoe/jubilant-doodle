@@ -183,15 +183,83 @@ Frozen (2026-03-21)
 - Diagnostics module has actions but no dedicated editable text/select field; action-path parity was captured via `v3BtnDecisionCaptureReview`.
 - Refresh/reopen and cross-stage navigation parity retained C5 values.
 
-### C6 Inventory Target (next wave)
+## C6 Target (completed)
 
-### Data editable controls (C6)
-- `js/app/v3/surfaces/data/index.js`
-- module splits under `js/app/v3/surfaces/data/`
+### Subsystem
+Data page editable modules:
+- Import / Export
+- Recovery
+- Forecast Archive
+- Learning (read-only verification lane)
+- Reporting controls
 
-## Shared helper retirement candidates (C7)
+### Status
+Frozen (2026-03-21)
 
-Retire after all subsystem freezes:
-- legacy direct `innerHTML` editable refresh helpers
-- duplicate binder/sync utilities superseded by in-place contract
-- transitional compatibility render paths no longer referenced
+### Render owners
+- `renderDataSurface`
+- `refreshDataSummary`
+
+### Binder owners
+- `bindDataImportExportEvents`
+- `bindDataRecoveryEvents`
+- `bindDataForecastArchiveEvents`
+- `bindDataReportingEvents`
+
+### Sync owners
+- `syncDataImportExportModule`
+- `syncDataRecoveryModule`
+- `syncDataForecastArchiveModule`
+- `syncDataLearningModule`
+- `syncDataReportingModule`
+- in-place select helpers:
+  - `replaceDataSelectOptionsInPlace`
+  - `replaceArchiveSelectOptionsInPlace`
+  - `replaceReportTypeOptionsInPlace`
+
+### C6 ordinary edit rerender/rebind audit
+- Data root bind remains one-time (`root.dataset.wired = "1"`).
+- No District pending-write / stale-hold helpers in Data editable paths.
+- Ordinary editable select sync now uses in-place option mutation for:
+  - backup select
+  - voter adapter select
+  - archive select
+  - report type select
+- Import/Export voter-draft controls (`adapterId`, `sourceId`) now dispatch through Data bridge API (`setVoterImportDraft`) and are read back via bridge view snapshot.
+- Structural row rebuild remains only in archive output table renderer (`syncArchiveRows`) and is treated as derived-output structural rendering, not editable control hydration.
+
+### C6 parity outcome
+- C6 trace auto-probe confirms for Data controls:
+  - Import/Export (`v3DataVoterSourceId`) updates canonical and keeps same node identity.
+  - Recovery (`v3DataStrictToggle`) updates canonical and keeps same node identity.
+  - Forecast Archive (`v3DataArchiveSelect`) updates canonical and keeps same node identity.
+  - Reporting (`v3DataReportType`) updates canonical and keeps same node identity.
+- `trace.auto.c6.post` shows `replacedSinceReference=false` and `siblingReplacementMap=false` for ordinary edits across modules.
+- Refresh/reopen and navigation-back traces retain canonical values for all four C6 probe controls.
+
+## C7 Target (completed)
+
+### Subsystem
+App-wide render-helper retirement + legacy UI-path cleanup + District completeness gap inventory
+
+### Status
+Frozen (2026-03-21)
+
+### C7 retirement result
+- Safe remove now:
+  - removed unused `DATA_ACTIONS` helper constant from `js/app/v3/surfaces/data/index.js`.
+- Transitional keep:
+  - District compatibility export in `js/app/v3/surfaces/district/index.js` retained while interaction inventory and drift checks still target that path.
+  - District runtime mirror layer in `js/appRuntime.js` retained as transitional derived/model-input compatibility lane.
+  - District structural row render helpers (`setInnerHtmlWithTrace` signature-gated usage for ballot/history/result rows) retained for row add/remove structural changes.
+- Needs replacement first:
+  - District selector expectations in `js/app/v3/qaGates.js` still reference legacy District IDs and should be migrated to `districtV2` selectors before helper retirement.
+  - Interaction inventory file path references still point to compatibility path (`js/app/v3/surfaces/district/index.js`) and should move to `districtV2` path before wrapper deletion.
+
+### District completeness audit result
+- Captured in `checkpoints/district-v2-completeness-gaps.md`.
+- Required missing/deferred items enumerated:
+  - Turnout Baseline card controls
+  - Census map shell + map status strip
+  - VTD ZIP intake/status UI lane
+  - Census advisory/election preview result tables
