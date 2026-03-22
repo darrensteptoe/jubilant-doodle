@@ -1643,6 +1643,23 @@ body.training #app-shell-v3-root .fpe-surface .fpe-why {
   margin-top: 4px;
 }
 
+.fpe-surface-pane[data-v3-stage="district"] .fpe-census-map-row--under-map {
+  margin-top: 8px;
+  justify-content: flex-end;
+}
+
+.fpe-surface-pane[data-v3-stage="district"] .fpe-census-vtd-control-row {
+  justify-content: flex-start;
+  align-items: center;
+  gap: 10px;
+}
+
+.fpe-surface-pane[data-v3-stage="district"] .fpe-census-btn--compact {
+  width: auto;
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
 .fpe-surface-pane[data-v3-stage="district"] .fpe-census-map-shell {
   position: relative;
   border: 1px solid var(--fpe-rule);
@@ -2200,15 +2217,15 @@ body.training #app-shell-v3-root .fpe-surface .fpe-why {
 
 .fpe-intel-body {
   display: grid;
-  gap: 9px;
+  gap: 8px;
 }
 
 .fpe-intel-section {
   display: grid;
   gap: 6px;
-  border: 1px solid color-mix(in srgb, var(--fpe-rule) 82%, transparent);
-  border-radius: 10px;
-  background: color-mix(in srgb, var(--fpe-panel) 92%, var(--fpe-panel-muted));
+  border: 1px solid color-mix(in srgb, var(--fpe-rule) 78%, transparent);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--fpe-rule) 16%, var(--fpe-panel));
   padding: 10px;
 }
 
@@ -2216,8 +2233,8 @@ body.training #app-shell-v3-root .fpe-surface .fpe-why {
   margin: 0;
   font-size: 12px;
   color: var(--fpe-text);
-  font-weight: 600;
-  line-height: 1.35;
+  font-weight: 700;
+  line-height: 1.5;
   overflow-wrap: anywhere;
   word-break: break-word;
 }
@@ -2225,29 +2242,29 @@ body.training #app-shell-v3-root .fpe-surface .fpe-why {
 .fpe-intel-section__body {
   margin: 0;
   font-size: 12px;
-  color: var(--fpe-muted);
-  line-height: 1.55;
+  color: var(--fpe-text);
+  line-height: 1.5;
   overflow-wrap: anywhere;
   word-break: break-word;
 }
 
 .fpe-intel-section--hero {
-  background: color-mix(in srgb, var(--fpe-accent) 8%, var(--fpe-panel));
-  border-color: color-mix(in srgb, var(--fpe-accent) 36%, var(--fpe-rule));
-  padding: 12px;
+  background: color-mix(in srgb, var(--fpe-rule) 16%, var(--fpe-panel));
+  border-color: color-mix(in srgb, var(--fpe-rule) 78%, transparent);
+  padding: 10px;
 }
 
 .fpe-intel-section--hero .fpe-intel-section__title {
-  font-size: 13px;
+  font-size: 12px;
 }
 
 .fpe-intel-section--callout {
-  background: color-mix(in srgb, var(--fpe-warning) 8%, var(--fpe-panel));
-  border-color: color-mix(in srgb, var(--fpe-warning) 34%, var(--fpe-rule));
+  background: color-mix(in srgb, var(--fpe-rule) 16%, var(--fpe-panel));
+  border-color: color-mix(in srgb, var(--fpe-rule) 78%, transparent);
 }
 
 .fpe-intel-section--mini-row {
-  gap: 8px;
+  gap: 6px;
 }
 
 .fpe-intel-mini-row {
@@ -2264,8 +2281,8 @@ body.training #app-shell-v3-root .fpe-surface .fpe-why {
   border: 1px solid color-mix(in srgb, var(--fpe-rule) 88%, transparent);
   background: color-mix(in srgb, var(--fpe-panel-muted) 66%, var(--fpe-panel));
   padding: 3px 9px;
-  font-size: 11px;
-  line-height: 1.3;
+  font-size: 12px;
+  line-height: 1.5;
   color: var(--fpe-text);
   overflow-wrap: anywhere;
   word-break: break-word;
