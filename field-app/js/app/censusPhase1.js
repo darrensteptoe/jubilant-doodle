@@ -745,7 +745,12 @@ function buildStateRows(rows){
 }
 
 function buildSubRows(rows){
-  return (rows || []).map((row) => ({ value: row.fips, label: cleanText(row.name) }));
+  return (rows || []).map((row) => ({
+    value: row.fips,
+    label: cleanText(row.name),
+    state: cleanText(row?.state),
+    county: cleanText(row?.county),
+  }));
 }
 
 function setStatus(s, text, isError = false){
@@ -2549,10 +2554,13 @@ export function renderCensusPhase1Module({ els, state, res } = {}){
   s.bridgeCountyOptions = buildSubRows(countyRows).map((row) => ({
     value: cleanText(row?.value),
     label: cleanText(row?.label || row?.value),
+    state: cleanText(row?.state),
   }));
   s.bridgePlaceOptions = buildSubRows(placeRows).map((row) => ({
     value: cleanText(row?.value),
     label: cleanText(row?.label || row?.value),
+    state: cleanText(row?.state),
+    county: cleanText(row?.county),
   }));
   s.bridgeTractFilterOptions = tractRows.map((row) => ({
     value: cleanText(row?.value),
