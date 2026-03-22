@@ -293,6 +293,16 @@ test("c9.4a contract: targeting actions surface null bridge results and explicit
     /districtV2TargetingActionStatusOverride = "Load ACS rows before running targeting\.";/,
     "no_rows should surface actionable load-rows guidance",
   );
+  assert.match(
+    mutationBody,
+    /code === "run_failed"/,
+    "targeting mutation handling must branch run_failed result codes",
+  );
+  assert.match(
+    mutationBody,
+    /Targeting run failed:/,
+    "run_failed should surface runtime detail text when available",
+  );
 });
 
 test("c9.4a contract: run targeting disabled state and status text respect canRun", () => {

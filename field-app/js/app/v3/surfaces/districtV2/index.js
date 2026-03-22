@@ -376,6 +376,16 @@ function handleDistrictV2MutationResult(result, source) {
         districtV2TargetingActionStatusOverride = "Load ACS rows before running targeting.";
       } else if (code === "locked") {
         districtV2TargetingActionStatusOverride = "Scenario is locked. Unlock edits before running targeting.";
+      } else if (code === "run_failed") {
+        const detail = String(
+          result?.message
+          || result?.view?.census?.statusText
+          || result?.view?.derived?.census?.statusText
+          || "",
+        ).trim();
+        districtV2TargetingActionStatusOverride = detail
+          ? `Targeting run failed: ${detail}`
+          : "Targeting action rejected (run_failed).";
       } else {
         districtV2TargetingActionStatusOverride = `Targeting action rejected (${code || "unknown"}).`;
       }
