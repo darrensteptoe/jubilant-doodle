@@ -132,26 +132,11 @@ function renderSectionContent(row, miniItems){
 
 function renderSection(row){
   const variant = clean(row?.variant) || "card";
-  const expandable = !!row?.expandable;
   const miniItems = parseMiniItems(row);
   const classes = [
     "fpe-intel-section",
     `fpe-intel-section--${escapeHtml(variant)}`,
   ];
-
-  if (expandable){
-    classes.push("fpe-intel-section--accordion");
-    return `
-      <details class="${classes.join(" ")}">
-        <summary class="fpe-intel-section__summary">
-          ${renderSectionHeader(row)}
-        </summary>
-        <div class="fpe-intel-section__content">
-          ${renderSectionContent(row, miniItems)}
-        </div>
-      </details>
-    `;
-  }
 
   if (variant === "mini-row"){
     return `
