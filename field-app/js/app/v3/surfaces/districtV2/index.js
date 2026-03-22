@@ -1758,7 +1758,7 @@ function syncDistrictV2Targeting(configSnapshot, resultsSnapshot) {
   applyDisabled("v3DistrictV2TargetingWeightPersuasionIndex", locked);
   applyDisabled("v3DistrictV2TargetingWeightFieldEfficiency", locked);
   applyDisabled("v3BtnDistrictV2TargetingResetWeights", locked || !config.canResetWeights);
-  applyDisabled("v3BtnDistrictV2RunTargeting", locked || !config.canRun);
+  applyDisabled("v3BtnDistrictV2RunTargeting", locked);
   applyDisabled("v3BtnDistrictV2ExportTargetingCsv", locked || !config.canExport);
   applyDisabled("v3BtnDistrictV2ExportTargetingJson", locked || !config.canExport);
 }
