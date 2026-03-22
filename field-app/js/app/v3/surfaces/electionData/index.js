@@ -62,6 +62,29 @@ function syncCardStatus(id, text) {
   setText(id, cleanText(text) || "Ready");
 }
 
+function syncElectionDataSummaryCard(canonical, derived) {
+  const importStatus = cleanText(canonical?.import?.status) || "awaiting import";
+  const rowCount = Array.isArray(canonical?.normalizedRows) ? canonical.normalizedRows.length : 0;
+  const confidenceBand = cleanText(canonical?.quality?.confidenceBand) || "unknown";
+  const qualityScore = Number.isFinite(Number(canonical?.quality?.score))
+    ? Number(canonical.quality.score)
+    : null;
+  const benchmarkSuggestions = Array.isArray(canonical?.benchmarks?.benchmarkSuggestions)
+    ? canonical.benchmarks.benchmarkSuggestions.length
+    : 0;
+  const downstreamReady = !!canonical?.benchmarks?.downstreamRecommendations;
+  const summaryStatus = cleanText(derived?.statusText)
+    || (rowCount > 0 ? "Election data loaded and ready for downstream use." : "Awaiting normalized election rows.");
+
+  setText("v3ElectionDataSummaryRows", rowCount > 0 ? rowCount.toLocaleString("en-US") : "0");
+  setText("v3ElectionDataSummaryImportStatus", importStatus);
+  setText("v3ElectionDataSummaryConfidence", confidenceBand);
+  setText("v3ElectionDataSummaryQuality", qualityScore == null ? "—" : qualityScore.toFixed(2));
+  setText("v3ElectionDataSummaryBenchmarks", benchmarkSuggestions > 0 ? String(benchmarkSuggestions) : "0");
+  setText("v3ElectionDataSummaryDownstream", downstreamReady ? "Ready" : "Not ready");
+  setText("v3ElectionDataSummaryStatus", summaryStatus);
+}
+
 function bindTextAreaTouch(id) {
   const textarea = document.getElementById(id);
   if (!(textarea instanceof HTMLTextAreaElement) || textarea.dataset.v3BoundTouch === "1") return;
@@ -74,6 +97,13 @@ function bindTextAreaTouch(id) {
 export function renderElectionDataSurface(mount) {
   const frame = createCenterStackFrame();
   const center = createCenterStackColumn();
+
+  const summaryCard = createCenterModuleCard({
+    title: "Election Data summary",
+    description: "Current import status, quality posture, and downstream readiness.",
+    status: "Awaiting import",
+  });
+  assignCardStatusId(summaryCard, "v3ElectionDataSummaryCardStatus");
 
   const importCard = createCenterModuleCard({
     title: "Import panel",
@@ -124,6 +154,18 @@ export function renderElectionDataSurface(mount) {
   });
   assignCardStatusId(qualityCard, "v3ElectionDataQualityCardStatus");
 
+  getCardBody(summaryCard).innerHTML = `
+    <div class="fpe-summary-grid">
+      <div class="fpe-summary-row"><span>Normalized rows</span><strong id="v3ElectionDataSummaryRows">0</strong></div>
+      <div class="fpe-summary-row"><span>Import status</span><strong id="v3ElectionDataSummaryImportStatus">awaiting import</strong></div>
+      <div class="fpe-summary-row"><span>Confidence band</span><strong id="v3ElectionDataSummaryConfidence">unknown</strong></div>
+      <div class="fpe-summary-row"><span>Quality score</span><strong id="v3ElectionDataSummaryQuality">—</strong></div>
+      <div class="fpe-summary-row"><span>Benchmark suggestions</span><strong id="v3ElectionDataSummaryBenchmarks">0</strong></div>
+      <div class="fpe-summary-row"><span>Downstream readiness</span><strong id="v3ElectionDataSummaryDownstream">Not ready</strong></div>
+    </div>
+    <div class="fpe-help fpe-help--flush" id="v3ElectionDataSummaryStatus">Awaiting normalized election rows.</div>
+  `;
+
   renderElectionDataImportPanel({ importCard, getCardBody });
   renderElectionDataColumnMappingCard({ columnMappingCard: mappingCard, getCardBody });
   renderElectionDataNormalizedPreviewCard({ previewCard, getCardBody });
@@ -146,6 +188,7 @@ export function renderElectionDataSurface(mount) {
   center.append(
     bridgeStatus,
     whyPanel,
+    summaryCard,
     importCard,
     mappingCard,
     previewCard,
@@ -301,6 +344,7 @@ export function refreshElectionDataSurface() {
   syncElectionDataGeographyReconciliation(canonical, derived);
   syncElectionDataBenchmarks(canonical, derived);
   syncElectionDataQualityPanel(canonical, derived);
+  syncElectionDataSummaryCard(canonical, derived);
 
   const importStatus = cleanText(canonical?.import?.status);
   const rowCount = Array.isArray(canonical?.normalizedRows) ? canonical.normalizedRows.length : 0;
@@ -313,4 +357,5 @@ export function refreshElectionDataSurface() {
   syncCardStatus("v3ElectionDataGeographyCardStatus", geographyNeedsReview ? "Needs review" : "Ready");
   syncCardStatus("v3ElectionDataBenchmarksCardStatus", rowCount > 0 ? "Computed" : "Awaiting benchmarks");
   syncCardStatus("v3ElectionDataQualityCardStatus", cleanText(canonical?.quality?.confidenceBand) || "Awaiting quality");
+  syncCardStatus("v3ElectionDataSummaryCardStatus", rowCount > 0 ? "Loaded" : "Awaiting import");
 }

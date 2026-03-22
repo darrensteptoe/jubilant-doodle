@@ -71,10 +71,6 @@ import { renderDistrictV2CandidateHistoryCard } from "./candidateHistory.js";
 import { renderDistrictV2TargetingCard } from "./targetingConfig.js";
 import { renderDistrictV2CensusCard } from "./censusConfig.js";
 import {
-  renderDistrictV2ElectionDataCard,
-  syncDistrictV2ElectionDataSummary,
-} from "./electionDataSummary.js";
-import {
   renderDistrictV2SummaryCard,
   syncDistrictV2Summary,
 } from "./summary.js";
@@ -97,6 +93,7 @@ const DISTRICT_V2_BINDER_AUDIT_TARGET_IDS = Object.freeze([
   "v3DistrictV2ElectionDate",
   "v3DistrictV2UniverseSize",
 ]);
+const DISTRICT_V2_RUNTIME_DEBUG_QUERY_PARAM = "districtRuntimeDebug";
 const DISTRICT_V2_TRACE_AUTO_MAX_ATTEMPTS = 12;
 const DISTRICT_V2_TRACE_AUTO_RETRY_MS = 60;
 const DISTRICT_V2_CARD_ID_BY_SCOPE = Object.freeze({
@@ -122,6 +119,16 @@ let districtV2TraceCensusRoot = null;
 let districtV2TraceAutoRan = false;
 let districtV2TraceAutoAttempts = 0;
 const districtV2BinderAttachCounts = new WeakMap();
+
+function isDistrictV2RuntimeDebugVisible() {
+  try {
+    const params = new URLSearchParams(window.location.search);
+    const token = String(params.get(DISTRICT_V2_RUNTIME_DEBUG_QUERY_PARAM) || "").trim().toLowerCase();
+    return token === "1" || token === "true" || token === "yes";
+  } catch {
+    return false;
+  }
+}
 
 export function renderDistrictV2Surface(mount) {
   console.info("[district_v2] mounted");
@@ -186,13 +193,6 @@ export function renderDistrictV2Surface(mount) {
   censusCard.id = DISTRICT_V2_CARD_ID_BY_SCOPE.census;
   assignCardStatusId(censusCard, "v3DistrictV2CensusCardStatus");
 
-  const electionDataCard = createCenterModuleCard({
-    title: "Election data summary",
-    description: "Election import quality and downstream benchmark readiness.",
-    status: "Awaiting import",
-  });
-  assignCardStatusId(electionDataCard, "v3DistrictV2ElectionDataCardStatus");
-
   const summaryCard = createCenterModuleCard({
     title: "District summary",
     description: "Canonical baseline output snapshot for this district.",
@@ -208,6 +208,7 @@ export function renderDistrictV2Surface(mount) {
   const runtimeDebug = document.createElement("details");
   runtimeDebug.id = DISTRICT_V2_RUNTIME_DEBUG_ID;
   runtimeDebug.className = "fpe-runtime-debug-panel";
+  runtimeDebug.hidden = !isDistrictV2RuntimeDebugVisible();
   runtimeDebug.innerHTML = `
     <summary>Runtime parity debug</summary>
     <pre id="${DISTRICT_V2_RUNTIME_DEBUG_BODY_ID}">Waiting for District parity diagnostics.</pre>
@@ -220,7 +221,6 @@ export function renderDistrictV2Surface(mount) {
   renderDistrictV2CandidateHistoryCard({ candidateHistoryCard, getCardBody });
   renderDistrictV2TargetingCard({ targetingCard, getCardBody });
   renderDistrictV2CensusCard({ censusCard, getCardBody });
-  renderDistrictV2ElectionDataCard({ electionDataCard, getCardBody });
   renderDistrictV2SummaryCard({ summaryCard, getCardBody });
 
   center.append(
@@ -231,6 +231,7 @@ export function renderDistrictV2Surface(mount) {
       "All writes dispatch through bridge action methods; no District-only pending-write hold path is used.",
       "Modules follow one full-width center stack contract with no mixed card widths.",
     ]),
+    summaryCard,
     raceCard,
     electorateCard,
     turnoutBaselineCard,
@@ -238,8 +239,6 @@ export function renderDistrictV2Surface(mount) {
     candidateHistoryCard,
     targetingCard,
     censusCard,
-    electionDataCard,
-    summaryCard,
   );
 
   frame.append(center);
@@ -310,8 +309,7 @@ export function refreshDistrictV2Surface() {
   syncDistrictV2CandidateHistory(ballotSnapshot, controlSnapshot);
   syncDistrictV2Targeting(targetingConfigSnapshot, targetingResultsSnapshot);
   syncDistrictV2Census(censusConfigSnapshot, censusResultsSnapshot);
-  syncDistrictV2ElectionDataSummary(electionDataSummarySnapshot);
-  syncDistrictV2Summary(snapshot);
+  syncDistrictV2Summary(snapshot, electionDataSummarySnapshot);
   syncDistrictV2RuntimeDebug(templateSnapshot, formSnapshot);
 
   syncDistrictV2CardStatus("v3DistrictV2RaceCardStatus", deriveDistrictRaceCardStatus({
@@ -354,9 +352,6 @@ export function refreshDistrictV2Surface() {
     status: censusResultsSnapshot?.statusText,
     geoStats: censusResultsSnapshot?.geoStatsText,
   }));
-
-  const electionRows = Number(electionDataSummarySnapshot?.normalizedRowCount || 0);
-  syncDistrictV2CardStatus("v3DistrictV2ElectionDataCardStatus", electionRows > 0 ? `${electionRows.toLocaleString("en-US")} rows` : "Awaiting import");
 
   syncDistrictV2CardStatus("v3DistrictV2SummaryCardStatus", deriveDistrictSummaryCardStatus(snapshot || {}));
   runDistrictV2BinderAuditSnapshot();
@@ -1793,6 +1788,22 @@ function syncDistrictV2Census(configSnapshot, resultsSnapshot) {
   setText("v3DistrictV2CensusSelectionSummary", String(results.selectionSummaryText || "No GEO selected.") || "No GEO selected.");
   setText("v3DistrictV2CensusMapStatus", String(results.mapStatusText || "Map idle. Select GEO units and click Load boundaries.") || "Map idle. Select GEO units and click Load boundaries.");
   setText("v3DistrictV2CensusMapQaVtdZipStatus", String(results.mapQaVtdZipStatusText || "No VTD ZIP loaded.") || "No VTD ZIP loaded.");
+  const selectedGeoLabels = Array.isArray(config.geoSelectOptions)
+    ? config.geoSelectOptions
+      .filter((row) => !!row?.selected)
+      .map((row) => String(row?.label || row?.value || "").trim())
+      .filter(Boolean)
+    : [];
+  const geoLabelPreview = selectedGeoLabels.slice(0, 8);
+  const geoLabelOverflow = selectedGeoLabels.length > geoLabelPreview.length
+    ? ` +${selectedGeoLabels.length - geoLabelPreview.length} more`
+    : "";
+  setText(
+    "v3DistrictV2CensusMapLabels",
+    geoLabelPreview.length
+      ? `Geography labels: ${geoLabelPreview.join(" · ")}${geoLabelOverflow}`
+      : "No geography labels loaded.",
+  );
 
   renderDistrictV2CensusAggregateRows(results.aggregateRows);
 

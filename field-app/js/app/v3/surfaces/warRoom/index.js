@@ -790,12 +790,12 @@ export function renderWarRoomSurface(mount) {
   `;
 
   centerCol.append(
+    summaryCard,
     sessionCard,
+    diagnosticsCard,
     assumptionsCard,
     optionsCard,
-    diagnosticsCard,
     recommendationCard,
-    summaryCard,
   );
   frame.append(centerCol);
   mount.append(frame);

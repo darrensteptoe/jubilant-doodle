@@ -46,10 +46,8 @@ const PLAN_API_KEY = "__FPE_PLAN_API__";
 const SCENARIO_API_KEY = "__FPE_SCENARIO_API__";
 
 export function renderPlanSurface(mount) {
-  const frame = createSurfaceFrame("three-col");
-  const workloadCol = createColumn("workload");
-  const timelineCol = createColumn("timeline");
-  const riskCol = createColumn("risk");
+  const frame = createSurfaceFrame("center-stack");
+  const centerCol = createColumn("plan");
 
   const workloadCard = createCard({
     title: "Workload translator",
@@ -476,11 +474,9 @@ export function renderPlanSurface(mount) {
     </div>
   `;
 
-  workloadCol.append(workloadCard, optimizerCard);
-  timelineCol.append(timelineCard);
-  riskCol.append(riskCard, actionsCard, summaryCard);
+  centerCol.append(summaryCard, workloadCard, optimizerCard, timelineCard, riskCard, actionsCard);
 
-  frame.append(workloadCol, timelineCol, riskCol);
+  frame.append(centerCol);
   mount.append(frame);
   mount.append(
     createWhyPanel([

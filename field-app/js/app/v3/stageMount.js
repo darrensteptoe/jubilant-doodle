@@ -41,7 +41,20 @@ const STAGE_SURFACES = new Map();
 const RIGHT_RAIL_MODE_KEY = "fpe-v3-right-rail-mode";
 const RIGHT_RAIL_MODE_RESULTS = "results";
 const RIGHT_RAIL_MODE_MANUAL = "manual";
-let activeRightRailMode = readRightRailMode();
+const RIGHT_RAIL_MANUAL_TRIGGER_SELECTOR = [
+  "[data-intel-glossary]",
+  "[data-intel-model]",
+  "[data-intel-playbook]",
+  "[data-intel-message]",
+  "[data-intel-module]",
+  "[data-intel-mode='glossary']",
+  "[data-intel-mode='manual']",
+  "[data-v3-open-manual]",
+  "[data-manual-link]",
+  "a[href*='manual']",
+].join(", ");
+let activeRightRailMode = RIGHT_RAIL_MODE_RESULTS;
+let rightRailManualIntentWired = false;
 
 export function mountStage(stageId) {
   const stage = getStageById(stageId) || getStageById(V3_DEFAULT_STAGE);
@@ -84,6 +97,7 @@ export function mountStage(stageId) {
   activeSurfaceRefresh = surfaceState ? surfaceState.refresh : null;
   activeSurfacePane = surfaceState ? surfaceState.pane : null;
 
+  wireRightRailManualIntent();
   syncRightRail();
   refreshActiveStage();
 }
@@ -123,6 +137,28 @@ function syncRightRail() {
 
   parkLegacyRightRailInPool();
   mountIntelligenceRailInSlot(slot, toggle);
+}
+
+function wireRightRailManualIntent() {
+  if (rightRailManualIntentWired) {
+    return;
+  }
+  document.addEventListener("click", onRightRailManualIntent, true);
+  rightRailManualIntentWired = true;
+}
+
+function onRightRailManualIntent(event) {
+  const target = event?.target;
+  if (!(target instanceof HTMLElement)) {
+    return;
+  }
+  if (target.closest("#v3RightRailToggle")) {
+    return;
+  }
+  if (!target.closest(RIGHT_RAIL_MANUAL_TRIGGER_SELECTOR)) {
+    return;
+  }
+  setRightRailMode(RIGHT_RAIL_MODE_MANUAL, { persist: true });
 }
 
 function parkLegacyRightRailInPool() {
@@ -236,11 +272,18 @@ function onRightRailToggleClick(event) {
     return;
   }
   const nextMode = normalizeRightRailMode(button.getAttribute("data-v3-right-rail-mode"));
+  setRightRailMode(nextMode, { persist: true });
+}
+
+function setRightRailMode(mode, { persist = true } = {}) {
+  const nextMode = normalizeRightRailMode(mode);
   if (nextMode === activeRightRailMode) {
     return;
   }
   activeRightRailMode = nextMode;
-  persistRightRailMode(activeRightRailMode);
+  if (persist) {
+    persistRightRailMode(activeRightRailMode);
+  }
   syncRightRail();
   refreshActiveStage();
 }

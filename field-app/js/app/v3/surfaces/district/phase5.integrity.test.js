@@ -24,7 +24,6 @@ test("district phase5: replacement surface is decomposed into districtV2 module 
   expect(/from "\.\/targetingConfig\.js"/, "districtV2 index must import targetingConfig module");
   expect(/from "\.\/censusConfig\.js"/, "districtV2 index must import censusConfig module");
   expect(/from "\.\/summary\.js"/, "districtV2 index must import summary module");
-  expect(/from "\.\/electionDataSummary\.js"/, "districtV2 index must import electionDataSummary module");
 });
 
 test("district phase5: canonical and derived readers are lane-split", () => {
@@ -47,8 +46,9 @@ test("district phase5: replacement handlers are delegated and hold-free", () => 
   assert.doesNotMatch(source, /shouldHoldDistrictControlSync\(/, "districtV2 must not use hold-based control sync");
 });
 
-test("district phase5: election data summary card is present and full-width stack is used", () => {
-  expect(/title: "Election data summary"/, "districtV2 must render election data summary card");
+test("district phase5: district summary is top-of-page and election summary is compact-only", () => {
+  assert.doesNotMatch(source, /title: "Election data summary"/, "districtV2 should not render election data summary as a standalone card");
+  expect(/center\.append\([\s\S]*summaryCard,\s*raceCard,/m, "districtV2 should render district summary at the top of the module stack");
   expect(/createCenterStackFrame\(/, "districtV2 must use center stack frame");
   expect(/createCenterStackColumn\(/, "districtV2 must use center stack column");
   expect(/createCenterModuleCard\(/, "districtV2 must use center module cards");

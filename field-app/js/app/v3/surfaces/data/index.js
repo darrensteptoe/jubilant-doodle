@@ -605,7 +605,7 @@ export function renderDataSurface(mount) {
     </div>
   `;
 
-  centerCol.append(policyCard, exchangeCard, storageCard, auditCard, summaryCard);
+  centerCol.append(summaryCard, policyCard, exchangeCard, storageCard, auditCard);
   frame.append(centerCol);
   mount.append(frame);
 

@@ -181,8 +181,6 @@ export function renderMain(ctx){
 
   setText(els.miniPersUniverseSidebar, expectedVoteTexts.persuasionUniverseText);
   setText(els.miniPersCheckSidebar, res.expected.persuasionUniverseCheck || "—");
-  setText(els.metaUniverseBasis, state.universeBasis || "—");
-  setText(els.metaSourceNote, state.sourceNote || "—");
 
   const run = (label, fn) => safeCall(fn, { label });
   run("render.stress", () => renderStress(res));

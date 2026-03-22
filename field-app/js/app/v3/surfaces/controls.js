@@ -83,9 +83,8 @@ let recommendationActionStatus = "";
 let whatIfActionStatus = "";
 
 export function renderControlsSurface(mount) {
-  const frame = createSurfaceFrame("three-col");
+  const frame = createSurfaceFrame("two-col");
   const governanceCol = createColumn("governance");
-  const benchmarkCol = createColumn("benchmark");
   const calibrationCol = createColumn("calibration");
 
   const workflowCard = createCard({
@@ -555,11 +554,10 @@ export function renderControlsSurface(mount) {
     </div>
   `;
 
-  governanceCol.append(benchmarkCard, evidenceCard);
-  benchmarkCol.append(workflowCard, feedbackCard);
-  calibrationCol.append(summaryCard, calibrationCard);
+  governanceCol.append(summaryCard, workflowCard, benchmarkCard, evidenceCard);
+  calibrationCol.append(calibrationCard, feedbackCard);
 
-  frame.append(governanceCol, benchmarkCol, calibrationCol);
+  frame.append(governanceCol, calibrationCol);
   mount.append(frame);
 
   mount.append(

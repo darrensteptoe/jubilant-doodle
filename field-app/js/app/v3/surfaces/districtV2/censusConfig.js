@@ -78,12 +78,12 @@ export function renderDistrictV2CensusCard({ censusCard, getCardBody }) {
         </label>
       </div>
 
-      <div class="fpe-census-map-row">
+      <div class="fpe-census-map-row fpe-census-map-row--actions">
         <button class="fpe-btn fpe-btn--ghost" id="v3BtnDistrictV2CensusLoadMap" type="button">Load boundaries</button>
         <button class="fpe-btn fpe-btn--ghost" id="v3BtnDistrictV2CensusClearMap" type="button">Clear map</button>
       </div>
 
-      <div class="fpe-field-grid fpe-field-grid--2">
+      <div class="fpe-field-grid fpe-field-grid--2 fpe-census-map-row--vtd">
         <div class="field">
           <label class="fpe-control-label" for="v3DistrictV2CensusMapQaVtdZip">VTD ZIP overlay source (optional)</label>
           <input accept=".zip,application/zip" class="fpe-input" id="v3DistrictV2CensusMapQaVtdZip" type="file"/>
@@ -105,6 +105,7 @@ export function renderDistrictV2CensusCard({ censusCard, getCardBody }) {
       <div class="fpe-census-map-shell is-idle" id="v3DistrictV2CensusMapShell">
         <div class="fpe-census-map-overlay" id="v3DistrictV2CensusMapOverlay">Map shell restored. Load boundaries to refresh geometry status.</div>
       </div>
+      <div class="fpe-help fpe-help--flush fpe-census-map-labels" id="v3DistrictV2CensusMapLabels">No geography labels loaded.</div>
 
       <div class="table-wrap">
         <table class="table" aria-label="District V2 census aggregate table">

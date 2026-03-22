@@ -19,6 +19,8 @@ const STAGE_QUERY_PARAM = "stage";
 const NAV_BRIDGE_KEY = "__FPE_V3_NAV__";
 const SHELL_BRIDGE_KEY = "__FPE_SHELL_API__";
 const RUNTIME_DIAGNOSTICS_KEY = "__FPE_RUNTIME_DIAGNOSTICS__";
+const RUNTIME_DIAGNOSTICS_VISIBLE_KEY = "fpe-v3-runtime-diag-visible";
+const RUNTIME_DIAGNOSTICS_QUERY_PARAM = "runtimeDiag";
 const BRIDGE_SYNC_EVENT = "fpe:bridge-sync";
 let syncTimer = null;
 let syncRafToken = 0;
@@ -494,8 +496,35 @@ function renderRuntimeDiagnosticsLine(snapshot) {
   ].join(" | ");
 }
 
+function isRuntimeDiagnosticsVisible() {
+  try {
+    const params = new URLSearchParams(window.location.search);
+    const queryValue = String(params.get(RUNTIME_DIAGNOSTICS_QUERY_PARAM) || "").trim().toLowerCase();
+    if (queryValue === "1" || queryValue === "true" || queryValue === "yes") {
+      return true;
+    }
+    if (queryValue === "0" || queryValue === "false" || queryValue === "no") {
+      return false;
+    }
+  } catch {}
+
+  try {
+    const stored = String(window.localStorage.getItem(RUNTIME_DIAGNOSTICS_VISIBLE_KEY) || "").trim().toLowerCase();
+    return stored === "1" || stored === "true" || stored === "yes";
+  } catch {
+    return false;
+  }
+}
+
+function setRuntimeDiagnosticsVisible(visible) {
+  try {
+    window.localStorage.setItem(RUNTIME_DIAGNOSTICS_VISIBLE_KEY, visible ? "1" : "0");
+  } catch {}
+}
+
 function syncRuntimeDiagnostics({ logBoot = false } = {}) {
   const snapshot = buildRuntimeDiagnosticsSnapshot();
+  const visible = isRuntimeDiagnosticsVisible();
   try {
     window[RUNTIME_DIAGNOSTICS_KEY] = {
       getSnapshot: () => buildRuntimeDiagnosticsSnapshot(),
@@ -504,13 +533,22 @@ function syncRuntimeDiagnostics({ logBoot = false } = {}) {
         console.info("[runtime-parity]", next);
         return next;
       },
+      setVisible: (nextVisible) => {
+        setRuntimeDiagnosticsVisible(!!nextVisible);
+        syncRuntimeDiagnostics({ logBoot: false });
+      },
     };
   } catch {}
   const host = document.getElementById("v3RuntimeDiagnostics");
-  const line = renderRuntimeDiagnosticsLine(snapshot);
   if (host instanceof HTMLElement) {
-    host.textContent = line;
-    host.title = JSON.stringify(snapshot, null, 2);
+    host.hidden = !visible;
+    if (visible) {
+      host.textContent = renderRuntimeDiagnosticsLine(snapshot);
+      host.title = JSON.stringify(snapshot, null, 2);
+    } else {
+      host.textContent = "";
+      host.title = "";
+    }
   }
   if (logBoot) {
     console.info("[runtime-parity]", snapshot);

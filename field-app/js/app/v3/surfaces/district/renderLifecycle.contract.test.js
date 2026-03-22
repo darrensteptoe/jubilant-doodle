@@ -251,3 +251,11 @@ test("c8 contract: census map/vtd lane is wired without restoring legacy advisor
   assert.doesNotMatch(censusConfigSource, /v3DistrictV2CensusAdvisoryTbody/);
   assert.doesNotMatch(censusConfigSource, /v3DistrictV2CensusElectionPreviewTbody/);
 });
+
+test("c9 contract: census map label lane is present and synced without editable control rebuild", () => {
+  const censusSyncBody = extractFunctionBody("syncDistrictV2Census");
+  assert.match(censusConfigSource, /id="v3DistrictV2CensusMapLabels"/);
+  assert.match(censusSyncBody, /setText\(\s*"v3DistrictV2CensusMapLabels"/);
+  assert.doesNotMatch(censusSyncBody, /setInnerHtmlWithTrace\(\s*mapShell/);
+  assert.doesNotMatch(censusSyncBody, /markDistrictPendingWrite|shouldHoldDistrictControlSync/);
+});

@@ -46,6 +46,7 @@ export function renderReachSurface(mount) {
     description: "Baseline, ramp, and scheduled-attempt comparisons.",
     status: "Awaiting ops data"
   });
+  outlookCard.id = "v3ReachOutlookCard";
   const outlookHeaderToggle = document.createElement("div");
   outlookHeaderToggle.className = "fpe-header-switch";
   outlookHeaderToggle.innerHTML = `
@@ -79,6 +80,7 @@ export function renderReachSurface(mount) {
     description: "Current capacity posture and operating risk at a glance.",
     status: REACH_STATUS_AWAITING_INPUTS
   });
+  summaryCard.id = "v3ReachSummaryCard";
 
   assignCardStatusId(outlookCard, "v3ReachOutlookCardStatus");
   assignCardStatusId(freshnessCard, "v3ReachFreshnessCardStatus");
@@ -316,8 +318,8 @@ export function renderReachSurface(mount) {
   bridgeRoot.id = "v3ReachBridgeRoot";
   bridgeRoot.append(frame);
 
-  left.append(outlookCard, freshnessCard, universeCard, conversionCard);
-  right.append(summaryCard, weeklyCard, leversCard, actionsCard);
+  left.append(summaryCard, outlookCard, freshnessCard, weeklyCard);
+  right.append(leversCard, actionsCard, universeCard, conversionCard);
   frame.append(left, right);
   mount.append(bridgeRoot);
   mount.append(

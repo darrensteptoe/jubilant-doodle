@@ -28,9 +28,8 @@ import {
 const TURNOUT_API_KEY = "__FPE_TURNOUT_API__";
 
 export function renderTurnoutSurface(mount) {
-  const frame = createSurfaceFrame("three-col");
-  const controlsCol = createColumn("controls");
-  const analysisCol = createColumn("analysis");
+  const frame = createSurfaceFrame("two-col");
+  const inputsCol = createColumn("inputs");
   const resultsCol = createColumn("results");
 
   const assumptionsCard = createCard({
@@ -317,11 +316,10 @@ export function renderTurnoutSurface(mount) {
     </div>
   `;
 
-  controlsCol.append(assumptionsCard, liftCard);
-  analysisCol.append(efficiencyCard, costInputsCard);
-  resultsCol.append(impactCard, summaryCard);
+  inputsCol.append(assumptionsCard, liftCard, costInputsCard, efficiencyCard);
+  resultsCol.append(summaryCard, impactCard);
 
-  frame.append(controlsCol, analysisCol, resultsCol);
+  frame.append(inputsCol, resultsCol);
   mount.append(frame);
   mount.append(
     createWhyPanel([

@@ -369,7 +369,7 @@ export function renderOutcomeSurface(mount) {
 
   const interpretationBody = getCardBody(interpretationCard);
   interpretationBody.innerHTML = `
-    <div class="fpe-contained-block fpe-contained-block--instruction">
+    <div class="fpe-contained-block fpe-contained-block--instruction fpe-outcome-interpretation-note">
       <ul class="bullets">
         <li>Outcome computes operational confidence under current assumptions; it does not replace field validation.</li>
         <li>Use sensitivity rankings to prioritize which assumptions must be validated first.</li>
@@ -416,13 +416,13 @@ export function renderOutcomeSurface(mount) {
   `;
 
   centerCol.append(
+    summaryCard,
     controlsCard,
     forecastCard,
     confidenceCard,
     sensitivityCard,
     riskFlagsCard,
     interpretationCard,
-    summaryCard,
   );
 
   frame.append(centerCol);

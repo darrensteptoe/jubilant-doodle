@@ -23,7 +23,7 @@ import {
 const SCENARIO_API_KEY = "__FPE_SCENARIO_API__";
 
 export function renderScenariosSurface(mount) {
-  const frame = createSurfaceFrame("two-col");
+  const frame = createSurfaceFrame("two-col-balanced");
   const left = createColumn("workspace");
   const right = createColumn("comparison");
 
@@ -190,7 +190,7 @@ export function renderScenariosSurface(mount) {
     </div>
   `;
 
-  left.append(workspaceCard, summaryCard);
+  left.append(summaryCard, workspaceCard);
   right.append(compareCard, guidanceCard);
   frame.append(left, right);
   mount.append(frame);
