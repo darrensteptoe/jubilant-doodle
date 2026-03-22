@@ -400,8 +400,8 @@ body.dark #app-shell-v3-root {
 }
 
 .fpe-context {
-  background: var(--fpe-panel);
-  border-bottom: 1px solid var(--fpe-rule);
+  background: color-mix(in srgb, var(--fpe-warning) 8%, var(--fpe-panel));
+  border-bottom: 1px solid color-mix(in srgb, var(--fpe-warning) 36%, var(--fpe-rule));
   padding-top: var(--fpe-space-4);
   padding-bottom: var(--fpe-space-3);
 }
@@ -414,7 +414,7 @@ body.dark #app-shell-v3-root {
 
 .fpe-context__label {
   font-size: var(--fpe-small);
-  color: var(--fpe-muted);
+  color: color-mix(in srgb, var(--fpe-warning) 82%, var(--fpe-text));
   margin-bottom: 6px;
 }
 
@@ -422,11 +422,12 @@ body.dark #app-shell-v3-root {
   min-height: 40px;
   width: 340px;
   max-width: 100%;
-  border: 1px solid var(--fpe-rule);
+  border: 1px solid color-mix(in srgb, var(--fpe-warning) 36%, var(--fpe-rule));
   border-radius: var(--fpe-radius-sm);
   background: var(--fpe-panel-muted);
   padding: 0 11px;
   font-size: var(--fpe-field-text);
+  color: color-mix(in srgb, var(--fpe-warning) 82%, var(--fpe-text));
 }
 
 .fpe-context__input[disabled] {
@@ -437,7 +438,7 @@ body.dark #app-shell-v3-root {
 .fpe-context__status {
   margin-top: 10px;
   font-size: var(--fpe-small);
-  color: var(--fpe-muted);
+  color: color-mix(in srgb, var(--fpe-warning) 82%, var(--fpe-text));
 }
 
 .fpe-context__intel {
@@ -514,8 +515,8 @@ body.dark #app-shell-v3-root .fpe-page-head__title {
 }
 
 .fpe-kpis {
-  background: var(--fpe-panel);
-  border-bottom: 1px solid var(--fpe-rule);
+  background: color-mix(in srgb, var(--fpe-warning) 8%, var(--fpe-panel));
+  border-bottom: 1px solid color-mix(in srgb, var(--fpe-warning) 36%, var(--fpe-rule));
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: var(--fpe-space-3);
@@ -524,9 +525,9 @@ body.dark #app-shell-v3-root .fpe-page-head__title {
 }
 
 .fpe-kpi {
-  border: 1px solid var(--fpe-rule);
+  border: 1px solid color-mix(in srgb, var(--fpe-warning) 36%, var(--fpe-rule));
   border-radius: var(--fpe-radius-md);
-  background: var(--fpe-panel-muted);
+  background: color-mix(in srgb, var(--fpe-warning) 10%, var(--fpe-panel-muted));
   padding: 14px 16px;
 }
 
@@ -534,7 +535,7 @@ body.dark #app-shell-v3-root .fpe-page-head__title {
   font-size: 11px;
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  color: var(--fpe-muted);
+  color: color-mix(in srgb, var(--fpe-warning) 82%, var(--fpe-text));
   margin-bottom: 6px;
 }
 
@@ -542,10 +543,11 @@ body.dark #app-shell-v3-root .fpe-page-head__title {
   font-size: var(--fpe-kpi);
   line-height: 1.15;
   font-weight: 600;
+  color: color-mix(in srgb, var(--fpe-warning) 82%, var(--fpe-text));
 }
 
 .fpe-kpi.is-empty .fpe-kpi__value {
-  color: var(--fpe-muted);
+  color: color-mix(in srgb, var(--fpe-warning) 72%, var(--fpe-text));
 }
 
 .fpe-kpi--ok {
