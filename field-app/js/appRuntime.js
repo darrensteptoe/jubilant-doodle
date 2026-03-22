@@ -325,9 +325,11 @@ import {
   buildTargetRankingCsv,
   buildTargetRankingPayload,
   normalizeTargetingState,
+  runTargetRanking as runTargetRankingRuntime,
   resetTargetingWeightsToPreset,
   TARGETING_STATUS_LOAD_ROWS_FIRST,
 } from "./app/targetingRuntime.js";
+import * as targetingRuntimeModule from "./app/targetingRuntime.js";
 import {
   updateDistrictFormField as updateDistrictFormFieldAction,
   updateDistrictTemplateField as updateDistrictTemplateFieldAction,
@@ -5783,7 +5785,27 @@ function districtBridgeRunTargeting(){
         return;
       }
       if (!next.census || typeof next.census !== "object") next.census = {};
-      runResult = runTargetRanking({
+      const runTargetRankingFn = (
+        targetingRuntimeModule
+        && typeof targetingRuntimeModule.runTargetRanking === "function"
+      )
+        ? targetingRuntimeModule.runTargetRanking
+        : (
+          typeof runTargetRankingRuntime === "function"
+            ? runTargetRankingRuntime
+            : (
+              typeof globalThis === "object"
+              && globalThis
+              && globalThis.__FPE_TARGETING_RUNTIME__
+              && typeof globalThis.__FPE_TARGETING_RUNTIME__.runTargetRanking === "function"
+                ? globalThis.__FPE_TARGETING_RUNTIME__.runTargetRanking
+                : null
+            )
+        );
+      if (typeof runTargetRankingFn !== "function"){
+        throw new Error("runTargetRanking unavailable in runtime bundle.");
+      }
+      runResult = runTargetRankingFn({
         state: next,
         censusState: next.census,
         rowsByGeoid: runtimeRows,
