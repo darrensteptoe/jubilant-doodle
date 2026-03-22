@@ -19,11 +19,15 @@ const stageMountSource = read("js/app/v3/stageMount.js");
 const indexHtmlSource = fs.readFileSync(path.join(rootDir, "index.html"), "utf8");
 const districtSource = read("js/app/v3/surfaces/districtV2/index.js");
 const electionDataSource = read("js/app/v3/surfaces/electionData/index.js");
+const reachSource = read("js/app/v3/surfaces/reach.js");
 const outcomeSource = read("js/app/v3/surfaces/outcome/index.js");
 const turnoutSource = read("js/app/v3/surfaces/turnout.js");
 const planSource = read("js/app/v3/surfaces/plan.js");
 const scenariosSource = read("js/app/v3/surfaces/scenarios.js");
 const controlsSource = read("js/app/v3/surfaces/controls.js");
+const warRoomSource = read("js/app/v3/surfaces/warRoom/index.js");
+const dataSource = read("js/app/v3/surfaces/data/index.js");
+const stylesSource = read("js/styles-fpe-v3.css");
 
 test("c9 shell: runtime debug line is hidden by default and global glossary chip strip is removed", () => {
   assert.match(shellSource, /id="v3RuntimeDiagnostics"[^>]*hidden/);
@@ -89,10 +93,17 @@ test("c9 district/election data ordering: district summary top, election summary
 });
 
 test("c9 summary-at-top and density layout rules are applied to rebuilt pages", () => {
+  assert.match(reachSource, /left\.append\(\s*summaryCard,\s*outlookCard,\s*freshnessCard\s*\)/m);
+  assert.match(reachSource, /right\.append\(\s*weeklyCard,\s*leversCard,\s*actionsCard,\s*universeCard,\s*conversionCard\s*\)/m);
   assert.match(outcomeSource, /centerCol\.append\([\s\S]*summaryCard,\s*controlsCard,/m);
   assert.match(turnoutSource, /createSurfaceFrame\("two-col"\)/);
+  assert.match(turnoutSource, /inputsCol\.append\(\s*assumptionsCard,\s*liftCard,\s*costInputsCard,\s*efficiencyCard\s*\)/m);
   assert.match(planSource, /createSurfaceFrame\("center-stack"\)/);
   assert.match(planSource, /centerCol\.append\([\s\S]*summaryCard,\s*workloadCard,/m);
   assert.match(scenariosSource, /createSurfaceFrame\("two-col-balanced"\)/);
+  assert.match(warRoomSource, /centerCol\.append\(\s*summaryCard,\s*sessionCard,\s*diagnosticsCard,\s*assumptionsCard,\s*optionsCard,\s*recommendationCard,\s*\)/m);
   assert.match(controlsSource, /createSurfaceFrame\("two-col"\)/);
+  assert.match(controlsSource, /governanceCol\.append\(\s*summaryCard,\s*workflowCard,\s*benchmarkCard,\s*evidenceCard\s*\)/m);
+  assert.match(dataSource, /centerCol\.append\(\s*summaryCard,\s*policyCard,\s*exchangeCard,\s*storageCard,\s*auditCard\s*\)/m);
+  assert.match(stylesSource, /#v3DataArchiveTableSummary\s*\{/);
 });

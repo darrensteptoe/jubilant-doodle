@@ -318,8 +318,8 @@ export function renderReachSurface(mount) {
   bridgeRoot.id = "v3ReachBridgeRoot";
   bridgeRoot.append(frame);
 
-  left.append(summaryCard, outlookCard, freshnessCard, weeklyCard);
-  right.append(leversCard, actionsCard, universeCard, conversionCard);
+  left.append(summaryCard, outlookCard, freshnessCard);
+  right.append(weeklyCard, leversCard, actionsCard, universeCard, conversionCard);
   frame.append(left, right);
   mount.append(bridgeRoot);
   mount.append(
