@@ -297,6 +297,19 @@ Frozen (2026-03-21)
 
 ### C9 checkpoint
 - `checkpoints/render-cleanse-c9-final-visual-layout-rail-map.md`
+
+## C9 Mini-phase status (reset to contained sequence)
+
+### C9.1 — Shell + right rail
+- Frozen (2026-03-21)
+- Checkpoint: `checkpoints/render-cleanse-c9.1-shell-right-rail.md`
+
+### C9.2 — Context-row relocation + summary placement
+- Frozen (2026-03-21)
+- Checkpoint: `checkpoints/render-cleanse-c9.2-context-summary-placement.md`
+
+### C9.3+
+- Not started in this pass.
 - Required missing/deferred items enumerated:
   - Turnout Baseline card controls
   - Census map shell + map status strip
