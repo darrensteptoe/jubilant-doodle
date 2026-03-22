@@ -43,31 +43,15 @@ export function renderDistrictV2CensusCard({ censusCard, getCardBody }) {
         </div>
       </div>
 
-      <div class="fpe-field-grid fpe-field-grid--2">
-        <div class="field">
-          <label class="fpe-control-label" for="v3DistrictV2CensusGeoSearch">Search GEO name or GEOID</label>
-          <input class="fpe-input" id="v3DistrictV2CensusGeoSearch" type="text"/>
-        </div>
-        <div class="field">
-          <label class="fpe-control-label" for="v3DistrictV2CensusGeoPaste">Paste GEOIDs</label>
-          <textarea class="fpe-input" id="v3DistrictV2CensusGeoPaste" rows="2"></textarea>
-        </div>
-      </div>
-
       <div class="field">
         <label class="fpe-control-label" for="v3DistrictV2CensusGeoSelect">GEO units</label>
         <select class="fpe-input" id="v3DistrictV2CensusGeoSelect" multiple size="10"></select>
       </div>
 
-      <div class="fpe-action-row">
-        <button class="fpe-btn fpe-btn--ghost" id="v3BtnDistrictV2CensusLoadGeo" type="button">Load GEO list</button>
-        <button class="fpe-btn fpe-btn--ghost" id="v3BtnDistrictV2CensusApplyGeoPaste" type="button">Apply GEOIDs</button>
-        <button class="fpe-btn fpe-btn--ghost" id="v3BtnDistrictV2CensusSelectAll" type="button">Select all</button>
-        <button class="fpe-btn fpe-btn--ghost" id="v3BtnDistrictV2CensusClearSelection" type="button">Clear selection</button>
-        <button class="fpe-btn fpe-btn--ghost" id="v3BtnDistrictV2CensusFetchRows" type="button">Fetch ACS rows</button>
-      </div>
+      <div class="fpe-help fpe-help--flush" id="v3DistrictV2CensusContextHint">Set state and resolution to define Census context.</div>
+      <div class="fpe-help fpe-help--flush" id="v3DistrictV2CensusStatus">Ready.</div>
 
-      <div class="fpe-action-row">
+      <div class="fpe-action-row fpe-census-map-row--toggles">
         <label class="fpe-switch">
           <input id="v3DistrictV2CensusApplyAdjustments" type="checkbox"/>
           <span>Enable census adjustments</span>
@@ -94,19 +78,34 @@ export function renderDistrictV2CensusCard({ censusCard, getCardBody }) {
         </div>
       </div>
 
-      <div class="fpe-help fpe-help--flush" id="v3DistrictV2CensusContextHint">Set state and resolution to define Census context.</div>
-      <div class="fpe-help fpe-help--flush" id="v3DistrictV2CensusStatus">Ready.</div>
-      <div class="fpe-help fpe-help--flush" id="v3DistrictV2CensusGeoStats">0 selected of 0 GEOs. 0 rows loaded.</div>
-      <div class="fpe-help fpe-help--flush" id="v3DistrictV2CensusLastFetch">No fetch yet.</div>
-      <div class="fpe-help fpe-help--flush" id="v3DistrictV2CensusSelectionSummary">No GEO selected.</div>
-      <div class="fpe-help fpe-help--flush" id="v3DistrictV2CensusMapStatus">Map idle. Select GEO units and click Load boundaries.</div>
-      <div class="fpe-help fpe-help--flush" id="v3DistrictV2CensusMapQaVtdZipStatus">No VTD ZIP loaded.</div>
-
       <div class="fpe-census-map-shell is-idle" id="v3DistrictV2CensusMapShell">
         <div class="census-map" id="v3CensusMapHost" role="img" aria-label="District Census boundaries map"></div>
         <div class="fpe-census-map-overlay" id="v3DistrictV2CensusMapOverlay">Map shell restored. Load boundaries to refresh geometry status.</div>
       </div>
       <div class="fpe-help fpe-help--flush fpe-census-map-labels" id="v3DistrictV2CensusMapLabels">No geography labels loaded.</div>
+      <div class="fpe-help fpe-help--flush" id="v3DistrictV2CensusMapStatus">Map idle. Select GEO units and click Load boundaries.</div>
+      <div class="fpe-help fpe-help--flush" id="v3DistrictV2CensusMapQaVtdZipStatus">No VTD ZIP loaded.</div>
+
+      <div class="field">
+        <label class="fpe-control-label" for="v3DistrictV2CensusGeoSearch">Search GEO name or GEOID</label>
+        <input class="fpe-input" id="v3DistrictV2CensusGeoSearch" type="text"/>
+      </div>
+      <div class="field">
+        <label class="fpe-control-label" for="v3DistrictV2CensusGeoPaste">Paste GEOIDs</label>
+        <textarea class="fpe-input" id="v3DistrictV2CensusGeoPaste" rows="2"></textarea>
+      </div>
+
+      <div class="fpe-action-row">
+        <button class="fpe-btn fpe-btn--ghost" id="v3BtnDistrictV2CensusLoadGeo" type="button">Load GEO list</button>
+        <button class="fpe-btn fpe-btn--ghost" id="v3BtnDistrictV2CensusApplyGeoPaste" type="button">Apply GEOIDs</button>
+        <button class="fpe-btn fpe-btn--ghost" id="v3BtnDistrictV2CensusSelectAll" type="button">Select all</button>
+        <button class="fpe-btn fpe-btn--ghost" id="v3BtnDistrictV2CensusClearSelection" type="button">Clear selection</button>
+        <button class="fpe-btn fpe-btn--ghost" id="v3BtnDistrictV2CensusFetchRows" type="button">Fetch ACS rows</button>
+      </div>
+
+      <div class="fpe-help fpe-help--flush" id="v3DistrictV2CensusGeoStats">0 selected of 0 GEOs. 0 rows loaded.</div>
+      <div class="fpe-help fpe-help--flush" id="v3DistrictV2CensusLastFetch">No fetch yet.</div>
+      <div class="fpe-help fpe-help--flush" id="v3DistrictV2CensusSelectionSummary">No GEO selected.</div>
 
       <div class="fpe-help fpe-help--flush"><strong>Census advisory / assumptions analysis</strong></div>
       <div class="fpe-help fpe-help--flush">
@@ -116,26 +115,28 @@ export function renderDistrictV2CensusCard({ censusCard, getCardBody }) {
       <div class="fpe-help fpe-help--flush" id="v3DistrictV2CensusAssumptionProvenance">Assumption provenance not set.</div>
       <div class="fpe-help fpe-help--flush" id="v3DistrictV2CensusApplyAdjustmentsStatus">Census-adjusted assumptions are OFF.</div>
 
-      <div class="table-wrap">
-        <table class="table" aria-label="District V2 census advisory assumptions table">
-          <thead>
-            <tr><th>Advisory signal</th><th class="num">Value</th></tr>
-          </thead>
-          <tbody id="v3DistrictV2CensusAdvisoryTbody">
-            <tr><td class="muted" colspan="2">Load ACS rows for selected GEO units to compute advisory indices.</td></tr>
-          </tbody>
-        </table>
-      </div>
+      <div class="fpe-field-grid fpe-field-grid--2 fpe-census-advisory-grid">
+        <div class="table-wrap">
+          <table class="table" aria-label="District V2 census advisory assumptions table">
+            <thead>
+              <tr><th>Advisory signal</th><th class="num">Value</th></tr>
+            </thead>
+            <tbody id="v3DistrictV2CensusAdvisoryTbody">
+              <tr><td class="muted" colspan="2">Load ACS rows for selected GEO units to compute advisory indices.</td></tr>
+            </tbody>
+          </table>
+        </div>
 
-      <div class="table-wrap">
-        <table class="table" aria-label="District V2 census aggregate table">
-          <thead>
-            <tr><th>Metric</th><th class="num">Value</th></tr>
-          </thead>
-          <tbody id="v3DistrictV2CensusAggregateTbody">
-            <tr><td class="muted" colspan="2">No ACS rows loaded.</td></tr>
-          </tbody>
-        </table>
+        <div class="table-wrap">
+          <table class="table" aria-label="District V2 census aggregate table">
+            <thead>
+              <tr><th>Metric</th><th class="num">Value</th></tr>
+            </thead>
+            <tbody id="v3DistrictV2CensusAggregateTbody">
+              <tr><td class="muted" colspan="2">No ACS rows loaded.</td></tr>
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   `;

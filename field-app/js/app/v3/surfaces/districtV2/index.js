@@ -231,8 +231,8 @@ export function renderDistrictV2Surface(mount) {
     turnoutBaselineCard,
     ballotCard,
     candidateHistoryCard,
-    targetingCard,
     censusCard,
+    targetingCard,
   );
 
   frame.append(center);
