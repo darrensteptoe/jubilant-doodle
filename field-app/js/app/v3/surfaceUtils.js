@@ -1,3 +1,5 @@
+import { classifyUnifiedStatusTone } from "../../core/statusTone.js";
+
 export function createFieldGrid(variant) {
   const el = document.createElement("div");
   el.className = `fpe-field-grid ${variant}`;
@@ -213,9 +215,6 @@ export function normalizeSurfaceStatusPills(root) {
     if (!(node instanceof HTMLElement)) {
       return;
     }
-    if (node.dataset.v3StatusPill === "1") {
-      return;
-    }
     node.dataset.v3StatusPill = "1";
     node.classList.add("fpe-status-pill");
     node.classList.remove(
@@ -356,18 +355,17 @@ function classifyMessageTone(text, node) {
 }
 
 function classifyStatusTone(node) {
-  const source = `${node.className || ""} ${(node.textContent || "").trim()}`.toLowerCase();
-
-  if (/(^|\s)(bad|error|critical|high-risk|red)(\s|$)/.test(source)) {
+  if (node.classList.contains("is-bad") || node.dataset.statusTone === "bad") {
     return "bad";
   }
-  if (/(^|\s)(warn|warning|yellow|caution|pending|binding|risk)(\s|$)/.test(source)) {
+  if (node.classList.contains("is-warn") || node.dataset.statusTone === "warn") {
     return "warn";
   }
-  if (/(^|\s)(ok|green|clear|ready|healthy|balanced|low)(\s|$)/.test(source)) {
+  if (node.classList.contains("is-good") || node.dataset.statusTone === "ok") {
     return "ok";
   }
-  return "neutral";
+  const source = `${node.className || ""} ${(node.textContent || "").trim()}`.toLowerCase();
+  return classifyUnifiedStatusTone(source);
 }
 
 function isEmptyStateText(text) {

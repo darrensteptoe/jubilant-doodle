@@ -2351,15 +2351,18 @@ function syncDistrictV2CardStatus(id, value) {
   }
   const text = String(value || "").trim() || "Awaiting inputs";
   status.textContent = text;
-  status.classList.remove("is-good", "is-warn", "is-bad");
+  status.classList.add("fpe-status-pill");
+  status.classList.remove(
+    "fpe-status-pill--ok",
+    "fpe-status-pill--warn",
+    "fpe-status-pill--bad",
+    "fpe-status-pill--neutral",
+    "is-good",
+    "is-warn",
+    "is-bad"
+  );
   const tone = classifyDistrictStatusTone(text);
-  if (tone === "ok") {
-    status.classList.add("is-good");
-  } else if (tone === "warn") {
-    status.classList.add("is-warn");
-  } else if (tone === "bad") {
-    status.classList.add("is-bad");
-  }
+  status.classList.add(`fpe-status-pill--${tone}`);
 }
 
 function deriveDistrictTurnoutBaselineCardStatus(snapshot) {
