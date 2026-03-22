@@ -2502,6 +2502,47 @@ body.training #app-shell-v3-root .fpe-surface .fpe-why {
   border-color: color-mix(in srgb, var(--fpe-accent) 55%, var(--fpe-rule));
 }
 
+.fpe-right-rail-slot--intel .fpe-intel-panel,
+.fpe-right-rail-slot--intel .fpe-intel-body,
+.fpe-right-rail-slot--intel .fpe-intel-body > *,
+.fpe-right-rail-slot--intel .fpe-intel-section,
+.fpe-right-rail-slot--intel .fpe-intel-section__title,
+.fpe-right-rail-slot--intel .fpe-intel-section__body,
+.fpe-right-rail-slot--intel .fpe-intel-section__summary,
+.fpe-right-rail-slot--intel .fpe-intel-section__content,
+.fpe-right-rail-slot--intel .fpe-intel-mini-row,
+.fpe-right-rail-slot--intel .fpe-intel-mini-item,
+.fpe-right-rail-slot--intel .fpe-intel-links,
+.fpe-right-rail-slot--intel .fpe-intel-links__title,
+.fpe-right-rail-slot--intel .fpe-intel-links__list,
+.fpe-right-rail-slot--intel .fpe-intel-link,
+.fpe-right-rail-slot--intel .fpe-intel-link__kind,
+.fpe-right-rail-slot--intel .fpe-intel-link__label,
+.fpe-right-rail-slot--intel .fpe-intel-result,
+.fpe-right-rail-slot--intel .fpe-intel-result__meta,
+.fpe-right-rail-slot--intel .fpe-intel-result__title,
+.fpe-right-rail-slot--intel .fpe-intel-result__summary,
+.fpe-right-rail-slot--intel .fpe-intel-empty,
+.fpe-right-rail-slot--intel .fpe-intel-mode-status {
+  box-sizing: border-box;
+  min-width: 0;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.fpe-right-rail-slot--intel .fpe-intel-panel {
+  margin-left: 12px;
+  margin-right: 12px;
+  padding-left: 12px;
+  padding-right: 12px;
+}
+
+.fpe-right-rail-slot--intel .fpe-intel-link,
+.fpe-right-rail-slot--intel .fpe-intel-result {
+  width: 100%;
+}
+
 .fpe-right-rail-slot .results-sidebar-new {
   --s-panel: var(--fpe-panel);
   --s-bg: var(--fpe-panel-muted);
