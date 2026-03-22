@@ -5775,6 +5775,7 @@ function districtBridgeRunTargeting(){
   let runResult = null;
   let appliedRuntime = null;
   let runError = null;
+  let runErrorMessage = "";
   mutateState((next) => {
     try {
       const targeting = districtBridgeEnsureTargetingState(next);
@@ -5810,13 +5811,19 @@ function districtBridgeRunTargeting(){
     } catch (err) {
       runError = err;
       if (!next.census || typeof next.census !== "object") next.census = {};
-      next.census.status = cleanText(err?.message) || "Targeting run failed.";
+      runErrorMessage = cleanText(err?.message) || "Targeting run failed.";
+      next.census.status = runErrorMessage;
       next.census.error = next.census.status;
     }
   });
 
   if (runError){
-    return { ok: false, code: "run_failed", view: districtBridgeCombinedView() };
+    return {
+      ok: false,
+      code: "run_failed",
+      message: runErrorMessage || "Targeting run failed.",
+      view: districtBridgeCombinedView(),
+    };
   }
   return { ok: true, view: districtBridgeCombinedView() };
 }
