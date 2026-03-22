@@ -4646,8 +4646,22 @@ function districtBridgeDerivedView(){
     const rankValue = safeNum(row?.rank);
     const scoreValue = safeNum(row?.score);
     const vphValue = safeNum(row?.votesPerOrganizerHour);
-    const reason = String(row?.reasonText || (Array.isArray(row?.reasons) ? row.reasons[0] : "") || "").trim();
-    const flags = String(row?.flagText || (Array.isArray(row?.flags) ? row.flags.join("; ") : "") || "").trim();
+    const reasons = Array.isArray(row?.reasons)
+      ? row.reasons.map((value) => String(value || "").trim()).filter(Boolean)
+      : [];
+    const targetLabel = String(row?.targetLabel || "").trim();
+    const reasonBase = reasons.length ? reasons.join(" • ") : String(row?.reasonText || "").trim();
+    const badges = [];
+    if (row?.isTopTarget) badges.push("Top target");
+    if (row?.isTurnoutPriority) badges.push("Turnout priority");
+    if (row?.isPersuasionPriority) badges.push("Persuasion priority");
+    if (row?.isEfficiencyPriority) badges.push("Efficiency priority");
+    const headline = targetLabel ? `${targetLabel}: ${reasonBase || "—"}` : (reasonBase || "—");
+    const reasonText = badges.length ? `[${badges.join(" | ")}] ${headline}` : headline;
+    const flagsList = Array.isArray(row?.flags)
+      ? row.flags.map((value) => String(value || "").trim()).filter(Boolean)
+      : [];
+    const flagsText = flagsList.length ? flagsList.join(" • ") : String(row?.flagText || "").trim();
     const geoLabel = String(row?.label || row?.geoid || "").trim();
     return {
       rankText: rankValue == null
@@ -4656,8 +4670,8 @@ function districtBridgeDerivedView(){
       geoText: geoLabel || "—",
       scoreText: scoreValue == null ? "—" : formatFixedNumber(scoreValue, 3, "—"),
       votesPerHourText: vphValue == null ? "—" : formatFixedNumber(vphValue, 2, "—"),
-      reasonText: reason || "—",
-      flagsText: flags || "—",
+      reasonText: reasonText || "—",
+      flagsText,
     };
   });
   const targetingMeta = (targetingState?.lastMeta && typeof targetingState.lastMeta === "object")
