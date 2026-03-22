@@ -1172,7 +1172,43 @@ function ensureMapMounted(container){
   return mapInstance;
 }
 
-function applyMapOverlay(featureCollection){
+function labelForBoundaryFeature(feature, resolution = ""){
+  const resolutionId = cleanText(resolution);
+  const name = cleanText(featurePropByAliases(feature, ["NAME20", "NAME", "NAMELSAD20", "NAMELSAD", "LABEL"]));
+  const geoid = cleanText(
+    featurePropByAliases(feature, [
+      "GEOID20",
+      "GEOID",
+      "GEOIDFP20",
+      "GEOIDFP",
+      "TRACTCE",
+      "PLACEFP",
+      "BLKGRPCE",
+    ]),
+  ).replace(/\D+/g, "");
+  if (name && geoid && name !== geoid){
+    return `${name} (${geoid})`;
+  }
+  if (name){
+    return name;
+  }
+  if (resolutionId === "tract" && geoid.length >= 6){
+    const tract = geoid.slice(-6);
+    return `Tract ${tract}${geoid ? ` (${geoid})` : ""}`;
+  }
+  if (resolutionId === "block_group" && geoid.length >= 7){
+    const tract = geoid.slice(-7, -1);
+    const blockGroup = geoid.slice(-1);
+    return `Block group ${blockGroup}${tract ? ` · Tract ${tract}` : ""}${geoid ? ` (${geoid})` : ""}`;
+  }
+  if (resolutionId === "place" && geoid.length >= 5){
+    const place = geoid.slice(-5);
+    return `Place ${place}${geoid ? ` (${geoid})` : ""}`;
+  }
+  return geoid || cleanText(feature?.id);
+}
+
+function applyMapOverlay(featureCollection, { resolution = "" } = {}){
   if (!mapInstance || !window.L) return;
   if (mapOverlayLayer && typeof mapInstance.removeLayer === "function"){
     mapInstance.removeLayer(mapOverlayLayer);
@@ -1184,6 +1220,17 @@ function applyMapOverlay(featureCollection){
       fillColor: "#f04f37",
       fillOpacity: 0.12,
     }),
+    onEachFeature: (feature, layer) => {
+      if (!layer) return;
+      const label = labelForBoundaryFeature(feature, resolution);
+      if (!label) return;
+      if (typeof layer.bindTooltip === "function"){
+        layer.bindTooltip(label, { direction: "top", sticky: true, opacity: 0.95 });
+      }
+      if (typeof layer.bindPopup === "function"){
+        layer.bindPopup(label);
+      }
+    },
   }).addTo(mapInstance);
   if (typeof mapOverlayLayer.getBounds === "function"){
     const bounds = mapOverlayLayer.getBounds();
@@ -1304,16 +1351,16 @@ async function onLoadMapBoundaries({ s, els, commitUIUpdate }){
       geoids: selected,
     });
     if (seq !== mapRequestSeq) return;
-    applyMapOverlay(result.featureCollection);
+    applyMapOverlay(result.featureCollection, { resolution: s.resolution });
     mapRuntimeStatus.featureCount = Array.isArray(result.featureCollection?.features) ? result.featureCollection.features.length : 0;
     mapRuntimeStatus.missingCount = Array.isArray(result.missingGeoids) ? result.missingGeoids.length : 0;
     mapLoadedSelectionKey = mapSelectionKey(s);
     if (!mapRuntimeStatus.featureCount){
       setMapRuntimeStatus("No boundary features returned for selected GEOs.", true);
     } else if (mapRuntimeStatus.missingCount > 0){
-      setMapRuntimeStatus(`Loaded ${mapRuntimeStatus.featureCount} boundaries; ${mapRuntimeStatus.missingCount} GEOIDs not matched.`, false);
+      setMapRuntimeStatus(`Loaded ${mapRuntimeStatus.featureCount} boundaries; ${mapRuntimeStatus.missingCount} GEOIDs not matched. Hover boundaries for labels.`, false);
     } else {
-      setMapRuntimeStatus(`Loaded ${mapRuntimeStatus.featureCount} boundaries.`, false);
+      setMapRuntimeStatus(`Loaded ${mapRuntimeStatus.featureCount} boundaries. Hover boundaries for labels.`, false);
     }
     if (s.mapQaVtdOverlay){
       const qaContext = mapQaCountyContext(s);
