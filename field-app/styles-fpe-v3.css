@@ -440,8 +440,15 @@ body.dark #app-shell-v3-root {
   margin: 0;
   font-size: var(--fpe-title);
   line-height: 1.2;
-  letter-spacing: 0.01em;
+  letter-spacing: normal;
   font-weight: 800;
+  font-style: normal;
+  text-shadow: none;
+  color: #000000;
+}
+
+body.dark #app-shell-v3-root .fpe-page-head__title {
+  color: var(--fpe-text);
 }
 
 .fpe-page-head__subtitle {
