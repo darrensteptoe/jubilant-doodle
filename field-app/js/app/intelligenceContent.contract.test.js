@@ -5,6 +5,7 @@ import assert from "node:assert/strict";
 
 import { MODULE_DOCTRINE_REGISTRY } from "./moduleDoctrineRegistry.js";
 import { GLOSSARY_REGISTRY, normalizeGlossaryTermId } from "./glossaryRegistry.js";
+import { resolveIntelligencePayload } from "./intelligenceResolver.js";
 
 const forecast = MODULE_DOCTRINE_REGISTRY.forecastOutcome?.sections || {};
 const governance = MODULE_DOCTRINE_REGISTRY.governanceConfidence?.sections || {};
@@ -19,7 +20,7 @@ test("intelligence doctrine: forecast percentile framing matches live rail cuts"
 });
 
 test("intelligence doctrine: upgraded decision framing copy is present", () => {
-  assert.match(String(forecast.howToThink || ""), /conditional truth/i);
+  assert.match(String(forecast.howToThink || ""), /planning off floor, middle, or upside/i);
   assert.match(String(forecast.whatGoodLooksLike || ""), /believable middle/i);
 
   assert.match(String(governance.rangesExplained || ""), /does not automatically mean the model is broken/i);
@@ -59,4 +60,31 @@ test("intelligence doctrine: upgraded modules cross-link to new glossary terms",
   assert.ok(governanceTerms.includes("confidenceBand"), "governanceConfidence missing confidenceBand link");
   assert.ok(warRoomTerms.includes("planningFloor"), "warRoomDecisionSession missing planningFloor link");
   assert.ok(warRoomTerms.includes("upsideCase"), "warRoomDecisionSession missing upsideCase link");
+});
+
+test("intelligence resolver: forecast guide renders editorial section flow with variants", () => {
+  const payload = resolveIntelligencePayload({
+    mode: "module",
+    moduleId: "forecastOutcome",
+    context: { stageId: "outcome" },
+  });
+  const labels = Array.isArray(payload?.sections) ? payload.sections.map((row) => String(row?.label || "")) : [];
+  assert.deepEqual(labels.slice(0, 10), [
+    "How to Read This Tool",
+    "What the Range Is Showing",
+    "What Each Number Means",
+    "Which Number Should You Use",
+    "What a Good Range Looks Like",
+    "Tight vs Wide Ranges",
+    "How to Read Change",
+    "How Teams Should Use This",
+    "One-Minute Explanation",
+    "Concrete Example",
+  ]);
+
+  const sections = payload.sections || [];
+  assert.equal(sections[0]?.variant, "hero");
+  assert.equal(sections[2]?.variant, "mini-row");
+  assert.ok(sections[5]?.expandable, "tight vs wide should be collapsible");
+  assert.ok(sections[9]?.expandable, "concrete example should be collapsible");
 });

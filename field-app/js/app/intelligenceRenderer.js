@@ -62,8 +62,8 @@ function panelElements(){
     modeModel: getEl("v3IntelModeModel"),
     modePlaybook: getEl("v3IntelModePlaybook"),
     modeGlossary: getEl("v3IntelModeGlossary"),
-    modeMessage: getEl("v3IntelModeMessage"),
     modeSearch: getEl("v3IntelModeSearch"),
+    searchRow: getEl("v3IntelSearchRow"),
     queryInput: getEl("v3IntelQuery"),
     queryBtn: getEl("v3IntelQueryBtn"),
     title: getEl("v3IntelTitle"),
@@ -80,7 +80,6 @@ function setActiveModeButtons(mode){
     [els.modeModel, "model"],
     [els.modePlaybook, "playbook"],
     [els.modeGlossary, "glossary"],
-    [els.modeMessage, "message"],
     [els.modeSearch, "search"],
   ];
   for (const [el, id] of pairs){
@@ -91,20 +90,98 @@ function setActiveModeButtons(mode){
   }
 }
 
+function modeLabel(mode){
+  const value = clean(mode).toLowerCase();
+  if (value === "module") return "Guide";
+  if (value === "model") return "Models";
+  if (value === "playbook") return "Playbook";
+  if (value === "glossary") return "Terms";
+  if (value === "message") return "Signal";
+  if (value === "search") return "Search";
+  return "Guide";
+}
+
+function parseMiniItems(row){
+  const items = Array.isArray(row?.items) ? row.items.map((item) => clean(item)).filter(Boolean) : [];
+  if (items.length) return items;
+  const text = clean(row?.body);
+  if (!text) return [];
+  return text
+    .split(/\s*\|\s*/)
+    .map((item) => clean(item))
+    .filter(Boolean);
+}
+
+function renderSectionHeader(row){
+  return `<h4 class="fpe-intel-section__title">${escapeHtml(row?.label || "")}</h4>`;
+}
+
+function renderSectionBody(row){
+  const body = clean(row?.body);
+  return body
+    ? `<p class="fpe-intel-section__body">${escapeHtml(body)}</p>`
+    : "";
+}
+
+function renderSection(row){
+  const variant = clean(row?.variant) || "card";
+  const miniItems = parseMiniItems(row);
+  const classes = [
+    "fpe-intel-section",
+    `fpe-intel-section--${escapeHtml(variant)}`,
+  ];
+
+  if (row?.expandable){
+    return `
+      <details class="${classes.join(" ")} fpe-intel-section--accordion">
+        <summary class="fpe-intel-section__summary">
+          ${renderSectionHeader(row)}
+        </summary>
+        <div class="fpe-intel-section__content">
+          ${miniItems.length ? `<div class="fpe-intel-mini-row">${miniItems.map((item) => `<span class="fpe-intel-mini-item">${escapeHtml(item)}</span>`).join("")}</div>` : ""}
+          ${renderSectionBody(row)}
+        </div>
+      </details>
+    `;
+  }
+
+  if (variant === "mini-row"){
+    return `
+      <section class="${classes.join(" ")}">
+        ${renderSectionHeader(row)}
+        ${miniItems.length
+    ? `<div class="fpe-intel-mini-row">${miniItems.map((item) => `<span class="fpe-intel-mini-item">${escapeHtml(item)}</span>`).join("")}</div>`
+    : renderSectionBody(row)}
+      </section>
+    `;
+  }
+
+  return `
+    <section class="${classes.join(" ")}">
+      ${renderSectionHeader(row)}
+      ${renderSectionBody(row)}
+    </section>
+  `;
+}
+
 function renderSections(payload){
   const sections = Array.isArray(payload?.sections) ? payload.sections : [];
   if (!sections.length) return "";
-  return sections.map((row) => `
-    <section class="fpe-intel-section">
-      <h4 class="fpe-intel-section__title">${escapeHtml(row?.label || "")}</h4>
-      <p class="fpe-intel-section__body">${escapeHtml(row?.body || "")}</p>
-    </section>
-  `).join("");
+  return sections.map((row) => renderSection(row)).join("");
 }
 
 function renderLinks(payload){
   const links = Array.isArray(payload?.links) ? payload.links : [];
   if (!links.length) return "";
+  const kindLabel = (type) => {
+    const t = clean(type).toLowerCase();
+    if (t === "module") return "Guide";
+    if (t === "model") return "Model";
+    if (t === "playbook") return "Playbook";
+    if (t === "glossary") return "Term";
+    if (t === "message") return "Signal";
+    return "Related";
+  };
   const items = links.map((row) => {
     const type = clean(row?.type);
     const id = clean(row?.id);
@@ -113,14 +190,18 @@ function renderLinks(payload){
       <button
         class="fpe-intel-link"
         type="button"
+        data-intel-link-kind="${escapeHtml(type)}"
         data-intel-open-type="${escapeHtml(type)}"
         data-intel-open-id="${escapeHtml(id)}"
-      >${escapeHtml(label)}</button>
+      >
+        <span class="fpe-intel-link__kind">${escapeHtml(kindLabel(type))}</span>
+        <span class="fpe-intel-link__label">${escapeHtml(label)}</span>
+      </button>
     `;
   }).join("");
   return `
     <section class="fpe-intel-links">
-      <div class="fpe-intel-links__title">Related</div>
+      <div class="fpe-intel-links__title">Related Paths</div>
       <div class="fpe-intel-links__list">${items}</div>
     </section>
   `;
@@ -175,8 +256,11 @@ function render(){
   if (els.title) els.title.textContent = clean(payload?.title) || "System Intelligence";
   if (els.subtitle) els.subtitle.textContent = clean(payload?.subtitle) || "";
   if (els.status){
-    const statusText = `Mode: ${state.mode} | Stage: ${state.stageId || "district"}`;
+    const statusText = `${modeLabel(state.mode)} | ${state.stageId || "district"}`;
     els.status.textContent = statusText;
+  }
+  if (els.searchRow instanceof HTMLElement){
+    els.searchRow.hidden = state.mode !== "search";
   }
   if (els.queryInput instanceof HTMLInputElement){
     if (state.mode === "search"){
@@ -257,14 +341,13 @@ function panelMarkup(){
         <div class="fpe-intel-panel__subtitle" id="v3IntelSubtitle"></div>
       </header>
       <div class="fpe-intel-tabs" role="tablist" aria-label="Intelligence modes">
-        <button class="fpe-intel-tab" id="v3IntelModeModule" data-intel-mode="module" type="button">Module</button>
-        <button class="fpe-intel-tab" id="v3IntelModeModel" data-intel-mode="model" type="button">Model</button>
+        <button class="fpe-intel-tab" id="v3IntelModeModule" data-intel-mode="module" type="button">Guide</button>
+        <button class="fpe-intel-tab" id="v3IntelModeModel" data-intel-mode="model" type="button">Models</button>
         <button class="fpe-intel-tab" id="v3IntelModePlaybook" data-intel-mode="playbook" type="button">Playbook</button>
-        <button class="fpe-intel-tab" id="v3IntelModeGlossary" data-intel-mode="glossary" type="button">Glossary</button>
-        <button class="fpe-intel-tab" id="v3IntelModeMessage" data-intel-mode="message" type="button">Message</button>
+        <button class="fpe-intel-tab" id="v3IntelModeGlossary" data-intel-mode="glossary" type="button">Terms</button>
         <button class="fpe-intel-tab" id="v3IntelModeSearch" data-intel-mode="search" type="button">Search</button>
       </div>
-      <div class="fpe-intel-search">
+      <div class="fpe-intel-search" id="v3IntelSearchRow" hidden>
         <input class="fpe-context__input fpe-intel-search__input" id="v3IntelQuery" type="text" placeholder="Search doctrine/models/playbook/glossary/messages" />
         <button class="fpe-btn fpe-btn--ghost fpe-intel-search__btn" id="v3IntelQueryBtn" type="button">Go</button>
       </div>

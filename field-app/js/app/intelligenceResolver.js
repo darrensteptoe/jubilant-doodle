@@ -80,7 +80,74 @@ function formatActionList(value, context){
   return injectLiveValues(rows.join(" | "), context);
 }
 
+function makeSection({ id, label, body, variant = "card", expandable = false, items = [] }){
+  return {
+    id: clean(id),
+    label: clean(label),
+    body: clean(body),
+    variant: clean(variant) || "card",
+    expandable: !!expandable,
+    items: Array.isArray(items) ? items.map((item) => clean(item)).filter(Boolean) : [],
+  };
+}
+
+function splitMiniItems(value){
+  const raw = clean(value);
+  if (!raw) return [];
+  return raw
+    .split(/\s*\|\s*/)
+    .map((item) => clean(item))
+    .filter(Boolean);
+}
+
+function buildForecastOutcomeGuideSections(entry, context){
+  const sections = entry?.sections && typeof entry.sections === "object" ? entry.sections : {};
+  const rows = [];
+  const push = ({ id, label, key, variant = "card", expandable = false, items = [] }) => {
+    const resolvedBody = injectLiveValues(sections[key] || "", context);
+    if (!clean(resolvedBody) && !items.length) return;
+    rows.push(makeSection({
+      id,
+      label,
+      body: resolvedBody,
+      variant,
+      expandable,
+      items,
+    }));
+  };
+
+  push({ id: "howToReadTool", label: "How to Read This Tool", key: "whatItIs", variant: "hero" });
+  push({ id: "whatRangeIsShowing", label: "What the Range Is Showing", key: "rangesExplained" });
+  push({
+    id: "whatEachNumberMeans",
+    label: "What Each Number Means",
+    key: "whatEachNumberMeans",
+    variant: "mini-row",
+    items: splitMiniItems(injectLiveValues(sections.whatEachNumberMeans || "", context)),
+  });
+  push({ id: "whichNumberShouldYouUse", label: "Which Number Should You Use", key: "whichNumberShouldYouUse" });
+  push({ id: "whatGoodRangeLooksLike", label: "What a Good Range Looks Like", key: "whatGoodLooksLike" });
+  push({ id: "tightVsWideRanges", label: "Tight vs Wide Ranges", key: "tightVsWideRanges", expandable: true });
+  push({ id: "howToReadChange", label: "How to Read Change", key: "howToReadChange", expandable: true });
+  push({ id: "howTeamsShouldUseThis", label: "How Teams Should Use This", key: "howToThink", expandable: true });
+  push({ id: "oneMinuteExplanation", label: "One-Minute Explanation", key: "oneMinuteExplanation", expandable: true });
+  push({ id: "concreteExample", label: "Concrete Example", key: "concreteExample", expandable: true });
+
+  // Backfill when old keys exist but the new editorial keys are not populated.
+  if (!rows.some((row) => row.id === "whichNumberShouldYouUse")){
+    push({ id: "whichNumberShouldYouUse", label: "Which Number Should You Use", key: "adjustmentRules" });
+  }
+  if (!rows.some((row) => row.id === "howToReadChange")){
+    push({ id: "howToReadChange", label: "How to Read Change", key: "warningSigns", expandable: true });
+  }
+
+  return rows;
+}
+
 function buildModuleSections(entry, context){
+  if (clean(entry?.id) === "forecastOutcome"){
+    return buildForecastOutcomeGuideSections(entry, context);
+  }
   const sections = entry?.sections && typeof entry.sections === "object" ? entry.sections : {};
   const order = [
     ["whatItIs", "What It Is"],
@@ -98,14 +165,23 @@ function buildModuleSections(entry, context){
     ["modelPhilosophy", "Model Philosophy"],
   ];
   const out = [];
-  for (const [id, label] of order){
+  for (let index = 0; index < order.length; index += 1){
+    const [id, label] = order[index];
     const value = clean(sections[id]);
     if (!value) continue;
-    out.push({
+    const variant = index === 0
+      ? "hero"
+      : (id === "whenNotToUse" || id === "warningSigns"
+        ? "callout"
+        : "card");
+    const expandable = id === "mathBehindIt" || id === "origins" || id === "modelPhilosophy";
+    out.push(makeSection({
       id,
       label,
       body: injectLiveValues(value, context),
-    });
+      variant,
+      expandable,
+    }));
   }
   return out;
 }
@@ -224,24 +300,24 @@ function resolveModelMode(input, context){
     title: entry.displayName || entry.id,
     subtitle: injectLiveValues(entry.purpose || "", context),
     sections: [
-      { id: "purpose", label: "Purpose", body: injectLiveValues(entry.purpose || "", context) },
-      { id: "formula", label: "Formula Label", body: injectLiveValues(entry.formulaLabel || "", context) },
-      { id: "implementation", label: "Canonical Implementation", body: injectLiveValues(implementationLabel || "Unassigned", context) },
-      { id: "output", label: "Output", body: injectLiveValues(entry.outputName || "", context) },
-      { id: "layer", label: "Architecture Layer", body: injectLiveValues(entry.architectureLayer || "", context) },
-      {
+      makeSection({ id: "purpose", label: "Purpose", body: injectLiveValues(entry.purpose || "", context), variant: "hero" }),
+      makeSection({ id: "formula", label: "Formula Label", body: injectLiveValues(entry.formulaLabel || "", context), variant: "mini-row" }),
+      makeSection({ id: "implementation", label: "Canonical Implementation", body: injectLiveValues(implementationLabel || "Unassigned", context), expandable: true }),
+      makeSection({ id: "output", label: "Output", body: injectLiveValues(entry.outputName || "", context) }),
+      makeSection({ id: "layer", label: "Architecture Layer", body: injectLiveValues(entry.architectureLayer || "", context), variant: "mini-row" }),
+      makeSection({
         id: "inputs",
         label: "Required Inputs",
         body: injectLiveValues(toList(entry.requiredInputs).join(", "), context),
-      },
-      {
+      }),
+      makeSection({
         id: "usedBy",
         label: "Used In",
         body: injectLiveValues(toList(entry.whereUsed).join(", "), context),
-      },
-      { id: "status", label: "Status", body: injectLiveValues(clean(entry.status) || "planned", context) },
-      { id: "notes", label: "Coverage Notes", body: injectLiveValues(entry.notes || "", context) },
-    ].filter((row) => clean(row.body)),
+      }),
+      makeSection({ id: "status", label: "Status", body: injectLiveValues(clean(entry.status) || "planned", context), variant: "mini-row" }),
+      makeSection({ id: "notes", label: "Coverage Notes", body: injectLiveValues(entry.notes || "", context), expandable: true }),
+    ].filter((row) => clean(row.body) || row.items.length),
     links: relatedLinks({
       ...entry,
       relatedModules: toList(entry?.relatedDoctrinePages),
@@ -268,17 +344,18 @@ function resolveGlossaryMode(input, context){
     title: entry.term,
     subtitle: injectLiveValues(entry.definition || "", context),
     sections: [
-      {
+      makeSection({
         id: "definition",
         label: "Definition",
         body: injectLiveValues(entry.definition || "", context),
-      },
-      {
+        variant: "hero",
+      }),
+      makeSection({
         id: "whyItMatters",
         label: "Why It Matters",
         body: injectLiveValues(entry.whyItMatters || "", context),
-      },
-    ].filter((row) => clean(row.body)),
+      }),
+    ].filter((row) => clean(row.body) || row.items.length),
     links: relatedLinks(entry),
   };
 }
@@ -301,12 +378,12 @@ function resolveMessageMode(input, context){
     title: entry.title,
     subtitle: injectLiveValues(entry.meaning || "", context),
     sections: [
-      { id: "meaning", label: "What It Means", body: injectLiveValues(entry.meaning || "", context) },
-      { id: "why", label: "Why It Happens", body: injectLiveValues(entry.whyItHappens || "", context) },
-      { id: "do", label: "What To Do", body: injectLiveValues(entry.whatToDo || "", context) },
-      { id: "affects", label: "What It Affects", body: injectLiveValues(entry.whatItAffects || "", context) },
-      { id: "ignored", label: "If Ignored", body: injectLiveValues(entry.ifIgnored || "", context) },
-    ].filter((row) => clean(row.body)),
+      makeSection({ id: "meaning", label: "What It Means", body: injectLiveValues(entry.meaning || "", context), variant: "hero" }),
+      makeSection({ id: "why", label: "Why It Happens", body: injectLiveValues(entry.whyItHappens || "", context) }),
+      makeSection({ id: "do", label: "What To Do", body: injectLiveValues(entry.whatToDo || "", context), variant: "mini-row" }),
+      makeSection({ id: "affects", label: "What It Affects", body: injectLiveValues(entry.whatItAffects || "", context) }),
+      makeSection({ id: "ignored", label: "If Ignored", body: injectLiveValues(entry.ifIgnored || "", context), expandable: true }),
+    ].filter((row) => clean(row.body) || row.items.length),
     links: relatedLinks(entry),
     kind: clean(entry.kind),
   };
@@ -339,38 +416,55 @@ function resolvePlaybookMode(input, context){
     title: entry.title,
     subtitle: injectLiveValues(entry.summary || "", context),
     sections: [
-      {
+      makeSection({
         id: "triggerCondition",
         label: "Trigger Condition",
         body: injectLiveValues(entry.triggerCondition || entry.situation || "", context),
-      },
-      {
+        variant: "hero",
+      }),
+      makeSection({
         id: "triggerSignals",
         label: "Signal Pattern",
         body: injectLiveValues(triggerRuleText || entry.watchSignals || "", context),
-      },
-      {
+      }),
+      makeSection({
         id: "triggerMatch",
         label: "Current-State Match",
         body: injectLiveValues(
           triggerSummary || "No current-state trigger match detected. Manual selection still allowed.",
           context,
         ),
-      },
-      {
+        variant: "mini-row",
+      }),
+      makeSection({
         id: "patternMeans",
         label: "What This Pattern Means",
         body: injectLiveValues(entry.whatPatternMeans || "", context),
-      },
-      {
+      }),
+      makeSection({
         id: "whyMatters",
         label: "Why It Matters",
         body: injectLiveValues(entry.whyItMatters || "", context),
-      },
-      { id: "doNow", label: "What To Do", body: formatActionList(entry.whatToDo, context) || injectLiveValues(entry.disciplinedResponse || "", context) },
-      { id: "dontDo", label: "What Not To Do", body: formatActionList(entry.whatNotToDo, context) },
-      { id: "trap", label: "Common Trap", body: injectLiveValues(entry.commonTrap || entry.commonTraps || "", context) },
-    ].filter((row) => clean(row.body)),
+      }),
+      makeSection({
+        id: "doNow",
+        label: "What To Do",
+        body: formatActionList(entry.whatToDo, context) || injectLiveValues(entry.disciplinedResponse || "", context),
+        variant: "mini-row",
+      }),
+      makeSection({
+        id: "dontDo",
+        label: "What Not To Do",
+        body: formatActionList(entry.whatNotToDo, context),
+        variant: "callout",
+      }),
+      makeSection({
+        id: "trap",
+        label: "Common Trap",
+        body: injectLiveValues(entry.commonTrap || entry.commonTraps || "", context),
+        expandable: true,
+      }),
+    ].filter((row) => clean(row.body) || row.items.length),
     links: relatedLinks(entry),
   };
 }
