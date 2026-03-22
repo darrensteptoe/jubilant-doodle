@@ -114,12 +114,7 @@ body.dark #app-shell-v3-root {
 .fpe-shell {
   min-height: 100vh;
   color: var(--fpe-text);
-  background: radial-gradient(
-    circle at 8% 0%,
-    var(--fpe-shell-tint) 0%,
-    var(--fpe-bg) 42%,
-    color-mix(in srgb, var(--fpe-panel) 82%, var(--fpe-bg)) 100%
-  );
+  background: var(--fpe-bg);
   font-family: "IBM Plex Sans", "Segoe UI", sans-serif;
 }
 
@@ -137,26 +132,7 @@ body.dark #app-shell-v3-root {
 }
 
 .fpe-topbar::before {
-  content: "";
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  background-image:
-    linear-gradient(
-      90deg,
-      var(--fpe-topbar-glaze-start) 0%,
-      color-mix(in srgb, var(--fpe-topbar-glaze-start) 48%, var(--fpe-topbar-base)) 42%,
-      color-mix(in srgb, var(--fpe-topbar-glaze-end) 74%, var(--fpe-panel)) 66%,
-      var(--fpe-panel) 80%,
-      var(--fpe-panel) 100%
-    );
-  background-size: 100% 100%;
-  background-position: left center;
-  background-repeat: no-repeat;
-  opacity: 1;
-  pointer-events: none;
+  content: none;
 }
 
 .fpe-topbar > * {
@@ -183,9 +159,7 @@ body.dark #app-shell-v3-root {
   font-weight: 700;
   letter-spacing: 0.01em;
   color: var(--fpe-topbar-title);
-  text-shadow:
-    0 1px 0 color-mix(in srgb, #000000 42%, transparent),
-    0 2px 8px color-mix(in srgb, #000000 24%, transparent);
+  text-shadow: none;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -295,11 +269,7 @@ body.dark #app-shell-v3-root {
 
 .fpe-nav {
   border-right: 1px solid var(--fpe-rule);
-  background: linear-gradient(
-    180deg,
-    color-mix(in srgb, var(--fpe-panel) 98%, var(--fpe-bg)) 0%,
-    color-mix(in srgb, var(--fpe-panel) 86%, var(--fpe-bg)) 100%
-  );
+  background: var(--fpe-panel);
   padding: var(--fpe-space-3) 0 var(--fpe-space-3);
   display: flex;
   flex-direction: column;
@@ -449,12 +419,11 @@ body.dark #app-shell-v3-root {
 }
 
 .fpe-page-head {
-  background:
-    radial-gradient(circle at 0% 0%, var(--fpe-header-red-tint) 0%, transparent 64%),
-    var(--fpe-header-bg);
+  background: var(--fpe-panel);
   border-bottom: 1px solid var(--fpe-rule);
   padding-top: var(--fpe-space-5);
   padding-bottom: var(--fpe-space-4);
+  box-shadow: none;
 }
 
 .fpe-page-head__eyebrow {
@@ -472,6 +441,7 @@ body.dark #app-shell-v3-root {
   font-size: var(--fpe-title);
   line-height: 1.2;
   letter-spacing: 0.01em;
+  font-weight: 800;
 }
 
 .fpe-page-head__subtitle {
@@ -1985,7 +1955,7 @@ body.training #app-shell-v3-root .fpe-surface .fpe-why {
   gap: 6px;
   padding: 10px 12px;
   border-bottom: 1px solid var(--fpe-rule);
-  background: color-mix(in srgb, var(--fpe-panel) 94%, var(--fpe-panel-muted));
+  background: var(--fpe-panel);
 }
 
 .fpe-right-rail-toggle__btn {
