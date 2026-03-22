@@ -14,7 +14,7 @@
 <link href="https://fonts.googleapis.com" rel="preconnect"/>
 <link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&amp;family=IBM+Plex+Sans:wght@300;400;500;600&amp;display=swap" rel="stylesheet"/>
-  <script type="module" crossorigin src="/assets/index-D7CPnHSP.js"></script>
+  <script type="module" crossorigin src="/assets/index-DgVkx-bu.js"></script>
   <link rel="modulepreload" crossorigin href="/assets/time-DMzu12fF.js">
   <link rel="modulepreload" crossorigin href="/assets/build-DvTtUqhn.js">
   <link rel="modulepreload" crossorigin href="/assets/preload-helper-C-ObvbrE.js">
@@ -22,7 +22,7 @@
   <link rel="modulepreload" crossorigin href="/assets/io-UDXN18Pd.js">
   <link rel="modulepreload" crossorigin href="/assets/view-CEp4BHYU.js">
   <link rel="modulepreload" crossorigin href="/assets/twCapHelpers-e7JC5H-8.js">
-  <link rel="stylesheet" crossorigin href="/assets/index-BKRjHlar.css">
+  <link rel="stylesheet" crossorigin href="/assets/index-DE5LEvay.css">
 </head>
 <body>
 <div hidden="" id="app-shell-v3-root"></div>
@@ -1419,10 +1419,18 @@ document.addEventListener('DOMContentLoaded', function(){
   var settle = function(){
     var rail = document.getElementById('legacyResultsSidebar');
     var pool = getLegacyDomPool();
-    if (rail && pool && rail.parentElement !== pool) {
+    var rightRailSlot = document.getElementById('v3RightRailSlot');
+    if (!rail) {
+      return;
+    }
+    // Keep results mounted when V3 already placed them in the active right-rail slot.
+    if (rightRailSlot && rightRailSlot.contains(rail)) {
+      return;
+    }
+    if (pool && rail.parentElement !== pool) {
       pool.appendChild(rail);
     }
-    if (rail) rail.hidden = true;
+    rail.hidden = true;
   };
   var waitForBridge = function(){
     if (isV3BridgeActive()){
