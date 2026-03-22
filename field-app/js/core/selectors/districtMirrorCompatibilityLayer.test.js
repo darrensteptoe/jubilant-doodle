@@ -32,11 +32,13 @@ const appRuntimePath = path.resolve(__dirname, "../../appRuntime.js");
 const censusModulePath = path.resolve(__dirname, "../censusModule.js");
 const censusPhase1Path = path.resolve(__dirname, "../../app/censusPhase1.js");
 const districtSurfacePath = path.resolve(__dirname, "../../app/v3/surfaces/districtV2/index.js");
+const targetingModulePath = path.resolve(__dirname, "../../app/v3/surfaces/districtV2/targetingConfig.js");
 
 const appRuntimeSource = fs.readFileSync(appRuntimePath, "utf8");
 const censusModuleSource = fs.readFileSync(censusModulePath, "utf8");
 const censusPhase1Source = fs.readFileSync(censusPhase1Path, "utf8");
 const districtSurfaceSource = fs.readFileSync(districtSurfacePath, "utf8");
+const targetingModuleSource = fs.readFileSync(targetingModulePath, "utf8");
 
 function functionSegment(source, fnName) {
   const startToken = `function ${fnName}(`;
@@ -234,13 +236,13 @@ test("district pending-write hold scope: removed from district_v2 binders", () =
   const bindFormSelectSeg = functionSegment(districtSurfaceSource, "bindDistrictV2FormSelect");
   const bindFormFieldSeg = functionSegment(districtSurfaceSource, "bindDistrictV2FormField");
   const bindFormCheckboxSeg = functionSegment(districtSurfaceSource, "bindDistrictV2FormCheckbox");
-  const bindTargetingFieldSeg = functionSegment(districtSurfaceSource, "bindDistrictV2TargetingField");
+  const bindTargetingModuleSeg = functionSegment(targetingModuleSource, "bind");
   const bindCensusFieldSeg = functionSegment(districtSurfaceSource, "bindDistrictV2CensusField");
 
   assert.doesNotMatch(bindFormSelectSeg, /markDistrictPendingWrite\(/, "district_v2 form select binder must not use pending-write hold");
   assert.doesNotMatch(bindFormFieldSeg, /markDistrictPendingWrite\(/, "district_v2 form field binder must not use pending-write hold");
   assert.doesNotMatch(bindFormCheckboxSeg, /markDistrictPendingWrite\(/, "district_v2 form checkbox binder must not use pending-write hold");
-  assert.doesNotMatch(bindTargetingFieldSeg, /markDistrictPendingWrite\(/, "district_v2 targeting binder must not use pending-write hold");
+  assert.doesNotMatch(bindTargetingModuleSeg, /markDistrictPendingWrite\(/, "district_v2 targeting binder must not use pending-write hold");
   assert.doesNotMatch(bindCensusFieldSeg, /markDistrictPendingWrite\(/, "district_v2 census binder must not use pending-write hold");
   assert.doesNotMatch(districtSurfaceSource, /shouldHoldDistrictControlSync\(/, "district_v2 must not use hold-based control sync");
 });
@@ -302,12 +304,17 @@ test("c9.4a targeting lab: run action is gated by lock + readiness", () => {
   const targetingSyncSeg = functionSegment(districtSurfaceSource, "syncDistrictV2Targeting");
   assert.match(
     targetingSyncSeg,
-    /const canRun = config\.canRun == null \? true : !!config\.canRun;/,
-    "run targeting sync must normalize canRun state",
+    /districtV2TargetingModule\.sync\(/,
+    "district v2 targeting sync should delegate to targeting module",
   );
   assert.match(
-    targetingSyncSeg,
-    /applyDisabled\("v3BtnDistrictV2RunTargeting",\s*locked \|\| !canRun\);/,
+    targetingModuleSource,
+    /const canRunByCanonical = config\?\.canRun == null \? true : !!config\.canRun;/,
+    "targeting module readiness must normalize canRun state",
+  );
+  assert.match(
+    targetingModuleSource,
+    /applyDisabled\("v3BtnDistrictV2RunTargeting", locked \|\| !readyForRun\);/,
     "run targeting button must disable when prerequisites are not met",
   );
 });
@@ -320,11 +327,22 @@ test("c9.4b targeting lab: run_failed bridge responses include error message det
   assert.match(runSeg, /message:\s*runErrorMessage \|\| "Targeting run failed\."/);
 });
 
-test("c9.4b targeting lab: runtime bridge imports runTargetRanking symbol", () => {
+test("c9.4b targeting lab: runtime bridge resolves runTargetRanking via targeting runtime module", () => {
   assert.match(
     appRuntimeSource,
-    /import\s*\{[\s\S]*runTargetRanking[\s\S]*\}\s*from "\.\/app\/targetingRuntime\.js";/,
-    "appRuntime targeting import block must include runTargetRanking",
+    /import\s+\*\s+as\s+targetingRuntimeModule\s+from "\.\/app\/targetingRuntime\.js";/,
+    "appRuntime should import targeting runtime module namespace",
+  );
+  const runSeg = functionSegment(appRuntimeSource, "districtBridgeRunTargeting");
+  assert.match(
+    runSeg,
+    /targetingRuntimeModule\s*&&\s*typeof targetingRuntimeModule\.runTargetRanking === "function"/,
+    "districtBridgeRunTargeting must resolve runTargetRanking from runtime module namespace",
+  );
+  assert.match(
+    runSeg,
+    /runTargetRankingFn\(/,
+    "districtBridgeRunTargeting must call resolved runtime function",
   );
 });
 
