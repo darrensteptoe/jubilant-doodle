@@ -1560,6 +1560,10 @@ body.training #app-shell-v3-root .fpe-surface .fpe-why {
   justify-content: flex-end;
 }
 
+.fpe-surface-pane[data-v3-stage="district"] .fpe-census-map-row--actions {
+  justify-content: flex-start;
+}
+
 .fpe-surface-pane[data-v3-stage="district"] .fpe-census-vtd-control-row {
   justify-content: flex-start;
   align-items: center;
@@ -1570,6 +1574,14 @@ body.training #app-shell-v3-root .fpe-surface .fpe-why {
   width: auto;
   flex: 0 0 auto;
   white-space: nowrap;
+}
+
+.fpe-surface-pane[data-v3-stage="district"] .fpe-census-geo-selection-actions {
+  justify-content: flex-end;
+}
+
+.fpe-surface-pane[data-v3-stage="district"] .fpe-census-apply-geoids-row {
+  justify-content: flex-start;
 }
 
 .fpe-surface-pane[data-v3-stage="district"] .fpe-census-map-shell {
