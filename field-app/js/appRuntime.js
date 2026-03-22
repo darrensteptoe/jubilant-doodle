@@ -4031,6 +4031,7 @@ function districtBridgeBuildCensusConfigOptions(censusState){
       if (selectedCounty) {
         if (rowCounty) return rowCounty === selectedCounty;
         if (placeFallbackSet.size) return placeFallbackSet.has(rowValue);
+        return false;
       }
       return true;
     }),
