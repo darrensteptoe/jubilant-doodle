@@ -14,6 +14,7 @@
   --fpe-header-red-tint: transparent;
   --fpe-table-head-bg: color-mix(in srgb, var(--fpe-rule) 22%, var(--fpe-panel));
   --fpe-header-bg: color-mix(in srgb, var(--fpe-rule) 30%, var(--fpe-panel));
+  --fpe-page-title-row-bg: color-mix(in srgb, var(--fpe-rule) 42%, var(--fpe-panel));
   --fpe-block-instruction-bg: color-mix(in srgb, var(--fpe-accent) 4%, var(--fpe-panel));
   --fpe-block-status-bg: color-mix(in srgb, var(--fpe-accent) 7%, var(--fpe-panel));
   --fpe-action-strip-bg: color-mix(in srgb, var(--fpe-rule) 10%, var(--fpe-panel));
@@ -67,6 +68,7 @@
 body.dark #app-shell-v3-root {
   --fpe-table-head-bg: color-mix(in srgb, var(--fpe-rule) 24%, var(--fpe-panel));
   --fpe-header-bg: color-mix(in srgb, var(--fpe-rule) 32%, var(--fpe-panel));
+  --fpe-page-title-row-bg: color-mix(in srgb, var(--fpe-rule) 46%, var(--fpe-panel));
   --fpe-block-instruction-bg: color-mix(in srgb, var(--fpe-accent) 10%, var(--fpe-panel));
   --fpe-block-status-bg: color-mix(in srgb, var(--fpe-accent) 13%, var(--fpe-panel));
   --fpe-action-strip-bg: color-mix(in srgb, var(--fpe-rule) 16%, var(--fpe-panel));
@@ -89,6 +91,7 @@ body.dark #app-shell-v3-root {
   body:not(.light) #app-shell-v3-root {
     --fpe-table-head-bg: color-mix(in srgb, var(--fpe-rule) 24%, var(--fpe-panel));
     --fpe-header-bg: color-mix(in srgb, var(--fpe-rule) 32%, var(--fpe-panel));
+    --fpe-page-title-row-bg: color-mix(in srgb, var(--fpe-rule) 46%, var(--fpe-panel));
     --fpe-block-instruction-bg: color-mix(in srgb, var(--fpe-accent) 10%, var(--fpe-panel));
     --fpe-block-status-bg: color-mix(in srgb, var(--fpe-accent) 13%, var(--fpe-panel));
     --fpe-action-strip-bg: color-mix(in srgb, var(--fpe-rule) 16%, var(--fpe-panel));
@@ -315,7 +318,7 @@ body.dark #app-shell-v3-root {
 
 .fpe-nav {
   border-right: 1px solid var(--fpe-rule);
-  background: var(--fpe-panel);
+  background: var(--fpe-page-title-row-bg);
   padding: var(--fpe-space-3) 0 var(--fpe-space-3);
   display: flex;
   flex-direction: column;
@@ -373,6 +376,7 @@ body.dark #app-shell-v3-root {
   margin-top: auto;
   padding: var(--fpe-space-2) var(--fpe-space-4) 0;
   border-top: 1px solid color-mix(in srgb, var(--fpe-rule) 68%, transparent);
+  text-align: center;
   font-size: 11px;
   line-height: 1.35;
   color: color-mix(in srgb, var(--fpe-muted) 88%, transparent);
@@ -469,7 +473,7 @@ body.dark #app-shell-v3-root {
 }
 
 .fpe-page-head {
-  background: var(--fpe-panel);
+  background: var(--fpe-page-title-row-bg);
   border-bottom: 1px solid var(--fpe-rule);
   padding-top: var(--fpe-space-5);
   padding-bottom: var(--fpe-space-4);
