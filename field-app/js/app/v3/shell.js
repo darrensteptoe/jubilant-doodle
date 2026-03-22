@@ -64,7 +64,15 @@ export function renderV3Shell(root) {
         </aside>
 
         <main class="fpe-main">
-          <section class="fpe-context" aria-label="Campaign context">
+          <section class="fpe-page-head" aria-label="Page heading">
+            <div class="fpe-page-head__meta">
+              <span class="fpe-page-head__eyebrow" id="v3PageEyebrow">Model</span>
+              <h1 class="fpe-page-head__title" id="v3PageTitle">District Reality</h1>
+            </div>
+            <p class="fpe-page-head__subtitle" id="v3PageSubtitle"></p>
+          </section>
+
+          <section class="fpe-context" aria-label="Campaign context" id="v3DataContextSection" hidden>
             <div class="fpe-context__grid">
               <div>
                 <div class="fpe-context__label">Campaign ID</div>
@@ -84,14 +92,6 @@ export function renderV3Shell(root) {
               </div>
             </div>
             <div class="fpe-context__status" id="v3ContextStatus"></div>
-          </section>
-
-          <section class="fpe-page-head" aria-label="Page heading">
-            <div class="fpe-page-head__meta">
-              <span class="fpe-page-head__eyebrow" id="v3PageEyebrow">Model</span>
-              <h1 class="fpe-page-head__title" id="v3PageTitle">District Reality</h1>
-            </div>
-            <p class="fpe-page-head__subtitle" id="v3PageSubtitle"></p>
           </section>
 
           <section class="fpe-kpis" id="v3KpiStrip" aria-label="Core metrics"></section>

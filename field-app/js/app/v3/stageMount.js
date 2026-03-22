@@ -78,6 +78,7 @@ export function mountStage(stageId) {
   if (subtitle) {
     subtitle.textContent = stage.subtitle;
   }
+  syncDataContextSection();
 
   document.querySelectorAll(".fpe-nav__item[data-v3-stage]").forEach((el) => {
     el.classList.toggle("is-active", el.dataset.v3Stage === stage.id);
@@ -117,6 +118,15 @@ export function getActiveStageId() {
 
 export function getActiveSurfaceId() {
   return activeSurfaceId;
+}
+
+function syncDataContextSection() {
+  const contextSection = document.getElementById("v3DataContextSection");
+  if (!(contextSection instanceof HTMLElement)) {
+    return;
+  }
+  const visible = activeStageId === "data";
+  contextSection.hidden = !visible;
 }
 
 function syncRightRail() {

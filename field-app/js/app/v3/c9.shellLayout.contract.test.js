@@ -31,6 +31,17 @@ test("c9 shell: runtime debug line is hidden by default and global glossary chip
   assert.doesNotMatch(shellSource, /fpe-context__intel/);
 });
 
+test("c9.2 shell: campaign scope row is data-stage scoped", () => {
+  assert.match(shellSource, /id="v3DataContextSection"[^>]*hidden/);
+  assert.match(shellSource, /id="v3CampaignId"/);
+  assert.match(shellSource, /id="v3CampaignName"/);
+  assert.match(shellSource, /id="v3OfficeId"/);
+  assert.match(shellSource, /id="v3ScenarioName"/);
+  assert.match(stageMountSource, /function syncDataContextSection\(\)/);
+  assert.match(stageMountSource, /contextSection\.hidden = !visible;/);
+  assert.match(stageMountSource, /const visible = activeStageId === "data";/);
+});
+
 test("c9 right rail: defaults to results and auto-opens manual for glossary/manual interactions", () => {
   assert.match(stageMountSource, /let activeRightRailMode = RIGHT_RAIL_MODE_RESULTS;/);
   assert.match(stageMountSource, /data-v3-right-rail-mode="results"/);
