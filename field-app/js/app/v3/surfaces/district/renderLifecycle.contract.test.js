@@ -281,6 +281,20 @@ test("c9.3 contract: district v2 map host is present and preferred by census run
   assert.ok(v3HostIdx < legacyHostIdx, "v3 host must be preferred over legacy censusMap host");
 });
 
+test("c10 contract: census boundary overlay binds tract/place/block-group labels on loaded layers", () => {
+  const applyMapOverlayBody = extractFunctionBodyFrom(censusPhase1Source, "applyMapOverlay");
+  const loadMapBody = extractFunctionBodyFrom(censusPhase1Source, "onLoadMapBoundaries");
+  assert.match(censusPhase1Source, /function labelForBoundaryFeature\(feature, resolution = ""\)\{/);
+  assert.match(applyMapOverlayBody, /labelForBoundaryFeature\(feature, resolution\)/);
+  assert.match(applyMapOverlayBody, /layer\.bindTooltip\(/);
+  assert.match(applyMapOverlayBody, /layer\.bindPopup\(/);
+  assert.match(
+    loadMapBody,
+    /applyMapOverlay\(result\.featureCollection,\s*\{\s*resolution:\s*s\.resolution\s*\}\)/,
+    "boundary overlay should pass active resolution for label shaping",
+  );
+});
+
 test("c9.4a contract: targeting actions surface null bridge results and explicit no_rows feedback", () => {
   const mutationBody = extractFunctionBodyFrom(targetingModuleSource, "handleMutationResult");
   const failureMessageBody = extractFunctionBodyFrom(targetingModuleSource, "resolveRunFailureMessage");
