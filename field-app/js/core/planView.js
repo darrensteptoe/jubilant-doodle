@@ -8,6 +8,7 @@ import {
   roundWholeNumberByMode,
 } from "./utils.js";
 import { formatUpliftSourceLabel } from "./upliftSource.js";
+import { classifyUnifiedStatusTone } from "./statusTone.js";
 
 export const PLAN_WORKLOAD_STATUS_FALLBACK = "Set support goal and pacing assumptions to generate workload requirements.";
 export const PLAN_OPTIMIZER_STATUS_FALLBACK = "Run optimization to generate allocation and binding-constraint posture.";
@@ -974,18 +975,5 @@ export function derivePlanSummaryCardStatus(executablePct, tlConstraint, optBind
  * @returns {"ok"|"bad"|"warn"|"neutral"}
  */
 export function classifyPlanStatusTone(text){
-  const lower = String(text || "").trim().toLowerCase();
-  if (!lower){
-    return "neutral";
-  }
-  if (/(current|allocated|feasible|contained|guidance ready)/.test(lower)){
-    return "ok";
-  }
-  if (/(elevated|constrained|binding|recovery plan|unavailable|failed|broken)/.test(lower)){
-    return "bad";
-  }
-  if (/(awaiting|module off|tight|watch|pending)/.test(lower)){
-    return "warn";
-  }
-  return "neutral";
+  return classifyUnifiedStatusTone(text);
 }

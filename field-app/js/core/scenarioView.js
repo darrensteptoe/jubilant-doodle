@@ -1,5 +1,6 @@
 // @ts-check
 import { formatFixedNumber, formatWholeNumber, roundWholeNumberByMode } from "./utils.js";
+import { classifyUnifiedStatusTone } from "./statusTone.js";
 
 export const SCENARIO_STATUS_UNAVAILABLE = "Unavailable";
 export const SCENARIO_STATUS_AWAITING_SCENARIO = "Awaiting scenario";
@@ -734,18 +735,5 @@ export function deriveScenarioSummaryCardStatus(view, comparison){
  * @returns {"ok"|"bad"|"warn"|"neutral"}
  */
 export function classifyScenarioStatusTone(text){
-  const lower = String(text || "").trim().toLowerCase();
-  if (!lower){
-    return "neutral";
-  }
-  if (/(baseline ready|storage ready|compared|baseline)/.test(lower)){
-    return "ok";
-  }
-  if (/(unavailable)/.test(lower)){
-    return "bad";
-  }
-  if (/(scenario active|diffs ready|watchlist|delta tracked|no compare|awaiting)/.test(lower)){
-    return "warn";
-  }
-  return "neutral";
+  return classifyUnifiedStatusTone(text);
 }

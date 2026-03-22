@@ -13,6 +13,7 @@ import {
   formatPercentFromUnit,
   roundWholeNumberByMode,
 } from "./utils.js";
+import { classifyUnifiedStatusTone } from "./statusTone.js";
 
 export const REACH_STATUS_AWAITING_INPUTS = "Awaiting inputs";
 export const REACH_STATUS_UNAVAILABLE = "Unavailable";
@@ -1103,20 +1104,5 @@ export function deriveReachActionsCardStatus(actions){
  * @returns {"ok"|"bad"|"warn"|"neutral"}
  */
 export function classifyReachStatusTone(text){
-  const lower = String(text || "").trim().toLowerCase();
-  if (!lower){
-    return "neutral";
-  }
-  if (
-    /(on pace|feasible|buffer mode|ready|healthy|stable|complete|active|model-based)/.test(lower)
-  ){
-    return "ok";
-  }
-  if (/(behind|gap open|unavailable|missing|incomplete|failed|broken)/.test(lower)){
-    return "bad";
-  }
-  if (/(awaiting|drift|needs|warning|risk|pending|override|gap focus)/.test(lower)){
-    return "warn";
-  }
-  return "neutral";
+  return classifyUnifiedStatusTone(text);
 }

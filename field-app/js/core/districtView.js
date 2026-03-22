@@ -6,6 +6,7 @@ import {
   formatWholeNumberByMode,
   roundWholeNumberByMode,
 } from "./utils.js";
+import { classifyUnifiedStatusTone } from "./statusTone.js";
 
 export const DISTRICT_STATUS_AWAITING_INPUTS = "Awaiting inputs";
 
@@ -161,20 +162,7 @@ export function deriveDistrictTargetingCardStatus(input = {}){
  * @returns {"ok"|"bad"|"warn"|"neutral"}
  */
 export function classifyDistrictStatusTone(text){
-  const lower = String(text || "").trim().toLowerCase();
-  if (!lower){
-    return "neutral";
-  }
-  if (/(configured|sourced|universe set|balanced|2 cycles set|weighted|baseline ready|rows loaded|ready|ranks ready)/.test(lower)){
-    return "ok";
-  }
-  if (/(attention|unavailable|failed|check totals|check shares)/.test(lower)){
-    return "bad";
-  }
-  if (/(awaiting|needs date|incomplete|weighting off|need path|in progress|run targeting|awaiting run)/.test(lower)){
-    return "warn";
-  }
-  return "neutral";
+  return classifyUnifiedStatusTone(text);
 }
 
 function formatWhole(value, formatInt){

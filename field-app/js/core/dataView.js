@@ -14,6 +14,7 @@ import {
   listCanonicalVoterFieldTiers,
   listVoterAdapterOptions,
 } from "./voterDataLayer.js";
+import { classifyUnifiedStatusTone } from "./statusTone.js";
 
 export const DATA_STATUS_AWAITING_STORAGE = "Awaiting storage";
 export const DATA_ARCHIVE_DETAIL_FALLBACK = "No archive snapshot selected.";
@@ -666,20 +667,7 @@ export function deriveDataSummaryCardStatus(strictEnabled, hasHashBanner, hasWar
  * @returns {"ok"|"bad"|"warn"|"neutral"}
  */
 export function classifyDataStatusTone(text){
-  const lower = String(text || "").trim().toLowerCase();
-  if (!lower){
-    return "neutral";
-  }
-  if (/(restore ready|ready|browser storage|folder linked|stable|external ready|learning active|archive only)/.test(lower)){
-    return "ok";
-  }
-  if (/(check import)/.test(lower)){
-    return "bad";
-  }
-  if (/(strict|watch policy|file staged|awaiting folder|no backups|awaiting archive|bias watch)/.test(lower)){
-    return "warn";
-  }
-  return "neutral";
+  return classifyUnifiedStatusTone(text);
 }
 
 /**

@@ -10,6 +10,7 @@ import {
   roundWholeNumberByMode,
 } from "./utils.js";
 import { deriveLegacyScenarioDivergence } from "./scenarioView.js";
+import { classifyUnifiedStatusTone } from "./statusTone.js";
 
 export const DECISION_STATUS_UNAVAILABLE = "Unavailable";
 export const DECISION_STATUS_AWAITING_DECISION = "Awaiting decision";
@@ -146,20 +147,7 @@ export function deriveDecisionSummaryCardStatus(view, conf, risk, bneck){
  * @returns {"ok"|"bad"|"warn"|"neutral"}
  */
 export function classifyDecisionStatusTone(text){
-  const lower = String(text || "").trim().toLowerCase();
-  if (!lower){
-    return "neutral";
-  }
-  if (/(session linked|constraints set|option linked|options ready|diagnostics ready|recommendation set|export ready|steady|high confidence|decision active)/.test(lower)){
-    return "ok";
-  }
-  if (/(unavailable)/.test(lower)){
-    return "bad";
-  }
-  if (/(awaiting|watch diagnostics|run snapshot|session active|fragile|risk|constraint|warning|competitive|at risk)/.test(lower)){
-    return "warn";
-  }
-  return "neutral";
+  return classifyUnifiedStatusTone(text);
 }
 
 /**

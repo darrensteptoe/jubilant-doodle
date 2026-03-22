@@ -1,5 +1,6 @@
 // @ts-check
 import { formatFixedNumber, roundWholeNumberByMode } from "./utils.js";
+import { classifyUnifiedStatusTone } from "./statusTone.js";
 
 export const CONTROLS_STATUS_AWAITING_REVIEW = "Awaiting review";
 
@@ -924,18 +925,5 @@ export function deriveControlsWarningsCardStatus(missingEvidenceText, missingNot
  * @returns {"ok"|"bad"|"warn"|"neutral"}
  */
 export function classifyControlsStatusTone(text){
-  const lower = String(text || "").trim().toLowerCase();
-  if (!lower){
-    return "neutral";
-  }
-  if (/(healthy|audit clear|benchmarks set|review ready|brief ready|sim ready|quiet|ready$)/.test(lower)){
-    return "ok";
-  }
-  if (/(unavailable|needs evidence|action needed|failed|broken)/.test(lower)){
-    return "bad";
-  }
-  if (/(locked|guarded|watchlist|awaiting|needs brief|catalog empty|parser active|observed captured|ready to attach)/.test(lower)){
-    return "warn";
-  }
-  return "neutral";
+  return classifyUnifiedStatusTone(text);
 }

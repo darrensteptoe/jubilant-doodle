@@ -1,5 +1,6 @@
 // @ts-check
 import { roundWholeNumberByMode, safeNum, formatWholeNumberByMode } from "./utils.js";
+import { classifyUnifiedStatusTone } from "./statusTone.js";
 
 export const TURNOUT_STATUS_AWAITING_SETUP = "Awaiting setup";
 export const TURNOUT_STATUS_BANNER_FALLBACK = "Set turnout assumptions and refresh ROI to evaluate realized-vote impact.";
@@ -224,18 +225,5 @@ export function buildTurnoutPhase3CapacityGapView(input = {}){
  * @returns {"ok"|"bad"|"warn"|"neutral"}
  */
 export function classifyTurnoutStatusTone(text){
-  const lower = String(text || "").trim().toLowerCase();
-  if (!lower){
-    return "neutral";
-  }
-  if (/(active|helpful|current|compared|in context|linear|diminishing on|1 tactic|2 tactics|3 tactics)/.test(lower)){
-    return "ok";
-  }
-  if (/(off|no tactics|missing|failed|broken|unavailable)/.test(lower)){
-    return "bad";
-  }
-  if (/(awaiting|module off|watch|pending)/.test(lower)){
-    return "warn";
-  }
-  return "neutral";
+  return classifyUnifiedStatusTone(text);
 }

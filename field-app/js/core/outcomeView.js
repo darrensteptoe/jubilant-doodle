@@ -8,6 +8,7 @@ import {
   roundWholeNumberByMode,
 } from "./utils.js";
 import { rateOverrideToDecimal } from "./voteProduction.js";
+import { classifyUnifiedStatusTone } from "./statusTone.js";
 
 export function parsePercentNumber(rawValue){
   const text = String(rawValue || "").trim();
@@ -811,18 +812,5 @@ export function formatOutcomeGovernanceSignal(status, score){
 export const OUTCOME_STATUS_AWAITING_RUN = "Awaiting run";
 
 export function classifyOutcomeStatusTone(text){
-  const lower = String(text || "").trim().toLowerCase();
-  if (!lower){
-    return "neutral";
-  }
-  if (/(favored|stable|surface ready|drivers ranked|current|explainable|model inputs)/.test(lower)){
-    return "ok";
-  }
-  if (/(at risk|fragile|high risk|unavailable|failed|broken)/.test(lower)){
-    return "bad";
-  }
-  if (/(awaiting|competitive|watch|check distribution|governance check|learning thin|context)/.test(lower)){
-    return "warn";
-  }
-  return "neutral";
+  return classifyUnifiedStatusTone(text);
 }
