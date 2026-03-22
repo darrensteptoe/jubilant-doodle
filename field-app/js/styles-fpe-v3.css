@@ -481,6 +481,10 @@ body.dark #app-shell-v3-root {
   padding: 4px 10px;
   font-size: 11px;
   cursor: pointer;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  white-space: normal;
 }
 
 .fpe-intel-chip:hover {
@@ -2085,6 +2089,7 @@ body.training #app-shell-v3-root .fpe-surface .fpe-why {
   background: var(--fpe-panel);
   overflow-y: auto;
   overflow-x: hidden;
+  padding: 0 0 var(--fpe-space-3);
 }
 
 .fpe-right-rail-toggle {
@@ -2094,7 +2099,7 @@ body.training #app-shell-v3-root .fpe-surface .fpe-why {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 6px;
-  padding: 10px 12px;
+  padding: 10px 12px 8px;
   border-bottom: 1px solid var(--fpe-rule);
   background: color-mix(in srgb, var(--fpe-panel) 94%, var(--fpe-panel-muted));
 }
@@ -2124,32 +2129,40 @@ body.training #app-shell-v3-root .fpe-surface .fpe-why {
 }
 
 .fpe-right-rail-slot--intel .fpe-intel-panel {
-  border-bottom: 1px solid var(--fpe-rule);
-  background: color-mix(in srgb, var(--fpe-panel-muted) 70%, var(--fpe-panel));
-  padding: 12px;
+  border: 1px solid color-mix(in srgb, var(--fpe-rule) 86%, transparent);
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--fpe-panel-muted) 74%, var(--fpe-panel));
+  margin: 10px 12px 12px;
+  padding: 14px;
+  box-shadow: 0 8px 20px color-mix(in srgb, #000000 4%, transparent);
+  overflow: hidden;
 }
 
 .fpe-intel-panel__head {
   display: grid;
-  gap: 4px;
-  margin-bottom: 10px;
+  gap: 6px;
+  margin-bottom: 12px;
 }
 
 .fpe-intel-panel__title {
-  font-size: 13px;
-  font-weight: 600;
+  font-size: 14px;
+  font-weight: 700;
   color: var(--fpe-text);
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .fpe-intel-panel__subtitle {
   font-size: 12px;
   color: var(--fpe-muted);
-  line-height: 1.45;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .fpe-intel-tabs {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 6px;
   margin-bottom: 10px;
 }
@@ -2157,17 +2170,27 @@ body.training #app-shell-v3-root .fpe-surface .fpe-why {
 .fpe-intel-tab {
   appearance: none;
   border: 1px solid var(--fpe-rule);
-  background: var(--fpe-panel);
-  border-radius: 8px;
-  min-height: 28px;
+  background: color-mix(in srgb, var(--fpe-panel) 86%, var(--fpe-panel-muted));
+  border-radius: 9px;
+  min-height: 30px;
   font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
   color: var(--fpe-muted);
   cursor: pointer;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  transition: border-color 120ms ease, color 120ms ease, background 120ms ease;
+}
+
+.fpe-intel-tab:hover {
+  color: var(--fpe-text);
+  border-color: color-mix(in srgb, var(--fpe-accent) 42%, var(--fpe-rule));
 }
 
 .fpe-intel-tab.is-active {
   border-color: color-mix(in srgb, var(--fpe-accent) 60%, var(--fpe-rule));
-  background: color-mix(in srgb, var(--fpe-accent) 10%, var(--fpe-panel));
+  background: color-mix(in srgb, var(--fpe-accent) 14%, var(--fpe-panel));
   color: var(--fpe-text);
 }
 
@@ -2182,6 +2205,8 @@ body.training #app-shell-v3-root .fpe-surface .fpe-why {
   width: 100%;
   min-height: 34px;
   font-size: 12px;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .fpe-intel-search__btn {
@@ -2190,18 +2215,24 @@ body.training #app-shell-v3-root .fpe-surface .fpe-why {
 
 .fpe-intel-mode-status {
   font-size: 11px;
-  color: var(--fpe-muted);
-  margin-bottom: 8px;
+  color: color-mix(in srgb, var(--fpe-muted) 88%, var(--fpe-text));
+  margin-bottom: 10px;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .fpe-intel-body {
   display: grid;
-  gap: 10px;
+  gap: 9px;
 }
 
 .fpe-intel-section {
   display: grid;
-  gap: 4px;
+  gap: 6px;
+  border: 1px solid color-mix(in srgb, var(--fpe-rule) 82%, transparent);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--fpe-panel) 92%, var(--fpe-panel-muted));
+  padding: 10px;
 }
 
 .fpe-intel-section__title {
@@ -2209,18 +2240,100 @@ body.training #app-shell-v3-root .fpe-surface .fpe-why {
   font-size: 12px;
   color: var(--fpe-text);
   font-weight: 600;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .fpe-intel-section__body {
   margin: 0;
   font-size: 12px;
   color: var(--fpe-muted);
-  line-height: 1.45;
+  line-height: 1.55;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.fpe-intel-section--hero {
+  background: color-mix(in srgb, var(--fpe-accent) 8%, var(--fpe-panel));
+  border-color: color-mix(in srgb, var(--fpe-accent) 36%, var(--fpe-rule));
+  padding: 12px;
+}
+
+.fpe-intel-section--hero .fpe-intel-section__title {
+  font-size: 13px;
+}
+
+.fpe-intel-section--callout {
+  background: color-mix(in srgb, var(--fpe-warning) 8%, var(--fpe-panel));
+  border-color: color-mix(in srgb, var(--fpe-warning) 34%, var(--fpe-rule));
+}
+
+.fpe-intel-section--mini-row {
+  gap: 8px;
+}
+
+.fpe-intel-mini-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.fpe-intel-mini-item {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--fpe-rule) 88%, transparent);
+  background: color-mix(in srgb, var(--fpe-panel-muted) 66%, var(--fpe-panel));
+  padding: 3px 9px;
+  font-size: 11px;
+  line-height: 1.3;
+  color: var(--fpe-text);
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.fpe-intel-section--accordion {
+  padding: 0;
+}
+
+.fpe-intel-section--accordion > .fpe-intel-section__summary {
+  list-style: none;
+  cursor: pointer;
+  padding: 10px;
+  display: block;
+}
+
+.fpe-intel-section--accordion > .fpe-intel-section__summary::-webkit-details-marker {
+  display: none;
+}
+
+.fpe-intel-section--accordion > .fpe-intel-section__summary .fpe-intel-section__title::after {
+  content: "Expand";
+  float: right;
+  font-size: 10px;
+  font-weight: 500;
+  color: var(--fpe-muted);
+  margin-left: 8px;
+}
+
+.fpe-intel-section--accordion[open] > .fpe-intel-section__summary .fpe-intel-section__title::after {
+  content: "Collapse";
+}
+
+.fpe-intel-section__content {
+  border-top: 1px solid color-mix(in srgb, var(--fpe-rule) 72%, transparent);
+  padding: 10px;
 }
 
 .fpe-intel-links {
   display: grid;
-  gap: 6px;
+  gap: 8px;
+  border: 1px solid color-mix(in srgb, var(--fpe-rule) 82%, transparent);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--fpe-panel) 90%, var(--fpe-panel-muted));
+  padding: 10px;
 }
 
 .fpe-intel-links__title {
@@ -2228,23 +2341,43 @@ body.training #app-shell-v3-root .fpe-surface .fpe-why {
   text-transform: uppercase;
   letter-spacing: 0.06em;
   color: var(--fpe-muted);
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .fpe-intel-links__list {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 6px;
 }
 
 .fpe-intel-link {
   appearance: none;
   border: 1px solid var(--fpe-rule);
-  border-radius: 999px;
-  background: var(--fpe-panel);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--fpe-panel) 88%, var(--fpe-panel-muted));
   color: var(--fpe-text);
-  padding: 4px 8px;
+  padding: 6px 8px;
   font-size: 11px;
+  text-align: left;
+  display: grid;
+  gap: 2px;
   cursor: pointer;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.fpe-intel-link__kind {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--fpe-muted);
+}
+
+.fpe-intel-link__label {
+  font-size: 11px;
+  color: var(--fpe-text);
+  font-weight: 600;
 }
 
 .fpe-intel-result {
@@ -2257,6 +2390,8 @@ body.training #app-shell-v3-root .fpe-surface .fpe-why {
   display: grid;
   gap: 2px;
   cursor: pointer;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .fpe-intel-result__meta {
@@ -2264,22 +2399,30 @@ body.training #app-shell-v3-root .fpe-surface .fpe-why {
   color: var(--fpe-muted);
   text-transform: uppercase;
   letter-spacing: 0.06em;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .fpe-intel-result__title {
   font-size: 12px;
   color: var(--fpe-text);
   font-weight: 600;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .fpe-intel-result__summary {
   font-size: 11px;
   color: var(--fpe-muted);
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .fpe-intel-empty {
   font-size: 12px;
   color: var(--fpe-muted);
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .fpe-intel-anchor {
