@@ -9,7 +9,9 @@ import { fileURLToPath } from "node:url";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const districtV2Path = path.join(__dirname, "../districtV2/index.js");
+const districtV2CensusConfigPath = path.join(__dirname, "../districtV2/censusConfig.js");
 const source = fs.readFileSync(districtV2Path, "utf8");
+const censusConfigSource = fs.readFileSync(districtV2CensusConfigPath, "utf8");
 
 function extractFunctionBody(name) {
   const pattern = new RegExp(`function\\s+${name}\\s*\\([^)]*\\)\\s*\\{([\\s\\S]*?)\\n\\}`, "m");
@@ -217,4 +219,35 @@ test("c3 contract: targeting and census binders are one-time and hold-free", () 
   assert.doesNotMatch(targetingSelectBody, /markDistrictPendingWrite|shouldHoldDistrictControlSync/);
   assert.doesNotMatch(targetingFieldBody, /markDistrictPendingWrite|shouldHoldDistrictControlSync/);
   assert.doesNotMatch(censusFieldBody, /markDistrictPendingWrite|shouldHoldDistrictControlSync/);
+});
+
+test("c8 contract: turnout baseline sync and bind paths are in-place and hold-free", () => {
+  const turnoutSyncBody = extractFunctionBody("syncDistrictV2TurnoutBaseline");
+  const turnoutBindBody = extractFunctionBody("bindDistrictV2TurnoutBaselineHandlers");
+
+  assert.match(turnoutSyncBody, /syncInputValueFromRaw\("v3DistrictV2TurnoutA"/);
+  assert.match(turnoutSyncBody, /syncInputValueFromRaw\("v3DistrictV2TurnoutB"/);
+  assert.match(turnoutSyncBody, /syncInputValueFromRaw\("v3DistrictV2BandWidth"/);
+  assert.doesNotMatch(turnoutSyncBody, /setInnerHtmlWithTrace\(/);
+
+  assert.match(turnoutBindBody, /bindDistrictV2FormField\("v3DistrictV2TurnoutA", "turnoutA"\);/);
+  assert.match(turnoutBindBody, /bindDistrictV2FormField\("v3DistrictV2TurnoutB", "turnoutB"\);/);
+  assert.match(turnoutBindBody, /bindDistrictV2FormField\("v3DistrictV2BandWidth", "bandWidth"\);/);
+  assert.doesNotMatch(turnoutBindBody, /markDistrictPendingWrite|shouldHoldDistrictControlSync/);
+});
+
+test("c8 contract: census map/vtd lane is wired without restoring legacy advisory preview UI", () => {
+  assert.match(source, /bindDistrictV2CensusFile\("v3DistrictV2CensusMapQaVtdZip", "mapQaVtdZip"\);/);
+  assert.match(source, /bindDistrictV2CensusAction\("v3BtnDistrictV2CensusLoadMap", "loadMap"\);/);
+  assert.match(source, /bindDistrictV2CensusAction\("v3BtnDistrictV2CensusClearMap", "clearMap"\);/);
+  assert.match(source, /bindDistrictV2CensusAction\("v3BtnDistrictV2CensusClearVtdZip", "clearVtdZip"\);/);
+  assert.match(source, /bindDistrictV2CensusAction\("v3BtnDistrictV2CensusSelectAll", "selectAll"\);/);
+  assert.match(source, /bindDistrictV2CensusAction\("v3BtnDistrictV2CensusClearSelection", "clearSelection"\);/);
+
+  assert.match(censusConfigSource, /id="v3DistrictV2CensusMapShell"/);
+  assert.match(censusConfigSource, /id="v3DistrictV2CensusMapStatus"/);
+  assert.match(censusConfigSource, /id="v3DistrictV2CensusMapQaVtdZipStatus"/);
+  assert.match(censusConfigSource, /id="v3DistrictV2CensusMapQaVtdZip"/);
+  assert.doesNotMatch(censusConfigSource, /v3DistrictV2CensusAdvisoryTbody/);
+  assert.doesNotMatch(censusConfigSource, /v3DistrictV2CensusElectionPreviewTbody/);
 });

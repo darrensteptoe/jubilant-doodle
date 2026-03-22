@@ -28,6 +28,7 @@ import {
   removeDistrictCandidateHistory,
   resetDistrictTargetingWeights,
   runDistrictTargeting,
+  setDistrictCensusFile,
   setDistrictCensusField,
   setDistrictCensusGeoSelection,
   setDistrictFormField,
@@ -64,6 +65,7 @@ import {
 } from "../../../../core/censusModule.js";
 import { renderDistrictV2RaceContextCard } from "./raceContext.js";
 import { renderDistrictV2ElectorateCard } from "./electorate.js";
+import { renderDistrictV2TurnoutBaselineCard } from "./turnoutBaseline.js";
 import { renderDistrictV2BallotCard } from "./ballot.js";
 import { renderDistrictV2CandidateHistoryCard } from "./candidateHistory.js";
 import { renderDistrictV2TargetingCard } from "./targetingConfig.js";
@@ -100,6 +102,7 @@ const DISTRICT_V2_TRACE_AUTO_RETRY_MS = 60;
 const DISTRICT_V2_CARD_ID_BY_SCOPE = Object.freeze({
   raceContext: "v3DistrictV2RaceCard",
   electorate: "v3DistrictV2ElectorateCard",
+  turnoutBaseline: "v3DistrictV2TurnoutBaselineCard",
   ballot: "v3DistrictV2BallotCard",
   candidateHistory: "v3DistrictV2CandidateHistoryCard",
   targeting: "v3DistrictV2TargetingCard",
@@ -111,6 +114,7 @@ const districtV2NodeTokens = new WeakMap();
 let districtV2TraceInstalled = false;
 let districtV2TraceRaceRoot = null;
 let districtV2TraceElectorateRoot = null;
+let districtV2TraceTurnoutRoot = null;
 let districtV2TraceBallotRoot = null;
 let districtV2TraceCandidateHistoryRoot = null;
 let districtV2TraceTargetingRoot = null;
@@ -141,6 +145,14 @@ export function renderDistrictV2Surface(mount) {
   });
   electorateCard.id = DISTRICT_V2_CARD_ID_BY_SCOPE.electorate;
   assignCardStatusId(electorateCard, "v3DistrictV2ElectorateCardStatus");
+
+  const turnoutBaselineCard = createCenterModuleCard({
+    title: "Turnout baseline",
+    description: "Two-cycle turnout anchors and confidence band width.",
+    status: "Awaiting turnout anchors",
+  });
+  turnoutBaselineCard.id = DISTRICT_V2_CARD_ID_BY_SCOPE.turnoutBaseline;
+  assignCardStatusId(turnoutBaselineCard, "v3DistrictV2TurnoutBaselineCardStatus");
 
   const ballotCard = createCenterModuleCard({
     title: "Ballot",
@@ -203,6 +215,7 @@ export function renderDistrictV2Surface(mount) {
 
   renderDistrictV2RaceContextCard({ raceCard, createFieldGrid, getCardBody });
   renderDistrictV2ElectorateCard({ electorateCard, createFieldGrid, getCardBody });
+  renderDistrictV2TurnoutBaselineCard({ turnoutBaselineCard, createFieldGrid, getCardBody });
   renderDistrictV2BallotCard({ ballotCard, createFieldGrid, getCardBody });
   renderDistrictV2CandidateHistoryCard({ candidateHistoryCard, getCardBody });
   renderDistrictV2TargetingCard({ targetingCard, getCardBody });
@@ -220,6 +233,7 @@ export function renderDistrictV2Surface(mount) {
     ]),
     raceCard,
     electorateCard,
+    turnoutBaselineCard,
     ballotCard,
     candidateHistoryCard,
     targetingCard,
@@ -234,6 +248,7 @@ export function renderDistrictV2Surface(mount) {
 
   bindDistrictV2RaceContextHandlers();
   bindDistrictV2ElectorateHandlers();
+  bindDistrictV2TurnoutBaselineHandlers();
   bindDistrictV2BallotHandlers();
   bindDistrictV2CandidateHistoryHandlers();
   bindDistrictV2TargetingHandlers();
@@ -290,6 +305,7 @@ export function refreshDistrictV2Surface() {
 
   syncDistrictV2RaceContext(templateSnapshot, formSnapshot, controlSnapshot);
   syncDistrictV2Electorate(formSnapshot, controlSnapshot);
+  syncDistrictV2TurnoutBaseline(formSnapshot, controlSnapshot);
   syncDistrictV2Ballot(ballotSnapshot, controlSnapshot);
   syncDistrictV2CandidateHistory(ballotSnapshot, controlSnapshot);
   syncDistrictV2Targeting(targetingConfigSnapshot, targetingResultsSnapshot);
@@ -308,6 +324,12 @@ export function refreshDistrictV2Surface() {
     universe: formSnapshot?.universeSize,
     basis: formSnapshot?.universeBasis,
     sourceNote: formSnapshot?.sourceNote,
+  }));
+
+  syncDistrictV2CardStatus("v3DistrictV2TurnoutBaselineCardStatus", deriveDistrictTurnoutBaselineCardStatus({
+    turnoutA: formSnapshot?.turnoutA,
+    turnoutB: formSnapshot?.turnoutB,
+    bandWidth: formSnapshot?.bandWidth,
   }));
 
   syncDistrictV2CardStatus("v3DistrictV2BallotCardStatus", deriveDistrictBaselineCardStatus({
@@ -406,6 +428,15 @@ function readDistrictV2TraceSnapshot(controlId) {
   const canonicalUniverse = Number.isFinite(Number(formSnapshot?.universeSize))
     ? Number(formSnapshot.universeSize)
     : null;
+  const canonicalTurnoutA = Number.isFinite(Number(formSnapshot?.turnoutA))
+    ? Number(formSnapshot.turnoutA)
+    : null;
+  const canonicalTurnoutB = Number.isFinite(Number(formSnapshot?.turnoutB))
+    ? Number(formSnapshot.turnoutB)
+    : null;
+  const canonicalBandWidth = Number.isFinite(Number(formSnapshot?.bandWidth))
+    ? Number(formSnapshot.bandWidth)
+    : null;
   const canonicalC3 = readDistrictV2C3CanonicalByControlId(controlId);
   return {
     control,
@@ -417,6 +448,9 @@ function readDistrictV2TraceSnapshot(controlId) {
       controlId === "v3DistrictV2RaceType" ? canonicalRace
       : controlId === "v3DistrictV2ElectionDate" ? canonicalElectionDate
       : controlId === "v3DistrictV2UniverseSize" ? canonicalUniverse
+      : controlId === "v3DistrictV2TurnoutA" ? canonicalTurnoutA
+      : controlId === "v3DistrictV2TurnoutB" ? canonicalTurnoutB
+      : controlId === "v3DistrictV2BandWidth" ? canonicalBandWidth
       : canonicalC3,
     persistedValue:
       controlId === "v3DistrictV2RaceType"
@@ -612,6 +646,15 @@ function readDistrictV2C3CanonicalByControlId(controlId) {
   }
   if (key === "v3DistrictV2CensusGeoSearch") {
     return readDistrictV2CensusCanonicalValue("geoSearch");
+  }
+  if (key === "v3DistrictV2TurnoutA") {
+    return readDistrictFormSnapshot()?.turnoutA ?? null;
+  }
+  if (key === "v3DistrictV2TurnoutB") {
+    return readDistrictFormSnapshot()?.turnoutB ?? null;
+  }
+  if (key === "v3DistrictV2BandWidth") {
+    return readDistrictFormSnapshot()?.bandWidth ?? null;
   }
   return null;
 }
@@ -864,6 +907,24 @@ function runDistrictV2TraceAutoProbeC3(attempt = 0) {
   }
   nodes.forEach((entry) => {
     probeDistrictV2C3Control(entry.id, entry.type, entry.control);
+  });
+  window.setTimeout(() => {
+    runDistrictV2TraceAutoProbeC8();
+  }, 80);
+}
+
+function runDistrictV2TraceAutoProbeC8() {
+  if (!isDistrictV2TraceEnabled() || !isDistrictV2TraceAutoProbeEnabled()) {
+    return;
+  }
+  const controls = [
+    { id: "v3DistrictV2TurnoutA", type: "number" },
+    { id: "v3DistrictV2TurnoutB", type: "number" },
+    { id: "v3DistrictV2BandWidth", type: "number" },
+  ];
+  controls.forEach((entry) => {
+    const control = document.getElementById(entry.id);
+    probeDistrictV2C3Control(entry.id, entry.type, control);
   });
 }
 
@@ -1125,6 +1186,7 @@ function installDistrictV2DomLifecycleTrace() {
     districtV2TraceInstalled = false;
     districtV2TraceRaceRoot = null;
     districtV2TraceElectorateRoot = null;
+    districtV2TraceTurnoutRoot = null;
     districtV2TraceBallotRoot = null;
     districtV2TraceCandidateHistoryRoot = null;
     districtV2TraceTargetingRoot = null;
@@ -1134,6 +1196,9 @@ function installDistrictV2DomLifecycleTrace() {
   bindDistrictV2ControlLifecycleTrace("v3DistrictV2RaceType");
   bindDistrictV2ControlLifecycleTrace("v3DistrictV2ElectionDate");
   bindDistrictV2ControlLifecycleTrace("v3DistrictV2UniverseSize");
+  bindDistrictV2ControlLifecycleTrace("v3DistrictV2TurnoutA");
+  bindDistrictV2ControlLifecycleTrace("v3DistrictV2TurnoutB");
+  bindDistrictV2ControlLifecycleTrace("v3DistrictV2BandWidth");
   bindDistrictV2ControlLifecycleTrace("v3DistrictV2UndecidedPct");
   bindDistrictV2ControlLifecycleTrace("v3DistrictV2CensusResolution");
   bindDistrictV2ControlLifecycleTrace("v3DistrictV2CensusGeoSearch");
@@ -1141,6 +1206,7 @@ function installDistrictV2DomLifecycleTrace() {
   bindDistrictV2ControlLifecycleTrace("v3DistrictV2TargetingTopN");
   const raceRoot = document.getElementById(DISTRICT_V2_CARD_ID_BY_SCOPE.raceContext);
   const electorateRoot = document.getElementById(DISTRICT_V2_CARD_ID_BY_SCOPE.electorate);
+  const turnoutRoot = document.getElementById(DISTRICT_V2_CARD_ID_BY_SCOPE.turnoutBaseline);
   const ballotRoot = document.getElementById(DISTRICT_V2_CARD_ID_BY_SCOPE.ballot);
   const candidateHistoryRoot = document.getElementById(DISTRICT_V2_CARD_ID_BY_SCOPE.candidateHistory);
   const targetingRoot = document.getElementById(DISTRICT_V2_CARD_ID_BY_SCOPE.targeting);
@@ -1148,6 +1214,7 @@ function installDistrictV2DomLifecycleTrace() {
   const shouldReinstallObservers = !districtV2TraceInstalled
     || raceRoot !== districtV2TraceRaceRoot
     || electorateRoot !== districtV2TraceElectorateRoot
+    || turnoutRoot !== districtV2TraceTurnoutRoot
     || ballotRoot !== districtV2TraceBallotRoot
     || candidateHistoryRoot !== districtV2TraceCandidateHistoryRoot
     || targetingRoot !== districtV2TraceTargetingRoot
@@ -1158,6 +1225,7 @@ function installDistrictV2DomLifecycleTrace() {
   clearDistrictV2TraceObservers();
   installDistrictV2MutationTrace("raceContext", DISTRICT_V2_CARD_ID_BY_SCOPE.raceContext);
   installDistrictV2MutationTrace("electorate", DISTRICT_V2_CARD_ID_BY_SCOPE.electorate);
+  installDistrictV2MutationTrace("turnoutBaseline", DISTRICT_V2_CARD_ID_BY_SCOPE.turnoutBaseline);
   installDistrictV2MutationTrace("ballot", DISTRICT_V2_CARD_ID_BY_SCOPE.ballot);
   installDistrictV2MutationTrace("candidateHistory", DISTRICT_V2_CARD_ID_BY_SCOPE.candidateHistory);
   installDistrictV2MutationTrace("targeting", DISTRICT_V2_CARD_ID_BY_SCOPE.targeting);
@@ -1165,6 +1233,7 @@ function installDistrictV2DomLifecycleTrace() {
   districtV2TraceInstalled = true;
   districtV2TraceRaceRoot = raceRoot instanceof HTMLElement ? raceRoot : null;
   districtV2TraceElectorateRoot = electorateRoot instanceof HTMLElement ? electorateRoot : null;
+  districtV2TraceTurnoutRoot = turnoutRoot instanceof HTMLElement ? turnoutRoot : null;
   districtV2TraceBallotRoot = ballotRoot instanceof HTMLElement ? ballotRoot : null;
   districtV2TraceCandidateHistoryRoot = candidateHistoryRoot instanceof HTMLElement ? candidateHistoryRoot : null;
   districtV2TraceTargetingRoot = targetingRoot instanceof HTMLElement ? targetingRoot : null;
@@ -1172,6 +1241,9 @@ function installDistrictV2DomLifecycleTrace() {
   logDistrictV2ControlTrace("trace.init", "v3DistrictV2RaceType");
   logDistrictV2ControlTrace("trace.init", "v3DistrictV2ElectionDate");
   logDistrictV2ControlTrace("trace.init", "v3DistrictV2UniverseSize");
+  logDistrictV2ControlTrace("trace.init", "v3DistrictV2TurnoutA");
+  logDistrictV2ControlTrace("trace.init", "v3DistrictV2TurnoutB");
+  logDistrictV2ControlTrace("trace.init", "v3DistrictV2BandWidth");
   logDistrictV2ControlTrace("trace.init", "v3DistrictV2UndecidedPct");
   logDistrictV2ControlTrace("trace.init", "v3DistrictV2CensusResolution");
   logDistrictV2ControlTrace("trace.init", "v3DistrictV2CensusGeoSearch");
@@ -1290,6 +1362,24 @@ function syncDistrictV2Electorate(formSnapshot, controlSnapshot) {
   applyDisabled("v3DistrictV2UniverseNpaPct", locked || !!disabledMap.universe16NpaPct);
   applyDisabled("v3DistrictV2UniverseOtherPct", locked || !!disabledMap.universe16OtherPct);
   applyDisabled("v3DistrictV2RetentionFactor", locked || !!disabledMap.retentionFactor);
+}
+
+function syncDistrictV2TurnoutBaseline(formSnapshot, controlSnapshot) {
+  const form = formSnapshot && typeof formSnapshot === "object" ? formSnapshot : {};
+  syncInputValueFromRaw("v3DistrictV2TurnoutA", form.turnoutA);
+  syncInputValueFromRaw("v3DistrictV2TurnoutB", form.turnoutB);
+  syncInputValueFromRaw("v3DistrictV2BandWidth", form.bandWidth);
+
+  const locked = !!controlSnapshot?.locked;
+  const disabledMap = controlSnapshot?.disabledMap && typeof controlSnapshot.disabledMap === "object"
+    ? controlSnapshot.disabledMap
+    : {};
+  const turnoutADisabled = locked || !!disabledMap.turnoutA || !!disabledMap.v3DistrictTurnoutA;
+  const turnoutBDisabled = locked || !!disabledMap.turnoutB || !!disabledMap.v3DistrictTurnoutB;
+  const bandWidthDisabled = locked || !!disabledMap.bandWidth || !!disabledMap.v3DistrictBandWidth;
+  applyDisabled("v3DistrictV2TurnoutA", turnoutADisabled);
+  applyDisabled("v3DistrictV2TurnoutB", turnoutBDisabled);
+  applyDisabled("v3DistrictV2BandWidth", bandWidthDisabled);
 }
 
 function syncDistrictV2Ballot(ballotSnapshot, controlSnapshot) {
@@ -1701,13 +1791,32 @@ function syncDistrictV2Census(configSnapshot, resultsSnapshot) {
   setText("v3DistrictV2CensusGeoStats", String(results.geoStatsText || "0 selected of 0 GEOs. 0 rows loaded.") || "0 selected of 0 GEOs. 0 rows loaded.");
   setText("v3DistrictV2CensusLastFetch", String(results.lastFetchText || "No fetch yet.") || "No fetch yet.");
   setText("v3DistrictV2CensusSelectionSummary", String(results.selectionSummaryText || "No GEO selected.") || "No GEO selected.");
+  setText("v3DistrictV2CensusMapStatus", String(results.mapStatusText || "Map idle. Select GEO units and click Load boundaries.") || "Map idle. Select GEO units and click Load boundaries.");
+  setText("v3DistrictV2CensusMapQaVtdZipStatus", String(results.mapQaVtdZipStatusText || "No VTD ZIP loaded.") || "No VTD ZIP loaded.");
 
   renderDistrictV2CensusAggregateRows(results.aggregateRows);
+
+  const mapShell = document.getElementById("v3DistrictV2CensusMapShell");
+  if (mapShell instanceof HTMLElement) {
+    const mapStatusText = String(results.mapStatusText || "").toLowerCase();
+    const hasActiveMap =
+      (mapStatusText && !mapStatusText.includes("idle"))
+      || mapStatusText.includes("loaded")
+      || mapStatusText.includes("overlay")
+      || mapStatusText.includes("qa");
+    mapShell.classList.toggle("is-active", hasActiveMap);
+    mapShell.classList.toggle("is-idle", !hasActiveMap);
+  }
+  const mapOverlay = document.getElementById("v3DistrictV2CensusMapOverlay");
+  if (mapOverlay instanceof HTMLElement) {
+    mapOverlay.textContent = String(results.mapStatusText || "Map shell restored. Load boundaries to refresh geometry status.");
+  }
 
   const controlsLocked = !!config.controlsLocked;
   const disabledMap = config.disabledMap && typeof config.disabledMap === "object"
     ? config.disabledMap
     : {};
+  const readDisabled = (...keys) => keys.some((key) => !!disabledMap?.[key]);
 
   applyDisabled("v3DistrictV2CensusApiKey", controlsLocked || !!disabledMap.apiKey);
   applyDisabled("v3DistrictV2CensusAcsYear", controlsLocked || !!disabledMap.year);
@@ -1721,12 +1830,37 @@ function syncDistrictV2Census(configSnapshot, resultsSnapshot) {
   applyDisabled("v3DistrictV2CensusGeoPaste", controlsLocked || !!disabledMap.geoPaste);
   applyDisabled("v3DistrictV2CensusGeoSelect", controlsLocked || !!disabledMap.geoSelect);
   applyDisabled("v3DistrictV2CensusApplyAdjustments", controlsLocked || !!disabledMap.applyAdjustedAssumptions);
-  applyDisabled("v3DistrictV2CensusMapQaVtdOverlay", controlsLocked || !!disabledMap.mapQaVtdOverlay);
+  applyDisabled(
+    "v3DistrictV2CensusMapQaVtdOverlay",
+    controlsLocked || !!disabledMap.mapQaVtdOverlay || readDisabled("v3CensusMapQaVtdToggle"),
+  );
   applyDisabled("v3BtnDistrictV2CensusLoadGeo", controlsLocked || !!disabledMap.loadGeo);
   applyDisabled("v3BtnDistrictV2CensusApplyGeoPaste", controlsLocked || !!disabledMap.applyGeoPaste);
-  applyDisabled("v3BtnDistrictV2CensusSelectAll", controlsLocked || !!disabledMap.selectAllGeo);
-  applyDisabled("v3BtnDistrictV2CensusClearSelection", controlsLocked || !!disabledMap.clearGeoSelection);
+  applyDisabled(
+    "v3BtnDistrictV2CensusSelectAll",
+    controlsLocked || readDisabled("selectAll", "selectAllGeo", "v3BtnCensusSelectAll"),
+  );
+  applyDisabled(
+    "v3BtnDistrictV2CensusClearSelection",
+    controlsLocked || readDisabled("clearSelection", "clearGeoSelection", "v3BtnCensusClearSelection"),
+  );
   applyDisabled("v3BtnDistrictV2CensusFetchRows", controlsLocked || !!disabledMap.fetchRows);
+  applyDisabled(
+    "v3BtnDistrictV2CensusLoadMap",
+    controlsLocked || readDisabled("loadMap", "v3BtnCensusLoadMap"),
+  );
+  applyDisabled(
+    "v3BtnDistrictV2CensusClearMap",
+    controlsLocked || readDisabled("clearMap", "v3BtnCensusClearMap"),
+  );
+  applyDisabled(
+    "v3DistrictV2CensusMapQaVtdZip",
+    controlsLocked || readDisabled("mapQaVtdZip", "v3CensusMapQaVtdZip"),
+  );
+  applyDisabled(
+    "v3BtnDistrictV2CensusClearVtdZip",
+    controlsLocked || readDisabled("clearVtdZip", "v3BtnCensusMapQaVtdZipClear"),
+  );
 }
 
 function renderDistrictV2TargetingRows(rows) {
@@ -1802,6 +1936,12 @@ function bindDistrictV2ElectorateHandlers() {
   bindDistrictV2FormField("v3DistrictV2UniverseNpaPct", "universe16NpaPct");
   bindDistrictV2FormField("v3DistrictV2UniverseOtherPct", "universe16OtherPct");
   bindDistrictV2FormField("v3DistrictV2RetentionFactor", "retentionFactor");
+}
+
+function bindDistrictV2TurnoutBaselineHandlers() {
+  bindDistrictV2FormField("v3DistrictV2TurnoutA", "turnoutA");
+  bindDistrictV2FormField("v3DistrictV2TurnoutB", "turnoutB");
+  bindDistrictV2FormField("v3DistrictV2BandWidth", "bandWidth");
 }
 
 function bindDistrictV2BallotHandlers() {
@@ -1963,12 +2103,16 @@ function bindDistrictV2CensusHandlers() {
   bindDistrictV2CensusCheckbox("v3DistrictV2CensusApplyAdjustments", "applyAdjustedAssumptions");
   bindDistrictV2CensusCheckbox("v3DistrictV2CensusMapQaVtdOverlay", "mapQaVtdOverlay");
   bindDistrictV2CensusGeoSelection("v3DistrictV2CensusGeoSelect");
+  bindDistrictV2CensusFile("v3DistrictV2CensusMapQaVtdZip", "mapQaVtdZip");
 
   bindDistrictV2CensusAction("v3BtnDistrictV2CensusLoadGeo", "loadGeo");
   bindDistrictV2CensusAction("v3BtnDistrictV2CensusApplyGeoPaste", "applyGeoPaste");
-  bindDistrictV2CensusAction("v3BtnDistrictV2CensusSelectAll", "selectAllGeo");
-  bindDistrictV2CensusAction("v3BtnDistrictV2CensusClearSelection", "clearGeoSelection");
+  bindDistrictV2CensusAction("v3BtnDistrictV2CensusSelectAll", "selectAll");
+  bindDistrictV2CensusAction("v3BtnDistrictV2CensusClearSelection", "clearSelection");
   bindDistrictV2CensusAction("v3BtnDistrictV2CensusFetchRows", "fetchRows");
+  bindDistrictV2CensusAction("v3BtnDistrictV2CensusLoadMap", "loadMap");
+  bindDistrictV2CensusAction("v3BtnDistrictV2CensusClearMap", "clearMap");
+  bindDistrictV2CensusAction("v3BtnDistrictV2CensusClearVtdZip", "clearVtdZip");
 }
 
 function emitDistrictV2FormDispatchAudit(controlId, field, control, eventName, rawValue, normalizedValue, result, canonicalBefore, canonicalAfter) {
@@ -2216,6 +2360,18 @@ function bindDistrictV2CensusGeoSelection(v3Id) {
   });
 }
 
+function bindDistrictV2CensusFile(v3Id, field) {
+  const control = document.getElementById(v3Id);
+  if (!(control instanceof HTMLInputElement) || control.dataset.v3DistrictV2Bound === "1") {
+    return;
+  }
+  control.dataset.v3DistrictV2Bound = "1";
+  control.addEventListener("change", () => {
+    const result = setDistrictCensusFile(field, control.files || []);
+    handleDistrictV2MutationResult(result, `setCensusFile:${field}`);
+  });
+}
+
 function bindDistrictV2CensusAction(v3Id, action) {
   const button = document.getElementById(v3Id);
   if (!(button instanceof HTMLButtonElement) || button.dataset.v3DistrictV2Bound === "1") {
@@ -2254,6 +2410,22 @@ function syncDistrictV2CardStatus(id, value) {
   } else if (tone === "bad") {
     status.classList.add("is-bad");
   }
+}
+
+function deriveDistrictTurnoutBaselineCardStatus(snapshot) {
+  const turnoutA = Number(snapshot?.turnoutA);
+  const turnoutB = Number(snapshot?.turnoutB);
+  const bandWidth = Number(snapshot?.bandWidth);
+  const hasA = Number.isFinite(turnoutA);
+  const hasB = Number.isFinite(turnoutB);
+  const hasBand = Number.isFinite(bandWidth);
+  if (hasA && hasB && hasBand) {
+    return `Anchored · A ${turnoutA.toFixed(1)}% · B ${turnoutB.toFixed(1)}% · ±${bandWidth.toFixed(1)}%`;
+  }
+  if (hasA || hasB || hasBand) {
+    return "Partial anchors";
+  }
+  return "Awaiting turnout anchors";
 }
 
 function syncSelectOptions(id, options, selectedValue, { placeholder = "" } = {}) {

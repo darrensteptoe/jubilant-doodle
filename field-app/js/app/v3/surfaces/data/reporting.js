@@ -105,23 +105,33 @@ export function bindDataReportingEvents(context = {}) {
 function syncReportTypeSelect(selectEl, options, selectedValue) {
   const list = Array.isArray(options) ? options : [];
   const selected = String(selectedValue || "").trim();
-  const nextValues = list.map((opt) => `${String(opt.value || "")}::${String(opt.label || "")}`);
-  const currentValues = Array.from(selectEl.options)
-    .map((opt) => `${String(opt.value || "")}::${String(opt.textContent || "")}`);
-  const matches = nextValues.length === currentValues.length && nextValues.every((v, i) => v === currentValues[i]);
-
-  if (!matches) {
-    selectEl.innerHTML = "";
-    list.forEach((opt) => {
-      const item = document.createElement("option");
-      item.value = String(opt.value || "");
-      item.textContent = String(opt.label || opt.value || "");
-      selectEl.appendChild(item);
-    });
-  }
+  replaceReportTypeOptionsInPlace(selectEl, list);
 
   if (document.activeElement !== selectEl) {
     const allowed = list.some((opt) => String(opt.value || "") === selected);
     selectEl.value = allowed ? selected : String(list[0]?.value || "internal_full");
+  }
+}
+
+function replaceReportTypeOptionsInPlace(selectEl, options) {
+  const list = Array.isArray(options) ? options : [];
+  for (let idx = 0; idx < list.length; idx += 1) {
+    const next = list[idx];
+    let option = selectEl.options[idx] || null;
+    if (!(option instanceof HTMLOptionElement)) {
+      option = document.createElement("option");
+      selectEl.appendChild(option);
+    }
+    const nextValue = String(next?.value || "");
+    const nextLabel = String(next?.label || next?.value || "");
+    if (String(option.value) !== nextValue) {
+      option.value = nextValue;
+    }
+    if (String(option.textContent || "") !== nextLabel) {
+      option.textContent = nextLabel;
+    }
+  }
+  while (selectEl.options.length > list.length) {
+    selectEl.remove(selectEl.options.length - 1);
   }
 }

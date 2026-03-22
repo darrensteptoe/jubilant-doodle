@@ -78,11 +78,33 @@ export function renderDistrictV2CensusCard({ censusCard, getCardBody }) {
         </label>
       </div>
 
+      <div class="fpe-census-map-row">
+        <button class="fpe-btn fpe-btn--ghost" id="v3BtnDistrictV2CensusLoadMap" type="button">Load boundaries</button>
+        <button class="fpe-btn fpe-btn--ghost" id="v3BtnDistrictV2CensusClearMap" type="button">Clear map</button>
+      </div>
+
+      <div class="fpe-field-grid fpe-field-grid--2">
+        <div class="field">
+          <label class="fpe-control-label" for="v3DistrictV2CensusMapQaVtdZip">VTD ZIP overlay source (optional)</label>
+          <input accept=".zip,application/zip" class="fpe-input" id="v3DistrictV2CensusMapQaVtdZip" type="file"/>
+        </div>
+        <div class="field">
+          <label class="fpe-control-label" for="v3BtnDistrictV2CensusClearVtdZip">VTD ZIP control</label>
+          <button class="fpe-btn fpe-btn--ghost" id="v3BtnDistrictV2CensusClearVtdZip" type="button">Clear VTD ZIP</button>
+        </div>
+      </div>
+
       <div class="fpe-help fpe-help--flush" id="v3DistrictV2CensusContextHint">Set state and resolution to define Census context.</div>
       <div class="fpe-help fpe-help--flush" id="v3DistrictV2CensusStatus">Ready.</div>
       <div class="fpe-help fpe-help--flush" id="v3DistrictV2CensusGeoStats">0 selected of 0 GEOs. 0 rows loaded.</div>
       <div class="fpe-help fpe-help--flush" id="v3DistrictV2CensusLastFetch">No fetch yet.</div>
       <div class="fpe-help fpe-help--flush" id="v3DistrictV2CensusSelectionSummary">No GEO selected.</div>
+      <div class="fpe-help fpe-help--flush" id="v3DistrictV2CensusMapStatus">Map idle. Select GEO units and click Load boundaries.</div>
+      <div class="fpe-help fpe-help--flush" id="v3DistrictV2CensusMapQaVtdZipStatus">No VTD ZIP loaded.</div>
+
+      <div class="fpe-census-map-shell is-idle" id="v3DistrictV2CensusMapShell">
+        <div class="fpe-census-map-overlay" id="v3DistrictV2CensusMapOverlay">Map shell restored. Load boundaries to refresh geometry status.</div>
+      </div>
 
       <div class="table-wrap">
         <table class="table" aria-label="District V2 census aggregate table">

@@ -9,17 +9,23 @@ export function syncDataImportExportModule(context = {}) {
     fallbackVoterImportStatus,
     fallbackImportFileStatus,
     setText,
+    syncInputValue,
     syncButtonDisabledLocal,
     syncVoterAdapterSelect,
   } = context;
 
   if (
     typeof setText !== "function"
+    || typeof syncInputValue !== "function"
     || typeof syncButtonDisabledLocal !== "function"
     || typeof syncVoterAdapterSelect !== "function"
   ) {
     return;
   }
+
+  const voterImportDraft = view?.voterImportDraft && typeof view.voterImportDraft === "object"
+    ? view.voterImportDraft
+    : {};
 
   setText("v3DataScopeCampaign", scope.scopeCampaign);
   setText("v3DataScopeOffice", scope.scopeOffice);
@@ -27,8 +33,9 @@ export function syncDataImportExportModule(context = {}) {
 
   const voterAdapterSelect = document.getElementById("v3DataVoterAdapter");
   if (voterAdapterSelect instanceof HTMLSelectElement) {
-    syncVoterAdapterSelect(voterAdapterSelect);
+    syncVoterAdapterSelect(voterAdapterSelect, voterImportDraft.adapterId);
   }
+  syncInputValue("v3DataVoterSourceId", voterImportDraft.sourceId);
 
   setText("v3DataVoterScopingRule", voterLayerView.scopingRule);
   setText("v3DataVoterSource", voterLayerView.source);
@@ -74,6 +81,44 @@ export function bindDataImportExportEvents(context = {}) {
     || typeof inferDataVoterInputFormat !== "function"
   ) {
     return;
+  }
+
+  const voterAdapterSelect = document.getElementById("v3DataVoterAdapter");
+  if (voterAdapterSelect instanceof HTMLSelectElement) {
+    voterAdapterSelect.addEventListener("change", () => {
+      const api = getDataApi();
+      if (!api || typeof api.setVoterImportDraft !== "function") {
+        return;
+      }
+      const result = api.setVoterImportDraft({
+        adapterId: String(voterAdapterSelect.value || "").trim(),
+      });
+      if (result && typeof result.then === "function") {
+        result.finally(() => refreshDataSummary());
+      } else {
+        refreshDataSummary();
+      }
+    });
+  }
+
+  const voterSourceInput = document.getElementById("v3DataVoterSourceId");
+  if (voterSourceInput instanceof HTMLInputElement) {
+    const pushDraftSource = () => {
+      const api = getDataApi();
+      if (!api || typeof api.setVoterImportDraft !== "function") {
+        return;
+      }
+      const result = api.setVoterImportDraft({
+        sourceId: String(voterSourceInput.value || "").trim(),
+      });
+      if (result && typeof result.then === "function") {
+        result.finally(() => refreshDataSummary());
+      } else {
+        refreshDataSummary();
+      }
+    };
+    voterSourceInput.addEventListener("change", pushDraftSource);
+    voterSourceInput.addEventListener("blur", pushDraftSource);
   }
 
   const voterImportBtn = document.getElementById("v3DataBtnImportVoter");

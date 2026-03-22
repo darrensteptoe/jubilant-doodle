@@ -168,26 +168,48 @@ export function bindDataForecastArchiveEvents(context = {}) {
 
 export function syncArchiveSelect(selectEl, options, selectedValue) {
   const selected = String(selectedValue || "");
-  const nextValues = options.map((opt) => `${String(opt.value || "")}::${String(opt.label || "")}`);
-  const currentValues = Array.from(selectEl.options)
-    .slice(1)
-    .map((opt) => `${String(opt.value || "")}::${String(opt.textContent || "")}`);
-  const matches = nextValues.length === currentValues.length && nextValues.every((v, i) => v === currentValues[i]);
-  if (!matches) {
-    selectEl.innerHTML = "";
-    const base = document.createElement("option");
-    base.value = "";
-    base.textContent = "Select archived forecast…";
-    selectEl.appendChild(base);
-    options.forEach((opt) => {
-      const item = document.createElement("option");
-      item.value = String(opt.value || "");
-      item.textContent = String(opt.label || opt.value || "");
-      selectEl.appendChild(item);
-    });
-  }
+  replaceArchiveSelectOptionsInPlace(
+    selectEl,
+    Array.isArray(options) ? options : [],
+    { value: "", label: "Select archived forecast…" },
+  );
   if (document.activeElement !== selectEl) {
     selectEl.value = selected;
+  }
+}
+
+function replaceArchiveSelectOptionsInPlace(selectEl, options, baseOption = null) {
+  const list = [];
+  if (baseOption && typeof baseOption === "object") {
+    list.push({
+      value: String(baseOption.value || ""),
+      label: String(baseOption.label || ""),
+    });
+  }
+  const rows = Array.isArray(options) ? options : [];
+  rows.forEach((row) => {
+    list.push({
+      value: String(row?.value || ""),
+      label: String(row?.label || row?.value || ""),
+    });
+  });
+
+  for (let idx = 0; idx < list.length; idx += 1) {
+    const next = list[idx];
+    let option = selectEl.options[idx] || null;
+    if (!(option instanceof HTMLOptionElement)) {
+      option = document.createElement("option");
+      selectEl.appendChild(option);
+    }
+    if (String(option.value) !== next.value) {
+      option.value = next.value;
+    }
+    if (String(option.textContent || "") !== next.label) {
+      option.textContent = next.label;
+    }
+  }
+  while (selectEl.options.length > list.length) {
+    selectEl.remove(selectEl.options.length - 1);
   }
 }
 

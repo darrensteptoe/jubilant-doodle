@@ -3,19 +3,19 @@ import { getActiveStageId, mountStage } from "./stageMount.js";
 
 const STAGE_EXPECTATIONS = {
   district: [
-    "#v3DistrictUniverse",
-    "#v3BtnAddCandidate",
-    "#v3DistrictElectorateWeightingToggle",
-    "#v3CensusStatus",
-    "#v3CensusAggregateTbody",
-    "#v3CensusAdvisoryTbody",
-    "#v3CensusMapShell",
-    "#v3DistrictTargetingStatus",
-    "#v3BtnDistrictRunTargeting",
-    "#v3DistrictTargetingResultsTbody",
-    "#v3DistrictRaceType",
-    "#v3DistrictUniverseSize",
-    "#v3DistrictTurnoutA"
+    "#v3DistrictV2Universe",
+    "#v3BtnDistrictV2AddCandidate",
+    "#v3DistrictV2Universe16Enabled",
+    "#v3DistrictV2CensusStatus",
+    "#v3DistrictV2CensusAggregateTbody",
+    "#v3DistrictV2CensusMapShell",
+    "#v3DistrictV2CensusMapQaVtdZip",
+    "#v3DistrictV2TargetingStatus",
+    "#v3BtnDistrictV2RunTargeting",
+    "#v3DistrictV2TargetingResultsTbody",
+    "#v3DistrictV2RaceType",
+    "#v3DistrictV2UniverseSize",
+    "#v3DistrictV2TurnoutA"
   ],
   "election-data": [
     "#v3ElectionDataImportFile",
@@ -450,17 +450,17 @@ export function runV3QaSmoke({
     if (stage.id === "district") {
       const districtView = readBridgeView("__FPE_DISTRICT_API__");
       const districtExplainerSelectors = [
-        '[data-district-explainer="v3DistrictRaceType"]',
-        '[data-district-explainer="v3DistrictUniverseSize"]',
-        '[data-district-explainer="v3DistrictUndecidedPct"]',
-        '[data-district-explainer="v3DistrictTurnoutA"]',
-        '[data-district-explainer="v3DistrictTurnoutB"]',
-        '[data-district-explainer="v3DistrictBandWidth"]',
-        '[data-district-explainer="v3DistrictRetentionFactor"]',
-        '[data-district-explainer="v3DistrictTargetingTopN"]',
-        '[data-district-explainer="v3DistrictTargetingMinScore"]',
-        '[data-district-explainer="v3CensusStateFips"]',
-        '[data-district-explainer="v3CensusCountyFips"]',
+        "#v3DistrictV2RaceType",
+        "#v3DistrictV2UniverseSize",
+        "#v3DistrictV2UndecidedPct",
+        "#v3DistrictV2TurnoutA",
+        "#v3DistrictV2TurnoutB",
+        "#v3DistrictV2BandWidth",
+        "#v3DistrictV2RetentionFactor",
+        "#v3DistrictV2TargetingTopN",
+        "#v3DistrictV2TargetingMinScore",
+        "#v3DistrictV2CensusStateFips",
+        "#v3DistrictV2CensusCountyFips",
       ];
       recordCheck(
         checks,

@@ -17,6 +17,7 @@ import {
   formatAssumptionsOneDecimal,
   formatAssumptionsPercent,
 } from "./assumptionsViewHelpers.js";
+import { selectDistrictCanonicalView } from "../core/selectors/districtCanonical.js";
 
 export function renderAssumptionsModule(args){
   const {
@@ -34,6 +35,33 @@ export function renderAssumptionsModule(args){
   } = args || {};
 
   const blocks = [];
+  const runtimeState = state && typeof state === "object" ? state : {};
+  const districtCanonical = selectDistrictCanonicalView(runtimeState);
+  const canonicalTemplate = districtCanonical?.templateProfile && typeof districtCanonical.templateProfile === "object"
+    ? districtCanonical.templateProfile
+    : {};
+  const canonicalForm = districtCanonical?.form && typeof districtCanonical.form === "object"
+    ? districtCanonical.form
+    : {};
+  const canonicalRaceType = String(canonicalTemplate.raceType || runtimeState.raceType || "").trim();
+  const canonicalMode = String(canonicalForm.mode || runtimeState.mode || "").trim();
+  const canonicalElectionDate = String(canonicalForm.electionDate || runtimeState.electionDate || "").trim();
+  const canonicalTemplateMeta = {
+    ...(runtimeState.templateMeta && typeof runtimeState.templateMeta === "object" ? runtimeState.templateMeta : {}),
+    officeLevel: String(canonicalTemplate.officeLevel || "").trim(),
+    electionType: String(canonicalTemplate.electionType || "").trim(),
+    seatContext: String(canonicalTemplate.seatContext || "").trim(),
+    partisanshipMode: String(canonicalTemplate.partisanshipMode || "").trim(),
+  };
+  const templateLabelState = {
+    ...runtimeState,
+    raceType: canonicalRaceType || runtimeState.raceType,
+    templateMeta: canonicalTemplateMeta,
+  };
+  const templateLabel = (typeof labelTemplate === "function")
+    ? labelTemplate(templateLabelState)
+    : (canonicalRaceType || "—");
+
   const footprint = assessRaceFootprintAlignment({
     censusState: state?.census,
     raceFootprint: state?.raceFootprint,
@@ -46,10 +74,15 @@ export function renderAssumptionsModule(args){
 
   blocks.push(block("Race & scenario", [
     kv("Scenario", state.scenarioName || "—"),
-    kv("Template", labelTemplate(state)),
+    kv("Template", templateLabel || "—"),
+    kv("Race template", canonicalRaceType || "—"),
+    kv("Office level", canonicalTemplateMeta.officeLevel || "—"),
+    kv("Election type", canonicalTemplateMeta.electionType || "—"),
+    kv("Seat context", canonicalTemplateMeta.seatContext || "—"),
+    kv("Partisanship mode", canonicalTemplateMeta.partisanshipMode || "—"),
     kv("Assumptions profile", assumptionsProfileLabel(state)),
-    kv("Mode", state.mode === "late_start" ? "Late-start / turnout-heavy" : "Persuasion-first"),
-    kv("Election date", state.electionDate || "—"),
+    kv("Mode", canonicalMode === "late_start" ? "Late-start / turnout-heavy" : "Persuasion-first"),
+    kv("Election date", canonicalElectionDate || "—"),
     kv("Weeks remaining", buildAssumptionsWeeksText(weeks)),
   ]));
 

@@ -18,6 +18,7 @@ function expect(pattern, message) {
 test("district phase5: replacement surface is decomposed into districtV2 module files", () => {
   expect(/from "\.\/raceContext\.js"/, "districtV2 index must import raceContext module");
   expect(/from "\.\/electorate\.js"/, "districtV2 index must import electorate module");
+  expect(/from "\.\/turnoutBaseline\.js"/, "districtV2 index must import turnoutBaseline module");
   expect(/from "\.\/ballot\.js"/, "districtV2 index must import ballot module");
   expect(/from "\.\/candidateHistory\.js"/, "districtV2 index must import candidateHistory module");
   expect(/from "\.\/targetingConfig\.js"/, "districtV2 index must import targetingConfig module");

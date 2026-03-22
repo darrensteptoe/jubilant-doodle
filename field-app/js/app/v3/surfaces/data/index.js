@@ -59,16 +59,22 @@ import {
 } from "./reporting.js";
 
 const DATA_API_KEY = "__FPE_DATA_API__";
-const DATA_ACTIONS = {
-  saveJson: "save_json",
-  loadJson: "load_json",
-  copySummary: "copy_summary",
-  exportCsv: "export_csv",
-  usbConnect: "usb_connect",
-  usbLoad: "usb_load",
-  usbSave: "usb_save",
-  usbDisconnect: "usb_disconnect",
-};
+const DATA_V3_TRACE_PREFIX = "[data_v3_dom_trace]";
+const DATA_V3_TRACE_FLAG_KEY = "__FPE_DATA_V3_TRACE_ENABLED__";
+const DATA_V3_TRACE_AUTO_MAX_ATTEMPTS = 20;
+const DATA_V3_TRACE_AUTO_RETRY_MS = 80;
+const DATA_V3_TRACE_CONTROL_IDS = Object.freeze([
+  "v3DataVoterSourceId",
+  "v3DataStrictToggle",
+  "v3DataArchiveSelect",
+  "v3DataReportType",
+]);
+let dataV3TraceInstalled = false;
+let dataV3TraceAutoRan = false;
+let dataV3TraceAutoAttempts = 0;
+let dataV3TraceAutoInProgress = false;
+let dataV3NodeSequence = 0;
+const dataV3NodeTokens = new WeakMap();
 
 export function renderDataSurface(mount) {
   const frame = createCenterStackFrame();
@@ -612,6 +618,8 @@ export function renderDataSurface(mount) {
   );
 
   wireDataBridge();
+  installDataV3DomLifecycleTrace();
+  runDataV3TraceAutoProbe();
   return refreshDataSummary;
 }
 
@@ -721,6 +729,7 @@ function syncDataBridgeUi() {
     fallbackVoterImportStatus: DATA_VOTER_IMPORT_STATUS_FALLBACK,
     fallbackImportFileStatus: DATA_IMPORT_FILE_STATUS_FALLBACK,
     setText,
+    syncInputValue,
     syncButtonDisabledLocal,
     syncVoterAdapterSelect,
   });
@@ -795,48 +804,62 @@ function syncDataBridgeUi() {
 
 function syncBackupSelect(selectEl, options, selectedValue) {
   const selected = String(selectedValue || "");
-  const nextValues = options.map((opt) => `${String(opt.value || "")}::${String(opt.label || "")}`);
-  const currentValues = Array.from(selectEl.options)
-    .slice(1)
-    .map((opt) => `${String(opt.value || "")}::${String(opt.textContent || "")}`);
-  const matches = nextValues.length === currentValues.length && nextValues.every((v, i) => v === currentValues[i]);
-  if (!matches) {
-    selectEl.innerHTML = "";
-    const base = document.createElement("option");
-    base.value = "";
-    base.textContent = "Restore backup…";
-    selectEl.appendChild(base);
-    options.forEach((opt) => {
-      const item = document.createElement("option");
-      item.value = String(opt.value || "");
-      item.textContent = String(opt.label || opt.value || "");
-      selectEl.appendChild(item);
-    });
-  }
+  const list = Array.isArray(options) ? options : [];
+  replaceDataSelectOptionsInPlace(
+    selectEl,
+    list,
+    { value: "", label: "Restore backup…" },
+  );
   if (document.activeElement !== selectEl) {
     selectEl.value = selected;
   }
 }
 
-function syncVoterAdapterSelect(selectEl) {
+function syncVoterAdapterSelect(selectEl, selectedValue) {
   const options = listDataVoterAdapterOptions();
-  const selected = String(selectEl.value || "").trim() || String(options[0]?.id || "canonical");
-  const nextValues = options.map((opt) => `${String(opt.id || "")}::${String(opt.label || "")}`);
-  const currentValues = Array.from(selectEl.options)
-    .map((opt) => `${String(opt.value || "")}::${String(opt.textContent || "")}`);
-  const matches = nextValues.length === currentValues.length && nextValues.every((v, i) => v === currentValues[i]);
-  if (!matches) {
-    selectEl.innerHTML = "";
-    options.forEach((opt) => {
-      const item = document.createElement("option");
-      item.value = String(opt.id || "");
-      item.textContent = String(opt.label || opt.id || "");
-      selectEl.appendChild(item);
-    });
-  }
+  const selected = String(selectedValue || "").trim() || String(options[0]?.id || "canonical");
+  replaceDataSelectOptionsInPlace(selectEl, options.map((opt) => ({
+    value: String(opt.id || ""),
+    label: String(opt.label || opt.id || ""),
+  })));
   if (document.activeElement !== selectEl) {
     const allowed = options.some((opt) => String(opt.id || "") === selected);
     selectEl.value = allowed ? selected : String(options[0]?.id || "canonical");
+  }
+}
+
+function replaceDataSelectOptionsInPlace(selectEl, options, baseOption = null) {
+  const list = Array.isArray(options) ? options : [];
+  const target = [];
+  if (baseOption && typeof baseOption === "object") {
+    target.push({
+      value: String(baseOption.value || ""),
+      label: String(baseOption.label || ""),
+    });
+  }
+  list.forEach((row) => {
+    target.push({
+      value: String(row?.value || ""),
+      label: String(row?.label || row?.value || ""),
+    });
+  });
+
+  for (let idx = 0; idx < target.length; idx += 1) {
+    const next = target[idx];
+    let opt = selectEl.options[idx] || null;
+    if (!(opt instanceof HTMLOptionElement)) {
+      opt = document.createElement("option");
+      selectEl.appendChild(opt);
+    }
+    if (String(opt.value) !== next.value) {
+      opt.value = next.value;
+    }
+    if (String(opt.textContent || "") !== next.label) {
+      opt.textContent = next.label;
+    }
+  }
+  while (selectEl.options.length > target.length) {
+    selectEl.remove(selectEl.options.length - 1);
   }
 }
 
@@ -901,6 +924,357 @@ function syncDataCardStatus(id, value) {
   );
   const tone = classifyDataStatusTone(text);
   badge.classList.add(`fpe-status-pill--${tone}`);
+}
+
+function emitDataV3Trace(payload = {}) {
+  if (!isDataV3TraceEnabled()) {
+    return;
+  }
+  try {
+    console.log(`${DATA_V3_TRACE_PREFIX} ${JSON.stringify(payload)}`);
+  } catch {
+    // no-op trace fallback
+  }
+}
+
+function isDataV3TraceEnabled() {
+  try {
+    if (window[DATA_V3_TRACE_FLAG_KEY]) {
+      return true;
+    }
+    const query = new URLSearchParams(String(window.location?.search || ""));
+    const token = String(query.get("dataDomTrace") || "").trim();
+    return token === "1" || token.toLowerCase() === "true";
+  } catch {
+    return false;
+  }
+}
+
+function isDataV3TraceAutoEnabled() {
+  try {
+    const query = new URLSearchParams(String(window.location?.search || ""));
+    const token = String(query.get("dataDomTraceAuto") || "").trim();
+    return token === "1" || token.toLowerCase() === "true";
+  } catch {
+    return false;
+  }
+}
+
+function dataV3NodeToken(node) {
+  if (!(node instanceof Element)) {
+    return "";
+  }
+  const existing = dataV3NodeTokens.get(node);
+  if (existing) {
+    return existing;
+  }
+  dataV3NodeSequence += 1;
+  const token = `data_v3_node_${dataV3NodeSequence}`;
+  dataV3NodeTokens.set(node, token);
+  return token;
+}
+
+function readDataV3CanonicalByControlId(controlId, view = null) {
+  const api = getDataApi();
+  const sourceView = view && typeof view === "object" ? view : (api?.getView?.() || null);
+  if (!sourceView || typeof sourceView !== "object") {
+    return "";
+  }
+  if (controlId === "v3DataVoterSourceId") {
+    return sourceView?.voterImportDraft?.sourceId ?? "";
+  }
+  if (controlId === "v3DataStrictToggle") {
+    return !!sourceView?.strictImport;
+  }
+  if (controlId === "v3DataArchiveSelect") {
+    return sourceView?.forecastArchive?.selectedHash ?? "";
+  }
+  if (controlId === "v3DataReportType") {
+    return sourceView?.reporting?.selectedType ?? "";
+  }
+  return "";
+}
+
+function readDataV3ControlValue(control) {
+  if (control instanceof HTMLInputElement) {
+    if (control.type === "checkbox") {
+      return control.checked;
+    }
+    return control.value;
+  }
+  if (control instanceof HTMLTextAreaElement || control instanceof HTMLSelectElement) {
+    return control.value;
+  }
+  return "";
+}
+
+function readDataV3TraceSnapshot(controlId, view = null) {
+  const node = document.getElementById(controlId);
+  const control = (
+    node instanceof HTMLInputElement
+    || node instanceof HTMLTextAreaElement
+    || node instanceof HTMLSelectElement
+  ) ? node : null;
+  return {
+    control,
+    nodeToken: control ? dataV3NodeToken(control) : "",
+    domValue: control ? readDataV3ControlValue(control) : "",
+    canonicalValue: readDataV3CanonicalByControlId(controlId, view),
+  };
+}
+
+function captureDataV3TokenMap() {
+  /** @type {Record<string, string>} */
+  const tokens = {};
+  DATA_V3_TRACE_CONTROL_IDS.forEach((controlId) => {
+    tokens[controlId] = readDataV3TraceSnapshot(controlId).nodeToken;
+  });
+  return tokens;
+}
+
+function computeDataV3SiblingReplacementMap(referenceControlId, referenceTokens = {}) {
+  /** @type {Record<string, boolean>} */
+  const status = {};
+  DATA_V3_TRACE_CONTROL_IDS.forEach((controlId) => {
+    if (controlId === referenceControlId) {
+      return;
+    }
+    const nowToken = readDataV3TraceSnapshot(controlId).nodeToken;
+    const beforeToken = String(referenceTokens?.[controlId] || "");
+    status[controlId] = !!beforeToken && !!nowToken && beforeToken !== nowToken;
+  });
+  return status;
+}
+
+function logDataV3ControlTrace(controlId, eventType, extra = {}) {
+  const snap = readDataV3TraceSnapshot(controlId);
+  emitDataV3Trace({
+    eventType,
+    controlId,
+    nodeToken: snap.nodeToken,
+    domValue: snap.domValue,
+    canonicalValue: snap.canonicalValue,
+    ...extra,
+  });
+}
+
+function logDataV3PostEventTrace(controlId, eventType) {
+  const referenceTokens = captureDataV3TokenMap();
+  const referenceNodeToken = String(referenceTokens?.[controlId] || "");
+  logDataV3ControlTrace(controlId, `${eventType}.before`, {
+    referenceNodeToken,
+    replacedSinceReference: referenceNodeToken !== "" && referenceNodeToken !== readDataV3TraceSnapshot(controlId).nodeToken,
+    siblingReplacementMap: computeDataV3SiblingReplacementMap(controlId, referenceTokens),
+  });
+  queueMicrotask(() => {
+    const nextToken = readDataV3TraceSnapshot(controlId).nodeToken;
+    logDataV3ControlTrace(controlId, `${eventType}.after.microtask`, {
+      referenceNodeToken,
+      replacedSinceReference: referenceNodeToken !== "" && referenceNodeToken !== nextToken,
+      siblingReplacementMap: computeDataV3SiblingReplacementMap(controlId, referenceTokens),
+    });
+  });
+  window.requestAnimationFrame(() => {
+    const nextToken = readDataV3TraceSnapshot(controlId).nodeToken;
+    logDataV3ControlTrace(controlId, `${eventType}.after.raf`, {
+      referenceNodeToken,
+      replacedSinceReference: referenceNodeToken !== "" && referenceNodeToken !== nextToken,
+      siblingReplacementMap: computeDataV3SiblingReplacementMap(controlId, referenceTokens),
+    });
+  });
+}
+
+function bindDataV3ControlLifecycleTrace(controlId) {
+  const node = document.getElementById(controlId);
+  const control = (
+    node instanceof HTMLInputElement
+    || node instanceof HTMLTextAreaElement
+    || node instanceof HTMLSelectElement
+  ) ? node : null;
+  if (!control || control.dataset.v3DataTraceBound === "1") {
+    return;
+  }
+  control.dataset.v3DataTraceBound = "1";
+
+  control.addEventListener("focus", () => logDataV3ControlTrace(controlId, "focus"));
+  if (!(control instanceof HTMLInputElement && control.type === "checkbox")) {
+    control.addEventListener("input", () => logDataV3ControlTrace(controlId, "input"));
+    control.addEventListener("blur", () => logDataV3PostEventTrace(controlId, "blur"));
+  }
+  control.addEventListener("change", () => {
+    logDataV3ControlTrace(controlId, "change");
+    logDataV3PostEventTrace(controlId, "change");
+  });
+}
+
+function resolveDataV3SelectProbeValue(control) {
+  const currentValue = String(control.value || "");
+  const values = Array.from(control.options || [])
+    .map((opt) => String(opt?.value || ""))
+    .filter((value) => value !== "");
+  const alternate = values.find((value) => value !== currentValue);
+  if (alternate) {
+    return alternate;
+  }
+  return values[0] || currentValue;
+}
+
+function resolveDataV3ProbeValue(controlId, control) {
+  if (controlId === "v3DataVoterSourceId") {
+    return "c6-source-probe";
+  }
+  if (controlId === "v3DataStrictToggle" && control instanceof HTMLInputElement) {
+    return !control.checked;
+  }
+  if ((controlId === "v3DataArchiveSelect" || controlId === "v3DataReportType") && control instanceof HTMLSelectElement) {
+    return resolveDataV3SelectProbeValue(control);
+  }
+  return "";
+}
+
+function probeDataV3Control(controlId) {
+  const node = document.getElementById(controlId);
+  const control = (
+    node instanceof HTMLInputElement
+    || node instanceof HTMLTextAreaElement
+    || node instanceof HTMLSelectElement
+  ) ? node : null;
+  if (!control || control.disabled) {
+    return false;
+  }
+
+  const referenceTokens = captureDataV3TokenMap();
+  const referenceNodeToken = String(referenceTokens?.[controlId] || "");
+  const probeValue = resolveDataV3ProbeValue(controlId, control);
+  const beforeDomValue = readDataV3ControlValue(control);
+  const canonicalBefore = readDataV3CanonicalByControlId(controlId);
+  emitDataV3Trace({
+    eventType: "trace.auto.c6.set",
+    controlId,
+    beforeDomValue,
+    probeValue,
+    canonicalBefore,
+  });
+
+  control.focus();
+  if (control instanceof HTMLInputElement && control.type === "checkbox") {
+    control.checked = !!probeValue;
+    control.dispatchEvent(new Event("change", { bubbles: true }));
+  } else {
+    control.value = String(probeValue ?? "");
+    control.dispatchEvent(new Event("input", { bubbles: true }));
+    control.dispatchEvent(new Event("change", { bubbles: true }));
+    control.blur();
+  }
+
+  window.setTimeout(() => {
+    const post = readDataV3TraceSnapshot(controlId);
+    emitDataV3Trace({
+      eventType: "trace.auto.c6.post",
+      controlId,
+      referenceNodeToken,
+      nodeToken: post.nodeToken,
+      replacedSinceReference: referenceNodeToken !== "" && referenceNodeToken !== post.nodeToken,
+      siblingReplacementMap: computeDataV3SiblingReplacementMap(controlId, referenceTokens),
+      domValue: post.domValue,
+      canonicalValue: post.canonicalValue,
+    });
+  }, 120);
+  return true;
+}
+
+function ensureDataV3ArchiveSeed() {
+  const archiveSelect = document.getElementById("v3DataArchiveSelect");
+  if (
+    archiveSelect instanceof HTMLSelectElement
+    && !archiveSelect.disabled
+    && Array.from(archiveSelect.options).some((opt) => String(opt.value || "").trim())
+  ) {
+    return;
+  }
+  const api = getDataApi();
+  if (!api || typeof api.saveArchiveActual !== "function") {
+    return;
+  }
+  const result = api.saveArchiveActual({
+    snapshotHash: "c6-seed-hash",
+    actual: {
+      margin: 1.2,
+      yourVotes: 6200,
+      winThreshold: 6100,
+      winner: "C6 Seed",
+      resultDate: "2026-11-03",
+    },
+    notes: "c6-seed",
+  });
+  if (result && typeof result.then === "function") {
+    result.finally(() => refreshDataSummary());
+  } else {
+    refreshDataSummary();
+  }
+}
+
+function installDataV3DomLifecycleTrace() {
+  if (!isDataV3TraceEnabled()) {
+    return;
+  }
+  DATA_V3_TRACE_CONTROL_IDS.forEach((controlId) => {
+    bindDataV3ControlLifecycleTrace(controlId);
+    logDataV3ControlTrace(controlId, "trace.init");
+  });
+  if (!dataV3TraceInstalled) {
+    dataV3TraceInstalled = true;
+    emitDataV3Trace({
+      eventType: "trace.init.meta",
+      controls: DATA_V3_TRACE_CONTROL_IDS.slice(),
+      learningEditableFieldsPresent: false,
+      learningNote: "Learning module exposes read-only diagnostics and no dedicated editable controls.",
+    });
+  }
+}
+
+function runDataV3TraceAutoProbe() {
+  if (
+    dataV3TraceAutoRan
+    || dataV3TraceAutoInProgress
+    || !isDataV3TraceEnabled()
+    || !isDataV3TraceAutoEnabled()
+  ) {
+    return;
+  }
+
+  ensureDataV3ArchiveSeed();
+
+  const allPresent = DATA_V3_TRACE_CONTROL_IDS.every((controlId) => {
+    const node = document.getElementById(controlId);
+    return node instanceof HTMLInputElement || node instanceof HTMLTextAreaElement || node instanceof HTMLSelectElement;
+  });
+  if (!allPresent) {
+    dataV3TraceAutoAttempts += 1;
+    if (dataV3TraceAutoAttempts <= DATA_V3_TRACE_AUTO_MAX_ATTEMPTS) {
+      window.setTimeout(runDataV3TraceAutoProbe, DATA_V3_TRACE_AUTO_RETRY_MS);
+    }
+    return;
+  }
+
+  const allWritable = DATA_V3_TRACE_CONTROL_IDS.every((controlId) => {
+    const snap = readDataV3TraceSnapshot(controlId);
+    return !!snap.control && !snap.control.disabled;
+  });
+  if (!allWritable) {
+    dataV3TraceAutoAttempts += 1;
+    if (dataV3TraceAutoAttempts <= DATA_V3_TRACE_AUTO_MAX_ATTEMPTS) {
+      window.setTimeout(runDataV3TraceAutoProbe, DATA_V3_TRACE_AUTO_RETRY_MS);
+    }
+    return;
+  }
+
+  dataV3TraceAutoInProgress = true;
+  dataV3TraceAutoRan = true;
+  DATA_V3_TRACE_CONTROL_IDS.forEach((controlId) => {
+    probeDataV3Control(controlId);
+  });
+  dataV3TraceAutoInProgress = false;
 }
 
 function getDataApi() {
