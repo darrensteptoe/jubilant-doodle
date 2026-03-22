@@ -346,6 +346,30 @@ test("c9.4b targeting lab: runtime bridge resolves runTargetRanking via targetin
   );
 });
 
+test("c9.4c targeting lab: district derived rows preserve target labels and priority badges in reasons", () => {
+  const derivedSeg = functionSegment(appRuntimeSource, "districtBridgeDerivedView");
+  assert.match(
+    derivedSeg,
+    /const reasons = Array\.isArray\(row\?\.reasons\)/,
+    "targeting derived rows should preserve the full reasons array",
+  );
+  assert.match(
+    derivedSeg,
+    /if \(row\?\.isTopTarget\) badges\.push\("Top target"\);/,
+    "targeting derived rows should include top-target badges",
+  );
+  assert.match(
+    derivedSeg,
+    /const headline = targetLabel \? `\$\{targetLabel\}: \$\{reasonBase \|\| "—"\}` : \(reasonBase \|\| "—"\);/,
+    "targeting reasons should include target label context when present",
+  );
+  assert.match(
+    derivedSeg,
+    /const flagsText = flagsList\.length \? flagsList\.join\(" • "\) : String\(row\?\.flagText \|\| ""\)\.trim\(\);/,
+    "targeting derived rows should preserve multi-flag text without forcing dash placeholders",
+  );
+});
+
 test("c10 census hierarchy: county is state-scoped and place is county-scoped when data exists", () => {
   const optionsSeg = functionSegment(appRuntimeSource, "districtBridgeBuildCensusConfigOptions");
   const disabledSeg = functionSegment(appRuntimeSource, "districtBridgeBuildCensusDisabledMap");

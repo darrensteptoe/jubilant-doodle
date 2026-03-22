@@ -84,6 +84,27 @@ function densityBandFromRatio(densityRatio){
   return { id: "low_density", label: "Low density", multiplier: 0.88, modifier: -0.10 };
 }
 
+function hasMetricValue(values, key){
+  return safeNum(values?.[key]) != null;
+}
+
+function hasAnyMetricValue(values, keys = []){
+  for (const key of keys){
+    if (hasMetricValue(values, key)){
+      return true;
+    }
+  }
+  return false;
+}
+
+function formatPct(value, digits = 1){
+  const n = safeNum(value);
+  if (n == null){
+    return "—";
+  }
+  return `${formatFixedNumber(n * 100, digits, "—")}%`;
+}
+
 export function deriveTargetSignalsForRow(row, state, config = {}){
   const values = row?.values && typeof row.values === "object" ? row.values : {};
   const criteria = config?.criteria && typeof config.criteria === "object" ? config.criteria : {};
@@ -236,6 +257,22 @@ export function deriveTargetSignalsForRow(row, state, config = {}){
     fieldEfficiencyRaw -= (multiUnitShare * 0.10);
   }
 
+  const signalCoverage = {
+    multiUnitShare: hasMetricValue(values, "B25024_001E") && hasAnyMetricValue(values, MULTI_UNIT_VARS),
+    limitedEnglishShare: hasMetricValue(values, "C16002_001E") && hasAnyMetricValue(values, LIMITED_ENGLISH_VARS),
+    noVehicleShare: hasMetricValue(values, "B08201_001E") && hasMetricValue(values, "B08201_002E"),
+    citizenShare: hasMetricValue(values, "B05001_001E") && hasAnyMetricValue(values, CITIZEN_VARS),
+    longCommuteShare: hasMetricValue(values, "B08303_001E") && hasAnyMetricValue(values, LONG_COMMUTE_VARS),
+    noInternetShare: hasMetricValue(values, "B28002_001E") && hasMetricValue(values, "B28002_013E"),
+  };
+  const missingCriticalSignalLabels = [];
+  if (!signalCoverage.multiUnitShare) missingCriticalSignalLabels.push("multi-unit share");
+  if (!signalCoverage.limitedEnglishShare) missingCriticalSignalLabels.push("limited-English share");
+  if (!signalCoverage.noVehicleShare) missingCriticalSignalLabels.push("no-vehicle share");
+  if (!signalCoverage.citizenShare) missingCriticalSignalLabels.push("citizen share");
+  if (!signalCoverage.longCommuteShare) missingCriticalSignalLabels.push("long-commute share");
+  if (!signalCoverage.noInternetShare) missingCriticalSignalLabels.push("no-internet share");
+
   return {
     population,
     housingUnits,
@@ -273,6 +310,8 @@ export function deriveTargetSignalsForRow(row, state, config = {}){
     estimatedDoorsPerHour,
     turnoutReliabilityRaw,
     votesPerOrganizerHour,
+    signalCoverage,
+    missingCriticalSignalLabels,
   };
 }
 
@@ -312,70 +351,106 @@ export function listTargetModels(){
 function buildReasons(components, rawSignals, modelId){
   const reasons = [];
   const c = components || {};
-  const baPlusShare = Number(rawSignals?.baPlusShare);
-  const noVehicleShare = Number(rawSignals?.noVehicleShare);
-  const longCommuteShare = Number(rawSignals?.longCommuteShare);
-  const povertyShare = Number(rawSignals?.povertyShare);
-  if (c.votePotential >= 0.66){
-    reasons.push("Large vote potential from housing-unit scale.");
+  const votePotential = Number(c?.votePotential);
+  const turnoutOpportunity = Number(c?.turnoutOpportunity);
+  const persuasionIndex = Number(c?.persuasionIndex);
+  const fieldEfficiency = Number(c?.fieldEfficiency);
+  const housingUnits = safeNum(rawSignals?.housingUnits);
+  const turnoutExpected = safeNum(rawSignals?.turnoutExpected);
+  const age18to34Share = safeNum(rawSignals?.age18to34Share);
+  const renterShare = safeNum(rawSignals?.renterShare);
+  const baPlusShare = safeNum(rawSignals?.baPlusShare);
+  const povertyShare = safeNum(rawSignals?.povertyShare);
+  const noVehicleShare = safeNum(rawSignals?.noVehicleShare);
+  const longCommuteShare = safeNum(rawSignals?.longCommuteShare);
+  const votesPerOrganizerHour = safeNum(rawSignals?.votesPerOrganizerHour);
+  const densityBandLabel = String(rawSignals?.densityBand?.label || "").trim();
+
+  if (Number.isFinite(votePotential) && votePotential >= 0.58){
+    const turnoutSuffix = turnoutExpected == null ? "" : ` at projected turnout ${formatPct(turnoutExpected, 0)}`;
+    const housingText = housingUnits == null ? "strong housing-unit scale" : `${formatFixedNumber(housingUnits, 0, "—")} housing units`;
+    reasons.push(`Vote scale: ${housingText}${turnoutSuffix}.`);
   }
-  if (c.turnoutOpportunity >= 0.66){
-    reasons.push("High turnout upside from age profile.");
+  if (Number.isFinite(turnoutOpportunity) && turnoutOpportunity >= 0.58){
+    reasons.push(
+      `Turnout upside: age 18-34 share ${formatPct(age18to34Share)} with opportunity score ${formatFixedNumber(turnoutOpportunity, 2, "—")}.`,
+    );
   }
-  if (c.persuasionIndex >= 0.66){
-    reasons.push("Strong persuasion opportunity in demographic mix.");
+  if (Number.isFinite(persuasionIndex) && persuasionIndex >= 0.58){
+    reasons.push(
+      `Persuasion mix: renter share ${formatPct(renterShare)} and BA+ share ${formatPct(baPlusShare)}.`,
+    );
   }
-  if (c.fieldEfficiency >= 0.66){
-    reasons.push("Efficient field access and expected contact pace.");
+  if (Number.isFinite(fieldEfficiency) && fieldEfficiency >= 0.58){
+    const densityPrefix = densityBandLabel ? `${densityBandLabel} footprint with ` : "";
+    const vphText = votesPerOrganizerHour == null
+      ? "solid organizer throughput"
+      : `${formatFixedNumber(votesPerOrganizerHour, 2, "—")} votes per organizer hour`;
+    reasons.push(`Field feasibility: ${densityPrefix}${vphText}.`);
   }
-  if (Number.isFinite(baPlusShare) && baPlusShare >= 0.40){
-    reasons.push("High BA+ share suggests stable turnout propensity.");
-  } else if (Number.isFinite(baPlusShare) && baPlusShare <= 0.20){
-    reasons.push("Low BA+ share indicates turnout-opportunity turf.");
+  if (baPlusShare != null && baPlusShare >= 0.40){
+    reasons.push(`High-propensity profile: BA+ share ${formatPct(baPlusShare)} supports stable turnout.`);
+  } else if (baPlusShare != null && baPlusShare <= 0.22){
+    reasons.push(`Turnout-lift profile: BA+ share ${formatPct(baPlusShare)} indicates lower baseline turnout.`);
   }
-  if (Number.isFinite(noVehicleShare) && noVehicleShare >= 0.18){
-    reasons.push("High no-vehicle share supports dense walk-list execution.");
+  if (noVehicleShare != null && noVehicleShare >= 0.15){
+    reasons.push(`High no-vehicle share (${formatPct(noVehicleShare)}) supports walk-list density.`);
   }
-  if (Number.isFinite(longCommuteShare) && longCommuteShare <= 0.15){
-    reasons.push("Lower long-commute share improves weekday contact timing.");
+  if (longCommuteShare != null && longCommuteShare <= 0.16){
+    reasons.push(`Commute profile favorable: long-commute share ${formatPct(longCommuteShare)} aids weekday contact timing.`);
   }
-  if (Number.isFinite(povertyShare) && povertyShare >= 0.18){
-    reasons.push("Economic hardship profile suggests turnout-opportunity upside.");
+  if (povertyShare != null && povertyShare >= 0.16){
+    reasons.push(`Economic hardship signal (${formatPct(povertyShare)}) suggests turnout-opportunity upside.`);
   }
   if (!reasons.length){
-    reasons.push("Balanced composite profile across turnout, persuasion, and field feasibility.");
+    reasons.push(
+      `Balanced profile: turnout ${formatFixedNumber(turnoutOpportunity, 2, "—")}, persuasion ${formatFixedNumber(persuasionIndex, 2, "—")}, field feasibility ${formatFixedNumber(fieldEfficiency, 2, "—")}.`,
+    );
   }
-  if (modelId === "field_efficiency" && Number.isFinite(Number(rawSignals?.votesPerOrganizerHour))){
-    reasons.push(`Estimated votes per organizer hour: ${formatFixedNumber(rawSignals.votesPerOrganizerHour, 2, "—")}.`);
+  if (modelId === "field_efficiency" && votesPerOrganizerHour != null){
+    reasons.push(`Estimated votes per organizer hour: ${formatFixedNumber(votesPerOrganizerHour, 2, "—")}.`);
   }
   return reasons.slice(0, 3);
 }
 
 function buildFlags(rawSignals){
   const flags = [];
-  const multiUnitShare = Number(rawSignals?.multiUnitShare);
-  const limitedEnglishShare = Number(rawSignals?.limitedEnglishShare);
-  const noVehicleShare = Number(rawSignals?.noVehicleShare);
-  const citizenShare = Number(rawSignals?.citizenShare);
-  const longCommuteShare = Number(rawSignals?.longCommuteShare);
-  const noInternetShare = Number(rawSignals?.noInternetShare);
-  if (Number.isFinite(multiUnitShare) && multiUnitShare >= 0.55){
-    flags.push("High multi-unit share may reduce direct access.");
+  const multiUnitShare = safeNum(rawSignals?.multiUnitShare);
+  const limitedEnglishShare = safeNum(rawSignals?.limitedEnglishShare);
+  const noVehicleShare = safeNum(rawSignals?.noVehicleShare);
+  const citizenShare = safeNum(rawSignals?.citizenShare);
+  const longCommuteShare = safeNum(rawSignals?.longCommuteShare);
+  const noInternetShare = safeNum(rawSignals?.noInternetShare);
+  const missingSignalLabels = Array.isArray(rawSignals?.missingCriticalSignalLabels)
+    ? rawSignals.missingCriticalSignalLabels.map((value) => String(value || "").trim()).filter(Boolean)
+    : [];
+  if (multiUnitShare != null && multiUnitShare >= 0.45){
+    flags.push(`High multi-unit share (${formatPct(multiUnitShare)}) may reduce direct access.`);
   }
-  if (Number.isFinite(limitedEnglishShare) && limitedEnglishShare >= 0.18){
-    flags.push("Language access burden likely for contact scripts.");
+  if (limitedEnglishShare != null && limitedEnglishShare >= 0.12){
+    flags.push(`Language-access burden likely (${formatPct(limitedEnglishShare)} limited-English share).`);
   }
-  if (Number.isFinite(noVehicleShare) && noVehicleShare >= 0.20){
-    flags.push("High no-vehicle share may require walk-list planning.");
+  if (noVehicleShare != null && noVehicleShare >= 0.12){
+    flags.push(`High no-vehicle share (${formatPct(noVehicleShare)}) may require walk-list planning.`);
   }
-  if (Number.isFinite(citizenShare) && citizenShare <= 0.80){
-    flags.push("Lower citizen share can reduce eligible-voter density.");
+  if (citizenShare != null && citizenShare <= 0.88){
+    flags.push(`Lower citizen share (${formatPct(citizenShare)}) can reduce eligible-voter density.`);
   }
-  if (Number.isFinite(longCommuteShare) && longCommuteShare >= 0.28){
-    flags.push("Long-commute profile may reduce weekday contact availability.");
+  if (longCommuteShare != null && longCommuteShare >= 0.22){
+    flags.push(`Long-commute profile (${formatPct(longCommuteShare)}) may reduce weekday contact availability.`);
   }
-  if (Number.isFinite(noInternetShare) && noInternetShare >= 0.20){
-    flags.push("High no-internet share can reduce digital follow-up reach.");
+  if (noInternetShare != null && noInternetShare >= 0.15){
+    flags.push(`High no-internet share (${formatPct(noInternetShare)}) can reduce digital follow-up reach.`);
+  }
+  if (!flags.length && missingSignalLabels.length){
+    const preview = missingSignalLabels.slice(0, 2);
+    const overflow = missingSignalLabels.length > preview.length
+      ? ` +${missingSignalLabels.length - preview.length} more`
+      : "";
+    flags.push(`Flag coverage limited: missing ${preview.join(", ")}${overflow}.`);
+  }
+  if (!flags.length){
+    flags.push("No elevated operational risk signals detected.");
   }
   return flags.slice(0, 3);
 }
@@ -433,10 +508,23 @@ export function scoreTargetRow({
   const expectedNetVoteValue = Number(canonical?.scores?.expectedNetVoteValue);
   const featureScores = canonical?.featureScores || {};
   const explainDrivers = Array.isArray(canonical?.explain?.topDrivers) ? canonical.explain.topDrivers : [];
+  const explainDriverRows = Array.isArray(canonical?.explain?.driverRows) ? canonical.explain.driverRows : [];
   const reasonSeed = buildReasons(components, rawSignals, model.id);
+  const explainReasonSeed = explainDriverRows
+    .map((row) => {
+      const label = String(row?.label || row?.key || "").trim();
+      if (!label){
+        return "";
+      }
+      const valuePct = formatPct(row?.value);
+      const weightPct = formatPct(row?.weight, 0);
+      return `${label}: value ${valuePct}, weight ${weightPct}.`;
+    })
+    .filter(Boolean);
   const reasons = [
-    ...explainDrivers.map((row) => String(row?.text || "").trim()).filter((text) => !!text),
     ...reasonSeed,
+    ...explainReasonSeed,
+    ...explainDrivers.map((row) => String(row?.text || "").trim()).filter((text) => !!text),
   ].slice(0, 3);
 
   return {
