@@ -298,12 +298,17 @@ test("c9.4 targeting lab: census runtime updates sync canonical selection slice"
   assert.match(triggerSeg, /districtBridgeSyncCensusSelectionCanonicalState\(next\)/, "triggerCensusAction must sync canonical census selection");
 });
 
-test("c10 targeting lab: run action is clickable unless scenario lock is active", () => {
+test("c9.4a targeting lab: run action is gated by lock + readiness", () => {
   const targetingSyncSeg = functionSegment(districtSurfaceSource, "syncDistrictV2Targeting");
   assert.match(
     targetingSyncSeg,
-    /applyDisabled\("v3BtnDistrictV2RunTargeting",\s*locked\);/,
-    "run targeting button must not be disabled by canRun gating",
+    /const canRun = config\.canRun == null \? true : !!config\.canRun;/,
+    "run targeting sync must normalize canRun state",
+  );
+  assert.match(
+    targetingSyncSeg,
+    /applyDisabled\("v3BtnDistrictV2RunTargeting",\s*locked \|\| !canRun\);/,
+    "run targeting button must disable when prerequisites are not met",
   );
 });
 
@@ -345,4 +350,29 @@ test("c10 census hierarchy: county is state-scoped and place is county-scoped wh
 
   const buildSubRowsSeg = functionSegment(censusPhase1Source, "buildSubRows");
   assert.match(buildSubRowsSeg, /county:\s*cleanText\(row\?\.county\)/, "census bridge rows should retain county metadata");
+  assert.match(
+    censusPhase1Source,
+    /const placeRowsFiltered = filterPlaceRowsByCounty\(placeRows,\s*s\.countyFips\);/,
+    "render path should narrow place options by selected county",
+  );
+  assert.match(
+    censusPhase1Source,
+    /fillSelect\(els\.censusPlaceFips,\s*buildSubRows\(placeRowsFiltered\),\s*s\.placeFips,\s*"Select place"\);/,
+    "place select should render county-filtered place rows",
+  );
+  assert.match(
+    censusPhase1Source,
+    /s\.bridgePlaceOptions = buildSubRows\(placeRowsFiltered\)\.map\(/,
+    "bridge place options should publish county-filtered rows",
+  );
+  assert.match(
+    censusPhase1Source,
+    /els\.censusCountyFips\.disabled = !s\.stateFips;/,
+    "county selector should remain available once state is chosen",
+  );
+  assert.match(
+    censusPhase1Source,
+    /if \(!resolutionNeedsCounty\(s\.resolution\) && s\.resolution !== "place"\)\{\s*s\.countyFips = "";/,
+    "runtime setField resolution path should keep county for place resolution",
+  );
 });
