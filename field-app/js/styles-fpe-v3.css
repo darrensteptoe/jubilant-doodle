@@ -155,10 +155,10 @@ body.dark #app-shell-v3-root {
 }
 
 .fpe-brand {
-  font-size: 13px;
-  font-weight: 700;
-  letter-spacing: 0.01em;
-  color: var(--fpe-topbar-title);
+  font-size: inherit;
+  font-weight: inherit;
+  letter-spacing: normal;
+  color: inherit;
   text-shadow: none;
   white-space: nowrap;
   overflow: hidden;
@@ -1640,6 +1640,10 @@ body.training #app-shell-v3-root .fpe-surface .fpe-why {
   justify-content: flex-start;
 }
 
+.fpe-surface-pane[data-v3-stage="district"] .fpe-census-load-geo-row {
+  justify-content: flex-end;
+}
+
 .fpe-surface-pane[data-v3-stage="district"] .fpe-census-map-row--vtd {
   margin-top: 4px;
 }
@@ -1653,6 +1657,10 @@ body.training #app-shell-v3-root .fpe-surface .fpe-why {
   justify-content: flex-start;
   align-items: center;
   gap: 10px;
+}
+
+.fpe-surface-pane[data-v3-stage="district"] .fpe-census-vtd-config-row {
+  align-items: end;
 }
 
 .fpe-surface-pane[data-v3-stage="district"] .fpe-census-btn--compact {
@@ -1680,6 +1688,13 @@ body.training #app-shell-v3-root .fpe-surface .fpe-why {
     color-mix(in srgb, var(--fpe-panel) 75%, var(--fpe-bg)) 0%,
       color-mix(in srgb, var(--fpe-panel) 58%, var(--fpe-bg)) 100%
   );
+}
+
+.fpe-surface-pane[data-v3-stage="district"] .fpe-census-map-load-btn {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  z-index: 2;
 }
 
 .fpe-surface-pane[data-v3-stage="district"] .fpe-census-map-shell.is-active {
@@ -1817,6 +1832,24 @@ body.training #app-shell-v3-root .fpe-surface .fpe-why {
 
 .fpe-surface-pane[data-v3-stage="district"] .fpe-targeting-lab .fpe-field-grid .field {
   min-width: 0;
+}
+
+.fpe-surface-pane[data-v3-stage="district"] .fpe-targeting-density-field {
+  margin-top: 10px;
+}
+
+.fpe-surface-pane[data-v3-stage="district"] .fpe-targeting-results-actions {
+  justify-content: space-between !important;
+  align-items: center;
+  gap: 10px;
+}
+
+.fpe-surface-pane[data-v3-stage="district"] .fpe-targeting-results-actions__right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-left: auto;
+  flex-wrap: wrap;
 }
 
 .fpe-surface-pane[data-v3-stage="scenarios"] .scm {
