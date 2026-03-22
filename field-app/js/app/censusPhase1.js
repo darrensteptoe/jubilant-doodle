@@ -422,7 +422,7 @@ function censusRuntimeSetBridgeFieldFallback(key, rawValue){
   if (field === "resolution"){
     const requestedResolution = cleanText(rawValue) || "tract";
     s.resolution = requestedResolution;
-    if (!resolutionNeedsCounty(s.resolution)){
+    if (!resolutionNeedsCounty(s.resolution) && s.resolution !== "place"){
       s.countyFips = "";
     }
     if (s.resolution !== "block_group"){
@@ -751,6 +751,19 @@ function buildSubRows(rows){
     state: cleanText(row?.state),
     county: cleanText(row?.county),
   }));
+}
+
+function filterPlaceRowsByCounty(rows, countyFips){
+  const list = Array.isArray(rows) ? rows : [];
+  const selectedCounty = cleanText(countyFips);
+  if (!selectedCounty) {
+    return list;
+  }
+  return list.filter((row) => {
+    const rowCounty = cleanText(row?.county);
+    if (!rowCounty) return true;
+    return rowCounty === selectedCounty;
+  });
 }
 
 function setStatus(s, text, isError = false){
@@ -1729,8 +1742,9 @@ export function renderCensusPhase1Module({ els, state, res } = {}){
 
   const countyRows = Array.isArray(countyOptionsCache.get(cleanText(s.stateFips))) ? countyOptionsCache.get(cleanText(s.stateFips)) : [];
   const placeRows = Array.isArray(placeOptionsCache.get(cleanText(s.stateFips))) ? placeOptionsCache.get(cleanText(s.stateFips)) : [];
+  const placeRowsFiltered = filterPlaceRowsByCounty(placeRows, s.countyFips);
   fillSelect(els.censusCountyFips, buildSubRows(countyRows), s.countyFips, "Select county");
-  fillSelect(els.censusPlaceFips, buildSubRows(placeRows), s.placeFips, "Select place");
+  fillSelect(els.censusPlaceFips, buildSubRows(placeRowsFiltered), s.placeFips, "Select place");
   if (els.censusGeoSearch && document.activeElement !== els.censusGeoSearch){
     els.censusGeoSearch.value = s.geoSearch || "";
   }
@@ -1744,7 +1758,7 @@ export function renderCensusPhase1Module({ els, state, res } = {}){
   fillSelect(els.censusSelectionSetSelect, setRows, selectedSetKey, "Saved sets");
 
   if (els.censusCountyFips){
-    els.censusCountyFips.disabled = !s.stateFips || !resolutionNeedsCounty(s.resolution);
+    els.censusCountyFips.disabled = !s.stateFips;
   }
   if (els.censusPlaceFips){
     els.censusPlaceFips.disabled = !s.stateFips;
@@ -2556,7 +2570,7 @@ export function renderCensusPhase1Module({ els, state, res } = {}){
     label: cleanText(row?.label || row?.value),
     state: cleanText(row?.state),
   }));
-  s.bridgePlaceOptions = buildSubRows(placeRows).map((row) => ({
+  s.bridgePlaceOptions = buildSubRows(placeRowsFiltered).map((row) => ({
     value: cleanText(row?.value),
     label: cleanText(row?.label || row?.value),
     state: cleanText(row?.state),
@@ -3365,7 +3379,7 @@ export function wireCensusPhase1EventsModule(ctx){
       const requestedResolution = cleanText(els.censusResolution.value) || "tract";
       withState((_, s) => {
         s.resolution = requestedResolution;
-        if (!resolutionNeedsCounty(s.resolution)){
+        if (!resolutionNeedsCounty(s.resolution) && s.resolution !== "place"){
           s.countyFips = "";
         }
         if (s.resolution !== "block_group"){
