@@ -1,7 +1,7 @@
 import {
-  createCard,
-  createColumn,
-  createSurfaceFrame,
+  createCenterModuleCard,
+  createCenterStackColumn,
+  createCenterStackFrame,
   createWhyPanel,
   getCardBody
 } from "../componentFactory.js";
@@ -83,41 +83,40 @@ let recommendationActionStatus = "";
 let whatIfActionStatus = "";
 
 export function renderControlsSurface(mount) {
-  const frame = createSurfaceFrame("two-col");
-  const governanceCol = createColumn("governance");
-  const calibrationCol = createColumn("calibration");
+  const frame = createCenterStackFrame();
+  const centerCol = createCenterStackColumn();
 
-  const workflowCard = createCard({
+  const workflowCard = createCenterModuleCard({
     title: "Guardrails",
     description: "Scenario lock and critical-change documentation requirements.",
     status: "Healthy"
   });
 
-  const evidenceCard = createCard({
+  const evidenceCard = createCenterModuleCard({
     title: "Evidence workflow",
     description: "Attach references to missing audit items before decisions are logged.",
     status: "Awaiting audit"
   });
 
-  const benchmarkCard = createCard({
+  const benchmarkCard = createCenterModuleCard({
     title: "Benchmark catalog",
     description: "Empirical ranges for critical assumptions, used for warnings only.",
     status: "Catalog empty"
   });
 
-  const feedbackCard = createCard({
+  const feedbackCard = createCenterModuleCard({
     title: "Review workflow",
     description: "Capture observed metrics and generate metadata-only drift recommendations.",
     status: "Awaiting feedback"
   });
 
-  const calibrationCard = createCard({
+  const calibrationCard = createCenterModuleCard({
     title: "Integrity summary",
     description: "Calibration narrative, expert toggles, and stochastic model controls.",
     status: "Needs brief"
   });
 
-  const summaryCard = createCard({
+  const summaryCard = createCenterModuleCard({
     title: "Current warnings",
     description: "Live governance warning posture across evidence, calibration, and recommendation workflows.",
     status: "Watchlist"
@@ -554,10 +553,8 @@ export function renderControlsSurface(mount) {
     </div>
   `;
 
-  governanceCol.append(summaryCard, workflowCard, benchmarkCard, evidenceCard);
-  calibrationCol.append(calibrationCard, feedbackCard);
-
-  frame.append(governanceCol, calibrationCol);
+  centerCol.append(summaryCard, workflowCard, evidenceCard, benchmarkCard, calibrationCard, feedbackCard);
+  frame.append(centerCol);
   mount.append(frame);
 
   mount.append(

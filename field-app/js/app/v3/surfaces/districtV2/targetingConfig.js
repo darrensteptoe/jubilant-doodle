@@ -184,10 +184,6 @@ export function renderDistrictV2TargetingCard({ targetingCard, getCardBody }) {
         <div class="field">
           <label class="fpe-control-label" for="v3DistrictV2TargetingGeoLevel">Geography level</label>
           <select class="fpe-input" id="v3DistrictV2TargetingGeoLevel"></select>
-          <div class="field fpe-targeting-density-field">
-            <label class="fpe-control-label" for="v3DistrictV2TargetingDensityFloor">Density floor</label>
-            <select class="fpe-input" id="v3DistrictV2TargetingDensityFloor"></select>
-          </div>
         </div>
         <div class="field">
           <label class="fpe-control-label" for="v3DistrictV2TargetingModelId">Target model</label>
@@ -211,6 +207,13 @@ export function renderDistrictV2TargetingCard({ targetingCard, getCardBody }) {
         <div class="field">
           <label class="fpe-control-label" for="v3DistrictV2TargetingMinScore">Minimum score</label>
           <input class="fpe-input" id="v3DistrictV2TargetingMinScore" min="0" step="0.1" type="number"/>
+        </div>
+      </div>
+
+      <div class="fpe-field-grid fpe-field-grid--1">
+        <div class="field fpe-targeting-density-field">
+          <label class="fpe-control-label" for="v3DistrictV2TargetingDensityFloor">Density floor</label>
+          <select class="fpe-input" id="v3DistrictV2TargetingDensityFloor"></select>
         </div>
       </div>
 

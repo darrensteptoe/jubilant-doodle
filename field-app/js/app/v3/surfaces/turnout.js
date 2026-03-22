@@ -1,7 +1,7 @@
 import {
-  createCard,
-  createColumn,
-  createSurfaceFrame,
+  createCenterModuleCard,
+  createCenterStackColumn,
+  createCenterStackFrame,
   setCardHeaderControl,
   createWhyPanel,
   getCardBody
@@ -28,29 +28,28 @@ import {
 const TURNOUT_API_KEY = "__FPE_TURNOUT_API__";
 
 export function renderTurnoutSurface(mount) {
-  const frame = createSurfaceFrame("two-col");
-  const inputsCol = createColumn("inputs");
-  const resultsCol = createColumn("results");
+  const frame = createCenterStackFrame();
+  const centerCol = createCenterStackColumn();
 
-  const assumptionsCard = createCard({
+  const assumptionsCard = createCenterModuleCard({
     title: "Turnout assumptions",
     description: "Baseline turnout, target override, and module activation for realized-vote modeling.",
     status: "Module off"
   });
 
-  const liftCard = createCard({
+  const liftCard = createCenterModuleCard({
     title: "Lift controls",
     description: "Diminishing-return behavior and lift parameters used to estimate turnout response.",
     status: "Awaiting setup"
   });
 
-  const costInputsCard = createCard({
+  const costInputsCard = createCenterModuleCard({
     title: "Efficiency inputs",
     description: "Per-attempt tactic settings and overhead assumptions for ROI comparison.",
     status: "Awaiting setup"
   });
 
-  const efficiencyCard = createCard({
+  const efficiencyCard = createCenterModuleCard({
     title: "Efficiency comparison",
     description: "Cost-per-net-vote and tactic comparison under current turnout assumptions.",
     status: "Awaiting refresh"
@@ -67,13 +66,13 @@ export function renderTurnoutSurface(mount) {
   `;
   setCardHeaderControl(assumptionsCard, assumptionsHeaderToggle);
 
-  const impactCard = createCard({
+  const impactCard = createCenterModuleCard({
     title: "Realized vote impact",
     description: "Turnout contribution against persuasion vote requirements and forecast posture.",
     status: "Awaiting setup"
   });
 
-  const summaryCard = createCard({
+  const summaryCard = createCenterModuleCard({
     title: "Turnout summary",
     description: "Current turnout context and vote-impact readout.",
     status: "Awaiting setup"
@@ -146,7 +145,7 @@ export function renderTurnoutSurface(mount) {
 
   const costBody = getCardBody(costInputsCard);
   costBody.innerHTML = `
-    <div class="fpe-field-grid fpe-field-grid--3">
+    <div class="fpe-field-grid fpe-field-grid--1 fpe-turnout-efficiency-stack">
       <div class="field">
         <div class="fpe-contained-block">
           <div class="fpe-control-label">Doors tactic</div>
@@ -316,10 +315,8 @@ export function renderTurnoutSurface(mount) {
     </div>
   `;
 
-  inputsCol.append(assumptionsCard, liftCard, costInputsCard, efficiencyCard);
-  resultsCol.append(summaryCard, impactCard);
-
-  frame.append(inputsCol, resultsCol);
+  centerCol.append(summaryCard, assumptionsCard, liftCard, impactCard, costInputsCard, efficiencyCard);
+  frame.append(centerCol);
   mount.append(frame);
   mount.append(
     createWhyPanel([

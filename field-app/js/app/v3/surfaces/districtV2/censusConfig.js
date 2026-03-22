@@ -90,12 +90,12 @@ export function renderDistrictV2CensusCard({ censusCard, getCardBody }) {
               <span>Enable VTD overlay</span>
             </label>
             <button class="fpe-btn fpe-btn--ghost fpe-census-btn--compact" id="v3BtnDistrictV2CensusClearVtdZip" type="button">Clear VTD ZIP</button>
+            <button class="fpe-btn fpe-btn--ghost fpe-census-btn--compact" id="v3BtnDistrictV2CensusLoadMap" type="button">Load boundaries</button>
           </div>
         </div>
       </div>
 
       <div class="fpe-census-map-shell is-idle" id="v3DistrictV2CensusMapShell">
-        <button class="fpe-btn fpe-btn--ghost fpe-census-map-load-btn" id="v3BtnDistrictV2CensusLoadMap" type="button">Load boundaries</button>
         <div class="census-map" id="v3CensusMapHost" role="img" aria-label="District Census boundaries map"></div>
         <div class="fpe-census-map-overlay" id="v3DistrictV2CensusMapOverlay">Map shell restored. Load boundaries to refresh geometry status.</div>
       </div>
