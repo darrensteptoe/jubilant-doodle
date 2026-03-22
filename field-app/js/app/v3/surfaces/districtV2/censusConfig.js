@@ -32,15 +32,13 @@ export function renderDistrictV2CensusCard({ censusCard, getCardBody }) {
         </div>
       </div>
 
-      <div class="fpe-field-grid fpe-field-grid--2">
-        <div class="field">
-          <label class="fpe-control-label" for="v3DistrictV2CensusMetricSet">Data bundle</label>
-          <select class="fpe-input" id="v3DistrictV2CensusMetricSet"></select>
-        </div>
-        <div class="field">
-          <label class="fpe-control-label" for="v3DistrictV2CensusTractFilter">Tract filter</label>
-          <select class="fpe-input" id="v3DistrictV2CensusTractFilter"></select>
-        </div>
+      <div class="field">
+        <label class="fpe-control-label" for="v3DistrictV2CensusTractFilter">Tract filter</label>
+        <select class="fpe-input" id="v3DistrictV2CensusTractFilter"></select>
+      </div>
+
+      <div class="fpe-action-row">
+        <button class="fpe-btn fpe-btn--ghost" id="v3BtnDistrictV2CensusLoadGeo" type="button">Load GEO list</button>
       </div>
 
       <div class="field">
@@ -48,15 +46,29 @@ export function renderDistrictV2CensusCard({ censusCard, getCardBody }) {
         <select class="fpe-input" id="v3DistrictV2CensusGeoSelect" multiple size="10"></select>
       </div>
 
-      <div class="fpe-action-row">
-        <button class="fpe-btn fpe-btn--ghost" id="v3BtnDistrictV2CensusLoadGeo" type="button">Load GEO list</button>
-        <button class="fpe-btn fpe-btn--ghost" id="v3BtnDistrictV2CensusApplyGeoPaste" type="button">Apply GEOIDs</button>
+      <div class="fpe-action-row fpe-census-geo-selection-actions">
         <button class="fpe-btn fpe-btn--ghost" id="v3BtnDistrictV2CensusSelectAll" type="button">Select all</button>
         <button class="fpe-btn fpe-btn--ghost" id="v3BtnDistrictV2CensusClearSelection" type="button">Clear selection</button>
       </div>
 
+      <div class="field">
+        <label class="fpe-control-label" for="v3DistrictV2CensusGeoSearch">Search GEO name or GEOID</label>
+        <input class="fpe-input" id="v3DistrictV2CensusGeoSearch" type="text"/>
+      </div>
+      <div class="field">
+        <label class="fpe-control-label" for="v3DistrictV2CensusGeoPaste">Paste GEOIDs</label>
+        <textarea class="fpe-input" id="v3DistrictV2CensusGeoPaste" rows="2"></textarea>
+      </div>
+
+      <div class="fpe-action-row fpe-census-apply-geoids-row">
+        <button class="fpe-btn fpe-btn--ghost" id="v3BtnDistrictV2CensusApplyGeoPaste" type="button">Apply GEOIDs</button>
+      </div>
+
       <div class="fpe-help fpe-help--flush" id="v3DistrictV2CensusContextHint">Set state and resolution to define Census context.</div>
       <div class="fpe-help fpe-help--flush" id="v3DistrictV2CensusStatus">Ready.</div>
+      <div class="fpe-help fpe-help--flush" id="v3DistrictV2CensusGeoStats">0 selected of 0 GEOs. 0 rows loaded.</div>
+      <div class="fpe-help fpe-help--flush" id="v3DistrictV2CensusLastFetch">No fetch yet.</div>
+      <div class="fpe-help fpe-help--flush" id="v3DistrictV2CensusSelectionSummary">No GEO selected.</div>
 
       <div class="fpe-action-row fpe-census-map-row--toggles">
         <label class="fpe-switch">
@@ -69,20 +81,18 @@ export function renderDistrictV2CensusCard({ censusCard, getCardBody }) {
         <button class="fpe-btn fpe-btn--ghost" id="v3BtnDistrictV2CensusLoadMap" type="button">Load boundaries</button>
       </div>
 
-      <div class="fpe-field-grid fpe-field-grid--2 fpe-census-map-row--vtd">
-        <div class="field">
-          <label class="fpe-control-label" for="v3DistrictV2CensusMapQaVtdZip">VTD ZIP overlay source (optional)</label>
-          <input accept=".zip,application/zip" class="fpe-input" id="v3DistrictV2CensusMapQaVtdZip" type="file"/>
-        </div>
-        <div class="field">
-          <label class="fpe-control-label" for="v3BtnDistrictV2CensusClearVtdZip">VTD ZIP controls</label>
-          <div class="fpe-action-row fpe-census-vtd-control-row">
-            <label class="fpe-switch">
-              <input id="v3DistrictV2CensusMapQaVtdOverlay" type="checkbox"/>
-              <span>Enable VTD overlay</span>
-            </label>
-            <button class="fpe-btn fpe-btn--ghost fpe-census-btn--compact" id="v3BtnDistrictV2CensusClearVtdZip" type="button">Clear VTD ZIP</button>
-          </div>
+      <div class="field">
+        <label class="fpe-control-label" for="v3DistrictV2CensusMapQaVtdZip">VTD ZIP overlay source (optional)</label>
+        <input accept=".zip,application/zip" class="fpe-input" id="v3DistrictV2CensusMapQaVtdZip" type="file"/>
+      </div>
+      <div class="field">
+        <label class="fpe-control-label" for="v3BtnDistrictV2CensusClearVtdZip">VTD ZIP controls</label>
+        <div class="fpe-action-row fpe-census-vtd-control-row">
+          <label class="fpe-switch">
+            <input id="v3DistrictV2CensusMapQaVtdOverlay" type="checkbox"/>
+            <span>Enable VTD overlay</span>
+          </label>
+          <button class="fpe-btn fpe-btn--ghost fpe-census-btn--compact" id="v3BtnDistrictV2CensusClearVtdZip" type="button">Clear VTD ZIP</button>
         </div>
       </div>
 
@@ -97,29 +107,12 @@ export function renderDistrictV2CensusCard({ censusCard, getCardBody }) {
       <div class="fpe-help fpe-help--flush" id="v3DistrictV2CensusMapStatus">Map idle. Select GEO units and click Load boundaries.</div>
       <div class="fpe-help fpe-help--flush" id="v3DistrictV2CensusMapQaVtdZipStatus">No VTD ZIP loaded.</div>
 
-      <div class="field">
-        <label class="fpe-control-label" for="v3DistrictV2CensusGeoSearch">Search GEO name or GEOID</label>
-        <input class="fpe-input" id="v3DistrictV2CensusGeoSearch" type="text"/>
-      </div>
-      <div class="field">
-        <label class="fpe-control-label" for="v3DistrictV2CensusGeoPaste">Paste GEOIDs</label>
-        <textarea class="fpe-input" id="v3DistrictV2CensusGeoPaste" rows="2"></textarea>
-      </div>
-
-      <div class="fpe-help fpe-help--flush" id="v3DistrictV2CensusGeoStats">0 selected of 0 GEOs. 0 rows loaded.</div>
-      <div class="fpe-help fpe-help--flush" id="v3DistrictV2CensusLastFetch">No fetch yet.</div>
-      <div class="fpe-help fpe-help--flush" id="v3DistrictV2CensusSelectionSummary">No GEO selected.</div>
-
-      <div class="fpe-help fpe-help--flush"><strong>Census advisory / assumptions analysis</strong></div>
-      <div class="fpe-help fpe-help--flush">
-        Translate loaded ACS conditions into field-operating reality. Values near 1.00 indicate baseline conditions; below 1.00 indicate harder conditions; above 1.00 indicate stronger conditions. APH feasibility is the pacing reality check: if required APH exceeds the achievable band, revisit staffing, timeline, or vote-goal assumptions before locking.
-      </div>
-      <div class="fpe-help fpe-help--flush" id="v3DistrictV2CensusAdvisoryStatusSummary">Assumption advisory pending.</div>
-      <div class="fpe-help fpe-help--flush" id="v3DistrictV2CensusAssumptionProvenance">Assumption provenance not set.</div>
-      <div class="fpe-help fpe-help--flush" id="v3DistrictV2CensusApplyAdjustmentsStatus">Census-adjusted assumptions are OFF.</div>
-
       <div class="fpe-field-grid fpe-field-grid--2 fpe-census-advisory-grid">
         <div class="table-wrap">
+          <div class="field">
+            <label class="fpe-control-label" for="v3DistrictV2CensusMetricSet">Data bundle</label>
+            <select class="fpe-input" id="v3DistrictV2CensusMetricSet"></select>
+          </div>
           <div class="fpe-census-map-row fpe-census-fetch-row">
             <button class="fpe-btn fpe-btn--ghost fpe-census-btn--compact" id="v3BtnDistrictV2CensusFetchRows" type="button">Fetch ACS rows</button>
           </div>
@@ -134,6 +127,13 @@ export function renderDistrictV2CensusCard({ censusCard, getCardBody }) {
         </div>
 
         <div class="table-wrap">
+          <div class="fpe-help fpe-help--flush"><strong>Census advisory / assumptions analysis</strong></div>
+          <div class="fpe-help fpe-help--flush">
+            Translate loaded ACS conditions into field-operating reality. Values near 1.00 indicate baseline conditions; below 1.00 indicate harder conditions; above 1.00 indicate stronger conditions. APH feasibility is the pacing reality check: if required APH exceeds the achievable band, revisit staffing, timeline, or vote-goal assumptions before locking.
+          </div>
+          <div class="fpe-help fpe-help--flush" id="v3DistrictV2CensusAdvisoryStatusSummary">Assumption advisory pending.</div>
+          <div class="fpe-help fpe-help--flush" id="v3DistrictV2CensusAssumptionProvenance">Assumption provenance not set.</div>
+          <div class="fpe-help fpe-help--flush" id="v3DistrictV2CensusApplyAdjustmentsStatus">Census-adjusted assumptions are OFF.</div>
           <table class="table" aria-label="District V2 census advisory assumptions table">
             <thead>
               <tr><th>Advisory signal</th><th class="num">Value</th></tr>
