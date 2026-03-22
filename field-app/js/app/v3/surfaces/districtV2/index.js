@@ -119,6 +119,7 @@ let districtV2TraceCensusRoot = null;
 let districtV2TraceAutoRan = false;
 let districtV2TraceAutoAttempts = 0;
 const districtV2BinderAttachCounts = new WeakMap();
+let districtV2TargetingActionStatusOverride = "";
 
 function isDistrictV2RuntimeDebugVisible() {
   try {
@@ -358,6 +359,30 @@ export function refreshDistrictV2Surface() {
 }
 
 function handleDistrictV2MutationResult(result, source) {
+  const sourceToken = String(source || "").trim();
+  const isTargetingSource = sourceToken.startsWith("setTargetingField:")
+    || sourceToken === "applyTargetingPreset"
+    || sourceToken === "resetTargetingWeights"
+    || sourceToken === "runTargeting"
+    || sourceToken === "exportTargetingCsv"
+    || sourceToken === "exportTargetingJson";
+  if (isTargetingSource) {
+    if (result == null) {
+      districtV2TargetingActionStatusOverride = "Targeting action failed to reach the runtime bridge. Reload the page and try again.";
+      console.warn(`[district_v2] targeting action returned null (${sourceToken})`);
+    } else if (result && typeof result === "object" && result.ok === false) {
+      const code = String(result.code || "unknown").trim();
+      if (code === "no_rows") {
+        districtV2TargetingActionStatusOverride = "Load ACS rows before running targeting.";
+      } else if (code === "locked") {
+        districtV2TargetingActionStatusOverride = "Scenario is locked. Unlock edits before running targeting.";
+      } else {
+        districtV2TargetingActionStatusOverride = `Targeting action rejected (${code || "unknown"}).`;
+      }
+    } else if (result && typeof result === "object" && result.ok === true) {
+      districtV2TargetingActionStatusOverride = "";
+    }
+  }
   if (result && typeof result === "object" && result.ok === false) {
     const code = String(result.code || "unknown").trim();
     console.warn(`[district_v2] mutation rejected (${source}): ${code}`, result);
@@ -1737,11 +1762,17 @@ function syncDistrictV2Targeting(configSnapshot, resultsSnapshot) {
   syncInputValueFromRaw("v3DistrictV2TargetingWeightPersuasionIndex", config.weightPersuasionIndex);
   syncInputValueFromRaw("v3DistrictV2TargetingWeightFieldEfficiency", config.weightFieldEfficiency);
 
-  setText("v3DistrictV2TargetingStatus", String(results.statusText || "Run targeting.") || "Run targeting.");
+  const locked = !!config.controlsLocked;
+  const canRun = config.canRun == null ? true : !!config.canRun;
+  if (districtV2TargetingActionStatusOverride === "Load ACS rows before running targeting." && canRun) {
+    districtV2TargetingActionStatusOverride = "";
+  }
+  const derivedStatusText = String(results.statusText || "Run targeting.") || "Run targeting.";
+  const statusText = districtV2TargetingActionStatusOverride || derivedStatusText;
+  setText("v3DistrictV2TargetingStatus", statusText);
   setText("v3DistrictV2TargetingMeta", String(results.metaText || "") || "-");
   renderDistrictV2TargetingRows(results.rows);
 
-  const locked = !!config.controlsLocked;
   applyDisabled("v3DistrictV2TargetingGeoLevel", locked);
   applyDisabled("v3DistrictV2TargetingModelId", locked);
   applyDisabled("v3DistrictV2TargetingTopN", locked);
@@ -1758,7 +1789,7 @@ function syncDistrictV2Targeting(configSnapshot, resultsSnapshot) {
   applyDisabled("v3DistrictV2TargetingWeightPersuasionIndex", locked);
   applyDisabled("v3DistrictV2TargetingWeightFieldEfficiency", locked);
   applyDisabled("v3BtnDistrictV2TargetingResetWeights", locked || !config.canResetWeights);
-  applyDisabled("v3BtnDistrictV2RunTargeting", locked);
+  applyDisabled("v3BtnDistrictV2RunTargeting", locked || !canRun);
   applyDisabled("v3BtnDistrictV2ExportTargetingCsv", locked || !config.canExport);
   applyDisabled("v3BtnDistrictV2ExportTargetingJson", locked || !config.canExport);
 }

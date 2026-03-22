@@ -278,3 +278,38 @@ test("c9.3 contract: district v2 map host is present and preferred by census run
   assert.ok(v3HostIdx < bridgeElsIdx, "v3 host must be preferred over legacy bridge host");
   assert.ok(v3HostIdx < legacyHostIdx, "v3 host must be preferred over legacy censusMap host");
 });
+
+test("c9.4a contract: targeting actions surface null bridge results and explicit no_rows feedback", () => {
+  const mutationBody = extractFunctionBody("handleDistrictV2MutationResult");
+  assert.match(mutationBody, /result == null/, "targeting mutation handling must detect null bridge results");
+  assert.match(
+    mutationBody,
+    /Targeting action failed to reach the runtime bridge\. Reload the page and try again\./,
+    "null bridge results must surface explicit targeting status text",
+  );
+  assert.match(mutationBody, /code === "no_rows"/, "targeting mutation handling must branch no_rows result codes");
+  assert.match(
+    mutationBody,
+    /districtV2TargetingActionStatusOverride = "Load ACS rows before running targeting\.";/,
+    "no_rows should surface actionable load-rows guidance",
+  );
+});
+
+test("c9.4a contract: run targeting disabled state and status text respect canRun", () => {
+  const targetingBody = extractFunctionBody("syncDistrictV2Targeting");
+  assert.match(
+    targetingBody,
+    /const canRun = config\.canRun == null \? true : !!config\.canRun;/,
+    "targeting sync must normalize canRun from canonical config",
+  );
+  assert.match(
+    targetingBody,
+    /applyDisabled\("v3BtnDistrictV2RunTargeting", locked \|\| !canRun\);/,
+    "run targeting button must be disabled when prerequisites are unmet",
+  );
+  assert.match(
+    targetingBody,
+    /const statusText = districtV2TargetingActionStatusOverride \|\| derivedStatusText;/,
+    "targeting status should surface explicit action-level failures before derived fallback",
+  );
+});
