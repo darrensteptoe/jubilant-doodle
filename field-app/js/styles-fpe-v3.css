@@ -253,6 +253,10 @@ body.dark #app-shell-v3-root {
   text-overflow: ellipsis;
 }
 
+.fpe-runtime-diag[hidden] {
+  display: none !important;
+}
+
 .fpe-runtime-debug-panel {
   border: 1px dashed color-mix(in srgb, var(--fpe-rule) 74%, transparent);
   border-radius: 10px;
@@ -590,6 +594,12 @@ body.dark #app-shell-v3-root {
   gap: var(--fpe-space-5);
 }
 
+.fpe-surface-frame--two-col-balanced {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--fpe-space-5);
+}
+
 .fpe-surface-frame--three-col {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -615,6 +625,26 @@ body.dark #app-shell-v3-root {
   flex-direction: column;
   gap: var(--fpe-space-5);
   min-width: 0;
+}
+
+.fpe-surface-pane[data-v3-stage="turnout"] .fpe-surface-frame--two-col {
+  grid-template-columns: minmax(0, 1.55fr) minmax(0, 1fr);
+}
+
+.fpe-surface-pane[data-v3-stage="controls"] .fpe-surface-frame--two-col {
+  grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr);
+}
+
+.fpe-surface-pane[data-v3-stage="reach"] #v3ReachOutlookCard .fpe-status-strip {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.fpe-surface-pane[data-v3-stage="data"] #v3DataArchiveTableSummary {
+  margin-top: 10px;
+  border: 1px solid var(--fpe-rule);
+  border-radius: var(--fpe-radius-sm);
+  padding: 8px 10px;
+  background: color-mix(in srgb, var(--fpe-panel-muted) 68%, transparent);
 }
 
 .fpe-center-stack__column {
@@ -938,6 +968,16 @@ body.dark #app-shell-v3-root {
 .fpe-contained-block--status {
   border-color: color-mix(in srgb, var(--fpe-accent) 28%, var(--fpe-rule));
   background: var(--fpe-block-status-bg);
+}
+
+.fpe-outcome-interpretation-note {
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.fpe-outcome-interpretation-note .bullets {
+  font-size: 12px;
+  line-height: 1.5;
 }
 
 .fpe-contained-block .bullets {
@@ -1614,6 +1654,14 @@ body.training #app-shell-v3-root .fpe-surface .fpe-why {
   flex-wrap: wrap;
 }
 
+.fpe-surface-pane[data-v3-stage="district"] .fpe-census-map-row--actions {
+  margin-top: 4px;
+}
+
+.fpe-surface-pane[data-v3-stage="district"] .fpe-census-map-row--vtd {
+  margin-top: 4px;
+}
+
 .fpe-surface-pane[data-v3-stage="district"] .fpe-census-map-shell {
   position: relative;
   border: 1px solid var(--fpe-rule);
@@ -1623,8 +1671,13 @@ body.training #app-shell-v3-root .fpe-surface .fpe-why {
   background: linear-gradient(
     160deg,
     color-mix(in srgb, var(--fpe-panel) 75%, var(--fpe-bg)) 0%,
-    color-mix(in srgb, var(--fpe-panel) 58%, var(--fpe-bg)) 100%
+      color-mix(in srgb, var(--fpe-panel) 58%, var(--fpe-bg)) 100%
   );
+}
+
+.fpe-surface-pane[data-v3-stage="district"] .fpe-census-map-shell.is-active {
+  border-color: color-mix(in srgb, var(--fpe-accent) 45%, var(--fpe-rule));
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--fpe-accent) 14%, transparent);
 }
 
 .fpe-surface-pane[data-v3-stage="district"] .fpe-census-map-shell #censusMap {
@@ -1664,6 +1717,17 @@ body.training #app-shell-v3-root .fpe-surface .fpe-why {
 
 .fpe-surface-pane[data-v3-stage="district"] .fpe-census-map-shell.is-active .fpe-census-map-overlay {
   opacity: 0;
+}
+
+.fpe-surface-pane[data-v3-stage="district"] .fpe-census-map-labels {
+  margin-top: 8px;
+  margin-bottom: 4px;
+  border: 1px dashed color-mix(in srgb, var(--fpe-rule) 78%, transparent);
+  border-radius: var(--fpe-radius-sm);
+  padding: 7px 10px;
+  background: color-mix(in srgb, var(--fpe-panel-muted) 65%, transparent);
+  font-size: 11px;
+  line-height: 1.45;
 }
 
 .fpe-surface-pane[data-v3-stage="district"] .fpe-census-instruction-details,
