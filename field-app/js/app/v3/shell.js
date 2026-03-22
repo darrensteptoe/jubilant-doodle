@@ -4,6 +4,7 @@ import {
   PRODUCT_NAME,
   buildSidebarCopyrightText,
 } from "../brand.js";
+import usaFlagImage from "../../../assets/AdobeStock_271073143.jpeg";
 
 function renderNavGroups() {
   const groups = ["Model", "Operations", "Decisions", "System"];
@@ -45,6 +46,7 @@ export function renderV3Shell(root) {
     <div class="fpe-shell">
       <header class="fpe-topbar">
         <div class="fpe-topbar__brand">
+          <img class="fpe-brand-flag" src="${usaFlagImage}" alt="" aria-hidden="true" />
           <span class="fpe-brand">${PRODUCT_NAME}</span>
           <span class="fpe-brand-short">${PRODUCT_ABBREVIATION}</span>
         </div>
