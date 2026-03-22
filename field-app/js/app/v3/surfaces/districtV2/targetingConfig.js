@@ -2,6 +2,9 @@ import {
   listTargetGeoLevels,
   listTargetModelOptions,
 } from "../../../targetingRuntime.js";
+import {
+  getMetricIdsForSet,
+} from "../../../../core/censusModule.js";
 
 export const TARGETING_DENSITY_OPTIONS = Object.freeze([
   { value: "none", label: "None" },
@@ -15,6 +18,15 @@ const TARGETING_SOURCE_TOKENS = new Set([
   "runTargeting",
   "exportTargetingCsv",
   "exportTargetingJson",
+]);
+
+const TARGETING_FLAG_SIGNAL_REQUIREMENTS = Object.freeze([
+  { id: "multi_unit_share", label: "multi-unit share" },
+  { id: "limited_english_share", label: "limited-English share" },
+  { id: "no_vehicle_share", label: "no-vehicle share" },
+  { id: "citizen_share", label: "citizen share" },
+  { id: "long_commute_share", label: "long-commute share" },
+  { id: "no_internet_share", label: "no-internet share" },
 ]);
 
 function normalizeTargetingOptions(rows) {
@@ -109,7 +121,27 @@ function isTargetingSource(sourceToken) {
   return TARGETING_SOURCE_TOKENS.has(token);
 }
 
-function renderTargetingRows(rows, { setInnerHtmlWithTrace, escapeHtml }) {
+function evaluateTargetingSignalCoverage(metricSetId) {
+  const metricSet = String(metricSetId || "core").trim() || "core";
+  const metricIds = new Set(getMetricIdsForSet(metricSet));
+  const missingSignals = TARGETING_FLAG_SIGNAL_REQUIREMENTS
+    .filter((signal) => !metricIds.has(signal.id));
+  const missingLabels = missingSignals.map((signal) => signal.label);
+  const preview = missingLabels.slice(0, 3);
+  const overflow = missingLabels.length > preview.length
+    ? ` +${missingLabels.length - preview.length} more`
+    : "";
+  return {
+    metricSet,
+    missingLabels,
+    hasMissingFlagSignals: missingLabels.length > 0,
+    shortNote: missingLabels.length
+      ? `Signal coverage limited (${metricSet}; missing ${preview.join(", ")}${overflow}).`
+      : "",
+  };
+}
+
+function renderTargetingRows(rows, { setInnerHtmlWithTrace, escapeHtml, flagFallbackText = "No risk flags triggered." }) {
   const tbody = document.getElementById("v3DistrictV2TargetingResultsTbody");
   if (!(tbody instanceof HTMLElement)) {
     return;
@@ -125,16 +157,21 @@ function renderTargetingRows(rows, { setInnerHtmlWithTrace, escapeHtml }) {
   }
   setInnerHtmlWithTrace(
     tbody,
-    list.map((row) => `
-      <tr>
-        <td>${escapeHtml(String(row?.rank || ""))}</td>
-        <td>${escapeHtml(String(row?.geography || ""))}</td>
-        <td class="num">${escapeHtml(String(row?.score || ""))}</td>
-        <td class="num">${escapeHtml(String(row?.votesPerHour || ""))}</td>
-        <td>${escapeHtml(String(row?.reason || ""))}</td>
-        <td>${escapeHtml(String(row?.flags || ""))}</td>
-      </tr>
-    `).join(""),
+    list.map((row) => {
+      const reasonValue = String(row?.reason || "").trim() || "—";
+      const flagsValue = String(row?.flags || "").trim();
+      const flagsCellText = flagsValue || String(flagFallbackText || "No risk flags triggered.");
+      return `
+        <tr>
+          <td>${escapeHtml(String(row?.rank || ""))}</td>
+          <td>${escapeHtml(String(row?.geography || ""))}</td>
+          <td class="num">${escapeHtml(String(row?.score || ""))}</td>
+          <td class="num">${escapeHtml(String(row?.votesPerHour || ""))}</td>
+          <td>${escapeHtml(reasonValue)}</td>
+          <td>${escapeHtml(flagsCellText)}</td>
+        </tr>
+      `;
+    }).join(""),
     "targetingConfig.renderRows:rows",
   );
 }
@@ -276,6 +313,8 @@ export function createDistrictV2TargetingModule(deps = {}) {
     const results = resultsSnapshot && typeof resultsSnapshot === "object" ? resultsSnapshot : {};
     const censusConfig = context?.censusConfig && typeof context.censusConfig === "object" ? context.censusConfig : {};
     const censusResults = context?.censusResults && typeof context.censusResults === "object" ? context.censusResults : {};
+    const signalCoverage = evaluateTargetingSignalCoverage(censusConfig?.metricSet);
+    const signalCoverageNote = String(signalCoverage.shortNote || "").trim();
 
     syncSelectOptions("v3DistrictV2TargetingGeoLevel", normalizeTargetingOptions(listTargetGeoLevels()), config.geoLevel);
     syncSelectOptions("v3DistrictV2TargetingModelId", normalizeTargetingOptions(listTargetModelOptions()), config.modelId || config.presetId);
@@ -301,10 +340,17 @@ export function createDistrictV2TargetingModule(deps = {}) {
 
     const derivedStatusText = String(results.statusText || "Run targeting.") || "Run targeting.";
     const statusText = targetingActionStatusOverride || (readiness.ready ? derivedStatusText : readiness.reason);
+    const derivedMetaText = String(results.metaText || "").trim();
+    const metaText = signalCoverageNote
+      ? (derivedMetaText ? `${derivedMetaText} · ${signalCoverageNote}` : signalCoverageNote)
+      : (derivedMetaText || "-");
+    const flagFallbackText = signalCoverage.hasMissingFlagSignals
+      ? `Flag signals limited by Census bundle (${signalCoverage.metricSet}).`
+      : "No risk flags triggered.";
     setText("v3DistrictV2TargetingReadiness", `Readiness: ${readiness.reason}`);
     setText("v3DistrictV2TargetingStatus", statusText);
-    setText("v3DistrictV2TargetingMeta", String(results.metaText || "") || "-");
-    renderTargetingRows(results.rows, { setInnerHtmlWithTrace, escapeHtml });
+    setText("v3DistrictV2TargetingMeta", metaText);
+    renderTargetingRows(results.rows, { setInnerHtmlWithTrace, escapeHtml, flagFallbackText });
 
     const locked = !!config.controlsLocked;
     const readyForRun = readiness.ready;

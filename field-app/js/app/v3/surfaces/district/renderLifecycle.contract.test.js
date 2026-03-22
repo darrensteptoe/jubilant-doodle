@@ -327,3 +327,34 @@ test("c9.4a contract: run targeting disabled state and status text respect canRu
     "targeting status should surface explicit action-level failures before derived fallback",
   );
 });
+
+test("c9.4c contract: targeting rows render explicit non-dash flag fallback and signal-coverage note", () => {
+  const renderRowsBody = extractFunctionBodyFrom(targetingModuleSource, "renderTargetingRows");
+  const syncBody = extractFunctionBodyFrom(targetingModuleSource, "sync");
+  const coverageBody = extractFunctionBodyFrom(targetingModuleSource, "evaluateTargetingSignalCoverage");
+  assert.match(
+    targetingModuleSource,
+    /getMetricIdsForSet/,
+    "targeting module should inspect Census metric-set coverage for signal quality",
+  );
+  assert.match(
+    renderRowsBody,
+    /const flagsCellText = flagsValue \|\| String\(flagFallbackText \|\| "No risk flags triggered\."\);/,
+    "targeting rows should show explicit fallback text when flags are empty",
+  );
+  assert.doesNotMatch(
+    renderRowsBody,
+    /<td>\$\{escapeHtml\(String\(row\?\.flags \|\| ""\)\)\}<\/td>/,
+    "targeting flags cell should not render raw empty-string values as dead dashes",
+  );
+  assert.match(
+    coverageBody,
+    /Signal coverage limited \(/,
+    "targeting module should define explicit metric-coverage note text",
+  );
+  assert.match(
+    syncBody,
+    /const metaText = signalCoverageNote/,
+    "targeting sync should include coverage notes in module meta text",
+  );
+});
