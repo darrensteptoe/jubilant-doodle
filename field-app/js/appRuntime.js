@@ -267,6 +267,7 @@ import {
   buildVoterLayerStatusSnapshot,
   deriveVoterModelSignals,
   extractCensusAgeDistribution,
+  listVoterAdapterOptions,
   normalizeVoterDataState,
   normalizeVoterRows,
   parseVoterRowsInput,
@@ -860,6 +861,19 @@ let dataBridgeWarnBannerText = "";
 let dataBridgeUsbStatusText = "";
 let dataBridgeSelectedArchiveHash = "";
 let dataBridgeVoterImportStatusText = "";
+
+function dataBridgeEnsureVoterImportDraftState(){
+  if (!state.ui || typeof state.ui !== "object"){
+    state.ui = {};
+  }
+  if (!state.ui.voterImportDraft || typeof state.ui.voterImportDraft !== "object"){
+    state.ui.voterImportDraft = {};
+  }
+  const draft = state.ui.voterImportDraft;
+  draft.adapterId = String(draft.adapterId || "").trim();
+  draft.sourceId = String(draft.sourceId || "").trim();
+  return draft;
+}
 
 function dataBridgeEnsureReportingState(){
   if (!state.ui || typeof state.ui !== "object"){
@@ -1780,6 +1794,18 @@ function dataBridgeStateView(){
   const learningSummary = archiveLearning.learning;
   const archiveTableRows = buildForecastArchiveTableRows(archiveRows, { limit: 40 });
   const voterLayer = buildVoterLayerStatusSnapshot(state?.voterData);
+  const voterImportDraftState = dataBridgeEnsureVoterImportDraftState();
+  const voterAdapterOptions = listVoterAdapterOptions();
+  const selectedVoterAdapter = normalizeBridgeSelectValue(
+    voterImportDraftState?.adapterId,
+    voterAdapterOptions.map((row) => ({
+      value: String(row?.id || "").trim(),
+      label: String(row?.label || row?.id || "").trim(),
+    })),
+    "canonical",
+  );
+  voterImportDraftState.adapterId = selectedVoterAdapter;
+  const voterSourceId = String(voterImportDraftState?.sourceId || "").trim();
   const reporting = dataBridgeEnsureReportingState();
   const reportTypeOptions = listReportTypeOptions().map((row) => ({
     value: String(row?.id || "").trim(),
@@ -1816,6 +1842,10 @@ function dataBridgeStateView(){
     selectedBackup: dataBridgeSelectedBackup || (restoreSelect instanceof HTMLSelectElement ? String(restoreSelect.value || "") : ""),
     importFileName,
     voterImportStatus: dataBridgeVoterImportStatusText,
+    voterImportDraft: {
+      adapterId: selectedVoterAdapter,
+      sourceId: voterSourceId,
+    },
     hashBannerText,
     warnBannerText,
     usbConnected,
@@ -1897,6 +1927,40 @@ function dataBridgeSetArchiveSelection(snapshotHash){
   return { ok: true, view: dataBridgeStateView() };
 }
 
+function dataBridgeSetVoterImportDraft(payload = {}){
+  const src = payload && typeof payload === "object" ? payload : {};
+  const prev = dataBridgeEnsureVoterImportDraftState();
+  const nextAdapterId = Object.prototype.hasOwnProperty.call(src, "adapterId")
+    ? String(src.adapterId || "").trim()
+    : prev.adapterId;
+  const nextSourceId = Object.prototype.hasOwnProperty.call(src, "sourceId")
+    ? String(src.sourceId || "").trim()
+    : prev.sourceId;
+  if (nextAdapterId === prev.adapterId && nextSourceId === prev.sourceId){
+    return { ok: true, view: dataBridgeStateView() };
+  }
+  setState((s) => {
+    if (!s.ui || typeof s.ui !== "object"){
+      s.ui = {};
+    }
+    const currentDraft = s.ui.voterImportDraft && typeof s.ui.voterImportDraft === "object"
+      ? s.ui.voterImportDraft
+      : {};
+    s.ui.voterImportDraft = {
+      ...currentDraft,
+      adapterId: nextAdapterId,
+      sourceId: nextSourceId,
+    };
+  }, { actionName: "dataBridgeSetVoterImportDraft" });
+  schedulePersist();
+  notifyBridgeSync({ source: "bridge.data", reason: "voter_import_draft_updated" });
+  return {
+    ok: true,
+    draft: { adapterId: nextAdapterId, sourceId: nextSourceId },
+    view: dataBridgeStateView(),
+  };
+}
+
 function dataBridgeSaveArchiveActual(payload = {}){
   const src = payload && typeof payload === "object" ? payload : {};
   const snapshotHash = String(src.snapshotHash || dataBridgeSelectedArchiveHash || "").trim();
@@ -1948,8 +2012,10 @@ function dataBridgeImportVoterRows(payload = {}){
       ? (activeContext?.officeId || "")
       : (src.officeId || activeContext?.officeId || "")
   ).trim();
-  const adapterId = String(src.adapterId || "").trim();
-  const sourceId = String(src.sourceId || src.fileName || "").trim() || `voter_import_${new Date().toISOString()}`;
+  const draft = dataBridgeEnsureVoterImportDraftState();
+  const adapterId = String(src.adapterId || draft.adapterId || "").trim();
+  const sourceId = String(src.sourceId || draft.sourceId || src.fileName || "").trim()
+    || `voter_import_${new Date().toISOString()}`;
   const normalizedRows = normalizeVoterRows(parsed.rows, {
     adapterId,
     campaignId,
@@ -2148,6 +2214,7 @@ function installDataBridge(){
     setStrictImport: (enabled) => dataBridgeSetStrictImport(enabled),
     restoreBackup: (index) => dataBridgeRestoreBackup(index),
     setArchiveSelection: (snapshotHash) => dataBridgeSetArchiveSelection(snapshotHash),
+    setVoterImportDraft: (payload) => dataBridgeSetVoterImportDraft(payload),
     setReportType: (reportType) => dataBridgeSetReportType(reportType),
     composeReport: (payload) => dataBridgeComposeReport(payload),
     exportReportPdf: (payload) => dataBridgeExportReportPdf(payload),
@@ -4303,7 +4370,6 @@ function districtBridgeCanonicalView(){
   const canonicalElectionRows = Number.isFinite(Number(districtElectionDataMeta?.normalizedRowCount))
     ? Number(districtElectionDataMeta.normalizedRowCount)
     : 0;
-  const censusPreviewRows = districtBridgeNormalizeRows(censusRuntimeState?.bridgeElectionPreviewRows, 4).length;
   const ballotUndecidedMode = String(districtBallot?.undecidedMode || "proportional").trim() || "proportional";
 
   return {
@@ -4440,7 +4506,7 @@ function districtBridgeCanonicalView(){
       fileName: String(districtElectionDataMeta?.fileName || electionDataImport?.fileName || "").trim(),
       importedAt: String(districtElectionDataMeta?.importedAt || electionDataImport?.importedAt || "").trim(),
       importStatus: String(electionDataImport?.status || "").trim(),
-      normalizedRowCount: canonicalElectionRows > 0 ? canonicalElectionRows : censusPreviewRows,
+      normalizedRowCount: canonicalElectionRows,
       qualityScore: safeNum(districtElectionDataMeta?.qualityScore ?? electionDataQuality?.score),
       confidenceBand: String(districtElectionDataMeta?.confidenceBand || electionDataQuality?.confidenceBand || "").trim() || "unknown",
       benchmarkSuggestionCount: Array.isArray(electionDataBenchmarks?.benchmarkSuggestions)
@@ -4502,7 +4568,7 @@ function districtBridgeDerivedView(){
     : {};
   const electionRowCount = Array.isArray(electionDataState?.normalizedRows)
     ? electionDataState.normalizedRows.length
-    : districtBridgeNormalizeRows(censusState?.bridgeElectionPreviewRows, 4).length;
+    : 0;
   const electionQualityScore = safeNum(electionQuality?.score);
   const electionConfidenceBand = String(electionQuality?.confidenceBand || "").trim() || "unknown";
   const electionBenchmarkCount = Array.isArray(electionBenchmarks?.benchmarkSuggestions)
