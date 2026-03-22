@@ -2134,7 +2134,7 @@ body.training #app-shell-v3-root .fpe-surface .fpe-why {
   min-width: 0;
   min-height: 0;
   border-left: 1px solid var(--fpe-rule);
-  background: var(--fpe-panel);
+  background: var(--fpe-page-title-row-bg);
   overflow-y: auto;
   overflow-x: hidden;
   padding: 0 0 var(--fpe-space-3);
@@ -2149,7 +2149,7 @@ body.training #app-shell-v3-root .fpe-surface .fpe-why {
   gap: 6px;
   padding: 10px 12px 8px;
   border-bottom: 1px solid var(--fpe-rule);
-  background: var(--fpe-panel);
+  background: var(--fpe-page-title-row-bg);
 }
 
 .fpe-right-rail-toggle__btn {
@@ -2179,7 +2179,7 @@ body.training #app-shell-v3-root .fpe-surface .fpe-why {
 .fpe-right-rail-slot--intel .fpe-intel-panel {
   border: 1px solid color-mix(in srgb, var(--fpe-rule) 86%, transparent);
   border-radius: 14px;
-  background: color-mix(in srgb, var(--fpe-panel-muted) 74%, var(--fpe-panel));
+  background: var(--fpe-page-title-row-bg);
   margin: 10px 12px 12px;
   padding: 14px;
   box-shadow: 0 8px 20px color-mix(in srgb, #000000 4%, transparent);
@@ -2514,7 +2514,7 @@ body.training #app-shell-v3-root .fpe-surface .fpe-why {
   min-height: 0;
   height: 100%;
   border-left: 0;
-  background: var(--fpe-panel);
+  background: var(--fpe-page-title-row-bg);
   box-shadow: none;
   overflow-y: auto;
   overflow-x: hidden;
@@ -2531,6 +2531,11 @@ body.training #app-shell-v3-root .fpe-surface .fpe-why {
 .fpe-right-rail-slot .results-sidebar-new .sidebar-section-new.sidebar-eday-countdown {
   background: color-mix(in srgb, var(--fpe-danger) 8%, var(--fpe-panel));
   border-color: color-mix(in srgb, var(--fpe-danger) 28%, var(--fpe-rule));
+}
+
+.fpe-right-rail-slot .results-sidebar-new .sidebar-section-new.sidebar-metadata {
+  background: var(--fpe-page-title-row-bg);
+  border-top-color: var(--fpe-rule);
 }
 
 .fpe-right-rail-slot .results-sidebar-new .sidebar-section-new.sidebar-win-expected .sidebar-label-new,
