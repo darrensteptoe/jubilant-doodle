@@ -3961,6 +3961,8 @@ function districtBridgeBuildSelectOptions(values, { selected = "", placeholder =
 function districtBridgeBuildCensusConfigOptions(censusState){
   const census = censusState && typeof censusState === "object" ? censusState : {};
   const geoRowsRaw = Array.isArray(census.geoOptions) ? census.geoOptions : [];
+  const selectedState = String(census.stateFips || "").trim();
+  const selectedCounty = String(census.countyFips || "").trim();
   const geoRows = geoRowsRaw
     .map((row) => {
       const geoid = String(row?.geoid || "").trim();
@@ -3987,6 +3989,21 @@ function districtBridgeBuildCensusConfigOptions(censusState){
   const bridgeTractFilterOptions = Array.isArray(census.bridgeTractFilterOptions) ? census.bridgeTractFilterOptions : [];
   const bridgeSelectionSetOptions = Array.isArray(census.bridgeSelectionSetOptions) ? census.bridgeSelectionSetOptions : [];
   const bridgeGeoSelectOptions = Array.isArray(census.bridgeGeoSelectOptions) ? census.bridgeGeoSelectOptions : [];
+  const countyRowsFromGeo = geoRows
+    .filter((row) => !selectedState || row.state === selectedState)
+    .map((row) => ({ value: row.county, label: row.county }));
+  const placeRowsFromGeo = geoRows
+    .filter((row) => {
+      if (selectedState && row.state !== selectedState) return false;
+      if (selectedCounty && row.county !== selectedCounty) return false;
+      return true;
+    })
+    .map((row) => ({ value: row.place, label: row.place, county: row.county, state: row.state }));
+  const placeFallbackSet = new Set(
+    placeRowsFromGeo
+      .map((row) => String(row?.value || "").trim())
+      .filter(Boolean),
+  );
 
   const stateOptions = districtBridgeBuildSelectOptions(
     bridgeStateOptions.length
@@ -3998,19 +4015,25 @@ function districtBridgeBuildCensusConfigOptions(censusState){
     { selected: census.stateFips, placeholder: "Select state" },
   );
   const countyOptions = districtBridgeBuildSelectOptions(
-    bridgeCountyOptions.length
-      ? bridgeCountyOptions
-      : geoRows
-        .filter((row) => !census.stateFips || row.state === String(census.stateFips || "").trim())
-        .map((row) => ({ value: row.county, label: row.county })),
+    (bridgeCountyOptions.length ? bridgeCountyOptions : countyRowsFromGeo).filter((row) => {
+      if (!selectedState) return true;
+      const rowState = String(row?.state || row?.stateFips || "").trim();
+      return !rowState || rowState === selectedState;
+    }),
     { selected: census.countyFips, placeholder: "Select county" },
   );
   const placeOptions = districtBridgeBuildSelectOptions(
-    bridgePlaceOptions.length
-      ? bridgePlaceOptions
-      : geoRows
-        .filter((row) => !census.stateFips || row.state === String(census.stateFips || "").trim())
-        .map((row) => ({ value: row.place, label: row.place })),
+    (bridgePlaceOptions.length ? bridgePlaceOptions : placeRowsFromGeo).filter((row) => {
+      const rowValue = String(row?.value || "").trim();
+      const rowState = String(row?.state || row?.stateFips || "").trim();
+      const rowCounty = String(row?.county || row?.countyFips || row?.parentCountyFips || "").trim();
+      if (selectedState && rowState && rowState !== selectedState) return false;
+      if (selectedCounty) {
+        if (rowCounty) return rowCounty === selectedCounty;
+        if (placeFallbackSet.size) return placeFallbackSet.has(rowValue);
+      }
+      return true;
+    }),
     { selected: census.placeFips, placeholder: "Select place" },
   );
   const tractFilterOptions = districtBridgeBuildSelectOptions(
@@ -4079,7 +4102,7 @@ function districtBridgeBuildCensusDisabledMap(currentState, censusState){
     : false;
 
   const map = {
-    v3CensusCountyFips: controlsLocked || !stateFips || !requiresCounty,
+    v3CensusCountyFips: controlsLocked || !stateFips,
     v3CensusPlaceFips: controlsLocked || !stateFips,
     v3CensusGeoSearch: controlsLocked || !hasGeoOptions,
     v3CensusTractFilter: controlsLocked || resolution !== "block_group" || !hasGeoOptions,
@@ -4948,7 +4971,7 @@ function districtBridgePatchCensusBridgeField(field, rawValue){
     } else if (key === "resolution"){
       const resolution = cleanText(rawValue) || census.resolution;
       census.resolution = resolution;
-      if (!resolutionNeedsCounty(resolution)){
+      if (!resolutionNeedsCounty(resolution) && resolution !== "place"){
         census.countyFips = "";
       }
       if (resolution !== "block_group"){
@@ -4964,6 +4987,7 @@ function districtBridgePatchCensusBridgeField(field, rawValue){
       applied = true;
     } else if (key === "countyFips"){
       census.countyFips = cleanText(rawValue);
+      census.placeFips = "";
       resetGeoData(census);
       applied = true;
     } else if (key === "placeFips"){
