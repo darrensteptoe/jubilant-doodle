@@ -1229,6 +1229,12 @@ function mapQaCountyContext(s){
 }
 
 function resolveCensusMapContainer(els){
+  if (typeof document !== "undefined"){
+    const v3Host = document.getElementById("v3CensusMapHost");
+    if (v3Host instanceof HTMLElement){
+      return v3Host;
+    }
+  }
   if (els?.censusMap instanceof HTMLElement){
     return els.censusMap;
   }
@@ -1236,10 +1242,6 @@ function resolveCensusMapContainer(els){
     return censusRuntimeBridgeEls.censusMap;
   }
   if (typeof document === "undefined") return null;
-  const v3Host = document.getElementById("v3CensusMapHost");
-  if (v3Host instanceof HTMLElement){
-    return v3Host;
-  }
   const legacyHost = document.getElementById("censusMap");
   if (legacyHost instanceof HTMLElement){
     return legacyHost;
