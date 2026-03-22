@@ -2062,26 +2062,31 @@ body.training #app-shell-v3-root .fpe-surface .fpe-why {
 
 .fpe-intel-body {
   display: grid;
-  gap: 10px;
+  gap: 8px;
 }
 
 .fpe-intel-section {
   display: grid;
-  gap: 4px;
+  gap: 6px;
+  border: 1px solid color-mix(in srgb, var(--fpe-rule) 78%, transparent);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--fpe-rule) 16%, var(--fpe-panel));
+  padding: 10px;
 }
 
 .fpe-intel-section__title {
   margin: 0;
   font-size: 12px;
   color: var(--fpe-text);
-  font-weight: 600;
+  font-weight: 700;
+  line-height: 1.5;
 }
 
 .fpe-intel-section__body {
   margin: 0;
   font-size: 12px;
-  color: var(--fpe-muted);
-  line-height: 1.45;
+  color: var(--fpe-text);
+  line-height: 1.5;
 }
 
 .fpe-intel-links {
