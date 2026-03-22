@@ -71,24 +71,34 @@ test("c9 right rail: metadata block only keeps snapshot hash and rail sections a
   assert.doesNotMatch(indexHtmlSource, /id="metaUniverseBasis"/);
   assert.doesNotMatch(indexHtmlSource, /id="metaSourceNote"/);
   assert.match(indexHtmlSource, /id="snapshotHash-sidebar"/);
+  assert.match(indexHtmlSource, /id="daysToEday-sidebar"/);
 
   const sidebarStart = indexHtmlSource.indexOf('id="legacyResultsSidebar"');
   assert.ok(sidebarStart >= 0, "missing right-rail results sidebar");
   const railSource = indexHtmlSource.slice(sidebarStart);
 
+  const eDayIdx = railSource.indexOf("Days till E-Day");
   const keyResultsIdx = railSource.indexOf("Win path — expected");
-  const validationIdx = railSource.indexOf("Input validation");
+  const splitIdx = railSource.indexOf("Early &amp; election day split");
+  const assumptionsIdx = railSource.indexOf("Key assumptions");
   const guardrailIdx = railSource.indexOf("Data checks &amp; guardrails");
+  const stressIdx = railSource.indexOf("Stress test summary");
   const mcIdx = railSource.indexOf("Monte Carlo win probability");
   const riskIdx = railSource.indexOf("Risk framing");
-  const stressIdx = railSource.indexOf("Stress test summary");
+  const validationIdx = railSource.indexOf("Input validation");
+  const metadataIdx = railSource.indexOf("Metadata");
 
+  assert.ok(eDayIdx >= 0, "missing e-day countdown rail section");
   assert.ok(keyResultsIdx >= 0, "missing key results rail section");
-  assert.ok(validationIdx > keyResultsIdx, "validation should render after key results");
-  assert.ok(guardrailIdx > validationIdx, "guardrails should render after validation");
-  assert.ok(mcIdx > guardrailIdx, "Monte Carlo should render after validation/guardrails");
+  assert.ok(keyResultsIdx > eDayIdx, "key results should render after e-day countdown");
+  assert.ok(splitIdx > keyResultsIdx, "early/election split should render after key results");
+  assert.ok(assumptionsIdx > splitIdx, "key assumptions should render after early/election split");
+  assert.ok(guardrailIdx > assumptionsIdx, "guardrails should render after assumptions");
+  assert.ok(stressIdx > guardrailIdx, "stress summary should render after guardrails");
+  assert.ok(mcIdx > stressIdx, "Monte Carlo should render after stress summary");
   assert.ok(riskIdx > mcIdx, "risk framing should render after Monte Carlo");
-  assert.ok(stressIdx > riskIdx, "stress summary should render after risk framing");
+  assert.ok(validationIdx > riskIdx, "input validation should render after risk framing");
+  assert.ok(metadataIdx > validationIdx, "metadata should render after input validation");
 });
 
 test("c9 district/election data ordering: district summary top, election summary moved to election-data page", () => {

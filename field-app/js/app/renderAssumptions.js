@@ -19,6 +19,54 @@ import {
 } from "./assumptionsViewHelpers.js";
 import { selectDistrictCanonicalView } from "../core/selectors/districtCanonical.js";
 
+const MS_PER_DAY = 24 * 60 * 60 * 1000;
+
+function parseIsoDateDayMs(rawValue){
+  const value = String(rawValue || "").trim();
+  const match = value.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!match) return null;
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  if (!Number.isFinite(year) || !Number.isFinite(month) || !Number.isFinite(day)) return null;
+  if (month < 1 || month > 12) return null;
+  if (day < 1 || day > 31) return null;
+  return Date.UTC(year, month - 1, day);
+}
+
+function buildElectionCountdownView(electionDate, nowDate = new Date()){
+  const isoDate = String(electionDate || "").trim();
+  const electionDayMs = parseIsoDateDayMs(isoDate);
+  if (electionDayMs == null){
+    return {
+      daysLabel: "—",
+      note: "Set Election Date",
+      electionDateText: "—",
+    };
+  }
+  const todayMs = Date.UTC(nowDate.getUTCFullYear(), nowDate.getUTCMonth(), nowDate.getUTCDate());
+  const dayDiff = Math.round((electionDayMs - todayMs) / MS_PER_DAY);
+  if (dayDiff < 0){
+    return {
+      daysLabel: "Passed",
+      note: `${Math.abs(dayDiff)}d ago`,
+      electionDateText: isoDate,
+    };
+  }
+  if (dayDiff === 0){
+    return {
+      daysLabel: "0",
+      note: "Election Day is today",
+      electionDateText: isoDate,
+    };
+  }
+  return {
+    daysLabel: String(dayDiff),
+    note: dayDiff === 1 ? "day remaining" : "days remaining",
+    electionDateText: isoDate,
+  };
+}
+
 export function renderAssumptionsModule(args){
   const {
     els,
@@ -45,7 +93,7 @@ export function renderAssumptionsModule(args){
     : {};
   const canonicalRaceType = String(canonicalTemplate.raceType || runtimeState.raceType || "").trim();
   const canonicalMode = String(canonicalForm.mode || runtimeState.mode || "").trim();
-  const canonicalElectionDate = String(canonicalForm.electionDate || runtimeState.electionDate || "").trim();
+  const canonicalElectionDate = String(canonicalForm.electionDate || "").trim();
   const canonicalTemplateMeta = {
     ...(runtimeState.templateMeta && typeof runtimeState.templateMeta === "object" ? runtimeState.templateMeta : {}),
     officeLevel: String(canonicalTemplate.officeLevel || "").trim(),
@@ -82,7 +130,7 @@ export function renderAssumptionsModule(args){
     kv("Partisanship mode", canonicalTemplateMeta.partisanshipMode || "—"),
     kv("Assumptions profile", assumptionsProfileLabel(state)),
     kv("Mode", canonicalMode === "late_start" ? "Late-start / turnout-heavy" : "Persuasion-first"),
-    kv("Election date", canonicalElectionDate || "—"),
+    kv("Election date", canonicalElectionDate || String(runtimeState.electionDate || "").trim() || "—"),
     kv("Weeks remaining", buildAssumptionsWeeksText(weeks)),
   ]));
 
@@ -153,4 +201,12 @@ export function renderAssumptionsModule(args){
     assumptionsSnapshotEl.innerHTML = "";
     for (const b of blocks) assumptionsSnapshotEl.appendChild(b);
   }
+
+  const electionCountdown = buildElectionCountdownView(canonicalElectionDate);
+  const daysToEdayEl = els?.daysToEdaySidebar || null;
+  const daysToEdayNoteEl = els?.daysToEdayNoteSidebar || null;
+  const electionDateSidebarEl = els?.electionDateCanonicalSidebar || null;
+  if (daysToEdayEl) daysToEdayEl.textContent = electionCountdown.daysLabel;
+  if (daysToEdayNoteEl) daysToEdayNoteEl.textContent = electionCountdown.note;
+  if (electionDateSidebarEl) electionDateSidebarEl.textContent = electionCountdown.electionDateText;
 }
