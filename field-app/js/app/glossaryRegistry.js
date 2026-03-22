@@ -13,6 +13,46 @@ function normalizeLookupToken(value){
  * Static definitions only; no live computed values stored here.
  */
 export const GLOSSARY_REGISTRY = Object.freeze({
+  percentileRange: Object.freeze({
+    id: "percentileRange",
+    term: "Percentile Range",
+    definition: "A way of showing different points across a forecast distribution, from lower-end to higher-end plausible outcomes.",
+    whyItMatters: "Helps teams see not just the middle expectation, but how much downside and upside surround it.",
+    aliases: Object.freeze(["outcome band", "forecast percentile"]),
+    relatedModules: Object.freeze(["forecastOutcome", "governanceConfidence"]),
+  }),
+  median: Object.freeze({
+    id: "median",
+    term: "Median",
+    definition: "The middle forecast value where half of modeled outcomes fall below and half above.",
+    whyItMatters: "Usually the best single anchor for balanced planning because it avoids both panic and fantasy.",
+    aliases: Object.freeze(["P50", "middle case"]),
+    relatedModules: Object.freeze(["forecastOutcome", "warRoomDecisionSession"]),
+  }),
+  planningFloor: Object.freeze({
+    id: "planningFloor",
+    term: "Planning Floor",
+    definition: "A lower-end but still plausible planning case used to protect commitments against softer performance.",
+    whyItMatters: "Keeps staffing, promises, and pacing from depending too heavily on upside.",
+    aliases: Object.freeze(["conservative case", "lower-bound planning case"]),
+    relatedModules: Object.freeze(["forecastOutcome", "warRoomDecisionSession"]),
+  }),
+  upsideCase: Object.freeze({
+    id: "upsideCase",
+    term: "Upside Case",
+    definition: "A stronger outcome that is possible when conditions break favorably and execution is strong.",
+    whyItMatters: "Useful for stretch planning, but dangerous when mistaken for the baseline.",
+    aliases: Object.freeze(["high case", "stretch case"]),
+    relatedModules: Object.freeze(["forecastOutcome", "warRoomDecisionSession"]),
+  }),
+  confidenceBand: Object.freeze({
+    id: "confidenceBand",
+    term: "Confidence Band",
+    definition: "The spread between forecast points that shows how tight or wide modeled uncertainty is.",
+    whyItMatters: "A tighter band suggests more stability; a wider band signals more uncertainty and more need for caution.",
+    aliases: Object.freeze(["uncertainty band", "forecast spread"]),
+    relatedModules: Object.freeze(["forecastOutcome", "governanceConfidence"]),
+  }),
   variance: Object.freeze({
     id: "variance",
     term: "Variance",
