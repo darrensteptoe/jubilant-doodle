@@ -226,3 +226,20 @@ test("district_v2 values survive navigation and refresh snapshots", () => {
   assert.equal(canonicalBefore.form.universeSize, canonicalAfterNavigation.form.universeSize);
   assert.equal(canonicalBefore.universeComposition.enabled, canonicalAfterNavigation.universeComposition.enabled);
 });
+
+test("district_v2 C8 turnout baseline values persist after blur/navigation/refresh snapshots", () => {
+  let state = makeCanonicalState({ nowDate: new Date("2026-03-21T16:00:00.000Z") });
+  state = updateDistrictFormField(state, { field: "turnoutA", value: 41.2 }).state;
+  state = updateDistrictFormField(state, { field: "turnoutB", value: 46.8 }).state;
+  state = updateDistrictFormField(state, { field: "bandWidth", value: 3.5 }).state;
+
+  const canonicalBefore = selectDistrictCanonicalView(state);
+  const canonicalAfterRefresh = selectDistrictCanonicalView(JSON.parse(JSON.stringify(state)));
+
+  assert.equal(canonicalBefore.form.turnoutA, 41.2);
+  assert.equal(canonicalBefore.form.turnoutB, 46.8);
+  assert.equal(canonicalBefore.form.bandWidth, 3.5);
+  assert.equal(canonicalAfterRefresh.form.turnoutA, 41.2);
+  assert.equal(canonicalAfterRefresh.form.turnoutB, 46.8);
+  assert.equal(canonicalAfterRefresh.form.bandWidth, 3.5);
+});
