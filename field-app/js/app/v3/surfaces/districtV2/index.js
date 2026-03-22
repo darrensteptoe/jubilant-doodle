@@ -55,10 +55,6 @@ import {
 } from "../../../districtOptionRegistry.js";
 import { listTemplateDimensionOptions } from "../../../templateRegistry.js";
 import {
-  listTargetGeoLevels,
-  listTargetModelOptions,
-} from "../../../targetingRuntime.js";
-import {
   listAcsYears,
   listMetricSetOptions,
   listResolutionOptions,
@@ -68,18 +64,15 @@ import { renderDistrictV2ElectorateCard } from "./electorate.js";
 import { renderDistrictV2TurnoutBaselineCard } from "./turnoutBaseline.js";
 import { renderDistrictV2BallotCard } from "./ballot.js";
 import { renderDistrictV2CandidateHistoryCard } from "./candidateHistory.js";
-import { renderDistrictV2TargetingCard } from "./targetingConfig.js";
+import {
+  createDistrictV2TargetingModule,
+  renderDistrictV2TargetingCard,
+} from "./targetingConfig.js";
 import { renderDistrictV2CensusCard } from "./censusConfig.js";
 import {
   renderDistrictV2SummaryCard,
   syncDistrictV2Summary,
 } from "./summary.js";
-
-const TARGETING_DENSITY_OPTIONS = Object.freeze([
-  { value: "none", label: "None" },
-  { value: "medium", label: "Medium+" },
-  { value: "high", label: "High" },
-]);
 
 const DISTRICT_V2_BRIDGE_STATUS_ID = "v3DistrictV2BridgeStatus";
 const DISTRICT_V2_RUNTIME_DEBUG_ID = "v3DistrictV2RuntimeDebug";
@@ -119,7 +112,7 @@ let districtV2TraceCensusRoot = null;
 let districtV2TraceAutoRan = false;
 let districtV2TraceAutoAttempts = 0;
 const districtV2BinderAttachCounts = new WeakMap();
-let districtV2TargetingActionStatusOverride = "";
+let districtV2TargetingModule = null;
 
 function isDistrictV2RuntimeDebugVisible() {
   try {
@@ -246,6 +239,22 @@ export function renderDistrictV2Surface(mount) {
   mount.innerHTML = "";
   mount.append(frame);
 
+  districtV2TargetingModule = createDistrictV2TargetingModule({
+    syncSelectOptions,
+    syncInputValueFromRaw,
+    syncCheckboxCheckedFromRaw,
+    setText,
+    applyDisabled,
+    setInnerHtmlWithTrace,
+    escapeHtml,
+    setDistrictTargetingField,
+    applyDistrictTargetingPreset,
+    resetDistrictTargetingWeights,
+    runDistrictTargeting,
+    exportDistrictTargetingCsv,
+    exportDistrictTargetingJson,
+  });
+
   bindDistrictV2RaceContextHandlers();
   bindDistrictV2ElectorateHandlers();
   bindDistrictV2TurnoutBaselineHandlers();
@@ -308,7 +317,12 @@ export function refreshDistrictV2Surface() {
   syncDistrictV2TurnoutBaseline(formSnapshot, controlSnapshot);
   syncDistrictV2Ballot(ballotSnapshot, controlSnapshot);
   syncDistrictV2CandidateHistory(ballotSnapshot, controlSnapshot);
-  syncDistrictV2Targeting(targetingConfigSnapshot, targetingResultsSnapshot);
+  syncDistrictV2Targeting(
+    targetingConfigSnapshot,
+    targetingResultsSnapshot,
+    censusConfigSnapshot,
+    censusResultsSnapshot,
+  );
   syncDistrictV2Census(censusConfigSnapshot, censusResultsSnapshot);
   syncDistrictV2Summary(snapshot, electionDataSummarySnapshot);
   syncDistrictV2RuntimeDebug(templateSnapshot, formSnapshot);
@@ -359,39 +373,11 @@ export function refreshDistrictV2Surface() {
 }
 
 function handleDistrictV2MutationResult(result, source) {
-  const sourceToken = String(source || "").trim();
-  const isTargetingSource = sourceToken.startsWith("setTargetingField:")
-    || sourceToken === "applyTargetingPreset"
-    || sourceToken === "resetTargetingWeights"
-    || sourceToken === "runTargeting"
-    || sourceToken === "exportTargetingCsv"
-    || sourceToken === "exportTargetingJson";
-  if (isTargetingSource) {
-    if (result == null) {
-      districtV2TargetingActionStatusOverride = "Targeting action failed to reach the runtime bridge. Reload the page and try again.";
-      console.warn(`[district_v2] targeting action returned null (${sourceToken})`);
-    } else if (result && typeof result === "object" && result.ok === false) {
-      const code = String(result.code || "unknown").trim();
-      if (code === "no_rows") {
-        districtV2TargetingActionStatusOverride = "Load ACS rows before running targeting.";
-      } else if (code === "locked") {
-        districtV2TargetingActionStatusOverride = "Scenario is locked. Unlock edits before running targeting.";
-      } else if (code === "run_failed") {
-        const detail = String(
-          result?.message
-          || result?.view?.census?.statusText
-          || result?.view?.derived?.census?.statusText
-          || "",
-        ).trim();
-        districtV2TargetingActionStatusOverride = detail
-          ? `Targeting run failed: ${detail}`
-          : "Targeting action rejected (run_failed).";
-      } else {
-        districtV2TargetingActionStatusOverride = `Targeting action rejected (${code || "unknown"}).`;
-      }
-    } else if (result && typeof result === "object" && result.ok === true) {
-      districtV2TargetingActionStatusOverride = "";
-    }
+  if (
+    districtV2TargetingModule
+    && typeof districtV2TargetingModule.handleMutationResult === "function"
+  ) {
+    districtV2TargetingModule.handleMutationResult(result, source);
   }
   if (result && typeof result === "object" && result.ok === false) {
     const code = String(result.code || "unknown").trim();
@@ -1752,56 +1738,20 @@ function syncDistrictV2CandidateHistory(ballotSnapshot, controlSnapshot) {
   applyDisabled("v3BtnDistrictV2AddCandidateHistory", locked);
 }
 
-function syncDistrictV2Targeting(configSnapshot, resultsSnapshot) {
-  const config = configSnapshot && typeof configSnapshot === "object" ? configSnapshot : {};
-  const results = resultsSnapshot && typeof resultsSnapshot === "object" ? resultsSnapshot : {};
-
-  syncSelectOptions("v3DistrictV2TargetingGeoLevel", normalizeTargetingOptions(listTargetGeoLevels()), config.geoLevel);
-  syncSelectOptions("v3DistrictV2TargetingModelId", normalizeTargetingOptions(listTargetModelOptions()), config.modelId || config.presetId);
-  syncInputValueFromRaw("v3DistrictV2TargetingTopN", config.topN);
-  syncInputValueFromRaw("v3DistrictV2TargetingMinHousingUnits", config.minHousingUnits);
-  syncInputValueFromRaw("v3DistrictV2TargetingMinPopulation", config.minPopulation);
-  syncInputValueFromRaw("v3DistrictV2TargetingMinScore", config.minScore);
-  syncCheckboxCheckedFromRaw("v3DistrictV2TargetingOnlyRaceFootprint", config.onlyRaceFootprint);
-  syncCheckboxCheckedFromRaw("v3DistrictV2TargetingPrioritizeYoung", config.prioritizeYoung);
-  syncCheckboxCheckedFromRaw("v3DistrictV2TargetingPrioritizeRenters", config.prioritizeRenters);
-  syncCheckboxCheckedFromRaw("v3DistrictV2TargetingAvoidHighMultiUnit", config.avoidHighMultiUnit);
-  syncSelectOptions("v3DistrictV2TargetingDensityFloor", TARGETING_DENSITY_OPTIONS, config.densityFloor, { placeholder: "none" });
-  syncInputValueFromRaw("v3DistrictV2TargetingWeightVotePotential", config.weightVotePotential);
-  syncInputValueFromRaw("v3DistrictV2TargetingWeightTurnoutOpportunity", config.weightTurnoutOpportunity);
-  syncInputValueFromRaw("v3DistrictV2TargetingWeightPersuasionIndex", config.weightPersuasionIndex);
-  syncInputValueFromRaw("v3DistrictV2TargetingWeightFieldEfficiency", config.weightFieldEfficiency);
-
-  const locked = !!config.controlsLocked;
-  const canRun = config.canRun == null ? true : !!config.canRun;
-  if (districtV2TargetingActionStatusOverride === "Load ACS rows before running targeting." && canRun) {
-    districtV2TargetingActionStatusOverride = "";
+function syncDistrictV2Targeting(configSnapshot, resultsSnapshot, censusConfigSnapshot, censusResultsSnapshot) {
+  if (
+    districtV2TargetingModule
+    && typeof districtV2TargetingModule.sync === "function"
+  ) {
+    districtV2TargetingModule.sync(
+      configSnapshot,
+      resultsSnapshot,
+      {
+        censusConfig: censusConfigSnapshot,
+        censusResults: censusResultsSnapshot,
+      },
+    );
   }
-  const derivedStatusText = String(results.statusText || "Run targeting.") || "Run targeting.";
-  const statusText = districtV2TargetingActionStatusOverride || derivedStatusText;
-  setText("v3DistrictV2TargetingStatus", statusText);
-  setText("v3DistrictV2TargetingMeta", String(results.metaText || "") || "-");
-  renderDistrictV2TargetingRows(results.rows);
-
-  applyDisabled("v3DistrictV2TargetingGeoLevel", locked);
-  applyDisabled("v3DistrictV2TargetingModelId", locked);
-  applyDisabled("v3DistrictV2TargetingTopN", locked);
-  applyDisabled("v3DistrictV2TargetingMinHousingUnits", locked);
-  applyDisabled("v3DistrictV2TargetingMinPopulation", locked);
-  applyDisabled("v3DistrictV2TargetingMinScore", locked);
-  applyDisabled("v3DistrictV2TargetingOnlyRaceFootprint", locked);
-  applyDisabled("v3DistrictV2TargetingPrioritizeYoung", locked);
-  applyDisabled("v3DistrictV2TargetingPrioritizeRenters", locked);
-  applyDisabled("v3DistrictV2TargetingAvoidHighMultiUnit", locked);
-  applyDisabled("v3DistrictV2TargetingDensityFloor", locked);
-  applyDisabled("v3DistrictV2TargetingWeightVotePotential", locked);
-  applyDisabled("v3DistrictV2TargetingWeightTurnoutOpportunity", locked);
-  applyDisabled("v3DistrictV2TargetingWeightPersuasionIndex", locked);
-  applyDisabled("v3DistrictV2TargetingWeightFieldEfficiency", locked);
-  applyDisabled("v3BtnDistrictV2TargetingResetWeights", locked || !config.canResetWeights);
-  applyDisabled("v3BtnDistrictV2RunTargeting", locked || !canRun);
-  applyDisabled("v3BtnDistrictV2ExportTargetingCsv", locked || !config.canExport);
-  applyDisabled("v3BtnDistrictV2ExportTargetingJson", locked || !config.canExport);
 }
 
 function syncDistrictV2Census(configSnapshot, resultsSnapshot) {
@@ -1920,28 +1870,6 @@ function syncDistrictV2Census(configSnapshot, resultsSnapshot) {
     "v3BtnDistrictV2CensusClearVtdZip",
     controlsLocked || readDisabled("clearVtdZip", "v3BtnCensusMapQaVtdZipClear"),
   );
-}
-
-function renderDistrictV2TargetingRows(rows) {
-  const tbody = document.getElementById("v3DistrictV2TargetingResultsTbody");
-  if (!(tbody instanceof HTMLElement)) {
-    return;
-  }
-  const list = Array.isArray(rows) ? rows : [];
-  if (!list.length) {
-    setInnerHtmlWithTrace(tbody, `<tr><td class="muted" colspan="6">Run targeting to generate ranked GEOs.</td></tr>`, "renderDistrictV2TargetingRows:empty");
-    return;
-  }
-  setInnerHtmlWithTrace(tbody, list.map((row) => `
-    <tr>
-      <td>${escapeHtml(String(row?.rank || ""))}</td>
-      <td>${escapeHtml(String(row?.geography || ""))}</td>
-      <td class="num">${escapeHtml(String(row?.score || ""))}</td>
-      <td class="num">${escapeHtml(String(row?.votesPerHour || ""))}</td>
-      <td>${escapeHtml(String(row?.reason || ""))}</td>
-      <td>${escapeHtml(String(row?.flags || ""))}</td>
-    </tr>
-  `).join(""), "renderDistrictV2TargetingRows:rows");
 }
 
 function renderDistrictV2CensusAggregateRows(rows) {
@@ -2125,26 +2053,12 @@ function bindDistrictV2CandidateHistoryHandlers() {
 }
 
 function bindDistrictV2TargetingHandlers() {
-  bindDistrictV2TargetingSelect("v3DistrictV2TargetingGeoLevel", "geoLevel");
-  bindDistrictV2TargetingModelSelect("v3DistrictV2TargetingModelId");
-  bindDistrictV2TargetingField("v3DistrictV2TargetingTopN", "topN");
-  bindDistrictV2TargetingField("v3DistrictV2TargetingMinHousingUnits", "minHousingUnits");
-  bindDistrictV2TargetingField("v3DistrictV2TargetingMinPopulation", "minPopulation");
-  bindDistrictV2TargetingField("v3DistrictV2TargetingMinScore", "minScore");
-  bindDistrictV2TargetingCheckbox("v3DistrictV2TargetingOnlyRaceFootprint", "onlyRaceFootprint");
-  bindDistrictV2TargetingCheckbox("v3DistrictV2TargetingPrioritizeYoung", "prioritizeYoung");
-  bindDistrictV2TargetingCheckbox("v3DistrictV2TargetingPrioritizeRenters", "prioritizeRenters");
-  bindDistrictV2TargetingCheckbox("v3DistrictV2TargetingAvoidHighMultiUnit", "avoidHighMultiUnit");
-  bindDistrictV2TargetingSelect("v3DistrictV2TargetingDensityFloor", "densityFloor");
-  bindDistrictV2TargetingField("v3DistrictV2TargetingWeightVotePotential", "weightVotePotential");
-  bindDistrictV2TargetingField("v3DistrictV2TargetingWeightTurnoutOpportunity", "weightTurnoutOpportunity");
-  bindDistrictV2TargetingField("v3DistrictV2TargetingWeightPersuasionIndex", "weightPersuasionIndex");
-  bindDistrictV2TargetingField("v3DistrictV2TargetingWeightFieldEfficiency", "weightFieldEfficiency");
-
-  bindDistrictV2TargetingAction("v3BtnDistrictV2TargetingResetWeights", () => resetDistrictTargetingWeights(), "resetTargetingWeights");
-  bindDistrictV2TargetingAction("v3BtnDistrictV2RunTargeting", () => runDistrictTargeting(), "runTargeting");
-  bindDistrictV2TargetingAction("v3BtnDistrictV2ExportTargetingCsv", () => exportDistrictTargetingCsv(), "exportTargetingCsv");
-  bindDistrictV2TargetingAction("v3BtnDistrictV2ExportTargetingJson", () => exportDistrictTargetingJson(), "exportTargetingJson");
+  if (
+    districtV2TargetingModule
+    && typeof districtV2TargetingModule.bind === "function"
+  ) {
+    districtV2TargetingModule.bind(handleDistrictV2MutationResult);
+  }
 }
 
 function bindDistrictV2CensusHandlers() {
@@ -2314,68 +2228,6 @@ function bindDistrictV2FormCheckbox(v3Id, field) {
   control.addEventListener("change", () => {
     const result = setDistrictFormField(field, control.checked);
     handleDistrictV2MutationResult(result, `setFormField:${field}`);
-  });
-}
-
-function bindDistrictV2TargetingSelect(v3Id, field) {
-  const control = document.getElementById(v3Id);
-  if (!(control instanceof HTMLSelectElement) || control.dataset.v3DistrictV2Bound === "1") {
-    return;
-  }
-  control.dataset.v3DistrictV2Bound = "1";
-  control.addEventListener("change", () => {
-    const result = setDistrictTargetingField(field, control.value);
-    handleDistrictV2MutationResult(result, `setTargetingField:${field}`);
-  });
-}
-
-function bindDistrictV2TargetingModelSelect(v3Id) {
-  const control = document.getElementById(v3Id);
-  if (!(control instanceof HTMLSelectElement) || control.dataset.v3DistrictV2Bound === "1") {
-    return;
-  }
-  control.dataset.v3DistrictV2Bound = "1";
-  control.addEventListener("change", () => {
-    const result = applyDistrictTargetingPreset(control.value);
-    handleDistrictV2MutationResult(result, "applyTargetingPreset");
-  });
-}
-
-function bindDistrictV2TargetingField(v3Id, field) {
-  const control = document.getElementById(v3Id);
-  if (!(control instanceof HTMLInputElement) || control.dataset.v3DistrictV2Bound === "1") {
-    return;
-  }
-  control.dataset.v3DistrictV2Bound = "1";
-  const onCommit = () => {
-    const result = setDistrictTargetingField(field, control.value);
-    handleDistrictV2MutationResult(result, `setTargetingField:${field}`);
-  };
-  control.addEventListener("input", onCommit);
-  control.addEventListener("change", onCommit);
-}
-
-function bindDistrictV2TargetingCheckbox(v3Id, field) {
-  const control = document.getElementById(v3Id);
-  if (!(control instanceof HTMLInputElement) || control.dataset.v3DistrictV2Bound === "1") {
-    return;
-  }
-  control.dataset.v3DistrictV2Bound = "1";
-  control.addEventListener("change", () => {
-    const result = setDistrictTargetingField(field, control.checked);
-    handleDistrictV2MutationResult(result, `setTargetingField:${field}`);
-  });
-}
-
-function bindDistrictV2TargetingAction(v3Id, action, source) {
-  const button = document.getElementById(v3Id);
-  if (!(button instanceof HTMLButtonElement) || button.dataset.v3DistrictV2Bound === "1") {
-    return;
-  }
-  button.dataset.v3DistrictV2Bound = "1";
-  button.addEventListener("click", () => {
-    const result = action();
-    handleDistrictV2MutationResult(result, source);
   });
 }
 
@@ -2665,20 +2517,6 @@ function normalizeIdOptions(rows) {
       const value = String(row?.id ?? row?.value ?? "").trim();
       const label = String(row?.label ?? row?.id ?? row?.value ?? "").trim() || value;
       if (!value && !label) {
-        return null;
-      }
-      return { value, label };
-    })
-    .filter(Boolean);
-}
-
-function normalizeTargetingOptions(rows) {
-  const list = Array.isArray(rows) ? rows : [];
-  return list
-    .map((row) => {
-      const value = String(row?.id ?? row?.value ?? "").trim();
-      const label = String(row?.label ?? row?.id ?? row?.value ?? "").trim() || value;
-      if (!value) {
         return null;
       }
       return { value, label };

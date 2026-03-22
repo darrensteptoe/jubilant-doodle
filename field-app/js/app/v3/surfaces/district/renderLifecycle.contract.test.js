@@ -9,17 +9,23 @@ import { fileURLToPath } from "node:url";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const districtV2Path = path.join(__dirname, "../districtV2/index.js");
+const districtV2TargetingModulePath = path.join(__dirname, "../districtV2/targetingConfig.js");
 const districtV2CensusConfigPath = path.join(__dirname, "../districtV2/censusConfig.js");
 const censusPhase1Path = path.join(__dirname, "../../../../app/censusPhase1.js");
 const source = fs.readFileSync(districtV2Path, "utf8");
+const targetingModuleSource = fs.readFileSync(districtV2TargetingModulePath, "utf8");
 const censusConfigSource = fs.readFileSync(districtV2CensusConfigPath, "utf8");
 const censusPhase1Source = fs.readFileSync(censusPhase1Path, "utf8");
 
-function extractFunctionBody(name) {
+function extractFunctionBodyFrom(text, name) {
   const pattern = new RegExp(`function\\s+${name}\\s*\\([^)]*\\)\\s*\\{([\\s\\S]*?)\\n\\}`, "m");
-  const match = source.match(pattern);
+  const match = text.match(pattern);
   assert.ok(match, `${name} must exist`);
   return String(match[1] || "");
+}
+
+function extractFunctionBody(name) {
+  return extractFunctionBodyFrom(source, name);
 }
 
 test("render lifecycle: district editable row modules gate structural rerender by row signature", () => {
@@ -185,7 +191,7 @@ test("c2 contract: candidate history ordinary edits use in-place sync path after
 });
 
 test("c3 contract: targeting and census ordinary editable sync paths avoid structural rerender", () => {
-  const targetingBody = extractFunctionBody("syncDistrictV2Targeting");
+  const targetingBody = extractFunctionBodyFrom(targetingModuleSource, "sync");
   const censusBody = extractFunctionBody("syncDistrictV2Census");
 
   assert.match(targetingBody, /syncSelectOptions\(/, "targeting sync must use in-place select sync helpers");
@@ -207,19 +213,15 @@ test("c3 contract: targeting and census ordinary editable sync paths avoid struc
 });
 
 test("c3 contract: targeting and census binders are one-time and hold-free", () => {
-  const targetingSelectBody = extractFunctionBody("bindDistrictV2TargetingSelect");
-  const targetingFieldBody = extractFunctionBody("bindDistrictV2TargetingField");
+  const targetingBindBody = extractFunctionBodyFrom(targetingModuleSource, "bind");
   const censusFieldBody = extractFunctionBody("bindDistrictV2CensusField");
 
-  assert.match(targetingSelectBody, /control\.dataset\.v3DistrictV2Bound === "1"/);
-  assert.match(targetingSelectBody, /control\.dataset\.v3DistrictV2Bound = "1";/);
-  assert.match(targetingFieldBody, /control\.dataset\.v3DistrictV2Bound === "1"/);
-  assert.match(targetingFieldBody, /control\.dataset\.v3DistrictV2Bound = "1";/);
+  assert.match(targetingBindBody, /control\.dataset\.v3DistrictV2Bound === "1"/);
+  assert.match(targetingBindBody, /control\.dataset\.v3DistrictV2Bound = "1";/);
   assert.match(censusFieldBody, /control\.dataset\.v3DistrictV2Bound === "1"/);
   assert.match(censusFieldBody, /control\.dataset\.v3DistrictV2Bound = "1";/);
 
-  assert.doesNotMatch(targetingSelectBody, /markDistrictPendingWrite|shouldHoldDistrictControlSync/);
-  assert.doesNotMatch(targetingFieldBody, /markDistrictPendingWrite|shouldHoldDistrictControlSync/);
+  assert.doesNotMatch(targetingBindBody, /markDistrictPendingWrite|shouldHoldDistrictControlSync/);
   assert.doesNotMatch(censusFieldBody, /markDistrictPendingWrite|shouldHoldDistrictControlSync/);
 });
 
@@ -280,7 +282,8 @@ test("c9.3 contract: district v2 map host is present and preferred by census run
 });
 
 test("c9.4a contract: targeting actions surface null bridge results and explicit no_rows feedback", () => {
-  const mutationBody = extractFunctionBody("handleDistrictV2MutationResult");
+  const mutationBody = extractFunctionBodyFrom(targetingModuleSource, "handleMutationResult");
+  const failureMessageBody = extractFunctionBodyFrom(targetingModuleSource, "resolveRunFailureMessage");
   assert.match(mutationBody, /result == null/, "targeting mutation handling must detect null bridge results");
   assert.match(
     mutationBody,
@@ -290,7 +293,7 @@ test("c9.4a contract: targeting actions surface null bridge results and explicit
   assert.match(mutationBody, /code === "no_rows"/, "targeting mutation handling must branch no_rows result codes");
   assert.match(
     mutationBody,
-    /districtV2TargetingActionStatusOverride = "Load ACS rows before running targeting\.";/,
+    /targetingActionStatusOverride = "Load ACS rows before running targeting\.";/,
     "no_rows should surface actionable load-rows guidance",
   );
   assert.match(
@@ -299,27 +302,28 @@ test("c9.4a contract: targeting actions surface null bridge results and explicit
     "targeting mutation handling must branch run_failed result codes",
   );
   assert.match(
-    mutationBody,
+    failureMessageBody,
     /Targeting run failed:/,
     "run_failed should surface runtime detail text when available",
   );
 });
 
 test("c9.4a contract: run targeting disabled state and status text respect canRun", () => {
-  const targetingBody = extractFunctionBody("syncDistrictV2Targeting");
+  const targetingBody = extractFunctionBodyFrom(targetingModuleSource, "sync");
+  const readinessBody = extractFunctionBodyFrom(targetingModuleSource, "deriveReadiness");
   assert.match(
-    targetingBody,
-    /const canRun = config\.canRun == null \? true : !!config\.canRun;/,
-    "targeting sync must normalize canRun from canonical config",
+    readinessBody,
+    /const canRunByCanonical = config\?\.canRun == null \? true : !!config\.canRun;/,
+    "targeting readiness must normalize canRun from canonical config",
   );
   assert.match(
     targetingBody,
-    /applyDisabled\("v3BtnDistrictV2RunTargeting", locked \|\| !canRun\);/,
+    /applyDisabled\("v3BtnDistrictV2RunTargeting", locked \|\| !readyForRun\);/,
     "run targeting button must be disabled when prerequisites are unmet",
   );
   assert.match(
     targetingBody,
-    /const statusText = districtV2TargetingActionStatusOverride \|\| derivedStatusText;/,
+    /const statusText = targetingActionStatusOverride \|\| \(readiness\.ready \? derivedStatusText : readiness\.reason\);/,
     "targeting status should surface explicit action-level failures before derived fallback",
   );
 });

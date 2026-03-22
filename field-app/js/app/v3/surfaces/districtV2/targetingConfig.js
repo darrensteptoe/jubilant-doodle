@@ -1,3 +1,144 @@
+import {
+  listTargetGeoLevels,
+  listTargetModelOptions,
+} from "../../../targetingRuntime.js";
+
+export const TARGETING_DENSITY_OPTIONS = Object.freeze([
+  { value: "none", label: "None" },
+  { value: "medium", label: "Medium+" },
+  { value: "high", label: "High" },
+]);
+
+const TARGETING_SOURCE_TOKENS = new Set([
+  "applyTargetingPreset",
+  "resetTargetingWeights",
+  "runTargeting",
+  "exportTargetingCsv",
+  "exportTargetingJson",
+]);
+
+function normalizeTargetingOptions(rows) {
+  const list = Array.isArray(rows) ? rows : [];
+  return list
+    .map((row) => {
+      const value = String(row?.id ?? row?.value ?? "").trim();
+      const label = String(row?.label ?? row?.id ?? row?.value ?? "").trim() || value;
+      if (!value) {
+        return null;
+      }
+      return { value, label };
+    })
+    .filter(Boolean);
+}
+
+function parseLoadedRowsCount(geoStatsText) {
+  const text = String(geoStatsText || "").trim();
+  const match = text.match(/(\d+)\s+rows?\s+loaded/i);
+  if (!match) {
+    return 0;
+  }
+  const count = Number.parseInt(match[1], 10);
+  return Number.isFinite(count) ? Math.max(0, count) : 0;
+}
+
+function hasSelectedGeo(censusConfig) {
+  const rows = Array.isArray(censusConfig?.geoSelectOptions) ? censusConfig.geoSelectOptions : [];
+  return rows.some((row) => !!row?.selected);
+}
+
+function deriveReadiness(config, censusConfig, censusResults) {
+  const locked = !!config?.controlsLocked;
+  const canRunByCanonical = config?.canRun == null ? true : !!config.canRun;
+  const loadedRows = parseLoadedRowsCount(censusResults?.geoStatsText);
+  const selectedGeo = hasSelectedGeo(censusConfig);
+  const issues = [];
+
+  if (locked) {
+    issues.push("Scenario is locked.");
+  }
+  if (!canRunByCanonical) {
+    issues.push("Load ACS rows before running targeting.");
+  }
+  if (loadedRows <= 0) {
+    issues.push("No ACS rows loaded.");
+  }
+  if (!selectedGeo) {
+    issues.push("Select at least one GEO.");
+  }
+
+  const geoLevel = String(config?.geoLevel || "").trim();
+  const modelId = String(config?.modelId || config?.presetId || "").trim();
+  const topN = Number(config?.topN);
+
+  if (!geoLevel) {
+    issues.push("Set geography level.");
+  }
+  if (!modelId) {
+    issues.push("Set target model.");
+  }
+  if (!Number.isFinite(topN) || topN <= 0) {
+    issues.push("Set Top N > 0.");
+  }
+
+  const ready = !issues.length;
+  return {
+    ready,
+    locked,
+    loadedRows,
+    selectedGeo,
+    canRunByCanonical,
+    reason: ready ? "Ready to run targeting." : issues[0],
+    issues,
+  };
+}
+
+function resolveRunFailureMessage(result) {
+  const detail = String(
+    result?.message
+    || result?.view?.census?.statusText
+    || result?.view?.derived?.census?.statusText
+    || "",
+  ).trim();
+  return detail ? `Targeting run failed: ${detail}` : "Targeting action rejected (run_failed).";
+}
+
+function isTargetingSource(sourceToken) {
+  const token = String(sourceToken || "").trim();
+  if (!token) return false;
+  if (token.startsWith("setTargetingField:")) return true;
+  return TARGETING_SOURCE_TOKENS.has(token);
+}
+
+function renderTargetingRows(rows, { setInnerHtmlWithTrace, escapeHtml }) {
+  const tbody = document.getElementById("v3DistrictV2TargetingResultsTbody");
+  if (!(tbody instanceof HTMLElement)) {
+    return;
+  }
+  const list = Array.isArray(rows) ? rows : [];
+  if (!list.length) {
+    setInnerHtmlWithTrace(
+      tbody,
+      `<tr><td class="muted" colspan="6">Run targeting to generate ranked GEOs.</td></tr>`,
+      "targetingConfig.renderRows:empty",
+    );
+    return;
+  }
+  setInnerHtmlWithTrace(
+    tbody,
+    list.map((row) => `
+      <tr>
+        <td>${escapeHtml(String(row?.rank || ""))}</td>
+        <td>${escapeHtml(String(row?.geography || ""))}</td>
+        <td class="num">${escapeHtml(String(row?.score || ""))}</td>
+        <td class="num">${escapeHtml(String(row?.votesPerHour || ""))}</td>
+        <td>${escapeHtml(String(row?.reason || ""))}</td>
+        <td>${escapeHtml(String(row?.flags || ""))}</td>
+      </tr>
+    `).join(""),
+    "targetingConfig.renderRows:rows",
+  );
+}
+
 export function renderDistrictV2TargetingCard({ targetingCard, getCardBody }) {
   const body = getCardBody(targetingCard);
   body.innerHTML = `
@@ -82,6 +223,7 @@ export function renderDistrictV2TargetingCard({ targetingCard, getCardBody }) {
         <button class="fpe-btn fpe-btn--ghost" id="v3BtnDistrictV2ExportTargetingJson" type="button">Export targets JSON</button>
       </div>
 
+      <div class="fpe-help fpe-help--flush" id="v3DistrictV2TargetingReadiness">Readiness: evaluating targeting prerequisites.</div>
       <div class="fpe-help fpe-help--flush" id="v3DistrictV2TargetingStatus">-</div>
       <div class="fpe-help fpe-help--flush" id="v3DistrictV2TargetingMeta">-</div>
 
@@ -104,4 +246,218 @@ export function renderDistrictV2TargetingCard({ targetingCard, getCardBody }) {
       </div>
     </div>
   `;
+}
+
+export function createDistrictV2TargetingModule(deps = {}) {
+  const {
+    syncSelectOptions,
+    syncInputValueFromRaw,
+    syncCheckboxCheckedFromRaw,
+    setText,
+    applyDisabled,
+    setInnerHtmlWithTrace,
+    escapeHtml,
+    setDistrictTargetingField,
+    applyDistrictTargetingPreset,
+    resetDistrictTargetingWeights,
+    runDistrictTargeting,
+    exportDistrictTargetingCsv,
+    exportDistrictTargetingJson,
+  } = deps;
+
+  let targetingActionStatusOverride = "";
+  let latestReadiness = {
+    ready: false,
+    reason: "Readiness unavailable.",
+  };
+
+  function sync(configSnapshot, resultsSnapshot, context = {}) {
+    const config = configSnapshot && typeof configSnapshot === "object" ? configSnapshot : {};
+    const results = resultsSnapshot && typeof resultsSnapshot === "object" ? resultsSnapshot : {};
+    const censusConfig = context?.censusConfig && typeof context.censusConfig === "object" ? context.censusConfig : {};
+    const censusResults = context?.censusResults && typeof context.censusResults === "object" ? context.censusResults : {};
+
+    syncSelectOptions("v3DistrictV2TargetingGeoLevel", normalizeTargetingOptions(listTargetGeoLevels()), config.geoLevel);
+    syncSelectOptions("v3DistrictV2TargetingModelId", normalizeTargetingOptions(listTargetModelOptions()), config.modelId || config.presetId);
+    syncInputValueFromRaw("v3DistrictV2TargetingTopN", config.topN);
+    syncInputValueFromRaw("v3DistrictV2TargetingMinHousingUnits", config.minHousingUnits);
+    syncInputValueFromRaw("v3DistrictV2TargetingMinPopulation", config.minPopulation);
+    syncInputValueFromRaw("v3DistrictV2TargetingMinScore", config.minScore);
+    syncCheckboxCheckedFromRaw("v3DistrictV2TargetingOnlyRaceFootprint", config.onlyRaceFootprint);
+    syncCheckboxCheckedFromRaw("v3DistrictV2TargetingPrioritizeYoung", config.prioritizeYoung);
+    syncCheckboxCheckedFromRaw("v3DistrictV2TargetingPrioritizeRenters", config.prioritizeRenters);
+    syncCheckboxCheckedFromRaw("v3DistrictV2TargetingAvoidHighMultiUnit", config.avoidHighMultiUnit);
+    syncSelectOptions("v3DistrictV2TargetingDensityFloor", TARGETING_DENSITY_OPTIONS, config.densityFloor, { placeholder: "none" });
+    syncInputValueFromRaw("v3DistrictV2TargetingWeightVotePotential", config.weightVotePotential);
+    syncInputValueFromRaw("v3DistrictV2TargetingWeightTurnoutOpportunity", config.weightTurnoutOpportunity);
+    syncInputValueFromRaw("v3DistrictV2TargetingWeightPersuasionIndex", config.weightPersuasionIndex);
+    syncInputValueFromRaw("v3DistrictV2TargetingWeightFieldEfficiency", config.weightFieldEfficiency);
+
+    const readiness = deriveReadiness(config, censusConfig, censusResults);
+    latestReadiness = readiness;
+    if (targetingActionStatusOverride === "Load ACS rows before running targeting." && readiness.ready) {
+      targetingActionStatusOverride = "";
+    }
+
+    const derivedStatusText = String(results.statusText || "Run targeting.") || "Run targeting.";
+    const statusText = targetingActionStatusOverride || (readiness.ready ? derivedStatusText : readiness.reason);
+    setText("v3DistrictV2TargetingReadiness", `Readiness: ${readiness.reason}`);
+    setText("v3DistrictV2TargetingStatus", statusText);
+    setText("v3DistrictV2TargetingMeta", String(results.metaText || "") || "-");
+    renderTargetingRows(results.rows, { setInnerHtmlWithTrace, escapeHtml });
+
+    const locked = !!config.controlsLocked;
+    const readyForRun = readiness.ready;
+    applyDisabled("v3DistrictV2TargetingGeoLevel", locked);
+    applyDisabled("v3DistrictV2TargetingModelId", locked);
+    applyDisabled("v3DistrictV2TargetingTopN", locked);
+    applyDisabled("v3DistrictV2TargetingMinHousingUnits", locked);
+    applyDisabled("v3DistrictV2TargetingMinPopulation", locked);
+    applyDisabled("v3DistrictV2TargetingMinScore", locked);
+    applyDisabled("v3DistrictV2TargetingOnlyRaceFootprint", locked);
+    applyDisabled("v3DistrictV2TargetingPrioritizeYoung", locked);
+    applyDisabled("v3DistrictV2TargetingPrioritizeRenters", locked);
+    applyDisabled("v3DistrictV2TargetingAvoidHighMultiUnit", locked);
+    applyDisabled("v3DistrictV2TargetingDensityFloor", locked);
+    applyDisabled("v3DistrictV2TargetingWeightVotePotential", locked);
+    applyDisabled("v3DistrictV2TargetingWeightTurnoutOpportunity", locked);
+    applyDisabled("v3DistrictV2TargetingWeightPersuasionIndex", locked);
+    applyDisabled("v3DistrictV2TargetingWeightFieldEfficiency", locked);
+    applyDisabled("v3BtnDistrictV2TargetingResetWeights", locked || !config.canResetWeights);
+    applyDisabled("v3BtnDistrictV2RunTargeting", locked || !readyForRun);
+    applyDisabled("v3BtnDistrictV2ExportTargetingCsv", locked || !config.canExport);
+    applyDisabled("v3BtnDistrictV2ExportTargetingJson", locked || !config.canExport);
+  }
+
+  function handleMutationResult(result, sourceToken) {
+    if (!isTargetingSource(sourceToken)) {
+      return false;
+    }
+    if (result == null) {
+      targetingActionStatusOverride = "Targeting action failed to reach the runtime bridge. Reload the page and try again.";
+      console.warn(`[district_v2_targeting] null bridge result (${sourceToken})`);
+      return true;
+    }
+    if (result && typeof result === "object" && result.ok === false) {
+      const code = String(result.code || "unknown").trim();
+      if (code === "no_rows") {
+        targetingActionStatusOverride = "Load ACS rows before running targeting.";
+      } else if (code === "locked") {
+        targetingActionStatusOverride = "Scenario is locked. Unlock edits before running targeting.";
+      } else if (code === "run_failed") {
+        targetingActionStatusOverride = resolveRunFailureMessage(result);
+      } else if (code === "not_ready") {
+        const detail = String(result?.message || latestReadiness.reason || "Targeting prerequisites are not met.").trim();
+        targetingActionStatusOverride = `Run blocked: ${detail}`;
+      } else {
+        targetingActionStatusOverride = `Targeting action rejected (${code || "unknown"}).`;
+      }
+      return true;
+    }
+    if (result && typeof result === "object" && result.ok === true) {
+      targetingActionStatusOverride = "";
+      return true;
+    }
+    targetingActionStatusOverride = "Targeting action returned an unexpected response.";
+    return true;
+  }
+
+  function bind(onMutation) {
+    const emitMutation = typeof onMutation === "function" ? onMutation : () => {};
+
+    const bindTargetingSelect = (id, field) => {
+      const control = document.getElementById(id);
+      if (!(control instanceof HTMLSelectElement) || control.dataset.v3DistrictV2Bound === "1") {
+        return;
+      }
+      control.dataset.v3DistrictV2Bound = "1";
+      control.addEventListener("change", () => {
+        const result = setDistrictTargetingField(field, control.value);
+        emitMutation(result, `setTargetingField:${field}`);
+      });
+    };
+
+    const bindTargetingField = (id, field) => {
+      const control = document.getElementById(id);
+      if (!(control instanceof HTMLInputElement) || control.dataset.v3DistrictV2Bound === "1") {
+        return;
+      }
+      control.dataset.v3DistrictV2Bound = "1";
+      const onCommit = () => {
+        const result = setDistrictTargetingField(field, control.value);
+        emitMutation(result, `setTargetingField:${field}`);
+      };
+      control.addEventListener("input", onCommit);
+      control.addEventListener("change", onCommit);
+    };
+
+    const bindTargetingCheckbox = (id, field) => {
+      const control = document.getElementById(id);
+      if (!(control instanceof HTMLInputElement) || control.dataset.v3DistrictV2Bound === "1") {
+        return;
+      }
+      control.dataset.v3DistrictV2Bound = "1";
+      control.addEventListener("change", () => {
+        const result = setDistrictTargetingField(field, control.checked);
+        emitMutation(result, `setTargetingField:${field}`);
+      });
+    };
+
+    const bindTargetingAction = (id, action, source) => {
+      const button = document.getElementById(id);
+      if (!(button instanceof HTMLButtonElement) || button.dataset.v3DistrictV2Bound === "1") {
+        return;
+      }
+      button.dataset.v3DistrictV2Bound = "1";
+      button.addEventListener("click", () => {
+        if (source === "runTargeting" && !latestReadiness.ready) {
+          const blockedResult = {
+            ok: false,
+            code: "not_ready",
+            message: latestReadiness.reason || "Targeting prerequisites are not met.",
+          };
+          emitMutation(blockedResult, source);
+          return;
+        }
+        const result = action();
+        emitMutation(result, source);
+      });
+    };
+
+    bindTargetingSelect("v3DistrictV2TargetingGeoLevel", "geoLevel");
+
+    const modelSelect = document.getElementById("v3DistrictV2TargetingModelId");
+    if (modelSelect instanceof HTMLSelectElement && modelSelect.dataset.v3DistrictV2Bound !== "1") {
+      modelSelect.dataset.v3DistrictV2Bound = "1";
+      modelSelect.addEventListener("change", () => {
+        const result = applyDistrictTargetingPreset(modelSelect.value);
+        emitMutation(result, "applyTargetingPreset");
+      });
+    }
+
+    bindTargetingField("v3DistrictV2TargetingTopN", "topN");
+    bindTargetingField("v3DistrictV2TargetingMinHousingUnits", "minHousingUnits");
+    bindTargetingField("v3DistrictV2TargetingMinPopulation", "minPopulation");
+    bindTargetingField("v3DistrictV2TargetingMinScore", "minScore");
+    bindTargetingCheckbox("v3DistrictV2TargetingOnlyRaceFootprint", "onlyRaceFootprint");
+    bindTargetingCheckbox("v3DistrictV2TargetingPrioritizeYoung", "prioritizeYoung");
+    bindTargetingCheckbox("v3DistrictV2TargetingPrioritizeRenters", "prioritizeRenters");
+    bindTargetingCheckbox("v3DistrictV2TargetingAvoidHighMultiUnit", "avoidHighMultiUnit");
+    bindTargetingSelect("v3DistrictV2TargetingDensityFloor", "densityFloor");
+    bindTargetingField("v3DistrictV2TargetingWeightVotePotential", "weightVotePotential");
+    bindTargetingField("v3DistrictV2TargetingWeightTurnoutOpportunity", "weightTurnoutOpportunity");
+    bindTargetingField("v3DistrictV2TargetingWeightPersuasionIndex", "weightPersuasionIndex");
+    bindTargetingField("v3DistrictV2TargetingWeightFieldEfficiency", "weightFieldEfficiency");
+
+    bindTargetingAction("v3BtnDistrictV2TargetingResetWeights", () => resetDistrictTargetingWeights(), "resetTargetingWeights");
+    bindTargetingAction("v3BtnDistrictV2RunTargeting", () => runDistrictTargeting(), "runTargeting");
+    bindTargetingAction("v3BtnDistrictV2ExportTargetingCsv", () => exportDistrictTargetingCsv(), "exportTargetingCsv");
+    bindTargetingAction("v3BtnDistrictV2ExportTargetingJson", () => exportDistrictTargetingJson(), "exportTargetingJson");
+  }
+
+  return {
+    bind,
+    sync,
+    handleMutationResult,
+  };
 }
