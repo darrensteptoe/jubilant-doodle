@@ -131,20 +131,6 @@ function renderSection(row){
     `fpe-intel-section--${escapeHtml(variant)}`,
   ];
 
-  if (row?.expandable){
-    return `
-      <details class="${classes.join(" ")} fpe-intel-section--accordion">
-        <summary class="fpe-intel-section__summary">
-          ${renderSectionHeader(row)}
-        </summary>
-        <div class="fpe-intel-section__content">
-          ${miniItems.length ? `<div class="fpe-intel-mini-row">${miniItems.map((item) => `<span class="fpe-intel-mini-item">${escapeHtml(item)}</span>`).join("")}</div>` : ""}
-          ${renderSectionBody(row)}
-        </div>
-      </details>
-    `;
-  }
-
   if (variant === "mini-row"){
     return `
       <section class="${classes.join(" ")}">
