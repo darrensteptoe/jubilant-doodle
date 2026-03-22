@@ -240,3 +240,56 @@ test("district pending-write hold scope: removed from district_v2 binders", () =
   assert.doesNotMatch(bindCensusFieldSeg, /markDistrictPendingWrite\(/, "district_v2 census binder must not use pending-write hold");
   assert.doesNotMatch(districtSurfaceSource, /shouldHoldDistrictControlSync\(/, "district_v2 must not use hold-based control sync");
 });
+
+test("c9.4 targeting lab: canRun uses canonical census rows with runtime fallback", () => {
+  const canonicalSeg = functionSegment(appRuntimeSource, "districtBridgeCanonicalView");
+  assert.match(
+    canonicalSeg,
+    /const runtimeCensusRows = getCensusRowsForState\(censusRuntimeState\);/,
+    "district canonical view must read runtime census rows for fallback",
+  );
+  assert.match(
+    canonicalSeg,
+    /const runtimeCensusRowsCount = Object\.keys\(runtimeCensusRows[\s\S]*\)\.length;/,
+    "district canonical view must derive runtime census row count",
+  );
+  assert.match(
+    canonicalSeg,
+    /const targetingCanRun = censusLoadedRowCount > 0 \|\| runtimeCensusRowsCount > 0;/,
+    "targeting canRun must fallback to runtime census row presence",
+  );
+  assert.match(
+    canonicalSeg,
+    /canRun:\s*targetingCanRun,/,
+    "targeting config should expose fallback-aware canRun",
+  );
+});
+
+test("c9.4 targeting lab: empty targeting state surfaces explicit load-rows status", () => {
+  const derivedSeg = functionSegment(appRuntimeSource, "districtBridgeDerivedView");
+  assert.match(
+    derivedSeg,
+    /const runtimeCensusRows = getCensusRowsForState\(censusState\);/,
+    "district derived view must inspect runtime census rows",
+  );
+  assert.match(
+    derivedSeg,
+    /TARGETING_STATUS_LOAD_ROWS_FIRST/,
+    "district derived targeting status should include explicit load-rows guidance",
+  );
+});
+
+test("c9.4 targeting lab: census runtime updates sync canonical selection slice", () => {
+  const helperSeg = functionSegment(appRuntimeSource, "districtBridgeSyncCensusSelectionCanonicalState");
+  assert.match(helperSeg, /updateCensusSelectionAction/, "selection sync must dispatch census selection action");
+  assert.match(helperSeg, /rowsByGeoid:\s*runtimeRows/, "selection sync must include runtime rows");
+  assert.match(helperSeg, /activeRowsKey/, "selection sync must include active rows key");
+  assert.match(helperSeg, /loadedRowCount/, "selection sync must include loaded row count");
+
+  const setFieldSeg = functionSegment(appRuntimeSource, "districtBridgeSetCensusField");
+  const setGeoSeg = functionSegment(appRuntimeSource, "districtBridgeSetCensusGeoSelection");
+  const triggerSeg = functionSegment(appRuntimeSource, "districtBridgeTriggerCensusAction");
+  assert.match(setFieldSeg, /districtBridgeSyncCensusSelectionCanonicalState\(next\)/, "setField must sync canonical census selection");
+  assert.match(setGeoSeg, /districtBridgeSyncCensusSelectionCanonicalState\(next\)/, "setGeoSelection must sync canonical census selection");
+  assert.match(triggerSeg, /districtBridgeSyncCensusSelectionCanonicalState\(next\)/, "triggerCensusAction must sync canonical census selection");
+});
