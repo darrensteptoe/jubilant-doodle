@@ -161,9 +161,53 @@ function renderSections(payload){
   return sections.map((row) => renderSection(row)).join("");
 }
 
-function renderLinks(payload){
+function renderGlossaryStrip(payload){
   const links = Array.isArray(payload?.links) ? payload.links : [];
-  if (!links.length) return "";
+  const termLinks = links.filter((row) => clean(row?.type).toLowerCase() === "glossary");
+  if (!termLinks.length){
+    return "";
+  }
+  const seen = new Set();
+  const items = termLinks
+    .filter((row) => {
+      const id = clean(row?.id);
+      if (!id || seen.has(id)) return false;
+      seen.add(id);
+      return true;
+    })
+    .map((row) => {
+      const id = clean(row?.id);
+      const label = clean(row?.label || id);
+      return `
+        <button
+          class="fpe-intel-chip fpe-intel-glossary-chip"
+          type="button"
+          data-intel-open-type="glossary"
+          data-intel-open-id="${escapeHtml(id)}"
+        >
+          ${escapeHtml(label)}
+        </button>
+      `;
+    })
+    .join("");
+  if (!items){
+    return "";
+  }
+  return `
+    <section class="fpe-intel-section fpe-intel-section--mini-row fpe-intel-glossary-strip">
+      <h4 class="fpe-intel-section__title">Glossary Terms</h4>
+      <div class="fpe-intel-glossary-row">${items}</div>
+    </section>
+  `;
+}
+
+function renderLinks(payload, options = {}){
+  const links = Array.isArray(payload?.links) ? payload.links : [];
+  const omitGlossary = !!options?.omitGlossary;
+  const visibleLinks = omitGlossary
+    ? links.filter((row) => clean(row?.type).toLowerCase() !== "glossary")
+    : links;
+  if (!visibleLinks.length) return "";
   const kindLabel = (type) => {
     const t = clean(type).toLowerCase();
     if (t === "module") return "Guide";
@@ -173,7 +217,7 @@ function renderLinks(payload){
     if (t === "message") return "Signal";
     return "Related";
   };
-  const items = links.map((row) => {
+  const items = visibleLinks.map((row) => {
     const type = clean(row?.type);
     const id = clean(row?.id);
     const label = clean(row?.label || id);
@@ -266,7 +310,7 @@ function render(){
   if (state.mode === "search"){
     els.body.innerHTML = renderSearchResults(payload);
   } else {
-    els.body.innerHTML = `${renderSections(payload)}${renderLinks(payload)}`;
+    els.body.innerHTML = `${renderGlossaryStrip(payload)}${renderSections(payload)}${renderLinks(payload, { omitGlossary: true })}`;
   }
 }
 
