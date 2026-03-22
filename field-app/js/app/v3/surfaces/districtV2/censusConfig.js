@@ -103,6 +103,7 @@ export function renderDistrictV2CensusCard({ censusCard, getCardBody }) {
       <div class="fpe-help fpe-help--flush" id="v3DistrictV2CensusMapQaVtdZipStatus">No VTD ZIP loaded.</div>
 
       <div class="fpe-census-map-shell is-idle" id="v3DistrictV2CensusMapShell">
+        <div class="census-map" id="v3CensusMapHost" role="img" aria-label="District Census boundaries map"></div>
         <div class="fpe-census-map-overlay" id="v3DistrictV2CensusMapOverlay">Map shell restored. Load boundaries to refresh geometry status.</div>
       </div>
       <div class="fpe-help fpe-help--flush fpe-census-map-labels" id="v3DistrictV2CensusMapLabels">No geography labels loaded.</div>

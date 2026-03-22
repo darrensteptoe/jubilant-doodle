@@ -1791,7 +1791,14 @@ function syncDistrictV2Census(configSnapshot, resultsSnapshot) {
   const selectedGeoLabels = Array.isArray(config.geoSelectOptions)
     ? config.geoSelectOptions
       .filter((row) => !!row?.selected)
-      .map((row) => String(row?.label || row?.value || "").trim())
+      .map((row) => {
+        const label = String(row?.label || "").trim();
+        const geoid = String(row?.value || "").trim();
+        if (!label && !geoid) return "";
+        if (!label) return geoid;
+        if (!geoid || geoid === label) return label;
+        return `${label} (${geoid})`;
+      })
       .filter(Boolean)
     : [];
   const geoLabelPreview = selectedGeoLabels.slice(0, 8);

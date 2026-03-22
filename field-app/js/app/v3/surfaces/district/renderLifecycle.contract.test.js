@@ -10,8 +10,10 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const districtV2Path = path.join(__dirname, "../districtV2/index.js");
 const districtV2CensusConfigPath = path.join(__dirname, "../districtV2/censusConfig.js");
+const censusPhase1Path = path.join(__dirname, "../../../../app/censusPhase1.js");
 const source = fs.readFileSync(districtV2Path, "utf8");
 const censusConfigSource = fs.readFileSync(districtV2CensusConfigPath, "utf8");
+const censusPhase1Source = fs.readFileSync(censusPhase1Path, "utf8");
 
 function extractFunctionBody(name) {
   const pattern = new RegExp(`function\\s+${name}\\s*\\([^)]*\\)\\s*\\{([\\s\\S]*?)\\n\\}`, "m");
@@ -258,4 +260,21 @@ test("c9 contract: census map label lane is present and synced without editable 
   assert.match(censusSyncBody, /setText\(\s*"v3DistrictV2CensusMapLabels"/);
   assert.doesNotMatch(censusSyncBody, /setInnerHtmlWithTrace\(\s*mapShell/);
   assert.doesNotMatch(censusSyncBody, /markDistrictPendingWrite|shouldHoldDistrictControlSync/);
+});
+
+test("c9.3 contract: district v2 map host is present and preferred by census runtime resolver", () => {
+  assert.match(censusConfigSource, /id="v3CensusMapHost"/);
+  const resolverBodyMatch = censusPhase1Source.match(
+    /function resolveCensusMapContainer\(els\)\{([\s\S]*?)\n\}/m,
+  );
+  assert.ok(resolverBodyMatch, "resolveCensusMapContainer must exist");
+  const resolverBody = String(resolverBodyMatch?.[1] || "");
+  const v3HostIdx = resolverBody.indexOf('document.getElementById("v3CensusMapHost")');
+  const bridgeElsIdx = resolverBody.indexOf("censusRuntimeBridgeEls?.censusMap");
+  const legacyHostIdx = resolverBody.indexOf('document.getElementById("censusMap")');
+  assert.ok(v3HostIdx >= 0, "resolver must query v3 host");
+  assert.ok(bridgeElsIdx >= 0, "resolver must still support bridge host");
+  assert.ok(legacyHostIdx >= 0, "resolver must still support legacy host");
+  assert.ok(v3HostIdx < bridgeElsIdx, "v3 host must be preferred over legacy bridge host");
+  assert.ok(v3HostIdx < legacyHostIdx, "v3 host must be preferred over legacy censusMap host");
 });
