@@ -29,9 +29,13 @@ import {
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const appRuntimePath = path.resolve(__dirname, "../../appRuntime.js");
+const censusModulePath = path.resolve(__dirname, "../censusModule.js");
+const censusPhase1Path = path.resolve(__dirname, "../../app/censusPhase1.js");
 const districtSurfacePath = path.resolve(__dirname, "../../app/v3/surfaces/districtV2/index.js");
 
 const appRuntimeSource = fs.readFileSync(appRuntimePath, "utf8");
+const censusModuleSource = fs.readFileSync(censusModulePath, "utf8");
+const censusPhase1Source = fs.readFileSync(censusPhase1Path, "utf8");
 const districtSurfaceSource = fs.readFileSync(districtSurfacePath, "utf8");
 
 function functionSegment(source, fnName) {
@@ -292,4 +296,53 @@ test("c9.4 targeting lab: census runtime updates sync canonical selection slice"
   assert.match(setFieldSeg, /districtBridgeSyncCensusSelectionCanonicalState\(next\)/, "setField must sync canonical census selection");
   assert.match(setGeoSeg, /districtBridgeSyncCensusSelectionCanonicalState\(next\)/, "setGeoSelection must sync canonical census selection");
   assert.match(triggerSeg, /districtBridgeSyncCensusSelectionCanonicalState\(next\)/, "triggerCensusAction must sync canonical census selection");
+});
+
+test("c10 targeting lab: run action is clickable unless scenario lock is active", () => {
+  const targetingSyncSeg = functionSegment(districtSurfaceSource, "syncDistrictV2Targeting");
+  assert.match(
+    targetingSyncSeg,
+    /applyDisabled\("v3BtnDistrictV2RunTargeting",\s*locked\);/,
+    "run targeting button must not be disabled by canRun gating",
+  );
+});
+
+test("c10 census hierarchy: county is state-scoped and place is county-scoped when data exists", () => {
+  const optionsSeg = functionSegment(appRuntimeSource, "districtBridgeBuildCensusConfigOptions");
+  const disabledSeg = functionSegment(appRuntimeSource, "districtBridgeBuildCensusDisabledMap");
+  const patchSeg = functionSegment(appRuntimeSource, "districtBridgePatchCensusBridgeField");
+
+  assert.match(optionsSeg, /const selectedState = String\(census\.stateFips \|\| ""\)\.trim\(\);/);
+  assert.match(optionsSeg, /const selectedCounty = String\(census\.countyFips \|\| ""\)\.trim\(\);/);
+  assert.match(optionsSeg, /const placeFallbackSet = new Set\(/, "place options should support geo-derived county narrowing");
+  assert.match(optionsSeg, /const rowCounty = String\(row\?\.county \|\| row\?\.countyFips \|\| row\?\.parentCountyFips \|\| ""\)\.trim\(\);/);
+  assert.match(optionsSeg, /if \(selectedCounty\) \{[\s\S]*placeFallbackSet\.has\(rowValue\)/, "place options should narrow by selected county where possible");
+
+  assert.match(
+    disabledSeg,
+    /v3CensusCountyFips:\s*controlsLocked \|\| !stateFips,/,
+    "county selector should remain enabled once state is selected",
+  );
+  assert.doesNotMatch(
+    disabledSeg,
+    /v3CensusCountyFips:\s*controlsLocked \|\| !stateFips \|\| !requiresCounty/,
+    "county selector must not be disabled just because current resolution does not require county",
+  );
+
+  assert.match(
+    patchSeg,
+    /if \(!resolutionNeedsCounty\(resolution\) && resolution !== "place"\)\{/,
+    "resolution changes should preserve county filter for place resolution",
+  );
+  assert.match(
+    patchSeg,
+    /} else if \(key === "countyFips"\)\{[\s\S]*census\.placeFips = "";[\s\S]*resetGeoData\(census\);/,
+    "changing county should clear stale place selection and refresh geo context",
+  );
+
+  const placeFetchSeg = functionSegment(censusModuleSource, "fetchPlaceOptions");
+  assert.match(placeFetchSeg, /county:\s*fips\(row\?\.county,\s*3\)/, "place option fetch should preserve county metadata when available");
+
+  const buildSubRowsSeg = functionSegment(censusPhase1Source, "buildSubRows");
+  assert.match(buildSubRowsSeg, /county:\s*cleanText\(row\?\.county\)/, "census bridge rows should retain county metadata");
 });

@@ -1911,6 +1911,7 @@ export async function fetchCountyOptions({ stateFips, key, fetchImpl } = {}){
   const rows = parseCensusTable(json).map((row) => ({
     fips: fips(row?.county, 3),
     name: extractName(row),
+    state,
   }));
   rows.sort((a, b) => a.name.localeCompare(b.name));
   return rows;
@@ -1924,6 +1925,8 @@ export async function fetchPlaceOptions({ stateFips, key, fetchImpl } = {}){
   const rows = parseCensusTable(json).map((row) => ({
     fips: fips(row?.place, 5),
     name: extractName(row),
+    state,
+    county: fips(row?.county, 3),
   }));
   rows.sort((a, b) => a.name.localeCompare(b.name));
   return rows;
