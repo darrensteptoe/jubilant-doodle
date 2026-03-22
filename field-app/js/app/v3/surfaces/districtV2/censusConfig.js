@@ -108,6 +108,25 @@ export function renderDistrictV2CensusCard({ censusCard, getCardBody }) {
       </div>
       <div class="fpe-help fpe-help--flush fpe-census-map-labels" id="v3DistrictV2CensusMapLabels">No geography labels loaded.</div>
 
+      <div class="fpe-help fpe-help--flush"><strong>Census advisory / assumptions analysis</strong></div>
+      <div class="fpe-help fpe-help--flush">
+        Translate loaded ACS conditions into field-operating reality. Values near 1.00 indicate baseline conditions; below 1.00 indicate harder conditions; above 1.00 indicate stronger conditions. APH feasibility is the pacing reality check: if required APH exceeds the achievable band, revisit staffing, timeline, or vote-goal assumptions before locking.
+      </div>
+      <div class="fpe-help fpe-help--flush" id="v3DistrictV2CensusAdvisoryStatusSummary">Assumption advisory pending.</div>
+      <div class="fpe-help fpe-help--flush" id="v3DistrictV2CensusAssumptionProvenance">Assumption provenance not set.</div>
+      <div class="fpe-help fpe-help--flush" id="v3DistrictV2CensusApplyAdjustmentsStatus">Census-adjusted assumptions are OFF.</div>
+
+      <div class="table-wrap">
+        <table class="table" aria-label="District V2 census advisory assumptions table">
+          <thead>
+            <tr><th>Advisory signal</th><th class="num">Value</th></tr>
+          </thead>
+          <tbody id="v3DistrictV2CensusAdvisoryTbody">
+            <tr><td class="muted" colspan="2">Load ACS rows for selected GEO units to compute advisory indices.</td></tr>
+          </tbody>
+        </table>
+      </div>
+
       <div class="table-wrap">
         <table class="table" aria-label="District V2 census aggregate table">
           <thead>

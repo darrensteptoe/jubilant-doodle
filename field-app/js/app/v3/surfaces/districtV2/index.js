@@ -1779,6 +1779,18 @@ function syncDistrictV2Census(configSnapshot, resultsSnapshot) {
   setText("v3DistrictV2CensusSelectionSummary", String(results.selectionSummaryText || "No GEO selected.") || "No GEO selected.");
   setText("v3DistrictV2CensusMapStatus", String(results.mapStatusText || "Map idle. Select GEO units and click Load boundaries.") || "Map idle. Select GEO units and click Load boundaries.");
   setText("v3DistrictV2CensusMapQaVtdZipStatus", String(results.mapQaVtdZipStatusText || "No VTD ZIP loaded.") || "No VTD ZIP loaded.");
+  setText(
+    "v3DistrictV2CensusAdvisoryStatusSummary",
+    String(results.advisoryStatusText || "Assumption advisory pending.") || "Assumption advisory pending.",
+  );
+  setText(
+    "v3DistrictV2CensusAssumptionProvenance",
+    String(results.assumptionProvenanceStatusText || "Assumption provenance not set.") || "Assumption provenance not set.",
+  );
+  setText(
+    "v3DistrictV2CensusApplyAdjustmentsStatus",
+    String(results.applyAdjustmentsStatusText || "Census-adjusted assumptions are OFF.") || "Census-adjusted assumptions are OFF.",
+  );
   const selectedGeoLabels = Array.isArray(config.geoSelectOptions)
     ? config.geoSelectOptions
       .filter((row) => !!row?.selected)
@@ -1803,6 +1815,7 @@ function syncDistrictV2Census(configSnapshot, resultsSnapshot) {
       : "No geography labels loaded.",
   );
 
+  renderDistrictV2CensusAdvisoryRows(results.advisoryRows);
   renderDistrictV2CensusAggregateRows(results.aggregateRows);
 
   const mapShell = document.getElementById("v3DistrictV2CensusMapShell");
@@ -1888,6 +1901,32 @@ function renderDistrictV2CensusAggregateRows(rows) {
     const value = escapeHtml(String(cells[1] || ""));
     return `<tr><td>${label}</td><td class="num">${value}</td></tr>`;
   }).join(""), "renderDistrictV2CensusAggregateRows:rows");
+}
+
+function renderDistrictV2CensusAdvisoryRows(rows) {
+  const tbody = document.getElementById("v3DistrictV2CensusAdvisoryTbody");
+  if (!(tbody instanceof HTMLElement)) {
+    return;
+  }
+  const list = Array.isArray(rows) ? rows : [];
+  if (!list.length) {
+    setInnerHtmlWithTrace(
+      tbody,
+      `<tr><td class="muted" colspan="2">Load ACS rows for selected GEO units to compute advisory indices.</td></tr>`,
+      "renderDistrictV2CensusAdvisoryRows:empty",
+    );
+    return;
+  }
+  setInnerHtmlWithTrace(
+    tbody,
+    list.map((row) => {
+      const cells = Array.isArray(row) ? row : [];
+      const label = escapeHtml(String(cells[0] || ""));
+      const value = escapeHtml(String(cells[1] || ""));
+      return `<tr><td>${label}</td><td class="num">${value}</td></tr>`;
+    }).join(""),
+    "renderDistrictV2CensusAdvisoryRows:rows",
+  );
 }
 
 function bindDistrictV2RaceContextHandlers() {

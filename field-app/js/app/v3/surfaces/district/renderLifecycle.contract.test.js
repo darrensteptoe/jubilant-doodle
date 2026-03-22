@@ -28,6 +28,10 @@ function extractFunctionBody(name) {
   return extractFunctionBodyFrom(source, name);
 }
 
+function escapeRegexLiteral(value) {
+  return String(value).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
 test("render lifecycle: district editable row modules gate structural rerender by row signature", () => {
   assert.match(
     source,
@@ -240,7 +244,7 @@ test("c8 contract: turnout baseline sync and bind paths are in-place and hold-fr
   assert.doesNotMatch(turnoutBindBody, /markDistrictPendingWrite|shouldHoldDistrictControlSync/);
 });
 
-test("c8 contract: census map/vtd lane is wired without restoring legacy advisory preview UI", () => {
+test("c8 contract: census map/vtd lane is wired and advisory assumptions lane is present without election preview restore", () => {
   assert.match(source, /bindDistrictV2CensusFile\("v3DistrictV2CensusMapQaVtdZip", "mapQaVtdZip"\);/);
   assert.match(source, /bindDistrictV2CensusAction\("v3BtnDistrictV2CensusLoadMap", "loadMap"\);/);
   assert.match(source, /bindDistrictV2CensusAction\("v3BtnDistrictV2CensusClearMap", "clearMap"\);/);
@@ -252,7 +256,10 @@ test("c8 contract: census map/vtd lane is wired without restoring legacy advisor
   assert.match(censusConfigSource, /id="v3DistrictV2CensusMapStatus"/);
   assert.match(censusConfigSource, /id="v3DistrictV2CensusMapQaVtdZipStatus"/);
   assert.match(censusConfigSource, /id="v3DistrictV2CensusMapQaVtdZip"/);
-  assert.doesNotMatch(censusConfigSource, /v3DistrictV2CensusAdvisoryTbody/);
+  assert.match(censusConfigSource, /id="v3DistrictV2CensusAdvisoryTbody"/);
+  assert.match(censusConfigSource, /id="v3DistrictV2CensusAdvisoryStatusSummary"/);
+  assert.match(censusConfigSource, /id="v3DistrictV2CensusAssumptionProvenance"/);
+  assert.match(censusConfigSource, /id="v3DistrictV2CensusApplyAdjustmentsStatus"/);
   assert.doesNotMatch(censusConfigSource, /v3DistrictV2CensusElectionPreviewTbody/);
 });
 
@@ -260,8 +267,41 @@ test("c9 contract: census map label lane is present and synced without editable 
   const censusSyncBody = extractFunctionBody("syncDistrictV2Census");
   assert.match(censusConfigSource, /id="v3DistrictV2CensusMapLabels"/);
   assert.match(censusSyncBody, /setText\(\s*"v3DistrictV2CensusMapLabels"/);
+  assert.match(censusSyncBody, /setText\(\s*"v3DistrictV2CensusAdvisoryStatusSummary"/);
+  assert.match(censusSyncBody, /setText\(\s*"v3DistrictV2CensusAssumptionProvenance"/);
+  assert.match(censusSyncBody, /setText\(\s*"v3DistrictV2CensusApplyAdjustmentsStatus"/);
+  assert.match(censusSyncBody, /renderDistrictV2CensusAdvisoryRows\(/);
   assert.doesNotMatch(censusSyncBody, /setInnerHtmlWithTrace\(\s*mapShell/);
   assert.doesNotMatch(censusSyncBody, /markDistrictPendingWrite|shouldHoldDistrictControlSync/);
+});
+
+test("c10 contract: census advisory field set remains canon-complete in runtime advisory builder", () => {
+  const requiredLabels = [
+    "Field speed index",
+    "Persuasion environment",
+    "Turnout elasticity",
+    "Turnout potential index",
+    "Field difficulty",
+    "Housing density ratio (units / resident)",
+    "Vehicle availability / no-vehicle HH",
+    "Long / super commute share",
+    "No-internet share",
+    "Poverty share",
+    "Walkability factor",
+    "Contact probability modifier",
+    "Estimated doors/hour factor",
+    "Age distribution",
+    "Advisory doors/hour multiplier",
+    "Current blended APH",
+    "Achievable APH band (p25/p50/p75)",
+    "Environment-adjusted APH (p50)",
+    "Required APH to hit goal",
+    "APH feasibility check",
+  ];
+  for (const label of requiredLabels) {
+    const pattern = new RegExp(`label:\\s*"${escapeRegexLiteral(label)}"`);
+    assert.match(censusPhase1Source, pattern, `missing canon advisory label: ${label}`);
+  }
 });
 
 test("c9.3 contract: district v2 map host is present and preferred by census runtime resolver", () => {
