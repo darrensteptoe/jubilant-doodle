@@ -27,23 +27,24 @@ export function buildElectionDataBenchmarkSections(context) {
     makeSection("election_intake_quality", "Election Intake Quality", [
       createHeadlineBlock({
         headline: "Election Data Benchmark Report",
-        subheadline: "Import quality, comparable depth, and downstream impact for calibration decisions.",
+        subheadline:
+          "Historical data helps only when it is both comparable and clean. This report determines whether benchmark inputs are strong enough to shape assumptions.",
         tone: "analytics",
       }),
       createBenchmarkBlock({
         label: "Import status",
         value: cleanText(election?.importStatus || "unknown"),
         confidence: cleanText(election?.confidenceBand || "unknown"),
-        note: `${fmtWhole(election?.rowCount)} normalized row(s).`,
+        note: `${fmtWhole(election?.rowCount)} normalized row(s) in the latest benchmark snapshot.`,
       }),
       createBenchmarkBlock({
         label: "Quality score",
         value: fmtMetric(election?.qualityScore, 2),
         confidence: cleanText(election?.confidenceBand || "unknown"),
-        note: "Quality score summarizes completeness and warning penalties.",
+        note: "Quality score summarizes completeness, mapping integrity, and warning penalties.",
       }),
       createTrendBlock({
-        label: "Quality delta",
+        label: "Quality movement",
         rows: [
           {
             metric: "Benchmark quality",
@@ -58,36 +59,37 @@ export function buildElectionDataBenchmarkSections(context) {
         label: "Comparable race pools",
         value: fmtWhole(election?.comparablePoolCount),
         confidence: cleanText(election?.confidenceBand || "unknown"),
-        note: `${fmtWhole(election?.historicalBenchmarkCount)} historical benchmark row(s).`,
+        note: `${fmtWhole(election?.historicalBenchmarkCount)} historical benchmark row(s) available for comparability checks.`,
       }),
       createBenchmarkBlock({
         label: "Turnout baseline rows",
         value: fmtWhole(election?.turnoutBaselineCount),
         confidence: cleanText(election?.confidenceBand || "unknown"),
-        note: "Turnout baselines feed district assumptions and targeting priors.",
+        note: "Turnout baseline depth controls how stable district and targeting priors can be.",
       }),
       createBenchmarkBlock({
-        label: "Downstream recommendation targets",
-        value: `${fmtWhole(election?.recommendationTargets?.district)} / ${fmtWhole(election?.recommendationTargets?.targeting)} / ${fmtWhole(election?.recommendationTargets?.outcome)}`,
+        label: "Downstream recommendation coverage",
+        value:
+          `${fmtWhole(election?.recommendationTargets?.district)} district / ${fmtWhole(election?.recommendationTargets?.targeting)} targeting / ${fmtWhole(election?.recommendationTargets?.outcome)} outcome`,
         confidence: cleanText(election?.confidenceBand || "unknown"),
-        note: "Order: district / targeting / outcome.",
+        note: "Coverage reflects how fully election intelligence is connected to active planning surfaces.",
       }),
     ]),
     makeSection("downstream_impact", "Downstream Impact", [
       createRecommendationBlock({
-        priority: "High",
-        text: "Apply benchmark suggestions to district baseline support and turnout calibration.",
-        rationale: "District and targeting outputs should reflect election-derived priors when quality is sufficient.",
+        priority: "P1",
+        text: "Apply benchmark suggestions to district baseline support and turnout calibration where comparability is strong.",
+        rationale: "High-quality benchmark alignment improves realism in district assumptions and field planning.",
       }),
       createRecommendationBlock({
-        priority: "High",
-        text: "Refresh outcome confidence/governance after election-data updates.",
-        rationale: "Outcome confidence should explicitly incorporate benchmark quality and comparable depth.",
+        priority: "P2",
+        text: "Refresh targeting and outcome confidence immediately after benchmark updates.",
+        rationale: "Benchmark quality and pool depth materially affect both target prioritization and confidence framing.",
       }),
       createRiskBlock({
         level: cleanText(election?.confidenceBand || "unknown"),
         summary: cleanText(governance?.topWarning || "No governance warning recorded."),
-        mitigation: "Document benchmark caveats in client-facing confidence framing.",
+        mitigation: "Document benchmark caveats explicitly when confidence is mixed or comparability is thin.",
       }),
     ]),
     makeSection("methodology", "Confidence & Methodology", [
@@ -95,15 +97,16 @@ export function buildElectionDataBenchmarkSections(context) {
         confidenceBand: cleanText(election?.confidenceBand || governance?.confidenceBand || "unknown"),
         score: fmtMetric(election?.qualityScore, 2),
         methodologyNotes: [
-          "Election quality scoring is computed from canonical import/QA fields.",
+          "Election quality scoring is built from canonical import, QA, and warning fields.",
           "Comparable pools and turnout baselines are consumed from canonical benchmark arrays.",
-          "Downstream recommendation coverage is tracked for district, targeting, and outcome surfaces.",
+          "Recommendation coverage tracks district, targeting, and outcome integration points.",
         ],
         caveats: [
           cleanText(governance?.topWarning || "No governance caveat recorded."),
-          cleanText(election?.importStatus) === "imported" ? "Latest import is available." : "No imported benchmark snapshot available.",
+          cleanText(election?.importStatus) === "imported" ? "Latest benchmark import is available." : "No imported benchmark snapshot available.",
         ],
       }),
     ]),
   ];
 }
+

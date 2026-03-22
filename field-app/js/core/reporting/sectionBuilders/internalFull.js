@@ -14,7 +14,6 @@ import {
   createTrendBlock,
   firstMetricDelta,
   fmtMetric,
-  fmtPercentFromUnit,
   fmtSignedDelta,
   fmtWhole,
   makeSection,
@@ -53,11 +52,12 @@ export function buildInternalFullSections(context) {
     makeSection("situation_snapshot", "Situation Snapshot", [
       createHeadlineBlock({
         headline: `${campaignName} · ${officeId}`,
-        subheadline: `Scenario ${scenarioId} · Internal operating view`,
+        subheadline:
+          `Scenario ${scenarioId} · Internal operating brief. Use this section to establish current position, what moved, and where attention is required next.`,
         tone: "operational",
       }),
       createMetricGridBlock({
-        title: "Strategic metrics",
+        title: "Operating position (current read)",
         metrics: [
           buildMetricRow("Baseline support", fmtMetric(baselineSupport, 1, "%")),
           buildMetricRow("Turnout expected", fmtMetric(turnoutExpected, 1, "%")),
@@ -67,8 +67,19 @@ export function buildInternalFullSections(context) {
           buildMetricRow("Election benchmark quality", fmtMetric(benchmarkQuality, 2)),
         ],
       }),
+      createAppendixBlock({
+        title: "How to read these numbers",
+        rows: [
+          { label: "Baseline support", value: "Current floor, not ceiling. Treat it as today’s operating base." },
+          { label: "Turnout expected", value: "Participation environment estimate, not guaranteed turnout." },
+          { label: "Persuasion need", value: "Remaining persuadable universe that still matters to the path." },
+          { label: "Targeting score", value: "Quality of current target concentration, not full campaign health." },
+          { label: "Outcome confidence", value: "Confidence in the current path, not certainty of victory." },
+          { label: "Election benchmark quality", value: "Reliability of historical comparison inputs feeding assumptions." },
+        ],
+      }),
       createTrendBlock({
-        label: "Change since prior report",
+        label: "What changed since prior report",
         rows: [
           {
             metric: "Targeting score",
@@ -93,35 +104,40 @@ export function buildInternalFullSections(context) {
   sections.push(
     makeSection("operational_risk", "Operational Risk & Diagnostics", [
       createStatusBlock({
-        label: "Governance confidence",
-        value: cleanText(governance?.confidenceBand || "unknown"),
-        note: cleanText(governance?.topWarning || "No top warning recorded."),
+        label: "Risk framing rule",
+        value: "Only elevate risks that can change deployment, assumptions, or decision confidence this cycle.",
+        note: "Use this section to identify what can materially distort execution or interpretation in the near term.",
+      }),
+      createRiskBlock({
+        level: cleanText(governance?.confidenceBand || "unknown"),
+        summary: cleanText(governance?.topWarning || "No active governance warning in this snapshot."),
+        mitigation:
+          "Resolve warning-linked assumptions before using strong confidence language in leadership or client settings.",
       }),
       createRiskBlock({
         level: cleanText(weather?.fieldExecutionRisk || "unknown"),
-        summary: `Weather execution risk in ${cleanText(weather?.selectedZip || "unset ZIP")}`,
-        mitigation: cleanText(weather?.recommendedAction || "Set and refresh weather context before next deployment."),
-      }),
-      createRiskBlock({
-        level: audit?.hasValidationSnapshot ? "tracked" : "missing",
-        summary: audit?.hasValidationSnapshot
-          ? "Validation snapshot present."
-          : "Validation snapshot missing.",
-        mitigation: audit?.hasValidationSnapshot
-          ? "Keep readiness diagnostics updated on each model commit."
-          : "Run validation and readiness diagnostics before external delivery.",
+        summary: `Field execution exposure for ${cleanText(weather?.selectedZip || "unset ZIP")}.`,
+        mitigation: cleanText(weather?.recommendedAction || "Refresh weather context before finalizing field timing."),
       }),
       createRiskBlock({
         level: cleanText(election?.confidenceBand || "unknown"),
-        summary: `Election data quality score ${fmtMetric(election?.qualityScore, 2)}`,
-        mitigation: cleanText(election?.importStatus) === "imported"
-          ? "Maintain mapping/reconciliation QA for each import cycle."
-          : "Import and reconcile election rows before downstream calibration.",
+        summary: `Election-data quality ${fmtMetric(election?.qualityScore, 2)} with ${fmtWhole(election?.comparablePoolCount)} comparable pool(s).`,
+        mitigation:
+          cleanText(election?.importStatus) === "imported"
+            ? "Keep reconciliation QA and benchmark comparability checks current on each import cycle."
+            : "Import and reconcile election rows before calibration or targeting reallocation decisions.",
+      }),
+      createRiskBlock({
+        level: Number(events?.openFollowUps || 0) > 0 ? "watch" : "tracked",
+        summary: `${fmtWhole(events?.openFollowUps)} open follow-up(s) across ${fmtWhole(events?.totalEvents)} event(s).`,
+        mitigation: "Close model-impacting follow-ups before the next operating window to avoid stale assumptions.",
       }),
       createStatusBlock({
-        label: "War room operations",
-        value: `${fmtWhole(events?.totalEvents)} event(s), ${fmtWhole(events?.openFollowUps)} open follow-up(s)`,
-        note: `${fmtWhole(events?.appliedEvents)} event(s) currently applied to model context.`,
+        label: "Diagnostics coverage",
+        value: audit?.hasValidationSnapshot ? "Validation snapshot present." : "Validation snapshot missing.",
+        note: audit?.hasRealismSnapshot
+          ? "Realism snapshot present."
+          : "Realism snapshot missing. Run realism diagnostics before high-significance commits.",
       }),
     ]),
   );
@@ -132,19 +148,21 @@ export function buildInternalFullSections(context) {
         label: "Election import status",
         value: cleanText(election?.importStatus || "unknown"),
         confidence: cleanText(election?.confidenceBand || "unknown"),
-        note: `${fmtWhole(election?.rowCount)} normalized row(s) from latest import.`,
+        note: `${fmtWhole(election?.rowCount)} normalized row(s). Historical data only helps when comparable and clean.`,
       }),
       createBenchmarkBlock({
-        label: "Comparable race pools",
+        label: "Comparable depth",
         value: fmtWhole(election?.comparablePoolCount),
         confidence: cleanText(election?.confidenceBand || "unknown"),
-        note: `${fmtWhole(election?.historicalBenchmarkCount)} historical benchmark row(s) and ${fmtWhole(election?.turnoutBaselineCount)} turnout baseline row(s).`,
+        note:
+          `${fmtWhole(election?.historicalBenchmarkCount)} historical benchmark row(s), ${fmtWhole(election?.turnoutBaselineCount)} turnout baseline row(s).`,
       }),
       createBenchmarkBlock({
         label: "Downstream recommendation coverage",
-        value: `${fmtWhole(election?.recommendationTargets?.district)} district / ${fmtWhole(election?.recommendationTargets?.targeting)} targeting / ${fmtWhole(election?.recommendationTargets?.outcome)} outcome`,
+        value:
+          `${fmtWhole(election?.recommendationTargets?.district)} district / ${fmtWhole(election?.recommendationTargets?.targeting)} targeting / ${fmtWhole(election?.recommendationTargets?.outcome)} outcome`,
         confidence: cleanText(election?.confidenceBand || "unknown"),
-        note: "Election data recommendations are wired for district baselines, targeting priors, and outcome confidence.",
+        note: "Coverage indicates how fully benchmark intelligence is informing district assumptions, targeting priors, and outcome framing.",
       }),
     ]),
   );
@@ -154,25 +172,34 @@ export function buildInternalFullSections(context) {
       createRecommendationBlock({
         priority: "P1",
         text: cleanText(governance?.topWarning)
-          ? `Resolve governance warning: ${cleanText(governance?.topWarning)}`
-          : "Maintain governance confidence by preserving selector/action contract discipline.",
-        rationale: "Governance warnings directly affect confidence framing for decisions and external reporting.",
+          ? `Resolve governance warning before external confidence framing: ${cleanText(governance?.topWarning)}`
+          : "Preserve governance discipline so confidence claims remain evidence-backed.",
+        rationale: "Governance gaps weaken trust in both internal decisions and external narrative quality.",
       }),
       createRecommendationBlock({
-        priority: "P1",
-        text: cleanText(election?.confidenceBand) === "high"
-          ? "Apply election-data benchmark suggestions to targeting and outcome refresh cadence."
-          : "Increase election-data import quality and reconciliation coverage before relying on benchmark priors.",
-        rationale: "Election data quality and benchmark breadth materially influence targeting score and confidence outputs.",
+        priority: "P2",
+        text:
+          cleanText(election?.confidenceBand) === "high"
+            ? "Apply benchmark-calibrated assumptions in the next targeting and scenario refresh cycle."
+            : "Increase election-data reconciliation depth before relying on benchmark-driven reallocations.",
+        rationale: "Benchmark quality directly affects targeting priors and outcome confidence posture.",
+      }),
+      createRecommendationBlock({
+        priority: "P3",
+        text:
+          Number(events?.openFollowUps || 0) > 0
+            ? "Close open model-impacting event follow-ups before the next deployment decision."
+            : "Maintain event/follow-up hygiene so war-room assumptions stay current between runs.",
+        rationale: "Unresolved event context can silently stale execution assumptions.",
       }),
       createActionOwnerBlock({
-        action: "Run weekly targeting refresh with election/census upstream checks",
+        action: "Run targeting refresh after election/census upstream checks and note whether movement is broadening or concentrating.",
         owner: "Targeting Lead",
         due: "Next 7 days",
         status: "pending",
       }),
       createActionOwnerBlock({
-        action: "Review weather + event model application before next field launch",
+        action: "Review weather-sensitive field goals and set contingency posture for next launch window.",
         owner: "War Room Director",
         due: "Before next deployment",
         status: "in_progress",
@@ -186,17 +213,20 @@ export function buildInternalFullSections(context) {
         confidenceBand: cleanText(governance?.confidenceBand || election?.confidenceBand || "unknown"),
         score: fmtMetric(outcomeConfidence, 2),
         methodologyNotes: [
-          "All report values are selected from canonical state domains through canonical/derived selector contracts.",
-          "No page-local render cache is used as control truth in reporting context assembly.",
-          "Metric provenance tracks canonical slices, selector source, and recompute timestamps.",
+          "Confidence is a decision aid, not a certainty claim.",
+          "Higher confidence indicates stronger coherence across evidence, assumptions, and diagnostics; it does not guarantee outcome.",
+          "Lower confidence means leadership should narrow claims, verify assumptions, and avoid over-reading point estimates.",
+          "All report values are assembled from canonical state domains and selector outputs.",
         ],
         caveats: [
           cleanText(governance?.topWarning || "No governance caveat recorded."),
-          audit?.hasRealismSnapshot ? "Realism snapshot present." : "Realism snapshot unavailable.",
+          audit?.hasRealismSnapshot
+            ? "Realism snapshot present."
+            : "Realism snapshot unavailable.",
         ],
       }),
       createAppendixBlock({
-        title: "Archive & recovery metadata",
+        title: "Reporting provenance",
         rows: [
           { label: "Archive selected hash", value: cleanText(context?.archive?.selectedHash || "") || "—" },
           { label: "Archive entry count", value: fmtWhole(context?.archive?.entryCount) },
@@ -210,3 +240,4 @@ export function buildInternalFullSections(context) {
 
   return sections;
 }
+

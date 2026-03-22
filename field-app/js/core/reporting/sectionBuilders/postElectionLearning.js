@@ -29,7 +29,8 @@ export function buildPostElectionLearningSections(context) {
     makeSection("outcome_vs_forecast", "Outcome vs Forecast Deltas", [
       createHeadlineBlock({
         headline: "Post-Election Learning",
-        subheadline: "Compare forecasted posture to realized signals and log calibration actions.",
+        subheadline:
+          "Use realized results to separate what was signal from what was noise, then convert that learning into next-cycle calibration decisions.",
         tone: "learning",
       }),
       createTrendBlock({
@@ -41,30 +42,35 @@ export function buildPostElectionLearningSections(context) {
         ],
       }),
       createStatusBlock({
-        label: "Election data confidence",
+        label: "Election-data confidence",
         value: cleanText(election?.confidenceBand || "unknown"),
-        note: `Quality ${fmtMetric(election?.qualityScore, 2)} with ${fmtWhole(election?.comparablePoolCount)} comparable pools.`,
+        note: `Quality ${fmtMetric(election?.qualityScore, 2)} with ${fmtWhole(election?.comparablePoolCount)} comparable pool(s).`,
       }),
     ]),
     makeSection("learning_recommendations", "Learning Recommendations", [
       createRecommendationBlock({
-        priority: "High",
-        text: "Promote confirmed over/underperformance patterns into candidate-history assumptions.",
-        rationale: "Post-election evidence should refine repeat-candidate and volatility priors.",
+        priority: "P1",
+        text: "Promote confirmed over/underperformance patterns into candidate-history and turnout assumptions.",
+        rationale: "Post-election evidence should directly update next-cycle priors rather than remain anecdotal.",
       }),
       createRecommendationBlock({
-        priority: "High",
-        text: "Adjust targeting priors where turnout baseline deltas persist across similar geographies.",
-        rationale: "Persistent turnout drift should feed next-cycle target prioritization.",
+        priority: "P2",
+        text: "Adjust targeting priors where turnout or persuasion drift repeats across similar geographies.",
+        rationale: "Persistent drift is a calibration signal, not a one-off exception.",
+      }),
+      createRecommendationBlock({
+        priority: "P3",
+        text: "Document where confidence was well-calibrated versus overstated before the next strategy cycle begins.",
+        rationale: "Learning quality depends on explicit review of both model accuracy and confidence discipline.",
       }),
       createActionOwnerBlock({
-        action: "Archive final actuals + confidence notes",
+        action: "Archive final actuals with confidence caveats and scenario context.",
         owner: "Data Operations",
         due: "Within 7 days",
         status: "pending",
       }),
       createActionOwnerBlock({
-        action: "Publish calibration memo for governance review",
+        action: "Publish calibration memo and review with governance owners.",
         owner: "Model Lead",
         due: "Within 10 days",
         status: "pending",
@@ -84,3 +90,4 @@ export function buildPostElectionLearningSections(context) {
     ]),
   ];
 }
+
