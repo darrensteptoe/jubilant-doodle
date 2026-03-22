@@ -6,6 +6,80 @@ function cleanText(value) {
   return String(value == null ? "" : value).trim();
 }
 
+const TARGETING_CONFIG_DEFAULTS = Object.freeze({
+  presetId: "turnout_opportunity",
+  geoLevel: "block_group",
+  modelId: "turnout_opportunity",
+  topN: 50,
+  minHousingUnits: 50,
+  minPopulation: 120,
+  minScore: 0.35,
+  onlyRaceFootprint: true,
+  controlsLocked: false,
+});
+
+const TARGETING_CRITERIA_DEFAULTS = Object.freeze({
+  prioritizeYoung: true,
+  prioritizeRenters: true,
+  avoidHighMultiUnit: false,
+  densityFloor: "medium",
+});
+
+const TARGETING_WEIGHT_DEFAULTS = Object.freeze({
+  votePotential: 0.3,
+  turnoutOpportunity: 0.5,
+  persuasionIndex: 0.1,
+  fieldEfficiency: 0.1,
+});
+
+const TARGETING_RUNTIME_DEFAULTS = Object.freeze({
+  statusText: "Run targeting to generate ranked GEOs.",
+  meta: {},
+  rows: [],
+  lastRunAt: "",
+});
+
+function ensureObjectRecord(target, key, fallback) {
+  const current = target?.[key];
+  if (current && typeof current === "object" && !Array.isArray(current)) {
+    return current;
+  }
+  const seeded = { ...(fallback && typeof fallback === "object" ? fallback : {}) };
+  target[key] = seeded;
+  return seeded;
+}
+
+function ensureTargetingDraftShape(draft) {
+  const target = draft && typeof draft === "object" ? draft : {};
+  const config = ensureObjectRecord(target, "config", TARGETING_CONFIG_DEFAULTS);
+  const criteria = ensureObjectRecord(target, "criteria", TARGETING_CRITERIA_DEFAULTS);
+  const weights = ensureObjectRecord(target, "weights", TARGETING_WEIGHT_DEFAULTS);
+  const runtime = ensureObjectRecord(target, "runtime", TARGETING_RUNTIME_DEFAULTS);
+
+  for (const [key, value] of Object.entries(TARGETING_CONFIG_DEFAULTS)) {
+    if (!Object.prototype.hasOwnProperty.call(config, key)) {
+      config[key] = value;
+    }
+  }
+  for (const [key, value] of Object.entries(TARGETING_CRITERIA_DEFAULTS)) {
+    if (!Object.prototype.hasOwnProperty.call(criteria, key)) {
+      criteria[key] = value;
+    }
+  }
+  for (const [key, value] of Object.entries(TARGETING_WEIGHT_DEFAULTS)) {
+    if (!Object.prototype.hasOwnProperty.call(weights, key)) {
+      weights[key] = value;
+    }
+  }
+  for (const [key, value] of Object.entries(TARGETING_RUNTIME_DEFAULTS)) {
+    if (!Object.prototype.hasOwnProperty.call(runtime, key)) {
+      runtime[key] = clone(value);
+    }
+  }
+
+  return { config, criteria, weights, runtime };
+}
+
 const CONFIG_FIELDS = new Set([
   "presetId",
   "geoLevel",
@@ -61,9 +135,10 @@ export function updateTargetingConfig(state, payload, options = {}) {
     state,
     "targeting",
     (draft) => {
+      const { config } = ensureTargetingDraftShape(draft);
       const nextValue = normalizeConfigValue(field, payload?.value);
-      if (draft.config[field] === nextValue) return false;
-      draft.config[field] = nextValue;
+      if (config[field] === nextValue) return false;
+      config[field] = nextValue;
       return true;
     },
     { ...options, revisionReason: `targeting.config.${field}` },
@@ -81,9 +156,10 @@ export function updateTargetingCriteria(state, payload, options = {}) {
     state,
     "targeting",
     (draft) => {
+      const { criteria } = ensureTargetingDraftShape(draft);
       const nextValue = normalizeCriteriaValue(field, payload?.value);
-      if (draft.criteria[field] === nextValue) return false;
-      draft.criteria[field] = nextValue;
+      if (criteria[field] === nextValue) return false;
+      criteria[field] = nextValue;
       return true;
     },
     { ...options, revisionReason: `targeting.criteria.${field}` },
@@ -101,9 +177,10 @@ export function updateTargetingWeights(state, payload, options = {}) {
     state,
     "targeting",
     (draft) => {
-      const nextValue = normalizeWeightValue(payload?.value, draft.weights[field]);
-      if (draft.weights[field] === nextValue) return false;
-      draft.weights[field] = nextValue;
+      const { weights } = ensureTargetingDraftShape(draft);
+      const nextValue = normalizeWeightValue(payload?.value, weights[field]);
+      if (weights[field] === nextValue) return false;
+      weights[field] = nextValue;
       return true;
     },
     { ...options, revisionReason: `targeting.weights.${field}` },
@@ -121,14 +198,14 @@ export function applyTargetingRunResult(state, payload, options = {}) {
     state,
     "targeting",
     (draft) => {
-      draft.runtime.rows = rows.map((row) => clone(row));
-      draft.runtime.statusText = statusText;
-      draft.runtime.meta = clone(meta);
-      draft.runtime.lastRunAt = lastRunAt;
+      const { runtime } = ensureTargetingDraftShape(draft);
+      runtime.rows = rows.map((row) => clone(row));
+      runtime.statusText = statusText;
+      runtime.meta = clone(meta);
+      runtime.lastRunAt = lastRunAt;
       return true;
     },
     { ...options, revisionReason: "targeting.runtime.applyResult" },
   );
   return makeActionResult(result);
 }
-

@@ -312,6 +312,14 @@ test("c9.4a targeting lab: run action is gated by lock + readiness", () => {
   );
 });
 
+test("c9.4b targeting lab: run_failed bridge responses include error message detail", () => {
+  const runSeg = functionSegment(appRuntimeSource, "districtBridgeRunTargeting");
+  assert.match(runSeg, /let runErrorMessage = "";/, "runTargeting should track runtime error detail");
+  assert.match(runSeg, /runErrorMessage = cleanText\(err\?\.message\) \|\| "Targeting run failed\."/);
+  assert.match(runSeg, /code:\s*"run_failed"/);
+  assert.match(runSeg, /message:\s*runErrorMessage \|\| "Targeting run failed\."/);
+});
+
 test("c10 census hierarchy: county is state-scoped and place is county-scoped when data exists", () => {
   const optionsSeg = functionSegment(appRuntimeSource, "districtBridgeBuildCensusConfigOptions");
   const disabledSeg = functionSegment(appRuntimeSource, "districtBridgeBuildCensusDisabledMap");

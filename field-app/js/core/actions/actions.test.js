@@ -24,7 +24,7 @@ import {
 import { saveEventCalendarEvent } from "./eventCalendar.js";
 import { saveForecastArchiveActual } from "./forecastArchive.js";
 import { runOutcomeMc, updateOutcomeControlField } from "./outcome.js";
-import { updateTargetingConfig } from "./targeting.js";
+import { applyTargetingRunResult, updateTargetingConfig } from "./targeting.js";
 import { updateWeatherRiskConfig } from "./weatherRisk.js";
 
 function seededState() {
@@ -218,6 +218,56 @@ test("actions: scenario lock blocks mutating actions", () => {
   assert.equal(result.changed, false);
   assert.equal(result.reason, "scenario_locked");
   assert.equal(result.state, locked);
+});
+
+test("actions: targeting config update self-heals missing targeting domain shape", () => {
+  const base = seededState();
+  const malformed = {
+    ...base,
+    domains: {
+      ...base.domains,
+      targeting: {},
+    },
+  };
+
+  const updated = updateTargetingConfig(malformed, { field: "topN", value: 75 });
+  assert.equal(updated.changed, true);
+  assert.equal(updated.blocked, false);
+  assert.equal(updated.state.domains.targeting.config.topN, 75);
+  assert.equal(typeof updated.state.domains.targeting.criteria, "object");
+  assert.equal(typeof updated.state.domains.targeting.weights, "object");
+  assert.equal(typeof updated.state.domains.targeting.runtime, "object");
+});
+
+test("actions: targeting run-result action self-heals missing runtime shape", () => {
+  const base = seededState();
+  const malformed = {
+    ...base,
+    domains: {
+      ...base.domains,
+      targeting: {
+        config: {
+          topN: 50,
+        },
+      },
+    },
+  };
+
+  const applied = applyTargetingRunResult(malformed, {
+    rows: [{ geoid: "170310001001", rank: 1, score: 0.72 }],
+    statusText: "Targeting run complete: 1 rows ranked, 1 top targets flagged.",
+    meta: { modelId: "turnout_opportunity" },
+    lastRunAt: "2026-03-22T00:00:00.000Z",
+  });
+  assert.equal(applied.changed, true);
+  assert.equal(applied.blocked, false);
+  assert.equal(applied.state.domains.targeting.runtime.rows.length, 1);
+  assert.equal(
+    applied.state.domains.targeting.runtime.statusText,
+    "Targeting run complete: 1 rows ranked, 1 top targets flagged.",
+  );
+  assert.equal(applied.state.domains.targeting.runtime.meta.modelId, "turnout_opportunity");
+  assert.equal(applied.state.domains.targeting.runtime.lastRunAt, "2026-03-22T00:00:00.000Z");
 });
 
 test("actions: cross-domain action coverage for census/weather/event/archive/outcome", () => {
