@@ -14,6 +14,7 @@ const STEPS = [
   { label: "interaction-pages", cmd: "npm", args: ["run", "check:interaction-pages"] },
   { label: "district-integrity", cmd: "npm", args: ["run", "check:district-integrity"] },
   { label: "contracts", cmd: "npm", args: ["run", "check:contracts"] },
+  { label: "spacing-contract", cmd: "npm", args: ["run", "check:spacing-contract"] },
   { label: "rebuild-contracts", cmd: "node", args: ["js/core/selfTestSuites/rebuildContracts.js"] },
   { label: "targeting-suite", cmd: "node", args: ["js/core/selfTestSuites/targeting.js"] },
   { label: "voter-suite", cmd: "node", args: ["js/core/selfTestSuites/voterDataLayer.js"] },
