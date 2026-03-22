@@ -2168,6 +2168,17 @@ body.training #app-shell-v3-root .fpe-surface .fpe-why {
   gap: 6px;
 }
 
+.fpe-intel-glossary-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.fpe-intel-glossary-chip {
+  font-size: 11px;
+  line-height: 1.35;
+}
+
 .fpe-intel-links__title {
   font-size: 11px;
   text-transform: uppercase;
