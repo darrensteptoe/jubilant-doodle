@@ -112,8 +112,7 @@ body.dark #app-shell-v3-root {
 }
 
 #app-shell-v3-root {
-  height: 100dvh;
-  min-height: 100dvh;
+  min-height: 100vh;
 }
 
 #app-shell-v3-root,
@@ -122,10 +121,7 @@ body.dark #app-shell-v3-root {
 }
 
 .fpe-shell {
-  height: 100dvh;
-  min-height: 100dvh;
-  display: flex;
-  flex-direction: column;
+  min-height: 100vh;
   color: var(--fpe-text);
   background: var(--fpe-bg);
   font-family: "IBM Plex Sans", "Segoe UI", sans-serif;
@@ -319,8 +315,8 @@ body.dark #app-shell-v3-root {
 .fpe-layout {
   display: grid;
   grid-template-columns: var(--fpe-nav-w) minmax(0, 1fr) var(--fpe-right-w);
-  flex: 1 1 auto;
-  min-height: 0;
+  height: calc(100vh - var(--fpe-topbar-h));
+  min-height: calc(100vh - var(--fpe-topbar-h));
   overflow: hidden;
 }
 
@@ -580,9 +576,8 @@ body.dark #app-shell-v3-root .fpe-page-head__title {
   flex: 1 1 auto;
   min-height: 0;
   overflow-y: auto;
-  -webkit-overflow-scrolling: touch;
   padding-top: var(--fpe-space-5);
-  padding-bottom: calc(var(--fpe-space-8) + env(safe-area-inset-bottom));
+  padding-bottom: var(--fpe-space-8);
   min-width: 0;
 }
 
