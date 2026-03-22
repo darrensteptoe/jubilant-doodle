@@ -178,11 +178,15 @@ body.dark #app-shell-v3-root {
   font-size: 10px;
   text-transform: uppercase;
   letter-spacing: 0.14em;
-  color: var(--fpe-topbar-ui);
-  border: 1px solid color-mix(in srgb, #ffffff 22%, var(--fpe-rule));
+  color: #f7f0ff;
+  border: 1px solid color-mix(in srgb, #d8b4fe 58%, #7e22ce);
   border-radius: 999px;
   padding: 2px 7px;
-  background: color-mix(in srgb, #0b1220 24%, transparent);
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, #9333ea 84%, #4c1d95) 0%,
+    color-mix(in srgb, #7c3aed 88%, #3b0764) 100%
+  );
   flex: 0 0 auto;
 }
 
