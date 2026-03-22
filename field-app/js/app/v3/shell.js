@@ -94,7 +94,7 @@ export function renderV3Shell(root) {
             <div class="fpe-context__status" id="v3ContextStatus"></div>
           </section>
 
-          <section class="fpe-kpis" id="v3KpiStrip" aria-label="Core metrics"></section>
+          <section class="fpe-kpis" id="v3KpiStrip" aria-label="Core metrics" hidden></section>
 
           <section class="fpe-surface" id="v3SurfaceMount" aria-live="polite"></section>
         </main>

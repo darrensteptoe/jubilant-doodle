@@ -79,6 +79,7 @@ export function mountStage(stageId) {
     subtitle.textContent = stage.subtitle;
   }
   syncDataContextSection();
+  syncWarRoomKpiStrip();
 
   document.querySelectorAll(".fpe-nav__item[data-v3-stage]").forEach((el) => {
     el.classList.toggle("is-active", el.dataset.v3Stage === stage.id);
@@ -127,6 +128,15 @@ function syncDataContextSection() {
   }
   const visible = activeStageId === "data";
   contextSection.hidden = !visible;
+}
+
+function syncWarRoomKpiStrip() {
+  const strip = document.getElementById("v3KpiStrip");
+  if (!(strip instanceof HTMLElement)) {
+    return;
+  }
+  const visible = activeStageId === "decision-log";
+  strip.hidden = !visible;
 }
 
 function syncRightRail() {

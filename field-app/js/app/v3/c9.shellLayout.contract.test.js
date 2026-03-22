@@ -46,6 +46,13 @@ test("c9.2 shell: campaign scope row is data-stage scoped", () => {
   assert.match(stageMountSource, /const visible = activeStageId === "data";/);
 });
 
+test("c9 shell: global KPI strip is war-room scoped only", () => {
+  assert.match(shellSource, /id="v3KpiStrip"[^>]*hidden/);
+  assert.match(stageMountSource, /function syncWarRoomKpiStrip\(\)/);
+  assert.match(stageMountSource, /const visible = activeStageId === "decision-log";/);
+  assert.match(stageMountSource, /strip\.hidden = !visible;/);
+});
+
 test("c9 right rail: defaults to results and auto-opens manual for glossary/manual interactions", () => {
   assert.match(stageMountSource, /let activeRightRailMode = RIGHT_RAIL_MODE_RESULTS;/);
   assert.match(stageMountSource, /data-v3-right-rail-mode="results"/);
