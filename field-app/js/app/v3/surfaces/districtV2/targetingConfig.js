@@ -184,6 +184,10 @@ export function renderDistrictV2TargetingCard({ targetingCard, getCardBody }) {
         <div class="field">
           <label class="fpe-control-label" for="v3DistrictV2TargetingGeoLevel">Geography level</label>
           <select class="fpe-input" id="v3DistrictV2TargetingGeoLevel"></select>
+          <div class="field fpe-targeting-density-field">
+            <label class="fpe-control-label" for="v3DistrictV2TargetingDensityFloor">Density floor</label>
+            <select class="fpe-input" id="v3DistrictV2TargetingDensityFloor"></select>
+          </div>
         </div>
         <div class="field">
           <label class="fpe-control-label" for="v3DistrictV2TargetingModelId">Target model</label>
@@ -227,10 +231,6 @@ export function renderDistrictV2TargetingCard({ targetingCard, getCardBody }) {
           <input id="v3DistrictV2TargetingAvoidHighMultiUnit" type="checkbox"/>
           <span>Avoid high multi-unit</span>
         </label>
-        <div class="field">
-          <label class="fpe-control-label" for="v3DistrictV2TargetingDensityFloor">Density floor</label>
-          <select class="fpe-input" id="v3DistrictV2TargetingDensityFloor"></select>
-        </div>
       </div>
 
       <div class="fpe-help fpe-help--flush">House model weights (used when Target model = House Model v1).</div>
@@ -255,14 +255,18 @@ export function renderDistrictV2TargetingCard({ targetingCard, getCardBody }) {
 
       <div class="fpe-action-row">
         <button class="fpe-btn fpe-btn--ghost" id="v3BtnDistrictV2TargetingResetWeights" type="button">Reset house weights</button>
-        <button class="fpe-btn fpe-btn--ghost" id="v3BtnDistrictV2RunTargeting" type="button">Run targeting</button>
-        <button class="fpe-btn fpe-btn--ghost" id="v3BtnDistrictV2ExportTargetingCsv" type="button">Export targets CSV</button>
-        <button class="fpe-btn fpe-btn--ghost" id="v3BtnDistrictV2ExportTargetingJson" type="button">Export targets JSON</button>
       </div>
 
       <div class="fpe-help fpe-help--flush" id="v3DistrictV2TargetingReadiness">Readiness: evaluating targeting prerequisites.</div>
       <div class="fpe-help fpe-help--flush" id="v3DistrictV2TargetingStatus">-</div>
       <div class="fpe-help fpe-help--flush" id="v3DistrictV2TargetingMeta">-</div>
+      <div class="fpe-action-row fpe-targeting-results-actions">
+        <button class="fpe-btn fpe-btn--ghost" id="v3BtnDistrictV2RunTargeting" type="button">Run targeting</button>
+        <div class="fpe-targeting-results-actions__right">
+          <button class="fpe-btn fpe-btn--ghost" id="v3BtnDistrictV2ExportTargetingCsv" type="button">Export targets CSV</button>
+          <button class="fpe-btn fpe-btn--ghost" id="v3BtnDistrictV2ExportTargetingJson" type="button">Export targets JSON</button>
+        </div>
+      </div>
 
       <div class="table-wrap">
         <table class="table" aria-label="District V2 targeting rankings">

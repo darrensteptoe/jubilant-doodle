@@ -37,7 +37,7 @@ export function renderDistrictV2CensusCard({ censusCard, getCardBody }) {
         <select class="fpe-input" id="v3DistrictV2CensusTractFilter"></select>
       </div>
 
-      <div class="fpe-action-row">
+      <div class="fpe-action-row fpe-census-load-geo-row">
         <button class="fpe-btn fpe-btn--ghost" id="v3BtnDistrictV2CensusLoadGeo" type="button">Load GEO list</button>
       </div>
 
@@ -77,26 +77,25 @@ export function renderDistrictV2CensusCard({ censusCard, getCardBody }) {
         </label>
       </div>
 
-      <div class="fpe-census-map-row fpe-census-map-row--actions">
-        <button class="fpe-btn fpe-btn--ghost" id="v3BtnDistrictV2CensusLoadMap" type="button">Load boundaries</button>
-      </div>
-
-      <div class="field">
-        <label class="fpe-control-label" for="v3DistrictV2CensusMapQaVtdZip">VTD ZIP overlay source (optional)</label>
-        <input accept=".zip,application/zip" class="fpe-input" id="v3DistrictV2CensusMapQaVtdZip" type="file"/>
-      </div>
-      <div class="field">
-        <label class="fpe-control-label" for="v3BtnDistrictV2CensusClearVtdZip">VTD ZIP controls</label>
-        <div class="fpe-action-row fpe-census-vtd-control-row">
-          <label class="fpe-switch">
-            <input id="v3DistrictV2CensusMapQaVtdOverlay" type="checkbox"/>
-            <span>Enable VTD overlay</span>
-          </label>
-          <button class="fpe-btn fpe-btn--ghost fpe-census-btn--compact" id="v3BtnDistrictV2CensusClearVtdZip" type="button">Clear VTD ZIP</button>
+      <div class="fpe-field-grid fpe-field-grid--2 fpe-census-vtd-config-row">
+        <div class="field">
+          <label class="fpe-control-label" for="v3DistrictV2CensusMapQaVtdZip">VTD ZIP overlay source (optional)</label>
+          <input accept=".zip,application/zip" class="fpe-input" id="v3DistrictV2CensusMapQaVtdZip" type="file"/>
+        </div>
+        <div class="field">
+          <label class="fpe-control-label" for="v3BtnDistrictV2CensusClearVtdZip">VTD ZIP controls</label>
+          <div class="fpe-action-row fpe-census-vtd-control-row">
+            <label class="fpe-switch">
+              <input id="v3DistrictV2CensusMapQaVtdOverlay" type="checkbox"/>
+              <span>Enable VTD overlay</span>
+            </label>
+            <button class="fpe-btn fpe-btn--ghost fpe-census-btn--compact" id="v3BtnDistrictV2CensusClearVtdZip" type="button">Clear VTD ZIP</button>
+          </div>
         </div>
       </div>
 
       <div class="fpe-census-map-shell is-idle" id="v3DistrictV2CensusMapShell">
+        <button class="fpe-btn fpe-btn--ghost fpe-census-map-load-btn" id="v3BtnDistrictV2CensusLoadMap" type="button">Load boundaries</button>
         <div class="census-map" id="v3CensusMapHost" role="img" aria-label="District Census boundaries map"></div>
         <div class="fpe-census-map-overlay" id="v3DistrictV2CensusMapOverlay">Map shell restored. Load boundaries to refresh geometry status.</div>
       </div>

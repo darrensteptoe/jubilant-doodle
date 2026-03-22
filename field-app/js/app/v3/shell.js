@@ -49,7 +49,7 @@ export function renderV3Shell(root) {
           <span class="fpe-brand-short">${PRODUCT_ABBREVIATION}</span>
         </div>
         <div class="fpe-topbar__actions">
-          <button class="fpe-btn fpe-btn--ghost" id="v3BtnDiagnostics" type="button">Diagnostics</button>
+          <button class="fpe-btn fpe-btn--danger" id="v3BtnDiagnostics" type="button">Diagnostics</button>
           <button class="fpe-btn fpe-btn--danger" id="v3BtnReset" type="button">Reset scenario</button>
         </div>
       </header>
@@ -67,7 +67,7 @@ export function renderV3Shell(root) {
           <section class="fpe-page-head" aria-label="Page heading">
             <div class="fpe-page-head__meta">
               <span class="fpe-page-head__eyebrow" id="v3PageEyebrow">Model</span>
-              <h1 class="fpe-page-head__title" id="v3PageTitle">District Reality</h1>
+              <h1 id="v3PageTitle">District Reality</h1>
             </div>
             <p class="fpe-page-head__subtitle" id="v3PageSubtitle"></p>
           </section>
