@@ -14,7 +14,7 @@
 <link href="https://fonts.googleapis.com" rel="preconnect"/>
 <link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&amp;family=IBM+Plex+Sans:wght@300;400;500;600&amp;display=swap" rel="stylesheet"/>
-  <script type="module" crossorigin src="/assets/index-D4tE1qkJ.js"></script>
+  <script type="module" crossorigin src="/assets/index-B3lny7Hl.js"></script>
   <link rel="modulepreload" crossorigin href="/assets/time-DMzu12fF.js">
   <link rel="modulepreload" crossorigin href="/assets/build-DvTtUqhn.js">
   <link rel="modulepreload" crossorigin href="/assets/preload-helper-C-ObvbrE.js">
@@ -22,7 +22,7 @@
   <link rel="modulepreload" crossorigin href="/assets/io-UDXN18Pd.js">
   <link rel="modulepreload" crossorigin href="/assets/view-CEp4BHYU.js">
   <link rel="modulepreload" crossorigin href="/assets/twCapHelpers-e7JC5H-8.js">
-  <link rel="stylesheet" crossorigin href="/assets/index-BKRjHlar.css">
+  <link rel="stylesheet" crossorigin href="/assets/index-ByyeMnn4.css">
 </head>
 <body>
 <div hidden="" id="app-shell-v3-root"></div>
@@ -1103,7 +1103,18 @@
 <!-- RIGHT: Persistent results sidebar -->
 <aside aria-label="Win path results" class="results-sidebar-new" id="legacyResultsSidebar">
 
-  <!-- KEY RESULTS -->
+  <!-- E-DAY COUNTDOWN -->
+  <div class="sidebar-section-new sidebar-eday-countdown">
+    <div class="sidebar-label-new">Days till E-Day</div>
+    <div class="win-stat-new">
+      <span class="win-stat-label-new">Countdown</span>
+      <span class="win-stat-val-new" id="daysToEday-sidebar">—</span>
+      <span class="win-stat-sub-new" id="daysToEdayNote-sidebar">—</span>
+    </div>
+    <div class="kv-mini-new"><span>Election date</span><span id="electionDateCanonical-sidebar">—</span></div>
+  </div>
+
+  <!-- WIN PATH -->
   <div class="sidebar-section-new sidebar-win-expected">
     <div class="sidebar-label-new">Win path — expected</div>
     <div class="win-stat-new">
@@ -1137,12 +1148,7 @@
     <div class="kv-mini-new"><span>Universe check</span><span id="miniPersCheck-sidebar">—</span></div>
   </div>
 
-  <!-- REALISM / VALIDATION -->
-  <div class="sidebar-section-new">
-    <div class="sidebar-label-new">Input validation</div>
-    <ul class="validation" id="validationList"></ul>
-  </div>
-
+  <!-- ASSUMPTIONS + GUARDRAILS -->
   <div class="sidebar-section-new">
     <div class="sidebar-label-new">Key assumptions</div>
     <div class="assumptions" id="assumptionsSnapshot"></div>
@@ -1153,7 +1159,15 @@
     <div class="guardrails" id="guardrails"></div>
   </div>
 
-  <!-- MONTE CARLO + RISK -->
+  <!-- STRESS TEST -->
+  <div class="sidebar-section-new">
+    <div class="sidebar-label-new">Stress test summary</div>
+    <div class="stress" id="stressBox">
+      <div class="stress-item">—</div>
+    </div>
+  </div>
+
+  <!-- MONTE CARLO -->
   <div class="sidebar-section-new">
     <div class="sidebar-label-new">Monte Carlo win probability</div>
     <div class="mc-prob-row-new">
@@ -1200,16 +1214,14 @@
     <div class="banner" hidden id="riskPlainBanner-sidebar"></div>
   </div>
 
-  <!-- STRESS TEST -->
+  <!-- INPUT VALIDATION -->
   <div class="sidebar-section-new">
-    <div class="sidebar-label-new">Stress test summary</div>
-    <div class="stress" id="stressBox">
-      <div class="stress-item">—</div>
-    </div>
+    <div class="sidebar-label-new">Input validation</div>
+    <ul class="validation" id="validationList"></ul>
   </div>
 
   <!-- METADATA -->
-  <div class="sidebar-section-new" style="margin-top:auto; border-top: 1px solid var(--rule);">
+  <div class="sidebar-section-new sidebar-metadata" style="margin-top:auto; border-top: 1px solid var(--rule);">
     <div class="sidebar-label-new">Metadata</div>
     <div class="kv-mini-new dim-text"><span id="snapshotHash-sidebar">—</span></div>
   </div>

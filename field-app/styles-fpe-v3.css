@@ -2022,7 +2022,7 @@ body.training #app-shell-v3-root .fpe-surface .fpe-why {
   min-width: 0;
   min-height: 0;
   border-left: 1px solid var(--fpe-rule);
-  background: var(--fpe-panel);
+  background: var(--fpe-page-title-row-bg);
   overflow-y: auto;
   overflow-x: hidden;
 }
@@ -2036,7 +2036,7 @@ body.training #app-shell-v3-root .fpe-surface .fpe-why {
   gap: 6px;
   padding: 10px 12px;
   border-bottom: 1px solid var(--fpe-rule);
-  background: var(--fpe-panel);
+  background: var(--fpe-page-title-row-bg);
 }
 
 .fpe-right-rail-toggle__btn {
@@ -2065,7 +2065,7 @@ body.training #app-shell-v3-root .fpe-surface .fpe-why {
 
 .fpe-right-rail-slot--intel .fpe-intel-panel {
   border-bottom: 1px solid var(--fpe-rule);
-  background: color-mix(in srgb, var(--fpe-panel-muted) 70%, var(--fpe-panel));
+  background: var(--fpe-page-title-row-bg);
   padding: 12px;
 }
 
@@ -2268,7 +2268,7 @@ body.training #app-shell-v3-root .fpe-surface .fpe-why {
   min-height: 0;
   height: 100%;
   border-left: 0;
-  background: var(--fpe-panel);
+  background: var(--fpe-page-title-row-bg);
   box-shadow: none;
   overflow-y: auto;
   overflow-x: hidden;
@@ -2285,6 +2285,11 @@ body.training #app-shell-v3-root .fpe-surface .fpe-why {
 .fpe-right-rail-slot .results-sidebar-new .sidebar-section-new.sidebar-eday-countdown {
   background: color-mix(in srgb, var(--fpe-danger) 8%, var(--fpe-panel));
   border-color: color-mix(in srgb, var(--fpe-danger) 28%, var(--fpe-rule));
+}
+
+.fpe-right-rail-slot .results-sidebar-new .sidebar-section-new.sidebar-metadata {
+  background: var(--fpe-page-title-row-bg);
+  border-top-color: var(--fpe-rule);
 }
 
 .fpe-right-rail-slot .results-sidebar-new .sidebar-section-new.sidebar-win-expected .sidebar-label-new,
