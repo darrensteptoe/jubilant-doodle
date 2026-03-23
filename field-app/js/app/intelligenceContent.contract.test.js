@@ -6,6 +6,7 @@ import assert from "node:assert/strict";
 import { MODULE_DOCTRINE_REGISTRY } from "./moduleDoctrineRegistry.js";
 import { GLOSSARY_REGISTRY, normalizeGlossaryTermId } from "./glossaryRegistry.js";
 import { resolveIntelligencePayload } from "./intelligenceResolver.js";
+import { DTL_GLOBAL_MICROCOPY } from "./decisionTrustLayer.js";
 
 const forecast = MODULE_DOCTRINE_REGISTRY.forecastOutcome?.sections || {};
 const governance = MODULE_DOCTRINE_REGISTRY.governanceConfidence?.sections || {};
@@ -169,6 +170,29 @@ test("intelligence resolver: weather/event warnings render only when playbook si
     : [];
   assert.equal(quietLabels.includes("Operating posture warning"), false);
   assert.equal(quietLabels.includes("Temporary capacity note"), false);
+});
+
+test("decision trust layer: trust-state subtitles match operator guidance wording", () => {
+  assert.equal(
+    DTL_GLOBAL_MICROCOPY.states.ready,
+    "Source path is present and current enough to support normal use.",
+  );
+  assert.equal(
+    DTL_GLOBAL_MICROCOPY.states.review,
+    "The figure may still be useful, but the team should verify before leaning on it hard.",
+  );
+  assert.equal(
+    DTL_GLOBAL_MICROCOPY.states.missing,
+    "Required input or evidence path is absent, so confidence should drop.",
+  );
+  assert.equal(
+    DTL_GLOBAL_MICROCOPY.states.fallback,
+    "A backup path is being used; treat this as informative, not settled.",
+  );
+  assert.equal(
+    DTL_GLOBAL_MICROCOPY.states.mismatch,
+    "Related signals disagree; reconcile before escalating claims.",
+  );
 });
 
 test("intelligence resolver: glossary links are always available across primary modes", () => {

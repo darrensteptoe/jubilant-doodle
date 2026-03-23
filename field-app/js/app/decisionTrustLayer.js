@@ -47,11 +47,11 @@ export const DTL_GLOBAL_MICROCOPY = Object.freeze({
   reviewBeforeActing: "Use this figure as a decision aid. Review assumptions first if this number will drive staffing, targeting, pacing, or budget choices.",
   displayedValue: "Displayed values are rounded for readability. Canonical results remain preserved upstream.",
   states: Object.freeze({
-    ready: "This figure is using the expected context and current assumptions.",
-    review: "This figure is usable, but one or more assumptions materially shape the result. Review them before acting.",
-    missing: "This figure cannot be relied on until required campaign, office, district, or session context is selected.",
-    fallback: "This figure is currently relying on fallback or default assumptions. Review before using it for a decision.",
-    mismatch: "This result reflects current filters, which may not match intended analysis context.",
+    ready: "Source path is present and current enough to support normal use.",
+    review: "The figure may still be useful, but the team should verify before leaning on it hard.",
+    missing: "Required input or evidence path is absent, so confidence should drop.",
+    fallback: "A backup path is being used; treat this as informative, not settled.",
+    mismatch: "Related signals disagree; reconcile before escalating claims.",
   }),
 });
 
@@ -448,13 +448,13 @@ function missingContextForFigure(entry, shellView){
 
 function resolveTrustState(entry, payload){
   if (missingContextForFigure(entry, payload.shellView)){
-    return { code: TRUST_STATE.MISSING, label: "Missing required context", detail: DTL_GLOBAL_MICROCOPY.states.missing };
+    return { code: TRUST_STATE.MISSING, label: "Missing", detail: DTL_GLOBAL_MICROCOPY.states.missing };
   }
   if (entry?.resolveFallback && entry.resolveFallback(payload)){
-    return { code: TRUST_STATE.FALLBACK, label: "Fallback in use", detail: DTL_GLOBAL_MICROCOPY.states.fallback };
+    return { code: TRUST_STATE.FALLBACK, label: "Fallback", detail: DTL_GLOBAL_MICROCOPY.states.fallback };
   }
   if (entry?.resolveReview && entry.resolveReview(payload)){
-    return { code: TRUST_STATE.REVIEW, label: "Review assumptions", detail: DTL_GLOBAL_MICROCOPY.states.review };
+    return { code: TRUST_STATE.REVIEW, label: "Review", detail: DTL_GLOBAL_MICROCOPY.states.review };
   }
   return { code: TRUST_STATE.READY, label: "Ready", detail: DTL_GLOBAL_MICROCOPY.states.ready };
 }
