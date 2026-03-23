@@ -1,0 +1,1492 @@
+<!DOCTYPE html>
+
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1" name="viewport"/>
+<meta content="no-store, no-cache, must-revalidate, max-age=0" http-equiv="Cache-Control"/>
+<meta content="no-cache" http-equiv="Pragma"/>
+<meta content="0" http-equiv="Expires"/>
+<title>Vector Intelligence Campaign Engine</title>
+<meta content="Internal field planning dashboard." name="description"/>
+<meta content="strict-origin-when-cross-origin" name="referrer"/>
+<meta content="light dark" name="color-scheme"/>
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&amp;family=IBM+Plex+Sans:wght@300;400;500;600&amp;display=swap" rel="stylesheet"/>
+  <script type="module" crossorigin src="/assets/index-D_xTJd1z.js"></script>
+  <link rel="modulepreload" crossorigin href="/assets/time-DMzu12fF.js">
+  <link rel="modulepreload" crossorigin href="/assets/build-D8U74VRh.js">
+  <link rel="modulepreload" crossorigin href="/assets/preload-helper-C-ObvbrE.js">
+  <link rel="modulepreload" crossorigin href="/assets/store-C16ymedL.js">
+  <link rel="modulepreload" crossorigin href="/assets/io-20lfPSXr.js">
+  <link rel="modulepreload" crossorigin href="/assets/view-CEp4BHYU.js">
+  <link rel="modulepreload" crossorigin href="/assets/twCapHelpers-Cz8gv3TZ.js">
+  <link rel="stylesheet" crossorigin href="/assets/index-BZKD6b8T.css">
+</head>
+<body>
+<div hidden="" id="app-shell-v3-root"></div>
+<div data-legacy-shell-root="true" hidden="" id="legacyShellRoot">
+<!-- ── TOPBAR ───────────────────────────────────────────── -->
+<header class="topbar-new">
+<div class="brand-new">
+<span class="brand-name-new">Vector Intelligence Campaign Engine</span>
+<span class="chip-new" id="buildStamp">build</span>
+<span class="chip-new chip-status" id="selfTestGate">UNVERIFIED</span>
+</div>
+
+<div class="topbar-right">
+<label class="toggle-pill" title="Show playbook guidance for each section">
+<input hidden="" id="toggleTraining" type="checkbox"/>
+<span class="toggle-dot-new"></span>
+      Playbook
+    </label>
+<div class="divider-new"></div>
+<span class="chip-new chip-persist" hidden="" id="persistenceStatus">Save issue</span>
+<button class="btn-top-new" id="btnDiagnostics" type="button">Diagnostics</button>
+<button class="btn-top-new btn-top-danger" id="btnResetAll" type="button">Reset scenario</button>
+<!-- legacy hidden dark toggle kept for JS compatibility -->
+<input hidden="" id="toggleDark" type="checkbox"/>
+<input hidden="" id="toggleAdvDiagLegacy" type="checkbox"/>
+<!-- canonical turnout toggle sentinel kept for Phase-9 compatibility checks -->
+<input hidden="" id="gotvDiminishing" type="checkbox"/>
+</div>
+</header>
+<!-- ── APP SHELL ─────────────────────────────────────────── -->
+<div class="app-shell">
+<!-- LEFT: Stage navigation rail -->
+<nav aria-label="Planning stages" class="stage-nav-new"><div class="nav-group-label-new">Planning</div><button class="nav-item-new active" data-stage="setup" type="button">
+<span class="nav-num-new" data-num="1">1</span>
+<span class="nav-label-new">Set up</span>
+</button><div class="nav-group-label-new">Field Execution</div><a class="nav-item-new" href="organizer.html">
+<span class="nav-num-new">•</span>
+<span class="nav-label-new">Organizer log</span>
+</a><a class="nav-item-new" href="operations.html">
+<span class="nav-num-new">•</span>
+<span class="nav-label-new">Operations hub</span>
+</a></nav>
+<!-- CENTER: Active stage content -->
+<main class="stage-main-new"><div class="context-bar-new"><div class="topbar-center">
+<span class="scenario-label-new">Active scenario</span>
+<input class="scenario-input-new" id="scenarioName" placeholder="Scenario name…" type="text"/>
+</div><span class="context-hint-new">(name is saved in snapshot exports)</span></div>
+<section class="card card-section" hidden="" id="scenarioManagerCard">
+<div aria-live="polite" class="mini-s" id="scWarn"></div>
+<div class="rowline" style="gap:8px; flex-wrap:wrap;">
+<select class="select" id="scenarioSelect"></select>
+<input class="input" id="scenarioNewName" placeholder="New scenario name" type="text"/>
+<button class="btn btn-sm btn-ghost" id="btnScenarioSaveNew" type="button">Save new</button>
+<button class="btn btn-sm btn-ghost" id="btnScenarioCloneBaseline" type="button">Clone baseline</button>
+<button class="btn btn-sm btn-ghost" id="btnScenarioDelete" type="button">Delete</button>
+<button class="btn btn-sm btn-ghost" id="btnScenarioLoadSelected" type="button">Load selected</button>
+<button class="btn btn-sm btn-ghost" id="btnScenarioReturnBaseline" type="button">Return baseline</button>
+</div>
+<div class="muted" id="activeScenarioLabel">Active scenario: baseline</div>
+</section>
+<section class="card card-section" hidden="" id="scenarioCompareCard">
+<div class="card-head card-header">
+<h2 class="card-title">Scenario comparison</h2>
+</div>
+<div hidden="" id="scmCompareWrap">
+<div class="rowline" style="justify-content:space-between; gap:8px;">
+<span class="muted" id="scmCompareTag">No comparison loaded.</span>
+</div>
+<div class="muted" id="scmCompareEmpty">Select a scenario to compare against baseline.</div>
+<div class="table-wrap" id="scmCompareGrid"></div>
+<div class="muted" id="scmDiffInputs"></div>
+<div class="muted" id="scmDiffInputsFoot"></div>
+<div class="muted" id="scmDiffOutputs"></div>
+</div>
+</section>
+<!-- ── STAGE: setup ── -->
+<div hidden="" id="legacySetupSourceSeedWrapper">
+<div class="stage-header-new">
+<div class="stage-meta-new">
+<span class="stage-tag-new">Stage 1</span>
+<span class="stage-title-new">Set up</span>
+</div>
+<p class="stage-sub-new">Set race context, timing, and operating mode. This frame drives all downstream vote, production, and risk calculations.</p>
+<div class="training-panel-new" id="train-setup">
+<div class="training-hd-new" onclick="toggleTrainPanel('train-setup')">
+<span>🎓</span><span class="training-title-new">Playbook — Set up</span><span class="training-chev-new">▾</span>
+</div>
+<div class="training-bd-new">
+<div class="training-col-new">
+<div class="training-sec-title-new">What this stage models</div>
+<p>Sets the planning context. Race type loads sensible defaults — a state house race and a mayoral race have different universe sizes, realistic capacity, and tactic mix. Election date drives timeline feasibility in later stages.</p>
+<div class="training-rule-new">Scenario name → saved with export<br/>Race type → default band widths<br/>Election date → weeks remaining auto-calc<br/>Mode → persuasion vs turnout emphasis</div>
+</div>
+<div class="training-col-new">
+<div class="training-sec-title-new">Common mistakes</div>
+<ul>
+<li>Using "Federal" template for a state leg race — band widths will be too tight</li>
+<li>Leaving election date blank then forgetting to set weeks remaining manually</li>
+<li>Setting mode to Late-start before you know your capacity constraints</li>
+</ul>
+<div class="training-caution-new">A plan is only meaningful relative to time constraints. Set election date first — everything else scales from it.</div>
+</div>
+</div>
+</div>
+</div>
+<div class="stage-body-new">
+<!-- EXISTING CONTENT: Scenario card -->
+<div class="card card-section phase-setup">
+<div class="card-head card-header"><h2 class="card-title">Race setup</h2></div>
+<div class="module-desc">Set race template, election date, weeks remaining, and mode. This establishes the planning context for all downstream math.</div>
+<div class="grid2">
+<div class="field">
+<label class="label" for="raceType">Race template</label>
+<select class="select" id="raceType">
+<option value="federal">Federal</option>
+<option selected="" value="state_leg">State legislative</option>
+<option value="municipal">Municipal / ward</option>
+<option value="county">County / regional</option>
+</select>
+<div class="help" data-help="Template sets conservative default ranges. You can override anything.">
+<span class="help-title">What this is</span>
+<span class="help-text">Select a baseline assumptions profile (turnout band width defaults, etc.).</span>
+</div>
+</div>
+<div class="field">
+<label class="label" for="electionDate">Election date</label>
+<input class="input" id="electionDate" type="date"/>
+<div class="help" data-help="Used to estimate weeks remaining. You can override weeks manually below.">
+<span class="help-title">Why it matters</span>
+<span class="help-text">Timeline affects later production planning. In early use, treat as reference only.</span>
+</div>
+</div>
+<div class="field">
+<label class="label" for="weeksRemaining">Weeks remaining (override)</label>
+<input class="input" id="weeksRemaining" min="0" placeholder="auto" step="1" type="number"/>
+<div class="help" data-help="If blank, the dashboard estimates based on election date.">
+<span class="help-title">If unsure</span>
+<span class="help-text">Leave blank; you can set it later when production planning is added.</span>
+</div>
+</div>
+<div class="field">
+<label class="label" for="mode">Mode</label>
+<select class="select" id="mode">
+<option selected="" value="persuasion">Persuasion-first (default)</option>
+<option value="late_start">Late-start / turnout-heavy</option>
+</select>
+<div class="help" data-help="Mode influences defaults later. Core math remains the same.">
+<span class="help-title">What this changes</span>
+<span class="help-text">In later phases, persuasion-first emphasizes persuasion volume before GOTV surge.</span>
+</div>
+</div>
+</div>
+</div>
+<!-- Setup source pool: canonical controls retained for compose/runtime binding -->
+<div hidden="" id="legacySetupSourceSeed">
+<div class="card card-section" id="universeCard">
+<div class="card-head card-header">
+<h2 class="card-title">Universe</h2>
+<div class="help-text">Define the size of the electorate you’re modeling (registration or expected voters). Be consistent with turnout assumptions.</div></div>
+<div class="grid2">
+<div class="field span2">
+<label class="label" for="universeSize">Universe size (U)</label>
+<input class="input" id="universeSize" min="0" placeholder="e.g., 52000" step="1" type="number"/>
+<div class="help" data-help="U is the base for turnout votes and persuasion universe.">
+<span class="help-title">How it’s used</span>
+<span class="help-text">Turnout votes = U × turnout %. Persuasion universe = U × persuasion %.</span>
+</div>
+</div>
+<div class="field">
+<label class="label" for="universeBasis">Universe basis</label>
+<select class="select" id="universeBasis">
+<option selected="" value="registered">Registered (default)</option>
+<option value="active">Active (advanced)</option>
+</select>
+<div class="help" data-help="Choose the source basis that best matches your field universe assumptions.">
+<span class="help-title">How to choose</span>
+<span class="help-text">Use Registered for broad planning, Active for tighter turnout universes.</span>
+</div>
+</div>
+<div class="field">
+<label class="label" for="sourceNote">Source note (optional)</label>
+<input class="input" id="sourceNote" placeholder="e.g., VAN export dated 2026-02-01 or elections file" type="text"/>
+<div class="help" data-help="Keep provenance here so scenario comparisons stay auditable.">
+<span class="help-title">Good practice</span>
+<span class="help-text">Record file/date/source so imports and exports can be traced later.</span>
+</div>
+</div>
+</div>
+</div>
+<div class="card card-section" id="ballotBaselineCard">
+<div class="card-head card-header">
+<h2 class="card-title">Ballot &amp; persuasion baseline</h2>
+<div class="card-actions">
+<button class="btn btn-link" id="btnAddCandidate" type="button">Add candidate</button>
+</div>
+</div>
+<div class="field">
+<label class="label" for="yourCandidate">You are</label>
+<select class="select" id="yourCandidate"></select>
+</div>
+<div class="table-wrap">
+<div class="table-scroll"><table aria-label="Candidate support table" class="table">
+<thead>
+<tr>
+<th>Name</th>
+<th class="num">Support %</th>
+<th></th>
+</tr>
+</thead>
+<tbody id="candTbody"></tbody>
+<tfoot>
+<tr>
+<td class="muted">Undecided</td>
+<td class="num"><input class="input input-sm num" id="undecidedPct" max="100" min="0" step="0.1" type="number"/></td>
+<td></td>
+</tr>
+<tr>
+<td class="muted"><strong>Total</strong></td>
+<td class="num"><strong id="supportTotal">—</strong></td>
+<td></td>
+</tr>
+</tfoot>
+</table></div>
+</div>
+<div class="grid2">
+<div class="field">
+<label class="label" for="undecidedMode">Undecided break</label>
+<select class="select" id="undecidedMode">
+<option selected="" value="proportional">Proportional</option>
+<option value="user_defined">User-defined split</option>
+<option value="against">Conservative against you</option>
+<option value="toward">Conservative toward you</option>
+</select>
+<div class="help" data-help="Undecided allocation is a primary source of volatility in multi-candidate races.">
+<span class="help-title">Best practice</span>
+<span class="help-text">Stress-test against you. Don’t rely on a friendly break.</span>
+</div>
+</div>
+<div class="field" hidden="" id="userSplitWrap">
+<label class="label">User-defined undecided split %</label>
+<div class="user-split" id="userSplitList"></div>
+<div class="note">Must sum to 100% across candidates.</div>
+</div>
+</div>
+<div class="banner warn module-feedback" hidden="" id="candWarn"></div>
+</div>
+<div class="card card-section phase-p3" id="turnoutBaselineCard">
+<div class="card-head card-header">
+<h2 class="card-title">Turnout baseline (recent comparable cycles)</h2>
+<div class="help-text">Use two recent comparable cycles to set a baseline and uncertainty band. This drives volatility in simulation.</div></div>
+<div class="grid3">
+<div class="field">
+<label class="label" for="turnoutA">Cycle A turnout %</label>
+<input class="input" id="turnoutA" max="100" min="0" placeholder="e.g., 39" step="0.1" type="number"/>
+<div class="help" data-help="Comparable cycle means similar election type (midterm vs presidential; primary vs general).">
+<span class="help-title">If unsure</span>
+<span class="help-text">Pick the closest two cycles by election type and district boundaries.</span>
+</div>
+</div>
+<div class="field">
+<label class="label" for="turnoutB">Cycle B turnout %</label>
+<input class="input" id="turnoutB" max="100" min="0" placeholder="e.g., 43" step="0.1" type="number"/>
+</div>
+<div class="field">
+<label class="label" for="bandWidth">Band width (±)</label>
+<input class="input" id="bandWidth" max="25" min="0" placeholder="e.g., 4" step="0.5" type="number"/>
+<div class="help" data-help="Creates Best/Expected/Worst turnout scenarios around your 2-cycle average.">
+<span class="help-title">Typical</span>
+<span class="help-text">±3 to ±5 is common. Keep it modest unless a unique cycle is expected.</span>
+</div>
+</div>
+<div class="field span3 inline-metrics">
+<div class="metric">
+<div class="metric-k">Expected turnout %</div>
+<div class="metric-v" id="turnoutExpected">—</div>
+</div>
+<div class="metric">
+<div class="metric-k">Best / Worst turnout %</div>
+<div class="metric-v" id="turnoutBand">—</div>
+</div>
+<div class="metric">
+<div class="metric-k">Votes per 1% turnout</div>
+<div class="metric-v" id="votesPer1pct">—</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- ── STAGE: capacity/results/roi/gotv (retired + removed) ── -->
+<!-- ── CHECKS SOURCE POOL (stage wrapper retired; source IDs retained for compatibility) ── -->
+<div hidden="" id="legacyChecksSourceSeed">
+<div class="stage-header-new">
+<div class="stage-meta-new">
+<span class="stage-tag-new">Stage 9</span>
+<span class="stage-title-new">Checks &amp; guardrails</span>
+</div>
+<p class="stage-sub-new">Validate inputs, inspect assumptions snapshot, and review guardrails. The most dangerous failures are silent ones.</p>
+<div class="training-panel-new" id="train-checks">
+<div class="training-hd-new" onclick="toggleTrainPanel('train-checks')">
+<span>🎓</span><span class="training-title-new">Playbook — Data Checks &amp; Guardrails</span><span class="training-chev-new">▾</span>
+</div>
+<div class="training-bd-new">
+<div class="training-col-new">
+<div class="training-sec-title-new">What this stage does</div>
+<p>Guardrails catch invalid states and "looks plausible but impossible" plans before you share them with a client or campaign. The assumptions snapshot freezes key parameters so you can detect drift between runs.</p>
+</div>
+<div class="training-col-new">
+<div class="training-sec-title-new">When to use it</div>
+<ul>
+<li>Before every client presentation — run checks first</li>
+<li>When results look surprisingly good — check guardrails</li>
+<li>After importing a scenario from another session</li>
+</ul>
+</div>
+</div>
+</div>
+</div>
+<div class="stage-body-new">
+<div class="card card-section">
+<div class="card-head card-header">
+<h2 class="card-title">Status stack location</h2>
+</div>
+<div class="note">Canonical status now lives in the right rail to prevent drift and duplicate headlines. Use this stage as a review workflow, not a second output surface.</div>
+<div class="subgrid" style="margin-top:10px;">
+<div class="mini">
+<div class="mini-k">Outcome</div>
+<div class="mini-v">Win path — expected</div>
+<div class="mini-s">Turnout votes, win threshold, projected votes, persuasion need</div>
+</div>
+<div class="mini">
+<div class="mini-k">Fragility</div>
+<div class="mini-v">Stress + Monte Carlo</div>
+<div class="mini-s">Stress test summary, probability, margin band, volatility</div>
+</div>
+<div class="mini">
+<div class="mini-k">Integrity</div>
+<div class="mini-v">Validation + guardrails</div>
+<div class="mini-s">Input validation, assumptions snapshot, and guardrails</div>
+</div>
+</div>
+</div>
+<div class="card card-section" id="censusPhase1Card">
+<div class="card-head card-header">
+<h2 class="card-title">Census data (phase 1)</h2>
+</div>
+<div class="help-text">Census-only flow: select geography context, fetch ACS rows from API, multi-select GEO units, and review aggregate demographics.</div>
+<div class="grid3" style="margin-top:10px;">
+<div class="field">
+<label class="label" for="censusApiKey">Census API key</label>
+<input autocomplete="off" class="input" id="censusApiKey" placeholder="Paste key once. Saved in this browser only." type="text"/>
+</div>
+<div class="field">
+<label class="label" for="censusAcsYear">ACS 5-year</label>
+<select class="select" id="censusAcsYear">
+<option value="">Select year</option>
+</select>
+</div>
+<div class="field">
+<label class="label" for="censusResolution">Resolution</label>
+<select class="select" id="censusResolution">
+<option value="">Select resolution</option>
+</select>
+</div>
+</div>
+<div class="muted" style="margin-top:6px;">Resolution supports place, tract, block group, congressional district, and state legislative district scopes.</div>
+<div class="grid3" style="margin-top:10px;">
+<div class="field">
+<label class="label" for="censusStateFips">State</label>
+<select class="select" id="censusStateFips">
+<option value="">Select state</option>
+</select>
+</div>
+<div class="field">
+<label class="label" for="censusCountyFips">County</label>
+<select class="select" id="censusCountyFips">
+<option value="">Select county</option>
+</select>
+</div>
+<div class="field">
+<label class="label" for="censusPlaceFips">Place</label>
+<select class="select" id="censusPlaceFips">
+<option value="">Select place</option>
+</select>
+</div>
+</div>
+<div class="muted" id="censusContextHint" style="margin-top:6px;">County is required for tract/block group. Place is used only for place resolution. District resolutions are state-only.</div>
+<div class="grid2" style="margin-top:10px;">
+<div class="field">
+<label class="label" for="censusMetricSet">Data bundle</label>
+<select class="select" id="censusMetricSet">
+<option value="">Select bundle</option>
+</select>
+</div>
+<div class="field">
+<label class="label">Actions</label>
+<div class="rowline" style="gap:8px; flex-wrap:wrap;">
+<button class="btn btn-sm" id="btnCensusLoadGeo" type="button">Load GEO list</button>
+<button class="btn btn-sm btn-ghost" id="btnCensusFetchRows" type="button">Fetch ACS rows</button>
+</div>
+</div>
+</div>
+<div class="rowline" style="margin-top:10px; justify-content:space-between; gap:10px;">
+<div class="muted" id="censusStatus">Ready.</div>
+<div class="muted" id="censusGeoStats">0 selected of 0 GEOs. 0 rows loaded.</div>
+</div>
+<div class="grid2" style="margin-top:10px;">
+<div class="field">
+<div class="rowline" style="gap:8px; margin-bottom:8px;">
+<input class="input" id="censusGeoSearch" placeholder="Search GEO name or GEOID" type="text"/>
+<select class="select" id="censusTractFilter" style="max-width:180px;">
+<option value="">All tracts</option>
+</select>
+</div>
+<div class="rowline" style="gap:8px; margin-bottom:8px; align-items:flex-end;">
+<textarea class="input" id="censusGeoPaste" placeholder="Paste GEOIDs (comma, space, or newline separated)" rows="2" style="min-height:64px;"></textarea>
+<button class="btn btn-sm btn-ghost" id="btnCensusApplyGeoPaste" type="button">Apply GEOIDs</button>
+</div>
+<label class="label" for="censusGeoSelect">GEO units</label>
+<select class="select" id="censusGeoSelect" multiple="" size="12"></select>
+<div class="rowline" style="margin-top:8px; gap:8px;">
+<button class="btn btn-sm btn-ghost" id="btnCensusSelectAll" type="button">Select all</button>
+<button class="btn btn-sm btn-ghost" id="btnCensusClearSelection" type="button">Clear</button>
+</div>
+</div>
+<div class="table-wrap">
+<table class="table" aria-label="Census aggregate table">
+<thead>
+<tr><th>Metric</th><th class="num">Value</th></tr>
+</thead>
+<tbody id="censusAggregateTbody">
+<tr><td class="muted" colspan="2">No ACS rows loaded.</td></tr>
+</tbody>
+</table>
+<div class="rowline" style="margin-top:8px; gap:8px; justify-content:flex-end;">
+<button class="btn btn-sm btn-ghost" id="btnCensusExportAggregateCsv" type="button">Export CSV</button>
+<button class="btn btn-sm btn-ghost" id="btnCensusExportAggregateJson" type="button">Export JSON</button>
+</div>
+</div>
+</div>
+<div class="table-wrap" style="margin-top:8px;">
+<table class="table" aria-label="Census assumptions advisory">
+<thead>
+<tr><th>Advisory signal</th><th class="num">Value</th></tr>
+</thead>
+<tbody id="censusAdvisoryTbody">
+<tr><td class="muted" colspan="2">Load ACS rows for selected GEO units to compute advisory indices.</td></tr>
+</tbody>
+</table>
+</div>
+<div class="muted" id="censusAdvisoryStatus" style="margin-top:6px;">Assumption advisory pending.</div>
+<details id="censusAdvisoryGuide" style="margin-top:8px;">
+<summary>Advisory signal guide</summary>
+<div class="muted" style="margin-top:6px;">All advisory indices are centered at <strong>1.00</strong> baseline for the selected GEO footprint.</div>
+<div class="table-wrap" style="margin-top:8px;">
+<table class="table" aria-label="Advisory signal ranges">
+<thead>
+<tr><th>Signal</th><th>What it means</th><th>Low</th><th>Moderate</th><th>High</th></tr>
+</thead>
+<tbody id="censusAdvisoryGuideTbody">
+<tr><td>Field speed index</td><td>Expected canvassing throughput in this footprint.</td><td>&le; 0.92</td><td>0.93-1.07</td><td>&ge; 1.08</td></tr>
+<tr><td>Persuasion environment</td><td>Structural persuasion potential from ACS profile mix.</td><td>&le; 0.92</td><td>0.93-1.07</td><td>&ge; 1.08</td></tr>
+<tr><td>Turnout elasticity</td><td>Expected turnout responsiveness to GOTV pressure.</td><td>&le; 0.92</td><td>0.93-1.07</td><td>&ge; 1.08</td></tr>
+<tr><td>Field difficulty</td><td>Operational friction and organizer load for contact execution.</td><td>&le; 0.92 (easier)</td><td>0.93-1.07</td><td>&ge; 1.08 (harder)</td></tr>
+<tr><td>Long/super commute share</td><td>Higher shares imply weaker weekday contact availability and tighter canvass windows.</td><td>&le; 12%</td><td>13-27%</td><td>&ge; 28%</td></tr>
+<tr><td>No-internet share</td><td>Higher shares reduce digital follow-up and reminder coverage.</td><td>&le; 8%</td><td>9-19%</td><td>&ge; 20%</td></tr>
+<tr><td>Poverty share</td><td>Higher shares can indicate larger turnout-opportunity upside with higher execution risk.</td><td>&le; 10%</td><td>11-17%</td><td>&ge; 18%</td></tr>
+<tr><td>Advisory doors/hour multiplier</td><td>Multiplier applied to blended APH to estimate environment-adjusted APH.</td><td>&lt; 0.90</td><td>0.90-1.10</td><td>&gt; 1.10</td></tr>
+<tr><td>Required APH to hit goal</td><td>Required attempts per organizer hour to hit current need votes under current rates and weeks.</td><td colspan="3">Computed from your plan inputs</td></tr>
+<tr><td>APH feasibility check</td><td>Compares required APH vs environment-adjusted APH.</td><td>&gt; 0% shortfall</td><td>-10% to 0%</td><td>&le; -10% buffer</td></tr>
+</tbody>
+</table>
+</div>
+</details>
+<div class="card card-section" id="targetingLabCard" style="margin-top:8px;">
+<div class="card-head card-header">
+<h2 class="card-title">Targeting lab</h2>
+</div>
+<div class="help-text">Rank GEO units by model-driven target score. This is a derived layer and does not modify core scenario math.</div>
+<div class="grid3" style="margin-top:8px;">
+<div class="field">
+<label class="label" for="targetingGeoLevel">Geography level</label>
+<select class="select" id="targetingGeoLevel">
+<option value="block_group">Block group</option>
+<option value="tract">Tract</option>
+</select>
+</div>
+<div class="field">
+<label class="label" for="targetingModelId">Target model</label>
+<select class="select" id="targetingModelId">
+<option value="turnout_opportunity">Turnout Opportunity</option>
+<option value="persuasion_first">Persuasion First</option>
+<option value="field_efficiency">Field Efficiency</option>
+<option value="house_v1">House Model v1</option>
+</select>
+</div>
+<div class="field">
+<label class="label" for="targetingTopN">Top N</label>
+<input class="input" id="targetingTopN" inputmode="numeric" min="1" step="1" type="number"/>
+</div>
+</div>
+<div class="grid3" style="margin-top:8px;">
+<div class="field">
+<label class="label" for="targetingMinHousingUnits">Minimum housing units</label>
+<input class="input" id="targetingMinHousingUnits" inputmode="numeric" min="0" step="1" type="number"/>
+</div>
+<div class="field">
+<label class="label" for="targetingMinPopulation">Minimum population</label>
+<input class="input" id="targetingMinPopulation" inputmode="numeric" min="0" step="1" type="number"/>
+</div>
+<div class="field">
+<label class="label" for="targetingMinScore">Minimum score</label>
+<input class="input" id="targetingMinScore" inputmode="decimal" min="0" step="0.1" type="number"/>
+</div>
+</div>
+<div class="rowline" style="margin-top:8px; gap:12px; flex-wrap:wrap;">
+<label class="switch">
+<input checked="" id="targetingOnlyRaceFootprint" type="checkbox"/>
+<span class="slider"></span>
+<span class="switch-label">Only race footprint</span>
+</label>
+<label class="switch">
+<input checked="" id="targetingPrioritizeYoung" type="checkbox"/>
+<span class="slider"></span>
+<span class="switch-label">Prioritize young profile</span>
+</label>
+<label class="switch">
+<input id="targetingPrioritizeRenters" type="checkbox"/>
+<span class="slider"></span>
+<span class="switch-label">Prioritize renters</span>
+</label>
+<label class="switch">
+<input id="targetingAvoidHighMultiUnit" type="checkbox"/>
+<span class="slider"></span>
+<span class="switch-label">Avoid high multi-unit</span>
+</label>
+<div class="field" style="min-width:180px;">
+<label class="label" for="targetingDensityFloor">Density floor</label>
+<select class="select" id="targetingDensityFloor">
+<option value="none">None</option>
+<option value="medium">Medium+</option>
+<option value="high">High only</option>
+</select>
+</div>
+</div>
+<div class="muted" style="margin-top:8px;">House model weights (used when Target model = House Model v1). Weights auto-normalize on run.</div>
+<div class="grid2" style="margin-top:8px;">
+<div class="field">
+<label class="label" for="targetingWeightVotePotential">Vote potential weight</label>
+<input class="input" id="targetingWeightVotePotential" inputmode="decimal" min="0" step="0.01" type="number"/>
+</div>
+<div class="field">
+<label class="label" for="targetingWeightTurnoutOpportunity">Turnout opportunity weight</label>
+<input class="input" id="targetingWeightTurnoutOpportunity" inputmode="decimal" min="0" step="0.01" type="number"/>
+</div>
+<div class="field">
+<label class="label" for="targetingWeightPersuasionIndex">Persuasion index weight</label>
+<input class="input" id="targetingWeightPersuasionIndex" inputmode="decimal" min="0" step="0.01" type="number"/>
+</div>
+<div class="field">
+<label class="label" for="targetingWeightFieldEfficiency">Field efficiency weight</label>
+<input class="input" id="targetingWeightFieldEfficiency" inputmode="decimal" min="0" step="0.01" type="number"/>
+</div>
+</div>
+<div class="rowline" style="margin-top:8px; gap:8px;">
+<button class="btn btn-sm btn-ghost" id="btnTargetingResetWeights" type="button">Reset house weights</button>
+</div>
+<div class="rowline" style="margin-top:8px; gap:8px;">
+<button class="btn btn-sm btn-ghost" id="btnRunTargeting" type="button">Run targeting</button>
+<button class="btn btn-sm btn-ghost" id="btnExportTargetingCsv" type="button">Export targets CSV</button>
+<button class="btn btn-sm btn-ghost" id="btnExportTargetingJson" type="button">Export targets JSON</button>
+</div>
+<div class="muted" id="targetingStatus" style="margin-top:6px;">Targeting not run yet.</div>
+<div class="muted" id="targetingMeta" style="margin-top:4px;">Load ACS rows, then run targeting.</div>
+<div class="table-wrap" style="margin-top:8px;">
+<table class="table" aria-label="Targeting rankings">
+<thead>
+<tr>
+<th>Rank</th>
+<th>Geography</th>
+<th class="num">Score</th>
+<th class="num">Votes/hr</th>
+<th>Reason</th>
+<th>Flags</th>
+</tr>
+</thead>
+<tbody id="targetingResultsTbody">
+<tr><td class="muted" colspan="6">Run targeting to generate ranked GEOs.</td></tr>
+</tbody>
+</table>
+</div>
+</div>
+<div class="muted" id="censusSelectionSummary">No GEO selected. Select one or more GEO units to aggregate.</div>
+<div class="rowline" style="margin-top:8px; gap:8px; flex-wrap:wrap;">
+<button class="btn btn-sm btn-ghost" id="btnCensusSetRaceFootprint" type="button">Set as race footprint</button>
+<button class="btn btn-sm btn-ghost" id="btnCensusClearRaceFootprint" type="button">Clear race footprint</button>
+</div>
+<div class="muted" id="censusRaceFootprintStatus">Race footprint not set.</div>
+<div class="muted" id="censusAssumptionProvenanceStatus">Assumption provenance not set.</div>
+<div class="muted" id="censusFootprintCapacityStatus">Footprint capacity: not set.</div>
+<label class="switch" style="margin-top:8px;">
+<input id="censusApplyAdjustmentsToggle" type="checkbox"/>
+<span class="slider"></span>
+<span class="switch-label">Apply Census-adjusted assumptions</span>
+</label>
+<div class="muted" id="censusApplyAdjustmentsStatus">Census-adjusted assumptions are OFF.</div>
+<details style="margin-top:8px;">
+<summary>Election CSV format guide</summary>
+<div class="note" style="margin-top:8px;">Keep election import separate from Census assumptions. Use strict CSV schema and dry-run validation before commit.</div>
+<div class="muted" id="censusElectionCsvGuideStatus" style="margin-top:6px;">Election CSV schema guide loading.</div>
+<div class="table-wrap" style="margin-top:8px;">
+<table class="table" aria-label="Election CSV required columns">
+<thead>
+<tr><th>Required columns</th><th>Rule</th></tr>
+</thead>
+<tbody>
+<tr><td>state_fips, county_fips</td><td>2-digit and 3-digit FIPS strings.</td></tr>
+<tr><td>election_date</td><td>YYYY-MM-DD.</td></tr>
+<tr><td>office, district_id</td><td>Canonical office + district labels.</td></tr>
+<tr><td>precinct_id</td><td>Stable precinct key per county.</td></tr>
+<tr><td>candidate + votes</td><td>Long format: one row per candidate with non-negative integer votes.</td></tr>
+<tr><td>candidate name columns</td><td>Wide format: each candidate is a column header and each cell is that candidate's vote total in the precinct.</td></tr>
+<tr><td>Validation behavior</td><td>Dry-run fails loud on required-field/type errors and reports all warnings before ingest.</td></tr>
+</tbody>
+</table>
+</div>
+<div class="muted" style="margin-top:6px;">Schema: <code>election_results_csv.v1</code>. Start with a template, then run dry-run parse before any import.</div>
+<div class="rowline" style="margin-top:8px; gap:8px;">
+<button class="btn btn-sm btn-ghost" id="btnCensusDownloadElectionCsvTemplate" type="button">Download long-format CSV template</button>
+<button class="btn btn-sm btn-ghost" id="btnCensusDownloadElectionCsvWideTemplate" type="button">Download wide-format CSV template</button>
+</div>
+<div class="grid2" style="margin-top:8px;">
+<div class="field">
+<label class="label" for="censusElectionCsvFile">Election CSV file</label>
+<input accept=".csv,text/csv" class="input" id="censusElectionCsvFile" type="file"/>
+</div>
+<div class="field">
+<label class="label">Dry-run</label>
+<div class="rowline" style="gap:8px;">
+<button class="btn btn-sm btn-ghost" id="btnCensusElectionCsvDryRun" type="button">Run dry-run parse</button>
+<button class="btn btn-sm btn-ghost" id="btnCensusElectionCsvClear" type="button">Clear preview</button>
+</div>
+</div>
+</div>
+<div class="field" style="margin-top:8px;">
+<label class="label" for="censusElectionCsvPrecinctFilter">Preview precinct filter (optional)</label>
+<input class="input" id="censusElectionCsvPrecinctFilter" placeholder="e.g., 170058, 170059, 170060" type="text"/>
+</div>
+<div class="muted" id="censusElectionCsvDryRunStatus" style="margin-top:6px;">No dry-run run yet.</div>
+<div class="muted" id="censusElectionCsvPreviewMeta" style="margin-top:4px;">No normalized preview rows.</div>
+<div class="table-wrap" style="margin-top:8px;">
+<table class="table" aria-label="Election CSV dry-run preview">
+<thead>
+<tr><th>Precinct</th><th>Candidate</th><th class="num">Votes</th><th class="num">Total precinct votes</th></tr>
+</thead>
+<tbody id="censusElectionCsvPreviewTbody">
+<tr><td class="muted" colspan="4">No dry-run preview yet.</td></tr>
+</tbody>
+</table>
+</div>
+</details>
+<div class="grid2" style="margin-top:8px;">
+<div class="field">
+<label class="label" for="censusSelectionSetName">Save selection set</label>
+<div class="rowline" style="gap:8px;">
+<input class="input" id="censusSelectionSetName" placeholder="e.g., Persuasion cluster north"/>
+<button class="btn btn-sm btn-ghost" id="btnCensusSaveSelectionSet" type="button">Save set</button>
+</div>
+</div>
+<div class="field">
+<label class="label" for="censusSelectionSetSelect">Saved sets</label>
+<div class="rowline" style="gap:8px;">
+<select class="select" id="censusSelectionSetSelect">
+<option value="">Saved sets</option>
+</select>
+<button class="btn btn-sm btn-ghost" id="btnCensusLoadSelectionSet" type="button">Load set</button>
+<button class="btn btn-sm btn-ghost" id="btnCensusDeleteSelectionSet" type="button">Delete</button>
+</div>
+</div>
+</div>
+<div class="muted" id="censusSelectionSetStatus">No saved selection sets.</div>
+<div class="muted" id="censusLastFetch">No fetch yet.</div>
+<div class="rowline" style="margin-top:10px; justify-content:space-between; gap:10px;">
+<div class="muted" id="censusMapStatus">Map idle. Select GEO units, then load boundaries.</div>
+<div class="rowline" style="gap:8px;">
+<label class="rowline" for="censusMapQaVtdToggle" style="gap:6px; align-items:center;">
+<input id="censusMapQaVtdToggle" type="checkbox"/>
+<span class="muted">VTD QA overlay</span>
+</label>
+<button class="btn btn-sm btn-ghost" id="btnCensusLoadMap" type="button">Load boundaries</button>
+<button class="btn btn-sm btn-ghost" id="btnCensusClearMap" type="button">Clear map</button>
+</div>
+</div>
+<div class="rowline" style="margin-top:8px; gap:8px; align-items:flex-end; flex-wrap:wrap;">
+<div class="field" style="margin:0; min-width:280px;">
+<label class="label" for="censusMapQaVtdZip">VTD ZIP overlay source (optional)</label>
+<input accept=".zip,application/zip" class="input" id="censusMapQaVtdZip" type="file"/>
+</div>
+<button class="btn btn-sm btn-ghost" id="btnCensusMapQaVtdZipClear" type="button">Clear VTD ZIP</button>
+</div>
+<div class="muted" id="censusMapQaVtdZipStatus" style="margin-top:6px;">No VTD ZIP loaded. VTD QA overlay source is TIGERweb.</div>
+<div class="census-map" id="censusMap"></div>
+</div>
+<div class="card card-section" id="intelWorkflowCard">
+<div class="card-head card-header">
+<h2 class="card-title">Workflow governance</h2>
+</div>
+<div class="help-text">Lock scenario edits for client-safe reviews and require note/evidence on critical assumption changes.</div>
+<div class="grid3" style="margin-top:10px;">
+<div class="field">
+<label class="label" for="intelScenarioLocked">Scenario lock</label>
+<label class="switch">
+<input data-lock-exempt="1" id="intelScenarioLocked" type="checkbox"/>
+<span class="slider"></span>
+<span class="switch-label">Freeze editable controls until unlocked</span>
+</label>
+</div>
+<div class="field">
+<label class="label" for="intelRequireCriticalNote">Critical change note</label>
+<label class="switch">
+<input data-lock-exempt="1" id="intelRequireCriticalNote" type="checkbox"/>
+<span class="slider"></span>
+<span class="switch-label">Require note on critical assumption edits</span>
+</label>
+</div>
+<div class="field">
+<label class="label" for="intelRequireCriticalEvidence">Critical change evidence</label>
+<label class="switch">
+<input data-lock-exempt="1" id="intelRequireCriticalEvidence" type="checkbox"/>
+<span class="slider"></span>
+<span class="switch-label">Require evidence links for critical edits</span>
+</label>
+</div>
+</div>
+<div class="grid2" style="margin-top:10px;">
+<div class="field">
+<label class="label" for="intelScenarioLockReason">Lock reason (optional)</label>
+<input class="input" data-lock-exempt="1" id="intelScenarioLockReason" placeholder="e.g., Client review freeze until Friday" type="text"/>
+</div>
+<div class="field">
+<label class="label" for="intelCriticalChangeNote">Pending critical change note</label>
+<textarea class="input" data-lock-exempt="1" id="intelCriticalChangeNote" placeholder="Short rationale applied to next critical assumption edit." rows="2"></textarea>
+</div>
+</div>
+<div class="rowline" style="margin-top:10px; justify-content:space-between; gap:10px;">
+<div class="muted" id="intelScenarioLockStatus">Scenario lock OFF.</div>
+<div class="muted" id="intelWorkflowStatus">Governance controls healthy.</div>
+</div>
+</div>
+<div class="card card-section" id="intelBenchmarkCard">
+<div class="card-head card-header">
+<h2 class="card-title">Benchmark catalog</h2>
+</div>
+<div class="help-text">Define empirical ranges for critical inputs by benchmark scope. These ranges only generate warnings; they never alter deterministic or Monte Carlo outputs.</div>
+<div class="grid3" style="margin-top:10px;">
+<div class="field">
+<label class="label" for="intelBenchmarkRef">Reference</label>
+<select class="select" id="intelBenchmarkRef">
+<option value="core.universeSize">Universe size</option>
+<option value="core.persuasionUniversePct">Persuasion % of universe</option>
+<option value="core.supportRatePct">Support rate %</option>
+<option value="core.contactRatePct">Contact rate %</option>
+<option value="core.turnoutCycleA">Turnout cycle A %</option>
+<option value="core.turnoutCycleB">Turnout cycle B %</option>
+<option value="core.turnoutBandWidth">Turnout band width</option>
+<option value="core.turnoutBaselinePct">Turnout baseline %</option>
+<option value="core.gotvLiftPP">GOTV lift (pp)</option>
+<option value="core.gotvLiftCeilingPP">GOTV lift ceiling (pp)</option>
+<option value="core.orgCount">Organizer count</option>
+<option value="core.orgHoursPerWeek">Organizer hours/week</option>
+<option value="core.volunteerMultiplier">Volunteer multiplier</option>
+<option value="core.channelDoorPct">Door share %</option>
+<option value="core.doorsPerHour">Doors/hour</option>
+<option value="core.callsPerHour">Calls/hour</option>
+</select>
+</div>
+<div class="field">
+<label class="label" for="intelBenchmarkRaceType">Benchmark scope</label>
+<select class="select" id="intelBenchmarkRaceType">
+<option value="default">Template/default scope</option>
+<option value="federal_general">Federal general</option>
+<option value="state_house_general">State house general</option>
+<option value="county_general">County general</option>
+<option value="municipal_nonpartisan">Municipal nonpartisan</option>
+<option value="special_low_turnout">Special / low turnout</option>
+</select>
+</div>
+<div class="field">
+<label class="label" for="intelBenchmarkDefault">Default value (optional)</label>
+<input class="input num" id="intelBenchmarkDefault" placeholder="optional" step="0.01" type="number"/>
+</div>
+</div>
+<div class="grid3" style="margin-top:10px;">
+<div class="field">
+<label class="label" for="intelBenchmarkMin">Range min</label>
+<input class="input num" id="intelBenchmarkMin" placeholder="optional" step="0.01" type="number"/>
+</div>
+<div class="field">
+<label class="label" for="intelBenchmarkMax">Range max</label>
+<input class="input num" id="intelBenchmarkMax" placeholder="optional" step="0.01" type="number"/>
+</div>
+<div class="field">
+<label class="label" for="intelBenchmarkWarnAbove">Warn above (optional)</label>
+<input class="input num" id="intelBenchmarkWarnAbove" placeholder="optional" step="0.01" type="number"/>
+</div>
+</div>
+<div class="grid2" style="margin-top:10px;">
+<div class="field">
+<label class="label" for="intelBenchmarkHardAbove">Hard above (optional)</label>
+<input class="input num" id="intelBenchmarkHardAbove" placeholder="optional" step="0.01" type="number"/>
+</div>
+<div class="field">
+<label class="label" for="intelBenchmarkSourceTitle">Source title (optional)</label>
+<input class="input" id="intelBenchmarkSourceTitle" placeholder="e.g., 2024 district benchmark memo" type="text"/>
+</div>
+</div>
+<div class="field" style="margin-top:10px;">
+<label class="label" for="intelBenchmarkSourceNotes">Source notes (optional)</label>
+<textarea class="input" id="intelBenchmarkSourceNotes" placeholder="Method, sample size, cycle window, caveats." rows="2"></textarea>
+</div>
+<div class="rowline" style="margin-top:10px; justify-content:space-between; gap:10px;">
+<div>
+<div class="muted" id="intelBenchmarkCount">0 benchmark entries configured.</div>
+<div class="muted" id="intelBenchmarkStatus">Ready.</div>
+</div>
+<div class="card-actions">
+<button class="btn btn-sm" id="btnIntelBenchmarkLoadDefaults" type="button">Load defaults</button>
+<button class="btn btn-sm" id="btnIntelBenchmarkSave" type="button">Save benchmark</button>
+</div>
+</div>
+<div class="table-wrap" style="margin-top:10px;">
+<table class="table">
+<thead>
+<tr>
+<th>Reference</th>
+<th>Scope</th>
+<th class="num">Range</th>
+<th class="num">Warn/Hard</th>
+<th>Source</th>
+<th class="num">Action</th>
+</tr>
+</thead>
+<tbody id="intelBenchmarkTbody">
+<tr><td class="muted" colspan="6">No benchmark entries configured.</td></tr>
+</tbody>
+</table>
+</div>
+</div>
+<div class="card card-section" id="intelEvidenceCard">
+<div class="card-head card-header">
+<h2 class="card-title">Evidence linkage</h2>
+</div>
+<div class="help-text">Resolve governance gaps here: select a missing audit item, attach supporting evidence, and include a short note when the item requires documentation.</div>
+<div class="note" style="margin-top:8px;">Workflow: 1) Select critical edit 2) Add title/source/date (+ note when required) 3) Attach evidence.</div>
+<div class="rowline" style="margin-top:10px; justify-content:space-between; gap:10px;">
+<div class="muted" id="intelMissingEvidenceCount">0 critical assumption edit(s) missing evidence.</div>
+<div class="muted" id="intelMissingNoteCount">0 critical assumption edit(s) missing note.</div>
+</div>
+<div class="grid2" style="margin-top:10px;">
+<div class="field">
+<label class="label" for="intelAuditSelect">Critical assumption edit to resolve</label>
+<select class="select" id="intelAuditSelect">
+<option value="">No missing evidence items</option>
+</select>
+</div>
+<div class="field">
+<label class="label" for="intelEvidenceTitle">Evidence title</label>
+<input class="input" id="intelEvidenceTitle" placeholder="e.g., Field memo dated 2026-03-01" type="text"/>
+</div>
+</div>
+<div class="grid3" style="margin-top:10px;">
+<div class="field">
+<label class="label" for="intelEvidenceSource">Evidence source</label>
+<input class="input" id="intelEvidenceSource" placeholder="e.g., VAN extract / polling deck" type="text"/>
+</div>
+<div class="field">
+<label class="label" for="intelEvidenceCapturedAt">Captured date</label>
+<input class="input" id="intelEvidenceCapturedAt" type="date"/>
+</div>
+<div class="field">
+<label class="label" for="intelEvidenceUrl">URL or file hint (optional)</label>
+<input class="input" id="intelEvidenceUrl" placeholder="optional link or file identifier" type="text"/>
+</div>
+</div>
+<div class="field" style="margin-top:10px;">
+<label class="label" for="intelEvidenceNotes">Evidence notes</label>
+<textarea class="input" id="intelEvidenceNotes" placeholder="Short note describing why this supports the selected assumption (required when note is missing)." rows="2"></textarea>
+</div>
+<div class="rowline" style="margin-top:10px; justify-content:space-between; gap:10px;">
+<button class="btn btn-sm" id="btnIntelEvidenceAttach" type="button">Attach evidence</button>
+<div class="muted" id="intelEvidenceStatus">Select an audit item, then attach evidence. Add a note when required.</div>
+</div>
+<div class="table-wrap" style="margin-top:10px;">
+<table class="table">
+<thead>
+<tr>
+<th>Evidence title</th>
+<th>Source</th>
+<th>Captured</th>
+<th>Ref</th>
+<th>ID</th>
+</tr>
+</thead>
+<tbody id="intelEvidenceTbody">
+<tr><td class="muted" colspan="5">No evidence records yet.</td></tr>
+</tbody>
+</table>
+</div>
+</div>
+<div class="card card-section" id="intelCalibrationBriefCard">
+<div class="card-head card-header">
+<h2 class="card-title">Calibration source brief</h2>
+<div class="card-actions">
+<select class="select" id="intelBriefKind" style="min-width:220px;">
+<option value="calibrationSources">Calibration source</option>
+<option value="scenarioSummary">Scenario summary</option>
+<option value="scenarioDiff">Scenario diff</option>
+<option value="driftExplanation">Drift explanation</option>
+<option value="sensitivityInterpretation">Sensitivity interpretation</option>
+</select>
+<button class="btn btn-sm" id="btnIntelCalibrationGenerate" type="button">Generate brief</button>
+<button class="btn btn-sm" id="btnIntelCalibrationCopy" type="button">Copy brief</button>
+</div>
+</div>
+<div class="help-text">Generate a client-ready calibration note from current benchmark catalog, evidence coverage, and expert toggles.</div>
+<div class="grid3" style="margin-top:10px;">
+<div class="field">
+<label class="label" for="intelMcDistribution">Monte Carlo distribution</label>
+<select class="select" id="intelMcDistribution">
+<option value="triangular">Triangular (default)</option>
+<option value="uniform">Uniform</option>
+<option value="normal">Normal (bounded)</option>
+</select>
+</div>
+<div class="field">
+<label class="label" for="intelCorrelatedShocks">Correlated shocks</label>
+<label class="switch">
+<input id="intelCorrelatedShocks" type="checkbox"/>
+<span class="slider"></span>
+<span class="switch-label">Enable correlation model in MC</span>
+</label>
+</div>
+<div class="field">
+<label class="label" for="intelCorrelationMatrixId">Correlation model</label>
+<select class="select" id="intelCorrelationMatrixId">
+<option value="">None selected</option>
+</select>
+<div class="muted" id="intelCorrelationDisabledHint" style="margin-top:6px;">No models yet. Add a default model or import JSON to enable this selector.</div>
+</div>
+</div>
+<div class="grid4" style="margin-top:10px;">
+<div class="field">
+<label class="label" for="intelCapacityDecayEnabled">Capacity decay</label>
+<label class="switch">
+<input id="intelCapacityDecayEnabled" type="checkbox"/>
+<span class="slider"></span>
+<span class="switch-label">Enable weekly capacity decay in planning + MC</span>
+</label>
+</div>
+<div class="field">
+<label class="label" for="intelDecayModelType">Decay model</label>
+<select class="select" id="intelDecayModelType">
+<option value="linear">Linear</option>
+</select>
+</div>
+<div class="field">
+<label class="label" for="intelDecayWeeklyPct">Weekly decay %</label>
+<input class="input" id="intelDecayWeeklyPct" max="100" min="0" step="0.1" type="number"/>
+</div>
+<div class="field">
+<label class="label" for="intelDecayFloorPct">Floor % of baseline</label>
+<input class="input" id="intelDecayFloorPct" max="100" min="0" step="1" type="number"/>
+</div>
+</div>
+<div class="muted" id="intelDecayStatus" style="margin-top:8px;">Capacity decay OFF.</div>
+<div class="rowline" style="margin-top:10px; justify-content:space-between; gap:10px;">
+<div class="card-actions">
+<button class="btn btn-sm" id="btnIntelAddDefaultCorrelation" type="button">Add default model</button>
+<button class="btn btn-sm" id="btnIntelImportCorrelationJson" type="button">Import model JSON</button>
+</div>
+<div class="muted" id="intelCorrelationStatus">No correlation models configured.</div>
+</div>
+<div class="field" style="margin-top:10px;">
+<label class="label" for="intelCorrelationJson">Correlation model JSON (optional import)</label>
+<textarea class="input" id="intelCorrelationJson" rows="5" placeholder='{"label":"Enthusiasm shock","refs":["core.contactRatePct","core.supportRatePct"],"matrix":[[1,0.5],[0.5,1]],"notes":"optional"}'></textarea>
+</div>
+<div class="grid3" style="margin-top:10px;">
+<div class="field">
+<label class="label" for="intelShockScenariosEnabled">Shock scenarios</label>
+<label class="switch">
+<input id="intelShockScenariosEnabled" type="checkbox"/>
+<span class="slider"></span>
+<span class="switch-label">Enable stochastic shock sampling in MC</span>
+</label>
+</div>
+<div class="field">
+<label class="label">Configured shocks</label>
+<div class="note" id="intelShockScenarioCount">0 scenarios configured.</div>
+</div>
+<div class="field">
+<label class="label">Actions</label>
+<div class="card-actions">
+<button class="btn btn-sm" id="btnIntelAddDefaultShock" type="button">Add default shock</button>
+<button class="btn btn-sm" id="btnIntelImportShockJson" type="button">Import shock JSON</button>
+</div>
+</div>
+</div>
+<div class="field" style="margin-top:10px;">
+<label class="label" for="intelShockJson">Shock scenario JSON (optional import)</label>
+<textarea class="input" id="intelShockJson" rows="5" placeholder='{"label":"Opponent surge week","impacts":[{"ref":"core.contactRatePct","delta":-2},{"ref":"core.supportRatePct","delta":-1}],"probability":0.15,"notes":"optional"}'></textarea>
+</div>
+<div class="muted" id="intelShockStatus" style="margin-top:10px;">No shock scenarios configured.</div>
+<div class="muted" id="intelCalibrationStatus" style="margin-top:10px;">No calibration brief generated yet.</div>
+<div class="card card-section" style="margin-top:12px;">
+<div class="card-head card-header">
+<h2 class="card-title">Feedback loop</h2>
+<div class="card-actions">
+<button class="btn btn-sm" id="btnIntelCaptureObserved" type="button">Capture observed metrics</button>
+<button class="btn btn-sm" id="btnIntelGenerateRecommendations" type="button">Generate drift recommendations</button>
+<button class="btn btn-sm" id="btnIntelApplyTopRecommendation" type="button">Apply top recommendation</button>
+</div>
+</div>
+<div class="help-text">Capture rolling daily-log metrics and generate metadata-only recommendations. No core math is modified automatically.</div>
+<div class="grid2" style="margin-top:10px;">
+<div class="muted" id="intelObservedCount">0 observed metric entries captured.</div>
+<div class="muted" id="intelRecommendationCount">0 active drift recommendations.</div>
+</div>
+<div class="muted" id="intelObservedStatus" style="margin-top:8px;">No observed metrics captured yet.</div>
+<div class="muted" id="intelRecommendationStatus" style="margin-top:6px;">No drift recommendations generated yet.</div>
+<div class="field" style="margin-top:10px;">
+<label class="label" for="intelWhatIfInput">What-if request parser</label>
+<div class="card-actions" style="margin-bottom:6px;">
+<button class="btn btn-sm" id="btnIntelParseWhatIf" type="button">Parse what-if request</button>
+</div>
+<textarea class="input" id="intelWhatIfInput" rows="3" placeholder="e.g., Set support rate to 55 and contact rate +2"></textarea>
+</div>
+<div class="grid2" style="margin-top:6px;">
+<div class="muted" id="intelWhatIfCount">0 what-if requests parsed.</div>
+<div class="muted" id="intelWhatIfStatus">No what-if requests parsed yet.</div>
+</div>
+<div class="field" style="margin-top:10px;">
+<label class="label" for="intelWhatIfPreview">Latest parsed request</label>
+<textarea class="input" id="intelWhatIfPreview" readonly rows="5"></textarea>
+</div>
+<div class="field" style="margin-top:10px;">
+<label class="label" for="intelRecommendationPreview">Recommendation preview</label>
+<textarea class="input" id="intelRecommendationPreview" readonly rows="6"></textarea>
+</div>
+</div>
+<div class="field" style="margin-top:10px;">
+<label class="label" for="intelCalibrationBriefContent">Brief content</label>
+<textarea class="input" id="intelCalibrationBriefContent" readonly rows="14"></textarea>
+</div>
+</div>
+<div class="card card-section">
+<div class="card-head card-header">
+<h2 class="card-title">Review workflow</h2>
+</div>
+<div class="note">Recommended sequence before decisions or exports:</div>
+<ol class="muted" style="margin:8px 0 0 18px; padding:0; display:grid; gap:6px;">
+<li>Check right-rail Input validation first.</li>
+<li>Confirm assumptions snapshot matches scenario intent.</li>
+<li>Review guardrails and stress summary for feasibility risks.</li>
+<li>Run Self-Test before final export or scenario handoff.</li>
+</ol>
+</div>
+<div class="card card-section">
+<div class="card-head card-header">
+<h2 class="card-title">Why this changed</h2>
+</div>
+<div class="note">This removes duplicate dynamic outputs in center panels so one number has one canonical place. It improves auditability and prevents contradictory status reads.</div>
+</div>
+</div></div>
+<!-- ── STAGE: integrity (retired + removed) ── -->
+</main>
+<!-- /stage-main-new -->
+<!-- RIGHT: Persistent results sidebar -->
+<aside aria-label="Win path results" class="results-sidebar-new" id="legacyResultsSidebar">
+
+  <!-- E-DAY COUNTDOWN -->
+  <div class="sidebar-section-new sidebar-eday-countdown">
+    <div class="sidebar-label-new">Days till E-Day</div>
+    <div class="win-stat-new">
+      <span class="win-stat-label-new">Countdown</span>
+      <span class="win-stat-val-new" id="daysToEday-sidebar">—</span>
+      <span class="win-stat-sub-new" id="daysToEdayNote-sidebar">—</span>
+    </div>
+    <div class="kv-mini-new"><span>Election date</span><span id="electionDateCanonical-sidebar">—</span></div>
+  </div>
+
+  <!-- WIN PATH -->
+  <div class="sidebar-section-new sidebar-win-expected">
+    <div class="sidebar-label-new">Win path — expected</div>
+    <div class="win-stat-new">
+      <span class="win-stat-label-new">Turnout votes</span>
+      <span class="win-stat-val-new" id="kpiTurnoutVotes-sidebar">—</span>
+      <span class="win-stat-sub-new" id="kpiTurnoutBand-sidebar">—</span>
+    </div>
+    <div class="win-stat-new">
+      <span class="win-stat-label-new">Win threshold</span>
+      <span class="win-stat-val-new" id="kpiWinThreshold-sidebar">—</span>
+    </div>
+    <div class="win-stat-new">
+      <span class="win-stat-label-new">Your projected votes</span>
+      <span class="win-stat-val-new" id="kpiYourVotes-sidebar">—</span>
+      <span class="win-stat-sub-new" id="kpiYourVotesShare-sidebar">—</span>
+    </div>
+    <div class="win-stat-new">
+      <span class="win-stat-label-new">Persuasion votes needed</span>
+      <span class="win-stat-val-new" id="kpiPersuasionNeed-sidebar">—</span>
+      <span class="win-stat-sub-new" id="kpiPersuasionStatus-sidebar">—</span>
+    </div>
+  </div>
+
+  <!-- SUPPORTING RESULTS -->
+  <div class="sidebar-section-new sidebar-early-split">
+    <div class="sidebar-label-new">Early &amp; election day split</div>
+    <div class="kv-mini-new"><span>Early votes (expected)</span><span id="miniEarlyVotes-sidebar">—</span></div>
+    <div class="kv-mini-new"><span>Election day votes</span><span id="miniEDVotes-sidebar">—</span></div>
+    <div class="kv-mini-new"><span>Note</span><span id="miniEarlyNote-sidebar">—</span></div>
+    <div class="kv-mini-new"><span>Persuasion universe</span><span id="miniPersUniverse-sidebar">—</span></div>
+    <div class="kv-mini-new"><span>Universe check</span><span id="miniPersCheck-sidebar">—</span></div>
+  </div>
+
+  <!-- ASSUMPTIONS + GUARDRAILS -->
+  <div class="sidebar-section-new">
+    <div class="sidebar-label-new">Key assumptions</div>
+    <div class="assumptions" id="assumptionsSnapshot"></div>
+  </div>
+
+  <div class="sidebar-section-new">
+    <div class="sidebar-label-new">Data checks &amp; guardrails</div>
+    <div class="guardrails" id="guardrails"></div>
+  </div>
+
+  <!-- STRESS TEST -->
+  <div class="sidebar-section-new">
+    <div class="sidebar-label-new">Stress test summary</div>
+    <div class="stress" id="stressBox">
+      <div class="stress-item">—</div>
+    </div>
+  </div>
+
+  <!-- MONTE CARLO -->
+  <div class="sidebar-section-new">
+    <div class="sidebar-label-new">Monte Carlo win probability</div>
+    <div class="mc-prob-row-new">
+      <span class="mc-prob-val-new" id="mcWinProb-sidebar">—</span>
+      <span class="mc-prob-sub-new">simulated</span>
+    </div>
+    <svg aria-label="Win probability" class="prob-bar-new" height="14" id="svgWinProb" role="img" viewBox="0 0 300 14" width="300">
+      <rect class="viz-track" height="2" rx="1" width="300" x="0" y="6"></rect>
+      <circle class="viz-marker" cx="0" cy="7" id="svgWinProbMarker" r="5"></circle>
+    </svg>
+    <div class="muted" id="vizWinProbNote" style="font-size:11px; margin-top:6px;">—</div>
+    <div class="prob-range-new">
+      <span id="mcP10-sidebar">P10: —</span>
+      <span id="mcP50-sidebar">Median: —</span>
+      <span id="mcP90-sidebar">P90: —</span>
+    </div>
+    <div class="mc-meta-new">
+      <span id="mcFreshTag-sidebar">—</span> &nbsp;|&nbsp; <span id="mcLastRun-sidebar">—</span>
+    </div>
+    <div class="banner warn" hidden id="mcStale-sidebar">Results may be stale — re-run Monte Carlo</div>
+    <div style="margin-top:8px; display:flex; gap:6px;">
+      <button class="btn btn-sm" id="mcRun-sidebar" type="button">Run Monte Carlo</button>
+      <button class="btn btn-sm btn-ghost" id="mcRerun-sidebar" type="button">Re-run</button>
+    </div>
+  </div>
+
+  <div class="sidebar-section-new">
+    <div class="sidebar-label-new">Risk framing</div>
+    <div style="display:flex; align-items:center; gap:8px; margin-bottom:6px;">
+      <span class="badge" id="riskBandTag-sidebar">—</span>
+      <span class="muted" id="riskWinProb-sidebar" style="font-size:11px;">—</span>
+    </div>
+    <svg aria-label="Margin distribution" height="88" id="svgMargin" role="img" style="margin:8px 0 6px;" viewBox="0 0 300 88" width="300">
+      <g id="svgMarginWinShade"></g>
+      <g id="svgMarginBars"></g>
+      <line class="viz-zero" id="svgMarginZero" x1="150" x2="150" y1="12" y2="76"></line>
+    </svg>
+    <div class="prob-range-new" style="margin-bottom:8px;">
+      <span id="svgMarginMin">—</span>
+      <span id="svgMarginMax">—</span>
+    </div>
+    <div class="kv-mini-new"><span>Margin band</span><span id="riskMarginBand-sidebar">—</span></div>
+    <div class="kv-mini-new"><span>Volatility</span><span id="riskVolatility-sidebar">—</span></div>
+    <div class="banner" hidden id="riskPlainBanner-sidebar"></div>
+  </div>
+
+  <!-- INPUT VALIDATION -->
+  <div class="sidebar-section-new">
+    <div class="sidebar-label-new">Input validation</div>
+    <ul class="validation" id="validationList"></ul>
+  </div>
+
+  <!-- METADATA -->
+  <div class="sidebar-section-new sidebar-metadata" style="margin-top:auto; border-top: 1px solid var(--rule);">
+    <div class="sidebar-label-new">Metadata</div>
+    <div class="kv-mini-new dim-text"><span id="snapshotHash-sidebar">—</span></div>
+  </div>
+
+</aside>
+</div>
+<!-- /app-shell -->
+</div>
+<!-- /legacyShellRoot -->
+<div hidden="" id="legacyDomPool"></div>
+<script>
+// ── Stage navigation ───────────────────────────────────────────
+window.__FPE_BOOT_ERRORS = Array.isArray(window.__FPE_BOOT_ERRORS) ? window.__FPE_BOOT_ERRORS : [];
+window.__FPE_BOOT_TRACE__ = Array.isArray(window.__FPE_BOOT_TRACE__) ? window.__FPE_BOOT_TRACE__ : [];
+if (!window.__FPE_BOOT_STATUS__ || typeof window.__FPE_BOOT_STATUS__ !== 'object'){
+  window.__FPE_BOOT_STATUS__ = {
+    t: new Date().toISOString(),
+    status: 'pre_runtime',
+    source: 'index.inline'
+  };
+}
+try{
+  window.__FPE_BOOT_TRACE__.unshift({
+    t: new Date().toISOString(),
+    step: 'index.inline.bootstrap',
+    phase: 'ok'
+  });
+  if (window.__FPE_BOOT_TRACE__.length > 120){
+    window.__FPE_BOOT_TRACE__ = window.__FPE_BOOT_TRACE__.slice(0, 120);
+  }
+} catch {}
+window.addEventListener('error', function(evt){
+  try{
+    var msg = (evt && evt.message) ? String(evt.message) : 'Unknown runtime error';
+    var src = (evt && evt.filename) ? String(evt.filename) : '';
+    var line = (evt && evt.lineno) ? String(evt.lineno) : '';
+    window.__FPE_BOOT_ERRORS.unshift([msg, src, line].filter(Boolean).join(' @ '));
+    window.__FPE_BOOT_ERRORS = window.__FPE_BOOT_ERRORS.slice(0, 20);
+    if (Array.isArray(window.__FPE_BOOT_TRACE__)){
+      window.__FPE_BOOT_TRACE__.unshift({
+        t: new Date().toISOString(),
+        step: 'window.error',
+        level: 'error',
+        message: msg
+      });
+      if (window.__FPE_BOOT_TRACE__.length > 120){
+        window.__FPE_BOOT_TRACE__ = window.__FPE_BOOT_TRACE__.slice(0, 120);
+      }
+    }
+  } catch {}
+});
+window.addEventListener('unhandledrejection', function(evt){
+  try{
+    var reason = evt && evt.reason;
+    var msg = reason && reason.message ? String(reason.message) : String(reason || 'Unhandled rejection');
+    window.__FPE_BOOT_ERRORS.unshift(msg);
+    window.__FPE_BOOT_ERRORS = window.__FPE_BOOT_ERRORS.slice(0, 20);
+    if (Array.isArray(window.__FPE_BOOT_TRACE__)){
+      window.__FPE_BOOT_TRACE__.unshift({
+        t: new Date().toISOString(),
+        step: 'window.unhandledrejection',
+        level: 'error',
+        message: msg
+      });
+      if (window.__FPE_BOOT_TRACE__.length > 120){
+        window.__FPE_BOOT_TRACE__ = window.__FPE_BOOT_TRACE__.slice(0, 120);
+      }
+    }
+  } catch {}
+});
+
+function getUiModeFromLocation() {
+  return 'v3';
+}
+
+function isV3BridgeActive() {
+  var bridge = window.__FPE_V3_NAV__;
+  return !!(bridge && bridge.active && typeof bridge.navigateStage === 'function');
+}
+
+function switchStage(btn, stageId) {
+  void btn;
+  if (isV3BridgeActive()) {
+    try {
+      window.__FPE_V3_NAV__.navigateStage(stageId, { persist: true });
+      return;
+    } catch (err) {}
+  }
+}
+
+// ── Playbook panel collapse/expand ─────────────────────────────
+function toggleTrainPanel(id) {
+  var el = document.getElementById(id);
+  if (el) el.classList.toggle('collapsed');
+}
+
+function openEmergencyDiagnostics(meta){
+  var modal = document.getElementById('diagModal');
+  var errors = document.getElementById('diagErrors');
+  if (!modal) return;
+  if (errors){
+    var status = window.__FPE_BOOT_STATUS__;
+    var trace = Array.isArray(window.__FPE_BOOT_TRACE__) ? window.__FPE_BOOT_TRACE__ : [];
+    var rows = Array.isArray(window.__FPE_BOOT_ERRORS) ? window.__FPE_BOOT_ERRORS : [];
+    var lines = [];
+    if (status && typeof status === 'object'){
+      var bootState = status.status ? String(status.status) : 'unknown';
+      var bootSource = status.source ? String(status.source) : '—';
+      var bootWhen = status.t ? String(status.t) : '—';
+      lines.push('[boot status]');
+      lines.push('status: ' + bootState);
+      lines.push('source: ' + bootSource);
+      lines.push('when: ' + bootWhen);
+    }
+    if (trace.length){
+      lines.push('');
+      lines.push('[boot trace]');
+      trace.slice(0, 14).forEach(function(row){
+        var t = row && row.t ? String(row.t) : '—';
+        var step = row && row.step ? String(row.step) : 'unknown';
+        var phase = row && row.phase ? String(row.phase) : '';
+        var level = row && row.level ? String(row.level) : '';
+        var msg = row && row.message ? String(row.message) : '';
+        var suffix = [phase, level, msg].filter(Boolean).join(' ');
+        lines.push(t + ' ' + step + (suffix ? ' (' + suffix + ')' : ''));
+      });
+    }
+    if (rows.length){
+      lines.push('');
+      lines.push('[boot errors]');
+      lines.push.apply(lines, rows);
+    }
+    var info = meta && typeof meta === 'object' ? meta : null;
+    if (info){
+      lines.push('');
+      lines.push('[boot fallback]');
+      if (typeof info.waitedMs === 'number'){
+        lines.push('bridge-wait-ms: ' + String(info.waitedMs));
+      }
+      if (typeof info.bridgeActive === 'boolean'){
+        lines.push('bridge-active: ' + (info.bridgeActive ? 'yes' : 'no'));
+      }
+    }
+    var v3ModuleLoadedAt = window.__FPE_V3_MODULE_LOADED_AT__;
+    var v3BootReady = window.__FPE_V3_BOOT_READY__;
+    var v3BootReadyAt = window.__FPE_V3_BOOT_READY_AT__;
+    var v3NavReadyAt = window.__FPE_V3_NAV_READY_AT__;
+    if (v3ModuleLoadedAt || typeof v3BootReady === 'boolean' || v3BootReadyAt || v3NavReadyAt){
+      lines.push('');
+      lines.push('[v3 markers]');
+      lines.push('module-loaded-at: ' + String(v3ModuleLoadedAt || '—'));
+      lines.push('boot-ready: ' + (v3BootReady === true ? 'yes' : (v3BootReady === false ? 'no' : 'unknown')));
+      lines.push('boot-ready-at: ' + String(v3BootReadyAt || '—'));
+      lines.push('nav-ready-at: ' + String(v3NavReadyAt || '—'));
+    }
+    if (!lines.length || (lines.length === 1 && lines[0] === '')){
+      lines.push('Boot diagnostics are not available yet. Waiting for runtime signal.');
+    }
+    errors.textContent = lines.join('\n');
+  }
+  modal.hidden = false;
+}
+
+function closeEmergencyDiagnostics(){
+  var modal = document.getElementById('diagModal');
+  if (modal) modal.hidden = true;
+}
+
+function getLegacyShellRoot() {
+  return document.querySelector('[data-legacy-shell-root="true"]');
+}
+
+function getLegacyDomPool() {
+  var pool = document.getElementById('legacyDomPool');
+  if (pool) return pool;
+  pool = document.createElement('div');
+  pool.hidden = true;
+  pool.id = 'legacyDomPool';
+  document.body.appendChild(pool);
+  return pool;
+}
+
+function retireLegacyShellRootWrapper() {
+  var root = getLegacyShellRoot();
+  if (!root) return;
+  var pool = getLegacyDomPool();
+  if (!pool) return;
+  while (root.firstChild) {
+    pool.appendChild(root.firstChild);
+  }
+  if (root.parentElement) {
+    root.parentElement.removeChild(root);
+  }
+}
+
+window.__FPE_OPEN_EMERGENCY_DIAGNOSTICS__ = openEmergencyDiagnostics;
+window.__FPE_GET_UI_MODE__ = getUiModeFromLocation;
+
+document.addEventListener('DOMContentLoaded', function(){
+  retireLegacyShellRootWrapper();
+  var startedAt = Date.now();
+  var maxWaitMs = 12000;
+  var maxRecoveryMs = 30000;
+  var pollMs = 80;
+  var recoveryPollMs = 400;
+  var fallbackOpened = false;
+  var settle = function(){
+    var rail = document.getElementById('legacyResultsSidebar');
+    var pool = getLegacyDomPool();
+    var rightRailSlot = document.getElementById('v3RightRailSlot');
+    if (!rail) {
+      return;
+    }
+    // Keep results mounted when V3 already placed them in the active right-rail slot.
+    if (rightRailSlot && rightRailSlot.contains(rail)) {
+      return;
+    }
+    if (pool && rail.parentElement !== pool) {
+      pool.appendChild(rail);
+    }
+    rail.hidden = true;
+  };
+  var waitForBridge = function(){
+    if (isV3BridgeActive()){
+      settle();
+      if (fallbackOpened){
+        closeEmergencyDiagnostics();
+      }
+      return;
+    }
+    var elapsed = Date.now() - startedAt;
+    if (elapsed >= maxWaitMs){
+      if (!fallbackOpened){
+        fallbackOpened = true;
+        openEmergencyDiagnostics({
+          waitedMs: elapsed,
+          bridgeActive: false
+        });
+      }
+      if (elapsed >= maxRecoveryMs){
+        return;
+      }
+      window.setTimeout(waitForBridge, recoveryPollMs);
+      return;
+    }
+    window.setTimeout(waitForBridge, pollMs);
+  };
+  waitForBridge();
+});
+</script>
+<div class="modal" hidden="" id="diagModal">
+<div class="modal-backdrop" data-close="1"></div>
+<div aria-labelledby="diagTitle" aria-modal="true" class="modal-card" role="dialog">
+<div class="modal-head">
+<div class="modal-title" id="diagTitle">Diagnostics</div>
+<button class="btn btn-sm btn-ghost" id="btnDiagClose" type="button">Close</button>
+</div>
+<div class="modal-body">
+<div class="muted" style="margin-bottom:8px;">Recent errors (last 20, this session only)</div>
+<div class="mono diag-errors" id="diagErrors"></div>
+</div>
+<div class="modal-foot">
+<button class="btn btn-sm" id="btnCopyDebug" type="button">Copy debug bundle</button>
+</div>
+</div>
+</div>
+</body>
+</html>
