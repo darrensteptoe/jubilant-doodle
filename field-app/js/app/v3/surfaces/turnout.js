@@ -232,6 +232,62 @@ export function renderTurnoutSurface(mount) {
           </div>
         </div>
       </div>
+
+      <div class="field">
+        <div class="fpe-contained-block">
+          <div class="fpe-control-label">Lit Drop tactic</div>
+          <label class="fpe-switch">
+            <input id="v3RoiLitDropEnabled" type="checkbox"/>
+            <span>Enable lit drop</span>
+          </label>
+        </div>
+        <div class="fpe-field-grid fpe-field-grid--2">
+          <div class="field">
+            <label class="fpe-control-label" for="v3RoiLitDropCpa">Cost / attempt ($)</label>
+            <input class="fpe-input" id="v3RoiLitDropCpa" min="0" step="0.01" type="number"/>
+          </div>
+          <div class="field">
+            <label class="fpe-control-label" for="v3RoiLitDropKind">Tactic type</label>
+            <select class="fpe-input" id="v3RoiLitDropKind"></select>
+          </div>
+          <div class="field">
+            <label class="fpe-control-label" for="v3RoiLitDropCr">Contact rate override %</label>
+            <input class="fpe-input" id="v3RoiLitDropCr" max="100" min="0" step="0.1" type="number"/>
+          </div>
+          <div class="field">
+            <label class="fpe-control-label" for="v3RoiLitDropSr">Support rate override %</label>
+            <input class="fpe-input" id="v3RoiLitDropSr" max="100" min="0" step="0.1" type="number"/>
+          </div>
+        </div>
+      </div>
+
+      <div class="field">
+        <div class="fpe-contained-block">
+          <div class="fpe-control-label">Mail tactic</div>
+          <label class="fpe-switch">
+            <input id="v3RoiMailEnabled" type="checkbox"/>
+            <span>Enable mail</span>
+          </label>
+        </div>
+        <div class="fpe-field-grid fpe-field-grid--2">
+          <div class="field">
+            <label class="fpe-control-label" for="v3RoiMailCpa">Cost / attempt ($)</label>
+            <input class="fpe-input" id="v3RoiMailCpa" min="0" step="0.01" type="number"/>
+          </div>
+          <div class="field">
+            <label class="fpe-control-label" for="v3RoiMailKind">Tactic type</label>
+            <select class="fpe-input" id="v3RoiMailKind"></select>
+          </div>
+          <div class="field">
+            <label class="fpe-control-label" for="v3RoiMailCr">Contact rate override %</label>
+            <input class="fpe-input" id="v3RoiMailCr" max="100" min="0" step="0.1" type="number"/>
+          </div>
+          <div class="field">
+            <label class="fpe-control-label" for="v3RoiMailSr">Support rate override %</label>
+            <input class="fpe-input" id="v3RoiMailSr" max="100" min="0" step="0.1" type="number"/>
+          </div>
+        </div>
+      </div>
     </div>
 
     <div class="fpe-field-grid fpe-field-grid--2">
@@ -246,6 +302,22 @@ export function renderTurnoutSurface(mount) {
           <span>Allocate overhead across required attempts</span>
         </label>
       </div>
+    </div>
+
+    <div class="fpe-contained-block fpe-contained-block--status">
+      <div class="fpe-control-label">Channel cost realism</div>
+      <div class="fpe-help fpe-help--flush">Use these ranges as plausibility checks, not automatic truth. A figure can be technically possible and still be weak enough to deserve review before the team leans on it.</div>
+      <div class="fpe-help fpe-help--flush"><strong>Doors</strong> Healthy working range: about <strong>$0.08 to $0.80 per attempt</strong>. Review closely below <strong>$0.08</strong> or above <strong>$0.80</strong>. Treat values below <strong>$0.04</strong> or above <strong>$1.25</strong> as severe realism problems unless the campaign can explain them clearly.</div>
+      <div class="fpe-help fpe-help--flush"><strong>Phones</strong> Healthy working range: about <strong>$0.01 to $0.20 per attempt</strong>. Review closely below <strong>$0.01</strong> or above <strong>$0.20</strong>. Treat values below <strong>$0.005</strong> or above <strong>$0.40</strong> as severe realism problems unless the campaign can explain them clearly.</div>
+      <div class="fpe-help fpe-help--flush"><strong>Texts</strong> Healthy working range: about <strong>$0.005 to $0.15 per attempt</strong>. Review closely below <strong>$0.005</strong> or above <strong>$0.15</strong>. Treat values below <strong>$0.003</strong> or above <strong>$0.30</strong> as severe realism problems unless the campaign can explain them clearly.</div>
+      <div class="fpe-help fpe-help--flush"><strong>Lit Drop</strong> Healthy working range: about <strong>$0.06 to $0.65 per attempt</strong>. Review closely below <strong>$0.06</strong> or above <strong>$0.65</strong>. Treat values below <strong>$0.03</strong> or above <strong>$1.10</strong> as severe realism problems unless the campaign can explain them clearly.</div>
+      <div class="fpe-help fpe-help--flush"><strong>Mail</strong> Healthy working range: about <strong>$0.30 to $2.50 per attempt</strong>. Review closely below <strong>$0.30</strong> or above <strong>$2.50</strong>. Treat values below <strong>$0.20</strong> or above <strong>$4.00</strong> as severe realism problems unless the campaign can explain them clearly.</div>
+      <div class="fpe-help fpe-help--flush">Cheap numbers are not automatically good numbers. If a cost assumption only works because it ignores labor reality, vendor friction, volunteer dependency, or fulfillment overhead, it should not be treated as decision-grade.</div>
+    </div>
+
+    <div class="fpe-contained-block fpe-contained-block--status">
+      <div class="fpe-control-label">How to use tactic rows</div>
+      <div class="fpe-help fpe-help--flush">Enable only the channels the campaign is genuinely prepared to execute. A tactic that looks efficient on paper but is not operationally real should not be allowed to inflate the plan.</div>
     </div>
   `;
 
@@ -369,6 +441,18 @@ function wireTurnoutControlProxies() {
   bindTurnoutSelect("v3RoiTextsKind", "roiTextsKind");
   bindTurnoutField("v3RoiTextsCr", "roiTextsCr");
   bindTurnoutField("v3RoiTextsSr", "roiTextsSr");
+
+  bindTurnoutCheckbox("v3RoiLitDropEnabled", "roiLitDropEnabled");
+  bindTurnoutField("v3RoiLitDropCpa", "roiLitDropCpa");
+  bindTurnoutSelect("v3RoiLitDropKind", "roiLitDropKind");
+  bindTurnoutField("v3RoiLitDropCr", "roiLitDropCr");
+  bindTurnoutField("v3RoiLitDropSr", "roiLitDropSr");
+
+  bindTurnoutCheckbox("v3RoiMailEnabled", "roiMailEnabled");
+  bindTurnoutField("v3RoiMailCpa", "roiMailCpa");
+  bindTurnoutSelect("v3RoiMailKind", "roiMailKind");
+  bindTurnoutField("v3RoiMailCr", "roiMailCr");
+  bindTurnoutField("v3RoiMailSr", "roiMailSr");
 
   bindTurnoutField("v3RoiOverheadAmount", "roiOverheadAmount");
   bindTurnoutCheckbox("v3RoiIncludeOverhead", "roiIncludeOverhead");
@@ -561,6 +645,8 @@ function applyTurnoutView(view) {
   syncTurnoutSelectOptions("v3RoiDoorsKind", options.tacticKind || [], inputs.roiDoorsKind);
   syncTurnoutSelectOptions("v3RoiPhonesKind", options.tacticKind || [], inputs.roiPhonesKind);
   syncTurnoutSelectOptions("v3RoiTextsKind", options.tacticKind || [], inputs.roiTextsKind);
+  syncTurnoutSelectOptions("v3RoiLitDropKind", options.tacticKind || [], inputs.roiLitDropKind);
+  syncTurnoutSelectOptions("v3RoiMailKind", options.tacticKind || [], inputs.roiMailKind);
 
   syncTurnoutCheckboxValue("v3TurnoutEnabledToggle", inputs.turnoutEnabled);
   syncTurnoutInputValue("v3TurnoutBaselinePct", inputs.turnoutBaselinePct);
@@ -587,6 +673,16 @@ function applyTurnoutView(view) {
   syncTurnoutInputValue("v3RoiTextsCpa", inputs.roiTextsCpa);
   syncTurnoutInputValue("v3RoiTextsCr", inputs.roiTextsCr);
   syncTurnoutInputValue("v3RoiTextsSr", inputs.roiTextsSr);
+
+  syncTurnoutCheckboxValue("v3RoiLitDropEnabled", inputs.roiLitDropEnabled);
+  syncTurnoutInputValue("v3RoiLitDropCpa", inputs.roiLitDropCpa);
+  syncTurnoutInputValue("v3RoiLitDropCr", inputs.roiLitDropCr);
+  syncTurnoutInputValue("v3RoiLitDropSr", inputs.roiLitDropSr);
+
+  syncTurnoutCheckboxValue("v3RoiMailEnabled", inputs.roiMailEnabled);
+  syncTurnoutInputValue("v3RoiMailCpa", inputs.roiMailCpa);
+  syncTurnoutInputValue("v3RoiMailCr", inputs.roiMailCr);
+  syncTurnoutInputValue("v3RoiMailSr", inputs.roiMailSr);
 
   syncTurnoutInputValue("v3RoiOverheadAmount", inputs.roiOverheadAmount);
   syncTurnoutCheckboxValue("v3RoiIncludeOverhead", inputs.roiIncludeOverhead);
@@ -619,6 +715,16 @@ function applyTurnoutView(view) {
   setTurnoutControlDisabled("v3RoiTextsKind", locked);
   setTurnoutControlDisabled("v3RoiTextsCr", locked);
   setTurnoutControlDisabled("v3RoiTextsSr", locked);
+  setTurnoutControlDisabled("v3RoiLitDropEnabled", locked);
+  setTurnoutControlDisabled("v3RoiLitDropCpa", locked);
+  setTurnoutControlDisabled("v3RoiLitDropKind", locked);
+  setTurnoutControlDisabled("v3RoiLitDropCr", locked);
+  setTurnoutControlDisabled("v3RoiLitDropSr", locked);
+  setTurnoutControlDisabled("v3RoiMailEnabled", locked);
+  setTurnoutControlDisabled("v3RoiMailCpa", locked);
+  setTurnoutControlDisabled("v3RoiMailKind", locked);
+  setTurnoutControlDisabled("v3RoiMailCr", locked);
+  setTurnoutControlDisabled("v3RoiMailSr", locked);
   setTurnoutControlDisabled("v3RoiOverheadAmount", locked);
   setTurnoutControlDisabled("v3RoiIncludeOverhead", locked);
   setTurnoutControlDisabled("v3BtnRoiRefresh", !!controls.refreshDisabled);
