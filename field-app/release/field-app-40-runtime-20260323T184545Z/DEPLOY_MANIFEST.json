@@ -1,0 +1,24 @@
+{
+  "generatedAt": "2026-03-23T18:45:45.213Z",
+  "sourcePath": "/Users/anakinskywalker/Downloads/field-app-40",
+  "runtimePackagePath": "release/field-app-40-runtime-20260323T184545Z",
+  "activeRuntimeBundle": "dist/assets/index-hS4oaeSe.js",
+  "included": [
+    "dist/**"
+  ],
+  "excludedByPolicy": [
+    ".git",
+    "__MACOSX",
+    ".DS_Store",
+    "node_modules",
+    "checkpoints",
+    "recovery-snapshots",
+    "audit",
+    "interaction",
+    "prune"
+  ],
+  "notes": [
+    "Runtime package includes built static assets only.",
+    "Workspace artifacts remain in source and are excluded from deploy package."
+  ]
+}

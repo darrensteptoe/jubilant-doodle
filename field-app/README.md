@@ -43,6 +43,7 @@ If you want local hot-reload and static build output:
 - `npm run check:canonical-math` — enforces no duplicate/local formula math in non-canonical glue layers
 - `npm run gate:rebuild` — strict gate: runs canonical-math check, rebuild contract suites, core self-test, and production build (fails on warning-pattern regressions)
 - `npm run gate:release` — runs full rebuild gate + release hardening suite
+- `npm run package:runtime` — creates a runtime-only deploy package under `release/` (excludes workspace artifacts)
 - `npm run qa:new-parity-log` — creates a dated manual parity sign-off file from template
 - `npm run status:rebuild` — prints current workstream completion summary from milestone checkpoint
 - `npm run status:manual-parity` — prints pass/fail/pending stage status and sign-off readiness from today’s manual parity file

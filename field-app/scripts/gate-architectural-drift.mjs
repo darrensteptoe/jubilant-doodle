@@ -17,6 +17,8 @@ const STRICT_SURFACE_FILES = Object.freeze([
   "js/app/v3/surfaces/electionData/index.js",
   "js/app/v3/surfaces/warRoom/index.js",
 ]);
+const DISTRICT_COMPAT_SURFACE_FILE = "js/app/v3/surfaces/district/index.js";
+const DISTRICT_CANONICAL_LAYOUT_FILE = "js/app/v3/surfaces/districtV2/index.js";
 
 const STRICT_BRIDGE_FILES = Object.freeze([
   "js/app/v3/bridges/districtBridge.js",
@@ -387,6 +389,17 @@ function checkSelectorBypassAndRawCacheTruth() {
 
 function checkFullWidthCenterLayout() {
   const violations = [];
+  const layoutChecks = [
+    "createCenterStackFrame(",
+    "createCenterStackColumn(",
+    "createCenterModuleCard(",
+  ];
+  const hasFullWidthContractTokens = (source) => (
+    layoutChecks.every((token) => source.includes(token))
+  );
+  const hasMixedWidthFrame = (source) => (
+    /createSurfaceFrame\("two-col"\)/.test(source) || /createSurfaceFrame\("three-col"\)/.test(source)
+  );
 
   for (const file of STRICT_SURFACE_FILES) {
     const source = readFile(file);
@@ -394,16 +407,46 @@ function checkFullWidthCenterLayout() {
       violations.push({ file, reason: "strict surface file missing" });
       continue;
     }
-    if (!/createCenterStackFrame\(/.test(source)) {
-      violations.push({ file, reason: "missing createCenterStackFrame layout contract" });
+    if (file === DISTRICT_COMPAT_SURFACE_FILE) {
+      const isCompatExport = /renderDistrictV2Surface\s+as\s+renderDistrictSurface/.test(source);
+      if (!isCompatExport) {
+        violations.push({ file, reason: "district compatibility surface must forward to districtV2 renderer" });
+        continue;
+      }
+      const districtV2Source = readFile(DISTRICT_CANONICAL_LAYOUT_FILE);
+      if (districtV2Source == null) {
+        violations.push({ file: DISTRICT_CANONICAL_LAYOUT_FILE, reason: "district canonical layout surface missing" });
+        continue;
+      }
+      if (!hasFullWidthContractTokens(districtV2Source)) {
+        if (!districtV2Source.includes("createCenterStackFrame(")) {
+          violations.push({ file: DISTRICT_CANONICAL_LAYOUT_FILE, reason: "missing createCenterStackFrame layout contract" });
+        }
+        if (!districtV2Source.includes("createCenterStackColumn(")) {
+          violations.push({ file: DISTRICT_CANONICAL_LAYOUT_FILE, reason: "missing createCenterStackColumn layout contract" });
+        }
+        if (!districtV2Source.includes("createCenterModuleCard(")) {
+          violations.push({ file: DISTRICT_CANONICAL_LAYOUT_FILE, reason: "missing createCenterModuleCard layout contract" });
+        }
+      }
+      if (hasMixedWidthFrame(districtV2Source)) {
+        violations.push({ file: DISTRICT_CANONICAL_LAYOUT_FILE, reason: "mixed-width surface frame detected (two-col/three-col)" });
+      }
+      continue;
     }
-    if (!/createCenterStackColumn\(/.test(source)) {
-      violations.push({ file, reason: "missing createCenterStackColumn layout contract" });
+
+    if (!hasFullWidthContractTokens(source)) {
+      if (!source.includes("createCenterStackFrame(")) {
+        violations.push({ file, reason: "missing createCenterStackFrame layout contract" });
+      }
+      if (!source.includes("createCenterStackColumn(")) {
+        violations.push({ file, reason: "missing createCenterStackColumn layout contract" });
+      }
+      if (!source.includes("createCenterModuleCard(")) {
+        violations.push({ file, reason: "missing createCenterModuleCard layout contract" });
+      }
     }
-    if (!/createCenterModuleCard\(/.test(source)) {
-      violations.push({ file, reason: "missing createCenterModuleCard layout contract" });
-    }
-    if (/createSurfaceFrame\("two-col"\)/.test(source) || /createSurfaceFrame\("three-col"\)/.test(source)) {
+    if (hasMixedWidthFrame(source)) {
       violations.push({ file, reason: "mixed-width surface frame detected (two-col/three-col)" });
     }
   }

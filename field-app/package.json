@@ -7,6 +7,7 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
+    "package:runtime": "node scripts/package-runtime-bundle.mjs",
     "typecheck": "tsc --noEmit",
     "check:canonical-math": "node scripts/check-canonical-math.mjs",
     "check:interaction-integrity": "node scripts/interaction-integrity.mjs",
@@ -26,7 +27,8 @@
     "status:manual-parity": "node scripts/manual-parity-status.mjs",
     "gate:manual-parity": "node scripts/manual-parity-status.mjs --strict",
     "check:district-integrity": "node scripts/district-integrity.mjs",
-    "debug:runtime-parity": "node scripts/runtime-parity-audit.mjs"
+    "debug:runtime-parity": "node scripts/runtime-parity-audit.mjs",
+    "check:spacing-contract": "node --test js/app/v3/surfaces/spacingContract.test.js"
   },
   "devDependencies": {
     "typescript": "^5.9.2",
