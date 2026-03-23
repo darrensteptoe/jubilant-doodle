@@ -2382,6 +2382,191 @@ body.training #app-shell-v3-root .fpe-surface .fpe-why {
   line-height: 1.45;
 }
 
+.fpe-intel-trust {
+  display: grid;
+  gap: 8px;
+}
+
+.fpe-intel-trust__hero {
+  display: grid;
+  gap: 6px;
+  border: 1px solid color-mix(in srgb, var(--fpe-rule) 80%, transparent);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--fpe-rule) 16%, var(--fpe-panel));
+  padding: 10px;
+}
+
+.fpe-intel-trust__title {
+  margin: 0;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--fpe-text);
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.fpe-intel-trust__subtitle,
+.fpe-intel-trust__microcopy {
+  margin: 0;
+  font-size: 11px;
+  line-height: 1.45;
+  color: var(--fpe-text);
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.fpe-intel-trust__tiers {
+  display: grid;
+  gap: 6px;
+}
+
+.fpe-intel-trust-tier {
+  display: grid;
+  gap: 4px;
+  border: 1px solid color-mix(in srgb, var(--fpe-rule) 78%, transparent);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--fpe-panel) 92%, var(--fpe-panel-muted));
+  padding: 8px;
+}
+
+.fpe-intel-trust-tier__label {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--fpe-muted);
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.fpe-intel-trust-tier__list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+.fpe-intel-trust-tier-pill {
+  display: inline-flex;
+  align-items: center;
+  min-height: 22px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--fpe-rule) 80%, transparent);
+  background: color-mix(in srgb, var(--fpe-panel-muted) 72%, var(--fpe-panel));
+  font-size: 11px;
+  line-height: 1.4;
+  color: var(--fpe-text);
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.fpe-intel-trust__figures {
+  display: grid;
+  gap: 8px;
+}
+
+.fpe-intel-trust-figure {
+  display: grid;
+  gap: 6px;
+  border: 1px solid color-mix(in srgb, var(--fpe-rule) 78%, transparent);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--fpe-rule) 16%, var(--fpe-panel));
+  padding: 10px;
+}
+
+.fpe-intel-trust-figure__head {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.fpe-intel-trust-figure__title {
+  margin: 0;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--fpe-text);
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.fpe-intel-trust-figure__value {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--fpe-text);
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.fpe-intel-trust-figure__state {
+  width: fit-content;
+  max-width: 100%;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--fpe-rule) 82%, transparent);
+  padding: 2px 8px;
+  font-size: 11px;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.fpe-intel-trust-figure__state--ready {
+  color: var(--fpe-success);
+  border-color: color-mix(in srgb, var(--fpe-success) 45%, var(--fpe-rule));
+  background: color-mix(in srgb, var(--fpe-success) 10%, var(--fpe-panel));
+}
+
+.fpe-intel-trust-figure__state--review,
+.fpe-intel-trust-figure__state--mismatch {
+  color: var(--fpe-warn);
+  border-color: color-mix(in srgb, var(--fpe-warn) 45%, var(--fpe-rule));
+  background: color-mix(in srgb, var(--fpe-warn) 10%, var(--fpe-panel));
+}
+
+.fpe-intel-trust-figure__state--missing,
+.fpe-intel-trust-figure__state--fallback {
+  color: var(--fpe-danger);
+  border-color: color-mix(in srgb, var(--fpe-danger) 45%, var(--fpe-rule));
+  background: color-mix(in srgb, var(--fpe-danger) 10%, var(--fpe-panel));
+}
+
+.fpe-intel-trust-figure__state-detail,
+.fpe-intel-trust-figure__text {
+  margin: 0;
+  font-size: 11px;
+  line-height: 1.45;
+  color: var(--fpe-text);
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.fpe-intel-trust-figure__block {
+  display: grid;
+  gap: 4px;
+}
+
+.fpe-intel-trust-figure__label {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--fpe-muted);
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.fpe-intel-trust-figure__list {
+  margin: 0;
+  padding-left: 16px;
+  display: grid;
+  gap: 2px;
+}
+
+.fpe-intel-trust-figure__assumption,
+.fpe-intel-trust-figure__reason {
+  font-size: 11px;
+  line-height: 1.45;
+  color: var(--fpe-text);
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
 .fpe-right-rail-slot .results-sidebar-new {
   --s-panel: var(--fpe-panel);
   --s-bg: var(--fpe-panel-muted);
