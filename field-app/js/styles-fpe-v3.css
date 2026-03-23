@@ -2653,6 +2653,39 @@ body.training #app-shell-v3-root .fpe-surface .fpe-why {
   gap: 6px;
 }
 
+.fpe-intel-trust-legend {
+  display: grid;
+  gap: 6px;
+  border: 1px solid color-mix(in srgb, var(--fpe-rule) 78%, transparent);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--fpe-panel) 92%, var(--fpe-panel-muted));
+  padding: 8px;
+}
+
+.fpe-intel-trust-legend__row {
+  display: grid;
+  gap: 2px;
+}
+
+.fpe-intel-trust-legend__label {
+  margin: 0;
+  font-size: 11px;
+  line-height: 1.4;
+  font-weight: 700;
+  color: var(--fpe-muted);
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.fpe-intel-trust-legend__detail {
+  margin: 0;
+  font-size: 11px;
+  line-height: 1.45;
+  color: var(--fpe-text);
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
 .fpe-intel-trust-tier {
   display: grid;
   gap: 4px;
