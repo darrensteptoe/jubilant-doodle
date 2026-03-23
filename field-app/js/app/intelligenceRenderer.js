@@ -173,10 +173,17 @@ function renderSectionHeader(row){
 }
 
 function renderSectionBody(row){
-  const body = clean(row?.body);
-  return body
-    ? `<p class="fpe-intel-section__body">${escapeHtml(body)}</p>`
-    : "";
+  const body = String(row?.body == null ? "" : row.body);
+  const paragraphs = body
+    .split(/\n{2,}/)
+    .map((entry) => clean(entry))
+    .filter(Boolean);
+  if (!paragraphs.length){
+    return "";
+  }
+  return paragraphs
+    .map((entry) => `<p class="fpe-intel-section__body">${escapeHtml(entry)}</p>`)
+    .join("");
 }
 
 function renderSectionContent(row, miniItems){
@@ -387,6 +394,29 @@ function renderTrustFigure(figure){
   `;
 }
 
+function renderTrustStateLegend(trust){
+  const states = trust?.globalMicrocopy?.states && typeof trust.globalMicrocopy.states === "object"
+    ? trust.globalMicrocopy.states
+    : {};
+  const rows = [
+    { label: "Ready", detail: clean(states.ready) || "Source path is present and current enough to support normal use." },
+    { label: "Review", detail: clean(states.review) || "The figure may still be useful, but the team should verify before leaning on it hard." },
+    { label: "Missing", detail: clean(states.missing) || "Required input or evidence path is absent, so confidence should drop." },
+    { label: "Fallback", detail: clean(states.fallback) || "A backup path is being used; treat this as informative, not settled." },
+    { label: "Mismatch", detail: clean(states.mismatch) || "Related signals disagree; reconcile before escalating claims." },
+  ];
+  return `
+    <section class="fpe-intel-trust-legend" aria-label="Trust state guide">
+      ${rows.map((row) => `
+        <div class="fpe-intel-trust-legend__row">
+          <div class="fpe-intel-trust-legend__label">${escapeHtml(row.label)}</div>
+          <div class="fpe-intel-trust-legend__detail">${escapeHtml(row.detail)}</div>
+        </div>
+      `).join("")}
+    </section>
+  `;
+}
+
 function renderTrust(payload){
   const trust = payload?.trust && typeof payload.trust === "object" ? payload.trust : null;
   if (!trust) return "";
@@ -404,6 +434,7 @@ function renderTrust(payload){
         <p class="fpe-intel-trust__microcopy">${escapeHtml(hero)}</p>
         <p class="fpe-intel-trust__microcopy">${escapeHtml(sub)}</p>
       </header>
+      ${renderTrustStateLegend(trust)}
       <div class="fpe-intel-trust__tiers">${renderTrustTiers(trust)}</div>
       <div class="fpe-intel-trust__figures">${figures.map((figure) => renderTrustFigure(figure)).join("")}</div>
     </section>

@@ -115,6 +115,178 @@ function splitMiniItems(value){
     .filter(Boolean);
 }
 
+function panelBody(paragraphs = []){
+  const rows = Array.isArray(paragraphs) ? paragraphs.map((row) => clean(row)).filter(Boolean) : [];
+  return rows.join("\n\n");
+}
+
+function panelItems(items = []){
+  const rows = Array.isArray(items) ? items : [];
+  return rows
+    .map((row) => {
+      const label = clean(row?.label);
+      const body = clean(row?.body);
+      if (!label || !body) return "";
+      return `${label}: ${body}`;
+    })
+    .filter(Boolean);
+}
+
+function shouldShowOperatingPostureWarning(context){
+  const signals = context?.playbookSignals && typeof context.playbookSignals === "object"
+    ? context.playbookSignals
+    : {};
+  const fieldRisk = clean(signals.weatherFieldExecutionRisk).toLowerCase();
+  const turnoutRisk = clean(signals.weatherElectionDayTurnoutRisk).toLowerCase();
+  const pressure = clean(signals.decisionPressureLevel).toLowerCase();
+  return fieldRisk === "medium"
+    || fieldRisk === "high"
+    || turnoutRisk === "medium"
+    || turnoutRisk === "high"
+    || pressure === "medium"
+    || pressure === "high";
+}
+
+function shouldShowTemporaryCapacityNote(context){
+  const signals = context?.playbookSignals && typeof context.playbookSignals === "object"
+    ? context.playbookSignals
+    : {};
+  const appliedEvents = Number(signals.appliedCampaignEvents || 0);
+  const todayEvents = Number(signals.todayCampaignEvents || 0);
+  return appliedEvents > 0 || todayEvents > 0;
+}
+
+function helperPanelSections(entry, context){
+  const moduleId = clean(entry?.id);
+  if (!moduleId) return [];
+
+  /** @type {Array<{ title: string, paragraphs: string[], items?: Array<{ label: string, body: string }>, variant?: string }>} */
+  const panels = [];
+
+  if (moduleId === "forecastOutcome"){
+    panels.push({
+      title: "How to read this forecast",
+      paragraphs: [
+        "This forecast is not a promise. It is the campaign's current best read of the range of outcomes implied by the assumptions, evidence, and execution posture in the system right now.",
+        "A healthy forecast is not just one with a high top-end case. A healthy forecast has a believable middle, a downside the campaign can survive, and movement that can be explained by real changes in evidence or execution.",
+        "If only the upside case looks good, do not treat that as plan safety. If the middle of the distribution is weak, the team should act like the plan still needs help.",
+      ],
+      items: [
+        { label: "What good looks like", body: "The middle of the range supports the goal and the downside is manageable." },
+        { label: "What weak usage looks like", body: "The team points to the nicest number and ignores the rest of the range." },
+        { label: "What to do next", body: "Check whether confidence, readiness, and pace support the story this forecast is telling." },
+      ],
+      variant: "hero",
+    });
+  }
+
+  if (moduleId === "governanceConfidence"){
+    panels.push({
+      title: "How to use trust correctly",
+      paragraphs: [
+        "Trust is not about whether the output looks polished. Trust is about whether the campaign can explain why the current read deserves to be believed right now.",
+        "High trust should come from evidence quality, update discipline, source clarity, and operational realism. Low trust does not always mean the model is wrong. It means the campaign should speak and commit more carefully.",
+        "If confidence language is getting stronger while the evidence stays flat, the campaign is drifting into false certainty.",
+      ],
+      items: [
+        { label: "What good looks like", body: "The team can name the source, owner, freshness, and reason behind the current read." },
+        { label: "What weak usage looks like", body: "Missing, stale, thin, or contradictory inputs are ignored because the dashboard still looks clean." },
+        { label: "What to do next", body: "Refresh weak evidence, fix ownership gaps, and reduce claim strength until the source path improves." },
+      ],
+      variant: "hero",
+    });
+  }
+
+  if (moduleId === "warRoomDecisionSession"){
+    panels.push({
+      title: "How to use this in the war room",
+      paragraphs: [
+        "This surface is for decisions that cannot wait. It should answer whether the campaign should hold, shift, escalate, reduce, or redirect effort in the current operating window.",
+        "Use it when weather, staffing, benchmark quality, pace, or readiness create a real difference between the plan on paper and the plan the team can actually execute today.",
+        "Do not use war room framing to quietly rewrite long-run assumptions. Use it to make explicit short-horizon operating decisions and log why they changed.",
+      ],
+      items: [
+        { label: "What good looks like", body: "Same-day risk is named clearly, and the recommended action matches the evidence." },
+        { label: "What weak usage looks like", body: "The team improvises around disruption without changing posture, logging assumptions, or adjusting expectations." },
+        { label: "What to do next", body: "Make the operating decision explicit, communicate it, and preserve a clean trail of why it changed." },
+      ],
+      variant: "hero",
+    });
+    if (shouldShowOperatingPostureWarning(context)){
+      panels.push({
+        title: "Operating posture warning",
+        paragraphs: [
+          "Current conditions may justify a short-horizon shift in execution, but they do not automatically justify rewriting long-run assumptions. Make the operational posture explicit, keep the adjustment date-bound, and preserve a clean explanation of why the shift was made.",
+        ],
+        variant: "callout",
+      });
+    }
+    if (shouldShowTemporaryCapacityNote(context)){
+      panels.push({
+        title: "Temporary capacity note",
+        paragraphs: [
+          "A short-term event advantage can improve near-term field opportunity, but it should be treated as date-bound capacity, not permanent campaign strength.",
+        ],
+        variant: "callout",
+      });
+    }
+  }
+
+  if (moduleId === "campaignDataRequirements"){
+    panels.push({
+      title: "How to use benchmark data without fooling yourself",
+      paragraphs: [
+        "Benchmark data is useful when it improves judgment. It becomes dangerous when weak comparables quietly harden into strategy.",
+        "A benchmark should help the campaign understand what is plausible, not force the current race to behave like a different one.",
+        "The key question is not whether there is data. The key question is whether the comparison set is actually credible for this race, this electorate, and this decision.",
+      ],
+      items: [
+        { label: "What good looks like", body: "Comparables are relevant, recent enough, and clearly connected to the current decision." },
+        { label: "What weak usage looks like", body: "The team leans on old, mismatched, or context-poor results because they are available." },
+        { label: "What to do next", body: "Check relevance, scope, and downstream impact before treating benchmark-driven assumptions as solid ground." },
+      ],
+      variant: "hero",
+    });
+    panels.push({
+      title: "How to turn this into action",
+      paragraphs: [
+        "Analysis only matters if it changes what the team does next. The purpose of this view is to convert the current read into owned work over the next operating window.",
+        "A useful weekly action plan names what must move, who owns it, what risk it addresses, and what happens if it does not improve.",
+      ],
+      items: [
+        { label: "What good looks like", body: "The next seven days have clear owners, clear priorities, and clear reason." },
+        { label: "What weak usage looks like", body: "The analysis is accurate but nobody's behavior changes." },
+        { label: "What to do next", body: "Name the blockers, assign the response, and tie each action back to the pressure point it is meant to move." },
+      ],
+      variant: "card",
+    });
+  }
+
+  const out = [];
+  for (let index = 0; index < panels.length; index += 1){
+    const panel = panels[index];
+    const idBase = `helper-${moduleId}-${index + 1}`;
+    out.push(makeSection({
+      id: `${idBase}-panel`,
+      label: panel.title,
+      body: injectLiveValues(panelBody(panel.paragraphs), context),
+      variant: clean(panel.variant) || "card",
+      expandable: false,
+    }));
+    const items = panelItems(panel.items);
+    if (items.length){
+      out.push(makeSection({
+        id: `${idBase}-mini`,
+        label: "Operator check",
+        body: "",
+        variant: "mini-row",
+        items,
+      }));
+    }
+  }
+  return out;
+}
+
 function buildForecastOutcomeGuideSections(entry, context){
   const sections = entry?.sections && typeof entry.sections === "object" ? entry.sections : {};
   const rows = [];
@@ -156,7 +328,7 @@ function buildForecastOutcomeGuideSections(entry, context){
     push({ id: "howToReadChange", label: "How to Read Change", key: "warningSigns", expandable: true });
   }
 
-  return rows;
+  return [...helperPanelSections(entry, context), ...rows];
 }
 
 function buildModuleSections(entry, context){
@@ -198,7 +370,7 @@ function buildModuleSections(entry, context){
       expandable,
     }));
   }
-  return out;
+  return [...helperPanelSections(entry, context), ...out];
 }
 
 function relatedLinks(entry){

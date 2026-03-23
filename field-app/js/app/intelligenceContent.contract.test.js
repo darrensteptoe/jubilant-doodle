@@ -69,7 +69,12 @@ test("intelligence resolver: forecast guide renders editorial section flow with 
     context: { stageId: "outcome" },
   });
   const labels = Array.isArray(payload?.sections) ? payload.sections.map((row) => String(row?.label || "")) : [];
-  assert.deepEqual(labels.slice(0, 10), [
+  assert.equal(labels[0], "How to read this forecast");
+  assert.equal(labels[1], "Operator check");
+
+  const forecastFlowStart = labels.indexOf("How to Read This Tool");
+  assert.ok(forecastFlowStart >= 0, "forecast editorial flow missing How to Read This Tool anchor");
+  assert.deepEqual(labels.slice(forecastFlowStart, forecastFlowStart + 10), [
     "How to Read This Tool",
     "What the Range Is Showing",
     "What Each Number Means",
@@ -83,10 +88,87 @@ test("intelligence resolver: forecast guide renders editorial section flow with 
   ]);
 
   const sections = payload.sections || [];
-  assert.equal(sections[0]?.variant, "hero");
-  assert.equal(sections[2]?.variant, "mini-row");
-  assert.ok(sections[5]?.expandable, "tight vs wide should be collapsible");
-  assert.ok(sections[9]?.expandable, "concrete example should be collapsible");
+  const helper = sections.find((row) => String(row?.label || "") === "How to read this forecast");
+  const numberMeanings = sections.find((row) => String(row?.label || "") === "What Each Number Means");
+  const tightVsWide = sections.find((row) => String(row?.label || "") === "Tight vs Wide Ranges");
+  const concreteExample = sections.find((row) => String(row?.label || "") === "Concrete Example");
+  assert.equal(helper?.variant, "hero");
+  assert.equal(numberMeanings?.variant, "mini-row");
+  assert.ok(tightVsWide?.expandable, "tight vs wide should be collapsible");
+  assert.ok(concreteExample?.expandable, "concrete example should be collapsible");
+});
+
+test("intelligence resolver: key utilization helper panels are present for governance, war room, and benchmark guidance", () => {
+  const governancePayload = resolveIntelligencePayload({
+    mode: "module",
+    moduleId: "governanceConfidence",
+    context: { stageId: "outcome" },
+  });
+  const governanceLabels = Array.isArray(governancePayload?.sections)
+    ? governancePayload.sections.map((row) => String(row?.label || ""))
+    : [];
+  assert.ok(governanceLabels.includes("How to use trust correctly"));
+
+  const warRoomPayload = resolveIntelligencePayload({
+    mode: "module",
+    moduleId: "warRoomDecisionSession",
+    context: { stageId: "war-room" },
+  });
+  const warRoomLabels = Array.isArray(warRoomPayload?.sections)
+    ? warRoomPayload.sections.map((row) => String(row?.label || ""))
+    : [];
+  assert.ok(warRoomLabels.includes("How to use this in the war room"));
+
+  const dataPayload = resolveIntelligencePayload({
+    mode: "module",
+    moduleId: "campaignDataRequirements",
+    context: { stageId: "data" },
+  });
+  const dataLabels = Array.isArray(dataPayload?.sections)
+    ? dataPayload.sections.map((row) => String(row?.label || ""))
+    : [];
+  assert.ok(dataLabels.includes("How to use benchmark data without fooling yourself"));
+  assert.ok(dataLabels.includes("How to turn this into action"));
+});
+
+test("intelligence resolver: weather/event warnings render only when playbook signals indicate short-horizon pressure", () => {
+  const activePayload = resolveIntelligencePayload({
+    mode: "module",
+    moduleId: "warRoomDecisionSession",
+    context: {
+      stageId: "war-room",
+      playbookSignals: {
+        decisionPressureLevel: "high",
+        weatherFieldExecutionRisk: "high",
+        weatherElectionDayTurnoutRisk: "medium",
+        todayCampaignEvents: 2,
+      },
+    },
+  });
+  const activeLabels = Array.isArray(activePayload?.sections)
+    ? activePayload.sections.map((row) => String(row?.label || ""))
+    : [];
+  assert.ok(activeLabels.includes("Operating posture warning"));
+  assert.ok(activeLabels.includes("Temporary capacity note"));
+
+  const quietPayload = resolveIntelligencePayload({
+    mode: "module",
+    moduleId: "warRoomDecisionSession",
+    context: {
+      stageId: "war-room",
+      playbookSignals: {
+        decisionPressureLevel: "low",
+        weatherFieldExecutionRisk: "low",
+        weatherElectionDayTurnoutRisk: "low",
+        todayCampaignEvents: 0,
+      },
+    },
+  });
+  const quietLabels = Array.isArray(quietPayload?.sections)
+    ? quietPayload.sections.map((row) => String(row?.label || ""))
+    : [];
+  assert.equal(quietLabels.includes("Operating posture warning"), false);
+  assert.equal(quietLabels.includes("Temporary capacity note"), false);
 });
 
 test("intelligence resolver: glossary links are always available across primary modes", () => {
