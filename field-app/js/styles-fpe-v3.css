@@ -3076,6 +3076,28 @@ body.training #app-shell-v3-root .fpe-surface .fpe-why {
   border-radius: 999px;
 }
 
+/* Final right-rail manual uniform tone override */
+.fpe-right-rail-slot--intel {
+  --fpe-intel-rail-card-bg: var(--fpe-panel-muted);
+  --fpe-intel-rail-card-border: color-mix(in srgb, var(--fpe-rule) 78%, transparent);
+}
+
+.fpe-right-rail-slot--intel .fpe-intel-section,
+.fpe-right-rail-slot--intel .fpe-intel-link,
+.fpe-right-rail-slot--intel .fpe-intel-result,
+.fpe-right-rail-slot--intel .fpe-intel-chip,
+.fpe-right-rail-slot--intel .fpe-intel-mini-item,
+.fpe-right-rail-slot--intel .fpe-intel-trust__hero,
+.fpe-right-rail-slot--intel .fpe-intel-trust-legend,
+.fpe-right-rail-slot--intel .fpe-intel-trust-legend__row,
+.fpe-right-rail-slot--intel .fpe-intel-trust-tier,
+.fpe-right-rail-slot--intel .fpe-intel-trust-tier-pill,
+.fpe-right-rail-slot--intel .fpe-intel-trust-figure,
+.fpe-right-rail-slot--intel .fpe-intel-trust-figure__state {
+  background: var(--fpe-intel-rail-card-bg) !important;
+  border-color: var(--fpe-intel-rail-card-border) !important;
+}
+
 @media (max-width: 1260px) {
   .fpe-layout {
     grid-template-columns: var(--fpe-nav-w) minmax(0, 1fr);
