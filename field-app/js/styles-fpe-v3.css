@@ -2604,38 +2604,57 @@ body.training #app-shell-v3-root .fpe-surface .fpe-why {
 .fpe-right-rail-slot--intel .fpe-intel-trust-tier__list {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
-  gap: 4px;
+  gap: 6px;
 }
 
 .fpe-right-rail-slot--intel .fpe-intel-chip,
 .fpe-right-rail-slot--intel .fpe-intel-mini-item,
 .fpe-right-rail-slot--intel .fpe-intel-trust-tier-pill,
 .fpe-right-rail-slot--intel .fpe-intel-trust-figure__state {
-  border: 0;
-  border-radius: 0;
-  background: transparent;
+  border: 1px solid color-mix(in srgb, var(--fpe-rule) 82%, transparent);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--fpe-panel) 90%, var(--fpe-panel-muted));
   box-shadow: none;
-  min-height: 0;
-  padding: 0;
+  min-height: 22px;
+  padding: 4px 8px;
 }
 
 .fpe-right-rail-slot--intel .fpe-intel-chip:hover,
 .fpe-right-rail-slot--intel .fpe-intel-chip:focus-visible,
 .fpe-right-rail-slot--intel .fpe-intel-link:hover,
 .fpe-right-rail-slot--intel .fpe-intel-link:focus-visible {
-  background: transparent;
+  background: color-mix(in srgb, var(--fpe-panel) 90%, var(--fpe-panel-muted));
 }
 
 .fpe-right-rail-slot--intel .fpe-intel-chip,
 .fpe-right-rail-slot--intel .fpe-intel-mini-item,
-.fpe-right-rail-slot--intel .fpe-intel-trust-tier-pill {
+.fpe-right-rail-slot--intel .fpe-intel-trust-tier-pill,
+.fpe-right-rail-slot--intel .fpe-intel-trust-figure__state {
   display: block;
+  width: 100%;
   text-align: left;
 }
 
 .fpe-right-rail-slot--intel .fpe-intel-link {
-  border-radius: 6px;
-  background: color-mix(in srgb, var(--fpe-rule) 8%, transparent);
+  border: 1px solid color-mix(in srgb, var(--fpe-rule) 82%, transparent);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--fpe-panel) 90%, var(--fpe-panel-muted));
+}
+
+.fpe-right-rail-slot--intel .fpe-intel-trust-legend {
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  padding: 0;
+  gap: 6px;
+}
+
+.fpe-right-rail-slot--intel .fpe-intel-trust-legend__row {
+  border: 1px solid color-mix(in srgb, var(--fpe-rule) 82%, transparent);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--fpe-panel) 90%, var(--fpe-panel-muted));
+  padding: 6px 8px;
+  gap: 2px;
 }
 
 .fpe-right-rail-slot--intel .fpe-intel-trust-figure__state--ready,
@@ -2643,8 +2662,8 @@ body.training #app-shell-v3-root .fpe-surface .fpe-why {
 .fpe-right-rail-slot--intel .fpe-intel-trust-figure__state--mismatch,
 .fpe-right-rail-slot--intel .fpe-intel-trust-figure__state--missing,
 .fpe-right-rail-slot--intel .fpe-intel-trust-figure__state--fallback {
-  border: 0;
-  background: transparent;
+  border: 1px solid color-mix(in srgb, var(--fpe-rule) 82%, transparent);
+  background: color-mix(in srgb, var(--fpe-panel) 90%, var(--fpe-panel-muted));
 }
 
 .fpe-right-rail-slot--intel .fpe-intel-section__title,
