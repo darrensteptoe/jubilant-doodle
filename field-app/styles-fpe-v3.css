@@ -2865,7 +2865,6 @@ body.training #app-shell-v3-root .fpe-surface .fpe-why {
 .fpe-right-rail-slot--intel .fpe-intel-chip,
 .fpe-right-rail-slot--intel .fpe-intel-mini-item,
 .fpe-right-rail-slot--intel .fpe-intel-trust__hero,
-.fpe-right-rail-slot--intel .fpe-intel-trust-legend,
 .fpe-right-rail-slot--intel .fpe-intel-trust-legend__row,
 .fpe-right-rail-slot--intel .fpe-intel-trust-tier,
 .fpe-right-rail-slot--intel .fpe-intel-trust-tier-pill,
@@ -2873,6 +2872,12 @@ body.training #app-shell-v3-root .fpe-surface .fpe-why {
 .fpe-right-rail-slot--intel .fpe-intel-trust-figure__state {
   background: var(--fpe-intel-rail-card-bg) !important;
   border-color: var(--fpe-intel-rail-card-border) !important;
+}
+
+.fpe-right-rail-slot--intel .fpe-intel-trust-legend {
+  background: transparent !important;
+  border-color: transparent !important;
+  border: 0 !important;
 }
 
 @media (max-width: 1260px) {
