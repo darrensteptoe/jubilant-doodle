@@ -8706,11 +8706,16 @@ function decisionBridgeSaveEventDraft(){
     nowDate: new Date(),
   });
   if (!out?.ok){
-    return { ok: false, code: out?.code || "event_save_failed", view: decisionBridgeStateView() };
+    return {
+      ok: false,
+      code: out?.code || "event_save_failed",
+      message: String(out?.message || ""),
+      view: decisionBridgeStateView(),
+    };
   }
   persist();
   refreshLegacyDecisionManagerIfMounted();
-  return { ok: true, view: decisionBridgeStateView() };
+  return { ok: true, code: "ok", message: "Event saved.", view: decisionBridgeStateView() };
 }
 
 function decisionBridgeLoadEventDraft(eventId){

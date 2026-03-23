@@ -2278,6 +2278,7 @@ body.training #app-shell-v3-root .fpe-surface .fpe-why {
 .fpe-intel-body {
   display: grid;
   gap: 8px;
+  padding-right: 2px;
 }
 
 .fpe-intel-section {
@@ -2291,7 +2292,7 @@ body.training #app-shell-v3-root .fpe-surface .fpe-why {
 
 .fpe-intel-section__title {
   margin: 0;
-  font-size: 12px;
+  font-size: 11px;
   color: var(--fpe-text);
   font-weight: 700;
   line-height: 1.5;
@@ -2301,7 +2302,7 @@ body.training #app-shell-v3-root .fpe-surface .fpe-why {
 
 .fpe-intel-section__body {
   margin: 0;
-  font-size: 12px;
+  font-size: 11px;
   color: var(--fpe-text);
   line-height: 1.5;
   overflow-wrap: anywhere;
@@ -2315,7 +2316,7 @@ body.training #app-shell-v3-root .fpe-surface .fpe-why {
 }
 
 .fpe-intel-section--hero .fpe-intel-section__title {
-  font-size: 12px;
+  font-size: 11px;
 }
 
 .fpe-intel-section--callout {
@@ -2347,14 +2348,39 @@ body.training #app-shell-v3-root .fpe-surface .fpe-why {
 .fpe-intel-mini-item {
   display: inline-flex;
   align-items: center;
+  gap: 4px;
   min-height: 24px;
   border-radius: 999px;
   border: 1px solid color-mix(in srgb, var(--fpe-rule) 88%, transparent);
   background: color-mix(in srgb, var(--fpe-panel-muted) 66%, var(--fpe-panel));
   padding: 3px 9px;
-  font-size: 12px;
+  font-size: 11px;
   line-height: 1.5;
   color: var(--fpe-text);
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.fpe-intel-mini-item__label {
+  color: var(--fpe-muted);
+  font-weight: 700;
+  font-size: 11px;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.fpe-intel-mini-item__value {
+  color: var(--fpe-text);
+  font-size: 11px;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.fpe-intel-section__meta {
+  margin-top: 2px;
+  font-size: 11px;
+  color: var(--fpe-muted);
+  line-height: 1.4;
   overflow-wrap: anywhere;
   word-break: break-word;
 }
@@ -2525,10 +2551,13 @@ body.training #app-shell-v3-root .fpe-surface .fpe-why {
 .fpe-right-rail-slot--intel .fpe-intel-section,
 .fpe-right-rail-slot--intel .fpe-intel-section__title,
 .fpe-right-rail-slot--intel .fpe-intel-section__body,
+.fpe-right-rail-slot--intel .fpe-intel-section__meta,
 .fpe-right-rail-slot--intel .fpe-intel-section__summary,
 .fpe-right-rail-slot--intel .fpe-intel-section__content,
 .fpe-right-rail-slot--intel .fpe-intel-mini-row,
 .fpe-right-rail-slot--intel .fpe-intel-mini-item,
+.fpe-right-rail-slot--intel .fpe-intel-mini-item__label,
+.fpe-right-rail-slot--intel .fpe-intel-mini-item__value,
 .fpe-right-rail-slot--intel .fpe-intel-links,
 .fpe-right-rail-slot--intel .fpe-intel-links__title,
 .fpe-right-rail-slot--intel .fpe-intel-links__list,
@@ -2551,8 +2580,8 @@ body.training #app-shell-v3-root .fpe-surface .fpe-why {
 .fpe-right-rail-slot--intel .fpe-intel-panel {
   margin-left: 12px;
   margin-right: 12px;
-  padding-left: 12px;
-  padding-right: 12px;
+  padding-left: 14px;
+  padding-right: 14px;
 }
 
 .fpe-right-rail-slot--intel .fpe-intel-link,
@@ -2562,7 +2591,10 @@ body.training #app-shell-v3-root .fpe-surface .fpe-why {
 
 .fpe-right-rail-slot--intel .fpe-intel-section__title,
 .fpe-right-rail-slot--intel .fpe-intel-section__body,
+.fpe-right-rail-slot--intel .fpe-intel-section__meta,
 .fpe-right-rail-slot--intel .fpe-intel-mini-item,
+.fpe-right-rail-slot--intel .fpe-intel-mini-item__label,
+.fpe-right-rail-slot--intel .fpe-intel-mini-item__value,
 .fpe-right-rail-slot--intel .fpe-intel-links__title,
 .fpe-right-rail-slot--intel .fpe-intel-link__label,
 .fpe-right-rail-slot--intel .fpe-intel-result__title,
