@@ -409,6 +409,8 @@ import {
 } from "./app/selectors.js";
 import * as operationsMetricsCacheModule from "./features/operations/metricsCache.js";
 import { PIPELINE_STAGES, DEFAULT_FORECAST_CONFIG } from "./features/operations/schema.js";
+import { mergeAllStores as mergeOperationsStores } from "./features/operations/store.js";
+import { buildScenarioDemoPackage } from "./app/scenarioDemoSeed.js";
 import { els } from "./ui/els.js";
 
 const renderBottleneckAttributionPanel =
@@ -3285,6 +3287,7 @@ function scenarioBridgeStateView(){
     activeLabel: summary.activeLabel,
     warning: summary.warning,
     storageStatus: summary.storageStatus,
+    demoSeedStatus: String(state?.ui?.scenarioDemoSeedStatus || ""),
     scenarios: records,
     baseline: baseline
       ? {
@@ -3302,6 +3305,105 @@ function scenarioBridgeStateView(){
           outputs: scenarioClone(active.outputs || {})
         }
       : null
+  };
+}
+
+async function scenarioBridgeSeedDemoPackage(){
+  ensureScenarioRegistry();
+  const reg = state?.ui?.scenarios || {};
+  const baseline = reg[SCENARIO_BASELINE_ID];
+  if (!baseline){
+    return { ok: false, code: "baseline_missing", error: "Baseline scenario is unavailable.", view: scenarioBridgeStateView() };
+  }
+
+  const context = resolveActiveContext({
+    fallback: {
+      campaignId: state?.campaignId,
+      campaignName: state?.campaignName,
+      officeId: state?.officeId,
+      scenarioId: state?.ui?.activeScenarioId || state?.scenarioId,
+    },
+  });
+
+  const demoPackage = buildScenarioDemoPackage({
+    baselineInputs: scenarioClone(baseline.inputs || {}),
+    baselineOutputs: scenarioClone(baseline.outputs || {}),
+    campaignId: context.campaignId,
+    officeId: context.officeId,
+  });
+
+  const incomingScenarios = Array.isArray(demoPackage?.scenarios) ? demoPackage.scenarios : [];
+  const currentCount = Object.keys(reg).length;
+  const additional = incomingScenarios.reduce((count, row) => (
+    reg[row?.id] ? count : (count + 1)
+  ), 0);
+  if ((currentCount + additional) > SCENARIO_MAX){
+    const availableSlots = Math.max(0, SCENARIO_MAX - currentCount);
+    return {
+      ok: false,
+      code: "max_reached",
+      error: `Demo package needs ${additional} slots, but only ${availableSlots} scenario slot(s) are available.`,
+      view: scenarioBridgeStateView(),
+    };
+  }
+
+  try{
+    await mergeOperationsStores(demoPackage.operationsData || {}, {
+      campaignId: context.campaignId,
+      campaignName: context.campaignName,
+      officeId: context.officeId,
+      scenarioId: context.scenarioId,
+    });
+  } catch (error){
+    return {
+      ok: false,
+      code: "operations_seed_failed",
+      error: String(error?.message || error || "Failed to seed fake team data."),
+      view: scenarioBridgeStateView(),
+    };
+  }
+
+  let createdScenarios = 0;
+  let updatedScenarios = 0;
+  for (const row of incomingScenarios){
+    const id = String(row?.id || "").trim();
+    if (!id) continue;
+    const existing = reg[id];
+    if (existing){
+      reg[id] = {
+        ...existing,
+        ...row,
+        createdAt: existing.createdAt || row.createdAt || new Date().toISOString(),
+      };
+      updatedScenarios += 1;
+    } else {
+      reg[id] = {
+        ...row,
+        id,
+      };
+      createdScenarios += 1;
+    }
+  }
+
+  const primaryDemoScenarioId = String(incomingScenarios?.[0]?.id || "").trim();
+  if (primaryDemoScenarioId && reg[primaryDemoScenarioId]){
+    state.ui.scenarioUiSelectedId = primaryDemoScenarioId;
+  }
+  const teamHeadcount = Number(demoPackage?.summary?.teamHeadcount || 0);
+  const shiftCount = Number(demoPackage?.summary?.shiftCount || 0);
+  state.ui.scenarioDemoSeedStatus = `Demo package loaded (${createdScenarios} added, ${updatedScenarios} updated). Team: ${teamHeadcount} people, ${shiftCount} shifts.`;
+
+  persist();
+  notifyBridgeSync({ source: "bridge.scenario", reason: "scenario_demo_seeded" });
+  refreshLegacyScenarioManagerIfMounted();
+
+  return {
+    ok: true,
+    createdScenarios,
+    updatedScenarios,
+    teamHeadcount,
+    shiftCount,
+    view: scenarioBridgeStateView(),
   };
 }
 
@@ -3861,7 +3963,8 @@ function installScenarioBridge(){
     captureObservedMetrics: () => scenarioBridgeCaptureObservedMetrics(),
     generateDriftRecommendations: () => scenarioBridgeGenerateDriftRecommendations(),
     parseWhatIf: (requestText) => scenarioBridgeParseWhatIf(requestText),
-    applyTopRecommendation: () => scenarioBridgeApplyTopRecommendation()
+    applyTopRecommendation: () => scenarioBridgeApplyTopRecommendation(),
+    seedDemoPackage: () => scenarioBridgeSeedDemoPackage(),
   };
 }
 
