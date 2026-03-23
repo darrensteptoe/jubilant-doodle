@@ -15,12 +15,14 @@ const STEPS = [
   { label: "district-integrity", cmd: "npm", args: ["run", "check:district-integrity"] },
   { label: "contracts", cmd: "npm", args: ["run", "check:contracts"] },
   { label: "spacing-contract", cmd: "npm", args: ["run", "check:spacing-contract"] },
+  { label: "hardening-surface-integrity", cmd: "npm", args: ["run", "check:hardening-surface-integrity"] },
   { label: "rebuild-contracts", cmd: "node", args: ["js/core/selfTestSuites/rebuildContracts.js"] },
   { label: "targeting-suite", cmd: "node", args: ["js/core/selfTestSuites/targeting.js"] },
   { label: "voter-suite", cmd: "node", args: ["js/core/selfTestSuites/voterDataLayer.js"] },
   { label: "census-suite", cmd: "node", args: ["js/core/selfTestSuites/censusPhase1.js"] },
   { label: "core-selftest", cmd: "node", args: ["js/core/selfTest.js"] },
   { label: "build", cmd: "npm", args: ["run", "build"] },
+  { label: "built-artifact", cmd: "npm", args: ["run", "check:built-artifact"] },
 ];
 
 function runStep(step){

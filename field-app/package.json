@@ -17,6 +17,8 @@
     "check:contracts": "node scripts/check-contract-diagnostics.mjs",
     "check:golden-fixtures": "node --test js/core/state/goldenFullStateRegression.test.js",
     "check:complexity-guardrails": "node scripts/check-complexity-guardrails.mjs",
+    "check:built-artifact": "node scripts/check-built-artifact.mjs",
+    "check:hardening-surface-integrity": "node --test js/app/v3/surfaces/hardeningSurfaceIntegrity.contract.test.js js/app/v3/surfaces/data/reportingGuidance.contract.test.js js/app/v3/surfaces/turnout.contract.test.js",
     "gate:drift": "node scripts/gate-architectural-drift.mjs",
     "gate:rebuild": "node scripts/gate-rebuild.mjs",
     "gate:gauntlet": "node scripts/release-gauntlet.mjs",
