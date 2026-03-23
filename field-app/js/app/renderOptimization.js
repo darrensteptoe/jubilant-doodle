@@ -139,7 +139,7 @@ export function renderOptimizationModule(args){
   if (!tactics.length){
     clearPlanCaches();
     hideBanner();
-    showBanner("warn", "Optimization: Enable at least one tactic (Doors/Phones/Texts) in Phase 4 inputs.");
+    showBanner("warn", "Optimization: Enable at least one tactic (Doors/Phones/Texts/Lit Drop/Mail) in Phase 4 inputs.");
     setTotals(null);
     stubRow();
     return;
