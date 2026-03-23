@@ -45,7 +45,7 @@ test("c5 contract: war room trace harness covers decision weather and event cont
   assert.match(warRoomSource, /const WAR_ROOM_V3_TRACE_PREFIX = "\[war_room_v3_dom_trace\]"/);
   assert.match(warRoomSource, /"v3DecisionBudget"/);
   assert.match(warRoomSource, /"v3DecisionWeatherOfficeZip"/);
-  assert.match(warRoomSource, /"v3DecisionEventTitle"/);
+  assert.doesNotMatch(warRoomSource, /"v3DecisionEventTitle"/);
   assert.match(warRoomSource, /eventType: "trace\.auto\.c5\.post"/);
   assert.match(warRoomSource, /eventType: "trace\.auto\.c5\.diagnostics\.post"/);
   assert.match(warRoomSource, /siblingReplacementMap/);
@@ -59,4 +59,18 @@ test("c5 contract: weather and event module binders keep boundaries", () => {
   assert.match(eventCalendarSource, /api\.setEventFilter\?\./);
   assert.match(eventCalendarSource, /api\.setEventDraftField\?\./);
   assert.doesNotMatch(eventCalendarSource, /api\.setWeather(Field|Mode)\?\./);
+});
+
+test("c9 contract: weather and calendar render as standalone war room cards", () => {
+  assert.match(warRoomSource, /const weatherCard = createCenterModuleCard\(\{[\s\S]*title: "Weather & Field Risk \(ZIP-driven\)"/m);
+  assert.match(warRoomSource, /assignCardStatusId\(weatherCard,\s*"v3DecisionWeatherCardStatus"\);/);
+  assert.doesNotMatch(warRoomSource, /title: "Calendar \/ Events"/);
+  assert.match(warRoomSource, /centerCol\.append\(\s*summaryCard,\s*sessionCard,\s*diagnosticsCard,\s*weatherCard,\s*assumptionsCard,\s*optionsCard,\s*recommendationCard,\s*\)/m);
+});
+
+test("c9 contract: diagnostics body extracts weather/calendar blocks into dedicated card bodies", () => {
+  assert.match(warRoomSource, /id="v3DecisionWeatherModuleBlock"/);
+  assert.match(warRoomSource, /const weatherBlock = diagnosticsBody\.querySelector\("#v3DecisionWeatherModuleBlock"\);/);
+  assert.match(warRoomSource, /weatherBody\.append\(weatherBlock\);/);
+  assert.doesNotMatch(warRoomSource, /v3DecisionEventModuleBlock/);
 });

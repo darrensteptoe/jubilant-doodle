@@ -118,7 +118,8 @@ test("c9 summary-at-top and density layout rules are applied to rebuilt pages", 
   assert.match(planSource, /createSurfaceFrame\("center-stack"\)/);
   assert.match(planSource, /centerCol\.append\([\s\S]*summaryCard,\s*workloadCard,/m);
   assert.match(scenariosSource, /createSurfaceFrame\("two-col-balanced"\)/);
-  assert.match(warRoomSource, /centerCol\.append\(\s*summaryCard,\s*sessionCard,\s*diagnosticsCard,\s*assumptionsCard,\s*optionsCard,\s*recommendationCard,\s*\)/m);
+  assert.match(warRoomSource, /centerCol\.append\(\s*summaryCard,\s*sessionCard,\s*diagnosticsCard,\s*weatherCard,\s*assumptionsCard,\s*optionsCard,\s*recommendationCard,\s*\)/m);
+  assert.match(planSource, /title: "Calendar \/ Events"/);
   assert.match(controlsSource, /createSurfaceFrame\("two-col"\)/);
   assert.match(controlsSource, /governanceCol\.append\(\s*summaryCard,\s*workflowCard,\s*benchmarkCard,\s*evidenceCard\s*\)/m);
   assert.match(dataSource, /centerCol\.append\(\s*summaryCard,\s*policyCard,\s*exchangeCard,\s*storageCard,\s*auditCard\s*\)/m);

@@ -30,10 +30,6 @@ import {
   syncWarRoomWeatherRisk,
 } from "./weatherRisk.js";
 import {
-  bindWarRoomEventCalendarEvents,
-  syncWarRoomEventCalendar,
-} from "./eventCalendar.js";
-import {
   bindWarRoomActionLogEvents,
   syncWarRoomActionLog,
 } from "./actionLog.js";
@@ -46,7 +42,6 @@ const WAR_ROOM_V3_TRACE_AUTO_RETRY_MS = 80;
 const WAR_ROOM_V3_TRACE_CONTROL_IDS = Object.freeze([
   "v3DecisionBudget",
   "v3DecisionWeatherOfficeZip",
-  "v3DecisionEventTitle",
 ]);
 const WAR_ROOM_V3_DIAGNOSTICS_ACTION_ID = "v3BtnDecisionCaptureReview";
 let warRoomV3TraceInstalled = false;
@@ -84,6 +79,11 @@ export function renderWarRoomSurface(mount) {
     description: "Drift, risk, bottlenecks, sensitivity snapshot, and confidence framing.",
     status: "Awaiting diagnostics"
   });
+  const weatherCard = createCenterModuleCard({
+    title: "Weather & Field Risk (ZIP-driven)",
+    description: "ZIP-scoped weather context, risk posture, and optional today-only field modifiers.",
+    status: "Awaiting session"
+  });
 
   const recommendationCard = createCenterModuleCard({
     title: "Next action",
@@ -101,6 +101,7 @@ export function renderWarRoomSurface(mount) {
   assignCardStatusId(assumptionsCard, "v3DecisionDetailCardStatus");
   assignCardStatusId(optionsCard, "v3DecisionOptionsCardStatus");
   assignCardStatusId(diagnosticsCard, "v3DecisionDiagnosticsCardStatus");
+  assignCardStatusId(weatherCard, "v3DecisionWeatherCardStatus");
   assignCardStatusId(recommendationCard, "v3DecisionActionCardStatus");
   assignCardStatusId(summaryCard, "v3DecisionSummaryCardStatus");
 
@@ -439,7 +440,7 @@ export function renderWarRoomSurface(mount) {
         <button class="fpe-btn fpe-btn--ghost" id="v3BtnDecisionCaptureReview" type="button">Capture review baseline</button>
       </div>
     </div>
-    <div class="fpe-contained-block">
+    <div class="fpe-contained-block" id="v3DecisionWeatherModuleBlock">
       <div class="fpe-control-label">Weather & Field Risk (ZIP-driven)</div>
       <div class="fpe-field-grid fpe-field-grid--3">
         <div class="field">
@@ -519,144 +520,15 @@ export function renderWarRoomSurface(mount) {
         </table>
       </div>
     </div>
-    <div class="fpe-contained-block">
-      <div class="fpe-control-label">Calendar / Events</div>
-      <div class="fpe-field-grid fpe-field-grid--4">
-        <div class="field">
-          <label class="fpe-control-label" for="v3DecisionEventFilterDate">Date</label>
-          <input class="fpe-input" id="v3DecisionEventFilterDate" type="date"/>
-        </div>
-        <div class="field">
-          <label class="fpe-control-label" for="v3DecisionEventCategoryFilter">Category filter</label>
-          <select class="fpe-input" id="v3DecisionEventCategoryFilter"></select>
-        </div>
-        <div class="field">
-          <label class="fpe-control-label">Applied only</label>
-          <label class="fpe-switch"><input id="v3DecisionEventAppliedOnly" type="checkbox"/><span>Show apply-to-model only</span></label>
-        </div>
-        <div class="field">
-          <label class="fpe-control-label">Include inactive</label>
-          <label class="fpe-switch"><input id="v3DecisionEventIncludeInactive" type="checkbox"/><span>Show completed/cancelled</span></label>
-        </div>
-      </div>
-      <div class="fpe-help fpe-help--flush" id="v3DecisionEventSummary">No events for selected date.</div>
-      <div class="fpe-help fpe-help--flush" id="v3DecisionEventImpact">No active campaign events are applying capacity modifiers for the selected date.</div>
-      <div class="table-wrap">
-        <table class="table" aria-label="Event calendar rows">
-          <thead>
-            <tr>
-              <th>Date / Time</th>
-              <th>Category / Type</th>
-              <th>Title / Notes</th>
-              <th>Capacity assumptions</th>
-              <th>Apply</th>
-              <th>Status</th>
-              <th>Actions</th>
-            </tr>
-          </thead>
-          <tbody id="v3DecisionEventTbody">
-            <tr><td class="muted" colspan="7">No events on selected date.</td></tr>
-          </tbody>
-        </table>
-      </div>
-      <div class="fpe-field-grid fpe-field-grid--3">
-        <div class="field">
-          <label class="fpe-control-label" for="v3DecisionEventCategory">Category</label>
-          <select class="fpe-input" id="v3DecisionEventCategory"></select>
-        </div>
-        <div class="field">
-          <label class="fpe-control-label" for="v3DecisionEventType">Event type</label>
-          <select class="fpe-input" id="v3DecisionEventType"></select>
-        </div>
-        <div class="field">
-          <label class="fpe-control-label" for="v3DecisionEventStatus">Status</label>
-          <select class="fpe-input" id="v3DecisionEventStatus"></select>
-        </div>
-      </div>
-      <div class="fpe-field-grid fpe-field-grid--3">
-        <div class="field">
-          <label class="fpe-control-label" for="v3DecisionEventTitle">Title</label>
-          <input class="fpe-input" id="v3DecisionEventTitle" type="text"/>
-        </div>
-        <div class="field">
-          <label class="fpe-control-label" for="v3DecisionEventDate">Event date</label>
-          <input class="fpe-input" id="v3DecisionEventDate" type="date"/>
-        </div>
-        <div class="field">
-          <label class="fpe-control-label">Apply to model</label>
-          <label class="fpe-switch"><input id="v3DecisionEventApplyToModel" type="checkbox"/><span>Capacity-only (campaign events)</span></label>
-        </div>
-      </div>
-      <div class="fpe-field-grid fpe-field-grid--3">
-        <div class="field">
-          <label class="fpe-control-label" for="v3DecisionEventStartTime">Start time</label>
-          <input class="fpe-input" id="v3DecisionEventStartTime" type="time"/>
-        </div>
-        <div class="field">
-          <label class="fpe-control-label" for="v3DecisionEventEndTime">End time</label>
-          <input class="fpe-input" id="v3DecisionEventEndTime" type="time"/>
-        </div>
-        <div class="field">
-          <label class="fpe-control-label" for="v3DecisionEventCreatedBy">Created by</label>
-          <input class="fpe-input" id="v3DecisionEventCreatedBy" type="text"/>
-        </div>
-      </div>
-      <div class="fpe-field-grid fpe-field-grid--3">
-        <div class="field">
-          <label class="fpe-control-label" for="v3DecisionEventExpectedVolunteers">Expected volunteers</label>
-          <input class="fpe-input" id="v3DecisionEventExpectedVolunteers" inputmode="numeric" type="text"/>
-        </div>
-        <div class="field">
-          <label class="fpe-control-label" for="v3DecisionEventExpectedPaid">Expected paid canvassers</label>
-          <input class="fpe-input" id="v3DecisionEventExpectedPaid" inputmode="numeric" type="text"/>
-        </div>
-        <div class="field">
-          <label class="fpe-control-label" for="v3DecisionEventExpectedShiftHours">Expected shift hours</label>
-          <input class="fpe-input" id="v3DecisionEventExpectedShiftHours" inputmode="decimal" type="text"/>
-        </div>
-      </div>
-      <div class="fpe-field-grid fpe-field-grid--3">
-        <div class="field">
-          <label class="fpe-control-label" for="v3DecisionEventMeetingType">Meeting type (admin)</label>
-          <input class="fpe-input" id="v3DecisionEventMeetingType" type="text"/>
-        </div>
-        <div class="field">
-          <label class="fpe-control-label" for="v3DecisionEventAttendees">Attendees (admin)</label>
-          <input class="fpe-input" id="v3DecisionEventAttendees" type="text"/>
-        </div>
-        <div class="field">
-          <label class="fpe-control-label" for="v3DecisionEventFollowUpOwner">Follow-up owner</label>
-          <input class="fpe-input" id="v3DecisionEventFollowUpOwner" type="text"/>
-        </div>
-      </div>
-      <div class="fpe-field-grid fpe-field-grid--3">
-        <div class="field">
-          <label class="fpe-control-label" for="v3DecisionEventFollowUpDate">Follow-up date</label>
-          <input class="fpe-input" id="v3DecisionEventFollowUpDate" type="date"/>
-        </div>
-        <div class="field">
-          <label class="fpe-control-label" for="v3DecisionEventOfficeLocation">Office / location</label>
-          <input class="fpe-input" id="v3DecisionEventOfficeLocation" type="text"/>
-        </div>
-        <div class="field">
-          <label class="fpe-control-label" for="v3DecisionEventChannelFocus">Channel focus</label>
-          <input class="fpe-input" id="v3DecisionEventChannelFocus" type="text"/>
-        </div>
-      </div>
-      <div class="field">
-        <label class="fpe-control-label" for="v3DecisionEventFieldGoalNotes">Field goal notes</label>
-        <textarea class="fpe-input" id="v3DecisionEventFieldGoalNotes" rows="2"></textarea>
-      </div>
-      <div class="field">
-        <label class="fpe-control-label" for="v3DecisionEventNotes">Notes</label>
-        <textarea class="fpe-input" id="v3DecisionEventNotes" rows="2"></textarea>
-      </div>
-      <div class="fpe-action-row">
-        <button class="fpe-btn fpe-btn--ghost" id="v3BtnDecisionEventSave" type="button">Save event</button>
-        <button class="fpe-btn fpe-btn--ghost" id="v3BtnDecisionEventClear" type="button">Clear draft</button>
-      </div>
-    </div>
   `;
+  {
+    const diagnosticsBody = getCardBody(diagnosticsCard);
+    const weatherBody = getCardBody(weatherCard);
+    const weatherBlock = diagnosticsBody.querySelector("#v3DecisionWeatherModuleBlock");
+    if (weatherBlock instanceof HTMLElement) {
+      weatherBody.append(weatherBlock);
+    }
+  }
 
   getCardBody(recommendationCard).innerHTML = `
     <div class="fpe-contained-block">
@@ -793,6 +665,7 @@ export function renderWarRoomSurface(mount) {
     summaryCard,
     sessionCard,
     diagnosticsCard,
+    weatherCard,
     assumptionsCard,
     optionsCard,
     recommendationCard,
@@ -873,9 +746,6 @@ function readWarRoomCanonicalByControlId(controlId, view = null) {
   }
   if (controlId === "v3DecisionWeatherOfficeZip") {
     return sourceView?.warRoom?.weather?.officeZip ?? "";
-  }
-  if (controlId === "v3DecisionEventTitle") {
-    return sourceView?.warRoom?.eventCalendar?.draft?.title ?? "";
   }
   return "";
 }
@@ -1001,9 +871,6 @@ function resolveWarRoomV3ProbeValue(controlId, control) {
   }
   if (controlId === "v3DecisionWeatherOfficeZip") {
     return "60614";
-  }
-  if (controlId === "v3DecisionEventTitle") {
-    return "c5-event-probe";
   }
   return "";
 }
@@ -1201,13 +1068,6 @@ function refreshDecisionSummary() {
     setDisabled,
     setText,
   });
-  syncWarRoomEventCalendar(view, {
-    syncInput,
-    syncSelect,
-    setChecked,
-    setDisabled,
-    setText,
-  });
   syncWarRoomActionLog(view, { setText });
 
   setDisabled("v3BtnDecisionCaptureReview", !view.session);
@@ -1235,6 +1095,10 @@ function refreshDecisionSummary() {
   syncDecisionCardStatus(
     "v3DecisionDiagnosticsCardStatus",
     deriveDecisionDiagnosticsCardStatus(drift, risk, bneck, sens, conf)
+  );
+  syncDecisionCardStatus(
+    "v3DecisionWeatherCardStatus",
+    deriveDecisionWeatherCardStatus(view)
   );
   syncDecisionCardStatus(
     "v3DecisionActionCardStatus",
@@ -1289,13 +1153,6 @@ function wireDecisionEvents() {
     on,
     valueOf,
     checkedOf,
-  });
-  bindWarRoomEventCalendarEvents({
-    run,
-    on,
-    valueOf,
-    checkedOf,
-    confirmThenRun,
   });
   bindWarRoomActionLogEvents({ run });
 }
@@ -1621,6 +1478,21 @@ function syncSelect(id, rows, value, valueKey = "id", labelKey = "name") {
   }
 }
 
+function deriveDecisionWeatherCardStatus(view) {
+  if (!view || !view.session) {
+    return "Awaiting session";
+  }
+  const weather = view.warRoom?.weather || {};
+  if (String(weather?.error || "").trim()) {
+    return "Weather warning";
+  }
+  const selectedZip = String(weather?.selectedZip || weather?.officeZip || "").trim();
+  if (selectedZip) {
+    return "Weather ready";
+  }
+  return "Awaiting ZIP";
+}
+
 function replaceWarRoomSelectOptionsInPlace(select, rows, valueKey = "id", labelKey = "name") {
   if (!(select instanceof HTMLSelectElement)) {
     return;
@@ -1734,14 +1606,12 @@ function renderUnavailable() {
   setText("v3DecisionWarRoomClassDiag", "Decision runtime bridge unavailable.");
   setText("v3DecisionWarRoomSummaryDiag", "Decision runtime bridge unavailable.");
   setText("v3DecisionWeatherStatus", "Decision runtime bridge unavailable.");
-  setText("v3DecisionEventSummary", "Decision runtime bridge unavailable.");
-  setText("v3DecisionEventImpact", "Decision runtime bridge unavailable.");
   renderWeatherForecastRows([]);
-  renderEventRows([]);
   syncDecisionCardStatus("v3DecisionSessionCardStatus", DECISION_STATUS_UNAVAILABLE);
   syncDecisionCardStatus("v3DecisionDetailCardStatus", DECISION_STATUS_UNAVAILABLE);
   syncDecisionCardStatus("v3DecisionOptionsCardStatus", DECISION_STATUS_UNAVAILABLE);
   syncDecisionCardStatus("v3DecisionDiagnosticsCardStatus", DECISION_STATUS_UNAVAILABLE);
+  syncDecisionCardStatus("v3DecisionWeatherCardStatus", DECISION_STATUS_UNAVAILABLE);
   syncDecisionCardStatus("v3DecisionActionCardStatus", DECISION_STATUS_UNAVAILABLE);
   syncDecisionCardStatus("v3DecisionSummaryCardStatus", DECISION_STATUS_UNAVAILABLE);
 }
