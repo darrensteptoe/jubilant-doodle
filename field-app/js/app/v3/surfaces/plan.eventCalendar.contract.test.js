@@ -15,9 +15,18 @@ test("plan contract: calendar/events module is rendered and wired on plan surfac
   assert.match(planSource, /from "\.\/warRoom\/eventCalendar\.js"/);
   assert.match(planSource, /title: "Calendar \/ Events"/);
   assert.match(planSource, /id="v3PlanEventCalendarRoot"/);
+  assert.match(planSource, /id="v3PlanDecisionSessionSelect"/);
+  assert.match(planSource, /id="v3BtnPlanDecisionNewSession"/);
+  assert.match(planSource, /id="v3BtnPlanEventApplyFilters"/);
+  assert.match(planSource, /id="v3BtnPlanEventResetFilters"/);
+  assert.match(planSource, /id="v3PlanEventActionStatus"/);
   assert.match(planSource, /assignCardStatusId\(eventsCard,\s*"v3PlanEventsCardStatus"\);/);
   assert.match(planSource, /wirePlanDecisionEventCalendarProxies\(\);/);
   assert.match(planSource, /syncWarRoomEventCalendar\(decisionView,\s*\{/);
+  assert.match(planSource, /syncPlanEventSessionControls\(decisionView\);/);
+  assert.match(planSource, /run\(\(api\) => api\.selectSession\?\./);
+  assert.match(planSource, /run\(\(api\) => api\.createSession\?\./);
+  assert.match(planSource, /resolvePlanEventActionError\(/);
 });
 
 test("plan contract: war room no longer renders calendar/events module", () => {

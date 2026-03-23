@@ -6,6 +6,7 @@ import {
   normalizeFootprintCapacity,
   resolutionLabel,
 } from "../core/censusModule.js";
+import { roundWholeNumberByMode } from "../core/utils.js";
 import {
   buildAssumptionsApplyModeText,
   buildAssumptionsBandWidthText,
@@ -45,7 +46,8 @@ function buildElectionCountdownView(electionDate, nowDate = new Date()){
     };
   }
   const todayMs = Date.UTC(nowDate.getUTCFullYear(), nowDate.getUTCMonth(), nowDate.getUTCDate());
-  const dayDiff = Math.round((electionDayMs - todayMs) / MS_PER_DAY);
+  const dayDiffRaw = (electionDayMs - todayMs) / MS_PER_DAY;
+  const dayDiff = roundWholeNumberByMode(dayDiffRaw, { mode: "round", fallback: 0 }) ?? 0;
   if (dayDiff < 0){
     return {
       daysLabel: "Passed",

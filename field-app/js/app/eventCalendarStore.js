@@ -280,11 +280,11 @@ export function saveEventDraftAsEvent(state, {
     existingCreatedAt: cleanText(existing?.createdAt),
   });
 
-  if (!record.campaignId || !record.officeId){
+  if (!record.campaignId){
     return {
       ok: false,
       code: "missing_context",
-      message: "Event requires campaignId and officeId context.",
+      message: "Event requires campaignId context.",
     };
   }
 
