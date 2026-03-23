@@ -132,7 +132,8 @@ function modeLabel(mode){
   return "Guide";
 }
 
-function parseMiniItems(row){
+function parseMiniItems(row, variant = ""){
+  const currentVariant = clean(variant) || clean(row?.variant);
   const items = Array.isArray(row?.items) ? row.items.map((item) => clean(item)).filter(Boolean) : [];
   if (items.length){
     return items.map((item) => {
@@ -145,6 +146,9 @@ function parseMiniItems(row){
         value: clean(item.slice(idx + 1)),
       };
     });
+  }
+  if (currentVariant !== "mini-row"){
+    return [];
   }
   const text = clean(row?.body);
   if (!text) return [];
@@ -195,7 +199,7 @@ function renderSectionMeta(row){
 
 function renderSection(row){
   const variant = clean(row?.variant) || "card";
-  const miniItems = parseMiniItems(row);
+  const miniItems = parseMiniItems(row, variant);
   const classes = [
     "fpe-intel-section",
     `fpe-intel-section--${escapeHtml(variant)}`,
