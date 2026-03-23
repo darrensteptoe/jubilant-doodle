@@ -23,6 +23,18 @@ const MODULE_PLAYBOOK_LINKS = Object.freeze({
   turnoutContactSaturation: Object.freeze(["lateCycleRepeatedContactFlattened"]),
   warRoomDecisionSession: Object.freeze(["lowConfidenceHighPressure", "weatherThreatensElectionDayPlan"]),
 });
+const STAGE_GLOSSARY_DEFAULTS = Object.freeze({
+  district: Object.freeze(["persuasion", "turnoutOpportunity", "contactProbability", "readiness", "capacity"]),
+  reach: Object.freeze(["persuasionUniverse", "mobilizationUniverse", "turnoutOpportunity", "contactProbability"]),
+  turnout: Object.freeze(["turnoutOpportunity", "turnoutElasticity", "saturation", "contactProbability"]),
+  outcome: Object.freeze(["percentileRange", "median", "planningFloor", "upsideCase", "confidenceBand"]),
+  plan: Object.freeze(["votePath", "costPerContact", "capacity", "realism", "actionability"]),
+  scenarios: Object.freeze(["scenarioDrift", "signal", "noise", "materialChange", "confidenceBand"]),
+  controls: Object.freeze(["readiness", "confidence", "calibration", "bias", "realism"]),
+  data: Object.freeze(["readiness", "confidence", "confidenceBand", "calibration", "scenarioDrift"]),
+  "war-room": Object.freeze(["signal", "noise", "decisionSignificance", "actionability", "planningFloor", "upsideCase"]),
+  "decision-log": Object.freeze(["signal", "noise", "decisionSignificance", "actionability", "planningFloor", "upsideCase"]),
+});
 
 function clean(value){
   return String(value == null ? "" : value).trim();
@@ -250,6 +262,42 @@ function relatedLinks(entry){
   return [...modules, ...models, ...terms, ...messages, ...playbooks];
 }
 
+function fallbackGlossaryTermsForStage(stageId){
+  const id = clean(stageId).toLowerCase();
+  return STAGE_GLOSSARY_DEFAULTS[id] || Object.freeze(["readiness", "confidence", "signal"]);
+}
+
+function resolveGlossaryLink(termId){
+  const resolved = getIntelligenceEntity(MODE_GLOSSARY, termId);
+  if (!resolved) return null;
+  const id = clean(resolved?.id);
+  if (!id) return null;
+  return {
+    type: MODE_GLOSSARY,
+    id,
+    label: clean(resolved?.term) || id,
+  };
+}
+
+function withFallbackGlossaryLinks(links, context, entry){
+  const list = Array.isArray(links) ? links.slice() : [];
+  const seen = new Set(
+    list
+      .filter((row) => clean(row?.type).toLowerCase() === MODE_GLOSSARY)
+      .map((row) => clean(row?.id))
+      .filter(Boolean),
+  );
+  const preferred = toList(entry?.relatedTerms);
+  const fallback = fallbackGlossaryTermsForStage(context?.stageId);
+  for (const termId of [...preferred, ...fallback]){
+    const row = resolveGlossaryLink(termId);
+    if (!row || seen.has(row.id)) continue;
+    seen.add(row.id);
+    list.push(row);
+  }
+  return list;
+}
+
 function resolveModuleMode(input, context){
   const stageDefault = getDefaultModuleForStage(context.stageId);
   const moduleId = clean(input.moduleId) || stageDefault;
@@ -263,13 +311,14 @@ function resolveModuleMode(input, context){
       links: [],
     };
   }
+  const links = withFallbackGlossaryLinks(relatedLinks(entry), context, entry);
   return {
     mode: MODE_MODULE,
     id: entry.id,
     title: entry.title,
     subtitle: injectLiveValues(entry.summary || "", context),
     sections: buildModuleSections(entry, context),
-    links: relatedLinks(entry),
+    links,
   };
 }
 
@@ -294,6 +343,11 @@ function resolveModelMode(input, context){
     implementationBits.push(`#${clean(entry.canonicalImplementation.fn)}`);
   }
   const implementationLabel = implementationBits.join("");
+  const links = withFallbackGlossaryLinks(relatedLinks({
+    ...entry,
+    relatedModules: toList(entry?.relatedDoctrinePages),
+    relatedPlaybook: toList(entry?.relatedPlaybookEntries),
+  }), context, entry);
   return {
     mode: MODE_MODEL,
     id: entry.id,
@@ -318,11 +372,7 @@ function resolveModelMode(input, context){
       makeSection({ id: "status", label: "Status", body: injectLiveValues(clean(entry.status) || "planned", context), variant: "mini-row" }),
       makeSection({ id: "notes", label: "Coverage Notes", body: injectLiveValues(entry.notes || "", context), expandable: true }),
     ].filter((row) => clean(row.body) || row.items.length),
-    links: relatedLinks({
-      ...entry,
-      relatedModules: toList(entry?.relatedDoctrinePages),
-      relatedPlaybook: toList(entry?.relatedPlaybookEntries),
-    }),
+    links,
   };
 }
 
@@ -338,6 +388,7 @@ function resolveGlossaryMode(input, context){
       links: [],
     };
   }
+  const links = withFallbackGlossaryLinks(relatedLinks(entry), context, entry);
   return {
     mode: MODE_GLOSSARY,
     id: entry.id,
@@ -356,7 +407,7 @@ function resolveGlossaryMode(input, context){
         body: injectLiveValues(entry.whyItMatters || "", context),
       }),
     ].filter((row) => clean(row.body) || row.items.length),
-    links: relatedLinks(entry),
+    links,
   };
 }
 
@@ -372,6 +423,7 @@ function resolveMessageMode(input, context){
       links: [],
     };
   }
+  const links = withFallbackGlossaryLinks(relatedLinks(entry), context, entry);
   return {
     mode: MODE_MESSAGE,
     id: entry.id,
@@ -384,7 +436,7 @@ function resolveMessageMode(input, context){
       makeSection({ id: "affects", label: "What It Affects", body: injectLiveValues(entry.whatItAffects || "", context) }),
       makeSection({ id: "ignored", label: "If Ignored", body: injectLiveValues(entry.ifIgnored || "", context), expandable: true }),
     ].filter((row) => clean(row.body) || row.items.length),
-    links: relatedLinks(entry),
+    links,
     kind: clean(entry.kind),
   };
 }
@@ -410,6 +462,7 @@ function resolvePlaybookMode(input, context){
     .map((rule) => clean(rule?.label) || clean(rule?.signal))
     .filter(Boolean)
     .join(" | ");
+  const links = withFallbackGlossaryLinks(relatedLinks(entry), context, entry);
   return {
     mode: MODE_PLAYBOOK,
     id: entry.id,
@@ -465,7 +518,7 @@ function resolvePlaybookMode(input, context){
         expandable: true,
       }),
     ].filter((row) => clean(row.body) || row.items.length),
-    links: relatedLinks(entry),
+    links,
   };
 }
 

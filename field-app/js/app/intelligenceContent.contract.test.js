@@ -88,3 +88,28 @@ test("intelligence resolver: forecast guide renders editorial section flow with 
   assert.ok(sections[5]?.expandable, "tight vs wide should be collapsible");
   assert.ok(sections[9]?.expandable, "concrete example should be collapsible");
 });
+
+test("intelligence resolver: glossary links are always available across primary modes", () => {
+  const stages = ["district", "reach", "turnout", "outcome", "plan", "scenarios", "decision-log", "controls", "data"];
+  for (const stageId of stages){
+    const modulePayload = resolveIntelligencePayload({ mode: "module", context: { stageId } });
+    const modelPayload = resolveIntelligencePayload({ mode: "model", context: { stageId } });
+    const playbookPayload = resolveIntelligencePayload({ mode: "playbook", context: { stageId } });
+    const termPayload = resolveIntelligencePayload({ mode: "glossary", termId: "confidenceBand", context: { stageId } });
+    const payloads = [
+      ["module", modulePayload],
+      ["model", modelPayload],
+      ["playbook", playbookPayload],
+      ["glossary", termPayload],
+    ];
+    for (const [mode, payload] of payloads){
+      const glossaryLinks = Array.isArray(payload?.links)
+        ? payload.links.filter((row) => String(row?.type || "").toLowerCase() === "glossary")
+        : [];
+      assert.ok(
+        glossaryLinks.length > 0,
+        `stage ${stageId} mode ${mode} missing glossary links`,
+      );
+    }
+  }
+});

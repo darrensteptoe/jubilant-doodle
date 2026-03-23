@@ -103,13 +103,34 @@ function modeLabel(mode){
 
 function parseMiniItems(row){
   const items = Array.isArray(row?.items) ? row.items.map((item) => clean(item)).filter(Boolean) : [];
-  if (items.length) return items;
+  if (items.length){
+    return items.map((item) => {
+      const idx = item.indexOf(":");
+      if (idx <= 0 || idx === item.length - 1){
+        return { label: "", value: item };
+      }
+      return {
+        label: clean(item.slice(0, idx)),
+        value: clean(item.slice(idx + 1)),
+      };
+    });
+  }
   const text = clean(row?.body);
   if (!text) return [];
   return text
     .split(/\s*\|\s*/)
     .map((item) => clean(item))
-    .filter(Boolean);
+    .filter(Boolean)
+    .map((item) => {
+      const idx = item.indexOf(":");
+      if (idx <= 0 || idx === item.length - 1){
+        return { label: "", value: item };
+      }
+      return {
+        label: clean(item.slice(0, idx)),
+        value: clean(item.slice(idx + 1)),
+      };
+    });
 }
 
 function renderSectionHeader(row){
@@ -125,9 +146,20 @@ function renderSectionBody(row){
 
 function renderSectionContent(row, miniItems){
   if (miniItems.length){
-    return `<div class="fpe-intel-mini-row">${miniItems.map((item) => `<span class="fpe-intel-mini-item">${escapeHtml(item)}</span>`).join("")}</div>`;
+    return `<div class="fpe-intel-mini-row">${miniItems.map((item) => `
+      <span class="fpe-intel-mini-item">
+        ${item.label ? `<span class="fpe-intel-mini-item__label">${escapeHtml(item.label)}</span>` : ""}
+        <span class="fpe-intel-mini-item__value">${escapeHtml(item.value)}</span>
+      </span>
+    `).join("")}</div>`;
   }
   return renderSectionBody(row);
+}
+
+function renderSectionMeta(row){
+  return row?.expandable
+    ? `<div class="fpe-intel-section__meta">Deep dive</div>`
+    : "";
 }
 
 function renderSection(row){
@@ -143,6 +175,7 @@ function renderSection(row){
       <section class="${classes.join(" ")}">
         ${renderSectionHeader(row)}
         ${renderSectionContent(row, miniItems)}
+        ${renderSectionMeta(row)}
       </section>
     `;
   }
@@ -151,6 +184,7 @@ function renderSection(row){
     <section class="${classes.join(" ")}">
       ${renderSectionHeader(row)}
       ${renderSectionContent(row, miniItems)}
+      ${renderSectionMeta(row)}
     </section>
   `;
 }
@@ -236,7 +270,7 @@ function renderLinks(payload, options = {}){
   }).join("");
   return `
     <section class="fpe-intel-links">
-      <div class="fpe-intel-links__title">Related Paths</div>
+      <div class="fpe-intel-links__title">Related Guide Paths</div>
       <div class="fpe-intel-links__list">${items}</div>
     </section>
   `;
