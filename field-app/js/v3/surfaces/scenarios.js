@@ -81,6 +81,10 @@ export function renderScenariosSurface(mount) {
         <button class="fpe-btn fpe-btn--ghost" id="v3BtnScenarioReturnBaseline" type="button">Return to baseline</button>
         <button class="fpe-btn fpe-btn--ghost" id="v3BtnScenarioDelete" type="button">Delete scenario</button>
       </div>
+      <div class="fpe-action-row">
+        <button class="fpe-btn fpe-btn--ghost" id="v3BtnScenarioSeedDemo" type="button">Load past-election demo + fake team</button>
+      </div>
+      <div class="fpe-help fpe-help--flush" id="v3ScenarioDemoSeedStatus">Demo package not loaded yet.</div>
     </div>
   `;
 
@@ -241,10 +245,12 @@ function refreshScenariosSummary() {
 
   const warning = view.warning || "No warnings.";
   const storage = view.storageStatus || SCENARIO_STORAGE_STATUS_SESSION_ONLY;
+  const demoSeedStatus = view.demoSeedStatus || "Demo package not loaded yet.";
   setText("v3ScenarioWarningStatus", warning);
   setText("v3ScenarioStorageStatus", storage);
   setText("v3ScenarioLegacyWarn", warning);
   setText("v3ScenarioLegacyStorageNote", storage);
+  setText("v3ScenarioDemoSeedStatus", demoSeedStatus);
 
   syncScenarioCardStatus(
     "v3ScenarioWorkspaceCardStatus",
@@ -278,6 +284,7 @@ function wireScenariosEvents() {
   const btnLoad = document.getElementById("v3BtnScenarioLoadSelected");
   const btnReturn = document.getElementById("v3BtnScenarioReturnBaseline");
   const btnDelete = document.getElementById("v3BtnScenarioDelete");
+  const btnSeedDemo = document.getElementById("v3BtnScenarioSeedDemo");
 
   selectEl?.addEventListener("change", () => {
     const api = getScenarioApi();
@@ -337,6 +344,43 @@ function wireScenariosEvents() {
     }
     getScenarioApi()?.deleteSelected?.();
     refreshScenariosSummary();
+  });
+
+  btnSeedDemo?.addEventListener("click", async () => {
+    const api = getScenarioApi();
+    if (!api?.seedDemoPackage){
+      setText("v3ScenarioDemoSeedStatus", "Demo seed action unavailable.");
+      return;
+    }
+    let transientStatus = "";
+    if (btnSeedDemo instanceof HTMLButtonElement){
+      btnSeedDemo.disabled = true;
+    }
+    setText("v3ScenarioDemoSeedStatus", "Loading demo package...");
+    try{
+      const result = await api.seedDemoPackage();
+      if (!result?.ok){
+        const error = String(result?.error || "Demo package failed.");
+        transientStatus = `Demo package failed: ${error}`;
+        setText("v3ScenarioDemoSeedStatus", transientStatus);
+      } else {
+        const created = Number(result?.createdScenarios || 0);
+        const updated = Number(result?.updatedScenarios || 0);
+        const team = Number(result?.teamHeadcount || 0);
+        setText("v3ScenarioDemoSeedStatus", `Demo package loaded (${created} added, ${updated} updated). Team size: ${team}.`);
+      }
+    } catch (error){
+      transientStatus = `Demo package failed: ${String(error?.message || error || "unknown error")}`;
+      setText("v3ScenarioDemoSeedStatus", transientStatus);
+    } finally {
+      if (btnSeedDemo instanceof HTMLButtonElement){
+        btnSeedDemo.disabled = false;
+      }
+      refreshScenariosSummary();
+      if (transientStatus){
+        setText("v3ScenarioDemoSeedStatus", transientStatus);
+      }
+    }
   });
 }
 

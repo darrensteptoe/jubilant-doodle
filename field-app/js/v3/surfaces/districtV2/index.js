@@ -47,6 +47,7 @@ import {
   deriveDistrictSummaryCardStatus,
   deriveDistrictTargetingCardStatus,
 } from "../../../../core/districtView.js";
+import { formatFixedNumber } from "../../../../core/utils.js";
 import {
   listDistrictModeOptions,
   listDistrictRaceTypeOptions,
@@ -2373,7 +2374,7 @@ function deriveDistrictTurnoutBaselineCardStatus(snapshot) {
   const hasB = Number.isFinite(turnoutB);
   const hasBand = Number.isFinite(bandWidth);
   if (hasA && hasB && hasBand) {
-    return `Anchored · A ${turnoutA.toFixed(1)}% · B ${turnoutB.toFixed(1)}% · ±${bandWidth.toFixed(1)}%`;
+    return `Anchored · A ${formatFixedNumber(turnoutA, 1)}% · B ${formatFixedNumber(turnoutB, 1)}% · ±${formatFixedNumber(bandWidth, 1)}%`;
   }
   if (hasA || hasB || hasBand) {
     return "Partial anchors";

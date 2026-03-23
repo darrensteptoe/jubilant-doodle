@@ -10,6 +10,10 @@ import {
   readText,
   setText,
 } from "../surfaceUtils.js";
+import {
+  bindWarRoomEventCalendarEvents,
+  syncWarRoomEventCalendar,
+} from "./warRoom/eventCalendar.js";
 import { getOptimizationObjectiveCopy } from "../../../core/turnout.js";
 import {
   buildPlanOfficePathTableRowsView,
@@ -44,6 +48,7 @@ import {
 const REACH_API_KEY = "__FPE_REACH_API__";
 const PLAN_API_KEY = "__FPE_PLAN_API__";
 const SCENARIO_API_KEY = "__FPE_SCENARIO_API__";
+const DECISION_API_KEY = "__FPE_DECISION_API__";
 
 export function renderPlanSurface(mount) {
   const frame = createSurfaceFrame("center-stack");
@@ -77,6 +82,12 @@ export function renderPlanSurface(mount) {
   `;
   setCardHeaderControl(timelineCard, timelineHeaderToggle);
 
+  const eventsCard = createCard({
+    title: "Calendar / Events",
+    description: "Operational event calendar, capacity modifiers, and apply-to-model controls.",
+    status: "Awaiting session"
+  });
+
   const riskCard = createCard({
     title: "Execution risk",
     description: "Constraint diagnostics and timeline shortfall posture.",
@@ -98,6 +109,7 @@ export function renderPlanSurface(mount) {
   assignCardStatusId(workloadCard, "v3PlanWorkloadCardStatus");
   assignCardStatusId(optimizerCard, "v3PlanOptimizerCardStatus");
   assignCardStatusId(timelineCard, "v3PlanTimelineCardStatus");
+  assignCardStatusId(eventsCard, "v3PlanEventsCardStatus");
   assignCardStatusId(riskCard, "v3PlanRiskCardStatus");
   assignCardStatusId(actionsCard, "v3PlanActionsCardStatus");
   assignCardStatusId(summaryCard, "v3PlanSummaryCardStatus");
@@ -309,6 +321,170 @@ export function renderPlanSurface(mount) {
     </div>
   `;
 
+  const eventsBody = getCardBody(eventsCard);
+  eventsBody.innerHTML = `
+    <div id="v3PlanEventCalendarRoot">
+      <div class="fpe-contained-block fpe-contained-block--status">
+        <div class="fpe-control-label">Active session</div>
+        <div class="fpe-help fpe-help--flush" id="v3PlanDecisionActiveLabel">-</div>
+      </div>
+      <div class="fpe-field-grid fpe-field-grid--2">
+        <div class="field">
+          <label class="fpe-control-label" for="v3PlanDecisionSessionSelect">Session</label>
+          <select class="fpe-input" id="v3PlanDecisionSessionSelect"></select>
+        </div>
+        <div class="field">
+          <label class="fpe-control-label">Session actions</label>
+          <div class="fpe-action-row">
+            <button class="fpe-btn fpe-btn--ghost" id="v3BtnPlanDecisionNewSession" type="button">New session</button>
+          </div>
+        </div>
+      </div>
+      <div class="fpe-field-grid fpe-field-grid--4">
+        <div class="field">
+          <label class="fpe-control-label" for="v3DecisionEventFilterDate">Date</label>
+          <input class="fpe-input" id="v3DecisionEventFilterDate" type="date"/>
+        </div>
+        <div class="field">
+          <label class="fpe-control-label" for="v3DecisionEventCategoryFilter">Category filter</label>
+          <select class="fpe-input" id="v3DecisionEventCategoryFilter"></select>
+        </div>
+        <div class="field">
+          <label class="fpe-control-label">Applied only</label>
+          <label class="fpe-switch"><input id="v3DecisionEventAppliedOnly" type="checkbox"/><span>Show apply-to-model only</span></label>
+        </div>
+        <div class="field">
+          <label class="fpe-control-label">Include inactive</label>
+          <label class="fpe-switch"><input id="v3DecisionEventIncludeInactive" type="checkbox"/><span>Show completed/cancelled</span></label>
+        </div>
+      </div>
+      <div class="fpe-action-row">
+        <button class="fpe-btn fpe-btn--ghost" id="v3BtnPlanEventApplyFilters" type="button">Apply filters</button>
+        <button class="fpe-btn fpe-btn--ghost" id="v3BtnPlanEventResetFilters" type="button">Reset filters</button>
+      </div>
+      <div class="fpe-contained-block fpe-contained-block--status">
+        <div class="fpe-control-label">Event action status</div>
+        <div class="fpe-help fpe-help--flush" id="v3PlanEventActionStatus">No recent event actions.</div>
+      </div>
+      <div class="fpe-help fpe-help--flush" id="v3DecisionEventSummary">No events for selected date.</div>
+      <div class="fpe-help fpe-help--flush" id="v3DecisionEventImpact">No active campaign events are applying capacity modifiers for the selected date.</div>
+      <div class="table-wrap">
+        <table class="table" aria-label="Event calendar rows">
+          <thead>
+            <tr>
+              <th>Date / Time</th>
+              <th>Category / Type</th>
+              <th>Title / Notes</th>
+              <th>Capacity assumptions</th>
+              <th>Apply</th>
+              <th>Status</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="v3DecisionEventTbody">
+            <tr><td class="muted" colspan="7">No events on selected date.</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="fpe-field-grid fpe-field-grid--3">
+        <div class="field">
+          <label class="fpe-control-label" for="v3DecisionEventCategory">Category</label>
+          <select class="fpe-input" id="v3DecisionEventCategory"></select>
+        </div>
+        <div class="field">
+          <label class="fpe-control-label" for="v3DecisionEventType">Event type</label>
+          <select class="fpe-input" id="v3DecisionEventType"></select>
+        </div>
+        <div class="field">
+          <label class="fpe-control-label" for="v3DecisionEventStatus">Status</label>
+          <select class="fpe-input" id="v3DecisionEventStatus"></select>
+        </div>
+      </div>
+      <div class="fpe-field-grid fpe-field-grid--3">
+        <div class="field">
+          <label class="fpe-control-label" for="v3DecisionEventTitle">Title</label>
+          <input class="fpe-input" id="v3DecisionEventTitle" type="text"/>
+        </div>
+        <div class="field">
+          <label class="fpe-control-label" for="v3DecisionEventDate">Event date</label>
+          <input class="fpe-input" id="v3DecisionEventDate" type="date"/>
+        </div>
+        <div class="field">
+          <label class="fpe-control-label">Apply to model</label>
+          <label class="fpe-switch"><input id="v3DecisionEventApplyToModel" type="checkbox"/><span>Capacity-only (campaign events)</span></label>
+        </div>
+      </div>
+      <div class="fpe-field-grid fpe-field-grid--3">
+        <div class="field">
+          <label class="fpe-control-label" for="v3DecisionEventStartTime">Start time</label>
+          <input class="fpe-input" id="v3DecisionEventStartTime" type="time"/>
+        </div>
+        <div class="field">
+          <label class="fpe-control-label" for="v3DecisionEventEndTime">End time</label>
+          <input class="fpe-input" id="v3DecisionEventEndTime" type="time"/>
+        </div>
+        <div class="field">
+          <label class="fpe-control-label" for="v3DecisionEventCreatedBy">Created by</label>
+          <input class="fpe-input" id="v3DecisionEventCreatedBy" type="text"/>
+        </div>
+      </div>
+      <div class="fpe-field-grid fpe-field-grid--3">
+        <div class="field">
+          <label class="fpe-control-label" for="v3DecisionEventExpectedVolunteers">Expected volunteers</label>
+          <input class="fpe-input" id="v3DecisionEventExpectedVolunteers" inputmode="numeric" type="text"/>
+        </div>
+        <div class="field">
+          <label class="fpe-control-label" for="v3DecisionEventExpectedPaid">Expected paid canvassers</label>
+          <input class="fpe-input" id="v3DecisionEventExpectedPaid" inputmode="numeric" type="text"/>
+        </div>
+        <div class="field">
+          <label class="fpe-control-label" for="v3DecisionEventExpectedShiftHours">Expected shift hours</label>
+          <input class="fpe-input" id="v3DecisionEventExpectedShiftHours" inputmode="decimal" type="text"/>
+        </div>
+      </div>
+      <div class="fpe-field-grid fpe-field-grid--3">
+        <div class="field">
+          <label class="fpe-control-label" for="v3DecisionEventMeetingType">Meeting type (admin)</label>
+          <input class="fpe-input" id="v3DecisionEventMeetingType" type="text"/>
+        </div>
+        <div class="field">
+          <label class="fpe-control-label" for="v3DecisionEventAttendees">Attendees (admin)</label>
+          <input class="fpe-input" id="v3DecisionEventAttendees" type="text"/>
+        </div>
+        <div class="field">
+          <label class="fpe-control-label" for="v3DecisionEventFollowUpOwner">Follow-up owner</label>
+          <input class="fpe-input" id="v3DecisionEventFollowUpOwner" type="text"/>
+        </div>
+      </div>
+      <div class="fpe-field-grid fpe-field-grid--3">
+        <div class="field">
+          <label class="fpe-control-label" for="v3DecisionEventFollowUpDate">Follow-up date</label>
+          <input class="fpe-input" id="v3DecisionEventFollowUpDate" type="date"/>
+        </div>
+        <div class="field">
+          <label class="fpe-control-label" for="v3DecisionEventOfficeLocation">Office / location</label>
+          <input class="fpe-input" id="v3DecisionEventOfficeLocation" type="text"/>
+        </div>
+        <div class="field">
+          <label class="fpe-control-label" for="v3DecisionEventChannelFocus">Channel focus</label>
+          <input class="fpe-input" id="v3DecisionEventChannelFocus" type="text"/>
+        </div>
+      </div>
+      <div class="field">
+        <label class="fpe-control-label" for="v3DecisionEventFieldGoalNotes">Field goal notes</label>
+        <textarea class="fpe-input" id="v3DecisionEventFieldGoalNotes" rows="2"></textarea>
+      </div>
+      <div class="field">
+        <label class="fpe-control-label" for="v3DecisionEventNotes">Notes</label>
+        <textarea class="fpe-input" id="v3DecisionEventNotes" rows="2"></textarea>
+      </div>
+      <div class="fpe-action-row">
+        <button class="fpe-btn fpe-btn--ghost" id="v3BtnDecisionEventSave" type="button">Save event</button>
+        <button class="fpe-btn fpe-btn--ghost" id="v3BtnDecisionEventClear" type="button">Clear draft</button>
+      </div>
+    </div>
+  `;
+
   const riskBody = getCardBody(riskCard);
   riskBody.innerHTML = `
     <div class="fpe-contained-block fpe-contained-block--status">
@@ -474,7 +650,7 @@ export function renderPlanSurface(mount) {
     </div>
   `;
 
-  centerCol.append(summaryCard, workloadCard, optimizerCard, timelineCard, riskCard, actionsCard);
+  centerCol.append(summaryCard, workloadCard, optimizerCard, timelineCard, eventsCard, riskCard, actionsCard);
 
   frame.append(centerCol);
   mount.append(frame);
@@ -516,10 +692,13 @@ function wirePlanControlProxies() {
   bindPlanInputField("v3PlanTimelineDoorsPerHour", "timelineDoorsPerHour");
   bindPlanInputField("v3PlanTimelineCallsPerHour", "timelineCallsPerHour");
   bindPlanInputField("v3PlanTimelineTextsPerHour", "timelineTextsPerHour");
+
+  wirePlanDecisionEventCalendarProxies();
 }
 
 function refreshPlanSummary() {
   const planView = readPlanView();
+  const decisionView = readDecisionView() || {};
   const planSummary = planView?.summary && typeof planView.summary === "object" ? planView.summary : {};
   const objectiveSummary = planSummary?.objective && typeof planSummary.objective === "object" ? planSummary.objective : {};
   const objectiveCopy = getOptimizationObjectiveCopy(
@@ -626,6 +805,15 @@ function refreshPlanSummary() {
   syncPlanCardStatus("v3PlanWorkloadCardStatus", derivePlanWorkloadCardStatus(workloadBanner));
   syncPlanCardStatus("v3PlanOptimizerCardStatus", derivePlanOptimizerCardStatus(optTotals, optimizerBanner, optBinding));
   syncPlanCardStatus("v3PlanTimelineCardStatus", derivePlanTimelineCardStatus(readPlanView(), tlPercent, tlConstraint));
+  syncWarRoomEventCalendar(decisionView, {
+    syncInput: syncPlanInputValue,
+    syncSelect: syncPlanDecisionSelect,
+    setChecked: syncPlanCheckboxValue,
+    setDisabled: setPlanControlDisabled,
+    setText,
+  });
+  syncPlanEventSessionControls(decisionView);
+  syncPlanCardStatus("v3PlanEventsCardStatus", derivePlanEventsCardStatus(decisionView));
   syncPlanCardStatus("v3PlanRiskCardStatus", derivePlanRiskCardStatus(tlPercent, tlConstraint, tlShortfallVotes));
   syncPlanCardStatus("v3PlanSummaryCardStatus", derivePlanSummaryCardStatus(tlPercent, tlConstraint, optBinding));
   syncPlanDecisionIntel({
@@ -733,6 +921,166 @@ function syncPlanFieldMirror(targetId, sourceId) {
     target.value = source.value || "";
   }
   target.disabled = true;
+}
+
+function wirePlanDecisionEventCalendarProxies() {
+  const root = document.getElementById("v3PlanEventCalendarRoot");
+  if (!(root instanceof HTMLElement) || root.dataset.v3PlanEventsWired === "1") {
+    return;
+  }
+  root.dataset.v3PlanEventsWired = "1";
+
+  const run = (fn) => {
+    const api = getDecisionApi();
+    if (!api) {
+      setText("v3PlanEventActionStatus", "Decision bridge unavailable.");
+      return;
+    }
+    const applyResult = (result) => {
+      if (!result || typeof result !== "object") {
+        setText("v3PlanEventActionStatus", "");
+        refreshPlanSummary();
+        return;
+      }
+      if (result.ok === false) {
+        setText("v3PlanEventActionStatus", resolvePlanEventActionError(result.code, result.message));
+      } else {
+        const message = String(result.message || "").trim();
+        setText("v3PlanEventActionStatus", message || "");
+      }
+      refreshPlanSummary();
+    };
+    const out = fn(api);
+    if (out && typeof out.then === "function") {
+      out
+        .then((result) => {
+          applyResult(result);
+        })
+        .catch((error) => {
+          const message = error?.message ? String(error.message) : "Event action failed.";
+          setText("v3PlanEventActionStatus", message);
+          refreshPlanSummary();
+        });
+      return;
+    }
+    applyResult(out);
+  };
+
+  const confirmThenRun = (message, fn) => {
+    if (!window.confirm(message)) {
+      return;
+    }
+    run(fn);
+  };
+
+  bindWarRoomEventCalendarEvents({
+    run,
+    on: onPlanEventControl,
+    valueOf: valueOfPlanEventControl,
+    checkedOf: checkedOfPlanEventControl,
+    confirmThenRun,
+  });
+
+  onPlanEventControl("v3PlanDecisionSessionSelect", "change", () =>
+    run((api) => api.selectSession?.(valueOfPlanEventControl("v3PlanDecisionSessionSelect")))
+  );
+  onPlanEventControl("v3BtnPlanDecisionNewSession", "click", () =>
+    run((api) => api.createSession?.(""))
+  );
+  onPlanEventControl("v3BtnPlanEventApplyFilters", "click", () =>
+    run((api) => applyPlanEventFilters(api))
+  );
+  onPlanEventControl("v3BtnPlanEventResetFilters", "click", () =>
+    run((api) => resetPlanEventFilters(api))
+  );
+}
+
+function onPlanEventControl(id, eventName, handler) {
+  const el = document.getElementById(id);
+  if (!el) {
+    return;
+  }
+  el.addEventListener(eventName, handler);
+}
+
+function valueOfPlanEventControl(id) {
+  const el = document.getElementById(id);
+  if (el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement || el instanceof HTMLSelectElement) {
+    return el.value;
+  }
+  return "";
+}
+
+function checkedOfPlanEventControl(id) {
+  const el = document.getElementById(id);
+  if (el instanceof HTMLInputElement) {
+    return !!el.checked;
+  }
+  return false;
+}
+
+function applyPlanEventFilters(api) {
+  if (!api || typeof api !== "object") {
+    return { ok: false, code: "missing_decision_api" };
+  }
+  const requests = [
+    ["date", valueOfPlanEventControl("v3DecisionEventFilterDate")],
+    ["category", valueOfPlanEventControl("v3DecisionEventCategoryFilter")],
+    ["appliedOnly", checkedOfPlanEventControl("v3DecisionEventAppliedOnly")],
+    ["includeInactive", checkedOfPlanEventControl("v3DecisionEventIncludeInactive")],
+  ];
+  for (const [field, value] of requests) {
+    if (typeof api.setEventFilter !== "function") {
+      return { ok: false, code: "missing_decision_api" };
+    }
+    const result = api.setEventFilter(field, value);
+    if (result && typeof result === "object" && result.ok === false) {
+      return result;
+    }
+  }
+  return { ok: true, code: "ok" };
+}
+
+function resetPlanEventFilters(api) {
+  const dateInput = document.getElementById("v3DecisionEventFilterDate");
+  const categorySelect = document.getElementById("v3DecisionEventCategoryFilter");
+  const appliedOnly = document.getElementById("v3DecisionEventAppliedOnly");
+  const includeInactive = document.getElementById("v3DecisionEventIncludeInactive");
+
+  const today = new Date().toISOString().slice(0, 10);
+  if (dateInput instanceof HTMLInputElement) dateInput.value = today;
+  if (categorySelect instanceof HTMLSelectElement) categorySelect.value = "all";
+  if (appliedOnly instanceof HTMLInputElement) appliedOnly.checked = false;
+  if (includeInactive instanceof HTMLInputElement) includeInactive.checked = false;
+
+  return applyPlanEventFilters(api);
+}
+
+function resolvePlanEventActionError(code, message) {
+  const normalizedCode = String(code || "").trim().toLowerCase();
+  if (normalizedCode === "missing_title") {
+    return "Event save failed: title is required.";
+  }
+  if (normalizedCode === "missing_context") {
+    return "Event save failed: missing campaign context. Set Campaign ID on Data page.";
+  }
+  if (normalizedCode === "missing_decision_api") {
+    return "Event action failed: decision bridge unavailable.";
+  }
+  if (normalizedCode === "unknown_filter_field" || normalizedCode === "event_filter_failed") {
+    return "Filter apply failed. Check selected filter values and try again.";
+  }
+  if (normalizedCode === "event_not_found") {
+    return "Requested event was not found.";
+  }
+  if (normalizedCode === "event_save_failed") {
+    return "Event save failed. Review draft fields and try again.";
+  }
+  const detail = String(message || "").trim();
+  if (detail) {
+    return `Event action failed: ${detail}`;
+  }
+  return "Event action failed. Check session/context and try again.";
 }
 
 
@@ -901,6 +1249,16 @@ function syncPlanSelectOptions(id, options, selectedValue) {
   select.value = wanted;
 }
 
+function syncPlanDecisionSelect(id, rows, value, valueKey = "id", labelKey = "name") {
+  const normalizedRows = Array.isArray(rows)
+    ? rows.map((row) => ({
+        value: String(row?.[valueKey] ?? ""),
+        label: String(row?.[labelKey] ?? row?.[valueKey] ?? "")
+      }))
+    : [];
+  syncPlanSelectOptions(id, normalizedRows, value);
+}
+
 function setPlanControlDisabled(id, disabled) {
   const control = document.getElementById(id);
   if (
@@ -1043,6 +1401,14 @@ function getPlanApi() {
   return api;
 }
 
+function getDecisionApi() {
+  const api = window[DECISION_API_KEY];
+  if (!api || typeof api !== "object" || typeof api.getView !== "function") {
+    return null;
+  }
+  return api;
+}
+
 function getScenarioApi() {
   const api = window[SCENARIO_API_KEY];
   if (!api || typeof api !== "object" || typeof api.getView !== "function") {
@@ -1092,6 +1458,19 @@ function readPlanView() {
   }
 }
 
+function readDecisionView() {
+  const api = getDecisionApi();
+  if (!api) {
+    return null;
+  }
+  try {
+    const view = api.getView();
+    return view && typeof view === "object" ? view : null;
+  } catch {
+    return null;
+  }
+}
+
 function readReachWeeklySnapshot() {
   const view = readReachView();
   if (!view || typeof view.weekly !== "object" || !view.weekly) {
@@ -1123,6 +1502,43 @@ function escapePlanHtml(value) {
     .replace(/>/g, "&gt;")
     .replace(/\"/g, "&quot;")
     .replace(/'/g, "&#39;");
+}
+
+function derivePlanEventsCardStatus(view) {
+  if (!view || !view.session) {
+    return "Awaiting session";
+  }
+  const eventCalendar = view.warRoom?.eventCalendar || {};
+  const rows = Array.isArray(eventCalendar.rows) ? eventCalendar.rows : [];
+  if (rows.length > 0) {
+    return "Events active";
+  }
+  const draftTitle = String(eventCalendar?.draft?.title || "").trim();
+  if (draftTitle) {
+    return "Draft in progress";
+  }
+  return "No events";
+}
+
+function syncPlanEventSessionControls(view) {
+  const sessions = Array.isArray(view?.sessions) ? view.sessions : [];
+  syncPlanDecisionSelect("v3PlanDecisionSessionSelect", sessions, view?.activeSessionId || "");
+  setText(
+    "v3PlanDecisionActiveLabel",
+    String(view?.activeSessionLabel || "Active session: —").trim() || "Active session: —"
+  );
+
+  const decisionApiReady = !!getDecisionApi();
+  setPlanControlDisabled("v3PlanDecisionSessionSelect", !decisionApiReady || !sessions.length);
+  setPlanControlDisabled("v3BtnPlanDecisionNewSession", !decisionApiReady);
+
+  if (!decisionApiReady) {
+    setText("v3PlanEventActionStatus", "Decision bridge unavailable.");
+    return;
+  }
+  if (!view || !view.session) {
+    setText("v3PlanEventActionStatus", "No active session. Create/select a session to save and filter events.");
+  }
 }
 
 function assignCardStatusId(card, id) {

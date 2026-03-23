@@ -6,6 +6,7 @@ import {
   getCardBody,
 } from "../../componentFactory.js";
 import { setText } from "../../surfaceUtils.js";
+import { formatFixedNumber } from "../../../../core/utils.js";
 import {
   applyElectionDataBenchmarksBridge,
   importElectionDataFileBridge,
@@ -79,7 +80,7 @@ function syncElectionDataSummaryCard(canonical, derived) {
   setText("v3ElectionDataSummaryRows", rowCount > 0 ? rowCount.toLocaleString("en-US") : "0");
   setText("v3ElectionDataSummaryImportStatus", importStatus);
   setText("v3ElectionDataSummaryConfidence", confidenceBand);
-  setText("v3ElectionDataSummaryQuality", qualityScore == null ? "—" : qualityScore.toFixed(2));
+  setText("v3ElectionDataSummaryQuality", qualityScore == null ? "—" : formatFixedNumber(qualityScore, 2));
   setText("v3ElectionDataSummaryBenchmarks", benchmarkSuggestions > 0 ? String(benchmarkSuggestions) : "0");
   setText("v3ElectionDataSummaryDownstream", downstreamReady ? "Ready" : "Not ready");
   setText("v3ElectionDataSummaryStatus", summaryStatus);
