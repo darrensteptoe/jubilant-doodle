@@ -26,24 +26,24 @@ export function renderReachSurface(mount) {
 
   const universeCard = createCard({
     title: "Universe assumptions",
-    description: "Movable-universe and early-vote assumptions that shape reachable target volume."
+    description: "Movable-universe and early-vote assumptions that determine how many contacts are still actionable."
   });
 
   const leversCard = createCard({
     title: "Constraints & levers",
-    description: "What is binding now and which knobs move the weekly gap fastest.",
+    description: "What is binding right now and which levers reduce the weekly gap fastest.",
     status: REACH_STATUS_AWAITING_INPUTS
   });
 
   const weeklyCard = createCard({
     title: "Weekly production",
-    description: "Required vs achievable attempts, pace, and execution status.",
+    description: "Required versus achievable weekly output, pace status, and completion risk.",
     status: REACH_STATUS_AWAITING_INPUTS
   });
 
   const outlookCard = createCard({
     title: "Capacity outlook",
-    description: "Baseline, ramp, and scheduled-attempt comparisons.",
+    description: "Baseline, expected ramp, and scheduled-attempt comparisons over the selected horizon.",
     status: "Awaiting ops data"
   });
   outlookCard.id = "v3ReachOutlookCard";
@@ -60,24 +60,24 @@ export function renderReachSurface(mount) {
 
   const freshnessCard = createCard({
     title: "Data freshness",
-    description: "Rolling operational signals and calibration controls from organizer data.",
+    description: "Rolling operational signals plus calibration actions sourced from organizer logs.",
     status: "Awaiting logs"
   });
 
   const actionsCard = createCard({
     title: "Recommended actions",
-    description: "Highest-value interventions under current constraints.",
+    description: "Highest-value interventions under current capacity and conversion constraints.",
     status: "Model-based"
   });
 
   const conversionCard = createCard({
     title: "Persuasion math",
-    description: "Contact and support rates that determine conversion efficiency."
+    description: "Contact and support rates that convert attempts into modeled support IDs."
   });
 
   const summaryCard = createCard({
     title: "Reach summary",
-    description: "Current capacity posture and operating risk at a glance.",
+    description: "Current capacity posture, weekly gap, and primary operating risk at a glance.",
     status: REACH_STATUS_AWAITING_INPUTS
   });
   summaryCard.id = "v3ReachSummaryCard";
@@ -102,6 +102,7 @@ export function renderReachSurface(mount) {
       </div>
     </div>
     <div class="fpe-help fpe-help--flush">These assumptions affect how much persuadable universe remains for field contact over the timeline.</div>
+    <div class="fpe-help fpe-help--flush">Example: if early vote rises, remaining persuadable volume usually drops and weekly throughput pressure rises.</div>
   `;
 
   const leversBody = getCardBody(leversCard);
@@ -239,7 +240,7 @@ export function renderReachSurface(mount) {
       <div class="fpe-contained-block fpe-contained-block--status">
         <div class="fpe-control-label">Plan status</div>
         <div class="fpe-help fpe-help--flush" id="v3ReachFreshStatus">-</div>
-        <div class="fpe-help fpe-help--flush">Based on whether your log supports the assumed rates/capacity</div>
+        <div class="fpe-help fpe-help--flush">Compares reported field performance to the assumptions currently driving Reach math.</div>
       </div>
       <div class="fpe-contained-block fpe-contained-block--status">
         <div class="fpe-control-label">Rolling 7-day contact rate</div>
@@ -301,6 +302,7 @@ export function renderReachSurface(mount) {
       </div>
     </div>
     <div class="fpe-help fpe-help--flush">Attempts → contacts (contact rate) → support IDs (support rate). Shared backbone for Reach, Turnout, Outcome, and Plan.</div>
+    <div class="fpe-help fpe-help--flush">Changing these values changes planning math directly; use rolling calibrations when recent logs justify updates.</div>
   `;
 
   getCardBody(summaryCard).innerHTML = `
@@ -324,9 +326,9 @@ export function renderReachSurface(mount) {
   mount.append(bridgeRoot);
   mount.append(
     createWhyPanel([
-      "Reach converts campaign ambition into weekly throughput constraints you can actually operate.",
-      "If required attempts exceed capacity, win-path forecasts will not be executable without staffing, timeline, or rate changes.",
-      "Use this page to close the weekly gap before locking scenario decisions."
+      "Reach turns campaign ambition into weekly throughput requirements you can operationally execute.",
+      "If required attempts exceed capacity, forecast goals are not executable without staffing, timeline, or rate adjustments.",
+      "Use this page to close the weekly gap before committing scenario decisions or client-facing guidance."
     ])
   );
 

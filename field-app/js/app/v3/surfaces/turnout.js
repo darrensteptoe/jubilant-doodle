@@ -33,25 +33,25 @@ export function renderTurnoutSurface(mount) {
 
   const assumptionsCard = createCenterModuleCard({
     title: "Turnout assumptions",
-    description: "Baseline turnout, target override, and module activation for realized-vote modeling.",
+    description: "Baseline turnout, target override, and activation settings for realized-vote modeling.",
     status: "Module off"
   });
 
   const liftCard = createCenterModuleCard({
     title: "Lift controls",
-    description: "Diminishing-return behavior and lift parameters used to estimate turnout response.",
+    description: "Diminishing-return behavior and lift parameters used to estimate turnout response under contact pressure.",
     status: "Awaiting setup"
   });
 
   const costInputsCard = createCenterModuleCard({
     title: "Efficiency inputs",
-    description: "Per-attempt tactic settings and overhead assumptions for ROI comparison.",
+    description: "Per-attempt tactic settings and overhead assumptions used by ROI comparison.",
     status: "Awaiting setup"
   });
 
   const efficiencyCard = createCenterModuleCard({
     title: "Efficiency comparison",
-    description: "Cost-per-net-vote and tactic comparison under current turnout assumptions.",
+    description: "Cost-per-net-vote and tactic comparison under current turnout and conversion assumptions.",
     status: "Awaiting refresh"
   });
 
@@ -68,13 +68,13 @@ export function renderTurnoutSurface(mount) {
 
   const impactCard = createCenterModuleCard({
     title: "Realized vote impact",
-    description: "Turnout contribution against persuasion vote requirements and forecast posture.",
+    description: "Turnout contribution against persuasion vote requirements and current forecast posture.",
     status: "Awaiting setup"
   });
 
   const summaryCard = createCenterModuleCard({
     title: "Turnout summary",
-    description: "Current turnout context and vote-impact readout.",
+    description: "Current turnout context, vote-impact readout, and setup readiness.",
     status: "Awaiting setup"
   });
 
@@ -104,6 +104,9 @@ export function renderTurnoutSurface(mount) {
     <div class="fpe-help fpe-help--flush">
       Turnout modeling affects realized votes. Persuasion changes preference among those who vote; GOTV changes probability of voting.
     </div>
+    <div class="fpe-help fpe-help--flush">
+      Example: keep persuasion assumptions fixed and test turnout module settings to isolate participation-driven vote gains.
+    </div>
   `;
 
   const liftBody = getCardBody(liftCard);
@@ -113,7 +116,7 @@ export function renderTurnoutSurface(mount) {
         <input id="v3TurnoutDiminishingToggle" type="checkbox"/>
         <span>Diminishing returns</span>
       </label>
-      <span class="fpe-help fpe-help--flush">When ON, marginal lift tapers as turnout approaches the ceiling.</span>
+      <span class="fpe-help fpe-help--flush">When ON, marginal lift tapers as turnout approaches the local participation ceiling.</span>
     </div>
     <div class="fpe-field-grid fpe-field-grid--3">
       <div class="field">
@@ -277,6 +280,9 @@ export function renderTurnoutSurface(mount) {
     <div class="fpe-help fpe-help--flush">
       ROI backbone: Attempts -> Contacts (CR) -> Support IDs (SR) -> Net votes (turnout-adjusted). Costs are deterministic.
     </div>
+    <div class="fpe-help fpe-help--flush">
+      Use this table for tactic ranking. It does not change model math until inputs above are updated and refreshed.
+    </div>
   `;
 
   const impactBody = getCardBody(impactCard);
@@ -321,8 +327,8 @@ export function renderTurnoutSurface(mount) {
   mount.append(
     createWhyPanel([
       "Turnout mechanics are distinct from persuasion assumptions and should be tuned separately.",
-      "Efficiency comparisons help prevent over-investment in low-yield tactics.",
-      "Use this page to test lift realism before finalizing execution workload."
+      "Efficiency comparison prevents over-investment in tactics that look busy but convert poorly.",
+      "Use this page to test lift realism before finalizing execution workload or forecast commitments."
     ])
   );
 

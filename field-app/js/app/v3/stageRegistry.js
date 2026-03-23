@@ -3,7 +3,7 @@ export const V3_STAGE_REGISTRY = [
     id: "district",
     navLabel: "District",
     pageTitle: "District Reality",
-    subtitle: "Race context, electorate shape, baseline support, and starting reality.",
+    subtitle: "Race context, electorate structure, baseline support, and district starting conditions.",
     surface: "districtV2",
     group: "Model"
   },
@@ -11,7 +11,7 @@ export const V3_STAGE_REGISTRY = [
     id: "election-data",
     navLabel: "Election Data",
     pageTitle: "Election Data",
-    subtitle: "Import, map, reconcile, benchmark, and quality-grade historical election results.",
+    subtitle: "Import, reconcile, benchmark, and quality-grade historical election results before modeling.",
     surface: "electionData",
     group: "Model"
   },
@@ -19,7 +19,7 @@ export const V3_STAGE_REGISTRY = [
     id: "reach",
     navLabel: "Reach",
     pageTitle: "Capacity & Reach",
-    subtitle: "How much contact the program can realistically generate and what is limiting it.",
+    subtitle: "How much contact the program can realistically generate and what is currently constraining pace.",
     surface: "reach",
     group: "Model"
   },
@@ -27,7 +27,7 @@ export const V3_STAGE_REGISTRY = [
     id: "outcome",
     navLabel: "Outcome",
     pageTitle: "Outcome & Risk",
-    subtitle: "Forecast, uncertainty, and what is driving the current path.",
+    subtitle: "Forecast posture, uncertainty range, and the drivers shaping the current win path.",
     surface: "outcome",
     group: "Model"
   },
@@ -35,7 +35,7 @@ export const V3_STAGE_REGISTRY = [
     id: "turnout",
     navLabel: "Turnout",
     pageTitle: "Turnout & Efficiency",
-    subtitle: "Turnout assumptions, lift, efficiency, and realized-vote mechanics.",
+    subtitle: "Turnout assumptions, lift mechanics, tactic efficiency, and realized-vote impact.",
     surface: "turnout",
     group: "Model"
   },
@@ -43,7 +43,7 @@ export const V3_STAGE_REGISTRY = [
     id: "plan",
     navLabel: "Plan",
     pageTitle: "Execution Plan",
-    subtitle: "Execution pacing, workload, staffing, and timeline requirements.",
+    subtitle: "Execution pacing, workload, staffing mix, and timeline feasibility requirements.",
     surface: "plan",
     group: "Model"
   },
@@ -51,7 +51,7 @@ export const V3_STAGE_REGISTRY = [
     id: "scenarios",
     navLabel: "Scenarios",
     pageTitle: "Scenario Planning",
-    subtitle: "Create, compare, and preserve alternate paths through the race.",
+    subtitle: "Create, compare, and preserve alternate strategic paths without mutating baseline work.",
     surface: "scenarios",
     group: "Decisions"
   },
@@ -59,7 +59,7 @@ export const V3_STAGE_REGISTRY = [
     id: "decision-log",
     navLabel: "War Room",
     pageTitle: "War Room",
-    subtitle: "Signal-aware decision sessions, actionability framing, and follow-through logging.",
+    subtitle: "Signal-aware decision sessions, actionability framing, and follow-through accountability.",
     surface: "decisionLog",
     group: "Decisions"
   },
@@ -67,7 +67,7 @@ export const V3_STAGE_REGISTRY = [
     id: "controls",
     navLabel: "Controls",
     pageTitle: "Model Controls",
-    subtitle: "Benchmarks, evidence, guardrails, and governance.",
+    subtitle: "Benchmarks, evidence, guardrails, and governance settings that preserve model trust.",
     surface: "controls",
     group: "System"
   },
@@ -75,7 +75,7 @@ export const V3_STAGE_REGISTRY = [
     id: "data",
     navLabel: "Data",
     pageTitle: "Data & Recovery",
-    subtitle: "Import, export, backups, recovery, and data handling policy.",
+    subtitle: "Import/export, backups, recovery, and data-handling policy for durable operations.",
     surface: "data",
     group: "System"
   }

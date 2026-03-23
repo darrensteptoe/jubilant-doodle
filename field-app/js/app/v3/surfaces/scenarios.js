@@ -29,25 +29,25 @@ export function renderScenariosSurface(mount) {
 
   const workspaceCard = createCard({
     title: "Scenario list & actions",
-    description: "Create, clone, load, return, and delete scenarios.",
+    description: "Create, clone, load, return, and delete scenarios with explicit operator intent.",
     status: "Baseline ready"
   });
 
   const compareCard = createCard({
     title: "Compare actions & differences",
-    description: "Baseline versus active scenario differences in inputs and outputs.",
+    description: "Baseline-versus-scenario differences in inputs and outputs for decision review.",
     status: "No compare"
   });
 
   const guidanceCard = createCard({
     title: "Scenario notes",
-    description: "Operational guidance and dynamic warnings for scenario management.",
+    description: "Operational guidance, warnings, and storage posture for scenario management.",
     status: "Storage ready"
   });
 
   const summaryCard = createCard({
     title: "Current scenario detail",
-    description: "Quick readout of active scenario state and diff volume.",
+    description: "Quick readout of active scenario state, compare mode, and diff volume.",
     status: "Baseline"
   });
 
@@ -69,7 +69,7 @@ export function renderScenariosSurface(mount) {
         </div>
         <div class="field">
           <label class="fpe-control-label" for="v3ScenarioNewName">New scenario name</label>
-          <input class="fpe-input" id="v3ScenarioNewName" placeholder="e.g., Path A - full GOTV" type="text"/>
+          <input class="fpe-input" id="v3ScenarioNewName" placeholder="e.g., Reach +10% staffing | conservative turnout" type="text"/>
         </div>
       </div>
       <div class="fpe-action-row">
@@ -134,13 +134,13 @@ export function renderScenariosSurface(mount) {
 
   const guidanceBody = getCardBody(guidanceCard);
   guidanceBody.innerHTML = `
-    <div class="fpe-contained-block">
-      <ul class="bullets">
-        <li>Keep baseline as a stable reference and branch alternatives as named scenarios.</li>
-        <li>Use compare mode to isolate exactly which assumptions or outputs changed.</li>
-        <li>Log decision rationale against explicit scenario IDs, not ad-hoc edits.</li>
-      </ul>
-    </div>
+      <div class="fpe-contained-block">
+        <ul class="bullets">
+        <li>Keep baseline stable; branch alternatives as named scenarios with a single clear hypothesis.</li>
+        <li>Use compare mode to isolate what changed before discussing why it changed.</li>
+        <li>Record decision rationale against explicit scenario IDs, not ad-hoc temporary edits.</li>
+        </ul>
+      </div>
     <div class="fpe-status-strip fpe-status-strip--2">
       <div class="fpe-contained-block fpe-contained-block--status">
         <div class="fpe-control-label">Warning status</div>
@@ -198,8 +198,8 @@ export function renderScenariosSurface(mount) {
   mount.append(
     createWhyPanel([
       "Scenarios preserve alternate assumptions without overwriting baseline work.",
-      "Comparison should focus on feasibility, risk, and resource tradeoffs.",
-      "Decision sessions should reference explicit scenario IDs rather than ad-hoc snapshots."
+      "Comparison should focus on feasibility, risk posture, and resource tradeoffs instead of headline-only deltas.",
+      "Decision sessions should reference explicit scenario IDs so follow-up actions stay traceable."
     ])
   );
 

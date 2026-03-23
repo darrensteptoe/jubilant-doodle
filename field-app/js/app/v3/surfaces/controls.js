@@ -88,37 +88,37 @@ export function renderControlsSurface(mount) {
 
   const workflowCard = createCenterModuleCard({
     title: "Guardrails",
-    description: "Scenario lock and critical-change documentation requirements.",
+    description: "Lock windows and enforce rationale/evidence policy before high-impact changes.",
     status: "Healthy"
   });
 
   const evidenceCard = createCenterModuleCard({
     title: "Evidence workflow",
-    description: "Attach references to missing audit items before decisions are logged.",
+    description: "Resolve missing rationale/evidence so decisions stay auditable.",
     status: "Awaiting audit"
   });
 
   const benchmarkCard = createCenterModuleCard({
     title: "Benchmark catalog",
-    description: "Empirical ranges for critical assumptions, used for warnings only.",
+    description: "Warning thresholds for critical assumptions; benchmark ranges do not alter canonical math.",
     status: "Catalog empty"
   });
 
   const feedbackCard = createCenterModuleCard({
     title: "Review workflow",
-    description: "Capture observed metrics and generate metadata-only drift recommendations.",
+    description: "Capture observed performance and queue review-ready drift recommendations.",
     status: "Awaiting feedback"
   });
 
   const calibrationCard = createCenterModuleCard({
     title: "Integrity summary",
-    description: "Calibration narrative, expert toggles, and stochastic model controls.",
+    description: "Calibration briefs plus simulation stress controls; deterministic baseline remains canonical.",
     status: "Needs brief"
   });
 
   const summaryCard = createCenterModuleCard({
     title: "Current warnings",
-    description: "Live governance warning posture across evidence, calibration, and recommendation workflows.",
+    description: "At-a-glance governance posture across evidence, calibration, and recommendation workflows.",
     status: "Watchlist"
   });
 
@@ -133,9 +133,9 @@ export function renderControlsSurface(mount) {
     <div id="v3ControlsWorkflowBridgeRoot">
       <div class="fpe-contained-block">
         <ul class="bullets">
-          <li>Use scenario lock for client-safe review windows.</li>
-          <li>Require note/evidence when critical assumptions are changed.</li>
-          <li>Keep rationale and lock reason current before export or decision log updates.</li>
+          <li>Use scenario lock during client review windows or sign-off meetings.</li>
+          <li>For critical edits, require rationale notes and evidence attachments when policy requires both.</li>
+          <li>Example: if turnout reliability changes, record why now and attach the source used for the change.</li>
         </ul>
       </div>
       <div class="fpe-field-grid fpe-field-grid--3">
@@ -188,9 +188,9 @@ export function renderControlsSurface(mount) {
     <div id="v3ControlsEvidenceBridgeRoot">
       <div class="fpe-contained-block">
         <ul class="bullets">
-          <li>Select the unresolved critical edit first.</li>
-          <li>Attach title/source/date and supporting URL or file hint.</li>
-          <li>Add notes when policy requires rationale in addition to evidence.</li>
+          <li>Select the unresolved critical edit first so the attachment resolves the correct audit item.</li>
+          <li>Attach title, source, date, and URL/file hint so another reviewer can reproduce the evidence path.</li>
+          <li>Example: if policy guidance changed a cost assumption, attach memo link + short note on applicability.</li>
         </ul>
       </div>
       <div class="fpe-field-grid fpe-field-grid--2">
@@ -261,9 +261,9 @@ export function renderControlsSurface(mount) {
     <div id="v3ControlsBenchmarkBridgeRoot">
       <div class="fpe-contained-block">
         <ul class="bullets">
-          <li>Ranges are governance signals only and do not alter deterministic or Monte Carlo math.</li>
-          <li>Use benchmark scope to keep warning thresholds context-aware.</li>
-          <li>Keep source title and notes current for review traceability.</li>
+          <li>Benchmarks set warning bands only; they do not rewrite deterministic outputs, Monte Carlo draws, or target rankings.</li>
+          <li>Use scope to keep thresholds context-aware and avoid false alarms from mismatched race environments.</li>
+          <li>Keep source title + notes current so reviewers can audit why each threshold exists.</li>
         </ul>
       </div>
       <div class="fpe-field-grid fpe-field-grid--3">
@@ -346,9 +346,9 @@ export function renderControlsSurface(mount) {
     <div id="v3ControlsCalibrationBridgeRoot">
       <div class="fpe-contained-block">
         <ul class="bullets">
-          <li>Generate a client-facing calibration brief after benchmarks and evidence are reviewed.</li>
-          <li>Use stochastic toggles for scenario stress testing, not for primary deterministic assumptions.</li>
-          <li>Document capacity-decay and shock settings before sharing forecast outputs.</li>
+          <li>Generate calibration briefs after benchmark and evidence review so narrative matches governance state.</li>
+          <li>Simulation toggles (distribution, correlation, shock, decay) are stress-test controls, not baseline truth edits.</li>
+          <li>Example: enable shocks for downside planning, then keep deterministic assumptions unchanged unless review approves edits.</li>
         </ul>
       </div>
       <div class="fpe-field-grid fpe-field-grid--2">
@@ -465,9 +465,9 @@ export function renderControlsSurface(mount) {
     <div id="v3ControlsFeedbackBridgeRoot">
       <div class="fpe-contained-block">
         <ul class="bullets">
-          <li>Capture observed metrics before generating recommendations.</li>
+          <li>Capture observed metrics first so recommendation generation is anchored in current evidence.</li>
           <li>Use recommendation preview for review, then apply only approved changes.</li>
-          <li>What-if parsing is metadata only and should not bypass governance workflow.</li>
+          <li>What-if parsing stores metadata only and never bypasses governance approvals for assumption edits.</li>
         </ul>
       </div>
       <div class="fpe-action-row">
@@ -496,7 +496,7 @@ export function renderControlsSurface(mount) {
         </div>
       </div>
       <div class="field">
-        <label class="fpe-control-label" for="v3IntelWhatIfInput">What-if request parser</label>
+        <label class="fpe-control-label" for="v3IntelWhatIfInput">What-if request parser (metadata only)</label>
         <div class="fpe-action-row">
           <button class="fpe-btn fpe-btn--ghost" id="v3BtnIntelParseWhatIf" type="button">Parse what-if request</button>
         </div>
@@ -549,7 +549,7 @@ export function renderControlsSurface(mount) {
       </div>
     </div>
     <div class="fpe-contained-block">
-      <div class="fpe-help fpe-help--flush">Dynamic status remains canonical in the right rail to avoid duplicated and diverging outputs.</div>
+      <div class="fpe-help fpe-help--flush">Right rail remains the canonical narrative output. This card mirrors key warning signals for quick triage.</div>
     </div>
   `;
 
@@ -559,9 +559,9 @@ export function renderControlsSurface(mount) {
 
   mount.append(
     createWhyPanel([
-      "Controls should make assumption governance explicit before client-facing decisions are logged.",
-      "Benchmark and evidence workflows add trust without mutating deterministic engine math.",
-      "Use this page to verify auditability and calibration readiness before exporting scenarios."
+      "Controls separates governance policy from model behavior so teams can change assumptions responsibly.",
+      "Benchmark and evidence workflows add trust signals without mutating deterministic baseline math.",
+      "Use this page to verify auditability and simulation-readiness before exporting scenarios or decision briefs."
     ])
   );
 
