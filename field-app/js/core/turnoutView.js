@@ -110,6 +110,8 @@ export function deriveTurnoutCostCardStatus(view){
     inputs.roiDoorsEnabled,
     inputs.roiPhonesEnabled,
     inputs.roiTextsEnabled,
+    inputs.roiLitDropEnabled,
+    inputs.roiMailEnabled,
   ].filter(Boolean).length;
   if (!enabledCount){
     return "No tactics";
