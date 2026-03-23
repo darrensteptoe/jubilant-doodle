@@ -8,6 +8,7 @@ import {
   normalizePlaybookSignals,
   resolvePlaybookIdForSignals,
 } from "./playbookResolver.js";
+import { buildDecisionTrustSurface } from "./decisionTrustLayer.js";
 
 const MODE_MODULE = "module";
 const MODE_MODEL = "model";
@@ -62,6 +63,8 @@ function normalizeContext(raw = {}){
     scenarioId: clean(src.scenarioId) || "baseline",
     stageId: clean(src.stageId) || "district",
     today: clean(src.today) || new Date().toISOString().slice(0, 10),
+    shellView: (src.shellView && typeof src.shellView === "object") ? src.shellView : {},
+    stageViews: (src.stageViews && typeof src.stageViews === "object") ? src.stageViews : {},
     playbookSignals: normalizePlaybookSignals({
       ...(src.playbookSignals && typeof src.playbookSignals === "object" ? src.playbookSignals : {}),
       stageId: clean(src.stageId) || "district",
@@ -302,6 +305,11 @@ function resolveModuleMode(input, context){
   const stageDefault = getDefaultModuleForStage(context.stageId);
   const moduleId = clean(input.moduleId) || stageDefault;
   const entry = getIntelligenceEntity(MODE_MODULE, moduleId);
+  const trust = buildDecisionTrustSurface({
+    stageId: context.stageId,
+    shellView: context.shellView,
+    stageViews: context.stageViews,
+  });
   if (!entry){
     return {
       mode: MODE_MODULE,
@@ -309,6 +317,7 @@ function resolveModuleMode(input, context){
       subtitle: `No doctrine entry found for module '${moduleId}'.`,
       sections: [],
       links: [],
+      trust,
     };
   }
   const links = withFallbackGlossaryLinks(relatedLinks(entry), context, entry);
@@ -319,6 +328,7 @@ function resolveModuleMode(input, context){
     subtitle: injectLiveValues(entry.summary || "", context),
     sections: buildModuleSections(entry, context),
     links,
+    trust,
   };
 }
 

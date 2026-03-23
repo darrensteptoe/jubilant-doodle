@@ -113,3 +113,52 @@ test("intelligence resolver: glossary links are always available across primary 
     }
   }
 });
+
+test("intelligence resolver: module payload includes decision trust layer with tier map and traced parity", () => {
+  const payload = resolveIntelligencePayload({
+    mode: "module",
+    context: {
+      stageId: "reach",
+      shellView: {
+        campaignId: "campaign-demo",
+        officeId: "office-1",
+        scenarioId: "baseline",
+        contextMissing: [],
+      },
+      stageViews: {
+        reach: {
+          summary: {
+            capacity: "9,000",
+            gap: "+1,200",
+          },
+          inputs: {
+            supportRatePct: 47,
+            contactRatePct: 21,
+            hoursPerShift: 3,
+            shiftsPerVolunteerPerWeek: 2,
+          },
+          weekly: {
+            requiredAttempts: "10,200",
+            capacity: "9,000",
+            constraint: "capacity",
+          },
+          outlook: {
+            activeSource: "baseline",
+          },
+        },
+      },
+    },
+  });
+
+  assert.ok(payload?.trust && typeof payload.trust === "object");
+  assert.equal(Array.isArray(payload?.trust?.tiers?.tier1), true);
+  assert.ok((payload?.trust?.tiers?.tier1 || []).length >= 8);
+
+  const figures = Array.isArray(payload?.trust?.figures) ? payload.trust.figures : [];
+  assert.ok(figures.length >= 2);
+  const reachCapacity = figures.find((row) => row.id === "reachCapacity");
+  assert.ok(reachCapacity, "reachCapacity trust figure missing");
+  assert.equal(reachCapacity?.displayValue, "9,000");
+  assert.equal(reachCapacity?.displayValue, reachCapacity?.tracedValue);
+  assert.equal(reachCapacity?.canonicalPath, "__FPE_REACH_API__.getView().summary.capacity");
+});
