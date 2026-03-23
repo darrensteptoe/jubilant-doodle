@@ -1199,6 +1199,16 @@ body.training #app-shell-v3-root .fpe-surface .fpe-why {
   margin-top: var(--fpe-stack-gap) !important;
 }
 
+#app-shell-v3-root .fpe-surface-pane .fpe-card__body .fpe-module-stack {
+  display: grid;
+  gap: var(--fpe-module-grid-gap);
+}
+
+#app-shell-v3-root .fpe-surface-pane .fpe-card__body .fpe-module-stack > * {
+  margin-top: 0 !important;
+  margin-bottom: 0 !important;
+}
+
 #app-shell-v3-root .fpe-surface-pane .fpe-card__body .field > * + * {
   margin-top: var(--fpe-field-gap) !important;
 }
