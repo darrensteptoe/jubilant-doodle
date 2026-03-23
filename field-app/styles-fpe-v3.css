@@ -2371,9 +2371,28 @@ body.training #app-shell-v3-root .fpe-surface .fpe-why {
   padding-right: 14px;
 }
 
+.fpe-right-rail-slot--intel {
+  --fpe-intel-rail-card-bg: var(--fpe-panel-muted);
+  --fpe-intel-rail-card-border: color-mix(in srgb, var(--fpe-rule) 78%, transparent);
+}
+
 .fpe-right-rail-slot--intel .fpe-intel-link,
 .fpe-right-rail-slot--intel .fpe-intel-result {
   width: 100%;
+}
+
+.fpe-right-rail-slot--intel .fpe-intel-section,
+.fpe-right-rail-slot--intel .fpe-intel-result,
+.fpe-right-rail-slot--intel .fpe-intel-link,
+.fpe-right-rail-slot--intel .fpe-intel-chip,
+.fpe-right-rail-slot--intel .fpe-intel-mini-item,
+.fpe-right-rail-slot--intel .fpe-intel-trust-tier,
+.fpe-right-rail-slot--intel .fpe-intel-trust-legend,
+.fpe-right-rail-slot--intel .fpe-intel-trust-legend__row,
+.fpe-right-rail-slot--intel .fpe-intel-trust-tier-pill,
+.fpe-right-rail-slot--intel .fpe-intel-trust-figure__state {
+  background: var(--fpe-intel-rail-card-bg);
+  border-color: var(--fpe-intel-rail-card-border);
 }
 
 .fpe-right-rail-slot--intel .fpe-intel-mini-row,
@@ -2388,9 +2407,9 @@ body.training #app-shell-v3-root .fpe-surface .fpe-why {
 .fpe-right-rail-slot--intel .fpe-intel-mini-item,
 .fpe-right-rail-slot--intel .fpe-intel-trust-tier-pill,
 .fpe-right-rail-slot--intel .fpe-intel-trust-figure__state {
-  border: 1px solid color-mix(in srgb, var(--fpe-rule) 82%, transparent);
+  border: 1px solid var(--fpe-intel-rail-card-border);
   border-radius: 8px;
-  background: color-mix(in srgb, var(--fpe-panel) 90%, var(--fpe-panel-muted));
+  background: var(--fpe-intel-rail-card-bg);
   box-shadow: none;
   min-height: 22px;
   padding: 4px 8px;
@@ -2400,7 +2419,7 @@ body.training #app-shell-v3-root .fpe-surface .fpe-why {
 .fpe-right-rail-slot--intel .fpe-intel-chip:focus-visible,
 .fpe-right-rail-slot--intel .fpe-intel-link:hover,
 .fpe-right-rail-slot--intel .fpe-intel-link:focus-visible {
-  background: color-mix(in srgb, var(--fpe-panel) 90%, var(--fpe-panel-muted));
+  background: var(--fpe-intel-rail-card-bg);
 }
 
 .fpe-right-rail-slot--intel .fpe-intel-chip,
@@ -2413,9 +2432,9 @@ body.training #app-shell-v3-root .fpe-surface .fpe-why {
 }
 
 .fpe-right-rail-slot--intel .fpe-intel-link {
-  border: 1px solid color-mix(in srgb, var(--fpe-rule) 82%, transparent);
+  border: 1px solid var(--fpe-intel-rail-card-border);
   border-radius: 8px;
-  background: color-mix(in srgb, var(--fpe-panel) 90%, var(--fpe-panel-muted));
+  background: var(--fpe-intel-rail-card-bg);
 }
 
 .fpe-right-rail-slot--intel .fpe-intel-trust-legend {
@@ -2427,9 +2446,9 @@ body.training #app-shell-v3-root .fpe-surface .fpe-why {
 }
 
 .fpe-right-rail-slot--intel .fpe-intel-trust-legend__row {
-  border: 1px solid color-mix(in srgb, var(--fpe-rule) 82%, transparent);
+  border: 1px solid var(--fpe-intel-rail-card-border);
   border-radius: 8px;
-  background: color-mix(in srgb, var(--fpe-panel) 90%, var(--fpe-panel-muted));
+  background: var(--fpe-intel-rail-card-bg);
   padding: 6px 8px;
   gap: 2px;
 }
@@ -2439,8 +2458,8 @@ body.training #app-shell-v3-root .fpe-surface .fpe-why {
 .fpe-right-rail-slot--intel .fpe-intel-trust-figure__state--mismatch,
 .fpe-right-rail-slot--intel .fpe-intel-trust-figure__state--missing,
 .fpe-right-rail-slot--intel .fpe-intel-trust-figure__state--fallback {
-  border: 1px solid color-mix(in srgb, var(--fpe-rule) 82%, transparent);
-  background: color-mix(in srgb, var(--fpe-panel) 90%, var(--fpe-panel-muted));
+  border: 1px solid var(--fpe-intel-rail-card-border);
+  background: var(--fpe-intel-rail-card-bg);
 }
 
 .fpe-right-rail-slot--intel .fpe-intel-section__title,
