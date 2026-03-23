@@ -2599,6 +2599,54 @@ body.training #app-shell-v3-root .fpe-surface .fpe-why {
   width: 100%;
 }
 
+.fpe-right-rail-slot--intel .fpe-intel-mini-row,
+.fpe-right-rail-slot--intel .fpe-intel-glossary-row,
+.fpe-right-rail-slot--intel .fpe-intel-trust-tier__list {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 4px;
+}
+
+.fpe-right-rail-slot--intel .fpe-intel-chip,
+.fpe-right-rail-slot--intel .fpe-intel-mini-item,
+.fpe-right-rail-slot--intel .fpe-intel-trust-tier-pill,
+.fpe-right-rail-slot--intel .fpe-intel-trust-figure__state {
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  min-height: 0;
+  padding: 0;
+}
+
+.fpe-right-rail-slot--intel .fpe-intel-chip:hover,
+.fpe-right-rail-slot--intel .fpe-intel-chip:focus-visible,
+.fpe-right-rail-slot--intel .fpe-intel-link:hover,
+.fpe-right-rail-slot--intel .fpe-intel-link:focus-visible {
+  background: transparent;
+}
+
+.fpe-right-rail-slot--intel .fpe-intel-chip,
+.fpe-right-rail-slot--intel .fpe-intel-mini-item,
+.fpe-right-rail-slot--intel .fpe-intel-trust-tier-pill {
+  display: block;
+  text-align: left;
+}
+
+.fpe-right-rail-slot--intel .fpe-intel-link {
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--fpe-rule) 8%, transparent);
+}
+
+.fpe-right-rail-slot--intel .fpe-intel-trust-figure__state--ready,
+.fpe-right-rail-slot--intel .fpe-intel-trust-figure__state--review,
+.fpe-right-rail-slot--intel .fpe-intel-trust-figure__state--mismatch,
+.fpe-right-rail-slot--intel .fpe-intel-trust-figure__state--missing,
+.fpe-right-rail-slot--intel .fpe-intel-trust-figure__state--fallback {
+  border: 0;
+  background: transparent;
+}
+
 .fpe-right-rail-slot--intel .fpe-intel-section__title,
 .fpe-right-rail-slot--intel .fpe-intel-section__body,
 .fpe-right-rail-slot--intel .fpe-intel-section__meta,
