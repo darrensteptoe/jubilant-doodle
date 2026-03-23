@@ -33,6 +33,7 @@ function assertSpacingContract(cssSource, label) {
   assert.match(cssSource, /\.fpe-field-grid\s*\{[^}]*gap:\s*var\(--fpe-module-grid-gap\)\s*;/s, `${label}: field grid gap must use module token`);
   assert.match(cssSource, /\.fpe-action-row\s*\{[^}]*gap:\s*var\(--fpe-module-inline-gap\)\s*;/s, `${label}: action-row gap must use module token`);
   assert.match(cssSource, /\.fpe-status-strip\s*\{[^}]*gap:\s*var\(--fpe-module-stack-gap\)\s*;/s, `${label}: status-strip gap must use module token`);
+  assert.match(cssSource, /\.fpe-card__body\s+\.fpe-module-stack\s*\{[^}]*gap:\s*var\(--fpe-module-grid-gap\)\s*;/s, `${label}: module stack wrapper must use shared module grid gap token`);
 }
 
 test("spacing contract: root stylesheet enforces shared module spacing tokens", () => {

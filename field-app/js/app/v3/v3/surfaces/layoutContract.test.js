@@ -24,8 +24,18 @@ function expectCenterStackSurface(relativePath) {
   assert.doesNotMatch(source, /createSurfaceFrame\("two-col"\)/, `${relativePath} must not use two-col frame`);
 }
 
+function expectDistrictCompatSurface(relativePath) {
+  const source = readProjectFile(relativePath);
+  assert.match(
+    source,
+    /renderDistrictV2Surface\s+as\s+renderDistrictSurface/,
+    `${relativePath} must forward to districtV2 renderer`,
+  );
+}
+
 test("layout contract: rewritten center surfaces use center-stack shell", () => {
-  expectCenterStackSurface("js/app/v3/surfaces/district/index.js");
+  expectDistrictCompatSurface("js/app/v3/surfaces/district/index.js");
+  expectCenterStackSurface("js/app/v3/surfaces/districtV2/index.js");
   expectCenterStackSurface("js/app/v3/surfaces/electionData/index.js");
   expectCenterStackSurface("js/app/v3/surfaces/outcome/index.js");
   expectCenterStackSurface("js/app/v3/surfaces/data/index.js");

@@ -197,7 +197,13 @@ export function renderDataSurface(mount) {
         <select class="fpe-input" id="v3DataReportType">
           <option value="internal_full">Internal Full</option>
           <option value="client_standard">Client Standard</option>
+          <option value="war_room_brief">War Room Brief</option>
+          <option value="weekly_actions">Weekly Actions</option>
+          <option value="readiness_audit">Readiness Audit</option>
+          <option value="election_data_benchmark">Election Data Benchmark</option>
+          <option value="post_election_learning">Post-Election Learning</option>
         </select>
+        <div class="fpe-help">Select a report type to see what conversation it is built for.</div>
       </div>
       <div class="field">
         <label class="fpe-control-label">Report actions</label>
@@ -206,6 +212,33 @@ export function renderDataSurface(mount) {
           <button class="fpe-btn fpe-btn--ghost" id="v3DataBtnExportReportPdf" type="button">Export PDF</button>
         </div>
       </div>
+    </div>
+    <div class="fpe-contained-block">
+      <div class="fpe-control-label">Reporting Workflow</div>
+      <div class="fpe-help fpe-help--flush">Use reports as operating tools, not just exports. Each report type is built for a different decision moment. Pick the report that matches the conversation you are about to have.</div>
+    </div>
+    <div class="fpe-contained-block">
+      <div class="fpe-control-label" id="v3DataReportGuideLabel">Internal Full</div>
+      <div class="fpe-help fpe-help--flush" id="v3DataReportGuideAudience">Audience: Internal leadership and senior operators</div>
+      <div class="fpe-help fpe-help--flush" id="v3DataReportGuidePurpose">Purpose: Full operating read with risk, assumptions, trust, and owner-level action context.</div>
+      <div class="fpe-help fpe-help--flush" id="v3DataReportGuideWhen">Use before strategy meetings, major resource decisions, internal reviews, and any moment when the team needs the full picture rather than a simplified summary.</div>
+      <div class="fpe-help fpe-help--flush" id="v3DataReportGuideDecision">Best for decisions about scope, pacing, staffing, budget posture, and whether the current path is genuinely strong enough to trust.</div>
+      <div class="fpe-help fpe-help--flush" id="v3DataReportGuideCadence">Recommended cadence: Weekly, and again before any high-stakes shift in plan.</div>
+      <div class="fpe-help fpe-help--flush" id="v3DataReportGuideOperator">This is the default internal truth-telling report. Use it when the team needs the whole story, including uncertainty and weaknesses.</div>
+    </div>
+    <div class="fpe-contained-block">
+      <div class="fpe-control-label">How to choose the right report</div>
+      <div class="fpe-help fpe-help--flush">If you need the full internal truth, use <strong>Internal Full</strong>.</div>
+      <div class="fpe-help fpe-help--flush">If you need leadership-ready framing, use <strong>Client Standard</strong>.</div>
+      <div class="fpe-help fpe-help--flush">If you need a fast current-state brief, use <strong>War Room Brief</strong>.</div>
+      <div class="fpe-help fpe-help--flush">If you need assignments for the next week, use <strong>Weekly Actions</strong>.</div>
+      <div class="fpe-help fpe-help--flush">If you need to test whether the current picture deserves trust, use <strong>Readiness Audit</strong>.</div>
+      <div class="fpe-help fpe-help--flush">If you need to validate the benchmark foundation, use <strong>Election Data Benchmark</strong>.</div>
+      <div class="fpe-help fpe-help--flush">If you need to learn from the outcome, use <strong>Post-Election Learning</strong>.</div>
+    </div>
+    <div class="fpe-contained-block">
+      <div class="fpe-control-label">Operating discipline</div>
+      <div class="fpe-help fpe-help--flush">The strongest output in this system comes from disciplined updates, credible comparables, clear ownership, and honest use of uncertainty. Clean presentation does not replace source quality.</div>
     </div>
     <div class="fpe-contained-block">
       <div class="fpe-control-label">Report status</div>
