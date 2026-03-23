@@ -130,7 +130,7 @@ export function renderControlsSurface(mount) {
   assignCardStatusId(summaryCard, "v3ControlsWarningsCardStatus");
 
   getCardBody(workflowCard).innerHTML = `
-    <div id="v3ControlsWorkflowBridgeRoot">
+    <div class="fpe-module-stack" id="v3ControlsWorkflowBridgeRoot">
       <div class="fpe-contained-block">
         <ul class="bullets">
           <li>Use scenario lock during client review windows or sign-off meetings.</li>
@@ -185,7 +185,7 @@ export function renderControlsSurface(mount) {
   `;
 
   getCardBody(evidenceCard).innerHTML = `
-    <div id="v3ControlsEvidenceBridgeRoot">
+    <div class="fpe-module-stack" id="v3ControlsEvidenceBridgeRoot">
       <div class="fpe-contained-block">
         <ul class="bullets">
           <li>Select the unresolved critical edit first so the attachment resolves the correct audit item.</li>
@@ -258,7 +258,7 @@ export function renderControlsSurface(mount) {
   `;
 
   getCardBody(benchmarkCard).innerHTML = `
-    <div id="v3ControlsBenchmarkBridgeRoot">
+    <div class="fpe-module-stack" id="v3ControlsBenchmarkBridgeRoot">
       <div class="fpe-contained-block">
         <ul class="bullets">
           <li>Benchmarks set warning bands only; they do not rewrite deterministic outputs, Monte Carlo draws, or target rankings.</li>
@@ -343,7 +343,7 @@ export function renderControlsSurface(mount) {
   `;
 
   getCardBody(calibrationCard).innerHTML = `
-    <div id="v3ControlsCalibrationBridgeRoot">
+    <div class="fpe-module-stack" id="v3ControlsCalibrationBridgeRoot">
       <div class="fpe-contained-block">
         <ul class="bullets">
           <li>Generate calibration briefs after benchmark and evidence review so narrative matches governance state.</li>
@@ -462,7 +462,7 @@ export function renderControlsSurface(mount) {
   `;
 
   getCardBody(feedbackCard).innerHTML = `
-    <div id="v3ControlsFeedbackBridgeRoot">
+    <div class="fpe-module-stack" id="v3ControlsFeedbackBridgeRoot">
       <div class="fpe-contained-block">
         <ul class="bullets">
           <li>Capture observed metrics first so recommendation generation is anchored in current evidence.</li>

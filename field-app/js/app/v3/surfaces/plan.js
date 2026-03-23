@@ -323,7 +323,7 @@ export function renderPlanSurface(mount) {
 
   const eventsBody = getCardBody(eventsCard);
   eventsBody.innerHTML = `
-    <div id="v3PlanEventCalendarRoot">
+    <div class="fpe-module-stack" id="v3PlanEventCalendarRoot">
       <div class="fpe-contained-block fpe-contained-block--status">
         <div class="fpe-control-label">Active session</div>
         <div class="fpe-help fpe-help--flush" id="v3PlanDecisionActiveLabel">-</div>

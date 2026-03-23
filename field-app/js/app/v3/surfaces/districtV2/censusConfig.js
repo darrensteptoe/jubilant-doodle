@@ -1,7 +1,7 @@
 export function renderDistrictV2CensusCard({ censusCard, getCardBody }) {
   const body = getCardBody(censusCard);
   body.innerHTML = `
-    <div class="fpe-census-card" id="v3DistrictV2CensusShell">
+    <div class="fpe-census-card fpe-module-stack" id="v3DistrictV2CensusShell">
       <div class="fpe-field-grid fpe-field-grid--3">
         <div class="field">
           <label class="fpe-control-label" for="v3DistrictV2CensusApiKey">Census API key</label>

@@ -57,7 +57,7 @@ export function renderScenariosSurface(mount) {
   assignCardStatusId(summaryCard, "v3ScenarioSummaryCardStatus");
 
   getCardBody(workspaceCard).innerHTML = `
-    <div id="v3ScenarioBridgeRoot">
+    <div class="fpe-module-stack" id="v3ScenarioBridgeRoot">
       <div class="fpe-contained-block">
         <div class="fpe-control-label">Active scenario</div>
         <div class="fpe-help fpe-help--flush" id="v3ScenarioActiveLabel">-</div>
@@ -85,48 +85,50 @@ export function renderScenariosSurface(mount) {
   `;
 
   getCardBody(compareCard).innerHTML = `
-    <div class="fpe-contained-block">
-      <div class="fpe-control-label">Scenario comparison</div>
-      <div class="fpe-help fpe-help--flush" id="v3ScenarioCompareModeText">
-        ${SCENARIO_COMPARE_MODE_DISABLED_TEXT}
-      </div>
-    </div>
-    <div class="fpe-status-strip fpe-status-strip--2">
-      <div class="fpe-contained-block fpe-contained-block--status">
-        <div class="fpe-control-label">Compare tag</div>
-        <div class="fpe-help fpe-help--flush" id="v3ScenarioCompareTagView">—</div>
-      </div>
-      <div class="fpe-contained-block fpe-contained-block--status">
-        <div class="fpe-control-label">Output rows</div>
-        <div class="fpe-help fpe-help--flush" id="v3ScenarioCompareOutputRows">0</div>
-      </div>
-    </div>
-    <div class="fpe-field-grid fpe-field-grid--2">
+    <div class="fpe-module-stack" id="v3ScenarioCompareRoot">
       <div class="fpe-contained-block">
-        <div class="fpe-control-label">Input differences</div>
-        <ul class="bullets" id="v3ScenarioDiffInputs">
-          <li>No input differences.</li>
-        </ul>
-        <div class="fpe-help fpe-help--flush" id="v3ScenarioDiffInputsFoot"></div>
+        <div class="fpe-control-label">Scenario comparison</div>
+        <div class="fpe-help fpe-help--flush" id="v3ScenarioCompareModeText">
+          ${SCENARIO_COMPARE_MODE_DISABLED_TEXT}
+        </div>
       </div>
-      <div class="fpe-contained-block">
-        <div class="fpe-control-label">Output differences</div>
-        <div class="table-wrap">
-          <table class="table" aria-label="Scenario output differences">
-            <thead>
-              <tr>
-                <th>Metric</th>
-                <th>Baseline</th>
-                <th>Scenario</th>
-                <th>Delta</th>
-              </tr>
-            </thead>
-            <tbody id="v3ScenarioDiffOutputs">
-              <tr>
-                <td class="muted" colspan="4">No output differences.</td>
-              </tr>
-            </tbody>
-          </table>
+      <div class="fpe-status-strip fpe-status-strip--2">
+        <div class="fpe-contained-block fpe-contained-block--status">
+          <div class="fpe-control-label">Compare tag</div>
+          <div class="fpe-help fpe-help--flush" id="v3ScenarioCompareTagView">—</div>
+        </div>
+        <div class="fpe-contained-block fpe-contained-block--status">
+          <div class="fpe-control-label">Output rows</div>
+          <div class="fpe-help fpe-help--flush" id="v3ScenarioCompareOutputRows">0</div>
+        </div>
+      </div>
+      <div class="fpe-field-grid fpe-field-grid--2">
+        <div class="fpe-contained-block">
+          <div class="fpe-control-label">Input differences</div>
+          <ul class="bullets" id="v3ScenarioDiffInputs">
+            <li>No input differences.</li>
+          </ul>
+          <div class="fpe-help fpe-help--flush" id="v3ScenarioDiffInputsFoot"></div>
+        </div>
+        <div class="fpe-contained-block">
+          <div class="fpe-control-label">Output differences</div>
+          <div class="table-wrap">
+            <table class="table" aria-label="Scenario output differences">
+              <thead>
+                <tr>
+                  <th>Metric</th>
+                  <th>Baseline</th>
+                  <th>Scenario</th>
+                  <th>Delta</th>
+                </tr>
+              </thead>
+              <tbody id="v3ScenarioDiffOutputs">
+                <tr>
+                  <td class="muted" colspan="4">No output differences.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
         </div>
       </div>
     </div>
