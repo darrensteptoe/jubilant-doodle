@@ -63,6 +63,12 @@ export function createTurnoutBridgeRuntime(deps = {}){
     roiTextsCpa: { min: 0, max: 1000000, step: 0.01 },
     roiTextsCr: { min: 0, max: 100, step: 0.1, allowBlank: true },
     roiTextsSr: { min: 0, max: 100, step: 0.1, allowBlank: true },
+    roiLitDropCpa: { min: 0, max: 1000000, step: 0.01 },
+    roiLitDropCr: { min: 0, max: 100, step: 0.1, allowBlank: true },
+    roiLitDropSr: { min: 0, max: 100, step: 0.1, allowBlank: true },
+    roiMailCpa: { min: 0, max: 1000000, step: 0.01 },
+    roiMailCr: { min: 0, max: 100, step: 0.1, allowBlank: true },
+    roiMailSr: { min: 0, max: 100, step: 0.1, allowBlank: true },
     roiOverheadAmount: { min: 0, max: 1000000000, step: 1 },
   };
 
@@ -72,6 +78,8 @@ export function createTurnoutBridgeRuntime(deps = {}){
     "roiDoorsEnabled",
     "roiPhonesEnabled",
     "roiTextsEnabled",
+    "roiLitDropEnabled",
+    "roiMailEnabled",
     "roiIncludeOverhead",
   ]);
 
@@ -80,6 +88,8 @@ export function createTurnoutBridgeRuntime(deps = {}){
     "roiDoorsKind",
     "roiPhonesKind",
     "roiTextsKind",
+    "roiLitDropKind",
+    "roiMailKind",
   ]);
 
   const TURNOUT_NUMERIC_FIELDS = new Set(Object.keys(TURNOUT_NUMERIC_RULES));
@@ -104,6 +114,12 @@ export function createTurnoutBridgeRuntime(deps = {}){
     if (!tactics.texts || typeof tactics.texts !== "object"){
       tactics.texts = { enabled: false, cpa: 0.02, kind: "persuasion" };
     }
+    if (!tactics.litDrop || typeof tactics.litDrop !== "object"){
+      tactics.litDrop = { enabled: false, cpa: 0.11, kind: "persuasion" };
+    }
+    if (!tactics.mail || typeof tactics.mail !== "object"){
+      tactics.mail = { enabled: false, cpa: 0.65, kind: "persuasion" };
+    }
     if (typeof target.turnoutEnabled !== "boolean") target.turnoutEnabled = false;
     if (!Number.isFinite(Number(target.turnoutBaselinePct))) target.turnoutBaselinePct = 55;
     if (target.turnoutTargetOverridePct == null) target.turnoutTargetOverridePct = "";
@@ -121,6 +137,8 @@ export function createTurnoutBridgeRuntime(deps = {}){
     tactics.doors.kind = normalizeBridgeSelectValue(tactics?.doors?.kind, TURNOUT_SELECT_OPTIONS.tacticKind, "persuasion");
     tactics.phones.kind = normalizeBridgeSelectValue(tactics?.phones?.kind, TURNOUT_SELECT_OPTIONS.tacticKind, "persuasion");
     tactics.texts.kind = normalizeBridgeSelectValue(tactics?.texts?.kind, TURNOUT_SELECT_OPTIONS.tacticKind, "persuasion");
+    tactics.litDrop.kind = normalizeBridgeSelectValue(tactics?.litDrop?.kind, TURNOUT_SELECT_OPTIONS.tacticKind, "persuasion");
+    tactics.mail.kind = normalizeBridgeSelectValue(tactics?.mail?.kind, TURNOUT_SELECT_OPTIONS.tacticKind, "persuasion");
   }
 
   function turnoutBridgeStateView(){
@@ -130,6 +148,8 @@ export function createTurnoutBridgeRuntime(deps = {}){
     const doors = tactics?.doors || {};
     const phones = tactics?.phones || {};
     const texts = tactics?.texts || {};
+    const litDrop = tactics?.litDrop || {};
+    const mail = tactics?.mail || {};
     const roiRowsRaw = Array.isArray(state?.ui?.lastRoiRows) ? state.ui.lastRoiRows : [];
     const roiRows = roiRowsRaw.map((row) => ({
       label: String(row?.label || ""),
@@ -150,6 +170,8 @@ export function createTurnoutBridgeRuntime(deps = {}){
     const roiDoorsKind = normalizeBridgeSelectValue(doors?.kind, tacticKindOptions, "persuasion");
     const roiPhonesKind = normalizeBridgeSelectValue(phones?.kind, tacticKindOptions, "persuasion");
     const roiTextsKind = normalizeBridgeSelectValue(texts?.kind, tacticKindOptions, "persuasion");
+    const roiLitDropKind = normalizeBridgeSelectValue(litDrop?.kind, tacticKindOptions, "persuasion");
+    const roiMailKind = normalizeBridgeSelectValue(mail?.kind, tacticKindOptions, "persuasion");
     return {
       inputs: {
         turnoutEnabled: !!state.turnoutEnabled,
@@ -178,6 +200,16 @@ export function createTurnoutBridgeRuntime(deps = {}){
         roiTextsKind,
         roiTextsCr: texts.crPct ?? "",
         roiTextsSr: texts.srPct ?? "",
+        roiLitDropEnabled: !!litDrop.enabled,
+        roiLitDropCpa: litDrop.cpa ?? "",
+        roiLitDropKind,
+        roiLitDropCr: litDrop.crPct ?? "",
+        roiLitDropSr: litDrop.srPct ?? "",
+        roiMailEnabled: !!mail.enabled,
+        roiMailCpa: mail.cpa ?? "",
+        roiMailKind,
+        roiMailCr: mail.crPct ?? "",
+        roiMailSr: mail.srPct ?? "",
         roiOverheadAmount: state?.budget?.overheadAmount ?? "",
         roiIncludeOverhead: !!state?.budget?.includeOverhead,
       },
@@ -208,7 +240,13 @@ export function createTurnoutBridgeRuntime(deps = {}){
       const ok = TURNOUT_SELECT_OPTIONS.gotvMode.some((opt) => String(opt?.value ?? "") === text);
       return ok ? { ok: true, value: text, code: "" } : { ok: false, value: "", code: "invalid_value" };
     }
-    if (field === "roiDoorsKind" || field === "roiPhonesKind" || field === "roiTextsKind"){
+    if (
+      field === "roiDoorsKind" ||
+      field === "roiPhonesKind" ||
+      field === "roiTextsKind" ||
+      field === "roiLitDropKind" ||
+      field === "roiMailKind"
+    ){
       const ok = TURNOUT_SELECT_OPTIONS.tacticKind.some((opt) => String(opt?.value ?? "") === text);
       return ok ? { ok: true, value: text, code: "" } : { ok: false, value: "", code: "invalid_value" };
     }
@@ -264,6 +302,10 @@ export function createTurnoutBridgeRuntime(deps = {}){
           next.budget.tactics.phones.kind = normalized.value;
         } else if (key === "roiTextsKind"){
           next.budget.tactics.texts.kind = normalized.value;
+        } else if (key === "roiLitDropKind"){
+          next.budget.tactics.litDrop.kind = normalized.value;
+        } else if (key === "roiMailKind"){
+          next.budget.tactics.mail.kind = normalized.value;
         }
       });
       if (key === "gotvMode"){
@@ -287,6 +329,10 @@ export function createTurnoutBridgeRuntime(deps = {}){
           next.budget.tactics.phones.enabled = checked;
         } else if (key === "roiTextsEnabled"){
           next.budget.tactics.texts.enabled = checked;
+        } else if (key === "roiLitDropEnabled"){
+          next.budget.tactics.litDrop.enabled = checked;
+        } else if (key === "roiMailEnabled"){
+          next.budget.tactics.mail.enabled = checked;
         } else if (key === "roiIncludeOverhead"){
           next.budget.includeOverhead = checked;
         }
@@ -336,6 +382,18 @@ export function createTurnoutBridgeRuntime(deps = {}){
         next.budget.tactics.texts.crPct = safeNum(value);
       } else if (key === "roiTextsSr"){
         next.budget.tactics.texts.srPct = safeNum(value);
+      } else if (key === "roiLitDropCpa"){
+        next.budget.tactics.litDrop.cpa = safeNum(value) ?? 0;
+      } else if (key === "roiLitDropCr"){
+        next.budget.tactics.litDrop.crPct = safeNum(value);
+      } else if (key === "roiLitDropSr"){
+        next.budget.tactics.litDrop.srPct = safeNum(value);
+      } else if (key === "roiMailCpa"){
+        next.budget.tactics.mail.cpa = safeNum(value) ?? 0;
+      } else if (key === "roiMailCr"){
+        next.budget.tactics.mail.crPct = safeNum(value);
+      } else if (key === "roiMailSr"){
+        next.budget.tactics.mail.srPct = safeNum(value);
       } else if (key === "roiOverheadAmount"){
         next.budget.overheadAmount = safeNum(value) ?? 0;
       }
