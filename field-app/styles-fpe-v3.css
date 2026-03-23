@@ -2372,7 +2372,7 @@ body.training #app-shell-v3-root .fpe-surface .fpe-why {
 }
 
 .fpe-right-rail-slot--intel {
-  --fpe-intel-rail-card-bg: var(--fpe-page-title-row-bg);
+  --fpe-intel-rail-card-bg: var(--fpe-panel);
   --fpe-intel-rail-card-border: color-mix(in srgb, var(--fpe-rule) 78%, transparent);
 }
 
@@ -2855,7 +2855,7 @@ body.training #app-shell-v3-root .fpe-surface .fpe-why {
 
 /* Final right-rail manual uniform tone override */
 .fpe-right-rail-slot--intel {
-  --fpe-intel-rail-card-bg: var(--fpe-page-title-row-bg);
+  --fpe-intel-rail-card-bg: var(--fpe-panel);
   --fpe-intel-rail-card-border: color-mix(in srgb, var(--fpe-rule) 78%, transparent);
 }
 
