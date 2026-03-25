@@ -2,6 +2,7 @@
 
 import {
   buildMetricRow,
+  createAppendixBlock,
   createBenchmarkBlock,
   createConfidenceMethodologyBlock,
   createHeadlineBlock,
@@ -9,6 +10,7 @@ import {
   createRecommendationBlock,
   createTrendBlock,
   firstMetricDelta,
+  listOfficeAwareReportLines,
   fmtMetric,
   fmtSignedDelta,
   fmtWhole,
@@ -24,6 +26,7 @@ export function buildClientStandardSections(context) {
   const metrics = context?.metrics?.metrics || {};
   const election = context?.electionDataInfluence || {};
   const governance = context?.assurance?.governance || {};
+  const officeAwareLines = listOfficeAwareReportLines(context);
 
   const winConfidence = metrics?.outcomeConfidence?.value;
   const baselineSupport = metrics?.baselineSupport?.value;
@@ -32,6 +35,32 @@ export function buildClientStandardSections(context) {
 
   const confidenceDelta = firstMetricDelta(context, "outcomeConfidence");
   const targetingDelta = firstMetricDelta(context, "targetingScore");
+
+  const confidenceFrameBlocks = [
+    createConfidenceMethodologyBlock({
+      confidenceBand: cleanText(governance?.confidenceBand || election?.confidenceBand || "unknown"),
+      score: fmtMetric(winConfidence, 2),
+      methodologyNotes: [
+        "Confidence reflects how strongly major evidence streams point in the same direction.",
+        "Confidence is a guide to decision quality, not a guarantee of outcome.",
+        "Where confidence is lower, the right posture is narrower claims, stronger verification, and disciplined execution.",
+      ],
+      caveats: [
+        cleanText(governance?.topWarning || "No active confidence caveat."),
+      ],
+    }),
+  ];
+  if (officeAwareLines.length){
+    confidenceFrameBlocks.push(
+      createAppendixBlock({
+        title: "Office context framing",
+        rows: officeAwareLines.map((line, index) => ({
+          label: `Context ${index + 1}`,
+          value: line,
+        })),
+      }),
+    );
+  }
 
   return [
     makeSection("what_matters_now", "What Matters Now", [
@@ -110,19 +139,7 @@ export function buildClientStandardSections(context) {
       }),
     ]),
     makeSection("confidence_frame", "Confidence Frame", [
-      createConfidenceMethodologyBlock({
-        confidenceBand: cleanText(governance?.confidenceBand || election?.confidenceBand || "unknown"),
-        score: fmtMetric(winConfidence, 2),
-        methodologyNotes: [
-          "Confidence reflects how strongly major evidence streams point in the same direction.",
-          "Confidence is a guide to decision quality, not a guarantee of outcome.",
-          "Where confidence is lower, the right posture is narrower claims, stronger verification, and disciplined execution.",
-        ],
-        caveats: [
-          cleanText(governance?.topWarning || "No active confidence caveat."),
-        ],
-      }),
+      ...confidenceFrameBlocks,
     ]),
   ];
 }
-

@@ -13,6 +13,7 @@ import {
   createStatusBlock,
   createTrendBlock,
   firstMetricDelta,
+  listOfficeAwareReportLines,
   fmtMetric,
   fmtSignedDelta,
   fmtWhole,
@@ -45,61 +46,71 @@ export function buildInternalFullSections(context) {
   const events = context?.operations?.eventCalendar || {};
   const governance = context?.assurance?.governance || {};
   const audit = context?.assurance?.audit || {};
+  const officeAwareLines = listOfficeAwareReportLines(context);
 
   const sections = [];
-
-  sections.push(
-    makeSection("situation_snapshot", "Situation Snapshot", [
-      createHeadlineBlock({
-        headline: `${campaignName} · ${officeId}`,
-        subheadline:
-          `Scenario ${scenarioId} · Internal operating brief. Use this section to establish current position, what moved, and where attention is required next.`,
-        tone: "operational",
-      }),
-      createMetricGridBlock({
-        title: "Operating position (current read)",
-        metrics: [
-          buildMetricRow("Baseline support", fmtMetric(baselineSupport, 1, "%")),
-          buildMetricRow("Turnout expected", fmtMetric(turnoutExpected, 1, "%")),
-          buildMetricRow("Persuasion need", fmtWhole(persuasionNeed)),
-          buildMetricRow("Targeting score", fmtMetric(targetingScore, 2)),
-          buildMetricRow("Outcome confidence", fmtMetric(outcomeConfidence, 2)),
-          buildMetricRow("Election benchmark quality", fmtMetric(benchmarkQuality, 2)),
-        ],
-      }),
+  const situationBlocks = [
+    createHeadlineBlock({
+      headline: `${campaignName} · ${officeId}`,
+      subheadline:
+        `Scenario ${scenarioId} · Internal operating brief. Use this section to establish current position, what moved, and where attention is required next.`,
+      tone: "operational",
+    }),
+    createMetricGridBlock({
+      title: "Operating position (current read)",
+      metrics: [
+        buildMetricRow("Baseline support", fmtMetric(baselineSupport, 1, "%")),
+        buildMetricRow("Turnout expected", fmtMetric(turnoutExpected, 1, "%")),
+        buildMetricRow("Persuasion need", fmtWhole(persuasionNeed)),
+        buildMetricRow("Targeting score", fmtMetric(targetingScore, 2)),
+        buildMetricRow("Outcome confidence", fmtMetric(outcomeConfidence, 2)),
+        buildMetricRow("Election benchmark quality", fmtMetric(benchmarkQuality, 2)),
+      ],
+    }),
+    createAppendixBlock({
+      title: "How to read these numbers",
+      rows: [
+        { label: "Baseline support", value: "Current floor, not ceiling. Treat it as today’s operating base." },
+        { label: "Turnout expected", value: "Participation environment estimate, not guaranteed turnout." },
+        { label: "Persuasion need", value: "Remaining persuadable universe that still matters to the path." },
+        { label: "Targeting score", value: "Quality of current target concentration, not full campaign health." },
+        { label: "Outcome confidence", value: "Confidence in the current path, not certainty of victory." },
+        { label: "Election benchmark quality", value: "Reliability of historical comparison inputs feeding assumptions." },
+      ],
+    }),
+    createTrendBlock({
+      label: "Change since prior report",
+      rows: [
+        {
+          metric: "Targeting score",
+          delta: fmtSignedDelta(targetingDelta?.delta, 3),
+          direction: cleanText(targetingDelta?.direction || "flat"),
+        },
+        {
+          metric: "Outcome confidence",
+          delta: fmtSignedDelta(confidenceDelta?.delta, 3),
+          direction: cleanText(confidenceDelta?.direction || "flat"),
+        },
+        {
+          metric: "Election benchmark quality",
+          delta: fmtSignedDelta(qualityDelta?.delta, 3),
+          direction: cleanText(qualityDelta?.direction || "flat"),
+        },
+      ],
+    }),
+  ];
+  if (officeAwareLines.length){
+    situationBlocks.push(
       createAppendixBlock({
-        title: "How to read these numbers",
-        rows: [
-          { label: "Baseline support", value: "Current floor, not ceiling. Treat it as today’s operating base." },
-          { label: "Turnout expected", value: "Participation environment estimate, not guaranteed turnout." },
-          { label: "Persuasion need", value: "Remaining persuadable universe that still matters to the path." },
-          { label: "Targeting score", value: "Quality of current target concentration, not full campaign health." },
-          { label: "Outcome confidence", value: "Confidence in the current path, not certainty of victory." },
-          { label: "Election benchmark quality", value: "Reliability of historical comparison inputs feeding assumptions." },
-        ],
+        title: "Office context framing",
+        rows: officeAwareLines.map((line, index) => ({
+          label: `Context ${index + 1}`,
+          value: line,
+        })),
       }),
-      createTrendBlock({
-        label: "What changed since prior report",
-        rows: [
-          {
-            metric: "Targeting score",
-            delta: fmtSignedDelta(targetingDelta?.delta, 3),
-            direction: cleanText(targetingDelta?.direction || "flat"),
-          },
-          {
-            metric: "Outcome confidence",
-            delta: fmtSignedDelta(confidenceDelta?.delta, 3),
-            direction: cleanText(confidenceDelta?.direction || "flat"),
-          },
-          {
-            metric: "Election benchmark quality",
-            delta: fmtSignedDelta(qualityDelta?.delta, 3),
-            direction: cleanText(qualityDelta?.direction || "flat"),
-          },
-        ],
-      }),
-    ]),
-  );
+    );
+  }
+  sections.push(makeSection("situation_snapshot", "Situation Snapshot", situationBlocks));
 
   sections.push(
     makeSection("operational_risk", "Operational Risk & Diagnostics", [
@@ -240,4 +251,3 @@ export function buildInternalFullSections(context) {
 
   return sections;
 }
-

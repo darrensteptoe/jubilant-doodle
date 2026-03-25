@@ -78,6 +78,42 @@ export function makeSection(id, title, blocks = []) {
   };
 }
 
+function normalizeOfficeContextKey(template = {}) {
+  const officeLevel = cleanText(template?.officeLevel).toLowerCase();
+  const raceType = cleanText(template?.raceType).toLowerCase();
+  if (officeLevel === "statewide_executive" || raceType === "statewide_executive") return "statewide_executive";
+  if (officeLevel === "statewide_federal" || raceType === "statewide_federal") return "statewide_federal";
+  if (officeLevel === "state_legislative_lower" || raceType === "state_house" || raceType === "state_leg") return "state_house";
+  if (officeLevel === "countywide" || raceType === "countywide" || raceType === "county") return "countywide";
+  return "";
+}
+
+const OFFICE_AWARE_REPORT_LINES = Object.freeze({
+  statewide_executive: Object.freeze([
+    "This plan is being evaluated as a statewide executive race, where aggregate strength can conceal regional fragility. The risk read should be interpreted through coalition breadth, vote-mode mix, and execution consistency across the state.",
+    "The default planning band for this office type is intentionally wider than a district race because statewide execution is less uniform and more exposed to geographic variance.",
+    "Leadership should treat a narrow modeled path as provisional until the campaign proves consistent performance across major regions and vote modes.",
+  ]),
+  statewide_federal: Object.freeze([
+    "This plan is being evaluated as a statewide federal race, where outside conditions and message environment can widen uncertainty faster than in lower-salience contests.",
+    "A favorable topline should not be treated as settled if the middle path remains exposed to vote-mode weakness or narrative volatility.",
+  ]),
+  state_house: Object.freeze([
+    "This plan is being evaluated as a lower-chamber legislative race, where disciplined field execution and district realism matter more than broad statewide-style storytelling.",
+    "A strong district plan should remain legible under neighborhood-level scrutiny, not just in aggregate.",
+  ]),
+  countywide: Object.freeze([
+    "This plan is being evaluated as a countywide race, where county-level toplines should be checked against meaningful sub-geographic variation before leadership assumes the path is stable.",
+  ]),
+});
+
+export function listOfficeAwareReportLines(context) {
+  const template = context?.selectors?.districtCanonical?.templateProfile || {};
+  const key = normalizeOfficeContextKey(template);
+  const lines = OFFICE_AWARE_REPORT_LINES[key];
+  return Array.isArray(lines) ? lines.slice() : [];
+}
+
 export function firstMetricDelta(context, metricId) {
   const rows = context?.metrics?.comparison?.trendRows;
   if (!Array.isArray(rows)) return null;

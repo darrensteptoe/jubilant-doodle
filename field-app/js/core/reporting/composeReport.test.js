@@ -257,6 +257,46 @@ test("report composition: internal and client report families are structurally d
   assert.ok(clientSectionIds.includes("strategic_position"));
 });
 
+test("report composition: office-aware report language is carried into report sections", () => {
+  const state = buildFixtureState();
+
+  state.domains.district.templateProfile.raceType = "statewide_executive";
+  state.domains.district.templateProfile.officeLevel = "statewide_executive";
+  const executiveReport = composeReportDocument({
+    reportType: "internal_full",
+    state,
+    nowDate: new Date(NOW_ISO),
+  });
+  assert.match(JSON.stringify(executiveReport.sections), /statewide executive race/);
+
+  state.domains.district.templateProfile.raceType = "statewide_federal";
+  state.domains.district.templateProfile.officeLevel = "statewide_federal";
+  const federalReport = composeReportDocument({
+    reportType: "client_standard",
+    state,
+    nowDate: new Date(NOW_ISO),
+  });
+  assert.match(JSON.stringify(federalReport.sections), /statewide federal race/);
+
+  state.domains.district.templateProfile.raceType = "state_leg";
+  state.domains.district.templateProfile.officeLevel = "state_legislative_lower";
+  const stateHouseReport = composeReportDocument({
+    reportType: "internal_full",
+    state,
+    nowDate: new Date(NOW_ISO),
+  });
+  assert.match(JSON.stringify(stateHouseReport.sections), /lower-chamber legislative race/);
+
+  state.domains.district.templateProfile.raceType = "county";
+  state.domains.district.templateProfile.officeLevel = "countywide";
+  const countyReport = composeReportDocument({
+    reportType: "client_standard",
+    state,
+    nowDate: new Date(NOW_ISO),
+  });
+  assert.match(JSON.stringify(countyReport.sections), /countywide race/);
+});
+
 test("report composition: comparison context generates trend/delta blocks", () => {
   const state = buildFixtureState();
   const comparison = makeComparison(state);
@@ -348,4 +388,3 @@ test("report composer facade: preserves legacy aliases while exposing canonical 
   assert.equal(canonical.reportTypeCanonical, "client_standard");
   assert.equal(canonical.legacyReportType, "client");
 });
-

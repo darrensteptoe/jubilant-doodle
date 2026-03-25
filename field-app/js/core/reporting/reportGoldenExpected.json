@@ -12,16 +12,16 @@
     "blockTypeCounts": {
       "headline": 1,
       "metric_grid": 1,
+      "appendix": 2,
       "trend": 1,
       "status": 2,
-      "risk": 3,
+      "risk": 4,
       "benchmark": 3,
-      "recommendation": 2,
+      "recommendation": 3,
       "action_owner": 2,
-      "confidence_methodology": 1,
-      "appendix": 1
+      "confidence_methodology": 1
     },
-    "digest": "303f2d45e85838718717d569e7b8703d865cd0abae58e9c013b7483d638fb40b"
+    "digest": "9c8a7e8982bd6cf9b98f4bfcf6f4822952ec392e7deb971df70bfa91a51eac87"
   },
   "municipal_race::client_standard": {
     "title": "Vector Intelligence Campaign Engine — Client Standard — Ward 12 Forward",
@@ -37,10 +37,10 @@
       "metric_grid": 1,
       "trend": 1,
       "benchmark": 2,
-      "recommendation": 2,
+      "recommendation": 3,
       "confidence_methodology": 1
     },
-    "digest": "aa765859497f1302d52fde81996ca50c66cd8ff082b64b7b29f641b14dde9584"
+    "digest": "7c4715f38407bd5ea9b32bace3b4c2eef87b2fc1211846a8ee6ead5482473a9d"
   },
   "municipal_race::war_room_brief": {
     "title": "Vector Intelligence Campaign Engine — War Room Brief — Ward 12 Forward",
@@ -55,12 +55,12 @@
       "headline": 1,
       "metric_grid": 1,
       "status": 1,
-      "risk": 2,
+      "risk": 3,
       "recommendation": 1,
-      "action_owner": 2,
+      "action_owner": 3,
       "trend": 1
     },
-    "digest": "6acefe9ced90e475d9c6e748b20827c8b01b8f135274945012dc62628913056a"
+    "digest": "56916d83e06885c21505abb53b2f6a6555f6e2537649b59fbbdf236571710766"
   },
   "municipal_race::weekly_actions": {
     "title": "Vector Intelligence Campaign Engine — Weekly Actions — Ward 12 Forward",
@@ -73,11 +73,11 @@
     "blockTypeCounts": {
       "headline": 1,
       "trend": 1,
-      "action_owner": 2,
-      "recommendation": 1,
+      "recommendation": 2,
+      "action_owner": 3,
       "risk": 2
     },
-    "digest": "fd856e95fba84a94f5ed6005c68bea585a6522393fb738324a9efe159b2f4406"
+    "digest": "556d3fac17e1e72b2329926175f298d0e8819f1ceed252d41ad809346aa242de"
   },
   "municipal_race::readiness_audit": {
     "title": "Vector Intelligence Campaign Engine — Readiness Audit — Ward 12 Forward",
@@ -93,11 +93,11 @@
       "metric_grid": 1,
       "status": 1,
       "risk": 3,
-      "recommendation": 1,
+      "recommendation": 2,
       "action_owner": 2,
       "confidence_methodology": 1
     },
-    "digest": "a1ddaccd6192a33164f2c34b9cc7a2b107db27bfacaf1403629b33243fd83d5d"
+    "digest": "f84dfb9c6874d2b44ee5ad1dc682a660d97bbb38d450fafacec58532aa19e516"
   },
   "municipal_race::election_data_benchmark": {
     "title": "Vector Intelligence Campaign Engine — Election Data Benchmark — Ward 12 Forward",
@@ -130,11 +130,11 @@
       "headline": 1,
       "trend": 1,
       "status": 1,
-      "recommendation": 2,
+      "recommendation": 3,
       "action_owner": 2,
       "appendix": 1
     },
-    "digest": "527dcfc61059bac0cc982998b1bfc25409d14f62c14566403e3ee9989c164859"
+    "digest": "947bc2c1f8b1dfce2b892993754f6aa2106a1a651be8755f0d87abcf1b64affe"
   },
   "multi_candidate_primary::internal_full": {
     "title": "Vector Intelligence Campaign Engine — Internal Full — Primary Coalition 7",
@@ -149,16 +149,16 @@
     "blockTypeCounts": {
       "headline": 1,
       "metric_grid": 1,
+      "appendix": 3,
       "trend": 1,
       "status": 2,
-      "risk": 3,
+      "risk": 4,
       "benchmark": 3,
-      "recommendation": 2,
+      "recommendation": 3,
       "action_owner": 2,
-      "confidence_methodology": 1,
-      "appendix": 1
+      "confidence_methodology": 1
     },
-    "digest": "a031fc998f125f70275c3b7d139417ca691e33fb33be13ed93c8e030de237a34"
+    "digest": "8c22f9ee8d7d4b77b9e01e49960354680f94ee130d326bbfbb04884e187da5be"
   },
   "multi_candidate_primary::client_standard": {
     "title": "Vector Intelligence Campaign Engine — Client Standard — Primary Coalition 7",
@@ -174,10 +174,11 @@
       "metric_grid": 1,
       "trend": 1,
       "benchmark": 2,
-      "recommendation": 2,
-      "confidence_methodology": 1
+      "recommendation": 3,
+      "confidence_methodology": 1,
+      "appendix": 1
     },
-    "digest": "695e62a80425842e061eb3a41aa1c0b947f2bf5ce41fb8e2a8dec98a2d1ea8e5"
+    "digest": "3b08e3e9d2c52a1737d3880d7734bfd29400073227135dedf1f851843916b93e"
   },
   "multi_candidate_primary::war_room_brief": {
     "title": "Vector Intelligence Campaign Engine — War Room Brief — Primary Coalition 7",
@@ -192,12 +193,12 @@
       "headline": 1,
       "metric_grid": 1,
       "status": 1,
-      "risk": 2,
+      "risk": 3,
       "recommendation": 1,
-      "action_owner": 2,
+      "action_owner": 3,
       "trend": 1
     },
-    "digest": "ae28db00e7be1c732f0e39c2cd16d02070638325e0474b55a5a365353bb0017a"
+    "digest": "08b18ee6028a56fad92880556b2d517fb06e9c396919fa67e7cf846d0caf84ed"
   },
   "multi_candidate_primary::weekly_actions": {
     "title": "Vector Intelligence Campaign Engine — Weekly Actions — Primary Coalition 7",
@@ -210,11 +211,11 @@
     "blockTypeCounts": {
       "headline": 1,
       "trend": 1,
-      "action_owner": 2,
-      "recommendation": 1,
+      "recommendation": 2,
+      "action_owner": 3,
       "risk": 2
     },
-    "digest": "888c04aca291c9495bc5688f6a5731ae4919a38743095bcf2708d997d445d665"
+    "digest": "2db2ca9fa2c6908e36e0149b6c62e3776922881a82b4af65687592da035eac30"
   },
   "multi_candidate_primary::readiness_audit": {
     "title": "Vector Intelligence Campaign Engine — Readiness Audit — Primary Coalition 7",
@@ -230,11 +231,11 @@
       "metric_grid": 1,
       "status": 1,
       "risk": 3,
-      "recommendation": 1,
+      "recommendation": 2,
       "action_owner": 2,
       "confidence_methodology": 1
     },
-    "digest": "8bd89f6a46924e755ce2e0c9c9571673865139e36d8f9689c2926ad2d1f3b958"
+    "digest": "33966c80251ea2f3e6cc10b8e0592b90ad903bfda740fa6753b7d3867bd494d8"
   },
   "multi_candidate_primary::election_data_benchmark": {
     "title": "Vector Intelligence Campaign Engine — Election Data Benchmark — Primary Coalition 7",
@@ -267,11 +268,11 @@
       "headline": 1,
       "trend": 1,
       "status": 1,
-      "recommendation": 2,
+      "recommendation": 3,
       "action_owner": 2,
       "appendix": 1
     },
-    "digest": "449cb5c62a2d11639db6843c861e314f6c1657a9307277a5ced600c17c862a0a"
+    "digest": "3ff296924459b7e1d2690d2bbf46e872cdbf1bc559d9d49801bf5821b5d36a9b"
   },
   "low_data_race::internal_full": {
     "title": "Vector Intelligence Campaign Engine — Internal Full — Rural Outreach 5",
@@ -286,16 +287,16 @@
     "blockTypeCounts": {
       "headline": 1,
       "metric_grid": 1,
+      "appendix": 3,
       "trend": 1,
       "status": 2,
-      "risk": 3,
+      "risk": 4,
       "benchmark": 3,
-      "recommendation": 2,
+      "recommendation": 3,
       "action_owner": 2,
-      "confidence_methodology": 1,
-      "appendix": 1
+      "confidence_methodology": 1
     },
-    "digest": "c7d727dc7a19693ea0dd95d5e43f6ae0425505920f4a04c46c396d247f42066c"
+    "digest": "c82af503febffd8ba918f5de97620994a6e71c6c6b83a84d9b58be9dad1d28e1"
   },
   "low_data_race::client_standard": {
     "title": "Vector Intelligence Campaign Engine — Client Standard — Rural Outreach 5",
@@ -311,10 +312,11 @@
       "metric_grid": 1,
       "trend": 1,
       "benchmark": 2,
-      "recommendation": 2,
-      "confidence_methodology": 1
+      "recommendation": 3,
+      "confidence_methodology": 1,
+      "appendix": 1
     },
-    "digest": "cbd175f49c0fb527755c49a18d8f35b7b093274dcf6c2fc8e12e731d85cf2ff2"
+    "digest": "186310fef4f3824cc94ed886f416c2b6b12b8fb2214f91606de4ef33cb80d64f"
   },
   "low_data_race::war_room_brief": {
     "title": "Vector Intelligence Campaign Engine — War Room Brief — Rural Outreach 5",
@@ -329,12 +331,12 @@
       "headline": 1,
       "metric_grid": 1,
       "status": 1,
-      "risk": 2,
+      "risk": 3,
       "recommendation": 1,
-      "action_owner": 2,
+      "action_owner": 3,
       "trend": 1
     },
-    "digest": "fdf859cc88c6384ee2374d9a63008ddc6fa675af0d08f51e81e6f407c2028801"
+    "digest": "6e999362737111e8188be7c51e226cdec3d91e98983d675d4fe40fa37e15659a"
   },
   "low_data_race::weekly_actions": {
     "title": "Vector Intelligence Campaign Engine — Weekly Actions — Rural Outreach 5",
@@ -347,11 +349,11 @@
     "blockTypeCounts": {
       "headline": 1,
       "trend": 1,
-      "action_owner": 2,
-      "recommendation": 1,
+      "recommendation": 2,
+      "action_owner": 3,
       "risk": 2
     },
-    "digest": "4a6c19de3bb3030bfd2d1a4a255c9843955467367cf6cb8ed7d1fd38a406a111"
+    "digest": "0dd3f3d1146b337de061ea9299bd2a45699ad6aac6bebebaf209b09509981d04"
   },
   "low_data_race::readiness_audit": {
     "title": "Vector Intelligence Campaign Engine — Readiness Audit — Rural Outreach 5",
@@ -367,11 +369,11 @@
       "metric_grid": 1,
       "status": 1,
       "risk": 3,
-      "recommendation": 1,
+      "recommendation": 2,
       "action_owner": 2,
       "confidence_methodology": 1
     },
-    "digest": "bb6cd548771ea5d3bfa74c612055984c53ac130b3d28399091df901d89fbff06"
+    "digest": "427142ad2c847bd874a2fcc6215aafe34dbe05a2246219e4aa1192ec5ba264fe"
   },
   "low_data_race::election_data_benchmark": {
     "title": "Vector Intelligence Campaign Engine — Election Data Benchmark — Rural Outreach 5",
@@ -404,11 +406,11 @@
       "headline": 1,
       "trend": 1,
       "status": 1,
-      "recommendation": 2,
+      "recommendation": 3,
       "action_owner": 2,
       "appendix": 1
     },
-    "digest": "02f378233440c20169d5504d80e2f4bd2624821652144e988cf6bff71d68997f"
+    "digest": "c15f0c3a7bed3fd98a6a8e3165167d8160b6f3f664b82ed6685b52f01ed936c3"
   },
   "election_data_imported::internal_full": {
     "title": "Vector Intelligence Campaign Engine — Internal Full — House 44 Growth",
@@ -423,16 +425,16 @@
     "blockTypeCounts": {
       "headline": 1,
       "metric_grid": 1,
+      "appendix": 3,
       "trend": 1,
       "status": 2,
-      "risk": 3,
+      "risk": 4,
       "benchmark": 3,
-      "recommendation": 2,
+      "recommendation": 3,
       "action_owner": 2,
-      "confidence_methodology": 1,
-      "appendix": 1
+      "confidence_methodology": 1
     },
-    "digest": "38892b5038aea08dafcb9c4198f310c6022ce5d41f368fa4aa700229f6a35c30"
+    "digest": "90799301ca073835bb9c206837fc91d951dcb1f80f7d56d19785dd28e6a3b135"
   },
   "election_data_imported::client_standard": {
     "title": "Vector Intelligence Campaign Engine — Client Standard — House 44 Growth",
@@ -448,10 +450,11 @@
       "metric_grid": 1,
       "trend": 1,
       "benchmark": 2,
-      "recommendation": 2,
-      "confidence_methodology": 1
+      "recommendation": 3,
+      "confidence_methodology": 1,
+      "appendix": 1
     },
-    "digest": "89836731659d599ac6df09706bfd950a81911fd94e91b19e301133f50d85391b"
+    "digest": "61f7992b958bfe470292cddefb79445fffc9849a05c8038e7b44cdfeeea3e9d5"
   },
   "election_data_imported::war_room_brief": {
     "title": "Vector Intelligence Campaign Engine — War Room Brief — House 44 Growth",
@@ -466,12 +469,12 @@
       "headline": 1,
       "metric_grid": 1,
       "status": 1,
-      "risk": 2,
+      "risk": 3,
       "recommendation": 1,
-      "action_owner": 2,
+      "action_owner": 3,
       "trend": 1
     },
-    "digest": "a9a58b1c26e1243b280a4aa5dcf5d10ad5be6d3d2a5ead7c1d93ba64ccba5a5e"
+    "digest": "e5369a9764a3baba5d449036520dcc62303e5ea13b5c317dca2834a5fb91b0cf"
   },
   "election_data_imported::weekly_actions": {
     "title": "Vector Intelligence Campaign Engine — Weekly Actions — House 44 Growth",
@@ -484,11 +487,11 @@
     "blockTypeCounts": {
       "headline": 1,
       "trend": 1,
-      "action_owner": 2,
-      "recommendation": 1,
+      "recommendation": 2,
+      "action_owner": 3,
       "risk": 2
     },
-    "digest": "98b03c87d2899392378dadd4d8663543819d89179c0abf7feb44ef1b1f8ceff8"
+    "digest": "2043dd9b84a199056b11f688a68eea7584f77681d234221051a436bd2f588063"
   },
   "election_data_imported::readiness_audit": {
     "title": "Vector Intelligence Campaign Engine — Readiness Audit — House 44 Growth",
@@ -504,11 +507,11 @@
       "metric_grid": 1,
       "status": 1,
       "risk": 3,
-      "recommendation": 1,
+      "recommendation": 2,
       "action_owner": 2,
       "confidence_methodology": 1
     },
-    "digest": "96f38e1a6d5a6202bb6f896cf6d11210f76e6c4e664692d0504b6d3506ca47d8"
+    "digest": "001dc242478d329737768934d4f365fe5ad88c0ab3440c6e210c448a4eff67d4"
   },
   "election_data_imported::election_data_benchmark": {
     "title": "Vector Intelligence Campaign Engine — Election Data Benchmark — House 44 Growth",
@@ -541,11 +544,11 @@
       "headline": 1,
       "trend": 1,
       "status": 1,
-      "recommendation": 2,
+      "recommendation": 3,
       "action_owner": 2,
       "appendix": 1
     },
-    "digest": "c74747905da9ae782dd6732a9ba44c5e07fb1460b6f6a4ea587e23ebfe46635d"
+    "digest": "6482f4ffe07717f99b1bdacd966d94e9f4e9c922146d04c4b93b35ef43e88d50"
   },
   "war_room_active::internal_full": {
     "title": "Vector Intelligence Campaign Engine — Internal Full — Citywide Ops",
@@ -560,16 +563,16 @@
     "blockTypeCounts": {
       "headline": 1,
       "metric_grid": 1,
+      "appendix": 2,
       "trend": 1,
       "status": 2,
-      "risk": 3,
+      "risk": 4,
       "benchmark": 3,
-      "recommendation": 2,
+      "recommendation": 3,
       "action_owner": 2,
-      "confidence_methodology": 1,
-      "appendix": 1
+      "confidence_methodology": 1
     },
-    "digest": "57c958cc878f9114836d6770616058bbebe27107b0f8c78076d7b25b1d448fe7"
+    "digest": "5f9ebd3acd29514d4857e6c8218ed7264b4ecd2b3a51d496dfd4d05a8bf7bbbc"
   },
   "war_room_active::client_standard": {
     "title": "Vector Intelligence Campaign Engine — Client Standard — Citywide Ops",
@@ -585,10 +588,10 @@
       "metric_grid": 1,
       "trend": 1,
       "benchmark": 2,
-      "recommendation": 2,
+      "recommendation": 3,
       "confidence_methodology": 1
     },
-    "digest": "0b234854d2f0c443844e6abe44d0a98c3b51b73adb278a5210db820441c93939"
+    "digest": "18a46989b7fae52fce04fc6559cecc3be254237d5b88e01b1e768422f7a2df0e"
   },
   "war_room_active::war_room_brief": {
     "title": "Vector Intelligence Campaign Engine — War Room Brief — Citywide Ops",
@@ -603,12 +606,12 @@
       "headline": 1,
       "metric_grid": 1,
       "status": 1,
-      "risk": 2,
+      "risk": 3,
       "recommendation": 1,
-      "action_owner": 2,
+      "action_owner": 3,
       "trend": 1
     },
-    "digest": "0e1d0d6f9798de9bd60208ceb748c983e67b397b04b3759f0eb78ee3fce5d194"
+    "digest": "92efef06b8ab8beeb646a7dfc536adcf564a9bfea8e312ce283f37b00ea44ebf"
   },
   "war_room_active::weekly_actions": {
     "title": "Vector Intelligence Campaign Engine — Weekly Actions — Citywide Ops",
@@ -621,11 +624,11 @@
     "blockTypeCounts": {
       "headline": 1,
       "trend": 1,
-      "action_owner": 2,
-      "recommendation": 1,
+      "recommendation": 2,
+      "action_owner": 3,
       "risk": 2
     },
-    "digest": "2308d63a3c629859463bceb5e29cacbc66297fa6eab53d7202cf0b5101625ffd"
+    "digest": "e0ce470dc1bf5969326c08a2b724758b8c09a2ec6711948e5f649e8025e6e353"
   },
   "war_room_active::readiness_audit": {
     "title": "Vector Intelligence Campaign Engine — Readiness Audit — Citywide Ops",
@@ -641,11 +644,11 @@
       "metric_grid": 1,
       "status": 1,
       "risk": 3,
-      "recommendation": 1,
+      "recommendation": 2,
       "action_owner": 2,
       "confidence_methodology": 1
     },
-    "digest": "17f471951578215606ce04232ddacbc5a7a4aa16c7790190f5fc53697f12e5ae"
+    "digest": "6e8ce7b641176e2ec7fdf0a94b8089e4c7fb6ef32c8a7284843ac929cd80c2ca"
   },
   "war_room_active::election_data_benchmark": {
     "title": "Vector Intelligence Campaign Engine — Election Data Benchmark — Citywide Ops",
@@ -678,10 +681,10 @@
       "headline": 1,
       "trend": 1,
       "status": 1,
-      "recommendation": 2,
+      "recommendation": 3,
       "action_owner": 2,
       "appendix": 1
     },
-    "digest": "663e27ef1148835d0d6df75d0d34ce25f34b2bfc148355697e4684d8149c7bd9"
+    "digest": "2eed4a0cf5fdfc368f799c15eed1716aa3116e449c5637c125016e7ad493d0ce"
   }
 }
