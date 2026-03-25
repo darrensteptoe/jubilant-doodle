@@ -192,6 +192,7 @@ export function renderDistrictV2TargetingCard({ targetingCard, getCardBody }) {
         <div class="field">
           <label class="fpe-control-label" for="v3DistrictV2TargetingTopN">Top N</label>
           <input class="fpe-input" id="v3DistrictV2TargetingTopN" min="1" step="1" type="number"/>
+          <div class="fpe-help fpe-help--flush">Top N is the number of highest-ranked geographies returned by the model. More is broader; less is tighter. Increase it when the campaign needs volume. Decrease it when focus matters more than breadth.</div>
         </div>
       </div>
 
@@ -207,6 +208,7 @@ export function renderDistrictV2TargetingCard({ targetingCard, getCardBody }) {
         <div class="field">
           <label class="fpe-control-label" for="v3DistrictV2TargetingMinScore">Minimum score</label>
           <input class="fpe-input" id="v3DistrictV2TargetingMinScore" min="0" step="0.1" type="number"/>
+          <div class="fpe-help fpe-help--flush">Minimum score is the floor a geography must clear to be included. Raise it for a cleaner, higher-confidence turf cut. Lower it when the campaign needs more volume or backup turf.</div>
         </div>
       </div>
 
@@ -214,6 +216,7 @@ export function renderDistrictV2TargetingCard({ targetingCard, getCardBody }) {
         <div class="field fpe-targeting-density-field">
           <label class="fpe-control-label" for="v3DistrictV2TargetingDensityFloor">Density floor</label>
           <select class="fpe-input" id="v3DistrictV2TargetingDensityFloor"></select>
+          <div class="fpe-help fpe-help--flush">Density floor sets the minimum density required for a geography to be included. Raise it when walk efficiency matters. Lower it when lower-density areas are still strategically important.</div>
         </div>
       </div>
 

@@ -47,6 +47,7 @@ export function renderDistrictV2ElectorateCard({ electorateCard, createFieldGrid
     <div class="field">
       <label class="fpe-control-label" for="v3DistrictV2RetentionFactor">Support retention (0.60-0.95)</label>
       <input class="fpe-input" id="v3DistrictV2RetentionFactor" max="0.95" min="0.60" step="0.01" type="number"/>
+      <div class="fpe-help fpe-help--flush">Support retention is the share of baseline support expected to hold through Election Day. Raise it only when the coalition is unusually stable. Lower it when support is soft or vulnerable to drop-off.</div>
     </div>
   `;
 

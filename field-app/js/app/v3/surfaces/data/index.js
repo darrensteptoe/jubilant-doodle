@@ -127,6 +127,7 @@ export function renderDataSurface(mount) {
 
   getCardBody(policyCard).innerHTML = `
     <div id="v3DataBridgeRoot">
+      <div class="fpe-help fpe-help--flush">If you are loading a large census or overlay bundle, start in Data and use external/USB storage if needed. Do not trust downstream targeting until geography and source inputs are confirmed.</div>
       <div class="fpe-contained-block">
         <ul class="bullets">
           <li>Use strict mode when import integrity must be enforced for client-safe handoff.</li>

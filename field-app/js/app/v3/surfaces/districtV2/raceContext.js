@@ -6,7 +6,7 @@ export function renderDistrictV2RaceContextCard({ raceCard, createFieldGrid, get
     <div class="field">
       <label class="fpe-control-label" for="v3DistrictV2RaceType">Race template</label>
       <select class="fpe-input" id="v3DistrictV2RaceType"></select>
-      <div class="fpe-help fpe-help--flush">Templates set planning defaults and guidance language. They do not change core math. Use them to start from a realistic race context, then override where local evidence justifies it.</div>
+      <div class="fpe-help fpe-help--flush">Race template sets the default planning posture and starting values. Office context fields below describe or refine the contest context, but planning defaults update when the template changes or when template defaults are explicitly reapplied.</div>
     </div>
     <div class="field">
       <label class="fpe-control-label" for="v3DistrictV2ElectionDate">Election date</label>
@@ -27,10 +27,12 @@ export function renderDistrictV2RaceContextCard({ raceCard, createFieldGrid, get
     <div class="field">
       <label class="fpe-control-label" for="v3DistrictV2OfficeLevel">Office level</label>
       <select class="fpe-input" id="v3DistrictV2OfficeLevel"></select>
+      <div class="fpe-help fpe-help--flush">Office level helps define contest context. It does not by itself rewrite current planning values unless template defaults are reapplied from the selected race template.</div>
     </div>
     <div class="field">
       <label class="fpe-control-label" for="v3DistrictV2ElectionType">Election type</label>
       <select class="fpe-input" id="v3DistrictV2ElectionType"></select>
+      <div class="fpe-help fpe-help--flush">General, primary, and special contests often behave differently. Use the election type that matches the real race, not the one that leaves the cleanest default posture.</div>
     </div>
     <div class="field">
       <label class="fpe-control-label" for="v3DistrictV2SeatContext">Seat context</label>
@@ -43,15 +45,13 @@ export function renderDistrictV2RaceContextCard({ raceCard, createFieldGrid, get
     <div class="field">
       <label class="fpe-control-label" for="v3DistrictV2SalienceLevel">Salience level</label>
       <select class="fpe-input" id="v3DistrictV2SalienceLevel"></select>
+      <div class="fpe-help fpe-help--flush">Salience level describes how much attention, outside pressure, and volatility the race is likely to carry. Higher salience means the race should usually be read more cautiously.</div>
     </div>
   `;
 
   const officeHelp = document.createElement("div");
   officeHelp.className = "fpe-help fpe-help--flush";
-  officeHelp.innerHTML = `
-    <strong>Why office level matters</strong><br/>
-    Office level shapes how wide uncertainty should be, how much persuasion is realistically available, how much vote may arrive before Election Day, and how cautiously leadership should read the model. A statewide race is not just a bigger district race.
-  `;
+  officeHelp.textContent = "Templates and office interpretation now live in the District Reality manual: templates and office context, office breakdown, and office risk flags.";
 
   const contextGuideRow = document.createElement("div");
   contextGuideRow.className = "fpe-action-row";
@@ -67,9 +67,13 @@ export function renderDistrictV2RaceContextCard({ raceCard, createFieldGrid, get
     <span class="fpe-help fpe-help--flush" id="v3DistrictV2TemplateMeta">Template profile unavailable.</span>
   `;
 
+  const contextUpdatedHelp = document.createElement("div");
+  contextUpdatedHelp.className = "fpe-help fpe-help--flush";
+  contextUpdatedHelp.textContent = "Context updated. Current planning values are still retained from the prior template until you apply template defaults.";
+
   const applyHelp = document.createElement("div");
   applyHelp.className = "fpe-help fpe-help--flush";
-  applyHelp.textContent = "Re-apply template defaults to template-controlled fields while preserving protected manual overrides.";
+  applyHelp.textContent = "Apply defaults from the currently selected race template while preserving protected manual overrides.";
 
-  body.append(raceGrid, templateGrid, officeHelp, contextGuideRow, actionRow, applyHelp);
+  body.append(raceGrid, templateGrid, officeHelp, contextGuideRow, actionRow, contextUpdatedHelp, applyHelp);
 }

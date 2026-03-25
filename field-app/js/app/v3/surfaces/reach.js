@@ -102,7 +102,7 @@ export function renderReachSurface(mount) {
       </div>
     </div>
     <div class="fpe-help fpe-help--flush">These assumptions affect how much persuadable universe remains for field contact over the timeline.</div>
-    <div class="fpe-help fpe-help--flush">Example: if early vote rises, remaining persuadable volume usually drops and weekly throughput pressure rises.</div>
+    <div class="fpe-help fpe-help--flush">Early vote expected is the share of the vote likely to arrive before Election Day. Set it from the real state and race environment, not from generic national habits.</div>
   `;
 
   const leversBody = getCardBody(leversCard);

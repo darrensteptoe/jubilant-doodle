@@ -19,7 +19,7 @@ export function renderDistrictV2TurnoutBaselineCard({ turnoutBaselineCard, creat
 
   const note = document.createElement("div");
   note.className = "fpe-help fpe-help--flush";
-  note.textContent = "These turnout anchors feed District baseline and right-rail turnout framing.";
+  note.textContent = "Band width is the uncertainty spread around turnout conditions. Wider bands are appropriate when the environment is volatile or poorly understood. Narrow bands should be earned, not assumed.";
 
   body.append(grid, note);
 }
