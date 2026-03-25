@@ -7,10 +7,61 @@ This is the operational “how to use every box” guide, with the *why* behind 
 
 **Purpose:** establish the planning context so every downstream assumption has a consistent frame.
 
-Fields (typical):
-- **Race type**
-  - What it does: loads sensible defaults for a category of race.
-  - Why: a state house race and a mayoral race have different universe sizes, tactics, and realistic capacity.
+### Race template vs office level
+
+- **Race template**
+  - What it does: sets planning defaults and guidance language.
+  - What it does *not* do: it does not change core deterministic math, Monte Carlo behavior, optimizer math, or scenario compare math.
+  - Correct usage: start from the closest honest race context, then override where local evidence is stronger.
+- **Office level**
+  - Why it matters: office level changes uncertainty posture, persuadable headroom assumptions, early-vote expectations, and how cautiously leadership should read toplines.
+  - Core principle: a statewide race is not just a bigger district race.
+
+### Race setup explainer (exact app language)
+
+“Templates set planning defaults and guidance language. They do not change core math. Use them to start from a realistic race context, then override where local evidence justifies it.”
+
+### Why statewide executive differs from district federal
+
+- **Governor / Statewide Executive**
+  - Broader and more uneven coalition map.
+  - More regional variance and vote-mode asymmetry.
+  - Greater risk of “safe topline, weak regional depth.”
+- **U.S. House / Congressional**
+  - Usually more geographically legible.
+  - Easier to segment and monitor district performance.
+  - Still volatile, but less map-wide heterogeneity than statewide executive.
+
+### Band width by office type (planning default, not truth)
+
+- City / Municipal Executive: `2 / 4 / 6`
+- City / Municipal Legislative: `2 / 4 / 6`
+- Countywide: `3 / 5 / 8`
+- State House: `3 / 5 / 8`
+- State Senate: `3 / 6 / 9`
+- U.S. House / Congressional: `4 / 6 / 10`
+- Governor / Statewide Executive: `5 / 8 / 12`
+- U.S. Senate / Statewide Federal: `5 / 8 / 12`
+- Judicial / Other: `4 / 7 / 11`
+
+### What band width means
+
+- `bandWidth` is uncertainty spread around turnout baseline, not vote share.
+- Wider does not mean pessimistic; it means honest variance framing.
+- Narrower does not mean better; it means stronger certainty claims, which require stronger evidence.
+
+### When to tighten defaults
+
+- Tighten when polling quality is high, vote history is stable, execution is disciplined, and regional signal is strong.
+- Tighten only when those conditions hold together, not when leadership pressure prefers a cleaner narrative.
+
+### When to widen defaults
+
+- Widen when environment volatility is high, coalition stability is weak, vote-mode behavior is shifting, or regional certainty is thin.
+- Widening is often the correct move before major reallocations.
+
+### Other setup fields
+
 - **Election date / weeks remaining**
   - What it does: determines time remaining and drives timeline feasibility.
   - Why: a plan is only meaningful relative to time constraints.

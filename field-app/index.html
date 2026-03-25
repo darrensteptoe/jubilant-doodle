@@ -111,13 +111,13 @@
 <div class="training-bd-new">
 <div class="training-col-new">
 <div class="training-sec-title-new">What this stage models</div>
-<p>Sets the planning context. Race type loads sensible defaults — a state house race and a mayoral race have different universe sizes, realistic capacity, and tactic mix. Election date drives timeline feasibility in later stages.</p>
-<div class="training-rule-new">Scenario name → saved with export<br/>Race type → default band widths<br/>Election date → weeks remaining auto-calc<br/>Mode → persuasion vs turnout emphasis</div>
+<p>Sets the planning context. Templates load a realistic starting posture by office and contest context, then you override where local evidence is stronger. Election date drives timeline feasibility in later stages.</p>
+<div class="training-rule-new">Scenario name → saved with export<br/>Template selection → default planning posture<br/>Election date → weeks remaining auto-calc<br/>Mode → persuasion vs turnout emphasis</div>
 </div>
 <div class="training-col-new">
 <div class="training-sec-title-new">Common mistakes</div>
 <ul>
-<li>Using "Federal" template for a state leg race — band widths will be too tight</li>
+<li>Using "U.S. House / Congressional" for a governor race and reading the map like a district contest</li>
 <li>Leaving election date blank then forgetting to set weeks remaining manually</li>
 <li>Setting mode to Late-start before you know your capacity constraints</li>
 </ul>
@@ -130,19 +130,29 @@
 <!-- EXISTING CONTENT: Scenario card -->
 <div class="card card-section phase-setup">
 <div class="card-head card-header"><h2 class="card-title">Race setup</h2></div>
-<div class="module-desc">Set race template, election date, weeks remaining, and mode. This establishes the planning context for all downstream math.</div>
+<div class="module-desc">Set office-aware race context, election date, weeks remaining, and mode. This establishes the planning context for all downstream math.</div>
 <div class="grid2">
 <div class="field">
 <label class="label" for="raceType">Race template</label>
 <select class="select" id="raceType">
-<option value="federal">Federal</option>
-<option selected="" value="state_leg">State legislative</option>
-<option value="municipal">Municipal / ward</option>
-<option value="county">County / regional</option>
+<option value="municipal_executive">City / Municipal Executive</option>
+<option value="municipal_legislative">City / Municipal Legislative</option>
+<option value="countywide">Countywide</option>
+<option selected="" value="state_house">State House</option>
+<option value="state_senate">State Senate</option>
+<option value="congressional_district">U.S. House / Congressional</option>
+<option value="statewide_executive">Governor / Statewide Executive</option>
+<option value="statewide_federal">U.S. Senate / Statewide Federal</option>
+<option value="judicial_other">Judicial / Other</option>
+<option value="custom_context">Custom</option>
 </select>
-<div class="help" data-help="Template sets conservative default ranges. You can override anything.">
+<div class="help" data-help="Templates set planning defaults and guidance language. They do not change core math.">
 <span class="help-title">What this is</span>
-<span class="help-text">Select a baseline assumptions profile (turnout band width defaults, etc.).</span>
+<span class="help-text">Templates set planning defaults and guidance language. They do not change core math. Use them to start from a realistic race context, then override where local evidence justifies it.</span>
+</div>
+<div class="help" data-help="Office level affects uncertainty, persuasion headroom, and vote-mode assumptions.">
+<span class="help-title">Why office level matters</span>
+<span class="help-text">Office level shapes how wide uncertainty should be, how much persuasion is realistically available, how much vote may arrive before Election Day, and how cautiously leadership should read the model. A statewide race is not just a bigger district race.</span>
 </div>
 </div>
 <div class="field">
