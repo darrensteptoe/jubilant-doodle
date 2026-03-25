@@ -80,6 +80,10 @@ export const TEMPLATE_DIMENSION_LABELS = Object.freeze({
   }),
 });
 
+const CANONICAL_TEMPLATE_DIMENSION_OPTION_KEYS = Object.freeze([
+  "electionType",
+]);
+
 function freezeTemplateRecord(record){
   return Object.freeze({
     ...record,
@@ -391,11 +395,19 @@ function toLabelCase(value){
 export function listTemplateDimensionOptions(dimensionKey){
   const key = String(dimensionKey == null ? "" : dimensionKey).trim();
   if (!TEMPLATE_DIMENSION_KEYS.includes(key)) return [];
+  const labelMap = TEMPLATE_DIMENSION_LABELS?.[key] || null;
   const options = new Map();
+  if (labelMap && CANONICAL_TEMPLATE_DIMENSION_OPTION_KEYS.includes(key)){
+    for (const value of Object.keys(labelMap)){
+      const token = String(value || "").trim();
+      if (!token || options.has(token)) continue;
+      options.set(token, String(labelMap[token] || toLabelCase(token)).trim() || toLabelCase(token));
+    }
+  }
   for (const record of Object.values(TEMPLATE_REGISTRY)){
     const value = String(record?.dimensions?.[key] || "").trim();
     if (!value || options.has(value)) continue;
-    const explicitLabel = TEMPLATE_DIMENSION_LABELS?.[key]?.[value];
+    const explicitLabel = labelMap?.[value];
     options.set(value, String(explicitLabel || toLabelCase(value)).trim() || toLabelCase(value));
   }
   return Array.from(options.entries())

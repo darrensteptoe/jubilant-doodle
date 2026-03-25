@@ -4,6 +4,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { assumptionsProfileLabelModule } from "./assumptionsProfile.js";
+import { listTemplateDimensionOptions } from "./templateRegistry.js";
 import {
   applyTemplateDefaultsToState,
   getTemplateRecord,
@@ -41,6 +42,14 @@ test("template resolver: registry entries map templates to office levels", () =>
   assert.equal(getTemplateRecord("congressional_district").dimensions.officeLevel, "congressional_district");
   assert.equal(getTemplateRecord("state_house").dimensions.officeLevel, "state_legislative_lower");
   assert.equal(getTemplateRecord("countywide").dimensions.officeLevel, "countywide");
+});
+
+test("template registry: election type options include canonical general/primary/special", () => {
+  assert.deepEqual(listTemplateDimensionOptions("electionType"), [
+    { value: "general", label: "General" },
+    { value: "primary", label: "Primary" },
+    { value: "special", label: "Special" },
+  ]);
 });
 
 test("template resolver: statewide executive selection applies office-specific default banding", () => {
