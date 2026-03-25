@@ -64,3 +64,14 @@ test("turnout surface contract: channel realism + tactic usage guidance text is 
     "missing tactic usage note body",
   );
 });
+
+test("turnout surface contract: uses full-width center stack with summary card first", () => {
+  assert.match(turnoutSource, /createCenterStackFrame\(/, "turnout surface must use center-stack frame");
+  assert.match(turnoutSource, /createCenterStackColumn\(/, "turnout surface must use center-stack column");
+  assert.doesNotMatch(turnoutSource, /createSurfaceFrame\("two-col"\)/, "turnout surface must not use two-col frame");
+  assert.match(
+    turnoutSource,
+    /centerCol\.append\(\s*summaryCard,\s*assumptionsCard,\s*liftCard,\s*costInputsCard,\s*efficiencyCard,\s*impactCard\s*\)/m,
+    "turnout summary card must render first in the module stack",
+  );
+});

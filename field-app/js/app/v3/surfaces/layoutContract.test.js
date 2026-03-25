@@ -37,6 +37,7 @@ test("layout contract: rewritten center surfaces use center-stack shell", () => 
   expectDistrictCompatSurface("js/app/v3/surfaces/district/index.js");
   expectCenterStackSurface("js/app/v3/surfaces/districtV2/index.js");
   expectCenterStackSurface("js/app/v3/surfaces/electionData/index.js");
+  expectCenterStackSurface("js/app/v3/surfaces/turnout.js");
   expectCenterStackSurface("js/app/v3/surfaces/outcome/index.js");
   expectCenterStackSurface("js/app/v3/surfaces/data/index.js");
   expectCenterStackSurface("js/app/v3/surfaces/controls.js");

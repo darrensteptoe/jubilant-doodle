@@ -1,7 +1,7 @@
 import {
   createCenterModuleCard,
-  createColumn,
-  createSurfaceFrame,
+  createCenterStackColumn,
+  createCenterStackFrame,
   setCardHeaderControl,
   createWhyPanel,
   getCardBody
@@ -28,9 +28,8 @@ import {
 const TURNOUT_API_KEY = "__FPE_TURNOUT_API__";
 
 export function renderTurnoutSurface(mount) {
-  const frame = createSurfaceFrame("two-col");
-  const inputsCol = createColumn("left");
-  const resultsCol = createColumn("right");
+  const frame = createCenterStackFrame();
+  const centerCol = createCenterStackColumn();
 
   const assumptionsCard = createCenterModuleCard({
     title: "Turnout assumptions",
@@ -394,9 +393,8 @@ export function renderTurnoutSurface(mount) {
     </div>
   `;
 
-  inputsCol.append(assumptionsCard, liftCard, costInputsCard, efficiencyCard);
-  resultsCol.append(summaryCard, impactCard);
-  frame.append(inputsCol, resultsCol);
+  centerCol.append(summaryCard, assumptionsCard, liftCard, costInputsCard, efficiencyCard, impactCard);
+  frame.append(centerCol);
   mount.append(frame);
   mount.append(
     createWhyPanel([
