@@ -86,6 +86,22 @@ test("district_v2 Race Context select/date/number persist after reopen", () => {
   assert.equal(reopenedCanonical.form.universeSize, 123456);
 });
 
+test("district_v2 template dimension selections persist after reopen", () => {
+  let state = makeCanonicalState({ nowDate: new Date("2026-03-21T15:05:00.000Z") });
+  state = updateDistrictTemplateField(state, { field: "officeLevel", value: "statewide_executive" }).state;
+  state = updateDistrictTemplateField(state, { field: "electionType", value: "primary" }).state;
+  state = updateDistrictTemplateField(state, { field: "seatContext", value: "executive" }).state;
+  state = updateDistrictTemplateField(state, { field: "partisanshipMode", value: "partisan" }).state;
+  state = updateDistrictTemplateField(state, { field: "salienceLevel", value: "high" }).state;
+
+  const reopenedCanonical = selectDistrictCanonicalView(JSON.parse(JSON.stringify(state)));
+  assert.equal(reopenedCanonical.templateProfile.officeLevel, "statewide_executive");
+  assert.equal(reopenedCanonical.templateProfile.electionType, "primary");
+  assert.equal(reopenedCanonical.templateProfile.seatContext, "executive");
+  assert.equal(reopenedCanonical.templateProfile.partisanshipMode, "partisan");
+  assert.equal(reopenedCanonical.templateProfile.salienceLevel, "high");
+});
+
 test("district_v2 Ballot fields persist after reopen", () => {
   let state = makeCanonicalState({ nowDate: new Date("2026-03-21T15:10:00.000Z") });
   state = addBallotCandidate(state, { name: "Alex Rivera", supportPct: 14 }).state;
