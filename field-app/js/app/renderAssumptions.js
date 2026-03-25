@@ -6,7 +6,8 @@ import {
   normalizeFootprintCapacity,
   resolutionLabel,
 } from "../core/censusModule.js";
-import { roundWholeNumberByMode } from "../core/utils.js";
+import { clamp, roundWholeNumberByMode, safeNum } from "../core/utils.js";
+import { UNIVERSE_DEFAULTS } from "../core/universeLayer.js";
 import {
   buildAssumptionsApplyModeText,
   buildAssumptionsBandWidthText,
@@ -89,6 +90,9 @@ export function renderAssumptionsModule(args){
   const canonicalForm = districtCanonical?.form && typeof districtCanonical.form === "object"
     ? districtCanonical.form
     : {};
+  const canonicalUniverse = districtCanonical?.universeComposition && typeof districtCanonical.universeComposition === "object"
+    ? districtCanonical.universeComposition
+    : {};
   const canonicalMode = String(canonicalForm.mode || runtimeState.mode || "").trim();
   const canonicalElectionDate = String(canonicalForm.electionDate || "").trim();
 
@@ -101,10 +105,14 @@ export function renderAssumptionsModule(args){
   const storedFootprint = footprint.stored;
   const scope = formatRaceFootprintScope(storedFootprint);
   const resolutionText = resolutionLabel(storedFootprint.resolution) || "—";
-  const retentionRaw = Number(runtimeState.retentionFactor);
-  const retentionPct = Number.isFinite(retentionRaw)
-    ? (retentionRaw <= 1 ? retentionRaw * 100 : retentionRaw)
-    : null;
+  const retentionStateValue = safeNum(runtimeState.retentionFactor);
+  const retentionCanonicalValue = safeNum(canonicalUniverse.retentionFactor);
+  const retentionEffectiveValue = retentionStateValue == null ? retentionCanonicalValue : retentionStateValue;
+  const retentionPct = retentionEffectiveValue == null
+    ? UNIVERSE_DEFAULTS.retentionFactor * 100
+    : (retentionEffectiveValue <= 1
+      ? clamp(retentionEffectiveValue, 0.60, 1.00) * 100
+      : retentionEffectiveValue);
 
   blocks.push(block("Race & scenario", [
     kv("Scenario", state.scenarioName || "—"),

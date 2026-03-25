@@ -16,6 +16,9 @@ test("assumptions right rail derives race context from district canonical select
   assert.match(source, /const canonicalElectionDate = String\(canonicalForm\.electionDate \|\| ""\)\.trim\(\);/);
   assert.match(source, /kv\("Assumptions profile", assumptionsProfileLabel\(state\)\)/);
   assert.match(source, /kv\("Support retention", formatAssumptionsPercent\(retentionPct\)\)/);
+  assert.match(source, /const retentionStateValue = safeNum\(runtimeState\.retentionFactor\);/);
+  assert.match(source, /const retentionCanonicalValue = safeNum\(canonicalUniverse\.retentionFactor\);/);
+  assert.match(source, /UNIVERSE_DEFAULTS\.retentionFactor \* 100/);
   assert.doesNotMatch(source, /kv\("Race template"/);
   assert.doesNotMatch(source, /kv\("Template key"/);
   assert.doesNotMatch(source, /kv\("Office level"/);

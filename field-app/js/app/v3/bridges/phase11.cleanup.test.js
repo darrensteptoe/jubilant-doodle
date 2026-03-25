@@ -56,6 +56,9 @@ test("phase11 bridge cleanup: state bridge delegates district reads/writes to di
   expect(stateBridgeSource, /readDistrictDerivedBridgeView\(/, "state bridge must use imported district derived reader");
   expect(stateBridgeSource, /callDistrictBridge\(/, "state bridge district actions must use imported district bridge caller");
   assert.doesNotMatch(stateBridgeSource, /__FPE_DISTRICT_API__/, "state bridge must not hardcode district bridge key");
+  expect(stateBridgeSource, /function toOptionalSnapshotNumber\(value\)/, "state bridge should normalize optional numeric snapshots without empty-string coercion");
+  expect(stateBridgeSource, /retentionFactor: toOptionalSnapshotNumber\(form\.retentionFactor\)/, "retention snapshot should preserve blank as null");
+  assert.doesNotMatch(stateBridgeSource, /retentionFactor:\s*Number\.isFinite\(Number\(form\.retentionFactor\)\)/, "retention snapshot must not coerce blank string to zero");
 });
 
 test("phase11 bridge cleanup: district bridge has no aggregate compatibility reader", () => {

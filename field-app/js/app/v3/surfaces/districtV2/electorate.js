@@ -47,7 +47,12 @@ export function renderDistrictV2ElectorateCard({ electorateCard, createFieldGrid
     <div class="field">
       <label class="fpe-control-label" for="v3DistrictV2RetentionFactor">Support retention (0.60-0.95)</label>
       <input class="fpe-input" id="v3DistrictV2RetentionFactor" max="0.95" min="0.60" step="0.01" type="number"/>
-      <div class="fpe-help fpe-help--flush">Support retention is the share of baseline support expected to hold through Election Day. Raise it only when the coalition is unusually stable. Lower it when support is soft or vulnerable to drop-off.</div>
+      <div class="fpe-help fpe-help--flush">
+        Support retention is a manual planning assumption, not discovered voter truth. It estimates how much identified support is expected to still hold through Election Day.
+        Use it as an aggregate universe-composition + retention setting (not a CRM-level certainty claim). Practical working range is usually 0.70-0.90:
+        0.85 means 85% of identified support is expected to hold; 0.70 is a more skeptical posture; 1.00 means no fade. Raise only with strong stability evidence.
+        Lower when support is soft, irregular, or exposed to late drop-off risk.
+      </div>
     </div>
   `;
 

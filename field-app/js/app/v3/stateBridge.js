@@ -212,18 +212,18 @@ export function readDistrictFormSnapshot() {
     electionDate: String(form.electionDate || "").trim(),
     weeksRemaining: String(form.weeksRemaining ?? "").trim(),
     mode: String(form.mode || "").trim(),
-    universeSize: Number.isFinite(Number(form.universeSize)) ? Number(form.universeSize) : null,
+    universeSize: toOptionalSnapshotNumber(form.universeSize),
     universeBasis: String(form.universeBasis || "").trim(),
     sourceNote: String(form.sourceNote || "").trim(),
-    turnoutA: Number.isFinite(Number(form.turnoutA)) ? Number(form.turnoutA) : null,
-    turnoutB: Number.isFinite(Number(form.turnoutB)) ? Number(form.turnoutB) : null,
-    bandWidth: Number.isFinite(Number(form.bandWidth)) ? Number(form.bandWidth) : null,
+    turnoutA: toOptionalSnapshotNumber(form.turnoutA),
+    turnoutB: toOptionalSnapshotNumber(form.turnoutB),
+    bandWidth: toOptionalSnapshotNumber(form.bandWidth),
     universe16Enabled: !!form.universe16Enabled,
-    universe16DemPct: Number.isFinite(Number(form.universe16DemPct)) ? Number(form.universe16DemPct) : null,
-    universe16RepPct: Number.isFinite(Number(form.universe16RepPct)) ? Number(form.universe16RepPct) : null,
-    universe16NpaPct: Number.isFinite(Number(form.universe16NpaPct)) ? Number(form.universe16NpaPct) : null,
-    universe16OtherPct: Number.isFinite(Number(form.universe16OtherPct)) ? Number(form.universe16OtherPct) : null,
-    retentionFactor: Number.isFinite(Number(form.retentionFactor)) ? Number(form.retentionFactor) : null,
+    universe16DemPct: toOptionalSnapshotNumber(form.universe16DemPct),
+    universe16RepPct: toOptionalSnapshotNumber(form.universe16RepPct),
+    universe16NpaPct: toOptionalSnapshotNumber(form.universe16NpaPct),
+    universe16OtherPct: toOptionalSnapshotNumber(form.universe16OtherPct),
+    retentionFactor: toOptionalSnapshotNumber(form.retentionFactor),
   };
 }
 
@@ -632,6 +632,13 @@ function cloneValue(value, fallback) {
 function toSnapshotNumber(value, fallback = null) {
   const num = Number(value);
   return Number.isFinite(num) ? num : fallback;
+}
+
+function toOptionalSnapshotNumber(value) {
+  if (value == null) return null;
+  if (typeof value === "string" && value.trim() === "") return null;
+  const num = Number(value);
+  return Number.isFinite(num) ? num : null;
 }
 
 export function importElectionDataFileBridge(payload) {

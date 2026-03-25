@@ -408,8 +408,8 @@ export const GLOSSARY_REGISTRY = Object.freeze({
   supportRetention: Object.freeze({
     id: "supportRetention",
     term: "Support Retention",
-    definition: "Share of baseline support expected to hold through Election Day.",
-    whyItMatters: "Retention assumptions strongly affect reach pressure and outcome fragility.",
+    definition: "Manual planning assumption for the share of identified/baseline support expected to hold through Election Day (for example 0.85 = 85% hold). This is aggregate universe-composition planning input, not discovered individual-level truth.",
+    whyItMatters: "It changes required persuasion/reach pressure and fragility posture. Typical practical range is about 0.70-0.90; raise only with strong stability evidence and lower when support is soft or drop-off risk is rising.",
     aliases: Object.freeze(["retention factor"]),
     relatedModules: Object.freeze(["districtElectorate", "reachOperationsGuide"]),
   }),
