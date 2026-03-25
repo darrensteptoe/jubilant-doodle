@@ -49,10 +49,6 @@ export function renderDistrictV2RaceContextCard({ raceCard, createFieldGrid, get
     </div>
   `;
 
-  const officeHelp = document.createElement("div");
-  officeHelp.className = "fpe-help fpe-help--flush";
-  officeHelp.textContent = "Templates and office interpretation now live in the District Reality manual: templates and office context, office breakdown, and office risk flags.";
-
   const actionRow = document.createElement("div");
   actionRow.className = "fpe-action-row";
   actionRow.innerHTML = `
@@ -68,5 +64,5 @@ export function renderDistrictV2RaceContextCard({ raceCard, createFieldGrid, get
   applyHelp.className = "fpe-help fpe-help--flush";
   applyHelp.textContent = "Apply defaults from the currently selected race template while preserving protected manual overrides.";
 
-  body.append(raceGrid, templateGrid, officeHelp, actionRow, contextUpdatedHelp, applyHelp);
+  body.append(raceGrid, templateGrid, actionRow, contextUpdatedHelp, applyHelp);
 }

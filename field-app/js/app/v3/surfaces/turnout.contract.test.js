@@ -71,7 +71,7 @@ test("turnout surface contract: uses full-width center stack with summary card f
   assert.doesNotMatch(turnoutSource, /createSurfaceFrame\("two-col"\)/, "turnout surface must not use two-col frame");
   assert.match(
     turnoutSource,
-    /centerCol\.append\(\s*summaryCard,\s*assumptionsCard,\s*liftCard,\s*costInputsCard,\s*efficiencyCard,\s*impactCard\s*\)/m,
-    "turnout summary card must render first in the module stack",
+    /centerCol\.append\(\s*summaryCard,\s*impactCard,\s*assumptionsCard,\s*liftCard,\s*costInputsCard,\s*efficiencyCard\s*\)/m,
+    "turnout summary must render first and realized vote impact must render directly beneath it",
   );
 });

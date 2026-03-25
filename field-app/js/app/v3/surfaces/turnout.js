@@ -393,7 +393,7 @@ export function renderTurnoutSurface(mount) {
     </div>
   `;
 
-  centerCol.append(summaryCard, assumptionsCard, liftCard, costInputsCard, efficiencyCard, impactCard);
+  centerCol.append(summaryCard, impactCard, assumptionsCard, liftCard, costInputsCard, efficiencyCard);
   frame.append(centerCol);
   mount.append(frame);
   mount.append(
