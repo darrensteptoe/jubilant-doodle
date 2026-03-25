@@ -53,6 +53,13 @@ export function renderDistrictV2RaceContextCard({ raceCard, createFieldGrid, get
     Office level shapes how wide uncertainty should be, how much persuasion is realistically available, how much vote may arrive before Election Day, and how cautiously leadership should read the model. A statewide race is not just a bigger district race.
   `;
 
+  const contextGuideRow = document.createElement("div");
+  contextGuideRow.className = "fpe-action-row";
+  contextGuideRow.innerHTML = `
+    <button class="fpe-btn fpe-btn--ghost" data-intel-module="districtRaceContext" data-v3-open-manual="1" type="button">Open Race Context manual</button>
+    <span class="fpe-help fpe-help--flush">Templates and office interpretation now live in the Manual rail for District Reality.</span>
+  `;
+
   const actionRow = document.createElement("div");
   actionRow.className = "fpe-action-row";
   actionRow.innerHTML = `
@@ -64,5 +71,5 @@ export function renderDistrictV2RaceContextCard({ raceCard, createFieldGrid, get
   applyHelp.className = "fpe-help fpe-help--flush";
   applyHelp.textContent = "Re-apply template defaults to template-controlled fields while preserving protected manual overrides.";
 
-  body.append(raceGrid, templateGrid, officeHelp, actionRow, applyHelp);
+  body.append(raceGrid, templateGrid, officeHelp, contextGuideRow, actionRow, applyHelp);
 }
