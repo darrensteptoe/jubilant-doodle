@@ -37,18 +37,17 @@ export function renderDistrictV2CensusCard({ censusCard, getCardBody }) {
         <select class="fpe-input" id="v3DistrictV2CensusTractFilter"></select>
       </div>
 
-      <div class="fpe-action-row fpe-census-load-geo-row">
-        <button class="fpe-btn fpe-btn--ghost" id="v3BtnDistrictV2CensusLoadGeo" type="button">Load GEO list</button>
-      </div>
-
       <div class="field">
         <label class="fpe-control-label" for="v3DistrictV2CensusGeoSelect">GEO units</label>
         <select class="fpe-input" id="v3DistrictV2CensusGeoSelect" multiple size="10"></select>
       </div>
 
       <div class="fpe-action-row fpe-census-geo-selection-actions">
-        <button class="fpe-btn fpe-btn--ghost" id="v3BtnDistrictV2CensusSelectAll" type="button">Select all</button>
-        <button class="fpe-btn fpe-btn--ghost" id="v3BtnDistrictV2CensusClearSelection" type="button">Clear selection</button>
+        <button class="fpe-btn fpe-btn--ghost" id="v3BtnDistrictV2CensusLoadGeo" type="button">Load GEO list</button>
+        <div class="fpe-census-geo-selection-right">
+          <button class="fpe-btn fpe-btn--ghost" id="v3BtnDistrictV2CensusSelectAll" type="button">Select all</button>
+          <button class="fpe-btn fpe-btn--ghost" id="v3BtnDistrictV2CensusClearSelection" type="button">Clear selection</button>
+        </div>
       </div>
 
       <div class="field">
@@ -77,21 +76,18 @@ export function renderDistrictV2CensusCard({ censusCard, getCardBody }) {
         </label>
       </div>
 
-      <div class="fpe-field-grid fpe-field-grid--2 fpe-census-vtd-config-row">
-        <div class="field">
-          <label class="fpe-control-label" for="v3DistrictV2CensusMapQaVtdZip">VTD ZIP overlay source (optional)</label>
-          <input accept=".zip,application/zip" class="fpe-input" id="v3DistrictV2CensusMapQaVtdZip" type="file"/>
-        </div>
-        <div class="field">
-          <label class="fpe-control-label" for="v3BtnDistrictV2CensusClearVtdZip">VTD ZIP controls</label>
-          <div class="fpe-action-row fpe-census-vtd-control-row">
-            <label class="fpe-switch">
-              <input id="v3DistrictV2CensusMapQaVtdOverlay" type="checkbox"/>
-              <span>Enable VTD overlay</span>
-            </label>
-            <button class="fpe-btn fpe-btn--ghost fpe-census-btn--compact" id="v3BtnDistrictV2CensusClearVtdZip" type="button">Clear VTD ZIP</button>
-            <button class="fpe-btn fpe-btn--ghost fpe-census-btn--compact" id="v3BtnDistrictV2CensusLoadMap" type="button">Load boundaries</button>
-          </div>
+      <div class="field">
+        <label class="fpe-control-label" for="v3DistrictV2CensusMapQaVtdZip">VTD ZIP overlay source (optional)</label>
+        <input accept=".zip,application/zip" class="fpe-input" id="v3DistrictV2CensusMapQaVtdZip" type="file"/>
+      </div>
+      <div class="field">
+        <label class="fpe-control-label" for="v3DistrictV2CensusMapQaVtdOverlay">VTD ZIP controls</label>
+        <div class="fpe-action-row fpe-census-vtd-control-row">
+          <label class="fpe-switch">
+            <input id="v3DistrictV2CensusMapQaVtdOverlay" type="checkbox"/>
+            <span>Enable VTD overlay</span>
+          </label>
+          <button class="fpe-btn fpe-btn--ghost fpe-census-btn--compact" id="v3BtnDistrictV2CensusClearVtdZip" type="button">Clear VTD ZIP</button>
         </div>
       </div>
 
@@ -99,7 +95,8 @@ export function renderDistrictV2CensusCard({ censusCard, getCardBody }) {
         <div class="census-map" id="v3CensusMapHost" role="img" aria-label="District Census boundaries map"></div>
         <div class="fpe-census-map-overlay" id="v3DistrictV2CensusMapOverlay">Map shell restored. Load boundaries to refresh geometry status.</div>
       </div>
-      <div class="fpe-census-map-row fpe-census-map-row--under-map">
+      <div class="fpe-census-map-row fpe-census-map-row--under-map fpe-census-map-row--under-map-split">
+        <button class="fpe-btn fpe-btn--ghost" id="v3BtnDistrictV2CensusLoadMap" type="button">Load boundaries</button>
         <button class="fpe-btn fpe-btn--ghost" id="v3BtnDistrictV2CensusClearMap" type="button">Clear map</button>
       </div>
       <div class="fpe-help fpe-help--flush fpe-census-map-labels" id="v3DistrictV2CensusMapLabels">No geography labels loaded.</div>
