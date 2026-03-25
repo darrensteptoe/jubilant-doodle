@@ -82,6 +82,7 @@ export const TEMPLATE_DIMENSION_LABELS = Object.freeze({
 
 const CANONICAL_TEMPLATE_DIMENSION_OPTION_KEYS = Object.freeze([
   "electionType",
+  "salienceLevel",
 ]);
 
 function freezeTemplateRecord(record){

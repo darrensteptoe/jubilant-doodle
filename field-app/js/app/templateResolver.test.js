@@ -54,6 +54,14 @@ test("template registry: election type options include canonical general/primary
   ]);
 });
 
+test("template registry: salience options include canonical low/medium/high", () => {
+  assert.deepEqual(listTemplateDimensionOptions("salienceLevel"), [
+    { value: "high", label: "High" },
+    { value: "low", label: "Low" },
+    { value: "medium", label: "Medium" },
+  ]);
+});
+
 test("template resolver: statewide executive selection applies office-specific default banding", () => {
   const state = makeState({ raceType: "federal" });
   const result = applyTemplateDefaultsToState(state, { templateId: "statewide_executive", mode: "all" });

@@ -6,16 +6,17 @@ import { getModelDefinition, listModelDefinitions } from "./modelRegistry.js";
 import { getPlaybookEntry, listPlaybookEntries } from "./playbookRegistry.js";
 
 export const INTELLIGENCE_STAGE_MODULE_DEFAULTS = Object.freeze({
-  district: "targetingLab",
-  reach: "targetUniverseMatrix",
-  turnout: "turnoutContactSaturation",
-  outcome: "forecastOutcome",
-  plan: "optimizer",
-  scenarios: "scenarioManager",
-  "decision-log": "warRoomDecisionSession",
-  "war-room": "warRoomDecisionSession",
-  controls: "durabilityTrustStandards",
-  data: "campaignDataRequirements",
+  district: "districtRaceContext",
+  "election-data": "dataOperationsGuide",
+  reach: "reachOperationsGuide",
+  turnout: "turnoutOperationsGuide",
+  outcome: "outcomeOperationsGuide",
+  plan: "planOperationsGuide",
+  scenarios: "scenarioOperationsGuide",
+  "decision-log": "warRoomOperationsGuide",
+  "war-room": "warRoomOperationsGuide",
+  controls: "controlsOperationsGuide",
+  data: "dataOperationsGuide",
 });
 
 export const INTELLIGENCE_STAGE_MODEL_DEFAULTS = Object.freeze({
@@ -36,8 +37,8 @@ export const INTELLIGENCE_STAGE_MODEL_DEFAULTS = Object.freeze({
  */
 export function getDefaultModuleForStage(stageId = ""){
   const id = String(stageId || "").trim().toLowerCase();
-  if (!id) return "targetingLab";
-  return INTELLIGENCE_STAGE_MODULE_DEFAULTS[id] || "targetingLab";
+  if (!id) return "districtRaceContext";
+  return INTELLIGENCE_STAGE_MODULE_DEFAULTS[id] || "districtRaceContext";
 }
 
 /**
