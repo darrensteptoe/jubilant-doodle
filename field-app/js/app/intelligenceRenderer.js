@@ -199,9 +199,8 @@ function renderSectionContent(row, miniItems){
 }
 
 function renderSectionMeta(row){
-  return row?.expandable
-    ? `<div class="fpe-intel-section__meta">Deep dive</div>`
-    : "";
+  void row;
+  return "";
 }
 
 function renderSection(row){

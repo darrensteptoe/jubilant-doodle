@@ -1,7 +1,7 @@
 import {
   createCenterModuleCard,
-  createColumn,
-  createSurfaceFrame,
+  createCenterStackColumn,
+  createCenterStackFrame,
   createWhyPanel,
   getCardBody
 } from "../componentFactory.js";
@@ -83,9 +83,8 @@ let recommendationActionStatus = "";
 let whatIfActionStatus = "";
 
 export function renderControlsSurface(mount) {
-  const frame = createSurfaceFrame("two-col");
-  const governanceCol = createColumn("left");
-  const reviewCol = createColumn("right");
+  const frame = createCenterStackFrame();
+  const centerCol = createCenterStackColumn();
 
   const workflowCard = createCenterModuleCard({
     title: "Guardrails",
@@ -554,9 +553,8 @@ export function renderControlsSurface(mount) {
     </div>
   `;
 
-  governanceCol.append(summaryCard, workflowCard, benchmarkCard, evidenceCard);
-  reviewCol.append(calibrationCard, feedbackCard);
-  frame.append(governanceCol, reviewCol);
+  centerCol.append(summaryCard, workflowCard, benchmarkCard, evidenceCard, calibrationCard, feedbackCard);
+  frame.append(centerCol);
   mount.append(frame);
 
   mount.append(
