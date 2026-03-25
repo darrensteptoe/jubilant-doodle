@@ -10,7 +10,9 @@ import {
   getTemplateRecord,
   listOverriddenTemplateFields,
   normalizeTemplateMeta,
+  resolveTemplateRecord,
   resolveTemplateId,
+  syncTemplateMetaFromState,
 } from "./templateResolver.js";
 
 function makeState(overrides = {}) {
@@ -135,6 +137,89 @@ test("template resolver: metadata-only template changes do not drift determinist
 
   assert.equal(result.ok, true);
   assert.deepEqual(after, before);
+});
+
+test("template resolver: election type override persists in template meta", () => {
+  const state = makeState({ raceType: "federal" });
+  applyTemplateDefaultsToState(state, { templateId: "statewide_executive", mode: "all" });
+
+  const result = applyTemplateDefaultsToState(state, {
+    mode: "untouched",
+    officeLevel: state.templateMeta?.officeLevel,
+    electionType: "primary",
+    seatContext: state.templateMeta?.seatContext,
+    partisanshipMode: state.templateMeta?.partisanshipMode,
+    salienceLevel: state.templateMeta?.salienceLevel,
+  });
+
+  assert.equal(result.ok, true);
+  assert.equal(state.templateMeta?.electionType, "primary");
+  assert.equal(state.templateMeta?.appliedTemplateId, "statewide_executive");
+});
+
+test("template resolver: seat context override persists after template meta sync", () => {
+  const state = makeState({ raceType: "state_leg" });
+  applyTemplateDefaultsToState(state, { templateId: "state_house", mode: "all" });
+
+  applyTemplateDefaultsToState(state, {
+    mode: "untouched",
+    officeLevel: state.templateMeta?.officeLevel,
+    electionType: state.templateMeta?.electionType,
+    seatContext: "challenger",
+    partisanshipMode: state.templateMeta?.partisanshipMode,
+    salienceLevel: state.templateMeta?.salienceLevel,
+  });
+  syncTemplateMetaFromState(state);
+
+  assert.equal(state.templateMeta?.seatContext, "challenger");
+});
+
+test("template resolver: partisanship mode override persists after template meta sync", () => {
+  const state = makeState({ raceType: "state_leg" });
+  applyTemplateDefaultsToState(state, { templateId: "state_house", mode: "all" });
+
+  applyTemplateDefaultsToState(state, {
+    mode: "untouched",
+    officeLevel: state.templateMeta?.officeLevel,
+    electionType: state.templateMeta?.electionType,
+    seatContext: state.templateMeta?.seatContext,
+    partisanshipMode: "nonpartisan",
+    salienceLevel: state.templateMeta?.salienceLevel,
+  });
+  syncTemplateMetaFromState(state);
+
+  assert.equal(state.templateMeta?.partisanshipMode, "nonpartisan");
+});
+
+test("template resolver: office level override persists when explicitly changed", () => {
+  const state = makeState({ raceType: "state_leg" });
+  applyTemplateDefaultsToState(state, { templateId: "state_house", mode: "all" });
+
+  applyTemplateDefaultsToState(state, {
+    mode: "untouched",
+    officeLevel: "statewide_executive",
+    electionType: state.templateMeta?.electionType,
+    seatContext: state.templateMeta?.seatContext,
+    partisanshipMode: state.templateMeta?.partisanshipMode,
+    salienceLevel: state.templateMeta?.salienceLevel,
+  });
+  syncTemplateMetaFromState(state);
+
+  assert.equal(state.templateMeta?.officeLevel, "statewide_executive");
+});
+
+test("template resolver: matched template id remains canonical while dimensions stay overridden", () => {
+  const resolved = resolveTemplateRecord({
+    raceType: "federal",
+    officeLevel: "statewide_executive",
+    electionType: "primary",
+    seatContext: "executive",
+    partisanshipMode: "partisan",
+    salienceLevel: "high",
+  });
+
+  assert.equal(resolved.id, "statewide_executive");
+  assert.equal(resolved.dimensions.electionType, "primary");
 });
 
 test("template resolver: normalized template meta preserves canonical schema keys", () => {

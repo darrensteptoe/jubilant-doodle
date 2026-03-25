@@ -192,7 +192,10 @@ export function templateIdForRaceType(raceType, context = {}){
 }
 
 export function normalizeTemplateDimensions(input = {}, fallbackRaceType = "state_leg"){
-  const fallbackTemplate = getTemplateRecord(templateIdForRaceType(fallbackRaceType, input));
+  const explicitTemplateId = knownTemplateId(input?.templateId || input?.appliedTemplateId);
+  const fallbackTemplate = explicitTemplateId
+    ? getTemplateRecord(explicitTemplateId)
+    : getTemplateRecord(templateIdForRaceType(fallbackRaceType, input));
   const out = {};
   for (const key of TEMPLATE_DIMENSION_KEYS){
     const value = cleanString(input?.[key]);
@@ -230,15 +233,20 @@ export function resolveTemplateRecord(input = {}){
   const meta = isObject(src.templateMeta) ? src.templateMeta : {};
   const raceToken = cleanString(src.raceType || meta.legacyRaceType || "state_leg");
   const raceType = normalizeLegacyRaceType(raceToken);
+  const explicitTemplateId = knownTemplateId(src.templateId || meta.appliedTemplateId);
+  const dimensionInput = {};
+  for (const key of TEMPLATE_DIMENSION_KEYS){
+    dimensionInput[key] = cleanString(src?.[key]) || cleanString(meta?.[key]);
+  }
+  const effectiveDimensions = normalizeTemplateDimensions({
+    ...dimensionInput,
+    ...(explicitTemplateId ? { templateId: explicitTemplateId } : {}),
+  }, raceType);
 
   const resolvedId = resolveTemplateId({
-    templateId: src.templateId || meta.appliedTemplateId || raceToken,
+    templateId: explicitTemplateId,
     raceType,
-    officeLevel: src.officeLevel || meta.officeLevel,
-    electionType: src.electionType || meta.electionType,
-    seatContext: src.seatContext || meta.seatContext,
-    partisanshipMode: src.partisanshipMode || meta.partisanshipMode,
-    salienceLevel: src.salienceLevel || meta.salienceLevel,
+    ...effectiveDimensions,
   });
 
   const template = getTemplateRecord(resolvedId);
@@ -246,7 +254,7 @@ export function resolveTemplateRecord(input = {}){
     id: template.id,
     template,
     legacyRaceType: normalizeLegacyRaceType(template?.legacyRaceType || raceType),
-    dimensions: { ...(template?.dimensions || {}) },
+    dimensions: { ...effectiveDimensions },
   };
 }
 
@@ -362,6 +370,7 @@ export function applyTemplateDefaultsToState(stateLike, options = {}){
   const applyMode = normalizeTemplateApplyMode(options?.mode, { force: !!options?.force });
 
   const nextResolved = resolveTemplateRecord({
+    templateMeta: stateLike.templateMeta,
     raceType: hasRaceOverride ? options.raceType : currentResolved.legacyRaceType,
     templateId: cleanString(options?.templateId) || ((hasRaceOverride || hasDimensionOverride) ? "" : currentResolved.id),
     officeLevel: options?.officeLevel,
