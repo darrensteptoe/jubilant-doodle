@@ -30,6 +30,10 @@ import {
   syncWarRoomWeatherRisk,
 } from "./weatherRisk.js";
 import {
+  bindWarRoomEventCalendarEvents,
+  syncWarRoomEventCalendar,
+} from "./eventCalendar.js";
+import {
   bindWarRoomActionLogEvents,
   syncWarRoomActionLog,
 } from "./actionLog.js";
@@ -1068,6 +1072,13 @@ function refreshDecisionSummary() {
     setDisabled,
     setText,
   });
+  syncWarRoomEventCalendar(view, {
+    syncInput,
+    syncSelect,
+    setChecked,
+    setDisabled,
+    setText,
+  });
   syncWarRoomActionLog(view, { setText });
 
   setDisabled("v3BtnDecisionCaptureReview", !view.session);
@@ -1153,6 +1164,13 @@ function wireDecisionEvents() {
     on,
     valueOf,
     checkedOf,
+  });
+  bindWarRoomEventCalendarEvents({
+    run,
+    on,
+    valueOf,
+    checkedOf,
+    confirmThenRun,
   });
   bindWarRoomActionLogEvents({ run });
 }
@@ -1311,87 +1329,6 @@ function renderWeatherForecastRows(rows) {
     const risk = document.createElement("td");
     risk.textContent = String(row?.riskBadge || "—");
     tr.append(day, condition, temp, precip, wind, risk);
-    body.appendChild(tr);
-  });
-}
-
-function renderEventRows(rows) {
-  const body = document.getElementById("v3DecisionEventTbody");
-  if (!(body instanceof HTMLElement)) {
-    return;
-  }
-  body.innerHTML = "";
-  const list = Array.isArray(rows) ? rows : [];
-  if (!list.length) {
-    body.innerHTML = '<tr><td class="muted" colspan="7">No events on selected date.</td></tr>';
-    return;
-  }
-  list.forEach((row) => {
-    const tr = document.createElement("tr");
-    const eventId = String(row?.eventId || "").trim();
-
-    const cDate = document.createElement("td");
-    cDate.textContent = `${String(row?.dateLabel || "—")} / ${String(row?.timeLabel || "—")}`;
-
-    const cType = document.createElement("td");
-    cType.textContent = `${String(row?.categoryLabel || "—")} / ${String(row?.eventType || "—")}`;
-
-    const cTitle = document.createElement("td");
-    const title = String(row?.title || "Untitled");
-    const notes = String(row?.notes || "").trim();
-    cTitle.textContent = notes ? `${title} — ${notes}` : title;
-
-    const cCapacity = document.createElement("td");
-    cCapacity.textContent = `V ${String(row?.expectedVolunteers ?? 0)} / P ${String(row?.expectedPaidCanvassers ?? 0)} / H ${String(row?.expectedShiftHours ?? 0)}`;
-
-    const cApply = document.createElement("td");
-    const applyToggle = document.createElement("input");
-    applyToggle.type = "checkbox";
-    applyToggle.checked = !!row?.applyToModel;
-    applyToggle.disabled = !row?.canApplyToModel;
-    applyToggle.dataset.eventId = eventId;
-    cApply.appendChild(applyToggle);
-
-    const cStatus = document.createElement("td");
-    const statusSelect = document.createElement("select");
-    statusSelect.className = "fpe-input";
-    statusSelect.dataset.eventStatusId = eventId;
-    const statuses = [
-      { value: "scheduled", label: "scheduled" },
-      { value: "active", label: "active" },
-      { value: "completed", label: "completed" },
-      { value: "cancelled", label: "cancelled" },
-    ];
-    statuses.forEach((statusRow) => {
-      const opt = document.createElement("option");
-      opt.value = statusRow.value;
-      opt.textContent = statusRow.label;
-      statusSelect.appendChild(opt);
-    });
-    const statusValue = String(row?.status || "scheduled").toLowerCase();
-    if ([...statusSelect.options].some((opt) => opt.value === statusValue)) {
-      statusSelect.value = statusValue;
-    }
-    cStatus.appendChild(statusSelect);
-
-    const cActions = document.createElement("td");
-    const editBtn = document.createElement("button");
-    editBtn.type = "button";
-    editBtn.className = "fpe-btn fpe-btn--ghost";
-    editBtn.textContent = "Edit";
-    editBtn.dataset.eventAction = "edit";
-    editBtn.dataset.eventActionId = eventId;
-
-    const deleteBtn = document.createElement("button");
-    deleteBtn.type = "button";
-    deleteBtn.className = "fpe-btn fpe-btn--ghost";
-    deleteBtn.textContent = "Delete";
-    deleteBtn.dataset.eventAction = "delete";
-    deleteBtn.dataset.eventActionId = eventId;
-
-    cActions.append(editBtn, deleteBtn);
-
-    tr.append(cDate, cType, cTitle, cCapacity, cApply, cStatus, cActions);
     body.appendChild(tr);
   });
 }

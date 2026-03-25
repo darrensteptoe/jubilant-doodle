@@ -6,6 +6,7 @@ export function renderDistrictV2RaceContextCard({ raceCard, createFieldGrid, get
     <div class="field">
       <label class="fpe-control-label" for="v3DistrictV2RaceType">Race template</label>
       <select class="fpe-input" id="v3DistrictV2RaceType"></select>
+      <div class="fpe-help fpe-help--flush">Templates set planning defaults and guidance language. They do not change core math. Use them to start from a realistic race context, then override where local evidence justifies it.</div>
     </div>
     <div class="field">
       <label class="fpe-control-label" for="v3DistrictV2ElectionDate">Election date</label>
@@ -45,6 +46,13 @@ export function renderDistrictV2RaceContextCard({ raceCard, createFieldGrid, get
     </div>
   `;
 
+  const officeHelp = document.createElement("div");
+  officeHelp.className = "fpe-help fpe-help--flush";
+  officeHelp.innerHTML = `
+    <strong>Why office level matters</strong><br/>
+    Office level shapes how wide uncertainty should be, how much persuasion is realistically available, how much vote may arrive before Election Day, and how cautiously leadership should read the model. A statewide race is not just a bigger district race.
+  `;
+
   const actionRow = document.createElement("div");
   actionRow.className = "fpe-action-row";
   actionRow.innerHTML = `
@@ -52,5 +60,9 @@ export function renderDistrictV2RaceContextCard({ raceCard, createFieldGrid, get
     <span class="fpe-help fpe-help--flush" id="v3DistrictV2TemplateMeta">Template profile unavailable.</span>
   `;
 
-  body.append(raceGrid, templateGrid, actionRow);
+  const applyHelp = document.createElement("div");
+  applyHelp.className = "fpe-help fpe-help--flush";
+  applyHelp.textContent = "Re-apply template defaults to template-controlled fields while preserving protected manual overrides.";
+
+  body.append(raceGrid, templateGrid, officeHelp, actionRow, applyHelp);
 }

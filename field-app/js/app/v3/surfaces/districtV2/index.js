@@ -49,12 +49,14 @@ import {
 } from "../../../../core/districtView.js";
 import { formatFixedNumber } from "../../../../core/utils.js";
 import {
+  getDistrictRaceTypeLabel,
   listDistrictModeOptions,
   listDistrictRaceTypeOptions,
   listDistrictUndecidedModeOptions,
   listDistrictUniverseBasisOptions,
 } from "../../../districtOptionRegistry.js";
 import { listTemplateDimensionOptions } from "../../../templateRegistry.js";
+import { templateIdForRaceType } from "../../../templateResolver.js";
 import {
   listAcsYears,
   listMetricSetOptions,
@@ -134,7 +136,7 @@ export function renderDistrictV2Surface(mount) {
 
   const raceCard = createCenterModuleCard({
     title: "Race context",
-    description: "Race template, election date, weeks remaining, and operating mode.",
+    description: "Office-aware race template, election date, weeks remaining, and operating mode.",
     status: "Awaiting context",
   });
   raceCard.id = DISTRICT_V2_CARD_ID_BY_SCOPE.raceContext;
@@ -1314,11 +1316,40 @@ function syncDistrictV2RuntimeDebug(templateSnapshot, formSnapshot) {
   pre.textContent = lines.join("\n");
 }
 
+function resolveDistrictV2RaceTemplateId(template, form) {
+  const explicitId = String(template?.appliedTemplateId || "").trim();
+  if (explicitId) {
+    return explicitId;
+  }
+  const raceTypeToken = String(template?.raceType || form?.raceType || "").trim();
+  return templateIdForRaceType(raceTypeToken, {
+    officeLevel: template?.officeLevel,
+    electionType: template?.electionType,
+    seatContext: template?.seatContext,
+    partisanshipMode: template?.partisanshipMode,
+    salienceLevel: template?.salienceLevel,
+  });
+}
+
+function readTemplateDimensionLabel(key, value) {
+  const token = String(value || "").trim();
+  if (!token) return "";
+  const option = listTemplateDimensionOptions(key).find((row) => String(row?.value || "") === token);
+  return String(option?.label || token).trim();
+}
+
 function syncDistrictV2RaceContext(templateSnapshot, formSnapshot, controlSnapshot) {
   const template = templateSnapshot && typeof templateSnapshot === "object" ? templateSnapshot : {};
   const form = formSnapshot && typeof formSnapshot === "object" ? formSnapshot : {};
+  const selectedTemplateId = resolveDistrictV2RaceTemplateId(template, form);
+  const templateLabel = getDistrictRaceTypeLabel(selectedTemplateId);
+  const overriddenFields = Array.isArray(template?.overriddenFields)
+    ? template.overriddenFields.map((field) => String(field || "").trim()).filter(Boolean)
+    : [];
+  const overrideCount = overriddenFields.length;
+  const overrideLabel = overrideCount > 0 ? "Custom overrides active" : "Template defaults active";
 
-  syncSelectOptions("v3DistrictV2RaceType", listDistrictRaceTypeOptions(), template.raceType || form.raceType || "");
+  syncSelectOptions("v3DistrictV2RaceType", listDistrictRaceTypeOptions(), selectedTemplateId);
   syncInputValueFromRaw("v3DistrictV2ElectionDate", form.electionDate);
   syncInputValueFromRaw("v3DistrictV2WeeksRemaining", form.weeksRemaining);
   syncSelectOptions("v3DistrictV2Mode", listDistrictModeOptions(), form.mode);
@@ -1330,9 +1361,20 @@ function syncDistrictV2RaceContext(templateSnapshot, formSnapshot, controlSnapsh
   syncSelectOptions("v3DistrictV2SalienceLevel", listTemplateDimensionOptions("salienceLevel"), template.salienceLevel);
 
   const templateMeta = [
-    template.appliedTemplateId ? `template ${template.appliedTemplateId}` : "",
-    template.appliedVersion ? `v${template.appliedVersion}` : "",
-    template.assumptionsProfile ? `profile ${template.assumptionsProfile}` : "",
+    templateLabel ? `Template: ${templateLabel}` : "",
+    readTemplateDimensionLabel("officeLevel", template.officeLevel)
+      ? `Office level: ${readTemplateDimensionLabel("officeLevel", template.officeLevel)}`
+      : "",
+    readTemplateDimensionLabel("electionType", template.electionType)
+      ? `Election type: ${readTemplateDimensionLabel("electionType", template.electionType)}`
+      : "",
+    readTemplateDimensionLabel("seatContext", template.seatContext)
+      ? `Seat context: ${readTemplateDimensionLabel("seatContext", template.seatContext)}`
+      : "",
+    readTemplateDimensionLabel("partisanshipMode", template.partisanshipMode)
+      ? `Partisanship: ${readTemplateDimensionLabel("partisanshipMode", template.partisanshipMode)}`
+      : "",
+    overrideLabel,
   ].filter(Boolean).join(" · ");
   setText("v3DistrictV2TemplateMeta", templateMeta || "Template profile unavailable.");
 
