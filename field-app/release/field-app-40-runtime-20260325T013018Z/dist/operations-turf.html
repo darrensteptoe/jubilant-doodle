@@ -1,0 +1,148 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Vector Intelligence Campaign Engine — Operations Turf</title>
+  <script type="module" crossorigin src="/assets/operationsTurf-C_udtR2y.js"></script>
+  <link rel="modulepreload" crossorigin href="/assets/time-DMzu12fF.js">
+  <link rel="modulepreload" crossorigin href="/assets/build-D8U74VRh.js">
+  <link rel="modulepreload" crossorigin href="/assets/store-C16ymedL.js">
+  <link rel="modulepreload" crossorigin href="/assets/io-20lfPSXr.js">
+  <link rel="stylesheet" crossorigin href="/assets/styles-3U8WXcS7.css">
+</head>
+<body class="page-generic">
+  <a class="skip-link" href="#main">Skip to content</a>
+
+  <main class="wrap" id="main">
+    <header class="header">
+      <h1 class="title">Vector Intelligence Campaign Engine</h1>
+      <p class="sub">Operations: Turf Coverage Input</p>
+    </header>
+
+    <div class="note" style="display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin-bottom:10px;">
+      <a class="btn btn-sm btn-ghost" href="operations.html">Operations Hub</a>
+      <a class="btn btn-sm btn-ghost" href="operations-pipeline.html">Pipeline</a>
+      <a class="btn btn-sm btn-ghost" href="operations-shifts.html">Shifts</a>
+      <a class="btn btn-sm" href="operations-turf.html">Turf</a>
+      <a class="btn btn-sm btn-ghost" href="operations-ramp.html">Ramp</a>
+      <span class="mini-s">Coverage ledger only. Turf attempts are not production source-of-truth.</span>
+    </div>
+
+    <div class="card card-section">
+      <div class="card-head card-header">
+        <h2 class="card-title">Turf Event Entry</h2>
+        <div class="help-text">Track precinct/turf coverage and touches. Optional link to a shift for dedupe transparency.</div>
+      </div>
+
+      <div class="grid3">
+        <div class="field">
+          <label class="label" for="turfDate">Date</label>
+          <input class="input" id="turfDate" type="date" />
+        </div>
+        <div class="field">
+          <label class="label" for="turfTurfId">Turf ID</label>
+          <input class="input" id="turfTurfId" type="text" placeholder="T-102" />
+        </div>
+        <div class="field">
+          <label class="label" for="turfPrecinct">Precinct</label>
+          <input class="input" id="turfPrecinct" type="text" placeholder="P-11" />
+        </div>
+
+        <div class="field">
+          <label class="label" for="turfCounty">County</label>
+          <input class="input" id="turfCounty" type="text" placeholder="County" />
+        </div>
+        <div class="field">
+          <label class="label" for="turfAssignedTo">Assigned to</label>
+          <select class="select" id="turfAssignedTo"></select>
+        </div>
+        <div class="field">
+          <label class="label" for="turfMode">Mode</label>
+          <select class="select" id="turfMode">
+            <option value="doors">Doors</option>
+            <option value="calls">Calls</option>
+            <option value="text">Text</option>
+            <option value="other">Other</option>
+          </select>
+        </div>
+
+        <div class="field">
+          <label class="label" for="turfShiftId">Linked shift ID (optional)</label>
+          <input class="input" id="turfShiftId" type="text" placeholder="shift_xxx" />
+        </div>
+        <div class="field">
+          <label class="label" for="turfAttempts">Attempts (coverage metric)</label>
+          <input class="input num" id="turfAttempts" type="number" min="0" step="1" placeholder="0" />
+        </div>
+        <div class="field">
+          <label class="label" for="turfCanvassed">Canvassed</label>
+          <input class="input num" id="turfCanvassed" type="number" min="0" step="1" placeholder="0" />
+        </div>
+
+        <div class="field">
+          <label class="label" for="turfVbms">VBMs</label>
+          <input class="input num" id="turfVbms" type="number" min="0" step="1" placeholder="0" />
+        </div>
+      </div>
+
+      <div class="card-footer" style="display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
+        <button class="btn" id="btnSaveTurf" type="button">Save turf event</button>
+        <button class="btn btn-ghost" id="btnClearTurf" type="button">Clear</button>
+        <div class="mini-s" id="turfMsg" aria-live="polite"></div>
+      </div>
+    </div>
+
+    <div class="card card-section">
+      <div class="card-head card-header">
+        <h2 class="card-title">Coverage Readout</h2>
+        <div class="help-text">Track precinct touch count and coverage workload over time.</div>
+      </div>
+
+      <div class="note" style="display:flex; gap:10px; flex-wrap:wrap; align-items:center; justify-content:space-between;">
+        <div><span class="mini-k">Events:</span> <span class="mini-v" id="countEvents">0</span></div>
+        <div><span class="mini-k">Attempts:</span> <span class="mini-v" id="sumAttempts">0</span></div>
+        <div><span class="mini-k">Unique precincts:</span> <span class="mini-v" id="countPrecincts">0</span></div>
+        <div><span class="mini-k">Unique turf IDs:</span> <span class="mini-v" id="countTurfs">0</span></div>
+      </div>
+
+      <div class="tableWrap" style="margin-top:10px;">
+        <table class="table">
+          <thead>
+            <tr>
+              <th>Date</th>
+              <th>Turf</th>
+              <th>Precinct</th>
+              <th>Assigned</th>
+              <th>Mode</th>
+              <th class="num">Attempts</th>
+              <th class="num">Canvassed</th>
+              <th class="num">VBMs</th>
+              <th style="width:140px;">Actions</th>
+            </tr>
+          </thead>
+          <tbody id="turfTbody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="card card-section">
+      <div class="card-head card-header">
+        <h2 class="card-title">Data I/O</h2>
+        <div class="help-text">Portable JSON/CSV import-export for Operations turf records.</div>
+      </div>
+
+      <div style="display:flex; gap:8px; flex-wrap:wrap;">
+        <button class="btn btn-sm" id="btnExportJson" type="button">Export Operations JSON</button>
+        <button class="btn btn-sm" id="btnImportJson" type="button">Import Operations JSON</button>
+        <button class="btn btn-sm" id="btnExportCsv" type="button">Export Turf CSV</button>
+        <button class="btn btn-sm" id="btnImportCsv" type="button">Import Turf CSV</button>
+      </div>
+      <input id="importJsonFile" type="file" accept=".json,application/json" hidden />
+      <input id="importCsvFile" type="file" accept=".csv,text/csv" hidden />
+      <div class="mini-s" id="ioMsg" aria-live="polite" style="margin-top:8px;"></div>
+    </div>
+  </main>
+
+</body>
+</html>
