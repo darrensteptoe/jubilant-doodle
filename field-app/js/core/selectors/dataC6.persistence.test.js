@@ -12,6 +12,7 @@ import { saveForecastArchiveActual, selectForecastArchiveEntry } from "../action
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const appRuntimeSource = fs.readFileSync(path.resolve(__dirname, "../../appRuntime.js"), "utf8");
+const dataBridgeRuntimeSource = fs.readFileSync(path.resolve(__dirname, "../../app/dataBridgeRuntime.js"), "utf8");
 
 test("data c6: recovery strict-import flag persists after reopen snapshot", () => {
   const state = makeCanonicalState({ nowDate: new Date("2026-03-21T21:00:00.000Z") });
@@ -46,7 +47,8 @@ test("data c6: forecast archive selection and entry persist after reopen snapsho
 
 test("data c6: runtime bridge keeps voter-import draft and reporting type on state-backed paths", () => {
   assert.match(appRuntimeSource, /function dataBridgeSetVoterImportDraft\(/);
-  assert.match(appRuntimeSource, /voterImportDraft:\s*\{/);
-  assert.match(appRuntimeSource, /setVoterImportDraft:\s*\(payload\)\s*=>\s*dataBridgeSetVoterImportDraft\(payload\)/);
-  assert.match(appRuntimeSource, /setReportType:\s*\(reportType\)\s*=>\s*dataBridgeSetReportType\(reportType\)/);
+  assert.match(appRuntimeSource, /function dataBridgeSetReportType\(/);
+  assert.match(dataBridgeRuntimeSource, /voterImportDraft:\s*\{/);
+  assert.match(dataBridgeRuntimeSource, /setVoterImportDraft:\s*\(payload\)\s*=>\s*dataBridgeSetVoterImportDraft\(payload\)/);
+  assert.match(dataBridgeRuntimeSource, /setReportType:\s*\(reportType\)\s*=>\s*dataBridgeSetReportType\(reportType\)/);
 });
