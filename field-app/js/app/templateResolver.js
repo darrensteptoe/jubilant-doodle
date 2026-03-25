@@ -11,6 +11,13 @@ import { safeNum } from "../core/utils.js";
 
 const EPSILON = 1e-6;
 const LEGACY_RACE_TYPES = new Set(["federal", "state_leg", "municipal", "county"]);
+const LEGACY_TEMPLATE_ID_ALIASES = Object.freeze({
+  federal_general_incumbent: "congressional_district",
+  state_house_general_open: "state_house",
+  mayoral_nonpartisan: "municipal_legislative",
+  county_general_open: "countywide",
+  special_low_turnout: "state_house",
+});
 
 function cleanString(value){
   return String(value == null ? "" : value).trim();
@@ -64,7 +71,10 @@ function dimensionMatch(a, b){
 
 function knownTemplateId(value){
   const id = cleanString(value);
-  return id && TEMPLATE_REGISTRY[id] ? id : "";
+  if (!id) return "";
+  if (TEMPLATE_REGISTRY[id]) return id;
+  const canonicalId = cleanString(LEGACY_TEMPLATE_ID_ALIASES[id]);
+  return canonicalId && TEMPLATE_REGISTRY[canonicalId] ? canonicalId : "";
 }
 
 function inferLegacyRaceType(value){
@@ -233,7 +243,11 @@ export function resolveTemplateRecord(input = {}){
   const meta = isObject(src.templateMeta) ? src.templateMeta : {};
   const raceToken = cleanString(src.raceType || meta.legacyRaceType || "state_leg");
   const raceType = normalizeLegacyRaceType(raceToken);
-  const explicitTemplateId = knownTemplateId(src.templateId || meta.appliedTemplateId);
+  const hasTemplateIdInput = Object.prototype.hasOwnProperty.call(src, "templateId");
+  const templateIdToken = hasTemplateIdInput
+    ? src.templateId
+    : (src.templateId || meta.appliedTemplateId);
+  const explicitTemplateId = knownTemplateId(templateIdToken);
   const dimensionInput = {};
   for (const key of TEMPLATE_DIMENSION_KEYS){
     dimensionInput[key] = cleanString(src?.[key]) || cleanString(meta?.[key]);
@@ -368,9 +382,10 @@ export function applyTemplateDefaultsToState(stateLike, options = {}){
   const hasRaceOverride = cleanString(options?.raceType) !== "";
   const hasDimensionOverride = TEMPLATE_DIMENSION_KEYS.some((key) => cleanString(options?.[key]) !== "");
   const applyMode = normalizeTemplateApplyMode(options?.mode, { force: !!options?.force });
+  const templateMetaForResolution = hasRaceOverride ? null : stateLike.templateMeta;
 
   const nextResolved = resolveTemplateRecord({
-    templateMeta: stateLike.templateMeta,
+    templateMeta: templateMetaForResolution,
     raceType: hasRaceOverride ? options.raceType : currentResolved.legacyRaceType,
     templateId: cleanString(options?.templateId) || ((hasRaceOverride || hasDimensionOverride) ? "" : currentResolved.id),
     officeLevel: options?.officeLevel,
