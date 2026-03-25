@@ -1494,8 +1494,12 @@ export function wirePrimaryPlannerEvents(ctx){
   if (els.raceType){
     els.raceType.addEventListener("change", () => {
       withState((state) => {
-        state.raceType = els.raceType.value;
-        applyTemplateDefaultsForRace(state, state.raceType, { mode: "untouched" });
+        const templateId = String(els.raceType.value || "").trim();
+        if (!templateId) return;
+        applyTemplateDefaultsForRace(state, state.raceType, {
+          templateId,
+          mode: "untouched",
+        });
         refreshAssumptionsProfile();
       });
       applyStateToUI();

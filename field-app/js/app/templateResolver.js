@@ -10,6 +10,7 @@ import {
 import { safeNum } from "../core/utils.js";
 
 const EPSILON = 1e-6;
+const LEGACY_RACE_TYPES = new Set(["federal", "state_leg", "municipal", "county"]);
 
 function cleanString(value){
   return String(value == null ? "" : value).trim();
@@ -61,11 +62,110 @@ function dimensionMatch(a, b){
   return true;
 }
 
-export function normalizeLegacyRaceType(value){
+function knownTemplateId(value){
+  const id = cleanString(value);
+  return id && TEMPLATE_REGISTRY[id] ? id : "";
+}
+
+function inferLegacyRaceType(value){
   const key = cleanString(value).toLowerCase();
-  if (key === "federal" || key === "state_leg" || key === "municipal" || key === "county"){
-    return key;
+  if (!key) return "";
+  if (LEGACY_RACE_TYPES.has(key)) return key;
+
+  const template = TEMPLATE_REGISTRY[key];
+  if (template?.legacyRaceType && LEGACY_RACE_TYPES.has(template.legacyRaceType)){
+    return template.legacyRaceType;
   }
+
+  if (
+    key === "federal"
+    || key === "us_house"
+    || key === "congressional"
+    || key === "congressional_district"
+    || key === "statewide_federal"
+    || key === "statewide_executive"
+    || key === "us_senate"
+  ) return "federal";
+
+  if (
+    key === "state_leg"
+    || key === "state_legislative"
+    || key === "state_house"
+    || key === "state_senate"
+    || key === "state_legislative_lower"
+    || key === "state_legislative_upper"
+  ) return "state_leg";
+
+  if (
+    key === "municipal"
+    || key === "city"
+    || key === "local"
+    || key === "ward"
+    || key === "municipal_executive"
+    || key === "municipal_legislative"
+  ) return "municipal";
+
+  if (
+    key === "county"
+    || key === "countywide"
+    || key === "judicial_other"
+  ) return "county";
+
+  return "";
+}
+
+function resolveTemplateIdFromLegacyRaceType(legacyRaceType, context = {}){
+  const raceType = inferLegacyRaceType(legacyRaceType) || normalizeLegacyRaceType(legacyRaceType);
+  const officeLevel = cleanString(context?.officeLevel).toLowerCase();
+  const seatContext = cleanString(context?.seatContext).toLowerCase();
+
+  if (raceType === "federal"){
+    if (officeLevel === "statewide_federal" || seatContext.includes("senate")){
+      return "statewide_federal";
+    }
+    if (officeLevel === "statewide_executive" || seatContext.includes("governor") || seatContext.includes("executive")){
+      return "statewide_executive";
+    }
+    return "congressional_district";
+  }
+
+  if (raceType === "state_leg"){
+    if (officeLevel === "state_legislative_upper" || seatContext.includes("senate")){
+      return "state_senate";
+    }
+    return "state_house";
+  }
+
+  if (raceType === "municipal"){
+    if (officeLevel === "municipal_executive" || seatContext.includes("executive") || seatContext.includes("mayor")){
+      return "municipal_executive";
+    }
+    return "municipal_legislative";
+  }
+
+  if (raceType === "county"){
+    return "countywide";
+  }
+
+  if (officeLevel === "judicial_other") return "judicial_other";
+  if (officeLevel === "custom_context") return "custom_context";
+  return LEGACY_RACE_TYPE_TO_TEMPLATE_ID[raceType] || DEFAULT_TEMPLATE_ID;
+}
+
+function templateIdForOfficeLevel(officeLevel){
+  const token = cleanString(officeLevel).toLowerCase();
+  if (!token) return "";
+  for (const record of Object.values(TEMPLATE_REGISTRY)){
+    if (cleanString(record?.dimensions?.officeLevel).toLowerCase() === token){
+      return cleanString(record?.id);
+    }
+  }
+  return "";
+}
+
+export function normalizeLegacyRaceType(value){
+  const inferred = inferLegacyRaceType(value);
+  if (inferred) return inferred;
   return "state_leg";
 }
 
@@ -75,14 +175,24 @@ export function getTemplateRecord(templateId){
   return TEMPLATE_REGISTRY[DEFAULT_TEMPLATE_ID];
 }
 
-export function templateIdForRaceType(raceType){
-  const race = normalizeLegacyRaceType(raceType);
-  return LEGACY_RACE_TYPE_TO_TEMPLATE_ID[race] || DEFAULT_TEMPLATE_ID;
+export function templateIdForRaceType(raceType, context = {}){
+  const directTemplateId = knownTemplateId(raceType);
+  if (directTemplateId) return directTemplateId;
+
+  const inferredLegacyRaceType = inferLegacyRaceType(raceType);
+  if (inferredLegacyRaceType){
+    return resolveTemplateIdFromLegacyRaceType(inferredLegacyRaceType, context);
+  }
+
+  const officeTemplateId = templateIdForOfficeLevel(context?.officeLevel);
+  if (officeTemplateId) return officeTemplateId;
+
+  if (cleanString(raceType)) return "custom_context";
+  return DEFAULT_TEMPLATE_ID;
 }
 
 export function normalizeTemplateDimensions(input = {}, fallbackRaceType = "state_leg"){
-  const race = normalizeLegacyRaceType(input?.raceType || fallbackRaceType);
-  const fallbackTemplate = getTemplateRecord(templateIdForRaceType(race));
+  const fallbackTemplate = getTemplateRecord(templateIdForRaceType(fallbackRaceType, input));
   const out = {};
   for (const key of TEMPLATE_DIMENSION_KEYS){
     const value = cleanString(input?.[key]);
@@ -92,23 +202,37 @@ export function normalizeTemplateDimensions(input = {}, fallbackRaceType = "stat
 }
 
 export function resolveTemplateId(input = {}){
-  const explicitId = cleanString(input?.templateId);
-  if (explicitId && TEMPLATE_REGISTRY[explicitId]) return explicitId;
+  const explicitId = knownTemplateId(input?.templateId);
+  if (explicitId) return explicitId;
 
-  const fallbackRaceType = normalizeLegacyRaceType(input?.raceType);
+  const raceTemplateId = knownTemplateId(input?.raceType);
+  if (raceTemplateId) return raceTemplateId;
+
+  const rawRaceType = cleanString(input?.raceType);
+  const inferredRaceType = inferLegacyRaceType(rawRaceType);
+  if (rawRaceType && !inferredRaceType){
+    const officeTemplateId = templateIdForOfficeLevel(input?.officeLevel);
+    if (officeTemplateId) return officeTemplateId;
+    return "custom_context";
+  }
+
+  const fallbackRaceType = inferredRaceType || normalizeLegacyRaceType(rawRaceType);
   const dims = normalizeTemplateDimensions(input, fallbackRaceType);
   for (const record of Object.values(TEMPLATE_REGISTRY)){
     if (dimensionMatch(dims, record?.dimensions || {})) return record.id;
   }
-  return templateIdForRaceType(fallbackRaceType);
+
+  return templateIdForRaceType(fallbackRaceType, dims);
 }
 
 export function resolveTemplateRecord(input = {}){
   const src = isObject(input) ? input : {};
   const meta = isObject(src.templateMeta) ? src.templateMeta : {};
-  const raceType = normalizeLegacyRaceType(src.raceType || meta.legacyRaceType || "state_leg");
+  const raceToken = cleanString(src.raceType || meta.legacyRaceType || "state_leg");
+  const raceType = normalizeLegacyRaceType(raceToken);
+
   const resolvedId = resolveTemplateId({
-    templateId: src.templateId || meta.appliedTemplateId,
+    templateId: src.templateId || meta.appliedTemplateId || raceToken,
     raceType,
     officeLevel: src.officeLevel || meta.officeLevel,
     electionType: src.electionType || meta.electionType,
@@ -116,6 +240,7 @@ export function resolveTemplateRecord(input = {}){
     partisanshipMode: src.partisanshipMode || meta.partisanshipMode,
     salienceLevel: src.salienceLevel || meta.salienceLevel,
   });
+
   const template = getTemplateRecord(resolvedId);
   return {
     id: template.id,
@@ -143,7 +268,7 @@ export function makeDefaultTemplateMeta(input = {}){
 export function normalizeTemplateMeta(metaInput, { raceType = "state_leg", templateId = "" } = {}){
   const meta = isObject(metaInput) ? metaInput : {};
   const resolved = resolveTemplateRecord({
-    templateId: cleanString(templateId) || cleanString(meta.appliedTemplateId),
+    templateId: cleanString(templateId) || cleanString(meta.appliedTemplateId) || cleanString(raceType),
     raceType: raceType || meta.legacyRaceType || "state_leg",
     officeLevel: meta.officeLevel,
     electionType: meta.electionType,
@@ -304,10 +429,19 @@ export function deriveAssumptionsProfileFromState(stateLike){
   return overridden.length === 0 ? "template" : "custom";
 }
 
+export function getTemplateSelectionIdForState(stateLike){
+  const state = isObject(stateLike) ? stateLike : {};
+  const fromMeta = knownTemplateId(state?.templateMeta?.appliedTemplateId);
+  if (fromMeta) return fromMeta;
+  const fromRaceType = knownTemplateId(state?.raceType);
+  if (fromRaceType) return fromRaceType;
+  return resolveTemplateRecord(state).id;
+}
+
 export function getTemplateLabelForTemplateId(templateId, { detailed = false } = {}){
   const template = getTemplateRecord(templateId);
   if (detailed) return cleanString(template?.label) || cleanString(template?.legacyLabel) || "Template";
-  return cleanString(template?.legacyLabel) || cleanString(template?.label) || "Template";
+  return cleanString(template?.label) || cleanString(template?.legacyLabel) || "Template";
 }
 
 export function getTemplateLabelForRaceType(raceType, { detailed = false } = {}){

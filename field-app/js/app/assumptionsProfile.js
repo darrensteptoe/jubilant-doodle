@@ -66,5 +66,5 @@ export function assumptionsProfileLabelModule(src, labelTemplate){
     return `Template (${detailedLabel || fallback})`;
   }
   const overrideCount = listOverriddenTemplateFields(s).length;
-  return overrideCount > 0 ? `Custom overrides (${overrideCount})` : "Custom overrides";
+  return overrideCount > 0 ? "Custom overrides active" : "Custom overrides";
 }

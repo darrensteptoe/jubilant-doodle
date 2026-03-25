@@ -1,6 +1,7 @@
 // @ts-check
 import { resolveCanonicalCallsPerHour } from "../core/throughput.js";
 import { normalizeOptimizationObjective } from "../core/turnout.js";
+import { getTemplateSelectionIdForState } from "./templateResolver.js";
 /** @param {import("./types").ApplyStateToUIViewCtx} ctx */
 export function applyStateToUIView(ctx){
   const {
@@ -16,9 +17,10 @@ export function applyStateToUIView(ctx){
 
   const setValue = (el, v) => { if (el) el.value = v ?? ""; };
   const setChecked = (el, v) => { if (el) el.checked = !!v; };
+  const selectedTemplateId = getTemplateSelectionIdForState(state);
 
   setValue(els.scenarioName, state.scenarioName || "");
-  setValue(els.raceType, state.raceType || "state_leg");
+  setValue(els.raceType, selectedTemplateId || state.raceType || "state_house");
   setValue(els.electionDate, state.electionDate || "");
   setValue(els.weeksRemaining, state.weeksRemaining || "");
   setValue(els.mode, state.mode || "persuasion");

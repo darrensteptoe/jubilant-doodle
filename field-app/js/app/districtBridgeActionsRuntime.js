@@ -100,6 +100,28 @@ export function createDistrictBridgeActionsRuntime(deps = {}){
     };
   }
 
+  function districtBridgeTemplateProfileFromState(srcState, overrides = {}){
+    const meta = srcState?.templateMeta && typeof srcState.templateMeta === "object" ? srcState.templateMeta : {};
+    const ui = srcState?.ui && typeof srcState.ui === "object" ? srcState.ui : {};
+    const raceType = cleanText(overrides.raceTypeValue ?? meta.appliedTemplateId ?? srcState?.raceType);
+    const overriddenFields = Array.isArray(meta.overriddenFields)
+      ? meta.overriddenFields.map((field) => cleanText(field)).filter(Boolean)
+      : [];
+    return {
+      raceType,
+      officeLevel: cleanText(overrides.officeLevel ?? meta.officeLevel),
+      electionType: cleanText(overrides.electionType ?? meta.electionType),
+      seatContext: cleanText(overrides.seatContext ?? meta.seatContext),
+      partisanshipMode: cleanText(overrides.partisanshipMode ?? meta.partisanshipMode),
+      salienceLevel: cleanText(overrides.salienceLevel ?? meta.salienceLevel),
+      appliedTemplateId: cleanText(meta.appliedTemplateId),
+      appliedVersion: cleanText(meta.appliedVersion),
+      benchmarkKey: cleanText(meta.benchmarkKey),
+      assumptionsProfile: cleanText(overrides.assumptionsProfile ?? ui.assumptionsProfile) || "template",
+      overriddenFields,
+    };
+  }
+
   function districtBridgeApplyTemplateDefaults(mode = "all"){
     const state = getState();
     if (isScenarioLockedForEdits(state)){
@@ -111,19 +133,25 @@ export function createDistrictBridgeActionsRuntime(deps = {}){
       const syncAction = (actionFn, payload, actionName) => {
         districtBridgeApplyDomainAction(next, actionFn, payload, actionName);
       };
-      const dims = districtBridgeTemplateDimensionsFromState(next);
+      const requestedDims = districtBridgeTemplateDimensionsFromState(next);
       applyResult = applyTemplateDefaultsForRace(next, next.raceType, {
         mode: requestedMode || "all",
-        ...dims,
+        ...requestedDims,
       });
       if (!next.ui || typeof next.ui !== "object") next.ui = {};
       next.ui.assumptionsProfile = deriveAssumptionsProfileFromState(next);
-      syncAction(updateDistrictTemplateFieldAction, { field: "raceType", value: next.raceType }, "districtBridge.template.raceType");
-      syncAction(updateDistrictTemplateFieldAction, { field: "officeLevel", value: dims.officeLevel }, "districtBridge.template.officeLevel");
-      syncAction(updateDistrictTemplateFieldAction, { field: "electionType", value: dims.electionType }, "districtBridge.template.electionType");
-      syncAction(updateDistrictTemplateFieldAction, { field: "seatContext", value: dims.seatContext }, "districtBridge.template.seatContext");
-      syncAction(updateDistrictTemplateFieldAction, { field: "partisanshipMode", value: dims.partisanshipMode }, "districtBridge.template.partisanshipMode");
-      syncAction(updateDistrictTemplateFieldAction, { field: "salienceLevel", value: dims.salienceLevel }, "districtBridge.template.salienceLevel");
+      const profile = districtBridgeTemplateProfileFromState(next);
+      syncAction(updateDistrictTemplateFieldAction, { field: "raceType", value: profile.raceType }, "districtBridge.template.raceType");
+      syncAction(updateDistrictTemplateFieldAction, { field: "officeLevel", value: profile.officeLevel }, "districtBridge.template.officeLevel");
+      syncAction(updateDistrictTemplateFieldAction, { field: "electionType", value: profile.electionType }, "districtBridge.template.electionType");
+      syncAction(updateDistrictTemplateFieldAction, { field: "seatContext", value: profile.seatContext }, "districtBridge.template.seatContext");
+      syncAction(updateDistrictTemplateFieldAction, { field: "partisanshipMode", value: profile.partisanshipMode }, "districtBridge.template.partisanshipMode");
+      syncAction(updateDistrictTemplateFieldAction, { field: "salienceLevel", value: profile.salienceLevel }, "districtBridge.template.salienceLevel");
+      syncAction(updateDistrictTemplateFieldAction, { field: "appliedTemplateId", value: profile.appliedTemplateId }, "districtBridge.template.appliedTemplateId");
+      syncAction(updateDistrictTemplateFieldAction, { field: "appliedVersion", value: profile.appliedVersion }, "districtBridge.template.appliedVersion");
+      syncAction(updateDistrictTemplateFieldAction, { field: "benchmarkKey", value: profile.benchmarkKey }, "districtBridge.template.benchmarkKey");
+      syncAction(updateDistrictTemplateFieldAction, { field: "assumptionsProfile", value: profile.assumptionsProfile }, "districtBridge.template.assumptionsProfile");
+      syncAction(updateDistrictTemplateFieldAction, { field: "overriddenFields", value: profile.overriddenFields }, "districtBridge.template.overriddenFields");
       syncAction(updateDistrictFormFieldAction, { field: "electionDate", value: next.electionDate }, "districtBridge.form.electionDate");
       syncAction(updateDistrictFormFieldAction, { field: "weeksRemaining", value: next.weeksRemaining }, "districtBridge.form.weeksRemaining");
       syncAction(updateDistrictFormFieldAction, { field: "mode", value: next.mode }, "districtBridge.form.mode");
@@ -180,6 +208,24 @@ export function createDistrictBridgeActionsRuntime(deps = {}){
           `districtBridge.template.${templateField}`,
         );
       };
+      const syncTemplateProfile = (profileOverrides = {}) => {
+        const profile = districtBridgeTemplateProfileFromState(next, profileOverrides);
+        syncTemplateField("raceType", profile.raceType);
+        syncTemplateField("officeLevel", profile.officeLevel);
+        syncTemplateField("electionType", profile.electionType);
+        syncTemplateField("seatContext", profile.seatContext);
+        syncTemplateField("partisanshipMode", profile.partisanshipMode);
+        syncTemplateField("salienceLevel", profile.salienceLevel);
+        syncTemplateField("appliedTemplateId", profile.appliedTemplateId);
+        syncTemplateField("appliedVersion", profile.appliedVersion);
+        syncTemplateField("benchmarkKey", profile.benchmarkKey);
+        syncTemplateField("assumptionsProfile", profile.assumptionsProfile);
+        syncAction(
+          updateDistrictTemplateFieldAction,
+          { field: "overriddenFields", value: profile.overriddenFields },
+          "districtBridge.template.overriddenFields",
+        );
+      };
       const syncFormField = (formField, value) => {
         syncAction(
           updateDistrictFormFieldAction,
@@ -213,21 +259,19 @@ export function createDistrictBridgeActionsRuntime(deps = {}){
         });
         if (!next.ui || typeof next.ui !== "object") next.ui = {};
         next.ui.assumptionsProfile = deriveAssumptionsProfileFromState(next);
-        for (const [overrideKey, overrideValue] of Object.entries(overrides)){
-          const value = String(overrideValue == null ? "" : overrideValue).trim();
-          if (!value) continue;
-          syncTemplateField(overrideKey, value);
-        }
+        syncTemplateProfile();
       };
 
       if (key === "raceType"){
-        const value = cleanText(rawValue);
-        if (!value) return;
-        next.raceType = value;
-        applyTemplateDefaultsForRace(next, value, { mode: "untouched" });
+        const templateId = cleanText(rawValue);
+        if (!templateId) return;
+        applyTemplateDefaultsForRace(next, next.raceType, {
+          templateId,
+          mode: "untouched",
+        });
         if (!next.ui || typeof next.ui !== "object") next.ui = {};
         next.ui.assumptionsProfile = deriveAssumptionsProfileFromState(next);
-        syncTemplateField("raceType", value);
+        syncTemplateProfile({ raceTypeValue: templateId });
         applied = true;
         return;
       }

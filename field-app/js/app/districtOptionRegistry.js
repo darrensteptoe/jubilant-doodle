@@ -1,8 +1,19 @@
 // @ts-check
 import { TEMPLATE_REGISTRY } from "./templateRegistry.js";
-import { normalizeLegacyRaceType } from "./templateResolver.js";
+import { templateIdForRaceType } from "./templateResolver.js";
 
-const DEFAULT_RACE_ORDER = Object.freeze(["federal", "state_leg", "municipal", "county"]);
+const DEFAULT_TEMPLATE_ORDER = Object.freeze([
+  "municipal_executive",
+  "municipal_legislative",
+  "countywide",
+  "state_house",
+  "state_senate",
+  "congressional_district",
+  "statewide_executive",
+  "statewide_federal",
+  "judicial_other",
+  "custom_context",
+]);
 
 const DISTRICT_MODE_OPTIONS = Object.freeze([
   { value: "persuasion", label: "Persuasion-first (default)" },
@@ -21,45 +32,51 @@ const DISTRICT_UNDECIDED_MODE_OPTIONS = Object.freeze([
   { value: "toward", label: "Conservative toward you" },
 ]);
 
-function titleCase(value) {
-  return String(value || "")
-    .trim()
-    .split(/[_\s-]+/g)
-    .filter(Boolean)
-    .map((chunk) => chunk.charAt(0).toUpperCase() + chunk.slice(1))
-    .join(" ");
+function cleanString(value){
+  return String(value == null ? "" : value).trim();
+}
+
+function templateLabelById(templateId){
+  const id = cleanString(templateId);
+  const record = id ? TEMPLATE_REGISTRY[id] : null;
+  if (!record) return "";
+  return cleanString(record?.label) || cleanString(record?.legacyLabel) || id;
+}
+
+export function getDistrictRaceTypeLabel(raceTypeOrTemplateId){
+  const token = cleanString(raceTypeOrTemplateId);
+  if (!token) return "";
+  const direct = templateLabelById(token);
+  if (direct) return direct;
+  const resolvedTemplateId = templateIdForRaceType(token);
+  return templateLabelById(resolvedTemplateId) || token;
 }
 
 export function listDistrictRaceTypeOptions() {
-  const byRaceType = new Map();
-  for (const record of Object.values(TEMPLATE_REGISTRY)) {
-    const raceType = normalizeLegacyRaceType(record?.legacyRaceType || "");
-    if (!raceType || byRaceType.has(raceType)) {
-      continue;
-    }
-    const label = String(record?.legacyLabel || "").trim() || titleCase(raceType);
-    byRaceType.set(raceType, label);
-  }
-
   const ordered = [];
   const seen = new Set();
-  for (const raceType of DEFAULT_RACE_ORDER) {
-    if (!byRaceType.has(raceType) || seen.has(raceType)) {
+
+  for (const templateId of DEFAULT_TEMPLATE_ORDER) {
+    const label = templateLabelById(templateId);
+    if (!label || seen.has(templateId)) {
       continue;
     }
-    ordered.push({
-      value: raceType,
-      label: byRaceType.get(raceType),
-    });
-    seen.add(raceType);
+    ordered.push({ value: templateId, label });
+    seen.add(templateId);
   }
-  for (const [value, label] of byRaceType.entries()) {
-    if (seen.has(value)) {
+
+  for (const [templateId] of Object.entries(TEMPLATE_REGISTRY)) {
+    if (seen.has(templateId)) {
       continue;
     }
-    ordered.push({ value, label });
-    seen.add(value);
+    const label = templateLabelById(templateId);
+    if (!label) {
+      continue;
+    }
+    ordered.push({ value: templateId, label });
+    seen.add(templateId);
   }
+
   return ordered;
 }
 

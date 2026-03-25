@@ -14,11 +14,13 @@ test("assumptions right rail derives race context from district canonical select
   assert.match(source, /import\s+\{\s*selectDistrictCanonicalView\s*\}\s+from\s+"..\/core\/selectors\/districtCanonical\.js";/);
   assert.match(source, /const districtCanonical = selectDistrictCanonicalView\(runtimeState\);/);
   assert.match(source, /const canonicalElectionDate = String\(canonicalForm\.electionDate \|\| ""\)\.trim\(\);/);
-  assert.match(source, /kv\("Race template", canonicalRaceType \|\| "—"\)/);
+  assert.match(source, /kv\("Race template", templateLabel \|\| canonicalRaceType \|\| "—"\)/);
+  assert.match(source, /kv\("Template key", canonicalRaceType \|\| "—"\)/);
   assert.match(source, /kv\("Office level", canonicalTemplateMeta\.officeLevel \|\| "—"\)/);
   assert.match(source, /kv\("Election type", canonicalTemplateMeta\.electionType \|\| "—"\)/);
   assert.match(source, /kv\("Seat context", canonicalTemplateMeta\.seatContext \|\| "—"\)/);
   assert.match(source, /kv\("Partisanship mode", canonicalTemplateMeta\.partisanshipMode \|\| "—"\)/);
+  assert.match(source, /kv\("Salience level", canonicalTemplateMeta\.salienceLevel \|\| "—"\)/);
   assert.match(source, /const electionCountdown = buildElectionCountdownView\(canonicalElectionDate\);/);
   assert.match(source, /els\?\.daysToEdaySidebar/);
 });
