@@ -77,7 +77,6 @@ export function renderAssumptionsModule(args){
     weeks,
     block,
     kv,
-    labelTemplate,
     assumptionsProfileLabel,
     labelUndecidedMode,
     getYourName,
@@ -87,31 +86,11 @@ export function renderAssumptionsModule(args){
   const blocks = [];
   const runtimeState = state && typeof state === "object" ? state : {};
   const districtCanonical = selectDistrictCanonicalView(runtimeState);
-  const canonicalTemplate = districtCanonical?.templateProfile && typeof districtCanonical.templateProfile === "object"
-    ? districtCanonical.templateProfile
-    : {};
   const canonicalForm = districtCanonical?.form && typeof districtCanonical.form === "object"
     ? districtCanonical.form
     : {};
-  const canonicalRaceType = String(canonicalTemplate.raceType || runtimeState.raceType || "").trim();
   const canonicalMode = String(canonicalForm.mode || runtimeState.mode || "").trim();
   const canonicalElectionDate = String(canonicalForm.electionDate || "").trim();
-  const canonicalTemplateMeta = {
-    ...(runtimeState.templateMeta && typeof runtimeState.templateMeta === "object" ? runtimeState.templateMeta : {}),
-    officeLevel: String(canonicalTemplate.officeLevel || "").trim(),
-    electionType: String(canonicalTemplate.electionType || "").trim(),
-    seatContext: String(canonicalTemplate.seatContext || "").trim(),
-    partisanshipMode: String(canonicalTemplate.partisanshipMode || "").trim(),
-    salienceLevel: String(canonicalTemplate.salienceLevel || "").trim(),
-  };
-  const templateLabelState = {
-    ...runtimeState,
-    raceType: canonicalRaceType || runtimeState.raceType,
-    templateMeta: canonicalTemplateMeta,
-  };
-  const templateLabel = (typeof labelTemplate === "function")
-    ? labelTemplate(templateLabelState)
-    : (canonicalRaceType || "—");
 
   const footprint = assessRaceFootprintAlignment({
     censusState: state?.census,
@@ -122,17 +101,13 @@ export function renderAssumptionsModule(args){
   const storedFootprint = footprint.stored;
   const scope = formatRaceFootprintScope(storedFootprint);
   const resolutionText = resolutionLabel(storedFootprint.resolution) || "—";
+  const retentionRaw = Number(runtimeState.retentionFactor);
+  const retentionPct = Number.isFinite(retentionRaw)
+    ? (retentionRaw <= 1 ? retentionRaw * 100 : retentionRaw)
+    : null;
 
   blocks.push(block("Race & scenario", [
     kv("Scenario", state.scenarioName || "—"),
-    kv("Template", templateLabel || "—"),
-    kv("Race template", templateLabel || canonicalRaceType || "—"),
-    kv("Template key", canonicalRaceType || "—"),
-    kv("Office level", canonicalTemplateMeta.officeLevel || "—"),
-    kv("Election type", canonicalTemplateMeta.electionType || "—"),
-    kv("Seat context", canonicalTemplateMeta.seatContext || "—"),
-    kv("Partisanship mode", canonicalTemplateMeta.partisanshipMode || "—"),
-    kv("Salience level", canonicalTemplateMeta.salienceLevel || "—"),
     kv("Assumptions profile", assumptionsProfileLabel(state)),
     kv("Mode", canonicalMode === "late_start" ? "Late-start / turnout-heavy" : "Persuasion-first"),
     kv("Election date", canonicalElectionDate || String(runtimeState.electionDate || "").trim() || "—"),
@@ -198,6 +173,7 @@ export function renderAssumptionsModule(args){
 
   blocks.push(block("Persuasion & early vote", [
     kv("Persuasion % of universe", formatAssumptionsPercent(res.raw.persuasionPct)),
+    kv("Support retention", formatAssumptionsPercent(retentionPct)),
     kv("Early vote % (Expected)", formatAssumptionsPercent(res.raw.earlyVoteExp)),
   ]));
 

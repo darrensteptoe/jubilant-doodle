@@ -50,6 +50,36 @@ test("intelligence glossary: percentile and planning terms are registered and di
   assert.equal(normalizeGlossaryTermId("uncertainty band"), "confidenceBand");
 });
 
+test("intelligence glossary: handbook field dictionary terms are registered", () => {
+  const required = [
+    "raceTemplate",
+    "officeLevelContext",
+    "electionTypeField",
+    "seatContextField",
+    "partisanshipModeField",
+    "salienceLevelField",
+    "supportRetention",
+    "turnoutBandWidth",
+    "topN",
+    "minimumScore",
+    "densityFloor",
+    "earlyVoteExpected",
+    "dataBundleField",
+    "geoUnitsField",
+    "geographyLevelField",
+    "scenarioLockField",
+  ];
+  for (const id of required){
+    const entry = GLOSSARY_REGISTRY[id];
+    assert.ok(entry, `missing glossary entry: ${id}`);
+    assert.ok(String(entry.term || "").length > 0, `${id} missing term`);
+    assert.ok(String(entry.definition || "").length > 0, `${id} missing definition`);
+  }
+  assert.equal(normalizeGlossaryTermId("top n"), "topN");
+  assert.equal(normalizeGlossaryTermId("salience level"), "salienceLevelField");
+  assert.equal(normalizeGlossaryTermId("early vote expected"), "earlyVoteExpected");
+});
+
 test("intelligence doctrine: upgraded modules cross-link to new glossary terms", () => {
   const forecastTerms = MODULE_DOCTRINE_REGISTRY.forecastOutcome?.relatedTerms || [];
   const governanceTerms = MODULE_DOCTRINE_REGISTRY.governanceConfidence?.relatedTerms || [];
