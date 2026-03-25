@@ -613,7 +613,7 @@ export function registerRebuildContractTests(ctx){
     syncTemplateMetaFromState(state);
     const out = applyTemplateDefaultsToState(state, { raceType: "federal", mode: "untouched" });
     assert(out?.ok === true, "template apply should succeed");
-    assert(state.templateMeta?.appliedTemplateId === "federal_general_incumbent", "template id should resolve to federal archetype");
+    assert(state.templateMeta?.appliedTemplateId === "congressional_district", "template id should resolve to federal archetype");
     assert(state.templateMeta?.benchmarkKey === "federal_general", "template meta should persist canonical benchmark key");
     assert(state.supportRatePct === 61, "untouched mode should preserve explicit support override");
     assert(Array.isArray(state.templateMeta?.overriddenFields) && state.templateMeta.overriddenFields.includes("supportRatePct"), "override metadata should include preserved field");
@@ -628,10 +628,10 @@ export function registerRebuildContractTests(ctx){
     };
     syncTemplateMetaFromState(state);
     const out = applyTemplateDefaultsToState(state, { raceType: "federal", mode: "all" });
-    const fed = getTemplateRecord("federal_general_incumbent");
+    const fed = getTemplateRecord("congressional_district");
     assert(out?.ok === true, "template apply should succeed");
     assert(state.supportRatePct === fed?.defaults?.supportRatePct, "all mode should restore template defaults");
-    assert(state.templateMeta?.appliedTemplateId === "federal_general_incumbent", "template provenance should update");
+    assert(state.templateMeta?.appliedTemplateId === "congressional_district", "template provenance should update");
     return true;
   });
 
@@ -649,9 +649,9 @@ export function registerRebuildContractTests(ctx){
       partisanshipMode: "partisan",
       salienceLevel: "low",
     });
-    const resolvedTemplate = getTemplateRecord("special_low_turnout");
+    const resolvedTemplate = getTemplateRecord("state_house");
     assert(out?.ok === true, "dimension-based template apply should succeed");
-    assert(state.templateMeta?.appliedTemplateId === "special_low_turnout", "dimensions should resolve to special_low_turnout archetype");
+    assert(state.templateMeta?.appliedTemplateId === "state_house", "dimensions should resolve to state_house archetype");
     assert(state.gotvMaxLiftPP === resolvedTemplate?.defaults?.gotvMaxLiftPP, "resolved archetype defaults should apply canonically");
     return true;
   });
