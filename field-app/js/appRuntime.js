@@ -3406,6 +3406,7 @@ function districtBridgeDerivedView(){
     const rankValue = safeNum(row?.rank);
     const scoreValue = safeNum(row?.score);
     const vphValue = safeNum(row?.votesPerOrganizerHour);
+    const geoidValue = String(row?.geoid || row?.geographyId || row?.id || "").trim();
     const reasons = Array.isArray(row?.reasons)
       ? row.reasons.map((value) => String(value || "").trim()).filter(Boolean)
       : [];
@@ -3427,6 +3428,7 @@ function districtBridgeDerivedView(){
       rankText: rankValue == null
         ? String(idx + 1)
         : String(Math.max(1, roundWholeNumberByMode(rankValue, { mode: "floor", fallback: 1 }) || 1)),
+      geoidText: geoidValue || "",
       geoText: geoLabel || "—",
       scoreText: scoreValue == null ? "—" : formatFixedNumber(scoreValue, 3, "—"),
       votesPerHourText: vphValue == null ? "—" : formatFixedNumber(vphValue, 2, "—"),
