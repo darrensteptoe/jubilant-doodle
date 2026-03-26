@@ -3431,9 +3431,15 @@ function districtBridgeDerivedView(){
       geoidText: geoidValue || "",
       geoText: geoLabel || "—",
       scoreText: scoreValue == null ? "—" : formatFixedNumber(scoreValue, 3, "—"),
+      scoreValue: scoreValue == null ? null : Number(scoreValue),
       votesPerHourText: vphValue == null ? "—" : formatFixedNumber(vphValue, 2, "—"),
+      votesPerHourValue: vphValue == null ? null : Number(vphValue),
       reasonText: reasonText || "—",
       flagsText,
+      topTarget: !!row?.isTopTarget,
+      turnoutPriority: !!row?.isTurnoutPriority,
+      persuasionPriority: !!row?.isPersuasionPriority,
+      efficiencyPriority: !!row?.isEfficiencyPriority,
     };
   });
   const targetingMeta = (targetingState?.lastMeta && typeof targetingState.lastMeta === "object")
