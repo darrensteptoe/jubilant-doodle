@@ -56,6 +56,16 @@ test("render lifecycle: editable controls sync in place from canonical snapshots
   const checkboxBody = extractFunctionBody("syncCheckboxControlInPlace");
 
   assert.match(selectBody, /replaceSelectOptionsInPlace\(/, "select sync must use in-place option replacement helper");
+  assert.match(
+    selectBody,
+    /const normalizedWithoutBlank = hasPlaceholder[\s\S]*normalized\.filter\(\(option\) => String\(option\?\.value \?\? ""\)\.trim\(\) !== ""\)/,
+    "select sync must strip upstream blank placeholder rows when a UI placeholder is provided",
+  );
+  assert.match(
+    selectBody,
+    /const nextOptions = hasPlaceholder[\s\S]*\[\{ value: "", label: String\(placeholder\) \}, \.\.\.normalizedWithoutBlank\]/,
+    "select sync must add exactly one placeholder row per render pass",
+  );
   assert.doesNotMatch(selectBody, /innerHTML\s*=/, "select sync must not rebuild via innerHTML");
 
   assert.match(inputBody, /document\.activeElement === control/, "input sync must preserve active control identity");

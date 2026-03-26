@@ -1899,7 +1899,7 @@ function syncDistrictV2Census(configSnapshot, resultsSnapshot) {
   const readDisabled = (...keys) => keys.some((key) => !!disabledMap?.[key]);
 
   applyDisabled("v3DistrictV2CensusApiKey", controlsLocked || !!disabledMap.apiKey);
-  applyDisabled("v3DistrictV2CensusAcsYear", controlsLocked || !!disabledMap.year);
+  applyDisabled("v3DistrictV2CensusAcsYear", controlsLocked || !!disabledMap.year || readDisabled("v3CensusAcsYear"));
   applyDisabled("v3DistrictV2CensusResolution", controlsLocked || !!disabledMap.resolution);
   applyDisabled("v3DistrictV2CensusStateFips", controlsLocked || !!disabledMap.stateFips);
   applyDisabled("v3DistrictV2CensusCountyFips", controlsLocked || !!disabledMap.countyFips);
@@ -2460,12 +2460,14 @@ function syncSelectControlInPlace(select, options, selectedValue, { placeholder 
     return;
   }
   const normalized = normalizeSnapshotOptions(options);
+  const hasPlaceholder = !!placeholder;
+  const normalizedWithoutBlank = hasPlaceholder
+    ? normalized.filter((option) => String(option?.value ?? "").trim() !== "")
+    : normalized;
   const wanted = String(selectedValue == null ? "" : selectedValue);
-  const nextOptions = [];
-  if (placeholder) {
-    nextOptions.push({ value: "", label: String(placeholder) });
-  }
-  nextOptions.push(...normalized);
+  const nextOptions = hasPlaceholder
+    ? [{ value: "", label: String(placeholder) }, ...normalizedWithoutBlank]
+    : normalizedWithoutBlank;
   const signature = nextOptions.map((option) => `${option.value}::${option.label}`).join("||");
   const previousSignature = String(select.dataset.v3d2OptionSignature || "");
   if (signature !== previousSignature) {
