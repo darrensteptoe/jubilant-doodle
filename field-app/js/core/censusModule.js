@@ -77,6 +77,8 @@ const ELECTION_CSV_RESERVED_CANONICAL_COLUMNS = new Set(
 );
 
 const YEARS_FLOOR = 2016;
+const ACS_5YEAR_DATASET = "acs/acs5";
+const ACS_LATEST_5YEAR_LOOKBACK = 6;
 
 const RESOLUTION_CONFIG = {
   place: {
@@ -534,6 +536,8 @@ const TIGER_BOUNDARY_LAYERS = {
 const TIGER_BASE_URL = "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb";
 const TIGER_SERVICE_CATALOG_URL = `${TIGER_BASE_URL}?f=pjson`;
 let tigerVtdLayerCache = null;
+let latestAcs5YearResolved = "";
+let latestAcs5YearResolvePromise = null;
 
 export function listResolutionOptions(){
   return RESOLUTION_OPTIONS.map((x) => ({ ...x }));
@@ -592,13 +596,92 @@ export function listMetricSetOptions(){
   return METRIC_SET_OPTIONS.map((x) => ({ ...x }));
 }
 
-export function listAcsYears(nowYear = new Date().getFullYear()){
-  const max = Math.max(YEARS_FLOOR, Number(nowYear) - 2);
-  const out = [];
-  for (let y = max; y >= YEARS_FLOOR; y -= 1){
-    out.push(String(y));
+function normalizeAcsYear(value){
+  const year = roundWholeNumberByMode(Number(value), { mode: "floor", fallback: null });
+  if (year == null || year < YEARS_FLOOR) return "";
+  return String(year);
+}
+
+function fallbackLatestAcs5Year(nowYear = new Date().getFullYear()){
+  const normalizedNow = roundWholeNumberByMode(Number(nowYear), { mode: "floor", fallback: null });
+  if (normalizedNow == null) {
+    return "2024";
   }
-  return out;
+  const latestLikelyPublished = Math.max(YEARS_FLOOR, normalizedNow - 2);
+  return String(latestLikelyPublished);
+}
+
+function buildAcsVariablesCatalogUrl(year, key){
+  const token = cleanText(key);
+  const safeYear = normalizeAcsYear(year) || fallbackLatestAcs5Year();
+  return `https://api.census.gov/data/${encodeURIComponent(safeYear)}/${ACS_5YEAR_DATASET}/variables.json${token ? `?key=${encodeURIComponent(token)}` : ""}`;
+}
+
+function isValidAcsVariableCatalogPayload(payload){
+  return !!(
+    payload
+    && typeof payload === "object"
+    && payload.variables
+    && typeof payload.variables === "object"
+    && Object.keys(payload.variables).length > 0
+  );
+}
+
+export function getLatestAcs5Year(nowYear = new Date().getFullYear()){
+  return latestAcs5YearResolved || fallbackLatestAcs5Year(nowYear);
+}
+
+export async function resolveLatestAcs5Year({ key, fetchImpl, nowYear = new Date().getFullYear(), lookbackYears = ACS_LATEST_5YEAR_LOOKBACK } = {}){
+  if (latestAcs5YearResolved) {
+    return { year: latestAcs5YearResolved, source: "cache" };
+  }
+  if (latestAcs5YearResolvePromise) {
+    return latestAcs5YearResolvePromise;
+  }
+  const fetcher = typeof fetchImpl === "function" ? fetchImpl : globalThis.fetch;
+  const fallbackYear = fallbackLatestAcs5Year(nowYear);
+  latestAcs5YearResolvePromise = (async () => {
+    if (typeof fetcher !== "function") {
+      latestAcs5YearResolved = fallbackYear;
+      return { year: latestAcs5YearResolved, source: "fallback_no_fetch" };
+    }
+    const maxYear = Number(fallbackYear);
+    const lookback = Math.max(0, roundWholeNumberByMode(Number(lookbackYears), { mode: "floor", fallback: ACS_LATEST_5YEAR_LOOKBACK }) || ACS_LATEST_5YEAR_LOOKBACK);
+    const minYear = Math.max(YEARS_FLOOR, maxYear - lookback);
+    for (let year = maxYear; year >= minYear; year -= 1) {
+      const candidate = String(year);
+      const url = buildAcsVariablesCatalogUrl(candidate, key);
+      try {
+        const response = await fetcher(url);
+        if (!response || !response.ok) {
+          continue;
+        }
+        const payload = await response.json();
+        if (isValidAcsVariableCatalogPayload(payload)) {
+          latestAcs5YearResolved = candidate;
+          return { year: latestAcs5YearResolved, source: "metadata" };
+        }
+      } catch {
+        // Continue probing older ACS vintages; fallback is applied below.
+      }
+    }
+    latestAcs5YearResolved = fallbackYear;
+    return { year: latestAcs5YearResolved, source: "fallback" };
+  })();
+  try {
+    return await latestAcs5YearResolvePromise;
+  } finally {
+    latestAcs5YearResolvePromise = null;
+  }
+}
+
+export function __resetLatestAcs5YearCacheForTests(){
+  latestAcs5YearResolved = "";
+  latestAcs5YearResolvePromise = null;
+}
+
+export function listAcsYears(nowYear = new Date().getFullYear()){
+  return [getLatestAcs5Year(nowYear)];
 }
 
 export function getMetricIdsForSet(metricSetId){
@@ -1702,8 +1785,8 @@ function encodeGetVars(vars){
   return deduped.join(",");
 }
 
-export function buildAcsQueryUrl({ year, getVars, forClause, inClauses = [], key, dataset = "acs/acs5" }){
-  const y = cleanText(year);
+export function buildAcsQueryUrl({ year, getVars, forClause, inClauses = [], key, dataset = ACS_5YEAR_DATASET }){
+  const y = getLatestAcs5Year();
   const vars = encodeGetVars(getVars || []);
   const forPart = cleanText(forClause);
   const inParts = Array.isArray(inClauses)
@@ -2057,8 +2140,10 @@ export async function fetchAcsRows({ year, resolution, stateFips, countyFips, me
 }
 
 export async function fetchVariableCatalog({ year, key, fetchImpl } = {}){
-  const token = cleanText(key);
-  const url = `https://api.census.gov/data/${encodeURIComponent(cleanText(year))}/acs/acs5/variables.json${token ? `?key=${encodeURIComponent(token)}` : ""}`;
+  const latestYear = getLatestAcs5Year();
+  const requestedYear = cleanText(year);
+  const targetYear = requestedYear === latestYear ? requestedYear : latestYear;
+  const url = buildAcsVariablesCatalogUrl(targetYear, key);
   const fetcher = typeof fetchImpl === "function" ? fetchImpl : globalThis.fetch;
   if (typeof fetcher !== "function") throw new Error("Fetch is unavailable.");
   const res = await fetcher(url);
@@ -2074,7 +2159,7 @@ export async function fetchVariableCatalog({ year, key, fetchImpl } = {}){
     throw new Error(`Variable catalog request failed (${status}): ${text}`);
   }
   const json = await res.json();
-  const vars = json?.variables && typeof json.variables === "object" ? Object.keys(json.variables) : [];
+  const vars = isValidAcsVariableCatalogPayload(json) ? Object.keys(json.variables) : [];
   return vars;
 }
 
