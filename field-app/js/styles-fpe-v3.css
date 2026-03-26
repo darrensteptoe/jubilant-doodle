@@ -1681,6 +1681,10 @@ body.training #app-shell-v3-root .fpe-surface .fpe-why {
   justify-content: flex-end;
 }
 
+.fpe-surface-pane[data-v3-stage="district"] .fpe-census-map-row--under-map-split {
+  justify-content: space-between;
+}
+
 .fpe-surface-pane[data-v3-stage="district"] .fpe-census-vtd-control-row {
   justify-content: flex-start;
   align-items: center;
@@ -1698,10 +1702,23 @@ body.training #app-shell-v3-root .fpe-surface .fpe-why {
 }
 
 .fpe-surface-pane[data-v3-stage="district"] .fpe-census-geo-selection-actions {
+  justify-content: space-between;
+}
+
+.fpe-surface-pane[data-v3-stage="district"] .fpe-census-geo-selection-right {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
   justify-content: flex-end;
+  gap: 10px;
+  margin-left: auto;
 }
 
 .fpe-surface-pane[data-v3-stage="district"] .fpe-census-apply-geoids-row {
+  justify-content: flex-start;
+}
+
+.fpe-surface-pane[data-v3-stage="district"] .fpe-candidate-history-add-row {
   justify-content: flex-start;
 }
 

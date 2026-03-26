@@ -70,6 +70,8 @@ import {
 import {
   CANDIDATE_HISTORY_ELECTION_TYPE_OPTIONS,
   CANDIDATE_HISTORY_INCUMBENCY_OPTIONS,
+  CANDIDATE_HISTORY_OFFICE_OPTIONS,
+  canonicalizeCandidateHistoryOffice,
   normalizeCandidateHistoryRecords,
 } from "./core/candidateHistoryBaseline.js";
 import {
@@ -3235,6 +3237,10 @@ function districtBridgeCanonicalView(){
         value: safeNum(ballotUserSplitById?.[cand?.id]),
       })).filter((cand) => cand.id),
       candidateHistoryOptions: {
+        office: CANDIDATE_HISTORY_OFFICE_OPTIONS.map((row) => ({
+          value: String(row?.value || "").trim(),
+          label: String(row?.label || row?.value || "").trim(),
+        })),
         electionType: CANDIDATE_HISTORY_ELECTION_TYPE_OPTIONS.map((row) => ({
           value: String(row?.value || "").trim(),
           label: String(row?.label || row?.value || "").trim(),
@@ -3361,9 +3367,15 @@ function districtBridgeDerivedView(){
     : {};
   const historyRecordCount = Number(historyValidation.recordCount ?? historyImpact.recordCount ?? historyRecords.length ?? 0);
   const historyMatched = Number(historyValidation.matchedRecordCount ?? historyImpact.matchedRecordCount ?? 0);
+  const historyUnmatchedCandidates = Number(historyValidation.unmatchedCandidateRecordCount ?? 0);
+  const historyOfficeMismatchCount = Number(historyValidation.excludedByOfficeCount ?? 0);
+  const historyElectionMismatchCount = Number(historyValidation.excludedByElectionTypeCount ?? 0);
   const historyCoverageBand = String(historyValidation.coverageBand || historyImpact.coverageBand || "none");
   const historyConfidenceBand = String(historyValidation.confidenceBand || historyImpact.confidenceBand || "missing");
   const historyVoteDelta = Number(historyImpact.yourVotesDelta || 0);
+  const historyNotes = Array.isArray(historyValidation.notes)
+    ? historyValidation.notes.map((note) => String(note || "").trim()).filter(Boolean)
+    : [];
   const electionDataState = currentState?.electionData && typeof currentState.electionData === "object"
     ? currentState.electionData
     : {};
@@ -3469,10 +3481,42 @@ function districtBridgeDerivedView(){
           : ""),
       candidateHistorySummaryText: historyRecordCount <= 0
         ? "No candidate history rows. Add candidate-cycle records to anchor ballot baseline realism."
-        : `History rows: ${districtBridgeFmtInt(historyRecordCount)} · matched: ${districtBridgeFmtInt(historyMatched)} · coverage: ${historyCoverageBand} · confidence: ${historyConfidenceBand}${historyVoteDelta ? ` · vote delta ${historyVoteDelta > 0 ? "+" : ""}${districtBridgeFmtInt(historyVoteDelta)}` : ""}`,
-      candidateHistoryWarningText: historyRecordCount > 0 && historyConfidenceBand === "low"
-        ? "Candidate history is incomplete; baseline confidence is downgraded until required fields are filled."
-        : "",
+        : (() => {
+            const mismatchBits = [];
+            if (historyOfficeMismatchCount > 0){
+              mismatchBits.push(`office ${districtBridgeFmtInt(historyOfficeMismatchCount)}`);
+            }
+            if (historyElectionMismatchCount > 0){
+              mismatchBits.push(`election ${districtBridgeFmtInt(historyElectionMismatchCount)}`);
+            }
+            const unmatchedBit = historyUnmatchedCandidates > 0
+              ? ` · unmatched candidate rows: ${districtBridgeFmtInt(historyUnmatchedCandidates)}`
+              : "";
+            const mismatchBit = mismatchBits.length
+              ? ` · excluded: ${mismatchBits.join(", ")}`
+              : "";
+            const voteDeltaBit = historyVoteDelta
+              ? ` · vote delta ${historyVoteDelta > 0 ? "+" : ""}${districtBridgeFmtInt(historyVoteDelta)}`
+              : "";
+            return `History rows: ${districtBridgeFmtInt(historyRecordCount)} · matched: ${districtBridgeFmtInt(historyMatched)} · coverage: ${historyCoverageBand} · confidence: ${historyConfidenceBand}${mismatchBit}${unmatchedBit}${voteDeltaBit}`;
+          })(),
+      candidateHistoryWarningText: (() => {
+        const warnings = [];
+        if (historyOfficeMismatchCount > 0){
+          warnings.push(`Office mismatch excluded ${districtBridgeFmtInt(historyOfficeMismatchCount)} row(s); use canonical office labels (for governor use Statewide Executive / \`statewide_executive\`).`);
+        }
+        if (historyElectionMismatchCount > 0){
+          warnings.push(`Election-type mismatch excluded ${districtBridgeFmtInt(historyElectionMismatchCount)} row(s).`);
+        }
+        if (historyRecordCount > 0 && historyConfidenceBand === "low"){
+          warnings.push("Candidate history is incomplete; baseline confidence is downgraded until required fields are filled.");
+        }
+        if (warnings.length <= 0){
+          const officeNote = historyNotes.find((note) => /office mismatch/i.test(note));
+          return officeNote || "";
+        }
+        return warnings.join(" ");
+      })(),
     },
     targeting: {
       statusText: targetingRows.length
@@ -3696,6 +3740,7 @@ function getDistrictBridgeActionsController(){
       updateBallotUserSplitAction,
       removeBallotCandidateAction,
       normalizeCandidateHistoryRecords,
+      canonicalizeCandidateHistoryOffice,
       addCandidateHistoryRecordAction,
       updateCandidateHistoryRecordAction,
       removeCandidateHistoryRecordAction,
