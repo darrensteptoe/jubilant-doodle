@@ -1,6 +1,7 @@
 // @ts-check
 
 import { asArray, makeActionResult, mutateDomain, toBool, toFinite } from "./_core.js";
+import { canonicalizeCandidateHistoryOffice } from "../candidateHistoryBaseline.js";
 
 function cleanText(value) {
   return String(value == null ? "" : value).trim();
@@ -9,9 +10,10 @@ function cleanText(value) {
 function normalizeRecord(record, fallbackId = "") {
   return {
     recordId: cleanText(record?.recordId) || fallbackId,
-    office: cleanText(record?.office),
+    office: canonicalizeCandidateHistoryOffice(record?.office),
     cycleYear: toFinite(record?.cycleYear, null),
     electionType: cleanText(record?.electionType).toLowerCase(),
+    candidateId: cleanText(record?.candidateId),
     candidateName: cleanText(record?.candidateName),
     party: cleanText(record?.party),
     incumbencyStatus: cleanText(record?.incumbencyStatus).toLowerCase(),
@@ -118,4 +120,3 @@ export function removeCandidateHistoryRecord(state, payload, options = {}) {
   );
   return makeActionResult(result, { recordId });
 }
-

@@ -89,8 +89,17 @@ test("actions: candidate history row add/edit/remove", () => {
   assert.equal(added.changed, true);
   const recordId = added.state.domains.candidateHistory.records[0].recordId;
   assert.ok(recordId);
+  assert.equal(added.state.domains.candidateHistory.records[0].office, "congressional_district");
 
-  const edited = updateCandidateHistoryRecord(added.state, {
+  const officeEdited = updateCandidateHistoryRecord(added.state, {
+    recordId,
+    field: "office",
+    value: "governor",
+  });
+  assert.equal(officeEdited.changed, true);
+  assert.equal(officeEdited.state.domains.candidateHistory.records[0].office, "statewide_executive");
+
+  const edited = updateCandidateHistoryRecord(officeEdited.state, {
     recordId,
     field: "voteShare",
     value: "52.4",
