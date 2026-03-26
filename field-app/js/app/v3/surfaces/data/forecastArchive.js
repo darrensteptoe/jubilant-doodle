@@ -1,3 +1,39 @@
+import { formatOfficeContextLabel } from "../../../../core/officeContextLabels.js";
+
+function cleanText(value) {
+  return String(value == null ? "" : value).trim();
+}
+
+export function formatArchiveOfficeWinnerDisplayText(value) {
+  const raw = cleanText(value);
+  if (!raw || raw === "—") {
+    return raw;
+  }
+  const segments = raw.split("·");
+  const officeToken = cleanText(segments.shift());
+  if (!officeToken) {
+    return raw;
+  }
+  const officeLabel = formatOfficeContextLabel(officeToken, { unmappedLabel: "Unmapped Office Context" });
+  const suffix = cleanText(segments.join("·"));
+  return suffix ? `${officeLabel} · ${suffix}` : officeLabel;
+}
+
+export function formatArchiveTemplateSummaryDisplayText(value) {
+  const raw = cleanText(value);
+  if (!raw || raw === "—") {
+    return raw;
+  }
+  const withVersion = raw.match(/^(.*?)\s*\(v([^)]+)\)$/);
+  if (withVersion) {
+    const templateToken = cleanText(withVersion[1]);
+    const version = cleanText(withVersion[2]);
+    const templateLabel = formatOfficeContextLabel(templateToken, { unmappedLabel: "Unmapped Office Context" });
+    return version ? `${templateLabel} (v${version})` : templateLabel;
+  }
+  return formatOfficeContextLabel(raw, { unmappedLabel: "Unmapped Office Context" });
+}
+
 export function syncDataForecastArchiveModule(context = {}) {
   const {
     view,
@@ -52,8 +88,8 @@ export function syncDataForecastArchiveModule(context = {}) {
   setText("v3DataArchiveTargetTop", archiveDetail.topTargets);
   setText("v3DataArchiveTargetValueTotal", archiveDetail.targetValueTotal);
   setText("v3DataArchiveOfficePathRows", archiveDetail.officePathRows);
-  setText("v3DataArchiveOfficeBestDollar", archiveDetail.officeBestByDollar);
-  setText("v3DataArchiveOfficeBestOrganizerHour", archiveDetail.officeBestByOrganizerHour);
+  setText("v3DataArchiveOfficeBestDollar", formatArchiveOfficeWinnerDisplayText(archiveDetail.officeBestByDollar));
+  setText("v3DataArchiveOfficeBestOrganizerHour", formatArchiveOfficeWinnerDisplayText(archiveDetail.officeBestByOrganizerHour));
   setText("v3DataArchiveOfficeBestDollarUpliftExpected", archiveDetail.officeBestByDollarUpliftExpected);
   setText("v3DataArchiveOfficeBestDollarUpliftSource", archiveDetail.officeBestByDollarUpliftSource);
   setText("v3DataArchiveOfficeBestOrganizerHourUpliftExpected", archiveDetail.officeBestByOrganizerHourUpliftExpected);
@@ -65,7 +101,7 @@ export function syncDataForecastArchiveModule(context = {}) {
   setText("v3DataArchiveUpliftSource", archiveDetail.upliftSource);
   setText("v3DataArchiveUpliftUncertaintyBand", archiveDetail.upliftUncertaintyBand);
   setText("v3DataArchiveUpliftSaturationPressure", archiveDetail.upliftSaturationPressure);
-  setText("v3DataArchiveTemplateSummary", archiveDetail.templateSummary);
+  setText("v3DataArchiveTemplateSummary", formatArchiveTemplateSummaryDisplayText(archiveDetail.templateSummary));
   setText("v3DataArchiveWorkforceSummary", archiveDetail.workforceSummary);
   setText("v3DataArchiveBudgetSummary", archiveDetail.budgetSummary);
   setText("v3DataArchiveVoterRows", archiveDetail.voterRows);
