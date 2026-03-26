@@ -1,4 +1,5 @@
 // @ts-check
+import { canonicalizeCandidateHistoryOffice } from "../candidateHistoryBaseline.js";
 
 export const CANONICAL_SCHEMA_VERSION = 1;
 
@@ -159,9 +160,10 @@ function normalizeCandidateHistoryRecords(rawRecords) {
     const recordId = cleanText(row?.recordId) || makeRefId("history", row?.office || row?.candidateName, idx);
     return {
       recordId,
-      office: cleanText(row?.office),
+      office: canonicalizeCandidateHistoryOffice(row?.office),
       cycleYear: toFinite(row?.cycleYear, null),
       electionType: cleanText(row?.electionType).toLowerCase(),
+      candidateId: cleanText(row?.candidateId || row?.candidate_id),
       candidateName: cleanText(row?.candidateName),
       party: cleanText(row?.party),
       incumbencyStatus: cleanText(row?.incumbencyStatus).toLowerCase(),

@@ -85,6 +85,7 @@ test("schema migration shape: legacy state migrates into canonical domains and n
   assert.equal(migrated.domains.ballot.candidateRefs.order.length, 2);
   assert.equal(migrated.domains.ballot.userSplitByCandidateId.cand_alpha, 55);
   assert.equal(migrated.domains.candidateHistory.records.length, 1);
+  assert.equal(migrated.domains.candidateHistory.records[0].office, "congressional_district");
   assert.equal(migrated.domains.electionData.import.status, "ready");
   assert.equal(migrated.domains.electionData.normalizedRows.length, 2);
   assert.equal(migrated.domains.electionData.voteTotals.totalVotes, 250);

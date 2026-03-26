@@ -102,6 +102,18 @@ test("district_v2 template dimension selections persist after reopen", () => {
   assert.equal(reopenedCanonical.templateProfile.salienceLevel, "high");
 });
 
+test("district_v2 template persistence keeps canonical template race id stable after reopen", () => {
+  let state = makeCanonicalState({ nowDate: new Date("2026-03-21T15:07:00.000Z") });
+  state = updateDistrictTemplateField(state, { field: "raceType", value: "statewide_executive" }).state;
+  state = updateDistrictTemplateField(state, { field: "officeLevel", value: "statewide_executive" }).state;
+  state = updateDistrictTemplateField(state, { field: "electionType", value: "general" }).state;
+
+  const reopenedCanonical = selectDistrictCanonicalView(JSON.parse(JSON.stringify(state)));
+  assert.equal(reopenedCanonical.templateProfile.raceType, "statewide_executive");
+  assert.equal(reopenedCanonical.templateProfile.officeLevel, "statewide_executive");
+  assert.equal(reopenedCanonical.templateProfile.electionType, "general");
+});
+
 test("district_v2 Ballot fields persist after reopen", () => {
   let state = makeCanonicalState({ nowDate: new Date("2026-03-21T15:10:00.000Z") });
   state = addBallotCandidate(state, { name: "Alex Rivera", supportPct: 14 }).state;
