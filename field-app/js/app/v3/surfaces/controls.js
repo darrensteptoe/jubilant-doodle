@@ -61,6 +61,7 @@ import {
   listBenchmarkScopeOptions,
 } from "../../../core/benchmarkProfiles.js";
 import { formatPercentFromUnit } from "../../../core/utils.js";
+import { formatOfficeContextLabel } from "../../../core/officeContextLabels.js";
 import { pctOverrideToDecimal } from "../../../core/voteProduction.js";
 
 const SCENARIO_API_KEY = "__FPE_SCENARIO_API__";
@@ -771,7 +772,10 @@ function wireControlsBenchmarkBridge() {
         benchmarkKey: benchmarkScopeToBenchmarkKey(selectedScope),
       });
       if (result?.ok) {
-        benchmarkActionStatus = `Loaded defaults for ${result.benchmarkKey || result.raceType || selectedScope}. Created ${Number(result.created || 0)}, updated ${Number(result.updated || 0)}.`;
+        const raceLabel = formatOfficeContextLabel(result?.raceType || selectedScope, {
+          legacyIntent: benchmarkScopeToRaceType(selectedScope),
+        });
+        benchmarkActionStatus = `Loaded defaults for ${result.benchmarkKey || raceLabel}. Created ${Number(result.created || 0)}, updated ${Number(result.updated || 0)}.`;
       } else {
         benchmarkActionStatus = String(result?.error || "Failed to load default benchmarks.");
       }
@@ -915,7 +919,9 @@ function syncBenchmarkRowsFromIntel() {
       tr,
       benchmarkScopeLabel(row?.benchmarkKey || row?.templateBenchmarkKey || row?.raceType || "all"),
       {
-        subtext: row?.benchmarkKey ? `race: ${row?.raceType || "all"}` : "",
+        subtext: row?.benchmarkKey
+          ? `race: ${formatOfficeContextLabel(row?.raceType || "all", { legacyIntent: row?.benchmarkKey })}`
+          : "",
       },
     );
     appendCell(tr, range, { numeric: true });

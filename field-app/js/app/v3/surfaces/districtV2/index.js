@@ -57,6 +57,7 @@ import {
 } from "../../../districtOptionRegistry.js";
 import { listTemplateDimensionOptions } from "../../../templateRegistry.js";
 import { templateIdForRaceType } from "../../../templateResolver.js";
+import { formatOfficeContextLabel } from "../../../../core/officeContextLabels.js";
 import {
   listAcsYears,
   listMetricSetOptions,
@@ -1331,9 +1332,14 @@ function resolveDistrictV2RaceTemplateId(template, form) {
   });
 }
 
-function readTemplateDimensionLabel(key, value) {
+function readTemplateDimensionLabel(key, value, context = {}) {
   const token = String(value || "").trim();
   if (!token) return "";
+  if (key === "officeLevel") {
+    return formatOfficeContextLabel(token, {
+      legacyIntent: context?.appliedTemplateId || context?.officeLevel || context?.raceType,
+    });
+  }
   const option = listTemplateDimensionOptions(key).find((row) => String(row?.value || "") === token);
   return String(option?.label || token).trim();
 }
@@ -1348,6 +1354,10 @@ function syncDistrictV2RaceContext(templateSnapshot, formSnapshot, controlSnapsh
     : [];
   const overrideCount = overriddenFields.length;
   const overrideLabel = overrideCount > 0 ? "Custom overrides active" : "Template defaults active";
+  const officeLevelLabel = readTemplateDimensionLabel("officeLevel", template.officeLevel, template);
+  const electionTypeLabel = readTemplateDimensionLabel("electionType", template.electionType, template);
+  const seatContextLabel = readTemplateDimensionLabel("seatContext", template.seatContext, template);
+  const partisanshipLabel = readTemplateDimensionLabel("partisanshipMode", template.partisanshipMode, template);
 
   syncSelectOptions("v3DistrictV2RaceType", listDistrictRaceTypeOptions(), selectedTemplateId);
   syncInputValueFromRaw("v3DistrictV2ElectionDate", form.electionDate);
@@ -1362,17 +1372,17 @@ function syncDistrictV2RaceContext(templateSnapshot, formSnapshot, controlSnapsh
 
   const templateMeta = [
     templateLabel ? `Template: ${templateLabel}` : "",
-    readTemplateDimensionLabel("officeLevel", template.officeLevel)
-      ? `Office level: ${readTemplateDimensionLabel("officeLevel", template.officeLevel)}`
+    officeLevelLabel
+      ? `Office level: ${officeLevelLabel}`
       : "",
-    readTemplateDimensionLabel("electionType", template.electionType)
-      ? `Election type: ${readTemplateDimensionLabel("electionType", template.electionType)}`
+    electionTypeLabel
+      ? `Election type: ${electionTypeLabel}`
       : "",
-    readTemplateDimensionLabel("seatContext", template.seatContext)
-      ? `Seat context: ${readTemplateDimensionLabel("seatContext", template.seatContext)}`
+    seatContextLabel
+      ? `Seat context: ${seatContextLabel}`
       : "",
-    readTemplateDimensionLabel("partisanshipMode", template.partisanshipMode)
-      ? `Partisanship: ${readTemplateDimensionLabel("partisanshipMode", template.partisanshipMode)}`
+    partisanshipLabel
+      ? `Partisanship: ${partisanshipLabel}`
       : "",
     overrideLabel,
   ].filter(Boolean).join(" · ");
@@ -1654,6 +1664,7 @@ function syncDistrictV2CandidateHistory(ballotSnapshot, controlSnapshot) {
   const rows = Array.isArray(ballotSnapshot?.candidateHistoryRecords)
     ? ballotSnapshot.candidateHistoryRecords
     : [];
+  const officeOptions = normalizeSnapshotOptions(ballotSnapshot?.candidateHistoryOptions?.office);
   const electionTypeOptions = normalizeSnapshotOptions(ballotSnapshot?.candidateHistoryOptions?.electionType);
   const incumbencyOptions = normalizeSnapshotOptions(ballotSnapshot?.candidateHistoryOptions?.incumbencyStatus);
   const locked = !!controlSnapshot?.locked;
@@ -1675,7 +1686,7 @@ function syncDistrictV2CandidateHistory(ballotSnapshot, controlSnapshot) {
         const recordId = escapeHtml(String(row?.recordId || ""));
         return `
           <tr data-record-id="${recordId}">
-            <td><input class="fpe-input" data-v3d2-history-id="${recordId}" data-v3d2-history-field="office" type="text" value="${escapeHtml(String(row?.office || ""))}" ${locked ? "disabled" : ""}/></td>
+            <td>${buildSelect("history-office", recordId, "office", officeOptions, row?.office, locked)}</td>
             <td class="num"><input class="fpe-input" data-v3d2-history-id="${recordId}" data-v3d2-history-field="cycleYear" min="1900" step="1" type="number" value="${row?.cycleYear == null ? "" : escapeHtml(String(row.cycleYear))}" ${locked ? "disabled" : ""}/></td>
             <td>${buildSelect("history-election", recordId, "electionType", electionTypeOptions, row?.electionType, locked)}</td>
             <td><input class="fpe-input" data-v3d2-history-id="${recordId}" data-v3d2-history-field="candidateName" type="text" value="${escapeHtml(String(row?.candidateName || ""))}" ${locked ? "disabled" : ""}/></td>
@@ -1712,7 +1723,11 @@ function syncDistrictV2CandidateHistory(ballotSnapshot, controlSnapshot) {
         if (!(tr instanceof HTMLTableRowElement)) {
           return;
         }
-        syncInputControlInPlace(tr.querySelector('input[data-v3d2-history-field="office"]'), row?.office);
+        syncSelectControlInPlace(
+          tr.querySelector('select[data-v3d2-history-field="office"]'),
+          officeOptions,
+          row?.office,
+        );
         syncInputControlInPlace(tr.querySelector('input[data-v3d2-history-field="cycleYear"]'), row?.cycleYear);
         syncSelectControlInPlace(
           tr.querySelector('select[data-v3d2-history-field="electionType"]'),
@@ -1732,7 +1747,7 @@ function syncDistrictV2CandidateHistory(ballotSnapshot, controlSnapshot) {
         syncCheckboxControlInPlace(tr.querySelector('input[data-v3d2-history-field="repeatCandidate"]'), row?.repeatCandidate);
         syncInputControlInPlace(tr.querySelector('input[data-v3d2-history-field="overUnderPerformancePct"]'), row?.overUnderPerformancePct);
 
-        applyDisabledToControl(tr.querySelector('input[data-v3d2-history-field="office"]'), locked);
+        applyDisabledToControl(tr.querySelector('select[data-v3d2-history-field="office"]'), locked);
         applyDisabledToControl(tr.querySelector('input[data-v3d2-history-field="cycleYear"]'), locked);
         applyDisabledToControl(tr.querySelector('select[data-v3d2-history-field="electionType"]'), locked);
         applyDisabledToControl(tr.querySelector('input[data-v3d2-history-field="candidateName"]'), locked);

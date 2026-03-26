@@ -266,6 +266,7 @@ export function readDistrictBallotSnapshot() {
     candidateHistorySummaryText: String(derivedBallot?.candidateHistorySummaryText || "").trim(),
     candidateHistoryWarningText: String(derivedBallot?.candidateHistoryWarningText || "").trim(),
     candidateHistoryOptions: {
+      office: normalizeOptionRows(historyOptions.office),
       electionType: normalizeOptionRows(historyOptions.electionType),
       incumbencyStatus: normalizeOptionRows(historyOptions.incumbencyStatus),
     },
