@@ -89,6 +89,8 @@ export function buildValidationChecklistView(args = {}){
     const historyCount = Number(candidateHistory?.recordCount || 0);
     const confidenceBand = String(candidateHistory?.confidenceBand || "missing").trim().toLowerCase();
     const coverageBand = String(candidateHistory?.coverageBand || "none").trim().toLowerCase();
+    const excludedByOffice = Number(candidateHistory?.excludedByOfficeCount || 0);
+    const excludedByElectionType = Number(candidateHistory?.excludedByElectionTypeCount || 0);
     if (historyCount <= 0){
       items.push({
         kind: "warn",
@@ -96,9 +98,23 @@ export function buildValidationChecklistView(args = {}){
       });
     } else {
       const kind = confidenceBand === "low" ? "warn" : "ok";
+      const exclusionBits = [];
+      if (excludedByOffice > 0){
+        exclusionBits.push(`office mismatch ${excludedByOffice}`);
+      }
+      if (excludedByElectionType > 0){
+        exclusionBits.push(`election mismatch ${excludedByElectionType}`);
+      }
+      const exclusionText = exclusionBits.length ? ` Excluded: ${exclusionBits.join(", ")}.` : "";
       items.push({
         kind,
-        text: `Candidate history baseline: ${historyCount} row(s), coverage ${coverageBand || "none"}, confidence ${confidenceBand}.`,
+        text: `Candidate history baseline: ${historyCount} row(s), coverage ${coverageBand || "none"}, confidence ${confidenceBand}.${exclusionText}`,
+      });
+    }
+    if (excludedByOffice > 0){
+      items.push({
+        kind: "warn",
+        text: "Candidate-history office mismatch detected. Use canonical office labels (for governor: Statewide Executive / statewide_executive).",
       });
     }
   }

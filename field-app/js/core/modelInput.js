@@ -1,5 +1,6 @@
 // @ts-check
 import { normalizeCandidateHistoryRecords } from "./candidateHistoryBaseline.js";
+import { canonicalizeCandidateHistoryOffice } from "./candidateHistoryBaseline.js";
 
 /**
  * @param {unknown} v
@@ -10,6 +11,29 @@ function defaultToNum(v){
   if (typeof v === "string" && v.trim() === "") return null;
   const n = Number(v);
   return Number.isFinite(n) ? n : null;
+}
+
+function cleanText(value){
+  return String(value == null ? "" : value).trim();
+}
+
+function resolveModelInputOffice(snapshot){
+  const s = snapshot && typeof snapshot === "object" ? snapshot : {};
+  const templateMeta = s?.templateMeta && typeof s.templateMeta === "object" ? s.templateMeta : {};
+  const candidates = [
+    templateMeta?.appliedTemplateId,
+    templateMeta?.officeLevel,
+    s?.officeId,
+    s?.campaignName,
+    s?.raceType,
+  ];
+  for (const token of candidates){
+    const canonical = canonicalizeCandidateHistoryOffice(token);
+    if (canonical){
+      return canonical;
+    }
+  }
+  return cleanText(s?.officeId || s?.campaignName || s?.raceType || "");
 }
 
 /**
@@ -29,7 +53,7 @@ export function buildModelInputFromSnapshot(snapshot, toNumFn){
   ).trim().toLowerCase();
 
   return {
-    office: String(s.officeId || s.campaignName || s.raceType || "").trim(),
+    office: resolveModelInputOffice(s),
     electionType,
     universeSize: toNum(s.universeSize),
     turnoutA: toNum(s.turnoutA),

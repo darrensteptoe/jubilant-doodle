@@ -1,6 +1,7 @@
 // @ts-check
 import { formatFixedNumber, formatWholeNumber, roundWholeNumberByMode } from "./utils.js";
 import { classifyUnifiedStatusTone } from "./statusTone.js";
+import { formatOfficeContextLabel } from "./officeContextLabels.js";
 
 export const SCENARIO_STATUS_UNAVAILABLE = "Unavailable";
 export const SCENARIO_STATUS_AWAITING_SCENARIO = "Awaiting scenario";
@@ -611,6 +612,10 @@ function formatLegacyScenarioInputValue(key, value){
     return String(value);
   }
   if (typeof value === "string"){
+    if (key === "raceType"){
+      const label = formatOfficeContextLabel(value);
+      return label || "—";
+    }
     return value === "" ? "—" : value;
   }
   return String(value);

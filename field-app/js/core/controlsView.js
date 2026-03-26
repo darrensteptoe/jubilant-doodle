@@ -1,6 +1,7 @@
 // @ts-check
 import { formatFixedNumber, roundWholeNumberByMode } from "./utils.js";
 import { classifyUnifiedStatusTone } from "./statusTone.js";
+import { formatOfficeContextLabel } from "./officeContextLabels.js";
 
 export const CONTROLS_STATUS_AWAITING_REVIEW = "Awaiting review";
 
@@ -454,7 +455,9 @@ export function buildControlsMissingNoteCountText(count){
  */
 export function buildControlsBenchmarkTableRowView(row){
   const scopeKey = String(row?.benchmarkKey || row?.templateBenchmarkKey || row?.raceType || "all");
-  const scopeSubText = row?.benchmarkKey ? `race: ${String(row?.raceType || "all")}` : "";
+  const scopeSubText = row?.benchmarkKey
+    ? `race: ${formatOfficeContextLabel(row?.raceType || "all", { legacyIntent: scopeKey })}`
+    : "";
   return {
     rangeText: `${formatControlsNumber(row?.range?.min)} .. ${formatControlsNumber(row?.range?.max)}`,
     severityText: `${formatControlsNumber(row?.severityBands?.warnAbove)} / ${formatControlsNumber(row?.severityBands?.hardAbove)}`,

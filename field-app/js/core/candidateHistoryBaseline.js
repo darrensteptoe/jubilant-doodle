@@ -1,5 +1,9 @@
 // @ts-check
 import { clamp, safeNum } from "./utils.js";
+import {
+  OFFICE_CONTEXT_CANONICAL_VALUES,
+  listCanonicalOfficeContextOptions,
+} from "./officeContextLabels.js";
 
 const RECORD_ID_PREFIX = "ch_";
 
@@ -15,8 +19,74 @@ export const CANDIDATE_HISTORY_INCUMBENCY_OPTIONS = Object.freeze([
   Object.freeze({ value: "open", label: "Open seat" }),
 ]);
 
+export const CANDIDATE_HISTORY_CANONICAL_OFFICE_IDS = Object.freeze(OFFICE_CONTEXT_CANONICAL_VALUES.slice());
+
+export const CANDIDATE_HISTORY_OFFICE_OPTIONS = Object.freeze(
+  listCanonicalOfficeContextOptions({ includeBlank: true, blankLabel: "All compatible offices" })
+    .map((row) => Object.freeze({ value: row.value, label: row.label })),
+);
+
 const ELECTION_TYPE_SET = new Set(CANDIDATE_HISTORY_ELECTION_TYPE_OPTIONS.map((row) => row.value));
 const INCUMBENCY_SET = new Set(CANDIDATE_HISTORY_INCUMBENCY_OPTIONS.map((row) => row.value));
+const CANDIDATE_HISTORY_CANONICAL_OFFICE_SET = new Set(CANDIDATE_HISTORY_CANONICAL_OFFICE_IDS);
+const CANDIDATE_HISTORY_OFFICE_ALIAS_TO_CANONICAL = Object.freeze({
+  governor: "statewide_executive",
+  gov: "statewide_executive",
+  gubernatorial: "statewide_executive",
+  "statewide governor": "statewide_executive",
+  "statewide executive": "statewide_executive",
+  "lt governor": "statewide_executive",
+  "lieutenant governor": "statewide_executive",
+  "attorney general": "statewide_executive",
+  "secretary of state": "statewide_executive",
+  comptroller: "statewide_executive",
+  treasurer: "statewide_executive",
+
+  "us senate": "statewide_federal",
+  "senate statewide": "statewide_federal",
+  "statewide federal": "statewide_federal",
+
+  "us house": "congressional_district",
+  congress: "congressional_district",
+  congressional: "congressional_district",
+  "congressional district": "congressional_district",
+
+  "state house": "state_house",
+  "state representative": "state_house",
+  "state rep": "state_house",
+  "lower chamber": "state_house",
+
+  "state senate": "state_senate",
+  "upper chamber": "state_senate",
+
+  countywide: "countywide",
+  "county executive": "countywide",
+  "county clerk": "countywide",
+  "county board president": "countywide",
+
+  mayor: "municipal_executive",
+  "municipal executive": "municipal_executive",
+  "city executive": "municipal_executive",
+
+  "city council": "municipal_legislative",
+  alderman: "municipal_legislative",
+  alderperson: "municipal_legislative",
+  ward: "municipal_legislative",
+  "municipal legislative": "municipal_legislative",
+
+  judicial: "judicial_other",
+  judge: "judicial_other",
+});
+const CANDIDATE_HISTORY_OFFICE_LEVEL_TO_CANONICAL = Object.freeze({
+  state_legislative_lower: "state_house",
+  state_legislative_upper: "state_senate",
+});
+const CANDIDATE_HISTORY_LEGACY_RACE_BUCKET_TO_CANONICAL = Object.freeze({
+  federal: "congressional_district",
+  state_leg: "state_house",
+  municipal: "municipal_legislative",
+  county: "countywide",
+});
 const REQUIRED_COMPLETENESS_FIELDS = Object.freeze([
   "office",
   "cycleYear",
@@ -33,6 +103,90 @@ const REQUIRED_COMPLETENESS_FIELDS = Object.freeze([
 
 function cleanText(value){
   return String(value == null ? "" : value).trim();
+}
+
+function normalizeOfficeToken(value){
+  const raw = cleanText(value).toLowerCase();
+  if (!raw) return "";
+  return raw
+    .replace(/\bu\s*\.?\s*s\.?\b/g, "us")
+    .replace(/[_-]+/g, " ")
+    .replace(/&/g, " and ")
+    .replace(/[^a-z0-9]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function canonicalOfficeForNormalizedToken(token){
+  const direct = CANDIDATE_HISTORY_OFFICE_ALIAS_TO_CANONICAL[token];
+  if (direct) return direct;
+
+  if (token.includes("governor") || token.includes("gubernatorial")){
+    return "statewide_executive";
+  }
+  if (token.includes("attorney general") || token.includes("secretary of state") || token.includes("comptroller") || token.includes("treasurer")){
+    return "statewide_executive";
+  }
+  if (token.includes("us senate") || token.includes("senate statewide") || token === "statewide federal"){
+    return "statewide_federal";
+  }
+  if (token.includes("us house") || token === "congress" || token.includes("congressional")){
+    return "congressional_district";
+  }
+  if (token.includes("state house") || token.includes("state representative") || token.includes("state rep") || token.includes("lower chamber")){
+    return "state_house";
+  }
+  if (token.includes("state senate") || token.includes("upper chamber")){
+    return "state_senate";
+  }
+  if (token === "county" || token.includes("countywide") || token.includes("county executive") || token.includes("county clerk") || token.includes("county board president")){
+    return "countywide";
+  }
+  if (token === "mayor" || token.includes("municipal executive") || token.includes("city executive")){
+    return "municipal_executive";
+  }
+  if (token.includes("city council") || token === "alderman" || token === "alderperson" || token === "ward" || token.includes("municipal legislative")){
+    return "municipal_legislative";
+  }
+  if (token === "judicial" || token === "judge"){
+    return "judicial_other";
+  }
+  return "";
+}
+
+export function canonicalizeCandidateHistoryOffice(value){
+  const raw = cleanText(value);
+  if (!raw) return "";
+  if (CANDIDATE_HISTORY_CANONICAL_OFFICE_SET.has(raw)){
+    return raw;
+  }
+  const normalizedId = raw.toLowerCase().replace(/[\s-]+/g, "_");
+  if (CANDIDATE_HISTORY_CANONICAL_OFFICE_SET.has(normalizedId)){
+    return normalizedId;
+  }
+  const fromOfficeLevel = CANDIDATE_HISTORY_OFFICE_LEVEL_TO_CANONICAL[normalizedId];
+  if (fromOfficeLevel){
+    return fromOfficeLevel;
+  }
+  const fromLegacyBucket = CANDIDATE_HISTORY_LEGACY_RACE_BUCKET_TO_CANONICAL[normalizedId];
+  if (fromLegacyBucket){
+    return fromLegacyBucket;
+  }
+  const token = normalizeOfficeToken(raw);
+  const fromToken = canonicalOfficeForNormalizedToken(token);
+  if (fromToken){
+    return fromToken;
+  }
+  return raw;
+}
+
+function candidateHistoryOfficeComparisonKey(value){
+  const canonical = canonicalizeCandidateHistoryOffice(value);
+  if (!canonical) return "";
+  if (CANDIDATE_HISTORY_CANONICAL_OFFICE_SET.has(canonical)){
+    return canonical;
+  }
+  return normalizeOfficeToken(canonical);
 }
 
 function toFinite(value){
@@ -207,9 +361,10 @@ export function normalizeCandidateHistoryRecord(record, { uidFn = null } = {}){
   const fallbackId = (typeof uidFn === "function") ? `${RECORD_ID_PREFIX}${uidFn()}` : "";
   return {
     recordId: normalizeRecordId(src.recordId || src.eventId || src.id, fallbackId),
-    office: cleanText(src.office),
+    office: canonicalizeCandidateHistoryOffice(src.office),
     cycleYear: normalizeCycleYear(src.cycleYear ?? src.electionYear ?? src.year),
     electionType: normalizeElectionType(src.electionType),
+    candidateId: cleanText(src.candidateId || src.candidate_id),
     candidateName: cleanText(src.candidateName || src.name),
     party: normalizeParty(src.party),
     incumbencyStatus: normalizeIncumbencyStatus(src.incumbencyStatus),
@@ -276,7 +431,7 @@ export function deriveCandidateHistoryBaseline({
     supportPct: clampNumber(row?.supportPct, 0, 100),
   })).filter((row) => row.id);
 
-  const officeFilter = cleanText(office).toLowerCase();
+  const officeFilter = candidateHistoryOfficeComparisonKey(office);
   const electionTypeFilter = normalizeElectionType(electionType);
   const candidateIndex = buildCandidateIndex(normalizedCandidates);
   const refYear = referenceYear(normalizedRecords, nowYear);
@@ -289,6 +444,9 @@ export function deriveCandidateHistoryBaseline({
   let missingFieldCount = 0;
   let incompleteRecordCount = 0;
   let matchedRecordCount = 0;
+  let unmatchedCandidateRecordCount = 0;
+  let excludedByOfficeCount = 0;
+  let excludedByElectionTypeCount = 0;
   let incumbentEffectPresent = false;
   let repeatEffectPresent = false;
   let deviationPresent = false;
@@ -302,12 +460,14 @@ export function deriveCandidateHistoryBaseline({
       incompleteRecordCount += 1;
       missingFieldCount += Math.round((1 - completeness) * REQUIRED_COMPLETENESS_FIELDS.length);
     }
-    const recordOffice = cleanText(record.office).toLowerCase();
+    const recordOffice = candidateHistoryOfficeComparisonKey(record.office);
     const recordElectionType = normalizeElectionType(record.electionType);
     if (officeFilter && recordOffice && recordOffice !== officeFilter){
+      excludedByOfficeCount += 1;
       continue;
     }
     if (electionTypeFilter && recordElectionType && recordElectionType !== electionTypeFilter){
+      excludedByElectionTypeCount += 1;
       continue;
     }
     filteredRecords.push(record);
@@ -315,7 +475,10 @@ export function deriveCandidateHistoryBaseline({
 
   for (const record of filteredRecords){
     const candidateId = resolveCandidateIdForRecord(record, candidateIndex);
-    if (!candidateId) continue;
+    if (!candidateId){
+      unmatchedCandidateRecordCount += 1;
+      continue;
+    }
     const summary = summaries.get(candidateId);
     if (!summary) continue;
     matchedRecordCount += 1;
@@ -399,8 +562,20 @@ export function deriveCandidateHistoryBaseline({
   const yourSummary = yourId ? byCandidateId[yourId] : null;
 
   const notes = [];
-  if (!filteredRecords.length){
+  if (!normalizedRecords.length){
     notes.push("No candidate history records provided.");
+  }
+  if (excludedByOfficeCount > 0){
+    notes.push(`Office mismatch excluded ${excludedByOfficeCount} candidate-history row(s).`);
+  }
+  if (excludedByElectionTypeCount > 0){
+    notes.push(`Election-type mismatch excluded ${excludedByElectionTypeCount} candidate-history row(s).`);
+  }
+  if (filteredRecords.length && matchedRecordCount <= 0 && unmatchedCandidateRecordCount > 0){
+    notes.push(`${unmatchedCandidateRecordCount} candidate-history row(s) passed filters but did not match active candidate name/id.`);
+  }
+  if (normalizedRecords.length > 0 && filteredRecords.length <= 0 && excludedByOfficeCount <= 0 && excludedByElectionTypeCount <= 0){
+    notes.push("No candidate history records matched active office/election filters.");
   }
   if (filteredRecords.length && overallConfidenceBand === "low"){
     notes.push("Candidate history records are incomplete; confidence downgraded.");
@@ -419,6 +594,9 @@ export function deriveCandidateHistoryBaseline({
     recordCount: normalizedRecords.length,
     filteredRecordCount: filteredRecords.length,
     matchedRecordCount,
+    unmatchedCandidateRecordCount,
+    excludedByOfficeCount,
+    excludedByElectionTypeCount,
     missingFieldCount,
     incompleteRecordCount,
     coverageScore: overallCoverageScore,
