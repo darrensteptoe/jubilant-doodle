@@ -3299,7 +3299,7 @@ function districtBridgeCanonicalView(){
         year: String(censusCanonicalConfig?.year || censusRuntimeState?.year || "").trim(),
         resolution: String(censusCanonicalConfig?.resolution || censusRuntimeState?.resolution || "").trim(),
         stateFips: String(censusCanonicalConfig?.stateFips || censusRuntimeState?.stateFips || "").trim(),
-        countyFips: String(censusCanonicalConfig?.countyFips || censusRuntimeState?.countyFips || "").trim(),
+        countyFips: String(censusCanonicalConfig?.countyFips || censusRuntimeState?.countyFips || censusRuntimeState?.county || "").trim(),
         placeFips: String(censusCanonicalConfig?.placeFips || censusRuntimeState?.placeFips || "").trim(),
         metricSet: String(censusCanonicalConfig?.metricSet || censusRuntimeState?.metricSet || "").trim(),
         geoSearch: String(censusCanonicalConfig?.geoSearch || censusRuntimeState?.geoSearch || "").trim(),
