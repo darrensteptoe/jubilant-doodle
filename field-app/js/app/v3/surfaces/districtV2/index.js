@@ -18,6 +18,7 @@ import {
   readDistrictCensusResultsSnapshot,
   readDistrictControlSnapshot,
   readDistrictElectionDataSummarySnapshot,
+  readElectionDataCanonicalSnapshot,
   readDistrictFormSnapshot,
   readDistrictSummarySnapshot,
   readDistrictTargetingConfigSnapshot,
@@ -77,6 +78,7 @@ import {
   renderDistrictV2SummaryCard,
   syncDistrictV2Summary,
 } from "./summary.js";
+import { deriveDistrictElectionBenchmarkAdvisory } from "../electionDataAdvisory.js";
 
 const DISTRICT_V2_BRIDGE_STATUS_ID = "v3DistrictV2BridgeStatus";
 const DISTRICT_V2_RUNTIME_DEBUG_ID = "v3DistrictV2RuntimeDebug";
@@ -296,6 +298,7 @@ export function refreshDistrictV2Surface() {
   const censusConfigSnapshot = readDistrictCensusConfigSnapshot();
   const censusResultsSnapshot = readDistrictCensusResultsSnapshot();
   const electionDataSummarySnapshot = readDistrictElectionDataSummarySnapshot();
+  const electionDataCanonicalSnapshot = readElectionDataCanonicalSnapshot();
   const snapshot = readDistrictSummarySnapshot();
 
   const hasBridgeView = !!(
@@ -318,7 +321,7 @@ export function refreshDistrictV2Surface() {
 
   syncDistrictV2RaceContext(templateSnapshot, formSnapshot, controlSnapshot);
   syncDistrictV2Electorate(formSnapshot, controlSnapshot);
-  syncDistrictV2TurnoutBaseline(formSnapshot, controlSnapshot);
+  syncDistrictV2TurnoutBaseline(formSnapshot, controlSnapshot, electionDataCanonicalSnapshot);
   syncDistrictV2Ballot(ballotSnapshot, controlSnapshot);
   syncDistrictV2CandidateHistory(ballotSnapshot, controlSnapshot);
   syncDistrictV2Targeting(
@@ -1433,7 +1436,7 @@ function syncDistrictV2Electorate(formSnapshot, controlSnapshot) {
   applyDisabled("v3DistrictV2RetentionFactor", locked || !!disabledMap.retentionFactor);
 }
 
-function syncDistrictV2TurnoutBaseline(formSnapshot, controlSnapshot) {
+function syncDistrictV2TurnoutBaseline(formSnapshot, controlSnapshot, electionDataCanonicalSnapshot) {
   const form = formSnapshot && typeof formSnapshot === "object" ? formSnapshot : {};
   syncInputValueFromRaw("v3DistrictV2TurnoutA", form.turnoutA);
   syncInputValueFromRaw("v3DistrictV2TurnoutB", form.turnoutB);
@@ -1449,6 +1452,43 @@ function syncDistrictV2TurnoutBaseline(formSnapshot, controlSnapshot) {
   applyDisabled("v3DistrictV2TurnoutA", turnoutADisabled);
   applyDisabled("v3DistrictV2TurnoutB", turnoutBDisabled);
   applyDisabled("v3DistrictV2BandWidth", bandWidthDisabled);
+
+  const advisory = deriveDistrictElectionBenchmarkAdvisory(electionDataCanonicalSnapshot);
+  const benchmarkCard = document.getElementById("v3DistrictV2TurnoutBenchmarkCard");
+  if (benchmarkCard instanceof HTMLElement) {
+    benchmarkCard.hidden = !advisory;
+  }
+  setText(
+    "v3DistrictV2TurnoutBenchmarkStatus",
+    advisory
+      ? `${advisory.benchmarkCount} benchmark suggestion(s) · confidence ${String(advisory.confidenceBand || "unknown").toUpperCase()}`
+      : "No benchmark recommendations available.",
+  );
+  setText(
+    "v3DistrictV2TurnoutBenchmarkAnchors",
+    advisory
+      ? `Turnout anchors: ${advisory.turnoutAnchorText}`
+      : "Turnout anchors: —",
+  );
+  setText(
+    "v3DistrictV2TurnoutBenchmarkBand",
+    advisory
+      ? `Band suggestion: ${advisory.bandSuggestionText}`
+      : "Band suggestion: —",
+  );
+  setText(
+    "v3DistrictV2TurnoutBenchmarkProvenance",
+    advisory ? `${advisory.provenanceText} ${advisory.advisoryText}` : "Source: imported/computed election benchmark history.",
+  );
+
+  applyDisabled(
+    "v3BtnDistrictV2UseBenchmarkAnchors",
+    locked || !advisory || !advisory.hasTurnoutAnchors,
+  );
+  applyDisabled(
+    "v3BtnDistrictV2UseBenchmarkBand",
+    locked || !advisory || !advisory.hasBandSuggestion,
+  );
 }
 
 function syncDistrictV2Ballot(ballotSnapshot, controlSnapshot) {
@@ -2026,6 +2066,34 @@ function bindDistrictV2TurnoutBaselineHandlers() {
   bindDistrictV2FormField("v3DistrictV2TurnoutA", "turnoutA");
   bindDistrictV2FormField("v3DistrictV2TurnoutB", "turnoutB");
   bindDistrictV2FormField("v3DistrictV2BandWidth", "bandWidth");
+
+  const applyAnchorsBtn = document.getElementById("v3BtnDistrictV2UseBenchmarkAnchors");
+  if (applyAnchorsBtn instanceof HTMLButtonElement && applyAnchorsBtn.dataset.v3DistrictV2Bound !== "1") {
+    applyAnchorsBtn.dataset.v3DistrictV2Bound = "1";
+    applyAnchorsBtn.addEventListener("click", () => {
+      const advisory = deriveDistrictElectionBenchmarkAdvisory(readElectionDataCanonicalSnapshot());
+      if (!advisory || !advisory.hasTurnoutAnchors) {
+        return;
+      }
+      const resultA = setDistrictFormField("turnoutA", advisory.turnoutAnchorA);
+      handleDistrictV2MutationResult(resultA, "applyBenchmarkTurnoutA");
+      const resultB = setDistrictFormField("turnoutB", advisory.turnoutAnchorB);
+      handleDistrictV2MutationResult(resultB, "applyBenchmarkTurnoutB");
+    });
+  }
+
+  const applyBandBtn = document.getElementById("v3BtnDistrictV2UseBenchmarkBand");
+  if (applyBandBtn instanceof HTMLButtonElement && applyBandBtn.dataset.v3DistrictV2Bound !== "1") {
+    applyBandBtn.dataset.v3DistrictV2Bound = "1";
+    applyBandBtn.addEventListener("click", () => {
+      const advisory = deriveDistrictElectionBenchmarkAdvisory(readElectionDataCanonicalSnapshot());
+      if (!advisory || !advisory.hasBandSuggestion) {
+        return;
+      }
+      const result = setDistrictFormField("bandWidth", advisory.bandSuggestion);
+      handleDistrictV2MutationResult(result, "applyBenchmarkBandWidth");
+    });
+  }
 }
 
 function bindDistrictV2BallotHandlers() {

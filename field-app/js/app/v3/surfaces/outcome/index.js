@@ -9,6 +9,7 @@ import {
   readText,
   setText,
 } from "../../surfaceUtils.js";
+import { readElectionDataCanonicalSnapshot } from "../../stateBridge.js";
 import {
   buildConfidenceStats,
   buildOutcomeMcStatus,
@@ -55,6 +56,7 @@ import {
   runOutcomeBridgeMc,
   setOutcomeBridgeField,
 } from "../../bridges/outcomeBridge.js";
+import { deriveOutcomeElectionBenchmarkAdvisory } from "../electionDataAdvisory.js";
 
 const OUTCOME_V3_TRACE_PREFIX = "[outcome_v3_dom_trace]";
 const OUTCOME_V3_TRACE_FLAG_KEY = "__FPE_OUTCOME_V3_TRACE_ENABLED__";
@@ -117,12 +119,21 @@ export function renderOutcomeSurface(mount) {
     status: "Awaiting run"
   });
 
+  const benchmarkCard = createCenterModuleCard({
+    title: "Election Data benchmark",
+    description: "Historical benchmark framing for realism and confidence context.",
+    status: "Advisory only"
+  });
+  benchmarkCard.id = "v3OutcomeBenchmarkCard";
+  benchmarkCard.hidden = true;
+
   assignCardStatusId(forecastCard, "v3OutcomeForecastCardStatus");
   assignCardStatusId(confidenceCard, "v3OutcomeConfidenceCardStatus");
   assignCardStatusId(sensitivityCard, "v3OutcomeSensitivityCardStatus");
   assignCardStatusId(interpretationCard, "v3OutcomeInterpretationCardStatus");
   assignCardStatusId(riskFlagsCard, "v3OutcomeRiskFlagsCardStatus");
   assignCardStatusId(summaryCard, "v3OutcomeSummaryCardStatus");
+  assignCardStatusId(benchmarkCard, "v3OutcomeBenchmarkCardStatus");
 
   const controlsBody = getCardBody(controlsCard);
   controlsBody.innerHTML = `
@@ -398,6 +409,15 @@ export function renderOutcomeSurface(mount) {
     </div>
   `;
 
+  getCardBody(benchmarkCard).innerHTML = `
+    <div class="fpe-help fpe-help--flush" id="v3OutcomeBenchmarkStatus">No benchmark recommendations available.</div>
+    <div class="fpe-help fpe-help--flush" id="v3OutcomeBenchmarkConfidenceFloor">Confidence floor: —</div>
+    <div class="fpe-help fpe-help--flush" id="v3OutcomeBenchmarkCalibration">Expected range: —</div>
+    <div class="fpe-help fpe-help--flush" id="v3OutcomeBenchmarkVolatility">Volatility width: —</div>
+    <div class="fpe-help fpe-help--flush" id="v3OutcomeBenchmarkComparable">Comparable pool: —</div>
+    <div class="fpe-help fpe-help--flush" id="v3OutcomeBenchmarkProvenance">Source: imported/computed election benchmark history.</div>
+  `;
+
   getCardBody(riskFlagsCard).innerHTML = `
     <div class="fpe-summary-grid">
       <div class="fpe-summary-row"><span>Risk label</span><strong id="v3OutcomeRiskFlagLabel">-</strong></div>
@@ -417,6 +437,7 @@ export function renderOutcomeSurface(mount) {
 
   centerCol.append(
     summaryCard,
+    benchmarkCard,
     controlsCard,
     forecastCard,
     confidenceCard,
@@ -689,6 +710,7 @@ function refreshOutcomeSummary() {
   installOutcomeV3DomLifecycleTrace();
   const canonicalView = readOutcomeCanonicalBridgeView();
   const derivedView = readOutcomeDerivedBridgeView();
+  const benchmarkAdvisory = deriveOutcomeElectionBenchmarkAdvisory(readElectionDataCanonicalSnapshot());
   const outcomeControlView = canonicalView;
   const outcomeDerivedView = derivedView;
   const hasBridgeInputs = !!(outcomeControlView?.inputs && typeof outcomeControlView.inputs === "object");
@@ -727,6 +749,7 @@ function refreshOutcomeSummary() {
     "v3OutcomeImpactTraceNote",
     "Live dependency map for key planning outputs. This is explanatory only; it does not change model math."
   );
+  syncOutcomeBenchmarkAdvisory(benchmarkAdvisory);
 
   const bridgeMc = outcomeDerivedView?.mc || null;
   const outcomeWinProb =
@@ -1080,6 +1103,25 @@ function readOutcomeSidebarPercentile(id) {
   const idx = raw.indexOf(":");
   const value = idx >= 0 ? raw.slice(idx + 1).trim() : raw.trim();
   return value || "—";
+}
+
+function syncOutcomeBenchmarkAdvisory(advisory) {
+  const card = document.getElementById("v3OutcomeBenchmarkCard");
+  if (!(card instanceof HTMLElement)) {
+    return;
+  }
+  const hasAdvisory = !!(advisory && typeof advisory === "object");
+  card.hidden = !hasAdvisory;
+  if (!hasAdvisory) {
+    return;
+  }
+  setText("v3OutcomeBenchmarkStatus", advisory.advisoryText || "Advisory context.");
+  setText("v3OutcomeBenchmarkConfidenceFloor", advisory.confidenceFloorText || "Confidence floor unavailable.");
+  setText("v3OutcomeBenchmarkCalibration", advisory.calibrationText || "Expected range unavailable.");
+  setText("v3OutcomeBenchmarkVolatility", advisory.volatilityText || "Volatility width unavailable.");
+  setText("v3OutcomeBenchmarkComparable", advisory.comparableText || "Comparable pool unavailable.");
+  setText("v3OutcomeBenchmarkProvenance", advisory.provenanceText || "Source: imported/computed election benchmark history.");
+  syncOutcomeCardStatus("v3OutcomeBenchmarkCardStatus", "Advisory only");
 }
 
 function assignCardStatusId(card, id) {

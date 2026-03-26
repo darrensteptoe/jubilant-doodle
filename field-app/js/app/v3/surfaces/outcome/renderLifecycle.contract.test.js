@@ -51,3 +51,14 @@ test("c4 contract: outcome trace harness records DOM identity for select and num
   assert.match(source, /replacedSinceReference:/);
   assert.match(source, /installOutcomeV3DomLifecycleTrace\(\);/);
 });
+
+test("outcome election-data advisory: benchmark card is advisory-only and safely gated", () => {
+  const refreshBody = extractFunctionBody("refreshOutcomeSummary");
+  const advisoryBody = extractFunctionBody("syncOutcomeBenchmarkAdvisory");
+
+  assert.match(source, /id = "v3OutcomeBenchmarkCard"/);
+  assert.match(source, /deriveOutcomeElectionBenchmarkAdvisory\(readElectionDataCanonicalSnapshot\(\)\)/);
+  assert.match(refreshBody, /syncOutcomeBenchmarkAdvisory\(benchmarkAdvisory\);/);
+  assert.match(advisoryBody, /card\.hidden = !hasAdvisory;/);
+  assert.doesNotMatch(advisoryBody, /setOutcomeBridgeField|runOutcomeBridgeMc|rerunOutcomeBridgeMc/);
+});

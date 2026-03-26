@@ -7,6 +7,7 @@ import {
   setCardHeaderControl
 } from "../componentFactory.js";
 import { setText } from "../surfaceUtils.js";
+import { readElectionDataCanonicalSnapshot } from "../stateBridge.js";
 import {
   REACH_REALITY_NOTE_FALLBACK,
   REACH_STATUS_AWAITING_INPUTS,
@@ -16,6 +17,7 @@ import {
   deriveReachLeversCardStatus,
   deriveReachWeeklyCardStatus,
 } from "../../../core/reachView.js";
+import { deriveReachElectionBenchmarkAdvisory } from "./electionDataAdvisory.js";
 
 const REACH_API_KEY = "__FPE_REACH_API__";
 
@@ -70,6 +72,14 @@ export function renderReachSurface(mount) {
     status: "Model-based"
   });
 
+  const benchmarkCard = createCard({
+    title: "Election Data benchmark",
+    description: "Historical benchmark context for geography prioritization and turnout opportunity.",
+    status: "Advisory only"
+  });
+  benchmarkCard.id = "v3ReachBenchmarkCard";
+  benchmarkCard.hidden = true;
+
   const conversionCard = createCard({
     title: "Persuasion math",
     description: "Contact and support rates that convert attempts into modeled support IDs."
@@ -85,6 +95,7 @@ export function renderReachSurface(mount) {
   assignCardStatusId(outlookCard, "v3ReachOutlookCardStatus");
   assignCardStatusId(freshnessCard, "v3ReachFreshnessCardStatus");
   assignCardStatusId(summaryCard, "v3ReachSummaryCardStatus");
+  assignCardStatusId(benchmarkCard, "v3ReachBenchmarkCardStatus");
   assignCardStatusId(weeklyCard, "v3ReachWeeklyCardStatus");
   assignCardStatusId(leversCard, "v3ReachLeversCardStatus");
   assignCardStatusId(actionsCard, "v3ReachActionsCardStatus");
@@ -289,6 +300,16 @@ export function renderReachSurface(mount) {
     <div class="fpe-help fpe-help--flush" id="v3ReachActionsNote">-</div>
   `;
 
+  const benchmarkBody = getCardBody(benchmarkCard);
+  benchmarkBody.innerHTML = `
+    <div class="fpe-help fpe-help--flush" id="v3ReachBenchmarkStatus">No benchmark recommendations available.</div>
+    <div class="fpe-help fpe-help--flush" id="v3ReachBenchmarkPriority">Priority geography IDs: —</div>
+    <div class="fpe-help fpe-help--flush" id="v3ReachBenchmarkTurnout">Turnout-opportunity GEOIDs: —</div>
+    <div class="fpe-help fpe-help--flush" id="v3ReachBenchmarkComparable">Comparable pool: —</div>
+    <div class="fpe-help fpe-help--flush" id="v3ReachBenchmarkVolatility">Volatility focus: —</div>
+    <div class="fpe-help fpe-help--flush" id="v3ReachBenchmarkProvenance">Source: imported/computed election benchmark history.</div>
+  `;
+
   const conversionBody = getCardBody(conversionCard);
   conversionBody.innerHTML = `
     <div class="fpe-field-grid fpe-field-grid--2">
@@ -321,7 +342,7 @@ export function renderReachSurface(mount) {
   bridgeRoot.append(frame);
 
   left.append(summaryCard, outlookCard, freshnessCard);
-  right.append(weeklyCard, leversCard, actionsCard, universeCard, conversionCard);
+  right.append(weeklyCard, leversCard, actionsCard, benchmarkCard, universeCard, conversionCard);
   frame.append(left, right);
   mount.append(bridgeRoot);
   mount.append(
@@ -375,6 +396,7 @@ function applyReachView(view) {
   const actions = view.actions || {};
   const summary = view.summary || {};
   const outlook = view.outlook || {};
+  const benchmarkAdvisory = deriveReachElectionBenchmarkAdvisory(readElectionDataCanonicalSnapshot());
 
   syncInputValue("v3ReachPersuasionPct", inputs.persuasionPct);
   syncInputValue("v3ReachEarlyVoteExp", inputs.earlyVoteExp);
@@ -464,6 +486,7 @@ function applyReachView(view) {
   setText("v3ReachBestMovesIntro", levers.bestMovesIntro);
   setText("v3ReachLeversFoot", levers.foot);
   setText("v3ReachActionsNote", actions.note);
+  syncReachBenchmarkAdvisory(benchmarkAdvisory);
   toggleElement("v3ReachBestMovesBlock", levers.showBestMoves !== false);
   toggleElement("v3ReachLeversFoot", !!levers.foot);
   renderReachBestMoves(levers.bestMoves || []);
@@ -471,6 +494,25 @@ function applyReachView(view) {
   renderReachActions(actions.list || []);
   syncReachCardStatus("v3ReachLeversCardStatus", deriveReachLeversCardStatus(levers, weekly));
   syncReachCardStatus("v3ReachActionsCardStatus", deriveReachActionsCardStatus(actions));
+}
+
+function syncReachBenchmarkAdvisory(advisory) {
+  const card = document.getElementById("v3ReachBenchmarkCard");
+  if (!(card instanceof HTMLElement)) {
+    return;
+  }
+  const hasAdvisory = !!(advisory && typeof advisory === "object");
+  card.hidden = !hasAdvisory;
+  if (!hasAdvisory) {
+    return;
+  }
+  setText("v3ReachBenchmarkStatus", advisory.advisoryText || "Advisory context.");
+  setText("v3ReachBenchmarkPriority", `Priority geography IDs: ${advisory.priorityText || "—"}`);
+  setText("v3ReachBenchmarkTurnout", `Turnout-opportunity GEOIDs: ${advisory.turnoutText || "—"}`);
+  setText("v3ReachBenchmarkComparable", advisory.comparableText || "Comparable pool unavailable.");
+  setText("v3ReachBenchmarkVolatility", advisory.volatilityText || "Volatility focus unavailable.");
+  setText("v3ReachBenchmarkProvenance", advisory.provenanceText || "Source: imported/computed election benchmark history.");
+  syncReachCardStatus("v3ReachBenchmarkCardStatus", "Advisory only");
 }
 
 function wireReachEvents() {

@@ -254,6 +254,20 @@ test("c8 contract: turnout baseline sync and bind paths are in-place and hold-fr
   assert.doesNotMatch(turnoutBindBody, /markDistrictPendingWrite|shouldHoldDistrictControlSync/);
 });
 
+test("district election-data benchmark advisory: turnout advisory is local and explicit-apply only", () => {
+  const turnoutSyncBody = extractFunctionBody("syncDistrictV2TurnoutBaseline");
+  const turnoutBindBody = extractFunctionBody("bindDistrictV2TurnoutBaselineHandlers");
+
+  assert.match(turnoutSyncBody, /deriveDistrictElectionBenchmarkAdvisory\(/);
+  assert.match(turnoutSyncBody, /benchmarkCard\.hidden = !advisory;/);
+
+  assert.match(turnoutBindBody, /setDistrictFormField\("turnoutA", advisory\.turnoutAnchorA\)/);
+  assert.match(turnoutBindBody, /setDistrictFormField\("turnoutB", advisory\.turnoutAnchorB\)/);
+  assert.match(turnoutBindBody, /setDistrictFormField\("bandWidth", advisory\.bandSuggestion\)/);
+
+  assert.doesNotMatch(turnoutBindBody, /updateDistrictCandidate|setDistrictUserSplit|supportPct|retentionFactor/);
+});
+
 test("c8 contract: census map/vtd lane is wired and advisory assumptions lane is present without election preview restore", () => {
   assert.match(source, /bindDistrictV2CensusFile\("v3DistrictV2CensusMapQaVtdZip", "mapQaVtdZip"\);/);
   assert.match(source, /bindDistrictV2CensusAction\("v3BtnDistrictV2CensusLoadMap", "loadMap"\);/);
