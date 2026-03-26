@@ -1,441 +1,348 @@
-export type NullableNumber = number | null;
+export type AnyState = Record<string, any>;
+export type ElsMap = Record<string, any>;
+export type AnyFn = (...args: any[]) => any;
+export type GetState = () => AnyState;
+export type SetState = (updater: AnyState | ((prev: AnyState) => AnyState | void)) => void;
 
-export interface BaseRates {
-  cr: NullableNumber;
-  sr: NullableNumber;
-  tr: NullableNumber;
-}
-
-export interface CapacityDecayConfig {
-  enabled: boolean;
-  type: string;
-  weeklyDecayPct: NullableNumber;
-  floorPctOfBaseline: NullableNumber;
+export interface UiQueueCommitOptions {
+  render?: boolean;
+  persist?: boolean;
+  immediatePersist?: boolean;
+  allowScenarioLockBypass?: boolean;
 }
 
-export interface OperationsCapacityInput {
-  rates: BaseRates;
-  capacity: {
-    orgCount: NullableNumber;
-    orgHoursPerWeek: NullableNumber;
-    volunteerMult: NullableNumber;
-    doorSharePct: NullableNumber;
-    doorShare: NullableNumber;
-    doorsPerHour: NullableNumber;
-    callsPerHour: NullableNumber;
-    capacityDecay: CapacityDecayConfig;
-  };
-  meta: {
-    source: string;
-    twCapOverrideEnabled: boolean;
-    twCapOverrideMode: "baseline" | "ramp" | "scheduled" | "max";
-    twCapOverrideTargetAttemptsPerWeek: NullableNumber;
-  };
+export type CommitUIUpdate = (opts?: UiQueueCommitOptions) => void;
+
+export interface RenderMainCtx {
+  state: AnyState;
+  els: ElsMap;
+  safeNum: AnyFn;
+  engine: AnyState;
+  derivedWeeksRemaining: AnyFn;
+  deriveNeedVotes: AnyFn;
+  computeElectionSnapshot: AnyFn;
+  computeExecutionSnapshot: AnyFn;
+  computeWeeklyOpsContext: AnyFn;
+  setLastRenderCtx: AnyFn;
+  setLastResultsSnapshot: AnyFn;
+  fmtInt: AnyFn;
+  setText: AnyFn;
+  safeCall: AnyFn;
+  renderStress: AnyFn;
+  renderValidation: AnyFn;
+  renderAssumptions: AnyFn;
+  renderGuardrails: AnyFn;
+  renderConversion: AnyFn;
+  renderPhase3: AnyFn;
+  renderWeeklyOps: AnyFn;
+  renderWeeklyOpsInsights: AnyFn;
+  renderWeeklyOpsFreshness: AnyFn;
+  scheduleOperationsCapacityOutlookRender: AnyFn;
+  renderAssumptionDriftE1: AnyFn;
+  renderRiskFramingE2: AnyFn;
+  renderBottleneckAttributionE3: AnyFn;
+  renderSensitivitySnapshotE4: AnyFn;
+  renderDecisionConfidenceE5: AnyFn;
+  renderImpactTraceE6: AnyFn;
+  renderUniverse16Card: AnyFn;
+  renderRoi: AnyFn;
+  renderOptimization: AnyFn;
+  renderTimeline: AnyFn;
+  renderDecisionIntelligencePanel: AnyFn;
 }
 
-export interface ModelInputCandidate {
-  id: string;
-  name: string;
-  supportPct: NullableNumber;
+export interface ApplyStateToUIViewCtx {
+  els: ElsMap;
+  state: AnyState;
+  canonicalDoorsPerHourFromSnap: AnyFn;
+  syncMcModeUI: AnyFn;
+  syncGotvModeUI: AnyFn;
+  applyThemeFromState: AnyFn;
 }
 
-export interface ModelInputCandidateHistoryRecord {
-  recordId: string;
-  office: string;
-  cycleYear: number | null;
-  electionType: string;
-  candidateName: string;
-  party: string;
-  incumbencyStatus: string;
-  voteShare: NullableNumber;
-  margin: NullableNumber;
-  turnoutContext: NullableNumber;
-  repeatCandidate: boolean;
-  overUnderPerformancePct: NullableNumber;
+export interface InitDevToolsCtx {
+  isDevMode: AnyFn;
+  getState: GetState;
+  derivedWeeksRemaining: AnyFn;
+  safeNum: AnyFn;
+  deriveNeedVotes: AnyFn;
+  engine: AnyState;
+  getSelfTestAccessors: AnyFn;
+  setSelfTestGateStatus: AnyFn;
+  updateSelfTestGateBadge: AnyFn;
+  loadSelfTests: AnyFn;
 }
 
-export interface ModelInput {
-  office?: string;
-  electionType?: string;
-  universeSize: NullableNumber;
-  turnoutA: NullableNumber;
-  turnoutB: NullableNumber;
-  bandWidth: NullableNumber;
-  candidates: ModelInputCandidate[];
-  undecidedPct: NullableNumber;
-  yourCandidateId: string;
-  undecidedMode: string;
-  userSplit: Record<string, unknown>;
-  candidateHistory?: ModelInputCandidateHistoryRecord[];
-  persuasionPct: NullableNumber;
-  earlyVoteExp: NullableNumber;
+export interface InitTabsCtx {
+  state: AnyState;
 }
 
-export interface TurnoutContext {
-  enabled: boolean;
-  gotvLiftPP: number;
-  gotvMaxLiftPP: number;
-  baselineTurnoutPct: number;
-  maxAdditionalPP: number;
-  liftAppliedPP: number;
+export interface InitExplainCardCtx {
+  els: ElsMap;
+  state: AnyState;
 }
 
-export interface DataRefs {
-  version: string;
-  mode: "pinned_verified" | "latest_verified" | "manual";
-  censusDatasetId: string | null;
-  electionDatasetId: string | null;
-  boundarySetId: string | null;
-  crosswalkVersionId: string | null;
-  electionStrictSimilarity: boolean;
-  electionMaxYearDelta: number | null;
-  electionMinCoveragePct: number | null;
-  pinnedAt: string | null;
-  lastCheckedAt: string | null;
+export interface UiUpdateQueueCtx {
+  render: AnyFn;
+  persist: AnyFn;
+  debounceMs?: number;
+  getWindow?: AnyFn;
 }
 
-export interface DataCatalogBoundarySet {
-  id: string;
-  label: string;
-  geographyType: string;
-  vintage: string | null;
-  source: string | null;
-  refreshedAt: string | null;
-  hash: string | null;
-  isVerified: boolean;
-  isLatest: boolean;
-}
-
-export interface DataCatalogCrosswalk {
-  id: string;
-  fromBoundarySetId: string;
-  toBoundarySetId: string;
-  unit: "tract" | "block_group" | "precinct" | "vtd";
-  method: "area" | "population" | "vap" | "hybrid";
-  rowsUrl?: string | null;
-  quality: {
-    coveragePct: number | null;
-    unmatchedPct: number | null;
-    weightDriftPct: number | null;
-    isVerified: boolean;
-  };
-  source: string | null;
-  refreshedAt: string | null;
-  hash: string | null;
-  isLatest: boolean;
-}
-
-export interface DataCatalogDataset {
-  id: string;
-  kind: "census" | "election";
-  label: string;
-  source: string | null;
-  manifestUrl?: string | null;
-  rowsUrl?: string | null;
-  vintage: string | null;
-  electionDate?: string | null;
-  officeType?: string | null;
-  raceType?: string | null;
-  cycleYear?: number | null;
-  boundarySetId: string | null;
-  granularity: string;
-  refreshedAt: string | null;
-  hash: string | null;
-  quality: {
-    coveragePct: number | null;
-    isVerified: boolean;
-  };
-  isLatest: boolean;
-}
-
-export interface DataCatalog {
-  version: string;
-  boundarySets: DataCatalogBoundarySet[];
-  crosswalks: DataCatalogCrosswalk[];
-  censusDatasets: DataCatalogDataset[];
-  electionDatasets: DataCatalogDataset[];
-  activeBoundarySetId: string | null;
-  activeCrosswalkVersionId: string | null;
-}
-
-export interface DataSourceRegistryBoundary extends DataCatalogBoundarySet {}
-export interface DataSourceRegistryCrosswalk extends DataCatalogCrosswalk {
-  coveragePct: number | null;
-  unmatchedPct: number | null;
-  weightDriftPct: number | null;
-}
-export interface DataSourceRegistryDataset extends DataCatalogDataset {
-  coveragePct: number | null;
-}
-export interface DataSourceRegistry {
-  version: string;
-  generatedAt: string;
-  boundarySets: DataSourceRegistryBoundary[];
-  crosswalks: DataSourceRegistryCrosswalk[];
-  censusDatasets: DataSourceRegistryDataset[];
-  electionDatasets: DataSourceRegistryDataset[];
-  byId: {
-    boundarySets: Record<string, DataSourceRegistryBoundary>;
-    crosswalks: Record<string, DataSourceRegistryCrosswalk>;
-    censusDatasets: Record<string, DataSourceRegistryDataset>;
-    electionDatasets: Record<string, DataSourceRegistryDataset>;
+export interface DefaultStateCtx {
+  uid: AnyFn;
+  activeContext?: {
+    campaignId?: string;
+    campaignName?: string;
+    officeId?: string;
+    scenarioId?: string;
+    search?: string;
   };
 }
 
-export interface GeoPackUnit {
-  geoid: string;
-  w: number;
+export interface RenderUniverse16CardCtx {
+  els: ElsMap;
+  state: AnyState;
+  getUniverseLayerConfig: AnyFn;
+  getEffectiveBaseRates: AnyFn;
+  universeDefaults: AnyState;
 }
 
-export interface GeoPack {
-  geoPackVersion: string;
-  source: {
-    dataset: string | null;
-    vintage: string | null;
-    refreshedAt: string | null;
+export interface PersistenceStatusCtx {
+  scope: "state" | "backup";
+  result: { error?: string; code?: string };
+  persistenceState: {
+    stateSaveOk: boolean;
+    backupSaveOk: boolean;
+    stateError: string;
+    backupError: string;
   };
-  area: {
-    type: string;
-    stateFips: string;
-    district: string;
-    countyFips: string;
-    placeFips: string;
-    label: string;
+  getPersistenceErrorSig: AnyFn;
+  setPersistenceErrorSig: AnyFn;
+  recordError: AnyFn;
+  updatePersistenceStatusChip: AnyFn;
+}
+
+export interface ClearPersistenceStatusCtx {
+  scope: "state" | "backup";
+  persistenceState: {
+    stateSaveOk: boolean;
+    backupSaveOk: boolean;
+    stateError: string;
+    backupError: string;
   };
-  resolution: "tract" | "block_group";
-  boundarySetId: string | null;
-  units: GeoPackUnit[];
-  district: Record<string, unknown>;
-  quality: {
-    coveragePct: number | null;
-    weightSum: number | null;
-    unmatchedUnits: number;
-    crosswalkMethod: string;
-    crosswalkQuality: number | null;
-  };
-  generatedAt: string | null;
+  setPersistenceErrorSig: AnyFn;
+  updatePersistenceStatusChip: AnyFn;
 }
 
-export interface DistrictIntelPack {
-  version: string;
-  ready: boolean;
-  indices: {
-    fieldSpeed: number;
-    persuasionEnv: number;
-    turnoutElasticity: number;
-    fieldDifficulty: number;
-  };
-  bounds: { min: number; max: number };
-  derivedAssumptions: {
-    doorsPerHour: { base: number | null; adjusted: number | null };
-    persuasionRate: { base: number | null; adjusted: number | null };
-    turnoutLift: { base: number | null; adjusted: number | null };
-    organizerCapacity: { base: number | null; adjusted: number | null };
-  };
-  provenance: {
-    censusDatasetId: string | null;
-    electionDatasetId: string | null;
-    boundarySetId: string | null;
-    crosswalkVersionId: string | null;
-    areaFingerprint: string | null;
-  };
-  generatedAt: string | null;
-  warnings: string[];
+export interface InitPostBootCtx {
+  updateBuildStamp: AnyFn;
+  updateSelfTestGateBadge: AnyFn;
+  updatePersistenceStatusChip: AnyFn;
+  refreshBackupDropdown: AnyFn;
+  applyStateToUI: AnyFn;
+  rebuildCandidateTable: AnyFn;
+  initTabs: AnyFn;
+  initExplainCard: AnyFn;
+  safeCall: AnyFn;
+  wireSensitivitySurface: AnyFn;
+  wireEvents: AnyFn;
+  initDevTools: AnyFn;
+  render: AnyFn;
+  getState: GetState;
+  SCENARIO_BASELINE_ID: string;
+  scenarioInputsFromState: AnyFn;
+  scenarioOutputsFromState: AnyFn;
+  renderScenarioManagerC1: AnyFn;
+  persist: AnyFn;
 }
 
-export interface AreaSelection {
-  type: "CD" | "SLDU" | "SLDL" | "COUNTY" | "PLACE" | "CUSTOM" | "";
-  stateFips: string;
-  district: string;
-  countyFips: string;
-  placeFips: string;
-  label: string;
-  boundarySetId: string | null;
-  boundaryVintage: string | null;
-  resolution: "tract" | "block_group";
+export interface PreflightElsCtx {
+  els: ElsMap;
+  recordError: AnyFn;
 }
 
-export interface DistrictEvidenceCandidateTotal {
-  candidateId: string;
-  votes: number;
-  sharePct: number;
+export interface ScenarioManagerBindingsCtx {
+  els: ElsMap;
+  getState: GetState;
+  replaceState: AnyFn;
+  ensureScenarioRegistry: AnyFn;
+  SCENARIO_BASELINE_ID: string;
+  SCENARIO_MAX: number;
+  setScenarioWarn: AnyFn;
+  uid: AnyFn;
+  scenarioClone: AnyFn;
+  scenarioInputsFromState: AnyFn;
+  scenarioOutputsFromState: AnyFn;
+  persist: AnyFn;
+  renderScenarioManagerC1: AnyFn;
+  markMcStale: AnyFn;
+  applyStateToUI: AnyFn;
+  render: AnyFn;
+  safeCall: AnyFn;
+  renderDecisionSessionD1: AnyFn;
 }
 
-export interface DistrictEvidencePersuasionSignal {
-  index: number;
-  totalVotes: number;
-  leaderCandidateId: string | null;
-  runnerUpCandidateId: string | null;
-  marginVotes: number;
-  marginPct: number | null;
-  competitivenessPct: number | null;
-  note: string;
+export interface DecisionSessionActionsCtx {
+  els: ElsMap;
+  stateRef: GetState;
+  ensureDecisionScaffold: AnyFn;
+  makeDecisionSessionId: AnyFn;
+  makeDecisionOptionId: AnyFn;
+  OBJECTIVE_TEMPLATES: Array<{ key: string; label: string }>;
+  SCENARIO_BASELINE_ID: string;
+  getActiveDecisionSession: AnyFn;
+  ensureDecisionSessionShape: AnyFn;
+  getActiveDecisionOption: AnyFn;
+  ensureDecisionOptionShape: AnyFn;
+  ensureScenarioRegistry: AnyFn;
+  persist: AnyFn;
+  renderDecisionSessionD1: AnyFn;
 }
 
-export interface DistrictEvidenceGeoRow {
-  geoid: string;
-  districtWeight: number;
-  totalVotes: number;
-  candidateVotes: Record<string, number>;
-  census: Record<string, number>;
-  sourcePrecincts: number;
-  hasElection: boolean;
-  hasCensus: boolean;
+export interface DecisionSessionBindingsCtx {
+  els: ElsMap;
+  ensureDecisionScaffold: AnyFn;
+  getState: GetState;
+  setState: SetState;
+  persist: AnyFn;
+  renderDecisionSessionD1: AnyFn;
+  getActiveDecisionSession: AnyFn;
+  ensureDecisionSessionShape: AnyFn;
+  createNewDecisionSession: AnyFn;
+  renameActiveDecisionSession: AnyFn;
+  deleteActiveDecisionSession: AnyFn;
+  linkDecisionSessionToActiveScenario: AnyFn;
+  createNewDecisionOption: AnyFn;
+  renameActiveDecisionOption: AnyFn;
+  deleteActiveDecisionOption: AnyFn;
+  linkDecisionOptionToActiveScenario: AnyFn;
+  getActiveDecisionOption: AnyFn;
+  ensureDecisionOptionShape: AnyFn;
+  renderDecisionSummaryD4: AnyFn;
+  buildDecisionSummaryText: AnyFn;
+  copyTextToClipboard: AnyFn;
+  decisionSummaryPlainText: AnyFn;
+  decisionSessionExportObject: AnyFn;
+  downloadJsonObject: AnyFn;
+  runSensitivitySnapshotE4: AnyFn;
 }
 
-export interface DistrictEvidencePrecinctLink {
-  precinctId: string;
-  geoid: string;
-  crosswalkWeight: number;
-  districtWeight: number;
-  effectiveWeight: number;
+export interface InitScenarioDecisionWiringCtx {
+  els: ElsMap;
+  getState: GetState;
+  replaceState: AnyFn;
+  setState: SetState;
+  ensureScenarioRegistry: AnyFn;
+  ensureDecisionScaffold: AnyFn;
+  SCENARIO_BASELINE_ID: string;
+  SCENARIO_MAX: number;
+  setScenarioWarn: AnyFn;
+  uid: AnyFn;
+  scenarioClone: AnyFn;
+  scenarioInputsFromState: AnyFn;
+  scenarioOutputsFromState: AnyFn;
+  persist: AnyFn;
+  renderScenarioManagerC1: AnyFn;
+  markMcStale: AnyFn;
+  applyStateToUI: AnyFn;
+  render: AnyFn;
+  safeCall: AnyFn;
+  renderDecisionSessionD1: AnyFn;
+  createDecisionSessionActions: AnyFn;
+  wireScenarioManagerBindings: AnyFn;
+  wireDecisionSessionBindings: AnyFn;
+  makeDecisionSessionId: AnyFn;
+  makeDecisionOptionId: AnyFn;
+  OBJECTIVE_TEMPLATES: Array<{ key: string; label: string }>;
+  getActiveDecisionSession: AnyFn;
+  ensureDecisionSessionShape: AnyFn;
+  getActiveDecisionOption: AnyFn;
+  ensureDecisionOptionShape: AnyFn;
+  renderDecisionSummaryD4: AnyFn;
+  buildDecisionSummaryText: AnyFn;
+  copyTextToClipboard: AnyFn;
+  decisionSummaryPlainText: AnyFn;
+  decisionSessionExportObject: AnyFn;
+  downloadJsonObject: AnyFn;
+  runSensitivitySnapshotE4: AnyFn;
 }
 
-export interface DistrictEvidenceGeoMapPoint {
-  geoid: string;
-  lat: number;
-  lon: number;
-  totalVotes: number;
-  sourcePrecincts: number;
-  hasElection: boolean;
-  hasCensus: boolean;
-  leaderCandidateId: string | null;
-  marginPct: number | null;
+export interface WireEventsCtx {
+  els: ElsMap;
+  state?: AnyState;
+  getState?: GetState;
+  engine?: AnyState;
+  safeNum: AnyFn;
+  commitUIUpdate: CommitUIUpdate;
+  render: AnyFn;
+  computeRealityDrift?: AnyFn;
+  markMcStale?: AnyFn;
 }
 
-export interface DistrictEvidenceGeoMapBounds {
-  minLat: number;
-  maxLat: number;
-  minLon: number;
-  maxLon: number;
+export interface WireEventsOrchestratorArgs {
+  els: ElsMap;
+  state: GetState;
+  setState: SetState;
+  safeNum: AnyFn;
+  commitUIUpdate: CommitUIUpdate;
+  schedulePersist: AnyFn;
+  applyTemplateDefaultsForRace: AnyFn;
+  applyStateToUI: AnyFn;
+  refreshAssumptionsProfile: AnyFn;
+  uid: AnyFn;
+  rebuildCandidateTable: AnyFn;
+  rebuildUserSplitInputs: AnyFn;
+  markMcStale: AnyFn;
+  switchToStage: AnyFn;
+  setCanonicalDoorsPerHour: AnyFn;
+  canonicalDoorsPerHourFromSnap: AnyFn;
+  clamp: AnyFn;
+  syncGotvModeUI: AnyFn;
+  syncMcModeUI: AnyFn;
+  wireSensitivitySurface: AnyFn;
+  safeCall: AnyFn;
+  runMonteCarloNow: AnyFn;
+  render: AnyFn;
+  applyThemeFromState: AnyFn;
+  persist: AnyFn;
+  engine: AnyState;
+  APP_VERSION: string;
+  BUILD_ID: string;
+  getLastResultsSnapshot: AnyFn;
+  setLastExportHash: AnyFn;
+  downloadText: AnyFn;
+  replaceState: AnyFn;
+  makeDefaultState: AnyFn;
+  ensureScenarioRegistry: AnyFn;
+  ensureDecisionScaffold: AnyFn;
+  SCENARIO_BASELINE_ID: string;
+  scenarioInputsFromState: AnyFn;
+  scenarioOutputsFromState: AnyFn;
+  clearState: AnyFn;
+  readJsonFile: AnyFn;
+  requiredScenarioKeysMissing: AnyFn;
+  normalizeLoadedState: AnyFn;
+  setText: AnyFn;
+  refreshBackupDropdown: AnyFn;
+  restoreBackupByIndex: AnyFn;
+  openDiagnostics: AnyFn;
+  closeDiagnostics: AnyFn;
+  copyDebugBundle: AnyFn;
+  exportDailyLog: AnyFn;
+  mergeDailyLogIntoState: AnyFn;
+  applyRollingRateToAssumption: AnyFn;
+  applyAllRollingCalibrations: AnyFn;
+  undoLastWeeklyAction: AnyFn;
+  renderScenarioManagerC1: AnyFn;
+  renderDecisionSessionD1: AnyFn;
+  wireSafetyAndDiagnosticsEvents: AnyFn;
+  wirePrimaryPlannerEvents: AnyFn;
+  wireBudgetTimelineEvents: AnyFn;
+  wireIntelChecksEvents: AnyFn;
+  wireTabAndExportEvents: AnyFn;
+  wireResetImportAndUiToggles: AnyFn;
+  computeRealityDrift: AnyFn;
 }
 
-export interface DistrictEvidenceGeoMapLayer {
-  available: boolean;
-  reason: string;
-  bounds: DistrictEvidenceGeoMapBounds | null;
-  points: DistrictEvidenceGeoMapPoint[];
-}
-
-export interface DistrictEvidencePrecinctLayerRow {
-  precinctId: string;
-  totalVotes: number;
-  leaderCandidateId: string | null;
-  leaderVotes: number;
-  leaderSharePct: number | null;
-  runnerUpCandidateId: string | null;
-  runnerUpVotes: number;
-  marginVotes: number;
-  marginPct: number | null;
-  candidateCount: number;
-  mappedGeoCount: number;
-  crosswalkWeightSum: number;
-  effectiveWeightSum: number;
-  districtWeightPct: number;
-  topGeoLinks: Array<{
-    geoid: string;
-    effectiveWeightPct: number;
-  }>;
-}
-
-export interface DistrictEvidenceGeoOpportunityRow {
-  geoid: string;
-  opportunityScore: number;
-  competitiveness: number;
-  voteMassNorm: number;
-  densityNorm: number;
-  totalVotes: number;
-  sourcePrecincts: number;
-  leaderCandidateId: string | null;
-  marginPct: number | null;
-  hasElection: boolean;
-  hasCensus: boolean;
-  reasons: string[];
-}
-
-export interface DistrictEvidenceInputSummary {
-  sourceMode: "inline" | "refs" | "none";
-  refs: {
-    censusDatasetId: string;
-    electionDatasetId: string;
-    crosswalkVersionId: string;
-  };
-  counts: {
-    precinctResults: number;
-    crosswalkRows: number;
-    censusGeoRows: number;
-  };
-  ready: boolean;
-  notes: string[];
-  summaryLine: string;
-}
-
-export interface DistrictEvidence {
-  summary: {
-    selectedGeoCount: number;
-    geoRowsCount: number;
-    totalVotes: number;
-    totalPrecincts: number;
-    totalPrecinctLinks: number;
-    districtWeightSum: number;
-  };
-  candidateTotals: DistrictEvidenceCandidateTotal[];
-  persuasionSignal: DistrictEvidencePersuasionSignal;
-  precinctToGeo: DistrictEvidencePrecinctLink[];
-  geoRows: DistrictEvidenceGeoRow[];
-  censusTotals: Record<string, number>;
-  reconciliation: {
-    inputVotes: number;
-    allocatedVotes: number;
-    unmatchedVotes: number;
-    coveragePct: number;
-    deltaVotes: number;
-    deltaPct: number;
-  };
-  warnings: string[];
-}
-
-export interface DistrictAutoPullPlan {
-  mode: "manual" | "pinned_verified" | "latest_verified";
-  policyLabel: string;
-  selected: {
-    boundarySetId: string | null;
-    crosswalkVersionId: string | null;
-    censusDatasetId: string | null;
-    electionDatasetId: string | null;
-  };
-  urls: {
-    censusManifestUrl: string | null;
-    electionManifestUrl: string | null;
-    crosswalkRowsUrl: string | null;
-    precinctResultsUrl: string | null;
-    censusGeoRowsUrl: string | null;
-  };
-  availableCount: number;
-  missingCount: number;
-  notes: string[];
-}
-
-export interface DistrictAutoPullReceipt {
-  ts: string;
-  mode: "manual" | "pinned_verified" | "latest_verified";
-  selected: {
-    boundarySetId: string | null;
-    crosswalkVersionId: string | null;
-    censusDatasetId: string | null;
-    electionDatasetId: string | null;
-  };
-  urls: {
-    censusManifestUrl: string | null;
-    electionManifestUrl: string | null;
-    crosswalkRowsUrl: string | null;
-    precinctResultsUrl: string | null;
-    censusGeoRowsUrl: string | null;
-  };
-  requestedCount: number;
-  successCount: number;
-  warningCount: number;
-  warnings: string[];
-  status: "ok" | "warn" | "bad";
-  fingerprint: string;
-}
+export type ExecutionWeeklyStatusCtx = Record<string, any>;
