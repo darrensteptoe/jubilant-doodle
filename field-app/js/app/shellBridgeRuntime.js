@@ -16,6 +16,10 @@ export function createShellBridgeRuntime(deps = {}){
   };
 
   const clean = (value) => String(value == null ? "" : value).trim();
+  const normalizeScopeSlug = (value) => clean(value).toLowerCase()
+    .replace(/[^a-z0-9._-]+/g, "-")
+    .replace(/-+/g, "-")
+    .replace(/^-+|-+$/g, "");
 
   const toFiniteOrNull = (value) => {
     const n = Number(value);
@@ -471,6 +475,12 @@ export function createShellBridgeRuntime(deps = {}){
     if (current.isScenarioLocked && requestedScenarioId && requestedScenarioId !== current.scenarioId){
       return { ok: false, code: "scenario_locked", view: stateView() };
     }
+    if (requestedCampaignId && !normalizeScopeSlug(requestedCampaignId)){
+      return { ok: false, code: "invalid_campaign_id", view: stateView() };
+    }
+    if (requestedOfficeId && !normalizeScopeSlug(requestedOfficeId)){
+      return { ok: false, code: "invalid_office_id", view: stateView() };
+    }
 
     const scopeChanged = (
       String(current?.campaignId || "") !== String(next?.campaignId || "")
@@ -499,15 +509,32 @@ export function createShellBridgeRuntime(deps = {}){
       scenarioId: next.scenarioId,
     });
 
+    const targetContext = {
+      campaignId: next.campaignId,
+      campaignName: requestedCampaignName || next.campaignName,
+      officeId: next.officeId,
+      scenarioId: next.scenarioId,
+    };
     const nextState = call(deps.normalizeLoadedScenarioRuntime, loaded || call(deps.makeDefaultStateModule, {
       uid: deps.uid,
-      activeContext: {
-        campaignId: next.campaignId,
-        campaignName: requestedCampaignName || next.campaignName,
-        officeId: next.officeId,
-        scenarioId: next.scenarioId,
-      },
-    })) || {};
+      activeContext: targetContext,
+    }), {
+      context: targetContext,
+    }) || {};
+    // Scope controls are authoritative for storage isolation; keep them pinned
+    // even if a downstream normalizer falls back to URL/default context.
+    nextState.campaignId = String(next?.campaignId || "");
+    nextState.officeId = String(next?.officeId || "");
+    if (requestedScenarioId || next?.scenarioId){
+      const scenarioId = String(next?.scenarioId || requestedScenarioId || "");
+      if (scenarioId){
+        nextState.scenarioId = scenarioId;
+        if (!nextState.ui || typeof nextState.ui !== "object"){
+          nextState.ui = {};
+        }
+        nextState.ui.activeScenarioId = scenarioId;
+      }
+    }
     replaceState(nextState);
 
     call(deps.observeContractEvent, {

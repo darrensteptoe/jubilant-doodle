@@ -4,6 +4,7 @@ import { bootProbeError, bootProbeMark } from "../bootProbe.js";
 import { refreshIntelligenceInteractions } from "../intelligenceInteractions.js?v=20260320-intel-runtime-compat-1";
 import { wireV3Nav } from "./nav.js";
 import { installV3QaSmokeBridge, runV3QaSmoke } from "./qaGates.js";
+import { resolveContextPatchFailureStatus, validateContextScopeDraft } from "./contextScopeDraft.js";
 import { renderV3Shell } from "./shell.js";
 import { getActiveStageId, getActiveSurfaceId, refreshActiveStage, mountStage } from "./stageMount.js";
 import { resolveV3StageId, V3_DEFAULT_STAGE } from "./stageRegistry.js";
@@ -30,6 +31,7 @@ let popstateWired = false;
 let bridgeSyncWired = false;
 let editTrackerWired = false;
 let lastUserEditAt = 0;
+let contextDraftFeedback = null;
 
 const ACTIVE_EDIT_SYNC_HOLD_MS = 900;
 
@@ -274,12 +276,50 @@ function wireContextBridge() {
     setShellScenarioName(scenarioInput.value);
   });
 
+  const clearDraftFeedbackOnEdit = () => {
+    if (!contextDraftFeedback) {
+      return;
+    }
+    contextDraftFeedback = null;
+    syncContextMirror();
+  };
+  campaignInput.addEventListener("input", clearDraftFeedbackOnEdit);
+  campaignNameInput.addEventListener("input", clearDraftFeedbackOnEdit);
+  officeInput.addEventListener("input", clearDraftFeedbackOnEdit);
+
   const submitScopePatch = () => {
-    setShellContextPatch({
+    const validation = validateContextScopeDraft({
+      campaignId: campaignInput.value,
+      officeId: officeInput.value,
+    });
+    if (!validation.ok) {
+      const firstIssue = validation.issues[0] || {};
+      contextDraftFeedback = {
+        statusText: String(firstIssue?.message || "Context input is invalid."),
+        campaignId: campaignInput.value,
+        campaignName: campaignNameInput.value,
+        officeId: officeInput.value,
+      };
+      syncContextMirror();
+      return;
+    }
+
+    const result = setShellContextPatch({
       campaignId: campaignInput.value,
       campaignName: campaignNameInput.value,
       officeId: officeInput.value,
     });
+    if (result?.ok === false) {
+      const failure = resolveContextPatchFailureStatus(result);
+      contextDraftFeedback = {
+        statusText: String(failure?.statusText || "Context update did not apply."),
+        campaignId: campaignInput.value,
+        campaignName: campaignNameInput.value,
+        officeId: officeInput.value,
+      };
+    } else {
+      contextDraftFeedback = null;
+    }
     syncContextMirror();
   };
 
@@ -562,7 +602,7 @@ function setShellScenarioName(value) {
 
 function setShellContextPatch(patch) {
   const result = callShellBridge("setContext", patch || {});
-  return !!result;
+  return result && typeof result === "object" ? result : null;
 }
 
 function syncAll({ forceStageRefresh = false } = {}) {
@@ -620,20 +660,27 @@ function syncContextMirror() {
   const nextCampaign = String(shellView?.campaignId ?? "");
   const nextCampaignName = String(shellView?.campaignName ?? "");
   const nextOffice = String(shellView?.officeId ?? "");
+  const draft = contextDraftFeedback && typeof contextDraftFeedback === "object"
+    ? contextDraftFeedback
+    : null;
   const campaignLocked = !!shellView?.isCampaignLocked;
   const officeLocked = !!shellView?.isOfficeLocked;
 
   if (!activeIs(scenarioInput) && scenarioInput.value !== nextScenario) {
     scenarioInput.value = nextScenario;
   }
-  if (!activeIs(campaignInput) && campaignInput.value !== nextCampaign) {
-    campaignInput.value = nextCampaign;
+  const mirrorCampaign = draft ? String(draft.campaignId ?? nextCampaign) : nextCampaign;
+  const mirrorCampaignName = draft ? String(draft.campaignName ?? nextCampaignName) : nextCampaignName;
+  const mirrorOffice = draft ? String(draft.officeId ?? nextOffice) : nextOffice;
+
+  if (!activeIs(campaignInput) && campaignInput.value !== mirrorCampaign) {
+    campaignInput.value = mirrorCampaign;
   }
-  if (!activeIs(campaignNameInput) && campaignNameInput.value !== nextCampaignName) {
-    campaignNameInput.value = nextCampaignName;
+  if (!activeIs(campaignNameInput) && campaignNameInput.value !== mirrorCampaignName) {
+    campaignNameInput.value = mirrorCampaignName;
   }
-  if (!activeIs(officeInput) && officeInput.value !== nextOffice) {
-    officeInput.value = nextOffice;
+  if (!activeIs(officeInput) && officeInput.value !== mirrorOffice) {
+    officeInput.value = mirrorOffice;
   }
 
   campaignInput.disabled = campaignLocked;
@@ -643,7 +690,9 @@ function syncContextMirror() {
   const missing = Array.isArray(shellView?.contextMissing) ? shellView.contextMissing : [];
   let statusText = "";
   let statusMessageId = "";
-  if (missing.length){
+  if (draft?.statusText){
+    statusText = String(draft.statusText);
+  } else if (missing.length){
     statusText = `Context missing: ${missing.join(", ")}.`;
     statusMessageId = "contextMissing";
   } else if (campaignLocked || officeLocked){
