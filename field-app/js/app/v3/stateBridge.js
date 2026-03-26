@@ -325,12 +325,13 @@ export function normalizeDistrictTargetingSnapshotFromView(view) {
   const rowsRaw = Array.isArray(targeting.rows) ? targeting.rows : [];
   const rows = rowsRaw.map((row) => ({
     rank: String(row?.rankText || "").trim(),
+    geoid: String(row?.geoidText || "").trim(),
     geography: String(row?.geoText || "").trim(),
     score: String(row?.scoreText || "").trim(),
     votesPerHour: String(row?.votesPerHourText || "").trim(),
     reason: String(row?.reasonText || "").trim(),
     flags: String(row?.flagsText || "").trim(),
-  })).filter((row) => row.rank || row.geography || row.score || row.votesPerHour || row.reason || row.flags);
+  })).filter((row) => row.rank || row.geoid || row.geography || row.score || row.votesPerHour || row.reason || row.flags);
 
   return {
     statusText: String(targeting.statusText || "").trim(),
@@ -398,12 +399,13 @@ export function readDistrictTargetingResultsSnapshot() {
   const rowsRaw = Array.isArray(targeting.rows) ? targeting.rows : [];
   const rows = rowsRaw.map((row) => ({
     rank: String(row?.rankText || "").trim(),
+    geoid: String(row?.geoidText || "").trim(),
     geography: String(row?.geoText || "").trim(),
     score: String(row?.scoreText || "").trim(),
     votesPerHour: String(row?.votesPerHourText || "").trim(),
     reason: String(row?.reasonText || "").trim(),
     flags: String(row?.flagsText || "").trim(),
-  })).filter((row) => row.rank || row.geography || row.score || row.votesPerHour || row.reason || row.flags);
+  })).filter((row) => row.rank || row.geoid || row.geography || row.score || row.votesPerHour || row.reason || row.flags);
   return {
     statusText: String(targeting.statusText || "").trim(),
     metaText: String(targeting.metaText || "").trim(),

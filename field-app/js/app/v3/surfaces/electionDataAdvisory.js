@@ -25,6 +25,22 @@ function uniqTokens(values) {
   return out;
 }
 
+function normalizeGeographyToken(value) {
+  return cleanText(value).toUpperCase().replace(/[^A-Z0-9]/g, "");
+}
+
+function uniqGeographyTokens(values) {
+  const seen = new Set();
+  const out = [];
+  asArray(values).forEach((value) => {
+    const token = normalizeGeographyToken(value);
+    if (!token || seen.has(token)) return;
+    seen.add(token);
+    out.push(token);
+  });
+  return out;
+}
+
 function formatPct(value, digits = 1) {
   const num = toFinite(value);
   if (num == null) return "—";
@@ -44,6 +60,56 @@ function shareToPctPoints(value) {
     return Number((num * 100).toFixed(4));
   }
   return num;
+}
+
+function formatRatioPct(value, digits = 1) {
+  const num = toFinite(value);
+  if (num == null) return "—";
+  return `${(num * 100).toFixed(digits)}%`;
+}
+
+function parseCurrentTargetingGeoids(options = {}) {
+  const direct = asArray(options.currentGeographyIds);
+  if (direct.length) {
+    return direct;
+  }
+  const rows = asArray(options.targetingRows);
+  return rows
+    .map((row) => row?.geoid || row?.geography || row?.id || "")
+    .filter((value) => cleanText(value));
+}
+
+function computeOverlap(currentTokens, benchmarkTokens) {
+  const benchmarkSet = new Set(benchmarkTokens);
+  const overlapCount = currentTokens.filter((token) => benchmarkSet.has(token)).length;
+  const currentCount = currentTokens.length;
+  const benchmarkCount = benchmarkTokens.length;
+  return {
+    currentCount,
+    benchmarkCount,
+    overlapCount,
+    overlapRatio: currentCount ? Number((overlapCount / currentCount).toFixed(6)) : null,
+    benchmarkCoverageRatio: benchmarkCount ? Number((overlapCount / benchmarkCount).toFixed(6)) : null,
+  };
+}
+
+function buildOverlapInterpretation(label, overlap) {
+  const currentCount = Number(overlap?.currentCount || 0);
+  const overlapCount = Number(overlap?.overlapCount || 0);
+  const overlapRatio = toFinite(overlap?.overlapRatio);
+  if (currentCount <= 0) {
+    return `${label} overlap unavailable until targeting rows are present.`;
+  }
+  if (overlapCount <= 0) {
+    return `Current targeting rows do not overlap benchmark ${label.toLowerCase()} geographies.`;
+  }
+  if (overlapRatio != null && overlapRatio >= 0.6) {
+    return `Strong ${label.toLowerCase()} overlap in current targeting rows.`;
+  }
+  if (overlapRatio != null && overlapRatio >= 0.3) {
+    return `Partial ${label.toLowerCase()} overlap; consider whether targeting breadth is intentional.`;
+  }
+  return `Limited ${label.toLowerCase()} overlap in current targeting rows.`;
 }
 
 function readBenchmarkScope(snapshot) {
@@ -113,8 +179,8 @@ export function deriveDistrictElectionBenchmarkAdvisory(snapshot) {
   };
 }
 
-export function deriveReachElectionBenchmarkAdvisory(snapshot) {
-  const { downstream, imported } = readBenchmarkScope(snapshot);
+export function deriveReachElectionBenchmarkAdvisory(snapshot, options = {}) {
+  const { downstream, imported, quality } = readBenchmarkScope(snapshot);
   const targeting = downstream.targeting && typeof downstream.targeting === "object" ? downstream.targeting : {};
   const priorityGeographyIds = uniqTokens(targeting.priorityGeographyIds);
   const turnoutBoostGeoids = uniqTokens(targeting.turnoutBoostGeoids);
@@ -128,9 +194,20 @@ export function deriveReachElectionBenchmarkAdvisory(snapshot) {
     return null;
   }
 
+  const currentTargetingGeoids = parseCurrentTargetingGeoids(options);
+  const currentTokens = uniqGeographyTokens(currentTargetingGeoids);
+  const priorityOverlap = computeOverlap(currentTokens, uniqGeographyTokens(priorityGeographyIds));
+  const turnoutOverlap = computeOverlap(currentTokens, uniqGeographyTokens(turnoutBoostGeoids));
+  const qualityScore = toFinite(quality?.score);
+  const confidenceBand = cleanText(quality?.confidenceBand || "unknown");
+  const qualityText = qualityScore == null
+    ? `Benchmark confidence: ${confidenceBand.toUpperCase()}.`
+    : `Benchmark confidence: ${confidenceBand.toUpperCase()} (${qualityScore.toFixed(2)} quality score).`;
+
   return {
     priorityGeographyIds,
     turnoutBoostGeoids,
+    currentTargetingGeoidCount: currentTokens.length,
     comparablePoolKey,
     volatilityFocus,
     priorityText: priorityGeographyIds.length
@@ -145,6 +222,21 @@ export function deriveReachElectionBenchmarkAdvisory(snapshot) {
     volatilityText: volatilityFocus
       ? `Volatility focus: ${volatilityFocus}`
       : "Volatility focus unavailable.",
+    priorityOverlapCount: priorityOverlap.overlapCount,
+    priorityCoverageRatio: priorityOverlap.overlapRatio,
+    turnoutOverlapCount: turnoutOverlap.overlapCount,
+    turnoutCoverageRatio: turnoutOverlap.overlapRatio,
+    priorityOverlapText: currentTokens.length
+      ? `${priorityOverlap.overlapCount}/${priorityOverlap.currentCount} current targeting GEO(s) overlap benchmark priority geographies (${formatRatioPct(priorityOverlap.overlapRatio)}).`
+      : "Priority overlap unavailable until targeting rows are present.",
+    turnoutOverlapText: currentTokens.length
+      ? `${turnoutOverlap.overlapCount}/${turnoutOverlap.currentCount} current targeting GEO(s) overlap benchmark turnout-opportunity geographies (${formatRatioPct(turnoutOverlap.overlapRatio)}).`
+      : "Turnout-opportunity overlap unavailable until targeting rows are present.",
+    overlapInterpretationText: [
+      buildOverlapInterpretation("Priority", priorityOverlap),
+      buildOverlapInterpretation("Turnout-opportunity", turnoutOverlap),
+    ].join(" "),
+    qualityText,
     provenanceText: buildProvenanceText(imported),
     advisoryText: "Advisory context only. No automatic targeting writes are applied from this panel.",
   };

@@ -75,12 +75,20 @@ test("district advisory stays hidden when no usable recommendations exist", () =
 });
 
 test("reach advisory derives downstream recommendation context safely", () => {
-  const advisory = deriveReachElectionBenchmarkAdvisory(makeSnapshot());
+  const advisory = deriveReachElectionBenchmarkAdvisory(
+    makeSnapshot(),
+    { currentGeographyIds: ["17-031", "17031010100", "99999"] },
+  );
   assert.ok(advisory);
   assert.deepEqual(advisory.priorityGeographyIds, ["17031", "17043"]);
   assert.deepEqual(advisory.turnoutBoostGeoids, ["17031010100", "17043020100"]);
   assert.equal(advisory.comparablePoolKey, "il_statewide_exec");
   assert.equal(advisory.volatilityFocus, "suburban_ring");
+  assert.equal(advisory.priorityOverlapCount, 1);
+  assert.equal(advisory.turnoutOverlapCount, 1);
+  assert.equal(advisory.priorityCoverageRatio, 0.333333);
+  assert.equal(advisory.turnoutCoverageRatio, 0.333333);
+  assert.match(advisory.qualityText, /HIGH/);
 });
 
 test("outcome advisory derives confidence framing from benchmark recommendations", () => {

@@ -7,7 +7,10 @@ import {
   setCardHeaderControl
 } from "../componentFactory.js";
 import { setText } from "../surfaceUtils.js";
-import { readElectionDataCanonicalSnapshot } from "../stateBridge.js";
+import {
+  readDistrictTargetingResultsSnapshot,
+  readElectionDataCanonicalSnapshot,
+} from "../stateBridge.js";
 import {
   REACH_REALITY_NOTE_FALLBACK,
   REACH_STATUS_AWAITING_INPUTS,
@@ -303,8 +306,12 @@ export function renderReachSurface(mount) {
   const benchmarkBody = getCardBody(benchmarkCard);
   benchmarkBody.innerHTML = `
     <div class="fpe-help fpe-help--flush" id="v3ReachBenchmarkStatus">No benchmark recommendations available.</div>
+    <div class="fpe-help fpe-help--flush" id="v3ReachBenchmarkQuality">Benchmark confidence: —</div>
     <div class="fpe-help fpe-help--flush" id="v3ReachBenchmarkPriority">Priority geography IDs: —</div>
+    <div class="fpe-help fpe-help--flush" id="v3ReachBenchmarkPriorityOverlap">Priority overlap: —</div>
     <div class="fpe-help fpe-help--flush" id="v3ReachBenchmarkTurnout">Turnout-opportunity GEOIDs: —</div>
+    <div class="fpe-help fpe-help--flush" id="v3ReachBenchmarkTurnoutOverlap">Turnout overlap: —</div>
+    <div class="fpe-help fpe-help--flush" id="v3ReachBenchmarkInterpretation">Overlap interpretation: —</div>
     <div class="fpe-help fpe-help--flush" id="v3ReachBenchmarkComparable">Comparable pool: —</div>
     <div class="fpe-help fpe-help--flush" id="v3ReachBenchmarkVolatility">Volatility focus: —</div>
     <div class="fpe-help fpe-help--flush" id="v3ReachBenchmarkProvenance">Source: imported/computed election benchmark history.</div>
@@ -396,7 +403,13 @@ function applyReachView(view) {
   const actions = view.actions || {};
   const summary = view.summary || {};
   const outlook = view.outlook || {};
-  const benchmarkAdvisory = deriveReachElectionBenchmarkAdvisory(readElectionDataCanonicalSnapshot());
+  const targetingResults = readDistrictTargetingResultsSnapshot();
+  const benchmarkAdvisory = deriveReachElectionBenchmarkAdvisory(
+    readElectionDataCanonicalSnapshot(),
+    {
+      currentGeographyIds: extractTargetingGeoids(targetingResults),
+    },
+  );
 
   syncInputValue("v3ReachPersuasionPct", inputs.persuasionPct);
   syncInputValue("v3ReachEarlyVoteExp", inputs.earlyVoteExp);
@@ -496,6 +509,13 @@ function applyReachView(view) {
   syncReachCardStatus("v3ReachActionsCardStatus", deriveReachActionsCardStatus(actions));
 }
 
+function extractTargetingGeoids(resultsSnapshot) {
+  const rows = Array.isArray(resultsSnapshot?.rows) ? resultsSnapshot.rows : [];
+  return rows
+    .map((row) => String(row?.geoid || row?.geography || "").trim())
+    .filter((token) => token);
+}
+
 function syncReachBenchmarkAdvisory(advisory) {
   const card = document.getElementById("v3ReachBenchmarkCard");
   if (!(card instanceof HTMLElement)) {
@@ -507,8 +527,12 @@ function syncReachBenchmarkAdvisory(advisory) {
     return;
   }
   setText("v3ReachBenchmarkStatus", advisory.advisoryText || "Advisory context.");
+  setText("v3ReachBenchmarkQuality", advisory.qualityText || "Benchmark confidence unavailable.");
   setText("v3ReachBenchmarkPriority", `Priority geography IDs: ${advisory.priorityText || "—"}`);
+  setText("v3ReachBenchmarkPriorityOverlap", `Priority overlap: ${advisory.priorityOverlapText || "—"}`);
   setText("v3ReachBenchmarkTurnout", `Turnout-opportunity GEOIDs: ${advisory.turnoutText || "—"}`);
+  setText("v3ReachBenchmarkTurnoutOverlap", `Turnout overlap: ${advisory.turnoutOverlapText || "—"}`);
+  setText("v3ReachBenchmarkInterpretation", advisory.overlapInterpretationText || "Overlap interpretation unavailable.");
   setText("v3ReachBenchmarkComparable", advisory.comparableText || "Comparable pool unavailable.");
   setText("v3ReachBenchmarkVolatility", advisory.volatilityText || "Volatility focus unavailable.");
   setText("v3ReachBenchmarkProvenance", advisory.provenanceText || "Source: imported/computed election benchmark history.");

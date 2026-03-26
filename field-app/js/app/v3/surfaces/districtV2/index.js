@@ -78,7 +78,10 @@ import {
   renderDistrictV2SummaryCard,
   syncDistrictV2Summary,
 } from "./summary.js";
-import { deriveDistrictElectionBenchmarkAdvisory } from "../electionDataAdvisory.js";
+import {
+  deriveDistrictElectionBenchmarkAdvisory,
+  deriveReachElectionBenchmarkAdvisory,
+} from "../electionDataAdvisory.js";
 
 const DISTRICT_V2_BRIDGE_STATUS_ID = "v3DistrictV2BridgeStatus";
 const DISTRICT_V2_RUNTIME_DEBUG_ID = "v3DistrictV2RuntimeDebug";
@@ -329,6 +332,7 @@ export function refreshDistrictV2Surface() {
     targetingResultsSnapshot,
     censusConfigSnapshot,
     censusResultsSnapshot,
+    electionDataCanonicalSnapshot,
   );
   syncDistrictV2Census(censusConfigSnapshot, censusResultsSnapshot);
   syncDistrictV2Summary(snapshot, electionDataSummarySnapshot);
@@ -1836,17 +1840,33 @@ function syncDistrictV2CandidateHistory(ballotSnapshot, controlSnapshot) {
   applyDisabled("v3BtnDistrictV2AddCandidateHistory", locked);
 }
 
-function syncDistrictV2Targeting(configSnapshot, resultsSnapshot, censusConfigSnapshot, censusResultsSnapshot) {
+function syncDistrictV2Targeting(
+  configSnapshot,
+  resultsSnapshot,
+  censusConfigSnapshot,
+  censusResultsSnapshot,
+  electionDataCanonicalSnapshot,
+) {
   if (
     districtV2TargetingModule
     && typeof districtV2TargetingModule.sync === "function"
   ) {
+    const currentGeographyIds = Array.isArray(resultsSnapshot?.rows)
+      ? resultsSnapshot.rows
+        .map((row) => String(row?.geoid || row?.geography || "").trim())
+        .filter((token) => token)
+      : [];
+    const electionBenchmarkAdvisory = deriveReachElectionBenchmarkAdvisory(
+      electionDataCanonicalSnapshot,
+      { currentGeographyIds },
+    );
     districtV2TargetingModule.sync(
       configSnapshot,
       resultsSnapshot,
       {
         censusConfig: censusConfigSnapshot,
         censusResults: censusResultsSnapshot,
+        electionBenchmarkAdvisory,
       },
     );
   }

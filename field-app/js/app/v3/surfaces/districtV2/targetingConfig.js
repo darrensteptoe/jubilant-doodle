@@ -266,6 +266,21 @@ export function renderDistrictV2TargetingCard({ targetingCard, getCardBody }) {
       <div class="fpe-help fpe-help--flush" id="v3DistrictV2TargetingReadiness">Readiness: evaluating targeting prerequisites.</div>
       <div class="fpe-help fpe-help--flush" id="v3DistrictV2TargetingStatus">-</div>
       <div class="fpe-help fpe-help--flush" id="v3DistrictV2TargetingMeta">-</div>
+
+      <div class="fpe-contained-block" id="v3DistrictV2TargetingBenchmarkCard" hidden>
+        <div class="fpe-control-label">Election Data benchmark</div>
+        <div class="fpe-help fpe-help--flush" id="v3DistrictV2TargetingBenchmarkStatus">No benchmark recommendations available.</div>
+        <div class="fpe-help fpe-help--flush" id="v3DistrictV2TargetingBenchmarkQuality">Benchmark confidence: —</div>
+        <div class="fpe-help fpe-help--flush" id="v3DistrictV2TargetingBenchmarkPriority">Priority geography IDs: —</div>
+        <div class="fpe-help fpe-help--flush" id="v3DistrictV2TargetingBenchmarkPriorityOverlap">Priority overlap: —</div>
+        <div class="fpe-help fpe-help--flush" id="v3DistrictV2TargetingBenchmarkTurnout">Turnout-opportunity GEOIDs: —</div>
+        <div class="fpe-help fpe-help--flush" id="v3DistrictV2TargetingBenchmarkTurnoutOverlap">Turnout overlap: —</div>
+        <div class="fpe-help fpe-help--flush" id="v3DistrictV2TargetingBenchmarkInterpretation">Overlap interpretation: —</div>
+        <div class="fpe-help fpe-help--flush" id="v3DistrictV2TargetingBenchmarkComparable">Comparable pool: —</div>
+        <div class="fpe-help fpe-help--flush" id="v3DistrictV2TargetingBenchmarkVolatility">Volatility focus: —</div>
+        <div class="fpe-help fpe-help--flush" id="v3DistrictV2TargetingBenchmarkProvenance">Source: imported/computed election benchmark history.</div>
+      </div>
+
       <div class="fpe-action-row fpe-targeting-results-actions">
         <button class="fpe-btn fpe-btn--ghost" id="v3BtnDistrictV2RunTargeting" type="button">Run targeting</button>
         <div class="fpe-targeting-results-actions__right">
@@ -323,6 +338,9 @@ export function createDistrictV2TargetingModule(deps = {}) {
     const results = resultsSnapshot && typeof resultsSnapshot === "object" ? resultsSnapshot : {};
     const censusConfig = context?.censusConfig && typeof context.censusConfig === "object" ? context.censusConfig : {};
     const censusResults = context?.censusResults && typeof context.censusResults === "object" ? context.censusResults : {};
+    const benchmarkAdvisory = context?.electionBenchmarkAdvisory && typeof context.electionBenchmarkAdvisory === "object"
+      ? context.electionBenchmarkAdvisory
+      : null;
     const signalCoverage = evaluateTargetingSignalCoverage(censusConfig?.metricSet);
     const signalCoverageNote = String(signalCoverage.shortNote || "").trim();
 
@@ -360,6 +378,25 @@ export function createDistrictV2TargetingModule(deps = {}) {
     setText("v3DistrictV2TargetingReadiness", `Readiness: ${readiness.reason}`);
     setText("v3DistrictV2TargetingStatus", statusText);
     setText("v3DistrictV2TargetingMeta", metaText);
+    const benchmarkCard = document.getElementById("v3DistrictV2TargetingBenchmarkCard");
+    if (benchmarkCard instanceof HTMLElement) {
+      benchmarkCard.hidden = !benchmarkAdvisory;
+    }
+    if (benchmarkAdvisory) {
+      setText("v3DistrictV2TargetingBenchmarkStatus", benchmarkAdvisory.advisoryText || "Advisory context.");
+      setText("v3DistrictV2TargetingBenchmarkQuality", benchmarkAdvisory.qualityText || "Benchmark confidence unavailable.");
+      setText("v3DistrictV2TargetingBenchmarkPriority", `Priority geography IDs: ${benchmarkAdvisory.priorityText || "—"}`);
+      setText("v3DistrictV2TargetingBenchmarkPriorityOverlap", `Priority overlap: ${benchmarkAdvisory.priorityOverlapText || "—"}`);
+      setText("v3DistrictV2TargetingBenchmarkTurnout", `Turnout-opportunity GEOIDs: ${benchmarkAdvisory.turnoutText || "—"}`);
+      setText("v3DistrictV2TargetingBenchmarkTurnoutOverlap", `Turnout overlap: ${benchmarkAdvisory.turnoutOverlapText || "—"}`);
+      setText("v3DistrictV2TargetingBenchmarkInterpretation", benchmarkAdvisory.overlapInterpretationText || "Overlap interpretation unavailable.");
+      setText("v3DistrictV2TargetingBenchmarkComparable", benchmarkAdvisory.comparableText || "Comparable pool unavailable.");
+      setText("v3DistrictV2TargetingBenchmarkVolatility", benchmarkAdvisory.volatilityText || "Volatility focus unavailable.");
+      setText(
+        "v3DistrictV2TargetingBenchmarkProvenance",
+        benchmarkAdvisory.provenanceText || "Source: imported/computed election benchmark history.",
+      );
+    }
     renderTargetingRows(results.rows, { setInnerHtmlWithTrace, escapeHtml, flagFallbackText });
 
     const locked = !!config.controlsLocked;
