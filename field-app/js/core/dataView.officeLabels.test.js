@@ -3,30 +3,40 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { buildDataArchiveSelectedSnapshotView } from "./dataView.js";
+import {
+  buildDataArchiveOfficeWinnerText,
+  buildDataArchiveSelectedSnapshotView,
+} from "./dataView.js";
 
-test("data view: template summary uses canonical office label for applied template id", () => {
+test("data view: template summary preserves raw applied template id text", () => {
   const view = buildDataArchiveSelectedSnapshotView({
     templateMeta: {
       appliedTemplateId: "statewide_executive",
       appliedVersion: "2026.03.25",
     },
   });
-  assert.equal(view.templateSummary, "Statewide Executive (v2026.03.25)");
+  assert.equal(view.templateSummary, "statewide_executive (v2026.03.25)");
 });
 
-test("data view: legacy race token does not leak into template summary when office level resolves modern context", () => {
+test("data view: template summary does not infer context when applied template id is missing", () => {
   const view = buildDataArchiveSelectedSnapshotView({
     raceType: "state_leg",
     templateMeta: {
       officeLevel: "state_legislative_lower",
     },
   });
-  assert.equal(view.templateSummary, "State House");
-  assert.equal(view.templateSummary.includes("state_leg"), false);
+  assert.equal(view.templateSummary, "—");
 });
 
-test("data view: office winner text uses human office label", () => {
+test("data view: office winner helper preserves office+channel text deterministically", () => {
+  assert.equal(
+    buildDataArchiveOfficeWinnerText("statewide_executive", "door"),
+    "statewide_executive · top door",
+  );
+  assert.equal(buildDataArchiveOfficeWinnerText("", "door"), "—");
+});
+
+test("data view: selected snapshot office winner fields preserve raw office tokens", () => {
   const view = buildDataArchiveSelectedSnapshotView({
     execution: {
       officePaths: {
@@ -35,14 +45,5 @@ test("data view: office winner text uses human office label", () => {
       },
     },
   });
-  assert.equal(view.officeBestByDollar, "Statewide Executive · top door");
-});
-
-test("data view: unresolved office tokens render a safe fallback label", () => {
-  const view = buildDataArchiveSelectedSnapshotView({
-    templateMeta: {
-      appliedTemplateId: "###",
-    },
-  });
-  assert.equal(view.templateSummary, "Unmapped Office Context");
+  assert.equal(view.officeBestByDollar, "statewide_executive · top door");
 });

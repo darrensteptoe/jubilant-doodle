@@ -15,7 +15,6 @@ import {
   listVoterAdapterOptions,
 } from "./voterDataLayer.js";
 import { classifyUnifiedStatusTone } from "./statusTone.js";
-import { formatOfficeContextLabel, resolveOfficeContextDisplayLabel } from "./officeContextLabels.js";
 
 export const DATA_STATUS_AWAITING_STORAGE = "Awaiting storage";
 export const DATA_ARCHIVE_DETAIL_FALLBACK = "No archive snapshot selected.";
@@ -195,9 +194,8 @@ export function buildDataArchiveOfficeWinnerText(officeId, topChannel, options =
   if (!office){
     return fallback;
   }
-  const officeLabel = formatOfficeContextLabel(office);
   const channel = cleanText(topChannel);
-  return channel ? `${officeLabel} · top ${channel}` : officeLabel;
+  return channel ? `${office} · top ${channel}` : office;
 }
 
 /**
@@ -213,16 +211,12 @@ export function buildDataVoterSourceLabel(adapterId, sourceId, fallback = "—")
 function buildDataArchiveTemplateSummary(entry){
   const row = asObject(entry);
   const templateMeta = asObject(row?.templateMeta);
-  const templateLabel = resolveOfficeContextDisplayLabel({
-    appliedTemplateId: templateMeta?.appliedTemplateId,
-    officeLevel: templateMeta?.officeLevel,
-    raceType: row?.raceType,
-  });
+  const templateId = cleanText(templateMeta?.appliedTemplateId);
   const appliedVersion = cleanText(templateMeta?.appliedVersion);
-  if (!templateLabel){
+  if (!templateId){
     return "—";
   }
-  return appliedVersion ? `${templateLabel} (v${appliedVersion})` : templateLabel;
+  return appliedVersion ? `${templateId} (v${appliedVersion})` : templateId;
 }
 
 function buildDataArchiveWorkforceSummary(workforce){
