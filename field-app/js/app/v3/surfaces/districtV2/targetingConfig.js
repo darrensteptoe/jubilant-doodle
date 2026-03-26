@@ -570,7 +570,7 @@ export function createDistrictV2TargetingModule(deps = {}) {
     const signalCoverageNote = String(signalCoverage.shortNote || "").trim();
 
     syncSelectOptions("v3DistrictV2TargetingGeoLevel", normalizeTargetingOptions(listTargetGeoLevels()), config.geoLevel);
-    syncSelectOptions("v3DistrictV2TargetingModelId", normalizeTargetingOptions(listTargetModelOptions()), config.modelId || config.presetId);
+    syncSelectOptions("v3DistrictV2TargetingModelId", normalizeTargetingOptions(listTargetModelOptions()), config.presetId || config.modelId);
     syncInputValueFromRaw("v3DistrictV2TargetingTopN", config.topN);
     syncInputValueFromRaw("v3DistrictV2TargetingMinHousingUnits", config.minHousingUnits);
     syncInputValueFromRaw("v3DistrictV2TargetingMinPopulation", config.minPopulation);
