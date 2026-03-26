@@ -138,7 +138,7 @@ export function createDistrictBridgeHelpersRuntime(deps = {}){
     const census = censusState && typeof censusState === "object" ? censusState : {};
     const geoRowsRaw = Array.isArray(census.geoOptions) ? census.geoOptions : [];
     const selectedState = String(census.stateFips || "").trim();
-    const selectedCounty = String(census.countyFips || "").trim();
+    const selectedCounty = String(census.countyFips || census.county || "").trim();
     const geoRows = geoRowsRaw
       .map((row) => {
         const geoid = String(row?.geoid || "").trim();
@@ -263,7 +263,7 @@ export function createDistrictBridgeHelpersRuntime(deps = {}){
     const controlsLocked = isScenarioLockedForEdits(currentState);
     const resolution = String(census?.resolution || "").trim();
     const stateFips = String(census?.stateFips || "").trim();
-    const countyFips = String(census?.countyFips || "").trim();
+    const countyFips = String(census?.countyFips || census?.county || "").trim();
     const requiresCounty = resolution === "tract" || resolution === "block_group";
     const contextReadyForGeo = !!stateFips && (!requiresCounty || !!countyFips);
     const geoOptionsCount = Array.isArray(census?.geoOptions) ? census.geoOptions.length : 0;
@@ -308,7 +308,7 @@ export function createDistrictBridgeHelpersRuntime(deps = {}){
       v3CensusElectionCsvFile: controlsLocked || false,
       v3CensusElectionCsvPrecinctFilter: controlsLocked || false,
       v3CensusApiKey: controlsLocked || false,
-      v3CensusAcsYear: controlsLocked || false,
+      v3CensusAcsYear: true,
       v3CensusResolution: controlsLocked || false,
       v3CensusStateFips: controlsLocked || false,
       v3CensusMetricSet: controlsLocked || false,

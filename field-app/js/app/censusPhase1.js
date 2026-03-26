@@ -2,6 +2,7 @@ import {
   CENSUS_LOCAL_KEY,
   CENSUS_DEFAULT_API_KEY,
   listAcsYears,
+  resolveLatestAcs5Year,
   listResolutionOptions,
   listMetricSetOptions,
   normalizeCensusState,
@@ -80,6 +81,7 @@ import {
 } from "./censusRowsRuntimeStore.js";
 
 const variableCatalogCache = new Map();
+let latestAcsYearResolutionStarted = false;
 let stateOptionsCache = null;
 let stateOptionsUsingFallback = false;
 const countyOptionsCache = new Map();
@@ -406,17 +408,19 @@ function censusRuntimeSetBridgeFieldFallback(key, rawValue){
     return true;
   }
   if (field === "year"){
-    const applyWasOn = disableCensusApplyAdjustments(s);
-    s.year = cleanText(rawValue);
-    s.rowsByGeoid = {};
-    clearCensusRowsForKey(s.activeRowsKey);
-    s.activeRowsKey = "";
-    s.loadedRowCount = 0;
-    s.lastFetchAt = "";
-    s.variableCatalogYear = "";
-    s.variableCatalogCount = 0;
-    const suffix = applyWasOn ? " Census-adjusted assumptions turned OFF." : "";
-    setStatus(s, `ACS year set to ${s.year}. Cached rows cleared; footprint/provenance now stale until refetch.${suffix}`, false);
+    const requestedYear = cleanText(rawValue);
+    s.year = requestedYear;
+    const forcedToLatest = enforceLatestAcsYear(s, {
+      reasonPrefix: requestedYear && requestedYear !== cleanText(listAcsYears()[0])
+        ? `Requested ACS year ${requestedYear} is unavailable.`
+        : "",
+    });
+    if (!forcedToLatest) {
+      const applyWasOn = disableCensusApplyAdjustments(s);
+      clearCensusRowsForYearShift(s);
+      const suffix = applyWasOn ? " Census-adjusted assumptions turned OFF." : "";
+      setStatus(s, `ACS year set to ${s.year}. Cached rows cleared; footprint/provenance now stale until refetch.${suffix}`, false);
+    }
     return true;
   }
   if (field === "resolution"){
@@ -462,6 +466,7 @@ function censusRuntimeSetBridgeFieldFallback(key, rawValue){
   }
   if (field === "countyFips"){
     s.countyFips = cleanText(rawValue);
+    s.placeFips = "";
     resetGeoData(s);
     setStatus(s, s.countyFips ? "County set. Load GEO list next." : "Select county to continue.", false);
     return true;
@@ -484,13 +489,7 @@ function censusRuntimeSetBridgeFieldFallback(key, rawValue){
   if (field === "metricSet"){
     const applyWasOn = disableCensusApplyAdjustments(s);
     s.metricSet = cleanText(rawValue) || "core";
-    s.rowsByGeoid = {};
-    clearCensusRowsForKey(s.activeRowsKey);
-    s.activeRowsKey = "";
-    s.loadedRowCount = 0;
-    s.lastFetchAt = "";
-    s.variableCatalogYear = "";
-    s.variableCatalogCount = 0;
+    clearCensusRowsForYearShift(s);
     const suffix = applyWasOn ? " Census-adjusted assumptions turned OFF." : "";
     setStatus(s, `Bundle changed. Cached rows cleared; footprint/provenance now stale until refetch.${suffix}`, false);
     return true;
@@ -773,19 +772,21 @@ function setStatus(s, text, isError = false){
 
 function contextReadyForGeo(s){
   const resolution = cleanText(s?.resolution);
+  const countyFips = cleanText(s?.countyFips || s?.county);
   if (!cleanText(s?.stateFips)) return false;
   if (!resolutionNeedsCounty(resolution)) return true;
-  return !!cleanText(s?.countyFips);
+  return !!countyFips;
 }
 
 function contextText(s){
   const resolution = cleanText(s?.resolution);
+  const countyFips = cleanText(s?.countyFips || s?.county);
   if (!cleanText(s?.stateFips)){
     return "no state";
   }
   if (resolutionNeedsCounty(resolution)){
-    return cleanText(s?.countyFips)
-      ? `state ${s.stateFips} county ${s.countyFips}`
+    return countyFips
+      ? `state ${s.stateFips} county ${countyFips}`
       : `state ${s.stateFips} county not set`;
   }
   if (resolution === "place"){
@@ -1631,6 +1632,35 @@ function disableCensusApplyAdjustments(s){
   return true;
 }
 
+function clearCensusRowsForYearShift(s){
+  if (!s || typeof s !== "object") return;
+  s.rowsByGeoid = {};
+  clearCensusRowsForKey(s.activeRowsKey);
+  s.activeRowsKey = "";
+  s.loadedRowCount = 0;
+  s.lastFetchAt = "";
+  s.variableCatalogYear = "";
+  s.variableCatalogCount = 0;
+}
+
+function enforceLatestAcsYear(s, { reasonPrefix = "" } = {}){
+  if (!s || typeof s !== "object") return false;
+  const latestYear = cleanText(listAcsYears()[0]);
+  if (!latestYear) return false;
+  if (cleanText(s.year) === latestYear) return false;
+  const applyWasOn = disableCensusApplyAdjustments(s);
+  s.year = latestYear;
+  clearCensusRowsForYearShift(s);
+  const suffix = applyWasOn ? " Census-adjusted assumptions turned OFF." : "";
+  const prefix = cleanText(reasonPrefix);
+  setStatus(
+    s,
+    `${prefix ? `${prefix} ` : ""}Using latest ACS 5-year vintage ${latestYear}. Cached rows cleared; footprint/provenance now stale until refetch.${suffix}`,
+    false,
+  );
+  return true;
+}
+
 function applyModeReasonText(reason){
   const key = cleanText(reason);
   if (key === "toggle_off") return "Census-adjusted assumptions are OFF.";
@@ -1779,8 +1809,9 @@ export function renderCensusPhase1Module({ els, state, res } = {}){
     els.censusApiKey.value = storedKey;
   }
 
-  const yearRows = listAcsYears().map((y) => ({ value: y, label: y }));
-  fillSelect(els.censusAcsYear, yearRows, s.year, "Select year");
+  enforceLatestAcsYear(s);
+  const yearRows = listAcsYears().map((y) => ({ value: y, label: `${y} (latest)` }));
+  fillSelect(els.censusAcsYear, yearRows, s.year, "Latest ACS 5-year");
   fillSelect(els.censusResolution, RESOLUTION_OPTIONS.map((row) => ({ value: row.id, label: row.label })), s.resolution, "Select resolution");
   fillSelect(els.censusMetricSet, listMetricSetOptions().map((row) => ({ value: row.id, label: row.label })), s.metricSet, "Select bundle");
 
@@ -1804,6 +1835,9 @@ export function renderCensusPhase1Module({ els, state, res } = {}){
   const selectedSetKey = setRows.some((row) => row.value === cleanText(s.selectedSelectionSetKey)) ? cleanText(s.selectedSelectionSetKey) : "";
   fillSelect(els.censusSelectionSetSelect, setRows, selectedSetKey, "Saved sets");
 
+  if (els.censusAcsYear){
+    els.censusAcsYear.disabled = true;
+  }
   if (els.censusCountyFips){
     els.censusCountyFips.disabled = !s.stateFips;
   }
@@ -2665,6 +2699,7 @@ async function loadStateScopedLists(s, key){
 
 async function onLoadGeo({ s, key, getState, commitUIUpdate }){
   const resolutionLabel = RESOLUTION_LABEL_BY_ID[cleanText(s.resolution)] || cleanText(s.resolution) || "resolution";
+  const countyFips = cleanText(s?.countyFips || s?.county);
   if (!contextReadyForGeo(s)){
     setStatus(s, `Select required geography context for ${resolutionLabel}.`, true);
     commitUIUpdate();
@@ -2679,7 +2714,7 @@ async function onLoadGeo({ s, key, getState, commitUIUpdate }){
       year: s.year,
       resolution: s.resolution,
       stateFips: s.stateFips,
-      countyFips: s.countyFips,
+      countyFips,
       key,
     });
     const current = ensureCensusStateModule(getState());
@@ -2721,6 +2756,7 @@ async function onLoadGeo({ s, key, getState, commitUIUpdate }){
 
 async function onFetchRows({ s, key, getState, commitUIUpdate }){
   const resolutionLabel = RESOLUTION_LABEL_BY_ID[cleanText(s.resolution)] || cleanText(s.resolution) || "resolution";
+  const countyFips = cleanText(s?.countyFips || s?.county);
   if (!contextReadyForGeo(s)){
     setStatus(s, `Select required geography context for ${resolutionLabel}.`, true);
     commitUIUpdate();
@@ -2789,7 +2825,7 @@ async function onFetchRows({ s, key, getState, commitUIUpdate }){
       year: s.year,
       resolution: s.resolution,
       stateFips: s.stateFips,
-      countyFips: s.countyFips,
+      countyFips,
       metricSet: activeMetricSet,
       variableNames,
       key,
@@ -2886,6 +2922,25 @@ export function wireCensusPhase1EventsModule(ctx){
     return cleanText(s?.bridgeApiKey) || cleanText(els.censusApiKey?.value) || readCensusApiKeyModule();
   };
 
+  if (!latestAcsYearResolutionStarted){
+    latestAcsYearResolutionStarted = true;
+    void (async () => {
+      const key = getCensusApiKeyForActions();
+      try {
+        await resolveLatestAcs5Year({ key });
+      } catch {
+        // Keep fallback latest-year behavior when metadata lookup is unavailable.
+      }
+      let changed = false;
+      withState((_, s) => {
+        changed = enforceLatestAcsYear(s);
+      });
+      if (changed){
+        commitUIUpdate();
+      }
+    })();
+  }
+
   const runCensusLoadGeoAction = async () => {
     const key = getCensusApiKeyForActions();
     if (!key){
@@ -2894,6 +2949,18 @@ export function wireCensusPhase1EventsModule(ctx){
       });
       commitUIUpdate();
       return false;
+    }
+    try {
+      await resolveLatestAcs5Year({ key });
+    } catch {
+      // Non-blocking; fallback latest-year logic remains active.
+    }
+    let changedYear = false;
+    withState((_, s) => {
+      changedYear = enforceLatestAcsYear(s);
+    });
+    if (changedYear){
+      commitUIUpdate();
     }
     let s = ensureCensusStateModule(currentState());
     if (!s) return false;
@@ -2922,6 +2989,18 @@ export function wireCensusPhase1EventsModule(ctx){
       });
       commitUIUpdate();
       return false;
+    }
+    try {
+      await resolveLatestAcs5Year({ key });
+    } catch {
+      // Non-blocking; fallback latest-year logic remains active.
+    }
+    let changedYear = false;
+    withState((_, s) => {
+      changedYear = enforceLatestAcsYear(s);
+    });
+    if (changedYear){
+      commitUIUpdate();
     }
     const s = ensureCensusStateModule(currentState());
     if (!s) return false;
@@ -3386,17 +3465,19 @@ export function wireCensusPhase1EventsModule(ctx){
   if (els.censusAcsYear){
     els.censusAcsYear.addEventListener("change", () => {
       withState((_, s) => {
-        const applyWasOn = disableCensusApplyAdjustments(s);
-        s.year = cleanText(els.censusAcsYear.value);
-        s.rowsByGeoid = {};
-        clearCensusRowsForKey(s.activeRowsKey);
-        s.activeRowsKey = "";
-        s.loadedRowCount = 0;
-        s.lastFetchAt = "";
-        s.variableCatalogYear = "";
-        s.variableCatalogCount = 0;
-        const suffix = applyWasOn ? " Census-adjusted assumptions turned OFF." : "";
-        setStatus(s, `ACS year set to ${s.year}. Cached rows cleared; footprint/provenance now stale until refetch.${suffix}`, false);
+        const requestedYear = cleanText(els.censusAcsYear.value);
+        s.year = requestedYear;
+        const forcedToLatest = enforceLatestAcsYear(s, {
+          reasonPrefix: requestedYear && requestedYear !== cleanText(listAcsYears()[0])
+            ? `Requested ACS year ${requestedYear} is unavailable.`
+            : "",
+        });
+        if (!forcedToLatest){
+          const applyWasOn = disableCensusApplyAdjustments(s);
+          clearCensusRowsForYearShift(s);
+          const suffix = applyWasOn ? " Census-adjusted assumptions turned OFF." : "";
+          setStatus(s, `ACS year set to ${s.year}. Cached rows cleared; footprint/provenance now stale until refetch.${suffix}`, false);
+        }
       });
       commitUIUpdate();
     });
@@ -3407,13 +3488,7 @@ export function wireCensusPhase1EventsModule(ctx){
       withState((_, s) => {
         const applyWasOn = disableCensusApplyAdjustments(s);
         s.metricSet = cleanText(els.censusMetricSet.value) || "core";
-        s.rowsByGeoid = {};
-        clearCensusRowsForKey(s.activeRowsKey);
-        s.activeRowsKey = "";
-        s.loadedRowCount = 0;
-        s.lastFetchAt = "";
-        s.variableCatalogYear = "";
-        s.variableCatalogCount = 0;
+        clearCensusRowsForYearShift(s);
         const suffix = applyWasOn ? " Census-adjusted assumptions turned OFF." : "";
         setStatus(s, `Bundle changed. Cached rows cleared; footprint/provenance now stale until refetch.${suffix}`, false);
       });
@@ -3479,6 +3554,7 @@ export function wireCensusPhase1EventsModule(ctx){
     els.censusCountyFips.addEventListener("change", () => {
       withState((_, s) => {
         s.countyFips = cleanText(els.censusCountyFips.value);
+        s.placeFips = "";
         resetGeoData(s);
         setStatus(s, s.countyFips ? "County set. Load GEO list next." : "Select county to continue.", false);
       });
