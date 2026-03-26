@@ -312,6 +312,7 @@ export function renderReachSurface(mount) {
     <div class="fpe-help fpe-help--flush" id="v3ReachBenchmarkTurnout">Turnout-opportunity GEOIDs: —</div>
     <div class="fpe-help fpe-help--flush" id="v3ReachBenchmarkTurnoutOverlap">Turnout overlap: —</div>
     <div class="fpe-help fpe-help--flush" id="v3ReachBenchmarkInterpretation">Overlap interpretation: —</div>
+    <div class="fpe-help fpe-help--flush" id="v3ReachBenchmarkInsights">No benchmark saturation warnings.</div>
     <div class="fpe-help fpe-help--flush" id="v3ReachBenchmarkComparable">Comparable pool: —</div>
     <div class="fpe-help fpe-help--flush" id="v3ReachBenchmarkVolatility">Volatility focus: —</div>
     <div class="fpe-help fpe-help--flush" id="v3ReachBenchmarkProvenance">Source: imported/computed election benchmark history.</div>
@@ -533,6 +534,12 @@ function syncReachBenchmarkAdvisory(advisory) {
   setText("v3ReachBenchmarkTurnout", `Turnout-opportunity GEOIDs: ${advisory.turnoutText || "—"}`);
   setText("v3ReachBenchmarkTurnoutOverlap", `Turnout overlap: ${advisory.turnoutOverlapText || "—"}`);
   setText("v3ReachBenchmarkInterpretation", advisory.overlapInterpretationText || "Overlap interpretation unavailable.");
+  setText(
+    "v3ReachBenchmarkInsights",
+    Array.isArray(advisory.insightLines) && advisory.insightLines.length
+      ? advisory.insightLines.join(" ")
+      : "No benchmark saturation warnings.",
+  );
   setText("v3ReachBenchmarkComparable", advisory.comparableText || "Comparable pool unavailable.");
   setText("v3ReachBenchmarkVolatility", advisory.volatilityText || "Volatility focus unavailable.");
   setText("v3ReachBenchmarkProvenance", advisory.provenanceText || "Source: imported/computed election benchmark history.");

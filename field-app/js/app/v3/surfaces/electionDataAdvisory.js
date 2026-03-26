@@ -203,6 +203,16 @@ export function deriveReachElectionBenchmarkAdvisory(snapshot, options = {}) {
   const qualityText = qualityScore == null
     ? `Benchmark confidence: ${confidenceBand.toUpperCase()}.`
     : `Benchmark confidence: ${confidenceBand.toUpperCase()} (${qualityScore.toFixed(2)} quality score).`;
+  const insightLines = [];
+  if (currentTokens.length && priorityGeographyIds.length && priorityOverlap.overlapRatio != null && priorityOverlap.overlapRatio < 0.2) {
+    insightLines.push("Benchmark priority geographies are underrepresented in the current targeting slate.");
+  }
+  if (currentTokens.length && turnoutBoostGeoids.length && turnoutOverlap.overlapRatio != null && turnoutOverlap.overlapRatio < 0.2) {
+    insightLines.push("Turnout-opportunity geographies are underrepresented in the current targeting slate.");
+  }
+  if (currentTokens.length && confidenceBand && (confidenceBand === "low" || confidenceBand === "critical")) {
+    insightLines.push(`Benchmark confidence is ${confidenceBand}; treat priority ordering as more fragile.`);
+  }
 
   return {
     priorityGeographyIds,
@@ -226,6 +236,7 @@ export function deriveReachElectionBenchmarkAdvisory(snapshot, options = {}) {
     priorityCoverageRatio: priorityOverlap.overlapRatio,
     turnoutOverlapCount: turnoutOverlap.overlapCount,
     turnoutCoverageRatio: turnoutOverlap.overlapRatio,
+    confidenceBand: confidenceBand || "unknown",
     priorityOverlapText: currentTokens.length
       ? `${priorityOverlap.overlapCount}/${priorityOverlap.currentCount} current targeting GEO(s) overlap benchmark priority geographies (${formatRatioPct(priorityOverlap.overlapRatio)}).`
       : "Priority overlap unavailable until targeting rows are present.",
@@ -236,6 +247,8 @@ export function deriveReachElectionBenchmarkAdvisory(snapshot, options = {}) {
       buildOverlapInterpretation("Priority", priorityOverlap),
       buildOverlapInterpretation("Turnout-opportunity", turnoutOverlap),
     ].join(" "),
+    insightLines,
+    insightText: insightLines.length ? insightLines.join(" ") : "",
     qualityText,
     provenanceText: buildProvenanceText(imported),
     advisoryText: "Advisory context only. No automatic targeting writes are applied from this panel.",

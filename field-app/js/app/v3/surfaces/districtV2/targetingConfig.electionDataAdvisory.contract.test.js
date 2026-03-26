@@ -25,10 +25,14 @@ test("district targeting advisory: benchmark block is present and advisory-only"
   assert.match(targetingSource, /id="v3DistrictV2TargetingBenchmarkPriorityOverlap"/);
   assert.match(targetingSource, /id="v3DistrictV2TargetingBenchmarkTurnoutOverlap"/);
   assert.match(targetingSource, /id="v3DistrictV2TargetingBenchmarkInterpretation"/);
+  assert.match(targetingSource, /id="v3DistrictV2TargetingBenchmarkInsights"/);
+  assert.match(targetingSource, /export function deriveTargetingIntelligenceView/);
   assert.match(syncOnlyBody, /context\?\.electionBenchmarkAdvisory/);
   assert.match(syncOnlyBody, /benchmarkCard\.hidden = !benchmarkAdvisory/);
   assert.match(syncOnlyBody, /Priority overlap:/);
   assert.match(syncOnlyBody, /Turnout overlap:/);
+  assert.match(targetingSource, /Role:/);
+  assert.match(targetingSource, /Stable|Moderate|Fragile/);
   assert.doesNotMatch(syncOnlyBody, /setDistrictTargetingField|runTargeting|applyTargetingPreset/);
 });
 

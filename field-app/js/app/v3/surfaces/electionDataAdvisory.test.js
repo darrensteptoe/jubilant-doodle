@@ -88,7 +88,9 @@ test("reach advisory derives downstream recommendation context safely", () => {
   assert.equal(advisory.turnoutOverlapCount, 1);
   assert.equal(advisory.priorityCoverageRatio, 0.333333);
   assert.equal(advisory.turnoutCoverageRatio, 0.333333);
+  assert.equal(advisory.confidenceBand, "high");
   assert.match(advisory.qualityText, /HIGH/);
+  assert.ok(Array.isArray(advisory.insightLines));
 });
 
 test("outcome advisory derives confidence framing from benchmark recommendations", () => {

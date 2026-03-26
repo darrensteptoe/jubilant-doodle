@@ -25,11 +25,13 @@ test("reach election-data advisory: advisory card is downstream-driven and hidde
   assert.match(source, /id="v3ReachBenchmarkPriorityOverlap"/);
   assert.match(source, /id="v3ReachBenchmarkTurnoutOverlap"/);
   assert.match(source, /id="v3ReachBenchmarkInterpretation"/);
+  assert.match(source, /id="v3ReachBenchmarkInsights"/);
   assert.match(source, /readDistrictTargetingResultsSnapshot\(\)/);
   assert.match(source, /deriveReachElectionBenchmarkAdvisory\(\s*readElectionDataCanonicalSnapshot\(\),/);
   assert.match(applyViewBody, /syncReachBenchmarkAdvisory\(benchmarkAdvisory\);/);
   assert.match(advisoryBody, /card\.hidden = !hasAdvisory;/);
   assert.match(advisoryBody, /Priority overlap:/);
   assert.match(advisoryBody, /Turnout overlap:/);
+  assert.match(advisoryBody, /No benchmark saturation warnings/);
   assert.doesNotMatch(advisoryBody, /setField|applyLever|applyRolling/);
 });

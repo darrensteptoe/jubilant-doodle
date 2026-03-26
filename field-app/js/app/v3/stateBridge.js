@@ -328,9 +328,15 @@ export function normalizeDistrictTargetingSnapshotFromView(view) {
     geoid: String(row?.geoidText || "").trim(),
     geography: String(row?.geoText || "").trim(),
     score: String(row?.scoreText || "").trim(),
+    scoreValue: Number.isFinite(Number(row?.scoreValue)) ? Number(row.scoreValue) : null,
     votesPerHour: String(row?.votesPerHourText || "").trim(),
+    votesPerHourValue: Number.isFinite(Number(row?.votesPerHourValue)) ? Number(row.votesPerHourValue) : null,
     reason: String(row?.reasonText || "").trim(),
     flags: String(row?.flagsText || "").trim(),
+    topTarget: !!row?.topTarget,
+    turnoutPriority: !!row?.turnoutPriority,
+    persuasionPriority: !!row?.persuasionPriority,
+    efficiencyPriority: !!row?.efficiencyPriority,
   })).filter((row) => row.rank || row.geoid || row.geography || row.score || row.votesPerHour || row.reason || row.flags);
 
   return {
@@ -402,9 +408,15 @@ export function readDistrictTargetingResultsSnapshot() {
     geoid: String(row?.geoidText || "").trim(),
     geography: String(row?.geoText || "").trim(),
     score: String(row?.scoreText || "").trim(),
+    scoreValue: Number.isFinite(Number(row?.scoreValue)) ? Number(row.scoreValue) : null,
     votesPerHour: String(row?.votesPerHourText || "").trim(),
+    votesPerHourValue: Number.isFinite(Number(row?.votesPerHourValue)) ? Number(row.votesPerHourValue) : null,
     reason: String(row?.reasonText || "").trim(),
     flags: String(row?.flagsText || "").trim(),
+    topTarget: !!row?.topTarget,
+    turnoutPriority: !!row?.turnoutPriority,
+    persuasionPriority: !!row?.persuasionPriority,
+    efficiencyPriority: !!row?.efficiencyPriority,
   })).filter((row) => row.rank || row.geoid || row.geography || row.score || row.votesPerHour || row.reason || row.flags);
   return {
     statusText: String(targeting.statusText || "").trim(),
