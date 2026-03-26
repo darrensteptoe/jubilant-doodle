@@ -2094,8 +2094,12 @@ function wireEvents(){
   });
 }
 
-function normalizeLoadedScenarioRuntime(s){
-  const activeContext = resolveActiveContext();
+function normalizeLoadedScenarioRuntime(s, options = {}){
+  const opts = (options && typeof options === "object") ? options : {};
+  const contextInput = opts.context && typeof opts.context === "object"
+    ? opts.context
+    : {};
+  const activeContext = resolveActiveContext(contextInput);
   return normalizeLoadedStateModule(s, {
     makeDefaultState,
     safeNum,
