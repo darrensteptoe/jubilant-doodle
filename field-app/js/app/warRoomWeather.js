@@ -9,8 +9,9 @@ import {
   resolveSelectedZip,
   summarizeThreeDayForecast,
 } from "./weatherRiskRules.js";
+import { buildApiProxyUrl } from "../apiProxy.js";
 
-export const OPEN_WEATHER_API_KEY = "0d7d307069b4e4788731b2d770b21f4e";
+const WEATHER_PROXY_PATH = "/weather";
 
 export function makeDefaultWarRoomState(){
   return {
@@ -184,7 +185,6 @@ function groupForecastIntoDays(forecastPayload){
 
 export async function fetchWarRoomWeatherByZip(zip, {
   fetchImpl = globalThis?.fetch,
-  apiKey = OPEN_WEATHER_API_KEY,
 } = {}){
   const normalizedZip = normalizeZip(zip);
   if (!normalizedZip){
@@ -193,34 +193,40 @@ export async function fetchWarRoomWeatherByZip(zip, {
   if (typeof fetchImpl !== "function"){
     return { ok: false, code: "fetch_unavailable", message: "Weather fetch unavailable in this environment." };
   }
-
-  const base = `https://api.openweathermap.org/data/2.5`;
-  const currentUrl = `${base}/weather?zip=${normalizedZip},US&appid=${encodeURIComponent(apiKey)}&units=imperial`;
-  const forecastUrl = `${base}/forecast?zip=${normalizedZip},US&appid=${encodeURIComponent(apiKey)}&units=imperial`;
-
-  const [currentRes, forecastRes] = await Promise.all([
-    fetchImpl(currentUrl),
-    fetchImpl(forecastUrl),
-  ]);
-
-  if (!currentRes?.ok){
-    return { ok: false, code: "weather_fetch_failed", message: `Current weather fetch failed (${currentRes?.status || "unknown"}).` };
+  const proxyUrl = buildApiProxyUrl(WEATHER_PROXY_PATH, [["zip", normalizedZip]]);
+  const response = await fetchImpl(proxyUrl, {
+    method: "GET",
+    headers: { Accept: "application/json" },
+  });
+  if (!response?.ok){
+    return {
+      ok: false,
+      code: "weather_proxy_failed",
+      message: `Weather proxy request failed (${response?.status || "unknown"}).`,
+    };
   }
-  if (!forecastRes?.ok){
-    return { ok: false, code: "forecast_fetch_failed", message: `Forecast fetch failed (${forecastRes?.status || "unknown"}).` };
+  const proxyPayload = await response.json();
+  if (!proxyPayload?.ok){
+    return {
+      ok: false,
+      code: String(proxyPayload?.code || "weather_proxy_error"),
+      message: String(proxyPayload?.message || "Weather proxy request failed."),
+    };
   }
 
-  const currentPayload = await currentRes.json();
-  const forecastPayload = await forecastRes.json();
-  const current = mapCurrentPayload(currentPayload);
-  const forecast3d = groupForecastIntoDays(forecastPayload);
+  const current = proxyPayload?.current && typeof proxyPayload.current === "object"
+    ? proxyPayload.current
+    : mapCurrentPayload(proxyPayload?.currentPayload);
+  const forecast3d = Array.isArray(proxyPayload?.forecast3d)
+    ? summarizeThreeDayForecast(proxyPayload.forecast3d.slice(0, 3))
+    : groupForecastIntoDays(proxyPayload?.forecastPayload);
   const today = forecast3d[0] || null;
   const risk = deriveWeatherRisk({ current, today });
 
   return {
     ok: true,
     zip: normalizedZip,
-    fetchedAt: new Date().toISOString(),
+    fetchedAt: String(proxyPayload?.fetchedAt || new Date().toISOString()),
     current,
     forecast3d,
     risk,

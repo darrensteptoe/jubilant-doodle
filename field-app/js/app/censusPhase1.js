@@ -1,6 +1,5 @@
 import {
   CENSUS_LOCAL_KEY,
-  CENSUS_DEFAULT_API_KEY,
   listAcsYears,
   resolveLatestAcs5Year,
   listResolutionOptions,
@@ -292,7 +291,7 @@ function censusRuntimeSetBridgeFieldFallback(key, rawValue){
     const value = cleanText(rawValue);
     writeCensusApiKeyModule(value);
     s.bridgeApiKey = value;
-    setStatus(s, "Census API key saved. Loading geography lookups...", false);
+    setStatus(s, "Census API override saved. Loading geography lookups...", false);
     const keyForLookup = value || readCensusApiKeyModule();
     void (async () => {
       try{
@@ -663,16 +662,16 @@ function getStorage(){
 
 export function readCensusApiKeyModule(){
   const storage = getStorage();
-  if (!storage) return CENSUS_DEFAULT_API_KEY;
+  if (!storage) return "";
   const stored = cleanText(storage.getItem(CENSUS_LOCAL_KEY));
-  return stored || CENSUS_DEFAULT_API_KEY;
+  return stored;
 }
 
 export function writeCensusApiKeyModule(value){
   const storage = getStorage();
   if (!storage) return;
   const key = cleanText(value);
-  if (!key || key === CENSUS_DEFAULT_API_KEY){
+  if (!key){
     storage.removeItem(CENSUS_LOCAL_KEY);
     return;
   }
@@ -2943,13 +2942,6 @@ export function wireCensusPhase1EventsModule(ctx){
 
   const runCensusLoadGeoAction = async () => {
     const key = getCensusApiKeyForActions();
-    if (!key){
-      withState((_, s) => {
-        setStatus(s, "Enter Census API key first.", true);
-      });
-      commitUIUpdate();
-      return false;
-    }
     try {
       await resolveLatestAcs5Year({ key });
     } catch {
@@ -2983,13 +2975,6 @@ export function wireCensusPhase1EventsModule(ctx){
 
   const runCensusFetchRowsAction = async () => {
     const key = getCensusApiKeyForActions();
-    if (!key){
-      withState((_, s) => {
-        setStatus(s, "Enter Census API key first.", true);
-      });
-      commitUIUpdate();
-      return false;
-    }
     try {
       await resolveLatestAcs5Year({ key });
     } catch {
@@ -3430,7 +3415,7 @@ export function wireCensusPhase1EventsModule(ctx){
       const key = cleanText(els.censusApiKey.value);
       writeCensusApiKeyModule(key);
       withState((_, s) => {
-        setStatus(s, "Census API key saved. Loading geography lookups...", false);
+        setStatus(s, "Census API override saved. Loading geography lookups...", false);
       });
       commitUIUpdate({ persist: false });
       const s = ensureCensusStateModule(currentState());
@@ -4136,7 +4121,7 @@ export function wireCensusPhase1EventsModule(ctx){
         );
       }
     } catch {
-      setStatus(s, "Could not pre-load Census lookups. Enter key and load GEO list manually.", true);
+      setStatus(s, "Could not pre-load Census lookups. Load GEO list manually.", true);
     }
     commitUIUpdate({ persist: false });
   })();
