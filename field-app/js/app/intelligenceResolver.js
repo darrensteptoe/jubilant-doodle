@@ -290,6 +290,105 @@ function helperPanelSections(entry, context){
       ],
       variant: "card",
     });
+    panels.push({
+      title: "How to read Decision Narrative reporting",
+      paragraphs: [
+        "Read the Decision Narrative in sequence: what is binding, what is improving, what is fragile, where benchmark divergence exists, and what to do next.",
+        "Treat benchmark divergence as a validation prompt, not an automatic rewrite. Benchmark history is calibration context, not current campaign truth.",
+        "The reporting narrative summarizes pressure points and leverage from existing module outputs. It does not make the decision for the team.",
+      ],
+      items: [
+        { label: "What this section is telling you", body: "Where the campaign is constrained, where leverage exists, and where confidence is weakest." },
+        { label: "What this section is not telling you", body: "It is not a global command to auto-change assumptions across modules." },
+        { label: "What to do next", body: "Assign owners to the binding constraint and validate any benchmark divergence before escalating commitments." },
+      ],
+      variant: "card",
+    });
+  }
+
+  if (moduleId === "districtRaceContext"){
+    panels.push({
+      title: "How to read District Reality evidence states",
+      paragraphs: [
+        "Use District Reality to separate what is grounded in evidence from what is primarily assumption-driven. Grounded lines usually reflect matched candidate history, turnout anchors, and comparable benchmark coverage.",
+        "Read benchmark tension directly: if current turnout anchors, band width, or baseline posture diverge from imported benchmark history, the path is stretching beyond historical calibration.",
+        "When confidence is limited, distinguish thin evidence from ambitious assumptions. That distinction tells you whether to collect better evidence, tighten assumptions, or both.",
+      ],
+      items: [
+        { label: "What this module is telling you", body: "Whether the setup looks historically aligned, somewhat stretched, or highly assumption-dependent." },
+        { label: "What this module is not telling you", body: "It does not prove current support truth on its own; it interprets evidence quality and assumption tension." },
+        { label: "What changes downstream", body: "Turnout anchors and band posture feed Target Config interpretation, Reach pressure, Outcome risk framing, and Reporting narrative language." },
+      ],
+      variant: "hero",
+    });
+  }
+
+  if (moduleId === "districtTargetConfig"){
+    panels.push({
+      title: "How to read Target Config intelligence",
+      paragraphs: [
+        "Role labels are interpretation tags over existing ranking signals: Turnout Lift, Persuasion Opportunity, Base Protection, Monitor, and Low Efficiency.",
+        "Fragility tags (Stable, Moderate, Fragile) indicate how robust the current priority looks under available benchmark overlap, volatility context, and score separation.",
+        "Why-this-target text is deterministic reasoning from current signals, not a guarantee. Concentration and underrepresentation warnings indicate slate-shape risk, not automatic reorder commands.",
+      ],
+      items: [
+        { label: "What this module is telling you", body: "Why top targets rank highly and where the slate may be over-concentrated or under-covered." },
+        { label: "What this module is not telling you", body: "Benchmark-priority overlap is not campaign truth and does not replace operator judgment." },
+        { label: "What changes downstream", body: "Target slate quality affects Reach feasibility, Turnout focus, Outcome fragility posture, and Reporting leverage language." },
+      ],
+      variant: "hero",
+    });
+  }
+
+  if (moduleId === "reachOperationsGuide"){
+    panels.push({
+      title: "How to read Reach benchmark context",
+      paragraphs: [
+        "Read priority overlap and turnout-opportunity overlap separately. They describe different benchmark signals and should not be collapsed into one story.",
+        "Comparable pool and volatility focus are advisory context. Use them to calibrate confidence, not to auto-rewrite targeting or reach assumptions.",
+        "Benchmark-priority geography is historical calibration context. It is useful signal, but it is not a replacement for current campaign evidence.",
+      ],
+      items: [
+        { label: "What this module is telling you", body: "Whether current coverage appears aligned with benchmark-priority and turnout-opportunity geography signals." },
+        { label: "What this module is not telling you", body: "It does not guarantee conversion outcomes or justify silent assumption overrides." },
+        { label: "What changes downstream", body: "Reach assumptions and overlap posture shape Outcome constraints, plan pressure, and reporting leverage framing." },
+      ],
+      variant: "hero",
+    });
+  }
+
+  if (moduleId === "outcomeOperationsGuide"){
+    panels.push({
+      title: "How to read Outcome driver narrative",
+      paragraphs: [
+        "The Outcome narrative identifies the current binding factor and dominant factor using existing deterministic signals. Start with that constraint before chasing upside.",
+        "Read stability and fragility labels as risk posture guidance: stable paths are less assumption-sensitive; fragile paths are more exposed to weak evidence, volatility, or stretched assumptions.",
+        "Benchmark realism tension means live assumptions are pulling away from historical calibration. Use it as a decision-discipline signal, not as an auto-correction command.",
+      ],
+      items: [
+        { label: "What this module is telling you", body: "What is currently binding the path and how resilient that path appears under current assumptions." },
+        { label: "What this module is not telling you", body: "Outcome summarizes risk; it does not decide campaign strategy for you." },
+        { label: "What changes downstream", body: "Outcome posture informs plan commitment level, scenario branching, and reporting confidence language." },
+      ],
+      variant: "hero",
+    });
+  }
+
+  if (moduleId === "dataOperationsGuide"){
+    panels.push({
+      title: "How to read Election Data benchmark quality",
+      paragraphs: [
+        "Election Data benchmarks are historical calibration inputs. Imported cycles, benchmark quality, confidence, and comparable coverage determine how hard you should lean on them.",
+        "Downstream advisories are bounded on purpose. Benchmark context can calibrate and prioritize, but it should not silently overwrite live campaign assumptions.",
+        "Treat benchmark history and current campaign truth as distinct layers. The benchmark should sharpen judgment, not become a second engine.",
+      ],
+      items: [
+        { label: "What this module is telling you", body: "How credible and decision-usable benchmark context is for current module interpretation." },
+        { label: "What this module is not telling you", body: "It is not permission for broad auto-apply behavior across District, Reach, Outcome, or Plan." },
+        { label: "What changes downstream", body: "Benchmark confidence influences advisory framing in District Reality, Reach/Target Config, Outcome, and Reporting." },
+      ],
+      variant: "hero",
+    });
   }
 
   const out = [];
