@@ -187,3 +187,21 @@ test("shell bridge context row: url-locked campaign rejects attempted scope chan
   assert.equal(result?.code, "campaign_locked");
   assert.equal(harness.getState().campaignId, "locked-campaign");
 });
+
+test("shell bridge context row: view mirrors canonical scoped state after import-shaped hydrate", () => {
+  const harness = createHarness({
+    initialState: {
+      campaignId: "il-hd-21",
+      campaignName: "IL HD 21",
+      officeId: "west-field",
+      scenarioId: "",
+      ui: { activeScenarioId: "plan_general" },
+    },
+  });
+
+  const view = harness.runtime.stateView();
+  assert.equal(view?.campaignId, "il-hd-21");
+  assert.equal(view?.campaignName, "IL HD 21");
+  assert.equal(view?.officeId, "west-field");
+  assert.equal(view?.scenarioId, "plan_general");
+});

@@ -17,6 +17,31 @@ import { applyContextToState, resolveActiveContext } from "./activeContext.js";
 import { syncTemplateMetaFromState } from "./templateResolver.js";
 import { resolveCanonicalCallsPerHour, setCanonicalCallsPerHour } from "../core/throughput.js";
 
+function clean(value){
+  return String(value == null ? "" : value).trim();
+}
+
+function sanitizeDefaultResolvedContext(activeContext){
+  const src = activeContext && typeof activeContext === "object" ? { ...activeContext } : {};
+  const campaignSource = clean(src.campaignSource);
+  const officeSource = clean(src.officeSource);
+  const scenarioSource = clean(src.scenarioSource);
+
+  // Guard against resolved default context values ("default", "", "") overriding
+  // imported campaign/office/scenario identifiers during import hydration.
+  if (campaignSource === "default"){
+    delete src.campaignId;
+    delete src.campaignName;
+  }
+  if (officeSource === "default"){
+    delete src.officeId;
+  }
+  if (scenarioSource === "default"){
+    delete src.scenarioId;
+  }
+  return src;
+}
+
 /**
  * @typedef {Record<string, any>} AnyState
  * @typedef {{
@@ -90,7 +115,7 @@ export function normalizeLoadedStateModule(s, deps){
 
   syncFeatureFlagsFromState(out, { preferFeatures: !!(src.features && typeof src.features === "object" && !Array.isArray(src.features)) });
   syncTemplateMetaFromState(out);
-  const context = resolveActiveContext({ ...(deps?.activeContext || {}), fallback: out });
+  const context = resolveActiveContext({ ...sanitizeDefaultResolvedContext(deps?.activeContext), fallback: out });
   applyContextToState(out, context);
   ensureWarRoomStateShape(out);
   ensureEventCalendarStateShape(out);
