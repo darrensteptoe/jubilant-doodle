@@ -21,21 +21,18 @@ test("apiProxy: absolute base path keeps /api prefix", () => {
 test("apiProxy: origin-only absolute base defaults to /api namespace", () => {
   resetProxyConfig();
   globalThis.__FPE_API_PROXY_BASE__ = "https://example.workers.dev";
-  const url = buildApiProxyUrl("/census/geo", [
-    ["year", "2020"],
-    ["get", "NAME"],
-    ["for", "state:*"],
+  const url = buildApiProxyUrl("/weather", [
+    ["zip", "60614"],
   ]);
   assert.equal(
     url,
-    "https://example.workers.dev/api/census/geo?year=2020&get=NAME&for=state%3A*",
+    "https://example.workers.dev/api/weather?zip=60614",
   );
 });
 
 test("apiProxy: reads API proxy base from __VICE_CONFIG__", () => {
   resetProxyConfig();
   globalThis.__VICE_CONFIG__ = { API_PROXY_BASE: "https://proxy.example.net/api" };
-  const url = buildApiProxyUrl("/census/variables", [["year", "2024"]]);
-  assert.equal(url, "https://proxy.example.net/api/census/variables?year=2024");
+  const url = buildApiProxyUrl("/weather", [["zip", "10001"]]);
+  assert.equal(url, "https://proxy.example.net/api/weather?zip=10001");
 });
-
