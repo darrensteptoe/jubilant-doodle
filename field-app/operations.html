@@ -60,6 +60,53 @@
             </div>
             <div class="note" id="ovNote">No data loaded yet.</div>
             <div class="mini-s" id="ovOfficeMix">Office staffing mix unavailable.</div>
+
+            <hr style="margin:12px 0; border:0; border-top:1px solid rgba(0,0,0,0.08);" />
+            <div class="card-head card-header" style="padding-top:0;">
+              <h3 class="card-title" style="font-size:1rem;">Performance &amp; Pace</h3>
+              <div class="help-text">Weekly office management view tied to canonical campaign goals and scoped operations output.</div>
+            </div>
+            <div class="subgrid">
+              <div class="mini"><div class="mini-k">Office goal</div><div class="mini-v" id="opPerfGoal">—</div></div>
+              <div class="mini"><div class="mini-k">Completed to date</div><div class="mini-v" id="opPerfCompleted">—</div></div>
+              <div class="mini"><div class="mini-k">Remaining</div><div class="mini-v" id="opPerfRemaining">—</div></div>
+              <div class="mini"><div class="mini-k">% complete</div><div class="mini-v" id="opPerfPctComplete">—</div></div>
+              <div class="mini"><div class="mini-k">% remaining</div><div class="mini-v" id="opPerfPctRemaining">—</div></div>
+              <div class="mini"><div class="mini-k">Required pace / week</div><div class="mini-v" id="opPerfRequiredWeekly">—</div></div>
+              <div class="mini"><div class="mini-k">Average pace / week</div><div class="mini-v" id="opPerfAverageWeekly">—</div></div>
+              <div class="mini"><div class="mini-k">Pace status</div><div class="mini-v" id="opPerfPaceStatus">—</div></div>
+              <div class="mini"><div class="mini-k">Active volunteers</div><div class="mini-v" id="opPerfActiveVolunteers">—</div></div>
+              <div class="mini"><div class="mini-k">VBM ballots collected</div><div class="mini-v" id="opPerfVbms">—</div></div>
+              <div class="mini"><div class="mini-k">Support IDs this week</div><div class="mini-v" id="opPerfThisWeek">—</div></div>
+              <div class="mini"><div class="mini-k">Support IDs prior week</div><div class="mini-v" id="opPerfPriorWeek">—</div></div>
+            </div>
+            <div class="mini-s" id="opPerfMeta">No canonical pace context available yet.</div>
+
+            <div class="tableWrap" style="margin-top:10px;">
+              <table class="table">
+                <thead>
+                  <tr>
+                    <th>Organizer</th>
+                    <th class="num">This week</th>
+                    <th class="num">To date</th>
+                    <th class="num">% to expected share</th>
+                    <th class="num">Remaining to share</th>
+                    <th class="num">Required / week</th>
+                    <th class="num">Average / week</th>
+                    <th class="num">Active vols</th>
+                    <th class="num">VBM</th>
+                    <th>Status</th>
+                    <th>Coaching cue</th>
+                  </tr>
+                </thead>
+                <tbody id="opPerfOrganizerTbody"></tbody>
+              </table>
+            </div>
+
+            <div class="note" style="margin-top:10px;">
+              <strong>Weekly coaching insights</strong>
+              <ul id="opPerfInsights" style="margin:6px 0 0 18px;"></ul>
+            </div>
           </div>
         </section>
 
