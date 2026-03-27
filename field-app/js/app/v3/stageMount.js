@@ -4,6 +4,7 @@ import { renderDataSurface } from "./surfaces/data/index.js";
 import { renderWarRoomSurface as renderDecisionLogSurface } from "./surfaces/warRoom/index.js";
 import { renderDistrictV2Surface } from "./surfaces/districtV2/index.js";
 import { renderElectionDataSurface } from "./surfaces/electionData/index.js";
+import { renderMapSurface } from "./surfaces/map/index.js";
 import { renderOutcomeSurface } from "./surfaces/outcome/index.js";
 import { renderPlanSurface } from "./surfaces/plan.js";
 import { renderReachSurface } from "./surfaces/reach.js";
@@ -26,6 +27,7 @@ const SURFACE_MAP = {
   decisionLog: renderDecisionLogSurface,
   districtV2: renderDistrictV2Surface,
   electionData: renderElectionDataSurface,
+  map: renderMapSurface,
   outcome: renderOutcomeSurface,
   plan: renderPlanSurface,
   reach: renderReachSurface,

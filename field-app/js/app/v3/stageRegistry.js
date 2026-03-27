@@ -8,6 +8,14 @@ export const V3_STAGE_REGISTRY = [
     group: "Model"
   },
   {
+    id: "map",
+    navLabel: "Map",
+    pageTitle: "Campaign Geography",
+    subtitle: "Canonical geography context rendered as an interactive map layer for field inspection.",
+    surface: "map",
+    group: "Model"
+  },
+  {
     id: "election-data",
     navLabel: "Election Data",
     pageTitle: "Election Data",

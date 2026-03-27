@@ -4,8 +4,8 @@ export function renderDistrictV2CensusCard({ censusCard, getCardBody }) {
     <div class="fpe-census-card fpe-module-stack" id="v3DistrictV2CensusShell">
       <div class="fpe-field-grid fpe-field-grid--3">
         <div class="field">
-          <label class="fpe-control-label" for="v3DistrictV2CensusApiKey">Census API key</label>
-          <input class="fpe-input" id="v3DistrictV2CensusApiKey" type="text" autocomplete="off"/>
+          <label class="fpe-control-label" for="v3DistrictV2CensusApiKey">Census API key override (optional)</label>
+          <input class="fpe-input" id="v3DistrictV2CensusApiKey" type="text" autocomplete="off" placeholder="Optional override key"/>
         </div>
         <div class="field">
           <label class="fpe-control-label" for="v3DistrictV2CensusAcsYear">ACS 5-year</label>
