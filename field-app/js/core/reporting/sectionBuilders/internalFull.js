@@ -15,6 +15,7 @@ import {
   firstMetricDelta,
   listOfficeAwareReportLines,
   fmtMetric,
+  fmtPercentFromUnit,
   fmtSignedDelta,
   fmtWhole,
   makeSection,
@@ -22,6 +23,153 @@ import {
 
 function cleanText(value) {
   return String(value == null ? "" : value).trim();
+}
+
+function toFinite(value, fallback = null) {
+  const n = Number(value);
+  return Number.isFinite(n) ? n : fallback;
+}
+
+function asObject(value) {
+  return value && typeof value === "object" ? value : {};
+}
+
+export function deriveInternalDecisionNarrative(context = {}) {
+  const metrics = asObject(context?.metrics?.metrics);
+  const targeting = asObject(context?.selectors?.targetingDerived);
+  const outcome = asObject(context?.selectors?.outcomeDerived);
+  const district = asObject(context?.selectors?.districtDerived);
+  const election = asObject(context?.electionDataInfluence);
+  const governance = asObject(context?.assurance?.governance);
+  const electionRecommendations = asObject(election?.downstreamRecommendations);
+  const districtRecommendation = asObject(electionRecommendations?.district);
+  const outcomeRecommendation = asObject(electionRecommendations?.outcome);
+
+  const winProb = toFinite(outcome?.mcSummary?.winProb, null);
+  const marginBandWidth = toFinite(outcome?.mcSummary?.marginBandWidth, null);
+  const expectedMargin = toFinite(outcome?.mcSummary?.expectedMargin, null);
+  const topDriver = cleanText(outcome?.sensitivitySummary?.topDriver);
+  const persuasionNeed = toFinite(metrics?.persuasionNeed?.value, null);
+  const baselineSupport = toFinite(metrics?.baselineSupport?.value, null);
+  const outcomeConfidence = toFinite(metrics?.outcomeConfidence?.value, null);
+  const benchmarkQuality = toFinite(metrics?.electionBenchmarkQuality?.value, null);
+  const targetingDelta = firstMetricDelta(context, "targetingScore");
+  const confidenceDelta = firstMetricDelta(context, "outcomeConfidence");
+  const benchmarkDelta = firstMetricDelta(context, "electionBenchmarkQuality");
+  const staleTargeting = !!targeting?.status?.staleSinceUpstreamChange;
+  const turnoutCoverage = toFinite(targeting?.electionInfluence?.turnoutBoostCoverageRatio, null);
+  const confidenceBand = cleanText(election?.confidenceBand || governance?.confidenceBand || "unknown").toLowerCase();
+  const comparablePoolCount = toFinite(election?.comparablePoolCount, null);
+  const hasTurnoutAnchors = !!district?.turnoutSnapshot?.hasTurnoutAnchors;
+
+  let binding = "";
+  if (staleTargeting) {
+    binding = "Targeting is stale relative to upstream district/census/election changes.";
+  } else if (winProb != null && winProb < 0.5) {
+    binding = `Outcome path is below coin-flip (${fmtPercentFromUnit(winProb, 1)} win probability).`;
+  } else if (persuasionNeed != null && persuasionNeed >= 2500) {
+    binding = `Persuasion requirement remains large (${fmtWhole(persuasionNeed)} net votes).`;
+  } else if (confidenceBand === "low" || confidenceBand === "critical") {
+    binding = `Historical grounding confidence is ${confidenceBand.toUpperCase()}.`;
+  } else if (!hasTurnoutAnchors) {
+    binding = "Turnout anchors are incomplete for this scenario.";
+  } else {
+    binding = "No single hard bottleneck is dominant in the current snapshot.";
+  }
+
+  const leverageSignals = [];
+  if (toFinite(targetingDelta?.delta, null) != null && Number(targetingDelta.delta) > 0) {
+    leverageSignals.push(`targeting score is improving (${fmtSignedDelta(targetingDelta.delta, 3)})`);
+  }
+  if (toFinite(confidenceDelta?.delta, null) != null && Number(confidenceDelta.delta) > 0) {
+    leverageSignals.push(`outcome confidence is improving (${fmtSignedDelta(confidenceDelta.delta, 3)})`);
+  }
+  if (turnoutCoverage != null && turnoutCoverage >= 0.35) {
+    leverageSignals.push(`turnout-opportunity overlap is usable (${fmtPercentFromUnit(turnoutCoverage, 0)} of current targeting rows)`);
+  }
+  if (topDriver) {
+    leverageSignals.push(`top sensitivity driver is identified (${topDriver})`);
+  }
+  if (benchmarkQuality != null && benchmarkQuality >= 0.65 && (confidenceBand === "high" || confidenceBand === "medium")) {
+    leverageSignals.push(`benchmark quality is decision-usable (${benchmarkQuality.toFixed(2)})`);
+  }
+  const improving = leverageSignals.length
+    ? leverageSignals.slice(0, 2).join("; ")
+    : "";
+
+  const fragileSignals = [];
+  if (marginBandWidth != null && marginBandWidth >= 4) {
+    fragileSignals.push(`outcome spread is wide (${fmtMetric(marginBandWidth, 2)} margin band width)`);
+  }
+  if (outcomeConfidence != null && outcomeConfidence < 0.55) {
+    fragileSignals.push(`outcome confidence is low (${fmtMetric(outcomeConfidence, 2)})`);
+  }
+  if (staleTargeting) {
+    fragileSignals.push("targeting priorities may be stale against upstream revisions");
+  }
+  if (confidenceBand === "low" || confidenceBand === "critical") {
+    fragileSignals.push(`benchmark confidence is ${confidenceBand.toUpperCase()}`);
+  }
+  if (comparablePoolCount != null && comparablePoolCount > 0 && comparablePoolCount < 2) {
+    fragileSignals.push(`comparable pool depth is thin (${fmtWhole(comparablePoolCount)})`);
+  }
+  if (expectedMargin != null && expectedMargin >= -1 && expectedMargin <= 1) {
+    fragileSignals.push("expected margin sits near zero");
+  }
+  const fragile = fragileSignals.length
+    ? fragileSignals.slice(0, 2).join("; ")
+    : "";
+
+  const benchmarkSignals = [];
+  const benchmarkBaselineSupport = toFinite(districtRecommendation?.baselineSupport, null);
+  const benchmarkConfidenceFloor = toFinite(outcomeRecommendation?.confidenceFloor, null);
+  if (baselineSupport != null && benchmarkBaselineSupport != null) {
+    const baselineGap = baselineSupport - benchmarkBaselineSupport;
+    if (Math.abs(baselineGap) >= 3) {
+      benchmarkSignals.push(
+        `baseline support is ${fmtMetric(baselineSupport, 1, "%")} vs benchmark ${fmtMetric(benchmarkBaselineSupport, 1, "%")}`,
+      );
+    }
+  }
+  if (winProb != null && benchmarkConfidenceFloor != null) {
+    const confidenceGap = winProb - benchmarkConfidenceFloor;
+    if (Math.abs(confidenceGap) >= 0.12) {
+      benchmarkSignals.push(
+        `modeled win probability is ${fmtPercentFromUnit(winProb, 1)} vs benchmark confidence floor ${fmtPercentFromUnit(benchmarkConfidenceFloor, 1)}`,
+      );
+    }
+  }
+  const benchmarkDivergence = benchmarkSignals.length
+    ? `${benchmarkSignals.slice(0, 2).join("; ")}. Treat this as calibration tension, not current-voter truth.`
+    : "";
+
+  const nextSteps = [];
+  if (winProb != null && winProb < 0.55) {
+    nextSteps.push("Validate turnout and persuasion assumptions before external confidence framing.");
+  }
+  if (staleTargeting || (turnoutCoverage != null && turnoutCoverage < 0.2)) {
+    nextSteps.push("Refresh targeting and tighten the slate around stable priority and turnout-opportunity geographies.");
+  }
+  if (benchmarkDivergence) {
+    nextSteps.push("Reconcile benchmark-vs-live assumption gaps and document rationale before changing calibration.");
+  }
+  if (fragileSignals.length) {
+    nextSteps.push("Stress-test the top driver and re-run MC before major reallocations.");
+  }
+  if (toFinite(benchmarkDelta?.delta, null) != null && Number(benchmarkDelta.delta) < 0) {
+    nextSteps.push("Improve benchmark data quality before relying on historical comparisons for major decisions.");
+  }
+  if (!nextSteps.length) {
+    nextSteps.push("Maintain current plan and continue weekly validation of key assumptions.");
+  }
+
+  return {
+    binding,
+    improving,
+    fragile,
+    benchmarkDivergence,
+    nextSteps: nextSteps.slice(0, 3),
+  };
 }
 
 export function buildInternalFullSections(context) {
@@ -47,6 +195,22 @@ export function buildInternalFullSections(context) {
   const governance = context?.assurance?.governance || {};
   const audit = context?.assurance?.audit || {};
   const officeAwareLines = listOfficeAwareReportLines(context);
+  const decisionNarrative = deriveInternalDecisionNarrative(context);
+  const decisionRows = [
+    { label: "What is binding", value: decisionNarrative.binding || "No clear binding signal." },
+  ];
+  if (decisionNarrative.improving) {
+    decisionRows.push({ label: "What is improving / leverage", value: decisionNarrative.improving });
+  }
+  if (decisionNarrative.fragile) {
+    decisionRows.push({ label: "What is fragile", value: decisionNarrative.fragile });
+  }
+  if (decisionNarrative.benchmarkDivergence) {
+    decisionRows.push({ label: "Benchmark divergence", value: decisionNarrative.benchmarkDivergence });
+  }
+  if (decisionNarrative.nextSteps.length) {
+    decisionRows.push({ label: "What to do next", value: decisionNarrative.nextSteps.join(" ") });
+  }
 
   const sections = [];
   const situationBlocks = [
@@ -68,15 +232,8 @@ export function buildInternalFullSections(context) {
       ],
     }),
     createAppendixBlock({
-      title: "How to read these numbers",
-      rows: [
-        { label: "Baseline support", value: "Current floor, not ceiling. Treat it as today’s operating base." },
-        { label: "Turnout expected", value: "Participation environment estimate, not guaranteed turnout." },
-        { label: "Persuasion need", value: "Remaining persuadable universe that still matters to the path." },
-        { label: "Targeting score", value: "Quality of current target concentration, not full campaign health." },
-        { label: "Outcome confidence", value: "Confidence in the current path, not certainty of victory." },
-        { label: "Election benchmark quality", value: "Reliability of historical comparison inputs feeding assumptions." },
-      ],
+      title: "Decision Narrative Layer",
+      rows: decisionRows,
     }),
     createTrendBlock({
       label: "Change since prior report",
