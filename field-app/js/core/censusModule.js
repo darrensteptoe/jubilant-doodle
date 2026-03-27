@@ -627,7 +627,9 @@ function buildCensusDataUrl(path, paramEntries = []){
 
 function buildAcsVariablesCatalogUrl(year, key){
   const safeYear = normalizeAcsYear(year) || fallbackLatestAcs5Year();
-  return buildCensusDataUrl(`${safeYear}/acs/acs5/variables.json`);
+  const token = cleanText(key);
+  const params = token ? [["key", token]] : [];
+  return buildCensusDataUrl(`${safeYear}/acs/acs5/variables.json`, params);
 }
 
 function isValidAcsVariableCatalogPayload(payload){
@@ -1806,12 +1808,13 @@ function isJsonContentType(response){
 }
 
 export function buildAcsQueryUrl({ year, getVars, forClause, inClauses = [], key, dataset = ACS_5YEAR_DATASET }){
-  const y = getLatestAcs5Year();
+  const y = normalizeAcsYear(year) || getLatestAcs5Year();
   const vars = encodeGetVars(getVars || []);
   const forPart = cleanText(forClause);
   const inParts = Array.isArray(inClauses)
     ? inClauses.map((v) => cleanText(v)).filter((v) => !!v)
     : [];
+  const token = cleanText(key);
   const dataSetPath = cleanText(dataset).toLowerCase() === "dec/pl"
     ? "dec/pl"
     : "acs/acs5";
@@ -1822,20 +1825,26 @@ export function buildAcsQueryUrl({ year, getVars, forClause, inClauses = [], key
   for (const part of inParts){
     params.push(["in", part]);
   }
+  if (token){
+    params.push(["key", token]);
+  }
   return buildCensusDataUrl(`${y}/${dataSetPath}`, params);
 }
 
 export function buildGeoLookupUrl({ stateFips, scope, year = "2020", key }){
   const state = fips(stateFips, 2);
+  const token = cleanText(key);
   const forClause = scope === "state" ? "state:*" : scope === "county" ? "county:*" : "place:*";
   const inClauses = scope === "state" ? [] : [`state:${state}`];
   const params = [
-    ["year", cleanText(year)],
     ["get", "NAME"],
     ["for", forClause],
   ];
   for (const part of inClauses){
     params.push(["in", part]);
+  }
+  if (token){
+    params.push(["key", token]);
   }
   return buildCensusDataUrl(`${cleanText(year) || "2020"}/dec/pl`, params);
 }
