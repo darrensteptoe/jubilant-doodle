@@ -1,0 +1,12 @@
+name = "field-app-40-api-proxy"
+main = "worker/fpe-api-proxy.js"
+compatibility_date = "2026-03-26"
+workers_dev = true
+
+[vars]
+# Optional runtime override for API proxy base path in clients:
+# FPE_API_PROXY_BASE = "/api"
+
+# Configure these via `wrangler secret put` in each environment:
+# OPENWEATHER_API_KEY
+# CENSUS_API_KEY
