@@ -54,9 +54,9 @@ import {
 export function registerCensusPhase1Tests(ctx){
   const { test, assert } = ctx;
 
-  test("Census Phase1: hardwired API key default is present", () => {
+  test("Census Phase1: default API key is blank in client runtime", () => {
     const key = String(CENSUS_DEFAULT_API_KEY || "").trim();
-    assert(/^[a-f0-9]{40}$/i.test(key), "hardwired Census API key default missing or invalid");
+    assert(key === "", "default Census API key should be blank in client runtime");
   });
 
   test("Census Phase1: default and normalization contract", () => {
@@ -427,19 +427,20 @@ export function registerCensusPhase1Tests(ctx){
       inClauses: ["state:17", "county:031"],
       key: "abc123",
     });
-    assert(url.includes("/data/2024/acs/acs5?"), "year/dataset missing in URL");
+    assert(url.includes("/api/census/acs?"), "ACS proxy path missing in URL");
+    assert(url.includes("year=2024"), "year missing in proxy URL");
     assert(url.includes("for=tract%3A*"), "for clause missing");
     assert(url.includes("in=state%3A17"), "state in clause missing");
     assert(url.includes("in=county%3A031"), "county in clause missing");
-    assert(url.includes("key=abc123"), "key missing");
+    assert(!url.includes("key="), "client URL should not include key param");
   });
 
-  test("Census Phase1: geo lookup URL supports keyless mode", () => {
+  test("Census Phase1: geo lookup URL routes through proxy and strips client keys", () => {
     const keyless = buildGeoLookupUrl({ scope: "state", key: "" });
     assert(!keyless.includes("key="), "keyless geo lookup should omit key param");
-    assert(keyless.includes("/dec/pl?"), "geo lookup should use dec/pl endpoint");
+    assert(keyless.includes("/api/census/geo?"), "geo lookup should route through proxy endpoint");
     const keyed = buildGeoLookupUrl({ scope: "county", stateFips: "17", key: CENSUS_DEFAULT_API_KEY });
-    assert(keyed.includes("key="), "keyed geo lookup should include key param");
+    assert(!keyed.includes("key="), "proxy geo lookup should not expose key param");
     assert(keyed.includes("in=state%3A17"), "geo lookup county url missing state filter");
   });
 
