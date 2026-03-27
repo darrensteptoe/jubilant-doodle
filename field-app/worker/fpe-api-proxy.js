@@ -1,5 +1,6 @@
 const OPENWEATHER_BASE_URL = "https://api.openweathermap.org/data/2.5";
-const CENSUS_BASE_URL = "https://api.census.gov/data";
+const PROXY_MARKER_HEADER = "x-fpe-proxy";
+const PROXY_MARKER_VALUE = "field-app-40-weather-proxy";
 
 const RATE_WINDOW_MS = 60_000;
 const RATE_LIMIT_PER_WINDOW = 120;
@@ -14,6 +15,7 @@ function jsonResponse(payload, status = 200, extraHeaders = {}){
     status,
     headers: {
       "content-type": "application/json; charset=utf-8",
+      [PROXY_MARKER_HEADER]: PROXY_MARKER_VALUE,
       ...extraHeaders,
     },
   });
@@ -43,24 +45,24 @@ function resolveCorsOrigin(request, env){
   const origin = cleanText(request.headers.get("origin"));
   if (!origin) return "";
   const allowList = readAllowedOrigins(env);
-  if (!allowList.length){
-    return "";
-  }
-  if (allowList.includes("*")){
-    return "*";
-  }
+  if (!allowList.length) return "";
+  if (allowList.includes("*")) return "*";
   return allowList.includes(origin) ? origin : "";
 }
 
 function withCors(response, request, env){
   const allowOrigin = resolveCorsOrigin(request, env);
-  if (!allowOrigin) return response;
   const headers = new Headers(response.headers || {});
-  headers.set("access-control-allow-origin", allowOrigin);
-  headers.set("access-control-allow-methods", "GET, OPTIONS");
-  headers.set("access-control-allow-headers", "Accept, Content-Type");
-  const varyValue = headers.get("vary");
-  headers.set("vary", varyValue ? `${varyValue}, Origin` : "Origin");
+  if (!headers.get(PROXY_MARKER_HEADER)){
+    headers.set(PROXY_MARKER_HEADER, PROXY_MARKER_VALUE);
+  }
+  if (allowOrigin){
+    headers.set("access-control-allow-origin", allowOrigin);
+    headers.set("access-control-allow-methods", "GET, OPTIONS");
+    headers.set("access-control-allow-headers", "Accept, Content-Type");
+    const varyValue = headers.get("vary");
+    headers.set("vary", varyValue ? `${varyValue}, Origin` : "Origin");
+  }
   return new Response(response.body, {
     status: response.status,
     statusText: response.statusText,
@@ -153,48 +155,6 @@ function summarizeForecast3d(forecastPayload){
   });
 }
 
-function safeYear(rawYear, { min, max, fallback } = {}){
-  const text = cleanText(rawYear);
-  if (!/^\d{4}$/.test(text)) return fallback;
-  const year = Number(text);
-  if (!Number.isFinite(year)) return fallback;
-  if (Number.isFinite(min) && year < min) return fallback;
-  if (Number.isFinite(max) && year > max) return fallback;
-  return String(year);
-}
-
-function isSafeCensusClause(value){
-  return /^[A-Za-z0-9_:\-*,(). ]+$/.test(value);
-}
-
-function validateCensusQuery(url){
-  const getValue = cleanText(url.searchParams.get("get"));
-  const forValue = cleanText(url.searchParams.get("for"));
-  const inValues = url.searchParams.getAll("in").map((value) => cleanText(value)).filter((value) => !!value);
-
-  if (!getValue || getValue.length > 900 || !isSafeCensusClause(getValue)){
-    return { ok: false, code: "invalid_get", message: "Invalid Census get parameter." };
-  }
-  if (!forValue || forValue.length > 200 || !isSafeCensusClause(forValue)){
-    return { ok: false, code: "invalid_for", message: "Invalid Census for parameter." };
-  }
-  if (inValues.length > 12){
-    return { ok: false, code: "invalid_in_count", message: "Too many Census in parameters." };
-  }
-  for (const clause of inValues){
-    if (clause.length > 220 || !isSafeCensusClause(clause)){
-      return { ok: false, code: "invalid_in", message: "Invalid Census in parameter." };
-    }
-  }
-
-  return {
-    ok: true,
-    getValue,
-    forValue,
-    inValues,
-  };
-}
-
 async function fetchJsonUpstream(url){
   const response = await fetch(url, {
     method: "GET",
@@ -250,10 +210,16 @@ async function handleWeatherRequest(request, url, env){
   ]);
 
   if (!currentOut.ok){
-    return errorResponse(502, "weather_fetch_failed", `Current weather request failed: ${currentOut.message}`);
+    if (Number(currentOut.status) === 403){
+      return errorResponse(403, "UPSTREAM_FORBIDDEN", "Weather provider rejected the request (403).");
+    }
+    return errorResponse(502, "UPSTREAM_ERROR", `Current weather request failed: ${currentOut.message}`);
   }
   if (!forecastOut.ok){
-    return errorResponse(502, "forecast_fetch_failed", `Forecast request failed: ${forecastOut.message}`);
+    if (Number(forecastOut.status) === 403){
+      return errorResponse(403, "UPSTREAM_FORBIDDEN", "Weather provider rejected the forecast request (403).");
+    }
+    return errorResponse(502, "UPSTREAM_ERROR", `Forecast request failed: ${forecastOut.message}`);
   }
 
   const current = mapWeatherCurrent(currentOut.payload);
@@ -270,108 +236,15 @@ async function handleWeatherRequest(request, url, env){
   }, 200, { "cache-control": "public, max-age=180" });
 }
 
-async function handleCensusAcsRequest(request, url, env){
-  if (!withinRateLimit(request, "census")){
-    return errorResponse(429, "rate_limited", "Too many requests. Please retry shortly.");
-  }
-
-  const validation = validateCensusQuery(url);
-  if (!validation.ok){
-    return errorResponse(400, validation.code, validation.message);
-  }
-
-  const currentYear = new Date().getUTCFullYear();
-  const year = safeYear(url.searchParams.get("year"), {
-    min: 2009,
-    max: currentYear,
-    fallback: String(Math.max(2009, currentYear - 2)),
-  });
-
-  const params = new URLSearchParams();
-  params.set("get", validation.getValue);
-  params.set("for", validation.forValue);
-  for (const clause of validation.inValues){
-    params.append("in", clause);
-  }
-  const censusKey = cleanText(env.CENSUS_API_KEY);
-  if (censusKey){
-    params.set("key", censusKey);
-  }
-
-  const upstreamUrl = `${CENSUS_BASE_URL}/${encodeURIComponent(year)}/acs/acs5?${params.toString()}`;
-  const out = await fetchJsonUpstream(upstreamUrl);
-  if (!out.ok){
-    return errorResponse(502, "census_acs_failed", out.message);
-  }
-  return jsonResponse(out.payload, 200, { "cache-control": "public, max-age=180" });
-}
-
-async function handleCensusGeoRequest(request, url, env){
-  if (!withinRateLimit(request, "census")){
-    return errorResponse(429, "rate_limited", "Too many requests. Please retry shortly.");
-  }
-
-  const validation = validateCensusQuery(url);
-  if (!validation.ok){
-    return errorResponse(400, validation.code, validation.message);
-  }
-
-  const year = safeYear(url.searchParams.get("year"), {
-    min: 2010,
-    max: new Date().getUTCFullYear(),
-    fallback: "2020",
-  });
-
-  const params = new URLSearchParams();
-  params.set("get", validation.getValue);
-  params.set("for", validation.forValue);
-  for (const clause of validation.inValues){
-    params.append("in", clause);
-  }
-  const censusKey = cleanText(env.CENSUS_API_KEY);
-  if (censusKey){
-    params.set("key", censusKey);
-  }
-
-  const upstreamUrl = `${CENSUS_BASE_URL}/${encodeURIComponent(year)}/dec/pl?${params.toString()}`;
-  const out = await fetchJsonUpstream(upstreamUrl);
-  if (!out.ok){
-    return errorResponse(502, "census_geo_failed", out.message);
-  }
-  return jsonResponse(out.payload, 200, { "cache-control": "public, max-age=180" });
-}
-
-async function handleCensusVariablesRequest(request, url, env){
-  if (!withinRateLimit(request, "census")){
-    return errorResponse(429, "rate_limited", "Too many requests. Please retry shortly.");
-  }
-
-  const currentYear = new Date().getUTCFullYear();
-  const year = safeYear(url.searchParams.get("year"), {
-    min: 2009,
-    max: currentYear,
-    fallback: String(Math.max(2009, currentYear - 2)),
-  });
-
-  const params = new URLSearchParams();
-  const censusKey = cleanText(env.CENSUS_API_KEY);
-  if (censusKey){
-    params.set("key", censusKey);
-  }
-
-  const suffix = params.toString();
-  const upstreamUrl = `${CENSUS_BASE_URL}/${encodeURIComponent(year)}/acs/acs5/variables.json${suffix ? `?${suffix}` : ""}`;
-  const out = await fetchJsonUpstream(upstreamUrl);
-  if (!out.ok){
-    return errorResponse(502, "census_variables_failed", out.message);
-  }
-  return jsonResponse(out.payload, 200, { "cache-control": "public, max-age=900" });
-}
-
 export default {
   async fetch(request, env){
     if (request.method === "OPTIONS"){
-      return withCors(new Response(null, { status: 204 }), request, env);
+      return withCors(new Response(null, {
+        status: 204,
+        headers: {
+          [PROXY_MARKER_HEADER]: PROXY_MARKER_VALUE,
+        },
+      }), request, env);
     }
     if (request.method !== "GET"){
       return withCors(errorResponse(405, "method_not_allowed", "Only GET is supported."), request, env);
@@ -380,17 +253,17 @@ export default {
     const url = new URL(request.url);
     const path = normalizePath(url.pathname);
 
+    if (path === "/api/health"){
+      return withCors(jsonResponse({
+        ok: true,
+        code: "PROXY_OK",
+        service: "weather",
+        fetchedAt: new Date().toISOString(),
+      }), request, env);
+    }
+
     if (path === "/api/weather"){
       return withCors(await handleWeatherRequest(request, url, env), request, env);
-    }
-    if (path === "/api/census/acs"){
-      return withCors(await handleCensusAcsRequest(request, url, env), request, env);
-    }
-    if (path === "/api/census/geo"){
-      return withCors(await handleCensusGeoRequest(request, url, env), request, env);
-    }
-    if (path === "/api/census/variables"){
-      return withCors(await handleCensusVariablesRequest(request, url, env), request, env);
     }
 
     return withCors(errorResponse(404, "not_found", "Unknown API route."), request, env);

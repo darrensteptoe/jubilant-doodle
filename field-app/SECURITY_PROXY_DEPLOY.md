@@ -1,5 +1,9 @@
 # Security Proxy Deploy Steps
 
+This Worker now proxies weather only (`/api/weather`).
+
+Census is browser-direct to the public Census API (`https://api.census.gov/data`) and is no longer routed through Worker endpoints.
+
 ## 1) Install/authorize Wrangler
 
 ```bash
@@ -13,10 +17,10 @@ Edit [`wrangler.toml`](/Users/anakinskywalker/Downloads/field-app-40/wrangler.to
 
 - keep `main = "worker/fpe-api-proxy.js"`
 - set `name` for your account
-- if you use a Cloudflare-managed custom domain, add routes so `/api/*` is handled by this Worker
 - if app and Worker are cross-origin, set `CORS_ALLOWED_ORIGINS` to a comma-separated allowlist
+- if app is on a Cloudflare-managed zone and you want same-origin `/api/*`, add routes for `/api/*`
 
-Exact same-origin route format:
+Same-origin route format:
 
 ```toml
 routes = [
@@ -24,22 +28,13 @@ routes = [
 ]
 ```
 
-Important:
-
-- `github.io` hosting is not in your Cloudflare zone, so you cannot attach a same-origin Worker route to `https://darrensteptoe.github.io/api/*`.
-- For GitHub Pages, use cross-origin Worker calls and set the app API base to your Worker origin.
+Note: `github.io` is not your Cloudflare zone, so same-origin Worker routes cannot be attached to `https://darrensteptoe.github.io/api/*`.
 
 ## 3) Set secrets (server-side only)
 
 ```bash
 wrangler secret put OPENWEATHER_API_KEY
-wrangler secret put CENSUS_API_KEY
 ```
-
-Notes:
-
-- `OPENWEATHER_API_KEY` is required for `/api/weather`
-- `CENSUS_API_KEY` is optional (Worker will call Census without a key if omitted)
 
 ## 4) Deploy Worker
 
@@ -47,43 +42,29 @@ Notes:
 wrangler deploy
 ```
 
-## 5) Ensure app and Worker share origin for `/api/*`
+## 5) Configure app API base (for weather proxy)
 
-- Preferred: serve static app and Worker on the same hostname, with Worker bound to `/api/*`.
-- If not same origin, set one runtime config value before app boot:
-  - `window.__VICE_CONFIG__.API_PROXY_BASE = "https://<worker-host>/api"`
-  - (legacy compatible) `window.__FPE_API_PROXY_BASE__ = "https://<worker-host>/api"`
-- If you provide origin-only (for example `https://<worker-host>`), client routing now defaults to `https://<worker-host>/api/*`.
-- You can also set `<meta name="vice-api-proxy-base" content="https://<worker-host>/api">` in [`index.html`](/Users/anakinskywalker/Downloads/field-app-40/index.html).
+Set one runtime config value before app boot:
 
-## 5a) GitHub Pages production wiring (recommended)
+- `window.__VICE_CONFIG__.API_PROXY_BASE = "https://<worker-host>/api"`
+- (legacy) `window.__FPE_API_PROXY_BASE__ = "https://<worker-host>/api"`
+- or meta tag in [`index.html`](/Users/anakinskywalker/Downloads/field-app-40/index.html):
+  - `<meta name="vice-api-proxy-base" content="https://<worker-host>/api">`
 
-1. Keep Worker on `workers.dev` (or another non-github origin you control).
-2. Set Worker CORS allowlist:
-
-```toml
-[vars]
-CORS_ALLOWED_ORIGINS = "http://localhost:5173,https://darrensteptoe.github.io"
-```
-
-3. Set API base in app boot config:
-   - `window.__VICE_CONFIG__.API_PROXY_BASE = "https://<your-worker>.workers.dev/api"`
-   - or meta tag `vice-api-proxy-base` with that same value.
+If you provide origin-only (`https://<worker-host>`), client routing defaults to `/api/*` on that host.
 
 ## 6) Verify after deploy
 
-If same-origin routes are attached:
+Weather proxy:
 
 ```bash
-curl -i "https://<app-host>/api/weather?zip=60614"
-curl -i "https://<app-host>/api/census/geo?year=2020&get=NAME&for=state:*"
-curl -i "https://<app-host>/api/census/variables?year=2024"
+curl -i "https://<worker-host>/api/health"
+curl -i "https://<worker-host>/api/weather?zip=60614"
 ```
 
-If using cross-origin Worker (GitHub Pages pattern):
+Census direct (no Worker route expected):
 
 ```bash
-curl -i -H "Origin: https://darrensteptoe.github.io" "https://<worker-host>/api/weather?zip=60614"
-curl -i -H "Origin: https://darrensteptoe.github.io" "https://<worker-host>/api/census/geo?year=2020&get=NAME&for=state:*"
-curl -i -H "Origin: https://darrensteptoe.github.io" "https://<worker-host>/api/census/variables?year=2024"
+curl -i "https://api.census.gov/data/2024/acs/acs5/variables.json"
+curl -i "https://api.census.gov/data/2020/dec/pl?get=NAME&for=state:*"
 ```

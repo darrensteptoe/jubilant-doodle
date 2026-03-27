@@ -19,4 +19,3 @@ workers_dev = true
 
 # Configure these via `wrangler secret put` in each environment:
 # OPENWEATHER_API_KEY
-# CENSUS_API_KEY
