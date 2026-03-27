@@ -20,9 +20,10 @@ import {
   formatWholeNumber,
   roundWholeNumberByMode,
 } from "./utils.js";
+import { buildApiProxyUrl } from "../apiProxy.js";
 
 export const CENSUS_LOCAL_KEY = "fpe.census.apiKey";
-export const CENSUS_DEFAULT_API_KEY = "a59d216d186bced9d252633906350432d2805c74";
+export const CENSUS_DEFAULT_API_KEY = "";
 
 const ELECTION_CSV_BASE_COLUMNS = [
   "state_fips",
@@ -535,6 +536,7 @@ const TIGER_BOUNDARY_LAYERS = {
 
 const TIGER_BASE_URL = "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb";
 const TIGER_SERVICE_CATALOG_URL = `${TIGER_BASE_URL}?f=pjson`;
+const CENSUS_PROXY_NAMESPACE = "/census";
 let tigerVtdLayerCache = null;
 let latestAcs5YearResolved = "";
 let latestAcs5YearResolvePromise = null;
@@ -612,9 +614,10 @@ function fallbackLatestAcs5Year(nowYear = new Date().getFullYear()){
 }
 
 function buildAcsVariablesCatalogUrl(year, key){
-  const token = cleanText(key);
   const safeYear = normalizeAcsYear(year) || fallbackLatestAcs5Year();
-  return `https://api.census.gov/data/${encodeURIComponent(safeYear)}/${ACS_5YEAR_DATASET}/variables.json${token ? `?key=${encodeURIComponent(token)}` : ""}`;
+  return buildApiProxyUrl(`${CENSUS_PROXY_NAMESPACE}/variables`, [
+    ["year", safeYear],
+  ]);
 }
 
 function isValidAcsVariableCatalogPayload(payload){
@@ -1792,30 +1795,33 @@ export function buildAcsQueryUrl({ year, getVars, forClause, inClauses = [], key
   const inParts = Array.isArray(inClauses)
     ? inClauses.map((v) => cleanText(v)).filter((v) => !!v)
     : [];
-  const token = cleanText(key);
-  const params = [];
-  params.push(`get=${encodeURIComponent(vars)}`);
-  params.push(`for=${encodeURIComponent(forPart)}`);
+  const dataSetPath = cleanText(dataset).toLowerCase() === "dec/pl"
+    ? `${CENSUS_PROXY_NAMESPACE}/geo`
+    : `${CENSUS_PROXY_NAMESPACE}/acs`;
+  const params = [
+    ["year", y],
+    ["get", vars],
+    ["for", forPart],
+  ];
   for (const part of inParts){
-    params.push(`in=${encodeURIComponent(part)}`);
+    params.push(["in", part]);
   }
-  if (token) params.push(`key=${encodeURIComponent(token)}`);
-  return `https://api.census.gov/data/${encodeURIComponent(y)}/${dataset}?${params.join("&")}`;
+  return buildApiProxyUrl(dataSetPath, params);
 }
 
 export function buildGeoLookupUrl({ stateFips, scope, year = "2020", key }){
   const state = fips(stateFips, 2);
-  const token = cleanText(key);
   const forClause = scope === "state" ? "state:*" : scope === "county" ? "county:*" : "place:*";
   const inClauses = scope === "state" ? [] : [`state:${state}`];
-  const params = [];
-  params.push(`get=${encodeURIComponent("NAME")}`);
-  params.push(`for=${encodeURIComponent(forClause)}`);
+  const params = [
+    ["year", cleanText(year)],
+    ["get", "NAME"],
+    ["for", forClause],
+  ];
   for (const part of inClauses){
-    params.push(`in=${encodeURIComponent(part)}`);
+    params.push(["in", part]);
   }
-  if (token) params.push(`key=${encodeURIComponent(token)}`);
-  return `https://api.census.gov/data/${encodeURIComponent(cleanText(year))}/dec/pl?${params.join("&")}`;
+  return buildApiProxyUrl(`${CENSUS_PROXY_NAMESPACE}/geo`, params);
 }
 
 async function fetchJson(url, fetchImpl = globalThis.fetch){
