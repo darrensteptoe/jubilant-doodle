@@ -20,7 +20,6 @@ import {
   formatWholeNumber,
   roundWholeNumberByMode,
 } from "./utils.js";
-import { buildApiProxyUrl } from "../apiProxy.js";
 
 export const CENSUS_LOCAL_KEY = "fpe.census.apiKey";
 export const CENSUS_DEFAULT_API_KEY = "";
@@ -536,7 +535,7 @@ const TIGER_BOUNDARY_LAYERS = {
 
 const TIGER_BASE_URL = "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb";
 const TIGER_SERVICE_CATALOG_URL = `${TIGER_BASE_URL}?f=pjson`;
-const CENSUS_PROXY_NAMESPACE = "/census";
+const CENSUS_API_BASE = "https://api.census.gov/data";
 let tigerVtdLayerCache = null;
 let latestAcs5YearResolved = "";
 let latestAcs5YearResolvePromise = null;
@@ -613,11 +612,22 @@ function fallbackLatestAcs5Year(nowYear = new Date().getFullYear()){
   return String(latestLikelyPublished);
 }
 
+function buildCensusDataUrl(path, paramEntries = []){
+  const normalizedPath = cleanText(path).replace(/^\/+/, "");
+  const url = new URL(normalizedPath, `${CENSUS_API_BASE}/`);
+  for (const entry of Array.isArray(paramEntries) ? paramEntries : []){
+    if (!Array.isArray(entry) || entry.length < 2) continue;
+    const key = cleanText(entry[0]);
+    const value = cleanText(entry[1]);
+    if (!key || value === "") continue;
+    url.searchParams.append(key, value);
+  }
+  return url.toString();
+}
+
 function buildAcsVariablesCatalogUrl(year, key){
   const safeYear = normalizeAcsYear(year) || fallbackLatestAcs5Year();
-  return buildApiProxyUrl(`${CENSUS_PROXY_NAMESPACE}/variables`, [
-    ["year", safeYear],
-  ]);
+  return buildCensusDataUrl(`${safeYear}/acs/acs5/variables.json`);
 }
 
 function isValidAcsVariableCatalogPayload(payload){
@@ -1688,7 +1698,7 @@ export function evaluateCensusDependencyHealth(args = {}){
   const {
     fetchImpl,
     tigerBaseUrl = TIGER_BASE_URL,
-    censusApiBase = "https://api.census.gov/data",
+    censusApiBase = CENSUS_API_BASE,
     leafletCssUrl = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.css",
     leafletJsUrl = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.js",
     shpJsUrl = "https://unpkg.com/shpjs@6.2.0/dist/shp.min.js",
@@ -1788,7 +1798,7 @@ function encodeGetVars(vars){
   return deduped.join(",");
 }
 
-const API_PROXY_NON_JSON_ERROR = "API proxy returned HTML instead of JSON. Check Worker route wiring for /api/*.";
+const CENSUS_NON_JSON_ERROR = "Census endpoint returned HTML instead of JSON. Check Census request URL and host routing.";
 
 function isJsonContentType(response){
   const contentType = cleanText(response?.headers?.get?.("content-type")).toLowerCase();
@@ -1803,17 +1813,16 @@ export function buildAcsQueryUrl({ year, getVars, forClause, inClauses = [], key
     ? inClauses.map((v) => cleanText(v)).filter((v) => !!v)
     : [];
   const dataSetPath = cleanText(dataset).toLowerCase() === "dec/pl"
-    ? `${CENSUS_PROXY_NAMESPACE}/geo`
-    : `${CENSUS_PROXY_NAMESPACE}/acs`;
+    ? "dec/pl"
+    : "acs/acs5";
   const params = [
-    ["year", y],
     ["get", vars],
     ["for", forPart],
   ];
   for (const part of inParts){
     params.push(["in", part]);
   }
-  return buildApiProxyUrl(dataSetPath, params);
+  return buildCensusDataUrl(`${y}/${dataSetPath}`, params);
 }
 
 export function buildGeoLookupUrl({ stateFips, scope, year = "2020", key }){
@@ -1828,7 +1837,7 @@ export function buildGeoLookupUrl({ stateFips, scope, year = "2020", key }){
   for (const part of inClauses){
     params.push(["in", part]);
   }
-  return buildApiProxyUrl(`${CENSUS_PROXY_NAMESPACE}/geo`, params);
+  return buildCensusDataUrl(`${cleanText(year) || "2020"}/dec/pl`, params);
 }
 
 async function fetchJson(url, fetchImpl = globalThis.fetch){
@@ -1848,13 +1857,13 @@ async function fetchJson(url, fetchImpl = globalThis.fetch){
     throw new Error(`Census request failed (${status}): ${text}`);
   }
   if (!isJsonContentType(res)){
-    throw new Error(API_PROXY_NON_JSON_ERROR);
+    throw new Error(CENSUS_NON_JSON_ERROR);
   }
   let json = null;
   try{
     json = await res.json();
   } catch {
-    throw new Error(API_PROXY_NON_JSON_ERROR);
+    throw new Error(CENSUS_NON_JSON_ERROR);
   }
   if (!Array.isArray(json)){
     throw new Error("Unexpected Census response format.");
@@ -2179,7 +2188,15 @@ export async function fetchVariableCatalog({ year, key, fetchImpl } = {}){
     if (!text) text = res?.statusText || "Request failed";
     throw new Error(`Variable catalog request failed (${status}): ${text}`);
   }
-  const json = await res.json();
+  if (!isJsonContentType(res)){
+    throw new Error(CENSUS_NON_JSON_ERROR);
+  }
+  let json = null;
+  try{
+    json = await res.json();
+  } catch {
+    throw new Error(CENSUS_NON_JSON_ERROR);
+  }
   const vars = isValidAcsVariableCatalogPayload(json) ? Object.keys(json.variables) : [];
   return vars;
 }

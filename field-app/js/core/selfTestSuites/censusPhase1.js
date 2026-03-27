@@ -427,20 +427,22 @@ export function registerCensusPhase1Tests(ctx){
       inClauses: ["state:17", "county:031"],
       key: "abc123",
     });
-    assert(url.includes("/api/census/acs?"), "ACS proxy path missing in URL");
-    assert(url.includes("year=2024"), "year missing in proxy URL");
+    assert(url.startsWith("https://api.census.gov/data/"), "ACS URL should target Census API host");
+    assert(url.includes("/acs/acs5?"), "ACS dataset path missing in URL");
     assert(url.includes("for=tract%3A*"), "for clause missing");
     assert(url.includes("in=state%3A17"), "state in clause missing");
     assert(url.includes("in=county%3A031"), "county in clause missing");
     assert(!url.includes("key="), "client URL should not include key param");
+    assert(!url.includes("year="), "year should be part of path, not query");
   });
 
-  test("Census Phase1: geo lookup URL routes through proxy and strips client keys", () => {
+  test("Census Phase1: geo lookup URL contract and client-key stripping", () => {
     const keyless = buildGeoLookupUrl({ scope: "state", key: "" });
     assert(!keyless.includes("key="), "keyless geo lookup should omit key param");
-    assert(keyless.includes("/api/census/geo?"), "geo lookup should route through proxy endpoint");
+    assert(keyless.startsWith("https://api.census.gov/data/"), "geo lookup should target Census API host");
+    assert(keyless.includes("/dec/pl?"), "geo lookup should target Census dec/pl dataset");
     const keyed = buildGeoLookupUrl({ scope: "county", stateFips: "17", key: CENSUS_DEFAULT_API_KEY });
-    assert(!keyed.includes("key="), "proxy geo lookup should not expose key param");
+    assert(!keyed.includes("key="), "geo lookup should not expose key param");
     assert(keyed.includes("in=state%3A17"), "geo lookup county url missing state filter");
   });
 
