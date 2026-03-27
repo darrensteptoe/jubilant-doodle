@@ -1,5 +1,6 @@
 // @ts-check
 import { readJsonFile, roundWholeNumberByMode } from "./utils.js";
+import { loadState } from "./storage.js";
 import { PIPELINE_STAGES } from "./features/operations/schema.js";
 import {
   ensureOperationsDefaults,
@@ -9,6 +10,7 @@ import {
   remove,
 } from "./features/operations/store.js";
 import { computeOperationalRollups } from "./features/operations/rollups.js";
+import { computeOperationsPerformancePaceView } from "./features/operations/performancePace.js";
 import {
   formatOperationsDateTime,
   formatOperationsOneDecimal,
@@ -103,6 +105,8 @@ const els = {
   btnClearTraining: document.getElementById("btnClearTraining"),
   trMsg: document.getElementById("trMsg"),
   trnTbody: document.getElementById("trnTbody"),
+  opPerfOrganizerTbody: document.getElementById("opPerfOrganizerTbody"),
+  opPerfInsights: document.getElementById("opPerfInsights"),
 };
 
 function clean(value){
@@ -141,6 +145,10 @@ function fmtPct01(value){
 
 function fmtDate(value){
   return formatOperationsDateTime(clean(value), { fallback: "—" });
+}
+
+function fmtRatePerWeek(value){
+  return Number.isFinite(Number(value)) ? `${fmt1(value)}/wk` : "—";
 }
 
 function ratioText(numerator, denominator){
@@ -206,6 +214,96 @@ function officeMixSummaryText(officeMix){
       return `${office}: org ${organizers} | paid canv ${paidCanvassers} | vol ${volunteers}`;
     })
     .join(" · ");
+}
+
+function renderPerformancePace(view){
+  const office = (view && typeof view === "object" && view.office && typeof view.office === "object")
+    ? view.office
+    : {};
+  const organizers = Array.isArray(view?.organizers) ? view.organizers : [];
+  const insights = Array.isArray(view?.insights) ? view.insights : [];
+  const weekly = (office && typeof office.weekly === "object") ? office.weekly : {};
+
+  const goal = Number(office.goal);
+  const completed = Number(office.completedToDate);
+  const remaining = Number(office.remainingToGoal);
+  const percentComplete = Number(office.percentComplete);
+  const percentRemaining = Number(office.percentRemaining);
+  const requiredWeeklyPace = Number(office.requiredWeeklyPace);
+  const averageWeeklyPace = Number(office.averageWeeklyPace);
+  const activeVolunteers = Number(office.activeVolunteers);
+  const vbmsCollected = Number(office.vbmsCollected);
+  const thisWeek = Number(weekly.thisWeek);
+  const priorWeek = Number(weekly.priorWeek);
+  const paceStatus = clean(office.paceStatus) || "—";
+  const weeklyDirection = clean(weekly.direction);
+
+  setText("opPerfGoal", Number.isFinite(goal) ? fmtInt(goal) : "—");
+  setText("opPerfCompleted", Number.isFinite(completed) ? fmtInt(completed) : "—");
+  setText("opPerfRemaining", Number.isFinite(remaining) ? fmtInt(remaining) : "—");
+  setText("opPerfPctComplete", Number.isFinite(percentComplete) ? fmtPct01(percentComplete) : "—");
+  setText("opPerfPctRemaining", Number.isFinite(percentRemaining) ? fmtPct01(percentRemaining) : "—");
+  setText("opPerfRequiredWeekly", fmtRatePerWeek(requiredWeeklyPace));
+  setText("opPerfAverageWeekly", fmtRatePerWeek(averageWeeklyPace));
+  setText("opPerfPaceStatus", paceStatus);
+  setText("opPerfActiveVolunteers", Number.isFinite(activeVolunteers) ? fmtInt(activeVolunteers) : "—");
+  setText("opPerfVbms", Number.isFinite(vbmsCollected) ? fmtInt(vbmsCollected) : "—");
+  setText("opPerfThisWeek", Number.isFinite(thisWeek) ? fmtInt(thisWeek) : "—");
+  setText("opPerfPriorWeek", Number.isFinite(priorWeek) ? fmtInt(priorWeek) : "—");
+
+  const trendLabel = weeklyDirection === "up"
+    ? "Trend: improving vs prior week."
+    : (weeklyDirection === "down" ? "Trend: lower vs prior week." : "Trend: flat vs prior week.");
+  const goalSourceText = clean(view?.goalSource) === "goalSupportIds"
+    ? "Canonical source: goalSupportIds."
+    : "Canonical goal not found for this scope.";
+  const weeksText = Number.isFinite(Number(office.weeksRemaining))
+    ? `Weeks remaining: ${fmt1(office.weeksRemaining)}.`
+    : "Weeks remaining unavailable.";
+  setText("opPerfMeta", `${goalSourceText} ${weeksText} ${trendLabel}`);
+
+  if (els.opPerfOrganizerTbody){
+    els.opPerfOrganizerTbody.innerHTML = "";
+    if (!organizers.length){
+      const tr = document.createElement("tr");
+      tr.innerHTML = '<td class="muted" colspan="11">No organizer production rows available for this scope yet.</td>';
+      els.opPerfOrganizerTbody.appendChild(tr);
+    } else {
+      for (const row of organizers){
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td>${clean(row?.name) || "—"}</td>
+          <td class="num">${fmtInt(row?.completedThisWeek || 0)}</td>
+          <td class="num">${fmtInt(row?.completedToDate || 0)}</td>
+          <td class="num">${Number.isFinite(Number(row?.percentToShare)) ? fmtPct01(row.percentToShare) : "—"}</td>
+          <td class="num">${Number.isFinite(Number(row?.remainingToShare)) ? fmtInt(row.remainingToShare) : "—"}</td>
+          <td class="num">${fmtRatePerWeek(row?.requiredWeeklyPace)}</td>
+          <td class="num">${fmtRatePerWeek(row?.averageWeeklyPace)}</td>
+          <td class="num">${fmtInt(row?.activeVolunteers || 0)}</td>
+          <td class="num">${fmtInt(row?.vbmsCollected || 0)}</td>
+          <td>${clean(row?.status) || "—"}</td>
+          <td>${clean(row?.improvementCue) || "—"}</td>
+        `;
+        els.opPerfOrganizerTbody.appendChild(tr);
+      }
+    }
+  }
+
+  if (els.opPerfInsights){
+    els.opPerfInsights.innerHTML = "";
+    if (!insights.length){
+      const li = document.createElement("li");
+      li.className = "muted";
+      li.textContent = "No deterministic coaching insights yet for this scope.";
+      els.opPerfInsights.appendChild(li);
+    } else {
+      for (const insight of insights){
+        const li = document.createElement("li");
+        li.textContent = clean(insight);
+        els.opPerfInsights.appendChild(li);
+      }
+    }
+  }
 }
 
 function fillPersonSelect(selectEl, persons){
@@ -428,6 +526,13 @@ async function refreshDashboard(){
     turfEvents,
     options: { allowTurfFallbackAttempts: false },
   });
+  const scopedState = loadState(storeScope) || {};
+  const performancePace = computeOperationsPerformancePaceView({
+    stateSnapshot: scopedState,
+    persons,
+    shiftRecords,
+    turfEvents,
+  });
   const coverage = rollups.coverage || {};
   const prod = rollups.production || {};
   const workforce = rollups.workforce || {};
@@ -447,6 +552,7 @@ async function refreshDashboard(){
   setText("ovOrganizerSupervisionCapacity", fmtInt(workforce.organizerSupervisionCapacity || 0));
   setText("ovNote", `Production source: ${prod.source || "shift"} | Dedupe rule: ${dedupe.rule || "shift_primary_turf_coverage"}`);
   setText("ovOfficeMix", officeMixSummaryText(officeMix));
+  renderPerformancePace(performancePace);
 
   setText("recSourced", fmtInt(stageCounts.get("Sourced") || 0));
   setText("recContacted", fmtInt(stageCounts.get("Contacted") || 0));
