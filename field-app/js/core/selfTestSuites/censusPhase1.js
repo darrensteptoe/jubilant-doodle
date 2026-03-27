@@ -432,7 +432,7 @@ export function registerCensusPhase1Tests(ctx){
     assert(url.includes("for=tract%3A*"), "for clause missing");
     assert(url.includes("in=state%3A17"), "state in clause missing");
     assert(url.includes("in=county%3A031"), "county in clause missing");
-    assert(!url.includes("key="), "client URL should not include key param");
+    assert(url.includes("key=abc123"), "key missing");
     assert(!url.includes("year="), "year should be part of path, not query");
   });
 
@@ -442,8 +442,9 @@ export function registerCensusPhase1Tests(ctx){
     assert(keyless.startsWith("https://api.census.gov/data/"), "geo lookup should target Census API host");
     assert(keyless.includes("/dec/pl?"), "geo lookup should target Census dec/pl dataset");
     const keyed = buildGeoLookupUrl({ scope: "county", stateFips: "17", key: CENSUS_DEFAULT_API_KEY });
-    assert(!keyed.includes("key="), "geo lookup should not expose key param");
+    assert(keyed.includes("key="), "geo lookup should include key when provided");
     assert(keyed.includes("in=state%3A17"), "geo lookup county url missing state filter");
+    assert(!keyed.includes("year="), "geo lookup should not append year predicate");
   });
 
   test("Census Phase1: table parser and GEOID option mapping", () => {
