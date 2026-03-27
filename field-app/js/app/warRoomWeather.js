@@ -9,10 +9,10 @@ import {
   resolveSelectedZip,
   summarizeThreeDayForecast,
 } from "./weatherRiskRules.js";
-import { buildApiProxyUrl } from "../apiProxy.js";
 
-const WEATHER_PROXY_PATH = "/weather";
-const API_PROXY_NON_JSON_ERROR = "API proxy returned HTML instead of JSON. Check Worker route wiring for /api/*.";
+const OPENWEATHER_BASE_URL = "https://api.openweathermap.org/data/2.5";
+const WEATHER_KEY_REQUIRED_ERROR = "Weather API key missing. Enter a key and refresh weather.";
+const WEATHER_NON_JSON_ERROR = "Weather API returned HTML instead of JSON. Check API key and request path.";
 
 function isJsonContentType(response){
   const contentType = String(response?.headers?.get?.("content-type") || "").toLowerCase();
@@ -22,6 +22,7 @@ function isJsonContentType(response){
 export function makeDefaultWarRoomState(){
   return {
     weather: {
+      apiKey: "",
       officeZip: "",
       overrideZip: "",
       useOverrideZip: false,
@@ -81,6 +82,7 @@ export function ensureWarRoomStateShape(state, { nowDate = new Date() } = {}){
     ...defaults.weather,
     ...(state.warRoom.weather && typeof state.warRoom.weather === "object" ? state.warRoom.weather : {}),
   };
+  state.warRoom.weather.apiKey = String(state.warRoom.weather.apiKey || "").trim();
   state.warRoom.weather.officeZip = normalizeZip(state.warRoom.weather.officeZip);
   state.warRoom.weather.overrideZip = normalizeZip(state.warRoom.weather.overrideZip);
   state.warRoom.weather.selectedZip = normalizeZip(state.warRoom.weather.selectedZip);
@@ -189,66 +191,111 @@ function groupForecastIntoDays(forecastPayload){
   return summarizeThreeDayForecast(days);
 }
 
-export async function fetchWarRoomWeatherByZip(zip, {
-  fetchImpl = globalThis?.fetch,
-} = {}){
-  const normalizedZip = normalizeZip(zip);
-  if (!normalizedZip){
-    return { ok: false, code: "invalid_zip", message: "ZIP must be 5 digits." };
+function normalizeUpstreamStatusCode(responsePayload, fallbackStatus){
+  const payloadCode = Number(responsePayload?.cod);
+  if (Number.isFinite(payloadCode) && payloadCode >= 100){
+    return payloadCode;
   }
-  if (typeof fetchImpl !== "function"){
-    return { ok: false, code: "fetch_unavailable", message: "Weather fetch unavailable in this environment." };
-  }
-  const proxyUrl = buildApiProxyUrl(WEATHER_PROXY_PATH, [["zip", normalizedZip]]);
-  const response = await fetchImpl(proxyUrl, {
+  const status = Number(fallbackStatus);
+  return Number.isFinite(status) && status >= 100 ? status : 0;
+}
+
+async function fetchWeatherUpstreamJson(url, fetchImpl){
+  const response = await fetchImpl(url, {
     method: "GET",
     headers: { Accept: "application/json" },
   });
   if (!response?.ok){
-    return {
-      ok: false,
-      code: "weather_proxy_failed",
-      message: `Weather proxy request failed (${response?.status || "unknown"}).`,
-    };
+    const status = Number(response?.status || 0);
+    let message = "";
+    try{
+      const text = String(await response.text()).trim();
+      if (text){
+        message = text.length > 240 ? `${text.slice(0, 240)}…` : text;
+      }
+    } catch {}
+    if (!message){
+      message = String(response?.statusText || "Request failed");
+    }
+    return { ok: false, status, message };
   }
   if (!isJsonContentType(response)){
-    return {
-      ok: false,
-      code: "weather_proxy_non_json",
-      message: API_PROXY_NON_JSON_ERROR,
-    };
+    return { ok: false, status: Number(response?.status || 0), message: WEATHER_NON_JSON_ERROR };
   }
-  let proxyPayload = null;
+  let payload = null;
   try{
-    proxyPayload = await response.json();
+    payload = await response.json();
   } catch {
+    return { ok: false, status: Number(response?.status || 0), message: WEATHER_NON_JSON_ERROR };
+  }
+  const providerStatus = normalizeUpstreamStatusCode(payload, response?.status);
+  if (providerStatus >= 400){
     return {
       ok: false,
-      code: "weather_proxy_bad_json",
-      message: API_PROXY_NON_JSON_ERROR,
+      status: providerStatus,
+      message: String(payload?.message || `Weather provider returned ${providerStatus}.`),
     };
   }
-  if (!proxyPayload?.ok){
+  return { ok: true, payload };
+}
+
+function weatherErrorCodeFromStatus(status){
+  const normalized = Number(status);
+  if (normalized === 401 || normalized === 403) return "weather_upstream_forbidden";
+  if (normalized === 404) return "weather_upstream_not_found";
+  if (normalized === 429) return "weather_upstream_rate_limited";
+  return "weather_upstream_error";
+}
+
+export async function fetchWarRoomWeatherByZip(zip, {
+  fetchImpl = globalThis?.fetch,
+  apiKey = "",
+} = {}){
+  const normalizedZip = normalizeZip(zip);
+  const normalizedApiKey = String(apiKey || "").trim();
+  if (!normalizedZip){
+    return { ok: false, code: "invalid_zip", message: "ZIP must be 5 digits." };
+  }
+  if (!normalizedApiKey){
+    return { ok: false, code: "weather_key_missing", message: WEATHER_KEY_REQUIRED_ERROR };
+  }
+  if (typeof fetchImpl !== "function"){
+    return { ok: false, code: "fetch_unavailable", message: "Weather fetch unavailable in this environment." };
+  }
+  const currentUrl = `${OPENWEATHER_BASE_URL}/weather?zip=${encodeURIComponent(normalizedZip)},US&appid=${encodeURIComponent(normalizedApiKey)}&units=imperial`;
+  const forecastUrl = `${OPENWEATHER_BASE_URL}/forecast?zip=${encodeURIComponent(normalizedZip)},US&appid=${encodeURIComponent(normalizedApiKey)}&units=imperial`;
+  const [currentResult, forecastResult] = await Promise.all([
+    fetchWeatherUpstreamJson(currentUrl, fetchImpl),
+    fetchWeatherUpstreamJson(forecastUrl, fetchImpl),
+  ]);
+
+  if (!currentResult.ok){
+    const status = Number(currentResult?.status || 0);
     return {
       ok: false,
-      code: String(proxyPayload?.code || "weather_proxy_error"),
-      message: String(proxyPayload?.message || "Weather proxy request failed."),
+      code: weatherErrorCodeFromStatus(status),
+      message: `Current weather request failed (${status || "unknown"}): ${String(currentResult?.message || "Request failed")}`,
     };
   }
 
-  const current = proxyPayload?.current && typeof proxyPayload.current === "object"
-    ? proxyPayload.current
-    : mapCurrentPayload(proxyPayload?.currentPayload);
-  const forecast3d = Array.isArray(proxyPayload?.forecast3d)
-    ? summarizeThreeDayForecast(proxyPayload.forecast3d.slice(0, 3))
-    : groupForecastIntoDays(proxyPayload?.forecastPayload);
+  if (!forecastResult.ok){
+    const status = Number(forecastResult?.status || 0);
+    return {
+      ok: false,
+      code: weatherErrorCodeFromStatus(status),
+      message: `Forecast request failed (${status || "unknown"}): ${String(forecastResult?.message || "Request failed")}`,
+    };
+  }
+
+  const current = mapCurrentPayload(currentResult.payload);
+  const forecast3d = groupForecastIntoDays(forecastResult.payload);
   const today = forecast3d[0] || null;
   const risk = deriveWeatherRisk({ current, today });
 
   return {
     ok: true,
     zip: normalizedZip,
-    fetchedAt: String(proxyPayload?.fetchedAt || new Date().toISOString()),
+    fetchedAt: new Date().toISOString(),
     current,
     forecast3d,
     risk,
@@ -333,6 +380,7 @@ export function buildWarRoomWeatherView(state, { nowDate = new Date() } = {}){
   const adjustmentActive = isTodayOnlyAdjustmentActive(adjustment, nowDate);
   const todayDate = new Date(nowDate).toISOString().slice(0, 10);
   return {
+    apiKey: String(weather.apiKey || ""),
     officeZip: weather.officeZip,
     overrideZip: weather.overrideZip,
     useOverrideZip: !!weather.useOverrideZip,

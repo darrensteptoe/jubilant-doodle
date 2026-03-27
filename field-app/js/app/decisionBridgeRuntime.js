@@ -801,7 +801,9 @@ export function createDecisionBridgeRuntime(deps = {}){
     const warRoom = decisionBridgeEnsureWarRoomState();
     const weather = warRoom?.weather || {};
     const key = String(field || "").trim();
-    if (key === "officeZip"){
+    if (key === "apiKey"){
+      weather.apiKey = String(value == null ? "" : value).trim();
+    } else if (key === "officeZip"){
       weather.officeZip = normalizeZip(value);
     } else if (key === "overrideZip"){
       weather.overrideZip = normalizeZip(value);
@@ -843,6 +845,7 @@ export function createDecisionBridgeRuntime(deps = {}){
     const warRoom = decisionBridgeEnsureWarRoomState();
     const weather = warRoom?.weather || {};
     const selectedZip = resolveSelectedZip(weather);
+    const weatherApiKey = String(weather?.apiKey || "").trim();
     if (!selectedZip){
       weather.status = "error";
       weather.error = "Select a ZIP before refreshing weather.";
@@ -850,13 +853,20 @@ export function createDecisionBridgeRuntime(deps = {}){
       refreshLegacyDecisionManagerIfMounted();
       return { ok: false, code: "missing_zip", view: decisionBridgeStateView() };
     }
+    if (!weatherApiKey){
+      weather.status = "error";
+      weather.error = "Enter a Weather API key before refreshing weather.";
+      persist();
+      refreshLegacyDecisionManagerIfMounted();
+      return { ok: false, code: "weather_key_missing", view: decisionBridgeStateView() };
+    }
   
     weather.status = "loading";
     weather.error = "";
     refreshLegacyDecisionManagerIfMounted();
   
     try{
-      const payload = await fetchWarRoomWeatherByZip(selectedZip);
+      const payload = await fetchWarRoomWeatherByZip(selectedZip, { apiKey: weatherApiKey });
       applyWeatherObservationToState(state, payload, { nowDate: new Date() });
       const mode = state?.warRoom?.weatherAdjustment?.mode || WEATHER_MODE_OBSERVE_ONLY;
       if (mode === WEATHER_MODE_TODAY_ONLY){

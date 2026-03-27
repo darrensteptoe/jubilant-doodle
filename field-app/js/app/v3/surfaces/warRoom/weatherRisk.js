@@ -23,18 +23,20 @@ export function syncWarRoomWeatherRisk(view, helpers = {}) {
   const weather = warRoom.weather || {};
   const hasSession = !!view.session;
 
+  syncInput("v3DecisionWeatherApiKey", weather.apiKey || "");
   syncInput("v3DecisionWeatherOfficeZip", weather.officeZip || "");
   syncInput("v3DecisionWeatherOverrideZip", weather.overrideZip || "");
   syncSelectValue("v3DecisionWeatherMode", weather.mode || "observe_only");
   setChecked("v3DecisionWeatherUseOverride", !!weather.useOverrideZip);
 
+  setDisabled("v3DecisionWeatherApiKey", !hasSession);
   setDisabled("v3DecisionWeatherOfficeZip", !hasSession);
   setDisabled("v3DecisionWeatherOverrideZip", !hasSession);
   setDisabled("v3DecisionWeatherUseOverride", !hasSession);
   setDisabled("v3DecisionWeatherMode", !hasSession);
   setDisabled("v3BtnDecisionWeatherRefresh", !hasSession);
 
-  setText("v3DecisionWeatherStatus", weather.error ? weather.error : (weather.status || "idle"));
+  setText("v3DecisionWeatherStatus", buildWeatherStatusText(weather));
   setText("v3DecisionWeatherFieldRisk", weather.fieldExecutionRisk || "—");
   setText("v3DecisionWeatherTurnoutRisk", weather.electionDayTurnoutRisk || "—");
   setText("v3DecisionWeatherZip", weather.selectedZip || "—");
@@ -67,6 +69,7 @@ export function bindWarRoomWeatherRiskEvents(context = {}) {
   on("v3DecisionWeatherOfficeZip", "input", () => run((api) => api.setWeatherField?.("officeZip", valueOf("v3DecisionWeatherOfficeZip"))));
   on("v3DecisionWeatherOverrideZip", "input", () => run((api) => api.setWeatherField?.("overrideZip", valueOf("v3DecisionWeatherOverrideZip"))));
   on("v3DecisionWeatherUseOverride", "change", () => run((api) => api.setWeatherField?.("useOverrideZip", checkedOf("v3DecisionWeatherUseOverride"))));
+  on("v3DecisionWeatherApiKey", "change", () => run((api) => api.setWeatherField?.("apiKey", valueOf("v3DecisionWeatherApiKey"))));
   on("v3DecisionWeatherMode", "change", () => run((api) => api.setWeatherMode?.(valueOf("v3DecisionWeatherMode"))));
   on("v3BtnDecisionWeatherRefresh", "click", () => run((api) => api.refreshWeather?.()));
 }
@@ -161,4 +164,20 @@ function buildWeatherAdjustmentBanner(weather) {
   const volunteer = formatFixedNumber(v, 2);
   const turnoutBump = formatFixedNumber(t * 100, 1);
   return `Today-only adjustment active (${date}): doors x${doors}, volunteer show-rate x${volunteer}, turnout risk +${turnoutBump} pts.`;
+}
+
+function buildWeatherStatusText(weather) {
+  const src = weather && typeof weather === "object" ? weather : {};
+  const error = String(src?.error || "").trim();
+  if (error) {
+    return error;
+  }
+  const status = String(src?.status || "").trim().toLowerCase();
+  if (status === "loading") {
+    return "Loading weather context…";
+  }
+  if (status === "ok") {
+    return "Weather context loaded.";
+  }
+  return "Enter a Weather API key and ZIP, then refresh weather.";
 }

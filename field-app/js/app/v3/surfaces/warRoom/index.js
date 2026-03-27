@@ -45,6 +45,7 @@ const WAR_ROOM_V3_TRACE_AUTO_MAX_ATTEMPTS = 16;
 const WAR_ROOM_V3_TRACE_AUTO_RETRY_MS = 80;
 const WAR_ROOM_V3_TRACE_CONTROL_IDS = Object.freeze([
   "v3DecisionBudget",
+  "v3DecisionWeatherApiKey",
   "v3DecisionWeatherOfficeZip",
 ]);
 const WAR_ROOM_V3_DIAGNOSTICS_ACTION_ID = "v3BtnDecisionCaptureReview";
@@ -446,7 +447,11 @@ export function renderWarRoomSurface(mount) {
     </div>
     <div class="fpe-contained-block" id="v3DecisionWeatherModuleBlock">
       <div class="fpe-control-label">Weather & Field Risk (ZIP-driven)</div>
-      <div class="fpe-field-grid fpe-field-grid--3">
+      <div class="fpe-field-grid fpe-field-grid--2">
+        <div class="field">
+          <label class="fpe-control-label" for="v3DecisionWeatherApiKey">Weather API key</label>
+          <input autocomplete="off" class="fpe-input" id="v3DecisionWeatherApiKey" placeholder="Enter weather API key" type="password"/>
+        </div>
         <div class="field">
           <label class="fpe-control-label" for="v3DecisionWeatherOfficeZip">Office ZIP</label>
           <input class="fpe-input" id="v3DecisionWeatherOfficeZip" inputmode="numeric" maxlength="5" type="text"/>
@@ -748,6 +753,9 @@ function readWarRoomCanonicalByControlId(controlId, view = null) {
   if (controlId === "v3DecisionBudget") {
     return sourceView?.session?.constraints?.budget ?? "";
   }
+  if (controlId === "v3DecisionWeatherApiKey") {
+    return sourceView?.warRoom?.weather?.apiKey ?? "";
+  }
   if (controlId === "v3DecisionWeatherOfficeZip") {
     return sourceView?.warRoom?.weather?.officeZip ?? "";
   }
@@ -872,6 +880,9 @@ function bindWarRoomV3ControlLifecycleTrace(controlId) {
 function resolveWarRoomV3ProbeValue(controlId, control) {
   if (controlId === "v3DecisionBudget") {
     return "1234";
+  }
+  if (controlId === "v3DecisionWeatherApiKey") {
+    return "demo_weather_key";
   }
   if (controlId === "v3DecisionWeatherOfficeZip") {
     return "60614";

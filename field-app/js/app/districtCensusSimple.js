@@ -1,7 +1,6 @@
 import { buildAreaResolverCacheKey } from "../core/areaResolver.js";
 import { buildGeoEvidenceMapLayer } from "../core/districtEvidence.js";
 import { formatPercentFromUnit, formatWholeNumberByMode } from "../core/utils.js";
-import { buildApiProxyUrl } from "../apiProxy.js";
 import { renderIntelGeoMap, resetIntelGeoBoundaryCache } from "./intelGeoMap.js";
 
 const STATE_LABEL_BY_FIPS = {
@@ -71,6 +70,7 @@ const DEFAULT_ACS_VARIABLES = [
 const ACS_VARIABLE_LIMIT = 60;
 const ACS_CATALOG_DISPLAY_LIMIT = 500;
 const DEFAULT_CENSUS_API_KEY = "";
+const CENSUS_API_BASE = "https://api.census.gov/data";
 
 function str(v){
   return String(v == null ? "" : v).trim();
@@ -234,30 +234,49 @@ function normalizeAcsCatalog(payload){
   return out;
 }
 
-function buildCensusGeoProxyUrl({ year = "2020", get, forClause, inClause = "" } = {}){
+function buildCensusDataUrl(path, params = []){
+  const normalizedPath = str(path).replace(/^\/+/, "");
+  const url = new URL(normalizedPath, `${CENSUS_API_BASE}/`);
+  for (const entry of Array.isArray(params) ? params : []){
+    if (!Array.isArray(entry) || entry.length < 2) continue;
+    const key = str(entry[0]);
+    const value = str(entry[1]);
+    if (!key || value === "") continue;
+    url.searchParams.append(key, value);
+  }
+  return url.toString();
+}
+
+function buildCensusGeoUrl({ year = "2020", get, forClause, inClause = "" } = {}){
   const params = [
-    ["year", str(year)],
     ["get", str(get)],
     ["for", str(forClause)],
   ];
   const inText = str(inClause);
   if (inText) params.push(["in", inText]);
-  return buildApiProxyUrl("/census/geo", params);
+  return buildCensusDataUrl(`${str(year) || "2020"}/dec/pl`, params);
 }
 
-function buildCensusAcsProxyUrl({ year, get, forClause, inClause = "" } = {}){
+function buildCensusAcsUrl({ year, get, forClause, inClause = "" } = {}){
   const params = [
-    ["year", str(year)],
     ["get", str(get)],
     ["for", str(forClause)],
   ];
   const inText = str(inClause);
   if (inText) params.push(["in", inText]);
-  return buildApiProxyUrl("/census/acs", params);
+  return buildCensusDataUrl(`${str(year) || "2024"}/acs/acs5`, params);
 }
 
-function buildCensusVariablesProxyUrl(year){
-  return buildApiProxyUrl("/census/variables", [["year", str(year)]]);
+function buildCensusVariablesUrl(year){
+  return buildCensusDataUrl(`${str(year) || "2024"}/acs/acs5/variables.json`);
+}
+
+function withApiKey(url, apiKey){
+  const key = str(apiKey);
+  if (!key) return url;
+  const out = new URL(url);
+  out.searchParams.set("key", key);
+  return out.toString();
 }
 
 function ensureScenarioShape(state){
@@ -454,7 +473,7 @@ function buildLookupGeoRequests(area){
         for: forClause,
         in: row.inClause,
       });
-      push(buildCensusGeoProxyUrl({
+      push(buildCensusGeoUrl({
         year: "2020",
         get: params.get("get"),
         forClause: params.get("for"),
@@ -472,7 +491,7 @@ function buildLookupGeoRequests(area){
       for: forClause,
       in: inClause,
     });
-    push(buildCensusGeoProxyUrl({
+    push(buildCensusGeoUrl({
       year: "2020",
       get: params.get("get"),
       forClause: params.get("for"),
@@ -488,7 +507,7 @@ function buildLookupGeoRequests(area){
       for: forClause,
       in: inClause,
     });
-    push(buildCensusGeoProxyUrl({
+    push(buildCensusGeoUrl({
       year: "2020",
       get: params.get("get"),
       forClause: params.get("for"),
@@ -522,7 +541,7 @@ function buildCensusGeoRequests(area){
         for: forClause,
         in: row.inClause,
       });
-      push(buildCensusGeoProxyUrl({
+      push(buildCensusGeoUrl({
         year: "2020",
         get: params.get("get"),
         forClause: params.get("for"),
@@ -540,7 +559,7 @@ function buildCensusGeoRequests(area){
       for: forClause,
       in: inClause,
     });
-    push(buildCensusGeoProxyUrl({
+    push(buildCensusGeoUrl({
       year: "2020",
       get: params.get("get"),
       forClause: params.get("for"),
@@ -556,7 +575,7 @@ function buildCensusGeoRequests(area){
       for: forClause,
       in: inClause,
     });
-    push(buildCensusGeoProxyUrl({
+    push(buildCensusGeoUrl({
       year: "2020",
       get: params.get("get"),
       forClause: params.get("for"),
@@ -772,17 +791,18 @@ function acsYearOptions(){
 
 async function fetchJson(url, apiKey = ""){
   if (typeof fetch !== "function") throw new Error("Browser fetch API is unavailable.");
-  const res = await fetch(url, { method: "GET", headers: { Accept: "application/json" } });
+  const finalUrl = withApiKey(url, apiKey);
+  const res = await fetch(finalUrl, { method: "GET", headers: { Accept: "application/json" } });
   if (!res?.ok) throw new Error(`Request failed (HTTP ${res?.status || "?"}).`);
   const contentType = str(res?.headers?.get?.("content-type")).toLowerCase();
   const isJson = contentType.includes("application/json") || contentType.includes("+json");
   if (!isJson){
-    throw new Error("API proxy returned HTML instead of JSON. Check Worker route wiring for /api/*.");
+    throw new Error("Census endpoint returned HTML instead of JSON. Check Census request URL and host routing.");
   }
   try{
     return await res.json();
   } catch {
-    throw new Error("API proxy returned HTML instead of JSON. Check Worker route wiring for /api/*.");
+    throw new Error("Census endpoint returned HTML instead of JSON. Check Census request URL and host routing.");
   }
 }
 
@@ -793,7 +813,7 @@ async function resolveAcsYear(preference, apiKey = ""){
   const max = now.getUTCFullYear() - 1;
   const min = Math.max(2009, max - 15);
   for (let year = max; year >= min; year -= 1){
-    const url = buildCensusAcsProxyUrl({
+    const url = buildCensusAcsUrl({
       year: String(year),
       get: "NAME",
       forClause: "us:1",
@@ -809,13 +829,13 @@ async function resolveAcsYear(preference, apiKey = ""){
 async function fetchLookupPayload(area, apiKey = ""){
   const stateFips = normalizeStateFips(area.stateFips);
   const resolution = normalizeAreaResolutionInput(area.resolution);
-  const countyUrl = buildCensusGeoProxyUrl({
+  const countyUrl = buildCensusGeoUrl({
     year: "2020",
     get: "NAME",
     forClause: "county:*",
     inClause: `state:${stateFips}`,
   });
-  const placeUrl = buildCensusGeoProxyUrl({
+  const placeUrl = buildCensusGeoUrl({
     year: "2020",
     get: "NAME",
     forClause: "place:*",
@@ -899,7 +919,7 @@ async function fetchAcsRowsByCounty(stateFips, resolution, counties, acsYear, va
         ? `state:${stateFips} county:${county3} tract:*`
         : `state:${stateFips} county:${county3}`,
     });
-    const url = buildCensusAcsProxyUrl({
+    const url = buildCensusAcsUrl({
       year: acsYear,
       get: params.get("get"),
       forClause: params.get("for"),
@@ -1359,7 +1379,7 @@ async function handleLoadAcsVariableCatalog(state){
     setMessage(state, "variables", `Could not resolve ACS year: ${str(err?.message || err)}`, "warn");
     return;
   }
-  const url = buildCensusVariablesProxyUrl(year);
+  const url = buildCensusVariablesUrl(year);
   let payload = null;
   try{
     payload = await fetchJson(url, apiKey);
