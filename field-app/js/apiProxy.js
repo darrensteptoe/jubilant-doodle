@@ -1,6 +1,9 @@
 const DEFAULT_PROXY_BASE = "/api";
 const DEFAULT_PROXY_ORIGIN = "https://proxy.invalid";
 const PROXY_BASE_GLOBAL_KEY = "__FPE_API_PROXY_BASE__";
+const VICE_CONFIG_KEY = "__VICE_CONFIG__";
+const VICE_PROXY_BASE_KEY = "API_PROXY_BASE";
+const PROXY_BASE_META_NAMES = ["fpe-api-proxy-base", "vice-api-proxy-base"];
 
 function cleanText(value){
   return String(value == null ? "" : value).trim();
@@ -20,14 +23,26 @@ function readMetaProxyBase(){
   if (typeof document === "undefined" || typeof document.querySelector !== "function"){
     return "";
   }
-  const tag = document.querySelector('meta[name="fpe-api-proxy-base"]');
-  const content = cleanText(tag?.getAttribute?.("content"));
-  return cleanBasePath(content);
+  for (const name of PROXY_BASE_META_NAMES){
+    const tag = document.querySelector(`meta[name="${name}"]`);
+    const content = cleanText(tag?.getAttribute?.("content"));
+    const base = cleanBasePath(content);
+    if (base) return base;
+  }
+  return "";
+}
+
+function readViceConfigProxyBase(){
+  const config = globalThis?.[VICE_CONFIG_KEY];
+  if (!config || typeof config !== "object") return "";
+  return cleanBasePath(config[VICE_PROXY_BASE_KEY]);
 }
 
 export function resolveApiProxyBase(){
   const runtimeBase = cleanBasePath(globalThis?.[PROXY_BASE_GLOBAL_KEY]);
   if (runtimeBase) return runtimeBase;
+  const viceConfigBase = readViceConfigProxyBase();
+  if (viceConfigBase) return viceConfigBase;
   const metaBase = readMetaProxyBase();
   if (metaBase) return metaBase;
   return DEFAULT_PROXY_BASE;
@@ -36,8 +51,11 @@ export function resolveApiProxyBase(){
 function joinProxyPath(base, path){
   const normalizedPath = `/${cleanText(path).replace(/^\/+/, "")}`;
   if (/^https?:\/\//i.test(base)){
-    const url = new URL(normalizedPath, `${base}/`);
-    return `${url.origin}${url.pathname}`;
+    const originUrl = new URL(base);
+    const pathText = cleanText(originUrl.pathname).replace(/^\/+/, "").replace(/\/+$/, "");
+    const basePath = pathText ? `/${pathText}` : DEFAULT_PROXY_BASE;
+    const joinedPath = `${basePath === "/" ? "" : basePath}${normalizedPath}`.replace(/\/{2,}/g, "/");
+    return `${originUrl.origin}${joinedPath || "/"}`;
   }
   return `${base}${normalizedPath}`.replace(/\/{2,}/g, "/");
 }
