@@ -1788,6 +1788,13 @@ function encodeGetVars(vars){
   return deduped.join(",");
 }
 
+const API_PROXY_NON_JSON_ERROR = "API proxy returned HTML instead of JSON. Check Worker route wiring for /api/*.";
+
+function isJsonContentType(response){
+  const contentType = cleanText(response?.headers?.get?.("content-type")).toLowerCase();
+  return contentType.includes("application/json") || contentType.includes("+json");
+}
+
 export function buildAcsQueryUrl({ year, getVars, forClause, inClauses = [], key, dataset = ACS_5YEAR_DATASET }){
   const y = getLatestAcs5Year();
   const vars = encodeGetVars(getVars || []);
@@ -1840,7 +1847,15 @@ async function fetchJson(url, fetchImpl = globalThis.fetch){
     if (!text) text = res?.statusText || "Request failed";
     throw new Error(`Census request failed (${status}): ${text}`);
   }
-  const json = await res.json();
+  if (!isJsonContentType(res)){
+    throw new Error(API_PROXY_NON_JSON_ERROR);
+  }
+  let json = null;
+  try{
+    json = await res.json();
+  } catch {
+    throw new Error(API_PROXY_NON_JSON_ERROR);
+  }
   if (!Array.isArray(json)){
     throw new Error("Unexpected Census response format.");
   }
