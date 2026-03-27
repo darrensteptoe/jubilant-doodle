@@ -14,6 +14,7 @@ Edit [`wrangler.toml`](/Users/anakinskywalker/Downloads/field-app-40/wrangler.to
 - keep `main = "worker/fpe-api-proxy.js"`
 - set `name` for your account
 - if you use a custom domain route, add routes so `/api/*` is handled by this Worker
+- if app and Worker are cross-origin, set `CORS_ALLOWED_ORIGINS` to a comma-separated allowlist
 
 ## 3) Set secrets (server-side only)
 
@@ -36,7 +37,10 @@ wrangler deploy
 ## 5) Ensure app and Worker share origin for `/api/*`
 
 - Preferred: serve static app and Worker on the same hostname, with Worker bound to `/api/*`.
-- If not same origin, expose `window.__FPE_API_PROXY_BASE__` to the Worker origin path before app boot.
+- If not same origin, set one runtime config value before app boot:
+  - `window.__VICE_CONFIG__.API_PROXY_BASE = "https://<worker-host>/api"`
+  - (legacy compatible) `window.__FPE_API_PROXY_BASE__ = "https://<worker-host>/api"`
+- If you provide origin-only (for example `https://<worker-host>`), client routing now defaults to `https://<worker-host>/api/*`.
 
 ## 6) Verify after deploy
 

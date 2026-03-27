@@ -6,6 +6,10 @@ workers_dev = true
 [vars]
 # Optional runtime override for API proxy base path in clients:
 # FPE_API_PROXY_BASE = "/api"
+#
+# Optional comma-separated browser origin allowlist for CORS when app and Worker
+# are on different origins (for example GitHub Pages + workers.dev):
+# CORS_ALLOWED_ORIGINS = "http://localhost:5173,https://darrensteptoe.github.io"
 
 # Configure these via `wrangler secret put` in each environment:
 # OPENWEATHER_API_KEY

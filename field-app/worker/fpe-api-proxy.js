@@ -30,6 +30,44 @@ function normalizePath(pathname){
   return withoutTrailing || "/";
 }
 
+function readAllowedOrigins(env){
+  const raw = cleanText(env.CORS_ALLOWED_ORIGINS);
+  if (!raw) return [];
+  return raw
+    .split(",")
+    .map((part) => cleanText(part))
+    .filter((part) => !!part);
+}
+
+function resolveCorsOrigin(request, env){
+  const origin = cleanText(request.headers.get("origin"));
+  if (!origin) return "";
+  const allowList = readAllowedOrigins(env);
+  if (!allowList.length){
+    return "";
+  }
+  if (allowList.includes("*")){
+    return "*";
+  }
+  return allowList.includes(origin) ? origin : "";
+}
+
+function withCors(response, request, env){
+  const allowOrigin = resolveCorsOrigin(request, env);
+  if (!allowOrigin) return response;
+  const headers = new Headers(response.headers || {});
+  headers.set("access-control-allow-origin", allowOrigin);
+  headers.set("access-control-allow-methods", "GET, OPTIONS");
+  headers.set("access-control-allow-headers", "Accept, Content-Type");
+  const varyValue = headers.get("vary");
+  headers.set("vary", varyValue ? `${varyValue}, Origin` : "Origin");
+  return new Response(response.body, {
+    status: response.status,
+    statusText: response.statusText,
+    headers,
+  });
+}
+
 function readClientIp(request){
   const cf = cleanText(request.headers.get("cf-connecting-ip"));
   if (cf) return cf;
@@ -332,26 +370,29 @@ async function handleCensusVariablesRequest(request, url, env){
 
 export default {
   async fetch(request, env){
+    if (request.method === "OPTIONS"){
+      return withCors(new Response(null, { status: 204 }), request, env);
+    }
     if (request.method !== "GET"){
-      return errorResponse(405, "method_not_allowed", "Only GET is supported.");
+      return withCors(errorResponse(405, "method_not_allowed", "Only GET is supported."), request, env);
     }
 
     const url = new URL(request.url);
     const path = normalizePath(url.pathname);
 
     if (path === "/api/weather"){
-      return handleWeatherRequest(request, url, env);
+      return withCors(await handleWeatherRequest(request, url, env), request, env);
     }
     if (path === "/api/census/acs"){
-      return handleCensusAcsRequest(request, url, env);
+      return withCors(await handleCensusAcsRequest(request, url, env), request, env);
     }
     if (path === "/api/census/geo"){
-      return handleCensusGeoRequest(request, url, env);
+      return withCors(await handleCensusGeoRequest(request, url, env), request, env);
     }
     if (path === "/api/census/variables"){
-      return handleCensusVariablesRequest(request, url, env);
+      return withCors(await handleCensusVariablesRequest(request, url, env), request, env);
     }
 
-    return errorResponse(404, "not_found", "Unknown API route.");
+    return withCors(errorResponse(404, "not_found", "Unknown API route."), request, env);
   },
 };
