@@ -774,7 +774,16 @@ async function fetchJson(url, apiKey = ""){
   if (typeof fetch !== "function") throw new Error("Browser fetch API is unavailable.");
   const res = await fetch(url, { method: "GET", headers: { Accept: "application/json" } });
   if (!res?.ok) throw new Error(`Request failed (HTTP ${res?.status || "?"}).`);
-  return res.json();
+  const contentType = str(res?.headers?.get?.("content-type")).toLowerCase();
+  const isJson = contentType.includes("application/json") || contentType.includes("+json");
+  if (!isJson){
+    throw new Error("API proxy returned HTML instead of JSON. Check Worker route wiring for /api/*.");
+  }
+  try{
+    return await res.json();
+  } catch {
+    throw new Error("API proxy returned HTML instead of JSON. Check Worker route wiring for /api/*.");
+  }
 }
 
 async function resolveAcsYear(preference, apiKey = ""){

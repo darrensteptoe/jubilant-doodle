@@ -12,6 +12,12 @@ import {
 import { buildApiProxyUrl } from "../apiProxy.js";
 
 const WEATHER_PROXY_PATH = "/weather";
+const API_PROXY_NON_JSON_ERROR = "API proxy returned HTML instead of JSON. Check Worker route wiring for /api/*.";
+
+function isJsonContentType(response){
+  const contentType = String(response?.headers?.get?.("content-type") || "").toLowerCase();
+  return contentType.includes("application/json") || contentType.includes("+json");
+}
 
 export function makeDefaultWarRoomState(){
   return {
@@ -205,7 +211,23 @@ export async function fetchWarRoomWeatherByZip(zip, {
       message: `Weather proxy request failed (${response?.status || "unknown"}).`,
     };
   }
-  const proxyPayload = await response.json();
+  if (!isJsonContentType(response)){
+    return {
+      ok: false,
+      code: "weather_proxy_non_json",
+      message: API_PROXY_NON_JSON_ERROR,
+    };
+  }
+  let proxyPayload = null;
+  try{
+    proxyPayload = await response.json();
+  } catch {
+    return {
+      ok: false,
+      code: "weather_proxy_bad_json",
+      message: API_PROXY_NON_JSON_ERROR,
+    };
+  }
   if (!proxyPayload?.ok){
     return {
       ok: false,
