@@ -3,6 +3,12 @@ main = "worker/fpe-api-proxy.js"
 compatibility_date = "2026-03-26"
 workers_dev = true
 
+# Same-origin `/api/*` routing is only possible on a Cloudflare-managed zone.
+# Example:
+# routes = [
+#   { pattern = "app.example.com/api/*", zone_name = "example.com" }
+# ]
+
 [vars]
 # Optional runtime override for API proxy base path in clients:
 # FPE_API_PROXY_BASE = "/api"
