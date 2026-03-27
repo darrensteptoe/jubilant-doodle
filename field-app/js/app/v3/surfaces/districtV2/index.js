@@ -322,6 +322,8 @@ export function refreshDistrictV2Surface() {
     return;
   }
 
+  const turnoutBenchmarkAdvisory = deriveDistrictElectionBenchmarkAdvisory(electionDataCanonicalSnapshot);
+
   syncDistrictV2RaceContext(templateSnapshot, formSnapshot, controlSnapshot);
   syncDistrictV2Electorate(formSnapshot, controlSnapshot);
   syncDistrictV2TurnoutBaseline(formSnapshot, controlSnapshot, electionDataCanonicalSnapshot);
@@ -335,7 +337,13 @@ export function refreshDistrictV2Surface() {
     electionDataCanonicalSnapshot,
   );
   syncDistrictV2Census(censusConfigSnapshot, censusResultsSnapshot);
-  syncDistrictV2Summary(snapshot, electionDataSummarySnapshot);
+  syncDistrictV2Summary(snapshot, electionDataSummarySnapshot, {
+    formSnapshot,
+    templateSnapshot,
+    ballotSnapshot,
+    turnoutBenchmarkAdvisory,
+    electionDataCanonicalSnapshot,
+  });
   syncDistrictV2RuntimeDebug(templateSnapshot, formSnapshot);
 
   syncDistrictV2CardStatus("v3DistrictV2RaceCardStatus", deriveDistrictRaceCardStatus({

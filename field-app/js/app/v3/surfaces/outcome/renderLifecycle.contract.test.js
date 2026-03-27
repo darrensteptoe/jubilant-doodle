@@ -62,3 +62,13 @@ test("outcome election-data advisory: benchmark card is advisory-only and safely
   assert.match(advisoryBody, /card\.hidden = !hasAdvisory;/);
   assert.doesNotMatch(advisoryBody, /setOutcomeBridgeField|runOutcomeBridgeMc|rerunOutcomeBridgeMc/);
 });
+
+test("outcome deterministic narrative: interpretation uses read-only deterministic signals", () => {
+  const refreshBody = extractFunctionBody("refreshOutcomeSummary");
+
+  assert.match(source, /id="v3OutcomeDriverNarrativeStatus"/);
+  assert.match(source, /id="v3OutcomeDriverNarrativeList"/);
+  assert.match(source, /deriveOutcomeDriverNarrative\(/);
+  assert.match(refreshBody, /syncOutcomeDriverNarrative\(/);
+  assert.doesNotMatch(refreshBody, /setOutcomeBridgeField\("v3OutcomeDriverNarrative/i);
+});

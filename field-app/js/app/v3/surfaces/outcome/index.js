@@ -45,7 +45,9 @@ import {
 import { syncOutcomeGovernanceSnapshot } from "./governance.js";
 import { renderOutcomeSensitivityRows } from "./sensitivity.js";
 import {
+  deriveOutcomeDriverNarrative,
   renderOutcomeSurfaceRows,
+  syncOutcomeDriverNarrative,
   syncOutcomeImpactTraceFallback,
 } from "./surface.js";
 import {
@@ -380,6 +382,15 @@ export function renderOutcomeSurface(mount) {
 
   const interpretationBody = getCardBody(interpretationCard);
   interpretationBody.innerHTML = `
+    <div class="fpe-contained-block">
+      <div class="fpe-control-label">What is driving this result</div>
+      <div class="fpe-help fpe-help--flush" id="v3OutcomeDriverNarrativeStatus">Run simulation to generate deterministic driver narrative.</div>
+      <div class="fpe-contained-block">
+        <ul class="bullets" id="v3OutcomeDriverNarrativeList">
+          <li class="muted">No deterministic narrative yet.</li>
+        </ul>
+      </div>
+    </div>
     <div class="fpe-contained-block fpe-contained-block--instruction fpe-outcome-interpretation-note">
       <ul class="bullets">
         <li>Outcome computes operational confidence under current assumptions; it does not replace field validation.</li>
@@ -870,6 +881,20 @@ function refreshOutcomeSummary() {
     outcomeGapNote,
     outcomeRiskLabel,
     outcomeWinProb
+  });
+  syncOutcomeDriverNarrative({
+    statusId: "v3OutcomeDriverNarrativeStatus",
+    listId: "v3OutcomeDriverNarrativeList",
+    narrative: deriveOutcomeDriverNarrative({
+      bridgeMc,
+      governanceView,
+      bridgedSensitivityRows,
+      bridgedSurfaceStatus,
+      outcomeGapNote,
+      outcomeFragilityIndex,
+      outcomeRiskLabel,
+      benchmarkAdvisory,
+    }),
   });
 }
 
