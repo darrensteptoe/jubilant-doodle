@@ -38,6 +38,32 @@ If you want local hot-reload and static build output:
 5. Run JS type-checking (no emit): `npm run typecheck`
 6. Run full rebuild gate suite: `npm run gate:rebuild`
 
+### Mapbox Public Token Setup
+
+Mapbox is wired as a browser-side rendering layer through one config seam:
+
+- runtime key: `window.__VICE_CONFIG__.MAPBOX_PUBLIC_TOKEN`
+- bootstrap files:
+  - `index.html` meta: `name="vice-mapbox-public-token"`
+  - `js/app/runtimeConfig.js` resolver
+
+Local dev:
+
+1. Create `.env.local` with:
+   - `VITE_MAPBOX_PUBLIC_TOKEN=pk...`
+2. Run `npm run dev`.
+
+GitHub Pages / deployed static build:
+
+1. Set `VITE_MAPBOX_PUBLIC_TOKEN` in the build environment (for example GitHub Actions repository secret/env).
+2. Build with `npm run build`.
+3. Deploy the built `dist/` output.
+
+Notes:
+
+- Use a **public** Mapbox browser token only.
+- Google Maps credentials are intentionally separate (`window.__VICE_CONFIG__.GOOGLE_MAPS_API_KEY`) and must be restricted by HTTP referrer + API restrictions in Google Cloud.
+
 ### Rebuild gates (canonical path)
 
 - `npm run check:canonical-math` — enforces no duplicate/local formula math in non-canonical glue layers

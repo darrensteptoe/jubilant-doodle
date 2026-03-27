@@ -11,6 +11,8 @@
 <meta content="Internal field planning dashboard." name="description"/>
 <meta content="strict-origin-when-cross-origin" name="referrer"/>
 <meta content="light dark" name="color-scheme"/>
+<meta content="" name="vice-mapbox-public-token"/>
+<meta content="" name="vice-google-maps-api-key"/>
 <link href="https://fonts.googleapis.com" rel="preconnect"/>
 <link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&amp;family=IBM+Plex+Sans:wght@300;400;500;600&amp;display=swap" rel="stylesheet"/>
@@ -381,8 +383,8 @@
 <div class="help-text">Census-only flow: select geography context, fetch ACS rows from API, multi-select GEO units, and review aggregate demographics.</div>
 <div class="grid3" style="margin-top:10px;">
 <div class="field">
-<label class="label" for="censusApiKey">Census API key</label>
-<input autocomplete="off" class="input" id="censusApiKey" placeholder="Paste key once. Saved in this browser only." type="text"/>
+<label class="label" for="censusApiKey">Census API key override (optional)</label>
+<input autocomplete="off" class="input" id="censusApiKey" placeholder="Optional override key. Default requests use the secure server proxy." type="text"/>
 </div>
 <div class="field">
 <label class="label" for="censusAcsYear">ACS 5-year</label>
@@ -1243,6 +1245,31 @@
 <script src="./js/app.js?v=20260320-scope-aggregation-fix-3" type="module"></script>
 <script src="./js/app/v3/index.js?v=20260320-scope-aggregation-fix-3" type="module"></script>
 <script>
+(function seedViceConfig(){
+  var cfg = window.__VICE_CONFIG__;
+  if (!cfg || typeof cfg !== "object"){
+    cfg = {};
+    window.__VICE_CONFIG__ = cfg;
+  }
+  var mapboxToken = String(cfg.MAPBOX_PUBLIC_TOKEN || "").trim();
+  var googleMapsKey = String(cfg.GOOGLE_MAPS_API_KEY || "").trim();
+  var mapboxMeta = document.querySelector('meta[name="vice-mapbox-public-token"]');
+  var googleMeta = document.querySelector('meta[name="vice-google-maps-api-key"]');
+  var mapboxMetaValue = String(mapboxMeta && mapboxMeta.getAttribute ? (mapboxMeta.getAttribute("content") || "") : "").trim();
+  var googleMetaValue = String(googleMeta && googleMeta.getAttribute ? (googleMeta.getAttribute("content") || "") : "").trim();
+  var isVitePlaceholder = function(v){
+    var token = String(v || "");
+    return token.indexOf("%VITE_") === 0 && token.lastIndexOf("%") === (token.length - 1);
+  };
+  if (!mapboxToken && mapboxMetaValue && !isVitePlaceholder(mapboxMetaValue)){
+    cfg.MAPBOX_PUBLIC_TOKEN = mapboxMetaValue;
+  }
+  if (!googleMapsKey && googleMetaValue && !isVitePlaceholder(googleMetaValue)){
+    cfg.GOOGLE_MAPS_API_KEY = googleMetaValue;
+  }
+  // Keep Google key handling separate from Mapbox token logic.
+  // If configured later, restrict GOOGLE_MAPS_API_KEY by HTTP referrer + API allowlist in Google Cloud.
+})();
 // ── Stage navigation ───────────────────────────────────────────
 window.__FPE_BOOT_ERRORS = Array.isArray(window.__FPE_BOOT_ERRORS) ? window.__FPE_BOOT_ERRORS : [];
 window.__FPE_BOOT_TRACE__ = Array.isArray(window.__FPE_BOOT_TRACE__) ? window.__FPE_BOOT_TRACE__ : [];

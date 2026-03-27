@@ -3075,6 +3075,60 @@ body.training #app-shell-v3-root .fpe-surface .fpe-why {
   }
 }
 
+.fpe-map-surface {
+  display: grid;
+  gap: var(--fpe-space-3);
+}
+
+.fpe-mapbox-shell {
+  position: relative;
+  min-height: 420px;
+  border: 1px solid var(--fpe-rule);
+  border-radius: var(--fpe-radius-md);
+  overflow: hidden;
+  background: color-mix(in srgb, var(--fpe-panel-muted) 78%, #dbe7f6);
+}
+
+.fpe-mapbox-host {
+  width: 100%;
+  min-height: 420px;
+}
+
+.fpe-map-inspect {
+  display: grid;
+  gap: var(--fpe-space-2);
+  margin-top: var(--fpe-space-2);
+}
+
+.fpe-map-inspect-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--fpe-space-3);
+  padding: 8px 10px;
+  border: 1px solid var(--fpe-rule);
+  border-radius: var(--fpe-radius-sm);
+  background: color-mix(in srgb, var(--fpe-panel) 90%, var(--fpe-bg));
+}
+
+.fpe-map-inspect-row span {
+  color: var(--fpe-muted);
+  font-size: var(--fpe-small);
+}
+
+.fpe-map-inspect-row strong {
+  color: var(--fpe-text);
+  font-size: var(--fpe-body);
+  font-weight: 600;
+}
+
+@media (max-width: 900px) {
+  .fpe-mapbox-shell,
+  .fpe-mapbox-host {
+    min-height: 320px;
+  }
+}
+
 @media (max-width: 640px) {
   .fpe-surface-pane[data-v3-stage="district"] .fpe-census-section__head-main {
     flex-direction: column;
