@@ -4,6 +4,7 @@ import {
   listMissingEvidenceAudit,
   listMissingNoteAudit,
 } from "./intelControlsRuntime.js";
+import { readMapboxPublicTokenConfig } from "./runtimeConfig.js";
 import { resolveFeatureFlags } from "../core/featureFlags.js";
 import { formatFixedNumber, formatPercentFromUnit, formatWholeNumber } from "../core/utils.js";
 
@@ -146,6 +147,35 @@ function assessModelStatus({ benchmarkWarnings, missingEvidence, missingNote, in
   };
 }
 
+function mapConfigDiagnosticStatus() {
+  const config = readMapboxPublicTokenConfig();
+  if (config?.valid) {
+    return {
+      level: "OK",
+      summary: `Mapbox browser token ready (${String(config?.source || "unknown_source")}).`,
+      why: "Map stage can initialize rendering when geography context is available.",
+      next: "If map still fails, validate style/network access and boundary data availability.",
+      config,
+    };
+  }
+  if (config?.invalidConfigValue) {
+    return {
+      level: "BAD",
+      summary: "Mapbox token config is invalid (must start with pk.).",
+      why: "Invalid token config prevents map bootstrap and can be mistaken for geography failure.",
+      next: "Open Controls and save a valid Mapbox public token, then reload Map stage.",
+      config,
+    };
+  }
+  return {
+    level: "WARN",
+    summary: "Mapbox token is not configured in this browser scope.",
+    why: "Map stage remains in config-required state until app-level token setup is completed.",
+    next: "Open Controls and save a Mapbox public token for this browser.",
+    config,
+  };
+}
+
 /**
  * @param {string[]} lines
  * @param {{
@@ -214,6 +244,14 @@ export function appendModelDiagnosticsCore(lines, {
   out.push(`- turnout=${features.turnoutModelingEnabled ? "on" : "off"} timeline=${features.timelineEnabled ? "on" : "off"} universe=${features.universeWeightingEnabled ? "on" : "off"}`);
   out.push(`- mcDistribution=${features.mcDistribution} correlatedShocks=${features.correlatedShocks ? "on" : "off"} shockScenarios=${features.shockScenariosEnabled ? "on" : "off"} capacityDecay=${features.capacityDecayEnabled ? "on" : "off"}`);
 
+  const mapConfig = mapConfigDiagnosticStatus();
+  out.push("map config:");
+  out.push(`- status=${mapConfig.level} — ${mapConfig.summary}`);
+  out.push(`- why=${mapConfig.why}`);
+  out.push(`- next=${mapConfig.next}`);
+  out.push(`- source=${cleanText(mapConfig?.config?.source) || "none"} storageKey=${cleanText(mapConfig?.config?.storageKey) || "n/a"}`);
+  out.push(`- invalidConfigValue=${mapConfig?.config?.invalidConfigValue ? "yes" : "no"}`);
+
   const bootState = bootStatus && typeof bootStatus === "object" ? bootStatus : null;
   if (bootState) {
     out.push("runtime boot:");
@@ -253,4 +291,3 @@ export function appendModelDiagnosticsCore(lines, {
 
   return out;
 }
-

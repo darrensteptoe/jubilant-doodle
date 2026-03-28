@@ -7,6 +7,7 @@ import { getPlaybookEntry, listPlaybookEntries } from "./playbookRegistry.js";
 
 export const INTELLIGENCE_STAGE_MODULE_DEFAULTS = Object.freeze({
   district: "districtRaceContext",
+  map: "mapOperationsGuide",
   "election-data": "dataOperationsGuide",
   reach: "reachOperationsGuide",
   turnout: "turnoutOperationsGuide",
@@ -21,6 +22,7 @@ export const INTELLIGENCE_STAGE_MODULE_DEFAULTS = Object.freeze({
 
 export const INTELLIGENCE_STAGE_MODEL_DEFAULTS = Object.freeze({
   district: "masterTargetingEquation",
+  map: "masterTargetingEquation",
   reach: "supportTurnoutMatrix",
   turnout: "contactSaturation",
   outcome: "expectedVoteGain",

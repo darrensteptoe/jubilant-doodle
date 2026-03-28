@@ -39,6 +39,14 @@ const STAGE_GLOSSARY_DEFAULTS = Object.freeze({
     "densityFloor",
     "readiness",
   ]),
+  map: Object.freeze([
+    "geographyLevelField",
+    "geoUnitsField",
+    "sourceNoteField",
+    "readiness",
+    "confidence",
+    "actionability",
+  ]),
   reach: Object.freeze([
     "persuasionUniverse",
     "mobilizationUniverse",
