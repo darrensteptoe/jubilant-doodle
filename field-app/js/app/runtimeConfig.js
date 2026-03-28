@@ -11,6 +11,10 @@ function cleanText(value) {
   return String(value == null ? "" : value).trim();
 }
 
+function isMapboxPublicToken(value) {
+  return cleanText(value).toLowerCase().startsWith("pk.");
+}
+
 function readMetaConfigValue(name) {
   if (typeof document === "undefined" || typeof document.querySelector !== "function") {
     return "";
@@ -76,7 +80,8 @@ export function resolveViceConfig() {
 }
 
 export function resolveMapboxPublicToken() {
-  return readConfigToken(resolveViceConfig(), MAPBOX_PUBLIC_TOKEN_KEY);
+  const token = readConfigToken(resolveViceConfig(), MAPBOX_PUBLIC_TOKEN_KEY);
+  return isMapboxPublicToken(token) ? token : "";
 }
 
 export function resolveGoogleMapsApiKey() {
