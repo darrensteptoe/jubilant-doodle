@@ -3100,6 +3100,28 @@ body.training #app-shell-v3-root .fpe-surface .fpe-why {
   margin-top: var(--fpe-space-2);
 }
 
+.fpe-map-legend {
+  display: grid;
+  gap: 6px;
+  margin-top: var(--fpe-space-2);
+}
+
+.fpe-map-legend-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: var(--fpe-small);
+  color: var(--fpe-text);
+}
+
+.fpe-map-legend-swatch {
+  width: 16px;
+  height: 16px;
+  border-radius: 4px;
+  border: 1px solid color-mix(in srgb, var(--fpe-rule) 85%, #1e293b);
+  flex-shrink: 0;
+}
+
 .fpe-map-inspect-row {
   display: flex;
   align-items: center;
