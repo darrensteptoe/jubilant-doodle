@@ -11,13 +11,12 @@
 <meta content="Internal field planning dashboard." name="description"/>
 <meta content="strict-origin-when-cross-origin" name="referrer"/>
 <meta content="light dark" name="color-scheme"/>
-<meta content="%VITE_API_PROXY_BASE%" name="vice-api-proxy-base"/>
 <meta content="" name="vice-mapbox-public-token"/>
 <meta content="" name="vice-google-maps-api-key"/>
 <link href="https://fonts.googleapis.com" rel="preconnect"/>
 <link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&amp;family=IBM+Plex+Sans:wght@300;400;500;600&amp;display=swap" rel="stylesheet"/>
-  <script type="module" crossorigin src="/assets/index-B4qW2ncR.js"></script>
+  <script type="module" crossorigin src="/assets/index-D6ayM6IA.js"></script>
   <link rel="modulepreload" crossorigin href="/assets/time-DMzu12fF.js">
   <link rel="modulepreload" crossorigin href="/assets/build-D8U74VRh.js">
   <link rel="modulepreload" crossorigin href="/assets/storage-DaoRI0ER.js">
@@ -26,7 +25,7 @@
   <link rel="modulepreload" crossorigin href="/assets/io-CQqqRcQu.js">
   <link rel="modulepreload" crossorigin href="/assets/view-CEp4BHYU.js">
   <link rel="modulepreload" crossorigin href="/assets/twCapHelpers-DIYoLtEn.js">
-  <link rel="stylesheet" crossorigin href="/assets/index-CUiE0UAd.css">
+  <link rel="stylesheet" crossorigin href="/assets/index-DI-tz8VZ.css">
 </head>
 <body>
 <div hidden="" id="app-shell-v3-root"></div>
@@ -388,7 +387,7 @@
 <div class="grid3" style="margin-top:10px;">
 <div class="field">
 <label class="label" for="censusApiKey">Census API key override (optional)</label>
-<input autocomplete="off" class="input" id="censusApiKey" placeholder="Optional override key. Default requests use the secure server proxy." type="text"/>
+<input autocomplete="off" class="input" id="censusApiKey" placeholder="Optional override key for direct Census API requests." type="text"/>
 </div>
 <div class="field">
 <label class="label" for="censusAcsYear">ACS 5-year</label>
@@ -1255,24 +1254,14 @@
   }
   var mapboxToken = String(cfg.MAPBOX_PUBLIC_TOKEN || "").trim();
   var googleMapsKey = String(cfg.GOOGLE_MAPS_API_KEY || "").trim();
-  var proxyBase = String(cfg.API_PROXY_BASE || cfg.FPE_API_PROXY_BASE || window.__FPE_API_PROXY_BASE__ || "").trim();
-  var proxyMeta = document.querySelector('meta[name="vice-api-proxy-base"]');
   var mapboxMeta = document.querySelector('meta[name="vice-mapbox-public-token"]');
   var googleMeta = document.querySelector('meta[name="vice-google-maps-api-key"]');
-  var proxyMetaValue = String(proxyMeta && proxyMeta.getAttribute ? (proxyMeta.getAttribute("content") || "") : "").trim();
   var mapboxMetaValue = String(mapboxMeta && mapboxMeta.getAttribute ? (mapboxMeta.getAttribute("content") || "") : "").trim();
   var googleMetaValue = String(googleMeta && googleMeta.getAttribute ? (googleMeta.getAttribute("content") || "") : "").trim();
   var isVitePlaceholder = function(v){
     var token = String(v || "");
     return token.indexOf("%VITE_") === 0 && token.lastIndexOf("%") === (token.length - 1);
   };
-  if (!proxyBase && proxyMetaValue && !isVitePlaceholder(proxyMetaValue)){
-    cfg.API_PROXY_BASE = proxyMetaValue;
-    proxyBase = proxyMetaValue;
-  }
-  if (!window.__FPE_API_PROXY_BASE__ && proxyBase){
-    window.__FPE_API_PROXY_BASE__ = proxyBase;
-  }
   if (!mapboxToken && mapboxMetaValue && !isVitePlaceholder(mapboxMetaValue)){
     cfg.MAPBOX_PUBLIC_TOKEN = mapboxMetaValue;
   }

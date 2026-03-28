@@ -3166,10 +3166,23 @@ body.training #app-shell-v3-root .fpe-surface .fpe-why {
   font-size: var(--fpe-small);
 }
 
+.fpe-map-quick-actions {
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.fpe-map-quick-actions .fpe-btn {
+  min-height: 34px;
+}
+
 @media (max-width: 900px) {
   .fpe-mapbox-shell,
   .fpe-mapbox-host {
     min-height: 320px;
+  }
+
+  .fpe-map-quick-actions .fpe-btn {
+    flex: 1 1 220px;
   }
 }
 
