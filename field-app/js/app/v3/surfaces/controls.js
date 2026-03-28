@@ -63,10 +63,22 @@ import {
 import { formatPercentFromUnit } from "../../../core/utils.js";
 import { formatOfficeContextLabel } from "../../../core/officeContextLabels.js";
 import { pctOverrideToDecimal } from "../../../core/voteProduction.js";
+import {
+  clearSavedMapboxPublicToken,
+  readMapboxPublicTokenConfig,
+  saveMapboxPublicToken,
+} from "../../runtimeConfig.js";
 
 const SCENARIO_API_KEY = "__FPE_SCENARIO_API__";
 const BENCHMARK_REF_OPTIONS = listBenchmarkRefs();
 const BENCHMARK_SCOPE_OPTIONS = listBenchmarkScopeOptions();
+const MAPBOX_PUBLIC_PREFIX = "pk.";
+const MAPBOX_SOURCE_LABELS = {
+  saved_storage: "Saved browser config",
+  legacy_config: "Legacy app config",
+  legacy_meta: "Legacy meta config",
+  legacy_env: "Legacy env config",
+};
 const MC_DISTRIBUTION_OPTIONS = [
   { value: "triangular", label: "Triangular" },
   { value: "uniform", label: "Uniform" },
@@ -82,6 +94,7 @@ let shockActionStatus = "";
 let observedActionStatus = "";
 let recommendationActionStatus = "";
 let whatIfActionStatus = "";
+let mapboxActionStatus = "";
 
 export function renderControlsSurface(mount) {
   const frame = createCenterStackFrame();
@@ -117,6 +130,12 @@ export function renderControlsSurface(mount) {
     status: "Needs brief"
   });
 
+  const mapConfigCard = createCenterModuleCard({
+    title: "Map configuration",
+    description: "Configure the app-level Mapbox browser token used by the Campaign Geography surface.",
+    status: "Token required"
+  });
+
   const summaryCard = createCenterModuleCard({
     title: "Current warnings",
     description: "At-a-glance governance posture across evidence, calibration, and recommendation workflows.",
@@ -128,6 +147,7 @@ export function renderControlsSurface(mount) {
   assignCardStatusId(benchmarkCard, "v3ControlsBenchmarkCardStatus");
   assignCardStatusId(feedbackCard, "v3ControlsReviewCardStatus");
   assignCardStatusId(calibrationCard, "v3ControlsIntegrityCardStatus");
+  assignCardStatusId(mapConfigCard, "v3ControlsMapConfigCardStatus");
   assignCardStatusId(summaryCard, "v3ControlsWarningsCardStatus");
 
   getCardBody(workflowCard).innerHTML = `
@@ -524,6 +544,36 @@ export function renderControlsSurface(mount) {
     </div>
   `;
 
+  getCardBody(mapConfigCard).innerHTML = `
+    <div class="fpe-module-stack" id="v3ControlsMapConfigBridgeRoot">
+      <div class="fpe-contained-block">
+        <ul class="bullets">
+          <li>Mapbox browser rendering requires a public token that starts with <code>${MAPBOX_PUBLIC_PREFIX}</code>.</li>
+          <li>Do not use Mapbox secret tokens in this app. Secret-scoped tokens must remain server-side.</li>
+          <li>This token is app-level config, not scenario data, and does not change campaign canon calculations.</li>
+        </ul>
+      </div>
+      <div class="field">
+        <label class="fpe-control-label" for="v3MapboxPublicTokenInput">Mapbox public token</label>
+        <input autocomplete="off" class="fpe-input" id="v3MapboxPublicTokenInput" placeholder="pk.••••••••" type="password"/>
+      </div>
+      <div class="fpe-action-row">
+        <button class="fpe-btn" id="v3BtnMapboxTokenSave" type="button">Save token</button>
+        <button class="fpe-btn fpe-btn--ghost" id="v3BtnMapboxTokenClear" type="button">Clear saved token</button>
+      </div>
+      <div class="fpe-status-strip fpe-status-strip--2">
+        <div class="fpe-contained-block">
+          <div class="fpe-control-label">Saved token</div>
+          <div class="fpe-help fpe-help--flush" id="v3MapboxTokenMasked">Not configured</div>
+        </div>
+        <div class="fpe-contained-block">
+          <div class="fpe-control-label">Token status</div>
+          <div class="fpe-help fpe-help--flush" id="v3MapboxTokenStatus">Set a Mapbox public token to enable the map stage.</div>
+        </div>
+      </div>
+    </div>
+  `;
+
   getCardBody(summaryCard).innerHTML = `
     <div class="fpe-status-strip fpe-status-strip--3">
       <div class="fpe-contained-block fpe-contained-block--status">
@@ -554,7 +604,7 @@ export function renderControlsSurface(mount) {
     </div>
   `;
 
-  centerCol.append(summaryCard, workflowCard, benchmarkCard, evidenceCard, calibrationCard, feedbackCard);
+  centerCol.append(summaryCard, mapConfigCard, workflowCard, benchmarkCard, evidenceCard, calibrationCard, feedbackCard);
   frame.append(centerCol);
   mount.append(frame);
 
@@ -571,6 +621,7 @@ export function renderControlsSurface(mount) {
   wireControlsEvidenceBridge();
   wireControlsCalibrationBridge();
   wireControlsFeedbackBridge();
+  wireControlsMapConfigBridge();
   return refreshControlsSummary;
 }
 
@@ -580,6 +631,7 @@ function refreshControlsSummary() {
   syncControlsEvidenceBridge();
   syncControlsCalibrationBridge();
   syncControlsFeedbackBridge();
+  syncControlsMapConfigBridge();
 
   setText("v3ControlsWorkflowStatus", readDomTextById("v3IntelWorkflowStatus") || "Governance controls healthy.");
   setText("v3ControlsBenchmarkCount", readDomTextById("v3IntelBenchmarkCount") || "0 benchmark entries configured.");
@@ -626,6 +678,10 @@ function refreshControlsSummary() {
       readDomTextById("v3IntelShockStatus"),
       readDomTextById("v3IntelDecayStatus")
     )
+  );
+  syncControlsCardStatus(
+    "v3ControlsMapConfigCardStatus",
+    deriveMapboxConfigCardStatus(readDomTextById("v3MapboxTokenStatus"))
   );
   syncControlsCardStatus(
     "v3ControlsWarningsCardStatus",
@@ -1551,6 +1607,92 @@ function syncControlsFeedbackBridge() {
   setText("v3IntelWhatIfStatus", whatIfActionStatus || buildWhatIfStatusText(intel));
 }
 
+function wireControlsMapConfigBridge() {
+  const root = document.getElementById("v3ControlsMapConfigBridgeRoot");
+  if (!root || root.dataset.wired === "1") {
+    return;
+  }
+  root.dataset.wired = "1";
+
+  const input = document.getElementById("v3MapboxPublicTokenInput");
+  if (input instanceof HTMLInputElement) {
+    input.addEventListener("input", () => {
+      mapboxActionStatus = `Draft token edited. Save a ${MAPBOX_PUBLIC_PREFIX} token to apply it.`;
+      syncControlsMapConfigBridge();
+    });
+  }
+
+  const saveBtn = document.getElementById("v3BtnMapboxTokenSave");
+  if (saveBtn instanceof HTMLButtonElement) {
+    saveBtn.addEventListener("click", () => {
+      const input = document.getElementById("v3MapboxPublicTokenInput");
+      const value = input instanceof HTMLInputElement ? String(input.value || "") : "";
+      const result = saveMapboxPublicToken(value);
+      mapboxActionStatus = result?.ok
+        ? "Mapbox token saved for this browser. Open the Map stage to verify rendering."
+        : String(result?.message || "Mapbox token save failed.");
+      dispatchMapConfigUpdated();
+      syncControlsMapConfigBridge();
+    });
+  }
+
+  const clearBtn = document.getElementById("v3BtnMapboxTokenClear");
+  if (clearBtn instanceof HTMLButtonElement) {
+    clearBtn.addEventListener("click", () => {
+      clearSavedMapboxPublicToken();
+      mapboxActionStatus = "Saved Mapbox token cleared from this browser.";
+      dispatchMapConfigUpdated();
+      syncControlsMapConfigBridge();
+    });
+  }
+}
+
+function syncControlsMapConfigBridge() {
+  const config = readMapboxPublicTokenConfig();
+  const input = document.getElementById("v3MapboxPublicTokenInput");
+  const saveBtn = document.getElementById("v3BtnMapboxTokenSave");
+  const clearBtn = document.getElementById("v3BtnMapboxTokenClear");
+  if (input instanceof HTMLInputElement && document.activeElement !== input) {
+    input.value = config?.token || "";
+  }
+  if (saveBtn instanceof HTMLButtonElement) {
+    saveBtn.disabled = false;
+  }
+  if (clearBtn instanceof HTMLButtonElement) {
+    clearBtn.disabled = !config?.valid && !config?.invalidConfigValue;
+  }
+
+  const sourceLabel = MAPBOX_SOURCE_LABELS[String(config?.source || "")] || "";
+  setText("v3MapboxTokenMasked", config?.maskedToken || "Not configured");
+
+  if (mapboxActionStatus) {
+    setText("v3MapboxTokenStatus", mapboxActionStatus);
+    return;
+  }
+
+  if (config?.valid) {
+    if (String(config?.source) === "saved_storage") {
+      setText("v3MapboxTokenStatus", "Saved browser token is active for Map stage rendering.");
+    } else {
+      setText("v3MapboxTokenStatus", `Using ${sourceLabel || "legacy config"} token. Save it here to persist in browser storage.`);
+    }
+    return;
+  }
+
+  if (config?.invalidConfigValue) {
+    setText("v3MapboxTokenStatus", `Invalid Mapbox token. Enter a public token starting with ${MAPBOX_PUBLIC_PREFIX}.`);
+    return;
+  }
+
+  setText("v3MapboxTokenStatus", "No Mapbox token configured. Save a public pk token here to enable the Map stage.");
+}
+
+function dispatchMapConfigUpdated() {
+  try {
+    window.dispatchEvent(new CustomEvent("vice:mapbox-config-updated"));
+  } catch {}
+}
+
 function getScenarioBridgeApi() {
   const api = window?.[SCENARIO_API_KEY];
   return api && typeof api === "object" ? api : null;
@@ -2097,6 +2239,20 @@ function syncControlsCardStatus(id, value) {
   );
   const tone = classifyControlsStatusTone(text);
   badge.classList.add(`fpe-status-pill--${tone}`);
+}
+
+function deriveMapboxConfigCardStatus(statusText) {
+  const text = String(statusText || "").toLowerCase();
+  if (text.includes("invalid") || text.includes("failed")) {
+    return "Config issue";
+  }
+  if (text.includes("active") || text.includes("saved")) {
+    return "Map ready";
+  }
+  if (text.includes("no mapbox token")) {
+    return "Token required";
+  }
+  return "Awaiting setup";
 }
 
 function readInputValueById(id) {

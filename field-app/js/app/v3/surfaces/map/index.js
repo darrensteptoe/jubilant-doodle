@@ -16,7 +16,7 @@ import {
   getMetricsForSet,
   normalizeGeoidsForResolution,
 } from "../../../../core/censusModule.js";
-import { resolveMapboxPublicToken } from "../../../runtimeConfig.js";
+import { readMapboxPublicTokenConfig, resolveMapboxPublicToken } from "../../../runtimeConfig.js";
 
 const SHELL_API_KEY = "__FPE_SHELL_API__";
 const CENSUS_RUNTIME_API_KEY = "__FPE_CENSUS_RUNTIME_API__";
@@ -29,11 +29,13 @@ const MAPBOX_STYLE_URL = "mapbox://styles/mapbox/light-v11";
 
 const MAP_STATUS_LOADING = "Loading campaign geography…";
 const MAP_STATUS_CONTEXT_REQUIRED = "Select campaign, office, and geography context to load the map.";
+const MAP_STATUS_TOKEN_MISSING = "No Mapbox token configured. Open Controls and save a Mapbox public token (pk...).";
+const MAP_STATUS_TOKEN_INVALID = "Mapbox token is invalid for browser use. Save a valid Mapbox public token (pk...) in Controls.";
 const MAP_STATUS_NO_GEOGRAPHY = "No geography matched the current selection.";
+const MAP_STATUS_GEOGRAPHY_UNAVAILABLE = "Campaign geography is unavailable for this context right now. Verify geography selections and retry.";
 const MAP_STATUS_METRIC_UNAVAILABLE = "This layer does not have data for the selected metric yet.";
 const MAP_STATUS_INSPECT_PROMPT = "Select an area on the map to inspect its field context.";
-const MAP_STATUS_CONFIG_UNAVAILABLE = "Map configuration is unavailable. Check Mapbox public token setup.";
-const MAP_STATUS_LOAD_FAILED = "We couldn’t load map geography right now. Try refreshing the current context.";
+const MAP_STATUS_BOOT_FAILED = "Map boot failed. Check Mapbox token validity/network access, then refresh the current context.";
 
 const CARD_STATUS_ID = "v3MapSurfaceCardStatus";
 const ROOT_ID = "v3MapSurfaceRoot";
@@ -43,6 +45,7 @@ const METRIC_STATUS_ID = "v3MapMetricStatus";
 const INSPECT_STATUS_ID = "v3MapInspectStatus";
 const INSPECT_BODY_ID = "v3MapInspectBody";
 const METRIC_SELECT_ID = "v3MapMetricSelect";
+const ACTION_BTN_ID = "v3MapActionBtn";
 
 const AREAS_SOURCE_ID = "v3MapAreasSource";
 const POINTS_SOURCE_ID = "v3MapPointsSource";
@@ -57,6 +60,8 @@ const ROW_LON_KEYS = ["INTPTLON", "INTPTLON20", "intptlon", "lon", "lng", "longi
 
 let mapboxLoadPromise = null;
 let mapRuntime = null;
+let mapViewportResizeBound = false;
+let mapConfigEventBound = false;
 
 function cleanText(value) {
   return String(value == null ? "" : value).trim();
@@ -91,6 +96,19 @@ function readShellScope() {
     };
   } catch {
     return { campaignId: "", officeId: "" };
+  }
+}
+
+function openControlsStage() {
+  try {
+    const nav = window?.__FPE_V3_NAV__;
+    if (!nav || typeof nav.navigateStage !== "function") {
+      return false;
+    }
+    nav.navigateStage("controls", { persist: true });
+    return true;
+  } catch {
+    return false;
   }
 }
 
@@ -437,6 +455,29 @@ function setCardStatus(text) {
   el.textContent = cleanText(text) || "Awaiting context";
 }
 
+function setMetricSelectorDisabled(selectEl, placeholder = "") {
+  if (!(selectEl instanceof HTMLSelectElement)) {
+    return;
+  }
+  selectEl.disabled = true;
+  if (!placeholder) {
+    return;
+  }
+  selectEl.innerHTML = "";
+  const option = document.createElement("option");
+  option.value = "";
+  option.textContent = placeholder;
+  selectEl.append(option);
+  selectEl.value = "";
+}
+
+function setMetricSelectorEnabled(selectEl, enabled = true) {
+  if (!(selectEl instanceof HTMLSelectElement)) {
+    return;
+  }
+  selectEl.disabled = !enabled;
+}
+
 function syncMetricSelector(selectEl, inventory, selectedMetricId) {
   if (!(selectEl instanceof HTMLSelectElement)) {
     return "";
@@ -480,6 +521,17 @@ function syncMetricSelector(selectEl, inventory, selectedMetricId) {
   const nextValue = inventoryById.has(preferred) ? preferred : (fallbackWithData || fallbackAny);
   selectEl.value = nextValue;
   return nextValue;
+}
+
+function setMapActionButton(buttonEl, { visible = false, label = "Open Controls", disabled = false } = {}) {
+  if (!(buttonEl instanceof HTMLButtonElement)) {
+    return;
+  }
+  buttonEl.hidden = !visible;
+  buttonEl.disabled = !!disabled;
+  if (label) {
+    buttonEl.textContent = String(label);
+  }
 }
 
 function defaultFeatureCollection() {
@@ -718,6 +770,59 @@ function ensureMapLayers(runtime) {
   bindMapInteractions(runtime);
 }
 
+function clearMapCollections(runtime) {
+  const map = runtime?.map;
+  if (!map || !runtime?.mapLoaded) {
+    return;
+  }
+  setSourceData(map, AREAS_SOURCE_ID, defaultFeatureCollection());
+  setSourceData(map, POINTS_SOURCE_ID, defaultFeatureCollection());
+  if (map.getLayer(POINT_LAYER_ID)) {
+    map.setLayoutProperty(POINT_LAYER_ID, "visibility", "none");
+  }
+  runtime.featureByGeoid = new Map();
+  runtime.selectedGeoid = "";
+  updateSelectedFilter(runtime);
+}
+
+function destroyMapInstance(runtime) {
+  const map = runtime?.map;
+  if (map && typeof map.remove === "function") {
+    try {
+      map.remove();
+    } catch {}
+  }
+  if (!runtime || typeof runtime !== "object") {
+    return;
+  }
+  runtime.map = null;
+  runtime.mapboxgl = null;
+  runtime.mapLoaded = false;
+  runtime.handlersBound = false;
+  runtime.mapToken = "";
+  runtime.boundaryKey = "";
+  runtime.fittedBoundaryKey = "";
+  runtime.boundaryFeatureCollection = defaultFeatureCollection();
+  runtime.featureByGeoid = new Map();
+  runtime.selectedGeoid = "";
+}
+
+function bindMapViewportResize() {
+  if (mapViewportResizeBound) {
+    return;
+  }
+  mapViewportResizeBound = true;
+  window.addEventListener("resize", () => {
+    const map = mapRuntime?.map;
+    if (!map || typeof map.resize !== "function") {
+      return;
+    }
+    try {
+      map.resize();
+    } catch {}
+  });
+}
+
 async function ensureMapInstance(runtime, host, token) {
   const nextToken = cleanText(token);
   if (!nextToken) {
@@ -787,12 +892,16 @@ function readMapElements() {
     mapStatus: document.getElementById(STATUS_ID),
     metricStatus: document.getElementById(METRIC_STATUS_ID),
     metricSelect: document.getElementById(METRIC_SELECT_ID),
+    actionBtn: document.getElementById(ACTION_BTN_ID),
   };
 }
 
 function ensureRuntime(root) {
   if (mapRuntime && mapRuntime.root === root) {
     return mapRuntime;
+  }
+  if (mapRuntime?.map) {
+    destroyMapInstance(mapRuntime);
   }
   mapRuntime = {
     root,
@@ -822,16 +931,31 @@ async function syncMapSurface() {
   const runtime = ensureRuntime(els.root);
   const requestSeq = ++runtime.requestSeq;
 
+  const tokenConfig = readMapboxPublicTokenConfig();
   const token = resolveMapboxPublicToken();
   if (!token) {
+    const invalid = !!tokenConfig?.invalidConfigValue;
     setCardStatus("Config unavailable");
-    setTextWithLevel(els.mapStatus, MAP_STATUS_CONFIG_UNAVAILABLE, "warn");
-    setTextWithLevel(els.metricStatus, "", "muted");
-    runtime.featureByGeoid = new Map();
-    runtime.selectedGeoid = "";
+    setTextWithLevel(
+      els.mapStatus,
+      invalid ? MAP_STATUS_TOKEN_INVALID : MAP_STATUS_TOKEN_MISSING,
+      "warn",
+    );
+    setTextWithLevel(els.metricStatus, "Choropleth metrics are unavailable until Mapbox token setup is complete.", "muted");
+    setMetricSelectorDisabled(
+      els.metricSelect,
+      invalid ? "Invalid token; update in Controls" : "Set token in Controls",
+    );
+    setMapActionButton(els.actionBtn, {
+      visible: true,
+      label: "Set Mapbox token in Controls",
+      disabled: false,
+    });
+    destroyMapInstance(runtime);
     syncInspectPanel(runtime, null);
     return;
   }
+  setMapActionButton(els.actionBtn, { visible: false });
 
   const shellScope = readShellScope();
   const censusConfig = readDistrictCensusConfigSnapshot() || {};
@@ -847,7 +971,9 @@ async function syncMapSurface() {
   if (!hasContext) {
     setCardStatus("Awaiting context");
     setTextWithLevel(els.mapStatus, MAP_STATUS_CONTEXT_REQUIRED, "muted");
-    setTextWithLevel(els.metricStatus, "", "muted");
+    setTextWithLevel(els.metricStatus, "Metric selector is disabled until geography context is selected.", "muted");
+    setMetricSelectorDisabled(els.metricSelect, "Awaiting geography context");
+    clearMapCollections(runtime);
     runtime.featureByGeoid = new Map();
     runtime.selectedGeoid = "";
     syncInspectPanel(runtime, null);
@@ -860,20 +986,29 @@ async function syncMapSurface() {
   runtime.metricId = syncMetricSelector(els.metricSelect, metricInventory, runtime.metricId);
   const activeMetric = metricInventory.find((row) => cleanText(row.id) === cleanText(runtime.metricId)) || null;
   runtime.activeMetric = activeMetric;
+  setMetricSelectorEnabled(els.metricSelect, false);
 
   setCardStatus("Loading map");
   setTextWithLevel(els.mapStatus, MAP_STATUS_LOADING, "muted");
-  setTextWithLevel(els.metricStatus, "", "muted");
+  setTextWithLevel(els.metricStatus, "Preparing map and choropleth controls…", "muted");
 
   try {
     await ensureMapInstance(runtime, els.host, token);
     if (requestSeq !== runtime.requestSeq) {
       return;
     }
+    runtime.map?.resize?.();
+    requestAnimationFrame(() => {
+      try {
+        runtime.map?.resize?.();
+      } catch {}
+    });
   } catch {
-    setCardStatus("Load failed");
-    setTextWithLevel(els.mapStatus, MAP_STATUS_LOAD_FAILED, "bad");
-    setTextWithLevel(els.metricStatus, "", "muted");
+    setCardStatus("Boot failed");
+    setTextWithLevel(els.mapStatus, MAP_STATUS_BOOT_FAILED, "bad");
+    setTextWithLevel(els.metricStatus, "Map bootstrap failed before choropleth controls became available.", "bad");
+    setMetricSelectorDisabled(els.metricSelect, "Map boot failed");
+    clearMapCollections(runtime);
     runtime.featureByGeoid = new Map();
     runtime.selectedGeoid = "";
     syncInspectPanel(runtime, activeMetric);
@@ -894,9 +1029,11 @@ async function syncMapSurface() {
       runtime.boundaryKey = boundaryKey;
       runtime.fittedBoundaryKey = "";
     } catch {
-      setCardStatus("Load failed");
-      setTextWithLevel(els.mapStatus, MAP_STATUS_LOAD_FAILED, "bad");
-      setTextWithLevel(els.metricStatus, "", "muted");
+      setCardStatus("Geography unavailable");
+      setTextWithLevel(els.mapStatus, MAP_STATUS_GEOGRAPHY_UNAVAILABLE, "bad");
+      setTextWithLevel(els.metricStatus, "Boundary data request failed for this geography context.", "bad");
+      setMetricSelectorDisabled(els.metricSelect, "Geography unavailable");
+      clearMapCollections(runtime);
       runtime.featureByGeoid = new Map();
       runtime.selectedGeoid = "";
       syncInspectPanel(runtime, activeMetric);
@@ -914,7 +1051,8 @@ async function syncMapSurface() {
   if (!mapCollections.areaFeatureCollection.features.length) {
     setCardStatus("No geography");
     setTextWithLevel(els.mapStatus, MAP_STATUS_NO_GEOGRAPHY, "warn");
-    setTextWithLevel(els.metricStatus, "", "muted");
+    setTextWithLevel(els.metricStatus, "No mapped areas are available for the current geography selection.", "warn");
+    setMetricSelectorDisabled(els.metricSelect, "No geography available");
     runtime.featureByGeoid = new Map();
     runtime.selectedGeoid = "";
     applyMapCollections(runtime, mapCollections, activeMetric);
@@ -933,7 +1071,11 @@ async function syncMapSurface() {
     runtime.fittedBoundaryKey = boundaryKey;
   }
 
-  if (!activeMetric || activeMetric.availableCount <= 0 || mapCollections.metricCount <= 0) {
+  const metricsReady = metricInventory.length > 0;
+  setMetricSelectorEnabled(els.metricSelect, metricsReady);
+  if (!metricsReady) {
+    setTextWithLevel(els.metricStatus, "No choropleth metrics are available for the current geography context.", "warn");
+  } else if (!activeMetric || activeMetric.availableCount <= 0 || mapCollections.metricCount <= 0) {
     setTextWithLevel(els.metricStatus, MAP_STATUS_METRIC_UNAVAILABLE, "warn");
   } else {
     const count = mapCollections.metricCount.toLocaleString();
@@ -955,14 +1097,37 @@ async function syncMapSurface() {
 function bindMapSurfaceEvents() {
   const metricSelect = document.getElementById(METRIC_SELECT_ID);
   if (!(metricSelect instanceof HTMLSelectElement) || metricSelect.dataset.v3MapBound === "1") {
+    // no-op
+  } else {
+    metricSelect.dataset.v3MapBound = "1";
+    metricSelect.addEventListener("change", () => {
+      const runtime = mapRuntime;
+      if (runtime) {
+        runtime.metricId = cleanText(metricSelect.value);
+      }
+      void syncMapSurface();
+    });
+  }
+
+  const actionBtn = document.getElementById(ACTION_BTN_ID);
+  if (actionBtn instanceof HTMLButtonElement && actionBtn.dataset.v3MapBound !== "1") {
+    actionBtn.dataset.v3MapBound = "1";
+    actionBtn.addEventListener("click", () => {
+      const ok = openControlsStage();
+      if (!ok) {
+        const statusEl = document.getElementById(STATUS_ID);
+        setTextWithLevel(statusEl, "Controls navigation is unavailable. Open the Controls stage from the top navigation.", "warn");
+      }
+    });
+  }
+}
+
+function bindMapConfigEvents() {
+  if (mapConfigEventBound) {
     return;
   }
-  metricSelect.dataset.v3MapBound = "1";
-  metricSelect.addEventListener("change", () => {
-    const runtime = mapRuntime;
-    if (runtime) {
-      runtime.metricId = cleanText(metricSelect.value);
-    }
+  mapConfigEventBound = true;
+  window.addEventListener("vice:mapbox-config-updated", () => {
     void syncMapSurface();
   });
 }
@@ -989,11 +1154,16 @@ export function renderMapSurface(mount) {
         <div class="fpe-field-grid fpe-field-grid--2">
           <div class="field">
             <label class="fpe-control-label" for="${METRIC_SELECT_ID}">Choropleth metric</label>
-            <select class="fpe-input" id="${METRIC_SELECT_ID}"></select>
+            <select class="fpe-input" id="${METRIC_SELECT_ID}" disabled>
+              <option value="">Awaiting map readiness</option>
+            </select>
           </div>
           <div class="fpe-contained-block fpe-contained-block--status">
             <div class="fpe-control-label">Geography load</div>
             <div class="fpe-help fpe-help--flush muted" id="${STATUS_ID}">${MAP_STATUS_CONTEXT_REQUIRED}</div>
+            <div class="fpe-action-row">
+              <button class="fpe-btn fpe-btn--ghost" hidden id="${ACTION_BTN_ID}" type="button">Set Mapbox token in Controls</button>
+            </div>
           </div>
         </div>
 
@@ -1023,10 +1193,14 @@ export function renderMapSurface(mount) {
   mount.innerHTML = "";
   mount.append(frame);
 
+  bindMapViewportResize();
+  bindMapConfigEvents();
   bindMapSurfaceEvents();
   void syncMapSurface();
 
   return () => {
+    bindMapViewportResize();
+    bindMapConfigEvents();
     bindMapSurfaceEvents();
     void syncMapSurface();
   };
