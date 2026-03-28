@@ -399,6 +399,37 @@ function helperPanelSections(entry, context){
     });
   }
 
+  if (moduleId === "mapOperationsGuide"){
+    panels.push({
+      title: "How to read Campaign Geography",
+      paragraphs: [
+        "Map stage visualizes canonical geography context and map-safe metrics so district reality is spatially inspectable. It should clarify where pressure and priority live, not invent a second planning model.",
+        "Choropleth intensity is relative inside the current geography selection. Treat color as comparative context, then confirm actions against canonical planning and execution surfaces.",
+        "Area inspect is the operational summary surface for selected geography: name, type, identifier, office context, and selected metric interpretation.",
+      ],
+      items: [
+        { label: "What this module is telling you", body: "Where canonical context and mapped metric pressure are concentrated in the active footprint." },
+        { label: "What this module is not telling you", body: "Map color is not standalone campaign truth and does not mutate deterministic canon outputs." },
+        { label: "What changes downstream", body: "Use map insight to focus review/assignment conversations; keep final planning commitments anchored to canon modules." },
+      ],
+      variant: "hero",
+    });
+    panels.push({
+      title: "Canon vs display-only trust boundary",
+      paragraphs: [
+        "Map overlays are display-only interpretations of existing canonical and read-only context layers. They do not rewrite assumptions, equations, or deterministic outputs.",
+        "Planning context and execution context should be read separately: planning overlays show modeled pressure; execution overlays show observed or operational coverage context when available.",
+        "Office/turf context explains ownership and operational scope. It is coordination context, not hidden assignment logic.",
+      ],
+      items: [
+        { label: "Planning context", body: "Use turnout/persuasion and priority overlays to identify where pressure appears geographically." },
+        { label: "Execution context", body: "Use coverage/activity overlays to identify where operational attention is light or concentrated." },
+        { label: "Trust posture", body: "When map and canon disagree, treat map as a visibility cue and verify against canonical source surfaces before action." },
+      ],
+      variant: "card",
+    });
+  }
+
   const out = [];
   for (let index = 0; index < panels.length; index += 1){
     const panel = panels[index];

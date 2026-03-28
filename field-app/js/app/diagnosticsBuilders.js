@@ -176,6 +176,11 @@ function mapConfigDiagnosticStatus() {
   };
 }
 
+function readMapRuntimeDiagnostics() {
+  const row = globalThis?.__FPE_MAP_RUNTIME_DIAGNOSTICS__;
+  return row && typeof row === "object" ? row : null;
+}
+
 /**
  * @param {string[]} lines
  * @param {{
@@ -251,6 +256,23 @@ export function appendModelDiagnosticsCore(lines, {
   out.push(`- next=${mapConfig.next}`);
   out.push(`- source=${cleanText(mapConfig?.config?.source) || "none"} storageKey=${cleanText(mapConfig?.config?.storageKey) || "n/a"}`);
   out.push(`- invalidConfigValue=${mapConfig?.config?.invalidConfigValue ? "yes" : "no"}`);
+
+  const mapRuntime = readMapRuntimeDiagnostics();
+  out.push("map runtime:");
+  if (!mapRuntime) {
+    out.push("- status=unavailable (map stage has not published runtime diagnostics yet)");
+  } else {
+    const geometry = mapRuntime?.geometry && typeof mapRuntime.geometry === "object" ? mapRuntime.geometry : {};
+    const selected = mapRuntime?.selected && typeof mapRuntime.selected === "object" ? mapRuntime.selected : {};
+    const metric = mapRuntime?.metric && typeof mapRuntime.metric === "object" ? mapRuntime.metric : {};
+    out.push(`- status=${cleanText(mapRuntime?.status) || "unknown"} mapLoaded=${mapRuntime?.mapLoaded ? "yes" : "no"} updatedAt=${cleanText(mapRuntime?.updatedAt) || "—"}`);
+    out.push(`- geometry: resolution=${cleanText(geometry?.resolution) || "—"} boundaryFeatures=${Number(geometry?.boundaryFeatureCount || 0)} mappedFeatures=${Number(geometry?.mappedFeatureCount || 0)}`);
+    out.push(`- selectedArea: label=${cleanText(selected?.label) || "none"} geoid=${cleanText(selected?.geoid) || "—"} office=${cleanText(mapRuntime?.officeId) || "—"}`);
+    out.push(`- selectedMetric: label=${cleanText(metric?.label) || "none"} id=${cleanText(metric?.id) || "—"} bundle=${cleanText(metric?.setLabel || metric?.setId) || "—"} legendMode=${cleanText(metric?.legendMode) || "—"}`);
+    out.push(`- provenance: ${cleanText(metric?.provenance) || "—"} context=${cleanText(metric?.context) || "—"}`);
+    const reportingHook = globalThis?.__FPE_MAP_REPORTING__;
+    out.push(`- reportingHook=${reportingHook && typeof reportingHook === "object" ? "available" : "unavailable"}`);
+  }
 
   const bootState = bootStatus && typeof bootStatus === "object" ? bootStatus : null;
   if (bootState) {
