@@ -26,6 +26,8 @@ const MAPBOX_SCRIPT_ID = "v3MapboxScript";
 const MAPBOX_CSS_URL = "https://api.mapbox.com/mapbox-gl-js/v3.4.0/mapbox-gl.css";
 const MAPBOX_JS_URL = "https://api.mapbox.com/mapbox-gl-js/v3.4.0/mapbox-gl.js";
 const MAPBOX_STYLE_URL = "mapbox://styles/mapbox/light-v11";
+const MAP_DEFAULT_CENTER = [-98.5795, 39.8283];
+const MAP_DEFAULT_ZOOM = 3.25;
 
 const MAP_STATUS_LOADING = "Loading campaign geography…";
 const MAP_STATUS_CONTEXT_REQUIRED = "Select campaign, office, and geography context to load the map.";
@@ -42,15 +44,20 @@ const ROOT_ID = "v3MapSurfaceRoot";
 const HOST_ID = "v3MapHost";
 const STATUS_ID = "v3MapStatus";
 const METRIC_STATUS_ID = "v3MapMetricStatus";
+const CONTEXT_STATUS_ID = "v3MapContextStatus";
+const HOVER_STATUS_ID = "v3MapHoverStatus";
 const INSPECT_STATUS_ID = "v3MapInspectStatus";
 const INSPECT_BODY_ID = "v3MapInspectBody";
 const METRIC_SELECT_ID = "v3MapMetricSelect";
 const ACTION_BTN_ID = "v3MapActionBtn";
+const FIT_BTN_ID = "v3MapFitBtn";
+const RESET_BTN_ID = "v3MapResetBtn";
 
 const AREAS_SOURCE_ID = "v3MapAreasSource";
 const POINTS_SOURCE_ID = "v3MapPointsSource";
 const FILL_LAYER_ID = "v3MapAreaFillLayer";
 const OUTLINE_LAYER_ID = "v3MapAreaOutlineLayer";
+const HOVER_LAYER_ID = "v3MapAreaHoverLayer";
 const SELECTED_LAYER_ID = "v3MapAreaSelectedLayer";
 const POINT_LAYER_ID = "v3MapPointLayer";
 
@@ -81,6 +88,17 @@ function normalizeGeoidToken(value, expectedLength = 0) {
     return digits.slice(-expectedLength).padStart(expectedLength, "0");
   }
   return digits;
+}
+
+function resolutionLabel(resolution) {
+  const key = cleanText(resolution).toLowerCase();
+  if (key === "block_group") return "Block group";
+  if (key === "tract") return "Tract";
+  if (key === "place") return "Place";
+  if (key === "congressional_district") return "Congressional district";
+  if (key === "state_senate_district") return "State senate district";
+  if (key === "state_house_district") return "State house district";
+  return "Geography";
 }
 
 function readShellScope() {
@@ -308,7 +326,7 @@ async function fetchBoundaryCollection({ resolution, geoids }) {
   };
 }
 
-function buildMapCollections({ boundaryCollection, labelsByGeoid, rowsByGeoid, metric }) {
+function buildMapCollections({ boundaryCollection, labelsByGeoid, rowsByGeoid, metric, resolution }) {
   const features = Array.isArray(boundaryCollection?.features) ? boundaryCollection.features : [];
   const areaFeatures = [];
   const featureByGeoid = new Map();
@@ -339,6 +357,7 @@ function buildMapCollections({ boundaryCollection, labelsByGeoid, rowsByGeoid, m
       properties: {
         ...feature.properties,
         geoid,
+        geographyType: resolutionLabel(resolution),
         label,
         hasMetric,
         metricValue: hasMetric ? metricValue : null,
@@ -580,6 +599,18 @@ function updateSelectedFilter(runtime) {
   );
 }
 
+function updateHoverFilter(runtime) {
+  const map = runtime?.map;
+  if (!map?.getLayer?.(HOVER_LAYER_ID)) {
+    return;
+  }
+  const geoid = cleanText(runtime?.hoveredGeoid);
+  map.setFilter(
+    HOVER_LAYER_ID,
+    geoid ? ["==", ["get", "geoid"], geoid] : ["==", ["get", "geoid"], "__none__"],
+  );
+}
+
 function collectCoordinates(geometry, sink) {
   const coords = geometry?.coordinates;
   if (!Array.isArray(coords)) {
@@ -627,6 +658,28 @@ function fitMapToFeatures(runtime, featureCollection) {
   map.fitBounds(bounds, { padding: 44, maxZoom: 11, duration: 0 });
 }
 
+function fitRuntimeBoundary(runtime) {
+  const features = runtime?.boundaryFeatureCollection?.features;
+  if (!Array.isArray(features) || !features.length) {
+    return false;
+  }
+  fitMapToFeatures(runtime, runtime.boundaryFeatureCollection);
+  return true;
+}
+
+function resetRuntimeView(runtime) {
+  const map = runtime?.map;
+  if (!map || typeof map.easeTo !== "function") {
+    return false;
+  }
+  map.easeTo({
+    center: MAP_DEFAULT_CENTER,
+    zoom: MAP_DEFAULT_ZOOM,
+    duration: 0,
+  });
+  return true;
+}
+
 function escapeHtml(value) {
   return String(value == null ? "" : value)
     .replace(/&/g, "&amp;")
@@ -655,9 +708,13 @@ function syncInspectPanel(runtime, metric) {
   const population = toFiniteNumber(props.population);
   const populationText = population == null ? "—" : population.toLocaleString();
   const label = cleanText(props.label) || selectedGeoid;
+  const geographyType = cleanText(props.geographyType) || resolutionLabel(runtime?.resolution);
+  const officeId = cleanText(runtime?.shellScope?.officeId) || "—";
   inspectBody.innerHTML = [
     `<div class="fpe-map-inspect-row"><span>Area</span><strong>${escapeHtml(label)}</strong></div>`,
+    `<div class="fpe-map-inspect-row"><span>Type</span><strong>${escapeHtml(geographyType)}</strong></div>`,
     `<div class="fpe-map-inspect-row"><span>GEOID</span><strong>${escapeHtml(selectedGeoid)}</strong></div>`,
+    `<div class="fpe-map-inspect-row"><span>Office context</span><strong>${escapeHtml(officeId)}</strong></div>`,
     `<div class="fpe-map-inspect-row"><span>${escapeHtml(metricLabel)}</span><strong>${escapeHtml(metricText)}</strong></div>`,
     `<div class="fpe-map-inspect-row"><span>Population</span><strong>${escapeHtml(populationText)}</strong></div>`,
   ].join("");
@@ -666,6 +723,23 @@ function syncInspectPanel(runtime, metric) {
     `Inspecting ${label} (${selectedGeoid}).`,
     "ok",
   );
+}
+
+function syncHoverStatus(runtime) {
+  const el = document.getElementById(HOVER_STATUS_ID);
+  if (!(el instanceof HTMLElement)) {
+    return;
+  }
+  const geoid = cleanText(runtime?.hoveredGeoid);
+  const feature = geoid ? runtime?.featureByGeoid?.get(geoid) : null;
+  if (!feature) {
+    setTextWithLevel(el, "Hover an area to preview name, type, and geography identifier.", "muted");
+    return;
+  }
+  const props = feature?.properties && typeof feature.properties === "object" ? feature.properties : {};
+  const label = cleanText(props.label) || geoid;
+  const geographyType = cleanText(props.geographyType) || resolutionLabel(runtime?.resolution);
+  setTextWithLevel(el, `Hover: ${label} • ${geographyType} • ${geoid}`, "ok");
 }
 
 function bridgeMapSelection(runtime, geoid) {
@@ -697,10 +771,31 @@ function bindMapInteractions(runtime) {
   };
   map.on("click", FILL_LAYER_ID, onFeatureClick);
   map.on("click", OUTLINE_LAYER_ID, onFeatureClick);
+  const onFeatureHover = (event) => {
+    const feature = Array.isArray(event?.features) ? event.features[0] : null;
+    const geoid = cleanText(feature?.properties?.geoid);
+    runtime.hoveredGeoid = geoid;
+    updateHoverFilter(runtime);
+    syncHoverStatus(runtime);
+  };
+  map.on("mousemove", FILL_LAYER_ID, onFeatureHover);
+  map.on("mousemove", OUTLINE_LAYER_ID, onFeatureHover);
   map.on("mouseenter", FILL_LAYER_ID, () => {
     map.getCanvas().style.cursor = "pointer";
   });
+  map.on("mouseenter", OUTLINE_LAYER_ID, () => {
+    map.getCanvas().style.cursor = "pointer";
+  });
   map.on("mouseleave", FILL_LAYER_ID, () => {
+    runtime.hoveredGeoid = "";
+    updateHoverFilter(runtime);
+    syncHoverStatus(runtime);
+    map.getCanvas().style.cursor = "";
+  });
+  map.on("mouseleave", OUTLINE_LAYER_ID, () => {
+    runtime.hoveredGeoid = "";
+    updateHoverFilter(runtime);
+    syncHoverStatus(runtime);
     map.getCanvas().style.cursor = "";
   });
   runtime.handlersBound = true;
@@ -740,6 +835,19 @@ function ensureMapLayers(runtime) {
       },
     });
   }
+  if (!map.getLayer(HOVER_LAYER_ID)) {
+    map.addLayer({
+      id: HOVER_LAYER_ID,
+      type: "line",
+      source: AREAS_SOURCE_ID,
+      filter: ["==", ["get", "geoid"], "__none__"],
+      paint: {
+        "line-color": "#06b6d4",
+        "line-width": 2.2,
+        "line-opacity": 0.95,
+      },
+    });
+  }
   if (!map.getLayer(SELECTED_LAYER_ID)) {
     map.addLayer({
       id: SELECTED_LAYER_ID,
@@ -768,6 +876,8 @@ function ensureMapLayers(runtime) {
     });
   }
   bindMapInteractions(runtime);
+  updateHoverFilter(runtime);
+  updateSelectedFilter(runtime);
 }
 
 function clearMapCollections(runtime) {
@@ -782,6 +892,10 @@ function clearMapCollections(runtime) {
   }
   runtime.featureByGeoid = new Map();
   runtime.selectedGeoid = "";
+  runtime.hoveredGeoid = "";
+  runtime.fittedBoundaryKey = "";
+  runtime.boundaryFeatureCollection = defaultFeatureCollection();
+  updateHoverFilter(runtime);
   updateSelectedFilter(runtime);
 }
 
@@ -805,6 +919,10 @@ function destroyMapInstance(runtime) {
   runtime.boundaryFeatureCollection = defaultFeatureCollection();
   runtime.featureByGeoid = new Map();
   runtime.selectedGeoid = "";
+  runtime.hoveredGeoid = "";
+  runtime.selectedGeoids = [];
+  runtime.shellScope = { campaignId: "", officeId: "" };
+  runtime.resolution = "";
 }
 
 function bindMapViewportResize() {
@@ -843,8 +961,8 @@ async function ensureMapInstance(runtime, host, token) {
   const map = new mapboxgl.Map({
     container: host,
     style: MAPBOX_STYLE_URL,
-    center: [-98.5795, 39.8283],
-    zoom: 3.25,
+    center: MAP_DEFAULT_CENTER,
+    zoom: MAP_DEFAULT_ZOOM,
     attributionControl: true,
   });
   runtime.mapboxgl = mapboxgl;
@@ -882,6 +1000,7 @@ function applyMapCollections(runtime, mapCollections, metric) {
       (mapCollections?.pointFeatureCollection?.features || []).length ? "visible" : "none",
     );
   }
+  updateHoverFilter(runtime);
   updateSelectedFilter(runtime);
 }
 
@@ -891,8 +1010,12 @@ function readMapElements() {
     host: document.getElementById(HOST_ID),
     mapStatus: document.getElementById(STATUS_ID),
     metricStatus: document.getElementById(METRIC_STATUS_ID),
+    contextStatus: document.getElementById(CONTEXT_STATUS_ID),
+    hoverStatus: document.getElementById(HOVER_STATUS_ID),
     metricSelect: document.getElementById(METRIC_SELECT_ID),
     actionBtn: document.getElementById(ACTION_BTN_ID),
+    fitBtn: document.getElementById(FIT_BTN_ID),
+    resetBtn: document.getElementById(RESET_BTN_ID),
   };
 }
 
@@ -916,6 +1039,9 @@ function ensureRuntime(root) {
     featureByGeoid: new Map(),
     selectedGeoids: [],
     selectedGeoid: "",
+    hoveredGeoid: "",
+    shellScope: { campaignId: "", officeId: "" },
+    resolution: "",
     metricId: "",
     activeMetric: null,
     fittedBoundaryKey: "",
@@ -930,6 +1056,13 @@ async function syncMapSurface() {
   }
   const runtime = ensureRuntime(els.root);
   const requestSeq = ++runtime.requestSeq;
+  setMapActionButton(els.actionBtn, { visible: false });
+  if (els.fitBtn instanceof HTMLButtonElement) {
+    els.fitBtn.disabled = true;
+  }
+  if (els.resetBtn instanceof HTMLButtonElement) {
+    els.resetBtn.disabled = true;
+  }
 
   const tokenConfig = readMapboxPublicTokenConfig();
   const token = resolveMapboxPublicToken();
@@ -946,6 +1079,12 @@ async function syncMapSurface() {
       els.metricSelect,
       invalid ? "Invalid token; update in Controls" : "Set token in Controls",
     );
+    setTextWithLevel(
+      els.contextStatus,
+      "Token setup is app-level. Configure Mapbox once in Controls for all map sessions.",
+      "muted",
+    );
+    setTextWithLevel(els.hoverStatus, "Hover preview unavailable until map boot completes.", "muted");
     setMapActionButton(els.actionBtn, {
       visible: true,
       label: "Set Mapbox token in Controls",
@@ -960,6 +1099,8 @@ async function syncMapSurface() {
   const shellScope = readShellScope();
   const censusConfig = readDistrictCensusConfigSnapshot() || {};
   const geoContext = selectedGeographyFromConfig(censusConfig);
+  runtime.shellScope = shellScope;
+  runtime.resolution = geoContext.resolution;
   runtime.selectedGeoids = geoContext.selectedGeoids.slice();
 
   const hasContext = !!cleanText(shellScope.campaignId)
@@ -972,6 +1113,8 @@ async function syncMapSurface() {
     setCardStatus("Awaiting context");
     setTextWithLevel(els.mapStatus, MAP_STATUS_CONTEXT_REQUIRED, "muted");
     setTextWithLevel(els.metricStatus, "Metric selector is disabled until geography context is selected.", "muted");
+    setTextWithLevel(els.contextStatus, "Waiting for canonical campaign, office, and geography selections.", "muted");
+    setTextWithLevel(els.hoverStatus, "Hover preview unavailable until geography is loaded.", "muted");
     setMetricSelectorDisabled(els.metricSelect, "Awaiting geography context");
     clearMapCollections(runtime);
     runtime.featureByGeoid = new Map();
@@ -987,6 +1130,12 @@ async function syncMapSurface() {
   const activeMetric = metricInventory.find((row) => cleanText(row.id) === cleanText(runtime.metricId)) || null;
   runtime.activeMetric = activeMetric;
   setMetricSelectorEnabled(els.metricSelect, false);
+  setTextWithLevel(
+    els.contextStatus,
+    `Context: office ${cleanText(shellScope.officeId) || "—"} • ${resolutionLabel(geoContext.resolution)} • ${geoContext.selectedGeoids.length.toLocaleString()} selected area${geoContext.selectedGeoids.length === 1 ? "" : "s"}.`,
+    "muted",
+  );
+  setTextWithLevel(els.hoverStatus, "Hover an area to preview name, type, and geography identifier.", "muted");
 
   setCardStatus("Loading map");
   setTextWithLevel(els.mapStatus, MAP_STATUS_LOADING, "muted");
@@ -1008,6 +1157,7 @@ async function syncMapSurface() {
     setTextWithLevel(els.mapStatus, MAP_STATUS_BOOT_FAILED, "bad");
     setTextWithLevel(els.metricStatus, "Map bootstrap failed before choropleth controls became available.", "bad");
     setMetricSelectorDisabled(els.metricSelect, "Map boot failed");
+    setTextWithLevel(els.hoverStatus, "Hover preview unavailable because map boot failed.", "bad");
     clearMapCollections(runtime);
     runtime.featureByGeoid = new Map();
     runtime.selectedGeoid = "";
@@ -1033,6 +1183,7 @@ async function syncMapSurface() {
       setTextWithLevel(els.mapStatus, MAP_STATUS_GEOGRAPHY_UNAVAILABLE, "bad");
       setTextWithLevel(els.metricStatus, "Boundary data request failed for this geography context.", "bad");
       setMetricSelectorDisabled(els.metricSelect, "Geography unavailable");
+      setTextWithLevel(els.hoverStatus, "Hover preview unavailable because geography did not load.", "bad");
       clearMapCollections(runtime);
       runtime.featureByGeoid = new Map();
       runtime.selectedGeoid = "";
@@ -1046,6 +1197,7 @@ async function syncMapSurface() {
     labelsByGeoid: geoContext.labelsByGeoid,
     rowsByGeoid,
     metric: activeMetric,
+    resolution: geoContext.resolution,
   });
 
   if (!mapCollections.areaFeatureCollection.features.length) {
@@ -1053,6 +1205,7 @@ async function syncMapSurface() {
     setTextWithLevel(els.mapStatus, MAP_STATUS_NO_GEOGRAPHY, "warn");
     setTextWithLevel(els.metricStatus, "No mapped areas are available for the current geography selection.", "warn");
     setMetricSelectorDisabled(els.metricSelect, "No geography available");
+    setTextWithLevel(els.hoverStatus, "No mapped areas are available to inspect.", "warn");
     runtime.featureByGeoid = new Map();
     runtime.selectedGeoid = "";
     applyMapCollections(runtime, mapCollections, activeMetric);
@@ -1091,6 +1244,13 @@ async function syncMapSurface() {
     `Campaign geography loaded (${mapCollections.areaFeatureCollection.features.length.toLocaleString()} polygon feature${mapCollections.areaFeatureCollection.features.length === 1 ? "" : "s"}).`,
     "ok",
   );
+  if (els.fitBtn instanceof HTMLButtonElement) {
+    els.fitBtn.disabled = !mapCollections.areaFeatureCollection.features.length;
+  }
+  if (els.resetBtn instanceof HTMLButtonElement) {
+    els.resetBtn.disabled = false;
+  }
+  syncHoverStatus(runtime);
   syncInspectPanel(runtime, activeMetric);
 }
 
@@ -1117,6 +1277,32 @@ function bindMapSurfaceEvents() {
       if (!ok) {
         const statusEl = document.getElementById(STATUS_ID);
         setTextWithLevel(statusEl, "Controls navigation is unavailable. Open the Controls stage from the top navigation.", "warn");
+      }
+    });
+  }
+
+  const fitBtn = document.getElementById(FIT_BTN_ID);
+  if (fitBtn instanceof HTMLButtonElement && fitBtn.dataset.v3MapBound !== "1") {
+    fitBtn.dataset.v3MapBound = "1";
+    fitBtn.addEventListener("click", () => {
+      const runtime = mapRuntime;
+      const ok = fitRuntimeBoundary(runtime);
+      const metricStatus = document.getElementById(METRIC_STATUS_ID);
+      if (!ok) {
+        setTextWithLevel(metricStatus, "No boundary geometry is available to fit right now.", "warn");
+      }
+    });
+  }
+
+  const resetBtn = document.getElementById(RESET_BTN_ID);
+  if (resetBtn instanceof HTMLButtonElement && resetBtn.dataset.v3MapBound !== "1") {
+    resetBtn.dataset.v3MapBound = "1";
+    resetBtn.addEventListener("click", () => {
+      const runtime = mapRuntime;
+      const ok = resetRuntimeView(runtime);
+      const metricStatus = document.getElementById(METRIC_STATUS_ID);
+      if (!ok) {
+        setTextWithLevel(metricStatus, "Map is not ready to reset yet.", "warn");
       }
     });
   }
@@ -1166,12 +1352,18 @@ export function renderMapSurface(mount) {
             </div>
           </div>
         </div>
+        <div class="fpe-help fpe-help--flush muted" id="${CONTEXT_STATUS_ID}">Waiting for canonical campaign, office, and geography selections.</div>
+        <div class="fpe-action-row">
+          <button class="fpe-btn fpe-btn--ghost" disabled id="${FIT_BTN_ID}" type="button">Fit to boundary</button>
+          <button class="fpe-btn fpe-btn--ghost" disabled id="${RESET_BTN_ID}" type="button">Reset view</button>
+        </div>
 
         <div class="fpe-mapbox-shell">
           <div class="fpe-mapbox-host" id="${HOST_ID}" role="img" aria-label="Campaign geography map"></div>
         </div>
 
         <div class="fpe-help fpe-help--flush muted" id="${METRIC_STATUS_ID}"></div>
+        <div class="fpe-help fpe-help--flush muted" id="${HOVER_STATUS_ID}">Hover an area to preview name, type, and geography identifier.</div>
         <div class="fpe-contained-block">
           <div class="fpe-control-label">Area inspect</div>
           <div class="fpe-help fpe-help--flush muted" id="${INSPECT_STATUS_ID}">${MAP_STATUS_INSPECT_PROMPT}</div>
