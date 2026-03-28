@@ -14,6 +14,7 @@ import {
   fetchTigerBoundaryGeojson,
   formatMetricValue,
   getMetricsForSet,
+  listMetricSetOptions,
   normalizeGeoidsForResolution,
 } from "../../../../core/censusModule.js";
 import { readMapboxPublicTokenConfig, resolveMapboxPublicToken } from "../../../runtimeConfig.js";
@@ -46,6 +47,9 @@ const STATUS_ID = "v3MapStatus";
 const METRIC_STATUS_ID = "v3MapMetricStatus";
 const CONTEXT_STATUS_ID = "v3MapContextStatus";
 const HOVER_STATUS_ID = "v3MapHoverStatus";
+const LEGEND_STATUS_ID = "v3MapLegendStatus";
+const LEGEND_BODY_ID = "v3MapLegendBody";
+const LEGEND_PROVENANCE_ID = "v3MapLegendProvenance";
 const INSPECT_STATUS_ID = "v3MapInspectStatus";
 const INSPECT_BODY_ID = "v3MapInspectBody";
 const METRIC_SELECT_ID = "v3MapMetricSelect";
@@ -64,6 +68,21 @@ const POINT_LAYER_ID = "v3MapPointLayer";
 const STATUS_LEVELS = ["ok", "warn", "bad", "muted"];
 const ROW_LAT_KEYS = ["INTPTLAT", "INTPTLAT20", "intptlat", "lat", "latitude", "centroidLat", "centroid_lat", "y", "Y"];
 const ROW_LON_KEYS = ["INTPTLON", "INTPTLON20", "intptlon", "lon", "lng", "longitude", "centroidLon", "centroid_lon", "x", "X"];
+const LEGEND_COLORS = ["#dbeafe", "#93c5fd", "#60a5fa", "#2563eb", "#1e3a8a"];
+const METRIC_SET_LABEL_MAP = Object.fromEntries(
+  listMetricSetOptions().map((row) => [cleanText(row?.id), cleanText(row?.label) || cleanText(row?.id)]),
+);
+const METRIC_SET_PROVENANCE_MAP = {
+  core: "Canonical Census ACS/PL baseline indicators (display-only map rendering).",
+  demographics: "Canonical Census ACS demographic shares and totals (display-only map rendering).",
+  housing: "Canonical Census ACS housing indicators (display-only map rendering).",
+  income: "Canonical Census ACS income indicator (display-only map rendering).",
+  education: "Canonical Census ACS education indicator (display-only map rendering).",
+  language: "Canonical Census ACS language indicator (display-only map rendering).",
+  field_efficiency: "Canonical Census ACS indicators bundled for field-efficiency context (display-only; no planning math mutation).",
+  turnout_potential: "Canonical Census ACS indicators bundled for turnout-potential context (display-only; no planning math mutation).",
+  all: "Canonical Census ACS/PL full metric bundle (display-only map rendering).",
+};
 
 let mapboxLoadPromise = null;
 let mapRuntime = null;
@@ -564,27 +583,169 @@ function setSourceData(map, sourceId, data) {
   }
 }
 
-function fillExpressionForMetric(metric) {
-  if (!metric || metric.availableCount <= 0) {
+function quantileAt(values, q) {
+  const sorted = Array.isArray(values) ? values : [];
+  if (!sorted.length) {
+    return null;
+  }
+  const clamped = Math.max(0, Math.min(1, Number(q)));
+  const index = Math.min(sorted.length - 1, Math.max(0, Math.floor((sorted.length - 1) * clamped)));
+  const value = toFiniteNumber(sorted[index]);
+  return value == null ? null : value;
+}
+
+function buildLegendModel(metric, featureCollection) {
+  const features = Array.isArray(featureCollection?.features) ? featureCollection.features : [];
+  const values = features
+    .map((feature) => toFiniteNumber(feature?.properties?.metricValue))
+    .filter((value) => value != null)
+    .sort((a, b) => a - b);
+  if (!metric || !values.length) {
+    return {
+      ready: false,
+      bins: [],
+      values,
+      rangeText: "No mapped values for this metric in the current geography.",
+      rangeMode: "n/a",
+    };
+  }
+  const min = values[0];
+  const max = values[values.length - 1];
+  if (min == null || max == null) {
+    return {
+      ready: false,
+      bins: [],
+      values: [],
+      rangeText: "No mapped values for this metric in the current geography.",
+      rangeMode: "n/a",
+    };
+  }
+  if (min === max) {
+    return {
+      ready: true,
+      bins: [{
+        color: LEGEND_COLORS[2],
+        min,
+        max,
+        label: `${formatMetricValue(min, metric?.format)} (uniform value)`,
+      }],
+      values,
+      rangeText: `${formatMetricValue(min, metric?.format)} across mapped areas`,
+      rangeMode: "single-value",
+    };
+  }
+  const quantiles = [
+    quantileAt(values, 0.2),
+    quantileAt(values, 0.4),
+    quantileAt(values, 0.6),
+    quantileAt(values, 0.8),
+  ].map((value) => (value == null ? min : value));
+  const thresholds = [min, ...quantiles, max];
+  const bins = [];
+  for (let idx = 0; idx < LEGEND_COLORS.length; idx += 1) {
+    const start = thresholds[idx];
+    const end = idx === LEGEND_COLORS.length - 1 ? max : thresholds[idx + 1];
+    const low = toFiniteNumber(start);
+    const high = toFiniteNumber(end);
+    if (low == null || high == null) {
+      continue;
+    }
+    bins.push({
+      color: LEGEND_COLORS[idx],
+      min: low,
+      max: high,
+      label: `${formatMetricValue(low, metric?.format)} – ${formatMetricValue(high, metric?.format)}`,
+    });
+  }
+  return {
+    ready: true,
+    bins,
+    values,
+    rangeText: `${formatMetricValue(min, metric?.format)} to ${formatMetricValue(max, metric?.format)}`,
+    rangeMode: "quantile-5",
+  };
+}
+
+function fillExpressionForMetric(metric, legend) {
+  if (!metric || metric.availableCount <= 0 || !legend?.ready || !Array.isArray(legend?.bins) || !legend.bins.length) {
     return "#e5e7eb";
   }
-  const min = Number.isFinite(Number(metric.minValue)) ? Number(metric.minValue) : 0;
-  const maxRaw = Number.isFinite(Number(metric.maxValue)) ? Number(metric.maxValue) : min;
-  const max = maxRaw === min ? min + 1 : maxRaw;
-  const mid = min + ((max - min) / 2);
+  const bins = legend.bins;
+  if (bins.length === 1) {
+    return bins[0]?.color || "#60a5fa";
+  }
+  const maxByBin = bins.map((row) => toFiniteNumber(row?.max)).filter((value) => value != null);
+  const thresholds = maxByBin.slice(0, -1);
+  if (!thresholds.length) {
+    return bins[0]?.color || "#60a5fa";
+  }
+  const step = ["step", ["to-number", ["get", "metricValue"], thresholds[0]], bins[0]?.color || "#dbeafe"];
+  for (let idx = 0; idx < thresholds.length; idx += 1) {
+    const threshold = thresholds[idx];
+    const nextColor = bins[idx + 1]?.color || bins[idx]?.color || "#1d4ed8";
+    step.push(threshold, nextColor);
+  }
   return [
     "case",
     ["boolean", ["get", "hasMetric"], false],
-    [
-      "interpolate",
-      ["linear"],
-      ["to-number", ["get", "metricValue"], min],
-      min, "#dbeafe",
-      mid, "#60a5fa",
-      max, "#1d4ed8",
-    ],
+    step,
     "#e5e7eb",
   ];
+}
+
+function metricSetLabel(metricSetId) {
+  const id = cleanText(metricSetId) || "core";
+  return METRIC_SET_LABEL_MAP[id] || id;
+}
+
+function metricProvenanceText(metricSetId) {
+  const id = cleanText(metricSetId) || "core";
+  return METRIC_SET_PROVENANCE_MAP[id]
+    || "Canonical Census ACS/PL map metric bundle (display-only rendering; no campaign math mutation).";
+}
+
+function syncLegendPanel(els, runtime, metric, legend) {
+  const statusEl = els?.legendStatus;
+  const bodyEl = els?.legendBody;
+  const provenanceEl = els?.legendProvenance;
+  if (!(statusEl instanceof HTMLElement) || !(bodyEl instanceof HTMLElement) || !(provenanceEl instanceof HTMLElement)) {
+    return;
+  }
+  const metricSetId = cleanText(runtime?.metricSetId) || "core";
+  const setLabel = metricSetLabel(metricSetId);
+  setTextWithLevel(
+    provenanceEl,
+    `Source: ${metricProvenanceText(metricSetId)} Bundle: ${setLabel}.`,
+    "muted",
+  );
+  if (!metric) {
+    setTextWithLevel(statusEl, "Legend unavailable until a metric is selected.", "muted");
+    bodyEl.innerHTML = "";
+    return;
+  }
+  if (!legend?.ready || !Array.isArray(legend?.bins) || !legend.bins.length) {
+    setTextWithLevel(statusEl, "Legend unavailable because this metric has no mapped values in current geography.", "warn");
+    bodyEl.innerHTML = "";
+    return;
+  }
+  const rangeMode = cleanText(legend?.rangeMode) || "n/a";
+  setTextWithLevel(
+    statusEl,
+    `Legend: ${cleanText(metric?.label) || cleanText(metric?.id)} • ${legend.rangeText} • ${rangeMode}.`,
+    "ok",
+  );
+  bodyEl.innerHTML = legend.bins
+    .map((row) => {
+      const color = cleanText(row?.color) || "#e5e7eb";
+      const label = cleanText(row?.label) || "—";
+      return [
+        '<div class="fpe-map-legend-row">',
+        `<span class="fpe-map-legend-swatch" style="background:${escapeHtml(color)};"></span>`,
+        `<span>${escapeHtml(label)}</span>`,
+        "</div>",
+      ].join("");
+    })
+    .join("");
 }
 
 function updateSelectedFilter(runtime) {
@@ -895,6 +1056,7 @@ function clearMapCollections(runtime) {
   runtime.hoveredGeoid = "";
   runtime.fittedBoundaryKey = "";
   runtime.boundaryFeatureCollection = defaultFeatureCollection();
+  runtime.activeLegend = null;
   updateHoverFilter(runtime);
   updateSelectedFilter(runtime);
 }
@@ -923,6 +1085,8 @@ function destroyMapInstance(runtime) {
   runtime.selectedGeoids = [];
   runtime.shellScope = { campaignId: "", officeId: "" };
   runtime.resolution = "";
+  runtime.metricSetId = "";
+  runtime.activeLegend = null;
 }
 
 function bindMapViewportResize() {
@@ -982,7 +1146,7 @@ async function ensureMapInstance(runtime, host, token) {
   });
 }
 
-function applyMapCollections(runtime, mapCollections, metric) {
+function applyMapCollections(runtime, mapCollections, metric, legend) {
   const map = runtime?.map;
   if (!map || !runtime.mapLoaded) {
     return;
@@ -991,7 +1155,7 @@ function applyMapCollections(runtime, mapCollections, metric) {
   setSourceData(map, AREAS_SOURCE_ID, mapCollections.areaFeatureCollection);
   setSourceData(map, POINTS_SOURCE_ID, mapCollections.pointFeatureCollection);
   if (map.getLayer(FILL_LAYER_ID)) {
-    map.setPaintProperty(FILL_LAYER_ID, "fill-color", fillExpressionForMetric(metric));
+    map.setPaintProperty(FILL_LAYER_ID, "fill-color", fillExpressionForMetric(metric, legend));
   }
   if (map.getLayer(POINT_LAYER_ID)) {
     map.setLayoutProperty(
@@ -1012,6 +1176,9 @@ function readMapElements() {
     metricStatus: document.getElementById(METRIC_STATUS_ID),
     contextStatus: document.getElementById(CONTEXT_STATUS_ID),
     hoverStatus: document.getElementById(HOVER_STATUS_ID),
+    legendStatus: document.getElementById(LEGEND_STATUS_ID),
+    legendBody: document.getElementById(LEGEND_BODY_ID),
+    legendProvenance: document.getElementById(LEGEND_PROVENANCE_ID),
     metricSelect: document.getElementById(METRIC_SELECT_ID),
     actionBtn: document.getElementById(ACTION_BTN_ID),
     fitBtn: document.getElementById(FIT_BTN_ID),
@@ -1042,8 +1209,10 @@ function ensureRuntime(root) {
     hoveredGeoid: "",
     shellScope: { campaignId: "", officeId: "" },
     resolution: "",
+    metricSetId: "",
     metricId: "",
     activeMetric: null,
+    activeLegend: null,
     fittedBoundaryKey: "",
   };
   return mapRuntime;
@@ -1085,6 +1254,8 @@ async function syncMapSurface() {
       "muted",
     );
     setTextWithLevel(els.hoverStatus, "Hover preview unavailable until map boot completes.", "muted");
+    runtime.activeLegend = null;
+    syncLegendPanel(els, runtime, null, null);
     setMapActionButton(els.actionBtn, {
       visible: true,
       label: "Set Mapbox token in Controls",
@@ -1101,6 +1272,7 @@ async function syncMapSurface() {
   const geoContext = selectedGeographyFromConfig(censusConfig);
   runtime.shellScope = shellScope;
   runtime.resolution = geoContext.resolution;
+  runtime.metricSetId = cleanText(censusConfig?.metricSet) || "core";
   runtime.selectedGeoids = geoContext.selectedGeoids.slice();
 
   const hasContext = !!cleanText(shellScope.campaignId)
@@ -1115,6 +1287,8 @@ async function syncMapSurface() {
     setTextWithLevel(els.metricStatus, "Metric selector is disabled until geography context is selected.", "muted");
     setTextWithLevel(els.contextStatus, "Waiting for canonical campaign, office, and geography selections.", "muted");
     setTextWithLevel(els.hoverStatus, "Hover preview unavailable until geography is loaded.", "muted");
+    runtime.activeLegend = null;
+    syncLegendPanel(els, runtime, null, null);
     setMetricSelectorDisabled(els.metricSelect, "Awaiting geography context");
     clearMapCollections(runtime);
     runtime.featureByGeoid = new Map();
@@ -1140,6 +1314,8 @@ async function syncMapSurface() {
   setCardStatus("Loading map");
   setTextWithLevel(els.mapStatus, MAP_STATUS_LOADING, "muted");
   setTextWithLevel(els.metricStatus, "Preparing map and choropleth controls…", "muted");
+  runtime.activeLegend = null;
+  syncLegendPanel(els, runtime, activeMetric, null);
 
   try {
     await ensureMapInstance(runtime, els.host, token);
@@ -1158,6 +1334,8 @@ async function syncMapSurface() {
     setTextWithLevel(els.metricStatus, "Map bootstrap failed before choropleth controls became available.", "bad");
     setMetricSelectorDisabled(els.metricSelect, "Map boot failed");
     setTextWithLevel(els.hoverStatus, "Hover preview unavailable because map boot failed.", "bad");
+    runtime.activeLegend = null;
+    syncLegendPanel(els, runtime, activeMetric, null);
     clearMapCollections(runtime);
     runtime.featureByGeoid = new Map();
     runtime.selectedGeoid = "";
@@ -1184,6 +1362,8 @@ async function syncMapSurface() {
       setTextWithLevel(els.metricStatus, "Boundary data request failed for this geography context.", "bad");
       setMetricSelectorDisabled(els.metricSelect, "Geography unavailable");
       setTextWithLevel(els.hoverStatus, "Hover preview unavailable because geography did not load.", "bad");
+      runtime.activeLegend = null;
+      syncLegendPanel(els, runtime, activeMetric, null);
       clearMapCollections(runtime);
       runtime.featureByGeoid = new Map();
       runtime.selectedGeoid = "";
@@ -1206,18 +1386,23 @@ async function syncMapSurface() {
     setTextWithLevel(els.metricStatus, "No mapped areas are available for the current geography selection.", "warn");
     setMetricSelectorDisabled(els.metricSelect, "No geography available");
     setTextWithLevel(els.hoverStatus, "No mapped areas are available to inspect.", "warn");
+    runtime.activeLegend = null;
+    syncLegendPanel(els, runtime, activeMetric, null);
     runtime.featureByGeoid = new Map();
     runtime.selectedGeoid = "";
-    applyMapCollections(runtime, mapCollections, activeMetric);
+    applyMapCollections(runtime, mapCollections, activeMetric, null);
     syncInspectPanel(runtime, activeMetric);
     return;
   }
 
+  const legend = buildLegendModel(activeMetric, mapCollections.areaFeatureCollection);
+  runtime.activeLegend = legend;
+  syncLegendPanel(els, runtime, activeMetric, legend);
   runtime.featureByGeoid = mapCollections.featureByGeoid;
   if (!cleanText(runtime.selectedGeoid) || !runtime.featureByGeoid.has(runtime.selectedGeoid)) {
     runtime.selectedGeoid = geoContext.selectedGeoids[0] || "";
   }
-  applyMapCollections(runtime, mapCollections, activeMetric);
+  applyMapCollections(runtime, mapCollections, activeMetric, legend);
 
   if (runtime.fittedBoundaryKey !== boundaryKey) {
     fitMapToFeatures(runtime, mapCollections.areaFeatureCollection);
@@ -1363,6 +1548,12 @@ export function renderMapSurface(mount) {
         </div>
 
         <div class="fpe-help fpe-help--flush muted" id="${METRIC_STATUS_ID}"></div>
+        <div class="fpe-contained-block">
+          <div class="fpe-control-label">Legend</div>
+          <div class="fpe-help fpe-help--flush muted" id="${LEGEND_STATUS_ID}">Legend unavailable until map metrics are ready.</div>
+          <div class="fpe-map-legend" id="${LEGEND_BODY_ID}"></div>
+          <div class="fpe-help fpe-help--flush muted" id="${LEGEND_PROVENANCE_ID}">Source: canonical Census map metrics (display-only).</div>
+        </div>
         <div class="fpe-help fpe-help--flush muted" id="${HOVER_STATUS_ID}">Hover an area to preview name, type, and geography identifier.</div>
         <div class="fpe-contained-block">
           <div class="fpe-control-label">Area inspect</div>
