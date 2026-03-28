@@ -468,9 +468,19 @@ function readStorageBackendsFromRuntime(runtimeDiagnostics) {
   return fallback;
 }
 
+function readMapRuntimeDiagnosticsSnapshot() {
+  try {
+    const row = globalThis?.__FPE_MAP_RUNTIME_DIAGNOSTICS__;
+    return row && typeof row === "object" ? row : {};
+  } catch {
+    return {};
+  }
+}
+
 function buildRuntimeDiagnosticsSnapshot() {
   const shellRuntime = readShellRuntimeDiagnostics();
   const mapboxConfig = readMapboxPublicTokenConfig();
+  const mapRuntime = readMapRuntimeDiagnosticsSnapshot();
   const moduleBundleId = readBundleIdentifierFromModuleUrl(import.meta.url);
   const scriptBundleId = readBundleIdentifierFromScripts();
   const activeBundleId = scriptBundleId || moduleBundleId;
@@ -519,6 +529,17 @@ function buildRuntimeDiagnosticsSnapshot() {
       source: String(mapboxConfig?.source || "").trim(),
       storageKey: String(mapboxConfig?.storageKey || "").trim(),
     },
+    map: {
+      status: String(mapRuntime?.status || "").trim(),
+      mapLoaded: !!mapRuntime?.mapLoaded,
+      updatedAt: String(mapRuntime?.updatedAt || "").trim(),
+      geometry: mapRuntime?.geometry && typeof mapRuntime.geometry === "object"
+        ? mapRuntime.geometry
+        : {},
+      metric: mapRuntime?.metric && typeof mapRuntime.metric === "object"
+        ? mapRuntime.metric
+        : {},
+    },
     district: shellRuntime?.district && typeof shellRuntime.district === "object"
       ? shellRuntime.district
       : {},
@@ -543,6 +564,12 @@ function renderRuntimeDiagnosticsLine(snapshot) {
   const mapboxText = mapboxSource
     ? `${mapboxStatus}/${mapboxSource}`
     : mapboxStatus;
+  const mapRuntime = snapshot?.map && typeof snapshot.map === "object"
+    ? snapshot.map
+    : {};
+  const mapRuntimeStatus = String(mapRuntime?.status || "").trim() || "unavailable";
+  const mappedFeatures = Number(mapRuntime?.geometry?.mappedFeatureCount || 0);
+  const mapRuntimeText = `${mapRuntimeStatus}/${mappedFeatures}`;
   return [
     `build ${snapshot.buildId || "dev"}`,
     `asset ${hashText}`,
@@ -551,6 +578,7 @@ function renderRuntimeDiagnosticsLine(snapshot) {
     `schema ${schemaText || "unknown"}`,
     `storage ${storageText}`,
     `mapbox ${mapboxText}`,
+    `map ${mapRuntimeText}`,
   ].join(" | ");
 }
 

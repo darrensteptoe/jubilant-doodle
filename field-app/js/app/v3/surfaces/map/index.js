@@ -57,6 +57,13 @@ const METRIC_SELECT_ID = "v3MapMetricSelect";
 const ACTION_BTN_ID = "v3MapActionBtn";
 const FIT_BTN_ID = "v3MapFitBtn";
 const RESET_BTN_ID = "v3MapResetBtn";
+const SEARCH_INPUT_ID = "v3MapSearchInput";
+const SEARCH_BTN_ID = "v3MapSearchBtn";
+const CLEAR_SELECTION_BTN_ID = "v3MapClearSelectionBtn";
+const VIEW_CAMPAIGN_BTN_ID = "v3MapViewCampaignBtn";
+const VIEW_SELECTED_BTN_ID = "v3MapViewSelectedBtn";
+const COPY_INSPECT_BTN_ID = "v3MapCopyInspectBtn";
+const NAV_STATUS_ID = "v3MapNavStatus";
 
 const AREAS_SOURCE_ID = "v3MapAreasSource";
 const POINTS_SOURCE_ID = "v3MapPointsSource";
@@ -84,6 +91,17 @@ const METRIC_SET_PROVENANCE_MAP = {
   turnout_potential: "Canonical Census ACS indicators bundled for turnout-potential context (display-only; no planning math mutation).",
   all: "Canonical Census ACS/PL full metric bundle (display-only map rendering).",
 };
+const METRIC_SET_CONTEXT_MAP = {
+  core: "Geography baseline context (display-only).",
+  demographics: "Geography baseline context (display-only).",
+  housing: "Geography baseline context (display-only).",
+  income: "Planning support context (display-only).",
+  education: "Planning support context (display-only).",
+  language: "Planning support context (display-only).",
+  field_efficiency: "Operational priority context (display-only, canon-safe).",
+  turnout_potential: "Turnout/persuasion pressure context (display-only, canon-safe).",
+  all: "Mixed canonical context bundle (display-only).",
+};
 
 let mapboxLoadPromise = null;
 let mapRuntime = null;
@@ -92,6 +110,10 @@ let mapConfigEventBound = false;
 
 function cleanText(value) {
   return String(value == null ? "" : value).trim();
+}
+
+function cleanLower(value) {
+  return cleanText(value).toLowerCase();
 }
 
 function toFiniteNumber(value) {
@@ -675,6 +697,49 @@ function setMapActionButton(buttonEl, { visible = false, label = "Open Controls"
   }
 }
 
+function setControlDisabled(el, disabled = true) {
+  if (el instanceof HTMLButtonElement || el instanceof HTMLInputElement || el instanceof HTMLSelectElement) {
+    el.disabled = !!disabled;
+  }
+}
+
+function syncMapNavigationState(els, runtime, { statusText = "", level = "muted" } = {}) {
+  const hasFeatures = Number(runtime?.featureByGeoid?.size || 0) > 0;
+  const hasSelection = !!cleanText(runtime?.selectedGeoid) && !!runtime?.featureByGeoid?.has?.(runtime.selectedGeoid);
+  const hasBoundary = Array.isArray(runtime?.boundaryFeatureCollection?.features) && runtime.boundaryFeatureCollection.features.length > 0;
+  const mapReady = !!runtime?.mapLoaded;
+
+  setControlDisabled(els?.searchInput, !hasFeatures);
+  setControlDisabled(els?.searchBtn, !hasFeatures);
+  setControlDisabled(els?.clearSelectionBtn, !hasSelection);
+  setControlDisabled(els?.viewCampaignBtn, !mapReady || !hasBoundary);
+  setControlDisabled(els?.viewSelectedBtn, !mapReady || !hasSelection);
+  setControlDisabled(els?.copyInspectBtn, !hasSelection);
+
+  if (!(els?.navStatus instanceof HTMLElement)) {
+    return;
+  }
+  if (cleanText(statusText)) {
+    setTextWithLevel(els.navStatus, statusText, level);
+    return;
+  }
+  if (!mapReady) {
+    setTextWithLevel(els.navStatus, "Search and quick navigation become available once map geography loads.", "muted");
+    return;
+  }
+  if (!hasFeatures) {
+    setTextWithLevel(els.navStatus, "No mapped areas are available to search for the current context.", "warn");
+    return;
+  }
+  if (!hasSelection) {
+    setTextWithLevel(els.navStatus, "Search by area name or GEOID, or click an area on the map to inspect it.", "muted");
+    return;
+  }
+  const selected = runtime?.featureByGeoid?.get?.(runtime.selectedGeoid);
+  const label = cleanText(selected?.properties?.label) || cleanText(runtime?.selectedGeoid) || "Selected area";
+  setTextWithLevel(els.navStatus, `Selected area: ${label}. Use Selected area view or Copy area summary for quick actions.`, "ok");
+}
+
 function defaultFeatureCollection() {
   return { type: "FeatureCollection", features: [] };
 }
@@ -807,6 +872,11 @@ function metricProvenanceText(metricSetId) {
     || "Canonical Census ACS/PL map metric bundle (display-only rendering; no campaign math mutation).";
 }
 
+function metricContextText(metricSetId) {
+  const id = cleanText(metricSetId) || "core";
+  return METRIC_SET_CONTEXT_MAP[id] || "Canonical map context (display-only).";
+}
+
 function syncLegendPanel(els, runtime, metric, legend) {
   const statusEl = els?.legendStatus;
   const bodyEl = els?.legendBody;
@@ -818,7 +888,7 @@ function syncLegendPanel(els, runtime, metric, legend) {
   const setLabel = metricSetLabel(metricSetId);
   setTextWithLevel(
     provenanceEl,
-    `Source: ${metricProvenanceText(metricSetId)} Bundle: ${setLabel}.`,
+    `Source: ${metricProvenanceText(metricSetId)} Bundle: ${setLabel}. Context: ${metricContextText(metricSetId)}`,
     "muted",
   );
   if (!metric) {
@@ -942,6 +1012,103 @@ function resetRuntimeView(runtime) {
     duration: 0,
   });
   return true;
+}
+
+function fitFeatureByGeoid(runtime, geoid) {
+  const id = cleanText(geoid);
+  if (!id) {
+    return false;
+  }
+  const feature = runtime?.featureByGeoid?.get(id);
+  if (!feature) {
+    return false;
+  }
+  fitMapToFeatures(runtime, { type: "FeatureCollection", features: [feature] });
+  return true;
+}
+
+function findFeatureForQuery(runtime, query) {
+  const token = cleanLower(query);
+  if (!token) {
+    return null;
+  }
+  const features = Array.from(runtime?.featureByGeoid?.entries?.() || []);
+  if (!features.length) {
+    return null;
+  }
+  const exactGeoid = features.find(([geoid]) => cleanLower(geoid) === token);
+  if (exactGeoid) {
+    return { geoid: cleanText(exactGeoid[0]), feature: exactGeoid[1] };
+  }
+  const startsGeoid = features.find(([geoid]) => cleanLower(geoid).startsWith(token));
+  if (startsGeoid) {
+    return { geoid: cleanText(startsGeoid[0]), feature: startsGeoid[1] };
+  }
+  const labelMatch = features.find(([geoid, feature]) => {
+    const label = cleanLower(feature?.properties?.label || geoid);
+    return label.includes(token);
+  });
+  if (labelMatch) {
+    return { geoid: cleanText(labelMatch[0]), feature: labelMatch[1] };
+  }
+  return null;
+}
+
+function buildSelectedAreaSummaryText(runtime) {
+  const selectedGeoid = cleanText(runtime?.selectedGeoid);
+  const feature = selectedGeoid ? runtime?.featureByGeoid?.get(selectedGeoid) : null;
+  if (!feature) {
+    return "";
+  }
+  const props = feature?.properties && typeof feature.properties === "object" ? feature.properties : {};
+  const label = cleanText(props.label) || selectedGeoid;
+  const geographyType = cleanText(props.geographyType) || resolutionLabel(runtime?.resolution);
+  const officeId = cleanText(runtime?.shellScope?.officeId) || "—";
+  const metricLabel = cleanText(runtime?.activeMetric?.label) || "Metric";
+  const metricText = cleanText(props.metricText) || "—";
+  const rank = toFiniteNumber(props.metricRank);
+  const rankTotal = toFiniteNumber(props.metricRankTotal);
+  const rankText = (rank != null && rankTotal != null && rankTotal > 0) ? `#${rank} of ${rankTotal}` : "—";
+  const intensity = resolveLegendIntensity(props.metricValue, runtime?.activeLegend);
+  return [
+    `Area: ${label}`,
+    `Type: ${geographyType}`,
+    `GEOID: ${selectedGeoid}`,
+    `Office: ${officeId}`,
+    `${metricLabel}: ${metricText}`,
+    `Relative intensity: ${intensity.label} (${intensity.band})`,
+    `Metric rank: ${rankText}`,
+  ].join("\n");
+}
+
+async function copyTextToClipboard(text) {
+  const value = cleanText(text);
+  if (!value) {
+    return false;
+  }
+  try {
+    if (navigator?.clipboard?.writeText) {
+      await navigator.clipboard.writeText(value);
+      return true;
+    }
+  } catch {}
+  try {
+    if (typeof document === "undefined") {
+      return false;
+    }
+    const textarea = document.createElement("textarea");
+    textarea.value = value;
+    textarea.setAttribute("readonly", "true");
+    textarea.style.position = "fixed";
+    textarea.style.opacity = "0";
+    document.body.append(textarea);
+    textarea.select();
+    const ok = document.execCommand("copy");
+    textarea.remove();
+    return !!ok;
+  } catch {
+    return false;
+  }
 }
 
 function escapeHtml(value) {
@@ -1091,6 +1258,36 @@ function bridgeMapSelection(runtime, geoid) {
   setDistrictCensusGeoSelection(next);
 }
 
+function selectRuntimeGeoid(runtime, geoid, { bridge = true, fit = false } = {}) {
+  const id = cleanText(geoid);
+  if (!id || !runtime?.featureByGeoid?.has?.(id)) {
+    return false;
+  }
+  runtime.selectedGeoid = id;
+  runtime.selectionCleared = false;
+  updateSelectedFilter(runtime);
+  if (fit) {
+    fitFeatureByGeoid(runtime, id);
+  }
+  syncInspectPanel(runtime, runtime.activeMetric || null);
+  if (bridge) {
+    bridgeMapSelection(runtime, id);
+  }
+  publishMapRuntimeDiagnostics(runtime, "selected_area");
+  return true;
+}
+
+function clearRuntimeSelection(runtime) {
+  if (!runtime) {
+    return;
+  }
+  runtime.selectedGeoid = "";
+  runtime.selectionCleared = true;
+  updateSelectedFilter(runtime);
+  syncInspectPanel(runtime, runtime.activeMetric || null);
+  publishMapRuntimeDiagnostics(runtime, "selection_cleared");
+}
+
 function bindMapInteractions(runtime) {
   if (!runtime?.map || runtime.handlersBound) {
     return;
@@ -1102,10 +1299,8 @@ function bindMapInteractions(runtime) {
     if (!geoid) {
       return;
     }
-    runtime.selectedGeoid = geoid;
-    updateSelectedFilter(runtime);
-    syncInspectPanel(runtime, runtime.activeMetric || null);
-    bridgeMapSelection(runtime, geoid);
+    selectRuntimeGeoid(runtime, geoid, { bridge: true, fit: false });
+    syncMapNavigationState(readMapElements(), runtime);
   };
   map.on("click", FILL_LAYER_ID, onFeatureClick);
   map.on("click", OUTLINE_LAYER_ID, onFeatureClick);
@@ -1230,6 +1425,7 @@ function clearMapCollections(runtime) {
   }
   runtime.featureByGeoid = new Map();
   runtime.selectedGeoid = "";
+  runtime.selectionCleared = false;
   runtime.hoveredGeoid = "";
   runtime.fittedBoundaryKey = "";
   runtime.boundaryFeatureCollection = defaultFeatureCollection();
@@ -1258,12 +1454,14 @@ function destroyMapInstance(runtime) {
   runtime.boundaryFeatureCollection = defaultFeatureCollection();
   runtime.featureByGeoid = new Map();
   runtime.selectedGeoid = "";
+  runtime.selectionCleared = false;
   runtime.hoveredGeoid = "";
   runtime.selectedGeoids = [];
   runtime.shellScope = { campaignId: "", officeId: "" };
   runtime.resolution = "";
   runtime.metricSetId = "";
   runtime.activeLegend = null;
+  publishMapRuntimeDiagnostics(runtime, "destroyed");
 }
 
 function bindMapViewportResize() {
@@ -1361,7 +1559,118 @@ function readMapElements() {
     actionBtn: document.getElementById(ACTION_BTN_ID),
     fitBtn: document.getElementById(FIT_BTN_ID),
     resetBtn: document.getElementById(RESET_BTN_ID),
+    searchInput: document.getElementById(SEARCH_INPUT_ID),
+    searchBtn: document.getElementById(SEARCH_BTN_ID),
+    clearSelectionBtn: document.getElementById(CLEAR_SELECTION_BTN_ID),
+    viewCampaignBtn: document.getElementById(VIEW_CAMPAIGN_BTN_ID),
+    viewSelectedBtn: document.getElementById(VIEW_SELECTED_BTN_ID),
+    copyInspectBtn: document.getElementById(COPY_INSPECT_BTN_ID),
+    navStatus: document.getElementById(NAV_STATUS_ID),
   };
+}
+
+function publishMapRuntimeDiagnostics(runtime, status = "") {
+  try {
+    const safeRuntime = runtime && typeof runtime === "object" ? runtime : {};
+    const metricSetId = cleanText(safeRuntime?.metricSetId) || "core";
+    const selectedGeoid = cleanText(safeRuntime?.selectedGeoid);
+    const selectedFeature = selectedGeoid ? safeRuntime?.featureByGeoid?.get?.(selectedGeoid) : null;
+    const selectedLabel = cleanText(selectedFeature?.properties?.label);
+    const boundaryFeatureCount = Array.isArray(safeRuntime?.boundaryFeatureCollection?.features)
+      ? safeRuntime.boundaryFeatureCollection.features.length
+      : 0;
+    const mappedFeatureCount = Number(safeRuntime?.featureByGeoid?.size || 0);
+    const activeMetric = safeRuntime?.activeMetric && typeof safeRuntime.activeMetric === "object"
+      ? safeRuntime.activeMetric
+      : null;
+    globalThis.__FPE_MAP_RUNTIME_DIAGNOSTICS__ = {
+      updatedAt: new Date().toISOString(),
+      status: cleanText(status) || "idle",
+      mapLoaded: !!safeRuntime?.mapLoaded,
+      geometry: {
+        boundaryFeatureCount,
+        mappedFeatureCount,
+        resolution: cleanText(safeRuntime?.resolution),
+      },
+      selected: {
+        geoid: selectedGeoid,
+        label: selectedLabel,
+      },
+      metric: {
+        id: cleanText(activeMetric?.id),
+        label: cleanText(activeMetric?.label),
+        setId: metricSetId,
+        setLabel: metricSetLabel(metricSetId),
+        provenance: metricProvenanceText(metricSetId),
+        context: metricContextText(metricSetId),
+        legendMode: cleanText(safeRuntime?.activeLegend?.rangeMode),
+      },
+      officeId: cleanText(safeRuntime?.shellScope?.officeId),
+    };
+  } catch {}
+  publishMapReportingHooks(runtime);
+}
+
+function buildMapReportingSnapshot(runtime) {
+  const safeRuntime = runtime && typeof runtime === "object" ? runtime : {};
+  const metricSetId = cleanText(safeRuntime?.metricSetId) || "core";
+  const selectedSummary = buildSelectedAreaSummaryText(safeRuntime);
+  const selectedGeoid = cleanText(safeRuntime?.selectedGeoid);
+  const selectedFeature = selectedGeoid ? safeRuntime?.featureByGeoid?.get?.(selectedGeoid) : null;
+  const selectedLabel = cleanText(selectedFeature?.properties?.label);
+  const selectedMetric = safeRuntime?.activeMetric && typeof safeRuntime.activeMetric === "object"
+    ? safeRuntime.activeMetric
+    : null;
+  const geometryFeatures = Array.isArray(safeRuntime?.boundaryFeatureCollection?.features)
+    ? safeRuntime.boundaryFeatureCollection.features.length
+    : 0;
+  const mappedFeatures = Number(safeRuntime?.featureByGeoid?.size || 0);
+  return {
+    generatedAt: new Date().toISOString(),
+    status: cleanText(globalThis?.__FPE_MAP_RUNTIME_DIAGNOSTICS__?.status) || "idle",
+    selectedAreaSummary: selectedSummary,
+    selectedArea: {
+      geoid: selectedGeoid,
+      label: selectedLabel,
+      resolution: cleanText(safeRuntime?.resolution),
+    },
+    metricSummary: {
+      id: cleanText(selectedMetric?.id),
+      label: cleanText(selectedMetric?.label),
+      setId: metricSetId,
+      setLabel: metricSetLabel(metricSetId),
+      provenance: metricProvenanceText(metricSetId),
+      context: metricContextText(metricSetId),
+      legendMode: cleanText(safeRuntime?.activeLegend?.rangeMode),
+      rangeText: cleanText(safeRuntime?.activeLegend?.rangeText),
+    },
+    officeGeographySnapshot: {
+      officeId: cleanText(safeRuntime?.shellScope?.officeId),
+      campaignId: cleanText(safeRuntime?.shellScope?.campaignId),
+      resolution: cleanText(safeRuntime?.resolution),
+      selectedGeoCount: Array.isArray(safeRuntime?.selectedGeoids) ? safeRuntime.selectedGeoids.length : 0,
+      boundaryFeatureCount: geometryFeatures,
+      mappedFeatureCount: mappedFeatures,
+    },
+  };
+}
+
+function publishMapReportingHooks(runtime) {
+  try {
+    globalThis.__FPE_MAP_REPORTING__ = {
+      getSnapshot: () => buildMapReportingSnapshot(mapRuntime),
+      getSelectedAreaSummary: () => cleanText(buildMapReportingSnapshot(mapRuntime).selectedAreaSummary),
+      getMetricSummary: () => buildMapReportingSnapshot(mapRuntime).metricSummary,
+      getOfficeGeographySnapshot: () => buildMapReportingSnapshot(mapRuntime).officeGeographySnapshot,
+      copySelectedAreaSummary: async () => {
+        const text = cleanText(buildMapReportingSnapshot(mapRuntime).selectedAreaSummary);
+        return copyTextToClipboard(text);
+      },
+    };
+    if (runtime && typeof runtime === "object") {
+      runtime.reportingSnapshot = buildMapReportingSnapshot(runtime);
+    }
+  } catch {}
 }
 
 function ensureRuntime(root) {
@@ -1384,6 +1693,7 @@ function ensureRuntime(root) {
     featureByGeoid: new Map(),
     selectedGeoids: [],
     selectedGeoid: "",
+    selectionCleared: false,
     hoveredGeoid: "",
     shellScope: { campaignId: "", officeId: "" },
     resolution: "",
@@ -1403,6 +1713,7 @@ async function syncMapSurface() {
   }
   const runtime = ensureRuntime(els.root);
   const requestSeq = ++runtime.requestSeq;
+  publishMapRuntimeDiagnostics(runtime, "sync_start");
   setMapActionButton(els.actionBtn, { visible: false });
   if (els.fitBtn instanceof HTMLButtonElement) {
     els.fitBtn.disabled = true;
@@ -1410,6 +1721,7 @@ async function syncMapSurface() {
   if (els.resetBtn instanceof HTMLButtonElement) {
     els.resetBtn.disabled = true;
   }
+  syncMapNavigationState(els, runtime);
 
   const tokenConfig = readMapboxPublicTokenConfig();
   const token = resolveMapboxPublicToken();
@@ -1441,6 +1753,13 @@ async function syncMapSurface() {
     });
     destroyMapInstance(runtime);
     syncInspectPanel(runtime, null);
+    publishMapRuntimeDiagnostics(runtime, invalid ? "token_invalid_config" : "token_missing_config");
+    syncMapNavigationState(els, runtime, {
+      statusText: invalid
+        ? "Map configuration blocked: invalid token. Open Controls, save a valid pk token, then return to Map."
+        : "Map configuration required: save a Mapbox public token in Controls to enable search and navigation.",
+      level: "warn",
+    });
     return;
   }
   setMapActionButton(els.actionBtn, { visible: false });
@@ -1471,7 +1790,13 @@ async function syncMapSurface() {
     clearMapCollections(runtime);
     runtime.featureByGeoid = new Map();
     runtime.selectedGeoid = "";
+    runtime.selectionCleared = false;
     syncInspectPanel(runtime, null);
+    publishMapRuntimeDiagnostics(runtime, "awaiting_context");
+    syncMapNavigationState(els, runtime, {
+      statusText: "Search and quick actions are unavailable until campaign, office, and geography context is selected.",
+      level: "muted",
+    });
     return;
   }
 
@@ -1532,9 +1857,17 @@ async function syncMapSurface() {
     setTextWithLevel(els.hoverStatus, "Hover preview unavailable because map boot failed.", "bad");
     runtime.activeLegend = null;
     syncLegendPanel(els, runtime, activeMetric, null);
+    publishMapRuntimeDiagnostics(runtime, bootFailure === "token" ? "boot_failed_token" : "boot_failed_runtime");
+    syncMapNavigationState(els, runtime, {
+      statusText: bootFailure === "token"
+        ? "Token rejected by Mapbox. Open Controls and save a valid public token, then retry."
+        : "Map boot failed. Search and quick actions are disabled until the map loads.",
+      level: "bad",
+    });
     clearMapCollections(runtime);
     runtime.featureByGeoid = new Map();
     runtime.selectedGeoid = "";
+    runtime.selectionCleared = false;
     syncInspectPanel(runtime, activeMetric);
     return;
   }
@@ -1552,6 +1885,8 @@ async function syncMapSurface() {
       runtime.boundaryFeatureCollection = fetched.featureCollection;
       runtime.boundaryKey = boundaryKey;
       runtime.fittedBoundaryKey = "";
+      runtime.selectionCleared = false;
+      publishMapRuntimeDiagnostics(runtime, "geometry_loaded");
     } catch {
       setCardStatus("Geography unavailable");
       setTextWithLevel(els.mapStatus, MAP_STATUS_GEOGRAPHY_UNAVAILABLE, "bad");
@@ -1563,7 +1898,13 @@ async function syncMapSurface() {
       clearMapCollections(runtime);
       runtime.featureByGeoid = new Map();
       runtime.selectedGeoid = "";
+      runtime.selectionCleared = false;
       syncInspectPanel(runtime, activeMetric);
+      publishMapRuntimeDiagnostics(runtime, "geometry_unavailable");
+      syncMapNavigationState(els, runtime, {
+        statusText: "Geography boundary data is unavailable. Search and quick actions are disabled for this context.",
+        level: "bad",
+      });
       return;
     }
   }
@@ -1586,8 +1927,14 @@ async function syncMapSurface() {
     syncLegendPanel(els, runtime, activeMetric, null);
     runtime.featureByGeoid = new Map();
     runtime.selectedGeoid = "";
+    runtime.selectionCleared = false;
     applyMapCollections(runtime, mapCollections, activeMetric, null);
     syncInspectPanel(runtime, activeMetric);
+    publishMapRuntimeDiagnostics(runtime, "no_geography");
+    syncMapNavigationState(els, runtime, {
+      statusText: "No mapped areas available in this context, so search and quick actions are disabled.",
+      level: "warn",
+    });
     return;
   }
 
@@ -1596,7 +1943,14 @@ async function syncMapSurface() {
   syncLegendPanel(els, runtime, activeMetric, legend);
   runtime.featureByGeoid = mapCollections.featureByGeoid;
   if (!cleanText(runtime.selectedGeoid) || !runtime.featureByGeoid.has(runtime.selectedGeoid)) {
-    runtime.selectedGeoid = geoContext.selectedGeoids[0] || "";
+    if (runtime.selectionCleared) {
+      runtime.selectedGeoid = "";
+    } else {
+      runtime.selectedGeoid = geoContext.selectedGeoids[0] || "";
+    }
+  }
+  if (cleanText(runtime.selectedGeoid) && runtime.featureByGeoid.has(runtime.selectedGeoid)) {
+    runtime.selectionCleared = false;
   }
   applyMapCollections(runtime, mapCollections, activeMetric, legend);
 
@@ -1633,6 +1987,8 @@ async function syncMapSurface() {
   }
   syncHoverStatus(runtime);
   syncInspectPanel(runtime, activeMetric);
+  publishMapRuntimeDiagnostics(runtime, "ready");
+  syncMapNavigationState(els, runtime);
 }
 
 function bindMapSurfaceEvents() {
@@ -1687,6 +2043,116 @@ function bindMapSurfaceEvents() {
       }
     });
   }
+
+  const runSearch = () => {
+    const runtime = mapRuntime;
+    const els = readMapElements();
+    const input = els.searchInput;
+    const query = input instanceof HTMLInputElement ? cleanText(input.value) : "";
+    if (!runtime || !query) {
+      syncMapNavigationState(els, runtime, {
+        statusText: "Enter an area name or GEOID, then run search.",
+        level: "muted",
+      });
+      return;
+    }
+    const match = findFeatureForQuery(runtime, query);
+    if (!match?.geoid) {
+      syncMapNavigationState(els, runtime, {
+        statusText: `No mapped area matched "${query}" in the current context.`,
+        level: "warn",
+      });
+      return;
+    }
+    const selected = selectRuntimeGeoid(runtime, match.geoid, { bridge: true, fit: true });
+    if (!selected) {
+      syncMapNavigationState(els, runtime, {
+        statusText: "Search match could not be selected in the current map collection.",
+        level: "warn",
+      });
+      return;
+    }
+    syncMapNavigationState(els, runtime, {
+      statusText: `Jumped to ${cleanText(match?.feature?.properties?.label) || match.geoid}.`,
+      level: "ok",
+    });
+  };
+
+  const searchBtn = document.getElementById(SEARCH_BTN_ID);
+  if (searchBtn instanceof HTMLButtonElement && searchBtn.dataset.v3MapBound !== "1") {
+    searchBtn.dataset.v3MapBound = "1";
+    searchBtn.addEventListener("click", runSearch);
+  }
+
+  const searchInput = document.getElementById(SEARCH_INPUT_ID);
+  if (searchInput instanceof HTMLInputElement && searchInput.dataset.v3MapBound !== "1") {
+    searchInput.dataset.v3MapBound = "1";
+    searchInput.addEventListener("keydown", (event) => {
+      if (event.key === "Enter") {
+        event.preventDefault();
+        runSearch();
+      }
+    });
+  }
+
+  const clearSelectionBtn = document.getElementById(CLEAR_SELECTION_BTN_ID);
+  if (clearSelectionBtn instanceof HTMLButtonElement && clearSelectionBtn.dataset.v3MapBound !== "1") {
+    clearSelectionBtn.dataset.v3MapBound = "1";
+    clearSelectionBtn.addEventListener("click", () => {
+      const runtime = mapRuntime;
+      clearRuntimeSelection(runtime);
+      syncMapNavigationState(readMapElements(), runtime, {
+        statusText: "Selection cleared. Click an area or search by GEOID/name to inspect again.",
+        level: "muted",
+      });
+    });
+  }
+
+  const viewCampaignBtn = document.getElementById(VIEW_CAMPAIGN_BTN_ID);
+  if (viewCampaignBtn instanceof HTMLButtonElement && viewCampaignBtn.dataset.v3MapBound !== "1") {
+    viewCampaignBtn.dataset.v3MapBound = "1";
+    viewCampaignBtn.addEventListener("click", () => {
+      const runtime = mapRuntime;
+      const ok = fitRuntimeBoundary(runtime);
+      syncMapNavigationState(readMapElements(), runtime, {
+        statusText: ok
+          ? "Campaign view applied to current geometry footprint."
+          : "Campaign view is unavailable because boundary geometry is not loaded.",
+        level: ok ? "ok" : "warn",
+      });
+    });
+  }
+
+  const viewSelectedBtn = document.getElementById(VIEW_SELECTED_BTN_ID);
+  if (viewSelectedBtn instanceof HTMLButtonElement && viewSelectedBtn.dataset.v3MapBound !== "1") {
+    viewSelectedBtn.dataset.v3MapBound = "1";
+    viewSelectedBtn.addEventListener("click", () => {
+      const runtime = mapRuntime;
+      const ok = fitFeatureByGeoid(runtime, runtime?.selectedGeoid);
+      syncMapNavigationState(readMapElements(), runtime, {
+        statusText: ok
+          ? "Selected area view centered on current inspect target."
+          : "Select an area first, then use Selected area view.",
+        level: ok ? "ok" : "warn",
+      });
+    });
+  }
+
+  const copyInspectBtn = document.getElementById(COPY_INSPECT_BTN_ID);
+  if (copyInspectBtn instanceof HTMLButtonElement && copyInspectBtn.dataset.v3MapBound !== "1") {
+    copyInspectBtn.dataset.v3MapBound = "1";
+    copyInspectBtn.addEventListener("click", async () => {
+      const runtime = mapRuntime;
+      const summaryText = buildSelectedAreaSummaryText(runtime);
+      const ok = await copyTextToClipboard(summaryText);
+      syncMapNavigationState(readMapElements(), runtime, {
+        statusText: ok
+          ? "Area summary copied to clipboard."
+          : "Copy failed. Select an area first, then retry.",
+        level: ok ? "ok" : "warn",
+      });
+    });
+  }
 }
 
 function bindMapConfigEvents() {
@@ -1734,10 +2200,25 @@ export function renderMapSurface(mount) {
           </div>
         </div>
         <div class="fpe-help fpe-help--flush muted" id="${CONTEXT_STATUS_ID}">Waiting for canonical campaign, office, and geography selections.</div>
-        <div class="fpe-action-row">
-          <button class="fpe-btn fpe-btn--ghost" disabled id="${FIT_BTN_ID}" type="button">Fit to boundary</button>
-          <button class="fpe-btn fpe-btn--ghost" disabled id="${RESET_BTN_ID}" type="button">Reset view</button>
+        <div class="fpe-field-grid fpe-field-grid--2">
+          <div class="field">
+            <label class="fpe-control-label" for="${SEARCH_INPUT_ID}">Find geography</label>
+            <input class="fpe-input" id="${SEARCH_INPUT_ID}" placeholder="Enter GEOID or area name" type="text" />
+          </div>
+          <div class="field">
+            <label class="fpe-control-label" for="${SEARCH_BTN_ID}">Search action</label>
+            <button class="fpe-btn" disabled id="${SEARCH_BTN_ID}" type="button">Find area</button>
+          </div>
         </div>
+        <div class="fpe-action-row fpe-map-quick-actions">
+          <button class="fpe-btn fpe-btn--ghost" disabled id="${FIT_BTN_ID}" type="button">Fit to boundary</button>
+          <button class="fpe-btn fpe-btn--ghost" disabled id="${VIEW_CAMPAIGN_BTN_ID}" type="button">Campaign view</button>
+          <button class="fpe-btn fpe-btn--ghost" disabled id="${RESET_BTN_ID}" type="button">Reset view</button>
+          <button class="fpe-btn fpe-btn--ghost" disabled id="${VIEW_SELECTED_BTN_ID}" type="button">Selected area view</button>
+          <button class="fpe-btn fpe-btn--ghost" disabled id="${CLEAR_SELECTION_BTN_ID}" type="button">Clear selection</button>
+          <button class="fpe-btn fpe-btn--ghost" disabled id="${COPY_INSPECT_BTN_ID}" type="button">Copy area summary</button>
+        </div>
+        <div class="fpe-help fpe-help--flush muted" id="${NAV_STATUS_ID}">Search and quick navigation become available once map geography loads.</div>
 
         <div class="fpe-mapbox-shell">
           <div class="fpe-mapbox-host" id="${HOST_ID}" role="img" aria-label="Campaign geography map"></div>
@@ -1775,6 +2256,7 @@ export function renderMapSurface(mount) {
   bindMapViewportResize();
   bindMapConfigEvents();
   bindMapSurfaceEvents();
+  publishMapRuntimeDiagnostics(ensureRuntime(document.getElementById(ROOT_ID)), "rendered");
   void syncMapSurface();
 
   return () => {
