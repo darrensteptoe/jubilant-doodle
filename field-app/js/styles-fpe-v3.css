@@ -3367,6 +3367,28 @@ body.training #app-shell-v3-root .fpe-surface .fpe-why {
   font-weight: 600;
 }
 
+.fpe-map-inspect-note {
+  margin-top: var(--fpe-space-2);
+  padding: 10px;
+  border-radius: var(--fpe-radius-sm);
+  border: 1px solid var(--fpe-rule);
+  background: color-mix(in srgb, var(--fpe-panel-muted) 84%, #dbeafe);
+  color: var(--fpe-text);
+  font-size: var(--fpe-small);
+}
+
+.fpe-map-inspect-guide {
+  display: grid;
+  gap: 8px;
+  margin-top: var(--fpe-space-2);
+  padding: 10px;
+  border-radius: var(--fpe-radius-sm);
+  border: 1px solid var(--fpe-rule);
+  background: color-mix(in srgb, var(--fpe-panel) 92%, var(--fpe-bg));
+  color: var(--fpe-text);
+  font-size: var(--fpe-small);
+}
+
 @media (max-width: 900px) {
   .fpe-mapbox-shell,
   .fpe-mapbox-host {
@@ -3375,6 +3397,22 @@ body.training #app-shell-v3-root .fpe-surface .fpe-why {
 }
 
 @media (max-width: 640px) {
+  .fpe-mapbox-shell,
+  .fpe-mapbox-host {
+    min-height: 260px;
+  }
+
+  .fpe-map-inspect-row {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+  }
+
+  .fpe-map-inspect-row strong {
+    width: 100%;
+    word-break: break-word;
+  }
+
   .fpe-surface-pane[data-v3-stage="district"] .fpe-census-section__head-main {
     flex-direction: column;
     align-items: flex-start;
