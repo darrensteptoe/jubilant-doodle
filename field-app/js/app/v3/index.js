@@ -8,6 +8,7 @@ import { resolveContextPatchFailureStatus, validateContextScopeDraft } from "./c
 import { renderV3Shell } from "./shell.js";
 import { getActiveStageId, getActiveSurfaceId, refreshActiveStage, mountStage } from "./stageMount.js";
 import { resolveV3StageId, V3_DEFAULT_STAGE } from "./stageRegistry.js";
+import { readMapboxPublicTokenConfig } from "../runtimeConfig.js";
 import { APP_VERSION, BUILD_ID } from "../../build.js";
 import { CANONICAL_SCHEMA_VERSION } from "../../core/state/schema.js";
 
@@ -469,6 +470,7 @@ function readStorageBackendsFromRuntime(runtimeDiagnostics) {
 
 function buildRuntimeDiagnosticsSnapshot() {
   const shellRuntime = readShellRuntimeDiagnostics();
+  const mapboxConfig = readMapboxPublicTokenConfig();
   const moduleBundleId = readBundleIdentifierFromModuleUrl(import.meta.url);
   const scriptBundleId = readBundleIdentifierFromScripts();
   const activeBundleId = scriptBundleId || moduleBundleId;
@@ -510,6 +512,13 @@ function buildRuntimeDiagnosticsSnapshot() {
       stateStorageKey: String(shellRuntime?.storage?.stateStorageKey || "").trim(),
       persistedRawBytes: Number(shellRuntime?.storage?.persistedRawBytes || 0) || 0,
     },
+    mapbox: {
+      status: mapboxConfig?.valid
+        ? "ready"
+        : (mapboxConfig?.invalidConfigValue ? "invalid" : "missing"),
+      source: String(mapboxConfig?.source || "").trim(),
+      storageKey: String(mapboxConfig?.storageKey || "").trim(),
+    },
     district: shellRuntime?.district && typeof shellRuntime.district === "object"
       ? shellRuntime.district
       : {},
@@ -526,6 +535,14 @@ function renderRuntimeDiagnosticsLine(snapshot) {
     snapshot.storage?.backends?.sessionStorage ? "sessionStorage" : null,
     snapshot.storage?.backends?.indexedDB ? "indexedDB" : null,
   ].filter(Boolean).join(", ") || "none";
+  const mapbox = snapshot?.mapbox && typeof snapshot.mapbox === "object"
+    ? snapshot.mapbox
+    : {};
+  const mapboxStatus = String(mapbox?.status || "unknown");
+  const mapboxSource = String(mapbox?.source || "").trim();
+  const mapboxText = mapboxSource
+    ? `${mapboxStatus}/${mapboxSource}`
+    : mapboxStatus;
   return [
     `build ${snapshot.buildId || "dev"}`,
     `asset ${hashText}`,
@@ -533,6 +550,7 @@ function renderRuntimeDiagnosticsLine(snapshot) {
     `districtV2 ${snapshot.districtV2Mounted ? "mounted" : "not-mounted"}`,
     `schema ${schemaText || "unknown"}`,
     `storage ${storageText}`,
+    `mapbox ${mapboxText}`,
   ].join(" | ");
 }
 

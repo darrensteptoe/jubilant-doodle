@@ -65,6 +65,7 @@ import { formatOfficeContextLabel } from "../../../core/officeContextLabels.js";
 import { pctOverrideToDecimal } from "../../../core/voteProduction.js";
 import {
   clearSavedMapboxPublicToken,
+  MAPBOX_PUBLIC_TOKEN_STORAGE_KEY,
   readMapboxPublicTokenConfig,
   saveMapboxPublicToken,
 } from "../../runtimeConfig.js";
@@ -551,6 +552,7 @@ export function renderControlsSurface(mount) {
           <li>Mapbox browser rendering requires a public token that starts with <code>${MAPBOX_PUBLIC_PREFIX}</code>.</li>
           <li>Do not use Mapbox secret tokens in this app. Secret-scoped tokens must remain server-side.</li>
           <li>This token is app-level config, not scenario data, and does not change campaign canon calculations.</li>
+          <li>Saving or clearing the token broadcasts a map refresh event so an open Map stage can re-check config immediately.</li>
         </ul>
       </div>
       <div class="field">
@@ -570,6 +572,10 @@ export function renderControlsSurface(mount) {
           <div class="fpe-control-label">Token status</div>
           <div class="fpe-help fpe-help--flush" id="v3MapboxTokenStatus">Set a Mapbox public token to enable the map stage.</div>
         </div>
+      </div>
+      <div class="fpe-contained-block">
+        <div class="fpe-control-label">Admin note</div>
+        <div class="fpe-help fpe-help--flush">Token persistence is browser-local under <code>${MAPBOX_PUBLIC_TOKEN_STORAGE_KEY}</code>. Use Clear saved token to reset this device.</div>
       </div>
     </div>
   `;
@@ -1629,7 +1635,7 @@ function wireControlsMapConfigBridge() {
       const value = input instanceof HTMLInputElement ? String(input.value || "") : "";
       const result = saveMapboxPublicToken(value);
       mapboxActionStatus = result?.ok
-        ? "Mapbox token saved for this browser. Open the Map stage to verify rendering."
+        ? "Mapbox token saved for this browser. Map stage will refresh on next sync (or immediately if already open)."
         : String(result?.message || "Mapbox token save failed.");
       dispatchMapConfigUpdated();
       syncControlsMapConfigBridge();
@@ -1640,7 +1646,7 @@ function wireControlsMapConfigBridge() {
   if (clearBtn instanceof HTMLButtonElement) {
     clearBtn.addEventListener("click", () => {
       clearSavedMapboxPublicToken();
-      mapboxActionStatus = "Saved Mapbox token cleared from this browser.";
+      mapboxActionStatus = "Saved Mapbox token cleared from this browser. Map stage will refresh and return to config-required state.";
       dispatchMapConfigUpdated();
       syncControlsMapConfigBridge();
     });
@@ -1672,7 +1678,7 @@ function syncControlsMapConfigBridge() {
 
   if (config?.valid) {
     if (String(config?.source) === "saved_storage") {
-      setText("v3MapboxTokenStatus", "Saved browser token is active for Map stage rendering.");
+      setText("v3MapboxTokenStatus", "Saved browser token is active for Map stage rendering. Save/Clear actions trigger a map config refresh signal.");
     } else {
       setText("v3MapboxTokenStatus", `Using ${sourceLabel || "legacy config"} token. Save it here to persist in browser storage.`);
     }

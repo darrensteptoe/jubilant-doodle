@@ -205,6 +205,48 @@ function metricValueForRow(metric, rowValues) {
   return null;
 }
 
+function formatContextScore(value) {
+  const num = toFiniteNumber(value);
+  if (num == null) {
+    return "";
+  }
+  if (num >= 0 && num <= 1) {
+    return formatMetricValue(num, "pct1");
+  }
+  return formatMetricValue(num, "int");
+}
+
+function resolveTurnoutPersuasionSplitContext(rowValues) {
+  const values = rowValues && typeof rowValues === "object" ? rowValues : {};
+  const turnoutScore = toFiniteNumber(
+    values.turnoutOpportunity
+      ?? values.turnout_opportunity
+      ?? values.turnout_need_index
+      ?? values.turnout_index,
+  );
+  const persuasionScore = toFiniteNumber(
+    values.persuasionIndex
+      ?? values.persuasion_index
+      ?? values.persuasion_need_index
+      ?? values.persuasion_score,
+  );
+  const turnoutPriority = values.is_turnout_priority === true || cleanText(values.turnoutPriority).toLowerCase() === "true";
+  const persuasionPriority = values.is_persuasion_priority === true || cleanText(values.persuasionPriority).toLowerCase() === "true";
+  if (turnoutScore != null && persuasionScore != null) {
+    return `Turnout/Persuasion split context: turnout ${formatContextScore(turnoutScore)}, persuasion ${formatContextScore(persuasionScore)}.`;
+  }
+  if (turnoutPriority && !persuasionPriority) {
+    return "Turnout/Persuasion split context: flagged as turnout-priority in available read-only context.";
+  }
+  if (persuasionPriority && !turnoutPriority) {
+    return "Turnout/Persuasion split context: flagged as persuasion-priority in available read-only context.";
+  }
+  if (turnoutPriority && persuasionPriority) {
+    return "Turnout/Persuasion split context: dual-priority signal in available read-only context.";
+  }
+  return "";
+}
+
 function firstFiniteByKeys(values, keys) {
   for (const key of keys) {
     const value = toFiniteNumber(values?.[key]);
@@ -345,6 +387,25 @@ async function fetchBoundaryCollection({ resolution, geoids }) {
   };
 }
 
+function buildMetricRankMap(areaFeatures) {
+  const ranked = (Array.isArray(areaFeatures) ? areaFeatures : [])
+    .filter((feature) => feature?.properties?.hasMetric === true)
+    .map((feature) => ({
+      geoid: cleanText(feature?.properties?.geoid),
+      metricValue: toFiniteNumber(feature?.properties?.metricValue),
+    }))
+    .filter((row) => row.geoid && row.metricValue != null)
+    .sort((a, b) => Number(b.metricValue) - Number(a.metricValue));
+  const out = new Map();
+  const total = ranked.length;
+  ranked.forEach((row, idx) => {
+    const rank = idx + 1;
+    const percentile = total > 1 ? ((total - idx) / total) : 1;
+    out.set(row.geoid, { rank, total, percentile });
+  });
+  return out;
+}
+
 function buildMapCollections({ boundaryCollection, labelsByGeoid, rowsByGeoid, metric, resolution }) {
   const features = Array.isArray(boundaryCollection?.features) ? boundaryCollection.features : [];
   const areaFeatures = [];
@@ -382,12 +443,28 @@ function buildMapCollections({ boundaryCollection, labelsByGeoid, rowsByGeoid, m
         metricValue: hasMetric ? metricValue : null,
         metricText: hasMetric ? formatMetricValue(metricValue, metric?.format) : "—",
         population: population == null ? null : population,
+        turnoutPersuasionContext: resolveTurnoutPersuasionSplitContext(rowValues),
       },
     };
     areaFeatures.push(areaFeature);
     if (!featureByGeoid.has(geoid)) {
       featureByGeoid.set(geoid, areaFeature);
     }
+  }
+
+  const rankByGeoid = buildMetricRankMap(areaFeatures);
+  for (const feature of areaFeatures) {
+    const geoid = cleanText(feature?.properties?.geoid);
+    const rank = rankByGeoid.get(geoid);
+    if (!rank) {
+      feature.properties.metricRank = null;
+      feature.properties.metricRankTotal = null;
+      feature.properties.metricPercentile = null;
+      continue;
+    }
+    feature.properties.metricRank = rank.rank;
+    feature.properties.metricRankTotal = rank.total;
+    feature.properties.metricPercentile = rank.percentile;
   }
 
   for (const [geoid, areaFeature] of featureByGeoid.entries()) {
@@ -414,6 +491,7 @@ function buildMapCollections({ boundaryCollection, labelsByGeoid, rowsByGeoid, m
     pointFeatureCollection: { type: "FeatureCollection", features: pointFeatures },
     featureByGeoid,
     metricCount,
+    rankByGeoid,
   };
 }
 
@@ -850,6 +928,56 @@ function escapeHtml(value) {
     .replace(/'/g, "&#39;");
 }
 
+function resolveLegendIntensity(value, legend) {
+  const metricValue = toFiniteNumber(value);
+  const bins = Array.isArray(legend?.bins) ? legend.bins : [];
+  if (metricValue == null || !legend?.ready || !bins.length) {
+    return { label: "Unavailable", band: "n/a", rankHint: "" };
+  }
+  if (bins.length === 1) {
+    return { label: "Uniform", band: bins[0]?.label || "uniform", rankHint: "All mapped areas share the same value." };
+  }
+  let idx = bins.findIndex((row) => {
+    const min = toFiniteNumber(row?.min);
+    const max = toFiniteNumber(row?.max);
+    if (min == null || max == null) {
+      return false;
+    }
+    return metricValue >= min && metricValue <= max;
+  });
+  if (idx < 0) {
+    idx = metricValue > toFiniteNumber(bins[bins.length - 1]?.max) ? bins.length - 1 : 0;
+  }
+  const labels = ["Very low", "Low", "Moderate", "High", "Very high"];
+  const safeIdx = Math.max(0, Math.min(labels.length - 1, idx));
+  const label = labels[safeIdx] || "Moderate";
+  return {
+    label,
+    band: cleanText(bins[idx]?.label) || "—",
+    rankHint: `${label} relative intensity for the selected map metric.`,
+  };
+}
+
+function buildOperationalNote({ intensityLabel, rank, total }) {
+  const rankText = Number.isFinite(Number(rank)) && Number.isFinite(Number(total)) && total > 0
+    ? ` (rank ${rank} of ${total})`
+    : "";
+  const intensity = cleanText(intensityLabel).toLowerCase();
+  if (intensity.includes("very high") || intensity === "high") {
+    return `Operational note: prioritize organizer review and turf sequencing for this area${rankText}.`;
+  }
+  if (intensity.includes("very low") || intensity === "low") {
+    return `Operational note: lower immediate pressure area; validate coverage before shifting heavy field resources${rankText}.`;
+  }
+  if (intensity === "uniform") {
+    return "Operational note: metric is uniform across selected geography; use local context to set field priority.";
+  }
+  if (intensity === "unavailable") {
+    return "Operational note: metric data unavailable for this area; use canonical context and nearby coverage until data is populated.";
+  }
+  return `Operational note: balanced-priority area; combine this metric with local organizer intelligence${rankText}.`;
+}
+
 function syncInspectPanel(runtime, metric) {
   const inspectStatus = document.getElementById(INSPECT_STATUS_ID);
   const inspectBody = document.getElementById(INSPECT_BODY_ID);
@@ -871,13 +999,37 @@ function syncInspectPanel(runtime, metric) {
   const label = cleanText(props.label) || selectedGeoid;
   const geographyType = cleanText(props.geographyType) || resolutionLabel(runtime?.resolution);
   const officeId = cleanText(runtime?.shellScope?.officeId) || "—";
+  const rank = toFiniteNumber(props.metricRank);
+  const rankTotal = toFiniteNumber(props.metricRankTotal);
+  const percentile = toFiniteNumber(props.metricPercentile);
+  const intensity = resolveLegendIntensity(props.metricValue, runtime?.activeLegend);
+  const rankText = (rank != null && rankTotal != null && rankTotal > 0) ? `#${rank} of ${rankTotal}` : "—";
+  const percentileText = percentile == null ? "—" : formatMetricValue(percentile, "pct1");
+  const turnoutPersuasionContext = cleanText(props.turnoutPersuasionContext);
+  const universeContext = population == null
+    ? "Universe context: population total is unavailable for this area in current canonical rows."
+    : `Universe context: population baseline is ${populationText}.`;
+  const splitContext = turnoutPersuasionContext
+    || "Turnout/Persuasion split context: not present in current canonical map rows.";
+  const operationalNote = buildOperationalNote({ intensityLabel: intensity.label, rank, total: rankTotal });
   inspectBody.innerHTML = [
     `<div class="fpe-map-inspect-row"><span>Area</span><strong>${escapeHtml(label)}</strong></div>`,
     `<div class="fpe-map-inspect-row"><span>Type</span><strong>${escapeHtml(geographyType)}</strong></div>`,
     `<div class="fpe-map-inspect-row"><span>GEOID</span><strong>${escapeHtml(selectedGeoid)}</strong></div>`,
     `<div class="fpe-map-inspect-row"><span>Office context</span><strong>${escapeHtml(officeId)}</strong></div>`,
     `<div class="fpe-map-inspect-row"><span>${escapeHtml(metricLabel)}</span><strong>${escapeHtml(metricText)}</strong></div>`,
+    `<div class="fpe-map-inspect-row"><span>Relative intensity</span><strong>${escapeHtml(intensity.label)} (${escapeHtml(intensity.band)})</strong></div>`,
+    `<div class="fpe-map-inspect-row"><span>Metric rank</span><strong>${escapeHtml(rankText)}</strong></div>`,
+    `<div class="fpe-map-inspect-row"><span>Percentile context</span><strong>${escapeHtml(percentileText)}</strong></div>`,
     `<div class="fpe-map-inspect-row"><span>Population</span><strong>${escapeHtml(populationText)}</strong></div>`,
+    `<div class="fpe-map-inspect-note">${escapeHtml(operationalNote)}</div>`,
+    '<div class="fpe-map-inspect-guide">',
+    `<div><strong>What this area represents:</strong> ${escapeHtml(`${label} is the selected ${geographyType.toLowerCase()} within office ${officeId}.`)}</div>`,
+    `<div><strong>Why it matters:</strong> ${escapeHtml(intensity.rankHint || "Relative intensity helps compare this area to the rest of the current selection.")}</div>`,
+    `<div><strong>How to use it:</strong> ${escapeHtml("Use rank/intensity to sequence turf review and apply organizer validation before changing execution posture.")}</div>`,
+    `<div><strong>${escapeHtml(universeContext)}</strong></div>`,
+    `<div><strong>${escapeHtml(splitContext)}</strong></div>`,
+    "</div>",
   ].join("");
   setTextWithLevel(
     inspectStatus,
@@ -1552,7 +1704,7 @@ export function renderMapSurface(mount) {
           <div class="fpe-control-label">Legend</div>
           <div class="fpe-help fpe-help--flush muted" id="${LEGEND_STATUS_ID}">Legend unavailable until map metrics are ready.</div>
           <div class="fpe-map-legend" id="${LEGEND_BODY_ID}"></div>
-          <div class="fpe-help fpe-help--flush muted" id="${LEGEND_PROVENANCE_ID}">Source: canonical Census map metrics (display-only).</div>
+          <div class="fpe-help fpe-help--flush muted" id="${LEGEND_PROVENANCE_ID}">Source: canonical geography + Census map metrics (display-only overlay; canon math unchanged).</div>
         </div>
         <div class="fpe-help fpe-help--flush muted" id="${HOVER_STATUS_ID}">Hover an area to preview name, type, and geography identifier.</div>
         <div class="fpe-contained-block">
@@ -1567,7 +1719,7 @@ export function renderMapSurface(mount) {
   center.append(
     createWhyPanel([
       "Mapbox is used here as a rendering layer only; campaign canon calculations remain unchanged.",
-      "Geography and metric values come from existing canonical Census context and runtime rows.",
+      "Geography overlays and choropleth values come from canonical campaign/Census context as display-only interpretation surfaces.",
       "Map click inspect writes through existing Census bridge actions for bounded detail sync.",
     ]),
     mapCard,
