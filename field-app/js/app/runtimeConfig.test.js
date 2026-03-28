@@ -88,3 +88,21 @@ test("runtime config: readMapboxPublicTokenConfig reports invalid configured tok
   assert.equal(status.token, "");
 });
 
+test("runtime config: clear removes saved token when no fallback config exists", () => {
+  clearGlobals();
+  const { backing } = installStorage();
+
+  const save = saveMapboxPublicToken("pk.saved_browser_value");
+  assert.equal(save?.ok, true);
+  assert.equal(backing.get(MAPBOX_PUBLIC_TOKEN_STORAGE_KEY), "pk.saved_browser_value");
+  assert.equal(resolveMapboxPublicToken(), "pk.saved_browser_value");
+
+  clearSavedMapboxPublicToken();
+  assert.equal(backing.has(MAPBOX_PUBLIC_TOKEN_STORAGE_KEY), false);
+  assert.equal(resolveMapboxPublicToken(), "");
+
+  const status = readMapboxPublicTokenConfig();
+  assert.equal(status.valid, false);
+  assert.equal(status.token, "");
+  assert.equal(status.source, "");
+});

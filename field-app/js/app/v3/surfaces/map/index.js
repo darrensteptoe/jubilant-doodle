@@ -39,6 +39,7 @@ const MAP_STATUS_GEOGRAPHY_UNAVAILABLE = "Campaign geography is unavailable for 
 const MAP_STATUS_METRIC_UNAVAILABLE = "This layer does not have data for the selected metric yet.";
 const MAP_STATUS_INSPECT_PROMPT = "Select an area on the map to inspect its field context.";
 const MAP_STATUS_BOOT_FAILED = "Map boot failed. Check Mapbox token validity/network access, then refresh the current context.";
+const MAP_STATUS_BOOT_NETWORK_FAILED = "Map runtime assets could not load. Check network/content blocking and refresh the current context.";
 
 const CARD_STATUS_ID = "v3MapSurfaceCardStatus";
 const ROOT_ID = "v3MapSurfaceRoot";
@@ -539,12 +540,36 @@ function loadMapboxGl() {
       reject(new Error("Mapbox GL did not initialize."));
     };
     script.addEventListener("load", resolveReady, { once: true });
-    script.addEventListener("error", () => reject(new Error("Failed to load Mapbox GL.")), { once: true });
+    script.addEventListener("error", () => reject(new Error("Failed to load Mapbox GL assets.")), { once: true });
   }).catch((error) => {
     mapboxLoadPromise = null;
     throw error;
   });
   return mapboxLoadPromise;
+}
+
+function classifyMapBootError(error) {
+  const text = cleanText(error?.message).toLowerCase();
+  if (!text) {
+    return "unknown";
+  }
+  if (
+    text.includes("unauthorized")
+    || text.includes("forbidden")
+    || text.includes("access token")
+    || text.includes("invalid token")
+    || text.includes("401")
+    || text.includes("403")
+  ) {
+    return "token";
+  }
+  if (text.includes("failed to load mapbox gl")) {
+    return "assets";
+  }
+  if (text.includes("style failed to load")) {
+    return "style";
+  }
+  return "unknown";
 }
 
 function setStatusLevel(el, level = "muted") {
@@ -1292,8 +1317,9 @@ async function ensureMapInstance(runtime, host, token) {
       ensureMapLayers(runtime);
       resolve();
     });
-    map.once("error", () => {
-      reject(new Error("Mapbox style failed to load."));
+    map.once("error", (event) => {
+      const detail = cleanText(event?.error?.message || event?.message || event?.type);
+      reject(new Error(detail ? `Mapbox style failed to load: ${detail}` : "Mapbox style failed to load."));
     });
   });
 }
@@ -1480,11 +1506,29 @@ async function syncMapSurface() {
         runtime.map?.resize?.();
       } catch {}
     });
-  } catch {
-    setCardStatus("Boot failed");
-    setTextWithLevel(els.mapStatus, MAP_STATUS_BOOT_FAILED, "bad");
-    setTextWithLevel(els.metricStatus, "Map bootstrap failed before choropleth controls became available.", "bad");
-    setMetricSelectorDisabled(els.metricSelect, "Map boot failed");
+  } catch (error) {
+    const bootFailure = classifyMapBootError(error);
+    if (bootFailure === "token") {
+      setCardStatus("Invalid token");
+      setTextWithLevel(els.mapStatus, MAP_STATUS_TOKEN_INVALID, "bad");
+      setTextWithLevel(els.metricStatus, "Mapbox rejected the configured token during map bootstrap. Save a valid public token in Controls, then retry.", "bad");
+      setMetricSelectorDisabled(els.metricSelect, "Invalid token; update in Controls");
+      setMapActionButton(els.actionBtn, {
+        visible: true,
+        label: "Set Mapbox token in Controls",
+        disabled: false,
+      });
+    } else if (bootFailure === "assets") {
+      setCardStatus("Boot failed");
+      setTextWithLevel(els.mapStatus, MAP_STATUS_BOOT_NETWORK_FAILED, "bad");
+      setTextWithLevel(els.metricStatus, "Map runtime assets did not load, so choropleth controls are unavailable.", "bad");
+      setMetricSelectorDisabled(els.metricSelect, "Map assets unavailable");
+    } else {
+      setCardStatus("Boot failed");
+      setTextWithLevel(els.mapStatus, MAP_STATUS_BOOT_FAILED, "bad");
+      setTextWithLevel(els.metricStatus, "Map bootstrap failed before choropleth controls became available.", "bad");
+      setMetricSelectorDisabled(els.metricSelect, "Map boot failed");
+    }
     setTextWithLevel(els.hoverStatus, "Hover preview unavailable because map boot failed.", "bad");
     runtime.activeLegend = null;
     syncLegendPanel(els, runtime, activeMetric, null);
