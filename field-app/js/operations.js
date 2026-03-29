@@ -578,15 +578,39 @@ function normalizeTrainingAnchor(value){
     .replace(/[^a-z0-9_-]/g, "");
 }
 
+function moduleExists(moduleId){
+  const id = clean(moduleId);
+  if (!id){
+    return false;
+  }
+  if (MODULE_IDS.includes(id)){
+    return true;
+  }
+  return els.navButtons.some((btn) => clean(btn.getAttribute("data-module")) === id)
+    || els.panels.some((panel) => clean(panel.getAttribute("data-module-panel")) === id);
+}
+
+function decodeHashFragment(raw){
+  const value = clean(raw);
+  if (!value){
+    return "";
+  }
+  try {
+    return decodeURIComponent(value);
+  } catch {
+    return value;
+  }
+}
+
 function parseModuleHash(hashValue = window.location.hash){
-  const raw = clean(hashValue).replace(/^#/, "");
+  const raw = decodeHashFragment(clean(hashValue).replace(/^#/, ""));
   const fallback = { moduleId: "overview", trainingAnchor: "" };
   if (!raw){
     return fallback;
   }
   const match = raw.match(/^([^:/]+)(?:[:/](.+))?$/);
   const moduleId = clean(match?.[1]);
-  if (!MODULE_IDS.includes(moduleId)){
+  if (!moduleExists(moduleId)){
     return fallback;
   }
   const trainingAnchor = moduleId === "operations_training"
@@ -612,7 +636,7 @@ function scrollToOperationsTrainingAnchor(anchorId, { smooth = false } = {}){
 }
 
 function activateModule(moduleId, { trainingAnchor = "", smoothScroll = false, updateHash = true } = {}){
-  const active = MODULE_IDS.includes(moduleId) ? moduleId : "overview";
+  const active = moduleExists(moduleId) ? clean(moduleId) : "overview";
   const activeTrainingAnchor = active === "operations_training" ? normalizeTrainingAnchor(trainingAnchor) : "";
 
   for (const btn of els.navButtons){

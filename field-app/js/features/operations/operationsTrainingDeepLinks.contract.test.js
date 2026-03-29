@@ -39,7 +39,10 @@ test("operations training deep links: operations pages include contextual View T
 test("operations training deep links: hash route parsing and anchor scroll behavior are wired", () => {
   const js = readFromRepo("js/operations.js");
   assert.match(js, /function parseModuleHash\(/, "operations runtime should parse deep-link hash state");
+  assert.match(js, /function decodeHashFragment\(/, "operations runtime should decode hash fragments before parsing");
+  assert.match(js, /function moduleExists\(/, "operations runtime should validate modules from DOM and registry");
   assert.match(js, /operations_training/, "operations runtime should recognize operations_training module token");
+  assert.match(js, /if \(!moduleExists\(moduleId\)\)\{\s*return fallback;/, "unknown module hashes should fail to overview safely");
   assert.match(js, /const nextHash = activeTrainingAnchor\s*\? `#\$\{active\}:\$\{activeTrainingAnchor\}`\s*: `#\$\{active\}`;/m, "module activation should preserve training anchor in hash");
   assert.match(js, /function scrollToOperationsTrainingAnchor\(/, "operations runtime should support anchored scroll targeting");
   assert.match(js, /window\.addEventListener\("hashchange", \(\) => \{[\s\S]*trainingAnchor: route\.trainingAnchor/m, "hashchange handler should route with training anchor context");
