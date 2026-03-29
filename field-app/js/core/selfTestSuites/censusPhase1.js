@@ -441,7 +441,7 @@ export function registerCensusPhase1Tests(ctx){
     assert(!keyless.includes("key="), "keyless geo lookup should omit key param");
     assert(keyless.startsWith("https://api.census.gov/data/"), "geo lookup should target Census API host");
     assert(keyless.includes("/dec/pl?"), "geo lookup should target Census dec/pl dataset");
-    const keyed = buildGeoLookupUrl({ scope: "county", stateFips: "17", key: CENSUS_DEFAULT_API_KEY });
+    const keyed = buildGeoLookupUrl({ scope: "county", stateFips: "17", key: "provided-key-123" });
     assert(keyed.includes("key="), "geo lookup should include key when provided");
     assert(keyed.includes("in=state%3A17"), "geo lookup county url missing state filter");
     assert(!keyed.includes("year="), "geo lookup should not append year predicate");
