@@ -2,6 +2,7 @@
 import { readJsonFile } from "./utils.js";
 import { ensureOperationsDefaults, getAll, put, remove, makeOperationsId } from "./features/operations/store.js";
 import { downloadOperationsSnapshot, importOperationsSnapshot, downloadStoreCsv, importStoreCsv } from "./features/operations/io.js";
+import { normalizeTurfEventRecord } from "./features/operations/geographyActivity.js";
 import { operationsNonNegativeInt, operationsNowIso, operationsTodayIso } from "./features/operations/time.js";
 import {
   applyOperationsContextToLinks,
@@ -18,6 +19,12 @@ const els = {
   turfAssignedTo: document.getElementById("turfAssignedTo"),
   turfMode: document.getElementById("turfMode"),
   turfShiftId: document.getElementById("turfShiftId"),
+  turfUnitType: document.getElementById("turfUnitType"),
+  turfUnitId: document.getElementById("turfUnitId"),
+  turfTractGeoid: document.getElementById("turfTractGeoid"),
+  turfBlockGroupGeoid: document.getElementById("turfBlockGroupGeoid"),
+  turfStateFips: document.getElementById("turfStateFips"),
+  turfCountyFips: document.getElementById("turfCountyFips"),
   turfAttempts: document.getElementById("turfAttempts"),
   turfCanvassed: document.getElementById("turfCanvassed"),
   turfVbms: document.getElementById("turfVbms"),
@@ -104,6 +111,12 @@ function clearForm(){
   if (els.turfAssignedTo) els.turfAssignedTo.value = "";
   if (els.turfMode) els.turfMode.value = "doors";
   if (els.turfShiftId) els.turfShiftId.value = "";
+  if (els.turfUnitType) els.turfUnitType.value = "";
+  if (els.turfUnitId) els.turfUnitId.value = "";
+  if (els.turfTractGeoid) els.turfTractGeoid.value = "";
+  if (els.turfBlockGroupGeoid) els.turfBlockGroupGeoid.value = "";
+  if (els.turfStateFips) els.turfStateFips.value = "";
+  if (els.turfCountyFips) els.turfCountyFips.value = "";
   if (els.turfAttempts) els.turfAttempts.value = "";
   if (els.turfCanvassed) els.turfCanvassed.value = "";
   if (els.turfVbms) els.turfVbms.value = "";
@@ -119,12 +132,18 @@ async function saveEvent(){
   const assignedTo = clean(els.turfAssignedTo?.value);
   const mode = clean(els.turfMode?.value) || "doors";
   const shiftId = clean(els.turfShiftId?.value);
+  const unitType = clean(els.turfUnitType?.value);
+  const unitId = clean(els.turfUnitId?.value);
+  const tractGeoid = clean(els.turfTractGeoid?.value);
+  const blockGroupGeoid = clean(els.turfBlockGroupGeoid?.value);
+  const stateFips = clean(els.turfStateFips?.value);
+  const countyFips = clean(els.turfCountyFips?.value);
   const attempts = operationsNonNegativeInt(els.turfAttempts?.value);
   const canvassed = operationsNonNegativeInt(els.turfCanvassed?.value);
   const vbms = operationsNonNegativeInt(els.turfVbms?.value);
 
-  if (!turfId && !precinct){
-    setMsg(els.turfMsg, "Provide Turf ID or Precinct.");
+  if ((unitType && !unitId) || (!unitType && unitId)){
+    setMsg(els.turfMsg, "Unit type and Unit ID must be entered together.");
     return;
   }
   if (canvassed > attempts){
@@ -134,8 +153,11 @@ async function saveEvent(){
 
   const { events } = await loadData();
   const stamp = operationsNowIso();
-  const rec = {
-    id: editingTurfId || makeOperationsId("turf"),
+  const recId = editingTurfId || makeOperationsId("turf");
+  const existing = events.find((e) => clean(e?.id) === clean(recId));
+  const rec = normalizeTurfEventRecord({
+    ...(existing && typeof existing === "object" ? existing : {}),
+    id: recId,
     turfId,
     precinct,
     county,
@@ -143,13 +165,21 @@ async function saveEvent(){
     assignedTo,
     mode,
     shiftId,
+    unitType,
+    unitId,
+    tractGeoid,
+    blockGroupGeoid,
+    stateFips,
+    countyFips,
     attempts,
     canvassed,
     vbms,
     updatedAt: stamp,
-  };
-
-  const existing = events.find((e) => clean(e?.id) === clean(rec.id));
+  });
+  if (!clean(rec?.unitType) && !clean(rec?.unitId) && !clean(rec?.turfId) && !clean(rec?.precinct)){
+    setMsg(els.turfMsg, "Provide worked geography: Turf/Precinct or Unit Type + Unit ID (or tract/block-group GEOID).");
+    return;
+  }
   rec.createdAt = clean(existing?.createdAt) || stamp;
 
   await put("turfEvents", rec, storeScope);
@@ -187,6 +217,12 @@ function populateForm(rec){
   if (els.turfAssignedTo) els.turfAssignedTo.value = clean(rec?.assignedTo);
   if (els.turfMode) els.turfMode.value = clean(rec?.mode) || "doors";
   if (els.turfShiftId) els.turfShiftId.value = clean(rec?.shiftId);
+  if (els.turfUnitType) els.turfUnitType.value = clean(rec?.unitType);
+  if (els.turfUnitId) els.turfUnitId.value = clean(rec?.unitId);
+  if (els.turfTractGeoid) els.turfTractGeoid.value = clean(rec?.tractGeoid);
+  if (els.turfBlockGroupGeoid) els.turfBlockGroupGeoid.value = clean(rec?.blockGroupGeoid);
+  if (els.turfStateFips) els.turfStateFips.value = clean(rec?.stateFips);
+  if (els.turfCountyFips) els.turfCountyFips.value = clean(rec?.countyFips);
   if (els.turfAttempts) els.turfAttempts.value = String(operationsNonNegativeInt(rec?.attempts));
   if (els.turfCanvassed) els.turfCanvassed.value = String(operationsNonNegativeInt(rec?.canvassed));
   if (els.turfVbms) els.turfVbms.value = String(operationsNonNegativeInt(rec?.vbms));

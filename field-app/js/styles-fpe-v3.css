@@ -3323,10 +3323,37 @@ body.training #app-shell-v3-root .fpe-surface .fpe-why {
   margin-top: var(--fpe-space-2);
 }
 
+.fpe-map-status-stack {
+  display: grid;
+  gap: 6px;
+  margin-top: 2px;
+  padding: 8px 10px;
+  border: 1px solid var(--fpe-rule);
+  border-radius: var(--fpe-radius-sm);
+  background: color-mix(in srgb, var(--fpe-panel) 94%, var(--fpe-bg));
+}
+
+.fpe-map-surface-status {
+  line-height: 1.45;
+}
+
+.fpe-map-surface-status--mode {
+  color: var(--fpe-text);
+  font-weight: 600;
+}
+
+.fpe-map-surface-status--diagnostic {
+  font-size: var(--fpe-small);
+}
+
 .fpe-map-legend {
   display: grid;
   gap: 6px;
   margin-top: var(--fpe-space-2);
+  padding: 8px 10px;
+  border-radius: var(--fpe-radius-sm);
+  border: 1px solid var(--fpe-rule);
+  background: color-mix(in srgb, var(--fpe-panel) 94%, var(--fpe-bg));
 }
 
 .fpe-map-legend-row {
@@ -3334,6 +3361,7 @@ body.training #app-shell-v3-root .fpe-surface .fpe-why {
   align-items: center;
   gap: 10px;
   font-size: var(--fpe-small);
+  line-height: 1.4;
   color: var(--fpe-text);
 }
 
@@ -3347,7 +3375,7 @@ body.training #app-shell-v3-root .fpe-surface .fpe-why {
 
 .fpe-map-inspect-row {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
   gap: var(--fpe-space-3);
   padding: 8px 10px;
@@ -3365,6 +3393,9 @@ body.training #app-shell-v3-root .fpe-surface .fpe-why {
   color: var(--fpe-text);
   font-size: var(--fpe-body);
   font-weight: 600;
+  max-width: 58%;
+  text-align: right;
+  word-break: break-word;
 }
 
 .fpe-map-inspect-note {
@@ -3375,6 +3406,7 @@ body.training #app-shell-v3-root .fpe-surface .fpe-why {
   background: color-mix(in srgb, var(--fpe-panel-muted) 84%, #dbeafe);
   color: var(--fpe-text);
   font-size: var(--fpe-small);
+  line-height: 1.45;
 }
 
 .fpe-map-inspect-guide {
@@ -3387,12 +3419,40 @@ body.training #app-shell-v3-root .fpe-surface .fpe-why {
   background: color-mix(in srgb, var(--fpe-panel) 92%, var(--fpe-bg));
   color: var(--fpe-text);
   font-size: var(--fpe-small);
+  line-height: 1.45;
+}
+
+.fpe-map-quick-actions {
+  flex-wrap: wrap;
+  align-items: stretch;
+  justify-content: flex-start;
+  gap: 8px;
+}
+
+.fpe-map-quick-actions .fpe-btn {
+  min-height: 34px;
+  justify-content: center;
+}
+
+@media (max-width: 1100px) {
+  .fpe-mapbox-shell,
+  .fpe-mapbox-host {
+    min-height: 360px;
+  }
+
+  .fpe-map-quick-actions .fpe-btn {
+    flex: 1 1 180px;
+  }
 }
 
 @media (max-width: 900px) {
   .fpe-mapbox-shell,
   .fpe-mapbox-host {
     min-height: 320px;
+  }
+
+  .fpe-map-quick-actions .fpe-btn {
+    flex: 1 1 220px;
   }
 }
 
@@ -3410,6 +3470,8 @@ body.training #app-shell-v3-root .fpe-surface .fpe-why {
 
   .fpe-map-inspect-row strong {
     width: 100%;
+    max-width: 100%;
+    text-align: left;
     word-break: break-word;
   }
 

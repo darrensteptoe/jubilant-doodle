@@ -30,6 +30,10 @@ import {
   toOperationsStoreOptions,
 } from "./features/operations/context.js";
 import {
+  WORKED_ACTIVITY_MODE_ID,
+  writeOperationsMapContext,
+} from "./features/operations/mapContextBridge.js";
+import {
   twCapBuildReadinessStatsModule,
   twCapCleanModule,
   twCapLatestRecordByPersonModule,
@@ -41,6 +45,7 @@ import { operationsDaysSince } from "./features/operations/time.js";
 
 const MODULE_IDS = [
   "overview",
+  "operations_training",
   "recruitment",
   "interviews",
   "onboarding",
@@ -58,6 +63,7 @@ const storeScope = toOperationsStoreOptions(operationsContext);
 const els = {
   navButtons: Array.from(document.querySelectorAll(".operations-nav-btn[data-module]")),
   panels: Array.from(document.querySelectorAll(".operations-module[data-module-panel]")),
+  trainingJumpButtons: Array.from(document.querySelectorAll("[data-training-jump-target]")),
   btnTwExportJson: document.getElementById("btnTwExportJson"),
   btnTwImportJson: document.getElementById("btnTwImportJson"),
   twImportMode: document.getElementById("twImportMode"),
@@ -107,10 +113,110 @@ const els = {
   trnTbody: document.getElementById("trnTbody"),
   opPerfOrganizerTbody: document.getElementById("opPerfOrganizerTbody"),
   opPerfInsights: document.getElementById("opPerfInsights"),
+  mapBridgeOrganizerSelect: document.getElementById("mapBridgeOrganizerSelect"),
+  btnMapBridgeOrganizer: document.getElementById("btnMapBridgeOrganizer"),
+  btnMapBridgeOffice: document.getElementById("btnMapBridgeOffice"),
+  mapBridgeStatus: document.getElementById("mapBridgeStatus"),
+  opsTrainingVideoHost: document.getElementById("opsTrainingVideoHost"),
+  opsTrainingVideoStatus: document.getElementById("opsTrainingVideoStatus"),
 };
 
 function clean(value){
   return String(value || "").trim();
+}
+
+function readOperationsTrainingVideoUrl(){
+  const viceConfig = (window && typeof window === "object" && window.__VICE_CONFIG__ && typeof window.__VICE_CONFIG__ === "object")
+    ? window.__VICE_CONFIG__
+    : {};
+  return clean(
+    viceConfig?.OPERATIONS_TRAINING_YOUTUBE_URL
+    || viceConfig?.OPERATIONS_TRAINING_VIDEO_URL
+    || (window && typeof window === "object" ? window.__OPERATIONS_TRAINING_VIDEO_URL : ""),
+  );
+}
+
+function normalizeYouTubeVideoId(value){
+  const id = clean(value).replace(/[^A-Za-z0-9_-]/g, "");
+  return /^[A-Za-z0-9_-]{6,20}$/.test(id) ? id : "";
+}
+
+function resolveOperationsTrainingVideoEmbedUrl(rawUrl){
+  const candidate = clean(rawUrl);
+  if (!candidate){
+    return "";
+  }
+  let parsed;
+  try {
+    parsed = new URL(candidate, window.location.href);
+  } catch {
+    return "";
+  }
+
+  const host = clean(parsed.hostname).toLowerCase();
+  const pathParts = clean(parsed.pathname)
+    .split("/")
+    .map((part) => clean(part))
+    .filter(Boolean);
+  let videoId = "";
+
+  if (host === "youtu.be"){
+    videoId = normalizeYouTubeVideoId(pathParts[0]);
+  } else if (host.endsWith("youtube.com") || host.endsWith("youtube-nocookie.com")){
+    if (pathParts[0] === "watch"){
+      videoId = normalizeYouTubeVideoId(parsed.searchParams.get("v"));
+    } else if (pathParts[0] === "shorts" || pathParts[0] === "live"){
+      videoId = normalizeYouTubeVideoId(pathParts[1]);
+    } else if (pathParts[0] === "embed"){
+      videoId = normalizeYouTubeVideoId(pathParts[1]);
+    }
+  }
+
+  if (!videoId){
+    return "";
+  }
+  return `https://www.youtube.com/embed/${videoId}?rel=0`;
+}
+
+function renderOperationsTrainingVideo(){
+  const host = els.opsTrainingVideoHost;
+  const status = els.opsTrainingVideoStatus;
+  if (!(host instanceof HTMLElement)){
+    return;
+  }
+  host.innerHTML = "";
+  const configuredUrl = readOperationsTrainingVideoUrl();
+  const embedUrl = resolveOperationsTrainingVideoEmbedUrl(configuredUrl);
+
+  if (!embedUrl){
+    const placeholder = document.createElement("div");
+    placeholder.className = "operations-training-video-placeholder";
+    placeholder.innerHTML = `
+      <h4>Training video coming soon</h4>
+      <p>A full walkthrough video will appear here once it has been added. Until then, use the written guide below for a complete overview of how to use the Operations Hub.</p>
+    `;
+    host.appendChild(placeholder);
+    if (status instanceof HTMLElement){
+      status.textContent = "Training video coming soon. Use the written guide below until the walkthrough is added.";
+    }
+    return;
+  }
+
+  const frame = document.createElement("iframe");
+  frame.src = embedUrl;
+  frame.title = "Operations Hub training walkthrough";
+  frame.loading = "lazy";
+  frame.referrerPolicy = "strict-origin-when-cross-origin";
+  frame.allow = "accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share";
+  frame.allowFullscreen = true;
+
+  const frameWrap = document.createElement("div");
+  frameWrap.className = "operations-training-video-embed";
+  frameWrap.appendChild(frame);
+  host.appendChild(frameWrap);
+  if (status instanceof HTMLElement){
+    status.textContent = "Video walkthrough loaded.";
+  }
 }
 
 function setText(id, value){
@@ -127,8 +233,112 @@ function setMsg(el, text){
   if (el) el.textContent = text || "";
 }
 
+function setMapBridgeStatus(text){
+  if (els.mapBridgeStatus) {
+    els.mapBridgeStatus.textContent = text || "";
+  }
+}
+
 function contextSummaryText(){
   return summarizeOperationsContext(operationsContext);
+}
+
+function buildMapStageUrl(){
+  const url = new URL("index.html", window.location.href);
+  url.searchParams.set("stage", "map");
+  const campaignId = clean(operationsContext?.campaignId);
+  const campaignName = clean(operationsContext?.campaignName);
+  const officeId = clean(operationsContext?.officeId);
+  if (campaignId) url.searchParams.set("campaign", campaignId);
+  if (campaignName) url.searchParams.set("campaignName", campaignName);
+  if (officeId) url.searchParams.set("office", officeId);
+  return url.toString();
+}
+
+function mapBridgeOrganizerSelection(){
+  const select = els.mapBridgeOrganizerSelect;
+  if (!(select instanceof HTMLSelectElement)) {
+    return { organizerId: "", organizerName: "" };
+  }
+  const organizerId = clean(select.value);
+  if (!organizerId) {
+    return { organizerId: "", organizerName: "" };
+  }
+  const activeOption = select.selectedOptions?.[0];
+  const organizerName = clean(activeOption?.dataset?.organizerName || activeOption?.textContent || organizerId);
+  return { organizerId, organizerName };
+}
+
+function syncMapBridgeOrganizerOptions(performancePace){
+  const select = els.mapBridgeOrganizerSelect;
+  if (!(select instanceof HTMLSelectElement)) {
+    return;
+  }
+  const organizerRows = Array.isArray(performancePace?.organizers) ? performancePace.organizers : [];
+  const previous = clean(select.value);
+  const options = organizerRows
+    .map((row) => ({
+      organizerId: clean(row?.organizerId),
+      name: clean(row?.name) || clean(row?.organizerId),
+      status: clean(row?.status),
+      completedThisWeek: Number(row?.completedThisWeek || 0) || 0,
+    }))
+    .filter((row) => row.organizerId)
+    .sort((a, b) => a.name.localeCompare(b.name));
+
+  select.innerHTML = "";
+  const allOption = document.createElement("option");
+  allOption.value = "";
+  allOption.textContent = "All organizers (office scope)";
+  select.appendChild(allOption);
+  for (const row of options){
+    const option = document.createElement("option");
+    option.value = row.organizerId;
+    option.dataset.organizerName = row.name;
+    option.textContent = row.status
+      ? `${row.name} (${row.status}; this week ${fmtInt(row.completedThisWeek)})`
+      : `${row.name} (this week ${fmtInt(row.completedThisWeek)})`;
+    select.appendChild(option);
+  }
+  if (previous && options.some((row) => row.organizerId === previous)){
+    select.value = previous;
+  } else {
+    select.value = "";
+  }
+}
+
+function publishWorkedMapBridgeContext({ focusType, organizerId = "", organizerName = "" }){
+  const officeId = clean(operationsContext?.officeId);
+  const campaignId = clean(operationsContext?.campaignId);
+  const campaignName = clean(operationsContext?.campaignName);
+  const next = writeOperationsMapContext({
+    focusType: clean(focusType),
+    organizerId: clean(organizerId),
+    organizerName: clean(organizerName),
+    officeId,
+    campaignId,
+    campaignName,
+    requestedMode: WORKED_ACTIVITY_MODE_ID,
+    source: "operations_hub",
+  });
+  return next;
+}
+
+function openMapWithWorkedBridge({ focusType, organizerId = "", organizerName = "" }){
+  const next = publishWorkedMapBridgeContext({
+    focusType,
+    organizerId,
+    organizerName,
+  });
+  const target = buildMapStageUrl();
+  if (focusType === "organizer" && clean(next?.organizerId)){
+    setMapBridgeStatus(`Opening map worked geography for organizer ${clean(next.organizerName) || clean(next.organizerId)}.`);
+  } else if (focusType === "office" && clean(next?.officeId)){
+    setMapBridgeStatus(`Opening map worked geography for office ${clean(next.officeId)}.`);
+  } else {
+    setMapBridgeStatus("Opening map worked geography with office scope.");
+  }
+  window.location.assign(target);
 }
 
 function fmtInt(value){
@@ -362,8 +572,48 @@ function clearTrainingForm(){
   setMsg(els.trMsg, "");
 }
 
-function activateModule(moduleId){
+function normalizeTrainingAnchor(value){
+  return clean(value)
+    .toLowerCase()
+    .replace(/[^a-z0-9_-]/g, "");
+}
+
+function parseModuleHash(hashValue = window.location.hash){
+  const raw = clean(hashValue).replace(/^#/, "");
+  const fallback = { moduleId: "overview", trainingAnchor: "" };
+  if (!raw){
+    return fallback;
+  }
+  const match = raw.match(/^([^:/]+)(?:[:/](.+))?$/);
+  const moduleId = clean(match?.[1]);
+  if (!MODULE_IDS.includes(moduleId)){
+    return fallback;
+  }
+  const trainingAnchor = moduleId === "operations_training"
+    ? normalizeTrainingAnchor(match?.[2])
+    : "";
+  return { moduleId, trainingAnchor };
+}
+
+function scrollToOperationsTrainingAnchor(anchorId, { smooth = false } = {}){
+  const id = normalizeTrainingAnchor(anchorId);
+  if (!id){
+    return false;
+  }
+  const target = document.getElementById(id);
+  if (!(target instanceof HTMLElement)){
+    return false;
+  }
+  target.scrollIntoView({
+    behavior: smooth ? "smooth" : "auto",
+    block: "start",
+  });
+  return true;
+}
+
+function activateModule(moduleId, { trainingAnchor = "", smoothScroll = false, updateHash = true } = {}){
   const active = MODULE_IDS.includes(moduleId) ? moduleId : "overview";
+  const activeTrainingAnchor = active === "operations_training" ? normalizeTrainingAnchor(trainingAnchor) : "";
 
   for (const btn of els.navButtons){
     const isActive = clean(btn.getAttribute("data-module")) === active;
@@ -375,15 +625,21 @@ function activateModule(moduleId){
     panel.classList.toggle("is-active", isActive);
   }
 
-  const nextHash = `#${active}`;
-  if (window.location.hash !== nextHash){
+  const nextHash = activeTrainingAnchor
+    ? `#${active}:${activeTrainingAnchor}`
+    : `#${active}`;
+  if (updateHash && window.location.hash !== nextHash){
     history.replaceState(null, "", nextHash);
+  }
+  if (active === "operations_training" && activeTrainingAnchor){
+    requestAnimationFrame(() => {
+      scrollToOperationsTrainingAnchor(activeTrainingAnchor, { smooth: smoothScroll });
+    });
   }
 }
 
 function moduleFromHash(){
-  const raw = clean(window.location.hash).replace(/^#/, "");
-  return MODULE_IDS.includes(raw) ? raw : "overview";
+  return parseModuleHash().moduleId;
 }
 
 function renderInterviewTable(interviews, peopleById){
@@ -553,6 +809,13 @@ async function refreshDashboard(){
   setText("ovNote", `Production source: ${prod.source || "shift"} | Dedupe rule: ${dedupe.rule || "shift_primary_turf_coverage"}`);
   setText("ovOfficeMix", officeMixSummaryText(officeMix));
   renderPerformancePace(performancePace);
+  syncMapBridgeOrganizerOptions(performancePace);
+  const activeOrganizer = mapBridgeOrganizerSelection();
+  if (activeOrganizer.organizerId){
+    setMapBridgeStatus(`Ready to open map worked geography for organizer ${activeOrganizer.organizerName || activeOrganizer.organizerId}.`);
+  } else {
+    setMapBridgeStatus("Ready to open map worked geography for active office scope or selected organizer.");
+  }
 
   setText("recSourced", fmtInt(stageCounts.get("Sourced") || 0));
   setText("recContacted", fmtInt(stageCounts.get("Contacted") || 0));
@@ -842,10 +1105,74 @@ function wireModuleNav(){
   for (const btn of els.navButtons){
     btn.addEventListener("click", () => {
       const mod = clean(btn.getAttribute("data-module"));
-      activateModule(mod);
+      activateModule(mod, { updateHash: true });
     });
   }
-  window.addEventListener("hashchange", () => activateModule(moduleFromHash()));
+  window.addEventListener("hashchange", () => {
+    const route = parseModuleHash();
+    activateModule(route.moduleId, {
+      trainingAnchor: route.trainingAnchor,
+      updateHash: false,
+    });
+  });
+}
+
+function wireOperationsTrainingAnchors(){
+  for (const btn of els.trainingJumpButtons){
+    btn.addEventListener("click", () => {
+      const targetId = clean(btn.getAttribute("data-training-jump-target"));
+      if (!targetId){
+        return;
+      }
+      activateModule("operations_training", {
+        trainingAnchor: targetId,
+        smoothScroll: true,
+        updateHash: true,
+      });
+    });
+  }
+}
+
+function wireMapBridgeActions(){
+  if (els.mapBridgeOrganizerSelect){
+    els.mapBridgeOrganizerSelect.addEventListener("change", () => {
+      const activeOrganizer = mapBridgeOrganizerSelection();
+      if (activeOrganizer.organizerId){
+        publishWorkedMapBridgeContext({
+          focusType: "organizer",
+          organizerId: activeOrganizer.organizerId,
+          organizerName: activeOrganizer.organizerName,
+        });
+        setMapBridgeStatus(`Organizer focus set: ${activeOrganizer.organizerName || activeOrganizer.organizerId}. Open map to inspect worked geography.`);
+      } else {
+        publishWorkedMapBridgeContext({
+          focusType: "office",
+        });
+        setMapBridgeStatus("Organizer focus cleared. Office worked geography focus is ready.");
+      }
+    });
+  }
+
+  if (els.btnMapBridgeOrganizer){
+    els.btnMapBridgeOrganizer.addEventListener("click", () => {
+      const activeOrganizer = mapBridgeOrganizerSelection();
+      if (!activeOrganizer.organizerId){
+        setMapBridgeStatus("Select an organizer first, then open organizer worked geography.");
+        return;
+      }
+      openMapWithWorkedBridge({
+        focusType: "organizer",
+        organizerId: activeOrganizer.organizerId,
+        organizerName: activeOrganizer.organizerName,
+      });
+    });
+  }
+
+  if (els.btnMapBridgeOffice){
+    els.btnMapBridgeOffice.addEventListener("click", () => {
+      openMapWithWorkedBridge({ focusType: "office" });
+    });
+  }
 }
 
 function wireIoActions(){
@@ -969,9 +1296,16 @@ function wireIoActions(){
 
 async function init(){
   applyOperationsContextToLinks(operationsContext, ".note a[href], .toolbar a[href]");
-  activateModule(moduleFromHash());
+  renderOperationsTrainingVideo();
+  const route = parseModuleHash();
+  activateModule(route.moduleId, {
+    trainingAnchor: route.trainingAnchor,
+    updateHash: true,
+  });
   wireModuleNav();
+  wireOperationsTrainingAnchors();
   wireCrudActions();
+  wireMapBridgeActions();
   wireIoActions();
   clearInterviewForm();
   clearOnboardingForm();

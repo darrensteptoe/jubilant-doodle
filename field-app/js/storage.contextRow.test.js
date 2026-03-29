@@ -59,3 +59,40 @@ test("storage context row: campaign/office scope persists and reloads with campa
   });
   assert.equal(loadedDifferentOffice, null);
 });
+
+test("storage context row: scenario-scoped snapshot round-trips without cross-scenario bleed", () => {
+  const storage = makeMemoryStorage();
+  const state = {
+    campaignId: "il-hd-21",
+    campaignName: "Illinois House 21",
+    officeId: "west-field",
+    scenarioId: "plan_a",
+    ui: { activeScenarioId: "plan_a" },
+  };
+
+  const persisted = persistStateSnapshot(state, storage, {
+    campaignId: "il-hd-21",
+    campaignName: "Illinois House 21",
+    officeId: "west-field",
+    scenarioId: "plan_a",
+  });
+  assert.equal(persisted.ok, true);
+
+  const loadedSameScenario = loadState({
+    storageOverride: storage,
+    campaignId: "il-hd-21",
+    officeId: "west-field",
+    scenarioId: "plan_a",
+  });
+  assert.equal(loadedSameScenario?.campaignId, "il-hd-21");
+  assert.equal(loadedSameScenario?.officeId, "west-field");
+  assert.equal(loadedSameScenario?.scenarioId, "plan_a");
+
+  const loadedDifferentScenario = loadState({
+    storageOverride: storage,
+    campaignId: "il-hd-21",
+    officeId: "west-field",
+    scenarioId: "plan_b",
+  });
+  assert.equal(loadedDifferentScenario, null);
+});
