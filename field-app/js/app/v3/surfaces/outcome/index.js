@@ -448,7 +448,6 @@ export function renderOutcomeSurface(mount) {
 
   centerCol.append(
     summaryCard,
-    benchmarkCard,
     controlsCard,
     forecastCard,
     confidenceCard,
@@ -456,6 +455,7 @@ export function renderOutcomeSurface(mount) {
     riskFlagsCard,
     interpretationCard,
   );
+  centerCol.append(benchmarkCard);
 
   frame.append(centerCol);
   mount.append(frame);

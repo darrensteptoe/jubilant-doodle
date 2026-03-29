@@ -48,3 +48,35 @@ test("map phase6 contract: map legend provenance keeps canon-vs-display trust la
   assert.match(source, /canonical geography \+ Census map metrics/, "legend provenance should name canonical source");
   assert.match(source, /display-only overlay; canon math unchanged/, "legend provenance should preserve trust boundary");
 });
+
+test("map phase6 contract: planning overlay inventory and resolver stay display-only", () => {
+  const source = read("./index.js");
+  assert.match(source, /const PLANNING_OVERLAY_BY_FAMILY = \{/, "planning overlay inventory should exist");
+  assert.match(source, /const DEFAULT_PLANNING_OVERLAY = \{/, "default planning overlay fallback should exist");
+  assert.match(source, /turnout_need_context/, "turnout planning overlay id should be present");
+  assert.match(source, /persuasion_need_context/, "persuasion planning overlay id should be present");
+  assert.match(source, /universe_density_context/, "universe density overlay id should be present");
+  assert.match(source, /expected_early_vote_context/, "expected early-vote overlay id should be present");
+  assert.match(source, /function resolvePlanningOverlayDescriptor\(/, "planning overlay resolver should exist");
+  assert.match(source, /PLANNING_OVERLAY_BY_FAMILY\[family\] \|\| DEFAULT_PLANNING_OVERLAY/, "planning overlay resolver should fallback safely");
+  assert.match(source, /display-only overlay/, "planning overlay copy should preserve display-only boundary");
+});
+
+test("map phase6 contract: inspect panel includes planning context interpretation lines", () => {
+  const source = read("./index.js");
+  assert.match(source, /<span>Planning overlay<\/span>/, "inspect panel should include planning overlay row");
+  assert.match(source, /<span>Planning provenance<\/span>/, "inspect panel should include planning provenance row");
+  assert.match(source, /Planning context:/, "inspect panel should include planning context guidance");
+  assert.match(source, /Planning interpretation:/, "inspect panel should include planning interpretation guidance");
+  assert.match(source, /Planning view is display-only; canonical planning\/execution math remains unchanged\./, "inspect panel should restate planning display-only boundary");
+  assert.match(source, /Expected early-vote context:/, "inspect panel should include early-vote context guidance");
+});
+
+test("map phase6 contract: runtime diagnostics include planning overlay provenance", () => {
+  const mapSource = read("./index.js");
+  assert.match(mapSource, /overlayId:/, "map runtime diagnostics should expose overlay id");
+  assert.match(mapSource, /overlayProvenance:/, "map runtime diagnostics should expose overlay provenance");
+
+  const builders = read("../../../diagnosticsBuilders.js");
+  assert.match(builders, /planningOverlay:/, "diagnostics output should include planning overlay summary");
+});

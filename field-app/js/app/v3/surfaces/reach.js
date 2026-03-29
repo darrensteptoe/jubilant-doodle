@@ -350,7 +350,8 @@ export function renderReachSurface(mount) {
   bridgeRoot.append(frame);
 
   left.append(summaryCard, outlookCard, freshnessCard);
-  right.append(weeklyCard, leversCard, actionsCard, benchmarkCard, universeCard, conversionCard);
+  right.append(weeklyCard, leversCard, actionsCard, universeCard, conversionCard);
+  right.append(benchmarkCard);
   frame.append(left, right);
   mount.append(bridgeRoot);
   mount.append(

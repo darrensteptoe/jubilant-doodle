@@ -31,8 +31,23 @@ test("map phase4 contract: metric rendering uses legend-driven quantile bins", (
 test("map phase4 contract: provenance mapping includes canonical metric bundles", () => {
   const source = readSource();
   assert.match(source, /const METRIC_SET_PROVENANCE_MAP = \{/, "metric provenance map should exist");
+  assert.match(source, /const METRIC_FAMILY_PROVENANCE_MAP = \{/, "metric family provenance map should exist");
   assert.match(source, /field_efficiency:/, "field efficiency provenance entry should exist");
   assert.match(source, /turnout_potential:/, "turnout potential provenance entry should exist");
   assert.match(source, /Canonical Census ACS\/PL/, "provenance should reference canonical census source");
 });
 
+test("map phase4 contract: metric selector groups options by family with descriptive help text", () => {
+  const source = readSource();
+  assert.match(source, /const METRIC_HELP_ID = "v3MapMetricHelp";/, "metric help id should exist");
+  assert.match(source, /function metricFamilyLabel\(/, "metric family helper should exist");
+  assert.match(source, /function metricFamilyProvenanceText\(/, "metric family provenance helper should exist");
+  assert.match(source, /function metricDescriptionText\(/, "metric description helper should exist");
+  assert.match(source, /function filterMetricInventoryForDisplay\(/, "metric inventory should be filtered for display");
+  assert.match(source, /availableCount \|\| 0\) > 0/, "metric display filter should only include metrics with row data");
+  assert.match(source, /EARLY_VOTE_METRIC_PATTERNS/, "early-vote metric family detection should be supported");
+  assert.match(source, /return "Early vote context";/, "early-vote family label should be available");
+  assert.match(source, /document\.createElement\("optgroup"\)/, "metric selector should group options by family");
+  assert.match(source, /option\.title = cleanText\(row\?\.description\)/, "metric options should expose descriptive tooltip text");
+  assert.match(source, /id="\$\{METRIC_HELP_ID\}"/, "metric help field should render next to selector");
+});
