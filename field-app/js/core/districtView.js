@@ -212,7 +212,7 @@ export function buildDistrictCensusContextHint(censusState){
   const census = censusState && typeof censusState === "object" ? censusState : {};
   const resolution = String(census.resolution || "").trim();
   const stateFips = String(census.stateFips || "").trim();
-  const countyFips = String(census.countyFips || "").trim();
+  const countyFips = String(census.countyFips || census.county || "").trim();
   const placeFips = String(census.placeFips || "").trim();
   if (!stateFips){
     return "Set state and resolution to define Census context.";
