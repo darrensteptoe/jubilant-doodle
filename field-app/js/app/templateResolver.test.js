@@ -13,6 +13,7 @@ import {
   resolveTemplateRecord,
   resolveTemplateId,
   syncTemplateMetaFromState,
+  templateIdForRaceType,
 } from "./templateResolver.js";
 
 function makeState(overrides = {}) {
@@ -62,6 +63,22 @@ test("template registry: salience options include canonical low/medium/high", ()
   ]);
 });
 
+test("template registry: office-level selector options use modern labels and exclude legacy buckets", () => {
+  const options = listTemplateDimensionOptions("officeLevel");
+  const values = options.map((row) => row.value);
+  assert.equal(values.includes("federal"), false);
+  assert.equal(values.includes("state_leg"), false);
+  assert.equal(values.includes("municipal"), false);
+  assert.equal(values.includes("county"), false);
+  assert.equal(values.includes("statewide_executive"), true);
+  assert.equal(values.includes("statewide_federal"), true);
+  assert.equal(values.includes("state_legislative_lower"), true);
+  assert.equal(values.includes("state_legislative_upper"), true);
+  assert.equal(options.find((row) => row.value === "statewide_executive")?.label, "Statewide Executive");
+  assert.equal(options.find((row) => row.value === "state_legislative_lower")?.label, "State House");
+  assert.equal(options.find((row) => row.value === "state_legislative_upper")?.label, "State Senate");
+});
+
 test("template resolver: statewide executive selection applies office-specific default banding", () => {
   const state = makeState({ raceType: "federal" });
   const result = applyTemplateDefaultsToState(state, { templateId: "statewide_executive", mode: "all" });
@@ -93,6 +110,16 @@ test("template resolver: legacy raceType migration chooses office-aware template
   assert.equal(resolveTemplateId({ raceType: "state_leg", officeLevel: "state_legislative_upper" }), "state_senate");
   assert.equal(resolveTemplateId({ raceType: "municipal", seatContext: "executive" }), "municipal_executive");
   assert.equal(resolveTemplateId({ raceType: "unknown_race_type" }), "custom_context");
+});
+
+test("template resolver: legacy race buckets stay compatibility-only inputs mapped to modern templates", () => {
+  assert.equal(templateIdForRaceType("federal"), "congressional_district");
+  assert.equal(templateIdForRaceType("state_leg"), "state_house");
+});
+
+test("template resolver: custom office level keeps custom template for legacy race buckets", () => {
+  assert.equal(templateIdForRaceType("state_leg", { officeLevel: "custom_context" }), "custom_context");
+  assert.equal(templateIdForRaceType("state_leg", { officeLevel: "custom" }), "custom_context");
 });
 
 test("template resolver: untouched apply mode preserves existing overrides", () => {
@@ -214,6 +241,31 @@ test("template resolver: office level override persists when explicitly changed"
   syncTemplateMetaFromState(state);
 
   assert.equal(state.templateMeta?.officeLevel, "statewide_executive");
+});
+
+test("template resolver: custom office level does not coerce template back to state house", () => {
+  const state = makeState({ raceType: "state_leg" });
+  applyTemplateDefaultsToState(state, { templateId: "custom_context", mode: "all" });
+  assert.equal(state.templateMeta?.appliedTemplateId, "custom_context");
+
+  applyTemplateDefaultsToState(state, {
+    mode: "untouched",
+    officeLevel: "custom_context",
+    electionType: state.templateMeta?.electionType,
+    seatContext: state.templateMeta?.seatContext,
+    partisanshipMode: state.templateMeta?.partisanshipMode,
+    salienceLevel: state.templateMeta?.salienceLevel,
+  });
+  syncTemplateMetaFromState(state);
+
+  assert.equal(state.templateMeta?.appliedTemplateId, "custom_context");
+  assert.equal(state.templateMeta?.officeLevel, "custom_context");
+});
+
+test("template resolver: legacy custom office level alias normalizes to custom_context", () => {
+  const normalized = normalizeTemplateMeta({ officeLevel: "custom" }, { raceType: "state_leg" });
+  assert.equal(normalized.officeLevel, "custom_context");
+  assert.equal(normalized.appliedTemplateId, "custom_context");
 });
 
 test("template resolver: matched template id remains canonical while dimensions stay overridden", () => {

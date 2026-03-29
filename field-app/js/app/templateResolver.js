@@ -23,6 +23,13 @@ function cleanString(value){
   return String(value == null ? "" : value).trim();
 }
 
+function normalizeOfficeLevelToken(value){
+  const token = cleanString(value).toLowerCase();
+  if (!token) return "";
+  if (token === "custom") return "custom_context";
+  return token;
+}
+
 const toFiniteNumber = safeNum;
 
 function approxEq(a, b, eps = EPSILON){
@@ -126,8 +133,10 @@ function inferLegacyRaceType(value){
 
 function resolveTemplateIdFromLegacyRaceType(legacyRaceType, context = {}){
   const raceType = inferLegacyRaceType(legacyRaceType) || normalizeLegacyRaceType(legacyRaceType);
-  const officeLevel = cleanString(context?.officeLevel).toLowerCase();
+  const officeLevel = normalizeOfficeLevelToken(context?.officeLevel);
   const seatContext = cleanString(context?.seatContext).toLowerCase();
+
+  if (officeLevel === "custom_context") return "custom_context";
 
   if (raceType === "federal"){
     if (officeLevel === "statewide_federal" || seatContext.includes("senate")){
@@ -158,15 +167,14 @@ function resolveTemplateIdFromLegacyRaceType(legacyRaceType, context = {}){
   }
 
   if (officeLevel === "judicial_other") return "judicial_other";
-  if (officeLevel === "custom_context") return "custom_context";
   return LEGACY_RACE_TYPE_TO_TEMPLATE_ID[raceType] || DEFAULT_TEMPLATE_ID;
 }
 
 function templateIdForOfficeLevel(officeLevel){
-  const token = cleanString(officeLevel).toLowerCase();
+  const token = normalizeOfficeLevelToken(officeLevel);
   if (!token) return "";
   for (const record of Object.values(TEMPLATE_REGISTRY)){
-    if (cleanString(record?.dimensions?.officeLevel).toLowerCase() === token){
+    if (normalizeOfficeLevelToken(record?.dimensions?.officeLevel) === token){
       return cleanString(record?.id);
     }
   }
@@ -208,7 +216,9 @@ export function normalizeTemplateDimensions(input = {}, fallbackRaceType = "stat
     : getTemplateRecord(templateIdForRaceType(fallbackRaceType, input));
   const out = {};
   for (const key of TEMPLATE_DIMENSION_KEYS){
-    const value = cleanString(input?.[key]);
+    const value = (key === "officeLevel")
+      ? normalizeOfficeLevelToken(input?.[key])
+      : cleanString(input?.[key]);
     out[key] = value || cleanString(fallbackTemplate?.dimensions?.[key]);
   }
   return out;
@@ -305,7 +315,7 @@ export function normalizeTemplateMeta(metaInput, { raceType = "state_leg", templ
     : [];
 
   return {
-    officeLevel: cleanString(meta.officeLevel) || resolved.dimensions.officeLevel,
+    officeLevel: normalizeOfficeLevelToken(meta.officeLevel) || resolved.dimensions.officeLevel,
     electionType: cleanString(meta.electionType) || resolved.dimensions.electionType,
     seatContext: cleanString(meta.seatContext) || resolved.dimensions.seatContext,
     partisanshipMode: cleanString(meta.partisanshipMode) || resolved.dimensions.partisanshipMode,
