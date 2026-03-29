@@ -125,7 +125,7 @@ test("c9 summary-at-top and density layout rules are applied to rebuilt pages", 
   assert.match(controlsSource, /createCenterStackFrame\(/);
   assert.match(controlsSource, /createCenterStackColumn\(/);
   assert.doesNotMatch(controlsSource, /createSurfaceFrame\("two-col"\)/);
-  assert.match(controlsSource, /centerCol\.append\(\s*summaryCard,\s*workflowCard,\s*benchmarkCard,\s*evidenceCard,\s*calibrationCard,\s*feedbackCard\s*\)/m);
+  assert.match(controlsSource, /centerCol\.append\(\s*summaryCard,\s*mapConfigCard,\s*workflowCard,\s*benchmarkCard,\s*evidenceCard,\s*calibrationCard,\s*feedbackCard\s*\)/m);
   assert.match(dataSource, /centerCol\.append\(\s*summaryCard,\s*policyCard,\s*exchangeCard,\s*storageCard,\s*auditCard\s*\)/m);
   assert.match(stylesSource, /#v3DataArchiveTableSummary\s*\{/);
 });

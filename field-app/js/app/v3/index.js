@@ -533,8 +533,12 @@ function buildRuntimeDiagnosticsSnapshot() {
       status: String(mapRuntime?.status || "").trim(),
       mapLoaded: !!mapRuntime?.mapLoaded,
       updatedAt: String(mapRuntime?.updatedAt || "").trim(),
+      fallbackReason: String(mapRuntime?.fallbackReason || "").trim(),
       geometry: mapRuntime?.geometry && typeof mapRuntime.geometry === "object"
         ? mapRuntime.geometry
+        : {},
+      scope: mapRuntime?.scope && typeof mapRuntime.scope === "object"
+        ? mapRuntime.scope
         : {},
       metric: mapRuntime?.metric && typeof mapRuntime.metric === "object"
         ? mapRuntime.metric
@@ -569,7 +573,9 @@ function renderRuntimeDiagnosticsLine(snapshot) {
     : {};
   const mapRuntimeStatus = String(mapRuntime?.status || "").trim() || "unavailable";
   const mappedFeatures = Number(mapRuntime?.geometry?.mappedFeatureCount || 0);
-  const mapRuntimeText = `${mapRuntimeStatus}/${mappedFeatures}`;
+  const mapScopeMode = String(mapRuntime?.scope?.mode || "").trim();
+  const hasFallback = String(mapRuntime?.fallbackReason || "").trim().length > 0;
+  const mapRuntimeText = `${mapRuntimeStatus}/${mappedFeatures}${mapScopeMode ? `/${mapScopeMode}` : ""}${hasFallback ? "/fallback" : ""}`;
   return [
     `build ${snapshot.buildId || "dev"}`,
     `asset ${hashText}`,
