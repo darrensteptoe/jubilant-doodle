@@ -350,7 +350,7 @@ function censusRuntimeSetBridgeFieldFallback(key, rawValue){
       rowsByGeoid: runtimeRows,
       selectedGeoids: s.selectedGeoids,
     });
-    const applyGate = evaluateCensusApplyMode({
+    let applyGate = evaluateCensusApplyMode({
       applyRequested: true,
       censusState: s,
       raceFootprint: state.raceFootprint,
@@ -358,6 +358,25 @@ function censusRuntimeSetBridgeFieldFallback(key, rawValue){
       advisoryReady: !!advisory.ready,
       hasRows: !!Object.keys(runtimeRows).length && !!cleanText(s.activeRowsKey),
     });
+    let autoSyncedFootprint = false;
+    if (!applyGate.ready && shouldAutoSyncRaceFootprintForReason(applyGate.reason)){
+      const synced = syncRaceFootprintFromCensusContext(state, s, {
+        runtimeRows,
+        source: "census_phase1_auto_sync",
+        updatedAt: new Date().toISOString(),
+      });
+      autoSyncedFootprint = !!synced.ok;
+      if (autoSyncedFootprint){
+        applyGate = evaluateCensusApplyMode({
+          applyRequested: true,
+          censusState: s,
+          raceFootprint: state.raceFootprint,
+          assumptionsProvenance: state.assumptionsProvenance,
+          advisoryReady: !!advisory.ready,
+          hasRows: !!Object.keys(runtimeRows).length && !!cleanText(s.activeRowsKey),
+        });
+      }
+    }
     if (!applyGate.ready){
       s.applyAdjustedAssumptions = false;
       setStatus(s, applyModeReasonText(applyGate.reason), true);
@@ -367,7 +386,9 @@ function censusRuntimeSetBridgeFieldFallback(key, rawValue){
     s.applyAdjustedAssumptions = true;
     setStatus(
       s,
-      `Census-adjusted assumptions ON (${formatCensusApplyMultiplierSummary(multipliers)}).`,
+      autoSyncedFootprint
+        ? `Census-adjusted assumptions ON (${formatCensusApplyMultiplierSummary(multipliers)}). Race footprint synchronized from current Census selection.`
+        : `Census-adjusted assumptions ON (${formatCensusApplyMultiplierSummary(multipliers)}).`,
       false,
     );
     return true;
@@ -1629,6 +1650,65 @@ function selectedPopulationFromRows(rowsByGeoid, selectedGeoids){
   return seen > 0 ? total : null;
 }
 
+function shouldAutoSyncRaceFootprintForReason(reason){
+  const key = cleanText(reason);
+  if (!key || key === "ready" || key === "toggle_off") return false;
+  if (key === "rows_not_ready" || key === "advisory_not_ready" || key === "selection_context_missing") return false;
+  if (key === "alignment_not_ready") return true;
+  if (key === "footprint_not_set" || key === "selection_mismatch" || key === "provenance_not_set") return true;
+  if (key.startsWith("provenance_")) return true;
+  return false;
+}
+
+function syncRaceFootprintFromCensusContext(state, s, {
+  runtimeRows = null,
+  source = "census_phase1",
+  updatedAt = "",
+} = {}){
+  const targetState = state && typeof state === "object" ? state : null;
+  const censusState = s && typeof s === "object" ? s : null;
+  if (!targetState || !censusState){
+    return { ok: false, code: "missing_state" };
+  }
+  const footprint = liveRaceFootprintFromCensusState(censusState, {
+    source,
+    updatedAt: cleanText(updatedAt) || new Date().toISOString(),
+  });
+  if (!footprint.geoids.length){
+    return { ok: false, code: "selection_empty" };
+  }
+  if (!footprint.rowCount || !footprint.rowsKey){
+    return { ok: false, code: "rows_not_ready" };
+  }
+  targetState.raceFootprint = footprint;
+  const rows = runtimeRows && typeof runtimeRows === "object"
+    ? runtimeRows
+    : getRowsForState(censusState);
+  const population = selectedPopulationFromRows(rows, footprint.geoids);
+  targetState.footprintCapacity = normalizeFootprintCapacity({
+    source,
+    population,
+    year: cleanText(censusState.year),
+    metricSet: cleanText(censusState.metricSet),
+    raceFootprintFingerprint: footprint.fingerprint,
+    censusRowsKey: footprint.rowsKey,
+    updatedAt: cleanText(updatedAt) || new Date().toISOString(),
+  });
+  const provenance = ensureAssumptionProvenance(targetState);
+  provenance.source = source;
+  provenance.raceFootprintFingerprint = footprint.fingerprint;
+  provenance.censusRowsKey = footprint.rowsKey;
+  provenance.acsYear = cleanText(censusState.year);
+  provenance.metricSet = cleanText(censusState.metricSet);
+  provenance.generatedAt = "";
+  return {
+    ok: true,
+    code: "synced",
+    footprint,
+    population,
+  };
+}
+
 function disableCensusApplyAdjustments(s){
   if (!s || typeof s !== "object") return false;
   if (!s.applyAdjustedAssumptions) return false;
@@ -2758,7 +2838,7 @@ async function onLoadGeo({ s, key, getState, commitUIUpdate }){
   commitUIUpdate();
 }
 
-async function onFetchRows({ s, key, getState, commitUIUpdate }){
+async function onFetchRows({ s, key, getState, commitUIUpdate, autoSyncFootprint = false }){
   const resolutionLabel = RESOLUTION_LABEL_BY_ID[cleanText(s.resolution)] || cleanText(s.resolution) || "resolution";
   const countyFips = cleanText(s?.countyFips || s?.county);
   if (!contextReadyForGeo(s)){
@@ -2871,6 +2951,21 @@ async function onFetchRows({ s, key, getState, commitUIUpdate }){
       );
     } else {
       setStatus(current, `Loaded ${current.loadedRowCount} ACS rows for ${currentResolutionLabel} using bundle ${activeMetricSet}.${auditSummaryText}`, false);
+    }
+    if (autoSyncFootprint){
+      const liveState = getState && typeof getState === "function" ? getState() : null;
+      const alignment = assessRaceFootprintAlignment({
+        censusState: current,
+        raceFootprint: liveState?.raceFootprint,
+        assumptionsProvenance: liveState?.assumptionsProvenance,
+      });
+      if (liveState && shouldAutoSyncRaceFootprintForReason(alignment.reason)){
+        syncRaceFootprintFromCensusContext(liveState, current, {
+          runtimeRows: rowsByGeoid,
+          source: "census_phase1_auto_sync",
+          updatedAt: new Date().toISOString(),
+        });
+      }
     }
   } catch (err){
     const current = ensureCensusStateModule(getState());
@@ -2994,7 +3089,13 @@ export function wireCensusPhase1EventsModule(ctx){
     }
     const s = ensureCensusStateModule(currentState());
     if (!s) return false;
-    await onFetchRows({ s, key, getState: currentState, commitUIUpdate });
+    await onFetchRows({
+      s,
+      key,
+      getState: currentState,
+      commitUIUpdate,
+      autoSyncFootprint: !(els?.btnCensusSetRaceFootprint),
+    });
     return true;
   };
 
@@ -3024,38 +3125,28 @@ export function wireCensusPhase1EventsModule(ctx){
 
   const runCensusSetRaceFootprintAction = () => {
     withState((state, s) => {
-      const footprint = liveRaceFootprintFromCensusState(s, { updatedAt: new Date().toISOString() });
-      if (!footprint.geoids.length){
-        setStatus(s, "Select one or more GEO units before setting race footprint.", true);
-        return;
-      }
-      if (!footprint.rowCount || !footprint.rowsKey){
-        setStatus(s, "Fetch ACS rows before setting race footprint.", true);
-        return;
-      }
-      state.raceFootprint = footprint;
       const runtimeRows = getRowsForState(s);
-      const population = selectedPopulationFromRows(runtimeRows, footprint.geoids);
-      state.footprintCapacity = normalizeFootprintCapacity({
+      const result = syncRaceFootprintFromCensusContext(state, s, {
+        runtimeRows,
         source: "census_phase1",
-        population,
-        year: cleanText(s.year),
-        metricSet: cleanText(s.metricSet),
-        raceFootprintFingerprint: footprint.fingerprint,
-        censusRowsKey: footprint.rowsKey,
         updatedAt: new Date().toISOString(),
       });
-      const provenance = ensureAssumptionProvenance(state);
-      provenance.source = "census_phase1";
-      provenance.raceFootprintFingerprint = footprint.fingerprint;
-      provenance.censusRowsKey = footprint.rowsKey;
-      provenance.acsYear = cleanText(s.year);
-      provenance.metricSet = cleanText(s.metricSet);
-      provenance.generatedAt = "";
-      if (Number.isFinite(Number(population))){
-        setStatus(s, `Race footprint set (${footprint.geoids.length} GEOs, pop ${formatCensusWhole(population)}).`, false);
+      if (!result.ok){
+        if (result.code === "selection_empty"){
+          setStatus(s, "Select one or more GEO units before setting race footprint.", true);
+          return;
+        }
+        if (result.code === "rows_not_ready"){
+          setStatus(s, "Fetch ACS rows before setting race footprint.", true);
+          return;
+        }
+        setStatus(s, "Could not set race footprint for the current Census context.", true);
+        return;
+      }
+      if (Number.isFinite(Number(result.population))){
+        setStatus(s, `Race footprint set (${result.footprint.geoids.length} GEOs, pop ${formatCensusWhole(result.population)}).`, false);
       } else {
-        setStatus(s, `Race footprint set (${footprint.geoids.length} GEOs). Population unavailable for current ACS rows.`, false);
+        setStatus(s, `Race footprint set (${result.footprint.geoids.length} GEOs). Population unavailable for current ACS rows.`, false);
       }
     });
     commitUIUpdate();
@@ -3685,7 +3776,7 @@ export function wireCensusPhase1EventsModule(ctx){
           rowsByGeoid: runtimeRows,
           selectedGeoids: s.selectedGeoids,
         });
-        const applyGate = evaluateCensusApplyMode({
+        let applyGate = evaluateCensusApplyMode({
           applyRequested: true,
           censusState: s,
           raceFootprint: state.raceFootprint,
@@ -3693,6 +3784,25 @@ export function wireCensusPhase1EventsModule(ctx){
           advisoryReady: !!advisory.ready,
           hasRows: !!Object.keys(runtimeRows).length && !!cleanText(s.activeRowsKey),
         });
+        let autoSyncedFootprint = false;
+        if (!applyGate.ready && shouldAutoSyncRaceFootprintForReason(applyGate.reason)){
+          const synced = syncRaceFootprintFromCensusContext(state, s, {
+            runtimeRows,
+            source: "census_phase1_auto_sync",
+            updatedAt: new Date().toISOString(),
+          });
+          autoSyncedFootprint = !!synced.ok;
+          if (autoSyncedFootprint){
+            applyGate = evaluateCensusApplyMode({
+              applyRequested: true,
+              censusState: s,
+              raceFootprint: state.raceFootprint,
+              assumptionsProvenance: state.assumptionsProvenance,
+              advisoryReady: !!advisory.ready,
+              hasRows: !!Object.keys(runtimeRows).length && !!cleanText(s.activeRowsKey),
+            });
+          }
+        }
         if (!applyGate.ready){
           s.applyAdjustedAssumptions = false;
           setStatus(s, applyModeReasonText(applyGate.reason), true);
@@ -3702,7 +3812,9 @@ export function wireCensusPhase1EventsModule(ctx){
         s.applyAdjustedAssumptions = true;
         setStatus(
           s,
-          `Census-adjusted assumptions ON (${formatCensusApplyMultiplierSummary(multipliers)}).`,
+          autoSyncedFootprint
+            ? `Census-adjusted assumptions ON (${formatCensusApplyMultiplierSummary(multipliers)}). Race footprint synchronized from current Census selection.`
+            : `Census-adjusted assumptions ON (${formatCensusApplyMultiplierSummary(multipliers)}).`,
           false,
         );
       });

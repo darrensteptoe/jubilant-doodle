@@ -391,14 +391,9 @@ export function applyTemplateDefaultsToState(stateLike, options = {}){
   const currentOverrides = new Set(listOverriddenTemplateFields(stateLike, currentResolved.template));
   const requestedTemplateId = cleanString(options?.templateId);
   const hasRaceOverride = cleanString(options?.raceType) !== "";
-  const hasDimensionOverride = TEMPLATE_DIMENSION_KEYS.some((key) => cleanString(options?.[key]) !== "");
   const applyMode = normalizeTemplateApplyMode(options?.mode, { force: !!options?.force });
-  const preserveCustomTemplateIdentity = !requestedTemplateId
-    && !hasRaceOverride
-    && hasDimensionOverride
-    && currentResolved.id === "custom_context";
   const templateIdForResolution = requestedTemplateId
-    || ((hasRaceOverride || (hasDimensionOverride && !preserveCustomTemplateIdentity)) ? "" : currentResolved.id);
+    || (hasRaceOverride ? "" : currentResolved.id);
   const templateMetaForResolution = hasRaceOverride ? null : stateLike.templateMeta;
 
   const nextResolved = resolveTemplateRecord({

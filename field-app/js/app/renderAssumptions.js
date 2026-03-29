@@ -161,18 +161,21 @@ export function renderAssumptionsModule(args){
   const loadedRowCount = Number.isFinite(Number(censusState?.loadedRowCount))
     ? Math.max(0, Number(censusState.loadedRowCount))
     : Object.keys(censusPaceSnapshot.rowsByGeoid || {}).length;
-  const selectedGeoCount = Array.isArray(censusState?.selectedGeoids) ? censusState.selectedGeoids.length : 0;
   const rowsContextText = hasRows
     ? (censusState.activeRowsKey || `Loaded (${loadedRowCount.toLocaleString("en-US")} rows)`)
-    : (loadedRowCount > 0 && selectedGeoCount > 0
+    : (loadedRowCount > 0
       ? `Loaded (${loadedRowCount.toLocaleString("en-US")} rows), runtime context unavailable`
       : "Not loaded");
 
   const feasibilityText = buildAssumptionsFeasibilityText(pace);
-  const applyModeText = buildAssumptionsApplyModeText({
+  let applyModeText = buildAssumptionsApplyModeText({
     applyGate,
     applyMultipliers,
   });
+  const censusStatusText = String(censusState?.status || "").trim();
+  if (applyModeText === "OFF" && /^Apply mode unavailable:/i.test(censusStatusText)){
+    applyModeText = `Blocked (${censusStatusText.replace(/^Apply mode unavailable:\s*/i, "")})`;
+  }
 
   blocks.push(block("Census operating band", [
     kv("Rows context", rowsContextText),

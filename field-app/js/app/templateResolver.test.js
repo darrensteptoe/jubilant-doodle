@@ -207,6 +207,7 @@ test("template resolver: seat context override persists after template meta sync
   syncTemplateMetaFromState(state);
 
   assert.equal(state.templateMeta?.seatContext, "challenger");
+  assert.equal(state.templateMeta?.appliedTemplateId, "state_house");
 });
 
 test("template resolver: partisanship mode override persists after template meta sync", () => {
@@ -224,6 +225,7 @@ test("template resolver: partisanship mode override persists after template meta
   syncTemplateMetaFromState(state);
 
   assert.equal(state.templateMeta?.partisanshipMode, "nonpartisan");
+  assert.equal(state.templateMeta?.appliedTemplateId, "state_house");
 });
 
 test("template resolver: office level override persists when explicitly changed", () => {
@@ -241,9 +243,10 @@ test("template resolver: office level override persists when explicitly changed"
   syncTemplateMetaFromState(state);
 
   assert.equal(state.templateMeta?.officeLevel, "statewide_executive");
+  assert.equal(state.templateMeta?.appliedTemplateId, "state_house");
 });
 
-test("template resolver: non-custom templates still follow canonical office-level mapping", () => {
+test("template resolver: office-level edits preserve stock template identity", () => {
   const state = makeState({ raceType: "state_leg" });
   applyTemplateDefaultsToState(state, { templateId: "state_house", mode: "all" });
 
@@ -257,7 +260,7 @@ test("template resolver: non-custom templates still follow canonical office-leve
   });
   syncTemplateMetaFromState(state);
 
-  assert.equal(state.templateMeta?.appliedTemplateId, "state_senate");
+  assert.equal(state.templateMeta?.appliedTemplateId, "state_house");
   assert.equal(state.templateMeta?.officeLevel, "state_legislative_upper");
 });
 
@@ -312,6 +315,86 @@ test("template resolver: custom template identity is preserved when office level
       before,
     );
   }
+});
+
+test("template resolver: custom template identity is preserved when election type changes", () => {
+  const state = makeState({ raceType: "state_leg" });
+  applyTemplateDefaultsToState(state, { templateId: "custom_context", mode: "all" });
+
+  const result = applyTemplateDefaultsToState(state, {
+    mode: "untouched",
+    officeLevel: "statewide_executive",
+    electionType: "primary",
+    seatContext: state.templateMeta?.seatContext,
+    partisanshipMode: state.templateMeta?.partisanshipMode,
+    salienceLevel: state.templateMeta?.salienceLevel,
+  });
+  syncTemplateMetaFromState(state);
+
+  assert.equal(result.ok, true);
+  assert.equal(state.templateMeta?.appliedTemplateId, "custom_context");
+  assert.equal(state.templateMeta?.officeLevel, "statewide_executive");
+  assert.equal(state.templateMeta?.electionType, "primary");
+});
+
+test("template resolver: custom template identity is preserved when seat context changes", () => {
+  const state = makeState({ raceType: "state_leg" });
+  applyTemplateDefaultsToState(state, { templateId: "custom_context", mode: "all" });
+
+  const result = applyTemplateDefaultsToState(state, {
+    mode: "untouched",
+    officeLevel: "countywide",
+    electionType: state.templateMeta?.electionType,
+    seatContext: "challenger",
+    partisanshipMode: state.templateMeta?.partisanshipMode,
+    salienceLevel: state.templateMeta?.salienceLevel,
+  });
+  syncTemplateMetaFromState(state);
+
+  assert.equal(result.ok, true);
+  assert.equal(state.templateMeta?.appliedTemplateId, "custom_context");
+  assert.equal(state.templateMeta?.officeLevel, "countywide");
+  assert.equal(state.templateMeta?.seatContext, "challenger");
+});
+
+test("template resolver: custom template identity is preserved when partisanship changes", () => {
+  const state = makeState({ raceType: "state_leg" });
+  applyTemplateDefaultsToState(state, { templateId: "custom_context", mode: "all" });
+
+  const result = applyTemplateDefaultsToState(state, {
+    mode: "untouched",
+    officeLevel: "municipal_legislative",
+    electionType: state.templateMeta?.electionType,
+    seatContext: state.templateMeta?.seatContext,
+    partisanshipMode: "partisan",
+    salienceLevel: state.templateMeta?.salienceLevel,
+  });
+  syncTemplateMetaFromState(state);
+
+  assert.equal(result.ok, true);
+  assert.equal(state.templateMeta?.appliedTemplateId, "custom_context");
+  assert.equal(state.templateMeta?.officeLevel, "municipal_legislative");
+  assert.equal(state.templateMeta?.partisanshipMode, "partisan");
+});
+
+test("template resolver: custom template identity is preserved when salience changes", () => {
+  const state = makeState({ raceType: "state_leg" });
+  applyTemplateDefaultsToState(state, { templateId: "custom_context", mode: "all" });
+
+  const result = applyTemplateDefaultsToState(state, {
+    mode: "untouched",
+    officeLevel: "congressional_district",
+    electionType: state.templateMeta?.electionType,
+    seatContext: state.templateMeta?.seatContext,
+    partisanshipMode: state.templateMeta?.partisanshipMode,
+    salienceLevel: "high",
+  });
+  syncTemplateMetaFromState(state);
+
+  assert.equal(result.ok, true);
+  assert.equal(state.templateMeta?.appliedTemplateId, "custom_context");
+  assert.equal(state.templateMeta?.officeLevel, "congressional_district");
+  assert.equal(state.templateMeta?.salienceLevel, "high");
 });
 
 test("template resolver: legacy custom office level alias normalizes to custom_context", () => {
