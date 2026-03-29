@@ -4,11 +4,11 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Vector Intelligence Campaign Engine — Operations Turf</title>
-  <script type="module" crossorigin src="/assets/operationsTurf-DuANaABW.js"></script>
+  <script type="module" crossorigin src="/assets/operationsTurf-DTraq7X3.js"></script>
   <link rel="modulepreload" crossorigin href="/assets/time-DMzu12fF.js">
   <link rel="modulepreload" crossorigin href="/assets/build-D8U74VRh.js">
-  <link rel="modulepreload" crossorigin href="/assets/store-DqTLkxsz.js">
-  <link rel="modulepreload" crossorigin href="/assets/io-CQqqRcQu.js">
+  <link rel="modulepreload" crossorigin href="/assets/store-Bo8NNd8-.js">
+  <link rel="modulepreload" crossorigin href="/assets/io-B__aycC8.js">
   <link rel="stylesheet" crossorigin href="/assets/styles-3U8WXcS7.css">
 </head>
 <body class="page-generic">
@@ -70,6 +70,36 @@
         <div class="field">
           <label class="label" for="turfShiftId">Linked shift ID (optional)</label>
           <input class="input" id="turfShiftId" type="text" placeholder="shift_xxx" />
+        </div>
+        <div class="field">
+          <label class="label" for="turfUnitType">Worked unit type (optional)</label>
+          <select class="select" id="turfUnitType">
+            <option value="">Auto from Turf/Precinct</option>
+            <option value="turf">Turf</option>
+            <option value="precinct">Precinct</option>
+            <option value="tract">Tract</option>
+            <option value="block_group">Block group</option>
+          </select>
+        </div>
+        <div class="field">
+          <label class="label" for="turfUnitId">Worked unit ID (optional)</label>
+          <input class="input" id="turfUnitId" type="text" placeholder="Unit ID (for selected type)" />
+        </div>
+        <div class="field">
+          <label class="label" for="turfTractGeoid">Tract GEOID (optional)</label>
+          <input class="input" id="turfTractGeoid" type="text" placeholder="11-digit tract GEOID" />
+        </div>
+        <div class="field">
+          <label class="label" for="turfBlockGroupGeoid">Block group GEOID (optional)</label>
+          <input class="input" id="turfBlockGroupGeoid" type="text" placeholder="12-digit block group GEOID" />
+        </div>
+        <div class="field">
+          <label class="label" for="turfStateFips">State FIPS (optional)</label>
+          <input class="input" id="turfStateFips" type="text" placeholder="2-digit state FIPS" />
+        </div>
+        <div class="field">
+          <label class="label" for="turfCountyFips">County FIPS (optional)</label>
+          <input class="input" id="turfCountyFips" type="text" placeholder="3-digit county FIPS" />
         </div>
         <div class="field">
           <label class="label" for="turfAttempts">Attempts (coverage metric)</label>
