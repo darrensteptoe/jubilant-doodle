@@ -65,6 +65,25 @@ test("runtime config: saved browser token has highest priority", () => {
   assert.equal(resolveMapboxPublicToken(), "pk.saved_browser_value");
 });
 
+test("runtime config: saved token persists across init path and remains app-level", () => {
+  clearGlobals();
+  const { backing } = installStorage();
+
+  const save = saveMapboxPublicToken("pk.saved_browser_value");
+  assert.equal(save?.ok, true);
+  assert.equal(backing.get(MAPBOX_PUBLIC_TOKEN_STORAGE_KEY), "pk.saved_browser_value");
+
+  // Simulate fresh init path where app-level config object is not pre-populated.
+  delete globalThis.__VICE_CONFIG__;
+  const resolved = resolveMapboxPublicToken();
+  const status = readMapboxPublicTokenConfig();
+
+  assert.equal(resolved, "pk.saved_browser_value");
+  assert.equal(status.valid, true);
+  assert.equal(status.source, "saved_storage");
+  assert.equal(status.storageKey, MAPBOX_PUBLIC_TOKEN_STORAGE_KEY);
+});
+
 test("runtime config: clear falls back to legacy app config seam", () => {
   clearGlobals();
   const { backing } = installStorage();
@@ -86,6 +105,7 @@ test("runtime config: readMapboxPublicTokenConfig reports invalid configured tok
   assert.equal(status.valid, false);
   assert.equal(status.invalidConfigValue, true);
   assert.equal(status.token, "");
+  assert.equal(resolveMapboxPublicToken(), "");
 });
 
 test("runtime config: clear removes saved token when no fallback config exists", () => {

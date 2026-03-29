@@ -262,16 +262,49 @@ export function appendModelDiagnosticsCore(lines, {
   if (!mapRuntime) {
     out.push("- status=unavailable (map stage has not published runtime diagnostics yet)");
   } else {
+    const mapboxRuntime = mapRuntime?.mapbox && typeof mapRuntime.mapbox === "object" ? mapRuntime.mapbox : {};
     const geometry = mapRuntime?.geometry && typeof mapRuntime.geometry === "object" ? mapRuntime.geometry : {};
+    const overlays = mapRuntime?.overlays && typeof mapRuntime.overlays === "object" ? mapRuntime.overlays : {};
+    const scope = mapRuntime?.scope && typeof mapRuntime.scope === "object" ? mapRuntime.scope : {};
     const selected = mapRuntime?.selected && typeof mapRuntime.selected === "object" ? mapRuntime.selected : {};
     const metric = mapRuntime?.metric && typeof mapRuntime.metric === "object" ? mapRuntime.metric : {};
+    const worked = mapRuntime?.workedContext && typeof mapRuntime.workedContext === "object" ? mapRuntime.workedContext : {};
+    const workedSummary = mapRuntime?.workedExecutionSummary && typeof mapRuntime.workedExecutionSummary === "object"
+      ? mapRuntime.workedExecutionSummary
+      : null;
     out.push(`- status=${cleanText(mapRuntime?.status) || "unknown"} mapLoaded=${mapRuntime?.mapLoaded ? "yes" : "no"} updatedAt=${cleanText(mapRuntime?.updatedAt) || "—"}`);
+    out.push(`- token: ${cleanText(mapboxRuntime?.tokenStatus) || "unknown"} source=${cleanText(mapboxRuntime?.tokenSource) || "—"}`);
     out.push(`- geometry: resolution=${cleanText(geometry?.resolution) || "—"} boundaryFeatures=${Number(geometry?.boundaryFeatureCount || 0)} mappedFeatures=${Number(geometry?.mappedFeatureCount || 0)}`);
-    out.push(`- selectedArea: label=${cleanText(selected?.label) || "none"} geoid=${cleanText(selected?.geoid) || "—"} office=${cleanText(mapRuntime?.officeId) || "—"}`);
+    out.push(`- overlays: mode=${cleanText(overlays?.contextMode) || "—"} officeTagged=${Number(overlays?.officeTaggedCount || 0)} turfTagged=${Number(overlays?.turfTaggedCount || 0)} executionTagged=${Number(overlays?.executionTaggedCount || 0)}`);
+    out.push(`- scope: modeLabel=${cleanText(scope?.modeLabel) || "—"} scope=${cleanText(scope?.scopeLabel) || "—"} office=${cleanText(scope?.activeOfficeId) || "—"} organizer=${cleanText(scope?.activeOrganizerLabel || scope?.activeOrganizerId) || "—"}`);
+    out.push(`- selectedArea: label=${cleanText(selected?.label) || "none"} geoid=${cleanText(selected?.geoid) || "—"} bookmark=${cleanText(selected?.bookmarkedLabel || selected?.bookmarkedGeoid) || "none"} office=${cleanText(mapRuntime?.officeId) || "—"}`);
     out.push(`- selectedMetric: label=${cleanText(metric?.label) || "none"} id=${cleanText(metric?.id) || "—"} bundle=${cleanText(metric?.setLabel || metric?.setId) || "—"} legendMode=${cleanText(metric?.legendMode) || "—"}`);
     out.push(`- provenance: ${cleanText(metric?.provenance) || "—"} context=${cleanText(metric?.context) || "—"}`);
+    out.push(`- planningOverlay: ${cleanText(metric?.overlayLabel || metric?.overlayId) || "—"} provenance=${cleanText(metric?.overlayProvenance) || "—"}`);
+    out.push(`- workedGeography: source=${cleanText(worked?.source) || "—"} focus=${cleanText(worked?.focusType) || "—"} evidence=${worked?.hasMatchingActivityEvidence ? "matched" : "not-matched"} joinableEvents=${Number(worked?.joinableEventCount || 0)} consideredEvents=${Number(worked?.consideredEventCount || 0)}`);
+    if (workedSummary) {
+      out.push(`- workedSummary: joinedUnits=${Number(workedSummary?.joinedUnitCount || 0)} touches=${Number(workedSummary?.touches || 0)} attempts=${Number(workedSummary?.attempts || 0)} canvassed=${Number(workedSummary?.canvassed || 0)} vbm=${Number(workedSummary?.vbms || 0)} hasEvidence=${workedSummary?.hasEvidence ? "yes" : "no"}`);
+    }
+    out.push(`- fallbackReason: ${cleanText(mapRuntime?.fallbackReason) || "none"}`);
     const reportingHook = globalThis?.__FPE_MAP_REPORTING__;
     out.push(`- reportingHook=${reportingHook && typeof reportingHook === "object" ? "available" : "unavailable"}`);
+    if (reportingHook && typeof reportingHook === "object") {
+      let modeScopeSummary = "";
+      let organizerSummary = "";
+      let officeSummary = "";
+      try {
+        modeScopeSummary = typeof reportingHook?.getModeScopeSummary === "function"
+          ? cleanText(reportingHook.getModeScopeSummary())
+          : "";
+        organizerSummary = typeof reportingHook?.getOrganizerWorkedScopeSummary === "function"
+          ? cleanText(reportingHook.getOrganizerWorkedScopeSummary())
+          : "";
+        officeSummary = typeof reportingHook?.getOfficeWorkedScopeSummary === "function"
+          ? cleanText(reportingHook.getOfficeWorkedScopeSummary())
+          : "";
+      } catch {}
+      out.push(`- reportingSummaries: modeScope=${modeScopeSummary ? "yes" : "no"} organizerWorked=${organizerSummary ? "yes" : "no"} officeWorked=${officeSummary ? "yes" : "no"}`);
+    }
   }
 
   const bootState = bootStatus && typeof bootStatus === "object" ? bootStatus : null;

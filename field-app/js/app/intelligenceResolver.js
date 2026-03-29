@@ -405,7 +405,7 @@ function helperPanelSections(entry, context){
       paragraphs: [
         "Map stage visualizes canonical geography context and map-safe metrics so district reality is spatially inspectable. It should clarify where pressure and priority live, not invent a second planning model.",
         "Choropleth intensity is relative inside the current geography selection. Treat color as comparative context, then confirm actions against canonical planning and execution surfaces.",
-        "Area inspect is the operational summary surface for selected geography: name, type, identifier, office context, and selected metric interpretation.",
+        "Area inspect is the operational summary surface for selected geography: name, type, identifier, office context, selected metric interpretation, and worked-activity evidence when available.",
       ],
       items: [
         { label: "What this module is telling you", body: "Where canonical context and mapped metric pressure are concentrated in the active footprint." },
@@ -419,12 +419,41 @@ function helperPanelSections(entry, context){
       paragraphs: [
         "Map overlays are display-only interpretations of existing canonical and read-only context layers. They do not rewrite assumptions, equations, or deterministic outputs.",
         "Planning context and execution context should be read separately: planning overlays show modeled pressure; execution overlays show observed or operational coverage context when available.",
-        "Office/turf context explains ownership and operational scope. It is coordination context, not hidden assignment logic.",
+        "Worked geography is evidence of logged activity touches from turfEvents joins. It is not assigned turf by default and should not be interpreted as automatic ownership geometry.",
       ],
       items: [
         { label: "Planning context", body: "Use turnout/persuasion and priority overlays to identify where pressure appears geographically." },
         { label: "Execution context", body: "Use coverage/activity overlays to identify where operational attention is light or concentrated." },
+        { label: "Worked vs office view", body: "Office view shows office-scoped footprint context; worked geography view shows where matched activity evidence exists for office or organizer scope." },
         { label: "Trust posture", body: "When map and canon disagree, treat map as a visibility cue and verify against canonical source surfaces before action." },
+      ],
+      variant: "card",
+    });
+    panels.push({
+      title: "How to interpret worked activity evidence",
+      paragraphs: [
+        "Recorded activity means one or more logged turfEvents matched this geography in the current scope. Higher activity concentration means comparatively more joined touches in this mapped selection.",
+        "No recorded activity means no matching turfEvents evidence was joined for this area in the current scope. It does not prove no one has ever worked there outside current records.",
+        "Organizer worked view and office worked view share the same evidence model but apply different scope filters; keep scope explicit before making management calls.",
+      ],
+      items: [
+        { label: "What this is", body: "Read-only activity evidence layer from matched geography joins." },
+        { label: "What this is not", body: "Not an inferred assignment turf map and not a hidden turf-cutting engine." },
+        { label: "Decision use", body: "Use to spot active vs cold areas, then validate staffing/ownership decisions in Operations Hub." },
+      ],
+      variant: "card",
+    });
+    panels.push({
+      title: "Mapbox token and diagnostics",
+      paragraphs: [
+        "Configure Mapbox once at the app level in Controls > Map configuration. Browser map rendering requires a public token beginning with pk.",
+        "Never place secret-style Mapbox tokens (sk.) in browser surfaces. Secret-scoped tokens must stay server-side and are not required for standard map rendering.",
+        "Use diagnostics to verify map readiness: token config status, geometry availability, current mode/scope, active office/organizer context, selected metric provenance, worked-evidence join state, and fallback reason when nothing is displayable.",
+      ],
+      items: [
+        { label: "Token setup", body: "Open Controls, save a valid pk token, then return to Map stage." },
+        { label: "What token is not", body: "Mapbox sk tokens are secret-scoped and must not be exposed client-side." },
+        { label: "Diagnostics focus", body: "Check map config status first, then geometry/mode/scope + worked-evidence/fallback reason before interpreting choropleth intensity." },
       ],
       variant: "card",
     });
